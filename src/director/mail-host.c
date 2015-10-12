@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "bsearch-insert-pos.h"
+#include "crc32.h"
 #include "md5.h"
 #include "mail-host.h"
 
@@ -16,6 +17,7 @@ struct mail_vhost {
 struct mail_host_list {
 	ARRAY_TYPE(mail_host) hosts;
 	ARRAY(struct mail_vhost) vhosts;
+	unsigned int hosts_hash;
 	bool hosts_unsorted;
 	bool consistent_hashing;
 };
@@ -114,10 +116,23 @@ static void mail_hosts_sort_direct(struct mail_host_list *list)
 
 static void mail_hosts_sort(struct mail_host_list *list)
 {
+	struct mail_host *const *hostp;
+	uint32_t num;
+
 	if (list->consistent_hashing)
 		mail_hosts_sort_ring(list);
 	else
 		mail_hosts_sort_direct(list);
+
+	list->hosts_hash = 0;
+	array_foreach(&list->hosts, hostp) {
+		num = ((*hostp)->down ? 1 : 0) ^ (*hostp)->vhost_count;
+		list->hosts_hash = crc32_data_more(list->hosts_hash,
+						   &num, sizeof(num));
+		num = net_ip_hash(&(*hostp)->ip);
+		list->hosts_hash = crc32_data_more(list->hosts_hash,
+						   &num, sizeof(num));
+	}
 }
 
 struct mail_host *
@@ -394,6 +409,15 @@ void mail_hosts_set_synced(struct mail_host_list *list)
 
 	array_foreach(&list->hosts, hostp)
 		(*hostp)->desynced = FALSE;
+}
+
+unsigned int mail_hosts_hash(struct mail_host_list *list)
+{
+	if (list->hosts_unsorted)
+		mail_hosts_sort(list);
+	/* don't retun 0 as hash, since we're using it as "doesn't exist" in
+	   some places. */
+	return list->hosts_hash == 0 ? 1 : list->hosts_hash;
 }
 
 bool mail_hosts_have_usable(struct mail_host_list *list)

@@ -41,6 +41,7 @@ void mail_host_set_vhost_count(struct mail_host_list *list,
 void mail_host_remove(struct mail_host_list *list, struct mail_host *host);
 
 void mail_hosts_set_synced(struct mail_host_list *list);
+unsigned int mail_hosts_hash(struct mail_host_list *list);
 bool mail_hosts_have_usable(struct mail_host_list *list);
 const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list);
 
