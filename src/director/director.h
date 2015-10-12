@@ -115,7 +115,7 @@ void director_set_ring_unsynced(struct director *dir);
 void director_set_state_changed(struct director *dir);
 void director_sync_send(struct director *dir, struct director_host *host,
 			uint32_t seq, unsigned int minor_version,
-			unsigned int timestamp);
+			unsigned int timestamp, unsigned int hosts_hash);
 bool director_resend_sync(struct director *dir);
 
 void director_notify_ring_added(struct director_host *added_host,
@@ -126,6 +126,7 @@ void director_ring_remove(struct director_host *removed_host,
 void director_update_host(struct director *dir, struct director_host *src,
 			  struct director_host *orig_src,
 			  struct mail_host *host) ATTR_NULL(3);
+void director_resend_hosts(struct director *dir);
 void director_remove_host(struct director *dir, struct director_host *src,
 			  struct director_host *orig_src,
 			  struct mail_host *host) ATTR_NULL(2, 3);

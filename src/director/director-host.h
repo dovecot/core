@@ -23,6 +23,10 @@ struct director_host {
 	/* use these to avoid infinitely sending SYNCs for directors that
 	   aren't connected in the ring. */
 	unsigned int last_sync_seq, last_sync_seq_counter, last_sync_timestamp;
+	/* whenever we receive a SYNC with stale hosts_hash, set this. if it's
+	   already set and equals the current hosts_hash, re-send our hosts to
+	   everybody in case they somehow got out of sync. */
+	unsigned int desynced_hosts_hash;
 	/* Last time host was detected to be down */
 	time_t last_network_failure;
 	time_t last_protocol_failure;

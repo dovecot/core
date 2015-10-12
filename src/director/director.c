@@ -321,7 +321,7 @@ void director_set_ring_synced(struct director *dir)
 
 void director_sync_send(struct director *dir, struct director_host *host,
 			uint32_t seq, unsigned int minor_version,
-			unsigned int timestamp)
+			unsigned int timestamp, unsigned int hosts_hash)
 {
 	string_t *str;
 
@@ -331,7 +331,8 @@ void director_sync_send(struct director *dir, struct director_host *host,
 	if (minor_version > 0 &&
 	    director_connection_get_minor_version(dir->right) > 0) {
 		/* only minor_version>0 supports extra parameters */
-		str_printfa(str, "\t%u\t%u", minor_version, timestamp);
+		str_printfa(str, "\t%u\t%u\t%u", minor_version,
+			    timestamp, hosts_hash);
 	}
 	str_append_c(str, '\n');
 	director_connection_send(dir->right, str_c(str));
@@ -349,7 +350,8 @@ bool director_resend_sync(struct director *dir)
 		/* send a new SYNC in case the previous one got dropped */
 		dir->self_host->last_sync_timestamp = ioloop_time;
 		director_sync_send(dir, dir->self_host, dir->sync_seq,
-				   DIRECTOR_VERSION_MINOR, ioloop_time);
+				   DIRECTOR_VERSION_MINOR, ioloop_time,
+				   mail_hosts_hash(dir->mail_hosts));
 		if (dir->to_sync != NULL)
 			timeout_reset(dir->to_sync);
 		return TRUE;
@@ -412,7 +414,8 @@ static void director_sync(struct director *dir)
 		director_connection_set_synced(dir->left, FALSE);
 	director_connection_set_synced(dir->right, FALSE);
 	director_sync_send(dir, dir->self_host, dir->sync_seq,
-			   DIRECTOR_VERSION_MINOR, ioloop_time);
+			   DIRECTOR_VERSION_MINOR, ioloop_time,
+			   mail_hosts_hash(dir->mail_hosts));
 }
 
 void director_sync_freeze(struct director *dir)
@@ -515,20 +518,12 @@ void director_ring_remove(struct director_host *removed_host,
 				     DIRECTOR_VERSION_RING_REMOVE, cmd);
 }
 
-void director_update_host(struct director *dir, struct director_host *src,
-			  struct director_host *orig_src,
-			  struct mail_host *host)
+static void
+director_send_host(struct director *dir, struct director_host *src,
+		   struct director_host *orig_src,
+		   struct mail_host *host)
 {
 	string_t *str;
-
-	/* update state in case this is the first mail host being added */
-	director_set_state_changed(dir);
-
-	dir_debug("Updating host %s vhost_count=%u "
-		  "down=%d last_updown_change=%ld (hosts_hash=%u)",
-		  net_ip2addr(&host->ip), host->vhost_count, host->down,
-		  (long)host->last_updown_change,
-		  mail_hosts_hash(dir->mail_hosts));
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -556,6 +551,30 @@ void director_update_host(struct director *dir, struct director_host *src,
 	}
 	str_append_c(str, '\n');
 	director_update_send(dir, src, str_c(str));
+}
+
+void director_resend_hosts(struct director *dir)
+{
+	struct mail_host *const *hostp;
+
+	array_foreach(mail_hosts_get(dir->mail_hosts), hostp)
+		director_send_host(dir, dir->self_host, NULL, *hostp);
+}
+
+void director_update_host(struct director *dir, struct director_host *src,
+			  struct director_host *orig_src,
+			  struct mail_host *host)
+{
+	/* update state in case this is the first mail host being added */
+	director_set_state_changed(dir);
+
+	dir_debug("Updating host %s vhost_count=%u "
+		  "down=%d last_updown_change=%ld (hosts_hash=%u)",
+		  net_ip2addr(&host->ip), host->vhost_count, host->down,
+		  (long)host->last_updown_change,
+		  mail_hosts_hash(dir->mail_hosts));
+
+	director_send_host(dir, src, orig_src, host);
 
 	host->desynced = TRUE;
 	director_sync(dir);

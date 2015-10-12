@@ -228,7 +228,8 @@ static void director_connection_assigned(struct director_connection *conn)
 		dir->sync_seq++;
 		director_set_ring_unsynced(dir);
 		director_sync_send(dir, dir->self_host, dir->sync_seq,
-				   DIRECTOR_VERSION_MINOR, ioloop_time);
+				   DIRECTOR_VERSION_MINOR, ioloop_time,
+				   mail_hosts_hash(dir->mail_hosts));
 	}
 	director_connection_set_ping_timeout(conn);
 }
@@ -1243,7 +1244,7 @@ static bool
 director_connection_sync_host(struct director_connection *conn,
 			      struct director_host *host,
 			      uint32_t seq, unsigned int minor_version,
-			      unsigned int timestamp)
+			      unsigned int timestamp, unsigned int hosts_hash)
 {
 	struct director *dir = conn->dir;
 
@@ -1260,6 +1261,16 @@ director_connection_sync_host(struct director_connection *conn,
 		/* sync_seq increases when we get disconnected, so we must be
 		   successfully connected to both directions */
 		i_assert(dir->left != NULL && dir->right != NULL);
+
+		if (hosts_hash != 0 &&
+		    hosts_hash != mail_hosts_hash(conn->dir->mail_hosts)) {
+			i_error("director(%s): Hosts unexpectedly changed during SYNC reply - resending"
+				"(seq=%u, old hosts_hash=%u, new hosts_hash=%u)",
+				conn->name, seq, hosts_hash,
+				mail_hosts_hash(dir->mail_hosts));
+			(void)director_resend_sync(dir);
+			return FALSE;
+		}
 
 		dir->ring_min_version = minor_version;
 		if (!dir->ring_handshaked) {
@@ -1311,10 +1322,32 @@ director_connection_sync_host(struct director_connection *conn,
 			return FALSE;
 		}
 
+		if (hosts_hash != 0 &&
+		    hosts_hash != mail_hosts_hash(conn->dir->mail_hosts)) {
+			if (host->desynced_hosts_hash != hosts_hash) {
+				dir_debug("Ignore director %s stale SYNC request whose hosts don't match us "
+					  "(seq=%u, remote hosts_hash=%u, my hosts_hash=%u)",
+					  net_ip2addr(&host->ip), seq, hosts_hash,
+					  mail_hosts_hash(dir->mail_hosts));
+				host->desynced_hosts_hash = hosts_hash;
+				return FALSE;
+			}
+			/* we'll get here only if we received a SYNC twice
+			   with the same wrong hosts_hash. FIXME: this gets
+			   triggered unnecessarily sometimes if hosts are
+			   changing rapidly. */
+			i_error("director(%s): Director %s SYNC request hosts don't match us - resending hosts "
+				"(seq=%u, remote hosts_hash=%u, my hosts_hash=%u)",
+				conn->name, net_ip2addr(&host->ip), seq,
+				hosts_hash, mail_hosts_hash(dir->mail_hosts));
+			director_resend_hosts(dir);
+			return FALSE;
+		}
+		host->desynced_hosts_hash = 0;
 		if (dir->right != NULL) {
 			/* forward it to the connection on right */
 			director_sync_send(dir, host, seq, minor_version,
-					   timestamp);
+					   timestamp, hosts_hash);
 		}
 	}
 	return TRUE;
@@ -1328,6 +1361,7 @@ static bool director_connection_sync(struct director_connection *conn,
 	struct ip_addr ip;
 	in_port_t port;
 	unsigned int arg_count, seq, minor_version = 0, timestamp = ioloop_time;
+	unsigned int hosts_hash = 0;
 
 	arg_count = str_array_length(args);
 	if (arg_count < 3 ||
@@ -1344,13 +1378,18 @@ static bool director_connection_sync(struct director_connection *conn,
 		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
+	if (arg_count >= 6 && str_to_uint(args[5], &hosts_hash) < 0) {
+		director_cmd_error(conn, "Invalid parameters");
+		return FALSE;
+	}
 
 	/* find the originating director. if we don't see it, it was already
 	   removed and we can ignore this sync. */
 	host = director_host_lookup(dir, &ip, port);
 	if (host != NULL) {
 		if (!director_connection_sync_host(conn, host, seq,
-						   minor_version, timestamp))
+						   minor_version, timestamp,
+						   hosts_hash))
 			return TRUE;
 	}
 
