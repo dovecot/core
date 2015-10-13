@@ -723,16 +723,35 @@ driver_cassandra_get_value(struct cassandra_result *result,
 	void *output_dup;
 	size_t output_size;
 	CassError rc;
+	const char *type;
 
 	if (cass_value_is_null(value)) {
 		*str_r = NULL;
 		return 0;
 	}
 
-	rc = cass_value_get_bytes(value, &output, &output_size);
+	switch (cass_data_type_type(cass_value_data_type(value))) {
+	case CASS_VALUE_TYPE_INT: {
+		cass_int32_t num;
+
+		rc = cass_value_get_int32(value, &num);
+		if (rc == CASS_OK) {
+			const char *str = t_strdup_printf("%d", num);
+			output_size = strlen(str);
+			output = (const void *)str;
+		}
+		type = "int32";
+		break;
+	}
+	default:
+		rc = cass_value_get_bytes(value, &output, &output_size);
+		type = "bytes";
+		break;
+	}
 	if (rc != CASS_OK) {
 		i_free(result->error);
-		result->error = i_strdup_printf("Couldn't get value as string (code=%d)", rc);
+		result->error = i_strdup_printf("Couldn't get value as %s: %s",
+						type, cass_error_desc(rc));
 		return -1;
 	}
 	output_dup = p_malloc(result->row_pool, output_size + 1);
