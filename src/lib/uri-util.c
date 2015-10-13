@@ -103,7 +103,7 @@ uri_parse_pct_encoded(struct uri_parser *parser, const unsigned char **p,
 	}
 
 	if ((value = _decode_hex_digit(**p)) < 0) {
-		parser->error = t_strdup_printf(
+		parser->error = p_strdup_printf(parser->pool,
 			"Expecting hex digit after '%%', but found '%c'", **p);
 		return -1;
 	}
@@ -112,7 +112,7 @@ uri_parse_pct_encoded(struct uri_parser *parser, const unsigned char **p,
 	*p += 1;
 	
 	if ((value = _decode_hex_digit(**p)) < 0) {
-		parser->error = t_strdup_printf(
+		parser->error = p_strdup_printf(parser->pool,
 			"Expecting hex digit after '%%%c', but found '%c'",	*((*p)-1), **p);
 		return -1;
 	}
@@ -207,7 +207,7 @@ bool uri_data_decode(struct uri_parser *parser, const char *data,
 	}
 
 	if (decoded_r != NULL)
-		*decoded_r = t_strdup(str_c(decoded));
+		*decoded_r = p_strdup(parser->pool, str_c(decoded));
 	return TRUE;
 }
 
@@ -252,6 +252,8 @@ int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r)
 		return 0;
 
 	parser->cur = (const unsigned char *)p;
+	if (!parser->pool->datastack_pool)
+		*scheme_r = p_strdup(parser->pool, *scheme_r);
 	return 1;
 }
 
@@ -400,12 +402,12 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 		return -1;
 	}
 	if (*address == 'v') {
-		parser->error = t_strdup_printf(
+		parser->error = p_strdup_printf(parser->pool,
 			"Future IP host address '%s' not supported", address);
 		return -1;
 	}
 	if ((ret = inet_pton(AF_INET6, address, &ip6)) <= 0) {
-		parser->error = t_strdup_printf(
+		parser->error = p_strdup_printf(parser->pool,
 			"Invalid IPv6 host address '%s'", address);
 		return -1;
 	}
@@ -439,7 +441,7 @@ uri_parse_host(struct uri_parser *parser,
 			return -1;
 
 		if (auth != NULL) {
-			auth->host_literal = t_strdup(str_c(literal));
+			auth->host_literal = p_strdup(parser->pool, str_c(literal));
 			auth->host_ip.family = AF_INET6;
 			auth->host_ip.u.ip6 = ip6;
 			auth->have_host_ip = TRUE;
@@ -458,7 +460,7 @@ uri_parse_host(struct uri_parser *parser,
 	preserve = parser->cur;
 	if ((ret = uri_parse_ipv4address(parser, literal, &ip4)) > 0) {
 		if (auth != NULL) {
-			auth->host_literal = t_strdup(str_c(literal));
+			auth->host_literal = p_strdup(parser->pool, str_c(literal));
 			auth->host_ip.family = AF_INET;
 			auth->host_ip.u.ip4 = ip4;
 			auth->have_host_ip = TRUE;
@@ -472,7 +474,7 @@ uri_parse_host(struct uri_parser *parser,
 	if (uri_parse_reg_name(parser, literal) < 0)
 		return -1;
 	if (auth != NULL) {
-		auth->host_literal = t_strdup(str_c(literal));
+		auth->host_literal = p_strdup(parser->pool, str_c(literal));
 		auth->have_host_ip = FALSE;
 	}
 	return 0;
@@ -535,7 +537,7 @@ int uri_parse_authority(struct uri_parser *parser,
 	/* Extract userinfo */	
 	if (p < parser->end && *p == '@') {
 		if (auth != NULL)
-			auth->enc_userinfo = t_strdup_until(parser->cur, p);
+			auth->enc_userinfo = p_strdup_until(parser->pool, parser->cur, p);
 		parser->cur = p+1;
 	}
 
@@ -605,7 +607,7 @@ int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r)
 		return 0;
 
 	if (segment_r != NULL)
-		*segment_r = t_strdup_until(parser->cur, p);
+		*segment_r = p_strdup_until(parser->pool, parser->cur, p);
 	parser->cur = p;
 	return 1;
 }
@@ -622,7 +624,7 @@ int uri_parse_path(struct uri_parser *parser,
 
 	count = 0;
 	if (path_r != NULL)
-		t_array_init(&segments, 16);
+		p_array_init(&segments, parser->pool, 16);
 	else
 		memset(&segments, 0, sizeof(segments));
 
@@ -740,7 +742,7 @@ int uri_parse_query(struct uri_parser *parser, const char **query_r)
 	}
 
 	if (query_r != NULL)
-		*query_r = t_strdup_until(parser->cur+1, p);
+		*query_r = p_strdup_until(parser->pool, parser->cur+1, p);
 	parser->cur = p;
 	return 1;
 }
@@ -777,7 +779,7 @@ int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 	}
 
 	if (fragment_r != NULL)
-		*fragment_r = t_strdup_until(parser->cur+1, p);
+		*fragment_r = p_strdup_until(parser->pool, parser->cur+1, p);
 	parser->cur = p;
 	return 1;
 }
@@ -794,7 +796,7 @@ void uri_parser_init(struct uri_parser *parser, pool_t pool, const char *data)
 string_t *uri_parser_get_tmpbuf(struct uri_parser *parser, size_t size)
 {
 	if (parser->tmpbuf == NULL)
-		parser->tmpbuf = t_str_new(size);
+		parser->tmpbuf = str_new(parser->pool, size);
 	else
 		str_truncate(parser->tmpbuf, 0);
 	return parser->tmpbuf;
