@@ -20,6 +20,7 @@ struct passwd_file {
 	pool_t pool;
 	int refcount;
 
+	time_t last_sync_time;
 	char *path;
 	time_t stamp;
 	off_t size;

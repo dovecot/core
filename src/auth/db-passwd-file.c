@@ -13,6 +13,7 @@
 #include "hash.h"
 #include "str.h"
 #include "eacces-error.h"
+#include "ioloop.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -260,6 +261,10 @@ static int passwd_file_sync(struct auth_request *request,
 {
 	struct stat st;
 	const char *error;
+
+	if (pw->last_sync_time == ioloop_time)
+		return 0;
+	pw->last_sync_time = ioloop_time;
 
 	if (stat(pw->path, &st) < 0) {
 		/* with variables don't give hard errors, or errors about
