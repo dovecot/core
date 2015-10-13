@@ -237,8 +237,10 @@ static void get_metadata_precache_fields(struct mailbox *box,
 		    strcmp(name, "imap.envelope") == 0)
 			cache |= MAIL_FETCH_STREAM_HEADER;
 		else if (strcmp(name, "mime.parts") == 0 ||
+			 strcmp(name, "binary.parts") == 0 ||
 			 strcmp(name, "imap.body") == 0 ||
-			 strcmp(name, "imap.bodystructure") == 0)
+			 strcmp(name, "imap.bodystructure") == 0 ||
+			 strcmp(name, "body.snippet") == 0)
 			cache |= MAIL_FETCH_STREAM_BODY;
 		else if (strcmp(name, "date.received") == 0)
 			cache |= MAIL_FETCH_RECEIVED_DATE;
@@ -250,6 +252,8 @@ static void get_metadata_precache_fields(struct mailbox *box,
 			cache |= MAIL_FETCH_PHYSICAL_SIZE;
 		else if (strcmp(name, "pop3.uidl") == 0)
 			cache |= MAIL_FETCH_UIDL_BACKEND;
+		else if (strcmp(name, "pop3.order") == 0)
+			cache |= MAIL_FETCH_POP3_ORDER;
 		else if (strcmp(name, "guid") == 0)
 			cache |= MAIL_FETCH_GUID;
 		else if (strcmp(name, "flags") == 0) {

@@ -61,6 +61,9 @@ struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	  .type = MAIL_CACHE_FIELD_VARIABLE_SIZE },
 	{ .name = "body.snippet",
 	  .type = MAIL_CACHE_FIELD_VARIABLE_SIZE }
+	/* FIXME: for now need to update get_metadata_precache_fields() in
+	   index-status.c when adding more fields. those fields should probably
+	   just be moved here to the same struct. */
 };
 
 static int index_mail_parse_body(struct index_mail *mail,
