@@ -534,6 +534,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 			/* invalid keywords - delay failure */
 			client_send_box_error(cmd, ctx->box);
 			ctx->failed = TRUE;
+			keywords = NULL;
 		}
 	}
 
