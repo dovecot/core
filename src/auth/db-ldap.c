@@ -1064,9 +1064,6 @@ db_ldap_set_opt_str(struct ldap_connection *conn, LDAP *ld, int opt,
 
 static void db_ldap_set_tls_options(struct ldap_connection *conn)
 {
-	if (!conn->set.tls)
-		return;
-
 #ifdef OPENLDAP_TLS_OPTIONS
 	db_ldap_set_opt_str(conn, NULL, LDAP_OPT_X_TLS_CACERTFILE,
 			    conn->set.tls_ca_cert_file, "tls_ca_cert_file");
