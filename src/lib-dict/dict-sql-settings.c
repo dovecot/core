@@ -36,6 +36,7 @@ static const struct setting_def dict_sql_map_setting_defs[] = {
 	DEF_STR(table),
 	DEF_STR(username_field),
 	DEF_STR(value_field),
+	DEF_STR(value_type),
 	DEF_BOOL(value_hexblob),
 
 	{ 0, NULL, 0 }
@@ -129,6 +130,12 @@ static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 		return "Missing setting: table";
 	if (ctx->cur_map.value_field == NULL)
 		return "Missing setting: value_field";
+	if (ctx->cur_map.value_type != NULL) {
+		if (strcmp(ctx->cur_map.value_type, "string") != 0 &&
+		    strcmp(ctx->cur_map.value_type, "hexblob") != 0 &&
+		    strcmp(ctx->cur_map.value_type, "uint") != 0)
+			return "Invalid value in value_type";
+	}
 
 	if (ctx->cur_map.username_field == NULL) {
 		/* not all queries require this */

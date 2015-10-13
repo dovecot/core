@@ -19,6 +19,7 @@ struct dict_sql_map {
 	const char *table;
 	const char *username_field;
 	const char *value_field;
+	const char *value_type;
 	bool value_hexblob;
 
 	ARRAY(struct dict_sql_field) sql_fields;

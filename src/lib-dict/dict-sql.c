@@ -380,13 +380,26 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 	return str_c(str);
 }
 
+static enum dict_sql_type 
+sql_dict_map_type(const struct dict_sql_map *map)
+{
+	if (map->value_type != NULL) {
+		if (strcmp(map->value_type, "string") == 0)
+			return DICT_SQL_TYPE_STRING;
+		if (strcmp(map->value_type, "hexblob") == 0)
+			return DICT_SQL_TYPE_HEXBLOB;
+		if (strcmp(map->value_type, "uint") == 0)
+			return DICT_SQL_TYPE_UINT;
+		i_unreached(); /* should have checked already at parsing */
+	}
+	return map->value_hexblob ? DICT_SQL_TYPE_HEXBLOB : DICT_SQL_TYPE_STRING;
+}
+
 static const char *
 sql_dict_result_unescape_value(const struct dict_sql_map *map, pool_t pool,
 			       struct sql_result *result)
 {
-	enum dict_sql_type value_type = map->value_hexblob ?
-		DICT_SQL_TYPE_HEXBLOB : DICT_SQL_TYPE_STRING;
-	return sql_dict_result_unescape(value_type, pool, result, 0);
+	return sql_dict_result_unescape(sql_dict_map_type(map), pool, result, 0);
 }
 
 static const char *
@@ -876,8 +889,8 @@ static int sql_dict_set_query(const struct dict_sql_build_query *build,
 		if (build->inc)
 			str_append(suffix, fields[i].value);
 		else {
-			enum dict_sql_type value_type = fields[i].map->value_hexblob ?
-				DICT_SQL_TYPE_HEXBLOB : DICT_SQL_TYPE_STRING;
+			enum dict_sql_type value_type =
+				sql_dict_map_type(fields[i].map);
 			if (sql_dict_value_escape(suffix, dict, value_type,
 				"value", fields[i].value, "", error_r) < 0)
 				return -1;
@@ -919,8 +932,8 @@ static int sql_dict_set_query(const struct dict_sql_build_query *build,
 				    fields[i].map->value_field,
 				    fields[i].value);
 		} else {
-			enum dict_sql_type value_type = fields[i].map->value_hexblob ?
-				DICT_SQL_TYPE_HEXBLOB : DICT_SQL_TYPE_STRING;
+			enum dict_sql_type value_type =
+				sql_dict_map_type(fields[i].map);
 			if (sql_dict_value_escape(prefix, dict, value_type,
 				"value", fields[i].value, "", error_r) < 0)
 				return -1;
