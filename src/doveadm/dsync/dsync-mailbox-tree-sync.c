@@ -15,6 +15,8 @@
 #define TEMP_SUFFIX_MAX_LEN (sizeof("temp-")-1 + 8)
 #define TEMP_SUFFIX_FORMAT "temp-%x"
 
+#define MAX_RENAMES 100
+
 struct dsync_mailbox_tree_bfs_iter {
 	struct dsync_mailbox_tree *tree;
 
@@ -1076,6 +1078,7 @@ sync_rename_temp_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 static void
 dsync_mailbox_tree_handle_renames(struct dsync_mailbox_tree_sync_ctx *ctx)
 {
+	unsigned int count = 0;
 	bool changed;
 
 	do {
@@ -1088,7 +1091,13 @@ dsync_mailbox_tree_handle_renames(struct dsync_mailbox_tree_sync_ctx *ctx)
 			i_debug("brain %c: -- Mailbox renamed, restart sync --",
 				(ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN) != 0 ? 'M' : 'S');
 		}
-	} while (changed);
+	} while (changed && ++count <= MAX_RENAMES);
+
+	if (changed) {
+		i_error("BUG: Mailbox renaming algorithm got into a potentially infinite loop, aborting");
+		ctx->brain->failed = TRUE;
+	}
+
 	while (sync_rename_temp_mailboxes(ctx, ctx->local_tree, &ctx->local_tree->root)) ;
 	while (sync_rename_temp_mailboxes(ctx, ctx->remote_tree, &ctx->remote_tree->root)) ;
 }
