@@ -337,7 +337,8 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 
 static int
 sql_lookup_get_query(struct sql_dict *dict, const char *key,
-		     string_t *query, const struct dict_sql_map **map_r)
+		     string_t *query, const struct dict_sql_map **map_r,
+		     const char **error_r)
 {
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
@@ -345,14 +346,16 @@ sql_lookup_get_query(struct sql_dict *dict, const char *key,
 
 	map = *map_r = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
-		i_error("sql dict lookup: Invalid/unmapped key: %s", key);
+		*error_r = t_strdup_printf(
+			"sql dict lookup: Invalid/unmapped key: %s", key);
 		return -1;
 	}
 	str_printfa(query, "SELECT %s FROM %s",
 		    map->value_field, map->table);
 	if (sql_dict_where_build(dict, map, &values, key[0],
 				 SQL_DICT_RECURSE_NONE, query, &error) < 0) {
-		i_error("sql dict lookup: Failed to lookup key %s: %s", key, error);
+		*error_r = t_strdup_printf(
+			"sql dict lookup: Failed to lookup key %s: %s", key, error);
 		return -1;
 	}
 	return 0;
@@ -424,9 +427,12 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 
 	T_BEGIN {
 		string_t *query = t_str_new(256);
+		const char *error;
 
-		ret = sql_lookup_get_query(dict, key, query, &map);
-		if (ret == 0)
+		ret = sql_lookup_get_query(dict, key, query, &map, &error);
+		if (ret < 0)
+			i_error("%s", error);
+		else
 			result = sql_query_s(dict->db, str_c(query));
 	} T_END;
 
@@ -485,8 +491,16 @@ sql_dict_lookup_async(struct dict *_dict, const char *key,
 
 	T_BEGIN {
 		string_t *query = t_str_new(256);
+		const char *error;
 
-		if (sql_lookup_get_query(dict, key, query, &map) == 0) {
+		if (sql_lookup_get_query(dict, key, query, &map, &error) < 0) {
+			struct dict_lookup_result result;
+
+			memset(&result, 0, sizeof(result));
+			result.ret = -1;
+			result.error = error;
+			callback(&result, context);
+		} else {
 			ctx = i_new(struct sql_dict_lookup_context, 1);
 			ctx->callback = callback;
 			ctx->context = context;
