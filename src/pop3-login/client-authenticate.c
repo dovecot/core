@@ -108,8 +108,11 @@ bool cmd_auth(struct pop3_client *pop3_client, const char *args)
 
 bool cmd_user(struct pop3_client *pop3_client, const char *args)
 {
-	if (!client_check_plaintext_auth(&pop3_client->common, FALSE))
+	if (!client_check_plaintext_auth(&pop3_client->common, FALSE)) {
+		if (pop3_client->common.virtual_user == NULL)
+			pop3_client->common.virtual_user = i_strdup(args);
 		return TRUE;
+	}
 
 	i_free(pop3_client->last_user);
 	pop3_client->last_user = i_strdup(args);

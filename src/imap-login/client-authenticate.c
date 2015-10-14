@@ -180,8 +180,11 @@ int cmd_login(struct imap_client *imap_client, const struct imap_arg *args)
 	    !IMAP_ARG_IS_EOL(&args[2]))
 		return -1;
 
-	if (!client_check_plaintext_auth(client, TRUE))
+	if (!client_check_plaintext_auth(client, TRUE)) {
+		if (client->virtual_user == NULL)
+			client->virtual_user = i_strdup(user);
 		return 1;
+	}
 
 	/* authorization ID \0 authentication ID \0 pass */
 	plain_login = buffer_create_dynamic(pool_datastack_create(), 64);
