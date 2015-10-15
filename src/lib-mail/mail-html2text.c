@@ -192,7 +192,7 @@ parse_data(struct mail_html2text *ht,
 			if (c == '"')
 				ht->state = HTML_STATE_TAG_DQUOTED;
 			else if (c == '\'')
-				ht->state = HTML_STATE_TAG_DQUOTED;
+				ht->state = HTML_STATE_TAG_SQUOTED;
 			else if (c == '>') {
 				ht->state = HTML_STATE_TEXT;
 				mail_html2text_add_space(output);
