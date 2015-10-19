@@ -628,6 +628,7 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 #ifdef HAVE_IPV6
 	union sockaddr_union *so;
 	struct addrinfo hints, *ai, *origai;
+	struct ip_addr ip;
 	int host_error;
 #else
 	struct hostent *hp;
@@ -638,6 +639,14 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
         *ips_count = 0;
 
 #ifdef HAVE_IPV6
+	/* support [ipv6] style addresses here so they work globally */
+	if (addr[0] == '[' && net_addr2ip(addr, &ip) == 0) {
+		*ips_count = 1;
+		*ips = t_new(struct ip_addr, 1);
+		**ips = ip;
+		return 0;
+	}
+
 	memset(&hints, 0, sizeof(struct addrinfo));
 	hints.ai_socktype = SOCK_STREAM;
 
