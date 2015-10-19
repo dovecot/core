@@ -864,26 +864,26 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 	struct mail_host *host;
 	struct ip_addr ip;
 	const char *tag = "";
-	unsigned int vhost_count;
+	unsigned int arg_count, vhost_count;
 	bool update, down = FALSE;
 	time_t last_updown_change = 0;
 
-	if (str_array_length(args) < 2 ||
+	arg_count = str_array_length(args);
+	if (arg_count < 2 ||
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    str_to_uint(args[1], &vhost_count) < 0) {
 		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
-	if (args[2] != NULL) {
+	if (arg_count >= 3)
 		tag = args[2];
-		if (args[3] != NULL) {
-			if ((args[3][0] != 'D' && args[3][0] != 'U') ||
-			    str_to_time(args[3]+1, &last_updown_change) < 0) {
-				director_cmd_error(conn, "Invalid updown parameters");
-				return FALSE;
-			}
-			down = args[3][0] == 'D';
+	if (arg_count >= 4) {
+		if ((args[3][0] != 'D' && args[3][0] != 'U') ||
+		    str_to_time(args[3]+1, &last_updown_change) < 0) {
+			director_cmd_error(conn, "Invalid updown parameters");
+			return FALSE;
 		}
+		down = args[3][0] == 'D';
 	}
 	if (conn->ignore_host_events) {
 		/* remote is sending hosts in a handshake, but it doesn't have
