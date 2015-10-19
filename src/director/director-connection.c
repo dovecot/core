@@ -863,7 +863,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 	struct director_host *src_host = conn->host;
 	struct mail_host *host;
 	struct ip_addr ip;
-	const char *tag = "";
+	const char *tag = "", *hostname = NULL;
 	unsigned int arg_count, vhost_count;
 	bool update, down = FALSE;
 	time_t last_updown_change = 0;
@@ -885,6 +885,8 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		}
 		down = args[3][0] == 'D';
 	}
+	if (arg_count >= 5)
+		hostname = args[4];
 	if (conn->ignore_host_events) {
 		/* remote is sending hosts in a handshake, but it doesn't have
 		   a completed ring and we do. */
@@ -894,7 +896,8 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
-		host = mail_host_add_ip(conn->dir->mail_hosts, &ip, tag);
+		host = mail_host_add_hostname(conn->dir->mail_hosts,
+					      hostname, &ip, tag);
 		update = TRUE;
 	} else {
 		update = host->vhost_count != vhost_count ||
@@ -1701,8 +1704,10 @@ director_connection_send_hosts(struct director_connection *conn, string_t *str)
 			str_append_tabescaped(str, host->tag);
 		}
 		if (send_updowns) {
-			str_printfa(str, "\t%c%ld", host->down ? 'D' : 'U',
+			str_printfa(str, "\t%c%ld\t", host->down ? 'D' : 'U',
 				    (long)host->last_updown_change);
+			if (host->hostname != NULL)
+				str_append_tabescaped(str, host->hostname);
 		}
 		str_append_c(str, '\n');
 	}

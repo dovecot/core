@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "net.h"
+#include "str.h"
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
@@ -124,8 +125,8 @@ static bool login_host_request_is_self(struct login_host_request *request,
 }
 
 static void
-login_host_callback(const struct ip_addr *ip, const char *errormsg,
-		    void *context)
+login_host_callback(const struct ip_addr *ip, const char *hostname,
+		    const char *errormsg, void *context)
 {
 	struct login_host_request *request = context;
 	struct director *dir = request->conn->dir;
@@ -148,9 +149,17 @@ login_host_callback(const struct ip_addr *ip, const char *errormsg,
 		   login_host_request_is_self(request, ip)) {
 		line = request->line;
 	} else {
+		string_t *str = t_str_new(64);
+
 		secs = dir->set->director_user_expire / 2;
-		line = t_strdup_printf("%s\thost=%s\tproxy_refresh=%u",
-				       request->line, net_ip2addr(ip), secs);
+		str_printfa(str, "%s\tproxy_refresh=%u\t", request->line, secs);
+		if (hostname == NULL)
+			str_printfa(str, "host=%s", net_ip2addr(ip));
+		else {
+			str_printfa(str, "host=%s\thostip=%s",
+				    hostname, net_ip2addr(ip));
+		}
+		line = str_c(str);
 	}
 	login_connection_send_line(request->conn, line);
 

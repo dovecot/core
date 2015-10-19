@@ -111,7 +111,7 @@ static void director_request_timeout(struct director *dir)
 
 		array_delete(&dir->pending_requests, 0, 1);
 		T_BEGIN {
-			request->callback(NULL, errormsg, request->context);
+			request->callback(NULL, NULL, errormsg, request->context);
 		} T_END;
 		director_request_free(request);
 	}
@@ -316,7 +316,8 @@ bool director_request_continue(struct director_request *request)
 	i_assert(!user->weak);
 	director_update_user(dir, dir->self_host, user);
 	T_BEGIN {
-		request->callback(&user->host->ip, NULL, request->context);
+		request->callback(&user->host->ip, user->host->hostname,
+				  NULL, request->context);
 	} T_END;
 	director_request_free(request);
 	return TRUE;

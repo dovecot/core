@@ -153,19 +153,35 @@ mail_host_add_ip(struct mail_host_list *list, const struct ip_addr *ip,
 	return host;
 }
 
-static int
-mail_host_add(struct mail_host_list *list, const char *host, const char *tag)
+struct mail_host *
+mail_host_add_hostname(struct mail_host_list *list, const char *hostname,
+		       const struct ip_addr *ip, const char *tag)
 {
-	struct ip_addr *ips;
+	struct mail_host *host;
+
+	host = mail_host_add_ip(list, ip, tag);
+	host->hostname = i_strdup(hostname);
+	return host;
+}
+
+static int
+mail_host_add(struct mail_host_list *list, const char *hostname, const char *tag)
+{
+	struct ip_addr *ips, ip;
 	unsigned int i, ips_count;
 
-	if (net_gethostbyname(host, &ips, &ips_count) < 0) {
-		i_error("Unknown mail host: %s", host);
+	if (net_addr2ip(hostname, &ip) == 0) {
+		(void)mail_host_add_ip(list, &ip, tag);
+		return 0;
+	}
+
+	if (net_gethostbyname(hostname, &ips, &ips_count) < 0) {
+		i_error("Unknown mail host: %s", hostname);
 		return -1;
 	}
 
 	for (i = 0; i < ips_count; i++)
-		(void)mail_host_add_ip(list, &ips[i], tag);
+		(void)mail_host_add_hostname(list, hostname, &ips[i], tag);
 	return 0;
 }
 
@@ -309,6 +325,7 @@ void mail_host_set_vhost_count(struct mail_host_list *list,
 static void mail_host_free(struct mail_host *host)
 {
 	i_free(host->tag);
+	i_free(host->hostname);
 	i_free(host);
 }
 

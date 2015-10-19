@@ -14,6 +14,7 @@ struct mail_host {
 	time_t last_updown_change;
 
 	struct ip_addr ip;
+	char *hostname;
 	char *tag;
 
 	/* host was recently changed and ring hasn't synced yet since */
@@ -24,6 +25,9 @@ ARRAY_DEFINE_TYPE(mail_host, struct mail_host *);
 struct mail_host *
 mail_host_add_ip(struct mail_host_list *list, const struct ip_addr *ip,
 		 const char *tag);
+struct mail_host *
+mail_host_add_hostname(struct mail_host_list *list, const char *hostname,
+		       const struct ip_addr *ip, const char *tag);
 struct mail_host *
 mail_host_lookup(struct mail_host_list *list, const struct ip_addr *ip);
 struct mail_host *

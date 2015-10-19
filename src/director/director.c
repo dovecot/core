@@ -546,8 +546,12 @@ director_send_host(struct director *dir, struct director_host *src,
 		return;
 	}
 	if (dir->ring_min_version >= DIRECTOR_VERSION_UPDOWN) {
-		str_printfa(str, "\t%c%ld", host->down ? 'D' : 'U',
+		str_printfa(str, "\t%c%ld\t", host->down ? 'D' : 'U',
 			    (long)host->last_updown_change);
+		/* add any further version checks here - these directors ignore
+		   any extra unknown arguments */
+		if (host->hostname != NULL)
+			str_append_tabescaped(str, host->hostname);
 	}
 	str_append_c(str, '\n');
 	director_update_send(dir, src, str_c(str));
