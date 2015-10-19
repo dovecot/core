@@ -48,6 +48,9 @@ struct mail_host *
 mail_host_add_hostname(struct mail_host_list *list, const char *hostname,
 		       const struct ip_addr *ip, const char *tag_name);
 struct mail_host *
+mail_host_add_hostname(struct mail_host_list *list, const char *hostname,
+		       const struct ip_addr *ip, const char *tag);
+struct mail_host *
 mail_host_lookup(struct mail_host_list *list, const struct ip_addr *ip);
 struct mail_host *
 mail_host_get_by_hash(struct mail_host_list *list, unsigned int hash,
