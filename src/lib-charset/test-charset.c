@@ -69,7 +69,9 @@ static void test_charset_iconv(void)
 		{ "ISO-8859-1", "p\xE4\xE4", "pää", CHARSET_RET_OK }
 	};
 	string_t *str = t_str_new(128);
+	struct charset_translation *trans;
 	enum charset_result result;
+	size_t pos, left, limit, len;
 	unsigned int i;
 
 	test_begin("charset iconv");
@@ -79,6 +81,21 @@ static void test_charset_iconv(void)
 						    tests[i].input, str, &result) == 0, i);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 		test_assert_idx(result == tests[i].result, i);
+
+		str_truncate(str, 0);
+		test_assert_idx(charset_to_utf8_begin(tests[i].charset, NULL, &trans) == 0, i);
+		len = strlen(tests[i].input);
+		for (pos = 0, limit = 1; limit <= len; pos += left, limit++) {
+			left = limit - pos;
+			result = charset_to_utf8(trans, (const void *)(tests[i].input + pos),
+						 &left, str);
+			if (result != CHARSET_RET_INCOMPLETE_INPUT &&
+			    result != CHARSET_RET_OK)
+				break;
+		}
+		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+		test_assert_idx(result == tests[i].result, i);
+		charset_to_utf8_end(&trans);
 	}
 	/* Use //IGNORE just to force handling to be done by iconv
 	   instead of our own UTF-8 routines. */
