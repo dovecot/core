@@ -24,6 +24,8 @@ void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 		mbox->box.name, t_strdup_vprintf(reason, va));
 	va_end(va);
 
+	mail_storage_set_internal_error(&mbox->storage->storage);
+
 	if (!mbox->initial_sync_done) {
 		/* we failed during initial sync. need to rebuild indexes if
 		   we want to get this fixed */
