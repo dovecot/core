@@ -1,5 +1,5 @@
 .\" Copyright (c) 2010-2015 Dovecot authors, see the included COPYING file
-.TH DOVEADM\-SEARCH\-QUERY 7 "2011-11-24" "Dovecot v2.2" "Dovecot"
+.TH DOVEADM\-SEARCH\-QUERY 7 "2015-10-19" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-search\-query \- Overview of search queries for doveadm mailbox \
 commands
@@ -100,9 +100,9 @@ Matches all messages.
 Matches messages with the IMAP flag \(rsAnswered set.
 .\"-----------------
 .TP
-.BI BCC\  pattern
+.BI BCC\  string
 Matches messages, which contain
-.I pattern
+.I string
 in the BCC field of the message\(aqs IMAP envelope structure.
 .\"-----------------
 .TP
@@ -111,15 +111,15 @@ Matches messages with an internal date before
 .IR date\ specification .
 .\"-----------------
 .TP
-.BI BODY\  pattern
+.BI BODY\  string
 Matches messages, which contain
-.I pattern
+.I string
 in the body part.
 .\"-----------------
 .TP
-.BI CC\  pattern
+.BI CC\  string
 Matches messages, which contain
-.I pattern
+.I string
 in the CC field of the message\(aqs IMAP envelope structure.
 .\"-----------------
 .TP
@@ -135,22 +135,22 @@ Matches messages with the IMAP flag \(rsDraft set.
 Matches messages with the IMAP flag \(rsFlagged set.
 .\"-----------------
 .TP
-.BI FROM\  pattern
+.BI FROM\  string
 Matches messages, which contain
-.I pattern
+.I string
 in the FROM field of the message\(aqs IMAP envelope structure.
 .\"-----------------
 .TP
-\fBHEADER\fP \fIfield\fP \fIpattern\fP
+\fBHEADER\fP \fIfield\fP \fIstring\fP
 Matches messages, which either have the named header
 .IR field ,
 when empty
-.I pattern
+.I string
 was given.
 Or messages, where the given header
 .IR field \(aqs
 value contains the specified
-.IR pattern .
+.IR string .
 .\"-----------------
 .TP
 .BI KEYWORD\  keyword
@@ -236,21 +236,21 @@ Matches messages with a size smaller than the given
 .IR size .
 .\"-----------------
 .TP
-.BI SUBJECT\  pattern
+.BI SUBJECT\  string
 Matches messages, which contain
-.I pattern
+.I string
 in the SUBJECT field of the message\(aqs IMAP envelope structure.
 .\"-----------------
 .TP
-.BI TEXT\  pattern
+.BI TEXT\  string
 Matches messages, which contain
-.I pattern
+.I string
 in the message body.
 .\"-----------------
 .TP
-.BI TO\  pattern
+.BI TO\  string
 Matches messages, which contain
-.I pattern
+.I string
 in the TO field of the message\(aqs IMAP envelope structure.
 .\"-----------------
 .TP
