@@ -483,6 +483,7 @@ static struct mail_host *mail_host_dup(const struct mail_host *src)
 	dest = i_new(struct mail_host, 1);
 	*dest = *src;
 	dest->tag = i_strdup(src->tag);
+	dest->hostname = i_strdup(src->hostname);
 	return dest;
 }
 
