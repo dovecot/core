@@ -76,7 +76,8 @@ static int driver_mysql_connect(struct sql_db *_db)
 	struct mysql_db *db = (struct mysql_db *)_db;
 	const char *unix_socket, *host;
 	unsigned long client_flags = db->client_flags;
-	unsigned int secs_used;
+	unsigned int secs_used, connect_timeout = SQL_CONNECT_TIMEOUT_SECS;
+	time_t start_time;
 	bool failed;
 
 	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
@@ -96,6 +97,7 @@ static int driver_mysql_connect(struct sql_db *_db)
 			      db->option_file);
 	}
 
+	mysql_options(db->mysql, MYSQL_OPT_CONNECT_TIMEOUT, &connect_timeout);
 	mysql_options(db->mysql, MYSQL_READ_DEFAULT_GROUP,
 		      db->option_group != NULL ? db->option_group : "client");
 
@@ -118,15 +120,15 @@ static int driver_mysql_connect(struct sql_db *_db)
 #endif
 	}
 
-	alarm(SQL_CONNECT_TIMEOUT_SECS);
 #ifdef CLIENT_MULTI_RESULTS
 	client_flags |= CLIENT_MULTI_RESULTS;
 #endif
 	/* CLIENT_MULTI_RESULTS allows the use of stored procedures */
+	start_time = time(NULL);
 	failed = mysql_real_connect(db->mysql, host, db->user, db->password,
 				    db->dbname, db->port, unix_socket,
 				    client_flags) == NULL;
-	secs_used = SQL_CONNECT_TIMEOUT_SECS - alarm(0);
+	secs_used = time(NULL) - start_time;
 	if (failed) {
 		/* connecting could have taken a while. make sure that any
 		   timeouts that get added soon will get a refreshed
