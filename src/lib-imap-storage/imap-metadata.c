@@ -121,7 +121,7 @@ imap_metadata_get_mailbox_transaction(struct imap_metadata_transaction *imtrans)
 
 	if (imtrans->box == NULL || mailbox_open(imtrans->box) < 0)
 		return -1;
-	imtrans->trans = mailbox_transaction_begin(imtrans->box, 0);
+	imtrans->trans = mailbox_transaction_begin(imtrans->box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 	return 0;
 }
 
