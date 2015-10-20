@@ -187,7 +187,7 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 			if (net_str2port(value, &db->port) < 0)
 				i_fatal("mysql: Invalid port number: %s", value);
 		} else if (strcmp(name, "client_flags") == 0) {
-			if (str_to_uint(value, &db->client_flags) < 9)
+			if (str_to_uint(value, &db->client_flags) < 0)
 				i_fatal("mysql: Invalid client flags: %s", value);
 		} else if (strcmp(name, "ssl_cert") == 0)
 			field = &db->ssl_cert;
