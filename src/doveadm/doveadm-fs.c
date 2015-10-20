@@ -72,7 +72,8 @@ static void cmd_fs_get(int argc, char *argv[])
 	}
 	i_assert(ret == -1);
 	if (input->stream_errno == ENOENT) {
-		i_error("%s doesn't exist", fs_file_path(file));
+		i_error("%s doesn't exist: %s", fs_file_path(file),
+			fs_file_last_error(file));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else if (input->stream_errno != 0) {
 		i_error("read(%s) failed: %s", fs_file_path(file),
@@ -165,7 +166,8 @@ static void cmd_fs_copy(int argc, char *argv[])
 	dest_file = fs_file_init(fs, dest_path, FS_OPEN_MODE_REPLACE);
 	if (fs_copy(src_file, dest_file) == 0) ;
 	else if (errno == ENOENT) {
-		i_error("%s doesn't exist", src_path);
+		i_error("%s doesn't exist: %s", src_path,
+			fs_last_error(fs));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else {
 		i_error("fs_copy(%s, %s) failed: %s",
@@ -190,7 +192,8 @@ static void cmd_fs_stat(int argc, char *argv[])
 		printf("%s size=%lld\n", fs_file_path(file),
 		       (long long)st.st_size);
 	} else if (errno == ENOENT) {
-		i_error("%s doesn't exist", fs_file_path(file));
+		i_error("%s doesn't exist: %s", fs_file_path(file),
+			fs_file_last_error(file));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else {
 		i_error("fs_stat(%s) failed: %s",
@@ -215,7 +218,8 @@ static void cmd_fs_metadata(int argc, char *argv[])
 		array_foreach(metadata, m)
 			printf("%s=%s\n", m->key, m->value);
 	} else if (errno == ENOENT) {
-		i_error("%s doesn't exist", fs_file_path(file));
+		i_error("%s doesn't exist: %s", fs_file_path(file),
+			fs_file_last_error(file));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else {
 		i_error("fs_stat(%s) failed: %s",
@@ -248,7 +252,8 @@ static int cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 			if (ret == 0)
 				ret = 1;
 		} else if (errno == ENOENT) {
-			i_error("%s doesn't exist", fs_file_path(ctx->files[i]));
+			i_error("%s doesn't exist: %s", fs_file_path(ctx->files[i]),
+				fs_file_last_error(ctx->files[i]));
 			doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 			ret = -1;
 		} else {
