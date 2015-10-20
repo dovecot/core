@@ -22,7 +22,6 @@ struct mail_index_sync_ctx {
 
 	ARRAY(struct mail_index_sync_list) sync_list;
 	uint32_t next_uid;
-	uint32_t last_tail_seq, last_tail_offset;
 
 	unsigned int no_warning:1;
 	unsigned int seen_nonexternal_transactions:1;
@@ -164,20 +163,6 @@ static void mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 	}
 }
 
-static void
-mail_index_sync_update_mailbox_pos(struct mail_index_sync_ctx *ctx)
-{
-	uint32_t seq;
-	uoff_t offset;
-
-	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
-					       &seq, &offset);
-
-	ctx->seen_nonexternal_transactions = TRUE;
-	ctx->last_tail_seq = seq;
-	ctx->last_tail_offset = offset + ctx->hdr->size + sizeof(*ctx->hdr);
-}
-
 static int
 mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 {
@@ -203,8 +188,14 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 			continue;
 
 		T_BEGIN {
-			if (mail_index_sync_add_transaction(ctx))
-				mail_index_sync_update_mailbox_pos(ctx);
+			if (mail_index_sync_add_transaction(ctx)) {
+				/* update tail_offset if needed */
+				ctx->seen_nonexternal_transactions = TRUE;
+			} else {
+				/* this is an internal change. we don't
+				   necessarily need to update tail_offset, so
+				   avoid the extra write caused by it. */
+			}
 		} T_END;
 	}
 
@@ -436,8 +427,6 @@ mail_index_sync_begin_to2(struct mail_index *index,
 
 	ctx = i_new(struct mail_index_sync_ctx, 1);
 	ctx->index = index;
-	ctx->last_tail_seq = hdr->log_file_seq;
-	ctx->last_tail_offset = hdr->log_file_tail_offset;
 	ctx->flags = flags;
 
 	ctx->view = mail_index_view_open(index);
@@ -764,6 +753,7 @@ static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 static void
 mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 {
+	const struct mail_index_header *hdr = &ctx->index->map->hdr;
 	uint32_t seq;
 	uoff_t offset;
 
@@ -785,7 +775,7 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 	   external, because that wouldn't change effective the tail offset.
 	   except e.g. mdbox map requires this to happen, so do it
 	   optionally. */
-	if ((ctx->last_tail_seq != seq || ctx->last_tail_offset < offset) &&
+	if ((hdr->log_file_seq != seq || hdr->log_file_tail_offset < offset) &&
 	    (ctx->seen_nonexternal_transactions ||
 	     (ctx->flags & MAIL_INDEX_SYNC_FLAG_UPDATE_TAIL_OFFSET) != 0)) {
 		ctx->ext_trans->log_updates = TRUE;
