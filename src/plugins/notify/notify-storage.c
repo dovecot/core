@@ -79,6 +79,9 @@ static void notify_mail_allocated(struct mail *_mail)
 	struct mail_vfuncs *v = mail->vlast;
 	union mail_module_context *lmail;
 
+	if ((_mail->transaction->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) != 0)
+		return;
+
 	lmail = p_new(mail->pool, union mail_module_context, 1);
 	lmail->super = *v;
 	mail->vlast = &lmail->super;
@@ -98,7 +101,8 @@ notify_copy(struct mail_save_context *ctx, struct mail *mail)
 		NOTIFY_CONTEXT(ctx->transaction->box);
 	int ret;
 
-	if (ctx->dest_mail == NULL) {
+	if (ctx->dest_mail == NULL &&
+	    (ctx->transaction->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0) {
 		if (lt->tmp_mail == NULL)
 			lt->tmp_mail = mail_alloc(ctx->transaction, 0, NULL);
 		ctx->dest_mail = lt->tmp_mail;
@@ -107,7 +111,9 @@ notify_copy(struct mail_save_context *ctx, struct mail *mail)
 	if ((ret = lbox->super.copy(ctx, mail)) < 0)
 		return -1;
 
-	if (ctx->saving) {
+	if ((ctx->transaction->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) != 0) {
+		/* no notifications */
+	} else if (ctx->saving) {
 		/* we came from mailbox_save_using_mail() */
 		notify_contexts_mail_save(ctx->dest_mail);
 	} else {
@@ -124,7 +130,8 @@ notify_save_begin(struct mail_save_context *ctx, struct istream *input)
 	union mailbox_module_context *lbox =
 		NOTIFY_CONTEXT(ctx->transaction->box);
 
-	if (ctx->dest_mail == NULL) {
+	if (ctx->dest_mail == NULL &&
+	    (ctx->transaction->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0) {
 		if (lt->tmp_mail == NULL)
 			lt->tmp_mail = mail_alloc(ctx->transaction, 0, NULL);
 		ctx->dest_mail = lt->tmp_mail;
@@ -141,7 +148,8 @@ notify_save_finish(struct mail_save_context *ctx)
 
 	if (lbox->super.save_finish(ctx) < 0)
 		return -1;
-	if (dest_mail != NULL)
+	if (dest_mail != NULL &&
+	    (ctx->transaction->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0)
 		notify_contexts_mail_save(dest_mail);
 	return 0;
 }
@@ -159,7 +167,8 @@ notify_transaction_begin(struct mailbox *box,
 	lt = i_new(struct notify_transaction_context, 1);
 	MODULE_CONTEXT_SET(t, notify_storage_module, lt);
 
-	notify_contexts_mail_transaction_begin(t);
+	if ((t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0)
+		notify_contexts_mail_transaction_begin(t);
 	return t;
 }
 
@@ -179,7 +188,10 @@ notify_transaction_commit(struct mailbox_transaction_context *t,
 		return -1;
 	}
 
-	notify_contexts_mail_transaction_commit(t, changes_r);
+	/* FIXME: note that t is already freed at this stage. it's not actually
+	   being dereferenced anymore though. still, a bit unsafe.. */
+	if ((t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0)
+		notify_contexts_mail_transaction_commit(t, changes_r);
 	return 0;
 }
 
@@ -193,7 +205,8 @@ notify_transaction_rollback(struct mailbox_transaction_context *t)
 		mail_free(&lt->tmp_mail);
 	i_free(lt);
 	
-	notify_contexts_mail_transaction_rollback(t);
+	if ((t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0)
+		notify_contexts_mail_transaction_rollback(t);
 	lbox->super.transaction_rollback(t);
 }
 

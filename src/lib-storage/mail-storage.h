@@ -177,7 +177,11 @@ enum mailbox_transaction_flags {
 	MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC	= 0x10,
 	/* Sync transaction describes changes to mailbox that already happened
 	   to another mailbox with whom we're syncing with (dsync) */
-	MAILBOX_TRANSACTION_FLAG_SYNC		= 0x20
+	MAILBOX_TRANSACTION_FLAG_SYNC		= 0x20,
+	/* Don't trigger any notifications for this transaction. This
+	   especially means the notify plugin. This would normally be used only
+	   with _FLAG_SYNC. */
+	MAILBOX_TRANSACTION_FLAG_NO_NOTIFY	= 0x40
 };
 
 enum mailbox_sync_flags {
