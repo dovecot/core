@@ -45,6 +45,7 @@ struct sql_dict_iterate_context {
 	const struct dict_sql_map *map;
 	unsigned int key_prefix_len, pattern_prefix_len, next_map_idx;
 	unsigned int path_idx, sql_fields_start_idx;
+	bool synchronous_result;
 	bool failed;
 };
 
@@ -616,7 +617,7 @@ static void sql_dict_iterate_callback(struct sql_result *result,
 {
 	sql_result_ref(result);
 	ctx->result = result;
-	if (ctx->ctx.async_callback != NULL)
+	if (ctx->ctx.async_callback != NULL && !ctx->synchronous_result)
 		ctx->ctx.async_callback(ctx->ctx.async_context);
 }
 
@@ -638,8 +639,10 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx,
 			ctx->result = sql_query_s(dict->db, str_c(query));
 		} else {
 			i_assert(ctx->result == NULL);
+			ctx->synchronous_result = TRUE;
 			sql_query(dict->db, str_c(query),
 				  sql_dict_iterate_callback, ctx);
+			ctx->synchronous_result = FALSE;
 		}
 	} T_END;
 	*error_r = t_strdup(error);
