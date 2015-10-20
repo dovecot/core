@@ -76,7 +76,7 @@ static const struct {
 	  	"debug sync_visible_namespaces exclude_mailboxes  "
 	  	"send_mail_requests backup_send backup_recv lock_timeout "
 	  	"no_mail_sync no_mailbox_renames no_backup_overwrite purge_remote "
-		"sync_since_timestamp sync_flags virtual_all_box"
+		"no_notify sync_since_timestamp sync_flags virtual_all_box"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
@@ -716,6 +716,8 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "no_backup_overwrite", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_PURGE_REMOTE) != 0)
 		dsync_serializer_encode_add(encoder, "purge_remote", "");
+	if ((set->brain_flags & DSYNC_BRAIN_FLAG_NO_NOTIFY) != 0)
+		dsync_serializer_encode_add(encoder, "no_notify", "");
 
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
@@ -822,6 +824,8 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		set->brain_flags |= DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE;
 	if (dsync_deserializer_decode_try(decoder, "purge_remote", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_PURGE_REMOTE;
+	if (dsync_deserializer_decode_try(decoder, "no_notify", &value))
+		set->brain_flags |= DSYNC_BRAIN_FLAG_NO_NOTIFY;
 
 	*set_r = set;
 	return DSYNC_IBC_RECV_RET_OK;

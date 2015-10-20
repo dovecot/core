@@ -111,6 +111,7 @@ struct dsync_brain {
 	unsigned int changes_during_sync:1;
 	unsigned int require_full_resync:1;
 	unsigned int verbose_proctitle:1;
+	unsigned int no_notify:1;
 	unsigned int failed:1;
 };
 
