@@ -22,7 +22,9 @@
 #define LOGIN_PROXY_DIE_IDLE_SECS 2
 #define LOGIN_PROXY_IPC_PATH "ipc-proxy"
 #define LOGIN_PROXY_IPC_NAME "proxy"
-#define KILLED_BY_ADMIN_REASON "Killed by admin"
+#define KILLED_BY_ADMIN_REASON "Kicked by admin"
+#define KILLED_BY_DIRECTOR_REASON "Kicked via director"
+#define KILLED_BY_SHUTDOWN_REASON "Process shutting down"
 #define PROXY_IMMEDIATE_FAILURE_SECS 30
 #define PROXY_CONNECT_RETRY_MSECS 1000
 #define PROXY_DISCONNECT_INTERVAL_MSECS 100
@@ -758,7 +760,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 
 static void proxy_kill_idle(struct login_proxy *proxy)
 {
-	login_proxy_free_reason(&proxy, KILLED_BY_ADMIN_REASON);
+	login_proxy_free_reason(&proxy, KILLED_BY_SHUTDOWN_REASON);
 }
 
 void login_proxy_kill_idle(void)
@@ -843,7 +845,7 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 
 		if (director_username_hash(proxy->client) == hash &&
 		    !net_ip_compare(&proxy->ip, &except_ip)) {
-			login_proxy_free_delayed(&proxy, KILLED_BY_ADMIN_REASON);
+			login_proxy_free_delayed(&proxy, KILLED_BY_DIRECTOR_REASON);
 			count++;
 		}
 	}
@@ -914,7 +916,7 @@ void login_proxy_deinit(void)
 
 	while (login_proxies != NULL) {
 		proxy = login_proxies;
-		login_proxy_free_reason(&proxy, KILLED_BY_ADMIN_REASON);
+		login_proxy_free_reason(&proxy, KILLED_BY_SHUTDOWN_REASON);
 	}
 	while (login_proxies_disconnecting != NULL)
 		login_proxy_free_final(login_proxies_disconnecting);
