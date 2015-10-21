@@ -19,6 +19,7 @@ struct ssl_iostream_settings {
 	bool require_valid_cert; /* stream-only */
 	bool prefer_server_ciphers;
 	bool compression;
+	bool tickets;
 };
 
 /* Returns 0 if ok, -1 and sets error_r if failed. The returned error string

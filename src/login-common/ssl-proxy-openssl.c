@@ -103,6 +103,7 @@ struct ssl_server_context {
 	bool verify_client_cert;
 	bool prefer_server_ciphers;
 	bool compression;
+	bool tickets;
 };
 
 static int extdata_index;
@@ -649,6 +650,7 @@ ssl_server_context_get(const struct login_settings *login_set,
 		login_set->auth_ssl_username_from_cert;
 	lookup_ctx.prefer_server_ciphers = set->ssl_prefer_server_ciphers;
 	lookup_ctx.compression = set->parsed_opts.compression;
+	lookup_ctx.tickets = set->parsed_opts.tickets;
 
 	ctx = hash_table_lookup(ssl_servers, &lookup_ctx);
 	if (ctx == NULL)
@@ -1029,6 +1031,10 @@ ssl_proxy_ctx_init(SSL_CTX *ssl_ctx, const struct master_service_ssl_settings *s
 	if (!set->parsed_opts.compression)
 		ssl_ops |= SSL_OP_NO_COMPRESSION;
 #endif
+#ifdef SSL_OP_NO_TICKET
+	if (!set->parsed_opts.tickets)
+		ssl_ops |= SSL_OP_NO_TICKET;
+#endif
 	SSL_CTX_set_options(ssl_ctx, ssl_ops);
 
 #ifdef SSL_MODE_RELEASE_BUFFERS
@@ -1301,6 +1307,7 @@ ssl_server_context_init(const struct login_settings *login_set,
 		login_set->auth_ssl_username_from_cert;
 	ctx->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
 	ctx->compression = ssl_set->parsed_opts.compression;
+	ctx->tickets = ssl_set->parsed_opts.tickets;
 
 	ctx->ctx = ssl_ctx = SSL_CTX_new(SSLv23_server_method());
 	if (ssl_ctx == NULL)

@@ -23,6 +23,7 @@ struct master_service_ssl_settings {
 	/* These are derived from ssl_options, not set directly */
 	struct {
 		bool compression;
+		bool tickets;
 	} parsed_opts;
 };
 

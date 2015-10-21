@@ -104,6 +104,7 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	/* Now explode the ssl_options string into individual flags */
 	/* First set them all to defaults */
 	set->parsed_opts.compression = TRUE;
+	set->parsed_opts.tickets = TRUE;
 
 	/* Then modify anything specified in the string */
 	const char **opts = t_strsplit_spaces(set->ssl_options, ", ");
@@ -111,6 +112,8 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	while ((opt = *opts++) != NULL) {
 		if (strcasecmp(opt, "no_compression") == 0) {
 			set->parsed_opts.compression = FALSE;
+		} else if (strcasecmp(opt, "no_ticket") == 0) {
+			set->parsed_opts.tickets = FALSE;
 		} else {
 			*error_r = t_strdup_printf("ssl_options: unknown flag: '%s'",
 						   opt);
