@@ -374,7 +374,8 @@ index_list_mailbox_create(struct mailbox *box,
 			if (ret <= 0) {
 				/* failed to add to list. rollback the backend
 				   mailbox creation */
-				(void)mailbox_delete(box);
+				if (mailbox_delete(box) < 0)
+					ret = -1;
 			}
 		}
 		list->create_mailbox_name = old_name;
