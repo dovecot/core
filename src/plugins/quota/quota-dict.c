@@ -17,6 +17,7 @@ struct dict_quota_root {
 	struct quota_root root;
 	struct dict *dict;
 	struct timeout *to_update;
+	bool disable_unset;
 };
 
 extern struct quota_backend quota_backend_dict;
@@ -57,6 +58,9 @@ static int dict_quota_init(struct quota_root *_root, const char *args,
 		} else if (strncmp(args, "ignoreunlimited:", 16) == 0) {
 			_root->disable_unlimited_tracking = TRUE;
 			args += 16;
+		} else if (strncmp(args, "no-unset:", 9) == 0) {
+			root->disable_unset = TRUE;
+			args += 9;
 		} else if (strncmp(args, "ns=", 3) == 0) {
 			p = strchr(args, ':');
 			if (p == NULL)
@@ -126,9 +130,14 @@ dict_quota_count(struct dict_quota_root *root,
 	T_BEGIN {
 		dt = dict_transaction_begin(root->dict);
 		/* these unsets are mainly necessary for pgsql, because its
-		   trigger otherwise increases quota without deleting it */
-		dict_unset(dt, DICT_QUOTA_CURRENT_BYTES_PATH);
-		dict_unset(dt, DICT_QUOTA_CURRENT_COUNT_PATH);
+		   trigger otherwise increases quota without deleting it.
+		   but some people with other databases want to store the
+		   quota usage among other data in the same row, which
+		   shouldn't be deleted. */
+		if (!root->disable_unset) {
+			dict_unset(dt, DICT_QUOTA_CURRENT_BYTES_PATH);
+			dict_unset(dt, DICT_QUOTA_CURRENT_COUNT_PATH);
+		}
 		dict_set(dt, DICT_QUOTA_CURRENT_BYTES_PATH, dec2str(bytes));
 		dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
 	} T_END;
