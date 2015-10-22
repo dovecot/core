@@ -178,6 +178,7 @@ notify_transaction_commit(struct mailbox_transaction_context *t,
 {
 	struct notify_transaction_context *lt = NOTIFY_CONTEXT(t);
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(t->box);
+	bool no_notify = (t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) != 0;
 
 	if (lt->tmp_mail != NULL)
 		mail_free(&lt->tmp_mail);
@@ -190,7 +191,7 @@ notify_transaction_commit(struct mailbox_transaction_context *t,
 
 	/* FIXME: note that t is already freed at this stage. it's not actually
 	   being dereferenced anymore though. still, a bit unsafe.. */
-	if ((t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0)
+	if (!no_notify)
 		notify_contexts_mail_transaction_commit(t, changes_r);
 	return 0;
 }
