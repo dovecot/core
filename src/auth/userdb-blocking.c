@@ -18,7 +18,7 @@ static bool user_callback(const char *reply, void *context)
 {
 	struct auth_request *request = context;
 	enum userdb_result result;
-	const char *args;
+	const char *username, *args;
 
 	if (strncmp(reply, "FAIL\t", 5) == 0) {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
@@ -28,7 +28,14 @@ static bool user_callback(const char *reply, void *context)
 		args = reply + 9;
 	} else if (strncmp(reply, "OK\t", 3) == 0) {
 		result = USERDB_RESULT_OK;
-		args = reply + 3;
+		username = reply + 3;
+		args = strchr(username, '\t');
+		if (args == NULL)
+			args = "";
+		else
+			username = t_strdup_until(username, args++);
+		if (strcmp(request->user, username) != 0)
+			request->user = p_strdup(request->pool, username);
 	} else {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 		i_error("BUG: auth-worker sent invalid user reply");
