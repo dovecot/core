@@ -184,12 +184,7 @@ acl_mailbox_delete(struct mailbox *box)
 		return -1;
 	}
 
-	/* deletion might internally open the mailbox. let it succeed even if
-	   we don't have READ permission. */
-	abox->skip_acl_checks = TRUE;
-	ret = abox->module_ctx.super.delete_box(box);
-	abox->skip_acl_checks = FALSE;
-	return ret;
+	return abox->module_ctx.super.delete_box(box);
 }
 
 static int
@@ -500,6 +495,8 @@ static int acl_mailbox_open_check_acl(struct mailbox *box)
 	if ((box->flags & MAILBOX_FLAG_SAVEONLY) != 0) {
 		open_right = (box->flags & MAILBOX_FLAG_POST_SESSION) != 0 ?
 			ACL_STORAGE_RIGHT_POST : ACL_STORAGE_RIGHT_INSERT;
+	} else if (box->deleting) {
+		open_right = ACL_STORAGE_RIGHT_DELETE;
 	} else {
 		open_right = ACL_STORAGE_RIGHT_READ;
 	}

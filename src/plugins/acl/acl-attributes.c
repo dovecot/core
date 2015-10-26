@@ -101,6 +101,11 @@ static int acl_have_attribute_rights(struct mailbox *box)
 {
 	int ret;
 
+	if (box->deleting) {
+		/* deleting attributes during mailbox deletion */
+		return 1;
+	}
+
 	/* RFC 5464:
 
 	   When the ACL extension [RFC4314] is present, users can only set and
