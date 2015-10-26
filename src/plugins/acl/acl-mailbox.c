@@ -111,6 +111,14 @@ static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 	acl_object_deinit(&parent_aclobj);
 }
 
+static bool mailbox_is_autocreated(struct mailbox *box)
+{
+	if (box->inbox_user)
+		return TRUE;
+	return box->set != NULL &&
+		strcmp(box->set->autocreate, MAILBOX_SET_AUTO_NO) != 0;
+}
+
 static int
 acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
@@ -118,9 +126,15 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	struct acl_mailbox *abox = ACL_CONTEXT(box);
 	int ret;
 
-	/* we're looking up CREATE permission from our parent's rights */
-	ret = acl_mailbox_list_have_right(box->list, box->name, TRUE,
-					  ACL_STORAGE_RIGHT_CREATE, NULL);
+	if (!mailbox_is_autocreated(box)) {
+		/* we're looking up CREATE permission from our parent's rights */
+		ret = acl_mailbox_list_have_right(box->list, box->name, TRUE,
+						  ACL_STORAGE_RIGHT_CREATE, NULL);
+	} else {
+		/* mailbox is autocreated, so we need to treat it as if it
+		   already exists. ignore the "create" ACL here. */
+		ret = 1;
+	}
 	if (ret <= 0) {
 		if (ret < 0) {
 			mail_storage_set_internal_error(box->storage);
