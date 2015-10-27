@@ -19,7 +19,7 @@ fts_parser_html_try_init(struct mail_user *user ATTR_UNUSED,
 {
 	struct html_fts_parser *parser;
 
-	if (strcasecmp(content_type, "text/html") != 0)
+	if (!mail_html2text_content_type_match(content_type))
 		return NULL;
 
 	parser = i_new(struct html_fts_parser, 1);

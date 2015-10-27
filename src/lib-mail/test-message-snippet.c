@@ -51,6 +51,20 @@ static struct {
 	  "</div><br =class=3D\"\"></body></html>=\n",
 	  100,
 	  "Hi, How is it going? > -foo" },
+
+	{ "Content-Transfer-Encoding: quoted-printable\n"
+	  "Content-Type: application/xhtml+xml;\n"
+	  "      charset=utf-8\n"
+	  "\n"
+	  "<html><head><meta http-equiv=3D\"Content-Type\" content=3D\"text/html =\n"
+	  "charset=3Dutf-8\"></head><body style=3D\"word-wrap: break-word; =\n"
+	  "-webkit-nbsp-mode: space; -webkit-line-break: after-white-space;\" =\n"
+	  "class=3D\"\">Hi,<div class=3D\"\"><br class=3D\"\"></div><div class=3D\"\">How =\n"
+	  "is it going? <blockquote>quoted text is ignored</blockquote>\n"
+	  "&gt; -foo\n"
+	  "</div><br =class=3D\"\"></body></html>=\n",
+	  100,
+	  "Hi, How is it going? > -foo" },
 };
 
 static void test_message_snippet(void)

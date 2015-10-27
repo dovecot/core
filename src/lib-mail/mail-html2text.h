@@ -12,4 +12,11 @@ void mail_html2text_more(struct mail_html2text *ht,
 			 buffer_t *output);
 void mail_html2text_deinit(struct mail_html2text **ht);
 
+static inline bool
+mail_html2text_content_type_match(const char *content_type)
+{
+	return strcasecmp(content_type, "text/html") == 0 ||
+		strcasecmp(content_type, "application/xhtml+xml") == 0;
+}
+
 #endif
