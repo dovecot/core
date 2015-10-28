@@ -347,7 +347,7 @@ static void pass_callback_finish(struct auth_request *auth_request,
 		str_printfa(str, "FAIL\t%u", auth_request->id);
 		break;
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
-		str_printfa(str, "FAIL\t%u\treason=Configured passdbs don't support crentials lookups",
+		str_printfa(str, "FAIL\t%u\treason=Configured passdbs don't support credentials lookups",
 			    auth_request->id);
 		break;
 	}
