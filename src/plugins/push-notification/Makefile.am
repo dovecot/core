@@ -12,6 +12,11 @@ lib20_push_notification_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = lib20_push_notification_plugin.la
 
+if DOVECOT_PLUGIN_DEPS
+lib20_push_notification_plugin_la_LIBADD = \
+        ../notify/lib15_notify_plugin.la
+endif
+
 lib20_push_notification_plugin_la_SOURCES = \
 	push-notification-driver-dlog.c \
 	push-notification-driver-ox.c \
