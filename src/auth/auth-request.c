@@ -610,6 +610,9 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		request->passdb_success = FALSE;
 		break;
 	}
+	/* nopassword check is specific to a single passdb and shouldn't leak
+	   to the next one. we already added it to cache. */
+	auth_fields_remove(request->extra_fields, "nopassword");
 
 	if (request->requested_login_user != NULL &&
 	    *result == PASSDB_RESULT_OK) {
