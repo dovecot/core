@@ -810,7 +810,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
 		if (request->skip_password_check &&
-		    request->delayed_credentials == NULL) {
+		    request->delayed_credentials == NULL && size > 0) {
 			/* passdb continue* rule after a successful lookup.
 			   remember these credentials and use them later on. */
 			unsigned char *dup;
