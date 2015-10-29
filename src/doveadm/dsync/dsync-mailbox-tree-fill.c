@@ -177,7 +177,8 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 			memcpy(del->guid, rec->mailbox_guid, sizeof(del->guid));
 			break;
 		case MAILBOX_LOG_RECORD_DELETE_DIR:
-			if (node != NULL) {
+			if (node != NULL &&
+			    node->existence == DSYNC_MAILBOX_NODE_EXISTS) {
 				/* directory exists again, skip it */
 				break;
 			}
