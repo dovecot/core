@@ -190,8 +190,13 @@ struct acl_object_list_iter *
 acl_default_object_list_init(struct acl_object *aclobj)
 {
 	struct acl_object_list_iter *iter;
+	const struct acl_rights *aclobj_rights;
+	unsigned int i;
+	pool_t pool;
 
-	iter = i_new(struct acl_object_list_iter, 1);
+	pool = pool_alloconly_create("acl object list", 512);
+	iter = p_new(pool, struct acl_object_list_iter, 1);
+	iter->pool = pool;
 	iter->aclobj = aclobj;
 
 	if (!array_is_created(&aclobj->rights)) {
@@ -202,28 +207,31 @@ acl_default_object_list_init(struct acl_object *aclobj)
 
 	if (aclobj->backend->v.object_refresh_cache(aclobj) < 0)
 		iter->failed = TRUE;
+
+	aclobj_rights = array_get(&aclobj->rights, &iter->count);
+	if (iter->count > 0) {
+		iter->rights = p_new(pool, struct acl_rights, iter->count);
+		for (i = 0; i < iter->count; i++)
+			acl_rights_dup(&aclobj_rights[i], pool, &iter->rights[i]);
+	}
 	return iter;
 }
 
 int acl_default_object_list_next(struct acl_object_list_iter *iter,
 				 struct acl_rights *rights_r)
 {
-	const struct acl_rights *rights;
-
 	if (iter->failed)
 		return -1;
 
-	if (iter->idx == array_count(&iter->aclobj->rights))
+	if (iter->idx == iter->count)
 		return 0;
-
-	rights = array_idx(&iter->aclobj->rights, iter->idx++);
-	*rights_r = *rights;
+	*rights_r = iter->rights[iter->idx++];
 	return 1;
 }
 
 void acl_default_object_list_deinit(struct acl_object_list_iter *iter)
 {
-	i_free(iter);
+	pool_unref(&iter->pool);
 }
 
 struct acl_mailbox_list_context *

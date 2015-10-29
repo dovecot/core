@@ -75,8 +75,10 @@ struct acl_object {
 
 struct acl_object_list_iter {
 	struct acl_object *aclobj;
+	pool_t pool;
 
-	unsigned int idx;
+	struct acl_rights *rights;
+	unsigned int idx, count;
 	unsigned int failed:1;
 };
 
