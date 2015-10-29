@@ -245,6 +245,9 @@ static int imap_client_notify_ns(struct imap_notify_namespace *notify_ns)
 	const struct mailbox_list_notify_rec *rec;
 	int ret, ret2 = 1;
 
+	if (notify_ns->notify == NULL)
+		return 0; /* notifications not supported in this namespace */
+
 	while ((ret = mailbox_list_notify_next(notify_ns->notify, &rec)) > 0) {
 		if (imap_notify_match(notify_ns, rec)) T_BEGIN {
 			ret2 = imap_notify_next(notify_ns, rec);
