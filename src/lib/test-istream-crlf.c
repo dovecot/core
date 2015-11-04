@@ -24,7 +24,7 @@ static void test_istream_crlf_input(const char *input)
 			crlf_istream = i_stream_create_lf(istream);
 			for (i = 0; i < input_len; i++) {
 				if (input[i] == '\r' &&
-				    (i == input_len || input[i+1] == '\n'))
+				    (i == input_len-1 || input[i+1] == '\n'))
 					;
 				else
 					str_append_c(output, input[i]);
@@ -66,9 +66,9 @@ static void test_istream_crlf_input(const char *input)
 				test_assert(pos + (unsigned int)ret1 == size);
 				pos += ret1;
 			}
-			test_assert(memcmp(data, str_data(output), size) == 0);
+			test_assert_idx(memcmp(data, str_data(output), size) == 0, j*10000+i);
 		}
-		test_assert(size == str_len(output));
+		test_assert_idx(size == str_len(output), j*10000+i);
 		i_stream_unref(&crlf_istream);
 		i_stream_unref(&istream);
 	}
@@ -88,5 +88,26 @@ void test_istream_crlf(void)
 	test_begin("istream crlf");
 	for (i = 0; i < N_ELEMENTS(input); i++)
 		test_istream_crlf_input(input[i]);
+	test_end();
+
+#define ISTREAM_CRLF_TEST_REPS 1000
+	test_begin("istream crlf(random)");
+	for (i = 0; i < ISTREAM_CRLF_TEST_REPS; i++) T_BEGIN {
+		char buf[100];
+		size_t len = 0;
+		while (len < sizeof(buf) - 1) {
+			switch(rand()%16) {
+			case 0: goto outahere;
+			case 1: buf[len] = '\r'; break;
+			case 2: buf[len] = '\n'; break;
+			default: buf[len]= '.'; break;
+			}
+			len++;
+		}
+	outahere:
+		buf[len] = '\0';
+		if (len > 0)
+			test_istream_crlf_input(buf);
+	} T_END;
 	test_end();
 }
