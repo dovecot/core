@@ -229,7 +229,7 @@ void auth_request_var_expand_with_table(string_t *dest, const char *str,
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.auth_request = auth_request;
-	ctx.escape_func = escape_func;
+	ctx.escape_func = escape_func == NULL ? escape_none : escape_func;
 	var_expand_with_funcs(dest, str, table,
 			      auth_request_var_funcs_table, &ctx);
 }
