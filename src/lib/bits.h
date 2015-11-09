@@ -1,17 +1,6 @@
 #ifndef BITS_H
 #define BITS_H
 
-/* default lib includes */
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
-#include "macros.h"
-
-#include <limits.h>
-#include <stddef.h>
-#include <stdint.h>
-
 #define UINT64_SUM_OVERFLOWS(a, b) \
 	(a > (uint64_t)-1 - b)
 
