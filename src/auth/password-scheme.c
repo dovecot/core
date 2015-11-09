@@ -341,19 +341,6 @@ int crypt_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	return strcmp(crypted, password) == 0 ? 1 : 0;
 }
 
-static void
-crypt_generate(const char *plaintext, const char *user ATTR_UNUSED,
-	       const unsigned char **raw_password_r, size_t *size_r)
-{
-#define	CRYPT_SALT_LEN 2
-	const char *password, *salt;
-
-	salt = password_generate_salt(CRYPT_SALT_LEN);
-	password = t_strdup(mycrypt(plaintext, salt));
-	*raw_password_r = (const unsigned char *)password;
-	*size_r = strlen(password);
-}
-
 static int
 md5_verify(const char *plaintext, const char *user,
 	   const unsigned char *raw_password, size_t size, const char **error_r)
@@ -803,7 +790,6 @@ rpa_generate(const char *plaintext, const char *user ATTR_UNUSED,
 }
 
 static const struct password_scheme builtin_schemes[] = {
-	{ "CRYPT", PW_ENCODING_NONE, 0, crypt_verify, crypt_generate },
 	{ "MD5", PW_ENCODING_NONE, 0, md5_verify, md5_crypt_generate },
 	{ "MD5-CRYPT", PW_ENCODING_NONE, 0,
 	  md5_crypt_verify, md5_crypt_generate },

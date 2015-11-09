@@ -24,6 +24,19 @@ void password_set_encryption_rounds(unsigned int rounds)
 }
 
 static void
+crypt_generate_des(const char *plaintext, const char *user ATTR_UNUSED,
+		   const unsigned char **raw_password_r, size_t *size_r)
+{
+#define CRYPT_SALT_LEN 2
+	const char *password, *salt;
+
+	salt = password_generate_salt(CRYPT_SALT_LEN);
+	password = t_strdup(mycrypt(plaintext, salt));
+	*raw_password_r = (const unsigned char *)password;
+	*size_r = strlen(password);
+}
+
+static void
 crypt_generate_blowfisch(const char *plaintext, const char *user ATTR_UNUSED,
 			 const unsigned char **raw_password_r, size_t *size_r)
 {
@@ -98,6 +111,7 @@ static const struct {
 	const char *salt;
 	const char *expected;
 } sample[] = {
+	{ "08/15!test~4711", "JB", "JBOZ0DgmtucwE" },
 	{ "08/15!test~4711", "$2a$04$0123456789abcdefABCDEF",
 	  "$2a$04$0123456789abcdefABCDE.N.drYX5yIAL1LkTaaZotW3yI0hQhZru" },
 	{ "08/15!test~4711", "$5$rounds=1000$0123456789abcdef",
@@ -110,6 +124,8 @@ static const struct {
 
 /* keep in sync with the sample struct above */
 static const struct password_scheme crypt_schemes[] = {
+	{ "CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
+	  crypt_generate_des },
 	{ "BLF-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
 	  crypt_generate_blowfisch },
 	{ "SHA256-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
