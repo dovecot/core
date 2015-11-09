@@ -134,9 +134,9 @@ virtual_sync_get_backend_box(struct virtual_mailbox *mbox, const char *name,
 	/* another process just added a new mailbox.
 	   we can't handle this currently. */
 	mbox->inconsistent = TRUE;
-	mail_storage_set_error(mbox->box.storage, MAIL_ERROR_TEMP,
-		"Backend mailbox added by another session. "
-		"Reopen the virtual mailbox.");
+	mail_storage_set_error(mbox->box.storage, MAIL_ERROR_TEMP, t_strdup_printf(
+		"Backend mailbox '%s' added by another session. "
+		"Reopen the virtual mailbox.", name));
 	return -1;
 }
 
