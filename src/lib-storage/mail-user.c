@@ -377,7 +377,9 @@ static void mail_user_get_mail_home(struct mail_user *user)
 		return;
 
 	str = t_str_new(128);
-	var_expand(str, home, mail_user_var_expand_table(user));
+	var_expand_with_funcs(str, home,
+			      mail_user_var_expand_table(user),
+			      mail_user_var_expand_func_table, user);
 	user->_home = p_strdup(user->pool, str_c(str));
 }
 

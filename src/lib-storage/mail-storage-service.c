@@ -88,6 +88,13 @@ struct mail_storage_service_user {
 
 struct module *mail_storage_service_modules = NULL;
 
+static void
+mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
+				string_t *str, const char *format,
+				struct mail_storage_service_user *user,
+				const struct mail_storage_service_input *input,
+				const struct mail_storage_service_privileges *priv);
+
 static bool
 mail_user_set_get_mail_debug(const struct setting_parser_info *user_info,
 			     const struct mail_user_settings *user_set)
@@ -443,7 +450,7 @@ mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
 }
 
 static const char *
-user_expand_varstr(struct master_service *service,
+user_expand_varstr(struct mail_storage_service_ctx *ctx,
 		   struct mail_storage_service_user *user,
 		   struct mail_storage_service_privileges *priv,
 		   const char *str)
@@ -456,8 +463,7 @@ user_expand_varstr(struct master_service *service,
 	i_assert(*str == SETTING_STRVAR_UNEXPANDED[0]);
 
 	ret = t_str_new(256);
-	var_expand(ret, str + 1,
-		   get_var_expand_table(service, user, &user->input, priv));
+	mail_storage_service_var_expand(ctx, ret, str + 1, user, &user->input, priv);
 	return str_c(ret);
 }
 
@@ -512,9 +518,9 @@ service_parse_privileges(struct mail_storage_service_ctx *ctx,
 
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home and chroot sooner so do them separately here. */
-	priv_r->home = user_expand_varstr(ctx->service, user, priv_r,
+	priv_r->home = user_expand_varstr(ctx, user, priv_r,
 					  user->user_set->mail_home);
-	priv_r->chroot = user_expand_varstr(ctx->service, user, priv_r,
+	priv_r->chroot = user_expand_varstr(ctx, user, priv_r,
 					    user->user_set->mail_chroot);
 	return 0;
 }
