@@ -14,8 +14,6 @@ struct push_notification_txn_event;
 struct push_notification_txn_mbox;
 struct push_notification_txn_msg;
 
-HASH_TABLE_DEFINE_TYPE(push_notification_mq_data, const char *, const char *);
-
 struct push_notification_event_vfuncs_init {
     /* Return the default config for an event (or NULL if config is
      * required). */
