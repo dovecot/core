@@ -7,6 +7,8 @@
 
 /* Maximum number of pending requests before delaying new requests. */
 #define DB_LDAP_MAX_PENDING_REQUESTS 8
+/* connect() timeout to LDAP */
+#define DB_LDAP_CONNECT_TIMEOUT_SECS 5
 /* If LDAP connection is down, fail requests after waiting for this long. */
 #define DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS 4
 /* If request is still in queue after this many seconds and other requests

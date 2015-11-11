@@ -1096,6 +1096,18 @@ static void db_ldap_set_options(struct ldap_connection *conn)
 	unsigned int ldap_version;
 	int value;
 
+#ifdef LDAP_OPT_NETWORK_TIMEOUT
+	struct timeval tv;
+	int ret;
+
+	tv.tv_sec = DB_LDAP_CONNECT_TIMEOUT_SECS; tv.tv_usec = 0;
+	ret = ldap_set_option(conn->ld, LDAP_OPT_NETWORK_TIMEOUT, &tv);
+	if (ret != LDAP_SUCCESS) {
+		i_fatal("LDAP %s: Can't set network-timeout: %s",
+			conn->config_path, ldap_err2string(ret));
+	}
+#endif
+
 	db_ldap_set_opt(conn, conn->ld, LDAP_OPT_DEREF, &conn->set.ldap_deref,
 			"deref", conn->set.deref);
 #ifdef LDAP_OPT_DEBUG_LEVEL
