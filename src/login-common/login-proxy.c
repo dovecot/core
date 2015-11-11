@@ -79,18 +79,32 @@ static void
 login_proxy_free_delayed(struct login_proxy **_proxy, const char *reason)
 	ATTR_NULL(2);
 
-static void login_proxy_free_errno(struct login_proxy **proxy,
+static void login_proxy_free_errno(struct login_proxy **_proxy,
 				   int err, bool server)
 {
-	const char *reason, *who = server ? "server" : "client";
+	struct login_proxy *proxy = *_proxy;
+	string_t *reason = t_str_new(128);
 
-	reason = err == 0 || err == EPIPE ?
-		t_strdup_printf("Disconnected by %s", who) :
-		t_strdup_printf("Disconnected by %s: %s", who, strerror(errno));
+	str_printfa(reason, "Disconnected by %s", server ? "server" : "client");
+	if (err != 0 && err != EPIPE)
+		str_printfa(reason, ": %s", strerror(errno));
+
+	str_printfa(reason, "(%ds idle, in=%"PRIuUOFF_T", out=%"PRIuUOFF_T,
+		    (int)(ioloop_time - proxy->last_io),
+		    proxy->server_output->offset, proxy->client_output->offset);
+	if (o_stream_get_buffer_used_size(proxy->client_output) > 0) {
+		str_printfa(reason, "+%"PRIuSIZE_T,
+			    o_stream_get_buffer_used_size(proxy->client_output));
+	}
+	if (proxy->server_io == NULL)
+		str_append(reason, ", client output blocked");
+	if (proxy->client_io == NULL)
+		str_append(reason, ", server output blocked");
+	str_append_c(reason, ')');
 	if (server)
-		login_proxy_free_delayed(proxy, reason);
+		login_proxy_free_delayed(_proxy, str_c(reason));
 	else
-		login_proxy_free_reason(proxy, reason);
+		login_proxy_free_reason(_proxy, str_c(reason));
 }
 
 static void server_input(struct login_proxy *proxy)
