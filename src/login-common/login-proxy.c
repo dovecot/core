@@ -79,15 +79,15 @@ static void
 login_proxy_free_delayed(struct login_proxy **_proxy, const char *reason)
 	ATTR_NULL(2);
 
-static void login_proxy_free_errno(struct login_proxy **_proxy,
-				   int err, bool server)
+static void login_proxy_free_errstr(struct login_proxy **_proxy,
+				    const char *errstr, bool server)
 {
 	struct login_proxy *proxy = *_proxy;
 	string_t *reason = t_str_new(128);
 
 	str_printfa(reason, "Disconnected by %s", server ? "server" : "client");
-	if (err != 0 && err != EPIPE)
-		str_printfa(reason, ": %s", strerror(errno));
+	if (errstr[0] != '\0')
+		str_printfa(reason, ": %s", errstr);
 
 	str_printfa(reason, "(%ds idle, in=%"PRIuUOFF_T", out=%"PRIuUOFF_T,
 		    (int)(ioloop_time - proxy->last_io),
@@ -105,6 +105,26 @@ static void login_proxy_free_errno(struct login_proxy **_proxy,
 		login_proxy_free_delayed(_proxy, str_c(reason));
 	else
 		login_proxy_free_reason(_proxy, str_c(reason));
+}
+
+static void login_proxy_free_errno(struct login_proxy **_proxy,
+				   int err, bool server)
+{
+	const char *errstr;
+
+	errstr = err == 0 || err == EPIPE ? "" : strerror(err);
+	login_proxy_free_errstr(_proxy, errstr, server);
+}
+
+static void login_proxy_free_ostream(struct login_proxy **_proxy,
+				     struct ostream *output, bool server)
+{
+	const char *errstr;
+
+	errstr = output->stream_errno == 0 ||
+		output->stream_errno == EPIPE ? "" :
+		o_stream_get_error(output);
+	login_proxy_free_errstr(_proxy, errstr, server);
 }
 
 static void server_input(struct login_proxy *proxy)
@@ -129,10 +149,8 @@ static void server_input(struct login_proxy *proxy)
 	o_stream_cork(proxy->client_output);
 	ret2 = o_stream_send(proxy->client_output, buf, ret);
 	o_stream_uncork(proxy->client_output);
-	if (ret2 != ret) {
-		login_proxy_free_errno(&proxy,
-			proxy->client_output->stream_errno, FALSE);
-	}
+	if (ret2 != ret)
+		login_proxy_free_ostream(&proxy, proxy->client_output, FALSE);
 }
 
 static void proxy_client_input(struct login_proxy *proxy)
@@ -157,10 +175,8 @@ static void proxy_client_input(struct login_proxy *proxy)
 	o_stream_cork(proxy->server_output);
 	ret2 = o_stream_send(proxy->server_output, buf, ret);
 	o_stream_uncork(proxy->server_output);
-	if (ret2 != ret) {
-		login_proxy_free_errno(&proxy,
-			proxy->server_output->stream_errno, TRUE);
-	}
+	if (ret2 != ret)
+		login_proxy_free_ostream(&proxy, proxy->server_output, TRUE);
 }
 
 static void proxy_client_disconnected_input(struct login_proxy *proxy)
@@ -177,8 +193,7 @@ static int server_output(struct login_proxy *proxy)
 {
 	proxy->last_io = ioloop_time;
 	if (o_stream_flush(proxy->server_output) < 0) {
-		login_proxy_free_errno(&proxy,
-			proxy->server_output->stream_errno, TRUE);
+		login_proxy_free_ostream(&proxy, proxy->server_output, TRUE);
 		return 1;
 	}
 
@@ -197,8 +212,7 @@ static int proxy_client_output(struct login_proxy *proxy)
 {
 	proxy->last_io = ioloop_time;
 	if (o_stream_flush(proxy->client_output) < 0) {
-		login_proxy_free_errno(&proxy,
-			proxy->client_output->stream_errno, FALSE);
+		login_proxy_free_ostream(&proxy, proxy->client_output, FALSE);
 		return 1;
 	}
 
