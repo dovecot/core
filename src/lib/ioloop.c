@@ -948,3 +948,17 @@ uint64_t io_loop_get_wait_usecs(struct ioloop *ioloop)
 {
 	return ioloop->ioloop_wait_usecs;
 }
+
+enum io_condition io_loop_find_fd_conditions(struct ioloop *ioloop, int fd)
+{
+	enum io_condition conditions = 0;
+	struct io_file *io;
+
+	i_assert(fd >= 0);
+
+	for (io = ioloop->io_files; io != NULL; io = io->next) {
+		if (io->fd == fd)
+			conditions |= io->io.condition;
+	}
+	return conditions;
+}

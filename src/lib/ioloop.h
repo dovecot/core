@@ -187,5 +187,8 @@ bool io_loop_have_ios(struct ioloop *ioloop);
 bool io_loop_have_immediate_timeouts(struct ioloop *ioloop);
 /* Returns number of microseconds spent on the ioloop waiting itself. */
 uint64_t io_loop_get_wait_usecs(struct ioloop *ioloop);
+/* Return all io conditions added for the given fd. This needs to scan through
+   all the file ios in the ioloop. */
+enum io_condition io_loop_find_fd_conditions(struct ioloop *ioloop, int fd);
 
 #endif

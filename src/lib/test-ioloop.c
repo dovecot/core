@@ -1,6 +1,7 @@
 /* Copyright (c) 2015 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "net.h"
 #include "time-util.h"
 #include "ioloop.h"
 
@@ -50,7 +51,55 @@ static void test_ioloop_timeout(void)
 	test_end();
 }
 
+static void io_callback(void *context ATTR_UNUSED)
+{
+}
+
+static void test_ioloop_find_fd_conditions(void)
+{
+	struct {
+		enum io_condition condition;
+		int fd[2];
+		struct io *io;
+	} tests[] = {
+		{ IO_ERROR, { -1, -1 }, NULL },
+		{ IO_READ, { -1, -1 }, NULL },
+		{ IO_WRITE, { -1, -1 }, NULL },
+		{ IO_READ | IO_WRITE, { -1, -1 }, NULL },
+		{ IO_READ, { -1, -1 }, NULL } /* read+write as separate ios */
+	};
+	struct ioloop *ioloop;
+	struct io *io;
+	unsigned int i;
+
+	test_begin("ioloop find fd conditions");
+
+	ioloop = io_loop_create();
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		if (socketpair(AF_UNIX, SOCK_STREAM, 0, tests[i].fd) < 0)
+			i_fatal("socketpair() failed: %m");
+		tests[i].io = io_add(tests[i].fd[0], tests[i].condition, io_callback, NULL);
+	}
+	io = io_add(tests[i-1].fd[0], IO_WRITE, io_callback, NULL);
+	tests[i-1].condition |= IO_WRITE;
+
+	for (i = 0; i < N_ELEMENTS(tests); i++)
+		test_assert_idx(io_loop_find_fd_conditions(ioloop, tests[i].fd[0]) == tests[i].condition, i);
+
+	io_remove(&io);
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		io_remove(&tests[i].io);
+		i_close_fd(&tests[i].fd[0]);
+		i_close_fd(&tests[i].fd[1]);
+	}
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
 void test_ioloop(void)
 {
 	test_ioloop_timeout();
+	test_ioloop_find_fd_conditions();
 }
