@@ -106,7 +106,8 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 		iter->ns = namespaces[iter->ns_idx++];
 		iter->iter = mailbox_list_iter_init(iter->ns->list, "*",
 			MAILBOX_LIST_ITER_SKIP_ALIASES |
-			MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+			MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
+			MAILBOX_LIST_ITER_NO_AUTO_BOXES);
 	}
 	while ((info = mailbox_list_iter_next(iter->iter)) != NULL) {
 		if ((info->flags & (MAILBOX_NONEXISTENT |
