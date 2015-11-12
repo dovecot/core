@@ -261,6 +261,8 @@ static const char *client_get_commands_status(struct client *client)
 	uint64_t running_usecs = 0, ioloop_wait_usecs;
 	unsigned long long bytes_in = 0, bytes_out = 0;
 	string_t *str;
+	enum io_condition cond;
+	const char *cond_str;
 
 	if (client->command_queue == NULL)
 		return "";
@@ -276,12 +278,22 @@ static const char *client_get_commands_status(struct client *client)
 		bytes_out += cmd->bytes_out;
 	}
 
+	cond = io_loop_find_fd_conditions(current_ioloop, client->fd_out);
+	if ((cond & (IO_READ | IO_WRITE)) != 0)
+		cond_str = "input/output";
+	else if ((cond & IO_READ) != 0)
+		cond_str = "input";
+	else if ((cond & IO_WRITE) != 0)
+		cond_str = "output";
+	else
+		cond_str = "nothing";
+
 	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
 	msecs_in_ioloop = (ioloop_wait_usecs -
 		client->command_queue->start_ioloop_wait_usecs + 999) / 1000;
-	str_printfa(str, " running for %d.%03d + waiting for %d.%03d secs",
+	str_printfa(str, " running for %d.%03d + waiting %s for %d.%03d secs",
 		    (int)((running_usecs+999)/1000 / 1000),
-		    (int)((running_usecs+999)/1000 % 1000),
+		    (int)((running_usecs+999)/1000 % 1000), cond_str,
 		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
 	str_printfa(str, ", %llu B in + %llu+%"PRIuSIZE_T" B out)",
 		    bytes_in, bytes_out,
