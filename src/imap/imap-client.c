@@ -33,6 +33,15 @@ struct imap_module_register imap_module_register = { 0 };
 struct client *imap_clients = NULL;
 unsigned int imap_client_count = 0;
 
+static const char *client_command_state_names[CLIENT_COMMAND_STATE_DONE+1] = {
+	"wait-input",
+	"wait-output",
+	"wait-external",
+	"wait-unambiguity",
+	"wait-sync",
+	"done"
+};
+
 static void client_idle_timeout(struct client *client)
 {
 	if (client->output_cmd_lock == NULL)
@@ -295,9 +304,10 @@ static const char *client_get_commands_status(struct client *client)
 		    (int)((running_usecs+999)/1000 / 1000),
 		    (int)((running_usecs+999)/1000 % 1000), cond_str,
 		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
-	str_printfa(str, ", %llu B in + %llu+%"PRIuSIZE_T" B out)",
+	str_printfa(str, ", %llu B in + %llu+%"PRIuSIZE_T" B out, state=%s)",
 		    bytes_in, bytes_out,
-		    o_stream_get_buffer_used_size(client->output));
+		    o_stream_get_buffer_used_size(client->output),
+		    client_command_state_names[client->command_queue->state]);
 	return str_c(str);
 }
 
