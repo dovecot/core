@@ -82,7 +82,7 @@ static void idle_client_input_more(struct cmd_idle_context *ctx)
 	switch (i_stream_read(client->input)) {
 	case -1:
 		/* disconnected */
-		client_disconnect(client, "Disconnected in IDLE");
+		client_disconnect(client, NULL);
 		return;
 	case -2:
 		client->input_skip_line = TRUE;

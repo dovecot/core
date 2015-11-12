@@ -301,22 +301,28 @@ static const char *client_get_commands_status(struct client *client)
 	return str_c(str);
 }
 
+static void client_log_disconnect(struct client *client, const char *reason)
+{
+	const char *cmd_status = "";
+
+	if (reason == NULL) {
+		reason = io_stream_get_disconnect_reason(client->input,
+							 client->output);
+		cmd_status = client_get_commands_status(client);
+	}
+	i_info("%s%s %s", reason, cmd_status, client_stats(client));
+}
+
 static void client_default_destroy(struct client *client, const char *reason)
 {
 	struct client_command_context *cmd;
-	const char *cmd_status = "";
 
 	i_assert(!client->destroyed);
 	client->destroyed = TRUE;
 
 	if (!client->disconnected) {
 		client->disconnected = TRUE;
-		if (reason == NULL) {
-			reason = io_stream_get_disconnect_reason(client->input,
-								 client->output);
-			cmd_status = client_get_commands_status(client);
-		}
-		i_info("%s%s %s", reason, cmd_status, client_stats(client));
+		client_log_disconnect(client, reason);
 	}
 
 	i_stream_close(client->input);
@@ -391,12 +397,10 @@ static void client_destroy_timeout(struct client *client)
 
 void client_disconnect(struct client *client, const char *reason)
 {
-	i_assert(reason != NULL);
-
 	if (client->disconnected)
 		return;
 
-	i_info("Disconnected: %s %s", reason, client_stats(client));
+	client_log_disconnect(client, reason);
 	client->disconnected = TRUE;
 	o_stream_nflush(client->output);
 	o_stream_uncork(client->output);

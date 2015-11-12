@@ -192,7 +192,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 		const char *errstr;
 
 		if (cmd->client->output->closed) {
-			client_disconnect(cmd->client, "Disconnected");
+			client_disconnect(cmd->client, NULL);
 			return TRUE;
 		}
 
