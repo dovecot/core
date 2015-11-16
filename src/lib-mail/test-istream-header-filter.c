@@ -12,16 +12,17 @@ filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 		struct message_header_line *hdr,
 		bool *matched, void *context ATTR_UNUSED)
 {
-	if (hdr != NULL && hdr->name_offset == 0) {
-		/* drop first header */
+	if (hdr != NULL && (hdr->name_offset == 0 ||
+			    strcmp(hdr->name, "X-Drop") == 0)) {
+		/* drop 1) first header, 2) X-Drop header */
 		*matched = TRUE;
 	}
 }
 
 static void test_istream_filter(void)
 {
-	static const char *exclude_headers[] = { "Subject", "To", NULL };
-	const char *input = "From: foo\nFrom: abc\nTo: bar\nSubject: plop\n\nhello world\n";
+	static const char *exclude_headers[] = { "Subject", "To", "X-Drop", NULL };
+	const char *input = "From: foo\nFrom: abc\nTo: bar\nSubject: plop\nX-Drop: 1\n\nhello world\n";
 	const char *output = "From: abc\n\nhello world\n";
 	struct istream *istream, *filter, *filter2;
 	unsigned int i, input_len = strlen(input);
