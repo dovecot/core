@@ -35,6 +35,7 @@ static void test_pop3_migration_get_hdr_sha1(void)
 							    digest, &have_eoh) == 0, i);
 		test_assert_idx(strcasecmp(binary_to_hex(digest, sizeof(digest)), tests[i].sha1) == 0, i);
 		test_assert_idx(tests[i].have_eoh == have_eoh, i);
+		i_stream_unref(&input);
 	}
 
 	test_end();
