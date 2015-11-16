@@ -57,7 +57,7 @@ static void test_message_header_encode_q(void)
 
 	str_append_c(input, 'a');
 	for (i = 0; i < 40; i++)
-		str_append(input, "ä");
+		str_append(input, "\xC3\xA4");
 	for (i = 0; i < 80; i++) {
 		for (skip = 0; skip < 2; skip++) {
 			str_truncate(str, 0);
@@ -144,7 +144,7 @@ static void test_message_header_encode_b(void)
 
 	str_append_c(input, 'a');
 	for (i = 0; i < 40; i++)
-		str_append(input, "ä");
+		str_append(input, "\xC3\xA4");
 	for (i = 0; i < 80; i++) {
 		for (skip = 0; skip < 2; skip++) {
 			str_truncate(str, 0);
@@ -166,10 +166,10 @@ static void test_message_header_encode(void)
 {
 	const char *data[] = {
 		"a b", "a b",
-		"a bcäde f", "a =?utf-8?q?bc=C3=A4de?= f",
-		"a ää ä b", "a =?utf-8?b?w6TDpCDDpA==?= b",
-		"ä a ä", "=?utf-8?q?=C3=A4_a_=C3=A4?=",
-		"ää a ä", "=?utf-8?b?w6TDpCBhIMOk?=",
+		"a bc\xC3\xA4""de f", "a =?utf-8?q?bc=C3=A4de?= f",
+		"a \xC3\xA4\xC3\xA4 \xC3\xA4 b", "a =?utf-8?b?w6TDpCDDpA==?= b",
+		"\xC3\xA4 a \xC3\xA4", "=?utf-8?q?=C3=A4_a_=C3=A4?=",
+		"\xC3\xA4\xC3\xA4 a \xC3\xA4", "=?utf-8?b?w6TDpCBhIMOk?=",
 		"=", "=",
 		"?", "?",
 		"a=?", "a=?",

@@ -27,13 +27,13 @@ charset_to_utf8(struct charset_translation *t ATTR_UNUSED,
 static void test_message_header_decode(void)
 {
 	static const char *data[] = {
-		" \t=?utf-8?q?=c3=a4?=  =?utf-8?q?=c3=a4?=  b  \t\r\n ", "ää  b  \t\r\n ",
-		"a =?utf-8?q?=c3=a4?= b", "a ä b",
-		"a =?utf-8?q?=c3=a4?= b", "a ä b",
-		"a =?utf-8?q?=c3=a4?=\t\t\r\n =?utf-8?q?=c3=a4?= b", "a ää b",
-		"a =?utf-8?q?=c3=a4?=  x  =?utf-8?q?=c3=a4?= b", "a ä  x  ä b",
-		"a =?utf-8?b?w6TDpCDDpA==?= b", "a ää ä b",
-		"=?utf-8?b?w6Qgw6Q=?=", "ä ä",
+		" \t=?utf-8?q?=c3=a4?=  =?utf-8?q?=c3=a4?=  b  \t\r\n ", "\xC3\xA4\xC3\xA4  b  \t\r\n ",
+		"a =?utf-8?q?=c3=a4?= b", "a \xC3\xA4 b",
+		"a =?utf-8?q?=c3=a4?= b", "a \xC3\xA4 b",
+		"a =?utf-8?q?=c3=a4?=\t\t\r\n =?utf-8?q?=c3=a4?= b", "a \xC3\xA4\xC3\xA4 b",
+		"a =?utf-8?q?=c3=a4?=  x  =?utf-8?q?=c3=a4?= b", "a \xC3\xA4  x  \xC3\xA4 b",
+		"a =?utf-8?b?w6TDpCDDpA==?= b", "a \xC3\xA4\xC3\xA4 \xC3\xA4 b",
+		"=?utf-8?b?w6Qgw6Q=?=", "\xC3\xA4 \xC3\xA4",
 	};
 	string_t *dest;
 	unsigned int i;

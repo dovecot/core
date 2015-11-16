@@ -13,8 +13,9 @@ static void test_imap_utf7_by_example(void)
 		const char *mutf7;
 	} tests[] = {
 		{ "&&x&&", "&-&-x&-&-" },
-		{ "~peter/mail/台北/日本語", "~peter/mail/&U,BTFw-/&ZeVnLIqe-" },
-		{ "tietäjä", "tiet&AOQ-j&AOQ-" },
+		{ "~peter/mail/\xe5\x8f\xb0\xe5\x8c\x97/\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e",
+		  "~peter/mail/&U,BTFw-/&ZeVnLIqe-" },
+		{ "tiet\xc3\xa4j\xc3\xa4", "tiet&AOQ-j&AOQ-" },
 		{ "p\xe4\xe4", NULL },
 		{ NULL, "&" },
 		{ NULL, "&Jjo" },

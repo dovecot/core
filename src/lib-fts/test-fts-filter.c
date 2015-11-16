@@ -415,8 +415,8 @@ static void test_fts_filter_normalizer_swedish_short(void)
 	struct fts_filter *norm = NULL;
 	const char *input[] = {
 		"Vem",
-		"Å",
-		"ÅÄÖ",
+		"\xC3\x85",
+		"\xC3\x85\xC3\x84\xC3\x96",
 		"Vem kan segla f\xC3\xB6rutan vind?\n"
 		"\xC3\x85\xC3\x84\xC3\x96\xC3\xB6\xC3\xA4\xC3\xA5"
 	};
@@ -450,8 +450,8 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 	struct fts_filter *norm = NULL;
 	const char *input[] = {
 		"Vem",
-		"Å",
-		"ÅÄÖ",
+		"\xC3\x85",
+		"\xC3\x85\xC3\x84\xC3\x96",
 		"Vem kan segla f\xC3\xB6rutan vind?\n"
 		"\xC3\x85\xC3\x84\xC3\x96\xC3\xB6\xC3\xA4\xC3\xA5"
 	};
@@ -662,14 +662,14 @@ static void test_fts_filter_english_possessive(void)
 		"foo'",
 
 		"foo's",
-		"fooä's",
+		"foo\xC3\xA4's",
 		"foo'S",
 		"foos'S",
 		"foo's's",
 		"foo'ss",
 
 		"foo\xE2\x80\x99s",
-		"fooä\xE2\x80\x99s",
+		"foo\xC3\xA4\xE2\x80\x99s",
 		"foo\xE2\x80\x99S",
 		"foos\xE2\x80\x99S",
 		"foo\xE2\x80\x99s\xE2\x80\x99s",
@@ -679,14 +679,14 @@ static void test_fts_filter_english_possessive(void)
 		"foo'",
 
 		"foo",
-		"fooä",
+		"foo\xC3\xA4",
 		"foo",
 		"foos",
 		"foo's",
 		"foo'ss",
 
 		"foo",
-		"fooä",
+		"foo\xC3\xA4",
 		"foo",
 		"foos",
 		"foo\xE2\x80\x99s",

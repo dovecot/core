@@ -20,9 +20,9 @@ static const char *test_inputs[] = {
 	"abc@example.com, "
 	"Bar Baz <bar@example.org>, "
 	"foo@domain "
-	"1234567890123456789012345678ä,"
-	"12345678901234567890123456789ä,"
-	"123456789012345678901234567890ä,"
+	"1234567890123456789012345678\xC3\xA4,"
+	"12345678901234567890123456789\xC3\xA4,"
+	"123456789012345678901234567890\xC3\xA4,"
 	"and longlonglongabcdefghijklmnopqrstuvwxyz more.\n\n "
 	"(\"Hello world\")3.14 3,14 last",
 
@@ -30,8 +30,8 @@ static const char *test_inputs[] = {
 
 	"' ' '' ''' 'quoted text' 'word' 'hlo words' you're bad'''word '''pre post'''",
 
-	"'1234567890123456789012345678ä,"
-	"123456789012345678901234567x'ä,"
+	"'1234567890123456789012345678\xC3\xA4,"
+	"123456789012345678901234567x'\xC3\xA4,"
 	"1234567890123456789012345678x're,"
 	"1234567890123456789012345678x',"
 	"1234567890123456789012345678x'',"
@@ -141,7 +141,7 @@ static void test_fts_tokenizer_generic_only(void)
 		"there", "was", "text", "galor\xC3\xA9",
 		"abc", "example", "com", "Bar", "Baz",
 		"bar", "example", "org", "foo", "domain",
-		"1234567890123456789012345678ä",
+		"1234567890123456789012345678\xC3\xA4",
 		"12345678901234567890123456789",
 		"123456789012345678901234567890",
 		"and", "longlonglongabcdefghijklmnopqr",
@@ -152,7 +152,7 @@ static void test_fts_tokenizer_generic_only(void)
 		"quoted", "text", "word", "hlo", "words", "you're", "bad",
 		"word", "pre", "post", NULL,
 
-		"1234567890123456789012345678ä",
+		"1234567890123456789012345678\xC3\xA4",
 		"123456789012345678901234567x'",
 		"1234567890123456789012345678x'",
 		"1234567890123456789012345678x",
@@ -200,7 +200,7 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 		"there", "was", "text", "galor\xC3\xA9",
 		"abc", "example", "com", "Bar", "Baz",
 		"bar", "example", "org", "foo", "domain",
-		"1234567890123456789012345678ä",
+		"1234567890123456789012345678\xC3\xA4",
 		"12345678901234567890123456789",
 		"123456789012345678901234567890",
 		"and", "longlonglongabcdefghijklmnopqr",
@@ -211,7 +211,7 @@ static void test_fts_tokenizer_generic_tr29_only(void)
 		"quoted", "text", "word", "hlo", "words", "you're", "bad",
 		"word", "pre", "post", NULL,
 
-		"1234567890123456789012345678ä",
+		"1234567890123456789012345678\xC3\xA4",
 		"123456789012345678901234567x'",
 		"1234567890123456789012345678x'",
 		"1234567890123456789012345678x",
@@ -256,7 +256,7 @@ static void test_fts_tokenizer_generic_tr29_wb5a(void)
 		"there", "was", "text", "galor\xC3\xA9",
 		"abc", "example", "com", "Bar", "Baz",
 		"bar", "example", "org", "foo", "domain",
-		"1234567890123456789012345678ä",
+		"1234567890123456789012345678\xC3\xA4",
 		"12345678901234567890123456789",
 		"123456789012345678901234567890",
 		"and", "longlonglongabcdefghijklmnopqr",
@@ -267,7 +267,7 @@ static void test_fts_tokenizer_generic_tr29_wb5a(void)
 		"quoted", "text", "word", "hlo", "words", "you're", "bad",
 		"word", "pre", "post", NULL,
 
-		"1234567890123456789012345678ä",
+		"1234567890123456789012345678\xC3\xA4",
 		"123456789012345678901234567x'",
 		"1234567890123456789012345678x'",
 		"1234567890123456789012345678x",

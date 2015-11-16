@@ -66,9 +66,13 @@ static void test_charset_iconv(void)
 		const char *output;
 		enum charset_result result;
 	} tests[] = {
-		{ "ISO-8859-1", "p\xE4\xE4", "pää", CHARSET_RET_OK },
+		{ "ISO-8859-1", "p\xE4\xE4", "p\xC3\xA4\xC3\xA4", CHARSET_RET_OK },
 		{ "UTF-7", "+AOQA5AD2AOQA9gDkAPYA5AD2AOQA9gDkAPYA5AD2AOQA9gDkAPYA5AD2AOQA9gDkAPYA5AD2AOQA9gDkAPYA5AD2AOQA9gDk",
-		  "ääöäöäöäöäöäöäöäöäöäöäöäöäöäöäöäöäöä", CHARSET_RET_OK }
+		  "\xC3\xA4\xC3\xA4\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4"
+		  "\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4"
+		  "\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4"
+		  "\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4"
+		  "\xC3\xB6\xC3\xA4\xC3\xB6\xC3\xA4", CHARSET_RET_OK }
 	};
 	string_t *str = t_str_new(128);
 	struct charset_translation *trans;

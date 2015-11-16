@@ -10,15 +10,15 @@ static const struct {
 	const char *output;
 	int ret;
 } tests[] = {
-	{ "p=C3=A4=C3=A4t=C3=B6s", "päätös", 0 },
-	{ "p=c3=a4=c3=a4t=c3=b6s=  \n", "päätös", 0 },
-	{ "p=c3=a4= \t \n=c3=\r\n=a4t=  \r\n=c3=b6s", "päätös", 0 },
+	{ "p=C3=A4=C3=A4t=C3=B6s", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", 0 },
+	{ "p=c3=a4=c3=a4t=c3=b6s=  \n", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", 0 },
+	{ "p=c3=a4= \t \n=c3=\r\n=a4t=  \r\n=c3=b6s", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", 0 },
 
-	{ "p=c3=a4\rasdf", "pä", -1 },
+	{ "p=c3=a4\rasdf", "p\xC3\xA4", -1 },
 	{ "p=c", "p", -1 },
 	{ "p=A", "p", -1 },
 	{ "p=Ax", "p", -1 },
-	{ "p=c3=a4=c3=a4t=c3=b6s=  ", "päätös", -1 }
+	{ "p=c3=a4=c3=a4t=c3=b6s=  ", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", -1 }
 };
 
 static void
