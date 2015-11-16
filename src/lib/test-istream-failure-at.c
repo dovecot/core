@@ -34,6 +34,7 @@ void test_istream_failure_at(void)
 	while ((ret = i_stream_read(input)) > 0)
 		i_stream_skip(input, ret);
 	test_assert(ret == -1 && input->stream_errno == 0);
+	i_stream_destroy(&input);
 	/* fail at EOF */
 	i_stream_seek(data_input, 0);
 	input = i_stream_create_failure_at_eof(data_input, TEST_ERRMSG);
@@ -42,5 +43,7 @@ void test_istream_failure_at(void)
 	test_assert_idx(ret == -1 && input->v_offset == TEST_DATA_LENGTH &&
 			input->stream_errno == EIO &&
 			strcmp(i_stream_get_error(input), TEST_ERRMSG) == 0, i);
+	i_stream_destroy(&input);
+	i_stream_destroy(&data_input);
 	test_end();
 }
