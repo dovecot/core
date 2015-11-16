@@ -1,0 +1,6 @@
+{
+   <bash>
+   Memcheck:Leak
+   fun:malloc
+   obj:*/bash
+}
