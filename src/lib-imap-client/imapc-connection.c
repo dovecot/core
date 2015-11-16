@@ -548,6 +548,7 @@ imapc_connection_read_line_more(struct imapc_connection *conn,
 	ret = imap_parser_read_args(conn->parser, 0,
 				    IMAP_PARSE_FLAG_LITERAL_SIZE |
 				    IMAP_PARSE_FLAG_ATOM_ALLCHARS |
+				    IMAP_PARSE_FLAG_LITERAL8 |
 				    IMAP_PARSE_FLAG_SERVER_TEXT, imap_args_r);
 	if (ret == -2) {
 		/* need more data */
