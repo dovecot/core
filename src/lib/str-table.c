@@ -29,6 +29,7 @@ void str_table_deinit(struct str_table **_table)
 	iter = hash_table_iterate_init(table->hash);
 	while (hash_table_iterate(iter, table->hash, &key, &value))
 		i_free(key);
+	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&table->hash);
 	i_free(table);
 }
