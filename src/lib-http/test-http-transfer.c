@@ -100,12 +100,14 @@ static void test_http_transfer_chunked_input_valid(void)
 
 		input = i_stream_create_from_data(in, strlen(in));
 		chunked = http_transfer_chunked_istream_create(input, 0);
+		i_stream_unref(&input);
 
 		buffer_set_used_size(payload_buffer, 0);
 		output = o_stream_create_buffer(payload_buffer);
 		test_out("payload read", o_stream_send_istream(output, chunked) > 0
 			&& chunked->stream_errno == 0);
 		o_stream_destroy(&output);
+		i_stream_unref(&chunked);
 		stream_out = str_c(payload_buffer);
 
 		test_out(t_strdup_printf("response->payload = %s",
@@ -194,11 +196,13 @@ static void test_http_transfer_chunked_input_invalid(void)
 
 		input = i_stream_create_from_data(in, strlen(in));
 		chunked = http_transfer_chunked_istream_create(input, 0);
+		i_stream_unref(&input);
 
 		buffer_set_used_size(payload_buffer, 0);
 		output = o_stream_create_buffer(payload_buffer);
 		(void)o_stream_send_istream(output, chunked);
 		test_out("payload read failure", chunked->stream_errno != 0);
+		i_stream_unref(&chunked);
 		o_stream_destroy(&output);
 
 		test_end();

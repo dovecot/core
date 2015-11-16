@@ -232,6 +232,7 @@ static void test_http_header_parse_valid(void)
 
 		test_out_reason("parse success", ret > 0, error);
 		test_end();
+		i_stream_unref(&input);
 		http_header_parser_deinit(&parser);
 	} T_END;
 }
@@ -359,6 +360,7 @@ static void test_http_header_parse_invalid(void)
 
 		test_out_reason("parse failure", ret < 0, error);
 		test_end();
+		i_stream_unref(&input);
 		http_header_parser_deinit(&parser);
 	} T_END;
 }

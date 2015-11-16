@@ -119,6 +119,8 @@ static void test_http_response_parse_valid(void)
 			ret = http_response_parse_next(parser, FALSE, &response, &error);
 		}
 		test_istream_set_size(input, response_text_len);
+		i_stream_unref(&input);
+
 		while (ret > 0) {
 			if (response.payload != NULL) {
 				buffer_set_used_size(payload_buffer, 0);
@@ -197,6 +199,7 @@ static void test_http_response_parse_invalid(void)
 		response_text = test;
 		input = i_stream_create_from_data(response_text, strlen(response_text));
 		parser = http_response_parser_init(input, NULL);
+		i_stream_unref(&input);
 
 		test_begin(t_strdup_printf("http response invalid [%d]", i));
 
@@ -231,6 +234,7 @@ static void test_http_response_parse_bad(void)
 	input = i_stream_create_from_data(bad_response_with_nuls,
 					  sizeof(bad_response_with_nuls)-1);
 	parser = http_response_parser_init(input, NULL);
+	i_stream_unref(&input);
 	while ((ret=http_response_parse_next(parser, FALSE, &response, &error)) > 0);
 	test_out("parse success", ret == 0);
 	header = http_response_header_get(&response, "server");
@@ -240,6 +244,7 @@ static void test_http_response_parse_bad(void)
 			strcmp(header, "textserver") == 0);
 	}
 	test_end();
+	http_response_parser_deinit(&parser);
 }
 
 int main(void)

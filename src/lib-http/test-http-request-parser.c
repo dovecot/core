@@ -188,6 +188,8 @@ static void test_http_request_parse_valid(void)
 				(parser, NULL, &request, &error_code, &error);
 		}
 		test_istream_set_size(input, request_text_len);
+		i_stream_unref(&input);
+
 		while (ret > 0) {
 			if (request.payload != NULL) {
 				buffer_set_used_size(payload_buffer, 0);
@@ -402,6 +404,7 @@ static void test_http_request_parse_invalid(void)
 		request_text = test->request;
 		input = i_stream_create_from_data(request_text, strlen(request_text));
 		parser = http_request_parser_init(input, NULL);
+		i_stream_unref(&input);
 
 		test_begin(t_strdup_printf("http request invalid [%d]", i));
 
@@ -423,9 +426,12 @@ static void test_http_request_parse_invalid(void)
 	input = i_stream_create_from_data(invalid_request_with_nuls,
 					  sizeof(invalid_request_with_nuls)-1);
 	parser = http_request_parser_init(input, NULL);
+	i_stream_unref(&input);
+
 	while ((ret=http_request_parse_next
 		(parser, NULL, &request, &error_code, &error)) > 0);
 	test_assert(ret < 0);
+	http_request_parser_deinit(&parser);
 	test_end();
 }
 
