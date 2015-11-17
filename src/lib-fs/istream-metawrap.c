@@ -100,7 +100,7 @@ static int i_stream_metawrap_stat(struct istream_private *stream, bool exact)
 
 	if (mstream->in_metadata) {
 		ret = i_stream_read(&stream->istream);
-		if (ret < 0)
+		if (ret < 0 && stream->istream.stream_errno != 0)
 			return -1;
 		if (ret == 0) {
 			stream->statbuf.st_size = -1;
