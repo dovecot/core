@@ -29,19 +29,20 @@ struct fts_language_list {
 	bool textcat_failed;
 };
 
+/*  ISO 639-1 alpha 2 codes for languages */
 const struct fts_language fts_languages[] = {
-	{ "da" },
-	{ "de" },
-	{ "en" },
-	{ "es" },
-	{ "fi" },
-	{ "fr" },
-	{ "it" },
-	{ "nl" },
-	{ "pt" },
-	{ "ro" },
-	{ "ru" },
-	{ "sv" }
+	{ "da" }, /* Danish */
+	{ "de" }, /* German */
+	{ "en" }, /* English */
+	{ "es" }, /* Spanish */
+	{ "fi" }, /* Finnish */
+	{ "fr" }, /* French */
+	{ "it" }, /* Italian */
+	{ "nl" }, /* Dutch */
+	{ "pt" }, /* Portuguese */
+	{ "ro" }, /* Romanian */
+	{ "ru" }, /* Russian */
+	{ "sv" } /* Swedish */
 };
 
 const struct fts_language fts_language_data = {
