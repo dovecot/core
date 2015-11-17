@@ -471,8 +471,8 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 
 	input = fs_read_stream(_file, IO_BLOCK_SIZE);
 	if ((ret = i_stream_get_size(input, TRUE, &input_size)) < 0) {
-		fs_set_error(_file->fs, "i_stream_get_size(%s) failed: %m",
-			     fs_file_path(_file));
+		fs_set_error(_file->fs, "i_stream_get_size(%s) failed: %s",
+			     fs_file_path(_file), i_stream_get_error(input));
 		i_stream_unref(&input);
 		return -1;
 	}
