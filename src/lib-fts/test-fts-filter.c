@@ -61,7 +61,8 @@ static void test_fts_filter_contractions_fr(void)
 		{ "d", "d" },
 		{ "qu'", NULL },
 		{ "j'adore", "adore" },
-		{ "quelqu'un", "quelqu'un" }
+		{ "quelqu'un", "quelqu'un" },
+		{ "l'esprit", "esprit" }
 	};
 	struct fts_filter *filter;
 	const char *error;
