@@ -70,6 +70,8 @@ struct master_auth_request_params {
 	/* Client fd to transfer to post-login process or -1 if no fd is
 	   wanted to be transferred. */
 	int client_fd;
+	/* Override master_auth->default_path if non-NULL */
+	const char *socket_path;
 
 	/* Authentication request that is sent to post-login process.
 	   tag is ignored. */
