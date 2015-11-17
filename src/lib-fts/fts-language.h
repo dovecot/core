@@ -24,10 +24,20 @@ ARRAY_DEFINE_TYPE(fts_language, const struct fts_language *);
    language-specific filters. */
 extern const struct fts_language fts_language_data;
 
+/*
+  Language module API.
+*/
+void fts_languages_init(void);
+void fts_languages_deinit(void);
+/* Add a language to the list of supported languages. */
+void fts_language_register(const char *name);
 /* Find a specified language by name. This finds from the internal list of
    supported languages. */
 const struct fts_language *fts_language_find(const char *name);
 
+/*
+  Language list API
+*/
 int fts_language_list_init(const char *const *settings,
 			   struct fts_language_list **list_r,
 			   const char **error_r);

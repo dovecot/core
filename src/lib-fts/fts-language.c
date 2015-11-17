@@ -2,9 +2,9 @@
 
 #include "lib.h"
 #include "array.h"
-#include "fts-language.h"
-#include "strfuncs.h"
 #include "llist.h"
+#include "fts-language.h"
+
 
 #ifdef HAVE_LIBEXTTEXTCAT_TEXTCAT_H
 #  include <libexttextcat/textcat.h>
@@ -29,8 +29,11 @@ struct fts_language_list {
 	bool textcat_failed;
 };
 
+pool_t fts_languages_pool;
+ARRAY_TYPE(fts_language) fts_languages;
+
 /*  ISO 639-1 alpha 2 codes for languages */
-const struct fts_language fts_languages[] = {
+const struct fts_language fts_languages_builtin [] = {
 	{ "da" }, /* Danish */
 	{ "de" }, /* German */
 	{ "en" }, /* English */
@@ -50,13 +53,46 @@ const struct fts_language fts_language_data = {
 	"data"
 };
 
-const struct fts_language *fts_language_find(const char *name)
+void fts_languages_init(void)
 {
 	unsigned int i;
+	const struct fts_language *lp;
 
-	for (i = 0; i < N_ELEMENTS(fts_languages); i++) {
-		if (strcmp(fts_languages[i].name, name) == 0)
-			return &fts_languages[i];
+	fts_languages_pool = pool_alloconly_create("fts_language",
+	                                           sizeof(fts_languages_builtin));
+	p_array_init(&fts_languages, fts_languages_pool,
+	             N_ELEMENTS(fts_languages_builtin));
+	for (i = 0; i < N_ELEMENTS(fts_languages_builtin); i++){
+		lp = &fts_languages_builtin[i];
+		array_append(&fts_languages, &lp, 1);
+	}
+}
+
+void fts_languages_deinit(void)
+{
+	if (fts_languages_pool != NULL)
+		pool_unref(&fts_languages_pool);
+}
+
+void fts_language_register(const char *name)
+{
+	struct fts_language *lang;
+
+	if (fts_language_find(name) != NULL)
+		return;
+
+	lang = p_new(fts_languages_pool, struct fts_language, 1);
+	lang->name = p_strdup(fts_languages_pool, name);
+	array_append(&fts_languages, (const struct fts_language **)&lang, 1);
+}
+
+const struct fts_language *fts_language_find(const char *name)
+{
+	const struct fts_language *const *langp = NULL;
+
+	array_foreach(&fts_languages, langp) {
+		if (strcmp((*langp)->name, name) == 0)
+			return *langp;
 	}
 	return NULL;
 }

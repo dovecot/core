@@ -278,9 +278,29 @@ static void test_fts_language_detect_unknown(void)
 	fts_language_list_deinit(&lp);
 	test_end();
 }
+static void test_fts_language_find_builtin(void)
+{
+	const struct fts_language *lp;
+	test_begin("fts language find built-in");
+	lp = fts_language_find("en");
+	test_assert(lp != NULL);
+	test_assert(strcmp(lp->name, "en") == 0);
+	test_end();
+}
+static void test_fts_language_register(void)
+{
+	const struct fts_language *lp;
+	test_begin("fts language register");
+	fts_language_register("jp");
+	lp = fts_language_find("jp");
+	test_assert(lp != NULL);
+	test_assert(strcmp(lp->name, "jp") == 0);
+	test_end();
+}
 
 int main(void)
 {
+	int ret;
 	static void (*test_functions[])(void) = {
 		test_fts_language_detect_finnish,
 		test_fts_language_detect_english,
@@ -292,7 +312,12 @@ int main(void)
 		test_fts_language_detect_finnish_as_english,
 		test_fts_language_detect_na,
 		test_fts_language_detect_unknown,
+		test_fts_language_find_builtin,
+		test_fts_language_register,
 		NULL
 	};
-	return test_run(test_functions);
+	fts_languages_init();
+	ret = test_run(test_functions);
+	fts_languages_deinit();
+	return ret;
 }
