@@ -212,7 +212,7 @@ static void tok_append_truncated(struct generic_fts_tokenizer *tok,
 }
 
 static int
-fts_tokenizer_generic_next_simple(struct fts_tokenizer *_tok,
+fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
                                   const unsigned char *data, size_t size,
 				  size_t *skip_r, const char **token_r,
 				  const char **error_r ATTR_UNUSED)
@@ -666,7 +666,7 @@ uni_found_word_boundary(struct generic_fts_tokenizer *tok, enum letter_type lt)
 }
 
 static int
-fts_tokenizer_generic_next_tr29(struct fts_tokenizer *_tok,
+fts_tokenizer_generic_tr29_next(struct fts_tokenizer *_tok,
 				const unsigned char *data, size_t size,
 				size_t *skip_r, const char **token_r,
 				const char **error_r ATTR_UNUSED)
@@ -760,11 +760,11 @@ const struct fts_tokenizer_vfuncs generic_tokenizer_vfuncs_simple = {
 	fts_tokenizer_generic_create,
 	fts_tokenizer_generic_destroy,
 	fts_tokenizer_generic_reset,
-	fts_tokenizer_generic_next_simple
+	fts_tokenizer_generic_simple_next
 };
 const struct fts_tokenizer_vfuncs generic_tokenizer_vfuncs_tr29 = {
 	fts_tokenizer_generic_create,
 	fts_tokenizer_generic_destroy,
 	fts_tokenizer_generic_reset,
-	fts_tokenizer_generic_next_tr29
+	fts_tokenizer_generic_tr29_next
 };
