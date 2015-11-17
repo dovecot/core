@@ -71,6 +71,7 @@ libfts_la_SOURCES = \
 	fts-filter-stopwords.c \
 	fts-filter-stemmer-snowball.c \
 	fts-language.c \
+	fts-library.c \
 	fts-tokenizer.c \
 	fts-tokenizer-address.c \
 	fts-tokenizer-generic.c \
@@ -82,6 +83,7 @@ headers = \
 	fts-filter-private.h \
 	fts-icu.h \
 	fts-language.h \
+	fts-library.h \
 	fts-tokenizer.h \
 	fts-tokenizer-private.h \
 	fts-tokenizer-generic-private.h

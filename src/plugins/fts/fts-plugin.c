@@ -8,7 +8,7 @@
 #include "fts-storage.h"
 #include "fts-user.h"
 #include "fts-plugin.h"
-
+#include "fts-library.h"
 
 const char *fts_plugin_version = DOVECOT_ABI_VERSION;
 
@@ -20,15 +20,13 @@ static struct mail_storage_hooks fts_mail_storage_hooks = {
 
 void fts_plugin_init(struct module *module)
 {
-	fts_filters_init();
-	fts_tokenizers_init();
+	fts_library_init();
 	mail_storage_hooks_add(module, &fts_mail_storage_hooks);
 }
 
 void fts_plugin_deinit(void)
 {
-	fts_filters_deinit();
-	fts_tokenizers_deinit();
+	fts_library_deinit();
 	fts_parsers_unload();
 	mail_storage_hooks_remove(&fts_mail_storage_hooks);
 }
