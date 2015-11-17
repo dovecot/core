@@ -678,7 +678,6 @@ fts_tokenizer_generic_tr29_next(struct fts_tokenizer *_tok,
 	enum letter_type lt;
 	int char_size;
 
-	/* TODO: Process 8bit chars separately, to speed things up. */
 	for (i = 0; i < size; ) {
 		char_start_i = i;
 		char_size = uni_utf8_get_char_n(data + i, size - i, &c);
