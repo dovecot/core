@@ -13,6 +13,7 @@
 static const char *const stopword_settings[] = {"stopwords_dir", TEST_STOPWORDS_DIR, NULL};
 static struct fts_language english_language = { .name = "en" };
 static struct fts_language french_language = { .name = "fr" };
+static struct fts_language swedish_language = { .name = "sv" };
 
 static void test_fts_filter_find(void)
 {
@@ -653,6 +654,57 @@ static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 	test_assert(normalizer == NULL);
 	test_end();
 }
+
+static void test_fts_filter_stopwords_normalizer_stemmer_sv(void)
+{
+	int ret;
+	struct fts_filter *normalizer;
+	struct fts_filter *stemmer;
+	struct fts_filter *filter;
+	const char *error;
+	const char *token = NULL;
+	const char * const tokens[] = {
+		"Enär", "erkännandet", "av", "det", "inneboende", "värdet",
+		"hos", "alla", "medlemmar", "av", "människosläktet", "och",
+		"av", "deras", "lika", "och", "oförytterliga", "rättigheter",
+		"är", "grundvalen", "för", "frihet", "rättvisa", "och", "fred",
+		"i", "världen",	NULL};
+	const char * const bases[] = {
+		"enar", "erkan", NULL, NULL, "inneboend", "vardet", "hos", NULL,
+		"medlemm", NULL, "manniskoslaktet", NULL, NULL, NULL, "lik",
+		NULL, "oforytter", "ratt", NULL, "grundval", NULL, "frihet",
+		"rattvis", NULL, "fred", NULL, "varld", NULL};
+	const char * const *tpp;
+	const char * const *bpp;
+
+	test_begin("fts filters with stopwords, default normalizer and stemming chained, Swedish");
+
+
+	test_assert(fts_filter_create(fts_filter_stopwords, NULL, &swedish_language, stopword_settings, &filter, &error) == 0);
+	test_assert(fts_filter_create(fts_filter_normalizer_icu, filter, NULL, NULL, &normalizer, &error) == 0);
+	test_assert(fts_filter_create(fts_filter_stemmer_snowball, normalizer, &swedish_language, NULL, &stemmer, &error) == 0);
+
+	bpp = bases;
+	for (tpp = tokens; *tpp != NULL; tpp++) {
+		token = *tpp;
+		ret = fts_filter_filter(stemmer, &token, &error);
+		if (ret <= 0) {
+			test_assert(ret == 0);
+			test_assert(*bpp == NULL);
+		} else {
+			test_assert(*bpp != NULL);
+			test_assert(strcmp(*bpp, token)  == 0);
+		}
+		bpp++;
+	}
+	fts_filter_unref(&stemmer);
+	fts_filter_unref(&normalizer);
+	fts_filter_unref(&filter);
+	test_assert(stemmer == NULL);
+	test_assert(filter == NULL);
+	test_assert(normalizer == NULL);
+	test_end();
+}
 #endif
 #endif
 
@@ -741,6 +793,7 @@ int main(void)
 		test_fts_filter_normalizer_invalid_id,
 #ifdef HAVE_FTS_STEMMER
 		test_fts_filter_normalizer_stopwords_stemmer_eng,
+		test_fts_filter_stopwords_normalizer_stemmer_sv,
 #endif
 #endif
 		test_fts_filter_english_possessive,

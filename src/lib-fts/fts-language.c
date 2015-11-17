@@ -41,6 +41,7 @@ const struct fts_language fts_languages[] = {
 	{ "pt" },
 	{ "ro" },
 	{ "ru" },
+	{ "sv" }
 };
 
 const struct fts_language fts_language_data = {

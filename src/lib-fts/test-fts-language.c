@@ -134,6 +134,32 @@ static void test_fts_language_detect_german(void)
 	test_end();
 }
 
+/* Detect Swedish */
+static void test_fts_language_detect_swedish(void)
+{
+	struct fts_language_list *lp = NULL;
+	const struct fts_language *lang_r = NULL;
+	const unsigned char swedish[]  =
+		"Artikel 1."\
+		"Alla m\xC3\xA4nniskor \xC3\xA4ro f\xC3\xB6""dda fria och lika"\
+		" i v\xC3\xA4rde och r\xC3\xA4ttigheter. De \xC3\xA4ro "\
+		"utrustade med f\xC3\xB6rnuft och samvete och b\xC3\xB6ra "\
+		"handla gentemot varandra i en anda av broderskap.";
+
+
+
+	const char names[] = "fi, de, sv, fr, en";
+	const char *unknown, *error;
+	test_begin("fts language detect Swedish");
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
+	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
+	test_assert(fts_language_detect(lp, swedish, sizeof(swedish)-1, &lang_r)
+	            == FTS_LANGUAGE_RESULT_OK);
+	test_assert(strcmp(lang_r->name, "sv") == 0);
+	fts_language_list_deinit(&lp);
+	test_end();
+}
+
 /* Detect Finnish as English */
 static void test_fts_language_detect_finnish_as_english(void)
 {
@@ -212,6 +238,7 @@ int main(void)
 		test_fts_language_detect_english,
 		test_fts_language_detect_french,
 		test_fts_language_detect_german,
+		test_fts_language_detect_swedish,
 		test_fts_language_detect_finnish_as_english,
 		test_fts_language_detect_na,
 		test_fts_language_detect_unknown,
