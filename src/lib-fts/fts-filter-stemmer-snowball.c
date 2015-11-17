@@ -55,7 +55,7 @@ static int
 fts_filter_stemmer_snowball_create_stemmer(struct fts_filter_stemmer_snowball *sp,
 					   const char **error_r)
 {
-	sp->stemmer = sb_stemmer_new(sp->lang->name, NULL);
+	sp->stemmer = sb_stemmer_new(sp->lang->name, "UTF_8");
 	if (sp->stemmer == NULL) {
 		*error_r = t_strdup_printf(
 			"Creating a Snowball stemmer for language '%s' failed.",
