@@ -113,7 +113,7 @@ struct client {
 	struct ssl_proxy *ssl_proxy;
 	const struct login_settings *set;
 	const struct master_service_ssl_settings *ssl_set;
-	const char *session_id, *listener_name;
+	const char *session_id, *listener_name, *postlogin_socket_path;
 
 	int fd;
 	struct istream *input;

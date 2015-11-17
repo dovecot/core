@@ -133,8 +133,9 @@ static void client_auth_parse_args(struct client *client,
 				PROXY_SSL_FLAG_STARTTLS;
 			if (strcmp(value, "any-cert") == 0)
 				reply_r->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
-		} else if (strcmp(key, "user") == 0) {
-			/* already handled in login-common */
+		} else if (strcmp(key, "user") == 0 ||
+			   strcmp(key, "postlogin_socket") == 0) {
+			/* already handled in sasl-server.c */
 		} else if (client->set->auth_debug)
 			i_debug("Ignoring unknown passdb extra field: %s", key);
 	}
