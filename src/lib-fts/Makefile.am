@@ -15,6 +15,7 @@ dist_stopwords_DATA = \
 	stopwords_en.txt \
 	stopwords_fi.txt \
 	stopwords_fr.txt \
+	stopwords_no.txt \
 	stopwords_sv.txt
 
 BUILT_SOURCES = word-boundary-data.c word-break-data.c

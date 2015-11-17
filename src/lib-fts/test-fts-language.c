@@ -160,6 +160,54 @@ static void test_fts_language_detect_swedish(void)
 	test_end();
 }
 
+/* Detect Bokmal */
+static void test_fts_language_detect_bokmal(void)
+{
+	struct fts_language_list *lp = NULL;
+	const struct fts_language *lang_r = NULL;
+	const unsigned char bokmal[]  =
+		"Artikkel 1.\n"\
+		"Alle mennesker er f\xC3\xB8""dt frie og med samme menneskeverd"\
+		" og menneskerettigheter. De er utstyrt med fornuft og "\
+		"samvittighet og b\xC3\xB8r handle mot hverandre i "\
+		"brorskapets \xC3\xA5nd";
+
+	const char names[] = "fi, de, sv, no, fr, en";
+	const char *unknown, *error;
+	test_begin("fts language detect Bokmal as Norwegian");
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
+	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
+	test_assert(fts_language_detect(lp, bokmal, sizeof(bokmal)-1, &lang_r)
+	            == FTS_LANGUAGE_RESULT_OK);
+	test_assert(strcmp(lang_r->name, "no") == 0);
+	fts_language_list_deinit(&lp);
+	test_end();
+}
+
+/* Detect Nynorsk */
+static void test_fts_language_detect_nynorsk(void)
+{
+	struct fts_language_list *lp = NULL;
+	const struct fts_language *lang_r = NULL;
+	const unsigned char nynorsk[]  =
+		"Artikkel 1.\n"\
+		"Alle menneske er f\xC3\xB8""dde til fridom og med same "\
+		"menneskeverd og menneskerettar. Dei har f\xC3\xA5tt fornuft "\
+		"og samvit og skal leve med kvarandre som br\xC3\xB8r.";
+
+
+	const char names[] = "fi, de, sv, no, fr, en";
+	const char *unknown, *error;
+	test_begin("fts language detect Nynorsk as Norwegian");
+	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
+	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
+	test_assert(fts_language_detect(lp, nynorsk, sizeof(nynorsk)-1, &lang_r)
+	            == FTS_LANGUAGE_RESULT_OK);
+	test_assert(strcmp(lang_r->name, "no") == 0);
+	fts_language_list_deinit(&lp);
+	test_end();
+}
+
 /* Detect Finnish as English */
 static void test_fts_language_detect_finnish_as_english(void)
 {
@@ -239,6 +287,8 @@ int main(void)
 		test_fts_language_detect_french,
 		test_fts_language_detect_german,
 		test_fts_language_detect_swedish,
+		test_fts_language_detect_bokmal,
+		test_fts_language_detect_nynorsk,
 		test_fts_language_detect_finnish_as_english,
 		test_fts_language_detect_na,
 		test_fts_language_detect_unknown,

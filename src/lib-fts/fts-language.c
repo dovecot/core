@@ -39,6 +39,7 @@ const struct fts_language fts_languages[] = {
 	{ "fr" }, /* French */
 	{ "it" }, /* Italian */
 	{ "nl" }, /* Dutch */
+	{ "no" }, /* Both Bokmal and Nynorsk are detected as Norwegian */
 	{ "pt" }, /* Portuguese */
 	{ "ro" }, /* Romanian */
 	{ "ru" }, /* Russian */
@@ -175,6 +176,10 @@ static bool fts_language_match_lists(struct fts_language_list *list,
 		/* name is <lang>-<optional country or characterset>-<encoding> 
 		   eg, fi--utf8 or pt-PT-utf8 */
 		name = t_strcut(candp[i].name, '-');
+
+		/* For Norwegian we treat both bokmal and nynorsk as "no". */
+		if (strcmp(name, "nb") == 0 || strcmp(name, "nn") == 0)
+			name = "no";
 		if ((*lang_r = fts_language_list_find(list, name)) != NULL)
 			return TRUE;
 	}
