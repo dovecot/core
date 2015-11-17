@@ -148,11 +148,10 @@ static void master_auth_connection_timeout(struct master_auth_connection *conn)
 	master_auth_connection_deinit(&conn);
 }
 
-void master_auth_request(struct master_auth *auth, int fd,
-			 const struct master_auth_request *request,
-			 const unsigned char *data,
-			 master_auth_callback_t *callback,
-			 void *context, unsigned int *tag_r)
+void master_auth_request_full(struct master_auth *auth,
+			      const struct master_auth_request_params *params,
+			      master_auth_callback_t *callback, void *context,
+			      unsigned int *tag_r)
 {
         struct master_auth_connection *conn;
 	struct master_auth_request req;
@@ -160,27 +159,27 @@ void master_auth_request(struct master_auth *auth, int fd,
 	struct stat st;
 	ssize_t ret;
 
-	i_assert(request->client_pid != 0);
-	i_assert(request->auth_pid != 0);
+	i_assert(params->request.client_pid != 0);
+	i_assert(params->request.auth_pid != 0);
 
 	conn = i_new(struct master_auth_connection, 1);
 	conn->auth = auth;
 	conn->callback = callback;
 	conn->context = context;
 
-	req = *request;
+	req = params->request;
 	req.tag = ++auth->tag_counter;
 	if (req.tag == 0)
 		req.tag = ++auth->tag_counter;
 
-	if (fstat(fd, &st) < 0)
+	if (fstat(params->client_fd, &st) < 0)
 		i_fatal("fstat(auth dest fd) failed: %m");
 	req.ino = st.st_ino;
 
 	buf = buffer_create_dynamic(pool_datastack_create(),
 				    sizeof(req) + req.data_size);
 	buffer_append(buf, &req, sizeof(req));
-	buffer_append(buf, data, req.data_size);
+	buffer_append(buf, params->data, req.data_size);
 
 	conn->fd = net_connect_unix_with_retries(auth->path,
 						 SOCKET_CONNECT_RETRY_MSECS);
@@ -192,10 +191,11 @@ void master_auth_request(struct master_auth *auth, int fd,
 		return;
 	}
 
-	ret = fd_send(conn->fd, fd, buf->data, buf->used);
-	if (ret < 0)
-		i_error("fd_send(%s, %d) failed: %m", auth->path, fd);
-	else if ((size_t)ret != buf->used) {
+	ret = fd_send(conn->fd, params->client_fd, buf->data, buf->used);
+	if (ret < 0) {
+		i_error("fd_send(%s, %d) failed: %m", auth->path,
+			params->client_fd);
+	} else if ((size_t)ret != buf->used) {
 		i_error("fd_send(%s) sent only %d of %d bytes",
 			auth->path, (int)ret, (int)buf->used);
 		ret = -1;
@@ -213,6 +213,22 @@ void master_auth_request(struct master_auth *auth, int fd,
 	i_assert(hash_table_lookup(auth->connections, POINTER_CAST(req.tag)) == NULL);
 	hash_table_insert(auth->connections, POINTER_CAST(req.tag), conn);
 	*tag_r = req.tag;
+}
+
+void master_auth_request(struct master_auth *auth, int fd,
+			 const struct master_auth_request *request,
+			 const unsigned char *data,
+			 master_auth_callback_t *callback,
+			 void *context, unsigned int *tag_r)
+{
+	struct master_auth_request_params params;
+
+	memset(&params, 0, sizeof(params));
+	params.client_fd = fd;
+	params.request = *request;
+	params.data = data;
+
+	master_auth_request_full(auth, &params, callback, context, tag_r);
 }
 
 void master_auth_request_abort(struct master_auth *auth, unsigned int tag)

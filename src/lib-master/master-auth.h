@@ -66,6 +66,18 @@ struct master_auth_reply {
 	pid_t mail_pid;
 };
 
+struct master_auth_request_params {
+	/* Client fd to transfer to post-login process or -1 if no fd is
+	   wanted to be transferred. */
+	int client_fd;
+
+	/* Authentication request that is sent to post-login process.
+	   tag is ignored. */
+	struct master_auth_request request;
+	/* Client input of size request.data_size */
+	const unsigned char *data;
+};
+
 /* reply=NULL if the auth lookup was cancelled due to some error */
 typedef void master_auth_callback_t(const struct master_auth_reply *reply,
 				    void *context);
@@ -74,10 +86,13 @@ struct master_auth *
 master_auth_init(struct master_service *service, const char *path);
 void master_auth_deinit(struct master_auth **auth);
 
-/* Send an authentication request. The fd contains the file descriptor to
-   transfer, or -1 if no fd is wanted to be transferred. Returns tag which can
-   be used to abort the request (ie. ignore the reply from master).
-   request->tag is ignored. */
+/* Send an authentication request. Returns tag which can be used to abort the
+   request (ie. ignore the reply from master). */
+void master_auth_request_full(struct master_auth *auth,
+			      const struct master_auth_request_params *params,
+			      master_auth_callback_t *callback, void *context,
+			      unsigned int *tag_r);
+/* For backwards compatibility: */
 void master_auth_request(struct master_auth *auth, int fd,
 			 const struct master_auth_request *request,
 			 const unsigned char *data,

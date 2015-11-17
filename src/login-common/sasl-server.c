@@ -121,6 +121,7 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 static void master_send_request(struct anvil_request *anvil_request)
 {
 	struct client *client = anvil_request->client;
+	struct master_auth_request_params params;
 	struct master_auth_request req;
 	const unsigned char *data;
 	size_t size;
@@ -151,8 +152,13 @@ static void master_send_request(struct anvil_request *anvil_request)
 
 	client->auth_finished = ioloop_time;
 	client->master_auth_id = req.auth_id;
-	master_auth_request(master_auth, client->fd, &req, buf->data,
-			    master_auth_callback, client, &client->master_tag);
+
+	memset(&params, 0, sizeof(params));
+	params.client_fd = client->fd;
+	params.request = req;
+	params.data = buf->data;
+	master_auth_request_full(master_auth, &params, master_auth_callback,
+				 client, &client->master_tag);
 }
 
 static void ATTR_NULL(1)
