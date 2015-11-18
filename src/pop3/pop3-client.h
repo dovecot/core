@@ -123,6 +123,7 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 		  struct mail_user *user,
 		  struct mail_storage_service_user *service_user,
 		  const struct pop3_settings *set, struct client **client_r);
+int client_init_mailbox(struct client *client, const char **error_r);
 void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */

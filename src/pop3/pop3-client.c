@@ -369,11 +369,7 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 		  struct mail_storage_service_user *service_user,
 		  const struct pop3_settings *set, struct client **client_r)
 {
-	struct mail_storage *storage;
-	const char *ident;
 	struct client *client;
-        enum mailbox_flags flags;
-	const char *errmsg;
 	pool_t pool;
 	int ret;
 
@@ -405,41 +401,7 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 
 	client->user = user;
 
-	pop3_client_count++;
-	DLLIST_PREPEND(&pop3_clients, client);
-
-	client->inbox_ns = mail_namespace_find_inbox(user->namespaces);
-	i_assert(client->inbox_ns != NULL);
-
-	if (set->pop3_lock_session && (ret = pop3_lock_session(client)) <= 0) {
-		client_send_line(client, ret < 0 ?
-			"-ERR [SYS/TEMP] Failed to create POP3 session lock." :
-			"-ERR [IN-USE] Mailbox is locked by another POP3 session.");
-		client_destroy(client, "Couldn't lock POP3 session");
-		return -1;
-	}
-
-	flags = MAILBOX_FLAG_POP3_SESSION;
-	if (!set->pop3_no_flag_updates)
-		flags |= MAILBOX_FLAG_DROP_RECENT;
-	client->mailbox = mailbox_alloc(client->inbox_ns->list, "INBOX", flags);
-	storage = mailbox_get_storage(client->mailbox);
-	if (mailbox_open(client->mailbox) < 0) {
-		i_error("Couldn't open INBOX: %s",
-			mailbox_get_last_error(client->mailbox, NULL));
-		client_send_storage_error(client);
-		client_destroy(client, "Couldn't open INBOX");
-		return -1;
-	}
-	client->mail_set = mail_storage_get_settings(storage);
-
-	if (init_pop3_deleted_flag(client, &errmsg) < 0 ||
-	    init_mailbox(client, &errmsg) < 0) {
-		i_error("Couldn't init INBOX: %s", errmsg);
-		client_destroy(client, "Mailbox init failed");
-		return -1;
-	}
-
+	client->mail_set = mail_user_set_get_storage_set(user);
 	client->uidl_keymask =
 		parse_uidl_keymask(client->mail_set->pop3_uidl_format);
 	if (client->uidl_keymask == 0)
@@ -454,7 +416,51 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 		client->message_uidls_save = TRUE;
 	}
 
-	if (!set->pop3_no_flag_updates && client->messages_count > 0)
+	pop3_client_count++;
+	DLLIST_PREPEND(&pop3_clients, client);
+
+	client->inbox_ns = mail_namespace_find_inbox(user->namespaces);
+	i_assert(client->inbox_ns != NULL);
+
+	if (hook_client_created != NULL)
+		hook_client_created(&client);
+
+	if (set->pop3_lock_session && (ret = pop3_lock_session(client)) <= 0) {
+		client_send_line(client, ret < 0 ?
+			"-ERR [SYS/TEMP] Failed to create POP3 session lock." :
+			"-ERR [IN-USE] Mailbox is locked by another POP3 session.");
+		client_destroy(client, "Couldn't lock POP3 session");
+		return -1;
+	}
+
+	*client_r = client;
+	return 0;
+
+}
+
+int client_init_mailbox(struct client *client, const char **error_r)
+{
+        enum mailbox_flags flags;
+	const char *ident, *errmsg;
+
+	flags = MAILBOX_FLAG_POP3_SESSION;
+	if (!client->set->pop3_no_flag_updates)
+		flags |= MAILBOX_FLAG_DROP_RECENT;
+	client->mailbox = mailbox_alloc(client->inbox_ns->list, "INBOX", flags);
+	if (mailbox_open(client->mailbox) < 0) {
+		*error_r = t_strdup_printf("Couldn't open INBOX: %s",
+			mailbox_get_last_error(client->mailbox, NULL));
+		client_send_storage_error(client);
+		return -1;
+	}
+
+	if (init_pop3_deleted_flag(client, &errmsg) < 0 ||
+	    init_mailbox(client, &errmsg) < 0) {
+		*error_r = t_strdup_printf("Couldn't init INBOX: %s", errmsg);
+		return -1;
+	}
+
+	if (!client->set->pop3_no_flag_updates && client->messages_count > 0)
 		client->seen_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
@@ -464,11 +470,7 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 		client->anvil_sent = TRUE;
 	}
 
-	if (hook_client_created != NULL)
-		hook_client_created(&client);
-
 	pop3_refresh_proctitle();
-	*client_r = client;
 	return 0;
 }
 

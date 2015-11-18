@@ -85,8 +85,6 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 	output = client->output;
 	o_stream_ref(output);
 	o_stream_cork(output);
-	if (!IS_STANDALONE())
-		client_send_line(client, "+OK Logged in.");
 	(void)client_handle_input(client);
 	o_stream_uncork(output);
 	o_stream_unref(&output);
@@ -103,6 +101,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	struct mail_user *mail_user;
 	struct client *client;
 	const struct pop3_settings *set;
+	const char *error;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
 					     &user, &mail_user, error_r) <= 0) {
@@ -118,8 +117,16 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		verbose_proctitle = TRUE;
 
 	if (client_create(fd_in, fd_out, input->session_id,
-			  mail_user, user, set, &client) == 0)
+			  mail_user, user, set, &client) < 0)
+		return 0;
+	if (!IS_STANDALONE())
+		client_send_line(client, "+OK Logged in.");
+	if (client_init_mailbox(client, &error) == 0)
 		client_add_input(client, input_buf);
+	else {
+		i_error("%s", error);
+		client_destroy(client, error);
+	}
 	return 0;
 }
 
