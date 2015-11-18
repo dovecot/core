@@ -288,7 +288,7 @@ static const char *client_get_commands_status(struct client *client)
 	}
 
 	cond = io_loop_find_fd_conditions(current_ioloop, client->fd_out);
-	if ((cond & (IO_READ | IO_WRITE)) != 0)
+	if ((cond & (IO_READ | IO_WRITE)) == (IO_READ | IO_WRITE))
 		cond_str = "input/output";
 	else if ((cond & IO_READ) != 0)
 		cond_str = "input";
