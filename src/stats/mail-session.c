@@ -84,13 +84,16 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 	}
 	session_id = args[0];
 	if (str_to_pid(args[3], &pid) < 0) {
-		*error_r = "CONNECT: Invalid pid";
+		*error_r = t_strdup_printf("CONNECT: Invalid pid %s for session ID %s",
+					   args[3], session_id);
 		return -1;
 	}
 
 	session = hash_table_lookup(mail_sessions_hash, session_id);
 	if (session != NULL) {
-		*error_r = "CONNECT: Duplicate session ID";
+		*error_r = t_strdup_printf(
+			"CONNECT: Duplicate session ID %s for user %s service %s",
+			session_id, args[1], args[2]);
 		return -1;
 	}
 	session = i_malloc(sizeof(struct mail_session) + stats_alloc_size());
