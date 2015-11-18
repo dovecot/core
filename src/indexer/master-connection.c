@@ -212,11 +212,12 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 	input.module = "mail";
 	input.service = "indexer-worker";
 	input.username = args[0];
-	/* if session-id is given, add -idx suffix to it so that stats process
-	   doesn't complain about duplicates. also it's nicer to keep the stats
-	   separate for the indexer and the caller. */
-	input.session_id = args[2][0] == '\0' ? NULL :
-		t_strconcat(args[2], "-idx", NULL);
+	/* if session-id is given, use it as a prefix to a unique session ID.
+	   we can't use the session-id directly or stats process will complain
+	   about duplicates. (especially LMTP would use the same session-id for
+	   multiple users' indexing at the same time.) */
+	if (args[2][0] != '\0')
+		input.session_id_prefix = args[2];
 
 	if (mail_storage_service_lookup_next(conn->storage_service, &input,
 					     &service_user, &user, &error) <= 0) {
