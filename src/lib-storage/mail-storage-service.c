@@ -1071,10 +1071,15 @@ mail_storage_service_set_log_prefix(struct mail_storage_service_ctx *ctx,
 	i_set_failure_prefix("%s", str_c(str));
 }
 
-static const char *mail_storage_service_generate_session_id(pool_t pool)
+static const char *
+mail_storage_service_generate_session_id(pool_t pool, const char *prefix)
 {
 	guid_128_t guid;
-	string_t *str = str_new(pool, MAX_BASE64_ENCODED_SIZE(sizeof(guid)));
+	unsigned int prefix_len = prefix == NULL ? 0 : strlen(prefix);
+	string_t *str = str_new(pool, MAX_BASE64_ENCODED_SIZE(prefix_len + 1 + sizeof(guid)));
+
+	if (prefix != NULL)
+		str_printfa(str, "%s-", prefix);
 
 	guid_128_generate(guid);
 	base64_encode(guid, sizeof(guid), str);
@@ -1187,7 +1192,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->input.session_id = p_strdup(user_pool, input->session_id);
 	if (user->input.session_id == NULL) {
 		user->input.session_id =
-			mail_storage_service_generate_session_id(user_pool);
+			mail_storage_service_generate_session_id(user_pool,
+				input->session_id_prefix);
 	}
 	user->user_info = user_info;
 	user->flags = flags;
@@ -1250,10 +1256,13 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 		/* no user yet. log prefix should be just "imap:" or something
 		   equally unhelpful. we don't know the proper log format yet,
 		   but initialize it to something better until we know it. */
+		const char *session_id =
+			input->session_id != NULL ? input->session_id :
+			(input->session_id_prefix != NULL ?
+			 input->session_id_prefix : NULL);
 		i_set_failure_prefix("%s(%s%s,%s)",
 			master_service_get_name(ctx->service), input->username,
-			input->session_id == NULL ? "" :
-				t_strdup_printf(",%s", input->session_id),
+			session_id == NULL ? "" : t_strdup_printf(",%s", session_id),
 			input->remote_ip.family == 0 ? "" :
 				t_strdup_printf(",%s", net_ip2addr(&input->remote_ip)));
 		update_log_prefix = TRUE;

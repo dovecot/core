@@ -40,7 +40,11 @@ struct mail_storage_service_input {
 	const char *module;
 	const char *service;
 	const char *username;
+	/* If set, use this string as the session ID */
 	const char *session_id;
+	/* If set, use this string as the session ID prefix, but also append
+	   a unique session ID suffix to it. */
+	const char *session_id_prefix;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 
