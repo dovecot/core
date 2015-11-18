@@ -11,9 +11,6 @@
 #define FTS_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_user_module)
 
-#define FTS_DEFAULT_TOKENIZERS "generic email-address"
-#define FTS_DEFAULT_FILTERS "normalizer-icu snowball"
-
 struct fts_user {
 	union mail_user_module_context module_ctx;
 	int refcount;
@@ -103,8 +100,9 @@ fts_user_create_filters(struct mail_user *user, const struct fts_language *lang,
 		filters_key = "fts_filters";
 		str = mail_user_plugin_getenv(user, filters_key);
 		if (str == NULL) {
-			str = FTS_DEFAULT_FILTERS;
-			filters_key = "fts_filters(built-in default)";
+			/* No filters */
+			*filter_r = NULL;
+			return 0;
 		}
 	}
 
@@ -162,8 +160,10 @@ fts_user_create_tokenizer(struct mail_user *user,
 
 	tokenizers_key = "fts_tokenizers";
 	str = mail_user_plugin_getenv(user, tokenizers_key);
-	if (str == NULL)
-		str = FTS_DEFAULT_TOKENIZERS;
+	if (str == NULL) {
+		*error_r = "fts_tokenizers setting is missing";
+		return -1;
+	}
 
 	tokenizers = t_strsplit_spaces(str, " ");
 
