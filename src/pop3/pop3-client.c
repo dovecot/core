@@ -339,9 +339,9 @@ static int pop3_lock_session(struct client *client)
 	int ret;
 
 	if (!mailbox_list_get_root_path(client->inbox_ns->list,
-					MAILBOX_LIST_PATH_TYPE_DIR, &dir) &&
+					MAILBOX_LIST_PATH_TYPE_INDEX, &dir) &&
 	    !mailbox_list_get_root_path(client->inbox_ns->list,
-					MAILBOX_LIST_PATH_TYPE_INDEX, &dir)) {
+					MAILBOX_LIST_PATH_TYPE_DIR, &dir)) {
 		i_error("pop3_lock_session: Storage has no root/index directory, "
 			"can't create a POP3 session lock file");
 		return -1;
