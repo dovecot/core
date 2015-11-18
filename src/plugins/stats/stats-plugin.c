@@ -103,22 +103,19 @@ session_stats_need_send(struct stats_user *suser, time_t now,
 	}
 	*changed_r = FALSE;
 
+	diff = now - suser->last_session_update;
+	if (diff >= SESSION_STATS_FORCE_REFRESH_SECS)
+		return TRUE;
+	*to_next_secs_r = SESSION_STATS_FORCE_REFRESH_SECS - diff;
+
 	if (!suser->session_sent_duplicate) {
 		if (suser->last_session_update != now) {
 			/* send one duplicate notification so stats reader
 			   knows that this session is idle now */
 			return TRUE;
 		}
-		*to_next_secs_r = 1;
-		return FALSE;
 	}
-
-	diff = now - suser->last_session_update;
-	if (diff < SESSION_STATS_FORCE_REFRESH_SECS) {
-		*to_next_secs_r = SESSION_STATS_FORCE_REFRESH_SECS - diff;
-		return FALSE;
-	}
-	return TRUE;
+	return FALSE;
 }
 
 static void session_stats_refresh(struct mail_user *user)
