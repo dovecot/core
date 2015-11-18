@@ -682,7 +682,8 @@ bool master_service_is_killed(struct master_service *service)
 
 bool master_service_is_master_stopped(struct master_service *service)
 {
-	return service->io_status_error == NULL;
+	return service->io_status_error == NULL &&
+		(service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0;
 }
 
 void master_service_anvil_send(struct master_service *service, const char *cmd)
