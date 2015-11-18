@@ -1135,7 +1135,7 @@ int client_output(struct client *client)
 
 	o_stream_uncork(client->output);
 	imap_refresh_proctitle();
-	if (client->disconnected)
+	if (client->output->closed)
 		client_destroy(client, NULL);
 	else
 		client_continue_pending_input(client);
