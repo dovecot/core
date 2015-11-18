@@ -154,6 +154,8 @@ void ipc_server_deinit(struct ipc_server **_server)
 	i_assert(server->ipc_cmd_refcount == 0);
 
 	ipc_server_disconnect(server);
+	if (server->to != NULL)
+		timeout_remove(&server->to);
 	i_free(server->name);
 	i_free(server->path);
 	i_free(server);
