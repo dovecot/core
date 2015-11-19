@@ -987,3 +987,21 @@ void fs_set_error_async(struct fs *fs)
 	fs_set_error(fs, "Asynchronous operation in progress");
 	errno = EAGAIN;
 }
+
+uint64_t fs_stats_get_read_usecs(const struct fs_stats *stats)
+{
+	return timing_get_sum(stats->timings[FS_OP_METADATA]) +
+		timing_get_sum(stats->timings[FS_OP_PREFETCH]) +
+		timing_get_sum(stats->timings[FS_OP_READ]) +
+		timing_get_sum(stats->timings[FS_OP_EXISTS]) +
+		timing_get_sum(stats->timings[FS_OP_STAT]) +
+		timing_get_sum(stats->timings[FS_OP_ITER]);
+}
+
+uint64_t fs_stats_get_write_usecs(const struct fs_stats *stats)
+{
+	return timing_get_sum(stats->timings[FS_OP_WRITE]) +
+		timing_get_sum(stats->timings[FS_OP_COPY]) +
+		timing_get_sum(stats->timings[FS_OP_DELETE]);
+}
+

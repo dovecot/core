@@ -333,4 +333,8 @@ bool fs_iter_have_more(struct fs_iter *iter);
    filesystem whose stats you want to see. */
 const struct fs_stats *fs_get_stats(struct fs *fs);
 
+/* Helper functions to count number of usecs for read/write operations. */
+uint64_t fs_stats_get_read_usecs(const struct fs_stats *stats);
+uint64_t fs_stats_get_write_usecs(const struct fs_stats *stats);
+
 #endif
