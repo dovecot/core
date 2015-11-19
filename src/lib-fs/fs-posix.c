@@ -34,6 +34,7 @@ struct posix_fs {
 	unsigned int temp_file_prefix_len;
 	enum fs_posix_lock_method lock_method;
 	mode_t mode;
+	bool mode_auto;
 };
 
 struct posix_fs_file {
@@ -102,6 +103,8 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 				fs->path_prefix = i_strconcat(arg + 7, "/", NULL);
 			else
 				fs->path_prefix = i_strdup(arg + 7);
+		} else if (strcmp(arg, "mode=auto") == 0) {
+			fs->mode_auto = TRUE;
 		} else if (strncmp(arg, "mode=", 5) == 0) {
 			unsigned int mode;
 			if (str_to_uint_oct(arg+5, &mode) < 0) {
@@ -140,21 +143,51 @@ static enum fs_properties fs_posix_get_properties(struct fs *fs ATTR_UNUSED)
 		FS_PROPERTY_STAT | FS_PROPERTY_ITER | FS_PROPERTY_RELIABLEITER;
 }
 
+static int
+fs_posix_get_mode(struct posix_fs *fs, const char *path, mode_t *mode_r)
+{
+	struct stat st;
+	const char *p;
+
+	*mode_r = fs->mode;
+
+	while (stat(path, &st) < 0) {
+		if (errno != ENOENT) {
+			fs_set_error(&fs->fs, "stat(%s) failed: %m", path);
+			return -1;
+		}
+		p = strrchr(path, '/');
+		if (p != NULL)
+			path = t_strdup_until(path, p);
+		else if (strcmp(path, ".") != 0)
+			path = ".";
+		else
+			return 0;
+	}
+	if ((st.st_mode & S_ISGID) != 0) {
+		/* setgid set - copy mode from parent */
+		*mode_r = st.st_mode & 0666;
+	}
+	return 0;
+}
+
 static int fs_posix_mkdir_parents(struct posix_fs *fs, const char *path)
 {
 	const char *dir, *fname;
-	mode_t dir_mode;
+	mode_t mode, dir_mode;
 
 	fname = strrchr(path, '/');
 	if (fname == NULL)
 		return 1;
+	dir = t_strdup_until(path, fname);
 
-	dir_mode = fs->mode;
+	if (fs_posix_get_mode(fs, dir, &mode) < 0)
+		return -1;
+	dir_mode = mode;
 	if ((dir_mode & 0600) != 0) dir_mode |= 0100;
 	if ((dir_mode & 0060) != 0) dir_mode |= 0010;
 	if ((dir_mode & 0006) != 0) dir_mode |= 0001;
 
-	dir = t_strdup_until(path, fname);
 	if (mkdir_parents(dir, dir_mode) == 0)
 		return 0;
 	else if (errno == EEXIST)
@@ -198,20 +231,28 @@ static int fs_posix_create(struct posix_fs_file *file)
 	string_t *str = t_str_new(256);
 	const char *slash;
 	unsigned int try_count = 0;
+	mode_t mode;
 	int fd;
 
 	i_assert(file->temp_path == NULL);
 
-	if ((slash = strrchr(file->full_path, '/')) != NULL)
-		str_append_n(str, file->full_path, slash - file->full_path + 1);
+	if ((slash = strrchr(file->full_path, '/')) != NULL) {
+		str_append_n(str, file->full_path, slash - file->full_path);
+		if (fs_posix_get_mode(fs, str_c(str), &mode) < 0)
+			return -1;
+		str_append_c(str, '/');
+	} else {
+		if (fs_posix_get_mode(fs, ".", &mode) < 0)
+			return -1;
+	}
 	str_append(str, fs->temp_file_prefix);
 
-	fd = safe_mkstemp_hostpid(str, fs->mode, (uid_t)-1, (gid_t)-1);
+	fd = safe_mkstemp_hostpid(str, mode, (uid_t)-1, (gid_t)-1);
 	while (fd == -1 && errno == ENOENT &&
 	       try_count <= MAX_MKDIR_RETRY_COUNT) {
 		if (fs_posix_mkdir_parents(fs, str_c(str)) < 0)
 			return -1;
-		fd = safe_mkstemp_hostpid(str, fs->mode, (uid_t)-1, (gid_t)-1);
+		fd = safe_mkstemp_hostpid(str, mode, (uid_t)-1, (gid_t)-1);
 		try_count++;
 	}
 	if (fd == -1) {
