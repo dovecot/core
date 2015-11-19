@@ -45,6 +45,7 @@ pkginc_lib_HEADERS = \
 	fts-expunge-log.h \
 	fts-indexer.h \
 	fts-parser.h \
+	fts-storage.h \
 	fts-user.h
 
 noinst_HEADERS = \
@@ -52,8 +53,7 @@ noinst_HEADERS = \
 	fts-build-mail.h \
 	fts-plugin.h \
 	fts-search-args.h \
-	fts-search-serialize.h \
-	fts-storage.h
+	fts-search-serialize.h
 
 pkglibexec_PROGRAMS = xml2text
 
