@@ -33,7 +33,7 @@ struct posix_fs {
 	char *temp_file_prefix, *root_path, *path_prefix;
 	unsigned int temp_file_prefix_len;
 	enum fs_posix_lock_method lock_method;
-	mode_t mode, dir_mode;
+	mode_t mode;
 };
 
 struct posix_fs_file {
@@ -118,10 +118,6 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 			return -1;
 		}
 	}
-	fs->dir_mode = fs->mode;
-	if ((fs->dir_mode & 0600) != 0) fs->dir_mode |= 0100;
-	if ((fs->dir_mode & 0060) != 0) fs->dir_mode |= 0010;
-	if ((fs->dir_mode & 0006) != 0) fs->dir_mode |= 0001;
 	return 0;
 }
 
@@ -147,12 +143,19 @@ static enum fs_properties fs_posix_get_properties(struct fs *fs ATTR_UNUSED)
 static int fs_posix_mkdir_parents(struct posix_fs *fs, const char *path)
 {
 	const char *dir, *fname;
+	mode_t dir_mode;
 
 	fname = strrchr(path, '/');
 	if (fname == NULL)
 		return 1;
+
+	dir_mode = fs->mode;
+	if ((dir_mode & 0600) != 0) dir_mode |= 0100;
+	if ((dir_mode & 0060) != 0) dir_mode |= 0010;
+	if ((dir_mode & 0006) != 0) dir_mode |= 0001;
+
 	dir = t_strdup_until(path, fname);
-	if (mkdir_parents(dir, fs->dir_mode) == 0)
+	if (mkdir_parents(dir, dir_mode) == 0)
 		return 0;
 	else if (errno == EEXIST)
 		return 1;
