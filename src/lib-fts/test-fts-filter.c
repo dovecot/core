@@ -753,7 +753,7 @@ static void test_fts_filter_stopwords_normalizer_stemmer_no(void)
 			test_assert(*bpp == NULL);
 		} else {
 			test_assert(*bpp != NULL);
-			test_assert(strcmp(*bpp, token)  == 0);
+			test_assert(null_strcmp(*bpp, token) == 0);
 		}
 		bpp++;
 	}
@@ -804,7 +804,7 @@ static void test_fts_filter_stopwords_normalizer_stemmer_sv(void)
 			test_assert(*bpp == NULL);
 		} else {
 			test_assert(*bpp != NULL);
-			test_assert(strcmp(*bpp, token)  == 0);
+			test_assert(null_strcmp(*bpp, token) == 0);
 		}
 		bpp++;
 	}

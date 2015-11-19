@@ -283,7 +283,7 @@ static void test_fts_language_find_builtin(void)
 	const struct fts_language *lp;
 	test_begin("fts language find built-in");
 	lp = fts_language_find("en");
-	test_assert(lp != NULL);
+	i_assert(lp != NULL);
 	test_assert(strcmp(lp->name, "en") == 0);
 	test_end();
 }
@@ -293,7 +293,7 @@ static void test_fts_language_register(void)
 	test_begin("fts language register");
 	fts_language_register("jp");
 	lp = fts_language_find("jp");
-	test_assert(lp != NULL);
+	i_assert(lp != NULL);
 	test_assert(strcmp(lp->name, "jp") == 0);
 	test_end();
 }
