@@ -99,8 +99,6 @@ static void mail_hosts_sort_direct(struct mail_host_list *list)
 	struct mail_host *const *hostp;
 	unsigned int i;
 
-	array_sort(&list->hosts, mail_host_cmp);
-
 	/* rebuild vhosts */
 	array_clear(&list->vhosts);
 	array_foreach(&list->hosts, hostp) {
@@ -118,6 +116,8 @@ static void mail_hosts_sort(struct mail_host_list *list)
 {
 	struct mail_host *const *hostp;
 	uint32_t num;
+
+	array_sort(&list->hosts, mail_host_cmp);
 
 	if (list->consistent_hashing)
 		mail_hosts_sort_ring(list);
