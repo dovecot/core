@@ -523,6 +523,7 @@ director_send_host(struct director *dir, struct director_host *src,
 		   struct director_host *orig_src,
 		   struct mail_host *host)
 {
+	const char *host_tag = mail_host_get_tag(host);
 	string_t *str;
 
 	if (orig_src == NULL) {
@@ -537,11 +538,11 @@ director_send_host(struct director *dir, struct director_host *src,
 		    net_ip2addr(&host->ip), host->vhost_count);
 	if (dir->ring_min_version >= DIRECTOR_VERSION_TAGS) {
 		str_append_c(str, '\t');
-		str_append_tabescaped(str, host->tag);
-	} else if (host->tag[0] != '\0' &&
+		str_append_tabescaped(str, host_tag);
+	} else if (host_tag[0] != '\0' &&
 		   dir->ring_min_version < DIRECTOR_VERSION_TAGS) {
 		i_error("Ring has directors that don't support tags - removing host %s with tag '%s'",
-			net_ip2addr(&host->ip), host->tag);
+			net_ip2addr(&host->ip), host_tag);
 		director_remove_host(dir, NULL, NULL, host);
 		return;
 	}

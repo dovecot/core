@@ -50,7 +50,7 @@ static void doveadm_cmd_host_list(struct doveadm_connection *conn)
 		str_printfa(str, "%s\t%u\t%u\t",
 			    net_ip2addr(&(*hostp)->ip), (*hostp)->vhost_count,
 			    (*hostp)->user_count);
-		str_append_tabescaped(str, (*hostp)->tag);
+		str_append_tabescaped(str, mail_host_get_tag(*hostp));
 		str_printfa(str, "\t%c\t%ld", (*hostp)->down ? 'D' : 'U',
 			    (long)(*hostp)->last_updown_change);
 		str_append_c(str, '\n');
@@ -422,7 +422,8 @@ director_host_reset_users(struct director *dir, struct director_host *src,
 		if (user->host != host)
 			continue;
 		new_host = mail_host_get_by_hash(dir->mail_hosts,
-						 user->username_hash, host->tag);
+						 user->username_hash,
+						 mail_host_get_tag(host));
 		if (new_host != host) T_BEGIN {
 			director_move_user(dir, src, NULL,
 					   user->username_hash, new_host);

@@ -298,6 +298,11 @@ int mail_hosts_parse_and_add(struct mail_host_list *list,
 	return ret;
 }
 
+const char *mail_host_get_tag(struct mail_host *host)
+{
+	return host->tag;
+}
+
 void mail_host_set_tag(struct mail_host *host, const char *tag)
 {
 	i_assert(tag != NULL);

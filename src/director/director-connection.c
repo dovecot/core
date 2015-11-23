@@ -863,7 +863,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 	struct director_host *src_host = conn->host;
 	struct mail_host *host;
 	struct ip_addr ip;
-	const char *tag = "", *hostname = NULL;
+	const char *tag = "", *host_tag, *hostname = NULL;
 	unsigned int arg_count, vhost_count;
 	bool update, down = FALSE;
 	time_t last_updown_change = 0;
@@ -904,10 +904,11 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			host->down != down ||
 			host->last_updown_change != last_updown_change;
 
-		if (strcmp(tag, host->tag) != 0) {
+		host_tag = mail_host_get_tag(host);
+		if (strcmp(tag, host_tag) != 0) {
 			i_error("director(%s): Host %s changed tag from '%s' to '%s'",
 				conn->name, net_ip2addr(&host->ip),
-				host->tag, tag);
+				host_tag, tag);
 			mail_host_set_tag(host, tag);
 			update = TRUE;
 		}
@@ -1694,12 +1695,13 @@ director_connection_send_hosts(struct director_connection *conn, string_t *str)
 	str_printfa(str, "HOST-HAND-START\t%u\n", conn->dir->ring_handshaked);
 	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
 		struct mail_host *host = *hostp;
+		const char *host_tag = mail_host_get_tag(host);
 
 		str_printfa(str, "HOST\t%s\t%u",
 			    net_ip2addr(&host->ip), host->vhost_count);
-		if (host->tag[0] != '\0' || send_updowns) {
+		if (host_tag[0] != '\0' || send_updowns) {
 			str_append_c(str, '\t');
-			str_append_tabescaped(str, host->tag);
+			str_append_tabescaped(str, host_tag);
 		}
 		if (send_updowns) {
 			str_printfa(str, "\t%c%ld\t", host->down ? 'D' : 'U',
