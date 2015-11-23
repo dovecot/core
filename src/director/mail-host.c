@@ -18,7 +18,7 @@ struct mail_host_list {
 	ARRAY_TYPE(mail_host) hosts;
 	ARRAY(struct mail_vhost) vhosts;
 	unsigned int hosts_hash;
-	bool hosts_unsorted;
+	bool vhosts_unsorted;
 	bool consistent_hashing;
 };
 
@@ -90,7 +90,7 @@ static void mail_hosts_sort_ring(struct mail_host_list *list)
 	array_foreach(&list->hosts, hostp)
 		mail_vhost_add(list, *hostp);
 	array_sort(&list->vhosts, mail_vhost_cmp);
-	list->hosts_unsorted = FALSE;
+	list->vhosts_unsorted = FALSE;
 }
 
 static void mail_hosts_sort_direct(struct mail_host_list *list)
@@ -109,7 +109,7 @@ static void mail_hosts_sort_direct(struct mail_host_list *list)
 			vhost->host = *hostp;
 		}
 	}
-	list->hosts_unsorted = FALSE;
+	list->vhosts_unsorted = FALSE;
 }
 
 static void mail_hosts_sort(struct mail_host_list *list)
@@ -150,7 +150,7 @@ mail_host_add_ip(struct mail_host_list *list, const struct ip_addr *ip,
 	host->tag = i_strdup(tag_name);
 	array_append(&list->hosts, &host, 1);
 
-	list->hosts_unsorted = TRUE;
+	list->vhosts_unsorted = TRUE;
 	return host;
 }
 
@@ -318,14 +318,14 @@ void mail_host_set_down(struct mail_host *host, bool down, time_t timestamp)
 	if (host->down != down) {
 		host->down = down;
 		host->last_updown_change = timestamp;
-		host->list->hosts_unsorted = TRUE;
+		host->list->vhosts_unsorted = TRUE;
 	}
 }
 
 void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count)
 {
 	host->vhost_count = vhost_count;
-	host->list->hosts_unsorted = TRUE;
+	host->list->vhosts_unsorted = TRUE;
 }
 
 static void mail_host_free(struct mail_host *host)
@@ -350,7 +350,7 @@ void mail_host_remove(struct mail_host *host)
 	}
 
 	mail_host_free(host);
-	list->hosts_unsorted = TRUE;
+	list->vhosts_unsorted = TRUE;
 }
 
 struct mail_host *
@@ -358,7 +358,7 @@ mail_host_lookup(struct mail_host_list *list, const struct ip_addr *ip)
 {
 	struct mail_host *const *hostp;
 
-	if (list->hosts_unsorted)
+	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
 
 	array_foreach(&list->hosts, hostp) {
@@ -418,7 +418,7 @@ struct mail_host *
 mail_host_get_by_hash(struct mail_host_list *list, unsigned int hash,
 		      const char *tag_name)
 {
-	if (list->hosts_unsorted)
+	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
 
 	if (list->consistent_hashing)
@@ -437,7 +437,7 @@ void mail_hosts_set_synced(struct mail_host_list *list)
 
 unsigned int mail_hosts_hash(struct mail_host_list *list)
 {
-	if (list->hosts_unsorted)
+	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
 	/* don't retun 0 as hash, since we're using it as "doesn't exist" in
 	   some places. */
@@ -446,14 +446,14 @@ unsigned int mail_hosts_hash(struct mail_host_list *list)
 
 bool mail_hosts_have_usable(struct mail_host_list *list)
 {
-	if (list->hosts_unsorted)
+	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
 	return array_count(&list->vhosts) > 0;
 }
 
 const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list)
 {
-	if (list->hosts_unsorted)
+	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
 	return &list->hosts;
 }
