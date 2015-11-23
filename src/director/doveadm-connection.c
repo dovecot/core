@@ -288,7 +288,7 @@ doveadm_cmd_host_set_or_update(struct doveadm_connection *conn, const char *line
 		return TRUE;
 	}
 	if (vhost_count != UINT_MAX)
-		mail_host_set_vhost_count(dir->mail_hosts, host, vhost_count);
+		mail_host_set_vhost_count(host, vhost_count);
 	/* NOTE: we don't support changing a tag for an existing host.
 	   it needs to be removed first. otherwise it would be a bit ugly to
 	   handle. */
@@ -334,8 +334,7 @@ doveadm_cmd_host_updown(struct doveadm_connection *conn, bool down,
 			"host is already being updated - try again later\n");
 		return TRUE;
 	} else {
-		mail_host_set_down(conn->dir->mail_hosts, host,
-				   down, ioloop_time);
+		mail_host_set_down(host, down, ioloop_time);
 		director_update_host(conn->dir, conn->dir->self_host,
 				     NULL, host);
 	}

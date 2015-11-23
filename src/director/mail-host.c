@@ -144,6 +144,7 @@ mail_host_add_ip(struct mail_host_list *list, const struct ip_addr *ip,
 	i_assert(tag != NULL);
 
 	host = i_new(struct mail_host, 1);
+	host->list = list;
 	host->vhost_count = VHOST_MULTIPLIER;
 	host->ip = *ip;
 	host->tag = i_strdup(tag);
@@ -305,21 +306,19 @@ void mail_host_set_tag(struct mail_host *host, const char *tag)
 	host->tag = i_strdup(tag);
 }
 
-void mail_host_set_down(struct mail_host_list *list,
-			struct mail_host *host, bool down, time_t timestamp)
+void mail_host_set_down(struct mail_host *host, bool down, time_t timestamp)
 {
 	if (host->down != down) {
 		host->down = down;
 		host->last_updown_change = timestamp;
-		list->hosts_unsorted = TRUE;
+		host->list->hosts_unsorted = TRUE;
 	}
 }
 
-void mail_host_set_vhost_count(struct mail_host_list *list,
-			       struct mail_host *host, unsigned int vhost_count)
+void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count)
 {
 	host->vhost_count = vhost_count;
-	list->hosts_unsorted = TRUE;
+	host->list->hosts_unsorted = TRUE;
 }
 
 static void mail_host_free(struct mail_host *host)
@@ -329,8 +328,9 @@ static void mail_host_free(struct mail_host *host)
 	i_free(host);
 }
 
-void mail_host_remove(struct mail_host_list *list, struct mail_host *host)
+void mail_host_remove(struct mail_host *host)
 {
+	struct mail_host_list *list = host->list;
 	struct mail_host *const *hosts;
 	unsigned int i, count;
 

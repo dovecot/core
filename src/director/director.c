@@ -601,7 +601,7 @@ void director_remove_host(struct director *dir, struct director_host *src,
 	}
 
 	user_directory_remove_host(dir->users, host);
-	mail_host_remove(dir->mail_hosts, host);
+	mail_host_remove(host);
 	director_sync(dir);
 }
 
