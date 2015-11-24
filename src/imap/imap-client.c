@@ -265,7 +265,7 @@ void client_destroy(struct client *client, const char *reason)
 
 static const char *client_get_commands_status(struct client *client)
 {
-	struct client_command_context *cmd;
+	struct client_command_context *cmd, *last_cmd = NULL;
 	unsigned int msecs_in_ioloop;
 	uint64_t running_usecs = 0, ioloop_wait_usecs;
 	unsigned long long bytes_in = 0, bytes_out = 0;
@@ -285,6 +285,7 @@ static const char *client_get_commands_status(struct client *client)
 		running_usecs += cmd->running_usecs;
 		bytes_in += cmd->bytes_in;
 		bytes_out += cmd->bytes_out;
+		last_cmd = cmd;
 	}
 
 	cond = io_loop_find_fd_conditions(current_ioloop, client->fd_out);
@@ -299,7 +300,7 @@ static const char *client_get_commands_status(struct client *client)
 
 	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
 	msecs_in_ioloop = (ioloop_wait_usecs -
-		client->command_queue->start_ioloop_wait_usecs + 999) / 1000;
+		last_cmd->start_ioloop_wait_usecs + 999) / 1000;
 	str_printfa(str, " running for %d.%03d + waiting %s for %d.%03d secs",
 		    (int)((running_usecs+999)/1000 / 1000),
 		    (int)((running_usecs+999)/1000 % 1000), cond_str,
@@ -307,7 +308,7 @@ static const char *client_get_commands_status(struct client *client)
 	str_printfa(str, ", %llu B in + %llu+%"PRIuSIZE_T" B out, state=%s)",
 		    bytes_in, bytes_out,
 		    o_stream_get_buffer_used_size(client->output),
-		    client_command_state_names[client->command_queue->state]);
+		    client_command_state_names[last_cmd->state]);
 	return str_c(str);
 }
 
