@@ -1016,8 +1016,14 @@ bool client_handle_input(struct client *client)
 	if (!handled_commands)
 		return FALSE;
 
-	if (client->input_lock == NULL)
+	if (client->input_lock == NULL) {
+		/* finished handling all commands. sync them all at once now. */
 		cmd_sync_delayed(client);
+	} else if (client->input_lock->state == CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY) {
+		/* the command may be waiting for previous command to sync. */
+		if (cmd_sync_delayed(client))
+			client_continue_pending_input(client);
+	}
 	return TRUE;
 }
 
