@@ -172,6 +172,11 @@ fetch_parse_modifiers(struct imap_fetch_context *ctx,
 	return TRUE;
 }
 
+static bool cmd_fetch_finished(struct client_command_context *cmd ATTR_UNUSED)
+{
+	return TRUE;
+}
+
 static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			     struct client_command_context *cmd)
 {
@@ -199,6 +204,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			   output bytes are included in it (which wouldn't
 			   happen if we called client_disconnect() here
 			   directly). */
+			cmd->func = cmd_fetch_finished;
 			return cmd->cancel;
 		}
 
