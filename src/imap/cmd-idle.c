@@ -72,7 +72,7 @@ idle_client_handle_input(struct cmd_idle_context *ctx, bool free_cmd)
 	return FALSE;
 }
 
-static void idle_client_input_more(struct cmd_idle_context *ctx)
+static bool idle_client_input_more(struct cmd_idle_context *ctx)
 {
 	struct client *client = ctx->client;
 
@@ -83,34 +83,33 @@ static void idle_client_input_more(struct cmd_idle_context *ctx)
 	case -1:
 		/* disconnected */
 		client_disconnect(client, NULL);
-		return;
+		return TRUE;
 	case -2:
 		client->input_skip_line = TRUE;
 		idle_finish(ctx, FALSE, TRUE);
-		client_continue_pending_input(client);
-		return;
+		return TRUE;
 	}
 
 	if (ctx->sync_ctx != NULL) {
 		/* we're still sending output to client. wait until it's all
 		   sent so we don't lose any changes. */
 		io_remove(&client->io);
-		return;
+		return FALSE;
 	}
 
-	if (idle_client_handle_input(ctx, TRUE)) {
-		if (!client->disconnected)
-			client_continue_pending_input(client);
-	}
+	return idle_client_handle_input(ctx, TRUE);
 }
 
 static void idle_client_input(struct cmd_idle_context *ctx)
 {
 	struct client *client = ctx->client;
 
-	idle_client_input_more(ctx);
-	if (client->disconnected)
-		client_destroy(client, NULL);
+	if (idle_client_input_more(ctx)) {
+		if (client->disconnected)
+			client_destroy(client, NULL);
+		else
+			client_continue_pending_input(client);
+	}
 }
 
 static void keepalive_timeout(struct cmd_idle_context *ctx)
@@ -271,7 +270,7 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		/* input is pending */
 		client->io = io_add_istream(client->input,
 					    idle_client_input, ctx);
-		idle_client_input_more(ctx);
+		(void)idle_client_input_more(ctx);
 	}
 	return FALSE;
 }
