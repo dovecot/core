@@ -536,13 +536,18 @@ director_send_host(struct director *dir, struct director_host *src,
 		    net_ip2addr(&orig_src->ip), orig_src->port,
 		    orig_src->last_seq,
 		    net_ip2addr(&host->ip), host->vhost_count);
-	if (dir->ring_min_version >= DIRECTOR_VERSION_TAGS) {
+	if (dir->ring_min_version >= DIRECTOR_VERSION_TAGS_V2) {
 		str_append_c(str, '\t');
 		str_append_tabescaped(str, host_tag);
 	} else if (host_tag[0] != '\0' &&
-		   dir->ring_min_version < DIRECTOR_VERSION_TAGS) {
-		i_error("Ring has directors that don't support tags - removing host %s with tag '%s'",
-			net_ip2addr(&host->ip), host_tag);
+		   dir->ring_min_version < DIRECTOR_VERSION_TAGS_V2) {
+		if (dir->ring_min_version < DIRECTOR_VERSION_TAGS) {
+			i_error("Ring has directors that don't support tags - removing host %s with tag '%s'",
+				net_ip2addr(&host->ip), host_tag);
+		} else {
+			i_error("Ring has directors that support mixed versions of tags - removing host %s with tag '%s'",
+				net_ip2addr(&host->ip), host_tag);
+		}
 		director_remove_host(dir, NULL, NULL, host);
 		return;
 	}

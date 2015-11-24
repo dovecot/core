@@ -893,6 +893,10 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		i_assert(conn->handshake_sending_hosts);
 		return TRUE;
 	}
+	if (tag[0] != '\0' && conn->minor_version < DIRECTOR_VERSION_TAGS_V2) {
+		director_cmd_error(conn, "Received a host tag from older director version with incompatible tagging support");
+		return FALSE;
+	}
 
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
@@ -1207,6 +1211,11 @@ director_connection_handle_handshake(struct director_connection *conn,
 				"%u vs %u", conn->name, major_version,
 				DIRECTOR_VERSION_MAJOR);
 			return -1;
+		}
+		if (conn->minor_version < DIRECTOR_VERSION_TAGS_V2 &&
+		    mail_hosts_have_tags(conn->dir->mail_hosts)) {
+			i_error("director(%s): Director version supports incompatible tags", conn->name);
+			return FALSE;
 		}
 		conn->version_received = TRUE;
 		if (conn->done_pending) {

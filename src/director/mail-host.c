@@ -14,12 +14,19 @@ struct mail_vhost {
 	struct mail_host *host;
 };
 
-struct mail_host_list {
-	ARRAY_TYPE(mail_host) hosts;
+struct mail_tag {
+	/* "" = no tag */
+	char *name;
 	ARRAY(struct mail_vhost) vhosts;
+};
+
+struct mail_host_list {
+	ARRAY(struct mail_tag *) tags;
+	ARRAY_TYPE(mail_host) hosts;
 	unsigned int hosts_hash;
-	bool vhosts_unsorted;
 	bool consistent_hashing;
+	bool vhosts_unsorted;
+	bool have_vhosts;
 };
 
 static int
@@ -51,7 +58,7 @@ mail_vhost_hash_cmp(const unsigned int *hash, const struct mail_vhost *vhost)
 		return 0;
 }
 
-static void mail_vhost_add(struct mail_host_list *list, struct mail_host *host)
+static void mail_vhost_add(struct mail_tag *tag, struct mail_host *host)
 {
 	struct mail_vhost *vhost;
 	struct md5_context md5_ctx, md5_ctx2;
@@ -74,56 +81,65 @@ static void mail_vhost_add(struct mail_host_list *list, struct mail_host *host)
 		md5_update(&md5_ctx2, num_str, strlen(num_str));
 		md5_final(&md5_ctx2, md5);
 
-		vhost = array_append_space(&list->vhosts);
+		vhost = array_append_space(&tag->vhosts);
 		vhost->host = host;
 		for (j = 0; j < sizeof(vhost->hash); j++)
 			vhost->hash = (vhost->hash << CHAR_BIT) | md5[j];
 	}
 }
 
-static void mail_hosts_sort_ring(struct mail_host_list *list)
+static void
+mail_tag_vhosts_sort_ring(struct mail_host_list *list, struct mail_tag *tag)
 {
 	struct mail_host *const *hostp;
 
 	/* rebuild vhosts */
-	array_clear(&list->vhosts);
+	array_clear(&tag->vhosts);
 	array_foreach(&list->hosts, hostp)
-		mail_vhost_add(list, *hostp);
-	array_sort(&list->vhosts, mail_vhost_cmp);
-	list->vhosts_unsorted = FALSE;
+		mail_vhost_add(tag, *hostp);
+	array_sort(&tag->vhosts, mail_vhost_cmp);
 }
 
-static void mail_hosts_sort_direct(struct mail_host_list *list)
+static void
+mail_tag_vhosts_sort_direct(struct mail_host_list *list, struct mail_tag *tag)
 {
 	struct mail_vhost *vhost;
 	struct mail_host *const *hostp;
 	unsigned int i;
 
 	/* rebuild vhosts */
-	array_clear(&list->vhosts);
+	array_clear(&tag->vhosts);
 	array_foreach(&list->hosts, hostp) {
 		if ((*hostp)->down)
 			continue;
 		for (i = 0; i < (*hostp)->vhost_count; i++) {
-			vhost = array_append_space(&list->vhosts);
+			vhost = array_append_space(&tag->vhosts);
 			vhost->host = *hostp;
 		}
 	}
-	list->vhosts_unsorted = FALSE;
 }
 
-static void mail_hosts_sort(struct mail_host_list *list)
+static void
+mail_hosts_sort(struct mail_host_list *list)
 {
 	struct mail_host *const *hostp;
+	struct mail_tag *const *tagp;
 	uint32_t num;
 
 	array_sort(&list->hosts, mail_host_cmp);
 
-	if (list->consistent_hashing)
-		mail_hosts_sort_ring(list);
-	else
-		mail_hosts_sort_direct(list);
+	list->have_vhosts = FALSE;
+	array_foreach(&list->tags, tagp) {
+		if (list->consistent_hashing)
+			mail_tag_vhosts_sort_ring(list, *tagp);
+		else
+			mail_tag_vhosts_sort_direct(list, *tagp);
+		if (array_count(&(*tagp)->vhosts) > 0)
+			list->have_vhosts = TRUE;
+	}
+	list->vhosts_unsorted = FALSE;
 
+	/* recalculate the hosts_hash */
 	list->hosts_hash = 0;
 	array_foreach(&list->hosts, hostp) {
 		num = ((*hostp)->down ? 1 : 0) ^ (*hostp)->vhost_count;
@@ -133,6 +149,40 @@ static void mail_hosts_sort(struct mail_host_list *list)
 		list->hosts_hash = crc32_data_more(list->hosts_hash,
 						   &num, sizeof(num));
 	}
+}
+
+static struct mail_tag *
+mail_tag_find(struct mail_host_list *list, const char *tag_name)
+{
+	struct mail_tag *const *tagp;
+
+	array_foreach(&list->tags, tagp) {
+		if (strcmp((*tagp)->name, tag_name) == 0)
+			return *tagp;
+	}
+	return NULL;
+}
+
+static struct mail_tag *
+mail_tag_get(struct mail_host_list *list, const char *tag_name)
+{
+	struct mail_tag *tag;
+
+	tag = mail_tag_find(list, tag_name);
+	if (tag == NULL) {
+		tag = i_new(struct mail_tag, 1);
+		tag->name = i_strdup(tag_name);
+		i_array_init(&tag->vhosts, 16*VHOST_MULTIPLIER);
+		array_append(&list->tags, &tag, 1);
+	}
+	return tag;
+}
+
+static void mail_tag_free(struct mail_tag *tag)
+{
+	array_free(&tag->vhosts);
+	i_free(tag->name);
+	i_free(tag);
 }
 
 struct mail_host *
@@ -147,7 +197,7 @@ mail_host_add_ip(struct mail_host_list *list, const struct ip_addr *ip,
 	host->list = list;
 	host->vhost_count = VHOST_MULTIPLIER;
 	host->ip = *ip;
-	host->tag = i_strdup(tag_name);
+	host->tag = mail_tag_get(list, tag_name);
 	array_append(&list->hosts, &host, 1);
 
 	list->vhosts_unsorted = TRUE;
@@ -302,15 +352,15 @@ int mail_hosts_parse_and_add(struct mail_host_list *list,
 
 const char *mail_host_get_tag(struct mail_host *host)
 {
-	return host->tag;
+	return host->tag->name;
 }
 
 void mail_host_set_tag(struct mail_host *host, const char *tag_name)
 {
 	i_assert(tag_name != NULL);
 
-	i_free(host->tag);
-	host->tag = i_strdup(tag_name);
+	host->tag = mail_tag_get(host->list, tag_name);
+	host->list->vhosts_unsorted = TRUE;
 }
 
 void mail_host_set_down(struct mail_host *host, bool down, time_t timestamp)
@@ -330,7 +380,6 @@ void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count)
 
 static void mail_host_free(struct mail_host *host)
 {
-	i_free(host->tag);
 	i_free(host->hostname);
 	i_free(host);
 }
@@ -344,11 +393,10 @@ void mail_host_remove(struct mail_host *host)
 	hosts = array_get(&list->hosts, &count);
 	for (i = 0; i < count; i++) {
 		if (hosts[i] == host) {
-			array_delete(&list->hosts, i, 1);
+			array_delete(&host->list->hosts, i, 1);
 			break;
 		}
 	}
-
 	mail_host_free(host);
 	list->vhosts_unsorted = TRUE;
 }
@@ -369,15 +417,13 @@ mail_host_lookup(struct mail_host_list *list, const struct ip_addr *ip)
 }
 
 static struct mail_host *
-mail_host_get_by_hash_ring(struct mail_host_list *list, unsigned int hash,
-			   const char *tag_name)
+mail_host_get_by_hash_ring(struct mail_tag *tag, unsigned int hash)
 {
-	struct mail_host *host;
 	const struct mail_vhost *vhosts;
-	unsigned int i, count, idx;
+	unsigned int count, idx;
 
-	vhosts = array_get(&list->vhosts, &count);
-	array_bsearch_insert_pos(&list->vhosts, &hash,
+	vhosts = array_get(&tag->vhosts, &count);
+	array_bsearch_insert_pos(&tag->vhosts, &hash,
 				 mail_vhost_hash_cmp, &idx);
 	i_assert(idx <= count);
 	if (idx == count) {
@@ -385,46 +431,38 @@ mail_host_get_by_hash_ring(struct mail_host_list *list, unsigned int hash,
 			return NULL;
 		idx = 0;
 	}
-
-	for (i = 0; i < count; i++) {
-		host = vhosts[(idx + i) % count].host;
-		if (strcmp(host->tag, tag_name) == 0)
-			return host;
-	}
-	return NULL;
+	return vhosts[idx % count].host;
 }
 
 static struct mail_host *
-mail_host_get_by_hash_direct(struct mail_host_list *list, unsigned int hash,
-			     const char *tag_name)
+mail_host_get_by_hash_direct(struct mail_tag *tag, unsigned int hash)
 {
-	struct mail_host *host;
 	const struct mail_vhost *vhosts;
-	unsigned int i, count;
+	unsigned int count;
 
-	vhosts = array_get(&list->vhosts, &count);
+	vhosts = array_get(&tag->vhosts, &count);
 	if (count == 0)
 		return NULL;
-
-	for (i = 0; i < count; i++) {
-		host = vhosts[(hash + i) % count].host;
-		if (strcmp(host->tag, tag_name) == 0)
-			return host;
-	}
-	return NULL;
+	return vhosts[hash % count].host;
 }
 
 struct mail_host *
 mail_host_get_by_hash(struct mail_host_list *list, unsigned int hash,
 		      const char *tag_name)
 {
+	struct mail_tag *tag;
+
 	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
 
+	tag = mail_tag_find(list, tag_name);
+	if (tag == NULL)
+		return NULL;
+
 	if (list->consistent_hashing)
-		return mail_host_get_by_hash_ring(list, hash, tag_name);
+		return mail_host_get_by_hash_ring(tag, hash);
 	else
-		return mail_host_get_by_hash_direct(list, hash, tag_name);
+		return mail_host_get_by_hash_direct(tag, hash);
 }
 
 void mail_hosts_set_synced(struct mail_host_list *list)
@@ -448,7 +486,7 @@ bool mail_hosts_have_usable(struct mail_host_list *list)
 {
 	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
-	return array_count(&list->vhosts) > 0;
+	return list->have_vhosts;
 }
 
 const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list)
@@ -458,6 +496,20 @@ const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list)
 	return &list->hosts;
 }
 
+bool mail_hosts_have_tags(struct mail_host_list *list)
+{
+	struct mail_tag *const *tagp;
+
+	if (list->vhosts_unsorted)
+		mail_hosts_sort(list);
+
+	array_foreach(&list->tags, tagp) {
+		if ((*tagp)->name[0] != '\0' && array_count(&(*tagp)->vhosts) > 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 struct mail_host_list *mail_hosts_init(bool consistent_hashing)
 {
 	struct mail_host_list *list;
@@ -465,21 +517,24 @@ struct mail_host_list *mail_hosts_init(bool consistent_hashing)
 	list = i_new(struct mail_host_list, 1);
 	list->consistent_hashing = consistent_hashing;
 	i_array_init(&list->hosts, 16);
-	i_array_init(&list->vhosts, 16*VHOST_MULTIPLIER);
+	i_array_init(&list->tags, 4);
 	return list;
 }
 
 void mail_hosts_deinit(struct mail_host_list **_list)
 {
 	struct mail_host_list *list = *_list;
-	struct mail_host **hostp;
+	struct mail_host *const *hostp;
+	struct mail_tag *const *tagp;
 
 	*_list = NULL;
 
-	array_foreach_modifiable(&list->hosts, hostp)
+	array_foreach(&list->hosts, hostp)
 		mail_host_free(*hostp);
+	array_foreach(&list->tags, tagp)
+		mail_tag_free(*tagp);
 	array_free(&list->hosts);
-	array_free(&list->vhosts);
+	array_free(&list->tags);
 	i_free(list);
 }
 
@@ -489,7 +544,7 @@ static struct mail_host *mail_host_dup(const struct mail_host *src)
 
 	dest = i_new(struct mail_host, 1);
 	*dest = *src;
-	dest->tag = i_strdup(src->tag);
+	dest->tag = src->tag;
 	dest->hostname = i_strdup(src->hostname);
 	return dest;
 }

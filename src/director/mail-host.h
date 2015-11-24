@@ -17,7 +17,7 @@ struct mail_host {
 
 	struct ip_addr ip;
 	char *hostname;
-	char *tag;
+	struct mail_tag *tag;
 
 	/* host was recently changed and ring hasn't synced yet since */
 	unsigned int desynced:1;
@@ -49,6 +49,7 @@ void mail_hosts_set_synced(struct mail_host_list *list);
 unsigned int mail_hosts_hash(struct mail_host_list *list);
 bool mail_hosts_have_usable(struct mail_host_list *list);
 const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list);
+bool mail_hosts_have_tags(struct mail_host_list *list);
 
 struct mail_host_list *mail_hosts_init(bool consistent_hashing);
 void mail_hosts_deinit(struct mail_host_list **list);
