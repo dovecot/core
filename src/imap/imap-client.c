@@ -799,37 +799,84 @@ void client_command_free(struct client_command_context **_cmd)
 	}
 }
 
-void client_continue_pending_input(struct client *client)
+static void client_check_command_hangs(struct client *client)
 {
-	i_assert(!client->handling_input);
+	struct client_command_context *cmd;
+	unsigned int unfinished_count = 0;
+	bool have_wait_unfinished = FALSE;
 
+	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
+		switch (cmd->state) {
+		case CLIENT_COMMAND_STATE_WAIT_INPUT:
+			i_assert(client->io != NULL);
+			unfinished_count++;
+			break;
+		case CLIENT_COMMAND_STATE_WAIT_OUTPUT:
+			i_assert((io_loop_find_fd_conditions(current_ioloop, client->fd_out) & IO_WRITE) != 0);
+			unfinished_count++;
+			break;
+		case CLIENT_COMMAND_STATE_WAIT_EXTERNAL:
+			unfinished_count++;
+			break;
+		case CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY:
+			have_wait_unfinished = TRUE;
+			break;
+		case CLIENT_COMMAND_STATE_WAIT_SYNC:
+			if ((io_loop_find_fd_conditions(current_ioloop, client->fd_out) & IO_WRITE) == 0)
+				have_wait_unfinished = TRUE;
+			else {
+				/* we have an output callback, which will be
+				   called soon and it'll run cmd_sync_delayed().
+				   FIXME: is this actually wanted? */
+			}
+			break;
+		case CLIENT_COMMAND_STATE_DONE:
+			i_unreached();
+		}
+	}
+	i_assert(!have_wait_unfinished || unfinished_count > 0);
+}
+
+static bool client_remove_pending_unambiguity(struct client *client)
+{
 	if (client->input_lock != NULL) {
 		/* there's a command that has locked the input */
 		struct client_command_context *cmd = client->input_lock;
 
 		if (cmd->state != CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY)
-			return;
+			return FALSE;
 
 		/* the command is waiting for existing ambiguity causing
 		   commands to finish. */
 		if (client_command_is_ambiguous(cmd)) {
 			/* we could be waiting for existing sync to finish */
 			if (!cmd_sync_delayed(client))
-				return;
+				return FALSE;
 			if (client_command_is_ambiguous(cmd))
-				return;
+				return FALSE;
 		}
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_INPUT;
 	}
+	return TRUE;
+}
 
-	client_add_missing_io(client);
+void client_continue_pending_input(struct client *client)
+{
+	i_assert(!client->handling_input);
 
-	/* if there's unread data in buffer, handle it. */
-	if (i_stream_get_data_size(client->input) > 0 &&
-	    !client->disconnected) {
-		if (client_handle_input(client))
-			client_continue_pending_input(client);
+	/* this function is called at the end of I/O callbacks (and only there).
+	   fix up the command states and verify that they're correct. */
+	while (client_remove_pending_unambiguity(client)) {
+		client_add_missing_io(client);
+
+		/* if there's unread data in buffer, handle it. */
+		if (i_stream_get_data_size(client->input) == 0 ||
+		    client->disconnected)
+			break;
+		if (!client_handle_input(client))
+			break;
 	}
+	client_check_command_hangs(client);
 }
 
 /* Skip incoming data until newline is found,
@@ -1021,8 +1068,7 @@ bool client_handle_input(struct client *client)
 		cmd_sync_delayed(client);
 	} else if (client->input_lock->state == CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY) {
 		/* the command may be waiting for previous command to sync. */
-		if (cmd_sync_delayed(client))
-			client_continue_pending_input(client);
+		cmd_sync_delayed(client);
 	}
 	return TRUE;
 }

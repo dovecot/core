@@ -270,6 +270,8 @@ void client_command_cancel(struct client_command_context **cmd);
 void client_command_free(struct client_command_context **cmd);
 
 bool client_handle_unfinished_cmd(struct client_command_context *cmd);
+/* Handle any pending command input. This must be run at the end of all
+   I/O callbacks after they've (potentially) finished some commands. */
 void client_continue_pending_input(struct client *client);
 void client_add_missing_io(struct client *client);
 const char *client_stats(struct client *client);
