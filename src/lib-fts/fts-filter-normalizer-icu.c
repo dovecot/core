@@ -14,8 +14,6 @@ struct fts_filter_normalizer_icu {
 	struct fts_filter filter;
 	pool_t pool;
 	const char *transliterator_id;
-	const UChar *transliterator_id_utf16;
-	unsigned int transliterator_id_utf16_len;
 
 	UTransliterator *transliterator;
 	buffer_t *utf16_token, *trans_token;
@@ -63,39 +61,7 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	np->utf16_token = buffer_create_dynamic(pp, 128);
 	np->trans_token = buffer_create_dynamic(pp, 128);
 	np->utf8_token = buffer_create_dynamic(pp, 128);
-	fts_icu_utf8_to_utf16(np->utf16_token, id);
-	np->transliterator_id_utf16 =
-		p_memdup(pp, np->utf16_token->data, np->utf16_token->used);
-	np->transliterator_id_utf16_len = np->utf16_token->used / sizeof(UChar);
 	*filter_r = &np->filter;
-	return 0;
-}
-
-static int
-fts_filter_normalizer_icu_create_trans(struct fts_filter_normalizer_icu *np,
-				       const char **error_r)
-{
-	UErrorCode err = U_ZERO_ERROR;
-	UParseError perr;
-
-	memset(&perr, 0, sizeof(perr));
-
-	np->transliterator = utrans_openU(np->transliterator_id_utf16,
-					  np->transliterator_id_utf16_len,
-					  UTRANS_FORWARD, NULL, 0, &perr, &err);
-	if (U_FAILURE(err)) {
-		string_t *str = t_str_new(128);
-
-		str_printfa(str, "Failed to open transliterator for id '%s': %s",
-			    np->transliterator_id, u_errorName(err));
-		if (perr.line >= 1) {
-			/* we have only one line in our ID */
-			str_printfa(str, " (parse error on offset %u)",
-				    perr.offset);
-		}
-		*error_r = str_c(str);
-		return -1;
-	}
 	return 0;
 }
 
@@ -106,10 +72,11 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 	struct fts_filter_normalizer_icu *np =
 		(struct fts_filter_normalizer_icu *)filter;
 
-	if (np->transliterator == NULL) {
-		if (fts_filter_normalizer_icu_create_trans(np, error_r) < 0)
+	if (np->transliterator == NULL)
+		if (fts_icu_transliterator_create(np->transliterator_id,
+		                                  &np->transliterator,
+		                                  error_r) < 0)
 			return -1;
-	}
 
 	fts_icu_utf8_to_utf16(np->utf16_token, *token);
 	buffer_append_zero(np->utf16_token, 2);

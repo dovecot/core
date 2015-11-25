@@ -19,4 +19,7 @@ void fts_icu_lcase(string_t *dest_utf8, const char *src_utf8);
 /* Free all the memory used by ICU functions. */
 void fts_icu_deinit(void);
 
+int fts_icu_transliterator_create(const char *id,
+                                  UTransliterator **transliterator_r,
+                                  const char **error_r) ;
 #endif

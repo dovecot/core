@@ -1,7 +1,9 @@
 /* Copyright (c) 2014-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "mempool.h"
 #include "buffer.h"
+#include "str.h"
 #include "unichar.h"
 #include "fts-icu.h"
 
@@ -163,4 +165,35 @@ void fts_icu_deinit(void)
 		icu_csm = NULL;
 	}
 	u_cleanup();
+}
+
+int fts_icu_transliterator_create(const char *id,
+                                  UTransliterator **transliterator_r,
+                                  const char **error_r)
+{
+	UErrorCode err = U_ZERO_ERROR;
+	UParseError perr;
+	buffer_t *id_utf16_buf = buffer_create_dynamic(pool_datastack_create(), 2 * strlen(id));
+	UChar *id_utf16;
+	memset(&perr, 0, sizeof(perr));
+
+	fts_icu_utf8_to_utf16(id_utf16_buf, id);
+	id_utf16 = (UChar *)str_c(id_utf16_buf);
+	*transliterator_r = utrans_openU(id_utf16,
+	                                id_utf16_buf->used / sizeof(UChar),
+					UTRANS_FORWARD, NULL, 0, &perr, &err);
+	if (U_FAILURE(err)) {
+		string_t *str = t_str_new(128);
+
+		str_printfa(str, "Failed to open transliterator for id '%s': %s",
+			    id, u_errorName(err));
+		if (perr.line >= 1) {
+			/* we have only one line in our ID */
+			str_printfa(str, " (parse error on offset %u)",
+				    perr.offset);
+		}
+		*error_r = str_c(str);
+		return -1;
+	}
+	return 0;
 }
