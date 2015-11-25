@@ -14,7 +14,7 @@ static const char *const stopword_settings[] = {"stopwords_dir", TEST_STOPWORDS_
 static struct fts_language english_language = { .name = "en" };
 static struct fts_language french_language = { .name = "fr" };
 static struct fts_language norwegian_language = { .name = "no" };
-#ifdef HAVE_FTS_STEMMER
+#if defined(HAVE_LIBICU) && defined(HAVE_FTS_STEMMER)
 static struct fts_language swedish_language = { .name = "sv" };
 #endif
 
