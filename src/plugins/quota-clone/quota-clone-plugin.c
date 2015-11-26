@@ -29,6 +29,7 @@ struct quota_clone_user {
 struct quota_clone_mailbox {
 	union mailbox_module_context module_ctx;
 	bool quota_changed;
+	bool quota_flushing;
 };
 
 static void quota_clone_flush(struct mailbox *box)
@@ -114,8 +115,14 @@ static void quota_clone_mailbox_close(struct mailbox *box)
 	struct quota_clone_mailbox *qbox = QUOTA_CLONE_CONTEXT(box);
 
 	qbox->module_ctx.super.close(box);
-	if (qbox->quota_changed)
+
+	if (qbox->quota_flushing) {
+		/* recursing back from quota recalculation */
+	} else if (qbox->quota_changed) {
+		qbox->quota_flushing = TRUE;
 		quota_clone_flush(box);
+		qbox->quota_flushing = FALSE;
+	}
 }
 
 static void quota_clone_mailbox_allocated(struct mailbox *box)
