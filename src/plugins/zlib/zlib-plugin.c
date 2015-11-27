@@ -26,6 +26,11 @@
 #define MAX_INBUF_SIZE (1024*1024)
 #define ZLIB_MAIL_CACHE_EXPIRE_MSECS (60*1000)
 
+struct zlib_mail {
+	union mail_module_context module_ctx;
+	bool verifying_save;
+};
+
 struct zlib_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
 
@@ -112,16 +117,15 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 	struct zlib_user *zuser = ZLIB_USER_CONTEXT(_mail->box->storage->user);
 	struct zlib_mail_cache *cache = &zuser->cache;
 	struct mail_private *mail = (struct mail_private *)_mail;
-	union mail_module_context *zmail = ZLIB_MAIL_CONTEXT(mail);
+	struct zlib_mail *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
 	const struct compression_handler *handler;
 
-	/* don't uncompress input when we are reading a mail that we're just
-	   in the middle of saving, and we didn't do the compression ourself.
-	   in such situation we're probably checking if the user-given input
-	   looks compressed */
-	if (_mail->saving && zuser->save_handler == NULL)
-		return zmail->super.istream_opened(_mail, stream);
+	if (zmail->verifying_save) {
+		/* zlib_mail_save_finish() is verifying that the user-given
+		   input doesn't look compressed. */
+		return zmail->module_ctx.super.istream_opened(_mail, stream);
+	}
 
 	if (cache->uid == _mail->uid && cache->box == _mail->box) {
 		/* use the cached stream. when doing partial reads it should
@@ -129,7 +133,7 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 		i_stream_unref(stream);
 		i_stream_seek(cache->input, 0);
 		*stream = i_stream_create_limit(cache->input, (uoff_t)-1);
-		return zmail->super.istream_opened(_mail, stream);
+		return zmail->module_ctx.super.istream_opened(_mail, stream);
 	}
 
 	handler = compression_detect_handler(*stream);
@@ -147,7 +151,7 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 
 		*stream = zlib_mail_cache_open(zuser, _mail, *stream);
 	}
-	return zmail->super.istream_opened(_mail, stream);
+	return zmail->module_ctx.super.istream_opened(_mail, stream);
 }
 
 static void zlib_mail_allocated(struct mail *_mail)
@@ -155,17 +159,17 @@ static void zlib_mail_allocated(struct mail *_mail)
 	struct zlib_transaction_context *zt = ZLIB_CONTEXT(_mail->transaction);
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct mail_vfuncs *v = mail->vlast;
-	union mail_module_context *zmail;
+	struct zlib_mail *zmail;
 
 	if (zt == NULL)
 		return;
 
-	zmail = p_new(mail->pool, union mail_module_context, 1);
-	zmail->super = *v;
-	mail->vlast = &zmail->super;
+	zmail = p_new(mail->pool, struct zlib_mail, 1);
+	zmail->module_ctx.super = *v;
+	mail->vlast = &zmail->module_ctx.super;
 
 	v->istream_opened = zlib_istream_opened;
-	MODULE_CONTEXT_SET_SELF(mail, zlib_mail_module, zmail);
+	MODULE_CONTEXT_SET(mail, zlib_mail_module, zmail);
 }
 
 static struct mailbox_transaction_context *
@@ -235,12 +239,18 @@ static int zlib_mail_save_finish(struct mail_save_context *ctx)
 {
 	struct mailbox *box = ctx->transaction->box;
 	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
+	struct mail_private *mail = (struct mail_private *)ctx->dest_mail;
+	struct zlib_mail *zmail = ZLIB_MAIL_CONTEXT(mail);
 	struct istream *input;
+	int ret;
 
 	if (zbox->super.save_finish(ctx) < 0)
 		return -1;
 
-	if (mail_get_stream(ctx->dest_mail, NULL, NULL, &input) < 0)
+	zmail->verifying_save = TRUE;
+	ret = mail_get_stream(ctx->dest_mail, NULL, NULL, &input);
+	zmail->verifying_save = FALSE;
+	if (ret < 0)
 		return -1;
 
 	if (compression_detect_handler(input) != NULL) {
