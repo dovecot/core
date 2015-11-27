@@ -63,6 +63,8 @@ struct solr_fts_backend_update_context {
 	unsigned int truncate_header:1;
 };
 
+static const char *solr_escape_chars = "+-&|!(){}[]^\"~*?:\\/ ";
+
 static bool is_valid_xml_char(unichar_t chr)
 {
 	/* Valid characters in XML:
@@ -143,11 +145,23 @@ static void xml_encode(string_t *dest, const char *str)
 	xml_encode_data(dest, (const unsigned char *)str, strlen(str));
 }
 
+static const char *solr_escape(const char *str)
+{
+	string_t *ret;
+	unsigned int i;
+
+	ret = t_str_new(strlen(str) + 16);
+	for (i = 0; str[i] != '\0'; i++) {
+		if (strchr(solr_escape_chars, str[i]) != NULL)
+			str_append_c(ret, '\\');
+		str_append_c(ret, str[i]);
+	}
+	return str_c(ret);
+}
+
 static void solr_quote_http(string_t *dest, const char *str)
 {
-	str_append(dest, "%22");
-	http_url_escape_param(dest, str);
-	str_append(dest, "%22");
+	http_url_escape_param(dest, solr_escape(str));
 }
 
 static struct fts_backend *fts_backend_solr_alloc(void)
@@ -623,8 +637,6 @@ static int fts_backend_solr_optimize(struct fts_backend *backend ATTR_UNUSED)
 
 static bool solr_need_escaping(const char *str)
 {
-	const char *solr_escape_chars = "+-&|!(){}[]^\"~*?:\\ ";
-
 	for (; *str != '\0'; str++) {
 		if (strchr(solr_escape_chars, *str) != NULL)
 			return TRUE;
@@ -640,7 +652,7 @@ static void solr_add_str_arg(string_t *str, struct mail_search_arg *arg)
 	if (!arg->fuzzy || solr_need_escaping(arg->value.str))
 		solr_quote_http(str, arg->value.str);
 	else {
-		str_append(str, arg->value.str);
+		http_url_escape_param(str, arg->value.str);
 		str_append_c(str, '~');
 	}
 }

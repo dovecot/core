@@ -42,6 +42,8 @@ struct solr_fts_backend_update_context {
 	bool documents_added;
 };
 
+static const char *solr_escape_chars = "+-&|!(){}[]^\"~*?:\\/ ";
+
 static bool is_valid_xml_char(unichar_t chr)
 {
 	/* Valid characters in XML:
@@ -139,18 +141,28 @@ static const char *solr_escape_id_str(const char *str)
 	return str_c(tmp);
 }
 
+static const char *solr_escape(const char *str)
+{
+	string_t *ret;
+	unsigned int i;
+
+	ret = t_str_new(strlen(str) + 16);
+	for (i = 0; str[i] != '\0'; i++) {
+		if (strchr(solr_escape_chars, str[i]) != NULL)
+			str_append_c(ret, '\\');
+		str_append_c(ret, str[i]);
+	}
+	return str_c(ret);
+}
+
 static void solr_quote(string_t *dest, const char *str)
 {
-	str_append_c(dest, '"');
-	str_append(dest, str_escape(str));
-	str_append_c(dest, '"');
+	str_append(dest, solr_escape(str));
 }
 
 static void solr_quote_http(string_t *dest, const char *str)
 {
-	str_append(dest, "%22");
-	http_url_escape_param(dest, str);
-	str_append(dest, "%22");
+	http_url_escape_param(dest, solr_escape(str));
 }
 
 static void fts_solr_set_default_ns(struct solr_fts_backend *backend)
