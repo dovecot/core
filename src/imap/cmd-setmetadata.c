@@ -27,6 +27,9 @@ struct imap_setmetadata_context {
 
 static void cmd_setmetadata_deinit(struct imap_setmetadata_context *ctx)
 {
+	o_stream_set_flush_callback(ctx->cmd->client->output,
+				    client_output, ctx->cmd->client);
+
 	ctx->cmd->client->input_lock = NULL;
 	imap_parser_unref(&ctx->parser);
 	if (ctx->trans != NULL)
