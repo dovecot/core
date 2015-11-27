@@ -91,10 +91,12 @@ enum mailbox_metadata_items {
 	MAILBOX_METADATA_CACHE_FIELDS		= 0x04,
 	MAILBOX_METADATA_PRECACHE_FIELDS	= 0x08,
 	MAILBOX_METADATA_BACKEND_NAMESPACE	= 0x10,
-	MAILBOX_METADATA_PHYSICAL_SIZE		= 0x20
+	MAILBOX_METADATA_PHYSICAL_SIZE		= 0x20,
+	MAILBOX_METADATA_FIRST_SAVE_DATE	= 0x40
 	/* metadata items that require mailbox to be synced at least once. */
 #define MAILBOX_METADATA_SYNC_ITEMS \
-	(MAILBOX_METADATA_VIRTUAL_SIZE | MAILBOX_METADATA_PHYSICAL_SIZE)
+	(MAILBOX_METADATA_VIRTUAL_SIZE | MAILBOX_METADATA_PHYSICAL_SIZE | \
+	 MAILBOX_METADATA_FIRST_SAVE_DATE)
 };
 
 enum mailbox_search_result_flags {
@@ -275,10 +277,15 @@ struct mailbox_metadata {
 	uint64_t virtual_size;
 	/* sum of physical size of all messages in mailbox */
 	uint64_t physical_size;
+	/* timestamp of when the first message was saved.
+	   (time_t)-1 if there are no mails in the mailbox. */
+	time_t first_save_date;
+
 	/* Fields that have "temp" or "yes" caching decision. */
 	const ARRAY_TYPE(mailbox_cache_field) *cache_fields;
 	/* Fields that should be precached */
 	enum mail_fetch_field precache_fields;
+
 	/* imapc backend returns this based on the remote NAMESPACE reply,
 	   while currently other backends return "" and type the same as the
 	   mailbox's real namespace type */

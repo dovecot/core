@@ -81,6 +81,7 @@ struct mailbox_settings {
 	const char *special_use;
 	const char *driver;
 	const char *comment;
+	unsigned int autoexpunge;
 };
 
 struct mail_user_settings {

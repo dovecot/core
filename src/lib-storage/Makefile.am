@@ -24,6 +24,7 @@ libstorage_la_SOURCES = \
 	fail-mailbox.c \
 	fail-mail.c \
 	mail.c \
+	mail-autoexpunge.c \
 	mail-copy.c \
 	mail-error.c \
 	mail-namespace.c \

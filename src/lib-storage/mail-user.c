@@ -21,6 +21,7 @@
 #include "mail-storage-service.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
+#include "mail-autoexpunge.h"
 #include "mail-user.h"
 
 
@@ -162,6 +163,8 @@ void mail_user_unref(struct mail_user **_user)
 		user->refcount--;
 		return;
 	}
+
+	mail_user_autoexpunge(user);
 
 	user->deinitializing = TRUE;
 

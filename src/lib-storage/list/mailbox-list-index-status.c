@@ -15,11 +15,13 @@ struct index_list_changes {
 	guid_128_t guid;
 	uint32_t seq;
 	struct mailbox_index_vsize vsize;
+	uint32_t first_uid;
 
 	bool rec_changed;
 	bool msgs_changed;
 	bool hmodseq_changed;
 	bool vsize_changed;
+	bool first_saved_changed;
 };
 
 struct index_list_storage_module index_list_storage_module =
@@ -268,6 +270,30 @@ static int index_list_get_cached_vsize(struct mailbox *box, uoff_t *vsize_r)
 }
 
 static int
+index_list_get_cached_first_saved(struct mailbox *box,
+				  struct mailbox_index_first_saved *first_saved_r)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mail_index_view *view;
+	const void *data;
+	bool expunged;
+	uint32_t seq;
+	int ret;
+
+	memset(first_saved_r, 0, sizeof(*first_saved_r));
+
+	if ((ret = index_list_open_view(box, &view, &seq)) <= 0)
+		return ret;
+
+	mail_index_lookup_ext(view, seq, ilist->first_saved_ext_id,
+			      &data, &expunged);
+	if (data != NULL)
+		memcpy(first_saved_r, data, sizeof(*first_saved_r));
+	mail_index_view_close(&view);
+	return first_saved_r->timestamp != 0 ? 1 : 0;
+}
+
+static int
 index_list_try_get_metadata(struct mailbox *box,
 			    enum mailbox_metadata_items items,
 			    struct mailbox_metadata *metadata_r)
@@ -286,7 +312,8 @@ index_list_try_get_metadata(struct mailbox *box,
 	/* see if we have a chance of fulfilling this without opening
 	   the mailbox. */
 	noncached_items = items & ~(MAILBOX_METADATA_GUID |
-				    MAILBOX_METADATA_VIRTUAL_SIZE);
+				    MAILBOX_METADATA_VIRTUAL_SIZE |
+				    MAILBOX_METADATA_FIRST_SAVE_DATE);
 	if ((noncached_items & MAILBOX_METADATA_PHYSICAL_SIZE) != 0 &&
 	    box->mail_vfuncs->get_physical_size ==
 	    box->mail_vfuncs->get_virtual_size)
@@ -305,6 +332,15 @@ index_list_try_get_metadata(struct mailbox *box,
 			return ret;
 		if ((items & MAILBOX_METADATA_PHYSICAL_SIZE) != 0)
 			metadata_r->physical_size = metadata_r->virtual_size;
+	}
+	if ((items & MAILBOX_METADATA_FIRST_SAVE_DATE) != 0) {
+		struct mailbox_index_first_saved first_saved;
+
+		if ((ret = index_list_get_cached_first_saved(box, &first_saved)) <= 0)
+			return ret;
+		metadata_r->first_save_date =
+			first_saved.timestamp == (uint32_t)-1 ? (time_t)-1 :
+			first_saved.timestamp;
 	}
 	return 1;
 }
@@ -386,6 +422,33 @@ index_list_update_fill_changes(struct mailbox *box,
 	return TRUE;
 }
 
+static void
+index_list_first_saved_update_changes(struct mailbox *box,
+				      struct mail_index_view *list_view,
+				      struct index_list_changes *changes)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_index_first_saved first_saved;
+	const void *data;
+	bool expunged;
+
+	mail_index_lookup_ext(list_view, changes->seq,
+			      ilist->first_saved_ext_id, &data, &expunged);
+	if (data == NULL)
+		memset(&first_saved, 0, sizeof(first_saved));
+	else
+		memcpy(&first_saved, data, sizeof(first_saved));
+	if (mail_index_view_get_messages_count(box->view) > 0)
+		mail_index_lookup_uid(box->view, 1, &changes->first_uid);
+	if (first_saved.uid == 0 && first_saved.timestamp == 0) {
+		/* first time setting this */
+		changes->first_saved_changed = TRUE;
+	} else {
+		changes->first_saved_changed =
+			changes->first_uid != first_saved.uid;
+	}
+}
+
 static bool
 index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 		       struct index_list_changes *changes)
@@ -428,10 +491,55 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 	}
 	if (memcmp(&old_vsize, &changes->vsize, sizeof(old_vsize)) != 0)
 		changes->vsize_changed = TRUE;
+	index_list_first_saved_update_changes(box, list_view, changes);
 
 	return changes->rec_changed || changes->msgs_changed ||
-		changes->hmodseq_changed || changes->vsize_changed;
+		changes->hmodseq_changed || changes->vsize_changed ||
+		changes->first_saved_changed;
 }
+
+static void
+index_list_update_first_saved(struct mailbox *box,
+			      struct mail_index_transaction *list_trans,
+			      const struct index_list_changes *changes)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	struct mailbox_transaction_context *t;
+	struct mail *mail;
+	struct mailbox_index_first_saved first_saved;
+	uint32_t seq, messages_count;
+	time_t save_date;
+	int ret = 0;
+
+	memset(&first_saved, 0, sizeof(first_saved));
+	first_saved.uid = changes->first_uid;
+	first_saved.timestamp = (uint32_t)-1;
+
+	if (changes->first_uid != 0) {
+		t = mailbox_transaction_begin(box, 0);
+		mail = mail_alloc(t, MAIL_FETCH_SAVE_DATE, NULL);
+		messages_count = mail_index_view_get_messages_count(box->view);
+		for (seq = 1; seq <= messages_count; seq++) {
+			mail_set_seq(mail, seq);
+			if (mail_get_save_date(mail, &save_date) == 0) {
+				first_saved.timestamp = save_date;
+				break;
+			}
+			if (mailbox_get_last_mail_error(box) != MAIL_ERROR_EXPUNGED) {
+				ret = -1;
+				break;
+			}
+		}
+		mail_free(&mail);
+		(void)mailbox_transaction_commit(&t);
+	}
+	if (ret == 0) {
+		mail_index_update_ext(list_trans, changes->seq,
+				      ilist->first_saved_ext_id,
+				      &first_saved, NULL);
+	}
+}
+
 
 static void
 index_list_update(struct mailbox *box, struct mail_index_view *list_view,
@@ -480,6 +588,8 @@ index_list_update(struct mailbox *box, struct mail_index_view *list_view,
 				      ilist->vsize_ext_id,
 				      &changes->vsize, NULL);
 	}
+	if (changes->first_saved_changed)
+		index_list_update_first_saved(box, list_trans, changes);
 }
 
 static int index_list_update_mailbox(struct mailbox *box)
@@ -705,4 +815,7 @@ void mailbox_list_index_status_init_finish(struct mailbox_list *list)
 	ilist->vsize_ext_id =
 		mail_index_ext_register(ilist->index, "vsize", 0,
 			sizeof(struct mailbox_index_vsize), sizeof(uint64_t));
+	ilist->first_saved_ext_id =
+		mail_index_ext_register(ilist->index, "1saved", 0,
+			sizeof(struct mailbox_index_first_saved), sizeof(uint32_t));
 }

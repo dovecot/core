@@ -271,6 +271,11 @@ struct mailbox_index_vsize {
 	uint32_t message_count;
 };
 
+struct mailbox_index_first_saved {
+	uint32_t uid;
+	uint32_t timestamp;
+};
+
 struct mailbox {
 	const char *name;
 	/* mailbox's virtual name (from mail_namespace_get_vname()) */
