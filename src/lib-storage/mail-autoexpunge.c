@@ -69,7 +69,7 @@ static void mail_namespace_autoexpunge(struct mail_namespace *ns)
 
 	array_foreach(&ns->set->mailboxes, box_set) {
 		if ((*box_set)->autoexpunge == 0 ||
-		    ioloop_time < (*box_set)->autoexpunge)
+		    (unsigned int)ioloop_time < (*box_set)->autoexpunge)
 			continue;
 		expire_time = ioloop_time - (*box_set)->autoexpunge;
 		box = mailbox_alloc(ns->list, (*box_set)->name, 0);
