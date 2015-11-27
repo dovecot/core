@@ -367,7 +367,6 @@ static void client_default_destroy(struct client *client, const char *reason)
 			mail_user_get_anvil_userip_ident(client->user),
 			"\n", NULL));
 	}
-	mail_user_unref(&client->user);
 
 	if (client->free_parser != NULL)
 		imap_parser_unref(&client->free_parser);
@@ -385,6 +384,10 @@ static void client_default_destroy(struct client *client, const char *reason)
 	net_disconnect(client->fd_in);
 	if (client->fd_in != client->fd_out)
 		net_disconnect(client->fd_out);
+
+	/* Free the user after client is already disconnected. It may start
+	   some background work like autoexpunging. */
+	mail_user_unref(&client->user);
 
 	if (array_is_created(&client->search_saved_uidset))
 		array_free(&client->search_saved_uidset);
