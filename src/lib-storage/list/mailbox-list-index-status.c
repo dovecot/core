@@ -344,7 +344,7 @@ index_list_try_get_metadata(struct mailbox *box,
 			return ret;
 		metadata_r->first_save_date =
 			first_saved.timestamp == (uint32_t)-1 ? (time_t)-1 :
-			first_saved.timestamp;
+			(time_t)first_saved.timestamp;
 	}
 	return 1;
 }
