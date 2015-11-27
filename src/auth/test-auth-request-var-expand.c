@@ -22,12 +22,12 @@ static struct auth_userdb test_auth_userdb = {
 	.userdb = &test_userdb
 };
 
-static const struct auth_request default_test_request = {
+static struct auth_request default_test_request = {
 	.user = "-user@+domain1@+domain2",
 	.service = "-service",
 
-	.local_ip = { .family = AF_INET, .u.ip4.s_addr = 123456789 },
-	.remote_ip = { .family = AF_INET, .u.ip4.s_addr = 1234567890 },
+	.local_ip = { .family = AF_INET },
+	.remote_ip = { .family = AF_INET },
 	.client_pid = 54321,
 	.mech_password = "-password",
 	.mech_name = "-mech",
@@ -38,8 +38,8 @@ static const struct auth_request default_test_request = {
 
 	.requested_login_user = "-loginuser@+logindomain1@+logindomain2",
 	.session_id = "-session",
-	.real_local_ip = { .family = AF_INET, .u.ip4.s_addr = 223456788 },
-	.real_remote_ip = { .family = AF_INET, .u.ip4.s_addr = 223456789 },
+	.real_local_ip = { .family = AF_INET },
+	.real_remote_ip = { .family = AF_INET },
 	.real_local_port = 200,
 	.real_remote_port = 201,
 	.master_user = "-masteruser@-masterdomain1@-masterdomain2",
@@ -88,7 +88,7 @@ static void test_auth_request_var_expand_shortlong(void)
 	static const char *test_output =
 		/* %{home} is intentionally always expanding to empty */
 		"+user@+domain1@+domain2\n+user\n+domain1@+domain2\n+service\n\n"
-		"21.205.91.7\n210.2.150.73\n54321\n+password\n+mech\nsecured\n"
+		"7.91.205.21\n73.150.2.210\n54321\n+password\n+mech\nsecured\n"
 		"21\n210\nvalid\n";
 	string_t *str = t_str_new(256);
 
@@ -146,7 +146,7 @@ static void test_auth_request_var_expand_long(void)
 		"%{orig_user}\n%{orig_username}\n%{orig_domain}\n";
 	static const char *test_output =
 		"+loginuser@+logindomain1@+logindomain2\n+loginuser\n+logindomain1@+logindomain2\n+session\n"
-		"20.174.81.13\n21.174.81.13\n200\n201\n"
+		"13.81.174.20\n13.81.174.21\n200\n201\n"
 		"+masteruser@+masterdomain1@+masterdomain2\n5000\n"
 		"+origuser@+origdomain1@+origdomain2\n+origuser\n+origdomain1@+origdomain2\n";
 	string_t *str = t_str_new(256);
@@ -234,6 +234,12 @@ int main(void)
 		test_auth_request_var_expand_funcs,
 		NULL
 	};
+
+	default_test_request.local_ip.u.ip4.s_addr = htonl(123456789);
+	default_test_request.remote_ip.u.ip4.s_addr = htonl(1234567890);
+	default_test_request.real_local_ip.u.ip4.s_addr = htonl(223456788);
+	default_test_request.real_remote_ip.u.ip4.s_addr = htonl(223456789);
+
 	test_request = default_test_request;
 	return test_run(test_functions);
 }
