@@ -378,6 +378,8 @@ struct mailbox {
 	unsigned int synced:1;
 	/* Updating cache file is disabled */
 	unsigned int mail_cache_disabled:1;
+	/* Update first_saved field to mailbox list index. */
+	unsigned int update_first_saved:1;
 };
 
 struct mail_vfuncs {

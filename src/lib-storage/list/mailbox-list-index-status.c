@@ -336,6 +336,10 @@ index_list_try_get_metadata(struct mailbox *box,
 	if ((items & MAILBOX_METADATA_FIRST_SAVE_DATE) != 0) {
 		struct mailbox_index_first_saved first_saved;
 
+		/* start writing first_saved to mailbox list index if it wasn't
+		   there already. */
+		box->update_first_saved = TRUE;
+
 		if ((ret = index_list_get_cached_first_saved(box, &first_saved)) <= 0)
 			return ret;
 		metadata_r->first_save_date =
@@ -441,8 +445,9 @@ index_list_first_saved_update_changes(struct mailbox *box,
 	if (mail_index_view_get_messages_count(box->view) > 0)
 		mail_index_lookup_uid(box->view, 1, &changes->first_uid);
 	if (first_saved.uid == 0 && first_saved.timestamp == 0) {
-		/* first time setting this */
-		changes->first_saved_changed = TRUE;
+		/* it's not in the index yet. we'll set it only if we've
+		   just called MAILBOX_METADATA_FIRST_SAVE_DATE. */
+		changes->first_saved_changed = box->update_first_saved;
 	} else {
 		changes->first_saved_changed =
 			changes->first_uid != first_saved.uid;
