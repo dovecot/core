@@ -146,6 +146,9 @@ static const char *solr_escape(const char *str)
 	string_t *ret;
 	unsigned int i;
 
+	if (str[0] == '\0')
+		return "\"\"";
+
 	ret = t_str_new(strlen(str) + 16);
 	for (i = 0; str[i] != '\0'; i++) {
 		if (strchr(solr_escape_chars, str[i]) != NULL)

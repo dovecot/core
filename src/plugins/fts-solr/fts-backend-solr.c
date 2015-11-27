@@ -161,7 +161,10 @@ static const char *solr_escape(const char *str)
 
 static void solr_quote_http(string_t *dest, const char *str)
 {
-	http_url_escape_param(dest, solr_escape(str));
+	if (str[0] != '\0')
+		http_url_escape_param(dest, solr_escape(str));
+	else
+		str_append(dest, "\"\"");
 }
 
 static struct fts_backend *fts_backend_solr_alloc(void)
@@ -649,7 +652,8 @@ static void solr_add_str_arg(string_t *str, struct mail_search_arg *arg)
 	/* currently we'll just disable fuzzy searching if there are any
 	   parameters that need escaping. solr doesn't seem to give good
 	   fuzzy results even if we did escape them.. */
-	if (!arg->fuzzy || solr_need_escaping(arg->value.str))
+	if (!arg->fuzzy || arg->value.str[0] == '\0' ||
+	    solr_need_escaping(arg->value.str))
 		solr_quote_http(str, arg->value.str);
 	else {
 		http_url_escape_param(str, arg->value.str);
