@@ -53,6 +53,12 @@ char *str_lcase(char *str);
 const char *t_str_lcase(const char *str);
 const char *t_str_ucase(const char *str);
 
+/* Trim matching chars from either side of the string */
+const char *str_ltrim(const char *str, const char *chars);
+const char *t_str_ltrim(const char *str, const char *chars);
+const char *t_str_rtrim(const char *str, const char *chars);
+const char *t_str_trim(const char *str, const char *chars);
+
 int null_strcmp(const char *s1, const char *s2) ATTR_PURE;
 int bsearch_strcmp(const char *key, const char *const *member) ATTR_PURE;
 int bsearch_strcasecmp(const char *key, const char *const *member) ATTR_PURE;

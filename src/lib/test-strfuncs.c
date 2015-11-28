@@ -109,10 +109,61 @@ static void test_t_str_replace(void)
 	test_end();
 }
 
+static void test_t_str_trim(void)
+{
+	test_begin("t_str_trim");
+	test_assert(strcmp(t_str_trim("foo", ""), "foo") == 0);
+	test_assert(strcmp(t_str_trim("foo", " "), "foo") == 0);
+	test_assert(strcmp(t_str_trim("foo ", " "), "foo") == 0);
+	test_assert(strcmp(t_str_trim(" foo", " "), "foo") == 0);
+	test_assert(strcmp(t_str_trim(" foo ", " "), "foo") == 0);
+	test_assert(strcmp(t_str_trim("\tfoo ", "\t "), "foo") == 0);
+	test_assert(strcmp(t_str_trim(" \tfoo\t ", "\t "), "foo") == 0);
+	test_assert(strcmp(t_str_trim("\r \tfoo\t \r", "\t \r"), "foo") == 0);
+	test_assert(strcmp(t_str_trim("\r \tfoo foo\t \r", "\t \r"), "foo foo") == 0);
+	test_assert(strcmp(t_str_trim("\tfoo\tfoo\t", "\t \r"), "foo\tfoo") == 0);
+	test_end();
+}
+
+static void test_t_str_ltrim(void)
+{
+	test_begin("t_str_ltrim");
+	test_assert(strcmp(t_str_ltrim("foo", ""), "foo") == 0);
+	test_assert(strcmp(t_str_ltrim("foo", " "), "foo") == 0);
+	test_assert(strcmp(t_str_ltrim("foo ", " "), "foo ") == 0);
+	test_assert(strcmp(t_str_ltrim(" foo", " "), "foo") == 0);
+	test_assert(strcmp(t_str_ltrim(" foo ", " "), "foo ") == 0);
+	test_assert(strcmp(t_str_ltrim("\tfoo ", "\t "), "foo ") == 0);
+	test_assert(strcmp(t_str_ltrim(" \tfoo\t ", "\t "), "foo\t ") == 0);
+	test_assert(strcmp(t_str_ltrim("\r \tfoo\t \r", "\t \r"), "foo\t \r") == 0);
+	test_assert(strcmp(t_str_ltrim("\r \tfoo foo\t \r", "\t \r"), "foo foo\t \r") == 0);
+	test_assert(strcmp(t_str_ltrim("\tfoo\tfoo\t", "\t \r"), "foo\tfoo\t") == 0);
+	test_end();
+}
+
+static void test_t_str_rtrim(void)
+{
+	test_begin("t_str_rtrim");
+	test_assert(strcmp(t_str_rtrim("foo", ""), "foo") == 0);
+	test_assert(strcmp(t_str_rtrim("foo", " "), "foo") == 0);
+	test_assert(strcmp(t_str_rtrim("foo ", " "), "foo") == 0);
+	test_assert(strcmp(t_str_rtrim(" foo", " "), " foo") == 0);
+	test_assert(strcmp(t_str_rtrim(" foo ", " "), " foo") == 0);
+	test_assert(strcmp(t_str_rtrim("\tfoo ", "\t "), "\tfoo") == 0);
+	test_assert(strcmp(t_str_rtrim(" \tfoo\t ", "\t "), " \tfoo") == 0);
+	test_assert(strcmp(t_str_rtrim("\r \tfoo\t \r", "\t \r"), "\r \tfoo") == 0);
+	test_assert(strcmp(t_str_rtrim("\r \tfoo foo\t \r", "\t \r"), "\r \tfoo foo") == 0);
+	test_assert(strcmp(t_str_rtrim("\tfoo\tfoo\t", "\t \r"), "\tfoo\tfoo") == 0);
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strarray_dup();
 	test_t_strsplit();
 	test_t_strsplit_tab();
 	test_t_str_replace();
+	test_t_str_trim();
+	test_t_str_ltrim();
+	test_t_str_rtrim();
 }

@@ -364,6 +364,63 @@ const char *t_str_ucase(const char *str)
 	return str_ucase(t_strdup_noconst(str));
 }
 
+const char *t_str_trim(const char *str, const char *chars)
+{
+	const char *p, *pend, *begin;
+
+	pend = str + strlen(str);
+	if (pend == str)
+		return "";
+
+	p = str;
+	while (p < pend && strchr(chars, *p) != NULL)
+		p++;
+	begin = p;
+
+	p = pend - 1;
+	while (p > begin && strchr(chars, *p) != NULL)
+		p--;
+
+	if (p <= begin)
+		return "";
+	return t_strdup_until(begin, p+1);
+}
+
+const char *str_ltrim(const char *str, const char *chars)
+{
+	const char *p;
+
+	if (*str == '\0')
+		return "";
+
+	p = str;
+	while (*p != '\0' && strchr(chars, *p) != NULL)
+		p++;
+
+	return p;
+}
+
+const char *t_str_ltrim(const char *str, const char *chars)
+{
+	return t_strdup(str_ltrim(str, chars));
+}
+
+const char *t_str_rtrim(const char *str, const char *chars)
+{
+	const char *p, *pend;
+
+	pend = str + strlen(str);
+	if (pend == str)
+		return "";
+
+	p = pend - 1;
+	while (p > str && strchr(chars, *p) != NULL)
+		p--;
+	if (p <= str)
+		return "";
+	return t_strdup_until(str, p+1);
+}
+
 int null_strcmp(const char *s1, const char *s2)
 {
 	if (s1 == NULL)
