@@ -61,6 +61,7 @@ libstorage_la_SOURCES = \
 
 headers = \
 	fail-mail-storage.h \
+	mail-autoexpunge.h \
 	mail-copy.h \
 	mail-error.h \
 	mail-namespace.h \
