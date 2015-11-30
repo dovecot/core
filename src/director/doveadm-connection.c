@@ -510,7 +510,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 	host = mail_host_get_by_hash(conn->dir->orig_config_hosts,
 				     username_hash, tag);
 	if (host == NULL)
-		str_append(str, "\t");
+		str_append(str, "\t\n");
 	else
 		str_printfa(str, "\t%s\n", net_ip2addr(&host->ip));
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
