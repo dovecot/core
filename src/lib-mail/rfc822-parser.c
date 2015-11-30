@@ -409,7 +409,6 @@ int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
 		/* broken / no value */
 	} else if (*ctx->data == '"') {
 		ret = rfc822_parse_quoted_string(ctx, tmp);
-		(void)str_unescape(str_c_modifiable(tmp) + value_pos);
 	} else if (ctx->data != ctx->end && *ctx->data == '=') {
 		/* workaround for broken input:
 		   name==?utf-8?b?...?= */

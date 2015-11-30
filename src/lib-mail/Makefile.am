@@ -95,7 +95,8 @@ test_programs = \
 	test-ostream-dot \
 	test-qp-decoder \
 	test-quoted-printable \
-	test-rfc2231-parser
+	test-rfc2231-parser \
+	test-rfc822-parser
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -195,6 +196,10 @@ test_quoted_printable_DEPENDENCIES = $(test_deps)
 test_rfc2231_parser_SOURCES = test-rfc2231-parser.c
 test_rfc2231_parser_LDADD = rfc2231-parser.lo rfc822-parser.lo $(test_libs)
 test_rfc2231_parser_DEPENDENCIES = $(test_deps)
+
+test_rfc822_parser_SOURCES = test-rfc822-parser.c
+test_rfc822_parser_LDADD = rfc822-parser.lo $(test_libs)
+test_rfc822_parser_DEPENDENCIES = $(test_deps)
 
 check: check-am check-test
 check-test: all-am
