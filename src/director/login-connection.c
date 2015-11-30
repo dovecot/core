@@ -153,7 +153,7 @@ login_host_callback(const struct ip_addr *ip, const char *hostname,
 
 		secs = dir->set->director_user_expire / 2;
 		str_printfa(str, "%s\tproxy_refresh=%u\t", request->line, secs);
-		if (hostname == NULL)
+		if (hostname == NULL || hostname[0] == '\0')
 			str_printfa(str, "host=%s", net_ip2addr(ip));
 		else {
 			str_printfa(str, "host=%s\thostip=%s",

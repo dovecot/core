@@ -211,7 +211,8 @@ mail_host_add_hostname(struct mail_host_list *list, const char *hostname,
 	struct mail_host *host;
 
 	host = mail_host_add_ip(list, ip, tag_name);
-	host->hostname = i_strdup(hostname);
+	if (hostname != NULL && hostname[0] != '\0')
+		host->hostname = i_strdup(hostname);
 	return host;
 }
 
