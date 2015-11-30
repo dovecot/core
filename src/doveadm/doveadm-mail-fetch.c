@@ -327,6 +327,38 @@ static int fetch_date_saved(struct fetch_cmd_context *ctx)
 	return 0;
 }
 
+static int fetch_date_received_unixtime(struct fetch_cmd_context *ctx)
+{
+	time_t t;
+
+	if (mail_get_received_date(ctx->mail, &t) < 0)
+		return -1;
+	doveadm_print(dec2str(t));
+	return 0;
+}
+
+static int fetch_date_sent_unixtime(struct fetch_cmd_context *ctx)
+{
+	time_t t;
+	int tz;
+
+	if (mail_get_date(ctx->mail, &t, &tz) < 0)
+		return -1;
+
+	doveadm_print(dec2str(t));
+	return 0;
+}
+
+static int fetch_date_saved_unixtime(struct fetch_cmd_context *ctx)
+{
+	time_t t;
+
+	if (mail_get_save_date(ctx->mail, &t) < 0)
+		return -1;
+	doveadm_print(dec2str(t));
+	return 0;
+}
+
 static int fetch_imap_envelope(struct fetch_cmd_context *ctx)
 {
 	const char *value;
@@ -417,6 +449,9 @@ static const struct fetch_field fetch_fields[] = {
 	{ "date.received", MAIL_FETCH_RECEIVED_DATE, fetch_date_received },
 	{ "date.sent",     MAIL_FETCH_DATE,          fetch_date_sent },
 	{ "date.saved",    MAIL_FETCH_SAVE_DATE,     fetch_date_saved },
+	{ "date.received.unixtime", MAIL_FETCH_RECEIVED_DATE, fetch_date_received_unixtime },
+	{ "date.sent.unixtime",     MAIL_FETCH_DATE,          fetch_date_sent_unixtime },
+	{ "date.saved.unixtime",    MAIL_FETCH_SAVE_DATE,     fetch_date_saved_unixtime },
 	{ "imap.envelope", MAIL_FETCH_IMAP_ENVELOPE, fetch_imap_envelope },
 	{ "imap.body",     MAIL_FETCH_IMAP_BODY,     fetch_imap_body },
 	{ "imap.bodystructure", MAIL_FETCH_IMAP_BODYSTRUCTURE, fetch_imap_bodystructure },
