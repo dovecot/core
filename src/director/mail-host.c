@@ -67,7 +67,7 @@ static void mail_vhost_add(struct mail_tag *tag, struct mail_host *host)
 	char num_str[MAX_INT_STRLEN];
 	unsigned int i, j;
 
-	if (host->down)
+	if (host->down || host->tag != tag)
 		return;
 
 	ip_str = net_ip2addr(&host->ip);
@@ -110,7 +110,7 @@ mail_tag_vhosts_sort_direct(struct mail_host_list *list, struct mail_tag *tag)
 	/* rebuild vhosts */
 	array_clear(&tag->vhosts);
 	array_foreach(&list->hosts, hostp) {
-		if ((*hostp)->down)
+		if ((*hostp)->down || (*hostp)->tag != tag)
 			continue;
 		for (i = 0; i < (*hostp)->vhost_count; i++) {
 			vhost = array_append_space(&tag->vhosts);
