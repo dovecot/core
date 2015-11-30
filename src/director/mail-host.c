@@ -148,6 +148,8 @@ mail_hosts_sort(struct mail_host_list *list)
 		num = net_ip_hash(&(*hostp)->ip);
 		list->hosts_hash = crc32_data_more(list->hosts_hash,
 						   &num, sizeof(num));
+		list->hosts_hash = crc32_str_more(list->hosts_hash,
+						  (*hostp)->tag->name);
 	}
 }
 
