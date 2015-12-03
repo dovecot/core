@@ -454,6 +454,10 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) != NULL &&
 		    (ecgrp = EC_KEY_get0_group(eckey)) != NULL)
 			nid = EC_GROUP_get_curve_name(ecgrp);
+		else {
+			/* clear errors added by the above calls */
+			(void)openssl_iostream_error();
+		}
 		EVP_PKEY_free(pkey);
 	}
 
