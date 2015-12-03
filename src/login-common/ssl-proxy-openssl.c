@@ -935,11 +935,6 @@ unsigned int ssl_proxy_get_count(void)
 	return ssl_proxy_count;
 }
 
-static bool is_pem_key(const char *cert)
-{
-	return strstr(cert, "PRIVATE KEY---") != NULL;
-}
-
 static void load_ca(X509_STORE *store, const char *ca,
 		    STACK_OF(X509_NAME) **xnames_r)
 {
@@ -1078,25 +1073,6 @@ ssl_proxy_ctx_verify_client(SSL_CTX *ssl_ctx, STACK_OF(X509_NAME) *ca_names)
 			   ssl_verify_client_cert);
 	/* set list of CA names that are sent to client */
 	SSL_CTX_set_client_CA_list(ssl_ctx, ca_names);
-}
-
-static const char *ssl_proxy_get_use_certificate_error(const char *cert)
-{
-	unsigned long err;
-
-	err = ERR_peek_error();
-	if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
-	    ERR_GET_REASON(err) != PEM_R_NO_START_LINE)
-		return openssl_iostream_error();
-	else if (is_pem_key(cert)) {
-		return "The file contains a private key "
-			"(you've mixed ssl_cert and ssl_key settings)";
-	} else if (strchr(cert, '\n') == NULL) {
-		return t_strdup_printf("There is no valid PEM certificate. "
-			"(You probably forgot '<' from ssl_cert=<%s)", cert);
-	} else {
-		return "There is no valid PEM certificate.";
-	}
 }
 
 static EVP_PKEY * ATTR_NULL(2)
@@ -1277,7 +1253,7 @@ ssl_server_context_init(const struct login_settings *login_set,
 
 	if (ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->cert) != 1) {
 		i_fatal("Can't load ssl_cert: %s",
-			ssl_proxy_get_use_certificate_error(ctx->cert));
+			openssl_iostream_use_certificate_error(ctx->cert, "ssl_cert"));
 	}
 
 #ifdef HAVE_SSL_GET_SERVERNAME
@@ -1317,7 +1293,8 @@ ssl_proxy_client_ctx_set_client_cert(SSL_CTX *ctx,
 
 	if (ssl_proxy_ctx_use_certificate_chain(ctx, set->ssl_client_cert) != 1) {
 		i_fatal("Can't load ssl_client_cert: %s",
-			ssl_proxy_get_use_certificate_error(set->ssl_client_cert));
+			openssl_iostream_use_certificate_error(
+				set->ssl_client_cert, "ssl_client_cert"));
 	}
 
 	pkey = ssl_proxy_load_key(set->ssl_client_key, NULL);

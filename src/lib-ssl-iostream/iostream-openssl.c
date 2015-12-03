@@ -71,7 +71,7 @@ openssl_iostream_use_certificate(struct ssl_iostream *ssl_io, const char *cert,
 
 	if (ret == 0) {
 		*error_r = t_strdup_printf("Can't load ssl_cert: %s",
-			ssl_iostream_get_use_certificate_error(cert));
+			openssl_iostream_use_certificate_error(cert, NULL));
 		return -1;
 	}
 	return 0;

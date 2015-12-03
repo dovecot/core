@@ -174,7 +174,8 @@ static bool is_pem_key(const char *cert)
 	return strstr(cert, "PRIVATE KEY---") != NULL;
 }
 
-const char *ssl_iostream_get_use_certificate_error(const char *cert)
+const char *
+openssl_iostream_use_certificate_error(const char *cert, const char *set_name)
 {
 	unsigned long err;
 
@@ -185,8 +186,11 @@ const char *ssl_iostream_get_use_certificate_error(const char *cert)
 	else if (is_pem_key(cert)) {
 		return "The file contains a private key "
 			"(you've mixed ssl_cert and ssl_key settings)";
+	} else if (set_name != NULL && strchr(cert, '\n') == NULL) {
+		return t_strdup_printf("There is no valid PEM certificate. "
+			"(You probably forgot '<' from %s=<%s)", set_name, cert);
 	} else {
-		return "There is no certificate.";
+		return "There is no valid PEM certificate.";
 	}
 }
 
@@ -398,7 +402,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	if (set->cert != NULL &&
 	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert) == 0) {
 		*error_r = t_strdup_printf("Can't load SSL certificate: %s",
-			ssl_iostream_get_use_certificate_error(set->cert));
+			openssl_iostream_use_certificate_error(set->cert, NULL));
 		return -1;
 	}
 	if (set->key != NULL) {
