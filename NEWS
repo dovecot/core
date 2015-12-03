@@ -1,3 +1,42 @@
+v2.2.20 2015-12-xx  Timo Sirainen <tss@iki.fi>
+
+	+ Added mailbox { autoexpunge=<time> } setting. See
+	  http://wiki2.dovecot.org/MailboxSettings for details.
+	+ ssl_options: Added support for no_ticket
+	+ imap/pop3/managesieve-login: Added postlogin_socket=path passdb extra
+	  field. This allows replacing the default service
+	  imap/pop3/managesieve {} settings for specific users (e.g. running
+	  their imap process via valgrind or strace).
+	+ doveadm fetch: Added date.sent/received/saved.unixtime
+	+ fs-posix: Added mode=auto parameter to set the created files' and
+	  directories' mode based on the parent dir if it has setgid-bit.
+	+ director: Support backends having hostnames, which makes it possible
+	  to verify their SSL certificates.
+	- director: Directors' state became desynchronized if doveadm director
+	  commands were used to modify the same backend in multiple directors
+	  at the same time with conflicting changes. This fix includes some
+	  extra checks, which makes sure that if such a conflict still happens
+	  it's automatically fixed. In some situations such an automatic fix
+	  may now be unnecessarily triggered and an error logged.
+	- director: Backend tags weren't working correctly.
+	- ldap: tls_* settings weren't used for ldaps URIs.
+	- ldap, mysql: Fixed setting connect timeout.
+	- auth: userdb lookups via auth-worker couldn't change username
+	- dsync: Fixed handling deleted directories. Make sure we don't go to
+	  infinite mailbox renaming loop.
+	- imap: Fixed crash in NOTIFY when there were watched namespaces that
+	  didn't support NOTIFY.
+	- imap: After SETMETADATA was used, various commands (especially FETCH)
+	  could have started hanging when their output was large.
+	- stats: Idle sessions weren't refreshed often enough, causing stats
+	  process to forget them and log errors about unknown sessions when
+	  they were updated later.
+	- stats: Fixed "Duplicate session ID" errors when LMTP delivered to
+	  multiple recipients and fts_autoindex=yes.
+	- zlib plugin: Fixed copying causing cache corruption when zlib_save
+	  wasn't set, but the source message was compressed.
+	- fts-solr: Fixed escaping Solr query parameters.
+
 v2.2.19 2015-10-02  Timo Sirainen <tss@iki.fi>
 
 	* pop3_deleted_flag has been broken since v2.2.10. Using it would
