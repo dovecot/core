@@ -465,7 +465,7 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 static int
 ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 				const struct ssl_iostream_settings *set ATTR_UNUSED,
-				const char **error_r ATTR_UNUSED)
+				const char **error_r)
 {
 #if defined(HAVE_ECDH) && !defined(SSL_CTRL_SET_ECDH_AUTO)
 	EC_KEY *ecdh;
@@ -483,7 +483,12 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 #ifdef SSL_CTRL_SET_ECDH_AUTO
 	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
 	   selection. */
-	SSL_CTX_set_ecdh_auto(ssl_ctx, 1);
+	if (!SSL_CTX_set_ecdh_auto(ssl_ctx, 1)) {
+		/* shouldn't happen */
+		*error_r = t_strdup_printf("SSL_CTX_set_ecdh_auto() failed: %s",
+					   openssl_iostream_error());
+		return -1;
+	}
 #else
 	/* For OpenSSL < 1.0.2, ECDH temporary key parameter selection must be
 	   performed manually. Attempt to select the same curve as that used
