@@ -381,42 +381,6 @@ static void plain_write(struct ssl_proxy *proxy)
 	ssl_proxy_unref(proxy);
 }
 
-static const char *ssl_err2str(unsigned long err, const char *data, int flags)
-{
-	const char *ret;
-	char *buf;
-	size_t err_size = 256;
-
-	buf = t_malloc(err_size);
-	buf[err_size-1] = '\0';
-	ERR_error_string_n(err, buf, err_size-1);
-	ret = buf;
-
-	if ((flags & ERR_TXT_STRING) != 0)
-		ret = t_strdup_printf("%s: %s", buf, data);
-	return ret;
-}
-
-static const char *ssl_last_error(void)
-{
-	unsigned long err;
-	const char *data;
-	int flags;
-
-	err = ERR_get_error_line_data(NULL, NULL, &data, &flags);
-	while (err != 0 && ERR_peek_error() != 0) {
-		i_error("SSL: Stacked error: %s",
-			ssl_err2str(err, data, flags));
-		err = ERR_get_error();
-	}
-	if (err == 0) {
-		if (errno != 0)
-			return strerror(errno);
-		return "Unknown error";
-	}
-	return ssl_err2str(err, data, flags);
-}
-
 static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
 			     const char *func_name)
 {
@@ -438,7 +402,7 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */
 		if (ERR_peek_error() != 0)
-			errstr = ssl_last_error();
+			errstr = openssl_iostream_error();
 		else if (ret != 0)
 			errstr = strerror(errno);
 		else {
@@ -460,11 +424,11 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
 				login_binary->process_name);
 		}
 		errstr = t_strdup_printf("%s failed: %s",
-					 func_name, ssl_last_error());
+					 func_name, openssl_iostream_error());
 		break;
 	default:
 		errstr = t_strdup_printf("%s failed: unknown failure %d (%s)",
-					 func_name, err, ssl_last_error());
+					 func_name, err, openssl_iostream_error());
 		break;
 	}
 
@@ -594,12 +558,12 @@ ssl_proxy_alloc_common(SSL_CTX *ssl_ctx, int fd, const struct ip_addr *ip,
 
 	ssl = SSL_new(ssl_ctx);
 	if (ssl == NULL) {
-		i_error("SSL_new() failed: %s", ssl_last_error());
+		i_error("SSL_new() failed: %s", openssl_iostream_error());
 		return -1;
 	}
 
 	if (SSL_set_fd(ssl, fd) != 1) {
-		i_error("SSL_set_fd() failed: %s", ssl_last_error());
+		i_error("SSL_set_fd() failed: %s", openssl_iostream_error());
 		SSL_free(ssl);
 		return -1;
 	}
@@ -991,7 +955,7 @@ static void load_ca(X509_STORE *store, const char *ca,
 		i_fatal("BIO_new_mem_buf() failed");
 	inf = PEM_X509_INFO_read_bio(bio, NULL, NULL, NULL);
 	if (inf == NULL)
-		i_fatal("Couldn't parse ssl_ca: %s", ssl_last_error());
+		i_fatal("Couldn't parse ssl_ca: %s", openssl_iostream_error());
 	BIO_free(bio);
 
 	if (xnames_r != NULL) {
@@ -1123,7 +1087,7 @@ static const char *ssl_proxy_get_use_certificate_error(const char *cert)
 	err = ERR_peek_error();
 	if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
 	    ERR_GET_REASON(err) != PEM_R_NO_START_LINE)
-		return ssl_last_error();
+		return openssl_iostream_error();
 	else if (is_pem_key(cert)) {
 		return "The file contains a private key "
 			"(you've mixed ssl_cert and ssl_key settings)";
@@ -1133,17 +1097,6 @@ static const char *ssl_proxy_get_use_certificate_error(const char *cert)
 	} else {
 		return "There is no valid PEM certificate.";
 	}
-}
-
-static const char *ssl_key_load_error(void)
-{
-	unsigned long err = ERR_peek_error();
-
-	if (ERR_GET_LIB(err) == ERR_LIB_X509 &&
-	    ERR_GET_REASON(err) == X509_R_KEY_VALUES_MISMATCH)
-		return "Key is for a different cert than ssl_cert";
-	else
-		return ssl_last_error();
 }
 
 static EVP_PKEY * ATTR_NULL(2)
@@ -1162,7 +1115,7 @@ ssl_proxy_load_key(const char *key, const char *password)
 				       dup_password);
 	if (pkey == NULL) {
 		i_fatal("Couldn't parse private ssl_key: %s",
-			ssl_key_load_error());
+			openssl_iostream_key_load_error());
 	}
 	BIO_free(bio);
 	return pkey;
@@ -1179,7 +1132,7 @@ ssl_proxy_ctx_use_key(SSL_CTX *ctx,
 		getenv(MASTER_SSL_KEY_PASSWORD_ENV);
 	pkey = ssl_proxy_load_key(set->ssl_key, password);
 	if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1)
-		i_fatal("Can't load private ssl_key: %s", ssl_key_load_error());
+		i_fatal("Can't load private ssl_key: %s", openssl_iostream_key_load_error());
 	EVP_PKEY_free(pkey);
 }
 
@@ -1316,7 +1269,7 @@ ssl_server_context_init(const struct login_settings *login_set,
 
 	if (SSL_CTX_set_cipher_list(ssl_ctx, ctx->cipher_list) != 1) {
 		i_fatal("Can't set cipher list to '%s': %s",
-			ctx->cipher_list, ssl_last_error());
+			ctx->cipher_list, openssl_iostream_error());
 	}
 	if (ctx->prefer_server_ciphers)
 		SSL_CTX_set_options(ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
@@ -1370,7 +1323,7 @@ ssl_proxy_client_ctx_set_client_cert(SSL_CTX *ctx,
 	pkey = ssl_proxy_load_key(set->ssl_client_key, NULL);
 	if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1) {
 		i_fatal("Can't load private ssl_client_key: %s",
-			ssl_key_load_error());
+			openssl_iostream_key_load_error());
 	}
 	EVP_PKEY_free(pkey);
 }
