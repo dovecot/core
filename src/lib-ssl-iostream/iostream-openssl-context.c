@@ -379,7 +379,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	}
 
 	if (set->cert != NULL &&
-	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert) < 0) {
+	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert) == 0) {
 		*error_r = t_strdup_printf("Can't load SSL certificate: %s",
 			ssl_iostream_get_use_certificate_error(set->cert));
 		return -1;
