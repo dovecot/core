@@ -28,55 +28,6 @@ int dovecot_ssl_extdata_index;
 static int ssl_iostream_init_global(const struct ssl_iostream_settings *set,
 				    const char **error_r);
 
-static const char *ssl_err2str(unsigned long err, const char *data, int flags)
-{
-	const char *ret;
-	char *buf;
-	size_t err_size = 256;
-
-	buf = t_malloc(err_size);
-	buf[err_size-1] = '\0';
-	ERR_error_string_n(err, buf, err_size-1);
-	ret = buf;
-
-	if ((flags & ERR_TXT_STRING) != 0)
-		ret = t_strdup_printf("%s: %s", buf, data);
-	return ret;
-}
-
-const char *openssl_iostream_error(void)
-{
-	unsigned long err;
-	const char *data;
-	int flags;
-
-	while ((err = ERR_get_error_line_data(NULL, NULL, &data, &flags)) != 0) {
-		if (ERR_GET_REASON(err) == ERR_R_MALLOC_FAILURE)
-			i_fatal_status(FATAL_OUTOFMEM, "OpenSSL malloc() failed");
-		if (ERR_peek_error() != 0)
-			break;
-		i_error("SSL: Stacked error: %s",
-			ssl_err2str(err, data, flags));
-	}
-	if (err == 0) {
-		if (errno != 0)
-			return strerror(errno);
-		return "Unknown error";
-	}
-	return ssl_err2str(err, data, flags);
-}
-
-const char *openssl_iostream_key_load_error(void)
-{
-       unsigned long err = ERR_peek_error();
-
-       if (ERR_GET_LIB(err) == ERR_LIB_X509 &&
-           ERR_GET_REASON(err) == X509_R_KEY_VALUES_MISMATCH)
-               return "Key is for a different cert than ssl_cert";
-       else
-               return openssl_iostream_error();
-}
-
 static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 			    int is_export ATTR_UNUSED, int keylength)
 {
@@ -167,31 +118,6 @@ ssl_iostream_ctx_use_key(struct ssl_iostream_context *ctx,
 	}
 	EVP_PKEY_free(pkey);
 	return ret;
-}
-
-static bool is_pem_key(const char *cert)
-{
-	return strstr(cert, "PRIVATE KEY---") != NULL;
-}
-
-const char *
-openssl_iostream_use_certificate_error(const char *cert, const char *set_name)
-{
-	unsigned long err;
-
-	err = ERR_peek_error();
-	if (ERR_GET_LIB(err) != ERR_LIB_PEM ||
-	    ERR_GET_REASON(err) != PEM_R_NO_START_LINE)
-		return openssl_iostream_error();
-	else if (is_pem_key(cert)) {
-		return "The file contains a private key "
-			"(you've mixed ssl_cert and ssl_key settings)";
-	} else if (set_name != NULL && strchr(cert, '\n') == NULL) {
-		return t_strdup_printf("There is no valid PEM certificate. "
-			"(You probably forgot '<' from %s=<%s)", set_name, cert);
-	} else {
-		return "There is no valid PEM certificate.";
-	}
 }
 
 static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
