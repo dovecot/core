@@ -135,6 +135,18 @@ static bool data_has_8bit(const unsigned char *data, size_t size)
 	return FALSE;
 }
 
+static void fts_mail_build_ctx_set_lang(struct fts_mail_build_context *ctx,
+					struct fts_user_language *user_lang)
+{
+	i_assert(user_lang != NULL);
+
+	ctx->cur_user_lang = user_lang;
+	/* reset tokenizer between fields - just to be sure no state
+	   leaks between fields (especially if previous indexing had
+	   failed) */
+	fts_tokenizer_reset(user_lang->index_tokenizer);
+}
+
 static void
 fts_build_tokenized_hdr_update_lang(struct fts_mail_build_context *ctx,
 				    const struct message_header_line *hdr)
@@ -148,8 +160,10 @@ fts_build_tokenized_hdr_update_lang(struct fts_mail_build_context *ctx,
 	if (header_has_language(hdr->name) ||
 	    data_has_8bit(hdr->full_value, hdr->full_value_len))
 		ctx->cur_user_lang = NULL;
-	else
-		ctx->cur_user_lang = fts_user_get_data_lang(ctx->update_ctx->backend->ns->user);
+	else {
+		fts_mail_build_ctx_set_lang(ctx,
+			fts_user_get_data_lang(ctx->update_ctx->backend->ns->user));
+	}
 }
 
 static int fts_build_mail_header(struct fts_mail_build_context *ctx,
@@ -268,12 +282,11 @@ static int
 fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 				 const unsigned char *data, size_t size)
 {
-	struct fts_tokenizer *tokenizer;
+	struct fts_tokenizer *tokenizer = ctx->cur_user_lang->index_tokenizer;
 	struct fts_filter *filter = ctx->cur_user_lang->filter;
 	const char *token, *error;
 	int ret = 1, ret2;
 
-	tokenizer = fts_user_get_index_tokenizer(ctx->update_ctx->backend->ns->user);
 	while (ret > 0) T_BEGIN {
 		ret = ret2 = fts_tokenizer_next(tokenizer, data, size, &token, &error);
 		if (ret2 > 0 && filter != NULL)
@@ -341,8 +354,7 @@ fts_build_tokenized(struct fts_mail_build_context *ctx,
 		/* wait for more data */
 		return 0;
 	} else {
-		ctx->cur_user_lang = fts_user_language_find(user, lang);
-		i_assert(ctx->cur_user_lang != NULL);
+		fts_mail_build_ctx_set_lang(ctx, fts_user_language_find(user, lang));
 
 		if (ctx->pending_input->used > 0) {
 			if (fts_build_add_tokens_with_filter(ctx,
@@ -480,16 +492,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.update_ctx = update_ctx;
 	ctx.mail = mail;
-	if ((update_ctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
+	if ((update_ctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0)
 		ctx.pending_input = buffer_create_dynamic(default_pool, 128);
-		/* reset tokenizer between mails - just to be sure no state
-		   leaks between mails (especially if previous indexing had
-		   failed) */
-		struct fts_tokenizer *tokenizer;
-
-		tokenizer = fts_user_get_index_tokenizer(update_ctx->backend->ns->user);
-		fts_tokenizer_reset(tokenizer);
-	}
 
 	prev_part = NULL;
 	parser = message_parser_init(pool_datastack_create(), input,

@@ -54,14 +54,14 @@ fts_search_arg_create_or(const struct mail_search_arg *orig_arg, pool_t pool,
 }
 
 static int
-fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *languages,
-				       pool_t pool,
-				       struct mail_search_arg *parent_arg,
-				       const struct mail_search_arg *orig_arg,
-				       const char *orig_token, const char *token)
+fts_backend_dovecot_expand_tokens(struct fts_filter *filter,
+				  pool_t pool,
+				  struct mail_search_arg *parent_arg,
+				  const struct mail_search_arg *orig_arg,
+				  const char *orig_token, const char *token,
+				  const char **error_r)
 {
 	struct mail_search_arg *arg;
-	struct fts_user_language *const *langp;
 	ARRAY_TYPE(const_string) tokens;
 	const char *token2, *error;
 	int ret;
@@ -73,15 +73,14 @@ fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *lang
 	array_append(&tokens, &token, 1);
 
 	/* add the word filtered */
-	array_foreach(languages, langp) {
+	if (filter != NULL) {
 		token2 = t_strdup(token);
-		ret = (*langp)->filter == NULL ? 1 :
-			fts_filter_filter((*langp)->filter, &token2, &error);
+		ret = fts_filter_filter(filter, &token2, &error);
 		if (ret > 0) {
 			token2 = t_strdup(token2);
 			array_append(&tokens, &token2, 1);
 		} else if (ret < 0) {
-			i_error("fts: Couldn't filter search tokens: %s", error);
+			*error_r = t_strdup_printf("Couldn't filter search token: %s", error);
 			return -1;
 		}
 	}
@@ -94,18 +93,50 @@ fts_backend_dovecot_expand_lang_tokens(const ARRAY_TYPE(fts_user_language) *lang
 	return 0;
 }
 
+static int
+fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
+				  pool_t pool, struct mail_search_arg *and_arg,
+				  struct mail_search_arg *orig_arg,
+				  const char *orig_token, const char **error_r)
+{
+	unsigned int orig_token_len = strlen(orig_token);
+	const char *token, *error;
+	int ret;
+
+	/* reset tokenizer between search args in case there's any state left
+	   from some previous failure */
+	fts_tokenizer_reset(user_lang->search_tokenizer);
+	while ((ret = fts_tokenizer_next(user_lang->search_tokenizer,
+					 (const void *)orig_token,
+					 orig_token_len, &token, error_r)) > 0) {
+		if (fts_backend_dovecot_expand_tokens(user_lang->filter, pool,
+						      and_arg, orig_arg, orig_token,
+						      token, error_r) < 0)
+			return -1;
+	}
+	while (ret >= 0 &&
+	       (ret = fts_tokenizer_final(user_lang->search_tokenizer, &token, &error)) > 0) {
+		if (fts_backend_dovecot_expand_tokens(user_lang->filter, pool,
+						      and_arg, orig_arg, orig_token,
+						      token, error_r) < 0)
+			return -1;
+	}
+	if (ret < 0) {
+		*error_r = t_strdup_printf("Couldn't tokenize search args: %s", error);
+		return -1;
+	}
+	return 0;
+}
+
 static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 				 struct mail_search_arg **argp)
 {
 	const ARRAY_TYPE(fts_user_language) *languages;
+	struct fts_user_language *const *langp;
 	struct mail_search_arg *and_arg, *orig_arg = *argp;
-	const char *error, *token, *orig_token = orig_arg->value.str;
-	unsigned int orig_token_len = strlen(orig_token);
-	struct fts_tokenizer *tokenizer;
-	int ret;
+	const char *error, *orig_token = orig_arg->value.str;
 
 	languages = fts_user_get_all_languages(backend->ns->user);
-	tokenizer = fts_user_get_search_tokenizer(backend->ns->user);
 
 	/* we want all the tokens found from the string to be found, so create
 	   a parent AND and place all the filtered token alternatives under
@@ -115,27 +146,12 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	and_arg->match_not = orig_arg->match_not;
 	and_arg->next = orig_arg->next;
 
-	/* reset tokenizer between search args in case there's any state left
-	   from some previous failure */
-	fts_tokenizer_reset(tokenizer);
-	while ((ret = fts_tokenizer_next(tokenizer,
-					 (const void *)orig_token,
-					 orig_token_len, &token, &error)) > 0) {
-		if (fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
-							   orig_arg, orig_token,
-							   token) < 0)
+	array_foreach(languages, langp) {
+		if (fts_backend_dovecot_tokenize_lang(*langp, pool, and_arg,
+						      orig_arg, orig_token, &error) < 0) {
+			i_error("fts: %s", error);
 			return -1;
-	}
-	while (ret >= 0 &&
-	       (ret = fts_tokenizer_final(tokenizer, &token, &error)) > 0) {
-		if (fts_backend_dovecot_expand_lang_tokens(languages, pool, and_arg,
-							   orig_arg, orig_token,
-							   token) < 0)
-			return -1;
-	}
-	if (ret < 0) {
-		i_error("fts: Couldn't tokenize search args: %s", error);
-		return -1;
+		}
 	}
 
 	if (and_arg->value.subargs == NULL) {
