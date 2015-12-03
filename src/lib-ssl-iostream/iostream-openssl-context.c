@@ -28,25 +28,42 @@ int dovecot_ssl_extdata_index;
 static int ssl_iostream_init_global(const struct ssl_iostream_settings *set,
 				    const char **error_r);
 
-const char *openssl_iostream_error(void)
+static const char *ssl_err2str(unsigned long err, const char *data, int flags)
 {
-	unsigned long err;
+	const char *ret;
 	char *buf;
 	size_t err_size = 256;
 
-	err = ERR_get_error();
+	buf = t_malloc(err_size);
+	buf[err_size-1] = '\0';
+	ERR_error_string_n(err, buf, err_size-1);
+	ret = buf;
+
+	if ((flags & ERR_TXT_STRING) != 0)
+		ret = t_strdup_printf("%s: %s", buf, data);
+	return ret;
+}
+
+const char *openssl_iostream_error(void)
+{
+	unsigned long err;
+	const char *data;
+	int flags;
+
+	while ((err = ERR_get_error_line_data(NULL, NULL, &data, &flags)) != 0) {
+		if (ERR_GET_REASON(err) == ERR_R_MALLOC_FAILURE)
+			i_fatal_status(FATAL_OUTOFMEM, "OpenSSL malloc() failed");
+		if (ERR_peek_error() != 0)
+			break;
+		i_error("SSL: Stacked error: %s",
+			ssl_err2str(err, data, flags));
+	}
 	if (err == 0) {
 		if (errno != 0)
 			return strerror(errno);
 		return "Unknown error";
 	}
-	if (ERR_GET_REASON(err) == ERR_R_MALLOC_FAILURE)
-		i_fatal_status(FATAL_OUTOFMEM, "OpenSSL malloc() failed");
-
-	buf = t_malloc(err_size);
-	buf[err_size-1] = '\0';
-	ERR_error_string_n(err, buf, err_size-1);
-	return buf;
+	return ssl_err2str(err, data, flags);
 }
 
 const char *openssl_iostream_key_load_error(void)
