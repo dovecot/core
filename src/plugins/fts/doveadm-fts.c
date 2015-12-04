@@ -26,6 +26,7 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	backend = fts_list_backend(info->ns->list);
 	if (backend == NULL) {
 		i_error("fts not enabled for %s", info->vname);
+		ctx->exit_code = EX_CONFIG;
 		return -1;
 	}
 
@@ -118,6 +119,7 @@ cmd_fts_expand_run(struct doveadm_mail_cmd_context *ctx,
 	backend = fts_list_backend(ns->list);
 	if (backend == NULL) {
 		i_error("fts not enabled for INBOX");
+		ctx->exit_code = EX_CONFIG;
 		return -1;
 	}
 
