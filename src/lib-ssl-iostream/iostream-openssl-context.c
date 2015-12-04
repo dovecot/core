@@ -395,7 +395,7 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 static int
 ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 				const struct ssl_iostream_settings *set ATTR_UNUSED,
-				const char **error_r)
+				const char **error_r ATTR_UNUSED)
 {
 #if defined(HAVE_ECDH) && !defined(SSL_CTRL_SET_ECDH_AUTO)
 	EC_KEY *ecdh;
