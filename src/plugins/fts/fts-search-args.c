@@ -36,14 +36,13 @@ fts_search_arg_create_or(const struct mail_search_arg *orig_arg, pool_t pool,
 	/* create the OR arg first as the parent */
 	or_arg = p_new(pool, struct mail_search_arg, 1);
 	or_arg->type = SEARCH_OR;
-	or_arg->next = orig_arg->next;
 
 	/* now create all the child args for the OR */
 	argp = &or_arg->value.subargs;
 	array_foreach(tokens, tokenp) {
 		arg = p_new(pool, struct mail_search_arg, 1);
 		*arg = *orig_arg;
-		arg->match_not = FALSE; /* we copied this to the parent SUB */
+		arg->match_not = FALSE; /* we copied this to the root OR */
 		arg->next = NULL;
 		arg->value.str = p_strdup(pool, *tokenp);
 
@@ -95,13 +94,22 @@ fts_backend_dovecot_expand_tokens(struct fts_filter *filter,
 
 static int
 fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
-				  pool_t pool, struct mail_search_arg *and_arg,
+				  pool_t pool, struct mail_search_arg *or_arg,
 				  struct mail_search_arg *orig_arg,
 				  const char *orig_token, const char **error_r)
 {
 	unsigned int orig_token_len = strlen(orig_token);
+	struct mail_search_arg *and_arg;
 	const char *token, *error;
 	int ret;
+
+	/* we want all the tokens found from the string to be found, so create
+	   a parent AND and place all the filtered token alternatives under
+	   it */
+	and_arg = p_new(pool, struct mail_search_arg, 1);
+	and_arg->type = SEARCH_SUB;
+	and_arg->next = or_arg->value.subargs;
+	or_arg->value.subargs = and_arg;
 
 	/* reset tokenizer between search args in case there's any state left
 	   from some previous failure */
@@ -125,6 +133,10 @@ fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
 		*error_r = t_strdup_printf("Couldn't tokenize search args: %s", error);
 		return -1;
 	}
+	if (and_arg->value.subargs == NULL) {
+		/* nothing was actually expanded, remove the empty and_arg */
+		or_arg->value.subargs = NULL;
+	}
 	return 0;
 }
 
@@ -133,33 +145,32 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 {
 	const ARRAY_TYPE(fts_user_language) *languages;
 	struct fts_user_language *const *langp;
-	struct mail_search_arg *and_arg, *orig_arg = *argp;
+	struct mail_search_arg *or_arg, *orig_arg = *argp;
 	const char *error, *orig_token = orig_arg->value.str;
 
 	languages = fts_user_get_all_languages(backend->ns->user);
 
-	/* we want all the tokens found from the string to be found, so create
-	   a parent AND and place all the filtered token alternatives under
-	   it */
-	and_arg = p_new(pool, struct mail_search_arg, 1);
-	and_arg->type = SEARCH_SUB;
-	and_arg->match_not = orig_arg->match_not;
-	and_arg->next = orig_arg->next;
+	/* OR together all the different expansions for different languages.
+	   it's enough for one of them to match. */
+	or_arg = p_new(pool, struct mail_search_arg, 1);
+	or_arg->type = SEARCH_OR;
+	or_arg->match_not = orig_arg->match_not;
+	or_arg->next = orig_arg->next;
 
 	array_foreach(languages, langp) {
-		if (fts_backend_dovecot_tokenize_lang(*langp, pool, and_arg,
+		if (fts_backend_dovecot_tokenize_lang(*langp, pool, or_arg,
 						      orig_arg, orig_token, &error) < 0) {
 			i_error("fts: %s", error);
 			return -1;
 		}
 	}
 
-	if (and_arg->value.subargs == NULL) {
+	if (or_arg->value.subargs == NULL) {
 		/* we couldn't parse any tokens from the input */
-		and_arg->type = SEARCH_ALL;
-		and_arg->match_not = !and_arg->match_not;
+		or_arg->type = SEARCH_ALL;
+		or_arg->match_not = !or_arg->match_not;
 	}
-	*argp = and_arg;
+	*argp = or_arg;
 	return 0;
 }
 
