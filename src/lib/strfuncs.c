@@ -364,6 +364,7 @@ const char *t_str_ucase(const char *str)
 	return str_ucase(t_strdup_noconst(str));
 }
 
+#if 0 /* FIXME: wait for v2.3 due to a collision with pigeonhole */
 const char *t_str_trim(const char *str, const char *chars)
 {
 	const char *p, *pend, *begin;
@@ -385,6 +386,7 @@ const char *t_str_trim(const char *str, const char *chars)
 		return "";
 	return t_strdup_until(begin, p+1);
 }
+#endif
 
 const char *str_ltrim(const char *str, const char *chars)
 {

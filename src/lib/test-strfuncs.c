@@ -109,6 +109,7 @@ static void test_t_str_replace(void)
 	test_end();
 }
 
+#if 0
 static void test_t_str_trim(void)
 {
 	test_begin("t_str_trim");
@@ -124,6 +125,7 @@ static void test_t_str_trim(void)
 	test_assert(strcmp(t_str_trim("\tfoo\tfoo\t", "\t \r"), "foo\tfoo") == 0);
 	test_end();
 }
+#endif
 
 static void test_t_str_ltrim(void)
 {
@@ -163,7 +165,7 @@ void test_strfuncs(void)
 	test_t_strsplit();
 	test_t_strsplit_tab();
 	test_t_str_replace();
-	test_t_str_trim();
+	/*test_t_str_trim();*/
 	test_t_str_ltrim();
 	test_t_str_rtrim();
 }
