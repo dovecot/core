@@ -257,13 +257,24 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 static void
 http_client_connection_request_timeout(struct http_client_connection *conn)
 {
-	unsigned int msecs = conn->client->set.request_timeout_msecs;
+	struct http_client_request *const *requestp;
+	unsigned int timeout_msecs, total_msecs;
+	string_t *str = t_str_new(64);
 
+	requestp = array_idx(&conn->request_wait_list, 0);
+	timeout_msecs = timeval_diff_msecs(&ioloop_timeval, &(*requestp)->sent_time);
+	total_msecs = timeval_diff_msecs(&ioloop_timeval, &(*requestp)->submit_time);
+
+	str_printfa(str, "No response for request in %u.%03u secs",
+		    timeout_msecs/1000, timeout_msecs%1000);
+	if ((*requestp)->attempts > 0) {
+		str_printfa(str, " (%u attempts in %u.%03u secs)",
+			    (*requestp)->attempts + 1,
+			    total_msecs/1000, total_msecs%1000);
+	}
 	conn->conn.input->stream_errno = ETIMEDOUT;
 	http_client_connection_abort_temp_error(&conn,
-		HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT, t_strdup_printf(
-		"No response for request in %u.%03u secs",
-		msecs/1000, msecs%1000));
+		HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT, str_c(str));
 }
 
 void http_client_connection_start_request_timeout(
