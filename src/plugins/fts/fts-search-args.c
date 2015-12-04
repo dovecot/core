@@ -108,7 +108,7 @@ fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
 	fts_tokenizer_reset(user_lang->search_tokenizer);
 	while ((ret = fts_tokenizer_next(user_lang->search_tokenizer,
 					 (const void *)orig_token,
-					 orig_token_len, &token, error_r)) > 0) {
+					 orig_token_len, &token, &error)) > 0) {
 		if (fts_backend_dovecot_expand_tokens(user_lang->filter, pool,
 						      and_arg, orig_arg, orig_token,
 						      token, error_r) < 0)
