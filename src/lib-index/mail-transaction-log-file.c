@@ -1681,6 +1681,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 				  uoff_t start_offset, uoff_t end_offset)
 {
 	struct mail_index *index = file->log->index;
+	uoff_t map_start_offset = start_offset;
 	size_t size;
 	int ret;
 
@@ -1736,14 +1737,14 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		/* although we could just skip over the unwanted data, we have
 		   to sync everything so that modseqs are calculated
 		   correctly */
-		start_offset = file->sync_offset;
+		map_start_offset = file->sync_offset;
 	}
 
 	if ((file->log->index->flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0)
-		ret = mail_transaction_log_file_map_mmap(file, start_offset);
+		ret = mail_transaction_log_file_map_mmap(file, map_start_offset);
 	else {
 		mail_transaction_log_file_munmap(file);
-		ret = mail_transaction_log_file_read(file, start_offset, FALSE);
+		ret = mail_transaction_log_file_read(file, map_start_offset, FALSE);
 	}
 
 	i_assert(file->buffer == NULL || file->mmap_base != NULL ||
