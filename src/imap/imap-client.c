@@ -880,7 +880,8 @@ void client_continue_pending_input(struct client *client)
 		if (!client_handle_input(client))
 			break;
 	}
-	client_check_command_hangs(client);
+	if (!client->input->closed && !client->output->closed)
+		client_check_command_hangs(client);
 }
 
 /* Skip incoming data until newline is found,
