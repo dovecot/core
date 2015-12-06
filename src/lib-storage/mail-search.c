@@ -263,6 +263,7 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 	new_arg->match_not = arg->match_not;
 	new_arg->match_always = arg->match_always;
 	new_arg->nonmatch_always = arg->nonmatch_always;
+	new_arg->fuzzy = arg->fuzzy;
 	new_arg->value.search_flags = arg->value.search_flags;
 
 	switch (arg->type) {
