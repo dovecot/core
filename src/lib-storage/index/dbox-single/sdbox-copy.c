@@ -28,8 +28,12 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 	}
 	if (dest_storage->attachment_dir == NULL ||
 	    strcmp(src_storage->attachment_dir,
-		   dest_storage->attachment_dir) != 0) {
-		/* different attachment dirs between storages.
+		   dest_storage->attachment_dir) != 0 ||
+	    strcmp(src_storage->storage.set->mail_attachment_fs,
+		   dest_storage->storage.set->mail_attachment_fs) != 0 ||
+	    strcmp(src_storage->storage.set->mail_attachment_hash,
+		   dest_storage->storage.set->mail_attachment_hash) != 0) {
+		/* different attachment dirs/settings between storages.
 		   have to copy the slow way. */
 		return 0;
 	}
@@ -62,7 +66,11 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 					   guid_generate(), NULL);
 		dest = t_strdup_printf("%s/%s", dest_storage->attachment_dir,
 				       dest_relpath);
-		src_fsfile = fs_file_init(src_storage->attachment_fs, src,
+		/* we verified above that attachment_fs is compatible for
+		   src and dest, so it doesn't matter which storage's
+		   attachment_fs we use. in any case we need to use the same
+		   one or fs_copy() will crash with assert. */
+		src_fsfile = fs_file_init(dest_storage->attachment_fs, src,
 					  FS_OPEN_MODE_READONLY);
 		dest_fsfile = fs_file_init(dest_storage->attachment_fs, dest,
 					   FS_OPEN_MODE_READONLY);
