@@ -538,6 +538,17 @@ static void lmtp_address_translate(struct client *client, const char **address)
 	*address = str_c(username);
 }
 
+static void
+client_send_line_overquota(struct client *client,
+			   const struct mail_recipient *rcpt, const char *error)
+{
+	struct lda_settings *lda_set =
+		mail_storage_service_user_get_set(rcpt->service_user)[1];
+
+	client_send_line(client, "%s <%s> %s", lda_set->quota_full_tempfail ?
+			 "452 4.2.2" : "552 5.2.2", rcpt->address, error);
+}
+
 static int
 lmtp_rcpt_to_is_over_quota(struct client *client,
 			   const struct mail_recipient *rcpt)
@@ -564,8 +575,7 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 	if (ret < 0) {
 		errstr = mailbox_get_last_error(box, &error);
 		if (error == MAIL_ERROR_NOQUOTA) {
-			client_send_line(client, "552 5.2.2 <%s> %s",
-					 rcpt->address, errstr);
+			client_send_line_overquota(client, rcpt, errstr);
 			ret = 1;
 		}
 	}
@@ -867,10 +877,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	} else if (storage != NULL) {
 		error = mail_storage_get_last_error(storage, &mail_error);
 		if (mail_error == MAIL_ERROR_NOQUOTA) {
-			client_send_line(client, "%s <%s> %s",
-					 dctx.set->quota_full_tempfail ?
-					 "452 4.2.2" : "552 5.2.2",
-					 rcpt->address, error);
+			client_send_line_overquota(client, rcpt, error);
 		} else {
 			client_send_line(client, "451 4.2.0 <%s> %s",
 					 rcpt->address, error);
