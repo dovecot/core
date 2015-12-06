@@ -697,8 +697,13 @@ fs_quota_get_netbsd(struct fs_quota_root *root, bool group, bool bytes,
 			root->mount->mount_path);
 		ret = -1;
 	} else {
-		*value_r = qv.qv_usage * DEV_BSIZE;
-		*limit_r = qv.qv_softlimit * DEV_BSIZE;
+		if (bytes) {
+			*value_r = qv.qv_usage * DEV_BSIZE;
+			*limit_r = qv.qv_softlimit * DEV_BSIZE;
+		} else {
+			*value_r = qv.qv_usage;
+			*limit_r = qv.qv_softlimit;
+		}
 		ret = 1;
 	}
 	quota_close(qh);
