@@ -1174,6 +1174,7 @@ static int mailbox_alloc_index_pvt(struct mailbox *box)
 
 int mailbox_open_index_pvt(struct mailbox *box)
 {
+	enum mail_index_open_flags index_flags;
 	int ret;
 
 	if (box->view_pvt != NULL)
@@ -1183,7 +1184,11 @@ int mailbox_open_index_pvt(struct mailbox *box)
 
 	if ((ret = mailbox_alloc_index_pvt(box)) <= 0)
 		return ret;
-	if (mail_index_open(box->index_pvt, MAIL_INDEX_OPEN_FLAG_CREATE) < 0)
+	index_flags = MAIL_INDEX_OPEN_FLAG_CREATE |
+		mail_storage_settings_to_index_flags(box->storage->set);
+	if ((box->flags & MAILBOX_FLAG_SAVEONLY) != 0)
+		index_flags |= MAIL_INDEX_OPEN_FLAG_SAVEONLY;
+	if (mail_index_open(box->index_pvt, index_flags) < 0)
 		return -1;
 	box->view_pvt = mail_index_view_open(box->index_pvt);
 	return 1;
