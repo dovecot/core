@@ -278,7 +278,7 @@ arg_new_body(struct mail_search_build_context *ctx,
 				       &sarg->value.str) < 0)
 		return NULL;
 
-	if (mail_search_parse_skip_next(ctx->parser, "")) {
+	if (sarg->value.str[0] == '\0') {
 		/* optimization: BODY "" matches everything
 		   (but do this only after checking charset and key are ok) */
 		return mail_search_build_new(ctx, SEARCH_ALL);
