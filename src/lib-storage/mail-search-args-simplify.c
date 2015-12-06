@@ -265,6 +265,82 @@ static bool mail_search_args_merge_text(struct mail_search_simplify_ctx *ctx,
 }
 
 static bool
+mail_search_args_have_equal(const struct mail_search_arg *args,
+			    const struct mail_search_arg *wanted_arg)
+{
+	const struct mail_search_arg *arg;
+
+	for (arg = args; arg != NULL; arg = arg->next) {
+		if (mail_search_arg_one_equals(arg, wanted_arg))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+static bool
+mail_search_args_have_all_equal(struct mail_search_arg *parent_arg,
+				const struct mail_search_arg *wanted_args)
+{
+	const struct mail_search_arg *arg;
+
+	i_assert(parent_arg->type == SEARCH_SUB);
+
+	for (arg = wanted_args; arg != NULL; arg = arg->next) {
+		if (!mail_search_args_have_equal(parent_arg->value.subargs, arg))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static unsigned int
+mail_search_args_count(const struct mail_search_arg *args)
+{
+	unsigned int count;
+
+	for (count = 0; args != NULL; count++)
+		args = args->next;
+	return count;
+}
+
+static bool
+mail_search_args_simplify_or_drop_redundent_args(struct mail_search_arg *parent_arg)
+{
+	struct mail_search_arg *arg, **argp, one_arg, *lowest_arg = NULL;
+	unsigned int count, lowest_count = UINT_MAX;
+	bool ret = FALSE;
+
+	/* find the arg which has the lowest number of child args */
+	for (arg = parent_arg->value.subargs; arg != NULL; arg = arg->next) {
+		if (arg->type != SEARCH_SUB) {
+			one_arg = *arg;
+			one_arg.next = NULL;
+			lowest_arg = &one_arg;
+			break;
+		}
+		count = mail_search_args_count(arg->value.subargs);
+		if (count < lowest_count) {
+			lowest_arg = arg->value.subargs;
+			lowest_count = count;
+		}
+	}
+	i_assert(lowest_arg != NULL);
+
+	/* if there are any args that include lowest_arg, drop the arg since
+	   it's redundant. (non-SUB duplicates are dropped elsewhere.) */
+	for (argp = &parent_arg->value.subargs; *argp != NULL; ) {
+		if (*argp != lowest_arg && (*argp)->type == SEARCH_SUB &&
+		    (*argp)->value.subargs != lowest_arg &&
+		    mail_search_args_have_all_equal(*argp, lowest_arg)) {
+			*argp = (*argp)->next;
+			ret = TRUE;
+		} else {
+			argp = &(*argp)->next;
+		}
+	}
+	return ret;
+}
+
+static bool
 mail_search_args_simplify_sub(struct mailbox *box,
 			      struct mail_search_arg *args, bool parent_and)
 {
@@ -311,6 +387,10 @@ mail_search_args_simplify_sub(struct mailbox *box,
 		if (args->type == SEARCH_SUB ||
 		    args->type == SEARCH_OR ||
 		    args->type == SEARCH_INTHREAD) {
+			if (args->type == SEARCH_OR) {
+				if (mail_search_args_simplify_or_drop_redundent_args(args))
+					ctx.removals = TRUE;
+			}
 			if (mail_search_args_simplify_sub(box, args->value.subargs,
 							  args->type != SEARCH_OR))
 				ctx.removals = TRUE;

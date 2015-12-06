@@ -96,6 +96,12 @@ struct {
 	{ "OR BODY foo BODY foo", "BODY foo" },
 	{ "TEXT foo BODY foo", "TEXT foo BODY foo" },
 	{ "OR ( TEXT foo OR TEXT foo TEXT foo ) ( TEXT foo ( TEXT foo ) )", "TEXT foo" },
+
+	{ "OR ( TEXT common1 TEXT unique1 ) TEXT common1", "TEXT common1" },
+	{ "OR ( TEXT unique1 TEXT common1 ) TEXT common1", "TEXT common1" },
+	{ "OR TEXT common1 ( TEXT common1 TEXT unique1 )", "TEXT common1" },
+	{ "OR TEXT common1 ( TEXT unique1 TEXT common1 )", "TEXT common1" },
+	{ "OR TEXT common1 OR ( TEXT unique1 TEXT common1 ) ( TEXT unique3 TEXT common1 )", "TEXT common1" },
 };
 
 static struct mail_search_args *
