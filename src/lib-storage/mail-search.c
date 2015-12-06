@@ -9,9 +9,6 @@
 #include "mail-search-build.h"
 #include "mail-search.h"
 
-static bool mail_search_arg_equals(const struct mail_search_arg *arg1,
-				   const struct mail_search_arg *arg2);
-
 static void
 mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
 		      const ARRAY_TYPE(seq_range) *search_saved_uidset)
@@ -583,8 +580,8 @@ bool mail_search_args_match_mailbox(struct mail_search_args *args,
 	return TRUE;
 }
 
-static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
-				       const struct mail_search_arg *arg2)
+bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
+				const struct mail_search_arg *arg2)
 {
 	if (arg1->type != arg2->type ||
 	    arg1->match_not != arg2->match_not ||
@@ -659,8 +656,8 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 	return FALSE;
 }
 
-static bool mail_search_arg_equals(const struct mail_search_arg *arg1,
-				   const struct mail_search_arg *arg2)
+bool mail_search_arg_equals(const struct mail_search_arg *arg1,
+			    const struct mail_search_arg *arg2)
 {
 	while (arg1 != NULL && arg2 != NULL) {
 		if (!mail_search_arg_one_equals(arg1, arg2))

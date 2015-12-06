@@ -70,6 +70,8 @@ struct mail_search_modseq {
 };
 
 struct mail_search_arg {
+	/* NOTE: when adding new fields, make sure mail_search_arg_dup_one()
+	   and mail_search_arg_one_equals() are updated. */
 	struct mail_search_arg *next;
 
 	enum mail_search_arg_type type;
@@ -154,6 +156,13 @@ void mail_search_args_seq2uid(struct mail_search_args *args);
    messages depending on when the search is run. */
 bool mail_search_args_equal(const struct mail_search_args *args1,
 			    const struct mail_search_args *args2);
+/* Same as mail_search_args_equal(), but for individual mail_search_arg
+   structs. All the siblings of arg1 and arg2 are also compared. */
+bool mail_search_arg_equals(const struct mail_search_arg *arg1,
+			    const struct mail_search_arg *arg2);
+/* Same as mail_search_arg_equals(), but don't compare siblings. */
+bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
+				const struct mail_search_arg *arg2);
 
 void mail_search_args_ref(struct mail_search_args *args);
 void mail_search_args_unref(struct mail_search_args **args);
