@@ -290,7 +290,8 @@ mail_search_args_remove_equal(struct mail_search_arg **argsp,
 			*argp = (*argp)->next;
 			found = TRUE;
 		} else if (check_subs) {
-			i_assert((*argp)->type == SEARCH_SUB);
+			i_assert((*argp)->type == SEARCH_SUB ||
+				 (*argp)->type == SEARCH_OR);
 			if (!mail_search_args_remove_equal(&(*argp)->value.subargs, wanted_arg, FALSE)) {
 				/* we already verified that this should have
 				   existed. */
@@ -377,8 +378,8 @@ mail_search_args_simplify_drop_redundent_args(struct mail_search_arg **argsp,
 }
 
 static bool
-mail_search_args_simplify_extract_common_and(struct mail_search_arg **argsp,
-					     pool_t pool)
+mail_search_args_simplify_extract_common(struct mail_search_arg **argsp,
+					 pool_t pool, bool and_arg)
 {
 	/* Simple SUB example:
 	   (a AND b) OR (a AND c) -> a AND (b OR c)
@@ -386,18 +387,28 @@ mail_search_args_simplify_extract_common_and(struct mail_search_arg **argsp,
 	   More complicated example:
 	   (c1 AND c2 AND u1 AND u2) OR (c1 AND c2 AND u3 AND u4) ->
 	   c1 AND c2 AND ((u1 AND u2) OR (u3 AND u4))
+
+	   Similarly for ORs:
+	   (a OR b) AND (a OR c) -> a OR (b AND c)
+
+	   (c1 OR c2 OR u1 OR u2) AND (c1 OR c2 OR u3 OR u4) ->
+	   c1 OR c2 OR ((u1 OR u2) AND (u3 OR u4))
+
 	*/
 	struct mail_search_arg *arg, *sub_arg, *sub_next;
 	struct mail_search_arg *new_arg, *child_arg, *common_args = NULL;
+	enum mail_search_arg_type child_subargs_type;
 
 	if ((*argsp)->next == NULL) {
 		/* single arg, nothing to extract */
 		return FALSE;
 	}
 
-	/* find the first SEARCH_SUB */
+	child_subargs_type = and_arg ? SEARCH_OR : SEARCH_SUB;
+
+	/* find the first arg with child_subargs_type */
 	for (arg = *argsp; arg != NULL; arg = arg->next) {
-		if (arg->type == SEARCH_SUB)
+		if (arg->type == child_subargs_type)
 			break;
 	}
 	if (arg == NULL)
@@ -410,7 +421,7 @@ mail_search_args_simplify_extract_common_and(struct mail_search_arg **argsp,
 		for (arg = *argsp; arg != NULL; arg = arg->next) {
 			if (mail_search_arg_one_equals(arg, sub_arg)) {
 				/* the whole arg matches */
-			} else if (arg->type == SEARCH_SUB &&
+			} else if (arg->type == child_subargs_type &&
 				   mail_search_args_have_equal(arg->value.subargs, sub_arg)) {
 				/* exists as subarg */
 			} else {
@@ -430,14 +441,16 @@ mail_search_args_simplify_extract_common_and(struct mail_search_arg **argsp,
 
 	/* replace all the original args with a single new SUB/OR arg */
 	new_arg = p_new(pool, struct mail_search_arg, 1);
-	new_arg->type = SEARCH_SUB;
+	new_arg->type = child_subargs_type;
 	if (*argsp == NULL) {
 		/* there are only common args */
 		new_arg->value.subargs = common_args;
 	} else {
-		/* replace OR arg with AND(common_args, OR(non_common_args)) */
+		/* replace OR arg with AND(OR(non_common_args), common_args)
+		   or
+		   replace AND arg with OR(AND(non_common_args), common_args) */
 		child_arg = p_new(pool, struct mail_search_arg, 1);
-		child_arg->type = SEARCH_OR;
+		child_arg->type = and_arg ? SEARCH_SUB : SEARCH_OR;
 		child_arg->value.subargs = *argsp;
 		child_arg->next = common_args;
 		new_arg->value.subargs = child_arg;
@@ -497,10 +510,11 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 			i_assert(!args->match_not);
 
 			if (args->type != SEARCH_INTHREAD) {
-				if (mail_search_args_simplify_drop_redundent_args(&args->value.subargs, args->type == SEARCH_SUB))
+				bool and_arg = args->type == SEARCH_SUB;
+
+				if (mail_search_args_simplify_drop_redundent_args(&args->value.subargs, and_arg))
 					ctx.removals = TRUE;
-				if (args->type == SEARCH_OR &&
-				    mail_search_args_simplify_extract_common_and(&args->value.subargs, pool))
+				if (mail_search_args_simplify_extract_common(&args->value.subargs, pool, and_arg))
 					ctx.removals = TRUE;
 			}
 			if (mail_search_args_simplify_sub(box, pool, args->value.subargs,
@@ -634,6 +648,8 @@ void mail_search_args_simplify(struct mail_search_args *args)
 	}
 	for (;;) {
 		if (mail_search_args_simplify_drop_redundent_args(&args->args, TRUE))
+			removals = TRUE;
+		if (mail_search_args_simplify_extract_common(&args->args, args->pool, TRUE))
 			removals = TRUE;
 		if (!removals)
 			break;
