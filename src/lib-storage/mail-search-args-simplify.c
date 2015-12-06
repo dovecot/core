@@ -278,6 +278,37 @@ mail_search_args_have_equal(const struct mail_search_arg *args,
 }
 
 static bool
+mail_search_args_remove_equal(struct mail_search_arg *parent_arg,
+			      const struct mail_search_arg *wanted_arg,
+			      bool check_subs)
+{
+	struct mail_search_arg **argp;
+	bool found = FALSE;
+
+	for (argp = &parent_arg->value.subargs; (*argp) != NULL; ) {
+		if (mail_search_arg_one_equals(*argp, wanted_arg)) {
+			*argp = (*argp)->next;
+			found = TRUE;
+		} else if (check_subs) {
+			i_assert((*argp)->type == SEARCH_SUB);
+			if (!mail_search_args_remove_equal(*argp, wanted_arg, FALSE)) {
+				/* we already verified that this should have
+				   existed. */
+				i_unreached();
+			}
+			if ((*argp)->value.subargs == NULL)
+				*argp = (*argp)->next;
+			else
+				argp = &(*argp)->next;
+			found = TRUE;
+		} else {
+			argp = &(*argp)->next;
+		}
+	}
+	return found;
+}
+
+static bool
 mail_search_args_have_all_equal(struct mail_search_arg *parent_arg,
 				const struct mail_search_arg *wanted_args)
 {
@@ -341,7 +372,66 @@ mail_search_args_simplify_or_drop_redundent_args(struct mail_search_arg *parent_
 }
 
 static bool
-mail_search_args_simplify_sub(struct mailbox *box,
+mail_search_args_simplify_extract_common_and(struct mail_search_arg *parent_arg,
+					     pool_t pool)
+{
+	struct mail_search_arg *arg, *sub_arg, *sub_next;
+	struct mail_search_arg *or_arg, *common_args = NULL;
+
+	i_assert(parent_arg->type == SEARCH_OR);
+	i_assert(!parent_arg->match_not);
+
+	/* find the first SEARCH_SUB */
+	for (arg = parent_arg->value.subargs; arg != NULL; arg = arg->next) {
+		if (arg->type == SEARCH_SUB)
+			break;
+	}
+	if (arg == NULL)
+		return FALSE;
+
+	for (sub_arg = arg->value.subargs; sub_arg != NULL; sub_arg = sub_next) {
+		sub_next = sub_arg->next;
+
+		/* check if sub_arg is found from all the args */
+		for (arg = parent_arg->value.subargs; arg != NULL; arg = arg->next) {
+			if (mail_search_arg_one_equals(arg, sub_arg)) {
+				/* the whole arg matches */
+			} else if (arg->type == SEARCH_SUB &&
+				   mail_search_args_have_equal(arg->value.subargs, sub_arg)) {
+				/* exists as subarg */
+			} else {
+				break;
+			}
+		}
+		if (arg != NULL)
+			continue;
+
+		/* extract the arg and put it to common_args */
+		mail_search_args_remove_equal(parent_arg, sub_arg, TRUE);
+		sub_arg->next = common_args;
+		common_args = sub_arg;
+	}
+	if (common_args == NULL)
+		return FALSE;
+
+	if (parent_arg->value.subargs == NULL) {
+		/* there are only common args */
+		parent_arg->type = SEARCH_SUB;
+		parent_arg->value.subargs = common_args;
+	} else {
+		/* replace OR arg with AND(common_args, OR(non_common_args)) */
+		or_arg = p_new(pool, struct mail_search_arg, 1);
+		*or_arg = *parent_arg;
+		or_arg->next = common_args;
+
+		parent_arg->type = SEARCH_SUB;
+		parent_arg->value.subargs = or_arg;
+	}
+	return TRUE;
+}
+
+static bool
+mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 			      struct mail_search_arg *args, bool parent_and)
 {
 	struct mail_search_simplify_ctx ctx;
@@ -390,8 +480,10 @@ mail_search_args_simplify_sub(struct mailbox *box,
 			if (args->type == SEARCH_OR) {
 				if (mail_search_args_simplify_or_drop_redundent_args(args))
 					ctx.removals = TRUE;
+				if (mail_search_args_simplify_extract_common_and(args, pool))
+					ctx.removals = TRUE;
 			}
-			if (mail_search_args_simplify_sub(box, args->value.subargs,
+			if (mail_search_args_simplify_sub(box, pool, args->value.subargs,
 							  args->type != SEARCH_OR))
 				ctx.removals = TRUE;
 		}
@@ -513,12 +605,12 @@ void mail_search_args_simplify(struct mail_search_args *args)
 
 	args->simplified = TRUE;
 
-	removals = mail_search_args_simplify_sub(args->box, args->args, TRUE);
+	removals = mail_search_args_simplify_sub(args->box, args->pool, args->args, TRUE);
 	if (mail_search_args_unnest_inthreads(args, &args->args,
 					      FALSE, TRUE)) {
 		/* we may have added some extra SUBs that could be dropped */
-		mail_search_args_simplify_sub(args->box, args->args, TRUE);
+		mail_search_args_simplify_sub(args->box, args->pool, args->args, TRUE);
 	}
 	while (removals)
-		removals = mail_search_args_simplify_sub(args->box, args->args, TRUE);
+		removals = mail_search_args_simplify_sub(args->box, args->pool, args->args, TRUE);
 }

@@ -102,6 +102,20 @@ struct {
 	{ "OR TEXT common1 ( TEXT common1 TEXT unique1 )", "TEXT common1" },
 	{ "OR TEXT common1 ( TEXT unique1 TEXT common1 )", "TEXT common1" },
 	{ "OR TEXT common1 OR ( TEXT unique1 TEXT common1 ) ( TEXT unique3 TEXT common1 )", "TEXT common1" },
+
+	{ "OR ( TEXT common1 TEXT unique1 ) ( TEXT common1 TEXT unique2 )", "(OR TEXT unique1 TEXT unique2) TEXT common1" },
+	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT unique2 TEXT common1 )", "(OR TEXT unique1 TEXT unique2) TEXT common1" },
+	{ "OR ( TEXT common1 TEXT unique1 ) ( TEXT unique2 TEXT common1 )", "(OR TEXT unique1 TEXT unique2) TEXT common1" },
+	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT common1 TEXT unique2 )", "(OR TEXT unique1 TEXT unique2) TEXT common1" },
+
+	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT common1 TEXT unique2 TEXT unique3 )", "(OR TEXT unique1 (TEXT unique2 TEXT unique3)) TEXT common1" },
+	{ "OR ( TEXT common1 TEXT common2 TEXT unique1 ) ( TEXT common1 TEXT common2 TEXT unique2 )", "(OR TEXT unique1 TEXT unique2) TEXT common2 TEXT common1" },
+	{ "OR ( TEXT common1 TEXT common2 TEXT unique1 TEXT unique2 ) ( TEXT common1 TEXT common2 TEXT unique3 TEXT unique4 )", "(OR (TEXT unique1 TEXT unique2) (TEXT unique3 TEXT unique4)) TEXT common2 TEXT common1" },
+
+	{ "OR ( TEXT unique1 TEXT unique2 ) TEXT unique3", "(OR (TEXT unique1 TEXT unique2) TEXT unique3)" },
+	{ "OR ( TEXT unique1 TEXT unique2 ) ( TEXT unique3 TEXT unique4 )", "(OR (TEXT unique1 TEXT unique2) (TEXT unique3 TEXT unique4))" },
+	{ "OR ( TEXT common1 TEXT unique1 ) OR ( TEXT common1 TEXT unique2 ) TEXT unique3", "(OR (TEXT common1 TEXT unique1) OR (TEXT common1 TEXT unique2) TEXT unique3)" },
+	{ "OR ( TEXT common1 TEXT unique1 ) OR ( TEXT common1 TEXT common2 ) ( TEXT common2 TEXT unique2 )", "(OR (TEXT common1 TEXT unique1) OR (TEXT common1 TEXT common2) (TEXT common2 TEXT unique2))" },
 };
 
 static struct mail_search_args *
