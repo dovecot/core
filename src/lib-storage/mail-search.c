@@ -587,7 +587,9 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 				       const struct mail_search_arg *arg2)
 {
 	if (arg1->type != arg2->type ||
-	    arg1->match_not != arg2->match_not)
+	    arg1->match_not != arg2->match_not ||
+	    arg1->fuzzy != arg2->fuzzy ||
+	    arg1->value.search_flags != arg2->value.search_flags)
 		return FALSE;
 
 	switch (arg1->type) {
@@ -648,6 +650,8 @@ static bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 			m1->type == m2->type;
 	}
 	case SEARCH_INTHREAD:
+		if (arg1->value.thread_type != arg2->value.thread_type)
+			return FALSE;
 		return mail_search_args_equal(arg1->initialized.search_args,
 					      arg2->initialized.search_args);
 	}
