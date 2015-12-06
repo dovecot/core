@@ -471,6 +471,7 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 			for (; sub->next != NULL; sub = sub->next) ;
 			sub->next = args->next;
 			*args = *args->value.subargs;
+			ctx.removals = TRUE;
 			continue;
 		}
 
@@ -609,7 +610,8 @@ void mail_search_args_simplify(struct mail_search_args *args)
 	if (mail_search_args_unnest_inthreads(args, &args->args,
 					      FALSE, TRUE)) {
 		/* we may have added some extra SUBs that could be dropped */
-		mail_search_args_simplify_sub(args->box, args->pool, args->args, TRUE);
+		if (mail_search_args_simplify_sub(args->box, args->pool, args->args, TRUE))
+			removals = TRUE;
 	}
 	while (removals)
 		removals = mail_search_args_simplify_sub(args->box, args->pool, args->args, TRUE);
