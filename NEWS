@@ -1,4 +1,4 @@
-v2.2.20 2015-12-xx  Timo Sirainen <tss@iki.fi>
+v2.2.20 2015-12-07  Timo Sirainen <tss@iki.fi>
 
 	+ Added mailbox { autoexpunge=<time> } setting. See
 	  http://wiki2.dovecot.org/MailboxSettings for details.
@@ -36,6 +36,8 @@ v2.2.20 2015-12-xx  Timo Sirainen <tss@iki.fi>
 	- zlib plugin: Fixed copying causing cache corruption when zlib_save
 	  wasn't set, but the source message was compressed.
 	- fts-solr: Fixed escaping Solr query parameters.
+	- lmtp: quota_full_tempfail=yes was ignored with
+	  lmtp_rcpt_check_quota=yes
 
 v2.2.19 2015-10-02  Timo Sirainen <tss@iki.fi>
 
