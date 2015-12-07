@@ -240,3 +240,9 @@ openssl_iostream_use_certificate_error(const char *cert, const char *set_name)
 		return "There is no valid PEM certificate.";
 	}
 }
+
+void openssl_iostream_clear_errors(void)
+{
+	while (ERR_get_error() != 0)
+		;
+}

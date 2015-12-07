@@ -93,6 +93,7 @@ const char *openssl_iostream_error(void);
 const char *openssl_iostream_key_load_error(void);
 const char *
 openssl_iostream_use_certificate_error(const char *cert, const char *set_name);
+void openssl_iostream_clear_errors(void);
 
 int openssl_iostream_generate_params(buffer_t *output, unsigned int dh_length,
 				     const char **error_r);

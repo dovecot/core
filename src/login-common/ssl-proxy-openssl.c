@@ -1131,7 +1131,7 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct master_service_ssl_settings *s
 		nid = EC_GROUP_get_curve_name(ecgrp);
 	else {
 		/* clear errors added by the above calls */
-		(void)openssl_iostream_error();
+		openssl_iostream_clear_errors();
 	}
 	EVP_PKEY_free(pkey);
 	return nid;
