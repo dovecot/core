@@ -56,6 +56,17 @@ int i_unlink_if_exists(const char *path, const char *source_fname,
 	}
 }
 
+void i_getopt_reset(void)
+{
+#ifdef __GLIBC__
+	/* a) for subcommands allow -options anywhere in command line
+	   b) this is actually required for the reset to work (glibc bug?) */
+	optind = 0;
+#else
+	optind = 1;
+#endif
+}
+
 void lib_atexit(lib_atexit_callback_t *callback)
 {
 	lib_atexit_priority(callback, 0);

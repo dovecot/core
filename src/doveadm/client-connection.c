@@ -46,7 +46,7 @@ doveadm_cmd_server_run(struct client_connection *conn,
 	const char *str = NULL;
 	unsigned int i;
 
-	optind = 1;
+	i_getopt_reset();
 	doveadm_exit_code = 0;
 	cmd->cmd(argc, argv);
 
@@ -93,7 +93,7 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 	if (doveadm_debug)
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
-	optind = 1;
+	i_getopt_reset();
 	getopt_args = t_strconcat("AF:S:u:", ctx->getopt_args, NULL);
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {

@@ -60,6 +60,8 @@ int i_unlink(const char *path, const char *source_fname,
 int i_unlink_if_exists(const char *path, const char *source_fname,
 		       unsigned int source_linenum);
 #define i_unlink_if_exists(path) i_unlink_if_exists(path, __FILE__, __LINE__)
+/* Reset getopt() so it can be used for the next args. */
+void i_getopt_reset(void);
 
 /* Call the given callback at the beginning of lib_deinit(). The main
    difference to atexit() is that liblib's memory allocation and logging

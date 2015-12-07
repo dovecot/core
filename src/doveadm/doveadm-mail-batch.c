@@ -68,7 +68,7 @@ cmd_batch_add(struct batch_cmd_context *batchctx,
 	subctx->full_args = argv + 1;
 	subctx->service_flags |= batchctx->ctx.service_flags;
 
-	optind = 1;
+	i_getopt_reset();
 	getopt_args = subctx->getopt_args != NULL ? subctx->getopt_args : "";
 	while ((c = getopt(argc, (void *)argv, getopt_args)) > 0) {
 		if (subctx->v.parse_arg == NULL ||

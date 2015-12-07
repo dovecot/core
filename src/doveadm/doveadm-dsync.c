@@ -1335,5 +1335,5 @@ void doveadm_dsync_main(int *_argc, char **_argv[])
 	legacy_dsync = TRUE;
 	*_argc = dest;
 	*_argv = new_argv;
-	optind = 1;
+	i_getopt_reset();
 }
