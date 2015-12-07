@@ -46,6 +46,7 @@ doveadm_cmd_server_run(struct client_connection *conn,
 	const char *str = NULL;
 	unsigned int i;
 
+	optind = 1;
 	doveadm_exit_code = 0;
 	cmd->cmd(argc, argv);
 
