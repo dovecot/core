@@ -686,6 +686,7 @@ int cmd_rcpt(struct client *client, const char *args)
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
 			address);
+		mail_storage_service_user_free(&rcpt->service_user);
 		return 0;
 	}
 
@@ -693,15 +694,16 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	rcpt->address = p_strdup(client->state_pool, address);
 	rcpt->detail = p_strdup(client->state_pool, detail);
-	if ((ret = lmtp_rcpt_to_is_over_quota(client, rcpt)) < 0) {
-		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 rcpt->address);
+	if ((ret = lmtp_rcpt_to_is_over_quota(client, rcpt)) != 0) {
+		if (ret < 0) {
+			client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+					 rcpt->address);
+		}
+		mail_storage_service_user_free(&rcpt->service_user);
 		return 0;
 	}
-	if (ret == 0) {
-		array_append(&client->state.rcpt_to, &rcpt, 1);
-		client_send_line(client, "250 2.1.5 OK");
-	}
+	array_append(&client->state.rcpt_to, &rcpt, 1);
+	client_send_line(client, "250 2.1.5 OK");
 
 	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
 		const char *query = t_strconcat("LOOKUP\t",
