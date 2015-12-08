@@ -523,6 +523,7 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 		}
 
 		/* try to merge arguments */
+		merged = FALSE;
 		switch (args->type) {
 		case SEARCH_FLAGS:
 			merged = mail_search_args_merge_flags(&ctx, args);
@@ -555,7 +556,6 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 			merged = mail_search_args_merge_text(&ctx, args);
 			break;
 		default:
-			merged = FALSE;
 			break;
 		}
 		if (merged) {
