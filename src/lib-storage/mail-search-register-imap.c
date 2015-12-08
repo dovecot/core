@@ -277,12 +277,6 @@ arg_new_body(struct mail_search_build_context *ctx,
 	if (mail_search_build_get_utf8(ctx, sarg->value.str,
 				       &sarg->value.str) < 0)
 		return NULL;
-
-	if (sarg->value.str[0] == '\0') {
-		/* optimization: BODY "" matches everything
-		   (but do this only after checking charset and key are ok) */
-		return mail_search_build_new(ctx, SEARCH_ALL);
-	}
 	return sarg;
 }
 
