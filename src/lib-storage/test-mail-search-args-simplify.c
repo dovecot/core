@@ -97,6 +97,16 @@ struct {
 	{ "TEXT foo BODY foo", "TEXT foo BODY foo" },
 	{ "OR ( TEXT foo OR TEXT foo TEXT foo ) ( TEXT foo ( TEXT foo ) )", "TEXT foo" },
 
+	/* value="" tests */
+	{ "HEADER foo ", "HEADER FOO \"\"" },
+	{ "SUBJECT ", "SUBJECT \"\"" },
+	{ "BODY ", "ALL" },
+	{ "TEXT ", "ALL" },
+	{ "HEADER foo .", "HEADER FOO ." },
+	{ "SUBJECT .", "SUBJECT ." },
+	{ "BODY .", "BODY ." },
+	{ "TEXT .", "TEXT ." },
+
 	/* OR: drop redundant args */
 	{ "OR ( TEXT common1 TEXT unique1 ) TEXT common1", "TEXT common1" },
 	{ "OR ( TEXT unique1 TEXT common1 ) TEXT common1", "TEXT common1" },

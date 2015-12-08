@@ -540,11 +540,18 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 		case SEARCH_LARGER:
 			merged = mail_search_args_merge_size(&ctx, args);
 			break;
+		case SEARCH_BODY:
+		case SEARCH_TEXT:
+			if (args->value.str[0] == '\0') {
+				/* BODY "" and TEXT "" matches everything */
+				args->type = SEARCH_ALL;
+				ctx.removals = TRUE;
+				break;
+			}
+			/* fall through */
 		case SEARCH_HEADER:
 		case SEARCH_HEADER_ADDRESS:
 		case SEARCH_HEADER_COMPRESS_LWSP:
-		case SEARCH_BODY:
-		case SEARCH_TEXT:
 			merged = mail_search_args_merge_text(&ctx, args);
 			break;
 		default:
