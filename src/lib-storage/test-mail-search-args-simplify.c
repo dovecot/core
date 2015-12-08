@@ -11,6 +11,16 @@ struct {
 	const char *input;
 	const char *output;
 } tests[] = {
+	{ "ALL", "ALL" },
+	{ "NOT ALL", "NOT ALL" },
+	{ "ALL NOT ALL", "NOT ALL" },
+	{ "ALL NOT ALL TEXT foo", "NOT ALL" },
+	{ "OR ALL NOT ALL", "ALL" },
+	{ "OR ALL OR NOT ALL TEXT foo", "ALL" },
+	{ "OR ALL OR TEXT foo TEXT bar", "ALL" },
+	{ "OR TEXT FOO ( ALL NOT ALL )", "TEXT FOO" },
+	{ "TEXT FOO OR ALL NOT ALL", "TEXT FOO" },
+
 	{ "TEXT foo", "TEXT foo" },
 	{ "( TEXT foo )", "TEXT foo" },
 	{ "( ( TEXT foo ) )", "TEXT foo" },

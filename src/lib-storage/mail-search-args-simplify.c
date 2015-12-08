@@ -464,7 +464,7 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 			      struct mail_search_arg **argsp, bool parent_and)
 {
 	struct mail_search_simplify_ctx ctx;
-	struct mail_search_arg *sub;
+	struct mail_search_arg *sub, **all_argsp = argsp;
 	bool merged;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -527,6 +527,27 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 		/* try to merge arguments */
 		merged = FALSE;
 		switch (args->type) {
+		case SEARCH_ALL: {
+			if (*all_argsp == args && args->next == NULL) {
+				/* this arg has no siblings - no merging */
+				break;
+			}
+			if ((parent_and && !args->match_not) ||
+			    (!parent_and && args->match_not)) {
+				/* .. AND ALL ..
+				   .. OR NOT ALL ..
+				   This arg is irrelevant -> drop */
+				merged = TRUE;
+				break;
+			}
+			/* .. AND NOT ALL ..
+			   .. OR ALL ..
+			   The other args are irrelevant -> drop them */
+			*all_argsp = args;
+			args->next = NULL;
+			ctx.removals = TRUE;
+			break;
+		}
 		case SEARCH_FLAGS:
 			merged = mail_search_args_merge_flags(&ctx, args);
 			break;
