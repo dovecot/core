@@ -213,13 +213,18 @@ static int fts_build_mail_header(struct fts_mail_build_context *ctx,
 
 	if ((ctx->update_ctx->backend->flags &
 	     FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
-		/* index the header name itself */
+		/* index the header name itself using data-language. */
+		struct fts_user_language *prev_lang = ctx->cur_user_lang;
+
+		fts_mail_build_ctx_set_lang(ctx,
+			fts_user_get_data_lang(ctx->update_ctx->backend->ns->user));
 		key.hdr_name = "";
 		if (fts_backend_update_set_build_key(ctx->update_ctx, &key)) {
 			if (fts_build_data(ctx, (const void *)hdr->name,
 					   strlen(hdr->name), TRUE) < 0)
 				ret = -1;
 		}
+		fts_mail_build_ctx_set_lang(ctx, prev_lang);
 	}
 	return ret;
 }
