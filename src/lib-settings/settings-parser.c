@@ -568,7 +568,7 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 			return -1;
 	}
 
-	list = t_strsplit(value, "\t ");
+	list = t_strsplit(value, ",\t ");
 	for (; *list != NULL; list++) {
 		if (**list == '\0')
 			continue;
