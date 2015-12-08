@@ -192,6 +192,11 @@ fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 		case SEARCH_HEADER:
 		case SEARCH_HEADER_ADDRESS:
 		case SEARCH_HEADER_COMPRESS_LWSP:
+			if ((*argp)->value.str[0] == '\0') {
+				/* we're testing for the existence of
+				   the header */
+				break;
+			}
 		case SEARCH_BODY:
 		case SEARCH_TEXT:
 			T_BEGIN {
