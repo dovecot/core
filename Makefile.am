@@ -22,8 +22,8 @@ noinst_DATA = dovecot-config
 nodist_pkginclude_HEADERS = config.h
 
 if MAINTAINER_MODE
-ChangeLog: .hg/dirstate
-	hg log -r tip:fef8259e7277 --style=changelog > ChangeLog
+ChangeLog: .git/ORIG_HEAD
+	git log 2.2.alpha1..HEAD > ChangeLog
 endif
 
 aclocal_DATA = dovecot.m4
