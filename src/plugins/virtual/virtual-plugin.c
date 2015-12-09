@@ -8,7 +8,8 @@
 const char *virtual_plugin_version = DOVECOT_ABI_VERSION;
 
 static struct mail_storage_hooks acl_mail_storage_hooks = {
-	.mailbox_opened = virtual_mailbox_opened_hook
+	.mailbox_allocated = virtual_backend_mailbox_allocated,
+	.mailbox_opened = virtual_backend_mailbox_opened
 };
 
 void virtual_plugin_init(struct module *module ATTR_UNUSED)

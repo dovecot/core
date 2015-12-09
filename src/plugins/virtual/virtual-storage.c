@@ -22,12 +22,21 @@
 
 #define VIRTUAL_DEFAULT_MAX_OPEN_MAILBOXES 64
 
+#define VIRTUAL_BACKEND_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, virtual_backend_storage_module)
+
+struct virtual_backend_mailbox {
+	union mailbox_module_context module_ctx;
+};
+
 extern struct mail_storage virtual_storage;
 extern struct mailbox virtual_mailbox;
 extern struct virtual_mailbox_vfuncs virtual_mailbox_vfuncs;
 
 struct virtual_storage_module virtual_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(virtual_backend_storage_module,
+				  &mail_storage_module_register);
 
 static bool ns_is_visible(struct mail_namespace *ns)
 {
@@ -323,7 +332,32 @@ virtual_backend_box_close_any_except(struct virtual_mailbox *mbox,
 	return FALSE;
 }
 
-void virtual_mailbox_opened_hook(struct mailbox *box)
+static void virtual_backend_mailbox_close(struct mailbox *box)
+{
+	struct virtual_backend_box *bbox = VIRTUAL_CONTEXT(box);
+	struct virtual_backend_mailbox *vbox = VIRTUAL_BACKEND_CONTEXT(box);
+
+	if (bbox != NULL && bbox->open_tracked) {
+		/* we could have gotten here from e.g. mailbox_autocreate()
+		   without going through virtual_mailbox_close() */
+		virtual_backend_box_close(bbox->virtual_mbox, bbox);
+	}
+	vbox->module_ctx.super.close(box);
+}
+
+void virtual_backend_mailbox_allocated(struct mailbox *box)
+{
+	struct mailbox_vfuncs *v = box->vlast;
+	struct virtual_backend_mailbox *vbox;
+
+	vbox = p_new(box->pool, struct virtual_backend_mailbox, 1);
+	vbox->module_ctx.super = *v;
+	box->vlast = &vbox->module_ctx.super;
+	v->close = virtual_backend_mailbox_close;
+	MODULE_CONTEXT_SET(box, virtual_backend_storage_module, vbox);
+}
+
+void virtual_backend_mailbox_opened(struct mailbox *box)
 {
 	struct virtual_backend_box *bbox = VIRTUAL_CONTEXT(box);
 	struct virtual_mailbox *mbox;

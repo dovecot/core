@@ -225,6 +225,7 @@ void virtual_save_free(struct mail_save_context *ctx);
 
 void virtual_box_copy_error(struct mailbox *dest, struct mailbox *src);
 
-void virtual_mailbox_opened_hook(struct mailbox *box);
+void virtual_backend_mailbox_allocated(struct mailbox *box);
+void virtual_backend_mailbox_opened(struct mailbox *box);
 
 #endif
