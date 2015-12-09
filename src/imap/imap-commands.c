@@ -159,16 +159,20 @@ bool command_exec(struct client_command_context *cmd)
 	struct timeval cmd_start_timeval;
 	uint64_t cmd_start_bytes_in, cmd_start_bytes_out;
 
+	i_assert(!cmd->executing);
+
 	io_loop_time_refresh();
 	cmd_start_timeval = ioloop_timeval;
 	cmd_start_bytes_in = i_stream_get_absolute_offset(cmd->client->input);
 	cmd_start_bytes_out = cmd->client->output->offset;
 
+	cmd->executing = TRUE;
 	array_foreach(&command_hooks, hook)
 		hook->pre(cmd);
 	finished = cmd->func(cmd);
 	array_foreach(&command_hooks, hook)
 		hook->post(cmd);
+	cmd->executing = FALSE;
 	if (cmd->state == CLIENT_COMMAND_STATE_DONE)
 		finished = TRUE;
 

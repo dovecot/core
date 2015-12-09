@@ -93,6 +93,7 @@ struct client_command_context {
 	unsigned int search_save_result_used:1; /* command uses search save */
 	unsigned int temp_executed:1; /* temporary execution state tracking */
 	unsigned int tagline_sent:1;
+	unsigned int executing:1;
 };
 
 struct imap_client_vfuncs {

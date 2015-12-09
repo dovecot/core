@@ -748,6 +748,7 @@ void client_command_free(struct client_command_context **_cmd)
 
 	*_cmd = NULL;
 
+	i_assert(!cmd->executing);
 	i_assert(client->output_cmd_lock == NULL);
 
 	/* reset input idle time because command output might have taken a
