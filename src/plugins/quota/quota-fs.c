@@ -316,6 +316,17 @@ fs_quota_root_get_resources(struct quota_root *_root)
 	return root->inode_per_mail ? resources_kb_messages : resources_kb;
 }
 
+#if defined(FS_QUOTA_LINUX) || defined(FS_QUOTA_BSDAIX) || \
+    defined(FS_QUOTA_NETBSD) || defined(HAVE_RQUOTA)
+static void fs_quota_root_disable(struct fs_quota_root *root, bool group)
+{
+	if (group)
+		root->group_disabled = TRUE;
+	else
+		root->user_disabled = TRUE;
+}
+#endif
+
 #ifdef HAVE_RQUOTA
 static void
 rquota_get_result(const rquota *rq,
@@ -430,7 +441,8 @@ do_rquota_user(struct fs_quota_root *root,
 			i_debug("quota-fs: uid=%s, limit=unlimited",
 				dec2str(root->uid));
 		}
-		return 1;
+		fs_quota_root_disable(root, FALSE);
+		return 0;
 	case Q_EPERM:
 		i_error("quota-fs: permission denied to rquota service");
 		return -1;
@@ -525,7 +537,8 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 			i_debug("quota-fs: gid=%s, limit=unlimited",
 				dec2str(root->gid));
 		}
-		return 1;
+		fs_quota_root_disable(root, TRUE);
+		return 0;
 	case Q_EPERM:
 		i_error("quota-fs: permission denied to ext rquota service");
 		return -1;
@@ -538,17 +551,6 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 	i_error("quota-fs: rquota not compiled with group support");
 	return -1;
 #endif
-}
-#endif
-
-#if defined(FS_QUOTA_LINUX) || defined(FS_QUOTA_BSDAIX) || \
-    defined(FS_QUOTA_NETBSD)
-static void fs_quota_root_disable(struct fs_quota_root *root, bool group)
-{
-	if (group)
-		root->group_disabled = TRUE;
-	else
-		root->user_disabled = TRUE;
 }
 #endif
 
@@ -869,9 +871,10 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 #ifdef HAVE_RQUOTA
 	if (mount_type_is_nfs(root->mount)) {
 		T_BEGIN {
-			ret = !root->user_disabled ?
-				do_rquota_user(root, &bytes_value, &bytes_limit, &count_value, &count_limit) :
-				do_rquota_group(root, &bytes_value, &bytes_limit, &count_value, &count_limit);
+			ret = root->user_disabled ? 0 :
+				do_rquota_user(root, &bytes_value, &bytes_limit, &count_value, &count_limit);
+			if (ret == 0 && !root->group_disabled)
+				ret = do_rquota_group(root, &bytes_value, &bytes_limit, &count_value, &count_limit);
 		} T_END;
 	} else
 #endif
