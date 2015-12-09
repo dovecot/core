@@ -21,9 +21,9 @@ abspath()
 abspath "${SRCDIR}" 1
 abspath "${BUILDDIR}" 2
 
-# when using a different BUILDDIR just copy from SRCDIR, if there is no .hg
+# when using a different BUILDDIR just copy from SRCDIR, if there is no .git
 if [ "${BUILDDIR}" != "${SRCDIR}" ]; then
-	if [ ! -d "${SRCDIR}/.hg" ]  && [ -f "${SRCDIR}/${VERSION_H}" ]; then
+	if [ ! -d "${SRCDIR}/.git" ]  && [ -f "${SRCDIR}/${VERSION_H}" ]; then
 		cmp -s "${SRCDIR}/${VERSION_H}" "${BUILDDIR}/${VERSION_H}"
 		if [ $? -ne 0 ]; then
 			cp "${SRCDIR}/${VERSION_H}" "${BUILDDIR}/${VERSION_H}"
@@ -32,22 +32,19 @@ if [ "${BUILDDIR}" != "${SRCDIR}" ]; then
 	fi
 fi
 
-# Don't generate dovecot-version.h if the source tree has no .hg dir but
+# Don't generate dovecot-version.h if the source tree has no .git dir but
 # a dovecot-version.h. This may be the result of a release/nightly tarball.
-[ ! -d "${SRCDIR}/.hg" ] && [ -f "${BUILDDIR}/${VERSION_H}" ] && exit 0
+[ ! -d "${SRCDIR}/.git" ] && [ -f "${BUILDDIR}/${VERSION_H}" ] && exit 0
 
 # Lets generate the dovecot-version.h
 [ -f "${BUILDDIR}/${VERSION_HT}" ] && rm -f "${BUILDDIR}/${VERSION_HT}"
-python "${SRCDIR}/is-tagged.py" "${SRCDIR}"
-if [ $? = 1 ]; then
-	# older hg doesn't recognize option -i
-	#HGID=`hg -R ${SRCDIR} id -i 2>/dev/null`
-	HGID=`hg -R ${SRCDIR} id 2>/dev/null | awk '{print $1}'`
+if true; then
+	GITID=`git rev-parse --short HEAD`
 	cat > "${BUILDDIR}/${VERSION_HT}" <<EOF
 #ifndef DOVECOT_VERSION_H
 #define DOVECOT_VERSION_H
 
-#define DOVECOT_VERSION_FULL VERSION" (${HGID})"
+#define DOVECOT_VERSION_FULL VERSION" (${GITID})"
 
 #endif /* DOVECOT_VERSION_H */
 EOF
