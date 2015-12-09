@@ -408,15 +408,16 @@ deinit:
 
 static void
 cmd_director_add_or_update(int argc, char *argv[], doveadm_command_t *cmd_func,
-			   const char *director_cmd)
+			   bool update)
 {
+	const char *director_cmd = update ? "HOST-UPDATE" : "HOST-SET";
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int i, ips_count, vhost_count = UINT_MAX;
 	const char *host, *line;
 	string_t *cmd;
 
-	ctx = cmd_director_init(argc, argv, "a:t:", cmd_func);
+	ctx = cmd_director_init(argc, argv, update ? "a:" : "a:t:", cmd_func);
 	if (ctx->tag != NULL && ctx->tag[0] == '\0')
 		ctx->tag = NULL;
 	host = argv[optind++];
@@ -465,12 +466,12 @@ cmd_director_add_or_update(int argc, char *argv[], doveadm_command_t *cmd_func,
 
 static void cmd_director_add(int argc, char *argv[])
 {
-	cmd_director_add_or_update(argc, argv, cmd_director_add, "HOST-SET");
+	cmd_director_add_or_update(argc, argv, cmd_director_add, FALSE);
 }
 
 static void cmd_director_update(int argc, char *argv[])
 {
-	cmd_director_add_or_update(argc, argv, cmd_director_update, "HOST-UPDATE");
+	cmd_director_add_or_update(argc, argv, cmd_director_update, TRUE);
 }
 
 static void
@@ -824,7 +825,7 @@ struct doveadm_cmd doveadm_cmd_director[] = {
 	{ cmd_director_add, "director add",
 	  "[-a <director socket path>] [-t <tag>] <host> [<vhost count>]" },
 	{ cmd_director_update, "director update",
-	  "[-a <director socket path>] [-t <tag>] <host> <vhost count>" },
+	  "[-a <director socket path>] <host> <vhost count>" },
 	{ cmd_director_up, "director up",
 	  "[-a <director socket path>] <host>" },
 	{ cmd_director_down, "director down",
