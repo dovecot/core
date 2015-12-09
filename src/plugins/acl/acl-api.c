@@ -388,9 +388,6 @@ int acl_rights_parse_line(const char *line, pool_t pool,
 {
 	const char *id_str, *const *right_names, *error = NULL;
 
-	if (*line == '\0' || *line == '#')
-		return 0;
-
 	/* <id> [<imap acls>] [:<named acls>] */
 	if (*line == '"') {
 		line++;

@@ -366,8 +366,11 @@ acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 
 	input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	i_stream_set_return_partial_line(input, TRUE);
-	linenum = 1;
+	linenum = 0;
 	while ((line = i_stream_read_next_line(input)) != NULL) {
+		linenum++;
+		if (line[0] == '\0' || line[0] == '#')
+			continue;
 		T_BEGIN {
 			ret = acl_rights_parse_line(line, aclobj->rights_pool,
 						    &rights, &error);
@@ -381,7 +384,6 @@ acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 		} T_END;
 		if (ret < 0)
 			break;
-		linenum++;
 	}
 
 	if (ret < 0) {
