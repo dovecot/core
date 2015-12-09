@@ -344,6 +344,9 @@ mail_search_args_simplify_drop_redundent_args(struct mail_search_arg **argsp,
 	unsigned int count, lowest_count = UINT_MAX;
 	bool ret = FALSE;
 
+	if (*argsp == NULL)
+		return FALSE;
+
 	child_subargs_type = and_arg ? SEARCH_OR : SEARCH_SUB;
 
 	/* find the arg which has the lowest number of child args */
@@ -399,7 +402,7 @@ mail_search_args_simplify_extract_common(struct mail_search_arg **argsp,
 	struct mail_search_arg *new_arg, *child_arg, *common_args = NULL;
 	enum mail_search_arg_type child_subargs_type;
 
-	if ((*argsp)->next == NULL) {
+	if (*argsp == NULL || (*argsp)->next == NULL) {
 		/* single arg, nothing to extract */
 		return FALSE;
 	}

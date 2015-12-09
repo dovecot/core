@@ -202,10 +202,24 @@ static void test_mail_search_args_simplify(void)
 	test_end();
 }
 
+static void test_mail_search_args_simplify_empty_lists(void)
+{
+	struct mail_search_args *args;
+
+	test_begin("mail search args simplify empty args");
+
+	args = mail_search_build_init();
+	mail_search_args_simplify(args);
+	mail_search_args_unref(&args);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_mail_search_args_simplify,
+		test_mail_search_args_simplify_empty_lists,
 		NULL
 	};
 
