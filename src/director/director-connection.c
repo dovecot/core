@@ -905,8 +905,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		update = TRUE;
 	} else {
 		update = host->vhost_count != vhost_count ||
-			host->down != down ||
-			host->last_updown_change != last_updown_change;
+			host->down != down;
 
 		host_tag = mail_host_get_tag(host);
 		if (strcmp(tag, host_tag) != 0) {
