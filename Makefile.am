@@ -22,7 +22,7 @@ noinst_DATA = dovecot-config
 nodist_pkginclude_HEADERS = config.h
 
 if MAINTAINER_MODE
-ChangeLog: .git/ORIG_HEAD
+ChangeLog: .git/index
 	git log 2.2.alpha1..HEAD > ChangeLog
 endif
 
