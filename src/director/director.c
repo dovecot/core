@@ -586,7 +586,10 @@ void director_update_host(struct director *dir, struct director_host *src,
 
 	director_send_host(dir, src, orig_src, host);
 
-	host->desynced = TRUE;
+	/* mark the host desynced until ring is synced again. except if we're
+	   alone in the ring that never happens. */
+	if (dir->right != NULL || dir->left != NULL)
+		host->desynced = TRUE;
 	director_sync(dir);
 }
 
