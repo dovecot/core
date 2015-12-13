@@ -319,13 +319,13 @@ static void stats_user_deinit(struct mail_user *user)
 	struct stats_connection *stats_conn = suser->stats_conn;
 
 	i_assert(stats_user_count > 0);
-	if (--stats_user_count == 0) {
+
+	stats_user_count--;
+	if (stats_global_user != NULL) {
 		/* we were updating the session lazily. do one final update. */
 		i_assert(stats_global_user == user);
 		stats_add_session(user);
 		stats_global_user = NULL;
-	} else {
-		i_assert(stats_global_user == NULL);
 	}
 
 	io_loop_context_remove_callbacks(suser->ioloop_ctx,
