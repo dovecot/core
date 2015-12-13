@@ -224,7 +224,6 @@ cmd_expunge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 
 void expunge_search_args_check(struct mail_search_args *args, const char *cmd)
 {
-	mail_search_args_simplify(args);
 	if (!expunge_search_args_is_mailbox_ok(args->args)) {
 		i_fatal_status(EX_USAGE,
 			"%s: To avoid accidents, search query "
@@ -236,6 +235,7 @@ void expunge_search_args_check(struct mail_search_args *args, const char *cmd)
 			"must contain something else besides MAILBOX "
 			"(e.g. just add \"all\" if you want everything)", cmd);
 	}
+	mail_search_args_simplify(args);
 }
 
 static void cmd_expunge_init(struct doveadm_mail_cmd_context *ctx,
