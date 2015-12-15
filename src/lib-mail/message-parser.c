@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2015 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "str.h"
 #include "istream.h"
 #include "rfc822-parser.h"
@@ -37,6 +38,7 @@ struct message_parser_ctx {
 	unsigned int want_count;
 
 	struct message_header_parser_ctx *hdr_parser_ctx;
+	unsigned int prev_hdr_newline_size;
 
 	int (*parse_next_block)(struct message_parser_ctx *ctx,
 				struct message_block *block_r);
@@ -510,17 +512,42 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 {
 	struct message_part *part = ctx->part;
 	struct message_header_line *hdr;
+	struct message_boundary *boundary;
+	bool full;
 	int ret;
 
-	if (ctx->skip > 0) {
-		i_stream_skip(ctx->input, ctx->skip);
-		ctx->skip = 0;
-	}
-
-	ret = message_parse_header_next(ctx->hdr_parser_ctx, &hdr);
-	if (ret == 0 || (ret < 0 && ctx->input->stream_errno != 0)) {
-		ctx->want_count = i_stream_get_data_size(ctx->input) + 1;
+	if ((ret = message_parser_read_more(ctx, block_r, &full)) <= 0)
 		return ret;
+
+	/* before parsing the header see if we can find a --boundary from here.
+	   we're guaranteed to be at the beginning of the line here. */
+	ret = ctx->boundaries == NULL ? -1 :
+		boundary_line_find(ctx, block_r->data,
+				   block_r->size, full, &boundary);
+	if (ret < 0) {
+		/* no boundary */
+		ret = message_parse_header_next(ctx->hdr_parser_ctx, &hdr);
+		if (ret == 0 || (ret < 0 && ctx->input->stream_errno != 0)) {
+			ctx->want_count = i_stream_get_data_size(ctx->input) + 1;
+			return ret;
+		}
+	} else if (ret == 0) {
+		/* need more data */
+		return 0;
+	} else {
+		/* boundary found. stop parsing headers here. The previous
+		   [CR]LF belongs to the MIME boundary though. */
+		if (ctx->prev_hdr_newline_size > 0) {
+			i_assert(ctx->part->header_size.lines > 0);
+			ctx->part->header_size.lines--;
+			ctx->part->header_size.physical_size -=
+				ctx->prev_hdr_newline_size;
+			ctx->part->header_size.virtual_size -=
+				ctx->prev_hdr_newline_size;
+			if (ctx->prev_hdr_newline_size == 1)
+				ctx->part->header_size.virtual_size--;
+		}
+		hdr = NULL;
 	}
 
 	if (hdr != NULL) {
@@ -543,6 +570,8 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 
 		block_r->hdr = hdr;
 		block_r->size = 0;
+		ctx->prev_hdr_newline_size = hdr->no_newline ? 0 :
+			(hdr->crlf_newline ? 2 : 1);
 		return 1;
 	}
 
@@ -608,6 +637,7 @@ static int parse_next_header_init(struct message_parser_ctx *ctx,
 		message_parse_header_init(ctx->input, &ctx->part->header_size,
 					  ctx->hdr_flags);
 	ctx->part_seen_content_type = FALSE;
+	ctx->prev_hdr_newline_size = 0;
 
 	ctx->parse_next_block = parse_next_header;
 	return parse_next_header(ctx, block_r);
