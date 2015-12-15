@@ -128,10 +128,64 @@ static void test_message_parser_small_blocks(void)
 	test_end();
 }
 
+static void test_message_parser_truncated_mime_headers(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\":foo\"\n"
+"\n"
+"--:foo\n"
+"--:foo\n"
+"Content-Type: text/plain\n"
+"--:foo\n"
+"Content-Type: text/plain\r\n"
+"--:foo\n"
+"Content-Type: text/html\n"
+"--:foo--\n";
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *part;
+	struct message_block block;
+	pool_t pool;
+	int ret;
+
+	test_begin("message parser truncated mime headers");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, 0, 0);
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
+	test_assert(ret < 0);
+	test_assert(message_parser_deinit(&parser, &parts) == 0);
+
+	test_assert((parts->flags & MESSAGE_PART_FLAG_MULTIPART) != 0);
+	test_assert(parts->children->header_size.physical_size == 0);
+	test_assert(parts->children->body_size.physical_size == 0);
+	test_assert(parts->children->body_size.lines == 0);
+	test_assert(parts->children->next->header_size.physical_size == 24);
+	test_assert(parts->children->next->header_size.virtual_size == 24);
+	test_assert(parts->children->next->header_size.lines == 0);
+	test_assert(parts->children->next->next->header_size.physical_size == 24);
+	test_assert(parts->children->next->next->header_size.virtual_size == 24);
+	test_assert(parts->children->next->next->header_size.lines == 0);
+	test_assert(parts->children->next->next->next->header_size.physical_size == 23);
+	test_assert(parts->children->next->next->next->header_size.virtual_size == 23);
+	test_assert(parts->children->next->next->next->header_size.lines == 0);
+	for (part = parts->children; part != NULL; part = part->next) {
+		test_assert(part->body_size.physical_size == 0);
+		test_assert(part->body_size.virtual_size == 0);
+	}
+	test_assert(parts->children->next->next->next->next == NULL);
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_message_parser_small_blocks,
+		test_message_parser_truncated_mime_headers,
 		NULL
 	};
 	return test_run(test_functions);
