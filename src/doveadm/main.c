@@ -84,11 +84,20 @@ int main(int argc, char *argv[])
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 	const char *error;
+	int c;
 
 	master_service = master_service_init("doveadm", service_flags,
-					     &argc, &argv, "");
-	if (master_getopt(master_service) > 0)
-		return FATAL_DEFAULT;
+					     &argc, &argv, "D");
+	while ((c = master_getopt(master_service)) > 0) {
+		switch (c) {
+		case 'D':
+			doveadm_debug = TRUE;
+			doveadm_verbose = TRUE;
+			break;
+		default:
+			return FATAL_DEFAULT;
+		}
+	}
 
 	if (master_service_settings_read_simple(master_service, set_roots,
 						&error) < 0)
