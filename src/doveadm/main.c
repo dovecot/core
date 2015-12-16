@@ -7,6 +7,7 @@
 #include "settings-parser.h"
 #include "client-connection.h"
 #include "doveadm-settings.h"
+#include "doveadm-dump.h"
 #include "doveadm-mail.h"
 #include "doveadm-print-private.h"
 #include "doveadm-server.h"
@@ -57,6 +58,7 @@ static void main_init(void)
 					pool_datastack_create());
 
 	doveadm_cmds_init();
+	doveadm_dump_init();
 	doveadm_mail_init();
 	doveadm_load_modules();
 	doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
@@ -67,6 +69,7 @@ static void main_deinit(void)
 	if (doveadm_client != NULL)
 		client_connection_destroy(&doveadm_client);
 	doveadm_mail_deinit();
+	doveadm_dump_deinit();
 	doveadm_unload_modules();
 	doveadm_print_deinit();
 	doveadm_cmds_deinit();
