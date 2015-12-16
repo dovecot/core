@@ -279,6 +279,11 @@ static const char *client_get_commands_status(struct client *client)
 	str = t_str_new(128);
 	str_append(str, " (");
 	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
+		if (cmd->name == NULL) {
+			/* (parts of a) tag were received, but not yet
+			   the command name */
+			continue;
+		}
 		str_append(str, cmd->name);
 		if (cmd->next != NULL)
 			str_append_c(str, ',');
@@ -287,6 +292,8 @@ static const char *client_get_commands_status(struct client *client)
 		bytes_out += cmd->bytes_out;
 		last_cmd = cmd;
 	}
+	if (str_len(str) <= 2)
+		return "";
 
 	cond = io_loop_find_fd_conditions(current_ioloop, client->fd_out);
 	if ((cond & (IO_READ | IO_WRITE)) == (IO_READ | IO_WRITE))
