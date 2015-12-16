@@ -7,6 +7,7 @@
 #include "strescape.h"
 #include "home-expand.h"
 #include "mkdir-parents.h"
+#include "eacces-error.h"
 #include "file-lock.h"
 #include "file-dotlock.h"
 #include "nfs-workarounds.h"
@@ -153,7 +154,10 @@ static int file_dict_open_latest(struct file_dict *dict)
 	if (dict->fd == -1) {
 		if (errno == ENOENT)
 			return 0;
-		i_error("open(%s) failed: %m", dict->path);
+		if (errno == EACCES)
+			i_error("%s", eacces_error_get("open", dict->path));
+		else
+			i_error("open(%s) failed: %m", dict->path);
 		return -1;
 	}
 	dict->refreshed = FALSE;
@@ -445,7 +449,10 @@ static int file_dict_mkdir(struct file_dict *dict)
 	path = t_strdup_until(dict->path, p);
 
 	if (stat_first_parent(path, &root, &st) < 0) {
-		i_error("stat(%s) failed: %m", root);
+		if (errno == EACCES)
+			i_error("%s", eacces_error_get("stat", root));
+		else
+			i_error("stat(%s) failed: %m", root);
 		return -1;
 	}
 	if ((st.st_mode & S_ISGID) != 0) {
@@ -454,7 +461,10 @@ static int file_dict_mkdir(struct file_dict *dict)
 	}
 
 	if (mkdir_parents(path, mode) < 0 && errno != EEXIST) {
-		i_error("mkdir_parents(%s) failed: %m", path);
+		if (errno == EACCES)
+			i_error("%s", eacces_error_get("mkdir_parents", path));
+		else
+			i_error("mkdir_parents(%s) failed: %m", path);
 		return -1;
 	}
 	return 0;
@@ -477,7 +487,10 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r)
 			dict->fd = open(dict->path, O_CREAT | O_RDWR, 0600);
 		}
 		if (dict->fd == -1) {
-			i_error("creat(%s) failed: %m", dict->path);
+			if (errno == EACCES)
+				i_error("%s", eacces_error_get("creat", dict->path));
+			else
+				i_error("creat(%s) failed: %m", dict->path);
 			return -1;
 		}
 		(void)fd_copy_parent_dir_permissions(dict->path, dict->fd,
