@@ -1022,7 +1022,9 @@ static bool client_handle_next_command(struct client *client, bool *remove_io_r)
 
 	if (client->input_lock != NULL) {
 		if (client->input_lock->state ==
-		    CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY) {
+		    CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY ||
+		    (client->output_cmd_lock != NULL &&
+		     client->output_cmd_lock != client->input_lock)) {
 			*remove_io_r = TRUE;
 			return FALSE;
 		}
