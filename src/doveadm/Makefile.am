@@ -97,9 +97,22 @@ doveadm_common_mail_cmds = \
 	doveadm-mail-search.c \
 	doveadm-mail-server.c
 
+# these aren't actually useful in doveadm-server, but plugins may implement
+# both dumping and some other commands inside a single plugin. not having the
+# dump functions in doveadm-server fails to load such plugins.
+doveadm_common_dump_cmds = \
+	doveadm-dump.c \
+	doveadm-dump-dbox.c \
+	doveadm-dump-index.c \
+	doveadm-dump-log.c \
+	doveadm-dump-mailboxlog.c \
+	doveadm-dump-thread.c \
+	doveadm-zlib.c
+
 common = \
 	$(doveadm_common_cmds) \
 	$(doveadm_common_mail_cmds) \
+	$(doveadm_common_dump_cmds) \
 	doveadm-cmd.c \
 	doveadm-print.c \
 	doveadm-settings.c \
@@ -109,18 +122,11 @@ common = \
 doveadm_SOURCES = \
 	$(common) \
 	doveadm.c \
-	doveadm-dump.c \
-	doveadm-dump-dbox.c \
-	doveadm-dump-index.c \
-	doveadm-dump-log.c \
-	doveadm-dump-mailboxlog.c \
-	doveadm-dump-thread.c \
 	doveadm-print-flow.c \
 	doveadm-print-pager.c \
 	doveadm-print-tab.c \
 	doveadm-print-table.c \
-	doveadm-pw.c \
-	doveadm-zlib.c
+	doveadm-pw.c
 
 doveadm_server_SOURCES = \
 	$(common) \
