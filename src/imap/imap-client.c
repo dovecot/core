@@ -292,7 +292,7 @@ static const char *client_get_commands_status(struct client *client)
 		bytes_out += cmd->bytes_out;
 		last_cmd = cmd;
 	}
-	if (str_len(str) <= 2)
+	if (last_cmd == NULL)
 		return "";
 
 	cond = io_loop_find_fd_conditions(current_ioloop, client->fd_out);
