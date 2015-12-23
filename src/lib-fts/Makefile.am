@@ -91,6 +91,14 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
+deps=../lib-dovecot/libdovecot.la
+
+pkglib_LTLIBRARIES = libdovecot-fts.la
+libdovecot_fts_la_SOURCES = 
+libdovecot_fts_la_LIBADD = libfts.la $(deps)
+libdovecot_fts_la_DEPENDENCIES = libfts.la $(deps)
+libdovecot_fts_la_LDFLAGS = -export-dynamic
+
 test_programs = \
 	$(ICU_TESTS) \
 	$(TEST_FTS_LANGUAGE) \
