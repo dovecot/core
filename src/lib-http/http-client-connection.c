@@ -121,6 +121,38 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 	http_client_connection_close(_conn);
 }
 
+static const char *
+http_client_connection_get_timing_info(struct http_client_connection *conn)
+{
+	struct http_client_request *const *requestp;
+	unsigned int sent_msecs, total_msecs, connected_msecs;
+	string_t *str = t_str_new(64);
+
+	if (array_count(&conn->request_wait_list) > 0) {
+		requestp = array_idx(&conn->request_wait_list, 0);
+		sent_msecs = timeval_diff_msecs(&ioloop_timeval, &(*requestp)->sent_time);
+		total_msecs = timeval_diff_msecs(&ioloop_timeval, &(*requestp)->submit_time);
+
+		str_printfa(str, "Request sent %u.%03u secs ago",
+			    sent_msecs/1000, sent_msecs%1000);
+		if ((*requestp)->attempts > 0) {
+			str_printfa(str, ", %u attempts in %u.%03u secs",
+				    (*requestp)->attempts + 1,
+				    total_msecs/1000, total_msecs%1000);
+		}
+	} else {
+		str_append(str, "No requests");
+		if (conn->conn.last_input != 0) {
+			str_printfa(str, ", last input %d secs ago",
+				    (int)(ioloop_time - conn->conn.last_input));
+		}
+	}
+	connected_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->connected_timestamp);
+	str_printfa(str, ", connected %u.%03u secs ago",
+		    connected_msecs/1000, connected_msecs%1000);
+	return str_c(str);
+}
+
 static void
 http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	unsigned int status, const char *error)
@@ -144,6 +176,8 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 			return;
 		}
 	}
+	error = t_strdup_printf("%s (%s)", error,
+				http_client_connection_get_timing_info(conn));
 
 	http_client_connection_debug(conn,
 		"Aborting connection with temporary error: %s", error);
@@ -257,24 +291,9 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 static void
 http_client_connection_request_timeout(struct http_client_connection *conn)
 {
-	struct http_client_request *const *requestp;
-	unsigned int timeout_msecs, total_msecs;
-	string_t *str = t_str_new(64);
-
-	requestp = array_idx(&conn->request_wait_list, 0);
-	timeout_msecs = timeval_diff_msecs(&ioloop_timeval, &(*requestp)->sent_time);
-	total_msecs = timeval_diff_msecs(&ioloop_timeval, &(*requestp)->submit_time);
-
-	str_printfa(str, "No response for request in %u.%03u secs",
-		    timeout_msecs/1000, timeout_msecs%1000);
-	if ((*requestp)->attempts > 0) {
-		str_printfa(str, " (%u attempts in %u.%03u secs)",
-			    (*requestp)->attempts + 1,
-			    total_msecs/1000, total_msecs%1000);
-	}
 	conn->conn.input->stream_errno = ETIMEDOUT;
 	http_client_connection_abort_temp_error(&conn,
-		HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT, str_c(str));
+		HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT, "Request timed out");
 }
 
 void http_client_connection_start_request_timeout(
@@ -596,6 +615,8 @@ static void http_client_connection_input(struct connection *_conn)
 	const char *error;
 
 	i_assert(conn->incoming_payload == NULL);
+
+	_conn->last_input = ioloop_time;
 
 	if (conn->ssl_iostream != NULL &&
 		!ssl_iostream_is_handshaked(conn->ssl_iostream)) {
