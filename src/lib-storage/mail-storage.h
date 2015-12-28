@@ -481,6 +481,11 @@ bool mailbox_equals(const struct mailbox *box1,
 /* Returns TRUE if the mailbox is user's INBOX or another user's shared INBOX */
 bool mailbox_is_any_inbox(struct mailbox *box);
 
+/* Change mailbox_verify_create_name() to not verify new mailbox name
+   restrictions (but still check that it's a valid existing name). This is
+   mainly used by dsync to make sure the sync works even though the original
+   name isn't valid anymore. */
+void mailbox_skip_create_name_restrictions(struct mailbox *box, bool set);
 /* Returns -1 if mailbox_create() is guaranteed to fail because the mailbox
    name is invalid, 0 not. The error message contains a reason. */
 int mailbox_verify_create_name(struct mailbox *box);
