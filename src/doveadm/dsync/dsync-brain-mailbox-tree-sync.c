@@ -164,6 +164,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		box = mailbox_alloc(change->ns->list, change->full_name, 0);
 		break;
 	}
+	mailbox_skip_create_name_restrictions(box, TRUE);
 	switch (change->type) {
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_CREATE_BOX:
 		ret = sync_create_box(brain, box, change->mailbox_guid,
@@ -192,6 +193,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 	case DSYNC_MAILBOX_TREE_SYNC_TYPE_RENAME:
 		destbox = mailbox_alloc(change->ns->list,
 					change->rename_dest_name, 0);
+		mailbox_skip_create_name_restrictions(destbox, TRUE);
 		ret = mailbox_rename(box, destbox);
 		func_name = "mailbox_rename";
 		mailbox_free(&destbox);

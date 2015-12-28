@@ -962,6 +962,11 @@ static bool mailbox_name_has_control_chars(const char *name)
 	return FALSE;
 }
 
+void mailbox_skip_create_name_restrictions(struct mailbox *box, bool set)
+{
+	box->skip_create_name_restrictions = set;
+}
+
 int mailbox_verify_create_name(struct mailbox *box)
 {
 	char sep = mail_namespace_get_sep(box->list->ns);
@@ -973,6 +978,8 @@ int mailbox_verify_create_name(struct mailbox *box)
 	   visible to users, while storage name may be a fixed length GUID. */
 	if (mailbox_verify_name(box) < 0)
 		return -1;
+	if (box->skip_create_name_restrictions)
+		return 0;
 	if (mailbox_name_has_control_chars(box->vname)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 			"Control characters not allowed in new mailbox names");
