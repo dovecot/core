@@ -181,11 +181,39 @@ static const char input_msg[] =
 	test_end();
 }
 
+static void test_message_parser_no_eoh(void)
+{
+	static const char input_msg[] = "a:b\n";
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts;
+	struct message_block block;
+	pool_t pool;
+
+	test_begin("message parser no EOH");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, 0, 0);
+	test_assert(message_parser_parse_next_block(parser, &block) > 0 &&
+		    block.hdr != NULL && strcmp(block.hdr->name, "a") == 0 &&
+		    block.hdr->value_len == 1 && block.hdr->value[0] == 'b');
+	test_assert(message_parser_parse_next_block(parser, &block) > 0 &&
+		    block.hdr == NULL && block.size == 0);
+	test_assert(message_parser_parse_next_block(parser, &block) < 0);
+	test_assert(message_parser_deinit(&parser, &parts) == 0);
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_message_parser_small_blocks,
 		test_message_parser_truncated_mime_headers,
+		test_message_parser_no_eoh,
 		NULL
 	};
 	return test_run(test_functions);

@@ -516,14 +516,16 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 	bool full;
 	int ret;
 
-	if ((ret = message_parser_read_more(ctx, block_r, &full)) <= 0)
+	if ((ret = message_parser_read_more(ctx, block_r, &full)) == 0)
 		return ret;
 
 	/* before parsing the header see if we can find a --boundary from here.
 	   we're guaranteed to be at the beginning of the line here. */
-	ret = ctx->boundaries == NULL ? -1 :
-		boundary_line_find(ctx, block_r->data,
-				   block_r->size, full, &boundary);
+	if (ret > 0) {
+		ret = ctx->boundaries == NULL ? -1 :
+			boundary_line_find(ctx, block_r->data,
+					   block_r->size, full, &boundary);
+	}
 	if (ret < 0) {
 		/* no boundary */
 		ret = message_parse_header_next(ctx->hdr_parser_ctx, &hdr);
