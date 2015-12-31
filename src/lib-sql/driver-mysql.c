@@ -72,7 +72,8 @@ extern const struct sql_result driver_mysql_error_result;
 
 static const char *mysql_prefix(struct mysql_db *db)
 {
-	return t_strdup_printf("mysql(%s)", db->host);
+	return db->host == NULL ? "mysql" :
+		t_strdup_printf("mysql(%s)", db->host);
 }
 
 static int driver_mysql_connect(struct sql_db *_db)
@@ -88,7 +89,12 @@ static int driver_mysql_connect(struct sql_db *_db)
 
 	sql_db_set_state(&db->api, SQL_DB_STATE_CONNECTING);
 
-	if (*db->host == '/') {
+	if (db->host == NULL) {
+		/* assume option_file overrides the host, or if not we'll just
+		   connect to localhost */
+		unix_socket = NULL;
+		host = NULL;
+	} else if (*db->host == '/') {
 		unix_socket = db->host;
 		host = NULL;
 	} else {
@@ -235,7 +241,7 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 			*field = p_strdup(db->pool, value);
 	}
 
-	if (db->host == NULL)
+	if (db->host == NULL && db->option_file == NULL)
 		i_fatal("mysql: No hosts given in connect string");
 
 	db->mysql = mysql_init(NULL);
