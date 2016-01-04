@@ -1816,6 +1816,7 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	struct mailbox_header_lookup_ctx *new_wanted_headers;
 	ARRAY_TYPE(const_string) names;
 	unsigned int i;
 
@@ -1833,11 +1834,12 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 		for (i = 0; i < headers->count; i++)
 			array_append(&names, &headers->name[i], 1);
 		array_append_zero(&names);
-		if (data->wanted_headers != NULL)
-			mailbox_header_lookup_unref(&data->wanted_headers);
-		data->wanted_headers =
+		new_wanted_headers =
 			mailbox_header_lookup_init(_mail->box,
 						   array_idx(&names, 0));
+		if (data->wanted_headers != NULL)
+			mailbox_header_lookup_unref(&data->wanted_headers);
+		data->wanted_headers = new_wanted_headers;
 	}
 	index_mail_update_access_parts_pre(_mail);
 	index_mail_update_access_parts_post(_mail);
