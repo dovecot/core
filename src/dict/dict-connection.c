@@ -238,8 +238,33 @@ bool dict_connection_unref(struct dict_connection *conn)
 	return FALSE;
 }
 
+static void dict_connection_unref_safe_callback(struct dict_connection *conn)
+{
+	if (conn->to_unref != NULL)
+		timeout_remove(&conn->to_unref);
+	(void)dict_connection_unref(conn);
+}
+
+void dict_connection_unref_safe(struct dict_connection *conn)
+{
+	if (conn->refcount == 1) {
+		/* delayed unref to make sure we don't try to call
+		   dict_deinit() from a dict-callback. that's too much trouble
+		   for each dict driver to be able to handle. */
+		if (conn->to_unref == NULL) {
+			conn->to_unref = timeout_add_short(0,
+				dict_connection_unref_safe_callback, conn);
+		}
+	} else {
+		(void)dict_connection_unref(conn);
+	}
+}
+
 void dict_connection_destroy(struct dict_connection *conn)
 {
+	i_assert(!conn->destroyed);
+	i_assert(conn->to_unref == NULL);
+
 	conn->destroyed = TRUE;
 	DLLIST_REMOVE(&dict_connections, conn);
 

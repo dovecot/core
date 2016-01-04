@@ -75,7 +75,7 @@ static void dict_connection_cmds_flush(struct dict_connection *conn)
 		o_stream_nsend_str(conn->output, cmd->reply);
 		dict_connection_cmd_remove(cmd);
 	}
-	dict_connection_unref(conn);
+	dict_connection_unref_safe(conn);
 }
 
 static void
