@@ -1125,7 +1125,7 @@ bool net_is_in_network(const struct ip_addr *ip,
 		ip = &tmp_ip;
 	}
 
-	if (ip->family == 0) {
+	if (ip->family == 0 || net_ip->family == 0) {
 		/* non-IPv4/IPv6 address (e.g. UNIX socket) never matches
 		   anything */
 		return FALSE;
