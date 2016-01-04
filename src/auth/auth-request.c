@@ -1343,10 +1343,8 @@ auth_request_validate_networks(struct auth_request *request,
 		if (net_parse_range(*net, &net_ip, &bits) < 0) {
 			auth_request_log_info(request, AUTH_SUBSYS_DB,
 				"%s: Invalid network '%s'", name, *net);
-		}
-
-		if (remote_ip->family != 0 &&
-		    net_is_in_network(remote_ip, &net_ip, bits)) {
+		} else if (remote_ip->family != 0 &&
+			   net_is_in_network(remote_ip, &net_ip, bits)) {
 			found = TRUE;
 			break;
 		}
