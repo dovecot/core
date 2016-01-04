@@ -855,7 +855,7 @@ static bool client_remove_pending_unambiguity(struct client *client)
 		struct client_command_context *cmd = client->input_lock;
 
 		if (cmd->state != CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY)
-			return FALSE;
+			return TRUE;
 
 		/* the command is waiting for existing ambiguity causing
 		   commands to finish. */
