@@ -136,13 +136,13 @@ static void keepalive_timeout(struct cmd_idle_context *ctx)
 	idle_add_keepalive_timeout(ctx);
 }
 
-static void idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
+static bool idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
 {
 	i_assert(ctx->sync_ctx == NULL);
 
 	ctx->sync_pending = FALSE;
 	ctx->sync_ctx = imap_sync_init(ctx->client, box, 0, 0);
-	(void)cmd_idle_continue(ctx->cmd);
+	return cmd_idle_continue(ctx->cmd);
 }
 
 static void idle_callback(struct mailbox *box, struct cmd_idle_context *ctx)
@@ -153,7 +153,7 @@ static void idle_callback(struct mailbox *box, struct cmd_idle_context *ctx)
 		ctx->sync_pending = TRUE;
 	else {
 		ctx->manual_cork = TRUE;
-		idle_sync_now(box, ctx);
+		(void)idle_sync_now(box, ctx);
 		if (client->disconnected)
 			client_destroy(client, NULL);
 	}
@@ -247,11 +247,11 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 
 	if (ctx->sync_pending) {
 		/* more changes occurred while we were sending changes to
-		   client */
-		idle_sync_now(client->mailbox, ctx);
-		/* NOTE: this recurses back to this function,
+		   client.
+
+		   NOTE: this recurses back to this function,
 		   so we return here instead of doing everything twice. */
-		return FALSE;
+		return idle_sync_now(client->mailbox, ctx);
 	}
 	if (ctx->to_hibernate == NULL)
 		idle_add_hibernate_timeout(ctx);
@@ -267,10 +267,11 @@ static bool cmd_idle_continue(struct client_command_context *cmd)
 		return TRUE;
 	}
 	if (client->io == NULL) {
-		/* input is pending */
+		/* input is pending. add the io back and mark the input as
+		   pending. we can't safely read more input immediately here. */
 		client->io = io_add_istream(client->input,
 					    idle_client_input, ctx);
-		(void)idle_client_input_more(ctx);
+		i_stream_set_input_pending(client->input, TRUE);
 	}
 	return FALSE;
 }
