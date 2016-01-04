@@ -46,6 +46,19 @@ static void test_net_is_in_network(void)
 			input[i].ret;
 		test_out(t_strdup_printf("net_is_in_network(%u)", i), success);
 	}
+	/* make sure non-IPv4 and non-IPv6 ip_addrs fail */
+	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
+	net_ip = ip;
+	net_ip.family = 0;
+	test_assert(!net_is_in_network(&ip, &net_ip, 0));
+	test_assert(!net_is_in_network(&net_ip, &ip, 0));
+#ifdef HAVE_IPV6
+	test_assert(net_addr2ip("::1", &ip) == 0);
+	net_ip = ip;
+	net_ip.family = 0;
+	test_assert(!net_is_in_network(&ip, &net_ip, 0));
+	test_assert(!net_is_in_network(&net_ip, &ip, 0));
+#endif
 	test_end();
 }
 
