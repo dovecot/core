@@ -778,7 +778,8 @@ import_state_idle_cmd_tag(struct client *client, const unsigned char *data,
 			client_command_free(&cmd);
 			client_add_missing_io(client);
 		} else {
-			i_assert(cmd->state == CLIENT_COMMAND_STATE_WAIT_INPUT);
+			i_assert(cmd->state == CLIENT_COMMAND_STATE_WAIT_INPUT ||
+				 cmd->state == CLIENT_COMMAND_STATE_WAIT_OUTPUT);
 		}
 	} else {
 		/* we're finishing IDLE command */
