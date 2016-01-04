@@ -31,20 +31,20 @@ static void test_net_is_in_network(void)
 		{ "1234:5678::abcf", "1234:5678::abce", 127, TRUE },
 		{ "1234:5678::abcd", "1234:5678::abce", 127, FALSE },
 		{ "123e::ffff", "123e::0", 15, TRUE },
-		{ "123d::ffff", "123e::0", 15, FALSE }
+		{ "::ffff:1.2.3.4", "1.2.3.4", 32, TRUE },
+		{ "::ffff:1.2.3.4", "1.2.3.3", 32, FALSE },
+		{ "::ffff:1.2.3.4", "::ffff:1.2.3.4", 0, FALSE }
 #endif
 	};
 	struct ip_addr ip, net_ip;
 	unsigned int i;
-	bool success;
 
 	test_begin("net_is_in_network()");
 	for (i = 0; i < N_ELEMENTS(input); i++) {
 		test_assert(net_addr2ip(input[i].ip, &ip) == 0);
 		test_assert(net_addr2ip(input[i].net, &net_ip) == 0);
-		success = net_is_in_network(&ip, &net_ip, input[i].bits) ==
-			input[i].ret;
-		test_out(t_strdup_printf("net_is_in_network(%u)", i), success);
+		test_assert_idx(net_is_in_network(&ip, &net_ip, input[i].bits) ==
+				input[i].ret, i);
 	}
 	/* make sure non-IPv4 and non-IPv6 ip_addrs fail */
 	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
