@@ -24,6 +24,7 @@ struct dict_connection {
 	struct istream *input;
 	struct ostream *output;
 	struct timeout *to_input;
+	struct timeout *to_unref;
 
 	/* There are only a few transactions per client, so keeping them in
 	   array is fast enough */
@@ -38,6 +39,7 @@ void dict_connection_destroy(struct dict_connection *conn);
 
 void dict_connection_ref(struct dict_connection *conn);
 bool dict_connection_unref(struct dict_connection *conn);
+void dict_connection_unref_safe(struct dict_connection *conn);
 
 void dict_connection_continue_input(struct dict_connection *conn);
 
