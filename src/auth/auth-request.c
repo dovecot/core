@@ -1335,12 +1335,12 @@ auth_request_validate_networks(struct auth_request *request,
 		auth_request_log_debug(request, AUTH_SUBSYS_DB,
 			"%s: Matching for network %s", name, *net);
 
-		if (strcmp(*net, "local") == 0 && remote_ip->family == 0) {
-			found = TRUE;
-			break;
-		}
-
-		if (net_parse_range(*net, &net_ip, &bits) < 0) {
+		if (strcmp(*net, "local") == 0) {
+			if (remote_ip->family == 0) {
+				found = TRUE;
+				break;
+			}
+		} else if (net_parse_range(*net, &net_ip, &bits) < 0) {
 			auth_request_log_info(request, AUTH_SUBSYS_DB,
 				"%s: Invalid network '%s'", name, *net);
 		}
