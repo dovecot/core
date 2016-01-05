@@ -202,6 +202,13 @@ client_add_input(struct client *client, const unsigned char *client_input,
 	(void)client_handle_input(client);
 	o_stream_uncork(output);
 	o_stream_unref(&output);
+
+	/* we could have already handled LOGOUT, or we might need to continue
+	   pending ambigious commands. */
+	if (client->disconnected)
+		client_destroy(client, NULL);
+	else
+		client_continue_pending_input(client);
 }
 
 int client_create_from_input(const struct mail_storage_service_input *input,
@@ -280,6 +287,7 @@ static void main_stdio_run(const char *username)
 		const buffer_t *input_buf = t_base64_decode_str(input_base64);
 		client_add_input(client, input_buf->data, input_buf->used);
 	}
+	/* client may be destroyed now */
 }
 
 static void
@@ -314,12 +322,12 @@ login_client_connected(const struct master_login_client *login_client,
 		master_service_client_connection_destroyed(master_service);
 		return;
 	}
-	client_add_input(client, login_client->data,
-			 login_client->auth_req.data_size);
-
 	flags = login_client->auth_req.flags;
 	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
 		client->tls_compression = TRUE;
+	client_add_input(client, login_client->data,
+			 login_client->auth_req.data_size);
+	/* client may be destroyed now */
 }
 
 static void login_client_failed(const struct master_login_client *client,
