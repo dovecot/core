@@ -335,15 +335,24 @@ static int pop3_lock_session(struct client *client)
 	const struct mail_storage_settings *mail_set =
 		mail_storage_service_user_get_mail_set(client->service_user);
 	struct dotlock_settings dotlock_set;
+	enum mailbox_list_path_type type;
 	const char *dir, *path;
 	int ret;
 
-	if (!mailbox_list_get_root_path(client->inbox_ns->list,
-					MAILBOX_LIST_PATH_TYPE_INDEX, &dir) &&
-	    !mailbox_list_get_root_path(client->inbox_ns->list,
-					MAILBOX_LIST_PATH_TYPE_DIR, &dir)) {
+	if (mailbox_list_get_root_path(client->inbox_ns->list,
+				       MAILBOX_LIST_PATH_TYPE_INDEX, &dir)) {
+		type = MAILBOX_LIST_PATH_TYPE_INDEX;
+	} else if (mailbox_list_get_root_path(client->inbox_ns->list,
+					      MAILBOX_LIST_PATH_TYPE_DIR, &dir)) {
+		type = MAILBOX_LIST_PATH_TYPE_DIR;
+	} else {
 		i_error("pop3_lock_session: Storage has no root/index directory, "
 			"can't create a POP3 session lock file");
+		return -1;
+	}
+	if (mailbox_list_mkdir_root(client->inbox_ns->list, dir, type) < 0) {
+		i_error("pop3_lock_session: Couldn't create root directory %s: %s",
+			dir, mailbox_list_get_last_error(client->inbox_ns->list, NULL));
 		return -1;
 	}
 	path = t_strdup_printf("%s/"POP3_LOCK_FNAME, dir);
