@@ -1036,7 +1036,7 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		return 0;
 	}
 
-	if (auto_boxes && box->set != NULL && mailbox_is_autocreated(box)) {
+	if (auto_boxes && mailbox_is_autocreated(box)) {
 		*existence_r = MAILBOX_EXISTENCE_SELECT;
 		return 0;
 	}
