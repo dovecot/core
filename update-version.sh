@@ -39,7 +39,7 @@ fi
 # Lets generate the dovecot-version.h
 [ -f "${BUILDDIR}/${VERSION_HT}" ] && rm -f "${BUILDDIR}/${VERSION_HT}"
 if true; then
-	GITID=`git rev-parse --short HEAD`
+	GITID=`git --git-dir ${SRCDIR}/.git rev-parse --short HEAD`
 	cat > "${BUILDDIR}/${VERSION_HT}" <<EOF
 #ifndef DOVECOT_VERSION_H
 #define DOVECOT_VERSION_H
