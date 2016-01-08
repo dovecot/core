@@ -263,7 +263,7 @@ static int passwd_file_sync(struct auth_request *request,
 	const char *error;
 
 	if (pw->last_sync_time == ioloop_time)
-		return 0;
+		return hash_table_is_created(pw->users) ? 0 : -1;
 	pw->last_sync_time = ioloop_time;
 
 	if (stat(pw->path, &st) < 0) {
