@@ -344,6 +344,7 @@ get_octal(struct setting_parser_context *ctx, const char *value,
 	if (str_to_ullong_oct(value, &octal) < 0) {
 		ctx->error = p_strconcat(ctx->parser_pool, "Invalid number: ",
 					 value, NULL);
+		return -1;
 	}
 	*result_r = (unsigned int)octal;
 	return 0;
