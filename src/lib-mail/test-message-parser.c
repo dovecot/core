@@ -158,6 +158,9 @@ static const char input_msg[] =
 	test_assert(message_parser_deinit(&parser, &parts) == 0);
 
 	test_assert((parts->flags & MESSAGE_PART_FLAG_MULTIPART) != 0);
+	test_assert(parts->body_size.lines == 8);
+	test_assert(parts->body_size.physical_size == 112);
+	test_assert(parts->body_size.virtual_size == 112+7);
 	test_assert(parts->children->header_size.physical_size == 0);
 	test_assert(parts->children->body_size.physical_size == 0);
 	test_assert(parts->children->body_size.lines == 0);
