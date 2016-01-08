@@ -541,13 +541,16 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 		   [CR]LF belongs to the MIME boundary though. */
 		if (ctx->prev_hdr_newline_size > 0) {
 			i_assert(ctx->part->header_size.lines > 0);
+			/* remove the newline size from the MIME header */
 			ctx->part->header_size.lines--;
 			ctx->part->header_size.physical_size -=
 				ctx->prev_hdr_newline_size;
-			ctx->part->header_size.virtual_size -=
+			ctx->part->header_size.virtual_size -= 2;
+			/* add the newline size to the parent's body */
+			ctx->part->parent->body_size.lines++;
+			ctx->part->parent->body_size.physical_size +=
 				ctx->prev_hdr_newline_size;
-			if (ctx->prev_hdr_newline_size == 1)
-				ctx->part->header_size.virtual_size--;
+			ctx->part->parent->body_size.virtual_size += 2;
 		}
 		hdr = NULL;
 	}
