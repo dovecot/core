@@ -12,7 +12,6 @@ EXTRA_DIST = \
 	COPYING.LGPL \
 	COPYING.MIT \
 	ChangeLog \
-	is-tagged.py \
 	cc-wrapper.sh.in \
 	update-version.sh \
 	$(conf_DATA)
