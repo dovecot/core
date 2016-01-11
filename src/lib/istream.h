@@ -74,7 +74,8 @@ void i_stream_remove_destroy_callback(struct istream *stream,
 
 /* Return file descriptor for stream, or -1 if none is available. */
 int i_stream_get_fd(struct istream *stream);
-/* Returns error string for the last error. */
+/* Returns error string for the last error. It also returns "EOF" in case there
+   is no error, but eof is set. Otherwise it returns "<no error>". */
 const char *i_stream_get_error(struct istream *stream);
 
 /* Mark the stream and all of its parent streams closed. Any reads after this

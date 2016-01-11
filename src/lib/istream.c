@@ -82,10 +82,11 @@ const char *i_stream_get_error(struct istream *stream)
 {
 	struct istream *s;
 
-	/* we'll only return errors for streams that have stream_errno set.
-	   we might be returning unintended error otherwise. */
+	/* we'll only return errors for streams that have stream_errno set or
+	   that have reached EOF. we might be returning unintended error
+	   otherwise. */
 	if (stream->stream_errno == 0)
-		return "<no error>";
+		return stream->eof ? "EOF" : "<no error>";
 
 	for (s = stream; s != NULL; s = s->real_stream->parent) {
 		if (s->stream_errno == 0)
