@@ -252,6 +252,7 @@ static struct doveadm_cmd *doveadm_cmdline_commands[] = {
 	&doveadm_cmd_dump,
 	&doveadm_cmd_pw,
 	&doveadm_cmd_stats_top,
+	&doveadm_cmd_stats_reset,
 	&doveadm_cmd_zlibconnect
 };
 

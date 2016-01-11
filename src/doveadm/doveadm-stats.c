@@ -495,6 +495,52 @@ static void stats_top(const char *path, const char *sort_type)
 	i_close_fd(&ctx.fd);
 }
 
+static void stats_reset(const char *path, const char **items ATTR_UNUSED)
+{
+	const char **ptr ATTR_UNUSED;
+	int fd,ret;
+	string_t *cmd;
+	struct istream *input;
+	const char *line;
+
+	fd = doveadm_connect(path);
+	net_set_nonblock(fd, FALSE);
+	input = i_stream_create_fd(fd, (size_t)-1, FALSE);
+
+	cmd = t_str_new(10);
+	str_append(cmd, "RESET");
+/* XXX: Not supported yet.
+	for(ptr = items; *ptr; ptr++)
+	{
+		str_append_c(cmd, '\t');
+		str_append(cmd, *ptr);
+	}
+*/
+	str_append_c(cmd, '\n');
+
+	/* send command */
+	ret = write_full(fd, str_c(cmd), str_len(cmd));
+
+	if (ret < 0) {
+		i_close_fd(&fd);
+		i_error("write(%s) failed: %m", path);
+		return;
+	}
+
+	line = i_stream_read_next_line(input);
+
+	if (line == NULL) {
+		i_error("read(%s) failed: %s", path, i_stream_get_error(input));
+	} else if (strncmp(line, "OK", 2) != 0) {
+		i_error("%s",line);
+	} else {
+		i_info("Stats reset");
+	}
+
+	i_stream_destroy(&input);
+	i_close_fd(&fd);
+}
+
 static void cmd_stats_top(int argc, char *argv[])
 {
 	const char *path, *sort_type;
@@ -527,10 +573,38 @@ static void cmd_stats_top(int argc, char *argv[])
 	stats_top(path, sort_type);
 }
 
+static void cmd_stats_reset(int argc, char *argv[])
+{
+	const char *path;
+	int c;
+
+	path = t_strconcat(doveadm_settings->base_dir, "/stats", NULL);
+	while((c = getopt(argc, argv, "s:")) > 0) {
+		switch (c) {
+		case 's':
+			path = optarg;
+			break;
+		default:
+			help(&doveadm_cmd_stats_reset);
+		}
+	}
+	argv += optind - 1;
+	/* items is now argv */
+/*	if (optind >= argc) {
+		i_fatal("missing item(s) to reset");
+	}
+*/
+	stats_reset(path, (const char**)argv);
+}
+
 struct doveadm_cmd doveadm_cmd_stats_dump = {
 	cmd_stats_dump, "stats dump", "[-s <stats socket path>] <type> [<filter>]"
 };
 
 struct doveadm_cmd doveadm_cmd_stats_top = {
 	cmd_stats_top, "stats top", "[-s <stats socket path>] [-b] [<sort field>]"
+};
+
+struct doveadm_cmd doveadm_cmd_stats_reset = {
+	cmd_stats_reset, "stats reset", "[-s <stats socket path>]"
 };
