@@ -66,4 +66,6 @@ bool stats_import(const unsigned char *data, size_t size,
    alloc_size() number of bytes). */
 void *stats_fill_ptr(struct stats *stats, struct stats_item *item);
 
+void stats_reset(struct stats *stats);
+
 #endif

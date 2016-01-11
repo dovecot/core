@@ -218,3 +218,8 @@ void *stats_fill_ptr(struct stats *stats, struct stats_item *item)
 {
 	return PTR_OFFSET(stats, item->pos);
 }
+
+void stats_reset(struct stats *stats)
+{
+	memset(stats, 0, stats_total_size);
+}
