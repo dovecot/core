@@ -16,6 +16,7 @@ stats_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 stats_SOURCES = \
 	client.c \
 	client-export.c \
+	client-reset.c \
 	global-memory.c \
 	mail-command.c \
 	mail-domain.c \
@@ -30,6 +31,7 @@ stats_SOURCES = \
 noinst_HEADERS = \
 	client.h \
 	client-export.h \
+	client-reset.h \
 	global-memory.h \
 	mail-command.h \
 	mail-domain.h \
