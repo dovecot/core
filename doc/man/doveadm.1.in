@@ -197,6 +197,11 @@ Initialize/recalculate or show current quota usage.
 Manage users\(aq mail replicaton.
 .\"-------------------------------------
 .TP
+.B doveadm stats
+.BR doveadm\-stats (1),
+Inspect or reset stats.
+.\"-------------------------------------
+.TP
 .B doveadm sync
 .BR doveadm\-sync (1),
 Dovecot\(aqs two\-way mailbox synchronization utility.

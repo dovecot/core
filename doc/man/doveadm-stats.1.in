@@ -1,0 +1,63 @@
+.\" Copyright (c) 2010-2016 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-DUMP 1 "2016-01-12" "Dovecot v2.2" "Dovecot"
+.SH NAME
+doveadm\-stats \- Inspect or reset stats
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm\ stats\ dump " [ " \-s\ <stats\ socket\ path> " ] " <type> " [ " <filter> " ]"
+.PP
+.BR doveadm\ stats\ top " [ " \-s\ <stats\ socket\ path> " ] " "[ " -b " ]" " [ " sort field> " ]"
+.PP
+.BR doveadm\ stats\ reset " [ " \-s\ <stats\ socket\ path> " ] "
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveadm stats dump
+is used to output statistics
+.PP
+.B doveadm stats top
+is used to monitor statistics
+.PP
+.B doveadm stats reset
+is used to reset statistics
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+Command specific
+.IR options :
+.TP
+.BI \-s socketpath
+Sets stats socket path
+.TP
+.B \-b
+Show disk input/output bytes  
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.BR dump
+accepts following types: command, session, user, domain, ip and global. 
+.PP
+Filter can be
+.TP
+.B user=<wildcard>
+Match given user.
+.TP
+.B domain=<wildcard>
+Match given DNS domain name
+.TP
+.B session=<str>
+Match session identifier
+.TP
+.B ip=<ip>"["/<mask>"]"
+Match local or remote IP
+.TP
+.B since=<timestamp>
+Match session start time
+.TP
+.B connected
+Show only connected sessions
+.PP
+.BR top
+accepts any valid field name to sort along with.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)
