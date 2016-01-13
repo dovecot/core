@@ -73,7 +73,11 @@ static void mail_namespace_autoexpunge(struct mail_namespace *ns)
 		    (unsigned int)ioloop_time < (*box_set)->autoexpunge)
 			continue;
 
-		vname = t_strconcat(ns->prefix, (*box_set)->name, NULL);
+		if ((*box_set)->name[0] == '\0' && ns->prefix_len > 0 &&
+		    ns->prefix[ns->prefix_len-1] == mail_namespace_get_sep(ns))
+			vname = t_strndup(ns->prefix, ns->prefix_len - 1);
+		else
+			vname = t_strconcat(ns->prefix, (*box_set)->name, NULL);
 		expire_time = ioloop_time - (*box_set)->autoexpunge;
 		box = mailbox_alloc(ns->list, vname, 0);
 		if (mailbox_autoexpunge(box, expire_time) < 0) {
