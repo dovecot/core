@@ -99,6 +99,8 @@ struct virtual_backend_box {
 	/* name contains a wildcard, this is a glob for it */
 	struct imap_match_glob *glob;
 	struct mail_namespace *ns;
+	/* mailbox metadata matching */
+	const char *metadata_entry, *metadata_value;
 
 	unsigned int open_tracked:1;
 	unsigned int open_failed:1;
