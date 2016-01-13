@@ -116,7 +116,6 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 {
 	struct mail_user *user = ctx->mbox->storage->storage.user;
 	struct virtual_backend_box *bbox;
-	const char *name;
 
 	if (*line == ' ' || *line == '\t') {
 		/* continues the previous search rule */
@@ -147,15 +146,20 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 	if (strcasecmp(line, "INBOX") == 0)
 		line = "INBOX";
 	bbox->name = p_strdup(ctx->pool, line);
-	if (bbox->name[0] == '+') {
+	switch (bbox->name[0]) {
+	case '+':
 		bbox->name++;
 		bbox->clear_recent = TRUE;
+		break;
+	case '-':
+		bbox->name++;
+		bbox->negative_match = TRUE;
+		break;
 	}
 
 	if (strchr(bbox->name, '*') != NULL ||
 	    strchr(bbox->name, '%') != NULL) {
-		name = bbox->name[0] == '-' ? bbox->name + 1 : bbox->name;
-		bbox->glob = imap_match_init(ctx->pool, name, TRUE, ctx->sep);
+		bbox->glob = imap_match_init(ctx->pool, bbox->name, TRUE, ctx->sep);
 		ctx->have_wildcards = TRUE;
 	} else if (bbox->name[0] == '!') {
 		/* save messages here */
@@ -202,7 +206,7 @@ virtual_mailbox_get_list_patterns(struct virtual_parse_context *ctx)
 	for (i = 0; i < count; i++) {
 		pattern.ns = bboxes[i]->ns;
 		pattern.pattern = bboxes[i]->name;
-		if (*pattern.pattern != '-')
+		if (bboxes[i]->negative_match)
 			dest = &mbox->list_include_patterns;
 		else {
 			dest = &mbox->list_exclude_patterns;
@@ -225,7 +229,7 @@ separate_wildcard_mailboxes(struct virtual_mailbox *mbox,
 	t_array_init(wildcard_boxes, I_MIN(16, count));
 	t_array_init(neg_boxes, 4);
 	for (i = 0; i < count;) {
-		if (*bboxes[i]->name == '-')
+		if (bboxes[i]->negative_match)
 			dest = neg_boxes;
 		else if (bboxes[i]->glob != NULL)
 			dest = wildcard_boxes;
@@ -297,8 +301,7 @@ static bool virtual_config_match(const struct mailbox_info *info,
 				return TRUE;
 			}
 		} else {
-			i_assert(boxes[i]->name[0] == '-');
-			if (strcmp(boxes[i]->name + 1, info->vname) == 0) {
+			if (strcmp(boxes[i]->name, info->vname) == 0) {
 				*idx_r = i;
 				return TRUE;
 			}
