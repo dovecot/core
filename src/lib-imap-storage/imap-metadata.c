@@ -164,9 +164,7 @@ int imap_metadata_get(struct imap_metadata_transaction *imtrans,
 		return 0;
 	if (imap_metadata_get_mailbox_transaction(imtrans) < 0)
 		return -1;
-	if (mailbox_attribute_get(imtrans->trans, type, key, value_r) < 0)
-		return -1;
-	return 1;
+	return mailbox_attribute_get(imtrans->trans, type, key, value_r);
 }
 
 int imap_metadata_get_stream(struct imap_metadata_transaction *imtrans,
@@ -180,9 +178,7 @@ int imap_metadata_get_stream(struct imap_metadata_transaction *imtrans,
 		return 0;
 	if (imap_metadata_get_mailbox_transaction(imtrans) < 0)
 		return -1;
-	if (mailbox_attribute_get_stream(imtrans->trans, type, key, value_r) < 0)
-		return -1;
-	return 1;
+	return mailbox_attribute_get_stream(imtrans->trans, type, key, value_r);
 }
 
 struct imap_metadata_iter {
