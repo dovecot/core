@@ -6,12 +6,15 @@
 #include "istream.h"
 #include "str.h"
 #include "unichar.h"
+#include "wildcard-match.h"
 #include "imap-parser.h"
 #include "imap-match.h"
 #include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "mail-search-parser.h"
+#include "mailbox-attribute.h"
 #include "mailbox-list-iter.h"
+#include "imap-metadata.h"
 #include "virtual-storage.h"
 #include "virtual-plugin.h"
 
@@ -116,6 +119,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 {
 	struct mail_user *user = ctx->mbox->storage->storage.user;
 	struct virtual_backend_box *bbox;
+	const char *p;
 	bool no_wildcards = FALSE;
 
 	if (*line == ' ' || *line == '\t') {
@@ -167,6 +171,18 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		no_wildcards = TRUE;
 		break;
 	}
+	if (bbox->name[0] == '/') {
+		/* [+-!]/metadata entry:value */
+		if ((p = strchr(bbox->name, ':')) == NULL) {
+			*error_r = "':' separator missing between metadata entry name and value";
+			return -1;
+		}
+		bbox->metadata_entry = p_strdup_until(ctx->pool, bbox->name, p++);
+		bbox->metadata_value = p;
+		if (!imap_metadata_verify_entry_name(bbox->metadata_entry, error_r))
+			return -1;
+		no_wildcards = TRUE;
+	}
 
 	if (!no_wildcards &&
 	    (strchr(bbox->name, '*') != NULL ||
@@ -174,22 +190,24 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		bbox->glob = imap_match_init(ctx->pool, bbox->name, TRUE, ctx->sep);
 		ctx->have_wildcards = TRUE;
 	}
-	/* now that the prefix characters have been processed,
-	   find the namespace */
-	bbox->ns = strcasecmp(bbox->name, "INBOX") == 0 ?
-		mail_namespace_find_inbox(user->namespaces) :
-		mail_namespace_find(user->namespaces, bbox->name);
-	if (bbox->ns == NULL) {
-		*error_r = t_strdup_printf("Namespace not found for %s",
-					   bbox->name);
-		return -1;
-	}
-	if (strcmp(bbox->name, ctx->mbox->box.vname) == 0) {
-		*error_r = "Virtual mailbox can't point to itself";
-		return -1;
+	if (bbox->metadata_entry == NULL) {
+		/* now that the prefix characters have been processed,
+		   find the namespace */
+		bbox->ns = strcasecmp(bbox->name, "INBOX") == 0 ?
+			mail_namespace_find_inbox(user->namespaces) :
+			mail_namespace_find(user->namespaces, bbox->name);
+		if (bbox->ns == NULL) {
+			*error_r = t_strdup_printf("Namespace not found for %s",
+						   bbox->name);
+			return -1;
+		}
+		if (strcmp(bbox->name, ctx->mbox->box.vname) == 0) {
+			*error_r = "Virtual mailbox can't point to itself";
+			return -1;
+		}
+		ctx->have_mailbox_defines = TRUE;
 	}
 
-	ctx->have_mailbox_defines = TRUE;
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 	return 0;
 }
@@ -208,6 +226,8 @@ virtual_mailbox_get_list_patterns(struct virtual_parse_context *ctx)
 	p_array_init(&mbox->list_include_patterns, ctx->pool, count);
 	p_array_init(&mbox->list_exclude_patterns, ctx->pool, count);
 	for (i = 0; i < count; i++) {
+		if (bboxes[i]->metadata_entry == NULL)
+			continue;
 		pattern.ns = bboxes[i]->ns;
 		pattern.pattern = bboxes[i]->name;
 		if (bboxes[i]->negative_match)
@@ -223,7 +243,8 @@ virtual_mailbox_get_list_patterns(struct virtual_parse_context *ctx)
 static void
 separate_wildcard_mailboxes(struct virtual_mailbox *mbox,
 			    ARRAY_TYPE(virtual_backend_box) *wildcard_boxes,
-			    ARRAY_TYPE(virtual_backend_box) *neg_boxes)
+			    ARRAY_TYPE(virtual_backend_box) *neg_boxes,
+			    ARRAY_TYPE(virtual_backend_box) *metadata_boxes)
 {
 	struct virtual_backend_box *const *bboxes;
 	ARRAY_TYPE(virtual_backend_box) *dest;
@@ -232,8 +253,11 @@ separate_wildcard_mailboxes(struct virtual_mailbox *mbox,
 	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
 	t_array_init(wildcard_boxes, I_MIN(16, count));
 	t_array_init(neg_boxes, 4);
+	t_array_init(metadata_boxes, 4);
 	for (i = 0; i < count;) {
-		if (bboxes[i]->negative_match)
+		if (bboxes[i]->metadata_entry != NULL)
+			dest = metadata_boxes;
+		else if (bboxes[i]->negative_match)
 			dest = neg_boxes;
 		else if (bboxes[i]->glob != NULL)
 			dest = wildcard_boxes;
@@ -314,6 +338,51 @@ static bool virtual_config_match(const struct mailbox_info *info,
 	return FALSE;
 }
 
+static int virtual_config_box_metadata_match(struct mailbox *box,
+					     struct virtual_backend_box *bbox,
+					     const char **error_r)
+{
+	struct imap_metadata_transaction *imtrans;
+	struct mail_attribute_value value;
+	int ret;
+
+	imtrans = imap_metadata_transaction_begin(box);
+	ret = imap_metadata_get(imtrans, bbox->metadata_entry, &value);
+	if (ret < 0) {
+		*error_r = t_strdup(imap_metadata_transaction_get_last_error(imtrans, NULL));
+		return -1;
+	}
+	if (ret > 0)
+		ret = wildcard_match(value.value, bbox->metadata_value) ? 1 : 0;
+	if (bbox->negative_match)
+		ret = ret > 0 ? 0 : 1;
+	(void)imap_metadata_transaction_commit(&imtrans, NULL, NULL);
+	return ret;
+}
+
+static int
+virtual_config_metadata_match(const struct mailbox_info *info,
+			      ARRAY_TYPE(virtual_backend_box) *boxes_arr,
+			      const char **error_r)
+{
+	struct virtual_backend_box *const *boxes;
+	struct mailbox *box;
+	unsigned int i, count;
+	int ret = 1;
+
+	boxes = array_get_modifiable(boxes_arr, &count);
+	if (count == 0)
+		return 1;
+
+	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
+	for (i = 0; i < count; i++) {
+		if ((ret = virtual_config_box_metadata_match(box, boxes[i], error_r)) <= 0)
+			break;
+	}
+	mailbox_free(&box);
+	return ret;
+}
+
 static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx,
 					   const char **error_r)
 {
@@ -322,14 +391,16 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx,
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	struct mail_user *user = ctx->mbox->storage->storage.user;
-	ARRAY_TYPE(virtual_backend_box) wildcard_boxes, neg_boxes;
+	ARRAY_TYPE(virtual_backend_box) wildcard_boxes, neg_boxes, metadata_boxes;
 	struct mailbox_list_iterate_context *iter;
 	struct virtual_backend_box *const *wboxes;
 	const char **patterns;
 	const struct mailbox_info *info;
 	unsigned int i, j, count;
+	int ret = 0;
 
-	separate_wildcard_mailboxes(ctx->mbox, &wildcard_boxes, &neg_boxes);
+	separate_wildcard_mailboxes(ctx->mbox, &wildcard_boxes,
+				    &neg_boxes, &metadata_boxes);
 
 	/* get patterns we want to list */
 	wboxes = array_get_modifiable(&wildcard_boxes, &count);
@@ -359,8 +430,13 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx,
 		    !virtual_config_match(info, &neg_boxes, &j) &&
 		    virtual_backend_box_lookup_name(ctx->mbox,
 						    info->vname) == NULL) {
-			virtual_config_copy_expanded(ctx, wboxes[i],
-						     info->vname);
+			ret = virtual_config_metadata_match(info, &metadata_boxes, error_r);
+			if (ret < 0)
+				break;
+			if (ret > 0) {
+				virtual_config_copy_expanded(ctx, wboxes[i],
+							     info->vname);
+			}
 		}
 	}
 	for (i = 0; i < count; i++)
