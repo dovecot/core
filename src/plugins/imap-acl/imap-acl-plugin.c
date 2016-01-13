@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2015 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2008-2016 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
 #include "str.h"

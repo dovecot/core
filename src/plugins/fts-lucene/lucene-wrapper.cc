@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2015 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2016 Dovecot authors, see the included COPYING file */
 
 extern "C" {
 #include "lib.h"

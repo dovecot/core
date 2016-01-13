@@ -1,7 +1,7 @@
 /*
  * SCRAM-SHA-1 SASL authentication, see RFC-5802
  *
- * Copyright (c) 2011-2015 Florian Zeitz <florob@babelmonkeys.de>
+ * Copyright (c) 2011-2016 Florian Zeitz <florob@babelmonkeys.de>
  *
  * This software is released under the MIT license.
  */

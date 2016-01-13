@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2014-2016 Dovecot authors, see the included COPYING file */
 
 /* Wrap srand() so that we can reproduce fuzzed tests */
 
