@@ -116,6 +116,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 {
 	struct mail_user *user = ctx->mbox->storage->storage.user;
 	struct virtual_backend_box *bbox;
+	bool no_wildcards = FALSE;
 
 	if (*line == ' ' || *line == '\t') {
 		/* continues the previous search rule */
@@ -155,13 +156,7 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		bbox->name++;
 		bbox->negative_match = TRUE;
 		break;
-	}
-
-	if (strchr(bbox->name, '*') != NULL ||
-	    strchr(bbox->name, '%') != NULL) {
-		bbox->glob = imap_match_init(ctx->pool, bbox->name, TRUE, ctx->sep);
-		ctx->have_wildcards = TRUE;
-	} else if (bbox->name[0] == '!') {
+	case '!':
 		/* save messages here */
 		if (ctx->mbox->save_bbox != NULL) {
 			*error_r = "Multiple save mailboxes defined";
@@ -169,6 +164,15 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		}
 		bbox->name++;
 		ctx->mbox->save_bbox = bbox;
+		no_wildcards = TRUE;
+		break;
+	}
+
+	if (!no_wildcards &&
+	    (strchr(bbox->name, '*') != NULL ||
+	     strchr(bbox->name, '%') != NULL)) {
+		bbox->glob = imap_match_init(ctx->pool, bbox->name, TRUE, ctx->sep);
+		ctx->have_wildcards = TRUE;
 	}
 	/* now that the prefix characters have been processed,
 	   find the namespace */
