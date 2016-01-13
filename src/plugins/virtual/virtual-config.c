@@ -135,6 +135,11 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		if (virtual_config_add_rule(ctx, error_r) < 0)
 			return -1;
 	}
+	if (!uni_utf8_str_is_valid(line)) {
+		*error_r = t_strdup_printf("Mailbox name not UTF-8: %s",
+					   line);
+		return -1;
+	}
 
 	/* new mailbox. the search args are added to it later. */
 	bbox = p_new(ctx->pool, struct virtual_backend_box, 1);
@@ -142,20 +147,6 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 	if (strcasecmp(line, "INBOX") == 0)
 		line = "INBOX";
 	bbox->name = p_strdup(ctx->pool, line);
-	if (*line == '-' || *line == '+' || *line == '!') line++;
-	bbox->ns = strcasecmp(line, "INBOX") == 0 ?
-		mail_namespace_find_inbox(user->namespaces) :
-		mail_namespace_find(user->namespaces, line);
-	if (!uni_utf8_str_is_valid(bbox->name)) {
-		*error_r = t_strdup_printf("Mailbox name not UTF-8: %s",
-					   bbox->name);
-		return -1;
-	}
-	if (bbox->ns == NULL) {
-		*error_r = t_strdup_printf("Namespace not found for %s",
-					   bbox->name);
-		return -1;
-	}
 	if (bbox->name[0] == '+') {
 		bbox->name++;
 		bbox->clear_recent = TRUE;
@@ -175,10 +166,21 @@ virtual_config_parse_line(struct virtual_parse_context *ctx, const char *line,
 		bbox->name++;
 		ctx->mbox->save_bbox = bbox;
 	}
+	/* now that the prefix characters have been processed,
+	   find the namespace */
+	bbox->ns = strcasecmp(bbox->name, "INBOX") == 0 ?
+		mail_namespace_find_inbox(user->namespaces) :
+		mail_namespace_find(user->namespaces, bbox->name);
+	if (bbox->ns == NULL) {
+		*error_r = t_strdup_printf("Namespace not found for %s",
+					   bbox->name);
+		return -1;
+	}
 	if (strcmp(bbox->name, ctx->mbox->box.vname) == 0) {
 		*error_r = "Virtual mailbox can't point to itself";
 		return -1;
 	}
+
 	ctx->have_mailbox_defines = TRUE;
 	array_append(&ctx->mbox->backend_boxes, &bbox, 1);
 	return 0;
