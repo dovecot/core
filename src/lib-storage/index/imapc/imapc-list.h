@@ -13,6 +13,7 @@ struct imapc_mailbox_list {
 	struct imapc_storage_client *client;
 	struct mailbox_list *index_list;
 
+	/* mailboxes are stored as vnames */
 	struct mailbox_tree_context *mailboxes, *tmp_subscriptions;
 	char root_sep;
 	time_t last_refreshed_mailboxes;
@@ -34,5 +35,6 @@ struct imapc_mailbox_list {
 int imapc_list_get_mailbox_flags(struct mailbox_list *list, const char *name,
 				 enum mailbox_info_flags *flags_r);
 int imapc_list_try_get_root_sep(struct imapc_mailbox_list *list, char *sep_r);
+const char *imapc_list_to_remote(struct imapc_mailbox_list *list, const char *name);
 
 #endif
