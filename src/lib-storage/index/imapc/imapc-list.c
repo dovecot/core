@@ -660,7 +660,8 @@ imapc_list_write_special_use(struct imapc_mailbox_list_iterate_context *ctx,
 	str_truncate(ctx->special_use, 0);
 
 	for (i = 0; i < N_ELEMENTS(imap_list_flags); i++) {
-		if ((node->flags & imap_list_flags[i].flag) != 0) {
+		if ((node->flags & imap_list_flags[i].flag) != 0 &&
+		    (node->flags & MAILBOX_SPECIALUSE_MASK) != 0) {
 			str_append(ctx->special_use, imap_list_flags[i].str);
 			str_append_c(ctx->special_use, ' ');
 		}
