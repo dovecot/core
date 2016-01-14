@@ -246,7 +246,7 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 	cmd = imapc_client_cmd(ctx->mbox->storage->client->client,
 			       imapc_save_callback, &sctx);
 	imapc_command_sendf(cmd, "APPEND %s%1s%1s %p",
-		mailbox_list_unescape_name(ctx->mbox->box.list, ctx->mbox->box.name),
+		imapc_mailbox_get_remote_name(ctx->mbox),
 		flags, internaldate, input);
 	i_stream_unref(&input);
 	while (sctx.ret == -2)

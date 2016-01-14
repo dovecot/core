@@ -414,6 +414,14 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	return &mbox->box;
 }
 
+const char *imapc_mailbox_get_remote_name(struct imapc_mailbox *mbox)
+{
+	if (strcmp(mbox->box.list->name, MAILBOX_LIST_NAME_IMAPC) != 0)
+		return mbox->box.name;
+	return imapc_list_to_remote((struct imapc_mailbox_list *)mbox->box.list,
+				    mbox->box.name);
+}
+
 static int
 imapc_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 		     enum mailbox_existence *existence_r)
@@ -473,10 +481,10 @@ static void imapc_mailbox_reopen(void *context)
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
 	if (imapc_mailbox_want_examine(mbox)) {
 		imapc_command_sendf(cmd, "EXAMINE %s",
-			mailbox_list_unescape_name(mbox->box.list, mbox->box.name));
+				    imapc_mailbox_get_remote_name(mbox));
 	} else {
 		imapc_command_sendf(cmd, "SELECT %s",
-			mailbox_list_unescape_name(mbox->box.list, mbox->box.name));
+				    imapc_mailbox_get_remote_name(mbox));
 	}
 	mbox->storage->reopen_count++;
 
@@ -551,10 +559,10 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
 	if (imapc_mailbox_want_examine(mbox)) {
 		imapc_command_sendf(cmd, "EXAMINE %s",
-			mailbox_list_unescape_name(mbox->box.list, mbox->box.name));
+			imapc_mailbox_get_remote_name(mbox));
 	} else {
 		imapc_command_sendf(cmd, "SELECT %s",
-			mailbox_list_unescape_name(mbox->box.list, mbox->box.name));
+			imapc_mailbox_get_remote_name(mbox));
 	}
 
 	while (ctx.ret == -2)

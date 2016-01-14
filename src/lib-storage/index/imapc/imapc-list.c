@@ -153,6 +153,28 @@ imap_list_flag_parse(const char *str, enum mailbox_info_flags *flag_r)
 	return FALSE;
 }
 
+static const char *
+imapc_list_to_vname(struct imapc_mailbox_list *list, const char *imapc_name)
+{
+	const char *list_name;
+
+	/* typically mailbox_list_escape_name() is used to escape vname into
+	   a list name. but we want to convert remote IMAP name to a list name,
+	   so we need to use the remote IMAP separator. */
+	list_name = mailbox_list_escape_name_params(imapc_name, "", list->root_sep,
+		mailbox_list_get_hierarchy_sep(&list->list),
+		list->list.set.escape_char, "");
+	/* list_name is now valid, so we can convert it to vname */
+	return mailbox_list_get_vname(&list->list, list_name);
+}
+
+const char *imapc_list_to_remote(struct imapc_mailbox_list *list, const char *name)
+{
+	return mailbox_list_unescape_name_params(name, "", list->root_sep,
+				mailbox_list_get_hierarchy_sep(&list->list),
+				list->list.set.escape_char);
+}
+
 static struct mailbox_node *
 imapc_list_update_tree(struct imapc_mailbox_list *list,
 		       struct mailbox_tree_context *tree,
@@ -175,10 +197,8 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 		flags++;
 	}
 
-	name = mailbox_list_escape_name(&list->list, name);
 	T_BEGIN {
-		const char *vname =
-			mailbox_list_get_vname(&list->list, name);
+		const char *vname = imapc_list_to_vname(list, name);
 
 		if ((info_flags & MAILBOX_NONEXISTENT) != 0)
 			node = mailbox_tree_lookup(tree, vname);
