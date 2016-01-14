@@ -642,11 +642,17 @@ imapc_mailbox_create(struct mailbox *box,
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
-	const char *name = box->name;
+	const char *name = imapc_mailbox_get_remote_name(mbox);
 
-	if (directory) {
+	if (!directory)
+		;
+	else if (strcmp(box->list->name, MAILBOX_LIST_NAME_IMAPC) == 0) {
+		struct imapc_mailbox_list *imapc_list =
+			(struct imapc_mailbox_list *)box->list;
+		name = t_strdup_printf("%s%c", name, imapc_list->root_sep);
+	} else {
 		name = t_strdup_printf("%s%c", name,
-				mailbox_list_get_hierarchy_sep(box->list));
+			mailbox_list_get_hierarchy_sep(box->list));
 	}
 	imapc_simple_context_init(&sctx, mbox->storage->client);
 	cmd = imapc_client_cmd(mbox->storage->client->client,
