@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "randgen.h"
+#include "module-dir.h"
 #include "process-title.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
@@ -47,6 +48,7 @@ void **global_other_settings;
 const struct ip_addr *login_source_ips;
 unsigned int login_source_ips_idx, login_source_ips_count;
 
+static struct module *modules;
 static struct timeout *auth_client_to;
 static bool shutting_down = FALSE;
 static bool ssl_connections = FALSE;
@@ -302,6 +304,26 @@ parse_login_source_ips(const char *ips_str, unsigned int *count_r)
 	return array_get(&ips, count_r);
 }
 
+static void login_load_modules(void)
+{
+	struct module_dir_load_settings mod_set;
+
+	if (global_login_settings->login_plugins[0] == '\0')
+		return;
+
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
+	mod_set.binary_name = login_binary->process_name;
+	mod_set.setting_name = "logi_plugins";
+	mod_set.require_init_funcs = TRUE;
+	mod_set.debug = login_debug;
+
+	modules = module_dir_load(global_login_settings->login_plugin_dir,
+				  global_login_settings->login_plugins,
+				  &mod_set);
+	module_dir_init(modules);
+}
+
 static void main_preinit(void)
 {
 	unsigned int max_fds;
@@ -347,6 +369,8 @@ static void main_preinit(void)
 		   even used..) */
 		login_source_ips_idx = rand() % login_source_ips_count;
 	}
+
+	login_load_modules();
 
 	restrict_access_by_env(NULL, TRUE);
 	if (login_debug)

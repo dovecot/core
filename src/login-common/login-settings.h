@@ -9,6 +9,8 @@ struct login_settings {
 	const char *login_greeting;
 	const char *login_log_format_elements, *login_log_format;
 	const char *login_access_sockets;
+	const char *login_plugin_dir;
+	const char *login_plugins;
 	unsigned int login_proxy_max_disconnect_delay;
 	const char *director_username_hash;
 
