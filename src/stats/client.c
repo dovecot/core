@@ -13,6 +13,7 @@
 #include "mail-domain.h"
 #include "mail-ip.h"
 #include "client-export.h"
+#include "client-reset.h"
 #include "client.h"
 
 #include <unistd.h>
