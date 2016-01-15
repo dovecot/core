@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2016 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
+#include "array.h"
 #include "hostpid.h"
 #include "llist.h"
 #include "istream.h"
@@ -27,6 +28,21 @@
 struct client *clients = NULL;
 static struct client *last_client = NULL;
 static unsigned int clients_count = 0;
+
+static void empty_login_client_allocated_hook(struct client *client ATTR_UNUSED)
+{
+}
+static login_client_allocated_func_t *hook_client_allocated =
+	empty_login_client_allocated_hook;
+
+login_client_allocated_func_t *
+login_client_allocated_hook_set(login_client_allocated_func_t *new_hook)
+{
+	login_client_allocated_func_t *old_hook = hook_client_allocated;
+
+	hook_client_allocated = new_hook;
+	return old_hook;
+}
 
 static void client_idle_disconnect_timeout(struct client *client)
 {
@@ -124,6 +140,7 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->pool = pool;
 	client->set = set;
 	client->ssl_set = ssl_set;
+	p_array_init(&client->module_contexts, client->pool, 5);
 
 	client->fd = fd;
 	client->tls = ssl;
@@ -153,6 +170,7 @@ client_create(int fd, bool ssl, pool_t pool,
 			    client_idle_disconnect_timeout, client);
 	client_open_streams(client);
 
+	hook_client_allocated(client);
 	client->v.create(client, other_sets);
 
 	if (auth_client_is_connected(auth_client))

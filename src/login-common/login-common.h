@@ -38,6 +38,11 @@ struct login_binary {
 	bool sasl_support_final_reply;
 };
 
+struct login_module_register {
+	unsigned int id;
+};
+extern struct login_module_register login_module_register;
+
 extern const struct login_binary *login_binary;
 extern struct auth_client *auth_client;
 extern struct master_auth *master_auth;

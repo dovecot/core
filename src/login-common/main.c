@@ -40,6 +40,7 @@ bool closing_down, login_debug;
 struct anvil_client *anvil;
 const char *login_rawlog_dir = NULL;
 unsigned int initial_service_count;
+struct login_module_register login_module_register;
 
 const struct login_settings *global_login_settings;
 const struct master_service_ssl_settings *global_ssl_settings;

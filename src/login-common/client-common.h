@@ -147,6 +147,9 @@ struct client {
 	unsigned int auth_attempts, auth_successes;
 	pid_t mail_pid;
 
+	/* Module-specific contexts. */
+	ARRAY(union login_client_module_context *) module_contexts;
+
 	char *virtual_user, *virtual_user_orig, *virtual_auth_user;
 	unsigned int destroyed:1;
 	unsigned int input_blocked:1;
@@ -172,7 +175,19 @@ struct client {
 	/* ... */
 };
 
+union login_client_module_context {
+	struct client_vfuncs super;
+	struct login_module_register *reg;
+};
+
 extern struct client *clients;
+
+typedef void login_client_allocated_func_t(struct client *client);
+
+/* Sets the client allocation hook and returns the previous hook,
+   which the new hook should call. */
+login_client_allocated_func_t *
+login_client_allocated_hook_set(login_client_allocated_func_t *new_hook);
 
 struct client *
 client_create(int fd, bool ssl, pool_t pool,
