@@ -14,7 +14,7 @@
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
 #include "master-auth.h"
-#include "client.h"
+#include "imap-login-client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
 #include "ssl-proxy.h"

@@ -1,5 +1,5 @@
-#ifndef CLIENT_H
-#define CLIENT_H
+#ifndef IMAP_LOGIN_CLIENT_H
+#define IMAP_LOGIN_CLIENT_H
 
 #include "net.h"
 #include "imap-id.h"

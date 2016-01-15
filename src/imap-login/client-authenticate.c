@@ -14,7 +14,7 @@
 #include "imap-parser.h"
 #include "imap-url.h"
 #include "auth-client.h"
-#include "client.h"
+#include "imap-login-client.h"
 #include "client-authenticate.h"
 #include "imap-proxy.h"
 

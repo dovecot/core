@@ -20,14 +20,14 @@ imap_login_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS)
 
 imap_login_SOURCES = \
-	client.c \
+	imap-login-client.c \
 	client-authenticate.c \
 	imap-login-commands.c \
 	imap-login-settings.c \
 	imap-proxy.c
 
 noinst_HEADERS = \
-	client.h \
+	imap-login-client.h \
 	client-authenticate.h \
 	imap-login-commands.h \
 	imap-login-settings.h \

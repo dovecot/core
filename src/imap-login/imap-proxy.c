@@ -10,7 +10,7 @@
 #include "str-sanitize.h"
 #include "safe-memset.h"
 #include "dsasl-client.h"
-#include "client.h"
+#include "imap-login-client.h"
 #include "client-authenticate.h"
 #include "imap-resp-code.h"
 #include "imap-quote.h"
