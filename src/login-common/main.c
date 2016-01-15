@@ -35,7 +35,7 @@ struct login_access_lookup {
 const struct login_binary *login_binary;
 struct auth_client *auth_client;
 struct master_auth *master_auth;
-bool closing_down;
+bool closing_down, login_debug;
 struct anvil_client *anvil;
 const char *login_rawlog_dir = NULL;
 unsigned int initial_service_count;
@@ -302,7 +302,7 @@ parse_login_source_ips(const char *ips_str, unsigned int *count_r)
 	return array_get(&ips, count_r);
 }
 
-static void main_preinit(bool allow_core_dumps)
+static void main_preinit(void)
 {
 	unsigned int max_fds;
 
@@ -349,7 +349,7 @@ static void main_preinit(bool allow_core_dumps)
 	}
 
 	restrict_access_by_env(NULL, TRUE);
-	if (allow_core_dumps)
+	if (login_debug)
 		restrict_access_allow_coredumps(TRUE);
 	initial_service_count = master_service_get_service_count(master_service);
 
@@ -410,7 +410,6 @@ int login_binary_run(const struct login_binary *binary,
 		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
 		MASTER_SERVICE_FLAG_NO_SSL_INIT;
 	pool_t set_pool;
-	bool allow_core_dumps = FALSE;
 	const char *login_socket;
 	int c;
 
@@ -427,7 +426,7 @@ int login_binary_run(const struct login_binary *binary,
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
-			allow_core_dumps = TRUE;
+			login_debug = TRUE;
 			break;
 		case 'R':
 			login_rawlog_dir = optarg;
@@ -450,7 +449,7 @@ int login_binary_run(const struct login_binary *binary,
 				    &global_ssl_settings,
 				    &global_other_settings);
 
-	main_preinit(allow_core_dumps);
+	main_preinit();
 	master_service_init_finish(master_service);
 	main_init(login_socket);
 
