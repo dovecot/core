@@ -795,7 +795,8 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 	mbox->storage->cur_status = status_r;
 	cmd = imapc_client_cmd(mbox->storage->client->client,
 			       imapc_simple_callback, &sctx);
-	imapc_command_sendf(cmd, "STATUS %s (%1s)", box->name, str_c(str)+1);
+	imapc_command_sendf(cmd, "STATUS %s (%1s)",
+			    imapc_mailbox_get_remote_name(mbox), str_c(str)+1);
 	imapc_simple_run(&sctx);
 	mbox->storage->cur_status_box = NULL;
 	mbox->storage->cur_status = NULL;
