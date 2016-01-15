@@ -36,3 +36,5 @@ echo *.txt | sed 's, , \\/	,g' | tr '/' '\n' >> Makefile.am
 cd ../..
 
 autoreconf -i
+
+rm -f ChangeLog

@@ -20,10 +20,8 @@ noinst_DATA = dovecot-config
 
 nodist_pkginclude_HEADERS = config.h
 
-if MAINTAINER_MODE
-ChangeLog: .git/index
-	git log 2.2.alpha1..HEAD > ChangeLog
-endif
+ChangeLog:
+	git log --name-status --since '2009-02-16' --pretty="format:%ai %aN <%aE> (%h)%n%n%w(80,4,4)%s%n%n%b" > ChangeLog || rm -f ChangeLog
 
 aclocal_DATA = dovecot.m4
 
