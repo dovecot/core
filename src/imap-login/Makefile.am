@@ -27,8 +27,11 @@ imap_login_SOURCES = \
 	imap-proxy.c
 
 noinst_HEADERS = \
-	imap-login-client.h \
 	client-authenticate.h \
-	imap-login-commands.h \
-	imap-login-settings.h \
 	imap-proxy.h
+
+pkginc_libdir=$(pkgincludedir)
+pkginc_lib_HEADERS = \
+	imap-login-client.h \
+	imap-login-commands.h \
+	imap-login-settings.h
