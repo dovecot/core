@@ -22,11 +22,13 @@ imap_login_DEPENDENCIES = \
 imap_login_SOURCES = \
 	client.c \
 	client-authenticate.c \
+	imap-login-commands.c \
 	imap-login-settings.c \
 	imap-proxy.c
 
 noinst_HEADERS = \
 	client.h \
 	client-authenticate.h \
+	imap-login-commands.h \
 	imap-login-settings.h \
 	imap-proxy.h

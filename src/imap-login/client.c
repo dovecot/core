@@ -19,6 +19,7 @@
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "imap-proxy.h"
+#include "imap-login-commands.h"
 #include "imap-login-settings.h"
 
 #if LOGIN_MAX_INBUF_SIZE < 1024+2
@@ -111,7 +112,8 @@ static const char *get_capability(struct client *client)
 	return str_c(cap_str);
 }
 
-static int cmd_capability(struct imap_client *imap_client)
+static int cmd_capability(struct imap_client *imap_client,
+			  const struct imap_arg *args ATTR_UNUSED)
 {
 	struct client *client = &imap_client->common;
 
@@ -127,7 +129,8 @@ static int cmd_capability(struct imap_client *imap_client)
 	return 1;
 }
 
-static int cmd_starttls(struct imap_client *client)
+static int cmd_starttls(struct imap_client *client,
+			const struct imap_arg *args ATTR_UNUSED)
 {
 	client_cmd_starttls(&client->common);
 	return 1;
@@ -309,14 +312,16 @@ static int cmd_id(struct imap_client *client)
 	}
 }
 
-static int cmd_noop(struct imap_client *client)
+static int cmd_noop(struct imap_client *client,
+		    const struct imap_arg *args ATTR_UNUSED)
 {
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK,
 			  "NOOP completed.");
 	return 1;
 }
 
-static int cmd_logout(struct imap_client *client)
+static int cmd_logout(struct imap_client *client,
+		      const struct imap_arg *args ATTR_UNUSED)
 {
 	client_send_reply(&client->common, IMAP_CMD_REPLY_BYE, "Logging out");
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK,
@@ -325,7 +330,8 @@ static int cmd_logout(struct imap_client *client)
 	return 1;
 }
 
-static int cmd_enable(struct imap_client *client)
+static int cmd_enable(struct imap_client *client,
+		      const struct imap_arg *args ATTR_UNUSED)
 {
 	client_send_raw(&client->common, "* ENABLED\r\n");
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK,
@@ -336,21 +342,12 @@ static int cmd_enable(struct imap_client *client)
 static int client_command_execute(struct imap_client *client, const char *cmd,
 				  const struct imap_arg *args)
 {
-	cmd = t_str_ucase(cmd);
-	if (strcmp(cmd, "LOGIN") == 0)
-		return cmd_login(client, args);
-	if (strcmp(cmd, "CAPABILITY") == 0)
-		return cmd_capability(client);
-	if (strcmp(cmd, "STARTTLS") == 0)
-		return cmd_starttls(client);
-	if (strcmp(cmd, "NOOP") == 0)
-		return cmd_noop(client);
-	if (strcmp(cmd, "LOGOUT") == 0)
-		return cmd_logout(client);
-	if (strcmp(cmd, "ENABLE") == 0)
-		return cmd_enable(client);
+	struct imap_login_command *login_cmd;
 
-	return -2;
+	login_cmd = imap_login_command_lookup(cmd);
+	if (login_cmd == NULL)
+		return -2;
+	return login_cmd->func(client, args);
 }
 
 static bool imap_is_valid_tag(const char *tag)
@@ -660,13 +657,26 @@ static void imap_login_preinit(void)
 	login_set_roots = imap_login_setting_roots;
 }
 
+static const struct imap_login_command imap_login_commands[] = {
+	{ "LOGIN", cmd_login },
+	{ "CAPABILITY", cmd_capability },
+	{ "STARTTLS", cmd_starttls },
+	{ "NOOP", cmd_noop },
+	{ "LOGOUT", cmd_logout },
+	{ "ENABLE", cmd_enable }
+};
+
 static void imap_login_init(void)
 {
+	imap_login_commands_init();
+	imap_login_commands_register(imap_login_commands,
+				     N_ELEMENTS(imap_login_commands));
 }
 
 static void imap_login_deinit(void)
 {
 	clients_destroy_all();
+	imap_login_commands_deinit();
 }
 
 static struct client_vfuncs imap_client_vfuncs = {
