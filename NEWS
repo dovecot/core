@@ -1,3 +1,11 @@
+v2.2.21 2015-12-11  Timo Sirainen <tss@iki.fi>
+
+	- doveadm mailbox list (and some others) were broken in v2.2.20
+	- director: Fixed making backend changes when running with only a
+	  single director server.
+	- virtual plugin: Fixed crash when trying to open nonexistent
+	  autocreated backend mailbox.
+
 v2.2.20 2015-12-07  Timo Sirainen <tss@iki.fi>
 
 	+ Added mailbox { autoexpunge=<time> } setting. See
