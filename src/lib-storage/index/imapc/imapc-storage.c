@@ -441,6 +441,12 @@ imapc_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 
 static bool imapc_mailbox_want_examine(struct imapc_mailbox *mbox)
 {
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_EXAMINE)) {
+		/* mainly a Courier-workaround: With POP3-only Maildir that
+		   doesn't have UIDVALIDITY set, EXAMINE won't generate a
+		   permanent UIDVALIDITY while SELECT will. */
+		return FALSE;
+	}
 	return (mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0 &&
 		((mbox->box.flags & MAILBOX_FLAG_READONLY) != 0 ||
 		 (mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0);
