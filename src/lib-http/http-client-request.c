@@ -63,6 +63,7 @@ static struct http_client_request *
 http_client_request_new(struct http_client *client, const char *method, 
 		    http_client_request_callback_t *callback, void *context)
 {
+	static unsigned int id_counter = 0;
 	pool_t pool;
 	struct http_client_request *req;
 
@@ -71,6 +72,7 @@ http_client_request_new(struct http_client *client, const char *method,
 	req->pool = pool;
 	req->refcount = 1;
 	req->client = client;
+	req->id = ++id_counter;
 	req->method = p_strdup(pool, method);
 	req->callback = callback;
 	req->context = context;
@@ -485,7 +487,7 @@ static void http_client_request_do_submit(struct http_client_request *req)
 	req->authority = p_strdup(req->pool, authority);
 
 	/* debug label */
-	req->label = p_strdup_printf(req->pool, "[%s %s]", req->method, target);
+	req->label = p_strdup_printf(req->pool, "[Req%u: %s %s]", req->id, req->method, target);
 
 	/* update request target */
 	if (req->connect_tunnel || have_proxy)

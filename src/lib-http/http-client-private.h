@@ -60,6 +60,7 @@ struct http_client_request {
 	pool_t pool;
 	unsigned int refcount;
 	const char *label;
+	unsigned int id;
 
 	struct http_client_request *prev, *next;
 
@@ -445,7 +446,7 @@ static inline const char *
 http_client_request_label(struct http_client_request *req)
 {
 	if (req->label == NULL) {
-		return t_strdup_printf("[%s %s%s]",
+		return t_strdup_printf("[Req%u: %s %s%s]", req->id,
 			req->method, http_url_create(&req->origin_url), req->target);
 	}
 	return req->label;
