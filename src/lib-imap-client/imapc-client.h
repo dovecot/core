@@ -73,6 +73,7 @@ struct imapc_client_settings {
 	/* Space-separated list of SASL mechanisms to try (in the specified
 	   order). The default is to use only LOGIN command or SASL PLAIN. */
 	const char *sasl_mechanisms;
+	bool use_proxyauth; /* Use Sun/Oracle PROXYAUTH command */
 	unsigned int max_idle_time;
 
 	const char *dns_client_socket_path;

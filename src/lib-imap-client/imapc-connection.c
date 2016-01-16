@@ -754,6 +754,25 @@ static void imapc_connection_login_cb(const struct imapc_command_reply *reply,
 }
 
 static void
+imapc_connection_proxyauth_login_cb(const struct imapc_command_reply *reply,
+				    void *context)
+{
+	struct imapc_connection *conn = context;
+	const struct imapc_client_settings *set = &conn->client->set;
+	struct imapc_command *cmd;
+
+	if (reply->state == IMAPC_COMMAND_STATE_OK) {
+		cmd = imapc_connection_cmd(conn, imapc_connection_login_cb,
+					   conn);
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
+		imapc_command_sendf(cmd, "PROXYAUTH %s", set->username);
+		imapc_command_send_more(conn);
+	} else {
+		imapc_connection_auth_finish(conn, reply);
+	}
+}
+
+static void
 imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 				 void *context)
 {
@@ -861,6 +880,15 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		}
 	}
 
+	if (set->use_proxyauth && set->master_user != NULL) {
+		/* We can use LOGIN command */
+		cmd = imapc_connection_cmd(conn, imapc_connection_proxyauth_login_cb,
+					   conn);
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
+		imapc_command_sendf(cmd, "LOGIN %s %s",
+				    set->master_user, set->password);
+		return;
+	}
 	if (sasl_mech == NULL &&
 	    ((set->master_user == NULL &&
 	      !need_literal(set->username) && !need_literal(set->password)) ||
