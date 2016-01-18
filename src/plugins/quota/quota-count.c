@@ -100,10 +100,12 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 
 	if (iter->iter == NULL) {
 		namespaces = array_get(&iter->root->quota->namespaces, &count);
-		if (iter->ns_idx >= count)
-			return NULL;
+		do {
+			if (iter->ns_idx >= count)
+				return NULL;
 
-		iter->ns = namespaces[iter->ns_idx++];
+			iter->ns = namespaces[iter->ns_idx++];
+		} while (!quota_root_is_namespace_visible(iter->root, iter->ns));
 		iter->iter = mailbox_list_iter_init(iter->ns->list, "*",
 			MAILBOX_LIST_ITER_SKIP_ALIASES |
 			MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
