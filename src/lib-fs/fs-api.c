@@ -716,8 +716,6 @@ int fs_wait_async(struct fs *fs)
 	return ret;
 }
 
-
-
 int fs_lock(struct fs_file *file, unsigned int secs, struct fs_lock **lock_r)
 {
 	int ret;
@@ -763,6 +761,11 @@ int fs_exists(struct fs_file *file)
 int fs_stat(struct fs_file *file, struct stat *st_r)
 {
 	int ret;
+
+	if (file->fs->v.stat == NULL) {
+		fs_set_error(file->fs, "fs_stat() not supported");
+		return -1;
+	}
 
 	if (!file->read_or_prefetch_counted &&
 	    !file->lookup_metadata_counted && !file->stat_counted) {
@@ -834,6 +837,11 @@ int fs_copy(struct fs_file *src, struct fs_file *dest)
 
 	i_assert(src->fs == dest->fs);
 
+	if (src->fs->v.copy == NULL) {
+		fs_set_error(src->fs, "fs_copy() not supported");
+		return -1;
+	}
+
 	dest->fs->stats.copy_count++;
 	fs_file_timing_start(dest, FS_OP_COPY);
 	T_BEGIN {
@@ -904,7 +912,10 @@ fs_iter_init(struct fs *fs, const char *path, enum fs_iter_flags flags)
 		if (gettimeofday(&now, NULL) < 0)
 			i_fatal("gettimeofday() failed: %m");
 	}
-	T_BEGIN {
+	if (fs->v.iter_init == NULL) {
+		iter = i_new(struct fs_iter, 1);
+		iter->fs = fs;
+	} else T_BEGIN {
 		iter = fs->v.iter_init(fs, path, flags);
 	} T_END;
 	iter->start_time = now;
@@ -919,7 +930,12 @@ int fs_iter_deinit(struct fs_iter **_iter)
 
 	*_iter = NULL;
 	DLLIST_REMOVE(&iter->fs->iters, iter);
-	T_BEGIN {
+
+	if (iter->fs->v.iter_deinit == NULL) {
+		fs_set_error(iter->fs, "FS teration not supported");
+		i_free(iter);
+		ret = -1;
+	} else T_BEGIN {
 		ret = iter->fs->v.iter_deinit(iter);
 	} T_END;
 	return ret;
@@ -929,6 +945,8 @@ const char *fs_iter_next(struct fs_iter *iter)
 {
 	const char *ret;
 
+	if (iter->fs->v.iter_next == NULL)
+		return NULL;
 	T_BEGIN {
 		ret = iter->fs->v.iter_next(iter);
 	} T_END;
