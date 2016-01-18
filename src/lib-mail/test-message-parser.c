@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "istream.h"
 #include "message-parser.h"
 #include "test-common.h"
@@ -74,18 +75,29 @@ static void test_message_parser_small_blocks(void)
 	struct message_part *parts, *parts2;
 	struct message_block block;
 	unsigned int i, end_of_headers_idx;
+	string_t *output;
 	pool_t pool;
 	int ret;
 
 	test_begin("message parser in small blocks");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(test_msg);
+	output = t_str_new(128);
 
 	/* full parsing */
-	parser = message_parser_init(pool, input, 0, 0);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
+	parser = message_parser_init(pool, input, 0,
+		MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
+		MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES);
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
+		if (block.hdr != NULL)
+			message_header_line_write(output, block.hdr);
+		else
+			str_append_n(output, block.data, block.size);
+	}
+
 	test_assert(ret < 0);
 	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	test_assert(strcmp(test_msg, str_c(output)) == 0);
 
 	/* parsing in small blocks */
 	i_stream_seek(input, 0);
