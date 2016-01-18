@@ -79,7 +79,10 @@ static void mail_namespace_autoexpunge(struct mail_namespace *ns)
 		else
 			vname = t_strconcat(ns->prefix, (*box_set)->name, NULL);
 		expire_time = ioloop_time - (*box_set)->autoexpunge;
-		box = mailbox_alloc(ns->list, vname, 0);
+		/* autoexpunge is configured by admin, so we can safely ignore
+		   any ACLs the user might normally have against expunging in
+		   the mailbox. */
+		box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_IGNORE_ACLS);
 		if (mailbox_autoexpunge(box, expire_time) < 0) {
 			i_error("Failed to autoexpunge mailbox '%s': %s",
 				mailbox_get_vname(box),
