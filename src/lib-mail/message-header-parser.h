@@ -69,4 +69,9 @@ void message_parse_header(struct istream *input, struct message_size *hdr_size,
 			struct message_header_line *hdr, typeof(context))), \
  		(message_header_callback_t *)callback, context)
 
+/* Write the header line to buffer exactly as it was read, including the
+   newline. */
+void message_header_line_write(buffer_t *output,
+			       const struct message_header_line *hdr);
+
 #endif

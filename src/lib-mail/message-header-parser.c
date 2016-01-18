@@ -394,3 +394,18 @@ void message_parse_header(struct istream *input, struct message_size *hdr_size,
 	/* call after the final skipping */
 	callback(NULL, context);
 }
+
+void message_header_line_write(buffer_t *output,
+			       const struct message_header_line *hdr)
+{
+	if (!hdr->continued) {
+		buffer_append(output, hdr->name, strlen(hdr->name));
+		buffer_append(output, hdr->middle, hdr->middle_len);
+	}
+	buffer_append(output, hdr->value, hdr->value_len);
+	if (!hdr->no_newline) {
+		if (hdr->crlf_newline)
+			buffer_append_c(output, '\r');
+		buffer_append_c(output, '\n');
+	}
+}
