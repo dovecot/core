@@ -838,8 +838,9 @@ int main(int argc, char *argv[])
 			t_askpass("Give the password for SSL keys: ");
 	}
 
-	if (dup2(null_fd, STDIN_FILENO) < 0 ||
-	    dup2(null_fd, STDOUT_FILENO) < 0)
+	if (dup2(null_fd, STDIN_FILENO) < 0)
+		i_fatal("dup2(null_fd) failed: %m");
+	if (!foreground && dup2(null_fd, STDOUT_FILENO) < 0)
 		i_fatal("dup2(null_fd) failed: %m");
 
 	pidfile_path =
