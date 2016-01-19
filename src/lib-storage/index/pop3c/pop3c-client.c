@@ -54,6 +54,7 @@ struct pop3c_client {
 
 	enum pop3c_client_state state;
 	enum pop3c_capability capabilities;
+	const char *auth_mech;
 
 	pop3c_login_callback_t *login_callback;
 	void *login_context;
@@ -370,6 +371,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		o_stream_nsend_str(client->output,
 			t_strdup_printf("PASS %s\r\n", client->set.password));
 		client->state = POP3C_CLIENT_STATE_PASS;
+		client->auth_mech = "USER+PASS";
 		break;
 	case POP3C_CLIENT_STATE_AUTH:
 		if (line[0] != '+') {
@@ -380,6 +382,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		o_stream_nsend_str(client->output,
 			pop3c_client_get_sasl_plain_request(client));
 		client->state = POP3C_CLIENT_STATE_PASS;
+		client->auth_mech = "AUTH PLAIN";
 		break;
 	case POP3C_CLIENT_STATE_PASS:
 		if (client->login_callback != NULL) {
@@ -390,8 +393,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 					      POP3C_COMMAND_STATE_OK :
 					      POP3C_COMMAND_STATE_ERR, reply);
 		} else if (!success) {
-			i_error("pop3c(%s): Authentication failed: %s",
-				client->set.host, line);
+			i_error("pop3c(%s): Authentication via %s failed: %s",
+				client->set.host, client->auth_mech, line);
 		}
 		if (!success)
 			return -1;
