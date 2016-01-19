@@ -281,10 +281,10 @@ static void pop3c_client_authenticate1(struct pop3c_client *client)
 
 	if (client->set.debug) {
 		if (set->master_user == NULL) {
-			i_debug("pop3c(%s): Authenticating as %s",
+			i_debug("pop3c(%s): Authenticating as '%s' (with USER+PASS)",
 				client->set.host, set->username);
 		} else {
-			i_debug("pop3c(%s): Authenticating as %s for user %s",
+			i_debug("pop3c(%s): Authenticating as master user '%s' for user '%s' (with SASL PLAIN)",
 				client->set.host, set->master_user,
 				set->username);
 		}
