@@ -278,16 +278,16 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 
 	if (strcmp(key, "protocol") == 0) {
 		if (parent->service != NULL)
-			ctx->error = "protocol must not be under protocol";
+			ctx->error = "Nested protocol { protocol { .. } } block not allowed";
 		else
 			filter->service = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "local") == 0) {
 		if (parent->remote_bits > 0)
-			ctx->error = "local must not be under remote";
+			ctx->error = "remote { local { .. } } not allowed (use local { remote { .. } } instead)";
 		else if (parent->service != NULL)
-			ctx->error = "local must not be under protocol";
+			ctx->error = "protocol { local { .. } } not allowed (use local { protocol { .. } } instead)";
 		else if (parent->local_name != NULL)
-			ctx->error = "local must not be under local_name";
+			ctx->error = "local_name { local { .. } } not allowed (use local { local_name { .. } } instead)";
 		else if (config_parse_net(value, &filter->local_net,
 					  &filter->local_bits, &error) < 0)
 			ctx->error = p_strdup(ctx->pool, error);
@@ -296,19 +296,19 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			  !net_is_in_network(&filter->local_net,
 					     &parent->local_net,
 					     parent->local_bits)))
-			ctx->error = "local not a subset of parent local";
+			ctx->error = "local net1 { local net2 { .. } } requires net2 to be inside net1";
 		else
 			filter->local_host = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "local_name") == 0) {
 		if (parent->remote_bits > 0)
-			ctx->error = "local_name must not be under remote";
+			ctx->error = "remote { local_name { .. } } not allowed (use local_name { remote { .. } } instead)";
 		else if (parent->service != NULL)
-			ctx->error = "local_name must not be under protocol";
+			ctx->error = "protocol { local_name { .. } } not allowed (use local_name { protocol { .. } } instead)";
 		else
 			filter->local_name = p_strdup(ctx->pool, value);
 	} else if (strcmp(key, "remote") == 0) {
 		if (parent->service != NULL)
-			ctx->error = "remote must not be under protocol";
+			ctx->error = "protocol { remote { .. } } not allowed (use remote { protocol { .. } } instead)";
 		else if (config_parse_net(value, &filter->remote_net,
 					  &filter->remote_bits, &error) < 0)
 			ctx->error = p_strdup(ctx->pool, error);
@@ -317,7 +317,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 			  !net_is_in_network(&filter->remote_net,
 					     &parent->remote_net,
 					     parent->remote_bits)))
-			ctx->error = "remote not a subset of parent remote";
+			ctx->error = "remote net1 { remote net2 { .. } } requires net2 to be inside net1";
 		else
 			filter->remote_host = p_strdup(ctx->pool, value);
 	} else {
