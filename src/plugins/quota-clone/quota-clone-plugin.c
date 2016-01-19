@@ -24,12 +24,12 @@ static MODULE_CONTEXT_DEFINE_INIT(quota_clone_storage_module,
 struct quota_clone_user {
 	union mail_user_module_context module_ctx;
 	struct dict *dict;
+	bool quota_flushing;
 };
 
 struct quota_clone_mailbox {
 	union mailbox_module_context module_ctx;
 	bool quota_changed;
-	bool quota_flushing;
 };
 
 static void quota_clone_flush(struct mailbox *box)
@@ -113,15 +113,17 @@ quota_clone_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 static void quota_clone_mailbox_close(struct mailbox *box)
 {
 	struct quota_clone_mailbox *qbox = QUOTA_CLONE_CONTEXT(box);
+	struct quota_clone_user *quser =
+		QUOTA_CLONE_USER_CONTEXT(box->storage->user);
 
 	qbox->module_ctx.super.close(box);
 
-	if (qbox->quota_flushing) {
+	if (quser->quota_flushing) {
 		/* recursing back from quota recalculation */
 	} else if (qbox->quota_changed) {
-		qbox->quota_flushing = TRUE;
+		quser->quota_flushing = TRUE;
 		quota_clone_flush(box);
-		qbox->quota_flushing = FALSE;
+		quser->quota_flushing = FALSE;
 	}
 }
 
