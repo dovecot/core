@@ -40,8 +40,7 @@ static void quota_clone_flush(struct mailbox *box)
 	struct dict_transaction_context *trans;
 	struct quota_root_iter *iter;
 	struct quota_root *root;
-	uint64_t value, limit;
-	int ret;
+	uint64_t bytes_value, count_value, limit;
 
 	/* we'll clone the first quota root */
 	iter = quota_root_iter_init(box);
@@ -53,25 +52,24 @@ static void quota_clone_flush(struct mailbox *box)
 		return;
 	}
 
-	trans = dict_transaction_begin(quser->dict);
-	/* update bytes */
-	ret = quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
-				 &value, &limit);
-	if (ret < 0)
+	/* get new values first */
+	if (quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
+			       &bytes_value, &limit) < 0) {
 		i_error("quota_clone_plugin: Failed to lookup current quota bytes");
-	else {
-		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
-			 t_strdup_printf("%llu", (unsigned long long)value));
+		return;
 	}
-	/* update messages */
-	ret = quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
-				 &value, &limit);
-	if (ret < 0)
+	if (quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
+			       &count_value, &limit) < 0) {
 		i_error("quota_clone_plugin: Failed to lookup current quota count");
-	else {
-		dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
-			 t_strdup_printf("%llu", (unsigned long long)value));
+		return;
 	}
+
+	/* then update them */
+	trans = dict_transaction_begin(quser->dict);
+	dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
+		 t_strdup_printf("%llu", (unsigned long long)bytes_value));
+	dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
+		 t_strdup_printf("%llu", (unsigned long long)count_value));
 	if (dict_transaction_commit(&trans) < 0)
 		i_error("quota_clone_plugin: Failed to commit dict update");
 	else
