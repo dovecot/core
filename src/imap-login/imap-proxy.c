@@ -81,6 +81,12 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 
 	if (client->common.proxy_mech == NULL) {
 		/* logging in normally - use LOGIN command */
+		if (client->proxy_logindisabled &&
+		    login_proxy_get_ssl_flags(client->common.login_proxy) == 0) {
+			client_log_err(&client->common,
+				"proxy: Remote advertised LOGINDISABLED and SSL/TLS not enabled");
+			return -1;
+		}
 		str_append(str, "L LOGIN ");
 		imap_append_string(str, client->common.proxy_user);
 		str_append_c(str, ' ');
@@ -143,6 +149,8 @@ static int proxy_input_banner(struct imap_client *client,
 			proxy_write_id(client, str);
 		if (str_array_icase_find(capabilities, "SASL-IR"))
 			client->proxy_sasl_ir = TRUE;
+		if (str_array_icase_find(capabilities, "LOGINDISABLED"))
+			client->proxy_logindisabled = TRUE;
 		i_free(client->proxy_backend_capability);
 		client->proxy_backend_capability =
 			i_strdup(t_strcut(line + 5 + 12, ']'));
@@ -374,6 +382,7 @@ void imap_proxy_reset(struct client *client)
 	struct imap_client *imap_client = (struct imap_client *)client;
 
 	imap_client->proxy_sasl_ir = FALSE;
+	imap_client->proxy_logindisabled = FALSE;
 	imap_client->proxy_seen_banner = FALSE;
 	imap_client->proxy_capability_request_sent = FALSE;
 	client->proxy_state = IMAP_PROXY_STATE_NONE;
