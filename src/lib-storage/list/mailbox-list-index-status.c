@@ -275,6 +275,7 @@ index_list_get_cached_first_saved(struct mailbox *box,
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mail_index_view *view;
+	struct mailbox_status status;
 	const void *data;
 	bool expunged;
 	uint32_t seq;
@@ -289,6 +290,15 @@ index_list_get_cached_first_saved(struct mailbox *box,
 			      &data, &expunged);
 	if (data != NULL)
 		memcpy(first_saved_r, data, sizeof(*first_saved_r));
+	if (first_saved_r->timestamp != 0 && first_saved_r->uid == 0) {
+		/* mailbox was empty the last time we updated this.
+		   we'll need to verify if it still is. */
+		if (!mailbox_list_index_status(box->list, view, seq,
+					       STATUS_MESSAGES,
+					       &status, NULL, NULL) ||
+		    status.messages != 0)
+			first_saved_r->timestamp = 0;
+	}
 	mail_index_view_close(&view);
 	return first_saved_r->timestamp != 0 ? 1 : 0;
 }
