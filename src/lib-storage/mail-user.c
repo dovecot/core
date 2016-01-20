@@ -164,7 +164,8 @@ void mail_user_unref(struct mail_user **_user)
 		return;
 	}
 
-	mail_user_autoexpunge(user);
+	if (user->autoexpunge_enabled)
+		mail_user_autoexpunge(user);
 
 	user->deinitializing = TRUE;
 
