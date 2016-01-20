@@ -517,7 +517,6 @@ index_list_update_first_saved(struct mailbox *box,
 	int ret = 0;
 
 	memset(&first_saved, 0, sizeof(first_saved));
-	first_saved.uid = changes->first_uid;
 	first_saved.timestamp = (uint32_t)-1;
 
 	if (changes->first_uid != 0) {
@@ -527,6 +526,7 @@ index_list_update_first_saved(struct mailbox *box,
 		for (seq = 1; seq <= messages_count; seq++) {
 			mail_set_seq(mail, seq);
 			if (mail_get_save_date(mail, &save_date) == 0) {
+				first_saved.uid = mail->uid;
 				first_saved.timestamp = save_date;
 				break;
 			}
