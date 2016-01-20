@@ -89,6 +89,8 @@ struct mail_user {
 	unsigned int admin:1;
 	/* Enable all statistics gathering */
 	unsigned int stats_enabled:1;
+	/* Enable autoexpunging at deinit. */
+	unsigned int autoexpunge_enabled:1;
 };
 
 struct mail_user_module_register {
