@@ -268,7 +268,7 @@ static void auth_server_connection_input(struct auth_server_connection *conn)
 			i_error("Authentication server not compatible with "
 				"this client (mixed old and new binaries?)");
 			auth_server_connection_disconnect(conn,
-				"incompatible serevr");
+				"incompatible server");
 			return;
 		}
 		conn->version_received = TRUE;
