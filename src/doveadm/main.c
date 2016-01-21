@@ -62,6 +62,7 @@ static void main_init(void)
 	doveadm_mail_init();
 	doveadm_load_modules();
 	doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
+        doveadm_print_init(DOVEADM_PRINT_TYPE_JSON);
 }
 
 static void main_deinit(void)

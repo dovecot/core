@@ -127,12 +127,14 @@ doveadm_SOURCES = \
 	doveadm-print-pager.c \
 	doveadm-print-tab.c \
 	doveadm-print-table.c \
+	doveadm-print-json.c \
 	doveadm-pw.c
 
 doveadm_server_SOURCES = \
 	$(common) \
 	client-connection.c \
 	doveadm-print-server.c \
+	doveadm-print-json.c \
 	main.c
 
 pkginc_libdir = $(pkgincludedir)

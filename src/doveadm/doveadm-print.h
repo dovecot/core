@@ -5,6 +5,7 @@
 #define DOVEADM_PRINT_TYPE_FLOW "flow"
 #define DOVEADM_PRINT_TYPE_TABLE "table"
 #define DOVEADM_PRINT_TYPE_SERVER "server"
+#define DOVEADM_PRINT_TYPE_JSON "json"
 
 enum doveadm_print_header_flags {
 	DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY 	= 0x01,
