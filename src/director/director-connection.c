@@ -916,6 +916,24 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			update = TRUE;
 		}
 		if (update && host->desynced) {
+			string_t *str = t_str_new(128);
+
+			str_printfa(str, "director(%s): Host %s is being updated before previous update had finished (",
+				  conn->name, net_ip2addr(&host->ip));
+			if (host->down != down) {
+				if (host->down)
+					str_append(str, "down -> up");
+				else
+					str_append(str, "up -> down");
+			}
+			if (host->vhost_count != vhost_count) {
+				if (host->down != down)
+					str_append(str, ", ");
+				str_printfa(str, "vhosts %u -> %u",
+					    host->vhost_count, vhost_count);
+			}
+			str_append(str, ") - ");
+
 			vhost_count = I_MIN(vhost_count, host->vhost_count);
 			if (host->down != down) {
 				if (host->last_updown_change <= last_updown_change)
@@ -923,10 +941,9 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			}
 			last_updown_change = I_MAX(last_updown_change,
 						   host->last_updown_change);
-			i_warning("director(%s): Host %s is being updated before previous update had finished - "
-				  "setting to state=%s vhosts=%u",
-				  conn->name, net_ip2addr(&host->ip),
-				  down ? "down" : "up", vhost_count);
+			str_printfa(str, "setting to state=%s vhosts=%u",
+				    down ? "down" : "up", vhost_count);
+			i_warning("%s", str_c(str));
 			/* make the change appear to come from us, so it
 			   reaches the full ring */
 			dir_host = NULL;
