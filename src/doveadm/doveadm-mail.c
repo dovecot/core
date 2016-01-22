@@ -17,6 +17,7 @@
 #include "mail-storage.h"
 #include "mail-storage-settings.h"
 #include "mail-storage-service.h"
+#include "mail-storage-hooks.h"
 #include "mail-search-build.h"
 #include "mail-search-parser.h"
 #include "mailbox-list-iter.h"
@@ -843,5 +844,6 @@ void doveadm_mail_init(void)
 
 void doveadm_mail_deinit(void)
 {
+	mail_storage_hooks_deinit();
 	array_free(&doveadm_mail_cmds);
 }
