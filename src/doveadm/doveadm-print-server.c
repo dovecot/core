@@ -6,7 +6,6 @@
 #include "strescape.h"
 #include "ostream.h"
 #include "client-connection.h"
-#include "doveadm-server.h"
 #include "doveadm-print-private.h"
 
 struct doveadm_print_server_context {
@@ -65,10 +64,7 @@ doveadm_print_server_print_stream(const unsigned char *value, size_t size)
 
 static void doveadm_print_server_flush(void)
 {
-	if (doveadm_client == NULL)
-		return;
-
-	o_stream_nsend(client_connection_get_output(doveadm_client),
+	o_stream_nsend(doveadm_print_ostream,
 		       str_data(ctx.str), str_len(ctx.str));
 	str_truncate(ctx.str, 0);
 }

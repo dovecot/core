@@ -3,9 +3,8 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
+#include "ostream.h"
 #include "doveadm-print-private.h"
-
-#include <stdio.h>
 
 struct doveadm_print_header_context {
 	const char *key;
@@ -23,6 +22,7 @@ struct doveadm_print_context {
 };
 
 bool doveadm_print_hide_titles = FALSE;
+struct ostream *doveadm_print_ostream = NULL;
 
 static struct doveadm_print_context *ctx;
 
@@ -147,7 +147,8 @@ void doveadm_print_flush(void)
 {
 	if (ctx != NULL && ctx->v->flush != NULL)
 		ctx->v->flush();
-	fflush(stdout);
+	o_stream_uncork(doveadm_print_ostream);
+	o_stream_cork(doveadm_print_ostream);
 }
 
 void doveadm_print_unstick_headers(void)
@@ -194,8 +195,10 @@ void doveadm_print_deinit(void)
 	if (ctx == NULL)
 		return;
 
-	if (ctx->v->flush != NULL)
+	if (ctx->v->flush != NULL && doveadm_print_ostream != NULL) {
 		ctx->v->flush();
+		o_stream_uncork(doveadm_print_ostream);
+	}
 	if (ctx->v->deinit != NULL)
 		ctx->v->deinit();
 	array_foreach_modifiable(&ctx->headers, hdr)

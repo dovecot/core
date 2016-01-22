@@ -2,9 +2,8 @@
 
 #include "lib.h"
 #include "array.h"
+#include "ostream.h"
 #include "doveadm-print-private.h"
-
-#include <stdio.h>
 
 struct doveadm_print_pager_header {
 	const char *title;
@@ -33,7 +32,7 @@ static void pager_next_hdr(void)
 {
 	if (++ctx->header_idx == array_count(&ctx->headers)) {
 		ctx->header_idx = 0;
-		printf("\f\n");
+		o_stream_nsend(doveadm_print_ostream, "\f\n", 2);
 	}
 }
 
@@ -42,7 +41,10 @@ static void doveadm_print_pager_print(const char *value)
 	const struct doveadm_print_pager_header *hdr =
 		array_idx(&ctx->headers, ctx->header_idx);
 
-	printf("%s: %s\n", hdr->title, value);
+	o_stream_nsend_str(doveadm_print_ostream, hdr->title);
+	o_stream_nsend(doveadm_print_ostream, ": ", 2);
+	o_stream_nsend_str(doveadm_print_ostream, value);
+	o_stream_nsend(doveadm_print_ostream, "\n", 1);
 	pager_next_hdr();
 }
 
@@ -54,9 +56,10 @@ doveadm_print_pager_print_stream(const unsigned char *value, size_t size)
 
 	if (!ctx->streaming) {
 		ctx->streaming = TRUE;
-		printf("%s:\n", hdr->title);
+		o_stream_nsend_str(doveadm_print_ostream, hdr->title);
+		o_stream_nsend(doveadm_print_ostream, ":\n", 2);
 	}
-	fwrite(value, 1, size, stdout);
+	o_stream_nsend(doveadm_print_ostream, value, size);
 	if (size == 0) {
 		pager_next_hdr();
 		ctx->streaming = FALSE;
@@ -76,7 +79,7 @@ static void doveadm_print_pager_init(void)
 static void doveadm_print_pager_flush(void)
 {
 	if (ctx->header_idx != 0) {
-		printf("\n");
+		o_stream_nsend(doveadm_print_ostream, "\n", 1);
 		ctx->header_idx = 0;
 	}
 }

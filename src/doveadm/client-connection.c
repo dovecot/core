@@ -151,6 +151,7 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 	int ret;
 
 	ctx->conn = conn;
+	o_stream_cork(conn->output);
 
 	if (ctx->v.preinit != NULL)
 		ctx->v.preinit(ctx);
@@ -173,6 +174,7 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 	} else {
 		o_stream_nsend(conn->output, "\n+\n", 3);
 	}
+	o_stream_uncork(conn->output);
 	pool_unref(&ctx->pool);
 }
 
@@ -517,6 +519,8 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 		}
 	}
 	client_connection_send_auth_handshake(conn, listen_fd);
+
+	doveadm_print_ostream = conn->output;
 	return conn;
 }
 
@@ -535,11 +539,7 @@ void client_connection_destroy(struct client_connection **_conn)
 		i_error("close(client) failed: %m");
 	pool_unref(&conn->pool);
 
+	doveadm_print_ostream = NULL;
 	doveadm_client = NULL;
 	master_service_client_connection_destroyed(master_service);
-}
-
-struct ostream *client_connection_get_output(struct client_connection *conn)
-{
-	return conn->output;
 }

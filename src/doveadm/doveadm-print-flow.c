@@ -2,9 +2,8 @@
 
 #include "lib.h"
 #include "array.h"
+#include "ostream.h"
 #include "doveadm-print-private.h"
-
-#include <stdio.h>
 
 struct doveadm_print_flow_header {
 	const char *title;
@@ -34,10 +33,18 @@ doveadm_print_flow_header(const struct doveadm_print_header *hdr)
 static void flow_next_hdr(void)
 {
 	if (++ctx->header_idx < array_count(&ctx->headers))
-		printf(" ");
+		o_stream_nsend(doveadm_print_ostream, " ", 1);
 	else {
 		ctx->header_idx = 0;
-		printf("\n");
+		o_stream_nsend(doveadm_print_ostream, "\n", 1);
+	}
+}
+
+static void doveadm_print_flow_print_heder(const struct doveadm_print_flow_header *hdr)
+{
+	if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0) {
+		o_stream_nsend_str(doveadm_print_ostream, hdr->title);
+		o_stream_nsend(doveadm_print_ostream, "=", 1);
 	}
 }
 
@@ -46,9 +53,8 @@ static void doveadm_print_flow_print(const char *value)
 	const struct doveadm_print_flow_header *hdr =
 		array_idx(&ctx->headers, ctx->header_idx);
 
-	if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0)
-		printf("%s=", hdr->title);
-	printf("%s", value);
+	doveadm_print_flow_print_heder(hdr);
+	o_stream_nsend_str(doveadm_print_ostream, value);
 	flow_next_hdr();
 }
 
@@ -60,10 +66,9 @@ doveadm_print_flow_print_stream(const unsigned char *value, size_t size)
 
 	if (!ctx->streaming) {
 		ctx->streaming = TRUE;
-		if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0)
-			printf("%s=", hdr->title);
+		doveadm_print_flow_print_heder(hdr);
 	}
-	fwrite(value, 1, size, stdout);
+	o_stream_nsend(doveadm_print_ostream, value, size);
 	if (size == 0) {
 		flow_next_hdr();
 		ctx->streaming = FALSE;
@@ -83,7 +88,7 @@ static void doveadm_print_flow_init(void)
 static void doveadm_print_flow_flush(void)
 {
 	if (ctx->header_idx != 0) {
-		printf("\n");
+		o_stream_nsend(doveadm_print_ostream, "\n", 1);
 		ctx->header_idx = 0;
 	}
 }

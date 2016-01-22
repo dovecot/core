@@ -4,6 +4,7 @@
 #define DOVEADM_PRINT_TYPE_TAB "tab"
 #define DOVEADM_PRINT_TYPE_FLOW "flow"
 #define DOVEADM_PRINT_TYPE_TABLE "table"
+#define DOVEADM_PRINT_TYPE_SERVER "server"
 
 enum doveadm_print_header_flags {
 	DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY 	= 0x01,
@@ -14,6 +15,8 @@ enum doveadm_print_header_flags {
 
 extern const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[];
 extern bool doveadm_print_hide_titles;
+/* points to either stdout or to doveadm-server's TCP connection */
+extern struct ostream *doveadm_print_ostream;
 
 bool doveadm_print_is_initialized(void);
 

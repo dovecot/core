@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "ostream.h"
 #include "env-util.h"
 #include "execv-const.h"
 #include "dict.h"
@@ -316,6 +317,8 @@ int main(int argc, char *argv[])
 		quick_init = TRUE;
 	} else {
 		quick_init = FALSE;
+		doveadm_print_ostream = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
+		o_stream_set_no_error_handling(doveadm_print_ostream, TRUE);
 		doveadm_dump_init();
 		doveadm_mail_init();
 		dict_drivers_register_builtin();
@@ -355,6 +358,7 @@ int main(int argc, char *argv[])
 		doveadm_unload_modules();
 		dict_drivers_unregister_builtin();
 		doveadm_print_deinit();
+		o_stream_unref(&doveadm_print_ostream);
 	}
 	doveadm_cmds_deinit();
 	master_service_deinit(&master_service);
