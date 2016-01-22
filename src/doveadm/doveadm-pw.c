@@ -6,6 +6,7 @@
 #include "randgen.h"
 #include "doveadm.h"
 #include "askpass.h"
+#include "module-dir.h"
 
 #include <ctype.h>
 #include <fcntl.h>
@@ -13,6 +14,8 @@
 #include <unistd.h>
 
 #define DEFAULT_SCHEME "CRAM-MD5"
+
+static struct module *modules = NULL;
 
 static void cmd_pw(int argc, char *argv[])
 {
@@ -24,10 +27,19 @@ static void cmd_pw(int argc, char *argv[])
 	bool list_schemes = FALSE, reverse_verify = FALSE;
 	unsigned int rounds = 0;
 	int c;
+	struct module_dir_load_settings mod_set;
 
 	random_init();
 	password_schemes_init();
-	
+
+	memset(&mod_set, 0, sizeof(mod_set));
+	mod_set.abi_version = DOVECOT_ABI_VERSION;
+	mod_set.require_init_funcs = TRUE;
+	mod_set.ignore_dlopen_errors = TRUE;
+
+	modules = module_dir_load_missing(modules, AUTH_MODULE_DIR, NULL, &mod_set);
+	module_dir_init(modules);
+
 	while ((c = getopt(argc, argv, "lp:r:s:t:u:V")) > 0) {
 		switch (c) {
 		case 'l':
@@ -122,6 +134,7 @@ static void cmd_pw(int argc, char *argv[])
 		printf("{%s}%s\n", scheme, hash);
 	}
 
+	module_dir_unload(&modules);
 	password_schemes_deinit();
 	random_deinit();
 }
