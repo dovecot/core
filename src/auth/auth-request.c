@@ -676,6 +676,7 @@ static void
 auth_request_verify_plain_callback_finish(enum passdb_result result,
 					  struct auth_request *request)
 {
+	passdb_template_export(request->passdb->passdb->override_fields_tmpl, request);
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
 		auth_request_verify_plain(request, request->mech_password,
@@ -697,10 +698,9 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
-		passdb_template_export(passdb->override_fields_tmpl, request);
+	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_save_cache(request, result);
-	} else {
+	else {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
 		   expired record. */
@@ -807,6 +807,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 				       size_t size,
 				       struct auth_request *request)
 {
+	passdb_template_export(request->passdb->passdb->override_fields_tmpl, request);
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
 		if (request->skip_password_check &&
@@ -862,10 +863,9 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
-		passdb_template_export(passdb->override_fields_tmpl, request);
+	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_save_cache(request, result);
-	} else {
+	else {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
 		   expired record. */
