@@ -1170,7 +1170,7 @@ void auth_request_lookup_user(struct auth_request *request,
 
 		if (auth_request_lookup_user_cache(request, cache_key,
 						   &result, FALSE)) {
-			request->private_callback.userdb(result, request);
+			auth_request_userdb_callback(result, request);
 			return;
 		}
 	}
