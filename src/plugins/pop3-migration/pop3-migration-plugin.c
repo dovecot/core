@@ -122,6 +122,17 @@ struct pop3_hdr_context {
 	bool stop;
 };
 
+static bool header_name_is_valid(const char *name)
+{
+	unsigned int i;
+
+	for (i = 0; name[i] != '\0'; i++) {
+		if ((uint8_t)name[i] <= 0x20 || name[i] >= 0x7f)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static void
 pop3_header_filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 			    struct message_header_line *hdr,
@@ -145,6 +156,11 @@ pop3_header_filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 		}
 		if (ctx->stop)
 			*matched = TRUE;
+		else if (!header_name_is_valid(hdr->name)) {
+			/* Yahoo IMAP drops headers with invalid names, while
+			   Yahoo POP3 preserves them. Drop them all. */
+			*matched = TRUE;
+		}
 	}
 }
 
