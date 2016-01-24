@@ -560,7 +560,7 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 	for (pop3_idx = 0; pop3_idx < pop3_count; pop3_idx++) {
 		if (pop3_map[pop3_idx].imap_uid == 0) {
 			if (first_missing_idx == (uint32_t)-1)
-				first_missing_idx = pop3_map[pop3_idx].pop3_seq;
+				first_missing_idx = pop3_idx;
 			missing_uids_count++;
 		}
 	}
