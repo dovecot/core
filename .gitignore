@@ -4,6 +4,8 @@ Makefile.in
 *.o
 *.lo
 *.la
+*.orig
+*.rej
 .deps
 .libs
 
