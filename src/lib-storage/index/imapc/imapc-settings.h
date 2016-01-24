@@ -32,6 +32,7 @@ struct imapc_settings {
 	const char *imapc_features;
 	const char *imapc_rawlog_dir;
 	const char *imapc_list_prefix;
+	unsigned int imapc_cmd_timeout;
 	unsigned int imapc_max_idle_time;
 
 	const char *pop3_deleted_flag;
