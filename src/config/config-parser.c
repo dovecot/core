@@ -601,7 +601,7 @@ config_parse_line(struct config_parser_context *ctx,
 			len--;
 		str_append_n(full_line, line, len);
 		str_append_c(full_line, ' ');
-		return CONFIG_LINE_TYPE_SKIP;
+		return CONFIG_LINE_TYPE_CONTINUE;
 	}
 	if (str_len(full_line) > 0) {
 		str_append(full_line, line);
@@ -843,6 +843,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	switch (type) {
 	case CONFIG_LINE_TYPE_SKIP:
 		break;
+	case CONFIG_LINE_TYPE_CONTINUE:
+		i_unreached();
 	case CONFIG_LINE_TYPE_ERROR:
 		ctx->error = p_strdup(ctx->pool, value);
 		break;
@@ -969,6 +971,8 @@ prevfile:
 		type = config_parse_line(&ctx, line, full_line,
 					 &key, &value);
 		str_truncate(ctx.str, ctx.pathlen);
+		if (type == CONFIG_LINE_TYPE_CONTINUE)
+			continue;
 
 		T_BEGIN {
 			handled = old_settings_handle(&ctx, type, key, value);
