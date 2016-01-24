@@ -573,6 +573,10 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 			    missing_uids_count,
 			    pop3_map[first_missing_idx].pop3_seq,
 			    pop3_map[first_missing_idx].pop3_uidl);
+		if (imap_count + missing_uids_count == pop3_count) {
+			str_append(str, " - all IMAP messages were found "
+				"(POP3 contains more than IMAP INBOX - you may want to set pop3_migration_all_mailboxes=yes)");
+		}
 		if (!mstorage->ignore_missing_uidls) {
 			i_error("%s - set pop3_migration_ignore_missing_uidls=yes to continue anyway",
 				str_c(str));
