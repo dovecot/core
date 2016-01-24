@@ -75,7 +75,8 @@ static const char *hdr_hash_skip_headers[] = {
 	"X-Message-Flag",
 	"X-Status",
 	"X-UID",
-	"X-UIDL"
+	"X-UIDL",
+	"X-Yahoo-Newman-Property"
 };
 const char *pop3_migration_plugin_version = DOVECOT_ABI_VERSION;
 
