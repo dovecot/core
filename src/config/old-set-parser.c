@@ -579,6 +579,7 @@ bool old_settings_handle(struct config_parser_context *ctx,
 {
 	switch (type) {
 	case CONFIG_LINE_TYPE_SKIP:
+	case CONFIG_LINE_TYPE_CONTINUE:
 	case CONFIG_LINE_TYPE_ERROR:
 	case CONFIG_LINE_TYPE_INCLUDE:
 	case CONFIG_LINE_TYPE_INCLUDE_TRY:
