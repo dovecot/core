@@ -171,6 +171,13 @@ userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 	userdb->override_fields_tmpl =
 		userdb_template_build(pool, set->driver,
 				      set->override_fields);
+	if (userdb->cache_key != NULL &&
+	    !userdb_template_is_empty(userdb->default_fields_tmpl)) {
+		/* make sure any %variables in default_fields exist
+		   in cache_key */
+		userdb->cache_key = p_strconcat(pool, userdb->cache_key,
+						set->default_fields, NULL);
+	}
 
 	array_append(&userdb_modules, &userdb, 1);
 	return userdb;

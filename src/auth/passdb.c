@@ -227,6 +227,13 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 		passdb_template_build(pool, set->default_fields);
 	passdb->override_fields_tmpl =
 		passdb_template_build(pool, set->override_fields);
+	if (passdb->cache_key != NULL &&
+	    !passdb_template_is_empty(passdb->default_fields_tmpl)) {
+		/* make sure any %variables in default_fields exist
+		   in cache_key */
+		passdb->cache_key = p_strconcat(pool, passdb->cache_key,
+						set->default_fields, NULL);
+	}
 
 	array_append(&passdb_modules, &passdb, 1);
 	return passdb;
