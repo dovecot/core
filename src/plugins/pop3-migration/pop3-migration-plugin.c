@@ -62,8 +62,10 @@ struct pop3_migration_mailbox {
 	unsigned int uidl_ordered:1;
 };
 
+/* NOTE: these headers must be sorted */
 static const char *hdr_hash_skip_headers[] = {
 	"Content-Length",
+	"Return-Path", /* Yahoo IMAP has Return-Path, Yahoo POP3 doesn't */
 	"Status",
 	"X-IMAP",
 	"X-IMAPbase",
