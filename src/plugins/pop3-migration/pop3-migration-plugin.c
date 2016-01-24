@@ -49,6 +49,7 @@ struct pop3_migration_mail_storage {
 	unsigned int all_mailboxes:1;
 	unsigned int pop3_all_hdr_sha1_set:1;
 	unsigned int ignore_missing_uidls:1;
+	unsigned int skip_size_check:1;
 };
 
 struct pop3_migration_mailbox {
@@ -267,7 +268,7 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 	struct mail *mail;
 	struct pop3_uidl_map *map;
 	const char *uidl;
-	uoff_t size;
+	uoff_t size = (uoff_t)-1;
 	int ret = 0;
 
 	if (array_is_created(&mstorage->pop3_uidl_map)) {
@@ -288,6 +289,7 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 	ctx = mailbox_search_init(t, search_args, NULL,
+				  mstorage->skip_size_check ? 0 :
 				  MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -295,7 +297,9 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 		/* get the size with LIST instead of RETR */
 		mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
 
-		if (mail_get_physical_size(mail, &size) < 0) {
+		if (mstorage->skip_size_check)
+			;
+		else if (mail_get_physical_size(mail, &size) < 0) {
 			i_error("pop3_migration: Failed to get size for msg %u: %s",
 				mail->seq,
 				mailbox_get_last_error(pop3_box, NULL));
@@ -383,13 +387,15 @@ pop3_map_read_hdr_hashes(struct mail_storage *storage, struct mailbox *pop3_box,
 static int imap_map_read(struct mailbox *box)
 {
 	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT(box);
+	struct pop3_migration_mail_storage *mstorage =
+		POP3_MIGRATION_CONTEXT(box->storage);
 	struct mailbox_status status;
         struct mailbox_transaction_context *t;
 	struct mail_search_args *search_args;
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct imap_msg_map *map;
-	uoff_t psize;
+	uoff_t psize = (uoff_t)-1;
 	int ret = 0;
 
 	mailbox_get_open_status(box, STATUS_MESSAGES, &status);
@@ -401,11 +407,14 @@ static int imap_map_read(struct mailbox *box)
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 	ctx = mailbox_search_init(t, search_args, NULL,
+				  mstorage->skip_size_check ? 0 :
 				  MAIL_FETCH_PHYSICAL_SIZE, NULL);
 	mail_search_args_unref(&search_args);
 
 	while (mailbox_search_next(ctx, &mail)) {
-		if (mail_get_physical_size(mail, &psize) < 0) {
+		if (mstorage->skip_size_check)
+			;
+		else if (mail_get_physical_size(mail, &psize) < 0) {
 			i_error("pop3_migration: Failed to get psize for imap uid %u: %s",
 				mail->uid,
 				mailbox_get_last_error(box, NULL));
@@ -742,6 +751,9 @@ static void pop3_migration_mail_storage_created(struct mail_storage *storage)
 	mstorage->ignore_missing_uidls =
 		mail_user_plugin_getenv(storage->user,
 			"pop3_migration_ignore_missing_uidls") != NULL;
+	mstorage->skip_size_check =
+		mail_user_plugin_getenv(storage->user,
+			"pop3_migration_skip_size_check") != NULL;
 
 	MODULE_CONTEXT_SET(storage, pop3_migration_storage_module, mstorage);
 }
