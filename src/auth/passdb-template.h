@@ -8,5 +8,6 @@ void passdb_template_export(struct passdb_template *tmpl,
 			    struct auth_request *auth_request);
 bool passdb_template_remove(struct passdb_template *tmpl,
 			    const char *key, const char **value_r);
+bool passdb_template_is_empty(struct passdb_template *tmpl);
 
 #endif

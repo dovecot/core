@@ -43,6 +43,9 @@ void passdb_template_export(struct passdb_template *tmpl,
 	const char *const *args, *value;
 	unsigned int i, count;
 
+	if (passdb_template_is_empty(tmpl))
+		return;
+
 	str = t_str_new(256);
 	table = auth_request_get_var_expand_table(auth_request, NULL);
 
@@ -78,4 +81,9 @@ bool passdb_template_remove(struct passdb_template *tmpl,
 		}
 	}
 	return FALSE;
+}
+
+bool passdb_template_is_empty(struct passdb_template *tmpl)
+{
+	return array_count(&tmpl->args) == 0;
 }

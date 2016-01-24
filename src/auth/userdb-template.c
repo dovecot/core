@@ -66,6 +66,9 @@ void userdb_template_export(struct userdb_template *tmpl,
 	const char *const *args, *value;
 	unsigned int i, count;
 
+	if (userdb_template_is_empty(tmpl))
+		return;
+
 	str = t_str_new(256);
 	table = auth_request_get_var_expand_table(auth_request, NULL);
 
