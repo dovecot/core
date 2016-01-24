@@ -4,6 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "istream-header-filter.h"
+#include "str.h"
 #include "sha1.h"
 #include "message-size.h"
 #include "message-header-parser.h"
@@ -564,18 +565,19 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 		}
 	}
 	if (missing_uids_count > 0 && !mstorage->all_mailboxes) {
+		string_t *str = t_str_new(128);
+
+		str_printfa(str, "pop3_migration: %u POP3 messages have no "
+			    "matching IMAP messages (first POP3 msg %u UIDL %s)",
+			    missing_uids_count,
+			    pop3_map[first_missing_idx].pop3_seq,
+			    pop3_map[first_missing_idx].pop3_uidl);
 		if (!mstorage->ignore_missing_uidls) {
-			i_error("pop3_migration: %u POP3 messages have no "
-				"matching IMAP messages (set "
-				"pop3_migration_ignore_missing_uidls=yes "
-				"to continue anyway)", missing_uids_count);
+			i_error("%s - set pop3_migration_ignore_missing_uidls=yes to continue anyway",
+				str_c(str));
 			return -1;
 		}
-		i_warning("pop3_migration: %u POP3 messages have no "
-			  "matching IMAP messages (first POP3 msg %u UIDL %s)",
-			  missing_uids_count,
-			  pop3_map[first_missing_idx].pop3_seq,
-			  pop3_map[first_missing_idx].pop3_uidl);
+		i_warning("%s", str_c(str));
 	} else if (box->storage->user->mail_debug) {
 		i_debug("pop3_migration: %u mails matched by headers", pop3_count);
 	}
