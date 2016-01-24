@@ -222,6 +222,16 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 
 	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
 	msg_count = imapc_msgmap_count(msgmap);
+	if (fetch_uid != 0 &&
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS)) {
+		/* if we know the UID, use own own generated rseq instead of
+		   the potentially broken rseq that the server sent. */
+		uint32_t fixed_rseq;
+
+		if (imapc_msgmap_uid_to_rseq(msgmap, fetch_uid, &fixed_rseq))
+			rseq = fixed_rseq;
+	}
+
 	if (rseq <= msg_count) {
 		uid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
 		if (uid != fetch_uid && fetch_uid != 0) {
