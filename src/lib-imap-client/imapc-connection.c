@@ -1789,13 +1789,26 @@ static void imapc_command_timeout(struct imapc_connection *conn)
 {
 	struct imapc_command *const *cmds;
 	unsigned int count;
+	string_t *str = t_str_new(128);
+	bool reconnect = imapc_connection_can_reconnect(conn);
 
 	cmds = array_get(&conn->cmd_wait_list, &count);
 	i_assert(count > 0);
 
-	i_error("imapc(%s): Command '%s' timed out, disconnecting",
-		conn->name, imapc_command_get_readable(cmds[0]));
-	imapc_connection_disconnect(conn);
+	str_printfa(str, "imapc(%s): Command '%s' timed out, ",
+		    conn->name, imapc_command_get_readable(cmds[0]));
+	if (reconnect)
+		str_append(str, "reconnecting");
+	else
+		str_append(str, "disconnecting");
+
+	if (reconnect) {
+		i_warning("%s", str_c(str));
+		imapc_connection_reconnect(conn);
+	} else {
+		i_error("%s", str_c(str));
+		imapc_connection_disconnect(conn);
+	}
 }
 
 static bool
