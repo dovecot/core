@@ -154,8 +154,8 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 				bool *have_eoh_r)
 {
 	struct istream *input2;
-	const unsigned char *data, *p;
-	size_t size, idx;
+	const unsigned char *data;
+	size_t i, start, size;
 	struct sha1_ctxt sha1_ctx;
 	struct pop3_hdr_context hdr_ctx;
 
@@ -171,18 +171,25 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 
 	sha1_init(&sha1_ctx);
 	while (i_stream_read_data(input, &data, &size, 0) > 0) {
-		/* if there are NULs in header, replace them with 0x80
-		   character. This is done by at least Dovecot IMAP and also
-		   POP3 with outlook-no-nuls workaround. */
-		while ((p = memchr(data, '\0', size)) != NULL) {
-			idx = p - data;
-			sha1_loop(&sha1_ctx, data, idx);
-			sha1_loop(&sha1_ctx, "\x80", 1);
-			i_assert(size > idx);
-			data += idx + 1;
-			size -= idx + 1;
+		/* - Dovecot IMAP replaces NULs with 0x80 character.
+		   - Dovecot POP3 with outlook-no-nuls workaround replaces NULs
+		   with 0x80 character.
+		   - Zimbra replaces 8bit chars with '?' in header fetches,
+		   but not body fetches.
+		   - Yahoo replaces 8bit chars with '?' in partial header
+		   fetches, but not POP3 TOP.
+
+		   So we'll just replace all control and 8bit chars with '?',
+		   which hopefully will satisfy everybody.
+		*/
+		for (i = start = 0; i < size; i++) {
+			if (data[i] < 0x20 || data[i] >= 0x80) {
+				sha1_loop(&sha1_ctx, data + start, i-start);
+				sha1_loop(&sha1_ctx, "?", 1);
+				start = i+1;
+			}
 		}
-		sha1_loop(&sha1_ctx, data, size);
+		sha1_loop(&sha1_ctx, data + start, i-start);
 		i_stream_skip(input, size);
 	}
 	if (input->stream_errno != 0) {
