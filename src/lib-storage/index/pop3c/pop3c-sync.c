@@ -11,6 +11,12 @@
 #include "pop3c-storage.h"
 #include "pop3c-sync.h"
 
+struct pop3c_sync_msg {
+	uint32_t seq;
+	const char *uidl;
+};
+ARRAY_DEFINE_TYPE(pop3c_sync_msg, struct pop3c_sync_msg);
+
 int pop3c_sync_get_uidls(struct pop3c_mailbox *mbox)
 {
 	ARRAY_TYPE(const_string) uidls;
@@ -129,6 +135,48 @@ int pop3c_sync_get_sizes(struct pop3c_mailbox *mbox)
 }
 
 static void
+pop3c_get_local_msgs(pool_t pool, ARRAY_TYPE(pop3c_sync_msg) *local_msgs,
+		     uint32_t messages_count,
+		     struct mail_cache_view *cache_view,
+		     unsigned int cache_idx)
+{
+	string_t *str = t_str_new(128);
+	struct pop3c_sync_msg msg;
+	uint32_t seq;
+
+	memset(&msg, 0, sizeof(msg));
+	for (seq = 1; seq <= messages_count; seq++) {
+		str_truncate(str, 0);
+		if (mail_cache_lookup_field(cache_view, str, seq,
+					    cache_idx) > 0) {
+			msg.seq = seq;
+			msg.uidl = p_strdup(pool, str_c(str));
+			array_idx_set(local_msgs, seq-1, &msg);
+		}
+	}
+}
+
+static void
+pop3c_get_remote_msgs(ARRAY_TYPE(pop3c_sync_msg) *remote_msgs,
+		      struct pop3c_mailbox *mbox)
+{
+	struct pop3c_sync_msg *msg;
+	uint32_t seq;
+
+	for (seq = 1; seq <= mbox->msg_count; seq++) {
+		msg = array_append_space(remote_msgs);
+		msg->seq = seq;
+		msg->uidl = mbox->msg_uidls[seq-1];
+	}
+}
+
+static int pop3c_sync_msg_uidl_cmp(const struct pop3c_sync_msg *msg1,
+				   const struct pop3c_sync_msg *msg2)
+{
+	return null_strcmp(msg1->uidl, msg2->uidl);
+}
+
+static void
 pop3c_sync_messages(struct pop3c_mailbox *mbox,
 		    struct mail_index_view *sync_view,
 		    struct mail_index_transaction *sync_trans,
@@ -138,9 +186,12 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 		INDEX_STORAGE_CONTEXT(&mbox->box);
 	const struct mail_index_header *hdr;
 	struct mail_cache_transaction_ctx *cache_trans;
-	string_t *str;
-	uint32_t lseq, rseq, seq1, seq2, uid;
+	ARRAY_TYPE(pop3c_sync_msg) local_msgs, remote_msgs;
+	const struct pop3c_sync_msg *lmsg, *rmsg;
+	uint32_t seq1, seq2, next_uid;
+	unsigned int lidx, ridx, lcount, rcount;
 	unsigned int cache_idx = ibox->cache_fields[MAIL_CACHE_POP3_UIDL].idx;
+	pool_t pool;
 
 	i_assert(mbox->msg_uids == NULL);
 
@@ -153,38 +204,65 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 
+	pool = pool_alloconly_create(MEMPOOL_GROWING"pop3c sync", 10240);
+	p_array_init(&local_msgs, pool, hdr->messages_count);
+	pop3c_get_local_msgs(pool, &local_msgs, hdr->messages_count,
+			     cache_view, cache_idx);
+	p_array_init(&remote_msgs, pool, mbox->msg_count);
+	pop3c_get_remote_msgs(&remote_msgs, mbox);
+
+	/* sort the messages by UIDLs, because some servers reorder messages */
+	array_sort(&local_msgs, pop3c_sync_msg_uidl_cmp);
+	array_sort(&remote_msgs, pop3c_sync_msg_uidl_cmp);
+
 	/* skip over existing messages with matching UIDLs and expunge the ones
-	   that no longer exist in remote. */
+	   that no longer exist in remote. (+1 to avoid malloc(0) assert) */
 	mbox->msg_uids = i_new(uint32_t, mbox->msg_count + 1);
-	str = t_str_new(128);
-	for (lseq = rseq = 1; lseq <= hdr->messages_count && rseq <= mbox->msg_count; lseq++) {
-		str_truncate(str, 0);
-		if (mail_cache_lookup_field(cache_view, str, lseq,
-					    cache_idx) > 0 &&
-		    strcmp(str_c(str), mbox->msg_uidls[rseq-1]) == 0) {
+	cache_trans = mail_cache_get_transaction(cache_view, sync_trans);
+
+	lmsg = array_get(&local_msgs, &lcount);
+	rmsg = array_get(&remote_msgs, &rcount);
+	next_uid = hdr->next_uid;
+	lidx = ridx = 0;
+	while (lidx < lcount || ridx < rcount) {
+		uint32_t lseq = lidx < lcount ? lmsg[lidx].seq : 0;
+		uint32_t rseq = ridx < rcount ? rmsg[ridx].seq : 0;
+		int ret;
+
+		if (lidx >= lcount)
+			ret = 1;
+		else if (ridx >= rcount)
+			ret = -1;
+		else
+			ret = strcmp(lmsg[lidx].uidl, rmsg[ridx].uidl);
+		if (ret < 0) {
+			/* message expunged in remote */
+			mail_index_expunge(sync_trans, lseq);
+			lidx++;
+		} else if (ret > 0) {
+			/* new message in remote */
+			i_assert(mbox->msg_uids[rseq-1] == 0);
+			mbox->msg_uids[rseq-1] = next_uid;
+			mail_index_append(sync_trans, next_uid++, &lseq);
+			mail_cache_add(cache_trans, lseq, cache_idx,
+				       rmsg[ridx].uidl,
+				       strlen(rmsg[ridx].uidl)+1);
+			ridx++;
+		} else {
 			/* UIDL matched */
+			i_assert(mbox->msg_uids[rseq-1] == 0);
 			mail_index_lookup_uid(sync_view, lseq,
 					      &mbox->msg_uids[rseq-1]);
-			rseq++;
-		} else {
-			mail_index_expunge(sync_trans, lseq);
+			lidx++;
+			ridx++;
 		}
-	}
-	/* add the rest of the messages in POP3 mailbox to index */
-	cache_trans = mail_cache_get_transaction(cache_view, sync_trans);
-	uid = hdr->next_uid;
-	for (; rseq <= mbox->msg_count; rseq++) {
-		mbox->msg_uids[rseq-1] = uid;
-		mail_index_append(sync_trans, uid++, &lseq);
-		mail_cache_add(cache_trans, lseq, cache_idx,
-			       mbox->msg_uidls[rseq-1],
-			       strlen(mbox->msg_uidls[rseq-1])+1);
 	}
 
 	/* mark the newly seen messages as recent */
 	if (mail_index_lookup_seq_range(sync_view, hdr->first_recent_uid,
 					hdr->next_uid, &seq1, &seq2))
 		mailbox_recent_flags_set_seqs(&mbox->box, sync_view, seq1, seq2);
+	pool_unref(&pool);
 }
 
 int pop3c_sync(struct pop3c_mailbox *mbox)
