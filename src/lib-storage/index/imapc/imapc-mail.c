@@ -299,9 +299,8 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 				      stream_r);
 }
 
-static bool
-imapc_mail_has_headers_in_cache(struct index_mail *mail,
-				struct mailbox_header_lookup_ctx *headers)
+bool imapc_mail_has_headers_in_cache(struct index_mail *mail,
+				     struct mailbox_header_lookup_ctx *headers)
 {
 	struct mail *_mail = &mail->mail.mail;
 	unsigned int i;
