@@ -10,7 +10,8 @@ enum doveadm_print_header_flags {
 	DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY 	= 0x01,
 	DOVEADM_PRINT_HEADER_FLAG_STICKY	 	= 0x02,
 	DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE	 	= 0x04,
-	DOVEADM_PRINT_HEADER_FLAG_EXPAND	 	= 0x08
+	DOVEADM_PRINT_HEADER_FLAG_EXPAND	 	= 0x08,
+	DOVEADM_PRINT_HEADER_FLAG_NUMBER		= 0x10
 };
 
 extern const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[];
