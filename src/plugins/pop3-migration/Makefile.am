@@ -3,7 +3,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
-	-I$(top_srcdir)/src/lib-storage
+	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-storage/index
 
 NOPLUGIN_LDFLAGS =
 lib05_pop3_migration_plugin_la_LDFLAGS = -module -avoid-version
