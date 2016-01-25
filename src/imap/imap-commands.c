@@ -54,7 +54,11 @@ static const struct command imap_ext_commands[] = {
 	{ "ENABLE",		cmd_enable,      0 },
 	{ "ID",			cmd_id,          0 },
 	{ "IDLE",		cmd_idle,        COMMAND_FLAG_BREAKS_SEQS |
-						 COMMAND_FLAG_REQUIRES_SYNC },
+						 COMMAND_FLAG_REQUIRES_SYNC |
+						 /* finish syncing and sending
+						    all tagged commands before
+						    IDLE is started */
+						 COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "GETMETADATA",	cmd_getmetadata, 0 },
 	{ "SETMETADATA",	cmd_setmetadata, 0 },
 	{ "NAMESPACE",		cmd_namespace,   0 },
