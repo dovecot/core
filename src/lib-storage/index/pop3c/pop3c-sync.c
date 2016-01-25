@@ -139,7 +139,7 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 	const struct mail_index_header *hdr;
 	struct mail_cache_transaction_ctx *cache_trans;
 	string_t *str;
-	uint32_t seq, seq1, seq2, iseq, uid;
+	uint32_t lseq, rseq, seq1, seq2, uid;
 	unsigned int cache_idx = ibox->cache_fields[MAIL_CACHE_POP3_UIDL].idx;
 
 	i_assert(mbox->msg_uids == NULL);
@@ -153,34 +153,32 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
 
-	/* skip over existing messages with matching UIDLs */
+	/* skip over existing messages with matching UIDLs and expunge the ones
+	   that no longer exist in remote. */
 	mbox->msg_uids = i_new(uint32_t, mbox->msg_count + 1);
 	str = t_str_new(128);
-	for (seq = 1; seq <= hdr->messages_count && seq <= mbox->msg_count; seq++) {
+	for (lseq = rseq = 1; lseq <= hdr->messages_count && rseq <= mbox->msg_count; lseq++) {
 		str_truncate(str, 0);
-		if (mail_cache_lookup_field(cache_view, str, seq,
+		if (mail_cache_lookup_field(cache_view, str, lseq,
 					    cache_idx) > 0 &&
-		    strcmp(str_c(str), mbox->msg_uidls[seq-1]) == 0) {
+		    strcmp(str_c(str), mbox->msg_uidls[rseq-1]) == 0) {
 			/* UIDL matched */
-			mail_index_lookup_uid(sync_view, seq,
-					      &mbox->msg_uids[seq-1]);
+			mail_index_lookup_uid(sync_view, lseq,
+					      &mbox->msg_uids[rseq-1]);
+			rseq++;
 		} else {
-			break;
+			mail_index_expunge(sync_trans, lseq);
 		}
 	}
-	seq2 = seq;
-	/* remove the rest of the messages from index */
-	for (; seq <= hdr->messages_count; seq++)
-		mail_index_expunge(sync_trans, seq);
 	/* add the rest of the messages in POP3 mailbox to index */
 	cache_trans = mail_cache_get_transaction(cache_view, sync_trans);
 	uid = hdr->next_uid;
-	for (seq = seq2; seq <= mbox->msg_count; seq++) {
-		mbox->msg_uids[seq-1] = uid;
-		mail_index_append(sync_trans, uid++, &iseq);
-		mail_cache_add(cache_trans, iseq, cache_idx,
-			       mbox->msg_uidls[seq-1],
-			       strlen(mbox->msg_uidls[seq-1])+1);
+	for (; rseq <= mbox->msg_count; rseq++) {
+		mbox->msg_uids[rseq-1] = uid;
+		mail_index_append(sync_trans, uid++, &lseq);
+		mail_cache_add(cache_trans, lseq, cache_idx,
+			       mbox->msg_uidls[rseq-1],
+			       strlen(mbox->msg_uidls[rseq-1])+1);
 	}
 
 	/* mark the newly seen messages as recent */
