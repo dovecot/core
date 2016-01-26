@@ -822,7 +822,7 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 	mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
 
 	str = t_str_new(256);
-	str_printfa(str, "fl=uid,score&rows=%u&sort=uid+asc&q=",
+	str_printfa(str, "fl=uid,score&rows=%u&sort=uid+asc&q={!lucene+q.op%%3dAND}",
 		    status.uidnext);
 	prefix_len = str_len(str);
 
@@ -931,7 +931,7 @@ fts_backend_solr_lookup_multi(struct fts_backend *backend,
 	string_t *str;
 
 	str = t_str_new(256);
-	str_printfa(str, "fl=box,uid,score&rows=%u&sort=box+asc,uid+asc&q=",
+	str_printfa(str, "fl=box,uid,score&rows=%u&sort=box+asc,uid+asc&q={!lucene+q.op%%3dAND}",
 		    SOLR_MAX_MULTI_ROWS);
 
 	if (solr_add_definite_query_args(str, args, and_args)) {
