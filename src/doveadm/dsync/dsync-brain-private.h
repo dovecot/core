@@ -112,6 +112,7 @@ struct dsync_brain {
 	unsigned int require_full_resync:1;
 	unsigned int verbose_proctitle:1;
 	unsigned int no_notify:1;
+	unsigned int hdr_hash_v2:1;
 	unsigned int failed:1;
 };
 

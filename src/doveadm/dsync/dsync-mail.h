@@ -85,7 +85,8 @@ struct dsync_mail_change {
 struct mailbox_header_lookup_ctx *
 dsync_mail_get_hash_headers(struct mailbox *box);
 
-int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r);
+int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
+			    const char **hdr_hash_r);
 int dsync_mail_fill(struct mail *mail, bool minimal_fill,
 		    struct dsync_mail *dmail_r, const char **error_field_r);
 int dsync_mail_fill_nonminimal(struct mail *mail, struct dsync_mail *dmail_r,

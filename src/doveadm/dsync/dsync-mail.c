@@ -24,7 +24,44 @@ dsync_mail_get_hash_headers(struct mailbox *box)
 	return mailbox_header_lookup_init(box, hashed_headers);
 }
 
-int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r)
+static void
+dsync_mail_hash_more(struct md5_context *md5_ctx, unsigned int version,
+		     const unsigned char *data, size_t size)
+{
+	size_t i, start;
+
+	i_assert(version == 1 || version == 2);
+
+	if (version == 1) {
+		md5_update(md5_ctx, data, size);
+		return;
+	}
+	/* - Dovecot IMAP replaces NULs with 0x80 character.
+	   - Dovecot POP3 with outlook-no-nuls workaround replaces NULs
+	   with 0x80 character.
+	   - Zimbra replaces 8bit chars with '?' in header fetches,
+	   but not body fetches.
+	   - Yahoo replaces 8bit chars with '?' in partial header
+	   fetches, but not POP3 TOP.
+
+	   So we'll just replace all control and 8bit chars with '?',
+	   which hopefully will satisfy everybody.
+
+	   (Keep this code in sync with pop3-migration plugin.)
+	   */
+	for (i = start = 0; i < size; i++) {
+		if ((data[i] < 0x20 || data[i] >= 0x80) &&
+		    (data[i] != '\t' && data[i] != '\n')) {
+			md5_update(md5_ctx, data + start, i-start);
+			md5_update(md5_ctx, "?", 1);
+			start = i+1;
+		}
+	}
+	md5_update(md5_ctx, data + start, i-start);
+}
+
+int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
+			    const char **hdr_hash_r)
 {
 	struct istream *hdr_input, *input;
 	struct mailbox_header_lookup_ctx *hdr_ctx;
@@ -48,7 +85,7 @@ int dsync_mail_get_hdr_hash(struct mail *mail, const char **hdr_hash_r)
 			break;
 		if (size == 0)
 			break;
-		md5_update(&md5_ctx, data, size);
+		dsync_mail_hash_more(&md5_ctx, version, data, size);
 		i_stream_skip(input, size);
 	}
 	if (input->stream_errno != 0)

@@ -218,6 +218,8 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128;
 	if (brain->no_notify)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_NO_NOTIFY;
+	if (brain->hdr_hash_v2)
+		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_HDR_HASH_V2;
 
 	brain->box_importer = brain->backup_send ? NULL :
 		dsync_mailbox_import_init(brain->box, brain->virtual_all_box,
@@ -318,6 +320,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_MINIMAL_DMAIL_FILL;
 	if (brain->sync_since_timestamp > 0)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS;
+	if (brain->hdr_hash_v2)
+		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2;
 
 	brain->box_exporter = brain->backup_recv ? NULL :
 		dsync_mailbox_export_init(brain->box, brain->log_scan,

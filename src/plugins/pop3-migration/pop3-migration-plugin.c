@@ -207,6 +207,8 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 
 		   So we'll just replace all control and 8bit chars with '?',
 		   which hopefully will satisfy everybody.
+
+		   (Keep this code in sync with dsync.)
 		*/
 		for (i = start = 0; i < size; i++) {
 			if ((data[i] < 0x20 || data[i] >= 0x80) &&

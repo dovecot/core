@@ -63,6 +63,7 @@ struct dsync_ibc_settings {
 
 	enum dsync_brain_sync_type sync_type;
 	enum dsync_brain_flags brain_flags;
+	bool hdr_hash_v2;
 	unsigned int lock_timeout;
 };
 

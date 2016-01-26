@@ -63,6 +63,7 @@ struct dsync_mailbox_importer {
 	uint64_t remote_highest_modseq, remote_highest_pvt_modseq;
 	time_t sync_since_timestamp;
 	enum mailbox_transaction_flags transaction_flags;
+	unsigned int hdr_hash_version;
 
 	enum mail_flags sync_flag;
 	const char *sync_keyword;
@@ -255,6 +256,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS) != 0;
 	importer->mails_use_guid128 =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128) != 0;
+	importer->hdr_hash_version =
+		(flags & DSYNC_MAILBOX_IMPORT_FLAG_HDR_HASH_V2) != 0 ? 2 : 1;
 
 	mailbox_get_open_status(importer->box, STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ | STATUS_HIGHESTPVTMODSEQ,
@@ -601,6 +604,7 @@ importer_try_next_mail(struct dsync_mailbox_importer *importer,
 		}
 	} else {
 		if (dsync_mail_get_hdr_hash(importer->cur_mail,
+					    importer->hdr_hash_version,
 					    &hdr_hash) < 0) {
 			dsync_mail_error(importer, importer->cur_mail,
 					 "header hash");
@@ -1483,7 +1487,8 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 		return -1;
 	}
 
-	if (dsync_mail_get_hdr_hash(importer->cur_mail, &hdr_hash) < 0) {
+	if (dsync_mail_get_hdr_hash(importer->cur_mail,
+				    importer->hdr_hash_version, &hdr_hash) < 0) {
 		dsync_mail_error(importer, importer->cur_mail, "hdr-stream");
 		*result_r = "Error fetching header stream";
 		return -1;

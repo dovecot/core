@@ -28,6 +28,7 @@ struct dsync_mailbox_exporter {
 	struct mailbox_transaction_context *trans;
 	struct mail_search_context *search_ctx;
 	unsigned int search_pos, search_count;
+	unsigned int hdr_hash_version;
 
 	/* GUID => instances */
 	HASH_TABLE(char *, struct dsync_mail_guid_instances *) export_guids;
@@ -162,7 +163,7 @@ exporter_get_guids(struct dsync_mailbox_exporter *exporter,
 
 	if (!exporter->mails_have_guids) {
 		/* get header hash also */
-		if (dsync_mail_get_hdr_hash(mail, hdr_hash_r) < 0)
+		if (dsync_mail_get_hdr_hash(mail, exporter->hdr_hash_version, hdr_hash_r) < 0)
 			return dsync_mail_error(exporter, mail, "hdr-stream");
 		return 1;
 	} else if (**guid_r == '\0') {
@@ -502,6 +503,8 @@ dsync_mailbox_export_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_MINIMAL_DMAIL_FILL) != 0;
 	exporter->export_received_timestamps =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS) != 0;
+	exporter->hdr_hash_version =
+		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2) ? 2 : 1;
 	p_array_init(&exporter->requested_uids, pool, 16);
 	p_array_init(&exporter->search_uids, pool, 16);
 	hash_table_create(&exporter->export_guids, pool, 0, str_hash, strcmp);
