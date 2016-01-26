@@ -737,7 +737,7 @@ static int
 pop3c_client_input_next_reply(struct pop3c_client *client)
 {
 	const char *line;
-	enum pop3c_client_state state;
+	enum pop3c_command_state state;
 
 	line = i_stream_read_next_line(client->input);
 	if (line == NULL)
