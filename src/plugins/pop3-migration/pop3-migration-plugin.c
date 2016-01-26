@@ -20,7 +20,15 @@
 #define POP3_MIGRATION_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, pop3_migration_mail_module)
 
+struct msg_map_common {
+	/* sha1(header) - set only when needed */
+	unsigned char hdr_sha1[SHA1_RESULTLEN];
+	unsigned int hdr_sha1_set:1;
+};
+
 struct pop3_uidl_map {
+	struct msg_map_common common;
+
 	uint32_t pop3_seq;
 	uint32_t imap_uid;
 
@@ -28,19 +36,14 @@ struct pop3_uidl_map {
 	const char *pop3_uidl;
 	/* LIST size */
 	uoff_t size;
-	/* sha1(TOP 0) - set only when needed */
-	unsigned char hdr_sha1[SHA1_RESULTLEN];
-	unsigned int hdr_sha1_set:1;
 };
 
 struct imap_msg_map {
+	struct msg_map_common common;
+
 	uint32_t uid, pop3_seq;
 	uoff_t psize;
 	const char *pop3_uidl;
-
-	/* sha1(header) - set only when needed */
-	unsigned char hdr_sha1[SHA1_RESULTLEN];
-	unsigned int hdr_sha1_set:1;
 };
 
 struct pop3_migration_mail_storage {
@@ -113,13 +116,15 @@ static int pop3_uidl_map_pop3_seq_cmp(const struct pop3_uidl_map *map1,
 static int pop3_uidl_map_hdr_cmp(const struct pop3_uidl_map *map1,
 				 const struct pop3_uidl_map *map2)
 {
-	return memcmp(map1->hdr_sha1, map2->hdr_sha1, sizeof(map1->hdr_sha1));
+	return memcmp(map1->common.hdr_sha1, map2->common.hdr_sha1,
+		      sizeof(map1->common.hdr_sha1));
 }
 
 static int imap_msg_map_hdr_cmp(const struct imap_msg_map *map1,
 				const struct imap_msg_map *map2)
 {
-	return memcmp(map1->hdr_sha1, map2->hdr_sha1, sizeof(map1->hdr_sha1));
+	return memcmp(map1->common.hdr_sha1, map2->common.hdr_sha1,
+		      sizeof(map1->common.hdr_sha1));
 }
 
 struct pop3_hdr_context {
@@ -258,8 +263,13 @@ get_hdr_sha1(struct mail *mail, unsigned char sha1_r[SHA1_RESULTLEN])
 					hdr_size.physical_size,
 					sha1_r, &have_eoh) < 0)
 		return -1;
-	if (have_eoh)
+	if (have_eoh) {
+		struct index_mail *imail = (struct index_mail *)mail;
+
+		index_mail_cache_add_idx(imail, get_cache_idx(mail),
+					 sha1_r, SHA1_RESULTLEN);
 		return 0;
+	}
 
 	/* The empty "end of headers" line is missing. Either this means that
 	   the headers ended unexpectedly (which is ok) or that the remote
@@ -291,23 +301,20 @@ get_hdr_sha1(struct mail *mail, unsigned char sha1_r[SHA1_RESULTLEN])
 
 }
 
-static int
+static bool
 get_cached_hdr_sha1(struct mail *mail, buffer_t *cache_buf,
 		    unsigned char sha1_r[SHA1_RESULTLEN])
 {
 	struct index_mail *imail = (struct index_mail *)mail;
-	unsigned int field_idx = get_cache_idx(mail);
 
 	buffer_set_used_size(cache_buf, 0);
-	if (index_mail_cache_lookup_field(imail, cache_buf, field_idx) > 0 &&
+	if (index_mail_cache_lookup_field(imail, cache_buf,
+					  get_cache_idx(mail)) > 0 &&
 	    cache_buf->used == SHA1_RESULTLEN) {
 		memcpy(sha1_r, cache_buf->data, cache_buf->used);
-		return 0;
+		return TRUE;
 	}
-	if (get_hdr_sha1(mail, sha1_r) < 0)
-		return -1;
-	index_mail_cache_add_idx(imail, field_idx, sha1_r, SHA1_RESULTLEN);
-	return 0;
+	return FALSE;
 }
 
 static struct mailbox *pop3_mailbox_alloc(struct mail_storage *storage)
@@ -399,19 +406,95 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 	return ret;
 }
 
+static void
+pop3_map_read_cached_hdr_hashes(struct mailbox_transaction_context *t,
+				struct mail_search_args *search_args,
+				struct array *msg_map)
+{
+	struct mail_search_context *ctx;
+	struct mail *mail;
+	struct msg_map_common *map;
+	buffer_t *cache_buf;
+
+	ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
+	cache_buf = buffer_create_dynamic(pool_datastack_create(), SHA1_RESULTLEN);
+
+	while (mailbox_search_next(ctx, &mail)) {
+		map = array_idx_modifiable_i(msg_map, mail->seq-1);
+
+		if (get_cached_hdr_sha1(mail, cache_buf, map->hdr_sha1))
+			map->hdr_sha1_set = TRUE;
+	}
+
+	if (mailbox_search_deinit(&ctx) < 0) {
+		i_warning("pop3_migration: Failed to search all cached POP3 header hashes: %s - ignoring",
+			  mailbox_get_last_error(t->box, NULL));
+	}
+}
+
+static void map_remove_found_seqs(struct mail_search_arg *search_arg,
+				  struct array *msg_map, uint32_t seq1)
+{
+	const struct msg_map_common *map;
+	uint32_t seq, count = array_count_i(msg_map);
+
+	i_assert(search_arg->type == SEARCH_SEQSET);
+
+	for (seq = seq1; seq <= count; seq++) {
+		map = array_idx_i(msg_map, seq-1);
+		if (map->hdr_sha1_set)
+			seq_range_array_remove(&search_arg->value.seqset, seq);
+	}
+}
+
+static int
+map_read_hdr_hashes(struct mailbox *box, struct array *msg_map, uint32_t seq1)
+{
+        struct mailbox_transaction_context *t;
+	struct mail_search_args *search_args;
+	struct mail_search_context *ctx;
+	struct mail *mail;
+	struct msg_map_common *map;
+	int ret = 0;
+
+	t = mailbox_transaction_begin(box, 0);
+	/* get all the cached hashes */
+	search_args = mail_search_build_init();
+	mail_search_build_add_seqset(search_args, seq1, array_count_i(msg_map));
+	pop3_map_read_cached_hdr_hashes(t, search_args, msg_map);
+	/* read all the non-cached hashes. doing this in two passes allows
+	   us to set wanted_fields=MAIL_FETCH_STREAM_HEADER, which allows
+	   prefetching to work without downloading all the headers even
+	   for mails that already are cached. */
+	map_remove_found_seqs(search_args->args, msg_map, seq1);
+	ctx = mailbox_search_init(t, search_args, NULL,
+				  MAIL_FETCH_STREAM_HEADER, NULL);
+	mail_search_args_unref(&search_args);
+
+	while (mailbox_search_next(ctx, &mail)) {
+		map = array_idx_modifiable_i(msg_map, mail->seq-1);
+
+		if (get_hdr_sha1(mail, map->hdr_sha1) < 0)
+			ret = -1;
+		else
+			map->hdr_sha1_set = TRUE;
+	}
+
+	if (mailbox_search_deinit(&ctx) < 0) {
+		i_error("pop3_migration: Failed to search all mail headers: %s",
+			mailbox_get_last_error(box, NULL));
+		ret = -1;
+	}
+	(void)mailbox_transaction_commit(&t);
+	return ret;
+}
+
 static int
 pop3_map_read_hdr_hashes(struct mail_storage *storage, struct mailbox *pop3_box,
 			 unsigned first_seq)
 {
 	struct pop3_migration_mail_storage *mstorage =
 		POP3_MIGRATION_CONTEXT(storage);
-        struct mailbox_transaction_context *t;
-	struct mail_search_args *search_args;
-	struct mail_search_context *ctx;
-	struct mail *mail;
-	struct pop3_uidl_map *map;
-	buffer_t *cache_buf;
-	int ret = 0;
 
 	if (mstorage->pop3_all_hdr_sha1_set)
 		return 0;
@@ -421,34 +504,13 @@ pop3_map_read_hdr_hashes(struct mail_storage *storage, struct mailbox *pop3_box,
 		first_seq = 1;
 	}
 
-	t = mailbox_transaction_begin(pop3_box, 0);
-	search_args = mail_search_build_init();
-	mail_search_build_add_seqset(search_args, first_seq,
-				     array_count(&mstorage->pop3_uidl_map)+1);
-	ctx = mailbox_search_init(t, search_args, NULL,
-				  MAIL_FETCH_STREAM_HEADER, NULL);
-	mail_search_args_unref(&search_args);
-	cache_buf = buffer_create_dynamic(pool_datastack_create(), SHA1_RESULTLEN);
+	if (map_read_hdr_hashes(pop3_box, &mstorage->pop3_uidl_map.arr,
+				first_seq) < 0)
+		return -1;
 
-	while (mailbox_search_next(ctx, &mail)) {
-		map = array_idx_modifiable(&mstorage->pop3_uidl_map,
-					   mail->seq-1);
-
-		if (get_cached_hdr_sha1(mail, cache_buf, map->hdr_sha1) < 0)
-			ret = -1;
-		else
-			map->hdr_sha1_set = TRUE;
-	}
-
-	if (mailbox_search_deinit(&ctx) < 0) {
-		i_error("pop3_migration: Failed to search all POP3 mail hashes: %s",
-			mailbox_get_last_error(pop3_box, NULL));
-		ret = -1;
-	}
-	(void)mailbox_transaction_commit(&t);
-	if (ret == 0 && first_seq == 1)
+	if (first_seq == 1)
 		mstorage->pop3_all_hdr_sha1_set = TRUE;
-	return ret;
+	return 0;
 }
 
 static int imap_map_read(struct mailbox *box)
@@ -506,39 +568,9 @@ static int imap_map_read(struct mailbox *box)
 static int imap_map_read_hdr_hashes(struct mailbox *box)
 {
 	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT(box);
-        struct mailbox_transaction_context *t;
-	struct mail_search_args *search_args;
-	struct mail_search_context *ctx;
-	struct mail *mail;
-	struct imap_msg_map *map;
-	buffer_t *cache_buf;
-	int ret = 0;
 
-	t = mailbox_transaction_begin(box, 0);
-	search_args = mail_search_build_init();
-	mail_search_build_add_seqset(search_args, mbox->first_unfound_idx+1,
-				     array_count(&mbox->imap_msg_map)+1);
-	ctx = mailbox_search_init(t, search_args, NULL,
-				  MAIL_FETCH_STREAM_HEADER, NULL);
-	mail_search_args_unref(&search_args);
-	cache_buf = buffer_create_dynamic(pool_datastack_create(), SHA1_RESULTLEN);
-
-	while (mailbox_search_next(ctx, &mail)) {
-		map = array_idx_modifiable(&mbox->imap_msg_map, mail->seq-1);
-
-		if (get_cached_hdr_sha1(mail, cache_buf, map->hdr_sha1) < 0)
-			ret = -1;
-		else
-			map->hdr_sha1_set = TRUE;
-	}
-
-	if (mailbox_search_deinit(&ctx) < 0) {
-		i_error("pop3_migration: Failed to search all IMAP mail hashes: %s",
-			mailbox_get_last_error(box, NULL));
-		ret = -1;
-	}
-	(void)mailbox_transaction_commit(&t);
-	return ret;
+	return map_read_hdr_hashes(box, &mbox->imap_msg_map.arr,
+				   mbox->first_unfound_idx+1);
 }
 
 static bool pop3_uidl_assign_by_size(struct mailbox *box)
@@ -599,19 +631,19 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 
 	pop3_idx = imap_idx = 0;
 	while (pop3_idx < pop3_count && imap_idx < imap_count) {
-		if (!pop3_map[pop3_idx].hdr_sha1_set ||
+		if (!pop3_map[pop3_idx].common.hdr_sha1_set ||
 		    pop3_map[pop3_idx].imap_uid != 0) {
 			pop3_idx++;
 			continue;
 		}
-		if (!imap_map[imap_idx].hdr_sha1_set ||
+		if (!imap_map[imap_idx].common.hdr_sha1_set ||
 		    imap_map[imap_idx].pop3_uidl != NULL) {
 			imap_idx++;
 			continue;
 		}
-		ret = memcmp(pop3_map[pop3_idx].hdr_sha1,
-			     imap_map[imap_idx].hdr_sha1,
-			     sizeof(pop3_map[pop3_idx].hdr_sha1));
+		ret = memcmp(pop3_map[pop3_idx].common.hdr_sha1,
+			     imap_map[imap_idx].common.hdr_sha1,
+			     sizeof(pop3_map[pop3_idx].common.hdr_sha1));
 		if (ret < 0)
 			pop3_idx++;
 		else if (ret > 0)
