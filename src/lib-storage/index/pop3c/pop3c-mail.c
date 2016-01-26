@@ -9,6 +9,33 @@
 #include "pop3c-sync.h"
 #include "pop3c-storage.h"
 
+struct mail *
+pop3c_mail_alloc(struct mailbox_transaction_context *t,
+		 enum mail_fetch_field wanted_fields,
+		 struct mailbox_header_lookup_ctx *wanted_headers)
+{
+	struct pop3c_mail *mail;
+	pool_t pool;
+
+	pool = pool_alloconly_create("mail", 2048);
+	mail = p_new(pool, struct pop3c_mail, 1);
+	mail->imail.mail.pool = pool;
+
+	index_mail_init(&mail->imail, t, wanted_fields, wanted_headers);
+	return &mail->imail.mail.mail;
+}
+
+static void pop3c_mail_close(struct mail *_mail)
+{
+	struct pop3c_mail *pmail = (struct pop3c_mail *)_mail;
+	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
+
+	/* wait for any prefetch to finish before closing the mail */
+	while (pmail->prefetching)
+		pop3c_client_wait_one(mbox->client);
+	index_mail_close(_mail);
+}
+
 static int pop3c_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
@@ -100,16 +127,71 @@ static void pop3c_mail_cache_size(struct index_mail *mail)
 	}
 }
 
+static void pop3c_mail_prefetch_done(enum pop3c_command_state state,
+				     const char *reply, void *context)
+{
+	struct pop3c_mail *pmail = context;
+
+	switch (state) {
+	case POP3C_COMMAND_STATE_OK:
+		break;
+	case POP3C_COMMAND_STATE_ERR:
+	case POP3C_COMMAND_STATE_DISCONNECTED:
+		i_stream_unref(&pmail->imail.data.stream);
+		pmail->imail.data.stream =
+			i_stream_create_error_str(EIO, "%s failed: %s",
+				pmail->prefetching_body ? "RETR" : "TOP", reply);
+		break;
+	}
+	pmail->prefetching = FALSE;
+}
+
+static bool pop3c_mail_prefetch(struct mail *_mail)
+{
+	struct pop3c_mail *pmail = (struct pop3c_mail *)_mail;
+	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
+	enum pop3c_capability capa;
+	const char *cmd;
+
+	if (pmail->imail.data.access_part != 0 &&
+	    pmail->imail.data.stream == NULL) {
+		capa = pop3c_client_get_capabilities(mbox->client);
+		pmail->prefetching_body = (capa & POP3C_CAPABILITY_TOP) == 0 ||
+			(pmail->imail.data.access_part & (READ_BODY | PARSE_BODY)) != 0;
+		if (pmail->prefetching_body)
+			cmd = t_strdup_printf("RETR %u\r\n", _mail->seq);
+		else
+			cmd = t_strdup_printf("TOP %u 0\r\n", _mail->seq);
+
+		pmail->prefetching = TRUE;
+		pmail->imail.data.stream =
+			pop3c_client_cmd_stream_async(mbox->client, cmd,
+				pop3c_mail_prefetch_done, pmail);
+		i_stream_set_name(pmail->imail.data.stream, t_strcut(cmd, '\r'));
+		return !pmail->prefetching;
+	}
+	return index_mail_prefetch(_mail);
+}
+
 static int
 pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 		      struct message_size *hdr_size,
 		      struct message_size *body_size, struct istream **stream_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct pop3c_mail *pmail = (struct pop3c_mail *)_mail;
+	struct index_mail *mail = &pmail->imail;
 	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
 	enum pop3c_capability capa;
 	const char *name, *cmd, *error;
 	struct istream *input;
+
+	if ((mail->data.access_part & (READ_BODY | PARSE_BODY)) != 0)
+		get_body = TRUE;
+
+	while (pmail->prefetching) {
+		/* wait for prefetch to finish */
+		pop3c_client_wait_one(mbox->client);
+	}
 
 	if (get_body && mail->data.stream != NULL) {
 		name = i_stream_get_name(mail->data.stream);
@@ -179,12 +261,12 @@ pop3c_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 }
 
 struct mail_vfuncs pop3c_mail_vfuncs = {
-	index_mail_close,
+	pop3c_mail_close,
 	index_mail_free,
 	index_mail_set_seq,
 	index_mail_set_uid,
 	index_mail_set_uid_cache_updates,
-	index_mail_prefetch,
+	pop3c_mail_prefetch,
 	index_mail_precache,
 	index_mail_add_temp_wanted_fields,
 

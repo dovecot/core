@@ -344,7 +344,7 @@ struct mailbox pop3c_mailbox = {
 		index_transaction_commit,
 		index_transaction_rollback,
 		NULL,
-		index_mail_alloc,
+		pop3c_mail_alloc,
 		index_storage_search_init,
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,

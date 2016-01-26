@@ -29,6 +29,18 @@ struct pop3c_mailbox {
 	unsigned int logged_in:1;
 };
 
+struct pop3c_mail {
+	struct index_mail imail;
+
+	unsigned int prefetching:1;
+	unsigned int prefetching_body:1;
+};
+
+struct mail *
+pop3c_mail_alloc(struct mailbox_transaction_context *t,
+		 enum mail_fetch_field wanted_fields,
+		 struct mailbox_header_lookup_ctx *wanted_headers);
+
 extern struct mail_vfuncs pop3c_mail_vfuncs;
 
 #endif
