@@ -582,6 +582,9 @@ static bool pop3_uidl_assign_by_size(struct mailbox *box)
 	struct imap_msg_map *imap_map;
 	unsigned int i, pop3_count, imap_count, count;
 
+	if (mstorage->skip_size_check)
+		return FALSE;
+
 	pop3_map = array_get_modifiable(&mstorage->pop3_uidl_map, &pop3_count);
 	imap_map = array_get_modifiable(&mbox->imap_msg_map, &imap_count);
 	count = I_MIN(pop3_count, imap_count);
