@@ -558,6 +558,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 			timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
 			client_auth_parse_args(client, args, &reply);
+			reply.all_fields = args;
 			if (client_auth_handle_reply(client, &reply, TRUE))
 				break;
 		}
@@ -572,6 +573,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (args != NULL) {
 			client_auth_parse_args(client, args, &reply);
 			reply.nologin = TRUE;
+			reply.all_fields = args;
 			if (client_auth_handle_reply(client, &reply, FALSE))
 				break;
 		}

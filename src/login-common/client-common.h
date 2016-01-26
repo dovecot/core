@@ -65,6 +65,9 @@ struct client_auth_reply {
 	unsigned int proxy_refresh_secs;
 	enum login_proxy_ssl_flags ssl_flags;
 
+	/* all the key=value fields returned by passdb */
+	const char *const *all_fields;
+
 	unsigned int proxy:1;
 	unsigned int proxy_nopipelining:1;
 	unsigned int temp:1;
