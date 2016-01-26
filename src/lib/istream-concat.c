@@ -85,19 +85,10 @@ static void i_stream_concat_read_next(struct concat_istream *cstream)
 	cstream->istream.pos = data_size;
 }
 
-static ssize_t i_stream_concat_read(struct istream_private *stream)
+static void i_stream_concat_skip(struct concat_istream *cstream)
 {
-	struct concat_istream *cstream = (struct concat_istream *)stream;
-	const unsigned char *data;
-	size_t size, data_size, cur_data_pos, new_pos, bytes_skipped;
-	size_t new_bytes_count;
-	ssize_t ret;
-	bool last_stream;
-
-	if (cstream->cur_input == NULL) {
-		stream->istream.stream_errno = EINVAL;
-		return -1;
-	}
+	struct istream_private *stream = &cstream->istream;
+	size_t bytes_skipped;
 
 	i_assert(stream->skip >= cstream->prev_skip);
 	bytes_skipped = stream->skip - cstream->prev_skip;
@@ -118,6 +109,22 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	stream->buffer += bytes_skipped;
 	cstream->prev_skip = stream->skip;
 	i_stream_skip(cstream->cur_input, bytes_skipped);
+}
+
+static ssize_t i_stream_concat_read(struct istream_private *stream)
+{
+	struct concat_istream *cstream = (struct concat_istream *)stream;
+	const unsigned char *data;
+	size_t size, data_size, cur_data_pos, new_pos;
+	size_t new_bytes_count;
+	ssize_t ret;
+	bool last_stream;
+
+	if (cstream->cur_input == NULL) {
+		stream->istream.stream_errno = EINVAL;
+		return -1;
+	}
+	i_stream_concat_skip(cstream);
 
 	i_assert(stream->pos >= stream->skip + cstream->prev_stream_left);
 	cur_data_pos = stream->pos - (stream->skip + cstream->prev_stream_left);
