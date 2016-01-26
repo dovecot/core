@@ -57,8 +57,11 @@ static void test_istream_seekable_one(unsigned int buffer_size)
 			test_assert((char)data[j] == input_string[(input->v_offset + j) % STREAM_BYTES]);
 		}
 	}
-	for (i = 0; i < STREAM_COUNT; i++)
+	test_assert(i_stream_read(input) == -1);
+	for (i = 0; i < STREAM_COUNT; i++) {
+		test_assert(i_stream_is_eof(streams[i]));
 		i_stream_unref(&streams[i]);
+	}
 	i_stream_unref(&input);
 }
 
@@ -116,8 +119,10 @@ static void test_istream_seekable_random(void)
 		}
 		size = i_stream_get_data_size(input);
 	}
-	for (i = 0; i < stream_count; i++)
+	for (i = 0; i < stream_count; i++) {
+		test_assert(i_stream_is_eof(streams[i]));
 		i_stream_unref(&streams[i]);
+	}
 	i_stream_unref(&input);
 }
 
@@ -136,7 +141,6 @@ static void test_istream_seekable_eof(void)
 	streams[1] = NULL;
 
 	input = i_stream_create_seekable(streams, in_str_len, fd_callback, NULL);
-	i_stream_unref(&streams[0]);
 
 	test_assert(i_stream_read(input) == (ssize_t)in_str_len);
 	data = i_stream_get_data(input, &size);
@@ -147,8 +151,38 @@ static void test_istream_seekable_eof(void)
 	data = i_stream_get_data(input, &size);
 	test_assert(size == in_str_len);
 	test_assert(memcmp(data, in_str, in_str_len) == 0);
+	i_stream_seek(input, size);
 
 	i_stream_unref(&input);
+
+	test_assert(streams[0]->v_offset == in_str_len);
+	test_assert(streams[0]->eof);
+	i_stream_unref(&streams[0]);
+	test_end();
+}
+
+static void test_istream_seekable_early_end(void)
+{
+	struct istream *input, *streams[2];
+
+	test_begin("istream seekable early end");
+
+	streams[0] = test_istream_create("stream");
+	test_istream_set_size(streams[0], 3);
+	test_istream_set_allow_eof(streams[0], FALSE);
+	streams[0]->seekable = FALSE;
+	streams[1] = NULL;
+
+	input = i_stream_create_seekable(streams, 1000, fd_callback, NULL);
+	test_assert(i_stream_read(input) == 3);
+	test_istream_set_size(streams[0], 5);
+	test_assert(i_stream_read(input) == 2);
+	i_stream_skip(input, 5);
+	i_stream_unref(&input);
+
+	test_assert(streams[0]->v_offset == 5);
+	i_stream_unref(&streams[0]);
+
 	test_end();
 }
 
@@ -168,4 +202,5 @@ void test_istream_seekable(void)
 	test_end();
 
 	test_istream_seekable_eof();
+	test_istream_seekable_early_end();
 }
