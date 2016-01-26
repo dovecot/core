@@ -45,10 +45,14 @@ static void test_istream_concat_one(unsigned int buffer_size)
 			test_assert((char)data[j] == input_string[(input->v_offset + j) % STREAM_BYTES]);
 		}
 	}
+	test_assert(i_stream_read(input) == -1);
+	i_stream_skip(input, i_stream_get_data_size(input));
 	i_stream_unref(&input);
 
-	for (i = 0; i < STREAM_COUNT; i++)
+	for (i = 0; i < STREAM_COUNT; i++) {
+		test_assert(i_stream_is_eof(streams[i]));
 		i_stream_unref(&streams[i]);
+	}
 }
 
 static bool test_istream_concat_random(void)
@@ -113,6 +117,30 @@ static bool test_istream_concat_random(void)
 	return !test_has_failed();
 }
 
+static void test_istream_concat_early_end(void)
+{
+	struct istream *input, *streams[2];
+
+	test_begin("istream concat early end");
+
+	streams[0] = test_istream_create("stream");
+	test_istream_set_size(streams[0], 3);
+	test_istream_set_allow_eof(streams[0], FALSE);
+	streams[1] = NULL;
+
+	input = i_stream_create_concat(streams);
+	test_assert(i_stream_read(input) == 3);
+	test_istream_set_size(streams[0], 5);
+	test_assert(i_stream_read(input) == 2);
+	i_stream_skip(input, 5);
+	i_stream_unref(&input);
+
+	test_assert(streams[0]->v_offset == 5);
+	i_stream_unref(&streams[0]);
+
+	test_end();
+}
+
 void test_istream_concat(void)
 {
 	unsigned int i;
@@ -129,4 +157,6 @@ void test_istream_concat(void)
 			i = 101; /* don't break a T_BEGIN */
 	} T_END;
 	test_end();
+
+	test_istream_concat_early_end();
 }
