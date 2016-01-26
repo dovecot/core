@@ -176,7 +176,7 @@ static int pop3c_mailbox_open(struct mailbox *box)
 	mbox->client = pop3c_client_create_from_set(box->storage,
 						    mbox->storage->set);
 	pop3c_client_login(mbox->client, pop3c_login_callback, mbox);
-	pop3c_client_run(mbox->client);
+	pop3c_client_wait_one(mbox->client);
 	return mbox->logged_in ? 0 : -1;
 }
 

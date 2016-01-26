@@ -319,7 +319,7 @@ int pop3c_sync(struct pop3c_mailbox *mbox)
 
 			str_truncate(str, 0);
 			str_printfa(str, "DELE %u\r\n", idx+1);
-			pop3c_client_cmd_line_async(mbox->client, str_c(str));
+			pop3c_client_cmd_line_async_nocb(mbox->client, str_c(str));
 			deletions = TRUE;
 		}
 	}

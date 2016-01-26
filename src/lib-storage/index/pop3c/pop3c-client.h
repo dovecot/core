@@ -43,12 +43,12 @@ struct pop3c_client_settings {
 
 typedef void pop3c_login_callback_t(enum pop3c_command_state state,
 				    const char *reply, void *context);
+typedef void pop3c_cmd_callback_t(enum pop3c_command_state state,
+				  const char *reply, void *context);
 
 struct pop3c_client *
 pop3c_client_init(const struct pop3c_client_settings *set);
 void pop3c_client_deinit(struct pop3c_client **client);
-
-void pop3c_client_run(struct pop3c_client *client);
 
 void pop3c_client_login(struct pop3c_client *client,
 			pop3c_login_callback_t *callback, void *context);
@@ -59,13 +59,25 @@ pop3c_client_get_capabilities(struct pop3c_client *client);
 
 /* Returns 0 if received +OK reply, reply contains the text without the +OK.
    Returns -1 if received -ERR reply or disconnected. */
-int pop3c_client_cmd_line(struct pop3c_client *client, const char *cmd,
+int pop3c_client_cmd_line(struct pop3c_client *client, const char *cmdline,
 			  const char **reply_r);
+/* Start the command asynchronously. Call the callback when finished. */
+struct pop3c_client_cmd *
+pop3c_client_cmd_line_async(struct pop3c_client *client, const char *cmdline,
+			    pop3c_cmd_callback_t *callback, void *context);
 /* Send a command, don't care if it succeeds or not. */
-void pop3c_client_cmd_line_async(struct pop3c_client *client, const char *cmd);
+void pop3c_client_cmd_line_async_nocb(struct pop3c_client *client,
+				      const char *cmdline);
 /* Returns 0 and stream if succeeded, -1 and error if received -ERR reply or
    disconnected. */
-int pop3c_client_cmd_stream(struct pop3c_client *client, const char *cmd,
+int pop3c_client_cmd_stream(struct pop3c_client *client, const char *cmdline,
 			    struct istream **input_r, const char **error_r);
+/* Start the command asynchronously. Call the callback when finished. */
+struct istream *
+pop3c_client_cmd_stream_async(struct pop3c_client *client, const char *cmdline,
+			      pop3c_cmd_callback_t *callback, void *context);
+/* Wait for the next async command to finish. It's an error to call this when
+   there are no pending async commands. */
+void pop3c_client_wait_one(struct pop3c_client *client);
 
 #endif

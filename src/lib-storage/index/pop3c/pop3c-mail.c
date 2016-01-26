@@ -151,6 +151,9 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 		if (get_body)
 			pop3c_mail_cache_size(mail);
 	}
+	/* if this stream is used by some filter stream, make the
+	   filter stream blocking */
+	mail->data.stream->blocking = TRUE;
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);
 }
 

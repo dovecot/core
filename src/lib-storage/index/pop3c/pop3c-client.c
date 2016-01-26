@@ -1,9 +1,11 @@
 /* Copyright (c) 2011-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "ioloop.h"
 #include "net.h"
 #include "istream.h"
+#include "istream-chain.h"
 #include "istream-dot.h"
 #include "istream-seekable.h"
 #include "ostream.h"
@@ -38,6 +40,20 @@ enum pop3c_client_state {
 	POP3C_CLIENT_STATE_DONE
 };
 
+struct pop3c_client_sync_cmd_ctx {
+	enum pop3c_command_state state;
+	char *reply;
+};
+
+struct pop3c_client_cmd {
+	struct istream *input;
+	struct istream_chain *chain;
+	bool reading_dot;
+
+	pop3c_cmd_callback_t *callback;
+	void *context;
+};
+
 struct pop3c_client {
 	pool_t pool;
 	struct pop3c_client_settings set;
@@ -59,7 +75,7 @@ struct pop3c_client {
 	pop3c_login_callback_t *login_callback;
 	void *login_context;
 
-	unsigned int async_commands;
+	ARRAY(struct pop3c_client_cmd) commands;
 	const char *input_line;
 	struct istream *dot_input;
 
@@ -71,6 +87,7 @@ pop3c_dns_callback(const struct dns_lookup_result *result,
 		   struct pop3c_client *client);
 static void pop3c_client_connect_ip(struct pop3c_client *client);
 static int pop3c_client_ssl_init(struct pop3c_client *client);
+static void pop3c_client_input(struct pop3c_client *client);
 
 struct pop3c_client *
 pop3c_client_init(const struct pop3c_client_settings *set)
@@ -84,6 +101,7 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 	client = p_new(pool, struct pop3c_client, 1);
 	client->pool = pool;
 	client->fd = -1;
+	p_array_init(&client->commands, pool, 16);
 
 	client->set.debug = set->debug;
 	client->set.host = p_strdup(pool, set->host);
@@ -131,10 +149,50 @@ client_login_callback(struct pop3c_client *client,
 	}
 }
 
+static void
+pop3c_client_async_callback(struct pop3c_client *client,
+			    enum pop3c_command_state state, const char *reply)
+{
+	struct pop3c_client_cmd *cmd, cmd_copy;
+	bool running = client->running;
+
+	i_assert(reply != NULL);
+	i_assert(array_count(&client->commands) > 0);
+
+	cmd = array_idx_modifiable(&client->commands, 0);
+	if (cmd->input != NULL && state == POP3C_COMMAND_STATE_OK &&
+	    !cmd->reading_dot) {
+		/* read the full input into seekable-istream before calling
+		   the callback */
+		i_assert(client->dot_input == NULL);
+		i_stream_chain_append(cmd->chain, client->input);
+		client->dot_input = cmd->input;
+		cmd->reading_dot = TRUE;
+		return;
+	}
+	cmd_copy = *cmd;
+	array_delete(&client->commands, 0, 1);
+
+	if (cmd_copy.input != NULL) {
+		i_stream_seek(cmd_copy.input, 0);
+		i_stream_unref(&cmd_copy.input);
+	}
+	if (cmd_copy.callback != NULL)
+		cmd_copy.callback(state, reply, cmd_copy.context);
+	if (running)
+		io_loop_stop(current_ioloop);
+}
+
+static void
+pop3c_client_async_callback_disconnected(struct pop3c_client *client)
+{
+	pop3c_client_async_callback(client, POP3C_COMMAND_STATE_DISCONNECTED,
+				    "Disconnected");
+}
+
 static void pop3c_client_disconnect(struct pop3c_client *client)
 {
 	client->state = POP3C_CLIENT_STATE_DISCONNECTED;
-	client->async_commands = 0;
 
 	if (client->running)
 		io_loop_stop(current_ioloop);
@@ -156,6 +214,8 @@ static void pop3c_client_disconnect(struct pop3c_client *client)
 			i_error("close(pop3c) failed: %m");
 		client->fd = -1;
 	}
+	while (array_count(&client->commands) > 0)
+		pop3c_client_async_callback_disconnected(client);
 	client_login_callback(client, POP3C_COMMAND_STATE_DISCONNECTED,
 			      "Disconnected");
 }
@@ -233,12 +293,20 @@ static int pop3c_client_dns_lookup(struct pop3c_client *client)
 	return 0;
 }
 
-void pop3c_client_run(struct pop3c_client *client)
+void pop3c_client_wait_one(struct pop3c_client *client)
 {
 	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
 	bool timeout_added = FALSE, failed = FALSE;
 
+	if (client->state == POP3C_CLIENT_STATE_DISCONNECTED &&
+	    array_count(&client->commands) > 0) {
+		while (array_count(&client->commands) > 0)
+			pop3c_client_async_callback_disconnected(client);
+	}
+
 	i_assert(client->fd != -1 ||
+		 client->state == POP3C_CLIENT_STATE_CONNECTING);
+	i_assert(array_count(&client->commands) > 0 ||
 		 client->state == POP3C_CLIENT_STATE_CONNECTING);
 
 	ioloop = io_loop_create();
@@ -328,6 +396,8 @@ pop3c_client_get_sasl_plain_request(struct pop3c_client *client)
 static void pop3c_client_login_finished(struct pop3c_client *client)
 {
 	io_remove(&client->io);
+	client->io = io_add(client->fd, IO_READ, pop3c_client_input, client);
+
 	timeout_remove(&client->to);
 	client->state = POP3C_CLIENT_STATE_DONE;
 
@@ -635,110 +705,139 @@ pop3c_client_get_capabilities(struct pop3c_client *client)
 	return client->capabilities;
 }
 
-static void pop3c_client_input_reply(struct pop3c_client *client)
+static int pop3c_client_dot_input(struct pop3c_client *client)
 {
-	i_assert(client->state == POP3C_CLIENT_STATE_DONE);
+	ssize_t ret;
+
+	while ((ret = i_stream_read(client->dot_input)) > 0 || ret == -2) {
+		i_stream_skip(client->dot_input,
+			      i_stream_get_data_size(client->dot_input));
+	}
+	if (ret == 0)
+		return 0;
+	i_assert(ret == -1);
+
+	if (client->dot_input->stream_errno == 0)
+		ret = 1;
+	client->dot_input = NULL;
+
+	if (ret > 0) {
+		/* currently we don't actually care about preserving the
+		   +OK reply line for multi-line replies, so just return
+		   it as empty */
+		pop3c_client_async_callback(client, POP3C_COMMAND_STATE_OK, "");
+		return 1;
+	} else {
+		pop3c_client_async_callback_disconnected(client);
+		return -1;
+	}
+}
+
+static int
+pop3c_client_input_next_reply(struct pop3c_client *client)
+{
+	const char *line;
+	enum pop3c_client_state state;
+
+	line = i_stream_read_next_line(client->input);
+	if (line == NULL)
+		return client->input->eof ? -1 : 0;
+
+	if (strncasecmp(line, "+OK", 3) == 0) {
+		line += 3;
+		state = POP3C_COMMAND_STATE_OK;
+	} else if (strncasecmp(line, "-ERR", 4) == 0) {
+		line += 4;
+		state = POP3C_COMMAND_STATE_ERR;
+	} else {
+		i_error("pop3c(%s): Server sent unrecognized line: %s",
+			client->set.host, line);
+		state = POP3C_COMMAND_STATE_ERR;
+	}
+	if (line[0] == ' ')
+		line++;
+	if (array_count(&client->commands) == 0) {
+		i_error("pop3c(%s): Server sent line when no command was running: %s",
+			client->set.host, line);
+	} else {
+		pop3c_client_async_callback(client, state, line);
+	}
+	return 1;
+}
+
+static void pop3c_client_input(struct pop3c_client *client)
+{
+	int ret;
 
 	if (client->to != NULL)
 		timeout_reset(client->to);
-	client->input_line = i_stream_read_next_line(client->input);
-	if (client->input_line != NULL)
-		io_loop_stop(current_ioloop);
-	else if (client->input->closed || client->input->eof ||
-		 client->input->stream_errno != 0) {
-		/* disconnected */
+	do {
+		if (client->dot_input != NULL) {
+			/* continue reading the current multiline reply */
+			if ((ret = pop3c_client_dot_input(client)) == 0)
+				return;
+		} else {
+			ret = pop3c_client_input_next_reply(client);
+		}
+	} while (ret > 0);
+
+	if (ret < 0) {
 		i_error("pop3c(%s): Server disconnected unexpectedly",
 			client->set.host);
 		pop3c_client_disconnect(client);
-		io_loop_stop(current_ioloop);
 	}
 }
 
-static int
-pop3c_client_read_line(struct pop3c_client *client,
-		       const char **line_r, const char **error_r)
+static void pop3c_client_cmd_reply(enum pop3c_command_state state,
+				   const char *reply, void *context)
 {
-	i_assert(client->io == NULL);
-	i_assert(client->input_line == NULL);
+	struct pop3c_client_sync_cmd_ctx *ctx = context;
 
-	client->io = io_add(client->fd, IO_READ,
-			    pop3c_client_input_reply, client);
-	pop3c_client_input_reply(client);
-	if (client->input_line == NULL && client->input != NULL)
-		pop3c_client_run(client);
+	i_assert(ctx->reply == NULL);
 
-	if (client->input_line == NULL) {
-		i_assert(client->io == NULL);
-		*error_r = "Disconnected";
-		return -1;
-	}
-
-	io_remove(&client->io);
-	*line_r = t_strdup(client->input_line);
-	client->input_line = NULL;
-	return 0;
+	ctx->state = state;
+	ctx->reply = i_strdup(reply);
 }
 
-static int
-pop3c_client_flush_asyncs(struct pop3c_client *client, const char **error_r)
-{
-	const char *line;
-
-	if (client->state != POP3C_CLIENT_STATE_DONE) {
-		i_assert(client->state == POP3C_CLIENT_STATE_DISCONNECTED);
-		*error_r = "Disconnected";
-		return -1;
-	}
-
-	while (client->async_commands > 0) {
-		if (pop3c_client_read_line(client, &line, error_r) < 0)
-			return -1;
-		client->async_commands--;
-	}
-	return 0;
-}
-
-int pop3c_client_cmd_line(struct pop3c_client *client, const char *cmd,
+int pop3c_client_cmd_line(struct pop3c_client *client, const char *cmdline,
 			  const char **reply_r)
 {
-	const char *line;
-	int ret;
+	struct pop3c_client_sync_cmd_ctx ctx;
 
-	if (pop3c_client_flush_asyncs(client, reply_r) < 0)
-		return -1;
-	o_stream_nsend_str(client->output, cmd);
-	if (pop3c_client_read_line(client, &line, reply_r) < 0)
-		return -1;
-	if (strncasecmp(line, "+OK", 3) == 0) {
-		*reply_r = line + 3;
-		ret = 0;
-	} else if (strncasecmp(line, "-ERR", 4) == 0) {
-		*reply_r = line + 4;
-		ret = -1;
-	} else {
-		*reply_r = line;
-		ret = -1;
-	}
-	if (**reply_r == ' ')
-		*reply_r += 1;
-	return ret;
+	memset(&ctx, 0, sizeof(ctx));
+	pop3c_client_cmd_line_async(client, cmdline, pop3c_client_cmd_reply, &ctx);
+	while (ctx.reply == NULL)
+		pop3c_client_wait_one(client);
+	*reply_r = t_strdup(ctx.reply);
+	i_free(ctx.reply);
+	return ctx.state == POP3C_COMMAND_STATE_OK ? 0 : -1;
 }
 
-void pop3c_client_cmd_line_async(struct pop3c_client *client, const char *cmd)
+struct pop3c_client_cmd *
+pop3c_client_cmd_line_async(struct pop3c_client *client, const char *cmdline,
+			    pop3c_cmd_callback_t *callback, void *context)
 {
-	const char *error;
-
-	if (client->state != POP3C_CLIENT_STATE_DONE) {
-		i_assert(client->state == POP3C_CLIENT_STATE_DISCONNECTED);
-		return;
-	}
+	struct pop3c_client_cmd *cmd;
 
 	if ((client->capabilities & POP3C_CAPABILITY_PIPELINING) == 0) {
-		if (pop3c_client_flush_asyncs(client, &error) < 0)
-			return;
+		while (array_count(&client->commands) > 0)
+			pop3c_client_wait_one(client);
 	}
-	o_stream_nsend_str(client->output, cmd);
-	client->async_commands++;
+	i_assert(client->state == POP3C_CLIENT_STATE_DISCONNECTED ||
+		 client->state == POP3C_CLIENT_STATE_DONE);
+	if (client->state == POP3C_CLIENT_STATE_DONE)
+		o_stream_nsend_str(client->output, cmdline);
+
+	cmd = array_append_space(&client->commands);
+	cmd->callback = callback;
+	cmd->context = context;
+	return cmd;
+}
+
+void pop3c_client_cmd_line_async_nocb(struct pop3c_client *client,
+				      const char *cmdline)
+{
+	pop3c_client_cmd_line_async(client, cmdline, NULL, NULL);
 }
 
 static int seekable_fd_callback(const char **path_r, void *context)
@@ -766,67 +865,44 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	return fd;
 }
 
-static void pop3c_client_dot_input(struct pop3c_client *client)
-{
-	ssize_t ret;
-
-	if (client->to != NULL)
-		timeout_reset(client->to);
-	while ((ret = i_stream_read(client->dot_input)) > 0 || ret == -2) {
-		i_stream_skip(client->dot_input,
-			      i_stream_get_data_size(client->dot_input));
-	}
-	if (ret != 0) {
-		i_assert(ret == -1);
-		if (client->dot_input->stream_errno != 0) {
-			i_error("pop3c(%s): Server disconnected unexpectedly",
-				client->set.host);
-			pop3c_client_disconnect(client);
-		}
-		if (client->running)
-			io_loop_stop(current_ioloop);
-	}
-}
-
-int pop3c_client_cmd_stream(struct pop3c_client *client, const char *cmd,
+int pop3c_client_cmd_stream(struct pop3c_client *client, const char *cmdline,
 			    struct istream **input_r, const char **error_r)
 {
-	struct istream *inputs[2];
+	struct pop3c_client_sync_cmd_ctx ctx;
+	const char *reply;
 
-	*input_r = NULL;
+	memset(&ctx, 0, sizeof(ctx));
+	*input_r = pop3c_client_cmd_stream_async(client, cmdline,
+						 pop3c_client_cmd_reply, &ctx);
+	while (ctx.reply == NULL)
+		pop3c_client_wait_one(client);
+	reply = t_strdup(ctx.reply);
+	i_free(ctx.reply);
 
-	/* read the +OK / -ERR */
-	if (pop3c_client_cmd_line(client, cmd, error_r) < 0)
-		return -1;
-	/* read the stream */
-	inputs[0] = i_stream_create_dot(client->input, TRUE);
+	if (ctx.state == POP3C_COMMAND_STATE_OK)
+		return 0;
+	i_stream_unref(input_r);
+	*error_r = reply;
+	return -1;
+}
+
+struct istream *
+pop3c_client_cmd_stream_async(struct pop3c_client *client, const char *cmdline,
+			      pop3c_cmd_callback_t *callback, void *context)
+{
+	struct istream *input, *inputs[2];
+	struct pop3c_client_cmd *cmd;
+
+	cmd = pop3c_client_cmd_line_async(client, cmdline, callback, context);
+
+	input = i_stream_create_chain(&cmd->chain);
+	inputs[0] = i_stream_create_dot(input, TRUE);
 	inputs[1] = NULL;
-	client->dot_input =
-		i_stream_create_seekable(inputs, POP3C_MAX_INBUF_SIZE,
-					 seekable_fd_callback, client);
+	cmd->input = i_stream_create_seekable(inputs, POP3C_MAX_INBUF_SIZE,
+					      seekable_fd_callback, client);
+	i_stream_unref(&input);
 	i_stream_unref(&inputs[0]);
 
-	i_assert(client->io == NULL);
-	client->io = io_add(client->fd, IO_READ,
-			    pop3c_client_dot_input, client);
-	/* read any pending data from the stream */
-	pop3c_client_dot_input(client);
-	if (!client->dot_input->eof)
-		pop3c_client_run(client);
-
-	if (client->input == NULL) {
-		i_assert(client->io == NULL);
-		i_stream_destroy(&client->dot_input);
-		*error_r = "Disconnected";
-		return -1;
-	}
-	io_remove(&client->io);
-	i_stream_seek(client->dot_input, 0);
-	/* if this stream is used by some filter stream, make the filter
-	   stream blocking */
-	client->dot_input->blocking = TRUE;
-
-	*input_r = client->dot_input;
-	client->dot_input = NULL;
-	return 0;
+	i_stream_ref(cmd->input);
+	return cmd->input;
 }
