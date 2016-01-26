@@ -476,10 +476,11 @@ map_read_hdr_hashes(struct mailbox *box, struct array *msg_map, uint32_t seq1)
 	while (mailbox_search_next(ctx, &mail)) {
 		map = array_idx_modifiable_i(msg_map, mail->seq-1);
 
-		if (get_hdr_sha1(mail, map->hdr_sha1) < 0)
+		if (get_hdr_sha1(mail, map->hdr_sha1) < 0) {
 			ret = -1;
-		else
-			map->hdr_sha1_set = TRUE;
+			break;
+		}
+		map->hdr_sha1_set = TRUE;
 	}
 
 	if (mailbox_search_deinit(&ctx) < 0) {
