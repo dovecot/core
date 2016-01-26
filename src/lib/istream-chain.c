@@ -153,19 +153,11 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 	i_stream_unref(&prev_input);
 }
 
-static ssize_t i_stream_chain_read(struct istream_private *stream)
+static bool i_stream_chain_skip(struct chain_istream *cstream)
 {
-	struct chain_istream *cstream = (struct chain_istream *)stream;
+	struct istream_private *stream = &cstream->istream;
 	struct istream_chain_link *link = cstream->chain.head;
-	const unsigned char *data;
-	size_t size, data_size, cur_data_pos, new_pos, bytes_skipped;
-	size_t new_bytes_count;
-	ssize_t ret;
-
-	if (link != NULL && link->eof) {
-		stream->istream.eof = TRUE;
-		return -1;
-	}
+	size_t bytes_skipped;
 
 	i_assert(stream->skip >= cstream->prev_skip);
 	bytes_skipped = stream->skip - cstream->prev_skip;
@@ -185,12 +177,30 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 	stream->skip -= bytes_skipped;
 	stream->buffer += bytes_skipped;
 	cstream->prev_skip = stream->skip;
-
-	if (link == NULL) {
+	if (link == NULL || link->eof) {
 		i_assert(bytes_skipped == 0);
-		return 0;
+		return FALSE;
 	}
 	i_stream_skip(link->stream, bytes_skipped);
+	return TRUE;
+}
+
+static ssize_t i_stream_chain_read(struct istream_private *stream)
+{
+	struct chain_istream *cstream = (struct chain_istream *)stream;
+	struct istream_chain_link *link = cstream->chain.head;
+	const unsigned char *data;
+	size_t size, data_size, cur_data_pos, new_pos;
+	size_t new_bytes_count;
+	ssize_t ret;
+
+	if (link != NULL && link->eof) {
+		stream->istream.eof = TRUE;
+		return -1;
+	}
+
+	if (!i_stream_chain_skip(cstream))
+		return 0;
 
 	i_assert(stream->pos >= stream->skip + cstream->prev_stream_left);
 	cur_data_pos = stream->pos - (stream->skip + cstream->prev_stream_left);
@@ -260,6 +270,24 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 	return ret;
 }
 
+static void i_stream_chain_close(struct iostream_private *stream,
+				 bool close_parent)
+{
+	struct chain_istream *cstream = (struct chain_istream *)stream;
+
+	/* seek to the correct position in parent stream in case it didn't
+	   end with EOF */
+	(void)i_stream_chain_skip(cstream);
+
+	if (close_parent) {
+		struct istream_chain_link *link = cstream->chain.head;
+		while (link != NULL) {
+			i_stream_close(link->stream);
+			link = link->next;
+		}
+	}
+}
+
 struct istream *i_stream_create_chain(struct istream_chain **chain_r)
 {
 	struct chain_istream *cstream;
@@ -268,6 +296,7 @@ struct istream *i_stream_create_chain(struct istream_chain **chain_r)
 	cstream->chain.stream = cstream;
 	cstream->istream.max_buffer_size = 256;
 
+	cstream->istream.iostream.close = i_stream_chain_close;
 	cstream->istream.iostream.destroy = i_stream_chain_destroy;
 	cstream->istream.iostream.set_max_buffer_size =
 		i_stream_chain_set_max_buffer_size;

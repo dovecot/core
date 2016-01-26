@@ -25,6 +25,7 @@ int main(void)
 		test_istream,
 		test_istream_base64_decoder,
 		test_istream_base64_encoder,
+		test_istream_chain,
 		test_istream_concat,
 		test_istream_crlf,
 		test_istream_failure_at,

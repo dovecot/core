@@ -26,6 +26,7 @@ void test_iso8601_date(void);
 void test_istream(void);
 void test_istream_base64_decoder(void);
 void test_istream_base64_encoder(void);
+void test_istream_chain(void);
 void test_istream_concat(void);
 void test_istream_crlf(void);
 void test_istream_failure_at(void);

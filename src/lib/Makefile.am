@@ -312,6 +312,7 @@ test_lib_SOURCES = \
 	test-istream.c \
 	test-istream-base64-decoder.c \
 	test-istream-base64-encoder.c \
+	test-istream-chain.c \
 	test-istream-concat.c \
 	test-istream-crlf.c \
 	test-istream-failure-at.c \
