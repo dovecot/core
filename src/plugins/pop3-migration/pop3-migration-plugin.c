@@ -210,7 +210,7 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 		*/
 		for (i = start = 0; i < size; i++) {
 			if ((data[i] < 0x20 || data[i] >= 0x80) &&
-			    data[i] != '\n') {
+			    (data[i] != '\t' && data[i] != '\n')) {
 				sha1_loop(&sha1_ctx, data + start, i-start);
 				sha1_loop(&sha1_ctx, "?", 1);
 				start = i+1;
