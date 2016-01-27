@@ -33,6 +33,8 @@ static void pop3c_mail_close(struct mail *_mail)
 	/* wait for any prefetch to finish before closing the mail */
 	while (pmail->prefetching)
 		pop3c_client_wait_one(mbox->client);
+	if (pmail->prefetch_stream != NULL)
+		i_stream_unref(&pmail->prefetch_stream);
 	index_mail_close(_mail);
 }
 
@@ -131,16 +133,20 @@ static void pop3c_mail_prefetch_done(enum pop3c_command_state state,
 				     const char *reply, void *context)
 {
 	struct pop3c_mail *pmail = context;
+	struct mail *_mail = &pmail->imail.mail.mail;
+	const char *cmd;
 
 	switch (state) {
 	case POP3C_COMMAND_STATE_OK:
 		break;
 	case POP3C_COMMAND_STATE_ERR:
 	case POP3C_COMMAND_STATE_DISCONNECTED:
-		i_stream_unref(&pmail->imail.data.stream);
-		pmail->imail.data.stream =
-			i_stream_create_error_str(EIO, "%s failed: %s",
-				pmail->prefetching_body ? "RETR" : "TOP", reply);
+		cmd = pmail->prefetching_body ? "RETR" : "TOP";
+		i_stream_unref(&pmail->prefetch_stream);
+		pmail->prefetch_stream =
+			i_stream_create_error_str(EIO, "%s %u failed: %s",
+				cmd, _mail->seq, reply);
+		i_stream_set_name(pmail->prefetch_stream, cmd);
 		break;
 	}
 	pmail->prefetching = FALSE;
@@ -164,10 +170,10 @@ static bool pop3c_mail_prefetch(struct mail *_mail)
 			cmd = t_strdup_printf("TOP %u 0\r\n", _mail->seq);
 
 		pmail->prefetching = TRUE;
-		pmail->imail.data.stream =
+		pmail->prefetch_stream =
 			pop3c_client_cmd_stream_async(mbox->client, cmd,
 				pop3c_mail_prefetch_done, pmail);
-		i_stream_set_name(pmail->imail.data.stream, t_strcut(cmd, '\r'));
+		i_stream_set_name(pmail->prefetch_stream, t_strcut(cmd, '\r'));
 		return !pmail->prefetching;
 	}
 	return index_mail_prefetch(_mail);
@@ -191,6 +197,11 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 	while (pmail->prefetching) {
 		/* wait for prefetch to finish */
 		pop3c_client_wait_one(mbox->client);
+	}
+
+	if (pmail->prefetch_stream != NULL && mail->data.stream == NULL) {
+		mail->data.stream = pmail->prefetch_stream;
+		pmail->prefetch_stream = NULL;
 	}
 
 	if (get_body && mail->data.stream != NULL) {

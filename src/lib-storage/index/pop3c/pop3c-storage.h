@@ -31,6 +31,7 @@ struct pop3c_mailbox {
 
 struct pop3c_mail {
 	struct index_mail imail;
+	struct istream *prefetch_stream;
 
 	unsigned int prefetching:1;
 	unsigned int prefetching_body:1;
