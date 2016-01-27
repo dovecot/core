@@ -20,6 +20,7 @@ struct imapc_mail {
 	bool header_fetched;
 	bool body_fetched;
 	bool header_list_fetched;
+	bool fetch_ignore_if_missing;
 	bool fetch_failed;
 };
 

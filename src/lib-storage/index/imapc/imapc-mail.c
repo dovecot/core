@@ -61,6 +61,7 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 
 static int imapc_mail_failed(struct mail *mail, const char *field)
 {
+	struct imapc_mail *imail = (struct imapc_mail *)mail;
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)mail->box;
 	bool fix_broken_mail = FALSE;
 
@@ -81,7 +82,7 @@ static int imapc_mail_failed(struct mail *mail, const char *field)
 		   versions failed to return any data for messages in Calendars
 		   mailbox. This seems to be fixed in newer versions.
 		   */
-		fix_broken_mail = IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_FIX_BROKEN_MAILS);
+		fix_broken_mail = imail->fetch_ignore_if_missing;
 		mail_storage_set_critical(mail->box->storage,
 			"imapc: Remote server didn't send %s for UID %u in %s%s",
 			field, mail->uid, mail->box->vname,

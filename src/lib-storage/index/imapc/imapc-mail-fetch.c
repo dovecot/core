@@ -10,9 +10,40 @@
 #include "imap-arg.h"
 #include "imap-date.h"
 #include "imap-quote.h"
+#include "imap-resp-code.h"
 #include "imapc-client.h"
 #include "imapc-mail.h"
 #include "imapc-storage.h"
+
+static void imapc_mail_set_failure(struct imapc_mail *mail,
+				   const struct imapc_command_reply *reply)
+{
+	struct imapc_mailbox *mbox =
+		(struct imapc_mailbox *)mail->imail.mail.mail.box;
+
+	switch (reply->state) {
+	case IMAPC_COMMAND_STATE_OK:
+		break;
+	case IMAPC_COMMAND_STATE_NO:
+		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_FIX_BROKEN_MAILS)) {
+			/* fetch-fix-broken-mails feature disabled -
+			   fail any mails with missing replies */
+			break;
+		}
+		if (reply->resp_text_key != NULL &&
+		    strcasecmp(reply->resp_text_key, IMAP_RESP_CODE_SERVERBUG) == 0) {
+			/* this is a temporary error, retrying should work. */
+		} else {
+			/* hopefully this is a permanent failure */
+			mail->fetch_ignore_if_missing = TRUE;
+		}
+		break;
+	case IMAPC_COMMAND_STATE_BAD:
+	case IMAPC_COMMAND_STATE_DISCONNECTED:
+		mail->fetch_failed = TRUE;
+		break;
+	}
+}
 
 static void
 imapc_mail_fetch_callback(const struct imapc_command_reply *reply,
@@ -28,9 +59,7 @@ imapc_mail_fetch_callback(const struct imapc_command_reply *reply,
 		struct imapc_mail *mail = *mailp;
 
 		i_assert(mail->fetch_count > 0);
-		if (reply->state != IMAPC_COMMAND_STATE_OK &&
-		    reply->state != IMAPC_COMMAND_STATE_NO)
-			mail->fetch_failed = TRUE;
+		imapc_mail_set_failure(mail, reply);
 		if (--mail->fetch_count == 0)
 			mail->fetching_fields = 0;
 		pool_unref(&mail->imail.mail.pool);
