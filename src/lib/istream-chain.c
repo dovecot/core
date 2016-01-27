@@ -201,6 +201,7 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 
 	if (!i_stream_chain_skip(cstream))
 		return 0;
+	i_assert(link != NULL);
 
 	i_assert(stream->pos >= stream->skip + cstream->prev_stream_left);
 	cur_data_pos = stream->pos - (stream->skip + cstream->prev_stream_left);
