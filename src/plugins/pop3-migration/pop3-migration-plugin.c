@@ -706,9 +706,6 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 	unsigned int i, count;
 	uint32_t prev_uid;
 
-	if (mbox->uidl_synced)
-		return 0;
-
 	pop3_box = pop3_mailbox_alloc(box->storage);
 	/* the POP3 server isn't connected to yet. handle all IMAP traffic
 	   first before connecting, so POP3 server won't disconnect us due to
@@ -748,6 +745,23 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 	return 0;
 }
 
+static int pop3_migration_uidl_sync_if_needed(struct mailbox *box)
+{
+	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT(box);
+
+	if (mbox->uidl_synced)
+		return 0;
+
+	if (mbox->uidl_sync_failed ||
+	    pop3_migration_uidl_sync(box) < 0) {
+		mbox->uidl_sync_failed = TRUE;
+		mail_storage_set_error(box->storage, MAIL_ERROR_TEMP,
+				       "POP3 UIDLs couldn't be synced");
+		return -1;
+	}
+	return 0;
+}
+
 static int
 pop3_migration_get_special(struct mail *_mail, enum mail_fetch_field field,
 			   const char **value_r)
@@ -759,14 +773,8 @@ pop3_migration_get_special(struct mail *_mail, enum mail_fetch_field field,
 
 	if (field == MAIL_FETCH_UIDL_BACKEND ||
 	    field == MAIL_FETCH_POP3_ORDER) {
-		if (mbox->uidl_sync_failed ||
-		    pop3_migration_uidl_sync(_mail->box) < 0) {
-			mbox->uidl_sync_failed = TRUE;
-			mail_storage_set_error(_mail->box->storage,
-					       MAIL_ERROR_TEMP,
-					       "POP3 UIDLs couldn't be synced");
+		if (pop3_migration_uidl_sync_if_needed(_mail->box) < 0)
 			return -1;
-		}
 
 		memset(&map_key, 0, sizeof(map_key));
 		map_key.uid = _mail->uid;
@@ -814,6 +822,29 @@ static void pop3_migration_mail_allocated(struct mail *_mail)
 	MODULE_CONTEXT_SET_SELF(mail, pop3_migration_mail_module, mmail);
 }
 
+static struct mail_search_context *
+pop3_migration_mailbox_search_init(struct mailbox_transaction_context *t,
+				   struct mail_search_args *args,
+				   const enum mail_sort_type *sort_program,
+				   enum mail_fetch_field wanted_fields,
+				   struct mailbox_header_lookup_ctx *wanted_headers)
+{
+	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT(t->box);
+
+	if ((wanted_fields & (MAIL_FETCH_UIDL_BACKEND |
+			      MAIL_FETCH_POP3_ORDER)) != 0) {
+		/* Start POP3 UIDL syncing before the search, so we'll do it
+		   before we start sending any FETCH BODY[]s to IMAP. It
+		   shouldn't matter much, except this works around a bug in
+		   Yahoo IMAP where it sometimes breaks its state when doing
+		   a FETCH BODY[] followed by FETCH BODY[HEADER].. */
+		(void)pop3_migration_uidl_sync_if_needed(t->box);
+	}
+
+	return mbox->module_ctx.super.search_init(t, args, sort_program,
+						  wanted_fields, wanted_headers);
+}
+
 static void pop3_migration_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
@@ -822,6 +853,8 @@ static void pop3_migration_mailbox_allocated(struct mailbox *box)
 	mbox = p_new(box->pool, struct pop3_migration_mailbox, 1);
 	mbox->module_ctx.super = *v;
 	box->vlast = &mbox->module_ctx.super;
+
+	v->search_init = pop3_migration_mailbox_search_init;
 
 	MODULE_CONTEXT_SET(box, pop3_migration_storage_module, mbox);
 }
