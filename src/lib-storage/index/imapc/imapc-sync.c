@@ -12,16 +12,23 @@
 #include "imapc-storage.h"
 #include "imapc-sync.h"
 
+struct imapc_sync_command {
+	struct imapc_sync_context *ctx;
+	char *cmd_str;
+	bool ignore_no;
+};
+
 static void imapc_sync_callback(const struct imapc_command_reply *reply,
 				void *context)
 {
-	struct imapc_sync_context *ctx = context;
+	struct imapc_sync_command *cmd = context;
+	struct imapc_sync_context *ctx = cmd->ctx;
 
 	i_assert(ctx->sync_command_count > 0);
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK)
 		;
-	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
+	else if (reply->state == IMAPC_COMMAND_STATE_NO && cmd->ignore_no) {
 		/* maybe the message was expunged already.
 		   some servers fail STOREs with NO in such situation. */
 	} else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED) {
@@ -31,25 +38,47 @@ static void imapc_sync_callback(const struct imapc_command_reply *reply,
 		ctx->failed = TRUE;
 	} else {
 		mail_storage_set_critical(&ctx->mbox->storage->storage,
-			"imapc: Sync command failed: %s", reply->text_full);
+					  "imapc: Sync command '%s' failed: %s",
+					  cmd->cmd_str, reply->text_full);
 		ctx->failed = TRUE;
 	}
 	
 	if (--ctx->sync_command_count == 0)
 		imapc_client_stop(ctx->mbox->storage->client->client);
+	i_free(cmd->cmd_str);
+	i_free(cmd);
+}
+
+static struct imapc_command *
+imapc_sync_cmd_full(struct imapc_sync_context *ctx, const char *cmd_str,
+		    bool ignore_no)
+{
+	struct imapc_sync_command *sync_cmd;
+	struct imapc_command *cmd;
+
+	sync_cmd = i_new(struct imapc_sync_command, 1);
+	sync_cmd->ctx = ctx;
+	sync_cmd->cmd_str = i_strdup(cmd_str);
+	sync_cmd->ignore_no = ignore_no;
+
+	ctx->sync_command_count++;
+	cmd = imapc_client_mailbox_cmd(ctx->mbox->client_box,
+				       imapc_sync_callback, sync_cmd);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
+	imapc_command_send(cmd, cmd_str);
+	return cmd;
 }
 
 static struct imapc_command *
 imapc_sync_cmd(struct imapc_sync_context *ctx, const char *cmd_str)
 {
-	struct imapc_command *cmd;
+	return imapc_sync_cmd_full(ctx, cmd_str, FALSE);
+}
 
-	ctx->sync_command_count++;
-	cmd = imapc_client_mailbox_cmd(ctx->mbox->client_box,
-				       imapc_sync_callback, ctx);
-	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
-	imapc_command_send(cmd, cmd_str);
-	return cmd;
+static struct imapc_command *
+imapc_sync_store_cmd(struct imapc_sync_context *ctx, const char *cmd_str)
+{
+	return imapc_sync_cmd_full(ctx, cmd_str, TRUE);
 }
 
 static void
@@ -73,7 +102,7 @@ imapc_sync_add_missing_deleted_flags(struct imapc_sync_context *ctx,
 		mail_index_lookup_uid(ctx->sync_view, seq2, &uid2);
 		cmd = t_strdup_printf("UID STORE %u:%u +FLAGS \\Deleted",
 				      uid1, uid2);
-		imapc_sync_cmd(ctx, cmd);
+		imapc_sync_store_cmd(ctx, cmd);
 	}
 }
 
@@ -90,7 +119,7 @@ static void imapc_sync_index_flags(struct imapc_sync_context *ctx,
 			    sync_rec->uid1, sync_rec->uid2);
 		imap_write_flags(str, sync_rec->add_flags, NULL);
 		str_append_c(str, ')');
-		imapc_sync_cmd(ctx, str_c(str));
+		imapc_sync_store_cmd(ctx, str_c(str));
 	}
 
 	if (sync_rec->remove_flags != 0) {
@@ -100,7 +129,7 @@ static void imapc_sync_index_flags(struct imapc_sync_context *ctx,
 			    sync_rec->uid1, sync_rec->uid2);
 		imap_write_flags(str, sync_rec->remove_flags, NULL);
 		str_append_c(str, ')');
-		imapc_sync_cmd(ctx, str_c(str));
+		imapc_sync_store_cmd(ctx, str_c(str));
 	}
 }
 
@@ -129,7 +158,7 @@ imapc_sync_index_keyword(struct imapc_sync_context *ctx,
 	kw_p = array_idx(ctx->keywords, sync_rec->keyword_idx);
 	str_append(str, *kw_p);
 	str_append_c(str, ')');
-	imapc_sync_cmd(ctx, str_c(str));
+	imapc_sync_store_cmd(ctx, str_c(str));
 }
 
 static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
