@@ -1,9 +1,9 @@
 /* Copyright (c) 2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "md5.h"
-#include "dsync-mail.h"
 #include "test-common.h"
+#include "md5.h"
+#include "message-header-hash.h"
 
 static const unsigned char test_input[] =
 	"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f"
@@ -19,7 +19,7 @@ static void test_dsync_mail_hash_more(void)
 
 	test_begin("dsync_mail_hash_more v2");
 	md5_init(&md5_ctx);
-	dsync_mail_hash_more(&md5_ctx, 2, test_input, sizeof(test_input)-1);
+	message_header_hash_more(&md5_ctx, 2, test_input, sizeof(test_input)-1);
 	md5_final(&md5_ctx, md5_input);
 
 	md5_init(&md5_ctx);

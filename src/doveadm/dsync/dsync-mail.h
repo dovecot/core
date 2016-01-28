@@ -96,8 +96,4 @@ int dsync_mail_fill_nonminimal(struct mail *mail, struct dsync_mail *dmail_r,
 void dsync_mail_change_dup(pool_t pool, const struct dsync_mail_change *src,
 			   struct dsync_mail_change *dest_r);
 
-/* private: */
-void dsync_mail_hash_more(struct md5_context *md5_ctx, unsigned int version,
-			  const unsigned char *data, size_t size);
-
 #endif
