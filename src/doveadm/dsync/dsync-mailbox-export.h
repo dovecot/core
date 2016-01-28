@@ -14,15 +14,18 @@ dsync_mailbox_export_init(struct mailbox *box,
 			  struct dsync_transaction_log_scan *log_scan,
 			  uint32_t last_common_uid,
 			  enum dsync_mailbox_exporter_flags flags);
-const struct dsync_mailbox_attribute *
-dsync_mailbox_export_next_attr(struct dsync_mailbox_exporter *exporter);
-const struct dsync_mail_change *
-dsync_mailbox_export_next(struct dsync_mailbox_exporter *exporter);
+/* Returns 1 if attribute was returned, 0 if no more attributes, -1 on error */
+int dsync_mailbox_export_next_attr(struct dsync_mailbox_exporter *exporter,
+				   const struct dsync_mailbox_attribute **attr_r);
+/* Returns 1 if change was returned, 0 if no more changes, -1 on error */
+int dsync_mailbox_export_next(struct dsync_mailbox_exporter *exporter,
+			      const struct dsync_mail_change **change_r);
 
 void dsync_mailbox_export_want_mail(struct dsync_mailbox_exporter *exporter,
 				    const struct dsync_mail_request *request);
-const struct dsync_mail *
-dsync_mailbox_export_next_mail(struct dsync_mailbox_exporter *exporter);
+/* Returns 1 if mail was returned, 0 if no more mails, -1 on error */
+int dsync_mailbox_export_next_mail(struct dsync_mailbox_exporter *exporter,
+				   const struct dsync_mail **mail_r);
 int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **exporter,
 				const char **errstr_r, enum mail_error *error_r);
 
