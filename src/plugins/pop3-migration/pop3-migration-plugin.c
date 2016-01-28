@@ -830,9 +830,12 @@ pop3_migration_mailbox_search_init(struct mailbox_transaction_context *t,
 				   struct mailbox_header_lookup_ctx *wanted_headers)
 {
 	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT(t->box);
+	struct pop3_migration_mail_storage *mstorage =
+		POP3_MIGRATION_CONTEXT(t->box->storage);
 
 	if ((wanted_fields & (MAIL_FETCH_UIDL_BACKEND |
-			      MAIL_FETCH_POP3_ORDER)) != 0) {
+			      MAIL_FETCH_POP3_ORDER)) != 0 &&
+	    (mstorage->all_mailboxes || t->box->inbox_user)) {
 		/* Start POP3 UIDL syncing before the search, so we'll do it
 		   before we start sending any FETCH BODY[]s to IMAP. It
 		   shouldn't matter much, except this works around a bug in
