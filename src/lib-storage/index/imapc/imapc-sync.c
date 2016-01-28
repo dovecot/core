@@ -502,12 +502,28 @@ static int imapc_sync(struct imapc_mailbox *mbox)
 	return 0;
 }
 
+static void
+imapc_noop_if_needed(struct imapc_mailbox *mbox, enum mailbox_sync_flags flags)
+{
+	enum imapc_capability capabilities;
+
+	capabilities = imapc_client_get_capabilities(mbox->storage->client->client);
+	if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0 ||
+	    (flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0) {
+		/* do NOOP to make sure we have the latest changes before
+		   starting sync. this is necessary either because se don't
+		   support IDLE at all, or because we want to be sure that we
+		   have the latest changes (IDLE is started with a small delay,
+		   so we might not actually even be in IDLE right not) */
+		imapc_mailbox_noop(mbox);
+	}
+}
+
 struct mailbox_sync_context *
 imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 	struct imapc_mailbox_list *list = mbox->storage->client->_list;
-	enum imapc_capability capabilities;
 	bool changes;
 	int ret = 0;
 
@@ -522,16 +538,8 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			ret = -1;
 	}
 
-	capabilities = imapc_client_get_capabilities(mbox->storage->client->client);
-	if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0 ||
-	    (flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0) {
-		/* do NOOP to make sure we have the latest changes before
-		   starting sync. this is necessary either because se don't
-		   support IDLE at all, or because we want to be sure that we
-		   have the latest changes (IDLE is started with a small delay,
-		   so we might not actually even be in IDLE right not) */
-		imapc_mailbox_noop(mbox);
-	}
+	if (ret == 0)
+		imapc_noop_if_needed(mbox, flags);
 
 	if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
 		ret = -1;
