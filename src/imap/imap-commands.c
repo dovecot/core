@@ -20,7 +20,11 @@ static const struct command imap4rev1_commands[] = {
 	{ "LOGOUT",		cmd_logout,      COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "NOOP",		cmd_noop,        COMMAND_FLAG_BREAKS_SEQS },
 
-	{ "APPEND",		cmd_append,      COMMAND_FLAG_BREAKS_SEQS },
+	{ "APPEND",		cmd_append,      COMMAND_FLAG_BREAKS_SEQS |
+						 /* finish syncing and sending
+						    all tagged commands before
+						    we wait for APPEND input */
+						 COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "EXAMINE",		cmd_examine,     COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "CREATE",		cmd_create,      0 },
 	{ "DELETE",		cmd_delete,      COMMAND_FLAG_BREAKS_MAILBOX |
