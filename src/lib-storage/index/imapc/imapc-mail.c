@@ -55,6 +55,10 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 	/* we may be running against a server that hasn't bothered sending
 	   us an EXPUNGE. see if NOOP sends it. */
 	imapc_mailbox_noop(mbox);
+	if (!mbox->initial_sync_done) {
+		/* NOOP caused a reconnection and desync */
+		return FALSE;
+	}
 
 	return !imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq);
 }
