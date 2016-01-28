@@ -401,9 +401,8 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	if (mbox->box.v.sync_notify != NULL)
 		mbox->box.v.sync_notify(&mbox->box, 0, 0);
 
-	if (!mbox->initial_sync_done) {
-		if (!ctx->failed)
-			imapc_initial_sync_check(ctx, FALSE);
+	if (!mbox->initial_sync_done && !ctx->failed) {
+		imapc_initial_sync_check(ctx, FALSE);
 		mbox->initial_sync_done = TRUE;
 	}
 }
