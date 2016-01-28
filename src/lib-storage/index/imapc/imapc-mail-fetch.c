@@ -21,6 +21,8 @@ static void imapc_mail_set_failure(struct imapc_mail *mail,
 	struct imapc_mailbox *mbox =
 		(struct imapc_mailbox *)mail->imail.mail.mail.box;
 
+	mail->last_fetch_reply = p_strdup(mail->imail.mail.pool, reply->text_full);
+
 	switch (reply->state) {
 	case IMAPC_COMMAND_STATE_OK:
 		break;

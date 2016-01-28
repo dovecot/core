@@ -84,9 +84,10 @@ static int imapc_mail_failed(struct mail *mail, const char *field)
 		   */
 		fix_broken_mail = imail->fetch_ignore_if_missing;
 		mail_storage_set_critical(mail->box->storage,
-			"imapc: Remote server didn't send %s for UID %u in %s%s",
+			"imapc: Remote server didn't send %s for UID %u in %s%s (FETCH replied: %s)",
 			field, mail->uid, mail->box->vname,
-			fix_broken_mail ? " - treating it as empty" : "");
+			fix_broken_mail ? " - treating it as empty" : "",
+			imail->last_fetch_reply);
 	}
 	return fix_broken_mail ? 0 : -1;
 }

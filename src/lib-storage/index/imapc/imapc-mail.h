@@ -14,6 +14,7 @@ struct imapc_mail {
 	const char *const *fetching_headers;
 	unsigned int fetch_count;
 	bool fetch_sent;
+	const char *last_fetch_reply;
 
 	int fd;
 	buffer_t *body;
