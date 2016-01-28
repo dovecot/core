@@ -658,7 +658,7 @@ void json_append_escaped(string_t *dest, const char *src)
 			str_append(dest, "\\\\");
 			break;
 		default:
-			if (*src < 32)
+			if ((unsigned char)*src < 32)
 				str_printfa(dest, "\\u%04x", *src);
 			else
 				str_append_c(dest, *src);
