@@ -117,7 +117,8 @@ static bool dsync_brain_recv_mail_change(struct dsync_brain *brain)
 	if ((ret = dsync_ibc_recv_change(brain->ibc, &change)) == 0)
 		return FALSE;
 	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
-		dsync_mailbox_import_changes_finish(brain->box_importer);
+		if (dsync_mailbox_import_changes_finish(brain->box_importer) < 0)
+			brain->failed = TRUE;
 		if (brain->mail_requests && brain->box_exporter != NULL)
 			brain->box_recv_state = DSYNC_BOX_STATE_MAIL_REQUESTS;
 		else

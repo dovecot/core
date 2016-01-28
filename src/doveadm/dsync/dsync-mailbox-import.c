@@ -709,6 +709,21 @@ static void newmail_link(struct dsync_mailbox_importer *importer,
 	}
 }
 
+static void
+dsync_mailbox_revert_existing_uid(struct dsync_mailbox_importer *importer,
+				  uint32_t uid, const char *reason)
+{
+	i_assert(importer->revert_local_changes);
+
+	/* UID either already exists or UIDNEXT is too high. we can't set the
+	   wanted UID, so we'll need to delete the whole mailbox and resync */
+	i_warning("Deleting mailbox '%s': UID=%u already exists locally for a different mail: %s",
+		  mailbox_get_vname(importer->box), uid, reason);
+	importer->delete_mailbox = TRUE;
+	importer->mail_error = MAIL_ERROR_TEMP;
+	importer->failed = TRUE;
+}
+
 static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 				       struct dsync_mail_change *save_change)
 {
@@ -758,6 +773,11 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 		newmail->uid_in_local = FALSE;
 		newmail->uid_is_usable =
 			newmail->final_uid >= importer->local_uid_next;
+		if (!newmail->uid_is_usable && importer->revert_local_changes) {
+			dsync_mailbox_revert_existing_uid(importer, newmail->final_uid,
+				t_strdup_printf("UID >= local UIDNEXT=%u", importer->local_uid_next));
+			return TRUE;
+		}
 		remote_saved = TRUE;
 	} else {
 		/* identical */
@@ -1619,11 +1639,15 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 			/* unknown */
 			return;
 		}
-		if (ret == 0) {
+		if (ret > 0) {
+			importer->last_common_uid = change->uid;
+		} else if (!importer->revert_local_changes) {
 			/* mismatch - found the first non-common UID */
 			dsync_mailbox_common_uid_found(importer);
 		} else {
-			importer->last_common_uid = change->uid;
+			/* mismatch and we want to revert local changes -
+			   need to delete the mailbox. */
+			dsync_mailbox_revert_existing_uid(importer, change->uid, *result_r);
 		}
 		return;
 	}
@@ -1746,6 +1770,7 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 			   this mail */
 			new_uid = newmail->link->final_uid;
 		} else {
+			i_assert(!importer->revert_local_changes);
 			new_uid = common_uid_next++;
 			imp_debug(importer, "UID %u isn't usable, assigning new UID %u",
 				  newmail->final_uid, new_uid);
@@ -2088,7 +2113,7 @@ dsync_mailbox_import_handle_local_mails(struct dsync_mailbox_importer *importer)
 	hash_table_iterate_deinit(&iter);
 }
 
-void dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer)
+int dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer)
 {
 	i_assert(!importer->new_uids_assigned);
 
@@ -2117,7 +2142,9 @@ void dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer
 	dsync_mailbox_import_assign_new_uids(importer);
 	/* save mails from local sources where possible,
 	   request the rest from remote */
-	dsync_mailbox_import_handle_local_mails(importer);
+	if (!importer->failed)
+		dsync_mailbox_import_handle_local_mails(importer);
+	return importer->failed ? -1 : 0;
 }
 
 const struct dsync_mail_request *
