@@ -504,6 +504,7 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 {
 	struct index_mail *imail = &mail->imail;
 	struct mail *_mail = &imail->mail.mail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 	struct istream *input;
 	uoff_t size;
 	int ret;
@@ -512,7 +513,11 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 			  t_strdup_printf("imapc mail uid=%u", _mail->uid));
 	index_mail_set_read_buffer_size(_mail, imail->data.stream);
 
-	imapc_stream_filter(&imail->data.stream);
+	if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE)) {
+		/* enable filtering only when we're not passing through
+		   RFC822.SIZE. otherwise we'll get size mismatches. */
+		imapc_stream_filter(&imail->data.stream);
+	}
 	if (imail->mail.v.istream_opened != NULL) {
 		if (imail->mail.v.istream_opened(_mail,
 						 &imail->data.stream) < 0) {
