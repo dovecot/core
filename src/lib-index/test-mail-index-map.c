@@ -34,7 +34,7 @@ static void test_mail_index_map_lookup_seq_range_count(unsigned int messages_cou
 			test_assert((first_uid+1)/2 == first_seq && last_uid/2 == last_seq);
 		}
 	}
-
+	i_free(rec_map.records);
 }
 
 static void test_mail_index_map_lookup_seq_range(void)
