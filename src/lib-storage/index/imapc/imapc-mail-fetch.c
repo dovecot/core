@@ -31,8 +31,11 @@ static void imapc_mail_set_failure(struct imapc_mail *mail,
 			break;
 		}
 		if (reply->resp_text_key != NULL &&
-		    strcasecmp(reply->resp_text_key, IMAP_RESP_CODE_SERVERBUG) == 0) {
-			/* this is a temporary error, retrying should work. */
+		    (strcasecmp(reply->resp_text_key, IMAP_RESP_CODE_SERVERBUG) == 0 ||
+		     strcasecmp(reply->resp_text_key, IMAP_RESP_CODE_LIMIT) == 0)) {
+			/* this is a temporary error, retrying should work.
+			   Yahoo sends * BYE +
+			   NO [LIMIT] UID FETCH Rate limit hit. */
 		} else {
 			/* hopefully this is a permanent failure */
 			mail->fetch_ignore_if_missing = TRUE;
