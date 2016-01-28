@@ -24,9 +24,8 @@ dsync_mail_get_hash_headers(struct mailbox *box)
 	return mailbox_header_lookup_init(box, hashed_headers);
 }
 
-static void
-dsync_mail_hash_more(struct md5_context *md5_ctx, unsigned int version,
-		     const unsigned char *data, size_t size)
+void dsync_mail_hash_more(struct md5_context *md5_ctx, unsigned int version,
+			  const unsigned char *data, size_t size)
 {
 	size_t i, start;
 
@@ -42,18 +41,22 @@ dsync_mail_hash_more(struct md5_context *md5_ctx, unsigned int version,
 	   - Zimbra replaces 8bit chars with '?' in header fetches,
 	   but not body fetches.
 	   - Yahoo replaces 8bit chars with '?' in partial header
-	   fetches, but not POP3 TOP.
+	   fetches, but not POP3 TOP. UTF-8 character sequence writes only a
+	   single '?'
 
-	   So we'll just replace all control and 8bit chars with '?',
-	   which hopefully will satisfy everybody.
+	   So we'll just replace all control and 8bit chars with '?' and
+	   remove any repeated '?', which hopefully will satisfy everybody.
 
 	   (Keep this code in sync with pop3-migration plugin.)
 	   */
 	for (i = start = 0; i < size; i++) {
-		if ((data[i] < 0x20 || data[i] >= 0x80) &&
+		if ((data[i] < 0x20 || data[i] >= 0x7f || data[i] == '?') &&
 		    (data[i] != '\t' && data[i] != '\n')) {
-			md5_update(md5_ctx, data + start, i-start);
-			md5_update(md5_ctx, "?", 1);
+			/* remove repeated '?' */
+			if (start < i || i == 0) {
+				md5_update(md5_ctx, data + start, i-start);
+				md5_update(md5_ctx, "?", 1);
+			}
 			start = i+1;
 		}
 	}

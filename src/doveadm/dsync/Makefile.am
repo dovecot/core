@@ -58,6 +58,7 @@ noinst_HEADERS = \
 	dsync-transaction-log-scan.h
 
 test_programs = \
+	test-dsync-mail \
 	test-dsync-mailbox-tree-sync
 
 noinst_PROGRAMS = $(test_programs)
@@ -65,6 +66,10 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	../../lib-test/libtest.la \
 	../../lib/liblib.la
+
+test_dsync_mail_SOURCES = test-dsync-mail.c
+test_dsync_mail_LDADD = $(pkglib_LTLIBRARIES) $(test_libs)
+test_dsync_mail_DEPENDENCIES = $(pkglib_LTLIBRARIES) $(test_libs)
 
 test_dsync_mailbox_tree_sync_SOURCES = test-dsync-mailbox-tree-sync.c
 test_dsync_mailbox_tree_sync_LDADD = dsync-mailbox-tree-sync.lo dsync-mailbox-tree.lo $(test_libs)
