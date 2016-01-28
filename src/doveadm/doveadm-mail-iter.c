@@ -14,6 +14,7 @@ struct doveadm_mail_iter {
 	struct mailbox *box;
 	struct mailbox_transaction_context *t;
 	struct mail_search_context *search_ctx;
+	bool killed;
 };
 
 int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
@@ -109,6 +110,10 @@ doveadm_mail_iter_deinit_full(struct doveadm_mail_iter **_iter,
 	}
 	if (ret < 0)
 		doveadm_mail_failed_mailbox(iter->ctx, iter->box);
+	else if (iter->killed) {
+		iter->ctx->exit_code = EX_TEMPFAIL;
+		ret = -1;
+	}
 	if (!keep_box)
 		mailbox_free(&iter->box);
 	i_free(iter);
@@ -142,6 +147,10 @@ bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter,
 {
 	if (iter->search_ctx == NULL)
 		return FALSE;
+	if (doveadm_is_killed()) {
+		iter->killed = TRUE;
+		return FALSE;
+	}
 	return mailbox_search_next(iter->search_ctx, mail_r);
 }
 
