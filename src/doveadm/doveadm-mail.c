@@ -390,6 +390,11 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	return 1;
 }
 
+static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
+{
+	killed_signo = si->si_signo;
+}
+
 int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 			     const struct mail_storage_service_input *input,
 			     const char **error_r)
@@ -405,12 +410,10 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
 
-	return doveadm_mail_next_user(ctx, input, error_r);
-}
+	lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
+	lib_signals_set_handler(SIGTERM, 0, sig_die, NULL);
 
-static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	killed_signo = si->si_signo;
+	return doveadm_mail_next_user(ctx, input, error_r);
 }
 
 static void
