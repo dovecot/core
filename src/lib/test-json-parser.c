@@ -173,9 +173,22 @@ static void test_json_append_escaped(void)
 	test_end();
 }
 
+static void test_json_append_escaped_data(void)
+{
+	static const unsigned char test_input[] =
+		"\b\f\r\n\t\"\\\000\001\002-\xC3\xA4";
+	string_t *str = t_str_new(32);
+
+	test_begin("json_append_escaped()");
+	json_append_escaped_data(str, test_input, sizeof(test_input)-1);
+	test_assert(strcmp(str_c(str), "\\b\\f\\r\\n\\t\\\"\\\\\\u0000\\u0001\\u0002-\xC3\xA4") == 0);
+	test_end();
+}
+
 void test_json_parser(void)
 {
 	test_json_parser_success(TRUE);
 	test_json_parser_success(FALSE);
 	test_json_append_escaped();
+	test_json_append_escaped_data();
 }

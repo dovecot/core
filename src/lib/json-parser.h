@@ -38,5 +38,7 @@ int json_parse_next_stream(struct json_parser *parser,
 
 /* Append data to already opened JSON string. src should be valid UTF-8 data. */
 void json_append_escaped(string_t *dest, const char *src);
+/* Same as json_append_escaped(), but append non-\0 terminated input. */
+void json_append_escaped_data(string_t *dest, const unsigned char *src, size_t size);
 
 #endif
