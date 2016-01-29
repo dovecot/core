@@ -63,7 +63,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	struct dict *dict;
 	struct dict_settings set;
 	struct dict_transaction_context *trans;
-	const char *dict_value, *key_name, *error;
+	const char *dict_value, *key_name, *precision, *error;
 
 	if (user->autocreated) {
 		/* we want to handle only logged in users,
@@ -101,8 +101,26 @@ static void last_login_mail_user_created(struct mail_user *user)
 	}
 	key_name = t_strconcat(DICT_PATH_SHARED, key_name, NULL);
 
+	precision = mail_user_plugin_getenv(user, "last_login_precision");
+
 	trans = dict_transaction_begin(dict);
-	dict_set(trans, key_name, dec2str(ioloop_time));
+	if (precision == NULL || strcmp(precision, "s") == 0)
+		dict_set(trans, key_name, dec2str(ioloop_time));
+	else if (strcmp(precision, "ms") == 0) {
+		dict_set(trans, key_name, t_strdup_printf(
+			"%ld%03u", (long)ioloop_timeval.tv_sec,
+			(unsigned int)(ioloop_timeval.tv_usec/1000)));
+	} else if (strcmp(precision, "us") == 0) {
+		dict_set(trans, key_name, t_strdup_printf(
+			"%ld%06u", (long)ioloop_timeval.tv_sec,
+			(unsigned int)ioloop_timeval.tv_usec));
+	} else if (strcmp(precision, "ns") == 0) {
+		dict_set(trans, key_name, t_strdup_printf(
+			"%ld%06u000", (long)ioloop_timeval.tv_sec,
+			(unsigned int)ioloop_timeval.tv_usec));
+	} else {
+		i_error("last_login_dict: Invalid last_login_precision '%s'", precision);
+	}
 	dict_transaction_commit_async(&trans, last_login_dict_commit, user);
 }
 
