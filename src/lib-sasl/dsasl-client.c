@@ -36,6 +36,12 @@ const char *dsasl_client_mech_get_name(const struct dsasl_client_mech *mech)
 
 void dsasl_client_mech_register(const struct dsasl_client_mech *mech)
 {
+	unsigned int idx;
+
+	if (dsasl_client_mech_find_idx(mech->name, &idx) != NULL) {
+		/* allow plugins to override the default mechanisms */
+		array_delete(&dsasl_mechanisms, idx, 1);
+	}
 	array_append(&dsasl_mechanisms, &mech, 1);
 }
 
