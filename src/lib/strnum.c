@@ -17,6 +17,32 @@ bool str_is_numeric(const char *str, char end_char)
 	return TRUE;
 }
 
+bool str_is_float(const char *str, char end_char)
+{
+	bool dot_seen = FALSE;
+	bool num_seen = FALSE;
+
+	if (*str == '\0' || *str == end_char)
+		return FALSE;
+
+	while (*str != '\0' && *str != end_char) {
+		if (*str == '.') {
+			if (dot_seen || !num_seen) return FALSE;
+			dot_seen = TRUE;
+			num_seen = FALSE;
+			str++;
+			/* enforce that number follows dot */
+			continue;
+		}
+		if (*str < '0' || *str > '9')
+			return FALSE;
+		num_seen = TRUE;
+		str++;
+	}
+
+	return num_seen;
+}
+
 /* 
  * Unsigned decimal
  */

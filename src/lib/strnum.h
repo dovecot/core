@@ -180,6 +180,10 @@ int str_to_time(const char *str, time_t *num_r)
    Stop when `end_char' is found from string. */
 bool str_is_numeric(const char *str, char end_char) ATTR_PURE;
 
+/* Return TRUE when string has one or more numbers, followed
+   with zero or one dot, followed with at least one number. */
+bool str_is_float(const char *str, char end_char) ATTR_PURE;
+
 /* Returns human readable string about what is wrong with the string.
    This function assumes that str_to_*() had already returned -1 for the
    string. */
