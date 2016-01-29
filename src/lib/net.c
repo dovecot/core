@@ -977,6 +977,42 @@ int net_str2port_zero(const char *str, in_port_t *port_r)
 	return 0;
 }
 
+int net_str2hostport(const char *str, in_port_t default_port,
+		     const char **host_r, in_port_t *port_r)
+{
+	const char *p, *host;
+	in_port_t port;
+
+	if (str[0] == '[') {
+		/* [IPv6] address, possibly followed by :port */
+		p = strchr(str, ']');
+		if (p == NULL)
+			return -1;
+		host = t_strdup_until(str+1, p++);
+	} else {
+		p = strchr(str, ':');
+		if (p == NULL || strchr(p+1, ':') != NULL) {
+			/* host or IPv6 address */
+			*host_r = str;
+			*port_r = default_port;
+			return 0;
+		}
+		host = t_strdup_until(str, p);
+	}
+	if (p[0] == '\0') {
+		*host_r = host;
+		*port_r = default_port;
+		return 0;
+	}
+	if (p[0] != ':')
+		return -1;
+	if (net_str2port(p+1, &port) < 0)
+		return -1;
+	*host_r = host;
+	*port_r = port;
+	return 0;
+}
+
 int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 				 struct ip_addr *dest)
 {

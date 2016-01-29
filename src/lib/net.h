@@ -152,6 +152,13 @@ int net_addr2ip(const char *addr, struct ip_addr *ip);
 int net_str2port(const char *str, in_port_t *port_r);
 /* char* -> net_port_t translation (allows port zero) */
 int net_str2port_zero(const char *str, in_port_t *port_r);
+/* Parse "host", "host:port", "IPv4", "IPv4:port", "IPv6", "[IPv6]" or
+   "[IPv6]:port" to its host and port components. [IPv6] address is returned
+   without []. If no port is given, return default_port. The :port in the
+   parsed string isn't allowed to be zero, but default_port=0 is passed
+   through. */
+int net_str2hostport(const char *str, in_port_t default_port,
+		     const char **host_r, in_port_t *port_r);
 
 /* Convert IPv6 mapped IPv4 address to an actual IPv4 address. Returns 0 if
    successful, -1 if the source address isn't IPv6 mapped IPv4 address. */

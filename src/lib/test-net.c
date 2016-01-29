@@ -84,8 +84,57 @@ static void test_net_ip2addr(void)
 	test_end();
 }
 
+static void test_net_str2hostport(void)
+{
+	const char *host;
+	in_port_t port;
+
+	test_begin("net_str2hostport()");
+	/* [IPv6] */
+	test_assert(net_str2hostport("[1::4]", 0, &host, &port) == 0 &&
+		    strcmp(host, "1::4") == 0 && port == 0);
+	test_assert(net_str2hostport("[1::4]", 1234, &host, &port) == 0 &&
+		    strcmp(host, "1::4") == 0 && port == 1234);
+	test_assert(net_str2hostport("[1::4]:78", 1234, &host, &port) == 0 &&
+		    strcmp(host, "1::4") == 0 && port == 78);
+	host = NULL;
+	test_assert(net_str2hostport("[1::4]:", 1234, &host, &port) < 0 && host == NULL);
+	test_assert(net_str2hostport("[1::4]:0", 1234, &host, &port) < 0 && host == NULL);
+	test_assert(net_str2hostport("[1::4]:x", 1234, &host, &port) < 0 && host == NULL);
+	/* IPv6 */
+	test_assert(net_str2hostport("1::4", 0, &host, &port) == 0 &&
+		    strcmp(host, "1::4") == 0 && port == 0);
+	test_assert(net_str2hostport("1::4", 1234, &host, &port) == 0 &&
+		    strcmp(host, "1::4") == 0 && port == 1234);
+	/* host */
+	test_assert(net_str2hostport("foo", 0, &host, &port) == 0 &&
+		    strcmp(host, "foo") == 0 && port == 0);
+	test_assert(net_str2hostport("foo", 1234, &host, &port) == 0 &&
+		    strcmp(host, "foo") == 0 && port == 1234);
+	test_assert(net_str2hostport("foo:78", 1234, &host, &port) == 0 &&
+		    strcmp(host, "foo") == 0 && port == 78);
+	host = NULL;
+	test_assert(net_str2hostport("foo:", 1234, &host, &port) < 0 && host == NULL);
+	test_assert(net_str2hostport("foo:0", 1234, &host, &port) < 0 && host == NULL);
+	test_assert(net_str2hostport("foo:x", 1234, &host, &port) < 0 && host == NULL);
+	/* edge cases with multiple ':' - currently these don't return errors,
+	   but perhaps they should. */
+	test_assert(net_str2hostport("foo::78", 1234, &host, &port) == 0 &&
+		    strcmp(host, "foo::78") == 0 && port == 1234);
+	test_assert(net_str2hostport("::foo:78", 1234, &host, &port) == 0 &&
+		    strcmp(host, "::foo:78") == 0 && port == 1234);
+	test_assert(net_str2hostport("[::foo]:78", 1234, &host, &port) == 0 &&
+		    strcmp(host, "::foo") == 0 && port == 78);
+	test_assert(net_str2hostport("[::::]", 1234, &host, &port) == 0 &&
+		    strcmp(host, "::::") == 0 && port == 1234);
+	test_assert(net_str2hostport("[::::]:78", 1234, &host, &port) == 0 &&
+		    strcmp(host, "::::") == 0 && port == 78);
+	test_end();
+}
+
 void test_net(void)
 {
 	test_net_is_in_network();
 	test_net_ip2addr();
+	test_net_str2hostport();
 }
