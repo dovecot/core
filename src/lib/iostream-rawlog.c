@@ -165,7 +165,7 @@ static int
 iostream_rawlog_try_create_tcp(const char *path,
 			       struct istream **input, struct ostream **output)
 {
-	const char *p, *host;
+	const char *host;
 	struct ip_addr *ips;
 	unsigned int ips_count;
 	in_port_t port;
@@ -178,11 +178,8 @@ iostream_rawlog_try_create_tcp(const char *path,
 
 	if (strchr(path, '/') != NULL)
 		return 0;
-	if ((p = strchr(path, ':')) == NULL)
+	if (net_str2hostport(path, 0, &host, &port) < 0 || port == 0)
 		return 0;
-	if (net_str2port(p+1, &port) < 0)
-		return 0;
-	host = t_strdup_until(path, p);
 
 	ret = net_gethostbyname(host, &ips, &ips_count);
 	if (ret != 0) {

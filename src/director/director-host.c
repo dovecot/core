@@ -152,16 +152,9 @@ static void director_host_add_string(struct director *dir, const char *host)
 	struct ip_addr *ips;
 	in_port_t port;
 	unsigned int i, ips_count;
-	const char *p;
 
-	p = strrchr(host, ':');
-	if (p != NULL) {
-		if (net_str2port(p + 1, &port) < 0)
-			i_fatal("Invalid director port in %s", host);
-		host = t_strdup_until(host, p);
-	} else {
-		port = dir->self_port;
-	}
+	if (net_str2hostport(host, dir->self_port, &host, &port) < 0)
+		i_fatal("Invalid director host:port in '%s'", host);
 
 	if (net_gethostbyname(host, &ips, &ips_count) < 0)
 		i_fatal("Unknown director host: %s", host);

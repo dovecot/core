@@ -255,17 +255,13 @@ smtp_client_send_flush(struct smtp_client *smtp_client,
 	struct ioloop *ioloop;
 	struct istream *input;
 	const char *host, *p, *const *destp;
-	in_port_t port = DEFAULT_SUBMISSION_PORT;
+	in_port_t port;
 
-	host = smtp_client->set->submission_host;
-	p = strchr(host, ':');
-	if (p != NULL) {
-		host = t_strdup_until(host, p);
-		if (net_str2port(p + 1, &port) < 0) {
-			*error_r = t_strdup_printf(
-				"Invalid port in submission_host: %s", p+1);
-			return -1;
-		}
+	if (net_str2hostport(smtp_client->set->submission_host,
+			     DEFAULT_SUBMISSION_PORT, &host, &port) < 0) {
+		*error_r = t_strdup_printf(
+			"Invalid submission_host: %s", host);
+		return -1;
 	}
 
 	if (o_stream_nfinish(smtp_client->output) < 0) {

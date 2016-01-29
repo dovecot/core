@@ -96,25 +96,6 @@ const char *doveadm_plugin_getenv(const char *name)
 	return NULL;
 }
 
-static bool
-parse_hostport(const char *str, in_port_t default_port,
-	       const char **host_r, in_port_t *port_r)
-{
-	const char *p;
-
-	/* host:port */
-	p = strrchr(str, ':');
-	if (p == NULL && default_port != 0) {
-		*host_r = str;
-		*port_r = default_port;
-	} else {
-		if (p == NULL || net_str2port(p+1, port_r) < 0)
-			return FALSE;
-		*host_r = t_strdup_until(str, p);
-	}
-	return TRUE;
-}
-
 static int
 doveadm_tcp_connect_port(const char *host, in_port_t port)
 {
@@ -140,7 +121,7 @@ int doveadm_tcp_connect(const char *target, in_port_t default_port)
 	const char *host;
 	in_port_t port;
 
-	if (!parse_hostport(target, default_port, &host, &port)) {
+	if (net_str2hostport(target, default_port, &host, &port) < 0) {
 		i_fatal("Port not known for %s. Either set proxy_port "
 			"or use %s:port", target, target);
 	}
