@@ -91,7 +91,8 @@ static void parse_content_transfer_encoding(struct message_part_body_data *data,
 	rfc822_skip_lwsp(&parser);
 
 	str = t_str_new(256);
-	if (rfc822_parse_mime_token(&parser, str) >= 0) {
+	if (rfc822_parse_mime_token(&parser, str) >= 0 &&
+	    rfc822_skip_lwsp(&parser) == 0 && str_len(str) > 0) {
 		data->content_transfer_encoding =
 			imap_get_string(data->pool, str_c(str));
 	}
