@@ -254,7 +254,7 @@ smtp_client_send_flush(struct smtp_client *smtp_client,
 	struct lmtp_client *client;
 	struct ioloop *ioloop;
 	struct istream *input;
-	const char *host, *p, *const *destp;
+	const char *host, *const *destp;
 	in_port_t port;
 
 	if (net_str2hostport(smtp_client->set->submission_host,
