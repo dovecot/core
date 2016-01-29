@@ -358,6 +358,32 @@ static void test_str_to_i32(void)
 	test_end();
 }
 
+static void test_str_is_float(void)
+{
+	test_begin("str_is_float accepts integer");
+	/* accepts integer */
+	test_assert(str_is_float("0",'\0'));
+	test_assert(str_is_float("1234",'\0'));
+	test_end();
+	test_begin("str_is_float accepts float");
+	test_assert(str_is_float("0.0",'\0'));
+	test_assert(str_is_float("1234.0",'\0'));
+	test_assert(str_is_float("0.1234",'\0'));
+	test_assert(str_is_float("1234.1234",'\0'));
+	test_assert(str_is_float("0.1234 ",' '));
+	test_assert(str_is_float("1234.1234",'.'));
+	test_end();
+	test_begin("str_is_float refuses invalid values");
+	test_assert(!str_is_float(".",'\0'));
+	test_assert(!str_is_float(".1234",'\0'));
+	test_assert(!str_is_float("1234.",'\0'));
+	test_assert(!str_is_float("i am not a float at all",'\0'));
+	test_assert(!str_is_float("0x1234.0x1234",'\0'));
+	test_assert(!str_is_float(".0",'\0'));
+	test_assert(!str_is_float("0.",'\0'));
+	test_end();
+}
+
 void test_strnum(void)
 {
 	/* If the above isn't true, then we do expect some failures possibly */
@@ -368,4 +394,5 @@ void test_strnum(void)
 	test_str_to_u32();
 	test_str_to_llong();
 	test_str_to_i32();
+	test_str_is_float();
 }
