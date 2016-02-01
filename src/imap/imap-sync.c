@@ -20,7 +20,6 @@ struct client_sync_context {
 	enum mailbox_sync_flags flags;
 	enum imap_sync_flags imap_flags;
 	const char *tagline;
-	imap_sync_callback_t *callback;
 };
 
 struct imap_sync_context {
@@ -638,9 +637,6 @@ bool imap_sync_is_allowed(struct client *client)
 
 static bool cmd_finish_sync(struct client_command_context *cmd)
 {
-	if (cmd->sync->callback != NULL)
-		return cmd->sync->callback(cmd);
-
 	if (cmd->sync->tagline != NULL)
 		client_send_tagline(cmd, cmd->sync->tagline);
 	return TRUE;
@@ -678,11 +674,12 @@ static bool cmd_sync_continue(struct client_command_context *sync_cmd)
 		if (cmd->state == CLIENT_COMMAND_STATE_WAIT_SYNC &&
 		    cmd != sync_cmd &&
 		    cmd->sync->counter+1 == client->sync_counter) {
-			if (cmd_finish_sync(cmd))
-				client_command_free(&cmd);
+			cmd_finish_sync(cmd);
+			client_command_free(&cmd);
 		}
 	}
-	return cmd_finish_sync(sync_cmd);
+	cmd_finish_sync(sync_cmd);
+	return TRUE;
 }
 
 static void get_common_sync_flags(struct client *client,
@@ -755,10 +752,8 @@ static bool cmd_sync_client(struct client_command_context *sync_cmd)
 	return TRUE;
 }
 
-static bool ATTR_NULL(4, 5)
-cmd_sync_full(struct client_command_context *cmd, enum mailbox_sync_flags flags,
-	      enum imap_sync_flags imap_flags, const char *tagline,
-	      imap_sync_callback_t *callback)
+bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
+	      enum imap_sync_flags imap_flags, const char *tagline)
 {
 	struct client *client = cmd->client;
 
@@ -769,7 +764,6 @@ cmd_sync_full(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 
 	if (client->mailbox == NULL) {
 		/* no mailbox selected, no point in delaying the sync */
-		i_assert(callback == NULL);
 		if (tagline != NULL)
 			client_send_tagline(cmd, tagline);
 		return TRUE;
@@ -780,7 +774,6 @@ cmd_sync_full(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	cmd->sync->flags = flags;
 	cmd->sync->imap_flags = imap_flags;
 	cmd->sync->tagline = p_strdup(cmd->pool, tagline);
-	cmd->sync->callback = callback;
 	cmd->state = CLIENT_COMMAND_STATE_WAIT_SYNC;
 
 	cmd->func = NULL;
@@ -789,20 +782,6 @@ cmd_sync_full(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	if (client->input_lock == cmd)
 		client->input_lock = NULL;
 	return FALSE;
-}
-
-bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
-	      enum imap_sync_flags imap_flags, const char *tagline)
-{
-	return cmd_sync_full(cmd, flags, imap_flags, tagline, NULL);
-}
-
-bool cmd_sync_callback(struct client_command_context *cmd,
-		       enum mailbox_sync_flags flags,
-		       enum imap_sync_flags imap_flags,
-		       imap_sync_callback_t *callback)
-{
-	return cmd_sync_full(cmd, flags, imap_flags, NULL, callback);
 }
 
 static bool cmd_sync_drop_fast(struct client *client)
@@ -822,10 +801,9 @@ static bool cmd_sync_drop_fast(struct client *client)
 
 		i_assert(cmd->sync != NULL);
 		if ((cmd->sync->flags & MAILBOX_SYNC_FLAG_FAST) != 0) {
-			if (cmd_finish_sync(cmd)) {
-				client_command_free(&cmd);
-				ret = TRUE;
-			}
+			cmd_finish_sync(cmd);
+			client_command_free(&cmd);
+			ret = TRUE;
 		}
 	}
 	return ret;
