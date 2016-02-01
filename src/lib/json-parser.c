@@ -335,21 +335,16 @@ static int json_parse_denest(struct json_parser *parser)
 	json_parser_update_input_pos(parser);
 
 	nested_states = array_get(&parser->nesting, &count);
-	if (count == 0) {
+	i_assert(count > 0);
+	if (count == 1) {
 		/* closing root */
 		parser->state = JSON_STATE_DONE;
 		return 0;
 	}
 
 	/* closing a nested object */
-	if (count == 1) {
-		/* we're back to root */
-		parser->state = JSON_STATE_OBJECT_NEXT;
-	} else {
-		/* back to previous nested object */
-		parser->state = nested_states[count-2] == JSON_STATE_OBJECT_OPEN ?
-			JSON_STATE_OBJECT_NEXT : JSON_STATE_ARRAY_NEXT;
-	}
+	parser->state = nested_states[count-2] == JSON_STATE_OBJECT_OPEN ?
+		JSON_STATE_OBJECT_NEXT : JSON_STATE_ARRAY_NEXT;
 	array_delete(&parser->nesting, count-1, 1);
 
 	if (parser->nested_skip_count > 0) {
@@ -377,6 +372,14 @@ json_parse_close_array(struct json_parser *parser, enum json_type *type_r)
 	return 1;
 }
 
+static void json_parser_object_open(struct json_parser *parser)
+{
+	parser->data++;
+	parser->state = JSON_STATE_OBJECT_OPEN;
+	array_append(&parser->nesting, &parser->state, 1);
+	json_parser_update_input_pos(parser);
+}
+
 static int
 json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		    const char **value_r)
@@ -393,17 +396,12 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 			parser->error = "Object doesn't begin with '{'";
 			return -1;
 		}
-		parser->data++;
-		parser->state = JSON_STATE_OBJECT_OPEN;
-		json_parser_update_input_pos(parser);
+		json_parser_object_open(parser);
 		return 0;
 	case JSON_STATE_OBJECT_VALUE:
 	case JSON_STATE_ARRAY_VALUE:
 		if (*parser->data == '{') {
-			parser->data++;
-			parser->state = JSON_STATE_OBJECT_OPEN;
-			array_append(&parser->nesting, &parser->state, 1);
-			json_parser_update_input_pos(parser);
+			json_parser_object_open(parser);
 
 			if (parser->skipping) {
 				parser->nested_skip_count++;
