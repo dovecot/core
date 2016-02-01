@@ -696,9 +696,16 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 	    !imap_arg_get_list(&reply->args[1], &list))
 		return;
 
-	if (storage->cur_status_box == NULL ||
-	    strcmp(storage->cur_status_box->box.name, name) != 0)
+	if (storage->cur_status_box == NULL)
 		return;
+	if (strcmp(storage->cur_status_box->box.name, name) == 0) {
+		/* match */
+	} else if (strcasecmp(storage->cur_status_box->box.name, "INBOX") == 0 &&
+		   strcasecmp(name, "INBOX") == 0) {
+		/* case-insensitive INBOX */
+	} else {
+		return;
+	}
 
 	status = storage->cur_status;
 	for (i = 0; list[i].type != IMAP_ARG_EOL; i += 2) {
