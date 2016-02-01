@@ -2411,8 +2411,8 @@ static bool dsync_mailbox_save_newmails(struct dsync_mailbox_importer *importer,
 	return ret;
 }
 
-void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
-			       const struct dsync_mail *mail)
+int dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
+			      const struct dsync_mail *mail)
 {
 	struct importer_new_mail *all_newmails;
 
@@ -2420,7 +2420,7 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 	i_assert(importer->new_uids_assigned);
 
 	if (importer->failed)
-		return;
+		return -1;
 
 	imp_debug(importer, "Import mail body for GUID=%s UID=%u",
 		  mail->guid, mail->uid);
@@ -2438,7 +2438,7 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 			imp_debug(importer, "Skip unwanted mail body for "
 				  "GUID=%s UID=%u", mail->guid, mail->uid);
 		}
-		return;
+		return 0;
 	}
 	if (*mail->guid != '\0')
 		hash_table_remove(importer->import_guids, mail->guid);
@@ -2449,6 +2449,7 @@ void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 	importer->import_pos++;
 	if (!dsync_mailbox_save_newmails(importer, mail, all_newmails, TRUE))
 		i_unreached();
+	return importer->failed ? -1 : 0;
 }
 
 static int

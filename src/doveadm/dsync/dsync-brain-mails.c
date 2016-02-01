@@ -278,7 +278,8 @@ static bool dsync_brain_recv_mail(struct dsync_brain *brain)
 		i_debug("brain %c: import mail uid %u guid %s",
 			brain->master_brain ? 'M' : 'S', mail->uid, mail->guid);
 	}
-	dsync_mailbox_import_mail(brain->box_importer, mail);
+	if (dsync_mailbox_import_mail(brain->box_importer, mail) < 0)
+		brain->failed = TRUE;
 	if (mail->input != NULL)
 		i_stream_unref(&mail->input);
 	return TRUE;

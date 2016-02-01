@@ -40,8 +40,8 @@ int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 int dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer);
 const struct dsync_mail_request *
 dsync_mailbox_import_next_request(struct dsync_mailbox_importer *importer);
-void dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
-			       const struct dsync_mail *mail);
+int dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
+			      const struct dsync_mail *mail);
 int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **importer,
 				bool success,
 				uint32_t *last_common_uid_r,
