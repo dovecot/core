@@ -235,12 +235,15 @@ get_hdr_sha1(struct mail *mail, unsigned char sha1_r[SHA1_RESULTLEN])
 {
 	struct istream *input;
 	struct message_size hdr_size;
+	const char *errstr;
+	enum mail_error error;
 	bool have_eoh;
 
 	if (mail_get_hdr_stream(mail, &hdr_size, &input) < 0) {
+		errstr = mailbox_get_last_error(mail->box, &error);
 		i_error("pop3_migration: Failed to get header for msg %u: %s",
-			mail->seq, mailbox_get_last_error(mail->box, NULL));
-		return -1;
+			mail->seq, errstr);
+		return error == MAIL_ERROR_EXPUNGED ? 0 : -1;
 	}
 	if (pop3_migration_get_hdr_sha1(mail->seq, input,
 					hdr_size.physical_size,
@@ -251,7 +254,7 @@ get_hdr_sha1(struct mail *mail, unsigned char sha1_r[SHA1_RESULTLEN])
 
 		index_mail_cache_add_idx(imail, get_cache_idx(mail),
 					 sha1_r, SHA1_RESULTLEN);
-		return 0;
+		return 1;
 	}
 
 	/* The empty "end of headers" line is missing. Either this means that
@@ -274,9 +277,10 @@ get_hdr_sha1(struct mail *mail, unsigned char sha1_r[SHA1_RESULTLEN])
 	   (and/or RETR) and we'll parse the header ourself from it. This
 	   should work around any similar bugs in all IMAP/POP3 servers. */
 	if (mail_get_stream(mail, &hdr_size, NULL, &input) < 0) {
+		errstr = mailbox_get_last_error(mail->box, &error);
 		i_error("pop3_migration: Failed to get body for msg %u: %s",
-			mail->seq, mailbox_get_last_error(mail->box, NULL));
-		return -1;
+			mail->seq, errstr);
+		return error == MAIL_ERROR_EXPUNGED ? 0 : -1;
 	}
 	return pop3_migration_get_hdr_sha1(mail->seq, input,
 					   hdr_size.physical_size,
@@ -457,11 +461,12 @@ map_read_hdr_hashes(struct mailbox *box, struct array *msg_map, uint32_t seq1)
 	while (mailbox_search_next(ctx, &mail)) {
 		map = array_idx_modifiable_i(msg_map, mail->seq-1);
 
-		if (get_hdr_sha1(mail, map->hdr_sha1) < 0) {
+		if ((ret = get_hdr_sha1(mail, map->hdr_sha1)) < 0) {
 			ret = -1;
 			break;
 		}
-		map->hdr_sha1_set = TRUE;
+		if (ret > 0)
+			map->hdr_sha1_set = TRUE;
 	}
 
 	if (mailbox_search_deinit(&ctx) < 0) {
@@ -470,7 +475,7 @@ map_read_hdr_hashes(struct mailbox *box, struct array *msg_map, uint32_t seq1)
 		ret = -1;
 	}
 	(void)mailbox_transaction_commit(&t);
-	return ret;
+	return ret < 0 ? -1 : 0;
 }
 
 static int
@@ -645,7 +650,11 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 	}
 	missing_uids_count = 0;
 	for (pop3_idx = 0; pop3_idx < pop3_count; pop3_idx++) {
-		if (pop3_map[pop3_idx].imap_uid == 0) {
+		if (pop3_map[pop3_idx].imap_uid != 0) {
+			/* matched */
+		} else if (!pop3_map[pop3_idx].common.hdr_sha1_set) {
+			/* we treated this mail as expunged - ignore */
+		} else {
 			if (first_missing_idx == (uint32_t)-1)
 				first_missing_idx = pop3_idx;
 			missing_uids_count++;
