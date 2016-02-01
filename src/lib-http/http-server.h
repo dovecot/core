@@ -144,6 +144,9 @@ http_server_response_create(struct http_server_request *req,
 	unsigned int status, const char *reason);
 void http_server_response_add_header(struct http_server_response *resp,
 				    const char *key, const char *value);
+/* Change the response code and text, cannot be used after submission */
+void http_server_response_update_status(struct http_server_response *resp,
+					unsigned int status, const char *reason);
 void http_server_response_set_date(struct http_server_response *resp,
 				    time_t date);
 void http_server_response_set_payload(struct http_server_response *resp,

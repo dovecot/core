@@ -92,6 +92,16 @@ void http_server_response_add_header(struct http_server_response *resp,
 	str_printfa(resp->headers, "%s: %s\r\n", key, value);
 }
 
+void http_server_response_update_status(struct http_server_response *resp,
+					unsigned int status,
+					const char *reason)
+{
+	i_assert(!resp->submitted);
+	resp->status = status;
+	/* free not called because pool is alloconly */
+	resp->reason = p_strdup(resp->request->pool, reason);
+}
+
 void http_server_response_set_date(struct http_server_response *resp,
 				    time_t date)
 {
