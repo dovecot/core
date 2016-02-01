@@ -141,12 +141,9 @@ static void pop3c_mail_prefetch_done(enum pop3c_command_state state,
 		break;
 	case POP3C_COMMAND_STATE_ERR:
 	case POP3C_COMMAND_STATE_DISCONNECTED:
-		cmd = pmail->prefetching_body ? "RETR" : "TOP";
 		i_stream_unref(&pmail->prefetch_stream);
-		pmail->prefetch_stream =
-			i_stream_create_error_str(EIO, "%s %u failed: %s",
-				cmd, _mail->seq, reply);
-		i_stream_set_name(pmail->prefetch_stream, cmd);
+		/* let pop3c_mail_get_stream() figure out the error handling.
+		   in case of a -ERR a retry might even work. */
 		break;
 	}
 	pmail->prefetching = FALSE;
