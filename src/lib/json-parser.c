@@ -21,6 +21,7 @@ enum json_state {
 	JSON_STATE_ARRAY_VALUE,
 	JSON_STATE_ARRAY_SKIP_STRING,
 	JSON_STATE_ARRAY_NEXT,
+	JSON_STATE_VALUE,
 	JSON_STATE_DONE
 };
 
@@ -100,6 +101,12 @@ static void json_parser_update_input_pos(struct json_parser *parser)
 
 struct json_parser *json_parser_init(struct istream *input)
 {
+	return json_parser_init_flags(input, 0);
+}
+
+struct json_parser *json_parser_init_flags(struct istream *input,
+					   enum json_parser_flags flags)
+{
 	struct json_parser *parser;
 
 	parser = i_new(struct json_parser, 1);
@@ -107,6 +114,9 @@ struct json_parser *json_parser_init(struct istream *input)
 	parser->value = str_new(default_pool, 128);
 	i_array_init(&parser->nesting, 8);
 	i_stream_ref(input);
+
+	if ((flags & JSON_PARSER_NO_ROOT_OBJECT) != 0)
+		parser->state = JSON_STATE_VALUE;
 	return parser;
 }
 
@@ -407,6 +417,7 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 		return 0;
 	case JSON_STATE_OBJECT_VALUE:
 	case JSON_STATE_ARRAY_VALUE:
+	case JSON_STATE_VALUE:
 		if (*parser->data == '{') {
 			json_parser_object_open(parser);
 
@@ -459,8 +470,19 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 			}
 			return -1;
 		}
-		parser->state = parser->state == JSON_STATE_OBJECT_VALUE ?
-			JSON_STATE_OBJECT_NEXT : JSON_STATE_ARRAY_NEXT;
+		switch (parser->state) {
+		case JSON_STATE_OBJECT_VALUE:
+			parser->state = JSON_STATE_OBJECT_NEXT;
+			break;
+		case JSON_STATE_ARRAY_VALUE:
+			parser->state = JSON_STATE_ARRAY_NEXT;
+			break;
+		case JSON_STATE_VALUE:
+			parser->state = JSON_STATE_DONE;
+			break;
+		default:
+			i_unreached();
+		}
 		break;
 	case JSON_STATE_OBJECT_OPEN:
 		if (*parser->data == '}')

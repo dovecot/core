@@ -163,7 +163,8 @@ static void test_json_parser_success(bool full_size)
 	test_end();
 }
 
-static int test_json_parse_input(const char *test_input)
+static int
+test_json_parse_input(const char *test_input, enum json_parser_flags flags)
 {
 	struct json_parser *parser;
 	struct istream *input;
@@ -172,13 +173,33 @@ static int test_json_parse_input(const char *test_input)
 	int ret = 0;
 
 	input = test_istream_create_data(test_input, strlen(test_input));
-	parser = json_parser_init(input);
+	parser = json_parser_init_flags(input, flags);
 	while (json_parse_next(parser, &type, &value) > 0)
 		ret++;
 	if (json_parser_deinit(&parser, &error) < 0)
 		ret = -1;
 	i_stream_unref(&input);
 	return ret;
+}
+
+static void test_json_parser_primitive_values(void)
+{
+	static const char *test_inputs[] = {
+		"\"hello\"",
+		"null",
+		"1234",
+		"1234.1234",
+		"{}",
+		"[]",
+		"true",
+		"false"
+	};
+	unsigned int i;
+
+	test_begin("json_parser (primitives)");
+	for (i = 0; i < N_ELEMENTS(test_inputs); i++)
+		test_assert_idx(test_json_parse_input(test_inputs[i], JSON_PARSER_NO_ROOT_OBJECT) == 1, i);
+	test_end();
 }
 
 static void test_json_parser_errors(void)
@@ -199,7 +220,7 @@ static void test_json_parser_errors(void)
 
 	test_begin("json parser error handling");
 	for (i = 0; i < N_ELEMENTS(test_inputs); i++)
-		test_assert_idx(test_json_parse_input(test_inputs[i]) < 0, i);
+		test_assert_idx(test_json_parse_input(test_inputs[i], 0) < 0, i);
 	test_end();
 }
 
@@ -229,6 +250,7 @@ void test_json_parser(void)
 {
 	test_json_parser_success(TRUE);
 	test_json_parser_success(FALSE);
+	test_json_parser_primitive_values();
 	test_json_parser_errors();
 	test_json_append_escaped();
 	test_json_append_escaped_data();

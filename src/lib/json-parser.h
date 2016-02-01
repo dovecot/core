@@ -19,8 +19,18 @@ enum json_type {
 	JSON_TYPE_NULL
 };
 
+enum json_parser_flags {
+	/* By default we assume that the input is an object and parsing skips
+	   the root level "{" and "}". If this flag is set, it's possible to
+	   parse any other type of JSON values directly. */
+	JSON_PARSER_NO_ROOT_OBJECT	= 0x01
+};
+
 /* Parse JSON tokens from the input stream. */
 struct json_parser *json_parser_init(struct istream *input);
+struct json_parser *json_parser_init_flags(struct istream *input,
+					   enum json_parser_flags flags);
+
 int json_parser_deinit(struct json_parser **parser, const char **error_r);
 
 /* Parse the next token. Returns 1 if found, 0 if more input stream is
