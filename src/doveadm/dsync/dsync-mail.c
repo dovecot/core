@@ -50,7 +50,8 @@ int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
 			break;
 		if (size == 0)
 			break;
-		message_header_hash_more(&md5_ctx, version, data, size);
+		message_header_hash_more(&hash_method_md5, &md5_ctx, version,
+					 data, size);
 		i_stream_skip(input, size);
 	}
 	if (input->stream_errno != 0)

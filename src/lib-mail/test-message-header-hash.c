@@ -19,7 +19,8 @@ static void test_dsync_mail_hash_more(void)
 
 	test_begin("dsync_mail_hash_more v2");
 	md5_init(&md5_ctx);
-	message_header_hash_more(&md5_ctx, 2, test_input, sizeof(test_input)-1);
+	message_header_hash_more(&hash_method_md5, &md5_ctx, 2,
+				 test_input, sizeof(test_input)-1);
 	md5_final(&md5_ctx, md5_input);
 
 	md5_init(&md5_ctx);

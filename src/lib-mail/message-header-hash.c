@@ -1,10 +1,10 @@
 /* Copyright (c) 2013-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "md5.h"
+#include "hash-method.h"
 #include "message-header-hash.h"
 
-void message_header_hash_more(struct md5_context *md5_ctx,
+void message_header_hash_more(const struct hash_method *method, void *context,
 			      unsigned int version,
 			      const unsigned char *data, size_t size)
 {
@@ -13,7 +13,7 @@ void message_header_hash_more(struct md5_context *md5_ctx,
 	i_assert(version == 1 || version == 2);
 
 	if (version == 1) {
-		md5_update(md5_ctx, data, size);
+		method->loop(context, data, size);
 		return;
 	}
 	/* - Dovecot IMAP replaces NULs with 0x80 character.
@@ -35,11 +35,11 @@ void message_header_hash_more(struct md5_context *md5_ctx,
 		    (data[i] != '\t' && data[i] != '\n')) {
 			/* remove repeated '?' */
 			if (start < i || i == 0) {
-				md5_update(md5_ctx, data + start, i-start);
-				md5_update(md5_ctx, "?", 1);
+				method->loop(context, data + start, i-start);
+				method->loop(context, "?", 1);
 			}
 			start = i+1;
 		}
 	}
-	md5_update(md5_ctx, data + start, i-start);
+	method->loop(context, data + start, i-start);
 }
