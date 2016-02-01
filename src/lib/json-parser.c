@@ -37,6 +37,7 @@ struct json_parser {
 	ARRAY(enum json_state) nesting;
 	unsigned int nested_skip_count;
 	bool skipping;
+	bool seen_eof;
 };
 
 static int json_parser_read_more(struct json_parser *parser)
@@ -57,13 +58,19 @@ static int json_parser_read_more(struct json_parser *parser)
 			parser->error = "Token too large";
 			return -1;
 		}
-		if (ret <= 0)
+		if (ret < 0 && !parser->seen_eof &&
+		    i_stream_get_data_size(parser->input) > 0 &&
+		    parser->input->stream_errno == 0) {
+			/* call it once more to finish any pending number */
+			parser->seen_eof = TRUE;
+		} else if (ret <= 0) {
 			return ret;
-
-		cur_highwater = parser->input->v_offset +
-			i_stream_get_data_size(parser->input);
-		i_assert(parser->highwater_offset < cur_highwater);
-		parser->highwater_offset = cur_highwater;
+		} else {
+			cur_highwater = parser->input->v_offset +
+				i_stream_get_data_size(parser->input);
+			i_assert(parser->highwater_offset < cur_highwater);
+			parser->highwater_offset = cur_highwater;
+		}
 	}
 
 	parser->start = parser->data = i_stream_get_data(parser->input, &size);
