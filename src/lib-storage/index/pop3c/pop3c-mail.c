@@ -129,12 +129,11 @@ static void pop3c_mail_cache_size(struct index_mail *mail)
 	}
 }
 
-static void pop3c_mail_prefetch_done(enum pop3c_command_state state,
-				     const char *reply, void *context)
+static void
+pop3c_mail_prefetch_done(enum pop3c_command_state state,
+			 const char *reply ATTR_UNUSED, void *context)
 {
 	struct pop3c_mail *pmail = context;
-	struct mail *_mail = &pmail->imail.mail.mail;
-	const char *cmd;
 
 	switch (state) {
 	case POP3C_COMMAND_STATE_OK:
