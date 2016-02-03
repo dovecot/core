@@ -31,7 +31,7 @@ mech_external_input(struct dsasl_client *_client,
 static int
 mech_external_output(struct dsasl_client *_client,
 		     const unsigned char **output_r, unsigned int *output_len_r,
-		     const char **error_r)
+		     const char **error_r ATTR_UNUSED)
 {
 	struct external_dsasl_client *client =
 		(struct external_dsasl_client *)_client;
