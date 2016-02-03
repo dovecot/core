@@ -80,7 +80,10 @@ cmd_setmetadata_parse_entryvalue(struct imap_setmetadata_context *ctx,
 		client_send_command_error(ctx->cmd, error);
 		return -1;
 	}
-	i_assert(!IMAP_ARG_IS_EOL(&args[1]));
+	if (args[1].type == IMAP_ARG_EOL) {
+		client_send_command_error(ctx->cmd, "Entry value missing");
+		return -1;
+	}
 	if (args[1].type == IMAP_ARG_LIST) {
 		client_send_command_error(ctx->cmd, "Entry value can't be a list");
 		return -1;
