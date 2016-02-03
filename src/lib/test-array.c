@@ -49,6 +49,58 @@ static void test_array_foreach(void)
 	}
 	test_end();
 }
+static void test_array_foreach_elem_struct(void)
+{
+	ARRAY(struct foo) foos;
+	struct foo foo;
+	unsigned int i;
+
+	test_begin("array foreach_elem struct");
+	t_array_init(&foos, 32);
+	for (i = 0; i < 10; i++) {
+		foo.a = foo.b = foo.c = i;
+		array_append(&foos, &foo, 1);
+	}
+
+	i = 0;
+	array_foreach_elem(&foos, foo) {
+		test_assert_idx(foo.a == i, i);
+		test_assert_idx(foo.b == i, i);
+		test_assert_idx(foo.c == i, i);
+		i++;
+	}
+	test_end();
+}
+static void test_array_foreach_elem_string(void)
+{
+	ARRAY(char *) blurbs;
+	ARRAY(const char *) cblurbs;
+	char *string;
+	const char *cstring;
+	int i;
+
+	test_begin("array foreach_elem ro/rw strings");
+	t_array_init(&blurbs, 32);
+	t_array_init(&cblurbs, 32);
+	for (i = 0; i < 10; i++) {
+		cstring = t_strdup_printf("x%iy", i);
+		string = (char *)cstring;
+		array_append(&blurbs, &string, 1);
+		array_append(&cblurbs, &cstring, 1);
+	}
+
+	i = 0;
+	array_foreach_elem(&blurbs, string) {
+		test_assert_idx(string[0] == 'x' && string[1]-'0' == i && string[2] == 'y', i);
+		i++;
+	}
+	i = 0;
+	array_foreach_elem(&cblurbs, cstring) {
+		test_assert_idx(cstring[0] == 'x' && cstring[1]-'0' == i && cstring[2] == 'y', i);
+		i++;
+	}
+	test_end();
+}
 
 static void test_array_swap(void)
 {
@@ -232,6 +284,8 @@ void test_array(void)
 {
 	test_array_count();
 	test_array_foreach();
+	test_array_foreach_elem_struct();
+	test_array_foreach_elem_string();
 	test_array_reverse();
 	test_array_cmp();
 	test_array_cmp_str();
