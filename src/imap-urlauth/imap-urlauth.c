@@ -186,6 +186,8 @@ int main(int argc, char *argv[])
 	void **sets;
 	enum master_service_flags service_flags = 0;
 	const char *error = NULL, *username = NULL;
+	const char *auth_socket_path = "auth-master";
+	int c;
 
 	memset(&login_set, 0, sizeof(login_set));
 	login_set.postlogin_timeout_secs = MASTER_POSTLOGIN_TIMEOUT_DEFAULT;
@@ -205,9 +207,16 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("imap-urlauth", service_flags,
-					     &argc, &argv, "");
-	if (master_getopt(master_service) > 0)
-		return FATAL_DEFAULT;
+					     &argc, &argv, "a:");
+	while ((c = master_getopt(master_service)) > 0) {
+		switch (c) {
+		case 'a':
+			auth_socket_path = optarg;
+			break;
+		default:
+			return FATAL_DEFAULT;
+		}
+	}
 	master_service_init_log(master_service, "imap-urlauth: ");
 
 	memset(&input, 0, sizeof(input));
@@ -224,7 +233,7 @@ int main(int argc, char *argv[])
 	if (imap_urlauth_settings->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	login_set.auth_socket_path = t_abspath("auth-master");
+	login_set.auth_socket_path = t_abspath(auth_socket_path);
 	login_set.callback = login_client_connected;
 	login_set.failure_callback = login_client_failed;
 

@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
 	enum master_service_flags service_flags = 0;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_AUTOEXPUNGE;
-	const char *username = NULL;
+	const char *username = NULL, *auth_socket_path = "auth-master";
 	int c;
 
 	memset(&login_set, 0, sizeof(login_set));
@@ -238,9 +238,12 @@ int main(int argc, char *argv[])
 	}
 
 	master_service = master_service_init("pop3", service_flags,
-					     &argc, &argv, "t:u:");
+					     &argc, &argv, "a:t:u:");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
+		case 'a':
+			auth_socket_path = optarg;
+			break;
 		case 't':
 			if (str_to_uint(optarg, &login_set.postlogin_timeout_secs) < 0 ||
 			    login_set.postlogin_timeout_secs == 0)
@@ -256,7 +259,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	login_set.auth_socket_path = t_abspath("auth-master");
+	login_set.auth_socket_path = t_abspath(auth_socket_path);
 	if (argv[optind] != NULL)
 		login_set.postlogin_socket_path = t_abspath(argv[optind]);
 	login_set.callback = login_client_connected;
