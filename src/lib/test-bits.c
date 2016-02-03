@@ -83,9 +83,34 @@ static void test_sum_overflows(void)
 	test_end();
 }
 
-void test_bits()
+static void test_bits_fraclog(void)
+{
+	unsigned int fracbits;
+	for (fracbits = 0; fracbits < 6; fracbits++) {
+		static char name[] = "fraclog x-bit";
+		name[8] = '0'+ fracbits;
+		test_begin(name);
+
+		unsigned int i;
+		unsigned int last_end = ~0u;
+		for (i = 0; i < BITS_FRACLOG_BUCKETS(fracbits); i++) {
+			unsigned int start = bits_fraclog_bucket_start(i, fracbits);
+			unsigned int end = bits_fraclog_bucket_end(i, fracbits);
+			test_assert_idx(start == last_end + 1, i);
+			last_end = end;
+			test_assert_idx(bits_fraclog(start, fracbits) == i, i);
+			test_assert_idx(bits_fraclog(end, fracbits) == i, i);
+		}
+		test_assert_idx(last_end == ~0u, fracbits);
+
+		test_end();
+	}
+}
+
+void test_bits(void)
 {
 	test_nearest_power();
 	test_bits_requiredXX();
+	test_bits_fraclog();
 	test_sum_overflows();
 }
