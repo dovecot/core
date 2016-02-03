@@ -78,6 +78,21 @@
 			buffer_get_modifiable_data((array)->arr.buffer, NULL)) + \
 			(array)->arr.buffer->used; \
 	     elem != elem ## _end; (elem)++)
+/* Bikeshed: which is better
+   array_foreach_elem(array, myvar) { ... use myvar ... }  // not clear myvar is modified
+   array_foreach_elem(array, &myvar) { ... use myvar ... } // clearer, as more pass-by-referencey
+   Latter is impossible if we want to use the variable name as the base for the other variable names
+*/
+#  define array_foreach_elem(array, elem) \
+	for (unsigned int _foreach_offset = ARRAY_TYPE_CHECK(array, &elem) + \
+				COMPILE_ERROR_IF_TRUE(sizeof(elem) > 16)\
+		     ;							\
+	     (_foreach_offset < (array)->arr.buffer->used) &&		\
+	     (memcpy(&elem, CONST_PTR_OFFSET(*(array)->v, _foreach_offset), sizeof(elem)), TRUE) \
+		;							\
+	     _foreach_offset += sizeof(elem)				\
+		)
+
 #else
 #  define array_foreach(array, elem) \
 	for (elem = *(array)->v; \
