@@ -25,6 +25,7 @@ struct dsasl_client_mech {
 	void (*free)(struct dsasl_client *client);
 };
 
+extern const struct dsasl_client_mech dsasl_client_mech_external;
 extern const struct dsasl_client_mech dsasl_client_mech_login;
 
 void dsasl_client_mech_register(const struct dsasl_client_mech *mech);

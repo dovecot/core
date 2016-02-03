@@ -104,6 +104,7 @@ void dsasl_clients_init(void)
 		return;
 
 	i_array_init(&dsasl_mechanisms, 8);
+	dsasl_client_mech_register(&dsasl_client_mech_external);
 	dsasl_client_mech_register(&dsasl_client_mech_plain);
 	dsasl_client_mech_register(&dsasl_client_mech_login);
 }
