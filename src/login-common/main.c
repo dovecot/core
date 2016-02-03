@@ -51,6 +51,7 @@ unsigned int login_source_ips_idx, login_source_ips_count;
 
 static struct module *modules;
 static struct timeout *auth_client_to;
+static const char *post_login_socket;
 static bool shutting_down = FALSE;
 static bool ssl_connections = FALSE;
 static bool auth_connected_once = FALSE;
@@ -403,7 +404,7 @@ static void main_init(const char *login_socket)
 	auth_client = auth_client_init(login_socket, (unsigned int)getpid(),
 				       FALSE);
         auth_client_set_connect_notify(auth_client, auth_connect_notify, NULL);
-	master_auth = master_auth_init(master_service, login_binary->protocol);
+	master_auth = master_auth_init(master_service, post_login_socket);
 
 	login_binary->init();
 	login_proxy_init("proxy-notify");
@@ -441,10 +442,11 @@ int login_binary_run(const struct login_binary *binary,
 	login_binary = binary;
 	login_socket = binary->default_login_socket != NULL ?
 		binary->default_login_socket : LOGIN_DEFAULT_SOCKET;
+	post_login_socket = binary->protocol;
 
 	master_service = master_service_init(login_binary->process_name,
 					     service_flags, &argc, &argv,
-					     "DR:S");
+					     "Dl:R:S");
 	master_service_init_log(master_service, t_strconcat(
 		login_binary->process_name, ": ", NULL));
 
@@ -452,6 +454,9 @@ int login_binary_run(const struct login_binary *binary,
 		switch (c) {
 		case 'D':
 			login_debug = TRUE;
+			break;
+		case 'l':
+			post_login_socket = optarg;
 			break;
 		case 'R':
 			login_rawlog_dir = optarg;
