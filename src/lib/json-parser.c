@@ -21,6 +21,7 @@ enum json_state {
 	JSON_STATE_ARRAY_VALUE,
 	JSON_STATE_ARRAY_SKIP_STRING,
 	JSON_STATE_ARRAY_NEXT,
+	JSON_STATE_ARRAY_NEXT_SKIP,
 	JSON_STATE_VALUE,
 	JSON_STATE_DONE
 };
@@ -536,6 +537,7 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 			/* we skipped over the previous value */
 			parser->skipping = FALSE;
 		}
+	case JSON_STATE_ARRAY_NEXT_SKIP:
 		if (*parser->data == ']')
 			return json_parse_close_array(parser, type_r);
 		if (*parser->data != ',') {
@@ -592,9 +594,12 @@ void json_parse_skip_next(struct json_parser *parser)
 	i_assert(parser->strinput == NULL);
 	i_assert(parser->state == JSON_STATE_OBJECT_COLON ||
 		 parser->state == JSON_STATE_OBJECT_VALUE ||
-		 parser->state == JSON_STATE_ARRAY_VALUE);
+		 parser->state == JSON_STATE_ARRAY_VALUE ||
+		 parser->state == JSON_STATE_ARRAY_NEXT);
 
 	parser->skipping = TRUE;
+	if (parser->state == JSON_STATE_ARRAY_NEXT)
+		parser->state = JSON_STATE_ARRAY_NEXT_SKIP;
 }
 
 static void json_strinput_destroyed(struct json_parser *parser)
