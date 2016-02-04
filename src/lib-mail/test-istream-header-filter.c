@@ -7,6 +7,33 @@
 #include "istream-header-filter.h"
 #include "test-common.h"
 
+static void
+test_istream_run(struct istream *test_istream, struct istream *filter,
+		 unsigned int input_len, const char *output)
+{
+	unsigned int i, output_len = strlen(output);
+	const unsigned char *data;
+	size_t size;
+
+	for (i = 1; i < input_len; i++) {
+		test_istream_set_size(test_istream, i);
+		test_assert(i_stream_read(filter) >= 0);
+	}
+	test_istream_set_size(test_istream, input_len);
+	test_assert(i_stream_read(filter) > 0);
+	test_assert(i_stream_read(filter) == -1);
+
+	data = i_stream_get_data(filter, &size);
+	test_assert(size == output_len && memcmp(data, output, size) == 0);
+
+	/* run again to make sure it's still correct the second time */
+	i_stream_skip(filter, size);
+	i_stream_seek(filter, 0);
+	while (i_stream_read(filter) > 0) ;
+	data = i_stream_get_data(filter, &size);
+	test_assert(size == output_len && memcmp(data, output, size) == 0);
+}
+
 static void ATTR_NULL(3)
 filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 		struct message_header_line *hdr,
@@ -87,10 +114,6 @@ static void test_istream_edit(void)
 	const char *input = "From: foo\nTo: bar\n\nhello world\n";
 	const char *output = "From: foo\nTo: 123\n\nhello world\n";
 	struct istream *istream, *filter;
-	unsigned int i, input_len = strlen(input);
-	unsigned int output_len = strlen(output);
-	const unsigned char *data;
-	size_t size;
 
 	test_begin("i_stream_create_header_filter(edit)");
 	istream = test_istream_create(input);
@@ -99,23 +122,7 @@ static void test_istream_edit(void)
 					       HEADER_FILTER_NO_CR,
 					       NULL, 0,
 					       edit_callback, (void *)NULL);
-	for (i = 1; i < input_len; i++) {
-		test_istream_set_size(istream, i);
-		test_assert(i_stream_read(filter) >= 0);
-	}
-	test_istream_set_size(istream, input_len);
-	test_assert(i_stream_read(filter) > 0);
-	test_assert(i_stream_read(filter) == -1);
-
-	data = i_stream_get_data(filter, &size);
-	test_assert(size == output_len && memcmp(data, output, size) == 0);
-
-	i_stream_skip(filter, size);
-	i_stream_seek(filter, 0);
-	while (i_stream_read(filter) > 0) ;
-	data = i_stream_get_data(filter, &size);
-	test_assert(size == output_len && memcmp(data, output, size) == 0);
-
+	test_istream_run(istream, filter, strlen(input), output);
 	i_stream_unref(&filter);
 	i_stream_unref(&istream);
 
@@ -181,12 +188,40 @@ static void test_istream_end_body_with_lf(void)
 	test_end();
 }
 
+static void ATTR_NULL(3)
+strip_eoh_callback(struct header_filter_istream *input ATTR_UNUSED,
+		   struct message_header_line *hdr,
+		   bool *matched, void *context ATTR_UNUSED)
+{
+	if (hdr != NULL && hdr->eoh)
+		*matched = FALSE;
+}
+
+static void test_istream_strip_eoh(void)
+{
+	const char *input = "From: foo\nTo: bar\n\nhello world\n";
+	const char *output = "From: foo\nTo: bar\nhello world\n";
+	struct istream *istream, *filter;
+
+	test_begin("i_stream_create_header_filter(edit)");
+	istream = test_istream_create(input);
+	filter = i_stream_create_header_filter(istream,
+			HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR, NULL, 0,
+			strip_eoh_callback, (void *)NULL);
+	test_istream_run(istream, filter, strlen(input), output);
+	i_stream_unref(&filter);
+	i_stream_unref(&istream);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_istream_filter,
 		test_istream_edit,
 		test_istream_end_body_with_lf,
+		test_istream_strip_eoh,
 		NULL
 	};
 	return test_run(test_functions);

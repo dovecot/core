@@ -38,6 +38,7 @@ struct header_filter_istream {
 	unsigned int add_missing_eoh:1;
 	unsigned int end_body_with_lf:1;
 	unsigned int last_lf_added:1;
+	unsigned int eoh_not_matched:1;
 };
 
 header_filter_callback *null_header_filter_callback = NULL;
@@ -187,14 +188,17 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		if (hdr->eoh) {
 			mstream->seen_eoh = TRUE;
 			matched = TRUE;
-			if (!mstream->header_parsed &&
-			    mstream->callback != NULL) {
+			if (mstream->header_parsed) {
+				if (mstream->eoh_not_matched)
+					matched = !matched;
+			} else if (mstream->callback != NULL) {
 				mstream->callback(mstream, hdr, &matched,
 						  mstream->context);
 			}
 
 			if (!matched) {
 				mstream->seen_eoh = FALSE;
+				mstream->eoh_not_matched = TRUE;
 				continue;
 			}
 
