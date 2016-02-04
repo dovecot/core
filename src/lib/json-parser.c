@@ -28,6 +28,7 @@ enum json_state {
 struct json_parser {
 	struct istream *input;
 	uoff_t highwater_offset;
+	enum json_parser_flags flags;
 
 	const unsigned char *start, *end, *data;
 	const char *error;
@@ -111,6 +112,7 @@ struct json_parser *json_parser_init_flags(struct istream *input,
 
 	parser = i_new(struct json_parser, 1);
 	parser->input = input;
+	parser->flags = flags;
 	parser->value = str_new(default_pool, 128);
 	i_array_init(&parser->nesting, 8);
 	i_stream_ref(input);
@@ -356,7 +358,10 @@ static int json_parse_denest(struct json_parser *parser)
 	if (count == 1) {
 		/* closing root */
 		parser->state = JSON_STATE_DONE;
-		return 0;
+		if ((parser->flags & JSON_PARSER_NO_ROOT_OBJECT) == 0)
+			return 0;
+		/* we want to return the ending "]" or "}" to caller */
+		return 1;
 	}
 
 	/* closing a nested object */

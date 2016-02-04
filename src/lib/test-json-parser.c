@@ -184,21 +184,24 @@ test_json_parse_input(const char *test_input, enum json_parser_flags flags)
 
 static void test_json_parser_primitive_values(void)
 {
-	static const char *test_inputs[] = {
-		"\"hello\"",
-		"null",
-		"1234",
-		"1234.1234",
-		"{}",
-		"[]",
-		"true",
-		"false"
+	static struct {
+		const char *str;
+		int ret;
+	} test_inputs[] = {
+		{ "\"hello\"", 1 },
+		{ "null", 1 },
+		{ "1234", 1 },
+		{ "1234.1234", 1 },
+		{ "{}", 2 },
+		{ "[]", 2 },
+		{ "true", 1 },
+		{ "false", 1 }
 	};
 	unsigned int i;
 
 	test_begin("json_parser (primitives)");
 	for (i = 0; i < N_ELEMENTS(test_inputs); i++)
-		test_assert_idx(test_json_parse_input(test_inputs[i], JSON_PARSER_NO_ROOT_OBJECT) == 1, i);
+		test_assert_idx(test_json_parse_input(test_inputs[i].str, JSON_PARSER_NO_ROOT_OBJECT) == test_inputs[i].ret, i);
 	test_end();
 }
 
