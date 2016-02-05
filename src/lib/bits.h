@@ -8,6 +8,24 @@
 
 size_t nearest_power(size_t num) ATTR_CONST;
 
+#if __GNUC__ > 2
+static inline unsigned int ATTR_CONST
+bits_required32(uint32_t num)
+{
+	return num == 0 ? 0 : 32 - __builtin_clz(num);
+}
+static inline unsigned int ATTR_CONST
+bits_required8(uint8_t num)   { return bits_required32(num); }
+
+static inline unsigned int ATTR_CONST
+bits_required16(uint16_t num) { return bits_required32(num); }
+
+static inline unsigned int ATTR_CONST
+bits_required64(uint64_t num)
+{
+	return num == 0 ? 0 : 64 - __builtin_clzl(num);
+}
+#else
 unsigned int bits_required8(uint8_t num) ATTR_CONST;
 
 static inline
@@ -28,6 +46,7 @@ unsigned int bits_required64(uint64_t num)
 	return (num <= 0xffffffff) ? bits_required32(num)
 		: 32 + bits_required32(num >> 32);
 }
+#endif
 
 /* These functions look too big to be inline, but in almost all expected
    uses, 'fracbits' will be a compile-time constant, and most of the
