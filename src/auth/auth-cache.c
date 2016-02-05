@@ -373,7 +373,6 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 		cache->miss_count++;
 		return NULL;
 	}
-	cache->hit_count++;
 
 	value = node->data + strlen(node->data) + 1;
 	ttl_secs = *value == '\0' ? cache->neg_ttl_secs : cache->ttl_secs;
@@ -381,6 +380,7 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 	now = time(NULL);
 	if (node->created < now - (time_t)ttl_secs) {
 		/* TTL expired */
+		cache->miss_count++;
 		*expired_r = TRUE;
 	} else {
 		/* move to head */
@@ -388,6 +388,7 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 			auth_cache_node_unlink(cache, node);
 			auth_cache_node_link_head(cache, node);
 		}
+		cache->hit_count++;
 	}
 	if (node->created < now - (time_t)cache->neg_ttl_secs)
 		*neg_expired_r = TRUE;
