@@ -107,10 +107,36 @@ static void test_bits_fraclog(void)
 	}
 }
 
+/* The compiler *should* generate different code when the fracbits parameter
+   is a compile-time constant, so we also need to check that's the case.
+*/
+static void test_bits_fraclog_const(void)
+{
+#define FRACBITS 2
+#define STR2(s) #s
+#define STR(s) STR2(s)
+	test_begin("fraclog constant " STR(FRACBITS) " bit");
+
+	unsigned int i;
+	unsigned int last_end = ~0u;
+	for (i = 0; i < BITS_FRACLOG_BUCKETS(FRACBITS); i++) {
+		unsigned int start = bits_fraclog_bucket_start(i, FRACBITS);
+		unsigned int end = bits_fraclog_bucket_end(i, FRACBITS);
+		test_assert_idx(start == last_end + 1, i);
+		last_end = end;
+		test_assert_idx(bits_fraclog(start, FRACBITS) == i, i);
+		test_assert_idx(bits_fraclog(end, FRACBITS) == i, i);
+	}
+	test_assert(last_end == ~0u);
+
+	test_end();
+}
+
 void test_bits(void)
 {
 	test_nearest_power();
 	test_bits_requiredXX();
 	test_bits_fraclog();
+	test_bits_fraclog_const();
 	test_sum_overflows();
 }
