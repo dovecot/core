@@ -7,20 +7,20 @@
 #include "master-service.h"
 #include "mail-session.h"
 #include "mail-command.h"
-#include "mail-server-connection.h"
+#include "fifo-input-connection.h"
 
 #include <unistd.h>
 
 #define MAX_INBUF_SIZE (PIPE_BUF*2)
 
-struct mail_server_connection {
+struct fifo_input_connection {
 	int fd;
 	struct istream *input;
 	struct io *io;
 };
 
 static int
-mail_server_connection_request(const char *const *args, const char **error_r)
+fifo_input_connection_request(const char *const *args, const char **error_r)
 {
 	const char *cmd = args[0];
 
@@ -43,41 +43,41 @@ mail_server_connection_request(const char *const *args, const char **error_r)
 	return -1;
 }
 
-static void mail_server_connection_input(struct mail_server_connection *conn)
+static void fifo_input_connection_input(struct fifo_input_connection *conn)
 {
 	const char *line, *const *args, *error;
 
 	switch (i_stream_read(conn->input)) {
 	case -2:
 		i_error("BUG: Mail server sent too much data");
-		mail_server_connection_destroy(&conn);
+		fifo_input_connection_destroy(&conn);
 		return;
 	case -1:
-		mail_server_connection_destroy(&conn);
+		fifo_input_connection_destroy(&conn);
 		return;
 	}
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) T_BEGIN {
 		args = t_strsplit_tabescaped(line);
-		if (mail_server_connection_request(args, &error) < 0)
+		if (fifo_input_connection_request(args, &error) < 0)
 			i_error("Mail server input error: %s", error);
 	} T_END;
 }
 
-struct mail_server_connection *mail_server_connection_create(int fd)
+struct fifo_input_connection *fifo_input_connection_create(int fd)
 {
-	struct mail_server_connection *conn;
+	struct fifo_input_connection *conn;
 
-	conn = i_new(struct mail_server_connection, 1);
+	conn = i_new(struct fifo_input_connection, 1);
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	conn->io = io_add(fd, IO_READ, mail_server_connection_input, conn);
+	conn->io = io_add(fd, IO_READ, fifo_input_connection_input, conn);
 	return conn;
 }
 
-void mail_server_connection_destroy(struct mail_server_connection **_conn)
+void fifo_input_connection_destroy(struct fifo_input_connection **_conn)
 {
-	struct mail_server_connection *conn = *_conn;
+	struct fifo_input_connection *conn = *_conn;
 
 	*_conn = NULL;
 

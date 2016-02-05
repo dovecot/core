@@ -17,10 +17,12 @@ static buffer_t stats_unix_listeners_buf = {
 	stats_unix_listeners, sizeof(stats_unix_listeners), { NULL, }
 };
 static struct file_listener_settings stats_fifo_listeners_array[] = {
-	{ "stats-mail", 0600, "", "" }
+	{ "stats-mail", 0600, "", "" },
+	{ "stats-user", 0600, "", "" }
 };
 static struct file_listener_settings *stats_fifo_listeners[] = {
-	&stats_fifo_listeners_array[0]
+	&stats_fifo_listeners_array[0],
+	&stats_fifo_listeners_array[1]
 };
 static buffer_t stats_fifo_listeners_buf = {
 	stats_fifo_listeners,

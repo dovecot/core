@@ -7,7 +7,7 @@
 #include "master-service-settings.h"
 #include "global-memory.h"
 #include "stats-settings.h"
-#include "mail-server-connection.h"
+#include "fifo-input-connection.h"
 #include "mail-command.h"
 #include "mail-session.h"
 #include "mail-user.h"
@@ -16,17 +16,17 @@
 #include "mail-stats.h"
 #include "client.h"
 
-static struct mail_server_connection *mail_server_conn = NULL;
+static struct fifo_input_connection *fifo_input_conn = NULL;
 static struct module *modules = NULL;
 
 static void client_connected(struct master_service_connection *conn)
 {
 	if (conn->fifo) {
-		if (mail_server_conn != NULL) {
+		if (fifo_input_conn != NULL) {
 			i_error("Received another mail-server connection");
 			return;
 		}
-		mail_server_conn = mail_server_connection_create(conn->fd);
+		fifo_input_conn = fifo_input_connection_create(conn->fd);
 	} else {
 		(void)client_create(conn->fd);
 	}
@@ -92,8 +92,8 @@ int main(int argc, char *argv[])
 	mail_ips_deinit();
 	mail_global_deinit();
 
-	if (mail_server_conn != NULL)
-		mail_server_connection_destroy(&mail_server_conn);
+	if (fifo_input_conn != NULL)
+		fifo_input_connection_destroy(&fifo_input_conn);
 
 	module_dir_unload(&modules);
 	i_assert(global_used_memory == 0);
