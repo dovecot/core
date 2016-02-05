@@ -1,9 +1,11 @@
 /* Copyright (c) 2011-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "ioloop.h"
 #include "hash.h"
 #include "llist.h"
+#include "base64.h"
 #include "global-memory.h"
 #include "stats-settings.h"
 #include "mail-stats.h"
@@ -115,6 +117,38 @@ void mail_user_refresh(struct mail_user *user,
 	DLLIST2_APPEND_FULL(&mail_users_head, &mail_users_tail, user,
 			    sorted_prev, sorted_next);
 	mail_domain_refresh(user->domain, diff_stats);
+}
+
+int mail_user_add_parse(const char *const *args, const char **error_r)
+{
+	struct mail_user *user;
+	struct stats *diff_stats;
+	buffer_t *buf;
+	const char *service, *error;
+
+	/* <user> <service> <diff stats> */
+	if (str_array_length(args) < 3) {
+		*error_r = "ADD-USER: Too few parameters";
+		return -1;
+	}
+
+	user = mail_user_login(args[0]);
+	service = args[1];
+
+	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	if (base64_decode(args[2], strlen(args[2]), NULL, buf) < 0) {
+		*error_r = t_strdup_printf("ADD-USER %s %s: Invalid base64 input",
+					   user->name, service);
+		return -1;
+	}
+	diff_stats = stats_alloc(pool_datastack_create());
+	if (!stats_import(buf->data, buf->used, user->stats, diff_stats, &error)) {
+		*error_r = t_strdup_printf("ADD-USER %s %s: %s",
+					   user->name, service, error);
+		return -1;
+	}
+	mail_user_refresh(user, diff_stats);
+	return 0;
 }
 
 void mail_users_free_memory(void)

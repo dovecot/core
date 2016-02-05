@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "master-service.h"
 #include "mail-session.h"
+#include "mail-user.h"
 #include "mail-command.h"
 #include "fifo-input-connection.h"
 
@@ -36,6 +37,8 @@ fifo_input_connection_request(const char *const *args, const char **error_r)
 		return mail_session_disconnect_parse(args, error_r);
 	if (strcmp(cmd, "UPDATE-SESSION") == 0)
 		return mail_session_update_parse(args, error_r);
+	if (strcmp(cmd, "ADD-USER") == 0)
+		return mail_user_add_parse(args, error_r);
 	if (strcmp(cmd, "UPDATE-CMD") == 0)
 		return mail_command_update_parse(args, error_r);
 
