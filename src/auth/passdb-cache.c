@@ -25,7 +25,7 @@ passdb_cache_log_hit(struct auth_request *request, const char *value)
 
 bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 			       const char *password,
-			       enum passdb_result *result_r, int use_expired)
+			       enum passdb_result *result_r, bool use_expired)
 {
 	const char *value, *cached_pw, *scheme, *const *list;
 	struct auth_cache_node *node;
