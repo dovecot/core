@@ -16,12 +16,12 @@ module_LTLIBRARIES = \
 lib90_stats_plugin_la_SOURCES = \
 	mail-stats.c \
 	mail-stats-fill.c \
-	stats-connection.c \
+	mail-stats-connection.c \
 	stats-plugin.c
 
 noinst_HEADERS = \
 	mail-stats.h \
-	stats-connection.h \
+	mail-stats-connection.h \
 	stats-plugin.h
 
 stats_moduledir = $(moduledir)/stats

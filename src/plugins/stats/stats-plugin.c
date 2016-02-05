@@ -8,7 +8,7 @@
 #include "settings-parser.h"
 #include "mail-stats.h"
 #include "stats.h"
-#include "stats-connection.h"
+#include "mail-stats-connection.h"
 #include "stats-plugin.h"
 
 #define STATS_CONTEXT(obj) \
@@ -129,8 +129,8 @@ static void session_stats_refresh(struct mail_user *user)
 		suser->session_sent_duplicate = !changed;
 		suser->last_session_update = now;
 		stats_copy(suser->last_sent_session_stats, suser->session_stats);
-		stats_connection_send_session(suser->stats_conn, user,
-					      suser->session_stats);
+		mail_stats_connection_send_session(suser->stats_conn, user,
+						   suser->session_stats);
 	}
 
 	if (suser->to_stats_timeout != NULL)
@@ -333,7 +333,7 @@ static void stats_user_deinit(struct mail_user *user)
 					 stats_io_deactivate, user);
 	/* send final stats before disconnection */
 	session_stats_refresh(user);
-	stats_connection_disconnect(stats_conn, user);
+	mail_stats_connection_disconnect(stats_conn, user);
 
 	if (suser->to_stats_timeout != NULL)
 		timeout_remove(&suser->to_stats_timeout);
@@ -434,7 +434,7 @@ static void stats_user_created(struct mail_user *user)
 	suser->last_sent_session_stats = stats_alloc(user->pool);
 
 	MODULE_CONTEXT_SET(user, stats_user_module, suser);
-	stats_connection_connect(suser->stats_conn, user);
+	mail_stats_connection_connect(suser->stats_conn, user);
 	suser->to_stats_timeout =
 		timeout_add(suser->refresh_secs*1000,
 			    session_stats_refresh_timeout, user);
