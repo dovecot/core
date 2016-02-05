@@ -166,6 +166,12 @@ Run a
 .BR doveadm\-purge (1)
 for the destination (remote) storage after synchronization.
 .\"-------------------------------------
+.TP
+.B \-R
+Do a reverse sync. Normally, messages would be pushed from the local
+system to the destination (remote). This option reverses the flow, and
+will instead pull messages from the remote to the local storage.
+.\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------
 .TP
@@ -199,6 +205,10 @@ Wait for maximum
 before giving up.
 This parameter should be used to avoid broken synchronization if it\(aqs
 possible that dsync is being run concurrently for the same user.
+.\"-------------------------------------
+.TP
+.BI \-m \ mailbox
+Synchronize only this mailbox name.
 .\"-------------------------------------
 .TP
 .BI \-n \ namespace
