@@ -23,21 +23,17 @@ passdb_cache_log_hit(struct auth_request *request, const char *value)
 	auth_request_log_debug(request, AUTH_SUBSYS_DB, "cache hit: %s", value);
 }
 
-bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
-			       const char *password,
-			       enum passdb_result *result_r, bool use_expired)
+static bool
+passdb_cache_lookup(struct auth_request *request, const char *key,
+		    bool use_expired, struct auth_cache_node **node_r,
+		    const char **value_r, bool *neg_expired_r)
 {
-	const char *value, *cached_pw, *scheme, *const *list;
-	struct auth_cache_node *node;
-	int ret;
-	bool expired, neg_expired;
-
-	if (passdb_cache == NULL || key == NULL)
-		return FALSE;
+	const char *value;
+	bool expired;
 
 	/* value = password \t ... */
-	value = auth_cache_lookup(passdb_cache, request, key, &node,
-				  &expired, &neg_expired);
+	value = auth_cache_lookup(passdb_cache, request, key, node_r,
+				  &expired, neg_expired_r);
 	if (value == NULL || (expired && !use_expired)) {
 		auth_request_log_debug(request, AUTH_SUBSYS_DB,
 				       value == NULL ? "cache miss" :
@@ -45,6 +41,26 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		return FALSE;
 	}
 	passdb_cache_log_hit(request, value);
+
+	*value_r = value;
+	return TRUE;
+}
+
+bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
+			       const char *password,
+			       enum passdb_result *result_r, bool use_expired)
+{
+	const char *value, *cached_pw, *scheme, *const *list;
+	struct auth_cache_node *node;
+	int ret;
+	bool neg_expired;
+
+	if (passdb_cache == NULL || key == NULL)
+		return FALSE;
+
+	if (!passdb_cache_lookup(request, key, use_expired,
+				 &node, &value, &neg_expired))
+		return FALSE;
 
 	if (*value == '\0') {
 		/* negative cache entry */
@@ -96,20 +112,14 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 {
 	const char *value, *const *list;
 	struct auth_cache_node *node;
-	bool expired, neg_expired;
+	bool neg_expired;
 
 	if (passdb_cache == NULL)
 		return FALSE;
 
-	value = auth_cache_lookup(passdb_cache, request, key, &node,
-				  &expired, &neg_expired);
-	if (value == NULL || (expired && !use_expired)) {
-		auth_request_log_debug(request, AUTH_SUBSYS_DB,
-				       value == NULL ? "cache miss" :
-				       "cache expired");
+	if (!passdb_cache_lookup(request, key, use_expired,
+				 &node, &value, &neg_expired))
 		return FALSE;
-	}
-	passdb_cache_log_hit(request, value);
 
 	if (*value == '\0') {
 		/* negative cache entry */
