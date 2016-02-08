@@ -230,6 +230,7 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(SET_STR, proxy_self),
 	DEF(SET_TIME, failure_delay),
 
+	DEF(SET_BOOL, stats),
 	DEF(SET_BOOL, verbose),
 	DEF(SET_BOOL, debug),
 	DEF(SET_BOOL, debug_passwords),
@@ -269,6 +270,7 @@ static const struct auth_settings auth_default_settings = {
 	.proxy_self = "",
 	.failure_delay = 2,
 
+	.stats = FALSE,
 	.verbose = FALSE,
 	.debug = FALSE,
 	.debug_passwords = FALSE,

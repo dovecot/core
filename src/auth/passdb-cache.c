@@ -2,10 +2,10 @@
 
 #include "auth-common.h"
 #include "restrict-process-size.h"
+#include "auth-request-stats.h"
 #include "password-scheme.h"
 #include "passdb.h"
 #include "passdb-cache.h"
-
 
 struct auth_cache *passdb_cache = NULL;
 
@@ -28,6 +28,7 @@ passdb_cache_lookup(struct auth_request *request, const char *key,
 		    bool use_expired, struct auth_cache_node **node_r,
 		    const char **value_r, bool *neg_expired_r)
 {
+	struct auth_stats *stats = auth_request_stats_get(request);
 	const char *value;
 	bool expired;
 
@@ -35,11 +36,13 @@ passdb_cache_lookup(struct auth_request *request, const char *key,
 	value = auth_cache_lookup(passdb_cache, request, key, node_r,
 				  &expired, neg_expired_r);
 	if (value == NULL || (expired && !use_expired)) {
+		stats->auth_cache_miss_count++;
 		auth_request_log_debug(request, AUTH_SUBSYS_DB,
 				       value == NULL ? "cache miss" :
 				       "cache expired");
 		return FALSE;
 	}
+	stats->auth_cache_hit_count++;
 	passdb_cache_log_hit(request, value);
 
 	*value_r = value;

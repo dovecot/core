@@ -61,6 +61,8 @@ struct auth_request {
         struct auth_passdb *passdb;
         struct auth_userdb *userdb;
 
+	struct stats *stats;
+
 	/* passdb lookups have a handler, userdb lookups don't */
 	struct auth_request_handler *handler;
         struct auth_master_connection *master;
@@ -138,6 +140,7 @@ struct auth_request {
 	/* userdb_* fields have been set by the passdb lookup, userdb prefetch
 	   will work. */
 	unsigned int userdb_prefetch_set:1;
+	unsigned int stats_sent:1;
 
 	/* ... mechanism specific data ... */
 };

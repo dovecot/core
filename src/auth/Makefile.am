@@ -29,6 +29,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-stats \
 	-I$(top_srcdir)/src/lib-ntlm \
 	-I$(top_srcdir)/src/lib-otp \
 	-I$(top_srcdir)/src/lib-master \
@@ -70,8 +71,10 @@ auth_SOURCES = \
 	auth-penalty.c \
 	auth-request.c \
 	auth-request-handler.c \
+	auth-request-stats.c \
 	auth-request-var-expand.c \
 	auth-settings.c \
+	auth-stats.c \
 	auth-fields.c \
 	auth-token.c \
 	auth-worker-client.c \
@@ -141,6 +144,7 @@ headers = \
 	auth-request-handler.h \
 	auth-request-var-expand.h \
 	auth-settings.h \
+	auth-stats.h \
 	auth-fields.h \
 	auth-token.h \
 	auth-worker-client.h \
@@ -194,6 +198,14 @@ checkpassword_reply_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 checkpassword_reply_sources = \
 	checkpassword-reply.c
+
+stats_moduledir = $(moduledir)/stats
+stats_module_LTLIBRARIES = libstats_auth.la
+
+libstats_auth_la_LDFLAGS = -module -avoid-version
+libstats_auth_la_LIBADD = auth-stats.lo $(LIBDOVECOT)
+libstats_auth_la_DEPENDENCIES = auth-stats.lo
+libstats_auth_la_SOURCES =
 
 test_programs = \
 	test-auth-cache \

@@ -15,6 +15,7 @@
 #include "auth-cache.h"
 #include "auth-request.h"
 #include "auth-request-handler.h"
+#include "auth-request-stats.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
 #include "passdb.h"
@@ -121,6 +122,8 @@ struct auth *auth_request_get_auth(struct auth_request *request)
 void auth_request_success(struct auth_request *request,
 			  const void *data, size_t data_size)
 {
+	struct auth_stats *stats;
+
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	if (request->failed || !request->passdb_success) {
@@ -137,6 +140,11 @@ void auth_request_success(struct auth_request *request,
 		return;
 	}
 
+	stats = auth_request_stats_get(request);
+	stats->auth_success_count++;
+	if (request->master_user != NULL)
+		stats->auth_master_success_count++;
+
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
 	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_SUCCESS,
@@ -145,7 +153,12 @@ void auth_request_success(struct auth_request *request,
 
 void auth_request_fail(struct auth_request *request)
 {
+	struct auth_stats *stats;
+
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	stats = auth_request_stats_get(request);
+	stats->auth_failure_count++;
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
@@ -172,6 +185,7 @@ void auth_request_unref(struct auth_request **_request)
 	if (--request->refcount > 0)
 		return;
 
+	auth_request_stats_send(request);
 	auth_request_state_count[request->state]--;
 	auth_refresh_proctitle();
 
@@ -706,6 +720,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 		   expired record. */
 		const char *cache_key = passdb->cache_key;
 
+		auth_request_stats_add_tempfail(request);
 		if (passdb_cache_verify_plain(request, cache_key,
 					      request->mech_password,
 					      &result, TRUE)) {
@@ -871,6 +886,7 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 		   expired record. */
 		const char *cache_key = passdb->cache_key;
 
+		auth_request_stats_add_tempfail(request);
 		if (passdb_cache_lookup_credentials(request, cache_key,
 						    &cache_cred, &cache_scheme,
 						    &result, TRUE)) {
@@ -1004,6 +1020,7 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 					   enum userdb_result *result_r,
 					   bool use_expired)
 {
+	struct auth_stats *stats = auth_request_stats_get(request);
 	const char *value;
 	struct auth_cache_node *node;
 	bool expired, neg_expired;
@@ -1011,11 +1028,13 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	value = auth_cache_lookup(passdb_cache, request, key, &node,
 				  &expired, &neg_expired);
 	if (value == NULL || (expired && !use_expired)) {
+		stats->auth_cache_miss_count++;
 		auth_request_log_debug(request, AUTH_SUBSYS_DB,
 				       value == NULL ? "userdb cache miss" :
 				       "userdb cache expired");
 		return FALSE;
 	}
+	stats->auth_cache_hit_count++;
 	auth_request_log_debug(request, AUTH_SUBSYS_DB,
 			       "userdb cache hit: %s", value);
 
@@ -1051,6 +1070,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		result_rule = request->userdb->result_success;
 		break;
 	case USERDB_RESULT_INTERNAL_FAILURE:
+		auth_request_stats_add_tempfail(request);
 		result_rule = request->userdb->result_internalfail;
 		break;
 	case USERDB_RESULT_USER_UNKNOWN:

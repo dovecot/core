@@ -51,6 +51,7 @@ struct auth_settings {
 	const char *proxy_self;
 	unsigned int failure_delay;
 
+	bool stats;
 	bool verbose, debug, debug_passwords;
 	const char *verbose_passwords;
 	bool ssl_require_client_cert;
