@@ -267,7 +267,7 @@ static int mail_index_strmap_open(struct mail_index_strmap_view *view)
 		return -1;
 	}
 	strmap->input = i_stream_create_fd(strmap->fd, (size_t)-1, FALSE);
-	ret = i_stream_read_data(strmap->input, &data, &size, sizeof(hdr)-1);
+	ret = i_stream_read_bytes(strmap->input, &data, &size, sizeof(hdr));
 	if (ret <= 0) {
 		if (ret < 0) {
 			mail_index_strmap_set_syscall_error(strmap, "read()");
@@ -360,7 +360,7 @@ mail_index_strmap_read_packed(struct mail_index_strmap_read_context *ctx,
 	size_t size;
 	int ret;
 
-	ret = i_stream_read_data(ctx->input, &data, &size, sizeof(*num_r) - 1);
+	ret = i_stream_read_bytes(ctx->input, &data, &size, sizeof(*num_r));
 	if (ret <= 0)
 		return ret;
 

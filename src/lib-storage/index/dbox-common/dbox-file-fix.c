@@ -151,7 +151,7 @@ dbox_file_find_next_magic(struct dbox_file *file, uoff_t *offset_r, bool *pre_r)
 
 	orig_offset = prev_offset = input->v_offset;
 	need_bytes = strlen(DBOX_MAGIC_POST); prev_need_bytes = 0;
-	while ((ret = i_stream_read_data(input, &data, &size, need_bytes-1)) > 0 ||
+	while ((ret = i_stream_read_bytes(input, &data, &size, need_bytes)) > 0 ||
 	       ret == -2) {
 		/* search for the beginning of a potential pre/post magic */
 		i_assert(size > 1);

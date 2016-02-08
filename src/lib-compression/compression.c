@@ -47,7 +47,7 @@ static bool is_compressed_bzlib(struct istream *input)
 	const unsigned char *data;
 	size_t size;
 
-	if (i_stream_read_data(input, &data, &size, 4+6 - 1) <= 0)
+	if (i_stream_read_bytes(input, &data, &size, 4+6) <= 0)
 		return FALSE;
 	if (data[0] != 'B' || data[1] != 'Z')
 		return FALSE;
@@ -63,7 +63,7 @@ static bool is_compressed_xz(struct istream *input)
 	const unsigned char *data;
 	size_t size;
 
-	if (i_stream_read_data(input, &data, &size, 6 - 1) <= 0)
+	if (i_stream_read_bytes(input, &data, &size, 6) <= 0)
 		return FALSE;
 	return memcmp(data, "\xfd\x37\x7a\x58\x5a", 6) == 0;
 }

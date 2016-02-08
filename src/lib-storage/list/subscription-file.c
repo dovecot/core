@@ -67,7 +67,7 @@ subsfile_list_read_header(struct mailbox_list *list, struct istream *input,
 
 	*version_r = 0;
 
-	ret = i_stream_read_data(input, &data, &size, version2_header_len-1);
+	ret = i_stream_read_bytes(input, &data, &size, version2_header_len);
 	if (ret < 0) {
 		i_assert(ret == -1);
 		if (input->stream_errno != 0)
