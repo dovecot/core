@@ -166,6 +166,9 @@ void http_client_request_unref(struct http_client_request **_req)
 	if (--req->refcount > 0)
 		return;
 
+	http_client_request_debug(req, "Free (requests left=%d)",
+		client->requests_count);
+
 	/* cannot be destroyed while it is still pending */
 	i_assert(req->conn == NULL || req->conn->pending_request == NULL);
 
@@ -183,12 +186,6 @@ void http_client_request_unref(struct http_client_request **_req)
 		client->requests_count--;
 	}
 
-	http_client_request_debug(req, "Destroy (requests left=%d)",
-		client->requests_count);
-
-	if (req->queue != NULL)
-		http_client_queue_drop_request(req->queue, req);
-
 	if (client->requests_count == 0 && client->ioloop != NULL)
 		io_loop_stop(client->ioloop);
 
@@ -202,6 +199,27 @@ void http_client_request_unref(struct http_client_request **_req)
 		str_free(&req->headers);
 	pool_unref(&req->pool);
 	*_req = NULL;
+}
+
+void http_client_request_destroy(struct http_client_request **_req)
+{
+	struct http_client_request *req = *_req;
+	struct http_client *client = req->client;
+
+	http_client_request_debug(req, "Destroy (requests left=%d)",
+		client->requests_count);
+
+	if (req->queue != NULL)
+		http_client_queue_drop_request(req->queue, req);
+
+	if (req->destroy_callback != NULL) {
+		void (*callback)(void *) = req->destroy_callback;
+
+		req->destroy_callback = NULL;
+		callback(req->destroy_context);
+	}
+
+	http_client_request_unref(_req);
 }
 
 void http_client_request_set_port(struct http_client_request *req,
@@ -1009,7 +1027,7 @@ void http_client_request_error_delayed(struct http_client_request **_req)
 				       req->delayed_error);
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
-	http_client_request_unref(_req);
+	http_client_request_destroy(_req);
 }
 
 void http_client_request_error(struct http_client_request *req,
@@ -1033,7 +1051,7 @@ void http_client_request_error(struct http_client_request *req,
 		http_client_delay_request_error(req->client, req);
 	} else {
 		http_client_request_send_error(req, status, error);
-		http_client_request_unref(&req);
+		http_client_request_destroy(&req);
 	}
 }
 
@@ -1056,7 +1074,7 @@ void http_client_request_abort(struct http_client_request **_req)
 		http_client_queue_drop_request(req->queue, req);
 	if (req->payload_wait && req->client->ioloop != NULL)
 		io_loop_stop(req->client->ioloop);
-	http_client_request_unref(_req);
+	http_client_request_destroy(_req);
 }
 
 void http_client_request_finish(struct http_client_request **_req)

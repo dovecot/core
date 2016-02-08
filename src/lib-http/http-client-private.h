@@ -273,6 +273,8 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r);
 
 void http_client_request_ref(struct http_client_request *req);
 void http_client_request_unref(struct http_client_request **_req);
+void http_client_request_destroy(struct http_client_request **_req);
+
 int http_client_request_delay_from_response(struct http_client_request *req,
 	const struct http_response *response);
 void http_client_request_get_peer_addr(const struct http_client_request *req,

@@ -121,6 +121,31 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 	http_client_connection_close(_conn);
 }
 
+static void
+http_client_connection_abort_any_requests(struct http_client_connection *conn)
+{
+	struct http_client_request **req;
+
+	if (array_is_created(&conn->request_wait_list)) {
+		array_foreach_modifiable(&conn->request_wait_list, req) {
+			i_assert((*req)->submitted);
+			http_client_request_error(*req,
+				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+				"Aborting");
+			http_client_request_unref(req);
+		}
+		array_clear(&conn->request_wait_list);
+	}
+	if (conn->pending_request != NULL) {
+		struct http_client_request *pending_req = conn->pending_request;
+		conn->pending_request = NULL;
+		http_client_request_error(pending_req,
+			HTTP_CLIENT_REQUEST_ERROR_ABORTED,
+			"Aborting");
+		http_client_request_unref(&pending_req);
+	}
+}
+
 static const char *
 http_client_connection_get_timing_info(struct http_client_connection *conn)
 {
@@ -1346,6 +1371,11 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 		conn->incoming_payload = NULL;
 	}
 
+	http_client_connection_abort_any_requests(conn);
+
+	if (conn->http_parser != NULL)
+		http_response_parser_deinit(&conn->http_parser);
+
 	if (conn->connect_initialized)
 		connection_disconnect(&conn->conn);
 
@@ -1369,7 +1399,6 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 	struct http_client_connection *const *conn_idx;
 	ARRAY_TYPE(http_client_connection) *conn_arr;
 	struct http_client_peer *peer = conn->peer;
-	struct http_client_request **req;
 
 	i_assert(conn->refcount > 0);
 
@@ -1380,28 +1409,8 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 	http_client_connection_disconnect(conn);
 
-	/* abort all pending requests (not supposed to happen here) */
-	if (array_is_created(&conn->request_wait_list)) {
-		array_foreach_modifiable(&conn->request_wait_list, req) {
-			i_assert((*req)->submitted);
-			http_client_request_error(*req,
-				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
-				"Aborting");
-			http_client_request_unref(req);
-		}
+	if (array_is_created(&conn->request_wait_list))
 		array_free(&conn->request_wait_list);
-	}
-	if (conn->pending_request != NULL) {
-		struct http_client_request *pending_req = conn->pending_request;
-		conn->pending_request = NULL;
-		http_client_request_error(pending_req,
- 			HTTP_CLIENT_REQUEST_ERROR_ABORTED,
-			"Aborting");
-		http_client_request_unref(&pending_req);
-	}
-
-	if (conn->http_parser != NULL)
-		http_response_parser_deinit(&conn->http_parser);
 
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
