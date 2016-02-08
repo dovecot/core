@@ -224,13 +224,30 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 		}
 	}
 
-	if (req->state < HTTP_SERVER_REQUEST_STATE_PROCESSING) {
+	/* resource stopped reading payload; update state */
+	switch (req->state) {
+	case HTTP_SERVER_REQUEST_STATE_QUEUED:
+	case HTTP_SERVER_REQUEST_STATE_PAYLOAD_IN:
 		/* finished reading request */
 		req->state = HTTP_SERVER_REQUEST_STATE_PROCESSING;
 		if (req->response != NULL && req->response->submitted)
 			http_server_request_submit_response(req);
-	} else if (req->state == HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE) {
-		http_server_request_ready_to_respond(req);
+		break;
+	case HTTP_SERVER_REQUEST_STATE_PROCESSING:
+		/* no response submitted yet */
+		break;
+	case HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE:
+		/* response submitted, but not all payload is necessarily read */
+		if (http_server_request_is_complete(req))
+			http_server_request_ready_to_respond(req);
+		break;
+	case HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND:
+	case HTTP_SERVER_REQUEST_STATE_FINISHED:
+	case HTTP_SERVER_REQUEST_STATE_ABORTED:
+		/* nothing to do */
+		break;
+	default:
+		i_unreached();
 	}
 
 	/* input stream may have pending input. make sure input handler
@@ -582,7 +599,7 @@ static void http_server_connection_input(struct connection *_conn)
 		}
 
 		if (ret == 0 && pending_request != NULL &&
-			!http_request_parser_pending_payload(conn->http_parser)) {
+			http_server_request_is_complete(pending_request)) {
 			/* previous request is now fully read and ready to respond */
 			http_server_request_ready_to_respond(pending_request);
 		}
@@ -761,7 +778,7 @@ void http_server_connection_trigger_responses(
 bool
 http_server_connection_pending_payload(struct http_server_connection *conn)
 {
-	return conn->incoming_payload != NULL;
+	return http_request_parser_pending_payload(conn->http_parser);
 }
 
 static struct connection_settings http_server_connection_set = {
