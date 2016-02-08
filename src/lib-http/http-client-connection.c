@@ -369,7 +369,7 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 		array_count(&conn->request_wait_list)-1);
 	req = req_idx[0];
 
-	conn->payload_continue = TRUE;
+	req->payload_sync_continue = TRUE;
 	if (http_client_request_send_more(req, &error) < 0) {
 		http_client_connection_abort_temp_error(&conn,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
@@ -401,7 +401,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 		timeout_remove(&conn->to_idle);
 
 	req->conn = conn;
-	conn->payload_continue = FALSE;
+	req->payload_sync_continue = FALSE;
 	if (conn->peer->no_payload_sync)
 		req->payload_sync = FALSE;
 
@@ -742,7 +742,7 @@ static void http_client_connection_input(struct connection *_conn)
 		   user agent MAY ignore unexpected 1xx responses.
 		 */
 		if (req->payload_sync && response.status == 100) {
-			if (conn->payload_continue) {
+			if (req->payload_sync_continue) {
 				http_client_connection_debug(conn,
 					"Got 100-continue response after timeout");
 				continue;
@@ -750,7 +750,7 @@ static void http_client_connection_input(struct connection *_conn)
 
 			conn->peer->no_payload_sync = FALSE;
 			conn->peer->seen_100_response = TRUE;
-			conn->payload_continue = TRUE;
+			req->payload_sync_continue = TRUE;
 
 			http_client_connection_debug(conn,
 				"Got expected 100-continue response");
@@ -792,8 +792,10 @@ static void http_client_connection_input(struct connection *_conn)
 			timeval_diff_msecs(&req->sent_time, &req->submit_time));
 
 		/* make sure connection output is unlocked if 100-continue failed */
-		if (req->payload_sync && !conn->payload_continue)
-			conn->output_locked = FALSE;	
+		if (req->payload_sync && !req->payload_sync_continue) {
+			http_client_connection_debug(conn, "Unlocked output");
+			conn->output_locked = FALSE;
+		}
 
 		/* remove request from queue */
 		array_delete(&conn->request_wait_list, 0, 1);
@@ -822,7 +824,7 @@ static void http_client_connection_input(struct connection *_conn)
 			   blocks via http_client_request_send_payload()
 			   and we're not waiting for 100 continue */
 			if (!req->payload_wait ||
-				(req->payload_sync && !conn->payload_continue)) {
+				(req->payload_sync && !req->payload_sync_continue)) {
 				/* failed Expect: */
 				if (response.status == 417 && req->payload_sync) {
 					/* drop Expect: continue */
@@ -971,7 +973,7 @@ int http_client_connection_output(struct http_client_connection *conn)
 			return 1;
 		}
 
-		if (!req->payload_sync || conn->payload_continue) {
+		if (!req->payload_sync || req->payload_sync_continue) {
 			if (http_client_request_send_more(req, &error) < 0) {
 				http_client_connection_abort_temp_error(&conn,
 					HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,

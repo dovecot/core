@@ -115,6 +115,7 @@ struct http_client_request {
 	unsigned int have_hdr_user_agent:1;
 
 	unsigned int payload_sync:1;
+	unsigned int payload_sync_continue:1;
 	unsigned int payload_chunked:1;
 	unsigned int payload_wait:1;
 	unsigned int urgent:1;
@@ -160,8 +161,6 @@ struct http_client_connection {
 	unsigned int close_indicated:1;
 	unsigned int output_locked:1;       /* output is locked; no pipelining */
 	unsigned int output_broken:1;       /* output is broken; no more requests */
-	unsigned int payload_continue:1;    /* received 100-continue for current
-	                                        request */
 	unsigned int in_req_callback:1;  /* performin request callback (busy) */
 };
 

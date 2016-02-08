@@ -1239,7 +1239,7 @@ bool http_client_request_try_retry(struct http_client_request *req)
 	   100 continue (there's no way to rewind the payload for a retry)
 	 */
 	if (req->payload_wait &&
-		(!req->payload_sync || req->conn->payload_continue))
+		(!req->payload_sync || req->payload_sync_continue))
 		return FALSE;
 	/* limit the number of attempts for each request */
 	if (req->attempts+1 >= req->client->set.max_attempts)
