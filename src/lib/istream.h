@@ -174,7 +174,7 @@ i_stream_read_bytes(struct istream *stream, const unsigned char **data_r,
 			size_t *size_r, size_t wanted)
 {
 	i_assert(wanted > 0);
-	return i_stream_read_bytes(stream, data_r, size_r, wanted);
+	return i_stream_read_data(stream, data_r, size_r, wanted - 1);
 }
 /* Short-hand for just requesting more data (i.e. even one byte) */
 static inline int

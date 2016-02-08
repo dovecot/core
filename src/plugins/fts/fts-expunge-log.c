@@ -478,8 +478,7 @@ fts_expunge_log_read_next(struct fts_expunge_log_read_ctx *ctx)
 
 	/* read the entire record */
 	while (size < rec->record_size) {
-		if (i_stream_read_data(ctx->input, &data, &size,
-				       rec->record_size-1) < 0) {
+		if (i_stream_read_bytes(ctx->input, &data, &size, rec->record_size) < 0) {
 			fts_expunge_log_read_failure(ctx, rec->record_size);
 			return NULL;
 		}

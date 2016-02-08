@@ -460,8 +460,8 @@ ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size)
 
 	if (file->pending_read_input == NULL)
 		file->pending_read_input = fs_read_stream(file, size+1);
-	ret = i_stream_read_data(file->pending_read_input,
-				 &data, &data_size, size-1);
+	ret = i_stream_read_bytes(file->pending_read_input, &data,
+				  &data_size, size);
 	if (ret == 0) {
 		fs_set_error_async(file->fs);
 		return -1;

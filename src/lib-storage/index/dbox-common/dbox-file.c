@@ -355,8 +355,8 @@ int dbox_file_read_mail_header(struct dbox_file *file, uoff_t *physical_size_r)
 	size_t size;
 	int ret;
 
-	ret = i_stream_read_data(file->input, &data, &size,
-				 file->msg_header_size - 1);
+	ret = i_stream_read_bytes(file->input, &data, &size,
+				  file->msg_header_size);
 	if (ret <= 0) {
 		if (file->input->stream_errno == 0) {
 			/* EOF, broken offset or file truncated */
@@ -643,8 +643,8 @@ int dbox_file_metadata_skip_header(struct dbox_file *file)
 	size_t size;
 	int ret;
 
-	ret = i_stream_read_data(file->input, &data, &size,
-				 sizeof(metadata_hdr) - 1);
+	ret = i_stream_read_bytes(file->input, &data, &size,
+				  sizeof(metadata_hdr));
 	if (ret <= 0) {
 		if (file->input->stream_errno == 0) {
 			/* EOF, broken offset */

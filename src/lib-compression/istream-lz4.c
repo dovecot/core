@@ -53,8 +53,8 @@ static int i_stream_lz4_read_header(struct lz4_istream *zstream)
 	size_t size;
 	int ret;
 
-	ret = i_stream_read_data(zstream->istream.parent, &data, &size,
-				 sizeof(*hdr)-1);
+	ret = i_stream_read_bytes(zstream->istream.parent, &data, &size,
+				  sizeof(*hdr));
 	if (ret < 0) {
 		zstream->istream.istream.stream_errno =
 			zstream->istream.parent->stream_errno;

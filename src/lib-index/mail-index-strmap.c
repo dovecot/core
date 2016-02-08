@@ -435,8 +435,7 @@ mail_index_strmap_read_rec_first(struct mail_index_strmap_read_context *ctx,
 	ret = mail_index_strmap_uid_exists(ctx, ctx->rec.uid);
 	if (ret < 0)
 		return -1;
-	if (i_stream_read_data(ctx->view->strmap->input, &ctx->data, &size,
-			       ctx->rec_size - 1) <= 0)
+	if (i_stream_read_bytes(ctx->view->strmap->input, &ctx->data, &size, ctx->rec_size) <= 0)
 		return -1;
 	ctx->str_idx_base = ctx->data + count * sizeof(uint32_t);
 
@@ -509,8 +508,8 @@ strmap_read_block_init(struct mail_index_strmap_view *view,
 	}
 
 	memset(ctx, 0, sizeof(*ctx));
-	ret = i_stream_read_data(strmap->input, &data, &size,
-				 sizeof(block_size)-1);
+	ret = i_stream_read_bytes(strmap->input, &data, &size,
+				  sizeof(block_size));
 	if (ret <= 0) {
 		if (strmap->input->stream_errno == 0) {
 			/* no new data */

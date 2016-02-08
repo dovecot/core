@@ -139,8 +139,8 @@ static int i_stream_zlib_read_trailer(struct zlib_istream *zstream)
 	size_t size;
 	int ret;
 
-	ret = i_stream_read_data(stream->parent, &data, &size,
-				 GZ_TRAILER_SIZE-1);
+	ret = i_stream_read_bytes(stream->parent, &data, &size,
+				  GZ_TRAILER_SIZE);
 	if (size == zstream->prev_size) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		if (ret == -1 && stream->istream.stream_errno == 0) {

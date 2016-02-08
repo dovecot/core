@@ -806,8 +806,8 @@ static off_t io_stream_copy_backwards(struct ostream_private *outstream,
 			i_stream_seek(instream, in_offset);
 			read_size = in_limit - in_offset;
 
-			(void)i_stream_read_data(instream, &data, &size,
-						 read_size-1);
+			(void)i_stream_read_bytes(instream, &data, &size,
+						  read_size);
 			if (size >= read_size) {
 				size = read_size;
 				if (instream->mmaped) {

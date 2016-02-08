@@ -119,8 +119,7 @@ duplicate_read_records(struct duplicate_file *file, struct istream *input,
 			return -1;
 		}
 
-		if (i_stream_read_data(input, &data, &size,
-				       hdr.id_size + hdr.user_size - 1) <= 0) {
+		if (i_stream_read_bytes(input, &data, &size, hdr.id_size + hdr.user_size) <= 0) {
 			i_error("unexpected end of file in %s", file->path);
 			return -1;
 		}
