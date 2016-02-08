@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "write-full.h"
 #include "str.h"
+#include "syslog-util.h"
 #include "eacces-error.h"
 #include "env-util.h"
 #include "execv-const.h"
@@ -83,13 +84,19 @@ const struct setting_parser_info master_service_setting_parser_info = {
 /* <settings checks> */
 static bool
 master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
-			      const char **error_r ATTR_UNUSED)
+			      const char **error_r)
 {
 	struct master_service_settings *set = _set;
+	int facility;
 
 	if (*set->log_path == '\0') {
 		/* default to syslog logging */
 		set->log_path = "syslog";
+	}
+	if (!syslog_facility_find(set->syslog_facility, &facility)) {
+		*error_r = t_strdup_printf("Unknown syslog_facility: %s",
+					   set->syslog_facility);
+		return FALSE;
 	}
 	return TRUE;
 }
