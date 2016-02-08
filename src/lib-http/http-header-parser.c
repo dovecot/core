@@ -296,8 +296,7 @@ int http_header_parse_next_field(struct http_header_parser *parser,
 
 	*error_r = NULL;
 
-	while ((ret=i_stream_read_data
-		(parser->input, &parser->begin, &size, 0)) > 0) {
+	while ((ret=i_stream_read_more(parser->input, &parser->begin, &size)) > 0) {
 
 		/* check header size limits */
 		if (parser->size >= max_size) {

@@ -311,8 +311,7 @@ static int http_transfer_chunked_parse_next(
 	size_t size;
 	int ret;
 
-	while ((ret=i_stream_read_data
-		(input, &tcstream->begin, &size, 0)) > 0) {
+	while ((ret=i_stream_read_more(input, &tcstream->begin, &size)) > 0) {
 		tcstream->cur = tcstream->begin;
 		tcstream->end = tcstream->cur + size;
 

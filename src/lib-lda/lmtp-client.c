@@ -326,8 +326,7 @@ static int lmtp_client_send_data(struct lmtp_client *client)
 	if (client->output_finished)
 		return 0;
 
-	while ((ret = i_stream_read_data(client->data_input,
-					 &data, &size, 0)) > 0) {
+	while ((ret = i_stream_read_more(client->data_input, &data, &size)) > 0) {
 		add = '\0';
 		for (i = 0; i < size; i++) {
 			if (data[i] == '\n') {

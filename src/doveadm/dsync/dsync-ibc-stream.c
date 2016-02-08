@@ -235,8 +235,7 @@ static int dsync_ibc_stream_send_value_stream(struct dsync_ibc_stream *ibc)
 	size_t i, size;
 	int ret;
 
-	while ((ret = i_stream_read_data(ibc->value_output,
-					 &data, &size, 0)) > 0) {
+	while ((ret = i_stream_read_more(ibc->value_output, &data, &size)) > 0) {
 		add = '\0';
 		for (i = 0; i < size; i++) {
 			if (data[i] == '.' &&

@@ -130,8 +130,7 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 
 	/* read the whole compressed chunk into memory */
 	while (zstream->chunk_left > 0 &&
-	       (ret = i_stream_read_data(zstream->istream.parent,
-					 &data, &size, 0)) > 0) {
+	       (ret = i_stream_read_more(zstream->istream.parent, &data, &size)) > 0) {
 		if (size > zstream->chunk_left)
 			size = zstream->chunk_left;
 		buffer_append(zstream->chunk_buf, data, size);
