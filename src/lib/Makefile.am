@@ -108,6 +108,7 @@ liblib_la_SOURCES = \
 	numpack.c \
 	ostream.c \
 	ostream-buffer.c \
+	ostream-escaped.c \
 	ostream-failure-at.c \
 	ostream-file.c \
 	ostream-hash.c \
@@ -325,6 +326,7 @@ test_lib_SOURCES = \
 	test-mempool-alloconly.c \
 	test-net.c \
 	test-numpack.c \
+	test-ostream-escaped.c \
 	test-ostream-failure-at.c \
 	test-ostream-file.c \
 	test-primes.c \

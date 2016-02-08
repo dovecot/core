@@ -50,5 +50,6 @@ int json_parse_next_stream(struct json_parser *parser,
 void json_append_escaped(string_t *dest, const char *src);
 /* Same as json_append_escaped(), but append non-\0 terminated input. */
 void json_append_escaped_data(string_t *dest, const unsigned char *src, size_t size);
+void ostream_escaped_json_format(string_t *dest, unsigned char src);
 
 #endif

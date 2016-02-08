@@ -702,6 +702,11 @@ static void json_append_escaped_char(string_t *dest, unsigned char src)
 	}
 }
 
+void ostream_escaped_json_format(string_t *dest, unsigned char src)
+{
+	json_append_escaped_char(dest, src);
+}
+
 void json_append_escaped(string_t *dest, const char *src)
 {
 	for (; *src != '\0'; src++)
