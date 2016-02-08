@@ -262,7 +262,7 @@ imapc_mail_get_headers(struct mail *_mail, const char *field,
 	if (ret < 0)
 		return -1;
 
-	while (i_stream_read_data(input, &data, &size, 0) > 0)
+	while (i_stream_read_more(input, &data, &size) > 0)
 		i_stream_skip(input, size);
 	/* the header should cached now. */
 	return index_mail_get_headers(_mail, field, decode_to_utf8, value_r);
@@ -462,7 +462,7 @@ static int imapc_mail_get_hdr_hash(struct index_mail *imail)
 		imail->data.stream->v_offset;
 	if (mail_get_hdr_stream(&imail->mail.mail, NULL, &input) < 0)
 		return -1;
-	while (i_stream_read_data(input, &data, &size, 0) > 0) {
+	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&sha1_ctx, data, size);
 		i_stream_skip(input, size);
 	}

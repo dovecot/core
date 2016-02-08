@@ -110,7 +110,7 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 		}
 	}
 
-	if (i_stream_read_data(stream->parent, &data, &size, 0) < 0) {
+	if (i_stream_read_more(stream->parent, &data, &size) < 0) {
 		if (stream->parent->stream_errno != 0) {
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;

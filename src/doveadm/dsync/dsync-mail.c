@@ -46,7 +46,7 @@ int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
 
 	md5_init(&md5_ctx);
 	while (!i_stream_is_eof(input)) {
-		if (i_stream_read_data(input, &data, &size, 0) == -1)
+		if (i_stream_read_more(input, &data, &size) == -1)
 			break;
 		if (size == 0)
 			break;

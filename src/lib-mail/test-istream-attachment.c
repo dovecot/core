@@ -234,7 +234,7 @@ static int test_input_stream(struct istream *file_input)
 	/* get hash when directly reading input */
 	input = i_stream_create_crlf(file_input);
 	sha1_init(&hash);
-	while (i_stream_read_data(input, &data, &size, 0) > 0) {
+	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&hash, data, size);
 		i_stream_skip(input, size);
 	}
@@ -250,7 +250,7 @@ static int test_input_stream(struct istream *file_input)
 	input2 = i_stream_create_attachment_extractor(input, &set, NULL);
 	i_stream_unref(&input);
 	base_buf = buffer_create_dynamic(default_pool, 1024);
-	while (i_stream_read_data(input2, &data, &size, 0) > 0) {
+	while (i_stream_read_more(input2, &data, &size) > 0) {
 		buffer_append(base_buf, data, size);
 		i_stream_skip(input2, size);
 	}
@@ -262,7 +262,7 @@ static int test_input_stream(struct istream *file_input)
 	i_stream_unref(&input2);
 
 	sha1_init(&hash);
-	while (i_stream_read_data(input, &data, &size, 0) > 0) {
+	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&hash, data, size);
 		i_stream_skip(input, size);
 	}

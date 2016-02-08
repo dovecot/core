@@ -70,7 +70,7 @@ static void cmd_fs_get(int argc, char *argv[])
 
 	file = fs_file_init(fs, argv[0], FS_OPEN_MODE_READONLY);
 	input = fs_read_stream(file, IO_BLOCK_SIZE);
-	while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
+	while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
 		doveadm_print_stream(data, size);
 		i_stream_skip(input, size);
 	}

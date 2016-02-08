@@ -197,7 +197,7 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 	i_stream_unref(&input2);
 
 	sha1_init(&sha1_ctx);
-	while (i_stream_read_data(input, &data, &size, 0) > 0) {
+	while (i_stream_read_more(input, &data, &size) > 0) {
 		message_header_hash_more(&hash_method_sha1, &sha1_ctx, 2,
 					 data, size);
 		i_stream_skip(input, size);

@@ -359,8 +359,8 @@ dsync_istreams_cmp(struct istream *input1, struct istream *input2, int *cmp_r)
 	*cmp_r = -1; /* quiet gcc */
 
 	for (;;) {
-		(void)i_stream_read_data(input1, &data1, &size1, 0);
-		(void)i_stream_read_data(input2, &data2, &size2, 0);
+		(void)i_stream_read_more(input1, &data1, &size1);
+		(void)i_stream_read_more(input2, &data2, &size2);
 
 		if (size1 == 0 || size2 == 0)
 			break;

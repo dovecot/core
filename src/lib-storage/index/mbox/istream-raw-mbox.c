@@ -624,7 +624,7 @@ int istream_raw_mbox_get_body_size(struct istream *stream,
 	}
 
 	/* have to read through the message body */
-	while (i_stream_read_data(stream, &data, &size, 0) > 0)
+	while (i_stream_read_more(stream, &data, &size) > 0)
 		i_stream_skip(stream, size);
 	i_stream_seek(stream, old_offset);
 	if (stream->stream_errno != 0)

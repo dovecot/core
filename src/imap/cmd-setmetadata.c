@@ -121,7 +121,7 @@ cmd_setmetadata_entry_read_stream(struct imap_setmetadata_context *ctx)
 	struct mail_attribute_value value;
 	int ret;
 
-	while ((ret = i_stream_read_data(ctx->input, &data, &size, 0)) > 0)
+	while ((ret = i_stream_read_more(ctx->input, &data, &size)) > 0)
 		i_stream_skip(ctx->input, size);
 	if (ctx->input->v_offset == ctx->entry_value_len) {
 		/* finished reading the value */

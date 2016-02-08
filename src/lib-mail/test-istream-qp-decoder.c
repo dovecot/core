@@ -39,7 +39,7 @@ decode_test(const char *qp_input, const char *output, bool broken_input,
 
 	for (i = 1; i <= qp_input_len; i++) {
 		test_istream_set_size(input_data, i);
-		while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
+		while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
 			str_append_n(str, data, size);
 			i_stream_skip(input, size);
 		}
@@ -49,7 +49,7 @@ decode_test(const char *qp_input, const char *output, bool broken_input,
 	}
 	if (ret == 0) {
 		test_istream_set_allow_eof(input_data, TRUE);
-		while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
+		while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
 			str_append_n(str, data, size);
 			i_stream_skip(input, size);
 		}

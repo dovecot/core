@@ -104,7 +104,7 @@ int http_message_parse_finish_payload(struct http_message_parser *parser)
 	if (parser->payload == NULL)
 		return 1;
 
-	while ((ret = i_stream_read_data(parser->payload, &data, &size, 0)) > 0)
+	while ((ret = i_stream_read_more(parser->payload, &data, &size)) > 0)
 		i_stream_skip(parser->payload, size);
 	if (ret == 0 || parser->payload->stream_errno != 0) {
 		if (ret < 0) {

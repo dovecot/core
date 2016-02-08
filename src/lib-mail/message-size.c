@@ -74,7 +74,7 @@ int message_get_body_size(struct istream *input, struct message_size *body,
 	*has_nuls_r = FALSE;
 
 	missing_cr_count = 0;
-	if ((ret = i_stream_read_data(input, &msg, &size, 0)) <= 0)
+	if ((ret = i_stream_read_more(input, &msg, &size)) <= 0)
 		return ret < 0 && input->stream_errno != 0 ? -1 : 0;
 
 	if (msg[0] == '\n')
@@ -134,7 +134,7 @@ int message_skip_virtual(struct istream *input, uoff_t virtual_skip,
 	if (virtual_skip == 0)
 		return 0;
 
-	while ((ret = i_stream_read_data(input, &msg, &size, 0)) > 0) {
+	while ((ret = i_stream_read_more(input, &msg, &size)) > 0) {
 		for (i = 0; i < size && virtual_skip > 0; i++) {
 			virtual_skip--;
 

@@ -230,7 +230,7 @@ int mailbox_attribute_value_to_string(struct mail_storage *storage,
 	}
 	str = t_str_new(128);
 	i_stream_seek(value->value_stream, 0);
-	while (i_stream_read_data(value->value_stream, &data, &size, 0) > 0) {
+	while (i_stream_read_more(value->value_stream, &data, &size) > 0) {
 		if (memchr(data, '\0', size) != NULL) {
 			mail_storage_set_error(storage, MAIL_ERROR_PARAMS,
 				"Attribute string value has NULs");

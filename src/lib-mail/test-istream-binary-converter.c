@@ -169,7 +169,7 @@ static int test_input_file(const char *path)
 	/* get hash when directly reading input */
 	input = i_stream_create_crlf(file_input);
 	sha1_init(&hash);
-	while (i_stream_read_data(input, &data, &size, 0) > 0) {
+	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&hash, data, size);
 		i_stream_skip(input, size);
 	}
@@ -181,7 +181,7 @@ static int test_input_file(const char *path)
 	input = i_stream_create_crlf(file_input);
 	input2 = i_stream_create_binary_converter(input);
 	sha1_init(&hash);
-	while (i_stream_read_data(input2, &data, &size, 0) > 0) {
+	while (i_stream_read_more(input2, &data, &size) > 0) {
 		sha1_loop(&hash, data, size);
 		i_stream_skip(input2, size);
 	}

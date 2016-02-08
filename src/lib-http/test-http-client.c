@@ -23,7 +23,7 @@ static void payload_input(struct http_test_request *req)
 	int ret;
 
 	/* read payload */
-	while ((ret=i_stream_read_data(req->payload, &data, &size, 0)) > 0) {
+	while ((ret=i_stream_read_more(req->payload, &data, &size)) > 0) {
 		i_info("DEBUG: got data (size=%d)", (int)size); 
 		if (req->write_output)
 			write_full(1, data, size);

@@ -376,7 +376,7 @@ static void solr_connection_payload_input(struct solr_connection *conn)
 	int ret;
 
 	/* read payload */
-	while ((ret = i_stream_read_data(conn->payload, &data, &size, 0)) > 0) {
+	while ((ret = i_stream_read_more(conn->payload, &data, &size)) > 0) {
 		(void)solr_xml_parse(conn, data, size, FALSE);
 		i_stream_skip(conn->payload, size);
 	}

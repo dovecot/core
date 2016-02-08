@@ -336,7 +336,7 @@ static void fetch_callback(struct client *client)
 	int ret;
 
 	while ((ctx->body_lines > 0 || !ctx->in_body) &&
-	       i_stream_read_data(ctx->stream, &data, &size, 0) > 0) {
+	       i_stream_read_more(ctx->stream, &data, &size) > 0) {
 		if (size > 4096)
 			size = 4096;
 

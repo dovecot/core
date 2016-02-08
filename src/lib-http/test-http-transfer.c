@@ -278,7 +278,7 @@ static void test_http_transfer_chunked_output_valid(void)
 
 		/* send input through chunked stream; chunk size is limited */
 		for (;;) {
-			ret = i_stream_read_data(input, &rdata, &rsize, 0);
+			ret = i_stream_read_more(input, &rdata, &rsize);
 			if (ret < 0) {
 				if (input->eof)
 					ret = 1;

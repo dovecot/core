@@ -381,7 +381,7 @@ off_t io_stream_copy(struct ostream *outstream, struct istream *instream)
 
 	start_offset = instream->v_offset;
 	do {
-		(void)i_stream_read_data(instream, &data, &iov.iov_len, 0);
+		(void)i_stream_read_more(instream, &data, &iov.iov_len);
 		if (iov.iov_len == 0) {
 			/* all sent */
 			if (instream->stream_errno != 0)

@@ -280,7 +280,7 @@ static int client_run_url(struct client *client)
 	size_t size;
 	ssize_t ret = 0;
 
-	while (i_stream_read_data(client->msg_part_input, &data, &size, 0) > 0) {
+	while (i_stream_read_more(client->msg_part_input, &data, &size) > 0) {
 		if ((ret = o_stream_send(client->output, data, size)) < 0)
 			break;
 		i_stream_skip(client->msg_part_input, ret);

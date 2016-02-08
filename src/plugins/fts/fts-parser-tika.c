@@ -194,7 +194,7 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 	}
 	/* continue returning data from Tika. we'll create a new ioloop just
 	   for reading this one payload. */
-	while ((ret = i_stream_read_data(parser->payload, &data, &size, 0)) == 0) {
+	while ((ret = i_stream_read_more(parser->payload, &data, &size)) == 0) {
 		if (parser->failed)
 			break;
 		/* wait for more input from Tika */

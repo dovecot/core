@@ -293,7 +293,7 @@ director_connection_input(struct director_connection *conn,
 	const unsigned char *data;
 	size_t size;
 
-	if (i_stream_read_data(input, &data, &size, 0) == -1) {
+	if (i_stream_read_more(input, &data, &size) == -1) {
 		director_connection_destroy(&conn);
 		return;
 	}

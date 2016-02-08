@@ -486,7 +486,7 @@ int client_auth_read_line(struct client *client)
 	size_t i, size;
 	unsigned int len;
 
-	if (i_stream_read_data(client->input, &data, &size, 0) == -1) {
+	if (i_stream_read_more(client->input, &data, &size) == -1) {
 		client_destroy(client, "Disconnected");
 		return -1;
 	}

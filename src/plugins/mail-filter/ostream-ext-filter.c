@@ -82,7 +82,7 @@ static int o_stream_mail_filter_flush(struct ostream_private *stream)
 	if (shutdown(mstream->fd, SHUT_WR) < 0)
 		i_error("ext-filter: shutdown() failed: %m");
 
-	while ((ret = i_stream_read_data(mstream->ext_in, &data, &size, 0)) > 0) {
+	while ((ret = i_stream_read_more(mstream->ext_in, &data, &size)) > 0) {
 		ret = o_stream_send(stream->parent, data, size);
 		if (ret != (ssize_t)size) {
 			i_assert(ret < 0);

@@ -69,7 +69,7 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 	input2 = i_stream_create_deflate(input, TRUE);
 	i_stream_unref(&input);
 
-	while (i_stream_read_data(input2, &data, &size, 0) != -1) {
+	while (i_stream_read_more(input2, &data, &size) != -1) {
 		fwrite(data, 1, size, stdout);
 		i_stream_skip(input2, size);
 	}

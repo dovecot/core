@@ -375,7 +375,7 @@ openssl_iostream_read_more(struct ssl_iostream *ssl_io,
 		return 0;
 	}
 
-	if (i_stream_read_data(ssl_io->plain_input, data_r, size_r, 0) < 0)
+	if (i_stream_read_more(ssl_io->plain_input, data_r, size_r) < 0)
 		return -1;
 	return 0;
 }

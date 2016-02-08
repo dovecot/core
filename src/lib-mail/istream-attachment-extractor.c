@@ -410,7 +410,7 @@ static int astream_decode_base64(struct attachment_istream *astream)
 	if (input->v_offset != part->temp_output->offset && !failed) {
 		/* write the rest of the data to the message stream */
 		extra_buf = buffer_create_dynamic(default_pool, 1024);
-		while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
+		while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
 			buffer_append(extra_buf, data, size);
 			i_stream_skip(input, size);
 		}
@@ -510,7 +510,7 @@ astream_part_finish(struct attachment_istream *astream, const char **error_r)
 
 	/* copy data to attachment from temp file */
 	input = i_stream_create_fd(part->temp_fd, IO_BLOCK_SIZE, FALSE);
-	while (i_stream_read_data(input, &data, &size, 0) > 0) {
+	while (i_stream_read_more(input, &data, &size) > 0) {
 		o_stream_nsend(output, data, size);
 		i_stream_skip(input, size);
 	}

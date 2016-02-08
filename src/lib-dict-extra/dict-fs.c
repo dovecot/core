@@ -97,7 +97,7 @@ static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	i_stream_read(input);
 
 	str = str_new(pool, i_stream_get_data_size(input)+1);
-	while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
+	while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
 		str_append_n(str, data, size);
 		i_stream_skip(input, size);
 	}

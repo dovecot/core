@@ -320,7 +320,7 @@ blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
 	block_idx = 0;
 
 	/* count the number of lines each block contains */
-	while ((ret = i_stream_read_data(full_input, &data, &size, 0)) > 0) {
+	while ((ret = i_stream_read_more(full_input, &data, &size)) > 0) {
 		i_assert(cur_block_offset <= cur_block->input->v_offset);
 		if (cur_block->input->eof) {
 			/* this is the last input for this block. the input
