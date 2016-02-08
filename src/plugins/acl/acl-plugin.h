@@ -16,7 +16,7 @@
 struct acl_user {
 	union mail_user_module_context module_ctx;
 
-	const char *master_user;
+	const char *acl_user;
 	const char *acl_env;
 	const char *const *groups;
 

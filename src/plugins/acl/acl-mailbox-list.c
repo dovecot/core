@@ -509,7 +509,7 @@ void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 		return;
 
 	owner_username = ns->user->username;
-	current_username = auser->master_user;
+	current_username = auser->acl_user;
 	if (current_username == NULL)
 		current_username = owner_username;
 	else

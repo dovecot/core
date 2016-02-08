@@ -35,7 +35,9 @@ static void acl_mail_user_create(struct mail_user *user, const char *env)
 	auser->acl_lookup_dict = acl_lookup_dict_init(user);
 
 	auser->acl_env = env;
-	auser->master_user = mail_user_plugin_getenv(user, "master_user");
+	auser->acl_user = mail_user_plugin_getenv(user, "acl_user");
+	if (auser->acl_user == NULL)
+		auser->acl_user = mail_user_plugin_getenv(user, "master_user");
 
 	env = mail_user_plugin_getenv(user, "acl_groups");
 	if (env != NULL) {
