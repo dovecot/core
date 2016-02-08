@@ -861,6 +861,8 @@ static void
 http_server_connection_disconnect(struct http_server_connection *conn,
 	const char *reason)
 {
+	struct http_server_request *req, *req_next;
+
 	if (conn->closed)
 		return;
 
@@ -872,6 +874,14 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 
 	/* preserve statistics */
 	http_server_connection_update_stats(conn);
+
+	/* drop all requests before connection is closed */
+	req = conn->request_queue_head;
+	while (req != NULL) {
+		req_next = req->next;
+		http_server_request_abort(&req);
+		req = req_next;
+	}
 
 	if (conn->to_input != NULL)
 		timeout_remove(&conn->to_input);
@@ -899,7 +909,6 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 void http_server_connection_unref(struct http_server_connection **_conn)
 {
 	struct http_server_connection *conn = *_conn;
-	struct http_server_request *req, *req_next;
 
 	i_assert(conn->refcount > 0);
 	if (--conn->refcount > 0)
@@ -908,13 +917,6 @@ void http_server_connection_unref(struct http_server_connection **_conn)
 	http_server_connection_disconnect(conn, NULL);
 
 	http_server_connection_debug(conn, "Connection destroy");
-
-	req = conn->request_queue_head;
-	while (req != NULL) {
-		req_next = req->next;
-		http_server_request_abort(&req);
-		req = req_next;
-	}
 
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
