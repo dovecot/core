@@ -121,7 +121,8 @@ int http_message_parse_finish_payload(struct http_message_parser *parser)
 		}
 		return ret;
 	}
-	i_stream_unref(&parser->payload);
+
+	i_stream_destroy(&parser->payload);
 	return 1;
 }
 
@@ -403,6 +404,8 @@ http_istream_error_callback(const struct istream_sized_error_data *data,
 int http_message_parse_body(struct http_message_parser *parser, bool request)
 {
 	struct istream *input;
+
+	i_assert(parser->payload == NULL);
 
 	parser->error_code = HTTP_MESSAGE_PARSE_ERROR_NONE;
 	parser->error = NULL;
