@@ -165,6 +165,24 @@ unsigned char *i_stream_get_modifiable_data(struct istream *stream,
    input buffer is full. */
 int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 		       size_t *size_r, size_t threshold);
+/* Like i_stream_get_data(), but read more when needed. Returns 1 if at least
+   the wanted number of bytes are available, 0 if less, -1 if error or
+   EOF with no bytes read that weren't already in buffer, or -2 if stream's
+   input buffer is full. */
+static inline int
+i_stream_read_bytes(struct istream *stream, const unsigned char **data_r,
+			size_t *size_r, size_t wanted)
+{
+	i_assert(wanted > 0);
+	return i_stream_read_data(stream, data_r, size_r, wanted - 1);
+}
+/* Short-hand for just requesting more data (i.e. even one byte) */
+static inline int
+i_stream_read_more(struct istream *stream, const unsigned char **data_r,
+		   size_t *size_r)
+{
+	return i_stream_read_bytes(stream, data_r, size_r, 1);
+}
 
 /* Append external data to input stream. Returns TRUE if successful, FALSE if
    there is not enough space in the stream. */
