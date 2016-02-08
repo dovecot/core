@@ -27,6 +27,7 @@
 struct authtest_input {
 	pool_t pool;
 	const char *username;
+	const char *master_user;
 	const char *password;
 	struct auth_user_info info;
 	bool success;
@@ -155,8 +156,12 @@ static void auth_connected(struct auth_client *client,
 		i_fatal("Couldn't connect to auth socket");
 
 	init_resp = t_str_new(128);
-	str_append_c(init_resp, '\0');
 	str_append(init_resp, input->username);
+	str_append_c(init_resp, '\0');
+	if (input->master_user != NULL)
+		str_append(init_resp, input->master_user);
+	else
+		str_append(init_resp, input->username);
 	str_append_c(init_resp, '\0');
 	str_append(init_resp, input->password);
 
@@ -284,10 +289,13 @@ static void cmd_auth_test(int argc, char *argv[])
 	memset(&input, 0, sizeof(input));
 	input.info.service = "doveadm";
 
-	while ((c = getopt(argc, argv, "a:x:")) > 0) {
+	while ((c = getopt(argc, argv, "a:M:x:")) > 0) {
 		switch (c) {
 		case 'a':
 			auth_socket_path = optarg;
+			break;
+		case 'M':
+			input.master_user = optarg;
 			break;
 		case 'x':
 			auth_user_info_parse(&input.info, optarg);
@@ -373,13 +381,16 @@ static void cmd_auth_login(int argc, char *argv[])
 					     "/auth-login", NULL);
 	auth_master_socket_path = t_strconcat(doveadm_settings->base_dir,
 					      "/auth-master", NULL);
-	while ((c = getopt(argc, argv, "a:m:x:")) > 0) {
+	while ((c = getopt(argc, argv, "a:m:M:x:")) > 0) {
 		switch (c) {
 		case 'a':
 			auth_login_socket_path = optarg;
 			break;
 		case 'm':
 			auth_master_socket_path = optarg;
+			break;
+		case 'M':
+			input.master_user = optarg;
 			break;
 		case 'x':
 			auth_user_info_parse(&input.info, optarg);
@@ -641,9 +652,9 @@ static void cmd_user(int argc, char *argv[])
 
 struct doveadm_cmd doveadm_cmd_auth[] = {
 	{ cmd_auth_test, "auth test",
-	  "[-a <auth socket path>] [-x <auth info>] <user> [<password>]" },
+	  "[-a <auth socket path>] [-x <auth info>] [-M <master user>] <user> [<password>]" },
 	{ cmd_auth_login, "auth login",
-	  "[-a <auth-login socket path>] [-m <auth-master socket path>] [-x <auth info>] <user> [<password>]" },
+	  "[-a <auth-login socket path>] [-m <auth-master socket path>] [-x <auth info>] [-M <master user>] <user> [<password>]" },
 	{ cmd_auth_lookup, "auth lookup",
 	  "[-a <userdb socket path>] [-x <auth info>] [-f field] <user> [...]" },
 	{ cmd_auth_cache_flush, "auth cache flush",
