@@ -584,5 +584,9 @@ int http_request_parse_next(struct http_request_parser *parser,
 	request->header = parser->parser.msg.header;
 	request->connection_options = parser->parser.msg.connection_options;
 	request->connection_close = parser->parser.msg.connection_close;
+
+	/* reset this state early */
+	parser->request_method = NULL;
+	parser->request_target = NULL;
 	return 1;
 }
