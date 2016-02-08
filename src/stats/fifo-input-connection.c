@@ -63,7 +63,7 @@ static void fifo_input_connection_input(struct fifo_input_connection *conn)
 	while ((line = i_stream_next_line(conn->input)) != NULL) T_BEGIN {
 		args = t_strsplit_tabescaped(line);
 		if (fifo_input_connection_request(args, &error) < 0)
-			i_error("Mail server input error: %s", error);
+			i_error("FIFO input error: %s", error);
 	} T_END;
 }
 
