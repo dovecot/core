@@ -418,10 +418,15 @@ static int http_server_response_send_real(struct http_server_response *resp,
 int http_server_response_send(struct http_server_response *resp,
 			     const char **error_r)
 {
+	char *errstr = NULL;
 	int ret;
 
 	T_BEGIN {
 		ret = http_server_response_send_real(resp, error_r);
+		if (ret < 0)
+			errstr = i_strdup(*error_r);
 	} T_END;
+	*error_r = t_strdup(errstr);
+	i_free(errstr);
 	return ret;
 }
