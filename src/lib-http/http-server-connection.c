@@ -594,6 +594,7 @@ http_server_connection_next_response(struct http_server_connection *conn)
 {
 	struct http_server_request *req;
 	const char *error = NULL;
+	int ret;
 
 	if (conn->output_locked)
 		return FALSE;
@@ -645,7 +646,11 @@ http_server_connection_next_response(struct http_server_connection *conn)
 
 	http_server_connection_timeout_start(conn);
 
-	if (http_server_response_send(req->response, &error) < 0) {
+	http_server_request_ref(req);
+	ret = http_server_response_send(req->response, &error);
+	http_server_request_unref(&req);
+
+	if (ret < 0) {
 		if (error != NULL) {
 			http_server_connection_error(conn,
 				"Failed to send response: %s", error);
