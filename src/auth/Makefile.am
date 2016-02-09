@@ -142,6 +142,7 @@ headers = \
 	auth-penalty.h \
 	auth-request.h \
 	auth-request-handler.h \
+	auth-request-stats.h \
 	auth-request-var-expand.h \
 	auth-settings.h \
 	auth-stats.h \
