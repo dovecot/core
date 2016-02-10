@@ -1514,6 +1514,8 @@ void auth_request_set_field(struct auth_request *request,
 		request->requested_login_user = p_strdup(request->pool, value);
 	} else if (strcmp(name, "allow_nets") == 0) {
 		auth_request_validate_networks(request, name, value, &request->remote_ip);
+	} else if (strcmp(name, "fail") == 0) {
+		request->failed = TRUE;
 	} else if (strcmp(name, "allow_real_nets") == 0) {
 		auth_request_validate_networks(request, name, value, &request->real_remote_ip);
 	} else if (strncmp(name, "userdb_", 7) == 0) {
