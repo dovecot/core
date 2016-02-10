@@ -91,6 +91,14 @@ http_server_request_get_response(struct http_server_request *req);
    or because the request was aborted. */
 bool http_server_request_is_finished(struct http_server_request *req);
 
+/* Return input stream for the request's payload. Optionally, this stream
+   can be made blocking. Do *NOT* meddle with the FD of the http_request
+   payload to achieve the same, because protocol violations will result.
+ */
+struct istream *
+http_server_request_get_payload_input(struct http_server_request *req,
+	bool blocking);
+
 /* Get the authentication credentials provided in this request. Returns 0 if
    the Authorization header is absent, returns -1 when that header cannot be
    parsed, and returns 1 otherwise */

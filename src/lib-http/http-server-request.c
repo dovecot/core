@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "ostream.h"
+#include "istream-private.h"
 
 #include "http-server-private.h"
 
@@ -355,3 +356,151 @@ void http_server_request_fail_auth_basic(struct http_server_request *req,
 	http_server_request_fail_auth(req, reason, &chlng);
 }
 
+/*
+ * Payload input stream
+ */
+
+struct http_server_istream {
+	struct istream_private istream;
+
+	struct http_server_request *req;
+
+	ssize_t read_status;
+};
+
+static void
+http_server_istream_switch_ioloop(struct istream_private *stream)
+{
+	struct http_server_istream *hsristream =
+		(struct http_server_istream *)stream;
+
+	if (hsristream->istream.istream.blocking)
+		return;
+
+	http_server_connection_switch_ioloop(hsristream->req->conn);
+}
+
+static void
+http_server_istream_read_any(struct http_server_istream *hsristream)
+{
+	struct istream_private *stream = &hsristream->istream;
+	struct http_server *server = hsristream->req->server;
+	ssize_t ret;
+
+	if ((ret=i_stream_read_copy_from_parent
+		(&stream->istream)) > 0) {
+		hsristream->read_status = ret;
+		io_loop_stop(server->ioloop);
+	}
+}
+
+static ssize_t
+http_server_istream_read(struct istream_private *stream)
+{
+	struct http_server_istream *hsristream =
+		(struct http_server_istream *)stream;
+	struct http_server_request *req = hsristream->req;
+	struct http_server *server;
+	struct http_server_connection *conn;
+	bool blocking = stream->istream.blocking;
+	ssize_t ret;
+
+	if (req == NULL) {
+		/* request already gone (we shouldn't get here) */
+		stream->istream.stream_errno = EINVAL;
+		ret = -1;
+	}
+
+	i_stream_seek(stream->parent, stream->parent_start_offset +
+		      stream->istream.v_offset);
+
+	server = hsristream->req->server;
+	conn = hsristream->req->conn;
+
+	ret = i_stream_read_copy_from_parent(&stream->istream);
+	if (ret == 0 && blocking) {
+		struct ioloop *prev_ioloop = current_ioloop;
+		struct io *io;
+
+		http_server_connection_ref(conn);
+		http_server_request_ref(req);
+
+		i_assert(server->ioloop == NULL);
+		server->ioloop = io_loop_create();
+		http_server_connection_switch_ioloop(conn);
+
+		if (blocking && req->req.expect_100_continue &&
+			!req->sent_100_continue)
+			http_server_connection_trigger_responses(conn);
+
+		hsristream->read_status = 0;
+		io = io_add_istream(&stream->istream,
+			http_server_istream_read_any, hsristream);
+		while (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED &&
+			hsristream->read_status == 0) {
+			io_loop_run(server->ioloop);
+		}
+		io_remove(&io);
+
+		io_loop_set_current(prev_ioloop);
+		http_server_connection_switch_ioloop(conn);
+		io_loop_set_current(server->ioloop);
+		io_loop_destroy(&server->ioloop);
+
+		ret = hsristream->read_status;
+
+		http_server_request_unref(&req);
+		if (req == NULL)
+			hsristream->req = NULL;
+		http_server_connection_unref(&conn);
+	}
+
+	return ret;
+}
+
+static void
+http_server_istream_destroy(struct iostream_private *stream)
+{
+	struct http_server_istream *hsristream =
+		(struct http_server_istream *)stream;
+	uoff_t v_offset;
+
+	v_offset = hsristream->istream.parent_start_offset +
+		hsristream->istream.istream.v_offset;
+	if (hsristream->istream.parent->seekable ||
+		v_offset > hsristream->istream.parent->v_offset) {
+		/* get to same position in parent stream */
+		i_stream_seek(hsristream->istream.parent, v_offset);
+	}
+
+	i_stream_unref(&hsristream->istream.parent);
+}
+
+struct istream *
+http_server_request_get_payload_input(struct http_server_request *req,
+	bool blocking)
+{
+	struct http_server_istream *hsristream;
+	struct istream *payload = req->req.payload;
+
+	i_assert(req->payload_input == NULL);
+
+	hsristream = i_new(struct http_server_istream, 1);
+	hsristream->req = req;
+	hsristream->istream.max_buffer_size =
+		payload->real_stream->max_buffer_size;
+	hsristream->istream.stream_size_passthrough = TRUE;
+
+	hsristream->istream.read = http_server_istream_read;
+	hsristream->istream.switch_ioloop = http_server_istream_switch_ioloop;
+	hsristream->istream.iostream.destroy = http_server_istream_destroy;
+
+	hsristream->istream.istream.readable_fd = FALSE;
+	hsristream->istream.istream.blocking = blocking;
+	hsristream->istream.istream.seekable = FALSE;
+
+	req->payload_input = i_stream_create
+		(&hsristream->istream, payload, i_stream_get_fd(payload));
+	i_stream_unref(&req->req.payload);
+	return req->payload_input;
+}

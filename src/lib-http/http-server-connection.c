@@ -1086,11 +1086,18 @@ void http_server_connection_tunnel(struct http_server_connection **_conn,
 
 void http_server_connection_switch_ioloop(struct http_server_connection *conn)
 {
+	if (conn->switching_ioloop)
+		return;
+
+	conn->switching_ioloop = TRUE;
 	if (conn->to_input != NULL)
 		conn->to_input = io_loop_move_timeout(&conn->to_input);
 	if (conn->to_idle != NULL)
 		conn->to_idle = io_loop_move_timeout(&conn->to_idle);
 	if (conn->io_resp_payload != NULL)
 		conn->io_resp_payload = io_loop_move_io(&conn->io_resp_payload);
+	if (conn->incoming_payload != NULL)
+		i_stream_switch_ioloop(conn->incoming_payload);
 	connection_switch_ioloop(&conn->conn);
+	conn->switching_ioloop = FALSE;
 }

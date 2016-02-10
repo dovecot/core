@@ -83,6 +83,8 @@ struct http_server_request {
 	struct http_server *server;
 	struct http_server_connection *conn;
 
+	struct istream *payload_input;
+
 	struct http_server_response *response;
 
 	void (*destroy_callback)(void *);
@@ -125,6 +127,7 @@ struct http_server_connection {
 	unsigned int input_broken:1;
 	unsigned int output_locked:1;
 	unsigned int in_req_callback:1;  /* performing request callback (busy) */
+	unsigned int switching_ioloop:1; /* in the middle of switching ioloop */
 };
 
 struct http_server {
