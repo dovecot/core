@@ -725,14 +725,27 @@ void mail_storage_service_io_deactivate(struct mail_storage_service_ctx *ctx)
 	i_set_failure_prefix("%s", ctx->default_log_prefix);
 }
 
+static const char *field_get_default(const char *data)
+{
+	const char *p;
+
+	p = strchr(data, ':');
+	if (p == NULL)
+		return "";
+	else {
+		/* default value given */
+		return p+1;
+	}
+}
+
 const char *mail_storage_service_fields_var_expand(const char *data,
 						   const char *const *fields)
 {
-	const char *field_name = data;
+	const char *field_name = t_strcut(data, ':');
 	unsigned int i, field_name_len;
 
 	if (fields == NULL)
-		return NULL;
+		return field_get_default(data);
 
 	field_name_len = strlen(field_name);
 	for (i = 0; fields[i] != NULL; i++) {
@@ -740,7 +753,7 @@ const char *mail_storage_service_fields_var_expand(const char *data,
 		    fields[i][field_name_len] == '=')
 			return fields[i] + field_name_len+1;
 	}
-	return NULL;
+	return field_get_default(data);
 }
 
 static const char *
