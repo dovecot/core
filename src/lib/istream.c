@@ -122,6 +122,14 @@ void i_stream_set_return_partial_line(struct istream *stream, bool set)
 	stream->real_stream->return_nolf_line = set;
 }
 
+void i_stream_set_persistent_buffers(struct istream *stream, bool set)
+{
+	do {
+		stream->real_stream->nonpersistent_buffers = !set;
+		stream = stream->real_stream->parent;
+	} while (stream != NULL);
+}
+
 static void i_stream_update(struct istream_private *stream)
 {
 	if (stream->parent == NULL)
@@ -238,6 +246,12 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 		/* within buffer */
 		stream->v_offset += count;
 		_stream->skip += count;
+		if (_stream->nonpersistent_buffers &&
+		    _stream->skip == _stream->pos) {
+			_stream->skip = _stream->pos = 0;
+			_stream->buffer_size = 0;
+			i_free_and_null(_stream->w_buffer);
+		}
 		return;
 	}
 

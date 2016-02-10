@@ -52,6 +52,7 @@ struct istream_private {
 	unsigned int line_crlf:1;
 	unsigned int return_nolf_line:1;
 	unsigned int stream_size_passthrough:1; /* stream is parent's size */
+	unsigned int nonpersistent_buffers:1;
 };
 
 struct istream * ATTR_NOWARN_UNUSED_RESULT

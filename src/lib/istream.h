@@ -97,6 +97,10 @@ size_t i_stream_get_max_buffer_size(struct istream *stream);
 /* Enable/disable i_stream[_read]_next_line() returning the last line if it
    doesn't end with LF. */
 void i_stream_set_return_partial_line(struct istream *stream, bool set);
+/* Change whether buffers are allocated persistently (default=TRUE). When not,
+   the memory usage is minimized by freeing the stream's buffers whenever they
+   become empty. */
+void i_stream_set_persistent_buffers(struct istream *stream, bool set);
 
 /* Returns number of bytes read if read was ok, -1 if EOF or error, -2 if the
    input buffer is full. */
