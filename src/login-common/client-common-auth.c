@@ -552,6 +552,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		 sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED ||
 		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED);
 
+	memset(&reply, 0, sizeof(reply));
 	switch (sasl_reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
 		if (client->to_auth_waiting != NULL)
@@ -563,7 +564,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 				break;
 		}
 		client_auth_result(client, CLIENT_AUTH_RESULT_SUCCESS,
-				   NULL, NULL);
+				   &reply, NULL);
 		client_destroy_success(client, "Login");
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
@@ -580,14 +581,14 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 		if (sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED) {
 			client_auth_result(client, CLIENT_AUTH_RESULT_ABORTED,
-				NULL, "Authentication aborted by client.");
+				&reply, "Authentication aborted by client.");
 		} else if (data == NULL) {
 			client_auth_result(client,
-				CLIENT_AUTH_RESULT_AUTHFAILED, NULL,
+				CLIENT_AUTH_RESULT_AUTHFAILED, &reply,
 				AUTH_FAILED_MSG);
 		} else {
 			client_auth_result(client,
-				CLIENT_AUTH_RESULT_AUTHFAILED_REASON, NULL,
+				CLIENT_AUTH_RESULT_AUTHFAILED_REASON, &reply,
 				data);
 		}
 
@@ -599,7 +600,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 			/* authentication itself succeeded, we just hit some
 			   internal failure. */
 			client_auth_result(client, CLIENT_AUTH_RESULT_TEMPFAIL,
-					   NULL, data);
+					   &reply, data);
 		}
 
 		/* the fd may still be hanging somewhere in kernel or another
