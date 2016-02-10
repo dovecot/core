@@ -37,13 +37,18 @@ void *mmap_rw_file(int fd, size_t *length)
 	return mmap_file(fd, length, PROT_READ | PROT_WRITE);
 }
 
-#ifndef HAVE_MADVISE
+#undef madvise
 int my_madvise(void *start ATTR_UNUSED, size_t length ATTR_UNUSED,
 	       int advice ATTR_UNUSED)
 {
+#ifdef HAVE_MADVISE
+	/* Ignore ENOSYS errors, which happen if the kernel hasn't implemented
+	   the syscall even if libc has. */
+	if (madvise(start, length, advice) < 0 && errno != ENOSYS)
+		return -1;
+#endif
 	return 0;
 }
-#endif
 
 size_t mmap_get_page_size(void)
 {

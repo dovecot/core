@@ -14,9 +14,9 @@
 #  define MREMAP_MAYMOVE 1
 #endif
 
-#ifndef HAVE_MADVISE
-#  define madvise my_madvise
+#define madvise my_madvise
 int my_madvise(void *start, size_t length, int advice);
+#ifndef HAVE_MADVISE
 #  ifndef MADV_NORMAL
 #    define MADV_NORMAL 0
 #    define MADV_RANDOM 0
