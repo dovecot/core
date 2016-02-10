@@ -69,6 +69,7 @@ struct http_server_request {
 	struct http_request req;
 	pool_t pool;
 	unsigned int refcount;
+	unsigned int id;
 
 	enum http_server_request_state state;
 
@@ -134,9 +135,14 @@ struct http_server {
 static inline const char *
 http_server_request_label(struct http_server_request *req)
 {
-	if (req->req.method == NULL || req->req.target_raw == NULL)
-		return "[INVALID]";
-	return t_strdup_printf("[%s %s]", req->req.method, req->req.target_raw);
+	if (req->req.method == NULL) {
+		if (req->req.target_raw == NULL)
+			return t_strdup_printf("[Req%u: <NEW>]", req->id);
+		return t_strdup_printf("[Req%u: %s <INCOMPLETE>]",
+			req->id, req->req.method);
+	}
+	return t_strdup_printf("[Req%u: %s %s]", req->id,
+		req->req.method, req->req.target_raw);
 }
 
 static inline const char *

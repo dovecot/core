@@ -4,9 +4,38 @@
 
 #include "http-server-private.h"
 
+/*
+ * Logging
+ */
+
+static inline void
+http_server_request_debug(struct http_server_request *req,
+	const char *format, ...) ATTR_FORMAT(2, 3);
+
+static inline void
+http_server_request_debug(struct http_server_request *req,
+	const char *format, ...)
+{
+	struct http_server *server = req->server;
+	va_list args;
+
+	if (server->set.debug) {
+		va_start(args, format);
+		i_debug("http-server: request %s: %s",
+			http_server_request_label(req),
+			t_strdup_vprintf(format, args));
+		va_end(args);
+	}
+}
+
+/*
+ * Request
+ */
+
 struct http_server_request *
 http_server_request_new(struct http_server_connection *conn)
 {
+	static unsigned int id_counter = 0;
 	pool_t pool;
 	struct http_server_request *req;
 
@@ -16,6 +45,7 @@ http_server_request_new(struct http_server_connection *conn)
 	req->refcount = 1;
 	req->conn = conn;
 	req->server = conn->server;
+	req->id = ++id_counter;
 
 	http_server_connection_add_request(conn, req);
 	return req;
@@ -35,6 +65,8 @@ bool http_server_request_unref(struct http_server_request **_req)
 	i_assert(req->refcount > 0);
 	if (--req->refcount > 0)
 		return TRUE;
+
+	http_server_request_debug(req, "Free");
 
 	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
 		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
@@ -56,6 +88,8 @@ bool http_server_request_unref(struct http_server_request **_req)
 void http_server_request_destroy(struct http_server_request **_req)
 {
 	struct http_server_request *req = *_req;
+
+	http_server_request_debug(req, "Destroy");
 
 	if (req->delay_destroy) {
 		req->destroy_pending = TRUE;
@@ -80,6 +114,8 @@ void http_server_request_abort(struct http_server_request **_req)
 {
 	struct http_server_request *req = *_req;
 	struct http_server_connection *conn = req->conn;
+
+	http_server_request_debug(req, "Abort");
 
 	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
 		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
@@ -184,6 +220,8 @@ void http_server_request_finished(struct http_server_request *req)
 	struct http_server_response *resp = req->response;
 	http_server_tunnel_callback_t tunnel_callback = resp->tunnel_callback;
 	void *tunnel_context = resp->tunnel_context;
+
+	http_server_request_debug(req, "Finished");
 
 	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_FINISHED);
 	req->state = HTTP_SERVER_REQUEST_STATE_FINISHED;
