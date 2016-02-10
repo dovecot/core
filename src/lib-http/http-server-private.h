@@ -53,6 +53,8 @@ struct http_server_response {
 	uoff_t payload_size, payload_offset;
 	struct ostream *payload_output;
 
+	struct ostream *blocking_output;
+
 	http_server_tunnel_callback_t tunnel_callback;
 	void *tunnel_context;
 

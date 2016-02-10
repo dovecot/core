@@ -125,6 +125,7 @@ void http_server_response_set_payload(struct http_server_response *resp,
 	int ret;
 
 	i_assert(!resp->submitted);
+	i_assert(resp->blocking_output == NULL);
 	i_assert(resp->payload_input == NULL);
 
 	i_stream_ref(input);
@@ -411,6 +412,8 @@ int http_server_response_send_payload(struct http_server_response **_resp,
 	struct http_server_response *resp = *_resp;
 	struct const_iovec iov;
 
+	i_assert(resp->blocking_output == NULL);
+
 	resp->payload_corked = TRUE;
 
 	i_assert(data != NULL);
@@ -423,6 +426,10 @@ int http_server_response_send_payload(struct http_server_response **_resp,
 
 int http_server_response_finish_payload(struct http_server_response **_resp)
 {
+	struct http_server_response *resp = *_resp;
+
+	i_assert(resp->blocking_output == NULL);
+
 	return http_server_response_output_payload(_resp, NULL, 0);
 }
 
@@ -663,4 +670,100 @@ int http_server_response_send(struct http_server_response *resp,
 	*error_r = t_strdup(errstr);
 	i_free(errstr);
 	return ret;
+}
+
+/*
+ * Payload output stream
+ */
+
+struct http_server_ostream {
+	struct ostream_private ostream;
+
+	struct http_server_response *resp;
+};
+
+static ssize_t
+http_server_ostream_sendv(struct ostream_private *stream,
+		    const struct const_iovec *iov, unsigned int iov_count)
+{
+	struct http_server_ostream *hsostream =
+		(struct http_server_ostream *)stream;
+	unsigned int i;
+	ssize_t ret;
+
+	if (http_server_response_output_payload
+		(&hsostream->resp, iov, iov_count) < 0) {
+		if (stream->parent->stream_errno != 0) {
+			o_stream_copy_error_from_parent(stream);
+		} else {
+			io_stream_set_error(&stream->iostream,
+		    "HTTP connection broke while sending payload");
+			stream->ostream.stream_errno = EIO;
+		}
+		return -1;
+	}
+
+	ret = 0;
+	for (i = 0; i < iov_count; i++)
+		ret += iov[i].iov_len;
+	stream->ostream.offset += ret;
+	return ret;
+}
+
+static void http_server_ostream_close(struct iostream_private *stream,
+				  bool close_parent ATTR_UNUSED)
+{
+	struct http_server_ostream *hsostream =
+		(struct http_server_ostream *)stream;
+	struct ostream_private *ostream = &hsostream->ostream;
+
+	if (hsostream->resp == NULL)
+		return;
+	hsostream->resp->blocking_output = NULL;
+
+	if (http_server_response_output_payload
+		(&hsostream->resp, NULL, 0) < 0) {
+		if (ostream->parent->stream_errno != 0) {
+			o_stream_copy_error_from_parent(ostream);
+		} else {
+			io_stream_set_error(&ostream->iostream,
+		    "HTTP connection broke while sending payload");
+			ostream->ostream.stream_errno = EIO;
+		}
+	}
+	hsostream->resp = NULL;
+}
+
+static void http_server_ostream_destroy(struct iostream_private *stream)
+{
+	struct http_server_ostream *hsostream =
+		(struct http_server_ostream *)stream;
+
+	if (hsostream->resp != NULL) {
+		hsostream->resp->blocking_output = NULL;
+		http_server_response_abort_payload(&hsostream->resp);
+	}
+}
+
+struct ostream *
+http_server_response_get_payload_output(struct http_server_response *resp,
+	bool blocking)
+{
+	struct http_server_connection *conn = resp->request->conn;
+	struct http_server_ostream *hsostream;
+
+	i_assert(resp->payload_input == NULL);
+	i_assert(resp->blocking_output == NULL);
+
+	i_assert(blocking == TRUE); // FIXME: support non-blocking
+
+	hsostream = i_new(struct http_server_ostream, 1);
+	hsostream->ostream.sendv = http_server_ostream_sendv;
+	hsostream->ostream.iostream.close = http_server_ostream_close;
+	hsostream->ostream.iostream.destroy = http_server_ostream_destroy;
+	hsostream->resp = resp;
+
+	resp->blocking_output =
+		o_stream_create(&hsostream->ostream, conn->conn.output, -1);
+	return resp->blocking_output;
 }

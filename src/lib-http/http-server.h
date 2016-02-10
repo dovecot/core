@@ -154,6 +154,10 @@ void http_server_response_set_payload(struct http_server_response *resp,
 void http_server_response_set_payload_data(struct http_server_response *resp,
 				     const unsigned char *data, size_t size);
 
+struct ostream *
+http_server_response_get_payload_output(struct http_server_response *resp,
+	bool blocking);
+
 void http_server_response_add_auth(
 	struct http_server_response *resp,
 	const struct http_auth_challenge *chlng);
