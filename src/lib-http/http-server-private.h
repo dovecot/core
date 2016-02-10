@@ -61,6 +61,9 @@ struct http_server_response {
 	unsigned int have_hdr_body_spec:1;
 
 	unsigned int payload_chunked:1;
+	unsigned int payload_blocking:1;
+	unsigned int payload_direct:1;
+	unsigned int payload_corked:1;
 	unsigned int close:1;
 	unsigned int submitted:1;
 };
@@ -119,6 +122,7 @@ struct http_server_connection {
 	unsigned int close_indicated:1;
 	unsigned int input_broken:1;
 	unsigned int output_locked:1;
+	unsigned int in_req_callback:1;  /* performing request callback (busy) */
 };
 
 struct http_server {
@@ -167,7 +171,8 @@ int http_server_response_send_more(struct http_server_response *resp,
 struct http_server_request *
 http_server_request_new(struct http_server_connection *conn);
 void http_server_request_destroy(struct http_server_request **_req);
-void http_server_request_abort(struct http_server_request **_req);
+void http_server_request_abort(struct http_server_request **_req,
+	const char *reason) ATTR_NULL(2);
 
 void http_server_request_halt_payload(struct http_server_request *req);
 void http_server_request_continue_payload(struct http_server_request *req);
@@ -202,11 +207,20 @@ http_server_request_version_equals(struct http_server_request *req,
 struct connection_list *http_server_connection_list_init(void);
 
 void http_server_connection_switch_ioloop(struct http_server_connection *conn);
+
+void http_server_connection_write_failed(struct http_server_connection *conn,
+	const char *error);
+
 void http_server_connection_trigger_responses(
 	struct http_server_connection *conn);
+int http_server_connection_flush(struct http_server_connection *conn);
 int http_server_connection_output(struct http_server_connection *conn);
+
 void http_server_connection_tunnel(struct http_server_connection **_conn,
 	http_server_tunnel_callback_t callback, void *context);
+
+int http_server_connection_discard_payload(
+	struct http_server_connection *conn);
 bool http_server_connection_pending_payload(struct http_server_connection *conn);
 
 static inline void http_server_connection_add_request(struct http_server_connection *conn,

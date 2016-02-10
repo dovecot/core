@@ -168,4 +168,14 @@ void http_server_response_submit_tunnel(struct http_server_response *resp,
 
 void http_server_switch_ioloop(struct http_server *server);
 
+/* submits response and blocks until provided payload is sent. Multiple calls
+   are allowed; payload transmission is finished with
+   http_server_response_finish_payload(). */
+int http_server_response_send_payload(struct http_server_response **resp,
+	const unsigned char *data, size_t size);
+int http_server_response_finish_payload(struct http_server_response **resp);
+/* abort response payload transmission prematurely. this closes the associated
+   connection */
+void http_server_response_abort_payload(struct http_server_response **resp);
+
 #endif

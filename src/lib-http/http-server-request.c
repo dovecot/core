@@ -1,6 +1,8 @@
 /* Copyright (c) 2013-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
+#include "ostream.h"
 
 #include "http-server-private.h"
 
@@ -88,8 +90,16 @@ bool http_server_request_unref(struct http_server_request **_req)
 void http_server_request_destroy(struct http_server_request **_req)
 {
 	struct http_server_request *req = *_req;
+	struct http_server *server = req->server;
 
 	http_server_request_debug(req, "Destroy");
+
+	/* just make sure the request ends in a proper state */
+	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED)
+		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
+
+	if (server->ioloop)
+		io_loop_stop(server->ioloop);
 
 	if (req->delay_destroy) {
 		req->destroy_pending = TRUE;
@@ -110,22 +120,46 @@ void http_server_request_set_destroy_callback(struct http_server_request *req,
 	req->destroy_context = context;
 }
 
-void http_server_request_abort(struct http_server_request **_req)
+void http_server_request_abort(struct http_server_request **_req,
+	const char *reason)
 {
 	struct http_server_request *req = *_req;
 	struct http_server_connection *conn = req->conn;
 
 	http_server_request_debug(req, "Abort");
 
+	req->conn = NULL;
 	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED) {
+		if (conn != NULL) {
+			http_server_connection_remove_request(conn, req);
+
+			if (!conn->closed) {
+				/* send best-effort response if appropriate */
+				if (!conn->output_locked &&
+					req->state >= HTTP_SERVER_REQUEST_STATE_PROCESSING &&
+					req->state < HTTP_SERVER_REQUEST_STATE_SENT_RESPONSE) {
+					static const char *response =
+						"HTTP/1.1 500 Internal Server Error\r\n"
+						"Content-Length: 0\r\n"
+						"\r\n";
+
+					(void)o_stream_send(conn->conn.output,
+						response, strlen(response));
+				}
+
+				/* close the connection */
+				http_server_connection_close(&conn, reason);
+			}
+		}
+
 		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
-		http_server_connection_remove_request(conn, req);
 	}
 	
-	if (req->response != NULL)
+	if (req->response != NULL &&
+		!req->response->payload_blocking) {
 		http_server_response_free(req->response);
-	req->response = NULL;
-	req->conn = conn;
+		req->response = NULL;
+	}
 
 	http_server_request_destroy(_req);
 }
