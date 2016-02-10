@@ -35,7 +35,7 @@ struct login_proxy {
 	struct client *client;
 	int client_fd, server_fd;
 	struct io *client_io, *server_io;
-	struct istream *server_input;
+	struct istream *client_input, *server_input;
 	struct ostream *client_output, *server_output;
 	struct ssl_proxy *ssl_server_proxy;
 	time_t last_io;
@@ -155,8 +155,9 @@ static void server_input(struct login_proxy *proxy)
 
 static void proxy_client_input(struct login_proxy *proxy)
 {
-	unsigned char buf[OUTBUF_THRESHOLD];
-	ssize_t ret, ret2;
+	const unsigned char *data;
+	size_t size;
+	ssize_t ret;
 
 	proxy->last_io = ioloop_time;
 	if (o_stream_get_buffer_used_size(proxy->server_output) >
@@ -167,26 +168,30 @@ static void proxy_client_input(struct login_proxy *proxy)
 		return;
 	}
 
-	ret = net_receive(proxy->client_fd, buf, sizeof(buf));
-	if (ret < 0) {
-		login_proxy_free_errno(&proxy, errno, FALSE);
+	if (i_stream_read_data(proxy->client_input, &data, &size, 0) < 0) {
+		const char *errstr = i_stream_get_error(proxy->client_input);
+		login_proxy_free_errstr(&proxy, errstr, FALSE);
 		return;
 	}
 	o_stream_cork(proxy->server_output);
-	ret2 = o_stream_send(proxy->server_output, buf, ret);
+	ret = o_stream_send(proxy->server_output, data, size);
 	o_stream_uncork(proxy->server_output);
-	if (ret2 != ret)
+	if (ret != (ssize_t)size)
 		login_proxy_free_ostream(&proxy, proxy->server_output, TRUE);
+	else
+		i_stream_skip(proxy->client_input, ret);
 }
 
 static void proxy_client_disconnected_input(struct login_proxy *proxy)
 {
-	unsigned char buf[OUTBUF_THRESHOLD];
-
 	/* we're already disconnected from server. either wait for
 	   disconnection timeout or for client to disconnect itself. */
-	if (net_receive(proxy->client_fd, buf, sizeof(buf)) < 0)
+	if (i_stream_read(proxy->client_input) < 0)
 		login_proxy_free_final(proxy);
+	else {
+		i_stream_skip(proxy->client_input,
+			      i_stream_get_data_size(proxy->client_input));
+	}
 }
 
 static int server_output(struct login_proxy *proxy)
@@ -489,6 +494,8 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 
 	if (proxy->client_io != NULL)
 		io_remove(&proxy->client_io);
+	if (proxy->client_input != NULL)
+		i_stream_destroy(&proxy->client_input);
 	if (proxy->client_output != NULL)
 		o_stream_destroy(&proxy->client_output);
 	if (proxy->client_fd != -1)
@@ -591,6 +598,7 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 			io_remove(&proxy->client_io);
 	} else {
 		i_assert(proxy->client_io == NULL);
+		i_assert(proxy->client_input == NULL);
 		i_assert(proxy->client_output == NULL);
 		i_assert(proxy->client_fd == -1);
 
@@ -681,20 +689,24 @@ void login_proxy_detach(struct login_proxy *proxy)
 	size_t size;
 
 	i_assert(proxy->client_fd == -1);
+	i_assert(proxy->server_input != NULL);
 	i_assert(proxy->server_output != NULL);
 
 	if (proxy->to != NULL)
 		timeout_remove(&proxy->to);
 
 	proxy->client_fd = i_stream_get_fd(client->input);
+	proxy->client_input = client->input;
 	proxy->client_output = client->output;
 
+	i_stream_set_persistent_buffers(client->input, FALSE);
 	o_stream_set_max_buffer_size(client->output, (size_t)-1);
 	o_stream_set_flush_callback(client->output, proxy_client_output, proxy);
+	client->input = NULL;
 	client->output = NULL;
 
-	/* send all pending client input to proxy and get rid of the stream */
-	data = i_stream_get_data(client->input, &size);
+	/* send all pending client input to proxy */
+	data = i_stream_get_data(proxy->client_input, &size);
 	if (size != 0)
 		o_stream_nsend(proxy->server_output, data, size);
 
