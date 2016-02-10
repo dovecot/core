@@ -62,6 +62,7 @@ test_programs = \
 	test-http-request-parser
 
 test_nocheck_programs = \
+	test-http-payload \
 	test-http-client \
 	test-http-server
 
@@ -130,6 +131,22 @@ test_http_request_parser_LDADD = \
 	$(test_libs)
 test_http_request_parser_DEPENDENCIES = $(test_deps)
 
+test_http_payload_SOURCES = test-http-payload.c
+test_http_payload_LDFLAGS = -export-dynamic
+test_http_payload_LDADD = \
+	libhttp.la \
+	../lib-dns/libdns.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-master/libmaster.la \
+	../lib-settings/libsettings.la \
+	$(test_libs)
+test_http_payload_DEPENDENCIES = \
+	libhttp.la \
+	../lib-dns/libdns.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-master/libmaster.la \
+	../lib-settings/libsettings.la \
+	$(test_deps)
 
 test_http_client_SOURCES = test-http-client.c
 test_http_client_LDFLAGS = -export-dynamic
