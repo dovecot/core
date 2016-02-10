@@ -725,24 +725,31 @@ void mail_storage_service_io_deactivate(struct mail_storage_service_ctx *ctx)
 	i_set_failure_prefix("%s", ctx->default_log_prefix);
 }
 
+const char *mail_storage_service_fields_var_expand(const char *data,
+						   const char *const *fields)
+{
+	const char *field_name = data;
+	unsigned int i, field_name_len;
+
+	if (fields == NULL)
+		return NULL;
+
+	field_name_len = strlen(field_name);
+	for (i = 0; fields[i] != NULL; i++) {
+		if (strncmp(fields[i], field_name, field_name_len) == 0 &&
+		    fields[i][field_name_len] == '=')
+			return fields[i] + field_name_len+1;
+	}
+	return NULL;
+}
+
 static const char *
 mail_storage_service_input_var_userdb(const char *data, void *context)
 {
 	struct mail_storage_service_user *user = context;
-	const char *field_name = data;
-	unsigned int i, field_name_len;
 
-	if (user == NULL || user->input.userdb_fields == NULL)
-		return NULL;
-
-	field_name_len = strlen(field_name);
-	for (i = 0; user->input.userdb_fields[i] != NULL; i++) {
-		if (strncmp(user->input.userdb_fields[i], field_name,
-			    field_name_len) == 0 &&
-		    user->input.userdb_fields[i][field_name_len] == '=')
-			return user->input.userdb_fields[i] + field_name_len+1;
-	}
-	return NULL;
+	return mail_storage_service_fields_var_expand(data,
+			user == NULL ? NULL : user->input.userdb_fields);
 }
 
 static void

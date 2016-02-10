@@ -268,20 +268,8 @@ static const char *
 mail_user_var_expand_func_userdb(const char *data, void *context)
 {
 	struct mail_user *user = context;
-	const char *field_name = data;
-	unsigned int i, field_name_len;
 
-	if (user->userdb_fields == NULL)
-		return NULL;
-
-	field_name_len = strlen(field_name);
-	for (i = 0; user->userdb_fields[i] != NULL; i++) {
-		if (strncmp(user->userdb_fields[i], field_name,
-			    field_name_len) == 0 &&
-		    user->userdb_fields[i][field_name_len] == '=')
-			return user->userdb_fields[i] + field_name_len+1;
-	}
-	return NULL;
+	return mail_storage_service_fields_var_expand(data, user->userdb_fields);
 }
 
 void mail_user_set_home(struct mail_user *user, const char *home)
