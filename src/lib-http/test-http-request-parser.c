@@ -167,7 +167,7 @@ static void test_http_request_parse_valid(void)
 		struct ostream *output;
 		const struct http_request_valid_parse_test *test;
 		struct http_request_parser *parser;
-		struct http_request request;
+		struct http_request request, request_parsed;
 		enum http_request_parse_error error_code;
 		const char *request_text, *payload, *error;
 		unsigned int pos, request_text_len;
@@ -185,10 +185,11 @@ static void test_http_request_parse_valid(void)
 		for (pos = 0; pos <= request_text_len && ret == 0; pos++) {
 			test_istream_set_size(input, pos);
 			ret = http_request_parse_next
-				(parser, NULL, &request, &error_code, &error);
+				(parser, NULL, &request_parsed, &error_code, &error);
 		}
 		test_istream_set_size(input, request_text_len);
 		i_stream_unref(&input);
+		request = request_parsed;
 
 		while (ret > 0) {
 			if (request.payload != NULL) {
@@ -202,7 +203,7 @@ static void test_http_request_parse_valid(void)
 				payload = NULL;
 			}
 			ret = http_request_parse_next
-				(parser, NULL, &request, &error_code, &error);
+				(parser, NULL, &request_parsed, &error_code, &error);
 		}
 
 		test_out_reason("parse success", ret == 0, error);
