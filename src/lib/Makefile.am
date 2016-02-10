@@ -240,6 +240,7 @@ headers = \
 	nfs-workarounds.h \
 	numpack.h \
 	ostream.h \
+	ostream-escaped.h \
 	ostream-failure-at.h \
 	ostream-hash.h \
 	ostream-private.h \
