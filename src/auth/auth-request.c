@@ -1381,7 +1381,8 @@ auth_request_validate_networks(struct auth_request *request,
 			"%s check failed: IP %s not in allowed networks",
 			name, net_ip2addr(remote_ip));
 	}
-	request->failed = !found;
+	if (!found)
+		request->failed = TRUE;
 }
 
 static void
