@@ -408,7 +408,7 @@ http_server_istream_read(struct istream_private *stream)
 	if (req == NULL) {
 		/* request already gone (we shouldn't get here) */
 		stream->istream.stream_errno = EINVAL;
-		ret = -1;
+		return -1;
 	}
 
 	i_stream_seek(stream->parent, stream->parent_start_offset +
