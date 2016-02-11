@@ -67,7 +67,7 @@ bsdauth_preinit(pool_t pool, const char *args)
 	if (strcmp(args, "blocking=no") == 0)
 		module->blocking = FALSE;
 	else if (strncmp(args, "cache_key=", 10) == 0)
-		module->cache_key = auth_cache_parse_key(pool, args + 10);
+		module->default_cache_key = auth_cache_parse_key(pool, args + 10);
 	else if (*args != '\0')
 		i_fatal("passdb bsdauth: Unknown setting: %s", args);
 	return module;

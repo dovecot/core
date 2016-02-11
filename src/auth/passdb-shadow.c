@@ -97,7 +97,7 @@ shadow_preinit(pool_t pool, const char *args)
 	else if (*args != '\0')
 		i_fatal("passdb shadow: Unknown setting: %s", args);
 
-	module->cache_key = SHADOW_CACHE_KEY;
+	module->default_cache_key = SHADOW_CACHE_KEY;
 	module->default_pass_scheme = SHADOW_PASS_SCHEME;
 	return module;
 }

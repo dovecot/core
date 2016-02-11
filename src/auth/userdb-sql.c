@@ -257,7 +257,7 @@ userdb_sql_preinit(pool_t pool, const char *args)
 	module = p_new(pool, struct sql_userdb_module, 1);
 	module->conn = db_sql_init(args, TRUE);
 
-	module->module.cache_key =
+	module->module.default_cache_key =
 		auth_cache_parse_key(pool, module->conn->set.user_query);
 	return &module->module;
 }

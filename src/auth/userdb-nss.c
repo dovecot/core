@@ -127,7 +127,7 @@ userdb_nss_preinit(pool_t pool, const char *args)
 		i_fatal("userdb nss: Missing service");
 	userdb_nss_load_module(module, pool);
 
-	module->module.cache_key = USER_CACHE_KEY;
+	module->module.default_cache_key = USER_CACHE_KEY;
 	return &module->module;
 }
 

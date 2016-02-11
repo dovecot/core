@@ -227,13 +227,6 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 		passdb_template_build(pool, set->default_fields);
 	passdb->override_fields_tmpl =
 		passdb_template_build(pool, set->override_fields);
-	if (passdb->cache_key != NULL &&
-	    !passdb_template_is_empty(passdb->default_fields_tmpl)) {
-		/* make sure any %variables in default_fields exist
-		   in cache_key */
-		passdb->cache_key = p_strconcat(pool, passdb->cache_key,
-						set->default_fields, NULL);
-	}
 
 	array_append(&passdb_modules, &passdb, 1);
 	return passdb;
@@ -244,9 +237,6 @@ void passdb_init(struct passdb_module *passdb)
 	if (passdb->iface.init != NULL && passdb->init_refcount == 0)
 		passdb->iface.init(passdb);
 	passdb->init_refcount++;
-
-	i_assert(passdb->default_pass_scheme != NULL ||
-		 passdb->cache_key == NULL);
 }
 
 void passdb_deinit(struct passdb_module *passdb)

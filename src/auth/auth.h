@@ -32,6 +32,9 @@ struct auth_passdb {
 	const struct auth_passdb_settings *set;
 	struct passdb_module *passdb;
 
+	/* The caching key for this passdb, or NULL if caching isn't wanted. */
+	const char *cache_key;
+
 	enum auth_passdb_skip skip;
 	enum auth_db_rule result_success;
 	enum auth_db_rule result_failure;
@@ -43,6 +46,9 @@ struct auth_userdb {
 
 	const struct auth_userdb_settings *set;
 	struct userdb_module *userdb;
+
+	/* The caching key for this userdb, or NULL if caching isn't wanted. */
+	const char *cache_key;
 
 	enum auth_userdb_skip skip;
 	enum auth_db_rule result_success;

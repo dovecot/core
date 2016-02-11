@@ -352,7 +352,7 @@ pam_preinit(pool_t pool, const char *args)
 		else if (strcmp(t_args[i], "setcred=yes") == 0)
 			module->pam_setcred = TRUE;
 		else if (strncmp(t_args[i], "cache_key=", 10) == 0) {
-			module->module.cache_key =
+			module->module.default_cache_key =
 				auth_cache_parse_key(pool, t_args[i] + 10);
 		} else if (strcmp(t_args[i], "blocking=yes") == 0) {
 			/* ignore, for backwards compatibility */

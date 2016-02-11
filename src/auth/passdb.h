@@ -54,8 +54,10 @@ struct passdb_module_interface {
 
 struct passdb_module {
 	const char *args;
-	/* The caching key for this module, or NULL if caching isn't wanted. */
-	const char *cache_key;
+	/* The default caching key for this module, or NULL if caching isn't
+	   wanted. This is updated by settings in auth_passdb. */
+#define default_cache_key cache_key /* FIXME: remove in v2.3 - for API backwards compatibility */
+	const char *default_cache_key;
 	/* Default password scheme for this module.
 	   If cache_key is set, must not be NULL. */
 	const char *default_pass_scheme;

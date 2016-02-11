@@ -162,7 +162,7 @@ userdb_dict_preinit(pool_t pool, const char *args)
 	module->conn = conn = db_dict_init(args);
 
 	module->module.blocking = TRUE;
-	module->module.cache_key = auth_cache_parse_key(pool,
+	module->module.default_cache_key = auth_cache_parse_key(pool,
 		db_dict_parse_cache_key(&conn->set.keys, &conn->set.userdb_fields,
 					&conn->set.parsed_userdb_objects));
 	return &module->module;

@@ -152,9 +152,9 @@ passwd_file_preinit(pool_t pool, const char *args)
 	module->username_format = format;
 
 	if (!module->pwf->vars)
-		module->module.cache_key = format;
+		module->module.default_cache_key = format;
 	else {
-		module->module.cache_key = auth_cache_parse_key(pool,
+		module->module.default_cache_key = auth_cache_parse_key(pool,
 			t_strconcat(format, module->pwf->path, NULL));
 	}
 

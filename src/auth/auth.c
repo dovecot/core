@@ -87,6 +87,10 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	*dest = auth_passdb;
 
 	auth_passdb->passdb = passdb_preinit(auth->pool, set);
+	/* make sure any %variables in default_fields exist in cache_key */
+	auth_passdb->cache_key =
+		p_strconcat(auth->pool, auth_passdb->passdb->default_cache_key,
+			    set->default_fields, NULL);
 }
 
 static void
@@ -108,6 +112,10 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 	*dest = auth_userdb;
 
 	auth_userdb->userdb = userdb_preinit(auth->pool, set);
+	/* make sure any %variables in default_fields exist in cache_key */
+	auth_userdb->cache_key =
+		p_strconcat(auth->pool, auth_userdb->userdb->default_cache_key,
+			    set->default_fields, NULL);
 }
 
 static bool auth_passdb_list_have_verify_plain(const struct auth *auth)
@@ -264,15 +272,23 @@ auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 	return auth;
 }
 
+static void auth_passdb_init(struct auth_passdb *passdb)
+{
+	passdb_init(passdb->passdb);
+
+	i_assert(passdb->passdb->default_pass_scheme != NULL ||
+		 passdb->cache_key == NULL);
+}
+
 static void auth_init(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
-		passdb_init(passdb->passdb);
+		auth_passdb_init(passdb);
 	for (passdb = auth->passdbs; passdb != NULL; passdb = passdb->next)
-		passdb_init(passdb->passdb);
+		auth_passdb_init(passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_init(userdb->userdb);
 }

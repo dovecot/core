@@ -266,7 +266,7 @@ userdb_ldap_preinit(pool_t pool, const char *args)
 			  &conn->iterate_attr_names,
 			  &conn->iterate_attr_map, NULL);
 	module->module.blocking = conn->set.blocking;
-	module->module.cache_key =
+	module->module.default_cache_key =
 		auth_cache_parse_key(pool,
 				     t_strconcat(conn->set.base,
 						 conn->set.user_attrs,

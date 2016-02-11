@@ -436,7 +436,7 @@ passdb_ldap_preinit(pool_t pool, const char *args)
 			  &conn->pass_attr_map,
 			  conn->set.auth_bind ? "password" : NULL);
 	module->module.blocking = conn->set.blocking;
-	module->module.cache_key =
+	module->module.default_cache_key =
 		auth_cache_parse_key(pool,
 				     t_strconcat(conn->set.base,
 						 conn->set.pass_attrs,

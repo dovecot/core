@@ -146,7 +146,8 @@ vpopmail_preinit(pool_t pool, const char *args)
 
 	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
 		if (strncmp(*tmp, "cache_key=", 10) == 0)
-			module->module.cache_key = p_strdup(pool, *tmp + 10);
+			module->module.default_cache_key =
+				p_strdup(pool, *tmp + 10);
 		else if (strncmp(*tmp, "quota_template=", 15) == 0) {
 			p = strchr(*tmp + 15, '=');
 			if (p == NULL) {
