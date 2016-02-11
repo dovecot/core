@@ -36,8 +36,9 @@ struct userdb_module {
 	/* number of time init() has been called */
 	int init_refcount;
 
-	struct userdb_template *default_fields_tmpl;
-	struct userdb_template *override_fields_tmpl;
+	/* WARNING: avoid adding anything here that isn't based on args.
+	   if you do, you need to change userdb.c:userdb_find() also to avoid
+	   accidentally merging wrong userdbs. */
 
 	const struct userdb_module_interface *iface;
 };

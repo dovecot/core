@@ -7,6 +7,8 @@
 #include "mech.h"
 #include "userdb.h"
 #include "passdb.h"
+#include "passdb-template.h"
+#include "userdb-template.h"
 #include "auth.h"
 
 static const struct auth_userdb_settings userdb_dummy_set = {
@@ -79,6 +81,11 @@ auth_passdb_preinit(struct auth *auth, const struct auth_passdb_settings *set,
 	auth_passdb->result_internalfail =
 		auth_db_rule_parse(set->result_internalfail);
 
+	auth_passdb->default_fields_tmpl =
+		passdb_template_build(auth->pool, set->default_fields);
+	auth_passdb->override_fields_tmpl =
+		passdb_template_build(auth->pool, set->override_fields);
+
 	/* for backwards compatibility: */
 	if (set->pass)
 		auth_passdb->result_success = AUTH_DB_RULE_CONTINUE;
@@ -107,6 +114,13 @@ auth_userdb_preinit(struct auth *auth, const struct auth_userdb_settings *set)
 		auth_db_rule_parse(set->result_failure);
 	auth_userdb->result_internalfail =
 		auth_db_rule_parse(set->result_internalfail);
+
+	auth_userdb->default_fields_tmpl =
+		userdb_template_build(auth->pool, set->driver,
+				      set->default_fields);
+	auth_userdb->override_fields_tmpl =
+		userdb_template_build(auth->pool, set->driver,
+				      set->override_fields);
 
 	for (dest = &auth->userdbs; *dest != NULL; dest = &(*dest)->next) ;
 	*dest = auth_userdb;

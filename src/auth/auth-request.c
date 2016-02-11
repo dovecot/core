@@ -690,7 +690,7 @@ static void
 auth_request_verify_plain_callback_finish(enum passdb_result result,
 					  struct auth_request *request)
 {
-	passdb_template_export(request->passdb->passdb->override_fields_tmpl, request);
+	passdb_template_export(request->passdb->override_fields_tmpl, request);
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
 		auth_request_verify_plain(request, request->mech_password,
@@ -810,7 +810,7 @@ void auth_request_verify_plain(struct auth_request *request,
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_verify_plain(request);
 	} else {
-		passdb_template_export(passdb->passdb->default_fields_tmpl, request);
+		passdb_template_export(passdb->default_fields_tmpl, request);
 		passdb->passdb->iface.verify_plain(request, password,
 					   auth_request_verify_plain_callback);
 	}
@@ -822,7 +822,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 				       size_t size,
 				       struct auth_request *request)
 {
-	passdb_template_export(request->passdb->passdb->override_fields_tmpl, request);
+	passdb_template_export(request->passdb->override_fields_tmpl, request);
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
 		if (request->skip_password_check &&
@@ -948,7 +948,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_lookup_credentials(request);
 	} else {
-		passdb_template_export(passdb->passdb->default_fields_tmpl, request);
+		passdb_template_export(passdb->default_fields_tmpl, request);
 		passdb->passdb->iface.lookup_credentials(request,
 			auth_request_lookup_credentials_callback);
 	}
@@ -1114,7 +1114,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		if (result == USERDB_RESULT_OK) {
 			/* this userdb lookup succeeded, preserve its extra
 			   fields */
-			userdb_template_export(userdb->userdb->override_fields_tmpl, request);
+			userdb_template_export(userdb->override_fields_tmpl, request);
 			auth_fields_snapshot(request->userdb_reply);
 		} else {
 			/* this userdb lookup failed, remove any extra fields
@@ -1129,7 +1129,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 	}
 
 	if (request->userdb_success)
-		userdb_template_export(userdb->userdb->override_fields_tmpl, request);
+		userdb_template_export(userdb->override_fields_tmpl, request);
 	else if (request->userdbs_seen_internal_failure ||
 		 result == USERDB_RESULT_INTERNAL_FAILURE) {
 		/* one of the userdb lookups failed. the user might have been
@@ -1181,7 +1181,7 @@ void auth_request_lookup_user(struct auth_request *request,
 		/* we still want to set default_fields. these override any
 		   existing fields set by previous userdbs (because if that is
 		   unwanted, ":protected" can be used). */
-		userdb_template_export(userdb->userdb->default_fields_tmpl, request);
+		userdb_template_export(userdb->default_fields_tmpl, request);
 	}
 
 	/* (for now) auth_cache is shared between passdb and userdb */
@@ -1604,10 +1604,8 @@ void auth_request_set_fields(struct auth_request *request,
 
 void auth_request_init_userdb_reply(struct auth_request *request)
 {
-	struct userdb_module *module = request->userdb->userdb;
-
 	request->userdb_reply = auth_fields_init(request->pool);
-	userdb_template_export(module->default_fields_tmpl, request);
+	userdb_template_export(request->userdb->default_fields_tmpl, request);
 }
 
 static void auth_request_set_uidgid_file(struct auth_request *request,

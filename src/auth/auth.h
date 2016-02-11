@@ -35,6 +35,9 @@ struct auth_passdb {
 	/* The caching key for this passdb, or NULL if caching isn't wanted. */
 	const char *cache_key;
 
+	struct passdb_template *default_fields_tmpl;
+	struct passdb_template *override_fields_tmpl;
+
 	enum auth_passdb_skip skip;
 	enum auth_db_rule result_success;
 	enum auth_db_rule result_failure;
@@ -49,6 +52,9 @@ struct auth_userdb {
 
 	/* The caching key for this userdb, or NULL if caching isn't wanted. */
 	const char *cache_key;
+
+	struct userdb_template *default_fields_tmpl;
+	struct userdb_template *override_fields_tmpl;
 
 	enum auth_userdb_skip skip;
 	enum auth_db_rule result_success;

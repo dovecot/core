@@ -4,9 +4,7 @@
 #include "array.h"
 #include "ipwd.h"
 #include "auth-worker-server.h"
-#include "userdb-template.h"
 #include "userdb.h"
-
 
 static ARRAY(struct userdb_module_interface *) userdb_interfaces;
 static ARRAY(struct userdb_module *) userdb_modules;
@@ -164,13 +162,6 @@ userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 	userdb->id = ++auth_userdb_id;
 	userdb->iface = iface;
 	userdb->args = p_strdup(pool, set->args);
-
-	userdb->default_fields_tmpl =
-		userdb_template_build(pool, set->driver,
-				      set->default_fields);
-	userdb->override_fields_tmpl =
-		userdb_template_build(pool, set->driver,
-				      set->override_fields);
 
 	array_append(&userdb_modules, &userdb, 1);
 	return userdb;

@@ -4,9 +4,7 @@
 #include "array.h"
 #include "password-scheme.h"
 #include "auth-worker-server.h"
-#include "passdb-template.h"
 #include "passdb.h"
-
 
 static ARRAY(struct passdb_module_interface *) passdb_interfaces;
 static ARRAY(struct passdb_module *) passdb_modules;
@@ -222,11 +220,6 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 	passdb->id = ++auth_passdb_id;
 	passdb->iface = *iface;
 	passdb->args = p_strdup(pool, set->args);
-
-	passdb->default_fields_tmpl =
-		passdb_template_build(pool, set->default_fields);
-	passdb->override_fields_tmpl =
-		passdb_template_build(pool, set->override_fields);
 
 	array_append(&passdb_modules, &passdb, 1);
 	return passdb;
