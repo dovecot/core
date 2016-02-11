@@ -5,6 +5,7 @@
 #include "hex-binary.h"
 #include "str.h"
 #include "ioloop.h"
+#include "net.h"
 #include "write-full.h"
 #include "time-util.h"
 #include "sql-api-private.h"
@@ -50,6 +51,7 @@ struct cassandra_db {
 	CassConsistency read_fallback_consistency, write_fallback_consistency, delete_fallback_consistency;
 	CassLogLevel log_level;
 	unsigned int protocol_version;
+	in_port_t port;
 
 	CassCluster *cluster;
 	CassSession *session;
@@ -386,6 +388,9 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 			if (str_len(hosts) > 0)
 				str_append_c(hosts, ',');
 			str_append(hosts, value);
+		} else if (strcmp(key, "port") == 0) {
+			if (net_str2port(value, &db->port) < 0)
+				i_fatal("cassandra: Invalid port: %s", value);
 		} else if (strcmp(key, "dbname") == 0 ||
 			   strcmp(key, "keyspace") == 0) {
 			i_free(db->keyspace);
@@ -455,6 +460,8 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	cass_cluster_set_connect_timeout(db->cluster, SQL_CONNECT_TIMEOUT_SECS * 1000);
 	cass_cluster_set_request_timeout(db->cluster, SQL_QUERY_TIMEOUT_SECS * 1000);
 	cass_cluster_set_contact_points(db->cluster, db->hosts);
+	if (db->port != 0)
+		cass_cluster_set_port(db->cluster, db->port);
 	if (db->protocol_version != 0)
 		cass_cluster_set_protocol_version(db->cluster, db->protocol_version);
 	db->session = cass_session_new();
