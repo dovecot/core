@@ -166,6 +166,10 @@ struct ostream *
 http_server_response_get_payload_output(struct http_server_response *resp,
 	bool blocking);
 
+/* get some information about response */
+void http_server_response_get_status(struct http_server_response *resp,
+	int *status_r, const char **reason_r);
+uoff_t http_server_response_get_total_size(struct http_server_response *resp);
 void http_server_response_add_auth(
 	struct http_server_response *resp,
 	const struct http_auth_challenge *chlng);

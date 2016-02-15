@@ -767,3 +767,17 @@ http_server_response_get_payload_output(struct http_server_response *resp,
 		o_stream_create(&hsostream->ostream, conn->conn.output, -1);
 	return resp->blocking_output;
 }
+
+void http_server_response_get_status(struct http_server_response *resp,
+	int *status_r, const char **reason_r)
+{
+	i_assert(resp != NULL);
+	*status_r = resp->status;
+	*reason_r = resp->reason;
+}
+
+uoff_t http_server_response_get_total_size(struct http_server_response *resp)
+{
+	i_assert(resp != NULL);
+	return resp->payload_size + str_len(resp->headers);
+}
