@@ -534,6 +534,19 @@ doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
 	return ctx;
 }
 
+static struct doveadm_mail_cmd_context *
+doveadm_mail_cmdline_init(const struct doveadm_mail_cmd *cmd)
+{
+	struct doveadm_mail_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_init(cmd, doveadm_settings);
+	ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
+	if (doveadm_debug)
+		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
+	ctx->cur_username = getenv("USER");
+	return ctx;
+}
+
 static void
 doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 		      const char *wildcard_user)
@@ -599,12 +612,8 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	const char *getopt_args, *wildcard_user;
 	int c;
 
-	ctx = doveadm_mail_cmd_init(cmd, doveadm_settings);
+	ctx = doveadm_mail_cmdline_init(cmd);
 	ctx->full_args = (const void *)(argv + 1);
-
-	ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
-	if (doveadm_debug)
-		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
 	getopt_args = "AF:S:u:";
 	/* keep context's getopt_args first in case it contains '+' */
@@ -612,7 +621,6 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 		getopt_args = t_strconcat(ctx->getopt_args, getopt_args, NULL);
 	i_assert(master_getopt_str_is_valid(getopt_args));
 
-	ctx->cur_username = getenv("USER");
 	wildcard_user = NULL;
 	while ((c = getopt(argc, argv, getopt_args)) > 0) {
 		switch (c) {
@@ -836,6 +844,9 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_dsync_server
 };
 
+static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
+};
+
 void doveadm_mail_init(void)
 {
 	struct module_dir_load_settings mod_set;
@@ -844,6 +855,9 @@ void doveadm_mail_init(void)
 	i_array_init(&doveadm_mail_cmds, 32);
 	for (i = 0; i < N_ELEMENTS(mail_commands); i++)
 		doveadm_mail_register_cmd(mail_commands[i]);
+
+	for (i = 0; i < N_ELEMENTS(mail_commands_ver2); i++)
+		doveadm_cmd_register_ver2(mail_commands_ver2[i]);
 
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
@@ -863,4 +877,69 @@ void doveadm_mail_deinit(void)
 {
 	mail_storage_hooks_deinit();
 	array_free(&doveadm_mail_cmds);
+}
+
+int
+doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
+	int argc, const struct doveadm_cmd_param argv[])
+{
+	struct doveadm_mail_cmd_context *ctx;
+	const char *wildcard_user;
+	ARRAY_TYPE(const_string) pargv;
+	int i;
+	struct doveadm_mail_cmd mail_cmd = {
+		.alloc = cmd->mail_cmd
+	};
+
+	ctx = doveadm_mail_cmdline_init(&mail_cmd);
+
+	ctx->iterate_all_users = FALSE;
+	wildcard_user = NULL;
+	t_array_init(&pargv, 8);
+
+	for(i=0;i<argc;i++) {
+		if (!argv[i].value_set)
+			continue;
+
+		if (strcmp(argv[i].name, "all_users") == 0) {
+			ctx->iterate_all_users = argv[i].value.v_bool;
+		} else if (strcmp(argv[i].name, "socket_path") == 0) {
+			doveadm_settings->doveadm_socket_path = argv[i].value.v_string;
+			if (doveadm_settings->doveadm_worker_count == 0)
+				doveadm_settings->doveadm_worker_count = 1;
+		} else if (strcmp(argv[i].name, "user") == 0) {
+			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+			ctx->cur_username = argv[i].value.v_string;
+			if (strchr(ctx->cur_username, '*') != NULL ||
+			    strchr(ctx->cur_username, '?') != NULL) {
+				wildcard_user = ctx->cur_username;
+				ctx->cur_username = NULL;
+			}
+		} else if (strcmp(argv[i].name, "user_list") == 0) {
+			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+			wildcard_user = "*";
+			ctx->users_list_input = argv[i].value.v_istream;
+		} else if (ctx->v.parse_arg != NULL && argv[i].opt != NULL &&
+			   *(argv[i]).opt != '?' && *(argv[i]).opt != ':') {
+			optarg = (char*)argv[i].value.v_string;
+			ctx->v.parse_arg(ctx, *(argv[i].opt));
+		} else if ((argv[i].flags & CMD_PARAM_FLAG_POSITIONAL) != 0) {
+			/* feed this into pargv */
+			if (argv[i].type == CMD_PARAM_ARRAY)
+				array_append_array(&pargv, &argv[i].value.v_array);
+			else if (argv[i].type == CMD_PARAM_STR)
+				array_append(&pargv, &argv[i].value.v_string, 1);
+		} else {
+			doveadm_exit_code = EX_USAGE;
+			i_error("invalid parameter: %s", argv[i].name);
+			return -1;
+		}
+	}
+
+	array_append_zero(&pargv);
+	ctx->args = array_idx(&pargv, 0);
+	ctx->full_args = ctx->args;
+
+	doveadm_mail_cmd_exec(ctx, wildcard_user);
+	return 0;
 }

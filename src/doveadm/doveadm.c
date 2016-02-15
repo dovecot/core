@@ -144,6 +144,18 @@ void help(const struct doveadm_cmd *cmd)
 	help_to(cmd, stdout);
 }
 
+static void ATTR_NORETURN
+help_to_ver2(const struct doveadm_cmd_ver2 *cmd, FILE *out)
+{
+	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->usage);
+	exit(EX_USAGE);
+}
+
+void help_ver2(const struct doveadm_cmd_ver2 *cmd)
+{
+	help_to_ver2(cmd, stdout);
+}
+
 static void cmd_help(int argc ATTR_UNUSED, char *argv[])
 {
 	const char *man_argv[3];
@@ -341,7 +353,8 @@ int main(int argc, char *argv[])
 		i_set_debug_file("/dev/null");
 	}
 
-	if (!doveadm_try_run(cmd_name, argc, argv) &&
+	if (!doveadm_cmd_try_run_ver2(cmd_name, argc, (const char**)argv) &&
+	    !doveadm_try_run(cmd_name, argc, argv) &&
 	    !doveadm_mail_try_run(cmd_name, argc, argv)) {
 		if (doveadm_has_subcommands(cmd_name))
 			usage_to(stdout, cmd_name);

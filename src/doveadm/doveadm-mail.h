@@ -195,4 +195,10 @@ extern struct doveadm_mail_cmd cmd_mailbox_metadata_get;
 extern struct doveadm_mail_cmd cmd_mailbox_metadata_list;
 extern struct doveadm_mail_cmd cmd_batch;
 
+#define DOVEADM_CMD_MAIL_COMMON \
+DOVEADM_CMD_PARAM("A", "all-users", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM("S:", "socket-path", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM("u:", "user", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM("F:", "user-file", CMD_PARAM_ISTREAM, 0)
+
 #endif
