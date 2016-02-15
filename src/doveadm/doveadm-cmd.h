@@ -72,9 +72,6 @@ extern struct doveadm_cmd doveadm_cmd_kick;
 extern struct doveadm_cmd doveadm_cmd_mailbox_mutf7;
 extern struct doveadm_cmd doveadm_cmd_sis_deduplicate;
 extern struct doveadm_cmd doveadm_cmd_sis_find;
-extern struct doveadm_cmd doveadm_cmd_stats_dump;
-extern struct doveadm_cmd doveadm_cmd_stats_top;
-extern struct doveadm_cmd doveadm_cmd_stats_reset;
 extern struct doveadm_cmd doveadm_cmd_zlibconnect;
 
 void doveadm_register_cmd(const struct doveadm_cmd *cmd);
@@ -118,5 +115,8 @@ bool doveadm_cmd_param_istream(int argc, struct doveadm_cmd_param* params, const
 
 extern struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_stats_reset_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_stats_top_ver2;
 
 #endif

@@ -18,12 +18,13 @@ static struct doveadm_cmd *doveadm_commands[] = {
 	&doveadm_cmd_mailbox_mutf7,
 	&doveadm_cmd_sis_deduplicate,
 	&doveadm_cmd_sis_find,
-	&doveadm_cmd_stats_dump
 };
 
 static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
 	&doveadm_cmd_stop_ver2,
-	&doveadm_cmd_reload_ver2
+	&doveadm_cmd_reload_ver2,
+	&doveadm_cmd_stats_dump_ver2,
+	&doveadm_cmd_stats_reset_ver2
 };
 
 ARRAY_TYPE(doveadm_cmd) doveadm_cmds;

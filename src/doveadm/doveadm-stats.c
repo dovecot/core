@@ -115,30 +115,29 @@ static void stats_dump(const char *path, const char *cmd)
 	i_stream_destroy(&input);
 }
 
-static void cmd_stats_dump(int argc, char *argv[])
+static int
+cmd2_stats_dump(const struct doveadm_cmd_ver2* dcmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
 {
 	const char *path, *cmd;
-	int c;
+	const char *args[3] = {0};
 
-	path = t_strconcat(doveadm_settings->base_dir, "/stats", NULL);
+	if (!doveadm_cmd_param_str(argc, argv, "socket-path", &path))
+		path = t_strconcat(doveadm_settings->base_dir, "/stats", NULL);
 
-	while ((c = getopt(argc, argv, "s:")) > 0) {
-		switch (c) {
-		case 's':
-			path = optarg;
-			break;
-		default:
-			help(&doveadm_cmd_stats_dump);
-		}
+	if (!doveadm_cmd_param_str(argc, argv, "type", &args[0])) {
+		i_error("Missing type parameter");
+		return -1;
 	}
-	argv += optind - 1;
-	if (argv[1] == NULL)
-		help(&doveadm_cmd_stats_dump);
-	cmd = t_strdup_printf("EXPORT\t%s\n",
-			      t_strarray_join((const void *)(argv+1), "\t"));
+
+	/* purely optional */
+	doveadm_cmd_param_str(argc, argv, "filter", &args[1]);
+	args[2] = NULL;
+
+	cmd = t_strdup_printf("EXPORT\t%s\n", t_strarray_join(args, "\t"));
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 	stats_dump(path, cmd);
+	return 0;
 }
 
 static void
@@ -558,14 +557,14 @@ static void cmd_stats_top(int argc, char *argv[])
 			path = optarg;
 			break;
 		default:
-			help(&doveadm_cmd_stats_top);
+			help_ver2(&doveadm_cmd_stats_top_ver2);
 		}
 	}
 	argv += optind - 1;
 	if (argv[1] == NULL)
 		sort_type = "disk";
 	else if (argv[2] != NULL)
-		help(&doveadm_cmd_stats_top);
+		help_ver2(&doveadm_cmd_stats_top_ver2);
 	else
 		sort_type = argv[1];
 
@@ -585,7 +584,7 @@ static void cmd_stats_reset(int argc, char *argv[])
 			path = optarg;
 			break;
 		default:
-			help(&doveadm_cmd_stats_reset);
+			help_ver2(&doveadm_cmd_stats_reset_ver2);
 		}
 	}
 	argv += optind - 1;
@@ -597,14 +596,34 @@ static void cmd_stats_reset(int argc, char *argv[])
 	stats_reset(path, (const char**)argv);
 }
 
-struct doveadm_cmd doveadm_cmd_stats_dump = {
-	cmd_stats_dump, "stats dump", "[-s <stats socket path>] <type> [<filter>]"
+struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2 = {
+	.cmd = cmd2_stats_dump,
+	.name = "stats dump",
+	.usage = "[-s <stats socket path>] <type> [<filter>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "type", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "filter", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
 
-struct doveadm_cmd doveadm_cmd_stats_top = {
-	cmd_stats_top, "stats top", "[-s <stats socket path>] [-b] [<sort field>]"
+struct doveadm_cmd_ver2 doveadm_cmd_stats_top_ver2 = {
+	.old_cmd = cmd_stats_top,
+	.name = "stats top",
+	.usage = "[-s <stats socket path>] [-b] [<sort field>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('b', "bytes", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "field", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
 
-struct doveadm_cmd doveadm_cmd_stats_reset = {
-	cmd_stats_reset, "stats reset", "[-s <stats socket path>]"
+
+struct doveadm_cmd_ver2 doveadm_cmd_stats_reset_ver2 = {
+	.old_cmd = cmd_stats_reset,
+	.name = "stats reset",
+	.usage = "[-s <stats socket path>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAMS_END
 };
