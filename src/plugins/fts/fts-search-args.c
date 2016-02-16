@@ -148,7 +148,13 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	struct mail_search_arg *or_arg, *orig_arg = *argp;
 	const char *error, *orig_token = orig_arg->value.str;
 
-	languages = fts_user_get_all_languages(backend->ns->user);
+	if ((*argp)->type == SEARCH_HEADER &&
+	    !fts_header_has_language((*argp)->hdr_field_name)) {
+		/* use only the data-language */
+		languages = fts_user_get_data_languages(backend->ns->user);
+	} else {
+		languages = fts_user_get_all_languages(backend->ns->user);
+	}
 
 	/* OR together all the different expansions for different languages.
 	   it's enough for one of them to match. */

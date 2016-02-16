@@ -17,7 +17,7 @@ struct fts_user {
 
 	struct fts_language_list *lang_list;
 	struct fts_user_language *data_lang;
-	ARRAY_TYPE(fts_user_language) languages;
+	ARRAY_TYPE(fts_user_language) languages, data_languages;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_user_module,
@@ -292,6 +292,10 @@ fts_user_init_data_language(struct mail_user *user, struct fts_user *fuser,
 			      &user_lang->filter, &error) < 0)
 		i_unreached();
 	i_assert(user_lang->filter != NULL);
+
+	p_array_init(&fuser->data_languages, user->pool, 1);
+	array_append(&fuser->data_languages, &user_lang, 1);
+
 	fuser->data_lang = user_lang;
 	return 0;
 }
@@ -309,6 +313,14 @@ fts_user_get_all_languages(struct mail_user *user)
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
 	return &fuser->languages;
+}
+
+const ARRAY_TYPE(fts_user_language) *
+fts_user_get_data_languages(struct mail_user *user)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT(user);
+
+	return &fuser->data_languages;
 }
 
 struct fts_user_language *fts_user_get_data_lang(struct mail_user *user)
