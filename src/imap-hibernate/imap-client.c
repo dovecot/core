@@ -397,12 +397,21 @@ static void imap_client_io_deactivate_user(struct imap_client *client ATTR_UNUSE
 	i_set_failure_prefix("imap-hibernate: ");
 }
 
+static const char *imap_client_get_anvil_userip_ident(struct imap_client_state *state)
+{
+	if (state->remote_ip.family == 0)
+		return NULL;
+	return t_strconcat(net_ip2addr(&state->remote_ip), "/",
+			   str_tabescape(state->username), NULL);
+}
+
 struct imap_client *
 imap_client_create(int fd, const struct imap_client_state *state)
 {
 	struct imap_client *client;
 	pool_t pool = pool_alloconly_create("imap client", 256);
 	void *statebuf;
+	const char *ident;
 
 	i_assert(state->username != NULL);
 	i_assert(state->mail_log_prefix != NULL);
@@ -433,6 +442,13 @@ imap_client_create(int fd, const struct imap_client_state *state)
 			   imap_client_get_var_expand_table(client));
 		client->log_prefix = p_strdup(pool, str_c(str));
 	} T_END;
+
+	ident = imap_client_get_anvil_userip_ident(&client->state);
+	if (ident != NULL) {
+		master_service_anvil_send(master_service, t_strconcat(
+			"CONNECT\t", my_pid, "\timap/", ident, "\n", NULL));
+		client->state.anvil_sent = TRUE;
+	}
 
 	p_array_init(&client->notifys, pool, 2);
 	DLLIST_PREPEND(&imap_clients, client);
@@ -466,6 +482,13 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 		/* the client input/output bytes don't count the DONE+IDLE by
 		   imap-hibernate, but that shouldn't matter much. */
 		i_info("%s %s", reason, client->state.stats);
+	}
+
+	if (client->state.anvil_sent) {
+		master_service_anvil_send(master_service, t_strconcat(
+			"DISCONNECT\t", my_pid, "\timap/",
+			imap_client_get_anvil_userip_ident(&client->state),
+			"\n", NULL));
 	}
 
 	if (client->ioloop_ctx != NULL) {
