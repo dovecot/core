@@ -110,8 +110,20 @@ static bool message_search_more_decoded2(struct message_search_context *ctx,
 bool message_search_more(struct message_search_context *ctx,
 			 struct message_block *raw_block)
 {
+	struct message_block decoded_block;
+
+	return message_search_more_get_decoded(ctx, raw_block, &decoded_block);
+}
+
+bool message_search_more_get_decoded(struct message_search_context *ctx,
+				     struct message_block *raw_block,
+				     struct message_block *decoded_block_r)
+{
 	struct message_header_line *hdr = raw_block->hdr;
-	struct message_block block;
+	struct message_block decoded_block;
+
+	memset(decoded_block_r, 0, sizeof(*decoded_block_r));
+	decoded_block_r->part = raw_block->part;
 
 	if (raw_block->part != ctx->prev_part) {
 		/* part changes. we must change this before looking at
@@ -143,16 +155,18 @@ bool message_search_more(struct message_search_context *ctx,
 		if (!ctx->content_type_text)
 			return FALSE;
 	}
-	if (!message_decoder_decode_next_block(ctx->decoder, raw_block, &block))
+	if (!message_decoder_decode_next_block(ctx->decoder, raw_block,
+					       &decoded_block))
 		return FALSE;
 
-	if (block.hdr != NULL &&
+	if (decoded_block.hdr != NULL &&
 	    (ctx->flags & MESSAGE_SEARCH_FLAG_SKIP_HEADERS) != 0) {
 		/* Content-* header */
 		return FALSE;
 	}
 
-	return message_search_more_decoded2(ctx, &block);
+	*decoded_block_r = decoded_block;
+	return message_search_more_decoded2(ctx, &decoded_block);
 }
 
 bool message_search_more_decoded(struct message_search_context *ctx,

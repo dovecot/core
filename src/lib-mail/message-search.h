@@ -20,6 +20,12 @@ void message_search_deinit(struct message_search_context **ctx);
 /* Returns TRUE if key is found from input buffer, FALSE if not. */
 bool message_search_more(struct message_search_context *ctx,
 			 struct message_block *raw_block);
+/* Same as message_search_more(), but return the decoded block. If the same
+   input is being fed to multiple searches, this avoids duplicating the work
+   by doing the following searches with message_search_more_decoded() */
+bool message_search_more_get_decoded(struct message_search_context *ctx,
+				     struct message_block *raw_block,
+				     struct message_block *decoded_block_r);
 /* The data has already passed through decoder. */
 bool message_search_more_decoded(struct message_search_context *ctx,
 				 struct message_block *block);
