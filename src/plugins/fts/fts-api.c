@@ -491,6 +491,25 @@ bool fts_header_want_indexed(const char *hdr_name)
 	return FALSE;
 }
 
+bool fts_header_has_language(const char *hdr_name)
+{
+	/* FIXME: should email address headers be detected as different
+	   languages? That mainly contains people's names.. */
+	/*if (message_header_is_address(hdr_name))
+		return TRUE;*/
+
+	/* Subject definitely contains language-specific data that can be
+	   detected. Comment and Keywords headers also could contain, although
+	   just about nobody uses those headers.
+
+	   For now we assume that other headers contain non-language specific
+	   data that we don't want to filter in special ways. For example
+	   it is good to be able to search for Message-IDs. */
+	return strcasecmp(hdr_name, "Subject") == 0 ||
+		strcasecmp(hdr_name, "Comments") == 0 ||
+		strcasecmp(hdr_name, "Keywords") == 0;
+}
+
 int fts_mailbox_get_guid(struct mailbox *box, const char **guid_r)
 {
 	struct mailbox_metadata metadata;

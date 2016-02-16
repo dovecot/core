@@ -122,6 +122,8 @@ int fts_index_have_compatible_settings(struct mailbox_list *list,
 /* Returns TRUE if FTS backend should index the header for optimizing
    separate lookups */
 bool fts_header_want_indexed(const char *hdr_name);
+/* Returns TRUE if header's values should be considered to have a language. */
+bool fts_header_has_language(const char *hdr_name);
 
 int fts_mailbox_get_guid(struct mailbox *box, const char **guid_r);
 

@@ -67,25 +67,6 @@ fts_build_parse_content_disposition(struct fts_mail_build_context *ctx,
 		i_strndup(hdr->full_value, hdr->full_value_len);
 }
 
-static bool header_has_language(const char *name)
-{
-	/* FIXME: should email address headers be detected as different
-	   languages? That mainly contains people's names.. */
-	/*if (message_header_is_address(name))
-		return TRUE;*/
-
-	/* Subject definitely contains language-specific data that can be
-	   detected. Comment and Keywords headers also could contain, although
-	   just about nobody uses those headers.
-
-	   For now we assume that other headers contain non-language specific
-	   data that we don't want to filter in special ways. For example
-	   it is good to be able to search for Message-IDs. */
-	return strcasecmp(name, "Subject") == 0 ||
-		strcasecmp(name, "Comments") == 0 ||
-		strcasecmp(name, "Keywords") == 0;
-}
-
 static void fts_parse_mail_header(struct fts_mail_build_context *ctx,
 				  const struct message_block *raw_block)
 {
@@ -157,7 +138,7 @@ fts_build_tokenized_hdr_update_lang(struct fts_mail_build_context *ctx,
 	   human languages, so we have a list of some hardcoded header names
 	   and we'll also assume that if there's any 8bit content it's a human
 	   language. */
-	if (header_has_language(hdr->name) ||
+	if (fts_header_has_language(hdr->name) ||
 	    data_has_8bit(hdr->full_value, hdr->full_value_len))
 		ctx->cur_user_lang = NULL;
 	else {
