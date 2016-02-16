@@ -22,6 +22,7 @@ struct imap_client_state {
 	unsigned int imap_idle_notify_interval;
 	bool idle_cmd;
 	bool have_notify_fd;
+	bool anvil_sent;
 };
 
 struct imap_client *
