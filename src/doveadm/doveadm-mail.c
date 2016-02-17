@@ -817,7 +817,6 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_expunge,
 	&cmd_save,
 	&cmd_search,
-	&cmd_fetch,
 	&cmd_flags_add,
 	&cmd_flags_remove,
 	&cmd_flags_replace,
@@ -844,7 +843,8 @@ static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
 	&doveadm_cmd_mailbox_delete_ver2,
 	&doveadm_cmd_mailbox_rename_ver2,
 	&doveadm_cmd_mailbox_subscribe_ver2,
-	&doveadm_cmd_mailbox_unsubscribe_ver2
+	&doveadm_cmd_mailbox_unsubscribe_ver2,
+	&doveadm_cmd_fetch_ver2
 };
 
 void doveadm_mail_init(void)

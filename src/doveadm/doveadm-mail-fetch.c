@@ -605,6 +605,14 @@ static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)
 	return &ctx->ctx;
 }
 
-struct doveadm_mail_cmd cmd_fetch = {
-	cmd_fetch_alloc, "fetch", "<fields> <search query>"
+struct doveadm_cmd_ver2 doveadm_cmd_fetch_ver2 = {
+	.name = "fetch",
+	.mail_cmd = cmd_fetch_alloc,
+	.usage = "<fields> <search query>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "field", CMD_PARAM_ARRAY, 0)
+DOVEADM_CMD_PARAM('\0', "fieldstr", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL | CMD_PARAM_FLAG_DO_NOT_EXPOSE) /* FIXME: horrible hack, remove me when possible */
+DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
