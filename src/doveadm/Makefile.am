@@ -8,6 +8,7 @@ pkglibexec_PROGRAMS = doveadm-server
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-compression \
@@ -160,3 +161,22 @@ noinst_HEADERS = \
 install-exec-local:
 	rm -f $(DESTDIR)$(bindir)/dsync
 	$(LN_S) doveadm $(DESTDIR)$(bindir)/dsync
+
+test_programs = \
+	test-doveadm-util
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+
+test_doveadm_util_SOURCES = test-doveadm-util.c
+test_doveadm_util_LDADD = doveadm-util.o $(test_libs) $(MODULE_LIBS)
+test_doveadm_util_DEPENDENCIES = $(test_deps)
+
+check: check-am check-test
+check-test: all-am
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
