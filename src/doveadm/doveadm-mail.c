@@ -535,11 +535,65 @@ doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
 }
 
 static void
+doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx, char *argv[],
+		      const char *wildcard_user)
+{
+	int ret;
+	const char *error;
+
+	if (ctx->v.preinit != NULL)
+		ctx->v.preinit(ctx);
+
+	ctx->iterate_single_user =
+		!ctx->iterate_all_users && wildcard_user == NULL;
+	if (doveadm_print_is_initialized() && !ctx->iterate_single_user) {
+		doveadm_print_header("username", "Username",
+				     DOVEADM_PRINT_HEADER_FLAG_STICKY |
+				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+	}
+
+	if (ctx->iterate_single_user) {
+		struct mail_storage_service_input input;
+
+		if (ctx->cur_username == NULL)
+			i_fatal_status(EX_USAGE, "USER environment is missing and -u option not used");
+
+		memset(&input, 0, sizeof(input));
+		input.service = "doveadm";
+		input.username = ctx->cur_username;
+		ret = doveadm_mail_single_user(ctx, &input, &error);
+		if (ret < 0)
+			i_fatal("%s", error);
+		else if (ret == 0)
+			i_fatal_status(EX_NOUSER, "User doesn't exist");
+	} else {
+		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
+		doveadm_mail_all_users(ctx, argv, wildcard_user);
+	}
+	if (ctx->search_args != NULL)
+		mail_search_args_unref(&ctx->search_args);
+	doveadm_mail_server_flush();
+	ctx->v.deinit(ctx);
+	doveadm_print_flush();
+
+	/* service deinit unloads mail plugins, so do it late */
+	mail_storage_service_deinit(&ctx->storage_service);
+
+	if (ctx->users_list_input != NULL)
+		i_stream_unref(&ctx->users_list_input);
+	if (ctx->cmd_input != NULL)
+		i_stream_unref(&ctx->cmd_input);
+	if (ctx->exit_code != 0)
+		doveadm_exit_code = ctx->exit_code;
+	pool_unref(&ctx->pool);
+}
+
+static void
 doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 {
 	struct doveadm_mail_cmd_context *ctx;
-	const char *getopt_args, *wildcard_user, *error;
-	int ret, c;
+	const char *getopt_args, *wildcard_user;
+	int c;
 
 	ctx = doveadm_mail_cmd_init(cmd, doveadm_settings);
 	ctx->full_args = (const void *)(argv + 1);
@@ -595,51 +649,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 			       cmd->name, argv[0]);
 	}
 	ctx->args = (const void *)argv;
-	if (ctx->v.preinit != NULL)
-		ctx->v.preinit(ctx);
-
-	ctx->iterate_single_user =
-		!ctx->iterate_all_users && wildcard_user == NULL;
-	if (doveadm_print_is_initialized() && !ctx->iterate_single_user) {
-		doveadm_print_header("username", "Username",
-				     DOVEADM_PRINT_HEADER_FLAG_STICKY |
-				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
-	}
-
-	if (ctx->iterate_single_user) {
-		struct mail_storage_service_input input;
-
-		if (ctx->cur_username == NULL)
-			i_fatal_status(EX_USAGE, "USER environment is missing and -u option not used");
-
-		memset(&input, 0, sizeof(input));
-		input.service = "doveadm";
-		input.username = ctx->cur_username;
-		ret = doveadm_mail_single_user(ctx, &input, &error);
-		if (ret < 0)
-			i_fatal("%s", error);
-		else if (ret == 0)
-			i_fatal_status(EX_NOUSER, "User doesn't exist");
-	} else {
-		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
-		doveadm_mail_all_users(ctx, argv, wildcard_user);
-	}
-	if (ctx->search_args != NULL)
-		mail_search_args_unref(&ctx->search_args);
-	doveadm_mail_server_flush();
-	ctx->v.deinit(ctx);
-	doveadm_print_flush();
-
-	/* service deinit unloads mail plugins, so do it late */
-	mail_storage_service_deinit(&ctx->storage_service);
-
-	if (ctx->users_list_input != NULL)
-		i_stream_unref(&ctx->users_list_input);
-	if (ctx->cmd_input != NULL)
-		i_stream_unref(&ctx->cmd_input);
-	if (ctx->exit_code != 0)
-		doveadm_exit_code = ctx->exit_code;
-	pool_unref(&ctx->pool);
+	doveadm_mail_cmd_exec(ctx, argv, wildcard_user);
 }
 
 static bool
