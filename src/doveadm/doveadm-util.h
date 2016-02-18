@@ -18,4 +18,8 @@ void doveadm_load_modules(void);
 void doveadm_unload_modules(void);
 bool doveadm_has_unloaded_plugin(const char *name);
 
+/* Similar to strcmp(), except "camel case" == "camel-case" == "camelCase".
+   Otherwise the comparison is case-sensitive. */
+int i_strccdascmp(const char *a, const char *b) ATTR_PURE;
+
 #endif

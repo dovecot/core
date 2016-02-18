@@ -13,6 +13,7 @@
 #include <time.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 bool doveadm_verbose = FALSE, doveadm_debug = FALSE, doveadm_server = FALSE;
 static struct module *modules = NULL;
@@ -149,3 +150,21 @@ int doveadm_connect(const char *path)
 {
 	return doveadm_connect_with_default_port(path, 0);
 }
+
+int i_strccdascmp(const char *a, const char *b)
+{
+	while(*a && *b) {
+		if ((*a == ' ' || *a == '-') && *a != *b && *b != ' ' && *b != '-') {
+			if (i_toupper(*(a+1)) == *(b)) a++;
+			else break;
+		} else if ((*b == ' ' || *b == '-') && *a != *b && *a != ' ' && *a != '-') {
+			if (*a == i_toupper(*(b+1))) b++;
+			else break;
+		} else if (!((*a == ' ' || *a == '-') &&
+			     (*b == ' ' || *b == '-')) &&
+			    (*a != *b)) break;
+		a++; b++;
+	}
+	return *a-*b;
+}
+
