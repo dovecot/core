@@ -47,7 +47,7 @@ dovecot-config: dovecot-config.in Makefile
 
 if HAVE_SYSTEMD
 %.service: %.service.in
-	$(AM_V_GEN)sed -e 's,@sbindir\@,$(sbindir),g' $< > $@
+	$(AM_V_GEN)sed -e 's,@sbindir\@,$(sbindir),g' -e 's,@bindir\@,$(bindir),g' -e 's,@statedir\@,$(statedir),g' $< > $@
 
 systemdsystemunit_DATA = \
         dovecot.socket \

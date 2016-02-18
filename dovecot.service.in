@@ -23,9 +23,14 @@ Documentation=http://wiki2.dovecot.org/
 After=local-fs.target network.target
 
 [Service]
-Type=simple
-ExecStart=@sbindir@/dovecot -F $OPTIONS
-ExecReload=@sbindir@/dovecot reload
+Type=forking
+ExecStart=@sbindir@/dovecot
+PIDFile=@statedir@dovecot/master.pid
+ExecReload=@bindir@/doveadm reload
+ExecStop=@bindir@/doveadm stop
+ProtectSystem=full
+ProtectHome=false
+PrivateTmp=true
 NonBlocking=yes
 
 [Install]
