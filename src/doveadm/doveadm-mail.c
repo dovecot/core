@@ -562,10 +562,14 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 		input.service = "doveadm";
 		input.username = ctx->cur_username;
 		ret = doveadm_mail_single_user(ctx, &input, &error);
-		if (ret < 0)
-			i_fatal("%s", error);
-		else if (ret == 0)
-			i_fatal_status(EX_NOUSER, "User doesn't exist");
+		if (ret < 0) {
+			/* user lookup/init failed somehow */
+			doveadm_exit_code = EX_TEMPFAIL;
+			i_error("%s", error);
+		} else if (ret == 0) {
+			doveadm_exit_code = EX_NOUSER;
+			i_error("User doesn't exist");
+		}
 	} else {
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(ctx, wildcard_user);
