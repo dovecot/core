@@ -411,6 +411,22 @@ tview_lookup_ext_update(struct mail_index_view_transaction *tview, uint32_t seq,
 		tview->lookup_map =
 			mail_index_map_clone(tview->view.index->map);
 	}
+	if (!mail_index_map_get_ext_idx(tview->lookup_map, ext_id, &map_ext_idx)) {
+		/* extension doesn't yet exist in the map. add it there with
+		   the preliminary information (mainly its size) so if caller
+		   looks it up, it's going to be found. */
+		const struct mail_index_registered_ext *rext =
+			array_idx(&tview->view.index->extensions, ext_id);
+		struct mail_index_ext_header ext_hdr;
+
+		memset(&ext_hdr, 0, sizeof(ext_hdr));
+		ext_hdr.hdr_size = rext->hdr_size;
+		ext_hdr.record_size = ext_buf->arr.element_size - sizeof(uint32_t);
+		ext_hdr.record_align = rext->record_align;
+
+		mail_index_map_register_ext(tview->lookup_map, rext->name,
+					    (uint32_t)-1, &ext_hdr);
+	}
 
 	data = array_idx(ext_buf, idx);
 	*map_r = tview->lookup_map;
