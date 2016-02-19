@@ -562,10 +562,10 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_list_ver2 = {
 	.usage = "[-7|-8] [-s] [<mailbox mask> [...]]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
-DOVEADM_CMD_PARAM("7", "mutf7", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM("8", "no-mutf7", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM("s", "subscriptions", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM(":", "mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('7', "mutf7", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('8', "no-mutf7", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
 
@@ -575,9 +575,9 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_create_ver2 = {
 	.usage = "[-s] [-g <guid>] <mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
-DOVEADM_CMD_PARAM("s", "subscriptions", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM("g", "guid", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM(":", "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('g', "guid", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
 
@@ -587,8 +587,8 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_delete_ver2 = {
         .usage = "[-s] <mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
-DOVEADM_CMD_PARAM("s", "subscriptions", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM(":", "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
 
@@ -598,9 +598,9 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_rename_ver2 = {
 	.usage = "[-s] <old name> <new name>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
-DOVEADM_CMD_PARAM("s", "subscriptions", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM(":", "old", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAM(":", "new", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "old", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "new", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
 
@@ -610,7 +610,7 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_subscribe_ver2 = {
 	.usage = "<mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
-DOVEADM_CMD_PARAM(":", "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
 
@@ -620,6 +620,6 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_unsubscribe_ver2 = {
 	.usage = "<mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
-DOVEADM_CMD_PARAM(":", "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };

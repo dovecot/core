@@ -919,10 +919,9 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			wildcard_user = "*";
 			ctx->users_list_input = argv[i].value.v_istream;
-		} else if (ctx->v.parse_arg != NULL && argv[i].opt != NULL &&
-			   *(argv[i]).opt != '?' && *(argv[i]).opt != ':') {
+		} else if (ctx->v.parse_arg != NULL && argv[i].short_opt != '\0') {
 			optarg = (char*)argv[i].value.v_string;
-			ctx->v.parse_arg(ctx, *(argv[i].opt));
+			ctx->v.parse_arg(ctx, argv[i].short_opt);
 		} else if ((argv[i].flags & CMD_PARAM_FLAG_POSITIONAL) != 0) {
 			/* feed this into pargv */
 			if (argv[i].type == CMD_PARAM_ARRAY)

@@ -250,9 +250,8 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 	i_assert(array_count(argv) == 0);
 	array_append(argv, &name, 1);
 	for(i=0;i<pargc;i++) {
-		if (params[i].value_set && params[i].opt != NULL &&
-			*(params[i].opt) != ':' && *(params[i].opt) != '?') {
-			const char *optarg = t_strdup_printf("-%c", params[i].opt[0]);
+		if (params[i].value_set && params[i].short_opt != '\0') {
+			const char *optarg = t_strdup_printf("-%c", params[i].short_opt);
 			if (params[i].type == CMD_PARAM_STR) {
 	                        array_append(argv, &optarg, 1);
 				array_append(argv, &params[i].value.v_string,1);
@@ -297,28 +296,17 @@ doveadm_build_options(const struct doveadm_cmd_param par[],
 		string_t *shortopts,
 		ARRAY_TYPE(getopt_option_array) *longopts)
 {
-	const char *optp;
 	for(size_t i=0; par[i].name != NULL; i++) {
 		struct option longopt;
 		if ((par[i].flags & CMD_PARAM_FLAG_DO_NOT_EXPOSE) != 0) continue;
 		longopt.name = par[i].name;
 		longopt.flag = 0;
 		longopt.val = 0;
-		if (par[i].opt) {
-			optp = par[i].opt;
-			if (*optp != ':' && *optp != '?') {
-				longopt.val = *optp;
-				str_append_c(shortopts, *optp);
-				optp++;
-				if (optp[0] != '\0')
-					str_append_c(shortopts, *optp);
-			}
-			switch(*optp) {
-			case ':': longopt.has_arg = 1; break;
-			case '?': longopt.has_arg = 2; break;
-			default:
-				longopt.has_arg = 0;
-			}
+		if (par[i].short_opt != '\0') {
+			longopt.val = par[i].short_opt;
+			str_append_c(shortopts, par[i].short_opt);
+			if (par[i].type != CMD_PARAM_BOOL)
+				str_append_c(shortopts, ':');
 		} else {
 			longopt.has_arg = 0;
 		}
