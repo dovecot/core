@@ -187,7 +187,7 @@ bool doveadm_cmd_param_bool(int argc, const struct doveadm_cmd_param* params, co
 	const struct doveadm_cmd_param* param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
 
-	if (param->type == CMD_PARAM_NONE || param->type == CMD_PARAM_BOOL) {
+	if (param->type == CMD_PARAM_BOOL) {
 		*value = param->value.v_bool;
 		return TRUE;
 	}
@@ -332,7 +332,6 @@ static void doveadm_fill_param(struct doveadm_cmd_param *param,
 {
 	param->value_set = TRUE;
 	switch(param->type) {
-	case CMD_PARAM_NONE:
 	case CMD_PARAM_BOOL:
 		param->value.v_bool = TRUE; break;
 	case CMD_PARAM_INT64:

@@ -233,7 +233,6 @@ static int doveadm_http_server_json_parse_next(struct client_connection_http *co
 		} else {
 			conn->cmd_param->value_set = TRUE;
 			switch(conn->cmd_param->type) {
-				case CMD_PARAM_NONE:
 				case CMD_PARAM_BOOL:
 					conn->cmd_param->value.v_bool = (strcmp(*value,"true")==0); break;
 				case CMD_PARAM_INT64:
@@ -523,7 +522,6 @@ doveadm_http_server_send_api(struct client_connection_http *conn)
 			o_stream_nsend_str(conn->client.output, str_c(tmp));
 			o_stream_nsend_str(conn->client.output, "\",\"type\":\"");
 			switch(par->type) {
-			case CMD_PARAM_NONE:
 			case CMD_PARAM_BOOL:
 				o_stream_nsend_str(conn->client.output, "boolean");
 				break;

@@ -3,7 +3,7 @@
 
 #define DOVEADM_CMD_PARAMS_START .parameters = (const struct doveadm_cmd_param[]){
 #define DOVEADM_CMD_PARAM(optP, nameP, typeP, flagP ) { .opt = optP, .name = nameP, .type = typeP, .flags = flagP },
-#define DOVEADM_CMD_PARAMS_END { .opt = NULL, .name = NULL, .type = CMD_PARAM_NONE, .flags = CMD_PARAM_FLAG_NONE } }
+#define DOVEADM_CMD_PARAMS_END { .opt = NULL, .name = NULL, .type = CMD_PARAM_BOOL, .flags = CMD_PARAM_FLAG_NONE } }
 
 struct doveadm_cmd_ver2;
 struct doveadm_mail_cmd_context;
@@ -11,8 +11,7 @@ struct doveadm_mail_cmd_context;
 typedef void doveadm_command_t(int argc, char *argv[]);
 
 typedef enum {
-	CMD_PARAM_NONE,    /* same as below, used for empty */
-	CMD_PARAM_BOOL,    /* value will contain 1 (not pointer) */
+	CMD_PARAM_BOOL = 0, /* value will contain 1 (not pointer) */
 	CMD_PARAM_INT64,    /* ditto but contains number (not pointer) */
 	CMD_PARAM_STR,     /* value contains const char* */
 	CMD_PARAM_ARRAY,   /* value contains const char*[] */
