@@ -827,17 +827,6 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_copy,
 	&cmd_deduplicate,
 	&cmd_move,
-	&cmd_mailbox_list,
-	&cmd_mailbox_create,
-	&cmd_mailbox_delete,
-	&cmd_mailbox_rename,
-	&cmd_mailbox_subscribe,
-	&cmd_mailbox_unsubscribe,
-	&cmd_mailbox_status,
-	&cmd_mailbox_metadata_set,
-	&cmd_mailbox_metadata_unset,
-	&cmd_mailbox_metadata_get,
-	&cmd_mailbox_metadata_list,
 	&cmd_batch,
 	&cmd_dsync_backup,
 	&cmd_dsync_mirror,
@@ -845,6 +834,17 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 };
 
 static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
+	&doveadm_cmd_mailbox_metadata_set_ver2,
+	&doveadm_cmd_mailbox_metadata_unset_ver2,
+	&doveadm_cmd_mailbox_metadata_get_ver2,
+	&doveadm_cmd_mailbox_metadata_list_ver2,
+	&doveadm_cmd_mailbox_status_ver2,
+	&doveadm_cmd_mailbox_list_ver2,
+	&doveadm_cmd_mailbox_create_ver2,
+	&doveadm_cmd_mailbox_delete_ver2,
+	&doveadm_cmd_mailbox_rename_ver2,
+	&doveadm_cmd_mailbox_subscribe_ver2,
+	&doveadm_cmd_mailbox_unsubscribe_ver2
 };
 
 void doveadm_mail_init(void)

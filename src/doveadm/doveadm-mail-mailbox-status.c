@@ -247,7 +247,15 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_status_alloc(void)
 	return &ctx->ctx;
 }
 
-struct doveadm_mail_cmd cmd_mailbox_status = {
-	cmd_mailbox_status_alloc, "mailbox status",
-	"[-t] <fields> <mailbox mask> [...]"
+struct doveadm_cmd_ver2 doveadm_cmd_mailbox_status_ver2 = {
+        .name = "mailbox status",
+        .mail_cmd = cmd_mailbox_status_alloc,
+        .usage = "<mailbox> [...]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM("t", "total-sum", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM("f:", "field", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM(":", "fieldstr", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL | CMD_PARAM_FLAG_DO_NOT_EXPOSE) /* FIXME: horrible hack, remove me when possible */
+DOVEADM_CMD_PARAM(":", "mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
