@@ -25,7 +25,7 @@ After=local-fs.target network.target
 [Service]
 Type=forking
 ExecStart=@sbindir@/dovecot
-PIDFile=@statedir@dovecot/master.pid
+PIDFile=@rundir@/dovecot/master.pid
 ExecReload=@bindir@/doveadm reload
 ExecStop=@bindir@/doveadm stop
 PrivateTmp=true
