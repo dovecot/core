@@ -1,0 +1,637 @@
+/* Copyright (c) 2010-2016 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "compat.h"
+#include "lib-signals.h"
+#include "base64.h"
+#include "ioloop.h"
+#include "str.h"
+#include "istream.h"
+#include "ostream.h"
+#include "strescape.h"
+#include "settings-parser.h"
+#include "iostream-ssl.h"
+#include "iostream-temp.h"
+#include "istream-seekable.h"
+#include "master-service.h"
+#include "master-service-ssl.h"
+#include "master-service-settings.h"
+#include "mail-storage-service.h"
+#include "http-server.h"
+#include "http-request.h"
+#include "http-response.h"
+#include "http-url.h"
+#include "doveadm-util.h"
+#include "doveadm-server.h"
+#include "doveadm-mail.h"
+#include "doveadm-print.h"
+#include "doveadm-settings.h"
+#include "client-connection-private.h"
+#include "json-parser.h"
+
+#include <unistd.h>
+#include <ctype.h>
+
+struct client_connection_http {
+	struct client_connection client;
+	struct http_server_connection *http_client;
+	struct http_server_request *http_server_request;
+	const struct http_request *http_request;
+	struct http_server_response *http_response;
+	struct json_parser *json_parser;
+	const struct doveadm_cmd_ver2 *cmd;
+	struct doveadm_cmd_param *cmd_param;
+	ARRAY_TYPE(doveadm_cmd_param_arr_t) pargv;
+	int method_err;
+	char *method_id;
+	bool first_row;
+	bool value_is_array;
+	enum {
+		JSON_STATE_INIT,
+		JSON_STATE_COMMAND,
+		JSON_STATE_COMMAND_NAME,
+		JSON_STATE_COMMAND_PARAMETERS,
+		JSON_STATE_COMMAND_PARAMETER_KEY,
+		JSON_STATE_COMMAND_PARAMETER_VALUE,
+		JSON_STATE_COMMAND_ID,
+		JSON_STATE_COMMAND_DONE,
+		JSON_STATE_DONE
+	} json_state;
+};
+
+static struct http_server *doveadm_http_server;
+
+static void doveadm_http_server_handle_request(void *context, struct http_server_request *req);
+static void doveadm_http_server_connection_destroy(void *context, const char *reason);
+
+static const struct http_server_callbacks doveadm_http_callbacks = {
+        .connection_destroy = doveadm_http_server_connection_destroy,
+        .handle_request = doveadm_http_server_handle_request
+};
+
+static void doveadm_http_server_process_request(void *context);
+
+struct client_connection *
+client_connection_create_http(int fd, bool ssl)
+{
+	struct client_connection_http *conn;
+	pool_t pool;
+
+	pool = pool_alloconly_create("doveadm client", 1024*16);
+	conn = p_new(pool, struct client_connection_http, 1);
+	conn->client.pool = pool;
+
+	if (client_connection_init(&conn->client, fd) < 0)
+		return NULL;
+
+	conn->http_client = http_server_connection_create(doveadm_http_server,
+			fd, fd, ssl, &doveadm_http_callbacks, conn);
+	conn->client.fd = -1;
+	return &conn->client;
+}
+
+static void
+doveadm_http_server_connection_destroy(void *context, const char *reason ATTR_UNUSED)
+{
+	struct client_connection *conn = context;
+	client_connection_destroy(&conn);
+}
+
+static void
+doveadm_http_server_request_destroy(void *context)
+{
+        struct client_connection_http *conn = context;
+	struct http_server_response *resp = 
+		http_server_request_get_response(conn->http_server_request);
+
+	if (resp != NULL) {
+		const char *agent;
+		const char *url;
+		int status;
+		const char *reason;
+		uoff_t size;
+		http_server_response_get_status(resp, &status, &reason);
+		size = http_server_response_get_total_size(resp);
+		agent = http_request_header_get(conn->http_request, "User-Agent");
+		if (agent == NULL) agent = "";
+		url = http_url_create(conn->http_request->target.url);
+		i_info("doveadm: %s %s %s \"%s %s HTTP/%d.%d\" %d %lu \"%s\" \"%s\"",
+			net_ip2addr(&conn->client.remote_ip), "-", "-",
+			conn->http_request->method,
+			conn->http_request->target.url->path,
+			conn->http_request->version_major, conn->http_request->version_minor,
+			status, size,
+			url,
+			agent);
+	}
+	if (conn->json_parser != NULL) {
+		const char *error ATTR_UNUSED;
+		(void)json_parser_deinit(&conn->json_parser, &error);
+		// we've already failed, ignore error
+	}
+	http_server_request_unref(&(conn->http_server_request));
+	http_server_switch_ioloop(doveadm_http_server);
+        http_server_connection_unref(&(conn->http_client));
+	conn->http_client = NULL;
+}
+
+static void doveadm_http_server_json_error(void *context, const char *error)
+{
+	struct client_connection_http *conn = context;
+	string_t *escaped;
+	o_stream_nsend_str(conn->client.output,"[\"error\",{\"type\":\"");
+	escaped = str_new(conn->client.pool, 10);
+	json_append_escaped(escaped, error);
+	o_stream_nsend_str(conn->client.output,str_c(escaped));
+	o_stream_nsend_str(conn->client.output,"\", \"exitCode\":");
+        str_truncate(escaped,0);
+	str_printfa(escaped,"%d", doveadm_exit_code);
+	o_stream_nsend_str(conn->client.output, str_c(escaped));
+	o_stream_nsend_str(conn->client.output,"},\"");
+	str_truncate(escaped,0);
+	if (conn->method_id != NULL) {
+	        json_append_escaped(escaped, conn->method_id);
+		o_stream_nsend_str(conn->client.output, str_c(escaped));
+	}
+	o_stream_nsend_str(conn->client.output,"\"]");
+}
+
+static void doveadm_http_server_json_success(void *context, struct istream *result)
+{
+	struct client_connection_http *conn = context;
+	string_t *escaped;
+	escaped = str_new(conn->client.pool, 10);
+	o_stream_nsend_str(conn->client.output,"[\"doveadmResponse\",");
+	o_stream_send_istream(conn->client.output, result);
+	o_stream_nsend_str(conn->client.output,",\"");
+	if (conn->method_id != NULL) {
+		json_append_escaped(escaped, conn->method_id);
+		o_stream_nsend_str(conn->client.output, str_c(escaped));
+	}
+	o_stream_nsend_str(conn->client.output,"\"]");
+}
+
+/**
+ * this is to ensure we can handle arrays and other special parameter types
+ */
+static int doveadm_http_server_json_parse_next(struct client_connection_http *conn, enum json_type *type, const char **value)
+{
+	int rc;
+	const char *tmp;
+	if (conn->json_state == JSON_STATE_COMMAND_PARAMETER_VALUE) {
+		if (conn->cmd_param->type == CMD_PARAM_ISTREAM) {
+			if (conn->cmd_param->value_set == TRUE)
+				return json_parse_next(conn->json_parser, type, value);
+			struct istream* is[2] = {0};
+			rc = json_parse_next_stream(conn->json_parser, &is[0]);
+			if (rc != 1) return rc;
+			conn->cmd_param->value_set = TRUE;
+			conn->cmd_param->value.v_istream = i_stream_create_seekable_path(is, IO_BLOCK_SIZE, "/tmp/doveadm.");
+			rc = json_parse_next(conn->json_parser, type, value);
+			conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+			return rc;
+		}
+		rc = json_parse_next(conn->json_parser, type, value);
+		if (rc != 1) return rc;
+		if (*type == JSON_TYPE_ARRAY_END) {
+			conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+			return json_parse_next(conn->json_parser, type, value);
+		}
+		/* allow array for cmd_param_array only, and only once */
+		if (*type == JSON_TYPE_ARRAY && conn->cmd_param->type != CMD_PARAM_ARRAY)
+			return -2;
+		if (*type == JSON_TYPE_ARRAY) { /* start of array */
+			conn->value_is_array = TRUE;
+			rc = json_parse_next(conn->json_parser, type, value);
+			if (rc != 1) return rc;
+		}
+		if (conn->cmd_param->type == CMD_PARAM_ARRAY) {
+			if (*type != JSON_TYPE_STRING) {
+				/* FIXME: should handle other than string too */
+				return -2;
+			}
+			conn->cmd_param->value_set = TRUE;
+			if (!array_is_created(&conn->cmd_param->value.v_array))
+				p_array_init(&conn->cmd_param->value.v_array,conn->client.pool,1);
+			if (conn->value_is_array) {
+				while(rc == 1) {
+					tmp = p_strdup(conn->client.pool,*value);
+					array_append(&conn->cmd_param->value.v_array, &tmp, 1);
+					rc = json_parse_next(conn->json_parser, type, value);
+					if (*type == JSON_TYPE_ARRAY_END) {
+						conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+						return json_parse_next(conn->json_parser, type, value);
+					}
+				}
+			} else {
+				tmp = p_strdup(conn->client.pool,*value);
+				array_append(&conn->cmd_param->value.v_array, &tmp, 1);
+				conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+				return json_parse_next(conn->json_parser, type, value);
+			}
+			return rc;
+		} else {
+			conn->cmd_param->value_set = TRUE;
+			switch(conn->cmd_param->type) {
+				case CMD_PARAM_NONE:
+				case CMD_PARAM_BOOL:
+					conn->cmd_param->value.v_bool = (strcmp(*value,"true")==0); break;
+				case CMD_PARAM_INT64:
+					if (str_to_int64(*value, &conn->cmd_param->value.v_int64) != 0) {
+						conn->method_err = 400;
+					}
+					break;
+				case CMD_PARAM_STR:
+					conn->cmd_param->value.v_string = p_strdup(conn->client.pool, *value); break;
+				default:
+					break;
+			}
+		}
+		rc = json_parse_next(conn->json_parser, type, value);
+		conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+		return rc;
+	} else {
+		rc = json_parse_next(conn->json_parser, type, value); /* just get next */
+		return rc;
+	}
+}
+
+static void
+doveadm_http_server_command_execute(struct client_connection_http *conn)
+{
+        const struct doveadm_cmd_param *cpar;
+	int rc;
+
+	/* final preflight check */
+	if (!doveadm_client_is_allowed_command(conn->client.set, conn->cmd->name))
+		conn->method_err = 403;
+	if (conn->method_err != 0) {
+		if (conn->method_err == 404) {
+			doveadm_http_server_json_error(conn, "unknownMethod");
+		} else if (conn->method_err == 403) {
+			doveadm_http_server_json_error(conn, "unAuthorized");
+		} else if (conn->method_err == 400) {
+			doveadm_http_server_json_error(conn, "invalidRequest");
+		} else {
+			doveadm_http_server_json_error(conn, "internalError");
+		}
+		return;
+	}
+
+	int pargc;
+	struct istream *is;
+	struct ioloop *ioloop,*prev_ioloop = current_ioloop;
+
+	// create iostream
+	doveadm_print_ostream = iostream_temp_create("/tmp/doveadm.", 0);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_JSON);
+	/* then call it */
+	cpar = array_get(&conn->pargv, (unsigned int*)&pargc);
+	ioloop = io_loop_create();
+	lib_signals_reset_ioloop();
+	doveadm_exit_code = 0;
+	rc = conn->cmd->cmd(conn->cmd,pargc, cpar);
+
+	io_loop_set_current(prev_ioloop);
+	lib_signals_reset_ioloop();
+	o_stream_switch_ioloop(conn->client.output);
+	io_loop_set_current(ioloop);
+	io_loop_destroy(&ioloop);
+
+	doveadm_print_deinit();
+	if (o_stream_nfinish(doveadm_print_ostream)<0) {
+		i_info("doveadm(%s): Error writing output in command %s: %s",
+		       i_stream_get_name(conn->client.input), conn->cmd->name,
+		       o_stream_get_error(conn->client.output));
+		doveadm_exit_code = EX_TEMPFAIL;
+	}
+
+	is = iostream_temp_finish(&doveadm_print_ostream, 4096);
+	doveadm_print_ostream = NULL;
+
+	if (conn->first_row == TRUE) {
+		conn->first_row = FALSE;
+	} else {
+		o_stream_nsend_str(conn->client.output,",");
+	}
+
+	if (rc != 0 || doveadm_exit_code != 0) {
+		if (doveadm_exit_code == 0 || doveadm_exit_code == EX_TEMPFAIL)
+			i_error("doveadm(%s): Command %s failed", i_stream_get_name(conn->client.input), conn->cmd->name);
+		doveadm_http_server_json_error(conn, "exitCode");
+	} else {
+		doveadm_http_server_json_success(conn, is);
+	}
+	i_stream_unref(&is);
+}
+
+static void
+doveadm_http_server_read_request(struct client_connection_http *conn)
+{
+	enum json_type type;
+	const char *value, *error;
+	const struct doveadm_cmd_ver2 *ccmd;
+	struct doveadm_cmd_param *par;
+	int rc;
+	bool found;
+
+	if (conn->json_parser == NULL)
+		conn->json_parser = json_parser_init_flags(conn->client.input, JSON_PARSER_NO_ROOT_OBJECT);
+
+	while((rc = doveadm_http_server_json_parse_next(conn, &type, &value)) == 1) {
+		if (conn->json_state == JSON_STATE_INIT) {
+			if (type != JSON_TYPE_ARRAY) break;
+			conn->json_state = JSON_STATE_COMMAND;
+			conn->first_row = TRUE;
+			o_stream_nsend_str(conn->client.output,"[");
+		} else if (conn->json_state == JSON_STATE_COMMAND) {
+			if (type == JSON_TYPE_ARRAY_END) {
+				conn->json_state = JSON_STATE_DONE;
+				continue;
+			}
+			if (type != JSON_TYPE_ARRAY) break;
+			conn->method_err = 0;
+			if (conn->method_id != NULL)
+				p_free(conn->client.pool, conn->method_id);
+			conn->method_id = NULL;
+			conn->cmd = NULL;
+			array_clear(&conn->pargv);
+			conn->json_state = JSON_STATE_COMMAND_NAME;
+		} else if (conn->json_state == JSON_STATE_COMMAND_NAME) {
+			if (type != JSON_TYPE_STRING) break;
+			/* see if we can find it */
+			found = FALSE;
+			array_foreach(&doveadm_cmds_ver2, ccmd) {
+				if (i_strccdascmp(ccmd->name, value) == 0) {
+					conn->cmd = ccmd;
+					found = TRUE;
+					break;
+				}
+			}
+			if (!found) {
+				json_parse_skip_next(conn->json_parser);
+				conn->json_state = JSON_STATE_COMMAND_ID;
+				conn->method_err = 404;
+			} else {
+			        const struct doveadm_cmd_param *cpar;
+				/* initialize pargv */
+				for(cpar = conn->cmd->parameters; cpar->name != NULL; cpar++)
+					array_append(&conn->pargv, cpar, 1);
+				conn->json_state = JSON_STATE_COMMAND_PARAMETERS;
+			}
+		} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETERS) {
+			if (type == JSON_TYPE_OBJECT_END) {
+				conn->json_state = JSON_STATE_COMMAND_ID;
+				continue;
+			}
+			if (type != JSON_TYPE_OBJECT) break;
+			conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+		} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETER_KEY) {
+                        if (type == JSON_TYPE_OBJECT_END) {
+				conn->json_state = JSON_STATE_COMMAND_ID;
+				continue;
+			}
+			// can happen...
+			if (type != JSON_TYPE_OBJECT_KEY && type != JSON_TYPE_STRING) break;
+			/* go hunting */
+			found = FALSE;
+			array_foreach_modifiable(&conn->pargv, par) {
+				if (i_strccdascmp(par->name, value) == 0) {
+					/* it's already set, cannot have same key twice in json */
+					if (par->value_set) break;
+					conn->cmd_param = par;
+					found = TRUE;
+					break;
+				}
+			}
+			/* skip parameters if error has already occured */
+			if (!found || conn->method_err != 0) {
+				json_parse_skip_next(conn->json_parser);
+				conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+				conn->method_err = 400;
+			} else {
+				if (conn->cmd_param->value_set) {
+					// FIXME: should be returned as error to client, not logged
+					i_info("doveadm(%s): Parameter %s already set",
+					       i_stream_get_name(conn->client.input),
+					       conn->cmd_param->name);
+					break;
+				}
+				conn->value_is_array = FALSE;
+				conn->json_state = JSON_STATE_COMMAND_PARAMETER_VALUE;
+			}
+		} else if (conn->json_state == JSON_STATE_COMMAND_ID) {
+			if (type != JSON_TYPE_STRING) break;
+			conn->method_id = p_strdup(conn->client.pool, value);
+			conn->json_state = JSON_STATE_COMMAND_DONE;
+		} else if (conn->json_state == JSON_STATE_COMMAND_DONE) {
+			/* should be end of array */
+			if (type != JSON_TYPE_ARRAY_END) break;
+			doveadm_http_server_command_execute(conn);
+			conn->json_state = JSON_STATE_COMMAND;
+		} else if (conn->json_state == JSON_STATE_DONE) {
+			// FIXME: should be returned as error to client, not logged
+			i_info("doveadm(%s): Got unexpected elements in JSON data", i_stream_get_name(conn->client.input));
+			continue;
+		}
+	}
+
+	if (!conn->client.input->eof && rc == 0)
+		return;
+
+	if ((rc == 1 && conn->json_state != JSON_STATE_DONE)) {
+		/* this will happen if the parser above runs into unexpected element, but JSON is OK */
+		http_server_request_fail_close(conn->http_server_request, 400, "Unexpected element in input");
+		// FIXME: should be returned as error to client, not logged
+		i_info("doveadm(%s): unexpected element", i_stream_get_name(conn->client.input));
+		return;
+	}
+
+	if (conn->client.input->stream_errno != 0) {
+		http_server_request_fail_close(conn->http_server_request, 400, "Client disconnected");
+		i_info("doveadm(%s): read(client) failed: %s",
+		       i_stream_get_name(conn->client.input),
+		       i_stream_get_error(conn->client.input));
+		return;
+	}
+
+	if (json_parser_deinit(&conn->json_parser, &error) != 0) {
+		http_server_request_fail_close(conn->http_server_request, 400, "Invalid JSON input");
+		// FIXME: should be returned as error to client, not logged
+		i_info("doveadm(%s): %s", i_stream_get_name(conn->client.input), error);
+		return;
+	}
+
+	conn->json_parser = NULL;
+
+	io_remove(&conn->client.io);
+	conn->client.io = NULL;
+	i_stream_unref(&conn->client.input);
+	conn->client.input = NULL;
+
+	if (conn->client.output != NULL)
+		o_stream_nsend_str(conn->client.output,"]");
+
+	doveadm_http_server_process_request(conn);
+}
+
+static void doveadm_http_server_camelcase_value(string_t *value)
+{
+	size_t i,k;
+	char *ptr = str_c_modifiable(value);
+	for(i=0,k=0; i < strlen(ptr);) {
+		if (ptr[i] == ' ' || ptr[i] == '-') {
+			i++;
+			ptr[k++] = i_toupper(ptr[i++]);
+		} else ptr[k++] = ptr[i++];
+	}
+	str_truncate(value, k);
+}
+
+static void
+doveadm_http_server_send_api(struct client_connection_http *conn)
+{
+	string_t *tmp = str_new(conn->client.pool, 8);
+	size_t i,k;
+	const struct doveadm_cmd_ver2 *cmd;
+	const struct doveadm_cmd_param *par;
+	bool sent;
+	o_stream_nsend_str(conn->client.output,"[\n");
+	for(i = 0; i < array_count(&doveadm_cmds_ver2); i++) {
+		cmd = array_idx(&doveadm_cmds_ver2, i);
+		if (i>0) o_stream_nsend_str(conn->client.output, ",\n");
+		o_stream_nsend_str(conn->client.output, "\t{\"command\":\"");
+		json_append_escaped(tmp, cmd->name);
+		doveadm_http_server_camelcase_value(tmp);
+		o_stream_nsend_str(conn->client.output, str_c(tmp));
+		o_stream_nsend_str(conn->client.output, "\", \"parameters\":[");
+		sent = FALSE;
+		for(k=0;cmd->parameters[k].name != NULL; k++) {
+			str_truncate(tmp, 0);
+			par = &(cmd->parameters[k]);
+			if ((par->flags & CMD_PARAM_FLAG_DO_NOT_EXPOSE) != 0)
+				continue;
+			if (sent)
+				o_stream_nsend_str(conn->client.output, ",\n");
+			else
+				o_stream_nsend_str(conn->client.output, "\n");
+			sent = TRUE;
+			o_stream_nsend_str(conn->client.output, "\t\t{\"name\":\"");
+	                json_append_escaped(tmp, par->name);
+			doveadm_http_server_camelcase_value(tmp);
+			o_stream_nsend_str(conn->client.output, str_c(tmp));
+			o_stream_nsend_str(conn->client.output, "\",\"type\":\"");
+			switch(par->type) {
+			case CMD_PARAM_NONE:
+			case CMD_PARAM_BOOL:
+				o_stream_nsend_str(conn->client.output, "boolean");
+				break;
+			case CMD_PARAM_INT64:
+				o_stream_nsend_str(conn->client.output, "integer");
+				break;
+			case CMD_PARAM_ARRAY:
+				o_stream_nsend_str(conn->client.output, "array");
+				break;
+			case CMD_PARAM_ISTREAM:
+			case CMD_PARAM_STR:
+				o_stream_nsend_str(conn->client.output, "string");
+			}
+			o_stream_nsend_str(conn->client.output, "\"}");
+		}
+		if (k>0) o_stream_nsend_str(conn->client.output,"\n\t");
+		o_stream_nsend_str(conn->client.output,"]}");
+		str_truncate(tmp, 0);
+	}
+	o_stream_nsend_str(conn->client.output,"\n]");
+}
+
+static void
+doveadm_http_server_handle_request(void *context, struct http_server_request *req)
+{
+	struct client_connection_http *conn = context;
+	conn->http_server_request = req;
+	conn->http_request = http_server_request_get(req);
+	const char *path = conn->http_request->target.url->path;
+
+	http_server_connection_ref(conn->http_client);
+	http_server_request_set_destroy_callback(req, doveadm_http_server_request_destroy, conn);
+	http_server_request_ref(conn->http_server_request);
+
+	if (doveadm_settings->doveadm_api_key != NULL) {
+		const char *key;
+		key = http_request_header_get(conn->http_request, "X-API-Key");
+		if (key == NULL || strcmp(doveadm_settings->doveadm_api_key, key) != 0) {
+			http_server_request_fail_close(req, 403, "Not authorized");
+			return;
+		}
+	}
+
+	if (strcmp(conn->http_request->method, "GET") != 0 &&
+		strcmp(conn->http_request->method, "POST") != 0) {
+		http_server_request_fail_close(req, 405, "Method Not Allowed");
+		return;
+	}
+
+	if (strcasecmp(path, "/doveadm") != 0) {
+		http_server_request_fail_close(req, 404, "Object Not Found");
+		return;
+	}
+
+	conn->http_response = http_server_response_create(req, 200, "OK");
+	http_server_response_add_header(conn->http_response, "Content-Type",
+		"application/json; charset=utf-8");
+
+        if (strcmp(conn->http_request->method, "GET") == 0) {
+                /* print out API */
+		conn->client.output = iostream_temp_create_named("/tmp", 0, net_ip2addr(&conn->client.remote_ip));
+                doveadm_http_server_send_api(conn);
+		doveadm_http_server_process_request(context);
+        } else if (strcmp(conn->http_request->method, "POST") == 0) {
+		/* handle request */
+		conn->client.input = conn->http_request->payload;
+		i_stream_set_name(conn->client.input, net_ip2addr(&conn->client.remote_ip));
+		i_stream_ref(conn->client.input);
+		conn->client.io = io_add_istream(conn->client.input,
+					 doveadm_http_server_read_request, conn);
+		conn->client.output = iostream_temp_create_named("/tmp", 0, net_ip2addr(&conn->client.remote_ip));
+		p_array_init(&conn->pargv, conn->client.pool, 5);
+		doveadm_http_server_read_request(conn);
+	} else {
+		i_unreached();
+	}
+}
+
+static void doveadm_http_server_process_request(void *context)
+{
+	struct client_connection_http *conn = context;
+
+	if (conn->client.output != NULL) {
+		if (o_stream_nfinish(conn->client.output) == -1) {
+			i_info("doveadm(%s): error writing output: %s",
+			       net_ip2addr(&conn->client.remote_ip),
+			       o_stream_get_error(conn->client.output));
+			http_server_response_update_status(conn->http_response, 500, "Internal server error");
+		} else {
+			// read the response
+			http_server_response_set_payload(conn->http_response, iostream_temp_finish(&conn->client.output, IO_BLOCK_SIZE));
+		}
+	}
+	// submit response
+	http_server_response_submit_close(conn->http_response);
+}
+
+static const struct http_server_settings http_server_set = {
+        .max_pipelined_requests = 0
+};
+
+void doveadm_http_server_init(void)
+{
+	doveadm_http_server = http_server_init(&http_server_set);
+	
+}
+
+void doveadm_http_server_deinit(void)
+{
+	http_server_deinit(&doveadm_http_server);
+}	

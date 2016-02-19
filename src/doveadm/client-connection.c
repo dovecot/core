@@ -18,7 +18,7 @@
 #include "doveadm-mail.h"
 #include "doveadm-print.h"
 #include "doveadm-settings.h"
-#include "client-connection.h"
+#include "client-connection-private.h"
 
 #include <unistd.h>
 
@@ -40,15 +40,10 @@ static struct {
 static void client_connection_input(struct client_connection *conn);
 
 static void
-doveadm_cmd_server_run(struct client_connection *conn,
-		       const struct doveadm_cmd *cmd, int argc, char *argv[])
+doveadm_cmd_server_post(struct client_connection *conn, const char *cmd_name)
 {
 	const char *str = NULL;
 	unsigned int i;
-
-	i_getopt_reset();
-	doveadm_exit_code = 0;
-	cmd->cmd(argc, argv);
 
 	if (doveadm_exit_code == 0) {
 		o_stream_nsend(conn->output, "\n+\n", 3);
@@ -67,8 +62,30 @@ doveadm_cmd_server_run(struct client_connection *conn,
 	} else {
 		o_stream_nsend_str(conn->output, "\n-\n");
 		i_error("BUG: Command '%s' returned unknown error code %d",
-			cmd->name, doveadm_exit_code);
+			cmd_name, doveadm_exit_code);
 	}
+}
+
+static void
+doveadm_cmd_server_run_ver2(struct client_connection *conn,
+			    const struct doveadm_cmd_ver2 *cmd,
+			    int argc, const char *argv[])
+{
+	i_getopt_reset();
+	doveadm_exit_code = 0;
+	if (doveadm_cmd_run_ver2(cmd, argc, argv) < 0)
+		doveadm_exit_code = EX_USAGE;
+	doveadm_cmd_server_post(conn, cmd->name);
+}
+
+static void
+doveadm_cmd_server_run(struct client_connection *conn,
+		       const struct doveadm_cmd *cmd, int argc, char *argv[])
+{
+	i_getopt_reset();
+	doveadm_exit_code = 0;
+	cmd->cmd(argc, argv);
+	doveadm_cmd_server_post(conn, cmd->name);
 }
 
 static int
@@ -178,8 +195,8 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 	pool_unref(&ctx->pool);
 }
 
-static bool client_is_allowed_command(const struct doveadm_settings *set,
-				      const char *cmd_name)
+bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,
+				       const char *cmd_name)
 {
 	bool ret = FALSE;
 
@@ -208,17 +225,20 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	const struct doveadm_cmd *cmd;
 	const struct doveadm_mail_cmd *mail_cmd;
 	struct doveadm_mail_cmd_context *ctx;
+	const struct doveadm_cmd_ver2 *cmd_ver2;
 
-	cmd = doveadm_cmd_find(cmd_name, &argc, &argv);
-	if (cmd == NULL) {
-		mail_cmd = doveadm_mail_cmd_find(cmd_name);
-		if (mail_cmd == NULL) {
-			i_error("doveadm: Client sent unknown command: %s", cmd_name);
-			return -1;
+	if ((cmd_ver2 = doveadm_cmd_find_ver2(cmd_name, argc, (const char**)argv)) == NULL) {
+		cmd = doveadm_cmd_find(cmd_name, &argc, &argv);
+		if (cmd == NULL) {
+			mail_cmd = doveadm_mail_cmd_find(cmd_name);
+			if (mail_cmd == NULL) {
+				i_error("doveadm: Client sent unknown command: %s", cmd_name);
+				return -1;
+			}
+			if (doveadm_mail_cmd_server_parse(mail_cmd, conn->set, input,
+							  argc, argv, &ctx) < 0)
+				return -1;
 		}
-		if (doveadm_mail_cmd_server_parse(mail_cmd, conn->set, input,
-						  argc, argv, &ctx) < 0)
-			return -1;
 	}
 
 	/* some commands will want to call io_loop_run(), but we're already
@@ -227,7 +247,9 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	ioloop = io_loop_create();
 	lib_signals_reset_ioloop();
 
-	if (cmd != NULL)
+	if (cmd_ver2 != NULL)
+		doveadm_cmd_server_run_ver2(conn, cmd_ver2, argc, (const char**)argv);
+	else if (cmd != NULL)
 		doveadm_cmd_server_run(conn, cmd, argc, argv);
 	else
 		doveadm_mail_cmd_server_run(conn, ctx, input);
@@ -241,7 +263,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	/* clear all headers */
 	doveadm_print_deinit();
 	doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
-	return 0;
+	return doveadm_exit_code == 0 ? 0 : -1;
 }
 
 static bool client_handle_command(struct client_connection *conn, char **args)
@@ -289,7 +311,7 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 		}
 	}
 
-	if (!client_is_allowed_command(conn->set, cmd_name)) {
+	if (!doveadm_client_is_allowed_command(conn->set, cmd_name)) {
 		i_error("doveadm client isn't allowed to use command: %s",
 			cmd_name);
 		return FALSE;
@@ -482,7 +504,7 @@ client_connection_send_auth_handshake(struct client_connection *
 	}
 }
 
-static int client_connection_init(struct client_connection *conn, int fd)
+int client_connection_init(struct client_connection *conn, int fd)
 {
 	const char *ip;
 
@@ -543,10 +565,16 @@ void client_connection_destroy(struct client_connection **_conn)
 
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_destroy(&conn->ssl_iostream);
-	i_stream_destroy(&conn->input);
-	o_stream_destroy(&conn->output);
-	io_remove(&conn->io);
-	if (close(conn->fd) < 0)
+
+	if (conn->output != NULL)
+		o_stream_destroy(&conn->output);
+
+	if (conn->io != NULL) {
+		i_stream_destroy(&conn->input);
+		io_remove(&conn->io);
+	}
+
+	if (conn->fd > 0 && close(conn->fd) < 0)
 		i_error("close(client) failed: %m");
 	pool_unref(&conn->pool);
 

@@ -39,6 +39,7 @@ struct doveadm_cmd_param {
 	} value;
 	doveadm_cmd_param_flag_t flags;
 };
+ARRAY_DEFINE_TYPE(doveadm_cmd_param_arr_t, struct doveadm_cmd_param);
 
 typedef int doveadm_command_ver2_t(const struct doveadm_cmd_ver2* cmd,
 	int argc, const struct doveadm_cmd_param[]);

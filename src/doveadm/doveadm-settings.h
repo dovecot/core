@@ -20,6 +20,7 @@ struct doveadm_settings {
 	const char *ssl_client_ca_dir;
 	const char *ssl_client_ca_file;
 	const char *director_username_hash;
+	const char *doveadm_api_key;
 
 	ARRAY(const char *) plugin_envs;
 };

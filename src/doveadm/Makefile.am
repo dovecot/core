@@ -20,6 +20,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/auth \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
@@ -134,6 +135,7 @@ doveadm_SOURCES = \
 doveadm_server_SOURCES = \
 	$(common) \
 	client-connection.c \
+	client-connection-http.c \
 	doveadm-print-server.c \
 	doveadm-print-json.c \
 	main.c
