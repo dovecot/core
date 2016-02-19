@@ -28,10 +28,10 @@ ExecStart=@sbindir@/dovecot
 PIDFile=@statedir@dovecot/master.pid
 ExecReload=@bindir@/doveadm reload
 ExecStop=@bindir@/doveadm stop
-ProtectSystem=full
-ProtectHome=false
 PrivateTmp=true
 NonBlocking=yes
+# Enable this if your systemd is new enough to support it:
+#ProtectSystem=full
 
 [Install]
 WantedBy=multi-user.target
