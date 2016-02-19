@@ -62,8 +62,6 @@ struct doveadm_cmd_ver2 {
 ARRAY_DEFINE_TYPE(doveadm_cmd, struct doveadm_cmd);
 extern ARRAY_TYPE(doveadm_cmd) doveadm_cmds;
 
-extern struct doveadm_cmd doveadm_cmd_stop;
-extern struct doveadm_cmd doveadm_cmd_reload;
 ARRAY_DEFINE_TYPE(doveadm_cmd_ver2, struct doveadm_cmd_ver2);
 extern ARRAY_TYPE(doveadm_cmd_ver2) doveadm_cmds_ver2;
 
@@ -118,5 +116,8 @@ bool doveadm_cmd_param_int64(int argc, const struct doveadm_cmd_param* params, c
 bool doveadm_cmd_param_str(int argc, const struct doveadm_cmd_param* params, const char *name, const char** value);
 bool doveadm_cmd_param_array(int argc, struct doveadm_cmd_param* params, const char *name, ARRAY_TYPE(const_string)** value);
 bool doveadm_cmd_param_istream(int argc, struct doveadm_cmd_param* params, const char *name, struct istream** value);
+
+extern struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2;
 
 #endif

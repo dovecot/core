@@ -12,8 +12,6 @@
 #include <getopt.h>
 
 static struct doveadm_cmd *doveadm_commands[] = {
-	&doveadm_cmd_stop,
-	&doveadm_cmd_reload,
 	&doveadm_cmd_who,
 	&doveadm_cmd_penalty,
 	&doveadm_cmd_kick,
@@ -24,6 +22,8 @@ static struct doveadm_cmd *doveadm_commands[] = {
 };
 
 static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
+	&doveadm_cmd_stop_ver2,
+	&doveadm_cmd_reload_ver2
 };
 
 ARRAY_TYPE(doveadm_cmd) doveadm_cmds;

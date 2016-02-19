@@ -84,10 +84,18 @@ static void cmd_reload(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 	doveadm_master_send_signal(SIGHUP);
 }
 
-struct doveadm_cmd doveadm_cmd_stop = {
-	cmd_stop, "stop", ""
+struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2 = {
+	.old_cmd = cmd_stop,
+	.name = "stop",
+	.usage = "",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAMS_END
 };
 
-struct doveadm_cmd doveadm_cmd_reload = {
-	cmd_reload, "reload", ""
+struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2 = {
+        .old_cmd = cmd_reload,
+        .name = "reload",
+        .usage = "",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAMS_END
 };
