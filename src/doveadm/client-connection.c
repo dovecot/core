@@ -482,27 +482,14 @@ client_connection_send_auth_handshake(struct client_connection *
 	}
 }
 
-struct client_connection *
-client_connection_create(int fd, int listen_fd, bool ssl)
+static int client_connection_init(struct client_connection *conn, int fd)
 {
-	struct client_connection *conn;
 	const char *ip;
-	pool_t pool;
 
-	pool = pool_alloconly_create("doveadm client", 1024*16);
-	conn = p_new(pool, struct client_connection, 1);
-	conn->pool = pool;
 	conn->fd = fd;
-	conn->io = io_add(fd, IO_READ, client_connection_input, conn);
-	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
-	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	(void)net_getsockname(fd, &conn->local_ip, &conn->local_port);
 	(void)net_getpeername(fd, &conn->remote_ip, &conn->remote_port);
-
-	i_stream_set_name(conn->input, net_ip2addr(&conn->remote_ip));
-	o_stream_set_name(conn->output, net_ip2addr(&conn->remote_ip));
 
 	ip = net_ip2addr(&conn->remote_ip);
 	if (ip[0] != '\0')
@@ -510,8 +497,32 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 
 	if (client_connection_read_settings(conn) < 0) {
 		client_connection_destroy(&conn);
-		return NULL;
+		return -1;
 	}
+	return 0;
+}
+
+struct client_connection *
+client_connection_create(int fd, int listen_fd, bool ssl)
+{
+	struct client_connection *conn;
+	pool_t pool;
+
+	pool = pool_alloconly_create("doveadm client", 1024*16);
+	conn = p_new(pool, struct client_connection, 1);
+	conn->pool = pool;
+
+	if (client_connection_init(conn, fd) < 0)
+		return NULL;
+        doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
+
+	conn->io = io_add(fd, IO_READ, client_connection_input, conn);
+	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	i_stream_set_name(conn->input, net_ip2addr(&conn->remote_ip));
+	o_stream_set_name(conn->output, net_ip2addr(&conn->remote_ip));
+	o_stream_set_no_error_handling(conn->output, TRUE);
+
 	if (ssl) {
 		if (client_connection_init_ssl(conn) < 0) {
 			client_connection_destroy(&conn);
