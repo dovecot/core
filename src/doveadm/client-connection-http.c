@@ -115,7 +115,7 @@ doveadm_http_server_request_destroy(void *context)
 		agent = http_request_header_get(conn->http_request, "User-Agent");
 		if (agent == NULL) agent = "";
 		url = http_url_create(conn->http_request->target.url);
-		i_info("doveadm: %s %s %s \"%s %s HTTP/%d.%d\" %d %lu \"%s\" \"%s\"",
+		i_info("doveadm: %s %s %s \"%s %s HTTP/%d.%d\" %d %"PRIuUOFF_T" \"%s\" \"%s\"",
 			net_ip2addr(&conn->client.remote_ip), "-", "-",
 			conn->http_request->method,
 			conn->http_request->target.url->path,
