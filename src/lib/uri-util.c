@@ -603,6 +603,13 @@ int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r)
 		p++;
 	}
 
+	if (p < parser->end &&
+		*p != '/' && *p != '?' && *p != '#' ) {
+		parser->error =
+			"Path component contains invalid character";
+		return -1;
+	}
+
 	if (p == parser->cur)
 		return 0;
 
