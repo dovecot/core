@@ -49,9 +49,19 @@ http_server_response_create(struct http_server_request *req,
 {
 	struct http_server_response *resp;
 
-	i_assert(req->response == NULL);
+	if (req->response == NULL) {
+		resp = req->response = p_new
+			(req->pool, struct http_server_response, 1);
+	} else {
+		/* was already composing a response, but decided to
+		   start a new one (would usually be a failure response)
+		 */
+		resp = req->response;
+		i_assert(!resp->submitted);
+		http_server_response_free(resp);
+		memset(resp, 0, sizeof(*resp));
+	}
 
-	resp = req->response = p_new(req->pool, struct http_server_response, 1);
 	resp->request = req;
 	resp->status = status;
 	resp->reason = p_strdup(req->pool, reason);
