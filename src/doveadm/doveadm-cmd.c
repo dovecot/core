@@ -64,7 +64,7 @@ const struct doveadm_cmd_ver2* doveadm_cmd_find_ver2(const char *cmd_name,
 		cptr = cmd->name;
 		/* cannot reuse i here because this needs be
 		   done more than once */
-		for(int k=0; cptr != '\0' && i+k < argc; k++) {
+		for(int k=0; *cptr != '\0' && i+k < argc; k++) {
 			size_t alen = strlen(argv[i+k]);
 			/* make sure we don't overstep */
 			if (strlen(cptr) < alen) break;
