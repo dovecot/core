@@ -41,6 +41,7 @@ struct client_connection_http {
 	struct json_parser *json_parser;
 	const struct doveadm_cmd_ver2 *cmd;
 	struct doveadm_cmd_param *cmd_param;
+	struct ioloop *ioloop;
 	ARRAY_TYPE(doveadm_cmd_param_arr_t) pargv;
 	int method_err;
 	char *method_id;
@@ -53,6 +54,7 @@ struct client_connection_http {
 		JSON_STATE_COMMAND_PARAMETERS,
 		JSON_STATE_COMMAND_PARAMETER_KEY,
 		JSON_STATE_COMMAND_PARAMETER_VALUE,
+		JSON_STATE_COMMAND_PARAMETER_VALUE_ISTREAM_CONSUME,
 		JSON_STATE_COMMAND_ID,
 		JSON_STATE_COMMAND_DONE,
 		JSON_STATE_DONE
@@ -171,6 +173,24 @@ static void doveadm_http_server_json_success(void *context, struct istream *resu
 	o_stream_nsend_str(conn->client.output,"\"]");
 }
 
+static int doveadm_http_server_istream_read(struct client_connection_http *conn)
+{
+	while (i_stream_read(conn->cmd_param->value.v_istream) > 0)
+		i_stream_skip(conn->cmd_param->value.v_istream, i_stream_get_data_size(conn->cmd_param->value.v_istream));
+	if (!conn->cmd_param->value.v_istream->eof)
+		return 0;
+
+	if (conn->cmd_param->value.v_istream->stream_errno != 0) {
+		i_error("read(%s) failed: %s",
+			i_stream_get_name(conn->cmd_param->value.v_istream),
+			i_stream_get_error(conn->cmd_param->value.v_istream));
+		conn->method_err = 400;
+		return -1;
+	}
+	return 1;
+}
+
+
 /**
  * this is to ensure we can handle arrays and other special parameter types
  */
@@ -178,18 +198,24 @@ static int doveadm_http_server_json_parse_next(struct client_connection_http *co
 {
 	int rc;
 	const char *tmp;
-	if (conn->json_state == JSON_STATE_COMMAND_PARAMETER_VALUE) {
+
+	if (conn->json_state == JSON_STATE_COMMAND_PARAMETER_VALUE_ISTREAM_CONSUME) {
+		rc = doveadm_http_server_istream_read(conn);
+		if (rc != 1) return rc;
+		conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+		return json_parse_next(conn->json_parser, type, value);
+	} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETER_VALUE) {
 		if (conn->cmd_param->type == CMD_PARAM_ISTREAM) {
 			if (conn->cmd_param->value_set == TRUE)
 				return json_parse_next(conn->json_parser, type, value);
 			struct istream* is[2] = {0};
 			rc = json_parse_next_stream(conn->json_parser, &is[0]);
 			if (rc != 1) return rc;
-			conn->cmd_param->value_set = TRUE;
 			conn->cmd_param->value.v_istream = i_stream_create_seekable_path(is, IO_BLOCK_SIZE, "/tmp/doveadm.");
-			rc = json_parse_next(conn->json_parser, type, value);
-			conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
-			return rc;
+			i_stream_unref(&is[0]);
+			conn->cmd_param->value_set = TRUE;
+			conn->json_state = JSON_STATE_COMMAND_PARAMETER_VALUE_ISTREAM_CONSUME;
+			return doveadm_http_server_json_parse_next(conn, type, value);
 		}
 		rc = json_parse_next(conn->json_parser, type, value);
 		if (rc != 1) return rc;
@@ -459,6 +485,7 @@ doveadm_http_server_read_request(struct client_connection_http *conn)
 	}
 
 	if (json_parser_deinit(&conn->json_parser, &error) != 0) {
+		// istream JSON parsing failures do not count as errors
 		http_server_request_fail_close(conn->http_server_request, 400, "Invalid JSON input");
 		// FIXME: should be returned as error to client, not logged
 		i_info("doveadm(%s): %s", i_stream_get_name(conn->client.input), error);
@@ -612,10 +639,15 @@ static void doveadm_http_server_process_request(void *context)
 			i_info("doveadm(%s): error writing output: %s",
 			       net_ip2addr(&conn->client.remote_ip),
 			       o_stream_get_error(conn->client.output));
+			o_stream_destroy(&conn->client.output);
 			http_server_response_update_status(conn->http_response, 500, "Internal server error");
 		} else {
-			// read the response
-			http_server_response_set_payload(conn->http_response, iostream_temp_finish(&conn->client.output, IO_BLOCK_SIZE));
+			// send the payload response
+			struct istream *is;
+
+			is = iostream_temp_finish(&conn->client.output, IO_BLOCK_SIZE);
+			http_server_response_set_payload(conn->http_response, is);
+			i_stream_unref(&is);
 		}
 	}
 	// submit response
