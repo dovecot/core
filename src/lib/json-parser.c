@@ -639,7 +639,7 @@ json_try_parse_stream_start(struct json_parser *parser,
 				      json_strinput_destroyed, parser);
 
 	*input_r = parser->strinput;
-	return 1;
+	return 0;
 }
 
 int json_parse_next_stream(struct json_parser *parser,

@@ -140,7 +140,7 @@ static void test_json_parser_success(bool full_size)
 			} else {
 				ret = jsoninput != NULL ? 1 :
 					json_parse_next_stream(parser, &jsoninput);
-				if (jsoninput != NULL)
+				if (ret > 0 && jsoninput != NULL)
 					ret = stream_read_value(&jsoninput, &value);
 				type = TYPE_STREAM;
 			}
