@@ -5,6 +5,7 @@
 #include "lib.h"
 #include "printf-format-fix.h"
 #include "strfuncs.h"
+#include "array.h"
 
 #include <stdio.h>
 #include <limits.h>
@@ -725,4 +726,12 @@ const char *dec2str(uintmax_t number)
 
 	i_assert(pos >= 0);
 	return buffer + pos;
+}
+
+char *p_array_const_string_join(pool_t pool, const ARRAY_TYPE(const_string) *arr,
+				const char *separator)
+{
+	if (array_count(arr) == 0)
+		return "";
+	return p_strarray_join_n(pool, array_idx(arr, 0), array_count(arr), separator);
 }

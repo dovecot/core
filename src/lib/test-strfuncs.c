@@ -1,7 +1,7 @@
 /* Copyright (c) 2009-2016 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
-
+#include "array.h"
 
 static void test_p_strarray_dup(void)
 {
@@ -190,6 +190,31 @@ static void test_t_strarray_join(void)
 	test_end();
 }
 
+static void test_p_array_const_string_join(void)
+{
+	ARRAY_TYPE(const_string) arr;
+	unsigned int i;
+	char *res;
+
+	test_begin("p_array_const_string_join()");
+
+	i_array_init(&arr, 2);
+	/* empty array -> empty string */
+	test_assert(strcmp(t_array_const_string_join(&arr, " "), "") == 0);
+
+	array_append(&arr, test_strarray_input,
+		     str_array_length(test_strarray_input));
+	for (i = 0; i < N_ELEMENTS(test_strarray_outputs); i++) {
+		res = p_array_const_string_join(default_pool, &arr,
+						test_strarray_outputs[i].separator);
+		test_assert_idx(strcmp(res, test_strarray_outputs[i].output) == 0, i);
+		i_free(res);
+	}
+
+	array_free(&arr);
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strarray_dup();
@@ -200,4 +225,5 @@ void test_strfuncs(void)
 	test_t_str_ltrim();
 	test_t_str_rtrim();
 	test_t_strarray_join();
+	test_p_array_const_string_join();
 }

@@ -100,6 +100,12 @@ bool str_array_icase_find(const char *const *arr, const char *value);
 const char **p_strarray_dup(pool_t pool, const char *const *arr)
 	ATTR_MALLOC ATTR_RETURNS_NONNULL;
 
+/* Join ARRAY_TYPE(const_string) to a string, similar to t_strarray_join() */
+char *p_array_const_string_join(pool_t pool, const ARRAY_TYPE(const_string) *arr,
+				const char *separator);
+#define t_array_const_string_join(arr, separator) \
+	((const char *)p_array_const_string_join(unsafe_data_stack_pool, arr, separator))
+
 /* FIXME: v2.3 - sort and search APIs belong into their own header, not here */
 #include "sort.h"
 
