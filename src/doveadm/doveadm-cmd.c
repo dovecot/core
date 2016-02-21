@@ -298,7 +298,6 @@ doveadm_build_options(const struct doveadm_cmd_param par[],
 {
 	for(size_t i=0; par[i].name != NULL; i++) {
 		struct option longopt;
-		if ((par[i].flags & CMD_PARAM_FLAG_DO_NOT_EXPOSE) != 0) continue;
 		longopt.name = par[i].name;
 		longopt.flag = 0;
 		longopt.val = 0;
