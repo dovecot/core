@@ -373,10 +373,13 @@ doveadm_http_server_read_request(struct client_connection_http *conn)
 				conn->json_state = JSON_STATE_COMMAND_ID;
 				conn->method_err = 404;
 			} else {
-			        const struct doveadm_cmd_param *cpar;
+			        struct doveadm_cmd_param *param;
 				/* initialize pargv */
-				for(cpar = conn->cmd->parameters; cpar->name != NULL; cpar++)
-					array_append(&conn->pargv, cpar, 1);
+				for(int pargc=0;conn->cmd->parameters[pargc].name != NULL;pargc++) {
+					param = array_append_space(&conn->pargv);
+					memcpy(param, &(conn->cmd->parameters[pargc]), sizeof(struct doveadm_cmd_param));
+					param->value_set = FALSE;
+				}
 				conn->json_state = JSON_STATE_COMMAND_PARAMETERS;
 			}
 		} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETERS) {
