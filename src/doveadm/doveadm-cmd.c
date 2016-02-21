@@ -222,7 +222,7 @@ bool doveadm_cmd_param_array(int argc, struct doveadm_cmd_param* params, const c
 {
 	const struct doveadm_cmd_param* param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
-	if (param->type == CMD_PARAM_STR) {
+	if (param->type == CMD_PARAM_ARRAY) {
 		*value = (ARRAY_TYPE(const_string)*)&(param->value.v_array);
 		return TRUE;
 	}
