@@ -20,8 +20,8 @@ void test_mempool_alloconly(void)
 	pool_t pool;
 	unsigned int i, j, k;
 	void *mem[PMALLOC_MAX_COUNT + 1];
-	bool success = TRUE;
 
+	test_begin("mempool_alloconly");
 	for (i = 0; i < 64; i++) {
 		for (j = 1; j <= 128; j++) {
 			pool = pool_alloconly_create(MEMPOOL_GROWING"test", i);
@@ -33,16 +33,13 @@ void test_mempool_alloconly(void)
 				memset(mem[k], k, k);
 			}
 
-			if (!mem_has_bytes(mem[0], j, j))
-				success = FALSE;
-			for (k = 1; k <= PMALLOC_MAX_COUNT; k++) {
-				if (!mem_has_bytes(mem[k], k, k))
-					success = FALSE;
-			}
+			test_assert(mem_has_bytes(mem[0], j, j));
+			for (k = 1; k <= PMALLOC_MAX_COUNT; k++)
+				test_assert(mem_has_bytes(mem[k], k, k));
 			pool_unref(&pool);
 		}
 	}
-	test_out("mempool_alloconly", success);
+	test_end();
 }
 
 enum fatal_test_state fatal_mempool(int stage)
