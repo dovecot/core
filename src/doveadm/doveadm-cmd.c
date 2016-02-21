@@ -308,7 +308,8 @@ doveadm_build_options(const struct doveadm_cmd_param par[],
 			if (par[i].type != CMD_PARAM_BOOL)
 				str_append_c(shortopts, ':');
 		} else {
-			longopt.has_arg = 0;
+			if (par[i].type != CMD_PARAM_BOOL) longopt.has_arg = 1;
+			else longopt.has_arg = 0;
 		}
 		array_append(longopts, &longopt, 1);
 	}
