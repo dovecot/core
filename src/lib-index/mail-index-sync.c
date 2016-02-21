@@ -206,6 +206,7 @@ mail_index_sync_read_and_sort(struct mail_index_sync_ctx *ctx)
 	i_array_init(&ctx->sync_list, keyword_count + 2);
 
 	if (array_is_created(&sync_trans->expunges)) {
+		mail_index_transaction_sort_expunges(sync_trans);
 		synclist = array_append_space(&ctx->sync_list);
 		synclist->array = (void *)&sync_trans->expunges;
 	}
