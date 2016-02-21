@@ -812,9 +812,9 @@ fs_quota_get_resources(struct fs_quota_root *root, bool group,
 		return 0;
 	}
 #ifdef FS_QUOTA_HPUX
-	return fs_quota_get_hpux(root, bytes, bytes_value_r, bytes_limit_r, count_value_r, count_limit_r);
+	return fs_quota_get_hpux(root, bytes_value_r, bytes_limit_r, count_value_r, count_limit_r);
 #else
-	return fs_quota_get_solaris(root, bytes, bytes_value_r, bytes_limit_r, count_value_r, count_limit_r);
+	return fs_quota_get_solaris(root, bytes_value_r, bytes_limit_r, count_value_r, count_limit_r);
 #endif
 #endif
 }
