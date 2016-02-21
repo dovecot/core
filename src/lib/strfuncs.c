@@ -611,17 +611,21 @@ unsigned int str_array_length(const char *const *arr)
 	return count;
 }
 
-const char *t_strarray_join(const char *const *arr, const char *separator)
+static char *
+p_strarray_join_n(pool_t pool, const char *const *arr, unsigned int arr_len,
+		  const char *separator)
 {
 	size_t alloc_len, sep_len, len, pos, needed_space;
+	unsigned int i;
 	char *str;
 
 	sep_len = strlen(separator);
         alloc_len = 64;
-        str = t_buffer_get(alloc_len);
+	str = t_buffer_get(alloc_len);
+	pos = 0;
 
-	for (pos = 0; *arr != NULL; arr++) {
-		len = strlen(*arr);
+	for (i = 0; i < arr_len; i++) {
+		len = strlen(arr[i]);
 		needed_space = pos + len + sep_len + 1;
 		if (needed_space > alloc_len) {
 			alloc_len = nearest_power(needed_space);
@@ -633,12 +637,20 @@ const char *t_strarray_join(const char *const *arr, const char *separator)
 			pos += sep_len;
 		}
 
-		memcpy(str + pos, *arr, len);
+		memcpy(str + pos, arr[i], len);
 		pos += len;
 	}
 	str[pos] = '\0';
+	if (!pool->datastack_pool)
+		return p_memdup(pool, str, pos + 1);
 	t_buffer_alloc(pos + 1);
 	return str;
+}
+
+const char *t_strarray_join(const char *const *arr, const char *separator)
+{
+	return p_strarray_join_n(unsafe_data_stack_pool, arr,
+				 str_array_length(arr), separator);
 }
 
 bool str_array_remove(const char **arr, const char *value)
