@@ -222,7 +222,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 			      int argc, char *argv[])
 {
 	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
-	const struct doveadm_cmd *cmd;
+	const struct doveadm_cmd *cmd = NULL;
 	const struct doveadm_mail_cmd *mail_cmd;
 	struct doveadm_mail_cmd_context *ctx;
 	const struct doveadm_cmd_ver2 *cmd_ver2;
