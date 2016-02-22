@@ -16,6 +16,7 @@ struct mail_index_sync_ctx {
 	struct mail_index_transaction *sync_trans, *ext_trans;
 	struct mail_index_transaction_commit_result *sync_commit_result;
 	enum mail_index_sync_flags flags;
+	char *reason;
 
 	const struct mail_transaction_header *hdr;
 	const void *data;
@@ -732,22 +733,36 @@ void mail_index_sync_no_warning(struct mail_index_sync_ctx *ctx)
 	ctx->no_warning = TRUE;
 }
 
+void mail_index_sync_set_reason(struct mail_index_sync_ctx *ctx,
+				const char *reason)
+{
+	i_free(ctx->reason);
+	ctx->reason = i_strdup(reason);
+}
+
 static void mail_index_sync_end(struct mail_index_sync_ctx **_ctx)
 {
         struct mail_index_sync_ctx *ctx = *_ctx;
+	const char *lock_reason;
 
 	i_assert(ctx->index->syncing);
 
 	*_ctx = NULL;
 
 	ctx->index->syncing = FALSE;
-	mail_transaction_log_sync_unlock(ctx->index->log,
-		ctx->no_warning ? NULL : "Mailbox was synchronized");
+	if (ctx->no_warning)
+		lock_reason = NULL;
+	else if (ctx->reason != NULL)
+		lock_reason = ctx->reason;
+	else
+		lock_reason = "Mailbox was synchronized";
+	mail_transaction_log_sync_unlock(ctx->index->log, lock_reason);
 
 	mail_index_view_close(&ctx->view);
 	mail_index_transaction_rollback(&ctx->sync_trans);
 	if (array_is_created(&ctx->sync_list))
 		array_free(&ctx->sync_list);
+	i_free(ctx->reason);
 	i_free(ctx);
 }
 

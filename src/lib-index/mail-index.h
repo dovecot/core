@@ -386,6 +386,11 @@ void mail_index_sync_set_commit_result(struct mail_index_sync_ctx *ctx,
    MAIL_TRANSACTION_LOG_LOCK_WARN_SECS seconds. Usually this is called because
    the caller itself already logged a warning about it. */
 void mail_index_sync_no_warning(struct mail_index_sync_ctx *ctx);
+/* If a warning is logged because syncing took over
+   MAIL_TRANSACTION_LOG_LOCK_WARN_SECS seconds, log this as the reason for the
+   syncing. */
+void mail_index_sync_set_reason(struct mail_index_sync_ctx *ctx,
+				const char *reason);
 /* Commit synchronization by writing all changes to mail index file. */
 int mail_index_sync_commit(struct mail_index_sync_ctx **ctx);
 /* Rollback synchronization - none of the changes listed by sync_next() are
