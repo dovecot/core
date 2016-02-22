@@ -571,13 +571,15 @@ http_client_connection_return_response(struct http_client_request *req,
 	conn->in_req_callback = TRUE;
 	http_client_connection_ref(conn);
 	retrying = !http_client_request_callback(req, response);
-	if (!http_client_connection_unref(&req->conn)) {
+	if (!http_client_connection_unref(&conn)) {
 		/* the callback managed to get this connection destroyed */
+		req->conn = NULL;
 		if (!retrying)
 			http_client_request_finish(req);
 		http_client_request_unref(&req);
 		return FALSE;
 	}
+	conn = req->conn;
 	conn->in_req_callback = FALSE;
 
 	if (retrying) {
