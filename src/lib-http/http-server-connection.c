@@ -21,6 +21,9 @@ static void
 http_server_connection_disconnect(struct http_server_connection *conn,
 	const char *reason);
 
+static bool
+http_server_connection_unref_is_closed(struct http_server_connection *conn);
+
 /*
  * Logging
  */
@@ -563,8 +566,7 @@ static void http_server_connection_input(struct connection *_conn)
 			req = http_server_request_new(conn);
 		}
 
-		http_server_connection_unref(&conn);
-		if (conn == NULL || conn->closed) {
+		if (http_server_connection_unref_is_closed(conn)) {
 			/* connection got closed */
 			return;
 		}
@@ -607,8 +609,7 @@ static void http_server_connection_input(struct connection *_conn)
 				i_unreached();
 			}
 
-			http_server_connection_unref(&conn);
-			if (conn == NULL || conn->closed) {
+			if (http_server_connection_unref_is_closed(conn)) {
 				/* connection got closed */
 				return;
 			}
@@ -715,10 +716,7 @@ int http_server_connection_discard_payload(
 	/* check whether connection is still viable */
 	http_server_connection_ref(conn);
 	(void)http_server_connection_check_input(conn);
-	http_server_connection_unref(&conn);
-	if (conn == NULL || conn->closed)
-		return -1;
-	return 0;
+	return http_server_connection_unref_is_closed(conn) ? -1 : 0;
 }
 
 void http_server_connection_write_failed(struct http_server_connection *conn,
@@ -817,8 +815,7 @@ static int http_server_connection_send_responses(
 	   blocks again, or the connection is closed */
 	while (!conn->closed && http_server_connection_next_response(conn));
 	
-	http_server_connection_unref(&conn);
-	if (conn == NULL || conn->closed)
+	if (http_server_connection_unref_is_closed(conn))
 		return -1;
 
 	/* accept more requests if possible */
@@ -1025,13 +1022,15 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 	connection_disconnect(&conn->conn);
 }
 
-void http_server_connection_unref(struct http_server_connection **_conn)
+bool http_server_connection_unref(struct http_server_connection **_conn)
 {
 	struct http_server_connection *conn = *_conn;
 
 	i_assert(conn->refcount > 0);
+
+	*_conn = NULL;
 	if (--conn->refcount > 0)
-		return;
+		return TRUE;
 
 	http_server_connection_disconnect(conn, NULL);
 
@@ -1049,7 +1048,17 @@ void http_server_connection_unref(struct http_server_connection **_conn)
 
 	i_free(conn->disconnect_reason);
 	i_free(conn);
-	*_conn = NULL;
+	return FALSE;
+}
+
+static bool
+http_server_connection_unref_is_closed(struct http_server_connection *conn)
+{
+	bool closed = conn->closed;
+
+	if (!http_server_connection_unref(&conn))
+		closed = TRUE;
+	return closed;
 }
 
 void http_server_connection_close(struct http_server_connection **_conn,

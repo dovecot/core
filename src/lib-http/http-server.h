@@ -74,7 +74,8 @@ http_server_connection_create(struct http_server *server,
 	int fd_in, int fd_out, bool ssl,
 	const struct http_server_callbacks *callbacks, void *context);
 void http_server_connection_ref(struct http_server_connection *conn);
-void http_server_connection_unref(struct http_server_connection **_conn);
+/* Returns FALSE if unrefing destroyed the connection entirely */
+bool http_server_connection_unref(struct http_server_connection **_conn);
 void http_server_connection_close(struct http_server_connection **_conn,
 	const char *reason);
 const struct http_server_stats *
