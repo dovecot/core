@@ -186,9 +186,13 @@ void http_server_switch_ioloop(struct http_server *server);
 
 /* submits response and blocks until provided payload is sent. Multiple calls
    are allowed; payload transmission is finished with
-   http_server_response_finish_payload(). */
+   http_server_response_finish_payload(). If the sending fails, returns -1
+   and sets resp=NULL to indicate that the response was freed, otherwise
+   returns 0 and resp is unchanged. */
 int http_server_response_send_payload(struct http_server_response **resp,
 	const unsigned char *data, size_t size);
+/* Finish sending the payload. Always frees resp and sets it to NULL.
+   Returns 0 on success, -1 on error. */
 int http_server_response_finish_payload(struct http_server_response **resp);
 /* abort response payload transmission prematurely. this closes the associated
    connection */

@@ -420,6 +420,7 @@ int http_server_response_send_payload(struct http_server_response **_resp,
 {
 	struct http_server_response *resp = *_resp;
 	struct const_iovec iov;
+	int ret;
 
 	i_assert(resp->blocking_output == NULL);
 
@@ -430,16 +431,27 @@ int http_server_response_send_payload(struct http_server_response **_resp,
 	memset(&iov, 0, sizeof(iov));
 	iov.iov_base = data;
 	iov.iov_len = size;
-	return http_server_response_output_payload(_resp, &iov, 1);
+	ret = http_server_response_output_payload(&resp, &iov, 1);
+	if (ret < 0)
+		*_resp = NULL;
+	else {
+		i_assert(ret == 0);
+		i_assert(resp != NULL);
+	}
+	return ret;
 }
 
 int http_server_response_finish_payload(struct http_server_response **_resp)
 {
 	struct http_server_response *resp = *_resp;
+	int ret;
 
 	i_assert(resp->blocking_output == NULL);
 
-	return http_server_response_output_payload(_resp, NULL, 0);
+	*_resp = NULL;
+	ret = http_server_response_output_payload(&resp, NULL, 0);
+	i_assert(ret != 0);
+	return ret < 0 ? -1 : 0;
 }
 
 void http_server_response_abort_payload(struct http_server_response **_resp)
