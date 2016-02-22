@@ -236,9 +236,13 @@ void http_client_request_set_destroy_callback(struct http_client_request *req,
 
 /* submits request and blocks until provided payload is sent. Multiple calls
    are allowed; payload transmission is ended with
-   http_client_request_finish_payload(). */
+   http_client_request_finish_payload(). If the sending fails, returns -1
+   and sets req=NULL to indicate that the request was freed, otherwise
+   returns 0 and req is unchanged. */
 int http_client_request_send_payload(struct http_client_request **req,
 	const unsigned char *data, size_t size);
+/* Finish sending the payload. Always frees req and sets it to NULL.
+   Returns 0 on success, -1 on error. */
 int http_client_request_finish_payload(struct http_client_request **req);
 
 void http_client_request_start_tunnel(struct http_client_request *req,

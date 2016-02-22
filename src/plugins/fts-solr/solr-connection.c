@@ -532,7 +532,7 @@ int solr_connection_post_end(struct solr_connection_post **_post)
 	*_post = NULL;
 
 	if (!post->failed) {
-		if (http_client_request_finish_payload(&post->http_req) <= 0 ||
+		if (http_client_request_finish_payload(&post->http_req) < 0 ||
 			conn->request_status < 0) {
 			ret = -1;
 		}

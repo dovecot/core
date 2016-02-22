@@ -711,14 +711,30 @@ http_client_request_continue_payload(struct http_client_request **_req,
 int http_client_request_send_payload(struct http_client_request **_req,
 	const unsigned char *data, size_t size)
 {
+	struct http_client_request *req = *_req;
+	int ret;
+
 	i_assert(data != NULL);
 
-	return http_client_request_continue_payload(_req, data, size);
+	ret = http_client_request_continue_payload(&req, data, size);
+	if (ret < 0)
+		*_req = NULL;
+	else {
+		i_assert(ret == 0);
+		i_assert(req != NULL);
+	}
+	return ret;
 }
 
 int http_client_request_finish_payload(struct http_client_request **_req)
 {
-	return http_client_request_continue_payload(_req, NULL, 0);
+	struct http_client_request *req = *_req;
+	int ret;
+
+	*_req = NULL;
+	ret = http_client_request_continue_payload(&req, NULL, 0);
+	i_assert(ret != 0);
+	return ret < 0 ? -1 : 0;
 }
 
 static void http_client_request_payload_input(struct http_client_request *req)
