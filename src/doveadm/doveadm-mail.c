@@ -925,6 +925,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			wildcard_user = "*";
 			ctx->users_list_input = argv[i].value.v_istream;
+			i_stream_ref(ctx->users_list_input);
 		} else if (ctx->v.parse_arg != NULL && argv[i].short_opt != '\0') {
 			optarg = (char*)argv[i].value.v_string;
 			ctx->v.parse_arg(ctx, argv[i].short_opt);
