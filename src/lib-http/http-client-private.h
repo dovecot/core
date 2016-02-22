@@ -304,7 +304,8 @@ struct connection_list *http_client_connection_list_init(void);
 struct http_client_connection *
 	http_client_connection_create(struct http_client_peer *peer);
 void http_client_connection_ref(struct http_client_connection *conn);
-void http_client_connection_unref(struct http_client_connection **_conn);
+/* Returns FALSE if unrefing destroyed the connection entirely */
+bool http_client_connection_unref(struct http_client_connection **_conn);
 void http_client_connection_close(struct http_client_connection **_conn);
 int http_client_connection_output(struct http_client_connection *conn);
 void http_client_connection_start_request_timeout(

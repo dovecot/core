@@ -538,9 +538,10 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 }
 
 static bool
-http_client_connection_return_response(struct http_client_connection *conn,
-	struct http_client_request *req, struct http_response *response)
+http_client_connection_return_response(struct http_client_request *req,
+	struct http_response *response)
 {
+	struct http_client_connection *conn = req->conn;
 	struct istream *payload;
 	bool retrying, ret;
 
@@ -571,9 +572,7 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	conn->in_req_callback = TRUE;
 	http_client_connection_ref(conn);
 	retrying = !http_client_request_callback(req, response);
-	http_client_connection_unref(&conn);
-	if (conn == NULL) {
-		req->conn = NULL;
+	if (!http_client_connection_unref(&req->conn)) {
 		/* the callback managed to get this connection destroyed */
 		if (!retrying)
 			http_client_request_finish(&req);
@@ -863,7 +862,8 @@ static void http_client_connection_input(struct connection *_conn)
 
 			if (!handled) {
 				/* response for application */
-				if (!http_client_connection_return_response(conn, req, &response))
+				i_assert(req->conn == conn);
+				if (!http_client_connection_return_response(req, &response))
 					return;
 			}
 		}
@@ -1055,7 +1055,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 			response.status = 200;
 			response.reason = "OK";
 
-			(void)http_client_connection_return_response(conn, req, &response);
+			(void)http_client_connection_return_response(req, &response);
 			http_client_request_unref(&req);
 			return;
 		} 
@@ -1395,7 +1395,7 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 		timeout_remove(&conn->to_response);
 }
 
-void http_client_connection_unref(struct http_client_connection **_conn)
+bool http_client_connection_unref(struct http_client_connection **_conn)
 {
 	struct http_client_connection *conn = *_conn;
 	struct http_client_connection *const *conn_idx;
@@ -1404,8 +1404,10 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 
 	i_assert(conn->refcount > 0);
 
+	*_conn = NULL;
+
 	if (--conn->refcount > 0)
-		return;
+		return TRUE;
 
 	http_client_connection_debug(conn, "Connection destroy");
 
@@ -1431,7 +1433,7 @@ void http_client_connection_unref(struct http_client_connection **_conn)
 	if (conn->connect_succeeded)
 		http_client_peer_connection_lost(peer);
 	i_free(conn);
-	*_conn = NULL;
+	return FALSE;
 }
 
 void http_client_connection_close(struct http_client_connection **_conn)
