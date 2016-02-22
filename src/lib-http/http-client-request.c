@@ -156,15 +156,17 @@ void http_client_request_ref(struct http_client_request *req)
 	req->refcount++;
 }
 
-void http_client_request_unref(struct http_client_request **_req)
+bool http_client_request_unref(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
 	struct http_client *client = req->client;
 
 	i_assert(req->refcount > 0);
 
+	*_req = NULL;
+
 	if (--req->refcount > 0)
-		return;
+		return TRUE;
 
 	http_client_request_debug(req, "Free (requests left=%d)",
 		client->requests_count);
@@ -198,13 +200,15 @@ void http_client_request_unref(struct http_client_request **_req)
 	if (req->headers != NULL)
 		str_free(&req->headers);
 	pool_unref(&req->pool);
-	*_req = NULL;
+	return FALSE;
 }
 
 void http_client_request_destroy(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
 	struct http_client *client = req->client;
+
+	*_req = NULL;
 
 	http_client_request_debug(req, "Destroy (requests left=%d)",
 		client->requests_count);
@@ -218,8 +222,7 @@ void http_client_request_destroy(struct http_client_request **_req)
 		req->destroy_callback = NULL;
 		callback(req->destroy_context);
 	}
-
-	http_client_request_unref(_req);
+	http_client_request_unref(&req);
 }
 
 void http_client_request_set_port(struct http_client_request *req,
@@ -695,8 +698,7 @@ http_client_request_continue_payload(struct http_client_request **_req,
 
 	/* callback may have messed with our pointer,
 	   so unref using local variable */	
-	http_client_request_unref(&req);
-	if (req == NULL)
+	if (!http_client_request_unref(&req))
 		*_req = NULL;
 
 	if (conn != NULL)
@@ -1022,12 +1024,14 @@ void http_client_request_error_delayed(struct http_client_request **_req)
 
 	i_assert(req->state == HTTP_REQUEST_STATE_ABORTED);
 
+	*_req = NULL;
+
 	i_assert(req->delayed_error != NULL && req->delayed_error_status != 0);
 	http_client_request_send_error(req, req->delayed_error_status,
 				       req->delayed_error);
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
-	http_client_request_destroy(_req);
+	http_client_request_destroy(&req);
 }
 
 void http_client_request_error(struct http_client_request *req,
@@ -1060,6 +1064,8 @@ void http_client_request_abort(struct http_client_request **_req)
 	struct http_client_request *req = *_req;
 	bool sending = (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
 
+	*_req = NULL;
+
 	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
 		return;
 
@@ -1074,16 +1080,15 @@ void http_client_request_abort(struct http_client_request **_req)
 		http_client_queue_drop_request(req->queue, req);
 	if (req->payload_wait && req->client->ioloop != NULL)
 		io_loop_stop(req->client->ioloop);
-	http_client_request_destroy(_req);
+	http_client_request_destroy(&req);
 }
 
-void http_client_request_finish(struct http_client_request **_req)
+void http_client_request_finish(struct http_client_request *req)
 {
-	struct http_client_request *req = *_req;
-
 	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
 		return;
 
+	i_assert(req->refcount > 1);
 	http_client_request_debug(req, "Finished");
 
 	req->callback = NULL;
@@ -1093,7 +1098,7 @@ void http_client_request_finish(struct http_client_request **_req)
 		http_client_queue_drop_request(req->queue, req);
 	if (req->payload_wait && req->client->ioloop != NULL)
 		io_loop_stop(req->client->ioloop);
-	http_client_request_unref(_req);
+	http_client_request_unref(&req);
 }
 
 void http_client_request_redirect(struct http_client_request *req,

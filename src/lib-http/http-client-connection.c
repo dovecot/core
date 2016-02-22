@@ -518,7 +518,7 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	conn->incoming_payload = NULL;
 	conn->pending_request = NULL;
 	http_client_connection_ref(conn);
-	http_client_request_finish(&req);
+	http_client_request_finish(req);
 
 	/* room for new requests */
 	if (http_client_connection_is_ready(conn))
@@ -532,7 +532,6 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	conn->to_input =
 		timeout_add_short(0, http_client_payload_destroyed_timeout, conn);
 
-	i_assert(req != NULL);
 	http_client_request_unref(&req);
 	http_client_connection_unref(&conn);
 }
@@ -575,7 +574,7 @@ http_client_connection_return_response(struct http_client_request *req,
 	if (!http_client_connection_unref(&req->conn)) {
 		/* the callback managed to get this connection destroyed */
 		if (!retrying)
-			http_client_request_finish(&req);
+			http_client_request_finish(req);
 		http_client_request_unref(&req);
 		return FALSE;
 	}
@@ -611,7 +610,7 @@ http_client_connection_return_response(struct http_client_request *req,
 		}
 	} else {
 		req->conn = NULL;
-		http_client_request_finish(&req);
+		http_client_request_finish(req);
 		http_client_request_unref(&req);
 	}
 
@@ -632,7 +631,7 @@ static void http_client_connection_input(struct connection *_conn)
 		(struct http_client_connection *)_conn;
 	struct http_response response;
 	struct http_client_request *const *reqs;
-	struct http_client_request *req = NULL;
+	struct http_client_request *req = NULL, *req_ref;
 	enum http_response_payload_type payload_type;
 	unsigned int count;
 	int finished = 0, ret;
@@ -799,8 +798,11 @@ static void http_client_connection_input(struct connection *_conn)
 		/* remove request from queue */
 		array_delete(&conn->request_wait_list, 0, 1);
 		aborted = (req->state == HTTP_REQUEST_STATE_ABORTED);
-		i_assert(req->refcount > 1 || aborted);
-		http_client_request_unref(&req);
+		req_ref = req;
+		if (!http_client_request_unref(&req_ref)) {
+			i_assert(aborted);
+			req = NULL;
+		}
 		
 		conn->close_indicated = response.connection_close;
 

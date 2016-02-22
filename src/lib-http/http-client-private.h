@@ -271,7 +271,8 @@ struct http_client {
 int http_client_init_ssl_ctx(struct http_client *client, const char **error_r);
 
 void http_client_request_ref(struct http_client_request *req);
-void http_client_request_unref(struct http_client_request **_req);
+/* Returns FALSE if unrefing destroyed the request entirely */
+bool http_client_request_unref(struct http_client_request **_req);
 void http_client_request_destroy(struct http_client_request **_req);
 
 int http_client_request_delay_from_response(struct http_client_request *req,
@@ -297,7 +298,7 @@ void http_client_request_error(struct http_client_request *req,
 	unsigned int status, const char *error);
 void http_client_request_redirect(struct http_client_request *req,
 	unsigned int status, const char *location);
-void http_client_request_finish(struct http_client_request **_req);
+void http_client_request_finish(struct http_client_request *req);
 
 struct connection_list *http_client_connection_list_init(void);
 
