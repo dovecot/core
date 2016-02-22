@@ -66,6 +66,8 @@ bool http_server_request_unref(struct http_server_request **_req)
 	struct http_server_connection *conn = req->conn;
 
 	i_assert(req->refcount > 0);
+
+	*_req = NULL;
 	if (--req->refcount > 0)
 		return TRUE;
 
@@ -84,7 +86,6 @@ bool http_server_request_unref(struct http_server_request **_req)
 	if (req->response != NULL)
 		http_server_response_free(req->response);
 	pool_unref(&req->pool);
-	*_req = NULL;
 	return FALSE;
 }
 
@@ -449,8 +450,7 @@ http_server_istream_read(struct istream_private *stream)
 
 		ret = hsristream->read_status;
 
-		http_server_request_unref(&req);
-		if (req == NULL)
+		if (!http_server_request_unref(&req))
 			hsristream->req = NULL;
 		http_server_connection_unref(&conn);
 	}

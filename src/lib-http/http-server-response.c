@@ -405,8 +405,7 @@ http_server_response_output_payload(
 
 	/* callback may have messed with our pointer,
 	   so unref using local variable */
-	http_server_request_unref(&req);
-	if (req == NULL)
+	if (!http_server_request_unref(&req))
 		*_resp = NULL;
 
 	http_server_connection_unref(&conn);
