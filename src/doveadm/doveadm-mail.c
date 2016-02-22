@@ -902,9 +902,9 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 		if (!argv[i].value_set)
 			continue;
 
-		if (strcmp(argv[i].name, "all_users") == 0) {
+		if (strcmp(argv[i].name, "all-users") == 0) {
 			ctx->iterate_all_users = argv[i].value.v_bool;
-		} else if (strcmp(argv[i].name, "socket_path") == 0) {
+		} else if (strcmp(argv[i].name, "socket-path") == 0) {
 			doveadm_settings->doveadm_socket_path = argv[i].value.v_string;
 			if (doveadm_settings->doveadm_worker_count == 0)
 				doveadm_settings->doveadm_worker_count = 1;
@@ -916,7 +916,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 				wildcard_user = ctx->cur_username;
 				ctx->cur_username = NULL;
 			}
-		} else if (strcmp(argv[i].name, "user_list") == 0) {
+		} else if (strcmp(argv[i].name, "user-file") == 0) {
 			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			wildcard_user = "*";
 			ctx->users_list_input = argv[i].value.v_istream;
