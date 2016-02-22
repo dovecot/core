@@ -175,7 +175,6 @@ extern struct doveadm_mail_cmd cmd_flags_add;
 extern struct doveadm_mail_cmd cmd_flags_remove;
 extern struct doveadm_mail_cmd cmd_flags_replace;
 extern struct doveadm_mail_cmd cmd_import;
-extern struct doveadm_mail_cmd cmd_index;
 extern struct doveadm_mail_cmd cmd_altmove;
 extern struct doveadm_mail_cmd cmd_copy;
 extern struct doveadm_mail_cmd cmd_deduplicate;
@@ -195,6 +194,7 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_subscribe_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_unsubscribe_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_fetch_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_save_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_index_ver2;
 
 #define DOVEADM_CMD_MAIL_COMMON \
 DOVEADM_CMD_PARAM('A', "all-users", CMD_PARAM_BOOL, 0) \
