@@ -74,9 +74,9 @@ void http_request_parser_deinit(struct http_request_parser **_parser)
 {
 	struct http_request_parser *parser = *_parser;
 
-	http_message_parser_deinit(&parser->parser);
-
 	*_parser = NULL;
+
+	http_message_parser_deinit(&parser->parser);
 	i_free(parser);
 }
 

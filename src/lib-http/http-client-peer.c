@@ -503,6 +503,8 @@ void http_client_peer_free(struct http_client_peer **_peer)
 {
 	struct http_client_peer *peer = *_peer;
 
+	*_peer = NULL;
+
 	if (peer->destroyed)
 		return;
 	peer->destroyed = TRUE;
@@ -524,7 +526,6 @@ void http_client_peer_free(struct http_client_peer **_peer)
 
 	i_free(peer->addr_name);
 	i_free(peer);
-	*_peer = NULL;
 }
 
 struct http_client_peer *

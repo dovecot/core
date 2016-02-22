@@ -166,6 +166,8 @@ void http_client_deinit(struct http_client **_client)
 	struct http_client_host *host;
 	struct http_client_peer *peer;
 
+	*_client = NULL;
+
 	/* drop delayed failing requests */
 	while (array_count(&client->delayed_failing_requests) > 0) {
 		req_idx = array_idx(&client->delayed_failing_requests, 0);
@@ -198,7 +200,6 @@ void http_client_deinit(struct http_client **_client)
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_deinit(&client->ssl_ctx);
 	pool_unref(&client->pool);
-	*_client = NULL;
 }
 
 void http_client_switch_ioloop(struct http_client *client)

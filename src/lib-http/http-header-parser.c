@@ -69,11 +69,12 @@ void http_header_parser_deinit(struct http_header_parser **_parser)
 {
 	struct http_header_parser *parser = *_parser;
 
+	*_parser = NULL;
+
 	//i_stream_skip(ctx->input, ctx->skip);
 	buffer_free(&parser->value_buf);
 	str_free(&parser->name);
 	i_free(parser);
-	*_parser = NULL;
 }
 
 void http_header_parser_reset(struct http_header_parser *parser)

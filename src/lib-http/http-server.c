@@ -45,12 +45,13 @@ void http_server_deinit(struct http_server **_server)
 {
 	struct http_server *server = *_server;
 
+	*_server = NULL;
+
 	connection_list_deinit(&server->conn_list);
 
 	if (server->ssl_ctx != NULL)
 		ssl_iostream_context_deinit(&server->ssl_ctx);
 	pool_unref(&server->pool);
-	*_server = NULL;
 }
 
 void http_server_switch_ioloop(struct http_server *server)

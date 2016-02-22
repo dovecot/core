@@ -459,10 +459,10 @@ void http_server_response_abort_payload(struct http_server_response **_resp)
 	struct http_server_response *resp = *_resp;
 	struct http_server_request *req = resp->request;
 
+	*_resp = NULL;
+
 	http_server_request_abort(&req,
 		"Aborted sending response payload");
-
-	*_resp = NULL;
 }
 
 static void
