@@ -596,12 +596,16 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 	/* service deinit unloads mail plugins, so do it late */
 	mail_storage_service_deinit(&ctx->storage_service);
 
+	if (ctx->exit_code != 0)
+		doveadm_exit_code = ctx->exit_code;
+}
+
+static void doveadm_mail_cmd_free(struct doveadm_mail_cmd_context *ctx)
+{
 	if (ctx->users_list_input != NULL)
 		i_stream_unref(&ctx->users_list_input);
 	if (ctx->cmd_input != NULL)
 		i_stream_unref(&ctx->cmd_input);
-	if (ctx->exit_code != 0)
-		doveadm_exit_code = ctx->exit_code;
 	pool_unref(&ctx->pool);
 }
 
@@ -662,6 +666,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	}
 	ctx->args = (const void *)argv;
 	doveadm_mail_cmd_exec(ctx, wildcard_user);
+	doveadm_mail_cmd_free(ctx);
 }
 
 static bool
@@ -939,6 +944,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 		} else {
 			doveadm_exit_code = EX_USAGE;
 			i_error("invalid parameter: %s", argv[i].name);
+			doveadm_mail_cmd_free(ctx);
 			return -1;
 		}
 	}
@@ -948,5 +954,6 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 	ctx->full_args = ctx->args;
 
 	doveadm_mail_cmd_exec(ctx, wildcard_user);
+	doveadm_mail_cmd_free(ctx);
 	return 0;
 }
