@@ -110,6 +110,7 @@ doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
 static void ATTR_NORETURN
 usage_to(FILE *out, const char *prefix)
 {
+	const struct doveadm_cmd_ver2 *cmd2;
 	const struct doveadm_cmd *cmd;
 	string_t *str = t_str_new(1024);
 
@@ -120,6 +121,8 @@ usage_to(FILE *out, const char *prefix)
 
 	array_foreach(&doveadm_cmds, cmd)
 		str_printfa(str, "%s\t%s\n", cmd->name, cmd->short_usage);
+	array_foreach(&doveadm_cmds_ver2, cmd2)
+		str_printfa(str, "%s\t%s\n", cmd2->name, cmd2->usage);
 
 	doveadm_mail_usage(str);
 	doveadm_usage_compress_lines(out, str_c(str), prefix);
@@ -219,12 +222,18 @@ static bool doveadm_try_run(const char *cmd_name, int argc, char *argv[])
 
 static bool doveadm_has_subcommands(const char *cmd_name)
 {
+	const struct doveadm_cmd_ver2 *cmd2;
 	const struct doveadm_cmd *cmd;
 	unsigned int len = strlen(cmd_name);
 
 	array_foreach(&doveadm_cmds, cmd) {
 		if (strncmp(cmd->name, cmd_name, len) == 0 &&
 		    cmd->name[len] == ' ')
+			return TRUE;
+	}
+	array_foreach(&doveadm_cmds_ver2, cmd2) {
+		if (strncmp(cmd2->name, cmd_name, len) == 0 &&
+		    cmd2->name[len] == ' ')
 			return TRUE;
 	}
 	return doveadm_mail_has_subcommands(cmd_name);

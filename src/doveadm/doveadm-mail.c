@@ -782,7 +782,12 @@ void doveadm_mail_help(const struct doveadm_mail_cmd *cmd)
 
 void doveadm_mail_try_help_name(const char *cmd_name)
 {
+	const struct doveadm_cmd_ver2 *cmd2;
 	const struct doveadm_mail_cmd *cmd;
+
+	cmd2 = doveadm_cmd_find_ver2(cmd_name);
+	if (cmd2 != NULL)
+		help_ver2(cmd2);
 
 	cmd = doveadm_mail_cmd_find(cmd_name);
 	if (cmd != NULL)
