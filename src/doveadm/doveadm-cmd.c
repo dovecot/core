@@ -330,11 +330,7 @@ static void doveadm_fill_param(struct doveadm_cmd_param *param,
 		}
 		break;
 	case CMD_PARAM_STR:
-		if (value != NULL) {
-			param->value.v_string = p_strdup(pool, value);
-		} else {
-			param->value.v_string = NULL;
-		}
+		param->value.v_string = p_strdup(pool, value);
 		break;
 	case CMD_PARAM_ARRAY:
 		if (!array_is_created(&param->value.v_array))

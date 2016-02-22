@@ -138,7 +138,6 @@ doveadm_http_server_request_destroy(void *context)
 	http_server_request_unref(&(conn->http_server_request));
 	http_server_switch_ioloop(doveadm_http_server);
         http_server_connection_unref(&(conn->http_client));
-	conn->http_client = NULL;
 }
 
 static void doveadm_http_server_json_error(void *context, const char *error)
@@ -330,7 +329,6 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	}
 
 	is = iostream_temp_finish(&doveadm_print_ostream, 4096);
-	doveadm_print_ostream = NULL;
 
 	if (conn->first_row == TRUE) {
 		conn->first_row = FALSE;
@@ -374,9 +372,7 @@ doveadm_http_server_read_request(struct client_connection_http *conn)
 			}
 			if (type != JSON_TYPE_ARRAY) break;
 			conn->method_err = 0;
-			if (conn->method_id != NULL)
-				p_free(conn->client.pool, conn->method_id);
-			conn->method_id = NULL;
+			p_free_and_null(conn->client.pool, conn->method_id);
 			conn->cmd = NULL;
 			array_clear(&conn->pargv);
 			conn->json_state = JSON_STATE_COMMAND_NAME;
@@ -464,9 +460,7 @@ doveadm_http_server_read_request(struct client_connection_http *conn)
 
 	if (!conn->client.input->eof && rc == 0)
 		return;
-
 	io_remove(&conn->client.io);
-	conn->client.io = NULL;
 
 	if (rc == -2 || (rc == 1 && conn->json_state != JSON_STATE_DONE)) {
 		/* this will happen if the parser above runs into unexpected element, but JSON is OK */
@@ -491,11 +485,7 @@ doveadm_http_server_read_request(struct client_connection_http *conn)
 		i_info("doveadm(%s): %s", i_stream_get_name(conn->client.input), error);
 		return;
 	}
-
-	conn->json_parser = NULL;
-
-	if (conn->client.output != NULL)
-		o_stream_nsend_str(conn->client.output,"]");
+	o_stream_nsend_str(conn->client.output,"]");
 
 	doveadm_http_server_process_request(conn);
 }
