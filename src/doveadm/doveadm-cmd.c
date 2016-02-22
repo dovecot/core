@@ -48,6 +48,17 @@ void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd)
 	array_append(&doveadm_cmds_ver2, cmd, 1);
 }
 
+const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name)
+{
+	const struct doveadm_cmd_ver2 *cmd;
+
+	array_foreach(&doveadm_cmds_ver2, cmd) {
+		if (strcmp(cmd_name, cmd->name)==0)
+			return cmd;
+	}
+	return NULL;
+}
+
 const struct doveadm_cmd_ver2 *
 doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc, const char *argv[])
 {
