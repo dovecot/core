@@ -559,7 +559,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_unsubscribe_alloc(void)
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_list_ver2 = {
 	.name = "mailbox list",
 	.mail_cmd = cmd_mailbox_list_alloc,
-	.usage = "[-7|-8] [-s] [<mailbox mask> [...]]",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-7|-8] [-s] [<mailbox mask> [...]]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('7', "mutf7", CMD_PARAM_BOOL, 0)
@@ -572,7 +572,7 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_create_ver2 = {
 	.name = "mailbox create",
 	.mail_cmd = cmd_mailbox_create_alloc,
-	.usage = "[-s] [-g <guid>] <mailbox> [...]",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] [-g <guid>] <mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
@@ -584,7 +584,7 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_delete_ver2 = {
 	.name = "mailbox delete",
         .mail_cmd = cmd_mailbox_delete_alloc,
-        .usage = "[-s] <mailbox> [...]",
+        .usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] <mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
@@ -595,7 +595,7 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_rename_ver2 = {
 	.name = "mailbox rename",
 	.mail_cmd = cmd_mailbox_rename_alloc,
-	.usage = "[-s] <old name> <new name>",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] <old name> <new name>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
@@ -607,7 +607,7 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_subscribe_ver2 = {
 	.name = "mailbox subscribe",
 	.mail_cmd = cmd_mailbox_subscribe_alloc,
-	.usage = "<mailbox> [...]",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"<mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
@@ -617,7 +617,7 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_unsubscribe_ver2 = {
 	.name = "mailbox unsubscribe",
 	.mail_cmd = cmd_mailbox_unsubscribe_alloc,
-	.usage = "<mailbox> [...]",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"<mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)

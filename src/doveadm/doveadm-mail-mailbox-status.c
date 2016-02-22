@@ -250,7 +250,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_status_alloc(void)
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_status_ver2 = {
         .name = "mailbox status",
         .mail_cmd = cmd_mailbox_status_alloc,
-        .usage = "<mailbox> [...]",
+        .usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"<mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('t', "total-sum", CMD_PARAM_BOOL, 0)

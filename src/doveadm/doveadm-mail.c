@@ -766,17 +766,16 @@ void doveadm_mail_usage(string_t *out)
 	array_foreach(&doveadm_mail_cmds, cmd) {
 		if (cmd->usage_args == &doveadm_mail_cmd_hide)
 			continue;
-		str_printfa(out, "%s\t[-u <user>|-A] [-S <socket_path>]",
-			    cmd->name);
+		str_printfa(out, "%s\t"DOVEADM_CMD_MAIL_USAGE_PREFIX, cmd->name);
 		if (cmd->usage_args != NULL)
-			str_printfa(out, " %s", cmd->usage_args);
+			str_append(out, cmd->usage_args);
 		str_append_c(out, '\n');
 	}
 }
 
 void doveadm_mail_help(const struct doveadm_mail_cmd *cmd)
 {
-	fprintf(stderr, "doveadm %s [-u <user>|-A] [-S <socket_path>] %s\n",
+	fprintf(stderr, "doveadm %s "DOVEADM_CMD_MAIL_USAGE_PREFIX" %s\n",
 		cmd->name, cmd->usage_args == NULL ? "" : cmd->usage_args);
 	exit(EX_USAGE);
 }

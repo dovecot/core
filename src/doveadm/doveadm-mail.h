@@ -202,4 +202,7 @@ DOVEADM_CMD_PARAM('S', "socket-path", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('F', "user-file", CMD_PARAM_ISTREAM, 0)
 
+#define DOVEADM_CMD_MAIL_USAGE_PREFIX \
+	"[-u <user>|-A] [-S <socket_path>] "
+
 #endif

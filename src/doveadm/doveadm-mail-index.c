@@ -276,7 +276,7 @@ static struct doveadm_mail_cmd_context *cmd_index_alloc(void)
 
 struct doveadm_cmd_ver2 doveadm_cmd_index_ver2 = {
 	.name = "index",
-	.usage = "[-q] [-n <max recent>] <mailbox mask>",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-q] [-n <max recent>] <mailbox mask>",
 	.mail_cmd = cmd_index_alloc,
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON

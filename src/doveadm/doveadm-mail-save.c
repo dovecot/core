@@ -124,7 +124,7 @@ struct doveadm_mail_cmd cmd_save = {
 
 struct doveadm_cmd_ver2 doveadm_cmd_save_ver2 = {
 	.name = "save",
-	.usage = "[-m mailbox]",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-m mailbox]",
 	.mail_cmd = cmd_save_alloc,
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
