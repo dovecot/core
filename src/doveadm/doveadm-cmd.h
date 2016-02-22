@@ -24,6 +24,11 @@ typedef enum {
 	CMD_PARAM_FLAG_DO_NOT_EXPOSE	= 0x2,
 } doveadm_cmd_param_flag_t;
 
+typedef enum {
+	CMD_FLAG_NONE			= 0x0,
+	CMD_FLAG_HIDDEN			= 0x1
+} doveadm_cmd_flag_t;
+
 struct doveadm_cmd_param {
 	char short_opt;
 	const char *name;
@@ -55,6 +60,7 @@ struct doveadm_cmd_ver2 {
 	struct doveadm_mail_cmd_context *(*mail_cmd)(void);
 	const char *name;
 	const char *usage;
+	doveadm_cmd_flag_t flags;
 	const struct doveadm_cmd_param *parameters;
 };
 
