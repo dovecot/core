@@ -479,8 +479,8 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log,
 		/* try again */
 	}
 	if (lock_secs > MAIL_TRANSACTION_LOG_LOCK_WARN_SECS) {
-		i_warning("Locking transaction log file %s took %ld seconds",
-			  log->head->filepath, (long)lock_secs);
+		i_warning("Locking transaction log file %s took %ld seconds (%s)",
+			  log->head->filepath, (long)lock_secs, lock_reason);
 	}
 
 	i_assert(ret < 0 || log->head != NULL);
