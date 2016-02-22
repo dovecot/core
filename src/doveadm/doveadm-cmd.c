@@ -170,6 +170,7 @@ void doveadm_cmds_init(void)
 void doveadm_cmds_deinit(void)
 {
 	array_free(&doveadm_cmds);
+	array_free(&doveadm_cmds_ver2);
 }
 
 static const struct doveadm_cmd_param*
