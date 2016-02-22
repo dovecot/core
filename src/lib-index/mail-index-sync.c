@@ -328,7 +328,7 @@ mail_index_sync_begin_init(struct mail_index *index,
 	/* if we require changes, don't lock transaction log yet. first check
 	   if there's anything to sync. */
 	if ((flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) == 0) {
-		if (mail_transaction_log_sync_lock(index->log,
+		if (mail_transaction_log_sync_lock(index->log, "syncing",
 						   &seq, &offset) < 0)
 			return -1;
 		locked = TRUE;

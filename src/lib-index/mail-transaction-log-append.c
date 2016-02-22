@@ -221,7 +221,7 @@ int mail_transaction_log_append_begin(struct mail_index *index,
 	struct mail_transaction_boundary boundary;
 
 	if (!index->log_sync_locked) {
-		if (mail_transaction_log_lock_head(index->log) < 0)
+		if (mail_transaction_log_lock_head(index->log, "appending") < 0)
 			return -1;
 	}
 	ctx = i_new(struct mail_transaction_log_append_ctx, 1);

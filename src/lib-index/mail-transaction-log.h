@@ -278,6 +278,7 @@ int mail_transaction_log_append_commit(struct mail_transaction_log_append_ctx **
 /* Lock transaction log for index synchronization. Log cannot be read or
    written to while it's locked. Returns end offset. */
 int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
+				   const char *lock_reason,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r);
 void mail_transaction_log_sync_unlock(struct mail_transaction_log *log,
 				      const char *lock_reason);

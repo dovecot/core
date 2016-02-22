@@ -16,7 +16,8 @@ void mail_index_file_set_syscall_error(struct mail_index *index ATTR_UNUSED,
 {
 }
 
-int mail_transaction_log_lock_head(struct mail_transaction_log *log ATTR_UNUSED)
+int mail_transaction_log_lock_head(struct mail_transaction_log *log ATTR_UNUSED,
+				   const char *lock_reason ATTR_UNUSED)
 {
 	return log_lock_failure ? -1 : 0;
 }
