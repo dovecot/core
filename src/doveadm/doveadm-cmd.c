@@ -243,6 +243,18 @@ bool doveadm_cmd_param_istream(int argc, struct doveadm_cmd_param* params, const
 	return FALSE;
 }
 
+void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv)
+{
+	struct doveadm_cmd_param *param;
+
+	array_foreach_modifiable(pargv, param) {
+		if (param->type == CMD_PARAM_ISTREAM &&
+		    param->value.v_istream != NULL)
+			i_stream_destroy(&(param->value.v_istream));
+	}
+	array_clear(pargv);
+}
+
 static void
 doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd_param* params,
 	ARRAY_TYPE(const_string) *argv)
@@ -366,7 +378,7 @@ bool doveadm_cmd_try_run_ver2(const char *cmd_name, int argc, const char *argv[]
 int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd, int argc, const char *argv[])
 {
 	struct doveadm_cmd_param *param;
-	ARRAY(struct doveadm_cmd_param) pargv;
+	ARRAY_TYPE(doveadm_cmd_param_arr_t) pargv;
 	ARRAY_TYPE(getopt_option_array) opts;
 	const char *cptr;
 	unsigned int pargc;
@@ -395,6 +407,7 @@ int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd, int argc, const cha
 			break;
 		case '?':
 		case ':':
+			doveadm_cmd_params_clean(&pargv);
 			return -1;
 		default:
 			// hunt the option
@@ -423,6 +436,7 @@ int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd, int argc, const cha
 		}
 		if (!found) {
 			i_error("Extraneous arguments found");
+			doveadm_cmd_params_clean(&pargv);
 			return -1;
 		}
 	}
@@ -432,10 +446,6 @@ int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd, int argc, const cha
 	// FIXME: Unsure what do to with return value
 	cmd->cmd(cmd, pargc, param);
 
-	// unref istreams
-	array_foreach_modifiable(&pargv, param) {
-		if (param->type == CMD_PARAM_ISTREAM && param->value.v_istream != NULL)
-			i_stream_unref(&param->value.v_istream);
-	}
+	doveadm_cmd_params_clean(&pargv);
 	return 0;
 }

@@ -374,7 +374,7 @@ doveadm_http_server_read_request(struct client_connection_http *conn)
 			conn->method_err = 0;
 			p_free_and_null(conn->client.pool, conn->method_id);
 			conn->cmd = NULL;
-			array_clear(&conn->pargv);
+			doveadm_cmd_params_clean(&conn->pargv);
 			conn->json_state = JSON_STATE_COMMAND_NAME;
 		} else if (conn->json_state == JSON_STATE_COMMAND_NAME) {
 			if (type != JSON_TYPE_STRING) break;
@@ -461,6 +461,8 @@ doveadm_http_server_read_request(struct client_connection_http *conn)
 	if (!conn->client.input->eof && rc == 0)
 		return;
 	io_remove(&conn->client.io);
+
+	doveadm_cmd_params_clean(&conn->pargv);
 
 	if (rc == -2 || (rc == 1 && conn->json_state != JSON_STATE_DONE)) {
 		/* this will happen if the parser above runs into unexpected element, but JSON is OK */
