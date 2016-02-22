@@ -22,6 +22,7 @@ struct mdbox_sync_context {
 	enum mdbox_sync_flags flags;
 
 	ARRAY_TYPE(seq_range) expunged_seqs;
+	unsigned int expunged_count;
 };
 
 int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,

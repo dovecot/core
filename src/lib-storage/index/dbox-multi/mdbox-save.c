@@ -290,7 +290,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	}
 
 	/* make sure the map gets locked */
-	if (mdbox_map_atomic_lock(ctx->atomic) < 0) {
+	if (mdbox_map_atomic_lock(ctx->atomic, "saving") < 0) {
 		mdbox_transaction_save_rollback(_ctx);
 		return -1;
 	}
@@ -337,6 +337,9 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 			mdbox_transaction_save_rollback(_ctx);
 			return -1;
 		}
+		mail_index_sync_set_reason(ctx->sync_ctx->index_sync_ctx, "copying");
+	} else {
+		mail_index_sync_set_reason(ctx->sync_ctx->index_sync_ctx, "saving");
 	}
 
 	if (ctx->ctx.mail != NULL)
@@ -361,7 +364,7 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 	if (mdbox_sync_finish(&ctx->sync_ctx, TRUE) == 0) {
 		/* commit refcount increases for copied mails */
 		if (ctx->map_trans != NULL) {
-			if (mdbox_map_transaction_commit(ctx->map_trans) < 0)
+			if (mdbox_map_transaction_commit(ctx->map_trans, "copy refcount updates") < 0)
 				mdbox_map_atomic_set_failed(ctx->atomic);
 		}
 		/* flush file append writes */

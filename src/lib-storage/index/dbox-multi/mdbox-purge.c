@@ -250,7 +250,7 @@ mdbox_file_purge_check_refcounts(struct mdbox_purge_context *ctx,
 	unsigned int i, count;
 	int ret;
 
-	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
+	if (mdbox_map_atomic_lock(ctx->atomic, "purging check") < 0)
 		return -1;
 
 	msgs = array_get(msgs_arr, &count);

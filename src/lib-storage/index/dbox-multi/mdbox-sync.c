@@ -171,7 +171,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 	   log head, while tail is left behind. */
 	if (mdbox_map_atomic_is_locked(ctx->atomic)) {
 		if (ret == 0)
-			ret = mdbox_map_transaction_commit(ctx->map_trans);
+			ret = mdbox_map_transaction_commit(ctx->map_trans, "mdbox syncing");
 		/* write changes to mailbox index */
 		if (ret == 0)
 			ret = dbox_sync_mark_expunges(ctx);
@@ -181,6 +181,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 		if (ret < 0)
 			mdbox_map_atomic_set_failed(ctx->atomic);
 		mdbox_map_transaction_free(&ctx->map_trans);
+		ctx->expunged_count = seq_range_count(&ctx->expunged_seqs);
 		array_free(&ctx->expunged_seqs);
 	}
 
@@ -208,10 +209,11 @@ static int mdbox_sync_try_begin(struct mdbox_sync_context *ctx,
 	    mail_index_sync_has_expunges(ctx->index_sync_ctx)) {
 		/* we have expunges, so we need to write to map.
 		   it needs to be locked before mailbox index. */
+		mail_index_sync_set_reason(ctx->index_sync_ctx, "mdbox expunge check");
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 		index_storage_expunging_deinit(&ctx->mbox->box);
 
-		if (mdbox_map_atomic_lock(ctx->atomic) < 0)
+		if (mdbox_map_atomic_lock(ctx->atomic, "mdbox syncing with expunges") < 0)
 			return -1;
 		return mdbox_sync_try_begin(ctx, sync_flags);
 	}
@@ -224,6 +226,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 {
 	struct mail_storage *storage = mbox->box.storage;
 	struct mdbox_sync_context *ctx;
+	const char *reason;
 	enum mail_index_sync_flags sync_flags;
 	int ret;
 	bool rebuild, storage_rebuilt = FALSE;
@@ -263,6 +266,9 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	}
 
 	if ((ret = mdbox_sync_index(ctx)) <= 0) {
+		mail_index_sync_set_reason(ctx->index_sync_ctx,
+			ret < 0 ? "mdbox syncing failed" :
+			"mdbox syncing found corruption");
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 		index_storage_expunging_deinit(&mbox->box);
 		i_free_and_null(ctx);
@@ -290,6 +296,16 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		return mdbox_sync_begin(mbox, flags, atomic, ctx_r);
 	}
 	index_storage_expunging_deinit(&mbox->box);
+
+	if (!mdbox_map_atomic_is_locked(ctx->atomic))
+		reason = "mdbox synced";
+	else {
+		/* may be 0 msgs, but that still informs that the map
+		   was locked */
+		reason = t_strdup_printf("mdbox synced - %u msgs expunged",
+					 ctx->expunged_count);
+	}
+	mail_index_sync_set_reason(ctx->index_sync_ctx, reason);
 
 	*ctx_r = ctx;
 	return 0;

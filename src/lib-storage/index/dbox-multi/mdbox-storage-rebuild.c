@@ -582,6 +582,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	rebuild_mailbox_multi(ctx, rebuild_ctx, mbox, view, trans);
 	index_index_rebuild_deinit(&rebuild_ctx, dbox_get_uidvalidity_next);
 
+	mail_index_sync_set_reason(sync_ctx, "mdbox storage rebuild");
 	if (mail_index_sync_commit(&sync_ctx) < 0) {
 		mailbox_set_index_error(box);
 		ret = -1;
@@ -641,6 +642,7 @@ static int rebuild_mailboxes(struct mdbox_storage_rebuild_context *ctx)
 
 static int rebuild_msg_mailbox_commit(struct rebuild_msg_mailbox *msg)
 {
+	mail_index_sync_set_reason(msg->sync_ctx, "mdbox storage rebuild");
 	if (mail_index_sync_commit(&msg->sync_ctx) < 0)
 		return -1;
 	mailbox_free(&msg->box);
@@ -901,7 +903,7 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 
 	/* begin by locking the map, so that other processes can't try to
 	   rebuild at the same time. */
-	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
+	if (mdbox_map_atomic_lock(ctx->atomic, "mdbox storage rebuild") < 0)
 		return -1;
 
 	/* fsck the map just in case its UIDs are broken */

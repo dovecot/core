@@ -483,7 +483,8 @@ mdbox_map_sync_handle(struct mdbox_map *map,
 	}
 }
 
-int mdbox_map_atomic_lock(struct mdbox_map_atomic_context *atomic)
+int mdbox_map_atomic_lock(struct mdbox_map_atomic_context *atomic,
+			  const char *reason)
 {
 	int ret;
 
@@ -506,6 +507,7 @@ int mdbox_map_atomic_lock(struct mdbox_map_atomic_context *atomic)
 		mail_index_reset_error(atomic->map->index);
 		return -1;
 	}
+	mail_index_sync_set_reason(atomic->sync_ctx, reason);
 	atomic->locked = TRUE;
 	/* reset refresh state so that if it's wanted to be done locked,
 	   it gets the latest changes */
@@ -584,7 +586,8 @@ mdbox_map_transaction_begin(struct mdbox_map_atomic_context *atomic,
 	return ctx;
 }
 
-int mdbox_map_transaction_commit(struct mdbox_map_transaction_context *ctx)
+int mdbox_map_transaction_commit(struct mdbox_map_transaction_context *ctx,
+				 const char *reason)
 {
 	i_assert(!ctx->committed);
 
@@ -592,7 +595,7 @@ int mdbox_map_transaction_commit(struct mdbox_map_transaction_context *ctx)
 	if (!ctx->changed)
 		return 0;
 
-	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
+	if (mdbox_map_atomic_lock(ctx->atomic, reason) < 0)
 		return -1;
 
 	if (mail_index_transaction_commit(&ctx->trans) < 0) {
@@ -713,7 +716,7 @@ int mdbox_map_remove_file_id(struct mdbox_map *map, uint32_t file_id)
 		}
 	}
 	if (ret == 0)
-		ret = mdbox_map_transaction_commit(map_trans);
+		ret = mdbox_map_transaction_commit(map_trans, "removing file");
 	mdbox_map_transaction_free(&map_trans);
 	if (mdbox_map_atomic_finish(&atomic) < 0)
 		ret = -1;
@@ -1193,8 +1196,9 @@ mdbox_find_highest_file_id(struct mdbox_map *map, uint32_t *file_id_r)
 	return 0;
 }
 
-static int mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
-				     bool separate_transaction)
+static int
+mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
+			  bool separate_transaction, const char *reason)
 {
 	struct dbox_file_append_context *const *file_appends;
 	unsigned int i, count;
@@ -1203,7 +1207,7 @@ static int mdbox_map_assign_file_ids(struct mdbox_map_append_context *ctx,
 
 	/* start the syncing. we'll need it even if there are no file ids to
 	   be assigned. */
-	if (mdbox_map_atomic_lock(ctx->atomic) < 0)
+	if (mdbox_map_atomic_lock(ctx->atomic, reason) < 0)
 		return -1;
 
 	mdbox_map_get_ext_hdr(ctx->map, ctx->atomic->sync_view, &hdr);
@@ -1271,7 +1275,7 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 		return 0;
 	}
 
-	if (mdbox_map_assign_file_ids(ctx, TRUE) < 0)
+	if (mdbox_map_assign_file_ids(ctx, TRUE, "saving - assign uids") < 0)
 		return -1;
 
 	/* append map records to index */
@@ -1333,7 +1337,7 @@ int mdbox_map_append_move(struct mdbox_map_append_context *ctx,
 	unsigned int i, j, map_uids_count, appends_count;
 	uint32_t uid, seq;
 
-	if (mdbox_map_assign_file_ids(ctx, FALSE) < 0)
+	if (mdbox_map_assign_file_ids(ctx, FALSE, "purging - update uids") < 0)
 		return -1;
 
 	memset(&rec, 0, sizeof(rec));
@@ -1454,6 +1458,7 @@ static int mdbox_map_generate_uid_validity(struct mdbox_map *map)
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
 	}
+	mail_index_sync_set_reason(sync_ctx, "uidvalidity initialization");
 	return mail_index_sync_commit(&sync_ctx);
 }
 
