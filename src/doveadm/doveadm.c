@@ -210,7 +210,7 @@ static bool doveadm_try_run(const char *cmd_name, int argc, char *argv[])
 {
 	const struct doveadm_cmd *cmd;
 
-	cmd = doveadm_cmd_find(cmd_name, &argc, &argv);
+	cmd = doveadm_cmd_find_with_args(cmd_name, &argc, &argv);
 	if (cmd == NULL)
 		return FALSE;
 	cmd->cmd(argc, argv);

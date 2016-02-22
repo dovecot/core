@@ -48,8 +48,8 @@ void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd)
 	array_append(&doveadm_cmds_ver2, cmd, 1);
 }
 
-const struct doveadm_cmd_ver2* doveadm_cmd_find_ver2(const char *cmd_name,
-	int argc, const char *argv[])
+const struct doveadm_cmd_ver2 *
+doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc, const char *argv[])
 {
 	int i;
 	const struct doveadm_cmd_ver2 *cmd;
@@ -117,7 +117,7 @@ doveadm_cmd_find_multi_word(const struct doveadm_cmd *cmd,
 }
 
 const struct doveadm_cmd *
-doveadm_cmd_find(const char *cmd_name, int *argc, char **argv[])
+doveadm_cmd_find_with_args(const char *cmd_name, int *argc, char **argv[])
 {
 	const struct doveadm_cmd *cmd, *subcmd;
 	unsigned int cmd_name_len;
@@ -354,7 +354,7 @@ bool doveadm_cmd_try_run_ver2(const char *cmd_name, int argc, const char *argv[]
 {
 	const struct doveadm_cmd_ver2 *cmd;
 
-	cmd = doveadm_cmd_find_ver2(cmd_name, argc, argv);
+	cmd = doveadm_cmd_find_with_args_ver2(cmd_name, argc, argv);
 	if (cmd == NULL)
 		return FALSE;
 
