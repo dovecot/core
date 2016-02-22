@@ -936,6 +936,16 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 			fieldstr = p_array_const_string_join(ctx->pool,
 					&argv[i].value.v_array, " ");
 			array_append(&pargv, &fieldstr, 1);
+		} else if (strcmp(argv[i].name, "file") == 0) {
+			/* input for doveadm_mail_get_input(),
+			   used by e.g. save */
+			if (ctx->cmd_input != NULL) {
+				i_error("Only one file input allowed: %s", argv[i].name);
+				doveadm_mail_cmd_free(ctx);
+				return -1;
+			}
+			ctx->cmd_input = argv[i].value.v_istream;
+			i_stream_ref(ctx->cmd_input);
 		} else if ((argv[i].flags & CMD_PARAM_FLAG_POSITIONAL) != 0) {
 			/* feed this into pargv */
 			if (argv[i].type == CMD_PARAM_ARRAY)
