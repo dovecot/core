@@ -462,7 +462,7 @@ doveadm_http_server_read_request(struct client_connection_http *conn)
 	if (!conn->client.input->eof && rc == 0)
 		return;
 
-	if ((rc == 1 && conn->json_state != JSON_STATE_DONE)) {
+	if (rc == -2 || (rc == 1 && conn->json_state != JSON_STATE_DONE)) {
 		/* this will happen if the parser above runs into unexpected element, but JSON is OK */
 		http_server_request_fail_close(conn->http_server_request, 400, "Unexpected element in input");
 		// FIXME: should be returned as error to client, not logged
