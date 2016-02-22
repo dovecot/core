@@ -54,6 +54,7 @@ struct client_connection_http {
 		JSON_STATE_COMMAND_PARAMETERS,
 		JSON_STATE_COMMAND_PARAMETER_KEY,
 		JSON_STATE_COMMAND_PARAMETER_VALUE,
+		JSON_STATE_COMMAND_PARAMETER_VALUE_ARRAY,
 		JSON_STATE_COMMAND_PARAMETER_VALUE_ISTREAM_CONSUME,
 		JSON_STATE_COMMAND_ID,
 		JSON_STATE_COMMAND_DONE,
@@ -204,6 +205,19 @@ static int doveadm_http_server_json_parse_next(struct client_connection_http *co
 		if (rc != 1) return rc;
 		conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
 		return json_parse_next(conn->json_parser, type, value);
+	} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETER_VALUE_ARRAY) {
+		/* reading through parameters in an array */
+		while ((rc = json_parse_next(conn->json_parser, type, value)) > 0) {
+			if (*type == JSON_TYPE_ARRAY_END) {
+				conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+				return json_parse_next(conn->json_parser, type, value);
+			}
+			if (*type != JSON_TYPE_STRING)
+				return -2;
+			tmp = p_strdup(conn->client.pool,*value);
+			array_append(&conn->cmd_param->value.v_array, &tmp, 1);
+		}
+		return rc;
 	} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETER_VALUE) {
 		if (conn->cmd_param->type == CMD_PARAM_ISTREAM) {
 			if (conn->cmd_param->value_set == TRUE)
@@ -219,43 +233,23 @@ static int doveadm_http_server_json_parse_next(struct client_connection_http *co
 		}
 		rc = json_parse_next(conn->json_parser, type, value);
 		if (rc != 1) return rc;
-		if (*type == JSON_TYPE_ARRAY_END) {
-			conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
-			return json_parse_next(conn->json_parser, type, value);
-		}
-		/* allow array for cmd_param_array only, and only once */
-		if (*type == JSON_TYPE_ARRAY && conn->cmd_param->type != CMD_PARAM_ARRAY)
-			return -2;
-		if (*type == JSON_TYPE_ARRAY) { /* start of array */
-			conn->value_is_array = TRUE;
-			rc = json_parse_next(conn->json_parser, type, value);
-			if (rc != 1) return rc;
-		}
 		if (conn->cmd_param->type == CMD_PARAM_ARRAY) {
+			p_array_init(&conn->cmd_param->value.v_array, conn->client.pool, 1);
+			conn->cmd_param->value_set = TRUE;
+			if (*type == JSON_TYPE_ARRAY) {
+				/* start of array */
+				conn->value_is_array = TRUE;
+				conn->json_state = JSON_STATE_COMMAND_PARAMETER_VALUE_ARRAY;
+				return doveadm_http_server_json_parse_next(conn, type, value);
+			}
 			if (*type != JSON_TYPE_STRING) {
 				/* FIXME: should handle other than string too */
 				return -2;
 			}
-			conn->cmd_param->value_set = TRUE;
-			if (!array_is_created(&conn->cmd_param->value.v_array))
-				p_array_init(&conn->cmd_param->value.v_array,conn->client.pool,1);
-			if (conn->value_is_array) {
-				while(rc == 1) {
-					tmp = p_strdup(conn->client.pool,*value);
-					array_append(&conn->cmd_param->value.v_array, &tmp, 1);
-					rc = json_parse_next(conn->json_parser, type, value);
-					if (*type == JSON_TYPE_ARRAY_END) {
-						conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
-						return json_parse_next(conn->json_parser, type, value);
-					}
-				}
-			} else {
-				tmp = p_strdup(conn->client.pool,*value);
-				array_append(&conn->cmd_param->value.v_array, &tmp, 1);
-				conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
-				return json_parse_next(conn->json_parser, type, value);
-			}
-			return rc;
+			tmp = p_strdup(conn->client.pool,*value);
+			array_append(&conn->cmd_param->value.v_array, &tmp, 1);
+			conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+			return json_parse_next(conn->json_parser, type, value);
 		} else {
 			conn->cmd_param->value_set = TRUE;
 			switch(conn->cmd_param->type) {
