@@ -377,12 +377,22 @@ struct doveadm_cmd doveadm_cmd_log[] = {
 	{ cmd_log_test, "log test", "" },
 	{ cmd_log_reopen, "log reopen", "" },
 	{ cmd_log_find, "log find", "[<dir>]" },
-	{ cmd_log_errors, "log errors", "[-s <min_timestamp>]" }
+};
+
+struct doveadm_cmd_ver2 doveadm_cmd_log_errors_ver2 = {
+	.name = "log errors",
+	.usage = "[-s <min_timestamp>]",
+	.old_cmd = cmd_log_errors,
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('s', "since", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAMS_END
 };
 
 void doveadm_register_log_commands(void)
 {
 	unsigned int i;
+
+	doveadm_cmd_register_ver2(&doveadm_cmd_log_errors_ver2);
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_log); i++)
 		doveadm_register_cmd(&doveadm_cmd_log[i]);
