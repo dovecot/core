@@ -10,6 +10,7 @@
 #include "master-service-private.h"
 #include "master-service-settings.h"
 #include "doveadm.h"
+#include "doveadm-print.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -278,6 +279,23 @@ static void cmd_log_find(int argc, char *argv[])
 	}
 }
 
+static const char *t_cmd_log_error_trim(const char *orig)
+{
+	/* use long in case strlen returns 0 */
+	for (unsigned int pos = strlen(orig)-1; pos > 0; pos--) {
+		if (orig[pos] != ' ') {
+			if (orig[pos] != ':') {
+				pos++;
+			}
+			if (pos < strlen(orig)-1) {
+				return t_strndup(orig, pos);
+			}
+			break;
+		}
+	}
+	return orig;
+}
+
 static void cmd_log_error_write(const char *const *args, time_t min_timestamp)
 {
 	/* <type> <timestamp> <prefix> <text> */
@@ -298,8 +316,10 @@ static void cmd_log_error_write(const char *const *args, time_t min_timestamp)
 		t = 0;
 	}
 	if (t >= min_timestamp) {
-		printf("%s %s%s%s\n", t_strflocaltime(LOG_TIMESTAMP_FORMAT, t),
-		       args[2], type_prefix, args[3]);
+		doveadm_print(t_strflocaltime(LOG_TIMESTAMP_FORMAT, t));
+		doveadm_print(t_cmd_log_error_trim(args[2]));
+		doveadm_print(t_cmd_log_error_trim(type_prefix));
+		doveadm_print(args[3]);
 	}
 }
 
@@ -332,6 +352,15 @@ static void cmd_log_errors(int argc, char *argv[])
 	net_set_nonblock(fd, FALSE);
 
 	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
+	doveadm_print_formatted_set_format("%{timestamp} %{type}: %{prefix}: %{text}\n");
+
+	doveadm_print_header_simple("timestamp");
+	doveadm_print_header_simple("prefix");
+	doveadm_print_header_simple("type");
+	doveadm_print_header_simple("text");
+
 	while ((line = i_stream_read_next_line(input)) != NULL) T_BEGIN {
 		args = t_strsplit_tabescaped(line);
 		if (str_array_length(args) == 4)
