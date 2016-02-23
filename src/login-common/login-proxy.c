@@ -207,8 +207,8 @@ static int server_output(struct login_proxy *proxy)
 	    OUTBUF_THRESHOLD) {
 		/* there's again space in proxy's output buffer, so we can
 		   read more from client. */
-		proxy->client_io = io_add(proxy->client_fd, IO_READ,
-					  proxy_client_input, proxy);
+		proxy->client_io = io_add_istream(proxy->client_input,
+						  proxy_client_input, proxy);
 	}
 	return 1;
 }
@@ -610,7 +610,7 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 	if (delay_ms == 0)
 		login_proxy_free_final(proxy);
 	else {
-		proxy->client_io = io_add(proxy->client_fd, IO_READ,
+		proxy->client_io = io_add_istream(proxy->client_input,
 			proxy_client_disconnected_input, proxy);
 	}
 
@@ -715,7 +715,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 	proxy->server_io =
 		io_add(proxy->server_fd, IO_READ, server_input, proxy);
 	proxy->client_io =
-		io_add(proxy->client_fd, IO_READ, proxy_client_input, proxy);
+		io_add_istream(proxy->client_input, proxy_client_input, proxy);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);
 	i_stream_destroy(&proxy->server_input);
 
