@@ -120,7 +120,8 @@ common = \
 	doveadm-print.c \
 	doveadm-settings.c \
 	doveadm-util.c \
-	server-connection.c
+	server-connection.c \
+	doveadm-print-formatted.c
 
 doveadm_SOURCES = \
 	$(common) \

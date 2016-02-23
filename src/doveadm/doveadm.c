@@ -25,6 +25,7 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 	&doveadm_print_table_vfuncs,
 	&doveadm_print_pager_vfuncs,
 	&doveadm_print_json_vfuncs,
+	&doveadm_print_formatted_vfuncs,
 	NULL
 };
 

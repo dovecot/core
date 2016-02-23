@@ -6,6 +6,7 @@
 #define DOVEADM_PRINT_TYPE_TABLE "table"
 #define DOVEADM_PRINT_TYPE_SERVER "server"
 #define DOVEADM_PRINT_TYPE_JSON "json"
+#define DOVEADM_PRINT_TYPE_FORMATTED "formatted"
 
 enum doveadm_print_header_flags {
 	DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY 	= 0x01,
@@ -37,5 +38,7 @@ void doveadm_print_unstick_headers(void);
 
 void doveadm_print_init(const char *name);
 void doveadm_print_deinit(void);
+
+void doveadm_print_formatted_set_format(const char *format);
 
 #endif
