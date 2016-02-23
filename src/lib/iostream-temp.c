@@ -11,13 +11,14 @@
 
 #include <unistd.h>
 
-#define IOSTREAM_TEMP_MAX_BUF_SIZE (1024*128)
+#define IOSTREAM_TEMP_MAX_BUF_SIZE_DEFAULT (1024*128)
 
 struct temp_ostream {
 	struct ostream_private ostream;
 
 	char *temp_path_prefix;
 	enum iostream_temp_flags flags;
+	size_t max_mem_size;
 
 	struct istream *dupstream;
 	uoff_t dupstream_offset, dupstream_start_offset;
@@ -105,7 +106,7 @@ o_stream_temp_sendv(struct ostream_private *stream,
 		return o_stream_temp_fd_sendv(tstream, iov, iov_count);
 
 	for (i = 0; i < iov_count; i++) {
-		if (tstream->buf->used + iov[i].iov_len > IOSTREAM_TEMP_MAX_BUF_SIZE) {
+		if (tstream->buf->used + iov[i].iov_len > tstream->max_mem_size) {
 			if (o_stream_temp_move_to_fd(tstream) == 0) {
 				return o_stream_temp_fd_sendv(tstream, iov+i,
 							      iov_count-i);
@@ -222,6 +223,15 @@ struct ostream *iostream_temp_create_named(const char *temp_path_prefix,
 					   enum iostream_temp_flags flags,
 					   const char *name)
 {
+	return iostream_temp_create_sized(temp_path_prefix, flags, name,
+					  IOSTREAM_TEMP_MAX_BUF_SIZE_DEFAULT);
+}
+
+struct ostream *iostream_temp_create_sized(const char *temp_path_prefix,
+					   enum iostream_temp_flags flags,
+					   const char *name,
+					   size_t max_mem_size)
+{
 	struct temp_ostream *tstream;
 	struct ostream *output;
 
@@ -232,6 +242,7 @@ struct ostream *iostream_temp_create_named(const char *temp_path_prefix,
 	tstream->ostream.iostream.close = o_stream_temp_close;
 	tstream->temp_path_prefix = i_strdup(temp_path_prefix);
 	tstream->flags = flags;
+	tstream->max_mem_size = max_mem_size;
 	tstream->buf = buffer_create_dynamic(default_pool, 8192);
 	tstream->fd = -1;
 
