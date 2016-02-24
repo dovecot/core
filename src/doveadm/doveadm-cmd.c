@@ -231,7 +231,7 @@ bool doveadm_cmd_param_str(int argc, const struct doveadm_cmd_param* params, con
 	return FALSE;
 }
 
-bool doveadm_cmd_param_array(int argc, struct doveadm_cmd_param* params, const char *name, ARRAY_TYPE(const_string)** value)
+bool doveadm_cmd_param_array(int argc, const struct doveadm_cmd_param* params, const char *name, ARRAY_TYPE(const_string)** value)
 {
 	const struct doveadm_cmd_param* param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
@@ -242,7 +242,7 @@ bool doveadm_cmd_param_array(int argc, struct doveadm_cmd_param* params, const c
 	return FALSE;
 }
 
-bool doveadm_cmd_param_istream(int argc, struct doveadm_cmd_param* params, const char *name, struct istream** value)
+bool doveadm_cmd_param_istream(int argc, const struct doveadm_cmd_param* params, const char *name, struct istream** value)
 {
 	const struct doveadm_cmd_param* param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
