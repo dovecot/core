@@ -397,6 +397,12 @@ client_auth_handle_reply(struct client *client,
 			return FALSE;
 		if (proxy_start(client, reply) < 0)
 			client_auth_failed(client);
+		else {
+			/* this for plugins being able th hook into auth reply
+			   when proxying is used */
+			client_auth_result(client, CLIENT_AUTH_RESULT_SUCCESS,
+					   reply, NULL);
+		}
 		return TRUE;
 	}
 
