@@ -68,6 +68,9 @@ static int o_stream_temp_move_to_fd(struct temp_ostream *tstream)
 		i_close_fd(&tstream->fd);
 		return -1;
 	}
+	/* make the fd available also to o_stream_get_fd(),
+	   e.g. for unit tests */
+	tstream->ostream.fd = tstream->fd;
 	tstream->fd_size = tstream->buf->used;
 	buffer_free(&tstream->buf);
 	return 0;
