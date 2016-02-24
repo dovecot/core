@@ -22,6 +22,7 @@ int main(void)
 		test_hex_binary,
 		test_ioloop,
 		test_iso8601_date,
+		test_iostream_temp,
 		test_istream,
 		test_istream_base64_decoder,
 		test_istream_base64_encoder,
