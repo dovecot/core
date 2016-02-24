@@ -21,6 +21,13 @@ struct director_context {
 	const char *socket_path;
 	const char *users_path;
 	const char *tag;
+	const char *user;
+	const char *host;
+	const char *ip;
+	const char *port;
+	const char *vhost_count;
+
+	struct istream *users_input;
 	struct istream *input;
 	bool explicit_socket_path;
 	bool hash_map, user_map, force_flush;
@@ -33,10 +40,9 @@ struct user_list {
 
 HASH_TABLE_DEFINE_TYPE(user_list, void *, struct user_list *);
 
-extern struct doveadm_cmd doveadm_cmd_director[];
-
-static void director_cmd_help(doveadm_command_t *cmd) ATTR_NORETURN;
-
+static void director_cmd_help(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED);
+static int director_get_host(const char *host, struct ip_addr **ips_r,
+                              unsigned int *ips_count_r) ATTR_WARN_UNUSED_RESULT;
 static void
 director_send(struct director_context *ctx, const char *data)
 {
@@ -89,55 +95,49 @@ static void director_disconnect(struct director_context *ctx)
 }
 
 static struct director_context *
-cmd_director_init(int argc, char *argv[], const char *getopt_args,
-		  doveadm_command_t *cmd)
+cmd_director_init(int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
-	int c;
-
 	ctx = t_new(struct director_context, 1);
-	ctx->socket_path = t_strconcat(doveadm_settings->base_dir,
-				       "/director-admin", NULL);
-
-	while ((c = getopt(argc, argv, getopt_args)) > 0) {
-		switch (c) {
-		case 'a':
-			ctx->socket_path = optarg;
-			ctx->explicit_socket_path = TRUE;
-			break;
-		case 'f':
-			ctx->users_path = optarg;
-			break;
-		case 'F':
-			ctx->force_flush = TRUE;
-			break;
-		case 'h':
-			ctx->hash_map = TRUE;
-			break;
-		case 'u':
-			ctx->user_map = TRUE;
-			break;
-		case 't':
-			ctx->tag = optarg;
-			break;
-		default:
-			director_cmd_help(cmd);
-		}
-	}
+	if (!doveadm_cmd_param_str(argc, argv, "socket-path", &(ctx->socket_path)))
+		ctx->socket_path = t_strconcat(doveadm_settings->base_dir,
+					"/director-admin", NULL);
+	else
+		ctx->explicit_socket_path = TRUE;
+	if (!doveadm_cmd_param_bool(argc, argv, "user-map", &(ctx->user_map)))
+		ctx->user_map = FALSE;
+	if (!doveadm_cmd_param_bool(argc, argv, "hash-map", &(ctx->hash_map)))
+		ctx->hash_map = FALSE;
+	if (!doveadm_cmd_param_bool(argc, argv, "force-flush", &(ctx->force_flush)))
+		ctx->force_flush = FALSE;
+	if (!doveadm_cmd_param_istream(argc, argv, "users-file", &(ctx->users_input)))
+		ctx->users_input = NULL;
+	if (!doveadm_cmd_param_str(argc, argv, "tag", &(ctx->tag)))
+		ctx->tag = NULL;
+	if (!doveadm_cmd_param_str(argc, argv, "user", &(ctx->user)))
+		ctx->user = NULL;
+	if (!doveadm_cmd_param_str(argc, argv, "host", &(ctx->host)))
+		ctx->host = NULL;
+	if (!doveadm_cmd_param_str(argc, argv, "ip", &(ctx->ip)))
+		ctx->ip = NULL;
+	if (!doveadm_cmd_param_str(argc, argv, "port", &(ctx->port)))
+		ctx->port = NULL;
+	if (!doveadm_cmd_param_str(argc, argv, "vhost-count", &(ctx->vhost_count)))
+		ctx->vhost_count = NULL;
 	if (!ctx->user_map)
 		director_connect(ctx);
 	return ctx;
 }
 
+
 static void
-cmd_director_status_user(struct director_context *ctx, char *argv[])
+cmd_director_status_user(struct director_context *ctx)
 {
-	const char *user = argv[0], *tag = argv[1];
 	const char *line, *const *args;
 	unsigned int expires;
 
-	director_send(ctx, t_strdup_printf("USER-LOOKUP\t%s\t%s\n", user,
-					   tag != NULL ? tag : ""));
+	director_send(ctx, t_strdup_printf("USER-LOOKUP\t%s\t%s\n", ctx->user,
+					   ctx->tag != NULL ? ctx->tag : ""));
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
 		i_error("Lookup failed");
@@ -153,25 +153,38 @@ cmd_director_status_user(struct director_context *ctx, char *argv[])
 		return;
 	}
 
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
+
+	doveadm_print_header_simple("status");
+	doveadm_print_header_simple("expires");
+	doveadm_print_header_simple("hashed");
+	doveadm_print_header_simple("initial-config");
+
+	doveadm_print_formatted_set_format("Current: %{status} (expires %{expires})\n" \
+					   "Hashed: %{hashed}\n" \
+					   "Initial config: %{initial-config}\n");
+
 	if (args[0][0] != '\0') {
-		printf("Current: %s (expires %s)\n",
-		       args[0], unixdate2str(expires));
+		doveadm_print(args[0]);
+		doveadm_print(unixdate2str(expires));
 	} else {
-		printf("Current: not assigned\n");
+		doveadm_print("n/a");
+		doveadm_print("-1");
 	}
-	printf("Hashed: %s\n", args[2]);
-	printf("Initial config: %s\n", args[3]);
+	doveadm_print(args[2]);
+	doveadm_print(args[3]);
+
 	director_disconnect(ctx);
 }
 
-static void cmd_director_status(int argc, char *argv[])
+static void cmd_director_status(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
 
-	ctx = cmd_director_init(argc, argv, "a:t:", cmd_director_status);
-	if (argv[optind] != NULL) {
-		cmd_director_status_user(ctx, argv+optind);
+	ctx = cmd_director_init(argc, argv);
+	if (ctx->user != NULL) {
+		cmd_director_status_user(ctx);
 		return;
 	}
 
@@ -257,27 +270,20 @@ userdb_get_user_list(const char *auth_socket_path, pool_t pool,
 }
 
 static void
-user_file_get_user_list(const char *path, pool_t pool,
+user_file_get_user_list(struct istream *input, pool_t pool,
 			HASH_TABLE_TYPE(user_list) users)
 {
-	struct istream *input;
 	const char *username;
-	int fd;
 
-	fd = open(path, O_RDONLY);
-	if (fd == -1)
-		i_fatal("open(%s) failed: %m", path);
-	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
 	while ((username = i_stream_read_next_line(input)) != NULL)
 		user_list_add(username, pool, users);
-	i_stream_unref(&input);
 }
 
-static void director_get_host(const char *host, struct ip_addr **ips_r,
+static int director_get_host(const char *host, struct ip_addr **ips_r,
 			      unsigned int *ips_count_r)
 {
 	struct ip_addr ip;
-	int ret;
+	int ret = 0;
 
 	if (net_addr2ip(host, &ip) == 0) {
 		*ips_r = t_new(struct ip_addr, 1);
@@ -286,10 +292,14 @@ static void director_get_host(const char *host, struct ip_addr **ips_r,
 	} else {
 		ret = net_gethostbyname(host, ips_r, ips_count_r);
 		if (ret != 0) {
-			i_fatal("gethostname(%s) failed: %s", host,
+			i_error("gethostname(%s) failed: %s", host,
 				net_gethosterror(ret));
+			doveadm_exit_code = EX_TEMPFAIL;
+			return ret;
 		}
 	}
+
+	return ret;
 }
 
 static bool ip_find(const struct ip_addr *ips, unsigned int ips_count,
@@ -304,7 +314,7 @@ static bool ip_find(const struct ip_addr *ips, unsigned int ips_count,
 	return FALSE;
 }
 
-static void cmd_director_map(int argc, char *argv[])
+static void cmd_director_map(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
@@ -314,17 +324,16 @@ static void cmd_director_map(int argc, char *argv[])
 	struct user_list *user;
 	unsigned int ips_count, user_hash, expires;
 
-	ctx = cmd_director_init(argc, argv, "a:f:hu", cmd_director_map);
-	argc -= optind;
-	argv += optind;
-	if (argc > 1 ||
-	    (ctx->hash_map && ctx->user_map) ||
-	    ((ctx->hash_map || ctx->user_map) && argc == 0))
-		director_cmd_help(cmd_director_map);
+	ctx = cmd_director_init(argc, argv);
+
+	if ((ctx->hash_map && ctx->user_map) && ctx->host == NULL) {
+		director_cmd_help(cmd);
+	return;
+	}
 
 	if (ctx->user_map) {
 		/* user -> hash mapping */
-		user_hash = mail_user_hash(argv[0], doveadm_settings->director_username_hash);
+		user_hash = mail_user_hash(ctx->host, doveadm_settings->director_username_hash);
 		doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 		doveadm_print_header("hash", "hash", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 		doveadm_print(t_strdup_printf("%u", user_hash));
@@ -332,22 +341,22 @@ static void cmd_director_map(int argc, char *argv[])
 		return;
 	}
 
-	if (argv[0] == NULL || ctx->hash_map)
+	if (ctx->host == NULL || ctx->hash_map)
 		ips_count = 0;
 	else
-		director_get_host(argv[0], &ips, &ips_count);
+		if (director_get_host(ctx->host, &ips, &ips_count) != 0) return;
 
 	pool = pool_alloconly_create("director map users", 1024*128);
 	hash_table_create_direct(&users, pool, 0);
-	if (ctx->users_path == NULL)
+	if (ctx->users_input == NULL)
 		userdb_get_user_list(NULL, pool, users);
 	else
-		user_file_get_user_list(ctx->users_path, pool, users);
+		user_file_get_user_list(ctx->users_input, pool, users);
 
 	if (ctx->hash_map) {
 		/* hash -> usernames mapping */
-		if (str_to_uint(argv[0], &user_hash) < 0)
-			i_fatal("Invalid username hash: %s", argv[0]);
+		if (str_to_uint(ctx->host, &user_hash) < 0)
+			i_fatal("Invalid username hash: %s", ctx->host);
 
 		doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 		doveadm_print_header("user", "user", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
@@ -410,37 +419,39 @@ deinit:
 }
 
 static void
-cmd_director_add_or_update(int argc, char *argv[], doveadm_command_t *cmd_func,
-			   bool update)
+cmd_director_add_or_update(const struct doveadm_cmd_ver2 *dcmd, int argc, const struct doveadm_cmd_param *argv, bool update)
 {
 	const char *director_cmd = update ? "HOST-UPDATE" : "HOST-SET";
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int i, ips_count, vhost_count = UINT_MAX;
-	const char *host, *line;
+	const char *line, *host;
 	string_t *cmd;
 
-	ctx = cmd_director_init(argc, argv, update ? "a:" : "a:t:", cmd_func);
+	ctx = cmd_director_init(argc, argv);
 	if (ctx->tag != NULL && ctx->tag[0] == '\0')
 		ctx->tag = NULL;
-	host = argv[optind++];
-	if (host == NULL)
-		director_cmd_help(cmd_func);
-	if (argv[optind] != NULL) {
-		if (str_to_uint(argv[optind++], &vhost_count) < 0)
-			director_cmd_help(cmd_func);
-	} else if (strcmp(director_cmd, "HOST-UPDATE") == 0)
-		director_cmd_help(cmd_func);
-
-	if (argv[optind] != NULL)
-		director_cmd_help(cmd_func);
-
-	if (ctx->tag == NULL) {
-		ctx->tag = strchr(host, '@');
-		if (ctx->tag != NULL)
-			host = t_strdup_until(host, ctx->tag++);
+	if (ctx->host == NULL) {
+		director_cmd_help(dcmd);
+		return;
 	}
-	director_get_host(host, &ips, &ips_count);
+	if (ctx->vhost_count != NULL) {
+		if (str_to_uint(ctx->vhost_count, &vhost_count) < 0) {
+			director_cmd_help(dcmd);
+			return;
+		}
+	} else if (update) {
+		director_cmd_help(dcmd);
+		return;
+	}
+
+	host = ctx->host;
+	if (ctx->tag == NULL) {
+		ctx->tag = strchr(ctx->host, '@');
+		if (ctx->tag != NULL)
+			host = t_strdup_until(ctx->host, ctx->tag++);
+	}
+	if (director_get_host(host, &ips, &ips_count) != 0) return;
 	cmd = t_str_new(128);
 	for (i = 0; i < ips_count; i++) {
 		str_truncate(cmd, 0);
@@ -455,43 +466,45 @@ cmd_director_add_or_update(int argc, char *argv[], doveadm_command_t *cmd_func,
 	for (i = 0; i < ips_count; i++) {
 		line = i_stream_read_next_line(ctx->input);
 		if (line == NULL || strcmp(line, "OK") != 0) {
-			fprintf(stderr, "%s: %s\n", net_ip2addr(&ips[i]),
+			i_error("%s: %s\n", net_ip2addr(&ips[i]),
 				line == NULL ? "failed" :
 				strcmp(line, "NOTFOUND") == 0 ?
 				"doesn't exist" : line);
 			doveadm_exit_code = EX_TEMPFAIL;
 		} else if (doveadm_verbose) {
-			printf("%s: OK\n", net_ip2addr(&ips[i]));
+			i_info("%s: OK\n", net_ip2addr(&ips[i]));
 		}
 	}
 	director_disconnect(ctx);
 }
 
-static void cmd_director_add(int argc, char *argv[])
+static void cmd_director_add(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
-	cmd_director_add_or_update(argc, argv, cmd_director_add, FALSE);
+	cmd_director_add_or_update(cmd, argc, argv, FALSE);
 }
 
-static void cmd_director_update(int argc, char *argv[])
+static void cmd_director_update(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
-	cmd_director_add_or_update(argc, argv, cmd_director_update, TRUE);
+	cmd_director_add_or_update(cmd, argc, argv, TRUE);
 }
 
 static void
-cmd_director_ipcmd(const char *cmd_name, doveadm_command_t *cmd,
-		   const char *success_result, int argc, char *argv[])
+cmd_director_ipcmd(const char *cmd_name, const struct doveadm_cmd_ver2 *cmd, const char *success_result,
+	int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int i, ips_count;
 	const char *host, *line;
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd);
-	host = argv[optind++];
-	if (host == NULL || argv[optind] != NULL)
+	ctx = cmd_director_init(argc, argv);
+	host = ctx->host;
+	if (host == NULL) {
 		director_cmd_help(cmd);
+		return;
+	}
 
-	director_get_host(host, &ips, &ips_count);
+	if (director_get_host(host, &ips, &ips_count) != 0) return;
 	for (i = 0; i < ips_count; i++) {
 		director_send(ctx, t_strdup_printf(
 			"%s\t%s\n", cmd_name, net_ip2addr(&ips[i])));
@@ -499,55 +512,52 @@ cmd_director_ipcmd(const char *cmd_name, doveadm_command_t *cmd,
 	for (i = 0; i < ips_count; i++) {
 		line = i_stream_read_next_line(ctx->input);
 		if (line != NULL && strcmp(line, "NOTFOUND") == 0) {
-			fprintf(stderr, "%s: doesn't exist\n",
+			i_error("%s: doesn't exist\n",
 				net_ip2addr(&ips[i]));
 			if (doveadm_exit_code == 0)
 				doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 		} else if (line == NULL || strcmp(line, "OK") != 0) {
-			fprintf(stderr, "%s: %s\n", net_ip2addr(&ips[i]),
+			i_error("%s: %s\n", net_ip2addr(&ips[i]),
 				line == NULL ? "failed" : line);
 			doveadm_exit_code = EX_TEMPFAIL;
 		} else if (doveadm_verbose) {
-			printf("%s: %s\n", net_ip2addr(&ips[i]), success_result);
+			i_info("%s: %s\n", net_ip2addr(&ips[i]), success_result);
 		}
 	}
 	director_disconnect(ctx);
 }
 
-static void cmd_director_remove(int argc, char *argv[])
+static void cmd_director_remove(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
-	cmd_director_ipcmd("HOST-REMOVE", cmd_director_remove,
-			   "removed", argc, argv);
+	cmd_director_ipcmd("HOST-REMOVE", cmd, "removed", argc, argv);
 }
 
-static void cmd_director_up(int argc, char *argv[])
+static void cmd_director_up(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
-	cmd_director_ipcmd("HOST-UP", cmd_director_up,
-			   "up", argc, argv);
+	cmd_director_ipcmd("HOST-UP", cmd, "up", argc, argv);
 }
 
-static void cmd_director_down(int argc, char *argv[])
+static void cmd_director_down(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
-	cmd_director_ipcmd("HOST-DOWN", cmd_director_down,
-			   "down", argc, argv);
+	cmd_director_ipcmd("HOST-DOWN", cmd, "down", argc, argv);
 }
 
-static void cmd_director_move(int argc, char *argv[])
+static void cmd_director_move(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int ips_count, user_hash;
-	const char *host, *line, *ip_str;
+	const char *line, *ip_str;
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd_director_move);
-	if (argv[optind] == NULL || argv[optind+1] == NULL ||
-	    argv[optind+2] != NULL)
-		director_cmd_help(cmd_director_move);
+	ctx = cmd_director_init(argc, argv);
+	if (ctx->user == NULL || ctx->host == NULL) {
+		director_cmd_help(cmd);
+		return;
+	}
 
-	user_hash = mail_user_hash(argv[optind++], doveadm_settings->director_username_hash);
-	host = argv[optind];
+	user_hash = mail_user_hash(ctx->user, doveadm_settings->director_username_hash);
 
-	director_get_host(host, &ips, &ips_count);
+	if (director_get_host(ctx->host, &ips, &ips_count) != 0) return;
 	ip_str = net_ip2addr(&ips[0]);
 	director_send(ctx, t_strdup_printf(
 		"USER-MOVE\t%u\t%s\n", user_hash, ip_str));
@@ -557,7 +567,7 @@ static void cmd_director_move(int argc, char *argv[])
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (strcmp(line, "OK") == 0) {
 		if (doveadm_verbose)
-			printf("User hash %u moved to %s\n", user_hash, ip_str);
+			i_info("User hash %u moved to %s\n", user_hash, ip_str);
 	} else if (strcmp(line, "NOTFOUND") == 0) {
 		i_error("Host '%s' doesn't exist", ip_str);
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
@@ -572,25 +582,25 @@ static void cmd_director_move(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
-static void cmd_director_kick(int argc, char *argv[])
+static void cmd_director_kick(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
-	const char *username, *line;
+	const char *line;
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd_director_kick);
-	if (argv[optind] == NULL || argv[optind+1] != NULL)
-		director_cmd_help(cmd_director_kick);
+	ctx = cmd_director_init(argc, argv);
+	if (ctx->user == NULL) {
+		director_cmd_help(cmd);
+		return;
+	}
 
-	username = argv[optind];
-
-	director_send(ctx, t_strdup_printf("USER-KICK\t%s\n", username));
+	director_send(ctx, t_strdup_printf("USER-KICK\t%s\n", ctx->user));
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
 		i_error("failed");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (strcmp(line, "OK") == 0) {
 		if (doveadm_verbose)
-			printf("User %s kicked\n", username);
+			i_info("User %s kicked", ctx->user);
 	} else {
 		i_error("failed: %s", line);
 		doveadm_exit_code = EX_TEMPFAIL;
@@ -613,37 +623,33 @@ static void cmd_director_flush_all(struct director_context *ctx)
 		i_error("failed: %s", line);
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (doveadm_verbose)
-		printf("flushed\n");
+		i_info("flushed");
 	director_disconnect(ctx);
 }
 
-static void cmd_director_flush(int argc, char *argv[])
+static void cmd_director_flush(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int i, ips_count;
 	struct ip_addr ip;
-	const char *host, *line;
-	int ret;
+	const char *line;
 
-	ctx = cmd_director_init(argc, argv, "a:F", cmd_director_flush);
-	host = argv[optind++];
-	if (host == NULL || argv[optind] != NULL)
-		director_cmd_help(cmd_director_flush);
+	ctx = cmd_director_init(argc, argv);
+	if (ctx->host == NULL) {
+		director_cmd_help(cmd);
+		return;
+	}
 
-	if (strcmp(host, "all") == 0) {
+	if (strcmp(ctx->host, "all") == 0) {
 		cmd_director_flush_all(ctx);
 		return;
 	}
-	if (net_addr2ip(host, &ip) == 0) {
+	if (net_addr2ip(ctx->host, &ip) == 0) {
 		ips = &ip;
 		ips_count = 1;
 	} else {
-		ret = net_gethostbyname(host, &ips, &ips_count);
-		if (ret != 0) {
-			i_fatal("gethostname(%s) failed: %s", host,
-				net_gethosterror(ret));
-		}
+		if (director_get_host(ctx->host, &ips, &ips_count) != 0) return;
 	}
 
 	for (i = 0; i < ips_count; i++) {
@@ -654,42 +660,38 @@ static void cmd_director_flush(int argc, char *argv[])
 	for (i = 0; i < ips_count; i++) {
 		line = i_stream_read_next_line(ctx->input);
 		if (line != NULL && strcmp(line, "NOTFOUND") == 0) {
-			fprintf(stderr, "%s: doesn't exist\n",
+			i_warning("%s: doesn't exist",
 				net_ip2addr(&ips[i]));
 			if (doveadm_exit_code == 0)
 				doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 		} else if (line == NULL || strcmp(line, "OK") != 0) {
-			fprintf(stderr, "%s: %s\n", net_ip2addr(&ips[i]),
+			i_warning("%s: %s", net_ip2addr(&ips[i]),
 				line == NULL ? "failed" : line);
 			doveadm_exit_code = EX_TEMPFAIL;
 		} else if (doveadm_verbose) {
-			printf("%s: flushed\n", net_ip2addr(&ips[i]));
+			i_info("%s: flushed", net_ip2addr(&ips[i]));
 		}
 	}
 	director_disconnect(ctx);
 }
 
-static void ATTR_FORMAT(3, 4)
-director_dump_cmd(struct director_context *ctx,
-		  const char *cmd, const char *args, ...)
-{
-	va_list va;
-
-	va_start(va, args);
-	printf("doveadm director %s ", cmd);
-	if (ctx->explicit_socket_path)
-		printf("-a %s ", ctx->socket_path);
-	vprintf(args, va);
-	putchar('\n');
-	va_end(va);
-}
-
-static void cmd_director_dump(int argc, char *argv[])
+static void cmd_director_dump(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd_director_dump);
+	ctx = cmd_director_init(argc, argv);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
+	if (ctx->explicit_socket_path)
+		doveadm_print_formatted_set_format("doveadm director %{command} -a %{socket-path} %{host} %{vhost_count}");
+	else
+		doveadm_print_formatted_set_format("doveadm director %{command} %{host} %{vhost_count}");
+
+	doveadm_print_header_simple("command");
+	doveadm_print_header_simple("socket-path");
+	doveadm_print_header_simple("host");
+	doveadm_print_header_simple("vhost_count");
 
 	director_send(ctx, "HOST-LIST\n");
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
@@ -698,8 +700,10 @@ static void cmd_director_dump(int argc, char *argv[])
 		T_BEGIN {
 			args = t_strsplit_tab(line);
 			if (str_array_length(args) >= 2) {
-				director_dump_cmd(ctx, "add", "%s %s",
-						  args[0], args[1]);
+				doveadm_print("add");
+				doveadm_print(ctx->socket_path);
+				doveadm_print(args[0]);
+				doveadm_print(args[1]);
 			}
 		} T_END;
 	}
@@ -708,7 +712,10 @@ static void cmd_director_dump(int argc, char *argv[])
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
 		if (*line == '\0')
 			break;
-		director_dump_cmd(ctx, "remove", "%s", line);
+		doveadm_print("remove");
+		doveadm_print(ctx->socket_path);
+		doveadm_print(line);
+		doveadm_print("");
 	}
 	if (line == NULL) {
 		i_error("Director disconnected unexpectedly");
@@ -735,18 +742,20 @@ static void director_read_ok_reply(struct director_context *ctx)
 	}
 }
 
-static void cmd_director_ring_add(int argc, char *argv[])
+static void cmd_director_ring_add(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
 	struct ip_addr ip;
 	in_port_t port = 0;
 	string_t *str = t_str_new(64);
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd_director_ring_add);
-	if (argv[optind] == NULL ||
-	    net_addr2ip(argv[optind], &ip) < 0 ||
-	    (argv[optind+1] != NULL && net_str2port(argv[optind+1], &port) < 0))
-		director_cmd_help(cmd_director_ring_add);
+	ctx = cmd_director_init(argc, argv);
+	if (ctx->ip == NULL ||
+	    net_addr2ip(ctx->ip, &ip) < 0 ||
+	    (ctx->port && net_str2port(ctx->port, &port) < 0)) {
+		director_cmd_help(cmd);
+		return;
+	}
 
 	str_printfa(str, "DIRECTOR-ADD\t%s", net_ip2addr(&ip));
 	if (port != 0)
@@ -757,18 +766,20 @@ static void cmd_director_ring_add(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
-static void cmd_director_ring_remove(int argc, char *argv[])
+static void cmd_director_ring_remove(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
 	struct ip_addr ip;
 	string_t *str = t_str_new(64);
 	in_port_t port = 0;
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd_director_ring_remove);
-	if (argv[optind] == NULL ||
-	    net_addr2ip(argv[optind], &ip) < 0 ||
-	    (argv[optind+1] != NULL && net_str2port(argv[optind+1], &port) < 0))
-		director_cmd_help(cmd_director_ring_remove);
+	ctx = cmd_director_init(argc, argv);
+	if (ctx->ip == NULL ||
+	    net_addr2ip(ctx->ip, &ip) < 0 ||
+	    (ctx->port != NULL && net_str2port(ctx->port, &port) < 0)) {
+		director_cmd_help(cmd);
+		return;
+	}
 
 	str_printfa(str, "DIRECTOR-REMOVE\t%s", net_ip2addr(&ip));
 	if (port != 0)
@@ -779,13 +790,13 @@ static void cmd_director_ring_remove(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
-static void cmd_director_ring_status(int argc, char *argv[])
+static void cmd_director_ring_status(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
 	unsigned long l;
 
-	ctx = cmd_director_init(argc, argv, "a:", cmd_director_ring_status);
+	ctx = cmd_director_init(argc, argv);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header_simple("director ip");
@@ -820,46 +831,152 @@ static void cmd_director_ring_status(int argc, char *argv[])
 	director_disconnect(ctx);
 }
 
-struct doveadm_cmd doveadm_cmd_director[] = {
-	{ cmd_director_status, "director status",
-	  "[-a <director socket path>] [<user>]" },
-	{ cmd_director_map, "director map",
-	  "[-a <director socket path>] [-f <users file>] [-h | -u] [<host>]" },
-	{ cmd_director_add, "director add",
-	  "[-a <director socket path>] [-t <tag>] <host> [<vhost count>]" },
-	{ cmd_director_update, "director update",
-	  "[-a <director socket path>] <host> <vhost count>" },
-	{ cmd_director_up, "director up",
-	  "[-a <director socket path>] <host>" },
-	{ cmd_director_down, "director down",
-	  "[-a <director socket path>] <host>" },
-	{ cmd_director_remove, "director remove",
-	  "[-a <director socket path>] <host>" },
-	{ cmd_director_move, "director move",
-	  "[-a <director socket path>] <user> <host>" },
-	{ cmd_director_kick, "director kick",
-	  "[-a <director socket path>] <user>" },
-	{ cmd_director_flush, "director flush",
-	  "[-a <director socket path>] [-f] <host>|all" },
-	{ cmd_director_dump, "director dump",
-	  "[-a <director socket path>]" },
-	{ cmd_director_ring_add, "director ring add",
-	  "[-a <director socket path>] <ip> [<port>]" },
-	{ cmd_director_ring_remove, "director ring remove",
-	  "[-a <director socket path>] <ip> [<port>]" },
-	{ cmd_director_ring_status, "director ring status",
-	  "[-a <director socket path>]" }
+struct doveadm_cmd_ver2 doveadm_cmd_director[] = {
+{
+	.name = "director status",
+	.cmd = cmd_director_status,
+	.usage = "[-a <director socket path>] [<user>] [<tag>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "tag", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director map",
+	.cmd = cmd_director_map,
+	.usage = "[-a <director socket path>] [-f <users file>] [-h | -u] [<host>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('f', "users-file", CMD_PARAM_ISTREAM, 0)
+DOVEADM_CMD_PARAM('h', "hash-map", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('u', "user-map", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "host", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director add",
+	.cmd = cmd_director_add,
+	.usage = "[-a <director socket path>] [-t <tag>] <host> [<vhost count>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('t', "tag", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "host", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "vhost-count", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director update",
+	.cmd = cmd_director_update,
+	.usage = "[-a <director socket path>] <host> <vhost count>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "host", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "vhost-count", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director up",
+	.cmd = cmd_director_up,
+	.usage = "[-a <director socket path>] <host>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "host", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director down",
+	.cmd = cmd_director_down,
+	.usage = "[-a <director socket path>] <host>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "host", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director remove",
+	.cmd = cmd_director_remove,
+	.usage = "[-a <director socket path>] <host>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "host", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director move",
+	.cmd = cmd_director_move,
+	.usage = "[-a <director socket path>] <user> <host>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "host", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director kick",
+	.cmd = cmd_director_kick,
+	.usage = "[-a <director socket path>] <user>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director flush",
+	.cmd = cmd_director_flush,
+	.usage = "[-a <director socket path>] [-F] <host>|all",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('F', "force-flush", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "host", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director dump",
+	.cmd = cmd_director_dump,
+	.usage = "[-a <director socket path>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director ring add",
+	.cmd = cmd_director_ring_add,
+	.usage = "[-a <director socket path>] <ip> [<port>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "ip", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "port", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director ring remove",
+	.cmd = cmd_director_ring_remove,
+	.usage = "[-a <director socket path>] <ip> [<port>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "ip", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "port", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "director ring status",
+	.cmd = cmd_director_ring_status,
+	.usage = "[-a <director socket path>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAMS_END
+}
 };
 
-static void director_cmd_help(doveadm_command_t *cmd)
+static void director_cmd_help(const struct doveadm_cmd_ver2 *cmd)
 {
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_director); i++) {
-		if (doveadm_cmd_director[i].cmd == cmd)
-			help(&doveadm_cmd_director[i]);
+		if (doveadm_cmd_director+i == cmd)
+			help_ver2(&doveadm_cmd_director[i]);
 	}
-	i_unreached();
 }
 
 void doveadm_register_director_commands(void)
@@ -867,5 +984,5 @@ void doveadm_register_director_commands(void)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_director); i++)
-		doveadm_register_cmd(&doveadm_cmd_director[i]);
+		doveadm_cmd_register_ver2(&doveadm_cmd_director[i]);
 }
