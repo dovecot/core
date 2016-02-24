@@ -1,16 +1,9 @@
-/* Copyright (c) 2011-2015 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "net.h"
 #include "ostream.h"
-#include "str.h"
 #include "strescape.h"
 #include "mail-stats.h"
-#include "mail-command.h"
-#include "mail-session.h"
-#include "mail-user.h"
-#include "mail-domain.h"
-#include "mail-ip.h"
 #include "client.h"
 #include "client-reset.h"
 
