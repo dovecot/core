@@ -1221,8 +1221,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->flags = flags;
 
 	user->set_parser = settings_parser_dup(set_parser, user_pool);
-	if (!settings_parser_check(user->set_parser, user_pool, &error))
-		i_panic("settings_parser_check() failed: %s", error);
 
 	sets = master_service_settings_parser_get_others(master_service,
 							 user->set_parser);
@@ -1247,6 +1245,11 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			*error_r = ERRSTR_INVALID_USER_SETTINGS;
 			ret = -2;
 		}
+	}
+	if (ret > 0 && !settings_parser_check(user->set_parser, user_pool, &error)) {
+		i_error("Invalid settings (probably caused by userdb): %s", error);
+		*error_r = ERRSTR_INVALID_USER_SETTINGS;
+		ret = -2;
 	}
 	pool_unref(&temp_pool);
 
