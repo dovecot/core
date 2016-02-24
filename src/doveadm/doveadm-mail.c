@@ -888,7 +888,7 @@ void doveadm_mail_deinit(void)
 	array_free(&doveadm_mail_cmds);
 }
 
-int
+void
 doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 	int argc, const struct doveadm_cmd_param argv[])
 {
@@ -946,7 +946,8 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 			if (ctx->cmd_input != NULL) {
 				i_error("Only one file input allowed: %s", argv[i].name);
 				doveadm_mail_cmd_free(ctx);
-				return -1;
+				doveadm_exit_code = EX_USAGE;
+				return;
 			}
 			ctx->cmd_input = argv[i].value.v_istream;
 			i_stream_ref(ctx->cmd_input);
@@ -960,7 +961,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 			doveadm_exit_code = EX_USAGE;
 			i_error("invalid parameter: %s", argv[i].name);
 			doveadm_mail_cmd_free(ctx);
-			return -1;
+			return;
 		}
 	}
 
@@ -970,5 +971,4 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 
 	doveadm_mail_cmd_exec(ctx, wildcard_user);
 	doveadm_mail_cmd_free(ctx);
-	return 0;
 }

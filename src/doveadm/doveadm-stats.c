@@ -115,7 +115,7 @@ static void stats_dump(const char *path, const char *cmd)
 	i_stream_destroy(&input);
 }
 
-static int
+static void
 cmd2_stats_dump(const struct doveadm_cmd_ver2* dcmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
 {
 	const char *path, *cmd;
@@ -126,7 +126,8 @@ cmd2_stats_dump(const struct doveadm_cmd_ver2* dcmd ATTR_UNUSED, int argc, const
 
 	if (!doveadm_cmd_param_str(argc, argv, "type", &args[0])) {
 		i_error("Missing type parameter");
-		return -1;
+		doveadm_exit_code = EX_USAGE;
+		return;
 	}
 
 	/* purely optional */
@@ -137,7 +138,7 @@ cmd2_stats_dump(const struct doveadm_cmd_ver2* dcmd ATTR_UNUSED, int argc, const
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 	stats_dump(path, cmd);
-	return 0;
+	return;
 }
 
 static void

@@ -45,7 +45,7 @@ struct doveadm_cmd_param {
 };
 ARRAY_DEFINE_TYPE(doveadm_cmd_param_arr_t, struct doveadm_cmd_param);
 
-typedef int doveadm_command_ver2_t(const struct doveadm_cmd_ver2* cmd,
+typedef void doveadm_command_ver2_t(const struct doveadm_cmd_ver2* cmd,
 	int argc, const struct doveadm_cmd_param[]);
 
 struct doveadm_cmd {
@@ -98,9 +98,9 @@ void doveadm_register_fs_commands(void);
 void doveadm_cmds_init(void);
 void doveadm_cmds_deinit(void);
 
-int doveadm_cmd_ver2_to_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
+void doveadm_cmd_ver2_to_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 	int argc, const struct doveadm_cmd_param[]);
-int doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
+void doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 	int argc, const struct doveadm_cmd_param argv[]);
 
 void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd);

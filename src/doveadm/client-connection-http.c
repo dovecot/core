@@ -272,7 +272,6 @@ static void
 doveadm_http_server_command_execute(struct client_connection_http *conn)
 {
         const struct doveadm_cmd_param *cpar;
-	int rc;
 
 	/* final preflight check */
 	if (!doveadm_client_is_allowed_command(conn->client.set, conn->cmd->name))
@@ -303,7 +302,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	ioloop = io_loop_create();
 	lib_signals_reset_ioloop();
 	doveadm_exit_code = 0;
-	rc = conn->cmd->cmd(conn->cmd,pargc, cpar);
+	conn->cmd->cmd(conn->cmd,pargc, cpar);
 
 	io_loop_set_current(prev_ioloop);
 	lib_signals_reset_ioloop();
@@ -327,7 +326,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 		o_stream_nsend_str(conn->client.output,",");
 	}
 
-	if (rc != 0 || doveadm_exit_code != 0) {
+	if (doveadm_exit_code != 0) {
 		if (doveadm_exit_code == 0 || doveadm_exit_code == EX_TEMPFAIL)
 			i_error("doveadm(%s): Command %s failed", i_stream_get_name(conn->client.input), conn->cmd->name);
 		doveadm_http_server_json_error(conn, "exitCode");

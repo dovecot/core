@@ -297,7 +297,7 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 	array_append_zero(argv);
 }
 
-int
+void
 doveadm_cmd_ver2_to_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 	int argc, const struct doveadm_cmd_param* param)
 {
@@ -312,8 +312,6 @@ doveadm_cmd_ver2_to_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 	pargv = array_get_modifiable(&nargv, &pargc);
 	i_getopt_reset();
 	cmd->old_cmd(pargc-1, (char**)pargv);
-
-	return 0;
 }
 
 static void
@@ -454,7 +452,6 @@ int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd, int argc, const cha
 
 	param = array_get_modifiable(&pargv, &pargc);
 
-	// FIXME: Unsure what do to with return value
 	cmd->cmd(cmd, pargc, param);
 
 	doveadm_cmd_params_clean(&pargv);
