@@ -911,7 +911,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 	ARRAY_TYPE(const_string) pargv;
 	int i;
 	struct doveadm_mail_cmd mail_cmd = {
-		.alloc = cmd->mail_cmd
+		cmd->mail_cmd, cmd->name, cmd->usage
 	};
 
 	ctx = doveadm_mail_cmdline_init(&mail_cmd);
