@@ -191,9 +191,28 @@ static struct doveadm_mail_cmd_context *cmd_move_alloc(void)
 	return &ctx->ctx;
 }
 
-struct doveadm_mail_cmd cmd_copy = {
-	cmd_copy_alloc, "copy", "<destination> [user <source user>] <search query>"
+struct doveadm_cmd_ver2 doveadm_cmd_copy_ver2 = {
+	.name = "copy",
+	.mail_cmd = cmd_copy_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<destination> [user <source user>] <search query>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "source-type", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "source", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
-struct doveadm_mail_cmd cmd_move = {
-	cmd_move_alloc, "move", "<destination> [user <source user>] <search query>"
+
+struct doveadm_cmd_ver2 doveadm_cmd_move_ver2 = {
+	.name = "move",
+	.mail_cmd = cmd_move_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<destination> [user <source user>] <search query>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "source-type", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "source", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
