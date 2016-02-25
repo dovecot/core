@@ -249,7 +249,15 @@ static struct doveadm_mail_cmd_context *cmd_import_alloc(void)
 	return &ctx->ctx;
 }
 
-struct doveadm_mail_cmd cmd_import = {
-	cmd_import_alloc, "import",
-	"[-s] <source mail location> <dest parent mailbox> <search query>"
+struct doveadm_cmd_ver2 doveadm_cmd_import_ver2 = {
+	.name = "import",
+	.mail_cmd = cmd_import_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[-s] <source mail location> <dest parent mailbox> <search query>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('s', "subscribe", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "source-location", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "dest-parent-mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
