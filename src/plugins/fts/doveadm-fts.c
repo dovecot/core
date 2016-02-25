@@ -259,11 +259,43 @@ cmd_fts_rescan_alloc(void)
 	return ctx;
 }
 
-static struct doveadm_mail_cmd fts_commands[] = {
-	{ cmd_fts_lookup_alloc, "fts lookup", "<search query>" },
-	{ cmd_fts_expand_alloc, "fts expand", "<search query>" },
-	{ cmd_fts_optimize_alloc, "fts optimize", "[<namespace>]" },
-	{ cmd_fts_rescan_alloc, "fts rescan", "[<namespace>]" }
+static struct doveadm_cmd_ver2 fts_commands[] = {
+{
+	.name = "fts lookup",
+	.mail_cmd = cmd_fts_lookup_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<search query>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "fts expand",
+	.mail_cmd = cmd_fts_expand_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<search query>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "fts optimize",
+	.mail_cmd = cmd_fts_optimize_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[<namespace>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "namespace", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "fts rescan",
+	.mail_cmd = cmd_fts_rescan_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[<namespace>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "namespace", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
 };
 
 void doveadm_fts_plugin_init(struct module *module ATTR_UNUSED)
@@ -271,7 +303,7 @@ void doveadm_fts_plugin_init(struct module *module ATTR_UNUSED)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(fts_commands); i++)
-		doveadm_mail_register_cmd(&fts_commands[i]);
+		doveadm_cmd_register_ver2(&fts_commands[i]);
 	doveadm_dump_fts_expunge_log_init();
 }
 
