@@ -169,7 +169,6 @@ void doveadm_mail_failed_mailbox(struct doveadm_mail_cmd_context *ctx,
 void doveadm_mail_failed_list(struct doveadm_mail_cmd_context *ctx,
 			      struct mailbox_list *list);
 
-extern struct doveadm_mail_cmd cmd_expunge;
 extern struct doveadm_mail_cmd cmd_search;
 extern struct doveadm_mail_cmd cmd_flags_add;
 extern struct doveadm_mail_cmd cmd_flags_remove;
@@ -195,6 +194,7 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_save_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_index_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_altmove_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_deduplicate_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_expunge_ver2;
 
 #define DOVEADM_CMD_MAIL_COMMON \
 DOVEADM_CMD_PARAM('A', "all-users", CMD_PARAM_BOOL, 0) \

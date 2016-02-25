@@ -823,7 +823,6 @@ static struct doveadm_mail_cmd cmd_purge = {
 static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_force_resync,
 	&cmd_purge,
-	&cmd_expunge,
 	&cmd_search,
 	&cmd_flags_add,
 	&cmd_flags_remove,
@@ -853,7 +852,8 @@ static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
 	&doveadm_cmd_save_ver2,
 	&doveadm_cmd_index_ver2,
 	&doveadm_cmd_altmove_ver2,
-	&doveadm_cmd_deduplicate_ver2
+	&doveadm_cmd_deduplicate_ver2,
+	&doveadm_cmd_expunge_ver2
 };
 
 void doveadm_mail_init(void)
