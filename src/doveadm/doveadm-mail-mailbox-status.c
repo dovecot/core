@@ -227,6 +227,8 @@ cmd_mailbox_status_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 't':
 		ctx->total_sum = TRUE;
 		break;
+	case 'f':
+		break;
 	default:
 		return FALSE;
 	}
@@ -250,11 +252,11 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_status_alloc(void)
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_status_ver2 = {
         .name = "mailbox status",
         .mail_cmd = cmd_mailbox_status_alloc,
-        .usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"<mailbox> [...]",
+        .usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"<fields> <mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('t', "total-sum", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM('f', "field", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('f', "field", CMD_PARAM_ARRAY, 0)
 DOVEADM_CMD_PARAM('\0', "fieldstr", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL | CMD_PARAM_FLAG_DO_NOT_EXPOSE) /* FIXME: horrible hack, remove me when possible */
 DOVEADM_CMD_PARAM('\0', "mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
