@@ -91,6 +91,12 @@ static struct doveadm_mail_cmd_context *cmd_search_alloc(void)
 	return ctx;
 }
 
-struct doveadm_mail_cmd cmd_search = {
-	cmd_search_alloc, "search", "<search query>"
+struct doveadm_cmd_ver2 doveadm_cmd_search_ver2 = {
+	.name = "search",
+	.mail_cmd = cmd_search_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<search query>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
