@@ -535,15 +535,86 @@ cmd_acl_debug_alloc(void)
 	return ctx;
 }
 
-static struct doveadm_mail_cmd acl_commands[] = {
-	{ cmd_acl_get_alloc, "acl get", "[-m] <mailbox>" },
-	{ cmd_acl_rights_alloc, "acl rights", "<mailbox>" },
-	{ cmd_acl_set_alloc, "acl set", "<mailbox> <id> <right> [<right> ...]" },
-	{ cmd_acl_add_alloc, "acl add", "<mailbox> <id> <right> [<right> ...]" },
-	{ cmd_acl_remove_alloc, "acl remove", "<mailbox> <id> <right> [<right> ...]" },
-	{ cmd_acl_delete_alloc, "acl delete", "<mailbox> <id>" },
-	{ cmd_acl_recalc_alloc, "acl recalc", "" },
-	{ cmd_acl_debug_alloc, "acl debug", "<mailbox>" }
+static struct doveadm_cmd_ver2 acl_commands[] = {
+{
+	.name = "acl get",
+	.mail_cmd = cmd_acl_get_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[-m] <mailbox>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('m', "match-me", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "acl rights",
+	.mail_cmd = cmd_acl_rights_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<mailbox>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "acl set",
+	.mail_cmd = cmd_acl_set_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<mailbox> <id> <right> [<right> ...]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "id", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "right", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "acl add",
+	.mail_cmd = cmd_acl_add_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<mailbox> <id> <right> [<right> ...]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "id", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "right", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "acl remove",
+	.mail_cmd = cmd_acl_remove_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<mailbox> <id> <right> [<right> ...]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "id", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "right", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "acl delete",
+	.mail_cmd = cmd_acl_delete_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<mailbox> <id>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "id", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "acl recalc",
+	.mail_cmd = cmd_acl_recalc_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX,
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "acl debug",
+	.mail_cmd = cmd_acl_debug_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<mailbox>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+}
 };
 
 void doveadm_acl_plugin_init(struct module *module ATTR_UNUSED)
@@ -551,7 +622,7 @@ void doveadm_acl_plugin_init(struct module *module ATTR_UNUSED)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(acl_commands); i++)
-		doveadm_mail_register_cmd(&acl_commands[i]);
+		doveadm_cmd_register_ver2(&acl_commands[i]);
 }
 
 void doveadm_acl_plugin_deinit(void)
