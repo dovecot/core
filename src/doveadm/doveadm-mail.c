@@ -813,15 +813,20 @@ void doveadm_mail_help_name(const char *cmd_name)
 	i_fatal("Missing help for command %s", cmd_name);
 }
 
-static struct doveadm_mail_cmd cmd_force_resync = {
-	cmd_force_resync_alloc, "force-resync", "<mailbox mask>"
-};
 static struct doveadm_mail_cmd cmd_purge = {
 	cmd_purge_alloc, "purge", NULL
+
+static struct doveadm_cmd_ver2 doveadm_cmd_force_resync_ver2 = {
+	.name = "force-resync",
+	.mail_cmd = cmd_force_resync_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<mailbox mask>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mask", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
 
 static struct doveadm_mail_cmd *mail_commands[] = {
-	&cmd_force_resync,
 	&cmd_purge,
 	&cmd_search,
 	&cmd_copy,
@@ -853,7 +858,8 @@ static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
 	&doveadm_cmd_flags_add_ver2,
 	&doveadm_cmd_flags_remove_ver2,
 	&doveadm_cmd_flags_replace_ver2,
-	&doveadm_cmd_import_ver2
+	&doveadm_cmd_import_ver2,
+	&doveadm_cmd_force_resync_ver2
 };
 
 void doveadm_mail_init(void)
