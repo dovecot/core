@@ -190,6 +190,7 @@ struct http_client_peer {
 	unsigned int seen_100_response:1;/* expect: 100-continue succeeded before */
 	unsigned int allows_pipelining:1;/* peer is known to allow persistent
 	                                     connections */
+	unsigned int handling_requests:1;/* currently running request handler */
 };
 
 struct http_client_queue {
