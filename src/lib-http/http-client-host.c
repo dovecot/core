@@ -118,7 +118,14 @@ static void http_client_host_lookup
 		memset(&dns_set, 0, sizeof(dns_set));
 		dns_set.dns_client_socket_path =
 			client->set.dns_client_socket_path;
-		dns_set.timeout_msecs = HTTP_CLIENT_DNS_LOOKUP_TIMEOUT_MSECS;
+		if (client->set.connect_timeout_msecs > 0)
+			dns_set.timeout_msecs = client->set.connect_timeout_msecs;
+		else if (client->set.request_timeout_msecs > 0)
+			dns_set.timeout_msecs = client->set.request_timeout_msecs;
+		else {
+			dns_set.timeout_msecs =
+				HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS;
+		}
 		(void)dns_lookup(host->name, &dns_set,
 				 http_client_host_dns_callback, host, &host->dns_lookup);
 	} else {

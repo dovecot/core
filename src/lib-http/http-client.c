@@ -142,7 +142,10 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	client->set.response_hdr_limits = set->response_hdr_limits;
 	client->set.request_absolute_timeout_msecs =
 		set->request_absolute_timeout_msecs;
-	client->set.request_timeout_msecs = set->request_timeout_msecs;
+	client->set.request_timeout_msecs =
+		set->request_timeout_msecs == 0 ?
+			HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS :
+			set->request_timeout_msecs;
 	client->set.connect_timeout_msecs = set->connect_timeout_msecs;
 	client->set.soft_connect_timeout_msecs = set->soft_connect_timeout_msecs;
 	client->set.max_auto_retry_delay = set->max_auto_retry_delay;
