@@ -830,7 +830,6 @@ static struct doveadm_mail_cmd *mail_commands[] = {
 	&cmd_flags_replace,
 	&cmd_import,
 	&cmd_copy,
-	&cmd_deduplicate,
 	&cmd_move,
 	&cmd_batch,
 	&cmd_dsync_backup,
@@ -853,7 +852,8 @@ static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
 	&doveadm_cmd_fetch_ver2,
 	&doveadm_cmd_save_ver2,
 	&doveadm_cmd_index_ver2,
-	&doveadm_cmd_altmove_ver2
+	&doveadm_cmd_altmove_ver2,
+	&doveadm_cmd_deduplicate_ver2
 };
 
 void doveadm_mail_init(void)
