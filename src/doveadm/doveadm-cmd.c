@@ -4,6 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "str.h"
+#include "net.h"
 #include "doveadm-cmd.h"
 #include "doveadm.h"
 
@@ -231,6 +232,18 @@ bool doveadm_cmd_param_str(int argc, const struct doveadm_cmd_param* params, con
 	return FALSE;
 }
 
+bool doveadm_cmd_param_ip(int argc, const struct doveadm_cmd_param* params, const char *name, struct ip* value)
+{
+	const struct doveadm_cmd_param* param;
+	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
+
+	if (param->type == CMD_PARAM_IP) {
+		memcpy(value, &param->value.v_ip, sizeof(struct ip_addr));
+		return TRUE;
+	}
+	return FALSE;
+}
+
 bool doveadm_cmd_param_array(int argc, const struct doveadm_cmd_param* params, const char *name, ARRAY_TYPE(const_string)** value)
 {
 	const struct doveadm_cmd_param* param;
@@ -347,6 +360,11 @@ static void doveadm_fill_param(struct doveadm_cmd_param *param,
 		param->value.v_bool = TRUE; break;
 	case CMD_PARAM_INT64:
 		if (str_to_int64(value, &param->value.v_int64) != 0) {
+			param->value_set = FALSE;
+		}
+		break;
+	case CMD_PARAM_IP:
+		if (net_addr2ip(value, &param->value.v_ip) != 0) {
 			param->value_set = FALSE;
 		}
 		break;

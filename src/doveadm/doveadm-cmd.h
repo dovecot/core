@@ -13,6 +13,7 @@ typedef void doveadm_command_t(int argc, char *argv[]);
 typedef enum {
 	CMD_PARAM_BOOL = 0, /* value will contain 1 (not pointer) */
 	CMD_PARAM_INT64,    /* ditto but contains number (not pointer) */
+	CMD_PARAM_IP,	   /* value contains struct ip_addr */
 	CMD_PARAM_STR,     /* value contains const char* */
 	CMD_PARAM_ARRAY,   /* value contains const char*[] */
 	CMD_PARAM_ISTREAM  /* value contains struct istream* */
@@ -39,6 +40,7 @@ struct doveadm_cmd_param {
 		int64_t v_int64;
 		const char* v_string;
 		ARRAY_TYPE(const_string) v_array;
+		struct ip_addr v_ip;
 		struct istream* v_istream;
 	} value;
 	doveadm_cmd_param_flag_t flags;
@@ -117,6 +119,7 @@ int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd,
 bool doveadm_cmd_param_bool(int argc, const struct doveadm_cmd_param* params, const char *name, bool* value);
 bool doveadm_cmd_param_int64(int argc, const struct doveadm_cmd_param* params, const char *name, int64_t* value);
 bool doveadm_cmd_param_str(int argc, const struct doveadm_cmd_param* params, const char *name, const char** value);
+bool doveadm_cmd_param_ip(int argc, const struct doveadm_cmd_param* params, const char *name, struct ip_addr *ip);
 bool doveadm_cmd_param_array(int argc, const struct doveadm_cmd_param* params, const char *name, ARRAY_TYPE(const_string)** value);
 bool doveadm_cmd_param_istream(int argc, const struct doveadm_cmd_param* params, const char *name, struct istream** value);
 

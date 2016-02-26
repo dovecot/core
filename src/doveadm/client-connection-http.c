@@ -257,6 +257,11 @@ static int doveadm_http_server_json_parse_next(struct client_connection_http *co
 						conn->method_err = 400;
 					}
 					break;
+				case CMD_PARAM_IP:
+					if (net_addr2ip(*value, &conn->cmd_param->value.v_ip) != 0) {
+						conn->method_err = 400;
+					}
+					break;
 				case CMD_PARAM_STR:
 					conn->cmd_param->value.v_string = p_strdup(conn->client.pool, *value); break;
 				default:
@@ -538,6 +543,7 @@ doveadm_http_server_send_api(struct client_connection_http *conn)
 			case CMD_PARAM_ARRAY:
 				o_stream_nsend_str(conn->client.output, "array");
 				break;
+			case CMD_PARAM_IP:
 			case CMD_PARAM_ISTREAM:
 			case CMD_PARAM_STR:
 				o_stream_nsend_str(conn->client.output, "string");
