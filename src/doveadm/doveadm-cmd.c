@@ -95,13 +95,11 @@ doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc, const char *cons
 	return NULL;
 }
 
-static const struct doveadm_cmd *
-doveadm_cmd_find_multi_word(const struct doveadm_cmd *cmd,
-			    const char *cmdname, int *_argc, const char **_argv[])
+static bool
+doveadm_cmd_find_multi_word(const char *cmdname, int *_argc, const char **_argv[])
 {
 	int argc = *_argc;
 	const char **argv = *_argv;
-	const struct doveadm_cmd *subcmd;
 	unsigned int len;
 
 	if (argc < 2)
@@ -114,24 +112,23 @@ doveadm_cmd_find_multi_word(const struct doveadm_cmd *cmd,
 	argc--; argv++;
 	if (cmdname[len] == ' ') {
 		/* more args */
-		subcmd = doveadm_cmd_find_multi_word(cmd, cmdname + len + 1,
-						     &argc, &argv);
-		if (subcmd == NULL)
-			return NULL;
+		if (!doveadm_cmd_find_multi_word(cmdname + len + 1,
+						 &argc, &argv))
+			return FALSE;
 	} else {
 		if (cmdname[len] != '\0')
-			return NULL;
+			return FALSE;
 	}
 
 	*_argc = argc;
 	*_argv = argv;
-	return cmd;
+	return TRUE;
 }
 
 const struct doveadm_cmd *
 doveadm_cmd_find_with_args(const char *cmd_name, int *argc, const char **argv[])
 {
-	const struct doveadm_cmd *cmd, *subcmd;
+	const struct doveadm_cmd *cmd;
 	unsigned int cmd_name_len;
 
 	i_assert(*argc > 0);
@@ -146,10 +143,9 @@ doveadm_cmd_find_with_args(const char *cmd_name, int *argc, const char **argv[])
 		    cmd->name[cmd_name_len] == ' ') {
 			const char *subcmd_name = cmd->name + cmd_name_len + 1;
 
-			subcmd = doveadm_cmd_find_multi_word(cmd, subcmd_name,
-							     argc, argv);
-			if (subcmd != NULL)
-				return subcmd;
+			if (doveadm_cmd_find_multi_word(subcmd_name,
+							argc, argv))
+				return cmd;
 		}
 	}
 	return NULL;
