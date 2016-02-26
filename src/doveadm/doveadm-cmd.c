@@ -186,7 +186,8 @@ void doveadm_cmds_deinit(void)
 }
 
 static const struct doveadm_cmd_param*
-doveadm_cmd_param_get(int argc, const struct doveadm_cmd_param* params, const char *name)
+doveadm_cmd_param_get(int argc, const struct doveadm_cmd_param *params,
+		      const char *name)
 {
 	i_assert(params != NULL);
 	for(int i = 0; i < argc; i++) {
@@ -196,72 +197,78 @@ doveadm_cmd_param_get(int argc, const struct doveadm_cmd_param* params, const ch
 	return NULL;
 }
 
-bool doveadm_cmd_param_bool(int argc, const struct doveadm_cmd_param* params, const char *name, bool* value)
+bool doveadm_cmd_param_bool(int argc, const struct doveadm_cmd_param *params,
+			    const char *name, bool *value_r)
 {
-	const struct doveadm_cmd_param* param;
+	const struct doveadm_cmd_param *param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
 
 	if (param->type == CMD_PARAM_BOOL) {
-		*value = param->value.v_bool;
+		*value_r = param->value.v_bool;
 		return TRUE;
 	}
 	return FALSE;
 }
 
-bool doveadm_cmd_param_int64(int argc, const struct doveadm_cmd_param* params, const char *name, int64_t* value)
+bool doveadm_cmd_param_int64(int argc, const struct doveadm_cmd_param *params,
+			     const char *name, int64_t *value_r)
 {
-	const struct doveadm_cmd_param* param;
+	const struct doveadm_cmd_param *param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
 
 	if (param->type == CMD_PARAM_INT64) {
-		*value = param->value.v_int64;
+		*value_r = param->value.v_int64;
 		return TRUE;
 	}
 	return FALSE;
 }
 
-bool doveadm_cmd_param_str(int argc, const struct doveadm_cmd_param* params, const char *name, const char** value)
+bool doveadm_cmd_param_str(int argc, const struct doveadm_cmd_param *params,
+			   const char *name, const char **value_r)
 {
-	const struct doveadm_cmd_param* param;
+	const struct doveadm_cmd_param *param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
 
 	if (param->type == CMD_PARAM_STR) {
-		*value = param->value.v_string;
+		*value_r = param->value.v_string;
 		return TRUE;
 	}
 	return FALSE;
 }
 
-bool doveadm_cmd_param_ip(int argc, const struct doveadm_cmd_param* params, const char *name, struct ip* value)
+bool doveadm_cmd_param_ip(int argc, const struct doveadm_cmd_param *params,
+			  const char *name, struct ip_addr *value_r)
 {
-	const struct doveadm_cmd_param* param;
+	const struct doveadm_cmd_param *param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
 
 	if (param->type == CMD_PARAM_IP) {
-		memcpy(value, &param->value.v_ip, sizeof(struct ip_addr));
+		memcpy(value_r, &param->value.v_ip, sizeof(struct ip_addr));
 		return TRUE;
 	}
 	return FALSE;
 }
 
-bool doveadm_cmd_param_array(int argc, const struct doveadm_cmd_param* params, const char *name, ARRAY_TYPE(const_string)** value)
+bool doveadm_cmd_param_array(int argc, const struct doveadm_cmd_param *params,
+			     const char *name, ARRAY_TYPE(const_string) **value_r)
 {
-	const struct doveadm_cmd_param* param;
+	const struct doveadm_cmd_param *param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
 	if (param->type == CMD_PARAM_ARRAY) {
-		*value = (ARRAY_TYPE(const_string)*)&(param->value.v_array);
+		*value_r = (ARRAY_TYPE(const_string)*)&(param->value.v_array);
 		return TRUE;
 	}
 	return FALSE;
 }
 
-bool doveadm_cmd_param_istream(int argc, const struct doveadm_cmd_param* params, const char *name, struct istream** value)
+bool doveadm_cmd_param_istream(int argc, const struct doveadm_cmd_param *params,
+			       const char *name, struct istream **value_r)
 {
-	const struct doveadm_cmd_param* param;
+	const struct doveadm_cmd_param *param;
 	if ((param = doveadm_cmd_param_get(argc, params, name))==NULL) return FALSE;
 
 	if (param->type == CMD_PARAM_ISTREAM) {
-		*value = param->value.v_istream;
+		*value_r = param->value.v_istream;
 		return TRUE;
 	}
 	return FALSE;

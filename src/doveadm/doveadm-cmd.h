@@ -116,12 +116,18 @@ bool doveadm_cmd_try_run_ver2(const char *cmd_name, int argc,
 int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd,
 	int argc, const char *argv[]);
 
-bool doveadm_cmd_param_bool(int argc, const struct doveadm_cmd_param* params, const char *name, bool* value);
-bool doveadm_cmd_param_int64(int argc, const struct doveadm_cmd_param* params, const char *name, int64_t* value);
-bool doveadm_cmd_param_str(int argc, const struct doveadm_cmd_param* params, const char *name, const char** value);
-bool doveadm_cmd_param_ip(int argc, const struct doveadm_cmd_param* params, const char *name, struct ip_addr *ip);
-bool doveadm_cmd_param_array(int argc, const struct doveadm_cmd_param* params, const char *name, ARRAY_TYPE(const_string)** value);
-bool doveadm_cmd_param_istream(int argc, const struct doveadm_cmd_param* params, const char *name, struct istream** value);
+bool doveadm_cmd_param_bool(int argc, const struct doveadm_cmd_param *params,
+			    const char *name, bool *value_r);
+bool doveadm_cmd_param_int64(int argc, const struct doveadm_cmd_param *params,
+			     const char *name, int64_t *value_r);
+bool doveadm_cmd_param_str(int argc, const struct doveadm_cmd_param *params,
+			   const char *name, const char **value_r);
+bool doveadm_cmd_param_ip(int argc, const struct doveadm_cmd_param *params,
+			  const char *name, struct ip_addr *value_r);
+bool doveadm_cmd_param_array(int argc, const struct doveadm_cmd_param *params,
+			     const char *name, ARRAY_TYPE(const_string) **value_r);
+bool doveadm_cmd_param_istream(int argc, const struct doveadm_cmd_param *params,
+			       const char *name, struct istream **value_r);
 
 void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv);
 
