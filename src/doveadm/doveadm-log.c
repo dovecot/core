@@ -281,19 +281,17 @@ static void cmd_log_find(int argc, char *argv[])
 
 static const char *t_cmd_log_error_trim(const char *orig)
 {
-	/* use long in case strlen returns 0 */
-	for (unsigned int pos = strlen(orig)-1; pos > 0; pos--) {
-		if (orig[pos] != ' ') {
-			if (orig[pos] != ':') {
-				pos++;
-			}
-			if (pos < strlen(orig)-1) {
-				return t_strndup(orig, pos);
-			}
+	unsigned int pos;
+
+	/* Trim whitespace from suffix and remove ':' if it exists */
+	for (pos = strlen(orig); pos > 0; pos--) {
+		if (orig[pos-1] != ' ') {
+			if (orig[pos-1] == ':') 
+				pos--;
 			break;
 		}
 	}
-	return orig;
+	return orig[pos] == '\0' ? orig : t_strndup(orig, pos);
 }
 
 static void cmd_log_error_write(const char *const *args, time_t min_timestamp)
