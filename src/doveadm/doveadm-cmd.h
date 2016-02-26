@@ -1,6 +1,8 @@
 #ifndef DOVEADM_CMD_H
 #define DOVEADM_CMD_H
 
+#include "net.h"
+
 #define DOVEADM_CMD_PARAMS_START .parameters = (const struct doveadm_cmd_param[]){
 #define DOVEADM_CMD_PARAM(optP, nameP, typeP, flagP ) { .short_opt = optP, .name = nameP, .type = typeP, .flags = flagP },
 #define DOVEADM_CMD_PARAMS_END { .short_opt = '\0', .name = NULL, .type = CMD_PARAM_BOOL, .flags = CMD_PARAM_FLAG_NONE } }
@@ -69,6 +71,10 @@ struct doveadm_cmd_ver2 {
 struct doveadm_cmd_attributes {
 	int argc;
 	const char **argv;
+
+	const char *username;
+	struct ip_addr local_ip, remote_ip;
+	in_port_t local_port, remote_port;
 };
 
 ARRAY_DEFINE_TYPE(doveadm_cmd, struct doveadm_cmd);

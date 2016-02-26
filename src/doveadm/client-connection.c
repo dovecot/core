@@ -92,7 +92,6 @@ doveadm_cmd_server_run(struct client_connection *conn,
 static int
 doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 			      const struct doveadm_settings *set,
-			      const struct mail_storage_service_input *input,
 			      const struct doveadm_cmd_attributes *attrs,
 			      struct doveadm_mail_cmd_context **ctx_r)
 {
@@ -153,7 +152,7 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 		doveadm_print_header("username", "Username",
 				     DOVEADM_PRINT_HEADER_FLAG_STICKY |
 				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
-		doveadm_print_sticky("username", input->username);
+		doveadm_print_sticky("username", attrs->username);
 	}
 	*ctx_r = ctx;
 	return 0;
@@ -162,7 +161,7 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 static void
 doveadm_mail_cmd_server_run(struct client_connection *conn,
 			    struct doveadm_mail_cmd_context *ctx,
-			    const struct mail_storage_service_input *input)
+			    const struct doveadm_cmd_attributes *attrs)
 {
 	const char *error;
 	int ret;
@@ -173,7 +172,7 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 	if (ctx->v.preinit != NULL)
 		ctx->v.preinit(ctx);
 
-	ret = doveadm_mail_single_user(ctx, input, &error);
+	ret = doveadm_mail_single_user(ctx, attrs, &error);
 	doveadm_mail_server_flush();
 	ctx->v.deinit(ctx);
 	doveadm_print_flush();
@@ -218,7 +217,6 @@ bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,
 
 static int doveadm_cmd_handle(struct client_connection *conn,
 			      const char *cmd_name,
-			      const struct mail_storage_service_input *input,
 			      const struct doveadm_cmd_attributes *attrs)
 {
 	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
@@ -238,7 +236,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 				return -1;
 			}
 			if (doveadm_mail_cmd_server_parse(mail_cmd, conn->set,
-							  input, attrs, &ctx) < 0)
+							  attrs, &ctx) < 0)
 				return -1;
 		} else {
 			attrs = &cmd_attrs;
@@ -256,7 +254,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	else if (cmd != NULL)
 		doveadm_cmd_server_run(conn, cmd, attrs);
 	else
-		doveadm_mail_cmd_server_run(conn, ctx, input);
+		doveadm_mail_cmd_server_run(conn, ctx, attrs);
 
 	io_loop_set_current(prev_ioloop);
 	lib_signals_reset_ioloop();
@@ -273,16 +271,8 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 static bool client_handle_command(struct client_connection *conn, char **args)
 {
 	struct doveadm_cmd_attributes attrs;
-	struct mail_storage_service_input input;
 	const char *flags, *cmd_name;
 	unsigned int argc;
-
-	memset(&input, 0, sizeof(input));
-	input.service = "doveadm";
-	input.local_ip = conn->local_ip;
-	input.remote_ip = conn->remote_ip;
-	input.local_port = conn->local_port;
-	input.remote_port = conn->remote_port;
 
 	for (argc = 0; args[argc] != NULL; argc++)
 		args[argc] = str_tabunescape(args[argc]);
@@ -295,8 +285,14 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	attrs.argv = (const char **)args;
 	attrs.argc = argc;
 
+	attrs.local_ip = conn->local_ip;
+	attrs.remote_ip = conn->remote_ip;
+	attrs.local_port = conn->local_port;
+	attrs.remote_port = conn->remote_port;
+
 	flags = args[0];
-	input.username = args[1];
+	attrs.username = args[1];
+
 	cmd_name = args[2];
 	/* leave the command name as args[0] so getopt() works */
 	args += 2;
@@ -327,7 +323,7 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	}
 
 	o_stream_cork(conn->output);
-	if (doveadm_cmd_handle(conn, cmd_name, &input, &attrs) < 0)
+	if (doveadm_cmd_handle(conn, cmd_name, &attrs) < 0)
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	o_stream_uncork(conn->output);
 

@@ -334,27 +334,42 @@ static struct doveadm_mail_cmd_context *cmd_force_resync_alloc(void)
 	return ctx;
 }
 
+static void
+doveadm_attrs_to_storage_service_input(const struct doveadm_cmd_attributes *attrs,
+					struct mail_storage_service_input *input_r)
+{
+	memset(input_r, 0, sizeof(*input_r));
+	input_r->service = "doveadm";
+	input_r->remote_ip = attrs->remote_ip;
+	input_r->remote_port = attrs->remote_port;
+	input_r->local_ip = attrs->local_ip;
+	input_r->local_port = attrs->local_port;
+	input_r->username = attrs->username;
+}
+
 static int
 doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
-		       const struct mail_storage_service_input *input,
+		       const struct doveadm_cmd_attributes *attrs,
 		       const char **error_r)
 {
+	struct mail_storage_service_input input;
 	const char *error, *ip;
 	int ret;
 
-	ip = net_ip2addr(&input->remote_ip);
+	ip = net_ip2addr(&attrs->remote_ip);
 	if (ip[0] == '\0')
-		i_set_failure_prefix("doveadm(%s): ", input->username);
+		i_set_failure_prefix("doveadm(%s): ", attrs->username);
 	else
-		i_set_failure_prefix("doveadm(%s,%s): ", ip, input->username);
+		i_set_failure_prefix("doveadm(%s,%s): ", ip, attrs->username);
+	doveadm_attrs_to_storage_service_input(attrs, &input);
 
 	/* see if we want to execute this command via (another)
 	   doveadm server */
-	ret = doveadm_mail_server_user(ctx, input, error_r);
+	ret = doveadm_mail_server_user(ctx, &input, error_r);
 	if (ret != 0)
 		return ret;
 
-	ret = mail_storage_service_lookup(ctx->storage_service, input,
+	ret = mail_storage_service_lookup(ctx->storage_service, &input,
 					  &ctx->cur_service_user, &error);
 	if (ret <= 0) {
 		if (ret < 0) {
@@ -396,14 +411,14 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 }
 
 int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
-			     const struct mail_storage_service_input *input,
+			     const struct doveadm_cmd_attributes *attrs,
 			     const char **error_r)
 {
-	i_assert(input->username != NULL);
+	i_assert(attrs->username != NULL);
 
-	ctx->cur_client_ip = input->remote_ip;
-	ctx->cur_username = input->username;
-	ctx->storage_service_input = *input;
+	doveadm_attrs_to_storage_service_input(attrs, &ctx->storage_service_input);
+	ctx->cur_client_ip = attrs->remote_ip;
+	ctx->cur_username = attrs->username;
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
 	ctx->v.init(ctx, ctx->args);
@@ -413,24 +428,23 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
 	lib_signals_set_handler(SIGTERM, 0, sig_die, NULL);
 
-	return doveadm_mail_next_user(ctx, input, error_r);
+	return doveadm_mail_next_user(ctx, attrs, error_r);
 }
 
 static void
 doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 		       const char *wildcard_user)
 {
-	struct mail_storage_service_input input;
+	struct doveadm_cmd_attributes attrs;
 	unsigned int user_idx;
 	const char *ip, *user, *error;
 	int ret;
 
 	ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 
-	memset(&input, 0, sizeof(input));
-	input.service = "doveadm";
+	memset(&attrs, 0, sizeof(attrs));
 
-	ctx->storage_service_input = input;
+	doveadm_attrs_to_storage_service_input(&attrs, &ctx->storage_service_input);
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
         lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
@@ -449,11 +463,11 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 			if (!wildcard_match_icase(user, wildcard_user))
 				continue;
 		}
-		input.username = user;
+		attrs.username = user;
 		ctx->cur_username = user;
 		doveadm_print_sticky("username", user);
 		T_BEGIN {
-			ret = doveadm_mail_next_user(ctx, &input, &error);
+			ret = doveadm_mail_next_user(ctx, &attrs, &error);
 			if (ret < 0)
 				i_error("%s", error);
 			else if (ret == 0)
@@ -566,15 +580,14 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	if (ctx->iterate_single_user) {
-		struct mail_storage_service_input input;
+		struct doveadm_cmd_attributes attrs;
 
 		if (ctx->cur_username == NULL)
 			i_fatal_status(EX_USAGE, "USER environment is missing and -u option not used");
 
-		memset(&input, 0, sizeof(input));
-		input.service = "doveadm";
-		input.username = ctx->cur_username;
-		ret = doveadm_mail_single_user(ctx, &input, &error);
+		memset(&attrs, 0, sizeof(attrs));
+		attrs.username = ctx->cur_username;
+		ret = doveadm_mail_single_user(ctx, &attrs, &error);
 		if (ret < 0) {
 			/* user lookup/init failed somehow */
 			doveadm_exit_code = EX_TEMPFAIL;
