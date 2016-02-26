@@ -61,7 +61,7 @@ const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name)
 }
 
 const struct doveadm_cmd_ver2 *
-doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc, const char *argv[])
+doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc, const char *const argv[])
 {
 	int i;
 	const struct doveadm_cmd_ver2 *cmd;
