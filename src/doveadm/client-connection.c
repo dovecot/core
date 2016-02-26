@@ -282,8 +282,9 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 		return FALSE;
 	}
 	memset(&attrs, 0, sizeof(attrs));
-	attrs.argv = (const char **)args;
-	attrs.argc = argc;
+	/* leave the command name as args[0] so getopt() works */
+	attrs.argv = (const char **)args + 2;
+	attrs.argc = argc - 2;
 
 	attrs.local_ip = conn->local_ip;
 	attrs.remote_ip = conn->remote_ip;
@@ -292,11 +293,7 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 
 	flags = args[0];
 	attrs.username = args[1];
-
 	cmd_name = args[2];
-	/* leave the command name as args[0] so getopt() works */
-	args += 2;
-	argc -= 2;
 
 	doveadm_debug = FALSE;
 	doveadm_verbose = FALSE;
