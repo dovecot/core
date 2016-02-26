@@ -908,6 +908,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 	struct doveadm_mail_cmd_context *ctx;
 	const char *wildcard_user;
 	const char *fieldstr;
+
 	ARRAY_TYPE(const_string) pargv;
 	int i;
 	struct doveadm_mail_cmd mail_cmd = {
@@ -946,8 +947,9 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 		} else if (ctx->v.parse_arg != NULL && argv[i].short_opt != '\0') {
 			optarg = (char*)argv[i].value.v_string;
 			ctx->v.parse_arg(ctx, argv[i].short_opt);
-		} else if (strcmp(argv[i].name, "field") == 0) {
-			/* mailbox status, fetch: convert an array into a
+		} else if (strcmp(argv[i].name, "field") == 0 ||
+			   strcmp(argv[i].name, "flag") == 0) {
+			/* mailbox status, fetch, flags: convert an array into a
 			   single space-separated parameter (alternative to
 			   fieldstr) */
 			fieldstr = p_array_const_string_join(ctx->pool,
