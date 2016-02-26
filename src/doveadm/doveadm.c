@@ -210,14 +210,14 @@ static void cmd_exec(int argc ATTR_UNUSED, char *argv[])
 	i_fatal("execv(%s) failed: %m", argv[0]);
 }
 
-static bool doveadm_try_run(const char *cmd_name, int argc, char *argv[])
+static bool doveadm_try_run(const char *cmd_name, int argc, const char *argv[])
 {
 	const struct doveadm_cmd *cmd;
 
 	cmd = doveadm_cmd_find_with_args(cmd_name, &argc, &argv);
 	if (cmd == NULL)
 		return FALSE;
-	cmd->cmd(argc, argv);
+	cmd->cmd(argc, (char **)argv);
 	return TRUE;
 }
 
@@ -283,6 +283,7 @@ int main(int argc, char *argv[])
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
+	struct doveadm_cmd_attributes attrs;
 	const char *cmd_name;
 	unsigned int i;
 	bool quick_init = FALSE;
@@ -364,8 +365,12 @@ int main(int argc, char *argv[])
 		i_set_debug_file("/dev/null");
 	}
 
-	if (!doveadm_cmd_try_run_ver2(cmd_name, argc, (const char**)argv) &&
-	    !doveadm_try_run(cmd_name, argc, argv) &&
+	memset(&attrs, 0, sizeof(attrs));
+	attrs.argc = argc;
+	attrs.argv = (const char **)argv;
+
+	if (!doveadm_cmd_try_run_ver2(cmd_name, &attrs) &&
+	    !doveadm_try_run(cmd_name, argc, (const char **)argv) &&
 	    !doveadm_mail_try_run(cmd_name, argc, argv)) {
 		if (doveadm_has_subcommands(cmd_name))
 			usage_to(stdout, cmd_name);

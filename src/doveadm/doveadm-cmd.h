@@ -66,6 +66,11 @@ struct doveadm_cmd_ver2 {
 	const struct doveadm_cmd_param *parameters;
 };
 
+struct doveadm_cmd_attributes {
+	int argc;
+	const char **argv;
+};
+
 ARRAY_DEFINE_TYPE(doveadm_cmd, struct doveadm_cmd);
 extern ARRAY_TYPE(doveadm_cmd) doveadm_cmds;
 
@@ -84,7 +89,7 @@ extern struct doveadm_cmd doveadm_cmd_zlibconnect;
 void doveadm_register_cmd(const struct doveadm_cmd *cmd);
 
 const struct doveadm_cmd *
-doveadm_cmd_find_with_args(const char *cmd_name, int *argc, char **argv[]);
+doveadm_cmd_find_with_args(const char *cmd_name, int *argc, const char **argv[]);
 
 void doveadm_register_auth_commands(void);
 void doveadm_register_director_commands(void);
@@ -109,11 +114,11 @@ const struct doveadm_cmd_ver2 *
 doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc, const char *argv[]);
 const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name);
 /* Returns FALSE if cmd_name doesn't exist, TRUE if it exists. */
-bool doveadm_cmd_try_run_ver2(const char *cmd_name, int argc,
-	const char *argv[]);
+bool doveadm_cmd_try_run_ver2(const char *cmd_name,
+	const struct doveadm_cmd_attributes *attrs);
 /* Returns 0 if success, -1 if parameters were invalid. */
 int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd,
-	int argc, const char *argv[]);
+	const struct doveadm_cmd_attributes *attrs);
 
 bool doveadm_cmd_param_bool(int argc, const struct doveadm_cmd_param *params,
 			    const char *name, bool *value_r);

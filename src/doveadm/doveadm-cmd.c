@@ -97,10 +97,10 @@ doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc, const char *argv
 
 static const struct doveadm_cmd *
 doveadm_cmd_find_multi_word(const struct doveadm_cmd *cmd,
-			    const char *cmdname, int *_argc, char **_argv[])
+			    const char *cmdname, int *_argc, const char **_argv[])
 {
 	int argc = *_argc;
-	char **argv = *_argv;
+	const char **argv = *_argv;
 	const struct doveadm_cmd *subcmd;
 	unsigned int len;
 
@@ -129,7 +129,7 @@ doveadm_cmd_find_multi_word(const struct doveadm_cmd *cmd,
 }
 
 const struct doveadm_cmd *
-doveadm_cmd_find_with_args(const char *cmd_name, int *argc, char **argv[])
+doveadm_cmd_find_with_args(const char *cmd_name, int *argc, const char **argv[])
 {
 	const struct doveadm_cmd *cmd, *subcmd;
 	unsigned int cmd_name_len;
@@ -396,20 +396,22 @@ static void doveadm_fill_param(struct doveadm_cmd_param *param,
 	}
 }
 
-bool doveadm_cmd_try_run_ver2(const char *cmd_name, int argc, const char *argv[])
+bool doveadm_cmd_try_run_ver2(const char *cmd_name,
+			      const struct doveadm_cmd_attributes *attrs)
 {
 	const struct doveadm_cmd_ver2 *cmd;
 
-	cmd = doveadm_cmd_find_with_args_ver2(cmd_name, argc, argv);
+	cmd = doveadm_cmd_find_with_args_ver2(cmd_name, attrs->argc, attrs->argv);
 	if (cmd == NULL)
 		return FALSE;
 
-	if (doveadm_cmd_run_ver2(cmd, argc, argv) < 0)
+	if (doveadm_cmd_run_ver2(cmd, attrs) < 0)
 		doveadm_exit_code = EX_USAGE;
 	return TRUE;
 }
 
-int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd, int argc, const char *argv[])
+int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd,
+			 const struct doveadm_cmd_attributes *attrs)
 {
 	struct doveadm_cmd_param *param;
 	ARRAY_TYPE(doveadm_cmd_param_arr_t) pargv;
@@ -434,7 +436,7 @@ int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd, int argc, const cha
 	}
 	i_assert(pargc == array_count(&opts)-1); /* opts is NULL-terminated */
 
-	while((c = getopt_long(argc, (char*const*)argv, str_c(optbuf), array_idx(&opts, 0), &li)) > -1) {
+	while((c = getopt_long(attrs->argc, (char*const*)attrs->argv, str_c(optbuf), array_idx(&opts, 0), &li)) > -1) {
 		switch(c) {
 		case 0:
 			doveadm_fill_param(array_idx_modifiable(&pargv,li), optarg, pool);
@@ -457,13 +459,13 @@ int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd, int argc, const cha
 	while((cptr = strchr(cptr+1, ' ')) != NULL) optind++;
 
 	/* process positional arguments */
-	for(;optind<argc;optind++) {
+	for(;optind<attrs->argc;optind++) {
 		struct doveadm_cmd_param *ptr;
 		bool found = FALSE;
 		array_foreach_modifiable(&pargv, ptr) {
 			if ((ptr->flags & CMD_PARAM_FLAG_POSITIONAL) != 0 &&
 			    (ptr->value_set == FALSE || ptr->type == CMD_PARAM_ARRAY)) {
-				doveadm_fill_param(ptr, argv[optind], pool);
+				doveadm_fill_param(ptr, attrs->argv[optind], pool);
 				found = TRUE;
 				break;
 			}
