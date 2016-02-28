@@ -33,7 +33,8 @@ void message_search_reset(struct message_search_context *ctx);
 /* Search a full message. Returns 1 if match was found, 0 if not,
    -1 if error (if stream_error == 0, the parts contained broken data) */
 int message_search_msg(struct message_search_context *ctx,
-		       struct istream *input, struct message_part *parts)
+		       struct istream *input, struct message_part *parts,
+		       const char **error_r)
 	ATTR_NULL(3);
 
 #endif

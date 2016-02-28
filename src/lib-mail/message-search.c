@@ -193,7 +193,8 @@ void message_search_reset(struct message_search_context *ctx)
 
 static int
 message_search_msg_real(struct message_search_context *ctx,
-			struct istream *input, struct message_part *parts)
+			struct istream *input, struct message_part *parts,
+			const char **error_r)
 {
 	const enum message_header_parser_flags hdr_parser_flags =
 		MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
@@ -224,7 +225,7 @@ message_search_msg_real(struct message_search_context *ctx,
 		/* normal exit */
 		ret = 0;
 	}
-	if (message_parser_deinit(&parser_ctx, &new_parts) < 0) {
+	if (message_parser_deinit_from_parts(&parser_ctx, &new_parts, error_r) < 0) {
 		/* broken parts */
 		ret = -1;
 	}
@@ -232,12 +233,17 @@ message_search_msg_real(struct message_search_context *ctx,
 }
 
 int message_search_msg(struct message_search_context *ctx,
-		       struct istream *input, struct message_part *parts)
+		       struct istream *input, struct message_part *parts,
+		       const char **error_r)
 {
+	char *error;
 	int ret;
 
 	T_BEGIN {
-		ret = message_search_msg_real(ctx, input, parts);
+		ret = message_search_msg_real(ctx, input, parts, error_r);
+		error = i_strdup(*error_r);
 	} T_END;
+	*error_r = t_strdup(error);
+	i_free(error);
 	return ret;
 }
