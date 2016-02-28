@@ -86,16 +86,16 @@ static void penalty_lookup(struct penalty_context *ctx)
 	i_stream_destroy(&input);
 }
 
-static void cmd_penalty(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_penalty(struct doveadm_cmd_context *cctx)
 {
 	struct penalty_context ctx;
 	const char *netmask;
 
 	memset(&ctx, 0, sizeof(ctx));
-	if (!doveadm_cmd_param_str(argc, argv, "socket-path", &(ctx.anvil_path)))
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.anvil_path)))
 		ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 
-	if (doveadm_cmd_param_str(argc, argv, "netmask", &netmask)) {
+	if (doveadm_cmd_param_str(cctx, "netmask", &netmask)) {
 		if (net_parse_range(netmask, &ctx.net_ip, &ctx.net_bits) != 0) {
 			doveadm_exit_code = EX_USAGE;
 			i_error("Invalid netmask '%s' given", netmask);

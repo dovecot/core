@@ -116,23 +116,23 @@ static void stats_dump(const char *path, const char *cmd)
 }
 
 static void
-cmd2_stats_dump(const struct doveadm_cmd_ver2* dcmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
+doveadm_cmd_stats_dump(struct doveadm_cmd_context* cctx)
 {
 	const char *path, *cmd;
 	const char *args[3] = {0};
 
-	if (!doveadm_cmd_param_str(argc, argv, "socket-path", &path))
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &path))
 		path = t_strconcat(doveadm_settings->base_dir, "/stats", NULL);
 
-	if (!doveadm_cmd_param_str(argc, argv, "type", &args[0])) {
+	if (!doveadm_cmd_param_str(cctx, "type", &args[0])) {
 		i_error("Missing type parameter");
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
 
 	/* purely optional */
-	doveadm_cmd_param_str(argc, argv, "filter", &args[1]);
-	args[2] = NULL;
+	if (!doveadm_cmd_param_str(cctx, "filter", &args[1]))
+		args[1] = NULL;
 
 	cmd = t_strdup_printf("EXPORT\t%s\n", t_strarray_join(args, "\t"));
 
@@ -598,7 +598,7 @@ static void cmd_stats_reset(int argc, char *argv[])
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2 = {
-	.cmd = cmd2_stats_dump,
+	.cmd = doveadm_cmd_stats_dump,
 	.name = "stats dump",
 	.usage = "[-s <stats socket path>] <type> [<filter>]",
 DOVEADM_CMD_PARAMS_START

@@ -276,8 +276,7 @@ static int doveadm_http_server_json_parse_next(struct client_connection_http *co
 static void
 doveadm_http_server_command_execute(struct client_connection_http *conn)
 {
-	const struct doveadm_cmd_param *cpar;
-	struct doveadm_cmd_attributes attrs;
+	struct doveadm_cmd_context cctx;
 
 	/* final preflight check */
 	if (!doveadm_client_is_allowed_command(conn->client.set, conn->cmd->name))
@@ -295,26 +294,28 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 		return;
 	}
 
-	int pargc;
 	struct istream *is;
 	struct ioloop *ioloop,*prev_ioloop = current_ioloop;
+	memset(&cctx, 0, sizeof(cctx));
 
 	// create iostream
 	doveadm_print_ostream = iostream_temp_create("/tmp/doveadm.", 0);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_JSON);
 	/* then call it */
-	cpar = array_get(&conn->pargv, (unsigned int*)&pargc);
+	cctx.argv = array_get(&conn->pargv, (unsigned int*)&cctx.argc);
 	ioloop = io_loop_create();
 	lib_signals_reset_ioloop();
 	doveadm_exit_code = 0;
-	memset(&attrs, 0, sizeof(attrs));
-	attrs.local_ip = conn->client.local_ip;
-	attrs.local_port = conn->client.local_port;
-	attrs.remote_ip = conn->client.remote_ip;
-	attrs.remote_port = conn->client.remote_port;
 
-	conn->cmd->cmd(conn->cmd,pargc, cpar);
+	cctx.cmd = conn->cmd;
+	cctx.cli = FALSE;
+	cctx.local_ip = conn->client.local_ip;
+	cctx.local_port = conn->client.local_port;
+	cctx.remote_ip = conn->client.remote_ip;
+	cctx.remote_port = conn->client.remote_port;
+
+	cctx.cmd->cmd(&cctx);
 
 	io_loop_set_current(prev_ioloop);
 	lib_signals_reset_ioloop();

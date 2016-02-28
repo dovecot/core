@@ -283,11 +283,14 @@ int main(int argc, char *argv[])
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
-	struct doveadm_cmd_attributes attrs;
+	struct doveadm_cmd_context cctx;
 	const char *cmd_name;
 	unsigned int i;
 	bool quick_init = FALSE;
 	int c;
+
+	memset(&cctx,0,sizeof(cctx));
+	cctx.cli = TRUE;
 
 	i_set_failure_exit_callback(failure_exit_callback);
 	doveadm_dsync_main(&argc, &argv);
@@ -365,11 +368,7 @@ int main(int argc, char *argv[])
 		i_set_debug_file("/dev/null");
 	}
 
-	memset(&attrs, 0, sizeof(attrs));
-	attrs.argc = argc;
-	attrs.argv = (const char **)argv;
-
-	if (!doveadm_cmd_try_run_ver2(cmd_name, &attrs) &&
+	if (!doveadm_cmd_try_run_ver2(cmd_name, argc, (const char**)argv, &cctx) &&
 	    !doveadm_try_run(cmd_name, argc, (const char **)argv) &&
 	    !doveadm_mail_try_run(cmd_name, argc, argv)) {
 		if (doveadm_has_subcommands(cmd_name))

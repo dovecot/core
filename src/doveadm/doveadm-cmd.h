@@ -8,6 +8,7 @@
 #define DOVEADM_CMD_PARAMS_END { .short_opt = '\0', .name = NULL, .type = CMD_PARAM_BOOL, .flags = CMD_PARAM_FLAG_NONE } }
 
 struct doveadm_cmd_ver2;
+struct doveadm_cmd_context;
 struct doveadm_mail_cmd_context;
 
 typedef void doveadm_command_t(int argc, char *argv[]);
@@ -49,8 +50,7 @@ struct doveadm_cmd_param {
 };
 ARRAY_DEFINE_TYPE(doveadm_cmd_param_arr_t, struct doveadm_cmd_param);
 
-typedef void doveadm_command_ver2_t(const struct doveadm_cmd_ver2* cmd,
-	int argc, const struct doveadm_cmd_param[]);
+typedef void doveadm_command_ver2_t(struct doveadm_cmd_context *cctx);
 
 struct doveadm_cmd {
 	doveadm_command_t *cmd;
@@ -68,11 +68,14 @@ struct doveadm_cmd_ver2 {
 	const struct doveadm_cmd_param *parameters;
 };
 
-struct doveadm_cmd_attributes {
+struct doveadm_cmd_context {
+	const struct doveadm_cmd_ver2 *cmd; /* for help */
+
 	int argc;
-	const char **argv;
+	const struct doveadm_cmd_param *argv;
 
 	const char *username;
+	bool cli;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 };
@@ -110,10 +113,8 @@ void doveadm_register_fs_commands(void);
 void doveadm_cmds_init(void);
 void doveadm_cmds_deinit(void);
 
-void doveadm_cmd_ver2_to_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
-	int argc, const struct doveadm_cmd_param[]);
-void doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
-	int argc, const struct doveadm_cmd_param argv[]);
+void doveadm_cmd_ver2_to_cmd_wrapper(struct doveadm_cmd_context *cctx);
+void doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx);
 
 void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd);
 const struct doveadm_cmd_ver2 *
@@ -121,22 +122,23 @@ doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc, const char *cons
 const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name);
 /* Returns FALSE if cmd_name doesn't exist, TRUE if it exists. */
 bool doveadm_cmd_try_run_ver2(const char *cmd_name,
-	const struct doveadm_cmd_attributes *attrs);
+	int argc, const char **argv,
+	struct doveadm_cmd_context *cctx);
 /* Returns 0 if success, -1 if parameters were invalid. */
-int doveadm_cmd_run_ver2(const struct doveadm_cmd_ver2 *cmd,
-	const struct doveadm_cmd_attributes *attrs);
+int doveadm_cmd_run_ver2(int argc, const char **argv,
+	struct doveadm_cmd_context *cctx);
 
-bool doveadm_cmd_param_bool(int argc, const struct doveadm_cmd_param *params,
+bool doveadm_cmd_param_bool(const struct doveadm_cmd_context *cctx,
 			    const char *name, bool *value_r);
-bool doveadm_cmd_param_int64(int argc, const struct doveadm_cmd_param *params,
+bool doveadm_cmd_param_int64(const struct doveadm_cmd_context *cctx,
 			     const char *name, int64_t *value_r);
-bool doveadm_cmd_param_str(int argc, const struct doveadm_cmd_param *params,
+bool doveadm_cmd_param_str(const struct doveadm_cmd_context *cctx,
 			   const char *name, const char **value_r);
-bool doveadm_cmd_param_ip(int argc, const struct doveadm_cmd_param *params,
+bool doveadm_cmd_param_ip(const struct doveadm_cmd_context *cctx,
 			  const char *name, struct ip_addr *value_r);
-bool doveadm_cmd_param_array(int argc, const struct doveadm_cmd_param *params,
+bool doveadm_cmd_param_array(const struct doveadm_cmd_context *cctx,
 			     const char *name, ARRAY_TYPE(const_string) **value_r);
-bool doveadm_cmd_param_istream(int argc, const struct doveadm_cmd_param *params,
+bool doveadm_cmd_param_istream(const struct doveadm_cmd_context *cctx,
 			       const char *name, struct istream **value_r);
 
 void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv);
