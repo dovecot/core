@@ -274,33 +274,30 @@ static void who_print_line(struct who_context *ctx,
 	} T_END;
 }
 
-static void cmd_who(int argc, char *argv[])
+static void cmd_who(struct doveadm_cmd_context *cctx)
 {
+	const char *const *masks;
 	struct who_context ctx;
 	bool separate_connections = FALSE;
-	int c;
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.anvil_path)))
+		ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
+	(void)doveadm_cmd_param_bool(cctx, "separate-connections", &separate_connections);
+	if (!doveadm_cmd_param_array(cctx, "mask", &masks)) {
+		doveadm_exit_code = EX_USAGE;
+		i_error("user and/or ip[/bits] must be specified.");
+		return;
+	}
+
 	ctx.pool = pool_alloconly_create("who users", 10240);
 	hash_table_create(&ctx.users, ctx.pool, 0, who_user_hash, who_user_cmp);
 
-	while ((c = getopt(argc, argv, "1a:")) > 0) {
-		switch (c) {
-		case '1':
-			separate_connections = TRUE;
-			break;
-		case 'a':
-			ctx.anvil_path = optarg;
-			break;
-		default:
-			help(&doveadm_cmd_who);
-		}
+	if (who_parse_args(&ctx, masks) != 0) {
+		hash_table_destroy(&ctx.users);
+		pool_unref(&ctx.pool);
+		return;
 	}
-
-	argv += optind - 1;
-	if (who_parse_args(&ctx, (const char *const *)argv + 1) < 0)
-		help(&doveadm_cmd_who);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	if (!separate_connections) {
@@ -319,7 +316,13 @@ static void cmd_who(int argc, char *argv[])
 	pool_unref(&ctx.pool);
 }
 
-struct doveadm_cmd doveadm_cmd_who = {
-	cmd_who, "who",
-	"[-a <anvil socket path>] [-1] [<user mask>] [<ip/bits>]"
+struct doveadm_cmd_ver2 doveadm_cmd_who_ver2 = {
+	.name = "who",
+	.cmd = cmd_who,
+	.usage = "[-a <anvil socket path>] [-1] [<user mask>] [<ip/bits>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a',"socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('1',"separate-connections", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0',"mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
