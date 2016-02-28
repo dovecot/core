@@ -406,9 +406,7 @@ static void index_mail_init_parser(struct index_mail *mail)
 	if (data->parser_ctx != NULL) {
 		data->parser_input = NULL;
 		if (message_parser_deinit_from_parts(&data->parser_ctx, &parts, &error) < 0) {
-			mail_set_cache_corrupted_reason(&mail->mail.mail,
-				MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
-				"Cached MIME parts don't match message during parsing: %s", error));
+			index_mail_set_message_parts_corrupted(&mail->mail.mail, error);
 			data->parts = NULL;
 		}
 	}

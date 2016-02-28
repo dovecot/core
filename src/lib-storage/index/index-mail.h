@@ -178,6 +178,7 @@ void index_mail_update_access_parts_post(struct mail *_mail);
 void index_mail_close(struct mail *mail);
 void index_mail_close_streams(struct index_mail *mail);
 void index_mail_free(struct mail *mail);
+void index_mail_set_message_parts_corrupted(struct mail *mail, const char *error);
 
 bool index_mail_want_parse_headers(struct index_mail *mail);
 void index_mail_parse_header_init(struct index_mail *mail,

@@ -9,6 +9,7 @@
 #include "message-parser.h"
 #include "message-decoder.h"
 #include "mail-storage.h"
+#include "index-mail.h"
 #include "fts-parser.h"
 #include "fts-user.h"
 #include "fts-language.h"
@@ -572,11 +573,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		block.data = NULL; block.size = 0;
 		ret = fts_build_body_block(&ctx, &block, TRUE);
 	}
-	if (message_parser_deinit_from_parts(&parser, &parts, &error) < 0) {
-		mail_set_cache_corrupted_reason(mail,
-			MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
-			"Cached MIME parts don't match message during parsing in FTS index building: %s", error));
-	}
+	if (message_parser_deinit_from_parts(&parser, &parts, &error) < 0)
+		index_mail_set_message_parts_corrupted(mail, error);
 	message_decoder_deinit(&decoder);
 	i_free(ctx.content_type);
 	i_free(ctx.content_disposition);

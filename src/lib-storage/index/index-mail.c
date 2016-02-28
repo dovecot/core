@@ -5,6 +5,7 @@
 #include "buffer.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "hex-binary.h"
 #include "str.h"
 #include "message-date.h"
 #include "message-part-serialize.h"
@@ -143,6 +144,22 @@ static bool get_cached_parts(struct index_mail *mail)
 
 	mail->data.parts = part;
 	return TRUE;
+}
+
+void index_mail_set_message_parts_corrupted(struct mail *mail, const char *error)
+{
+	buffer_t *part_buf;
+	const char *parts_str;
+
+	if (get_serialized_parts((struct index_mail *)mail, &part_buf) <= 0)
+		parts_str = "";
+	else
+		parts_str = binary_to_hex(part_buf->data, part_buf->used);
+
+	mail_set_cache_corrupted_reason(mail,
+		MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
+		"Cached MIME parts don't match message during parsing: %s (parts=%s)",
+		error, parts_str));
 }
 
 static bool index_mail_get_fixed_field(struct index_mail *mail,
@@ -984,9 +1001,7 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	if (ret <= 0) {
 		if (ret == 0) {
 			i_assert(error != NULL);
-			mail_set_cache_corrupted_reason(&mail->mail.mail,
-				MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
-				"Cached MIME parts don't match message during parsing: %s", error));
+			index_mail_set_message_parts_corrupted(&mail->mail.mail, error);
 		}
 		mail->data.parts = NULL;
 		mail->data.parsed_bodystructure = FALSE;
@@ -1475,11 +1490,8 @@ static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
 	const char *error;
 
 	if (data->parser_ctx != NULL) {
-		if (message_parser_deinit_from_parts(&data->parser_ctx, &parts, &error) < 0) {
-			mail_set_cache_corrupted_reason(&mail->mail.mail,
-				MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
-				"Cached MIME parts don't match message during parsing: %s", error));
-		}
+		if (message_parser_deinit_from_parts(&data->parser_ctx, &parts, &error) < 0)
+			index_mail_set_message_parts_corrupted(&mail->mail.mail, error);
 		mail->data.parser_input = NULL;
 		if (mail->data.save_bodystructure_body)
 			mail->data.save_bodystructure_header = TRUE;
