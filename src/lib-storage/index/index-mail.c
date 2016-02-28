@@ -2166,12 +2166,12 @@ void index_mail_set_cache_corrupted_reason(struct mail *mail,
 	imail->data.forced_no_caching = TRUE;
 	if (reason[0] == '\0') {
 		mail_cache_set_corrupted(mail->box->cache,
-					 "Broken %s for mail UID %u",
-					 field_name, mail->uid);
+			"Broken %s for mail UID %u in mailbox %s",
+			field_name, mail->uid, mail->box->vname);
 	} else {
 		mail_cache_set_corrupted(mail->box->cache,
-					 "Broken %s for mail UID %u: %s",
-					 field_name, mail->uid, reason);
+			"Broken %s for mail UID %u in mailbox %s: %s",
+			field_name, mail->uid, mail->box->vname, reason);
 	}
 }
 
