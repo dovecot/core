@@ -81,25 +81,30 @@ int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 	return ret;
 }
 
-static struct message_part *get_unserialized_parts(struct index_mail *mail)
+static int get_serialized_parts(struct index_mail *mail, buffer_t **part_buf_r)
 {
 	const unsigned int field_idx =
 		mail->ibox->cache_fields[MAIL_CACHE_MESSAGE_PARTS].idx;
+
+	*part_buf_r = buffer_create_dynamic(pool_datastack_create(), 128);
+	return index_mail_cache_lookup_field(mail, *part_buf_r, field_idx);
+}
+
+static struct message_part *get_unserialized_parts(struct index_mail *mail)
+{
 	struct message_part *parts;
 	buffer_t *part_buf;
 	const char *error;
-	int ret;
 
-	part_buf = buffer_create_dynamic(pool_datastack_create(), 128);
-	ret = index_mail_cache_lookup_field(mail, part_buf, field_idx);
-	if (ret <= 0)
+	if (get_serialized_parts(mail, &part_buf) <= 0)
 		return NULL;
 
 	parts = message_part_deserialize(mail->mail.data_pool, part_buf->data,
 					 part_buf->used, &error);
 	if (parts == NULL) {
 		mail_cache_set_corrupted(mail->mail.mail.box->cache,
-			"Corrupted cached mime.parts data (%s)", error);
+			"Corrupted cached mime.parts data: %s (parts=%s)",
+			error, binary_to_hex(part_buf->data, part_buf->used));
 	}
 	return parts;
 }
