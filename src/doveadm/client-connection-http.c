@@ -303,7 +303,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_JSON);
 	/* then call it */
-	cctx.argv = array_get(&conn->pargv, (unsigned int*)&cctx.argc);
+	cctx.argv = array_get_modifiable(&conn->pargv, (unsigned int*)&cctx.argc);
 	ioloop = io_loop_create();
 	lib_signals_reset_ioloop();
 	doveadm_exit_code = 0;

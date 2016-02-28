@@ -181,7 +181,7 @@ void doveadm_cmds_deinit(void)
 	array_free(&doveadm_cmds_ver2);
 }
 
-static const struct doveadm_cmd_param*
+static struct doveadm_cmd_param*
 doveadm_cmd_param_get(const struct doveadm_cmd_context *cctx,
 		      const char *name)
 {
@@ -247,12 +247,16 @@ bool doveadm_cmd_param_ip(const struct doveadm_cmd_context *cctx,
 }
 
 bool doveadm_cmd_param_array(const struct doveadm_cmd_context *cctx,
-			     const char *name, ARRAY_TYPE(const_string) **value_r)
+			     const char *name, const char *const **value_r)
 {
-	const struct doveadm_cmd_param *param;
+	struct doveadm_cmd_param *param;
 	if ((param = doveadm_cmd_param_get(cctx, name))==NULL) return FALSE;
 	if (param->type == CMD_PARAM_ARRAY) {
-		*value_r = (ARRAY_TYPE(const_string)*)&(param->value.v_array);
+		/* NULL-terminate the array, but don't leave it there */
+		array_append_zero(&param->value.v_array);
+		array_delete(&param->value.v_array,
+			     array_count(&param->value.v_array)-1, 1);
+		*value_r = array_idx(&param->value.v_array, 0);
 		return TRUE;
 	}
 	return FALSE;

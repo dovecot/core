@@ -72,7 +72,7 @@ struct doveadm_cmd_context {
 	const struct doveadm_cmd_ver2 *cmd; /* for help */
 
 	int argc;
-	const struct doveadm_cmd_param *argv;
+	struct doveadm_cmd_param *argv;
 
 	const char *username;
 	bool cli;
@@ -137,7 +137,7 @@ bool doveadm_cmd_param_str(const struct doveadm_cmd_context *cctx,
 bool doveadm_cmd_param_ip(const struct doveadm_cmd_context *cctx,
 			  const char *name, struct ip_addr *value_r);
 bool doveadm_cmd_param_array(const struct doveadm_cmd_context *cctx,
-			     const char *name, ARRAY_TYPE(const_string) **value_r);
+			     const char *name, const char *const **value_r);
 bool doveadm_cmd_param_istream(const struct doveadm_cmd_context *cctx,
 			       const char *name, struct istream **value_r);
 
