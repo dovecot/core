@@ -196,7 +196,8 @@ static void cmd_kick(int argc, char *argv[])
 		i_fatal_status(EX_USAGE,
 			       "user and/or ip[/bits] must be specified.");
 	}
-	who_parse_args(&ctx.who, argv);
+	if (who_parse_args(&ctx.who, (const char *const *)argv + 1) < 0)
+		help(&doveadm_cmd_kick);
 
 	who_lookup(&ctx.who, kick_aggregate_line);
 	kick_users(&ctx);

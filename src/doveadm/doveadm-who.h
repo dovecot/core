@@ -27,7 +27,7 @@ struct who_context {
 typedef void who_callback_t(struct who_context *ctx,
 			    const struct who_line *line);
 
-void who_parse_args(struct who_context *ctx, char **args);
+int who_parse_args(struct who_context *ctx, const char *const *masks);
 
 void who_lookup(struct who_context *ctx, who_callback_t *callback);
 

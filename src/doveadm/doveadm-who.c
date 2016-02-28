@@ -112,24 +112,30 @@ static void who_aggregate_line(struct who_context *ctx,
 		array_append(&user->pids, &line->pid, 1);
 }
 
-void who_parse_args(struct who_context *ctx, char **args)
+int who_parse_args(struct who_context *ctx, const char *const *masks)
 {
 	struct ip_addr net_ip;
-	unsigned int net_bits;
+	unsigned int i, net_bits;
 
-	while (args[1] != NULL) {
-		if (net_parse_range(args[1], &net_ip, &net_bits) == 0) {
-			if (ctx->filter.net_bits != 0)
-				help(&doveadm_cmd_who);
+	for (i = 0; masks[i] != NULL; i++) {
+		if (net_parse_range(masks[i], &net_ip, &net_bits) == 0) {
+			if (ctx->filter.net_bits != 0) {
+				i_error("Multiple network masks not supported");
+				doveadm_exit_code = EX_USAGE;
+				return -1;
+			}
 			ctx->filter.net_ip = net_ip;
 			ctx->filter.net_bits = net_bits;
 		} else {
-			if (ctx->filter.username != NULL)
-				help(&doveadm_cmd_who);
-			ctx->filter.username = args[1];
+			if (ctx->filter.username != NULL) {
+				i_error("Multiple username masks not supported");
+				doveadm_exit_code = EX_USAGE;
+				return -1;
+			}
+			ctx->filter.username = masks[i];
 		}
-		args++;
 	}
+	return 0;
 }
 
 void who_lookup(struct who_context *ctx, who_callback_t *callback)
@@ -293,7 +299,8 @@ static void cmd_who(int argc, char *argv[])
 	}
 
 	argv += optind - 1;
-	who_parse_args(&ctx, argv);
+	if (who_parse_args(&ctx, (const char *const *)argv + 1) < 0)
+		help(&doveadm_cmd_who);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	if (!separate_connections) {
