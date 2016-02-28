@@ -57,6 +57,13 @@ message_parser_init_from_parts(struct message_part *parts,
    didn't match the current message */
 int message_parser_deinit(struct message_parser_ctx **ctx,
 			  struct message_part **parts_r);
+/* Same as message_parser_deinit(), but return an error message describing
+   why the preparsed parts didn't match the message. This can also safely be
+   called even when preparsed parts weren't used - it'll always just return
+   success in that case. */
+int message_parser_deinit_from_parts(struct message_parser_ctx **_ctx,
+				     struct message_part **parts_r,
+				     const char **error_r);
 
 /* Read the next block of a message. Returns 1 if block is returned, 0 if
    input stream is non-blocking and more data needs to be read, -1 when all is

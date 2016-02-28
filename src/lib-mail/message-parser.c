@@ -26,6 +26,7 @@ struct message_parser_ctx {
 	pool_t parser_pool, part_pool;
 	struct istream *input;
 	struct message_part *parts, *part;
+	const char *broken_reason;
 
 	enum message_header_parser_flags hdr_flags;
 	enum message_parser_flags flags;
@@ -44,7 +45,6 @@ struct message_parser_ctx {
 				struct message_block *block_r);
 
 	unsigned int part_seen_content_type:1;
-	unsigned int broken:1;
 	unsigned int eof:1;
 };
 
@@ -748,7 +748,7 @@ static int preparsed_parse_prologue_more(struct message_parser_ctx *ctx,
 
 		/* [\r]\n--boundary[\r]\n */ 
 		if (block_r->size < 5 || *cur != '\n') {
-			ctx->broken = TRUE;
+			ctx->broken_reason = "Prologue boundary end not at expected position";
 			return -1;
 		}
 		
@@ -761,7 +761,7 @@ static int preparsed_parse_prologue_more(struct message_parser_ctx *ctx,
 		}
 
 		if (cur[0] != '\n' || cur[1] != '-' || cur[2] != '-') {
-			ctx->broken = TRUE;
+			ctx->broken_reason = "Prologue boundary beginning not at expected position";
 			return -1;
 		}
 
@@ -822,7 +822,7 @@ static int preparsed_parse_epilogue_boundary(struct message_parser_ctx *ctx,
 	int ret;
 
 	if (end_offset - ctx->input->v_offset < 7) {
-		ctx->broken = TRUE;
+		ctx->broken_reason = "Epilogue position is wrong";
 		return -1;
 	}
 
@@ -842,7 +842,7 @@ static int preparsed_parse_epilogue_boundary(struct message_parser_ctx *ctx,
 	if (*cur == '\r') cur++;
 
 	if (cur[0] != '\n' || cur[1] != '-' || data[2] != '-') {
-		ctx->broken = TRUE;
+		ctx->broken_reason = "Epilogue boundary start not at expected position";
 		return -1;
 	}
 
@@ -850,7 +850,7 @@ static int preparsed_parse_epilogue_boundary(struct message_parser_ctx *ctx,
 	cur += 3;
 	if ((cur = memchr(cur, '\n', size - (cur-data))) == NULL) {
 		if (end_offset < ctx->input->v_offset + size) {
-			ctx->broken = TRUE;
+			ctx->broken_reason = "Epilogue boundary end not at expected position";
 			return -1;
 		} else if (ctx->input->v_offset + size < end_offset &&
 			   size < BOUNDARY_END_MAX_LEN &&
@@ -874,7 +874,7 @@ static int preparsed_parse_body_init(struct message_parser_ctx *ctx,
 
 	if (offset < ctx->input->v_offset) {
 		/* header was actually larger than the cached size suggested */
-		ctx->broken = TRUE;
+		ctx->broken_reason = "Header larger than its cached size";
 		return -1;
 	}
 	i_stream_skip(ctx->input, offset - ctx->input->v_offset);
@@ -901,7 +901,7 @@ static int preparsed_parse_epilogue_init(struct message_parser_ctx *ctx,
 	if (offset < ctx->input->v_offset) {
 		/* last child was actually larger than the cached size
 		   suggested */
-		ctx->broken = TRUE;
+		ctx->broken_reason = "Part larger than its cached size";
 		return -1;
 	}
 	i_stream_skip(ctx->input, offset - ctx->input->v_offset);
@@ -957,7 +957,7 @@ static int preparsed_parse_next_header(struct message_parser_ctx *ctx,
 	i_assert(ctx->skip == 0);
 	if (ctx->input->v_offset != ctx->part->physical_pos +
 	    ctx->part->header_size.physical_size) {
-		ctx->broken = TRUE;
+		ctx->broken_reason = "Cached header size mismatch";
 		return -1;
 	}
 	return 1;
@@ -1030,11 +1030,21 @@ message_parser_init_from_parts(struct message_part *parts,
 int message_parser_deinit(struct message_parser_ctx **_ctx,
 			  struct message_part **parts_r)
 {
+	const char *error;
+
+	return message_parser_deinit_from_parts(_ctx, parts_r, &error);
+}
+
+int message_parser_deinit_from_parts(struct message_parser_ctx **_ctx,
+				     struct message_part **parts_r,
+				     const char **error_r)
+{
         struct message_parser_ctx *ctx = *_ctx;
-	int ret = ctx->broken ? -1 : 0;
+	int ret = ctx->broken_reason != NULL ? -1 : 0;
 
 	*_ctx = NULL;
 	*parts_r = ctx->parts;
+	*error_r = ctx->broken_reason;
 
 	if (ctx->hdr_parser_ctx != NULL)
 		message_parse_header_deinit(&ctx->hdr_parser_ctx);
@@ -1069,7 +1079,8 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 	if (ret < 0 && ctx->part != NULL) {
 		/* Successful EOF or unexpected failure */
 		i_assert(ctx->input->eof || ctx->input->closed ||
-			 ctx->input->stream_errno != 0 || ctx->broken);
+			 ctx->input->stream_errno != 0 ||
+			 ctx->broken_reason != NULL);
 		while (ctx->part->parent != NULL) {
 			message_size_add(&ctx->part->parent->body_size,
 					 &ctx->part->body_size);
