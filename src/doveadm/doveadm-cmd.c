@@ -13,7 +13,6 @@
 #include <getopt.h>
 
 static struct doveadm_cmd *doveadm_commands[] = {
-	&doveadm_cmd_kick,
 	&doveadm_cmd_mailbox_mutf7,
 	&doveadm_cmd_sis_deduplicate,
 	&doveadm_cmd_sis_find,
@@ -25,6 +24,7 @@ static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
 	&doveadm_cmd_stats_dump_ver2,
 	&doveadm_cmd_stats_reset_ver2,
 	&doveadm_cmd_penalty_ver2,
+	&doveadm_cmd_kick_ver2,
 	&doveadm_cmd_who_ver2
 };
 
