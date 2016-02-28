@@ -274,8 +274,10 @@ static void i_stream_binary_converter_close(struct iostream_private *stream,
 		(struct binary_converter_istream *)stream;
 	struct message_part *parts;
 
-	if (bstream->parser != NULL)
-		(void)message_parser_deinit(&bstream->parser, &parts);
+	if (bstream->parser != NULL) {
+		if (message_parser_deinit(&bstream->parser, &parts) < 0)
+			i_unreached(); /* we didn't use preparsed message_parts */
+	}
 	if (bstream->pool != NULL)
 		pool_unref(&bstream->pool);
 	if (close_parent)

@@ -679,11 +679,10 @@ static void i_stream_attachment_extractor_close(struct iostream_private *stream,
 	struct attachment_istream *astream =
 		(struct attachment_istream *)stream;
 	struct message_part *parts;
-	int ret;
 
 	if (astream->parser != NULL) {
-		ret = message_parser_deinit(&astream->parser, &parts);
-		i_assert(ret == 0); /* we didn't use preparsed message_parts */
+		if (message_parser_deinit(&astream->parser, &parts) < 0)
+			i_unreached(); /* we didn't use preparsed message_parts */
 	}
 	hash_format_deinit_free(&astream->set.hash_format);
 	if (astream->pool != NULL)
