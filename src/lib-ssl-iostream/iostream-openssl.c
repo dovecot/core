@@ -12,6 +12,12 @@ static void openssl_iostream_free(struct ssl_iostream *ssl_io);
 static void
 openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
 {
+	if (ssl_io->verbose) {
+		/* This error should normally be logged by lib-ssl-iostream's
+		   caller. But if verbose=TRUE, log it here as well to make
+		   sure that the error is always logged. */
+		i_debug("%sSSL error: %s", ssl_io->log_prefix, str);
+	}
 	i_free(ssl_io->last_error);
 	ssl_io->last_error = i_strdup(str);
 }
