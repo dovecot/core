@@ -94,25 +94,25 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 			      const struct doveadm_settings *set,
 			      int argc, const char **argv,
 			      struct doveadm_cmd_context *cctx,
-			      struct doveadm_mail_cmd_context **ctx_r)
+			      struct doveadm_mail_cmd_context **mctx_r)
 {
-	struct doveadm_mail_cmd_context *ctx;
+	struct doveadm_mail_cmd_context *mctx;
 	const char *getopt_args;
 	bool add_username_header = FALSE;
 	int c;
 
-	ctx = doveadm_mail_cmd_init(cmd, set);
-	ctx->full_args = argv+1;
-	ctx->proxying = TRUE;
+	mctx = doveadm_mail_cmd_init(cmd, set);
+	mctx->full_args = argv+1;
+	mctx->proxying = TRUE;
 
-	ctx->service_flags |=
+	mctx->service_flags |=
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 	if (doveadm_debug)
-		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
+		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
 
 	i_getopt_reset();
-	getopt_args = t_strconcat("AF:S:u:", ctx->getopt_args, NULL);
+	getopt_args = t_strconcat("AF:S:u:", mctx->getopt_args, NULL);
 	while ((c = getopt(argc, (char **)argv, getopt_args)) > 0) {
 		switch (c) {
 		case 'A':
@@ -128,13 +128,13 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 				add_username_header = TRUE;
 			break;
 		default:
-			if ((ctx->v.parse_arg == NULL ||
-			     !ctx->v.parse_arg(ctx, c))) {
+			if ((mctx->v.parse_arg == NULL ||
+			     !mctx->v.parse_arg(mctx, c))) {
 				i_error("doveadm %s: "
 					"Client sent unknown parameter: %c",
 					cmd->name, c);
-				ctx->v.deinit(ctx);
-				pool_unref(&ctx->pool);
+				mctx->v.deinit(mctx);
+				pool_unref(&mctx->pool);
 				return -1;
 			}
 		}
@@ -143,11 +143,11 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 	if (argv[optind] != NULL && cmd->usage_args == NULL) {
 		i_error("doveadm %s: Client sent unknown parameter: %s",
 			cmd->name, argv[optind]);
-		ctx->v.deinit(ctx);
-		pool_unref(&ctx->pool);
+		mctx->v.deinit(mctx);
+		pool_unref(&mctx->pool);
 		return -1;
 	}
-	ctx->args = argv+optind;
+	mctx->args = argv+optind;
 
 	if (doveadm_print_is_initialized() && add_username_header) {
 		doveadm_print_header("username", "Username",
@@ -155,44 +155,44 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 		doveadm_print_sticky("username", cctx->username);
 	}
-	*ctx_r = ctx;
+	*mctx_r = mctx;
 	return 0;
 }
 
 static void
 doveadm_mail_cmd_server_run(struct client_connection *conn,
-			    struct doveadm_mail_cmd_context *ctx,
+			    struct doveadm_mail_cmd_context *mctx,
 			    struct doveadm_cmd_context *cctx)
 {
 	const char *error;
 	int ret;
 
-	ctx->conn = conn;
+	mctx->conn = conn;
 	o_stream_cork(conn->output);
 
-	if (ctx->v.preinit != NULL)
-		ctx->v.preinit(ctx);
+	if (mctx->v.preinit != NULL)
+		mctx->v.preinit(mctx);
 
-	ret = doveadm_mail_single_user(ctx, cctx, &error);
+	ret = doveadm_mail_single_user(mctx, cctx, &error);
 	doveadm_mail_server_flush();
-	ctx->v.deinit(ctx);
+	mctx->v.deinit(mctx);
 	doveadm_print_flush();
-	mail_storage_service_deinit(&ctx->storage_service);
+	mail_storage_service_deinit(&mctx->storage_service);
 
 	if (ret < 0) {
-		i_error("%s: %s", ctx->cmd->name, error);
+		i_error("%s: %s", mctx->cmd->name, error);
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	} else if (ret == 0) {
 		o_stream_nsend_str(conn->output, "\n-NOUSER\n");
-	} else if (ctx->exit_code != 0) {
+	} else if (mctx->exit_code != 0) {
 		/* maybe not an error, but not a full success either */
 		o_stream_nsend_str(conn->output,
-				   t_strdup_printf("\n-%u\n", ctx->exit_code));
+				   t_strdup_printf("\n-%u\n", mctx->exit_code));
 	} else {
 		o_stream_nsend(conn->output, "\n+\n", 3);
 	}
 	o_stream_uncork(conn->output);
-	pool_unref(&ctx->pool);
+	pool_unref(&mctx->pool);
 }
 
 bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,
@@ -224,7 +224,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
 	const struct doveadm_cmd *cmd = NULL;
 	const struct doveadm_mail_cmd *mail_cmd;
-	struct doveadm_mail_cmd_context *ctx;
+	struct doveadm_mail_cmd_context *mctx;
 	const struct doveadm_cmd_ver2 *cmd_ver2;
 
 	if ((cmd_ver2 = doveadm_cmd_find_with_args_ver2(cmd_name, argc, argv)) == NULL) {
@@ -238,7 +238,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 		} else {
 			if (doveadm_mail_cmd_server_parse(mail_cmd, conn->set,
 							  argc, argv,
-							  cctx, &ctx) < 0)
+							  cctx, &mctx) < 0)
 				return -1;
 		}
 	} else {
@@ -256,7 +256,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	else if (cmd != NULL)
 		doveadm_cmd_server_run(conn, argc, argv, cmd);
 	else
-		doveadm_mail_cmd_server_run(conn, ctx, cctx);
+		doveadm_mail_cmd_server_run(conn, mctx, cctx);
 
 	io_loop_set_current(prev_ioloop);
 	lib_signals_reset_ioloop();

@@ -917,7 +917,7 @@ void doveadm_mail_deinit(void)
 void
 doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 {
-	struct doveadm_mail_cmd_context *ctx;
+	struct doveadm_mail_cmd_context *mctx;
 	const char *wildcard_user;
 	const char *fieldstr;
 
@@ -927,11 +927,11 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 		cctx->cmd->mail_cmd, cctx->cmd->name, cctx->cmd->usage
 	};
 
-	ctx = doveadm_mail_cmdline_init(&mail_cmd);
+	mctx = doveadm_mail_cmdline_init(&mail_cmd);
 
-	ctx->iterate_all_users = FALSE;
+	mctx->iterate_all_users = FALSE;
 	wildcard_user = NULL;
-	p_array_init(&pargv, ctx->pool, 8);
+	p_array_init(&pargv, mctx->pool, 8);
 
 	for(i=0;i<cctx->argc;i++) {
 		const struct doveadm_cmd_param *arg = &cctx->argv[i];
@@ -940,49 +940,49 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			continue;
 
 		if (strcmp(arg->name, "all-users") == 0) {
-			ctx->iterate_all_users = arg->value.v_bool;
+			mctx->iterate_all_users = arg->value.v_bool;
 		} else if (strcmp(arg->name, "socket-path") == 0) {
 			doveadm_settings->doveadm_socket_path = arg->value.v_string;
 			if (doveadm_settings->doveadm_worker_count == 0)
 				doveadm_settings->doveadm_worker_count = 1;
 		} else if (strcmp(arg->name, "user") == 0) {
-			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-			ctx->cur_username = arg->value.v_string;
-			if (strchr(ctx->cur_username, '*') != NULL ||
-			    strchr(ctx->cur_username, '?') != NULL) {
-				wildcard_user = ctx->cur_username;
-				ctx->cur_username = NULL;
+			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+			mctx->cur_username = arg->value.v_string;
+			if (strchr(mctx->cur_username, '*') != NULL ||
+			    strchr(mctx->cur_username, '?') != NULL) {
+				wildcard_user = mctx->cur_username;
+				mctx->cur_username = NULL;
 			}
 		} else if (strcmp(arg->name, "user-file") == 0) {
-			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			wildcard_user = "*";
-			ctx->users_list_input = arg->value.v_istream;
-			i_stream_ref(ctx->users_list_input);
+			mctx->users_list_input = arg->value.v_istream;
+			i_stream_ref(mctx->users_list_input);
 		} else if (strcmp(arg->name, "field") == 0 ||
 			   strcmp(arg->name, "flag") == 0) {
 			/* mailbox status, fetch, flags: convert an array into a
 			   single space-separated parameter (alternative to
 			   fieldstr) */
-			fieldstr = p_array_const_string_join(ctx->pool,
+			fieldstr = p_array_const_string_join(mctx->pool,
 					&arg->value.v_array, " ");
 			array_append(&pargv, &fieldstr, 1);
 		} else if (strcmp(arg->name, "file") == 0) {
 			/* input for doveadm_mail_get_input(),
 			   used by e.g. save */
-			if (ctx->cmd_input != NULL) {
+			if (mctx->cmd_input != NULL) {
 				i_error("Only one file input allowed: %s", arg->name);
-				doveadm_mail_cmd_free(ctx);
+				doveadm_mail_cmd_free(mctx);
 				doveadm_exit_code = EX_USAGE;
 				return;
 			}
-			ctx->cmd_input = arg->value.v_istream;
-			i_stream_ref(ctx->cmd_input);
+			mctx->cmd_input = arg->value.v_istream;
+			i_stream_ref(mctx->cmd_input);
 
 		/* Keep all named special parameters above this line */
 
-		} else if (ctx->v.parse_arg != NULL && arg->short_opt != '\0') {
+		} else if (mctx->v.parse_arg != NULL && arg->short_opt != '\0') {
 			optarg = (char*)arg->value.v_string;
-			ctx->v.parse_arg(ctx, arg->short_opt);
+			mctx->v.parse_arg(mctx, arg->short_opt);
 		} else if ((arg->flags & CMD_PARAM_FLAG_POSITIONAL) != 0) {
 			/* feed this into pargv */
 			if (arg->type == CMD_PARAM_ARRAY)
@@ -992,15 +992,15 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 		} else {
 			doveadm_exit_code = EX_USAGE;
 			i_error("invalid parameter: %s", arg->name);
-			doveadm_mail_cmd_free(ctx);
+			doveadm_mail_cmd_free(mctx);
 			return;
 		}
 	}
 
 	array_append_zero(&pargv);
-	ctx->args = array_idx(&pargv, 0);
-	ctx->full_args = ctx->args;
+	mctx->args = array_idx(&pargv, 0);
+	mctx->full_args = mctx->args;
 
-	doveadm_mail_cmd_exec(ctx, wildcard_user);
-	doveadm_mail_cmd_free(ctx);
+	doveadm_mail_cmd_exec(mctx, wildcard_user);
+	doveadm_mail_cmd_free(mctx);
 }
