@@ -433,6 +433,8 @@ static void ssl_handle_error(struct ssl_proxy *proxy, int ret,
 	}
 
 	if (errstr != NULL) {
+		if (proxy->ssl_set->verbose_ssl)
+			i_debug("SSL error: %s", errstr);
 		proxy->last_error = i_strdup(errstr);
 		ssl_proxy_destroy_failed(proxy);
 	}
