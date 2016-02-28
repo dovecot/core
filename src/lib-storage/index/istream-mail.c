@@ -80,10 +80,10 @@ i_stream_mail_set_size_corrupted(struct mail_istream *mstream, size_t size)
 		mstream->expected_size, chr, cur_size,
 		mailbox_get_vname(mstream->mail->box),
 		mstream->mail->uid, mail_id);
-	mail_storage_set_critical(mstream->mail->box->storage, "read(%s) failed: %s",
-				  i_stream_get_name(&mstream->istream.istream),
-				  mstream->istream.iostream.error);
-	mail_set_cache_corrupted(mstream->mail, MAIL_FETCH_PHYSICAL_SIZE);
+	mail_set_cache_corrupted_reason(mstream->mail, MAIL_FETCH_PHYSICAL_SIZE,
+		t_strdup_printf("read(%s) failed: %s",
+				i_stream_get_name(&mstream->istream.istream),
+				mstream->istream.iostream.error));
 	mstream->istream.istream.stream_errno = EINVAL;
 }
 

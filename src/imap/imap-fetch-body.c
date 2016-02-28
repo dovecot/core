@@ -113,16 +113,13 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 		}
 		if (!i_stream_have_bytes_left(state->cur_input)) {
 			/* Input stream gave less data than expected */
-			i_error("read(%s): FETCH %s for mailbox %s UID %u "
-				"got too little data: "
+			mail_set_cache_corrupted_reason(state->cur_mail,
+				state->cur_size_field, t_strdup_printf(
+				"read(%s): FETCH %s got too little data: "
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
 				i_stream_get_name(state->cur_input),
 				state->cur_human_name,
-				mailbox_get_vname(state->cur_mail->box),
-				state->cur_mail->uid,
-				state->cur_offset, state->cur_size);
-			mail_set_cache_corrupted(state->cur_mail,
-						 state->cur_size_field);
+				state->cur_offset, state->cur_size));
 			client_disconnect(ctx->client, "FETCH failed");
 			return -1;
 		}

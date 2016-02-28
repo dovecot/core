@@ -945,16 +945,17 @@ index_mail_parse_body_finish(struct index_mail *mail,
 			     enum index_cache_field field, bool success)
 {
 	struct istream *parser_input = mail->data.parser_input;
+	const char *error = NULL;
 	int ret;
 
 	if (parser_input == NULL) {
-		ret = message_parser_deinit(&mail->data.parser_ctx,
-					    &mail->data.parts) < 0 ? 0 : 1;
+		ret = message_parser_deinit_from_parts(&mail->data.parser_ctx,
+			&mail->data.parts, &error) < 0 ? 0 : 1;
 	} else {
 		mail->data.parser_input = NULL;
 		i_stream_ref(parser_input);
-		ret = message_parser_deinit(&mail->data.parser_ctx,
-					    &mail->data.parts) < 0 ? 0 : 1;
+		ret = message_parser_deinit_from_parts(&mail->data.parser_ctx,
+			&mail->data.parts, &error) < 0 ? 0 : 1;
 		if (success && (parser_input->stream_errno == 0 ||
 				parser_input->stream_errno == EPIPE)) {
 			/* do one final read, which verifies that the message
@@ -977,8 +978,10 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	}
 	if (ret <= 0) {
 		if (ret == 0) {
-			mail_set_cache_corrupted(&mail->mail.mail,
-						 MAIL_FETCH_MESSAGE_PARTS);
+			i_assert(error != NULL);
+			mail_set_cache_corrupted_reason(&mail->mail.mail,
+				MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
+				"Cached MIME parts don't match message during parsing: %s", error));
 		}
 		mail->data.parts = NULL;
 		mail->data.parsed_bodystructure = FALSE;
@@ -1339,11 +1342,10 @@ int index_mail_get_special(struct mail *_mail,
 			if (imap_body_parse_from_bodystructure(
 					data->bodystructure, str, &error) < 0) {
 				/* broken, continue.. */
-				mail_storage_set_critical(_mail->box->storage,
+				mail_set_cache_corrupted_reason(_mail,
+					MAIL_FETCH_IMAP_BODYSTRUCTURE, t_strdup_printf(
 					"Invalid BODYSTRUCTURE %s: %s",
-					data->bodystructure, error);
-				mail_set_cache_corrupted(_mail,
-					MAIL_FETCH_IMAP_BODYSTRUCTURE);
+					data->bodystructure, error));
 			} else {
 				data->body = str_c(str);
 			}
@@ -1465,11 +1467,13 @@ static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
 {
 	struct index_mail_data *data = &mail->data;
 	struct message_part *parts;
+	const char *error;
 
 	if (data->parser_ctx != NULL) {
-		if (message_parser_deinit(&data->parser_ctx, &parts) < 0) {
-			mail_set_cache_corrupted(&mail->mail.mail,
-						 MAIL_FETCH_MESSAGE_PARTS);
+		if (message_parser_deinit_from_parts(&data->parser_ctx, &parts, &error) < 0) {
+			mail_set_cache_corrupted_reason(&mail->mail.mail,
+				MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
+				"Cached MIME parts don't match message during parsing: %s", error));
 		}
 		mail->data.parser_input = NULL;
 		if (mail->data.save_bodystructure_body)

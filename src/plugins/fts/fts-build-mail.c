@@ -464,6 +464,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	struct message_part *prev_part, *parts;
 	bool skip_body = FALSE, body_part = FALSE, body_added = FALSE;
 	bool binary_body;
+	const char *error;
 	int ret;
 
 	if (mail_get_stream(mail, NULL, NULL, &input) < 0) {
@@ -571,8 +572,11 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		block.data = NULL; block.size = 0;
 		ret = fts_build_body_block(&ctx, &block, TRUE);
 	}
-	if (message_parser_deinit(&parser, &parts) < 0)
-		mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS);
+	if (message_parser_deinit_from_parts(&parser, &parts, &error) < 0) {
+		mail_set_cache_corrupted_reason(mail,
+			MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
+			"Cached MIME parts don't match message during parsing in FTS index building: %s", error));
+	}
 	message_decoder_deinit(&decoder);
 	i_free(ctx.content_type);
 	i_free(ctx.content_disposition);

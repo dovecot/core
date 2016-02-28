@@ -648,8 +648,9 @@ static void search_body(struct mail_search_arg *arg,
 	ret = message_search_msg(msg_search_ctx, ctx->input, ctx->part);
 	if (ret < 0 && ctx->input->stream_errno == 0) {
 		/* try again without cached parts */
-		mail_set_cache_corrupted(ctx->index_ctx->cur_mail,
-					 MAIL_FETCH_MESSAGE_PARTS);
+		mail_set_cache_corrupted_reason(ctx->index_ctx->cur_mail,
+			MAIL_FETCH_MESSAGE_PARTS,
+			"Cached MIME parts don't match message during parsing in SEARCH");
 
 		i_stream_seek(ctx->input, 0);
 		ret = message_search_msg(msg_search_ctx, ctx->input, NULL);

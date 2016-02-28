@@ -508,7 +508,10 @@ index_mail_get_binary_size(struct mail *_mail,
 	for (; bin_part != NULL; bin_part = bin_part->next) {
 		msg_part = msg_part_find(all_parts, bin_part->physical_pos);
 		if (msg_part == NULL) {
-			mail_set_cache_corrupted(_mail, MAIL_FETCH_MESSAGE_PARTS);
+			/* either binary.parts or mime.parts is broken */
+			mail_set_cache_corrupted_reason(_mail, MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
+				"BINARY part at offset %"PRIuUOFF_T" not found from MIME parts",
+				bin_part->physical_pos));
 			return -1;
 		}
 		if (msg_part->physical_pos >= part->physical_pos &&
