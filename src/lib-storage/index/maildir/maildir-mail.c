@@ -753,15 +753,22 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 	(void)maildir_file_do(mbox, mail->uid, do_fix_size, &ctx);
 }
 
-static void maildir_mail_set_cache_corrupted(struct mail *_mail,
-					     enum mail_fetch_field field)
+static void maildir_mail_set_cache_corrupted_reason(struct mail *_mail,
+						    enum mail_fetch_field field,
+						    const char *reason)
 {
 	if (field == MAIL_FETCH_PHYSICAL_SIZE ||
 	    field == MAIL_FETCH_VIRTUAL_SIZE) {
 		maildir_mail_remove_sizes_from_uidlist(_mail);
 		maildir_mail_remove_sizes_from_filename(_mail, field);
 	}
-	index_mail_set_cache_corrupted(_mail, field);
+	index_mail_set_cache_corrupted_reason(_mail, field, reason);
+}
+
+static void maildir_mail_set_cache_corrupted(struct mail *_mail,
+					     enum mail_fetch_field field)
+{
+	maildir_mail_set_cache_corrupted_reason(_mail, field, "");
 }
 
 struct mail_vfuncs maildir_mail_vfuncs = {
@@ -799,5 +806,6 @@ struct mail_vfuncs maildir_mail_vfuncs = {
 	maildir_update_pop3_uidl,
 	index_mail_expunge,
 	maildir_mail_set_cache_corrupted,
-	index_mail_opened
+	index_mail_opened,
+	maildir_mail_set_cache_corrupted_reason
 };

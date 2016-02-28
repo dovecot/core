@@ -2116,6 +2116,13 @@ void index_mail_precache(struct mail *mail)
 void index_mail_set_cache_corrupted(struct mail *mail,
 				    enum mail_fetch_field field)
 {
+	index_mail_set_cache_corrupted_reason(mail, field, "");
+}
+
+void index_mail_set_cache_corrupted_reason(struct mail *mail,
+					   enum mail_fetch_field field,
+					   const char *reason)
+{
 	struct index_mail *imail = (struct index_mail *)mail;
 	const char *field_name;
 
@@ -2157,9 +2164,15 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	mail_cache_transaction_reset(mail->transaction->cache_trans);
 	imail->data.no_caching = TRUE;
 	imail->data.forced_no_caching = TRUE;
-	mail_cache_set_corrupted(mail->box->cache,
-				 "Broken %s for mail UID %u",
-				 field_name, mail->uid);
+	if (reason[0] == '\0') {
+		mail_cache_set_corrupted(mail->box->cache,
+					 "Broken %s for mail UID %u",
+					 field_name, mail->uid);
+	} else {
+		mail_cache_set_corrupted(mail->box->cache,
+					 "Broken %s for mail UID %u: %s",
+					 field_name, mail->uid, reason);
+	}
 }
 
 int index_mail_opened(struct mail *mail ATTR_UNUSED,

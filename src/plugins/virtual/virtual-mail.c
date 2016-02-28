@@ -468,14 +468,22 @@ static void virtual_mail_expunge(struct mail *mail)
 }
 
 static void
-virtual_mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
+virtual_mail_set_cache_corrupted_reason(struct mail *mail,
+					enum mail_fetch_field field,
+					const char *reason)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail *backend_mail;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
 		return;
-	mail_set_cache_corrupted(backend_mail, field);
+	mail_set_cache_corrupted_reason(backend_mail, field, reason);
+}
+
+static void
+virtual_mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
+{
+	virtual_mail_set_cache_corrupted_reason(mail, field, "");
 }
 
 struct mail_vfuncs virtual_mail_vfuncs = {
@@ -513,5 +521,6 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_update_pop3_uidl,
 	virtual_mail_expunge,
 	virtual_mail_set_cache_corrupted,
-	NULL
+	NULL,
+	virtual_mail_set_cache_corrupted_reason
 };

@@ -149,5 +149,6 @@ struct mail_vfuncs raw_mail_vfuncs = {
 	NULL,
 	index_mail_expunge,
 	index_mail_set_cache_corrupted,
-	index_mail_opened
+	index_mail_opened,
+	index_mail_set_cache_corrupted_reason
 };
