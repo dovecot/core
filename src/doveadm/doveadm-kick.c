@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "doveadm.h"
 #include "doveadm-who.h"
+#include "doveadm-print.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -114,10 +115,10 @@ kick_print_kicked(struct kick_context *ctx, const bool show_warning)
 
 	array_sort(&ctx->kicked_users, i_strcmp_p);
 	users = array_get(&ctx->kicked_users, &count);
-	printf("%s ", users[0]);
+	doveadm_print(users[0]);
 	for (i = 1; i < count; i++) {
 		if (strcmp(users[i-1], users[i]) != 0)
-			printf("%s ", users[i]);
+			doveadm_print(users[i]);
 	}
 	printf("\n");
 
@@ -198,6 +199,10 @@ static void cmd_kick(int argc, char *argv[])
 	}
 	if (who_parse_args(&ctx.who, (const char *const *)argv + 1) < 0)
 		help(&doveadm_cmd_kick);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
+	doveadm_print_formatted_set_format("%{result} ");
+	doveadm_print_header_simple("result");
 
 	who_lookup(&ctx.who, kick_aggregate_line);
 	kick_users(&ctx);
