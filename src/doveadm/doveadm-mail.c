@@ -935,62 +935,64 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(const struct doveadm_cmd_ver2* cmd,
 	p_array_init(&pargv, ctx->pool, 8);
 
 	for(i=0;i<argc;i++) {
-		if (!argv[i].value_set)
+		const struct doveadm_cmd_param *arg = &argv[i];
+
+		if (!arg->value_set)
 			continue;
 
-		if (strcmp(argv[i].name, "all-users") == 0) {
-			ctx->iterate_all_users = argv[i].value.v_bool;
-		} else if (strcmp(argv[i].name, "socket-path") == 0) {
-			doveadm_settings->doveadm_socket_path = argv[i].value.v_string;
+		if (strcmp(arg->name, "all-users") == 0) {
+			ctx->iterate_all_users = arg->value.v_bool;
+		} else if (strcmp(arg->name, "socket-path") == 0) {
+			doveadm_settings->doveadm_socket_path = arg->value.v_string;
 			if (doveadm_settings->doveadm_worker_count == 0)
 				doveadm_settings->doveadm_worker_count = 1;
-		} else if (strcmp(argv[i].name, "user") == 0) {
+		} else if (strcmp(arg->name, "user") == 0) {
 			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-			ctx->cur_username = argv[i].value.v_string;
+			ctx->cur_username = arg->value.v_string;
 			if (strchr(ctx->cur_username, '*') != NULL ||
 			    strchr(ctx->cur_username, '?') != NULL) {
 				wildcard_user = ctx->cur_username;
 				ctx->cur_username = NULL;
 			}
-		} else if (strcmp(argv[i].name, "user-file") == 0) {
+		} else if (strcmp(arg->name, "user-file") == 0) {
 			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			wildcard_user = "*";
-			ctx->users_list_input = argv[i].value.v_istream;
+			ctx->users_list_input = arg->value.v_istream;
 			i_stream_ref(ctx->users_list_input);
-		} else if (strcmp(argv[i].name, "field") == 0 ||
-			   strcmp(argv[i].name, "flag") == 0) {
+		} else if (strcmp(arg->name, "field") == 0 ||
+			   strcmp(arg->name, "flag") == 0) {
 			/* mailbox status, fetch, flags: convert an array into a
 			   single space-separated parameter (alternative to
 			   fieldstr) */
 			fieldstr = p_array_const_string_join(ctx->pool,
-					&argv[i].value.v_array, " ");
+					&arg->value.v_array, " ");
 			array_append(&pargv, &fieldstr, 1);
-		} else if (strcmp(argv[i].name, "file") == 0) {
+		} else if (strcmp(arg->name, "file") == 0) {
 			/* input for doveadm_mail_get_input(),
 			   used by e.g. save */
 			if (ctx->cmd_input != NULL) {
-				i_error("Only one file input allowed: %s", argv[i].name);
+				i_error("Only one file input allowed: %s", arg->name);
 				doveadm_mail_cmd_free(ctx);
 				doveadm_exit_code = EX_USAGE;
 				return;
 			}
-			ctx->cmd_input = argv[i].value.v_istream;
+			ctx->cmd_input = arg->value.v_istream;
 			i_stream_ref(ctx->cmd_input);
 
 		/* Keep all named special parameters above this line */
 
-		} else if (ctx->v.parse_arg != NULL && argv[i].short_opt != '\0') {
-			optarg = (char*)argv[i].value.v_string;
-			ctx->v.parse_arg(ctx, argv[i].short_opt);
-		} else if ((argv[i].flags & CMD_PARAM_FLAG_POSITIONAL) != 0) {
+		} else if (ctx->v.parse_arg != NULL && arg->short_opt != '\0') {
+			optarg = (char*)arg->value.v_string;
+			ctx->v.parse_arg(ctx, arg->short_opt);
+		} else if ((arg->flags & CMD_PARAM_FLAG_POSITIONAL) != 0) {
 			/* feed this into pargv */
-			if (argv[i].type == CMD_PARAM_ARRAY)
-				array_append_array(&pargv, &argv[i].value.v_array);
-			else if (argv[i].type == CMD_PARAM_STR)
-				array_append(&pargv, &argv[i].value.v_string, 1);
+			if (arg->type == CMD_PARAM_ARRAY)
+				array_append_array(&pargv, &arg->value.v_array);
+			else if (arg->type == CMD_PARAM_STR)
+				array_append(&pargv, &arg->value.v_string, 1);
 		} else {
 			doveadm_exit_code = EX_USAGE;
-			i_error("invalid parameter: %s", argv[i].name);
+			i_error("invalid parameter: %s", arg->name);
 			doveadm_mail_cmd_free(ctx);
 			return;
 		}
