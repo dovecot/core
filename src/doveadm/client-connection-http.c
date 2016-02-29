@@ -279,7 +279,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	struct doveadm_cmd_context cctx;
 
 	/* final preflight check */
-	if (!doveadm_client_is_allowed_command(conn->client.set, conn->cmd->name))
+	if (conn->method_err == 0 && !doveadm_client_is_allowed_command(conn->client.set, conn->cmd->name))
 		conn->method_err = 403;
 	if (conn->method_err != 0) {
 		if (conn->method_err == 404) {
