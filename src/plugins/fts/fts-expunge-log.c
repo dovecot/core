@@ -253,6 +253,14 @@ void fts_expunge_log_append_record(struct fts_expunge_log_append_ctx *ctx,
 	array_foreach(&record->uids, range)
 		fts_expunge_log_append_range(ctx, record->mailbox_guid, range);
 }
+static void fts_expunge_log_append_mailbox_record(struct fts_expunge_log_append_ctx *ctx,
+						  struct fts_expunge_log_mailbox *mailbox)
+{
+	const struct seq_range *range;
+	/* FIXME: Optimise with a merge */
+	array_foreach(&mailbox->uids, range)
+		fts_expunge_log_append_range(ctx, mailbox->guid, range);
+}
 
 static void
 fts_expunge_log_export(struct fts_expunge_log_append_ctx *ctx,
@@ -555,4 +563,49 @@ bool fts_expunge_log_contains(const struct fts_expunge_log_append_ctx *ctx,
 	if (mailbox == NULL)
 		return FALSE;
 	return seq_range_exists(&mailbox->uids, uid);	
+}
+void fts_expunge_log_append_remove(struct fts_expunge_log_append_ctx *from,
+				   const struct fts_expunge_log_read_record *record)
+{
+	const uint8_t *guid_p = record->mailbox_guid;
+	struct fts_expunge_log_mailbox *mailbox = hash_table_lookup(from->mailboxes, guid_p);
+	i_assert(mailbox != NULL); /* may only remove things that exist */
+	mailbox->uids_count -= seq_range_array_remove_seq_range(&mailbox->uids, &record->uids);
+}
+int fts_expunge_log_subtract(struct fts_expunge_log_append_ctx *from,
+			     struct fts_expunge_log *subtract)
+{
+	struct fts_expunge_log_read_ctx *read_ctx = fts_expunge_log_read_begin(subtract);
+	read_ctx->unlink = FALSE;
+
+	const struct fts_expunge_log_read_record *record;
+	while ((record = fts_expunge_log_read_next(read_ctx)) != NULL)
+		fts_expunge_log_append_remove(from, record);
+
+	return fts_expunge_log_read_end(&read_ctx);
+}
+/* It could be argued that somehow adding a log (file) to the append context
+   and then calling the _write() helper would be easier. But then there's the
+   _commit() vs. _abort() cleanup that would need to be addressed. Just creating
+   a copy is simpler. */
+int fts_expunge_log_flat_write(const struct fts_expunge_log_append_ctx *read_log,
+			       const char *path)
+{
+	int ret;
+	struct fts_expunge_log *nlog = fts_expunge_log_init(path);
+	struct fts_expunge_log_append_ctx *nappend = fts_expunge_log_append_begin(nlog);
+
+	struct hash_iterate_context *iter;
+	uint8_t *guid_p;
+	struct fts_expunge_log_mailbox *mailbox;
+
+	iter = hash_table_iterate_init(read_log->mailboxes);
+	while (hash_table_iterate(iter, read_log->mailboxes, &guid_p, &mailbox))
+		fts_expunge_log_append_mailbox_record(nappend, mailbox);
+
+	hash_table_iterate_deinit(&iter);
+	ret = fts_expunge_log_append_commit(&nappend);
+	fts_expunge_log_deinit(&nlog);
+
+	return ret;
 }
