@@ -614,7 +614,7 @@ struct doveadm_cmd_ver2 doveadm_cmd_stats_top_ver2 = {
 	.usage = "[-s <stats socket path>] [-b] [<sort field>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('b', "bytes", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('b', "show-disk-io", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "field", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
