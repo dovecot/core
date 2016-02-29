@@ -181,7 +181,7 @@ void doveadm_cmds_deinit(void)
 	array_free(&doveadm_cmds_ver2);
 }
 
-static struct doveadm_cmd_param*
+static const struct doveadm_cmd_param*
 doveadm_cmd_param_get(const struct doveadm_cmd_context *cctx,
 		      const char *name)
 {
@@ -249,14 +249,15 @@ bool doveadm_cmd_param_ip(const struct doveadm_cmd_context *cctx,
 bool doveadm_cmd_param_array(const struct doveadm_cmd_context *cctx,
 			     const char *name, const char *const **value_r)
 {
-	struct doveadm_cmd_param *param;
+	const struct doveadm_cmd_param *param;
+	unsigned int count;
+
 	if ((param = doveadm_cmd_param_get(cctx, name))==NULL) return FALSE;
 	if (param->type == CMD_PARAM_ARRAY) {
-		/* NULL-terminate the array, but don't leave it there */
-		array_append_zero(&param->value.v_array);
-		array_delete(&param->value.v_array,
-			     array_count(&param->value.v_array)-1, 1);
-		*value_r = array_idx(&param->value.v_array, 0);
+		*value_r = array_get(&param->value.v_array, &count);
+		/* doveadm_cmd_params_null_terminate_arrays() should have been
+		   called, which guarantees that we're NULL-terminated */
+		i_assert((*value_r)[count] == NULL);
 		return TRUE;
 	}
 	return FALSE;
@@ -285,6 +286,19 @@ void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv)
 			i_stream_destroy(&(param->value.v_istream));
 	}
 	array_clear(pargv);
+}
+
+void doveadm_cmd_params_null_terminate_arrays(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv)
+{
+	struct doveadm_cmd_param *param;
+
+	array_foreach_modifiable(pargv, param) {
+		if (param->type == CMD_PARAM_ARRAY &&
+		    array_is_created(&param->value.v_array)) {
+			array_append_zero(&param->value.v_array);
+			array_delete(&param->value.v_array, array_count(&param->value.v_array)-1, 1);
+		}
+	}
 }
 
 static void
@@ -498,6 +512,7 @@ int doveadm_cmd_run_ver2(int argc, const char **argv,
 		}
 	}
 
+	doveadm_cmd_params_null_terminate_arrays(&pargv);
 	cctx->argv = array_get_modifiable(&pargv, &pargc);
 	cctx->argc = pargc;
 
