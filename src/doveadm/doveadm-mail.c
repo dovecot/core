@@ -584,6 +584,10 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 
 		if (ctx->cur_username == NULL)
 			i_fatal_status(EX_USAGE, "USER environment is missing and -u option not used");
+		if (!ctx->cli) {
+			/* we may access multiple users */
+			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
+		}
 
 		memset(&cctx, 0, sizeof(cctx));
 		cctx.username = ctx->cur_username;
@@ -631,6 +635,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 
 	ctx = doveadm_mail_cmdline_init(cmd);
 	ctx->full_args = (const void *)(argv + 1);
+	ctx->cli = TRUE;
 
 	getopt_args = "AF:S:u:";
 	/* keep context's getopt_args first in case it contains '+' */
@@ -1000,6 +1005,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	array_append_zero(&pargv);
 	mctx->args = array_idx(&pargv, 0);
 	mctx->full_args = mctx->args;
+	mctx->cli = cctx->cli;
 
 	doveadm_mail_cmd_exec(mctx, wildcard_user);
 	doveadm_mail_cmd_free(mctx);
