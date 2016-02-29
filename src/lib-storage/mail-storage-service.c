@@ -857,7 +857,7 @@ mail_storage_service_init(struct master_service *service,
 	}
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
-	    geteuid() != 0) {
+	    getuid() != 0) {
 		/* service { user } isn't root. the permission drop can't be
 		   temporary. */
 		flags &= ~MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
