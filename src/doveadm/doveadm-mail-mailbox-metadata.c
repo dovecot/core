@@ -326,6 +326,7 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_metadata_list_ver2 = {
 	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"<mailbox> [<key prefix>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key-prefix", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
