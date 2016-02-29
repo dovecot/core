@@ -206,12 +206,62 @@ static void cmd_dict_iter(int argc, char *argv[])
 	dict_deinit(&dict);
 }
 
-struct doveadm_cmd doveadm_cmd_dict[] = {
-	{ cmd_dict_get, "dict get", "[-u <user>] <dict uri> <key>" },
-	{ cmd_dict_set, "dict set", "[-u <user>] <dict uri> <key> <value>" },
-	{ cmd_dict_unset, "dict unset", "[-u <user>] <dict uri> <key>" },
-	{ cmd_dict_inc, "dict inc", "[-u <user>] <dict uri> <key> <diff>" },
-	{ cmd_dict_iter, "dict iter", "[-u <user>] [-1RV] <dict uri> <prefix>" }
+static struct doveadm_cmd_ver2 doveadm_cmd_dict[] = {
+{
+	.name = "dict get",
+	.old_cmd = cmd_dict_get,
+	.usage = "[-u <user>] <dict uri> <key>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "dict set",
+	.old_cmd = cmd_dict_set,
+	.usage = "[-u <user>] <dict uri> <key> <value>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "value", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "dict unset",
+	.old_cmd = cmd_dict_unset,
+	.usage = "[-u <user>] <dict uri> <key>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "dict inc",
+	.old_cmd = cmd_dict_inc,
+	.usage = "[-u <user>] <dict uri> <key> <diff>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "difference", CMD_PARAM_INT64, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "dict iter",
+	.old_cmd = cmd_dict_iter,
+	.usage = "[-u <user>] [-1RV] <dict uri> <prefix>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('1', "exact", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('R', "recurse", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('V', "no-value", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "prefix", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+}
 };
 
 static void dict_cmd_help(doveadm_command_t *cmd)
@@ -219,8 +269,8 @@ static void dict_cmd_help(doveadm_command_t *cmd)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_dict); i++) {
-		if (doveadm_cmd_dict[i].cmd == cmd)
-			help(&doveadm_cmd_dict[i]);
+		if (doveadm_cmd_dict[i].old_cmd == cmd)
+			help_ver2(&doveadm_cmd_dict[i]);
 	}
 	i_unreached();
 }
@@ -230,5 +280,5 @@ void doveadm_register_dict_commands(void)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_dict); i++)
-		doveadm_register_cmd(&doveadm_cmd_dict[i]);
+		doveadm_cmd_register_ver2(&doveadm_cmd_dict[i]);
 }
