@@ -11,6 +11,7 @@
 #include "iostream-ssl.h"
 #include "fs-api.h"
 #include "doveadm.h"
+#include "doveadm-print.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -62,14 +63,18 @@ static void cmd_fs_get(int argc, char *argv[])
 	size_t size;
 	ssize_t ret;
 
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
+	doveadm_print_header("content", "content", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_get);
 
 	file = fs_file_init(fs, argv[0], FS_OPEN_MODE_READONLY);
 	input = fs_read_stream(file, IO_BLOCK_SIZE);
 	while ((ret = i_stream_read_data(input, &data, &size, 0)) > 0) {
-		fwrite(data, 1, size, stdout);
+		doveadm_print_stream(data, size);
 		i_stream_skip(input, size);
 	}
+	doveadm_print_stream("", 0);
 	i_assert(ret == -1);
 	if (input->stream_errno == ENOENT) {
 		i_error("%s doesn't exist: %s", fs_file_path(file),
@@ -188,9 +193,15 @@ static void cmd_fs_stat(int argc, char *argv[])
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_stat);
 
 	file = fs_file_init(fs, argv[0], FS_OPEN_MODE_READONLY);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
+	doveadm_print_formatted_set_format("%{path} size=%{size}");
+	doveadm_print_header_simple("path");
+	doveadm_print_header("size", "size", DOVEADM_PRINT_HEADER_FLAG_NUMBER);
+
 	if (fs_stat(file, &st) == 0) {
-		printf("%s size=%lld\n", fs_file_path(file),
-		       (long long)st.st_size);
+		doveadm_print(fs_file_path(file));
+		doveadm_print(dec2str(st.st_size));
 	} else if (errno == ENOENT) {
 		i_error("%s doesn't exist: %s", fs_file_path(file),
 			fs_file_last_error(file));
@@ -214,9 +225,17 @@ static void cmd_fs_metadata(int argc, char *argv[])
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_metadata);
 
 	file = fs_file_init(fs, argv[0], FS_OPEN_MODE_READONLY);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
+	doveadm_print_formatted_set_format("%{key}=%{value}\n");
+	doveadm_print_header_simple("key");
+	doveadm_print_header_simple("value");
+
 	if (fs_get_metadata(file, &metadata) == 0) {
-		array_foreach(metadata, m)
-			printf("%s=%s\n", m->key, m->value);
+		array_foreach(metadata, m) {
+			doveadm_print(m->key);
+			doveadm_print(m->value);
+		}
 	} else if (errno == ENOENT) {
 		i_error("%s doesn't exist: %s", fs_file_path(file),
 			fs_file_last_error(file));
@@ -470,9 +489,14 @@ static void cmd_fs_iter_full(int argc, char *argv[], enum fs_iter_flags flags,
 
 	fs = cmd_fs_init(&argc, &argv, 1, cmd);
 
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
+	doveadm_print_formatted_set_format("%{path}\n");
+	doveadm_print_header_simple("path");
+
 	iter = fs_iter_init(fs, argv[0], flags);
-	while ((fname = fs_iter_next(iter)) != NULL)
-		printf("%s\n", fname);
+	while ((fname = fs_iter_next(iter)) != NULL) {
+		doveadm_print(fname);
+	}
 	if (fs_iter_deinit(&iter) < 0) {
 		i_error("fs_iter_deinit(%s) failed: %s",
 			argv[0], fs_last_error(fs));
