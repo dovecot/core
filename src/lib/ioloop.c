@@ -138,17 +138,22 @@ static void io_remove_full(struct io **_io, bool closed)
 		struct io_file *io_file = (struct io_file *)io;
 		struct istream *istream = io_file->istream;
 
+		if (istream != NULL) {
+			/* remove io before it's freed */
+			i_stream_unset_io(istream, io);
+		}
+
 		io_file_unlink(io_file);
 		if (io_file->fd != -1)
 			io_loop_handle_remove(io_file, closed);
+		else
+			i_free(io);
 
 		/* remove io from the ioloop before unreferencing the istream,
 		   because a destroyed istream may automatically close the
 		   fd. */
-		if (istream != NULL) {
-			i_stream_unset_io(istream, io);
+		if (istream != NULL)
 			i_stream_unref(&istream);
-		}
 	}
 }
 
