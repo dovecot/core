@@ -14,13 +14,13 @@
 #define CRYPT_SHA2_ROUNDS_MAX 999999999
 #define CRYPT_SHA2_SALT_LEN 16
 
-static unsigned int encryption_rounds = 0;
+unsigned int password_scheme_encryption_rounds = 0;
 
 void password_set_encryption_rounds(unsigned int rounds)
 {
 	/* just take the new value. crypt_generate_*() will enforce their
 	   limits. */
-	encryption_rounds = rounds;
+	password_scheme_encryption_rounds = rounds;
 }
 
 static void
@@ -41,7 +41,7 @@ crypt_generate_blowfisch(const char *plaintext, const char *user ATTR_UNUSED,
 			 const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password, *salt, *magic_salt;
-	unsigned int rounds = encryption_rounds;
+	unsigned int rounds = password_scheme_encryption_rounds;
 
 	if (rounds == 0)
 		rounds = CRYPT_BLF_ROUNDS_DEFAULT;
@@ -62,7 +62,7 @@ crypt_generate_sha256(const char *plaintext, const char *user ATTR_UNUSED,
 		      const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password, *salt, *magic_salt;
-	unsigned int rounds = encryption_rounds;
+	unsigned int rounds = password_scheme_encryption_rounds;
 
 	if (rounds == 0)
 		rounds = CRYPT_SHA2_ROUNDS_DEFAULT;
@@ -86,7 +86,7 @@ crypt_generate_sha512(const char *plaintext, const char *user ATTR_UNUSED,
 		      const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password, *salt, *magic_salt;
-	unsigned int rounds = encryption_rounds;
+	unsigned int rounds = password_scheme_encryption_rounds;
 
 	if (rounds == 0)
 		rounds = CRYPT_SHA2_ROUNDS_DEFAULT;
