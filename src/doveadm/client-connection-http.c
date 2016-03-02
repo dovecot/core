@@ -64,10 +64,11 @@ struct client_connection_http {
 
 typedef void doveadm_server_handler_t(struct client_connection_http *ctx);
 
-struct doveadm_http_server_mounts {
+struct doveadm_http_server_mount {
 	const char *verb;
 	const char *path;
 	doveadm_server_handler_t *handler;
+	bool auth;
 };
 
 static struct http_server *doveadm_http_server;
@@ -86,19 +87,11 @@ static void doveadm_http_server_send_api_v1(struct client_connection_http *);
 static void doveadm_http_server_read_request_v1(struct client_connection_http *);
 
 
-static struct doveadm_http_server_mounts doveadm_http_server_mounts[] = {
-{
-        .verb = "OPTIONS", .path = NULL, .handler = doveadm_http_server_options_handler,
-},
-{
-        .verb = "GET", .path = "/", .handler = doveadm_http_server_print_mounts,
-},
-{
-        .verb = "GET", .path = "/doveadm/v1", .handler = doveadm_http_server_send_api_v1,
-},
-{
-        .verb = "POST", .path = "/doveadm/v1", .handler = doveadm_http_server_read_request_v1
-}
+static struct doveadm_http_server_mount doveadm_http_server_mounts[] = {
+{        .verb = "OPTIONS", .path = NULL, .handler = doveadm_http_server_options_handler, .auth = FALSE },
+{        .verb = "GET", .path = "/", .handler = doveadm_http_server_print_mounts, .auth = TRUE },
+{        .verb = "GET", .path = "/doveadm/v1", .handler = doveadm_http_server_send_api_v1, .auth = TRUE },
+{        .verb = "POST", .path = "/doveadm/v1", .handler = doveadm_http_server_read_request_v1, .auth = TRUE }
 };
 
 static void doveadm_http_server_send_response(void *context);
@@ -605,7 +598,7 @@ doveadm_http_server_options_handler(struct client_connection_http *conn)
 		"Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 	http_server_response_add_header(conn->http_response,
 		"Access-Control-Allow-Request-Headers",
-		"Content-Type, X-API-Key, Authenticate");
+		"Content-Type, X-API-Key, Authorization");
 	http_server_response_add_header(conn->http_response,
 		"Access-Control-Allow-Headers",
 		"Content-Type, WWW-Authenticate");
@@ -638,16 +631,45 @@ doveadm_http_server_print_mounts(struct client_connection_http *conn)
 static bool
 doveadm_http_server_authorize_request(struct client_connection_http *conn)
 {
-	if (doveadm_settings->doveadm_api_key == NULL) return TRUE;
-	const char *key = http_request_header_get(conn->http_request, "X-API-Key");
-	if (key == NULL || strcmp(doveadm_settings->doveadm_api_key, key) != 0) {
-		conn->http_response = http_server_response_create(conn->http_server_request, 401, "Authentication required");
-		http_server_response_add_header(conn->http_response,
-			"WWW-Authenticate", "X-API-Key"
-		);
+	bool auth = FALSE;
+	struct http_auth_credentials creds;
+
+	/* no authentication specified */
+	if (doveadm_settings->doveadm_api_key == NULL &&
+		*conn->client.set->doveadm_password == '\0') {
+		http_server_request_fail_close(conn->http_server_request, 500, "Internal Server Error");
+		i_error("doveadm(%s): No authentication defined in configuration. Add API key or password", net_ip2addr(&conn->client.remote_ip));
 		return FALSE;
 	}
-	return TRUE;
+	if (http_server_request_get_auth(conn->http_server_request, &creds) == 1) {
+		/* see if the mech is supported */
+		if (strcasecmp(creds.scheme, "Basic") == 0 && *conn->client.set->doveadm_password != '\0') {
+			string_t *b64_value = str_new(conn->client.pool, 32);
+			char *value = p_strdup_printf(conn->client.pool, "doveadm:%s", conn->client.set->doveadm_password);
+			base64_encode(value, strlen(value), b64_value);
+			if (strcmp(creds.data, str_c(b64_value)) == 0) auth = TRUE;
+			else i_error("doveadm(%s): Invalid authencition attempt to HTTP API", net_ip2addr(&conn->client.remote_ip));
+		}
+		else if (strcasecmp(creds.scheme, "X-Doveadm-API") == 0 && doveadm_settings->doveadm_api_key != NULL) {
+			string_t *b64_value = str_new(conn->client.pool, 32);
+			base64_encode(doveadm_settings->doveadm_api_key, strlen(doveadm_settings->doveadm_api_key), b64_value);
+			if (strcmp(creds.data, str_c(b64_value)) == 0) auth = TRUE;
+			else i_error("doveadm(%s): Invalid authencition attempt to HTTP API", net_ip2addr(&conn->client.remote_ip));
+		}
+		else i_error("doveadm(%s): Unsupported authentication scheme to HTTP API", net_ip2addr(&conn->client.remote_ip));
+	}
+	if (auth == FALSE) {
+		conn->http_response = http_server_response_create(conn->http_server_request, 401, "Authentication required");
+		if (doveadm_settings->doveadm_api_key != NULL)
+			http_server_response_add_header(conn->http_response,
+				"WWW-Authenticate", "X-Dovecot-API Realm=\"doveadm\""
+			);
+		if (*conn->client.set->doveadm_password != '\0')
+			http_server_response_add_header(conn->http_response,
+				"WWW-Authenticate", "Basic Realm=\"doveadm\""
+			);
+	}
+	return auth;
 }
 
 static void
@@ -656,30 +678,30 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *re
 	struct client_connection_http *conn = context;
 	conn->http_server_request = req;
 	conn->http_request = http_server_request_get(req);
-	doveadm_server_handler_t *handler = NULL;
+	struct doveadm_http_server_mount *ep = NULL;
 
 	http_server_connection_ref(conn->http_client);
 	http_server_request_set_destroy_callback(req, doveadm_http_server_request_destroy, conn);
 	http_server_request_ref(conn->http_server_request);
-
-	if (!doveadm_http_server_authorize_request(conn)) {
-		doveadm_http_server_send_response(conn);
-		return;
-	}
 
 	for(size_t i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
 		if (doveadm_http_server_mounts[i].verb == NULL ||
 		    strcmp(conn->http_request->method, doveadm_http_server_mounts[i].verb) == 0) {
 			if (doveadm_http_server_mounts[i].path == NULL ||
                             strcmp(conn->http_request->target.url->path, doveadm_http_server_mounts[i].path) == 0) {
-				handler = doveadm_http_server_mounts[i].handler;
+				ep = &doveadm_http_server_mounts[i];
 				break;
 			}
 		}
 	}
 
-	if (handler == NULL) {
+	if (ep == NULL) {
 		http_server_request_fail_close(req, 404, "Path Not Found");
+		return;
+	}
+
+        if (ep->auth == TRUE && !doveadm_http_server_authorize_request(conn)) {
+		doveadm_http_server_send_response(conn);
 		return;
 	}
 
@@ -692,13 +714,13 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *re
 		conn->client.input = conn->http_request->payload;
 		i_stream_set_name(conn->client.input, net_ip2addr(&conn->client.remote_ip));
 		i_stream_ref(conn->client.input);
-		conn->client.io = io_add_istream(conn->client.input, *handler, conn);
+		conn->client.io = io_add_istream(conn->client.input, *ep->handler, conn);
 		conn->client.output = iostream_temp_create_named("/tmp", 0, net_ip2addr(&conn->client.remote_ip));
 		p_array_init(&conn->pargv, conn->client.pool, 5);
-		handler(conn);
+		ep->handler(conn);
 	} else {
 		conn->client.output = iostream_temp_create_named("/tmp", 0, net_ip2addr(&conn->client.remote_ip));
-		handler(conn);
+		ep->handler(conn);
 	}
 }
 
