@@ -93,7 +93,7 @@ const struct doveadm_settings doveadm_default_settings = {
 	.ssl_client_ca_dir = "",
 	.ssl_client_ca_file = "",
 	.director_username_hash = "%Lu",
-	.doveadm_api_key = NULL,
+	.doveadm_api_key = "",
 
 	.plugin_envs = ARRAY_INIT
 };
