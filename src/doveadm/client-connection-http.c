@@ -513,7 +513,7 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 		// istream JSON parsing failures do not count as errors
 		http_server_request_fail_close(conn->http_server_request, 400, "Invalid JSON input");
 		// FIXME: should be returned as error to client, not logged
-		i_info("%s", error);
+		i_info("JSON parse error: %s", error);
 		return;
 	}
 	o_stream_nsend_str(conn->client.output,"]");
