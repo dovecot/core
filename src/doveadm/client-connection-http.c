@@ -62,6 +62,14 @@ struct client_connection_http {
 	} json_state;
 };
 
+typedef void doveadm_server_handler_t(struct client_connection_http *ctx);
+
+struct doveadm_http_server_mounts {
+	const char *verb;
+	const char *path;
+	doveadm_server_handler_t *handler;
+};
+
 static struct http_server *doveadm_http_server;
 
 static void doveadm_http_server_handle_request(void *context, struct http_server_request *req);
@@ -72,7 +80,28 @@ static const struct http_server_callbacks doveadm_http_callbacks = {
         .handle_request = doveadm_http_server_handle_request
 };
 
-static void doveadm_http_server_process_request(void *context);
+static void doveadm_http_server_options_handler(struct client_connection_http *);
+static void doveadm_http_server_print_mounts(struct client_connection_http *);
+static void doveadm_http_server_send_api_v1(struct client_connection_http *);
+static void doveadm_http_server_read_request_v1(struct client_connection_http *);
+
+
+static struct doveadm_http_server_mounts doveadm_http_server_mounts[] = {
+{
+        .verb = "OPTIONS", .path = NULL, .handler = doveadm_http_server_options_handler,
+},
+{
+        .verb = "GET", .path = "/", .handler = doveadm_http_server_print_mounts,
+},
+{
+        .verb = "GET", .path = "/doveadm/v1", .handler = doveadm_http_server_send_api_v1,
+},
+{
+        .verb = "POST", .path = "/doveadm/v1", .handler = doveadm_http_server_read_request_v1
+}
+};
+
+static void doveadm_http_server_send_response(void *context);
 
 struct client_connection *
 client_connection_create_http(int fd, bool ssl)
@@ -351,7 +380,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 }
 
 static void
-doveadm_http_server_read_request(struct client_connection_http *conn)
+doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 {
 	enum json_type type;
 	const char *value, *error;
@@ -493,7 +522,7 @@ doveadm_http_server_read_request(struct client_connection_http *conn)
 	}
 	o_stream_nsend_str(conn->client.output,"]");
 
-	doveadm_http_server_process_request(conn);
+	doveadm_http_server_send_response(conn);
 }
 
 static void doveadm_http_server_camelcase_value(string_t *value)
@@ -510,7 +539,7 @@ static void doveadm_http_server_camelcase_value(string_t *value)
 }
 
 static void
-doveadm_http_server_send_api(struct client_connection_http *conn)
+doveadm_http_server_send_api_v1(struct client_connection_http *conn)
 {
 	string_t *tmp = str_new(conn->client.pool, 8);
 	size_t i,k;
@@ -564,6 +593,46 @@ doveadm_http_server_send_api(struct client_connection_http *conn)
 		str_truncate(tmp, 0);
 	}
 	o_stream_nsend_str(conn->client.output,"\n]");
+	doveadm_http_server_send_response(conn);
+}
+
+static void
+doveadm_http_server_options_handler(struct client_connection_http *conn)
+{
+	http_server_response_add_header(conn->http_response,
+		"Access-Control-Allow-Origin", "*");
+	http_server_response_add_header(conn->http_response,
+		"Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+	http_server_response_add_header(conn->http_response,
+		"Access-Control-Allow-Request-Headers",
+		"Content-Type, X-API-Key, Authenticate");
+	http_server_response_add_header(conn->http_response,
+		"Access-Control-Allow-Headers",
+		"Content-Type, WWW-Authenticate");
+	doveadm_http_server_send_response(conn);
+}
+
+static void
+doveadm_http_server_print_mounts(struct client_connection_http *conn)
+{
+	o_stream_nsend_str(conn->client.output,"[\n");
+	for(size_t i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
+		if (i>0)
+			o_stream_nsend_str(conn->client.output,",\n");
+		o_stream_nsend_str(conn->client.output,"{\"method\":\"");
+		if (doveadm_http_server_mounts[i].verb == NULL)
+			o_stream_nsend_str(conn->client.output,"*");
+		else
+			o_stream_nsend_str(conn->client.output,doveadm_http_server_mounts[i].verb);
+		o_stream_nsend_str(conn->client.output,"\",\"path\":\"");
+		if (doveadm_http_server_mounts[i].path == NULL)
+			 o_stream_nsend_str(conn->client.output,"*");
+		else
+			o_stream_nsend_str(conn->client.output,doveadm_http_server_mounts[i].path);
+		o_stream_nsend_str(conn->client.output,"\"}");
+	}
+	o_stream_nsend_str(conn->client.output,"\n]");
+	doveadm_http_server_send_response(conn);
 }
 
 static void
@@ -572,7 +641,7 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *re
 	struct client_connection_http *conn = context;
 	conn->http_server_request = req;
 	conn->http_request = http_server_request_get(req);
-	const char *path = conn->http_request->target.url->path;
+	doveadm_server_handler_t *handler = NULL;
 
 	http_server_connection_ref(conn->http_client);
 	http_server_request_set_destroy_callback(req, doveadm_http_server_request_destroy, conn);
@@ -587,14 +656,19 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *re
 		}
 	}
 
-	if (strcmp(conn->http_request->method, "GET") != 0 &&
-		strcmp(conn->http_request->method, "POST") != 0) {
-		http_server_request_fail_close(req, 405, "Method Not Allowed");
-		return;
+	for(size_t i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
+		if (doveadm_http_server_mounts[i].verb == NULL ||
+		    strcmp(conn->http_request->method, doveadm_http_server_mounts[i].verb) == 0) {
+			if (doveadm_http_server_mounts[i].path == NULL ||
+                            strcmp(conn->http_request->target.url->path, doveadm_http_server_mounts[i].path) == 0) {
+				handler = doveadm_http_server_mounts[i].handler;
+				break;
+			}
+		}
 	}
 
-	if (strcasecmp(path, "/doveadm") != 0) {
-		http_server_request_fail_close(req, 404, "Object Not Found");
+	if (handler == NULL) {
+		http_server_request_fail_close(req, 404, "Path Not Found");
 		return;
 	}
 
@@ -602,27 +676,22 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *re
 	http_server_response_add_header(conn->http_response, "Content-Type",
 		"application/json; charset=utf-8");
 
-        if (strcmp(conn->http_request->method, "GET") == 0) {
-                /* print out API */
-		conn->client.output = iostream_temp_create_named("/tmp", 0, net_ip2addr(&conn->client.remote_ip));
-                doveadm_http_server_send_api(conn);
-		doveadm_http_server_process_request(context);
-        } else if (strcmp(conn->http_request->method, "POST") == 0) {
+        if (strcmp(conn->http_request->method, "POST") == 0) {
 		/* handle request */
 		conn->client.input = conn->http_request->payload;
 		i_stream_set_name(conn->client.input, net_ip2addr(&conn->client.remote_ip));
 		i_stream_ref(conn->client.input);
-		conn->client.io = io_add_istream(conn->client.input,
-					 doveadm_http_server_read_request, conn);
+		conn->client.io = io_add_istream(conn->client.input, *handler, conn);
 		conn->client.output = iostream_temp_create_named("/tmp", 0, net_ip2addr(&conn->client.remote_ip));
 		p_array_init(&conn->pargv, conn->client.pool, 5);
-		doveadm_http_server_read_request(conn);
+		handler(conn);
 	} else {
-		i_unreached();
+		conn->client.output = iostream_temp_create_named("/tmp", 0, net_ip2addr(&conn->client.remote_ip));
+		handler(conn);
 	}
 }
 
-static void doveadm_http_server_process_request(void *context)
+static void doveadm_http_server_send_response(void *context)
 {
 	struct client_connection_http *conn = context;
 
@@ -659,4 +728,4 @@ void doveadm_http_server_init(void)
 void doveadm_http_server_deinit(void)
 {
 	http_server_deinit(&doveadm_http_server);
-}	
+}
