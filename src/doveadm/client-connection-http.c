@@ -340,9 +340,9 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	cctx.remote_port = conn->client.remote_port;
 
 	if (doveadm_cmd_param_str(&cctx, "user", &user))
-		i_info("doveadm(%s): Executing command '%s' as '%s'", i_stream_get_name(conn->client.input), cctx.cmd->name, user);
+		i_info("Executing command '%s' as '%s'", cctx.cmd->name, user);
 	else
-		i_info("doveadm(%s): Executing command '%s'", i_stream_get_name(conn->client.input), cctx.cmd->name);
+		i_info("Executing command '%s'", cctx.cmd->name);
 	cctx.cmd->cmd(&cctx);
 
 	io_loop_set_current(prev_ioloop);
@@ -353,8 +353,8 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 
 	doveadm_print_deinit();
 	if (o_stream_nfinish(doveadm_print_ostream)<0) {
-		i_info("doveadm(%s): Error writing output in command %s: %s",
-		       i_stream_get_name(conn->client.input), conn->cmd->name,
+		i_info("Error writing output in command %s: %s",
+		       conn->cmd->name,
 		       o_stream_get_error(conn->client.output));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
@@ -369,7 +369,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 
 	if (doveadm_exit_code != 0) {
 		if (doveadm_exit_code == 0 || doveadm_exit_code == EX_TEMPFAIL)
-			i_error("doveadm(%s): Command %s failed", i_stream_get_name(conn->client.input), conn->cmd->name);
+			i_error("Command %s failed", conn->cmd->name);
 		doveadm_http_server_json_error(conn, "exitCode");
 	} else {
 		doveadm_http_server_json_success(conn, is);
@@ -465,8 +465,7 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 			} else {
 				if (conn->cmd_param->value_set) {
 					// FIXME: should be returned as error to client, not logged
-					i_info("doveadm(%s): Parameter %s already set",
-					       i_stream_get_name(conn->client.input),
+					i_info("Parameter %s already set",
 					       conn->cmd_param->name);
 					break;
 				}
@@ -484,7 +483,7 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 			conn->json_state = JSON_STATE_COMMAND;
 		} else if (conn->json_state == JSON_STATE_DONE) {
 			// FIXME: should be returned as error to client, not logged
-			i_info("doveadm(%s): Got unexpected elements in JSON data", i_stream_get_name(conn->client.input));
+			i_info("Got unexpected elements in JSON data");
 			continue;
 		}
 	}
@@ -499,14 +498,13 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 		/* this will happen if the parser above runs into unexpected element, but JSON is OK */
 		http_server_request_fail_close(conn->http_server_request, 400, "Unexpected element in input");
 		// FIXME: should be returned as error to client, not logged
-		i_info("doveadm(%s): unexpected element", i_stream_get_name(conn->client.input));
+		i_info("unexpected element");
 		return;
 	}
 
 	if (conn->client.input->stream_errno != 0) {
 		http_server_request_fail_close(conn->http_server_request, 400, "Client disconnected");
-		i_info("doveadm(%s): read(client) failed: %s",
-		       i_stream_get_name(conn->client.input),
+		i_info("read(client) failed: %s",
 		       i_stream_get_error(conn->client.input));
 		return;
 	}
@@ -515,7 +513,7 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 		// istream JSON parsing failures do not count as errors
 		http_server_request_fail_close(conn->http_server_request, 400, "Invalid JSON input");
 		// FIXME: should be returned as error to client, not logged
-		i_info("doveadm(%s): %s", i_stream_get_name(conn->client.input), error);
+		i_info("%s", error);
 		return;
 	}
 	o_stream_nsend_str(conn->client.output,"]");
@@ -643,7 +641,7 @@ doveadm_http_server_authorize_request(struct client_connection_http *conn)
 	if (doveadm_settings->doveadm_api_key == NULL &&
 		*conn->client.set->doveadm_password == '\0') {
 		http_server_request_fail_close(conn->http_server_request, 500, "Internal Server Error");
-		i_error("doveadm(%s): No authentication defined in configuration. Add API key or password", net_ip2addr(&conn->client.remote_ip));
+		i_error("No authentication defined in configuration. Add API key or password");
 		return FALSE;
 	}
 	if (http_server_request_get_auth(conn->http_server_request, &creds) == 1) {
@@ -653,15 +651,15 @@ doveadm_http_server_authorize_request(struct client_connection_http *conn)
 			char *value = p_strdup_printf(conn->client.pool, "doveadm:%s", conn->client.set->doveadm_password);
 			base64_encode(value, strlen(value), b64_value);
 			if (strcmp(creds.data, str_c(b64_value)) == 0) auth = TRUE;
-			else i_error("doveadm(%s): Invalid authencition attempt to HTTP API", net_ip2addr(&conn->client.remote_ip));
+			else i_error("Invalid authencition attempt to HTTP API");
 		}
 		else if (strcasecmp(creds.scheme, "X-Doveadm-API") == 0 && doveadm_settings->doveadm_api_key != NULL) {
 			string_t *b64_value = str_new(conn->client.pool, 32);
 			base64_encode(doveadm_settings->doveadm_api_key, strlen(doveadm_settings->doveadm_api_key), b64_value);
 			if (strcmp(creds.data, str_c(b64_value)) == 0) auth = TRUE;
-			else i_error("doveadm(%s): Invalid authencition attempt to HTTP API", net_ip2addr(&conn->client.remote_ip));
+			else i_error("Invalid authencition attempt to HTTP API");
 		}
-		else i_error("doveadm(%s): Unsupported authentication scheme to HTTP API", net_ip2addr(&conn->client.remote_ip));
+		else i_error("Unsupported authentication scheme to HTTP API");
 	}
 	if (auth == FALSE) {
 		conn->http_response = http_server_response_create(conn->http_server_request, 401, "Authentication required");
@@ -735,8 +733,7 @@ static void doveadm_http_server_send_response(void *context)
 
 	if (conn->client.output != NULL) {
 		if (o_stream_nfinish(conn->client.output) == -1) {
-			i_info("doveadm(%s): error writing output: %s",
-			       net_ip2addr(&conn->client.remote_ip),
+			i_info("error writing output: %s",
 			       o_stream_get_error(conn->client.output));
 			o_stream_destroy(&conn->client.output);
 			http_server_response_update_status(conn->http_response, 500, "Internal server error");
