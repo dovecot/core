@@ -60,6 +60,8 @@ void mail_cache_file_close(struct mail_cache *cache)
 
 	if (cache->file_cache != NULL)
 		file_cache_set_fd(cache->file_cache, -1);
+	if (cache->read_buf != NULL)
+		buffer_set_used_size(cache->read_buf, 0);
 
 	cache->mmap_base = NULL;
 	cache->hdr = NULL;
@@ -465,6 +467,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 	/* map the whole file */
 	cache->hdr = NULL;
 	cache->mmap_length = 0;
+	if (cache->read_buf != NULL)
+		buffer_set_used_size(cache->read_buf, 0);
 
 	cache->mmap_base = mmap_ro_file(cache->fd, &cache->mmap_length);
 	if (cache->mmap_base == MAP_FAILED) {
