@@ -317,6 +317,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	}
 
 	struct istream *is;
+	const char *user;
 	struct ioloop *ioloop,*prev_ioloop = current_ioloop;
 	memset(&cctx, 0, sizeof(cctx));
 
@@ -338,6 +339,10 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	cctx.remote_ip = conn->client.remote_ip;
 	cctx.remote_port = conn->client.remote_port;
 
+	if (doveadm_cmd_param_str(&cctx, "user", &user))
+		i_info("doveadm(%s): Executing command '%s' as '%s'", i_stream_get_name(conn->client.input), cctx.cmd->name, user);
+	else
+		i_info("doveadm(%s): Executing command '%s'", i_stream_get_name(conn->client.input), cctx.cmd->name);
 	cctx.cmd->cmd(&cctx);
 
 	io_loop_set_current(prev_ioloop);
