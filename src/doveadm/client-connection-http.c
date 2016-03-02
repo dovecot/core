@@ -635,6 +635,21 @@ doveadm_http_server_print_mounts(struct client_connection_http *conn)
 	doveadm_http_server_send_response(conn);
 }
 
+static bool
+doveadm_http_server_authorize_request(struct client_connection_http *conn)
+{
+	if (doveadm_settings->doveadm_api_key == NULL) return TRUE;
+	const char *key = http_request_header_get(conn->http_request, "X-API-Key");
+	if (key == NULL || strcmp(doveadm_settings->doveadm_api_key, key) != 0) {
+		conn->http_response = http_server_response_create(conn->http_server_request, 401, "Authentication required");
+		http_server_response_add_header(conn->http_response,
+			"WWW-Authenticate", "X-API-Key"
+		);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void
 doveadm_http_server_handle_request(void *context, struct http_server_request *req)
 {
@@ -647,13 +662,9 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *re
 	http_server_request_set_destroy_callback(req, doveadm_http_server_request_destroy, conn);
 	http_server_request_ref(conn->http_server_request);
 
-	if (doveadm_settings->doveadm_api_key != NULL) {
-		const char *key;
-		key = http_request_header_get(conn->http_request, "X-API-Key");
-		if (key == NULL || strcmp(doveadm_settings->doveadm_api_key, key) != 0) {
-			http_server_request_fail_close(req, 403, "Not authorized");
-			return;
-		}
+	if (!doveadm_http_server_authorize_request(conn)) {
+		doveadm_http_server_send_response(conn);
+		return;
 	}
 
 	for(size_t i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
