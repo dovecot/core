@@ -11,54 +11,6 @@
 
 #include <unistd.h>
 
-/* Check every 30 minutes if parameters file has been updated */
-#define SSL_PARAMS_CHECK_INTERVAL (60*30)
-
-#define SSL_PARAMETERS_PATH "ssl-params"
-
-static int ssl_refresh_parameters(struct master_service *service)
-{
-#define BUF_APPEND_SIZE 1024
-	const char *path;
-	buffer_t *buf;
-	void *data;
-	ssize_t ret;
-	int fd;
-
-	if (ioloop_time == 0 ||
-	    service->ssl_params_last_refresh > ioloop_time - SSL_PARAMS_CHECK_INTERVAL)
-		return 0;
-	service->ssl_params_last_refresh = ioloop_time;
-
-	path = t_strdup_printf("%s/"SSL_PARAMETERS_PATH, service->set->base_dir);
-	fd = net_connect_unix(path);
-	if (fd == -1) {
-		i_error("connect(%s) failed: %m", path);
-		return -1;
-	}
-	net_set_nonblock(fd, FALSE);
-
-	buf = buffer_create_dynamic(default_pool, BUF_APPEND_SIZE*2);
-	for (;;) {
-		data = buffer_append_space_unsafe(buf, BUF_APPEND_SIZE);
-		ret = read(fd, data, BUF_APPEND_SIZE);
-		buffer_set_used_size(buf, buf->used - BUF_APPEND_SIZE +
-				     (ret < 0 ? 0 : ret));
-		if (ret <= 0)
-			break;
-	}
-	if (ret < 0)
-		i_error("read(%s) failed: %m", path);
-	else if (ssl_iostream_context_import_params(service->ssl_ctx, buf) < 0) {
-		i_error("Corrupted SSL parameters file in state_dir: "
-			"ssl-parameters.dat - disabling SSL %u", (int)buf->used);
-		ret = -1;
-	}
-	i_close_fd(&fd);
-	buffer_free(&buf);
-	return ret < 0 ? -1 : 0;
-}
-
 int master_service_ssl_init(struct master_service *service,
 			    struct istream **input, struct ostream **output,
 			    struct ssl_iostream **ssl_iostream_r,
@@ -74,14 +26,11 @@ int master_service_ssl_init(struct master_service *service,
 		return -1;
 	}
 
-	(void)ssl_refresh_parameters(service);
-
 	set = master_service_ssl_settings_get(service);
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
-
 	return io_stream_create_ssl_server(service->ssl_ctx, &ssl_set,
 					   input, output, ssl_iostream_r, error_r);
 }
@@ -117,6 +66,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.ca = set->ssl_ca;
 	ssl_set.cert = set->ssl_cert;
 	ssl_set.key = set->ssl_key;
+	ssl_set.dh = set->ssl_dh;
 	ssl_set.key_password = set->ssl_key_password;
 	ssl_set.cert_username_field = set->ssl_cert_username_field;
 	ssl_set.crypto_device = set->ssl_crypto_device;
@@ -130,12 +80,6 @@ void master_service_ssl_ctx_init(struct master_service *service)
 					     &error) < 0) {
 		i_error("SSL context initialization failed, disabling SSL: %s",
 			error);
-		master_service_ssl_io_listeners_remove(service);
-		return;
-	}
-	if (ssl_refresh_parameters(service) < 0) {
-		i_error("Couldn't initialize SSL parameters, disabling SSL");
-		ssl_iostream_context_deinit(&service->ssl_ctx);
 		master_service_ssl_io_listeners_remove(service);
 		return;
 	}
