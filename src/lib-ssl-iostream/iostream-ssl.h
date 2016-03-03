@@ -11,6 +11,7 @@ struct ssl_iostream_settings {
 	const char *cert;
 	const char *key;
 	const char *key_password;
+	const char *dh;
 	const char *cert_username_field;
 	const char *crypto_device; /* context-only */
 
