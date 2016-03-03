@@ -6,13 +6,24 @@
 #include "mail-namespace.h"
 #include "mail-search.h"
 #include "mailbox-list-iter.h"
+#include "fts-tokenizer.h"
+#include "fts-filter.h"
+#include "fts-language.h"
 #include "fts-storage.h"
 #include "fts-search-args.h"
+#include "fts-user.h"
+#include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mailbox-list-iter.h"
 #include "doveadm-fts.h"
 
 const char *doveadm_fts_plugin_version = DOVECOT_ABI_VERSION;
+
+struct fts_tokenize_cmd_context {
+	struct doveadm_mail_cmd_context ctx;
+	const char *language;
+	const char *tokens;
+};
 
 static int
 cmd_search_box(struct doveadm_mail_cmd_context *ctx,
@@ -156,6 +167,142 @@ cmd_fts_expand_alloc(void)
 }
 
 static int
+cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
+		     struct mail_user *user)
+{
+	struct fts_tokenize_cmd_context *ctx =
+		(struct fts_tokenize_cmd_context *)_ctx;
+	struct mail_namespace *ns = mail_namespace_find_inbox(user->namespaces);
+	struct fts_backend *backend;
+	struct fts_user_language *user_lang;
+	const struct fts_language *lang = NULL;
+	int ret, ret2;
+	bool final = FALSE;
+
+	backend = fts_list_backend(ns->list);
+	if (backend == NULL) {
+		i_error("fts not enabled for INBOX");
+		_ctx->exit_code = EX_CONFIG;
+		return -1;
+	}
+
+	if (ctx->language == NULL) {
+		struct fts_language_list *lang_list =
+			fts_user_get_language_list(user);
+		enum fts_language_result result;
+
+		result = fts_language_detect(lang_list,
+		    (const unsigned char *)ctx->tokens, strlen(ctx->tokens),
+                    &lang);
+		if (lang == NULL)
+			lang = fts_language_list_get_first(lang_list);
+		switch (result) {
+		case FTS_LANGUAGE_RESULT_SHORT:
+			i_warning("Text too short, can't detect its language - assuming %s", lang->name);
+			break;
+		case FTS_LANGUAGE_RESULT_UNKNOWN:
+			i_warning("Can't detect its language - assuming %s", lang->name);
+			break;
+		case FTS_LANGUAGE_RESULT_OK:
+			break;
+		case FTS_LANGUAGE_RESULT_ERROR:
+			i_error("Language detection library initialization failed");
+			_ctx->exit_code = EX_CONFIG;
+			return -1;
+		default:
+			i_unreached();
+		}
+	} else {
+		lang = fts_language_find(ctx->language);
+		if (lang == NULL) {
+			i_error("Unknown language: %s", ctx->language);
+			_ctx->exit_code = EX_USAGE;
+			return -1;
+		}
+	}
+	user_lang = fts_user_language_find(user, lang);
+	if (user_lang == NULL) {
+		i_error("Language not enabled for user: %s", ctx->language);
+		_ctx->exit_code = EX_USAGE;
+		return -1;
+	}
+
+	fts_tokenizer_reset(user_lang->index_tokenizer);
+	for (;;) {
+		const char *token, *error;
+
+		if (!final) {
+			ret = fts_tokenizer_next(user_lang->index_tokenizer,
+				(const unsigned char *)ctx->tokens, strlen(ctx->tokens),
+				&token, &error);
+		} else {
+			ret = fts_tokenizer_final(user_lang->index_tokenizer,
+						  &token, &error);
+		}
+		if (ret < 0)
+			break;
+		if (ret > 0 && user_lang->filter != NULL) {
+			ret2 = fts_filter_filter(user_lang->filter, &token, &error);
+			if (ret2 > 0)
+				doveadm_print(token);
+			else if (ret2 < 0)
+				i_error("Couldn't create indexable tokens: %s", error);
+		}
+		if (ret == 0) {
+			if (final)
+				break;
+			final = TRUE;
+		}
+	}
+	return 0;
+}
+
+static void
+cmd_fts_tokenize_init(struct doveadm_mail_cmd_context *_ctx,
+		      const char *const args[])
+{
+	struct fts_tokenize_cmd_context *ctx =
+		(struct fts_tokenize_cmd_context *)_ctx;
+
+	if (args[0] == NULL)
+		doveadm_mail_help_name("fts tokenize");
+
+	ctx->tokens = p_strdup(_ctx->pool, t_strarray_join(args, " "));
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
+	doveadm_print_header("token", "token", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+}
+
+static bool
+cmd_fts_tokenize_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+{
+	struct fts_tokenize_cmd_context *ctx =
+		(struct fts_tokenize_cmd_context *)_ctx;
+
+	switch (c) {
+	case 'l':
+		ctx->language = p_strdup(_ctx->pool, optarg);
+		break;
+	default:
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static struct doveadm_mail_cmd_context *
+cmd_fts_tokenize_alloc(void)
+{
+	struct fts_tokenize_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct fts_tokenize_cmd_context);
+	ctx->ctx.v.run = cmd_fts_tokenize_run;
+	ctx->ctx.v.init = cmd_fts_tokenize_init;
+	ctx->ctx.v.parse_arg = cmd_fts_tokenize_parse_arg;
+	ctx->ctx.getopt_args = "l";
+	return &ctx->ctx;
+}
+
+static int
 fts_namespace_find(struct mail_user *user, const char *ns_prefix,
 		   struct mail_namespace **ns_r)
 {
@@ -276,6 +423,16 @@ DOVEADM_CMD_PARAMS_END
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "fts tokenize",
+	.mail_cmd = cmd_fts_tokenize_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "<text>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('l', "language", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "text", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 },
 {
