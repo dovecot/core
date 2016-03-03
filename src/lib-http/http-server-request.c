@@ -222,6 +222,8 @@ void http_server_request_continue_payload(struct http_server_request *req)
 
 void http_server_request_ready_to_respond(struct http_server_request *req)
 {
+	http_server_request_debug(req, "Ready to respond");
+
 	req->state = HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND;
 	http_server_connection_trigger_responses(req->conn);
 }
@@ -238,6 +240,7 @@ void http_server_request_submit_response(struct http_server_request *req)
 	case HTTP_SERVER_REQUEST_STATE_PAYLOAD_IN:
 	case HTTP_SERVER_REQUEST_STATE_PROCESSING:
 		if (!http_server_request_is_complete(req)) {
+			http_server_request_debug(req, "Not ready to respond");
 			req->state = HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE;
 			break;
 		}
