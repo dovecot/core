@@ -516,7 +516,6 @@ int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set
 void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx)
 {
 	SSL_CTX_free(ctx->ssl_ctx);
-	openssl_iostream_context_free_params(ctx);
 	pool_unref(&ctx->pool);
 	i_free(ctx);
 }

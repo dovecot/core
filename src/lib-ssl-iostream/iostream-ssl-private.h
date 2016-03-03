@@ -13,11 +13,6 @@ struct iostream_ssl_vfuncs {
 				   const char **error_r);
 	void (*context_deinit)(struct ssl_iostream_context *ctx);
 
-	int (*generate_params)(buffer_t *output, unsigned int dh_length,
-			       const char **error_r);
-	int (*context_import_params)(struct ssl_iostream_context *ctx,
-				     const buffer_t *input);
-
 	int (*create)(struct ssl_iostream_context *ctx, const char *host,
 		      const struct ssl_iostream_settings *set,
 		      struct istream **input, struct ostream **output,

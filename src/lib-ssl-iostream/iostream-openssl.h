@@ -95,10 +95,4 @@ const char *
 openssl_iostream_use_certificate_error(const char *cert, const char *set_name);
 void openssl_iostream_clear_errors(void);
 
-int openssl_iostream_generate_params(buffer_t *output, unsigned int dh_length,
-				     const char **error_r);
-int openssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
-					   const buffer_t *input);
-void openssl_iostream_context_free_params(struct ssl_iostream_context *ctx);
-
 #endif

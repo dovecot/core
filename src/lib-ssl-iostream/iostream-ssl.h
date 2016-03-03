@@ -65,11 +65,6 @@ const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io);
 
-int ssl_iostream_generate_params(buffer_t *output, unsigned int dh_length,
-				 const char **error_r);
-int ssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
-				       const buffer_t *input);
-
 int ssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
 				     struct ssl_iostream_context **ctx_r,
 				     const char **error_r);

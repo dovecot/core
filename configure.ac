@@ -904,7 +904,6 @@ src/pop3-login/Makefile
 src/replication/Makefile
 src/replication/aggregator/Makefile
 src/replication/replicator/Makefile
-src/ssl-params/Makefile
 src/stats/Makefile
 src/util/Makefile
 src/plugins/Makefile

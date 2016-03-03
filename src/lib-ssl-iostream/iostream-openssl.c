@@ -726,9 +726,6 @@ const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	openssl_iostream_context_init_server,
 	openssl_iostream_context_deinit,
 
-	openssl_iostream_generate_params,
-	openssl_iostream_context_import_params,
-
 	openssl_iostream_create,
 	openssl_iostream_unref,
 	openssl_iostream_destroy,

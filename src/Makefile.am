@@ -58,6 +58,5 @@ SUBDIRS = \
 	replication \
 	util \
 	doveadm \
-	ssl-params \
 	stats \
 	plugins

@@ -21,7 +21,6 @@ libssl_iostream_openssl_la_SOURCES = \
 	iostream-openssl.c \
 	iostream-openssl-common.c \
 	iostream-openssl-context.c \
-	iostream-openssl-params.c \
 	istream-openssl.c \
 	ostream-openssl.c
 endif
