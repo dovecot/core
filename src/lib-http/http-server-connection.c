@@ -115,8 +115,8 @@ http_server_connection_input_resume(struct http_server_connection *conn)
 {
 	if (conn->conn.io == NULL && !conn->closed &&
 		!conn->input_broken && !conn->close_indicated &&
-		!conn->in_req_callback) {
-		conn->conn.io = io_add(conn->conn.fd_in, IO_READ,
+		!conn->in_req_callback && conn->incoming_payload == NULL) {
+		conn->conn.io = io_add_istream(conn->conn.input,
        http_server_connection_input, &conn->conn);
 	}
 }
@@ -400,6 +400,24 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 }
 
 static bool
+http_server_connection_pipeline_is_full(struct http_server_connection *conn)
+{
+	return (conn->request_queue_count >=
+			conn->server->set.max_pipelined_requests);
+}
+
+static void
+http_server_connection_pipeline_handle_full(
+	struct http_server_connection *conn)
+{
+	http_server_connection_debug(conn,
+		"Pipeline full (%u requests pending; %u maximum)",
+		conn->request_queue_count,
+		conn->server->set.max_pipelined_requests);
+	http_server_connection_input_halt(conn);
+}
+
+static bool
 http_server_connection_check_input(struct http_server_connection *conn)
 {
 	struct istream *input = conn->conn.input;
@@ -443,11 +461,57 @@ http_server_connection_check_input(struct http_server_connection *conn)
 	return TRUE;
 }
 
+static bool
+http_server_connection_finish_request(struct http_server_connection *conn)
+{
+	struct http_server_request *req;
+	enum http_request_parse_error error_code;
+	const char *error;
+	int ret;
+
+	req = conn->request_queue_tail;
+	if (req != NULL &&
+		req->state == HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE) {
+
+		http_server_connection_debug(conn, "Finish receiving request");
+
+		ret = http_request_parse_finish_payload
+			(conn->http_parser, &error_code, &error);
+		if (ret <= 0 &&
+			!http_server_connection_check_input(conn))
+			return FALSE;
+		if (ret < 0) {
+			http_server_connection_ref(conn);
+
+			http_server_connection_client_error(conn,
+				"Client sent invalid request: %s", error);
+
+			switch (error_code) {
+			case HTTP_REQUEST_PARSE_ERROR_PAYLOAD_TOO_LARGE:
+				conn->input_broken = TRUE;
+				http_server_request_fail_close(req,
+					413, "Payload Too Large");
+				break;
+			default:
+				i_unreached();
+			}
+
+			http_server_connection_unref(&conn);
+			return FALSE;
+		}
+		if (ret == 0)
+			return FALSE;
+		http_server_request_ready_to_respond(req);
+	}
+
+	return TRUE;
+}
+
 static void http_server_connection_input(struct connection *_conn)
 {
 	struct http_server_connection *conn =
 		(struct http_server_connection *)_conn;
-	struct http_server_request *req, *pending_request;
+	struct http_server_request *req;
 	enum http_request_parse_error error_code;
 	const char *error;
 	bool cont;
@@ -476,13 +540,17 @@ static void http_server_connection_input(struct connection *_conn)
 		http_server_payload_finished(conn);
 	}
 
+	/* finish up pending request */
+	if (!http_server_connection_finish_request(conn))
+		return;
+
 	/* create request object if none was created already */
 	if (conn->request_queue_tail != NULL &&
 		conn->request_queue_tail->state == HTTP_SERVER_REQUEST_STATE_NEW) {
 		if (conn->request_queue_count >
 			conn->server->set.max_pipelined_requests) {
 			/* pipeline full */
-			http_server_connection_input_halt(conn);
+			http_server_connection_pipeline_handle_full(conn);
 			return;
 		}
 		/* continue last unfinished request*/
@@ -490,17 +558,13 @@ static void http_server_connection_input(struct connection *_conn)
 	} else {
 		if (conn->request_queue_count >=
 			conn->server->set.max_pipelined_requests) {
-			/* pipeline full */			
-			http_server_connection_input_halt(conn);
+			/* pipeline full */
+			http_server_connection_pipeline_handle_full(conn);
 			return;
 		}
 		/* start new request */
 		req = http_server_request_new(conn);
 	}
-
-	pending_request = (req->prev != NULL &&
-		req->prev->state == HTTP_SERVER_REQUEST_STATE_SUBMITTED_RESPONSE ?
-		req->prev : NULL);
 
 	/* parse requests */
 	ret = 1;
@@ -509,15 +573,13 @@ static void http_server_connection_input(struct connection *_conn)
 		while ((ret = http_request_parse_next	(conn->http_parser,
 			req->pool, &req->req, &error_code, &error)) > 0) {
 
-			if (pending_request != NULL) {
-				/* previous request is now fully read and ready to respond */
-				http_server_request_ready_to_respond(pending_request);
-			}
-
-			http_server_connection_debug(conn,
-				"Received new request %s", http_server_request_label(req));
-
 			conn->stats.request_count++;
+			http_server_connection_debug(conn,
+				"Received new request %s "
+				"(%u requests pending; %u maximum)",
+				http_server_request_label(req),
+				conn->request_queue_count,
+				conn->server->set.max_pipelined_requests);
 
 			http_server_request_ref(req);
 			i_assert(!req->delay_destroy);
@@ -540,8 +602,6 @@ static void http_server_connection_input(struct connection *_conn)
 				conn->close_indicated = TRUE;
 			if (req->destroy_pending)
 				http_server_request_destroy(&req);
-			else
-				http_server_request_unref(&req);
 
 			if (conn->closed) {
 				/* connection got closed in destroy callback */
@@ -554,10 +614,15 @@ static void http_server_connection_input(struct connection *_conn)
 				break;
 			}
 
-			if (conn->request_queue_count >=
-				conn->server->set.max_pipelined_requests) {
+			/* finish up pending request if possible */
+			if (!http_server_connection_finish_request(conn)) {
+				http_server_connection_unref(&conn);
+				return;
+			}
+
+			if (http_server_connection_pipeline_is_full(conn)) {
 				/* pipeline full */
-				http_server_connection_input_halt(conn);
+				http_server_connection_pipeline_handle_full(conn);
 				http_server_connection_unref(&conn);
 				return;
 			}
@@ -618,12 +683,6 @@ static void http_server_connection_input(struct connection *_conn)
 		if (conn->input_broken || conn->close_indicated) {
 			http_server_connection_input_halt(conn);
 			return;
-		}
-
-		if (ret == 0 && pending_request != NULL &&
-			http_server_request_is_complete(pending_request)) {
-			/* previous request is now fully read and ready to respond */
-			http_server_request_ready_to_respond(pending_request);
 		}
 	}
 }
@@ -853,6 +912,9 @@ int http_server_connection_flush(struct http_server_connection *conn)
 
 int http_server_connection_output(struct http_server_connection *conn)
 {
+	bool pipeline_was_full =
+		http_server_connection_pipeline_is_full(conn);
+
 	if (http_server_connection_flush(conn) < 0)
 		return -1;
 
@@ -882,6 +944,13 @@ int http_server_connection_output(struct http_server_connection *conn)
 			http_server_connection_timeout_start(conn);
 		}
 	}
+
+	if (!http_server_connection_pipeline_is_full(conn)) {
+		http_server_connection_input_resume(conn);
+		if (pipeline_was_full && conn->conn.io != NULL)
+			i_stream_set_input_pending(conn->conn.input, TRUE);
+	}
+
 	return 1;
 }
 
