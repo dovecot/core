@@ -1,3 +1,27 @@
+v2.2.22 2016-03-xx  Timo Sirainen <tss@iki.fi>
+
+	+ Added doveadm HTTP API: See
+	  http://wiki2.dovecot.org/Design/DoveadmProtocol/HTTP
+	+ virtual plugin: Mailbox filtering can now be done based on the
+	  mailbox metadata. See http://wiki2.dovecot.org/Plugins/Virtual
+	+ stats: Added doveadm stats reset to reset global stats.
+	+ stats: Added authentication statistics if auth_stats=yes.
+	+ dsync, imapc, pop3c & pop3-migration: Many optimizations,
+	  improvements and error handling fixes.
+	+ doveadm: Most commands now stop soon after SIGINT/SIGTERM.
+	- auth: Auth caching was done too aggressively when %variables were
+	  used in default_fields, override_fields or LDAP pass/user_attrs.
+	  userdb result_* were also ignored when user was found from cache.
+	- imap: Fixed various assert-crashes caused v2.2.20+. Some of them
+	  caught actual hangs or otherwise unwanted behavior towards IMAP
+	  clients.
+	- Expunges were forgotten in some situations, for example when
+	  pipelining multiple IMAP MOVE commands.
+	- quota: Per-namespaces quota were broken for dict and count backends
+	  in v2.2.20+
+	- fts-solr: Search queries were using OR instead of AND as the
+	  separator for multi-token search queries in v2.2.20+.
+
 v2.2.21 2015-12-11  Timo Sirainen <tss@iki.fi>
 
 	- doveadm mailbox list (and some others) were broken in v2.2.20
