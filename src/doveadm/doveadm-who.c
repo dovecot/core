@@ -284,19 +284,16 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.anvil_path)))
 		ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 	(void)doveadm_cmd_param_bool(cctx, "separate-connections", &separate_connections);
-	if (!doveadm_cmd_param_array(cctx, "mask", &masks)) {
-		doveadm_exit_code = EX_USAGE;
-		i_error("user and/or ip[/bits] must be specified.");
-		return;
-	}
 
 	ctx.pool = pool_alloconly_create("who users", 10240);
 	hash_table_create(&ctx.users, ctx.pool, 0, who_user_hash, who_user_cmp);
 
-	if (who_parse_args(&ctx, masks) != 0) {
-		hash_table_destroy(&ctx.users);
-		pool_unref(&ctx.pool);
-		return;
+	if (doveadm_cmd_param_array(cctx, "mask", &masks)) {
+		if (who_parse_args(&ctx, masks) != 0) {
+			hash_table_destroy(&ctx.users);
+			pool_unref(&ctx.pool);
+			return;
+		}
 	}
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
