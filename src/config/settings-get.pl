@@ -37,11 +37,11 @@ foreach my $file (@ARGV) {
   while (<$f>) {
     my $write = 0;
     if ($state == 0) {
-      if (/struct .*_settings {/ ||
-	  /struct setting_define.*{/ ||
-	  /struct .*_default_settings = {/) {
+      if (/struct .*_settings \{/ ||
+	  /struct setting_define.*\{/ ||
+	  /struct .*_default_settings = \{/) {
 	$state++;
-      } elsif (/^struct service_settings (.*) = {/) {
+      } elsif (/^struct service_settings (.*) = \{/) {
 	$state++;
 	if ($ifdef eq "") {
 	  $state_ifdef = 0;
@@ -51,7 +51,7 @@ foreach my $file (@ARGV) {
 	}
 	push @services, $1;
 	push @service_ifdefs, $ifdef;
-      } elsif (/^(static )?const struct setting_parser_info (.*) = {/) {
+      } elsif (/^(static )?const struct setting_parser_info (.*) = \{/) {
 	$cur_name = $2;
 	$state++ if ($cur_name !~ /^\*default_/);
       } elsif (/^extern const struct setting_parser_info (.*);/) {
