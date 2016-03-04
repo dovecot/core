@@ -651,13 +651,13 @@ doveadm_http_server_authorize_request(struct client_connection_http *conn)
 			char *value = p_strdup_printf(conn->client.pool, "doveadm:%s", conn->client.set->doveadm_password);
 			base64_encode(value, strlen(value), b64_value);
 			if (strcmp(creds.data, str_c(b64_value)) == 0) auth = TRUE;
-			else i_error("Invalid authencition attempt to HTTP API");
+			else i_error("Invalid authentication attempt to HTTP API");
 		}
 		else if (strcasecmp(creds.scheme, "X-Doveadm-API") == 0 && doveadm_settings->doveadm_api_key[0] != '\0') {
 			string_t *b64_value = str_new(conn->client.pool, 32);
 			base64_encode(doveadm_settings->doveadm_api_key, strlen(doveadm_settings->doveadm_api_key), b64_value);
 			if (strcmp(creds.data, str_c(b64_value)) == 0) auth = TRUE;
-			else i_error("Invalid authencition attempt to HTTP API");
+			else i_error("Invalid authentication attempt to HTTP API");
 		}
 		else i_error("Unsupported authentication scheme to HTTP API");
 	}
