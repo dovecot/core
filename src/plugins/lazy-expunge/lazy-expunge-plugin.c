@@ -31,6 +31,7 @@ struct lazy_expunge_mail_user {
 	union mail_user_module_context module_ctx;
 
 	struct mail_namespace *lazy_ns;
+	const char *lazy_mailbox_vname;
 	const char *env;
 	bool copy_only_last_instance;
 };
@@ -69,8 +70,13 @@ static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_user_module,
 static const char *
 get_dest_vname(struct mailbox_list *list, struct mailbox *src_box)
 {
+	struct lazy_expunge_mail_user *luser =
+		LAZY_EXPUNGE_USER_CONTEXT(list->ns->user);
 	const char *name;
 	char src_sep, dest_sep;
+
+	if (luser->lazy_mailbox_vname != NULL)
+		return luser->lazy_mailbox_vname;
 
 	/* use the (canonical / unaliased) storage name */
 	name = src_box->name;
@@ -435,6 +441,13 @@ lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 		return;
 
 	luser->lazy_ns = mail_namespace_find_prefix(namespaces, luser->env);
+	if (luser->lazy_ns == NULL) {
+		/* see if it's set to namespace root itself. in that case we
+		   store all the expunged mails to the namespace root. */
+		luser->lazy_ns = mail_namespace_find_prefix_nosep(namespaces, luser->env);
+		luser->lazy_mailbox_vname = p_strndup(namespaces->user->pool,
+			luser->lazy_ns->prefix, luser->lazy_ns->prefix_len-1);
+	}
 	if (luser->lazy_ns == NULL)
 		i_fatal("lazy_expunge: Unknown namespace: '%s'", luser->env);
 	mail_namespace_ref(luser->lazy_ns);
