@@ -2,6 +2,7 @@
 #define AUTH_REQUEST_HANDLER_H
 
 struct auth_request;
+struct auth_client_connection;
 struct auth_master_connection;
 struct auth_stream_reply;
 
@@ -12,18 +13,14 @@ enum auth_client_result {
 };
 
 typedef void
-auth_request_callback_t(const char *reply, void *context);
+auth_client_request_callback_t(const char *reply, struct auth_client_connection *conn);
+typedef void
+auth_master_request_callback_t(const char *reply, struct auth_master_connection *conn);
 
 struct auth_request_handler *
-auth_request_handler_create(bool token_auth, auth_request_callback_t *callback,
-			    void *context, auth_request_callback_t *master_callback);
-#define auth_request_handler_create(token_auth, callback, context, master_callback)\
-	  auth_request_handler_create(token_auth, \
-		(auth_request_callback_t *)callback, \
-		(void *)((char*)context + \
-			CALLBACK_TYPECHECK(callback, void (*)( \
-				const char *, typeof(context)))), \
-		master_callback)
+auth_request_handler_create(bool token_auth, auth_client_request_callback_t *callback,
+			    struct auth_client_connection *conn,
+			    auth_master_request_callback_t *master_callback);
 
 void auth_request_handler_destroy(struct auth_request_handler **handler);
 void auth_request_handler_unref(struct auth_request_handler **handler);

@@ -27,10 +27,10 @@ struct auth_request_handler {
 
         unsigned int connect_uid, client_pid;
 
-	auth_request_callback_t *callback;
-	void *context;
+	auth_client_request_callback_t *callback;
+	struct auth_client_connection *conn;
 
-	auth_request_callback_t *master_callback;
+	auth_master_request_callback_t *master_callback;
 
 	unsigned int destroyed:1;
 	unsigned int token_auth:1;
@@ -42,10 +42,10 @@ static struct timeout *to_auth_failures;
 
 static void auth_failure_timeout(void *context) ATTR_NULL(1);
 
-#undef auth_request_handler_create
 struct auth_request_handler *
-auth_request_handler_create(bool token_auth, auth_request_callback_t *callback,
-			    void *context, auth_request_callback_t *master_callback)
+auth_request_handler_create(bool token_auth, auth_client_request_callback_t *callback,
+			    struct auth_client_connection *conn,
+			    auth_master_request_callback_t *master_callback)
 {
 	struct auth_request_handler *handler;
 	pool_t pool;
@@ -57,7 +57,7 @@ auth_request_handler_create(bool token_auth, auth_request_callback_t *callback,
 	handler->pool = pool;
 	hash_table_create_direct(&handler->requests, pool, 0);
 	handler->callback = callback;
-	handler->context = context;
+	handler->conn = conn;
 	handler->master_callback = master_callback;
 	handler->token_auth = token_auth;
 	return handler;
@@ -108,7 +108,7 @@ void auth_request_handler_unref(struct auth_request_handler **_handler)
 	i_assert(hash_table_count(handler->requests) == 0);
 
 	/* notify parent that we're done with all requests */
-	handler->callback(NULL, handler->context);
+	handler->callback(NULL, handler->conn);
 
 	hash_table_destroy(&handler->requests);
 	pool_unref(&handler->pool);
@@ -207,7 +207,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 
 	if (request->in_delayed_failure_queue) {
 		/* we came here from flush_failures() */
-		handler->callback(reply, handler->context);
+		handler->callback(reply, handler->conn);
 		return;
 	}
 
@@ -217,7 +217,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 
 	if (auth_fields_exists(request->extra_fields, "nodelay")) {
 		/* passdb specifically requested not to delay the reply. */
-		handler->callback(reply, handler->context);
+		handler->callback(reply, handler->conn);
 		auth_request_unref(&request);
 		return;
 	}
@@ -267,7 +267,7 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 		   process to pick it up. delete it */
 		auth_request_handler_remove(handler, request);
 	}
-	handler->callback(str_c(str), handler->context);
+	handler->callback(str_c(str), handler->conn);
 }
 
 static void
@@ -353,7 +353,7 @@ void auth_request_handler_reply(struct auth_request *request,
 		base64_encode(auth_reply, reply_size, str);
 
 		request->accept_cont_input = TRUE;
-		handler->callback(str_c(str), handler->context);
+		handler->callback(str_c(str), handler->conn);
 		break;
 	case AUTH_CLIENT_RESULT_SUCCESS:
 		if (reply_size > 0) {
@@ -399,7 +399,7 @@ static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
 	str_printfa(str, "FAIL\t%u\treason=", request->id);
 	str_append_tabescaped(str, reason);
 
-	handler->callback(str_c(str), handler->context);
+	handler->callback(str_c(str), handler->conn);
 	auth_request_handler_remove(handler, request);
 }
 
@@ -599,7 +599,7 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	if (request == NULL) {
 		const char *reply = t_strdup_printf(
 			"FAIL\t%u\treason=Authentication request timed out", id);
-		handler->callback(reply, handler->context);
+		handler->callback(reply, handler->conn);
 		return TRUE;
 	}
 

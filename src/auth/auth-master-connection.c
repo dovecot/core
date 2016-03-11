@@ -68,9 +68,8 @@ auth_master_reply_hide_passwords(struct auth_master_connection *conn,
 	return t_strarray_join((void *)args, "\t");
 }
 
-void auth_master_request_callback(const char *reply, void *context)
+void auth_master_request_callback(const char *reply, struct auth_master_connection *conn)
 {
-	struct auth_master_connection *conn = context;
 	struct const_iovec iov[2];
 
 	if (conn->auth->set->debug) {
