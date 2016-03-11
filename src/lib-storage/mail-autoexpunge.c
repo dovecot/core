@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "mailbox-list-iter.h"
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "mail-user.h"
@@ -58,11 +59,51 @@ static int mailbox_autoexpunge(struct mailbox *box, time_t expire_time)
 	return ret;
 }
 
+static void
+mailbox_autoexpunge_set(struct mail_namespace *ns, const char *vname,
+			unsigned int autoexpunge)
+{
+	struct mailbox *box;
+	time_t expire_time;
+
+	expire_time = ioloop_time - autoexpunge;
+
+	/* autoexpunge is configured by admin, so we can safely ignore
+	   any ACLs the user might normally have against expunging in
+	   the mailbox. */
+	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_IGNORE_ACLS);
+	if (mailbox_autoexpunge(box, expire_time) < 0) {
+		i_error("Failed to autoexpunge mailbox '%s': %s",
+			mailbox_get_vname(box),
+			mailbox_get_last_error(box, NULL));
+	}
+	mailbox_free(&box);
+}
+
+static void
+mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
+			      const struct mailbox_settings *set)
+{
+	struct mailbox_list_iterate_context *iter;
+	const struct mailbox_info *info;
+
+	iter = mailbox_list_iter_init(ns->list, set->name,
+				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
+				      MAILBOX_LIST_ITER_SKIP_ALIASES |
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+	while ((info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
+		mailbox_autoexpunge_set(ns, info->vname, set->autoexpunge);
+	} T_END;
+	if (mailbox_list_iter_deinit(&iter) < 0) {
+		i_error("Failed to iterate autoexpunge mailboxes '%s%s': %s",
+			ns->prefix, set->name,
+			mailbox_list_get_last_error(ns->list, NULL));
+	}
+}
+
 static void mail_namespace_autoexpunge(struct mail_namespace *ns)
 {
 	struct mailbox_settings *const *box_set;
-	struct mailbox *box;
-	time_t expire_time;
 	const char *vname;
 
 	if (!array_is_created(&ns->set->mailboxes))
@@ -73,22 +114,16 @@ static void mail_namespace_autoexpunge(struct mail_namespace *ns)
 		    (unsigned int)ioloop_time < (*box_set)->autoexpunge)
 			continue;
 
-		if ((*box_set)->name[0] == '\0' && ns->prefix_len > 0 &&
-		    ns->prefix[ns->prefix_len-1] == mail_namespace_get_sep(ns))
-			vname = t_strndup(ns->prefix, ns->prefix_len - 1);
-		else
-			vname = t_strconcat(ns->prefix, (*box_set)->name, NULL);
-		expire_time = ioloop_time - (*box_set)->autoexpunge;
-		/* autoexpunge is configured by admin, so we can safely ignore
-		   any ACLs the user might normally have against expunging in
-		   the mailbox. */
-		box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_IGNORE_ACLS);
-		if (mailbox_autoexpunge(box, expire_time) < 0) {
-			i_error("Failed to autoexpunge mailbox '%s': %s",
-				mailbox_get_vname(box),
-				mailbox_get_last_error(box, NULL));
+		if (strpbrk((*box_set)->name, "*?") != NULL)
+			mailbox_autoexpunge_wildcards(ns, *box_set);
+		else {
+			if ((*box_set)->name[0] == '\0' && ns->prefix_len > 0 &&
+			    ns->prefix[ns->prefix_len-1] == mail_namespace_get_sep(ns))
+				vname = t_strndup(ns->prefix, ns->prefix_len - 1);
+			else
+				vname = t_strconcat(ns->prefix, (*box_set)->name, NULL);
+			mailbox_autoexpunge_set(ns, vname, (*box_set)->autoexpunge);
 		}
-		mailbox_free(&box);
 	}
 }
 
