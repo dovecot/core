@@ -27,7 +27,7 @@ static void prefetch_lookup(struct auth_request *auth_request,
 			callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
 			return;
 		}
-		if (!auth_request->userdb_lookup || auth_request->set->debug) {
+		if (!auth_request->userdb_lookup || auth_request->debug) {
 			/* more userdbs, they may know the user */
 			auth_request_log_debug(auth_request, AUTH_SUBSYS_DB,
 				"passdb didn't return userdb entries, "

@@ -1552,7 +1552,7 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	ctx->skip_null_values = skip_null_values;
 	ctx->iter_dn_values = iter_dn_values;
 	hash_table_create(&ctx->ldap_attrs, pool, 0, strcase_hash, strcasecmp);
-	if (ctx->auth_request->set->debug)
+	if (ctx->auth_request->debug)
 		ctx->debug = t_str_new(256);
 
 	get_ldap_fields(ctx, conn, res, "");

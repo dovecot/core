@@ -102,6 +102,8 @@ struct auth_request {
 	unsigned int userdb_lookup:1;
 	/* DIGEST-MD5 kludge */
 	unsigned int domain_is_realm:1;
+	/* auth_debug is enabled for this request */
+	unsigned int debug:1;
 
 	/* flags received from auth client: */
 	unsigned int secured:1;
