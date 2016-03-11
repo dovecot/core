@@ -58,6 +58,8 @@ struct mail_storage_service_input {
 
 	/* override MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP for this lookup */
 	unsigned int no_userdb_lookup:1;
+	/* Enable auth_debug=yes for this lookup */
+	unsigned int debug:1;
 };
 
 extern struct module *mail_storage_service_modules;
