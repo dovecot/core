@@ -467,6 +467,8 @@ auth_user_info_export(string_t *str, const struct auth_user_info *info)
 		str_printfa(str, "\trip=%s", net_ip2addr(&info->remote_ip));
 	if (info->remote_port != 0)
 		str_printfa(str, "\trport=%d", info->remote_port);
+	if (info->debug)
+		str_append(str, "\tdebug");
 }
 
 int auth_master_user_lookup(struct auth_master_connection *conn,

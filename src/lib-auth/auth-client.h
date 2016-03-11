@@ -13,7 +13,9 @@ enum auth_request_flags {
 	/* Skip penalty checks for this request */
 	AUTH_REQUEST_FLAG_NO_PENALTY		= 0x04,
 	/* Support final SASL response */
-	AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP	= 0x08
+	AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP	= 0x08,
+	/* Enable auth_debug=yes logging for this request */
+	AUTH_REQUEST_FLAG_DEBUG			= 0x10
 };
 
 enum auth_request_status {

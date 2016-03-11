@@ -176,6 +176,8 @@ static void auth_connected(struct auth_client *client,
 	info.remote_ip = input->info.remote_ip;
 	info.remote_port = input->info.remote_port;
 	info.initial_resp_base64 = str_c(base64_resp);
+	if (doveadm_settings->auth_debug)
+		info.flags |= AUTH_REQUEST_FLAG_DEBUG;
 
 	input->request = auth_client_request_new(client, &info,
 						 auth_callback, input);
@@ -280,15 +282,20 @@ static void cmd_auth_cache_flush(int argc, char *argv[])
 	auth_master_deinit(&conn);
 }
 
+static void authtest_input_init(struct authtest_input *input)
+{
+	memset(input, 0, sizeof(*input));
+	input->info.service = "doveadm";
+	input->info.debug = doveadm_settings->auth_debug;
+}
+
 static void cmd_auth_test(int argc, char *argv[])
 {
 	const char *auth_socket_path = NULL;
 	struct authtest_input input;
 	int c;
 
-	memset(&input, 0, sizeof(input));
-	input.info.service = "doveadm";
-
+	authtest_input_init(&input);
 	while ((c = getopt(argc, argv, "a:M:x:")) > 0) {
 		switch (c) {
 		case 'a':
@@ -374,9 +381,7 @@ static void cmd_auth_login(int argc, char *argv[])
 	struct authtest_input input;
 	int c;
 
-	memset(&input, 0, sizeof(input));
-	input.info.service = "doveadm";
-
+	authtest_input_init(&input);
 	auth_login_socket_path = t_strconcat(doveadm_settings->base_dir,
 					     "/auth-login", NULL);
 	auth_master_socket_path = t_strconcat(doveadm_settings->base_dir,
@@ -433,9 +438,7 @@ static void cmd_auth_lookup(int argc, char *argv[])
 	bool first = TRUE;
 	int c, ret;
 
-	memset(&input, 0, sizeof(input));
-	input.info.service = "doveadm";
-
+	authtest_input_init(&input);
 	while ((c = getopt(argc, argv, "a:f:x:")) > 0) {
 		switch (c) {
 		case 'a':
@@ -507,6 +510,7 @@ static int cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	service_input.local_port = input->info.local_port;
 	service_input.remote_ip = input->info.remote_ip;
 	service_input.remote_port = input->info.remote_port;
+	service_input.debug = input->info.debug;
 
 	pool = pool_alloconly_create("userdb fields", 1024);
 	mail_storage_service_save_userdb_fields(storage_service, pool,
@@ -567,9 +571,7 @@ static void cmd_user(int argc, char *argv[])
 	bool have_wildcards, userdb_only = FALSE, first = TRUE;
 	int c, ret;
 
-	memset(&input, 0, sizeof(input));
-	input.info.service = "doveadm";
-
+	authtest_input_init(&input);
 	while ((c = getopt(argc, argv, "a:f:ux:")) > 0) {
 		switch (c) {
 		case 'a':

@@ -42,6 +42,8 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 		str_append(str, "\tno-penalty");
 	if ((info->flags & AUTH_REQUEST_FLAG_VALID_CLIENT_CERT) != 0)
 		str_append(str, "\tvalid-client-cert");
+	if ((info->flags & AUTH_REQUEST_FLAG_DEBUG) != 0)
+		str_append(str, "\tdebug");
 
 	if (info->session_id != NULL) {
 		str_append(str, "\tsession=");
