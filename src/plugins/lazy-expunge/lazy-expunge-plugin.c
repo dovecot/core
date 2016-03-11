@@ -66,12 +66,9 @@ static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mailbox_list_module,
 static MODULE_CONTEXT_DEFINE_INIT(lazy_expunge_mail_user_module,
 				  &mail_user_module_register);
 
-static struct mailbox *
-mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
-		       const char **error_r)
+static const char *
+get_dest_vname(struct mailbox_list *list, struct mailbox *src_box)
 {
-	struct mailbox *box;
-	enum mail_error error;
 	const char *name;
 	char src_sep, dest_sep;
 
@@ -93,7 +90,18 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 		name = str_c(str);
 	}
 	/* add expunge namespace prefix. the name is now a proper vname */
-	name = t_strconcat(list->ns->prefix, name, NULL);
+	return t_strconcat(list->ns->prefix, name, NULL);
+}
+
+static struct mailbox *
+mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
+		       const char **error_r)
+{
+	struct mailbox *box;
+	enum mail_error error;
+	const char *name;
+
+	name = get_dest_vname(list, src_box);
 
 	box = mailbox_alloc(list, name, MAILBOX_FLAG_NO_INDEX_FILES);
 	if (mailbox_open(box) == 0) {
