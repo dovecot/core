@@ -28,7 +28,8 @@ static bool debug = FALSE;
 
 static bool blocking = FALSE;
 static bool request_100_continue = FALSE;
-static size_t read_partial = 1024;
+static size_t read_server_partial = 0;
+static size_t read_client_partial = 0;
 static unsigned int test_max_pending = 200;
 
 static struct ip_addr bind_ip;
@@ -345,9 +346,9 @@ client_handle_echo_request(struct client_request *creq,
 		payload_input =
 			http_server_request_get_payload_input(req, TRUE);
 
-		if (read_partial > 0) {
+		if (read_server_partial > 0) {
 			struct istream *partial =
-				i_stream_create_limit(payload_input, read_partial);
+				i_stream_create_limit(payload_input, read_server_partial);
 			i_stream_unref(&payload_input);
 			payload_input = partial;
 		}
@@ -392,9 +393,9 @@ client_handle_echo_request(struct client_request *creq,
 		creq->payload_input =
 			http_server_request_get_payload_input(req, FALSE);
 
-		if (read_partial > 0) {
+		if (read_server_partial > 0) {
 			struct istream *partial =
-				i_stream_create_limit(creq->payload_input, read_partial);
+				i_stream_create_limit(creq->payload_input, read_server_partial);
 			i_stream_unref(&creq->payload_input);
 			creq->payload_input = partial;
 		}
@@ -755,11 +756,20 @@ test_client_download_response(const struct http_response *resp,
 	}
 
 	i_assert(fstream != NULL);
-	tcreq->file = fstream;
+	if (read_client_partial == 0) {
+		i_stream_ref(resp->payload);
+		tcreq->payload = resp->payload;
+		tcreq->file = fstream;
+	} else {
+		struct istream *payload = resp->payload;
+		tcreq->payload = i_stream_create_limit
+			(payload, read_client_partial);
+		tcreq->file = i_stream_create_limit
+			(fstream, read_client_partial);
+		i_stream_unref(&fstream);
+	}
 
-	i_stream_ref(resp->payload);
-	tcreq->payload = resp->payload;
-	tcreq->io = io_add_istream(resp->payload,
+	tcreq->io = io_add_istream(tcreq->payload,
 		test_client_download_payload_input, tcreq);
 	test_client_download_payload_input(tcreq);
 }
@@ -956,9 +966,9 @@ test_client_echo_response(const struct http_response *resp,
 			"failed to open %s", path);
 	}
 
-	if (read_partial > 0) {
-		struct istream *partial =
-			i_stream_create_limit(fstream, read_partial);
+	if (read_server_partial > 0) {
+		struct istream *partial = i_stream_create_limit
+			(fstream, read_server_partial);
 		i_stream_unref(&fstream);
 		fstream = partial;
 	}
@@ -1229,7 +1239,7 @@ static void test_download_server_nonblocking(void)
 	test_begin("http payload download (server non-blocking)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
-	read_partial = 0;
+	read_server_partial = 0;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
@@ -1241,7 +1251,7 @@ static void test_download_server_blocking(void)
 	test_begin("http payload download (server blocking)");
 	blocking = TRUE;
 	request_100_continue = FALSE;
-	read_partial = 0;
+	read_server_partial = 0;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
@@ -1253,7 +1263,7 @@ static void test_echo_server_nonblocking(void)
 	test_begin("http payload echo (server non-blocking)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
-	read_partial = 0;
+	read_server_partial = 0;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1265,7 +1275,7 @@ static void test_echo_server_blocking(void)
 	test_begin("http payload echo (server blocking)");
 	blocking = TRUE;
 	request_100_continue = FALSE;
-	read_partial = 0;
+	read_server_partial = 0;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1277,7 +1287,7 @@ static void test_echo_server_nonblocking_sync(void)
 	test_begin("http payload echo (server non-blocking; 100-continue)");
 	blocking = FALSE;
 	request_100_continue = TRUE;
-	read_partial = 0;
+	read_server_partial = 0;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1289,7 +1299,7 @@ static void test_echo_server_blocking_sync(void)
 	test_begin("http payload echo (server blocking; 100-continue)");
 	blocking = TRUE;
 	request_100_continue = TRUE;
-	read_partial = 0;
+	read_server_partial = 0;
   test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1301,13 +1311,13 @@ static void test_echo_server_nonblocking_partial(void)
 	test_begin("http payload echo (server non-blocking; partial short)");
 	blocking = FALSE;
 	request_100_continue = FALSE;
-	read_partial = 1024;
+	read_server_partial = 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 	test_begin("http payload echo (server non-blocking; partial long)");
-	read_partial = IO_BLOCK_SIZE + 1024;
+	read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1319,16 +1329,38 @@ static void test_echo_server_blocking_partial(void)
 	test_begin("http payload echo (server blocking; partial short)");
 	blocking = TRUE;
 	request_100_continue = FALSE;
-	read_partial = 1024;
+	read_server_partial = 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 	test_begin("http payload echo (server blocking; partial long)");
-	read_partial = IO_BLOCK_SIZE + 1024;
+	read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
+	test_end();
+}
+
+static void test_download_client_partial(void)
+{
+	test_begin("http payload download (client partial)");
+	blocking = FALSE;
+	request_100_continue = FALSE;
+	read_server_partial = 0;
+	read_client_partial = 1024;
+	test_run_sequential(test_client_download);
+	test_run_pipeline(test_client_download);
+	test_run_parallel(test_client_download);
+	test_end();
+	test_begin("http payload download (client partial long)");
+	blocking = FALSE;
+	request_100_continue = FALSE;
+	read_server_partial = 0;
+	read_client_partial = IO_BLOCK_SIZE + 1024;
+	test_run_sequential(test_client_download);
+	test_run_pipeline(test_client_download);
+	test_run_parallel(test_client_download);
 	test_end();
 }
 
@@ -1341,6 +1373,7 @@ static void (*test_functions[])(void) = {
 	test_echo_server_blocking_sync,
 	test_echo_server_nonblocking_partial,
 	test_echo_server_blocking_partial,
+	test_download_client_partial,
 	NULL
 };
 

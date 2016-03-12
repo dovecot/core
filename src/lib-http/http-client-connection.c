@@ -540,7 +540,7 @@ static bool
 http_client_connection_return_response(struct http_client_request *req,
 	struct http_response *response)
 {
-	struct http_client_connection *conn = req->conn;
+	struct http_client_connection *conn = req->conn, *tmp_conn;
 	struct istream *payload;
 	bool retrying, ret;
 
@@ -571,7 +571,8 @@ http_client_connection_return_response(struct http_client_request *req,
 	conn->in_req_callback = TRUE;
 	http_client_connection_ref(conn);
 	retrying = !http_client_request_callback(req, response);
-	if (!http_client_connection_unref(&conn)) {
+	tmp_conn = conn;
+	if (!http_client_connection_unref(&tmp_conn)) {
 		/* the callback managed to get this connection destroyed */
 		req->conn = NULL;
 		if (!retrying)
@@ -579,7 +580,6 @@ http_client_connection_return_response(struct http_client_request *req,
 		http_client_request_unref(&req);
 		return FALSE;
 	}
-	conn = req->conn;
 	conn->in_req_callback = FALSE;
 
 	if (retrying) {
