@@ -50,6 +50,9 @@ struct virtual_sync_context {
 	unsigned int index_broken:1;
 };
 
+static void virtual_sync_backend_box_deleted(struct virtual_sync_context *ctx,
+					     struct virtual_backend_box *bbox);
+
 static void virtual_sync_set_uidvalidity(struct virtual_sync_context *ctx)
 {
 	uint32_t uid_validity = ioloop_time;
@@ -1028,7 +1031,14 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 			break;
 		}
 	}
-	return mailbox_sync_deinit(&sync_ctx, &sync_status);
+	if (mailbox_sync_deinit(&sync_ctx, &sync_status) < 0) {
+		if (mailbox_get_last_mail_error(bbox->box) != MAIL_ERROR_NOTFOUND)
+			return -1;
+		/* mailbox was deleted */
+		virtual_sync_backend_box_deleted(ctx, bbox);
+		return 0;
+	}
+	return 0;
 }
 
 static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
@@ -1096,6 +1106,27 @@ static void virtual_sync_backend_box_deleted(struct virtual_sync_context *ctx,
 	bbox->deleted = TRUE;
 }
 
+static int
+virtual_try_open_and_sync_backend_box(struct virtual_sync_context *ctx,
+				      struct virtual_backend_box *bbox,
+				      enum mailbox_sync_flags sync_flags)
+{
+	int ret = 0;
+
+	if (!bbox->box->opened)
+		ret = virtual_backend_box_open(ctx->mbox, bbox);
+	if (ret == 0)
+		ret = mailbox_sync(bbox->box, sync_flags);
+	if (ret < 0) {
+		if (mailbox_get_last_mail_error(bbox->box) != MAIL_ERROR_NOTFOUND)
+			return -1;
+		/* mailbox was deleted */
+		virtual_sync_backend_box_deleted(ctx, bbox);
+		return 0;
+	}
+	return 1;
+}
+
 static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 				    struct virtual_backend_box *bbox)
 {
@@ -1126,12 +1157,8 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 			/* a) index already opened, refresh it
 			   b) delayed error handling for mailbox_open()
 			   that failed in virtual_notify_changes() */
-			if (!bbox->box->opened) {
-				if (virtual_backend_box_open(ctx->mbox, bbox) < 0)
-					return -1;
-			}
-			if (mailbox_sync(bbox->box, sync_flags) < 0)
-				return -1;
+			if ((ret = virtual_try_open_and_sync_backend_box(ctx, bbox, sync_flags)) <= 0)
+				return ret;
 			bbox->open_failed = FALSE;
 		}
 
@@ -1158,10 +1185,8 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		}
 		if (!bbox->box->opened) {
 			/* first time we're opening the index */
-			if (virtual_backend_box_open(ctx->mbox, bbox) < 0)
-				return -1;
-			if (mailbox_sync(bbox->box, sync_flags) < 0)
-				return -1;
+			if ((ret = virtual_try_open_and_sync_backend_box(ctx, bbox, sync_flags)) <= 0)
+				return ret;
 		}
 
 		virtual_backend_box_sync_mail_set(bbox);
