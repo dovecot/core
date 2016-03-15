@@ -78,6 +78,7 @@ libfts_la_SOURCES = \
 	fts-library.c \
 	fts-tokenizer.c \
 	fts-tokenizer-address.c \
+	fts-tokenizer-common.c \
 	fts-tokenizer-generic.c \
 	$(ICU_SOURCES)
 
@@ -89,6 +90,7 @@ headers = \
 	fts-language.h \
 	fts-library.h \
 	fts-tokenizer.h \
+	fts-tokenizer-common.h \
 	fts-tokenizer-private.h \
 	fts-tokenizer-generic-private.h
 
@@ -132,7 +134,7 @@ test_fts_language_DEPENDENCIES = $(test_deps)
 endif
 
 test_fts_tokenizer_SOURCES = test-fts-tokenizer.c
-test_fts_tokenizer_LDADD = fts-tokenizer.lo fts-tokenizer-generic.lo fts-tokenizer-address.lo ../lib-mail/libmail.la $(test_libs)
+test_fts_tokenizer_LDADD = fts-tokenizer.lo fts-tokenizer-generic.lo fts-tokenizer-address.lo fts-tokenizer-common.lo ../lib-mail/libmail.la $(test_libs)
 test_fts_tokenizer_DEPENDENCIES = ../lib-mail/libmail.la $(test_deps)
 
 check: check-am check-test
