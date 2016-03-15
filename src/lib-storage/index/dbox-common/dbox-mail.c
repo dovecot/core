@@ -182,7 +182,15 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 			i_assert(str_len(str) == sizeof(order));
 			memcpy(&order, str_data(str), sizeof(order));
 			str_truncate(str, 0);
-			str_printfa(str, "%u", order);
+			if (order != 0)
+				str_printfa(str, "%u", order);
+			else {
+				/* order=0 means it doesn't exist. we don't
+				   want to return "0" though, because then the
+				   mails get ordered to beginning, while
+				   nonexistent are supposed to be ordered at
+				   the end. */
+			}
 		}
 		*value_r = str_c(str);
 		return 0;
