@@ -1092,6 +1092,8 @@ static void virtual_sync_backend_box_deleted(struct virtual_sync_context *ctx,
 	array_foreach(&bbox->uids, uidmap)
 		seq_range_array_add(&removed_uids, uidmap->real_uid);
 	virtual_sync_mailbox_box_remove(ctx, bbox, &removed_uids);
+
+	bbox->deleted = TRUE;
 }
 
 static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
@@ -1101,6 +1103,9 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 	struct mailbox_status status;
 	bool bbox_index_opened = bbox->box->opened;
 	int ret;
+
+	if (bbox->deleted)
+		return 0;
 
 	/* if we already did some changes to index, commit them before
 	   syncing starts. */
