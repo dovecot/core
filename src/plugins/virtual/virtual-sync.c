@@ -1101,7 +1101,6 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 {
 	enum mailbox_sync_flags sync_flags;
 	struct mailbox_status status;
-	bool bbox_index_opened = bbox->box->opened;
 	int ret;
 
 	if (bbox->deleted)
@@ -1123,11 +1122,11 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		   if we can do that check from mailbox list index, we don't
 		   even need to open the mailbox. */
 		i_assert(array_count(&bbox->sync_pending_removes) == 0);
-		if (bbox_index_opened || bbox->open_failed) {
+		if (bbox->box->opened || bbox->open_failed) {
 			/* a) index already opened, refresh it
 			   b) delayed error handling for mailbox_open()
 			   that failed in virtual_notify_changes() */
-			if (!bbox_index_opened) {
+			if (!bbox->box->opened) {
 				if (virtual_backend_box_open(ctx->mbox, bbox) < 0)
 					return -1;
 			}
@@ -1157,12 +1156,10 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 				virtual_sync_backend_handle_old_vmsgs(ctx, bbox, NULL);
 			return 0;
 		}
-		if (!bbox_index_opened) {
+		if (!bbox->box->opened) {
 			/* first time we're opening the index */
-			if (!bbox->box->opened) {
-				if (virtual_backend_box_open(ctx->mbox, bbox) < 0)
-					return -1;
-			}
+			if (virtual_backend_box_open(ctx->mbox, bbox) < 0)
+				return -1;
 			if (mailbox_sync(bbox->box, sync_flags) < 0)
 				return -1;
 		}
@@ -1180,7 +1177,7 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		i_assert(bbox->search_result != NULL || ret < 0);
 	} else {
 		/* sync using the existing search result */
-		i_assert(bbox_index_opened);
+		i_assert(bbox->box->opened);
 		i_array_init(&ctx->sync_expunges, 32);
 		ret = virtual_sync_backend_box_sync(ctx, bbox, sync_flags);
 		if (ret == 0) T_BEGIN {
