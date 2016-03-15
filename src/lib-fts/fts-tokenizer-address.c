@@ -5,9 +5,12 @@
 #include "buffer.h"
 #include "rfc822-parser.h"
 #include "fts-tokenizer-private.h"
+#include "fts-tokenizer-common.h"
 
 #define IS_DTEXT(c) \
 	(rfc822_atext_chars[(int)(unsigned char)(c)] == 2)
+
+#define FTS_DEFAULT_ADDRESS_MAX_LENGTH 254
 
 enum email_address_parser_state {
 	EMAIL_ADDRESS_PARSER_STATE_NONE = 0,
@@ -21,6 +24,7 @@ struct email_address_fts_tokenizer {
 	enum email_address_parser_state state;
 	string_t *last_word;
 	string_t *parent_data; /* Copy of input data between tokens. */
+	unsigned int max_length;
 	bool search;
 };
 
@@ -31,13 +35,20 @@ fts_tokenizer_email_address_create(const char *const *settings,
 {
 	struct email_address_fts_tokenizer *tok;
 	bool search = FALSE;
+	unsigned int max_length = FTS_DEFAULT_ADDRESS_MAX_LENGTH;
 	unsigned int i;
 
 	for (i = 0; settings[i] != NULL; i += 2) {
-		const char *key = settings[i];
+		const char *key = settings[i], *value = settings[i+1];
 
 		if (strcmp(key, "search") == 0) {
 			search = TRUE;
+		} else if (strcmp(key, "maxlen") == 0) {
+			if (str_to_uint(value, &max_length) < 0 ||
+			    max_length == 0) {
+				*error_r = t_strdup_printf("Invalid maxlen setting: %s", value);
+				return -1;
+			}
 		} else {
 			*error_r = t_strdup_printf("Unknown setting: %s", key);
 			return -1;
@@ -48,6 +59,7 @@ fts_tokenizer_email_address_create(const char *const *settings,
 	tok->tokenizer = *fts_tokenizer_email_address;
 	tok->last_word = str_new(default_pool, 128);
 	tok->parent_data = str_new(default_pool, 128);
+	tok->max_length = max_length;
 	tok->search = search;
 	*tokenizer_r = &tok->tokenizer;
 	return 0;
@@ -69,7 +81,20 @@ fts_tokenizer_address_current_token(struct email_address_fts_tokenizer *tok,
 {
 	tok->tokenizer.skip_parents = TRUE;
 	tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
-	*token_r = t_strdup(str_c(tok->last_word));
+	if (str_len(tok->last_word) > tok->max_length) {
+		str_truncate(tok->last_word, tok->max_length);
+		/* As future proofing, delete partial utf8.
+		   IS_DTEXT() does not actually allow utf8 addresses
+		   yet though. */
+		const unsigned char *data = tok->last_word->data;
+		size_t len = tok->last_word->used;
+		fts_tokenizer_delete_trailing_partial_char(data, &len);
+		i_assert(len <= tok->max_length);
+		*token_r = len == 0 ? "" :
+			t_strndup(tok->last_word->data, len);
+	} else {
+		*token_r = t_strdup(str_c(tok->last_word));
+	}
 }
 
 static bool

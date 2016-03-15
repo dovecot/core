@@ -12,7 +12,8 @@
 	"@invalid invalid@ Abc Dfg <abc.dfg@example.com>, " \
 	"Bar Baz <bar@example.org>" \
 	"Foo Bar (comment)foo.bar@host.example.org " \
-	"foo, foo@domain"
+	"foo, foo@domain" \
+	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.tld"
 
 static const char *test_inputs[] = {
 	/* generic things and word truncation: */
@@ -307,7 +308,8 @@ static void test_fts_tokenizer_address_only(void)
 	static const char input[] = TEST_INPUT_ADDRESS;
 	static const char *const expected_output[] = {
 		"abc.dfg@example.com", "bar@example.org",
-		"foo.bar@host.example.org", "foo@domain", NULL
+		"foo.bar@host.example.org", "foo@domain",
+		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu", NULL
 	};
 	struct fts_tokenizer *tok;
 	const char *error;
@@ -326,7 +328,7 @@ static void test_fts_tokenizer_address_parent(const char *name, const char * con
 		"invalid", "invalid", "Abc", "Dfg", "abc", "dfg", "example", "com", "abc.dfg@example.com",
 		"Bar", "Baz", "bar", "example", "org", "bar@example.org",
 		"Foo", "Bar", "comment", "foo", "bar", "host", "example", "org", "foo.bar@host.example.org",
-		"foo", "foo", "domain", "foo@domain", NULL
+		"foo", "foo", "domain", "foo@domain", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",  "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz","tld", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",  NULL
 	};
 	struct fts_tokenizer *tok, *gen_tok;
 	const char *error;
@@ -358,7 +360,7 @@ static void test_fts_tokenizer_address_search(void)
 		"invalid", "invalid", "Abc", "Dfg", "abc.dfg@example.com",
 		"Bar", "Baz", "bar@example.org",
 		"Foo", "Bar", "comment", "foo.bar@host.example.org",
-		"foo", "foo@domain", NULL
+		"foo", "foo@domain", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu", NULL
 	};
 	static const char *const settings[] = { "search", "", NULL };
 	struct fts_tokenizer *tok, *gen_tok;
