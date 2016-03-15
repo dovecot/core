@@ -1193,7 +1193,6 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		if (status.uidvalidity != bbox->sync_uid_validity) {
 			/* UID validity changed since last sync (or this is
 			   the first sync), do a full search */
-			i_assert(ctx->expunge_removed);
 			ret = virtual_sync_backend_box_init(bbox);
 		} else {
 			/* build the initial search using the saved modseq. */
