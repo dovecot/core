@@ -354,8 +354,14 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 		}
 		have_ca = TRUE;
 	}
-
-	if (!have_ca && !set->allow_invalid_cert) {
+	if (!have_ca && ctx->client_ctx && !set->allow_invalid_cert) {
+		if (SSL_CTX_set_default_verify_paths(ctx->ssl_ctx) != 1) {
+			*error_r = t_strdup_printf(
+				"Can't load default CA locations: %s (ssl_client_ca_* settings missing)",
+				openssl_iostream_error());
+			return -1;
+		}
+	} else if (!have_ca && !set->allow_invalid_cert) {
 		*error_r = !ctx->client_ctx ?
 			"Can't verify remote client certs without CA (ssl_ca setting)" :
 			"Can't verify remote server certs without trusted CAs (ssl_client_ca_* settings)";
