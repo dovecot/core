@@ -12,7 +12,7 @@
 	"@invalid invalid@ Abc Dfg <abc.dfg@example.com>, " \
 	"Bar Baz <bar@example.org>" \
 	"Foo Bar (comment)foo.bar@host.example.org " \
-	"foo, foo@domain" \
+	"foo, foo@domain " \
 	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.tld"
 
 static const char *test_inputs[] = {
