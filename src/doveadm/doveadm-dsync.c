@@ -38,7 +38,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:l:m:n:NO:Pr:Rs:t:T:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:l:m:n:NO:Pr:s:t:T:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -1042,13 +1042,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	return TRUE;
 }
 
-static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
+static void cmd_dsync_init_common(struct dsync_cmd_context *ctx)
 {
-	struct dsync_cmd_context *ctx;
-
-	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
 	ctx->io_timeout_secs = DSYNC_DEFAULT_IO_STREAM_TIMEOUT_SECS;
-	ctx->ctx.getopt_args = DSYNC_COMMON_GETOPT_ARGS;
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_parse_arg;
 	ctx->ctx.v.preinit = cmd_dsync_preinit;
 	ctx->ctx.v.init = cmd_dsync_init;
@@ -1060,18 +1056,27 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 	p_array_init(&ctx->exclude_mailboxes, ctx->ctx.pool, 4);
 	p_array_init(&ctx->namespace_prefixes, ctx->ctx.pool, 4);
+}
+
+static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
+{
+	struct dsync_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
+	ctx->ctx.getopt_args = DSYNC_COMMON_GETOPT_ARGS;
+	cmd_dsync_init_common(ctx);
 	return &ctx->ctx;
 }
 
 static struct doveadm_mail_cmd_context *cmd_dsync_backup_alloc(void)
 {
-	struct doveadm_mail_cmd_context *_ctx;
 	struct dsync_cmd_context *ctx;
 
-	_ctx = cmd_dsync_alloc();
-	ctx = (struct dsync_cmd_context *)_ctx;
+	ctx = doveadm_mail_cmd_alloc(struct dsync_cmd_context);
 	ctx->backup = TRUE;
-	return _ctx;
+	ctx->ctx.getopt_args = DSYNC_COMMON_GETOPT_ARGS"R";
+	cmd_dsync_init_common(ctx);
+	return &ctx->ctx;
 }
 
 static int
@@ -1182,7 +1187,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 
 struct doveadm_mail_cmd cmd_dsync_mirror = {
 	cmd_dsync_alloc, "sync",
-	"[-1fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] -d|<dest>"
+	"[-1fPU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] -d|<dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_backup = {
 	cmd_dsync_backup_alloc, "backup",
