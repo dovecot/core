@@ -137,10 +137,7 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	ssize_t ret;
 	bool last_stream;
 
-	if (cstream->cur_input == NULL) {
-		stream->istream.stream_errno = EINVAL;
-		return -1;
-	}
+	i_assert(cstream->cur_input != NULL);
 	i_stream_concat_skip(cstream);
 
 	i_assert(stream->pos >= stream->skip + cstream->prev_stream_left);
@@ -274,13 +271,23 @@ static void i_stream_concat_seek(struct istream_private *stream,
 
 	if (find_v_offset(cstream, &v_offset, &cstream->cur_idx) < 0) {
 		/* failed */
-		cstream->cur_input = NULL;
 		stream->istream.stream_errno = EINVAL;
 		return;
 	}
 	cstream->cur_input = cstream->input[cstream->cur_idx];
-	if (cstream->cur_input != NULL)
-		i_stream_seek(cstream->cur_input, v_offset);
+	if (cstream->cur_input == NULL) {
+		/* we allow seeking to EOF, but not past it. */
+		if (v_offset != 0) {
+			io_stream_set_error(&cstream->istream.iostream,
+				"Seeking past EOF by %"PRIuUOFF_T" bytes", v_offset);
+			cstream->istream.istream.stream_errno = EINVAL;
+			return;
+		}
+		i_assert(cstream->cur_idx > 0);
+		cstream->cur_input = cstream->input[cstream->cur_idx-1];
+		v_offset = cstream->input_size[cstream->cur_idx-1];
+	}
+	i_stream_seek(cstream->cur_input, v_offset);
 }
 
 static int
