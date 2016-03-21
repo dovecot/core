@@ -221,8 +221,9 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	return ret;
 }
 
-static unsigned int
-find_v_offset(struct concat_istream *cstream, uoff_t *v_offset)
+static int
+find_v_offset(struct concat_istream *cstream, uoff_t *v_offset,
+	      unsigned int *idx_r)
 {
 	const struct stat *st;
 	unsigned int i;
@@ -244,7 +245,7 @@ find_v_offset(struct concat_istream *cstream, uoff_t *v_offset)
 					i_stream_get_error(cstream->input[i]));
 				cstream->istream.istream.stream_errno =
 					cstream->input[i]->stream_errno;
-				return UINT_MAX;
+				return -1;
 			}
 
 			/* @UNSAFE */
@@ -256,7 +257,8 @@ find_v_offset(struct concat_istream *cstream, uoff_t *v_offset)
 		*v_offset -= cstream->input_size[i];
 	}
 
-	return i;
+	*idx_r = i;
+	return 0;
 }
 
 static void i_stream_concat_seek(struct istream_private *stream,
@@ -270,8 +272,7 @@ static void i_stream_concat_seek(struct istream_private *stream,
 	cstream->prev_stream_skip = 0;
 	cstream->prev_skip = 0;
 
-	cstream->cur_idx = find_v_offset(cstream, &v_offset);
-	if (cstream->cur_idx == UINT_MAX) {
+	if (find_v_offset(cstream, &v_offset, &cstream->cur_idx) < 0) {
 		/* failed */
 		cstream->cur_input = NULL;
 		stream->istream.stream_errno = EINVAL;
@@ -287,10 +288,10 @@ i_stream_concat_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
 	uoff_t v_offset = (uoff_t)-1;
-	unsigned int i;
+	unsigned int i, cur_idx;
 
 	/* make sure we have all sizes */
-	if (find_v_offset(cstream, &v_offset) == UINT_MAX)
+	if (find_v_offset(cstream, &v_offset, &cur_idx) < 0)
 		return -1;
 
 	stream->statbuf.st_size = 0;
