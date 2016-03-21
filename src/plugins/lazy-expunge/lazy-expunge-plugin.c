@@ -445,8 +445,10 @@ lazy_expunge_mail_namespaces_created(struct mail_namespace *namespaces)
 		/* see if it's set to namespace root itself. in that case we
 		   store all the expunged mails to the namespace root. */
 		luser->lazy_ns = mail_namespace_find_prefix_nosep(namespaces, luser->env);
-		luser->lazy_mailbox_vname = p_strndup(namespaces->user->pool,
-			luser->lazy_ns->prefix, luser->lazy_ns->prefix_len-1);
+		if (luser->lazy_ns != NULL) {
+			luser->lazy_mailbox_vname = p_strndup(namespaces->user->pool,
+				luser->lazy_ns->prefix, luser->lazy_ns->prefix_len-1);
+		}
 	}
 	if (luser->lazy_ns == NULL)
 		i_fatal("lazy_expunge: Unknown namespace: '%s'", luser->env);
