@@ -462,7 +462,7 @@ static void rcpt_address_parse(struct client *client, const char *address,
 		return;
 
 	domain = strchr(address, '@');
-	p = strstr(address, client->unexpanded_lda_set->recipient_delimiter);
+	p = strpbrk(address, client->unexpanded_lda_set->recipient_delimiter);
 	if (p != NULL && (domain == NULL || p < domain)) {
 		/* user+detail@domain */
 		*username_r = t_strdup_until(*username_r, p);
