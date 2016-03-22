@@ -292,11 +292,11 @@ client_proxy_is_ourself(const struct client *client,
 }
 
 static const char *
-address_add_detail(struct client *client, const char *username,
+address_add_detail(const char *username, char delim_c,
 		   const char *detail)
 {
-	const char *delim = client->unexpanded_lda_set->recipient_delimiter;
 	const char *domain;
+	const char delim[] = {delim_c, '\0'};
 
 	domain = strchr(username, '@');
 	if (domain == NULL)
@@ -308,7 +308,7 @@ address_add_detail(struct client *client, const char *username,
 }
 
 static bool client_proxy_rcpt(struct client *client, const char *address,
-			      const char *username, const char *detail,
+			      const char *username, const char *detail, char delim,
 			      const struct lmtp_recipient_params *params)
 {
 	struct auth_master_connection *auth_conn;
@@ -363,7 +363,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		if (*detail == '\0')
 			address = username;
 		else
-			address = address_add_detail(client, username, detail);
+			address = address_add_detail(username, delim, detail);
 	} else if (client_proxy_is_ourself(client, &set)) {
 		i_error("Proxying to <%s> loops to itself", username);
 		client_send_line(client, "554 5.4.6 <%s> "
@@ -451,9 +451,11 @@ static const char *lmtp_unescape_address(const char *name)
 }
 
 static void rcpt_address_parse(struct client *client, const char *address,
-			       const char **username_r, const char **detail_r)
+			       const char **username_r, char *delim_r,
+			       const char **detail_r)
 {
 	const char *p, *domain;
+	size_t idx;
 
 	*username_r = address;
 	*detail_r = "";
@@ -462,8 +464,12 @@ static void rcpt_address_parse(struct client *client, const char *address,
 		return;
 
 	domain = strchr(address, '@');
-	p = strstr(address, client->unexpanded_lda_set->recipient_delimiter);
+	/* first character that matches the recipient_delimiter */
+	idx = strcspn(address, client->unexpanded_lda_set->recipient_delimiter);
+	p = address[idx] != '\0' ? address + idx : NULL;
+
 	if (p != NULL && (domain == NULL || p < domain)) {
+		*delim_r = *p;
 		/* user+detail@domain */
 		*username_r = t_strdup_until(*username_r, p);
 		if (domain == NULL)
@@ -619,6 +625,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	const char *params, *address, *username, *detail, *prefix;
 	const char *const *argv;
 	const char *error = NULL;
+	char delim = '\0';
 	int ret = 0;
 
 	if (client->state.mail_from == NULL) {
@@ -645,12 +652,12 @@ int cmd_rcpt(struct client *client, const char *args)
 			return 0;
 		}
 	}
-	rcpt_address_parse(client, address, &username, &detail);
+	rcpt_address_parse(client, address, &username, &delim, &detail);
 
 	client_state_set(client, "RCPT TO", address);
 
 	if (client->lmtp_set->lmtp_proxy) {
-		if (client_proxy_rcpt(client, address, username, detail,
+		if (client_proxy_rcpt(client, address, username, detail, delim,
 				      &rcpt->params))
 			return 0;
 	}
