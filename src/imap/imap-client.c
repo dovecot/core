@@ -79,7 +79,8 @@ static bool user_has_special_use_mailboxes(struct mail_user *user)
 struct client *client_create(int fd_in, int fd_out, const char *session_id,
 			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
-			     const struct imap_settings *set)
+			     const struct imap_settings *set,
+			     const struct lda_settings *lda_set)
 {
 	const struct mail_storage_settings *mail_set;
 	struct client *client;
@@ -96,6 +97,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client->pool = pool;
 	client->v = imap_client_vfuncs;
 	client->set = set;
+	client->lda_set = lda_set;
 	client->service_user = service_user;
 	client->session_id = p_strdup(pool, session_id);
 	client->fd_in = fd_in;

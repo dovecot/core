@@ -13,6 +13,7 @@
 struct client;
 struct mail_storage;
 struct mail_storage_service_ctx;
+struct lda_settings;
 struct imap_parser;
 struct imap_arg;
 struct imap_urlauth_context;
@@ -126,7 +127,8 @@ struct client {
 
 	pool_t pool;
 	struct mail_storage_service_user *service_user;
-        const struct imap_settings *set;
+	const struct imap_settings *set;
+	const struct lda_settings *lda_set;
 	string_t *capability_string;
 
         struct mail_user *user;
@@ -216,7 +218,8 @@ extern unsigned int imap_client_count;
 struct client *client_create(int fd_in, int fd_out, const char *session_id,
 			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
-			     const struct imap_settings *set);
+			     const struct imap_settings *set,
+			     const struct lda_settings *lda_set);
 void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */

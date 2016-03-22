@@ -17,6 +17,7 @@
 #include "master-login.h"
 #include "mail-user.h"
 #include "mail-storage-service.h"
+#include "lda-settings.h"
 #include "imap-master-client.h"
 #include "imap-resp-code.h"
 #include "imap-commands.h"
@@ -219,7 +220,8 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	struct mail_user *mail_user;
 	struct mail_namespace *ns;
 	struct client *client;
-	struct imap_settings *set;
+	struct imap_settings *imap_set;
+	struct lda_settings *lda_set;
 	const char *errstr;
 	enum mail_error mail_error;
 
@@ -244,15 +246,18 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		return -1;
 	}
 
-	set = mail_storage_service_user_get_set(user)[1];
-	if (set->verbose_proctitle)
+	imap_set = mail_storage_service_user_get_set(user)[1];
+	if (imap_set->verbose_proctitle)
 		verbose_proctitle = TRUE;
+	lda_set = mail_storage_service_user_get_set(user)[2];
 
-	settings_var_expand(&imap_setting_parser_info, set, mail_user->pool,
-			    mail_user_var_expand_table(mail_user));
+	settings_var_expand(&imap_setting_parser_info, imap_set,
+			    mail_user->pool, mail_user_var_expand_table(mail_user));
+	settings_var_expand(&lda_setting_parser_info, lda_set,
+			    mail_user->pool, mail_user_var_expand_table(mail_user));
 
 	client = client_create(fd_in, fd_out, input->session_id,
-			       mail_user, user, set);
+			       mail_user, user, imap_set, lda_set);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
 	*client_r = client;
@@ -362,6 +367,7 @@ int main(int argc, char *argv[])
 {
 	static const struct setting_parser_info *set_roots[] = {
 		&imap_setting_parser_info,
+		&lda_setting_parser_info,
 		NULL
 	};
 	struct master_login_settings login_set;
