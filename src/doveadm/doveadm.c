@@ -291,6 +291,7 @@ int main(int argc, char *argv[])
 
 	memset(&cctx,0,sizeof(cctx));
 	cctx.cli = TRUE;
+	cctx.username = getenv("USER");
 
 	i_set_failure_exit_callback(failure_exit_callback);
 	doveadm_dsync_main(&argc, &argv);

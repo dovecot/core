@@ -557,7 +557,6 @@ doveadm_mail_cmdline_init(const struct doveadm_mail_cmd *cmd)
 	ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
 	if (doveadm_debug)
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_DEBUG;
-	ctx->cur_username = getenv("USER");
 	return ctx;
 }
 
@@ -933,7 +932,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	};
 
 	mctx = doveadm_mail_cmdline_init(&mail_cmd);
-
+	mctx->cur_username = cctx->username;
 	mctx->iterate_all_users = FALSE;
 	wildcard_user = NULL;
 	p_array_init(&pargv, mctx->pool, 8);
