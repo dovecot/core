@@ -42,8 +42,8 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 	bool args_ok = TRUE;
 
 	if (!client->common.trusted) {
-		client_send_reply(&client->common, POP3_CMD_REPLY_ERROR,
-				  "You are not from trusted IP");
+		client_send_reply(&client->common, POP3_CMD_REPLY_OK,
+				  "You are not from trusted IP - ignoring");
 		return TRUE;
 	}
 	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
