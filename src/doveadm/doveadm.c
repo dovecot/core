@@ -291,7 +291,6 @@ int main(int argc, char *argv[])
 
 	memset(&cctx,0,sizeof(cctx));
 	cctx.cli = TRUE;
-	cctx.username = getenv("USER");
 
 	i_set_failure_exit_callback(failure_exit_callback);
 	doveadm_dsync_main(&argc, &argv);
@@ -368,6 +367,10 @@ int main(int argc, char *argv[])
 		/* disable debugging unless -D is given */
 		i_set_debug_file("/dev/null");
 	}
+
+	/* this has to be done here because proctitle hack can break
+	   the env pointer */
+	cctx.username = getenv("USER");
 
 	if (!doveadm_cmd_try_run_ver2(cmd_name, argc, (const char**)argv, &cctx) &&
 	    !doveadm_try_run(cmd_name, argc, (const char **)argv) &&
