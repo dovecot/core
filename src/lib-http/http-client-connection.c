@@ -353,9 +353,12 @@ void http_client_connection_stop_request_timeout(
 static void
 http_client_connection_continue_timeout(struct http_client_connection *conn)
 {
-	struct http_client_request *const *req_idx;
+	struct http_client_request *const *wait_reqs;
 	struct http_client_request *req;
+	unsigned int wait_count;
 	const char *error;
+
+	i_assert(conn->pending_request == NULL);
 
 	if (conn->to_response != NULL)
 		timeout_remove(&conn->to_response);
@@ -364,13 +367,12 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 	http_client_connection_debug(conn, 
 		"Expected 100-continue response timed out; sending payload anyway");
 
-	i_assert(array_count(&conn->request_wait_list) > 0);
-	req_idx = array_idx(&conn->request_wait_list,
-		array_count(&conn->request_wait_list)-1);
-	req = req_idx[0];
+	wait_reqs = array_get(&conn->request_wait_list, &wait_count);
+	i_assert(wait_count == 1);
+	req = wait_reqs[wait_count-1];
 
 	req->payload_sync_continue = TRUE;
-	if (http_client_request_send_more(req, &error) < 0) {
+	if (http_client_request_send_more(req, FALSE, &error) < 0) {
 		http_client_connection_abort_temp_error(&conn,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
 			t_strdup_printf("Failed to send request: %s", error));
@@ -381,7 +383,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 {
 	struct http_client_request *req = NULL;
 	const char *error;
-	bool have_pending_requests;
+	bool pipelined;
 
 	if (!http_client_connection_is_ready(conn)) {
 		http_client_connection_debug(conn, "Not ready for next request");
@@ -389,9 +391,9 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	}
 
 	/* claim request, but no urgent request can be second in line */
-	have_pending_requests = array_count(&conn->request_wait_list) > 0 ||
+	pipelined = array_count(&conn->request_wait_list) > 0 ||
 		conn->pending_request != NULL;
-	req = http_client_peer_claim_request(conn->peer, have_pending_requests);
+	req = http_client_peer_claim_request(conn->peer, pipelined);
 	if (req == NULL)
 		return 0;	
 
@@ -411,7 +413,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	http_client_connection_debug(conn, "Claimed request %s",
 		http_client_request_label(req));
 
-	if (http_client_request_send(req, &error) < 0) {
+	if (http_client_request_send(req, pipelined, &error) < 0) {
 		http_client_connection_abort_temp_error(&conn,
 			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
 			t_strdup_printf("Failed to send request: %s", error));
@@ -431,6 +433,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 		    indefinite period before sending the message body.
 	 */
 	if (req->payload_sync && !conn->peer->seen_100_response) {
+		i_assert(!pipelined);
 		i_assert(req->payload_chunked || req->payload_size > 0);
 		i_assert(conn->to_response == NULL);
 		conn->to_response =	timeout_add(HTTP_CLIENT_CONTINUE_TIMEOUT_MSECS,
@@ -485,6 +488,8 @@ static void http_client_payload_finished(struct http_client_connection *conn)
 	timeout_remove(&conn->to_input);
 	conn->conn.io = io_add_istream(conn->conn.input,
 				       http_client_connection_input, &conn->conn);
+	if (array_count(&conn->request_wait_list) > 0)
+		http_client_connection_start_request_timeout(conn);
 }
 
 static void
@@ -762,7 +767,7 @@ static void http_client_connection_input(struct connection *_conn)
 				return;
 			}
 
-			if (http_client_request_send_more(req, &error) < 0) {
+			if (http_client_request_send_more(req, FALSE, &error) < 0) {
 				http_client_connection_abort_temp_error(&conn,
 					HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
 					t_strdup_printf("Failed to send request: %s", error));
@@ -889,7 +894,6 @@ static void http_client_connection_input(struct connection *_conn)
 			payload_type = http_client_request_get_payload_type(req);
 		} else {
 			/* no more requests waiting for the connection */
-			http_client_connection_stop_request_timeout(conn);
 			req = NULL;
 			payload_type = HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED;
 		}
@@ -964,6 +968,7 @@ int http_client_connection_output(struct http_client_connection *conn)
 	reqs = array_get(&conn->request_wait_list, &count);
 	if (count > 0 && conn->output_locked) {
 		struct http_client_request *req = reqs[count-1];
+		bool pipelined = (count > 1 || conn->pending_request != NULL);
 
 		if (req->state == HTTP_REQUEST_STATE_ABORTED) {
 			http_client_connection_debug(conn,
@@ -978,7 +983,7 @@ int http_client_connection_output(struct http_client_connection *conn)
 		}
 
 		if (!req->payload_sync || req->payload_sync_continue) {
-			if (http_client_request_send_more(req, &error) < 0) {
+			if (http_client_request_send_more(req, pipelined, &error) < 0) {
 				http_client_connection_abort_temp_error(&conn,
 					HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
 					t_strdup_printf("Connection lost: %s", error));
