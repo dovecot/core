@@ -748,7 +748,7 @@ static void http_client_request_payload_input(struct http_client_request *req)
 }
 
 int http_client_request_send_more(struct http_client_request *req,
-				  const char **error_r)
+				  bool pipelined, const char **error_r)
 {
 	struct http_client_connection *conn = req->conn;
 	struct ostream *output = req->payload_output;
@@ -804,6 +804,7 @@ int http_client_request_send_more(struct http_client_request *req,
 		if (req->payload_wait) {
 			/* this chunk of input is finished
 			   (client needs to act; disable timeout) */
+			i_assert(!pipelined);
 			conn->output_locked = TRUE;
 			http_client_connection_stop_request_timeout(conn);
 			if (req->client->ioloop != NULL)
@@ -815,13 +816,15 @@ int http_client_request_send_more(struct http_client_request *req,
 	} else if (i_stream_get_data_size(req->payload_input) > 0) {
 		/* output is blocking (server needs to act; enable timeout) */
 		conn->output_locked = TRUE;
-		http_client_connection_start_request_timeout(conn);
+		if (!pipelined)
+			http_client_connection_start_request_timeout(conn);
 		o_stream_set_flush_pending(output, TRUE);
 		http_client_request_debug(req, "Partially sent payload");
 	} else {
 		/* input is blocking (client needs to act; disable timeout) */
 		conn->output_locked = TRUE;	
-		http_client_connection_stop_request_timeout(conn);
+		if (!pipelined)
+			http_client_connection_stop_request_timeout(conn);
 		conn->io_req_payload = io_add_istream(req->payload_input,
 			http_client_request_payload_input, req);
 	}
@@ -829,7 +832,7 @@ int http_client_request_send_more(struct http_client_request *req,
 }
 
 static int http_client_request_send_real(struct http_client_request *req,
-					 const char **error_r)
+					 bool pipelined, const char **error_r)
 {
 	const struct http_client_settings *set = &req->client->set;
 	struct http_client_connection *conn = req->conn;
@@ -946,7 +949,8 @@ static int http_client_request_send_real(struct http_client_request *req,
 
 		if (req->payload_output != NULL) {
 			if (!req->payload_sync) {
-				if (http_client_request_send_more(req, error_r) < 0)
+				if (http_client_request_send_more
+					(req, pipelined, error_r) < 0)
 					ret = -1;
 			} else {
 				http_client_request_debug(req, "Waiting for 100-continue");
@@ -954,7 +958,8 @@ static int http_client_request_send_real(struct http_client_request *req,
 			}
 		} else {
 			req->state = HTTP_REQUEST_STATE_WAITING;
-			http_client_connection_start_request_timeout(req->conn);
+			if (!pipelined)
+				http_client_connection_start_request_timeout(req->conn);
 			conn->output_locked = FALSE;
 		}
 		if (ret >= 0 && o_stream_flush(output) < 0) {
@@ -969,13 +974,13 @@ static int http_client_request_send_real(struct http_client_request *req,
 }
 
 int http_client_request_send(struct http_client_request *req,
-			     const char **error_r)
+			     bool pipelined, const char **error_r)
 {
 	char *errstr = NULL;
 	int ret;
 
 	T_BEGIN {
-		ret = http_client_request_send_real(req, error_r);
+		ret = http_client_request_send_real(req, pipelined, error_r);
 		if (ret < 0)
 			errstr = i_strdup(*error_r);
 	} T_END;
