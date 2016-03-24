@@ -325,6 +325,9 @@ void director_sync_send(struct director *dir, struct director_host *host,
 {
 	string_t *str;
 
+	if (host == dir->self_host)
+		dir->last_sync_sent_ring_change_counter = dir->ring_change_counter;
+
 	str = t_str_new(128);
 	str_printfa(str, "SYNC\t%s\t%u\t%u",
 		    net_ip2addr(&host->ip), host->port, seq);
@@ -450,6 +453,7 @@ void director_notify_ring_added(struct director_host *added_host,
 {
 	const char *cmd;
 
+	added_host->dir->ring_change_counter++;
 	cmd = t_strdup_printf("DIRECTOR\t%s\t%u\n",
 			      net_ip2addr(&added_host->ip), added_host->port);
 	director_update_send(added_host->dir, src, cmd);

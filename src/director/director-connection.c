@@ -1444,7 +1444,14 @@ static bool director_connection_sync(struct director_connection *conn,
 			return TRUE;
 	}
 
+	/* If directors got disconnected while we were waiting a SYNC reply,
+	   it might have gotten lost. If we've received a DIRECTOR update since
+	   the last time we sent a SYNC, retry sending it here to make sure
+	   it doesn't get stuck. We don't want to do this too eagerly because
+	   it may trigger desynced_hosts_hash != hosts_hash mismatch, which
+	   causes unnecessary error logging and hosts-resending. */
 	if ((host == NULL || !host->self) &&
+	    dir->last_sync_sent_ring_change_counter != dir->ring_change_counter &&
 	    (time_t)dir->self_host->last_sync_timestamp != ioloop_time)
 		(void)director_resend_sync(dir);
 	return TRUE;
