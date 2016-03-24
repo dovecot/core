@@ -35,7 +35,7 @@ static const struct setting_define lda_setting_defines[] = {
 };
 
 static const struct lda_settings lda_default_settings = {
-	.postmaster_address = "",
+	.postmaster_address = "postmaster@%d",
 	.hostname = "",
 	.submission_host = "",
 	.sendmail_path = "/usr/sbin/sendmail",
