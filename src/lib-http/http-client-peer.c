@@ -275,17 +275,22 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	peer->handling_requests = TRUE;
 	t_array_init(&conns_avail, array_count(&peer->conns));
 	do {
+		bool conn_lost = FALSE;
+
 		array_clear(&conns_avail);
 		connecting = closing = idle = 0;
 
 		/* gather connection statistics */
 		array_foreach(&peer->conns, conn_idx) {
-			if (http_client_connection_is_ready(*conn_idx)) {			
+			struct http_client_connection *conn = *conn_idx;
+
+			http_client_connection_ref(conn);
+			if (http_client_connection_is_ready(conn)) {
 				struct _conn_available *conn_avail;
 				unsigned int insert_idx, pending_requests;
 
 				/* compile sorted availability list */
-				pending_requests = http_client_connection_count_pending(*conn_idx);
+				pending_requests = http_client_connection_count_pending(conn);
 				if (array_count(&conns_avail) == 0) {
 					insert_idx = 0;
 				} else {
@@ -298,16 +303,26 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 					}
 				}
 				conn_avail = array_insert_space(&conns_avail, insert_idx);
-				conn_avail->conn = *conn_idx;
+				conn_avail->conn = conn;
 				conn_avail->pending_requests = pending_requests;
 				if (pending_requests == 0)
 					idle++;
 			}
+			if (!http_client_connection_unref(&conn)) {
+				conn_lost = TRUE;
+				break;
+			}
+			conn = *conn_idx;
 			/* count the number of connecting and closing connections */
-			if ((*conn_idx)->closing)
+			if (conn->closing)
 				closing++;
-			else if (!(*conn_idx)->connected)
+			else if (!conn->connected)
 				connecting++;
+		}
+
+		if (conn_lost) {
+			/* connection array changed while iterating; retry */
+			continue;
 		}
 
 		working_conn_count = array_count(&peer->conns) - closing;
