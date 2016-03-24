@@ -824,9 +824,16 @@ director_cmd_user_weak(struct director_connection *conn,
 		return TRUE;
 	}
 
-	if (ret == 0)
-		;
-	else if (dir_host == conn->dir->self_host) {
+	if (ret == 0) {
+		/* First time we're seeing this - forward it to others also.
+		   We'll want to do it even if the user was already marked as
+		   weak, because otherwise if two directors mark the user weak
+		   at the same time both the USER-WEAK notifications reach
+		   only half the directors until they collide and neither one
+		   finishes going through the whole ring marking the user
+		   non-weak. */
+		weak_forward = TRUE;
+	} else if (dir_host == conn->dir->self_host) {
 		/* We originated this USER-WEAK request. The entire ring has seen
 		   it and there weren't any conflicts. Make the user non-weak. */
 		dir_debug("user refresh: %u Our USER-WEAK seen by the entire ring",
