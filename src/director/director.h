@@ -77,6 +77,8 @@ struct director {
 
 	struct ipc_client *ipc_proxy;
 	unsigned int sync_seq;
+	unsigned int ring_change_counter;
+	unsigned int last_sync_sent_ring_change_counter;
 	/* the lowest minor version supported by the ring */
 	unsigned int ring_min_version;
 	time_t ring_last_sync_time;
