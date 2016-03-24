@@ -2031,6 +2031,14 @@ void auth_request_log_unknown_user(struct auth_request *request,
 	str_append(str, "unknown user ");
 
 	auth_request_append_password(request, str);
+
+	if (request->userdb_lookup) {
+		if (request->userdb->next != NULL)
+			str_append(str, " - trying the next userdb");
+	} else {
+		if (request->passdb->next != NULL)
+			str_append(str, " - trying the next passdb");
+	}
 	i_info("%s", str_c(str));
 }
 
