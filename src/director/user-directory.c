@@ -54,6 +54,11 @@ static void user_free(struct user_directory *dir, struct user *user)
 	i_assert(user->host->user_count > 0);
 	user->host->user_count--;
 
+	if (user->to_move != NULL) {
+		/* director_user_expire is very short. user expired before
+		   moving the user finished or timed out. */
+		timeout_remove(&user->to_move);
+	}
 	user_move_iters(dir, user);
 
 	hash_table_remove(dir->hash, POINTER_CAST(user->username_hash));
