@@ -1,6 +1,6 @@
 #!/bin/sh
 
-director_count=3
+director_count=10
 
 echo "Add to /etc/hosts:"
 
@@ -23,7 +23,9 @@ done
 
 cat > dovecot-director-common.conf.inc <<EOF
 log_path = /var/log/dovecot.log
-info_log_path = /var/log/dovecot-access.log
+info_log_path = /var/log/dovecot-info.log
+log_timestamp = "%b %d %H:%M:%S.%{usecs} "
+
 director_servers =$dirs
 director_mail_servers = 127.0.0.1-127.0.0.255
 director_user_expire = 15s
