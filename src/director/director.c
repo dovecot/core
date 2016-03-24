@@ -776,6 +776,7 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	} else {
 		/* we don't currently want to kill the user */
 	}
+	i_free(ctx);
 }
 
 static void director_user_move_timeout(struct user *user)
