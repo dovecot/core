@@ -60,7 +60,7 @@ cmd_batch_add(struct batch_cmd_context *batchctx,
 	const char *getopt_args;
 	int c;
 
-	cmd_ver2 = doveadm_cmd_find_with_args_ver2(argv[0], argc, argv);
+	cmd_ver2 = doveadm_cmd_find_with_args_ver2(argv[0], &argc, &argv);
 
 	if (cmd_ver2 == NULL)
 		cmd = doveadm_mail_cmd_find_from_argv(argv[0], &argc, &argv);
