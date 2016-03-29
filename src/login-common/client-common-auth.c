@@ -206,7 +206,7 @@ void client_proxy_log_failure(struct client *client, const char *line)
 		str_printfa(str, " (master %s)", client->proxy_master_user);
 	str_append(str, ": ");
 	str_append(str, line);
-	i_info("%s", str_c(str));
+	client_log(client, str_c(str));
 }
 
 void client_proxy_failed(struct client *client, bool send_line)

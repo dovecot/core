@@ -295,7 +295,7 @@ proxy_log_connect_error(struct login_proxy *proxy)
 	}
 
 	str_append_c(str, ')');
-	i_error("%s", str_c(str));
+	client_log_err(proxy->client, str_c(str));
 }
 
 static void proxy_reconnect_timeout(struct login_proxy *proxy)
@@ -376,8 +376,9 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	    rec->last_failure.tv_sec - rec->last_success.tv_sec > PROXY_IMMEDIATE_FAILURE_SECS &&
 	    rec->num_waiting_connections != 0) {
 		/* the server is down. fail immediately */
-		i_error("proxy(%s): Host %s:%u is down",
-			proxy->client->virtual_user, proxy->host, proxy->port);
+		client_log_err(proxy->client, t_strdup_printf(
+			"proxy(%s): Host %s:%u is down",
+			proxy->client->virtual_user, proxy->host, proxy->port));
 		login_proxy_free(&proxy);
 		return -1;
 	}
@@ -412,13 +413,15 @@ int login_proxy_new(struct client *client,
 	i_assert(client->login_proxy == NULL);
 
 	if (set->host == NULL || *set->host == '\0') {
-		i_error("proxy(%s): host not given", client->virtual_user);
+		client_log_err(client, t_strdup_printf(
+			"proxy(%s): host not given", client->virtual_user));
 		return -1;
 	}
 
 	if (client->proxy_ttl <= 1) {
-		i_error("proxy(%s): TTL reached zero - "
-			"proxies appear to be looping?", client->virtual_user);
+		client_log_err(client, t_strdup_printf(
+			"proxy(%s): TTL reached zero - "
+			"proxies appear to be looping?", client->virtual_user));
 		return -1;
 	}
 
@@ -440,9 +443,10 @@ int login_proxy_new(struct client *client,
 
 	if (set->ip.family == 0 &&
 	    net_addr2ip(set->host, &proxy->ip) < 0) {
-		i_error("proxy(%s): BUG: host %s is not an IP "
+		client_log_err(client, t_strdup_printf(
+			"proxy(%s): BUG: host %s is not an IP "
 			"(auth should have changed it)",
-			client->virtual_user, set->host);
+			client->virtual_user, set->host));
 	} else {
 		if (login_proxy_connect(proxy) < 0)
 			return -1;
