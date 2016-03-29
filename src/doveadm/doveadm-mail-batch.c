@@ -72,10 +72,8 @@ cmd_batch_add(struct batch_cmd_context *batchctx,
 		cmd = &tmpcmd;
 	}
 
-	if (cmd == NULL) {
-		i_fatal_status(EX_USAGE, "doveadm batch: Unknown subcommand %s",
-			       argv[1]);
-	}
+	if (cmd == NULL)
+		i_fatal_status(EX_USAGE, "doveadm batch: '%s' mail command doesn't exist", argv[0]);
 
 	subctx = doveadm_mail_cmd_init(cmd, doveadm_settings);
 	subctx->full_args = argv + 1;
