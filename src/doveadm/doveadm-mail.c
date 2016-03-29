@@ -932,6 +932,10 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	};
 
 	mctx = doveadm_mail_cmdline_init(&mail_cmd);
+	if (!cctx->cli) {
+		/* doveadm-server always does userdb lookups */
+		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+	}
 	mctx->cur_username = cctx->username;
 	mctx->iterate_all_users = FALSE;
 	wildcard_user = NULL;
