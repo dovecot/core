@@ -68,7 +68,7 @@ doveadm_cmd_server_post(struct client_connection *conn, const char *cmd_name)
 
 static void
 doveadm_cmd_server_run_ver2(struct client_connection *conn,
-			    int argc, const char **argv,
+			    int argc, const char *const argv[],
 			    struct doveadm_cmd_context *cctx)
 {
 	i_getopt_reset();
@@ -80,7 +80,7 @@ doveadm_cmd_server_run_ver2(struct client_connection *conn,
 
 static void
 doveadm_cmd_server_run(struct client_connection *conn,
-		       int argc, const char **argv,
+		       int argc, const char *const argv[],
 		       const struct doveadm_cmd *cmd)
 {
 	i_getopt_reset();
@@ -92,7 +92,7 @@ doveadm_cmd_server_run(struct client_connection *conn,
 static int
 doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 			      const struct doveadm_settings *set,
-			      int argc, const char **argv,
+			      int argc, const char *const argv[],
 			      struct doveadm_cmd_context *cctx,
 			      struct doveadm_mail_cmd_context **mctx_r)
 {
@@ -225,7 +225,7 @@ bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,
 
 static int doveadm_cmd_handle(struct client_connection *conn,
 			      const char *cmd_name,
-			      int argc, const char **argv,
+			      int argc, const char *const argv[],
 			      struct doveadm_cmd_context *cctx)
 {
 	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
