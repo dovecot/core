@@ -235,7 +235,7 @@ static int squat_trie_open_fd(struct squat_trie *trie)
 	return 0;
 }
 
-static int squat_trie_open(struct squat_trie *trie)
+int squat_trie_open(struct squat_trie *trie)
 {
 	squat_trie_close(trie);
 
