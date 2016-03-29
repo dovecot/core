@@ -210,7 +210,8 @@ static void cmd_exec(int argc ATTR_UNUSED, char *argv[])
 	i_fatal("execv(%s) failed: %m", argv[0]);
 }
 
-static bool doveadm_try_run(const char *cmd_name, int argc, const char *argv[])
+static bool doveadm_try_run(const char *cmd_name, int argc,
+			    const char *const argv[])
 {
 	const struct doveadm_cmd *cmd;
 
