@@ -419,6 +419,12 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
 			"Message GUID not available in this server");
 		return -1;
 	}
+	if (_mail->saving) {
+		mail_storage_set_error(_mail->box->storage,
+			MAIL_ERROR_NOTPOSSIBLE,
+			"Attempting to issue FETCH for a mail not yet committed");
+		return -1;
+	}
 
 	fields |= imapc_mail_get_wanted_fetch_fields(imail);
 	T_BEGIN {
