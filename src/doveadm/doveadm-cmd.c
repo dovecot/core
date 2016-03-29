@@ -61,35 +61,42 @@ const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name)
 }
 
 const struct doveadm_cmd_ver2 *
-doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc, const char *const argv[])
+doveadm_cmd_find_with_args_ver2(const char *cmd_name, int *argc,
+				const char *const *argv[])
 {
-	int i;
+	int i, k;
 	const struct doveadm_cmd_ver2 *cmd;
 	const char *cptr;
 
-	for(i=0;i<argc;i++) {
-		if (strcmp(argv[i],cmd_name)==0) break;
+	for(i=0;i<*argc;i++) {
+		if (strcmp((*argv)[i],cmd_name)==0) break;
 	}
 
-	i_assert(i != argc);
+	i_assert(i != *argc);
 
 	array_foreach(&doveadm_cmds_ver2, cmd) {
 		cptr = cmd->name;
 		/* cannot reuse i here because this needs be
 		   done more than once */
-		for(int k=0; *cptr != '\0' && i+k < argc; k++) {
-			size_t alen = strlen(argv[i+k]);
+		for (k=0; *cptr != '\0' && i+k < *argc; k++) {
+			size_t alen = strlen((*argv)[i+k]);
 			/* make sure we don't overstep */
 			if (strlen(cptr) < alen) break;
 			/* did not match */
-			if (strncmp(cptr, argv[i+k], alen) != 0) break;
+			if (strncmp(cptr, (*argv)[i+k], alen) != 0) break;
 			/* do not accept abbreviations */
 			if (cptr[alen] != ' ' && cptr[alen] != '\0') break;
 			cptr += alen;
 			if (*cptr != '\0') cptr++; /* consume space */
 		}
 		/* name was fully consumed */
-		if (*cptr == '\0') return cmd;
+		if (*cptr == '\0') {
+			if (k > 1) {
+				*argc -= k-1;
+				*argv += k-1;
+			}
+			return cmd;
+		}
 	}
 
 	return NULL;
@@ -432,7 +439,7 @@ bool doveadm_cmd_try_run_ver2(const char *cmd_name,
 {
 	const struct doveadm_cmd_ver2 *cmd;
 
-	cmd = doveadm_cmd_find_with_args_ver2(cmd_name, argc, argv);
+	cmd = doveadm_cmd_find_with_args_ver2(cmd_name, &argc, &argv);
 	if (cmd == NULL)
 		return FALSE;
 
@@ -448,7 +455,6 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 	struct doveadm_cmd_param *param;
 	ARRAY_TYPE(doveadm_cmd_param_arr_t) pargv;
 	ARRAY_TYPE(getopt_option_array) opts;
-	const char *cptr;
 	unsigned int pargc;
 	int c,li;
 	pool_t pool = pool_datastack_create();
@@ -491,9 +497,6 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 			}
 		}
 	}
-
-	cptr = cctx->cmd->name;
-	while((cptr = strchr(cptr+1, ' ')) != NULL) optind++;
 
 	/* process positional arguments */
 	for(;optind<argc;optind++) {

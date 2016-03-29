@@ -117,8 +117,8 @@ void doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx);
 
 void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd);
 const struct doveadm_cmd_ver2 *
-doveadm_cmd_find_with_args_ver2(const char *cmd_name, int argc,
-				const char *const argv[]);
+doveadm_cmd_find_with_args_ver2(const char *cmd_name, int *argc,
+				const char *const *argv[]);
 const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name);
 /* Returns FALSE if cmd_name doesn't exist, TRUE if it exists. */
 bool doveadm_cmd_try_run_ver2(const char *cmd_name,

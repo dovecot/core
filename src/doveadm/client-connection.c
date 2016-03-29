@@ -234,7 +234,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	struct doveadm_mail_cmd_context *mctx;
 	const struct doveadm_cmd_ver2 *cmd_ver2;
 
-	if ((cmd_ver2 = doveadm_cmd_find_with_args_ver2(cmd_name, argc, argv)) == NULL) {
+	if ((cmd_ver2 = doveadm_cmd_find_with_args_ver2(cmd_name, &argc, &argv)) == NULL) {
 		mail_cmd = doveadm_mail_cmd_find(cmd_name);
 		if (mail_cmd == NULL) {
 			cmd = doveadm_cmd_find_with_args(cmd_name, &argc, &argv);
