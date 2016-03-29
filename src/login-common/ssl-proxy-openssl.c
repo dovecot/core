@@ -904,11 +904,13 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 
 	if (proxy->ssl_set->verbose_ssl ||
 	    (proxy->login_set->auth_verbose && !preverify_ok)) {
-		if (preverify_ok)
-			i_info("Valid certificate: %s", buf);
-		else {
-			i_info("Invalid certificate: %s: %s",
-			       X509_verify_cert_error_string(ctx->error), buf);
+		if (preverify_ok) {
+			client_log(proxy->client, t_strdup_printf(
+				"Valid certificate: %s", buf));
+		} else {
+			client_log(proxy->client, t_strdup_printf(
+				"Invalid certificate: %s: %s",
+				X509_verify_cert_error_string(ctx->error), buf));
 		}
 	}
 
