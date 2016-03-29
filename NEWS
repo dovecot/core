@@ -1,4 +1,15 @@
-v2.2.22 2016-03-xx  Timo Sirainen <tss@iki.fi>
+v2.2.23 2016-03-30  Timo Sirainen <tss@iki.fi>
+
+	- Various fixes to doveadm. Especially running commands via
+	  doveadm-server was broken.
+	- director: Fixed user weakness getting stuck in some situations
+	- director: Fixed a situation where directors keep re-sending
+	  different states to each others and never becoming synced.
+	- director: Fixed assert-crash related to a slow "user killed" reply
+	- Fixed assert-crash related to istream-concat, which could have
+	  been triggered at least by a Sieve script.
+
+v2.2.22 2016-03-16  Timo Sirainen <tss@iki.fi>
 
 	+ Added doveadm HTTP API: See
 	  http://wiki2.dovecot.org/Design/DoveadmProtocol/HTTP
@@ -21,6 +32,9 @@ v2.2.22 2016-03-xx  Timo Sirainen <tss@iki.fi>
 	  in v2.2.20+
 	- fts-solr: Search queries were using OR instead of AND as the
 	  separator for multi-token search queries in v2.2.20+.
+	- Single instance storage support wasn't really working in v2.2.16+
+	- dbox: POP3 message ordering wasn't working correctly.
+	- virtual plugin: Fixed crashes related to backend mailbox deletions.
 
 v2.2.21 2015-12-11  Timo Sirainen <tss@iki.fi>
 
