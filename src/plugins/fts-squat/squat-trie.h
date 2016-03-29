@@ -26,6 +26,7 @@ void squat_trie_deinit(struct squat_trie **trie);
 void squat_trie_set_partial_len(struct squat_trie *trie, unsigned int len);
 void squat_trie_set_full_len(struct squat_trie *trie, unsigned int len);
 
+int squat_trie_open(struct squat_trie *trie);
 int squat_trie_refresh(struct squat_trie *trie);
 
 int squat_trie_build_init(struct squat_trie *trie,
