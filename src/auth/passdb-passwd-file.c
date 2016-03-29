@@ -150,14 +150,6 @@ passwd_file_preinit(pool_t pool, const char *args)
 	module->pwf = db_passwd_file_init(args, FALSE,
 					  global_auth_settings->debug);
 	module->username_format = format;
-
-	if (!module->pwf->vars)
-		module->module.default_cache_key = format;
-	else {
-		module->module.default_cache_key = auth_cache_parse_key(pool,
-			t_strconcat(format, module->pwf->path, NULL));
-	}
-
 	module->module.default_pass_scheme = scheme;
 	return &module->module;
 }
