@@ -922,8 +922,9 @@ void
 doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 {
 	struct doveadm_mail_cmd_context *mctx;
-	const char *wildcard_user;
+	const char *wildcard_user, *username_args[3] = { NULL, NULL, NULL };
 	const char *fieldstr;
+	unsigned int username_args_count;
 
 	ARRAY_TYPE(const_string) pargv;
 	int i;
@@ -949,6 +950,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 
 		if (strcmp(arg->name, "all-users") == 0) {
 			mctx->iterate_all_users = arg->value.v_bool;
+			username_args[0] = "-A";
 		} else if (strcmp(arg->name, "socket-path") == 0) {
 			doveadm_settings->doveadm_socket_path = arg->value.v_string;
 			if (doveadm_settings->doveadm_worker_count == 0)
@@ -956,6 +958,8 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 		} else if (strcmp(arg->name, "user") == 0) {
 			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			mctx->cur_username = arg->value.v_string;
+			username_args[0] = "-u";
+			username_args[1] = arg->value.v_string;
 			if (strchr(mctx->cur_username, '*') != NULL ||
 			    strchr(mctx->cur_username, '?') != NULL) {
 				wildcard_user = mctx->cur_username;
@@ -965,6 +969,8 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			wildcard_user = "*";
 			mctx->users_list_input = arg->value.v_istream;
+			username_args[0] = "-F";
+			username_args[1] = ""; /* value doesn't really matter */
 			i_stream_ref(mctx->users_list_input);
 		} else if (strcmp(arg->name, "field") == 0 ||
 			   strcmp(arg->name, "flag") == 0) {
@@ -1006,8 +1012,14 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	}
 
 	array_append_zero(&pargv);
-	mctx->args = array_idx(&pargv, 0);
-	mctx->full_args = mctx->args;
+	/* -A, -u and -F parameters need to be included in full_args so that
+	   they're sent to doveadm-server. This is needed so that
+	   doveadm-server returns the username header when needed. */
+	username_args_count = str_array_length(username_args);
+	if (username_args_count > 0)
+		array_insert(&pargv, 0, username_args, username_args_count);
+	mctx->args = array_idx(&pargv, username_args_count);
+	mctx->full_args = array_idx(&pargv, 0);
 	mctx->cli = cctx->cli;
 
 	doveadm_mail_cmd_exec(mctx, wildcard_user);
