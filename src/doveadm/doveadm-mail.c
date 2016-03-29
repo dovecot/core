@@ -635,6 +635,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	ctx = doveadm_mail_cmdline_init(cmd);
 	ctx->full_args = (const void *)(argv + 1);
 	ctx->cli = TRUE;
+	ctx->cur_username = getenv("USER");
 
 	getopt_args = "AF:S:u:";
 	/* keep context's getopt_args first in case it contains '+' */
