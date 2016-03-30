@@ -22,6 +22,7 @@ static void i_stream_concat_close(struct iostream_private *stream,
 				  bool close_parent)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
+	i_assert(cstream->cur_input == cstream->input[cstream->cur_idx]);
 	unsigned int i;
 
 	if (cstream->istream.istream.stream_errno == 0) {
@@ -38,6 +39,7 @@ static void i_stream_concat_close(struct iostream_private *stream,
 static void i_stream_concat_destroy(struct iostream_private *stream)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
+	i_assert(cstream->cur_input == cstream->input[cstream->cur_idx]);
 	unsigned int i;
 
 	for (i = 0; i < cstream->input_count; i++)
@@ -52,6 +54,7 @@ i_stream_concat_set_max_buffer_size(struct iostream_private *stream,
 				    size_t max_size)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
+	i_assert(cstream->cur_input == cstream->input[cstream->cur_idx]);
 	unsigned int i;
 
 	cstream->istream.max_buffer_size = max_size;
@@ -135,6 +138,7 @@ static void i_stream_concat_skip(struct concat_istream *cstream)
 static ssize_t i_stream_concat_read(struct istream_private *stream)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
+	i_assert(cstream->cur_input == cstream->input[cstream->cur_idx]);
 	const unsigned char *data;
 	size_t size, data_size, cur_data_pos, new_pos;
 	size_t new_bytes_count;
@@ -266,6 +270,7 @@ static void i_stream_concat_seek(struct istream_private *stream,
 				 uoff_t v_offset, bool mark ATTR_UNUSED)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
+	i_assert(cstream->cur_input == cstream->input[cstream->cur_idx]);
 
 	stream->istream.v_offset = v_offset;
 	stream->skip = stream->pos = 0;
@@ -301,6 +306,7 @@ static int
 i_stream_concat_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
+	i_assert(cstream->cur_input == cstream->input[cstream->cur_idx]);
 	uoff_t v_offset = (uoff_t)-1;
 	unsigned int i, cur_idx;
 
