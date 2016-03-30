@@ -966,6 +966,8 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			    strchr(mctx->cur_username, '?') != NULL) {
 				wildcard_user = mctx->cur_username;
 				mctx->cur_username = NULL;
+			} else {
+				cctx->username = mctx->cur_username;
 			}
 		} else if (strcmp(arg->name, "user-file") == 0) {
 			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
