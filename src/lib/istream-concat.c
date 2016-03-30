@@ -289,8 +289,10 @@ static void i_stream_concat_seek(struct istream_private *stream,
 			return;
 		}
 		i_assert(cstream->cur_idx > 0);
-		cstream->cur_input = cstream->input[cstream->cur_idx-1];
-		v_offset = cstream->input_size[cstream->cur_idx-1];
+		/* Position ourselves at the EOF of the last actual stream. */
+		cstream->cur_idx--;
+		cstream->cur_input = cstream->input[cstream->cur_idx];
+		v_offset = cstream->input_size[cstream->cur_idx];
 	}
 	i_stream_seek(cstream->cur_input, v_offset);
 }
