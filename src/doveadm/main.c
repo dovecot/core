@@ -5,6 +5,7 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "settings-parser.h"
+#include "dict.h"
 #include "client-connection.h"
 #include "client-connection-private.h"
 #include "doveadm-settings.h"
@@ -74,6 +75,7 @@ static void main_init(void)
 	doveadm_cmds_init();
 	doveadm_dump_init();
 	doveadm_mail_init();
+	dict_drivers_register_builtin();
 	doveadm_load_modules();
 }
 
@@ -84,6 +86,7 @@ static void main_deinit(void)
 	doveadm_mail_deinit();
 	doveadm_dump_deinit();
 	doveadm_unload_modules();
+	dict_drivers_unregister_builtin();
 	doveadm_print_deinit();
 	doveadm_cmds_deinit();
 	doveadm_http_server_deinit();
