@@ -1472,8 +1472,6 @@ static bool director_cmd_connect(struct director_connection *conn,
 	}
 
 	host = director_host_get(conn->dir, &ip, port);
-	/* reset failure timestamp so we'll actually try to connect there. */
-	host->last_network_failure = 0;
 
 	/* remote suggests us to connect elsewhere */
 	if (dir->right != NULL &&
@@ -1484,6 +1482,11 @@ static bool director_cmd_connect(struct director_connection *conn,
 			  host->name, dir->right->name);
 		return TRUE;
 	}
+
+	/* reset failure timestamp so we'll actually try to connect there. */
+	host->last_network_failure = 0;
+	/* reset removed-flag, so we don't crash */
+	host->removed = FALSE;
 
 	if (dir->right == NULL) {
 		dir_debug("Received CONNECT request to %s, "
