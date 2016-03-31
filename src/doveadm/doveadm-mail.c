@@ -634,7 +634,6 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	ctx->cur_username = getenv("USER");
 
 	memset(&cctx, 0, sizeof(cctx));
-	cctx.username = ctx->cur_username;
 
 	getopt_args = "AF:S:u:";
 	/* keep context's getopt_args first in case it contains '+' */
@@ -682,6 +681,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 			       cmd->name, argv[0]);
 	}
 	ctx->args = (const void *)argv;
+	cctx.username = ctx->cur_username;
 	doveadm_mail_cmd_exec(ctx, &cctx, wildcard_user);
 	doveadm_mail_cmd_free(ctx);
 }
