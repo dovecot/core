@@ -692,7 +692,7 @@ fs_quota_get_netbsd(struct fs_quota_root *root, bool group,
 	qk.qk_idtype = group ? QUOTA_IDTYPE_GROUP : QUOTA_IDTYPE_USER;
 	qk.qk_id = group ? root->gid : root->uid;
 
-	for (i = 0; i < 2; i++) {
+	for (int i = 0; i < 2; i++) {
 		qk.qk_objtype = i == 0 ? QUOTA_OBJTYPE_BLOCKS : QUOTA_OBJTYPE_FILES;
 
 		if (quota_get(qh, &qk, &qv) != 0) {
