@@ -44,6 +44,13 @@ static ssize_t i_stream_unix_read(struct istream_private *stream)
 	if (ustream->read_fd != -1)
 		ustream->next_read_fd = FALSE;
 
+	if (ret == 0) {
+		/* EOF */
+		stream->istream.eof = TRUE;
+		ustream->fstream.seen_eof = TRUE;
+		return -1;
+	}
+
 	if (unlikely(ret < 0)) {
 		if (errno == EINTR || errno == EAGAIN) {
 			i_assert(!stream->istream.blocking);
