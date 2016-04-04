@@ -1,12 +1,15 @@
 #ifndef FDPASS_H
 #define FDPASS_H
 
-/* Returns number of bytes sent, -1 if error. send_fd can be -1 if we just
-   want to send the data with sendmsg(). */
+/* Send data and send_fd (unless it's -1) via sendmsg(). Returns number of
+   bytes sent, or -1 on error. If at least 1 byte was sent, the send_fd was
+   also sent. */
 ssize_t fd_send(int handle, int send_fd, const void *data, size_t size);
 
-/* Returns number of bytes read, or -1 if error. fd is set -1 if read was only
-   partial (returns 0) or data was received without a passed fd. */
-ssize_t fd_read(int handle, void *data, size_t size, int *fd);
+/* Receive data and fd via recvmsg(). Returns number of bytes read, 0 on
+   disconnection, or -1 on error. If at least 1 byte was read, the fd is also
+   returned (if it had been sent). If there was no fd received, it's set to
+   -1. See test-istream-unix.c for different test cases. */
+ssize_t fd_read(int handle, void *data, size_t size, int *fd_r);
 
 #endif
