@@ -653,7 +653,7 @@ doveadm_http_server_authorize_request(struct client_connection_http *conn)
 			if (strcmp(creds.data, str_c(b64_value)) == 0) auth = TRUE;
 			else i_error("Invalid authentication attempt to HTTP API");
 		}
-		else if (strcasecmp(creds.scheme, "X-Doveadm-API") == 0 && doveadm_settings->doveadm_api_key[0] != '\0') {
+		else if (strcasecmp(creds.scheme, "X-Dovecot-API") == 0 && doveadm_settings->doveadm_api_key[0] != '\0') {
 			string_t *b64_value = str_new(conn->client.pool, 32);
 			base64_encode(doveadm_settings->doveadm_api_key, strlen(doveadm_settings->doveadm_api_key), b64_value);
 			if (strcmp(creds.data, str_c(b64_value)) == 0) auth = TRUE;
@@ -665,7 +665,7 @@ doveadm_http_server_authorize_request(struct client_connection_http *conn)
 		conn->http_response = http_server_response_create(conn->http_server_request, 401, "Authentication required");
 		if (doveadm_settings->doveadm_api_key[0] != '\0')
 			http_server_response_add_header(conn->http_response,
-				"WWW-Authenticate", "X-Dovecot-API Realm=\"doveadm\""
+				"WWW-Authenticate", "X-Dovecot-API"
 			);
 		if (*conn->client.set->doveadm_password != '\0')
 			http_server_response_add_header(conn->http_response,
