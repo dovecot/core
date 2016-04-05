@@ -8,6 +8,7 @@
 
 struct mail_recipient {
 	struct client *client;
+	const char *session_id;
 
 	const char *address;
 	const char *detail; /* +detail part is also in address */
