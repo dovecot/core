@@ -13,7 +13,7 @@ struct proxy_context {
 	struct ipc_client *ipc;
 };
 
-extern struct doveadm_cmd doveadm_cmd_proxy[];
+extern struct doveadm_cmd_ver2 doveadm_cmd_proxy[];
 
 static void proxy_cmd_help(doveadm_command_t *cmd) ATTR_NORETURN;
 
@@ -89,10 +89,11 @@ static void cmd_proxy_kick_callback(enum ipc_client_cmd_state state,
 	case IPC_CLIENT_CMD_STATE_REPLY:
 		return;
 	case IPC_CLIENT_CMD_STATE_OK:
-		printf("%s connections kicked\n", data);
+		doveadm_print(data);
 		break;
 	case IPC_CLIENT_CMD_STATE_ERROR:
 		i_error("KICK failed: %s", data);
+		doveadm_exit_code = EX_TEMPFAIL;
 		break;
 	}
 	io_loop_stop(current_ioloop);
@@ -109,17 +110,33 @@ static void cmd_proxy_kick(int argc, char *argv[])
 		return;
 	}
 
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
+	doveadm_print_formatted_set_format("{count} connections kicked");
+	doveadm_print_header_simple("count");
 	ipc_client_cmd(ctx->ipc, t_strdup_printf("proxy\t*\tKICK\t%s", argv[optind]),
 		       cmd_proxy_kick_callback, NULL);
 	io_loop_run(current_ioloop);
 	ipc_client_deinit(&ctx->ipc);
 }
 
-struct doveadm_cmd doveadm_cmd_proxy[] = {
-	{ cmd_proxy_list, "proxy list",
-	  "[-a <ipc socket path>]" },
-	{ cmd_proxy_kick, "proxy kick",
-	  "[-a <ipc socket path>] <user>" }
+struct doveadm_cmd_ver2 doveadm_cmd_proxy[] = {
+{
+	.name = "proxy list",
+	.usage = "[-a <ipc socket path>]",
+	.old_cmd = cmd_proxy_list,
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "proxy kick",
+	.usage = "[-a <ipc socket path>] <user>",
+	.old_cmd = cmd_proxy_kick,
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+}
 };
 
 static void proxy_cmd_help(doveadm_command_t *cmd)
@@ -127,8 +144,8 @@ static void proxy_cmd_help(doveadm_command_t *cmd)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_proxy); i++) {
-		if (doveadm_cmd_proxy[i].cmd == cmd)
-			help(&doveadm_cmd_proxy[i]);
+		if (doveadm_cmd_proxy[i].old_cmd == cmd)
+			help_ver2(&doveadm_cmd_proxy[i]);
 	}
 	i_unreached();
 }
@@ -138,5 +155,5 @@ void doveadm_register_proxy_commands(void)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_proxy); i++)
-		doveadm_register_cmd(&doveadm_cmd_proxy[i]);
+		doveadm_cmd_register_ver2(&doveadm_cmd_proxy[i]);
 }
