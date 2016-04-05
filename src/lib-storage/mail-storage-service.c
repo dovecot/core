@@ -1102,7 +1102,7 @@ mail_storage_service_generate_session_id(pool_t pool, const char *prefix)
 	string_t *str = str_new(pool, MAX_BASE64_ENCODED_SIZE(prefix_len + 1 + sizeof(guid)));
 
 	if (prefix != NULL)
-		str_printfa(str, "%s-", prefix);
+		str_printfa(str, "%s:", prefix);
 
 	guid_128_generate(guid);
 	base64_encode(guid, sizeof(guid), str);
