@@ -277,6 +277,9 @@ imapc_client_mailbox_open(struct imapc_client *client,
 	conn->box = box;
 	box->conn = conn->conn;
 	box->msgmap = imapc_msgmap_init();
+	/* if we get disconnected before the SELECT is finished, allow
+	   one reconnect retry. */
+	box->reconnect_ok = TRUE;
 	return box;
 }
 

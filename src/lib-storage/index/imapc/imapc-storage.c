@@ -564,7 +564,8 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 	ctx.ret = -2;
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_mailbox_open_callback, &ctx);
-	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_SELECT |
+				IMAPC_COMMAND_FLAG_RETRIABLE);
 	if (imapc_mailbox_want_examine(mbox)) {
 		imapc_command_sendf(cmd, "EXAMINE %s",
 			imapc_mailbox_get_remote_name(mbox));
