@@ -438,6 +438,18 @@ static void imapc_connection_reconnect(struct imapc_connection *conn)
 		imapc_connection_disconnect(conn);
 }
 
+static void imapc_connection_try_reconnect(struct imapc_connection *conn,
+					   const char *errstr)
+{
+	if (!imapc_connection_can_reconnect(conn)) {
+		i_error("imapc(%s): %s - disconnecting", conn->name, errstr);
+		imapc_connection_disconnect(conn);
+	} else {
+		i_warning("imapc(%s): %s - reconnecting", conn->name, errstr);
+		imapc_connection_reconnect(conn);
+	}
+}
+
 static void ATTR_FORMAT(2, 3)
 imapc_connection_input_error(struct imapc_connection *conn,
 			     const char *fmt, ...)
@@ -1428,11 +1440,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 			str_printfa(str, "Server disconnected unexpectedly: %s",
 				    errstr);
 		}
-		if (!imapc_connection_can_reconnect(conn))
-			i_error("imapc(%s): %s", conn->name, str_c(str));
-		else
-			i_warning("imapc(%s): %s - reconnecting", conn->name, str_c(str));
-		imapc_connection_reconnect(conn);
+		imapc_connection_try_reconnect(conn, str_c(str));
 	}
 	imapc_connection_unref(&conn);
 }
@@ -1789,26 +1797,12 @@ static void imapc_command_timeout(struct imapc_connection *conn)
 {
 	struct imapc_command *const *cmds;
 	unsigned int count;
-	string_t *str = t_str_new(128);
-	bool reconnect = imapc_connection_can_reconnect(conn);
 
 	cmds = array_get(&conn->cmd_wait_list, &count);
 	i_assert(count > 0);
 
-	str_printfa(str, "imapc(%s): Command '%s' timed out, ",
-		    conn->name, imapc_command_get_readable(cmds[0]));
-	if (reconnect)
-		str_append(str, "reconnecting");
-	else
-		str_append(str, "disconnecting");
-
-	if (reconnect) {
-		i_warning("%s", str_c(str));
-		imapc_connection_reconnect(conn);
-	} else {
-		i_error("%s", str_c(str));
-		imapc_connection_disconnect(conn);
-	}
+	imapc_connection_try_reconnect(conn, t_strdup_printf(
+		"Command '%s' timed out", imapc_command_get_readable(cmds[0])));
 }
 
 static bool
