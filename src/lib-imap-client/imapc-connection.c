@@ -125,6 +125,7 @@ struct imapc_connection {
 	struct timeval throttle_end_timeval;
 	struct timeout *to_throttle, *to_throttle_shrink;
 
+	unsigned int reconnecting:1;
 	unsigned int idling:1;
 	unsigned int idle_stopping:1;
 	unsigned int idle_plus_waiting:1;
@@ -329,7 +330,8 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 			i_free_and_null(conn->disconnect_reason);
 		}
 		reply.text_without_resp = reply.text_full;
-		imapc_login_callback(conn, &reply);
+		if (!conn->reconnecting)
+			imapc_login_callback(conn, &reply);
 
 		conn->idling = FALSE;
 		conn->idle_plus_waiting = FALSE;
@@ -1557,21 +1559,22 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 static void imapc_connection_timeout(struct imapc_connection *conn)
 {
 	const struct ip_addr *ip = &conn->ips[conn->prev_connect_idx];
+	const char *errstr;
 
 	switch (conn->state) {
 	case IMAPC_CONNECTION_STATE_CONNECTING:
-		i_error("imapc(%s): connect(%s, %u) timed out after %u seconds",
-			conn->name, net_ip2addr(ip), conn->client->set.port,
+		errstr = t_strdup_printf("connect(%s, %u) timed out after %u seconds",
+			net_ip2addr(ip), conn->client->set.port,
 			conn->client->set.connect_timeout_msecs/1000);
 		break;
 	case IMAPC_CONNECTION_STATE_AUTHENTICATING:
-		i_error("imapc(%s): Authentication timed out after %u seconds",
-			conn->name, conn->client->set.connect_timeout_msecs/1000);
+		errstr = t_strdup_printf("Authentication timed out after %u seconds",
+			conn->client->set.connect_timeout_msecs/1000);
 		break;
 	default:
 		i_unreached();
 	}
-	imapc_connection_disconnect(conn);
+	imapc_connection_try_reconnect(conn, errstr);
 }
 
 static void
@@ -1689,9 +1692,10 @@ void imapc_connection_connect(struct imapc_connection *conn,
 		i_assert(login_callback == NULL);
 		return;
 	}
-	i_assert(conn->login_callback == NULL);
+	i_assert(conn->login_callback == NULL || conn->reconnecting);
 	conn->login_callback = login_callback;
 	conn->login_context = login_context;
+	conn->reconnecting = FALSE;
 	/* if we get disconnected before we've finished all the pending
 	   commands, don't reconnect */
 	conn->reconnect_command_count = array_count(&conn->cmd_wait_list) +
