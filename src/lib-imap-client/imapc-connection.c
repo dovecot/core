@@ -367,11 +367,9 @@ imapc_connection_literal_reset(struct imapc_connection_literal *literal)
 	literal->fd = -1;
 }
 
-void imapc_connection_disconnect(struct imapc_connection *conn)
+static void imapc_connection_disconnect_full(struct imapc_connection *conn,
+					     bool reconnecting)
 {
-	bool reconnecting = conn->selected_box != NULL &&
-		conn->selected_box->reconnecting;
-
 	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED)
 		return;
 
@@ -416,6 +414,11 @@ void imapc_connection_disconnect(struct imapc_connection *conn)
 	imapc_connection_abort_commands(conn, NULL, reconnecting);
 }
 
+void imapc_connection_disconnect(struct imapc_connection *conn)
+{
+	imapc_connection_disconnect_full(conn, FALSE);
+}
+
 static void imapc_connection_set_disconnected(struct imapc_connection *conn)
 {
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DISCONNECTED);
@@ -427,15 +430,17 @@ static bool imapc_connection_can_reconnect(struct imapc_connection *conn)
 	if (conn->selected_box != NULL)
 		return imapc_client_mailbox_can_reconnect(conn->selected_box);
 	else
-		return FALSE;
+		return conn->reconnect_command_count == 0;
 }
 
 static void imapc_connection_reconnect(struct imapc_connection *conn)
 {
 	if (conn->selected_box != NULL)
 		imapc_client_mailbox_reconnect(conn->selected_box);
-	else
-		imapc_connection_disconnect(conn);
+	else {
+		imapc_connection_disconnect_full(conn, TRUE);
+		imapc_connection_connect(conn, NULL, NULL);
+	}
 }
 
 static void imapc_connection_try_reconnect(struct imapc_connection *conn,
