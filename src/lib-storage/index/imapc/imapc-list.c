@@ -791,6 +791,9 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
 	imapc_simple_run(&ctx);
 
+	if (ctx.ret < 0)
+		return -1;
+
 	/* replace subscriptions tree in destination */
 	if (dest_list->subscriptions != NULL)
 		mailbox_tree_deinit(&dest_list->subscriptions);
