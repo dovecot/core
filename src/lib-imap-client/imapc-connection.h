@@ -52,6 +52,5 @@ struct imapc_client_mailbox *
 imapc_connection_get_mailbox(struct imapc_connection *conn);
 
 void imapc_connection_idle(struct imapc_connection *conn);
-void imapc_connection_set_reconnected(struct imapc_connection *conn);
 
 #endif

@@ -303,7 +303,6 @@ imapc_client_reconnect_cb(const struct imapc_command_reply *reply,
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		/* reopen the mailbox */
 		box->reopen_callback(box->reopen_context);
-		imapc_connection_set_reconnected(box->conn);
 	} else {
 		imapc_connection_abort_commands(box->conn, NULL, FALSE);
 	}

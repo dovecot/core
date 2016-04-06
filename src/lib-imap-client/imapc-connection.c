@@ -1687,6 +1687,10 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	i_assert(conn->login_callback == NULL);
 	conn->login_callback = login_callback;
 	conn->login_context = login_context;
+	/* if we get disconnected before we've finished all the pending
+	   commands, don't reconnect */
+	conn->reconnect_command_count = array_count(&conn->cmd_wait_list) +
+		array_count(&conn->cmd_send_queue);
 
 	imapc_connection_input_reset(conn);
 
@@ -2274,10 +2278,4 @@ void imapc_connection_idle(struct imapc_connection *conn)
 	cmd = imapc_connection_cmd(conn, imapc_connection_idle_callback, conn);
 	cmd->idle = TRUE;
 	imapc_command_send(cmd, "IDLE");
-}
-
-void imapc_connection_set_reconnected(struct imapc_connection *conn)
-{
-	conn->reconnect_command_count = array_count(&conn->cmd_wait_list) +
-		array_count(&conn->cmd_send_queue);
 }
