@@ -372,6 +372,11 @@ imapc_connection_literal_reset(struct imapc_connection_literal *literal)
 static void imapc_connection_disconnect_full(struct imapc_connection *conn,
 					     bool reconnecting)
 {
+	/* timeout may be set also in disconnected state */
+	if (conn->to != NULL)
+		timeout_remove(&conn->to);
+	conn->reconnecting = reconnecting;
+
 	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED)
 		return;
 
@@ -382,8 +387,6 @@ static void imapc_connection_disconnect_full(struct imapc_connection *conn,
 		dns_lookup_abort(&conn->dns_lookup);
 	imapc_connection_lfiles_free(conn);
 	imapc_connection_literal_reset(&conn->literal);
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
 	if (conn->to_output != NULL)
 		timeout_remove(&conn->to_output);
 	if (conn->to_throttle != NULL)
@@ -445,15 +448,21 @@ static void imapc_connection_reconnect(struct imapc_connection *conn)
 	}
 }
 
-static void imapc_connection_try_reconnect(struct imapc_connection *conn,
-					   const char *errstr)
+static void
+imapc_connection_try_reconnect(struct imapc_connection *conn,
+			       const char *errstr, unsigned int delay_msecs)
 {
 	if (!imapc_connection_can_reconnect(conn)) {
 		i_error("imapc(%s): %s - disconnecting", conn->name, errstr);
 		imapc_connection_disconnect(conn);
 	} else {
 		i_warning("imapc(%s): %s - reconnecting", conn->name, errstr);
-		imapc_connection_reconnect(conn);
+		if (delay_msecs == 0)
+			imapc_connection_reconnect(conn);
+		else {
+			imapc_connection_disconnect_full(conn, TRUE);
+			conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
+		}
 	}
 }
 
@@ -1448,7 +1457,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 			str_printfa(str, "Server disconnected unexpectedly: %s",
 				    errstr);
 		}
-		imapc_connection_try_reconnect(conn, str_c(str));
+		imapc_connection_try_reconnect(conn, str_c(str), 0);
 	}
 	imapc_connection_unref(&conn);
 }
@@ -1541,10 +1550,10 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 
 	err = net_geterror(conn->fd);
 	if (err != 0) {
-		i_error("imapc(%s): connect(%s, %u) failed: %s",
-			conn->name, net_ip2addr(ip), conn->client->set.port,
-			strerror(err));
-		imapc_connection_disconnect(conn);
+		imapc_connection_try_reconnect(conn, t_strdup_printf(
+			"connect(%s, %u) failed: %s",
+			net_ip2addr(ip), conn->client->set.port,
+			strerror(err)), IMAPC_CONNECT_RETRY_WAIT_MSECS);
 		return;
 	}
 	io_remove(&conn->io);
@@ -1574,7 +1583,7 @@ static void imapc_connection_timeout(struct imapc_connection *conn)
 	default:
 		i_unreached();
 	}
-	imapc_connection_try_reconnect(conn, errstr);
+	imapc_connection_try_reconnect(conn, errstr, 0);
 }
 
 static void
@@ -1816,7 +1825,7 @@ static void imapc_command_timeout(struct imapc_connection *conn)
 	i_assert(count > 0);
 
 	imapc_connection_try_reconnect(conn, t_strdup_printf(
-		"Command '%s' timed out", imapc_command_get_readable(cmds[0])));
+		"Command '%s' timed out", imapc_command_get_readable(cmds[0])), 0);
 }
 
 static bool
