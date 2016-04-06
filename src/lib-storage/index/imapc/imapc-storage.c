@@ -430,8 +430,10 @@ imapc_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 {
 	enum mailbox_info_flags flags;
 
-	if (imapc_list_get_mailbox_flags(box->list, box->name, &flags) < 0)
+	if (imapc_list_get_mailbox_flags(box->list, box->name, &flags) < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
+	}
 	if ((flags & MAILBOX_NONEXISTENT) != 0)
 		*existence_r = MAILBOX_EXISTENCE_NONE;
 	else if ((flags & MAILBOX_NOSELECT) != 0)
