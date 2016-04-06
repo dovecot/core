@@ -116,7 +116,7 @@ static void redis_dict_wait_timeout(struct redis_dict *dict)
 {
 	i_error("redis: Commit timed out in %u.%03u secs",
 		dict->timeout_msecs/1000, dict->timeout_msecs%1000);
-	io_loop_stop(dict->ioloop);
+	redis_conn_destroy(&dict->conn.conn);
 }
 
 static void redis_wait(struct redis_dict *dict)
@@ -450,7 +450,7 @@ static void redis_dict_lookup_timeout(struct redis_dict *dict)
 {
 	i_error("redis: Lookup timed out in %u.%03u secs",
 		dict->timeout_msecs/1000, dict->timeout_msecs%1000);
-	io_loop_stop(dict->ioloop);
+	redis_conn_destroy(&dict->conn.conn);
 }
 
 static const char *
