@@ -1345,7 +1345,8 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 		imapc_connection_unselect(conn->selected_box);
 	}
 
-	if (conn->reconnect_command_count > 0) {
+	if (conn->reconnect_command_count > 0 &&
+	    (cmd->flags & IMAPC_COMMAND_FLAG_PRELOGIN) == 0) {
 		if (--conn->reconnect_command_count == 0) {
 			/* we've received replies for all the commands started
 			   before reconnection. if we get disconnected now, we
