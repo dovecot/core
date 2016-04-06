@@ -30,6 +30,7 @@ struct imapc_mailbox_list {
 	unsigned int refreshed_mailboxes_recently:1;
 	unsigned int index_list_failed:1;
 	unsigned int root_sep_pending:1;
+	unsigned int root_sep_lookup_failed:1;
 };
 
 int imapc_list_get_mailbox_flags(struct mailbox_list *list, const char *name,

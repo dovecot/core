@@ -324,9 +324,11 @@ static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	char sep;
 
-	if (imapc_list_try_get_root_sep(list, &sep) < 0) {
-		/* we can't really fail here. just return a common separator
-		   and keep failing all list commands until it succeeds. */
+	if (list->root_sep_lookup_failed ||
+	    imapc_list_try_get_root_sep(list, &sep) < 0) {
+		/* we can't really return a failure here. just return a common
+		   separator and fail all the future list operations. */
+		list->root_sep_lookup_failed = TRUE;
 		return '/';
 	}
 	return sep;
@@ -546,6 +548,10 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	struct mailbox_node *node;
 	const char *pattern;
 
+	if (list->root_sep_lookup_failed) {
+		mailbox_list_set_internal_error(&list->list);
+		return -1;
+	}
 	if (list->refreshed_mailboxes)
 		return 0;
 
@@ -773,6 +779,11 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 	char dest_sep = mail_namespace_get_sep(dest_list->ns);
 
 	i_assert(src_list->tmp_subscriptions == NULL);
+
+	if (src_list->root_sep_lookup_failed) {
+		mailbox_list_set_internal_error(_src_list);
+		return -1;
+	}
 
 	if (src_list->refreshed_subscriptions) {
 		if (dest_list->subscriptions == NULL)
