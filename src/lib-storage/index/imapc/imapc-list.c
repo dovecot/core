@@ -301,6 +301,7 @@ static void imapc_list_send_hierarcy_sep_lookup(struct imapc_mailbox_list *list)
 
 	cmd = imapc_client_cmd(list->client->client,
 			       imapc_storage_sep_callback, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_send(cmd, "LIST \"\" \"\"");
 }
 
@@ -565,6 +566,7 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	}
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "LIST \"\" %s", pattern);
 	mailbox_tree_deinit(&list->mailboxes);
 	list->mailboxes = mailbox_tree_init(mail_namespace_get_sep(list->list.ns));
@@ -799,6 +801,7 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 		pattern = "*";
 	else
 		pattern = t_strdup_printf("%s*", src_list->set->imapc_list_prefix);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
 	imapc_simple_run(&ctx);
 
@@ -824,6 +827,7 @@ static int imapc_list_set_subscribed(struct mailbox_list *_list,
 	struct imapc_simple_context ctx;
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, set ? "SUBSCRIBE %s" : "UNSUBSCRIBE %s",
 			    imapc_list_to_remote(list, name));
 	imapc_simple_run(&ctx);
@@ -842,6 +846,7 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	capa = imapc_client_get_capabilities(list->client->client);
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	if (!imapc_command_connection_is_selected(cmd))
 		imapc_command_abort(&cmd);
 	else {
@@ -854,6 +859,7 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	}
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "DELETE %s", imapc_list_to_remote(list, name));
 	imapc_simple_run(&ctx);
 

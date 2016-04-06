@@ -813,6 +813,7 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 	mbox->storage->cur_status = status_r;
 	cmd = imapc_client_cmd(mbox->storage->client->client,
 			       imapc_simple_callback, &sctx);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "STATUS %s (%1s)",
 			    imapc_mailbox_get_remote_name(mbox), str_c(str)+1);
 	imapc_simple_run(&sctx);
@@ -872,6 +873,7 @@ static int imapc_mailbox_get_namespaces(struct imapc_storage *storage)
 	imapc_simple_context_init(&sctx, storage->client);
 	cmd = imapc_client_cmd(storage->client->client,
 			       imapc_simple_callback, &sctx);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_send(cmd, "NAMESPACE");
 	imapc_simple_run(&sctx);
 

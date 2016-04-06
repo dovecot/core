@@ -261,6 +261,7 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 		sctx.ret = -2;
 		cmd = imapc_client_cmd(ctx->mbox->storage->client->client,
 				       imapc_save_noop_callback, &sctx);
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 		imapc_command_send(cmd, "NOOP");
 		while (sctx.ret == -2)
 			imapc_mailbox_run(ctx->mbox);
