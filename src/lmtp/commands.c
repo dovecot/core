@@ -39,7 +39,7 @@
 #define ERRSTR_TEMP_USERDB_FAIL \
 	ERRSTR_TEMP_USERDB_FAIL_PREFIX "Temporary user lookup failure"
 
-#define LMTP_PROXY_DEFAULT_TIMEOUT_MSECS (1000*30)
+#define LMTP_PROXY_DEFAULT_TIMEOUT_MSECS (1000*125)
 
 static void client_input_data_write(struct client *client);
 
