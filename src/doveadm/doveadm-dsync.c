@@ -609,10 +609,12 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (ctx->no_mailbox_renames)
 		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAILBOX_RENAMES;
 
-	if (ctx->reverse_backup)
-		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
-	else if (ctx->backup)
-		brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
+	if (ctx->backup) {
+		if (ctx->reverse_backup)
+			brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
+		else
+			brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_SEND;
+	}
 
 	if (ctx->no_mail_sync)
 		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAIL_SYNC;
