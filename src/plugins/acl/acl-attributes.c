@@ -132,6 +132,8 @@ static int acl_have_attribute_rights(struct mailbox *box)
 		return 0;
 	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_POST) > 0)
 		return 0;
+	if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_FAKE_EMPTY) > 0)
+		return 0;
 	return -1;
 }
 

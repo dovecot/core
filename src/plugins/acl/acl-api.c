@@ -19,6 +19,7 @@ struct acl_letter_map {
 static const struct acl_letter_map acl_letter_map[] = {
 	{ 'l', MAIL_ACL_LOOKUP },
 	{ 'r', MAIL_ACL_READ },
+	{ 'f', MAIL_ACL_FAKE_EMPTY},
 	{ 'w', MAIL_ACL_WRITE },
 	{ 's', MAIL_ACL_WRITE_SEEN },
 	{ 't', MAIL_ACL_WRITE_DELETED },
@@ -76,6 +77,10 @@ int acl_object_have_right(struct acl_object *aclobj, unsigned int right_idx)
 		   that could make them readable on the replica. */
 		read_idx = acl_backend_lookup_right(aclobj->backend,
 						    MAIL_ACL_READ);
+		if (acl_cache_mask_isset(have_mask, read_idx))
+			return 1;
+		read_idx = acl_backend_lookup_right(aclobj->backend,
+											MAIL_ACL_FAKE_EMPTY);
 		if (acl_cache_mask_isset(have_mask, read_idx))
 			return 1;
 	}

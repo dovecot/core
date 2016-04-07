@@ -15,6 +15,7 @@ extern struct acl_backend_vfuncs acl_backend_vfile;
 const char *const all_mailbox_rights[] = {
 	MAIL_ACL_LOOKUP,
 	MAIL_ACL_READ,
+	MAIL_ACL_FAKE_EMPTY,
 	MAIL_ACL_WRITE,
 	MAIL_ACL_WRITE_SEEN,
 	MAIL_ACL_WRITE_DELETED,

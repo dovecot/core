@@ -364,6 +364,16 @@ void acl_mail_allocated(struct mail *_mail)
 	MODULE_CONTEXT_SET_SELF(mail, acl_mail_module, amail);
 }
 
+bool acl_search_next_nonblock(struct mail_search_context *ctx,
+							  struct mail **mail_r, bool *tryagain_r) {
+	struct acl_mailbox *abox = ACL_CONTEXT(ctx->transaction->box);
+
+	if (acl_mailbox_right_lookup(ctx->transaction->box, ACL_STORAGE_RIGHT_FAKE_EMPTY) > 0) {
+		return FALSE;
+	}
+	return abox->module_ctx.super.search_next_nonblock(ctx, mail_r, tryagain_r);
+}
+
 static int
 acl_save_get_flags(struct mailbox *box, enum mail_flags *flags,
 		   enum mail_flags *pvt_flags, struct mail_keywords **keywords)
@@ -484,6 +494,7 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 	for (i = 0; rights[i] != NULL; i++) {
 		if (strcmp(rights[i], MAIL_ACL_LOOKUP) == 0 ||
 		    strcmp(rights[i], MAIL_ACL_READ) == 0 ||
+		    strcmp(rights[i], MAIL_ACL_FAKE_EMPTY) == 0 ||
 		    strcmp(rights[i], MAIL_ACL_INSERT) == 0)
 			return abox->module_ctx.super.exists(box, auto_boxes,
 							     existence_r);
@@ -516,6 +527,9 @@ static int acl_mailbox_open_check_acl(struct mailbox *box)
 	}
 
 	ret = acl_object_have_right(abox->aclobj, idx_arr[open_right]);
+	if (ret == 0 && open_right == ACL_STORAGE_RIGHT_READ) {
+		ret = acl_object_have_right(abox->aclobj, idx_arr[ACL_STORAGE_RIGHT_FAKE_EMPTY]);
+	}
 	if (ret <= 0) {
 		if (ret == 0) {
 			/* no access. */
@@ -612,6 +626,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 		v->attribute_iter_init = acl_attribute_iter_init;
 		v->attribute_iter_next = acl_attribute_iter_next;
 		v->attribute_iter_deinit = acl_attribute_iter_deinit;
+		v->search_next_nonblock = acl_search_next_nonblock;
 	}
 	MODULE_CONTEXT_SET(box, acl_storage_module, abox);
 }
