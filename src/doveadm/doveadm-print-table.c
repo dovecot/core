@@ -166,18 +166,18 @@ static void doveadm_print_headers(void)
 	if (i == count)
 		return;
 	for (i = 0; i < count; i++) {
-		if (i > 0) fprintf(stderr, " ");
+		if (i > 0) printf(" ");
 
 		if ((headers[i].flags &
 		     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY) == 0) {
-			fprintf(stderr, "%-*s", (int)headers[i].length,
+			printf("%-*s", (int)headers[i].length,
 				headers[i].title);
 		} else {
-			fprintf(stderr, "%*s", (int)headers[i].length,
+			printf("%*s", (int)headers[i].length,
 				headers[i].title);
 		}
 	}
-	fprintf(stderr, "\n");
+	printf("\n");
 }
 
 static void doveadm_buffer_flush(void)
