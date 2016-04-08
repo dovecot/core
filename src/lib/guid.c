@@ -29,7 +29,7 @@ const char *guid_generate(void)
 		ts.tv_sec++;
 		ts.tv_nsec = 0;
 	}
-	return t_strdup_printf("%04x%04lx%04x%s",
+	return t_strdup_printf("%08x%08lx.%x.%s",
 			       (unsigned int)ts.tv_nsec,
 			       (unsigned long)ts.tv_sec,
 			       pid, my_hostname);
