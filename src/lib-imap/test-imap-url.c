@@ -53,14 +53,12 @@ static const struct valid_imap_url_test valid_url_tests[] = {
 			.host_name = "127.0.0.1",
 			.userid = "user",
 			.have_host_ip = TRUE }
-#ifdef HAVE_IPV6
 	},{
 		.url = "imap://user@[::1]",
 		.url_parsed = {
 			.host_name = "[::1]",
 			.userid = "user",
 			.have_host_ip = TRUE }
-#endif
 	},{
 		.url = "imap://user@4example.com:423",
 		.url_parsed = {
@@ -799,10 +797,8 @@ static const struct invalid_imap_url_test invalid_url_tests[] = {
 		.url = "imap://[]/INBOX"
 	},{
 		.url = "imap://[v08.234:232:234:234:2221]/INBOX"
-#ifdef HAVE_IPV6
 	},{
 		.url = "imap://[1::34a:34:234::6]/INBOX"
-#endif
 	},{
 		.url = "imap://example%a.com/INBOX"
 	},{
@@ -961,9 +957,7 @@ static void test_imap_url_invalid(void)
 static const char *parse_create_url_tests[] = {
 	"imap://host.example.com/",
 	"imap://10.0.0.1/",
-#ifdef HAVE_IPV6
 	"imap://[::1]/",
-#endif
 	"imap://user@host.example.com/",
 	"imap://user@host.example.com:993/",
 	"imap://su%3auser@host.example.com/",

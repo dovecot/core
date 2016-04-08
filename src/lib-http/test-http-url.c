@@ -34,7 +34,6 @@ static struct valid_http_url_test valid_url_tests[] = {
 		.url_parsed = {
 			.host_name = "127.0.0.1",
 			.have_host_ip = TRUE }
-#ifdef HAVE_IPV6
 	},{
 		.url = "http://[::1]",
 		.url_parsed = {
@@ -46,7 +45,6 @@ static struct valid_http_url_test valid_url_tests[] = {
 			.host_name = "[::1]",
 			.have_host_ip = TRUE,
 			.port = 8080, .have_port = TRUE }
-#endif
 	},{
 		.url = "http://user@api.dovecot.org",
 		.flags = HTTP_URL_ALLOW_USERINFO_PART,
@@ -381,10 +379,8 @@ static struct invalid_http_url_test invalid_url_tests[] = {
 		.url = "http://[]/index.html"
 	},{
 		.url = "http://[v08.234:232:234:234:2221]/index.html"
-#ifdef HAVE_IPV6
 	},{
 		.url = "http://[1::34a:34:234::6]/index.html"
-#endif
 	},{
 		.url = "http://example%a.com/index.html"
 	},{
@@ -442,9 +438,7 @@ static void test_http_url_invalid(void)
 static const char *parse_create_url_tests[] = {
 	"http://www.example.com/",
 	"http://10.0.0.1/",
-#ifdef HAVE_IPV6
 	"http://[::1]/",
-#endif
 	"http://www.example.com:993/",
 	"http://www.example.com/index.html",
 	"http://www.example.com/settings/index.html",

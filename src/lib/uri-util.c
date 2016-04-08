@@ -364,7 +364,6 @@ uri_parse_reg_name(struct uri_parser *parser,
 	return 0;
 }
 
-#ifdef HAVE_IPV6
 static int
 uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 		     struct in6_addr *ip6_r) ATTR_NULL(2,3)
@@ -415,7 +414,6 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 		*ip6_r = ip6;
 	return 1;
 }
-#endif
 
 static int 
 uri_parse_host(struct uri_parser *parser,
@@ -436,7 +434,6 @@ uri_parse_host(struct uri_parser *parser,
 
 	/* IP-literal / */
 	if (parser->cur < parser->end && *parser->cur == '[') {
-#ifdef HAVE_IPV6
 		if ((ret=uri_parse_ip_literal(parser, literal, &ip6)) <= 0)
 			return -1;
 
@@ -447,10 +444,6 @@ uri_parse_host(struct uri_parser *parser,
 			auth->have_host_ip = TRUE;
 		}
 		return 1;
-#else
-		parser->error = "IPv6 host address is not supported";
-		return -1;
-#endif
 	}
 
 	/* IPv4address /

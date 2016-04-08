@@ -26,13 +26,11 @@ static bool imap_remote_ip_is_usable(const struct ip_addr *ip)
 			return FALSE; /* 127/8 */
 #undef IP4
 	}
-#ifdef HAVE_IPV6
 	else if (ip->family == AF_INET6) {
 		addr = ip->u.ip6.s6_addr[0];
 		if (addr == 0xfc || addr == 0xfd)
 			return FALSE; /* fc00::/7 */
 	}
-#endif
 	return TRUE;
 }
 

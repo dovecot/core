@@ -265,15 +265,10 @@ mail_hosts_add_range(struct mail_host_list *list,
 		max_bits = 32;
 		last_bits = 8;
 	} else {
-#ifndef HAVE_IPV6
-		i_error("IPv6 not supported");
-		return -1;
-#else
 		ip1_arr = (void *)&ip1.u.ip6;
 		ip2_arr = (void *)&ip2.u.ip6;
 		max_bits = 128;
 		last_bits = 16;
-#endif
 	}
 
 	/* make sure initial bits match */

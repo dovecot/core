@@ -632,9 +632,6 @@ static void print_build_options(void)
 #ifdef IOLOOP_NOTIFY_KQUEUE
 		" notify=kqueue"
 #endif
-#ifdef HAVE_IPV6
-		" ipv6"
-#endif
 #ifdef HAVE_GNUTLS
 		" gnutls"
 #endif

@@ -23,9 +23,7 @@
 struct ip_addr {
 	unsigned short family;
 	union {
-#ifdef HAVE_IPV6
 		struct in6_addr ip6;
-#endif
 		struct in_addr ip4;
 	} u;
 };
@@ -38,18 +36,7 @@ struct net_unix_cred {
 };
 
 /* maxmimum string length of IP address */
-#ifdef HAVE_IPV6
-#  define MAX_IP_LEN INET6_ADDRSTRLEN
-#else
-#  define MAX_IP_LEN 20
-#endif
-
-#ifndef HAVE_IPV6
-#  undef EAI_NONAME
-#  define EAI_NONAME NO_ADDRESS
-#  undef EAI_FAIL
-#  define EAI_FAIL NO_RECOVERY
-#endif
+#define MAX_IP_LEN INET6_ADDRSTRLEN
 
 #define IPADDR_IS_V4(ip) ((ip)->family == AF_INET)
 #define IPADDR_IS_V6(ip) ((ip)->family == AF_INET6)

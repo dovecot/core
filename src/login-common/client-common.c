@@ -472,11 +472,9 @@ const char *client_get_session_id(struct client *client)
 
 	buffer_append_c(buf, client->remote_port & 0xff);
 	buffer_append_c(buf, (client->remote_port >> 8) & 0xff);
-#ifdef HAVE_IPV6
 	if (IPADDR_IS_V6(&client->ip))
 		buffer_append(buf, &client->ip.u.ip6, sizeof(client->ip.u.ip6));
 	else
-#endif
 		buffer_append(buf, &client->ip.u.ip4, sizeof(client->ip.u.ip4));
 	base64_encode(buf->data, buf->used, base64_buf);
 	client->session_id = p_strdup(client->pool, str_c(base64_buf));

@@ -25,16 +25,13 @@ static void test_net_is_in_network(void)
 		{ "1.2.3.255", "1.2.3.0", 24, TRUE },
 		{ "1.2.255.255", "1.2.254.0", 23, TRUE },
 		{ "255.255.255.255", "128.0.0.0", 1, TRUE },
-		{ "255.255.255.255", "127.0.0.0", 1, FALSE }
-#ifdef HAVE_IPV6
-		,
+		{ "255.255.255.255", "127.0.0.0", 1, FALSE },
 		{ "1234:5678::abcf", "1234:5678::abce", 127, TRUE },
 		{ "1234:5678::abcd", "1234:5678::abce", 127, FALSE },
 		{ "123e::ffff", "123e::0", 15, TRUE },
 		{ "::ffff:1.2.3.4", "1.2.3.4", 32, TRUE },
 		{ "::ffff:1.2.3.4", "1.2.3.3", 32, FALSE },
 		{ "::ffff:1.2.3.4", "::ffff:1.2.3.4", 0, FALSE }
-#endif
 	};
 	struct ip_addr ip, net_ip;
 	unsigned int i;
@@ -52,13 +49,11 @@ static void test_net_is_in_network(void)
 	net_ip.family = 0;
 	test_assert(!net_is_in_network(&ip, &net_ip, 0));
 	test_assert(!net_is_in_network(&net_ip, &ip, 0));
-#ifdef HAVE_IPV6
 	test_assert(net_addr2ip("::1", &ip) == 0);
 	net_ip = ip;
 	net_ip.family = 0;
 	test_assert(!net_is_in_network(&ip, &net_ip, 0));
 	test_assert(!net_is_in_network(&net_ip, &ip, 0));
-#endif
 	test_end();
 }
 
@@ -70,7 +65,6 @@ static void test_net_ip2addr(void)
 	test_assert(net_addr2ip("127.0.0.1", &ip) == 0 &&
 		    ip.family == AF_INET &&
 		    ntohl(ip.u.ip4.s_addr) == (0x7f000001));
-#ifdef HAVE_IPV6
 	test_assert(net_addr2ip("::5", &ip) == 0 &&
 		    ip.family == AF_INET6 &&
 		    ip.u.ip6.s6_addr[15] == 5);
@@ -80,7 +74,6 @@ static void test_net_ip2addr(void)
 	ip.family = 123;
 	test_assert(net_addr2ip("abc", &ip) < 0 &&
 		    ip.family == 123);
-#endif
 	test_end();
 }
 
