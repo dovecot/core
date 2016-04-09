@@ -252,6 +252,8 @@ client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 		} else if (strcmp(key, "protocol") == 0) {
 			if (strcmp(value, "lmtp") == 0)
 				set->protocol = LMTP_CLIENT_PROTOCOL_LMTP;
+				if (!port_set)
+					set->port = 24;
 			else if (strcmp(value, "smtp") == 0) {
 				set->protocol = LMTP_CLIENT_PROTOCOL_SMTP;
 				if (!port_set)
