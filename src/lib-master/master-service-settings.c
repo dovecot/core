@@ -483,6 +483,7 @@ int master_service_settings_read(struct master_service *service,
 			}
 			i_close_fd(&fd);
 			config_exec_fallback(service, input);
+			settings_parser_deinit(&parser);
 			return -1;
 		}
 
@@ -498,19 +499,23 @@ int master_service_settings_read(struct master_service *service,
 
 	if (use_environment || service->keep_environment) {
 		if (settings_parse_environ(parser) < 0) {
-			*error_r = settings_parser_get_error(parser);
+			*error_r = t_strdup(settings_parser_get_error(parser));
+			settings_parser_deinit(&parser);
 			return -1;
 		}
 	}
 
 	if (array_is_created(&service->config_overrides)) {
 		if (master_service_apply_config_overrides(service, parser,
-							  error_r) < 0)
+							  error_r) < 0) {
+			settings_parser_deinit(&parser);
 			return -1;
+		}
 	}
 
 	if (!settings_parser_check(parser, service->set_pool, &error)) {
 		*error_r = t_strdup_printf("Invalid settings: %s", error);
+		settings_parser_deinit(&parser);
 		return -1;
 	}
 
