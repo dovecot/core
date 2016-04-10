@@ -838,6 +838,30 @@ static int config_write_value(struct config_parser_context *ctx,
 	return 0;
 }
 
+static void
+config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
+{
+	const char *path, *first_pos;
+
+	first_pos = hash_table_lookup(ctx->seen_settings, str_c(ctx->str));
+	if (ctx->cur_section->prev == NULL) {
+		/* changing a root setting. if we've already seen it inside
+		   filters, log a warning. */
+		if (first_pos == NULL)
+			return;
+		i_warning("%s line %u: Global setting %s won't change the setting inside an earlier filter at %s",
+			  ctx->cur_input->path, ctx->cur_input->linenum,
+			  key, first_pos);
+		return;
+	}
+	if (first_pos != NULL)
+		return;
+	first_pos = p_strdup_printf(ctx->pool, "%s line %u",
+				    ctx->cur_input->path, ctx->cur_input->linenum);
+	path = p_strdup(ctx->pool, str_c(ctx->str));
+	hash_table_insert(ctx->seen_settings, path, first_pos);
+}
+
 void config_parser_apply_line(struct config_parser_context *ctx,
 			      enum config_line_type type,
 			      const char *key, const char *value)
@@ -857,6 +881,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
 		str_append(ctx->str, key);
+		config_parser_check_warnings(ctx, key);
 		str_append_c(ctx->str, '=');
 
 		if (config_write_value(ctx, type, key, value) < 0)
@@ -954,6 +979,7 @@ int config_parse_file(const char *path, bool expand_values,
 	ctx.cur_input = &root;
 	ctx.expand_values = expand_values;
 	ctx.modules = modules;
+	hash_table_create(&ctx.seen_settings, ctx.pool, 0, str_hash, strcmp);
 
 	p_array_init(&ctx.all_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
@@ -1001,6 +1027,7 @@ prevfile:
 	if (line == NULL && ctx.cur_input != NULL)
 		goto prevfile;
 
+	hash_table_destroy(&ctx.seen_settings);
 	str_free(&full_line);
 	if (ret == 0)
 		ret = config_parse_finish(&ctx, error_r);
