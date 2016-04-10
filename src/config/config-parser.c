@@ -31,6 +31,8 @@
 #define DNS_LOOKUP_TIMEOUT_SECS 30
 #define DNS_LOOKUP_WARN_SECS 5
 
+ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
+
 static const enum settings_parser_flags settings_parser_flags =
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS |
 	SETTINGS_PARSER_FLAG_TRACK_CHANGES;
@@ -41,6 +43,9 @@ struct module *modules;
 void (*hook_config_parser_begin)(struct config_parser_context *ctx);
 int (*hook_config_parser_end)(struct config_parser_context *ctx,
 			      const char **error_r);
+
+static ARRAY_TYPE(service_settings) services_free_at_deinit = ARRAY_INIT;
+static ARRAY_TYPE(setting_parser_info_p) roots_free_at_deinit = ARRAY_INIT;
 
 static const char *info_type_name_find(const struct setting_parser_info *info)
 {
@@ -1007,7 +1012,7 @@ void config_parse_load_modules(void)
 	struct module_dir_load_settings mod_set;
 	struct module *m;
 	const struct setting_parser_info **roots;
-	ARRAY(const struct setting_parser_info *) new_roots;
+	ARRAY_TYPE(setting_parser_info_p) new_roots;
 	ARRAY_TYPE(service_settings) new_services;
 	struct service_settings *const *services, *service_set;
 	unsigned int i, count;
@@ -1046,6 +1051,9 @@ void config_parse_load_modules(void)
 			array_append(&new_roots, &all_roots[i], 1);
 		array_append_zero(&new_roots);
 		all_roots = array_idx(&new_roots, 0);
+		roots_free_at_deinit = new_roots;
+	} else {
+		array_free(&new_roots);
 	}
 	if (array_count(&new_services) > 0) {
 		/* module added new services. update the defaults. */
@@ -1053,6 +1061,9 @@ void config_parse_load_modules(void)
 		for (i = 0; i < count; i++)
 			array_append(&new_services, &services[i], 1);
 		*default_services = new_services;
+		services_free_at_deinit = new_services;
+	} else {
+		array_free(&new_services);
 	}
 }
 
@@ -1101,4 +1112,12 @@ bool config_module_want_parser(struct config_module_parser *parsers,
 			return TRUE;
 	}
 	return FALSE;
+}
+
+void config_parser_deinit(void)
+{
+	if (array_is_created(&services_free_at_deinit))
+		array_free(&services_free_at_deinit);
+	if (array_is_created(&roots_free_at_deinit))
+		array_free(&roots_free_at_deinit);
 }
