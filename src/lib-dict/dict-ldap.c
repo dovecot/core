@@ -151,7 +151,7 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 	set.bind_dn = dict->set->bind_dn;
 	set.password = dict->set->password;
 	set.timeout_secs = dict->set->timeout;
-	set.max_idle_time = dict->set->max_idle_time;
+	set.max_idle_time_secs = dict->set->max_idle_time;
 	set.debug = dict->set->debug;
 	return ldap_client_init(&set, &dict->client, error_r);
 }

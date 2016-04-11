@@ -434,8 +434,8 @@ int ldap_connection_connect(struct ldap_connection *conn, ldap_result_callback_t
 	ldap_get_option(conn->conn, LDAP_OPT_SOCKBUF, &sb);
 	ber_sockbuf_ctrl(sb, LBER_SB_OPT_GET_FD, &fd);
 	conn->io = io_add(fd, IO_READ, ldap_connection_read_more, conn);
-	if (conn->set.max_idle_time > 0)
-		conn->to_disconnect = timeout_add(conn->set.max_idle_time, ldap_connection_kill, conn);
+	if (conn->set.max_idle_time_secs > 0)
+		conn->to_disconnect = timeout_add(conn->set.max_idle_time_secs * 1000, ldap_connection_kill, conn);
 	return 0;
 }
 

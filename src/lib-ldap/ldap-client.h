@@ -26,7 +26,7 @@ struct ldap_client_settings {
 	const struct ssl_iostream_settings *ssl_set;
 
 	unsigned int timeout_secs;
-	unsigned int max_idle_time;
+	unsigned int max_idle_time_secs;
 	unsigned int debug;
 };
 
