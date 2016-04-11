@@ -209,6 +209,16 @@ parse_setting(const char *key, const char *value,
 			}
 			return NULL;
 		}
+		if (strcmp(key, "require_ssl") == 0) {
+			if (strcasecmp(value, "yes") == 0) {
+				ctx->set->require_ssl = TRUE;
+			} else if (strcasecmp(value, "no") == 0) {
+				ctx->set->require_ssl = FALSE;
+			} else {
+				return "require_ssl must be either yes or no";
+			}
+			return NULL;
+		}
 		break;
 	case SECTION_MAP:
 		return parse_setting_from_defs(ctx->pool,
