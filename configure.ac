@@ -2044,7 +2044,7 @@ else
   fi
 fi
 AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
-
+AM_CONDITIONAL(HAVE_LDAP, test "$want_ldap" = "yes")
 dict_drivers=
 
 if test $want_db != no; then
@@ -2529,6 +2529,11 @@ else
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'
 fi
+if test $want_ldap = yes; then
+  LIBDOVECOT_LDAP='$(top_builddir)/src/lib-ldap/libdovecot-ldap.la'
+else
+  LIBDOVECOT_LDAP=''
+fi
 LIBDOVECOT_STORAGE="$LIBDOVECOT_STORAGE_DEPS"
 LIBDOVECOT_DSYNC='$(top_builddir)/src/doveadm/dsync/libdovecot-dsync.la'
 LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
@@ -2543,6 +2548,7 @@ AC_SUBST(LIBDOVECOT_SQL)
 AC_SUBST(LIBDOVECOT_COMPRESS)
 AC_SUBST(LIBDOVECOT_DSYNC)
 AC_SUBST(LIBDOVECOT_LDA)
+AC_SUBST(LIBDOVECOT_LDAP)
 AC_SUBST(LIBDOVECOT_LIBFTS)
 AC_SUBST(LIBDOVECOT_LIBFTS_DEPS)
 
@@ -2863,6 +2869,7 @@ src/lib-imap-client/Makefile
 src/lib-imap-urlauth/Makefile
 src/lib-index/Makefile
 src/lib-lda/Makefile
+src/lib-ldap/Makefile
 src/lib-mail/Makefile
 src/lib-master/Makefile
 src/lib-ntlm/Makefile
