@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "var-expand.h"
 #include "connection.h"
+#include "llist.h"
 #include "ldap-client.h"
 #include "dict.h"
 #include "dict-private.h"
@@ -29,6 +30,7 @@ struct ldap_dict {
 	struct dict dict;
 	struct dict_ldap_settings *set;
 
+	const char *uri;
 	const char *username;
 	const char *base_dn;
 	enum ldap_scope scope;
@@ -40,7 +42,12 @@ struct ldap_dict {
 
 	unsigned long last_txid;
 	unsigned int pending;
+
+	struct ldap_dict *prev,*next;
 };
+
+static
+struct ldap_dict *ldap_dict_list;
 
 static
 void ldap_dict_lookup_async(struct dict *dict, const char *key,
@@ -191,15 +198,16 @@ const char* ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap
 }
 
 static
-int ldap_dict_init(struct dict *dict_driver, const char *uri,
-		    const struct dict_settings *set,
-		    struct dict **dict_r, const char **error_r)
+int ldap_dict_create(struct dict *dict_driver, const char *uri,
+		     const struct dict_settings *set,
+		     struct dict **dict_r, const char **error_r)
 {
 	pool_t pool = pool_alloconly_create("ldap dict", 2048);
 	struct ldap_dict *dict = p_new(pool, struct ldap_dict, 1);
 	dict->pool = pool;
 	dict->dict = *dict_driver;
 	dict->username = p_strdup(pool, set->username);
+	dict->uri = p_strdup(pool, uri);
 	dict->set = dict_ldap_settings_read(pool, uri, error_r);
 
 	if (dict->set == NULL) {
@@ -215,13 +223,30 @@ int ldap_dict_init(struct dict *dict_driver, const char *uri,
 	*dict_r = (struct dict*)dict;
 	*error_r = NULL;
 
+	DLLIST_PREPEND(&ldap_dict_list, dict);
+
 	return 0;
 }
 
 static
-void ldap_dict_deinit(struct dict *dict) {
-	struct ldap_dict *ctx = (struct ldap_dict *)dict;
-	ldap_client_deinit(&(ctx->client));
+int ldap_dict_init(struct dict *dict_driver, const char *uri,
+		   const struct dict_settings *set,
+		   struct dict **dict_r, const char **error_r)
+{
+	/* reuse possible existing entry */
+	for(struct ldap_dict *ptr = ldap_dict_list;
+	    ptr != NULL;
+	    ptr = ptr->next) {
+		if (strcmp(ptr->uri, uri) == 0) {
+			*dict_r = (struct dict*)ptr;
+			return 0;
+		}
+	}
+	return ldap_dict_create(dict_driver, uri, set, dict_r, error_r);
+}
+
+static
+void ldap_dict_deinit(struct dict *dict ATTR_UNUSED) {
 }
 
 static
@@ -424,11 +449,22 @@ void dict_ldap_deinit(void);
 void dict_ldap_init(struct module *module ATTR_UNUSED)
 {
 	dict_driver_register(&dict_driver_ldap);
+	ldap_dict_list = NULL;
 }
 
 void dict_ldap_deinit(void)
 {
 	dict_driver_unregister(&dict_driver_ldap);
+	/* destroy all server connections */
+	struct ldap_dict *ptr = ldap_dict_list;
+	ldap_dict_list = NULL;
+
+	while(ptr != NULL) {
+		ldap_client_deinit(&(ptr->client));
+		pool_t pool = ptr->pool;
+		ptr = ptr->next;
+		pool_unref(&pool);
+	}
 }
 
 const char *dict_ldap_plugin_dependencies[] = { NULL };
