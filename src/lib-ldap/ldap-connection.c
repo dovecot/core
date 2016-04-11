@@ -270,23 +270,8 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 	int msgtype = ldap_msgtype(message);
 
 	*finished_r = TRUE;
-
 	ret = ldap_parse_result(conn->conn, message, &result_err, NULL,
-				&result_errmsg, NULL, NULL, 0);
-	if (ret != LDAP_SUCCESS) {
-		ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
-			"ldap_parse_result() failed for connect: %s",
-			ldap_err2string(ret)));
-		return ret;
-	}
-	if (result_err != LDAP_SUCCESS) {
-		const char *error = result_errmsg != NULL ?
-			result_errmsg : ldap_err2string(result_err);
-		ldap_connection_result_failure(conn, req, result_err, t_strdup_printf(
-			"Connect failed: %s", error));
-		ldap_memfree(result_errmsg);
-		return result_err;
-	}
+		&result_errmsg, NULL, NULL, 0);
 
 	switch(conn->state) {
 	case LDAP_STATE_TLS:
@@ -294,19 +279,55 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 			*finished_r = FALSE;
 			return LDAP_SUCCESS;
 		}
-		ret = ldap_parse_extended_result(conn->conn, message, &retoid, NULL, 0);
-		if (strcmp(retoid, "1.3.6.1.4.1.1466.20037") == 0) {
-			ret = ldap_install_tls(conn->conn);
-		} else ret = -1; /* make it fail on next if */
-		if (ret != LDAP_SUCCESS) {
-			// FIXME: Check if SSL is mandatory and fail if yes
-			i_warning("Cannot start tls with server: %s", ldap_err2string(ret));
+		if (ret != 0) {
+			ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
+				"ldap_start_tls(uri=%s) failed: %s",
+				conn->set.uri, ldap_err2string(ret)));
 			return ret;
+		} else if (result_err != 0) {
+			if (conn->set.require_ssl) {
+				ldap_connection_result_failure(conn, req, result_err, t_strdup_printf(
+					"ldap_start_tls(uri=%s) failed: %s",
+					conn->set.uri, result_errmsg));
+				ldap_memfree(result_errmsg);
+				return result_err;
+			}
+		} else {
+			ret = ldap_parse_extended_result(conn->conn, message, &retoid, NULL, 0);
+			/* retoid can be NULL even if ret == 0 */
+			if (ret == 0 && retoid != NULL && strcmp(retoid, LDAP_EXOP_START_TLS) == 0) {
+				ret = ldap_install_tls(conn->conn);
+			} else if (ret == 0) ret = 2; /* make it fail on next if */
+			if (ret != LDAP_SUCCESS) {
+				if (conn->set.require_ssl) {
+					ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
+						"ldap_start_tls(uri=%s) failed: %s",
+						conn->set.uri, ldap_err2string(ret)));
+					return LDAP_UNAVAILABLE;
+				}
+			} else {
+				if (conn->set.debug > 0)
+					i_debug("Using TLS connection to remote LDAP server");
+			}
+			ldap_memfree(retoid);
 		}
-		ldap_memfree(retoid);
 		conn->state = LDAP_STATE_AUTH;
 		return ldap_connect_next_message(conn, req, finished_r);
 	case LDAP_STATE_AUTH:
+		if (ret != LDAP_SUCCESS) {
+			ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
+				"ldap_parse_result() failed for connect: %s",
+				ldap_err2string(ret)));
+			return ret;
+		}
+		if (result_err != LDAP_SUCCESS) {
+			const char *error = result_errmsg != NULL ?
+				result_errmsg : ldap_err2string(result_err);
+				ldap_connection_result_failure(conn, req, result_err, t_strdup_printf(
+				"Connect failed: %s", error));
+			ldap_memfree(result_errmsg);
+			return result_err;
+		}
 		if (msgtype != LDAP_RES_BIND) return 0;
 		ret = ldap_parse_sasl_bind_result(conn->conn, message, &(conn->scred), 0);
 		if (ret != LDAP_SUCCESS) {
@@ -364,15 +385,20 @@ ldap_connect_next_message(struct ldap_connection *conn,
 
 	switch(conn->state) {
 	case LDAP_STATE_DISCONNECT:
-		ret = ldap_start_tls(conn->conn, NULL, NULL, &(req->msgid));
-		if (ret != LDAP_SUCCESS) {
-			ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
-				"ldap_start_tls(uri=%s) failed: %s",
-				conn->set.uri, ldap_err2string(ret)));
-			return ret;
+		if (strstr(conn->set.uri, "ldaps://") == NULL) {
+			ret = ldap_start_tls(conn->conn, NULL, NULL, &(req->msgid));
+			if (ret != LDAP_SUCCESS) {
+				ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
+					"ldap_start_tls(uri=%s) failed: %s",
+					conn->set.uri, ldap_err2string(ret)));
+				return ret;
+			}
+			conn->state = LDAP_STATE_TLS;
+			break;
+		} else {
+			conn->state = LDAP_STATE_AUTH;
+			/* we let it slide intentionally to next case */
 		}
-		conn->state = LDAP_STATE_TLS;
-		break;
 	case LDAP_STATE_AUTH:
 		ret = ldap_sasl_bind(conn->conn,
 			conn->set.bind_dn,
