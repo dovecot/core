@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-fs \
+	-I$(top_srcdir)/src/lib-ldap \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
 	$(SQL_CFLAGS)
@@ -34,9 +35,21 @@ libdict_backend_a_SOURCES = \
 nodist_libdict_backend_a_SOURCES = \
 	dict-drivers-register.c
 
+NOPLUGIN_LDFLAGS =
+libdict_ldap_la_LDFLAGS = -module -avoid-version $(LIBDOVECOT_LDAP)
+
+module_dictdir = $(moduledir)/dict
+module_dict_LTLIBRARIES = \
+	libdict_ldap.la
+
+libdict_ldap_la_SOURCES = \
+	dict-ldap.c \
+	dict-ldap-settings.c
+
 headers = \
 	dict.h \
 	dict-client.h \
+	dict-ldap-settings.h \
 	dict-private.h \
 	dict-sql.h \
 	dict-sql-settings.h \
