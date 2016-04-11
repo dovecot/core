@@ -14,6 +14,8 @@ static
 void ldap_connection_abort_request(struct ldap_op_queue_entry *req);
 static
 void ldap_connection_request_destroy(struct ldap_op_queue_entry **req);
+static
+int ldap_connection_connect(struct ldap_connection *conn);
 
 void ldap_connection_deinit(struct ldap_connection **_conn)
 {
@@ -188,7 +190,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 		timeout_remove(&(conn->to_reconnect));
 
 	if (conn->state == LDAP_STATE_DISCONNECT) {
-		if (ldap_connection_connect(conn, NULL, NULL) == -1)
+		if (ldap_connection_connect(conn) == -1)
 			conn->to_reconnect = timeout_add(1000, ldap_connection_send_next, conn);
 		return;
 	}
@@ -398,7 +400,8 @@ ldap_connect_next_message(struct ldap_connection *conn,
 	return LDAP_SUCCESS;
 }
 
-int ldap_connection_connect(struct ldap_connection *conn, ldap_result_callback_t cb, void *ctx)
+static
+int ldap_connection_connect(struct ldap_connection *conn)
 {
 	const char *error;
 	int fd;
@@ -415,8 +418,6 @@ int ldap_connection_connect(struct ldap_connection *conn, ldap_result_callback_t
 	struct ldap_op_queue_entry *req = p_new(pool, struct ldap_op_queue_entry, 1);
 	req->pool = pool;
 
-	req->result_callback = cb;
-	req->result_callback_ctx = ctx;
 	req->internal_response_cb = ldap_connection_connect_parse;
 	req->timeout_secs = conn->set.timeout_secs;
 

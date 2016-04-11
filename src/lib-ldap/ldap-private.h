@@ -118,7 +118,6 @@ void ldap_connection_compare_start(struct ldap_connection *conn,
 				   ldap_result_callback_t *callback,
 				   void *context);
 
-int ldap_connection_connect(struct ldap_connection *conn, ldap_result_callback_t *, void *ctx);
 void ldap_connection_kill(struct ldap_connection *conn);
 int ldap_connection_check(struct ldap_connection *conn);
 void ldap_connection_queue_request(struct ldap_connection *conn, struct ldap_op_queue_entry *req);
