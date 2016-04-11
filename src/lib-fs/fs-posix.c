@@ -47,7 +47,6 @@ struct posix_fs_file {
 	buffer_t *write_buf;
 
 	bool seek_to_beginning;
-	bool success;
 };
 
 struct posix_fs_lock {
@@ -345,7 +344,7 @@ static void fs_posix_file_deinit(struct fs_file *_file)
 	case FS_OPEN_MODE_CREATE_UNIQUE_128:
 	case FS_OPEN_MODE_CREATE:
 	case FS_OPEN_MODE_REPLACE:
-		if (file->success || file->temp_path == NULL)
+		if (file->temp_path == NULL)
 			break;
 		/* failed to create/replace this. delete the temp file */
 		if (unlink(file->temp_path) < 0) {
@@ -470,7 +469,6 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 		i_unreached();
 	}
 	i_free_and_null(file->temp_path);
-	file->success = TRUE;
 	file->seek_to_beginning = TRUE;
 	/* allow opening the file after writing to it */
 	file->open_mode = FS_OPEN_MODE_READONLY;
