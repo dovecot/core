@@ -359,7 +359,7 @@ static
 void ldap_dict_lookup_async(struct dict *dict, const char *key,
 			     dict_lookup_callback_t *callback, void *context)
 {
-	struct ldap_search_input input = {0};
+	struct ldap_search_input input;
 	struct ldap_dict *ctx = (struct ldap_dict*)dict;
 	struct dict_ldap_op *op;
 	pool_t oppool = pool_alloconly_create("ldap dict lookup", 64);
@@ -381,6 +381,7 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 			op->map = map;
 			attributes[0] = map->value_attribute;
 			/* build lookup */
+			memset(&input, 0, sizeof(input));
 			input.base_dn = map->base_dn;
 			input.scope = map->scope_val;
 			input.filter = ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0);
