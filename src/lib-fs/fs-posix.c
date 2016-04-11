@@ -431,7 +431,7 @@ fs_posix_read_stream(struct fs_file *_file, size_t max_buffer_size)
 
 static int fs_posix_write_finish(struct posix_fs_file *file)
 {
-	int ret;
+	int ret, old_errno;
 
 	if ((file->open_flags & FS_OPEN_FLAG_FSYNC) != 0) {
 		if (fdatasync(file->fd) < 0) {
@@ -448,10 +448,12 @@ static int fs_posix_write_finish(struct posix_fs_file *file)
 			fs_set_error(file->file.fs, "link(%s, %s) failed: %m",
 				     file->temp_path, file->full_path);
 		}
+		old_errno = errno;
 		if (unlink(file->temp_path) < 0) {
 			fs_set_error(file->file.fs, "unlink(%s) failed: %m",
 				     file->temp_path);
 		}
+		errno = old_errno;
 		if (ret < 0) {
 			fs_posix_file_close(&file->file);
 			i_free_and_null(file->temp_path);
