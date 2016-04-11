@@ -227,7 +227,8 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 
 		memset(&res, 0, sizeof(res));
 		res.openldap_ret = ret;
-		req->result_callback(&res, req->result_callback_ctx);
+		if (req->result_callback != NULL)
+			req->result_callback(&res, req->result_callback_ctx);
 
 		ldap_connection_request_destroy(&req);
 		aqueue_delete(conn->request_queue, i);
@@ -334,7 +335,8 @@ void ldap_connection_abort_request(struct ldap_op_queue_entry *req)
 	memset(&res, 0, sizeof(res));
 	res.openldap_ret = LDAP_TIMEOUT;
 	res.error_string = "Aborting LDAP request after timeout";
-	req->result_callback(&res, req->result_callback_ctx);
+	if (req->result_callback != NULL)
+		req->result_callback(&res, req->result_callback_ctx);
 
 	unsigned int n = aqueue_count(req->conn->request_queue);
 	for (unsigned int i = 0; i < n; i++) {
