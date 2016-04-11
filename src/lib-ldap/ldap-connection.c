@@ -290,7 +290,7 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 					"ldap_start_tls(uri=%s) failed: %s",
 					conn->set.uri, result_errmsg));
 				ldap_memfree(result_errmsg);
-				return result_err;
+				return LDAP_UNAVAILABLE; /* make sure it disconnects */
 			}
 		} else {
 			ret = ldap_parse_extended_result(conn->conn, message, &retoid, NULL, 0);
