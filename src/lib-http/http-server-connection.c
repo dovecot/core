@@ -602,6 +602,8 @@ static void http_server_connection_input(struct connection *_conn)
 				conn->close_indicated = TRUE;
 			if (req->destroy_pending)
 				http_server_request_destroy(&req);
+			else
+				http_server_request_unref(&req);
 
 			if (conn->closed) {
 				/* connection got closed in destroy callback */
