@@ -112,6 +112,7 @@ liblib_la_SOURCES = \
 	ostream-failure-at.c \
 	ostream-file.c \
 	ostream-hash.c \
+	ostream-null.c \
 	ostream-rawlog.c \
 	primes.c \
 	printf-format-fix.c \
@@ -244,6 +245,7 @@ headers = \
 	ostream-failure-at.h \
 	ostream-hash.h \
 	ostream-private.h \
+	ostream-null.h \
 	ostream-rawlog.h \
 	primes.h \
 	printf-format-fix.h \
