@@ -466,9 +466,8 @@ void master_service_haproxy_abort(struct master_service *service)
 	while (service->haproxy_conns != NULL) {
 		int fd = service->haproxy_conns->conn.fd;
 
-		if (close(fd) < 0)
-			i_error("haproxy: close(service connection) failed: %m");
 		master_service_haproxy_conn_free(service->haproxy_conns);
+		i_close_fd(&fd);
 	}
 }
 
