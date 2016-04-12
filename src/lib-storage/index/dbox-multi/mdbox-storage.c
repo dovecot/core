@@ -54,9 +54,11 @@ int mdbox_storage_create(struct mail_storage *_storage,
 	dir = mailbox_list_get_root_forced(ns->list, MAILBOX_LIST_PATH_TYPE_DIR);
 	storage->storage_dir = p_strconcat(_storage->pool, dir,
 					   "/"MDBOX_GLOBAL_DIR_NAME, NULL);
-	storage->alt_storage_dir = p_strconcat(_storage->pool,
-					       ns->list->set.alt_dir,
-					       "/"MDBOX_GLOBAL_DIR_NAME, NULL);
+	if (ns->list->set.alt_dir != NULL) {
+		storage->alt_storage_dir = p_strconcat(_storage->pool,
+							ns->list->set.alt_dir,
+							"/"MDBOX_GLOBAL_DIR_NAME, NULL);
+	}
 	i_array_init(&storage->open_files, 64);
 
 	storage->map = mdbox_map_init(storage, ns->list);
