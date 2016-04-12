@@ -649,8 +649,8 @@ bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 	case SEARCH_INTHREAD:
 		if (arg1->value.thread_type != arg2->value.thread_type)
 			return FALSE;
-		return mail_search_args_equal(arg1->initialized.search_args,
-					      arg2->initialized.search_args);
+		return mail_search_arg_equals(arg1->value.subargs,
+					      arg2->value.subargs);
 	}
 	i_unreached();
 	return FALSE;
