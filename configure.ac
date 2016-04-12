@@ -442,13 +442,19 @@ fi
 AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align, [Required memory alignment])
 
 dnl * find random source
-AC_MSG_CHECKING([for /dev/urandom])
-if test -c /dev/urandom || test -s /dev/urandom; then
+
+AC_ARG_WITH(random-source,
+AS_HELP_STRING([--with-random-source=file], [Device file to use as random source (default=/dev/urandom)]),
+        random_source=$withval,
+        random_source=/dev/urandom)
+
+AC_MSG_CHECKING([for $random_source])
+if test -c $random_source || test -s $random_source; then
   AC_MSG_RESULT(yes)
-  AC_DEFINE(DEV_URANDOM_PATH, "/dev/urandom", [Path to /dev/urandom])
+  AC_DEFINE_UNQUOTED(DEV_URANDOM_PATH, ["$random_source"], [Path to random source])
   have_random_source=yes
 else
-  AC_MSG_RESULT(no)
+  AC_MSG_ERROR([$random_source not found or is not character device - please provide path for random source device])
 fi
 
 if test "$have_random_source" != "yes"; then

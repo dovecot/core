@@ -2,10 +2,6 @@
 
 #include "lib.h"
 #include "randgen.h"
-
-
-#ifdef DEV_URANDOM_PATH
-
 #include "fd-close-on-exec.h"
 #include <unistd.h>
 #include <fcntl.h>
@@ -64,51 +60,6 @@ void random_deinit(void)
 
 	i_close_fd(&urandom_fd);
 }
-
-#elif defined(HAVE_OPENSSL_RAND_H)
-#include <openssl/rand.h>
-#include <openssl/err.h>
-
-static const char *ssl_last_error(void)
-{
-	unsigned long err;
-	char *buf;
-	size_t err_size = 256;
-
-	err = ERR_get_error();
-	if (err == 0)
-		return strerror(errno);
-
-	buf = t_malloc(err_size);
-	buf[err_size-1] = '\0';
-	ERR_error_string_n(err, buf, err_size-1);
-	return buf;
-}
-
-void random_fill(void *buf, size_t size)
-{
-	if (RAND_bytes(buf, size) != 1)
-		i_fatal("RAND_pseudo_bytes() failed: %s", ssl_last_error());
-}
-
-void random_init(void)
-{
-	unsigned int seed;
-
-	if (RAND_status() == 0) {
-		i_fatal("Random generator not initialized: "
-			"Install egd on /var/run/egd-pool");
-	}
-
-	random_fill(&seed, sizeof(seed));
-	rand_set_seed(seed);
-}
-
-void random_deinit(void) {}
-
-#else
-#  error No random number generator, use eg. OpenSSL.
-#endif
 
 void random_fill_weak(void *buf, size_t size)
 {
