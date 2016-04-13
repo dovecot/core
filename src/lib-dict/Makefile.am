@@ -36,11 +36,15 @@ nodist_libdict_backend_a_SOURCES = \
 	dict-drivers-register.c
 
 NOPLUGIN_LDFLAGS =
+
+if HAVE_LDAP
+LIBDICT_LDAP = libdict_ldap.la
+endif
 libdict_ldap_la_LDFLAGS = -module -avoid-version $(LIBDOVECOT_LDAP)
 
 module_dictdir = $(moduledir)/dict
 module_dict_LTLIBRARIES = \
-	libdict_ldap.la
+	$(LIBDICT_LDAP)
 
 libdict_ldap_la_SOURCES = \
 	dict-ldap.c \
