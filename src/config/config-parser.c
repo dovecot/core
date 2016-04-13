@@ -849,9 +849,10 @@ config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
 		   filters, log a warning. */
 		if (first_pos == NULL)
 			return;
-		i_warning("%s line %u: Global setting %s won't change the setting inside an earlier filter at %s",
+		i_warning("%s line %u: Global setting %s won't change the setting inside an earlier filter at %s "
+			  "(if this is intentional, avoid this warning by moving the global setting before %s)",
 			  ctx->cur_input->path, ctx->cur_input->linenum,
-			  key, first_pos);
+			  key, first_pos, first_pos);
 		return;
 	}
 	if (first_pos != NULL)
