@@ -297,15 +297,18 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 		iter = ldap_search_iterator_init(result);
 		entry = ldap_search_iterator_next(iter);
 		if (entry != NULL) {
-			i_debug("ldap_dict_lookup_callback got dn %s", ldap_entry_dn(entry));
+			if (op->dict->set->debug > 0)
+				i_debug("ldap_dict_lookup_callback got dn %s", ldap_entry_dn(entry));
 			/* try extract value */
 			const char *const *values = ldap_entry_get_attribute(entry, op->map->value_attribute);
 			if (values != NULL) {
-				i_debug("ldap_dict_lookup_callback got attribute %s", op->map->value_attribute);
+				if (op->dict->set->debug > 0)
+					i_debug("ldap_dict_lookup_callback got attribute %s", op->map->value_attribute);
 				op->res.ret = 1;
 				op->res.value = p_strdup(op->pool, values[0]);
 			} else {
-				i_debug("ldap_dict_lookup_callback dit not get attribute %s", op->map->value_attribute);
+				if (op->dict->set->debug > 0)
+					i_debug("ldap_dict_lookup_callback dit not get attribute %s", op->map->value_attribute);
 				op->res.value = NULL;
 			}
 		}
