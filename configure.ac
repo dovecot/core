@@ -2529,7 +2529,7 @@ else
   LIBDOVECOT_LOGIN='$(top_builddir)/src/login-common/liblogin.la'
   LIBDOVECOT_LDA='$(top_builddir)/src/lib-lda/liblda.la'
 fi
-if test $want_ldap = yes; then
+if test $want_ldap != no; then
   LIBDOVECOT_LDAP='$(top_builddir)/src/lib-ldap/libdovecot-ldap.la'
 else
   LIBDOVECOT_LDAP=''
