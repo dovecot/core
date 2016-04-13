@@ -91,11 +91,19 @@ int ldap_connection_init(struct ldap_client *client,
 			 const struct ldap_client_settings *set,
 			 struct ldap_connection **conn_r, const char **error_r)
 {
+	i_assert(set->uri != NULL);
+
+	if (set->require_ssl &&
+	    !set->start_tls &&
+	    strncmp("ldaps://",set->uri,8) != 0) {
+		*error_r = t_strdup_printf("ldap_connection_init(uri=%s) failed: %s", set->uri,
+			"uri does not start with ldaps and ssl required without start TLS");
+		return -1;
+	}
+
 	pool_t pool = pool_alloconly_create("ldap connection", 1024);
 	struct ldap_connection *conn = p_new(pool, struct ldap_connection, 1);
 	conn->pool = pool;
-
-	i_assert(set->uri != NULL);
 
 	conn->client = client;
 	conn->set = *set;
@@ -385,7 +393,8 @@ ldap_connect_next_message(struct ldap_connection *conn,
 
 	switch(conn->state) {
 	case LDAP_STATE_DISCONNECT:
-		if (strstr(conn->set.uri, "ldaps://") == NULL) {
+		/* if we should not disable SSL, and the URI is not ldaps:// */
+		if (!conn->set.start_tls || strstr(conn->set.uri, "ldaps://") == NULL) {
 			ret = ldap_start_tls(conn->conn, NULL, NULL, &(req->msgid));
 			if (ret != LDAP_SUCCESS) {
 				ldap_connection_result_failure(conn, req, ret, t_strdup_printf(

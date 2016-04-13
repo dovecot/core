@@ -209,13 +209,18 @@ parse_setting(const char *key, const char *value,
 			}
 			return NULL;
 		}
-		if (strcmp(key, "require_ssl") == 0) {
+		if (strcmp(key, "tls") == 0) {
 			if (strcasecmp(value, "yes") == 0) {
 				ctx->set->require_ssl = TRUE;
+				ctx->set->start_tls = TRUE;
 			} else if (strcasecmp(value, "no") == 0) {
 				ctx->set->require_ssl = FALSE;
+				ctx->set->start_tls = FALSE;
+			} else if (strcasecmp(value, "try") == 0) {
+				ctx->set->require_ssl = FALSE;
+				ctx->set->start_tls = TRUE;
 			} else {
-				return "require_ssl must be either yes or no";
+				return "tls must be yes, try or no";
 			}
 			return NULL;
 		}
@@ -286,6 +291,8 @@ dict_ldap_settings_read(pool_t pool, const char *path, const char **error_r)
 	p_array_init(&ctx.set->maps, pool, 8);
 
 	ctx.set->timeout = 30; /* default timeout */
+	ctx.set->require_ssl = FALSE; /* try to start SSL */
+	ctx.set->start_tls = TRUE;
 
 	if (!settings_read(path, NULL, parse_setting, parse_section,
 			   &ctx, error_r))

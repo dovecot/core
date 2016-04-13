@@ -29,6 +29,7 @@ struct ldap_client_settings {
 	unsigned int max_idle_time_secs;
 	unsigned int debug;
 	bool require_ssl;
+	bool start_tls;
 };
 
 struct ldap_search_input {
