@@ -128,6 +128,9 @@ void http_server_request_abort(struct http_server_request **_req,
 	struct http_server_request *req = *_req;
 	struct http_server_connection *conn = req->conn;
 
+	if (req->state >= HTTP_SERVER_REQUEST_STATE_FINISHED)
+		return;
+
 	http_server_request_debug(req, "Abort");
 
 	req->conn = NULL;
