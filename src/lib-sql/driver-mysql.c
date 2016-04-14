@@ -173,7 +173,7 @@ static void driver_mysql_parse_connect_string(struct mysql_db *db,
 	const char **field;
 
 	db->ssl_cipher = "HIGH";
-	db->ssl_verify_server_cert = 0; /* FIXME: change to 1 for v2.3 */
+	db->ssl_verify_server_cert = 1;
 	db->connect_timeout = SQL_CONNECT_TIMEOUT_SECS;
 	db->read_timeout = MYSQL_DEFAULT_READ_TIMEOUT_SECS;
 	db->write_timeout = MYSQL_DEFAULT_WRITE_TIMEOUT_SECS;
