@@ -86,6 +86,7 @@ const struct director_settings director_default_settings = {
 	.director_username_hash = "%Lu",
 	.director_user_expire = 60*15,
 	.director_user_kick_delay = 2,
+	.director_consistent_hashing = TRUE
 };
 
 const struct setting_parser_info director_setting_parser_info = {
