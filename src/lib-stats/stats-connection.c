@@ -1,12 +1,15 @@
 /* Copyright (c) 2011-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "str.h"
 #include "master-service.h"
 #include "stats-connection.h"
 
 #include <unistd.h>
 #include <fcntl.h>
+
+#define STATS_EAGAIN_WARN_INTERVAL_SECS 30
 
 struct stats_connection {
 	int refcount;
@@ -15,6 +18,7 @@ struct stats_connection {
 	char *path;
 
 	bool open_failed;
+	time_t next_warning_timestamp;
 };
 
 static bool stats_connection_open(struct stats_connection *conn)
@@ -89,7 +93,17 @@ void stats_connection_send(struct stats_connection *conn, const string_t *str)
 	}
 
 	ret = write(conn->fd, str_data(str), str_len(str));
-	if (ret != (ssize_t)str_len(str)) {
+	if (ret == (ssize_t)str_len(str)) {
+		/* success */
+	} else if (ret < 0 && errno == EAGAIN) {
+		/* stats process is busy */
+		if (ioloop_time > conn->next_warning_timestamp) {
+			i_warning("write(%s) failed: %m (stats process is busy)", conn->path);
+			conn->next_warning_timestamp = ioloop_time +
+				STATS_EAGAIN_WARN_INTERVAL_SECS;
+		}
+	} else {
+		/* error - reconnect */
 		if (ret < 0) {
 			/* don't log EPIPE errors. they can happen when
 			   Dovecot is stopped. */
