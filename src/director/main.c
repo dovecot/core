@@ -94,18 +94,14 @@ director_socket_type_get_from_name(const char *path)
 }
 
 static enum director_socket_type
-listener_get_socket_type_fallback(const struct director_settings *set,
-				  int listen_fd)
+listener_get_socket_type_fallback(int listen_fd)
 {
 	in_port_t local_port;
 
 	if (net_getsockname(listen_fd, NULL, &local_port) == 0 &&
 	    local_port != 0) {
 		/* TCP/IP connection */
-		if (local_port == set->director_doveadm_port)
-			return DIRECTOR_SOCKET_TYPE_DOVEADM;
-		else
-			return DIRECTOR_SOCKET_TYPE_RING;
+		return DIRECTOR_SOCKET_TYPE_RING;
 	}
 	return DIRECTOR_SOCKET_TYPE_AUTH;
 }
@@ -131,7 +127,7 @@ static void listener_sockets_init(const struct director_settings *set,
 		type = director_socket_type_get_from_name(name);
 		if (type == DIRECTOR_SOCKET_TYPE_UNKNOWN) {
 			/* mainly for backwards compatibility */
-			type = listener_get_socket_type_fallback(set, listen_fd);
+			type = listener_get_socket_type_fallback(listen_fd);
 		}
 		if (type == DIRECTOR_SOCKET_TYPE_RING && *listen_port_r == 0 &&
 		    net_getsockname(listen_fd, &ip, &port) == 0 && port > 0) {
