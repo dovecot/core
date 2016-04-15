@@ -356,6 +356,23 @@ void http_client_request_set_payload(struct http_client_request *req,
 		req->payload_sync = TRUE;
 }
 
+void http_client_request_set_payload_data(struct http_client_request *req,
+				     const unsigned char *data, size_t size)
+{
+	struct istream *input;
+	unsigned char *payload_data;
+
+	if (size == 0)
+		return;
+
+	payload_data = p_malloc(req->pool, size);
+	memcpy(payload_data, data, size);
+	input = i_stream_create_from_data(payload_data, size);
+
+	http_client_request_set_payload(req, input, FALSE);
+	i_stream_unref(&input);
+}
+
 void http_client_request_set_timeout_msecs(struct http_client_request *req,
 	unsigned int msecs)
 {
