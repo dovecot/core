@@ -82,6 +82,8 @@ struct mail_storage_service_user {
 	const struct setting_parser_info *user_info;
 	struct setting_parser_context *set_parser;
 
+	unsigned int session_id_counter;
+
 	unsigned int anonymous:1;
 	unsigned int admin:1;
 };
@@ -658,8 +660,15 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->admin = user->admin;
 	mail_user->auth_token = p_strdup(mail_user->pool, user->auth_token);
 	mail_user->auth_user = p_strdup(mail_user->pool, user->auth_user);
-	mail_user->session_id =
-		p_strdup(mail_user->pool, user->input.session_id);
+	if (user->session_id_counter++ == 0) {
+		mail_user->session_id =
+			p_strdup(mail_user->pool, user->input.session_id);
+	} else {
+		mail_user->session_id =
+			p_strdup_printf(mail_user->pool, "%s:%u",
+					user->input.session_id,
+					user->session_id_counter);
+	}
 	mail_user->userdb_fields = user->input.userdb_fields == NULL ? NULL :
 		p_strarray_dup(mail_user->pool, user->input.userdb_fields);
 	mail_user->autoexpunge_enabled =
