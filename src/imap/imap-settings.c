@@ -89,7 +89,10 @@ static const struct imap_settings imap_default_settings = {
 	.imap_idle_notify_interval = 2*60,
 	.imap_capability = "",
 	.imap_client_workarounds = "",
-	.imap_logout_format = "in=%i out=%o",
+	.imap_logout_format = "in=%i out=%o deleted=%{deleted} "
+		"expunged=%{expunged} trashed=%{trashed} "
+		"hdr_count=%{fetch_hdr_count} hdr_bytes=%{fetch_hdr_bytes} "
+		"body_count=%{fetch_body_count} body_bytes=%{fetch_body_bytes}",
 	.imap_id_send = "name *",
 	.imap_id_log = "",
 	.imap_metadata = FALSE,
