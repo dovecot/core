@@ -298,13 +298,16 @@ void http_client_request_delay_msecs(struct http_client_request *req,
 
 /* return the HTTP method for the request */
 const char *
-http_client_request_get_method(struct http_client_request *req);
+http_client_request_get_method(const struct http_client_request *req)
+	ATTR_PURE;
 /* return the HTTP target for the request */
 const char *
-http_client_request_get_target(struct http_client_request *req);
+http_client_request_get_target(const struct http_client_request *req)
+	ATTR_PURE;
 /* return the request state */
 enum http_request_state
-http_client_request_get_state(struct http_client_request *req);
+http_client_request_get_state(const struct http_client_request *req)
+	ATTR_PURE;
 
 /* submit the request. It is queued for transmission to the service */
 void http_client_request_submit(struct http_client_request *req);
