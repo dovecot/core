@@ -11,28 +11,9 @@ struct http_response;
 struct http_client;
 struct http_client_request;
 
-enum http_client_request_error {
-	HTTP_CLIENT_REQUEST_ERROR_ABORTED = 9000,
-	HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED,
-	HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED,
-	HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT,
-	HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
-	HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD,
-	HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE,
-	HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT,
-};
-
-enum http_request_state {
-	HTTP_REQUEST_STATE_NEW = 0,
-	HTTP_REQUEST_STATE_QUEUED,
-	HTTP_REQUEST_STATE_PAYLOAD_OUT,
-	HTTP_REQUEST_STATE_WAITING,
-	HTTP_REQUEST_STATE_GOT_RESPONSE,
-	HTTP_REQUEST_STATE_PAYLOAD_IN,
-	HTTP_REQUEST_STATE_FINISHED,
-	HTTP_REQUEST_STATE_ABORTED
-};
-extern const char *http_request_state_names[];
+/*
+ * Client settings
+ */
 
 struct http_client_settings {
 	/* a) If dns_client is set, all lookups are done via it.
@@ -42,6 +23,7 @@ struct http_client_settings {
 	struct dns_client *dns_client;
 	const char *dns_client_socket_path;
 
+	/* ssl configuration */
 	const char *ssl_ca_dir, *ssl_ca_file, *ssl_ca;
 	const char *ssl_crypto_device;
 	bool ssl_allow_invalid_cert;
@@ -59,8 +41,12 @@ struct http_client_settings {
 	const char *proxy_username;
 	const char *proxy_password;
 
+	/* directory for writing raw log data for debugging purposes */
 	const char *rawlog_dir;
 
+	/* maximum time a connection will idle. if parallel connections are idle,
+	   the duplicates will end earlier based on how many idle connections exist
+	   to that same service */
 	unsigned int max_idle_time_msecs;
 
 	/* maximum number of parallel connections per peer (default = 1) */
@@ -126,8 +112,58 @@ struct http_client_settings {
 	   is not automatically retried and the response is returned */
 	unsigned int max_auto_retry_delay;
 
+	/* enable logging debug messages */
 	bool debug;
 };
+
+/*
+ * Request
+ */
+
+enum http_client_request_error {
+	/* The request was aborted */
+	HTTP_CLIENT_REQUEST_ERROR_ABORTED = 9000,
+	/* Failed to perform DNS lookup for the host */
+	HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED,
+	/* Failed to setup any connection for the host and client settings allowed
+	   no more attempts */
+	HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED,
+	/* Service returned an invalid redirect response for this request */
+	HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT,
+	/* The connection was lost unexpectedly while handling the request and
+	   client settings allowed no more attempts */
+	HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+	/* The input stream passed to the request using
+	   http_client_request_set_payload() returned an error while sending the
+	   request. */
+	HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD,
+	/* The service returned a bad response */
+	HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE,
+	/* The request timed out (either this was the last attempt or the
+	   absolute timeout was hit) */
+	HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT,
+};
+
+enum http_request_state {
+	/* New request; not yet submitted */
+	HTTP_REQUEST_STATE_NEW = 0,
+	/* Request is queued; waiting for a connection */
+	HTTP_REQUEST_STATE_QUEUED,
+	/* Request header is sent; still sending request payload to server */
+	HTTP_REQUEST_STATE_PAYLOAD_OUT,
+	/* Request is fully sent; waiting for response */
+	HTTP_REQUEST_STATE_WAITING,
+	/* Response header is received for the request */
+	HTTP_REQUEST_STATE_GOT_RESPONSE,
+	/* Reading response payload; response handler still needs to read more
+	   payload. */
+	HTTP_REQUEST_STATE_PAYLOAD_IN,
+	/* Request is finished; still lingering due to references */
+	HTTP_REQUEST_STATE_FINISHED,
+	/* Request is aborted; still lingering due to references */
+	HTTP_REQUEST_STATE_ABORTED
+};
+extern const char *http_request_state_names[];
 
 struct http_client_tunnel {
 	int fd_in, fd_out;
@@ -138,9 +174,6 @@ struct http_client_tunnel {
 typedef void
 http_client_request_callback_t(const struct http_response *response,
 			       void *context);
-
-struct http_client *http_client_init(const struct http_client_settings *set);
-void http_client_deinit(struct http_client **_client);
 
 /* create new HTTP request */
 struct http_client_request *
@@ -153,6 +186,8 @@ http_client_request(struct http_client *client,
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)
 
+/* create net HTTP request using provided URL. This implicitly sets
+   port, ssl, and username:password if provided. */
 struct http_client_request *
 http_client_request_url(struct http_client *client,
 		    const char *method, const struct http_url *target_url,
@@ -178,6 +213,9 @@ http_client_request_connect(struct http_client *client,
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)
+
+/* same as http_client_request_connect, but uses an IP rather than a host
+   name. */
 struct http_client_request *
 http_client_request_connect_ip(struct http_client *client,
 		    const struct ip_addr *ip, in_port_t port,
@@ -189,32 +227,68 @@ http_client_request_connect_ip(struct http_client *client,
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)
 
+/* set the port for the service the request is directed at */
 void http_client_request_set_port(struct http_client_request *req,
 	in_port_t port);
+/* indicate whether service the request is directed at uses ssl */
 void http_client_request_set_ssl(struct http_client_request *req,
 	bool ssl);
+/* set the urgent flag: this means that this request will get priority over
+   non-urgent request. Also, if no idle connection is available, a new
+   connection is created. Urgent requests are never pipelined. */
 void http_client_request_set_urgent(struct http_client_request *req);
 
+/* add a custom header to the request. This can override headers that are
+   otherwise created implicitly. */
 void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value);
+/* remove a header added earlier. This has no influence on implicitly created
+   headers. */
 void http_client_request_remove_header(struct http_client_request *req,
 				       const char *key);
+
+/* set the value of the "Date" header for the request using a time_t value.
+   Use this instead of setting it directly using
+   http_client_request_add_header() */
 void http_client_request_set_date(struct http_client_request *req,
 				    time_t date);
 
+/* assign an input stream for the outgoing payload of this request. The input
+   stream is read asynchronously while the request is sent to the server.
+
+   when sync=TRUE a "100 Continue" response is requested from the service. The
+   client will then postpone sending the payload until a provisional response
+   with code 100 is received. This way, an error response can be sent by the
+   service before any potentially big payload is transmitted. Use this only for
+   payload that can be large. */
 void http_client_request_set_payload(struct http_client_request *req,
 				     struct istream *input, bool sync);
+/* assign payload data to the request. The data is copied to the request pool.
+   If your data is already durably allocated during the existence of the
+   request, you should consider using http_client_request_set_payload() with
+   a data input stream instead. This will avoid copying the data unnecessarily.
+ */
 void http_client_request_set_payload_data(struct http_client_request *req,
 				     const unsigned char *data, size_t size);
 
+/* set an absolute timeout for this request specifically, overriding the
+   default client-wide absolute request timeout */
 void http_client_request_set_timeout_msecs(struct http_client_request *req,
 	unsigned int msecs);
 void http_client_request_set_timeout(struct http_client_request *req,
 	const struct timeval *time);
 
+/* set the username:password credentials for this request for simple
+   authentication. This function is meant for simple schemes that use a
+   password. More complex schemes will need to be handled manually.
+
+   This currently only supports the "basic" authentication scheme. */
 void http_client_request_set_auth_simple(struct http_client_request *req,
 	const char *username, const char *password);
 
+/* delay handling of this request to a later time. This way, a request can be
+   submitted that is held for some time until a certain time period has passed.
+ */
 void http_client_request_delay_until(struct http_client_request *req,
 	time_t time);
 void http_client_request_delay(struct http_client_request *req,
@@ -222,39 +296,64 @@ void http_client_request_delay(struct http_client_request *req,
 void http_client_request_delay_msecs(struct http_client_request *req,
 	unsigned int msecs);
 
-const char *http_client_request_get_method(struct http_client_request *req);
-const char *http_client_request_get_target(struct http_client_request *req);
+/* return the HTTP method for the request */
+const char *
+http_client_request_get_method(struct http_client_request *req);
+/* return the HTTP target for the request */
+const char *
+http_client_request_get_target(struct http_client_request *req);
+/* return the request state */
 enum http_request_state
 http_client_request_get_state(struct http_client_request *req);
+
+/* submit the request. It is queued for transmission to the service */
 void http_client_request_submit(struct http_client_request *req);
+
+/* attempt to retry the request. This function is called within the request
+   callback. It returns false if the request cannot be retried */
 bool http_client_request_try_retry(struct http_client_request *req);
 
+/* abort the request immediately. It may still linger for a while when it is
+   already sent to the service, but the callback will not be called anymore. */
 void http_client_request_abort(struct http_client_request **req);
 
-/* Call the specified callback when HTTP request is destroyed. */
+/* call the specified callback when HTTP request is destroyed. */
 void http_client_request_set_destroy_callback(struct http_client_request *req,
 					      void (*callback)(void *),
 					      void *context);
 
-/* submits request and blocks until provided payload is sent. Multiple calls
-   are allowed; payload transmission is ended with
+/* submits request and blocks until the provided payload is sent. Multiple
+   calls are allowed; payload transmission is ended with
    http_client_request_finish_payload(). If the sending fails, returns -1
    and sets req=NULL to indicate that the request was freed, otherwise
    returns 0 and req is unchanged. */
 int http_client_request_send_payload(struct http_client_request **req,
 	const unsigned char *data, size_t size);
-/* Finish sending the payload. Always frees req and sets it to NULL.
+/* finish sending the payload. Always frees req and sets it to NULL.
    Returns 0 on success, -1 on error. */
 int http_client_request_finish_payload(struct http_client_request **req);
 
+/* take over the connection this request was sent over for use as a HTTP
+   CONNECT tunnel. This only applies to requests that were created using
+   http_client_request_connect() or http_client_request_connect_ip(). */
 void http_client_request_start_tunnel(struct http_client_request *req,
 	struct http_client_tunnel *tunnel);
 
+/*
+ * Client
+ */
+
+struct http_client *http_client_init(const struct http_client_settings *set);
+void http_client_deinit(struct http_client **_client);
+
+/* switch this client to the current ioloop */
 void http_client_switch_ioloop(struct http_client *client);
 
 /* blocks until all currently submitted requests are handled */
 void http_client_wait(struct http_client *client);
-/* Returns number of pending HTTP requests. */
-unsigned int http_client_get_pending_request_count(struct http_client *client);
+
+/* Returns the total number of pending HTTP requests. */
+unsigned int
+http_client_get_pending_request_count(struct http_client *client);
 
 #endif
