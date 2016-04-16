@@ -151,6 +151,16 @@ http_server_connection_timeout_reset(struct http_server_connection *conn)
 		timeout_reset(conn->to_idle);
 }
 
+bool http_server_connection_shut_down(struct http_server_connection *conn)
+{
+	if (conn->request_queue_head == NULL ||
+		conn->request_queue_head->state == HTTP_SERVER_REQUEST_STATE_NEW) {
+		http_server_connection_close(&conn, "Server shutting down");
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static void http_server_connection_ready(struct http_server_connection *conn)
 {
 	struct stat st;
@@ -403,17 +413,24 @@ static bool
 http_server_connection_pipeline_is_full(struct http_server_connection *conn)
 {
 	return (conn->request_queue_count >=
-			conn->server->set.max_pipelined_requests);
+			conn->server->set.max_pipelined_requests ||
+			conn->server->shutting_down);
 }
 
 static void
 http_server_connection_pipeline_handle_full(
 	struct http_server_connection *conn)
 {
-	http_server_connection_debug(conn,
-		"Pipeline full (%u requests pending; %u maximum)",
-		conn->request_queue_count,
-		conn->server->set.max_pipelined_requests);
+	if (conn->server->shutting_down) {
+		http_server_connection_debug(conn,
+			"Pipeline full (%u requests pending; server shutting down)",
+			conn->request_queue_count);
+	} else {
+		http_server_connection_debug(conn,
+			"Pipeline full (%u requests pending; %u maximum)",
+			conn->request_queue_count,
+			conn->server->set.max_pipelined_requests);
+	}
 	http_server_connection_input_halt(conn);
 }
 
@@ -516,6 +533,12 @@ static void http_server_connection_input(struct connection *_conn)
 	const char *error;
 	bool cont;
 	int ret;
+
+	if (conn->server->shutting_down) {
+		if (!http_server_connection_shut_down(conn))
+			http_server_connection_pipeline_handle_full(conn);
+		return;
+	}
 
 	i_assert(!conn->in_req_callback);
 	i_assert(!conn->input_broken && conn->incoming_payload == NULL);
@@ -881,7 +904,8 @@ static int http_server_connection_send_responses(
 
 	/* accept more requests if possible */
 	if (conn->incoming_payload == NULL &&
-		conn->request_queue_count < conn->server->set.max_pipelined_requests) {
+		conn->request_queue_count < conn->server->set.max_pipelined_requests &&
+		!conn->server->shutting_down) {
 		http_server_connection_input_resume(conn);
 		return 1;
 	}
@@ -947,6 +971,10 @@ int http_server_connection_output(struct http_server_connection *conn)
 		}
 	}
 
+	if (conn->server->shutting_down &&
+		http_server_connection_shut_down(conn))
+		return 1;
+
 	if (!http_server_connection_pipeline_is_full(conn)) {
 		http_server_connection_input_resume(conn);
 		if (pipeline_was_full && conn->conn.io != NULL)
@@ -996,6 +1024,8 @@ http_server_connection_create(struct http_server *server,
 	struct ip_addr addr;
 	in_port_t port;
 	const char *name;
+
+	i_assert(!server->shutting_down);
 
 	conn = i_new(struct http_server_connection, 1);
 	conn->refcount = 1;
