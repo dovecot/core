@@ -74,6 +74,9 @@ typedef void (*http_server_tunnel_callback_t)(void *context,
 
 struct http_server *http_server_init(const struct http_server_settings *set);
 void http_server_deinit(struct http_server **_server);
+/* shut down the server; accept no new requests and drop connections once
+   they become idle */
+void http_server_shut_down(struct http_server *server);
 
 struct http_server_connection *
 http_server_connection_create(struct http_server *server,

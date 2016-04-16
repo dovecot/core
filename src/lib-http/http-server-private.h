@@ -139,6 +139,8 @@ struct http_server {
 	struct ssl_iostream_context *ssl_ctx;
 
 	struct connection_list *conn_list;
+
+	unsigned int shutting_down:1;    /* shutting down server */
 };
 
 static inline const char *
@@ -210,6 +212,8 @@ http_server_request_version_equals(struct http_server_request *req,
 /* connection */
 
 struct connection_list *http_server_connection_list_init(void);
+
+bool http_server_connection_shut_down(struct http_server_connection *conn);
 
 void http_server_connection_switch_ioloop(struct http_server_connection *conn);
 
