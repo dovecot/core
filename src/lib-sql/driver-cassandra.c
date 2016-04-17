@@ -46,7 +46,7 @@ struct cassandra_callback {
 struct cassandra_db {
 	struct sql_db api;
 
-	char *hosts, *keyspace;
+	char *hosts, *keyspace, *user, *password;
 	CassConsistency read_consistency, write_consistency, delete_consistency;
 	CassConsistency read_fallback_consistency, write_fallback_consistency, delete_fallback_consistency;
 	CassLogLevel log_level;
@@ -395,6 +395,12 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 			   strcmp(key, "keyspace") == 0) {
 			i_free(db->keyspace);
 			db->keyspace = i_strdup(value);
+		} else if (strcmp(key, "user") == 0) {
+			i_free(db->user);
+			db->user = i_strdup(value);
+		} else if (strcmp(key, "password") == 0) {
+			i_free(db->password);
+			db->password = i_strdup(value);
 		} else if (strcmp(key, "read_consistency") == 0) {
 			if (consistency_parse(value, &db->read_consistency) < 0)
 				i_fatal("cassandra: Unknown read_consistency: %s", value);
@@ -460,6 +466,8 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	cass_cluster_set_connect_timeout(db->cluster, SQL_CONNECT_TIMEOUT_SECS * 1000);
 	cass_cluster_set_request_timeout(db->cluster, SQL_QUERY_TIMEOUT_SECS * 1000);
 	cass_cluster_set_contact_points(db->cluster, db->hosts);
+	if (db->user != NULL && db->password != NULL)
+		cass_cluster_set_credentials(db->cluster, db->user, db->password);
 	if (db->port != 0)
 		cass_cluster_set_port(db->cluster, db->port);
 	if (db->protocol_version != 0)
@@ -487,6 +495,8 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 	i_free(db->hosts);
 	i_free(db->error);
 	i_free(db->keyspace);
+	i_free(db->user);
+	i_free(db->password);
 	array_free(&_db->module_contexts);
 	i_free(db);
 }
