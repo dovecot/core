@@ -20,6 +20,18 @@ static int tm_cmp(const struct tm *tm1, const struct tm *tm2)
 	return tm1->tm_sec - tm2->tm_sec;
 }
 
+#ifdef HAVE_TIMEGM
+time_t utc_mktime(const struct tm *tm)
+{
+	struct tm mod_tm = *tm;
+	time_t t;
+
+	t = timegm(&mod_tm);
+	if (tm_cmp(tm, &mod_tm) != 0)
+		return (time_t)-1;
+	return t;
+}
+#else
 time_t utc_mktime(const struct tm *tm)
 {
 	const struct tm *try_tm;
@@ -51,3 +63,4 @@ time_t utc_mktime(const struct tm *tm)
 
 	return (time_t)-1;
 }
+#endif
