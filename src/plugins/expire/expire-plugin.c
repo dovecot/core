@@ -405,17 +405,17 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 	struct dict *db;
 	const char *dict_uri, *error;
 
-	dict_uri = mail_user_plugin_getenv(user, "expire_dict");
 	if (mail_user_plugin_getenv(user, "expire") == NULL) {
 		if (user->mail_debug)
 			i_debug("expire: No expire setting - plugin disabled");
 		return;
 	}
+
+	dict_uri = mail_user_plugin_getenv(user, "expire_dict");
 	if (dict_uri == NULL) {
 		i_error("expire plugin: expire_dict setting missing");
 		return;
 	}
-
 	/* we're using only shared dictionary, the username doesn't matter. */
 	if (dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
 		      user->set->base_dir, &db, &error) < 0) {
