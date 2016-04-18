@@ -11,7 +11,6 @@ struct director_settings {
 	const char *director_username_hash;
 	unsigned int director_user_expire;
 	unsigned int director_user_kick_delay;
-	in_port_t director_doveadm_port;
 	bool director_consistent_hashing;
 };
 

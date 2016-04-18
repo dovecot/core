@@ -23,7 +23,7 @@ static const struct setting_define mdbox_setting_defines[] = {
 static const struct mdbox_settings mdbox_default_settings = {
 	.mdbox_preallocate_space = FALSE,
 	.mdbox_purge_preserve_alt = FALSE,
-	.mdbox_rotate_size = 2*1024*1024,
+	.mdbox_rotate_size = 10*1024*1024,
 	.mdbox_rotate_interval = 0
 };
 
