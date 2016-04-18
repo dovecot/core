@@ -106,8 +106,7 @@ listener_get_socket_type_fallback(int listen_fd)
 	return DIRECTOR_SOCKET_TYPE_AUTH;
 }
 
-static void listener_sockets_init(const struct director_settings *set,
-				  struct ip_addr *listen_ip_r,
+static void listener_sockets_init(struct ip_addr *listen_ip_r,
 				  in_port_t *listen_port_r)
 {
 	const char *name;
@@ -248,7 +247,7 @@ static void main_preinit(void)
 	}
 	set = master_service_settings_get_others(master_service)[0];
 
-	listener_sockets_init(set, &listen_ip, &listen_port);
+	listener_sockets_init(&listen_ip, &listen_port);
 	if (listen_port == 0 && *set->director_servers != '\0') {
 		i_fatal("No inet_listeners defined for director service "
 			"(for standalone keep director_servers empty)");
