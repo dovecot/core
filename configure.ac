@@ -456,7 +456,7 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 	       getmntinfo setpriority quotactl getmntent kqueue kevent \
 	       backtrace_symbols walkcontext dirfd clearenv \
 	       malloc_usable_size glob fallocate posix_fadvise \
-	       getpeereid getpeerucred inotify_init)
+	       getpeereid getpeerucred inotify_init timegm)
 
 AC_CHECK_TYPES([struct sockpeercred],,,[
 #include <sys/types.h>
