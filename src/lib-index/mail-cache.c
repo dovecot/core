@@ -487,6 +487,8 @@ int mail_cache_open_and_verify(struct mail_cache *cache)
 {
 	int ret;
 
+	if (cache->opened)
+		return 0;
 	ret = mail_cache_try_open(cache);
 	if (ret > 0)
 		ret = mail_cache_header_fields_read(cache);
