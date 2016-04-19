@@ -26,7 +26,6 @@ static void i_stream_sized_destroy(struct iostream_private *stream)
 		/* get to same position in parent stream */
 		i_stream_seek(sstream->istream.parent, v_offset);
 	}
-	i_stream_unref(&sstream->istream.parent);
 }
 
 static const char *

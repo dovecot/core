@@ -16,7 +16,6 @@ static void i_stream_failure_at_destroy(struct iostream_private *stream)
 		(struct failure_at_istream *)stream;
 
 	i_free(fstream->error_string);
-	i_stream_unref(&fstream->istream.parent);
 }
 
 static ssize_t

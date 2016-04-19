@@ -33,7 +33,6 @@ static void i_stream_rawlog_destroy(struct iostream_private *stream)
                /* get to same position in parent stream */
                i_stream_seek(rstream->istream.parent, v_offset);
        }
-       i_stream_unref(&rstream->istream.parent);
 }
 
 static ssize_t i_stream_rawlog_read(struct istream_private *stream)
