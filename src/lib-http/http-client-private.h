@@ -122,6 +122,7 @@ struct http_client_request {
 	unsigned int connect_tunnel:1;
 	unsigned int connect_direct:1;
 	unsigned int ssl_tunnel:1;
+	unsigned int preserve_exact_reason:1;
 };
 
 struct http_client_connection {

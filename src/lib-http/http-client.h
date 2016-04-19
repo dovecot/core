@@ -194,6 +194,7 @@ void http_client_request_set_port(struct http_client_request *req,
 void http_client_request_set_ssl(struct http_client_request *req,
 	bool ssl);
 void http_client_request_set_urgent(struct http_client_request *req);
+void http_client_request_set_preserve_exact_reason(struct http_client_request *req);
 
 void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value);
