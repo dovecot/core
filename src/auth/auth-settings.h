@@ -18,6 +18,7 @@ struct auth_passdb_settings {
 	bool deny;
 	bool pass; /* deprecated, use result_success=continue instead */
 	bool master;
+	const char *auth_verbose;
 };
 
 struct auth_userdb_settings {
@@ -31,6 +32,7 @@ struct auth_userdb_settings {
 	const char *result_success;
 	const char *result_failure;
 	const char *result_internalfail;
+	const char *auth_verbose;
 };
 
 struct auth_settings {
