@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libpassword.a
+noinst_LTLIBRARIES = libpassword.la
 auth_moduledir = $(moduledir)/auth
 
 # automake seems to force making this unconditional..
@@ -41,7 +41,7 @@ AM_CPPFLAGS = \
 
 auth_LDFLAGS = -export-dynamic
 
-libpassword_a_SOURCES = \
+libpassword_la_SOURCES = \
 	mycrypt.c \
 	password-scheme.c \
 	password-scheme-crypt.c \
@@ -53,12 +53,13 @@ libpassword_a_SOURCES = \
 
 auth_libs = \
 	libstats_auth.la \
-	libpassword.a \
-	../lib-ntlm/libntlm.a \
-	../lib-otp/libotp.a \
+	libpassword.la \
+	../lib-ntlm/libntlm.la \
+	../lib-otp/libotp.la \
 	$(LIBDOVECOT_SQL)
 
-auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS)
+auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
+auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS)
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
@@ -198,7 +199,8 @@ libauthdb_imap_la_SOURCES = passdb-imap.c
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
-checkpassword_reply_LDADD = $(LIBDOVECOT)
+checkpassword_reply_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
+checkpassword_reply_LDADD = $(LIBDOVECOT) $(BINARY_LDFLAGS)
 checkpassword_reply_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 checkpassword_reply_sources = \
@@ -223,16 +225,16 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-test_auth_cache_SOURCES = test-auth-cache.c
-test_auth_cache_LDADD = auth-cache.o $(test_libs)
+test_auth_cache_SOURCES = auth-cache.c test-auth-cache.c
+test_auth_cache_LDADD = $(test_libs)
 test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
-test_auth_request_var_expand_SOURCES = test-auth-request-var-expand.c
-test_auth_request_var_expand_LDADD = auth-request-var-expand.o auth-fields.o $(test_libs)
+test_auth_request_var_expand_SOURCES = auth-request-var-expand.c auth-fields.c test-auth-request-var-expand.c
+test_auth_request_var_expand_LDADD = $(test_libs)
 test_auth_request_var_expand_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
-test_db_dict_SOURCES = test-db-dict.c
-test_db_dict_LDADD = db-dict-cache-key.o $(test_libs)
+test_db_dict_SOURCES = db-dict-cache-key.c test-db-dict.c
+test_db_dict_LDADD = $(test_libs)
 test_db_dict_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check: check-am check-test

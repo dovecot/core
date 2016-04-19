@@ -1,9 +1,9 @@
-noinst_LIBRARIES = libntlm.a
+noinst_LTLIBRARIES = libntlm.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
-libntlm_a_SOURCES = \
+libntlm_la_SOURCES = \
 	ntlm-des.c \
 	ntlm-encrypt.c \
 	ntlm-message.c

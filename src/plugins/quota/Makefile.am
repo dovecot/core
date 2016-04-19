@@ -57,12 +57,13 @@ lib10_doveadm_quota_plugin_la_SOURCES = \
 
 quota_status_SOURCES = \
 	quota-status.c
-
+quota_status_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 quota_status_LDADD = \
 	$(quota_common_objects) \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT) \
-	$(QUOTA_LIBS)
+	$(QUOTA_LIBS) \
+	$(BINARY_LDFLAGS)
 quota_status_DEPENDENCIES = \
 	$(quota_common_objects) \
 	$(LIBDOVECOT_STORAGE_DEPS) \

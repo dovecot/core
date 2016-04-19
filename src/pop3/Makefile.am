@@ -8,9 +8,11 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
-	-I$(top_srcdir)/src/lib-storage
+	-I$(top_srcdir)/src/lib-storage \
+	$(BINARY_CFLAGS)
 
-pop3_LDFLAGS = -export-dynamic
+pop3_LDFLAGS = -export-dynamic \
+	$(BINARY_LDFLAGS)
 
 pop3_LDADD = \
 	$(LIBDOVECOT_STORAGE) \

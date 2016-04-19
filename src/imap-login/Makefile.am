@@ -9,12 +9,15 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-master \
-	-I$(top_srcdir)/src/login-common
+	-I$(top_srcdir)/src/login-common \
+	$(BINARY_CFLAGS)
 
 imap_login_LDADD = \
 	$(LIBDOVECOT_LOGIN) \
 	$(LIBDOVECOT) \
-	$(SSL_LIBS)
+	$(SSL_LIBS) \
+	$(BINARY_LDFLAGS)
+
 imap_login_DEPENDENCIES = \
 	$(LIBDOVECOT_LOGIN) \
 	$(LIBDOVECOT_DEPS)

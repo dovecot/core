@@ -5,9 +5,11 @@ pkglibexec_PROGRAMS = ipc
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-master
+	-I$(top_srcdir)/src/lib-master \
+	$(BINARY_CFLAGS)
 
-ipc_LDADD = $(LIBDOVECOT) 
+ipc_LDADD = $(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
 ipc_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 ipc_SOURCES = \

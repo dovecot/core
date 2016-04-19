@@ -7,9 +7,10 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
-	-DPKG_STATEDIR=\""$(statedir)"\"
+	-DPKG_STATEDIR=\""$(statedir)"\" \
+	$(BINARY_CFLAGS)
 
-ssl_params_LDADD = $(LIBDOVECOT)
+ssl_params_LDADD = $(LIBDOVECOT) $(BINARY_LDFLAGS)
 ssl_params_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 ssl_params_SOURCES = \
 	main.c \

@@ -8,9 +8,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/replication \
-	-DPKG_STATEDIR=\""$(statedir)"\"
+	-DPKG_STATEDIR=\""$(statedir)"\" \
+	$(BINARY_CFLAGS)
 
-aggregator_LDFLAGS = -export-dynamic
+aggregator_LDFLAGS = -export-dynamic \
+	$(BINARY_LDFLAGS)
+
 aggregator_LDADD = $(LIBDOVECOT)
 aggregator_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 

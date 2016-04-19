@@ -14,9 +14,11 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
-	-I$(top_srcdir)/src/lib-storage/index/raw
+	-I$(top_srcdir)/src/lib-storage/index/raw \
+	$(BINARY_CFLAGS)
 
-lmtp_LDFLAGS = -export-dynamic
+lmtp_LDFLAGS = -export-dynamic \
+	$(BINARY_LDFLAGS)
 
 lmtp_LDADD = \
 	$(LIBDOVECOT_LDA) \

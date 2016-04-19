@@ -6,9 +6,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
-	-I$(top_srcdir)/src/lib-imap
+	-I$(top_srcdir)/src/lib-imap \
+	$(BINARY_CFLAGS)
 
-imap_hibernate_LDADD = $(LIBDOVECOT)
+imap_hibernate_LDADD = $(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
+
 imap_hibernate_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 imap_hibernate_SOURCES = \

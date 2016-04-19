@@ -30,12 +30,13 @@ AM_CPPFLAGS = \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DBINDIR=\""$(bindir)"\" \
-	-DMANDIR=\""$(mandir)"\"
+	-DMANDIR=\""$(mandir)"\" \
+	$(BINARY_CFLAGS)
 
 cmd_pw_libs = \
-	../auth/libpassword.a \
-	../lib-ntlm/libntlm.a \
-	../lib-otp/libotp.a
+	../auth/libpassword.la \
+	../lib-ntlm/libntlm.la \
+	../lib-otp/libotp.la
 
 libs = \
 	dsync/libdsync.la \
@@ -46,7 +47,9 @@ doveadm_LDADD = \
 	$(cmd_pw_libs) \
 	$(CRYPT_LIBS) \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
+
 doveadm_DEPENDENCIES = \
 	$(libs) \
 	$(cmd_pw_libs) \
@@ -56,7 +59,9 @@ doveadm_DEPENDENCIES = \
 doveadm_server_LDADD = \
 	$(libs) \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
+
 doveadm_server_DEPENDENCIES = \
 	$(libs) \
 	$(LIBDOVECOT_STORAGE_DEPS) \
@@ -177,8 +182,8 @@ test_libs = \
 	../lib/liblib.la
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
-test_doveadm_util_SOURCES = test-doveadm-util.c
-test_doveadm_util_LDADD = doveadm-util.o $(test_libs) $(MODULE_LIBS)
+test_doveadm_util_SOURCES = doveadm-util.c test-doveadm-util.c
+test_doveadm_util_LDADD = $(test_libs) $(MODULE_LIBS)
 test_doveadm_util_DEPENDENCIES = $(test_deps)
 
 check: check-am check-test

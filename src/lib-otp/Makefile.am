@@ -1,9 +1,9 @@
-noinst_LIBRARIES = libotp.a
+noinst_LTLIBRARIES = libotp.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib
 
-libotp_a_SOURCES = \
+libotp_la_SOURCES = \
 	otp-dictionary.c \
 	otp-hash.c \
 	otp-parity.c \

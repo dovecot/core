@@ -9,9 +9,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
-	-I$(top_srcdir)/src/lib-mail
+	-I$(top_srcdir)/src/lib-mail \
+	$(BINARY_CFLAGS)
 
-director_LDADD = $(LIBDOVECOT)
+director_LDADD = $(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
+
 director_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 director_SOURCES = \

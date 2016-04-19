@@ -9,12 +9,14 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-sql \
 	-DDICT_MODULE_DIR=\""$(moduledir)/dict"\" \
-	-DPKG_RUNDIR=\""$(rundir)"\"
+	-DPKG_RUNDIR=\""$(rundir)"\" \
+	$(BINARY_CFLAGS)
 
-dict_LDFLAGS = -export-dynamic
+dict_LDFLAGS = -export-dynamic \
+	$(BINARY_LDFLAGS)
 
 libs = \
-	../lib-dict/libdict_backend.a \
+	../lib-dict/libdict_backend.la \
 	$(LIBDOVECOT_SQL)
 
 dict_LDADD = \
@@ -22,6 +24,7 @@ dict_LDADD = \
 	$(LIBDOVECOT) \
 	$(DICT_LIBS) \
 	$(SQL_LIBS)
+
 dict_DEPENDENCIES = $(libs) $(LIBDOVECOT_DEPS)
 
 dict_SOURCES = \

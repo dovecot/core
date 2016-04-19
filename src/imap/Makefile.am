@@ -13,9 +13,11 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap-urlauth \
 	-I$(top_srcdir)/src/lib-imap-storage \
 	-I$(top_srcdir)/src/lib-index \
-	-I$(top_srcdir)/src/lib-storage
+	-I$(top_srcdir)/src/lib-storage \
+	$(BINARY_CFLAGS)
 
-imap_LDFLAGS = -export-dynamic
+imap_LDFLAGS = -export-dynamic \
+	$(BINARY_LDFLAGS)
 
 imap_LDADD = \
 	../lib-imap-urlauth/libimap-urlauth.la \

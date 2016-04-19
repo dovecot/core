@@ -1,5 +1,4 @@
-noinst_LTLIBRARIES = libdict.la
-noinst_LIBRARIES = libdict_backend.a
+noinst_LTLIBRARIES = libdict.la libdict_backend.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -20,13 +19,13 @@ base_sources = \
 libdict_la_SOURCES = \
 	$(base_sources)
 
-libdict_backend_a_SOURCES = \
+libdict_backend_la_SOURCES = \
 	dict-db.c \
 	dict-cdb.c \
 	dict-sql.c \
 	dict-sql-settings.c
 
-nodist_libdict_backend_a_SOURCES = \
+nodist_libdict_backend_la_SOURCES = \
 	dict-drivers-register.c
 
 headers = \

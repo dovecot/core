@@ -6,11 +6,14 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-master
+	-I$(top_srcdir)/src/lib-master \
+	$(BINARY_CFLAGS)
 
 anvil_LDADD = \
 	$(LIBDOVECOT) \
-	$(RAND_LIBS)
+	$(RAND_LIBS) \
+	$(BINARY_LDFLAGS)
+
 anvil_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 anvil_SOURCES = \

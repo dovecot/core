@@ -14,11 +14,14 @@ AM_CPPFLAGS = \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
 	-DPKG_STATEDIR=\""$(statedir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
-	-DBINDIR=\""$(bindir)"\"
+	-DBINDIR=\""$(bindir)"\" \
+	$(BINARY_CFLAGS)
 
 dovecot_LDADD = \
 	$(LIBCAP) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
+
 dovecot_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 dovecot_SOURCES = \

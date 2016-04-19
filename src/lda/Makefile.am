@@ -12,14 +12,17 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-lda \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
-	-I$(top_srcdir)/src/lib-storage/index/raw
+	-I$(top_srcdir)/src/lib-storage/index/raw \
+	$(BINARY_CFLAGS)
 
 dovecot_lda_LDFLAGS = -export-dynamic
 
 dovecot_lda_LDADD = \
 	$(LIBDOVECOT_LDA) \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
+
 dovecot_lda_DEPENDENCIES = \
 	$(LIBDOVECOT_LDA) \
 	$(LIBDOVECOT_STORAGE_DEPS) \

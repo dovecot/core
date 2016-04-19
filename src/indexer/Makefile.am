@@ -9,9 +9,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
-	-DPKG_RUNDIR=\""$(rundir)"\"
+	-DPKG_RUNDIR=\""$(rundir)"\" \
+	$(BINARY_CFLAGS)
 
-indexer_LDADD = $(LIBDOVECOT)
+indexer_LDADD = $(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
+
 indexer_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 indexer_SOURCES = \
 	indexer.c \
@@ -23,7 +26,9 @@ indexer_SOURCES = \
 
 indexer_worker_LDADD = \
 	$(LIBDOVECOT_STORAGE) \
-	$(LIBDOVECOT)
+	$(LIBDOVECOT) \
+	$(BINARY_LDFLAGS)
+
 indexer_worker_DEPENDENCIES = \
 	$(LIBDOVECOT_STORAGE_DEPS) \
 	$(LIBDOVECOT_DEPS)
