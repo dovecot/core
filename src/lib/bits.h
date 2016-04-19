@@ -23,7 +23,7 @@ bits_required16(uint16_t num) { return bits_required32(num); }
 static inline unsigned int ATTR_CONST
 bits_required64(uint64_t num)
 {
-	return num == 0 ? 0 : 64 - __builtin_clzl(num);
+	return num == 0 ? 0 : 64 - __builtin_clzll(num);
 }
 #else
 unsigned int bits_required8(uint8_t num) ATTR_CONST;
