@@ -94,24 +94,19 @@ director_socket_type_get_from_name(const char *path)
 }
 
 static enum director_socket_type
-listener_get_socket_type_fallback(const struct director_settings *set,
-				  int listen_fd)
+listener_get_socket_type_fallback(int listen_fd)
 {
 	in_port_t local_port;
 
 	if (net_getsockname(listen_fd, NULL, &local_port) == 0 &&
 	    local_port != 0) {
 		/* TCP/IP connection */
-		if (local_port == set->director_doveadm_port)
-			return DIRECTOR_SOCKET_TYPE_DOVEADM;
-		else
-			return DIRECTOR_SOCKET_TYPE_RING;
+		return DIRECTOR_SOCKET_TYPE_RING;
 	}
 	return DIRECTOR_SOCKET_TYPE_AUTH;
 }
 
-static void listener_sockets_init(const struct director_settings *set,
-				  struct ip_addr *listen_ip_r,
+static void listener_sockets_init(struct ip_addr *listen_ip_r,
 				  in_port_t *listen_port_r)
 {
 	const char *name;
@@ -131,7 +126,7 @@ static void listener_sockets_init(const struct director_settings *set,
 		type = director_socket_type_get_from_name(name);
 		if (type == DIRECTOR_SOCKET_TYPE_UNKNOWN) {
 			/* mainly for backwards compatibility */
-			type = listener_get_socket_type_fallback(set, listen_fd);
+			type = listener_get_socket_type_fallback(listen_fd);
 		}
 		if (type == DIRECTOR_SOCKET_TYPE_RING && *listen_port_r == 0 &&
 		    net_getsockname(listen_fd, &ip, &port) == 0 && port > 0) {
@@ -252,7 +247,7 @@ static void main_preinit(void)
 	}
 	set = master_service_settings_get_others(master_service)[0];
 
-	listener_sockets_init(set, &listen_ip, &listen_port);
+	listener_sockets_init(&listen_ip, &listen_port);
 	if (listen_port == 0 && *set->director_servers != '\0') {
 		i_fatal("No inet_listeners defined for director service "
 			"(for standalone keep director_servers empty)");

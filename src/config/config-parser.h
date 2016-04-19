@@ -28,5 +28,6 @@ bool config_module_want_parser(struct config_module_parser *parsers,
 			       const char *const *modules,
 			       const struct setting_parser_info *root)
 	ATTR_NULL(2);
+void config_parser_deinit(void);
 
 #endif

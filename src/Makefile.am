@@ -1,3 +1,7 @@
+if HAVE_LDAP
+LIB_LDAP=lib-ldap
+endif
+
 LIBDOVECOT_SUBDIRS = \
 	lib-test \
 	lib \
@@ -6,6 +10,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-master \
 	lib-charset \
 	lib-dns \
+	$(LIB_LDAP) \
 	lib-dict \
 	lib-sasl \
 	lib-ssl-iostream \

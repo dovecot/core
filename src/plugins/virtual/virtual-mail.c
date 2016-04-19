@@ -55,6 +55,21 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 	return &vmail->imail.mail.mail;
 }
 
+static void virtual_mail_close(struct mail *mail)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mail **mails;
+	unsigned int i, count;
+
+	mails = array_get_modifiable(&vmail->backend_mails, &count);
+	for (i = 0; i < count; i++) {
+		struct mail_private *p = (struct mail_private *)mails[i];
+
+		p->v.close(mails[i]);
+	}
+	index_mail_close(mail);
+}
+
 static void virtual_mail_free(struct mail *mail)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
@@ -487,7 +502,7 @@ virtual_mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
 }
 
 struct mail_vfuncs virtual_mail_vfuncs = {
-	NULL,
+	virtual_mail_close,
 	virtual_mail_free,
 	virtual_mail_set_seq,
 	virtual_mail_set_uid,

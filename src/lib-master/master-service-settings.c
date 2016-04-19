@@ -107,7 +107,7 @@ master_service_exec_config(struct master_service *service,
 			   const struct master_service_settings_input *input)
 {
 	const char **conf_argv, *binary_path = service->argv[0];
-	const char *home = NULL, *user = NULL;
+	const char *home = NULL, *user = NULL, *timestamp = NULL;
 	unsigned int i, argv_max_count;
 
 	(void)t_binary_abspath(&binary_path);
@@ -117,11 +117,15 @@ master_service_exec_config(struct master_service *service,
 			home = getenv("HOME");
 		if (input->preserve_user)
 			user = getenv("USER");
+		if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0)
+			timestamp = getenv("LOG_STDERR_TIMESTAMP");
 		master_service_env_clean();
 		if (home != NULL)
 			env_put(t_strconcat("HOME=", home, NULL));
 		if (user != NULL)
 			env_put(t_strconcat("USER=", user, NULL));
+		if (timestamp != NULL)
+			env_put(t_strconcat("LOG_STDERR_TIMESTAMP=", timestamp, NULL));
 	}
 	if (input->use_sysexits)
 		env_put("USE_SYSEXITS=1");
@@ -479,6 +483,7 @@ int master_service_settings_read(struct master_service *service,
 			}
 			i_close_fd(&fd);
 			config_exec_fallback(service, input);
+			settings_parser_deinit(&parser);
 			return -1;
 		}
 
@@ -494,19 +499,23 @@ int master_service_settings_read(struct master_service *service,
 
 	if (use_environment || service->keep_environment) {
 		if (settings_parse_environ(parser) < 0) {
-			*error_r = settings_parser_get_error(parser);
+			*error_r = t_strdup(settings_parser_get_error(parser));
+			settings_parser_deinit(&parser);
 			return -1;
 		}
 	}
 
 	if (array_is_created(&service->config_overrides)) {
 		if (master_service_apply_config_overrides(service, parser,
-							  error_r) < 0)
+							  error_r) < 0) {
+			settings_parser_deinit(&parser);
 			return -1;
+		}
 	}
 
 	if (!settings_parser_check(parser, service->set_pool, &error)) {
 		*error_r = t_strdup_printf("Invalid settings: %s", error);
+		settings_parser_deinit(&parser);
 		return -1;
 	}
 

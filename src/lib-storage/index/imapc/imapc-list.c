@@ -301,6 +301,7 @@ static void imapc_list_send_hierarcy_sep_lookup(struct imapc_mailbox_list *list)
 
 	cmd = imapc_client_cmd(list->client->client,
 			       imapc_storage_sep_callback, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_send(cmd, "LIST \"\" \"\"");
 }
 
@@ -324,9 +325,11 @@ static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	char sep;
 
-	if (imapc_list_try_get_root_sep(list, &sep) < 0) {
-		/* we can't really fail here. just return a common separator
-		   and keep failing all list commands until it succeeds. */
+	if (list->root_sep_lookup_failed ||
+	    imapc_list_try_get_root_sep(list, &sep) < 0) {
+		/* we can't really return a failure here. just return a common
+		   separator and fail all the future list operations. */
+		list->root_sep_lookup_failed = TRUE;
 		return '/';
 	}
 	return sep;
@@ -546,6 +549,10 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	struct mailbox_node *node;
 	const char *pattern;
 
+	if (list->root_sep_lookup_failed) {
+		mailbox_list_set_internal_error(&list->list);
+		return -1;
+	}
 	if (list->refreshed_mailboxes)
 		return 0;
 
@@ -559,6 +566,7 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	}
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "LIST \"\" %s", pattern);
 	mailbox_tree_deinit(&list->mailboxes);
 	list->mailboxes = mailbox_tree_init(mail_namespace_get_sep(list->list.ns));
@@ -774,6 +782,11 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 
 	i_assert(src_list->tmp_subscriptions == NULL);
 
+	if (src_list->root_sep_lookup_failed) {
+		mailbox_list_set_internal_error(_src_list);
+		return -1;
+	}
+
 	if (src_list->refreshed_subscriptions) {
 		if (dest_list->subscriptions == NULL)
 			dest_list->subscriptions = mailbox_tree_init(dest_sep);
@@ -788,8 +801,12 @@ imapc_list_subscriptions_refresh(struct mailbox_list *_src_list,
 		pattern = "*";
 	else
 		pattern = t_strdup_printf("%s*", src_list->set->imapc_list_prefix);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "LSUB \"\" %s", pattern);
 	imapc_simple_run(&ctx);
+
+	if (ctx.ret < 0)
+		return -1;
 
 	/* replace subscriptions tree in destination */
 	if (dest_list->subscriptions != NULL)
@@ -810,6 +827,7 @@ static int imapc_list_set_subscribed(struct mailbox_list *_list,
 	struct imapc_simple_context ctx;
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, set ? "SUBSCRIBE %s" : "UNSUBSCRIBE %s",
 			    imapc_list_to_remote(list, name));
 	imapc_simple_run(&ctx);
@@ -828,6 +846,7 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	capa = imapc_client_get_capabilities(list->client->client);
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	if (!imapc_command_connection_is_selected(cmd))
 		imapc_command_abort(&cmd);
 	else {
@@ -840,6 +859,7 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	}
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "DELETE %s", imapc_list_to_remote(list, name));
 	imapc_simple_run(&ctx);
 

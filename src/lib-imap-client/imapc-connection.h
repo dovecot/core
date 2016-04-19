@@ -8,6 +8,9 @@
 #define IMAPC_THROTTLE_DEFAULT_MAX_MSECS (16*1000)
 #define IMAPC_THROTTLE_DEFAULT_SHRINK_MIN_MSECS 500
 
+/* If connect() fails, how long should we wait before reconnection */
+#define IMAPC_CONNECT_RETRY_WAIT_MSECS 1000
+
 struct imapc_client;
 struct imapc_connection;
 
@@ -52,6 +55,5 @@ struct imapc_client_mailbox *
 imapc_connection_get_mailbox(struct imapc_connection *conn);
 
 void imapc_connection_idle(struct imapc_connection *conn);
-void imapc_connection_set_reconnected(struct imapc_connection *conn);
 
 #endif

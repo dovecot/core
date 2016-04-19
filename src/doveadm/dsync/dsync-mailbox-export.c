@@ -63,6 +63,7 @@ struct dsync_mailbox_exporter {
 	unsigned int minimal_dmail_fill:1;
 	unsigned int return_all_mails:1;
 	unsigned int export_received_timestamps:1;
+	unsigned int no_hdr_hashes:1;
 };
 
 static int dsync_mail_error(struct dsync_mailbox_exporter *exporter,
@@ -163,6 +164,10 @@ exporter_get_guids(struct dsync_mailbox_exporter *exporter,
 
 	if (!exporter->mails_have_guids) {
 		/* get header hash also */
+		if (exporter->no_hdr_hashes) {
+			*hdr_hash_r = "";
+			return 1;
+		}
 		if (dsync_mail_get_hdr_hash(mail, exporter->hdr_hash_version, hdr_hash_r) < 0)
 			return dsync_mail_error(exporter, mail, "hdr-stream");
 		return 1;
@@ -505,13 +510,15 @@ dsync_mailbox_export_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS) != 0;
 	exporter->hdr_hash_version =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2) ? 2 : 1;
+	exporter->no_hdr_hashes =
+		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES) != 0;
 	p_array_init(&exporter->requested_uids, pool, 16);
 	p_array_init(&exporter->search_uids, pool, 16);
 	hash_table_create(&exporter->export_guids, pool, 0, str_hash, strcmp);
 	p_array_init(&exporter->expunged_seqs, pool, 16);
 	p_array_init(&exporter->expunged_guids, pool, 16);
 
-	if (!exporter->mails_have_guids)
+	if (!exporter->mails_have_guids && !exporter->no_hdr_hashes)
 		exporter->wanted_headers = dsync_mail_get_hash_headers(box);
 
 	/* first scan transaction log and save any expunges and flag changes */

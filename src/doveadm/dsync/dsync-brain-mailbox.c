@@ -322,6 +322,12 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS;
 	if (brain->hdr_hash_v2)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2;
+	if (remote_dsync_box->messages_count == 0) {
+		/* remote mailbox is empty - we don't really need to export
+		   header hashes since they're not going to match anything
+		   anyway. */
+		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES;
+	}
 
 	brain->box_exporter = brain->backup_recv ? NULL :
 		dsync_mailbox_export_init(brain->box, brain->log_scan,

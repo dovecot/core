@@ -545,6 +545,18 @@ static void inbox_set_children_flags(struct ns_list_iterate_context *ctx)
 		ctx->inbox_info.flags |= MAILBOX_NOCHILDREN;
 }
 
+static void mailbox_list_ns_iter_failed(struct ns_list_iterate_context *ctx)
+{
+	enum mail_error error;
+	const char *errstr;
+
+	if (ctx->cur_ns->list != ctx->error_list) {
+		errstr = mailbox_list_get_last_error(ctx->cur_ns->list, &error);
+		mailbox_list_set_error(ctx->error_list, error, errstr);
+	}
+	ctx->ctx.failed = TRUE;
+}
+
 static bool
 mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 			      const struct mailbox_info **info_r)
@@ -553,8 +565,6 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 		(struct ns_list_iterate_context *)_ctx;
 	struct mail_namespace *ns;
 	const struct mailbox_info *info;
-	enum mail_error error;
-	const char *errstr;
 	bool has_children;
 
 	if (ctx->cur_ns == NULL) {
@@ -640,12 +650,8 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 	}
 
 	/* finished with this namespace */
-	if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0) {
-		errstr = mailbox_list_get_last_error(ctx->cur_ns->list,
-						     &error);
-		mailbox_list_set_error(ctx->error_list, error, errstr);
-		_ctx->failed = TRUE;
-	}
+	if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
+		mailbox_list_ns_iter_failed(ctx);
 	ctx->cur_ns = ctx->cur_ns->next;
 	return FALSE;
 }
@@ -664,17 +670,11 @@ mailbox_list_ns_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 {
 	struct ns_list_iterate_context *ctx =
 		(struct ns_list_iterate_context *)_ctx;
-	enum mail_error error;
-	const char *errstr;
 	int ret;
 
 	if (ctx->backend_ctx != NULL) {
-		if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0) {
-			errstr = mailbox_list_get_last_error(ctx->cur_ns->list,
-							     &error);
-			mailbox_list_set_error(ctx->error_list, error, errstr);
-			_ctx->failed = TRUE;
-		}
+		if (mailbox_list_iter_deinit(&ctx->backend_ctx) < 0)
+			mailbox_list_ns_iter_failed(ctx);
 	}
 	ret = _ctx->failed ? -1 : 0;
 	pool_unref(&ctx->pool);

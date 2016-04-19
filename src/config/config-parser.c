@@ -31,6 +31,8 @@
 #define DNS_LOOKUP_TIMEOUT_SECS 30
 #define DNS_LOOKUP_WARN_SECS 5
 
+ARRAY_DEFINE_TYPE(setting_parser_info_p, const struct setting_parser_info *);
+
 static const enum settings_parser_flags settings_parser_flags =
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS |
 	SETTINGS_PARSER_FLAG_TRACK_CHANGES;
@@ -41,6 +43,9 @@ struct module *modules;
 void (*hook_config_parser_begin)(struct config_parser_context *ctx);
 int (*hook_config_parser_end)(struct config_parser_context *ctx,
 			      const char **error_r);
+
+static ARRAY_TYPE(service_settings) services_free_at_deinit = ARRAY_INIT;
+static ARRAY_TYPE(setting_parser_info_p) roots_free_at_deinit = ARRAY_INIT;
 
 static const char *info_type_name_find(const struct setting_parser_info *info)
 {
@@ -833,6 +838,31 @@ static int config_write_value(struct config_parser_context *ctx,
 	return 0;
 }
 
+static void
+config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
+{
+	const char *path, *first_pos;
+
+	first_pos = hash_table_lookup(ctx->seen_settings, str_c(ctx->str));
+	if (ctx->cur_section->prev == NULL) {
+		/* changing a root setting. if we've already seen it inside
+		   filters, log a warning. */
+		if (first_pos == NULL)
+			return;
+		i_warning("%s line %u: Global setting %s won't change the setting inside an earlier filter at %s "
+			  "(if this is intentional, avoid this warning by moving the global setting before %s)",
+			  ctx->cur_input->path, ctx->cur_input->linenum,
+			  key, first_pos, first_pos);
+		return;
+	}
+	if (first_pos != NULL)
+		return;
+	first_pos = p_strdup_printf(ctx->pool, "%s line %u",
+				    ctx->cur_input->path, ctx->cur_input->linenum);
+	path = p_strdup(ctx->pool, str_c(ctx->str));
+	hash_table_insert(ctx->seen_settings, path, first_pos);
+}
+
 void config_parser_apply_line(struct config_parser_context *ctx,
 			      enum config_line_type type,
 			      const char *key, const char *value)
@@ -852,6 +882,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
 		str_append(ctx->str, key);
+		config_parser_check_warnings(ctx, key);
 		str_append_c(ctx->str, '=');
 
 		if (config_write_value(ctx, type, key, value) < 0)
@@ -949,6 +980,7 @@ int config_parse_file(const char *path, bool expand_values,
 	ctx.cur_input = &root;
 	ctx.expand_values = expand_values;
 	ctx.modules = modules;
+	hash_table_create(&ctx.seen_settings, ctx.pool, 0, str_hash, strcmp);
 
 	p_array_init(&ctx.all_parsers, ctx.pool, 128);
 	ctx.cur_section = p_new(ctx.pool, struct config_section_stack, 1);
@@ -996,6 +1028,7 @@ prevfile:
 	if (line == NULL && ctx.cur_input != NULL)
 		goto prevfile;
 
+	hash_table_destroy(&ctx.seen_settings);
 	str_free(&full_line);
 	if (ret == 0)
 		ret = config_parse_finish(&ctx, error_r);
@@ -1007,7 +1040,7 @@ void config_parse_load_modules(void)
 	struct module_dir_load_settings mod_set;
 	struct module *m;
 	const struct setting_parser_info **roots;
-	ARRAY(const struct setting_parser_info *) new_roots;
+	ARRAY_TYPE(setting_parser_info_p) new_roots;
 	ARRAY_TYPE(service_settings) new_services;
 	struct service_settings *const *services, *service_set;
 	unsigned int i, count;
@@ -1046,6 +1079,9 @@ void config_parse_load_modules(void)
 			array_append(&new_roots, &all_roots[i], 1);
 		array_append_zero(&new_roots);
 		all_roots = array_idx(&new_roots, 0);
+		roots_free_at_deinit = new_roots;
+	} else {
+		array_free(&new_roots);
 	}
 	if (array_count(&new_services) > 0) {
 		/* module added new services. update the defaults. */
@@ -1053,6 +1089,9 @@ void config_parse_load_modules(void)
 		for (i = 0; i < count; i++)
 			array_append(&new_services, &services[i], 1);
 		*default_services = new_services;
+		services_free_at_deinit = new_services;
+	} else {
+		array_free(&new_services);
 	}
 }
 
@@ -1101,4 +1140,12 @@ bool config_module_want_parser(struct config_module_parser *parsers,
 			return TRUE;
 	}
 	return FALSE;
+}
+
+void config_parser_deinit(void)
+{
+	if (array_is_created(&services_free_at_deinit))
+		array_free(&services_free_at_deinit);
+	if (array_is_created(&roots_free_at_deinit))
+		array_free(&roots_free_at_deinit);
 }

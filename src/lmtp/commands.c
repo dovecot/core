@@ -655,6 +655,17 @@ int cmd_rcpt(struct client *client, const char *args)
 			return 0;
 	}
 
+	/* Use a unique session_id for each mail delivery. This is especially
+	   important for stats process to not see duplicate sessions. */
+	if (array_count(&client->state.rcpt_to) == 0)
+		rcpt->session_id = client->state.session_id;
+	else {
+		rcpt->session_id =
+			p_strdup_printf(client->state_pool, "%s:%u",
+					client->state.session_id,
+					array_count(&client->state.rcpt_to)+1);
+	}
+
 	memset(&input, 0, sizeof(input));
 	input.module = input.service = "lmtp";
 	input.username = username;
@@ -662,7 +673,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	input.remote_ip = client->remote_ip;
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
-	input.session_id = client->state.session_id;
+	input.session_id = rcpt->session_id;
 
 	ret = mail_storage_service_lookup(storage_service, &input,
 					  &rcpt->service_user, &error);
@@ -829,7 +840,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.pool = session->pool;
 	dctx.set = lda_set;
 	dctx.timeout_secs = LDA_SUBMISSION_TIMEOUT_SECS;
-	dctx.session_id = client->state.session_id;
+	dctx.session_id = rcpt->session_id;
 	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;
 	dctx.dest_user = client->state.dest_user;
@@ -870,7 +881,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			client->state.first_saved_mail = dctx.dest_mail;
 		}
 		client_send_line(client, "250 2.0.0 <%s> %s Saved",
-				 rcpt->address, client->state.session_id);
+				 rcpt->address, rcpt->session_id);
 		ret = 0;
 	} else if (dctx.tempfail_error != NULL) {
 		client_send_line(client, "451 4.2.0 <%s> %s",

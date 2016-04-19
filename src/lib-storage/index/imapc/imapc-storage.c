@@ -430,8 +430,10 @@ imapc_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 {
 	enum mailbox_info_flags flags;
 
-	if (imapc_list_get_mailbox_flags(box->list, box->name, &flags) < 0)
+	if (imapc_list_get_mailbox_flags(box->list, box->name, &flags) < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
+	}
 	if ((flags & MAILBOX_NONEXISTENT) != 0)
 		*existence_r = MAILBOX_EXISTENCE_NONE;
 	else if ((flags & MAILBOX_NOSELECT) != 0)
@@ -811,6 +813,7 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 	mbox->storage->cur_status = status_r;
 	cmd = imapc_client_cmd(mbox->storage->client->client,
 			       imapc_simple_callback, &sctx);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, "STATUS %s (%1s)",
 			    imapc_mailbox_get_remote_name(mbox), str_c(str)+1);
 	imapc_simple_run(&sctx);
@@ -870,6 +873,7 @@ static int imapc_mailbox_get_namespaces(struct imapc_storage *storage)
 	imapc_simple_context_init(&sctx, storage->client);
 	cmd = imapc_client_cmd(storage->client->client,
 			       imapc_simple_callback, &sctx);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_send(cmd, "NAMESPACE");
 	imapc_simple_run(&sctx);
 
