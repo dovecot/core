@@ -78,7 +78,10 @@ enum mail_storage_class_flags {
 	MAIL_STORAGE_CLASS_FLAG_BINARY_DATA	= 0x100,
 	/* Message GUIDs can only be 128bit (always set
 	   mailbox_status.have_only_guid128) */
-	MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUID128 = 0x200
+	MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUID128 = 0x200,
+	/* Storage deletes all files internally - mailbox list's
+	   delete_mailbox() shouldn't delete anything itself. */
+	MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES	= 0x400
 };
 
 struct mail_binary_cache {

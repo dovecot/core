@@ -526,7 +526,8 @@ index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	if (ret <= 0)
 		return ret;
 
-	if ((_list->flags & MAILBOX_LIST_FLAG_NO_MAIL_FILES) != 0) {
+	if ((_list->flags & (MAILBOX_LIST_FLAG_NO_MAIL_FILES |
+			     MAILBOX_LIST_FLAG_NO_DELETES)) != 0) {
 		ret = 0;
 	} else if ((_list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
 		ret = mailbox_list_delete_mailbox_file(_list, name, path);
@@ -535,7 +536,8 @@ index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 							       path, TRUE);
 	}
 
-	if (ret == 0 || (_list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) != 0)
+	if ((ret == 0 || (_list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) != 0) &&
+	    (_list->flags & MAILBOX_LIST_FLAG_NO_DELETES) == 0)
 		index_list_delete_finish(_list, name);
 	if (ret == 0) {
 		if (index_list_delete_entry(list, name, TRUE) < 0)
