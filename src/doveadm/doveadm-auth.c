@@ -7,6 +7,7 @@
 #include "base64.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "var-expand.h"
 #include "wildcard-match.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -529,7 +530,7 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 static int
 cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		    const struct authtest_input *input,
-		    const char *show_field)
+		    const char *show_field, const char *expand_field)
 {
 	struct mail_storage_service_input service_input;
 	struct mail_storage_service_user *service_user;
@@ -558,13 +559,21 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		pool_unref(&pool);
 		if (ret < 0)
 			return -1;
-		fprintf(show_field == NULL ? stdout : stderr,
+		fprintf(show_field == NULL && expand_field == NULL ? stdout : stderr,
 			"userdb lookup: user %s doesn't exist\n",
 			input->username);
 		return 0;
 	}
 
-	cmd_user_mail_print_fields(input, user, userdb_fields, show_field);
+	if (expand_field == NULL)
+		cmd_user_mail_print_fields(input, user, userdb_fields, show_field);
+	else {
+		string_t *str = t_str_new(128);
+		var_expand_with_funcs(str, expand_field,
+				      mail_user_var_expand_table(user),
+				      mail_user_var_expand_func_table, user);
+		printf("%s\n", str_c(str));
+	}
 
 	mail_user_unref(&user);
 	mail_storage_service_user_free(&service_user);
@@ -577,17 +586,20 @@ static void cmd_user(int argc, char *argv[])
 	const char *auth_socket_path = doveadm_settings->auth_socket_path;
 	struct auth_master_connection *conn;
 	struct authtest_input input;
-	const char *show_field = NULL;
+	const char *show_field = NULL, *expand_field = NULL;
 	struct mail_storage_service_ctx *storage_service = NULL;
 	unsigned int i;
 	bool have_wildcards, userdb_only = FALSE, first = TRUE;
 	int c, ret;
 
 	authtest_input_init(&input);
-	while ((c = getopt(argc, argv, "a:f:ux:")) > 0) {
+	while ((c = getopt(argc, argv, "a:e:f:ux:")) > 0) {
 		switch (c) {
 		case 'a':
 			auth_socket_path = optarg;
+			break;
+		case 'e':
+			expand_field = optarg;
 			break;
 		case 'f':
 			show_field = optarg;
@@ -601,6 +613,17 @@ static void cmd_user(int argc, char *argv[])
 		default:
 			auth_cmd_help(cmd_user);
 		}
+	}
+
+	if (expand_field != NULL && userdb_only) {
+		i_error("-e can't be used with -u");
+		doveadm_exit_code = EX_USAGE;
+		return;
+	}
+	if (expand_field != NULL && show_field != NULL) {
+		i_error("-e can't be used with -f");
+		doveadm_exit_code = EX_USAGE;
+		return;
 	}
 
 	if (optind == argc)
@@ -633,7 +656,7 @@ static void cmd_user(int argc, char *argv[])
 			MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS);
 		mail_storage_service_set_auth_conn(storage_service, conn);
 		conn = NULL;
-		if (show_field == NULL) {
+		if (show_field == NULL && expand_field == NULL) {
 			doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
 			doveadm_print_header_simple("field");
 			doveadm_print_header_simple("value");
@@ -647,7 +670,7 @@ static void cmd_user(int argc, char *argv[])
 			putchar('\n');
 
 		ret = !userdb_only ?
-			cmd_user_mail_input(storage_service, &input, show_field) :
+			cmd_user_mail_input(storage_service, &input, show_field, expand_field) :
 			cmd_user_input(conn, &input, show_field, TRUE);
 		switch (ret) {
 		case -1:
@@ -674,7 +697,7 @@ struct doveadm_cmd doveadm_cmd_auth[] = {
 	{ cmd_auth_cache_flush, "auth cache flush",
 	  "[-a <master socket path>] [<user> [...]]" },
 	{ cmd_user, "user",
-	  "[-a <userdb socket path>] [-x <auth info>] [-f field] [-u] <user mask> [...]" }
+	  "[-a <userdb socket path>] [-x <auth info>] [-f field] [-e <value>] [-u] <user mask> [...]" }
 };
 
 static void auth_cmd_help(doveadm_command_t *cmd)
