@@ -154,6 +154,25 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 	return zmail->module_ctx.super.istream_opened(_mail, stream);
 }
 
+static void zlib_mail_close(struct mail *_mail)
+{
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct zlib_mail *zmail = ZLIB_MAIL_CONTEXT(mail);
+	struct zlib_user *zuser = ZLIB_USER_CONTEXT(_mail->box->storage->user);
+	struct zlib_mail_cache *cache = &zuser->cache;
+	uoff_t size;
+
+	if (cache->uid == _mail->uid && cache->box == _mail->box) {
+		/* make sure we have read the entire email into the seekable
+		   stream (which causes the original input stream to be
+		   unrefed). we can't safely keep the original input stream
+		   open after the mail is closed. */
+		if (i_stream_get_size(cache->input, TRUE, &size) < 0)
+			zlib_mail_cache_close(zuser);
+	}
+	return zmail->module_ctx.super.close(_mail);
+}
+
 static void zlib_mail_allocated(struct mail *_mail)
 {
 	struct zlib_transaction_context *zt = ZLIB_CONTEXT(_mail->transaction);
@@ -169,6 +188,7 @@ static void zlib_mail_allocated(struct mail *_mail)
 	mail->vlast = &zmail->module_ctx.super;
 
 	v->istream_opened = zlib_istream_opened;
+	v->close = zlib_mail_close;
 	MODULE_CONTEXT_SET(mail, zlib_mail_module, zmail);
 }
 
