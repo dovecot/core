@@ -16,6 +16,14 @@ PKG_PROG_PKG_CONFIG
 ACLOCAL_AMFLAGS='-I $(top_srcdir)/m4'
 AC_SUBST(ACLOCAL_AMFLAGS)
 
+AC_ARG_ENABLE(hardening,
+AS_HELP_STRING([--disable-hardening=no], [Disable various hardenings (default: no)]),
+        disable_hardening=$enableval,
+        disable_hardening=no)
+
+AC_MSG_CHECKING([Whether to disable hardening])
+AC_MSG_RESULT([$disable_hardening])
+
 AC_ARG_ENABLE(devel-checks,
 AS_HELP_STRING([--enable-devel-checks], [Enable some extra expensive checks for developers]),
 	if test x$enableval = xyes; then
@@ -316,6 +324,10 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h inttypes.h \
   sys/utsname.h glob.h linux/falloc.h ucred.h sys/ucred.h)
 
 CC_CLANG
+AC_CC_PIE
+AC_CC_F_STACK_PROTECTOR
+AC_CC_D_FORTIFY_SOURCE
+AC_LD_RELRO
 
 DOVECOT_CFLAGS
 
@@ -785,6 +797,12 @@ AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", [IMAP capabilities])
 AC_DEFINE_UNQUOTED(CAPABILITY_BANNER_STRING, "$capability_banner", [IMAP capabilities advertised in banner])
 
 CFLAGS="$CFLAGS $EXTRA_CFLAGS"
+BINARY_LDFLAGS="$PIE_LDFLAGS $RELRO_LDFLAGS"
+BINARY_CFLAGS="$PIE_CFLAGS"
+
+AC_SUBST(BINARY_CFLAGS)
+AC_SUBST(BINARY_LDFLAGS)
+
 NOPLUGIN_LDFLAGS="-no-undefined"
 if test "$with_gnu_ld" = yes; then
   NOPLUGIN_LDFLAGS="$NOPLUGIN_LDFLAGS -Wl,--as-needed"
