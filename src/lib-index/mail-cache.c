@@ -77,6 +77,7 @@ void mail_cache_file_close(struct mail_cache *cache)
 			mail_cache_set_syscall_error(cache, "close()");
 		cache->fd = -1;
 	}
+	cache->opened = FALSE;
 }
 
 static void mail_cache_init_file_cache(struct mail_cache *cache)
@@ -101,14 +102,17 @@ static int mail_cache_try_open(struct mail_cache *cache)
 {
 	const void *data;
 
+	i_assert(!cache->opened);
 	cache->opened = TRUE;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index))
 		return 0;
 
+	i_assert(cache->fd == -1);
 	cache->fd = nfs_safe_open(cache->filepath,
 				  cache->index->readonly ? O_RDONLY : O_RDWR);
 	if (cache->fd == -1) {
+		mail_cache_file_close(cache);
 		if (errno == ENOENT) {
 			cache->need_compress_file_seq = 0;
 			return 0;
@@ -120,8 +124,10 @@ static int mail_cache_try_open(struct mail_cache *cache)
 
 	mail_cache_init_file_cache(cache);
 
-	if (mail_cache_map(cache, 0, 0, &data) < 0)
+	if (mail_cache_map(cache, 0, 0, &data) < 0) {
+		mail_cache_file_close(cache);
 		return -1;
+	}
 	return 1;
 }
 

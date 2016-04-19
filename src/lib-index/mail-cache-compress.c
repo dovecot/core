@@ -363,6 +363,7 @@ mail_cache_compress_write(struct mail_cache *cache,
 	}
 
 	mail_cache_file_close(cache);
+	cache->opened = TRUE;
 	cache->fd = fd;
 	cache->st_ino = st.st_ino;
 	cache->st_dev = st.st_dev;
