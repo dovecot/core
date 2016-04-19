@@ -34,7 +34,9 @@ enum mailbox_list_flags {
 	   mailbox list to it. */
 	MAILBOX_LIST_FLAG_SECONDARY		= 0x02,
 	/* There are no mail files, only index and/or control files. */
-	MAILBOX_LIST_FLAG_NO_MAIL_FILES		= 0x04
+	MAILBOX_LIST_FLAG_NO_MAIL_FILES		= 0x04,
+	/* LAYOUT=index: Don't delete any files in delete_mailbox(). */
+	MAILBOX_LIST_FLAG_NO_DELETES		= 0x08
 };
 
 enum mailbox_info_flags {

@@ -360,6 +360,8 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 			list_flags |= MAILBOX_LIST_FLAG_MAILBOX_FILES;
 		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0)
 			list_flags |= MAILBOX_LIST_FLAG_NO_MAIL_FILES;
+		if ((storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES) != 0)
+			list_flags |= MAILBOX_LIST_FLAG_NO_DELETES;
 		if (mailbox_list_create(list_set.layout, ns, &list_set,
 					list_flags, &list, error_r) < 0) {
 			*error_r = t_strdup_printf("Mailbox list driver %s: %s",
