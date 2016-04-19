@@ -23,7 +23,7 @@ nodist_pkginclude_HEADERS = config.h
 ChangeLog:
 	git log --name-status --pretty="format:%ai %aN <%aE> (%h)%n%n%w(80,4,4)%s%n%n%b" 5d5c4f2bfb812c767084c0338dae692db476da10^.. > ChangeLog || rm -f ChangeLog
 
-aclocal_DATA = dovecot.m4
+aclocal_DATA = m4/dovecot.m4
 
 dovecot-version.h: noop
 	$(SHELL) $(top_srcdir)/update-version.sh $(top_srcdir) $(top_builddir)

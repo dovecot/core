@@ -1,13 +1,10 @@
 #!/bin/sh
 
 # If you've non-standard directories, set these
-#ACLOCAL_DIR=
+ACLOCAL_DIR=m4
 #GETTEXT_DIR=
 
-ACLOCAL="aclocal -I ."
-if test "$ACLOCAL_DIR" != ""; then
-  ACLOCAL="$ACLOCAL -I $ACLOCAL_DIR"
-fi
+ACLOCAL="aclocal -I$ACLOCAL_DIR"
 export ACLOCAL
 
 for dir in $GETTEXT_DIR /usr/share/gettext /usr/local/share/gettext; do
