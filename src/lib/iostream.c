@@ -32,16 +32,21 @@ void io_stream_ref(struct iostream_private *stream)
 	stream->refcount++;
 }
 
-void io_stream_unref(struct iostream_private *stream)
+bool io_stream_unref(struct iostream_private *stream)
 {
-	const struct iostream_destroy_callback *dc;
-
 	i_assert(stream->refcount > 0);
 	if (--stream->refcount != 0)
-		return;
+		return TRUE;
 
 	stream->close(stream, FALSE);
 	stream->destroy(stream);
+	return FALSE;
+}
+
+void io_stream_free(struct iostream_private *stream)
+{
+	const struct iostream_destroy_callback *dc;
+
 	if (array_is_created(&stream->destroy_callbacks)) {
 		array_foreach(&stream->destroy_callbacks, dc)
 			dc->callback(dc->context);

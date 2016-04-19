@@ -25,7 +25,8 @@ struct iostream_private {
 
 void io_stream_init(struct iostream_private *stream);
 void io_stream_ref(struct iostream_private *stream);
-void io_stream_unref(struct iostream_private *stream);
+bool io_stream_unref(struct iostream_private *stream);
+void io_stream_free(struct iostream_private *stream);
 void io_stream_close(struct iostream_private *stream, bool close_parent);
 void io_stream_set_max_buffer_size(struct iostream_private *stream,
 				   size_t max_size);

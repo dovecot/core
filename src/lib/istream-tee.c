@@ -101,6 +101,8 @@ static void i_stream_tee_destroy(struct iostream_private *stream)
 	} else {
 		tee_streams_skip(tstream->tee);
 	}
+	/* i_stream_unref() shouldn't unref the parent */
+	tstream->istream.parent = NULL;
 }
 
 static void

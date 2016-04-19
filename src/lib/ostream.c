@@ -85,7 +85,8 @@ void o_stream_unref(struct ostream **_stream)
 			o_stream_get_name(stream));
 	}
 
-	io_stream_unref(&stream->real_stream->iostream);
+	if (!io_stream_unref(&stream->real_stream->iostream))
+		io_stream_free(&stream->real_stream->iostream);
 	*_stream = NULL;
 }
 
