@@ -237,6 +237,7 @@ void http_client_request_set_ssl(struct http_client_request *req,
    non-urgent request. Also, if no idle connection is available, a new
    connection is created. Urgent requests are never pipelined. */
 void http_client_request_set_urgent(struct http_client_request *req);
+void http_client_request_set_preserve_exact_reason(struct http_client_request *req);
 
 /* add a custom header to the request. This can override headers that are
    otherwise created implicitly. */

@@ -246,6 +246,11 @@ void http_client_request_set_urgent(struct http_client_request *req)
 	req->urgent = TRUE;
 }
 
+void http_client_request_set_preserve_exact_reason(struct http_client_request *req)
+{
+	req->preserve_exact_reason = TRUE;
+}
+
 void http_client_request_add_header(struct http_client_request *req,
 				    const char *key, const char *value)
 {
@@ -1018,7 +1023,18 @@ bool http_client_request_callback(struct http_client_request *req,
 
 	req->callback = NULL;
 	if (callback != NULL) {
-		callback(response, req->context);
+		struct http_response response_copy = *response;
+
+		if (req->attempts > 0 && !req->preserve_exact_reason) {
+			unsigned int total_msecs =
+				timeval_diff_msecs(&ioloop_timeval, &req->submit_time);
+			response_copy.reason = t_strdup_printf(
+				"%s (%u attempts in %u.%03u secs)",
+				response_copy.reason, req->attempts,
+				total_msecs/1000, total_msecs%1000);
+		}
+
+		callback(&response_copy, req->context);
 		if (req->attempts != orig_attempts) {
 			/* retrying */
 			req->callback = callback;
