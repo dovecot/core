@@ -2185,8 +2185,25 @@ void auth_request_log_info(struct auth_request *auth_request,
 {
 	va_list va;
 
-	if (!auth_request->set->verbose)
-		return;
+	if (auth_request->set->debug) {
+		/* auth_debug=yes overrides auth_verbose settings */
+	} else {
+		const char *db_auth_verbose = auth_request->userdb_lookup ?
+			auth_request->userdb->set->auth_verbose :
+			auth_request->passdb->set->auth_verbose;
+		switch (db_auth_verbose[0]) {
+		case 'y':
+			break;
+		case 'n':
+			return;
+		case 'd':
+			if (!auth_request->set->verbose)
+				return;
+			break;
+		default:
+			i_unreached();
+		}
+	}
 
 	va_start(va, format);
 	T_BEGIN {
