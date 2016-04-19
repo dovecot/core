@@ -489,16 +489,52 @@ static void cmd_user_mail_input_field(const char *key, const char *value,
 	}
 }
 
-static int cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
-			       const struct authtest_input *input,
-			       const char *show_field)
+static void
+cmd_user_mail_print_fields(const struct authtest_input *input,
+			   struct mail_user *user,
+			   const char *const *userdb_fields,
+			   const char *show_field)
+{
+	const struct mail_storage_settings *mail_set;
+	const char *key, *value;
+	unsigned int i;
+
+	if (strcmp(input->username, user->username) != 0)
+		cmd_user_mail_input_field("user", user->username, show_field);
+	cmd_user_mail_input_field("uid", user->set->mail_uid, show_field);
+	cmd_user_mail_input_field("gid", user->set->mail_gid, show_field);
+	cmd_user_mail_input_field("home", user->set->mail_home, show_field);
+
+	mail_set = mail_user_set_get_storage_set(user);
+	cmd_user_mail_input_field("mail", mail_set->mail_location, show_field);
+
+	if (userdb_fields != NULL) {
+		for (i = 0; userdb_fields[i] != NULL; i++) {
+			value = strchr(userdb_fields[i], '=');
+			if (value != NULL)
+				key = t_strdup_until(userdb_fields[i], value++);
+			else {
+				key = userdb_fields[i];
+				value = "";
+			}
+			if (strcmp(key, "uid") != 0 &&
+			    strcmp(key, "gid") != 0 &&
+			    strcmp(key, "home") != 0 &&
+			    strcmp(key, "mail") != 0)
+				cmd_user_mail_input_field(key, value, show_field);
+		}
+	}
+}
+
+static int
+cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
+		    const struct authtest_input *input,
+		    const char *show_field)
 {
 	struct mail_storage_service_input service_input;
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
-	const struct mail_storage_settings *mail_set;
-	const char *key, *value, *error, *const *userdb_fields;
-	unsigned int i;
+	const char *error, *const *userdb_fields;
 	pool_t pool;
 	int ret;
 
@@ -528,31 +564,7 @@ static int cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		return 0;
 	}
 
-	if (strcmp(input->username, user->username) != 0)
-		cmd_user_mail_input_field("user", user->username, show_field);
-	cmd_user_mail_input_field("uid", user->set->mail_uid, show_field);
-	cmd_user_mail_input_field("gid", user->set->mail_gid, show_field);
-	cmd_user_mail_input_field("home", user->set->mail_home, show_field);
-
-	mail_set = mail_user_set_get_storage_set(user);
-	cmd_user_mail_input_field("mail", mail_set->mail_location, show_field);
-
-	if (userdb_fields != NULL) {
-		for (i = 0; userdb_fields[i] != NULL; i++) {
-			value = strchr(userdb_fields[i], '=');
-			if (value != NULL)
-				key = t_strdup_until(userdb_fields[i], value++);
-			else {
-				key = userdb_fields[i];
-				value = "";
-			}
-			if (strcmp(key, "uid") != 0 &&
-			    strcmp(key, "gid") != 0 &&
-			    strcmp(key, "home") != 0 &&
-			    strcmp(key, "mail") != 0)
-				cmd_user_mail_input_field(key, value, show_field);
-		}
-	}
+	cmd_user_mail_print_fields(input, user, userdb_fields, show_field);
 
 	mail_user_unref(&user);
 	mail_storage_service_user_free(&service_user);
