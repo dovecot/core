@@ -52,7 +52,10 @@ static void test_var_expand_builtin(void)
 		{ "%50Hv", "1f" },
 		{ "%50Hw", "2e" },
 		{ "%50Nv", "25" },
-		{ "%50Nw", "e" }
+		{ "%50Nw", "e" },
+
+		{ "%{nonexistent}", "UNSUPPORTED_VARIABLE_nonexistent" },
+		{ "%{nonexistent:default}", "UNSUPPORTED_VARIABLE_nonexistent" },
 	};
 	static struct var_expand_table table[] = {
 		{ 'v', "value", NULL },

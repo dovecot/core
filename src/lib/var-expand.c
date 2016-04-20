@@ -232,6 +232,8 @@ var_expand_long(const struct var_expand_table *table,
 			data = "";
 		value = var_expand_func(func_table, key, data, context);
 	}
+	if (value == NULL)
+		return t_strdup_printf("UNSUPPORTED_VARIABLE_%s", key);
 	return value;
 }
 
@@ -325,8 +327,8 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 				len = end - (str + 1);
 				var = var_expand_long(table, func_table,
 						      str+1, len, context);
-				if (var != NULL)
-					str = end;
+				i_assert(var != NULL);
+				str = end;
 			} else if (table != NULL) {
 				for (t = table; !TABLE_LAST(t); t++) {
 					if (t->key == *str) {
