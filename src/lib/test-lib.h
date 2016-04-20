@@ -39,6 +39,7 @@ void test_json_tree(void);
 void test_llist(void);
 void test_mempool_alloconly(void);
 enum fatal_test_state fatal_mempool(int);
+void test_pkcs5_pbkdf2(void);
 void test_net(void);
 void test_numpack(void);
 void test_ostream_escaped(void);

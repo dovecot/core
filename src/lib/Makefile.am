@@ -114,6 +114,7 @@ liblib_la_SOURCES = \
 	ostream-hash.c \
 	ostream-null.c \
 	ostream-rawlog.c \
+	pkcs5.c \
 	primes.c \
 	printf-format-fix.c \
 	process-title.c \
@@ -247,6 +248,7 @@ headers = \
 	ostream-private.h \
 	ostream-null.h \
 	ostream-rawlog.h \
+	pkcs5.h \
 	primes.h \
 	printf-format-fix.h \
 	process-title.h \
@@ -328,6 +330,7 @@ test_lib_SOURCES = \
 	test-json-tree.c \
 	test-llist.c \
 	test-mempool-alloconly.c \
+	test-pkcs5.c \
 	test-net.c \
 	test-numpack.c \
 	test-ostream-escaped.c \
