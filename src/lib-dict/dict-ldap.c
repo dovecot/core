@@ -378,9 +378,6 @@ static
 void ldap_dict_unset(struct dict_transaction_context *ctx,
 		      const char *key);
 static
-void ldap_dict_append(struct dict_transaction_context *ctx,
-		       const char *key, const char *value);
-static
 void ldap_dict_atomic_inc(struct dict_transaction_context *ctx,
 			   const char *key, long long diff);
 */
@@ -442,7 +439,6 @@ struct dict dict_driver_ldap = {
 		NULL, /*ldap_transaction_rollback,*/
 		NULL, /*ldap_set,*/
 		NULL, /*ldap_unset,*/
-		NULL, /*ldap_append,*/
 		NULL, /*ldap_atomic_inc,*/
 		ldap_dict_lookup_async
 	}

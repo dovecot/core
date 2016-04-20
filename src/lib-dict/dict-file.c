@@ -661,7 +661,6 @@ struct dict dict_driver_file = {
 		dict_transaction_memory_rollback,
 		dict_transaction_memory_set,
 		dict_transaction_memory_unset,
-		dict_transaction_memory_append,
 		dict_transaction_memory_atomic_inc,
 		NULL
 	}
