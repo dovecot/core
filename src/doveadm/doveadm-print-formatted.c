@@ -53,6 +53,9 @@ static void doveadm_print_formatted_flush(void)
 
 static void doveadm_print_formatted_print(const char *value)
 {
+	if (ctx.format == NULL) {
+		i_fatal("formatted formatter cannot be used without a format.");
+	}
 	struct var_expand_table *entry = array_idx_modifiable(&ctx.headers, ctx.idx++);
 	entry->value = value;
 
