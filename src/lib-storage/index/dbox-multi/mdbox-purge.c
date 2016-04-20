@@ -170,8 +170,7 @@ mdbox_purge_want_altpath(struct mdbox_purge_context *ctx,
 	enum mdbox_msg_action action;
 	void *value;
 
-	if (dbox_file_is_in_alt(file) &&
-	    ctx->storage->set->mdbox_purge_preserve_alt)
+	if (dbox_file_is_in_alt(file))
 		return TRUE;
 
 	if (!ctx->have_altmoves)

@@ -3,7 +3,6 @@
 
 struct mdbox_settings {
 	bool mdbox_preallocate_space;
-	bool mdbox_purge_preserve_alt;
 	uoff_t mdbox_rotate_size;
 	unsigned int mdbox_rotate_interval;
 };
