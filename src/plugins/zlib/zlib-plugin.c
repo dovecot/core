@@ -170,7 +170,7 @@ static void zlib_mail_close(struct mail *_mail)
 		if (i_stream_get_size(cache->input, TRUE, &size) < 0)
 			zlib_mail_cache_close(zuser);
 	}
-	return zmail->module_ctx.super.close(_mail);
+	zmail->module_ctx.super.close(_mail);
 }
 
 static void zlib_mail_allocated(struct mail *_mail)
