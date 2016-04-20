@@ -510,21 +510,6 @@ static bool old_auth_section(struct config_parser_context *ctx,
 	return FALSE;
 }
 
-static bool old_namespace(struct config_parser_context *ctx,
-			  const char *value)
-{
-	if (strcmp(value, "private") != 0 &&
-	    strcmp(value, "shared") != 0 &&
-	    strcmp(value, "public") != 0)
-		return FALSE;
-
-	obsolete(ctx, "namespace %s {} has been replaced by namespace { type=%s }", value, value);
-	config_parser_apply_line(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN, "namespace", "");
-	config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
-				 "type", value);
-	return TRUE;
-}
-
 static void socket_apply(struct config_parser_context *ctx)
 {
 	const struct socket_set *set = &ctx->old->socket_set;
@@ -608,7 +593,7 @@ bool old_settings_handle(struct config_parser_context *ctx,
 			ctx->old->auth_section = 1;
 			return TRUE;
 		} else if (ctx->pathlen == 0 && strcmp(key, "namespace") == 0)
-			return old_namespace(ctx, value);
+			return TRUE;
 		else if (ctx->pathlen == 0 && strcmp(key, "protocol") == 0 &&
 			 strcmp(value, "managesieve") == 0) {
 			obsolete(ctx, "protocol managesieve {} has been replaced by protocol sieve { }");
