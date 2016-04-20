@@ -52,7 +52,6 @@ static void i_stream_header_filter_destroy(struct iostream_private *stream)
 
 	if (mstream->hdr_ctx != NULL)
 		message_parse_header_deinit(&mstream->hdr_ctx);
-	i_stream_unref(&mstream->istream.parent);
 	if (array_is_created(&mstream->match_change_lines))
 		array_free(&mstream->match_change_lines);
 	pool_unref(&mstream->pool);

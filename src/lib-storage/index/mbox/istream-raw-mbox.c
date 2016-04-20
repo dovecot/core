@@ -33,7 +33,6 @@ static void i_stream_raw_mbox_destroy(struct iostream_private *stream)
 
 	i_stream_seek(rstream->istream.parent,
 		      rstream->istream.istream.v_offset);
-	i_stream_unref(&rstream->istream.parent);
 }
 
 static int mbox_read_from_line(struct raw_mbox_istream *rstream)

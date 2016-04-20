@@ -478,8 +478,6 @@ http_server_istream_destroy(struct iostream_private *stream)
 		/* get to same position in parent stream */
 		i_stream_seek(hsristream->istream.parent, v_offset);
 	}
-
-	i_stream_unref(&hsristream->istream.parent);
 }
 
 struct istream *

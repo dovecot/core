@@ -497,8 +497,6 @@ http_transfer_chunked_istream_destroy(struct iostream_private *stream)
 
 	// FIXME: copied from istream.c; there's got to be a better way.
 	i_free(tcstream->istream.w_buffer);
-	if (tcstream->istream.parent != NULL)
-		i_stream_unref(&tcstream->istream.parent);
 }
 
 struct istream *
