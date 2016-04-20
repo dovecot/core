@@ -417,6 +417,25 @@ bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module)
 	return ret;
 }
 
+bool mail_user_plugin_getenv_bool(struct mail_user *user, const char *name)
+{
+	const char *env = mail_user_set_plugin_getenv(user->set, name);
+
+	if (env == NULL)
+		return FALSE;
+	switch (env[0]) {
+		case 'n':
+		case 'N':
+		case '0':
+		case 'f':
+		case 'F':
+		return FALSE;
+	}
+
+	//any other value including empty string will be treated as TRUE.
+	return TRUE;
+}
+
 const char *mail_user_plugin_getenv(struct mail_user *user, const char *name)
 {
 	return mail_user_set_plugin_getenv(user->set, name);
