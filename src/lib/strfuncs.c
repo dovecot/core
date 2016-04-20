@@ -86,10 +86,8 @@ char *p_strndup(pool_t pool, const void *str, size_t max_chars)
 	char *mem;
 	size_t len;
 
+	i_assert(str != NULL);
 	i_assert(max_chars != (size_t)-1);
-
-	if (str == NULL)
-		return NULL;
 
 	len = 0;
 	while (len < max_chars && ((const char *) str)[len] != '\0')
@@ -175,8 +173,7 @@ char *vstrconcat(const char *str1, va_list args, size_t *ret_len)
         char *temp;
 	size_t bufsize, i, len;
 
-	if (str1 == NULL)
-		return NULL;
+	i_assert(str1 != NULL);
 
 	str = str1;
 	bufsize = STRCONCAT_BUFSIZE;
@@ -210,6 +207,8 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 	va_list args;
 	char *temp, *ret;
         size_t len;
+
+	i_assert(str1 != NULL);
 
 	va_start(args, str1);
 
@@ -256,6 +255,7 @@ const char *t_strdup_until(const void *start, const void *end)
 
 const char *t_strndup(const void *str, size_t max_chars)
 {
+	i_assert(str != NULL);
 	return p_strndup(unsafe_data_stack_pool, str, max_chars);
 }
 
@@ -281,6 +281,8 @@ const char *t_strconcat(const char *str1, ...)
 	va_list args;
 	const char *ret;
         size_t len;
+
+	i_assert(str1 != NULL);
 
 	va_start(args, str1);
 

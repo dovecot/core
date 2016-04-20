@@ -31,6 +31,7 @@ char *i_strdup_until(const void *str, const void *end)
 
 char *i_strndup(const void *str, size_t max_chars)
 {
+	i_assert(str != NULL);
 	return p_strndup(default_pool, str, max_chars);
 }
 
@@ -55,6 +56,8 @@ char *i_strconcat(const char *str1, ...)
 	va_list args;
 	char *ret;
 	size_t len;
+
+	i_assert(str1 != NULL);
 
 	va_start(args, str1);
 
