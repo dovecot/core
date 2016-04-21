@@ -1,6 +1,7 @@
 # when adding libraries, update LIBDOVECOT also in configure.in
 libs = \
 	../lib-master/libmaster.la \
+	../lib-dict-extra/libdict_extra.la \
 	../lib-fs/libfs.la \
 	../lib-settings/libsettings.la \
 	../lib-stats/libstats.la \
