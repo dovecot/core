@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "iostream-openssl.h"
 
 #include <openssl/x509v3.h>
@@ -185,8 +186,9 @@ static const char *ssl_err2str(unsigned long err, const char *data, int flags)
 
 const char *openssl_iostream_error(void)
 {
+	string_t *errstr = NULL;
 	unsigned long err;
-	const char *data;
+	const char *data, *final_error;
 	int flags;
 
 	while ((err = ERR_get_error_line_data(NULL, NULL, &data, &flags)) != 0) {
@@ -194,15 +196,26 @@ const char *openssl_iostream_error(void)
 			i_fatal_status(FATAL_OUTOFMEM, "OpenSSL malloc() failed");
 		if (ERR_peek_error() == 0)
 			break;
-		i_error("SSL: Stacked error: %s",
-			ssl_err2str(err, data, flags));
+		if (errstr == NULL)
+			errstr = t_str_new(128);
+		else
+			str_append(errstr, ", ");
+		str_append(errstr, ssl_err2str(err, data, flags));
 	}
 	if (err == 0) {
 		if (errno != 0)
-			return strerror(errno);
-		return "Unknown error";
+			final_error = strerror(errno);
+		else
+			final_error = "Unknown error";
+	} else {
+		final_error = ssl_err2str(err, data, flags);
 	}
-	return ssl_err2str(err, data, flags);
+	if (errstr == NULL)
+		return final_error;
+	else {
+		str_printfa(errstr, ", %s", final_error);
+		return str_c(errstr);
+	}
 }
 
 const char *openssl_iostream_key_load_error(void)
