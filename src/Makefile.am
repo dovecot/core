@@ -23,6 +23,7 @@ LIBDOVECOT_SUBDIRS = \
 
 SUBDIRS = \
 	$(LIBDOVECOT_SUBDIRS) \
+	lib-dict-extra \
 	lib-dovecot \
 	lib-fts \
 	lib-imap-client \
