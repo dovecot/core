@@ -192,7 +192,7 @@ const char *openssl_iostream_error(void)
 	while ((err = ERR_get_error_line_data(NULL, NULL, &data, &flags)) != 0) {
 		if (ERR_GET_REASON(err) == ERR_R_MALLOC_FAILURE)
 			i_fatal_status(FATAL_OUTOFMEM, "OpenSSL malloc() failed");
-		if (ERR_peek_error() != 0)
+		if (ERR_peek_error() == 0)
 			break;
 		i_error("SSL: Stacked error: %s",
 			ssl_err2str(err, data, flags));
