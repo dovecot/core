@@ -15,6 +15,7 @@ struct doveadm_print_pager_context {
 	unsigned int header_idx;
 
 	unsigned int streaming:1;
+	unsigned int first_page:1;
 };
 
 static struct doveadm_print_pager_context *ctx;
@@ -32,7 +33,6 @@ static void pager_next_hdr(void)
 {
 	if (++ctx->header_idx == array_count(&ctx->headers)) {
 		ctx->header_idx = 0;
-		o_stream_nsend(doveadm_print_ostream, "\f\n", 2);
 	}
 }
 
@@ -41,6 +41,10 @@ static void doveadm_print_pager_print(const char *value)
 	const struct doveadm_print_pager_header *hdr =
 		array_idx(&ctx->headers, ctx->header_idx);
 
+	if (ctx->header_idx == 0 && !ctx->first_page) {
+		o_stream_nsend(doveadm_print_ostream, "\f\n", 2);
+	}
+	ctx->first_page = FALSE;
 	o_stream_nsend_str(doveadm_print_ostream, hdr->title);
 	o_stream_nsend(doveadm_print_ostream, ": ", 2);
 	o_stream_nsend_str(doveadm_print_ostream, value);
@@ -73,6 +77,7 @@ static void doveadm_print_pager_init(void)
 	pool = pool_alloconly_create("doveadm print pager", 1024);
 	ctx = p_new(pool, struct doveadm_print_pager_context, 1);
 	ctx->pool = pool;
+	ctx->first_page = TRUE;
 	p_array_init(&ctx->headers, pool, 16);
 }
 
