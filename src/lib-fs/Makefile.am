@@ -36,3 +36,28 @@ headers = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+noinst_PROGRAMS = $(test_programs)
+
+test_programs = \
+	test-fs-metawrap
+
+test_deps = \
+	$(noinst_LTLIBRARIES) \
+	../lib-dict/libdict.la \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_libs = \
+	$(test_deps) \
+	$(MODULE_LIBS)
+
+test_fs_metawrap_SOURCES = test-fs-metawrap.c
+test_fs_metawrap_LDADD = $(test_libs)
+test_fs_metawrap_DEPENDENCIES = $(test_deps)
+
+check: check-am check-test
+check-test: all-am
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
