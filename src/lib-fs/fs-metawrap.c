@@ -199,14 +199,30 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 			 const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
 	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	ssize_t ret;
 	char c;
 
 	if (!file->fs->wrap_metadata)
 		return fs_get_metadata(file->super, metadata_r);
 
-	if (!file->metadata_read) {
+	if (file->metadata_read) {
+		/* we have the metadata */
+	} else if (file->input == NULL) {
 		if (fs_read(_file, &c, 1) < 0)
 			return -1;
+	} else {
+		/* use the existing istream to read it */
+		while ((ret = i_stream_read(file->input)) == 0) {
+			if (file->metadata_read)
+				break;
+
+			i_assert(!file->input->blocking);
+			if (fs_wait_async(_file->fs) < 0)
+				return -1;
+		}
+		if (ret == -1)
+			return -1;
+		i_assert(file->metadata_read);
 	}
 	*metadata_r = &_file->metadata;
 	return 0;
@@ -469,7 +485,12 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 		return 0;
 	}
 
-	input = fs_read_stream(_file, IO_BLOCK_SIZE);
+	if (file->input == NULL)
+		input = fs_read_stream(_file, IO_BLOCK_SIZE);
+	else {
+		input = file->input;
+		i_stream_ref(input);
+	}
 	if ((ret = i_stream_get_size(input, TRUE, &input_size)) < 0) {
 		fs_set_error(_file->fs, "i_stream_get_size(%s) failed: %s",
 			     fs_file_path(_file), i_stream_get_error(input));
