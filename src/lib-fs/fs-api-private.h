@@ -120,6 +120,7 @@ struct fs_file {
 	unsigned int read_or_prefetch_counted:1;
 	unsigned int lookup_metadata_counted:1;
 	unsigned int stat_counted:1;
+	unsigned int istream_open:1;
 };
 
 struct fs_lock {

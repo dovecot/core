@@ -275,6 +275,11 @@ void fs_file_close(struct fs_file *file)
 	if (file->fs->v.file_close != NULL) T_BEGIN {
 		file->fs->v.file_close(file);
 	} T_END;
+
+	/* check this only after closing, because some of the fs backends keep
+	   the istream internally open and don't call the destroy-callback
+	   until after file_close() */
+	i_assert(!file->istream_open);
 }
 
 enum fs_properties fs_get_properties(struct fs *fs)
@@ -494,6 +499,13 @@ ssize_t fs_read(struct fs_file *file, void *buf, size_t size)
 	return fs_read_via_stream(file, buf, size);
 }
 
+static void fs_file_istream_destroyed(struct fs_file *file)
+{
+	i_assert(file->istream_open);
+
+	file->istream_open = FALSE;
+}
+
 struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 {
 	struct istream *input, *inputs[2];
@@ -513,6 +525,7 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 		i_stream_ref(file->seekable_input);
 		return file->seekable_input;
 	}
+	i_assert(!file->istream_open);
 	T_BEGIN {
 		input = file->fs->v.read_stream(file, max_buffer_size);
 	} T_END;
@@ -559,6 +572,8 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 		}
 		i_stream_seek(input, 0);
 	}
+	file->istream_open = TRUE;
+	i_stream_add_destroy_callback(input, fs_file_istream_destroyed, file);
 	return input;
 }
 
