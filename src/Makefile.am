@@ -10,7 +10,6 @@ LIBDOVECOT_SUBDIRS = \
 	lib-master \
 	lib-charset \
 	lib-dns \
-	$(LIB_LDAP) \
 	lib-dict \
 	lib-sasl \
 	lib-ssl-iostream \
@@ -23,6 +22,7 @@ LIBDOVECOT_SUBDIRS = \
 
 SUBDIRS = \
 	$(LIBDOVECOT_SUBDIRS) \
+	$(LIB_LDAP) \
 	lib-dict-extra \
 	lib-dovecot \
 	lib-fts \
