@@ -5,6 +5,7 @@
 #include "str.h"
 #include "imap-util.h"
 #include "mail-cache.h"
+#include "mail-index-modseq.h"
 #include "index-sync-private.h"
 #include "imapc-client.h"
 #include "imapc-msgmap.h"
@@ -245,6 +246,13 @@ static void imapc_sync_uid_next(struct imapc_sync_context *ctx)
 	}
 }
 
+static void imapc_sync_highestmodseq(struct imapc_sync_context *ctx)
+{
+	if (imapc_storage_has_modseqs(ctx->mbox->storage) &&
+	    mail_index_modseq_get_highest(ctx->sync_view) < ctx->mbox->sync_highestmodseq)
+		mail_index_update_highest_modseq(ctx->trans, ctx->mbox->sync_highestmodseq);
+}
+
 static void
 imapc_initial_sync_check(struct imapc_sync_context *ctx, bool nooped)
 {
@@ -311,6 +319,10 @@ imapc_sync_send_commands(struct imapc_sync_context *ctx, uint32_t first_uid)
 	string_t *cmd = t_str_new(64);
 
 	str_printfa(cmd, "UID FETCH %u:* (FLAGS", first_uid);
+	if (imapc_storage_has_modseqs(ctx->mbox->storage)) {
+		str_append(cmd, " MODSEQ");
+		mail_index_modseq_enable(ctx->mbox->box.index);
+	}
 	if (IMAPC_BOX_HAS_FEATURE(ctx->mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
 		enum mailbox_info_flags flags;
 
@@ -393,8 +405,9 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 		imapc_mailbox_run(mbox);
 	array_free(&ctx->expunged_uids);
 
-	/* add uidnext after all appends */
+	/* add uidnext & highestmodseq after all appends */
 	imapc_sync_uid_next(ctx);
+	imapc_sync_highestmodseq(ctx);
 
 	if (!ctx->failed)
 		imapc_sync_expunge_eom(ctx);

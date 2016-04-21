@@ -93,6 +93,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "proxyauth", IMAPC_FEATURE_PROXYAUTH },
 	{ "fetch-msn-workarounds", IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS },
 	{ "fetch-fix-broken-mails", IMAPC_FEATURE_FETCH_FIX_BROKEN_MAILS },
+	{ "modseq", IMAPC_FEATURE_MODSEQ },
 	{ NULL, 0 }
 };
 

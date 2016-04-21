@@ -108,9 +108,11 @@ struct imapc_mailbox {
 	enum mail_flags permanent_flags;
 	uint32_t highest_nonrecent_uid;
 
+	ARRAY(uint64_t) rseq_modseqs;
 	ARRAY_TYPE(uint32_t) delayed_expunged_uids;
 	uint32_t sync_uid_validity;
 	uint32_t sync_uid_next;
+	uint64_t sync_highestmodseq;
 	uint32_t sync_fetch_first_uid;
 	uint32_t sync_next_lseq;
 	uint32_t sync_next_rseq;
@@ -165,6 +167,7 @@ void imapc_mailbox_run_nofetch(struct imapc_mailbox *mbox);
 void imapc_mail_cache_free(struct imapc_mail_cache *cache);
 int imapc_mailbox_select(struct imapc_mailbox *mbox);
 
+bool imapc_storage_has_modseqs(struct imapc_storage *storage);
 bool imap_resp_text_code_parse(const char *str, enum mail_error *error_r);
 void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 enum mail_error default_error,
