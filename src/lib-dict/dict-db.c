@@ -477,7 +477,8 @@ struct dict dict_driver_db = {
 		db_dict_transaction_rollback,
 		db_dict_set,
 		db_dict_unset,
-		db_dict_atomic_inc
+		db_dict_atomic_inc,
+		NULL
 	}
 };
 #endif
