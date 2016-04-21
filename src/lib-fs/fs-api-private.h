@@ -145,6 +145,7 @@ extern const struct fs fs_class_randomfail;
 extern const struct fs fs_class_metawrap;
 extern const struct fs fs_class_sis;
 extern const struct fs fs_class_sis_queue;
+extern const struct fs fs_class_test;
 
 void fs_class_register(const struct fs *fs_class);
 

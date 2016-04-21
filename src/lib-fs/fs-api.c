@@ -74,6 +74,7 @@ static void fs_classes_init(void)
 	fs_class_register(&fs_class_metawrap);
 	fs_class_register(&fs_class_sis);
 	fs_class_register(&fs_class_sis_queue);
+	fs_class_register(&fs_class_test);
 	lib_atexit(fs_classes_deinit);
 }
 
