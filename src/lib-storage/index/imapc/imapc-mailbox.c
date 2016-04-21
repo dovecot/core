@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "mail-index-modseq.h"
 #include "imap-arg.h"
 #include "imap-seqset.h"
 #include "imap-util.h"
@@ -282,11 +283,12 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	uint32_t lseq, rseq = reply->num;
 	struct imapc_fetch_request *const *fetch_requestp;
 	struct imapc_mail *const *mailp;
-	const struct imap_arg *list, *flags_list;
+	const struct imap_arg *list, *flags_list, *modseq_list;
 	const char *atom, *guid = NULL;
 	const struct mail_index_record *rec = NULL;
 	enum mail_flags flags;
 	uint32_t fetch_uid, uid;
+	uint64_t modseq = 0;
 	unsigned int i, j;
 	ARRAY_TYPE(const_string) keywords = ARRAY_INIT;
 	bool seen_flags = FALSE, have_labels = FALSE;
@@ -319,6 +321,15 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 					array_append(&keywords, &atom, 1);
 				}
 			}
+		} else if (strcasecmp(atom, "MODSEQ") == 0 &&
+			   imapc_storage_has_modseqs(mbox->storage)) {
+			/* (modseq-number) */
+			if (!imap_arg_get_list(&list[i+1], &modseq_list))
+				return;
+			if (!imap_arg_get_atom(&modseq_list[0], &atom) ||
+			    str_to_uint64(atom, &modseq) < 0 ||
+			    modseq_list[1].type != IMAP_ARG_EOL)
+				return;
 		} else if (strcasecmp(atom, "X-GM-MSGID") == 0 &&
 			   !mbox->initial_sync_done) {
 			if (imap_arg_get_atom(&list[i+1], &atom))
@@ -414,6 +425,11 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		}
 		mail_index_keywords_unref(&kw);
 	}
+	if (modseq != 0) {
+		if (mail_index_modseq_lookup(mbox->delayed_sync_view, lseq) < modseq)
+			mail_index_update_modseq(mbox->delayed_sync_trans, lseq, modseq);
+		array_idx_set(&mbox->rseq_modseqs, rseq-1, &modseq);
+	}
 	if (guid != NULL) {
 		struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 		const enum index_cache_field guid_cache_idx =
@@ -454,6 +470,7 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 	}
 	uid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
 	imapc_msgmap_expunge(msgmap, rseq);
+	array_delete(&mbox->rseq_modseqs, rseq-1, 1);
 
 	imapc_mailbox_init_delayed_trans(mbox);
 	if (mail_index_lookup_seq(mbox->sync_view, uid, &lseq))
@@ -579,6 +596,19 @@ imapc_resp_text_uidnext(const struct imapc_untagged_reply *reply,
 }
 
 static void
+imapc_resp_text_highestmodseq(const struct imapc_untagged_reply *reply,
+			      struct imapc_mailbox *mbox)
+{
+	uint64_t highestmodseq;
+
+	if (mbox == NULL ||
+	    str_to_uint64(reply->resp_text_value, &highestmodseq) < 0)
+		return;
+
+	mbox->sync_highestmodseq = highestmodseq;
+}
+
+static void
 imapc_resp_text_permanentflags(const struct imapc_untagged_reply *reply,
 			       struct imapc_mailbox *mbox)
 {
@@ -646,6 +676,8 @@ void imapc_mailbox_register_callbacks(struct imapc_mailbox *mbox)
 					 imapc_resp_text_uidvalidity);
 	imapc_mailbox_register_resp_text(mbox, "UIDNEXT",
 					 imapc_resp_text_uidnext);
+	imapc_mailbox_register_resp_text(mbox, "HIGHESTMODSEQ",
+					 imapc_resp_text_highestmodseq);
 	imapc_mailbox_register_resp_text(mbox, "PERMANENTFLAGS",
 					 imapc_resp_text_permanentflags);
 }

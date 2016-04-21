@@ -96,6 +96,26 @@ static int imapc_mail_failed(struct mail *mail, const char *field)
 	return fix_broken_mail ? 0 : -1;
 }
 
+static uint64_t imapc_mail_get_modseq(struct mail *_mail)
+{
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_msgmap *msgmap;
+	const uint64_t *modseqs;
+	unsigned int count;
+	uint32_t rseq;
+
+	if (!imapc_storage_has_modseqs(mbox->storage))
+		return index_mail_get_modseq(_mail);
+
+	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);
+	if (imapc_msgmap_uid_to_rseq(msgmap, _mail->uid, &rseq)) {
+		modseqs = array_get(&mbox->rseq_modseqs, &count);
+		if (rseq <= count)
+			return modseqs[rseq-1];
+	}
+	return 1; /* unknown modseq */
+}
+
 static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
@@ -561,7 +581,7 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_get_flags,
 	index_mail_get_keywords,
 	index_mail_get_keyword_indexes,
-	index_mail_get_modseq,
+	imapc_mail_get_modseq,
 	index_mail_get_pvt_modseq,
 	index_mail_get_parts,
 	index_mail_get_date,
