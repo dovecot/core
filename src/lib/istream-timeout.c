@@ -66,7 +66,7 @@ static void i_stream_timeout(struct timeout_istream *tstream)
 			    diff/1000, diff%1000,
 			    tstream->istream.istream.v_offset,
 			    over_msecs < 1000 ? "" : t_strdup_printf(
-			    	" (requested timeout in %u s)", tstream->timeout_secs));
+			    	" (requested timeout in %u ms)", tstream->timeout_msecs));
 	tstream->istream.istream.stream_errno = ETIMEDOUT;
 
 	i_stream_set_input_pending(tstream->istream.parent, TRUE);
