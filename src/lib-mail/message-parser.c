@@ -66,19 +66,23 @@ static struct message_boundary *
 boundary_find(struct message_boundary *boundaries,
 	      const unsigned char *data, size_t len)
 {
+	struct message_boundary *best = NULL;
+
 	/* As MIME spec says: search from latest one to oldest one so that we
 	   don't break if the same boundary is used in nested parts. Also the
 	   full message line doesn't have to match the boundary, only the
-	   beginning. */
+	   beginning. However, if there are multiple prefixes whose beginning
+	   matches, use the longest matching one. */
 	while (boundaries != NULL) {
 		if (boundaries->len <= len &&
-		    memcmp(boundaries->boundary, data, boundaries->len) == 0)
-			return boundaries;
+		    memcmp(boundaries->boundary, data, boundaries->len) == 0 &&
+		    (best == NULL || best->len < boundaries->len))
+			best = boundaries;
 
 		boundaries = boundaries->next;
 	}
 
-	return NULL;
+	return best;
 }
 
 static void parse_body_add_block(struct message_parser_ctx *ctx,
