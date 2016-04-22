@@ -45,6 +45,7 @@ struct message_parser_ctx {
 				struct message_block *block_r);
 
 	unsigned int part_seen_content_type:1;
+	unsigned int multipart:1;
 	unsigned int eof:1;
 };
 
@@ -504,6 +505,21 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 	}
 }
 
+static bool block_is_at_eoh(const struct message_block *block)
+{
+	if (block->size < 1)
+		return FALSE;
+	if (block->data[0] == '\n')
+		return TRUE;
+	if (block->data[0] == '\r') {
+		if (block->size < 2)
+			return FALSE;
+		if (block->data[1] == '\n')
+			return TRUE;
+	}
+	return FALSE;
+}
+
 #define MUTEX_FLAGS \
 	(MESSAGE_PART_FLAG_MESSAGE_RFC822 | MESSAGE_PART_FLAG_MULTIPART)
 
@@ -519,12 +535,30 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 	if ((ret = message_parser_read_more(ctx, block_r, &full)) == 0)
 		return ret;
 
+	if (ret > 0 && block_is_at_eoh(block_r) &&
+	    ctx->last_boundary != NULL &&
+	    (part->flags & MESSAGE_PART_FLAG_IS_MIME) != 0) {
+		/* we are at the end of headers and we've determined that we're
+		   going to start a multipart. add the boundary already here
+		   at this point so we can reliably determine whether the
+		   "\n--boundary" belongs to us or to a previous boundary.
+		   this is a problem if the boundary prefixes are identical,
+		   because MIME requires only the prefix to match. */
+		parse_next_body_multipart_init(ctx);
+		ctx->multipart = TRUE;
+	}
+
 	/* before parsing the header see if we can find a --boundary from here.
 	   we're guaranteed to be at the beginning of the line here. */
 	if (ret > 0) {
 		ret = ctx->boundaries == NULL ? -1 :
 			boundary_line_find(ctx, block_r->data,
 					   block_r->size, full, &boundary);
+		if (ret > 0 && boundary->part == ctx->part) {
+			/* our own body begins with our own --boundary.
+			   we don't want to handle that yet. */
+			ret = -1;
+		}
 	}
 	if (ret < 0) {
 		/* no boundary */
@@ -581,14 +615,10 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 	}
 
 	/* end of headers */
-	if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0 &&
-	    ctx->last_boundary == NULL) {
-		/* multipart type but no message boundary */
-		part->flags = 0;
-	}
 	if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
 		/* It's not MIME. Reset everything we found from
 		   Content-Type. */
+		i_assert(!ctx->multipart);
 		part->flags = 0;
 		ctx->last_boundary = NULL;
 	}
@@ -615,8 +645,9 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 	i_assert((part->flags & MUTEX_FLAGS) != MUTEX_FLAGS);
 
 	ctx->last_chr = '\n';
-	if (ctx->last_boundary != NULL) {
-		parse_next_body_multipart_init(ctx);
+	if (ctx->multipart) {
+		i_assert(ctx->last_boundary == NULL);
+		ctx->multipart = FALSE;
 		ctx->parse_next_block = parse_next_body_to_boundary;
 	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822)
 		ctx->parse_next_block = parse_next_body_message_rfc822_init;
