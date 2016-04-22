@@ -27,13 +27,13 @@ struct dsync_mailbox_tree_bfs_iter {
 
 struct dsync_mailbox_tree_sync_ctx {
 	pool_t pool;
-	struct dsync_brain *brain;
 	struct dsync_mailbox_tree *local_tree, *remote_tree;
 	enum dsync_mailbox_trees_sync_type sync_type;
 	enum dsync_mailbox_trees_sync_flags sync_flags;
 
 	ARRAY(struct dsync_mailbox_tree_sync_change) changes;
 	unsigned int change_idx;
+	bool failed;
 };
 
 static struct dsync_mailbox_tree_bfs_iter *
@@ -1075,7 +1075,7 @@ sync_rename_temp_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 	return FALSE;
 }
 
-static void
+static int
 dsync_mailbox_tree_handle_renames(struct dsync_mailbox_tree_sync_ctx *ctx)
 {
 	unsigned int count = 0;
@@ -1095,11 +1095,12 @@ dsync_mailbox_tree_handle_renames(struct dsync_mailbox_tree_sync_ctx *ctx)
 
 	if (changed) {
 		i_error("BUG: Mailbox renaming algorithm got into a potentially infinite loop, aborting");
-		ctx->brain->failed = TRUE;
+		return -1;
 	}
 
 	while (sync_rename_temp_mailboxes(ctx, ctx->local_tree, &ctx->local_tree->root)) ;
 	while (sync_rename_temp_mailboxes(ctx, ctx->remote_tree, &ctx->remote_tree->root)) ;
+	return 0;
 }
 
 static bool sync_is_wrong_mailbox(struct dsync_mailbox_node *node,
@@ -1411,8 +1412,12 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 
 	dsync_mailbox_tree_update_child_timestamps(&local_tree->root, 0);
 	dsync_mailbox_tree_update_child_timestamps(&remote_tree->root, 0);
-	if ((sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_NO_RENAMES) == 0)
-		dsync_mailbox_tree_handle_renames(ctx);
+	if ((sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_NO_RENAMES) == 0) {
+		if (dsync_mailbox_tree_handle_renames(ctx) < 0) {
+			ctx->failed = TRUE;
+			return ctx;
+		}
+	}
 
 	/* if we're not doing a two-way sync, delete now any mailboxes, which
 	   a) shouldn't exist, b) doesn't have a matching GUID/UIDVALIDITY,
@@ -1438,12 +1443,14 @@ dsync_mailbox_trees_sync_next(struct dsync_mailbox_tree_sync_ctx *ctx)
 	return array_idx(&ctx->changes, ctx->change_idx++);
 }
 
-void dsync_mailbox_trees_sync_deinit(struct dsync_mailbox_tree_sync_ctx **_ctx)
+int dsync_mailbox_trees_sync_deinit(struct dsync_mailbox_tree_sync_ctx **_ctx)
 {
 	struct dsync_mailbox_tree_sync_ctx *ctx = *_ctx;
+	int ret = ctx->failed ? -1 : 0;
 
 	*_ctx = NULL;
 
 	array_free(&ctx->changes);
 	pool_unref(&ctx->pool);
+	return ret;
 }

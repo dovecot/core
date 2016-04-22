@@ -310,7 +310,8 @@ static void dsync_brain_mailbox_trees_sync(struct dsync_brain *brain)
 			break;
 		}
 	}
-	dsync_mailbox_trees_sync_deinit(&ctx);
+	if (dsync_mailbox_trees_sync_deinit(&ctx) < 0)
+		brain->failed = TRUE;
 }
 
 bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
