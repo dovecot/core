@@ -38,7 +38,7 @@ static void i_stream_timeout_switch_ioloop(struct istream_private *stream)
 
 static void i_stream_timeout(struct timeout_istream *tstream)
 {
-	unsigned int msecs;
+	unsigned int over_msecs;
 	int diff;
 
 	if (tstream->update_timestamp) {
@@ -59,13 +59,14 @@ static void i_stream_timeout(struct timeout_istream *tstream)
 					  i_stream_timeout, tstream);
 		return;
 	}
+	over_msecs = diff - tstream->timeout_msecs;
 
-	msecs = tstream->timeout_msecs % 1000;
 	io_stream_set_error(&tstream->istream.iostream,
-			    "Read timeout in %u%s s after %"PRIuUOFF_T" bytes",
-			    tstream->timeout_msecs/1000,
-			    msecs == 0 ? "" : t_strdup_printf(".%u", msecs),
-			    tstream->istream.istream.v_offset);
+			    "Read timeout in %u.%03u s after %"PRIuUOFF_T" bytes%s",
+			    diff/1000, diff%1000,
+			    tstream->istream.istream.v_offset,
+			    over_msecs < 1000 ? "" : t_strdup_printf(
+			    	" (requested timeout in %u s)", tstream->timeout_secs));
 	tstream->istream.istream.stream_errno = ETIMEDOUT;
 
 	i_stream_set_input_pending(tstream->istream.parent, TRUE);
