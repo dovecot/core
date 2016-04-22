@@ -6,6 +6,7 @@ AC_INIT([Dovecot],[2.3.devel],[dovecot@dovecot.org])
 AC_DEFINE_UNQUOTED([DOVECOT_ABI_VERSION], "2.3.ABIv0($PACKAGE_VERSION)", [Dovecot ABI version])
 
 AC_CONFIG_SRCDIR([src])
+AC_CONFIG_MACRO_DIR([m4])
 
 AM_INIT_AUTOMAKE([foreign])
 
