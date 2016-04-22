@@ -36,6 +36,7 @@ sql_drivers = @sql_drivers@
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-settings \
 	$(SQL_CFLAGS)
 
 dist_sources = \
