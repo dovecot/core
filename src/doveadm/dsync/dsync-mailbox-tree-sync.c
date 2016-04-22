@@ -1039,12 +1039,12 @@ sync_rename_delete_node_dirs(struct dsync_mailbox_tree_sync_ctx *ctx,
 static bool
 sync_rename_temp_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 			   struct dsync_mailbox_tree *tree,
-			   struct dsync_mailbox_node *node)
+			   struct dsync_mailbox_node *node, bool *renames_r)
 {
 	const char *reason;
 
 	for (; node != NULL; node = node->next) {
-		while (sync_rename_temp_mailboxes(ctx, tree, node->first_child)) ;
+		while (sync_rename_temp_mailboxes(ctx, tree, node->first_child, renames_r)) ;
 
 		if (!node->sync_temporary_name) {
 		} else if (dsync_mailbox_node_is_dir(node) &&
@@ -1061,6 +1061,7 @@ sync_rename_temp_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 			sync_rename_delete_node_dirs(ctx, tree, node);
 		} else {
 			T_BEGIN {
+				*renames_r = TRUE;
 				sync_rename_temp_mailbox_node(tree, node, &reason);
 				if ((ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0) {
 					i_debug("brain %c: %s mailbox %s: %s",
@@ -1076,10 +1077,13 @@ sync_rename_temp_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 }
 
 static int
-dsync_mailbox_tree_handle_renames(struct dsync_mailbox_tree_sync_ctx *ctx)
+dsync_mailbox_tree_handle_renames(struct dsync_mailbox_tree_sync_ctx *ctx,
+				  bool *renames_r)
 {
 	unsigned int max_renames, count = 0;
 	bool changed;
+
+	*renames_r = FALSE;
 
 	max_renames = ctx->combined_mailboxes_count * 3;
 	do {
@@ -1099,8 +1103,8 @@ dsync_mailbox_tree_handle_renames(struct dsync_mailbox_tree_sync_ctx *ctx)
 		return -1;
 	}
 
-	while (sync_rename_temp_mailboxes(ctx, ctx->local_tree, &ctx->local_tree->root)) ;
-	while (sync_rename_temp_mailboxes(ctx, ctx->remote_tree, &ctx->remote_tree->root)) ;
+	while (sync_rename_temp_mailboxes(ctx, ctx->local_tree, &ctx->local_tree->root, renames_r)) ;
+	while (sync_rename_temp_mailboxes(ctx, ctx->remote_tree, &ctx->remote_tree->root, renames_r)) ;
 	return 0;
 }
 
@@ -1391,6 +1395,8 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 			      enum dsync_mailbox_trees_sync_flags sync_flags)
 {
 	struct dsync_mailbox_tree_sync_ctx *ctx;
+	unsigned int rename_counter = 0;
+	bool renames;
 	pool_t pool;
 
 	i_assert(hash_table_is_created(local_tree->guid_hash));
@@ -1406,6 +1412,9 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	ctx->sync_flags = sync_flags;
 	i_array_init(&ctx->changes, 128);
 
+again:
+	renames = FALSE;
+	ctx->combined_mailboxes_count = 0;
 	sync_tree_sort_and_delete_mailboxes(ctx, remote_tree,
 		sync_type == DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY);
 	sync_tree_sort_and_delete_mailboxes(ctx, local_tree,
@@ -1414,7 +1423,7 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	dsync_mailbox_tree_update_child_timestamps(&local_tree->root, 0);
 	dsync_mailbox_tree_update_child_timestamps(&remote_tree->root, 0);
 	if ((sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_NO_RENAMES) == 0) {
-		if (dsync_mailbox_tree_handle_renames(ctx) < 0) {
+		if (dsync_mailbox_tree_handle_renames(ctx, &renames) < 0) {
 			ctx->failed = TRUE;
 			return ctx;
 		}
@@ -1432,6 +1441,14 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 		sync_create_mailboxes(ctx, remote_tree);
 	if (sync_type != DSYNC_MAILBOX_TREES_SYNC_TYPE_PRESERVE_REMOTE)
 		sync_create_mailboxes(ctx, local_tree);
+	if (renames && rename_counter++ <= ctx->combined_mailboxes_count*3) {
+		/* this rename algorithm is just horrible. we're retrying this
+		   because the final sync_rename_temp_mailbox_node() calls
+		   give different names to local & remote mailbox trees.
+		   something's not right here, but this looping is better than
+		   a crash in sync_mailbox_dirs() due to trees not matching. */
+		goto again;
+	}
 	sync_mailbox_dirs(ctx);
 	return ctx;
 }
