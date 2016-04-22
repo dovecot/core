@@ -194,7 +194,7 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 			      enum dsync_mailbox_trees_sync_flags sync_flags);
 const struct dsync_mailbox_tree_sync_change *
 dsync_mailbox_trees_sync_next(struct dsync_mailbox_tree_sync_ctx *ctx);
-void dsync_mailbox_trees_sync_deinit(struct dsync_mailbox_tree_sync_ctx **ctx);
+int dsync_mailbox_trees_sync_deinit(struct dsync_mailbox_tree_sync_ctx **ctx);
 
 const char *dsync_mailbox_node_to_string(const struct dsync_mailbox_node *node);
 const char *
