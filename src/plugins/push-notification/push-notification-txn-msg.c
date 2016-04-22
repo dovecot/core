@@ -45,7 +45,7 @@ push_notification_txn_msg_end(struct push_notification_txn *ptxn,
     struct push_notification_driver_txn **dtxn;
     struct seq_range_iter siter;
     struct mailbox_status status;
-    uint32_t uid;
+    uint32_t uid, uid_validity;
     struct push_notification_txn_msg *value;
 
     if (!hash_table_is_created(ptxn->messages)) {
@@ -55,20 +55,21 @@ push_notification_txn_msg_end(struct push_notification_txn *ptxn,
     hiter = hash_table_iterate_init(ptxn->messages);
     seq_range_array_iter_init(&siter, &changes->saved_uids);
 
+    /* uid_validity is only set in changes if message is new. */
+    if (changes->uid_validity == 0) {
+        mailbox_get_open_status(ptxn->mbox, STATUS_UIDVALIDITY, &status);
+        uid_validity = status.uidvalidity;
+    } else {
+        uid_validity = changes->uid_validity;
+    }
+
     while (hash_table_iterate(hiter, ptxn->messages, &key, &value)) {
         if (value->uid == 0) {
             if (seq_range_array_iter_nth(&siter, value->seq, &uid)) {
                 value->uid = uid;
             }
         }
-
-        /* uid_validity is only set in changes if message is new. */
-        if (changes->uid_validity == 0) {
-            mailbox_get_open_status(ptxn->mbox, STATUS_UIDVALIDITY, &status);
-            value->uid_validity = status.uidvalidity;
-        } else {
-            value->uid_validity = changes->uid_validity;
-        }
+        value->uid_validity = uid_validity;
 
         array_foreach_modifiable(&ptxn->drivers, dtxn) {
             if ((*dtxn)->duser->driver->v.process_msg != NULL) {
