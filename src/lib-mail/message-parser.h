@@ -47,16 +47,16 @@ struct message_parser_ctx *
 message_parser_init(pool_t part_pool, struct istream *input,
 		    enum message_header_parser_flags hdr_flags,
 		    enum message_parser_flags flags);
+/* Deinitialize message parser. The ctx must NOT have been created by
+   message_parser_init_from_parts(). */
+void message_parser_deinit(struct message_parser_ctx **ctx,
+			   struct message_part **parts_r);
 /* Use preparsed parts to speed up parsing. */
 struct message_parser_ctx *
 message_parser_init_from_parts(struct message_part *parts,
 			       struct istream *input,
 			       enum message_header_parser_flags hdr_flags,
 			       enum message_parser_flags flags);
-/* Returns 0 if parts were returned, -1 we used preparsed parts and they
-   didn't match the current message */
-int message_parser_deinit(struct message_parser_ctx **ctx,
-			  struct message_part **parts_r);
 /* Same as message_parser_deinit(), but return an error message describing
    why the preparsed parts didn't match the message. This can also safely be
    called even when preparsed parts weren't used - it'll always just return

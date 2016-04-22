@@ -81,7 +81,7 @@ static struct message_part *msg_parse(pool_t pool, bool parse_bodystructure)
 	}
 	test_assert(ret < 0);
 
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 	i_stream_unref(&input);
 	return parts;
 }

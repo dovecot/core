@@ -681,8 +681,7 @@ static void i_stream_attachment_extractor_close(struct iostream_private *stream,
 	struct message_part *parts;
 
 	if (astream->parser != NULL) {
-		if (message_parser_deinit(&astream->parser, &parts) < 0)
-			i_unreached(); /* we didn't use preparsed message_parts */
+		message_parser_deinit(&astream->parser, &parts);
 	}
 	hash_format_deinit_free(&astream->set.hash_format);
 	if (astream->pool != NULL)

@@ -77,6 +77,7 @@ static void test_message_parser_small_blocks(void)
 	unsigned int i, end_of_headers_idx;
 	string_t *output;
 	pool_t pool;
+	const char *error;
 	int ret;
 
 	test_begin("message parser in small blocks");
@@ -96,7 +97,7 @@ static void test_message_parser_small_blocks(void)
 	}
 
 	test_assert(ret < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 	test_assert(strcmp(test_msg, str_c(output)) == 0);
 
 	/* parsing in small blocks */
@@ -113,7 +114,7 @@ static void test_message_parser_small_blocks(void)
 		test_assert((ret == 0 && i <= TEST_MSG_LEN*2) ||
 			    (ret < 0 && i > TEST_MSG_LEN*2));
 	}
-	test_assert(message_parser_deinit(&parser, &parts2) == 0);
+	message_parser_deinit(&parser, &parts2);
 	test_assert(msg_parts_cmp(parts, parts2));
 
 	/* parsing in small blocks from preparsed parts */
@@ -132,7 +133,7 @@ static void test_message_parser_small_blocks(void)
 		test_assert((ret == 0 && i/2 <= end_of_headers_idx) ||
 			    (ret < 0 && i/2 > end_of_headers_idx));
 	}
-	test_assert(message_parser_deinit(&parser, &parts2) == 0);
+	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
 	test_assert(msg_parts_cmp(parts, parts2));
 
 	i_stream_unref(&input);
@@ -167,7 +168,7 @@ static const char input_msg[] =
 	parser = message_parser_init(pool, input, 0, 0);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 
 	test_assert((parts->flags & MESSAGE_PART_FLAG_MULTIPART) != 0);
 	test_assert(parts->body_size.lines == 8);
@@ -222,7 +223,7 @@ static const char input_msg[] =
 	parser = message_parser_init(pool, input, 0, 0);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
@@ -274,7 +275,7 @@ static const char input_msg[] =
 	parser = message_parser_init(pool, input, 0, 0);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 1);
@@ -310,7 +311,7 @@ static const char input_msg[] =
 	parser = message_parser_init(pool, input, 0, 0);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
@@ -353,7 +354,7 @@ static const char input_msg[] =
 	parser = message_parser_init(pool, input, 0, 0);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
@@ -410,7 +411,7 @@ static const char input_msg[] =
 	parser = message_parser_init(pool, input, 0, 0);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
@@ -467,7 +468,7 @@ static const char input_msg[] =
 	parser = message_parser_init(pool, input, 0, 0);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
 	test_assert(ret < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
@@ -518,7 +519,7 @@ static void test_message_parser_no_eoh(void)
 	test_assert(message_parser_parse_next_block(parser, &block) > 0 &&
 		    block.hdr == NULL && block.size == 0);
 	test_assert(message_parser_parse_next_block(parser, &block) < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 
 	i_stream_unref(&input);
 	pool_unref(&pool);

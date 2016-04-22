@@ -46,6 +46,7 @@ struct message_parser_ctx {
 
 	unsigned int part_seen_content_type:1;
 	unsigned int multipart:1;
+	unsigned int preparsed:1;
 	unsigned int eof:1;
 };
 
@@ -1057,17 +1058,20 @@ message_parser_init_from_parts(struct message_part *parts,
 	i_assert(parts != NULL);
 
 	ctx = message_parser_init_int(input, hdr_flags, flags);
+	ctx->preparsed = TRUE;
 	ctx->parts = ctx->part = parts;
 	ctx->parse_next_block = preparsed_parse_next_header_init;
 	return ctx;
 }
 
-int message_parser_deinit(struct message_parser_ctx **_ctx,
+void message_parser_deinit(struct message_parser_ctx **_ctx,
 			  struct message_part **parts_r)
 {
 	const char *error;
 
-	return message_parser_deinit_from_parts(_ctx, parts_r, &error);
+	i_assert((**_ctx).preparsed == FALSE);
+	if (message_parser_deinit_from_parts(_ctx, parts_r, &error) < 0)
+		i_panic("message_parser_deinit_from_parts: %s", error);
 }
 
 int message_parser_deinit_from_parts(struct message_parser_ctx **_ctx,

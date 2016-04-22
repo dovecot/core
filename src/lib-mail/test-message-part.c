@@ -84,7 +84,7 @@ static void test_message_part_idx(void)
 		prev_idx = part_idx;
 	}
 	test_assert(ret < 0);
-	test_assert(message_parser_deinit(&parser, &parts) == 0);
+	message_parser_deinit(&parser, &parts);
 
 	part = message_part_by_idx(parts, 0);
 	test_assert(part == parts);

@@ -260,7 +260,7 @@ static int fetch_text_utf8(struct fetch_cmd_context *ctx)
 	}
 	i_assert(ret != 0);
 	message_decoder_deinit(&decoder);
-	(void)message_parser_deinit(&parser, &parts);
+	message_parser_deinit(&parser, &parts);
 
 	doveadm_print_stream("", 0);
 	if (input->stream_errno != 0) {
