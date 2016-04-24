@@ -324,6 +324,8 @@ DOVECOT_FDATASYNC
 DOVECOT_LIBCAP
 DOVECOT_LIBWRAP
 
+DOVECOT_ARC4RANDOM
+
 AC_DEFINE(PACKAGE_WEBPAGE, "http://www.dovecot.org/", [Support URL])
 
 dnl * after -lsocket and -lnsl tests, inet_aton() may be in them

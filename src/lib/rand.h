@@ -16,4 +16,11 @@ unsigned int rand_get_last_seed(void);
 /* Actually seed the prng (could add char* for name of function?) */
 void rand_set_seed(unsigned int s);
 
+#ifdef HAVE_ARC4RANDOM
+
+int arc4random_rand(void);
+#define rand arc4random_rand
+
+#endif
+
 #endif

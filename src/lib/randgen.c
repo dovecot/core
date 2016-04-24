@@ -61,6 +61,18 @@ void random_deinit(void)
 	i_close_fd(&urandom_fd);
 }
 
+#ifdef HAVE_ARC4RANDOM
+#ifdef HAVE_LIBBSD
+#include <bsd/stdlib.h>
+#endif
+
+void random_fill_weak(void *buf, size_t size)
+{
+	arc4random_buf(buf, size);
+}
+
+#else
+
 void random_fill_weak(void *buf, size_t size)
 {
 	unsigned char *cbuf = buf;
@@ -68,3 +80,5 @@ void random_fill_weak(void *buf, size_t size)
 	for (; size > 0; size--)
 		*cbuf++ = (unsigned char)rand();
 }
+
+#endif
