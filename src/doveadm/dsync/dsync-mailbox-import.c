@@ -146,6 +146,22 @@ imp_debug(struct dsync_mailbox_importer *importer, const char *fmt, ...)
 }
 
 static void
+dsync_import_unexpected_state(struct dsync_mailbox_importer *importer,
+			      const char *error)
+{
+	if (!importer->stateful_import) {
+		i_error("Mailbox %s: %s", mailbox_get_vname(importer->box),
+			error);
+	} else {
+		i_warning("Mailbox %s doesn't match previous state: %s "
+			  "(dsync must be run again without the state)",
+			  mailbox_get_vname(importer->box), error);
+	}
+	importer->mail_error = MAIL_ERROR_TEMP;
+	importer->failed = TRUE;
+}
+
+static void
 dsync_mailbox_import_search_init(struct dsync_mailbox_importer *importer)
 {
 	struct mail_search_args *search_args;
@@ -266,6 +282,24 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->local_initial_highestmodseq = status.highest_modseq;
 	importer->local_initial_highestpvtmodseq = status.highest_pvt_modseq;
 	dsync_mailbox_import_search_init(importer);
+
+	if (!importer->stateful_import)
+		;
+	else if (importer->local_uid_next <= last_common_uid) {
+		dsync_import_unexpected_state(importer, t_strdup_printf(
+			"local UIDNEXT %u <= last common UID %u",
+			importer->local_uid_next, last_common_uid));
+	} else if (importer->local_initial_highestmodseq < last_common_modseq) {
+		dsync_import_unexpected_state(importer, t_strdup_printf(
+			"local HIGHESTMODSEQ %llu < last common HIGHESTMODSEQ %llu",
+			(unsigned long long)importer->local_initial_highestmodseq,
+			(unsigned long long)last_common_modseq));
+	} else if (importer->local_initial_highestpvtmodseq < last_common_pvt_modseq) {
+		dsync_import_unexpected_state(importer, t_strdup_printf(
+			"local HIGHESTMODSEQ %llu < last common HIGHESTMODSEQ %llu",
+			(unsigned long long)importer->local_initial_highestpvtmodseq,
+			(unsigned long long)last_common_pvt_modseq));
+	}
 
 	importer->local_changes = dsync_transaction_log_scan_get_hash(log_scan);
 	importer->local_attr_changes = dsync_transaction_log_scan_get_attr_hash(log_scan);
@@ -829,20 +863,6 @@ static void dsync_mailbox_save(struct dsync_mailbox_importer *importer,
 	while (!dsync_mailbox_try_save(importer, save_change)) ;
 }
 
-static void
-dsync_import_unexpected_state(struct dsync_mailbox_importer *importer,
-			      const char *error)
-{
-	if (!importer->stateful_import) {
-		i_error("Mailbox %s: %s", mailbox_get_vname(importer->box),
-			error);
-	} else {
-		i_warning("Mailbox %s doesn't match previous state: %s "
-			  "(dsync must be run again without the state)",
-			  mailbox_get_vname(importer->box), error);
-	}
-}
-
 static bool
 dsync_import_set_mail(struct dsync_mailbox_importer *importer,
 		      const struct dsync_mail_change *change)
@@ -871,8 +891,6 @@ dsync_import_set_mail(struct dsync_mailbox_importer *importer,
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"Unexpected GUID mismatch for UID=%u: %s != %s",
 			change->uid, guid, cmp_guid));
-		importer->mail_error = MAIL_ERROR_TEMP;
-		importer->failed = TRUE;
 		return FALSE;
 	}
 	return TRUE;
@@ -891,8 +909,6 @@ static bool dsync_check_cur_guid(struct dsync_mailbox_importer *importer,
 		dsync_import_unexpected_state(importer, t_strdup_printf(
 			"Unexpected GUID mismatch (2) for UID=%u: %s != %s",
 			change->uid, importer->cur_guid, cmp_guid));
-		importer->mail_error = MAIL_ERROR_TEMP;
-		importer->failed = TRUE;
 		return FALSE;
 	}
 	return TRUE;
