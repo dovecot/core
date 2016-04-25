@@ -67,7 +67,6 @@ imapc_mail_fetch_callback(const struct imapc_command_reply *reply,
 		imapc_mail_set_failure(mail, reply);
 		if (--mail->fetch_count == 0)
 			mail->fetching_fields = 0;
-		pool_unref(&mail->imail.mail.pool);
 		mbox = (struct imapc_mailbox *)mail->imail.mail.mail.box;
 	}
 	i_assert(mbox != NULL);
@@ -285,7 +284,6 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	str_truncate(str, str_len(str)-1);
 	str_append_c(str, ')');
 
-	pool_ref(mail->imail.mail.pool);
 	mail->fetching_fields |= fields;
 	mail->fetch_count++;
 	mail->fetch_sent = FALSE;

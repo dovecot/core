@@ -443,6 +443,8 @@ static void imapc_mail_close(struct mail *_mail)
 		buffer_free(&mail->body);
 	mail->header_fetched = FALSE;
 	mail->body_fetched = FALSE;
+
+	i_assert(mail->fetch_count == 0);
 }
 
 static int imapc_mail_get_hdr_hash(struct index_mail *imail)
