@@ -98,6 +98,93 @@ static void test_istream_filter(void)
 	test_end();
 }
 
+static void add_random_text(string_t *dest, unsigned int count)
+{
+	unsigned int i;
+
+	for (i = 0; i < count; i++)
+		str_append_c(dest, rand() % ('z'-'a'+1) + 'a');
+}
+
+static void ATTR_NULL(3)
+filter2_callback(struct header_filter_istream *input ATTR_UNUSED,
+		 struct message_header_line *hdr,
+		 bool *matched, void *context ATTR_UNUSED)
+{
+	if (hdr != NULL && strcmp(hdr->name, "To") == 0)
+		*matched = TRUE;
+}
+
+static void test_istream_filter_large_buffer(void)
+{
+	string_t *input, *output;
+	struct istream *istream, *filter;
+	const unsigned char *data;
+	size_t size, prefix_len;
+	const char *p;
+	unsigned int i;
+
+	test_begin("i_stream_create_header_filter(large buffer)");
+
+	input = str_new(default_pool, 1024*128);
+	output = str_new(default_pool, 1024*128);
+	str_append(input, "From: ");
+	add_random_text(input, 1024*31);
+	str_append(input, "\nTo: ");
+	add_random_text(input, 1024*32);
+	str_append(input, "\nSubject: ");
+	add_random_text(input, 1024*34);
+	str_append(input, "\n\nbody\n");
+
+	istream = test_istream_create_data(str_data(input), str_len(input));
+	test_istream_set_max_buffer_size(istream, 8192);
+
+	filter = i_stream_create_header_filter(istream,
+					       HEADER_FILTER_EXCLUDE |
+					       HEADER_FILTER_NO_CR,
+					       NULL, 0,
+					       filter2_callback,
+					       (void *)NULL);
+
+	for (i = 0; i < 2; i++) {
+		for (;;) {
+			ssize_t ret = i_stream_read(filter);
+			i_assert(ret != 0);
+			if (ret == -1)
+				break;
+			if (ret == -2) {
+				data = i_stream_get_data(filter, &size);
+				str_append_n(output, data, size);
+				i_stream_skip(filter, size);
+			}
+		}
+
+		data = i_stream_get_data(filter, &size);
+		test_assert(size <= 8192);
+		str_append_n(output, data, size);
+
+		p = strstr(str_c(input), "To: ");
+		i_assert(p != NULL);
+		prefix_len = p - str_c(input);
+		test_assert(strncmp(str_c(input), str_c(output), prefix_len) == 0);
+
+		p = strchr(p, '\n');
+		i_assert(p != NULL);
+		test_assert(strcmp(p+1, str_c(output) + prefix_len) == 0);
+
+		/* seek back and retry once with caching */
+		i_stream_seek(filter, 0);
+		str_truncate(output, 0);
+	}
+
+	str_free(&input);
+	str_free(&output);
+	i_stream_unref(&filter);
+	i_stream_unref(&istream);
+
+	test_end();
+}
+
 static void ATTR_NULL(3)
 edit_callback(struct header_filter_istream *input,
 	      struct message_header_line *hdr,
@@ -220,6 +307,7 @@ int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_istream_filter,
+		test_istream_filter_large_buffer,
 		test_istream_edit,
 		test_istream_end_body_with_lf,
 		test_istream_strip_eoh,
