@@ -48,7 +48,7 @@ filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 
 static void test_istream_filter(void)
 {
-	static const char *exclude_headers[] = { "Subject", "To", "X-Drop", NULL };
+	static const char *exclude_headers[] = { "Subject", "To" };
 	const char *input = "From: foo\nFrom: abc\nTo: bar\nSubject: plop\nX-Drop: 1\n\nhello world\n";
 	const char *output = "From: abc\n\nhello world\n";
 	struct istream *istream, *filter, *filter2;
@@ -62,12 +62,14 @@ static void test_istream_filter(void)
 	filter = i_stream_create_header_filter(istream,
 					       HEADER_FILTER_EXCLUDE |
 					       HEADER_FILTER_NO_CR,
-					       exclude_headers, 2,
+					       exclude_headers,
+					       N_ELEMENTS(exclude_headers),
 					       filter_callback, (void *)NULL);
 	filter2 = i_stream_create_header_filter(filter,
 						HEADER_FILTER_EXCLUDE |
 						HEADER_FILTER_NO_CR,
-						exclude_headers, 2,
+						exclude_headers,
+						N_ELEMENTS(exclude_headers),
 						*null_header_filter_callback,
 						(void *)NULL);
 	i_stream_unref(&filter);
@@ -131,7 +133,6 @@ static void test_istream_edit(void)
 
 static void test_istream_end_body_with_lf(void)
 {
-	static const char *empty_strarray[] = { NULL };
 	const char *input = "From: foo\n\nhello world";
 	const char *output = "From: foo\n\nhello world\n";
 	struct istream *istream, *filter;
@@ -147,7 +148,7 @@ static void test_istream_end_body_with_lf(void)
 					       HEADER_FILTER_EXCLUDE |
 					       HEADER_FILTER_NO_CR |
 					       HEADER_FILTER_END_BODY_WITH_LF,
-					       empty_strarray, 0,
+					       NULL, 0,
 					       *null_header_filter_callback,
 					       (void *)NULL);
 
