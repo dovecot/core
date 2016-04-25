@@ -852,6 +852,8 @@ static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
 	struct fts_index_header hdr;
+	struct mail_namespace *ns = index->list->ns;
+	const char *vname;
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.settings_checksum = fts_lucene_settings_checksum(&index->set);
@@ -860,6 +862,14 @@ static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 	while ((info = mailbox_list_iter_next(iter)) != NULL)
 		rescan_clear_unseen_mailbox(rescan_ctx, info->vname, &hdr);
 	(void)mailbox_list_iter_deinit(&iter);
+
+	if (ns->prefix_len > 0 &&
+	    ns->prefix[ns->prefix_len-1] == mail_namespace_get_sep(ns)) {
+		/* namespace prefix itself isn't returned by the listing */
+		vname = t_strndup(index->list->ns->prefix,
+				  index->list->ns->prefix_len-1);
+		rescan_clear_unseen_mailbox(rescan_ctx, vname, &hdr);
+	}
 }
 
 int lucene_index_rescan(struct lucene_index *index)
