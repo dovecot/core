@@ -172,9 +172,11 @@ static void test_istream_filter_large_buffer(void)
 		i_assert(p != NULL);
 		test_assert(strcmp(p+1, str_c(output) + prefix_len) == 0);
 
-		/* seek back and retry once with caching */
+		/* seek back and retry once with caching and different
+		   buffer size */
 		i_stream_seek(filter, 0);
 		str_truncate(output, 0);
+		test_istream_set_max_buffer_size(istream, 4096);
 	}
 
 	str_free(&input);
