@@ -219,6 +219,7 @@ static bool dsync_brain_send_mail_request(struct dsync_brain *brain)
 static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_state state;
+	bool require_full_resync;
 
 	if (brain->box_recv_state < DSYNC_BOX_STATE_RECV_LAST_COMMON ||
 	    brain->box_send_state < DSYNC_BOX_STATE_RECV_LAST_COMMON)
@@ -246,12 +247,24 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 						&state.last_common_pvt_modseq,
 						&state.last_messages_count,
 						&state.changes_during_sync,
+						&require_full_resync,
 						&brain->mail_error) < 0) {
-			brain->failed = TRUE;
-			return;
+			if (require_full_resync) {
+				/* don't treat this as brain failure or the
+				   state won't be sent to the other brain.
+				   this also means we'll continue syncing the
+				   following mailboxes. */
+				brain->require_full_resync = TRUE;
+			} else {
+				brain->failed = TRUE;
+			}
 		}
 		if (state.changes_during_sync)
 			brain->changes_during_sync = TRUE;
+	}
+	if (brain->require_full_resync) {
+		state.last_uidvalidity = 0;
+		state.changes_during_sync = TRUE;
 	}
 	brain->mailbox_state = state;
 	dsync_ibc_send_mailbox_state(brain->ibc, &state);

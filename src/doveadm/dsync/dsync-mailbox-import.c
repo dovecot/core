@@ -108,6 +108,7 @@ struct dsync_mailbox_importer {
 	enum mail_error mail_error;
 
 	unsigned int failed:1;
+	unsigned int require_full_resync:1;
 	unsigned int debug:1;
 	unsigned int stateful_import:1;
 	unsigned int last_common_uid_found:1;
@@ -157,8 +158,7 @@ dsync_import_unexpected_state(struct dsync_mailbox_importer *importer,
 			  "(dsync must be run again without the state)",
 			  mailbox_get_vname(importer->box), error);
 	}
-	importer->mail_error = MAIL_ERROR_TEMP;
-	importer->failed = TRUE;
+	importer->require_full_resync = TRUE;
 }
 
 static void
@@ -1698,6 +1698,8 @@ int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 
 	if (importer->failed)
 		return -1;
+	if (importer->require_full_resync)
+		return 0;
 
 	if (!importer->last_common_uid_found) {
 		result = NULL;
@@ -1713,6 +1715,8 @@ int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 
 	if (importer->failed)
 		return -1;
+	if (importer->require_full_resync)
+		return 0;
 
 	if (importer->last_common_uid_found) {
 		/* a) uid <= last_common_uid for flag changes and expunges.
@@ -2437,6 +2441,8 @@ int dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 
 	if (importer->failed)
 		return -1;
+	if (importer->require_full_resync)
+		return 0;
 
 	imp_debug(importer, "Import mail body for GUID=%s UID=%u",
 		  mail->guid, mail->uid);
@@ -2750,6 +2756,7 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 				uint64_t *last_common_pvt_modseq_r,
 				uint32_t *last_messages_count_r,
 				bool *changes_during_sync_r,
+				bool *require_full_resync_r,
 				enum mail_error *error_r)
 {
 	struct dsync_mailbox_importer *importer = *_importer;
@@ -2758,8 +2765,9 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 
 	*_importer = NULL;
 	*changes_during_sync_r = FALSE;
+	*require_full_resync_r = importer->require_full_resync;
 
-	if (!success && !importer->failed) {
+	if ((!success || importer->require_full_resync) && !importer->failed) {
 		importer->mail_error = MAIL_ERROR_TEMP;
 		importer->failed = TRUE;
 	}

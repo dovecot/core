@@ -360,7 +360,7 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 	if (brain->box_importer != NULL) {
 		uint32_t last_common_uid, last_messages_count;
 		uint64_t last_common_modseq, last_common_pvt_modseq;
-		bool changes_during_sync;
+		bool changes_during_sync, require_full_resync;
 
 		i_assert(brain->failed);
 		(void)dsync_mailbox_import_deinit(&brain->box_importer,
@@ -370,7 +370,10 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 						  &last_common_pvt_modseq,
 						  &last_messages_count,
 						  &changes_during_sync,
+						  &require_full_resync,
 						  &brain->mail_error);
+		if (require_full_resync)
+			brain->require_full_resync = TRUE;
 	}
 	if (brain->log_scan != NULL)
 		dsync_transaction_log_scan_deinit(&brain->log_scan);
