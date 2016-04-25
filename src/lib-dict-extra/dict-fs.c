@@ -237,7 +237,6 @@ static int fs_dict_write_changes(struct dict_transaction_memory_context *ctx)
 			}
 			fs_file_deinit(&file);
 			break;
-		case DICT_CHANGE_TYPE_APPEND:
 		case DICT_CHANGE_TYPE_INC:
 			i_unreached();
 		}

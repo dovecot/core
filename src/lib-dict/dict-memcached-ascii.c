@@ -16,7 +16,7 @@
 enum memcached_ascii_input_state {
 	/* GET: expecting VALUE or END */
 	MEMCACHED_INPUT_STATE_GET,
-	/* SET/(APPEND+ADD): expecting STORED / NOT_STORED */
+	/* SET: expecting STORED / NOT_STORED */
 	MEMCACHED_INPUT_STATE_STORED,
 	/* DELETE: expecting DELETED */
 	MEMCACHED_INPUT_STATE_DELETED,
@@ -553,16 +553,6 @@ memcached_send_change(struct dict_memcached_ascii_commit_ctx *ctx,
 	case DICT_CHANGE_TYPE_UNSET:
 		state = MEMCACHED_INPUT_STATE_DELETED;
 		str_printfa(ctx->str, "delete %s\r\n", key);
-		break;
-	case DICT_CHANGE_TYPE_APPEND:
-		state = MEMCACHED_INPUT_STATE_STORED;
-		str_printfa(ctx->str, "append %s 0 0 %"PRIuSIZE_T"\r\n%s\r\n",
-			    key, strlen(change->value.str), change->value.str);
-		array_append(&ctx->dict->input_states, &state, 1);
-		/* we'd preferably want an append that always works, but
-		   this kludge works for that too.. */
-		str_printfa(ctx->str, "add %s 0 0 %"PRIuSIZE_T"\r\n%s\r\n",
-			    key, strlen(change->value.str), change->value.str);
 		break;
 	case DICT_CHANGE_TYPE_INC:
 		state = MEMCACHED_INPUT_STATE_INCRDECR;

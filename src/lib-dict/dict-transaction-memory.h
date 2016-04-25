@@ -6,7 +6,6 @@
 enum dict_change_type {
 	DICT_CHANGE_TYPE_SET,
 	DICT_CHANGE_TYPE_UNSET,
-	DICT_CHANGE_TYPE_APPEND,
 	DICT_CHANGE_TYPE_INC
 };
 
@@ -33,8 +32,6 @@ void dict_transaction_memory_set(struct dict_transaction_context *ctx,
 				 const char *key, const char *value);
 void dict_transaction_memory_unset(struct dict_transaction_context *ctx,
 				   const char *key);
-void dict_transaction_memory_append(struct dict_transaction_context *_ctx,
-				    const char *key, const char *value);
 void dict_transaction_memory_atomic_inc(struct dict_transaction_context *ctx,
 					const char *key, long long diff);
 

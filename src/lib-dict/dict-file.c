@@ -353,18 +353,6 @@ static void file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 			}
 			hash_table_update(dict->hash, key, value);
 			break;
-		case DICT_CHANGE_TYPE_APPEND:
-			if (key == NULL)
-				key = p_strdup(dict->hash_pool, change->key);
-			if (old_value == NULL) {
-				value = p_strdup(dict->hash_pool,
-						 change->value.str);
-			} else {
-				value = p_strconcat(dict->hash_pool, old_value,
-						    change->value.str, NULL);
-			}
-			hash_table_update(dict->hash, key, value);
-			break;
 		case DICT_CHANGE_TYPE_UNSET:
 			if (old_value != NULL)
 				hash_table_remove(dict->hash, key);
