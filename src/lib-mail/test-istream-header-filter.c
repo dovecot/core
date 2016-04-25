@@ -185,6 +185,58 @@ static void test_istream_filter_large_buffer(void)
 	test_end();
 }
 
+static void
+filter3_callback(struct header_filter_istream *input ATTR_UNUSED,
+		 struct message_header_line *hdr,
+		 bool *matched ATTR_UNUSED, string_t *dest)
+{
+	if (hdr != NULL)
+		message_header_line_write(dest, hdr);
+}
+
+static void test_istream_callbacks(void)
+{
+	string_t *input, *output;
+	struct istream *istream, *filter;
+	unsigned int i;
+
+	test_begin("i_stream_create_header_filter(callbacks)");
+
+	input = str_new(default_pool, 1024*128);
+	output = str_new(default_pool, 1024*128);
+	str_append(input, "From: first line\n ");
+	add_random_text(input, 1024*31);
+	str_append(input, "\nTo: first line\n\tsecond line\n\t");
+	add_random_text(input, 1024*32);
+	str_append(input, "\n last line\nSubject: ");
+	add_random_text(input, 1024*34);
+	str_append(input, "\n");
+
+	istream = test_istream_create_data(str_data(input), str_len(input));
+	test_istream_set_max_buffer_size(istream, 8192);
+
+	filter = i_stream_create_header_filter(istream,
+					       HEADER_FILTER_EXCLUDE |
+					       HEADER_FILTER_NO_CR,
+					       NULL, 0,
+					       filter3_callback,
+					       output);
+
+	/* callback should be called exactly once for all the header input */
+	for (i = 0; i < 2; i++) {
+		while (i_stream_read(filter) != -1)
+			i_stream_skip(filter, i_stream_get_data_size(filter));
+	}
+
+	test_assert(strcmp(str_c(output), str_c(input)) == 0);
+	str_free(&input);
+	str_free(&output);
+	i_stream_unref(&filter);
+	i_stream_unref(&istream);
+
+	test_end();
+}
+
 static void ATTR_NULL(3)
 edit_callback(struct header_filter_istream *input,
 	      struct message_header_line *hdr,
@@ -308,6 +360,7 @@ int main(void)
 	static void (*test_functions[])(void) = {
 		test_istream_filter,
 		test_istream_filter_large_buffer,
+		test_istream_callbacks,
 		test_istream_edit,
 		test_istream_end_body_with_lf,
 		test_istream_strip_eoh,
