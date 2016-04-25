@@ -705,6 +705,9 @@ void dsync_brain_get_state(struct dsync_brain *brain, string_t *output)
 	const uint8_t *guid_p;
 	uint8_t *guid;
 
+	if (brain->require_full_resync)
+		return;
+
 	/* update mailbox states */
 	array_foreach(&brain->remote_mailbox_states, new_state) {
 		guid_p = new_state->mailbox_guid;
