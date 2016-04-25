@@ -49,6 +49,7 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **importer,
 				uint64_t *last_common_pvt_modseq_r,
 				uint32_t *last_messages_count_r,
 				bool *changes_during_sync_r,
+				bool *require_full_resync_r,
 				enum mail_error *error_r);
 
 const char *dsync_mailbox_import_get_proctitle(struct dsync_mailbox_importer *importer);
