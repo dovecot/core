@@ -144,6 +144,9 @@ static ssize_t hdr_stream_update_pos(struct header_filter_istream *mstream)
 	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
 	i_assert(ret >= 0);
 	mstream->istream.pos = pos;
+
+	if (pos >= mstream->istream.max_buffer_size)
+		return -2;
 	return ret;
 }
 
@@ -180,6 +183,9 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			return read_mixed(mstream, body_highwater_size);
 		}
 	}
+
+	if (mstream->hdr_buf->used >= mstream->istream.max_buffer_size)
+		return -2;
 
 	while ((hdr_ret = message_parse_header_next(mstream->hdr_ctx,
 						    &hdr)) > 0) {
@@ -263,6 +269,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 				break;
 			}
 		}
+		if (mstream->hdr_buf->used >= mstream->istream.max_buffer_size)
+			break;
 	}
 
 	if (hdr_ret < 0) {
