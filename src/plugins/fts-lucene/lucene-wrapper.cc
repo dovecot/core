@@ -819,6 +819,29 @@ rescan_next(struct rescan_context *ctx, Document *doc)
 	}
 }
 
+static void
+rescan_clear_unseen_mailbox(struct rescan_context *rescan_ctx,
+			    const char *vname,
+			    const struct fts_index_header *hdr)
+{
+	struct mailbox *box;
+	struct mailbox_metadata metadata;
+
+	box = mailbox_alloc(rescan_ctx->index->list, vname,
+			    (enum mailbox_flags)0);
+	if (mailbox_open(box) == 0 &&
+	    mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
+				 &metadata) == 0 &&
+	    (rescan_ctx == NULL ||
+	     hash_table_lookup(rescan_ctx->seen_mailbox_guids,
+			       metadata.guid) == NULL)) {
+		/* this mailbox had no records in lucene index.
+		   make sure its last indexed uid is 0 */
+		(void)fts_index_set_header(box, hdr);
+	}
+	mailbox_free(&box);
+}
+
 static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 					  struct rescan_context *rescan_ctx)
 {
@@ -828,29 +851,14 @@ static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 		 MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	struct mailbox *box;
-	struct mailbox_metadata metadata;
 	struct fts_index_header hdr;
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.settings_checksum = fts_lucene_settings_checksum(&index->set);
 
 	iter = mailbox_list_iter_init(index->list, "*", iter_flags);
-	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		box = mailbox_alloc(index->list, info->vname,
-				    (enum mailbox_flags)0);
-		if (mailbox_open(box) == 0 &&
-		    mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
-					 &metadata) == 0 &&
-		    (rescan_ctx == NULL ||
-		     hash_table_lookup(rescan_ctx->seen_mailbox_guids,
-				       metadata.guid) == NULL)) {
-			/* this mailbox had no records in lucene index.
-			   make sure its last indexed uid is 0 */
-			(void)fts_index_set_header(box, &hdr);
-		}
-		mailbox_free(&box);
-	}
+	while ((info = mailbox_list_iter_next(iter)) != NULL)
+		rescan_clear_unseen_mailbox(rescan_ctx, info->vname, &hdr);
 	(void)mailbox_list_iter_deinit(&iter);
 }
 
