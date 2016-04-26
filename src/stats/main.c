@@ -16,20 +16,14 @@
 #include "mail-stats.h"
 #include "client.h"
 
-static struct fifo_input_connection *fifo_input_conn = NULL;
 static struct module *modules = NULL;
 
 static void client_connected(struct master_service_connection *conn)
 {
-	if (conn->fifo) {
-		if (fifo_input_conn != NULL) {
-			i_error("Received another mail-server connection");
-			return;
-		}
-		fifo_input_conn = fifo_input_connection_create(conn->fd);
-	} else {
+	if (conn->fifo)
+		(void)fifo_input_connection_create(conn->fd);
+	else
 		(void)client_create(conn->fd);
-	}
 	master_service_client_connection_accept(conn);
 }
 
@@ -85,15 +79,13 @@ int main(int argc, char *argv[])
 	master_service_run(master_service, client_connected);
 
 	clients_destroy_all();
+	fifo_input_connections_destroy_all();
 	mail_commands_deinit();
 	mail_sessions_deinit();
 	mail_users_deinit();
 	mail_domains_deinit();
 	mail_ips_deinit();
 	mail_global_deinit();
-
-	if (fifo_input_conn != NULL)
-		fifo_input_connection_destroy(&fifo_input_conn);
 
 	module_dir_unload(&modules);
 	i_assert(global_used_memory == 0);
