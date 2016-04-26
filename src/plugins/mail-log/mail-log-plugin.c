@@ -182,7 +182,7 @@ mail_log_append_mail_header(string_t *str, struct mail *mail,
 {
 	const char *value;
 
-	if (mail_get_first_header(mail, header, &value) <= 0)
+	if (mail_get_first_header_utf8(mail, header, &value) <= 0)
 		value = "";
 	str_printfa(str, "%s=%s", name, str_sanitize(value, HEADER_LOG_LEN));
 }
