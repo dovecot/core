@@ -111,6 +111,11 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 void mail_storage_service_user_free(struct mail_storage_service_user **user);
 /* Initialize iterating through all users. */
 void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx);
+/* Same as mail_storage_service_all_init(), but give a user mask hint to the
+   userdb iteration lookup. This itself isn't yet guaranteed to filter out any
+   usernames. */
+void mail_storage_service_all_init_mask(struct mail_storage_service_ctx *ctx,
+					const char *user_mask_hint);
 /* Iterate through all usernames. Returns 1 if username was returned, 0 if
    there are no more users, -1 if error. */
 int mail_storage_service_all_next(struct mail_storage_service_ctx *ctx,

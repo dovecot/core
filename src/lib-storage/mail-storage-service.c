@@ -1530,6 +1530,12 @@ mail_storage_service_all_iter_deinit(struct mail_storage_service_ctx *ctx)
 
 void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx)
 {
+	mail_storage_service_all_init_mask(ctx, "");
+}
+
+void mail_storage_service_all_init_mask(struct mail_storage_service_ctx *ctx,
+					const char *user_mask_hint)
+{
 	enum auth_master_flags flags = 0;
 
 	(void)mail_storage_service_all_iter_deinit(ctx);
@@ -1542,7 +1548,8 @@ void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx)
 		flags |= AUTH_MASTER_FLAG_DEBUG;
 	ctx->iter_conn = auth_master_init(auth_master_get_socket_path(ctx->conn),
 					  flags);
-	ctx->auth_list = auth_master_user_list_init(ctx->iter_conn, "", NULL);
+	ctx->auth_list = auth_master_user_list_init(ctx->iter_conn,
+						    user_mask_hint, NULL);
 }
 
 int mail_storage_service_all_next(struct mail_storage_service_ctx *ctx,
