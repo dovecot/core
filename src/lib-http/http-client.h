@@ -11,6 +11,8 @@ struct http_response;
 struct http_client;
 struct http_client_request;
 
+struct ssl_iostream_settings;
+
 /*
  * Client settings
  */
@@ -23,12 +25,7 @@ struct http_client_settings {
 	struct dns_client *dns_client;
 	const char *dns_client_socket_path;
 
-	/* ssl configuration */
-	const char *ssl_ca_dir, *ssl_ca_file, *ssl_ca;
-	const char *ssl_crypto_device;
-	bool ssl_allow_invalid_cert;
-	/* user cert */
-	const char *ssl_cert, *ssl_key, *ssl_key_password;
+	const struct ssl_iostream_settings *ssl;
 
 	/* User-Agent: header (default: none) */
 	const char *user_agent;

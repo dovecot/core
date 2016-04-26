@@ -92,19 +92,14 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	pool = pool_alloconly_create("http client", 1024);
 	client = p_new(pool, struct http_client, 1);
 	client->pool = pool;
+
 	client->set.dns_client = set->dns_client;
 	client->set.dns_client_socket_path =
 		p_strdup_empty(pool, set->dns_client_socket_path);
 	client->set.user_agent = p_strdup_empty(pool, set->user_agent);
 	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
-	client->set.ssl_ca_dir = p_strdup(pool, set->ssl_ca_dir);
-	client->set.ssl_ca_file = p_strdup(pool, set->ssl_ca_file);
-	client->set.ssl_ca = p_strdup(pool, set->ssl_ca);
-	client->set.ssl_crypto_device = p_strdup(pool, set->ssl_crypto_device);
-	client->set.ssl_allow_invalid_cert = set->ssl_allow_invalid_cert;
-	client->set.ssl_cert = p_strdup(pool, set->ssl_cert);
-	client->set.ssl_key = p_strdup(pool, set->ssl_key);
-	client->set.ssl_key_password = p_strdup(pool, set->ssl_key_password);
+
+	client->set.ssl = ssl_iostream_settings_dup(client->pool, set->ssl);
 
 	if (set->proxy_socket_path != NULL && *set->proxy_socket_path != '\0') {
 		client->set.proxy_socket_path = p_strdup(pool, set->proxy_socket_path);
@@ -278,25 +273,12 @@ unsigned int http_client_get_pending_request_count(struct http_client *client)
 
 int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 {
-	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
 	if (client->ssl_ctx != NULL)
 		return 0;
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
-	ssl_set.ca_dir = client->set.ssl_ca_dir;
-	ssl_set.ca_file = client->set.ssl_ca_file;
-	ssl_set.ca = client->set.ssl_ca;
-	ssl_set.verify_remote_cert = TRUE;
-	ssl_set.crypto_device = client->set.ssl_crypto_device;
-	ssl_set.cert = client->set.ssl_cert;
-	ssl_set.key = client->set.ssl_key;
-	ssl_set.key_password = client->set.ssl_key_password;
-	ssl_set.verbose = client->set.debug;
-	ssl_set.verbose_invalid_cert = client->set.debug;
-
-	if (ssl_iostream_context_init_client(&ssl_set, &client->ssl_ctx, &error) < 0) {
+	if (ssl_iostream_context_init_client(client->set.ssl, &client->ssl_ctx, &error) < 0) {
 		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
 					   error);
 		return -1;

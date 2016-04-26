@@ -8,6 +8,7 @@
 #include "http-url.h"
 #include "http-client.h"
 #include "dns-lookup.h"
+#include "iostream-ssl.h"
 
 struct http_test_request {
 	struct io *io;
@@ -335,6 +336,7 @@ int main(int argc, char *argv[])
 	struct dns_lookup_settings dns_set;
 	struct http_client_settings http_set;
 	struct http_client *http_client;
+	struct ssl_iostream_settings ssl_set;
 	const char *error;
 	struct ioloop *ioloop;
 
@@ -356,11 +358,14 @@ int main(int argc, char *argv[])
 	if (dns_client_connect(dns_client, &error) < 0)
 		i_fatal("Couldn't initialize DNS client: %s", error);
 
+	memset(&ssl_set, 0, sizeof(ssl_set));
+	ssl_set.require_valid_cert = FALSE;
+	ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */
+	ssl_set.ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
+
 	memset(&http_set, 0, sizeof(http_set));
+	http_set.ssl = &ssl_set;
 	http_set.dns_client = dns_client;
-	http_set.ssl_allow_invalid_cert = TRUE;
-	http_set.ssl_ca_dir = "/etc/ssl/certs"; /* debian */
-	http_set.ssl_ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
 	http_set.max_idle_time_msecs = 5*1000;
 	http_set.max_parallel_connections = 4;
 	http_set.max_pipelined_requests = 4;

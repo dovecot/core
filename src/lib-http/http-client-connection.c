@@ -1090,7 +1090,7 @@ http_client_connection_ssl_handshaked(const char **error_r, void *context)
 
 	if (ssl_iostream_check_cert_validity(conn->ssl_iostream, host, &error) == 0)
 		http_client_connection_debug(conn, "SSL handshake successful");
-	else if (conn->client->set.ssl_allow_invalid_cert) {
+	else if (!conn->client->set.ssl->require_valid_cert) {
 		http_client_connection_debug(conn, "SSL handshake successful, "
 			"ignoring invalid certificate: %s", error);
 	} else {
@@ -1110,7 +1110,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 	i_assert(conn->client->ssl_ctx != NULL);
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
-	if (!conn->client->set.ssl_allow_invalid_cert) {
+	if (conn->client->set.ssl->require_valid_cert) {
 		ssl_set.verbose_invalid_cert = TRUE;
 		ssl_set.verify_remote_cert = TRUE;
 		ssl_set.require_valid_cert = TRUE;
