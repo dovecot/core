@@ -63,22 +63,22 @@ deplibs = \
 if SQL_PLUGINS
 libdriver_mysql_la_LDFLAGS = -module -avoid-version
 libdriver_mysql_la_LIBADD = $(MYSQL_LIBS)
-libdriver_mysql_la_CPPFLAGS = -I$(top_srcdir)/src/lib $(MYSQL_CFLAGS)
+libdriver_mysql_la_CPPFLAGS = $(AM_CPPFLAGS) $(MYSQL_CFLAGS)
 libdriver_mysql_la_SOURCES = driver-mysql.c
 
 libdriver_pgsql_la_LDFLAGS = -module -avoid-version
 libdriver_pgsql_la_LIBADD = $(PGSQL_LIBS)
-libdriver_pgsql_la_CPPFLAGS = -I$(top_srcdir)/src/lib $(PGSQL_CFLAGS)
+libdriver_pgsql_la_CPPFLAGS = $(AM_CPPFLAGS) $(PGSQL_CFLAGS)
 libdriver_pgsql_la_SOURCES = driver-pgsql.c
 
 libdriver_sqlite_la_LDFLAGS = -module -avoid-version
 libdriver_sqlite_la_LIBADD = $(SQLITE_LIBS)
-libdriver_sqlite_la_CPPFLAGS = -I$(top_srcdir)/src/lib $(SQLITE_CFLAGS)
+libdriver_sqlite_la_CPPFLAGS = $(AM_CPPFLAGS) $(SQLITE_CFLAGS)
 libdriver_sqlite_la_SOURCES = driver-sqlite.c
 
 libdriver_cassandra_la_LDFLAGS = -module -avoid-version
 libdriver_cassandra_la_LIBADD = $(CASSANDRA_LIBS)
-libdriver_cassandra_la_CPPFLAGS = -I$(top_srcdir)/src/lib $(CASSANDRA_CFLAGS)
+libdriver_cassandra_la_CPPFLAGS = $(AM_CPPFLAGS) $(CASSANDRA_CFLAGS)
 libdriver_cassandra_la_SOURCES = driver-cassandra.c
 
 sql_libs =
