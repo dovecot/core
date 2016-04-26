@@ -1,0 +1,93 @@
+.\" Copyright (c) 2016 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-PROXY 1 "2016-04-26" "Dovecot v2.2" "Dovecot"
+.SH NAME
+doveadm\-fs \- Interact with the abstract mail storage filesystem
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv ]
+[\fB\-f\fP \fIformatter\fP]
+.BI fs \ command
+.RI [ ARGUMENTS ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+The
+.B doveadm fs
+.I commands
+are used to abstractly interact with the storage backend defined in the
+Dovecot configuration. It allows access to the mailbox structure without
+needing to know details of how the storage backend is architected.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\" --- command specific options --- "/.
+.PP
+This command uses by default the
+.B table
+output formatter.
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.SS fs copy
+.B doveadm fs copy
+.I fs-driver
+.I fs-args
+.I source-path
+.I dest-path
+.PP
+Copy source path to the destination path.
+.\"-------------------------------------
+.SS fs delete
+.B doveadm fs delete
+[\fB\-R\fP] [\fB\-n\fP \fIcount\fP]
+.I fs-driver
+.I fs-args
+.I path
+[\fIpath\fP ...]
+.PP
+Delete all data associated with the path provided.
+.\"-------------------------------------
+.SS fs get
+.B doveadm fs get
+.I fs-driver
+.I fs-args
+.I path
+.PP
+Retrieve data associated with the path provided.
+.\"-------------------------------------
+.SS fs iter
+.B doveadm fs iter
+.I fs-driver
+.I fs-args
+.I path
+.PP
+Iterate through all data files in the path provided.
+.\"-------------------------------------
+.SS fs iter-dirs
+.B doveadm fs iter-dirs
+.I fs-driver
+.I fs-args
+.I path
+.PP
+Iterate through all directories in the path provided.
+.\"-------------------------------------
+.SS fs put
+.B doveadm fs put
+[\fB\-h\fP \fIhash\fP]
+.I fs-driver
+.I fs-args
+.I input_path
+.I path
+.PP
+Store data at the path provided.
+.\"-------------------------------------
+.SS fs stat
+.B doveadm fs stat
+.I fs-driver
+.I fs-args
+.I path
+.PP
+Retrieve files status for the path provided. Currently, only the total size
+(in bytes) of the item is returned.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)

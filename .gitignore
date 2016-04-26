@@ -54,6 +54,7 @@ doc/man/doveadm-exec.1
 doc/man/doveadm-expunge.1
 doc/man/doveadm-fetch.1
 doc/man/doveadm-flags.1
+doc/man/doveadm-fs.1
 doc/man/doveadm-fts.1
 doc/man/doveadm-import.1
 doc/man/doveadm-instance.1
