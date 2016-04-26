@@ -216,3 +216,26 @@ const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io)
 {
 	return ssl_vfuncs->get_last_error(ssl_io);
 }
+
+struct ssl_iostream_settings *
+ssl_iostream_settings_dup(pool_t pool,
+			  const struct ssl_iostream_settings *old_set)
+{
+	struct ssl_iostream_settings *new_set;
+
+	new_set = p_new(pool, struct ssl_iostream_settings, 1);
+	memcpy(new_set, old_set, sizeof(*new_set));
+
+	new_set->protocols = p_strdup(pool, old_set->protocols);
+	new_set->cipher_list = p_strdup(pool, old_set->cipher_list);
+	new_set->ca = p_strdup(pool, old_set->ca);
+	new_set->ca_file = p_strdup(pool, old_set->ca_file);
+	new_set->ca_dir = p_strdup(pool, old_set->ca_dir);
+	new_set->cert = p_strdup(pool, old_set->cert);
+	new_set->key = p_strdup(pool, old_set->key);
+	new_set->key_password = p_strdup(pool, old_set->key_password);
+	new_set->cert_username_field = p_strdup(pool, old_set->cert_username_field);
+	new_set->crypto_device = p_strdup(pool, old_set->crypto_device);
+
+	return new_set;
+}

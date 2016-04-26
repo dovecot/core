@@ -225,23 +225,6 @@ ssl_iostream_ctx_verify_remote_cert(struct ssl_iostream_context *ctx,
 	SSL_CTX_set_client_CA_list(ctx->ssl_ctx, ca_names);
 }
 
-static struct ssl_iostream_settings *
-ssl_iostream_settings_dup(pool_t pool,
-			  const struct ssl_iostream_settings *old_set)
-{
-	struct ssl_iostream_settings *new_set;
-
-	new_set = p_new(pool, struct ssl_iostream_settings, 1);
-	new_set->protocols = p_strdup(pool, old_set->protocols);
-	new_set->cipher_list = p_strdup(pool, old_set->cipher_list);
-	new_set->cert = p_strdup(pool, old_set->cert);
-	new_set->key = p_strdup(pool, old_set->key);
-	new_set->key_password = p_strdup(pool, old_set->key_password);
-
-	new_set->verbose = old_set->verbose;
-	return new_set;
-}
-
 #ifdef HAVE_SSL_GET_SERVERNAME
 static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 				   void *context ATTR_UNUSED)
