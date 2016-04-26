@@ -805,7 +805,7 @@ void fts_mail_namespaces_added(struct mail_namespace *namespaces)
 	const char *name;
 
 	name = mail_user_plugin_getenv(namespaces->user, "fts");
-	if (name == NULL) {
+	if (name == NULL || name[0] == '\0') {
 		if (namespaces->user->mail_debug)
 			i_debug("fts: No fts setting - plugin disabled");
 		return;
