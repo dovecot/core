@@ -450,7 +450,8 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 
 	ctx->v.init(ctx, ctx->args);
 
-	mail_storage_service_all_init(ctx->storage_service);
+	mail_storage_service_all_init_mask(ctx->storage_service,
+		wildcard_user != NULL ? wildcard_user : "");
 
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
