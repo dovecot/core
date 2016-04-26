@@ -985,9 +985,6 @@ static bool search_limit_by_hdr(struct index_search_context *ctx,
 				/* UNSEEN with all seen? */
 				if (args->match_not)
 					return FALSE;
-
-				/* SEEN with all seen */
-				args->match_always = TRUE;
 			} else if (args->match_not) {
 				/* UNSEEN with lowwater limiting */
 				search_limit_lowwater(ctx,
@@ -1005,9 +1002,6 @@ static bool search_limit_by_hdr(struct index_search_context *ctx,
 				/* UNDELETED with all deleted? */
 				if (args->match_not)
 					return FALSE;
-
-				/* DELETED with all deleted */
-				args->match_always = TRUE;
 			} else if (!args->match_not) {
 				/* DELETED with lowwater limiting */
 				search_limit_lowwater(ctx,
