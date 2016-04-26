@@ -179,6 +179,14 @@ parse_xtext(struct client *client, const char *value)
 	return p_strdup(client->state_pool, str_c(str));
 }
 
+static void lmtp_anvil_init(void)
+{
+	if (anvil == NULL) {
+		const char *path = t_strdup_printf("%s/anvil", base_dir);
+		anvil = anvil_client_init(path, NULL, 0);
+	}
+}
+
 int cmd_mail(struct client *client, const char *args)
 {
 	const char *addr, *const *argv;
@@ -211,6 +219,11 @@ int cmd_mail(struct client *client, const char *args)
 	p_array_init(&client->state.rcpt_to, client->state_pool, 64);
 	client_send_line(client, "250 2.1.0 OK");
 	client_state_set(client, "MAIL FROM", client->state.mail_from);
+
+	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
+		/* connect to anvil before dropping privileges */
+		lmtp_anvil_init();
+	}
 
 	client->state.mail_from_timeval = ioloop_timeval;
 	return 0;
@@ -610,14 +623,6 @@ static void rcpt_anvil_lookup_callback(const char *reply, void *context)
 	}
 }
 
-static void lmtp_anvil_init(void)
-{
-	if (anvil == NULL) {
-		const char *path = t_strdup_printf("%s/anvil", base_dir);
-		anvil = anvil_client_init(path, NULL, 0);
-	}
-}
-
 int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient *rcpt;
@@ -727,7 +732,6 @@ int cmd_rcpt(struct client *client, const char *args)
 		const char *query = t_strconcat("LOOKUP\t",
 			master_service_get_name(master_service),
 			"/", str_tabescape(username), NULL);
-		lmtp_anvil_init();
 		client->state.anvil_queries++;
 		rcpt->anvil_query = anvil_client_query(anvil, query,
 					rcpt_anvil_lookup_callback, rcpt);
