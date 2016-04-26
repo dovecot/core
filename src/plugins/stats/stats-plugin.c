@@ -410,8 +410,7 @@ static void stats_user_created(struct mail_user *user)
 	v->stats_fill = stats_user_stats_fill;
 
 	suser->refresh_secs = refresh_secs;
-	str = mail_user_plugin_getenv(user, "stats_track_cmds");
-	if (str != NULL && strcmp(str, "yes") == 0)
+	if (mail_user_plugin_getenv_bool(user, "stats_track_cmds"))
 		suser->track_commands = TRUE;
 
 	suser->stats_conn = global_stats_conn;

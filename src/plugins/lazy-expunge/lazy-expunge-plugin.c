@@ -502,7 +502,7 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 		v->deinit = lazy_expunge_user_deinit;
 		luser->env = env;
 		luser->copy_only_last_instance =
-			mail_user_plugin_getenv(user, "lazy_expunge_only_last_instance") != NULL;
+			mail_user_plugin_getenv_bool(user, "lazy_expunge_only_last_instance");
 
 		MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
 	} else if (user->mail_debug) {

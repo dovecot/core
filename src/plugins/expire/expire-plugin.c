@@ -405,7 +405,7 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 	struct dict *db;
 	const char *dict_uri, *error;
 
-	if (mail_user_plugin_getenv(user, "expire") == NULL) {
+	if (!mail_user_plugin_getenv_bool(user, "expire")) {
 		if (user->mail_debug)
 			i_debug("expire: No expire setting - plugin disabled");
 		return;
@@ -431,7 +431,7 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 
 	euser->db = db;
 	euser->set = expire_set_init(expire_get_patterns(user));
-	euser->expire_cache = mail_user_plugin_getenv(user, "expire_cache") != NULL;
+	euser->expire_cache = mail_user_plugin_getenv_bool(user, "expire_cache");
 	MODULE_CONTEXT_SET(user, expire_mail_user_module, euser);
 }
 

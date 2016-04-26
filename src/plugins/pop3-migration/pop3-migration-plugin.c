@@ -884,14 +884,14 @@ static void pop3_migration_mail_storage_created(struct mail_storage *storage)
 
 	mstorage->pop3_box_vname = p_strdup(storage->pool, pop3_box_vname);
 	mstorage->all_mailboxes =
-		mail_user_plugin_getenv(storage->user,
-					"pop3_migration_all_mailboxes") != NULL;
+		mail_user_plugin_getenv_bool(storage->user,
+					"pop3_migration_all_mailboxes");
 	mstorage->ignore_missing_uidls =
-		mail_user_plugin_getenv(storage->user,
-			"pop3_migration_ignore_missing_uidls") != NULL;
+		mail_user_plugin_getenv_bool(storage->user,
+			"pop3_migration_ignore_missing_uidls");
 	mstorage->skip_size_check =
-		mail_user_plugin_getenv(storage->user,
-			"pop3_migration_skip_size_check") != NULL;
+		mail_user_plugin_getenv_bool(storage->user,
+			"pop3_migration_skip_size_check");
 
 	MODULE_CONTEXT_SET(storage, pop3_migration_storage_module, mstorage);
 }

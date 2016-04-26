@@ -211,8 +211,8 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	fctx->virtual_mailbox =
 		strcmp(t->box->storage->name, VIRTUAL_STORAGE_NAME) == 0;
 	fctx->enforced =
-		mail_user_plugin_getenv(t->box->storage->user,
-					"fts_enforced") != NULL;
+		mail_user_plugin_getenv_bool(t->box->storage->user,
+					"fts_enforced");
 	i_array_init(&fctx->levels, 8);
 	fctx->scores = i_new(struct fts_scores, 1);
 	fctx->scores->refcount = 1;
@@ -222,8 +222,8 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	/* FIXME: we'll assume that all the args are fuzzy. not good,
 	   but would require much more work to fix it. */
 	if (!fts_args_have_fuzzy(args->args) &&
-	    mail_user_plugin_getenv(t->box->storage->user,
-				    "fts_no_autofuzzy") != NULL)
+	    mail_user_plugin_getenv_bool(t->box->storage->user,
+				    "fts_no_autofuzzy"))
 		fctx->flags |= FTS_LOOKUP_FLAG_NO_AUTO_FUZZY;
 	/* transaction contains the last search's scores. they can be
 	   queried later with mail_get_special() */
@@ -631,8 +631,8 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 	int ret = 0;
 
 	autoindex = ft->mails_saved &&
-		mail_user_plugin_getenv(box->storage->user,
-					"fts_autoindex") != NULL;
+		mail_user_plugin_getenv_bool(box->storage->user,
+					"fts_autoindex");
 
 	if (fts_transaction_end(t) < 0) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_TEMP,
