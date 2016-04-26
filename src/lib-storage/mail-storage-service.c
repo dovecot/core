@@ -1528,11 +1528,6 @@ mail_storage_service_all_iter_deinit(struct mail_storage_service_ctx *ctx)
 	return ret;
 }
 
-void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx)
-{
-	mail_storage_service_all_init_mask(ctx, "");
-}
-
 void mail_storage_service_all_init_mask(struct mail_storage_service_ctx *ctx,
 					const char *user_mask_hint)
 {
