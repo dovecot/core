@@ -189,7 +189,13 @@ static void doveadm_http_server_json_success(void *context, struct istream *resu
 	string_t *escaped;
 	escaped = str_new(conn->client.pool, 10);
 	o_stream_nsend_str(conn->client.output,"[\"doveadmResponse\",");
-	o_stream_send_istream(conn->client.output, result);
+	if (o_stream_send_istream(conn->client.output, result) < 0) {
+		if (conn->client.output->stream_errno != 0) {
+			i_fatal("write(%s) failed: %s", o_stream_get_name(conn->client.output), o_stream_get_error(conn->client.output));
+		} else if (result->stream_errno != 0) {
+			i_fatal("read(%s) failed: %s", i_stream_get_name(result), i_stream_get_error(result));
+		} else i_unreached(); /* either it's output or input error */
+	}
 	o_stream_nsend_str(conn->client.output,",\"");
 	if (conn->method_id != NULL) {
 		json_append_escaped(escaped, conn->method_id);
