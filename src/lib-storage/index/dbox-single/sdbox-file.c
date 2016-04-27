@@ -311,6 +311,9 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 	}
 
 	dest_path = !alt_path ? file->primary_path : file->alt_path;
+
+	i_assert(dest_path != NULL);
+
 	p = strrchr(dest_path, '/');
 	i_assert(p != NULL);
 	dest_dir = t_strdup_until(dest_path, p);
