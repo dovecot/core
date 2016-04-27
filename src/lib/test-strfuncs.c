@@ -109,10 +109,13 @@ static void test_t_str_replace(void)
 	test_end();
 }
 
-#if 0
 static void test_t_str_trim(void)
 {
 	test_begin("t_str_trim");
+	test_assert(strcmp(t_str_trim("", " "), "") == 0);
+	test_assert(strcmp(t_str_trim(" ", " "), "") == 0);
+	test_assert(strcmp(t_str_trim(" \t ", "\t "), "") == 0);
+	test_assert(strcmp(t_str_trim("f \t ", "\t "), "f") == 0);
 	test_assert(strcmp(t_str_trim("foo", ""), "foo") == 0);
 	test_assert(strcmp(t_str_trim("foo", " "), "foo") == 0);
 	test_assert(strcmp(t_str_trim("foo ", " "), "foo") == 0);
@@ -125,11 +128,14 @@ static void test_t_str_trim(void)
 	test_assert(strcmp(t_str_trim("\tfoo\tfoo\t", "\t \r"), "foo\tfoo") == 0);
 	test_end();
 }
-#endif
 
 static void test_t_str_ltrim(void)
 {
 	test_begin("t_str_ltrim");
+	test_assert(strcmp(t_str_ltrim("", " "), "") == 0);
+	test_assert(strcmp(t_str_ltrim(" ", " "), "") == 0);
+	test_assert(strcmp(t_str_ltrim(" \t ", "\t "), "") == 0);
+	test_assert(strcmp(t_str_ltrim(" \t f", "\t "), "f") == 0);
 	test_assert(strcmp(t_str_ltrim("foo", ""), "foo") == 0);
 	test_assert(strcmp(t_str_ltrim("foo", " "), "foo") == 0);
 	test_assert(strcmp(t_str_ltrim("foo ", " "), "foo ") == 0);
@@ -146,6 +152,10 @@ static void test_t_str_ltrim(void)
 static void test_t_str_rtrim(void)
 {
 	test_begin("t_str_rtrim");
+	test_assert(strcmp(t_str_rtrim("", " "), "") == 0);
+	test_assert(strcmp(t_str_rtrim(" ", " "), "") == 0);
+	test_assert(strcmp(t_str_rtrim(" \t ", "\t "), "") == 0);
+	test_assert(strcmp(t_str_rtrim("f \t ", "\t "), "f") == 0);
 	test_assert(strcmp(t_str_rtrim("foo", ""), "foo") == 0);
 	test_assert(strcmp(t_str_rtrim("foo", " "), "foo") == 0);
 	test_assert(strcmp(t_str_rtrim("foo ", " "), "foo") == 0);
@@ -221,7 +231,7 @@ void test_strfuncs(void)
 	test_t_strsplit();
 	test_t_strsplit_tab();
 	test_t_str_replace();
-	/*test_t_str_trim();*/
+	test_t_str_trim();
 	test_t_str_ltrim();
 	test_t_str_rtrim();
 	test_t_strarray_join();
