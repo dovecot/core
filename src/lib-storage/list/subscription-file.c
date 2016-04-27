@@ -127,7 +127,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	int fd_in, fd_out;
 	enum mailbox_list_path_type type;
 	bool found, changed = FALSE, failed = FALSE;
-	unsigned int version = 0;
+	unsigned int version = 2;
 
 	if (strcasecmp(name, "INBOX") == 0)
 		name = "INBOX";
