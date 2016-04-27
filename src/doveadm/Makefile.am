@@ -70,7 +70,6 @@ doveadm_common_cmds = \
 	doveadm-kick.c \
 	doveadm-log.c \
 	doveadm-master.c \
-	doveadm-mount.c \
 	doveadm-mutf7.c \
 	doveadm-penalty.c \
 	doveadm-proxy.c \

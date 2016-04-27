@@ -26,7 +26,6 @@ libmaster_la_SOURCES = \
 	master-service-settings-cache.c \
 	master-service-ssl.c \
 	master-service-ssl-settings.c \
-	mountpoint-list.c \
 	syslog-util.c
 
 headers = \
@@ -45,7 +44,6 @@ headers = \
 	master-service-ssl.h \
 	master-service-ssl-settings.h \
 	service-settings.h \
-	mountpoint-list.h \
 	syslog-util.h
 
 pkginc_libdir=$(pkgincludedir)

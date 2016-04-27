@@ -176,7 +176,6 @@ void doveadm_cmds_init(void)
 	doveadm_register_auth_commands();
 	doveadm_register_director_commands();
 	doveadm_register_instance_commands();
-	doveadm_register_mount_commands();
 	doveadm_register_proxy_commands();
 	doveadm_register_log_commands();
 	doveadm_register_replicator_commands();
