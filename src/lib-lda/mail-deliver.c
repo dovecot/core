@@ -149,8 +149,6 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	msg = t_strdup_vprintf(fmt, args);
 
 	str = t_str_new(256);
-	if (ctx->session_id != NULL)
-		str_printfa(str, "%s: ", ctx->session_id);
 
 	if (ctx->var_expand_table == NULL)
 		mail_deliver_log_cache_var_expand_table(ctx);
