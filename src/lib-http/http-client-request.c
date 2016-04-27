@@ -454,6 +454,26 @@ void http_client_request_set_auth_simple(struct http_client_request *req,
 	req->password = p_strdup(req->pool, password);
 }
 
+void http_client_request_set_proxy_url(struct http_client_request *req,
+	const struct http_url *proxy_url)
+{
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+
+	req->host_url = http_url_clone_authority(req->pool, proxy_url);
+	req->host_socket = NULL;
+}
+
+void http_client_request_set_proxy_socket(struct http_client_request *req,
+	const char *proxy_socket)
+{
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+
+	req->host_socket = p_strdup(req->pool, proxy_socket);
+	req->host_url = NULL;
+}
+
 void http_client_request_delay_until(struct http_client_request *req,
 	time_t time)
 {
@@ -542,7 +562,8 @@ static void http_client_request_do_submit(struct http_client_request *req)
 	struct http_client_host *host;
 	const char *proxy_socket_path = client->set.proxy_socket_path;
 	const struct http_url *proxy_url = client->set.proxy_url;
-	bool have_proxy = (proxy_socket_path != NULL) || (proxy_url != NULL);
+	bool have_proxy = (proxy_socket_path != NULL) || (proxy_url != NULL) ||
+		(req->host_socket != NULL) || (req->host_url != NULL);
 	const char *authority, *target;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
@@ -559,8 +580,12 @@ static void http_client_request_do_submit(struct http_client_request *req)
 
 	/* determine what host to contact to submit this request */
 	if (have_proxy) {
-		if (req->origin_url.have_ssl && !client->set.no_ssl_tunnel &&
-			!req->connect_tunnel) {
+		if (req->host_socket != NULL) {               /* specific socket proxy */
+			req->host_url = NULL;
+		} else if (req->host_url != NULL) {           /* specific normal proxy */
+			req->host_socket = NULL;
+		} else if (req->origin_url.have_ssl &&
+			!client->set.no_ssl_tunnel &&	!req->connect_tunnel) {
 			req->host_url = &req->origin_url;           /* tunnel to origin server */
 			req->ssl_tunnel = TRUE;
 		} else if (proxy_socket_path != NULL) {
