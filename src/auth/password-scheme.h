@@ -95,6 +95,11 @@ int scram_sha1_verify(const char *plaintext, const char *user ATTR_UNUSED,
 		      const char **error_r ATTR_UNUSED);
 void scram_sha1_generate(const char *plaintext, const char *user ATTR_UNUSED,
 			 const unsigned char **raw_password_r, size_t *size_r);
+void pbkdf2_generate(const char *plaintext, const char *user ATTR_UNUSED,
+		     const unsigned char **raw_password_r, size_t *size_r);
+int pbkdf2_verify(const char *plaintext, const char *user ATTR_UNUSED,
+		  const unsigned char *raw_password, size_t size,
+		  const char **error_r);
 
 /* check wich of the algorithms Blowfisch, SHA-256 and SHA-512 are
    supported by the used libc's/glibc's crypt() */

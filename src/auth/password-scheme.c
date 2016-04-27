@@ -825,7 +825,8 @@ static const struct password_scheme builtin_schemes[] = {
 	{ "NTLM", PW_ENCODING_HEX, NTLMSSP_HASH_SIZE, NULL, ntlm_generate },
 	{ "OTP", PW_ENCODING_NONE, 0, otp_verify, otp_generate },
 	{ "SKEY", PW_ENCODING_NONE, 0, otp_verify, skey_generate },
-	{ "RPA", PW_ENCODING_HEX, MD5_RESULTLEN, NULL, rpa_generate }
+	{ "RPA", PW_ENCODING_HEX, MD5_RESULTLEN, NULL, rpa_generate },
+        { "PBKDF2", PW_ENCODING_NONE, 0, pbkdf2_verify, pbkdf2_generate },
 };
 
 void password_scheme_register(const struct password_scheme *scheme)

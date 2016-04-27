@@ -47,7 +47,8 @@ libpassword_a_SOURCES = \
 	password-scheme-md5crypt.c \
 	password-scheme-scram.c \
 	password-scheme-otp.c \
-	password-scheme-rpa.c
+	password-scheme-rpa.c \
+	password-scheme-pbkdf2.c
 
 auth_libs = \
 	libstats_auth.la \
