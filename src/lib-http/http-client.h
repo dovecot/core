@@ -287,6 +287,15 @@ void http_client_request_set_timeout(struct http_client_request *req,
 void http_client_request_set_auth_simple(struct http_client_request *req,
 	const char *username, const char *password);
 
+/* Assign a proxy to use for this particular request. This overrides any
+   proxy defined in the client settings. */
+void http_client_request_set_proxy_url(struct http_client_request *req,
+	const struct http_url *proxy_url);
+/* Like http_client_request_set_proxy_url(), but the proxy is behind a unix
+   socket. */
+void http_client_request_set_proxy_socket(struct http_client_request *req,
+	const char *proxy_socket);
+
 /* delay handling of this request to a later time. This way, a request can be
    submitted that is held for some time until a certain time period has passed.
  */
