@@ -823,6 +823,7 @@ src/lib-sql/Makefile
 src/lib-auth/Makefile
 src/lib-charset/Makefile
 src/lib-compression/Makefile
+src/lib-dcrypt/Makefile
 src/lib-dict/Makefile
 src/lib-dict-extra/Makefile
 src/lib-dns/Makefile
