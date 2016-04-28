@@ -96,12 +96,8 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 		else if (strcmp(arg, "lock=dotlock") == 0)
 			fs->lock_method = FS_POSIX_LOCK_METHOD_DOTLOCK;
 		else if (strncmp(arg, "prefix=", 7) == 0) {
-			unsigned int len = strlen(arg + 7);
 			i_free(fs->path_prefix);
-			if (len > 0 && arg[7+len-1] != '/')
-				fs->path_prefix = i_strconcat(arg + 7, "/", NULL);
-			else
-				fs->path_prefix = i_strdup(arg + 7);
+			fs->path_prefix = i_strdup(arg + 7);
 		} else if (strcmp(arg, "mode=auto") == 0) {
 			fs->mode_auto = TRUE;
 		} else if (strncmp(arg, "mode=", 5) == 0) {
