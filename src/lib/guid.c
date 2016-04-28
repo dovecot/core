@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "buffer.h"
 #include "sha1.h"
 #include "hash.h"
@@ -65,7 +66,15 @@ void guid_128_generate(guid_128_t guid_r)
 		guid_static[2] = (pid & 0x00ff0000) >> 16;
 		guid_static[3] = (pid & 0xff000000) >> 24;
 		guid_128_host_hash_get(my_hostdomain(), guid_static+4);
-	} else if ((uint32_t)ts.tv_nsec < (uint32_t)-1) {
+	} else if (ioloop_timeval.tv_sec > ts.tv_sec ||
+		   (ioloop_timeval.tv_sec == ts.tv_sec &&
+		    ioloop_timeval.tv_usec > ts.tv_nsec*1000)) {
+		/* use ioloop's time since we have it. it doesn't provide any
+		   more uniqueness, but it allows finding out more reliably
+		   when a GUID was created. */
+		ts.tv_sec = ioloop_timeval.tv_sec;
+		ts.tv_nsec = ioloop_timeval.tv_usec*1000;
+	} else if ((uint32_t)ts.tv_nsec < 1000000000) {
 		ts.tv_nsec++;
 	} else {
 		ts.tv_sec++;
