@@ -105,7 +105,7 @@ static void test_charset_iconv(void)
 	}
 	/* Use //IGNORE just to force handling to be done by iconv
 	   instead of our own UTF-8 routines. */
-	test_charset_utf8_common("UTF-8//IGNORE");
+	test_charset_utf8_common("UTF-8//TEST");
 	test_end();
 }
 static void test_charset_iconv_crashes(void)
