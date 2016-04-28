@@ -1521,6 +1521,12 @@ int mailbox_set_subscribed(struct mailbox *box, bool set)
 {
 	if (mailbox_verify_name(box) < 0)
 		return -1;
+	if (mailbox_list_iter_subscriptions_refresh(box->list) < 0) {
+		mail_storage_copy_list_error(box->storage, box->list);
+		return -1;
+	}
+	if (mailbox_is_subscribed(box) == set)
+		return 0;
 	return box->v.set_subscribed(box, set);
 }
 
