@@ -542,10 +542,10 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 						file->fs->temp_path_prefix);
 		i_stream_set_name(input, i_stream_get_name(inputs[0]));
 		i_stream_unref(&inputs[0]);
-
-		file->seekable_input = input;
-		i_stream_ref(file->seekable_input);
 	}
+	file->seekable_input = input;
+	i_stream_ref(file->seekable_input);
+
 	if ((file->flags & FS_OPEN_FLAG_ASYNC) == 0 && !input->blocking) {
 		/* read the whole input stream before returning */
 		while ((ret = i_stream_read_data(input, &data, &size, 0)) >= 0) {
