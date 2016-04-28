@@ -509,9 +509,10 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 	}
 
 	if (file->seekable_input != NULL) {
-		i_stream_seek(file->seekable_input, 0);
-		i_stream_ref(file->seekable_input);
-		return file->seekable_input;
+		/* allow multiple open streams, each in a different position */
+		input = i_stream_create_limit(file->seekable_input, (uoff_t)-1);
+		i_stream_seek(input, 0);
+		return input;
 	}
 	T_BEGIN {
 		input = file->fs->v.read_stream(file, max_buffer_size);
