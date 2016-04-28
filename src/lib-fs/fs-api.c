@@ -155,7 +155,11 @@ int fs_init(const char *driver, const char *args,
 
 	temp_file_prefix = set->temp_file_prefix != NULL ?
 		set->temp_file_prefix : ".temp.dovecot";
-	(*fs_r)->temp_path_prefix = i_strconcat(set->temp_dir, "/",
+	if(set->temp_dir == NULL)
+		(*fs_r)->temp_path_prefix = i_strconcat("/tmp/",
+						temp_file_prefix, NULL);
+	else
+		(*fs_r)->temp_path_prefix = i_strconcat(set->temp_dir, "/",
 						temp_file_prefix, NULL);
 	return 0;
 }
