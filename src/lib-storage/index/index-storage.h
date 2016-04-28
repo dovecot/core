@@ -18,6 +18,16 @@ enum mailbox_lock_notify_type {
 	MAILBOX_LOCK_NOTIFY_MAILBOX_OVERRIDE
 };
 
+enum index_storage_list_change {
+	INDEX_STORAGE_LIST_CHANGE_ERROR = -1,
+	INDEX_STORAGE_LIST_CHANGE_NONE = 0,
+	INDEX_STORAGE_LIST_CHANGE_INMEMORY,
+	INDEX_STORAGE_LIST_CHANGE_NORECORD,
+	INDEX_STORAGE_LIST_CHANGE_NOT_IN_FS,
+	INDEX_STORAGE_LIST_CHANGE_SIZE_CHANGED,
+	INDEX_STORAGE_LIST_CHANGE_MTIME_CHANGED
+};
+
 struct index_mailbox_context {
 	union mailbox_module_context module_ctx;
 	enum mail_index_open_flags index_flags;
@@ -155,6 +165,10 @@ bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
 int index_storage_list_index_has_changed(struct mailbox *box,
 					 struct mail_index_view *list_view,
 					 uint32_t seq);
+enum index_storage_list_change
+index_storage_list_index_has_changed_full(struct mailbox *box,
+					  struct mail_index_view *list_view,
+					  uint32_t seq);
 void index_storage_list_index_update_sync(struct mailbox *box,
 					  struct mail_index_transaction *trans,
 					  uint32_t seq);
