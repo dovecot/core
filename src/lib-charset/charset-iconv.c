@@ -24,6 +24,8 @@ int charset_to_utf8_begin(const char *charset, normalizer_func_t *normalizer,
 	if (charset_is_utf8(charset))
 		cd = (iconv_t)-1;
 	else {
+		if (strcmp(charset, "UTF-8//TEST") == 0)
+			charset = "UTF-8";
 		cd = iconv_open("UTF-8", charset);
 		if (cd == (iconv_t)-1)
 			return -1;
