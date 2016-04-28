@@ -77,6 +77,17 @@ struct mailbox_list_index_record {
 	guid_128_t guid;
 	uint32_t uid_validity;
 };
+struct mailbox_list_index_msgs_record {
+	uint32_t messages;
+	uint32_t unseen;
+	uint32_t recent;
+	uint32_t uidnext;
+};
+struct mailbox_index_vsize {
+	uint64_t vsize;
+	uint32_t highest_uid;
+	uint32_t message_count;
+};
 
 struct fts_index_header {
 	uint32_t last_indexed_uid;
@@ -626,6 +637,18 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 			printf("                   : parent_uid   = %u\n", lrec->parent_uid);
 			printf("                   : guid         = %s\n", guid_128_to_string(lrec->guid));
 			printf("                   : uid_validity = %u\n", lrec->uid_validity);
+		} else if (strcmp(ext[i].name, "msgs") == 0) {
+			const struct mailbox_list_index_msgs_record *lrec = data;
+			printf("                   : messages = %u\n", lrec->messages);
+			printf("                   : unseen   = %u\n", lrec->unseen);
+			printf("                   : recent   = %u\n", lrec->recent);
+			printf("                   : uidnext  = %u\n", lrec->uidnext);
+		} else if (strcmp(ext[i].name, "vsize") == 0) {
+			const struct mailbox_index_vsize *vrec = data;
+			printf("                   : vsize         = %llu\n",
+			       (unsigned long long)vrec->vsize);
+			printf("                   : highest_uid   = %u\n", vrec->highest_uid);
+			printf("                   : message_count = %u\n", vrec->message_count);
 		}
 	}
 }
