@@ -55,10 +55,11 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	}
 
 	ldap_set_option(conn->conn, LDAP_OPT_X_TLS, &opt);
+#ifdef LDAP_OPT_X_TLS_PROTOCOL_MIN
 	/* refuse to connect to SSLv2 as it's completely insecure */
 	opt = LDAP_OPT_X_TLS_PROTOCOL_SSL3;
 	ldap_set_option(conn->conn, LDAP_OPT_X_TLS_PROTOCOL_MIN, &opt);
-
+#endif
 	opt = conn->set.timeout_secs;
 	/* default timeout */
 	ldap_set_option(conn->conn, LDAP_OPT_TIMEOUT, &opt);
