@@ -341,7 +341,8 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 	   try and get the message sizes at this point. Rely on sizes that
 	   we saved earlier, or recalculate the whole quota if we don't know
 	   the size. */
-	if (!array_is_created(&qbox->expunge_uids)) {
+	if (!array_is_created(&qbox->expunge_uids) ||
+	    array_is_empty(&qbox->expunge_uids)) {
 		i = count = 0;
 	} else {
 		uids = array_get(&qbox->expunge_uids, &count);
