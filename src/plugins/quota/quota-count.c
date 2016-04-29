@@ -139,7 +139,7 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 {
 	struct quota_mailbox_iter *iter;
 	const struct mailbox_info *info;
-	int ret = 0;
+	int ret = 0, ret2;
 
 	*bytes_r = *count_r = 0;
 	if (root->recounting)
@@ -147,13 +147,19 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 	root->recounting = TRUE;
 
 	iter = quota_mailbox_iter_begin(root);
-	while (ret >= 0 && (info = quota_mailbox_iter_next(iter)) != NULL) {
-		ret = quota_count_mailbox(root, info->ns, info->vname,
-					  bytes_r, count_r);
+	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
+		ret2 = quota_count_mailbox(root, info->ns, info->vname,
+					   bytes_r, count_r);
+		if (ret2 > 0)
+			ret = 1;
+		else if (ret2 < 0) {
+			ret = -1;
+			break;
+		}
 	}
 	quota_mailbox_iter_deinit(&iter);
 	root->recounting = FALSE;
-	return ret;
+	return ret < 0 ? -1 : 0;
 }
 
 static struct quota_root *count_quota_alloc(void)
