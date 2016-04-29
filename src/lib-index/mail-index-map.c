@@ -327,7 +327,9 @@ static void mail_index_map_copy_records(struct mail_index_record_map *dest,
 	size_t size;
 
 	size = src->records_count * record_size;
-	dest->buffer = buffer_create_dynamic(default_pool, I_MAX(size, 1024));
+	/* +1% so we have a bit of space to grow. useful for huge mailboxes. */
+	dest->buffer = buffer_create_dynamic(default_pool,
+					     size + I_MAX(size/100, 1024));
 	buffer_append(dest->buffer, src->records, size);
 
 	dest->records = buffer_get_modifiable_data(dest->buffer, NULL);
