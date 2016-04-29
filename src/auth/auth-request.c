@@ -265,6 +265,8 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_printfa(dest, "\treal_lport=%u", request->real_local_port);
 	if (request->real_remote_port != 0)
 		str_printfa(dest, "\treal_rport=%u", request->real_remote_port);
+	if (request->session_id != NULL)
+		str_printfa(dest, "\tsession=%s", request->session_id);
 	if (request->debug)
 		str_append(dest, "\tdebug");
 	if (request->secured)
@@ -318,6 +320,7 @@ bool auth_request_import_info(struct auth_request *request,
 		request->debug = TRUE;
 	else
 		return FALSE;
+	/* NOTE: keep in sync with auth_request_export() */
 	return TRUE;
 }
 
