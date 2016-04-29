@@ -1140,10 +1140,11 @@ void auth_request_userdb_callback(enum userdb_result result,
 		return;
 	}
 
-	if (request->userdb_success)
+	if (request->userdb_success) {
+		result = USERDB_RESULT_OK;
 		userdb_template_export(userdb->override_fields_tmpl, request);
-	else if (request->userdbs_seen_internal_failure ||
-		 result == USERDB_RESULT_INTERNAL_FAILURE) {
+	} else if (request->userdbs_seen_internal_failure ||
+		   result == USERDB_RESULT_INTERNAL_FAILURE) {
 		/* one of the userdb lookups failed. the user might have been
 		   in there, so this is an internal failure */
 		result = USERDB_RESULT_INTERNAL_FAILURE;
@@ -1157,6 +1158,9 @@ void auth_request_userdb_callback(enum userdb_result result,
 			auth_request_log_error(request, AUTH_SUBSYS_MECH,
 				"user not found from any userdbs");
 		}
+		result = USERDB_RESULT_USER_UNKNOWN;
+	} else {
+		result = USERDB_RESULT_USER_UNKNOWN;
 	}
 
 	if (request->userdb_lookup_tempfailed) {
