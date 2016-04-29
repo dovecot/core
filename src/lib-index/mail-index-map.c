@@ -327,7 +327,7 @@ static void mail_index_map_copy_records(struct mail_index_record_map *dest,
 	size_t size;
 
 	size = src->records_count * record_size;
-	dest->buffer = buffer_create_dynamic(default_pool, I_MIN(size, 1024));
+	dest->buffer = buffer_create_dynamic(default_pool, I_MAX(size, 1024));
 	buffer_append(dest->buffer, src->records, size);
 
 	dest->records = buffer_get_modifiable_data(dest->buffer, NULL);
