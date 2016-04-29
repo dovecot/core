@@ -153,11 +153,11 @@ void str_vprintfa(string_t *str, const char *fmt, va_list args)
 	init_size += SNPRINTF_INITIAL_EXTRA_SIZE;
 
 	/* @UNSAFE */
-	if (pos+init_size > buffer_get_size(str) &&
-	    pos < buffer_get_size(str)) {
+	if (pos+init_size > buffer_get_writable_size(str) &&
+	    pos < buffer_get_writable_size(str)) {
 		/* avoid growing buffer larger if possible. this is also
 		   required if buffer isn't dynamically growing. */
-		init_size = buffer_get_size(str)-pos;
+		init_size = buffer_get_writable_size(str)-pos;
 	}
 	tmp = buffer_get_space_unsafe(str, pos, init_size);
 	ret = vsnprintf(tmp, init_size, fmt, args);
