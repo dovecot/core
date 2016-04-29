@@ -165,13 +165,14 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 	return ldap_client_init(&set, &dict->client, error_r);
 }
 
-static
-const char* ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map, ARRAY_TYPE(const_string) *values, bool priv)
+static void
+ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
+                      ARRAY_TYPE(const_string) *values, bool priv,
+                      string_t *query_r)
 {
 	const char *template;
 	ARRAY(struct var_expand_table) exp;
 	struct var_expand_table entry;
-	string_t *query = t_str_new(64);
 
 	t_array_init(&exp, 8);
 	entry.key = '\0';
@@ -194,9 +195,7 @@ const char* ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap
 
 	array_append_zero(&exp);
 
-	var_expand(query, template, array_idx(&exp, 0));
-
-	return str_c(query);
+	var_expand(query_r, template, array_idx(&exp, 0));
 }
 
 static
@@ -390,6 +389,7 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 	struct ldap_dict *ctx = (struct ldap_dict*)dict;
 	struct dict_ldap_op *op;
 	pool_t oppool = pool_alloconly_create("ldap dict lookup", 64);
+	string_t *query = str_new(oppool, 64);
 	op = p_new(oppool, struct dict_ldap_op, 1);
 	op->pool = oppool;
 	op->dict = ctx;
@@ -411,7 +411,8 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 			memset(&input, 0, sizeof(input));
 			input.base_dn = map->base_dn;
 			input.scope = map->scope_val;
-			input.filter = ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0);
+			ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query);
+			input.filter = str_c(query);
 			input.attributes = attributes;
 			input.timeout_secs = ctx->set->timeout;
 			ctx->pending++;
