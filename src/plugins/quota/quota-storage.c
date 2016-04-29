@@ -663,5 +663,5 @@ void quota_mail_namespaces_created(struct mail_namespace *namespaces)
 	for (i = 0; i < count; i++)
 		quota_root_set_namespace(roots[i], namespaces);
 
-	quota_over_flag_check(namespaces->user, quota);
+	quota_over_flag_check(quota);
 }

@@ -84,6 +84,6 @@ void quota_free_bytes(struct quota_transaction_context *ctx,
 void quota_recalculate(struct quota_transaction_context *ctx);
 
 /* Execute quota_over_scripts if needed. */
-void quota_over_flag_check(struct mail_user *user, struct quota *quota);
+void quota_over_flag_check(struct quota *quota);
 
 #endif
