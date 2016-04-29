@@ -53,5 +53,5 @@ AC_DEFUN([DOVECOT_WANT_LDAP], [
     fi
   fi
   AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
-  AM_CONDITIONAL(HAVE_LDAP, test "$want_ldap" = "yes")
+  AM_CONDITIONAL(HAVE_LDAP, test "$want_ldap" != "no")
 ])
