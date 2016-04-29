@@ -1034,7 +1034,7 @@ quota_over_flag_check_root(struct mail_user *user, struct quota_root *root)
 	}
 	if (root->quota->set->debug) {
 		i_debug("quota: quota_over_flag=%d(%s) vs currently overquota=%d",
-			overquota_flag, overquota_value != NULL ? "(null)" : overquota_value,
+			overquota_flag, overquota_value == NULL ? "(null)" : overquota_value,
 			cur_overquota);
 	}
 	if (cur_overquota != overquota_flag)
