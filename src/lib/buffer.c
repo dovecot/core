@@ -30,7 +30,10 @@ static void buffer_alloc(struct real_buffer *buf, size_t size)
 
 	i_assert(size > buf->alloc);
 
-	buf->w_buffer = p_realloc(buf->pool, buf->w_buffer, buf->alloc, size);
+	if (buf->w_buffer == NULL)
+		buf->w_buffer = p_malloc(buf->pool, size);
+	else
+		buf->w_buffer = p_realloc(buf->pool, buf->w_buffer, buf->alloc, size);
 	buf->alloc = size;
 
 	buf->r_buffer = buf->w_buffer;
