@@ -2044,7 +2044,7 @@ else
   fi
 fi
 AM_CONDITIONAL(LDAP_PLUGIN, test "$have_ldap_plugin" = "yes")
-AM_CONDITIONAL(HAVE_LDAP, test "$want_ldap" = "yes")
+AM_CONDITIONAL(HAVE_LDAP, test "$want_ldap" != "no")
 dict_drivers=
 
 if test $want_db != no; then
