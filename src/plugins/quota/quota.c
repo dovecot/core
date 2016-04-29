@@ -656,6 +656,9 @@ const char *quota_root_get_name(struct quota_root *root)
 
 const char *const *quota_root_get_resources(struct quota_root *root)
 {
+	/* if we haven't checked the quota_over_flag yet, do it now */
+	quota_over_flag_check_root(root);
+
 	return root->backend.v.get_resources(root);
 }
 
@@ -988,6 +991,10 @@ static void quota_over_flag_init_root(struct quota_root *root)
 {
 	const char *name, *flag_mask;
 
+	if (root->quota_over_flag_initialized)
+		return;
+	root->quota_over_flag_initialized = TRUE;
+
 	/* e.g.: quota_over_flag_value=TRUE or quota_over_flag_value=*  */
 	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
 	flag_mask = mail_user_plugin_getenv(root->quota->user, name);
@@ -1012,6 +1019,9 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	bool cur_overquota = FALSE;
 	int ret;
 
+	if (root->quota_over_flag_checked)
+		return;
+	root->quota_over_flag_checked = TRUE;
 	quota_over_flag_init_root(root);
 
 	resources = quota_root_get_resources(root);
@@ -1048,14 +1058,18 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	}
 }
 
-void quota_over_flag_check(struct quota *quota)
+void quota_over_flag_check_startup(struct quota *quota)
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;
+	const char *name;
 
 	roots = array_get(&quota->roots, &count);
-	for (i = 0; i < count; i++)
-		quota_over_flag_check_root(roots[i]);
+	for (i = 0; i < count; i++) {
+		name = t_strconcat(roots[i]->set->set_name, "_over_flag_lazy_check", NULL);
+		if (mail_user_plugin_getenv(roots[i]->quota->user, name) == NULL)
+			quota_over_flag_check_root(roots[i]);
+	}
 }
 
 void quota_transaction_rollback(struct quota_transaction_context **_ctx)
