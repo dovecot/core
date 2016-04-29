@@ -11,18 +11,17 @@
 
 static void test_fts_icu_utf8_to_utf16_ascii_resize(void)
 {
-	buffer_t *dest = buffer_create_dynamic(pool_datastack_create(), 5);
+	buffer_t *dest = buffer_create_dynamic(pool_datastack_create(), 4);
 
 	test_begin("fts_icu_utf8_to_utf16 ascii resize");
-	/* dynamic buffers reserve +1 for str_c()'s NUL, so 5 -> 4 */
-	test_assert(buffer_get_size(dest) == 5);
+	test_assert(buffer_get_writable_size(dest) == 4);
 	fts_icu_utf8_to_utf16(dest, "12");
 	test_assert(dest->used == 4);
-	test_assert(buffer_get_size(dest) == 5);
+	test_assert(buffer_get_writable_size(dest) == 4);
 
 	fts_icu_utf8_to_utf16(dest, "123");
 	test_assert(dest->used == 6);
-	test_assert(buffer_get_size(dest) == 8);
+	test_assert(buffer_get_writable_size(dest) == 7);
 
 	fts_icu_utf8_to_utf16(dest, "12345");
 	test_assert(dest->used == 10);
@@ -38,7 +37,7 @@ static void test_fts_icu_utf8_to_utf16_32bit_resize(void)
 	test_begin("fts_icu_utf8_to_utf16 32bit resize");
 	for (i = 2; i <= 5; i++) {
 		dest = buffer_create_dynamic(pool_datastack_create(), i);
-		test_assert(buffer_get_size(dest) == i);
+		test_assert(buffer_get_writable_size(dest) == i);
 		fts_icu_utf8_to_utf16(dest, "\xF0\x90\x90\x80"); /* 0x10400 */
 		test_assert(dest->used == 4);
 	}
@@ -69,7 +68,7 @@ static void test_fts_icu_utf16_to_utf8_resize(void)
 	test_begin("fts_icu_utf16_to_utf8 resize");
 	for (i = 2; i <= 6; i++) {
 		dest = t_str_new(i);
-		test_assert(buffer_get_size(dest) == i);
+		test_assert(buffer_get_writable_size(dest) == i);
 		fts_icu_utf16_to_utf8(dest, &src, 1);
 		test_assert(dest->used == 3);
 		test_assert(strcmp(str_c(dest), UNICODE_REPLACEMENT_CHAR_UTF8) == 0);
@@ -131,7 +130,7 @@ static void test_fts_icu_translate_resize(void)
 		buffer_set_used_size(src_utf16, 0);
 		fts_icu_utf8_to_utf16(src_utf16, src_utf8);
 		dest = buffer_create_dynamic(pool_datastack_create(), i);
-		test_assert(buffer_get_size(dest) == i);
+		test_assert(buffer_get_writable_size(dest) == i);
 		test_assert(fts_icu_translate(dest, src_utf16->data,
 					      src_utf16->used/sizeof(UChar),
 					      translit, &error) == 0);
@@ -159,12 +158,12 @@ static void test_fts_icu_lcase_resize(void)
 	unsigned int i;
 
 	test_begin("fts_icu_lcase resize");
-	for (i = 2; i <= 4; i++) {
+	for (i = 1; i <= 3; i++) {
 		dest = t_str_new(i);
-		test_assert(buffer_get_size(dest) == i);
+		test_assert(buffer_get_writable_size(dest) == i);
 		fts_icu_lcase(dest, src);
 		test_assert(strcmp(str_c(dest), "a\xC3\xA4") == 0);
-		test_assert(buffer_get_size(dest) == 4);
+		test_assert(buffer_get_writable_size(dest) == 3);
 	}
 
 	test_end();
