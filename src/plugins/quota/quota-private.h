@@ -143,8 +143,12 @@ struct quota_root {
 	unsigned int recounting:1;
 	/* Quota root is hidden (to e.g. IMAP GETQUOTAROOT) */
 	unsigned int hidden:1;
+	/* Is quota_over_flag* initialized yet? */
+	unsigned int quota_over_flag_initialized:1;
 	/* Is user currently over quota? */
 	unsigned int quota_over_flag_status:1;
+	/* Did we already check quota_over_flag correctness? */
+	unsigned int quota_over_flag_checked:1;
 };
 
 struct quota_transaction_context {
