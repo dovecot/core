@@ -31,6 +31,7 @@ struct quota_mailbox {
 	struct quota_transaction_context *expunge_qt;
 	ARRAY(uint32_t) expunge_uids;
 	ARRAY(uoff_t) expunge_sizes;
+	unsigned int prev_idx;
 
 	unsigned int recalculate:1;
 	unsigned int sync_transaction_expunge:1;
@@ -344,10 +345,19 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		i = count = 0;
 	} else {
 		uids = array_get(&qbox->expunge_uids, &count);
-		for (i = 0; i < count; i++) {
+		for (i = qbox->prev_idx; i < count; i++) {
 			if (uids[i] == uid)
 				break;
 		}
+		if (i >= count) {
+			for (i = 0; i < qbox->prev_idx; i++) {
+				if (uids[i] == uid)
+					break;
+			}
+			if (i == qbox->prev_idx)
+				i = count;
+		}
+		qbox->prev_idx = i;
 	}
 
 	if (qbox->expunge_qt == NULL) {
