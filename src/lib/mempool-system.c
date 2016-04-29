@@ -119,6 +119,10 @@ static void *pool_system_realloc(pool_t pool ATTR_UNUSED, void *mem,
 	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
+	if (mem == NULL) {
+		i_assert(old_size == 0);
+		return pool_system_malloc(pool, new_size);
+	}
 #if !defined(USE_GC) && defined(HAVE_MALLOC_USABLE_SIZE)
 	i_assert(old_size == (size_t)-1 || mem == NULL ||
 		 old_size <= malloc_usable_size(mem));
