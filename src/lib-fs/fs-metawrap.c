@@ -220,8 +220,12 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 			if (fs_wait_async(_file->fs) < 0)
 				return -1;
 		}
-		if (ret == -1)
+		if (ret == -1 && file->input->stream_errno != 0) {
+			fs_set_error(_file->fs, "read(%s) failed: %s",
+				     i_stream_get_name(file->input),
+				     i_stream_get_error(file->input));
 			return -1;
+		}
 		i_assert(file->metadata_read);
 	}
 	*metadata_r = &_file->metadata;
