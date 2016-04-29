@@ -470,7 +470,8 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 	}
 	uid = imapc_msgmap_rseq_to_uid(msgmap, rseq);
 	imapc_msgmap_expunge(msgmap, rseq);
-	array_delete(&mbox->rseq_modseqs, rseq-1, 1);
+	if (array_is_created(&mbox->rseq_modseqs))
+		array_delete(&mbox->rseq_modseqs, rseq-1, 1);
 
 	imapc_mailbox_init_delayed_trans(mbox);
 	if (mail_index_lookup_seq(mbox->sync_view, uid, &lseq))
