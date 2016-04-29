@@ -1029,7 +1029,7 @@ quota_over_flag_check_root(struct mail_user *user, struct quota_root *root)
 				(unsigned long long)value,
 				(unsigned long long)limit);
 		}
-		if (ret > 0 && value > limit)
+		if (ret > 0 && value >= limit)
 			cur_overquota = TRUE;
 	}
 	if (root->quota->set->debug) {
