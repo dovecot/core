@@ -46,6 +46,7 @@ static const struct quota_backend *quota_backends[] = {
 
 static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 				    uoff_t size, bool *too_large_r);
+static void quota_over_flag_check_root(struct quota_root *root);
 
 static const struct quota_backend *quota_backend_find(const char *name)
 {
@@ -983,34 +984,35 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 	return ret;
 }
 
-static void
-quota_over_flag_check_root(struct mail_user *user, struct quota_root *root)
+static void quota_over_flag_init_root(struct quota_root *root)
 {
-	const char *name, *flag_mask, *overquota_value, *overquota_script;
-	const char *const *resources;
-	unsigned int i;
-	uint64_t value, limit;
-	bool overquota_flag, cur_overquota = FALSE;
-	int ret;
-
-	name = t_strconcat(root->set->set_name, "_over_script", NULL);
-	overquota_script = mail_user_plugin_getenv(user, name);
-	if (overquota_script == NULL)
-		return;
+	const char *name, *flag_mask;
 
 	/* e.g.: quota_over_flag_value=TRUE or quota_over_flag_value=*  */
 	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
-	flag_mask = mail_user_plugin_getenv(user, name);
+	flag_mask = mail_user_plugin_getenv(root->quota->user, name);
 	if (flag_mask == NULL)
 		return;
 
 	/* compare quota_over_flag's value to quota_over_flag_value and
 	   save the result. */
 	name = t_strconcat(root->set->set_name, "_over_flag", NULL);
-	overquota_value = mail_user_plugin_getenv(user, name);
-	overquota_flag = overquota_value != NULL &&
-		overquota_value[0] != '\0' &&
-		wildcard_match_icase(overquota_value, flag_mask);
+	root->quota_over_flag = p_strdup_empty(root->pool,
+		mail_user_plugin_getenv(root->quota->user, name));
+	root->quota_over_flag_status = root->quota_over_flag != NULL &&
+		wildcard_match_icase(root->quota_over_flag, flag_mask);
+}
+
+static void quota_over_flag_check_root(struct quota_root *root)
+{
+	const char *name, *overquota_script;
+	const char *const *resources;
+	unsigned int i;
+	uint64_t value, limit;
+	bool cur_overquota = FALSE;
+	int ret;
+
+	quota_over_flag_init_root(root);
 
 	resources = quota_root_get_resources(root);
 	for (i = 0; resources[i] != NULL; i++) {
@@ -1034,21 +1036,26 @@ quota_over_flag_check_root(struct mail_user *user, struct quota_root *root)
 	}
 	if (root->quota->set->debug) {
 		i_debug("quota: quota_over_flag=%d(%s) vs currently overquota=%d",
-			overquota_flag, overquota_value == NULL ? "(null)" : overquota_value,
+			root->quota_over_flag_status,
+			root->quota_over_flag == NULL ? "(null)" : root->quota_over_flag,
 			cur_overquota);
 	}
-	if (cur_overquota != overquota_flag)
-		quota_warning_execute(root, overquota_script, overquota_value);
+	if (cur_overquota != root->quota_over_flag_status) {
+		name = t_strconcat(root->set->set_name, "_over_script", NULL);
+		overquota_script = mail_user_plugin_getenv(root->quota->user, name);
+		if (overquota_script != NULL)
+			quota_warning_execute(root, overquota_script, root->quota_over_flag);
+	}
 }
 
-void quota_over_flag_check(struct mail_user *user, struct quota *quota)
+void quota_over_flag_check(struct quota *quota)
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;
 
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++)
-		quota_over_flag_check_root(user, roots[i]);
+		quota_over_flag_check_root(roots[i]);
 }
 
 void quota_transaction_rollback(struct quota_transaction_context **_ctx)
