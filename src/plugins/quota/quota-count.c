@@ -145,18 +145,9 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 {
-	struct count_quota_root *croot = (struct count_quota_root *)root;
 	struct quota_mailbox_iter *iter;
 	const struct mailbox_info *info;
 	int ret = 0, ret2;
-
-	if (croot->cache_timeval.tv_usec == ioloop_timeval.tv_usec &&
-	    croot->cache_timeval.tv_sec == ioloop_timeval.tv_sec &&
-	    ioloop_timeval.tv_sec != 0) {
-		*bytes_r = croot->cached_bytes;
-		*count_r = croot->cached_count;
-		return 1;
-	}
 
 	*bytes_r = *count_r = 0;
 	if (root->recounting)
@@ -176,10 +167,26 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 	}
 	quota_mailbox_iter_deinit(&iter);
 	root->recounting = FALSE;
+	return ret;
+}
+
+static int quota_count_cached(struct count_quota_root *root,
+			      uint64_t *bytes_r, uint64_t *count_r)
+{
+	int ret;
+
+	if (root->cache_timeval.tv_usec == ioloop_timeval.tv_usec &&
+	    root->cache_timeval.tv_sec == ioloop_timeval.tv_sec &&
+	    ioloop_timeval.tv_sec != 0) {
+		*bytes_r = root->cached_bytes;
+		*count_r = root->cached_count;
+		return 1;
+	}
+	ret = quota_count(&root->root, bytes_r, count_r);
 	if (ret > 0) {
-		croot->cache_timeval = ioloop_timeval;
-		croot->cached_bytes = *bytes_r;
-		croot->cached_count = *count_r;
+		root->cache_timeval = ioloop_timeval;
+		root->cached_bytes = *bytes_r;
+		root->cached_count = *count_r;
 	}
 	return ret < 0 ? -1 : 0;
 }
@@ -217,12 +224,13 @@ count_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 }
 
 static int
-count_quota_get_resource(struct quota_root *root,
+count_quota_get_resource(struct quota_root *_root,
 			 const char *name, uint64_t *value_r)
 {
+	struct count_quota_root *root = (struct count_quota_root *)_root;
 	uint64_t bytes, count;
 
-	if (quota_count(root, &bytes, &count) < 0)
+	if (quota_count_cached(root, &bytes, &count) < 0)
 		return -1;
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
