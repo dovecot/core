@@ -114,6 +114,7 @@ liblib_la_SOURCES = \
 	ostream-hash.c \
 	ostream-null.c \
 	ostream-rawlog.c \
+	ostream-unix.c \
 	pkcs5.c \
 	primes.c \
 	printf-format-fix.c \
@@ -249,6 +250,7 @@ headers = \
 	ostream-private.h \
 	ostream-null.h \
 	ostream-rawlog.h \
+	ostream-unix.h \
 	pkcs5.h \
 	primes.h \
 	printf-format-fix.h \
