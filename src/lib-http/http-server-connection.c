@@ -1062,6 +1062,13 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 	/* preserve statistics */
 	http_server_connection_update_stats(conn);
 
+	if (conn->incoming_payload != NULL) {
+		/* the stream is still accessed by lib-http caller. */
+		i_stream_remove_destroy_callback(conn->incoming_payload,
+						 http_server_payload_destroyed);
+		conn->incoming_payload = NULL;
+	}
+
 	/* drop all requests before connection is closed */
 	req = conn->request_queue_head;
 	while (req != NULL) {
@@ -1079,13 +1086,6 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 	if (conn->conn.output != NULL) {
 		o_stream_nflush(conn->conn.output);
 		o_stream_uncork(conn->conn.output);
-	}
-
-	if (conn->incoming_payload != NULL) {
-		/* the stream is still accessed by lib-http caller. */
-		i_stream_remove_destroy_callback(conn->incoming_payload,
-						 http_server_payload_destroyed);
-		conn->incoming_payload = NULL;
 	}
 
 	if (conn->http_parser != NULL)
