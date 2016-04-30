@@ -67,20 +67,10 @@ const char *str_c(string_t *str)
 	return str->data;
 }
 
-const unsigned char *str_data(const string_t *str)
-{
-	return str->data;
-}
-
 char *str_c_modifiable(string_t *str)
 {
 	str_add_nul(str);
 	return buffer_get_modifiable_data(str, NULL);
-}
-
-size_t str_len(const string_t *str)
-{
-	return str->used;
 }
 
 bool str_equals(const string_t *str1, const string_t *str2)
@@ -89,11 +79,6 @@ bool str_equals(const string_t *str1, const string_t *str2)
 		return FALSE;
 
 	return memcmp(str1->data, str2->data, str1->used) == 0;
-}
-
-void str_append(string_t *str, const char *cstr)
-{
-	buffer_append(str, cstr, strlen(cstr));
 }
 
 void str_append_n(string_t *str, const void *cstr, size_t max_len)
@@ -105,21 +90,6 @@ void str_append_n(string_t *str, const void *cstr, size_t max_len)
 		len++;
 
 	buffer_append(str, cstr, len);
-}
-
-void str_append_data(string_t *str, const void *data, size_t len)
-{
-	buffer_append(str, data, len);
-}
-
-void str_append_c(string_t *str, unsigned char chr)
-{
-	buffer_append_c(str, chr);
-}
-
-void str_append_str(string_t *dest, const string_t *src)
-{
-	buffer_append(dest, src->data, src->used);
 }
 
 void str_printfa(string_t *str, const char *fmt, ...)
@@ -170,19 +140,4 @@ void str_vprintfa(string_t *str, const char *fmt, va_list args)
 
 	/* drop the unused data, including terminating NUL */
 	buffer_set_used_size(str, pos + ret);
-}
-
-void str_insert(string_t *str, size_t pos, const char *cstr)
-{
-	buffer_insert(str, pos, cstr, strlen(cstr));
-}
-
-void str_delete(string_t *str, size_t pos, size_t len)
-{
-	buffer_delete(str, pos, len);
-}
-
-void str_truncate(string_t *str, size_t len)
-{
-	buffer_set_used_size(str, len);
 }
