@@ -173,6 +173,8 @@ message_part_append(pool_t pool, struct message_part *parent)
 	struct message_part *p, *part, **list;
 
 	i_assert(parent != NULL);
+	i_assert((parent->flags & (MESSAGE_PART_FLAG_MULTIPART |
+				   MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0);
 
 	part = p_new(pool, struct message_part, 1);
 	part->parent = parent;
@@ -312,6 +314,8 @@ static int parse_part_finish(struct message_parser_ctx *ctx,
 {
 	struct message_part *part;
 	size_t line_size;
+
+	i_assert(ctx->last_boundary == NULL);
 
 	/* get back to parent MIME part, summing the child MIME part sizes
 	   into parent's body sizes */
@@ -624,8 +628,8 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 		   Content-Type. */
 		i_assert(!ctx->multipart);
 		part->flags = 0;
-		ctx->last_boundary = NULL;
 	}
+	ctx->last_boundary = NULL;
 
 	if (!ctx->part_seen_content_type ||
 	    (part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
