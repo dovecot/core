@@ -169,7 +169,8 @@ static int o_stream_lseek(struct file_ostream *fstream)
 	return 0;
 }
 
-static ssize_t o_stream_writev(struct file_ostream *fstream,
+static ssize_t
+o_stream_file_writev_full(struct file_ostream *fstream,
 				   const struct const_iovec *iov,
 				   unsigned int iov_count)
 {
@@ -241,7 +242,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		if (fstream->file) {
 			if (errno == EINTR) {
 				/* automatically retry */
-				return o_stream_writev(fstream, iov, iov_count);
+				return o_stream_file_writev_full(fstream, iov, iov_count);
 			}
 		} else if (errno == EAGAIN || errno == EINTR) {
 			/* try again later */
@@ -270,7 +271,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		}
 		i_assert(iov_count > 0);
 		if (size == 0)
-			ret2 = o_stream_writev(fstream, iov, iov_count);
+			ret2 = o_stream_file_writev_full(fstream, iov, iov_count);
 		else {
 			/* write the first iov separately */
 			struct const_iovec new_iov;
@@ -278,13 +279,13 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 			new_iov.iov_base =
 				CONST_PTR_OFFSET(iov->iov_base, size);
 			new_iov.iov_len = iov->iov_len - size;
-			ret2 = o_stream_writev(fstream, &new_iov, 1);
+			ret2 = o_stream_file_writev_full(fstream, &new_iov, 1);
 			if (ret2 > 0) {
 				i_assert((size_t)ret2 == new_iov.iov_len);
 				/* write the rest */
 				if (iov_count > 1) {
 					ret += ret2;
-					ret2 = o_stream_writev(fstream, iov + 1,
+					ret2 = o_stream_file_writev_full(fstream, iov + 1,
 							       iov_count - 1);
 				}
 			}
@@ -332,7 +333,7 @@ static int buffer_flush(struct file_ostream *fstream)
 
 	iov_len = o_stream_fill_iovec(fstream, iov);
 	if (iov_len > 0) {
-		ret = o_stream_writev(fstream, iov, iov_len);
+		ret = o_stream_file_writev_full(fstream, iov, iov_len);
 		if (ret < 0)
 			return -1;
 
@@ -568,7 +569,7 @@ static ssize_t o_stream_file_sendv(struct ostream_private *stream,
 	if (IS_STREAM_EMPTY(fstream) &&
 	    (!stream->corked || size >= optimal_size)) {
 		/* send immediately */
-		ret = o_stream_writev(fstream, iov, iov_count);
+		ret = o_stream_file_writev_full(fstream, iov, iov_count);
 		if (ret < 0)
 			return -1;
 
