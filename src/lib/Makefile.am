@@ -244,6 +244,7 @@ headers = \
 	ostream.h \
 	ostream-escaped.h \
 	ostream-failure-at.h \
+	ostream-file-private.h \
 	ostream-hash.h \
 	ostream-private.h \
 	ostream-null.h \

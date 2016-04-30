@@ -9,7 +9,7 @@
 #include "sendfile-util.h"
 #include "istream.h"
 #include "istream-private.h"
-#include "ostream-private.h"
+#include "ostream-file-private.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -27,27 +27,6 @@
 
 #define MAX_SSIZE_T(size) \
 	((size) < SSIZE_T_MAX ? (size_t)(size) : SSIZE_T_MAX)
-
-struct file_ostream {
-	struct ostream_private ostream;
-
-	int fd;
-	struct io *io;
-	uoff_t buffer_offset;
-	uoff_t real_offset;
-
-	unsigned char *buffer; /* ring-buffer */
-	size_t buffer_size, optimal_block_size;
-	size_t head, tail; /* first unsent/unused byte */
-
-	unsigned int full:1; /* if head == tail, is buffer empty or full? */
-	unsigned int file:1;
-	unsigned int flush_pending:1;
-	unsigned int socket_cork_set:1;
-	unsigned int no_socket_cork:1;
-	unsigned int no_sendfile:1;
-	unsigned int autoclose_fd:1;
-};
 
 static void stream_send_io(struct file_ostream *fstream);
 
@@ -67,7 +46,7 @@ static void stream_closed(struct file_ostream *fstream)
 	fstream->ostream.ostream.closed = TRUE;
 }
 
-static void o_stream_file_close(struct iostream_private *stream,
+void o_stream_file_close(struct iostream_private *stream,
 				bool close_parent ATTR_UNUSED)
 {
 	struct file_ostream *fstream = (struct file_ostream *)stream;
@@ -169,8 +148,7 @@ static int o_stream_lseek(struct file_ostream *fstream)
 	return 0;
 }
 
-static ssize_t
-o_stream_file_writev(struct file_ostream *fstream,
+ssize_t o_stream_file_writev(struct file_ostream *fstream,
 				   const struct const_iovec *iov,
 				   unsigned int iov_count)
 {
@@ -246,7 +224,7 @@ o_stream_file_writev_full(struct file_ostream *fstream,
 		total_size += iov[i].iov_len;
 
 	o_stream_socket_cork(fstream);
-	ret = o_stream_file_writev(fstream, iov, iov_count);
+	ret = fstream->writev(fstream, iov, iov_count);
 	partial = ret != (ssize_t)total_size;
 
 	if (ret < 0) {
@@ -557,7 +535,7 @@ static size_t o_stream_add(struct file_ostream *fstream,
 	return sent;
 }
 
-static ssize_t o_stream_file_sendv(struct ostream_private *stream,
+ssize_t o_stream_file_sendv(struct ostream_private *stream,
 				   const struct const_iovec *iov,
 				   unsigned int iov_count)
 {
@@ -940,12 +918,12 @@ static void o_stream_file_switch_ioloop(struct ostream_private *stream)
 		fstream->io = io_loop_move_io(&fstream->io);
 }
 
-static struct file_ostream *
-o_stream_create_fd_common(int fd, bool autoclose_fd)
+struct ostream *
+o_stream_create_file_common(struct file_ostream *fstream,
+	int fd, size_t max_buffer_size, bool autoclose_fd)
 {
-	struct file_ostream *fstream;
+	struct ostream *ostream;
 
-	fstream = i_new(struct file_ostream, 1);
 	fstream->fd = fd;
 	fstream->autoclose_fd = autoclose_fd;
 	fstream->optimal_block_size = DEFAULT_OPTIMAL_BLOCK_SIZE;
@@ -963,7 +941,15 @@ o_stream_create_fd_common(int fd, bool autoclose_fd)
 	fstream->ostream.send_istream = o_stream_file_send_istream;
 	fstream->ostream.switch_ioloop = o_stream_file_switch_ioloop;
 
-	return fstream;
+	fstream->writev = o_stream_file_writev;
+
+	fstream->ostream.max_buffer_size = max_buffer_size;
+	ostream = o_stream_create(&fstream->ostream, NULL, fd);
+
+	if (max_buffer_size == 0)
+		fstream->ostream.max_buffer_size = fstream->optimal_block_size;
+
+	return ostream;
 }
 
 static void fstream_init_file(struct file_ostream *fstream)
@@ -993,9 +979,9 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
 	struct ostream *ostream;
 	off_t offset;
 
-	fstream = o_stream_create_fd_common(fd, autoclose_fd);
-	fstream->ostream.max_buffer_size = max_buffer_size;
-	ostream = o_stream_create(&fstream->ostream, NULL, fd);
+	fstream = i_new(struct file_ostream, 1);
+	ostream = o_stream_create_file_common
+		(fstream, fd, max_buffer_size, autoclose_fd);
 
 	offset = lseek(fd, 0, SEEK_CUR);
 	if (offset >= 0) {
@@ -1009,9 +995,6 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
 			fstream->no_socket_cork = TRUE;
 		}
 	}
-
-	if (max_buffer_size == 0)
-		fstream->ostream.max_buffer_size = fstream->optimal_block_size;
 
 	return ostream;
 }
@@ -1035,13 +1018,11 @@ o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
 	if (offset == (uoff_t)-1)
 		offset = lseek(fd, 0, SEEK_CUR);
 
-	fstream = o_stream_create_fd_common(fd, autoclose_fd);
+	fstream = i_new(struct file_ostream, 1);
+	ostream = o_stream_create_file_common(fstream, fd, 0, autoclose_fd);
 	fstream_init_file(fstream);
-	fstream->ostream.max_buffer_size = fstream->optimal_block_size;
 	fstream->real_offset = offset;
 	fstream->buffer_offset = offset;
-
-	ostream = o_stream_create(&fstream->ostream, NULL, fd);
 	ostream->offset = offset;
 	return ostream;
 }
