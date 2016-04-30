@@ -866,6 +866,10 @@ void mailbox_list_get_default_storage(struct mailbox_list *list,
 
 char mailbox_list_get_hierarchy_sep(struct mailbox_list *list)
 {
+	/* the current API doesn't allow returning an error, so imap code
+	   looks at the list's last error. make sure the error is cleared
+	   so the error-check doesn't return something irrelevant */
+	mailbox_list_clear_error(list);
 	return list->v.get_hierarchy_sep(list);
 }
 
