@@ -170,19 +170,14 @@ static int o_stream_lseek(struct file_ostream *fstream)
 }
 
 static ssize_t
-o_stream_file_writev_full(struct file_ostream *fstream,
+o_stream_file_writev(struct file_ostream *fstream,
 				   const struct const_iovec *iov,
 				   unsigned int iov_count)
 {
-	ssize_t ret, ret2;
-	size_t size, sent, total_size;
-	bool partial;
+	ssize_t ret;
+	size_t size, sent;
 	unsigned int i;
 
-	for (i = 0, total_size = 0; i < iov_count; i++)
-		total_size += iov[i].iov_len;
-
-	o_stream_socket_cork(fstream);
 	if (iov_count == 1) {
 		i_assert(iov->iov_len > 0);
 
@@ -195,12 +190,11 @@ o_stream_file_writev_full(struct file_ostream *fstream,
 			ret = pwrite(fstream->fd, iov->iov_base, iov->iov_len,
 				     fstream->buffer_offset);
 		}
-		partial = ret != (ssize_t)iov->iov_len;
 	} else {
 		if (o_stream_lseek(fstream) < 0)
 			return -1;
 
-		sent = 0; partial = FALSE;
+		sent = 0;
 		while (iov_count > IOV_MAX) {
 			size = 0;
 			for (i = 0; i < IOV_MAX; i++)
@@ -209,7 +203,6 @@ o_stream_file_writev_full(struct file_ostream *fstream,
 			ret = writev(fstream->fd, (const struct iovec *)iov,
 				     IOV_MAX);
 			if (ret != (ssize_t)size) {
-				partial = TRUE;
 				break;
 			}
 
@@ -227,7 +220,6 @@ o_stream_file_writev_full(struct file_ostream *fstream,
 
 			ret = writev(fstream->fd, (const struct iovec *)iov,
 				     iov_count);
-			partial = ret != (ssize_t)size;
 		}
 		if (ret > 0) {
 			fstream->real_offset += ret;
@@ -237,6 +229,25 @@ o_stream_file_writev_full(struct file_ostream *fstream,
 			ret = sent;
 		}
 	}
+	return ret;
+}
+
+static ssize_t
+o_stream_file_writev_full(struct file_ostream *fstream,
+				   const struct const_iovec *iov,
+				   unsigned int iov_count)
+{
+	ssize_t ret, ret2;
+	size_t size, total_size;
+	bool partial;
+	unsigned int i;
+
+	for (i = 0, total_size = 0; i < iov_count; i++)
+		total_size += iov[i].iov_len;
+
+	o_stream_socket_cork(fstream);
+	ret = o_stream_file_writev(fstream, iov, iov_count);
+	partial = ret != (ssize_t)total_size;
 
 	if (ret < 0) {
 		if (fstream->file) {
