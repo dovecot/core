@@ -73,7 +73,7 @@ static void part_serialize(struct message_part *part, buffer_t *dest,
 
 		if ((part->flags & (MESSAGE_PART_FLAG_MULTIPART |
 				    MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0) {
-			children_offset = buffer_get_used_size(dest);
+			children_offset = dest->used;
 			children_count = 0;
 			buffer_append(dest, &children_count,
 				      sizeof(children_count));

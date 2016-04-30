@@ -80,7 +80,7 @@ char *str_c_modifiable(string_t *str)
 
 size_t str_len(const string_t *str)
 {
-	return buffer_get_used_size(str);
+	return str->used;
 }
 
 bool str_equals(const string_t *str1, const string_t *str2)

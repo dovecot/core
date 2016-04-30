@@ -1461,7 +1461,7 @@ mail_transaction_log_file_read_more(struct mail_transaction_log_file *file)
 	uint32_t read_offset;
 	ssize_t ret;
 
-	read_offset = file->buffer_offset + buffer_get_used_size(file->buffer);
+	read_offset = file->buffer_offset + file->buffer->used;
 
 	do {
 		data = buffer_append_space_unsafe(file->buffer, LOG_PREFETCH);
@@ -1707,7 +1707,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 	if (file->buffer != NULL && file->buffer_offset <= start_offset) {
 		/* see if we already have it */
-		size = buffer_get_used_size(file->buffer);
+		size = file->buffer->used;
 		if (file->buffer_offset + size >= end_offset)
 			return 1;
 	}

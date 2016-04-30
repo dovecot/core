@@ -61,7 +61,7 @@ static void ntlmssp_append_string(buffer_t *buf, size_t buffer_offset,
 	struct ntlmssp_buffer buffer;
 	unsigned int length;
 
-	write_le32(&buffer.offset, buffer_get_used_size(buf));
+	write_le32(&buffer.offset, buf->used);
 
 	length = append_string(buf, str, FALSE, unicode);
 
@@ -78,7 +78,7 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 	unsigned int length, total_length = 0;
 	int type;
 
-	write_le32(&buffer.offset, buffer_get_used_size(buf));
+	write_le32(&buffer.offset, buf->used);
 
 	va_start(args, buffer_offset);
 
@@ -169,7 +169,7 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 				   NTPLMSSP_V2_TARGET_FQDN, my_hostname,
 				   NTPLMSSP_V2_TARGET_END);
 
-	*size = buffer_get_used_size(buf);
+	*size = buf->used;
 	return buffer_free_without_data(&buf);
 }
 

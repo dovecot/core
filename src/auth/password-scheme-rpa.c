@@ -20,7 +20,7 @@ void *ucs2be_str(pool_t pool, const char *str, size_t *size)
 		buffer_append_c(buf, *str++);
 	}
 
-	*size = buffer_get_used_size(buf);
+	*size = buf->used;
 	return buffer_free_without_data(&buf);
 }
 
