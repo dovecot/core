@@ -499,6 +499,81 @@ static const char input_msg[] =
 	test_end();
 }
 
+static void test_message_parser_continuing_truncated_mime_boundary(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"a\"\n"
+"\n"
+"--a\n"
+"Content-Type: multipart/mixed; boundary=\"ab\"\n"
+"MIME-Version: 1.0\n"
+"--ab\n"
+"Content-Type: text/plain\n"
+"\n"
+"--ab--\n"
+"--a--\n\n";
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *part;
+	struct message_block block;
+	pool_t pool;
+	int ret;
+
+	test_begin("message parser continuing truncated mime boundary");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, 0, 0);
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
+	test_assert(ret < 0);
+	message_parser_deinit(&parser, &parts);
+
+	part = parts;
+	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 45);
+	test_assert(part->header_size.virtual_size == 45+2);
+	test_assert(part->body_size.lines == 9);
+	test_assert(part->body_size.physical_size == 112);
+	test_assert(part->body_size.virtual_size == 112+9);
+
+	part = parts->children;
+	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->physical_pos == 49);
+	test_assert(part->header_size.lines == 1);
+	test_assert(part->header_size.physical_size == 45+17);
+	test_assert(part->header_size.virtual_size == 45+17+1);
+	test_assert(part->body_size.lines == 0);
+	test_assert(part->body_size.physical_size == 0);
+	test_assert(part->children == NULL);
+
+	/* this will not be a child, since the header was truncated. I guess
+	   we could make it, but it would complicate the message-parser even
+	   more. */
+	part = parts->children->next;
+	test_assert(part->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->physical_pos == 117);
+	test_assert(part->header_size.lines == 1);
+	test_assert(part->header_size.physical_size == 25);
+	test_assert(part->header_size.virtual_size == 25+1);
+	test_assert(part->body_size.lines == 0);
+	test_assert(part->body_size.physical_size == 0);
+	test_assert(part->children == NULL);
+
+	part = parts->children->next->next;
+	test_assert(part->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 0);
+	test_assert(part->header_size.physical_size == 0);
+	test_assert(part->body_size.lines == 0);
+	test_assert(part->body_size.physical_size == 0);
+	test_assert(part->children == NULL);
+	test_assert(part->next == NULL);
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 static void test_message_parser_no_eoh(void)
 {
 	static const char input_msg[] = "a:b\n";
@@ -537,6 +612,7 @@ int main(void)
 		test_message_parser_duplicate_mime_boundary,
 		test_message_parser_garbage_suffix_mime_boundary,
 		test_message_parser_continuing_mime_boundary,
+		test_message_parser_continuing_truncated_mime_boundary,
 		test_message_parser_no_eoh,
 		NULL
 	};
