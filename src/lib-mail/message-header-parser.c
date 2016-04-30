@@ -350,8 +350,8 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 			buffer_append(ctx->value_buf,
 				      line->value, line->value_len);
 		}
-		line->full_value = buffer_get_data(ctx->value_buf,
-						   &line->full_value_len);
+		line->full_value = ctx->value_buf->data;
+		line->full_value_len = ctx->value_buf->used;
 	} else {
 		/* we didn't want full_value, and this is a continued line. */
 		line->full_value = NULL;

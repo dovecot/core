@@ -35,10 +35,9 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 {
 	struct mail *_mail = &mail->mail.mail;
 	const struct index_mail_line *lines;
-	const unsigned char *header, *data;
+	const unsigned char *header;
 	const uint8_t *match;
 	buffer_t *buf;
-	size_t data_size;
 	unsigned int i, j, count, match_idx, match_count;
 	bool noncontiguous;
 
@@ -48,7 +47,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 
 	lines = array_get(&mail->header_lines, &count);
 	match = array_get(&mail->header_match, &match_count);
-	header = buffer_get_data(mail->header_data, NULL);
+	header = mail->header_data->data;
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	/* go through all the header lines we found */
@@ -118,9 +117,8 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 				      lines[j-1].end_pos - lines[i].start_pos);
 		}
 
-		data = buffer_get_data(buf, &data_size);
 		index_mail_cache_add_idx(mail, lines[i].field_idx,
-					 data, data_size);
+					 buf->data, buf->used);
 	}
 
 	for (; match_idx < match_count; match_idx++) {
@@ -523,10 +521,9 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 
 static size_t get_header_size(buffer_t *buffer, size_t pos)
 {
-	const unsigned char *data;
-	size_t i, size;
+	const unsigned char *data = buffer->data;
+	size_t i, size = buffer->used;
 
-	data = buffer_get_data(buffer, &size);
 	i_assert(pos <= size);
 
 	for (i = pos; i < size; i++) {
@@ -587,7 +584,7 @@ index_mail_get_parsed_header(struct index_mail *mail, unsigned int field_idx)
 	first_line_idx = *line_idx - 1;
 
 	p_array_init(&header_values, mail->mail.data_pool, 4);
-	header = buffer_get_data(mail->header_data, NULL);
+	header = mail->header_data->data;
 
 	lines = array_get(&mail->header_lines, &lines_count);
 	for (i = first_line_idx; i < lines_count; i++) {

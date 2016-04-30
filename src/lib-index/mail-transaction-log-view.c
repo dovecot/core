@@ -729,8 +729,8 @@ log_view_get_next(struct mail_transaction_log_view *view,
 
 	file = view->cur;
 
-	data = buffer_get_data(file->buffer, &file_size);
-	file_size += file->buffer_offset;
+	data = file->buffer->data;
+	file_size = file->buffer->used + file->buffer_offset;
 
 	if (view->cur_offset + sizeof(*hdr) > file_size) {
 		mail_transaction_log_file_set_corrupted(file,

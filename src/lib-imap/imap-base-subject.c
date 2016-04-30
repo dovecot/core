@@ -113,7 +113,7 @@ static bool remove_subj_leader(buffer_t *buf, size_t *start_pos,
 
 	   BLOBCHAR        = %x01-5a / %x5c / %x5e-7f
 	                   ; any CHAR except '[' and ']' */
-	orig_data = buffer_get_data(buf, NULL);
+	orig_data = buf->data;
 	orig_data += *start_pos;
 	data = orig_data;
 
@@ -157,7 +157,7 @@ static bool remove_blob_when_nonempty(buffer_t *buf, size_t *start_pos)
 {
 	const char *data, *orig_data;
 
-	orig_data = buffer_get_data(buf, NULL);
+	orig_data = buf->data;
 	orig_data += *start_pos;
 	data = orig_data;
 	if (*data == '[' && remove_blob(&data) && *data != '\0') {
@@ -171,13 +171,12 @@ static bool remove_blob_when_nonempty(buffer_t *buf, size_t *start_pos)
 static bool remove_subj_fwd_hdr(buffer_t *buf, size_t *start_pos,
 				bool *is_reply_or_forward_r)
 {
-	const char *data;
-	size_t size;
+	const char *data = buf->data;
+	size_t size = buf->used;
 
 	/* subj-fwd        = subj-fwd-hdr subject subj-fwd-trl
 	   subj-fwd-hdr    = "[fwd:"
 	   subj-fwd-trl    = "]" */
-	data = buffer_get_data(buf, &size);
 
 	if (strncmp(data + *start_pos, "[FWD:", 5) != 0)
 		return FALSE;

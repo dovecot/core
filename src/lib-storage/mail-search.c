@@ -518,7 +518,7 @@ mail_search_args_analyze(struct mail_search_arg *args,
 		return NULL;
 
 	buffer_append(headers, &null, sizeof(const char *));
-	return buffer_get_data(headers, NULL);
+	return headers->data;
 }
 
 static bool

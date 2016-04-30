@@ -94,9 +94,8 @@ read_mixed(struct header_filter_istream *mstream, size_t body_highwater_size)
 				if (mstream->crlf)
 					buffer_append_c(mstream->hdr_buf, '\r');
 				buffer_append_c(mstream->hdr_buf, '\n');
-				mstream->istream.buffer =
-					buffer_get_data(mstream->hdr_buf,
-							&mstream->istream.pos);
+				mstream->istream.buffer = mstream->hdr_buf->data;
+				mstream->istream.pos = mstream->hdr_buf->used;
 				return mstream->hdr_buf->used - pos;
 			}
 			return ret;

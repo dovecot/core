@@ -143,7 +143,7 @@ void *array_bsearch_i(struct array *array, const void *key,
 const void *array_lsearch_i(const struct array *array, const void *key,
 			    int (*cmp)(const void *, const void *))
 {
-	const void * const data = buffer_get_data(array->buffer, NULL);
+	const void * const data = array->buffer->data;
 	const unsigned int s = array->element_size;
 	unsigned int idx;
 

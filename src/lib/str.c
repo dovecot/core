@@ -64,12 +64,12 @@ char *str_free_without_data(string_t **str)
 const char *str_c(string_t *str)
 {
 	str_add_nul(str);
-	return buffer_get_data(str, NULL);
+	return str->data;
 }
 
 const unsigned char *str_data(const string_t *str)
 {
-	return buffer_get_data(str, NULL);
+	return str->data;
 }
 
 char *str_c_modifiable(string_t *str)
@@ -119,11 +119,7 @@ void str_append_c(string_t *str, unsigned char chr)
 
 void str_append_str(string_t *dest, const string_t *src)
 {
-	const char *cstr;
-	size_t len;
-
-	cstr = buffer_get_data(src, &len);
-	buffer_append(dest, cstr, len);
+	buffer_append(dest, src->data, src->used);
 }
 
 void str_printfa(string_t *str, const char *fmt, ...)
