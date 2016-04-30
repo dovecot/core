@@ -170,18 +170,19 @@ static int o_stream_lseek(struct file_ostream *fstream)
 }
 
 static ssize_t o_stream_writev(struct file_ostream *fstream,
-			       const struct const_iovec *iov, int iov_size)
+				   const struct const_iovec *iov,
+				   unsigned int iov_count)
 {
 	ssize_t ret, ret2;
 	size_t size, sent, total_size;
 	bool partial;
-	int i;
+	unsigned int i;
 
-	for (i = 0, total_size = 0; i < iov_size; i++)
+	for (i = 0, total_size = 0; i < iov_count; i++)
 		total_size += iov[i].iov_len;
 
 	o_stream_socket_cork(fstream);
-	if (iov_size == 1) {
+	if (iov_count == 1) {
 		i_assert(iov->iov_len > 0);
 
 		if (!fstream->file ||
@@ -199,7 +200,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 			return -1;
 
 		sent = 0; partial = FALSE;
-		while (iov_size > IOV_MAX) {
+		while (iov_count > IOV_MAX) {
 			size = 0;
 			for (i = 0; i < IOV_MAX; i++)
 				size += iov[i].iov_len;
@@ -215,16 +216,16 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 			fstream->buffer_offset += ret;
 			sent += ret;
 			iov += IOV_MAX;
-			iov_size -= IOV_MAX;
+			iov_count -= IOV_MAX;
 		}
 
-		if (iov_size <= IOV_MAX) {
+		if (iov_count <= IOV_MAX) {
 			size = 0;
-			for (i = 0; i < iov_size; i++)
+			for (i = 0; i < iov_count; i++)
 				size += iov[i].iov_len;
 
 			ret = writev(fstream->fd, (const struct iovec *)iov,
-				     iov_size);
+				     iov_count);
 			partial = ret != (ssize_t)size;
 		}
 		if (ret > 0) {
@@ -240,7 +241,7 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		if (fstream->file) {
 			if (errno == EINTR) {
 				/* automatically retry */
-				return o_stream_writev(fstream, iov, iov_size);
+				return o_stream_writev(fstream, iov, iov_count);
 			}
 		} else if (errno == EAGAIN || errno == EINTR) {
 			/* try again later */
@@ -262,14 +263,14 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 		   of disk space or we're writing to NFS. try to write the
 		   rest to resolve this. */
 		size = ret;
-		while (iov_size > 0 && size >= iov->iov_len) {
+		while (iov_count > 0 && size >= iov->iov_len) {
 			size -= iov->iov_len;
 			iov++;
-			iov_size--;
+			iov_count--;
 		}
-		i_assert(iov_size > 0);
+		i_assert(iov_count > 0);
 		if (size == 0)
-			ret2 = o_stream_writev(fstream, iov, iov_size);
+			ret2 = o_stream_writev(fstream, iov, iov_count);
 		else {
 			/* write the first iov separately */
 			struct const_iovec new_iov;
@@ -281,10 +282,10 @@ static ssize_t o_stream_writev(struct file_ostream *fstream,
 			if (ret2 > 0) {
 				i_assert((size_t)ret2 == new_iov.iov_len);
 				/* write the rest */
-				if (iov_size > 1) {
+				if (iov_count > 1) {
 					ret += ret2;
 					ret2 = o_stream_writev(fstream, iov + 1,
-							       iov_size - 1);
+							       iov_count - 1);
 				}
 			}
 		}
