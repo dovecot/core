@@ -19,6 +19,8 @@ struct ldap_entry;
 typedef void ldap_result_callback_t(struct ldap_result *result, void *context);
 
 struct ldap_client_settings {
+	/* NOTE: when adding here, remember to update
+	   ldap_connection_have_settings() and ldap_connection_init() */
 	const char *uri;
 	const char *bind_dn;
 	const char *password;
@@ -57,6 +59,11 @@ int ldap_client_init(const struct ldap_client_settings *set,
 		     struct ldap_client **client_r, const char **error_r);
 void ldap_client_deinit(struct ldap_client **client);
 void ldap_client_switch_ioloop(struct ldap_client *client);
+
+/* Deinitialize all pooled LDAP connections if there are no references left.
+   This allows freeing the memory at deinit, but still allows multiple
+   independent code parts to use lib-ldap and call this function. */
+void ldap_clients_cleanup(void);
 
 void ldap_search_start(struct ldap_client *client,
 		       const struct ldap_search_input *input,

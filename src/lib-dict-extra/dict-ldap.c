@@ -440,6 +440,7 @@ void dict_ldap_init(struct module *module ATTR_UNUSED)
 
 void dict_ldap_deinit(void)
 {
+	ldap_clients_cleanup();
 	dict_driver_unregister(&dict_driver_ldap);
 }
 
