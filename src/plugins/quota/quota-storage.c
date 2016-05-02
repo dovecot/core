@@ -416,7 +416,7 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 			index_mailbox_vsize_hdr_expunge(ibox->vsize_update, uid, size);
 	} else {
 		/* there's no way to get the size. recalculate the quota. */
-		quota_recalculate(qbox->expunge_qt);
+		quota_recalculate(qbox->expunge_qt, QUOTA_RECALCULATE_MISSING_FREES);
 		qbox->recalculate = TRUE;
 	}
 }
