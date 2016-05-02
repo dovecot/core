@@ -752,6 +752,7 @@ int quota_set_resource(struct quota_root *root, const char *name,
 struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 {
 	struct quota_transaction_context *ctx;
+	struct quota_root *const *rootp;
 
 	ctx = i_new(struct quota_transaction_context, 1);
 	ctx->quota = box->list->ns->owner != NULL ?
@@ -763,6 +764,12 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	ctx->bytes_ceil = (uint64_t)-1;
 	ctx->bytes_ceil2 = (uint64_t)-1;
 	ctx->count_ceil = (uint64_t)-1;
+
+	ctx->auto_updating = TRUE;
+	array_foreach(&ctx->quota->roots, rootp) {
+		if (!(*rootp)->auto_updating)
+			ctx->auto_updating = FALSE;
+	}
 
 	if (box->storage->user->dsyncing) {
 		/* ignore quota for dsync */
@@ -1092,7 +1099,12 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 	ret = quota_test_alloc(ctx, size, too_large_r);
 	if (ret <= 0)
 		return ret;
-
+	/* with quota_try_alloc() we want to keep track of how many bytes
+	   we've been adding/removing, so disable auto_updating=TRUE
+	   optimization. this of course doesn't work perfectly if
+	   quota_alloc() or quota_free*() was already used within the same
+	   transaction, but that doesn't normally happen. */
+	ctx->auto_updating = FALSE;
 	quota_alloc(ctx, mail);
 	return 1;
 }
@@ -1152,6 +1164,8 @@ void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 {
 	uoff_t size;
 
+	if (ctx->auto_updating)
+		return;
 	if (mail_get_physical_size(mail, &size) == 0)
 		ctx->bytes_used += size;
 
@@ -1163,6 +1177,8 @@ void quota_free(struct quota_transaction_context *ctx, struct mail *mail)
 {
 	uoff_t size;
 
+	if (ctx->auto_updating)
+		return;
 	if (mail_get_physical_size(mail, &size) < 0)
 		quota_recalculate(ctx);
 	else

@@ -25,6 +25,13 @@ static struct quota_root *dirsize_quota_alloc(void)
 	return i_new(struct quota_root, 1);
 }
 
+static int dirsize_quota_init(struct quota_root *root, const char *args,
+			      const char **error_r)
+{
+	root->auto_updating = TRUE;
+	return quota_root_default_init(root, args, error_r);
+}
+
 static void dirsize_quota_deinit(struct quota_root *_root)
 {
 	i_free(_root);
@@ -210,7 +217,7 @@ struct quota_backend quota_backend_dirsize = {
 
 	{
 		dirsize_quota_alloc,
-		NULL,
+		dirsize_quota_init,
 		dirsize_quota_deinit,
 		NULL,
 		NULL,

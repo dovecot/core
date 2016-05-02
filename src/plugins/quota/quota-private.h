@@ -137,6 +137,9 @@ struct quota_root {
 
 	/* don't enforce quota when saving */
 	unsigned int no_enforcing:1;
+	/* quota is automatically updated. update() should be called but the
+	   bytes/count won't be used. */
+	unsigned int auto_updating:1;
 	/* If user has unlimited quota, disable quota tracking */
 	unsigned int disable_unlimited_tracking:1;
 	/* Set while quota is being recalculated to avoid recursion. */
@@ -177,6 +180,8 @@ struct quota_transaction_context {
 	unsigned int failed:1;
 	unsigned int recalculate:1;
 	unsigned int sync_transaction:1;
+	/* TRUE if all roots have auto_updating=TRUE */
+	unsigned int auto_updating:1;
 };
 
 /* Register storage to all user's quota roots. */

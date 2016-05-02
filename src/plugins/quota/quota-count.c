@@ -206,6 +206,7 @@ static int count_quota_init(struct quota_root *root, const char *args,
 		*error_r = "quota count backend requires quota_vsizes=yes";
 		return -1;
 	}
+	root->auto_updating = TRUE;
 	return quota_root_default_init(root, args, error_r);
 }
 

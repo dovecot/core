@@ -52,8 +52,14 @@ static void quota_mail_expunge(struct mail *_mail)
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(_mail->box);
 	struct quota_user *quser = QUOTA_USER_CONTEXT(_mail->box->storage->user);
 	union mail_module_context *qmail = QUOTA_MAIL_CONTEXT(mail);
+	struct quota_transaction_context *qt = QUOTA_CONTEXT(_mail->transaction);
 	uoff_t size;
 	int ret;
+
+	if (qt->auto_updating) {
+		qmail->super.expunge(_mail);
+		return;
+	}
 
 	/* We need to handle the situation where multiple transactions expunged
 	   the mail at the same time. In here we'll just save the message's
@@ -338,6 +344,14 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		return;
 	}
 
+	if (qbox->expunge_qt == NULL) {
+		qbox->expunge_qt = quota_transaction_begin(box);
+		qbox->expunge_qt->sync_transaction =
+			qbox->sync_transaction_expunge;
+	}
+	if (qbox->expunge_qt->auto_updating)
+		return;
+
 	/* we're in the middle of syncing the mailbox, so it's a bad idea to
 	   try and get the message sizes at this point. Rely on sizes that
 	   we saved earlier, or recalculate the whole quota if we don't know
@@ -360,12 +374,6 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 				i = count;
 		}
 		qbox->prev_idx = i;
-	}
-
-	if (qbox->expunge_qt == NULL) {
-		qbox->expunge_qt = quota_transaction_begin(box);
-		qbox->expunge_qt->sync_transaction =
-			qbox->sync_transaction_expunge;
 	}
 
 	if (i != count) {
