@@ -57,6 +57,7 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	}
 
 	ldap_set_option(conn->conn, LDAP_OPT_X_TLS, &opt);
+	ldap_set_option(conn->conn, LDAP_OPT_X_TLS_REQUIRE_CERT, &opt);
 #ifdef LDAP_OPT_X_TLS_PROTOCOL_MIN
 	/* refuse to connect to SSLv2 as it's completely insecure */
 	opt = LDAP_OPT_X_TLS_PROTOCOL_SSL3;
@@ -339,14 +340,21 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 					"ldap_start_tls(uri=%s) failed: %s",
 					conn->set.uri, result_errmsg));
 				ldap_memfree(result_errmsg);
-				return LDAP_UNAVAILABLE; /* make sure it disconnects */
+				return LDAP_INVALID_CREDENTIALS; /* make sure it disconnects */
 			}
 		} else {
 			ret = ldap_parse_extended_result(conn->conn, message, &retoid, NULL, 0);
 			/* retoid can be NULL even if ret == 0 */
-			if (ret == 0 && retoid != NULL && strcmp(retoid, LDAP_EXOP_START_TLS) == 0) {
+			if (ret == 0) {
 				ret = ldap_install_tls(conn->conn);
-			} else if (ret == 0) ret = 2; /* make it fail on next if */
+				if (ret != 0) {
+					// if this fails we have to abort
+					ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
+						"ldap_start_tls(uri=%s) failed: %s",
+						conn->set.uri, ldap_err2string(ret)));
+					return LDAP_INVALID_CREDENTIALS;
+				}
+			}
 			if (ret != LDAP_SUCCESS) {
 				if (conn->set.require_ssl) {
 					ldap_connection_result_failure(conn, req, ret, t_strdup_printf(
