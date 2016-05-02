@@ -122,6 +122,7 @@ static int fs_quota_init(struct quota_root *_root, const char *args,
 			return -1;
 		}
 	}
+	_root->auto_updating = TRUE;
 	return 0;
 }
 
