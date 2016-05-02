@@ -405,8 +405,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 
 	if (namespaces == NULL) {
 		/* no namespaces defined, create a default one */
-		if (mail_namespaces_init_location(user, NULL, error_r) < 0)
-			return -1;
+		return mail_namespaces_init_location(user, NULL, error_r);
 	}
 	return mail_namespaces_init_finish(namespaces, error_r);
 }
@@ -492,7 +491,7 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 		mail_namespace_free(ns);
 		return -1;
 	}
-	return 0;
+	return mail_namespaces_init_finish(ns, error_r);
 }
 
 struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user)
