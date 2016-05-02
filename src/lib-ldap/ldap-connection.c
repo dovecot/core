@@ -16,6 +16,8 @@ static
 void ldap_connection_request_destroy(struct ldap_op_queue_entry **req);
 static
 int ldap_connection_connect(struct ldap_connection *conn);
+static
+void ldap_connection_send_next(struct ldap_connection *conn);
 
 void ldap_connection_deinit(struct ldap_connection **_conn)
 {
@@ -422,6 +424,28 @@ void ldap_connection_abort_request(struct ldap_op_queue_entry *req)
 	i_unreached();
 }
 
+static
+void ldap_connection_abort_all_requests(struct ldap_connection *conn)
+{
+	struct ldap_result res;
+	memset(&res, 0, sizeof(res));
+	res.openldap_ret = LDAP_TIMEOUT;
+	res.error_string = "Aborting LDAP requests due to failure";
+
+	unsigned int n = aqueue_count(conn->request_queue);
+	for (unsigned int i = 0; i < n; i++) {
+		struct ldap_op_queue_entry **reqp =
+			array_idx_modifiable(&(conn->request_array),
+		aqueue_idx(conn->request_queue, i));
+		if ((*reqp)->to_abort != NULL)
+			timeout_remove(&(*reqp)->to_abort);
+		if ((*reqp)->result_callback != NULL)
+			(*reqp)->result_callback(&res, (*reqp)->result_callback_ctx);
+		ldap_connection_request_destroy(reqp);
+	}
+	aqueue_clear(conn->request_queue);
+}
+
 static int
 ldap_connect_next_message(struct ldap_connection *conn,
 			  struct ldap_op_queue_entry *req, bool *finished_r)
@@ -589,8 +613,6 @@ ldap_connection_handle_message(struct ldap_connection *conn,
 	case LDAP_CONNECT_ERROR:
 #endif
 	case LDAP_UNAVAILABLE:
-		ldap_connection_kill(conn);
-		/* fall through */
 	case LDAP_OPERATIONS_ERROR:
 	case LDAP_BUSY:
 		/* requeue */
@@ -598,6 +620,12 @@ ldap_connection_handle_message(struct ldap_connection *conn,
 		ldap_connection_send_next(conn);
 		finished = FALSE;
 		break;
+	case LDAP_INVALID_CREDENTIALS: {
+		/* fail everything */
+		ldap_connection_kill(conn);
+		ldap_connection_abort_all_requests(conn);
+		return 0;
+	}
 	case LDAP_SIZELIMIT_EXCEEDED:
 	case LDAP_TIMELIMIT_EXCEEDED:
 	case LDAP_NO_SUCH_ATTRIBUTE:
@@ -613,7 +641,6 @@ ldap_connection_handle_message(struct ldap_connection *conn,
 	case LDAP_ALIAS_DEREF_PROBLEM:
 	case LDAP_FILTER_ERROR:
 	case LDAP_LOCAL_ERROR:
-	case LDAP_INVALID_CREDENTIALS:
 		finished = TRUE;
 		break;
 	default:
