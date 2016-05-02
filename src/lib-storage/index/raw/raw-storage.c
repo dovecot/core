@@ -47,6 +47,8 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 
 	if (mail_storage_create(ns, "raw", 0, &error) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", error);
+	if (mail_namespaces_init_finish(ns, &error) < 0)
+		i_fatal("Couldn't create internal raw namespace: %s", error);
 	return user;
 }
 
