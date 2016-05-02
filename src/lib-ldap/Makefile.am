@@ -11,6 +11,7 @@ AM_CPPFLAGS = \
 libdovecot_ldap_la_SOURCES = \
 	ldap-client.c \
 	ldap-connection.c \
+	ldap-connection-pool.c \
 	ldap-iterator.c \
 	ldap-search.c \
 	ldap-compare.c \
@@ -24,6 +25,7 @@ headers = \
 	ldap-client.h
 
 noinst_HEADERS = \
+	ldap-connection-pool.h \
 	ldap-private.h
 
 pkginc_libdir=$(pkgincludedir)
