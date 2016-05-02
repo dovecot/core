@@ -88,6 +88,41 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	return 0;
 }
 
+bool ldap_connection_have_settings(struct ldap_connection *conn,
+				   const struct ldap_client_settings *set)
+{
+	const struct ldap_client_settings *conn_set = &conn->set;
+
+	if (strcmp(conn_set->uri, set->uri) != 0)
+		return FALSE;
+	if (null_strcmp(conn_set->bind_dn, set->bind_dn) != 0)
+		return FALSE;
+	if (null_strcmp(conn_set->password, set->password) != 0)
+		return FALSE;
+	if (conn_set->timeout_secs != set->timeout_secs ||
+	    conn_set->max_idle_time_secs != set->max_idle_time_secs ||
+	    conn_set->debug != set->debug ||
+	    conn_set->require_ssl != set->require_ssl ||
+	    conn_set->start_tls != set->start_tls)
+		return FALSE;
+
+	if (set->ssl_set == NULL || !set->start_tls)
+		return TRUE;
+
+	/* check SSL settings */
+	if (null_strcmp(conn->ssl_set.protocols, set->ssl_set->protocols) != 0)
+		return FALSE;
+	if (null_strcmp(conn->ssl_set.cipher_list, set->ssl_set->cipher_list) != 0)
+		return FALSE;
+	if (null_strcmp(conn->ssl_set.ca_file, set->ssl_set->ca_file) != 0)
+		return FALSE;
+	if (null_strcmp(conn->ssl_set.cert, set->ssl_set->cert) != 0)
+		return FALSE;
+	if (null_strcmp(conn->ssl_set.key, set->ssl_set->key) != 0)
+		return FALSE;
+	return TRUE;
+}
+
 int ldap_connection_init(struct ldap_client *client,
 			 const struct ldap_client_settings *set,
 			 struct ldap_connection **conn_r, const char **error_r)
@@ -122,12 +157,15 @@ int ldap_connection_init(struct ldap_client *client,
 	conn->ssl_set.crypto_device = NULL;
 
 	if (set->ssl_set != NULL) {
+		/* keep in sync with ldap_connection_have_settings() */
+		conn->set.ssl_set = &conn->ssl_set;
 		conn->ssl_set.protocols = p_strdup(pool, set->ssl_set->protocols);
 		conn->ssl_set.cipher_list = p_strdup(pool, set->ssl_set->cipher_list);
 		conn->ssl_set.ca_file = p_strdup(pool, set->ssl_set->ca_file);
 		conn->ssl_set.cert = p_strdup(pool, set->ssl_set->cert);
 		conn->ssl_set.key = p_strdup(pool, set->ssl_set->key);
 	}
+	i_assert(ldap_connection_have_settings(conn, set));
 
 	if (ldap_connection_setup(conn, error_r) < 0) {
 		ldap_connection_deinit(&conn);
