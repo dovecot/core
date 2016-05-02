@@ -506,6 +506,7 @@ void client_send_tagline(struct client_command_context *cmd, const char *data)
 
 	i_assert(!cmd->tagline_sent);
 	cmd->tagline_sent = TRUE;
+	cmd->tagline_reply = p_strdup(cmd->pool, data);
 
 	if (tag == NULL || *tag == '\0')
 		tag = "*";
