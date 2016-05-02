@@ -239,7 +239,8 @@ int ldap_dict_init(struct dict *dict_driver, const char *uri,
 	for(struct ldap_dict *ptr = ldap_dict_list;
 	    ptr != NULL;
 	    ptr = ptr->next) {
-		if (strcmp(ptr->uri, uri) == 0) {
+		if (strcmp(ptr->uri, uri) == 0 &&
+		    null_strcmp(ptr->username, set->username) == 0) {
 			*dict_r = (struct dict*)ptr;
 			return 0;
 		}
