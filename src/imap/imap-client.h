@@ -66,6 +66,7 @@ struct client_command_context {
 	   them. */
 	const char *args;
 	enum command_flags cmd_flags;
+	const char *tagline_reply;
 
 	command_func_t *func;
 	void *context;
