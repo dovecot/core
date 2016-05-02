@@ -22,4 +22,7 @@
 
 #define IMAP_RESP_CODE_UNKNOWN_CTE "UNKNOWN-CTE" /* BINARY */
 
+/* IMAP standard (RFC 3501) */
+#define IMAP_RESP_CODE_PARSE "PARSE"
+
 #endif
