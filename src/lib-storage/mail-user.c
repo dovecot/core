@@ -288,6 +288,7 @@ void mail_user_add_namespace(struct mail_user *user,
 
 		tmp = &user->namespaces;
 		for (; *tmp != NULL; tmp = &(*tmp)->next) {
+			i_assert(*tmp != ns);
 			if (strlen(ns->prefix) < strlen((*tmp)->prefix))
 				break;
 		}
