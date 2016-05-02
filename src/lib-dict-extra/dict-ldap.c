@@ -47,9 +47,6 @@ struct ldap_dict {
 };
 
 static
-struct ldap_dict *ldap_dict_list;
-
-static
 void ldap_dict_lookup_async(struct dict *dict, const char *key,
 			     dict_lookup_callback_t *callback, void *context);
 
@@ -200,9 +197,9 @@ const char* ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap
 }
 
 static
-int ldap_dict_create(struct dict *dict_driver, const char *uri,
-		     const struct dict_settings *set,
-		     struct dict **dict_r, const char **error_r)
+int ldap_dict_init(struct dict *dict_driver, const char *uri,
+		   const struct dict_settings *set,
+		   struct dict **dict_r, const char **error_r)
 {
 	pool_t pool = pool_alloconly_create("ldap dict", 2048);
 	struct ldap_dict *dict = p_new(pool, struct ldap_dict, 1);
@@ -224,32 +221,16 @@ int ldap_dict_create(struct dict *dict_driver, const char *uri,
 
 	*dict_r = (struct dict*)dict;
 	*error_r = NULL;
-
-	DLLIST_PREPEND(&ldap_dict_list, dict);
-
 	return 0;
 }
 
 static
-int ldap_dict_init(struct dict *dict_driver, const char *uri,
-		   const struct dict_settings *set,
-		   struct dict **dict_r, const char **error_r)
+void ldap_dict_deinit(struct dict *dict)
 {
-	/* reuse possible existing entry */
-	for(struct ldap_dict *ptr = ldap_dict_list;
-	    ptr != NULL;
-	    ptr = ptr->next) {
-		if (strcmp(ptr->uri, uri) == 0 &&
-		    null_strcmp(ptr->username, set->username) == 0) {
-			*dict_r = (struct dict*)ptr;
-			return 0;
-		}
-	}
-	return ldap_dict_create(dict_driver, uri, set, dict_r, error_r);
-}
+	struct ldap_dict *ctx = (struct ldap_dict *)dict;
 
-static
-void ldap_dict_deinit(struct dict *dict ATTR_UNUSED) {
+	ldap_client_deinit(&ctx->client);
+	pool_unref(&ctx->pool);
 }
 
 static
@@ -455,22 +436,11 @@ void dict_ldap_deinit(void);
 void dict_ldap_init(struct module *module ATTR_UNUSED)
 {
 	dict_driver_register(&dict_driver_ldap);
-	ldap_dict_list = NULL;
 }
 
 void dict_ldap_deinit(void)
 {
 	dict_driver_unregister(&dict_driver_ldap);
-	/* destroy all server connections */
-	struct ldap_dict *ptr = ldap_dict_list;
-	ldap_dict_list = NULL;
-
-	while(ptr != NULL) {
-		ldap_client_deinit(&(ptr->client));
-		pool_t pool = ptr->pool;
-		ptr = ptr->next;
-		pool_unref(&pool);
-	}
 }
 
 const char *dict_ldap_plugin_dependencies[] = { NULL };
