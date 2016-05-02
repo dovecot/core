@@ -310,7 +310,7 @@ count_quota_update(struct quota_root *root,
 	struct count_quota_root *croot = (struct count_quota_root *)root;
 
 	croot->cache_timeval.tv_sec = 0;
-	if (ctx->recalculate) {
+	if (ctx->recalculate == QUOTA_RECALCULATE_FORCED) {
 		if (quota_count_recalculate(root) < 0)
 			return -1;
 	}

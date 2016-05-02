@@ -19,6 +19,17 @@ struct quota_root;
 struct quota_root_iter;
 struct quota_transaction_context;
 
+enum quota_recalculate {
+	QUOTA_RECALCULATE_DONT = 0,
+	/* We may want to recalculate quota because we weren't able to call
+	   quota_free*() correctly for all mails. Quota needs to be
+	   recalculated unless the backend does the quota tracking
+	   internally. */
+	QUOTA_RECALCULATE_MISSING_FREES,
+	/* doveadm quota recalc called - make sure the quota is correct */
+	QUOTA_RECALCULATE_FORCED
+};
+
 int quota_user_read_settings(struct mail_user *user,
 			     struct quota_settings **set_r,
 			     const char **error_r);
@@ -81,7 +92,8 @@ void quota_free(struct quota_transaction_context *ctx, struct mail *mail);
 void quota_free_bytes(struct quota_transaction_context *ctx,
 		      uoff_t physical_size);
 /* Mark the quota to be recalculated */
-void quota_recalculate(struct quota_transaction_context *ctx);
+void quota_recalculate(struct quota_transaction_context *ctx,
+		       enum quota_recalculate recalculate);
 
 /* Execute quota_over_scripts if needed. */
 void quota_over_flag_check_startup(struct quota *quota);

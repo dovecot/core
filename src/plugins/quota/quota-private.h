@@ -175,10 +175,10 @@ struct quota_transaction_context {
 	uint64_t bytes_over, count_over;
 
 	struct mail *tmp_mail;
+	enum quota_recalculate recalculate;
 
 	unsigned int limits_set:1;
 	unsigned int failed:1;
-	unsigned int recalculate:1;
 	unsigned int sync_transaction:1;
 	/* TRUE if all roots have auto_updating=TRUE */
 	unsigned int auto_updating:1;

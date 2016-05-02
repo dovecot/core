@@ -955,7 +955,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 	if (ctx->failed)
 		ret = -1;
 	else if (ctx->bytes_used != 0 || ctx->count_used != 0 ||
-		 ctx->recalculate) T_BEGIN {
+		 ctx->recalculate != QUOTA_RECALCULATE_DONT) T_BEGIN {
 		ARRAY(struct quota_root *) warn_roots;
 
 		mailbox_name = mailbox_get_vname(ctx->box);
@@ -1180,7 +1180,7 @@ void quota_free(struct quota_transaction_context *ctx, struct mail *mail)
 	if (ctx->auto_updating)
 		return;
 	if (mail_get_physical_size(mail, &size) < 0)
-		quota_recalculate(ctx);
+		quota_recalculate(ctx, QUOTA_RECALCULATE_MISSING_FREES);
 	else
 		quota_free_bytes(ctx, size);
 }
@@ -1192,7 +1192,8 @@ void quota_free_bytes(struct quota_transaction_context *ctx,
 	ctx->count_used--;
 }
 
-void quota_recalculate(struct quota_transaction_context *ctx)
+void quota_recalculate(struct quota_transaction_context *ctx,
+		       enum quota_recalculate recalculate)
 {
-	ctx->recalculate = TRUE;
+	ctx->recalculate = recalculate;
 }

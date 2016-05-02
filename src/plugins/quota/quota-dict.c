@@ -217,7 +217,7 @@ dict_quota_update(struct quota_root *_root,
 	struct dict_transaction_context *dt;
 	uint64_t value;
 
-	if (ctx->recalculate) {
+	if (ctx->recalculate != QUOTA_RECALCULATE_DONT) {
 		if (dict_quota_count(root, TRUE, &value) < 0)
 			return -1;
 	} else {
