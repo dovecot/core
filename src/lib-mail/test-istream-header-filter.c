@@ -12,6 +12,7 @@ test_istream_run(struct istream *test_istream, struct istream *filter,
 		 unsigned int input_len, const char *output)
 {
 	unsigned int i, output_len = strlen(output);
+	const struct stat *st;
 	const unsigned char *data;
 	size_t size;
 
@@ -32,6 +33,8 @@ test_istream_run(struct istream *test_istream, struct istream *filter,
 	while (i_stream_read(filter) > 0) ;
 	data = i_stream_get_data(filter, &size);
 	test_assert(size == output_len && memcmp(data, output, size) == 0);
+	test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
+		    (uoff_t)st->st_size == size);
 }
 
 static void ATTR_NULL(3)
@@ -55,6 +58,7 @@ static void test_istream_filter(void)
 	unsigned int i, input_len = strlen(input);
 	unsigned int output_len = strlen(output);
 	const unsigned char *data;
+	const struct stat *st;
 	size_t size;
 
 	test_begin("i_stream_create_header_filter(exclude)");
@@ -86,11 +90,16 @@ static void test_istream_filter(void)
 	data = i_stream_get_data(filter, &size);
 	test_assert(size == output_len && memcmp(data, output, size) == 0);
 
+	test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
+		    (uoff_t)st->st_size == size);
+
 	i_stream_skip(filter, size);
 	i_stream_seek(filter, 0);
 	while (i_stream_read(filter) > 0) ;
 	data = i_stream_get_data(filter, &size);
 	test_assert(size == output_len && memcmp(data, output, size) == 0);
+	test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
+		    (uoff_t)st->st_size == size);
 
 	i_stream_unref(&filter);
 	i_stream_unref(&istream);
@@ -119,6 +128,7 @@ static void test_istream_filter_large_buffer(void)
 {
 	string_t *input, *output;
 	struct istream *istream, *filter;
+	const struct stat *st;
 	const unsigned char *data;
 	size_t size, prefix_len;
 	const char *p;
@@ -172,6 +182,9 @@ static void test_istream_filter_large_buffer(void)
 		i_assert(p != NULL);
 		test_assert(strcmp(p+1, str_c(output) + prefix_len) == 0);
 
+		test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
+			    (uoff_t)st->st_size == filter->v_offset + size);
+
 		/* seek back and retry once with caching and different
 		   buffer size */
 		i_stream_seek(filter, 0);
@@ -199,6 +212,7 @@ filter3_callback(struct header_filter_istream *input ATTR_UNUSED,
 static void test_istream_callbacks(void)
 {
 	string_t *input, *output;
+	const struct stat *st;
 	struct istream *istream, *filter;
 	unsigned int i;
 
@@ -230,6 +244,8 @@ static void test_istream_callbacks(void)
 			i_stream_skip(filter, i_stream_get_data_size(filter));
 	}
 
+	test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
+		    (uoff_t)st->st_size == str_len(output));
 	test_assert(strcmp(str_c(output), str_c(input)) == 0);
 	str_free(&input);
 	str_free(&output);
@@ -276,6 +292,7 @@ static void test_istream_end_body_with_lf(void)
 {
 	const char *input = "From: foo\n\nhello world";
 	const char *output = "From: foo\n\nhello world\n";
+	const struct stat *st;
 	struct istream *istream, *filter;
 	unsigned int i, input_len = strlen(input);
 	unsigned int output_len = strlen(output);
@@ -304,6 +321,8 @@ static void test_istream_end_body_with_lf(void)
 
 	data = i_stream_get_data(filter, &size);
 	test_assert(size == output_len && memcmp(data, output, size) == 0);
+	test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
+		    (uoff_t)st->st_size == filter->v_offset + size);
 
 	i_stream_skip(filter, size);
 	i_stream_seek(filter, 0);

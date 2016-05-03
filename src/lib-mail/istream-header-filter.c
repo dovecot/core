@@ -546,6 +546,28 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 	if (skip_header(mstream) < 0)
 		return -1;
 
+	if (!mstream->end_body_with_lf) {
+		/* no last-LF */
+	} else if (mstream->last_lf_added) {
+		/* yes, we have added LF */
+		stream->statbuf.st_size += mstream->crlf ? 2 : 1;
+	} else if (mstream->last_lf_offset != (uoff_t)-1) {
+		/* no, we didn't need to add LF */
+	} else {
+		/* check if we need to add LF */
+		i_stream_seek(stream->parent, st->st_size - 1);
+		(void)i_stream_read(stream->parent);
+		if (stream->parent->stream_errno != 0) {
+			stream->istream.stream_errno =
+				stream->parent->stream_errno;
+			return -1;
+		}
+		i_assert(stream->parent->eof);
+		ssize_t ret = handle_end_body_with_lf(mstream, -1);
+		if (ret > 0)
+			stream->statbuf.st_size += ret;
+	}
+
 	stream->statbuf.st_size -=
 		(off_t)mstream->header_size.physical_size -
 		(off_t)mstream->header_size.virtual_size;
@@ -600,6 +622,7 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->add_missing_eoh = (flags & HEADER_FILTER_ADD_MISSING_EOH) != 0;
 	mstream->end_body_with_lf =
 		(flags & HEADER_FILTER_END_BODY_WITH_LF) != 0;
+	mstream->last_lf_offset = (uoff_t)-1;
 
 	mstream->istream.iostream.destroy = i_stream_header_filter_destroy;
 	mstream->istream.read = i_stream_header_filter_read;
