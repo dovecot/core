@@ -20,6 +20,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-imap-storage \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/auth \
 	-DMODULEDIR=\""$(moduledir)"\" \
