@@ -184,6 +184,9 @@ imap_msgpart_parse_header_fields(struct imap_msgpart *msgpart,
 {
 	ARRAY_TYPE(const_string) fields;
 
+	if (header_list[0] == ' ')
+		header_list++;
+
 	/* HEADER.FIELDS (list), HEADER.FIELDS.NOT (list) */
 	if (imap_msgpart_get_header_fields(msgpart->pool, header_list,
 					   &fields) < 0)
@@ -267,14 +270,14 @@ int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r)
 		if (section[6] == '\0') {
 			msgpart->fetch_type = FETCH_HEADER;
 			ret = 0;
-		} else if (strncmp(section, "HEADER.FIELDS ", 14) == 0) {
-			msgpart->fetch_type = FETCH_HEADER_FIELDS;
-			ret = imap_msgpart_parse_header_fields(msgpart,
-							       section+14);
-		} else if (strncmp(section, "HEADER.FIELDS.NOT ", 18) == 0) {
+		} else if (strncmp(section, "HEADER.FIELDS.NOT", 17) == 0) {
 			msgpart->fetch_type = FETCH_HEADER_FIELDS_NOT;
 			ret = imap_msgpart_parse_header_fields(msgpart,
-							       section+18);
+							       section+17);
+		} else if (strncmp(section, "HEADER.FIELDS", 13) == 0) {
+			msgpart->fetch_type = FETCH_HEADER_FIELDS;
+			ret = imap_msgpart_parse_header_fields(msgpart,
+							       section+13);
 		} else {
 			ret = -1;
 		}
