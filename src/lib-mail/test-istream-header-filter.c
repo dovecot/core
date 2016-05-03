@@ -61,7 +61,7 @@ static void test_istream_filter(void)
 	const struct stat *st;
 	size_t size;
 
-	test_begin("i_stream_create_header_filter(exclude)");
+	test_begin("i_stream_create_header_filter: exclude");
 	istream = test_istream_create(input);
 	filter = i_stream_create_header_filter(istream,
 					       HEADER_FILTER_EXCLUDE |
@@ -134,7 +134,7 @@ static void test_istream_filter_large_buffer(void)
 	const char *p;
 	unsigned int i;
 
-	test_begin("i_stream_create_header_filter(large buffer)");
+	test_begin("i_stream_create_header_filter: large buffer");
 
 	input = str_new(default_pool, 1024*128);
 	output = str_new(default_pool, 1024*128);
@@ -216,7 +216,7 @@ static void test_istream_callbacks(void)
 	struct istream *istream, *filter;
 	unsigned int i;
 
-	test_begin("i_stream_create_header_filter(callbacks)");
+	test_begin("i_stream_create_header_filter: callbacks");
 
 	input = str_new(default_pool, 1024*128);
 	output = str_new(default_pool, 1024*128);
@@ -281,7 +281,7 @@ static void test_istream_edit(void)
 	const char *output = "From: foo\nTo: 123\nAdded: header\n\nhello world\n";
 	struct istream *istream, *filter;
 
-	test_begin("i_stream_create_header_filter(edit)");
+	test_begin("i_stream_create_header_filter: edit headers");
 	istream = test_istream_create(input);
 	filter = i_stream_create_header_filter(istream,
 					       HEADER_FILTER_EXCLUDE |
@@ -307,7 +307,7 @@ static void test_istream_end_body_with_lf(void)
 	string_t *str = t_str_new(64);
 	size_t size;
 
-	test_begin("i_stream_create_header_filter(end_body_with_lf)");
+	test_begin("i_stream_create_header_filter: end_body_with_lf");
 	istream = test_istream_create(input);
 	filter = i_stream_create_header_filter(istream,
 					       HEADER_FILTER_EXCLUDE |
@@ -374,7 +374,7 @@ static void test_istream_add_missing_eoh(void)
 	struct istream *istream, *filter;
 	unsigned int i;
 
-	test_begin("i_stream_create_header_filter(add_missing_eoh)");
+	test_begin("i_stream_create_header_filter: add missing EOH");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		istream = test_istream_create(tests[i].input);
 		filter = i_stream_create_header_filter(istream,
@@ -410,7 +410,7 @@ static void test_istream_hide_body(void)
 	struct istream *istream, *filter;
 	unsigned int i;
 
-	test_begin("i_stream_create_header_filter(add_missing_eoh)");
+	test_begin("i_stream_create_header_filter: hide body");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		istream = test_istream_create(tests[i].input);
 		filter = i_stream_create_header_filter(istream,
@@ -443,7 +443,7 @@ static void test_istream_strip_eoh(void)
 	const char *output = "From: foo\nTo: bar\nhello world\n";
 	struct istream *istream, *filter;
 
-	test_begin("i_stream_create_header_filter(edit)");
+	test_begin("i_stream_create_header_filter: strip_eoh");
 	istream = test_istream_create(input);
 	filter = i_stream_create_header_filter(istream,
 			HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR, NULL, 0,
