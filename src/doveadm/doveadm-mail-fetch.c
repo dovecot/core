@@ -555,7 +555,7 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 		} else if (strncmp(name, "body.", 5) == 0 ||
 			   strncmp(name, "binary.", 7) == 0) {
 			bool binary = strncmp(name, "binary.", 7) == 0;
-			body_field.name = name;
+			body_field.name = t_strarray_join(t_strsplit(name, ","), " ");
 
 			name += binary ? 7 : 5;
 			if (imap_msgpart_parse(name, &msgpart) < 0) {
