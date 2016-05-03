@@ -385,6 +385,42 @@ static void test_istream_add_missing_eoh(void)
 	test_end();
 }
 
+static void test_istream_hide_body(void)
+{
+	struct {
+		const char *input;
+		const char *output;
+		int extra;
+	} tests[] = {
+		{ "From: foo", "From: foo", 0 },
+		{ "From: foo\n", "From: foo\n", 0 },
+		{ "From: foo\n\n", "From: foo\n\n", 1 },
+		{ "From: foo\n\nbar", "From: foo\n\n", -2 },
+		{ "From: foo\r\n", "From: foo\r\n", 0 },
+		{ "From: foo\r\n\r\n", "From: foo\r\n\r\n", 0 },
+		{ "From: foo\r\n\r\nbar", "From: foo\r\n\r\n", -3 }
+	};
+	struct istream *istream, *filter;
+	unsigned int i;
+
+	test_begin("i_stream_create_header_filter(add_missing_eoh)");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		istream = test_istream_create(tests[i].input);
+		filter = i_stream_create_header_filter(istream,
+					       HEADER_FILTER_EXCLUDE |
+					       HEADER_FILTER_CRLF_PRESERVE |
+					       HEADER_FILTER_HIDE_BODY,
+					       NULL, 0,
+					       *null_header_filter_callback, (void *)NULL);
+		test_istream_run(istream, filter,
+				 strlen(tests[i].input) + tests[i].extra,
+				 tests[i].output);
+		i_stream_unref(&filter);
+		i_stream_unref(&istream);
+	}
+	test_end();
+}
+
 static void ATTR_NULL(3)
 strip_eoh_callback(struct header_filter_istream *input ATTR_UNUSED,
 		   struct message_header_line *hdr,
@@ -421,6 +457,7 @@ int main(void)
 		test_istream_edit,
 		test_istream_add_missing_eoh,
 		test_istream_end_body_with_lf,
+		test_istream_hide_body,
 		test_istream_strip_eoh,
 		NULL
 	};
