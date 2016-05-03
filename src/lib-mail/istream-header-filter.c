@@ -557,7 +557,10 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 	if (skip_header(mstream) < 0)
 		return -1;
 
-	if (!mstream->end_body_with_lf) {
+	if (mstream->hide_body) {
+		/* no body */
+		stream->statbuf.st_size = mstream->header_size.physical_size;
+	} else if (!mstream->end_body_with_lf) {
 		/* no last-LF */
 	} else if (mstream->last_lf_added) {
 		/* yes, we have added LF */
