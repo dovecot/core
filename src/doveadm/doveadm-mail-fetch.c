@@ -33,6 +33,9 @@ struct fetch_cmd_context {
 	enum mail_fetch_field wanted_fields;
 
 	const struct fetch_field *cur_field;
+	/* if print() returns -1, log this error if non-NULL. otherwise log
+	   the storage error. */
+	const char *print_error;
 };
 
 struct fetch_field {
@@ -107,6 +110,13 @@ static int fetch_modseq(struct fetch_cmd_context *ctx)
 	return 0;
 }
 
+static void
+fetch_set_istream_error(struct fetch_cmd_context *ctx, struct istream *input)
+{
+	ctx->print_error = t_strdup_printf("read(%s) failed: %s",
+		i_stream_get_name(input), i_stream_get_error(input));
+}
+
 static int fetch_hdr(struct fetch_cmd_context *ctx)
 {
 	struct istream *input;
@@ -117,7 +127,8 @@ static int fetch_hdr(struct fetch_cmd_context *ctx)
 		return -1;
 
 	input = i_stream_create_limit(input, hdr_size.physical_size);
-	ret = doveadm_print_istream(input);
+	if ((ret = doveadm_print_istream(input) < 0))
+		fetch_set_istream_error(ctx, input);
 	i_stream_unref(&input);
 	return ret;
 }
@@ -206,7 +217,8 @@ static int fetch_body_field(struct fetch_cmd_context *ctx)
 		imap_msgpart_free(&msgpart);
 		return -1;
 	}
-	ret = doveadm_print_istream(result.input);
+	if ((ret = doveadm_print_istream(result.input) < 0))
+		fetch_set_istream_error(ctx, result.input);
 	i_stream_unref(&result.input);
 	imap_msgpart_free(&msgpart);
 	return ret;
@@ -216,12 +228,15 @@ static int fetch_body(struct fetch_cmd_context *ctx)
 {
 	struct istream *input;
 	struct message_size hdr_size;
+	int ret;
 
 	if (mail_get_stream(ctx->mail, &hdr_size, NULL, &input) < 0)
 		return -1;
 
 	i_stream_skip(input, hdr_size.physical_size);
-	return doveadm_print_istream(input);
+	if ((ret = doveadm_print_istream(input) < 0))
+		fetch_set_istream_error(ctx, input);
+	return ret;
 }
 
 static int fetch_body_snippet(struct fetch_cmd_context *ctx)
@@ -239,10 +254,13 @@ static int fetch_body_snippet(struct fetch_cmd_context *ctx)
 static int fetch_text(struct fetch_cmd_context *ctx)
 {
 	struct istream *input;
+	int ret;
 
 	if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
 		return -1;
-	return doveadm_print_istream(input);
+	if ((ret = doveadm_print_istream(input) < 0))
+		fetch_set_istream_error(ctx, input);
+	return ret;
 }
 
 static int fetch_text_utf8(struct fetch_cmd_context *ctx)
@@ -571,8 +589,11 @@ static int cmd_fetch_mail(struct fetch_cmd_context *ctx)
 		if (field->print(ctx) < 0) {
 			i_error("fetch(%s) failed for box=%s uid=%u: %s",
 				field->name, mailbox_get_vname(mail->box),
-				mail->uid, mailbox_get_last_error(mail->box, NULL));
+				mail->uid,
+				ctx->print_error != NULL ? ctx->print_error :
+				mailbox_get_last_error(mail->box, NULL));
 			doveadm_mail_failed_mailbox(&ctx->ctx, mail->box);
+			ctx->print_error = NULL;
 			ret = -1;
 		}
 	}
