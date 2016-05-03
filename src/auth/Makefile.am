@@ -50,6 +50,7 @@ libpassword_a_SOURCES = \
 	password-scheme-rpa.c
 
 auth_libs = \
+	libstats_auth.la \
 	libpassword.a \
 	../lib-ntlm/libntlm.a \
 	../lib-otp/libotp.a \
@@ -74,7 +75,6 @@ auth_SOURCES = \
 	auth-request-stats.c \
 	auth-request-var-expand.c \
 	auth-settings.c \
-	auth-stats.c \
 	auth-fields.c \
 	auth-token.c \
 	auth-worker-client.c \
@@ -204,9 +204,9 @@ stats_moduledir = $(moduledir)/stats
 stats_module_LTLIBRARIES = libstats_auth.la
 
 libstats_auth_la_LDFLAGS = -module -avoid-version
-libstats_auth_la_LIBADD = auth-stats.lo $(LIBDOVECOT)
-libstats_auth_la_DEPENDENCIES = auth-stats.lo
-libstats_auth_la_SOURCES =
+libstats_auth_la_LIBADD = $(LIBDOVECOT)
+libstats_auth_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+libstats_auth_la_SOURCES = auth-stats.c
 
 test_programs = \
 	test-auth-cache \
