@@ -445,12 +445,12 @@ i_stream_header_filter_seek_to_header(struct header_filter_istream *mstream,
 	mstream->seen_eoh = FALSE;
 }
 
-static void skip_header(struct header_filter_istream *mstream)
+static int skip_header(struct header_filter_istream *mstream)
 {
 	size_t pos;
 
 	if (mstream->header_read)
-		return;
+		return 0;
 
 	if (mstream->istream.access_counter !=
 	    mstream->istream.parent->real_stream->access_counter) {
@@ -463,6 +463,7 @@ static void skip_header(struct header_filter_istream *mstream)
 		pos = i_stream_get_data_size(&mstream->istream.istream);
 		i_stream_skip(&mstream->istream.istream, pos);
 	}
+	return mstream->istream.istream.stream_errno != 0 ? -1 : 0;
 }
 
 static void
@@ -501,7 +502,8 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 	/* if we haven't parsed the whole header yet, we don't know if we
 	   want to seek inside header or body. so make sure we've parsed the
 	   header. */
-	skip_header(mstream);
+	if (skip_header(mstream) < 0)
+		return;
 	stream_reset_to(mstream, v_offset);
 
 	if (v_offset < mstream->header_size.virtual_size) {
@@ -541,7 +543,8 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 
 	/* fix the filtered header size */
 	old_offset = stream->istream.v_offset;
-	skip_header(mstream);
+	if (skip_header(mstream) < 0)
+		return -1;
 
 	stream->statbuf.st_size -=
 		(off_t)mstream->header_size.physical_size -
