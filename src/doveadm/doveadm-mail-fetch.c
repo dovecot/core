@@ -15,6 +15,7 @@
 #include "mail-storage.h"
 #include "mail-search.h"
 #include "mail-namespace.h"
+#include "imap-msgpart.h"
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mailbox-list-iter.h"
@@ -184,6 +185,31 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 	}
 	doveadm_print(str_c(str));
 	return 0;
+}
+
+static int fetch_body_field(struct fetch_cmd_context *ctx)
+{
+	const char *name = ctx->cur_field->name;
+	struct imap_msgpart *msgpart;
+	struct imap_msgpart_open_result result;
+	bool binary;
+	int ret;
+
+	binary = strncmp(name, "binary.", 7) == 0;
+	name += binary ? 7 : 5;
+	if (imap_msgpart_parse(name, &msgpart) < 0)
+		i_unreached(); /* we already verified this was ok */
+	if (binary)
+		imap_msgpart_set_decode_to_binary(msgpart);
+
+	if (imap_msgpart_open(ctx->mail, msgpart, &result) < 0) {
+		imap_msgpart_free(&msgpart);
+		return -1;
+	}
+	ret = doveadm_print_istream(result.input);
+	i_stream_unref(&result.input);
+	imap_msgpart_free(&msgpart);
+	return ret;
 }
 
 static int fetch_body(struct fetch_cmd_context *ctx)
@@ -476,7 +502,7 @@ static void print_fetch_fields(void)
 {
 	unsigned int i;
 
-	fprintf(stderr, "Available fetch fields: %s", fetch_fields[0].name);
+	fprintf(stderr, "Available fetch fields: hdr.<name> body.<section> binary.<section> %s", fetch_fields[0].name);
 	for (i = 1; i < N_ELEMENTS(fetch_fields); i++)
 		fprintf(stderr, " %s", fetch_fields[i].name);
 	fprintf(stderr, "\n");
@@ -486,10 +512,14 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 {
 	const char *const *fields, *name;
 	const struct fetch_field *field;
-	struct fetch_field hdr_field;
+	struct fetch_field hdr_field, body_field;
+	struct imap_msgpart *msgpart;
 
 	memset(&hdr_field, 0, sizeof(hdr_field));
 	hdr_field.print = fetch_hdr_field;
+
+	memset(&body_field, 0, sizeof(body_field));
+	body_field.print = fetch_body_field;
 
 	t_array_init(&ctx->fields, 32);
 	t_array_init(&ctx->header_fields, 32);
@@ -504,6 +534,19 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 			array_append(&ctx->fields, &hdr_field, 1);
 			name = t_strcut(name, '.');
 			array_append(&ctx->header_fields, &name, 1);
+		} else if (strncmp(name, "body.", 5) == 0 ||
+			   strncmp(name, "binary.", 7) == 0) {
+			bool binary = strncmp(name, "binary.", 7) == 0;
+			body_field.name = name;
+
+			name += binary ? 7 : 5;
+			if (imap_msgpart_parse(name, &msgpart) < 0) {
+				print_fetch_fields();
+				i_fatal("Unknown fetch section: %s", name);
+			}
+			array_append(&ctx->fields, &body_field, 1);
+			ctx->wanted_fields |= imap_msgpart_get_fetch_data(msgpart);
+			imap_msgpart_free(&msgpart);
 		} else {
 			field = fetch_field_find(name);
 			if (field == NULL) {
