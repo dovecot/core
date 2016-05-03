@@ -38,6 +38,8 @@ struct header_filter_istream {
 	unsigned int add_missing_eoh:1;
 	unsigned int end_body_with_lf:1;
 	unsigned int last_lf_added:1;
+	unsigned int last_orig_crlf:1;
+	unsigned int last_added_newline:1;
 	unsigned int eoh_not_matched:1;
 	unsigned int prev_matched:1;
 };
@@ -134,6 +136,8 @@ static void add_eol(struct header_filter_istream *mstream, bool orig_crlf)
 		buffer_append(mstream->hdr_buf, "\r\n", 2);
 	else
 		buffer_append_c(mstream->hdr_buf, '\n');
+	mstream->last_orig_crlf = orig_crlf;
+	mstream->last_added_newline = TRUE;
 }
 
 static ssize_t hdr_stream_update_pos(struct header_filter_istream *mstream)
@@ -285,6 +289,11 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		if (mstream->hdr_buf->used >= mstream->istream.max_buffer_size)
 			break;
 	}
+	if (mstream->hdr_buf->used > 0) {
+		const unsigned char *data = mstream->hdr_buf->data;
+		mstream->last_added_newline =
+			data[mstream->hdr_buf->used-1] == '\n';
+	}
 
 	if (hdr_ret < 0) {
 		if (mstream->istream.parent->stream_errno != 0) {
@@ -296,7 +305,9 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 		if (!mstream->seen_eoh && mstream->add_missing_eoh) {
 			mstream->seen_eoh = TRUE;
-			add_eol(mstream, FALSE);
+			if (!mstream->last_added_newline)
+				add_eol(mstream, mstream->last_orig_crlf);
+			add_eol(mstream, mstream->last_orig_crlf);
 		}
 	}
 
