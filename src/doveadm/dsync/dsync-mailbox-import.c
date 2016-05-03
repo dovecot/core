@@ -523,7 +523,7 @@ dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 				  attr->key, &value) < 0) {
 		i_error("Mailbox %s: Failed to set attribute %s: %s",
 			mailbox_get_vname(importer->box), attr->key,
-			mailbox_get_last_error(importer->box, &importer->mail_error));
+			mailbox_get_last_error(importer->box, NULL));
 		/* the attributes aren't vital, don't fail everything just
 		   because of them. */
 	}
