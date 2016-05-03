@@ -592,9 +592,7 @@ bool old_settings_handle(struct config_parser_context *ctx,
 			obsolete(ctx, "add auth_ prefix to all settings inside auth {} and remove the auth {} section completely");
 			ctx->old->auth_section = 1;
 			return TRUE;
-		} else if (ctx->pathlen == 0 && strcmp(key, "namespace") == 0)
-			return TRUE;
-		else if (ctx->pathlen == 0 && strcmp(key, "protocol") == 0 &&
+		} else if (ctx->pathlen == 0 && strcmp(key, "protocol") == 0 &&
 			 strcmp(value, "managesieve") == 0) {
 			obsolete(ctx, "protocol managesieve {} has been replaced by protocol sieve { }");
 			config_parser_apply_line(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
