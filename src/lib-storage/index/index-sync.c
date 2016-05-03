@@ -291,6 +291,17 @@ void index_sync_update_recent_count(struct mailbox *box)
 	}
 }
 
+static void index_mailbox_sync_free(struct index_mailbox_sync_context *ctx)
+{
+	if (array_is_created(&ctx->flag_updates))
+		array_free(&ctx->flag_updates);
+	if (array_is_created(&ctx->hidden_updates))
+		array_free(&ctx->hidden_updates);
+	if (array_is_created(&ctx->all_flag_update_uids))
+		array_free(&ctx->all_flag_update_uids);
+	i_free(ctx);
+}
+
 int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 			      struct mailbox_sync_status *status_r)
 {
@@ -314,6 +325,10 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 			ret = -1;
 		}
 	}
+	if (ret < 0) {
+		index_mailbox_sync_free(ctx);
+		return -1;
+	}
 	index_mailbox_expunge_unseen_recent(ctx);
 
 	if ((_ctx->box->flags & MAILBOX_FLAG_DROP_RECENT) == 0 &&
@@ -327,18 +342,10 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 
 	/* update search results after private index is updated */
 	index_sync_search_results_update(ctx);
-
-	if (array_is_created(&ctx->flag_updates))
-		array_free(&ctx->flag_updates);
-	if (array_is_created(&ctx->hidden_updates))
-		array_free(&ctx->hidden_updates);
-	if (array_is_created(&ctx->all_flag_update_uids))
-		array_free(&ctx->all_flag_update_uids);
-
 	/* update vsize header if wanted */
-	if (ret == 0)
-		index_mailbox_vsize_update_appends(_ctx->box);
-	i_free(ctx);
+	index_mailbox_vsize_update_appends(_ctx->box);
+
+	index_mailbox_sync_free(ctx);
 	return ret;
 }
 
