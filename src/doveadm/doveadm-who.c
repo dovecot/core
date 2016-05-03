@@ -59,6 +59,8 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 
 	memset(line_r, 0, sizeof(*line_r));
 
+	/* ident = service/ip/username (imap, pop3)
+	   or      service/username (lmtp) */
 	p = strchr(ident, '/');
 	if (p == NULL)
 		return -1;
@@ -66,12 +68,15 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 		return -1;
 	line_r->service = t_strdup_until(ident, p++);
 	line_r->username = strchr(p, '/');
-	if (line_r->username == NULL)
-		return -1;
+	if (line_r->username == NULL) {
+		/* no IP */
+		line_r->username = p;
+	} else {
+		ip_str = t_strdup_until(p, line_r->username++);
+		(void)net_addr2ip(ip_str, &line_r->ip);
+	}
 	if (str_to_uint(refcount_str, &line_r->refcount) < 0)
 		return -1;
-	ip_str = t_strdup_until(p, line_r->username++);
-	(void)net_addr2ip(ip_str, &line_r->ip);
 	return 0;
 }
 
