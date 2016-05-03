@@ -83,6 +83,8 @@ bool o_stream_unix_write_fd(struct ostream *output, int fd)
 	struct unix_ostream *ustream =
 		(struct unix_ostream *)output->real_stream;
 
+	i_assert(fd >= 0);
+
 	if (ustream->write_fd >= 0)
 		return FALSE;
 	ustream->write_fd = fd;
