@@ -260,7 +260,14 @@ edit_callback(struct header_filter_istream *input,
 	      struct message_header_line *hdr,
 	      bool *matched, void *context ATTR_UNUSED)
 {
-	if (hdr != NULL && strcasecmp(hdr->name, "To") == 0) {
+	if (hdr == NULL)
+		return;
+	if (hdr->eoh) {
+		/* add a new header */
+		const char *new_hdr = "Added: header\n\n";
+		i_stream_header_filter_add(input, new_hdr, strlen(new_hdr));
+		*matched = FALSE;
+	} else if (strcasecmp(hdr->name, "To") == 0) {
 		/* modify To header */
 		const char *new_to = "To: 123\n";
 		*matched = TRUE;
@@ -271,7 +278,7 @@ edit_callback(struct header_filter_istream *input,
 static void test_istream_edit(void)
 {
 	const char *input = "From: foo\nTo: bar\n\nhello world\n";
-	const char *output = "From: foo\nTo: 123\n\nhello world\n";
+	const char *output = "From: foo\nTo: 123\nAdded: header\n\nhello world\n";
 	struct istream *istream, *filter;
 
 	test_begin("i_stream_create_header_filter(edit)");
