@@ -768,12 +768,13 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 			client_send_tagline(cmd, tagline);
 		return TRUE;
 	}
+	cmd->tagline_reply = p_strdup(cmd->pool, tagline);
 
 	cmd->sync = p_new(cmd->pool, struct client_sync_context, 1);
 	cmd->sync->counter = client->sync_counter;
 	cmd->sync->flags = flags;
 	cmd->sync->imap_flags = imap_flags;
-	cmd->sync->tagline = p_strdup(cmd->pool, tagline);
+	cmd->sync->tagline = cmd->tagline_reply;
 	cmd->state = CLIENT_COMMAND_STATE_WAIT_SYNC;
 
 	cmd->func = NULL;
