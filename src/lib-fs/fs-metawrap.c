@@ -503,7 +503,10 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 	}
 	i_stream_unref(&input);
 	if (ret == 0) {
-		fs_set_error_async(_file->fs);
+		/* we shouldn't get here */
+		fs_set_error(_file->fs, "i_stream_get_size(%s) returned size as unknown",
+			     fs_file_path(_file));
+		errno = EIO;
 		return -1;
 	}
 
