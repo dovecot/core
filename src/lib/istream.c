@@ -622,8 +622,7 @@ bool i_stream_try_alloc(struct istream_private *stream,
 		if (stream->skip > 0) {
 			/* remove the unused bytes from beginning of buffer */
                         i_stream_compress(stream);
-		} else if (stream->max_buffer_size == 0 ||
-			   stream->buffer_size < stream->max_buffer_size) {
+		} else if (stream->buffer_size < stream->max_buffer_size) {
 			/* buffer is full - grow it */
 			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
 		}
