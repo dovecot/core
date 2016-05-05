@@ -208,6 +208,7 @@ struct http_client_queue {
 	   connected IP */
 	unsigned int ips_connect_start_idx;
 
+	struct timeval first_connect_time;
 	unsigned int connect_attempts;
 
 	/* peers we are trying to connect to;
