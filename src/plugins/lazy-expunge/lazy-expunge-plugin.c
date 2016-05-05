@@ -125,9 +125,15 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 	}
 
 	/* try creating and re-opening it. */
-	if (mailbox_create(box, NULL, FALSE) < 0 ||
-	    mailbox_open(box) < 0) {
+	if (mailbox_create(box, NULL, FALSE) < 0 &&
+	    mailbox_get_last_mail_error(box) != MAIL_ERROR_EXISTS) {
 		*error_r = t_strdup_printf("Failed to create mailbox %s: %s", name,
+					   mailbox_get_last_error(box, NULL));
+		mailbox_free(&box);
+		return NULL;
+	}
+	if (mailbox_open(box) < 0) {
+		*error_r = t_strdup_printf("Failed to open created mailbox %s: %s", name,
 					   mailbox_get_last_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
