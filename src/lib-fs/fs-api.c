@@ -749,13 +749,14 @@ int fs_exists(struct fs_file *file)
 		else
 			return errno == ENOENT ? 0 : -1;
 	}
-	file->fs->stats.exists_count++;
 	fs_file_timing_start(file, FS_OP_EXISTS);
 	T_BEGIN {
 		ret = file->fs->v.exists(file);
 	} T_END;
-	if (!(ret < 0 && errno == EAGAIN))
+	if (!(ret < 0 && errno == EAGAIN)) {
+		file->fs->stats.exists_count++;
 		fs_file_timing_end(file, FS_OP_EXISTS);
+	}
 	return ret;
 }
 
@@ -843,13 +844,13 @@ int fs_copy(struct fs_file *src, struct fs_file *dest)
 		return -1;
 	}
 
-	dest->fs->stats.copy_count++;
 	fs_file_timing_start(dest, FS_OP_COPY);
 	T_BEGIN {
 		ret = src->fs->v.copy(src, dest);
 	} T_END;
 	if (!(ret < 0 && errno == EAGAIN)) {
 		fs_file_timing_end(dest, FS_OP_COPY);
+		dest->fs->stats.copy_count++;
 		dest->metadata_changed = FALSE;
 	}
 	return ret;
@@ -864,6 +865,7 @@ int fs_copy_finish_async(struct fs_file *dest)
 	} T_END;
 	if (!(ret < 0 && errno == EAGAIN)) {
 		fs_file_timing_end(dest, FS_OP_COPY);
+		dest->fs->stats.copy_count++;
 		dest->metadata_changed = FALSE;
 	}
 	return ret;
@@ -875,13 +877,14 @@ int fs_rename(struct fs_file *src, struct fs_file *dest)
 
 	i_assert(src->fs == dest->fs);
 
-	dest->fs->stats.rename_count++;
 	fs_file_timing_start(dest, FS_OP_RENAME);
 	T_BEGIN {
 		ret = src->fs->v.rename(src, dest);
 	} T_END;
-	if (!(ret < 0 && errno == EAGAIN))
+	if (!(ret < 0 && errno == EAGAIN)) {
+		dest->fs->stats.rename_count++;
 		fs_file_timing_end(dest, FS_OP_RENAME);
+	}
 	return ret;
 }
 
@@ -889,13 +892,14 @@ int fs_delete(struct fs_file *file)
 {
 	int ret;
 
-	file->fs->stats.delete_count++;
 	fs_file_timing_start(file, FS_OP_DELETE);
 	T_BEGIN {
 		ret = file->fs->v.delete_file(file);
 	} T_END;
-	if (!(ret < 0 && errno == EAGAIN))
+	if (!(ret < 0 && errno == EAGAIN)) {
+		file->fs->stats.delete_count++;
 		fs_file_timing_end(file, FS_OP_DELETE);
+	}
 	return ret;
 }
 
