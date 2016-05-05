@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "time-util.h"
 #include "stats-plugin.h"
 #include "mail-stats.h"
 
@@ -110,12 +111,19 @@ user_trans_stats_get(struct stats_user *suser, struct mail_stats *dest_r)
 
 void mail_stats_fill(struct stats_user *suser, struct mail_stats *stats_r)
 {
+	static struct rusage prev_usage;
 	struct rusage usage;
 
 	memset(stats_r, 0, sizeof(*stats_r));
 	/* cputime */
 	if (getrusage(RUSAGE_SELF, &usage) < 0)
 		memset(&usage, 0, sizeof(usage));
+	if (timeval_diff_usecs(&usage.ru_stime, &prev_usage.ru_stime) < 0) {
+		/* This seems to be a Linux bug. */
+		usage.ru_stime = prev_usage.ru_stime;
+	}
+	prev_usage = usage;
+
 	stats_r->user_cpu = usage.ru_utime;
 	stats_r->sys_cpu = usage.ru_stime;
 	stats_r->min_faults = usage.ru_minflt;
