@@ -226,6 +226,14 @@ char *str_tabunescape(char *str)
 	return start;
 }
 
+const char *t_str_tabunescape(const char *str)
+{
+	if (strchr(str, '\001') == NULL)
+		return str;
+	else
+		return str_tabunescape(t_strdup_noconst(str));
+}
+
 char **p_strsplit_tabescaped(pool_t pool, const char *str)
 {
 	char **args;

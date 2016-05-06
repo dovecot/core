@@ -23,6 +23,7 @@ const char *str_tabescape(const char *str);
 void str_append_tabescaped(string_t *dest, const char *src);
 void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size);
 char *str_tabunescape(char *str);
+const char *t_str_tabunescape(const char *str);
 
 char **p_strsplit_tabescaped(pool_t pool, const char *str);
 const char *const *t_strsplit_tabescaped(const char *str);
