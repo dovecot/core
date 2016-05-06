@@ -361,6 +361,11 @@ int settings_get_time(const char *str, unsigned int *secs_r,
 		return -1;
 	}
 	while (*p == ' ') p++;
+	if (*p == '\0' && num != 0) {
+		*error_r = t_strdup_printf("Time interval '%s' is missing units "
+			"(add e.g. 's' for seconds): ", str);
+		return -1;
+	}
 	switch (i_toupper(*p)) {
 	case 'S':
 		multiply = 1;
