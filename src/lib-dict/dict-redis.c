@@ -608,8 +608,10 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 		redis_input_state_add(dict, REDIS_INPUT_STATE_EXEC);
 		for (i = 0; i < ctx->cmd_count; i++)
 			redis_input_state_add(dict, REDIS_INPUT_STATE_EXEC_REPLY);
-		if (async)
+		if (async) {
+			i_free(ctx);
 			return 1;
+		}
 		redis_wait(dict);
 	}
 	if (callback != NULL)
