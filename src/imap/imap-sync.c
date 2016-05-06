@@ -315,7 +315,7 @@ static int imap_sync_finish(struct imap_sync_context *ctx, bool aborting)
 	if (mailbox_sync_deinit(&ctx->sync_ctx, &ctx->sync_status) < 0 ||
 	    ctx->failed) {
 		ctx->failed = TRUE;
-		return -1;
+		ret = -1;
 	}
 	mailbox_get_open_status(ctx->box, STATUS_UIDVALIDITY |
 				STATUS_MESSAGES | STATUS_RECENT |
