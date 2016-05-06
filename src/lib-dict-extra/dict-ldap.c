@@ -259,7 +259,9 @@ static
 void ldap_dict_lookup_done(const struct dict_lookup_result *result, void *ctx)
 {
 	struct dict_lookup_result *res = ctx;
-	*res = *result;
+	res->ret = result->ret;
+	res->value = t_strdup(result->value);
+	res->error = t_strdup(result->error);
 }
 
 static void
