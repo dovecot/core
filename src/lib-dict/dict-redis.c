@@ -488,10 +488,10 @@ static void redis_dict_select_db(struct redis_dict *dict)
 	redis_input_state_add(dict, REDIS_INPUT_STATE_SELECT);
 }
 
-static int
-redis_dict_lookup_real(struct redis_dict *dict, pool_t pool,
-		       const char *key, const char **value_r)
+static int redis_dict_lookup(struct dict *_dict, pool_t pool,
+			     const char *key, const char **value_r)
 {
+	struct redis_dict *dict = (struct redis_dict *)_dict;
 	struct timeout *to;
 	const char *cmd;
 
@@ -549,22 +549,6 @@ redis_dict_lookup_real(struct redis_dict *dict, pool_t pool,
 
 	*value_r = p_strdup(pool, str_c(dict->conn.last_reply));
 	return 1;
-}
-
-static int redis_dict_lookup(struct dict *_dict, pool_t pool,
-			     const char *key, const char **value_r)
-{
-	struct redis_dict *dict = (struct redis_dict *)_dict;
-	int ret;
-
-	i_assert(!dict->transaction_open);
-
-	if (pool->datastack_pool)
-		ret = redis_dict_lookup_real(dict, pool, key, value_r);
-	else T_BEGIN {
-		ret = redis_dict_lookup_real(dict, pool, key, value_r);
-	} T_END;
-	return ret;
 }
 
 static struct dict_transaction_context *

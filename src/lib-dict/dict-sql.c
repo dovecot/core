@@ -424,23 +424,17 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool,
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 	const struct dict_sql_map *map;
 	struct sql_result *result = NULL;
+	string_t *query = t_str_new(256);
+	const char *error;
 	int ret;
 
-	T_BEGIN {
-		string_t *query = t_str_new(256);
-		const char *error;
-
-		ret = sql_lookup_get_query(dict, key, query, &map, &error);
-		if (ret < 0)
-			i_error("%s", error);
-		else
-			result = sql_query_s(dict->db, str_c(query));
-	} T_END;
-
+	ret = sql_lookup_get_query(dict, key, query, &map, &error);
 	if (ret < 0) {
+		i_error("%s", error);
 		*value_r = NULL;
 		return -1;
 	}
+	result = sql_query_s(dict->db, str_c(query));
 
 	ret = sql_result_next_row(result);
 	if (ret <= 0) {
@@ -489,27 +483,24 @@ sql_dict_lookup_async(struct dict *_dict, const char *key,
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 	const struct dict_sql_map *map;
 	struct sql_dict_lookup_context *ctx;
+	string_t *query = t_str_new(256);
+	const char *error;
 
-	T_BEGIN {
-		string_t *query = t_str_new(256);
-		const char *error;
+	if (sql_lookup_get_query(dict, key, query, &map, &error) < 0) {
+		struct dict_lookup_result result;
 
-		if (sql_lookup_get_query(dict, key, query, &map, &error) < 0) {
-			struct dict_lookup_result result;
-
-			memset(&result, 0, sizeof(result));
-			result.ret = -1;
-			result.error = error;
-			callback(&result, context);
-		} else {
-			ctx = i_new(struct sql_dict_lookup_context, 1);
-			ctx->callback = callback;
-			ctx->context = context;
-			ctx->map = map;
-			sql_query(dict->db, str_c(query),
-				  sql_dict_lookup_async_callback, ctx);
-		}
-	} T_END;
+		memset(&result, 0, sizeof(result));
+		result.ret = -1;
+		result.error = error;
+		callback(&result, context);
+	} else {
+		ctx = i_new(struct sql_dict_lookup_context, 1);
+		ctx->callback = callback;
+		ctx->context = context;
+		ctx->map = map;
+		sql_query(dict->db, str_c(query),
+			  sql_dict_lookup_async_callback, ctx);
+	}
 }
 
 static const struct dict_sql_map *
@@ -625,26 +616,23 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx,
 				       const char **error_r)
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
+	string_t *query = t_str_new(256);
 	char *error = NULL;
 	int ret;
 
-	T_BEGIN {
-		string_t *query = t_str_new(256);
-
-		ret = sql_dict_iterate_build_next_query(ctx, query, error_r);
-		if (ret <= 0) {
-			/* failed */
-			error = i_strdup(*error_r);
-		} else if ((ctx->flags & DICT_ITERATE_FLAG_ASYNC) == 0) {
-			ctx->result = sql_query_s(dict->db, str_c(query));
-		} else {
-			i_assert(ctx->result == NULL);
-			ctx->synchronous_result = TRUE;
-			sql_query(dict->db, str_c(query),
-				  sql_dict_iterate_callback, ctx);
-			ctx->synchronous_result = FALSE;
-		}
-	} T_END;
+	ret = sql_dict_iterate_build_next_query(ctx, query, error_r);
+	if (ret <= 0) {
+		/* failed */
+		error = i_strdup(*error_r);
+	} else if ((ctx->flags & DICT_ITERATE_FLAG_ASYNC) == 0) {
+		ctx->result = sql_query_s(dict->db, str_c(query));
+	} else {
+		i_assert(ctx->result == NULL);
+		ctx->synchronous_result = TRUE;
+		sql_query(dict->db, str_c(query),
+			  sql_dict_iterate_callback, ctx);
+		ctx->synchronous_result = FALSE;
+	}
 	*error_r = t_strdup(error);
 	i_free(error);
 	return ret;
@@ -1001,6 +989,9 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
+	struct dict_sql_build_query build;
+	struct dict_sql_build_query_field field;
+	const char *query, *error;
 
 	map = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
@@ -1012,29 +1003,23 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	if (ctx->prev_inc_map != NULL)
 		sql_dict_prev_inc_flush(ctx);
 
-	T_BEGIN {
-		struct dict_sql_build_query build;
-		struct dict_sql_build_query_field field;
-		const char *query, *error;
+	field.map = map;
+	field.value = value;
 
-		field.map = map;
-		field.value = value;
+	memset(&build, 0, sizeof(build));
+	build.dict = dict;
+	t_array_init(&build.fields, 1);
+	array_append(&build.fields, &field, 1);
+	build.extra_values = &values;
+	build.key1 = key[0];
 
-		memset(&build, 0, sizeof(build));
-		build.dict = dict;
-		t_array_init(&build.fields, 1);
-		array_append(&build.fields, &field, 1);
-		build.extra_values = &values;
-		build.key1 = key[0];
-
-		if (sql_dict_set_query(&build, &query, &error) < 0) {
-			i_error("dict-sql: Failed to set %s=%s: %s",
-				key, value, error);
-			ctx->failed = TRUE;
-		} else {
-			sql_update(ctx->sql_ctx, query);
-		}
-	} T_END;
+	if (sql_dict_set_query(&build, &query, &error) < 0) {
+		i_error("dict-sql: Failed to set %s=%s: %s",
+			key, value, error);
+		ctx->failed = TRUE;
+	} else {
+		sql_update(ctx->sql_ctx, query);
+	}
 }
 
 static void sql_dict_unset(struct dict_transaction_context *_ctx,
@@ -1045,6 +1030,8 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
+	string_t *query = t_str_new(256);
+	const char *error;
 
 	if (ctx->prev_inc_map != NULL)
 		sql_dict_prev_inc_flush(ctx);
@@ -1056,19 +1043,14 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	T_BEGIN {
-		string_t *query = t_str_new(256);
-		const char *error;
-
-		str_printfa(query, "DELETE FROM %s", map->table);
-		if (sql_dict_where_build(dict, map, &values, key[0],
-					 SQL_DICT_RECURSE_NONE, query, &error) < 0) {
-			i_error("dict-sql: Failed to delete %s: %s", key, error);
-			ctx->failed = TRUE;
-		} else {
-			sql_update(ctx->sql_ctx, str_c(query));
-		}
-	} T_END;
+	str_printfa(query, "DELETE FROM %s", map->table);
+	if (sql_dict_where_build(dict, map, &values, key[0],
+				 SQL_DICT_RECURSE_NONE, query, &error) < 0) {
+		i_error("dict-sql: Failed to delete %s: %s", key, error);
+		ctx->failed = TRUE;
+	} else {
+		sql_update(ctx->sql_ctx, str_c(query));
+	}
 }
 
 static unsigned int *
@@ -1093,34 +1075,31 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
+	struct dict_sql_build_query build;
+	struct dict_sql_build_query_field field;
+	const char *query, *error;
 
 	map = sql_dict_find_map(dict, key, &values);
 	i_assert(map != NULL);
 
-	T_BEGIN {
-		struct dict_sql_build_query build;
-		struct dict_sql_build_query_field field;
-		const char *query, *error;
+	field.map = map;
+	field.value = t_strdup_printf("%lld", diff);
 
-		field.map = map;
-		field.value = t_strdup_printf("%lld", diff);
+	memset(&build, 0, sizeof(build));
+	build.dict = dict;
+	t_array_init(&build.fields, 1);
+	array_append(&build.fields, &field, 1);
+	build.extra_values = &values;
+	build.key1 = key[0];
+	build.inc = TRUE;
 
-		memset(&build, 0, sizeof(build));
-		build.dict = dict;
-		t_array_init(&build.fields, 1);
-		array_append(&build.fields, &field, 1);
-		build.extra_values = &values;
-		build.key1 = key[0];
-		build.inc = TRUE;
-
-		if (sql_dict_update_query(&build, &query, &error) < 0) {
-			i_error("dict-sql: Failed to increase %s: %s", key, error);
-			ctx->failed = TRUE;
-		} else {
-			sql_update_get_rows(ctx->sql_ctx, query,
-					    sql_dict_next_inc_row(ctx));
-		}
-	} T_END;
+	if (sql_dict_update_query(&build, &query, &error) < 0) {
+		i_error("dict-sql: Failed to increase %s: %s", key, error);
+		ctx->failed = TRUE;
+	} else {
+		sql_update_get_rows(ctx->sql_ctx, query,
+				    sql_dict_next_inc_row(ctx));
+	}
 }
 
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
@@ -1195,7 +1174,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 					 ctx->prev_inc_key, key, &values)) {
 		sql_dict_prev_inc_flush(ctx);
 		sql_dict_atomic_inc_real(ctx, key, diff);
-	} else T_BEGIN {
+	} else {
 		struct dict_sql_build_query build;
 		struct dict_sql_build_query_field *field;
 		const char *query, *error;
@@ -1224,7 +1203,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 
 		i_free_and_null(ctx->prev_inc_key);
 		ctx->prev_inc_map = NULL;
-	} T_END;
+	}
 }
 
 static struct dict sql_dict = {

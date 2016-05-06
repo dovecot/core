@@ -216,7 +216,9 @@ void dict_set(struct dict_transaction_context *ctx,
 {
 	i_assert(dict_key_prefix_is_valid(key));
 
-	ctx->dict->v.set(ctx, key, value);
+	T_BEGIN {
+		ctx->dict->v.set(ctx, key, value);
+	} T_END;
 	ctx->changed = TRUE;
 }
 
@@ -225,7 +227,9 @@ void dict_unset(struct dict_transaction_context *ctx,
 {
 	i_assert(dict_key_prefix_is_valid(key));
 
-	ctx->dict->v.unset(ctx, key);
+	T_BEGIN {
+		ctx->dict->v.unset(ctx, key);
+	} T_END;
 	ctx->changed = TRUE;
 }
 
@@ -234,10 +238,10 @@ void dict_atomic_inc(struct dict_transaction_context *ctx,
 {
 	i_assert(dict_key_prefix_is_valid(key));
 
-	if (diff != 0) {
+	if (diff != 0) T_BEGIN {
 		ctx->dict->v.atomic_inc(ctx, key, diff);
 		ctx->changed = TRUE;
-	}
+	} T_END;
 }
 
 const char *dict_escape_string(const char *str)

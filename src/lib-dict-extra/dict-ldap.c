@@ -309,15 +309,13 @@ int ldap_dict_lookup(struct dict *dict, pool_t pool,
 	pool_t orig_pool = pool;
 	int ret;
 
-	T_BEGIN {
-		ldap_dict_lookup_async(dict, key, ldap_dict_lookup_done, &res);
+	ldap_dict_lookup_async(dict, key, ldap_dict_lookup_done, &res);
 
-		if ((ret = ldap_dict_wait(dict)) == 0) {
-			if (res.ret == 0) {
-				*value_r = p_strdup(orig_pool, res.value);
-			} else ret = res.ret;
-		}
-	} T_END;
+	if ((ret = ldap_dict_wait(dict)) == 0) {
+		if (res.ret == 0) {
+			*value_r = p_strdup(orig_pool, res.value);
+		} else ret = res.ret;
+	}
 	return ret;
 }
 
@@ -383,30 +381,28 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 
 	/* key needs to be transformed into something else */
 	ARRAY_TYPE(const_string) values;
-	T_BEGIN {
-		const char *attributes[2] = {0, 0};
-		t_array_init(&values, 8);
-		const struct dict_ldap_map *map = ldap_dict_find_map(ctx, key, &values);
+	const char *attributes[2] = {0, 0};
+	t_array_init(&values, 8);
+	const struct dict_ldap_map *map = ldap_dict_find_map(ctx, key, &values);
 
-		if (map != NULL) {
-			op->map = map;
-			attributes[0] = map->value_attribute;
-			/* build lookup */
-			memset(&input, 0, sizeof(input));
-			input.base_dn = map->base_dn;
-			input.scope = map->scope_val;
-			ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query);
-			input.filter = str_c(query);
-			input.attributes = attributes;
-			input.timeout_secs = ctx->set->timeout;
-			ctx->pending++;
-			ldap_search_start(ctx->client, &input, ldap_dict_lookup_callback, op);
-		} else {
-			op->res.error = "no such key";
-			callback(&(op->res), context);
-			pool_unref(&oppool);
-		}
-	} T_END;
+	if (map != NULL) {
+		op->map = map;
+		attributes[0] = map->value_attribute;
+		/* build lookup */
+		memset(&input, 0, sizeof(input));
+		input.base_dn = map->base_dn;
+		input.scope = map->scope_val;
+		ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query);
+		input.filter = str_c(query);
+		input.attributes = attributes;
+		input.timeout_secs = ctx->set->timeout;
+		ctx->pending++;
+		ldap_search_start(ctx->client, &input, ldap_dict_lookup_callback, op);
+	} else {
+		op->res.error = "no such key";
+		callback(&(op->res), context);
+		pool_unref(&oppool);
+	}
 }
 
 struct dict dict_driver_ldap = {

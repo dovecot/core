@@ -483,11 +483,12 @@ memcached_ascii_dict_get_full_key(struct memcached_ascii_dict *dict,
 }
 
 static int
-memcached_ascii_dict_lookup_real(struct memcached_ascii_dict *dict, pool_t pool,
-				 const char *key, const char **value_r)
+memcached_ascii_dict_lookup(struct dict *_dict, pool_t pool,
+			    const char *key, const char **value_r)
 {
-	enum memcached_ascii_input_state state = MEMCACHED_INPUT_STATE_GET;
+	struct memcached_ascii_dict *dict = (struct memcached_ascii_dict *)_dict;
 	struct memcached_ascii_dict_reply *reply;
+	enum memcached_ascii_input_state state = MEMCACHED_INPUT_STATE_GET;
 
 	if (memcached_ascii_connect(dict) < 0)
 		return -1;
@@ -505,21 +506,6 @@ memcached_ascii_dict_lookup_real(struct memcached_ascii_dict *dict, pool_t pool,
 
 	*value_r = p_strdup(pool, str_c(dict->conn.reply_str));
 	return dict->conn.value_received ? 1 : 0;
-}
-
-static int
-memcached_ascii_dict_lookup(struct dict *_dict, pool_t pool,
-			    const char *key, const char **value_r)
-{
-	struct memcached_ascii_dict *dict = (struct memcached_ascii_dict *)_dict;
-	int ret;
-
-	if (pool->datastack_pool)
-		ret = memcached_ascii_dict_lookup_real(dict, pool, key, value_r);
-	else T_BEGIN {
-		ret = memcached_ascii_dict_lookup_real(dict, pool, key, value_r);
-	} T_END;
-	return ret;
 }
 
 static struct dict_transaction_context *

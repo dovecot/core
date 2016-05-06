@@ -271,10 +271,10 @@ static void memcached_add_header(buffer_t *buf, unsigned int key_len)
 	i_assert(buf->used == MEMCACHED_REQUEST_HDR_LENGTH);
 }
 
-static int
-memcached_dict_lookup_real(struct memcached_dict *dict, pool_t pool,
-			   const char *key, const char **value_r)
+static int memcached_dict_lookup(struct dict *_dict, pool_t pool,
+				 const char *key, const char **value_r)
 {
+	struct memcached_dict *dict = (struct memcached_dict *)_dict;
 	struct ioloop *prev_ioloop = current_ioloop;
 	struct timeout *to;
 	unsigned int key_len;
@@ -358,20 +358,6 @@ memcached_dict_lookup_real(struct memcached_dict *dict, pool_t pool,
 	i_error("memcached: Lookup(%s) failed: Error code=%u",
 		key, dict->conn.reply.status);
 	return -1;
-}
-
-static int memcached_dict_lookup(struct dict *_dict, pool_t pool,
-				 const char *key, const char **value_r)
-{
-	struct memcached_dict *dict = (struct memcached_dict *)_dict;
-	int ret;
-
-	if (pool->datastack_pool)
-		ret = memcached_dict_lookup_real(dict, pool, key, value_r);
-	else T_BEGIN {
-		ret = memcached_dict_lookup_real(dict, pool, key, value_r);
-	} T_END;
-	return ret;
 }
 
 struct dict dict_driver_memcached = {
