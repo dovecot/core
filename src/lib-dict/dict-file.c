@@ -46,7 +46,7 @@ struct file_dict_iterate_context {
 	struct file_dict_iterate_path *paths;
 
 	enum dict_iterate_flags flags;
-	unsigned int failed:1;
+	const char *error;
 };
 
 static struct dotlock_settings file_dict_dotlock_settings = {
@@ -232,10 +232,8 @@ file_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	ctx->flags = flags;
 	ctx->iter = hash_table_iterate_init(dict->hash);
 
-	if (file_dict_refresh(dict, &error) < 0) {
-		i_error("%s", error);
-		ctx->failed = TRUE;
-	}
+	if (file_dict_refresh(dict, &error) < 0)
+		ctx->error = p_strdup(pool, error);
 	return &ctx->ctx;
 }
 
@@ -284,12 +282,14 @@ static bool file_dict_iterate(struct dict_iterate_context *_ctx,
 	return FALSE;
 }
 
-static int file_dict_iterate_deinit(struct dict_iterate_context *_ctx)
+static int file_dict_iterate_deinit(struct dict_iterate_context *_ctx,
+				    const char **error_r)
 {
 	struct file_dict_iterate_context *ctx =
 		(struct file_dict_iterate_context *)_ctx;
-	int ret = ctx->failed ? -1 : 0;
+	int ret = ctx->error != NULL ? -1 : 0;
 
+	*error_r = t_strdup(ctx->error);
 	hash_table_iterate_deinit(&ctx->iter);
 	pool_unref(&ctx->pool);
 	return ret;

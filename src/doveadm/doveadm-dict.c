@@ -186,7 +186,7 @@ static void cmd_dict_iter(int argc, char *argv[])
 	struct dict *dict;
 	struct dict_iterate_context *iter;
 	enum dict_iterate_flags iter_flags = 0;
-	const char *key, *value;
+	const char *key, *value, *error;
 
 	if (cmd_dict_init_full(&argc, &argv, 1, 0, cmd_dict_iter, &iter_flags, &dict) < 0)
 		return;
@@ -202,8 +202,8 @@ static void cmd_dict_iter(int argc, char *argv[])
 		if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
 			doveadm_print(value);
 	}
-	if (dict_iterate_deinit(&iter) < 0) {
-		i_error("dict_iterate_deinit(%s) failed", argv[0]);
+	if (dict_iterate_deinit(&iter, &error) < 0) {
+		i_error("dict_iterate_deinit(%s) failed: %s", argv[0], error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	dict_deinit(&dict);

@@ -46,7 +46,7 @@ struct sql_dict_iterate_context {
 	unsigned int key_prefix_len, pattern_prefix_len, next_map_idx;
 	unsigned int path_idx, sql_fields_start_idx;
 	bool synchronous_result;
-	bool failed;
+	const char *error;
 };
 
 struct sql_dict_inc_row {
@@ -653,10 +653,9 @@ sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
 
 	ctx->key = str_new(pool, 256);
 	if (sql_dict_iterate_next_query(ctx, &error) <= 0) {
-		i_error("sql dict iterate failed for %s: %s",
-			paths[0], error);
+		ctx->error = p_strdup_printf(pool,
+			"sql dict iterate failed for %s: %s", paths[0], error);
 		ctx->result = NULL;
-		ctx->failed = TRUE;
 		return &ctx->ctx;
 	}
 	return &ctx->ctx;
@@ -672,7 +671,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 	int ret;
 
 	_ctx->has_more = FALSE;
-	if (ctx->failed)
+	if (ctx->error != NULL)
 		return FALSE;
 
 	for (;;) {
@@ -695,8 +694,8 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 			return FALSE;
 	}
 	if (ret < 0) {
-		ctx->failed = TRUE;
-		i_error("dict sql iterate failed: %s",
+		ctx->error = p_strdup_printf(ctx->pool,
+			"dict sql iterate failed: %s",
 			sql_result_get_error(ctx->result));
 		return FALSE;
 	}
@@ -733,12 +732,14 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 	return TRUE;
 }
 
-static int sql_dict_iterate_deinit(struct dict_iterate_context *_ctx)
+static int sql_dict_iterate_deinit(struct dict_iterate_context *_ctx,
+				   const char **error_r)
 {
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
-	int ret = ctx->failed ? -1 : 0;
+	int ret = ctx->error != NULL ? -1 : 0;
 
+	*error_r = t_strdup(ctx->error);
 	if (ctx->result != NULL)
 		sql_result_unref(ctx->result);
 	pool_unref(&ctx->pool);

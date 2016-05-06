@@ -55,9 +55,9 @@ struct client_dict {
 
 struct client_dict_iterate_context {
 	struct dict_iterate_context ctx;
+	char *error;
 
 	pool_t pool;
-	bool failed;
 	bool finished;
 };
 
@@ -655,10 +655,8 @@ client_dict_iterate_init(struct dict *_dict, const char *const *paths,
 			str_append(query, dict_client_escape(paths[i]));
 	}
 	str_append_c(query, '\n');
-	if (client_dict_send_query(dict, str_c(query), &error) < 0) {
-		i_error("%s", error);
-		ctx->failed = TRUE;
-	}
+	if (client_dict_send_query(dict, str_c(query), &error) < 0)
+		ctx->error = i_strdup(error);
 	return &ctx->ctx;
 }
 
@@ -671,13 +669,12 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	char *line, *key, *value;
 	const char *error;
 
-	if (ctx->failed)
+	if (ctx->error != NULL)
 		return FALSE;
 
 	/* read next reply */
 	if (client_dict_read_line(dict, &line, &error) < 0) {
-		i_error("%s", error);
-		ctx->failed = TRUE;
+		ctx->error = i_strdup(error);
 		return FALSE;
 	}
 
@@ -696,7 +693,7 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 		value = strchr(key, '\t');
 		break;
 	case DICT_PROTOCOL_REPLY_FAIL:
-		ctx->failed = TRUE;
+		ctx->error = i_strdup_printf("dict-server returned failure: %s", line+1);
 		return FALSE;
 	default:
 		key = NULL;
@@ -705,8 +702,7 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 	if (value == NULL) {
 		/* broken protocol */
-		i_error("dict client (%s) sent broken iterate reply: %s", dict->path, line);
-		ctx->failed = TRUE;
+		ctx->error = i_strdup_printf("dict client (%s) sent broken iterate reply: %s", dict->path, line);
 		return FALSE;
 	}
 	*value++ = '\0';
@@ -716,17 +712,20 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	return TRUE;
 }
 
-static int client_dict_iterate_deinit(struct dict_iterate_context *_ctx)
+static int client_dict_iterate_deinit(struct dict_iterate_context *_ctx,
+				      const char **error_r)
 {
 	struct client_dict *dict = (struct client_dict *)_ctx->dict;
 	struct client_dict_iterate_context *ctx =
 		(struct client_dict_iterate_context *)_ctx;
-	int ret = ctx->failed ? -1 : 0;
+	int ret = ctx->error != NULL ? -1 : 0;
 
 	if (!ctx->finished)
 		dict->iter_replies_skip++;
 
+	*error_r = t_strdup(ctx->error);
 	pool_unref(&ctx->pool);
+	i_free(ctx->error);
 	i_free(ctx);
 	dict->in_iteration = FALSE;
 

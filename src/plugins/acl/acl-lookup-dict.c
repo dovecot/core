@@ -155,6 +155,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	struct dict_iterate_context *iter;
 	struct dict_transaction_context *dt;
 	const char *prefix, *key, *value, *const *old_ids, *const *new_ids, *p;
+	const char *error;
 	ARRAY_TYPE(const_string) old_ids_arr;
 	unsigned int newi, oldi, old_count, new_count;
 	string_t *path;
@@ -179,8 +180,8 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			array_append(&old_ids_arr, &key, 1);
 		}
 	}
-	if (dict_iterate_deinit(&iter) < 0) {
-		i_error("acl: dict iteration failed, can't update dict");
+	if (dict_iterate_deinit(&iter, &error) < 0) {
+		i_error("acl: dict iteration failed: %s - can't update dict", error);
 		return -1;
 	}
 
@@ -264,7 +265,7 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
 static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 {
 	struct dict_iterate_context *dict_iter;
-	const char *const *idp, *prefix, *key, *value;
+	const char *const *idp, *prefix, *key, *value, *error;
 	unsigned int prefix_len;
 
 	idp = array_idx(&iter->iter_ids, iter->iter_idx);
@@ -288,8 +289,10 @@ static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 		key = p_strdup(iter->iter_value_pool, key + prefix_len);
 		array_append(&iter->iter_values, &key, 1);
 	}
-	if (dict_iterate_deinit(&dict_iter) < 0)
+	if (dict_iterate_deinit(&dict_iter, &error) < 0) {
+		i_error("%s", error);
 		iter->failed = TRUE;
+	}
 }
 
 struct acl_lookup_dict_iter *

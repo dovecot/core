@@ -141,11 +141,15 @@ static int userdb_dict_iterate_deinit(struct userdb_iterate_context *_ctx)
 {
 	struct dict_userdb_iterate_context *ctx =
 		(struct dict_userdb_iterate_context *)_ctx;
+	const char *error;
 	int ret = _ctx->failed ? -1 : 0;
 
 	if (ctx->iter != NULL) {
-		if (dict_iterate_deinit(&ctx->iter) < 0)
+		if (dict_iterate_deinit(&ctx->iter, &error) < 0) {
+			i_error("dict_iterate(%s) failed: %s",
+				ctx->key_prefix, error);
 			ret = -1;
+		}
 	}
 	auth_request_unref(&ctx->ctx.auth_request);
 	i_free(ctx);

@@ -144,7 +144,6 @@ dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 		i_assert(dict_key_prefix_is_valid(paths[i]));
 	if (dict->v.iterate_init == NULL) {
 		/* not supported by backend */
-		i_error("%s: dict iteration not supported", dict->name);
 		return &dict_iter_unsupported;
 	}
 	return dict->v.iterate_init(dict, paths, flags);
@@ -170,13 +169,17 @@ bool dict_iterate_has_more(struct dict_iterate_context *ctx)
 	return ctx->has_more;
 }
 
-int dict_iterate_deinit(struct dict_iterate_context **_ctx)
+int dict_iterate_deinit(struct dict_iterate_context **_ctx,
+			const char **error_r)
 {
 	struct dict_iterate_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	return ctx == &dict_iter_unsupported ? -1 :
-		ctx->dict->v.iterate_deinit(ctx);
+	if (ctx == &dict_iter_unsupported) {
+		*error_r = "Dict doesn't support iteration";
+		return -1;
+	}
+	return ctx->dict->v.iterate_deinit(ctx, error_r);
 }
 
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict)

@@ -19,7 +19,8 @@ struct dict_vfuncs {
 				enum dict_iterate_flags flags);
 	bool (*iterate)(struct dict_iterate_context *ctx,
 			const char **key_r, const char **value_r);
-	int (*iterate_deinit)(struct dict_iterate_context *ctx);
+	int (*iterate_deinit)(struct dict_iterate_context *ctx,
+			      const char **error_r);
 
 	struct dict_transaction_context *(*transaction_init)(struct dict *dict);
 	int (*transaction_commit)(struct dict_transaction_context *ctx,

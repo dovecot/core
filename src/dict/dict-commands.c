@@ -33,8 +33,12 @@ static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd);
 
 static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
 {
-	if (cmd->iter != NULL)
-		(void)dict_iterate_deinit(&cmd->iter);
+	const char *error;
+
+	if (cmd->iter != NULL) {
+		if (dict_iterate_deinit(&cmd->iter, &error) < 0)
+			i_error("dict_iterate() failed: %s", error);
+	}
 	i_free(cmd->reply);
 
 	if (dict_connection_unref(cmd->conn))
@@ -106,7 +110,7 @@ static int cmd_lookup(struct dict_connection_cmd *cmd, const char *line)
 static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 {
 	string_t *str;
-	const char *key, *value;
+	const char *key, *value, *error;
 
 	str = t_str_new(256);
 	o_stream_cork(cmd->conn->output);
@@ -138,8 +142,10 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 	}
 
 	str_truncate(str, 0);
-	if (dict_iterate_deinit(&cmd->iter) < 0)
-		str_append_c(str, DICT_PROTOCOL_REPLY_FAIL);
+	if (dict_iterate_deinit(&cmd->iter, &error) < 0) {
+		i_error("dict_iterate() failed: %s", error);
+		str_printfa(str, "%c%s", DICT_PROTOCOL_REPLY_FAIL, error);
+	}
 	str_append_c(str, '\n');
 	o_stream_uncork(cmd->conn->output);
 

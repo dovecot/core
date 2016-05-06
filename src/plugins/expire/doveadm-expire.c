@@ -126,7 +126,7 @@ doveadm_expire_mail_cmd_get_next_user(struct doveadm_mail_cmd_context *ctx,
 {
 	struct doveadm_expire_mail_cmd_context *ectx =
 		DOVEADM_EXPIRE_MAIL_CMD_CONTEXT(ctx);
-	const char *key, *value;
+	const char *key, *value, *error;
 	unsigned long oldest_savedate;
 	int ret;
 
@@ -159,8 +159,8 @@ doveadm_expire_mail_cmd_get_next_user(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	/* finished */
-	if (dict_iterate_deinit(&ectx->iter) < 0) {
-		i_error("Dictionary iteration failed");
+	if (dict_iterate_deinit(&ectx->iter, &error) < 0) {
+		i_error("Dictionary iteration failed: %s", error);
 		return -1;
 	}
 	return 0;
@@ -352,10 +352,11 @@ static void doveadm_expire_mail_cmd_deinit(struct doveadm_mail_cmd_context *ctx)
 {
 	struct doveadm_expire_mail_cmd_context *ectx =
 		DOVEADM_EXPIRE_MAIL_CMD_CONTEXT(ctx);
+	const char *error;
 
 	if (ectx->iter != NULL) {
-		if (dict_iterate_deinit(&ectx->iter) < 0)
-			i_error("expire: Dictionary iteration failed");
+		if (dict_iterate_deinit(&ectx->iter, &error) < 0)
+			i_error("expire: Dictionary iteration failed: %s", error);
 	}
 	if (dict_transaction_commit(&ectx->trans) < 0)
 		i_error("expire: Dictionary commit failed");

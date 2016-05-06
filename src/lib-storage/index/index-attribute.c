@@ -302,13 +302,17 @@ int index_storage_attribute_iter_deinit(struct mailbox_attribute_iter *_iter)
 {
 	struct index_storage_attribute_iter *iter =
 		(struct index_storage_attribute_iter *)_iter;
+	const char *error;
 	int ret;
 
 	if (iter->diter == NULL) {
 		ret = iter->dict_disabled ? 0 : -1;
 	} else {
-		if ((ret = dict_iterate_deinit(&iter->diter)) < 0)
-			mail_storage_set_internal_error(_iter->box->storage);
+		if ((ret = dict_iterate_deinit(&iter->diter, &error)) < 0) {
+			mail_storage_set_critical(_iter->box->storage,
+				"dict_iterate(%s) failed: %s",
+				iter->prefix, error);
+		}
 	}
 	i_free(iter->prefix);
 	i_free(iter);

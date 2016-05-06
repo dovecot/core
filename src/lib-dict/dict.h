@@ -96,7 +96,7 @@ bool dict_iterate_has_more(struct dict_iterate_context *ctx);
 bool dict_iterate(struct dict_iterate_context *ctx,
 		  const char **key_r, const char **value_r);
 /* Returns 0 = ok, -1 = iteration failed */
-int dict_iterate_deinit(struct dict_iterate_context **ctx);
+int dict_iterate_deinit(struct dict_iterate_context **ctx, const char **error_r);
 
 /* Start a new dictionary transaction. */
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict);
