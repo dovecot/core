@@ -70,6 +70,8 @@ void test_strescape(void)
 
 	test_begin("str_tabescape");
 	for (i = 0; i < N_ELEMENTS(tabesc); i++) {
+		test_assert(strcmp(t_str_tabunescape(tabesc[i].output),
+				   tabesc[i].input) == 0);
 		test_assert(strcmp(str_tabunescape(t_strdup_noconst(tabesc[i].output)),
 				   tabesc[i].input) == 0);
 		test_assert(strcmp(str_tabescape(tabesc[i].input),
