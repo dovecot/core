@@ -53,7 +53,7 @@ struct cassandra_db {
 	CassLogLevel log_level;
 	unsigned int protocol_version;
 	unsigned int num_threads;
-	unsigned int connect_timeout_secs, request_timeout_secs;
+	unsigned int connect_timeout_msecs, request_timeout_msecs;
 	in_port_t port;
 
 	CassCluster *cluster;
@@ -377,8 +377,8 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 	db->read_consistency = CASS_CONSISTENCY_LOCAL_QUORUM;
 	db->write_consistency = CASS_CONSISTENCY_LOCAL_QUORUM;
 	db->delete_consistency = CASS_CONSISTENCY_LOCAL_QUORUM;
-	db->connect_timeout_secs = SQL_CONNECT_TIMEOUT_SECS;
-	db->request_timeout_secs = SQL_QUERY_TIMEOUT_SECS;
+	db->connect_timeout_msecs = SQL_CONNECT_TIMEOUT_SECS*1000;
+	db->request_timeout_msecs = SQL_QUERY_TIMEOUT_SECS*1000;
 
 	args = t_strsplit_spaces(connect_string, " ");
 	for (; *args != NULL; args++) {
@@ -437,10 +437,10 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 			if (str_to_uint(value, &db->num_threads) < 0)
 				i_fatal("cassandra: Invalid num_threads: %s", value);
 		} else if (strcmp(key, "connect_timeout") == 0) {
-			if (settings_get_time(value, &db->connect_timeout_secs, &error) < 0)
+			if (settings_get_time_msecs(value, &db->connect_timeout_msecs, &error) < 0)
 				i_fatal("cassandra: Invalid connect_timeout '%s': %s", value, error);
 		} else if (strcmp(key, "request_timeout") == 0) {
-			if (settings_get_time(value, &db->request_timeout_secs, &error) < 0)
+			if (settings_get_time_msecs(value, &db->request_timeout_msecs, &error) < 0)
 				i_fatal("cassandra: Invalid request_timeout '%s': %s", value, error);
 		} else {
 			i_fatal("cassandra: Unknown connect string: %s", key);
@@ -477,8 +477,8 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	db->timestamp_gen = cass_timestamp_gen_monotonic_new();
 	db->cluster = cass_cluster_new();
 	cass_cluster_set_timestamp_gen(db->cluster, db->timestamp_gen);
-	cass_cluster_set_connect_timeout(db->cluster, db->connect_timeout_secs * 1000);
-	cass_cluster_set_request_timeout(db->cluster, db->request_timeout_secs * 1000);
+	cass_cluster_set_connect_timeout(db->cluster, db->connect_timeout_msecs);
+	cass_cluster_set_request_timeout(db->cluster, db->request_timeout_msecs);
 	cass_cluster_set_contact_points(db->cluster, db->hosts);
 	if (db->user != NULL && db->password != NULL)
 		cass_cluster_set_credentials(db->cluster, db->user, db->password);
