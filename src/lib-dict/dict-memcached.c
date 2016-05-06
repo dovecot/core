@@ -271,8 +271,9 @@ static void memcached_add_header(buffer_t *buf, unsigned int key_len)
 	i_assert(buf->used == MEMCACHED_REQUEST_HDR_LENGTH);
 }
 
-static int memcached_dict_lookup(struct dict *_dict, pool_t pool,
-				 const char *key, const char **value_r)
+static int
+memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+		      const char **value_r, const char **error_r)
 {
 	struct memcached_dict *dict = (struct memcached_dict *)_dict;
 	struct ioloop *prev_ioloop = current_ioloop;
@@ -282,15 +283,15 @@ static int memcached_dict_lookup(struct dict *_dict, pool_t pool,
 	if (strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0)
 		key += strlen(DICT_PATH_SHARED);
 	else {
-		i_error("memcached: Only shared keys supported currently");
+		*error_r = t_strdup_printf("memcached: Only shared keys supported currently");
 		return -1;
 	}
 	if (*dict->key_prefix != '\0')
 		key = t_strconcat(dict->key_prefix, key, NULL);
 	key_len = strlen(key);
 	if (key_len > 0xffff) {
-		i_error("memcached: Key is too long (%u bytes): %s",
-			key_len, key);
+		*error_r = t_strdup_printf(
+			"memcached: Key is too long (%u bytes): %s", key_len, key);
 		return -1;
 	}
 
@@ -335,6 +336,7 @@ static int memcached_dict_lookup(struct dict *_dict, pool_t pool,
 		/* we failed in some way. make sure we disconnect since the
 		   connection state isn't known anymore */
 		memcached_conn_destroy(&dict->conn.conn);
+		*error_r = "memcached: Communication failure";
 		return -1;
 	}
 	switch (dict->conn.reply.status) {
@@ -345,18 +347,18 @@ static int memcached_dict_lookup(struct dict *_dict, pool_t pool,
 	case MEMCACHED_RESPONSE_NOTFOUND:
 		return 0;
 	case MEMCACHED_RESPONSE_INTERNALERROR:
-		i_error("memcached: Lookup(%s) failed: Internal error", key);
+		*error_r = "memcached: Lookup failed: Internal error";
 		return -1;
 	case MEMCACHED_RESPONSE_BUSY:
-		i_error("memcached: Lookup(%s) failed: Busy", key);
+		*error_r = "memcached: Lookup failed: Busy";
 		return -1;
 	case MEMCACHED_RESPONSE_TEMPFAILURE:
-		i_error("memcached: Lookup(%s) failed: Temporary failure", key);
+		*error_r = "memcached: Lookup failed: Temporary failure";
 		return -1;
 	}
 
-	i_error("memcached: Lookup(%s) failed: Error code=%u",
-		key, dict->conn.reply.status);
+	*error_r = t_strdup_printf("memcached: Lookup failed: Error code=%u",
+				   dict->conn.reply.status);
 	return -1;
 }
 

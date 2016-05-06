@@ -100,10 +100,10 @@ static bool dict_key_prefix_is_valid(const char *key)
 }
 
 int dict_lookup(struct dict *dict, pool_t pool, const char *key,
-		const char **value_r)
+		const char **value_r, const char **error_r)
 {
 	i_assert(dict_key_prefix_is_valid(key));
-	return dict->v.lookup(dict, pool, key, value_r);
+	return dict->v.lookup(dict, pool, key, value_r, error_r);
 }
 
 void dict_lookup_async(struct dict *dict, const char *key,
@@ -114,9 +114,7 @@ void dict_lookup_async(struct dict *dict, const char *key,
 
 		memset(&result, 0, sizeof(result));
 		result.ret = dict_lookup(dict, pool_datastack_create(),
-					 key, &result.value);
-		if (result.ret < 0)
-			result.error = "Lookup failed";
+					 key, &result.value, &result.error);
 		callback(&result, context);
 		return;
 	}

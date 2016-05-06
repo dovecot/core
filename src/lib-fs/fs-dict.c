@@ -141,21 +141,22 @@ static bool fs_dict_prefetch(struct fs_file *_file ATTR_UNUSED,
 static int fs_dict_lookup(struct dict_fs_file *file)
 {
 	struct dict_fs *fs = (struct dict_fs *)file->file.fs;
+	const char *error;
 	int ret;
 
 	if (file->value != NULL)
 		return 0;
 
-	ret = dict_lookup(fs->dict, file->pool, file->key, &file->value);
+	ret = dict_lookup(fs->dict, file->pool, file->key, &file->value, &error);
 	if (ret > 0)
 		return 0;
 	else if (ret < 0) {
 		errno = EIO;
-		fs_set_error(&fs->fs, "Dict lookup failed");
+		fs_set_error(&fs->fs, "dict_lookup(%s) failed: %s", file->key, error);
 		return -1;
 	} else {
 		errno = ENOENT;
-		fs_set_error(&fs->fs, "Dict key doesn't exist");
+		fs_set_error(&fs->fs, "Dict key %s doesn't exist", file->key);
 		return -1;
 	}
 }

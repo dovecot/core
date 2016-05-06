@@ -121,7 +121,8 @@ static bool memcached_ascii_input_value(struct memcached_ascii_connection *conn)
 	return TRUE;
 }
 
-static int memcached_ascii_input_reply_read(struct memcached_ascii_dict *dict)
+static int memcached_ascii_input_reply_read(struct memcached_ascii_dict *dict,
+					    const char **error_r)
 {
 	struct memcached_ascii_connection *conn = &dict->conn;
 	const enum memcached_ascii_input_state *states;
@@ -147,8 +148,8 @@ static int memcached_ascii_input_reply_read(struct memcached_ascii_dict *dict)
 
 	states = array_get(&dict->input_states, &count);
 	if (count == 0) {
-		i_error("memcached_ascii: Unexpected input (expected nothing): %s",
-			line);
+		*error_r = t_strdup_printf(
+			"memcached_ascii: Unexpected input (expected nothing): %s", line);
 		return -1;
 	}
 	switch (states[0]) {
@@ -160,7 +161,7 @@ static int memcached_ascii_input_reply_read(struct memcached_ascii_dict *dict)
 			if (str_to_uint(p+1, &conn->reply_bytes_left) < 0)
 				break;
 			conn->reply_bytes_left += 2; /* CRLF */
-			return memcached_ascii_input_reply_read(dict);
+			return memcached_ascii_input_reply_read(dict, error_r);
 		} else if (strcmp(line, "END") == 0)
 			return 1;
 		break;
@@ -181,18 +182,20 @@ static int memcached_ascii_input_reply_read(struct memcached_ascii_dict *dict)
 			break;
 		return 1;
 	}
-	i_error("memcached_ascii: Unexpected input (state=%d): %s",
+	*error_r = t_strdup_printf(
+		"memcached_ascii: Unexpected input (state=%d): %s",
 		states[0], line);
 	return -1;
 }
 
-static int memcached_ascii_input_reply(struct memcached_ascii_dict *dict)
+static int memcached_ascii_input_reply(struct memcached_ascii_dict *dict,
+				       const char **error_r)
 {
 	struct memcached_ascii_dict_reply *replies;
 	unsigned int count;
 	int ret;
 
-	if ((ret = memcached_ascii_input_reply_read(dict)) <= 0)
+	if ((ret = memcached_ascii_input_reply_read(dict, error_r)) <= 0)
 		return ret;
 	/* finished a reply */
 	array_delete(&dict->input_states, 0, 1);
@@ -211,6 +214,7 @@ static void memcached_ascii_conn_input(struct connection *_conn)
 {
 	struct memcached_ascii_connection *conn =
 		(struct memcached_ascii_connection *)_conn;
+	const char *error;
 	int ret;
 
 	switch (i_stream_read(_conn->input)) {
@@ -223,13 +227,16 @@ static void memcached_ascii_conn_input(struct connection *_conn)
 		break;
 	}
 
-	while ((ret = memcached_ascii_input_reply(conn->dict)) > 0) ;
-	if (ret < 0)
+	while ((ret = memcached_ascii_input_reply(conn->dict, &error)) > 0) ;
+	if (ret < 0) {
+		i_error("%s", error);
 		memcached_ascii_conn_destroy(_conn);
+	}
 	io_loop_stop(conn->dict->ioloop);
 }
 
-static int memcached_ascii_input_wait(struct memcached_ascii_dict *dict)
+static int memcached_ascii_input_wait(struct memcached_ascii_dict *dict,
+				      const char **error_r)
 {
 	dict->prev_ioloop = current_ioloop;
 	io_loop_set_current(dict->ioloop);
@@ -245,7 +252,11 @@ static int memcached_ascii_input_wait(struct memcached_ascii_dict *dict)
 		dict->to = io_loop_move_timeout(&dict->to);
 	connection_switch_ioloop(&dict->conn.conn);
 
-	return dict->conn.conn.fd_in == -1 ? -1 : 0;
+	if (dict->conn.conn.fd_in == -1) {
+		*error_r = "memcached_ascii: Communication failure";
+		return -1;
+	}
+	return 0;
 }
 
 static void memcached_ascii_input_timeout(struct memcached_ascii_dict *dict)
@@ -255,7 +266,8 @@ static void memcached_ascii_input_timeout(struct memcached_ascii_dict *dict)
 	memcached_ascii_conn_destroy(&dict->conn.conn);
 }
 
-static int memcached_ascii_wait_replies(struct memcached_ascii_dict *dict)
+static int memcached_ascii_wait_replies(struct memcached_ascii_dict *dict,
+					const char **error_r)
 {
 	int ret = 0;
 
@@ -264,12 +276,12 @@ static int memcached_ascii_wait_replies(struct memcached_ascii_dict *dict)
 	while (array_count(&dict->input_states) > 0) {
 		i_assert(array_count(&dict->replies) > 0);
 
-		if ((ret = memcached_ascii_input_reply(dict)) != 0) {
+		if ((ret = memcached_ascii_input_reply(dict, error_r)) != 0) {
 			if (ret < 0)
 				memcached_ascii_conn_destroy(&dict->conn.conn);
 			break;
 		}
-		ret = memcached_ascii_input_wait(dict);
+		ret = memcached_ascii_input_wait(dict, error_r);
 		if (ret != 0)
 			break;
 	}
@@ -278,7 +290,8 @@ static int memcached_ascii_wait_replies(struct memcached_ascii_dict *dict)
 	return ret < 0 ? -1 : 0;
 }
 
-static int memcached_ascii_wait(struct memcached_ascii_dict *dict)
+static int memcached_ascii_wait(struct memcached_ascii_dict *dict,
+				const char **error_r)
 {
 	int ret;
 
@@ -288,12 +301,12 @@ static int memcached_ascii_wait(struct memcached_ascii_dict *dict)
 		/* waiting for connection to finish */
 		dict->to = timeout_add(dict->timeout_msecs,
 				       memcached_ascii_input_timeout, dict);
-		ret = memcached_ascii_input_wait(dict);
+		ret = memcached_ascii_input_wait(dict, error_r);
 		timeout_remove(&dict->to);
 		if (ret < 0)
 			return -1;
 	}
-	if (memcached_ascii_wait_replies(dict) < 0)
+	if (memcached_ascii_wait_replies(dict, error_r) < 0)
 		return -1;
 	i_assert(array_count(&dict->input_states) == 0);
 	i_assert(array_count(&dict->replies) == 0);
@@ -429,9 +442,12 @@ static void memcached_ascii_dict_deinit(struct dict *_dict)
 	struct memcached_ascii_dict *dict =
 		(struct memcached_ascii_dict *)_dict;
 	struct ioloop *old_ioloop = current_ioloop;
+	const char *error;
 
-	if (array_count(&dict->input_states) > 0)
-		(void)memcached_ascii_wait(dict);
+	if (array_count(&dict->input_states) > 0) {
+		if (memcached_ascii_wait(dict, &error) < 0)
+			i_error("%s", error);
+	}
 	connection_deinit(&dict->conn.conn);
 
 	io_loop_set_current(dict->ioloop);
@@ -449,19 +465,21 @@ static void memcached_ascii_dict_deinit(struct dict *_dict)
 		connection_list_deinit(&memcached_ascii_connections);
 }
 
-static int memcached_ascii_connect(struct memcached_ascii_dict *dict)
+static int memcached_ascii_connect(struct memcached_ascii_dict *dict,
+				   const char **error_r)
 {
 	if (dict->conn.conn.input != NULL)
 		return 0;
 
 	if (dict->conn.conn.fd_in == -1) {
 		if (connection_client_connect(&dict->conn.conn) < 0) {
-			i_error("memcached_ascii: Couldn't connect to %s:%u",
+			*error_r = t_strdup_printf(
+				"memcached_ascii: Couldn't connect to %s:%u",
 				net_ip2addr(&dict->ip), dict->port);
 			return -1;
 		}
 	}
-	return memcached_ascii_wait(dict);
+	return memcached_ascii_wait(dict, error_r);
 }
 
 static const char *
@@ -483,14 +501,14 @@ memcached_ascii_dict_get_full_key(struct memcached_ascii_dict *dict,
 }
 
 static int
-memcached_ascii_dict_lookup(struct dict *_dict, pool_t pool,
-			    const char *key, const char **value_r)
+memcached_ascii_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+			    const char **value_r, const char **error_r)
 {
 	struct memcached_ascii_dict *dict = (struct memcached_ascii_dict *)_dict;
 	struct memcached_ascii_dict_reply *reply;
 	enum memcached_ascii_input_state state = MEMCACHED_INPUT_STATE_GET;
 
-	if (memcached_ascii_connect(dict) < 0)
+	if (memcached_ascii_connect(dict, error_r) < 0)
 		return -1;
 
 	key = memcached_ascii_dict_get_full_key(dict, key);
@@ -501,7 +519,7 @@ memcached_ascii_dict_lookup(struct dict *_dict, pool_t pool,
 	reply = array_append_space(&dict->replies);
 	reply->reply_count = 1;
 
-	if (memcached_ascii_wait(dict) < 0)
+	if (memcached_ascii_wait(dict, error_r) < 0)
 		return -1;
 
 	*value_r = p_strdup(pool, str_c(dict->conn.reply_str));
@@ -568,9 +586,12 @@ memcached_ascii_transaction_send(struct dict_memcached_ascii_commit_ctx *ctx)
 	struct memcached_ascii_dict_reply *reply;
 	const struct dict_transaction_memory_change *changes;
 	unsigned int i, count, old_state_count;
+	const char *error;
 
-	if (memcached_ascii_connect(dict) < 0)
+	if (memcached_ascii_connect(dict, &error) < 0) {
+		i_error("%s", error);
 		return -1;
+	}
 
 	old_state_count = array_count(&dict->input_states);
 	changes = array_get(&ctx->memctx->changes, &count);
@@ -600,6 +621,7 @@ memcached_ascii_transaction_commit(struct dict_transaction_context *_ctx,
 	struct memcached_ascii_dict *dict =
 		(struct memcached_ascii_dict *)_ctx->dict;
 	struct dict_memcached_ascii_commit_ctx commit_ctx;
+	const char *error;
 	int ret = 1;
 
 	if (_ctx->changed) {
@@ -612,8 +634,10 @@ memcached_ascii_transaction_commit(struct dict_transaction_context *_ctx,
 
 		ret = memcached_ascii_transaction_send(&commit_ctx);
 		if (!async && ret >= 0) {
-			if (memcached_ascii_wait(dict) < 0)
+			if (memcached_ascii_wait(dict, &error) < 0) {
+				i_error("%s", error);
 				ret = -1;
+			}
 		}
 		str_free(&commit_ctx.str);
 	}

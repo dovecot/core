@@ -79,19 +79,20 @@ static const char *fs_dict_get_full_key(struct fs_dict *dict, const char *key)
 	}
 }
 
-static int fs_dict_lookup(struct dict *_dict, pool_t pool,
-			  const char *key, const char **value_r)
+static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+			  const char **value_r, const char **error_r)
 {
 	struct fs_dict *dict = (struct fs_dict *)_dict;
 	struct fs_file *file;
 	struct istream *input;
 	const unsigned char *data;
 	size_t size;
+	const char *path;
 	string_t *str;
 	int ret;
 
-	file = fs_file_init(dict->fs, fs_dict_get_full_key(dict, key),
-			    FS_OPEN_MODE_READONLY);
+	path = fs_dict_get_full_key(dict, key);
+	file = fs_file_init(dict->fs, path, FS_OPEN_MODE_READONLY);
 	input = fs_read_stream(file, IO_BLOCK_SIZE);
 	i_stream_read(input);
 
@@ -109,6 +110,10 @@ static int fs_dict_lookup(struct dict *_dict, pool_t pool,
 		*value_r = NULL;
 		if (input->stream_errno == ENOENT)
 			ret = 0;
+		else {
+			*error_r = t_strdup_printf("read(%s) failed: %s",
+				path, i_stream_get_error(input));
+		}
 	}
 
 	i_stream_unref(&input);
@@ -145,7 +150,7 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 	struct fs_dict_iterate_context *iter =
 		(struct fs_dict_iterate_context *)ctx;
 	struct fs_dict *dict = (struct fs_dict *)ctx->dict;
-	const char *path;
+	const char *path, *error;
 	int ret;
 
 	*key_r = fs_iter_next(iter->fs_iter);
@@ -166,8 +171,9 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 	}
 	p_clear(iter->value_pool);
 	path = t_strconcat(iter->paths[iter->path_idx], *key_r, NULL);
-	if ((ret = fs_dict_lookup(ctx->dict, iter->value_pool, path, value_r)) < 0) {
+	if ((ret = fs_dict_lookup(ctx->dict, iter->value_pool, path, value_r, &error)) < 0) {
 		/* I/O error */
+		i_error("%s", error);
 		iter->failed = TRUE;
 		return FALSE;
 	} else if (ret == 0) {

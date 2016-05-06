@@ -235,7 +235,7 @@ int index_storage_attribute_get(struct mailbox_transaction_context *t,
 				struct mail_attribute_value *value_r)
 {
 	struct dict *dict;
-	const char *mailbox_prefix;
+	const char *mailbox_prefix, *error;
 	int ret;
 
 	memset(value_r, 0, sizeof(*value_r));
@@ -249,9 +249,10 @@ int index_storage_attribute_get(struct mailbox_transaction_context *t,
 
 	ret = dict_lookup(dict, pool_datastack_create(),
 			  key_get_prefixed(type, mailbox_prefix, key),
-			  &value_r->value);
+			  &value_r->value, &error);
 	if (ret < 0) {
-		mail_storage_set_internal_error(t->box->storage);
+		mail_storage_set_critical(t->box->storage,
+			"Failed to set attribute %s: %s", key, error);
 		return -1;
 	}
 	return ret;

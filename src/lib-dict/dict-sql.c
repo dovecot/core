@@ -418,32 +418,26 @@ sql_dict_result_unescape_field(const struct dict_sql_map *map, pool_t pool,
 					result, result_idx);
 }
 
-static int sql_dict_lookup(struct dict *_dict, pool_t pool,
-			   const char *key, const char **value_r)
+static int sql_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+			   const char **value_r, const char **error_r)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 	const struct dict_sql_map *map;
 	struct sql_result *result = NULL;
 	string_t *query = t_str_new(256);
-	const char *error;
 	int ret;
 
-	ret = sql_lookup_get_query(dict, key, query, &map, &error);
-	if (ret < 0) {
-		i_error("%s", error);
-		*value_r = NULL;
-		return -1;
-	}
-	result = sql_query_s(dict->db, str_c(query));
+	*value_r = NULL;
 
+	if (sql_lookup_get_query(dict, key, query, &map, error_r) < 0)
+		return -1;
+
+	result = sql_query_s(dict->db, str_c(query));
 	ret = sql_result_next_row(result);
-	if (ret <= 0) {
-		if (ret < 0) {
-			i_error("dict sql lookup failed: %s",
-				sql_result_get_error(result));
-		}
-		*value_r = NULL;
-	} else {
+	if (ret < 0) {
+		*error_r = t_strdup_printf("dict sql lookup failed: %s",
+					   sql_result_get_error(result));
+	} else if (ret > 0) {
 		*value_r = sql_dict_result_unescape_value(map, pool, result);
 	}
 

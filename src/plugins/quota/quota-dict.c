@@ -163,14 +163,16 @@ dict_quota_get_resource(struct quota_root *_root,
 		return 0;
 
 	T_BEGIN {
-		const char *value;
+		const char *key, *value, *error;
 
+		key = want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
+			DICT_QUOTA_CURRENT_COUNT_PATH;
 		ret = dict_lookup(root->dict, unsafe_data_stack_pool,
-				  want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
-				  DICT_QUOTA_CURRENT_COUNT_PATH, &value);
-		if (ret < 0)
+				  key, &value, &error);
+		if (ret < 0) {
+			i_error("dict quota: dict_lookup(%s) failed: %s", key, error);
 			*value_r = 0;
-		else {
+		} else {
 			intmax_t tmp;
 
 			/* recalculate quota if it's negative or if it

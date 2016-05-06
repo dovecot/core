@@ -488,8 +488,8 @@ static void redis_dict_select_db(struct redis_dict *dict)
 	redis_input_state_add(dict, REDIS_INPUT_STATE_SELECT);
 }
 
-static int redis_dict_lookup(struct dict *_dict, pool_t pool,
-			     const char *key, const char **value_r)
+static int redis_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+			     const char **value_r, const char **error_r)
 {
 	struct redis_dict *dict = (struct redis_dict *)_dict;
 	struct timeout *to;
@@ -542,6 +542,7 @@ static int redis_dict_lookup(struct dict *_dict, pool_t pool,
 		/* we failed in some way. make sure we disconnect since the
 		   connection state isn't known anymore */
 		redis_conn_destroy(&dict->conn.conn);
+		*error_r = "redis: Communication failure";
 		return -1;
 	}
 	if (dict->conn.value_not_found)

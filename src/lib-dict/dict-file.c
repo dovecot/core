@@ -136,7 +136,7 @@ static bool file_dict_need_refresh(struct file_dict *dict)
 	return FALSE;
 }
 
-static int file_dict_open_latest(struct file_dict *dict)
+static int file_dict_open_latest(struct file_dict *dict, const char **error_r)
 {
 	int open_type;
 
@@ -155,21 +155,21 @@ static int file_dict_open_latest(struct file_dict *dict)
 		if (errno == ENOENT)
 			return 0;
 		if (errno == EACCES)
-			i_error("%s", eacces_error_get("open", dict->path));
+			*error_r = eacces_error_get("open", dict->path);
 		else
-			i_error("open(%s) failed: %m", dict->path);
+			*error_r = t_strdup_printf("open(%s) failed: %m", dict->path);
 		return -1;
 	}
 	dict->refreshed = FALSE;
 	return 1;
 }
 
-static int file_dict_refresh(struct file_dict *dict)
+static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 {
 	struct istream *input;
 	char *key, *value;
 
-	if (file_dict_open_latest(dict) < 0)
+	if (file_dict_open_latest(dict, error_r) < 0)
 		return -1;
 	if (dict->refreshed)
 		return 0;
@@ -196,12 +196,12 @@ static int file_dict_refresh(struct file_dict *dict)
 	return 0;
 }
 
-static int file_dict_lookup(struct dict *_dict, pool_t pool,
-			    const char *key, const char **value_r)
+static int file_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+			    const char **value_r, const char **error_r)
 {
 	struct file_dict *dict = (struct file_dict *)_dict;
 
-	if (file_dict_refresh(dict) < 0)
+	if (file_dict_refresh(dict, error_r) < 0)
 		return -1;
 
 	*value_r = p_strdup(pool, hash_table_lookup(dict->hash, key));
@@ -215,6 +215,7 @@ file_dict_iterate_init(struct dict *_dict, const char *const *paths,
         struct file_dict_iterate_context *ctx;
 	struct file_dict *dict = (struct file_dict *)_dict;
 	unsigned int i, path_count;
+	const char *error;
 	pool_t pool;
 
 	pool = pool_alloconly_create("file dict iterate", 256);
@@ -231,8 +232,10 @@ file_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	ctx->flags = flags;
 	ctx->iter = hash_table_iterate_init(dict->hash);
 
-	if (file_dict_refresh(dict) < 0)
+	if (file_dict_refresh(dict, &error) < 0) {
+		i_error("%s", error);
 		ctx->failed = TRUE;
+	}
 	return &ctx->ctx;
 }
 
@@ -425,7 +428,7 @@ fd_copy_parent_dir_permissions(const char *src_path, int dest_fd,
 	return fd_copy_stat_permissions(&src_st, dest_fd, dest_path);
 }
 
-static int file_dict_mkdir(struct file_dict *dict)
+static int file_dict_mkdir(struct file_dict *dict, const char **error_r)
 {
 	const char *path, *p, *root;
 	struct stat st;
@@ -438,9 +441,9 @@ static int file_dict_mkdir(struct file_dict *dict)
 
 	if (stat_first_parent(path, &root, &st) < 0) {
 		if (errno == EACCES)
-			i_error("%s", eacces_error_get("stat", root));
+			*error_r = eacces_error_get("stat", root);
 		else
-			i_error("stat(%s) failed: %m", root);
+			*error_r = t_strdup_printf("stat(%s) failed: %m", root);
 		return -1;
 	}
 	if ((st.st_mode & S_ISGID) != 0) {
@@ -450,35 +453,38 @@ static int file_dict_mkdir(struct file_dict *dict)
 
 	if (mkdir_parents(path, mode) < 0 && errno != EEXIST) {
 		if (errno == EACCES)
-			i_error("%s", eacces_error_get("mkdir_parents", path));
+			*error_r = eacces_error_get("mkdir_parents", path);
 		else
-			i_error("mkdir_parents(%s) failed: %m", path);
+			*error_r = t_strdup_printf("mkdir_parents(%s) failed: %m", path);
 		return -1;
 	}
 	return 0;
 }
 
 static int
-file_dict_lock(struct file_dict *dict, struct file_lock **lock_r)
+file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
+	       const char **error_r)
 {
 	int ret;
 
-	if (file_dict_open_latest(dict) < 0)
+	if (file_dict_open_latest(dict, error_r) < 0)
 		return -1;
 
 	if (dict->fd == -1) {
 		/* quota file doesn't exist yet, we need to create it */
 		dict->fd = open(dict->path, O_CREAT | O_RDWR, 0600);
 		if (dict->fd == -1 && errno == ENOENT) {
-			if (file_dict_mkdir(dict) < 0)
+			if (file_dict_mkdir(dict, error_r) < 0)
 				return -1;
 			dict->fd = open(dict->path, O_CREAT | O_RDWR, 0600);
 		}
 		if (dict->fd == -1) {
 			if (errno == EACCES)
-				i_error("%s", eacces_error_get("creat", dict->path));
-			else
-				i_error("creat(%s) failed: %m", dict->path);
+				*error_r = eacces_error_get("creat", dict->path);
+			else {
+				*error_r = t_strdup_printf(
+					"creat(%s) failed: %m", dict->path);
+			}
 			return -1;
 		}
 		(void)fd_copy_parent_dir_permissions(dict->path, dict->fd,
@@ -490,12 +496,13 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r)
 				   dict->lock_method,
 				   file_dict_dotlock_settings.timeout,
 				   lock_r) <= 0) {
-			i_error("file_wait_lock(%s) failed: %m", dict->path);
+			*error_r = t_strdup_printf(
+				"file_wait_lock(%s) failed: %m", dict->path);
 			return -1;
 		}
 		/* check again if we need to reopen the file because it was
 		   just replaced */
-	} while ((ret = file_dict_open_latest(dict)) > 0);
+	} while ((ret = file_dict_open_latest(dict, error_r)) > 0);
 
 	return ret < 0 ? -1 : 0;
 }
@@ -509,6 +516,7 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	const char *temp_path = NULL;
 	struct hash_iterate_context *iter;
 	struct ostream *output;
+	const char *error;
 	char *key, *value;
 	string_t *str;
 	int fd = -1;
@@ -518,8 +526,10 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	switch (dict->lock_method) {
 	case FILE_LOCK_METHOD_FCNTL:
 	case FILE_LOCK_METHOD_FLOCK:
-		if (file_dict_lock(dict, &lock) < 0)
+		if (file_dict_lock(dict, &lock, &error) < 0) {
+			i_error("%s", error);
 			return -1;
+		}
 		temp_path = t_strdup_printf("%s.tmp", dict->path);
 		fd = creat(temp_path, 0600);
 		if (fd == -1) {
@@ -532,8 +542,10 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		fd = file_dotlock_open(&file_dict_dotlock_settings, dict->path, 0,
 				       &dotlock);
 		if (fd == -1 && errno == ENOENT) {
-			if (file_dict_mkdir(dict) < 0)
+			if (file_dict_mkdir(dict, &error) < 0) {
+				i_error("%s", error);
 				return -1;
+			}
 			fd = file_dotlock_open(&file_dict_dotlock_settings,
 					       dict->path, 0, &dotlock);
 		}
@@ -547,7 +559,8 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	}
 
 	/* refresh once more now that we're locked */
-	if (file_dict_refresh(dict) < 0) {
+	if (file_dict_refresh(dict, &error) < 0) {
+		i_error("%s", error);
 		if (dotlock != NULL)
 			file_dotlock_delete(&dotlock);
 		else {

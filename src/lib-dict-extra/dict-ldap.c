@@ -301,22 +301,25 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 	pool_unref(&pool);
 }
 
-static
-int ldap_dict_lookup(struct dict *dict, pool_t pool,
-		      const char *key, const char **value_r)
+static int
+ldap_dict_lookup(struct dict *dict, pool_t pool, const char *key,
+		 const char **value_r, const char **error_r)
 {
 	struct dict_lookup_result res;
-	pool_t orig_pool = pool;
-	int ret;
 
 	ldap_dict_lookup_async(dict, key, ldap_dict_lookup_done, &res);
 
-	if ((ret = ldap_dict_wait(dict)) == 0) {
-		if (res.ret == 0) {
-			*value_r = p_strdup(orig_pool, res.value);
-		} else ret = res.ret;
+	if (ldap_dict_wait(dict) < 0) {
+		*error_r = "ldap: Communication failure";
+		return -1;
 	}
-	return ret;
+	if (res.ret < 0) {
+		*error_r = res.error;
+		return -1;
+	}
+	if (res.ret > 0)
+		*value_r = p_strdup(pool, res.value);
+	return res.ret;
 }
 
 /*

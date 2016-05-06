@@ -115,7 +115,7 @@ static int expire_lookup(struct mailbox *box, const char *key,
 	const struct expire_mail_index_header *hdr;
 	const void *data;
 	size_t data_size;
-	const char *value;
+	const char *value, *error;
 	int ret;
 
 	/* default to ioloop_time for newly saved mails. it may not be exactly
@@ -138,10 +138,12 @@ static int expire_lookup(struct mailbox *box, const char *key,
 	}
 
 	ret = dict_lookup(euser->db, pool_datastack_create(),
-			  key, &value);
+			  key, &value, &error);
 	if (ret <= 0) {
-		if (ret < 0)
+		if (ret < 0) {
+			i_error("expire: dict_lookup(%s) failed: %s", key, error);
 			return -1;
+		}
 		first_save_timestamp(box, new_stamp_r);
 		return 0;
 	}

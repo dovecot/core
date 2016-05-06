@@ -78,7 +78,7 @@ struct client_dict_transaction_context {
 	unsigned int committed:1;
 };
 
-static int client_dict_connect(struct client_dict *dict);
+static int client_dict_connect(struct client_dict *dict, const char **error_r);
 static void client_dict_disconnect(struct client_dict *dict);
 
 const char *dict_client_escape(const char *src)
@@ -159,11 +159,12 @@ const char *dict_client_unescape(const char *src)
 	return str_c(dest);
 }
 
-static int client_dict_send_query(struct client_dict *dict, const char *query)
+static int client_dict_send_query(struct client_dict *dict, const char *query,
+				  const char **error_r)
 {
 	if (dict->output == NULL) {
 		/* not connected currently */
-		if (client_dict_connect(dict) < 0)
+		if (client_dict_connect(dict, error_r) < 0)
 			return -1;
 	}
 
@@ -172,17 +173,20 @@ static int client_dict_send_query(struct client_dict *dict, const char *query)
 		/* Send failed */
 		if (!dict->handshaked) {
 			/* we're trying to send hello, don't try to reconnect */
+			*error_r = t_strdup_printf("write(%s) failed: %s",
+				dict->path, o_stream_get_error(dict->output));
 			return -1;
 		}
 
 		/* Reconnect and try again. */
 		client_dict_disconnect(dict);
-		if (client_dict_connect(dict) < 0)
+		if (client_dict_connect(dict, error_r) < 0)
 			return -1;
 
 		if (o_stream_send_str(dict->output, query) < 0 ||
 		    o_stream_flush(dict->output) < 0) {
-			i_error("write(%s) failed: %m", dict->path);
+			*error_r = t_strdup_printf("write(%s) failed: %s",
+				dict->path, o_stream_get_error(dict->output));
 			client_dict_disconnect(dict);
 			return -1;
 		}
@@ -194,18 +198,19 @@ static int
 client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx)
 {
 	struct client_dict *dict = (struct client_dict *)ctx->ctx.dict;
+	const char *query, *error;
 
 	if (ctx->failed)
 		return -1;
 
-	const char *query;
-
 	query = t_strdup_printf("%c%u\n", DICT_PROTOCOL_CMD_BEGIN, ctx->id);
-	if (client_dict_send_query(dict, query) < 0)
+	if (client_dict_send_query(dict, query, &error) < 0) {
+		i_error("%s", error);
 		ctx->failed = TRUE;
-	else
-		ctx->connect_counter = dict->connect_counter;
-	return ctx->failed ? -1 : 0;
+		return -1;
+	}
+	ctx->connect_counter = dict->connect_counter;
+	return 0;
 }
 
 static int ATTR_NOWARN_UNUSED_RESULT
@@ -312,7 +317,8 @@ static ssize_t client_dict_read_timeout(struct client_dict *dict)
 }
 
 static int
-client_dict_read_one_line_real(struct client_dict *dict, char **line_r)
+client_dict_read_one_line_real(struct client_dict *dict, char **line_r,
+			       const char **error_r)
 {
 	unsigned int id;
 	char *line;
@@ -323,18 +329,16 @@ client_dict_read_one_line_real(struct client_dict *dict, char **line_r)
 		ret = client_dict_read_timeout(dict);
 		switch (ret) {
 		case -1:
-			if (dict->input->stream_errno != 0)
-				i_error("read(%s) failed: %m", dict->path);
-			else {
-				i_error("read(%s) failed: Remote disconnected",
-					dict->path);
-			}
+			*error_r = t_strdup_printf("read(%s) failed: %s",
+				dict->path, i_stream_get_disconnect_reason(dict->input));
 			return -1;
 		case -2:
-			i_error("read(%s) returned too much data", dict->path);
+			*error_r = t_strdup_printf(
+				"read(%s) returned too much data", dict->path);
 			return -1;
 		case 0:
-			i_error("read(%s) failed: Timeout after %u seconds",
+			*error_r = t_strdup_printf(
+				"read(%s) failed: Timeout after %u seconds",
 				dict->path, DICT_CLIENT_READ_TIMEOUT_SECS);
 			return -1;
 		default:
@@ -354,12 +358,12 @@ client_dict_read_one_line_real(struct client_dict *dict, char **line_r)
 			ret = -1;
 			break;
 		default:
-			i_error("dict-client: Invalid async commit line: %s",
-				line);
+			*error_r = t_strdup_printf(
+				"dict-client: Invalid async commit line: %s", line);
 			return -1;
 		}
 		if (str_to_uint(line+2, &id) < 0) {
-			i_error("dict-client: Invalid ID");
+			*error_r = t_strdup_printf("dict-client: Invalid ID");
 			return -1;
 		}
 		client_dict_finish_transaction(dict, id, ret);
@@ -371,8 +375,8 @@ client_dict_read_one_line_real(struct client_dict *dict, char **line_r)
 		if (*line == DICT_PROTOCOL_REPLY_OK)
 			return 0;
 		if (*line != '\0' && *line != DICT_PROTOCOL_REPLY_FAIL) {
-			i_error("dict-client: Invalid iteration reply line: %s",
-				line);
+			*error_r = t_strdup_printf(
+				"dict-client: Invalid iteration reply line: %s", line);
 			return -1;
 		}
 		dict->iter_replies_skip--;
@@ -382,11 +386,12 @@ client_dict_read_one_line_real(struct client_dict *dict, char **line_r)
 	return 1;
 }
 
-static int client_dict_read_one_line(struct client_dict *dict, char **line_r)
+static int client_dict_read_one_line(struct client_dict *dict, char **line_r,
+				     const char **error_r)
 {
 	int ret;
 
-	if ((ret = client_dict_read_one_line_real(dict, line_r)) < 0)
+	if ((ret = client_dict_read_one_line_real(dict, line_r, error_r)) < 0)
 		client_dict_disconnect(dict);
 	return ret;
 }
@@ -414,23 +419,26 @@ static void client_dict_add_timeout(struct client_dict *dict)
 	}
 }
 
-static char *client_dict_read_line(struct client_dict *dict)
+static int client_dict_read_line(struct client_dict *dict,
+				 char **line_r, const char **error_r)
 {
-	char *line;
+	int ret;
 
-	while (client_dict_read_one_line(dict, &line) == 0)
+	while ((ret = client_dict_read_one_line(dict, line_r, error_r)) == 0)
 		;
+	i_assert(ret < 0 || *line_r != NULL);
 
 	client_dict_add_timeout(dict);
-	return line;
+	return ret < 0 ? -1 : 0;
 }
 
-static int client_dict_connect(struct client_dict *dict)
+static int client_dict_connect(struct client_dict *dict, const char **error_r)
 {
 	const char *query;
 
 	if (dict->last_failed_connect == ioloop_time) {
 		/* Try again later */
+		*error_r = "Waiting until the next connect attempt";
 		return -1;
 	}
 
@@ -438,11 +446,11 @@ static int client_dict_connect(struct client_dict *dict)
 	if (dict->fd == -1) {
 		dict->last_failed_connect = ioloop_time;
 		if (errno == EACCES) {
-			i_error("%s", eacces_error_get("net_connect_unix",
-						       dict->path));
+			*error_r = eacces_error_get("net_connect_unix",
+						    dict->path);
 		} else {
-			i_error("net_connect_unix(%s) failed: %m",
-				dict->path);
+			*error_r = t_strdup_printf(
+				"net_connect_unix(%s) failed: %m", dict->path);
 		}
 		return -1;
 	}
@@ -458,7 +466,7 @@ static int client_dict_connect(struct client_dict *dict)
 				DICT_CLIENT_PROTOCOL_MAJOR_VERSION,
 				DICT_CLIENT_PROTOCOL_MINOR_VERSION,
 				dict->value_type, dict->username, dict->uri);
-	if (client_dict_send_query(dict, query) < 0) {
+	if (client_dict_send_query(dict, query, error_r) < 0) {
 		dict->last_failed_connect = ioloop_time;
 		client_dict_disconnect(dict);
 		return -1;
@@ -567,6 +575,7 @@ static void client_dict_deinit(struct dict *_dict)
 static int client_dict_wait(struct dict *_dict)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
+	const char *error;
 	char *line;
 	int ret;
 
@@ -574,8 +583,10 @@ static int client_dict_wait(struct dict *_dict)
 		return -1;
 
 	while (dict->async_commits > 0) {
-		if ((ret = client_dict_read_one_line(dict, &line)) < 0)
+		if ((ret = client_dict_read_one_line(dict, &line, &error)) < 0) {
+			i_error("%s", error);
 			return -1;
+		}
 
 		if (ret > 0) {
 			i_error("dict-client: Unexpected reply waiting waiting for async commits: %s", line);
@@ -586,20 +597,20 @@ static int client_dict_wait(struct dict *_dict)
 	return 0;
 }
 
-static int client_dict_lookup(struct dict *_dict, pool_t pool,
-			      const char *key, const char **value_r)
+static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+			      const char **value_r, const char **error_r)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
-	const char *query, *line;
+	const char *query;
+	char *line;
 
 	query = t_strdup_printf("%c%s\n", DICT_PROTOCOL_CMD_LOOKUP,
 				dict_client_escape(key));
-	if (client_dict_send_query(dict, query) < 0)
+	if (client_dict_send_query(dict, query, error_r) < 0)
 		return -1;
 
 	/* read reply */
-	line = client_dict_read_line(dict);
-	if (line == NULL)
+	if (client_dict_read_line(dict, &line, error_r) < 0)
 		return -1;
 
 	switch (*line) {
@@ -610,9 +621,11 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool,
 		*value_r = NULL;
 		return 0;
 	case DICT_PROTOCOL_REPLY_FAIL:
+		*error_r = "dict-server returned failure";
 		return -1;
 	default:
-		i_error("dict-client: Invalid lookup '%s' reply: %s", key, line);
+		*error_r = t_strdup_printf(
+			"dict-client: Invalid lookup '%s' reply: %s", key, line);
 		client_dict_disconnect(dict);
 		return -1;
 	}
@@ -626,6 +639,7 @@ client_dict_iterate_init(struct dict *_dict, const char *const *paths,
         struct client_dict_iterate_context *ctx;
 	string_t *query = t_str_new(256);
 	unsigned int i;
+	const char *error;
 
 	if (dict->in_iteration)
 		i_panic("dict-client: Only one iteration supported");
@@ -641,8 +655,10 @@ client_dict_iterate_init(struct dict *_dict, const char *const *paths,
 			str_append(query, dict_client_escape(paths[i]));
 	}
 	str_append_c(query, '\n');
-	if (client_dict_send_query(dict, str_c(query)) < 0)
+	if (client_dict_send_query(dict, str_c(query), &error) < 0) {
+		i_error("%s", error);
 		ctx->failed = TRUE;
+	}
 	return &ctx->ctx;
 }
 
@@ -653,13 +669,14 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 		(struct client_dict_iterate_context *)_ctx;
 	struct client_dict *dict = (struct client_dict *)_ctx->dict;
 	char *line, *key, *value;
+	const char *error;
 
 	if (ctx->failed)
 		return FALSE;
 
 	/* read next reply */
-	line = client_dict_read_line(dict);
-	if (line == NULL) {
+	if (client_dict_read_line(dict, &line, &error) < 0) {
+		i_error("%s", error);
 		ctx->failed = TRUE;
 		return FALSE;
 	}
@@ -733,18 +750,20 @@ client_dict_transaction_init(struct dict *_dict)
 
 static void dict_async_input(struct client_dict *dict)
 {
+	const char *error;
 	char *line;
 	int ret;
 
 	i_assert(!dict->in_iteration);
 
 	do {
-		ret = client_dict_read_one_line(dict, &line);
+		ret = client_dict_read_one_line(dict, &line, &error);
 	} while (ret == 0 && i_stream_get_data_size(dict->input) > 0);
 
-	if (ret < 0)
+	if (ret < 0) {
+		i_error("%s", error);
 		io_remove(&dict->io);
-	else if (ret > 0) {
+	} else if (ret > 0) {
 		i_error("dict-client: Unexpected reply waiting waiting for async commits: %s", line);
 		client_dict_disconnect(dict);
 	}
@@ -764,7 +783,8 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 
 	ctx->committed = TRUE;
 	if (ctx->sent_begin && !ctx->failed) {
-		const char *query, *line;
+		const char *query, *error;
+		char *line;
 
 		query = t_strdup_printf("%c%u\n", !async ?
 					DICT_PROTOCOL_CMD_COMMIT :
@@ -782,10 +802,10 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			}
 		} else {
 			/* sync commit, read reply */
-			line = client_dict_read_line(dict);
-			if (line == NULL)
+			if (client_dict_read_line(dict, &line, &error) < 0) {
+				i_error("%s", error);
 				ret = -1;
-			else switch (*line) {
+			} else switch (*line) {
 			case DICT_PROTOCOL_REPLY_OK:
 				ret = 1;
 				break;

@@ -71,7 +71,7 @@ int dict_wait(struct dict *dict);
 /* Lookup value for key. Set it to NULL if it's not found.
    Returns 1 if found, 0 if not found and -1 if lookup failed. */
 int dict_lookup(struct dict *dict, pool_t pool,
-		const char *key, const char **value_r);
+		const char *key, const char **value_r, const char **error_r);
 void dict_lookup_async(struct dict *dict, const char *key,
 		       dict_lookup_callback_t *callback, void *context);
 

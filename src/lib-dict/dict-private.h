@@ -11,7 +11,8 @@ struct dict_vfuncs {
 	int (*wait)(struct dict *dict);
 
 	int (*lookup)(struct dict *dict, pool_t pool,
-		      const char *key, const char **value_r);
+		      const char *key, const char **value_r,
+		      const char **error_r);
 
 	struct dict_iterate_context *
 		(*iterate_init)(struct dict *dict, const char *const *paths,

@@ -95,7 +95,7 @@ cmd_dict_init(int *argc, char **argv[],
 static void cmd_dict_get(int argc, char *argv[])
 {
 	struct dict *dict;
-	const char *value;
+	const char *value, *error;
 	int ret;
 
 	if (cmd_dict_init(&argc, &argv, 1, 0, cmd_dict_get, &dict) < 0)
@@ -104,9 +104,9 @@ static void cmd_dict_get(int argc, char *argv[])
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("value", "", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 
-	ret = dict_lookup(dict, pool_datastack_create(), argv[0], &value);
+	ret = dict_lookup(dict, pool_datastack_create(), argv[0], &value, &error);
 	if (ret < 0) {
-		i_error("dict_lookup(%s) failed", argv[0]);
+		i_error("dict_lookup(%s) failed: %s", argv[0], error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (ret == 0) {
 		i_error("%s doesn't exist", argv[0]);
