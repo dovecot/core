@@ -68,7 +68,7 @@ struct sql_dict_transaction_context {
 	dict_transaction_commit_callback_t *async_callback;
 	void *async_context;
 
-	unsigned int failed:1;
+	char *error;
 };
 
 static struct sql_db_cache *dict_sql_db_cache;
@@ -764,6 +764,7 @@ static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 	if (ctx->inc_row_pool != NULL)
 		pool_unref(&ctx->inc_row_pool);
 	i_free(ctx->prev_inc_key);
+	i_free(ctx->error);
 	i_free(ctx);
 }
 
@@ -784,17 +785,20 @@ static void
 sql_dict_transaction_commit_callback(const char *error,
 				     struct sql_dict_transaction_context *ctx)
 {
-	int ret;
+	struct dict_commit_result result;
 
+	memset(&result, 0, sizeof(result));
 	if (error == NULL)
-		ret = sql_dict_transaction_has_nonexistent(ctx) ? 0 : 1;
+		result.ret = sql_dict_transaction_has_nonexistent(ctx) ? 0 : 1;
 	else {
-		i_error("sql dict: commit failed: %s", error);
-		ret = -1;
+		result.error = t_strdup_printf("sql dict: commit failed: %s", error);
+		result.ret = -1;
 	}
 
 	if (ctx->async_callback != NULL)
-		ctx->async_callback(ret, ctx->async_context);
+		ctx->async_callback(&result, ctx->async_context);
+	else if (result.ret < 0)
+		i_error("%s", result.error);
 	sql_dict_transaction_free(ctx);
 }
 
@@ -806,35 +810,39 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;
 	const char *error;
-	int ret = 1;
+	struct dict_commit_result result;
+
+	memset(&result, 0, sizeof(result));
+	result.ret = -1;
+	result.error = t_strdup(ctx->error);
 
 	if (ctx->prev_inc_map != NULL)
 		sql_dict_prev_inc_flush(ctx);
 
-	if (ctx->failed) {
+	if (ctx->error != NULL) {
 		sql_transaction_rollback(&ctx->sql_ctx);
-		ret = -1;
 	} else if (!_ctx->changed) {
 		/* nothing changed, no need to commit */
 		sql_transaction_rollback(&ctx->sql_ctx);
+		result.ret = 1;
 	} else if (async) {
 		ctx->async_callback = callback;
 		ctx->async_context = context;
 		sql_transaction_commit(&ctx->sql_ctx,
 			sql_dict_transaction_commit_callback, ctx);
 		return;
+	} else if (sql_transaction_commit_s(&ctx->sql_ctx, &error) < 0) {
+		result.error = t_strdup_printf(
+			"sql dict: commit failed: %s", error);
 	} else {
-		if (sql_transaction_commit_s(&ctx->sql_ctx, &error) < 0) {
-			i_error("sql dict: commit failed: %s", error);
-			ret = -1;
-		} else {
-			if (sql_dict_transaction_has_nonexistent(ctx))
-				ret = 0;
-		}
+		if (sql_dict_transaction_has_nonexistent(ctx))
+			result.ret = 0;
+		else
+			result.ret = 1;
 	}
 	sql_dict_transaction_free(ctx);
 
-	callback(ret, context);
+	callback(&result, context);
 }
 
 static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)
@@ -985,10 +993,13 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	struct dict_sql_build_query_field field;
 	const char *query, *error;
 
+	if (ctx->error != NULL)
+		return;
+
 	map = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
-		i_error("sql dict set: Invalid/unmapped key: %s", key);
-		ctx->failed = TRUE;
+		ctx->error = i_strdup_printf(
+			"dict-sql: Invalid/unmapped key: %s", key);
 		return;
 	}
 
@@ -1006,9 +1017,8 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	build.key1 = key[0];
 
 	if (sql_dict_set_query(&build, &query, &error) < 0) {
-		i_error("dict-sql: Failed to set %s=%s: %s",
-			key, value, error);
-		ctx->failed = TRUE;
+		ctx->error = i_strdup_printf("dict-sql: Failed to set %s=%s: %s",
+					     key, value, error);
 	} else {
 		sql_update(ctx->sql_ctx, query);
 	}
@@ -1025,21 +1035,23 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	string_t *query = t_str_new(256);
 	const char *error;
 
+	if (ctx->error != NULL)
+		return;
+
 	if (ctx->prev_inc_map != NULL)
 		sql_dict_prev_inc_flush(ctx);
 
 	map = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
-		i_error("sql dict unset: Invalid/unmapped key: %s", key);
-		ctx->failed = TRUE;
+		ctx->error = i_strdup_printf("dict-sql: Invalid/unmapped key: %s", key);
 		return;
 	}
 
 	str_printfa(query, "DELETE FROM %s", map->table);
 	if (sql_dict_where_build(dict, map, &values, key[0],
 				 SQL_DICT_RECURSE_NONE, query, &error) < 0) {
-		i_error("dict-sql: Failed to delete %s: %s", key, error);
-		ctx->failed = TRUE;
+		ctx->error = i_strdup_printf(
+			"dict-sql: Failed to delete %s: %s", key, error);
 	} else {
 		sql_update(ctx->sql_ctx, str_c(query));
 	}
@@ -1071,6 +1083,9 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	struct dict_sql_build_query_field field;
 	const char *query, *error;
 
+	if (ctx->error != NULL)
+		return;
+
 	map = sql_dict_find_map(dict, key, &values);
 	i_assert(map != NULL);
 
@@ -1086,8 +1101,8 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	build.inc = TRUE;
 
 	if (sql_dict_update_query(&build, &query, &error) < 0) {
-		i_error("dict-sql: Failed to increase %s: %s", key, error);
-		ctx->failed = TRUE;
+		ctx->error = i_strdup_printf(
+			"dict-sql: Failed to increase %s: %s", key, error);
 	} else {
 		sql_update_get_rows(ctx->sql_ctx, query,
 				    sql_dict_next_inc_row(ctx));
@@ -1146,10 +1161,13 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
 
+	if (ctx->error != NULL)
+		return;
+
 	map = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
-		i_error("sql dict atomic inc: Invalid/unmapped key: %s", key);
-		ctx->failed = TRUE;
+		ctx->error = i_strdup_printf(
+			"sql dict atomic inc: Invalid/unmapped key: %s", key);
 		return;
 	}
 
@@ -1186,8 +1204,8 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		field->value = t_strdup_printf("%lld", diff);
 
 		if (sql_dict_update_query(&build, &query, &error) < 0) {
-			i_error("dict-sql: Failed to increase %s: %s", key, error);
-			ctx->failed = TRUE;
+			ctx->error = i_strdup_printf(
+				"dict-sql: Failed to increase %s: %s", key, error);
 		} else {
 			sql_update_get_rows(ctx->sql_ctx, query,
 					    sql_dict_next_inc_row(ctx));

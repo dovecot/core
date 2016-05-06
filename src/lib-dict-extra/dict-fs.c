@@ -219,7 +219,8 @@ fs_dict_transaction_init(struct dict *_dict)
 	return &ctx->ctx;
 }
 
-static int fs_dict_write_changes(struct dict_transaction_memory_context *ctx)
+static int fs_dict_write_changes(struct dict_transaction_memory_context *ctx,
+				 const char **error_r)
 {
 	struct fs_dict *dict = (struct fs_dict *)ctx->ctx.dict;
 	struct fs_file *file;
@@ -234,7 +235,8 @@ static int fs_dict_write_changes(struct dict_transaction_memory_context *ctx)
 			file = fs_file_init(dict->fs, key,
 					    FS_OPEN_MODE_REPLACE);
 			if (fs_write(file, change->value.str, strlen(change->value.str)) < 0) {
-				i_error("fs_write(%s) failed: %s", key,
+				*error_r = t_strdup_printf(
+					"fs_write(%s) failed: %s", key,
 					fs_file_last_error(file));
 				ret = -1;
 			}
@@ -243,7 +245,8 @@ static int fs_dict_write_changes(struct dict_transaction_memory_context *ctx)
 		case DICT_CHANGE_TYPE_UNSET:
 			file = fs_file_init(dict->fs, key, FS_OPEN_MODE_READONLY);
 			if (fs_delete(file) < 0) {
-				i_error("fs_delete(%s) failed: %s", key,
+				*error_r = t_strdup_printf(
+					"fs_delete(%s) failed: %s", key,
 					fs_file_last_error(file));
 				ret = -1;
 			}
@@ -266,15 +269,14 @@ fs_dict_transaction_commit(struct dict_transaction_context *_ctx,
 {
 	struct dict_transaction_memory_context *ctx =
 		(struct dict_transaction_memory_context *)_ctx;
-	int ret;
+	struct dict_commit_result result = { .ret = 1 };
 
-	if (fs_dict_write_changes(ctx) < 0)
-		ret = -1;
-	else
-		ret = 1;
+
+	if (fs_dict_write_changes(ctx, &result.error) < 0)
+		result.ret = -1;
 	pool_unref(&ctx->pool);
 
-	callback(ret, context);
+	callback(&result, context);
 }
 
 struct dict dict_driver_fs = {

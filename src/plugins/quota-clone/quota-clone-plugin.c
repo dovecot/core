@@ -41,6 +41,7 @@ static void quota_clone_flush(struct mailbox *box)
 	struct quota_root_iter *iter;
 	struct quota_root *root;
 	uint64_t bytes_value, count_value, limit;
+	const char *error;
 
 	/* we'll clone the first quota root */
 	iter = quota_root_iter_init(box);
@@ -70,8 +71,8 @@ static void quota_clone_flush(struct mailbox *box)
 		 t_strdup_printf("%llu", (unsigned long long)bytes_value));
 	dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
 		 t_strdup_printf("%llu", (unsigned long long)count_value));
-	if (dict_transaction_commit(&trans) < 0)
-		i_error("quota_clone_plugin: Failed to commit dict update");
+	if (dict_transaction_commit(&trans, &error) < 0)
+		i_error("quota_clone_plugin: Failed to commit dict update: %s", error);
 	else
 		qbox->quota_changed = FALSE;
 }

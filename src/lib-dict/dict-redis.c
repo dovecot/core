@@ -62,7 +62,7 @@ struct redis_dict {
 struct redis_dict_transaction_context {
 	struct dict_transaction_context ctx;
 	unsigned int cmd_count;
-	bool failed;
+	char *error;
 };
 
 static struct connection_list *redis_connections;
@@ -79,7 +79,8 @@ static void redis_input_state_remove(struct redis_dict *dict)
 }
 
 static void redis_callback(struct redis_dict *dict,
-			   const struct redis_dict_reply *reply, int ret)
+			   const struct redis_dict_reply *reply,
+			   const struct dict_commit_result *result)
 {
 	if (reply->callback != NULL) {
 		if (dict->prev_ioloop != NULL) {
@@ -88,23 +89,24 @@ static void redis_callback(struct redis_dict *dict,
 			   or timeouts. */
 			current_ioloop = dict->prev_ioloop;
 		}
-		reply->callback(ret, reply->context);
+		reply->callback(result, reply->context);
 		if (dict->prev_ioloop != NULL)
 			current_ioloop = dict->ioloop;
 	}
 }
 
-static void redis_conn_destroy(struct connection *_conn)
+static void
+redis_disconnected(struct redis_connection *conn, const char *reason)
 {
-	struct redis_connection *conn = (struct redis_connection *)_conn;
+	const struct dict_commit_result result = { -1, reason };
 	const struct redis_dict_reply *reply;
 
 	conn->dict->db_id_set = FALSE;
 	conn->dict->connected = FALSE;
-	connection_disconnect(_conn);
+	connection_disconnect(&conn->conn);
 
 	array_foreach(&conn->dict->replies, reply)
-		redis_callback(conn->dict, reply, -1);
+		redis_callback(conn->dict, reply, &result);
 	array_clear(&conn->dict->replies);
 	array_clear(&conn->dict->input_states);
 
@@ -112,11 +114,19 @@ static void redis_conn_destroy(struct connection *_conn)
 		io_loop_stop(conn->dict->ioloop);
 }
 
+static void redis_conn_destroy(struct connection *_conn)
+{
+	struct redis_connection *conn = (struct redis_connection *)_conn;
+
+	redis_disconnected(conn, connection_disconnect_reason(_conn));
+}
+
 static void redis_dict_wait_timeout(struct redis_dict *dict)
 {
-	i_error("redis: Commit timed out in %u.%03u secs",
+	const char *reason = t_strdup_printf(
+		"redis: Commit timed out in %u.%03u secs",
 		dict->timeout_msecs/1000, dict->timeout_msecs%1000);
-	redis_conn_destroy(&dict->conn.conn);
+	redis_disconnected(&dict->conn, reason);
 }
 
 static void redis_wait(struct redis_dict *dict)
@@ -142,7 +152,7 @@ static void redis_wait(struct redis_dict *dict)
 	dict->prev_ioloop = NULL;
 }
 
-static int redis_input_get(struct redis_connection *conn)
+static int redis_input_get(struct redis_connection *conn, const char **error_r)
 {
 	const unsigned char *data;
 	size_t size;
@@ -162,8 +172,8 @@ static int redis_input_get(struct redis_connection *conn)
 			return 1;
 		}
 		if (line[0] != '$' || str_to_uint(line+1, &conn->bytes_left) < 0) {
-			i_error("redis: Unexpected input (wanted $size): %s",
-				line);
+			*error_r = t_strdup_printf(
+				"redis: Unexpected input (wanted $size): %s", line);
 			return -1;
 		}
 		conn->bytes_left += 2; /* include trailing CRLF */
@@ -190,7 +200,8 @@ static int redis_input_get(struct redis_connection *conn)
 	return 1;
 }
 
-static int redis_conn_input_more(struct redis_connection *conn)
+static int
+redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 {
 	struct redis_dict *dict = conn->dict;
 	struct redis_dict_reply *reply;
@@ -204,12 +215,13 @@ static int redis_conn_input_more(struct redis_connection *conn)
 		line = i_stream_next_line(conn->conn.input);
 		if (line == NULL)
 			return 0;
-		i_error("redis: Unexpected input (expected nothing): %s", line);
+		*error_r = t_strdup_printf(
+			"redis: Unexpected input (expected nothing): %s", line);
 		return -1;
 	}
 	state = states[0];
 	if (state == REDIS_INPUT_STATE_GET)
-		return redis_input_get(conn);
+		return redis_input_get(conn, error_r);
 
 	line = i_stream_next_line(conn->conn.input);
 	if (line == NULL)
@@ -232,7 +244,8 @@ static int redis_conn_input_more(struct redis_connection *conn)
 		reply = array_idx_modifiable(&dict->replies, 0);
 		i_assert(reply->reply_count > 0);
 		if (reply->reply_count != num_replies) {
-			i_error("redis: EXEC expected %u replies, not %u",
+			*error_r = t_strdup_printf(
+				"redis: EXEC expected %u replies, not %u",
 				reply->reply_count, num_replies);
 			return -1;
 		}
@@ -244,7 +257,8 @@ static int redis_conn_input_more(struct redis_connection *conn)
 		reply = array_idx_modifiable(&dict->replies, 0);
 		i_assert(reply->reply_count > 0);
 		if (--reply->reply_count == 0) {
-			redis_callback(dict, reply, 1);
+			const struct dict_commit_result result = { 1, NULL };
+			redis_callback(dict, reply, &result);
 			array_delete(&dict->replies, 0, 1);
 			/* if we're running in a dict-ioloop, we're handling a
 			   synchronous commit and need to stop now */
@@ -254,30 +268,29 @@ static int redis_conn_input_more(struct redis_connection *conn)
 		}
 		return 1;
 	}
-	i_error("redis: Unexpected input (state=%d): %s", state, line);
+	*error_r = t_strdup_printf("redis: Unexpected input (state=%d): %s", state, line);
 	return -1;
 }
 
 static void redis_conn_input(struct connection *_conn)
 {
 	struct redis_connection *conn = (struct redis_connection *)_conn;
+	const char *error;
 	int ret;
 
 	switch (i_stream_read(_conn->input)) {
 	case 0:
 		return;
 	case -1:
-		if (conn->dict->ioloop != NULL)
-			i_error("redis: Disconnected unexpectedly");
-		redis_conn_destroy(_conn);
+		redis_disconnected(conn, i_stream_get_error(_conn->input));
 		return;
 	default:
 		break;
 	}
 
-	while ((ret = redis_conn_input_more(conn)) > 0) ;
+	while ((ret = redis_conn_input_more(conn, &error)) > 0) ;
 	if (ret < 0)
-		redis_conn_destroy(_conn);
+		redis_disconnected(conn, error);
 }
 
 static void redis_conn_connected(struct connection *_conn, bool success)
@@ -448,9 +461,10 @@ static void redis_dict_deinit(struct dict *_dict)
 
 static void redis_dict_lookup_timeout(struct redis_dict *dict)
 {
-	i_error("redis: Lookup timed out in %u.%03u secs",
+	const char *reason = t_strdup_printf(
+		"redis: Lookup timed out in %u.%03u secs",
 		dict->timeout_msecs/1000, dict->timeout_msecs%1000);
-	redis_conn_destroy(&dict->conn.conn);
+	redis_disconnected(&dict->conn, reason);
 }
 
 static const char *
@@ -541,8 +555,8 @@ static int redis_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	if (!dict->conn.value_received) {
 		/* we failed in some way. make sure we disconnect since the
 		   connection state isn't known anymore */
-		redis_conn_destroy(&dict->conn.conn);
 		*error_r = "redis: Communication failure";
+		redis_disconnected(&dict->conn, *error_r);
 		return -1;
 	}
 	if (dict->conn.value_not_found)
@@ -587,15 +601,16 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	struct redis_dict *dict = (struct redis_dict *)_ctx->dict;
 	struct redis_dict_reply *reply;
 	unsigned int i;
-	int ret = 1;
+	struct dict_commit_result result = { .ret = 1 };
 
 	i_assert(dict->transaction_open);
 	dict->transaction_open = FALSE;
 
-	if (ctx->failed) {
+	if (ctx->error != NULL) {
 		/* make sure we're disconnected */
-		redis_conn_destroy(&dict->conn.conn);
-		ret = -1;
+		redis_disconnected(&dict->conn, ctx->error);
+		result.ret = -1;
+		result.error = ctx->error;
 	} else if (_ctx->changed) {
 		i_assert(ctx->cmd_count > 0);
 
@@ -614,7 +629,8 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 		}
 		redis_wait(dict);
 	}
-	callback(ret, context);
+	callback(&result, context);
+	i_free(ctx->error);
 	i_free(ctx);
 }
 
@@ -628,9 +644,9 @@ static void redis_transaction_rollback(struct dict_transaction_context *_ctx)
 	i_assert(dict->transaction_open);
 	dict->transaction_open = FALSE;
 
-	if (ctx->failed) {
+	if (ctx->error != NULL) {
 		/* make sure we're disconnected */
-		redis_conn_destroy(&dict->conn.conn);
+		redis_disconnected(&dict->conn, ctx->error);
 	} else if (_ctx->changed) {
 		o_stream_nsend_str(dict->conn.conn.output,
 				   "*1\r\n$7\r\nDISCARD\r\n");
@@ -638,6 +654,7 @@ static void redis_transaction_rollback(struct dict_transaction_context *_ctx)
 		reply->reply_count = 1;
 		redis_input_state_add(dict, REDIS_INPUT_STATE_DISCARD);
 	}
+	i_free(ctx->error);
 	i_free(ctx);
 }
 
@@ -645,11 +662,10 @@ static int redis_check_transaction(struct redis_dict_transaction_context *ctx)
 {
 	struct redis_dict *dict = (struct redis_dict *)ctx->ctx.dict;
 
-	if (ctx->failed)
+	if (ctx->error != NULL)
 		return -1;
 	if (!dict->connected) {
-		/* disconnected during transaction */
-		ctx->failed = TRUE;
+		ctx->error = i_strdup("Disconnected during transaction");
 		return -1;
 	}
 	if (ctx->ctx.changed)
@@ -658,7 +674,8 @@ static int redis_check_transaction(struct redis_dict_transaction_context *ctx)
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	if (o_stream_send_str(dict->conn.conn.output,
 			      "*1\r\n$5\r\nMULTI\r\n") < 0) {
-		ctx->failed = TRUE;
+		ctx->error = i_strdup_printf("write() failed: %s",
+			o_stream_get_error(dict->conn.conn.output));
 		return -1;
 	}
 	return 0;
@@ -700,8 +717,10 @@ static void redis_set(struct dict_transaction_context *_ctx,
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
 	redis_append_expire(ctx, cmd, key);
-	if (o_stream_send(dict->conn.conn.output, str_data(cmd), str_len(cmd)) < 0)
-		ctx->failed = TRUE;
+	if (o_stream_send(dict->conn.conn.output, str_data(cmd), str_len(cmd)) < 0) {
+		ctx->error = i_strdup_printf("write() failed: %s",
+			o_stream_get_error(dict->conn.conn.output));
+	}
 }
 
 static void redis_unset(struct dict_transaction_context *_ctx,
@@ -718,8 +737,10 @@ static void redis_unset(struct dict_transaction_context *_ctx,
 	key = redis_dict_get_full_key(dict, key);
 	cmd = t_strdup_printf("*2\r\n$3\r\nDEL\r\n$%u\r\n%s\r\n",
 			      (unsigned int)strlen(key), key);
-	if (o_stream_send_str(dict->conn.conn.output, cmd) < 0)
-		ctx->failed = TRUE;
+	if (o_stream_send_str(dict->conn.conn.output, cmd) < 0) {
+		ctx->error = i_strdup_printf("write() failed: %s",
+			o_stream_get_error(dict->conn.conn.output));
+	}
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
 }
@@ -745,8 +766,10 @@ static void redis_atomic_inc(struct dict_transaction_context *_ctx,
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
 	redis_append_expire(ctx, cmd, key);
-	if (o_stream_send(dict->conn.conn.output, str_data(cmd), str_len(cmd)) < 0)
-		ctx->failed = TRUE;
+	if (o_stream_send(dict->conn.conn.output, str_data(cmd), str_len(cmd)) < 0) {
+		ctx->error = i_strdup_printf("write() failed: %s",
+			o_stream_get_error(dict->conn.conn.output));
+	}
 }
 
 struct dict dict_driver_redis = {

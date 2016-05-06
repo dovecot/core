@@ -507,8 +507,9 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 	return ret < 0 ? -1 : 0;
 }
 
-static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
-				   bool *atomic_inc_not_found_r)
+static int
+file_dict_write_changes(struct dict_transaction_memory_context *ctx,
+			bool *atomic_inc_not_found_r, const char **error_r)
 {
 	struct file_dict *dict = (struct file_dict *)ctx->ctx.dict;
 	struct dotlock *dotlock = NULL;
@@ -516,7 +517,6 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	const char *temp_path = NULL;
 	struct hash_iterate_context *iter;
 	struct ostream *output;
-	const char *error;
 	char *key, *value;
 	string_t *str;
 	int fd = -1;
@@ -526,15 +526,13 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	switch (dict->lock_method) {
 	case FILE_LOCK_METHOD_FCNTL:
 	case FILE_LOCK_METHOD_FLOCK:
-		if (file_dict_lock(dict, &lock, &error) < 0) {
-			i_error("%s", error);
+		if (file_dict_lock(dict, &lock, error_r) < 0)
 			return -1;
-		}
 		temp_path = t_strdup_printf("%s.tmp", dict->path);
 		fd = creat(temp_path, 0600);
 		if (fd == -1) {
-			i_error("file dict commit: creat(%s) failed: %m",
-				temp_path);
+			*error_r = t_strdup_printf(
+				"dict-file: creat(%s) failed: %m", temp_path);
 			return -1;
 		}
 		break;
@@ -542,15 +540,14 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		fd = file_dotlock_open(&file_dict_dotlock_settings, dict->path, 0,
 				       &dotlock);
 		if (fd == -1 && errno == ENOENT) {
-			if (file_dict_mkdir(dict, &error) < 0) {
-				i_error("%s", error);
+			if (file_dict_mkdir(dict, error_r) < 0)
 				return -1;
-			}
 			fd = file_dotlock_open(&file_dict_dotlock_settings,
 					       dict->path, 0, &dotlock);
 		}
 		if (fd == -1) {
-			i_error("file dict commit: file_dotlock_open(%s) failed: %m",
+			*error_r = t_strdup_printf(
+				"dict-file: file_dotlock_open(%s) failed: %m",
 				dict->path);
 			return -1;
 		}
@@ -559,8 +556,7 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	}
 
 	/* refresh once more now that we're locked */
-	if (file_dict_refresh(dict, &error) < 0) {
-		i_error("%s", error);
+	if (file_dict_refresh(dict, error_r) < 0) {
 		if (dotlock != NULL)
 			file_dotlock_delete(&dotlock);
 		else {
@@ -593,7 +589,8 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	hash_table_iterate_deinit(&iter);
 
 	if (o_stream_nfinish(output) < 0) {
-		i_error("write(%s) failed: %m", temp_path);
+		*error_r = t_strdup_printf("write(%s) failed: %s", temp_path,
+					   o_stream_get_error(output));
 		o_stream_destroy(&output);
 		i_close_fd(&fd);
 		return -1;
@@ -603,13 +600,14 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	if (dotlock != NULL) {
 		if (file_dotlock_replace(&dotlock,
 				DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) < 0) {
+			*error_r = t_strdup_printf("file_dotlock_replace() failed: %m");
 			i_close_fd(&fd);
 			return -1;
 		}
 	} else {
 		if (rename(temp_path, dict->path) < 0) {
-			i_error("rename(%s, %s) failed: %m",
-				temp_path, dict->path);
+			*error_r = t_strdup_printf("rename(%s, %s) failed: %m",
+						   temp_path, dict->path);
 			file_unlock(&lock);
 			i_close_fd(&fd);
 			return -1;
@@ -631,18 +629,19 @@ file_dict_transaction_commit(struct dict_transaction_context *_ctx,
 {
 	struct dict_transaction_memory_context *ctx =
 		(struct dict_transaction_memory_context *)_ctx;
+	struct dict_commit_result result;
 	bool atomic_inc_not_found;
-	int ret;
 
-	if (file_dict_write_changes(ctx, &atomic_inc_not_found) < 0)
-		ret = -1;
+	memset(&result, 0, sizeof(result));
+	if (file_dict_write_changes(ctx, &atomic_inc_not_found, &result.error) < 0)
+		result.ret = -1;
 	else if (atomic_inc_not_found)
-		ret = 0;
+		result.ret = 0;
 	else
-		ret = 1;
+		result.ret = 1;
 	pool_unref(&ctx->pool);
 
-	callback(ret, context);
+	callback(&result, context);
 }
 
 struct dict dict_driver_file = {

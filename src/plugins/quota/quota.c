@@ -709,7 +709,7 @@ int quota_set_resource(struct quota_root *root, const char *name,
 		       uint64_t value, const char **error_r)
 {
 	struct dict_transaction_context *trans;
-	const char *key;
+	const char *key, *error;
 
 	if (root->set->limit_set == NULL) {
 		*error_r = MAIL_ERRSTR_NO_PERMISSION;
@@ -742,7 +742,8 @@ int quota_set_resource(struct quota_root *root, const char *name,
 	trans = dict_transaction_begin(root->limit_set_dict);
 	key = t_strdup_printf(QUOTA_LIMIT_SET_PATH"%s", key);
 	dict_set(trans, key, dec2str(value));
-	if (dict_transaction_commit(&trans) < 0) {
+	if (dict_transaction_commit(&trans, &error) < 0) {
+		i_error("dict_transaction_commit() failed: %s", error);
 		*error_r = "Internal quota limit update error";
 		return -1;
 	}

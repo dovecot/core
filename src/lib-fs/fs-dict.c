@@ -191,6 +191,7 @@ static int fs_dict_write_stream_finish(struct fs_file *_file, bool success)
 	struct dict_fs_file *file = (struct dict_fs_file *)_file;
 	struct dict_fs *fs = (struct dict_fs *)_file->fs;
 	struct dict_transaction_context *trans;
+	const char *error;
 
 	o_stream_destroy(&_file->output);
 	if (!success)
@@ -217,9 +218,9 @@ static int fs_dict_write_stream_finish(struct fs_file *_file, bool success)
 		dict_set(trans, file->key, str_c(base64));
 	}
 	}
-	if (dict_transaction_commit(&trans) < 0) {
+	if (dict_transaction_commit(&trans, &error) < 0) {
 		errno = EIO;
-		fs_set_error(_file->fs, "Dict transaction commit failed");
+		fs_set_error(_file->fs, "Dict transaction commit failed: %s", error);
 		return -1;
 	}
 	return 1;
@@ -242,12 +243,13 @@ static int fs_dict_delete(struct fs_file *_file)
 	struct dict_fs_file *file = (struct dict_fs_file *)_file;
 	struct dict_fs *fs = (struct dict_fs *)_file->fs;
 	struct dict_transaction_context *trans;
+	const char *error;
 
 	trans = dict_transaction_begin(fs->dict);
 	dict_unset(trans, file->key);
-	if (dict_transaction_commit(&trans) < 0) {
+	if (dict_transaction_commit(&trans, &error) < 0) {
 		errno = EIO;
-		fs_set_error(_file->fs, "Dict transaction commit failed");
+		fs_set_error(_file->fs, "Dict transaction commit failed: %s", error);
 		return -1;
 	}
 	return 0;

@@ -44,10 +44,17 @@ struct dict_lookup_result {
 	const char *error;
 };
 
+struct dict_commit_result {
+	int ret;
+	const char *error;
+};
+
 typedef void dict_lookup_callback_t(const struct dict_lookup_result *result,
 				    void *context);
 typedef void dict_iterate_callback_t(void *context);
-typedef void dict_transaction_commit_callback_t(int ret, void *context);
+typedef void
+dict_transaction_commit_callback_t(const struct dict_commit_result *result,
+				   void *context);
 
 void dict_driver_register(struct dict *driver);
 void dict_driver_unregister(struct dict *driver);
@@ -102,7 +109,8 @@ int dict_iterate_deinit(struct dict_iterate_context **ctx, const char **error_r)
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict);
 /* Commit the transaction. Returns 1 if ok, 0 if dict_atomic_inc() was used
    on a nonexistent key, -1 if failed. */
-int dict_transaction_commit(struct dict_transaction_context **ctx);
+int dict_transaction_commit(struct dict_transaction_context **ctx,
+			    const char **error_r);
 /* Commit the transaction, but don't wait to see if it finishes successfully.
    If callback isn't NULL, it's called eventually. If it's not called by the
    time you want to deinitialize dict, call dict_flush() to wait for the

@@ -198,16 +198,18 @@ static void dict_quota_recalc_timeout(struct dict_quota_root *root)
 	(void)dict_quota_count(root, TRUE, &value);
 }
 
-static void dict_quota_update_callback(int ret, void *context)
+static void dict_quota_update_callback(const struct dict_commit_result *result,
+				       void *context)
 {
 	struct dict_quota_root *root = context;
 
-	if (ret == 0) {
+	if (result->ret == 0) {
 		/* row doesn't exist, need to recalculate it */
 		if (root->to_update == NULL)
 			root->to_update = timeout_add_short(0, dict_quota_recalc_timeout, root);
-	} else if (ret < 0) {
-		i_error("dict quota: Quota update failed, it's now desynced");
+	} else if (result->ret < 0) {
+		i_error("dict quota: Quota update failed: %s "
+			"- Quota is now desynced", result->error);
 	}
 }
 

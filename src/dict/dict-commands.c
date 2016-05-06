@@ -261,11 +261,13 @@ dict_connection_transaction_lookup_parse(struct dict_connection *conn,
 }
 
 static void
-cmd_commit_finish(struct dict_connection_cmd *cmd, int ret, bool async)
+cmd_commit_finish(struct dict_connection_cmd *cmd,
+		  const struct dict_commit_result *result, bool async)
 {
+	string_t *str = t_str_new(64);
 	char chr;
 
-	switch (ret) {
+	switch (result->ret) {
 	case 1:
 		chr = DICT_PROTOCOL_REPLY_OK;
 		break;
@@ -273,31 +275,39 @@ cmd_commit_finish(struct dict_connection_cmd *cmd, int ret, bool async)
 		chr = DICT_PROTOCOL_REPLY_NOTFOUND;
 		break;
 	default:
+		i_assert(result->error != NULL);
 		chr = DICT_PROTOCOL_REPLY_FAIL;
 		break;
 	}
-	if (async) {
-		cmd->reply = i_strdup_printf("%c%c%u\n",
-			DICT_PROTOCOL_REPLY_ASYNC_COMMIT, chr, cmd->trans_id);
-	} else {
-		cmd->reply = i_strdup_printf("%c%u\n", chr, cmd->trans_id);
+	if (async)
+		str_append_c(str, DICT_PROTOCOL_REPLY_ASYNC_COMMIT);
+	str_append_c(str, chr);
+	str_printfa(str, "%c%u", chr, cmd->trans_id);
+	if (chr == DICT_PROTOCOL_REPLY_FAIL) {
+		str_append_c(str, '\t');
+		str_append_tabescaped(str, result->error);
 	}
+	str_append_c(str, '\n');
+	cmd->reply = i_strdup(str_c(str));
+
 	dict_connection_transaction_array_remove(cmd->conn, cmd->trans_id);
 	dict_connection_cmds_flush(cmd->conn);
 }
 
-static void cmd_commit_callback(int ret, void *context)
+static void cmd_commit_callback(const struct dict_commit_result *result,
+				void *context)
 {
 	struct dict_connection_cmd *cmd = context;
 
-	cmd_commit_finish(cmd, ret, FALSE);
+	cmd_commit_finish(cmd, result, FALSE);
 }
 
-static void cmd_commit_callback_async(int ret, void *context)
+static void cmd_commit_callback_async(const struct dict_commit_result *result,
+				      void *context)
 {
 	struct dict_connection_cmd *cmd = context;
 
-	cmd_commit_finish(cmd, ret, TRUE);
+	cmd_commit_finish(cmd, result, TRUE);
 }
 
 static int

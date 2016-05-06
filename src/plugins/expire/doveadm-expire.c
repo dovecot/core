@@ -358,8 +358,8 @@ static void doveadm_expire_mail_cmd_deinit(struct doveadm_mail_cmd_context *ctx)
 		if (dict_iterate_deinit(&ectx->iter, &error) < 0)
 			i_error("expire: Dictionary iteration failed: %s", error);
 	}
-	if (dict_transaction_commit(&ectx->trans) < 0)
-		i_error("expire: Dictionary commit failed");
+	if (dict_transaction_commit(&ectx->trans, &error) < 0)
+		i_error("expire: Dictionary commit failed: %s", error);
 	dict_deinit(&ectx->dict);
 	hash_table_destroy(&ectx->user_states);
 

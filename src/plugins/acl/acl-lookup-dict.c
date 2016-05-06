@@ -217,8 +217,8 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			oldi++;
 		}
 	}
-	if (dict_transaction_commit(&dt) < 0) {
-		i_error("acl: dict commit failed");
+	if (dict_transaction_commit(&dt, &error) < 0) {
+		i_error("acl: dict commit failed: %s", error);
 		return -1;
 	}
 	return 0;

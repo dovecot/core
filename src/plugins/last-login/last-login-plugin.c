@@ -47,7 +47,9 @@ static void last_login_user_deinit(struct mail_user *user)
 	luser->module_ctx.super.deinit(user);
 }
 
-static void last_login_dict_commit(int ret ATTR_UNUSED, void *context)
+static void
+last_login_dict_commit(const struct dict_commit_result *result ATTR_UNUSED,
+		       void *context)
 {
 	struct mail_user *user = context;
 	struct last_login_user *luser = LAST_LOGIN_USER_CONTEXT(user);

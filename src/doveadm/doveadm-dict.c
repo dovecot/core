@@ -121,14 +121,15 @@ static void cmd_dict_set(int argc, char *argv[])
 {
 	struct dict *dict;
 	struct dict_transaction_context *trans;
+	const char *error;
 
 	if (cmd_dict_init(&argc, &argv, 2, 0, cmd_dict_set, &dict) < 0)
 		return;
 
 	trans = dict_transaction_begin(dict);
 	dict_set(trans, argv[0], argv[1]);
-	if (dict_transaction_commit(&trans) <= 0) {
-		i_error("dict_transaction_commit() failed");
+	if (dict_transaction_commit(&trans, &error) <= 0) {
+		i_error("dict_transaction_commit() failed: %s", error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	dict_deinit(&dict);
@@ -138,14 +139,15 @@ static void cmd_dict_unset(int argc, char *argv[])
 {
 	struct dict *dict;
 	struct dict_transaction_context *trans;
+	const char *error;
 
 	if (cmd_dict_init(&argc, &argv, 1, 0, cmd_dict_unset, &dict) < 0)
 		return;
 
 	trans = dict_transaction_begin(dict);
 	dict_unset(trans, argv[0]);
-	if (dict_transaction_commit(&trans) <= 0) {
-		i_error("dict_transaction_commit() failed");
+	if (dict_transaction_commit(&trans, &error) <= 0) {
+		i_error("dict_transaction_commit() failed: %s", error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	dict_deinit(&dict);
@@ -155,6 +157,7 @@ static void cmd_dict_inc(int argc, char *argv[])
 {
 	struct dict *dict;
 	struct dict_transaction_context *trans;
+	const char *error;
 	long long diff;
 	int ret;
 
@@ -170,9 +173,9 @@ static void cmd_dict_inc(int argc, char *argv[])
 
 	trans = dict_transaction_begin(dict);
 	dict_atomic_inc(trans, argv[0], diff);
-	ret = dict_transaction_commit(&trans);
+	ret = dict_transaction_commit(&trans, &error);
 	if (ret < 0) {
-		i_error("dict_transaction_commit() failed");
+		i_error("dict_transaction_commit() failed: %s", error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (ret == 0) {
 		i_error("%s doesn't exist", argv[0]);
