@@ -34,7 +34,4 @@ enum dict_protocol_reply {
 	DICT_PROTOCOL_REPLY_ASYNC_COMMIT = 'A'
 };
 
-const char *dict_client_escape(const char *src);
-const char *dict_client_unescape(const char *src);
-
 #endif

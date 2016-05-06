@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "llist.h"
 #include "str.h"
+#include "strescape.h"
 #include "net.h"
 #include "istream.h"
 #include "ostream.h"
@@ -81,84 +82,6 @@ struct client_dict_transaction_context {
 
 static int client_dict_connect(struct client_dict *dict, const char **error_r);
 static void client_dict_disconnect(struct client_dict *dict, const char *reason);
-
-const char *dict_client_escape(const char *src)
-{
-	const char *p;
-	string_t *dest;
-
-	/* first do a quick lookup to see if there's anything to escape.
-	   probably not. */
-	for (p = src; *p != '\0'; p++) {
-		if (*p == '\t' || *p == '\n' || *p == '\001')
-			break;
-	}
-
-	if (*p == '\0')
-		return src;
-
-	dest = t_str_new(256);
-	str_append_n(dest, src, p - src);
-
-	for (; *p != '\0'; p++) {
-		switch (*p) {
-		case '\t':
-			str_append_c(dest, '\001');
-			str_append_c(dest, 't');
-			break;
-		case '\n':
-			str_append_c(dest, '\001');
-			str_append_c(dest, 'n');
-			break;
-		case '\001':
-			str_append_c(dest, '\001');
-			str_append_c(dest, '1');
-			break;
-		default:
-			str_append_c(dest, *p);
-			break;
-		}
-	}
-	return str_c(dest);
-}
-
-const char *dict_client_unescape(const char *src)
-{
-	const char *p;
-	string_t *dest;
-
-	/* first do a quick lookup to see if there's anything to unescape.
-	   probably not. */
-	for (p = src; *p != '\0'; p++) {
-		if (*p == '\001')
-			break;
-	}
-
-	if (*p == '\0')
-		return src;
-
-	dest = t_str_new(256);
-	str_append_n(dest, src, p - src);
-	for (; *p != '\0'; p++) {
-		if (*p != '\001')
-			str_append_c(dest, *p);
-		else if (p[1] != '\0') {
-			p++;
-			switch (*p) {
-			case '1':
-				str_append_c(dest, '\001');
-				break;
-			case 't':
-				str_append_c(dest, '\t');
-				break;
-			case 'n':
-				str_append_c(dest, '\n');
-				break;
-			}
-		}
-	}
-	return str_c(dest);
-}
 
 static int client_dict_send_query(struct client_dict *dict, const char *query,
 				  const char **error_r)
@@ -387,7 +310,7 @@ client_dict_read_one_line_real(struct client_dict *dict, char **line_r,
 			result.ret = -1;
 			result.error = t_strdup_printf(
 				"dict-server returned failure: %s",
-				error != NULL ? dict_client_unescape(error) : "");
+				error != NULL ? t_str_tabunescape(error) : "");
 			break;
 		}
 		default:
@@ -639,7 +562,7 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	char *line;
 
 	query = t_strdup_printf("%c%s\n", DICT_PROTOCOL_CMD_LOOKUP,
-				dict_client_escape(key));
+				str_tabescape(key));
 	if (client_dict_send_query(dict, query, error_r) < 0)
 		return -1;
 
@@ -649,7 +572,7 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 
 	switch (*line) {
 	case DICT_PROTOCOL_REPLY_OK:
-		*value_r = p_strdup(pool, dict_client_unescape(line + 1));
+		*value_r = p_strdup(pool, t_str_tabunescape(line + 1));
 		return 1;
 	case DICT_PROTOCOL_REPLY_NOTFOUND:
 		*value_r = NULL;
@@ -657,7 +580,7 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	case DICT_PROTOCOL_REPLY_FAIL:
 		*error_r = line[1] == '\0' ? "dict-server returned failure" :
 			t_strdup_printf("dict-server returned failure: %s",
-			dict_client_unescape(line+1));
+			t_str_tabunescape(line+1));
 		return -1;
 	default:
 		*error_r = t_strdup_printf(
@@ -688,7 +611,7 @@ client_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	str_printfa(query, "%c%d", DICT_PROTOCOL_CMD_ITERATE, flags);
 	for (i = 0; paths[i] != NULL; i++) {
 		str_append_c(query, '\t');
-			str_append(query, dict_client_escape(paths[i]));
+			str_append(query, str_tabescape(paths[i]));
 	}
 	str_append_c(query, '\n');
 	if (client_dict_send_query(dict, str_c(query), &error) < 0)
@@ -743,8 +666,8 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 	*value++ = '\0';
 
-	*key_r = p_strdup(ctx->pool, dict_client_unescape(key));
-	*value_r = p_strdup(ctx->pool, dict_client_unescape(value));
+	*key_r = p_strdup(ctx->pool, t_str_tabunescape(key));
+	*value_r = p_strdup(ctx->pool, t_str_tabunescape(value));
 	return TRUE;
 }
 
@@ -859,7 +782,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 				result.ret = -1;
 				result.error = t_strdup_printf(
 					"dict-server returned failure: %s",
-					error != NULL ? dict_client_unescape(error) : "");
+					error != NULL ? t_str_tabunescape(error) : "");
 				break;
 			}
 			default:
@@ -919,8 +842,8 @@ static void client_dict_set(struct dict_transaction_context *_ctx,
 
 	query = t_strdup_printf("%c%u\t%s\t%s\n",
 				DICT_PROTOCOL_CMD_SET, ctx->id,
-				dict_client_escape(key),
-				dict_client_escape(value));
+				str_tabescape(key),
+				str_tabescape(value));
 	client_dict_try_send_transaction_query(ctx, query);
 }
 
@@ -933,7 +856,7 @@ static void client_dict_unset(struct dict_transaction_context *_ctx,
 
 	query = t_strdup_printf("%c%u\t%s\n",
 				DICT_PROTOCOL_CMD_UNSET, ctx->id,
-				dict_client_escape(key));
+				str_tabescape(key));
 	client_dict_try_send_transaction_query(ctx, query);
 }
 
@@ -946,7 +869,7 @@ static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 
 	query = t_strdup_printf("%c%u\t%s\t%lld\n",
 				DICT_PROTOCOL_CMD_ATOMIC_INC,
-				ctx->id, dict_client_escape(key), diff);
+				ctx->id, str_tabescape(key), diff);
 	client_dict_try_send_transaction_query(ctx, query);
 }
 
