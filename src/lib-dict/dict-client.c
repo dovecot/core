@@ -579,21 +579,20 @@ static int client_dict_wait(struct dict *_dict)
 	char *line;
 	int ret;
 
-	if (!dict->handshaked)
-		return -1;
-
 	while (dict->async_commits > 0) {
 		if ((ret = client_dict_read_one_line(dict, &line, &error)) < 0) {
 			i_error("%s", error);
-			return -1;
+			break;
 		}
 
 		if (ret > 0) {
 			i_error("dict-client: Unexpected reply waiting waiting for async commits: %s", line);
 			client_dict_disconnect(dict);
-			return -1;
+			break;
 		}
 	}
+	/* we should have aborted all the async calls if we disconnected */
+	i_assert(dict->async_commits == 0);
 	return 0;
 }
 
