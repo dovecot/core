@@ -671,6 +671,12 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		}
 		break;
+	case SET_TIME_MSECS:
+		if (settings_get_time_msecs(value, (unsigned int *)ptr, &error) < 0) {
+			ctx->error = p_strdup(ctx->parser_pool, error);
+			return -1;
+		}
+		break;
 	case SET_SIZE:
 		if (settings_get_size(value, (uoff_t *)ptr, &error) < 0) {
 			ctx->error = p_strdup(ctx->parser_pool, error);
@@ -1281,6 +1287,7 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 		case SET_UINT:
 		case SET_UINT_OCT:
 		case SET_TIME:
+		case SET_TIME_MSECS:
 		case SET_SIZE:
 		case SET_IN_PORT:
 		case SET_STR:
@@ -1377,6 +1384,7 @@ bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
 		case SET_UINT:
 		case SET_UINT_OCT:
 		case SET_TIME:
+		case SET_TIME_MSECS:
 		case SET_SIZE:
 		case SET_IN_PORT:
 		case SET_STR:
@@ -1449,7 +1457,8 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 	}
 	case SET_UINT:
 	case SET_UINT_OCT:
-	case SET_TIME: {
+	case SET_TIME:
+	case SET_TIME_MSECS: {
 		const unsigned int *src_uint = src;
 		unsigned int *dest_uint = dest;
 
@@ -1582,6 +1591,7 @@ settings_changes_dup(const struct setting_parser_info *info,
 		case SET_UINT:
 		case SET_UINT_OCT:
 		case SET_TIME:
+		case SET_TIME_MSECS:
 		case SET_SIZE:
 		case SET_IN_PORT:
 		case SET_STR_VARS:
