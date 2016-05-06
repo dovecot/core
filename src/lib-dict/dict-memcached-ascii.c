@@ -607,7 +607,7 @@ memcached_ascii_transaction_send(struct dict_memcached_ascii_commit_ctx *ctx)
 	reply->callback = ctx->callback;
 	reply->context = ctx->context;
 	reply->reply_count = array_count(&dict->input_states) - old_state_count;
-	return 1;
+	return 0;
 }
 
 static int
@@ -633,13 +633,19 @@ memcached_ascii_transaction_commit(struct dict_transaction_context *_ctx,
 		commit_ctx.str = str_new(default_pool, 128);
 
 		ret = memcached_ascii_transaction_send(&commit_ctx);
-		if (!async && ret >= 0) {
+		str_free(&commit_ctx.str);
+
+		if (async && ret == 0) {
+			pool_unref(&ctx->pool);
+			return 1;
+		}
+
+		if (ret == 0) {
 			if (memcached_ascii_wait(dict, &error) < 0) {
 				i_error("%s", error);
 				ret = -1;
 			}
 		}
-		str_free(&commit_ctx.str);
 	}
 	if (callback != NULL)
 		callback(ret, context);
