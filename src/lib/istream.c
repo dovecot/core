@@ -97,6 +97,11 @@ const char *i_stream_get_error(struct istream *stream)
 	return strerror(stream->stream_errno);
 }
 
+const char *i_stream_get_disconnect_reason(struct istream *stream)
+{
+	return io_stream_get_disconnect_reason(stream, NULL);
+}
+
 void i_stream_close(struct istream *stream)
 {
 	i_stream_close_full(stream, TRUE);
