@@ -402,6 +402,7 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 	struct mail_user *user = ns->user;
 	struct mail_user_vfuncs *v = user->vlast;
 	struct expire_mail_user *euser;
+	struct dict_settings dict_set;
 	struct dict *db;
 	const char *dict_uri, *error;
 
@@ -417,8 +418,11 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 		return;
 	}
 	/* we're using only shared dictionary, the username doesn't matter. */
-	if (dict_init(dict_uri, DICT_DATA_TYPE_UINT32, "",
-		      user->set->base_dir, &db, &error) < 0) {
+	memset(&dict_set, 0, sizeof(dict_set));
+	dict_set.value_type = DICT_DATA_TYPE_UINT32;
+	dict_set.username = "";
+	dict_set.base_dir = user->set->base_dir;
+	if (dict_init(dict_uri, &dict_set, &db, &error) < 0) {
 		i_error("expire plugin: dict_init(%s) failed: %s",
 			dict_uri, error);
 		return;

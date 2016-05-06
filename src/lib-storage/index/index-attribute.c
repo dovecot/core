@@ -33,6 +33,7 @@ static int
 index_storage_get_user_dict(struct mail_storage *err_storage,
 			    struct mail_user *user, struct dict **dict_r)
 {
+	struct dict_settings dict_set;
 	struct mail_namespace *ns;
 	struct mail_storage *attr_storage;
 	const char *error;
@@ -61,9 +62,10 @@ index_storage_get_user_dict(struct mail_storage *err_storage,
 		return -1;
 	}
 
-	if (dict_init(attr_storage->set->mail_attribute_dict,
-		      DICT_DATA_TYPE_STRING,
-		      user->username, user->set->base_dir,
+	memset(&dict_set, 0, sizeof(dict_set));
+	dict_set.username = user->username;
+	dict_set.base_dir = user->set->base_dir;
+	if (dict_init(attr_storage->set->mail_attribute_dict, &dict_set,
 		      &user->_attr_dict, &error) < 0) {
 		mail_storage_set_critical(err_storage,
 			"mail_attribute_dict: dict_init(%s) failed: %s",
@@ -124,8 +126,8 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type,
 	set.base_dir = storage->user->set->base_dir;
 	if (mail_user_get_home(storage->user, &set.home_dir) <= 0)
 		set.home_dir = NULL;
-	if (dict_init_full(storage->set->mail_attribute_dict, &set,
-			   &storage->_shared_attr_dict, &error) < 0) {
+	if (dict_init(storage->set->mail_attribute_dict, &set,
+		      &storage->_shared_attr_dict, &error) < 0) {
 		mail_storage_set_critical(storage,
 			"mail_attribute_dict: dict_init(%s) failed: %s",
 			storage->set->mail_attribute_dict, error);

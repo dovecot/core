@@ -52,21 +52,8 @@ void dict_driver_unregister(struct dict *driver)
 		array_free(&dict_drivers);
 }
 
-int dict_init(const char *uri, enum dict_data_type value_type,
-	      const char *username, const char *base_dir, struct dict **dict_r,
-	      const char **error_r)
-{
-	struct dict_settings set;
-
-	memset(&set, 0, sizeof(set));
-	set.value_type = value_type;
-	set.username = username;
-	set.base_dir = base_dir;
-	return dict_init_full(uri, &set, dict_r, error_r);
-}
-
-int dict_init_full(const char *uri, const struct dict_settings *set,
-		   struct dict **dict_r, const char **error_r)
+int dict_init(const char *uri, const struct dict_settings *set,
+	      struct dict **dict_r, const char **error_r)
 {
 	struct dict *dict;
 	const char *p, *name, *error;

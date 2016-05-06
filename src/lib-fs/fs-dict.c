@@ -73,7 +73,7 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 	dict_set.username = set->username;
 	dict_set.base_dir = set->base_dir;
 
-	if (dict_init_full(p, &dict_set, &fs->dict, &error) < 0) {
+	if (dict_init(p, &dict_set, &fs->dict, &error) < 0) {
 		fs_set_error(_fs, "dict_init(%s) failed: %s", args, error);
 		return -1;
 	}

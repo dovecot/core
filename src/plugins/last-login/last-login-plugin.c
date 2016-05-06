@@ -80,7 +80,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	set.base_dir = user->set->base_dir;
 	if (mail_user_get_home(user, &set.home_dir) <= 0)
 		set.home_dir = NULL;
-	if (dict_init_full(dict_value, &set, &dict, &error) < 0) {
+	if (dict_init(dict_value, &set, &dict, &error) < 0) {
 		i_error("last_login_dict: dict_init(%s) failed: %s",
 			dict_value, error);
 		return;

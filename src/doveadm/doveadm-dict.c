@@ -16,6 +16,7 @@ cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
 		   struct dict **dict_r)
 {
 	const char *getopt_args = iter_flags == NULL ? "u:" : "1Ru:V";
+	struct dict_settings dict_set;
 	struct dict *dict;
 	const char *dict_uri, *error, *username = "";
 	int c;
@@ -70,8 +71,10 @@ cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
 	}
 
 	dict_drivers_register_builtin();
-	if (dict_init(dict_uri, DICT_DATA_TYPE_STRING, username,
-		      doveadm_settings->base_dir, &dict, &error) < 0) {
+	memset(&dict_set, 0, sizeof(dict_set));
+	dict_set.username = username;
+	dict_set.base_dir = doveadm_settings->base_dir;
+	if (dict_init(dict_uri, &dict_set, &dict, &error) < 0) {
 		i_error("dict_init(%s) failed: %s", dict_uri, error);
 		doveadm_exit_code = EX_TEMPFAIL;
 		return -1;

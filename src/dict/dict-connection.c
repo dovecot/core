@@ -72,6 +72,7 @@ static int dict_connection_parse_handshake(struct dict_connection *conn,
 
 static int dict_connection_dict_init(struct dict_connection *conn)
 {
+	struct dict_settings dict_set;
 	const char *const *strlist;
 	unsigned int i, count;
 	const char *uri, *error;
@@ -89,8 +90,11 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	}
 	uri = strlist[i+1];
 
-	if (dict_init(uri, conn->value_type, conn->username,
-		      dict_settings->base_dir, &conn->dict, &error) < 0) {
+	memset(&dict_set, 0, sizeof(dict_set));
+	dict_set.value_type = conn->value_type;
+	dict_set.username = conn->username;
+	dict_set.base_dir = dict_settings->base_dir;
+	if (dict_init(uri, &dict_set, &conn->dict, &error) < 0) {
 		/* dictionary initialization failed */
 		i_error("Failed to initialize dictionary '%s': %s",
 			conn->name, error);

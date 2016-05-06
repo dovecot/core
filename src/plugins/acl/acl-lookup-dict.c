@@ -41,8 +41,12 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 
 	uri = mail_user_plugin_getenv(user, "acl_shared_dict");
 	if (uri != NULL) {
-		if (dict_init(uri, DICT_DATA_TYPE_STRING, "",
-			      user->set->base_dir, &dict->dict, &error) < 0)
+		struct dict_settings dict_set;
+
+		memset(&dict_set, 0, sizeof(dict_set));
+		dict_set.username = "";
+		dict_set.base_dir = user->set->base_dir;
+		if (dict_init(uri, &dict_set, &dict->dict, &error) < 0)
 			i_error("acl: dict_init(%s) failed: %s", uri, error);
 	} else if (user->mail_debug) {
 		i_debug("acl: No acl_shared_dict setting - "

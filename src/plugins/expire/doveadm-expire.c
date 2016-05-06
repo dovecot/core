@@ -368,6 +368,7 @@ static void doveadm_expire_mail_cmd_deinit(struct doveadm_mail_cmd_context *ctx)
 static void doveadm_expire_mail_init(struct doveadm_mail_cmd_context *ctx)
 {
 	struct doveadm_expire_mail_cmd_context *ectx;
+	struct dict_settings dict_set;
 	struct dict *dict;
 	const struct expire_query *query;
 	const char *expire_dict, *username, *value, *error;
@@ -407,8 +408,11 @@ static void doveadm_expire_mail_init(struct doveadm_mail_cmd_context *ctx)
 	if (doveadm_debug)
 		i_debug("expire: Searching only users listed in expire database");
 
-	if (dict_init(expire_dict, DICT_DATA_TYPE_UINT32, "",
-		      doveadm_settings->base_dir, &dict, &error) < 0) {
+	memset(&dict_set, 0, sizeof(dict_set));
+	dict_set.value_type = DICT_DATA_TYPE_UINT32;
+	dict_set.username = "";
+	dict_set.base_dir = doveadm_settings->base_dir;
+	if (dict_init(expire_dict, &dict_set, &dict, &error) < 0) {
 		i_error("dict_init(%s) failed, not using it: %s",
 			expire_dict, error);
 		return;

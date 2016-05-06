@@ -268,6 +268,7 @@ db_dict_settings_parse(struct db_dict_settings *set)
 
 struct dict_connection *db_dict_init(const char *config_path)
 {
+	struct dict_settings dict_set;
 	struct dict_settings_parser_ctx ctx;
 	struct dict_connection *conn;
 	const char *error;
@@ -305,8 +306,11 @@ struct dict_connection *db_dict_init(const char *config_path)
 
 	if (conn->set.uri == NULL)
 		i_fatal("dict %s: Empty uri setting", config_path);
-	if (dict_init(conn->set.uri, DICT_DATA_TYPE_STRING, "",
-		      global_auth_settings->base_dir, &conn->dict, &error) < 0)
+
+	memset(&dict_set, 0, sizeof(dict_set));
+	dict_set.username = "";
+	dict_set.base_dir = global_auth_settings->base_dir;
+	if (dict_init(conn->set.uri, &dict_set, &conn->dict, &error) < 0)
 		i_fatal("dict %s: Failed to init dict: %s", config_path, error);
 
 	conn->next = connections;
