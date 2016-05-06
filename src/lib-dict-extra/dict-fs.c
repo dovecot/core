@@ -258,7 +258,7 @@ static int fs_dict_write_changes(struct dict_transaction_memory_context *ctx)
 	return 0;
 }
 
-static int
+static void
 fs_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			   bool async ATTR_UNUSED,
 			   dict_transaction_commit_callback_t *callback,
@@ -274,9 +274,7 @@ fs_dict_transaction_commit(struct dict_transaction_context *_ctx,
 		ret = 1;
 	pool_unref(&ctx->pool);
 
-	if (callback != NULL)
-		callback(ret, context);
-	return ret;
+	callback(ret, context);
 }
 
 struct dict dict_driver_fs = {

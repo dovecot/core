@@ -187,12 +187,21 @@ struct dict_transaction_context *dict_transaction_begin(struct dict *dict)
 	return dict->v.transaction_init(dict);
 }
 
+static void dict_transaction_commit_sync_callback(int ret, void *context)
+{
+	int *ret_p = context;
+	*ret_p = ret;
+}
+
 int dict_transaction_commit(struct dict_transaction_context **_ctx)
 {
 	struct dict_transaction_context *ctx = *_ctx;
+	int ret;
 
 	*_ctx = NULL;
-	return ctx->dict->v.transaction_commit(ctx, FALSE, NULL, NULL);
+	ctx->dict->v.transaction_commit(ctx, FALSE,
+		dict_transaction_commit_sync_callback, &ret);
+	return ret;
 }
 
 void dict_transaction_commit_async(struct dict_transaction_context **_ctx,

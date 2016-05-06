@@ -577,7 +577,7 @@ redis_transaction_init(struct dict *_dict)
 	return &ctx->ctx;
 }
 
-static int
+static void
 redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 			 dict_transaction_commit_callback_t *callback,
 			 void *context)
@@ -610,14 +610,12 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 			redis_input_state_add(dict, REDIS_INPUT_STATE_EXEC_REPLY);
 		if (async) {
 			i_free(ctx);
-			return 1;
+			return;
 		}
 		redis_wait(dict);
 	}
-	if (callback != NULL)
-		callback(ret, context);
+	callback(ret, context);
 	i_free(ctx);
-	return ret;
 }
 
 static void redis_transaction_rollback(struct dict_transaction_context *_ctx)

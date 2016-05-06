@@ -23,10 +23,11 @@ struct dict_vfuncs {
 			      const char **error_r);
 
 	struct dict_transaction_context *(*transaction_init)(struct dict *dict);
-	int (*transaction_commit)(struct dict_transaction_context *ctx,
-				  bool async,
-				  dict_transaction_commit_callback_t *callback,
-				  void *context);
+	/* call the callback before returning if non-async commits */
+	void (*transaction_commit)(struct dict_transaction_context *ctx,
+				   bool async,
+				   dict_transaction_commit_callback_t *callback,
+				   void *context);
 	void (*transaction_rollback)(struct dict_transaction_context *ctx);
 
 	void (*set)(struct dict_transaction_context *ctx,

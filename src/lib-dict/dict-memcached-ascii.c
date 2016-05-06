@@ -610,7 +610,7 @@ memcached_ascii_transaction_send(struct dict_memcached_ascii_commit_ctx *ctx)
 	return 0;
 }
 
-static int
+static void
 memcached_ascii_transaction_commit(struct dict_transaction_context *_ctx,
 				   bool async,
 				   dict_transaction_commit_callback_t *callback,
@@ -637,7 +637,7 @@ memcached_ascii_transaction_commit(struct dict_transaction_context *_ctx,
 
 		if (async && ret == 0) {
 			pool_unref(&ctx->pool);
-			return 1;
+			return;
 		}
 
 		if (ret == 0) {
@@ -647,10 +647,8 @@ memcached_ascii_transaction_commit(struct dict_transaction_context *_ctx,
 			}
 		}
 	}
-	if (callback != NULL)
-		callback(ret, context);
+	callback(ret, context);
 	pool_unref(&ctx->pool);
-	return ret;
 }
 
 struct dict dict_driver_memcached_ascii = {

@@ -798,7 +798,7 @@ sql_dict_transaction_commit_callback(const char *error,
 	sql_dict_transaction_free(ctx);
 }
 
-static int
+static void
 sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 			    dict_transaction_commit_callback_t *callback,
 			    void *context)
@@ -822,7 +822,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 		ctx->async_context = context;
 		sql_transaction_commit(&ctx->sql_ctx,
 			sql_dict_transaction_commit_callback, ctx);
-		return 1;
+		return;
 	} else {
 		if (sql_transaction_commit_s(&ctx->sql_ctx, &error) < 0) {
 			i_error("sql dict: commit failed: %s", error);
@@ -834,9 +834,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	}
 	sql_dict_transaction_free(ctx);
 
-	if (callback != NULL)
-		callback(ret, context);
-	return ret;
+	callback(ret, context);
 }
 
 static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)

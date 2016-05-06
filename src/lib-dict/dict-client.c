@@ -768,7 +768,7 @@ static void dict_async_input(struct client_dict *dict)
 	}
 }
 
-static int
+static void
 client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			       bool async,
 			       dict_transaction_commit_callback_t *callback,
@@ -799,6 +799,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 				dict->io = io_add(dict->fd, IO_READ,
 						  dict_async_input, dict);
 			}
+			return;
 		} else {
 			/* sync commit, read reply */
 			if (client_dict_read_line(dict, &line, &error) < 0) {
@@ -830,14 +831,12 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			}
 		}
 	}
+	DLLIST_REMOVE(&dict->transactions, ctx);
 
-	if (ret < 0 || !async) {
-		DLLIST_REMOVE(&dict->transactions, ctx);
-		i_free(ctx);
+	callback(ret, context);
+	i_free(ctx);
 
-		client_dict_add_timeout(dict);
-	}
-	return ret;
+	client_dict_add_timeout(dict);
 }
 
 static void
