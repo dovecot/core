@@ -359,7 +359,26 @@ int connection_input_read(struct connection *conn)
 
 const char *connection_disconnect_reason(struct connection *conn)
 {
-	return io_stream_get_disconnect_reason(conn->input, conn->output);
+	switch (conn->disconnect_reason) {
+	case CONNECTION_DISCONNECT_DEINIT:
+		return "Deinitializing";
+	case CONNECTION_DISCONNECT_CONNECT_TIMEOUT: {
+		unsigned int msecs =
+			conn->list->set.client_connect_timeout_msecs;
+		return t_strdup_printf("connect() timed out in %u.%03u secs",
+				       msecs/1000, msecs%1000);
+	}
+	case CONNECTION_DISCONNECT_IDLE_TIMEOUT:
+		return "Idle timeout";
+	case CONNECTION_DISCONNECT_CONN_CLOSED:
+		if (conn->input == NULL)
+			return t_strdup_printf("connect() failed: %m");
+		/* fall through */
+	case CONNECTION_DISCONNECT_NOT:
+	case CONNECTION_DISCONNECT_BUFFER_FULL:
+		return io_stream_get_disconnect_reason(conn->input, conn->output);
+	}
+	i_unreached();
 }
 
 void connection_switch_ioloop(struct connection *conn)
