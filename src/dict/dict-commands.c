@@ -90,7 +90,8 @@ cmd_lookup_callback(const struct dict_lookup_result *result, void *context)
 		cmd->reply = i_strdup_printf("%c\n", DICT_PROTOCOL_REPLY_NOTFOUND);
 	} else {
 		i_error("%s", result->error);
-		cmd->reply = i_strdup_printf("%c\n", DICT_PROTOCOL_REPLY_FAIL);
+		cmd->reply = i_strdup_printf("%c%s\n", DICT_PROTOCOL_REPLY_FAIL,
+					     str_tabescape(result->error));
 	}
 	dict_connection_cmds_flush(cmd->conn);
 }

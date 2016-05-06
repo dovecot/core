@@ -621,7 +621,9 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 		*value_r = NULL;
 		return 0;
 	case DICT_PROTOCOL_REPLY_FAIL:
-		*error_r = "dict-server returned failure";
+		*error_r = line[1] == '\0' ? "dict-server returned failure" :
+			t_strdup_printf("dict-server returned failure: %s",
+			dict_client_unescape(line+1));
 		return -1;
 	default:
 		*error_r = t_strdup_printf(
