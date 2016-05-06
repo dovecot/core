@@ -18,7 +18,7 @@
    handle only one client at a time. This is why the default timeout is zero,
    so that there won't be many dict processes just doing nothing. Zero means
    that the socket is disconnected immediately after returning to ioloop. */
-#define DICT_CLIENT_TIMEOUT_MSECS 0
+#define DICT_CLIENT_DEFAULT_TIMEOUT_MSECS 0
 
 /* Abort dict lookup after this many seconds. */
 #define DICT_CLIENT_READ_TIMEOUT_SECS 30
@@ -40,6 +40,7 @@ struct client_dict {
 	struct ostream *output;
 	struct io *io;
 	struct timeout *to_idle;
+	unsigned int idle_msecs;
 
 	struct client_dict_transaction_context *transactions;
 
@@ -409,11 +410,10 @@ static void client_dict_timeout(struct client_dict *dict)
 static void client_dict_add_timeout(struct client_dict *dict)
 {
 	if (dict->to_idle != NULL) {
-#if DICT_CLIENT_TIMEOUT_MSECS > 0
-		timeout_reset(dict->to_idle);
-#endif
+		if (dict->idle_msecs > 0)
+			timeout_reset(dict->to_idle);
 	} else if (client_dict_is_finished(dict)) {
-		dict->to_idle = timeout_add(DICT_CLIENT_TIMEOUT_MSECS,
+		dict->to_idle = timeout_add(dict->idle_msecs,
 					    client_dict_timeout, dict);
 	}
 }
@@ -509,10 +509,23 @@ client_dict_init(struct dict *driver, const char *uri,
 		 struct dict **dict_r, const char **error_r)
 {
 	struct client_dict *dict;
-	const char *dest_uri;
+	const char *p, *dest_uri;
+	unsigned int idle_msecs = DICT_CLIENT_DEFAULT_TIMEOUT_MSECS;
 	pool_t pool;
 
-	/* uri = [<path>] ":" <uri> */
+	/* uri = [idle_msecs=<n>:] [<path>] ":" <uri> */
+	if (strncmp(uri, "idle_msecs=", 11) == 0) {
+		p = strchr(uri+14, ':');
+		if (p == NULL) {
+			*error_r = t_strdup_printf("Invalid URI: %s", uri);
+			return -1;
+		}
+		if (str_to_uint(t_strdup_until(uri+14, p), &idle_msecs) < 0) {
+			*error_r = "Invalid idle_msecs";
+			return -1;
+		}
+		uri = p+1;
+	}
 	dest_uri = strchr(uri, ':');
 	if (dest_uri == NULL) {
 		*error_r = t_strdup_printf("Invalid URI: %s", uri);
@@ -525,6 +538,7 @@ client_dict_init(struct dict *driver, const char *uri,
 	dict->dict = *driver;
 	dict->value_type = set->value_type;
 	dict->username = p_strdup(pool, set->username);
+	dict->idle_msecs = idle_msecs;
 
 	dict->fd = -1;
 
