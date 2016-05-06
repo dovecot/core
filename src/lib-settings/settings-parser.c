@@ -347,10 +347,10 @@ get_octal(struct setting_parser_context *ctx, const char *value,
 	return 0;
 }
 
-int settings_get_time(const char *str, unsigned int *secs_r,
-		      const char **error_r)
+static int settings_get_time_full(const char *str, unsigned int *interval_r,
+				  bool milliseconds, const char **error_r)
 {
-	uintmax_t num, multiply = 1;
+	uintmax_t num, multiply = milliseconds ? 1000 : 1;
 	const char *p;
 
 	if (str_parse_uintmax(str, &num, &p) < 0) {
@@ -360,29 +360,47 @@ int settings_get_time(const char *str, unsigned int *secs_r,
 	while (*p == ' ') p++;
 	switch (i_toupper(*p)) {
 	case 'S':
-		multiply = 1;
+		multiply *= 1;
 		if (strncasecmp(p, "secs", strlen(p)) == 0 ||
 		    strncasecmp(p, "seconds", strlen(p)) == 0)
 			p = "";
 		break;
 	case 'M':
-		multiply = 60;
+		multiply *= 60;
 		if (strncasecmp(p, "mins", strlen(p)) == 0 ||
 		    strncasecmp(p, "minutes", strlen(p)) == 0)
 			p = "";
+		else if (strncasecmp(p, "msecs", strlen(p)) == 0 ||
+			 strncasecmp(p, "mseconds", strlen(p)) == 0 ||
+			 strncasecmp(p, "millisecs", strlen(p)) == 0 ||
+			 strncasecmp(p, "milliseconds", strlen(p)) == 0) {
+			if (milliseconds || (num % 1000) == 0) {
+				if (!milliseconds) {
+					/* allow ms also for seconds, as long
+					   as it's divisible by seconds */
+					num /= 1000;
+				}
+				multiply = 1;
+				p = "";
+				break;
+			}
+			*error_r = t_strdup_printf(
+				"Milliseconds not supported for this setting: %s", str);
+			return -1;
+		}
 		break;
 	case 'H':
-		multiply = 60*60;
+		multiply *= 60*60;
 		if (strncasecmp(p, "hours", strlen(p)) == 0)
 			p = "";
 		break;
 	case 'D':
-		multiply = 60*60*24;
+		multiply *= 60*60*24;
 		if (strncasecmp(p, "days", strlen(p)) == 0)
 			p = "";
 		break;
 	case 'W':
-		multiply = 60*60*24*7;
+		multiply *= 60*60*24*7;
 		if (strncasecmp(p, "weeks", strlen(p)) == 0)
 			p = "";
 		break;
@@ -397,8 +415,20 @@ int settings_get_time(const char *str, unsigned int *secs_r,
 				       str, NULL);
 		return -1;
 	}
-	*secs_r = num * multiply;
+	*interval_r = num * multiply;
 	return 0;
+}
+
+int settings_get_time(const char *str, unsigned int *secs_r,
+		      const char **error_r)
+{
+	return settings_get_time_full(str, secs_r, FALSE, error_r);
+}
+
+int settings_get_time_msecs(const char *str, unsigned int *msecs_r,
+			    const char **error_r)
+{
+	return settings_get_time_full(str, msecs_r, TRUE, error_r);
 }
 
 int settings_get_size(const char *str, uoff_t *bytes_r,
