@@ -64,9 +64,8 @@ int dict_init(const char *uri, const struct dict_settings *set,
 	      struct dict **dict_r, const char **error_r);
 /* Close dictionary. */
 void dict_deinit(struct dict **dict);
-/* Wait for all pending asynchronous operations to finish.
-   Returns 0 if ok, -1 if error. */
-int dict_wait(struct dict *dict);
+/* Wait for all pending asynchronous operations to finish. */
+void dict_wait(struct dict *dict);
 
 /* Lookup value for key. Set it to NULL if it's not found.
    Returns 1 if found, 0 if not found and -1 if lookup failed. */

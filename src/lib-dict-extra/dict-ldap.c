@@ -232,8 +232,8 @@ void ldap_dict_deinit(struct dict *dict)
 	pool_unref(&ctx->pool);
 }
 
-static
-int ldap_dict_wait(struct dict *dict) {
+static void ldap_dict_wait(struct dict *dict)
+{
 	struct ldap_dict *ctx = (struct ldap_dict *)dict;
 
 	i_assert(ctx->ioloop == NULL);
@@ -251,8 +251,6 @@ int ldap_dict_wait(struct dict *dict) {
 	io_loop_set_current(ctx->ioloop);
 	io_loop_destroy(&ctx->ioloop);
 	ctx->prev_ioloop = NULL;
-
-	return 0;
 }
 
 static
@@ -309,10 +307,7 @@ ldap_dict_lookup(struct dict *dict, pool_t pool, const char *key,
 
 	ldap_dict_lookup_async(dict, key, ldap_dict_lookup_done, &res);
 
-	if (ldap_dict_wait(dict) < 0) {
-		*error_r = "ldap: Communication failure";
-		return -1;
-	}
+	ldap_dict_wait(dict);
 	if (res.ret < 0) {
 		*error_r = res.error;
 		return -1;

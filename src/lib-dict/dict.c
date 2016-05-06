@@ -88,9 +88,10 @@ void dict_deinit(struct dict **_dict)
 	dict->v.deinit(dict);
 }
 
-int dict_wait(struct dict *dict)
+void dict_wait(struct dict *dict)
 {
-	return dict->v.wait == NULL ? 1 : dict->v.wait(dict);
+	if (dict->v.wait != NULL)
+		dict->v.wait(dict);
 }
 
 static bool dict_key_prefix_is_valid(const char *key)

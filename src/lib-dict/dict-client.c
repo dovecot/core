@@ -572,7 +572,7 @@ static void client_dict_deinit(struct dict *_dict)
 	pool_unref(&dict->pool);
 }
 
-static int client_dict_wait(struct dict *_dict)
+static void client_dict_wait(struct dict *_dict)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
 	const char *error;
@@ -593,7 +593,6 @@ static int client_dict_wait(struct dict *_dict)
 	}
 	/* we should have aborted all the async calls if we disconnected */
 	i_assert(dict->async_commits == 0);
-	return 0;
 }
 
 static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,

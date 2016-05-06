@@ -242,10 +242,10 @@ static void dict_quota_flush(struct quota_root *_root)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 
-	(void)dict_wait(root->dict);
+	dict_wait(root->dict);
 	if (root->to_update != NULL) {
 		dict_quota_recalc_timeout(root);
-		(void)dict_wait(root->dict);
+		dict_wait(root->dict);
 	}
 }
 

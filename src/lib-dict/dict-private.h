@@ -8,7 +8,7 @@ struct dict_vfuncs {
 		    const struct dict_settings *set,
 		    struct dict **dict_r, const char **error_r);
 	void (*deinit)(struct dict *dict);
-	int (*wait)(struct dict *dict);
+	void (*wait)(struct dict *dict);
 
 	int (*lookup)(struct dict *dict, pool_t pool,
 		      const char *key, const char **value_r,

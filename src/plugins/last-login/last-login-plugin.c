@@ -30,7 +30,7 @@ static void last_login_dict_deinit(struct mail_user *user)
 	struct last_login_user *luser = LAST_LOGIN_USER_CONTEXT(user);
 
 	if (luser->dict != NULL) {
-		(void)dict_wait(luser->dict);
+		dict_wait(luser->dict);
 		dict_deinit(&luser->dict);
 	}
 	/* remove timeout after dict_wait(), which may trigger

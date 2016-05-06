@@ -111,10 +111,9 @@ static void sql_dict_deinit(struct dict *_dict)
 	pool_unref(&dict->pool);
 }
 
-static int sql_dict_wait(struct dict *dict ATTR_UNUSED)
+static void sql_dict_wait(struct dict *dict ATTR_UNUSED)
 {
 	/* FIXME: lib-sql doesn't support this yet */
-	return 0;
 }
 
 static bool
