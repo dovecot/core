@@ -76,6 +76,14 @@ static void config_export_time(string_t *str, unsigned int stamp)
 	str_printfa(str, "%u %s", stamp, suffix);
 }
 
+static void config_export_time_msecs(string_t *str, unsigned int stamp_msecs)
+{
+	if ((stamp_msecs % 1000) == 0)
+		config_export_time(str, stamp_msecs/1000);
+	else
+		str_printfa(str, "%u ms", stamp_msecs);
+}
+
 bool config_export_type(string_t *str, const void *value,
 			const void *default_value,
 			enum setting_type type, bool dump_default,
@@ -98,7 +106,8 @@ bool config_export_type(string_t *str, const void *value,
 	}
 	case SET_UINT:
 	case SET_UINT_OCT:
-	case SET_TIME: {
+	case SET_TIME:
+	case SET_TIME_MSECS: {
 		const unsigned int *val = value, *dval = default_value;
 
 		if (dump_default || dval == NULL || *val != *dval) {
@@ -108,6 +117,9 @@ bool config_export_type(string_t *str, const void *value,
 				break;
 			case SET_TIME:
 				config_export_time(str, *val);
+				break;
+			case SET_TIME_MSECS:
+				config_export_time_msecs(str, *val);
 				break;
 			default:
 				str_printfa(str, "%u", *val);
@@ -252,6 +264,7 @@ settings_export(struct config_export_context *ctx,
 		case SET_UINT:
 		case SET_UINT_OCT:
 		case SET_TIME:
+		case SET_TIME_MSECS:
 		case SET_IN_PORT:
 		case SET_STR_VARS:
 		case SET_STR:
