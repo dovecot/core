@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "lib-signals.h"
 #include "array.h"
+#include "hash.h"
 #include "ioloop.h"
 #include "eacces-error.h"
 #include "net.h"
@@ -10,6 +11,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "time-util.h"
 
 #include "auth-master-private.h"
 
@@ -60,6 +62,7 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 	conn = p_new(pool, struct auth_master_connection, 1);
 	conn->pool = pool;
 	conn->refcount = 1;
+	conn->ioloop = current_ioloop;
 	conn->auth_socket_path = p_strdup(pool, auth_socket_path);
 	conn->flags = flags;
 	conn->timeout_msecs = 1000*MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
@@ -79,6 +82,13 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 
 	if ((flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) != 0)
 		conn->ioloop = current_ioloop;
+
+	hash_table_create_direct(&conn->requests, pool, 0);
+
+	/* Try to use auth request ID numbers from wider range to ease
+	   debugging. */
+	conn->id_counter = i_rand_limit(32767) * 131072U;
+
 	return conn;
 }
 
@@ -97,13 +107,16 @@ auth_master_connection_failure(struct auth_master_connection *conn,
 	conn->connected = FALSE;
 	conn->sent_handshake = FALSE;
 
-	timeout_remove(&conn->to);
+	timeout_remove(&conn->to_connect);
+	timeout_remove(&conn->to_request);
+	timeout_remove(&conn->to_idle);
 
 	while (conn->requests_head != NULL) {
 		req = conn->requests_head;
 
 		auth_master_request_fail(&req, reason);
 	}
+	i_assert(hash_table_count(conn->requests) == 0);
 
 	if (conn->ioloop != NULL && conn->waiting)
 		io_loop_stop(conn->ioloop);
@@ -136,6 +149,7 @@ auth_master_unref(struct auth_master_connection **_conn)
 	auth_master_disconnect(conn);
 	connection_deinit(&conn->conn);
 	connection_list_deinit(&clist);
+	hash_table_destroy(&conn->requests);
 	pool_unref(&conn->pool);
 }
 
@@ -187,17 +201,68 @@ static void auth_master_destroy(struct connection *_conn)
 	}
 }
 
-static void auth_request_timeout(struct auth_master_connection *conn)
+static void
+auth_master_connection_timeout(struct auth_master_connection *conn)
 {
-	if (!connection_handshake_received(&conn->conn)) {
-		e_error(conn->conn.event, "Connecting timed out");
-		auth_master_connection_failure(conn, "Connecting timed out");
+	struct auth_master_request *req;
+	const char *reason;
+
+	timeout_remove(&conn->to_request);
+
+	conn->in_timeout = TRUE;
+	req = conn->requests_head;
+	while (req != NULL && auth_master_request_get_timeout_msecs(req) == 0) {
+		struct auth_master_request *req_next = req->next;
+		int msecs;
+
+		if (req->in_callback) {
+			req = req_next;
+			continue;
+		}
+
+		msecs = timeval_diff_msecs(&ioloop_timeval, &req->create_stamp);
+		reason = t_strdup_printf(
+			"Auth server request timed out after %u.%03u secs",
+			 msecs / 1000, msecs % 1000);
+		auth_master_request_fail(&req, reason);
+
+		req = req_next;
+	}
+	conn->in_timeout = FALSE;
+
+	auth_master_connection_update_timeout(conn);
+}
+
+void auth_master_connection_update_timeout(struct auth_master_connection *conn)
+{
+	struct auth_master_request *req;
+
+	if (conn->in_timeout)
+		return;
+	if (!conn->connected) {
+		i_assert(conn->to_request == NULL);
 		return;
 	}
 
-	e_error(conn->conn.event, "Request timed out");
-	struct auth_master_request *req = conn->requests_head;
-	auth_master_request_abort(&req);
+	req = conn->requests_head;
+	while (req != NULL && req->in_callback)
+		req = req->next;
+
+	timeout_remove(&conn->to_request);
+	if (req == NULL)
+		return;
+
+	conn->to_request = timeout_add_to(
+		conn->ioloop, auth_master_request_get_timeout_msecs(req),
+		auth_master_connection_timeout, conn);
+}
+
+void auth_master_connection_start_timeout(struct auth_master_connection *conn)
+{
+	if (conn->to_request != NULL || conn->to_connect != NULL)
+		return;
+
+	auth_master_connection_update_timeout(conn);
 }
 
 static int
@@ -233,6 +298,10 @@ auth_master_handshake_line(struct connection *_conn, const char *line)
 			"Authentication server sent invalid SPID: %s", line);
 		return -1;
 	}
+
+	/* Handshake complete */
+	timeout_remove(&conn->to_connect);
+	auth_master_connection_update_timeout(conn);
 	return 1;
 }
 
@@ -256,10 +325,11 @@ auth_master_handle_input(struct auth_master_connection *conn,
 		return -1;
 	}
 
-	req = conn->requests_head;
-	if (req == NULL || id != req->id) {
-		e_error(conn->conn.event,
-			"Auth server sent reply with unknown ID %u", id);
+	req = hash_table_lookup(conn->requests, POINTER_CAST(id));
+	if (req == NULL) {
+		e_debug(conn->conn.event,
+			"Auth server sent reply with unknown ID %u "
+			"(this request was probably aborted)", id);
 		return -1;
 	}
 
@@ -316,10 +386,29 @@ static void auth_master_connected(struct connection *_conn, bool success)
 	conn->connected = TRUE;
 }
 
+static void auth_master_connect_timeout(struct auth_master_connection *conn)
+{
+	e_error(conn->conn.event, "Connecting timed out");
+	auth_master_connection_failure(conn, "Connecting timed out");
+}
+
+static void
+auth_master_delayed_connect_failure(struct auth_master_connection *conn)
+{
+	e_debug(conn->conn.event, "Delayed connect failure");
+
+	i_assert(conn->to_connect != NULL);
+	timeout_remove(&conn->to_connect);
+	auth_master_connection_failure(conn, "Connect failed");
+}
+
 int auth_master_connect(struct auth_master_connection *conn)
 {
 	if (conn->connected)
 		return 0;
+
+	i_assert(conn->to_connect == NULL);
+	i_assert(conn->to_request == NULL);
 
 	if (conn->ioloop != NULL)
 		connection_switch_ioloop_to(&conn->conn, conn->ioloop);
@@ -332,11 +421,37 @@ int auth_master_connect(struct auth_master_connection *conn)
 			e_error(conn->conn.event, "connect(%s) failed: %m",
 				conn->auth_socket_path);
 		}
+		conn->to_connect = timeout_add_to(
+			conn->ioloop, 0,
+			auth_master_delayed_connect_failure, conn);
 		return -1;
 	}
 
-	connection_input_halt(&conn->conn);
+	conn->to_connect = timeout_add_to(conn->ioloop, conn->timeout_msecs,
+					  auth_master_connect_timeout, conn);
 	return 0;
+}
+void auth_master_switch_ioloop_to(struct auth_master_connection *conn,
+				  struct ioloop *ioloop)
+{
+	conn->ioloop = ioloop;
+
+	if (conn->to_connect != NULL) {
+		conn->to_connect =
+			io_loop_move_timeout_to(ioloop, &conn->to_connect);
+	}
+	if (conn->to_request != NULL) {
+		conn->to_request =
+			io_loop_move_timeout_to(ioloop, &conn->to_request);
+	}
+	if (conn->to_idle != NULL)
+		conn->to_idle = io_loop_move_timeout_to(ioloop, &conn->to_idle);
+	connection_switch_ioloop_to(&conn->conn, conn->ioloop);
+}
+
+void auth_master_switch_ioloop(struct auth_master_connection *conn)
+{
+	auth_master_switch_ioloop_to(conn, current_ioloop);
 }
 
 static void auth_master_idle_timeout(struct auth_master_connection *conn)
@@ -344,47 +459,23 @@ static void auth_master_idle_timeout(struct auth_master_connection *conn)
 	auth_master_disconnect(conn);
 }
 
-void auth_master_set_io(struct auth_master_connection *conn)
+void auth_master_check_idle(struct auth_master_connection *conn)
 {
-	if (conn->ioloop != NULL)
+	if ((conn->flags & AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT) != 0)
 		return;
-
-	timeout_remove(&conn->to);
-
-	conn->prev_ioloop = current_ioloop;
-	conn->ioloop = io_loop_create();
-	connection_switch_ioloop_to(&conn->conn, conn->ioloop);
-	if (conn->connected)
-		connection_input_resume(&conn->conn);
-
-	conn->to = timeout_add_to(conn->ioloop, conn->timeout_msecs,
-				  auth_request_timeout, conn);
+	if (current_ioloop == NULL)
+		return;
+	i_assert(conn->to_idle == NULL);
+	if (conn->requests_head != NULL)
+		return;
+	conn->to_idle = timeout_add_to(conn->ioloop,
+				       1000 * AUTH_MASTER_IDLE_SECS,
+				       auth_master_idle_timeout, conn);
 }
 
-void auth_master_unset_io(struct auth_master_connection *conn)
+void auth_master_stop_idle(struct auth_master_connection *conn)
 {
-	if (conn->ioloop == NULL)
-		return;
-
-	if (conn->prev_ioloop != NULL) {
-		io_loop_set_current(conn->prev_ioloop);
-	}
-	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) == 0) {
-		io_loop_set_current(conn->ioloop);
-		connection_switch_ioloop_to(&conn->conn, conn->ioloop);
-		connection_input_halt(&conn->conn);
-		timeout_remove(&conn->to);
-		io_loop_destroy(&conn->ioloop);
-	}
-
-	if ((conn->flags & AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT) == 0) {
-		if (conn->prev_ioloop == NULL)
-			auth_master_disconnect(conn);
-		else if (conn->to == NULL) {
-			conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
-					       auth_master_idle_timeout, conn);
-		}
-	}
+	timeout_remove(&conn->to_idle);
 }
 
 /*
@@ -848,8 +939,6 @@ auth_user_list_reply_callback(const struct auth_master_reply *reply,
 {
 	const char *const *args = reply->args;
 
-	timeout_reset(ctx->conn->to);
-
 	if (reply->errormsg != NULL) {
 		e_error(ctx->event, "User listing failed: %s", reply->errormsg);
 		ctx->req = NULL;
@@ -892,6 +981,8 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 	struct auth_master_user_list_ctx *ctx;
 	string_t *args;
 
+	i_assert(auth_master_request_count(conn) == 0);
+
 	ctx = i_new(struct auth_master_user_list_ctx, 1);
 	ctx->conn = conn;
 	ctx->username = str_new(default_pool, 128);
@@ -917,8 +1008,8 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 		ctx->failed = TRUE;
 	else
 		auth_master_request_set_event(ctx->req, ctx->event);
-	if (conn->prev_ioloop != NULL)
-		io_loop_set_current(conn->prev_ioloop);
+
+	connection_input_halt(&conn->conn);
 
 	return ctx;
 }
@@ -936,22 +1027,25 @@ auth_master_user_do_list_next(struct auth_master_user_list_ctx *ctx)
 	str_truncate(ctx->username, 0);
 
 	/* try to read already buffered input */
-	line = i_stream_next_line(conn->conn.input);
-	if (line != NULL) {
-		T_BEGIN {
-			conn->conn.v.input_line(&conn->conn, line);
-		} T_END;
+	if (conn->to_connect == NULL) {
+		line = i_stream_next_line(conn->conn.input);
+		if (line != NULL) {
+			T_BEGIN {
+				conn->conn.v.input_line(&conn->conn, line);
+			} T_END;
+		}
+		if (ctx->finished || ctx->failed)
+			return NULL;
+		if (str_len(ctx->username) > 0)
+			return str_c(ctx->username);
 	}
-	if (ctx->finished || ctx->failed)
-		return NULL;
-	if (str_len(ctx->username) > 0)
-		return str_c(ctx->username);
 
 	/* wait for more data */
-	io_loop_set_current(conn->ioloop);
+	if (!conn->conn.disconnected)
+		connection_input_resume(&conn->conn);
 	if (auth_master_request_wait(ctx->req))
 		ctx->req = NULL;
-	io_loop_set_current(conn->prev_ioloop);
+	connection_input_halt(&conn->conn);
 
 	if (ctx->finished || ctx->failed)
 		return NULL;
@@ -973,6 +1067,7 @@ const char *auth_master_user_list_next(struct auth_master_user_list_ctx *ctx)
 int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 {
 	struct auth_master_user_list_ctx *ctx = *_ctx;
+	struct auth_master_connection *conn = ctx->conn;
 	int ret = ctx->failed ? -1 : 0;
 
 	*_ctx = NULL;
@@ -991,6 +1086,9 @@ int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 	}
 
 	auth_master_request_abort(&ctx->req);
+	if (!conn->conn.disconnected)
+		connection_input_resume(&conn->conn);
+
 	str_free(&ctx->username);
 	event_unref(&ctx->event);
 	i_free(ctx);

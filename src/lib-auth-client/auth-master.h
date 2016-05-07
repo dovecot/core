@@ -3,6 +3,7 @@
 
 #include "net.h"
 
+struct ioloop;
 struct auth_master_request;
 struct auth_master_reply;
 struct auth_master_connection;
@@ -52,6 +53,8 @@ void auth_master_request_set_event(struct auth_master_request *req,
 void auth_master_request_abort(struct auth_master_request **_req);
 bool auth_master_request_wait(struct auth_master_request *req);
 
+unsigned int auth_master_request_count(struct auth_master_connection *conn);
+
 /*
  * Connection
  */
@@ -68,6 +71,10 @@ void auth_master_set_timeout(struct auth_master_connection *conn,
 			     unsigned int msecs);
 /* Returns the auth_socket_path */
 const char *auth_master_get_socket_path(struct auth_master_connection *conn);
+
+void auth_master_switch_ioloop_to(struct auth_master_connection *conn,
+				  struct ioloop *ioloop);
+void auth_master_switch_ioloop(struct auth_master_connection *conn);
 
 /*
  * Lookup common

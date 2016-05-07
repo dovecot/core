@@ -12,7 +12,15 @@
 #define MAX_INBUF_SIZE 8192
 #define MAX_OUTBUF_SIZE 1024
 
+enum auth_master_request_state {
+	AUTH_MASTER_REQUEST_STATE_SENT = 0,
+	AUTH_MASTER_REQUEST_STATE_REPLIED,
+	AUTH_MASTER_REQUEST_STATE_FINISHED,
+	AUTH_MASTER_REQUEST_STATE_ABORTED,
+};
+
 struct auth_master_request {
+	int refcount;
 	pool_t pool;
 	struct event *event;
 
@@ -24,10 +32,14 @@ struct auth_master_request {
 	size_t args_size;
 
 	unsigned int id;
+	struct timeval create_stamp;
+
+	enum auth_master_request_state state;
 
 	auth_master_request_callback_t *callback;
 	void *context;
 
+	bool sent:1;
 	bool aborted:1;
 	bool removed:1;
 	bool in_callback:1;
@@ -42,11 +54,11 @@ struct auth_master_connection {
 	const char *auth_socket_path;
 	enum auth_master_flags flags;
 
+	struct timeout *to_connect, *to_idle, *to_request;
 	struct ioloop *ioloop, *prev_ioloop;
-	struct timeout *to;
 
 	unsigned int id_counter;
-
+	HASH_TABLE(void *, struct auth_master_request *) requests;
 	struct auth_master_request *requests_head, *requests_tail;
 	unsigned int requests_count;
 
@@ -54,6 +66,7 @@ struct auth_master_connection {
 
 	pid_t auth_server_pid;
 
+	bool in_timeout:1;
 	bool connected:1;
 	bool sent_handshake:1;
 	bool waiting:1;
@@ -62,6 +75,9 @@ struct auth_master_connection {
 /*
  * Request
  */
+
+unsigned int
+auth_master_request_get_timeout_msecs(struct auth_master_request *req);
 
 int auth_master_request_got_reply(struct auth_master_request **_req,
 				  const char *reply, const char *const *args);
@@ -72,7 +88,10 @@ void auth_master_request_fail(struct auth_master_request **_req,
  * Connection
  */
 
-void auth_master_set_io(struct auth_master_connection *conn);
-void auth_master_unset_io(struct auth_master_connection *conn);
+void auth_master_check_idle(struct auth_master_connection *conn);
+void auth_master_stop_idle(struct auth_master_connection *conn);
+
+void auth_master_connection_update_timeout(struct auth_master_connection *conn);
+void auth_master_connection_start_timeout(struct auth_master_connection *conn);
 
 #endif

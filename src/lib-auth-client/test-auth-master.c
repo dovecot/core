@@ -454,7 +454,9 @@ static bool test_client_passdb_timeout(void)
 
 	ret = test_client_passdb_lookup_simple("holger", FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
-	test_assert(error == NULL);
+	test_assert(error != NULL &&
+		    str_begins_with(
+			error, "Auth server request timed out after"));
 
 	return FALSE;
 }
@@ -500,7 +502,6 @@ static void test_passdb_fail(void)
 	test_end();
 
 	test_begin("passdb timeout");
-	test_expect_error_string("Request timed out");
 	test_run_client_server(test_client_passdb_timeout,
 			       test_server_passdb_fail);
 	test_end();
@@ -641,7 +642,9 @@ static bool test_client_userdb_timeout(void)
 
 	ret = test_client_userdb_lookup_simple("holger", FALSE, &error);
 	test_out("run (ret == -1)", ret == -1);
-	test_assert(error == NULL);
+	test_assert(error != NULL &&
+		    str_begins_with(
+			error, "Auth server request timed out after"));
 
 	return FALSE;
 }
@@ -687,7 +690,6 @@ static void test_userdb_fail(void)
 	test_end();
 
 	test_begin("userdb timeout");
-	test_expect_error_string("Request timed out");
 	test_run_client_server(test_client_userdb_timeout,
 			       test_server_userdb_fail);
 	test_end();
