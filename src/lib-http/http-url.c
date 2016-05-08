@@ -79,8 +79,7 @@ static bool http_url_parse_authority(struct http_url_parser *url_parser)
 		}
 	}
 	if (url != NULL) {
-		url->host_name = p_strdup(parser->pool, auth.host.name);
-		url->host_ip = auth.host.ip;
+		uri_host_copy(parser->pool, &url->host, &auth.host);
 		url->port = auth.port;
 		url->user = p_strdup(parser->pool, user);
 		url->password = p_strdup(parser->pool, password);
@@ -232,8 +231,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 			parser->error = "Relative HTTP URL not allowed";
 			return FALSE;
 		} else if (!have_authority && url != NULL) {
-			url->host_name = p_strdup_empty(parser->pool, base->host_name); 
-			url->host_ip = base->host_ip;
+			uri_host_copy(parser->pool, &url->host, &base->host);
 			url->port = base->port;
 			url->have_ssl = base->have_ssl;
 			url->user = p_strdup_empty(parser->pool, base->user);
@@ -381,8 +379,7 @@ int http_url_request_target_parse(const char *request_target,
 
 	if (request_target[0] == '*' && request_target[1] == '\0') {
 		struct http_url *url = p_new(pool, struct http_url, 1);
-		url->host_name = p_strdup(pool, auth.host.name);
-		url->host_ip = auth.host.ip;
+		uri_host_copy(pool, &url->host, &auth.host);
 		url->port = auth.port;
 		target->url = url;
 		target->format = HTTP_REQUEST_TARGET_FORMAT_ASTERISK;
@@ -390,8 +387,7 @@ int http_url_request_target_parse(const char *request_target,
 	}
 
 	memset(&base, 0, sizeof(base));
-	base.host_name = auth.host.name;
-	base.host_ip = auth.host.ip;
+	base.host = auth.host;
 	base.port = auth.port;
 
 	memset(parser, '\0', sizeof(*parser));
@@ -421,8 +417,7 @@ void http_url_copy_authority(pool_t pool, struct http_url *dest,
 	const struct http_url *src)
 {
 	memset(dest, 0, sizeof(*dest));
-	dest->host_name = p_strdup(pool, src->host_name);
-	dest->host_ip = src->host_ip;
+	uri_host_copy(pool, &dest->host, &src->host);
 	dest->port = src->port;
 	dest->have_ssl = src->have_ssl;
 }
@@ -495,15 +490,9 @@ http_url_add_scheme(string_t *urlstr, const struct http_url *url)
 static void
 http_url_add_authority(string_t *urlstr, const struct http_url *url)
 {
-	/* host:port */
-	if (url->host_name != NULL) {
-		/* assume IPv6 literal if starts with '['; avoid encoding */
-		if (*url->host_name == '[')
-			str_append(urlstr, url->host_name);
-		else
-			uri_append_host_name(urlstr, url->host_name);
-	} else
-		uri_append_host_ip(urlstr, &url->host_ip);
+	/* host */
+	uri_append_host(urlstr, &url->host);
+	/* port */
 	uri_append_port(urlstr, url->port);
 }
 

@@ -91,7 +91,7 @@ http_client_request(struct http_client *client,
 	struct http_client_request *req;
 
 	req = http_client_request_new(client, method, callback, context);
-	req->origin_url.host_name = p_strdup(req->pool, host);
+	req->origin_url.host.name = p_strdup(req->pool, host);
 	req->target = (target == NULL ? "/" : p_strdup(req->pool, target));
 	return req;
 }
@@ -125,10 +125,10 @@ http_client_request_connect(struct http_client *client,
 	struct http_client_request *req;
 
 	req = http_client_request_new(client, "CONNECT", callback, context);
-	req->origin_url.host_name = p_strdup(req->pool, host);
+	req->origin_url.host.name = p_strdup(req->pool, host);
 	req->origin_url.port = port;
 	req->connect_tunnel = TRUE;
-	req->target = req->origin_url.host_name;
+	req->target = req->origin_url.host.name;
 	return req;
 }
 
@@ -147,7 +147,7 @@ http_client_request_connect_ip(struct http_client *client,
 
 	req = http_client_request_connect
 		(client, hostname, port, callback, context);
-	req->origin_url.host_ip = *ip;
+	req->origin_url.host.ip = *ip;
 	return req;
 }
 
@@ -617,7 +617,7 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 		addr->a.un.path = host_socket;		
 	} else if (req->connect_direct) {
 		addr->type = HTTP_CLIENT_PEER_ADDR_RAW;
-		addr->a.tcp.ip = host_url->host_ip;
+		addr->a.tcp.ip = host_url->host.ip;
 		addr->a.tcp.port =
 			(host_url->port != 0 ? host_url->port : HTTPS_DEFAULT_PORT);
 	} else if (host_url->have_ssl) {
@@ -625,13 +625,13 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL;
 		else
 			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS;
-		addr->a.tcp.ip = host_url->host_ip;
-		addr->a.tcp.https_name = host_url->host_name;
+		addr->a.tcp.ip = host_url->host.ip;
+		addr->a.tcp.https_name = host_url->host.name;
  		addr->a.tcp.port =
 			(host_url->port != 0 ? host_url->port : HTTPS_DEFAULT_PORT);
 	} else {
 		addr->type = HTTP_CLIENT_PEER_ADDR_HTTP;
-		addr->a.tcp.ip = host_url->host_ip;
+		addr->a.tcp.ip = host_url->host.ip;
 		addr->a.tcp.port =
 			(host_url->port != 0 ? host_url->port : HTTPS_DEFAULT_PORT);
 	}

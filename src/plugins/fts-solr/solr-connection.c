@@ -115,7 +115,7 @@ int solr_connection_init(const char *url, bool debug,
 	}
 
 	conn = i_new(struct solr_connection, 1);
-	conn->http_host = i_strdup(http_url->host_name);
+	conn->http_host = i_strdup(http_url->host.name);
 	conn->http_port = http_url->port;
 	conn->http_base_url = i_strconcat(http_url->path, http_url->enc_query, NULL);
 	conn->http_ssl = http_url->have_ssl;

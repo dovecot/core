@@ -2,13 +2,13 @@
 #define HTTP_URL_H
 
 #include "net.h"
+#include "uri-util.h"
 
 struct http_request_target;
 
 struct http_url {
 	/* server */
-	const char *host_name;
-	struct ip_addr host_ip;
+	struct uri_host host;
 	in_port_t port;
 
 	/* userinfo (not parsed by default) */

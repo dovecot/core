@@ -295,7 +295,7 @@ test_http_request_init(struct http_client *http_client,
 	test_req = i_new(struct http_test_request, 1);
 	test_req->write_output = TRUE;
 	http_req = http_client_request(http_client,
-		method, url->host_name,
+		method, url->host.name,
 		t_strconcat("/", url->path, url->enc_query, NULL),
 		got_request_response, test_req);
 	if (url->port != 0)

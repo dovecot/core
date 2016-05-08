@@ -176,7 +176,7 @@ struct http_client_host *http_client_host_get
 		}
 
 	} else {
-		const char *hostname = host_url->host_name;
+		const char *hostname = host_url->host.name;
 
 		host = hash_table_lookup(client->hosts, hostname);
 		if (host == NULL) {
@@ -185,10 +185,10 @@ struct http_client_host *http_client_host_get
 			hostname = host->name;
 			hash_table_insert(client->hosts, hostname, host);
 
-			if (host_url->host_ip.family != 0) {
+			if (host_url->host.ip.family != 0) {
 				host->ips_count = 1;
 				host->ips = i_new(struct ip_addr, host->ips_count);
-				host->ips[0] = host_url->host_ip;
+				host->ips[0] = host_url->host.ip;
 			}
 
 			http_client_host_debug(host, "Host created");

@@ -147,7 +147,7 @@ fts_parser_tika_try_init(struct mail_user *user, const char *content_type,
 	parser->user = user;
 
 	http_req = http_client_request(tika_http_client, "PUT",
-			http_url->host_name,
+			http_url->host.name,
 			t_strconcat(http_url->path, http_url->enc_query, NULL),
 			fts_tika_parser_response, parser);
 	http_client_request_set_port(http_req, http_url->port);
