@@ -1,10 +1,11 @@
 #ifndef IMAP_URL_H
 #define IMAP_URL_H
 
+#include "uri-util.h"
+
 struct imap_url {
 	/* server */
-	const char *host_name;
-	struct ip_addr host_ip;
+	struct uri_host host;
 	in_port_t port;
 
 	/* user */
