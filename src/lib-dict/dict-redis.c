@@ -275,7 +275,7 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 static void redis_conn_input(struct connection *_conn)
 {
 	struct redis_connection *conn = (struct redis_connection *)_conn;
-	const char *error;
+	const char *error = NULL;
 	int ret;
 
 	switch (i_stream_read(_conn->input)) {
@@ -289,8 +289,10 @@ static void redis_conn_input(struct connection *_conn)
 	}
 
 	while ((ret = redis_conn_input_more(conn, &error)) > 0) ;
-	if (ret < 0)
+	if (ret < 0) {
+		i_assert(error != NULL);
 		redis_disconnected(conn, error);
+	}
 }
 
 static void redis_conn_connected(struct connection *_conn, bool success)
