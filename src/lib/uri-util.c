@@ -433,7 +433,7 @@ uri_parse_reg_name(struct uri_parser *parser,
 	return 0;
 }
 
-static int uri_parse_host_name_dns(struct uri_parser *parser,
+static int uri_do_parse_host_name_dns(struct uri_parser *parser,
 	string_t *host_name) ATTR_NULL(2, 3)
 {
 	const unsigned char *first, *part;
@@ -549,6 +549,22 @@ static int uri_parse_host_name_dns(struct uri_parser *parser,
 	return 1;
 }
 
+int uri_parse_host_name_dns(struct uri_parser *parser,
+	const char **host_name_r)
+{
+	string_t *host_name = NULL;
+	int ret;
+
+	if (host_name_r != NULL)
+		host_name = uri_parser_get_tmpbuf(parser, 256);
+
+	if ((ret=uri_do_parse_host_name_dns(parser, host_name)) <= 0)
+		return ret;
+
+	*host_name_r = str_c(host_name);
+	return 1;
+}
+
 static int
 uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 		     struct in6_addr *ip6_r) ATTR_NULL(2,3)
@@ -600,9 +616,8 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 	return 1;
 }
 
-static int 
-uri_parse_host(struct uri_parser *parser,
-	struct uri_authority *auth, bool dns_name) ATTR_NULL(2)
+int uri_parse_host(struct uri_parser *parser,
+	struct uri_host *host, bool dns_name) ATTR_NULL(2)
 {
 	const unsigned char *preserve;
 	struct in_addr ip4;
@@ -615,6 +630,9 @@ uri_parse_host(struct uri_parser *parser,
 	 * host          = IP-literal / IPv4address / reg-name
 	 */
 
+	if (host != NULL)
+		memset(host, 0, sizeof(*host));
+
 	literal = uri_parser_get_tmpbuf(parser, 256);
 
 	/* IP-literal / */
@@ -622,10 +640,10 @@ uri_parse_host(struct uri_parser *parser,
 		if ((ret=uri_parse_ip_literal(parser, literal, &ip6)) <= 0)
 			return -1;
 
-		if (auth != NULL) {
-			auth->host_literal = p_strdup(parser->pool, str_c(literal));
-			auth->host_ip.family = AF_INET6;
-			auth->host_ip.u.ip6 = ip6;
+		if (host != NULL) {
+			host->name = p_strdup(parser->pool, str_c(literal));;
+			host->ip.family = AF_INET6;
+			host->ip.u.ip6 = ip6;
 		}
 		return 1;
 	}
@@ -636,10 +654,10 @@ uri_parse_host(struct uri_parser *parser,
 	 */
 	preserve = parser->cur;
 	if ((ret = uri_parse_ipv4address(parser, literal, &ip4)) > 0) {
-		if (auth != NULL) {
-			auth->host_literal = p_strdup(parser->pool, str_c(literal));
-			auth->host_ip.family = AF_INET;
-			auth->host_ip.u.ip4 = ip4;
+		if (host != NULL) {
+			host->name = p_strdup(parser->pool, str_c(literal));
+			host->ip.family = AF_INET;
+			host->ip.u.ip4 = ip4;
 		}
 		return ret;
 	}
@@ -648,12 +666,12 @@ uri_parse_host(struct uri_parser *parser,
 
 	/* reg-name */
 	if (dns_name) {
-		if (uri_parse_host_name_dns(parser, literal) < 0)
+		if (uri_do_parse_host_name_dns(parser, literal) < 0)
 			return -1;
 	} else 	if (uri_parse_reg_name(parser, literal) < 0)
 		return -1;
-	if (auth != NULL)
-		auth->host_literal = p_strdup(parser->pool, str_c(literal));
+	if (host != NULL)
+		host->name = p_strdup(parser->pool, str_c(literal));
 	return 0;
 }
 
@@ -717,7 +735,8 @@ int uri_parse_authority(struct uri_parser *parser,
 	}
 
 	/* host */
-	if (uri_parse_host(parser, auth, dns_name) < 0)
+	if (uri_parse_host(parser,
+		(auth == NULL ? NULL : &auth->host), dns_name) < 0)
 		return -1;
 	if (parser->cur == parser->end)
 		return 1;
@@ -994,6 +1013,25 @@ string_t *uri_parser_get_tmpbuf(struct uri_parser *parser, size_t size)
 }
 
 /*
+ * Generic URI manipulation
+ */
+
+void uri_host_copy(pool_t pool, struct uri_host *dest,
+	const struct uri_host *src)
+{
+	const char *host_name = src->name;
+
+	/* create host name literal if caller is lazy */
+	if (host_name == NULL && src->ip.family != 0) {
+		host_name = net_ip2addr(&src->ip);
+		i_assert(*host_name != '\0');
+	}
+
+	*dest = *src;
+	dest->name = p_strdup(pool, host_name);
+}
+
+/*
  * Generic URI construction
  */
 
@@ -1053,6 +1091,18 @@ void uri_append_host_ip(string_t *out, const struct ip_addr *host_ip)
 	str_append_c(out, '[');
 	str_append(out, addr);
 	str_append_c(out, ']');
+}
+
+void uri_append_host(string_t *out, const struct uri_host *host)
+{
+	if (host->name != NULL) {
+		/* assume IPv6 literal if starts with '['; avoid encoding */
+		if (*host->name == '[')
+			str_append(out, host->name);
+		else
+			uri_append_host_name(out, host->name);
+	} else
+		uri_append_host_ip(out, &host->ip);
 }
 
 void uri_append_port(string_t *out, in_port_t port)

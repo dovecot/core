@@ -37,7 +37,7 @@ static bool http_url_parse_authority(struct http_url_parser *url_parser)
 
 	if ((ret = uri_parse_authority(parser, &auth, TRUE)) < 0)
 		return FALSE;
-	if (auth.host_literal == NULL || *auth.host_literal == '\0') {
+	if (auth.host.name == NULL || *auth.host.name == '\0') {
 		/* RFC 7230, Section 2.7.1: http URI Scheme
 
 		   A sender MUST NOT generate an "http" URI with an empty host
@@ -79,8 +79,8 @@ static bool http_url_parse_authority(struct http_url_parser *url_parser)
 		}
 	}
 	if (url != NULL) {
-		url->host_name = p_strdup(parser->pool, auth.host_literal);
-		url->host_ip = auth.host_ip;
+		url->host_name = p_strdup(parser->pool, auth.host.name);
+		url->host_ip = auth.host.ip;
 		url->port = auth.port;
 		url->user = p_strdup(parser->pool, user);
 		url->password = p_strdup(parser->pool, password);
@@ -362,37 +362,37 @@ int http_url_request_target_parse(const char *request_target,
 {
 	struct http_url_parser url_parser;
 	struct uri_parser *parser;
-	struct uri_authority host;
+	struct uri_authority auth;
 	struct http_url base;
 
 	memset(&url_parser, '\0', sizeof(url_parser));
 	parser = &url_parser.parser;
 	uri_parser_init(parser, pool, host_header);
 
-	if (uri_parse_authority(parser, &host, TRUE) <= 0) {
+	if (uri_parse_authority(parser, &auth, TRUE) <= 0) {
 		*error_r = t_strdup_printf("Invalid Host header: %s", parser->error);
 		return -1;
 	}
 
-	if (parser->cur != parser->end || host.enc_userinfo != NULL) {
+	if (parser->cur != parser->end || auth.enc_userinfo != NULL) {
 		*error_r = "Invalid Host header: Contains invalid character";
 		return -1;
 	}
 
 	if (request_target[0] == '*' && request_target[1] == '\0') {
 		struct http_url *url = p_new(pool, struct http_url, 1);
-		url->host_name = p_strdup(pool, host.host_literal);
-		url->host_ip = host.host_ip;
-		url->port = host.port;
+		url->host_name = p_strdup(pool, auth.host.name);
+		url->host_ip = auth.host.ip;
+		url->port = auth.port;
 		target->url = url;
 		target->format = HTTP_REQUEST_TARGET_FORMAT_ASTERISK;
 		return 0;
 	}
 
 	memset(&base, 0, sizeof(base));
-	base.host_name = host.host_literal;
-	base.host_ip = host.host_ip;
-	base.port = host.port;
+	base.host_name = auth.host.name;
+	base.host_ip = auth.host.ip;
+	base.port = auth.port;
 
 	memset(parser, '\0', sizeof(*parser));
 	uri_parser_init(parser, pool, request_target);

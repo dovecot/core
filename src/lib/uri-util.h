@@ -7,12 +7,15 @@
  * Generic URI parsing.
  */
 
+struct uri_host {
+	const char *name;
+	struct ip_addr ip;
+};
+
 struct uri_authority {
 	const char *enc_userinfo;
 
-	const char *host_literal;
-	struct ip_addr host_ip;
-
+	struct uri_host host;
 	in_port_t port;
 };
 
@@ -38,6 +41,12 @@ int uri_cut_scheme(const char **uri_p, const char **scheme_r)
 	ATTR_NULL(2);
 int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r)
 	ATTR_NULL(2);
+
+int uri_parse_host_name_dns(struct uri_parser *parser,
+	const char **host_name_r) ATTR_NULL(2);
+int uri_parse_host(struct uri_parser *parser,
+	struct uri_host *host, bool dns_name) ATTR_NULL(2);
+
 int uri_parse_authority(struct uri_parser *parser,
 	struct uri_authority *auth, bool dns_name) ATTR_NULL(2);
 int uri_parse_slashslash_authority(struct uri_parser *parser,
@@ -61,6 +70,12 @@ void uri_parser_init(struct uri_parser *parser,
 string_t *uri_parser_get_tmpbuf(struct uri_parser *parser,
 	size_t size);
 
+/*
+ * Generic URI manipulation
+ */
+
+void uri_host_copy(pool_t pool, struct uri_host *dest,
+	const struct uri_host *src);
 
 /*
  * Generic URI construction
@@ -70,8 +85,10 @@ void uri_append_scheme(string_t *out, const char *scheme);
 
 void uri_append_user_data(string_t *out, const char *esc, const char *data);
 void uri_append_userinfo(string_t *out, const char *userinfo);
+
 void uri_append_host_name(string_t *out, const char *name);
 void uri_append_host_ip(string_t *out, const struct ip_addr *host_ip);
+void uri_append_host(string_t *out, const struct uri_host *host);
 void uri_append_port(string_t *out, in_port_t port);
 
 void uri_append_path_segment_data(string_t *out, const char *esc, const char *data);

@@ -194,7 +194,7 @@ static int imap_url_parse_iserver(struct imap_url_parser *url_parser)
 	if ((ret = uri_parse_slashslash_authority
 		(parser, &auth, TRUE)) <= 0)
 		return ret;
-	if (auth.host_literal == NULL || *auth.host_literal == '\0') {
+	if (auth.host.name == NULL || *auth.host.name == '\0') {
 		/* This situation is not documented anywhere, but it is not
 		   currently useful either and potentially problematic if not
 		   handled explicitly everywhere. So, it is denied hier for now.
@@ -260,8 +260,8 @@ static int imap_url_parse_iserver(struct imap_url_parser *url_parser)
 	}
 
 	if (url != NULL) {
-		url->host_name = auth.host_literal;
-		url->host_ip = auth.host_ip;
+		url->host_name = auth.host.name;
+		url->host_ip = auth.host.ip;
 		url->port = auth.port;
 	}
 	return 1;
