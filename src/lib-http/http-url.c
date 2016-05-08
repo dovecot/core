@@ -81,9 +81,7 @@ static bool http_url_parse_authority(struct http_url_parser *url_parser)
 	if (url != NULL) {
 		url->host_name = p_strdup(parser->pool, auth.host_literal);
 		url->host_ip = auth.host_ip;
-		url->have_host_ip = auth.have_host_ip;
 		url->port = auth.port;
-		url->have_port = auth.have_port;
 		url->user = p_strdup(parser->pool, user);
 		url->password = p_strdup(parser->pool, password);
 	}
@@ -236,9 +234,7 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 		} else if (!have_authority && url != NULL) {
 			url->host_name = p_strdup_empty(parser->pool, base->host_name); 
 			url->host_ip = base->host_ip;
-			url->have_host_ip = base->have_host_ip;
 			url->port = base->port;
-			url->have_port = base->have_port;
 			url->have_ssl = base->have_ssl;
 			url->user = p_strdup_empty(parser->pool, base->user);
 			url->password = p_strdup_empty(parser->pool, base->password);
@@ -388,8 +384,6 @@ int http_url_request_target_parse(const char *request_target,
 		url->host_name = p_strdup(pool, host.host_literal);
 		url->host_ip = host.host_ip;
 		url->port = host.port;
-		url->have_host_ip = host.have_host_ip;
-		url->have_port = host.have_port;
 		target->url = url;
 		target->format = HTTP_REQUEST_TARGET_FORMAT_ASTERISK;
 		return 0;
@@ -399,8 +393,6 @@ int http_url_request_target_parse(const char *request_target,
 	base.host_name = host.host_literal;
 	base.host_ip = host.host_ip;
 	base.port = host.port;
-	base.have_host_ip = host.have_host_ip;
-	base.have_port = host.have_port;
 
 	memset(parser, '\0', sizeof(*parser));
 	uri_parser_init(parser, pool, request_target);
@@ -430,14 +422,8 @@ void http_url_copy_authority(pool_t pool, struct http_url *dest,
 {
 	memset(dest, 0, sizeof(*dest));
 	dest->host_name = p_strdup(pool, src->host_name);
-	if (src->have_host_ip) {
-		dest->host_ip = src->host_ip;
-		dest->have_host_ip = TRUE;
-	}
-	if (src->have_port) {
-		dest->port = src->port;
-		dest->have_port = TRUE;
-	}
+	dest->host_ip = src->host_ip;
+	dest->port = src->port;
 	dest->have_ssl = src->have_ssl;
 }
 
@@ -516,12 +502,9 @@ http_url_add_authority(string_t *urlstr, const struct http_url *url)
 			str_append(urlstr, url->host_name);
 		else
 			uri_append_host_name(urlstr, url->host_name);
-	} else if (url->have_host_ip) {
-		uri_append_host_ip(urlstr, &url->host_ip);
 	} else
-		i_unreached();
-	if (url->have_port)
-		uri_append_port(urlstr, url->port);
+		uri_append_host_ip(urlstr, &url->host_ip);
+	uri_append_port(urlstr, url->port);
 }
 
 static void

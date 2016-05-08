@@ -46,31 +46,31 @@ static const struct valid_imap_url_test valid_url_tests[] = {
 		.url_parsed = {
 			.host_name = "localhost",
 			.userid = "user",
-			.port = 993, .have_port = TRUE }
+			.port = 993 }
 	},{
 		.url = "imap://user@127.0.0.1",
 		.url_parsed = {
 			.host_name = "127.0.0.1",
-			.userid = "user",
-			.have_host_ip = TRUE }
+			.host_ip = { .family = AF_INET },
+			.userid = "user" }
 	},{
 		.url = "imap://user@[::1]",
 		.url_parsed = {
 			.host_name = "[::1]",
-			.userid = "user",
-			.have_host_ip = TRUE }
+			.host_ip = { .family = AF_INET6 },
+			.userid = "user" }
 	},{
 		.url = "imap://user@4example.com:423",
 		.url_parsed = {
 			.host_name = "4example.com",
 			.userid = "user",
-			.port = 423, .have_port = TRUE }
+			.port = 423 }
 	},{
 		.url = "imap://beelzebub@666.4example.com:999",
 		.url_parsed = {
 			.host_name = "666.4example.com",
 			.userid = "beelzebub",
-			.port = 999, .have_port = TRUE }
+			.port = 999 }
 	},{
 		.url = "imap://user@example.com/",
 		.url_parsed = {
@@ -648,19 +648,19 @@ static void test_imap_url_valid(void)
 				test_out_quiet(t_strdup_printf("url->auth_type = %s", urlp->auth_type),
 					       strcmp(urlp->auth_type, urlt->auth_type) == 0);
 			}
-			if (!urlp->have_port) {
+			if (urlp->port == 0) {
 				test_out_quiet("url->port = (unspecified)",
-					       urlp->have_port == urlt->have_port);
+					       urlp->port == urlt->port);
 			} else {
 				test_out_quiet(t_strdup_printf("url->port = %u", urlp->port),
-					       urlp->have_port == urlt->have_port && urlp->port == urlt->port);
+					       urlp->port == urlt->port);
 			}
-			if (!urlp->have_host_ip) {
+			if (urlp->host_ip.family == 0) {
 				test_out_quiet("url->host_ip = (unspecified)",
-					       urlp->have_host_ip == urlt->have_host_ip);
+					       urlp->host_ip.family == urlt->host_ip.family);
 			} else {
 				test_out_quiet("url->host_ip = (valid)",
-					       urlp->have_host_ip == urlt->have_host_ip);
+					       urlp->host_ip.family == urlt->host_ip.family);
 			}
 			if (urlp->mailbox == NULL || urlt->mailbox == NULL) {
 				test_out_quiet(t_strdup_printf("url->mailbox = %s", urlp->mailbox),

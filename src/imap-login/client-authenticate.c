@@ -61,10 +61,8 @@ void imap_client_auth_result(struct client *client,
 		url.userid = reply->destuser;
 		url.auth_type = client->auth_mech_name;
 		url.host_name = reply->host;
-		if (reply->port != 143) {
-			url.have_port = TRUE;
+		if (reply->port != 143)
 			url.port = reply->port;
-		}
 		str_append(referral, "REFERRAL ");
 		str_append(referral, imap_url_create(&url));
 

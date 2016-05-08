@@ -441,7 +441,6 @@ uri_parse_host(struct uri_parser *parser,
 			auth->host_literal = p_strdup(parser->pool, str_c(literal));
 			auth->host_ip.family = AF_INET6;
 			auth->host_ip.u.ip6 = ip6;
-			auth->have_host_ip = TRUE;
 		}
 		return 1;
 	}
@@ -456,7 +455,6 @@ uri_parse_host(struct uri_parser *parser,
 			auth->host_literal = p_strdup(parser->pool, str_c(literal));
 			auth->host_ip.family = AF_INET;
 			auth->host_ip.u.ip4 = ip4;
-			auth->have_host_ip = TRUE;
 		}
 		return ret;
 	}
@@ -466,10 +464,8 @@ uri_parse_host(struct uri_parser *parser,
 	/* reg-name */
 	if (uri_parse_reg_name(parser, literal) < 0)
 		return -1;
-	if (auth != NULL) {
+	if (auth != NULL)
 		auth->host_literal = p_strdup(parser->pool, str_c(literal));
-		auth->have_host_ip = FALSE;
-	}
 	return 0;
 }
 
@@ -496,10 +492,8 @@ uri_parse_port(struct uri_parser *parser,
 		return -1;
 	}
 
-	if (auth != NULL) {
+	if (auth != NULL)
 		auth->port = port;
-		auth->have_port = TRUE;
-	}
 	return 1;
 }
 
@@ -851,6 +845,8 @@ void uri_append_host_ip(string_t *out, const struct ip_addr *host_ip)
 {
 	const char *addr = net_ip2addr(host_ip);
 
+	i_assert(host_ip->family != 0);
+
 	if (host_ip->family == AF_INET) {
 		str_append(out, addr);
 		return;
@@ -864,7 +860,8 @@ void uri_append_host_ip(string_t *out, const struct ip_addr *host_ip)
 
 void uri_append_port(string_t *out, in_port_t port)
 {
-	str_printfa(out, ":%u", port);
+	if (port != 0)
+		str_printfa(out, ":%u", port);
 }
 
 void uri_append_path_segment_data(string_t *out, const char *esc,

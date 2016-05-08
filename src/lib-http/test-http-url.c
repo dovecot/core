@@ -28,23 +28,23 @@ static struct valid_http_url_test valid_url_tests[] = {
 		.url = "http://www.dovecot.org:8080",
 		.url_parsed = {
 			.host_name = "www.dovecot.org",
-			.port = 8080, .have_port = TRUE }
+			.port = 8080 }
 	},{
 		.url = "http://127.0.0.1",
 		.url_parsed = {
 			.host_name = "127.0.0.1",
-			.have_host_ip = TRUE }
+			.host_ip = { .family = AF_INET } }
 	},{
 		.url = "http://[::1]",
 		.url_parsed = {
 			.host_name = "[::1]",
-			.have_host_ip = TRUE }
+			.host_ip = { .family = AF_INET6 } }
 	},{
 		.url = "http://[::1]:8080",
 		.url_parsed = {
 			.host_name = "[::1]",
-			.have_host_ip = TRUE,
-			.port = 8080, .have_port = TRUE }
+			.host_ip = { .family = AF_INET6 },
+			.port = 8080 }
 	},{
 		.url = "http://user@api.dovecot.org",
 		.flags = HTTP_URL_ALLOW_USERINFO_PART,
@@ -315,16 +315,8 @@ static void test_http_url_valid(void)
 			} else {
 				test_assert(strcmp(urlp->host_name, urlt->host_name) == 0);
 			}
-			if (!urlp->have_port) {
-				test_assert(urlp->have_port == urlt->have_port);
-			} else {
-				test_assert(urlp->have_port == urlt->have_port && urlp->port == urlt->port);
-			}
-			if (!urlp->have_host_ip) {
-				test_assert(urlp->have_host_ip == urlt->have_host_ip);
-			} else {
-				test_assert(urlp->have_host_ip == urlt->have_host_ip);
-			}
+			test_assert(urlp->port == urlt->port);
+			test_assert(urlp->host_ip.family == urlt->host_ip.family);
 			if (urlp->user == NULL || urlt->user == NULL) {
 				test_assert(urlp->user == urlt->user);
 			} else {

@@ -261,9 +261,7 @@ static int imap_url_parse_iserver(struct imap_url_parser *url_parser)
 	if (url != NULL) {
 		url->host_name = auth.host_literal;
 		url->host_ip = auth.host_ip;
-		url->have_host_ip = auth.have_host_ip;
 		url->port = auth.port;
-		url->have_port = auth.have_port;
 	}
 	return 1;
 }
@@ -840,8 +838,6 @@ static bool imap_url_do_parse(struct imap_url_parser *url_parser)
 
 			url->host_name = p_strdup_empty(parser->pool, base->host_name); 
 			url->host_ip = base->host_ip;
-			url->have_host_ip = base->have_host_ip;
-			url->have_port = base->have_port;
 			url->port = base->port;
 			url->userid = p_strdup_empty(parser->pool, base->userid);
 			url->auth_type = p_strdup_empty(parser->pool, base->auth_type);
@@ -999,12 +995,10 @@ const char *imap_url_create(const struct imap_url *url)
 			str_append(urlstr, url->host_name);
 		else
 			uri_append_host_name(urlstr, url->host_name);
-	} else if (url->have_host_ip) {
+	} else {
 		uri_append_host_ip(urlstr, &url->host_ip);
-	} else
-		i_unreached();
-	if (url->have_port)
-		uri_append_port(urlstr, url->port);
+	}
+	uri_append_port(urlstr, url->port);
 
 	/* Older syntax (RFC 2192) requires this slash at all times */
 	str_append_c(urlstr, '/');

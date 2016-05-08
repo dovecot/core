@@ -65,7 +65,7 @@ valid_request_parse_tests[] = {
 		.target_raw = "example.com:443",
 		.target = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_AUTHORITY,
-			.url = { .host_name = "example.com", .have_port = TRUE, .port = 443 }
+			.url = { .host_name = "example.com", .port = 443 }
 		},
 		.version_major = 1, .version_minor = 2,
 	},{ .request =
@@ -78,7 +78,7 @@ valid_request_parse_tests[] = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE,
 			.url = {
 				.host_name = "www.example.com",
-				.have_port = TRUE, .port = 443,
+				.port = 443,
 				.have_ssl = TRUE
 			}
 		},
@@ -93,7 +93,7 @@ valid_request_parse_tests[] = {
 		.target_raw = "http://api.example.com:8080/commit?user=dirk",
 		.target = {
 			.format = HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE,
-			.url = { .host_name = "api.example.com", .have_port = TRUE, .port = 8080 }
+			.url = { .host_name = "api.example.com", .port = 8080 }
 		},
 		.version_major = 1, .version_minor = 1,
 		.payload = "Content!\r\n"
@@ -229,7 +229,7 @@ static void test_http_request_parse_valid(void)
 			}
 			if (request.target.url == NULL) {
 				test_out("request->target.url = (null)",
-					test->target.url.host_name == NULL && !test->target.url.have_port);
+					test->target.url.host_name == NULL && test->target.url.port == 0);
 			} else {
 				if (request.target.url->host_name == NULL ||
 					test->target.url.host_name == NULL) {
@@ -242,13 +242,12 @@ static void test_http_request_parse_valid(void)
 						strcmp(request.target.url->host_name,
 							test->target.url.host_name) == 0);
 				}
-				if (!request.target.url->have_port) {
+				if (request.target.url->port == 0) {
 					test_out("request->target.url->port = (unspecified)",
-						request.target.url->have_port == test->target.url.have_port);
+						request.target.url->port == test->target.url.port);
 				} else {
 					test_out(t_strdup_printf
 						("request->target.url->port = %u", request.target.url->port),
-						request.target.url->have_port == test->target.url.have_port &&
 						request.target.url->port == test->target.url.port);
 				}
 				test_out(t_strdup_printf("request->target.url->have_ssl = %s",

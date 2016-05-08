@@ -24,8 +24,6 @@ struct http_url {
 	/* #fragment (still encoded) */
 	const char *enc_fragment;
 
-	unsigned int have_host_ip:1; /* URL uses IP address */
-	unsigned int have_port:1;
 	unsigned int have_ssl:1;
 };
 

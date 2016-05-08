@@ -298,7 +298,7 @@ test_http_request_init(struct http_client *http_client,
 		method, url->host_name,
 		t_strconcat("/", url->path, url->enc_query, NULL),
 		got_request_response, test_req);
-	if (url->have_port)
+	if (url->port != 0)
 		http_client_request_set_port(http_req, url->port);
 	if (url->have_ssl)
 		http_client_request_set_ssl(http_req, TRUE);

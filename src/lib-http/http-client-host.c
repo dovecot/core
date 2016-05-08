@@ -185,7 +185,7 @@ struct http_client_host *http_client_host_get
 			hostname = host->name;
 			hash_table_insert(client->hosts, hostname, host);
 
-			if (host_url->have_host_ip) {
+			if (host_url->host_ip.family != 0) {
 				host->ips_count = 1;
 				host->ips = i_new(struct ip_addr, host->ips_count);
 				host->ips[0] = host_url->host_ip;

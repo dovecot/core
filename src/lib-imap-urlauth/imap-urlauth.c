@@ -211,8 +211,8 @@ imap_urlauth_check_hostport(struct imap_urlauth_context *uctx,
 	}
 
 	/* validate port */
-	if ((!url->have_port && uctx->url_port != 143) ||
-	    (url->have_port && uctx->url_port != url->port)) {
+	if ((url->port == 0 && uctx->url_port != 143) ||
+	    (url->port != 0 && uctx->url_port != url->port)) {
 		*error_r = "Invalid URL: Inappropriate server port";
 		return FALSE;
 	}

@@ -14,9 +14,6 @@ struct uri_authority {
 	struct ip_addr host_ip;
 
 	in_port_t port;
-
-	unsigned int have_host_ip:1;
-	unsigned int have_port:1;
 };
 
 struct uri_parser {

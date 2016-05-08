@@ -127,7 +127,6 @@ http_client_request_connect(struct http_client *client,
 	req = http_client_request_new(client, "CONNECT", callback, context);
 	req->origin_url.host_name = p_strdup(req->pool, host);
 	req->origin_url.port = port;
-	req->origin_url.have_port = TRUE;
 	req->connect_tunnel = TRUE;
 	req->target = req->origin_url.host_name;
 	return req;
@@ -141,12 +140,14 @@ http_client_request_connect_ip(struct http_client *client,
 				void *context)
 {
 	struct http_client_request *req;
-	const char *hostname = net_ip2addr(ip);
+	const char *hostname;
+
+	i_assert(ip->family != 0);
+	hostname = net_ip2addr(ip);
 
 	req = http_client_request_connect
 		(client, hostname, port, callback, context);
 	req->origin_url.host_ip = *ip;
-	req->origin_url.have_host_ip = TRUE;
 	return req;
 }
 
@@ -230,7 +231,6 @@ void http_client_request_set_port(struct http_client_request *req,
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
 	req->origin_url.port = port;
-	req->origin_url.have_port = TRUE;
 }
 
 void http_client_request_set_ssl(struct http_client_request *req,
@@ -617,26 +617,23 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 		addr->a.un.path = host_socket;		
 	} else if (req->connect_direct) {
 		addr->type = HTTP_CLIENT_PEER_ADDR_RAW;
-		if (host_url->have_host_ip)
-			addr->a.tcp.ip = host_url->host_ip;
+		addr->a.tcp.ip = host_url->host_ip;
 		addr->a.tcp.port =
-			(host_url->have_port ? host_url->port : HTTPS_DEFAULT_PORT);
+			(host_url->port != 0 ? host_url->port : HTTPS_DEFAULT_PORT);
 	} else if (host_url->have_ssl) {
 		if (req->ssl_tunnel)
 			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL;
 		else
 			addr->type = HTTP_CLIENT_PEER_ADDR_HTTPS;
-		if (host_url->have_host_ip)
-			addr->a.tcp.ip = host_url->host_ip;
+		addr->a.tcp.ip = host_url->host_ip;
 		addr->a.tcp.https_name = host_url->host_name;
  		addr->a.tcp.port =
-			(host_url->have_port ? host_url->port : HTTPS_DEFAULT_PORT);
+			(host_url->port != 0 ? host_url->port : HTTPS_DEFAULT_PORT);
 	} else {
 		addr->type = HTTP_CLIENT_PEER_ADDR_HTTP;
-		if (host_url->have_host_ip)
-			addr->a.tcp.ip = host_url->host_ip;
+		addr->a.tcp.ip = host_url->host_ip;
 		addr->a.tcp.port =
-			(host_url->have_port ? host_url->port : HTTP_DEFAULT_PORT);
+			(host_url->port != 0 ? host_url->port : HTTPS_DEFAULT_PORT);
 	}
 }
 
