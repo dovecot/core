@@ -1043,7 +1043,7 @@ void uri_data_encode(string_t *out,
 	pbegin = p = (const unsigned char *)data;
 	while (*p != '\0') {
 		if ((*p & 0x80) != 0 || (esc_table[*p] & esc_mask) == 0 ||
-			strchr(esc_extra, (char)*p) != NULL) {
+			(esc_extra != NULL && strchr(esc_extra, (char)*p) != NULL)) {
 			if ((p - pbegin) > 0)
 				str_append_n(out, pbegin, p - pbegin);
 			str_printfa(out, "%%%02x", *p);
@@ -1071,14 +1071,14 @@ void uri_append_user_data(string_t *out, const char *esc,
 
 void uri_append_userinfo(string_t *out, const char *userinfo)
 {
-	uri_append_user_data(out, "", userinfo);
+	uri_append_user_data(out, NULL, userinfo);
 	str_append_c(out, '@');
 }
 
 void uri_append_host_name(string_t *out, const char *name)
 {
 	uri_data_encode(out, _uri_char_lookup,
-			CHAR_MASK_UNRESERVED | CHAR_MASK_SUB_DELIMS, "", name);
+			CHAR_MASK_UNRESERVED | CHAR_MASK_SUB_DELIMS, NULL, name);
 }
 
 void uri_append_host_ip(string_t *out, const struct ip_addr *host_ip)
@@ -1126,7 +1126,7 @@ void uri_append_path_segment(string_t *out, const char *segment)
 {
 	str_append_c(out, '/');
 	if (*segment != '\0')
-		uri_append_path_data(out, "", segment);
+		uri_append_path_data(out, NULL, segment);
 }
 
 void uri_append_path_data(string_t *out, const char *esc,
@@ -1139,7 +1139,7 @@ void uri_append_path(string_t *out, const char *path)
 {
 	str_append_c(out, '/');
 	if (*path != '\0')
-		uri_append_path_data(out, "", path);
+		uri_append_path_data(out, NULL, path);
 }
 
 void uri_append_query_data(string_t *out, const char *esc,
@@ -1152,7 +1152,7 @@ void uri_append_query(string_t *out, const char *query)
 {
 	str_append_c(out, '?');
 	if (*query != '\0')
-		uri_append_query_data(out, "", query);
+		uri_append_query_data(out, NULL, query);
 }
 
 void uri_append_fragment_data(string_t *out, const char *esc,
@@ -1165,5 +1165,5 @@ void uri_append_fragment(string_t *out, const char *fragment)
 {
 	str_append_c(out, '#');
 	if (*fragment != '\0')
-		uri_append_fragment_data(out, "", fragment);
+		uri_append_fragment_data(out, NULL, fragment);
 }

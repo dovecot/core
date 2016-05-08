@@ -84,11 +84,12 @@ void uri_host_copy(pool_t pool, struct uri_host *dest,
 void uri_data_encode(string_t *out,
 	const unsigned char esc_table[256],
 	unsigned char esc_mask, const char *esc_extra,
-	const char *data);
+	const char *data) ATTR_NULL(4);
 
 void uri_append_scheme(string_t *out, const char *scheme);
 
-void uri_append_user_data(string_t *out, const char *esc, const char *data);
+void uri_append_user_data(string_t *out,
+	const char *esc, const char *data) ATTR_NULL(2);
 void uri_append_userinfo(string_t *out, const char *userinfo);
 
 void uri_append_host_name(string_t *out, const char *name);
@@ -96,15 +97,19 @@ void uri_append_host_ip(string_t *out, const struct ip_addr *host_ip);
 void uri_append_host(string_t *out, const struct uri_host *host);
 void uri_append_port(string_t *out, in_port_t port);
 
-void uri_append_path_segment_data(string_t *out, const char *esc, const char *data);
+void uri_append_path_segment_data(string_t *out,
+	const char *esc, const char *data) ATTR_NULL(2);
 void uri_append_path_segment(string_t *out, const char *segment);
-void uri_append_path_data(string_t *out, const char *esc, const char *data);
+void uri_append_path_data(string_t *out,
+	const char *esc, const char *data) ATTR_NULL(2);
 void uri_append_path(string_t *out, const char *path);
 
-void uri_append_query_data(string_t *out, const char *esc, const char *data);
+void uri_append_query_data(string_t *out,
+	const char *esc, const char *data) ATTR_NULL(2);
 void uri_append_query(string_t *out, const char *query);
 
-void uri_append_fragment_data(string_t *out, const char *esc, const char *data);
+void uri_append_fragment_data(string_t *out,
+	const char *esc, const char *data) ATTR_NULL(2);
 void uri_append_fragment(string_t *out, const char *fragment);
 
 #endif
