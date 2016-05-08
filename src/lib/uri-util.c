@@ -1037,17 +1037,23 @@ static void
 uri_data_encode(string_t *out, const unsigned char esc_table[256],
 		unsigned char esc_mask, const char *esc_extra, const char *data)
 {
-	const unsigned char *p = (const unsigned char *)data;
+	const unsigned char *pbegin, *p;
 
+	pbegin = p = (const unsigned char *)data;
 	while (*p != '\0') {
 		if ((*p & 0x80) != 0 || (esc_table[*p] & esc_mask) == 0 ||
-		    strchr(esc_extra, (char)*p) != NULL) {
+			strchr(esc_extra, (char)*p) != NULL) {
+			if ((p - pbegin) > 0)
+				str_append_n(out, pbegin, p - pbegin);
 			str_printfa(out, "%%%02x", *p);
+			p++;
+			pbegin = p;
 		} else {
-			str_append_c(out, *p);
+			p++;
 		}
-		p++;
 	}
+	if ((p - pbegin) > 0)
+		str_append_n(out, pbegin, p - pbegin);
 }
 
 void uri_append_scheme(string_t *out, const char *scheme)
