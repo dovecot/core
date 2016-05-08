@@ -795,9 +795,9 @@ static bool imap_url_do_parse(struct imap_url_parser *url_parser)
 	if ((url_parser->flags & IMAP_URL_PARSE_SCHEME_EXTERNAL) == 0) {
 		const char *scheme;
 
-		if ((ret = uri_parse_scheme(parser, &scheme)) < 0)
-			return FALSE;
-		else if (ret > 0) {
+		if (uri_parse_scheme(parser, &scheme) <= 0) {
+			parser->cur = parser->begin;
+		} else {
 			if (strcasecmp(scheme, "imap") != 0) {
 				parser->error = "Not an IMAP URL";
 				return FALSE;

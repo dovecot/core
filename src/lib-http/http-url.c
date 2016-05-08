@@ -164,9 +164,9 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 	if ((url_parser->flags & HTTP_URL_PARSE_SCHEME_EXTERNAL) == 0) {
 		const char *scheme;
 
-		if ((ret = uri_parse_scheme(parser, &scheme)) < 0)
-			return FALSE;
-		else if (ret > 0) {
+		if ((ret = uri_parse_scheme(parser, &scheme)) <= 0) {
+			parser->cur = parser->begin;
+		} else {
 			if (strcasecmp(scheme, "https") == 0) {
 				if (url != NULL)
 					url->have_ssl = TRUE;

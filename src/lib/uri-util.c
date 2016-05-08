@@ -277,50 +277,48 @@ bool uri_data_decode(struct uri_parser *parser, const char *data,
 	return TRUE;
 }
 
-int uri_cut_scheme(const char **uri_p, const char **scheme_r)
+int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r)
 {
-	const char *p = *uri_p;
+	const unsigned char *first = parser->cur;
 	size_t len = 1;
 	
 	/* RFC 3968:
 	 *   scheme  = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
 	 */
 	
-	if (!i_isalpha(*p))
-		return -1;
-	p++;
+	if (parser->cur >= parser->end || !i_isalpha(*parser->cur))
+		return 0;
+	parser->cur++;
 		
-	while (len < URI_MAX_SCHEME_NAME_LEN && *p != '\0') {			
-		if (!i_isalnum(*p) && *p != '+' && *p != '-' && *p != '.')
+	while (len < URI_MAX_SCHEME_NAME_LEN &&
+		parser->cur < parser->end) {
+		if (!i_isalnum(*parser->cur) &&
+			*parser->cur != '+' && *parser->cur != '-' &&
+			*parser->cur != '.')
 			break;
-		p++;
+		parser->cur++;
 		len++;
 	}
 	
-	if (*p != ':')
+	if (parser->cur >= parser->end || *parser->cur != ':') {
+		parser->error = "Invalid URI scheme";
 		return -1;
-	
+	}
 	if (scheme_r != NULL)
-		*scheme_r = t_strdup_until(*uri_p, p);
-	*uri_p = p + 1;
-	return 0;
+		*scheme_r = t_strndup(first, parser->cur - first);
+	parser->cur++;
+	return 1;
 }
 
-int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r)
+int uri_cut_scheme(const char **uri_p, const char **scheme_r)
 {
-	const char *p;
+	struct uri_parser parser;
 
-	if (parser->cur >= parser->end)
-		return 0;
-
-	p = (const char *)parser->cur;
-	if (uri_cut_scheme(&p, scheme_r) < 0)
-		return 0;
-
-	parser->cur = (const unsigned char *)p;
-	if (!parser->pool->datastack_pool)
-		*scheme_r = p_strdup(parser->pool, *scheme_r);
-	return 1;
+	uri_parser_init(&parser, NULL, *uri_p);
+	if (uri_parse_scheme(&parser, scheme_r) <= 0)
+		return -1;
+	*uri_p = (const char *)parser.cur;
+	return 0;
 }
 
 static int
