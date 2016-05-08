@@ -27,7 +27,9 @@ struct uri_parser {
 
 int uri_parse_pct_encoded(struct uri_parser *parser,
 		      unsigned char *ch_r);
+
 int uri_parse_unreserved(struct uri_parser *parser, string_t *part);
+int uri_parse_unreserved_pct(struct uri_parser *parser, string_t *part);
 
 bool uri_data_decode(struct uri_parser *parser, const char *data,
 		     const char *until, const char **decoded_r) ATTR_NULL(3);

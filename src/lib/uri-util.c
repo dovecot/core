@@ -143,11 +143,6 @@ int uri_parse_pct_encoded(struct uri_parser *parser,
 static int
 uri_parse_unreserved_char(struct uri_parser *parser, unsigned char *ch_r)
 {
-	int ret;
-
-	if ((ret=uri_parse_pct_encoded(parser, ch_r)) != 0)
-		return ret;
-
 	if ((*parser->cur & 0x80) != 0)
 		return 0;
 
@@ -168,6 +163,30 @@ int uri_parse_unreserved(struct uri_parser *parser, string_t *part)
 		unsigned char ch = 0;
 
 		if ((ret = uri_parse_unreserved_char(parser, &ch)) < 0)
+			return -1;
+		if (ret == 0)
+			break;
+
+		if (part != NULL)
+			str_append_c(part, ch);
+		len++;
+	}
+
+	return len > 0 ? 1 : 0;
+}
+
+int uri_parse_unreserved_pct(struct uri_parser *parser, string_t *part)
+{
+	int len = 0;
+
+	while (parser->cur < parser->end) {
+		int ret;
+		unsigned char ch = 0;
+
+		if ((ret=uri_parse_pct_encoded(parser, &ch)) < 0)
+			return -1;
+		else if (ret == 0 &&
+			(ret=uri_parse_unreserved_char(parser, &ch)) < 0)
 			return -1;
 		if (ret == 0)
 			break;
@@ -350,7 +369,10 @@ uri_parse_reg_name(struct uri_parser *parser,
 		unsigned char c;
 
 		/* unreserved / pct-encoded */
-		if ((ret = uri_parse_unreserved_char(parser, &c)) < 0)
+		if ((ret=uri_parse_pct_encoded(parser, &c)) < 0)
+			return -1;
+		else if (ret == 0 &&
+			(ret=uri_parse_unreserved_char(parser, &c)) < 0)
 			return -1;
 
 		if (ret > 0) {
