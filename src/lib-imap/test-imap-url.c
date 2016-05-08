@@ -976,7 +976,6 @@ static const char *parse_create_url_tests[] = {
 	"imap://user;AUTH=PLAIN@host.example.com/INBOX;UIDVALIDITY=15/;UID=5"
 		"/;SECTION=TEXT/;PARTIAL=1.14;URLAUTH=user+username",
 	"imap://user;AUTH=PLAIN@host.example.com/INBOX?SUBJECT%20%22Frop?%22",
-	"imap://host.%23example.com/",
 	"imap://user%3ba@host.example.com/",
 	"imap://user%40example.com@host.example.com/",
 	"imap://user%40example.com;AUTH=STR%23ANGE@host.example.com/",

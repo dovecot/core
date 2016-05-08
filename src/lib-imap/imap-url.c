@@ -191,7 +191,8 @@ static int imap_url_parse_iserver(struct imap_url_parser *url_parser)
 	 */
 
 	/* "//" iserver */
-	if ((ret = uri_parse_slashslash_authority(parser, &auth)) <= 0)
+	if ((ret = uri_parse_slashslash_authority
+		(parser, &auth, TRUE)) <= 0)
 		return ret;
 	if (auth.host_literal == NULL || *auth.host_literal == '\0') {
 		/* This situation is not documented anywhere, but it is not

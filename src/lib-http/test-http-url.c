@@ -434,7 +434,6 @@ static const char *parse_create_url_tests[] = {
 	"http://www.example.com:993/",
 	"http://www.example.com/index.html",
 	"http://www.example.com/settings/index.html",
-	"http://ww.%23example.com/",
 	"http://www.example.com/%23shared/news",
 	"http://www.example.com/query.php?name=Hendrik%20Visser",
 	"http://www.example.com/network.html#IMAP%20Server",

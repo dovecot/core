@@ -372,6 +372,122 @@ uri_parse_reg_name(struct uri_parser *parser,
 	return 0;
 }
 
+static int uri_parse_host_name_dns(struct uri_parser *parser,
+	string_t *host_name) ATTR_NULL(2, 3)
+{
+	const unsigned char *first, *part;
+	int ret;
+
+	/* RFC 3986, Section 3.2.2:
+
+	   A registered name intended for lookup in the DNS uses the syntax
+	   defined in Section 3.5 of [RFC1034] and Section 2.1 of [RFC1123].
+	   Such a name consists of a sequence of domain labels separated by ".",
+	   each domain label starting and ending with an alphanumeric character
+	   and possibly also containing "-" characters.  The rightmost domain
+	   label of a fully qualified domain name in DNS may be followed by a
+	   single "." and should be if it is necessary to distinguish between
+	   the complete domain name and some local domain.
+
+	   RFC 2396, Section 3.2.2 (old URI specification):
+
+	   hostname      = *( domainlabel "." ) toplabel [ "." ]
+	   domainlabel   = alphanum | alphanum *( alphanum | "-" ) alphanum
+	   toplabel      = alpha | alpha *( alphanum | "-" ) alphanum
+
+	   The description in RFC 3986 is more liberal, so:
+
+	   hostname      = *( domainlabel "." ) domainlabel [ "." ]
+	   domainlabel   = alphanum | alphanum *( alphanum | "-" ) alphanum
+
+	   We also support percent encoding in spirit of the generic reg-name,
+	   even though this should explicitly not be used according to the RFC.
+	   It is, however, not strictly forbidden (unlike older RFC), so we
+	   support it.
+	 */
+
+	first = part = parser->cur;
+	for (;;) {
+		const unsigned char *offset;
+		unsigned char ch, pch;
+
+		/* alphanum */
+		offset = parser->cur;
+		ch = pch = *parser->cur;
+		if (parser->cur >= parser->end)
+			break;
+		if ((ret=uri_parse_pct_encoded(parser, &ch)) < 0) {
+			return -1;
+		} else if (ret > 0) {
+			if (!i_isalnum(ch))
+				return -1;
+			if (host_name != NULL)
+				str_append_c(host_name, ch);
+			part = parser->cur;
+		} else {
+			if (!i_isalnum(*parser->cur))
+				break;
+			parser->cur++;
+		}
+
+		if (parser->cur < parser->end) {
+			/* *( alphanum | "-" ) alphanum */
+			do {
+				offset = parser->cur;
+
+				if ((ret=uri_parse_pct_encoded(parser, &ch)) < 0) {
+					return -1;
+				} else if (ret > 0) {
+					if (!i_isalnum(ch) && ch != '-')
+						break;
+					if (host_name != NULL) {
+						if (offset > part)
+							str_append_n(host_name, part, offset - part);
+						str_append_c(host_name, ch);
+					}
+					part = parser->cur;
+				} else {
+					ch = *parser->cur;
+					if (!i_isalnum(ch) && ch != '-')
+						break;
+					parser->cur++;
+				}
+				pch = ch;
+			} while (parser->cur < parser->end);
+
+			if (!i_isalnum(pch)) {
+				parser->error = "Invalid domain label in hostname";
+				return -1;
+			}
+		}
+
+		if (host_name != NULL && parser->cur > part)
+			str_append_n(host_name, part, parser->cur - part);
+
+		/* "." */
+		if (parser->cur >= parser->end || ch != '.')
+			break;
+		if (host_name != NULL)
+			str_append_c(host_name, '.');
+		if (parser->cur == offset)
+			parser->cur++;
+		part = parser->cur;
+	}
+
+	if (parser->cur == first)
+		return 0;
+
+	/* remove trailing '.' */
+	if (host_name != NULL) {
+		const char *name = str_c(host_name);
+
+		i_assert(str_len(host_name) > 0);
+		if (name[str_len(host_name)-1] == '.')
+			str_truncate(host_name, str_len(host_name)-1);
+	}
+	return 1;
+}
+
 static int
 uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 		     struct in6_addr *ip6_r) ATTR_NULL(2,3)
@@ -425,7 +541,7 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 
 static int 
 uri_parse_host(struct uri_parser *parser,
-	struct uri_authority *auth) ATTR_NULL(2)
+	struct uri_authority *auth, bool dns_name) ATTR_NULL(2)
 {
 	const unsigned char *preserve;
 	struct in_addr ip4;
@@ -470,7 +586,10 @@ uri_parse_host(struct uri_parser *parser,
 	str_truncate(literal, 0);
 
 	/* reg-name */
-	if (uri_parse_reg_name(parser, literal) < 0)
+	if (dns_name) {
+		if (uri_parse_host_name_dns(parser, literal) < 0)
+			return -1;
+	} else 	if (uri_parse_reg_name(parser, literal) < 0)
 		return -1;
 	if (auth != NULL)
 		auth->host_literal = p_strdup(parser->pool, str_c(literal));
@@ -506,7 +625,7 @@ uri_parse_port(struct uri_parser *parser,
 }
 
 int uri_parse_authority(struct uri_parser *parser,
-	struct uri_authority *auth)
+	struct uri_authority *auth, bool dns_name)
 {
 	const unsigned char *p;
 	int ret;
@@ -537,7 +656,7 @@ int uri_parse_authority(struct uri_parser *parser,
 	}
 
 	/* host */
-	if (uri_parse_host(parser, auth) < 0)
+	if (uri_parse_host(parser, auth, dns_name) < 0)
 		return -1;
 	if (parser->cur == parser->end)
 		return 1;
@@ -570,7 +689,7 @@ int uri_parse_authority(struct uri_parser *parser,
 }
 
 int uri_parse_slashslash_authority(struct uri_parser *parser,
-	struct uri_authority *auth)
+	struct uri_authority *auth, bool dns_name)
 {
 	/* "//" authority */
 
@@ -579,7 +698,7 @@ int uri_parse_slashslash_authority(struct uri_parser *parser,
 		return 0;
 
 	parser->cur += 2;
-	return uri_parse_authority(parser, auth);
+	return uri_parse_authority(parser, auth, dns_name);
 }
 
 int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r)
