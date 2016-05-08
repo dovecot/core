@@ -53,8 +53,11 @@ int uri_parse_query(struct uri_parser *parser,
 int uri_parse_fragment(struct uri_parser *parser,
 	const char **fragment_r) ATTR_NULL(2);
 
-void uri_parser_init(struct uri_parser *parser, pool_t pool,
-	const char *data);
+void uri_parser_init_data(struct uri_parser *parser,
+	pool_t pool, const unsigned char *data, size_t size);
+void uri_parser_init(struct uri_parser *parser,
+	pool_t pool, const char *uri);
+
 string_t *uri_parser_get_tmpbuf(struct uri_parser *parser,
 	size_t size);
 

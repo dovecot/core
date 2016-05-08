@@ -927,13 +927,22 @@ int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 	return 1;
 }
 
-void uri_parser_init(struct uri_parser *parser, pool_t pool, const char *data)
+void uri_parser_init_data(struct uri_parser *parser,
+	pool_t pool, const unsigned char *data, size_t size)
 {
 	parser->pool = pool;
-	parser->begin = parser->cur = (unsigned char *)data;
-	parser->end = (unsigned char *)data + strlen(data);
+	parser->begin = parser->cur = data;
+	parser->end = data + size;
 	parser->error = NULL;
 	parser->tmpbuf = NULL;
+
+}
+
+void uri_parser_init(struct uri_parser *parser,
+	pool_t pool, const char *uri)
+{
+	uri_parser_init_data
+		(parser, pool, (const unsigned char *)uri, strlen(uri));
 }
 
 string_t *uri_parser_get_tmpbuf(struct uri_parser *parser, size_t size)
