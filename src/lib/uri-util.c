@@ -1033,9 +1033,10 @@ void uri_host_copy(pool_t pool, struct uri_host *dest,
  * Generic URI construction
  */
 
-static void
-uri_data_encode(string_t *out, const unsigned char esc_table[256],
-		unsigned char esc_mask, const char *esc_extra, const char *data)
+void uri_data_encode(string_t *out,
+	const unsigned char esc_table[256],
+	unsigned char esc_mask, const char *esc_extra,
+	const char *data)
 {
 	const unsigned char *pbegin, *p;
 

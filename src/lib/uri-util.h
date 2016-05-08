@@ -81,6 +81,11 @@ void uri_host_copy(pool_t pool, struct uri_host *dest,
  * Generic URI construction
  */
 
+void uri_data_encode(string_t *out,
+	const unsigned char esc_table[256],
+	unsigned char esc_mask, const char *esc_extra,
+	const char *data);
+
 void uri_append_scheme(string_t *out, const char *scheme);
 
 void uri_append_user_data(string_t *out, const char *esc, const char *data);
