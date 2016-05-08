@@ -99,7 +99,8 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	client->set.user_agent = p_strdup_empty(pool, set->user_agent);
 	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
-	client->set.ssl = ssl_iostream_settings_dup(client->pool, set->ssl);
+	if (set->ssl != NULL)
+		client->set.ssl = ssl_iostream_settings_dup(client->pool, set->ssl);
 
 	if (set->proxy_socket_path != NULL && *set->proxy_socket_path != '\0') {
 		client->set.proxy_socket_path = p_strdup(pool, set->proxy_socket_path);
@@ -278,6 +279,10 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 	if (client->ssl_ctx != NULL)
 		return 0;
 
+	if (client->set.ssl == NULL) {
+		*error_r = "Requested https connection, but no SSL settings given";
+		return -1;
+	}
 	if (ssl_iostream_context_init_client(client->set.ssl, &client->ssl_ctx, &error) < 0) {
 		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
 					   error);
