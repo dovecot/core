@@ -25,6 +25,8 @@ struct uri_parser {
 	string_t *tmpbuf;
 };
 
+int uri_parse_pct_encoded(struct uri_parser *parser,
+		      unsigned char *ch_r);
 int uri_parse_unreserved(struct uri_parser *parser, string_t *part);
 
 bool uri_data_decode(struct uri_parser *parser, const char *data,

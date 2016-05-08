@@ -91,11 +91,16 @@ static inline int _decode_hex_digit(const unsigned char digit)
 	return -1;
 }
 
-static int ATTR_NULL(3)
-uri_parse_pct_encoded(struct uri_parser *parser, const unsigned char **p,
-		      const unsigned char *pend, unsigned char *ch_r)
+static int
+uri_parse_pct_encoded_data(struct uri_parser *parser,
+		      const unsigned char **p, const unsigned char *pend,
+		      unsigned char *ch_r) ATTR_NULL(3)
 {
 	int value;
+
+	if (**p != '%' || (pend != NULL && *p >= pend))
+		return 0;
+	*p += 1;
 
 	if (**p == 0 || *(*p+1) == 0 || (pend != NULL && *p+1 >= pend)) {
 		parser->error = "Unexpected URI boundary after '%'";
@@ -128,16 +133,20 @@ uri_parse_pct_encoded(struct uri_parser *parser, const unsigned char **p,
 	return 1;	
 }
 
+int uri_parse_pct_encoded(struct uri_parser *parser,
+		      unsigned char *ch_r)
+{
+	return uri_parse_pct_encoded_data
+		(parser, &parser->cur, parser->end, ch_r);
+}
+
 static int
 uri_parse_unreserved_char(struct uri_parser *parser, unsigned char *ch_r)
 {
-	if (*parser->cur == '%') {
-		parser->cur++;
-		if (uri_parse_pct_encoded(parser, &parser->cur,
-					  parser->end, ch_r) <= 0)
-			return -1;
-		return 1;
-	}
+	int ret;
+
+	if ((ret=uri_parse_pct_encoded(parser, ch_r)) != 0)
+		return ret;
 
 	if ((*parser->cur & 0x80) != 0)
 		return 0;
@@ -160,7 +169,6 @@ int uri_parse_unreserved(struct uri_parser *parser, string_t *part)
 
 		if ((ret = uri_parse_unreserved_char(parser, &ch)) < 0)
 			return -1;
-	
 		if (ret == 0)
 			break;
 
@@ -178,6 +186,7 @@ bool uri_data_decode(struct uri_parser *parser, const char *data,
 	const unsigned char *p = (const unsigned char *)data;
 	const unsigned char *pend = (const unsigned char *)until;
 	string_t *decoded;
+	int ret;
 
 	if (pend == NULL) {
 		/* NULL means unlimited; solely rely on '\0' */
@@ -194,11 +203,10 @@ bool uri_data_decode(struct uri_parser *parser, const char *data,
 	while (p < pend && *p != '\0') {
 		unsigned char ch;
 
-		if (*p == '%') {
-			p++;
-			if (uri_parse_pct_encoded(parser, &p, NULL, &ch) <= 0)
+		if ((ret=uri_parse_pct_encoded_data
+			(parser, &p, NULL, &ch)) != 0) {
+			if (ret < 0)
 				return FALSE;
-
 			str_append_c(decoded, ch);
 		} else {
 			str_append_c(decoded, *p);
