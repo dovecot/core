@@ -11,7 +11,6 @@ struct sized_istream {
 	void *error_context;
 
 	uoff_t size;
-	bool failed;
 };
 
 static void i_stream_sized_destroy(struct iostream_private *stream)
@@ -55,12 +54,6 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	ssize_t ret;
 	size_t pos;
 
-	if (sstream->failed) {
-		/* avoid duplicate errors */
-		stream->istream.stream_errno = EINVAL;
-		return -1;
-	}
-
 	if (stream->istream.v_offset +
 	    (stream->pos - stream->skip) >= sstream->size) {
 		stream->istream.eof = TRUE;
@@ -103,7 +96,6 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 		pos = left;
 		stream->istream.eof = TRUE;
 		stream->istream.stream_errno = EINVAL;
-		sstream->failed = TRUE;
 		return -1;
 	} else if (!stream->istream.eof) {
 		/* still more to read */
