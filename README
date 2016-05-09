@@ -63,13 +63,18 @@ IMAP extensions:
  5256       - IMAP SORT and THREAD Extensions
  5258       - IMAP4 - LIST Command Extensions 
  5267       - Contexts for IMAP4
+ 5464       - The IMAP METADATA Extension
+ 5465       - The IMAP NOTIFY Extension
  5524       - Extended URLFETCH for Binary and Converted Parts
  5530       - IMAP Response Codes
  5819       - IMAP4 Extension for Returning STATUS Information in Extended LIST
  5957       - Display-Based Address Sorting for the IMAP4 SORT Extension
  6154       - IMAP LIST Extension for Special-Use Mailboxes
  6203       - IMAP4 Extension for Fuzzy Search
+ 6785       - Support for IMAP Events in Sieve (via Pigeonhole plugin)
  6851       - Internet Message Access Protocol (IMAP) - MOVE Extension
+ 7162       - IMAP Extensions: Quick Flag Changes Resynchronization (CONDSTORE)
+              and Quick Mailbox Resynchronization (QRESYNC)
 
 Contact info
 ------------
