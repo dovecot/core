@@ -4,3 +4,14 @@
    fun:malloc
    obj:*/bash
 }
+{
+   <liblzma>
+   Memcheck:Cond
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
+   fun:lzma_stream_encoder
+   fun:lzma_easy_encoder
+}
