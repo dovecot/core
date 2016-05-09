@@ -176,8 +176,8 @@ auth_postfix_connection_create(struct auth *auth, int fd)
 	conn->refcount = 1;
 	conn->fd = fd;
 	conn->auth = auth;
-	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
+	conn->output = o_stream_create_fd(fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(fd, IO_READ, postfix_input, conn);
 	DLLIST_PREPEND(&auth_postfix_connections, conn);

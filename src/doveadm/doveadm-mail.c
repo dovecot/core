@@ -221,7 +221,7 @@ void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx)
 	if (ctx->conn != NULL)
 		inputs[0] = i_stream_create_dot(ctx->conn->input, FALSE);
 	else {
-		inputs[0] = i_stream_create_fd(STDIN_FILENO, 1024*1024, FALSE);
+		inputs[0] = i_stream_create_fd(STDIN_FILENO, 1024*1024);
 		i_stream_set_name(inputs[0], "stdin");
 	}
 	inputs[1] = NULL;

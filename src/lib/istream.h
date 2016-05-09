@@ -22,8 +22,7 @@ struct istream {
 
 typedef void istream_callback_t(void *context);
 
-struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
-				   bool autoclose_fd);
+struct istream *i_stream_create_fd(int fd, size_t max_buffer_size);
 /* The fd is set to -1 immediately to avoid accidentally closing it twice. */
 struct istream *i_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
 /* Open the given path only when something is actually tried to be read from

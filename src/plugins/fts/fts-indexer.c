@@ -126,7 +126,7 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 	ctx->box = box;
 	ctx->path = i_strdup(path);
 	ctx->fd = fd;
-	ctx->input = i_stream_create_fd(fd, 128, FALSE);
+	ctx->input = i_stream_create_fd(fd, 128);
 	ctx->search_start_time = ioloop_timeval;
 
 	value = mail_user_plugin_getenv(box->storage->user, "fts_index_timeout");

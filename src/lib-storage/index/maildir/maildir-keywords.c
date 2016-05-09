@@ -157,7 +157,7 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 	}
 
 	maildir_keywords_clear(mk);
-	input = i_stream_create_fd(fd, 1024, FALSE);
+	input = i_stream_create_fd(fd, 1024);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		p = strchr(line, ' ');
 		if (p == NULL) {

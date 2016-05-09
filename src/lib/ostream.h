@@ -51,8 +51,7 @@ typedef void ostream_callback_t(void *context);
 
 /* Create new output stream from given file descriptor.
    If max_buffer_size is 0, an "optimal" buffer size is used (max 128kB). */
-struct ostream *
-o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd);
+struct ostream *o_stream_create_fd(int fd, size_t max_buffer_size);
 /* The fd is set to -1 immediately to avoid accidentally closing it twice. */
 struct ostream *o_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
 /* Create an output stream from a regular file which begins at given offset.

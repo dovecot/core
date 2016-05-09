@@ -640,9 +640,9 @@ static void pop3c_client_connect_ip(struct pop3c_client *client)
 	}
 
 	client->input = client->raw_input =
-		i_stream_create_fd(client->fd, POP3C_MAX_INBUF_SIZE, FALSE);
+		i_stream_create_fd(client->fd, POP3C_MAX_INBUF_SIZE);
 	client->output = client->raw_output =
-		o_stream_create_fd(client->fd, (size_t)-1, FALSE);
+		o_stream_create_fd(client->fd, (size_t)-1);
 	o_stream_set_no_error_handling(client->output, TRUE);
 
 	if (*client->set.rawlog_dir != '\0' &&

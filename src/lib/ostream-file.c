@@ -29,6 +29,8 @@
 	((size) < SSIZE_T_MAX ? (size_t)(size) : SSIZE_T_MAX)
 
 static void stream_send_io(struct file_ostream *fstream);
+static struct ostream * o_stream_create_fd_common(int fd,
+		size_t max_buffer_size, bool autoclose_fd);
 
 static void stream_closed(struct file_ostream *fstream)
 {
@@ -988,8 +990,9 @@ static void fstream_init_file(struct file_ostream *fstream)
 	}
 }
 
-struct ostream *
-o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
+static
+struct ostream * o_stream_create_fd_common(int fd, size_t max_buffer_size,
+		bool autoclose_fd)
 {
 	struct file_ostream *fstream;
 	struct ostream *ostream;
@@ -1016,13 +1019,18 @@ o_stream_create_fd(int fd, size_t max_buffer_size, bool autoclose_fd)
 }
 
 struct ostream *
+o_stream_create_fd(int fd, size_t max_buffer_size)
+{
+	return o_stream_create_fd_common(fd, max_buffer_size, FALSE);
+}
+
+struct ostream *
 o_stream_create_fd_autoclose(int *fd, size_t max_buffer_size)
 {
-	struct ostream *output;
-
-	output = o_stream_create_fd(*fd, max_buffer_size, TRUE);
+	struct ostream *ostream = o_stream_create_fd_common(*fd,
+			max_buffer_size, TRUE);
 	*fd = -1;
-	return output;
+	return ostream;
 }
 
 struct ostream *

@@ -109,8 +109,8 @@ static void ipc_server_connect(struct ipc_server *server)
 	}
 
 	server->io = io_add(server->fd, IO_READ, ipc_server_input, server);
-	server->input = i_stream_create_fd(server->fd, (size_t)-1, FALSE);
-	server->output = o_stream_create_fd(server->fd, (size_t)-1, FALSE);
+	server->input = i_stream_create_fd(server->fd, (size_t)-1);
+	server->output = o_stream_create_fd(server->fd, (size_t)-1);
 	o_stream_set_no_error_handling(server->output, TRUE);
 	o_stream_nsend_str(server->output,
 		t_strdup_printf(IPC_SERVER_HANDSHAKE, server->name, my_pid));

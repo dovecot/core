@@ -171,8 +171,8 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 		timeout_remove(&conn->to);
 	conn->fd = fd;
 	conn->io = io_add(fd, IO_READ, replicator_input, conn);
-	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
+	conn->output = o_stream_create_fd(fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_nsend_str(conn->output, REPLICATOR_HANDSHAKE);
 	o_stream_set_flush_callback(conn->output, replicator_output, conn);

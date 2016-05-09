@@ -969,8 +969,7 @@ static struct istream *client_get_input(struct client *client)
 	if (state->mail_data_output != NULL) {
 		o_stream_unref(&state->mail_data_output);
 		inputs[1] = i_stream_create_fd(state->mail_data_fd,
-					       MAIL_READ_FULL_BLOCK_SIZE,
-					       FALSE);
+					       MAIL_READ_FULL_BLOCK_SIZE);
 		i_stream_set_init_buffer_size(inputs[1],
 					      MAIL_READ_FULL_BLOCK_SIZE);
 	} else {

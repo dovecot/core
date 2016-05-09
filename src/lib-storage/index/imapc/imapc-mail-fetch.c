@@ -301,8 +301,7 @@ static void imapc_mail_cache_get(struct imapc_mail *mail,
 
 	if (cache->fd != -1) {
 		mail->fd = cache->fd;
-		mail->imail.data.stream =
-			i_stream_create_fd(mail->fd, 0, FALSE);
+		mail->imail.data.stream = i_stream_create_fd(mail->fd, 0);
 		cache->fd = -1;
 	} else if (cache->buf != NULL) {
 		mail->body = cache->buf;
@@ -608,7 +607,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 			return;
 		}
 		mail->fd = fd;
-		imail->data.stream = i_stream_create_fd(fd, 0, FALSE);
+		imail->data.stream = i_stream_create_fd(fd, 0);
 	} else {
 		if (!imap_arg_get_nstring(arg, &value))
 			value = NULL;
@@ -690,7 +689,7 @@ imapc_fetch_header_stream(struct imapc_mail *mail,
 	if (args->type == IMAP_ARG_LITERAL_SIZE) {
 		if (!imapc_find_lfile_arg(reply, args, &fd))
 			return;
-		input = i_stream_create_fd(fd, 0, FALSE);
+		input = i_stream_create_fd(fd, 0);
 	} else {
 		if (!imap_arg_get_nstring(args, &value))
 			return;

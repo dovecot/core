@@ -137,8 +137,8 @@ static int filter_connect(struct mail_filter_ostream *mstream,
 	net_set_nonblock(fd, FALSE);
 
 	mstream->fd = fd;
-	mstream->ext_in = i_stream_create_fd(fd, IO_BLOCK_SIZE, FALSE);
-	mstream->ext_out = o_stream_create_fd(fd, 0, FALSE);
+	mstream->ext_in = i_stream_create_fd(fd, IO_BLOCK_SIZE);
+	mstream->ext_out = o_stream_create_fd(fd, 0);
 
 	str = t_str_new(256);
 	str_append(str, "VERSION\tscript\t3\t0\nnoreply\n");

@@ -178,7 +178,7 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 	p_clear(dict->hash_pool);
 
 	if (dict->fd != -1) {
-		input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
+		input = i_stream_create_fd(dict->fd, (size_t)-1);
 
 		while ((key = i_stream_read_next_line(input)) != NULL) {
 			/* strdup() before the second read */
@@ -574,7 +574,7 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	}
 	file_dict_apply_changes(ctx, atomic_inc_not_found_r);
 
-	output = o_stream_create_fd(fd, 0, FALSE);
+	output = o_stream_create_fd(fd, 0);
 	o_stream_cork(output);
 	iter = hash_table_iterate_init(dict->hash);
 	str = t_str_new(256);

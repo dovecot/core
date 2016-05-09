@@ -395,8 +395,8 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 	client->session_id = p_strdup(pool, session_id);
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
-	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE, FALSE);
-	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
+	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE);
+	client->output = o_stream_create_fd(fd_out, (size_t)-1);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, client_output, client);
 

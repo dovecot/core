@@ -64,7 +64,7 @@ void doveadm_connection_create(struct log_error_buffer *errorbuf, int fd)
 	conn = i_new(struct doveadm_connection, 1);
 	conn->errorbuf = errorbuf;
 	conn->fd = fd;
-	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
+	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);
 	if (doveadm_connection_send_errors(conn) < 0)
 		doveadm_connection_destroy(&conn);
 	else {

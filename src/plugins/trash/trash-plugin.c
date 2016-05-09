@@ -292,7 +292,7 @@ static int read_configuration(struct mail_user *user, const char *path)
 
 	p_array_init(&tuser->trash_boxes, user->pool, INIT_TRASH_MAILBOX_COUNT);
 
-	input = i_stream_create_fd(fd, (size_t)-1, FALSE);
+	input = i_stream_create_fd(fd, (size_t)-1);
 	i_stream_set_return_partial_line(input, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		/* <priority> <mailbox name> */

@@ -78,7 +78,7 @@ struct fifo_input_connection *fifo_input_connection_create(int fd)
 
 	conn = i_new(struct fifo_input_connection, 1);
 	conn->fd = fd;
-	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
 	conn->io = io_add(fd, IO_READ, fifo_input_connection_input, conn);
 	DLLIST_PREPEND(&fifo_conns, conn);
 	return conn;

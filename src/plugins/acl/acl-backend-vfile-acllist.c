@@ -129,7 +129,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 	backend->acllist_mtime = st.st_mtime;
 	acllist_clear(backend, st.st_size);
 
-	input = i_stream_create_fd(fd, (size_t)-1, FALSE);
+	input = i_stream_create_fd(fd, (size_t)-1);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		acllist.mtime = 0;
 		for (p = line; *p >= '0' && *p <= '9'; p++)

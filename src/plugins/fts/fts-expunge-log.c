@@ -401,7 +401,7 @@ fts_expunge_log_read_begin(struct fts_expunge_log *log)
 	if (fts_expunge_log_reopen_if_needed(log, FALSE) < 0)
 		ctx->failed = TRUE;
 	else if (log->fd != -1)
-		ctx->input = i_stream_create_fd(log->fd, (size_t)-1, FALSE);
+		ctx->input = i_stream_create_fd(log->fd, (size_t)-1);
 	ctx->unlink = TRUE;
 	return ctx;
 }

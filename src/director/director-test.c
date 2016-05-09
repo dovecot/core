@@ -246,8 +246,8 @@ static void imap_client_create(int fd)
 
 	client = i_new(struct imap_client, 1);
 	client->fd = fd;
-	client->input = i_stream_create_fd(fd, 4096, FALSE);
-	client->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	client->input = i_stream_create_fd(fd, 4096);
+	client->output = o_stream_create_fd(fd, (size_t)-1);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	client->io = io_add(fd, IO_READ, imap_client_input, client);
 	client->parser =
@@ -344,15 +344,15 @@ director_connection_create(int in_fd, const struct ip_addr *local_ip,
 
 	conn = i_new(struct director_connection, 1);
 	conn->in_fd = in_fd;
-	conn->in_input = i_stream_create_fd(conn->in_fd, (size_t)-1, FALSE);
-	conn->in_output = o_stream_create_fd(conn->in_fd, (size_t)-1, FALSE);
+	conn->in_input = i_stream_create_fd(conn->in_fd, (size_t)-1);
+	conn->in_output = o_stream_create_fd(conn->in_fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->in_output, TRUE);
 	conn->in_io = io_add(conn->in_fd, IO_READ,
 			     director_connection_in_input, conn);
 
 	conn->out_fd = out_fd;
-	conn->out_input = i_stream_create_fd(conn->out_fd, (size_t)-1, FALSE);
-	conn->out_output = o_stream_create_fd(conn->out_fd, (size_t)-1, FALSE);
+	conn->out_input = i_stream_create_fd(conn->out_fd, (size_t)-1);
+	conn->out_output = o_stream_create_fd(conn->out_fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->out_output, TRUE);
 	conn->out_io = io_add(conn->out_fd, IO_READ,
 			      director_connection_out_input, conn);
@@ -459,7 +459,7 @@ static struct admin_connection *admin_connect(const char *path)
 					    admin_random_action, conn);
 
 	net_set_nonblock(conn->fd, FALSE);
-	conn->input = i_stream_create_fd(conn->fd, (size_t)-1, FALSE);
+	conn->input = i_stream_create_fd(conn->fd, (size_t)-1);
 	admin_send(conn, DIRECTOR_ADMIN_HANDSHAKE);
 
 	line = i_stream_read_next_line(conn->input);

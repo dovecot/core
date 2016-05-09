@@ -389,8 +389,8 @@ master_login_auth_connect(struct master_login_auth *auth)
 		return -1;
 	}
 	auth->fd = fd;
-	auth->input = i_stream_create_fd(fd, AUTH_MAX_INBUF_SIZE, FALSE);
-	auth->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	auth->input = i_stream_create_fd(fd, AUTH_MAX_INBUF_SIZE);
+	auth->output = o_stream_create_fd(fd, (size_t)-1);
 	o_stream_set_no_error_handling(auth->output, TRUE);
 	auth->io = io_add(fd, IO_READ, master_login_auth_input, auth);
 	return 0;

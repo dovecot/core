@@ -300,7 +300,7 @@ smtp_client_send_flush(struct smtp_client *smtp_client,
 				     data_callback, smtp_client);
 	}
 
-	input = i_stream_create_fd(smtp_client->temp_fd, (size_t)-1, FALSE);
+	input = i_stream_create_fd(smtp_client->temp_fd, (size_t)-1);
 	lmtp_client_send(client, input);
 	i_stream_unref(&input);
 

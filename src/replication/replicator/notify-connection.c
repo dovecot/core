@@ -139,8 +139,8 @@ notify_connection_create(int fd, struct replicator_queue *queue)
 	conn->refcount = 1;
 	conn->queue = queue;
 	conn->fd = fd;
-	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
+	conn->output = o_stream_create_fd(fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(fd, IO_READ, notify_connection_input, conn);
 	conn->queue = queue;

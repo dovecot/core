@@ -80,10 +80,8 @@ static void client_idle_disconnect_timeout(struct client *client)
 
 static void client_open_streams(struct client *client)
 {
-	client->input =
-		i_stream_create_fd(client->fd, LOGIN_MAX_INBUF_SIZE, FALSE);
-	client->output =
-		o_stream_create_fd(client->fd, LOGIN_MAX_OUTBUF_SIZE, FALSE);
+	client->input = i_stream_create_fd(client->fd, LOGIN_MAX_INBUF_SIZE);
+	client->output = o_stream_create_fd(client->fd, LOGIN_MAX_OUTBUF_SIZE);
 	o_stream_set_no_error_handling(client->output, TRUE);
 
 	if (login_rawlog_dir != NULL) {

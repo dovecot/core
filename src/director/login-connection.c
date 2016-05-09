@@ -262,7 +262,7 @@ login_connection_init(struct director *dir, int fd,
 	conn->refcount = 1;
 	conn->fd = fd;
 	conn->dir = dir;
-	conn->output = o_stream_create_fd(conn->fd, (size_t)-1, FALSE);
+	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	if (type != LOGIN_CONNECTION_TYPE_AUTHREPLY) {
 		i_assert(auth != NULL);
@@ -272,7 +272,7 @@ login_connection_init(struct director *dir, int fd,
 		auth_connection_set_callback(conn->auth, auth_input_line, conn);
 	} else {
 		i_assert(auth == NULL);
-		conn->input = i_stream_create_fd(conn->fd, IO_BLOCK_SIZE, FALSE);
+		conn->input = i_stream_create_fd(conn->fd, IO_BLOCK_SIZE);
 		conn->io = io_add(conn->fd, IO_READ,
 				  login_connection_authreply_input, conn);
 		o_stream_nsend_str(conn->output, t_strdup_printf(

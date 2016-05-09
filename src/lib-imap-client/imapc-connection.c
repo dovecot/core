@@ -1641,8 +1641,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 		}
 	}
 	conn->fd = fd;
-	conn->input = conn->raw_input = i_stream_create_fd(fd, (size_t)-1, FALSE);
-	conn->output = conn->raw_output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	conn->input = conn->raw_input = i_stream_create_fd(fd, (size_t)-1);
+	conn->output = conn->raw_output = o_stream_create_fd(fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	if (*conn->client->set.rawlog_dir != '\0' &&

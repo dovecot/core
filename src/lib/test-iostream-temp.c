@@ -57,7 +57,7 @@ static void test_iostream_temp_istream(void)
 	test_assert(write(fd, "foobar", 6) == 6);
 	test_assert(lseek(fd, 0, SEEK_SET) == 0);
 
-	input = i_stream_create_fd(fd, 1024, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, 1024);
 	/* a working fd-dup */
 	output = iostream_temp_create_sized(".nonexistent/",
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 1);

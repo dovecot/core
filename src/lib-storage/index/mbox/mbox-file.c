@@ -81,8 +81,7 @@ int mbox_file_open_stream(struct mbox_mailbox *mbox)
 		} else {
 			mbox->mbox_file_stream =
 				i_stream_create_fd(mbox->mbox_fd,
-						   MBOX_READ_BLOCK_SIZE,
-						   FALSE);
+						   MBOX_READ_BLOCK_SIZE);
 			i_stream_set_init_buffer_size(mbox->mbox_file_stream,
 						      MBOX_READ_BLOCK_SIZE);
 		}

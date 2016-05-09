@@ -266,7 +266,7 @@ static int mail_index_strmap_open(struct mail_index_strmap_view *view)
 		mail_index_strmap_set_syscall_error(strmap, "open()");
 		return -1;
 	}
-	strmap->input = i_stream_create_fd(strmap->fd, (size_t)-1, FALSE);
+	strmap->input = i_stream_create_fd(strmap->fd, (size_t)-1);
 	ret = i_stream_read_bytes(strmap->input, &data, &size, sizeof(hdr));
 	if (ret <= 0) {
 		if (ret < 0) {
@@ -1013,7 +1013,7 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 				     temp_path);
 		return -1;
 	}
-	output = o_stream_create_fd(fd, 0, FALSE);
+	output = o_stream_create_fd(fd, 0);
 	o_stream_cork(output);
 	mail_index_strmap_recreate_write(view, output);
 	if (o_stream_nfinish(output) < 0) {
@@ -1167,7 +1167,7 @@ mail_index_strmap_write_append(struct mail_index_strmap_view *view)
 	i_assert(old_recs[i].uid > view->last_read_uid);
 
 	/* write the new records */
-	output = o_stream_create_fd(view->strmap->fd, 0, FALSE);
+	output = o_stream_create_fd(view->strmap->fd, 0);
 	(void)o_stream_seek(output, view->last_read_block_offset);
 	o_stream_cork(output);
 	mail_index_strmap_write_block(view, output, i,

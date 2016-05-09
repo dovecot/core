@@ -120,7 +120,7 @@ create_raw_stream(struct mail_deliver_context *ctx,
 	*mtime_r = (time_t)-1;
 	fd_set_nonblock(fd, FALSE);
 
-	input = i_stream_create_fd(fd, 4096, FALSE);
+	input = i_stream_create_fd(fd, 4096);
 	input->blocking = TRUE;
 	/* If input begins with a From-line, drop it */
 	ret = i_stream_read_bytes(input, &data, &size, 5);

@@ -302,7 +302,7 @@ int dns_client_connect(struct dns_client *client, const char **error_r)
 					   client->path);
 		return -1;
 	}
-	client->input = i_stream_create_fd(client->fd, MAX_INBUF_SIZE, FALSE);
+	client->input = i_stream_create_fd(client->fd, MAX_INBUF_SIZE);
 	client->io = io_add(client->fd, IO_READ, dns_client_input, client);
 	return 0;
 }

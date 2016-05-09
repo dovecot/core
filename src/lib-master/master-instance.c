@@ -132,7 +132,7 @@ master_instance_list_write(struct master_instance_list *list,
 	string_t *str = t_str_new(128);
 	int ret = 0;
 
-	output = o_stream_create_fd(fd, 0, FALSE);
+	output = o_stream_create_fd(fd, 0);
 	o_stream_cork(output);
 	array_foreach(&list->instances, inst) {
 		str_truncate(str, 0);

@@ -169,7 +169,7 @@ static int duplicate_read(struct duplicate_file *file)
 	}
 
 	/* <timestamp> <id_size> <user_size> <id> <user> */
-	input = i_stream_create_fd(fd, DUPLICATE_BUFSIZE, FALSE);
+	input = i_stream_create_fd(fd, DUPLICATE_BUFSIZE);
 	if (i_stream_read_bytes(input, &data, &size, sizeof(hdr)) > 0) {
 		memcpy(&hdr, data, sizeof(hdr));
 		if (hdr.version == 0 || hdr.version > DUPLICATE_VERSION + 10) {

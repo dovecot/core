@@ -434,7 +434,7 @@ config_dump_human(const struct config_filter *filter, const char *const *modules
 	struct ostream *output;
 	int ret;
 
-	output = o_stream_create_fd(STDOUT_FILENO, 0, FALSE);
+	output = o_stream_create_fd(STDOUT_FILENO, 0);
 	o_stream_set_no_error_handling(output, TRUE);
 	o_stream_cork(output);
 

@@ -175,8 +175,8 @@ struct ipc_connection *ipc_connection_create(int listen_fd, int fd)
 		conn->id = ++connection_id_counter;
 	conn->fd = fd;
 	conn->io = io_add(fd, IO_READ, ipc_connection_input, conn);
-	conn->input = i_stream_create_fd(fd, (size_t)-1, FALSE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	conn->input = i_stream_create_fd(fd, (size_t)-1);
+	conn->output = o_stream_create_fd(fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	i_array_init(&conn->cmds, 8);
 	o_stream_nsend_str(conn->output, IPC_SERVER_HANDSHAKE);

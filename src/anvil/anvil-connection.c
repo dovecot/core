@@ -189,9 +189,9 @@ anvil_connection_create(int fd, bool master, bool fifo)
 
 	conn = i_new(struct anvil_connection, 1);
 	conn->fd = fd;
-	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
 	if (!fifo) {
-		conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+		conn->output = o_stream_create_fd(fd, (size_t)-1);
 		o_stream_set_no_error_handling(conn->output, TRUE);
 	}
 	conn->io = io_add(fd, IO_READ, anvil_connection_input, conn);

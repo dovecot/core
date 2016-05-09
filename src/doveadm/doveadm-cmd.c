@@ -423,7 +423,7 @@ static void doveadm_fill_param(struct doveadm_cmd_param *param,
 	case CMD_PARAM_ISTREAM: {
 		struct istream *is;
 		if (strcmp(value,"-") == 0) {
-			is = i_stream_create_fd(STDIN_FILENO, IO_BLOCK_SIZE, FALSE);
+			is = i_stream_create_fd(STDIN_FILENO, IO_BLOCK_SIZE);
 		} else {
 			is = i_stream_create_file(value, IO_BLOCK_SIZE);
 		}

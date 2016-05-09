@@ -253,8 +253,8 @@ struct client *client_create(int fd_in, int fd_out,
 	client->local_ip = conn->local_ip;
 	client->local_port = conn->local_port;
 
-	client->input = i_stream_create_fd(fd_in, CLIENT_MAX_INPUT_SIZE, FALSE);
-	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
+	client->input = i_stream_create_fd(fd_in, CLIENT_MAX_INPUT_SIZE);
+	client->output = o_stream_create_fd(fd_out, (size_t)-1);
 	o_stream_set_no_error_handling(client->output, TRUE);
 
 	client_io_reset(client);

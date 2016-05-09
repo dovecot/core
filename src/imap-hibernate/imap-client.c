@@ -421,7 +421,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	client = p_new(pool, struct imap_client, 1);
 	client->pool = pool;
 	client->fd = fd;
-	client->input = i_stream_create_fd(fd, IMAP_MAX_INBUF, FALSE);
+	client->input = i_stream_create_fd(fd, IMAP_MAX_INBUF);
 
 	client->state = *state;
 	client->state.username = p_strdup(pool, state->username);

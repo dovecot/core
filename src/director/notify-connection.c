@@ -56,7 +56,7 @@ notify_connection_init(struct director *dir, int fd)
 	conn = i_new(struct notify_connection, 1);
 	conn->fd = fd;
 	conn->dir = dir;
-	conn->input = i_stream_create_fd(conn->fd, 1024, FALSE);
+	conn->input = i_stream_create_fd(conn->fd, 1024);
 	conn->io = io_add(conn->fd, IO_READ, notify_connection_input, conn);
 	return conn;
 }

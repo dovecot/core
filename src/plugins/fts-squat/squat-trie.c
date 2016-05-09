@@ -1639,7 +1639,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 			}
 		}
 
-		output = o_stream_create_fd(fd, 0, FALSE);
+		output = o_stream_create_fd(fd, 0);
 		o_stream_cork(output);
 		o_stream_nsend(output, &trie->hdr, sizeof(trie->hdr));
 	} else {
@@ -1653,7 +1653,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 			if (squat_trie_write_lock(ctx) < 0)
 				return -1;
 		}
-		output = o_stream_create_fd(trie->fd, 0, FALSE);
+		output = o_stream_create_fd(trie->fd, 0);
 		o_stream_cork(output);
 
 		if (trie->hdr.used_file_size != 0)

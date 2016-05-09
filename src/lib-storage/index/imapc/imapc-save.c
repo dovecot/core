@@ -234,7 +234,7 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 
 	ctx->mbox->exists_received = FALSE;
 
-	input = i_stream_create_fd(ctx->fd, IO_BLOCK_SIZE, FALSE);
+	input = i_stream_create_fd(ctx->fd, IO_BLOCK_SIZE);
 	sctx.ctx = ctx;
 	sctx.ret = -2;
 	cmd = imapc_client_cmd(ctx->mbox->storage->client->client,

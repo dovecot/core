@@ -452,7 +452,7 @@ int master_service_settings_read(struct master_service *service,
 			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
 	if (fd != -1) {
-		istream = i_stream_create_fd(fd, (size_t)-1, FALSE);
+		istream = i_stream_create_fd(fd, (size_t)-1);
 		now = time(NULL);
 		timeout = now + CONFIG_READ_TIMEOUT_SECS;
 		do {

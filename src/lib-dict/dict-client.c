@@ -414,8 +414,8 @@ static int client_dict_connect(struct client_dict *dict, const char **error_r)
 	/* Dictionary lookups are blocking */
 	net_set_nonblock(dict->fd, FALSE);
 
-	dict->input = i_stream_create_fd(dict->fd, (size_t)-1, FALSE);
-	dict->output = o_stream_create_fd(dict->fd, 4096, FALSE);
+	dict->input = i_stream_create_fd(dict->fd, (size_t)-1);
+	dict->output = o_stream_create_fd(dict->fd, 4096);
 
 	query = t_strdup_printf("%c%u\t%u\t%d\t%s\t%s\n",
 				DICT_PROTOCOL_CMD_HELLO,

@@ -152,7 +152,7 @@ test_file_open(const char *path,
 		return NULL;
 	}
 
-	return i_stream_create_fd(fd, 40960, TRUE);
+	return i_stream_create_fd_autoclose(&fd, 40960);
 }
 
 /*

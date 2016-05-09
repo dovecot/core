@@ -27,7 +27,7 @@ static void test_ostream_file_random_once(void)
 	if (fd == -1)
 		i_fatal("safe_mkstemp(%s) failed: %m", str_c(path));
 	i_unlink(str_c(path));
-	output = o_stream_create_fd(fd, MAX_BUFSIZE, FALSE);
+	output = o_stream_create_fd(fd, MAX_BUFSIZE);
 	o_stream_cork(output);
 
 	size = (rand() % MAX_BUFSIZE) + 1;
@@ -84,13 +84,13 @@ static void test_ostream_file_send_istream_file(void)
 		i_fatal("creat(.temp.istream) failed: %m");
 	test_assert(write(fd, "1234567890", 10) == 10);
 	test_assert(lseek(fd, 0, SEEK_SET) == 0);
-	input = i_stream_create_fd(fd, 1024, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, 1024);
 
 	/* temp file ostream */
 	fd = open(".temp.ostream", O_RDWR | O_CREAT | O_TRUNC, 0600);
 	if (fd == -1)
 		i_fatal("creat(.temp.ostream) failed: %m");
-	output = o_stream_create_fd(fd, 0, TRUE);
+	output = o_stream_create_fd(fd, 0);
 
 	/* test that writing works between two files */
 	i_stream_seek(input, 3);
@@ -104,7 +104,7 @@ static void test_ostream_file_send_istream_file(void)
 	/* test that writing works within the same file */
 	i_stream_destroy(&input);
 
-	input = i_stream_create_fd(fd, 1024, FALSE);
+	input = i_stream_create_fd(fd, 1024);
 	/* forwards: 4567 -> 4677 */
 	o_stream_seek(output, 1);
 	i_stream_seek(input, 2);
@@ -119,7 +119,7 @@ static void test_ostream_file_send_istream_file(void)
 	/* backwards: 1234 -> 11234 */
 	memcpy(buf, "1234", 4);
 	test_assert(pwrite(fd, buf, 4, 0) == 4);
-	input = i_stream_create_fd(fd, 1024, FALSE);
+	input = i_stream_create_fd(fd, 1024);
 	o_stream_seek(output, 1);
 	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	test_assert(output->offset == 5);
@@ -128,6 +128,7 @@ static void test_ostream_file_send_istream_file(void)
 	i_stream_destroy(&input);
 
 	o_stream_destroy(&output);
+	i_close_fd(&fd);
 
 	i_unlink(".temp.istream");
 	i_unlink(".temp.ostream");
@@ -149,11 +150,11 @@ static void test_ostream_file_send_istream_sendfile(void)
 		i_fatal("creat(.temp.istream) failed: %m");
 	test_assert(write(fd, "abcdefghij", 10) == 10);
 	test_assert(lseek(fd, 0, SEEK_SET) == 0);
-	input = i_stream_create_fd(fd, 1024, TRUE);
+	input = i_stream_create_fd_autoclose(&fd, 1024);
 
 	/* temp socket ostream */
 	i_assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sock_fd) == 0);
-	output = o_stream_create_fd(sock_fd[0], 0, TRUE);
+	output = o_stream_create_fd_autoclose(sock_fd, 0);
 
 	/* test that sendfile() works */
 	i_stream_seek(input, 3);

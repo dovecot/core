@@ -710,7 +710,7 @@ int squat_uidlist_build_init(struct squat_uidlist *uidlist,
 
 	ctx = i_new(struct squat_uidlist_build_context, 1);
 	ctx->uidlist = uidlist;
-	ctx->output = o_stream_create_fd(uidlist->fd, 0, FALSE);
+	ctx->output = o_stream_create_fd(uidlist->fd, 0);
 	if (ctx->output->offset == 0) {
 		struct squat_uidlist_file_header hdr;
 
@@ -927,7 +927,7 @@ int squat_uidlist_rebuild_init(struct squat_uidlist_build_context *build_ctx,
 	ctx->uidlist = build_ctx->uidlist;
 	ctx->build_ctx = build_ctx;
 	ctx->fd = fd;
-	ctx->output = o_stream_create_fd(ctx->fd, 0, FALSE);
+	ctx->output = o_stream_create_fd(ctx->fd, 0);
 	ctx->next_uid_list_idx = 0x100;
 	o_stream_cork(ctx->output);
 

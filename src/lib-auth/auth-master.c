@@ -342,8 +342,8 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 
 	conn->prev_ioloop = current_ioloop;
 	conn->ioloop = io_loop_create();
-	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE, FALSE);
-	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE, FALSE);
+	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
+	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE);
 	conn->io = io_add(conn->fd, IO_READ, auth_input, conn);
 	conn->to = timeout_add(1000*MASTER_AUTH_LOOKUP_TIMEOUT_SECS,
 			       auth_request_timeout, conn);

@@ -192,9 +192,8 @@ static struct auth_worker_connection *auth_worker_create(void)
 
 	conn = i_new(struct auth_worker_connection, 1);
 	conn->fd = fd;
-	conn->input = i_stream_create_fd(fd, AUTH_WORKER_MAX_LINE_LENGTH,
-					 FALSE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	conn->input = i_stream_create_fd(fd, AUTH_WORKER_MAX_LINE_LENGTH);
+	conn->output = o_stream_create_fd(fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(fd, IO_READ, worker_input, conn);
 	conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,

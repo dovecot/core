@@ -180,7 +180,7 @@ run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 	}
 
 	fd_set_nonblock(ctx->fd_err, TRUE);
-	ctx->err_stream = i_stream_create_fd(ctx->fd_err, IO_BLOCK_SIZE, FALSE);
+	ctx->err_stream = i_stream_create_fd(ctx->fd_err, IO_BLOCK_SIZE);
 	i_stream_set_return_partial_line(ctx->err_stream, TRUE);
 }
 
@@ -486,8 +486,8 @@ cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 	if (ctx->input == NULL) {
 		fd_set_nonblock(ctx->fd_in, TRUE);
 		fd_set_nonblock(ctx->fd_out, TRUE);
-		ctx->input = i_stream_create_fd(ctx->fd_in, (size_t)-1, FALSE);
-		ctx->output = o_stream_create_fd(ctx->fd_out, (size_t)-1, FALSE);
+		ctx->input = i_stream_create_fd(ctx->fd_in, (size_t)-1);
+		ctx->output = o_stream_create_fd(ctx->fd_out, (size_t)-1);
 	} else {
 		ctx->input_orig_bufsize = i_stream_get_max_buffer_size(ctx->input);
 		ctx->output_orig_bufsize = o_stream_get_max_buffer_size(ctx->output);

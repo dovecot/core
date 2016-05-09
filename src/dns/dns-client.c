@@ -93,8 +93,8 @@ static struct dns_client *dns_client_create(int fd)
 
 	client = i_new(struct dns_client, 1);
 	client->fd = fd;
-	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
-	client->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
+	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
+	client->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	client->io = io_add(fd, IO_READ, dns_client_input, client);
 	return client;

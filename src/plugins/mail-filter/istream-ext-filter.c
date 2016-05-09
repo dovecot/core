@@ -176,8 +176,8 @@ static int filter_connect(struct mail_filter_istream *mstream,
 
 	mstream->fd = fd;
 	mstream->ext_in =
-		i_stream_create_fd(fd, mstream->istream.max_buffer_size, FALSE);
-	mstream->ext_out = o_stream_create_fd(fd, 0, FALSE);
+		i_stream_create_fd(fd, mstream->istream.max_buffer_size);
+	mstream->ext_out = o_stream_create_fd(fd, 0);
 
 	str = t_str_new(256);
 	str_append(str, "VERSION\tscript\t3\t0\nnoreply\n");

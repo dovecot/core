@@ -914,8 +914,8 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 		timeout_remove(&conn->to_reconnect);
 
 	conn->fd = fd;
-	conn->input = i_stream_create_fd(fd, (size_t)-1, FALSE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+	conn->input = i_stream_create_fd(fd, (size_t)-1);
+	conn->output = o_stream_create_fd(fd, (size_t)-1);
 	conn->io = io_add(fd, IO_READ, imap_urlauth_input, conn);
 	conn->state = IMAP_URLAUTH_STATE_AUTHENTICATING;
 

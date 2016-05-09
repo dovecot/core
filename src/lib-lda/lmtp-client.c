@@ -674,9 +674,8 @@ static int lmtp_client_connect(struct lmtp_client *client)
 			client->host, client->port);
 		return -1;
 	}
-	client->input =
-		i_stream_create_fd(client->fd, LMTP_MAX_LINE_LEN, FALSE);
-	client->output = o_stream_create_fd(client->fd, (size_t)-1, FALSE);
+	client->input = i_stream_create_fd(client->fd, LMTP_MAX_LINE_LEN);
+	client->output = o_stream_create_fd(client->fd, (size_t)-1);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, lmtp_client_output, client);
 	/* we're already sending data in ostream, so can't use IO_WRITE here */

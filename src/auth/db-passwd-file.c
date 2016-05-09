@@ -200,7 +200,7 @@ static int passwd_file_open(struct passwd_file *pw, bool startup,
 	hash_table_create(&pw->users, pw->pool, 0, str_hash, strcmp);
 
 	start_time = time(NULL);
-	input = i_stream_create_fd(pw->fd, (size_t)-1, FALSE);
+	input = i_stream_create_fd(pw->fd, (size_t)-1);
 	i_stream_set_return_partial_line(input, TRUE);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (*line == '\0' || *line == ':' || *line == '#')

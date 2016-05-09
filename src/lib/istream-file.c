@@ -227,8 +227,7 @@ i_stream_create_file_common(struct file_istream *fstream,
 	return input;
 }
 
-struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
-				   bool autoclose_fd)
+struct istream *i_stream_create_fd(int fd, size_t max_buffer_size)
 {
 	struct file_istream *fstream;
 
@@ -236,14 +235,19 @@ struct istream *i_stream_create_fd(int fd, size_t max_buffer_size,
 
 	fstream = i_new(struct file_istream, 1);
 	return i_stream_create_file_common(fstream, fd, NULL,
-					   max_buffer_size, autoclose_fd);
+					   max_buffer_size, FALSE);
 }
 
 struct istream *i_stream_create_fd_autoclose(int *fd, size_t max_buffer_size)
 {
 	struct istream *input;
+	struct file_istream *fstream;
 
-	input = i_stream_create_fd(*fd, max_buffer_size, TRUE);
+	i_assert(*fd != -1);
+
+	fstream = i_new(struct file_istream, 1);
+	input = i_stream_create_file_common(fstream, *fd, NULL,
+					   max_buffer_size, TRUE);
 	*fd = -1;
 	return input;
 }
