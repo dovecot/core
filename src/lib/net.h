@@ -48,6 +48,14 @@ enum net_listen_flags {
 	NET_LISTEN_FLAG_REUSEPORT	= 0x01
 };
 
+/* INADDR_ANY for IPv4 or IPv6. The IPv6 any address may
+   include IPv4 depending on the system (Linux yes, BSD no). */
+extern const struct ip_addr net_ip4_any;
+extern const struct ip_addr net_ip6_any;
+
+extern const struct ip_addr net_ip4_loopback;
+extern const struct ip_addr net_ip6_loopback;
+
 /* Returns TRUE if IPs are the same */
 bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2);
 /* Returns 0 if IPs are the same, -1 or 1 otherwise. */
@@ -83,11 +91,6 @@ int net_set_cork(int fd, bool cork) ATTR_NOWARN_UNUSED_RESULT;
 /* Set socket kernel buffer sizes */
 int net_set_send_buffer_size(int fd, size_t size);
 int net_set_recv_buffer_size(int fd, size_t size);
-
-/* Set IP to contain INADDR_ANY for IPv4 or IPv6. The IPv6 any address may
-   include IPv4 depending on the system (Linux yes, BSD no). */
-void net_get_ip_any4(struct ip_addr *ip);
-void net_get_ip_any6(struct ip_addr *ip);
 
 /* Listen for connections on a socket */
 int net_listen(const struct ip_addr *my_ip, in_port_t *port, int backlog);

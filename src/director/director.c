@@ -26,14 +26,10 @@ bool director_debug;
 
 static bool director_is_self_ip_set(struct director *dir)
 {
-	struct ip_addr ip;
-
-	net_get_ip_any4(&ip);
-	if (net_ip_compare(&dir->self_ip, &ip))
+	if (net_ip_compare(&dir->self_ip, &net_ip4_any))
 		return FALSE;
 
-	net_get_ip_any6(&ip);
-	if (net_ip_compare(&dir->self_ip, &ip))
+	if (net_ip_compare(&dir->self_ip, &net_ip6_any))
 		return FALSE;
 
 	return TRUE;

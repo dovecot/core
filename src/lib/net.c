@@ -375,17 +375,25 @@ int net_set_recv_buffer_size(int fd, size_t size)
 	return setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt));
 }
 
-void net_get_ip_any4(struct ip_addr *ip)
-{
-	ip->family = AF_INET;
-	ip->u.ip4.s_addr = INADDR_ANY;
-}
+const struct ip_addr net_ip4_any = {
+	.family = AF_INET,
+	.u.ip4.s_addr = INADDR_ANY
+};
 
-void net_get_ip_any6(struct ip_addr *ip)
-{
-	ip->family = AF_INET6;
-	ip->u.ip6 = in6addr_any;
-}
+const struct ip_addr net_ip6_any = {
+	.family = AF_INET6,
+	.u.ip6 = IN6ADDR_ANY_INIT
+};
+
+const struct ip_addr net_ip4_loopback = {
+	.family = AF_INET,
+	.u.ip4.s_addr = INADDR_LOOPBACK
+};
+
+const struct ip_addr net_ip6_loopback = {
+	.family = AF_INET6,
+	.u.ip6 = IN6ADDR_LOOPBACK_INIT
+};
 
 int net_listen(const struct ip_addr *my_ip, in_port_t *port, int backlog)
 {

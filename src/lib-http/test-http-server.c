@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 	if (argc < 2 || net_str2port(argv[1], &port) < 0)
 		i_fatal("Port parameter missing");
 	if (argc < 3)
-		net_get_ip_any4(&my_ip);
+		my_ip = net_ip4_any;
 	else if (net_addr2ip(argv[2], &my_ip) < 0)
 		i_fatal("Invalid IP parameter");
 

@@ -79,7 +79,7 @@ resolve_ip(const char *address, const struct ip_addr **ips_r,
 	if (address == NULL || strcmp(address, "*") == 0) {
 		/* IPv4 any */
 		ip_list = t_new(struct ip_addr, 1);
-		net_get_ip_any4(ip_list);
+		*ip_list = net_ip4_any;
 		*ips_r = ip_list;
 		*ips_count_r = 1;
 		return 0;
@@ -88,7 +88,7 @@ resolve_ip(const char *address, const struct ip_addr **ips_r,
 	if (strcmp(address, "::") == 0 || strcmp(address, "[::]") == 0) {
 		/* IPv6 any */
 		ip_list = t_new(struct ip_addr, 1);
-		net_get_ip_any6(ip_list);
+		*ip_list = net_ip6_any;
 		*ips_r = ip_list;
 		*ips_count_r = 1;
 		return 0;
