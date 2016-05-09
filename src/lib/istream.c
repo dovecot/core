@@ -269,7 +269,7 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 	_stream->skip = _stream->pos;
 	stream->v_offset += data_size;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return;
 
 	_stream->seek(_stream, stream->v_offset + count, FALSE);
@@ -296,7 +296,7 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 	    i_stream_can_optimize_seek(_stream))
 		i_stream_skip(stream, v_offset - stream->v_offset);
 	else {
-		if (unlikely(stream->closed))
+		if (unlikely(stream->closed || stream->stream_errno != 0))
 			return;
 
 		stream->eof = FALSE;
@@ -309,7 +309,7 @@ void i_stream_seek_mark(struct istream *stream, uoff_t v_offset)
 {
 	struct istream_private *_stream = stream->real_stream;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return;
 
 	stream->eof = FALSE;
@@ -321,7 +321,7 @@ void i_stream_sync(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return;
 
 	if (_stream->sync != NULL) {
@@ -334,7 +334,7 @@ int i_stream_stat(struct istream *stream, bool exact, const struct stat **st_r)
 {
 	struct istream_private *_stream = stream->real_stream;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return -1;
 
 	if (_stream->stat(_stream, exact) < 0)
@@ -347,7 +347,7 @@ int i_stream_get_size(struct istream *stream, bool exact, uoff_t *size_r)
 {
 	struct istream_private *_stream = stream->real_stream;
 
-	if (unlikely(stream->closed))
+	if (unlikely(stream->closed || stream->stream_errno != 0))
 		return -1;
 
 	return _stream->get_size(_stream, exact, size_r);
