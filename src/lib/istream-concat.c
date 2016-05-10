@@ -23,7 +23,10 @@ static void i_stream_concat_close(struct iostream_private *stream,
 	struct concat_istream *cstream = (struct concat_istream *)stream;
 	unsigned int i;
 
-	(void)i_stream_concat_skip(cstream);
+	if (cstream->istream.istream.stream_errno == 0) {
+		/* get the parent streams to the wanted offset */
+		(void)i_stream_concat_skip(cstream);
+	}
 
 	if (close_parent) {
 		for (i = 0; cstream->input[i] != NULL; i++)
