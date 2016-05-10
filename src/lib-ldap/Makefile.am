@@ -17,9 +17,9 @@ libdovecot_ldap_la_SOURCES = \
 	ldap-compare.c \
 	ldap-entry.c
 
-libdovecot_ldap_la_DEPENDENCIES =
+libdovecot_ldap_la_DEPENDENCIES = ../lib-dovecot/libdovecot.la
 libdovecot_ldap_la_LDFLAGS = -export-dynamic
-libdovecot_ldap_la_LIBADD = $(LDAP_LIBS)
+libdovecot_ldap_la_LIBADD = ../lib-dovecot/libdovecot.la $(LDAP_LIBS)
 
 headers = \
 	ldap-client.h
