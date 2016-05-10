@@ -326,8 +326,8 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
 void mail_index_transaction_finish(struct mail_index_transaction *t)
 {
 	if (array_is_created(&t->appends)) {
-		mail_index_update_day_headers(t);
 		mail_index_transaction_sort_appends(t);
+		mail_index_update_day_headers(t);
 	}
 	mail_index_transaction_finish_flag_updates(t);
 
