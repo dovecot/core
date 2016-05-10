@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
+#include "ostream.h"
 #include "ioloop.h"
 #include "str.h"
 #include "mkdir-parents.h"
@@ -1015,4 +1016,29 @@ int index_storage_expunged_sync_begin(struct mailbox *box,
 							 trans_r, flags);
 	}
 	return 1;
+}
+
+int index_storage_save_continue(struct mail_save_context *ctx,
+				struct istream *input,
+				struct mail *cache_dest_mail)
+{
+	struct mail_storage *storage = ctx->transaction->box->storage;
+
+	do {
+		if (o_stream_send_istream(ctx->data.output, input) < 0) {
+			if (!mail_storage_set_error_from_errno(storage)) {
+				mail_storage_set_critical(storage,
+					"write(%s) failed: %m",
+					o_stream_get_name(ctx->data.output));
+			}
+			return -1;
+		}
+		if (cache_dest_mail != NULL)
+			index_mail_cache_parse_continue(cache_dest_mail);
+
+		/* both tee input readers may consume data from our primary
+		   input stream. we'll have to make sure we don't return with
+		   one of the streams still having data in them. */
+	} while (i_stream_read(input) > 0);
+	return 0;
 }

@@ -440,6 +440,8 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 	if (!ctx->failed) {
 		_ctx->data.output = o_stream_create_fd_file(ctx->fd, 0, FALSE);
+		o_stream_set_name(_ctx->data.output, t_strdup_printf(
+			"%s/%s", ctx->tmpdir, ctx->file_last->tmp_name));
 		o_stream_cork(_ctx->data.output);
 		ctx->last_save_finished = FALSE;
 	}
@@ -449,29 +451,15 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 int maildir_save_continue(struct mail_save_context *_ctx)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
-	struct mail_storage *storage = &ctx->mbox->storage->storage;
 
 	if (ctx->failed)
 		return -1;
 
-	do {
-		if (o_stream_send_istream(_ctx->data.output, ctx->input) < 0) {
-			if (!mail_storage_set_error_from_errno(storage)) {
-				mail_storage_set_critical(storage,
-					"o_stream_send_istream(%s/%s) "
-					"failed: %m",
-					ctx->tmpdir, ctx->file_last->tmp_name);
-			}
-			ctx->failed = TRUE;
-			return -1;
-		}
-		if (ctx->cur_dest_mail != NULL)
-			index_mail_cache_parse_continue(ctx->cur_dest_mail);
-
-		/* both tee input readers may consume data from our primary
-		   input stream. we'll have to make sure we don't return with
-		   one of the streams still having data in them. */
-	} while (i_stream_read(ctx->input) > 0);
+	if (index_storage_save_continue(_ctx, ctx->input,
+					ctx->cur_dest_mail) < 0) {
+		ctx->failed = TRUE;
+		return -1;
+	}
 	return 0;
 }
 

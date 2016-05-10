@@ -89,17 +89,11 @@ int imapc_save_begin(struct mail_save_context *_ctx, struct istream *input)
 int imapc_save_continue(struct mail_save_context *_ctx)
 {
 	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
-	struct mail_storage *storage = _ctx->transaction->box->storage;
 
 	if (ctx->failed)
 		return -1;
 
-	if (o_stream_send_istream(_ctx->data.output, ctx->input) < 0) {
-		if (!mail_storage_set_error_from_errno(storage)) {
-			mail_storage_set_critical(storage,
-				"o_stream_send_istream(%s) failed: %m",
-				ctx->temp_path);
-		}
+	if (index_storage_save_continue(_ctx, ctx->input, NULL) < 0) {
 		ctx->failed = TRUE;
 		return -1;
 	}

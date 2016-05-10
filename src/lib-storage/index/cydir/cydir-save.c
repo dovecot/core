@@ -91,6 +91,7 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		if (ctx->fd != -1) {
 			_ctx->data.output =
 				o_stream_create_fd_file(ctx->fd, 0, FALSE);
+			o_stream_set_name(_ctx->data.output, path);
 			o_stream_cork(_ctx->data.output);
 		} else {
 			mail_storage_set_critical(trans->box->storage,
@@ -131,27 +132,15 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 int cydir_save_continue(struct mail_save_context *_ctx)
 {
 	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
-	struct mail_storage *storage = &ctx->mbox->storage->storage;
 
 	if (ctx->failed)
 		return -1;
 
-	do {
-		if (o_stream_send_istream(_ctx->data.output, ctx->input) < 0) {
-			if (!mail_storage_set_error_from_errno(storage)) {
-				mail_storage_set_critical(storage,
-					"write(%s) failed: %m",
-					cydir_get_save_path(ctx, ctx->mail_count));
-			}
-			ctx->failed = TRUE;
-			return -1;
-		}
-		index_mail_cache_parse_continue(_ctx->dest_mail);
-
-		/* both tee input readers may consume data from our primary
-		   input stream. we'll have to make sure we don't return with
-		   one of the streams still having data in them. */
-	} while (i_stream_read(ctx->input) > 0);
+	if (index_storage_save_continue(_ctx, ctx->input,
+					_ctx->dest_mail) < 0) {
+		ctx->failed = TRUE;
+		return -1;
+	}
 	return 0;
 }
 

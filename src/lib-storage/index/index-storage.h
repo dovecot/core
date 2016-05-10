@@ -180,4 +180,8 @@ int index_storage_expunged_sync_begin(struct mailbox *box,
 				      enum mail_index_sync_flags flags);
 void index_storage_expunging_deinit(struct mailbox *box);
 
+int index_storage_save_continue(struct mail_save_context *ctx,
+				struct istream *input,
+				struct mail *cache_dest_mail);
+
 #endif

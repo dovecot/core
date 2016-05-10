@@ -7,6 +7,7 @@
 #include "str.h"
 #include "hex-binary.h"
 #include "index-mail.h"
+#include "index-storage.h"
 #include "dbox-attachment.h"
 #include "dbox-file.h"
 #include "dbox-save.h"
@@ -70,7 +71,6 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 int dbox_save_continue(struct mail_save_context *_ctx)
 {
 	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
-	struct mail_storage *storage = _ctx->transaction->box->storage;
 
 	if (ctx->failed)
 		return -1;
@@ -78,22 +78,11 @@ int dbox_save_continue(struct mail_save_context *_ctx)
 	if (_ctx->data.attach != NULL)
 		return index_attachment_save_continue(_ctx);
 
-	do {
-		if (o_stream_send_istream(_ctx->data.output, ctx->input) < 0) {
-			if (!mail_storage_set_error_from_errno(storage)) {
-				mail_storage_set_critical(storage,
-					"write(%s) failed: %m",
-					o_stream_get_name(_ctx->data.output));
-			}
-			ctx->failed = TRUE;
-			return -1;
-		}
-		index_mail_cache_parse_continue(_ctx->dest_mail);
-
-		/* both tee input readers may consume data from our primary
-		   input stream. we'll have to make sure we don't return with
-		   one of the streams still having data in them. */
-	} while (i_stream_read(ctx->input) > 0);
+	if (index_storage_save_continue(_ctx, ctx->input,
+					_ctx->dest_mail) < 0) {
+		ctx->failed = TRUE;
+		return -1;
+	}
 	return 0;
 }
 
