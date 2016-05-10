@@ -106,7 +106,7 @@ static void mbox_md5_apop3d_more(struct mbox_md5_context *ctx,
 }
 
 static void mbox_md5_apop3d_finish(struct mbox_md5_context *ctx,
-				   unsigned char result[16])
+				   unsigned char result[STATIC_ARRAY 16])
 {
 	md5_final(&ctx->hdr_md5_ctx, result);
 	i_free(ctx);

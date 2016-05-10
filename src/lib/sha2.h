@@ -59,18 +59,18 @@ struct sha512_ctx {
 void sha256_init(struct sha256_ctx *ctx);
 void sha256_loop(struct sha256_ctx *ctx, const void *data, size_t len);
 void sha256_result(struct sha256_ctx *ctx,
-		   unsigned char digest[SHA256_RESULTLEN]);
+		   unsigned char digest[STATIC_ARRAY SHA256_RESULTLEN]);
 
 void sha256_get_digest(const void *data, size_t size,
-		       unsigned char digest[SHA256_RESULTLEN]);
+		       unsigned char digest[STATIC_ARRAY SHA256_RESULTLEN]);
 
 void sha512_init(struct sha512_ctx *ctx);
 void sha512_loop(struct sha512_ctx *ctx, const void *data, size_t len);
 void sha512_result(struct sha512_ctx *ctx,
-		   unsigned char digest[SHA512_RESULTLEN]);
+		   unsigned char digest[STATIC_ARRAY SHA512_RESULTLEN]);
 
 void sha512_get_digest(const void *data, size_t size,
-		       unsigned char digest[SHA512_RESULTLEN]);
+		       unsigned char digest[STATIC_ARRAY SHA512_RESULTLEN]);
 
 extern const struct hash_method hash_method_sha256;
 extern const struct hash_method hash_method_sha512;

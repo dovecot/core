@@ -253,7 +253,7 @@ sha1_result(struct sha1_ctxt *ctxt, void *digest0)
 }
 
 void sha1_get_digest(const void *data, size_t size,
-		     unsigned char result[SHA1_RESULTLEN])
+		     unsigned char result[STATIC_ARRAY SHA1_RESULTLEN])
 {
 	struct sha1_ctxt ctx;
 
