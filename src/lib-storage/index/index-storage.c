@@ -1026,10 +1026,13 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 
 	do {
 		if (o_stream_send_istream(ctx->data.output, input) < 0) {
+			if (input->stream_errno != 0)
+				break;
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
-					"write(%s) failed: %m",
-					o_stream_get_name(ctx->data.output));
+					"save: write(%s) failed: %s",
+					o_stream_get_name(ctx->data.output),
+					o_stream_get_error(ctx->data.output));
 			}
 			return -1;
 		}
@@ -1040,5 +1043,11 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 		   input stream. we'll have to make sure we don't return with
 		   one of the streams still having data in them. */
 	} while (i_stream_read(input) > 0);
+
+	if (input->stream_errno != 0) {
+		mail_storage_set_critical(storage, "save: read(%s) failed: %s",
+			i_stream_get_name(input), i_stream_get_error(input));
+		return -1;
+	}
 	return 0;
 }
