@@ -37,6 +37,6 @@ int guid_128_cmp(const guid_128_t guid1, const guid_128_t guid2) ATTR_PURE;
 
 /* Return the hash of host used by guid_128_generate(). */
 void guid_128_host_hash_get(const char *host,
-			    unsigned char hash_r[GUID_128_HOST_HASH_SIZE]);
+			    unsigned char hash_r[STATIC_ARRAY GUID_128_HOST_HASH_SIZE]);
 
 #endif

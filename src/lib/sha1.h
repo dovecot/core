@@ -77,7 +77,7 @@ typedef struct sha1_ctxt SHA1_CTX;
 #define	SHA1_RESULTLEN	(160/8)
 
 extern void sha1_get_digest(const void *, size_t,
-	unsigned char [SHA1_RESULTLEN]);
+	unsigned char [STATIC_ARRAY SHA1_RESULTLEN]);
 
 extern const struct hash_method hash_method_sha1;
 

@@ -22,10 +22,11 @@ struct md4_context {
 
 void md4_init(struct md4_context *ctx);
 void md4_update(struct md4_context *ctx, const void *data, size_t size);
-void md4_final(struct md4_context *ctx, unsigned char result[MD4_RESULTLEN]);
+void md4_final(struct md4_context *ctx,
+		unsigned char result[STATIC_ARRAY MD4_RESULTLEN]);
 
 void md4_get_digest(const void *data, size_t size,
-		    unsigned char result[MD4_RESULTLEN]);
+		    unsigned char result[STATIC_ARRAY MD4_RESULTLEN]);
 
 extern const struct hash_method hash_method_md4;
 

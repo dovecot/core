@@ -194,7 +194,7 @@ void userdb_deinit(struct userdb_module *userdb)
 	userdb->iface = &userdb_iface_deinit;
 }
 
-void userdbs_generate_md5(unsigned char md5[MD5_RESULTLEN])
+void userdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN])
 {
 	struct md5_context ctx;
 	struct userdb_module *const *userdbs;

@@ -252,7 +252,7 @@ void passdb_deinit(struct passdb_module *passdb)
 	passdb->iface = passdb_iface_deinit;
 }
 
-void passdbs_generate_md5(unsigned char md5[MD5_RESULTLEN])
+void passdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN])
 {
 	struct md5_context ctx;
 	struct passdb_module *const *passdbs;

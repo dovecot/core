@@ -8,7 +8,7 @@ struct mbox_md5_vfuncs {
 	void (*more)(struct mbox_md5_context *ctx,
 		     struct message_header_line *hdr);
 	void (*finish)(struct mbox_md5_context *ctx,
-		       unsigned char result[16]);
+		       unsigned char result[STATIC_ARRAY 16]);
 };
 
 extern struct mbox_md5_vfuncs mbox_md5_apop3d;

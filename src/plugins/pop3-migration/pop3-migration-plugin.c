@@ -174,7 +174,7 @@ pop3_header_filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 
 int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 				uoff_t hdr_size,
-				unsigned char sha1_r[SHA1_RESULTLEN],
+				unsigned char sha1_r[STATIC_ARRAY SHA1_RESULTLEN],
 				bool *have_eoh_r)
 {
 	struct istream *input2;
@@ -228,7 +228,7 @@ static unsigned int get_cache_idx(struct mail *mail)
 }
 
 static int
-get_hdr_sha1(struct mail *mail, unsigned char sha1_r[SHA1_RESULTLEN])
+get_hdr_sha1(struct mail *mail, unsigned char sha1_r[STATIC_ARRAY SHA1_RESULTLEN])
 {
 	struct istream *input;
 	struct message_size hdr_size;
@@ -287,7 +287,7 @@ get_hdr_sha1(struct mail *mail, unsigned char sha1_r[SHA1_RESULTLEN])
 
 static bool
 get_cached_hdr_sha1(struct mail *mail, buffer_t *cache_buf,
-		    unsigned char sha1_r[SHA1_RESULTLEN])
+		    unsigned char sha1_r[STATIC_ARRAY SHA1_RESULTLEN])
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 

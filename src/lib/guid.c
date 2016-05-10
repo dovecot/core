@@ -36,7 +36,7 @@ const char *guid_generate(void)
 }
 
 void guid_128_host_hash_get(const char *host,
-			    unsigned char hash_r[GUID_128_HOST_HASH_SIZE])
+			    unsigned char hash_r[STATIC_ARRAY GUID_128_HOST_HASH_SIZE])
 {
 	unsigned char full_hash[SHA1_RESULTLEN];
 

@@ -22,10 +22,11 @@ struct md5_context {
 
 void md5_init(struct md5_context *ctx);
 void md5_update(struct md5_context *ctx, const void *data, size_t size);
-void md5_final(struct md5_context *ctx, unsigned char result[MD5_RESULTLEN]);
+void md5_final(struct md5_context *ctx,
+	       unsigned char result[STATIC_ARRAY MD5_RESULTLEN]);
 
 void md5_get_digest(const void *data, size_t size,
-		    unsigned char result[MD5_RESULTLEN]);
+		    unsigned char result[STATIC_ARRAY MD5_RESULTLEN]);
 
 extern const struct hash_method hash_method_md5;
 

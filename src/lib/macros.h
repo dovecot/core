@@ -226,4 +226,10 @@
 #  define DOVECOT_PREREQ(maj, min) 0
 #endif
 
+#ifdef __cplusplus
+#  define STATIC_ARRAY
+#else
+#  define STATIC_ARRAY static
+#endif
+
 #endif

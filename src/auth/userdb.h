@@ -81,7 +81,7 @@ void userdb_deinit(struct userdb_module *userdb);
 void userdb_register_module(struct userdb_module_interface *iface);
 void userdb_unregister_module(struct userdb_module_interface *iface);
 
-void userdbs_generate_md5(unsigned char md5[MD5_RESULTLEN]);
+void userdbs_generate_md5(unsigned char md5[STATIC_ARRAY MD5_RESULTLEN]);
 
 void userdbs_init(void);
 void userdbs_deinit(void);
