@@ -64,11 +64,6 @@ Disconnect users by user name and/or IP address.
 Locate, test or reopen Dovecot\(aqs log files.
 .\"-------------------------------------
 .TP
-.B doveadm mount
-.BR doveadm\-mount (1),
-Manage the list of mountpoints where mails are stored.
-.\"-------------------------------------
-.TP
 .B doveadm penalty
 .BR doveadm\-penalty (1),
 Show current penalties.
