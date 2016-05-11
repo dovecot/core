@@ -1688,7 +1688,7 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		(void)dsync_mailbox_find_common_expunged_uid(importer, change, result_r);
 	}
 	*result_r = t_strdup_printf("%s (next local mail UID=%u)",
-				    *result_r, importer->cur_mail->uid);
+		*result_r, importer->cur_mail == NULL ? 0 : importer->cur_mail->uid);
 }
 
 int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
