@@ -79,6 +79,7 @@ static void sql_db_cache_free_tail(struct sql_db_cache *cache)
 
 	i_free(ctx->key);
 	ctx->orig_deinit(db);
+	i_free(ctx);
 }
 
 static void sql_db_cache_drop_oldest(struct sql_db_cache *cache)
