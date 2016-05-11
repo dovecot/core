@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "hash.h"
 #include "settings.h"
 #include "dict-sql-settings.h"
 
@@ -41,6 +42,14 @@ static const struct setting_def dict_sql_map_setting_defs[] = {
 
 	{ 0, NULL, 0 }
 };
+
+struct dict_sql_settings_cache {
+	pool_t pool;
+	const char *path;
+	struct dict_sql_settings *set;
+};
+
+static HASH_TABLE(const char *, struct dict_sql_settings_cache *) dict_sql_settings_cache;
 
 static const char *pattern_read_name(const char **pattern)
 {
@@ -235,9 +244,20 @@ parse_section(const char *type, const char *name ATTR_UNUSED,
 }
 
 struct dict_sql_settings *
-dict_sql_settings_read(pool_t pool, const char *path, const char **error_r)
+dict_sql_settings_read(const char *path, const char **error_r)
 {
 	struct setting_parser_ctx ctx;
+	struct dict_sql_settings_cache *cache;
+	pool_t pool = pool_alloconly_create("dict sql settings", 1024);
+
+	if (!hash_table_is_created(dict_sql_settings_cache)) {
+		hash_table_create(&dict_sql_settings_cache, default_pool, 0,
+				  str_hash, strcmp);
+	}
+
+	cache = hash_table_lookup(dict_sql_settings_cache, path);
+	if (cache != NULL)
+		return cache->set;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.pool = pool;
@@ -246,14 +266,39 @@ dict_sql_settings_read(pool_t pool, const char *path, const char **error_r)
 	p_array_init(&ctx.set->maps, pool, 8);
 
 	if (!settings_read(path, NULL, parse_setting, parse_section,
-			   &ctx, error_r))
+			   &ctx, error_r)) {
+		pool_unref(&pool);
 		return NULL;
+	}
 
 	if (ctx.set->connect == NULL) {
 		*error_r = t_strdup_printf("Error in configuration file %s: "
 					   "Missing connect setting", path);
+		pool_unref(&pool);
 		return NULL;
 	}
 
+	cache = p_new(pool, struct dict_sql_settings_cache, 1);
+	cache->pool = pool;
+	cache->path = p_strdup(pool, path);
+	cache->set = ctx.set;
+
+	hash_table_insert(dict_sql_settings_cache, cache->path, cache);
 	return ctx.set;
+}
+
+void dict_sql_settings_deinit(void)
+{
+	struct hash_iterate_context *iter;
+	struct dict_sql_settings_cache *cache;
+	const char *key;
+
+	if (!hash_table_is_created(dict_sql_settings_cache))
+		return;
+
+	iter = hash_table_iterate_init(dict_sql_settings_cache);
+	while (hash_table_iterate(iter, dict_sql_settings_cache, &key, &cache))
+		pool_unref(&cache->pool);
+	hash_table_iterate_deinit(&iter);
+	hash_table_destroy(&dict_sql_settings_cache);
 }

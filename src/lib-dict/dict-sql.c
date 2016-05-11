@@ -88,7 +88,7 @@ sql_dict_init(struct dict *driver, const char *uri,
 	dict->pool = pool;
 	dict->dict = *driver;
 	dict->username = p_strdup(pool, set->username);
-	dict->set = dict_sql_settings_read(pool, uri, error_r);
+	dict->set = dict_sql_settings_read(uri, error_r);
 	if (dict->set == NULL) {
 		pool_unref(&pool);
 		return -1;
@@ -1289,4 +1289,5 @@ void dict_sql_unregister(void)
 		dict_driver_unregister(&dict_sql_drivers[i]);
 	i_free(dict_sql_drivers);
 	sql_db_cache_deinit(&dict_sql_db_cache);
+	dict_sql_settings_deinit();
 }
