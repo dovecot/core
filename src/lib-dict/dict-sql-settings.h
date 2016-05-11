@@ -33,6 +33,8 @@ struct dict_sql_settings {
 };
 
 struct dict_sql_settings *
-dict_sql_settings_read(pool_t pool, const char *path, const char **error_r);
+dict_sql_settings_read(const char *path, const char **error_r);
+
+void dict_sql_settings_deinit(void);
 
 #endif
