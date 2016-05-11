@@ -23,9 +23,9 @@ LIBDOVECOT_SUBDIRS = \
 
 SUBDIRS = \
 	$(LIBDOVECOT_SUBDIRS) \
-	$(LIB_LDAP) \
 	lib-dict-extra \
 	lib-dovecot \
+	$(LIB_LDAP) \
 	lib-fts \
 	lib-imap-client \
 	lib-imap-urlauth \
