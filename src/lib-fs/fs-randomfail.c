@@ -260,7 +260,11 @@ static bool fs_random_fail(struct fs *_fs, enum fs_op op)
 
 	if (fs->op_probability[op] == 0)
 		return FALSE;
-	return (unsigned int)(rand() % 100) <= fs->op_probability[op];
+	if ((unsigned int)(rand() % 100) <= fs->op_probability[op]) {
+		fs_set_error(_fs, RANDOMFAIL_ERROR);
+		return TRUE;
+	}
+	return FALSE;
 }
 
 static bool
