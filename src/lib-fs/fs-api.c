@@ -662,9 +662,8 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 	i_assert(*output == file->output || *output == NULL);
 
 	*output = NULL;
-	if (file->output != NULL)
-		o_stream_uncork(file->output);
 	if (file->output != NULL) {
+		o_stream_uncork(file->output);
 		if (o_stream_nfinish(file->output) < 0) {
 			fs_set_error(file->fs, "write(%s) failed: %s",
 				     o_stream_get_name(file->output),
