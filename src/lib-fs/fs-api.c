@@ -262,6 +262,9 @@ void fs_file_deinit(struct fs_file **_file)
 
 void fs_file_close(struct fs_file *file)
 {
+	i_assert(!file->writing_stream);
+	i_assert(file->output == NULL);
+
 	if (file->pending_read_input != NULL)
 		i_stream_unref(&file->pending_read_input);
 	if (file->seekable_input != NULL)
@@ -632,6 +635,10 @@ int fs_write(struct fs_file *file, const void *data, size_t size)
 
 struct ostream *fs_write_stream(struct fs_file *file)
 {
+	i_assert(!file->writing_stream);
+	i_assert(file->output == NULL);
+
+	file->writing_stream = TRUE;
 	file->fs->stats.write_count++;
 	T_BEGIN {
 		file->fs->v.write_stream(file);
@@ -645,6 +652,8 @@ static int fs_write_stream_finish_int(struct fs_file *file, bool success)
 {
 	int ret;
 
+	i_assert(file->writing_stream);
+
 	fs_file_timing_start(file, FS_OP_WRITE);
 	T_BEGIN {
 		ret = file->fs->v.write_stream_finish(file, success);
@@ -657,6 +666,8 @@ static int fs_write_stream_finish_int(struct fs_file *file, bool success)
 		   indicated a failure. */
 		i_assert(success);
 	}
+	if (ret != 0)
+		file->writing_stream = FALSE;
 	return ret;
 }
 
@@ -907,6 +918,8 @@ int fs_rename(struct fs_file *src, struct fs_file *dest)
 int fs_delete(struct fs_file *file)
 {
 	int ret;
+
+	i_assert(!file->writing_stream);
 
 	fs_file_timing_start(file, FS_OP_DELETE);
 	T_BEGIN {
