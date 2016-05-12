@@ -703,6 +703,8 @@ void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 	*output = NULL;
 	if (file->output != NULL)
 		o_stream_ignore_last_errors(file->output);
+	/* make sure we don't have an old error lying around */
+	fs_set_error(file->fs, "Write aborted");
 	(void)fs_write_stream_finish_int(file, FALSE);
 }
 
