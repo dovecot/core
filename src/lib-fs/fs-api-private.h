@@ -115,6 +115,7 @@ struct fs_file {
 	struct timeval timing_start[FS_OP_COUNT];
 
 	unsigned int write_pending:1;
+	unsigned int writing_stream:1;
 	unsigned int metadata_changed:1;
 
 	unsigned int read_or_prefetch_counted:1;
