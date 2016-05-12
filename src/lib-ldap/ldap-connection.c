@@ -552,7 +552,7 @@ int ldap_connection_connect(struct ldap_connection *conn)
 void ldap_connection_kill(struct ldap_connection *conn)
 {
 	if (conn->io != NULL)
-		io_remove(&(conn->io));
+		io_remove_closed(&(conn->io));
 	if (conn->to_disconnect != NULL)
 		timeout_remove(&(conn->to_disconnect));
 	if (conn->to_reconnect != NULL)
