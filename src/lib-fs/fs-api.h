@@ -36,7 +36,9 @@ enum fs_properties {
 	/* Backend support asynchronous file operations. */
 	FS_PROPERTY_ASYNC		= 0x800,
 	/* Backend supports FS_ITER_FLAG_OBJECTIDS. */
-	FS_PROPERTY_OBJECTIDS		= 0x1000
+	FS_PROPERTY_OBJECTIDS		= 0x1000,
+	/* fs_copy() is fast even when file's metadata is changed */
+	FS_PROPERTY_FASTCOPY_CHANGED_METADATA = 0x2000,
 };
 
 enum fs_open_mode {
