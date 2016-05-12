@@ -394,10 +394,17 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 			o_stream_unref(&_file->output);
 	}
 	if (!success) {
-		if (file->temp_output != NULL)
-			o_stream_destroy(&file->temp_output);
-		if (file->super_output != NULL)
+		if (file->super_output != NULL) {
+			/* no metawrap */
+			i_assert(file->temp_output == NULL);
 			fs_write_stream_abort(file->super, &file->super_output);
+		} else if (file->temp_output == NULL) {
+			/* finishing up */
+			i_assert(file->super_output == NULL);
+			fs_write_stream_abort(file->super, &file->super_output);
+		} else {
+			o_stream_destroy(&file->temp_output);
+		}
 		return -1;
 	}
 
