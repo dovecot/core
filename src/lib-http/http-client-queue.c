@@ -639,6 +639,7 @@ http_client_queue_delay_timeout(struct http_client_queue *queue)
 	struct http_client_request *const *reqs;
 	unsigned int count, i, finished;
 
+	timeout_remove(&queue->to_delayed);
 	io_loop_time_refresh();
 
 	finished = 0;
