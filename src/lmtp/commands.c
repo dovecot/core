@@ -1138,7 +1138,7 @@ static const char *client_get_added_headers(struct client *client)
 		str_printfa(str, "\t(using %s)\r\n",
 			    ssl_iostream_get_security_string(client->ssl_iostream));
 	}
-	str_printfa(str, "\tby %s ("PACKAGE_NAME") with LMTP id %s",
+	str_printfa(str, "\tby %s with LMTP id %s",
 		    client->my_domain, client->state.session_id);
 
 	str_append(str, "\r\n\t");
