@@ -416,7 +416,7 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 	if (file->temp_output == NULL) {
 		/* finishing up */
 		i_assert(file->super_output == NULL);
-		return fs_write_stream_finish(file->super, &file->temp_output);
+		return fs_write_stream_finish_async(file->super);
 	}
 	/* finish writing the temporary file */
 	input = iostream_temp_finish(&file->temp_output, IO_BLOCK_SIZE);
