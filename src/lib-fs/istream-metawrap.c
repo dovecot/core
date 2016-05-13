@@ -33,8 +33,15 @@ static int metadata_header_read(struct metawrap_istream *mstream)
 		mstream->callback(line, p, mstream->context);
 	}
 	if (mstream->istream.parent->eof) {
-		mstream->istream.istream.stream_errno =
-			mstream->istream.parent->stream_errno;
+		if (mstream->istream.parent->stream_errno != 0) {
+			mstream->istream.istream.stream_errno =
+				mstream->istream.parent->stream_errno;
+		} else {
+			io_stream_set_error(&mstream->istream.iostream,
+				"Metadata header is missing ending line");
+			mstream->istream.istream.stream_errno = EINVAL;
+			return -1;
+		}
 		mstream->istream.istream.eof = TRUE;
 		return -1;
 	}
