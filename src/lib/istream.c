@@ -811,10 +811,8 @@ static int
 i_stream_default_get_size(struct istream_private *stream,
 			  bool exact, uoff_t *size_r)
 {
-	if (stream->stat(stream, exact) < 0) {
-		stream->istream.stream_errno = stream->parent->stream_errno;
+	if (stream->stat(stream, exact) < 0)
 		return -1;
-	}
 	if (stream->statbuf.st_size == -1)
 		return 0;
 
