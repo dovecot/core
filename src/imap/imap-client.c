@@ -584,9 +584,6 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		str = t_str_new(256);
 		imap_write_args(str, *args_r);
 		cmd->args = p_strdup(cmd->pool, str_c(str));
-		cmd->start_time = ioloop_timeval;
-		cmd->start_ioloop_wait_usecs =
-			io_loop_get_wait_usecs(current_ioloop);
 
 		cmd->client->input_lock = NULL;
 		return TRUE;
@@ -723,6 +720,8 @@ struct client_command_context *client_command_alloc(struct client *client)
 	cmd = p_new(client->command_pool, struct client_command_context, 1);
 	cmd->client = client;
 	cmd->pool = client->command_pool;
+	cmd->start_time = ioloop_timeval;
+	cmd->start_ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
 	p_array_init(&cmd->module_contexts, cmd->pool, 5);
 
 	DLLIST_PREPEND(&client->command_queue, cmd);
