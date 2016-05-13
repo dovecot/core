@@ -22,6 +22,13 @@ static struct dict *dict_driver_lookup(const char *name)
 	return NULL;
 }
 
+static
+void dict_transaction_commit_default_callback(const struct dict_commit_result *result ATTR_UNUSED, 
+	void *context ATTR_UNUSED)
+{
+	/* do nothing */
+}
+
 void dict_driver_register(struct dict *driver)
 {
 	if (!array_is_created(&dict_drivers))
@@ -225,6 +232,8 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	if (callback == NULL)
+		callback = dict_transaction_commit_default_callback;
 	ctx->dict->v.transaction_commit(ctx, TRUE, callback, context);
 }
 
