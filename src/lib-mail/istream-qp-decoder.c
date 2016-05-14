@@ -32,24 +32,42 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 	struct qp_decoder_istream *bstream =
 		(struct qp_decoder_istream *)stream;
 	const unsigned char *data;
-	size_t size, avail, error_pos;
+	size_t size, error_pos;
 	const char *error;
 	int ret;
 
 	for (;;) {
+		/* remove skipped data from buffer */
+		if (stream->skip > 0) {
+			i_assert(stream->skip <= bstream->buf->used);
+			buffer_delete(bstream->buf, 0, stream->skip);
+			stream->pos -= stream->skip;
+			stream->skip = 0;
+		}
+
+		stream->buffer = bstream->buf->data;
+
+		i_assert(stream->pos <= bstream->buf->used);
+		if (stream->pos >= bstream->istream.max_buffer_size) {
+			/* stream buffer still at maximum */
+			return -2;
+		}
+
 		/* if something is already decoded, return as much of it as
 		   we can */
 		if (bstream->buf->used > 0) {
-			i_stream_try_alloc(stream, bstream->buf->used, &avail);
-			if (avail == 0)
-				return -2;
-			size = I_MIN(avail, bstream->buf->used);
-			memcpy(stream->w_buffer + stream->pos,
-			       bstream->buf->data, size);
-			buffer_delete(bstream->buf, 0, size);
-			stream->pos += size;
-			return size;
+			size_t new_pos, bytes;
+
+			/* only return up to max_buffer_size bytes, even when buffer
+			   actually has more, as not to confuse the caller */
+			new_pos = I_MIN
+				(bstream->buf->used, bstream->istream.max_buffer_size);
+			bytes = new_pos - stream->pos;
+			stream->pos = new_pos;
+
+			return (ssize_t)bytes;
 		}
+
 		/* need to read more input */
 		ret = i_stream_read_data(stream->parent, &data, &size, 0);
 		if (ret <= 0) {
