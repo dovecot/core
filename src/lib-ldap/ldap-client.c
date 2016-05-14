@@ -55,7 +55,7 @@ void ldap_search_start(struct ldap_client *client,
 {
 	/* FIXME: we could support multiple concurrent LDAP connections to
 	   the same host. */
-	return ldap_connection_search_start(client->list->conn, input, callback, context);
+	ldap_connection_search_start(client->list->conn, input, callback, context);
 }
 
 #undef ldap_compare_start
@@ -63,7 +63,7 @@ void ldap_compare_start(struct ldap_client *client,
 			const struct ldap_compare_input *input,
 			ldap_result_callback_t *callback, void *context)
 {
-	return ldap_connection_compare_start(client->list->conn, input, callback, context);
+	ldap_connection_compare_start(client->list->conn, input, callback, context);
 }
 
 void ldap_clients_cleanup(void)
