@@ -88,6 +88,9 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 
 	ldap_set_option(conn->conn, LDAP_OPT_REFERRALS, 0);
 
+	opt = 0;
+	ldap_set_option(conn->conn, LDAP_OPT_X_TLS_NEWCTX, &opt);
+
 	return 0;
 }
 
