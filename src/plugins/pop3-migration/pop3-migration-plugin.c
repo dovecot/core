@@ -153,11 +153,8 @@ pop3_header_filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 		return;
 	if (hdr->eoh) {
 		ctx->have_eoh = TRUE;
-		if (ctx->stop) {
-			/* matched is handled differently for eoh by
-			 istream-header-filter. a design bug I guess.. */
-			*matched = FALSE;
-		}
+		if (ctx->stop)
+			*matched = TRUE;
 	} else {
 		if (strspn(hdr->name, "\r") == hdr->name_len) {
 			/* CR+CR+LF - some servers stop the header processing

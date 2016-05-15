@@ -266,7 +266,7 @@ edit_callback(struct header_filter_istream *input,
 		/* add a new header */
 		const char *new_hdr = "Added: header\n\n";
 		i_stream_header_filter_add(input, new_hdr, strlen(new_hdr));
-		*matched = FALSE;
+		*matched = TRUE;
 	} else if (strcasecmp(hdr->name, "To") == 0) {
 		/* modify To header */
 		const char *new_to = "To: 123\n";
@@ -434,7 +434,7 @@ strip_eoh_callback(struct header_filter_istream *input ATTR_UNUSED,
 		   bool *matched, void *context ATTR_UNUSED)
 {
 	if (hdr != NULL && hdr->eoh)
-		*matched = FALSE;
+		*matched = TRUE;
 }
 
 static void test_istream_strip_eoh(void)

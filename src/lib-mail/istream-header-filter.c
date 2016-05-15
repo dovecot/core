@@ -197,7 +197,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			mstream->cur_line++;
 		if (hdr->eoh) {
 			mstream->seen_eoh = TRUE;
-			matched = TRUE;
+			matched = FALSE;
 			if (mstream->header_parsed && !mstream->headers_edited) {
 				if (mstream->eoh_not_matched)
 					matched = !matched;
@@ -206,7 +206,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 						  mstream->context);
 			}
 
-			if (!matched) {
+			if (matched) {
 				mstream->seen_eoh = FALSE;
 				mstream->eoh_not_matched = TRUE;
 				continue;
