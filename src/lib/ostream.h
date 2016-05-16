@@ -9,8 +9,6 @@ struct ostream {
 	/* errno for the last operation send/seek operation. cleared before
 	   each call. */
 	int stream_errno;
-	/* errno of the last failed send/seek. never cleared. */
-	int last_failed_errno;
 
 	/* overflow is set when some of the data given to send()
 	   functions was neither sent nor buffered. It's never unset inside
@@ -56,8 +54,7 @@ const char *o_stream_get_name(struct ostream *stream);
 
 /* Return file descriptor for stream, or -1 if none is available. */
 int o_stream_get_fd(struct ostream *stream);
-/* Returns error string for the previous error (stream_errno,
-   not last_failed_errno). */
+/* Returns error string for the previous error. */
 const char *o_stream_get_error(struct ostream *stream);
 
 /* Close this stream (but not its parents) and unreference it. */
@@ -130,9 +127,8 @@ void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
 		     unsigned int iov_count);
 void o_stream_nsend_str(struct ostream *stream, const char *str);
 void o_stream_nflush(struct ostream *stream);
-/* Flushes the stream and returns -1 if stream->last_failed_errno is
-   non-zero. Marks the stream's error handling as completed. errno is also set
-   to last_failed_errno. */
+/* Flushes the stream and returns -1 if stream->stream_errno is non-zero.
+   Marks the stream's error handling as completed. */
 int o_stream_nfinish(struct ostream *stream);
 /* Marks the stream's error handling as completed to avoid i_panic() on
    destroy. */

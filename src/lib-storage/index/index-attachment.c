@@ -193,7 +193,7 @@ void index_attachment_save_begin(struct mail_save_context *ctx,
 static int save_check_write_error(struct mail_storage *storage,
 				  struct ostream *output)
 {
-	if (output->last_failed_errno == 0)
+	if (output->stream_errno == 0)
 		return 0;
 
 	if (!mail_storage_set_error_from_errno(storage)) {

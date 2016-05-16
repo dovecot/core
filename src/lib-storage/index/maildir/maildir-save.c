@@ -570,7 +570,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 				  &ctx->file_last->vsize) < 0)
 		ctx->file_last->vsize = (uoff_t)-1;
 
-	output_errno = _ctx->data.output->last_failed_errno;
+	output_errno = _ctx->data.output->stream_errno;
 	output_errstr = t_strdup(o_stream_get_error(_ctx->data.output));
 	o_stream_destroy(&_ctx->data.output);
 

@@ -958,7 +958,7 @@ static void mail_index_strmap_write_block(struct mail_index_strmap_view *view,
 	o_stream_nsend(output, &block_size, sizeof(block_size));
 	(void)o_stream_seek(output, end_offset);
 
-	if (output->last_failed_errno != 0)
+	if (output->stream_errno != 0)
 		return;
 
 	i_assert(view->last_added_uid == recs[count-1].uid);
