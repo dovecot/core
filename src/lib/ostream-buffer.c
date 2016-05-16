@@ -59,6 +59,7 @@ struct ostream *o_stream_create_buffer(buffer_t *buf)
 	struct ostream *output;
 
 	bstream = i_new(struct buffer_ostream, 1);
+	bstream->ostream.ostream.blocking = TRUE;
 	bstream->ostream.max_buffer_size = (size_t)-1;
 	bstream->ostream.seek = o_stream_buffer_seek;
 	bstream->ostream.sendv = o_stream_buffer_sendv;

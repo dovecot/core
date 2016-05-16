@@ -23,6 +23,7 @@ struct ostream *o_stream_create_null(void)
 	struct ostream *output;
 
 	stream = i_new(struct ostream_private, 1);
+	stream->ostream.blocking = TRUE;
 	stream->sendv = o_stream_null_sendv;
 
 	output = o_stream_create(stream, NULL, -1);
