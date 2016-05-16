@@ -1889,6 +1889,7 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 					 struct imapc_command *cmd)
 {
 	struct imapc_command_stream *stream;
+	int ret;
 
 	stream = imapc_command_get_sending_stream(cmd);
 	if (stream == NULL)
@@ -1896,10 +1897,10 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 
 	/* we're sending the stream now */
 	o_stream_set_max_buffer_size(conn->output, 0);
-	(void)o_stream_send_istream(conn->output, stream->input);
+	ret = o_stream_send_istream(conn->output, stream->input);
 	o_stream_set_max_buffer_size(conn->output, (size_t)-1);
 
-	if (!i_stream_is_eof(stream->input)) {
+	if (ret == 0) {
 		o_stream_set_flush_pending(conn->output, TRUE);
 		i_assert(stream->input->v_offset < stream->size);
 		return 0;

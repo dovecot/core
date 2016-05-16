@@ -80,13 +80,13 @@ i_stream_mail_filter_read_once(struct mail_filter_istream *mstream)
 
 	if (mstream->ext_out != NULL) {
 		/* we haven't sent everything yet */
-		(void)o_stream_send_istream(mstream->ext_out, stream->parent);
+		ret = o_stream_send_istream(mstream->ext_out, stream->parent);
 		if (mstream->ext_out->stream_errno != 0) {
 			stream->istream.stream_errno =
 				mstream->ext_out->stream_errno;
 			return -1;
 		}
-		if (i_stream_is_eof(stream->parent)) {
+		if (ret > 0) {
 			o_stream_destroy(&mstream->ext_out);
 			/* if we wanted to be a blocking stream,
 			   from now on the rest of the reads are */

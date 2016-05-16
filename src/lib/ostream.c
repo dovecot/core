@@ -367,6 +367,7 @@ int o_stream_send_istream(struct ostream *outstream, struct istream *instream)
 		i_assert(!outstream->blocking || !instream->blocking);
 	} else {
 		/* fully sent everything */
+		i_assert(ret == 1);
 		i_assert(!i_stream_have_bytes_left(instream));
 	}
 	i_assert((outstream->offset - old_outstream_offset) ==

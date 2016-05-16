@@ -512,13 +512,11 @@ int http_server_response_send_more(struct http_server_response *resp,
 				o_stream_get_name(output), o_stream_get_error(output));
 		}
 		ret = -1;
-	} else {
-		i_assert(ret >= 0);
 	}
 
-	if (ret < 0 || i_stream_is_eof(resp->payload_input)) {
+	if (ret != 0) {
 		/* finished sending */
-		if (ret >= 0 && !resp->payload_chunked &&
+		if (ret > 0 && !resp->payload_chunked &&
 			resp->payload_input->v_offset - resp->payload_offset !=
 				resp->payload_size) {
 			*error_r = t_strdup_printf(

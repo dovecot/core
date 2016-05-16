@@ -93,7 +93,7 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 	struct imap_fetch_state *state = &ctx->state;
 	const char *disconnect_reason;
 	uoff_t orig_input_offset = state->cur_input->v_offset;
-	off_t ret;
+	int ret;
 
 	o_stream_set_max_buffer_size(ctx->client->output, 0);
 	ret = o_stream_send_istream(ctx->client->output, state->cur_input);

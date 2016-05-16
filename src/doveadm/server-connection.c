@@ -83,14 +83,14 @@ static void print_connection_released(void)
 
 static int server_connection_send_cmd_input_more(struct server_connection *conn)
 {
-	off_t ret;
+	int ret;
 
 	/* ostream-dot writes only up to max buffer size, so keep it non-zero */
 	o_stream_set_max_buffer_size(conn->cmd_output, IO_BLOCK_SIZE);
 	ret = o_stream_send_istream(conn->cmd_output, conn->cmd_input);
 	o_stream_set_max_buffer_size(conn->cmd_output, (size_t)-1);
 
-	if (ret >= 0 && i_stream_have_bytes_left(conn->cmd_input)) {
+	if (ret == 0) {
 		o_stream_set_flush_pending(conn->cmd_output, TRUE);
 		return 0;
 	}
@@ -107,7 +107,7 @@ static int server_connection_send_cmd_input_more(struct server_connection *conn)
 
 	i_stream_destroy(&conn->cmd_input);
 	o_stream_destroy(&conn->cmd_output);
-	return ret < 0 ? -1 : 1;
+	return ret;
 }
 
 static void server_connection_send_cmd_input(struct server_connection *conn)

@@ -6,6 +6,7 @@
 #include "array.h"
 #include "net.h"
 #include "istream.h"
+#include "istream-sized.h"
 #include "ostream.h"
 #include "imap-url.h"
 #include "imap-quote.h"
@@ -17,7 +18,6 @@
 struct cmd_urlfetch_context {
 	struct imap_urlauth_fetch *ufetch;
 	struct istream *input;
-	uoff_t size;
 
 	unsigned int failed:1;
 	unsigned int finished:1;
@@ -98,10 +98,10 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 
 	/* transfer literal to client */
 	o_stream_set_max_buffer_size(client->output, 0);
-	(void)o_stream_send_istream(client->output, ctx->input);
+	ret = o_stream_send_istream(client->output, ctx->input);
 	o_stream_set_max_buffer_size(client->output, (size_t)-1);
 
-	if (ctx->input->v_offset == ctx->size) {
+	if (ret > 0) {
 		/* finished successfully */
 		i_stream_unref(&ctx->input);
 		return 1;
@@ -117,15 +117,8 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 		client_disconnect(client, "URLFETCH failed");
 		return -1;
 	}
-	if (i_stream_have_bytes_left(ctx->input)) {
-		o_stream_set_flush_pending(client->output, TRUE);
-		return 0;
-	}
-
-	i_error("URLFETCH got too little data: %"PRIuUOFF_T" vs %"PRIuUOFF_T,
-		ctx->input->v_offset, ctx->size);
-	client_disconnect(client, "FETCH failed");
-	return -1;
+	o_stream_set_flush_pending(client->output, TRUE);
+	return 0;
 }
 
 static bool cmd_urlfetch_continue(struct client_command_context *cmd)
@@ -231,9 +224,7 @@ static int cmd_urlfetch_url_sucess(struct client_command_context *cmd,
 	}
 
 	if (reply->input != NULL) {
-		ctx->input = reply->input;
-		ctx->size = reply->size;
-		i_stream_ref(ctx->input);
+		ctx->input = i_stream_create_sized(reply->input, reply->size);
 
 		ret = cmd_urlfetch_transfer_literal(cmd);
 		if (ret < 0) {

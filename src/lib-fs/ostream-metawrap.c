@@ -44,7 +44,7 @@ o_stream_metawrap_send_istream(struct ostream_private *_outstream,
 	struct metawrap_ostream *outstream =
 		(struct metawrap_ostream *)_outstream;
 	uoff_t orig_outstream_offset = _outstream->ostream.offset;
-	off_t ret;
+	int ret;
 
 	o_stream_metawrap_call_callback(outstream);
 	if ((ret = o_stream_send_istream(_outstream->parent, instream)) < 0)

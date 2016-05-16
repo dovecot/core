@@ -268,7 +268,7 @@ client_request_read_echo_more(struct client_request *creq)
 {
 	struct http_server_response *resp;
 	struct istream *payload_input;
-	off_t ret;
+	int ret;
 
 	o_stream_set_max_buffer_size(creq->payload_output, IO_BLOCK_SIZE);
 	ret = o_stream_send_istream(creq->payload_output, creq->payload_input);

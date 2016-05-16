@@ -798,7 +798,7 @@ int http_client_request_send_more(struct http_client_request *req,
 {
 	struct http_client_connection *conn = req->conn;
 	struct ostream *output = req->payload_output;
-	off_t ret;
+	int ret;
 
 	i_assert(req->payload_input != NULL);
 	i_assert(req->payload_output != NULL);
@@ -831,9 +831,8 @@ int http_client_request_send_more(struct http_client_request *req,
 					   o_stream_get_error(output));
 		return -1;
 	}
-	i_assert(ret >= 0);
 
-	if (i_stream_is_eof(req->payload_input)) {
+	if (ret > 0) {
 		/* finished sending */
 		if (!req->payload_chunked &&
 		    req->payload_input->v_offset - req->payload_offset != req->payload_size) {

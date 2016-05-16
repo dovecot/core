@@ -73,6 +73,8 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 	ret = o_stream_send_istream(output, input);
 	if (ret < 0)
 		i_error("write(%s) failed: %m", tmppath);
+	else
+		i_assert(ret != 0);
 
 	i_stream_destroy(&input);
 	o_stream_destroy(&output);
