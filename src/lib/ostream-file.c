@@ -842,45 +842,43 @@ static off_t io_stream_copy_backwards(struct ostream_private *outstream,
 	return (off_t) (in_size - in_start_offset);
 }
 
-static off_t io_stream_copy_stream(struct ostream_private *outstream,
-				   struct istream *instream, bool same_stream)
+static off_t io_stream_copy_same_stream(struct ostream_private *outstream,
+					struct istream *instream)
 {
 	uoff_t in_size;
 	off_t in_abs_offset, ret = 0;
 
-	if (same_stream) {
-		/* copying data within same fd. we'll have to be careful with
-		   seeks and overlapping writes. */
-		if ((ret = i_stream_get_size(instream, TRUE, &in_size)) < 0) {
-			outstream->ostream.stream_errno =
-				instream->stream_errno;
-			return -1;
-		}
+	/* copying data within same fd. we'll have to be careful with
+	   seeks and overlapping writes. */
+	if ((ret = i_stream_get_size(instream, TRUE, &in_size)) < 0) {
+		outstream->ostream.stream_errno = instream->stream_errno;
+		return -1;
+	}
+	if (ret == 0) {
 		/* if we couldn't find out the size, it means that instream
 		   isn't a regular file_istream. we can be reasonably sure that
 		   we can copy it safely the regular way. (there's really no
 		   other possibility, other than failing completely.) */
+		return io_stream_copy(&outstream->ostream, instream);
 	}
-	if (ret > 0) {
-		i_assert(instream->v_offset <= in_size);
+	i_assert(instream->v_offset <= in_size);
 
-		in_abs_offset = instream->real_stream->abs_start_offset +
-			instream->v_offset;
-		ret = (off_t)outstream->ostream.offset - in_abs_offset;
-		if (ret == 0) {
-			/* copying data over itself. we don't really
-			   need to do that, just fake it. */
-			return in_size - instream->v_offset;
-		}
-		if (ret > 0 && in_size > (uoff_t)ret) {
-			/* overlapping */
-			i_assert(instream->seekable);
-			return io_stream_copy_backwards(outstream, instream,
-							in_size);
-		}
+	in_abs_offset = instream->real_stream->abs_start_offset +
+		instream->v_offset;
+	ret = (off_t)outstream->ostream.offset - in_abs_offset;
+	if (ret == 0) {
+		/* copying data over itself. we don't really
+		   need to do that, just fake it. */
+		return in_size - instream->v_offset;
 	}
-
-	return io_stream_copy(&outstream->ostream, instream);
+	if (ret > 0 && in_size > (uoff_t)ret) {
+		/* overlapping */
+		i_assert(instream->seekable);
+		return io_stream_copy_backwards(outstream, instream, in_size);
+	} else {
+		/* non-overlapping */
+		return io_stream_copy(&outstream->ostream, instream);
+	}
 }
 
 static off_t o_stream_file_send_istream(struct ostream_private *outstream,
@@ -907,7 +905,9 @@ static off_t o_stream_file_send_istream(struct ostream_private *outstream,
 
 	same_stream = i_stream_get_fd(instream) == foutstream->fd &&
 		foutstream->fd != -1;
-	return io_stream_copy_stream(outstream, instream, same_stream);
+	if (!same_stream)
+		return io_stream_copy(&outstream->ostream, instream);
+	return io_stream_copy_same_stream(outstream, instream);
 }
 
 static void o_stream_file_switch_ioloop(struct ostream_private *stream)
