@@ -230,18 +230,16 @@ ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size)
  	return o_stream_sendv(stream, &iov, 1);
 }
 
-ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
-		       unsigned int iov_count)
+static ssize_t
+o_stream_sendv_int(struct ostream *stream, const struct const_iovec *iov,
+		   unsigned int iov_count, bool *overflow_r)
 {
 	struct ostream_private *_stream = stream->real_stream;
 	unsigned int i;
 	size_t total_size;
 	ssize_t ret;
 
-	if (unlikely(stream->closed || stream->stream_errno != 0)) {
-		errno = stream->stream_errno;
-		return -1;
-	}
+	*overflow_r = FALSE;
 
 	for (i = 0, total_size = 0; i < iov_count; i++)
 		total_size += iov[i].iov_len;
@@ -255,9 +253,22 @@ ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 			errno = stream->stream_errno;
 		} else {
 			stream->overflow = TRUE;
+			*overflow_r = TRUE;
 		}
 	}
 	return ret;
+}
+
+ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
+		       unsigned int iov_count)
+{
+	bool overflow;
+
+	if (unlikely(stream->closed || stream->stream_errno != 0)) {
+		errno = stream->stream_errno;
+		return -1;
+	}
+	return o_stream_sendv_int(stream, iov, iov_count, &overflow);
 }
 
 ssize_t o_stream_send_str(struct ostream *stream, const char *str)
@@ -279,9 +290,14 @@ void o_stream_nsend(struct ostream *stream, const void *data, size_t size)
 void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
 		     unsigned int iov_count)
 {
-	if (unlikely(stream->closed || stream->stream_errno != 0))
+	bool overflow;
+
+	if (unlikely(stream->closed || stream->stream_errno != 0 ||
+		     stream->real_stream->noverflow))
 		return;
-	(void)o_stream_sendv(stream, iov, iov_count);
+	(void)o_stream_sendv_int(stream, iov, iov_count, &overflow);
+	if (overflow)
+		stream->real_stream->noverflow = TRUE;
 	stream->real_stream->last_errors_not_checked = TRUE;
 }
 
@@ -302,6 +318,12 @@ int o_stream_nfinish(struct ostream *stream)
 {
 	o_stream_nflush(stream);
 	o_stream_ignore_last_errors(stream);
+	if (stream->stream_errno == 0 && stream->real_stream->noverflow) {
+		io_stream_set_error(&stream->real_stream->iostream,
+			"Output stream buffer was full (%"PRIuSIZE_T" bytes)",
+			o_stream_get_max_buffer_size(stream));
+		stream->stream_errno = ENOBUFS;
+	}
 	return stream->stream_errno != 0 ? -1 : 0;
 }
 

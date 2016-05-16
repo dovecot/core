@@ -40,6 +40,7 @@ struct ostream_private {
 	unsigned int closing:1;
 	unsigned int last_errors_not_checked:1;
 	unsigned int error_handling_disabled:1;
+	unsigned int noverflow:1;
 };
 
 struct ostream *

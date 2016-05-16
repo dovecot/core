@@ -119,16 +119,19 @@ ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size);
 ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 		       unsigned int iov_count);
 ssize_t o_stream_send_str(struct ostream *stream, const char *str);
-/* Send with delayed error handling. o_stream_has_errors() or
+/* Send with delayed error handling. o_stream_nfinish() or
    o_stream_ignore_last_errors() must be called after these functions before
-   the stream is destroyed. */
+   the stream is destroyed. If any of the data can't be sent due to stream's
+   buffer getting full, all further nsends are ignores and o_stream_nfinish()
+   will fail. */
 void o_stream_nsend(struct ostream *stream, const void *data, size_t size);
 void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
 		     unsigned int iov_count);
 void o_stream_nsend_str(struct ostream *stream, const char *str);
 void o_stream_nflush(struct ostream *stream);
-/* Flushes the stream and returns -1 if stream->stream_errno is non-zero.
-   Marks the stream's error handling as completed. */
+/* Marks the stream's error handling as completed. Flushes the stream and
+   returns -1 if stream->stream_errno is non-zero. Returns failure if any of
+   the o_stream_nsend*() didn't write all data. */
 int o_stream_nfinish(struct ostream *stream);
 /* Marks the stream's error handling as completed to avoid i_panic() on
    destroy. */
