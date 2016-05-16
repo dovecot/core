@@ -143,19 +143,24 @@ void o_stream_ignore_last_errors(struct ostream *stream);
    When creating wrapper streams, they copy this behavior from the parent
    stream. */
 void o_stream_set_no_error_handling(struct ostream *stream, bool set);
-/* Send data from input stream. Returns number of bytes sent, or -1 if error
-   in either outstream or instream. Note that this function may block if either
-   instream or outstream is blocking.
+/* Send data from input stream. Returns 1 if the entire instream was sent
+   without errors, 0 if either instream or outstream is nonblocking and not
+   everything was sent, or -1 if either instream or outstream failed (see their
+   stream_errno for which one).
 
-   Also note that this function may not add anything to the output buffer, so
-   if you want the flush callback to be called when more data can be written,
-   you'll need to call o_stream_set_flush_pending() manually.
+   On non-failure instream is skips over all data written to outstream.
+   This means that the number of bytes written to outstream is always equal to
+   the number of bytes skipped in instream.
+
+   For non-blocking outstreams: Note that this function may not add anything to
+   the output buffer, so if you want the flush callback to be called when more
+   data can be written, you'll need to call o_stream_set_flush_pending()
+   explicitly.
 
    It's also possible to use this function to copy data within same file
-   descriptor. If the file must be grown, you have to do it manually before
-   calling this function. */
-off_t o_stream_send_istream(struct ostream *outstream,
-			    struct istream *instream);
+   descriptor, even if the source and destination overlaps. If the file must
+   be grown, you have to do it manually before calling this function. */
+int o_stream_send_istream(struct ostream *outstream, struct istream *instream);
 
 /* Write data to specified offset. Returns 0 if successful, -1 if error. */
 int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,

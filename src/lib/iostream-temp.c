@@ -128,28 +128,27 @@ static int o_stream_temp_dup_cancel(struct temp_ostream *tstream)
 	struct istream *input;
 	uoff_t size = tstream->dupstream_offset -
 		tstream->dupstream_start_offset;
-	off_t ret;
+	int ret = -1;
 
 	i_stream_seek(tstream->dupstream, tstream->dupstream_start_offset);
 
 	input = i_stream_create_limit(tstream->dupstream, size);
-	do {
-		ret = io_stream_copy(&tstream->ostream.ostream, input);
-	} while (input->v_offset < tstream->dupstream_offset && ret > 0);
-	if (ret < 0 && tstream->ostream.ostream.stream_errno == 0) {
+	if (io_stream_copy(&tstream->ostream.ostream, input) > 0) {
+		/* everything copied */
+		ret = 0;
+	} else if (tstream->ostream.ostream.stream_errno == 0) {
 		i_assert(input->stream_errno != 0);
 		tstream->ostream.ostream.stream_errno = input->stream_errno;
 	}
 	i_stream_destroy(&input);
 	i_stream_unref(&tstream->dupstream);
-	return ret < 0 ? -1 : 0;
+	return ret;
 }
 
 static int o_stream_temp_dup_istream(struct temp_ostream *outstream,
 				     struct istream *instream)
 {
 	uoff_t in_size;
-	off_t ret;
 
 	if (!instream->readable_fd || i_stream_get_fd(instream) == -1)
 		return 0;
@@ -170,25 +169,20 @@ static int o_stream_temp_dup_istream(struct temp_ostream *outstream,
 		    outstream->dupstream_offset > in_size)
 			return o_stream_temp_dup_cancel(outstream);
 	}
-	ret = in_size - instream->v_offset;
 	i_stream_seek(instream, in_size);
 	outstream->dupstream_offset = instream->v_offset;
-	return ret;
+	return 1;
 }
 
-static off_t o_stream_temp_send_istream(struct ostream_private *_outstream,
-					struct istream *instream)
+static int o_stream_temp_send_istream(struct ostream_private *_outstream,
+				      struct istream *instream)
 {
 	struct temp_ostream *outstream = (struct temp_ostream *)_outstream;
-	uoff_t orig_offset;
 	int ret;
 
 	if ((outstream->flags & IOSTREAM_TEMP_FLAG_TRY_FD_DUP) != 0) {
-		orig_offset = outstream->dupstream_offset;
-		if ((ret = o_stream_temp_dup_istream(outstream, instream)) > 0)
-			return outstream->dupstream_offset - orig_offset;
-		if (ret < 0)
-			return -1;
+		if ((ret = o_stream_temp_dup_istream(outstream, instream)) != 0)
+			return ret;
 		outstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
 	}
 	return io_stream_copy(&outstream->ostream.ostream, instream);

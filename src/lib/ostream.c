@@ -341,11 +341,12 @@ void o_stream_set_no_error_handling(struct ostream *stream, bool set)
 	stream->real_stream->error_handling_disabled = set;
 }
 
-off_t o_stream_send_istream(struct ostream *outstream,
-			    struct istream *instream)
+int o_stream_send_istream(struct ostream *outstream, struct istream *instream)
 {
 	struct ostream_private *_outstream = outstream->real_stream;
-	off_t ret;
+	uoff_t old_outstream_offset = outstream->offset;
+	uoff_t old_instream_offset = instream->v_offset;
+	int ret;
 
 	if (unlikely(outstream->closed || instream->closed ||
 		     outstream->stream_errno != 0)) {
@@ -354,13 +355,22 @@ off_t o_stream_send_istream(struct ostream *outstream,
 	}
 
 	ret = _outstream->send_istream(_outstream, instream);
-	if (unlikely(ret < 0)) {
-		if (outstream->stream_errno != 0) {
-			errno = outstream->stream_errno;
-		} else {
-			i_assert(instream->stream_errno != 0);
-		}
+	if (instream->stream_errno != 0) {
+		errno = instream->stream_errno;
+		return -1;
+	} else if (outstream->stream_errno != 0) {
+		errno = outstream->stream_errno;
+		return -1;
 	}
+	if (ret == 0) {
+		/* partial send */
+		i_assert(!outstream->blocking || !instream->blocking);
+	} else {
+		/* fully sent everything */
+		i_assert(!i_stream_have_bytes_left(instream));
+	}
+	i_assert((outstream->offset - old_outstream_offset) ==
+		 (instream->v_offset - old_instream_offset));
 	return ret;
 }
 
@@ -383,34 +393,22 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 	return ret;
 }
 
-off_t io_stream_copy(struct ostream *outstream, struct istream *instream)
+int io_stream_copy(struct ostream *outstream, struct istream *instream)
 {
-	uoff_t start_offset;
 	struct const_iovec iov;
 	const unsigned char *data;
 	ssize_t ret;
 
-	start_offset = instream->v_offset;
-	do {
-		(void)i_stream_read_more(instream, &data, &iov.iov_len);
-		if (iov.iov_len == 0) {
-			/* all sent */
-			if (instream->stream_errno != 0)
-				return -1;
-			break;
-		}
-
+	while (i_stream_read_more(instream, &data, &iov.iov_len) > 0) {
 		iov.iov_base = data;
-		ret = o_stream_sendv(outstream, &iov, 1);
-		if (ret <= 0) {
-			if (ret == 0)
-				break;
-			return -1;
-		}
+		if ((ret = o_stream_sendv(outstream, &iov, 1)) <= 0)
+			return ret;
 		i_stream_skip(instream, ret);
-	} while ((size_t)ret == iov.iov_len);
+	}
 
-	return (off_t)(instream->v_offset - start_offset);
+	if (instream->stream_errno != 0)
+		return -1;
+	return i_stream_have_bytes_left(instream) ? 0 : 1;
 }
 
 void o_stream_switch_ioloop(struct ostream *stream)
@@ -561,8 +559,8 @@ o_stream_default_write_at(struct ostream_private *_stream,
 	return -1;
 }
 
-static off_t o_stream_default_send_istream(struct ostream_private *outstream,
-					   struct istream *instream)
+static int o_stream_default_send_istream(struct ostream_private *outstream,
+					 struct istream *instream)
 {
 	return io_stream_copy(&outstream->ostream, instream);
 }

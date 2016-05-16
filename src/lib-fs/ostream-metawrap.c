@@ -37,19 +37,20 @@ o_stream_metawrap_sendv(struct ostream_private *stream,
 	return ret;
 }
 
-static off_t
+static int
 o_stream_metawrap_send_istream(struct ostream_private *_outstream,
 			       struct istream *instream)
 {
 	struct metawrap_ostream *outstream =
 		(struct metawrap_ostream *)_outstream;
+	uoff_t orig_outstream_offset = _outstream->ostream.offset;
 	off_t ret;
 
 	o_stream_metawrap_call_callback(outstream);
 	if ((ret = o_stream_send_istream(_outstream->parent, instream)) < 0)
 		o_stream_copy_error_from_parent(_outstream);
-	else
-		_outstream->ostream.offset += ret;
+	_outstream->ostream.offset +=
+		_outstream->ostream.offset - orig_outstream_offset;
 	return ret;
 }
 

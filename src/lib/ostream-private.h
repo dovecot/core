@@ -22,8 +22,8 @@ struct ostream_private {
 			 unsigned int iov_count);
 	int (*write_at)(struct ostream_private *stream,
 			const void *data, size_t size, uoff_t offset);
-	off_t (*send_istream)(struct ostream_private *outstream,
-			      struct istream *instream);
+	int (*send_istream)(struct ostream_private *outstream,
+			    struct istream *instream);
 	void (*switch_ioloop)(struct ostream_private *stream);
 
 /* data: */
@@ -47,7 +47,7 @@ struct ostream *
 o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 	ATTR_NULL(2);
 
-off_t io_stream_copy(struct ostream *outstream, struct istream *instream);
+int io_stream_copy(struct ostream *outstream, struct istream *instream);
 
 void o_stream_copy_error_from_parent(struct ostream_private *_stream);
 /* This should be called before sending data to parent stream. It makes sure
