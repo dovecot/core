@@ -3,8 +3,7 @@
 #include "test-lib.h"
 #include "buffer.h"
 
-
-void test_buffer(void)
+static void test_buffer_random(void)
 {
 #define BUF_TEST_SIZE (1024*2)
 #define BUF_TEST_COUNT 1000
@@ -130,4 +129,27 @@ void test_buffer(void)
 			t_strdup_printf("round %u test %d failed", i, test));
 	}
 	buffer_free(&buf);
+}
+
+static void test_buffer_set_used_size(void)
+{
+	buffer_t *buf;
+
+	test_begin("buffer_set_used_size");
+	buf = buffer_create_dynamic(pool_datastack_create(), 8);
+	memset(buffer_append_space_unsafe(buf, 7), 'a', 7);
+	buffer_set_used_size(buf, 4);
+	test_assert(memcmp(buffer_get_space_unsafe(buf, 0, 7), "aaaa\0\0\0", 7) == 0);
+	memset(buffer_get_space_unsafe(buf, 4, 7), 'b', 7);
+	buffer_set_used_size(buf, 10);
+	test_assert(memcmp(buffer_append_space_unsafe(buf, 1), "\0", 1) == 0);
+	buffer_set_used_size(buf, 11);
+	test_assert(memcmp(buffer_get_space_unsafe(buf, 0, 11), "aaaabbbbbb\0", 11) == 0);
+	test_end();
+}
+
+void test_buffer(void)
+{
+	test_buffer_random();
+	test_buffer_set_used_size();
 }
