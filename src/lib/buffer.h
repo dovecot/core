@@ -86,7 +86,9 @@ void *buffer_get_modifiable_data(const buffer_t *buf, size_t *used_size_r)
 	ATTR_NULL(2);
 
 /* Set the "used size" of buffer, ie. 0 would set the buffer empty.
-   Must not be used to grow buffer. */
+   Must not be used to grow buffer. The data after the buffer's new size will
+   be effectively lost, because e.g. buffer_get_space_unsafe() will zero out
+   the contents. */
 void buffer_set_used_size(buffer_t *buf, size_t used_size);
 
 /* Returns the current buffer size. */
