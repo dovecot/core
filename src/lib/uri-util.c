@@ -559,7 +559,8 @@ int uri_parse_host_name_dns(struct uri_parser *parser,
 	if ((ret=uri_do_parse_host_name_dns(parser, host_name)) <= 0)
 		return ret;
 
-	*host_name_r = str_c(host_name);
+	if (host_name_r != NULL)
+		*host_name_r = str_c(host_name);
 	return 1;
 }
 
