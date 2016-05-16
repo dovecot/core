@@ -323,14 +323,10 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 
 	output = o_stream_create_fd_file(out_fd, 0, FALSE);
 	i_stream_seek(file->input, 0);
-	ret = o_stream_send_istream(output, file->input) > 0 ? 0 : -1;
+	o_stream_nsend_istream(output, file->input);
 	if (o_stream_nfinish(output) < 0) {
 		mail_storage_set_critical(storage, "write(%s) failed: %s",
 			temp_path, o_stream_get_error(output));
-		ret = -1;
-	} else if (file->input->stream_errno != 0) {
-		mail_storage_set_critical(storage, "read(%s) failed: %s",
-			temp_path, i_stream_get_error(file->input));
 		ret = -1;
 	}
 	o_stream_unref(&output);

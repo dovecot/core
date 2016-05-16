@@ -99,7 +99,6 @@ static void cmd_fs_put(int argc, char *argv[])
 	struct istream *input;
 	struct ostream *output;
 	buffer_t *hash = NULL;
-	off_t ret;
 	int c;
 
 	while ((c = getopt(argc, argv, "h:")) > 0) {
@@ -137,16 +136,7 @@ static void cmd_fs_put(int argc, char *argv[])
 
 	output = fs_write_stream(file);
 	input = i_stream_create_file(src_path, IO_BLOCK_SIZE);
-	if ((ret = o_stream_send_istream(output, input)) < 0) {
-		if (output->stream_errno != 0) {
-			i_error("write(%s) failed: %s", dest_path,
-				o_stream_get_error(output));
-		} else {
-			i_error("read(%s) failed: %s", src_path,
-				i_stream_get_error(input));
-		}
-		doveadm_exit_code = EX_TEMPFAIL;
-	}
+	o_stream_nsend_istream(output, input);
 	i_stream_destroy(&input);
 	if (fs_write_stream_finish(file, &output) < 0) {
 		i_error("fs_write_stream_finish() failed: %s",

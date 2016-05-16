@@ -206,13 +206,8 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 	i_assert(file != out_file_append->file);
 
 	input = i_stream_create_limit(file->input, msg_size);
-	(void)o_stream_send_istream(output, input);
-	if (input->stream_errno != 0) {
-		mail_storage_set_critical(&file->storage->storage,
-			"read(%s) failed: %s", file->cur_path,
-			i_stream_get_error(input));
-		ret = -1;
-	} else if (o_stream_nfinish(output) < 0) {
+	o_stream_nsend_istream(output, input);
+	if (o_stream_nfinish(output) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 					  "write(%s) failed: %s",
 					  out_file_append->file->cur_path,

@@ -170,10 +170,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			N_ELEMENTS(exclude_headers),
 			*null_header_filter_callback, (void *)NULL);
 
-	    ret = o_stream_send_istream(output, input);
+	    o_stream_nsend_istream(output, input);
 	    i_stream_unref(&input);
-
-	    i_assert(ret != 0);
     }
 
     str_truncate(str, 0);

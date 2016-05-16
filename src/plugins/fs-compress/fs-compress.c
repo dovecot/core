@@ -274,22 +274,8 @@ static int fs_compress_write_stream_finish(struct fs_file *_file, bool success)
 	/* finish writing the temporary file */
 	input = iostream_temp_finish(&file->temp_output, IO_BLOCK_SIZE);
 	file->super_output = fs_write_stream(file->super);
-	if (o_stream_send_istream(file->super_output, input) >= 0)
-		ret = fs_write_stream_finish(file->super, &file->super_output);
-	else if (input->stream_errno != 0) {
-		fs_set_error(_file->fs, "read(%s) failed: %s",
-			     i_stream_get_name(input),
-			     i_stream_get_error(input));
-		fs_write_stream_abort(file->super, &file->super_output);
-		ret = -1;
-	} else {
-		i_assert(file->super_output->stream_errno != 0);
-		fs_set_error(_file->fs, "write(%s) failed: %s",
-			     o_stream_get_name(file->super_output),
-			     o_stream_get_error(file->super_output));
-		fs_write_stream_abort(file->super, &file->super_output);
-		ret = -1;
-	}
+	o_stream_nsend_istream(file->super_output, input);
+	ret = fs_write_stream_finish(file->super, &file->super_output);
 	i_stream_unref(&input);
 	return ret;
 }
