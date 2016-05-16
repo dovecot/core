@@ -114,7 +114,6 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	message_parse_header_deinit(&parser);
 
 	if (ctx->input->stream_errno != 0) {
-		errno = ctx->input->stream_errno;
 		mail_storage_set_critical(ctx->mail->box->storage,
 			"read(%s) failed: %s", i_stream_get_name(ctx->input),
 			i_stream_get_error(ctx->input));

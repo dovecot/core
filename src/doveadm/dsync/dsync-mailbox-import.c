@@ -372,13 +372,11 @@ dsync_istreams_cmp(struct istream *input1, struct istream *input2, int *cmp_r)
 		i_stream_skip(input2, size);
 	}
 	if (input1->stream_errno != 0) {
-		errno = input1->stream_errno;
 		i_error("read(%s) failed: %s", i_stream_get_name(input1),
 			i_stream_get_error(input1));
 		return -1;
 	}
 	if (input2->stream_errno != 0) {
-		errno = input2->stream_errno;
 		i_error("read(%s) failed: %s", i_stream_get_name(input2),
 			i_stream_get_error(input2));
 		return -1;
