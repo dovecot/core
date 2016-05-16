@@ -595,17 +595,25 @@ config_parse_line(struct config_parser_context *ctx,
 
 	/* remove whitespace from end of line */
 	len = strlen(line);
-	while (IS_WHITE(line[len-1]))
+	while (len >= 1) {
+		if(!IS_WHITE(line[len-1]))
+			break;
 		len--;
+	}
 	line[len] = '\0';
 
-	if (len > 0 && line[len-1] == '\\') {
+	if (len >= 1 && line[len-1] == '\\') {
 		/* continues in next line */
 		len--;
-		while (IS_WHITE(line[len-1]))
+		while (len >= 1) {
+			if(!IS_WHITE(line[len-1]))
+				break;
 			len--;
-		str_append_n(full_line, line, len);
-		str_append_c(full_line, ' ');
+		}
+		if(len >= 1) {
+			str_append_n(full_line, line, len);
+			str_append_c(full_line, ' ');
+		}
 		return CONFIG_LINE_TYPE_CONTINUE;
 	}
 	if (str_len(full_line) > 0) {
