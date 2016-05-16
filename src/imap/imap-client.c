@@ -480,6 +480,7 @@ client_cmd_append_timing_stats(struct client_command_context *cmd,
 {
 	unsigned int msecs_in_cmd, msecs_in_ioloop;
 	uint64_t ioloop_wait_usecs;
+	unsigned int msecs_since_cmd;
 
 	if (cmd->start_time.tv_sec == 0)
 		return;
@@ -488,12 +489,19 @@ client_cmd_append_timing_stats(struct client_command_context *cmd,
 	msecs_in_cmd = (cmd->running_usecs + 999) / 1000;
 	msecs_in_ioloop = (ioloop_wait_usecs -
 			   cmd->start_ioloop_wait_usecs + 999) / 1000;
+	msecs_since_cmd = timeval_diff_msecs(&ioloop_timeval,
+					     &cmd->last_run_timeval);
 
 	if (str_data(str)[str_len(str)-1] == '.')
 		str_truncate(str, str_len(str)-1);
-	str_printfa(str, " (%d.%03d + %d.%03d secs).",
+	str_printfa(str, " (%d.%03d + %d.%03d ",
 		    msecs_in_cmd / 1000, msecs_in_cmd % 1000,
 		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
+	if (msecs_since_cmd > 0) {
+		str_printfa(str, "+ %d.%03d ",
+			    msecs_since_cmd / 1000, msecs_since_cmd % 1000);
+	}
+	str_append(str, "secs).");
 }
 
 void client_send_tagline(struct client_command_context *cmd, const char *data)
@@ -721,6 +729,7 @@ struct client_command_context *client_command_alloc(struct client *client)
 	cmd->client = client;
 	cmd->pool = client->command_pool;
 	cmd->start_time = ioloop_timeval;
+	cmd->last_run_timeval = ioloop_timeval;
 	cmd->start_ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
 	p_array_init(&cmd->module_contexts, cmd->pool, 5);
 
