@@ -168,7 +168,7 @@ static void proxy_client_input(struct login_proxy *proxy)
 		return;
 	}
 
-	if (i_stream_read_data(proxy->client_input, &data, &size, 0) < 0) {
+	if (i_stream_read_more(proxy->client_input, &data, &size) < 0) {
 		const char *errstr = i_stream_get_error(proxy->client_input);
 		login_proxy_free_errstr(&proxy, errstr, FALSE);
 		return;

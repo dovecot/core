@@ -79,7 +79,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 	continues = FALSE;
 
 	for (startpos = 0;;) {
-		ret = i_stream_read_data(ctx->input, &msg, &size, startpos+1);
+		ret = i_stream_read_bytes(ctx->input, &msg, &size, startpos+2);
 		if (ret >= 0) {
 			/* we want to know one byte in advance to find out
 			   if it's multiline header */

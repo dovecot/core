@@ -464,7 +464,7 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	int tz;
 
 	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars */
-	(void)i_stream_read_data(rstream->istream.parent, &data, &size, 30);
+	(void)i_stream_read_bytes(rstream->istream.parent, &data, &size, 31);
 
 	if ((size == 1 && data[0] == '\n') ||
 	    (size == 2 && data[0] == '\r' && data[1] == '\n')) {
@@ -483,8 +483,8 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	}
 
 	while (memchr(data, '\n', size) == NULL) {
-		if (i_stream_read_data(rstream->istream.parent,
-				       &data, &size, size) < 0)
+		if (i_stream_read_bytes(rstream->istream.parent,
+					&data, &size, size+1) < 0)
 			break;
 	}
 

@@ -239,8 +239,8 @@ static void imap_client_input_idle_cmd(struct imap_client *client)
 
 	/* we should read either DONE or disconnection. also handle if client
 	   sends DONE\nIDLE simply to recreate the IDLE. */
-	ret = i_stream_read_data(client->input, &data, &size,
-				 client->next_read_threshold);
+	ret = i_stream_read_bytes(client->input, &data, &size,
+				  client->next_read_threshold + 1);
 	if (size == 0) {
 		if (ret < 0)
 			imap_client_disconnected(&client);

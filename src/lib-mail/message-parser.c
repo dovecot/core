@@ -133,8 +133,8 @@ static int message_parser_read_more(struct message_parser_ctx *ctx,
 	}
 
 	*full_r = FALSE;
-	ret = i_stream_read_data(ctx->input, &block_r->data,
-				 &block_r->size, ctx->want_count);
+	ret = i_stream_read_bytes(ctx->input, &block_r->data,
+				  &block_r->size, ctx->want_count + 1);
 	if (ret <= 0) {
 		switch (ret) {
 		case 0:

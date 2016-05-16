@@ -16,7 +16,7 @@ int message_get_header_size(struct istream *input, struct message_size *hdr,
 	*has_nuls_r = FALSE;
 
 	missing_cr_count = 0; startpos = 0;
-	while (i_stream_read_data(input, &msg, &size, startpos) > 0) {
+	while (i_stream_read_bytes(input, &msg, &size, startpos + 1) > 0) {
 		for (i = startpos; i < size; i++) {
 			if (msg[i] != '\n') {
 				if (msg[i] == '\0')
@@ -102,7 +102,7 @@ int message_get_body_size(struct istream *input, struct message_size *body,
 		/* leave the last character, it may be \r */
 		i_stream_skip(input, i - 1);
 		body->physical_size += i - 1;
-	} while (i_stream_read_data(input, &msg, &size, 1) > 0);
+	} while (i_stream_read_bytes(input, &msg, &size, 2) > 0);
 
 	ret = input->stream_errno != 0 ? -1 : 0;
 

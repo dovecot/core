@@ -634,8 +634,7 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 	off_t ret;
 
 	/* read payload */
-	while ((ret=i_stream_read_data
-		(payload, &pdata, &psize, 0)) > 0) {
+	while ((ret=i_stream_read_more(payload, &pdata, &psize)) > 0) {
 		if (debug) {
 			i_debug("test client: download: "
 				"got data for [%u] (size=%d)",
@@ -643,8 +642,8 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 		}
 		/* compare with file on disk */
 		pleft = psize;
-		while ((ret=i_stream_read_data
-			(tcreq->file, &fdata, &fsize, 0)) > 0 && pleft > 0) {
+		while ((ret=i_stream_read_more
+			(tcreq->file, &fdata, &fsize)) > 0 && pleft > 0) {
 			fsize = (fsize > pleft ? pleft : fsize);
 			if (memcmp(pdata, fdata, fsize) != 0) {
 				i_fatal("test client: download: "
@@ -677,7 +676,7 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 				"failed to read request payload: %s",
 				i_stream_get_error(payload));
 		} if (i_stream_have_bytes_left(tcreq->file)) {
-			if (i_stream_read_data(tcreq->file, &fdata, &fsize, 0) <= 0)
+			if (i_stream_read_more(tcreq->file, &fdata, &fsize) <= 0)
 				fsize = 0;
 			i_fatal("test client: download: "
 				"payload ended prematurely "
@@ -863,8 +862,7 @@ test_client_echo_payload_input(struct test_client_request *tcreq)
 	off_t ret;
 
 	/* read payload */
-	while ((ret=i_stream_read_data
-		(payload, &pdata, &psize, 0)) > 0) {
+	while ((ret=i_stream_read_more(payload, &pdata, &psize)) > 0) {
 		if (debug) {
 			i_debug("test client: echo: "
 				"got data for [%u] (size=%d)",
@@ -872,8 +870,8 @@ test_client_echo_payload_input(struct test_client_request *tcreq)
 		}
 		/* compare with file on disk */
 		pleft = psize;
-		while ((ret=i_stream_read_data
-			(tcreq->file, &fdata, &fsize, 0)) > 0 && pleft > 0) {
+		while ((ret=i_stream_read_more
+			(tcreq->file, &fdata, &fsize)) > 0 && pleft > 0) {
 			fsize = (fsize > pleft ? pleft : fsize);
 			if (memcmp(pdata, fdata, fsize) != 0) {
 				i_fatal("test client: echo: "
@@ -906,7 +904,7 @@ test_client_echo_payload_input(struct test_client_request *tcreq)
 				"failed to read request payload: %s",
 				i_stream_get_error(payload));
 		} if (i_stream_have_bytes_left(tcreq->file)) {
-			if (i_stream_read_data(tcreq->file, &fdata, &fsize, 0) <= 0)
+			if (i_stream_read_more(tcreq->file, &fdata, &fsize) <= 0)
 				fsize = 0;
 			i_fatal("test client: echo: "
 				"payload ended prematurely "

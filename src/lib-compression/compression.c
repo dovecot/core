@@ -35,7 +35,7 @@ static bool is_compressed_zlib(struct istream *input)
 	   (based on its header). This also means that users can try to exploit
 	   security holes in the uncompression library by APPENDing a specially
 	   crafted mail. So let's hope zlib is free of holes. */
-	if (i_stream_read_data(input, &data, &size, 1) <= 0)
+	if (i_stream_read_bytes(input, &data, &size, 2) <= 0)
 		return FALSE;
 	i_assert(size >= 2);
 

@@ -72,8 +72,8 @@ static int i_stream_zlib_read_header(struct istream_private *stream)
 	unsigned int pos, fextra_size;
 	int ret;
 
-	ret = i_stream_read_data(stream->parent, &data, &size,
-				 zstream->prev_size);
+	ret = i_stream_read_bytes(stream->parent, &data, &size,
+				  zstream->prev_size + 1);
 	if (size == zstream->prev_size) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		if (ret == -1 && stream->istream.stream_errno == 0) {
