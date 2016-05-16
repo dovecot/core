@@ -831,7 +831,7 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 		dest->copy_input = fs_read_stream(src, IO_BLOCK_SIZE);
 		dest->copy_output = fs_write_stream(dest);
 	}
-	while (o_stream_send_istream(dest->copy_output, dest->copy_input) > 0) ;
+	(void)o_stream_send_istream(dest->copy_output, dest->copy_input);
 	if (dest->copy_input->stream_errno != 0) {
 		errno = dest->copy_input->stream_errno;
 		fs_set_error(dest->fs, "read(%s) failed: %s",

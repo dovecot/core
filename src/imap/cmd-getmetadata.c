@@ -22,7 +22,7 @@ struct imap_getmetadata_context {
 	unsigned int depth;
 
 	struct istream *cur_stream;
-	uoff_t cur_stream_offset, cur_stream_size;
+	uoff_t cur_stream_size;
 
 	struct imap_metadata_iter *iter;
 	string_t *iter_entry_prefix;
@@ -203,7 +203,7 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 		str_printfa(str, " ~{%"PRIuUOFF_T"}\r\n", value_len);
 		o_stream_nsend(client->output, str_data(str), str_len(str));
 
-		ctx->cur_stream_offset = 0;
+		i_assert(value.value_stream->v_offset == 0);
 		ctx->cur_stream_size = value_len;
 		ctx->cur_stream = value.value_stream;
 	}
@@ -212,25 +212,20 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 static bool
 cmd_getmetadata_stream_continue(struct imap_getmetadata_context *ctx)
 {
-	off_t ret;
-
 	o_stream_set_max_buffer_size(ctx->cmd->client->output, 0);
-	ret = o_stream_send_istream(ctx->cmd->client->output, ctx->cur_stream);
+	(void)o_stream_send_istream(ctx->cmd->client->output, ctx->cur_stream);
 	o_stream_set_max_buffer_size(ctx->cmd->client->output, (size_t)-1);
 
-	if (ret > 0)
-		ctx->cur_stream_offset += ret;
-
-	if (ctx->cur_stream_offset == ctx->cur_stream_size) {
-		/* finished */
-		return TRUE;
-	}
 	if (ctx->cur_stream->stream_errno != 0) {
 		i_error("read(%s) failed: %s",
 			i_stream_get_name(ctx->cur_stream),
 			i_stream_get_error(ctx->cur_stream));
 		client_disconnect(ctx->cmd->client,
 				  "Internal GETMETADATA failure");
+		return TRUE;
+	}
+	if (ctx->cur_stream->v_offset == ctx->cur_stream_size) {
+		/* finished */
 		return TRUE;
 	}
 	if (!i_stream_have_bytes_left(ctx->cur_stream)) {

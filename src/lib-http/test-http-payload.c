@@ -239,7 +239,7 @@ client_handle_download_request(
 
 	if (blocking) {
 		output = http_server_response_get_payload_output(resp, TRUE);
-		while ((ret=o_stream_send_istream	(output, fstream)) > 0);
+		ret=o_stream_send_istream(output, fstream);
 		if (ret < 0) {
 			i_fatal("test server: download: "
 				"failed to send blocking file payload");
@@ -353,8 +353,7 @@ client_handle_echo_request(struct client_request *creq,
 			payload_input = partial;
 		}
 
-		while ((ret=o_stream_send_istream
-			(payload_output, payload_input)) > 0);
+		ret = o_stream_send_istream(payload_output, payload_input);
 		if (ret < 0) {
 			i_fatal("test server: echo: "
 				"failed to receive blocking echo payload");
@@ -372,8 +371,7 @@ client_handle_echo_request(struct client_request *creq,
 		http_server_response_add_header(resp, "Content-Type", "text/plain");
 
 		payload_output = http_server_response_get_payload_output(resp, TRUE);
-		while ((ret=o_stream_send_istream
-			(payload_output, payload_input)) > 0);
+		ret = o_stream_send_istream(payload_output, payload_input);
 		if (ret < 0) {
 			i_fatal("test server: echo: "
 				"failed to send blocking echo payload");

@@ -53,7 +53,7 @@ struct imap_fetch_state {
 	struct mail *cur_mail;
 	unsigned int cur_handler;
 	const char *cur_human_name;
-	uoff_t cur_size, cur_offset;
+	uoff_t cur_size;
 	enum mail_fetch_field cur_size_field;
 	string_t *cur_str;
 	struct istream *cur_input;

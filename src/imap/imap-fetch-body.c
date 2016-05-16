@@ -92,19 +92,19 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 {
 	struct imap_fetch_state *state = &ctx->state;
 	const char *disconnect_reason;
+	uoff_t orig_input_offset = state->cur_input->v_offset;
 	off_t ret;
 
 	o_stream_set_max_buffer_size(ctx->client->output, 0);
 	ret = o_stream_send_istream(ctx->client->output, state->cur_input);
 	o_stream_set_max_buffer_size(ctx->client->output, (size_t)-1);
 
-	if (ret > 0) {
-		state->cur_offset += ret;
-		if (ctx->state.cur_stats_sizep != NULL)
-			*ctx->state.cur_stats_sizep += ret;
+	if (ctx->state.cur_stats_sizep != NULL) {
+		*ctx->state.cur_stats_sizep +=
+			state->cur_input->v_offset - orig_input_offset;
 	}
 
-	if (state->cur_offset != state->cur_size) {
+	if (state->cur_input->v_offset != state->cur_size) {
 		/* unfinished */
 		if (state->cur_input->stream_errno != 0) {
 			fetch_read_error(ctx, &disconnect_reason);
@@ -119,7 +119,7 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,
 				i_stream_get_name(state->cur_input),
 				state->cur_human_name,
-				state->cur_offset, state->cur_size));
+				state->cur_input->v_offset, state->cur_size));
 			client_disconnect(ctx->client, "FETCH failed");
 			return -1;
 		}
@@ -184,6 +184,7 @@ static int fetch_body_msgpart(struct imap_fetch_context *ctx, struct mail *mail,
 
 	if (imap_msgpart_open(mail, body->msgpart, &result) < 0)
 		return -1;
+	i_assert(result.input->v_offset == 0);
 	ctx->state.cur_input = result.input;
 	ctx->state.cur_size = result.size;
 	ctx->state.cur_size_field = result.size_field;
@@ -475,6 +476,7 @@ fetch_and_free_msgpart(struct imap_fetch_context *ctx,
 	imap_msgpart_free(_msgpart);
 	if (ret < 0)
 		return -1;
+	i_assert(result.input->v_offset == 0);
 	ctx->state.cur_input = result.input;
 	ctx->state.cur_size = result.size;
 	ctx->state.cur_size_field = result.size_field;

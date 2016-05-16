@@ -233,11 +233,10 @@ stream_copy(struct dbox_file *file, struct ostream *output,
 	    const char *out_path, uoff_t count)
 {
 	struct istream *input;
-	off_t bytes;
 	int ret = 0;
 
 	input = i_stream_create_limit(file->input, count);
-	bytes = o_stream_send_istream(output, input);
+	(void)o_stream_send_istream(output, input);
 
 	if (input->stream_errno != 0) {
 		mail_storage_set_critical(&file->storage->storage,
@@ -249,12 +248,11 @@ stream_copy(struct dbox_file *file, struct ostream *output,
 			"write(%s) failed: %s", out_path,
 			o_stream_get_error(output));
 		ret = -1;
-	} else if ((uoff_t)bytes != count) {
-		i_assert(bytes >= 0);
+	} else if (input->v_offset != count) {
 		mail_storage_set_critical(&file->storage->storage,
 			"o_stream_send_istream(%s) copied only %"
 			PRIuUOFF_T" of %"PRIuUOFF_T" bytes",
-			out_path, bytes, count);
+			out_path, input->v_offset, count);
 		ret = -1;
 	}
 	i_stream_unref(&input);

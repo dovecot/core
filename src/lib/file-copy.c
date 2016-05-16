@@ -70,8 +70,7 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 	input = i_stream_create_fd(fd_in, IO_BLOCK_SIZE, FALSE);
 	output = o_stream_create_fd_file(fd_out, 0, FALSE);
 
-	while ((ret = o_stream_send_istream(output, input)) > 0) ;
-
+	ret = o_stream_send_istream(output, input);
 	if (ret < 0)
 		i_error("write(%s) failed: %m", tmppath);
 

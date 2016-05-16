@@ -457,7 +457,6 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 		}
 
 		state->cont_handler = NULL;
-		state->cur_offset = 0;
                 state->cur_handler++;
 		if (state->cur_input != NULL)
 			i_stream_unref(&state->cur_input);
@@ -523,7 +522,6 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 			}
 
 			state->cont_handler = NULL;
-			state->cur_offset = 0;
 			if (state->cur_input != NULL)
 				i_stream_unref(&state->cur_input);
 		}
