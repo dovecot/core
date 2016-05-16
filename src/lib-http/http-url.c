@@ -35,7 +35,7 @@ static bool http_url_parse_authority(struct http_url_parser *url_parser)
 	const char *user = NULL, *password = NULL;
 	int ret;
 
-	if ((ret = uri_parse_authority(parser, &auth, TRUE)) < 0)
+	if ((ret = uri_parse_host_authority(parser, &auth)) < 0)
 		return FALSE;
 	if (auth.host.name == NULL || *auth.host.name == '\0') {
 		/* RFC 7230, Section 2.7.1: http URI Scheme
@@ -367,7 +367,7 @@ int http_url_request_target_parse(const char *request_target,
 	parser = &url_parser.parser;
 	uri_parser_init(parser, pool, host_header);
 
-	if (uri_parse_authority(parser, &auth, TRUE) <= 0) {
+	if (uri_parse_host_authority(parser, &auth) <= 0) {
 		*error_r = t_strdup_printf("Invalid Host header: %s", parser->error);
 		return -1;
 	}

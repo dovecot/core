@@ -393,7 +393,7 @@ uri_parse_ipv4address(struct uri_parser *parser, string_t *literal,
 }
 
 static int
-uri_parse_reg_name(struct uri_parser *parser,
+uri_do_parse_reg_name(struct uri_parser *parser,
 	string_t *reg_name) ATTR_NULL(2)
 {
 	/* RFC 3986:
@@ -431,7 +431,24 @@ uri_parse_reg_name(struct uri_parser *parser,
 	return 0;
 }
 
-static int uri_do_parse_host_name_dns(struct uri_parser *parser,
+int uri_parse_reg_name(struct uri_parser *parser,
+	const char **reg_name_r)
+{
+	string_t *reg_name = NULL;
+	int ret;
+
+	if (reg_name_r != NULL)
+		reg_name = uri_parser_get_tmpbuf(parser, 256);
+
+	if ((ret=uri_do_parse_reg_name(parser, reg_name)) <= 0)
+		return ret;
+
+	if (reg_name_r != NULL)
+		*reg_name_r = str_c(reg_name);
+	return 1;
+}
+
+static int uri_do_parse_host_name(struct uri_parser *parser,
 	string_t *host_name) ATTR_NULL(2)
 {
 	const unsigned char *first, *part;
@@ -547,7 +564,7 @@ static int uri_do_parse_host_name_dns(struct uri_parser *parser,
 	return 1;
 }
 
-int uri_parse_host_name_dns(struct uri_parser *parser,
+int uri_parse_host_name(struct uri_parser *parser,
 	const char **host_name_r)
 {
 	string_t *host_name = NULL;
@@ -556,7 +573,7 @@ int uri_parse_host_name_dns(struct uri_parser *parser,
 	if (host_name_r != NULL)
 		host_name = uri_parser_get_tmpbuf(parser, 256);
 
-	if ((ret=uri_do_parse_host_name_dns(parser, host_name)) <= 0)
+	if ((ret=uri_do_parse_host_name(parser, host_name)) <= 0)
 		return ret;
 
 	if (host_name_r != NULL)
@@ -615,8 +632,10 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 	return 1;
 }
 
-int uri_parse_host(struct uri_parser *parser,
-	struct uri_host *host, bool dns_name)
+static int
+uri_do_parse_host(struct uri_parser *parser,
+	struct uri_host *host, bool host_name)
+	ATTR_NULL(2)
 {
 	const unsigned char *preserve;
 	struct in_addr ip4;
@@ -664,14 +683,20 @@ int uri_parse_host(struct uri_parser *parser,
 	str_truncate(literal, 0);
 
 	/* reg-name */
-	if (dns_name) {
-		if (uri_do_parse_host_name_dns(parser, literal) < 0)
+	if (host_name) {
+		if (uri_do_parse_host_name(parser, literal) < 0)
 			return -1;
-	} else 	if (uri_parse_reg_name(parser, literal) < 0)
+	} else 	if (uri_do_parse_reg_name(parser, literal) < 0)
 		return -1;
 	if (host != NULL)
 		host->name = p_strdup(parser->pool, str_c(literal));
 	return 0;
+}
+
+int uri_parse_host(struct uri_parser *parser,
+	struct uri_host *host)
+{
+	return uri_do_parse_host(parser, host, TRUE);
 }
 
 static int
@@ -702,8 +727,9 @@ uri_parse_port(struct uri_parser *parser,
 	return 1;
 }
 
-int uri_parse_authority(struct uri_parser *parser,
-	struct uri_authority *auth, bool dns_name)
+static int
+uri_do_parse_authority(struct uri_parser *parser,
+	struct uri_authority *auth, bool host_name) ATTR_NULL(2)
 {
 	const unsigned char *p;
 	int ret;
@@ -734,8 +760,8 @@ int uri_parse_authority(struct uri_parser *parser,
 	}
 
 	/* host */
-	if (uri_parse_host(parser,
-		(auth == NULL ? NULL : &auth->host), dns_name) < 0)
+	if (uri_do_parse_host(parser,
+		(auth == NULL ? NULL : &auth->host), host_name) < 0)
 		return -1;
 	if (parser->cur == parser->end)
 		return 1;
@@ -767,8 +793,10 @@ int uri_parse_authority(struct uri_parser *parser,
 	return 1;
 }
 
-int uri_parse_slashslash_authority(struct uri_parser *parser,
-	struct uri_authority *auth, bool dns_name)
+static int
+uri_do_parse_slashslash_authority(struct uri_parser *parser,
+	struct uri_authority *auth, bool host_name)
+	ATTR_NULL(2)
 {
 	/* "//" authority */
 
@@ -777,7 +805,31 @@ int uri_parse_slashslash_authority(struct uri_parser *parser,
 		return 0;
 
 	parser->cur += 2;
-	return uri_parse_authority(parser, auth, dns_name);
+	return uri_do_parse_authority(parser, auth, host_name);
+}
+
+int uri_parse_authority(struct uri_parser *parser,
+	struct uri_authority *auth)
+{
+	return uri_do_parse_authority(parser, auth, FALSE);
+}
+
+int uri_parse_slashslash_authority(struct uri_parser *parser,
+	struct uri_authority *auth)
+{
+	return uri_do_parse_slashslash_authority(parser, auth, FALSE);
+}
+
+int uri_parse_host_authority(struct uri_parser *parser,
+	struct uri_authority *auth)
+{
+	return uri_do_parse_authority(parser, auth, TRUE);
+}
+
+int uri_parse_slashslash_host_authority(struct uri_parser *parser,
+	struct uri_authority *auth)
+{
+	return uri_do_parse_slashslash_authority(parser, auth, TRUE);
 }
 
 int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r)

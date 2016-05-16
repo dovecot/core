@@ -66,46 +66,63 @@ int uri_cut_scheme(const char **uri_p, const char **scheme_r)
 int uri_parse_scheme(struct uri_parser *parser, const char **scheme_r)
 	ATTR_NULL(2);
 
-/* parse a DNS host name. A host name is a sequence of domain name labels
-   separated by '.', as defined in Section 3.5 of RFC 1034 and Section
-   2.1 of RFC 1123. Returns 1 if successful, 0 if the first character is
-   not valid for a host name, and -1 in case of error. The result parameter
-   host_name_r can be NULL to use this function for merely checking the
-   presence of a valid host name. The result is allocated from the data
-   stack.
+/* parse the URI 'reg-name' syntax. Returns 1 if successful, 0 if the first
+   character is not valid for a host name, and -1 in case of error. The
+   result parameter reg_name_r can be NULL to use this function for merely
+   checking the presence of a valid host name. The result is allocated from
+   the data stack.
  */
-int uri_parse_host_name_dns(struct uri_parser *parser,
+int uri_parse_reg_name(struct uri_parser *parser,
+	const char **reg_name_r) ATTR_NULL(2);
+/* parse the URI 'reg-name' part as an Internet host name, which is a
+   sequence of domain name labels separated by '.', as defined in
+   Section 3.5 of RFC 1034 and Section 2.1 of RFC 1123. Returns 1 if
+   successful, 0 if the first character is not valid for a host name,
+   and -1 in case of error. The result parameter host_name_r can be NULL
+   to use this function for merely checking the presence of a valid host
+   name. The result is allocated from the data stack.
+ */
+int uri_parse_host_name(struct uri_parser *parser,
 	const char **host_name_r) ATTR_NULL(2);
 /* parse the URI 'host' syntax, which is either an IP address literal or
-   a registered (host) name. If dns_name is TRUE, this function expects
-   a host name, as defined in Section 3.5 of RFC 1034 and Section
-   2.1 of RFC 1123. Otherwise, a generic registered name syntax is allowed.
-   An IP address literal is always allowed. Returns 1 if successful, 0 if
-   the first character is not valid for a host name, and -1 in case of
-   error. The provided host struct is filled in with the parsed data, all
-   allocated from the parser pool. The host parameter can be NULL to use
-   this function for merely checking for valid 'host' syntax.
+   a an Internet host name, as defined in Section 3.5 of RFC 1034 and
+   Section 2.1 of RFC 1123. An IP address literal is always allowed.
+   Returns 1 if successful, 0 if the first character is not valid for a
+   host name, and -1 in case of error. The provided host struct is filled
+   in with the parsed data, all allocated from the parser pool. The host
+   parameter can be NULL to use this function for merely checking for
+   valid 'host' syntax.
  */
 int uri_parse_host(struct uri_parser *parser,
-	struct uri_host *host, bool dns_name) ATTR_NULL(2);
+	struct uri_host *host) ATTR_NULL(2);
 
-/* parse the URI 'authority' syntax. If dns_name is TRUE, this function
-   expects a host name for the 'host' part, as defined in Section 3.5 of
-   RFC 1034 and Section 2.1 of RFC 1123. Otherwise, a generic registered
-   name syntax is allowed. Returns 1 if successful, 0 if the first
-   character is not valid for the 'authority' syntax and -1 in case of
-   error. The provided uri_authority struct is filled in with the parsed
+/* parse the URI 'authority' syntax. Returns 1 if successful, 0 if the
+   first character is not valid for the 'authority' syntax and -1 in case
+   of error. The provided uri_authority struct is filled in with the parsed
    data, all allocated from the parser pool. The auth parameter can be
    NULL to use this function for merely checking for valid 'authority'
    syntax.
  */
 int uri_parse_authority(struct uri_parser *parser,
-	struct uri_authority *auth, bool dns_name) ATTR_NULL(2);
+	struct uri_authority *auth) ATTR_NULL(2);
 /* identical to uri_parse_authority(), except that this function parses
    '"//" authority', rather than 'authority'.
  */
 int uri_parse_slashslash_authority(struct uri_parser *parser,
-	struct uri_authority *auth, bool dns_name) ATTR_NULL(2);
+	struct uri_authority *auth) ATTR_NULL(2);
+/* identical to uri_parse_authority(), except that this function parses
+   the registered name ('reg-name' syntax) as an Internet host name, as
+   defined in Section 3.5 of RFC 1034 and Section 2.1 of RFC 1123.
+ */
+int uri_parse_host_authority(struct uri_parser *parser,
+	struct uri_authority *auth) ATTR_NULL(2);
+/* identical to uri_parse_slashslash_authority(), except that this
+   function parses the registered name ('reg-name' syntax) as an Internet
+   host name, as defined in Section 3.5 of RFC 1034 and Section 2.1 of
+   RFC 1123.
+ */
+int uri_parse_slashslash_host_authority(struct uri_parser *parser,
+	struct uri_authority *auth) ATTR_NULL(2);
 
 /* parse the URI 'segment' syntax. Returns 1 if successful, 0 if the first
    character is not valid for the 'segment' syntax and -1 in case of
