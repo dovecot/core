@@ -432,7 +432,7 @@ uri_parse_reg_name(struct uri_parser *parser,
 }
 
 static int uri_do_parse_host_name_dns(struct uri_parser *parser,
-	string_t *host_name) ATTR_NULL(2, 3)
+	string_t *host_name) ATTR_NULL(2)
 {
 	const unsigned char *first, *part;
 	int ret;
@@ -616,7 +616,7 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 }
 
 int uri_parse_host(struct uri_parser *parser,
-	struct uri_host *host, bool dns_name) ATTR_NULL(2)
+	struct uri_host *host, bool dns_name)
 {
 	const unsigned char *preserve;
 	struct in_addr ip4;
