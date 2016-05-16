@@ -100,8 +100,8 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 	}
 
 	if (zstream->chunk_left == 0) {
-		ret = i_stream_read_data(stream->parent, &data, &size,
-					 IOSTREAM_LZ4_CHUNK_PREFIX_LEN);
+		ret = i_stream_read_bytes(stream->parent, &data, &size,
+					  IOSTREAM_LZ4_CHUNK_PREFIX_LEN);
 		if (ret < 0) {
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;

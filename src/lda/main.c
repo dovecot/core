@@ -123,8 +123,8 @@ create_raw_stream(struct mail_deliver_context *ctx,
 	input = i_stream_create_fd(fd, 4096, FALSE);
 	input->blocking = TRUE;
 	/* If input begins with a From-line, drop it */
-	ret = i_stream_read_data(input, &data, &size, 5);
-	if (ret > 0 && size >= 5 && memcmp(data, "From ", 5) == 0) {
+	ret = i_stream_read_bytes(input, &data, &size, 5);
+	if (ret > 0 && memcmp(data, "From ", 5) == 0) {
 		/* skip until the first LF */
 		i_stream_skip(input, 5);
 		while (i_stream_read_more(input, &data, &size) > 0) {

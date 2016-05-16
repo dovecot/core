@@ -447,7 +447,7 @@ fts_expunge_log_read_next(struct fts_expunge_log_read_ctx *ctx)
 		return NULL;
 
 	/* initial read to try to get the record */
-	(void)i_stream_read_data(ctx->input, &data, &size, IO_BLOCK_SIZE);
+	(void)i_stream_read_bytes(ctx->input, &data, &size, IO_BLOCK_SIZE);
 	if (size == 0 && ctx->input->stream_errno == 0) {
 		/* expected EOF - mark the file as read by unlinking it */
 		if (ctx->unlink)
@@ -455,8 +455,8 @@ fts_expunge_log_read_next(struct fts_expunge_log_read_ctx *ctx)
 
 		/* try reading again, in case something new was written */
 		i_stream_sync(ctx->input);
-		(void)i_stream_read_data(ctx->input, &data, &size,
-					 IO_BLOCK_SIZE);
+		(void)i_stream_read_bytes(ctx->input, &data, &size,
+					  IO_BLOCK_SIZE);
 	}
 	if (size < sizeof(*rec)) {
 		if (size == 0 && ctx->input->stream_errno == 0) {

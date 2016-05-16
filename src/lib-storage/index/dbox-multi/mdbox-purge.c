@@ -69,8 +69,8 @@ mdbox_file_read_metadata_hdr(struct dbox_file *file,
 	size_t size;
 	int ret;
 
-	ret = i_stream_read_data(file->input, &data, &size,
-				 sizeof(*meta_hdr_r));
+	ret = i_stream_read_bytes(file->input, &data, &size,
+				  sizeof(*meta_hdr_r));
 	if (ret <= 0) {
 		i_assert(ret == -1);
 		if (file->input->stream_errno == 0) {

@@ -93,7 +93,7 @@ duplicate_read_records(struct duplicate_file *file, struct istream *input,
 	unsigned int change_count;
 
 	change_count = 0;
-	while (i_stream_read_data(input, &data, &size, record_size) > 0) {
+	while (i_stream_read_bytes(input, &data, &size, record_size) > 0) {
 		if (record_size == sizeof(hdr))
 			memcpy(&hdr, data, sizeof(hdr));
 		else {
@@ -170,7 +170,7 @@ static int duplicate_read(struct duplicate_file *file)
 
 	/* <timestamp> <id_size> <user_size> <id> <user> */
 	input = i_stream_create_fd(fd, DUPLICATE_BUFSIZE, FALSE);
-	if (i_stream_read_data(input, &data, &size, sizeof(hdr)) > 0) {
+	if (i_stream_read_bytes(input, &data, &size, sizeof(hdr)) > 0) {
 		memcpy(&hdr, data, sizeof(hdr));
 		if (hdr.version == 0 || hdr.version > DUPLICATE_VERSION + 10) {
 			/* FIXME: backwards compatibility with v1.0 */
