@@ -142,8 +142,8 @@ void http_server_response_set_payload(struct http_server_response *resp,
 	resp->payload_input = input;
 	if ((ret = i_stream_get_size(input, TRUE, &resp->payload_size)) <= 0) {
 		if (ret < 0) {
-			i_error("i_stream_get_size(%s) failed: %m",
-				i_stream_get_name(input));
+			i_error("i_stream_get_size(%s) failed: %s",
+				i_stream_get_name(input), i_stream_get_error(input));
 		}
 		resp->payload_size = 0;
 		resp->payload_chunked = TRUE;
@@ -500,16 +500,16 @@ int http_server_response_send_more(struct http_server_response *resp,
 	if (resp->payload_input->stream_errno != 0) {
 		/* we're in the middle of sending a response, so the connection
 		   will also have to be aborted */
-		errno = resp->payload_input->stream_errno;
-		*error_r = t_strdup_printf("read(%s) failed: %m",
-					   i_stream_get_name(resp->payload_input));
+		*error_r = t_strdup_printf("read(%s) failed: %s",
+			i_stream_get_name(resp->payload_input),
+			i_stream_get_error(resp->payload_input));
 		ret = -1;
 	} else if (output->stream_errno != 0) {
 		/* failed to send response */
-		errno = output->stream_errno;
-		if (errno != EPIPE && errno != ECONNRESET) {
-			*error_r = t_strdup_printf("write(%s) failed: %m",
-					   o_stream_get_name(output));
+		if (output->stream_errno != EPIPE &&
+		    output->stream_errno != ECONNRESET) {
+			*error_r = t_strdup_printf("write(%s) failed: %s",
+				o_stream_get_name(output), o_stream_get_error(output));
 		}
 		ret = -1;
 	} else {
@@ -646,9 +646,10 @@ static int http_server_response_send_real(struct http_server_response *resp,
 	o_stream_ref(output);
 	o_stream_cork(output);
 	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
-		if (errno != EPIPE && errno != ECONNRESET) {
-			*error_r = t_strdup_printf("write(%s) failed: %m",
-					   o_stream_get_name(output));
+		if (output->stream_errno != EPIPE &&
+		    output->stream_errno != ECONNRESET) {
+			*error_r = t_strdup_printf("write(%s) failed: %s",
+				o_stream_get_name(output), o_stream_get_error(output));
 		}
 		ret = -1;
 	}

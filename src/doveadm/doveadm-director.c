@@ -60,11 +60,12 @@ static void director_connect(struct director_context *ctx)
 	line = i_stream_read_next_line(ctx->input);
 	alarm(0);
 	if (line == NULL) {
-		if (ctx->input->stream_errno != 0)
-			i_fatal("read(%s) failed: %m", ctx->socket_path);
-		else if (ctx->input->eof)
+		if (ctx->input->stream_errno != 0) {
+			i_fatal("read(%s) failed: %s", ctx->socket_path,
+				i_stream_get_error(ctx->input));
+		} else if (ctx->input->eof) {
 			i_fatal("%s disconnected", ctx->socket_path);
-		else {
+		} else {
 			i_fatal("read(%s) timed out (is director configured?)",
 				ctx->socket_path);
 		}
@@ -79,8 +80,10 @@ static void director_connect(struct director_context *ctx)
 static void director_disconnect(struct director_context *ctx)
 {
 	if (ctx->input != NULL) {
-		if (ctx->input->stream_errno != 0)
-			i_fatal("read(%s) failed: %m", ctx->socket_path);
+		if (ctx->input->stream_errno != 0) {
+			i_fatal("read(%s) failed: %s", ctx->socket_path,
+				i_stream_get_error(ctx->input));
+		}
 		i_stream_destroy(&ctx->input);
 	}
 }

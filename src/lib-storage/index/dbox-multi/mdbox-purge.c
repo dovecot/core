@@ -78,7 +78,8 @@ mdbox_file_read_metadata_hdr(struct dbox_file *file,
 			return 0;
 		}
 		mail_storage_set_critical(&file->storage->storage,
-			"read(%s) failed: %m", file->cur_path);
+			"read(%s) failed: %s", file->cur_path,
+			i_stream_get_error(file->input));
 		return -1;
 	}
 
@@ -191,7 +192,6 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 	enum mdbox_map_append_flags append_flags;
 	uoff_t msg_size;
 	off_t ret;
-	int read_errno;
 
 	if (ctx->append_ctx == NULL)
 		ctx->append_ctx = mdbox_map_append_begin(ctx->atomic);
@@ -207,19 +207,19 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 
 	input = i_stream_create_limit(file->input, msg_size);
 	ret = o_stream_send_istream(output, input);
-	read_errno = input->stream_errno;
-	i_stream_unref(&input);
-
-	if (read_errno != 0) {
-		errno = read_errno;
+	if (input->stream_errno != 0) {
 		mail_storage_set_critical(&file->storage->storage,
-			"read(%s) failed: %m", file->cur_path);
+			"read(%s) failed: %s", file->cur_path,
+			i_stream_get_error(input));
+		i_stream_unref(&input);
 		return -1;
 	}
+	i_stream_unref(&input);
 	if (o_stream_nfinish(output) < 0) {
 		mail_storage_set_critical(&file->storage->storage,
-					  "write(%s) failed: %m",
-					  out_file_append->file->cur_path);
+					  "write(%s) failed: %s",
+					  out_file_append->file->cur_path,
+					  o_stream_get_error(output));
 		return -1;
 	}
 	if (ret != (off_t)msg_size) {

@@ -832,9 +832,9 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
                 if (input->stream_errno == ESTALE && try_retry)
 			*retry_r = TRUE;
 		else {
-			errno = input->stream_errno;
 			mail_storage_set_critical(storage,
-				"read(%s) failed: %m", uidlist->path);
+				"read(%s) failed: %s", uidlist->path,
+				i_stream_get_error(input));
 		}
 		uidlist->last_read_offset = 0;
 	}
@@ -1312,7 +1312,8 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	maildir_uidlist_iter_deinit(&iter);
 
 	if (o_stream_nfinish(output) < 0) {
-		mail_storage_set_critical(storage, "write(%s) failed: %m", path);
+		mail_storage_set_critical(storage, "write(%s) failed: %s", path,
+					  o_stream_get_error(output));
 		o_stream_unref(&output);
 		return -1;
 	}

@@ -48,9 +48,10 @@ static void replicator_connect(struct replicator_context *ctx)
 	line = i_stream_read_next_line(ctx->input);
 	alarm(0);
 	if (line == NULL) {
-		if (ctx->input->stream_errno != 0)
-			i_fatal("read(%s) failed: %m", ctx->socket_path);
-		else if (ctx->input->eof)
+		if (ctx->input->stream_errno != 0) {
+			i_fatal("read(%s) failed: %s", ctx->socket_path,
+				i_stream_get_error(ctx->input));
+		} else if (ctx->input->eof)
 			i_fatal("%s disconnected", ctx->socket_path);
 		else
 			i_fatal("read(%s) timed out", ctx->socket_path);
@@ -64,8 +65,10 @@ static void replicator_connect(struct replicator_context *ctx)
 
 static void replicator_disconnect(struct replicator_context *ctx)
 {
-	if (ctx->input->stream_errno != 0)
-		i_fatal("read(%s) failed: %m", ctx->socket_path);
+	if (ctx->input->stream_errno != 0) {
+		i_fatal("read(%s) failed: %s", ctx->socket_path,
+			i_stream_get_error(ctx->input));
+	}
 	i_stream_destroy(&ctx->input);
 }
 

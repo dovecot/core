@@ -122,8 +122,8 @@ static void server_input(struct client *client)
 
 	if (i_stream_read(client->input) == -1) {
 		if (client->input->stream_errno != 0) {
-			errno = client->input->stream_errno;
-			i_fatal("read(server) failed: %m");
+			i_fatal("read(server) failed: %s",
+				i_stream_get_error(client->input));
 		}
 
 		i_info("Server disconnected");

@@ -1017,8 +1017,8 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 	o_stream_cork(output);
 	mail_index_strmap_recreate_write(view, output);
 	if (o_stream_nfinish(output) < 0) {
-		mail_index_set_error(strmap->index,
-				     "write(%s) failed: %m", temp_path);
+		mail_index_set_error(strmap->index, "write(%s) failed: %s",
+				     temp_path, o_stream_get_error(output));
 		ret = -1;
 	}
 	o_stream_destroy(&output);

@@ -111,7 +111,7 @@ static void stats_dump(const char *path, const char *cmd)
 		} while (args != NULL);
 	}
 	if (input->stream_errno != 0)
-		i_fatal("read(%s) failed: %m", path);
+		i_fatal("read(%s) failed: %s", path, i_stream_get_error(input));
 	i_stream_destroy(&input);
 }
 
@@ -194,8 +194,10 @@ static void stats_read(struct top_context *ctx)
 		hash_table_insert(ctx->sessions, line->id, line);
 	}
 
-	if (ctx->input->stream_errno != 0)
-		i_fatal("read(%s) failed: %m", ctx->path);
+	if (ctx->input->stream_errno != 0) {
+		i_fatal("read(%s) failed: %s", ctx->path,
+			i_stream_get_error(ctx->input));
+	}
 	i_fatal("read(%s): unexpected EOF", ctx->path);
 }
 

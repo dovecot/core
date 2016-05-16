@@ -180,7 +180,8 @@ do_auth_continue(struct auth_request *auth_request,
 			  str_data(str), str_len(str)) < 0 ||
 	    o_stream_flush(request->winbind->out_pipe) < 0) {
 		auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
-				       "write(out_pipe) failed: %m");
+			"write(out_pipe) failed: %s",
+			o_stream_get_error(request->winbind->out_pipe));
 		return HR_RESTART;
 	}
 	request->continued = FALSE;

@@ -116,7 +116,7 @@ static int master_instance_list_refresh(struct master_instance_list *list)
 			i_error("Invalid line in %s: %s", list->path, line);
 	} T_END;
 	if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %m", line);
+		i_error("read(%s) failed: %s", line, i_stream_get_error(input));
 		ret = -1;
 	}
 	i_stream_destroy(&input);
@@ -147,7 +147,7 @@ master_instance_list_write(struct master_instance_list *list,
 		o_stream_nsend(output, str_data(str), str_len(str));
 	}
 	if (o_stream_nfinish(output) < 0) {
-		i_error("write(%s) failed: %m", path);
+		i_error("write(%s) failed: %s", path, o_stream_get_error(output));
 		ret = -1;
 	}
 	o_stream_destroy(&output);

@@ -139,7 +139,8 @@ static void passwd_file_iterate_next(struct userdb_iterate_context *_ctx)
 			break;
 		}
 		if (line == NULL && ctx->input->stream_errno != 0) {
-			i_error("read(%s) failed: %m", ctx->path);
+			i_error("read(%s) failed: %s", ctx->path,
+				i_stream_get_error(ctx->input));
 			_ctx->failed = TRUE;
 		}
 	}

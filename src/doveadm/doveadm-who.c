@@ -169,8 +169,10 @@ void who_lookup(struct who_context *ctx, who_callback_t *callback)
 				callback(ctx, &who_line);
 		} T_END;
 	}
-	if (input->stream_errno != 0)
-		i_fatal("read(%s) failed: %m", ctx->anvil_path);
+	if (input->stream_errno != 0) {
+		i_fatal("read(%s) failed: %s", ctx->anvil_path,
+			i_stream_get_error(input));
+	}
 
 	i_stream_destroy(&input);
 }

@@ -861,7 +861,8 @@ int squat_uidlist_build_finish(struct squat_uidlist_build_context *ctx)
 	}
 
 	if (o_stream_nfinish(ctx->output) < 0) {
-		i_error("write() to %s failed: %m", ctx->uidlist->path);
+		i_error("write() to %s failed: %s", ctx->uidlist->path,
+			o_stream_get_error(ctx->output));
 		return -1;
 	}
 	return 0;
@@ -1064,7 +1065,8 @@ int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 		if (ctx->uidlist->corrupted)
 			ret = -1;
 		else if (o_stream_nfinish(ctx->output) < 0) {
-			i_error("write() to %s failed: %m", temp_path);
+			i_error("write(%s) failed: %s", temp_path,
+				o_stream_get_error(ctx->output));
 			ret = -1;
 		} else if (rename(temp_path, ctx->uidlist->path) < 0) {
 			i_error("rename(%s, %s) failed: %m",

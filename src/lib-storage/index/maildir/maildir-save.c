@@ -524,7 +524,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 {
 	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
-	const char *path;
+	const char *path, *output_errstr;
 	off_t real_size;
 	uoff_t size;
 	int output_errno;
@@ -539,7 +539,8 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	if (!ctx->failed && o_stream_nfinish(_ctx->data.output) < 0) {
 		if (!mail_storage_set_error_from_errno(storage)) {
 			mail_storage_set_critical(storage,
-				"write(%s) failed: %m", path);
+				"write(%s) failed: %s", path,
+				o_stream_get_error(_ctx->data.output));
 		}
 		ctx->failed = TRUE;
 	}
@@ -570,6 +571,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 		ctx->file_last->vsize = (uoff_t)-1;
 
 	output_errno = _ctx->data.output->last_failed_errno;
+	output_errstr = t_strdup(o_stream_get_error(_ctx->data.output));
 	o_stream_destroy(&_ctx->data.output);
 
 	if (storage->set->parsed_fsync_mode != FSYNC_MODE_NEVER &&
@@ -613,13 +615,12 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 		/* delete the tmp file */
 		i_unlink_if_exists(path);
 
-		errno = output_errno;
-		if (ENOQUOTA(errno)) {
+		if (ENOQUOTA(output_errno)) {
 			mail_storage_set_error(storage,
 				MAIL_ERROR_NOQUOTA, MAIL_ERRSTR_NO_QUOTA);
-		} else if (errno != 0) {
+		} else if (output_errno != 0) {
 			mail_storage_set_critical(storage,
-				"write(%s) failed: %m", path);
+				"write(%s) failed: %s", path, output_errstr);
 		}
 
 		maildir_save_remove_last_filename(ctx);
