@@ -252,6 +252,7 @@ o_stream_sendv_int(struct ostream *stream, const struct const_iovec *iov,
 			i_assert(stream->stream_errno != 0);
 			errno = stream->stream_errno;
 		} else {
+			i_assert(!stream->blocking);
 			stream->overflow = TRUE;
 			*overflow_r = TRUE;
 		}
@@ -578,6 +579,7 @@ o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 	_stream->fd = fd;
 	_stream->ostream.real_stream = _stream;
 	if (parent != NULL) {
+		_stream->ostream.blocking = parent->blocking;
 		_stream->parent = parent;
 		o_stream_ref(parent);
 
@@ -630,6 +632,7 @@ struct ostream *o_stream_create_error(int stream_errno)
 	struct ostream *output;
 
 	stream = i_new(struct ostream_private, 1);
+	stream->ostream.blocking = TRUE;
 	stream->ostream.closed = TRUE;
 	stream->ostream.stream_errno = stream_errno;
 

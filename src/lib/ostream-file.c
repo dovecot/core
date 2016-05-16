@@ -1023,6 +1023,7 @@ o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
 	fstream_init_file(fstream);
 	fstream->real_offset = offset;
 	fstream->buffer_offset = offset;
+	ostream->blocking = fstream->file;
 	ostream->offset = offset;
 	return ostream;
 }
