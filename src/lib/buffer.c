@@ -174,11 +174,6 @@ pool_t buffer_get_pool(const buffer_t *_buf)
 	return buf->pool;
 }
 
-void buffer_reset(buffer_t *buf)
-{
-	buffer_set_used_size(buf, 0);
-}
-
 void buffer_write(buffer_t *_buf, size_t pos,
 		  const void *data, size_t data_size)
 {

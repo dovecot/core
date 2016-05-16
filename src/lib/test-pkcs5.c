@@ -37,7 +37,7 @@ void test_pkcs5_pbkdf2(void)
 	test_begin("pkcs5_pbkdf2");
 
 	for(size_t i = 0; i < N_ELEMENTS(test_vectors_v2); i++) {
-		buffer_reset(res);
+		buffer_set_used_size(res, 0);
 		const struct test_vector *vec = &(test_vectors_v2[i]);
 		pkcs5_pbkdf(PKCS5_PBKDF2, hash_method_lookup(vec->prf), vec->p, vec->pLen, vec->s, vec->sLen, vec->i, vec->dkLen, res);
 		test_assert_idx(memcmp(res->data, vec->dk, vec->dkLen) == 0, i);

@@ -313,7 +313,7 @@ static int mail_cache_seq(struct mail_cache_view *view, uint32_t seq)
 
 	if (++view->cached_exists_value == 0) {
 		/* wrapped, we'll have to clear the buffer */
-		buffer_reset(view->cached_exists_buf);
+		buffer_set_used_size(view->cached_exists_buf, 0);
 		view->cached_exists_value++;
 	}
 	view->cached_exists_seq = seq;

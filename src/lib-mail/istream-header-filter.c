@@ -383,7 +383,7 @@ handle_end_body_with_lf(struct header_filter_istream *mstream, ssize_t ret)
 		i_assert(!mstream->last_lf_added);
 		i_assert(size == 0 || data[size-1] != '\n');
 
-		buffer_reset(mstream->hdr_buf);
+		buffer_set_used_size(mstream->hdr_buf, 0);
 		buffer_append(mstream->hdr_buf, data, size);
 		if (mstream->crlf)
 			buffer_append_c(mstream->hdr_buf, '\r');

@@ -39,9 +39,6 @@ void *buffer_free_without_data(buffer_t **buf);
 /* Returns the pool buffer was created with. */
 pool_t buffer_get_pool(const buffer_t *buf) ATTR_PURE;
 
-/* Reset the buffer. used size and it's contents are zeroed. */
-void buffer_reset(buffer_t *buf);
-
 /* Write data to buffer at specified position. */
 void buffer_write(buffer_t *buf, size_t pos,
 		  const void *data, size_t data_size);

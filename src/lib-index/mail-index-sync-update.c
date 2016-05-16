@@ -990,7 +990,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		   and updates hdr_base to hdr_copy_buf. so the buffer must
 		   initially contain a valid header or we'll break it when
 		   writing it. */
-		buffer_reset(map->hdr_copy_buf);
+		buffer_set_used_size(map->hdr_copy_buf, 0);
 		buffer_append(map->hdr_copy_buf, map->hdr_base,
 			      map->hdr.header_size);
 		map->hdr_base = map->hdr_copy_buf->data;
