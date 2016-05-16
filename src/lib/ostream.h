@@ -161,6 +161,10 @@ void o_stream_set_no_error_handling(struct ostream *stream, bool set);
    descriptor, even if the source and destination overlaps. If the file must
    be grown, you have to do it manually before calling this function. */
 int o_stream_send_istream(struct ostream *outstream, struct istream *instream);
+/* Same as o_stream_send_istream(), but assume that reads and writes will
+   succeed. If not, o_stream_nfinish() will fail with the correct error
+   message (even istream's). */
+void o_stream_nsend_istream(struct ostream *outstream, struct istream *instream);
 
 /* Write data to specified offset. Returns 0 if successful, -1 if error. */
 int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,

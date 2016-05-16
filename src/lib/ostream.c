@@ -374,6 +374,27 @@ int o_stream_send_istream(struct ostream *outstream, struct istream *instream)
 	return ret;
 }
 
+void o_stream_nsend_istream(struct ostream *outstream, struct istream *instream)
+{
+	switch (o_stream_send_istream(outstream, instream)) {
+	case 1:
+		break;
+	case 0:
+		outstream->real_stream->noverflow = TRUE;
+		break;
+	default:
+		if (outstream->stream_errno != 0)
+			break;
+		i_assert(instream->stream_errno != 0);
+		outstream->stream_errno = instream->stream_errno;
+		io_stream_set_error(&outstream->real_stream->iostream,
+			"nsend-istream: read(%s) failed: %s",
+			i_stream_get_name(instream),
+			o_stream_get_name(outstream));
+	}
+	outstream->real_stream->last_errors_not_checked = TRUE;
+}
+
 int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 		    uoff_t offset)
 {
