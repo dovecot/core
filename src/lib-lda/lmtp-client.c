@@ -604,8 +604,8 @@ static void lmtp_client_input(struct lmtp_client *client)
 		lmtp_client_fail(client,
 				 "501 5.5.4 Command reply line too long");
 	} else if (client->input->stream_errno != 0) {
-		errno = client->input->stream_errno;
-		i_error("lmtp client: read() failed: %m");
+		i_error("lmtp client: read() failed: %s",
+			i_stream_get_error(client->input));
 		lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
 				 " (read failure)");
 	} else if (client->input->eof) {

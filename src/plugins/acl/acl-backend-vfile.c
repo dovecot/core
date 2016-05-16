@@ -393,7 +393,8 @@ acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 			ret = 0;
 		else {
 			ret = -1;
-			i_error("read(%s) failed: %m", path);
+			i_error("read(%s) failed: %s", path,
+				i_stream_get_error(input));
 		}
 	} else {
 		if (fstat(fd, &st) < 0) {

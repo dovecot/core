@@ -318,7 +318,8 @@ void duplicate_flush(struct duplicate_context *ctx)
 	hash_table_iterate_deinit(&iter);
 
 	if (o_stream_nfinish(output) < 0) {
-		i_error("write(%s) failed: %m", file->path);
+		i_error("write(%s) failed: %s", file->path,
+			o_stream_get_error(output));
 		o_stream_unref(&output);
 		duplicate_file_free(&ctx->file);
 		return;

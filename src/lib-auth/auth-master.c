@@ -413,7 +413,8 @@ static int auth_master_run_cmd_pre(struct auth_master_connection *conn,
 	o_stream_uncork(conn->output);
 
 	if (o_stream_nfinish(conn->output) < 0) {
-		i_error("write(auth socket) failed: %m");
+		i_error("write(auth socket) failed: %s",
+			o_stream_get_error(conn->output));
 		auth_master_unset_io(conn);
 		auth_connection_close(conn);
 		return -1;

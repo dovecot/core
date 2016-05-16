@@ -113,7 +113,8 @@ static void anvil_input(struct anvil_client *client)
 		aqueue_delete_tail(client->queries);
 	}
 	if (client->input->stream_errno != 0) {
-		i_error("read(%s) failed: %m", client->path);
+		i_error("read(%s) failed: %s", client->path,
+			i_stream_get_error(client->input));
 		anvil_reconnect(client);
 	} else if (client->input->eof) {
 		i_error("read(%s) failed: EOF", client->path);

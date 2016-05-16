@@ -265,14 +265,14 @@ smtp_client_send_flush(struct smtp_client *smtp_client,
 	}
 
 	if (o_stream_nfinish(smtp_client->output) < 0) {
-		*error_r = t_strdup_printf("write(%s) failed: %m",
-					   smtp_client->temp_path);
+		*error_r = t_strdup_printf("write(%s) failed: %s",
+			smtp_client->temp_path, o_stream_get_error(smtp_client->output));
 		return -1;
 	}
 
 	if (o_stream_seek(smtp_client->output, 0) < 0) {
-		*error_r = t_strdup_printf("lseek(%s) failed: %m",
-					   smtp_client->temp_path);
+		*error_r = t_strdup_printf("lseek(%s) failed: %s",
+			smtp_client->temp_path, o_stream_get_error(smtp_client->output));
 		return -1;
 	}
 

@@ -196,10 +196,9 @@ static int save_check_write_error(struct mail_storage *storage,
 	if (output->last_failed_errno == 0)
 		return 0;
 
-	errno = output->last_failed_errno;
 	if (!mail_storage_set_error_from_errno(storage)) {
-		mail_storage_set_critical(storage, "write(%s) failed: %m",
-					  o_stream_get_name(output));
+		mail_storage_set_critical(storage, "write(%s) failed: %s",
+			o_stream_get_name(output), o_stream_get_error(output));
 	}
 	return -1;
 }

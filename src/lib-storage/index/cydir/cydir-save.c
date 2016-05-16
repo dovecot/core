@@ -162,7 +162,8 @@ static int cydir_save_flush(struct cydir_save_context *ctx, const char *path)
 	int ret = 0;
 
 	if (o_stream_nfinish(ctx->ctx.data.output) < 0) {
-		mail_storage_set_critical(storage, "write(%s) failed: %m", path);
+		mail_storage_set_critical(storage, "write(%s) failed: %s", path,
+			o_stream_get_error(ctx->ctx.data.output));
 		ret = -1;
 	}
 

@@ -2051,9 +2051,10 @@ void director_connection_send(struct director_connection *conn,
 	} T_END;
 	ret = o_stream_send(conn->output, data, len);
 	if (ret != (off_t)len) {
-		if (ret < 0)
-			i_error("director(%s): write() failed: %m", conn->name);
-		else {
+		if (ret < 0) {
+			i_error("director(%s): write() failed: %s", conn->name,
+				o_stream_get_error(conn->output));
+		} else {
 			i_error("director(%s): Output buffer full, "
 				"disconnecting", conn->name);
 		}

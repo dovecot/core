@@ -327,7 +327,8 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 		if (ret == 0)
 			return 1;
 		*error_r = istream->stream_errno != 0 ?
-			t_strdup_printf("read(%s) failed: %m", path) :
+			t_strdup_printf("read(%s) failed: %s", path,
+					i_stream_get_error(istream)) :
 			t_strdup_printf("read(%s) failed: EOF", path);
 		return -1;
 	}

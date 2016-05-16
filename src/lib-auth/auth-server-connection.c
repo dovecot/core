@@ -453,9 +453,10 @@ int auth_server_connection_connect(struct auth_server_connection *conn)
                                     AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 				    conn->client->client_pid);
 	if (o_stream_send_str(conn->output, handshake) < 0) {
-		i_warning("Error sending handshake to auth server: %m");
+		i_warning("Error sending handshake to auth server: %s",
+			  o_stream_get_error(conn->output));
 		auth_server_connection_disconnect(conn,
-			strerror(conn->output->last_failed_errno));
+			o_stream_get_error(conn->output));
 		return -1;
 	}
 

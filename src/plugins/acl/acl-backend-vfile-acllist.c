@@ -279,7 +279,8 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	}
 
 	if (o_stream_nfinish(output) < 0) {
-		i_error("write(%s) failed: %m", str_c(path));
+		i_error("write(%s) failed: %s", str_c(path),
+			o_stream_get_error(output));
 		ret = -1;
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0)

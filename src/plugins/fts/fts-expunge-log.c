@@ -424,7 +424,8 @@ fts_expunge_log_read_failure(struct fts_expunge_log_read_ctx *ctx,
 
 	if (ctx->input->stream_errno != 0) {
 		ctx->failed = TRUE;
-		i_error("read(%s) failed: %m", ctx->log->path);
+		i_error("read(%s) failed: %s", ctx->log->path,
+			i_stream_get_error(ctx->input));
 	} else {
 		size = i_stream_get_data_size(ctx->input);
 		ctx->corrupted = TRUE;

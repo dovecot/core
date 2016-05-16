@@ -133,8 +133,9 @@ int json_parser_deinit(struct json_parser **_parser, const char **error_r)
 		/* actual parser error */
 		*error_r = parser->error;
 	} else if (parser->input->stream_errno != 0) {
-		*error_r = t_strdup_printf("read(%s) failed: %m",
-					   i_stream_get_name(parser->input));
+		*error_r = t_strdup_printf("read(%s) failed: %s",
+					   i_stream_get_name(parser->input),
+					   i_stream_get_error(parser->input));
 	} else if (parser->data == parser->end &&
 		   !i_stream_have_bytes_left(parser->input) &&
 		   parser->state != JSON_STATE_DONE) {

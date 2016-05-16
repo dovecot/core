@@ -280,7 +280,8 @@ int imapc_save_finish(struct mail_save_context *_ctx)
 		if (o_stream_nfinish(_ctx->data.output) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
-					"write(%s) failed: %m", ctx->temp_path);
+					"write(%s) failed: %s", ctx->temp_path,
+					o_stream_get_error(_ctx->data.output));
 			}
 			ctx->failed = TRUE;
 		}
