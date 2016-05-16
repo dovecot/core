@@ -1178,7 +1178,6 @@ static int client_input_add_file(struct client *client,
 {
 	struct client_state *state = &client->state;
 	string_t *path;
-	ssize_t ret;
 	int fd;
 
 	if (state->mail_data_output != NULL) {
@@ -1207,15 +1206,17 @@ static int client_input_add_file(struct client *client,
 
 	state->mail_data_fd = fd;
 	state->mail_data_output = o_stream_create_fd_file(fd, 0, FALSE);
+	o_stream_set_name(state->mail_data_output, str_c(path));
 	o_stream_cork(state->mail_data_output);
 
-	ret = o_stream_send(state->mail_data_output,
-			    state->mail_data->data, state->mail_data->used);
-	if (ret != (ssize_t)state->mail_data->used)
+	o_stream_nsend(state->mail_data_output,
+		       state->mail_data->data, state->mail_data->used);
+	o_stream_nsend(client->state.mail_data_output, data, size);
+	if (o_stream_nfinish(client->state.mail_data_output) < 0) {
+		i_error("write(%s) failed: %s", str_c(path),
+			o_stream_get_error(client->state.mail_data_output));
 		return -1;
-	if (o_stream_send(client->state.mail_data_output,
-			  data, size) != (ssize_t)size)
-		return -1;
+	}
 	return 0;
 }
 
