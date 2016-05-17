@@ -651,7 +651,7 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
                 count++;
 
         *ips_count = count;
-        *ips = t_malloc_no0(sizeof(struct ip_addr) * count);
+        *ips = t_new(struct ip_addr, count);
 
         count = 0;
 	for (ai = origai; ai != NULL; ai = ai->ai_next, count++) {
