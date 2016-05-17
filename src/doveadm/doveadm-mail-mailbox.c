@@ -47,6 +47,12 @@ struct list_cmd_context {
 	bool mutf7;
 };
 
+struct update_cmd_context {
+	struct doveadm_mailbox_cmd_context ctx;
+	const char *mailbox;
+	struct mailbox_update update;
+};
+
 void doveadm_mailbox_args_check(const char *const args[])
 {
 	unsigned int i;
@@ -556,6 +562,97 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_unsubscribe_alloc(void)
 	return cmd_mailbox_subscriptions_alloc(FALSE);
 }
 
+static
+void cmd_mailbox_update_init(struct doveadm_mail_cmd_context *_ctx,
+			     const char *const args[])
+{
+	struct update_cmd_context *ctx = (struct update_cmd_context *)_ctx;
+
+	if (str_array_length(args) != 1)
+		doveadm_mail_help_name("mailbox update");
+
+	doveadm_mailbox_args_check(args);
+
+	ctx->mailbox = args[0];
+
+	if ((ctx->update.min_first_recent_uid != 0 ||
+	     ctx->update.min_next_uid != 0) &&
+	    ctx->update.min_first_recent_uid > ctx->update.min_next_uid) {
+		i_fatal_status(EX_DATAERR,
+			"min_first_recent_uid > min_next_uid");
+	}
+}
+
+static
+bool cmd_mailbox_update_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+{
+	struct update_cmd_context *ctx = (struct update_cmd_context *)_ctx;
+
+	switch (c) {
+	case 'g':
+		if (guid_128_from_string(optarg, ctx->update.mailbox_guid) < 0)
+			doveadm_mail_help_name("mailbox update");
+		break;
+	case 'V':
+		if (str_to_uint32(optarg, &(ctx->update.uid_validity)) < 0)
+			doveadm_mail_help_name("mailbox update");
+		break;
+	case 'N':
+		if (str_to_uint32(optarg, &(ctx->update.min_next_uid)) < 0)
+			doveadm_mail_help_name("mailbox update");
+		break;
+	case 'R':
+		if (str_to_uint32(optarg, &(ctx->update.min_first_recent_uid)) < 0)
+			doveadm_mail_help_name("mailbox update");
+		break;
+	case 'H':
+		if (str_to_uint64(optarg, &(ctx->update.min_highest_modseq)) < 0)
+			doveadm_mail_help_name("mailbox update");
+		break;
+	case 'P':
+		if (str_to_uint64(optarg, &(ctx->update.min_highest_pvt_modseq)) < 0)
+			doveadm_mail_help_name("mailbox update");
+		break;
+	default:
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static
+int cmd_mailbox_update_run(struct doveadm_mail_cmd_context *_ctx,
+			   struct mail_user *user)
+{
+	struct update_cmd_context *ctx = (struct update_cmd_context *)_ctx;
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	int ret = 0;
+
+	ns = mail_namespace_find(user->namespaces, ctx->mailbox);
+	box = mailbox_alloc(ns->list, ctx->mailbox, 0);
+
+	if ((ret = mailbox_update(box, &(ctx->update))) != 0) {
+		i_error("Cannot update %s: %s",
+			ctx->mailbox,
+			mailbox_get_last_error(box, NULL));
+	}
+
+	mailbox_free(&box);
+
+	return ret;
+}
+
+static
+struct doveadm_mail_cmd_context *cmd_mailbox_update_alloc(void)
+{
+	struct update_cmd_context *ctx;
+	ctx = doveadm_mail_cmd_alloc(struct update_cmd_context);
+	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_update_parse_arg;
+	ctx->ctx.ctx.v.init = cmd_mailbox_update_init;
+	ctx->ctx.ctx.v.run = cmd_mailbox_update_run;
+	return &ctx->ctx.ctx;
+}
+
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_list_ver2 = {
 	.name = "mailbox list",
 	.mail_cmd = cmd_mailbox_list_alloc,
@@ -621,5 +718,21 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_unsubscribe_ver2 = {
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+};
+
+struct doveadm_cmd_ver2 doveadm_cmd_mailbox_update_ver2 = {
+	.name = "mailbox update",
+	.mail_cmd = cmd_mailbox_update_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[--mailbox-guid guid] [--uid-validity uid] [--min-next-uid uid] [--min-first-recent-uid uid] [--min-highest-modseq seq] [--min-highest-pvt-modseq seq] <mailbox>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('g', "mailbox-guid", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('V', "uid-validity", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('N', "min-next-uid", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('R', "min-first-recent-uid", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('H', "min-highest-modseq", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('P', "min-highest-pvt-modseq", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
