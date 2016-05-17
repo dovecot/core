@@ -680,8 +680,8 @@ DOVEADM_CMD_PARAMS_END
 
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_delete_ver2 = {
 	.name = "mailbox delete",
-        .mail_cmd = cmd_mailbox_delete_alloc,
-        .usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] <mailbox> [...]",
+	.mail_cmd = cmd_mailbox_delete_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] <mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
