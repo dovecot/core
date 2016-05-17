@@ -100,9 +100,11 @@ bool hash_table_lookup_full(const struct hash_table *table,
 	hash_table_lookup_full((table)._table, lookup_key, orig_key_r, value_r)
 #endif
 
-/* Insert/update node in hash table. The difference is that hash_table_insert()
-   replaces the key in table to given one, while hash_table_update() doesnt. */
+/* Suppose to insert a new key-value node to the hash table.
+   If the key already exists, assert-crash. */
 void hash_table_insert(struct hash_table *table, void *key, void *value);
+/* If the key doesn't exists, do the exact same as hash_table_insert()
+   If the key already exists, preserve the original key and update only the value.*/
 void hash_table_update(struct hash_table *table, void *key, void *value);
 #define hash_table_insert(table, key, value) \
 	hash_table_insert((table)._table, \
