@@ -30,7 +30,7 @@ unsigned int mail_user_hash(const char *username, const char *format)
 	} else T_BEGIN {
 		string_t *str = t_str_new(128);
 
-		tab = t_malloc(sizeof(static_tab));
+		tab = t_malloc_no0(sizeof(static_tab));
 		memcpy(tab, static_tab, sizeof(static_tab));
 		tab[0].value = username;
 		tab[1].value = t_strcut(username, '@');

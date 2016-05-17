@@ -75,7 +75,7 @@ void t_pop_check(unsigned int *id) ATTR_HOT;
 
    t_malloc() calls never fail. If there's not enough memory left,
    i_panic() will be called. */
-void *t_malloc(size_t size) ATTR_MALLOC ATTR_RETURNS_NONNULL;
+void *t_malloc_no0(size_t size) ATTR_MALLOC ATTR_RETURNS_NONNULL;
 void *t_malloc0(size_t size) ATTR_MALLOC ATTR_RETURNS_NONNULL;
 
 /* Try growing allocated memory. Returns TRUE if successful. Works only

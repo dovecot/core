@@ -531,7 +531,7 @@ get_var_expand_table(struct client *client)
 {
 	struct var_expand_table *tab;
 
-	tab = t_malloc(sizeof(login_var_expand_empty_tab));
+	tab = t_malloc_no0(sizeof(login_var_expand_empty_tab));
 	memcpy(tab, login_var_expand_empty_tab,
 	       sizeof(login_var_expand_empty_tab));
 
@@ -641,7 +641,7 @@ client_get_log_str(struct client *client, const char *msg)
 
 	var_expand_table = get_var_expand_table(client);
 
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	str = t_str_new(256);

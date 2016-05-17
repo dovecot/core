@@ -435,7 +435,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 	return ret;
 }
 
-void *t_malloc(size_t size)
+void *t_malloc_no0(size_t size)
 {
 	return t_malloc_real(size, TRUE);
 }

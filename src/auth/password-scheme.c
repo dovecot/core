@@ -262,7 +262,7 @@ const char *password_generate_salt(size_t len)
 	unsigned int i;
 	char *salt;
 
-	salt = t_malloc(len + 1);
+	salt = t_malloc_no0(len + 1);
 	random_fill(salt, len);
 	for (i = 0; i < len; i++)
 		salt[i] = salt_chars[salt[i] % (sizeof(salt_chars)-1)];
@@ -400,7 +400,7 @@ sha1_generate(const char *plaintext, const char *user ATTR_UNUSED,
 {
 	unsigned char *digest;
 
-	digest = t_malloc(SHA1_RESULTLEN);
+	digest = t_malloc_no0(SHA1_RESULTLEN);
 	sha1_get_digest(plaintext, strlen(plaintext), digest);
 
 	*raw_password_r = digest;
@@ -413,7 +413,7 @@ sha256_generate(const char *plaintext, const char *user ATTR_UNUSED,
 {
 	unsigned char *digest;
 
-	digest = t_malloc(SHA256_RESULTLEN);
+	digest = t_malloc_no0(SHA256_RESULTLEN);
 	sha256_get_digest(plaintext, strlen(plaintext), digest);
 
 	*raw_password_r = digest;
@@ -426,7 +426,7 @@ sha512_generate(const char *plaintext, const char *user ATTR_UNUSED,
 {
 	unsigned char *digest;
 
-	digest = t_malloc(SHA512_RESULTLEN);
+	digest = t_malloc_no0(SHA512_RESULTLEN);
 	sha512_get_digest(plaintext, strlen(plaintext), digest);
 
 	*raw_password_r = digest;
@@ -441,7 +441,7 @@ ssha_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	unsigned char *digest, *salt;
 	struct sha1_ctxt ctx;
 
-	digest = t_malloc(SHA1_RESULTLEN + SSHA_SALT_LEN);
+	digest = t_malloc_no0(SHA1_RESULTLEN + SSHA_SALT_LEN);
 	salt = digest + SHA1_RESULTLEN;
 	random_fill(salt, SSHA_SALT_LEN);
 
@@ -482,7 +482,7 @@ ssha256_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	unsigned char *digest, *salt;
 	struct sha256_ctx ctx;
 
-	digest = t_malloc(SHA256_RESULTLEN + SSHA256_SALT_LEN);
+	digest = t_malloc_no0(SHA256_RESULTLEN + SSHA256_SALT_LEN);
 	salt = digest + SHA256_RESULTLEN;
 	random_fill(salt, SSHA256_SALT_LEN);
 
@@ -525,7 +525,7 @@ ssha512_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	unsigned char *digest, *salt;
 	struct sha512_ctx ctx;
 
-	digest = t_malloc(SHA512_RESULTLEN + SSHA512_SALT_LEN);
+	digest = t_malloc_no0(SHA512_RESULTLEN + SSHA512_SALT_LEN);
 	salt = digest + SHA512_RESULTLEN;
 	random_fill(salt, SSHA512_SALT_LEN);
 
@@ -568,7 +568,7 @@ smd5_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	unsigned char *digest, *salt;
 	struct md5_context ctx;
 
-	digest = t_malloc(MD5_RESULTLEN + SMD5_SALT_LEN);
+	digest = t_malloc_no0(MD5_RESULTLEN + SMD5_SALT_LEN);
 	salt = digest + MD5_RESULTLEN;
 	random_fill(salt, SMD5_SALT_LEN);
 
@@ -646,7 +646,7 @@ cram_md5_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	struct hmac_context ctx;
 	unsigned char *context_digest;
 
-	context_digest = t_malloc(CRAM_MD5_CONTEXTLEN);
+	context_digest = t_malloc_no0(CRAM_MD5_CONTEXTLEN);
 	hmac_init(&ctx, (const unsigned char *)plaintext,
 		  strlen(plaintext), &hash_method_md5);
 	hmac_md5_get_cram_context(&ctx, context_digest);
@@ -677,7 +677,7 @@ digest_md5_generate(const char *plaintext, const char *user,
 	}
 
 	/* user:realm:passwd */
-	digest = t_malloc(MD5_RESULTLEN);
+	digest = t_malloc_no0(MD5_RESULTLEN);
 	str = t_strdup_printf("%s:%s:%s", user, realm, plaintext);
 	md5_get_digest(str, strlen(str), digest);
 
@@ -691,7 +691,7 @@ plain_md4_generate(const char *plaintext, const char *user ATTR_UNUSED,
 {
 	unsigned char *digest;
 
-	digest = t_malloc(MD4_RESULTLEN);
+	digest = t_malloc_no0(MD4_RESULTLEN);
 	md4_get_digest(plaintext, strlen(plaintext), digest);
 
 	*raw_password_r = digest;
@@ -704,7 +704,7 @@ plain_md5_generate(const char *plaintext, const char *user ATTR_UNUSED,
 {
 	unsigned char *digest;
 
-	digest = t_malloc(MD5_RESULTLEN);
+	digest = t_malloc_no0(MD5_RESULTLEN);
 	md5_get_digest(plaintext, strlen(plaintext), digest);
 
 	*raw_password_r = digest;
@@ -717,7 +717,7 @@ lm_generate(const char *plaintext, const char *user ATTR_UNUSED,
 {
 	unsigned char *digest;
 
-	digest = t_malloc(LM_HASH_SIZE);
+	digest = t_malloc_no0(LM_HASH_SIZE);
 	lm_hash(plaintext, digest);
 
 	*raw_password_r = digest;
@@ -730,7 +730,7 @@ ntlm_generate(const char *plaintext, const char *user ATTR_UNUSED,
 {
 	unsigned char *digest;
 
-	digest = t_malloc(NTLMSSP_HASH_SIZE);
+	digest = t_malloc_no0(NTLMSSP_HASH_SIZE);
 	ntlm_v1_hash(plaintext, digest);
 
 	*raw_password_r = digest;
@@ -782,7 +782,7 @@ rpa_generate(const char *plaintext, const char *user ATTR_UNUSED,
 {
 	unsigned char *digest;
 
-	digest = t_malloc(MD5_RESULTLEN);
+	digest = t_malloc_no0(MD5_RESULTLEN);
 	password_generate_rpa(plaintext, digest);
 
 	*raw_password_r = digest;

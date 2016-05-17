@@ -214,7 +214,7 @@ static int ssl_params_read(struct ssl_params *param)
 		return -1;
 	}
 
-	buffer = t_malloc(st.st_size);
+	buffer = t_malloc_no0(st.st_size);
 	ret = read_full(fd, buffer, st.st_size);
 	if (ret < 0)
 		i_error("read(%s) failed: %m", param->path);

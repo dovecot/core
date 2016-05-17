@@ -28,7 +28,7 @@ binary_to_hex_case(unsigned char *dest, const unsigned char *data,
 
 const char *binary_to_hex(const unsigned char *data, size_t size)
 {
-	unsigned char *dest = t_malloc(size * 2 + 1);
+	unsigned char *dest = t_malloc_no0(size * 2 + 1);
 
 	binary_to_hex_case(dest, data, size, FALSE);
 	dest[size*2] = '\0';
@@ -37,7 +37,7 @@ const char *binary_to_hex(const unsigned char *data, size_t size)
 
 const char *binary_to_hex_ucase(const unsigned char *data, size_t size)
 {
-	unsigned char *dest = t_malloc(size * 2 + 1);
+	unsigned char *dest = t_malloc_no0(size * 2 + 1);
 
 	binary_to_hex_case(dest, data, size, TRUE);
 	dest[size*2] = '\0';

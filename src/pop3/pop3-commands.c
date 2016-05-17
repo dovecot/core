@@ -598,7 +598,7 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 		return 0;
 	}
 
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 	tab[0].value = t_strdup_printf("%u", client->uid_validity);
 

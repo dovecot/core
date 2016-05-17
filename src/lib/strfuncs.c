@@ -313,7 +313,7 @@ const char *t_str_replace(const char *str, char from, char to)
 		return str;
 
 	len = strlen(str);
-	out = t_malloc(len + 1);
+	out = t_malloc_no0(len + 1);
 	for (i = 0; i < len; i++) {
 		if (str[i] == from)
 			out[i] = to;
@@ -758,7 +758,7 @@ const char *dec2str(uintmax_t number)
 	int pos;
 
 	pos = MAX_INT_STRLEN;
-	buffer = t_malloc(pos);
+	buffer = t_malloc_no0(pos);
 
 	buffer[--pos] = '\0';
 	do {

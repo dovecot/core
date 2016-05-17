@@ -82,7 +82,7 @@ static void *pool_unsafe_data_stack_realloc(pool_t pool ATTR_UNUSED,
 		return mem;
 
 	if (!t_try_realloc(mem, new_size)) {
-		new_mem = t_malloc(new_size);
+		new_mem = t_malloc_no0(new_size);
 		memcpy(new_mem, mem, old_size);
 		mem = new_mem;
 	}

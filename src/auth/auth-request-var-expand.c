@@ -78,7 +78,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 
 	/* keep the extra fields at the beginning. the last static_tab field
 	   contains the ending NULL-fields. */
-	tab = ret_tab = t_malloc((*count + auth_count) * sizeof(*tab));
+	tab = ret_tab = t_malloc_no0((*count + auth_count) * sizeof(*tab));
 	memset(tab, 0, *count * sizeof(*tab));
 	tab += *count;
 	*count += auth_count;

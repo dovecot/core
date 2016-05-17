@@ -55,7 +55,7 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 
 	p = strchr(userdomain, '@');
 
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 	tab[0].value = userdomain;
 	tab[1].value = p == NULL ? userdomain : t_strdup_until(userdomain, p);

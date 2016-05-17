@@ -11,7 +11,7 @@ static void test_ds_buffers(void)
 		unsigned char *p;
 		size_t left = t_get_bytes_available();
 		while (left < 10000) {
-			t_malloc(left); /* force a new block */
+			t_malloc_no0(left); /* force a new block */
 			left = t_get_bytes_available();
 		}
 		left -= 64; /* make room for the sentry if DEBUG */
@@ -33,7 +33,7 @@ static void test_ds_buffers(void)
 	test_begin("data-stack buffer interruption");
 	T_BEGIN {
 		void *b = t_buffer_get(1000);
-		void *a = t_malloc(1);
+		void *a = t_malloc_no0(1);
 		void *b2 = t_buffer_get(1001);
 		test_assert(a == b); /* expected, not guaranteed */
 		test_assert(b2 != b);
@@ -47,7 +47,7 @@ static void test_ds_buffers(void)
 		for (i = 1; i < bigleft-64; i += rand()%32) T_BEGIN {
 			unsigned char *p, *p2;
 			size_t left;
-			t_malloc(i);
+			t_malloc_no0(i);
 			left = t_get_bytes_available();
 			/* The most useful idx for the assert is 'left' */
 			test_assert_idx(left <= bigleft-i, left);
@@ -70,11 +70,11 @@ static void test_ds_realloc()
 		unsigned char *p;
 		size_t left = t_get_bytes_available();
 		while (left < 10000) {
-			t_malloc(left); /* force a new block */
+			t_malloc_no0(left); /* force a new block */
 			left = t_get_bytes_available();
 		}
 		left -= 64; /* make room for the sentry if DEBUG */
-		p = t_malloc(1);
+		p = t_malloc_no0(1);
 		p[0] = 1;
 		for (i = 2; i <= left; i++) {
 			/* grow it */
@@ -99,12 +99,12 @@ static void test_ds_recurse(int depth, int number, size_t size)
 	t_buffer_alloc_type(char *, number);
 
 	for (i = 0; i < number; i++) {
-		ps[i] = t_malloc(size/2);
+		ps[i] = t_malloc_no0(size/2);
 		bool re = t_try_realloc(ps[i], size);
 		i_assert(ps[i] != NULL);
 		if (!re) {
 			try_fails++;
-			ps[i] = t_malloc(size);
+			ps[i] = t_malloc_no0(size);
 		}
 		/* drop our own canaries */
 		memset(ps[i], tag[0], size);
@@ -177,8 +177,8 @@ enum fatal_test_state fatal_data_stack(int stage)
 		test_begin("fatal data-stack underrun");
 		t_id = t_push_named("fatal_data_stack underrun");
 		size_t left = t_get_bytes_available();
-		p = t_malloc(left-80); /* will fit */
-		p = t_malloc(100); /* won't fit, will get new block */
+		p = t_malloc_no0(left-80); /* will fit */
+		p = t_malloc_no0(100); /* won't fit, will get new block */
 		int seek = 0;
 		/* Seek back for the canary, don't assume endianness */
 		while(seek > -60 &&
@@ -191,15 +191,15 @@ enum fatal_test_state fatal_data_stack(int stage)
 		undo_ptr = p + seek;
 		undo_data = *undo_ptr;
 		*undo_ptr = '*';
-		/* t_malloc will panic block header corruption */
-		(void)t_malloc(10);
+		/* t_malloc_no0 will panic block header corruption */
+		(void)t_malloc_no0(10);
 		return FATAL_TEST_FAILURE;
 	}
 
 	case 1: case 2: {
-		test_begin(stage == 1 ? "fatal t_malloc overrun near" : "fatal t_malloc overrun far");
-		t_id = t_push_named(stage == 1 ? "fatal t_malloc overrun first" : "fatal t_malloc overrun far");
-		unsigned char *p = t_malloc(10);
+		test_begin(stage == 1 ? "fatal t_malloc_no0 overrun near" : "fatal t_malloc_no0 overrun far");
+		t_id = t_push_named(stage == 1 ? "fatal t_malloc_no0 overrun first" : "fatal t_malloc_no0 overrun far");
+		unsigned char *p = t_malloc_no0(10);
 		undo_ptr = p + 10 + (stage == 1 ? 0 : 8*4-1); /* presumes sentry size */
 		undo_data = *undo_ptr;
 		*undo_ptr = '*';

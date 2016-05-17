@@ -77,7 +77,7 @@ static void test_istream_seekable_random(void)
 	streams = t_new(struct istream *, stream_count + 1);
 	for (i = 0, offset = 0; i < stream_count; i++) {
 		data_len = rand() % 100 + 1;
-		w_data = t_malloc(data_len);
+		w_data = t_malloc_no0(data_len);
 		for (j = 0; j < data_len; j++)
 			w_data[j] = offset++;
 		streams[i] = test_istream_create_data(w_data, data_len);

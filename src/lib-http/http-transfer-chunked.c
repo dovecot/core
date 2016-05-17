@@ -623,7 +623,7 @@ http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
 	/* create new iovec */
 	prefix = t_strdup_printf("%llx\r\n", (unsigned long long)tcstream->chunk_size);
 	iov_count = iov_count_new + 2;
-	iov_new = t_malloc(sizeof(struct const_iovec) * iov_count);
+	iov_new = t_malloc_no0(sizeof(struct const_iovec) * iov_count);
 	iov_new[0].iov_base = prefix;
 	iov_new[0].iov_len = strlen(prefix);
 	memcpy(&iov_new[1], iov, sizeof(struct const_iovec) * iov_count_new);

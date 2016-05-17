@@ -61,7 +61,7 @@ m_str_reverse(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 	size_t len = strlen(str);
 	char *p, *rev;
 
-	rev = t_malloc(len + 1);
+	rev = t_malloc_no0(len + 1);
 	rev[len] = '\0';
 
 	for (p = rev + len - 1; *str != '\0'; str++)

@@ -124,7 +124,7 @@ login_set_var_expand_table(const struct master_service_settings_input *input)
 	};
 	struct var_expand_table *tab;
 
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	tab[0].value = net_ip2addr(&input->local_ip);

@@ -226,7 +226,7 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
 	string_t *str, *str2;
 	const char *value, *const *args;
 
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	tab[0].value = mail_user;

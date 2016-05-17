@@ -356,7 +356,7 @@ imap_client_get_var_expand_table(struct imap_client *client)
 	struct var_expand_table *tab;
 	const char *auth_user;
 
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	tab[0].value = client->state.username;

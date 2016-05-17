@@ -126,7 +126,7 @@ uidlist_write_array(struct ostream *output, const uint32_t *uid_list,
 	base_uid = uid_list[0] & ~UID_LIST_MASK_RANGE;
 	datastack = uid_count < 1024*8/SQUAT_PACK_MAX_SIZE;
 	if (datastack)
-		uidbuf = t_malloc(SQUAT_PACK_MAX_SIZE * uid_count);
+		uidbuf = t_malloc_no0(SQUAT_PACK_MAX_SIZE * uid_count);
 	else
 		uidbuf = i_malloc(SQUAT_PACK_MAX_SIZE * uid_count);
 	bufp = uidbuf;

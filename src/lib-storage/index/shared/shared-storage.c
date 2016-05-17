@@ -235,7 +235,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	/* expand the namespace prefix and see if it already exists.
 	   this should normally happen only when the mailbox is being opened */
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 	tab[0].value = userdomain;
 	tab[1].value = username;

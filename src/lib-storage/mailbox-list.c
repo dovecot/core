@@ -739,7 +739,7 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 	if (list_sep != ns_sep || prefix_len > 0) {
 		/* @UNSAFE */
 		name_len = strlen(vname);
-		ret = t_malloc(prefix_len + name_len + 1);
+		ret = t_malloc_no0(prefix_len + name_len + 1);
 		memcpy(ret, list->ns->prefix, prefix_len);
 		for (i = 0; i < name_len; i++) {
 			ret[i + prefix_len] =

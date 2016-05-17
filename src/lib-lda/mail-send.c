@@ -34,7 +34,7 @@ get_var_expand_table(struct mail *mail, const char *reason,
 	struct var_expand_table *tab;
 	const char *subject;
 
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	tab[0].value = "\r\n";

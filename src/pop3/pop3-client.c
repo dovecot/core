@@ -542,7 +542,7 @@ static const char *client_stats(struct client *client)
 	struct var_expand_table *tab;
 	string_t *str;
 
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	tab[0].value = dec2str(client->top_bytes);

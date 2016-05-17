@@ -74,7 +74,7 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 	const char *str;
 	uoff_t size;
 
-	tab = t_malloc(sizeof(static_tab));
+	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
 
 	tab[0].value = message;
