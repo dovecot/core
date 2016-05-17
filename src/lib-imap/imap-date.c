@@ -183,7 +183,7 @@ imap_to_datetime_tm(const struct tm *tm, int timezone_offset)
 	char *buf;
 
 	/* @UNSAFE: but faster than t_strdup_printf() call.. */
-	buf = t_malloc_no0(27);
+	buf = t_malloc0(27);
 	imap_to_date_tm(buf, tm);
 	buf[11] = ' ';
 

@@ -48,7 +48,7 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 	ctx.view->map->hdr.record_size = sizeof(struct mail_index_record) + 16;
 	ctx.view->map->rec_map = t_new(struct mail_index_record_map, 1);
 	ctx.view->map->rec_map->records =
-		t_malloc_no0(ctx.view->map->hdr.record_size);
+		t_malloc0(ctx.view->map->hdr.record_size);
 	t_array_init(&ctx.view->map->extensions, 4);
 	ext = array_append_space(&ctx.view->map->extensions);
 	ext->record_offset = sizeof(struct mail_index_record);

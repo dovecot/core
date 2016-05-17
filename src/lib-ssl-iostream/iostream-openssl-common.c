@@ -174,8 +174,7 @@ static const char *ssl_err2str(unsigned long err, const char *data, int flags)
 	char *buf;
 	size_t err_size = 256;
 
-	buf = t_malloc_no0(err_size);
-	buf[err_size-1] = '\0';
+	buf = t_malloc0(err_size);
 	ERR_error_string_n(err, buf, err_size-1);
 	ret = buf;
 
