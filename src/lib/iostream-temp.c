@@ -30,6 +30,8 @@ struct temp_ostream {
 	uoff_t fd_size;
 };
 
+static int o_stream_temp_dup_cancel(struct temp_ostream *tstream);
+
 static void
 o_stream_temp_close(struct iostream_private *stream,
 		    bool close_parent ATTR_UNUSED)
@@ -104,6 +106,10 @@ o_stream_temp_sendv(struct ostream_private *stream,
 	unsigned int i;
 
 	tstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
+	if (tstream->dupstream != NULL) {
+		if (o_stream_temp_dup_cancel(tstream) < 0)
+			return -1;
+	}
 
 	if (tstream->fd != -1)
 		return o_stream_temp_fd_sendv(tstream, iov, iov_count);

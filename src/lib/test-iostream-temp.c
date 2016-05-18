@@ -76,6 +76,16 @@ static void test_iostream_temp_istream(void)
 	test_expect_no_more_errors();
 	o_stream_destroy(&output);
 
+	/* non-working fd-dup: write data after sending istream */
+	i_stream_seek(input, 0);
+	output = iostream_temp_create_sized(".intentional-nonexistent-error/",
+		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 4);
+	test_assert(o_stream_send_istream(output, input) > 0);
+	test_expect_errors(1);
+	test_assert(o_stream_send(output, "1", 1) == 1);
+	test_expect_no_more_errors();
+	o_stream_destroy(&output);
+
 	/* non-working fd-dup: send two istreams */
 	i_stream_seek(input, 0);
 	input2 = i_stream_create_limit(input, (uoff_t)-1);
