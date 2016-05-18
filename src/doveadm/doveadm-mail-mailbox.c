@@ -685,6 +685,7 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_delete_ver2 = {
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('r', "recursive", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
