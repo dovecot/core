@@ -200,6 +200,60 @@ static void test_istream_filter_large_buffer(void)
 	test_end();
 }
 
+static void test_istream_filter_large_buffer2(void)
+{
+	static const char *wanted_headers[] = { "References" };
+	string_t *input, *output;
+	struct istream *istream, *filter;
+	const struct stat *st;
+	const unsigned char *data;
+	size_t size;
+	unsigned int i;
+	int ret;
+
+	test_begin("i_stream_create_header_filter: large buffer2");
+
+	input = str_new(default_pool, 1024*128);
+	output = str_new(default_pool, 1024*128);
+	str_append(input, "References: ");
+	add_random_text(input, 1024*64);
+	str_append(input, "\r\n\r\n");
+
+	istream = test_istream_create_data(str_data(input), str_len(input));
+	test_istream_set_max_buffer_size(istream, 8192);
+
+	filter = i_stream_create_header_filter(istream,
+		HEADER_FILTER_INCLUDE | HEADER_FILTER_HIDE_BODY,
+		wanted_headers, N_ELEMENTS(wanted_headers),
+		*null_header_filter_callback, (void *)NULL);
+
+	for (i = 0; i < 2; i++) {
+		while ((ret = i_stream_read_more(filter, &data, &size)) > 0) {
+			str_append_n(output, data, size);
+			i_stream_skip(filter, size);
+		}
+		test_assert(ret == -1);
+		test_assert(filter->stream_errno == 0);
+
+		test_assert(strcmp(str_c(input), str_c(output)) == 0);
+		test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
+			    (uoff_t)st->st_size == filter->v_offset + size);
+
+		/* seek back and retry once with caching and different
+		   buffer size */
+		i_stream_seek(filter, 0);
+		str_truncate(output, 0);
+		test_istream_set_max_buffer_size(istream, 4096);
+	}
+
+	str_free(&input);
+	str_free(&output);
+	i_stream_unref(&filter);
+	i_stream_unref(&istream);
+
+	test_end();
+}
+
 static void
 filter3_callback(struct header_filter_istream *input ATTR_UNUSED,
 		 struct message_header_line *hdr,
@@ -460,6 +514,7 @@ int main(void)
 	static void (*test_functions[])(void) = {
 		test_istream_filter,
 		test_istream_filter_large_buffer,
+		test_istream_filter_large_buffer2,
 		test_istream_callbacks,
 		test_istream_edit,
 		test_istream_add_missing_eoh,

@@ -149,9 +149,6 @@ static ssize_t hdr_stream_update_pos(struct header_filter_istream *mstream)
 	ret = (ssize_t)(pos - mstream->istream.pos - mstream->istream.skip);
 	i_assert(ret >= 0);
 	mstream->istream.pos = pos;
-
-	if (pos >= mstream->istream.max_buffer_size)
-		return -2;
 	return ret;
 }
 
