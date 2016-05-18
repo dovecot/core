@@ -40,6 +40,8 @@ static void test_ostream_dot_one(const struct dot_test *test)
 	test_assert(test_input->eof);
 
 	test_assert(o_stream_flush(output) > 0);
+	test_assert(output->offset == strlen(test->input));
+	test_assert(test_output->offset == strlen(test->output));
 	o_stream_unref(&output);
 	o_stream_unref(&test_output);
 
