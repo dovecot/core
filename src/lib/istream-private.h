@@ -25,7 +25,7 @@ struct istream_private {
 	struct istream istream;
 
 	int fd;
-	uoff_t abs_start_offset;
+	uoff_t start_offset;
 	struct stat statbuf;
 	/* added by io_add_istream() -> i_stream_set_io() */
 	struct io *io;

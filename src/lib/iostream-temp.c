@@ -296,7 +296,8 @@ struct istream *iostream_temp_finish(struct ostream **output,
 		for_path = t_strdup_printf(" for %s", tstream->name);
 
 	if (tstream->dupstream != NULL && !tstream->dupstream->closed) {
-		abs_offset = tstream->dupstream->real_stream->abs_start_offset +
+		abs_offset = i_stream_get_absolute_offset(tstream->dupstream) -
+			tstream->dupstream->v_offset +
 			tstream->dupstream_start_offset;
 		size = tstream->dupstream_offset -
 			tstream->dupstream_start_offset;

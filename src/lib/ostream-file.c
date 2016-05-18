@@ -692,7 +692,7 @@ static int io_stream_sendfile(struct ostream_private *outstream,
 			      bool *sendfile_not_supported_r)
 {
 	struct file_ostream *foutstream = (struct file_ostream *)outstream;
-	uoff_t in_size, offset, send_size, v_offset;
+	uoff_t in_size, offset, send_size, v_offset, abs_start_offset;
 	ssize_t ret;
 
 	*sendfile_not_supported_r = FALSE;
@@ -713,9 +713,10 @@ static int io_stream_sendfile(struct ostream_private *outstream,
 	if (o_stream_lseek(foutstream) < 0)
 		return -1;
 
-        v_offset = instream->v_offset;
+	v_offset = instream->v_offset;
+	abs_start_offset = i_stream_get_absolute_offset(instream) - v_offset;
 	while (v_offset < in_size) {
-		offset = instream->real_stream->abs_start_offset + v_offset;
+		offset = abs_start_offset + v_offset;
 		send_size = in_size - v_offset;
 
 		ret = safe_sendfile(foutstream->fd, in_fd, &offset,
@@ -862,8 +863,7 @@ static int io_stream_copy_same_stream(struct ostream_private *outstream,
 	}
 	i_assert(instream->v_offset <= in_size);
 
-	in_abs_offset = instream->real_stream->abs_start_offset +
-		instream->v_offset;
+	in_abs_offset = i_stream_get_absolute_offset(instream);
 	ret = (off_t)outstream->ostream.offset - in_abs_offset;
 	if (ret == 0) {
 		/* copying data over itself. we don't really

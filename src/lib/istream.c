@@ -367,7 +367,12 @@ bool i_stream_is_eof(struct istream *stream)
 
 uoff_t i_stream_get_absolute_offset(struct istream *stream)
 {
-	return stream->real_stream->abs_start_offset + stream->v_offset;
+	uoff_t abs_offset = stream->v_offset;
+	while (stream != NULL) {
+		abs_offset += stream->real_stream->start_offset;
+		stream = stream->real_stream->parent;
+	}
+	return abs_offset;
 }
 
 static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
@@ -827,8 +832,7 @@ void i_stream_init_parent(struct istream_private *_stream,
 	_stream->parent = parent;
 	_stream->parent_start_offset = parent->v_offset;
 	_stream->parent_expected_offset = parent->v_offset;
-	_stream->abs_start_offset = parent->v_offset +
-		parent->real_stream->abs_start_offset;
+	_stream->start_offset = parent->v_offset;
 	/* if parent stream is an istream-error, copy the error */
 	_stream->istream.stream_errno = parent->stream_errno;
 	_stream->istream.eof = parent->eof;

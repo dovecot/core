@@ -58,8 +58,7 @@ static void zlib_read_error(struct zlib_istream *zstream, const char *error)
 	io_stream_set_error(&zstream->istream.iostream,
 			    "zlib.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
-			    zstream->istream.abs_start_offset +
-			    zstream->istream.istream.v_offset);
+			    i_stream_get_absolute_offset(&zstream->istream.istream));
 	if (zstream->log_errors)
 		i_error("%s", zstream->istream.iostream.error);
 }

@@ -64,7 +64,7 @@ static ssize_t i_stream_metawrap_read(struct istream_private *stream)
 		if (ret <= 0)
 			return ret;
 		/* this stream is kind of silently skipping over the metadata */
-		stream->abs_start_offset += mstream->start_offset;
+		stream->start_offset += mstream->start_offset;
 		mstream->in_metadata = FALSE;
 		if (mstream->pending_seek != 0) {
 			i_stream_seek(&stream->istream, mstream->pending_seek);

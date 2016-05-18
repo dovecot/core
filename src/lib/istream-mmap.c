@@ -230,7 +230,7 @@ struct istream *i_stream_create_mmap(int fd, size_t block_size,
 	mstream->istream.stat = i_stream_mmap_stat;
 
 	mstream->istream.istream.readable_fd = TRUE;
-	mstream->istream.abs_start_offset = start_offset;
+	mstream->istream.start_offset = start_offset;
 	istream = i_stream_create(&mstream->istream, NULL, fd);
 	istream->mmaped = TRUE;
 	istream->blocking = TRUE;
