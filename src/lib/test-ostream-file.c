@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2016 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "net.h"
 #include "str.h"
 #include "safe-mkstemp.h"
 #include "randgen.h"
@@ -133,8 +134,46 @@ static void test_ostream_file_send_istream_file(void)
 	test_end();
 }
 
+static void test_ostream_file_send_istream_sendfile(void)
+{
+	struct istream *input, *input2;
+	struct ostream *output;
+	char buf[10];
+	int fd, sock_fd[2];
+
+	test_begin("ostream file send istream sendfile()");
+
+	/* temp file istream */
+	fd = open(".temp.istream", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	if (fd == -1)
+		i_fatal("creat(.temp.istream) failed: %m");
+	test_assert(write(fd, "abcdefghij", 10) == 10);
+	test_assert(lseek(fd, 0, SEEK_SET) == 0);
+	input = i_stream_create_fd(fd, 1024, TRUE);
+
+	/* temp socket ostream */
+	i_assert(socketpair(AF_UNIX, SOCK_STREAM, 0, sock_fd) == 0);
+	output = o_stream_create_fd(sock_fd[0], 0, TRUE);
+
+	/* test that sendfile() works */
+	i_stream_seek(input, 3);
+	input2 = i_stream_create_limit(input, 4);
+	test_assert(o_stream_send_istream(output, input2) > 0);
+	test_assert(output->offset == 4);
+	test_assert(read(sock_fd[1], buf, sizeof(buf)) == 4 &&
+		    memcmp(buf, "defg", 4) == 0);
+	i_stream_unref(&input2);
+
+	o_stream_destroy(&output);
+	i_close_fd(&sock_fd[1]);
+
+	i_unlink(".temp.istream");
+	test_end();
+}
+
 void test_ostream_file(void)
 {
 	test_ostream_file_random();
 	test_ostream_file_send_istream_file();
+	test_ostream_file_send_istream_sendfile();
 }
