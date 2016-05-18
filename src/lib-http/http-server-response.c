@@ -526,7 +526,7 @@ int http_server_response_send_more(struct http_server_response *resp,
 		}
 		/* finished sending payload */
 		http_server_response_finish_payload_out(resp);
-	} else if (i_stream_get_data_size(resp->payload_input) > 0) {
+	} else if (i_stream_have_bytes_left(resp->payload_input)) {
 		/* output is blocking */
 		conn->output_locked = TRUE;
 		o_stream_set_flush_pending(output, TRUE);

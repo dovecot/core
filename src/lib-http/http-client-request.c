@@ -856,7 +856,7 @@ int http_client_request_send_more(struct http_client_request *req,
 			/* finished sending payload */
 			http_client_request_finish_payload_out(req);
 		}
-	} else if (i_stream_get_data_size(req->payload_input) > 0) {
+	} else if (i_stream_have_bytes_left(req->payload_input)) {
 		/* output is blocking (server needs to act; enable timeout) */
 		conn->output_locked = TRUE;
 		if (!pipelined)
