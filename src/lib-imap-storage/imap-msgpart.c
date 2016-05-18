@@ -395,8 +395,8 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 
 	if (message_get_header_size(input, &hdr_size, &has_nuls) < 0) {
 		mail_storage_set_critical(mail->box->storage,
-			"read(%s) failed: %s", i_stream_get_name(mail_input),
-			i_stream_get_error(mail_input));
+			"read(%s) failed: %s", i_stream_get_name(input),
+			i_stream_get_error(input));
 		i_stream_unref(&input);
 		return -1;
 	}
