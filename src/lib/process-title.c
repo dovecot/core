@@ -4,7 +4,11 @@
 #include "env-util.h"
 #include "process-title.h"
 
+#ifdef HAVE_LIBBSD
+#include <bsd/unistd.h>
+#else
 #include <unistd.h> /* FreeBSD */
+#endif
 
 static char *process_name = NULL;
 
@@ -114,7 +118,7 @@ static void proctitle_hack_set(const char *title)
 
 #endif
 
-void process_title_init(char **argv[])
+void process_title_init(int argc, char **argv[])
 {
 #ifdef PROCTITLE_HACK
 	char ***environ_p = env_get_environ_p();
@@ -124,6 +128,9 @@ void process_title_init(char **argv[])
 	*argv = argv_dup(orig_argv, &argv_memblock);
 	*environ_p = argv_dup(orig_environ, &environ_memblock);
 	proctitle_hack_init(orig_argv, orig_environ);
+#endif
+#ifdef HAVE_LIBBSD
+	setproctitle_init(argc, *argv, *env_get_environ_p());
 #endif
 	process_name = (*argv)[0];
 }
