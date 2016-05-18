@@ -131,8 +131,11 @@ static int o_stream_temp_dup_cancel(struct temp_ostream *tstream)
 	int ret = -1;
 
 	i_stream_seek(tstream->dupstream, tstream->dupstream_start_offset);
+	tstream->ostream.ostream.offset = 0;
 
 	input = i_stream_create_limit(tstream->dupstream, size);
+	i_stream_unref(&tstream->dupstream);
+
 	if (io_stream_copy(&tstream->ostream.ostream, input) > 0) {
 		/* everything copied */
 		ret = 0;
@@ -141,7 +144,6 @@ static int o_stream_temp_dup_cancel(struct temp_ostream *tstream)
 		tstream->ostream.ostream.stream_errno = input->stream_errno;
 	}
 	i_stream_destroy(&input);
-	i_stream_unref(&tstream->dupstream);
 	return ret;
 }
 
@@ -170,7 +172,12 @@ static int o_stream_temp_dup_istream(struct temp_ostream *outstream,
 			return o_stream_temp_dup_cancel(outstream);
 	}
 	i_stream_seek(instream, in_size);
+	/* we should be at EOF now. o_stream_send_istream() asserts if
+	   eof isn't set. */
+	instream->eof = TRUE;
 	outstream->dupstream_offset = instream->v_offset;
+	outstream->ostream.ostream.offset =
+		outstream->dupstream_offset - outstream->dupstream_start_offset;
 	return 1;
 }
 
