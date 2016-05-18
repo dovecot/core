@@ -24,6 +24,7 @@ static void test_ostream_escaped_json(void)
 	iov[1].iov_len = 7;
 	test_assert(o_stream_sendv(os_encode, iov, 2) == 12);
 	test_assert(os_encode->offset == 12);
+	test_assert(os_sink->offset == 12);
 	test_assert(strcmp(str_c(str), "hello, world") == 0);
 
 	/* reset buffer */
@@ -33,7 +34,8 @@ static void test_ostream_escaped_json(void)
 	o_stream_set_max_buffer_size(os_encode, 10);
 	o_stream_set_max_buffer_size(os_sink, 100);
 	test_assert(o_stream_send(os_encode, "\x15\x00!\x00\x15\x11" "123456", 12) == 12);
-	test_assert(os_encode->offset == 2*6 + 1 + 3*6 + 6);
+	test_assert(os_encode->offset == 12);
+	test_assert(os_sink->offset == 2*6 + 1 + 3*6 + 6);
 	test_assert(strcmp(str_c(str), "\\u0015\\u0000!\\u0000\\u0015\\u0011123456") == 0);
 
 	/* reset buffer */
@@ -49,7 +51,8 @@ static void test_ostream_escaped_json(void)
 	o_stream_set_max_buffer_size(os_sink, 100);
 	ret += o_stream_send_str(os_encode, partial_input + ret);
 	test_assert(ret == (ssize_t)strlen(partial_input));
-	test_assert(os_encode->offset == str_len(str));
+	test_assert((ssize_t)os_encode->offset == ret);
+	test_assert(os_sink->offset == str_len(str));
 	test_assert(strcmp(str_c(str), "\\u0015!\\u0001?#&") == 0);
 
 	o_stream_unref(&os_encode);
