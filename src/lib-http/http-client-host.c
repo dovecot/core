@@ -210,7 +210,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 	if (http_client_peer_addr_is_https(&addr) &&
 		host->client->ssl_ctx == NULL) {
 		if (http_client_init_ssl_ctx(host->client, &error) < 0) {
-			http_client_request_error(req,
+			http_client_request_error(&req,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, error);
 			return;
 		}
