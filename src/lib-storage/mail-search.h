@@ -101,6 +101,7 @@ struct mail_search_arg {
 	unsigned int match_always:1; /* result = 1 always */
 	unsigned int nonmatch_always:1; /* result = 0 always */
 	unsigned int fuzzy:1; /* use fuzzy matching for this arg */
+	unsigned int no_fts:1; /* do NOT call FTS */
 
 	int result; /* -1 = unknown, 0 = unmatched, 1 = matched */
 };

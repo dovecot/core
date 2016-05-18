@@ -1200,6 +1200,9 @@ lucene_add_definite_query(struct lucene_index *index,
 	bool and_args = (flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0;
 	Query *q;
 
+	if (arg->no_fts)
+		return false;
+
 	if (arg->match_not && !and_args) {
 		/* FIXME: we could handle this by doing multiple queries.. */
 		return false;
@@ -1265,6 +1268,9 @@ lucene_add_maybe_query(struct lucene_index *index,
 {
 	bool and_args = (flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0;
 	Query *q = NULL;
+
+	if (arg->no_fts)
+		return false;
 
 	if (arg->match_not) {
 		/* FIXME: we could handle this by doing multiple queries.. */
