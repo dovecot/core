@@ -281,7 +281,6 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 	}
 	if (async)
 		str_append_c(str, DICT_PROTOCOL_REPLY_ASYNC_COMMIT);
-	str_append_c(str, chr);
 	str_printfa(str, "%c%u", chr, cmd->trans_id);
 	if (chr == DICT_PROTOCOL_REPLY_FAIL) {
 		str_append_c(str, '\t');
