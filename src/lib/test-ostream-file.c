@@ -4,13 +4,15 @@
 #include "str.h"
 #include "safe-mkstemp.h"
 #include "randgen.h"
+#include "istream.h"
 #include "ostream.h"
 
+#include <fcntl.h>
 #include <unistd.h>
 
 #define MAX_BUFSIZE 256
 
-static void test_ostream_file_random(void)
+static void test_ostream_file_random_once(void)
 {
 	struct ostream *output;
 	string_t *path = t_str_new(128);
@@ -55,13 +57,84 @@ static void test_ostream_file_random(void)
 	i_close_fd(&fd);
 }
 
-void test_ostream_file(void)
+static void test_ostream_file_random(void)
 {
 	unsigned int i;
 
 	test_begin("ostream pwrite random");
 	for (i = 0; i < 100; i++) T_BEGIN {
-		test_ostream_file_random();
+		test_ostream_file_random_once();
 	} T_END;
 	test_end();
+}
+
+static void test_ostream_file_send_istream_file(void)
+{
+	struct istream *input, *input2;
+	struct ostream *output;
+	char buf[10];
+	int fd;
+
+	test_begin("ostream file send istream file");
+
+	/* temp file istream */
+	fd = open(".temp.istream", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	if (fd == -1)
+		i_fatal("creat(.temp.istream) failed: %m");
+	test_assert(write(fd, "1234567890", 10) == 10);
+	test_assert(lseek(fd, 0, SEEK_SET) == 0);
+	input = i_stream_create_fd(fd, 1024, TRUE);
+
+	/* temp file ostream */
+	fd = open(".temp.ostream", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	if (fd == -1)
+		i_fatal("creat(.temp.ostream) failed: %m");
+	output = o_stream_create_fd(fd, 0, TRUE);
+
+	/* test that writing works between two files */
+	i_stream_seek(input, 3);
+	input2 = i_stream_create_limit(input, 4);
+	test_assert(o_stream_send_istream(output, input2) > 0);
+	test_assert(output->offset == 4);
+	test_assert(pread(fd, buf, sizeof(buf), 0) == 4 &&
+		    memcmp(buf, "4567", 4) == 0);
+	i_stream_unref(&input2);
+
+	/* test that writing works within the same file */
+	i_stream_destroy(&input);
+
+	input = i_stream_create_fd(fd, 1024, FALSE);
+	/* forwards: 4567 -> 4677 */
+	o_stream_seek(output, 1);
+	i_stream_seek(input, 2);
+	input2 = i_stream_create_limit(input, 2);
+	test_assert(o_stream_send_istream(output, input2) > 0);
+	test_assert(output->offset == 3);
+	test_assert(pread(fd, buf, sizeof(buf), 0) == 4 &&
+		    memcmp(buf, "4677", 4) == 0);
+	i_stream_destroy(&input2);
+	i_stream_destroy(&input);
+
+	/* backwards: 1234 -> 11234 */
+	memcpy(buf, "1234", 4);
+	test_assert(pwrite(fd, buf, 4, 0) == 4);
+	input = i_stream_create_fd(fd, 1024, FALSE);
+	o_stream_seek(output, 1);
+	test_assert(o_stream_send_istream(output, input) > 0);
+	test_assert(output->offset == 5);
+	test_assert(pread(fd, buf, sizeof(buf), 0) == 5 &&
+		    memcmp(buf, "11234", 5) == 0);
+	i_stream_destroy(&input);
+
+	o_stream_destroy(&output);
+
+	i_unlink(".temp.istream");
+	i_unlink(".temp.ostream");
+	test_end();
+}
+
+void test_ostream_file(void)
+{
+	test_ostream_file_random();
+	test_ostream_file_send_istream_file();
 }

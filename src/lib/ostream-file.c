@@ -835,6 +835,9 @@ static int io_stream_copy_backwards(struct ostream_private *outstream,
 		}
 		i_stream_skip(instream, size);
 	}
+	/* make it visible that we're at instream's EOF */
+	i_stream_seek(instream, in_size);
+	instream->eof = TRUE;
 
 	outstream->ostream.offset += in_size - in_start_offset;
 	return 1;
