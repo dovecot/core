@@ -154,7 +154,7 @@ void http_client_queue_fail(struct http_client_queue *queue,
 	t_array_init(&treqs, array_count(req_arr));
 	array_copy(&treqs.arr, 0, &req_arr->arr, 0, array_count(req_arr));
 	array_foreach_modifiable(&treqs, req_idx) {
-		http_client_request_error(*req_idx, status, error);
+		http_client_request_error(req_idx, status, error);
 	}
 
 	/* all queues should be empty now... unless new requests were submitted
@@ -536,7 +536,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 
 		http_client_queue_debug(queue,
 			"Request %s timed out",	http_client_request_label(req));
-		http_client_request_error(req,
+		http_client_request_error(&req,
 			HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT,
 			"Timed out");
 	}

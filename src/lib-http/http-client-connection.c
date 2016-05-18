@@ -114,7 +114,7 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 
 	array_foreach_modifiable(&conn->request_wait_list, req) {
 		i_assert((*req)->submitted);
-		http_client_request_error(*req, status, error);
+		http_client_request_error(req, status, error);
 		http_client_request_unref(req);
 	}
 	array_clear(&conn->request_wait_list);
@@ -129,7 +129,7 @@ http_client_connection_abort_any_requests(struct http_client_connection *conn)
 	if (array_is_created(&conn->request_wait_list)) {
 		array_foreach_modifiable(&conn->request_wait_list, req) {
 			i_assert((*req)->submitted);
-			http_client_request_error(*req,
+			http_client_request_error(req,
 				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
 				"Aborting");
 			http_client_request_unref(req);
@@ -139,7 +139,7 @@ http_client_connection_abort_any_requests(struct http_client_connection *conn)
 	if (conn->pending_request != NULL) {
 		struct http_client_request *pending_req = conn->pending_request;
 		conn->pending_request = NULL;
-		http_client_request_error(pending_req,
+		http_client_request_error(&pending_req,
 			HTTP_CLIENT_REQUEST_ERROR_ABORTED,
 			"Aborting");
 		http_client_request_unref(&pending_req);
@@ -819,7 +819,7 @@ static void http_client_connection_input(struct connection *_conn)
 			/* response cannot be 2xx if request payload was not completely sent
 			 */
 			if (early && response.status / 100 == 2) {
-				http_client_request_error(req,
+				http_client_request_error(&req,
 					HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE,
 					"Server responded with success response "
 					"before all payload was sent");

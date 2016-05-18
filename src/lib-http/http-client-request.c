@@ -1109,11 +1109,12 @@ void http_client_request_error_delayed(struct http_client_request **_req)
 	http_client_request_destroy(&req);
 }
 
-void http_client_request_error(struct http_client_request *req,
+void http_client_request_error(struct http_client_request **_req,
 	unsigned int status, const char *error)
 {
-	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
-		return;
+	struct http_client_request *req = *_req;
+
+	i_assert(req->state < HTTP_REQUEST_STATE_FINISHED);
 	req->state = HTTP_REQUEST_STATE_ABORTED;
 
 	if (req->queue != NULL)
@@ -1132,6 +1133,7 @@ void http_client_request_error(struct http_client_request *req,
 		http_client_request_send_error(req, status, error);
 		http_client_request_destroy(&req);
 	}
+	*_req = NULL;
 }
 
 void http_client_request_abort(struct http_client_request **_req)
@@ -1187,19 +1189,19 @@ void http_client_request_redirect(struct http_client_request *req,
 	/* parse URL */
 	if (http_url_parse(location, NULL, 0,
 			   pool_datastack_create(), &url, &error) < 0) {
-		http_client_request_error(req, HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT,
+		http_client_request_error(&req, HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT,
 			t_strdup_printf("Invalid redirect location: %s", error));
 		return;
 	}
 
 	if (++req->redirects > req->client->set.max_redirects) {
 		if (req->client->set.max_redirects > 0) {
-			http_client_request_error(req,
+			http_client_request_error(&req,
 				HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT,
 				t_strdup_printf("Redirected more than %d times",
 					req->client->set.max_redirects));
 		} else {
-			http_client_request_error(req,
+			http_client_request_error(&req,
 				HTTP_CLIENT_REQUEST_ERROR_INVALID_REDIRECT,
 					"Redirect refused");
 		}
@@ -1210,7 +1212,7 @@ void http_client_request_redirect(struct http_client_request *req,
 	if (req->payload_input != NULL && req->payload_size > 0 && status != 303) {
 		if (req->payload_input->v_offset != req->payload_offset &&
 			!req->payload_input->seekable) {
-			http_client_request_error(req,
+			http_client_request_error(&req,
 				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
 				"Redirect failed: Cannot resend payload; stream is not seekable");
 			return;
@@ -1273,7 +1275,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 	if (req->payload_input != NULL && req->payload_size > 0) {
 		if (req->payload_input->v_offset != req->payload_offset &&
 			!req->payload_input->seekable) {
-			http_client_request_error(req,
+			http_client_request_error(&req,
 				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
 				"Resubmission failed: Cannot resend payload; stream is not seekable");
 			return;
@@ -1286,7 +1288,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 	if (req->payload_input != NULL && req->payload_size > 0) {
 		if (req->payload_input->v_offset != req->payload_offset &&
 			!req->payload_input->seekable) {
-			http_client_request_error(req,
+			http_client_request_error(&req,
 				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
 				"Resubmission failed: Cannot resend payload; stream is not seekable");
 			return;
@@ -1309,7 +1311,7 @@ void http_client_request_retry(struct http_client_request *req,
 	unsigned int status, const char *error)
 {
 	if (!http_client_request_try_retry(req))
-		http_client_request_error(req, status, error);
+		http_client_request_error(&req, status, error);
 }
 
 bool http_client_request_try_retry(struct http_client_request *req)
