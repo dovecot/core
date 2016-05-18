@@ -77,6 +77,10 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	unsigned int i, count;
 	const char *uri, *error;
 
+	if (!array_is_created(&dict_settings->dicts)) {
+		i_error("dict client: No dictionaries configured");
+		return -1;
+	}
 	strlist = array_get(&dict_settings->dicts, &count);
 	for (i = 0; i < count; i += 2) {
 		if (strcmp(strlist[i], conn->name) == 0)
