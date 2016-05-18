@@ -377,12 +377,10 @@ imap_msgpart_get_partial_header(struct mail *mail, struct istream *mail_input,
 	bool has_nuls;
 
 	if (msgpart->fetch_type == FETCH_HEADER_FIELDS) {
-		input = i_stream_create_header_filter(mail_input,
-						      HEADER_FILTER_INCLUDE |
-						      HEADER_FILTER_HIDE_BODY,
-						      hdr_fields, hdr_count,
-						      *null_header_filter_callback,
-						      (void *)NULL);
+		/* mail_get_header_stream() already filtered out the
+		   unwanted headers. */
+		input = mail_input;
+		i_stream_ref(input);
 	} else {
 		i_assert(msgpart->fetch_type == FETCH_HEADER_FIELDS_NOT);
 		input = i_stream_create_header_filter(mail_input,
