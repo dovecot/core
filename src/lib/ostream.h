@@ -4,6 +4,14 @@
 #include "ioloop.h"
 
 struct ostream {
+	/* Number of bytes sent via o_stream_send*() and similar functions.
+	   This is counting the input data. For example with a compressed
+	   ostream this is counting the uncompressed bytes. The compressed
+	   bytes could be counted from the parent ostream's offset.
+
+	   Seeking to a specified offset only makes sense if there is no
+	   difference between input and output data sizes (e.g. there are no
+	   wrapper ostreams changing the data). */
 	uoff_t offset;
 
 	/* errno for the last operation send/seek operation. cleared before
