@@ -166,12 +166,11 @@ imap_msgpart_get_header_fields(pool_t pool, const char *header_list,
 			value = p_strdup(pool, t_str_ucase(value));
 			array_append(fields, &value, 1);
 		}
+		/* istream-header-filter requires headers to be sorted */
+		array_sort(fields, i_strcasecmp_p);
 	} else {
 		result = -1;
 	}
-
-	/* istream-header-filter requires headers to be sorted */
-	array_sort(fields, i_strcasecmp_p);
 
 	imap_parser_unref(&parser);
 	i_stream_unref(&input);
