@@ -417,8 +417,6 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 	uoff_t virtual_skip = msgpart->partial_offset;
 	bool cr_skipped;
 
-	i_assert(msgpart->headers == NULL); /* HEADER.FIELDS returns CRLFs */
-
 	if (virtual_skip == 0) {
 		/* no need to seek */
 	} else if (cache->uid == mail->uid &&
