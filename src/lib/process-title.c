@@ -118,7 +118,7 @@ static void proctitle_hack_set(const char *title)
 
 #endif
 
-void process_title_init(int argc, char **argv[])
+void process_title_init(int argc ATTR_UNUSED, char **argv[])
 {
 #ifdef PROCTITLE_HACK
 	char ***environ_p = env_get_environ_p();
