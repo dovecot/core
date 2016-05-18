@@ -163,6 +163,7 @@ static void test_ostream_file_send_istream_sendfile(void)
 	test_assert(read(sock_fd[1], buf, sizeof(buf)) == 4 &&
 		    memcmp(buf, "defg", 4) == 0);
 	i_stream_unref(&input2);
+	i_stream_unref(&input);
 
 	o_stream_destroy(&output);
 	i_close_fd(&sock_fd[1]);
