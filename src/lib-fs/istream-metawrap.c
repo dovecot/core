@@ -132,9 +132,7 @@ i_stream_create_metawrap(struct istream *input,
 	mstream->istream.seek = i_stream_metawrap_seek;
 	mstream->istream.stat = input->seekable ? i_stream_metawrap_stat : NULL;
 
-	/* we can't set abs_start_offset early enough so that it would get
-	   passed to our child istreams. */
-	mstream->istream.istream.readable_fd = FALSE;
+	mstream->istream.istream.readable_fd = input->readable_fd;
 	mstream->istream.istream.blocking = input->blocking;
 	mstream->istream.istream.seekable = input->seekable;
 	mstream->in_metadata = TRUE;
