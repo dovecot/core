@@ -714,7 +714,7 @@ static int io_stream_sendfile(struct ostream_private *outstream,
 		return -1;
 
         v_offset = instream->v_offset;
-	for (;;) {
+	while (v_offset < in_size) {
 		offset = instream->real_stream->abs_start_offset + v_offset;
 		send_size = in_size - v_offset;
 
@@ -754,7 +754,12 @@ static int io_stream_sendfile(struct ostream_private *outstream,
 	}
 
 	i_stream_seek(instream, v_offset);
-	return ret <= 0 ? ret : 1;
+	if (v_offset == in_size) {
+		instream->eof = TRUE;
+		return 1;
+	}
+	i_assert(ret <= 0);
+	return ret;
 }
 
 static int io_stream_copy_backwards(struct ostream_private *outstream,
