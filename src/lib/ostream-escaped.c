@@ -40,7 +40,7 @@ static ssize_t
 o_stream_escaped_send_chunk(struct escaped_ostream *estream,
 			    const unsigned char *data, size_t len)
 {
-	size_t i, max_buffer_size, flush_pos;
+	size_t i, max_buffer_size;
 	ssize_t ret;
 
 	max_buffer_size = I_MIN(o_stream_get_max_buffer_size(estream->ostream.parent),
@@ -50,24 +50,20 @@ o_stream_escaped_send_chunk(struct escaped_ostream *estream,
 		max_buffer_size = IO_BLOCK_SIZE;
 	}
 
-	flush_pos = str_len(estream->buf);
 	for (i = 0; i < len; i++) {
 		if (str_len(estream->buf) + 2 > max_buffer_size) { /* escaping takes at least two bytes */
-			estream->ostream.ostream.offset +=
-				str_len(estream->buf) - flush_pos;
 			ret = o_stream_escaped_send_outbuf(estream);
-			if (ret < 0)
+			if (ret < 0) {
+				estream->ostream.ostream.offset += i;
 				return ret;
-			flush_pos = str_len(estream->buf);
+			}
 			if (ret == 0)
 				break;
 		}
 		estream->format(estream->buf, data[i]);
 		estream->flushed = FALSE;
 	}
-	/* we'll return how many bytes of input we consumed, but ostream offset
-	   contains how many bytes we actually wrote */
-	estream->ostream.ostream.offset += str_len(estream->buf) - flush_pos;
+	estream->ostream.ostream.offset += i;
 	return i;
 }
 
