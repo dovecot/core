@@ -664,6 +664,8 @@ static void solr_add_str_arg(string_t *str, struct mail_search_arg *arg)
 static bool
 solr_add_definite_query(string_t *str, struct mail_search_arg *arg)
 {
+	if (arg->no_fts)
+		return FALSE;
 	switch (arg->type) {
 	case SEARCH_TEXT: {
 		if (arg->match_not)
@@ -726,6 +728,8 @@ solr_add_definite_query_args(string_t *str, struct mail_search_arg *arg,
 static bool
 solr_add_maybe_query(string_t *str, struct mail_search_arg *arg)
 {
+	if (arg->no_fts)
+		return FALSE;
 	switch (arg->type) {
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:

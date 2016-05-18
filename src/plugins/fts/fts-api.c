@@ -315,7 +315,9 @@ bool fts_backend_default_can_lookup(struct fts_backend *backend,
 		case SEARCH_HEADER_COMPRESS_LWSP:
 		case SEARCH_BODY:
 		case SEARCH_TEXT:
-			return TRUE;
+			if (!args->no_fts)
+				return TRUE;
+			break;
 		default:
 			break;
 		}

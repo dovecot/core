@@ -154,7 +154,9 @@ static bool fts_want_build_args(const struct mail_search_arg *args)
 			break;
 		case SEARCH_BODY:
 		case SEARCH_TEXT:
-			return TRUE;
+			if (!args->no_fts)
+				return TRUE;
+			break;
 		default:
 			break;
 		}

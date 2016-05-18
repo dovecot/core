@@ -630,6 +630,8 @@ static int fts_backend_solr_optimize(struct fts_backend *backend ATTR_UNUSED)
 static bool
 solr_add_definite_query(string_t *str, struct mail_search_arg *arg)
 {
+	if (arg->no_fts)
+		return FALSE;
 	switch (arg->type) {
 	case SEARCH_TEXT: {
 		if (arg->match_not)
