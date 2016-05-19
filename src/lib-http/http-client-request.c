@@ -788,18 +788,18 @@ int http_client_request_send_more(struct http_client_request *req,
 	o_stream_set_max_buffer_size(output, (size_t)-1);
 
 	if (req->payload_input->stream_errno != 0) {
-		/* the payload stream assigned to this request is broken,
-		   fail this the request immediately */
-		http_client_request_send_error(req,
-			HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD,
-			"Broken payload stream");
-
 		/* we're in the middle of sending a request, so the connection
 		   will also have to be aborted */
 		errno = req->payload_input->stream_errno;
 		*error_r = t_strdup_printf("read(%s) failed: %s",
 					   i_stream_get_name(req->payload_input),
 					   i_stream_get_error(req->payload_input));
+		
+		/* the payload stream assigned to this request is broken,
+		   fail this the request immediately */
+		http_client_request_error(&req,
+			HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD,
+			"Broken payload stream");
 		return -1;
 	} else if (output->stream_errno != 0) {
 		/* failed to send request */
