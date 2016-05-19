@@ -351,6 +351,30 @@ int net_set_cork(int fd ATTR_UNUSED, bool cork ATTR_UNUSED)
 #endif
 }
 
+int net_set_send_buffer_size(int fd, size_t size)
+{
+	int opt;
+
+	if (size > INT_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	opt = (int)size;
+	return setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &opt, sizeof(opt));
+}
+
+int net_set_recv_buffer_size(int fd, size_t size)
+{
+	int opt;
+
+	if (size > INT_MAX) {
+		errno = EINVAL;
+		return -1;
+	}
+	opt = (int)size;
+	return setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt));
+}
+
 void net_get_ip_any4(struct ip_addr *ip)
 {
 	ip->family = AF_INET;
