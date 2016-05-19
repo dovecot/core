@@ -1184,6 +1184,7 @@ http_client_connection_connected(struct connection *_conn, bool success)
 {
 	struct http_client_connection *conn =
 		(struct http_client_connection *)_conn;
+	const struct http_client_settings *set = &conn->client->set;
 	const char *error;
 
 	if (!success) {
@@ -1192,6 +1193,18 @@ http_client_connection_connected(struct connection *_conn, bool success)
 	} else {
 		conn->connected_timestamp = ioloop_timeval;
 		http_client_connection_debug(conn, "Connected");
+
+		if (set->socket_send_buffer_size > 0) {
+			if (net_set_send_buffer_size(_conn->fd_out,
+				set->socket_send_buffer_size) < 0)
+				i_error("net_set_send_buffer_size() failed: %m");
+		}
+		if (set->socket_recv_buffer_size > 0) {
+			if (net_set_recv_buffer_size(_conn->fd_in,
+				set->socket_recv_buffer_size) < 0)
+				i_error("net_set_recv_buffer_size() failed: %m");
+		}
+
 		if (http_client_peer_addr_is_https(&conn->peer->addr)) {
 			if (http_client_connection_ssl_init(conn, &error) < 0) {
 				http_client_peer_connection_failure(conn->peer, error);
