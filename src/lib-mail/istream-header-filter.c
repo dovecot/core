@@ -41,6 +41,7 @@ struct header_filter_istream {
 	unsigned int last_orig_crlf:1;
 	unsigned int last_added_newline:1;
 	unsigned int eoh_not_matched:1;
+	unsigned int callbacks_called:1;
 	unsigned int prev_matched:1;
 };
 
@@ -201,6 +202,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			} else if (mstream->callback != NULL) {
 				mstream->callback(mstream, hdr, &matched,
 						  mstream->context);
+				mstream->callbacks_called = TRUE;
 			}
 
 			if (matched) {
@@ -239,6 +241,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			mstream->parsed_lines = mstream->cur_line;
 			mstream->callback(mstream, hdr, &matched,
 					  mstream->context);
+			mstream->callbacks_called = TRUE;
 			if (matched != orig_matched &&
 			    !hdr->continued && !mstream->headers_edited) {
 				if (!array_is_created(&mstream->match_change_lines))
@@ -321,12 +324,14 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		message_parse_header_deinit(&mstream->hdr_ctx);
 		mstream->hdr_ctx = NULL;
 
-		if (!mstream->header_parsed && mstream->callback != NULL) {
+		if ((!mstream->header_parsed || mstream->headers_edited ||
+		     mstream->callbacks_called) &&
+		    mstream->callback != NULL) {
 			bool matched = FALSE;
 			mstream->callback(mstream, NULL,
 					  &matched, mstream->context);
 			/* check if the callback added more headers.
-			   this is allowed only of EOH wasn't added yet. */
+			   this is allowed only if EOH wasn't added yet. */
 			ret2 = hdr_stream_update_pos(mstream);
 			if (!mstream->seen_eoh)
 				ret += ret2;
@@ -336,6 +341,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 		mstream->header_parsed = TRUE;
 		mstream->header_read = TRUE;
+		mstream->callbacks_called = FALSE;
 
 		mstream->header_size.physical_size =
 			mstream->istream.parent->v_offset;
