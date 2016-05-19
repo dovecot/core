@@ -7,14 +7,38 @@
 #include "istream-header-filter.h"
 #include "test-common.h"
 
-static void
-test_istream_run(struct istream *test_istream, struct istream *filter,
-		 unsigned int input_len, const char *output)
+struct run_ctx {
+	header_filter_callback *callback;
+	bool null_hdr_seen;
+	bool callback_called;
+};
+
+static void run_callback(struct header_filter_istream *input,
+			 struct message_header_line *hdr,
+			 bool *matched, struct run_ctx *ctx)
 {
+	if (hdr == NULL)
+		ctx->null_hdr_seen = TRUE;
+	if (ctx->callback != NULL)
+		ctx->callback(input, hdr, matched, NULL);
+	ctx->callback_called = TRUE;
+}
+
+static void
+test_istream_run(struct istream *test_istream,
+		 unsigned int input_len, const char *output,
+		 enum header_filter_flags flags,
+		 header_filter_callback *callback)
+{
+	struct run_ctx run_ctx = { .callback = callback, .null_hdr_seen = FALSE };
+	struct istream *filter;
 	unsigned int i, output_len = strlen(output);
 	const struct stat *st;
 	const unsigned char *data;
 	size_t size;
+
+	filter = i_stream_create_header_filter(test_istream, flags, NULL, 0,
+					       run_callback, &run_ctx);
 
 	for (i = 1; i < input_len; i++) {
 		test_istream_set_size(test_istream, i);
@@ -24,6 +48,10 @@ test_istream_run(struct istream *test_istream, struct istream *filter,
 	test_assert(i_stream_read(filter) > 0);
 	test_assert(i_stream_read(filter) == -1);
 
+	test_assert(run_ctx.null_hdr_seen);
+	run_ctx.null_hdr_seen = FALSE;
+	run_ctx.callback_called = FALSE;
+
 	data = i_stream_get_data(filter, &size);
 	test_assert(size == output_len && memcmp(data, output, size) == 0);
 
@@ -31,10 +59,12 @@ test_istream_run(struct istream *test_istream, struct istream *filter,
 	i_stream_skip(filter, size);
 	i_stream_seek(filter, 0);
 	while (i_stream_read(filter) > 0) ;
+	test_assert(run_ctx.null_hdr_seen == run_ctx.callback_called);
 	data = i_stream_get_data(filter, &size);
 	test_assert(size == output_len && memcmp(data, output, size) == 0);
 	test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
 		    (uoff_t)st->st_size == size);
+	i_stream_unref(&filter);
 }
 
 static void ATTR_NULL(3)
@@ -118,9 +148,11 @@ static void add_random_text(string_t *dest, unsigned int count)
 static void ATTR_NULL(3)
 filter2_callback(struct header_filter_istream *input ATTR_UNUSED,
 		 struct message_header_line *hdr,
-		 bool *matched, void *context ATTR_UNUSED)
+		 bool *matched, bool *null_hdr_seen)
 {
-	if (hdr != NULL && strcmp(hdr->name, "To") == 0)
+	if (hdr == NULL)
+		*null_hdr_seen = TRUE;
+	else if (strcmp(hdr->name, "To") == 0)
 		*matched = TRUE;
 }
 
@@ -133,6 +165,7 @@ static void test_istream_filter_large_buffer(void)
 	size_t size, prefix_len;
 	const char *p;
 	unsigned int i;
+	bool null_hdr_seen = FALSE;
 
 	test_begin("i_stream_create_header_filter: large buffer");
 
@@ -154,7 +187,7 @@ static void test_istream_filter_large_buffer(void)
 					       HEADER_FILTER_NO_CR,
 					       NULL, 0,
 					       filter2_callback,
-					       (void *)NULL);
+					       &null_hdr_seen);
 
 	for (i = 0; i < 2; i++) {
 		for (;;) {
@@ -168,6 +201,8 @@ static void test_istream_filter_large_buffer(void)
 				i_stream_skip(filter, size);
 			}
 		}
+		/* callbacks are called only once */
+		test_assert(null_hdr_seen == (i == 0));
 
 		data = i_stream_get_data(filter, &size);
 		test_assert(size <= 8192);
@@ -190,6 +225,7 @@ static void test_istream_filter_large_buffer(void)
 		i_stream_seek(filter, 0);
 		str_truncate(output, 0);
 		test_istream_set_max_buffer_size(istream, 4096);
+		null_hdr_seen = FALSE;
 	}
 
 	str_free(&input);
@@ -333,17 +369,14 @@ static void test_istream_edit(void)
 {
 	const char *input = "From: foo\nTo: bar\n\nhello world\n";
 	const char *output = "From: foo\nTo: 123\nAdded: header\n\nhello world\n";
-	struct istream *istream, *filter;
+	struct istream *istream;
 
 	test_begin("i_stream_create_header_filter: edit headers");
 	istream = test_istream_create(input);
-	filter = i_stream_create_header_filter(istream,
-					       HEADER_FILTER_EXCLUDE |
-					       HEADER_FILTER_NO_CR,
-					       NULL, 0,
-					       edit_callback, (void *)NULL);
-	test_istream_run(istream, filter, strlen(input), output);
-	i_stream_unref(&filter);
+	test_istream_run(istream, strlen(input), output,
+			 HEADER_FILTER_EXCLUDE |
+			 HEADER_FILTER_NO_CR,
+			 edit_callback);
 	i_stream_unref(&istream);
 
 	test_end();
@@ -425,22 +458,19 @@ static void test_istream_add_missing_eoh(void)
 		{ "From: foo\r\n\r\n", "From: foo\r\n\r\n", 0 },
 		{ "From: foo\r\n\r\nbar", "From: foo\r\n\r\nbar", 0 }
 	};
-	struct istream *istream, *filter;
+	struct istream *istream;
 	unsigned int i;
 
 	test_begin("i_stream_create_header_filter: add missing EOH");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		istream = test_istream_create(tests[i].input);
-		filter = i_stream_create_header_filter(istream,
-					       HEADER_FILTER_EXCLUDE |
-					       HEADER_FILTER_CRLF_PRESERVE |
-					       HEADER_FILTER_ADD_MISSING_EOH,
-					       NULL, 0,
-					       *null_header_filter_callback, (void *)NULL);
-		test_istream_run(istream, filter,
+		test_istream_run(istream,
 				 strlen(tests[i].input) + tests[i].extra,
-				 tests[i].output);
-		i_stream_unref(&filter);
+				 tests[i].output,
+				 HEADER_FILTER_EXCLUDE |
+				 HEADER_FILTER_CRLF_PRESERVE |
+				 HEADER_FILTER_ADD_MISSING_EOH,
+				 *null_header_filter_callback);
 		i_stream_unref(&istream);
 	}
 	test_end();
@@ -461,22 +491,19 @@ static void test_istream_hide_body(void)
 		{ "From: foo\r\n\r\n", "From: foo\r\n\r\n", 0 },
 		{ "From: foo\r\n\r\nbar", "From: foo\r\n\r\n", -3 }
 	};
-	struct istream *istream, *filter;
+	struct istream *istream;
 	unsigned int i;
 
 	test_begin("i_stream_create_header_filter: hide body");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		istream = test_istream_create(tests[i].input);
-		filter = i_stream_create_header_filter(istream,
-					       HEADER_FILTER_EXCLUDE |
-					       HEADER_FILTER_CRLF_PRESERVE |
-					       HEADER_FILTER_HIDE_BODY,
-					       NULL, 0,
-					       *null_header_filter_callback, (void *)NULL);
-		test_istream_run(istream, filter,
+		test_istream_run(istream,
 				 strlen(tests[i].input) + tests[i].extra,
-				 tests[i].output);
-		i_stream_unref(&filter);
+				 tests[i].output,
+				 HEADER_FILTER_EXCLUDE |
+				 HEADER_FILTER_CRLF_PRESERVE |
+				 HEADER_FILTER_HIDE_BODY,
+				 *null_header_filter_callback);
 		i_stream_unref(&istream);
 	}
 	test_end();
@@ -495,17 +522,56 @@ static void test_istream_strip_eoh(void)
 {
 	const char *input = "From: foo\nTo: bar\n\nhello world\n";
 	const char *output = "From: foo\nTo: bar\nhello world\n";
-	struct istream *istream, *filter;
+	struct istream *istream;
 
 	test_begin("i_stream_create_header_filter: strip_eoh");
 	istream = test_istream_create(input);
-	filter = i_stream_create_header_filter(istream,
-			HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR, NULL, 0,
-			strip_eoh_callback, (void *)NULL);
-	test_istream_run(istream, filter, strlen(input), output);
-	i_stream_unref(&filter);
+	test_istream_run(istream, strlen(input), output,
+			 HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
+			 strip_eoh_callback);
 	i_stream_unref(&istream);
 
+	test_end();
+}
+
+static void ATTR_NULL(3)
+missing_eoh_callback(struct header_filter_istream *input ATTR_UNUSED,
+		     struct message_header_line *hdr,
+		     bool *matched ATTR_UNUSED, void *context ATTR_UNUSED)
+{
+	if (hdr == NULL) {
+		const char *new_hdr = "Subject: added\n\n";
+		i_stream_header_filter_add(input, new_hdr, strlen(new_hdr));
+	}
+}
+
+static void test_istream_missing_eoh_callback(void)
+{
+	const char *input = "From: foo\nTo: bar\n";
+	const char *output = "From: foo\nTo: bar\nSubject: added\n\n";
+	struct istream *istream;
+
+	test_begin("i_stream_create_header_filter: add headers when EOH is missing");
+	istream = test_istream_create(input);
+	test_istream_run(istream, strlen(input) + 1, output,
+			 HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
+			 missing_eoh_callback);
+	i_stream_unref(&istream);
+	test_end();
+}
+
+static void test_istream_empty_missing_eoh_callback(void)
+{
+	const char *input = "";
+	const char *output = "Subject: added\n\n";
+	struct istream *istream;
+
+	test_begin("i_stream_create_header_filter: add headers when mail is empty");
+	istream = test_istream_create(input);
+	test_istream_run(istream, strlen(input)+1, output,
+			 HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
+			 missing_eoh_callback);
+	i_stream_unref(&istream);
 	test_end();
 }
 
@@ -521,6 +587,8 @@ int main(void)
 		test_istream_end_body_with_lf,
 		test_istream_hide_body,
 		test_istream_strip_eoh,
+		test_istream_missing_eoh_callback,
+		test_istream_empty_missing_eoh_callback,
 		NULL
 	};
 	return test_run(test_functions);
