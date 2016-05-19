@@ -432,6 +432,11 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	unsigned int max_client_limit = set->default_client_limit;
 #endif
 
+	if (*set->listen == '\0') {
+		*error_r = "listen can't be set empty";
+		return FALSE;
+	}
+
 	len = strlen(set->base_dir);
 	if (len > 0 && set->base_dir[len-1] == '/') {
 		/* drop trailing '/' */
