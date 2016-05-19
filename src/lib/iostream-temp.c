@@ -252,6 +252,7 @@ struct ostream *iostream_temp_create_sized(const char *temp_path_prefix,
 	struct ostream *output;
 
 	tstream = i_new(struct temp_ostream, 1);
+	tstream->ostream.ostream.blocking = TRUE;
 	tstream->ostream.sendv = o_stream_temp_sendv;
 	tstream->ostream.send_istream = o_stream_temp_send_istream;
 	tstream->ostream.write_at = o_stream_temp_write_at;
