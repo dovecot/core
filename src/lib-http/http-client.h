@@ -126,6 +126,13 @@ struct http_client_settings {
 	   is not automatically retried and the response is returned */
 	unsigned int max_auto_retry_delay;
 
+	/* the kernel send/receive buffer sizes used for the connection sockets.
+	   Configuring this is mainly useful for the test suite. The kernel
+	   defaults are used when these settings are 0. */
+	size_t socket_send_buffer_size;
+	size_t socket_recv_buffer_size;
+
+	/* enable logging debug messages */
 	bool debug;
 };
 
