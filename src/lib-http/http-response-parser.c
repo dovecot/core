@@ -73,6 +73,9 @@ static int http_response_parse_status(struct http_response_parser *parser)
 		return -1;
 	parser->response_status =
 		(p[0] - '0')*100 + (p[1] - '0')*10 + (p[2] - '0');
+	if (parser->response_status < 100 ||
+		parser->response_status >= 600)
+		return -1;
 	parser->parser.cur += 3;
 	return 1;
 }
