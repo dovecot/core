@@ -166,6 +166,8 @@ struct dsync_ibc_stream {
 	unsigned int version_received:1;
 	unsigned int handshake_received:1;
 	unsigned int has_pending_data:1;
+	unsigned int finish_received:1;
+	unsigned int done_received:1;
 	unsigned int stopped:1;
 };
 
@@ -365,10 +367,22 @@ static void dsync_ibc_stream_deinit(struct dsync_ibc *_ibc)
 	if (ibc->value_output != NULL)
 		i_stream_unref(&ibc->value_output);
 	else {
-		/* notify remote that we're closing. this is mainly to avoid
-		   "read() failed: EOF" errors on failing dsyncs */
-		o_stream_nsend_str(ibc->output,
-			t_strdup_printf("%c\n", items[ITEM_DONE].chr));
+		/* If the remote has not told us that they are closing we
+		   notify remote that we're closing. this is mainly to avoid
+		   "read() failed: EOF" errors on failing dsyncs.
+
+		   Avoid a race condition:
+		   We do not tell the remote we are closing if they have
+		   already told us because they close the
+		   connection after sending ITEM_DONE and will
+		   not be ever receive anything else from us unless
+		   it just happens to get combined into the same packet
+		   as a previous response and is already in the buffer.
+		*/
+		if (!ibc->done_received && !ibc->finish_received) {
+			o_stream_nsend_str(ibc->output,
+				t_strdup_printf("%c\n", items[ITEM_DONE].chr));
+		}
 		(void)o_stream_nfinish(ibc->output);
 	}
 
@@ -593,6 +607,7 @@ dsync_ibc_stream_input_next(struct dsync_ibc_stream *ibc, enum item_type item,
 		/* remote cleanly closed the connection, possibly because of
 		   some failure (which it should have logged). we don't want to
 		   log any stream errors anyway after this. */
+		ibc->done_received = TRUE;
 		dsync_ibc_stream_stop(ibc);
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 
@@ -1938,6 +1953,8 @@ dsync_ibc_stream_recv_finish(struct dsync_ibc *_ibc, const char **error_r,
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 	*mail_error_r = i;
+
+	ibc->finish_received = TRUE;
 	return DSYNC_IBC_RECV_RET_OK;
 }
 
