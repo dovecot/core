@@ -183,7 +183,7 @@ void http_client_deinit(struct http_client **_client)
 	/* free peers */
 	while (client->peers_list != NULL) {
 		peer = client->peers_list;
-		http_client_peer_free(&peer);
+		http_client_peer_close(&peer);
 	}
 	hash_table_destroy(&client->peers);
 
