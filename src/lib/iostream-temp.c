@@ -30,7 +30,8 @@ struct temp_ostream {
 	uoff_t fd_size;
 };
 
-static int o_stream_temp_dup_cancel(struct temp_ostream *tstream);
+static bool o_stream_temp_dup_cancel(struct temp_ostream *tstream,
+				     enum ostream_send_istream_result *res_r);
 
 static void
 o_stream_temp_close(struct iostream_private *stream,
@@ -104,10 +105,12 @@ o_stream_temp_sendv(struct ostream_private *stream,
 	struct temp_ostream *tstream = (struct temp_ostream *)stream;
 	ssize_t ret = 0;
 	unsigned int i;
+	enum ostream_send_istream_result res;
+
 
 	tstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
 	if (tstream->dupstream != NULL) {
-		if (o_stream_temp_dup_cancel(tstream) < 0)
+		if (o_stream_temp_dup_cancel(tstream, &res))
 			return -1;
 	}
 
@@ -129,12 +132,13 @@ o_stream_temp_sendv(struct ostream_private *stream,
 	return ret;
 }
 
-static int o_stream_temp_dup_cancel(struct temp_ostream *tstream)
+static bool o_stream_temp_dup_cancel(struct temp_ostream *tstream,
+				     enum ostream_send_istream_result *res_r)
 {
 	struct istream *input;
 	uoff_t size = tstream->dupstream_offset -
 		tstream->dupstream_start_offset;
-	int ret = -1;
+	bool ret = TRUE; /* use res_r to return error */
 
 	i_stream_seek(tstream->dupstream, tstream->dupstream_start_offset);
 	tstream->ostream.ostream.offset = 0;
@@ -142,29 +146,43 @@ static int o_stream_temp_dup_cancel(struct temp_ostream *tstream)
 	input = i_stream_create_limit(tstream->dupstream, size);
 	i_stream_unref(&tstream->dupstream);
 
-	if (io_stream_copy(&tstream->ostream.ostream, input) > 0) {
+	*res_r = io_stream_copy(&tstream->ostream.ostream, input);
+	switch (*res_r) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 		/* everything copied */
-		ret = 0;
-	} else if (tstream->ostream.ostream.stream_errno == 0) {
-		i_assert(input->stream_errno != 0);
+		ret = FALSE;
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		tstream->ostream.ostream.stream_errno = input->stream_errno;
+		io_stream_set_error(&tstream->ostream.iostream,
+			"iostream-temp: read(%s) failed: %s",
+			i_stream_get_name(input),
+			i_stream_get_error(input));
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		break;
 	}
 	i_stream_destroy(&input);
 	return ret;
 }
 
-static int o_stream_temp_dup_istream(struct temp_ostream *outstream,
-				     struct istream *instream)
+static bool
+o_stream_temp_dup_istream(struct temp_ostream *outstream,
+			  struct istream *instream,
+			  enum ostream_send_istream_result *res_r)
 {
 	uoff_t in_size;
 
 	if (!instream->readable_fd || i_stream_get_fd(instream) == -1)
-		return 0;
+		return FALSE;
 
 	if (i_stream_get_size(instream, TRUE, &in_size) <= 0) {
 		if (outstream->dupstream != NULL)
-			return o_stream_temp_dup_cancel(outstream);
-		return 0;
+			return o_stream_temp_dup_cancel(outstream, res_r);
+		return FALSE;
 	}
 
 	if (outstream->dupstream == NULL) {
@@ -175,7 +193,7 @@ static int o_stream_temp_dup_istream(struct temp_ostream *outstream,
 		if (outstream->dupstream != instream ||
 		    outstream->dupstream_offset != instream->v_offset ||
 		    outstream->dupstream_offset > in_size)
-			return o_stream_temp_dup_cancel(outstream);
+			return o_stream_temp_dup_cancel(outstream, res_r);
 	}
 	i_stream_seek(instream, in_size);
 	/* we should be at EOF now. o_stream_send_istream() asserts if
@@ -184,18 +202,20 @@ static int o_stream_temp_dup_istream(struct temp_ostream *outstream,
 	outstream->dupstream_offset = instream->v_offset;
 	outstream->ostream.ostream.offset =
 		outstream->dupstream_offset - outstream->dupstream_start_offset;
-	return 1;
+	*res_r = OSTREAM_SEND_ISTREAM_RESULT_FINISHED;
+	return TRUE;
 }
 
-static int o_stream_temp_send_istream(struct ostream_private *_outstream,
-				      struct istream *instream)
+static enum ostream_send_istream_result
+o_stream_temp_send_istream(struct ostream_private *_outstream,
+			   struct istream *instream)
 {
 	struct temp_ostream *outstream = (struct temp_ostream *)_outstream;
-	int ret;
+	enum ostream_send_istream_result res;
 
 	if ((outstream->flags & IOSTREAM_TEMP_FLAG_TRY_FD_DUP) != 0) {
-		if ((ret = o_stream_temp_dup_istream(outstream, instream)) != 0)
-			return ret;
+		if (!o_stream_temp_dup_istream(outstream, instream, &res))
+			return res;
 		outstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
 	}
 	return io_stream_copy(&outstream->ostream.ostream, instream);

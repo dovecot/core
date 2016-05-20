@@ -3,6 +3,20 @@
 
 #include "ioloop.h"
 
+enum ostream_send_istream_result {
+	/* All of the istream was successfully sent to ostream. */
+	OSTREAM_SEND_ISTREAM_RESULT_FINISHED,
+	/* Caller needs to wait for more input from non-blocking istream. */
+	OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT,
+	/* Caller needs to wait for output to non-blocking ostream.
+	   o_stream_set_flush_pending() is automatically called. */
+	OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT,
+	/* Read from istream failed. See istream->stream_errno. */
+	OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT,
+	/* Write to ostream failed. See ostream->stream_errno. */
+	OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT
+};
+
 struct ostream {
 	/* Number of bytes sent via o_stream_send*() and similar functions.
 	   This is counting the input data. For example with a compressed
@@ -151,24 +165,17 @@ void o_stream_ignore_last_errors(struct ostream *stream);
    When creating wrapper streams, they copy this behavior from the parent
    stream. */
 void o_stream_set_no_error_handling(struct ostream *stream, bool set);
-/* Send data from input stream. Returns 1 if the entire instream was sent
-   without errors, 0 if either instream or outstream is nonblocking and not
-   everything was sent, or -1 if either instream or outstream failed (see their
-   stream_errno for which one).
+/* Send all of the instream to outstream.
 
    On non-failure instream is skips over all data written to outstream.
    This means that the number of bytes written to outstream is always equal to
    the number of bytes skipped in instream.
 
-   For non-blocking outstreams: Note that this function may not add anything to
-   the output buffer, so if you want the flush callback to be called when more
-   data can be written, you'll need to call o_stream_set_flush_pending()
-   explicitly.
-
    It's also possible to use this function to copy data within same file
    descriptor, even if the source and destination overlaps. If the file must
    be grown, you have to do it manually before calling this function. */
-int o_stream_send_istream(struct ostream *outstream, struct istream *instream);
+enum ostream_send_istream_result
+o_stream_send_istream(struct ostream *outstream, struct istream *instream);
 /* Same as o_stream_send_istream(), but assume that reads and writes will
    succeed. If not, o_stream_nfinish() will fail with the correct error
    message (even istream's). */

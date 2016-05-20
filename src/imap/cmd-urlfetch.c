@@ -83,6 +83,7 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 	struct client *client = cmd->client;
 	struct cmd_urlfetch_context *ctx =
 		(struct cmd_urlfetch_context *)cmd->context;
+	enum ostream_send_istream_result res;
 	int ret;
 
 	/* are we in the middle of an urlfetch literal? */
@@ -98,27 +99,28 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 
 	/* transfer literal to client */
 	o_stream_set_max_buffer_size(client->output, 0);
-	ret = o_stream_send_istream(client->output, ctx->input);
+	res = o_stream_send_istream(client->output, ctx->input);
 	o_stream_set_max_buffer_size(client->output, (size_t)-1);
 
-	if (ret > 0) {
-		/* finished successfully */
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 		i_stream_unref(&ctx->input);
 		return 1;
-	}
-	if (client->output->closed) {
-		/* client disconnected */
-		return -1;
-	}
-	if (ctx->input->stream_errno != 0) {
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		return 0;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		i_error("read(%s) failed: %s (URLFETCH)",
 			i_stream_get_name(ctx->input),
 			i_stream_get_error(ctx->input));
 		client_disconnect(client, "URLFETCH failed");
 		return -1;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		/* client disconnected */
+		return -1;
 	}
-	o_stream_set_flush_pending(client->output, TRUE);
-	return 0;
+	i_unreached();
 }
 
 static bool cmd_urlfetch_continue(struct client_command_context *cmd)

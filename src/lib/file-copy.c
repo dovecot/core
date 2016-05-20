@@ -70,11 +70,21 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 	input = i_stream_create_fd(fd_in, IO_BLOCK_SIZE, FALSE);
 	output = o_stream_create_fd_file(fd_out, 0, FALSE);
 
-	ret = o_stream_send_istream(output, input);
-	if (ret < 0)
-		i_error("write(%s) failed: %m", tmppath);
-	else
-		i_assert(ret != 0);
+	switch (o_stream_send_istream(output, input)) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		i_error("read(%s) failed: %s", srcpath,
+			i_stream_get_error(input));
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		i_error("write(%s) failed: %s", tmppath,
+			o_stream_get_error(output));
+		break;
+	}
 
 	i_stream_destroy(&input);
 	o_stream_destroy(&output);

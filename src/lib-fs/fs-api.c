@@ -831,11 +831,14 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 		dest->copy_input = fs_read_stream(src, IO_BLOCK_SIZE);
 		dest->copy_output = fs_write_stream(dest);
 	}
-	if (o_stream_send_istream(dest->copy_output, dest->copy_input) == 0) {
+	switch (o_stream_send_istream(dest->copy_output, dest->copy_input)) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		fs_set_error_async(dest->fs);
 		return -1;
-	}
-	if (dest->copy_input->stream_errno != 0) {
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		errno = dest->copy_input->stream_errno;
 		fs_set_error(dest->fs, "read(%s) failed: %s",
 			     i_stream_get_name(dest->copy_input),
@@ -843,8 +846,7 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 		i_stream_unref(&dest->copy_input);
 		fs_write_stream_abort(dest, &dest->copy_output);
 		return -1;
-	}
-	if (dest->copy_output->stream_errno != 0) {
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		errno = dest->copy_output->stream_errno;
 		fs_set_error(dest->fs, "write(%s) failed: %s",
 			     o_stream_get_name(dest->copy_output),

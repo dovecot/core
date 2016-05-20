@@ -83,26 +83,40 @@ static void print_connection_released(void)
 
 static int server_connection_send_cmd_input_more(struct server_connection *conn)
 {
-	int ret;
+	enum ostream_send_istream_result res;
+	int ret = -1;
 
 	/* ostream-dot writes only up to max buffer size, so keep it non-zero */
 	o_stream_set_max_buffer_size(conn->cmd_output, IO_BLOCK_SIZE);
-	ret = o_stream_send_istream(conn->cmd_output, conn->cmd_input);
+	res = o_stream_send_istream(conn->cmd_output, conn->cmd_input);
 	o_stream_set_max_buffer_size(conn->cmd_output, (size_t)-1);
 
-	if (ret == 0) {
-		o_stream_set_flush_pending(conn->cmd_output, TRUE);
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		return 1;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		return 0;
-	}
-	if (conn->cmd_input->stream_errno != 0) {
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		i_error("read(%s) failed: %s",
 			i_stream_get_name(conn->cmd_input),
 			i_stream_get_error(conn->cmd_input));
-	} else if (conn->cmd_output->stream_errno != 0 ||
-		   o_stream_flush(conn->cmd_output) < 0) {
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		i_error("write(%s) failed: %s",
 			o_stream_get_name(conn->cmd_output),
 			o_stream_get_error(conn->cmd_output));
+		break;
+	}
+	if (res == OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
+		if ((ret = o_stream_flush(conn->cmd_output)) == 0)
+			return 0;
+		else if (ret < 0) {
+			i_error("write(%s) failed: %s",
+				o_stream_get_name(conn->cmd_output),
+				o_stream_get_error(conn->cmd_output));
+		}
 	}
 
 	i_stream_destroy(&conn->cmd_input);

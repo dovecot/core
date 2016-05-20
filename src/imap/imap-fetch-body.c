@@ -93,10 +93,10 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 	struct imap_fetch_state *state = &ctx->state;
 	const char *disconnect_reason;
 	uoff_t orig_input_offset = state->cur_input->v_offset;
-	int ret;
+	enum ostream_send_istream_result res;
 
 	o_stream_set_max_buffer_size(ctx->client->output, 0);
-	ret = o_stream_send_istream(ctx->client->output, state->cur_input);
+	res = o_stream_send_istream(ctx->client->output, state->cur_input);
 	o_stream_set_max_buffer_size(ctx->client->output, (size_t)-1);
 
 	if (ctx->state.cur_stats_sizep != NULL) {
@@ -104,14 +104,9 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 			state->cur_input->v_offset - orig_input_offset;
 	}
 
-	if (state->cur_input->v_offset != state->cur_size) {
-		/* unfinished */
-		if (state->cur_input->stream_errno != 0) {
-			fetch_read_error(ctx, &disconnect_reason);
-			client_disconnect(ctx->client, disconnect_reason);
-			return -1;
-		}
-		if (!i_stream_have_bytes_left(state->cur_input)) {
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		if (state->cur_input->v_offset != state->cur_size) {
 			/* Input stream gave less data than expected */
 			mail_set_cache_corrupted_reason(state->cur_mail,
 				state->cur_size_field, t_strdup_printf(
@@ -123,15 +118,20 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 			client_disconnect(ctx->client, "FETCH failed");
 			return -1;
 		}
-		if (ret < 0) {
-			/* client probably disconnected */
-			return -1;
-		}
-
-		o_stream_set_flush_pending(ctx->client->output, TRUE);
+		return 1;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		return 0;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		fetch_read_error(ctx, &disconnect_reason);
+		client_disconnect(ctx->client, disconnect_reason);
+		return -1;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		/* client disconnected */
+		return -1;
 	}
-	return 1;
+	i_unreached();
 }
 
 static const char *

@@ -1888,21 +1888,33 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 					 struct imapc_command *cmd)
 {
 	struct imapc_command_stream *stream;
-	int ret;
+	enum ostream_send_istream_result res;
 
 	stream = imapc_command_get_sending_stream(cmd);
 	if (stream == NULL)
-		return -1;
+		return -2;
 
 	/* we're sending the stream now */
 	o_stream_set_max_buffer_size(conn->output, 0);
-	ret = o_stream_send_istream(conn->output, stream->input);
+	res = o_stream_send_istream(conn->output, stream->input);
 	o_stream_set_max_buffer_size(conn->output, (size_t)-1);
 
-	if (ret == 0) {
-		o_stream_set_flush_pending(conn->output, TRUE);
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		i_assert(stream->input->v_offset < stream->size);
 		return 0;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		i_error("imapc: read(%s) failed: %s",
+			i_stream_get_name(stream->input),
+			i_stream_get_error(stream->input));
+		return -1;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		/* disconnected */
+		return -1;
 	}
 	i_assert(stream->input->v_offset == stream->size);
 
@@ -2018,9 +2030,19 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 	timeout_reset(conn->to_output);
 	if ((ret = imapc_command_try_send_stream(conn, cmd)) == 0)
 		return;
+	if (ret == -1) {
+		memset(&reply, 0, sizeof(reply));
+		reply.text_without_resp = reply.text_full = "Mailbox not open";
+		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
+
+		array_delete(&conn->cmd_send_queue, 0, 1);
+		imapc_command_reply_free(cmd, &reply);
+		imapc_command_send_more(conn);
+		return;
+	}
 
 	seek_pos = cmd->send_pos;
-	if (seek_pos != 0 && ret < 0) {
+	if (seek_pos != 0 && ret == -2) {
 		/* skip over the literal. we can also get here from
 		   AUTHENTICATE command, which doesn't use a literal */
 		if (parse_sync_literal(cmd->data->data, seek_pos, &size)) {

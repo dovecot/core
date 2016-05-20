@@ -61,7 +61,7 @@ static void test_iostream_temp_istream(void)
 	/* a working fd-dup */
 	output = iostream_temp_create_sized(".nonexistent/",
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 1);
-	test_assert(o_stream_send_istream(output, input) > 0);
+	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	temp_input = iostream_temp_finish(&output, 128);
 	test_assert(i_stream_read(temp_input) == 6);
 	i_stream_destroy(&temp_input);
@@ -72,7 +72,7 @@ static void test_iostream_temp_istream(void)
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 4);
 	test_assert(o_stream_send(output, "1234", 4) == 4);
 	test_expect_errors(1);
-	test_assert(o_stream_send_istream(output, input) > 0);
+	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	test_expect_no_more_errors();
 	o_stream_destroy(&output);
 
@@ -80,7 +80,7 @@ static void test_iostream_temp_istream(void)
 	i_stream_seek(input, 0);
 	output = iostream_temp_create_sized(".intentional-nonexistent-error/",
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 4);
-	test_assert(o_stream_send_istream(output, input) > 0);
+	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	test_expect_errors(1);
 	test_assert(o_stream_send(output, "1", 1) == 1);
 	test_expect_no_more_errors();
@@ -91,9 +91,9 @@ static void test_iostream_temp_istream(void)
 	input2 = i_stream_create_limit(input, (uoff_t)-1);
 	output = iostream_temp_create_sized(".intentional-nonexistent-error/",
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 4);
-	test_assert(o_stream_send_istream(output, input) > 0);
+	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	test_expect_errors(1);
-	test_assert(o_stream_send_istream(output, input2) > 0);
+	test_assert(o_stream_send_istream(output, input2) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	test_expect_no_more_errors();
 	o_stream_destroy(&output);
 	i_stream_unref(&input2);

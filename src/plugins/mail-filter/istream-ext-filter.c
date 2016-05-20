@@ -80,13 +80,8 @@ i_stream_mail_filter_read_once(struct mail_filter_istream *mstream)
 
 	if (mstream->ext_out != NULL) {
 		/* we haven't sent everything yet */
-		ret = o_stream_send_istream(mstream->ext_out, stream->parent);
-		if (mstream->ext_out->stream_errno != 0) {
-			stream->istream.stream_errno =
-				mstream->ext_out->stream_errno;
-			return -1;
-		}
-		if (ret > 0) {
+		switch (o_stream_send_istream(mstream->ext_out, stream->parent)) {
+		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 			o_stream_destroy(&mstream->ext_out);
 			/* if we wanted to be a blocking stream,
 			   from now on the rest of the reads are */
@@ -94,6 +89,19 @@ i_stream_mail_filter_read_once(struct mail_filter_istream *mstream)
 				net_set_nonblock(mstream->fd, FALSE);
 			if (shutdown(mstream->fd, SHUT_WR) < 0)
 				i_error("ext-filter: shutdown() failed: %m");
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+			stream->istream.stream_errno =
+				mstream->ext_out->stream_errno;
+			io_stream_set_error(&stream->iostream,
+				"write(%s) failed: %s",
+				o_stream_get_name(mstream->ext_out),
+				o_stream_get_error(mstream->ext_out));
+			return -1;
 		}
 	}
 

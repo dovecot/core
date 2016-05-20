@@ -1025,9 +1025,17 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 	struct mail_storage *storage = ctx->transaction->box->storage;
 
 	do {
-		if (o_stream_send_istream(ctx->data.output, input) < 0) {
-			if (input->stream_errno != 0)
-				break;
+		switch (o_stream_send_istream(ctx->data.output, input)) {
+		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+			i_unreached();
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+			/* handle below */
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 			if (!mail_storage_set_error_from_errno(storage)) {
 				mail_storage_set_critical(storage,
 					"save: write(%s) failed: %s",

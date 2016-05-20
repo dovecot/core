@@ -218,7 +218,6 @@ client_handle_download_request(
 	struct istream *fstream;
 	struct ostream *output;
 	unsigned int status;
-	int ret;
 
 	if (strcmp(hreq->method, "GET") != 0) {
 		http_server_request_fail(req,
@@ -244,8 +243,7 @@ client_handle_download_request(
 
 	if (blocking) {
 		output = http_server_response_get_payload_output(resp, TRUE);
-		ret=o_stream_send_istream(output, fstream);
-		if (ret < 0) {
+		if (o_stream_send_istream(output, fstream) != OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
 			i_fatal("test server: download: "
 				"failed to send blocking file payload");
 		}
@@ -273,24 +271,25 @@ client_request_read_echo_more(struct client_request *creq)
 {
 	struct http_server_response *resp;
 	struct istream *payload_input;
-	int ret;
+	enum ostream_send_istream_result res;
 
 	o_stream_set_max_buffer_size(creq->payload_output, IO_BLOCK_SIZE);
-	ret = o_stream_send_istream(creq->payload_output, creq->payload_input);
+	res = o_stream_send_istream(creq->payload_output, creq->payload_input);
 	o_stream_set_max_buffer_size(creq->payload_output, (size_t)-1);
-	if (ret < 0) {
-		if (creq->payload_output->stream_errno != 0) {
-			i_fatal("test server: echo: "
-				"Failed to write all echo payload [%s]", creq->path);
-		}
-		if (creq->payload_input->stream_errno != 0) {
-			i_fatal("test server: echo: "
-				"Failed to read all echo payload [%s]", creq->path);
-		}
-		i_unreached();
-	}
-	if (i_stream_have_bytes_left(creq->payload_input))
+
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		return;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		i_fatal("test server: echo: "
+			"Failed to read all echo payload [%s]", creq->path);
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		i_fatal("test server: echo: "
+			"Failed to write all echo payload [%s]", creq->path);
+	}
 
 	io_remove(&creq->io);
 	i_stream_unref(&creq->payload_input);
@@ -321,7 +320,6 @@ client_handle_echo_request(struct client_request *creq,
 	struct http_server_response *resp;
 	struct ostream *payload_output;
 	uoff_t size;
-	int ret;
 
 	creq->path = p_strdup
 		(http_server_request_get_pool(req), path);
@@ -358,8 +356,7 @@ client_handle_echo_request(struct client_request *creq,
 			payload_input = partial;
 		}
 
-		ret = o_stream_send_istream(payload_output, payload_input);
-		if (ret < 0) {
+		if (o_stream_send_istream(payload_output, payload_input) != OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
 			i_fatal("test server: echo: "
 				"failed to receive blocking echo payload");
 		}
@@ -376,8 +373,7 @@ client_handle_echo_request(struct client_request *creq,
 		http_server_response_add_header(resp, "Content-Type", "text/plain");
 
 		payload_output = http_server_response_get_payload_output(resp, TRUE);
-		ret = o_stream_send_istream(payload_output, payload_input);
-		if (ret < 0) {
+		if (o_stream_send_istream(payload_output, payload_input) != OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
 			i_fatal("test server: echo: "
 				"failed to send blocking echo payload");
 		}

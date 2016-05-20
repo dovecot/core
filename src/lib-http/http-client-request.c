@@ -833,7 +833,7 @@ int http_client_request_send_more(struct http_client_request *req,
 {
 	struct http_client_connection *conn = req->conn;
 	struct ostream *output = req->payload_output;
-	int ret;
+	enum ostream_send_istream_result res;
 
 	i_assert(req->payload_input != NULL);
 	i_assert(req->payload_output != NULL);
@@ -843,31 +843,11 @@ int http_client_request_send_more(struct http_client_request *req,
 
 	/* chunked ostream needs to write to the parent stream's buffer */
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
-	ret = o_stream_send_istream(output, req->payload_input);
+	res = o_stream_send_istream(output, req->payload_input);
 	o_stream_set_max_buffer_size(output, (size_t)-1);
 
-	if (req->payload_input->stream_errno != 0) {
-		/* we're in the middle of sending a request, so the connection
-		   will also have to be aborted */
-		*error_r = t_strdup_printf("read(%s) failed: %s",
-					   i_stream_get_name(req->payload_input),
-					   i_stream_get_error(req->payload_input));
-		
-		/* the payload stream assigned to this request is broken,
-		   fail this the request immediately */
-		http_client_request_error(&req,
-			HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD,
-			"Broken payload stream");
-		return -1;
-	} else if (output->stream_errno != 0) {
-		/* failed to send request */
-		*error_r = t_strdup_printf("write(%s) failed: %s",
-					   o_stream_get_name(output),
-					   o_stream_get_error(output));
-		return -1;
-	}
-
-	if (ret > 0) {
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 		/* finished sending */
 		if (!req->payload_chunked &&
 		    req->payload_input->v_offset - req->payload_offset != req->payload_size) {
@@ -891,22 +871,43 @@ int http_client_request_send_more(struct http_client_request *req,
 			/* finished sending payload */
 			http_client_request_finish_payload_out(req);
 		}
-	} else if (i_stream_have_bytes_left(req->payload_input)) {
-		/* output is blocking (server needs to act; enable timeout) */
-		conn->output_locked = TRUE;
-		if (!pipelined)
-			http_client_connection_start_request_timeout(conn);
-		o_stream_set_flush_pending(output, TRUE);
-		http_client_request_debug(req, "Partially sent payload");
-	} else {
+		return 0;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 		/* input is blocking (client needs to act; disable timeout) */
 		conn->output_locked = TRUE;	
 		if (!pipelined)
 			http_client_connection_stop_request_timeout(conn);
 		conn->io_req_payload = io_add_istream(req->payload_input,
 			http_client_request_payload_input, req);
+		return 0;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		/* output is blocking (server needs to act; enable timeout) */
+		conn->output_locked = TRUE;
+		if (!pipelined)
+			http_client_connection_start_request_timeout(conn);
+		http_client_request_debug(req, "Partially sent payload");
+		return 0;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		/* we're in the middle of sending a request, so the connection
+		   will also have to be aborted */
+		*error_r = t_strdup_printf("read(%s) failed: %s",
+					   i_stream_get_name(req->payload_input),
+					   i_stream_get_error(req->payload_input));
+
+		/* the payload stream assigned to this request is broken,
+		   fail this the request immediately */
+		http_client_request_error(&req,
+			HTTP_CLIENT_REQUEST_ERROR_BROKEN_PAYLOAD,
+			"Broken payload stream");
+		return -1;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		/* failed to send request */
+		*error_r = t_strdup_printf("write(%s) failed: %s",
+					   o_stream_get_name(output),
+					   o_stream_get_error(output));
+		return -1;
 	}
-	return 0;
+	i_unreached();
 }
 
 static int http_client_request_send_real(struct http_client_request *req,

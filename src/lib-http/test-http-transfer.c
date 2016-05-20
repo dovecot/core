@@ -104,7 +104,7 @@ static void test_http_transfer_chunked_input_valid(void)
 
 		buffer_set_used_size(payload_buffer, 0);
 		output = o_stream_create_buffer(payload_buffer);
-		test_out("payload read", o_stream_send_istream(output, chunked) > 0
+		test_out("payload read", o_stream_send_istream(output, chunked) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED
 			&& chunked->stream_errno == 0);
 		o_stream_destroy(&output);
 		i_stream_unref(&chunked);
@@ -315,8 +315,8 @@ static void test_http_transfer_chunked_output_valid(void)
 		/* read back chunk */
 		buffer_set_used_size(plain_buffer, 0);
 		output = o_stream_create_buffer(plain_buffer);
-		ret = o_stream_send_istream(output, ichunked);
-		test_out("payload unchunk", ret >= 0
+		test_out("payload unchunk",
+			o_stream_send_istream(output, ichunked) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED
 			&& ichunked->stream_errno == 0);
 		o_stream_destroy(&output);
 		i_stream_destroy(&ichunked);

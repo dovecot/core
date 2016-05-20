@@ -38,20 +38,20 @@ o_stream_metawrap_sendv(struct ostream_private *stream,
 	return ret;
 }
 
-static int
+static enum ostream_send_istream_result
 o_stream_metawrap_send_istream(struct ostream_private *_outstream,
 			       struct istream *instream)
 {
 	struct metawrap_ostream *outstream =
 		(struct metawrap_ostream *)_outstream;
 	uoff_t orig_instream_offset = instream->v_offset;
-	int ret;
+	enum ostream_send_istream_result res;
 
 	o_stream_metawrap_call_callback(outstream);
-	if ((ret = o_stream_send_istream(_outstream->parent, instream)) < 0)
+	if ((res = o_stream_send_istream(_outstream->parent, instream)) == OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT)
 		o_stream_copy_error_from_parent(_outstream);
 	_outstream->ostream.offset += instream->v_offset - orig_instream_offset;
-	return ret;
+	return res;
 }
 
 struct ostream *

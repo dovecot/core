@@ -341,57 +341,71 @@ void o_stream_set_no_error_handling(struct ostream *stream, bool set)
 	stream->real_stream->error_handling_disabled = set;
 }
 
-int o_stream_send_istream(struct ostream *outstream, struct istream *instream)
+enum ostream_send_istream_result
+o_stream_send_istream(struct ostream *outstream, struct istream *instream)
 {
 	struct ostream_private *_outstream = outstream->real_stream;
 	uoff_t old_outstream_offset = outstream->offset;
 	uoff_t old_instream_offset = instream->v_offset;
-	int ret;
+	enum ostream_send_istream_result res;
 
-	if (unlikely(outstream->closed || instream->closed ||
-		     outstream->stream_errno != 0)) {
-		errno = outstream->stream_errno;
-		return -1;
-	}
-
-	ret = _outstream->send_istream(_outstream, instream);
-	if (instream->stream_errno != 0) {
+	if (unlikely(instream->closed || instream->stream_errno != 0)) {
 		errno = instream->stream_errno;
-		return -1;
-	} else if (outstream->stream_errno != 0) {
+		return OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT;
+	}
+	if (unlikely(outstream->closed || outstream->stream_errno != 0)) {
 		errno = outstream->stream_errno;
-		return -1;
+		return OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT;
 	}
-	if (ret == 0) {
-		/* partial send */
-		i_assert(!outstream->blocking || !instream->blocking);
-	} else {
-		/* fully sent everything */
-		i_assert(ret == 1);
+
+	res = _outstream->send_istream(_outstream, instream);
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		i_assert(instream->stream_errno == 0);
+		i_assert(outstream->stream_errno == 0);
 		i_assert(!i_stream_have_bytes_left(instream));
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_assert(!instream->blocking);
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		i_assert(!outstream->blocking);
+		o_stream_set_flush_pending(outstream, TRUE);
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		i_assert(instream->stream_errno != 0);
+		return res;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		i_assert(outstream->stream_errno != 0);
+		return res;
 	}
+	/* non-failure - make sure stream offsets match */
 	i_assert((outstream->offset - old_outstream_offset) ==
 		 (instream->v_offset - old_instream_offset));
-	return ret;
+	return res;
 }
 
 void o_stream_nsend_istream(struct ostream *outstream, struct istream *instream)
 {
+	i_assert(instream->blocking);
+
 	switch (o_stream_send_istream(outstream, instream)) {
-	case 1:
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 		break;
-	case 0:
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		outstream->real_stream->noverflow = TRUE;
 		break;
-	default:
-		if (outstream->stream_errno != 0)
-			break;
-		i_assert(instream->stream_errno != 0);
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		outstream->stream_errno = instream->stream_errno;
 		io_stream_set_error(&outstream->real_stream->iostream,
 			"nsend-istream: read(%s) failed: %s",
 			i_stream_get_name(instream),
-			o_stream_get_name(outstream));
+			i_stream_get_error(instream));
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		break;
 	}
 	outstream->real_stream->last_errors_not_checked = TRUE;
 }
@@ -415,7 +429,8 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 	return ret;
 }
 
-int io_stream_copy(struct ostream *outstream, struct istream *instream)
+enum ostream_send_istream_result
+io_stream_copy(struct ostream *outstream, struct istream *instream)
 {
 	struct const_iovec iov;
 	const unsigned char *data;
@@ -423,14 +438,18 @@ int io_stream_copy(struct ostream *outstream, struct istream *instream)
 
 	while (i_stream_read_more(instream, &data, &iov.iov_len) > 0) {
 		iov.iov_base = data;
-		if ((ret = o_stream_sendv(outstream, &iov, 1)) <= 0)
-			return ret;
+		if ((ret = o_stream_sendv(outstream, &iov, 1)) < 0)
+			return OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT;
+		else if (ret == 0)
+			return OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT;
 		i_stream_skip(instream, ret);
 	}
 
 	if (instream->stream_errno != 0)
-		return -1;
-	return i_stream_have_bytes_left(instream) ? 0 : 1;
+		return OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT;
+	if (i_stream_have_bytes_left(instream))
+		return OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT;
+	return OSTREAM_SEND_ISTREAM_RESULT_FINISHED;
 }
 
 void o_stream_switch_ioloop(struct ostream *stream)
@@ -581,8 +600,9 @@ o_stream_default_write_at(struct ostream_private *_stream,
 	return -1;
 }
 
-static int o_stream_default_send_istream(struct ostream_private *outstream,
-					 struct istream *instream)
+static enum ostream_send_istream_result
+o_stream_default_send_istream(struct ostream_private *outstream,
+			      struct istream *instream)
 {
 	return io_stream_copy(&outstream->ostream, instream);
 }

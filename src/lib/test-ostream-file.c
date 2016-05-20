@@ -95,7 +95,7 @@ static void test_ostream_file_send_istream_file(void)
 	/* test that writing works between two files */
 	i_stream_seek(input, 3);
 	input2 = i_stream_create_limit(input, 4);
-	test_assert(o_stream_send_istream(output, input2) > 0);
+	test_assert(o_stream_send_istream(output, input2) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	test_assert(output->offset == 4);
 	test_assert(pread(fd, buf, sizeof(buf), 0) == 4 &&
 		    memcmp(buf, "4567", 4) == 0);
@@ -109,7 +109,7 @@ static void test_ostream_file_send_istream_file(void)
 	o_stream_seek(output, 1);
 	i_stream_seek(input, 2);
 	input2 = i_stream_create_limit(input, 2);
-	test_assert(o_stream_send_istream(output, input2) > 0);
+	test_assert(o_stream_send_istream(output, input2) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	test_assert(output->offset == 3);
 	test_assert(pread(fd, buf, sizeof(buf), 0) == 4 &&
 		    memcmp(buf, "4677", 4) == 0);
@@ -121,7 +121,7 @@ static void test_ostream_file_send_istream_file(void)
 	test_assert(pwrite(fd, buf, 4, 0) == 4);
 	input = i_stream_create_fd(fd, 1024, FALSE);
 	o_stream_seek(output, 1);
-	test_assert(o_stream_send_istream(output, input) > 0);
+	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	test_assert(output->offset == 5);
 	test_assert(pread(fd, buf, sizeof(buf), 0) == 5 &&
 		    memcmp(buf, "11234", 5) == 0);
@@ -158,7 +158,7 @@ static void test_ostream_file_send_istream_sendfile(void)
 	/* test that sendfile() works */
 	i_stream_seek(input, 3);
 	input2 = i_stream_create_limit(input, 4);
-	test_assert(o_stream_send_istream(output, input2) > 0);
+	test_assert(o_stream_send_istream(output, input2) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 	test_assert(output->offset == 4);
 	test_assert(read(sock_fd[1], buf, sizeof(buf)) == 4 &&
 		    memcmp(buf, "defg", 4) == 0);

@@ -126,7 +126,7 @@ static void test_http_response_parse_valid(void)
 				buffer_set_used_size(payload_buffer, 0);
 				output = o_stream_create_buffer(payload_buffer);
 				test_out("payload receive", 
-					o_stream_send_istream(output, response.payload));
+					o_stream_send_istream(output, response.payload) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 				o_stream_destroy(&output);
 				payload = str_c(payload_buffer);
 			} else {

@@ -211,25 +211,31 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 static bool
 cmd_getmetadata_stream_continue(struct imap_getmetadata_context *ctx)
 {
-	int ret;
+	enum ostream_send_istream_result res;
 
 	o_stream_set_max_buffer_size(ctx->cmd->client->output, 0);
-	ret = o_stream_send_istream(ctx->cmd->client->output, ctx->cur_stream);
+	res = o_stream_send_istream(ctx->cmd->client->output, ctx->cur_stream);
 	o_stream_set_max_buffer_size(ctx->cmd->client->output, (size_t)-1);
 
-	if (ret > 0) {
-		/* finished */
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 		return TRUE;
-	} else if (ret < 0) {
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		return FALSE;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		i_error("read(%s) failed: %s",
 			i_stream_get_name(ctx->cur_stream),
 			i_stream_get_error(ctx->cur_stream));
 		client_disconnect(ctx->cmd->client,
 				  "Internal GETMETADATA failure");
 		return TRUE;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		/* client disconnected */
+		return TRUE;
 	}
-	o_stream_set_flush_pending(ctx->cmd->client->output, TRUE);
-	return FALSE;
+	i_unreached();
 }
 
 static int

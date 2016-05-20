@@ -481,7 +481,8 @@ int http_server_response_send_more(struct http_server_response *resp,
 {
 	struct http_server_connection *conn = resp->request->conn;
 	struct ostream *output = resp->payload_output;
-	off_t ret;
+	enum ostream_send_istream_result res;
+	int ret = 0;
 
 	*error_r = NULL;
 
@@ -494,17 +495,44 @@ int http_server_response_send_more(struct http_server_response *resp,
 
 	/* chunked ostream needs to write to the parent stream's buffer */
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
-	ret = o_stream_send_istream(output, resp->payload_input);
+	res = o_stream_send_istream(output, resp->payload_input);
 	o_stream_set_max_buffer_size(output, (size_t)-1);
 
-	if (resp->payload_input->stream_errno != 0) {
+	switch (res) {
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		/* finished sending */
+		if (!resp->payload_chunked &&
+		    resp->payload_input->v_offset - resp->payload_offset !=
+				resp->payload_size) {
+			*error_r = t_strdup_printf(
+				"Input stream %s size changed unexpectedly",
+				i_stream_get_name(resp->payload_input));
+			ret = -1;
+		} else {
+			ret = 1;
+		}
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		/* input is blocking */
+		conn->output_locked = TRUE;	
+		conn->io_resp_payload = io_add_istream(resp->payload_input,
+			http_server_response_payload_input, resp);
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+		/* output is blocking */
+		conn->output_locked = TRUE;
+		o_stream_set_flush_pending(output, TRUE);
+		//http_server_response_debug(resp, "Partially sent payload");
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		/* we're in the middle of sending a response, so the connection
 		   will also have to be aborted */
 		*error_r = t_strdup_printf("read(%s) failed: %s",
 			i_stream_get_name(resp->payload_input),
 			i_stream_get_error(resp->payload_input));
 		ret = -1;
-	} else if (output->stream_errno != 0) {
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		/* failed to send response */
 		if (output->stream_errno != EPIPE &&
 		    output->stream_errno != ECONNRESET) {
@@ -512,30 +540,12 @@ int http_server_response_send_more(struct http_server_response *resp,
 				o_stream_get_name(output), o_stream_get_error(output));
 		}
 		ret = -1;
+		break;
 	}
 
 	if (ret != 0) {
-		/* finished sending */
-		if (ret > 0 && !resp->payload_chunked &&
-			resp->payload_input->v_offset - resp->payload_offset !=
-				resp->payload_size) {
-			*error_r = t_strdup_printf(
-				"Input stream %s size changed unexpectedly",
-				i_stream_get_name(resp->payload_input));
-			ret = -1;
-		}
-		/* finished sending payload */
+		/* finished sending payload (or error) */
 		http_server_response_finish_payload_out(resp);
-	} else if (i_stream_have_bytes_left(resp->payload_input)) {
-		/* output is blocking */
-		conn->output_locked = TRUE;
-		o_stream_set_flush_pending(output, TRUE);
-		//http_server_response_debug(resp, "Partially sent payload");
-	} else {
-		/* input is blocking */
-		conn->output_locked = TRUE;	
-		conn->io_resp_payload = io_add_istream(resp->payload_input,
-			http_server_response_payload_input, resp);
 	}
 	return ret < 0 ? -1 : 0;
 }
