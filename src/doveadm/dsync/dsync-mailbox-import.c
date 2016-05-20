@@ -785,9 +785,10 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 		/* add a record for local mail */
 		i_assert(importer->cur_mail != NULL);
 		if (importer->revert_local_changes) {
-			if (save_change == NULL) {
+			if (save_change == NULL &&
+			    importer->cur_mail->uid >= importer->remote_uid_next) {
 				dsync_mailbox_revert_existing_uid(importer, importer->cur_mail->uid,
-					t_strdup_printf("highest than remote's UIDs (remote UIDNEXT=%u)", importer->remote_uid_next));
+					t_strdup_printf("higher than remote's UIDs (remote UIDNEXT=%u)", importer->remote_uid_next));
 				return TRUE;
 			}
 			mail_expunge(importer->cur_mail);
