@@ -165,6 +165,7 @@ struct http_client_connection {
 };
 
 struct http_client_peer {
+	unsigned int refcount;
 	struct http_client_peer_addr addr;
 	char *addr_name;
 
@@ -185,7 +186,7 @@ struct http_client_peer {
 	struct timeout *to_backoff;
 	unsigned int backoff_time_msecs;
 
-	unsigned int destroyed:1;        /* peer is being destroyed */
+	unsigned int disconnected:1;     /* peer is already disconnected */
 	unsigned int no_payload_sync:1;  /* expect: 100-continue failed before */
 	unsigned int seen_100_response:1;/* expect: 100-continue succeeded before */
 	unsigned int allows_pipelining:1;/* peer is known to allow persistent
@@ -337,7 +338,10 @@ int http_client_peer_addr_cmp
 struct http_client_peer *
 	http_client_peer_get(struct http_client *client,
 		const struct http_client_peer_addr *addr);
-void http_client_peer_free(struct http_client_peer **_peer);
+void http_client_peer_ref(struct http_client_peer *peer);
+bool http_client_peer_unref(struct http_client_peer **_peer);
+void http_client_peer_close(struct http_client_peer **_peer);
+
 bool http_client_peer_have_queue(struct http_client_peer *peer,
 				struct http_client_queue *queue);
 void http_client_peer_link_queue(struct http_client_peer *peer,

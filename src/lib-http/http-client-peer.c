@@ -128,7 +128,7 @@ http_client_peer_connect_backoff(struct http_client_peer *peer)
 	timeout_remove(&peer->to_backoff);
 
 	if (array_count(&peer->queues) == 0) {
-		http_client_peer_free(&peer);
+		http_client_peer_close(&peer);
 		return;
 	}
 
@@ -183,23 +183,6 @@ bool http_client_peer_is_connected(struct http_client_peer *peer)
 	return FALSE;
 }
 
-static void
-http_client_peer_disconnect(struct http_client_peer *peer)
-{
-	struct http_client_connection **conn;
-	ARRAY_TYPE(http_client_connection) conns;
-
-	http_client_peer_debug(peer, "Peer disconnect");
-
-	/* make a copy of the connection array; freed connections modify it */
-	t_array_init(&conns, array_count(&peer->conns));
-	array_copy(&conns.arr, 0, &peer->conns.arr, 0, array_count(&peer->conns));
-	array_foreach_modifiable(&conns, conn) {
-		http_client_connection_unref(conn);
-	}
-	i_assert(array_count(&peer->conns) == 0);
-}
-
 static unsigned int
 http_client_peer_requests_pending(struct http_client_peer *peer,
 				  unsigned int *num_urgent_r)
@@ -225,7 +208,7 @@ static void http_client_peer_check_idle(struct http_client_peer *peer)
 	if (array_count(&peer->conns) == 0 &&
 		http_client_peer_requests_pending(peer, &num_urgent) == 0) {
 		/* no connections or pending requests; die immediately */
-		http_client_peer_free(&peer);
+		http_client_peer_close(&peer);
 		return;
 	}
 
@@ -247,6 +230,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	struct _conn_available *conn_avail_idx;
 	unsigned int connecting, closing, idle;
 	unsigned int num_pending, num_urgent, new_connections, 	working_conn_count;
+	struct http_client_peer *tmp_peer;
 	bool statistics_dirty = TRUE;
 
 	/* FIXME: limit the number of requests handled in one run to prevent
@@ -258,7 +242,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		http_client_peer_debug(peer,
 			"Peer no longer used; will now disconnect "
 			"(%u connections exist)", array_count(&peer->conns));
-		http_client_peer_disconnect(peer);
+		http_client_peer_close(&peer);
 		return;
 	}
 
@@ -272,6 +256,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		return;
 	}
 
+	http_client_peer_ref(peer);
 	peer->handling_requests = TRUE;
 	t_array_init(&conns_avail, array_count(&peer->conns));
 	do {
@@ -364,6 +349,10 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 			break;
 		}
 	} while (statistics_dirty);
+
+	tmp_peer = peer;
+	if (!http_client_peer_unref(&tmp_peer))
+		return;
 	peer->handling_requests = FALSE;
 
 	if (num_pending == 0)
@@ -494,6 +483,7 @@ http_client_peer_create(struct http_client *client,
 	struct http_client_peer *peer;
 
 	peer = i_new(struct http_client_peer, 1);
+	peer->refcount = 1;
 	peer->client = client;
 	peer->addr = *addr;
 
@@ -528,33 +518,72 @@ http_client_peer_create(struct http_client *client,
 	return peer;
 }
 
-void http_client_peer_free(struct http_client_peer **_peer)
+static void
+http_client_peer_disconnect(struct http_client_peer *peer)
 {
-	struct http_client_peer *peer = *_peer;
+	struct http_client_connection **conn;
+	ARRAY_TYPE(http_client_connection) conns;
 
-	*_peer = NULL;
-
-	if (peer->destroyed)
+	if (peer->disconnected)
 		return;
-	peer->destroyed = TRUE;
+	peer->disconnected = TRUE;
 
-	http_client_peer_debug(peer, "Peer destroy");
+	http_client_peer_debug(peer, "Peer disconnect");
+
+	/* make a copy of the connection array; freed connections modify it */
+	t_array_init(&conns, array_count(&peer->conns));
+	array_copy(&conns.arr, 0, &peer->conns.arr, 0, array_count(&peer->conns));
+	array_foreach_modifiable(&conns, conn) {
+		http_client_connection_unref(conn);
+	}
+	i_assert(array_count(&peer->conns) == 0);
 
 	if (peer->to_req_handling != NULL)
 		timeout_remove(&peer->to_req_handling);
 	if (peer->to_backoff != NULL)
 		timeout_remove(&peer->to_backoff);
 
-	http_client_peer_disconnect(peer);
-	array_free(&peer->conns);
-	array_free(&peer->queues);
-
 	hash_table_remove
 		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);
 	DLLIST_REMOVE(&peer->client->peers_list, peer);
+}
 
+void http_client_peer_ref(struct http_client_peer *peer)
+{
+	peer->refcount++;
+}
+
+bool http_client_peer_unref(struct http_client_peer **_peer)
+{
+	struct http_client_peer *peer = *_peer;
+
+	i_assert(peer->refcount > 0);
+
+	*_peer = NULL;
+
+	if (--peer->refcount > 0)
+		return TRUE;
+
+	http_client_peer_debug(peer, "Peer destroy");
+
+	http_client_peer_disconnect(peer);
+
+	array_free(&peer->conns);
+	array_free(&peer->queues);
 	i_free(peer->addr_name);
 	i_free(peer);
+	return FALSE;
+}
+
+void http_client_peer_close(struct http_client_peer **_peer)
+{
+	struct http_client_peer *peer = *_peer;
+
+	http_client_peer_debug(peer, "Peer close");
+
+	http_client_peer_disconnect(peer);
+
+	(void)http_client_peer_unref(_peer);
 }
 
 struct http_client_peer *
@@ -604,7 +633,7 @@ void http_client_peer_unlink_queue(struct http_client_peer *peer,
 					http_client_peer_trigger_request_handler(peer);
 				} else {
 					/* drop peer immediately */
-					http_client_peer_free(&peer);
+					http_client_peer_close(&peer);
 				}
 			}
 			return;
@@ -702,7 +731,7 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 	   connect itself fails, http_client_peer_connection_failure() is
 	   called instead. */
 
-	if (peer->destroyed)
+	if (peer->disconnected)
 		return;
 
 	http_client_peer_debug(peer, "Lost a connection (%d connections left)",
@@ -716,7 +745,7 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 	/* check if peer is still relevant */
 	if (array_count(&peer->conns) == 0 &&
 		http_client_peer_requests_pending(peer, &num_urgent) == 0) {
-		http_client_peer_free(&peer);
+		http_client_peer_close(&peer);
 		return;
 	}
 
