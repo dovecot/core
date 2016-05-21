@@ -172,7 +172,7 @@ bool http_client_request_unref(struct http_client_request **_req)
 		client->requests_count);
 
 	/* cannot be destroyed while it is still pending */
-	i_assert(req->conn == NULL || req->conn->pending_request == NULL);
+	i_assert(req->conn == NULL);
 
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
@@ -1144,7 +1144,8 @@ void http_client_request_finish(struct http_client_request *req)
 	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
 		return;
 
-	i_assert(req->refcount > 1);
+	i_assert(req->refcount > 0);
+
 	http_client_request_debug(req, "Finished");
 
 	req->callback = NULL;
