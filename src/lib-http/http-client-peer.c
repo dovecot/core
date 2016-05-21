@@ -725,7 +725,7 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 
 void http_client_peer_connection_lost(struct http_client_peer *peer)
 {
-	unsigned int num_urgent;
+	unsigned int num_pending, num_urgent;
 
 	/* we get here when an already connected connection fails. if the
 	   connect itself fails, http_client_peer_connection_failure() is
@@ -734,8 +734,12 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 	if (peer->disconnected)
 		return;
 
-	http_client_peer_debug(peer, "Lost a connection (%d connections left)",
-		array_count(&peer->conns));
+	num_pending = http_client_peer_requests_pending(peer, &num_urgent);
+
+	http_client_peer_debug(peer,
+		"Lost a connection "
+		"(%d connections left, %u requests pending, %u requests urgent)",
+		array_count(&peer->conns), num_pending, num_urgent);
 
 	if (peer->handling_requests) {
 		/* we got here from the request handler loop */
