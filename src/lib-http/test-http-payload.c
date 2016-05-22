@@ -1377,8 +1377,20 @@ static void (*test_functions[])(void) = {
  * Main
  */
 
-int main(void)
+int main(int argc, char *argv[])
 {
+	int c;
+
+  while ((c = getopt(argc, argv, "D")) > 0) {
+		switch (c) {
+		case 'D':
+			debug = TRUE;
+			break;
+		default:
+			i_fatal("Usage: %s [-D]", argv[0]);
+		}
+  }
+
 	/* listen on localhost */
 	memset(&bind_ip, 0, sizeof(bind_ip));
 	bind_ip.family = AF_INET;
