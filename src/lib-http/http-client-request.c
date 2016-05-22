@@ -150,6 +150,32 @@ http_client_request_connect_ip(struct http_client *client,
 	return req;
 }
 
+static void
+http_client_request_add(struct http_client_request *req)
+{
+	struct http_client *client = req->client;
+
+	DLLIST_PREPEND(&client->requests_list, req);
+	client->requests_count++;
+	req->listed = TRUE;
+}
+
+static void
+http_client_request_remove(struct http_client_request *req)
+{
+	struct http_client *client = req->client;
+
+	if (req->listed) {
+		/* only decrease pending request counter if this request was submitted */
+		DLLIST_REMOVE(&client->requests_list, req);
+		client->requests_count--;
+	}
+	req->listed = FALSE;
+
+	if (client->requests_count == 0 && client->ioloop != NULL)
+		io_loop_stop(client->ioloop);
+}
+
 void http_client_request_ref(struct http_client_request *req)
 {
 	i_assert(req->refcount > 0);
@@ -182,11 +208,7 @@ bool http_client_request_unref(struct http_client_request **_req)
 		req->destroy_callback = NULL;
 	}
 
-	/* only decrease pending request counter if this request was submitted */
-	if (req->submitted) {
-		DLLIST_REMOVE(&client->requests_list, req);
-		client->requests_count--;
-	}
+	http_client_request_remove(req);
 
 	if (client->requests_count == 0 && client->ioloop != NULL)
 		io_loop_stop(client->ioloop);
@@ -213,6 +235,10 @@ void http_client_request_destroy(struct http_client_request **_req)
 	http_client_request_debug(req, "Destroy (requests left=%d)",
 		client->requests_count);
 
+	if (req->state < HTTP_REQUEST_STATE_FINISHED)
+		req->state = HTTP_REQUEST_STATE_ABORTED;
+	req->callback = NULL;
+
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
 
@@ -222,6 +248,7 @@ void http_client_request_destroy(struct http_client_request **_req)
 		req->destroy_callback = NULL;
 		callback(req->destroy_context);
 	}
+	http_client_request_remove(req);
 	http_client_request_unref(&req);
 }
 
@@ -562,16 +589,13 @@ static void http_client_request_do_submit(struct http_client_request *req)
 
 void http_client_request_submit(struct http_client_request *req)
 {
-	struct http_client *client = req->client;
-
 	req->submit_time = ioloop_timeval;
 
 	http_client_request_do_submit(req);
 	http_client_request_debug(req, "Submitted");
 
 	req->submitted = TRUE;
-	DLLIST_PREPEND(&client->requests_list, req);
-	client->requests_count++;
+	http_client_request_add(req);
 }
 
 void

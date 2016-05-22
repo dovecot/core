@@ -167,24 +167,20 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 void http_client_deinit(struct http_client **_client)
 {
 	struct http_client *client = *_client;
-	struct http_client_request *req, *const *req_idx;
+	struct http_client_request *req;
 	struct http_client_host *host;
 	struct http_client_peer *peer;
 
 	*_client = NULL;
 
-	/* drop delayed failing requests */
-	while (array_count(&client->delayed_failing_requests) > 0) {
-		req_idx = array_idx(&client->delayed_failing_requests, 0);
-		req = *req_idx;
-
-		i_assert(req->refcount == 1);
-		http_client_request_error_delayed(&req);
+	/* destroy requests without calling callbacks */
+	req = client->requests_list;
+	while (req != NULL) {
+		struct http_client_request *next_req = req->next;
+		http_client_request_destroy(&req);
+		req = next_req;
 	}
-	array_free(&client->delayed_failing_requests);
-
-	if (client->to_failing_requests != NULL)
-		timeout_remove(&client->to_failing_requests);
+	i_assert(client->requests_count == 0);
 
 	/* free peers */
 	while (client->peers_list != NULL) {
@@ -199,6 +195,10 @@ void http_client_deinit(struct http_client **_client)
 		http_client_host_free(&host);
 	}
 	hash_table_destroy(&client->hosts);
+
+	array_free(&client->delayed_failing_requests);
+	if (client->to_failing_requests != NULL)
+		timeout_remove(&client->to_failing_requests);
 
 	connection_list_deinit(&client->conn_list);
 

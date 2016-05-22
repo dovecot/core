@@ -119,6 +119,7 @@ struct http_client_request {
 	unsigned int payload_wait:1;
 	unsigned int urgent:1;
 	unsigned int submitted:1;
+	unsigned int listed:1;
 	unsigned int connect_tunnel:1;
 	unsigned int connect_direct:1;
 	unsigned int ssl_tunnel:1;
