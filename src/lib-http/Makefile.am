@@ -64,6 +64,7 @@ test_programs = \
 test_nocheck_programs = \
 	test-http-payload \
 	test-http-client \
+	test-http-client-errors \
 	test-http-server
 
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
@@ -158,6 +159,23 @@ test_http_client_LDADD = \
 	../lib-settings/libsettings.la \
 	$(test_libs)
 test_http_client_DEPENDENCIES = \
+	libhttp.la \
+	../lib-dns/libdns.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-master/libmaster.la \
+	../lib-settings/libsettings.la \
+	$(test_deps)
+
+test_http_client_errors_SOURCES = test-http-client-errors.c
+test_http_client_errors_LDFLAGS = -export-dynamic
+test_http_client_errors_LDADD = \
+	libhttp.la \
+	../lib-dns/libdns.la \
+	../lib-ssl-iostream/libssl_iostream.la \
+	../lib-master/libmaster.la \
+	../lib-settings/libsettings.la \
+	$(test_libs)
+test_http_client_errors_DEPENDENCIES = \
 	libhttp.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
