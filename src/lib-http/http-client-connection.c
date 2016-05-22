@@ -823,7 +823,6 @@ static void http_client_connection_input(struct connection *_conn)
 					HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE,
 					"Server responded with success response "
 					"before all payload was sent");
-				http_client_request_unref(&req);
 				http_client_connection_close(&conn);
 				return;
 			} 
