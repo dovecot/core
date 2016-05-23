@@ -159,6 +159,7 @@ struct http_client_connection {
 	unsigned int connect_initialized:1; /* connection was initialized */
 	unsigned int connect_succeeded:1;
 	unsigned int closing:1;
+	unsigned int disconnected:1;
 	unsigned int close_indicated:1;
 	unsigned int output_locked:1;       /* output is locked; no pipelining */
 	unsigned int output_broken:1;       /* output is broken; no more requests */
@@ -312,6 +313,9 @@ void http_client_connection_ref(struct http_client_connection *conn);
 /* Returns FALSE if unrefing destroyed the connection entirely */
 bool http_client_connection_unref(struct http_client_connection **_conn);
 void http_client_connection_close(struct http_client_connection **_conn);
+
+void http_client_connection_peer_closed(struct http_client_connection **_conn);
+
 int http_client_connection_output(struct http_client_connection *conn);
 void http_client_connection_start_request_timeout(
 	struct http_client_connection *conn);

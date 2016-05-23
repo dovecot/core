@@ -46,8 +46,6 @@ http_client_connection_debug(struct http_client_connection *conn,
 
 static void http_client_connection_ready(struct http_client_connection *conn);
 static void http_client_connection_input(struct connection *_conn);
-static void
-http_client_connection_disconnect(struct http_client_connection *conn);
 
 unsigned int
 http_client_connection_count_pending(struct http_client_connection *conn)
@@ -561,8 +559,10 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	   somewhere from the API user's code, which we can't really know what
 	   state it is in). this call also triggers sending a new request if
 	   necessary. */
-	conn->to_input =
-		timeout_add_short(0, http_client_payload_destroyed_timeout, conn);
+	if (!conn->disconnected) {
+		conn->to_input = timeout_add_short
+			(0, http_client_payload_destroyed_timeout, conn);
+	}
 
 	/* room for new requests */
 	if (http_client_connection_is_ready(conn))
@@ -609,7 +609,8 @@ http_client_connection_return_response(
 	http_client_connection_ref(conn);
 	retrying = !http_client_request_callback(req, response);
 	tmp_conn = conn;
-	if (!http_client_connection_unref(&tmp_conn)) {
+	if (!http_client_connection_unref(&tmp_conn) ||
+		conn->disconnected) {
 		/* the callback managed to get this connection destroyed */
 		if (!retrying)
 			http_client_request_finish(req);
@@ -1414,6 +1415,16 @@ void http_client_connection_ref(struct http_client_connection *conn)
 static void
 http_client_connection_disconnect(struct http_client_connection *conn)
 {
+	struct http_client_peer *peer = conn->peer;
+	ARRAY_TYPE(http_client_connection) *conn_arr;
+	struct http_client_connection *const *conn_idx;
+
+	if (conn->disconnected)
+		return;
+	conn->disconnected = TRUE;
+
+	http_client_connection_debug(conn, "Connection disconnect");
+
 	conn->closing = TRUE;
 	conn->connected = FALSE;
 
@@ -1447,14 +1458,23 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 		timeout_remove(&conn->to_idle);
 	if (conn->to_response != NULL)
 		timeout_remove(&conn->to_response);
+
+	/* remove this connection from the list */
+	conn_arr = &peer->conns;
+	array_foreach(conn_arr, conn_idx) {
+		if (*conn_idx == conn) {
+			array_delete(conn_arr, array_foreach_idx(conn_arr, conn_idx), 1);
+			break;
+		}
+	}
+
+	if (conn->connect_succeeded)
+		http_client_peer_connection_lost(peer);
 }
 
 bool http_client_connection_unref(struct http_client_connection **_conn)
 {
 	struct http_client_connection *conn = *_conn;
-	struct http_client_connection *const *conn_idx;
-	ARRAY_TYPE(http_client_connection) *conn_arr;
-	struct http_client_peer *peer = conn->peer;
 
 	i_assert(conn->refcount > 0);
 
@@ -1467,6 +1487,13 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 
 	http_client_connection_disconnect(conn);
 
+	i_assert(conn->io_req_payload == NULL);
+	i_assert(conn->to_requests == NULL);
+	i_assert(conn->to_connect == NULL);
+	i_assert(conn->to_input == NULL);
+	i_assert(conn->to_idle == NULL);
+	i_assert(conn->to_response == NULL);
+
 	if (array_is_created(&conn->request_wait_list))
 		array_free(&conn->request_wait_list);
 
@@ -1475,17 +1502,6 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 	if (conn->connect_initialized)
 		connection_deinit(&conn->conn);
 	
-	/* remove this connection from the list */
-	conn_arr = &conn->peer->conns;
-	array_foreach(conn_arr, conn_idx) {
-		if (*conn_idx == conn) {
-			array_delete(conn_arr, array_foreach_idx(conn_arr, conn_idx), 1);
-			break;
-		}
-	}
-
-	if (conn->connect_succeeded)
-		http_client_peer_connection_lost(peer);
 	i_free(conn);
 	return FALSE;
 }
@@ -1499,6 +1515,17 @@ void http_client_connection_close(struct http_client_connection **_conn)
 	http_client_connection_disconnect(conn);
 
 	http_client_connection_unref(_conn);
+}
+
+void http_client_connection_peer_closed(struct http_client_connection **_conn)
+{
+	struct http_client_connection *conn = *_conn;
+
+	http_client_connection_debug(conn, "Peer closed");
+	http_client_connection_disconnect(conn);
+
+	if (http_client_connection_unref(_conn))
+		conn->peer = NULL;
 }
 
 void http_client_connection_switch_ioloop(struct http_client_connection *conn)

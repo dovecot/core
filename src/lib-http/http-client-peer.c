@@ -534,7 +534,7 @@ http_client_peer_disconnect(struct http_client_peer *peer)
 	t_array_init(&conns, array_count(&peer->conns));
 	array_copy(&conns.arr, 0, &peer->conns.arr, 0, array_count(&peer->conns));
 	array_foreach_modifiable(&conns, conn) {
-		http_client_connection_unref(conn);
+		http_client_connection_peer_closed(conn);
 	}
 	i_assert(array_count(&peer->conns) == 0);
 
@@ -746,15 +746,8 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 		return;
 	}
 
-	/* check if peer is still relevant */
-	if (array_count(&peer->conns) == 0 &&
-		http_client_peer_requests_pending(peer, &num_urgent) == 0) {
-		http_client_peer_close(&peer);
-		return;
-	}
-
 	/* if there are pending requests for this peer, create a new connection
-	   for them. */
+	   for them. if not, this peer will wind itself down. */
 	http_client_peer_trigger_request_handler(peer);
 }
 
