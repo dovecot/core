@@ -35,7 +35,7 @@ http_client_connection_debug(struct http_client_connection *conn,
 
 		va_start(args, format);	
 		i_debug("http-client: conn %s: %s",
-			http_client_connection_label(conn),	t_strdup_vprintf(format, args));
+			conn->label, t_strdup_vprintf(format, args));
 		va_end(args);
 	}
 }
@@ -1377,6 +1377,9 @@ http_client_connection_create(struct http_client_peer *peer)
 	conn->peer = peer;
 	if (peer->addr.type != HTTP_CLIENT_PEER_ADDR_RAW)
 		i_array_init(&conn->request_wait_list, 16);
+
+	conn->label = i_strdup_printf("%s [%d]",
+		http_client_peer_label(peer), conn->id);
 
 	switch (peer->addr.type) {
 	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:

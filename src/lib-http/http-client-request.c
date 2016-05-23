@@ -59,6 +59,17 @@ static void
 http_client_request_send_error(struct http_client_request *req,
 			       unsigned int status, const char *error);
 
+const char *
+http_client_request_label(struct http_client_request *req)
+{
+	if (req->label == NULL) {
+		req->label = p_strdup_printf(req->pool,
+			"[Req%u: %s %s%s]", req->id,
+			req->method, http_url_create(&req->origin_url), req->target);
+	}
+	return req->label;
+}
+
 static struct http_client_request *
 http_client_request_new(struct http_client *client, const char *method, 
 		    http_client_request_callback_t *callback, void *context)
