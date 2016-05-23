@@ -148,9 +148,9 @@ struct http_client_connection {
 	struct http_client *client;
 	unsigned int refcount;
 
-	const char *label;
-
+	char *label;
 	unsigned int id; // DEBUG: identify parallel connections
+
 	int connect_errno;
 	struct timeval connect_start_timestamp;
 	struct timeval connected_timestamp;
@@ -186,6 +186,8 @@ struct http_client_peer {
 	unsigned int refcount;
 	struct http_client_peer_addr addr;
 	char *addr_name;
+
+	char *label;
 
 	struct http_client *client;
 	struct http_client_peer *prev, *next;
@@ -347,21 +349,14 @@ http_client_peer_addr2str(const struct http_client_peer_addr *addr)
  * Request
  */
 
-static inline const char *
-http_client_request_label(struct http_client_request *req)
-{
-	if (req->label == NULL) {
-		return t_strdup_printf("[Req%u: %s %s%s]", req->id,
-			req->method, http_url_create(&req->origin_url), req->target);
-	}
-	return req->label;
-}
-
 static inline bool
 http_client_request_to_proxy(const struct http_client_request *req)
 {
 	return (req->host_url != &req->origin_url);
 }
+
+const char *
+http_client_request_label(struct http_client_request *req);
 
 void http_client_request_ref(struct http_client_request *req);
 /* Returns FALSE if unrefing destroyed the request entirely */
@@ -397,15 +392,6 @@ void http_client_request_finish(struct http_client_request *req);
  * Connection
  */
 
-static inline const char *
-http_client_connection_label(struct http_client_connection *conn)
-{
-	return t_strdup_printf("%s%s [%d]",
-		http_client_peer_addr2str(&conn->peer->addr),
-		(conn->peer->addr.type == HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL ?
-			" (tunnel)" : ""), conn->id);
-}
-
 struct connection_list *http_client_connection_list_init(void);
 
 struct http_client_connection *
@@ -439,21 +425,14 @@ void http_client_connection_start_tunnel(struct http_client_connection **_conn,
  * Peer
  */
 
-static inline const char *
-http_client_peer_label(struct http_client_peer *peer)
-{
-	if (peer->addr.type == HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL) {
-		return t_strconcat
-			(http_client_peer_addr2str(&peer->addr), " (tunnel)", NULL);
-	}
-	return http_client_peer_addr2str(&peer->addr);
-}
-
 unsigned int http_client_peer_addr_hash
 	(const struct http_client_peer_addr *peer) ATTR_PURE;
 int http_client_peer_addr_cmp
 	(const struct http_client_peer_addr *peer1,
 		const struct http_client_peer_addr *peer2) ATTR_PURE;
+
+const char *
+http_client_peer_label(struct http_client_peer *peer);
 
 struct http_client_peer *
 	http_client_peer_get(struct http_client *client,

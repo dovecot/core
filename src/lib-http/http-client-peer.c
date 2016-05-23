@@ -104,6 +104,23 @@ int http_client_peer_addr_cmp
  * Peer
  */
 
+const char *
+http_client_peer_label(struct http_client_peer *peer)
+{
+	if (peer->label == NULL) {
+		switch (peer->addr.type) {
+		case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
+			peer->label = i_strconcat
+				(http_client_peer_addr2str(&peer->addr), " (tunnel)", NULL);
+			break;
+		default:
+			peer->label = i_strdup
+				(http_client_peer_addr2str(&peer->addr));
+		}
+	}
+	return peer->label;
+}
+
 static void
 http_client_peer_do_connect(struct http_client_peer *peer,
 	unsigned int count)
@@ -595,6 +612,7 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 	array_free(&peer->conns);
 	array_free(&peer->queues);
 	i_free(peer->addr_name);
+	i_free(peer->label);
 	i_free(peer);
 	return FALSE;
 }
