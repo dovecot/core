@@ -35,6 +35,7 @@ static unsigned int test_max_pending = 200;
 static struct ip_addr bind_ip;
 static in_port_t bind_port = 0;
 static int fd_listen = -1;
+static pid_t server_pid = (pid_t)-1;
 
 /*
  * Test files
@@ -1101,20 +1102,28 @@ static void test_open_server_fd(void)
 	}
 }
 
+static void test_server_kill(void)
+{
+	if (server_pid != (pid_t)-1) {
+		(void)kill(server_pid, SIGKILL);
+		(void)waitpid(server_pid, NULL, 0);
+	}
+	server_pid = (pid_t)-1;
+}
+
 static void test_run_client_server(
 	const struct http_client_settings *client_set,
 	const struct http_server_settings *server_set,
 	void (*client_init)(const struct http_client_settings *client_set))
 {
 	struct ioloop *ioloop;
-	pid_t pid;
-	int status;
 
 	test_open_server_fd();
 
-	if ((pid = fork()) == (pid_t)-1)
+	if ((server_pid = fork()) == (pid_t)-1)
 		i_fatal("fork() failed: %m");
-	if (pid == 0) {
+	if (server_pid == 0) {
+		server_pid = (pid_t)-1;
 		hostpid_init();
 		if (debug)
 			i_debug("server: PID=%s", my_pid);
@@ -1135,9 +1144,7 @@ static void test_run_client_server(
 		io_loop_run(ioloop);
 		test_client_deinit();
 		io_loop_destroy(&ioloop);
-
-		(void)kill(pid, SIGKILL);
-		(void)waitpid(pid, &status, 0);
+		test_server_kill();
 	}
 }
 
@@ -1381,9 +1388,38 @@ static void (*test_functions[])(void) = {
  * Main
  */
 
+volatile sig_atomic_t terminating = 0;
+
+static void
+test_signal_handler(int signo)
+{
+	if (terminating)
+		raise(signo);
+	terminating = 1;
+
+	/* make sure we don't leave any pesky children alive */
+	test_server_kill();
+
+	(void)signal(signo, SIG_DFL);
+	raise(signo);
+}
+
+static void test_atexit(void)
+{
+	test_server_kill();
+}
+
 int main(int argc, char *argv[])
 {
 	int c;
+
+	atexit(test_atexit);
+	(void)signal(SIGCHLD, SIG_IGN);
+	(void)signal(SIGTERM, test_signal_handler);
+	(void)signal(SIGQUIT, test_signal_handler);
+	(void)signal(SIGINT, test_signal_handler);
+	(void)signal(SIGSEGV, test_signal_handler);
+	(void)signal(SIGABRT, test_signal_handler);
 
   while ((c = getopt(argc, argv, "D")) > 0) {
 		switch (c) {
