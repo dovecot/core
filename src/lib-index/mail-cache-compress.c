@@ -452,6 +452,9 @@ static int mail_cache_compress_locked(struct mail_cache *cache,
 
 		return mail_cache_reopen(cache) < 0 ? -1 : 0;
 	}
+	/* make sure we have mapped it before reading. */
+	if (mail_cache_map(cache, 0, 0, &data) < 0)
+		return -1;
 
 	/* we want to recreate the cache. write it first to a temporary file */
 	fd = mail_index_create_tmp_file(cache->index, cache->filepath, &temp_path);
