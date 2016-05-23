@@ -1552,6 +1552,7 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	ctx->skip_null_values = skip_null_values;
 	ctx->iter_dn_values = iter_dn_values;
 	hash_table_create(&ctx->ldap_attrs, pool, 0, strcase_hash, strcasecmp);
+	ctx->var = str_new(ctx->pool, 256);
 	if (ctx->auth_request->debug)
 		ctx->debug = t_str_new(256);
 
@@ -1630,16 +1631,17 @@ static const char *db_ldap_field_ptr_expand(const char *data, void *context)
 	return db_ldap_field_expand(field_name, ctx);
 }
 
+static struct var_expand_func_table ldap_var_funcs_table[] = {
+	{ "ldap", db_ldap_field_expand },
+	{ "ldap_ptr", db_ldap_field_ptr_expand },
+	{ NULL, NULL }
+};
+
 static const char *const *
 db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 			    const struct ldap_field *field,
 			    struct db_ldap_value *ldap_value)
 {
-	static struct var_expand_func_table var_funcs_table[] = {
-		{ "ldap", db_ldap_field_expand },
-		{ "ldap_ptr", db_ldap_field_ptr_expand },
-		{ NULL, NULL }
-	};
 	const struct var_expand_table *var_table;
 	const char *const *values;
 
@@ -1673,12 +1675,8 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 		      (and less importantly the same for other variables) */
 		var_table = db_ldap_value_get_var_expand_table(ctx->auth_request,
 							       values[0]);
-		if (ctx->var == NULL)
-			ctx->var = str_new(ctx->pool, 256);
-		else
-			str_truncate(ctx->var, 0);
 		var_expand_with_funcs(ctx->var, field->value, var_table,
-				      var_funcs_table, ctx);
+				      ldap_var_funcs_table, ctx);
 		ctx->val_1_arr[0] = str_c(ctx->var);
 		values = ctx->val_1_arr;
 	}
@@ -1691,6 +1689,7 @@ bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 {
 	const struct ldap_field *field;
 	struct db_ldap_value *ldap_value;
+	unsigned int pos;
 
 	do {
 		if (ctx->attr_idx == array_count(ctx->attr_map))
@@ -1706,8 +1705,22 @@ bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 	else if (ctx->debug && *field->ldap_attr_name != '\0')
 		str_printfa(ctx->debug, "; %s missing", field->ldap_attr_name);
 
-	*name_r = field->name;
+	str_truncate(ctx->var, 0);
 	*values_r = db_ldap_result_return_value(ctx, field, ldap_value);
+
+	if (strchr(field->name, '%') == NULL)
+		*name_r = field->name;
+	else {
+		/* expand %variables also for LDAP name fields. we'll use the
+		   same ctx->var, which may already contain the value. */
+		str_append_c(ctx->var, '\0');
+		pos = str_len(ctx->var);
+
+		var_expand_with_funcs(ctx->var, field->name,
+			auth_request_get_var_expand_table(ctx->auth_request, NULL),
+			ldap_var_funcs_table, ctx);
+		*name_r = str_c(ctx->var) + pos;
+	}
 
 	if (ctx->skip_null_values && (*values_r)[0] == NULL) {
 		/* no values. don't confuse the caller with this reply. */
