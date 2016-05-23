@@ -572,7 +572,7 @@ void ldap_connection_kill(struct ldap_connection *conn)
 		}
 	}
 	if (conn->conn != NULL) {
-		ldap_destroy(conn->conn);
+		ldap_unbind_ext(conn->conn, NULL, NULL);
 		ldap_memfree(conn->scred);
 	}
 	conn->conn = NULL;
