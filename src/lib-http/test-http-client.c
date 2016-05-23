@@ -182,6 +182,7 @@ static void run_tests(struct http_client *http_client)
 	http_client_request_set_ssl(http_req, TRUE);
 	http_client_request_submit(http_req);
 	http_client_request_abort(&http_req);
+	i_free(test_req);
 
 	test_req = i_new(struct http_test_request, 1);
 	http_req = http_client_request(http_client,
