@@ -5,6 +5,9 @@
 
 #include <sys/time.h>
 
+struct mail_search_mime_part;
+struct imap_message_part;
+
 struct index_search_context {
         struct mail_search_context mail_ctx;
 	struct mail_index_view *view;
@@ -36,5 +39,8 @@ struct index_search_context {
 };
 
 struct mail *index_search_get_mail(struct index_search_context *ctx);
+
+int index_search_mime_arg_match(struct mail_search_arg *args,
+	struct index_search_context *ctx);
 
 #endif

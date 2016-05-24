@@ -33,6 +33,9 @@ libstorage_la_SOURCES = \
 	mail-search-args-imap.c \
 	mail-search-args-simplify.c \
 	mail-search-build.c \
+	mail-search-mime.c \
+	mail-search-mime-build.c \
+	mail-search-mime-register.c \
 	mail-search-parser.c \
 	mail-search-parser-imap.c \
 	mail-search-parser-cmdline.c \
@@ -67,6 +70,9 @@ headers = \
 	mail-namespace.h \
 	mail-search.h \
 	mail-search-build.h \
+	mail-search-mime.h \
+	mail-search-mime-build.h \
+	mail-search-mime-register.h \
 	mail-search-register.h \
 	mail-thread.h \
 	mail-storage.h \

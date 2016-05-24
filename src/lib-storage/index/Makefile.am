@@ -23,6 +23,7 @@ libstorage_index_la_SOURCES = \
 	index-pop3-uidl.c \
 	index-rebuild.c \
 	index-search.c \
+	index-search-mime.c \
 	index-search-result.c \
 	index-sort.c \
 	index-sort-string.c \
