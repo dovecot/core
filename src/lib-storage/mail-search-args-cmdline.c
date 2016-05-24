@@ -79,6 +79,7 @@ mail_search_arg_to_cmdline(string_t *dest, const struct mail_search_arg *arg)
 	case SEARCH_GUID:
 	case SEARCH_MAILBOX_GLOB:
 	case SEARCH_REAL_UID:
+	case SEARCH_MIMEPART:
 		break;
 	}
 	new_arg = *arg;

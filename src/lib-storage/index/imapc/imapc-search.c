@@ -135,6 +135,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 	case SEARCH_MAILBOX_GUID:
 	case SEARCH_MAILBOX_GLOB:
 	case SEARCH_REAL_UID:
+	case SEARCH_MIMEPART:
 		/* not supported for now */
 		break;
 	}

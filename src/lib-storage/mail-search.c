@@ -8,6 +8,7 @@
 #include "mail-namespace.h"
 #include "mail-search-build.h"
 #include "mail-search.h"
+#include "mail-search-mime.h"
 
 static void
 mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
@@ -313,6 +314,10 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 		new_arg->value.modseq =
 			p_new(pool, struct mail_search_modseq, 1);
 		*new_arg->value.modseq = *arg->value.modseq;
+		break;
+	case SEARCH_MIMEPART:
+		new_arg->value.mime_part =
+			mail_search_mime_part_dup(pool, arg->value.mime_part);
 		break;
 	}
 	return new_arg;
@@ -652,6 +657,11 @@ bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 			return FALSE;
 		return mail_search_arg_equals(arg1->value.subargs,
 					      arg2->value.subargs);
+	case SEARCH_MIMEPART:
+		// FIXME: compare options
+		return mail_search_mime_parts_equal(arg1->value.mime_part,
+					      arg2->value.mime_part);
+
 	}
 	i_unreached();
 	return FALSE;

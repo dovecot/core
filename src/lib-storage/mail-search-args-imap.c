@@ -10,6 +10,7 @@
 #include "imap-util.h"
 #include "imap-quote.h"
 #include "mail-search.h"
+#include "mail-search-mime.h"
 
 #include <time.h>
 
@@ -284,6 +285,12 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 	case SEARCH_REAL_UID:
 		str_append(dest, "X-REAL-UID ");
 		imap_write_seq_range(dest, &arg->value.seqset);
+		break;
+	case SEARCH_MIMEPART:
+		str_append(dest, "MIMEPART ");
+		if (!mail_search_mime_part_to_imap(dest,
+			arg->value.mime_part, error_r))
+			return FALSE;
 		break;
 	}
 	return TRUE;

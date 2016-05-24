@@ -5,6 +5,8 @@
 #include "mail-types.h"
 #include "mail-thread.h"
 
+struct mail_search_mime_part;
+
 enum mail_search_arg_type {
 	SEARCH_OR,
 	SEARCH_SUB,
@@ -43,7 +45,8 @@ enum mail_search_arg_type {
 	SEARCH_MAILBOX,
 	SEARCH_MAILBOX_GUID,
 	SEARCH_MAILBOX_GLOB,
-	SEARCH_REAL_UID
+	SEARCH_REAL_UID,
+	SEARCH_MIMEPART
 };
 
 enum mail_search_date_type {
@@ -87,6 +90,7 @@ struct mail_search_arg {
 		enum mail_thread_type thread_type;
 		struct mail_search_modseq *modseq;
 		struct mail_search_result *search_result;
+		struct mail_search_mime_part *mime_part;
 	} value;
 	/* set by mail_search_args_init(): */
 	struct {
