@@ -1378,6 +1378,8 @@ static int search_match_once(struct index_search_context *ctx)
 				       search_cached_arg, ctx);
 	if (ret < 0)
 		ret = search_arg_match_text(ctx->mail_ctx.args->args, ctx);
+	if (ret < 0)
+		ret = index_search_mime_arg_match(ctx->mail_ctx.args->args, ctx);
 	return ret;
 }
 
@@ -1420,6 +1422,7 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_MAILBOX_GUID:
 	case SEARCH_MAILBOX_GLOB:
 	case SEARCH_REAL_UID:
+	case SEARCH_MIMEPART:
 		return TRUE;
 	}
 	return FALSE;

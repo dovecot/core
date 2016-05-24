@@ -24,6 +24,7 @@
 #include "mail-namespace.h"
 #include "mail-search.h"
 #include "mail-search-register.h"
+#include "mail-search-mime-register.h"
 #include "mailbox-search-result-private.h"
 #include "mailbox-guid-cache.h"
 #include "mail-cache.h"
@@ -67,6 +68,7 @@ void mail_storage_deinit(void)
 		mail_search_register_deinit(&mail_search_register_human);
 	if (mail_search_register_imap != NULL)
 		mail_search_register_deinit(&mail_search_register_imap);
+	mail_search_mime_register_deinit();
 	if (array_is_created(&mail_storage_classes))
 		array_free(&mail_storage_classes);
 	mail_storage_hooks_deinit();
