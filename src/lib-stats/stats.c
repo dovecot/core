@@ -68,8 +68,12 @@ void stats_unregister(struct stats_item **_item)
 	array_delete(&stats_items, idx, 1);
 
 	i_free(item);
-	if (array_count(&stats_items) == 0)
+	if (array_count(&stats_items) == 0) {
 		array_free(&stats_items);
+		/* all stats should have been freed by now. allow
+		   re-registering and using stats. */
+		stats_allocated = FALSE;
+	}
 }
 
 struct stats *stats_alloc(pool_t pool)
