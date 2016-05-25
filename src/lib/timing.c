@@ -90,7 +90,11 @@ static void timing_ensure_sorted(struct timing *timing)
 {
 	if (timing->sorted)
 		return;
-	i_qsort(timing->samples, timing->count, sizeof(*timing->samples),
+
+	unsigned int count = (timing->count < TIMING_SUBSAMPLING_BUFFER)
+		? timing->count
+		: TIMING_SUBSAMPLING_BUFFER;
+	i_qsort(timing->samples, count, sizeof(*timing->samples),
 		uint64_cmp);
 	timing->sorted = TRUE;
 }
