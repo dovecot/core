@@ -17,6 +17,7 @@
 #define DICT_CONN_MAX_PENDING_COMMANDS 5
 
 static struct dict_connection *dict_connections;
+static unsigned int dict_connections_count = 0;
 
 static int dict_connection_parse_handshake(struct dict_connection *conn,
 					   const char *line)
@@ -195,6 +196,8 @@ struct dict_connection *dict_connection_create(int fd)
 	o_stream_set_flush_callback(conn->output, dict_connection_output, conn);
 	conn->io = io_add(fd, IO_READ, dict_connection_input, conn);
 	i_array_init(&conn->cmds, DICT_CONN_MAX_PENDING_COMMANDS);
+
+	dict_connections_count++;
 	DLLIST_PREPEND(&dict_connections, conn);
 	return conn;
 }
@@ -269,6 +272,9 @@ void dict_connection_destroy(struct dict_connection *conn)
 	i_assert(!conn->destroyed);
 	i_assert(conn->to_unref == NULL);
 
+	i_assert(dict_connections_count > 0);
+	dict_connections_count--;
+
 	conn->destroyed = TRUE;
 	DLLIST_REMOVE(&dict_connections, conn);
 
@@ -291,6 +297,11 @@ void dict_connection_destroy(struct dict_connection *conn)
 	dict_connection_cmds_output_more(conn);
 
 	dict_connection_unref(conn);
+}
+
+unsigned int dict_connections_current_count(void)
+{
+	return dict_connections_count;
 }
 
 void dict_connections_destroy_all(void)

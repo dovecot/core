@@ -86,6 +86,8 @@ struct service_settings dict_async_service_settings = {
 
 static const struct setting_define dict_setting_defines[] = {
 	DEF(SET_STR, base_dir),
+	DEF(SET_BOOL, verbose_proctitle),
+
 	DEF(SET_STR, dict_db_config),
 	{ SET_STRLIST, "dict", offsetof(struct dict_server_settings, dicts), NULL },
 
@@ -94,6 +96,8 @@ static const struct setting_define dict_setting_defines[] = {
 
 const struct dict_server_settings dict_default_settings = {
 	.base_dir = PKG_RUNDIR,
+	.verbose_proctitle = FALSE,
+
 	.dict_db_config = "",
 	.dicts = ARRAY_INIT
 };

@@ -33,4 +33,5 @@ dict_SOURCES = \
 noinst_HEADERS = \
 	dict-connection.h \
 	dict-commands.h \
-	dict-settings.h
+	dict-settings.h \
+	main.h
