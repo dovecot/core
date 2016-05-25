@@ -4,6 +4,9 @@
 struct timing *timing_init(void);
 void timing_deinit(struct timing **timing);
 
+/* Reset all events. */
+void timing_reset(struct timing *timing);
+
 /* Add a new event that took the specified number of usecs. */
 void timing_add_usecs(struct timing *timing, uint64_t usecs);
 

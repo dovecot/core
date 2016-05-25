@@ -71,6 +71,9 @@ void test_timing(void)
 			timing_add_usecs(t, test_inputs[i][j]);
 			test_timing_verify(t, test_inputs[i], j+1);
 		}
+		timing_reset(t);
+		test_assert(timing_get_count(t) == 0);
+		test_assert(timing_get_max(t) == 0);
 		timing_deinit(&t);
 		test_end();
 	}
