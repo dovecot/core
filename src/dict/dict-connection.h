@@ -43,6 +43,7 @@ void dict_connection_unref_safe(struct dict_connection *conn);
 
 void dict_connection_continue_input(struct dict_connection *conn);
 
+unsigned int dict_connections_current_count(void);
 void dict_connections_destroy_all(void);
 
 #endif

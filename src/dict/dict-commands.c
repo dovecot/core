@@ -5,11 +5,13 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "timing.h"
+#include "time-util.h"
 #include "dict-client.h"
 #include "dict-settings.h"
 #include "dict-connection.h"
 #include "dict-commands.h"
-
+#include "main.h"
 
 #define DICT_OUTPUT_OPTIMAL_SIZE 1024
 
@@ -21,6 +23,7 @@ struct dict_cmd_func {
 struct dict_connection_cmd {
 	const struct dict_cmd_func *cmd;
 	struct dict_connection *conn;
+	struct timeval start_timeval;
 	char *reply;
 
 	struct dict_iterate_context *iter;
@@ -28,6 +31,8 @@ struct dict_connection_cmd {
 
 	unsigned int trans_id;
 };
+
+struct dict_command_stats cmd_stats;
 
 static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd);
 
@@ -83,9 +88,27 @@ static void dict_connection_cmds_flush(struct dict_connection *conn)
 }
 
 static void
+cmd_stats_update(struct dict_connection_cmd *cmd, struct timing *timing)
+{
+	long long diff;
+
+	if (!dict_settings->verbose_proctitle)
+		return;
+
+	io_loop_time_refresh();
+	diff = timeval_diff_usecs(&ioloop_timeval, &cmd->start_timeval);
+	if (diff < 0)
+		diff = 0;
+	timing_add_usecs(timing, diff);
+	dict_proctitle_update_later();
+}
+
+static void
 cmd_lookup_callback(const struct dict_lookup_result *result, void *context)
 {
 	struct dict_connection_cmd *cmd = context;
+
+	cmd_stats_update(cmd, cmd_stats.lookups);
 
 	if (result->ret > 0) {
 		cmd->reply = i_strdup_printf("%c%s\n",
@@ -149,6 +172,7 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 	str_append_c(str, '\n');
 	o_stream_uncork(cmd->conn->output);
 
+	cmd_stats_update(cmd, cmd_stats.iterations);
 	cmd->reply = i_strdup(str_c(str));
 	dict_connection_cmds_flush(cmd->conn);
 	return 1;
@@ -266,6 +290,8 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 {
 	string_t *str = t_str_new(64);
 	char chr;
+
+	cmd_stats_update(cmd, cmd_stats.commits);
 
 	switch (result->ret) {
 	case 1:
@@ -444,6 +470,7 @@ int dict_command_input(struct dict_connection *conn, const char *line)
 	cmd = i_new(struct dict_connection_cmd, 1);
 	cmd->conn = conn;
 	cmd->cmd = cmd_func;
+	cmd->start_timeval = ioloop_timeval;
 	array_append(&conn->cmds, &cmd, 1);
 	dict_connection_ref(conn);
 	if ((ret = cmd_func->func(cmd, line + 1)) <= 0) {
@@ -480,4 +507,18 @@ void dict_connection_cmds_output_more(struct dict_connection *conn)
 		}
 		/* cmd should be freed now */
 	}
+}
+
+void dict_commands_init(void)
+{
+	cmd_stats.lookups = timing_init();
+	cmd_stats.iterations = timing_init();
+	cmd_stats.commits = timing_init();
+}
+
+void dict_commands_deinit(void)
+{
+	timing_deinit(&cmd_stats.lookups);
+	timing_deinit(&cmd_stats.iterations);
+	timing_deinit(&cmd_stats.commits);
 }
