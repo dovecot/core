@@ -268,9 +268,12 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 		/* gather connection statistics */
 		array_foreach(&peer->conns, conn_idx) {
 			struct http_client_connection *conn = *conn_idx;
+			int ret;
 
-			http_client_connection_ref(conn);
-			if (http_client_connection_is_ready(conn)) {
+			if ((ret=http_client_connection_check_ready(conn)) < 0) {
+				conn_lost = TRUE;
+				break;
+			} else if (ret > 0) {
 				struct _conn_available *conn_avail;
 				unsigned int insert_idx, pending_requests;
 
@@ -293,11 +296,6 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 				if (pending_requests == 0)
 					idle++;
 			}
-			if (!http_client_connection_unref(&conn)) {
-				conn_lost = TRUE;
-				break;
-			}
-			conn = *conn_idx;
 			/* count the number of connecting and closing connections */
 			if (conn->closing)
 				closing++;
