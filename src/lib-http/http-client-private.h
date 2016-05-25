@@ -407,7 +407,7 @@ void http_client_connection_stop_request_timeout(
 	struct http_client_connection *conn);
 unsigned int
 http_client_connection_count_pending(struct http_client_connection *conn);
-bool http_client_connection_is_ready(struct http_client_connection *conn);
+int http_client_connection_check_ready(struct http_client_connection *conn);
 bool http_client_connection_is_idle(struct http_client_connection *conn);
 int http_client_connection_next_request(struct http_client_connection *conn);
 void http_client_connection_check_idle(struct http_client_connection *conn);

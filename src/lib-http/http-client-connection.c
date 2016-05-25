@@ -235,7 +235,7 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	http_client_connection_close(_conn);
 }
 
-bool http_client_connection_is_ready(struct http_client_connection *conn)
+int http_client_connection_check_ready(struct http_client_connection *conn)
 {
 	int ret;
 
@@ -245,14 +245,14 @@ bool http_client_connection_is_ready(struct http_client_connection *conn)
 		   this way, but theoretically we could, although that would add
 		   quite a bit of complexity.
 		 */
-		return FALSE;
+		return 0;
 	}
 
 	if (!conn->connected || conn->output_locked || conn->output_broken ||
 		conn->close_indicated || conn->tunneling ||
 		http_client_connection_count_pending(conn) >=
 			conn->client->set.max_pipelined_requests)
-		return FALSE;
+		return 0;
 
 	if (conn->last_ioloop != NULL && conn->last_ioloop != current_ioloop) {
 		conn->last_ioloop = current_ioloop;
@@ -270,10 +270,10 @@ bool http_client_connection_is_ready(struct http_client_connection *conn)
 						stream_errno != 0 ?
 						i_stream_get_error(conn->conn.input) :
 						"EOF"));
-			return FALSE;
+			return -1;
 		}
 	}
-	return TRUE;
+	return 1;
 }
 
 static void
@@ -408,10 +408,14 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 	struct http_client_request *req = NULL;
 	const char *error;
 	bool pipelined;
+	int ret;
 
-	if (!http_client_connection_is_ready(conn)) {
-		http_client_connection_debug(conn, "Not ready for next request");
-		return 0;
+	if ((ret=http_client_connection_check_ready(conn)) <= 0) {
+		if (ret == 0) {
+			http_client_connection_debug(conn,
+				"Not ready for next request");
+		}
+		return ret;
 	}
 
 	/* claim request, but no urgent request can be second in line */
@@ -552,7 +556,6 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	}
 
 	conn->incoming_payload = NULL;
-	http_client_connection_ref(conn);
 
 	/* input stream may have pending input. make sure input handler
 	   gets called (but don't do it directly, since we get get here
@@ -565,10 +568,8 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	}
 
 	/* room for new requests */
-	if (http_client_connection_is_ready(conn))
+	if (http_client_connection_check_ready(conn) > 0)
 		http_client_peer_trigger_request_handler(conn->peer);
-
-	http_client_connection_unref(&conn);
 }
 
 static bool
@@ -966,7 +967,7 @@ static void http_client_connection_input(struct connection *_conn)
 		conn->peer->allows_pipelining = TRUE;
 
 		/* room for new requests */
-		if (http_client_connection_is_ready(conn))
+		if (http_client_connection_check_ready(conn) > 0)
 			http_client_peer_trigger_request_handler(conn->peer);
 	}
 }
@@ -1025,7 +1026,7 @@ int http_client_connection_output(struct http_client_connection *conn)
 			}
 			if (!conn->output_locked) {
 				/* room for new requests */
-				if (http_client_connection_is_ready(conn))
+				if (http_client_connection_check_ready(conn) > 0)
 					http_client_peer_trigger_request_handler(conn->peer);
 			}
 		}
