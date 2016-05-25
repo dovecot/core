@@ -27,6 +27,11 @@ void timing_deinit(struct timing **_timing)
 	i_free_and_null(*_timing);
 }
 
+void timing_reset(struct timing *timing)
+{
+	memset(timing, 0, sizeof(*timing));
+}
+
 void timing_add_usecs(struct timing *timing, uint64_t usecs)
 {
 	if (timing->count < TIMING_SUBSAMPLING_BUFFER) {
