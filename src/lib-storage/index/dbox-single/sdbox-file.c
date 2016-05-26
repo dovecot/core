@@ -302,6 +302,8 @@ int sdbox_file_move(struct dbox_file *file, bool alt_path)
 
 	if (dbox_file_is_in_alt(file) == alt_path)
 		return 0;
+	if (file->alt_path == NULL)
+		return 0;
 
 	if (stat(file->cur_path, &st) < 0 && errno == ENOENT) {
 		/* already expunged/moved by another session */
