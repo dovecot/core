@@ -248,7 +248,7 @@ dict_sql_settings_read(const char *path, const char **error_r)
 {
 	struct setting_parser_ctx ctx;
 	struct dict_sql_settings_cache *cache;
-	pool_t pool = pool_alloconly_create("dict sql settings", 1024);
+	pool_t pool;
 
 	if (!hash_table_is_created(dict_sql_settings_cache)) {
 		hash_table_create(&dict_sql_settings_cache, default_pool, 0,
@@ -260,6 +260,7 @@ dict_sql_settings_read(const char *path, const char **error_r)
 		return cache->set;
 
 	memset(&ctx, 0, sizeof(ctx));
+	pool = pool_alloconly_create("dict sql settings", 1024);
 	ctx.pool = pool;
 	ctx.set = p_new(pool, struct dict_sql_settings, 1);
 	t_array_init(&ctx.cur_fields, 16);
