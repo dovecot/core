@@ -1199,12 +1199,14 @@ http_client_connection_connected(struct connection *_conn, bool success)
 		if (set->socket_send_buffer_size > 0) {
 			if (net_set_send_buffer_size(_conn->fd_out,
 				set->socket_send_buffer_size) < 0)
-				i_error("net_set_send_buffer_size() failed: %m");
+				i_error("net_set_send_buffer_size(%"PRIuSIZE_T") failed: %m",
+					set->socket_send_buffer_size);
 		}
 		if (set->socket_recv_buffer_size > 0) {
 			if (net_set_recv_buffer_size(_conn->fd_in,
 				set->socket_recv_buffer_size) < 0)
-				i_error("net_set_recv_buffer_size() failed: %m");
+				i_error("net_set_recv_buffer_size(%"PRIuSIZE_T") failed: %m",
+					set->socket_recv_buffer_size);
 		}
 
 		if (http_client_peer_addr_is_https(&conn->peer->addr)) {
