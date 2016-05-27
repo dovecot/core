@@ -328,7 +328,8 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 	if (qbox->module_ctx.super.sync_notify != NULL)
 		qbox->module_ctx.super.sync_notify(box, uid, sync_type);
 
-	if (sync_type != MAILBOX_SYNC_TYPE_EXPUNGE || qbox->recalculate) {
+	if (sync_type != MAILBOX_SYNC_TYPE_EXPUNGE || qbox->recalculate ||
+	    (box->flags & MAILBOX_FLAG_DELETE_UNSAFE) != 0) {
 		if (uid == 0) {
 			/* free the transaction before view syncing begins,
 			   otherwise it'll crash. */

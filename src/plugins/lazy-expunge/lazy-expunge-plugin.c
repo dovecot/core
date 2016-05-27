@@ -448,7 +448,7 @@ static void lazy_expunge_mailbox_allocated(struct mailbox *box)
 	union mailbox_module_context *mbox;
 	struct mailbox_vfuncs *v = box->vlast;
 
-	if (llist == NULL)
+	if (llist == NULL || (box->flags & MAILBOX_FLAG_DELETE_UNSAFE) != 0)
 		return;
 
 	mbox = p_new(box->pool, union mailbox_module_context, 1);
