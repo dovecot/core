@@ -668,7 +668,7 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 		addr->type = HTTP_CLIENT_PEER_ADDR_HTTP;
 		addr->a.tcp.ip = host_url->host.ip;
 		addr->a.tcp.port =
-			(host_url->port != 0 ? host_url->port : HTTPS_DEFAULT_PORT);
+			(host_url->port != 0 ? host_url->port : HTTP_DEFAULT_PORT);
 	}
 }
 
