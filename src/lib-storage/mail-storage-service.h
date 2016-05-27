@@ -86,8 +86,7 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 					const struct mail_storage_service_input *input)
 	ATTR_NULL(2);
 /* Returns 1 if ok, 0 if user wasn't found, -1 if fatal error,
-   -2 if error is user-specific (e.g. invalid settings).
-   Error can be safely shown to untrusted users. */
+   -2 if error is user-specific (e.g. invalid settings). */
 int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 				const struct mail_storage_service_input *input,
 				struct mail_storage_service_user **user_r,

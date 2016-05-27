@@ -1154,15 +1154,13 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 
 	if (mail_storage_service_read_settings(ctx, input, user_pool,
 					       &user_info, &set_parser,
-					       &error) < 0) {
+					       error_r) < 0) {
 		if (ctx->config_permission_denied) {
 			/* just restart and maybe next time we will open the
 			   config socket before dropping privileges */
-			i_fatal("%s", error);
+			i_fatal("%s", *error_r);
 		}
-		i_error("%s", error);
 		pool_unref(&user_pool);
-		*error_r = MAIL_ERRSTR_CRITICAL_MSG;
 		return -1;
 	}
 
@@ -1185,10 +1183,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	if (ctx->conn == NULL)
 		mail_storage_service_first_init(ctx, user_info, user_set);
 	/* load global plugins */
-	if (mail_storage_service_load_modules(ctx, user_info, user_set, &error) < 0) {
-		i_error("%s", error);
+	if (mail_storage_service_load_modules(ctx, user_info, user_set, error_r) < 0) {
 		pool_unref(&user_pool);
-		*error_r = MAIL_ERRSTR_CRITICAL_MSG;
 		return -1;
 	}
 
@@ -1201,8 +1197,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	}
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
 		ret = service_auth_userdb_lookup(ctx, input, temp_pool,
-						 &username, &userdb_fields,
-						 error_r);
+			&username, &userdb_fields, error_r);
 		if (ret <= 0) {
 			pool_unref(&temp_pool);
 			pool_unref(&user_pool);
@@ -1251,14 +1246,14 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		auth_user_fields_parse(userdb_fields, temp_pool, &reply);
 		array_sort(&reply.extra_fields, extra_field_key_cmp_p);
 		if (user_reply_handle(ctx, user, &reply, &error) < 0) {
-			i_error("Invalid settings in userdb: %s", error);
-			*error_r = ERRSTR_INVALID_USER_SETTINGS;
+			*error_r = t_strdup_printf(
+				"Invalid settings in userdb: %s", error);
 			ret = -2;
 		}
 	}
 	if (ret > 0 && !settings_parser_check(user->set_parser, user_pool, &error)) {
-		i_error("Invalid settings (probably caused by userdb): %s", error);
-		*error_r = ERRSTR_INVALID_USER_SETTINGS;
+		*error_r = t_strdup_printf(
+			"Invalid settings (probably caused by userdb): %s", error);
 		ret = -2;
 	}
 	pool_unref(&temp_pool);
@@ -1267,9 +1262,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	if (ret > 0) {
 		if (mail_storage_service_load_modules(ctx, user_info,
 						      user->user_set,
-						      &error) < 0) {
-			i_error("%s", error);
-			*error_r = MAIL_ERRSTR_CRITICAL_MSG;
+						      error_r) < 0) {
 			ret = -2;
 		}
 	}
