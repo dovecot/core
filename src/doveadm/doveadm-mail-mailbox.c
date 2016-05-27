@@ -35,6 +35,7 @@ struct delete_cmd_context {
 	ARRAY_TYPE(const_string) mailboxes;
 	bool recursive;
 	bool require_empty;
+	bool unsafe;
 };
 
 struct rename_cmd_context {
@@ -335,8 +336,11 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 	const char *const *namep;
 	ARRAY_TYPE(const_string) recursive_mailboxes;
 	const ARRAY_TYPE(const_string) *mailboxes = &ctx->mailboxes;
+	enum mailbox_flags mailbox_flags = 0;
 	int ret = 0, ret2;
 
+	if (ctx->unsafe)
+		mailbox_flags |= MAILBOX_FLAG_DELETE_UNSAFE;
 	if (ctx->recursive) {
 		t_array_init(&recursive_mailboxes, 32);
 		array_foreach(&ctx->mailboxes, namep) {
@@ -356,7 +360,7 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 		const char *name = *namep;
 
 		ns = mail_namespace_find(user->namespaces, name);
-		box = mailbox_alloc(ns->list, name, 0);
+		box = mailbox_alloc(ns->list, name, mailbox_flags);
 		storage = mailbox_get_storage(box);
 		ret2 = ctx->require_empty ? mailbox_delete_empty(box) :
 			mailbox_delete(box);
@@ -412,6 +416,9 @@ cmd_mailbox_delete_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'e':
 		ctx->require_empty = TRUE;
 		break;
+	case 'Z':
+		ctx->unsafe = TRUE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -426,7 +433,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_delete_alloc(void)
 	ctx->ctx.ctx.v.init = cmd_mailbox_delete_init;
 	ctx->ctx.ctx.v.run = cmd_mailbox_delete_run;
 	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_delete_parse_arg;
-	ctx->ctx.ctx.getopt_args = "ers";
+	ctx->ctx.ctx.getopt_args = "ersZ";
 	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
 	return &ctx->ctx.ctx;
 }
@@ -687,12 +694,13 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_delete_ver2 = {
 	.name = "mailbox delete",
 	.mail_cmd = cmd_mailbox_delete_alloc,
-	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-e] [-r] [-s] <mailbox> [...]",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-e] [-r] [-s] [-Z] <mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('e', "require-empty", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('r', "recursive", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('Z', "unsafe", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
