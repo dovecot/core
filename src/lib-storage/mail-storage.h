@@ -49,7 +49,13 @@ enum mailbox_flags {
 	/* Force opening mailbox and ignoring any ACLs */
 	MAILBOX_FLAG_IGNORE_ACLS	= 0x100,
 	/* Open mailbox even if it's already marked as deleted */
-	MAILBOX_FLAG_OPEN_DELETED	= 0x200
+	MAILBOX_FLAG_OPEN_DELETED	= 0x200,
+	/* Mailbox is opened for deletion, which should be performed as
+	   efficiently as possible, even allowing the mailbox state to become
+	   inconsistent. For example this disables lazy_expunge plugin and
+	   quota updates (possibly resulting in broken quota). and This is
+	   useful for example when deleting entire user accounts. */
+	MAILBOX_FLAG_DELETE_UNSAFE	= 0x400
 };
 
 enum mailbox_feature {
