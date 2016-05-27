@@ -124,6 +124,10 @@ struct dsync_mailbox_importer {
 	unsigned int delete_mailbox:1;
 };
 
+static const char *dsync_mail_change_type_names[] = {
+	"save", "expunge", "flag-change"
+};
+
 static bool dsync_mailbox_save_newmails(struct dsync_mailbox_importer *importer,
 					const struct dsync_mail *mail,
 					struct importer_new_mail *all_newmails,
@@ -1710,7 +1714,8 @@ int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 		result = "New mail";
 	}
 
-	imp_debug(importer, "Import change GUID=%s UID=%u hdr_hash=%s result=%s",
+	imp_debug(importer, "Import change type=%s GUID=%s UID=%u hdr_hash=%s result=%s",
+		  dsync_mail_change_type_names[change->type],
 		  change->guid != NULL ? change->guid : "<unknown>", change->uid,
 		  change->hdr_hash != NULL ? change->hdr_hash : "", result);
 
