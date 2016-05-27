@@ -334,7 +334,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	struct dsync_brain *brain2;
 	struct mail_user *user2;
 	struct setting_parser_context *set_parser;
-	const char *set_line, *location;
+	const char *set_line, *location, *error;
 	bool brain1_running, brain2_running, changed1, changed2;
 	int ret;
 
@@ -356,8 +356,10 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	if (settings_parse_line(set_parser, set_line) < 0)
 		i_unreached();
 	ret = mail_storage_service_next(ctx->ctx.storage_service,
-					ctx->ctx.cur_service_user, &user2);
+					ctx->ctx.cur_service_user,
+					&user2, &error);
 	if (ret < 0) {
+		i_error("Failed to initialize user: %s", error);
 		ctx->ctx.exit_code = ret == -1 ? EX_TEMPFAIL : EX_CONFIG;
 		return -1;
 	}

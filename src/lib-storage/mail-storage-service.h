@@ -98,7 +98,8 @@ void mail_storage_service_save_userdb_fields(struct mail_storage_service_ctx *ct
 /* Returns 0 if ok, -1 if fatal error, -2 if error is user-specific. */
 int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,
-			      struct mail_user **mail_user_r);
+			      struct mail_user **mail_user_r,
+			      const char **error_r);
 void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
 					  struct mail_storage_service_user *user);
 /* Combine lookup() and next() into one call. */

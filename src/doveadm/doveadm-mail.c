@@ -388,9 +388,8 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 
 	ret = mail_storage_service_next(ctx->storage_service,
 					ctx->cur_service_user,
-					&ctx->cur_mail_user);
+					&ctx->cur_mail_user, error_r);
 	if (ret < 0) {
-		*error_r = "User init failed";
 		mail_storage_service_user_free(&ctx->cur_service_user);
 		return ret;
 	}

@@ -584,9 +584,11 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 		return 0;
 
 	ret = mail_storage_service_next(storage_service,
-					rcpt->service_user, &user);
-	if (ret < 0)
+					rcpt->service_user, &user, &errstr);
+	if (ret < 0) {
+		i_error("Failed to initialize user %s: %s", rcpt->address, errstr);
 		return -1;
+	}
 
 	ns = mail_namespace_find_inbox(user->namespaces);
 	box = mailbox_alloc(ns->list, "INBOX", 0);
@@ -830,7 +832,8 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	client_state_set(client, "DATA", username);
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, rcpt->service_user,
-				      &client->state.dest_user) < 0) {
+				      &client->state.dest_user, &error) < 0) {
+		i_error("Failed to initialize user: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpt->address);
 		return -1;

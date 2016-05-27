@@ -1324,7 +1324,8 @@ void mail_storage_service_save_userdb_fields(struct mail_storage_service_ctx *ct
 static int
 mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 			       struct mail_storage_service_user *user,
-			       struct mail_user **mail_user_r)
+			       struct mail_user **mail_user_r,
+			       const char **error_r)
 {
 	struct mail_storage_service_privileges priv;
 	const char *error;
@@ -1335,13 +1336,12 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		(user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0;
 	bool use_chroot;
 
-	if (service_parse_privileges(ctx, user, &priv, &error) < 0) {
-		i_error("%s", error);
+	if (service_parse_privileges(ctx, user, &priv, error_r) < 0)
 		return -2;
-	}
 
 	if (*priv.home != '/' && *priv.home != '\0') {
-		i_error("Relative home directory paths not supported: %s",
+		*error_r = t_strdup_printf(
+			"Relative home directory paths not supported: %s",
 			priv.home);
 		return -2;
 	}
@@ -1389,7 +1389,8 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		if (service_drop_privileges(user, &priv,
 					    disallow_root, temp_priv_drop,
 					    FALSE, &error) < 0) {
-			i_error("Couldn't drop privileges: %s", error);
+			*error_r = t_strdup_printf(
+				"Couldn't drop privileges: %s", error);
 			return -1;
 		}
 		if (!temp_priv_drop ||
@@ -1402,16 +1403,15 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 	module_dir_init(mail_storage_service_modules);
 
 	if (mail_storage_service_init_post(ctx, user, &priv,
-					   mail_user_r, &error) < 0) {
-		i_error("User initialization failed: %s", error);
+					   mail_user_r, error_r) < 0)
 		return -2;
-	}
 	return 0;
 }
 
 int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,
-			      struct mail_user **mail_user_r)
+			      struct mail_user **mail_user_r,
+			      const char **error_r)
 {
 	char *old_log_prefix = i_strdup(i_get_failure_prefix());
 	int ret;
@@ -1419,7 +1419,7 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 	mail_storage_service_set_log_prefix(ctx, user->user_set, user,
 					    &user->input, NULL);
 	i_set_failure_prefix("%s", old_log_prefix);
-	ret = mail_storage_service_next_real(ctx, user, mail_user_r);
+	ret = mail_storage_service_next_real(ctx, user, mail_user_r, error_r);
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) != 0)
 		i_set_failure_prefix("%s", old_log_prefix);
 	i_free(old_log_prefix);
@@ -1452,7 +1452,7 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 	if (ret <= 0)
 		return ret;
 
-	ret = mail_storage_service_next(ctx, user, mail_user_r);
+	ret = mail_storage_service_next(ctx, user, mail_user_r, error_r);
 	if (ret < 0) {
 		mail_storage_service_user_free(&user);
 		*error_r = ret == -2 ? ERRSTR_INVALID_USER_SETTINGS :
