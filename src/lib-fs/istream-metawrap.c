@@ -26,7 +26,7 @@ static int metadata_header_read(struct metawrap_istream *mstream)
 		if (p == NULL) {
 			io_stream_set_error(&mstream->istream.iostream,
 				"Metadata header line is missing ':' at offset %"PRIuUOFF_T,
-				mstream->istream.v_offset);
+				mstream->istream.istream.v_offset);
 			mstream->istream.istream.stream_errno = EINVAL;
 			return -1;
 		}
@@ -40,7 +40,7 @@ static int metadata_header_read(struct metawrap_istream *mstream)
 		} else {
 			io_stream_set_error(&mstream->istream.iostream,
 				"Metadata header is missing ending line at offset %"PRIuUOFF_T,
-				mstream->istream.v_offset);
+				mstream->istream.istream.v_offset);
 			mstream->istream.istream.stream_errno = EINVAL;
 			return -1;
 		}
