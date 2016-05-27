@@ -34,6 +34,7 @@ struct delete_cmd_context {
 	struct doveadm_mailbox_cmd_context ctx;
 	ARRAY_TYPE(const_string) mailboxes;
 	bool recursive;
+	bool require_empty;
 };
 
 struct rename_cmd_context {
@@ -334,7 +335,7 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 	const char *const *namep;
 	ARRAY_TYPE(const_string) recursive_mailboxes;
 	const ARRAY_TYPE(const_string) *mailboxes = &ctx->mailboxes;
-	int ret = 0;
+	int ret = 0, ret2;
 
 	if (ctx->recursive) {
 		t_array_init(&recursive_mailboxes, 32);
@@ -357,7 +358,9 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 		ns = mail_namespace_find(user->namespaces, name);
 		box = mailbox_alloc(ns->list, name, 0);
 		storage = mailbox_get_storage(box);
-		if (mailbox_delete(box) < 0) {
+		ret2 = ctx->require_empty ? mailbox_delete_empty(box) :
+			mailbox_delete(box);
+		if (ret2 < 0) {
 			i_error("Can't delete mailbox %s: %s", name,
 				mailbox_get_last_error(box, NULL));
 			doveadm_mail_failed_mailbox(_ctx, box);
@@ -406,6 +409,9 @@ cmd_mailbox_delete_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 's':
 		ctx->ctx.subscriptions = TRUE;
 		break;
+	case 'e':
+		ctx->require_empty = TRUE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -420,7 +426,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_delete_alloc(void)
 	ctx->ctx.ctx.v.init = cmd_mailbox_delete_init;
 	ctx->ctx.ctx.v.run = cmd_mailbox_delete_run;
 	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_delete_parse_arg;
-	ctx->ctx.ctx.getopt_args = "rs";
+	ctx->ctx.ctx.getopt_args = "ers";
 	p_array_init(&ctx->mailboxes, ctx->ctx.ctx.pool, 16);
 	return &ctx->ctx.ctx;
 }
@@ -680,10 +686,11 @@ DOVEADM_CMD_PARAMS_END
 
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_delete_ver2 = {
 	.name = "mailbox delete",
-        .mail_cmd = cmd_mailbox_delete_alloc,
-        .usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] <mailbox> [...]",
+	.mail_cmd = cmd_mailbox_delete_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-e] [-r] [-s] <mailbox> [...]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('e', "require-empty", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('s', "subscriptions", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('r', "recursive", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
