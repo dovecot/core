@@ -627,7 +627,7 @@ int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient *rcpt;
 	struct mail_storage_service_input input;
-	const char *params, *address, *username, *detail, *prefix;
+	const char *params, *address, *username, *detail;
 	const char *const *argv;
 	const char *error = NULL;
 	char delim = '\0';
@@ -691,9 +691,8 @@ int cmd_rcpt(struct client *client, const char *args)
 					  &rcpt->service_user, &error);
 
 	if (ret < 0) {
-		prefix = t_strdup_printf(ERRSTR_TEMP_USERDB_FAIL_PREFIX,
-					 username);
-		client_send_line(client, "%s%s", prefix, error);
+		i_error("Failed to lookup user %s: %s", username, error);
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL, address);
 		return 0;
 	}
 	if (ret == 0) {
