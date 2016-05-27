@@ -52,7 +52,9 @@ struct lazy_expunge_transaction {
 	pool_t pool;
 	HASH_TABLE(const char *, void *) guids;
 
-	bool failed;
+	char *delayed_errstr;
+	enum mail_error delayed_error;
+
 	bool copy_only_last_instance;
 };
 
@@ -240,6 +242,19 @@ static bool lazy_expunge_is_internal_mailbox(struct mailbox *box)
 	return FALSE;
 }
 
+static void lazy_expunge_set_error(struct lazy_expunge_transaction *lt,
+				   struct mail_storage *storage)
+{
+	const char *errstr;
+	enum mail_error error;
+
+	if (lt->delayed_error != MAIL_ERROR_NONE)
+		return;
+	errstr = mail_storage_get_last_error(storage, &error);
+	lt->delayed_error = error;
+	lt->delayed_errstr = i_strdup(errstr);
+}
+
 static void lazy_expunge_mail_expunge(struct mail *_mail)
 {
 	struct mail_namespace *ns = _mail->box->list->ns;
@@ -257,7 +272,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	/* don't copy the mail if we're expunging from lazy_expunge
 	   namespace (even if it's via a virtual mailbox) */
 	if (mail_get_backend_mail(_mail, &real_mail) < 0) {
-		lt->failed = TRUE;
+		lazy_expunge_set_error(lt, _mail->box->storage);
 		return;
 	}
 	if (lazy_expunge_is_internal_mailbox(real_mail->box)) {
@@ -270,7 +285,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		   lazy_expunge namespace. other instances will be expunged
 		   immediately. */
 		if ((ret = lazy_expunge_mail_is_last_instace(_mail)) < 0) {
-			lt->failed = TRUE;
+			lazy_expunge_set_error(lt, _mail->box->storage);
 			return;
 		}
 		if (ret == 0) {
@@ -286,14 +301,14 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 			mail_storage_set_critical(_mail->box->storage,
 				"lazy_expunge: Couldn't open expunge mailbox: "
 				"%s", error);
-			lt->failed = TRUE;
+			lazy_expunge_set_error(lt, _mail->box->storage);
 			return;
 		}
 		if (mailbox_sync(lt->dest_box, 0) < 0) {
 			mail_storage_set_critical(_mail->box->storage,
 				"lazy_expunge: Couldn't sync expunge mailbox");
+			lazy_expunge_set_error(lt, lt->dest_box->storage);
 			mailbox_free(&lt->dest_box);
-			lt->failed = TRUE;
 			return;
 		}
 
@@ -305,7 +320,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	mailbox_save_copy_flags(save_ctx, _mail);
 	save_ctx->data.flags &= ~MAIL_DELETED;
 	if (mailbox_copy(&save_ctx, _mail) < 0 && !_mail->expunged)
-		lt->failed = TRUE;
+		lazy_expunge_set_error(lt, lt->dest_box->storage);
 	mmail->super.expunge(_mail);
 }
 
@@ -337,6 +352,7 @@ static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
 		hash_table_destroy(&lt->guids);
 	if (lt->pool != NULL)
 		pool_unref(&lt->pool);
+	i_free(lt->delayed_errstr);
 	i_free(lt);
 }
 
@@ -348,16 +364,24 @@ lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
 	struct lazy_expunge_transaction *lt = LAZY_EXPUNGE_CONTEXT(ctx);
 	int ret;
 
-	if (lt->dest_trans != NULL && !lt->failed) {
-		if (mailbox_transaction_commit(&lt->dest_trans) < 0)
-			lt->failed = TRUE;
+	if (lt->dest_trans != NULL && lt->delayed_error == MAIL_ERROR_NONE) {
+		if (mailbox_transaction_commit(&lt->dest_trans) < 0) {
+			lazy_expunge_set_error(lt, lt->dest_trans->box->storage);
+		}
 	}
 
-	if (lt->failed) {
+	if (lt->delayed_error == MAIL_ERROR_NONE)
+		ret = mbox->super.transaction_commit(ctx, changes_r);
+	else if (lt->delayed_error != MAIL_ERROR_TEMP) {
+		mail_storage_set_error(ctx->box->storage, lt->delayed_error,
+				       lt->delayed_errstr);
 		mbox->super.transaction_rollback(ctx);
 		ret = -1;
 	} else {
-		ret = mbox->super.transaction_commit(ctx, changes_r);
+		mail_storage_set_critical(ctx->box->storage,
+			"Lazy-expunge transaction failed: %s", lt->delayed_errstr);
+		mbox->super.transaction_rollback(ctx);
+		ret = -1;
 	}
 	lazy_expunge_transaction_free(lt);
 	return ret;
