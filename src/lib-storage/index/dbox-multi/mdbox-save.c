@@ -216,6 +216,7 @@ static int mdbox_save_finish_write(struct mail_save_context *_ctx)
 
 	if (ctx->ctx.failed) {
 		mail_index_expunge(ctx->ctx.trans, ctx->ctx.seq);
+		mail_cache_transaction_reset(ctx->ctx.ctx.transaction->cache_trans);
 		mdbox_map_append_abort(ctx->append_ctx);
 		array_delete(&ctx->mails, array_count(&ctx->mails) - 1, 1);
 		return -1;

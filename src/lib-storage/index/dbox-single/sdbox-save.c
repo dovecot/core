@@ -195,6 +195,7 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 
 	if (ctx->ctx.failed) {
 		mail_index_expunge(ctx->ctx.trans, ctx->ctx.seq);
+		mail_cache_transaction_reset(ctx->ctx.ctx.transaction->cache_trans);
 		dbox_file_append_rollback(&ctx->append_ctx);
 		dbox_file_unlink(*files);
 		dbox_file_unref(files);
