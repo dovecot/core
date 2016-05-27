@@ -248,9 +248,15 @@ static void lazy_expunge_set_error(struct lazy_expunge_transaction *lt,
 	const char *errstr;
 	enum mail_error error;
 
+	errstr = mail_storage_get_last_error(storage, &error);
+	if (error == MAIL_ERROR_EXPUNGED) {
+		/* expunging failed because the mail was already expunged.
+		   we don't want to fail because of that. */
+		return;
+	}
+
 	if (lt->delayed_error != MAIL_ERROR_NONE)
 		return;
-	errstr = mail_storage_get_last_error(storage, &error);
 	lt->delayed_error = error;
 	lt->delayed_errstr = i_strdup(errstr);
 }
