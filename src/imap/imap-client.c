@@ -139,6 +139,12 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 		str_append_c(client->capability_string, ' ');
 		str_append(client->capability_string, set->imap_capability + 1);
 	}
+	if (!explicit_capability) {
+		if (client->set->imap_literal_minus)
+			str_append(client->capability_string, " LITERAL-");
+		else
+			str_append(client->capability_string, " LITERAL+");
+	}
 	if (user->fuzzy_search && !explicit_capability) {
 		/* Enable FUZZY capability only when it actually has
 		   a chance of working */
@@ -756,6 +762,8 @@ client_command_new(struct client *client)
 		cmd->parser =
 			imap_parser_create(client->input, client->output,
 					   client->set->imap_max_line_length);
+		if (client->set->imap_literal_minus)
+			imap_parser_enable_literal_minus(cmd->parser);
 	}
 	return cmd;
 }

@@ -418,7 +418,10 @@ static bool cmd_append_continue_catenate(struct client_command_context *cmd)
 		case IMAP_PARSE_ERROR_NONE:
 			i_unreached();
 		case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
-			client_disconnect_with_error(client, msg);
+			client_send_line(client, t_strconcat("* BYE ",
+				(client->set->imap_literal_minus ? "[TOOBIG] " : ""),
+				msg, NULL));
+			client_disconnect(client, msg);
 			break;
 		default:
 			if (!ctx->failed)
@@ -761,7 +764,10 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 			case IMAP_PARSE_ERROR_NONE:
 				i_unreached();
 			case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
-				client_disconnect_with_error(client, msg);
+				client_send_line(client, t_strconcat("* BYE ",
+					(client->set->imap_literal_minus ? "[TOOBIG] " : ""),
+					msg, NULL));
+				client_disconnect(client, msg);
 				break;
 			default:
 				client_send_command_error(cmd, msg);
@@ -936,6 +942,8 @@ bool cmd_append(struct client_command_context *cmd)
 
 	ctx->save_parser = imap_parser_create(client->input, client->output,
 					      client->set->imap_max_line_length);
+	if (client->set->imap_literal_minus)
+		imap_parser_enable_literal_minus(ctx->save_parser);
 
 	cmd->func = cmd_append_parse_new_msg;
 	cmd->context = ctx;

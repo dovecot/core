@@ -57,6 +57,7 @@ static const struct setting_define imap_login_setting_defines[] = {
 	DEF(SET_STR, imap_capability),
 	DEF(SET_STR, imap_id_send),
 	DEF(SET_STR, imap_id_log),
+	DEF(SET_BOOL, imap_literal_minus),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -64,7 +65,8 @@ static const struct setting_define imap_login_setting_defines[] = {
 static const struct imap_login_settings imap_login_default_settings = {
 	.imap_capability = "",
 	.imap_id_send = "name *",
-	.imap_id_log = ""
+	.imap_id_log = "",
+	.imap_literal_minus = FALSE
 };
 
 static const struct setting_parser_info *imap_login_setting_dependencies[] = {

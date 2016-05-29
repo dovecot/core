@@ -57,6 +57,10 @@ imap_parser_create(struct istream *input, struct ostream *output,
 void imap_parser_ref(struct imap_parser *parser);
 void imap_parser_unref(struct imap_parser **parser);
 
+/* Enable LITERAL- parser semantics: non-synchronizing literals must not
+   exceed 4096 bytes */
+void imap_parser_enable_literal_minus(struct imap_parser *parser);
+
 /* Reset the parser to initial state. */
 void imap_parser_reset(struct imap_parser *parser);
 

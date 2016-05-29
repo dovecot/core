@@ -278,6 +278,8 @@ cmd_setmetadata_start(struct imap_setmetadata_context *ctx)
 	client->input_lock = cmd;
 	ctx->parser = imap_parser_create(client->input, client->output,
 					 client->set->imap_max_line_length);
+	if (client->set->imap_literal_minus)
+		imap_parser_enable_literal_minus(ctx->parser);
 	o_stream_unset_flush_callback(client->output);
 
 	cmd->func = cmd_setmetadata_continue;

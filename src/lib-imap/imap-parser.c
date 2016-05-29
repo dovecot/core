@@ -57,6 +57,7 @@ struct imap_parser {
 	enum imap_parser_error error;
 	const char *error_msg;
 
+	unsigned int literal_minus:1;
 	unsigned int literal_skip_crlf:1;
 	unsigned int literal_nonsync:1;
 	unsigned int literal8:1;
@@ -102,6 +103,11 @@ void imap_parser_unref(struct imap_parser **parser)
 	pool_unref(&(*parser)->pool);
 	i_free(*parser);
 	*parser = NULL;
+}
+
+void imap_parser_enable_literal_minus(struct imap_parser *parser)
+{
+	parser->literal_minus = TRUE;
 }
 
 void imap_parser_reset(struct imap_parser *parser)
@@ -387,6 +393,13 @@ static int imap_parser_read_string(struct imap_parser *parser,
 
 static int imap_parser_literal_end(struct imap_parser *parser)
 {
+	if (parser->literal_minus && parser->literal_nonsync &&
+		parser->literal_size > 4096) {
+		parser->error_msg = "Non-synchronizing literal size too large";
+		parser->error = IMAP_PARSE_ERROR_LITERAL_TOO_BIG;
+		return FALSE;
+	}
+
 	if ((parser->flags & IMAP_PARSE_FLAG_LITERAL_SIZE) == 0) {
 		if (parser->line_size >= parser->max_line_size ||
 		    parser->literal_size >

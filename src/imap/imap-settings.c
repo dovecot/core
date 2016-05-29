@@ -71,6 +71,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(SET_STR, imap_id_send),
 	DEF(SET_STR, imap_id_log),
 	DEF(SET_BOOL, imap_metadata),
+	DEF(SET_BOOL, imap_literal_minus),
 	DEF(SET_TIME, imap_hibernate_timeout),
 
 	DEF(SET_STR, imap_urlauth_host),
@@ -96,6 +97,7 @@ static const struct imap_settings imap_default_settings = {
 	.imap_id_send = "name *",
 	.imap_id_log = "",
 	.imap_metadata = FALSE,
+	.imap_literal_minus = FALSE,
 	.imap_hibernate_timeout = 0,
 
 	.imap_urlauth_host = "",

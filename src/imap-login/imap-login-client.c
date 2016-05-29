@@ -97,15 +97,24 @@ static const char *get_capability(struct client *client)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
 	string_t *cap_str = t_str_new(256);
+	bool explicit_capability = FALSE;
 
 	if (*imap_client->set->imap_capability == '\0')
 		str_append(cap_str, CAPABILITY_BANNER_STRING);
-	else if (*imap_client->set->imap_capability != '+')
+	else if (*imap_client->set->imap_capability != '+') {
+		explicit_capability = TRUE;
 		str_append(cap_str, imap_client->set->imap_capability);
-	else {
+	} else {
 		str_append(cap_str, CAPABILITY_BANNER_STRING);
 		str_append_c(cap_str, ' ');
 		str_append(cap_str, imap_client->set->imap_capability + 1);
+	}
+
+	if (!explicit_capability) {
+		if (imap_client->set->imap_literal_minus)
+			str_append(cap_str, " LITERAL-");
+		else
+			str_append(cap_str, " LITERAL+");
 	}
 
 	if (client_is_tls_enabled(client) && !client->tls)
@@ -277,6 +286,8 @@ static int cmd_id(struct imap_client *client)
 		id->parser = imap_parser_create(client->common.input,
 						client->common.output,
 						MAX_IMAP_LINE);
+		if (client->set->imap_literal_minus)
+			imap_parser_enable_literal_minus(id->parser);
 		parser_flags = IMAP_PARSE_FLAG_STOP_AT_LIST;
 	} else {
 		id = client->cmd_id;
@@ -543,6 +554,8 @@ static void imap_client_create(struct client *client, void **other_sets)
 	imap_client->parser =
 		imap_parser_create(imap_client->common.input,
 				   imap_client->common.output, MAX_IMAP_LINE);
+	if (imap_client->set->imap_literal_minus)
+		imap_parser_enable_literal_minus(imap_client->parser);
 	client->io = io_add(client->fd, IO_READ, client_input, client);
 }
 
