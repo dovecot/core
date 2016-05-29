@@ -535,13 +535,18 @@ void client_send_command_error(struct client_command_context *cmd,
 {
 	struct client *client = cmd->client;
 	const char *error, *cmd_name;
-	bool fatal;
+	enum imap_parser_error parse_error;
 
 	if (msg == NULL) {
-		msg = imap_parser_get_error(cmd->parser, &fatal);
-		if (fatal) {
+		msg = imap_parser_get_error(cmd->parser, &parse_error);
+		switch (parse_error) {
+		case IMAP_PARSE_ERROR_NONE:
+			i_unreached();
+		case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
 			client_disconnect_with_error(client, msg);
 			return;
+		default:
+			break;
 		}
 	}
 

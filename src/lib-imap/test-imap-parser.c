@@ -12,7 +12,7 @@ static void test_imap_parser_crlf(void)
 	struct imap_parser *parser;
 	const struct imap_arg *args;
 	unsigned int i;
-	bool fatal;
+	enum imap_parser_error parse_error;
 
 	test_begin("imap parser crlf handling");
 	input = test_istream_create(test_input);
@@ -42,7 +42,9 @@ static void test_imap_parser_crlf(void)
 	test_istream_set_size(input, ++i);
 	(void)i_stream_read(input);
 	test_assert(imap_parser_read_args(parser, 0, 0, &args) == -1);
-	test_assert(strcmp(imap_parser_get_error(parser, &fatal), "CR sent without LF") == 0 && !fatal);
+	test_assert(strcmp(imap_parser_get_error
+		(parser, &parse_error), "CR sent without LF") == 0 &&
+		parse_error == IMAP_PARSE_ERROR_BAD_SYNTAX);
 
 	imap_parser_unref(&parser);
 	i_stream_destroy(&input);

@@ -46,8 +46,8 @@ cmd_setmetadata_parse_entryvalue(struct imap_setmetadata_context *ctx,
 {
 	const struct imap_arg *args;
 	const char *name, *error;
+	enum imap_parser_error parse_error;
 	int ret;
-	bool fatal;
 
 	/* parse the entry name */
 	ret = imap_parser_read_args(ctx->parser, 1,
@@ -72,12 +72,17 @@ cmd_setmetadata_parse_entryvalue(struct imap_setmetadata_context *ctx,
 	if (ret < 0) {
 		if (ret == -2)
 			return 0;
-		error = imap_parser_get_error(ctx->parser, &fatal);
-		if (fatal) {
+		error = imap_parser_get_error(ctx->parser, &parse_error);
+		switch (parse_error) {
+		case IMAP_PARSE_ERROR_NONE:
+			i_unreached();
+		case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
 			client_disconnect_with_error(ctx->cmd->client, error);
-			return -1;
+			break;
+		default:
+			client_send_command_error(ctx->cmd, error);
+			break;
 		}
-		client_send_command_error(ctx->cmd, error);
 		return -1;
 	}
 	if (args[1].type == IMAP_ARG_EOL) {
