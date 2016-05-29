@@ -49,4 +49,48 @@ int imap_bodystructure_parse(const char *bodystructure, pool_t pool,
 int imap_body_parse_from_bodystructure(const char *bodystructure,
 				       string_t *dest, const char **error_r);
 
+/*
+ * IMAP message part
+ */
+
+// FIXME: the above API is not suitable for actually parsing and fully
+//         decoding a BODYSTRUCTURE without a message_part tree available.
+//         Created this one instead, but it has a *LOT* of overlap.
+
+struct imap_message_part_param {
+	const char *key;
+	const char *value;
+};
+
+struct imap_message_part {
+	struct imap_message_part *parent;
+	struct imap_message_part *next;
+	struct imap_message_part *children;
+
+	const char *content_type, *content_subtype;
+	const struct imap_message_part_param *content_type_params;
+	unsigned int content_type_params_count;
+
+	const char *content_transfer_encoding;
+	const char *content_id;
+	const char *content_description;
+	const char *content_disposition;
+	const struct imap_message_part_param *content_disposition_params;
+	unsigned int content_disposition_params_count;
+	const char *content_md5;
+	const char *const *content_language;
+	const char *content_location;
+
+	unsigned int lines;
+	uoff_t body_size;
+
+	// FIXME: envelope
+};
+
+int imap_message_parts_parse(const char *bodystructure, pool_t pool,
+			     struct imap_message_part **parts_r, const char **error_r);
+
+bool imap_message_part_get_filename(struct imap_message_part *part,
+	const char **filename_r);
+
 #endif

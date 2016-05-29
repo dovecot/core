@@ -1008,3 +1008,295 @@ int imap_body_parse_from_bodystructure(const char *bodystructure,
 	i_stream_destroy(&input);
 	return ret;
 }
+
+/*
+ * IMAP message part
+ */
+
+static int
+imap_message_part_strlist_parse(const struct imap_arg *arg,
+	pool_t pool, const char *const **list_r)
+{
+	const char **list;
+	const struct imap_arg *list_args;
+	unsigned int list_count, i;
+
+	if (arg->type == IMAP_ARG_NIL) {
+		*list_r = NULL;
+		return 0;
+	}
+	if (!imap_arg_get_list_full(arg, &list_args, &list_count))
+		return -1;
+
+	list = p_new(pool, const char *, list_count+1);
+	for (i = 0; i < list_count; i++) {
+		if (!imap_arg_get_nstring(&list_args[i], &list[i]))
+			return -1;
+		list[i] = p_strdup(pool, list[i]);
+	}
+	*list_r = list;
+	return 0;
+}
+
+static int
+imap_message_part_params_parse(const struct imap_arg *arg,
+	pool_t pool, const struct imap_message_part_param **params_r,
+	unsigned int *count_r)
+{
+	struct imap_message_part_param *params;
+	const struct imap_arg *list_args;
+	unsigned int list_count, params_count, i;
+
+	if (arg->type == IMAP_ARG_NIL) {
+		*params_r = NULL;
+		return 0;
+	}
+	if (!imap_arg_get_list_full(arg, &list_args, &list_count))
+		return -1;
+	if ((list_count % 2) != 0)
+		return -1;
+
+	params_count = list_count/2;
+	params = p_new(pool, struct imap_message_part_param, params_count+1);
+	for (i = 0; i < params_count; i++) {
+		const char *key, *value;
+
+		if (!imap_arg_get_nstring(&list_args[i*2+0], &key))
+			return -1;
+		if (!imap_arg_get_nstring(&list_args[i*2+1], &value))
+			return -1;
+		params[i].key = p_strdup(pool, key);
+		params[i].value = p_strdup(pool, value);
+	}
+	*params_r = params;
+	*count_r = params_count;
+	return 0;
+}
+
+static int
+imap_message_part_parse_args_common(struct imap_message_part *part,
+				     pool_t pool, const struct imap_arg *args,
+				     const char **error_r)
+{
+	const struct imap_arg *list_args;
+
+	if (args->type == IMAP_ARG_NIL)
+		args++;
+	else if (!imap_arg_get_list(args, &list_args)) {
+		*error_r = "Invalid content-disposition list";
+		return -1;
+	} else {
+		if (!imap_arg_get_nstring
+			(list_args++, &part->content_disposition)) {
+			*error_r = "Invalid content-disposition";
+			return -1;
+		}
+		part->content_disposition = p_strdup(pool, part->content_disposition);
+		if (imap_message_part_params_parse(list_args, pool,
+			&part->content_disposition_params,
+			&part->content_disposition_params_count) < 0) {
+			*error_r = "Invalid content-disposition params";
+			return -1;
+		}
+		args++;
+	}
+	if (imap_message_part_strlist_parse
+		(args++, pool, &part->content_language) < 0) {
+		*error_r = "Invalid content-language";
+		return -1;
+	}
+	if (!imap_arg_get_nstring
+		(args++, &part->content_location)) {
+		*error_r = "Invalid content-location";
+		return -1;
+	}
+	part->content_location = p_strdup(pool, part->content_location);
+	return 0;
+}
+
+static int
+imap_message_parts_parse_args(const struct imap_arg *args, pool_t pool,
+			      struct imap_message_part **parts_r,
+			      const char **error_r)
+{
+	struct imap_message_part *part, **child_part;
+	const struct imap_arg *list_args;
+	const char *value, *content_type, *subtype;
+	bool multipart, text, message_rfc822;
+
+	part = p_new(pool, struct imap_message_part, 1);
+
+	multipart = FALSE;
+	child_part = &part->children;
+	while (args->type == IMAP_ARG_LIST) {
+		list_args = imap_arg_as_list(args);
+		if (imap_message_parts_parse_args(list_args, pool,
+						  child_part, error_r) < 0)
+			return -1;
+		(*child_part)->parent = part;
+		child_part = &(*child_part)->next;
+
+		multipart = TRUE;
+		args++;
+	}
+
+	if (multipart) {
+		part->content_type = "\"multipart\"";
+		if (!imap_arg_get_nstring(args++, &part->content_subtype)) {
+			*error_r = "Invalid multipart content-type";
+			return -1;
+		}
+		part->content_subtype = p_strdup(pool, part->content_subtype);
+		if (imap_message_part_params_parse(args++, pool,
+			&part->content_type_params,
+			&part->content_type_params_count) < 0) {
+			*error_r = "Invalid content params";
+			return -1;
+		}
+		*parts_r = part;
+		return imap_message_part_parse_args_common
+			(part, pool, args, error_r);
+	}
+
+	/* "content type" "subtype" */
+	if (!imap_arg_get_astring(&args[0], &content_type) ||
+	    !imap_arg_get_astring(&args[1], &subtype)) {
+		*error_r = "Invalid content-type";
+		return -1;
+	}
+	part->content_type = p_strdup(pool, content_type);
+	part->content_subtype = p_strdup(pool, subtype);
+	args += 2;
+
+	text = strcasecmp(content_type, "text") == 0;
+	message_rfc822 = strcasecmp(content_type, "message") == 0 &&
+		strcasecmp(subtype, "rfc822") == 0;
+
+	/* ("content type param key" "value" ...) | NIL */
+	if (imap_message_part_params_parse(args++, pool,
+		&part->content_type_params,
+		&part->content_type_params_count) < 0) {
+		*error_r = "Invalid content params";
+		return -1;
+	}
+
+	/* "content id" "content description" "transfer encoding" size */
+	if (!imap_arg_get_nstring(args++, &part->content_id)) {
+		*error_r = "Invalid content-id";
+		return -1;
+	}
+	if (!imap_arg_get_nstring(args++, &part->content_description)) {
+		*error_r = "Invalid content-description";
+		return -1;
+	}
+	if (!imap_arg_get_nstring(args++, &part->content_transfer_encoding)) {
+		*error_r = "Invalid content-transfer-encoding";
+		return -1;
+	}
+	part->content_id = p_strdup(pool, part->content_id);
+	part->content_description = p_strdup(pool, part->content_description);
+	part->content_transfer_encoding =
+		p_strdup(pool, part->content_transfer_encoding);
+	if (!imap_arg_get_atom(args++, &value) ||
+	    str_to_uoff(value, &part->body_size) < 0) {
+		*error_r = "Invalid size field";
+		return -1;
+	}
+
+	if (text) {
+		/* text/xxx - text lines */
+		if (!imap_arg_get_atom(args++, &value) ||
+		    str_to_uint(value, &part->lines) < 0) {
+			*error_r = "Invalid lines field";
+			return -1;
+		}
+		i_assert(part->children == NULL);
+	} else if (message_rfc822) {
+		/* message/rfc822 - envelope + bodystructure + text lines */
+		if (!imap_arg_get_list(&args[1], &list_args)) {
+			*error_r = "Child bodystructure list expected";
+			return -1;
+		}
+		if (imap_message_parts_parse_args
+			(list_args, pool, &part->children, error_r) < 0)
+			return -1;
+		part->children->parent = part;
+
+#if 0 // FIXME
+		/* save envelope to the child's context data */
+		if (!imap_arg_get_list(&args[0], &list_args)) {
+			*error_r = "Envelope list expected";
+			return -1;
+		}
+		str_truncate(tmpstr, 0);
+		imap_write_list(list_args, tmpstr);
+		child_data = part->children->context;
+		child_data->envelope_str = p_strdup(pool, str_c(tmpstr));
+#endif
+		args += 2;
+		if (!imap_arg_get_atom(args++, &value) ||
+		    str_to_uint(value, &part->lines) < 0) {
+			*error_r = "Invalid lines field";
+			return -1;
+		}
+	}
+	if (!imap_arg_get_nstring(args++, &part->content_md5)) {
+		*error_r = "Invalid content-md5";
+		return -1;
+	}
+	part->content_md5 = p_strdup(pool, part->content_md5);
+	*parts_r = part;
+	return imap_message_part_parse_args_common
+		(part, pool, args, error_r);
+}
+
+int imap_message_parts_parse(const char *bodystructure, pool_t pool,
+			     struct imap_message_part **parts_r, const char **error_r)
+{
+	struct istream *input;
+	struct imap_parser *parser;
+	const struct imap_arg *args;
+	int ret;
+
+	input = i_stream_create_from_data(bodystructure, strlen(bodystructure));
+	(void)i_stream_read(input);
+
+	parser = imap_parser_create(input, NULL, (size_t)-1);
+	ret = imap_parser_finish_line(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE |
+				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
+	if (ret < 0) {
+		*error_r = t_strdup_printf("IMAP parser failed: %s",
+					   imap_parser_get_error(parser, NULL));
+	} else if (ret == 0) {
+		*error_r = "Empty bodystructure";
+		ret = -1;
+	} else T_BEGIN {
+		ret = imap_message_parts_parse_args
+			(args, pool, parts_r, error_r);
+	} T_END;
+
+	imap_parser_unref(&parser);
+	i_stream_destroy(&input);
+	return ret;
+}
+
+bool imap_message_part_get_filename(struct imap_message_part *part,
+	const char **filename_r)
+{
+	const struct imap_message_part_param *params =
+		part->content_disposition_params;
+	unsigned int i, count = part->content_disposition_params_count;
+
+	if (part->content_disposition != NULL &&
+		strcasecmp(part->content_disposition, "attachment") != 0) {
+		return FALSE;
+	}
+	for (i = 0; i < count; i++) {
+		if (strcasecmp(params[i].key, "filename") == 0 &&
+			params[i].value != NULL) {
+			*filename_r = params[i].value;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
