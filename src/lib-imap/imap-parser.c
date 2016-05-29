@@ -137,7 +137,8 @@ void imap_parser_set_streams(struct imap_parser *parser, struct istream *input,
 
 const char *imap_parser_get_error(struct imap_parser *parser, bool *fatal)
 {
-        *fatal = parser->fatal_error;
+	if (fatal != NULL)
+		*fatal = parser->fatal_error;
 	return parser->error_msg;
 }
 

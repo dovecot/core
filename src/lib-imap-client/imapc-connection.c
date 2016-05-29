@@ -567,7 +567,6 @@ imapc_connection_read_line_more(struct imapc_connection *conn,
 				const struct imap_arg **imap_args_r)
 {
 	uoff_t literal_size;
-	bool fatal;
 	int ret;
 
 	if ((ret = imapc_connection_read_literal(conn)) <= 0)
@@ -584,7 +583,7 @@ imapc_connection_read_line_more(struct imapc_connection *conn,
 	}
 	if (ret < 0) {
 		imapc_connection_input_error(conn, "Error parsing input: %s",
-			imap_parser_get_error(conn->parser, &fatal));
+			imap_parser_get_error(conn->parser, NULL));
 		return -1;
 	}
 

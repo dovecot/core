@@ -825,7 +825,6 @@ int imap_bodystructure_parse(const char *bodystructure, pool_t pool,
 	struct imap_parser *parser;
 	const struct imap_arg *args;
 	int ret;
-	bool fatal;
 
 	i_assert(parts != NULL);
 	i_assert(parts->next == NULL);
@@ -838,7 +837,7 @@ int imap_bodystructure_parse(const char *bodystructure, pool_t pool,
 				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("IMAP parser failed: %s",
-					   imap_parser_get_error(parser, &fatal));
+					   imap_parser_get_error(parser, NULL));
 	} else if (ret == 0) {
 		*error_r = "Empty bodystructure";
 		ret = -1;
@@ -985,7 +984,6 @@ int imap_body_parse_from_bodystructure(const char *bodystructure,
 	struct istream *input;
 	struct imap_parser *parser;
 	const struct imap_arg *args;
-	bool fatal;
 	int ret;
 
 	input = i_stream_create_from_data(bodystructure, strlen(bodystructure));
@@ -996,7 +994,7 @@ int imap_body_parse_from_bodystructure(const char *bodystructure,
 				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("IMAP parser failed: %s",
-					   imap_parser_get_error(parser, &fatal));
+					   imap_parser_get_error(parser, NULL));
 	} else if (ret == 0) {
 		*error_r = "Empty bodystructure";
 		ret = -1;

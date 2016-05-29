@@ -58,7 +58,8 @@ void imap_parser_set_streams(struct imap_parser *parser, struct istream *input,
 /* Return the last error in parser. fatal is set to TRUE if there's no way to
    continue parsing, currently only if too large non-sync literal size was
    given. */
-const char *imap_parser_get_error(struct imap_parser *parser, bool *fatal);
+const char *imap_parser_get_error(struct imap_parser *parser, bool *fatal)
+	ATTR_NULL(2);
 
 /* Read a number of arguments. This function doesn't call i_stream_read(), you
    need to do that. Returns number of arguments read (may be less than count

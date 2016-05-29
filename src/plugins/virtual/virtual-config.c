@@ -43,7 +43,6 @@ virtual_search_args_parse(const string_t *rule, const char **error_r)
 	struct mail_search_parser *parser;
 	struct mail_search_args *sargs;
 	const char *charset = "UTF-8";
-	bool fatal;
 	int ret;
 
 	if (str_len(rule) == 0) {
@@ -59,7 +58,7 @@ virtual_search_args_parse(const string_t *rule, const char **error_r)
 	ret = imap_parser_finish_line(imap_parser, 0,  0, &args);
 	if (ret < 0) {
 		sargs = NULL;
-		*error_r = t_strdup(imap_parser_get_error(imap_parser, &fatal));
+		*error_r = t_strdup(imap_parser_get_error(imap_parser, NULL));
 	} else {
 		parser = mail_search_parser_init_imap(args);
 		if (mail_search_build(mail_search_register_get_imap(),
