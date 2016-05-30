@@ -385,7 +385,8 @@ bool dcrypt_openssl_ctx_hmac_create(const char *algorithm, struct dcrypt_context
 	const EVP_MD *md;
 	md = EVP_get_digestbyname(algorithm);
 	if(md == NULL) {
-		*error_r = t_strdup_printf("Invalid digest %s", algorithm);
+		if (error_r != NULL)
+			*error_r = t_strdup_printf("Invalid digest %s", algorithm);
 		return FALSE;
 	}
 	/* allocate context */
@@ -673,7 +674,8 @@ bool dcrypt_openssl_pbkdf2(const unsigned char *password, size_t password_len, c
 		/* determine MD */
 		const EVP_MD* md = EVP_get_digestbyname(hash);
 		if (md == NULL) {
-			*error_r = t_strdup_printf("Invalid digest %s", hash);
+			if (error_r != NULL)
+				*error_r = t_strdup_printf("Invalid digest %s", hash);
 			return FALSE;
 		}
 
@@ -1550,7 +1552,8 @@ bool dcrypt_openssl_store_private_key(struct dcrypt_private_key *key, enum dcryp
 	if (cipher != NULL) {
 		algo = EVP_get_cipherbyname(cipher);
 		if (algo == NULL) {
-			*error_r = t_strdup_printf("Invalid cipher %s", cipher);
+			if (error_r != NULL)
+				*error_r = t_strdup_printf("Invalid cipher %s", cipher);
 			return FALSE;
 		}
 	}
@@ -1630,7 +1633,8 @@ bool dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key, s
 		EVP_PKEY_set1_EC_KEY(pk, eck);
 		EC_KEY_free(eck);
 	} else {
-		*error_r = "Invalid private key";
+		if (error_r != NULL)
+			*error_r = "Invalid private key";
 		return FALSE;
 	}
 
