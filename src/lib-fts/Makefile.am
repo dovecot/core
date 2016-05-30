@@ -12,15 +12,15 @@ AM_CPPFLAGS = \
 	$(LIBICU_CFLAGS) \
 	-DUDHRDIR=\""$(top_srcdir)/src/lib-fts"\" \
 	-DDATADIR=\"$(pkgdatadir)\" \
-	-DTEST_STOPWORDS_DIR=\""$(top_srcdir)/src/lib-fts"\"
+	-DTEST_STOPWORDS_DIR=\""$(top_srcdir)/src/lib-fts/stopwords"\"
 
 stopwordsdir = $(datadir)/${PACKAGE_TARNAME}/stopwords
 dist_stopwords_DATA = \
-	stopwords_en.txt \
-	stopwords_fi.txt \
-	stopwords_fr.txt \
-	stopwords_no.txt \
-	stopwords_sv.txt
+	stopwords/stopwords_en.txt \
+	stopwords/stopwords_fi.txt \
+	stopwords/stopwords_fr.txt \
+	stopwords/stopwords_no.txt \
+	stopwords/stopwords_sv.txt
 
 BUILT_SOURCES = word-boundary-data.c word-break-data.c
 
