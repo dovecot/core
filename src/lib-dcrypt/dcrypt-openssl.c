@@ -1647,8 +1647,8 @@ bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_fo
 	enum dcrypt_key_version version = DCRYPT_KEY_VERSION_NA;
 	enum dcrypt_key_encryption_type encryption_type = DCRYPT_KEY_ENCRYPTION_TYPE_NONE;
 	enum dcrypt_key_kind kind = DCRYPT_KEY_KIND_PUBLIC;
-	const char *encryption_key_hash = NULL;
-	const char *key_hash = NULL;
+	char *encryption_key_hash = NULL;
+	char *key_hash = NULL;
 
 	if (key_data == NULL) {
 		if (error_r != NULL)
