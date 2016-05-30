@@ -16,10 +16,18 @@ AM_CPPFLAGS = \
 
 stopwordsdir = $(datadir)/${PACKAGE_TARNAME}/stopwords
 dist_stopwords_DATA = \
+	stopwords/stopwords_da.txt \
+	stopwords/stopwords_de.txt \
 	stopwords/stopwords_en.txt \
+	stopwords/stopwords_es.txt \
 	stopwords/stopwords_fi.txt \
 	stopwords/stopwords_fr.txt \
+	stopwords/stopwords_it.txt \
+	stopwords/stopwords_nl.txt \
 	stopwords/stopwords_no.txt \
+	stopwords/stopwords_pt.txt \
+	stopwords/stopwords_ro.txt \
+	stopwords/stopwords_ru.txt \
 	stopwords/stopwords_sv.txt
 
 BUILT_SOURCES = word-boundary-data.c word-break-data.c
