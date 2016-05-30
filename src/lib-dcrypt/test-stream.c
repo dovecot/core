@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "istream-decrypt.h"
 #include "istream-hash.h"
+#include "istream-base64.h"
 #include "iostream-temp.h"
 #include "randgen.h"
 #include "hash-method.h"
@@ -56,20 +57,22 @@ void test_static_v1_input(void)
 
 	test_begin("test_static_v1_input");
 
-	struct istream *is_1 = i_stream_create_file("sample-v1.bin", IO_BLOCK_SIZE);
-	struct istream *is_2 = i_stream_create_decrypt(is_1, test_v1_kp.priv);
+	struct istream *is_1 = i_stream_create_file("sample-v1.asc", IO_BLOCK_SIZE);
+	struct istream *is_2 = i_stream_create_base64_decoder(is_1);
 	i_stream_unref(&is_1);
-	struct istream *is_3 = i_stream_create_hash(is_2, hash, hash_ctx);
+	struct istream *is_3 = i_stream_create_decrypt(is_2, test_v1_kp.priv);
 	i_stream_unref(&is_2);
-
-	while((siz = i_stream_read(is_3))>0) { i_stream_skip(is_3, siz); }
-
-	if (is_3->stream_errno != 0)
-		i_debug("error: %s", i_stream_get_error(is_3));
-
-	test_assert(is_3->stream_errno == 0);
-
+	struct istream *is_4 = i_stream_create_hash(is_3, hash, hash_ctx);
 	i_stream_unref(&is_3);
+
+	while((siz = i_stream_read(is_4))>0) { i_stream_skip(is_4, siz); }
+
+	if (is_4->stream_errno != 0)
+		i_debug("error: %s", i_stream_get_error(is_4));
+
+	test_assert(is_4->stream_errno == 0);
+
+	i_stream_unref(&is_4);
 
 	hash->result(hash_ctx, hash_dgst);
 
@@ -88,20 +91,22 @@ void test_static_v2_input(void)
 	unsigned char hash_dgst[hash->digest_size];
 	hash->init(hash_ctx);
 
-	struct istream *is_1 = i_stream_create_file("sample-v2.bin", IO_BLOCK_SIZE);
-	struct istream *is_2 = i_stream_create_decrypt(is_1, test_v2_kp.priv);
+	struct istream *is_1 = i_stream_create_file("sample-v2.asc", IO_BLOCK_SIZE);
+	struct istream *is_2 = i_stream_create_base64_decoder(is_1);
 	i_stream_unref(&is_1);
-	struct istream *is_3 = i_stream_create_hash(is_2, hash, hash_ctx);
+	struct istream *is_3 = i_stream_create_decrypt(is_2, test_v2_kp.priv);
 	i_stream_unref(&is_2);
-
-	while((amt = i_stream_read(is_3))>0) { i_stream_skip(is_3, amt); }
-
-        if (is_3->stream_errno != 0)
-                i_debug("error: %s", i_stream_get_error(is_3));
-
-	test_assert(is_3->stream_errno == 0);
-
+	struct istream *is_4 = i_stream_create_hash(is_3, hash, hash_ctx);
 	i_stream_unref(&is_3);
+
+	while((amt = i_stream_read(is_4))>0) { i_stream_skip(is_4, amt); }
+
+        if (is_4->stream_errno != 0)
+                i_debug("error: %s", i_stream_get_error(is_4));
+
+	test_assert(is_4->stream_errno == 0);
+
+	i_stream_unref(&is_4);
 
 	hash->result(hash_ctx, hash_dgst);
 
