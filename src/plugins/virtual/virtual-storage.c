@@ -260,7 +260,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 	mbox->box.storage = _storage;
 	mbox->box.list = list;
 	mbox->box.mail_vfuncs = &virtual_mail_vfuncs;
-	mbox->vfuncs = virtual_mailbox_vfuncs;
+	mbox->box.virtual_vfuncs = &virtual_mailbox_vfuncs;
 
 	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 
