@@ -120,7 +120,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	if (stream->priv_key == NULL) {
 		/* see if we can get one */
 		if (stream->key_callback != NULL) {
-			unsigned char *key_id = t_malloc(digest_len);
+			unsigned char *key_id = t_malloc_no0(digest_len);
 			memcpy(key_id, digest_pos, digest_len);
 			int ret = stream->key_callback(key_id, &(stream->priv_key), &error, stream->key_context);
 			if (ret < 0) {
