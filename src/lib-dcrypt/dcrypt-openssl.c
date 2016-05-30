@@ -697,8 +697,10 @@ bool dcrypt_openssl_pbkdf2(const unsigned char *password, size_t password_len, c
 static
 bool dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_key_type kind, unsigned int bits, const char *curve, const char **error_r)
 {
+	EVP_PKEY *pkey = NULL;
 	if (kind == DCRYPT_KEY_RSA) {
-		if (dcrypt_openssl_generate_rsa_key(bits, (EVP_PKEY**)&(pair_r->priv), error_r) == 0) {
+		if (dcrypt_openssl_generate_rsa_key(bits, &pkey, error_r) == 0) {
+			pair_r->priv = (struct dcrypt_private_key*)pkey;
 			return dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub), error_r);
 		} else return dcrypt_openssl_error(error_r);
 	} else if (kind == DCRYPT_KEY_EC) {
@@ -708,7 +710,8 @@ bool dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_
 				*error_r = t_strdup_printf("Unknown EC curve %s", curve);
 			return FALSE;
 		}
-		if (dcrypt_openssl_generate_ec_key(nid, (EVP_PKEY**)&(pair_r->priv), error_r) == 0) {
+		if (dcrypt_openssl_generate_ec_key(nid, &pkey, error_r) == 0) {
+			pair_r->priv = (struct dcrypt_private_key*)pkey;
 			return dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub), error_r);
 		} else return dcrypt_openssl_error(error_r);
 	}
