@@ -9,7 +9,6 @@
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
-#include "../virtual/virtual-storage.h"
 #include "fts-api-private.h"
 #include "fts-tokenizer.h"
 #include "fts-indexer.h"
@@ -208,8 +207,7 @@ fts_mailbox_search_init(struct mailbox_transaction_context *t,
 	fctx->args = args;
 	fctx->result_pool = pool_alloconly_create("fts results", 1024*64);
 	fctx->orig_matches = buffer_create_dynamic(default_pool, 64);
-	fctx->virtual_mailbox =
-		strcmp(t->box->storage->name, VIRTUAL_STORAGE_NAME) == 0;
+	fctx->virtual_mailbox = t->box->virtual_vfuncs != NULL;
 	fctx->enforced =
 		mail_user_plugin_getenv(t->box->storage->user,
 					"fts_enforced") != NULL;
@@ -534,8 +532,7 @@ void fts_mail_allocated(struct mail *_mail)
 	fmail = p_new(mail->pool, struct fts_mail, 1);
 	fmail->module_ctx.super = *v;
 	mail->vlast = &fmail->module_ctx.super;
-	fmail->virtual_mail =
-		strcmp(_mail->box->storage->name, VIRTUAL_STORAGE_NAME) == 0;
+	fmail->virtual_mail = _mail->box->virtual_vfuncs != NULL;
 
 	v->get_special = fts_mail_get_special;
 	v->precache = fts_mail_precache;

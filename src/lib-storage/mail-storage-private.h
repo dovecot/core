@@ -150,6 +150,24 @@ struct mail_attachment_part {
 	const char *content_type, *content_disposition;
 };
 
+struct virtual_mailbox_vfuncs {
+	/* convert backend UIDs to virtual UIDs. if some backend UID doesn't
+	   exist in mailbox, it's simply ignored */
+	void (*get_virtual_uids)(struct mailbox *box,
+				 struct mailbox *backend_mailbox,
+				 const ARRAY_TYPE(seq_range) *backend_uids,
+				 ARRAY_TYPE(seq_range) *virtual_uids_r);
+	/* like get_virtual_uids(), but if a backend UID doesn't exist,
+	   convert it to 0. */
+	void (*get_virtual_uid_map)(struct mailbox *box,
+				    struct mailbox *backend_mailbox,
+				    const ARRAY_TYPE(seq_range) *backend_uids,
+				    ARRAY_TYPE(uint32_t) *virtual_uids_r);
+	void (*get_virtual_backend_boxes)(struct mailbox *box,
+					  ARRAY_TYPE(mailboxes) *mailboxes,
+					  bool only_with_msgs);
+};
+
 struct mailbox_vfuncs {
 	bool (*is_readonly)(struct mailbox *box);
 
@@ -286,7 +304,9 @@ struct mailbox {
 	struct mail_storage *storage;
 	struct mailbox_list *list;
 
-        struct mailbox_vfuncs v, *vlast;
+	struct mailbox_vfuncs v, *vlast;
+	/* virtual mailboxes: */
+	const struct virtual_mailbox_vfuncs *virtual_vfuncs;
 /* private: */
 	pool_t pool, metadata_pool;
 	/* Linked list of all mailboxes in this storage */

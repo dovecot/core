@@ -114,24 +114,6 @@ struct virtual_backend_box {
 };
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 
-struct virtual_mailbox_vfuncs {
-	/* convert backend UIDs to virtual UIDs. if some backend UID doesn't
-	   exist in mailbox, it's simply ignored */
-	void (*get_virtual_uids)(struct mailbox *box,
-				 struct mailbox *backend_mailbox,
-				 const ARRAY_TYPE(seq_range) *backend_uids,
-				 ARRAY_TYPE(seq_range) *virtual_uids_r);
-	/* like get_virtual_uids(), but if a backend UID doesn't exist,
-	   convert it to 0. */
-	void (*get_virtual_uid_map)(struct mailbox *box,
-				    struct mailbox *backend_mailbox,
-				    const ARRAY_TYPE(seq_range) *backend_uids,
-				    ARRAY_TYPE(uint32_t) *virtual_uids_r);
-	void (*get_virtual_backend_boxes)(struct mailbox *box,
-					  ARRAY_TYPE(mailboxes) *mailboxes,
-					  bool only_with_msgs);
-};
-
 struct virtual_mailbox {
 	struct mailbox box;
 	struct virtual_storage *storage;
@@ -160,8 +142,6 @@ struct virtual_mailbox {
 
 	ARRAY_TYPE(mailbox_virtual_patterns) list_include_patterns;
 	ARRAY_TYPE(mailbox_virtual_patterns) list_exclude_patterns;
-
-	struct virtual_mailbox_vfuncs vfuncs;
 
 	unsigned int uids_mapped:1;
 	unsigned int sync_initialized:1;

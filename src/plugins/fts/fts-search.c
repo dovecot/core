@@ -5,7 +5,6 @@
 #include "str.h"
 #include "seq-range-array.h"
 #include "mail-search.h"
-#include "../virtual/virtual-storage.h"
 #include "fts-api-private.h"
 #include "fts-search-args.h"
 #include "fts-search-serialize.h"
@@ -63,7 +62,7 @@ static int fts_search_lookup_level_single(struct fts_search_context *fctx,
 }
 
 static void
-level_scores_add_vuids(struct virtual_mailbox *vbox,
+level_scores_add_vuids(struct mailbox *box,
 		       struct fts_search_level *level, struct fts_result *br)
 {
 	const struct fts_score_map *scores;
@@ -78,8 +77,8 @@ level_scores_add_vuids(struct virtual_mailbox *vbox,
 	t_array_init(&backend_uids, 64);
 	for (i = 0; i < count; i++)
 		seq_range_array_add(&backend_uids, scores[i].uid);
-	vbox->vfuncs.get_virtual_uid_map(&vbox->box, br->box,
-					 &backend_uids, &vuids_arr);
+	box->virtual_vfuncs->get_virtual_uid_map(box, br->box,
+						 &backend_uids, &vuids_arr);
 
 	i_assert(array_count(&vuids_arr) == array_count(&br->scores));
 	vuids = array_get(&vuids_arr, &count);
@@ -110,7 +109,6 @@ multi_add_lookup_result(struct fts_search_context *fctx,
 			struct mail_search_arg *args,
 			struct fts_multi_result *result)
 {
-	struct virtual_mailbox *vbox = (struct virtual_mailbox *)fctx->box;
 	ARRAY_TYPE(seq_range) vuids;
 	size_t orig_size;
 	unsigned int i;
@@ -132,21 +130,20 @@ multi_add_lookup_result(struct fts_search_context *fctx,
 
 		array_clear(&vuids);
 		if (array_is_created(&br->definite_uids)) {
-			vbox->vfuncs.get_virtual_uids(fctx->box, br->box,
-						      &br->definite_uids,
-						      &vuids);
+			fctx->box->virtual_vfuncs->get_virtual_uids(fctx->box,
+				br->box, &br->definite_uids, &vuids);
 		}
 		uid_range_to_seqs(fctx, &vuids, &level->definite_seqs);
 
 		array_clear(&vuids);
 		if (array_is_created(&br->maybe_uids)) {
-			vbox->vfuncs.get_virtual_uids(fctx->box, br->box,
-						      &br->maybe_uids, &vuids);
+			fctx->box->virtual_vfuncs->get_virtual_uids(fctx->box,
+				br->box, &br->maybe_uids, &vuids);
 		}
 		uid_range_to_seqs(fctx, &vuids, &level->maybe_seqs);
 
 		if (array_is_created(&br->scores))
-			level_scores_add_vuids(vbox, level, br);
+			level_scores_add_vuids(fctx->box, level, br);
 	}
 	return 0;
 }
@@ -157,7 +154,6 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 {
 	enum fts_lookup_flags flags = fctx->flags |
 		(and_args ? FTS_LOOKUP_FLAG_AND_ARGS : 0);
-	struct virtual_mailbox *vbox = (struct virtual_mailbox *)fctx->box;
 	ARRAY_TYPE(mailboxes) mailboxes_arr, tmp_mailboxes;
 	struct mailbox *const *mailboxes;
 	struct fts_backend *backend;
@@ -166,7 +162,8 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 	unsigned int i, j, mailbox_count;
 
 	p_array_init(&mailboxes_arr, fctx->result_pool, 8);
-	vbox->vfuncs.get_virtual_backend_boxes(fctx->box, &mailboxes_arr, TRUE);
+	fctx->box->virtual_vfuncs->get_virtual_backend_boxes(fctx->box,
+		&mailboxes_arr, TRUE);
 	array_sort(&mailboxes_arr, mailbox_cmp_fts_backend);
 
 	memset(&result, 0, sizeof(result));

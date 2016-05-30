@@ -8,7 +8,6 @@
 #include "mail-storage-private.h"
 #include "mailbox-list-iter.h"
 #include "mail-search.h"
-#include "../virtual/virtual-storage.h"
 #include "fts-api-private.h"
 
 static ARRAY(const struct fts_backend *) backends;
@@ -90,7 +89,7 @@ int fts_backend_get_last_uid(struct fts_backend *backend, struct mailbox *box,
 {
 	struct fts_index_header hdr;
 
-	if (strcmp(box->storage->name, VIRTUAL_STORAGE_NAME) == 0) {
+	if (box->virtual_vfuncs != NULL) {
 		/* virtual mailboxes themselves don't have any indexes,
 		   so catch this call here */
 		if (!fts_index_get_header(box, &hdr))
@@ -228,7 +227,14 @@ int fts_backend_reset_last_uids(struct fts_backend *backend)
 
 int fts_backend_rescan(struct fts_backend *backend)
 {
-	if (strcmp(backend->ns->storage->name, VIRTUAL_STORAGE_NAME) == 0) {
+	struct mailbox *box;
+	bool virtual_storage;
+
+	box = mailbox_alloc(backend->ns->list, "", 0);
+	virtual_storage = box->virtual_vfuncs != NULL;
+	mailbox_free(&box);
+
+	if (virtual_storage) {
 		/* just reset the last-uids for a virtual storage. */
 		return fts_backend_reset_last_uids(backend);
 	}
