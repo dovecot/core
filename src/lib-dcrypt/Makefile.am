@@ -33,8 +33,8 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 EXTRA_DIST = \
-	sample-v1.bin \
-	sample-v2.bin
+	sample-v1.asc \
+	sample-v2.asc
 
 check_PROGRAMS = test-crypto test-stream
 
