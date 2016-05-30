@@ -45,11 +45,6 @@ check-test: all-am
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
 
-
-noinst_DATA = \
-	sample-v1.bin \
-	sample-v2.bin
-
 LIBDOVECOT_TEST = \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
