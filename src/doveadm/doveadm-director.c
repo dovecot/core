@@ -40,7 +40,7 @@ struct user_list {
 
 HASH_TABLE_DEFINE_TYPE(user_list, void *, struct user_list *);
 
-static void director_cmd_help(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED);
+static void director_cmd_help(const struct doveadm_cmd_ver2 *);
 static int director_get_host(const char *host, struct ip_addr **ips_r,
                               unsigned int *ips_count_r) ATTR_WARN_UNUSED_RESULT;
 static void
@@ -92,34 +92,34 @@ static void director_disconnect(struct director_context *ctx)
 }
 
 static struct director_context *
-cmd_director_init(int argc, const struct doveadm_cmd_param *argv)
+cmd_director_init(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	ctx = t_new(struct director_context, 1);
-	if (!doveadm_cmd_param_str(argc, argv, "socket-path", &(ctx->socket_path)))
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx->socket_path)))
 		ctx->socket_path = t_strconcat(doveadm_settings->base_dir,
 					"/director-admin", NULL);
 	else
 		ctx->explicit_socket_path = TRUE;
-	if (!doveadm_cmd_param_bool(argc, argv, "user-map", &(ctx->user_map)))
+	if (!doveadm_cmd_param_bool(cctx, "user-map", &(ctx->user_map)))
 		ctx->user_map = FALSE;
-	if (!doveadm_cmd_param_bool(argc, argv, "hash-map", &(ctx->hash_map)))
+	if (!doveadm_cmd_param_bool(cctx, "hash-map", &(ctx->hash_map)))
 		ctx->hash_map = FALSE;
-	if (!doveadm_cmd_param_bool(argc, argv, "force-flush", &(ctx->force_flush)))
+	if (!doveadm_cmd_param_bool(cctx, "force-flush", &(ctx->force_flush)))
 		ctx->force_flush = FALSE;
-	if (!doveadm_cmd_param_istream(argc, argv, "users-file", &(ctx->users_input)))
+	if (!doveadm_cmd_param_istream(cctx, "users-file", &(ctx->users_input)))
 		ctx->users_input = NULL;
-	if (!doveadm_cmd_param_str(argc, argv, "tag", &(ctx->tag)))
+	if (!doveadm_cmd_param_str(cctx, "tag", &(ctx->tag)))
 		ctx->tag = NULL;
-	if (!doveadm_cmd_param_str(argc, argv, "user", &(ctx->user)))
+	if (!doveadm_cmd_param_str(cctx, "user", &(ctx->user)))
 		ctx->user = NULL;
-	if (!doveadm_cmd_param_str(argc, argv, "host", &(ctx->host)))
+	if (!doveadm_cmd_param_str(cctx, "host", &(ctx->host)))
 		ctx->host = NULL;
-	if (!doveadm_cmd_param_str(argc, argv, "ip", &(ctx->ip)))
+	if (!doveadm_cmd_param_str(cctx, "ip", &(ctx->ip)))
 		ctx->ip = NULL;
-	if (!doveadm_cmd_param_str(argc, argv, "port", &(ctx->port)))
+	if (!doveadm_cmd_param_str(cctx, "port", &(ctx->port)))
 		ctx->port = NULL;
-	if (!doveadm_cmd_param_str(argc, argv, "vhost-count", &(ctx->vhost_count)))
+	if (!doveadm_cmd_param_str(cctx, "vhost-count", &(ctx->vhost_count)))
 		ctx->vhost_count = NULL;
 	if (!ctx->user_map)
 		director_connect(ctx);
@@ -174,12 +174,12 @@ cmd_director_status_user(struct director_context *ctx)
 	director_disconnect(ctx);
 }
 
-static void cmd_director_status(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_status(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 	if (ctx->user != NULL) {
 		cmd_director_status_user(ctx);
 		return;
@@ -311,7 +311,7 @@ static bool ip_find(const struct ip_addr *ips, unsigned int ips_count,
 	return FALSE;
 }
 
-static void cmd_director_map(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_map(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
@@ -321,10 +321,10 @@ static void cmd_director_map(const struct doveadm_cmd_ver2 *cmd, int argc, const
 	struct user_list *user;
 	unsigned int ips_count, user_hash, expires;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 
 	if ((ctx->hash_map && ctx->user_map) && ctx->host == NULL) {
-		director_cmd_help(cmd);
+		director_cmd_help(cctx->cmd);
 	return;
 	}
 
@@ -416,7 +416,7 @@ deinit:
 }
 
 static void
-cmd_director_add_or_update(const struct doveadm_cmd_ver2 *dcmd, int argc, const struct doveadm_cmd_param *argv, bool update)
+cmd_director_add_or_update(struct doveadm_cmd_context *cctx, bool update)
 {
 	const char *director_cmd = update ? "HOST-UPDATE" : "HOST-SET";
 	struct director_context *ctx;
@@ -425,20 +425,20 @@ cmd_director_add_or_update(const struct doveadm_cmd_ver2 *dcmd, int argc, const 
 	const char *line, *host;
 	string_t *cmd;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 	if (ctx->tag != NULL && ctx->tag[0] == '\0')
 		ctx->tag = NULL;
 	if (ctx->host == NULL) {
-		director_cmd_help(dcmd);
+		director_cmd_help(cctx->cmd);
 		return;
 	}
 	if (ctx->vhost_count != NULL) {
 		if (str_to_uint(ctx->vhost_count, &vhost_count) < 0) {
-			director_cmd_help(dcmd);
+			director_cmd_help(cctx->cmd);
 			return;
 		}
 	} else if (update) {
-		director_cmd_help(dcmd);
+		director_cmd_help(cctx->cmd);
 		return;
 	}
 
@@ -475,29 +475,29 @@ cmd_director_add_or_update(const struct doveadm_cmd_ver2 *dcmd, int argc, const 
 	director_disconnect(ctx);
 }
 
-static void cmd_director_add(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_add(struct doveadm_cmd_context *cctx)
 {
-	cmd_director_add_or_update(cmd, argc, argv, FALSE);
+	cmd_director_add_or_update(cctx, FALSE);
 }
 
-static void cmd_director_update(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_update(struct doveadm_cmd_context *cctx)
 {
-	cmd_director_add_or_update(cmd, argc, argv, TRUE);
+	cmd_director_add_or_update(cctx, TRUE);
 }
 
 static void
-cmd_director_ipcmd(const char *cmd_name, const struct doveadm_cmd_ver2 *cmd, const char *success_result,
-	int argc, const struct doveadm_cmd_param *argv)
+cmd_director_ipcmd(const char *cmd_name, const char *success_result,
+	struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int i, ips_count;
 	const char *host, *line;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 	host = ctx->host;
 	if (host == NULL) {
-		director_cmd_help(cmd);
+		director_cmd_help(cctx->cmd);
 		return;
 	}
 
@@ -524,31 +524,31 @@ cmd_director_ipcmd(const char *cmd_name, const struct doveadm_cmd_ver2 *cmd, con
 	director_disconnect(ctx);
 }
 
-static void cmd_director_remove(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_remove(struct doveadm_cmd_context *cctx)
 {
-	cmd_director_ipcmd("HOST-REMOVE", cmd, "removed", argc, argv);
+	cmd_director_ipcmd("HOST-REMOVE", "removed", cctx);
 }
 
-static void cmd_director_up(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_up(struct doveadm_cmd_context *cctx)
 {
-	cmd_director_ipcmd("HOST-UP", cmd, "up", argc, argv);
+	cmd_director_ipcmd("HOST-UP", "up", cctx);
 }
 
-static void cmd_director_down(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_down(struct doveadm_cmd_context *cctx)
 {
-	cmd_director_ipcmd("HOST-DOWN", cmd, "down", argc, argv);
+	cmd_director_ipcmd("HOST-DOWN", "down", cctx);
 }
 
-static void cmd_director_move(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_move(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	struct ip_addr *ips;
 	unsigned int ips_count, user_hash;
 	const char *line, *ip_str;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 	if (ctx->user == NULL || ctx->host == NULL) {
-		director_cmd_help(cmd);
+		director_cmd_help(cctx->cmd);
 		return;
 	}
 
@@ -579,14 +579,14 @@ static void cmd_director_move(const struct doveadm_cmd_ver2 *cmd, int argc, cons
 	director_disconnect(ctx);
 }
 
-static void cmd_director_kick(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_kick(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	const char *line;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 	if (ctx->user == NULL) {
-		director_cmd_help(cmd);
+		director_cmd_help(cctx->cmd);
 		return;
 	}
 
@@ -624,7 +624,7 @@ static void cmd_director_flush_all(struct director_context *ctx)
 	director_disconnect(ctx);
 }
 
-static void cmd_director_flush(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_flush(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	struct ip_addr *ips;
@@ -632,9 +632,9 @@ static void cmd_director_flush(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, i
 	struct ip_addr ip;
 	const char *line;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 	if (ctx->host == NULL) {
-		director_cmd_help(cmd);
+		director_cmd_help(cctx->cmd);
 		return;
 	}
 
@@ -672,12 +672,12 @@ static void cmd_director_flush(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, i
 	director_disconnect(ctx);
 }
 
-static void cmd_director_dump(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_dump(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
 	if (ctx->explicit_socket_path)
@@ -739,18 +739,18 @@ static void director_read_ok_reply(struct director_context *ctx)
 	}
 }
 
-static void cmd_director_ring_add(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_ring_add(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	struct ip_addr ip;
 	in_port_t port = 0;
 	string_t *str = t_str_new(64);
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 	if (ctx->ip == NULL ||
 	    net_addr2ip(ctx->ip, &ip) < 0 ||
 	    (ctx->port && net_str2port(ctx->port, &port) < 0)) {
-		director_cmd_help(cmd);
+		director_cmd_help(cctx->cmd);
 		return;
 	}
 
@@ -763,18 +763,18 @@ static void cmd_director_ring_add(const struct doveadm_cmd_ver2 *cmd, int argc, 
 	director_disconnect(ctx);
 }
 
-static void cmd_director_ring_remove(const struct doveadm_cmd_ver2 *cmd, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_ring_remove(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	struct ip_addr ip;
 	string_t *str = t_str_new(64);
 	in_port_t port = 0;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 	if (ctx->ip == NULL ||
 	    net_addr2ip(ctx->ip, &ip) < 0 ||
 	    (ctx->port != NULL && net_str2port(ctx->port, &port) < 0)) {
-		director_cmd_help(cmd);
+		director_cmd_help(cctx->cmd);
 		return;
 	}
 
@@ -787,13 +787,13 @@ static void cmd_director_ring_remove(const struct doveadm_cmd_ver2 *cmd, int arg
 	director_disconnect(ctx);
 }
 
-static void cmd_director_ring_status(const struct doveadm_cmd_ver2 *cmd ATTR_UNUSED, int argc, const struct doveadm_cmd_param *argv)
+static void cmd_director_ring_status(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
 	unsigned long l;
 
-	ctx = cmd_director_init(argc, argv);
+	ctx = cmd_director_init(cctx);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header_simple("director ip");
