@@ -1455,8 +1455,6 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 	ret = mail_storage_service_next(ctx, user, mail_user_r, error_r);
 	if (ret < 0) {
 		mail_storage_service_user_free(&user);
-		*error_r = ret == -2 ? ERRSTR_INVALID_USER_SETTINGS :
-			MAIL_ERRSTR_CRITICAL_MSG;
 		return ret;
 	}
 	*user_r = user;
