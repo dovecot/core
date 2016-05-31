@@ -4,6 +4,8 @@
 #include "istream-private.h"
 #include "istream-metawrap.h"
 
+#define METAWRAP_MAX_METADATA_LINE_LEN 8192
+
 struct metawrap_istream {
 	struct istream_private istream;
 	metawrap_callback_t *callback;
@@ -60,7 +62,12 @@ static ssize_t i_stream_metawrap_read(struct istream_private *stream)
 		      stream->istream.v_offset);
 
 	if (mstream->in_metadata) {
+		size_t prev_max_size = i_stream_get_max_buffer_size(stream->parent);
+
+		i_stream_set_max_buffer_size(stream->parent, METAWRAP_MAX_METADATA_LINE_LEN);
 		ret = metadata_header_read(mstream);
+		i_stream_set_max_buffer_size(stream->parent, prev_max_size);
+
 		i_assert(stream->istream.v_offset == 0);
 		mstream->start_offset = stream->parent->v_offset;
 		if (ret <= 0)
