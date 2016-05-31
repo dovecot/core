@@ -18,7 +18,7 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 	struct stat st;
 	mode_t old_umask;
 	int fd_in, fd_out;
-	off_t ret;
+	int ret = -1;
 
 	if (try_hardlink) {
 		/* see if hardlinking works */
@@ -72,6 +72,7 @@ static int file_copy_to_tmp(const char *srcpath, const char *tmppath,
 
 	switch (o_stream_send_istream(output, input)) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		ret = 0;
 		break;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
