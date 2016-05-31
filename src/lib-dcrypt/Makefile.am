@@ -36,7 +36,7 @@ EXTRA_DIST = \
 	sample-v1.asc \
 	sample-v2.asc
 
-check_PROGRAMS = test-crypto test-stream
+noinst_PROGRAMS = test-crypto test-stream
 
 check: check-am check-test
 
