@@ -214,7 +214,7 @@ o_stream_temp_send_istream(struct ostream_private *_outstream,
 	enum ostream_send_istream_result res;
 
 	if ((outstream->flags & IOSTREAM_TEMP_FLAG_TRY_FD_DUP) != 0) {
-		if (!o_stream_temp_dup_istream(outstream, instream, &res))
+		if (o_stream_temp_dup_istream(outstream, instream, &res))
 			return res;
 		outstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
 	}
