@@ -71,7 +71,7 @@ fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 		parent_args++;
 	}
 	if (fs_init(parent_name, parent_args, set, &fs->super, &error) < 0) {
-		fs_set_error(_fs, "%s: %s", parent_name, error);
+		fs_set_error(_fs, "%s", error);
 		return -1;
 	}
 	props = fs_get_properties(fs->super);
