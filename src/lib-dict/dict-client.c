@@ -476,12 +476,12 @@ client_dict_init(struct dict *driver, const char *uri,
 
 	/* uri = [idle_msecs=<n>:] [<path>] ":" <uri> */
 	if (strncmp(uri, "idle_msecs=", 11) == 0) {
-		p = strchr(uri+14, ':');
+		p = strchr(uri+11, ':');
 		if (p == NULL) {
 			*error_r = t_strdup_printf("Invalid URI: %s", uri);
 			return -1;
 		}
-		if (str_to_uint(t_strdup_until(uri+14, p), &idle_msecs) < 0) {
+		if (str_to_uint(t_strdup_until(uri+11, p), &idle_msecs) < 0) {
 			*error_r = "Invalid idle_msecs";
 			return -1;
 		}
