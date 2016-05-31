@@ -101,6 +101,7 @@ doveadm_cmd_find_with_args(const char *cmd_name, int *argc,
 			   const char *const *argv[]);
 
 void doveadm_register_auth_commands(void);
+void doveadm_register_auth_server_commands(void);
 void doveadm_register_director_commands(void);
 void doveadm_register_proxy_commands(void);
 void doveadm_register_log_commands(void);

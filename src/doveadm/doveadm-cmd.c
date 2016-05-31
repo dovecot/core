@@ -173,7 +173,6 @@ void doveadm_cmds_init(void)
 	for (i = 0; i < N_ELEMENTS(doveadm_commands_ver2); i++)
 		doveadm_cmd_register_ver2(doveadm_commands_ver2[i]);
 
-	doveadm_register_auth_commands();
 	doveadm_register_director_commands();
 	doveadm_register_instance_commands();
 	doveadm_register_mount_commands();

@@ -73,6 +73,7 @@ static void main_init(void)
 
 	doveadm_http_server_init();
 	doveadm_cmds_init();
+	doveadm_register_auth_server_commands();
 	doveadm_dump_init();
 	doveadm_mail_init();
 	dict_drivers_register_builtin();
