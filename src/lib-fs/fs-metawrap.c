@@ -13,8 +13,6 @@
 #include "iostream-temp.h"
 #include "fs-api-private.h"
 
-#define MAX_METADATA_LINE_LEN 8192
-
 struct metawrap_fs {
 	struct fs fs;
 	bool wrap_metadata;
@@ -283,8 +281,7 @@ fs_metawrap_read_stream(struct fs_file *_file, size_t max_buffer_size)
 		return file->input;
 	}
 
-	input = fs_read_stream(file->super_read,
-			       I_MAX(max_buffer_size, MAX_METADATA_LINE_LEN));
+	input = fs_read_stream(file->super_read, max_buffer_size);
 	file->input = i_stream_create_metawrap(input, fs_metawrap_callback, file);
 	i_stream_unref(&input);
 	i_stream_ref(file->input);
