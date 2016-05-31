@@ -699,7 +699,7 @@ bool dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_
 {
 	EVP_PKEY *pkey = NULL;
 	if (kind == DCRYPT_KEY_RSA) {
-		if (dcrypt_openssl_generate_rsa_key(bits, &pkey, error_r) == 0) {
+		if (dcrypt_openssl_generate_rsa_key(bits, &pkey, error_r)) {
 			pair_r->priv = (struct dcrypt_private_key*)pkey;
 			return dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub), error_r);
 		} else return dcrypt_openssl_error(error_r);
@@ -710,7 +710,7 @@ bool dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_
 				*error_r = t_strdup_printf("Unknown EC curve %s", curve);
 			return FALSE;
 		}
-		if (dcrypt_openssl_generate_ec_key(nid, &pkey, error_r) == 0) {
+		if (dcrypt_openssl_generate_ec_key(nid, &pkey, error_r)) {
 			pair_r->priv = (struct dcrypt_private_key*)pkey;
 			return dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub), error_r);
 		} else return dcrypt_openssl_error(error_r);
