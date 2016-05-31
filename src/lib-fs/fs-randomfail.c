@@ -188,7 +188,7 @@ fs_randomfail_init(struct fs *_fs, const char *args,
 		parent_args++;
 	}
 	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
-		fs_set_error(_fs, "%s: %s", parent_name, error);
+		fs_set_error(_fs, "%s", error);
 		return -1;
 	}
 	return 0;
