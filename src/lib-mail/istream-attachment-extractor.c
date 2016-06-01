@@ -594,7 +594,7 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 
 	*retry_r = FALSE;
 
-	if (stream->pos - stream->skip >= stream->max_buffer_size)
+	if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
 		return -2;
 
 	if (astream->failed) {

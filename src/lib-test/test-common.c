@@ -38,8 +38,10 @@ static ssize_t test_read(struct istream_private *stream)
 
 	i_assert(stream->skip <= stream->pos);
 
-	if (stream->pos - stream->skip >= tstream->istream.max_buffer_size)
+	if (stream->pos - stream->skip >= tstream->istream.max_buffer_size) {
+		i_assert(stream->skip != stream->pos);
 		return -2;
+	}
 
 	if (tstream->max_pos < stream->pos) {
 		/* we seeked past the end of file. */

@@ -32,10 +32,11 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 	struct qp_decoder_istream *bstream =
 		(struct qp_decoder_istream *)stream;
 	const unsigned char *data;
-	size_t size, error_pos;
+	size_t size, error_pos, max_buffer_size;
 	const char *error;
 	int ret;
 
+	max_buffer_size = i_stream_get_max_buffer_size(&stream->istream);
 	for (;;) {
 		/* remove skipped data from buffer */
 		if (stream->skip > 0) {
@@ -48,7 +49,7 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 		stream->buffer = bstream->buf->data;
 
 		i_assert(stream->pos <= bstream->buf->used);
-		if (stream->pos >= bstream->istream.max_buffer_size) {
+		if (stream->pos >= max_buffer_size) {
 			/* stream buffer still at maximum */
 			return -2;
 		}
@@ -60,8 +61,7 @@ static ssize_t i_stream_qp_decoder_read(struct istream_private *stream)
 
 			/* only return up to max_buffer_size bytes, even when buffer
 			   actually has more, as not to confuse the caller */
-			new_pos = I_MIN
-				(bstream->buf->used, bstream->istream.max_buffer_size);
+			new_pos = I_MIN(bstream->buf->used, max_buffer_size);
 			bytes = new_pos - stream->pos;
 			stream->pos = new_pos;
 

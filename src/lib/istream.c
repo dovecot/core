@@ -605,9 +605,7 @@ void i_stream_compress(struct istream_private *stream)
 
 void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 {
-	size_t old_size;
-
-	i_assert(stream->max_buffer_size > 0);
+	size_t old_size, max_size;
 
 	old_size = stream->buffer_size;
 
@@ -617,8 +615,10 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 	else
 		stream->buffer_size = nearest_power(stream->buffer_size);
 
-	if (stream->buffer_size > stream->max_buffer_size)
-		stream->buffer_size = stream->max_buffer_size;
+	max_size = i_stream_get_max_buffer_size(&stream->istream);
+	i_assert(max_size > 0);
+	if (stream->buffer_size > max_size)
+		stream->buffer_size = max_size;
 
 	if (stream->buffer_size <= old_size)
 		stream->buffer_size = old_size;
@@ -638,7 +638,7 @@ bool i_stream_try_alloc(struct istream_private *stream,
 		if (stream->skip > 0) {
 			/* remove the unused bytes from beginning of buffer */
                         i_stream_compress(stream);
-		} else if (stream->buffer_size < stream->max_buffer_size) {
+		} else if (stream->buffer_size < i_stream_get_max_buffer_size(&stream->istream)) {
 			/* buffer is full - grow it */
 			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
 		}

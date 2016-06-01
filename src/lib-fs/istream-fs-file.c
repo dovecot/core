@@ -27,7 +27,7 @@ static ssize_t i_stream_fs_file_read(struct istream_private *stream)
 
 	if (fstream->istream.parent == NULL) {
 		input = fs_read_stream(fstream->file,
-				       fstream->istream.max_buffer_size);
+			i_stream_get_max_buffer_size(&stream->istream));
 		i_stream_init_parent(stream, input);
 		i_stream_unref(&input);
 	}

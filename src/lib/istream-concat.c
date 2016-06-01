@@ -169,7 +169,7 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 		/* we either read something or we're at EOF */
 		last_stream = cstream->input[cstream->cur_idx+1] == NULL;
 		if (ret == -1 && !last_stream) {
-			if (stream->pos - stream->skip >= stream->max_buffer_size)
+			if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
 				return -2;
 
 			i_stream_concat_read_next(cstream);
@@ -320,7 +320,7 @@ struct istream *i_stream_create_concat(struct istream *input[])
 	/* if any of the streams isn't blocking or seekable, set ourself also
 	   nonblocking/nonseekable */
 	for (count = 0; input[count] != NULL; count++) {
-		size_t cur_max = input[count]->real_stream->max_buffer_size;
+		size_t cur_max = i_stream_get_max_buffer_size(input[count]);
 
 		if (cur_max > max_buffer_size)
 			max_buffer_size = cur_max;

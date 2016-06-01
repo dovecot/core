@@ -155,6 +155,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 {
 	struct message_header_line *hdr;
 	uoff_t highwater_offset;
+	size_t max_buffer_size;
 	ssize_t ret, ret2;
 	int hdr_ret;
 
@@ -184,7 +185,8 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 		}
 	}
 
-	if (mstream->hdr_buf->used >= mstream->istream.max_buffer_size)
+	max_buffer_size = i_stream_get_max_buffer_size(&mstream->istream.istream);
+	if (mstream->hdr_buf->used >= max_buffer_size)
 		return -2;
 
 	while ((hdr_ret = message_parse_header_next(mstream->hdr_ctx,
@@ -284,7 +286,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 				break;
 			}
 		}
-		if (mstream->hdr_buf->used >= mstream->istream.max_buffer_size)
+		if (mstream->hdr_buf->used >= max_buffer_size)
 			break;
 	}
 	if (mstream->hdr_buf->used > 0) {
