@@ -86,7 +86,7 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 			   have a seek mark. */
 			i_stream_compress(stream);
 		}
-		if (stream->buffer_size < stream->max_buffer_size)
+		if (stream->buffer_size < i_stream_get_max_buffer_size(&stream->istream))
 			i_stream_grow_buffer(stream, CHUNK_SIZE);
 
 		if (stream->pos == stream->buffer_size) {

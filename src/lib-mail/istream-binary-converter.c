@@ -180,7 +180,7 @@ static ssize_t i_stream_binary_converter_read(struct istream_private *stream)
 	struct message_block block;
 	size_t old_size, new_size;
 
-	if (stream->pos - stream->skip >= stream->max_buffer_size)
+	if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
 		return -2;
 	old_size = stream->pos - stream->skip;
 

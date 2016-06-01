@@ -150,7 +150,7 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 	}
 	/* if we already have max_buffer_size amount of data, fail here */
 	i_stream_compress(stream);
-	if (stream->pos >= stream->max_buffer_size)
+	if (stream->pos >= i_stream_get_max_buffer_size(&stream->istream))
 		return -2;
 	/* allocate enough space for the old data and the new
 	   decompressed chunk. we don't know the original compressed size,
