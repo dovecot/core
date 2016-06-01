@@ -18,12 +18,15 @@ struct test_fs_file {
 
 	buffer_t *contents;
 	struct istream *input;
+	struct test_fs_file *copy_src;
 
 	bool prefetched;
 	bool locked;
 	bool exists;
 	bool seekable;
 	bool closed;
+	bool io_failure;
+	bool wait_async;
 };
 
 struct test_fs_iter {
@@ -33,6 +36,10 @@ struct test_fs_iter {
 	bool failed;
 };
 
-struct test_fs_file *test_fs_file_get(struct fs *fs, unsigned int n);
+struct test_fs *test_fs_get(struct fs *fs);
+struct test_fs_file *test_fs_file_get(struct fs *fs, const char *path);
+
+void test_fs_async(const char *test_name, enum fs_properties properties,
+		   const char *driver, const char *args);
 
 #endif

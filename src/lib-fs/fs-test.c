@@ -40,17 +40,19 @@ static enum fs_properties fs_test_get_properties(struct fs *_fs)
 
 static struct fs_file *
 fs_test_file_init(struct fs *_fs, const char *path,
-		  enum fs_open_mode mode, enum fs_open_flags flags ATTR_UNUSED)
+		  enum fs_open_mode mode, enum fs_open_flags flags)
 {
 	struct test_fs_file *file;
 
 	file = i_new(struct test_fs_file, 1);
 	file->file.fs = _fs;
 	file->file.path = i_strdup(path);
+	file->file.flags = flags;
 	file->mode = mode;
 	file->contents = buffer_create_dynamic(default_pool, 1024);
 	file->exists = TRUE;
 	file->seekable = TRUE;
+	file->wait_async = (flags & FS_OPEN_FLAG_ASYNC) != 0;
 	return &file->file;
 }
 
@@ -102,6 +104,16 @@ static int
 fs_test_get_metadata(struct fs_file *_file,
 		     const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
+	struct test_fs_file *file = (struct test_fs_file *)_file;
+
+	if (file->wait_async) {
+		fs_set_error_async(_file->fs);
+		return -1;
+	}
+	if (file->io_failure) {
+		errno = EIO;
+		return -1;
+	}
 	fs_metadata_init(_file);
 	*metadata_r = &_file->metadata;
 	return 0;
@@ -132,6 +144,8 @@ fs_test_read_stream(struct fs_file *_file, size_t max_buffer_size ATTR_UNUSED)
 
 	if (!file->exists)
 		return i_stream_create_error(ENOENT);
+	if (file->io_failure)
+		return i_stream_create_error(EIO);
 	input = test_istream_create_data(file->contents->data,
 					 file->contents->used);
 	i_stream_add_destroy_callback(input, fs_test_stream_destroyed, file);
@@ -155,6 +169,14 @@ static int fs_test_write_stream_finish(struct fs_file *_file, bool success)
 {
 	struct test_fs_file *file = (struct test_fs_file *)_file;
 
+	if (_file->output != NULL)
+		o_stream_destroy(&_file->output);
+	if (file->wait_async) {
+		fs_set_error_async(_file->fs);
+		return 0;
+	}
+	if (file->io_failure)
+		success = FALSE;
 	if (!success)
 		buffer_set_used_size(file->contents, 0);
 	return success ? 1 : -1;
@@ -186,6 +208,14 @@ static int fs_test_exists(struct fs_file *_file)
 {
 	struct test_fs_file *file = (struct test_fs_file *)_file;
 
+	if (file->wait_async) {
+		fs_set_error_async(_file->fs);
+		return -1;
+	}
+	if (file->io_failure) {
+		errno = EIO;
+		return -1;
+	}
 	return file->exists ? 1 : 0;
 }
 
@@ -193,6 +223,14 @@ static int fs_test_stat(struct fs_file *_file, struct stat *st_r)
 {
 	struct test_fs_file *file = (struct test_fs_file *)_file;
 
+	if (file->wait_async) {
+		fs_set_error_async(_file->fs);
+		return -1;
+	}
+	if (file->io_failure) {
+		errno = EIO;
+		return -1;
+	}
 	if (!file->exists) {
 		errno = ENOENT;
 		return -1;
@@ -204,9 +242,22 @@ static int fs_test_stat(struct fs_file *_file, struct stat *st_r)
 
 static int fs_test_copy(struct fs_file *_src, struct fs_file *_dest)
 {
-	struct test_fs_file *src = (struct test_fs_file *)_src;
+	struct test_fs_file *src;
 	struct test_fs_file *dest = (struct test_fs_file *)_dest;
 
+	if (_src != NULL)
+		dest->copy_src = test_fs_file_get(_src->fs, fs_file_path(_src));
+	src = dest->copy_src;
+	if (dest->wait_async) {
+		fs_set_error_async(_dest->fs);
+		return -1;
+	}
+	dest->copy_src = NULL;
+
+	if (dest->io_failure) {
+		errno = EIO;
+		return -1;
+	}
 	if (!src->exists) {
 		errno = ENOENT;
 		return -1;
@@ -220,6 +271,12 @@ static int fs_test_copy(struct fs_file *_src, struct fs_file *_dest)
 static int fs_test_rename(struct fs_file *_src, struct fs_file *_dest)
 {
 	struct test_fs_file *src = (struct test_fs_file *)_src;
+	struct test_fs_file *dest = (struct test_fs_file *)_dest;
+
+	if (src->wait_async || dest->wait_async) {
+		fs_set_error_async(_dest->fs);
+		return -1;
+	}
 
 	if (fs_test_copy(_src, _dest) < 0)
 		return -1;
@@ -230,6 +287,11 @@ static int fs_test_rename(struct fs_file *_src, struct fs_file *_dest)
 static int fs_test_delete(struct fs_file *_file)
 {
 	struct test_fs_file *file = (struct test_fs_file *)_file;
+
+	if (file->wait_async) {
+		fs_set_error_async(_file->fs);
+		return -1;
+	}
 
 	if (!file->exists) {
 		errno = ENOENT;
@@ -302,21 +364,26 @@ static int fs_test_iter_deinit(struct fs_iter *_iter)
 	return ret;
 }
 
-struct test_fs_file *test_fs_file_get(struct fs *fs, unsigned int n)
+struct test_fs *test_fs_get(struct fs *fs)
 {
-	struct fs_file *file;
-
 	while (strcmp(fs->name, "test") != 0) {
 		i_assert(fs->parent != NULL);
 		fs = fs->parent;
 	}
+	return (struct test_fs *)fs;
+}
 
-	file = fs->files;
-	for (; n > 0; n--) {
+struct test_fs_file *test_fs_file_get(struct fs *fs, const char *path)
+{
+	struct fs_file *file;
+
+	fs = &test_fs_get(fs)->fs;
+
+	for (file = fs->files;; file = file->next) {
 		i_assert(file != NULL);
-		file = file->next;
+		if (strcmp(fs_file_path(file), path) == 0)
+			break;
 	}
-	i_assert(file != NULL);
 	return (struct test_fs_file *)file;
 }
 
