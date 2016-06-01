@@ -34,6 +34,8 @@ struct dict_connection_cmd {
 
 struct dict_command_stats cmd_stats;
 
+static int cmd_iterate_flush(struct dict_connection_cmd *cmd);
+
 static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd);
 
 static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
@@ -71,6 +73,10 @@ static void dict_connection_cmds_flush(struct dict_connection *conn)
 	while (array_count(&conn->cmds) > 0) {
 		first_cmdp = array_idx(&conn->cmds, 0);
 		cmd = *first_cmdp;
+
+		/* we may be able to start outputting iterations now. */
+		if (cmd->iter != NULL)
+			(void)cmd_iterate_flush(cmd);
 
 		if (cmd->reply == NULL) {
 			/* command not finished yet */
