@@ -51,6 +51,11 @@ i_stream_chain_append_internal(struct istream_chain *chain,
 		if (cstream->have_explicit_max_buffer_size) {
 			i_stream_set_max_buffer_size(stream,
 				chain->stream->istream.max_buffer_size);
+		} else {
+			size_t max_size = i_stream_get_max_buffer_size(stream);
+
+			if (cstream->istream.max_buffer_size < max_size)
+				cstream->istream.max_buffer_size = max_size;
 		}
 	}
 	DLLIST2_APPEND(&chain->head, &chain->tail, link);
