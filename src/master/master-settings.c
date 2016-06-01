@@ -277,20 +277,26 @@ expand_user(const char **user, enum service_user_default *default_r,
 	}
 }
 
-static void
+static bool
 fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 			pool_t pool, const struct master_settings *master_set,
-			ARRAY_TYPE(const_string) *all_listeners)
+			ARRAY_TYPE(const_string) *all_listeners,
+			const char **error_r)
 {
 	struct file_listener_settings *const *sets;
 	unsigned int base_dir_len = strlen(master_set->base_dir);
 	enum service_user_default user_default;
 
 	if (!array_is_created(l))
-		return;
+		return TRUE;
 
 	array_foreach(l, sets) {
 		struct file_listener_settings *set = *sets;
+
+		if (set->path[0] == '\0') {
+			*error_r = "path must not be empty";
+			return FALSE;
+		}
 
 		expand_user(&set->user, &user_default, master_set);
 		if (*set->path != '/') {
@@ -305,6 +311,7 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 		if (set->mode != 0)
 			array_append(all_listeners, &set->path, 1);
 	}
+	return TRUE;
 }
 
 static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
@@ -570,10 +577,18 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 		    strcmp(service->name, "auth") == 0)
 			max_anvil_client_processes += process_limit;
 
-		fix_file_listener_paths(&service->unix_listeners,
-					pool, set, &all_listeners);
-		fix_file_listener_paths(&service->fifo_listeners,
-					pool, set, &all_listeners);
+		if (!fix_file_listener_paths(&service->unix_listeners, pool,
+					     set, &all_listeners, error_r)) {
+			*error_r = t_strdup_printf("service(%s): unix_listener: %s",
+						   service->name, *error_r);
+			return FALSE;
+		}
+		if (!fix_file_listener_paths(&service->fifo_listeners, pool,
+					     set, &all_listeners, error_r)) {
+			*error_r = t_strdup_printf("service(%s): fifo_listener: %s",
+						   service->name, *error_r);
+			return FALSE;
+		}
 		add_inet_listeners(&service->inet_listeners, &all_listeners);
 	}
 
