@@ -270,6 +270,9 @@ int fs_write_stream_finish_async(struct fs_file *file);
    o_stream_ignore_last_errors() is called on the output stream so the caller
    doesn't need to do it. */
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output);
+/* Abort writing to a stream after fs_write_stream_finish() was already
+   called. */
+void fs_write_stream_abort_async(struct fs_file *file);
 
 /* Set a hash to the following write. The storage can then verify that the
    input data matches the specified hash, or fail if it doesn't. Typically
