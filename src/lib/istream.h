@@ -94,9 +94,13 @@ void i_stream_sync(struct istream *stream);
    unless it's called before reading anything. */
 void i_stream_set_init_buffer_size(struct istream *stream, size_t size);
 /* Change the maximum size for stream's input buffer to grow. Useful only
-   for buffered streams (currently only file). */
+   for buffered streams (currently only file). This changes also all the
+   parent streams' max buffer size. */
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size);
-/* Returns the current max. buffer size. */
+/* Returns the current max. buffer size for the stream. This function also
+   goesthrough all of the parent streams and returns the highest seen max
+   buffer size. This is needed because some streams (e.g. istream-chain) change
+   their max buffer size dynamically. */
 size_t i_stream_get_max_buffer_size(struct istream *stream);
 /* Enable/disable i_stream[_read]_next_line() returning the last line if it
    doesn't end with LF. */
