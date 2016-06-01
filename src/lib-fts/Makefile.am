@@ -38,7 +38,8 @@ EXTRA_DIST = \
 	word-properties.pl \
 	WordBreakProperty.txt \
 	word-boundary-data.c \
-	word-break-data.c
+	word-break-data.c \
+	stopwords/stopwords_malformed.txt
 
 WordBreakProperty.txt:
 	test -f WordBreakProperty.txt || wget http://www.unicode.org/Public/UNIDATA/auxiliary/WordBreakProperty.txt

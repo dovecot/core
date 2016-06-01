@@ -38,28 +38,193 @@ emme
 ette
 eivät
 
+|Words below in the following cases:
 |Nom   Gen    Acc    Part   Iness   Elat    Illat  Adess   Ablat   Allat   Ess    Trans
-minä   minun  minut  minua  minussa minusta minuun minulla minulta minulle               | I
-sinä   sinun  sinut  sinua  sinussa sinusta sinuun sinulla sinulta sinulle               | you
-hän    hänen  hänet  häntä  hänessä hänestä häneen hänellä häneltä hänelle               | he she
-me     meidän meidät meitä  meissä  meistä  meihin meillä  meiltä  meille                | we
-te     teidän teidät teitä  teissä  teistä  teihin teillä  teiltä  teille                | you
-he     heidän heidät heitä  heissä  heistä  heihin heillä  heiltä  heille                | they
-
-tämä   tämän         tätä   tässä   tästä   tähän  tallä   tältä   tälle   tänä   täksi  | this
-tuo    tuon          tuotä  tuossa  tuosta  tuohon tuolla  tuolta  tuolle  tuona  tuoksi | that
-se     sen           sitä   siinä   siitä   siihen sillä   siltä   sille   sinä   siksi  | it
-nämä   näiden        näitä  näissä  näistä  näihin näillä  näiltä  näille  näinä  näiksi | these
-nuo    noiden        noita  noissa  noista  noihin noilla  noilta  noille  noina  noiksi | those
-ne     niiden        niitä  niissä  niistä  niihin niillä  niiltä  niille  niinä  niiksi | they
-
-kuka   kenen kenet   ketä   kenessä kenestä keneen kenellä keneltä kenelle kenenä keneksi| who
-ketkä  keiden ketkä  keitä  keissä  keistä  keihin keillä  keiltä  keille  keinä  keiksi | (pl)
-mikä   minkä minkä   mitä   missä   mistä   mihin  millä   miltä   mille   minä   miksi  | which what
-mitkä                                                                                    | (pl)
-
-joka   jonka         jota   jossa   josta   johon  jolla   jolta   jolle   jona   joksi  | who which
-jotka  joiden        joita  joissa  joista  joihin joilla  joilta  joille  joina  joiksi | (pl)
+minä | I
+minun | I
+minut | I
+minua | I
+minussa | I
+minusta | I
+minuun | I
+minulla | I
+minulta | I
+minulle | I
+sinä | you
+sinun | you
+sinut | you
+sinua | you
+sinussa | you
+sinusta | you
+sinuun | you
+sinulla | you
+sinulta | you
+sinulle | you
+hän | he she
+hänen | he she
+hänet | he she
+häntä | he she
+hänessä | he she
+hänestä | he she
+häneen | he she
+hänellä | he she
+häneltä | he she
+hänelle | he she
+me | we
+meidän | we
+meidät | we
+meitä | we
+meissä | we
+meistä | we
+meihin | we
+meillä | we
+meiltä | we
+meille | we
+te | you
+teidän | you
+teidät | you
+teitä | you
+teissä | you
+teistä | you
+teihin | you
+teillä | you
+teiltä | you
+teille | you
+he | they
+heidän | they
+heidät | they
+heitä | they
+heissä | they
+heistä | they
+heihin | they
+heillä | they
+heiltä | they
+heille | they
+tämä | this
+tämän | this
+tätä | this
+tässä | this
+tästä | this
+tähän | this
+tallä | this
+tältä | this
+tälle | this
+tänä | this
+täksi | this
+tuo | that
+tuon | that
+tuotä | that
+tuossa | that
+tuosta | that
+tuohon | that
+tuolla | that
+tuolta | that
+tuolle | that
+tuona | that
+tuoksi | that
+se | it
+sen | it
+sitä | it
+siinä | it
+siitä | it
+siihen | it
+sillä | it
+siltä | it
+sille | it
+sinä | it
+siksi | it
+nämä | these
+näiden | these
+näitä | these
+näissä | these
+näistä | these
+näihin | these
+näillä | these
+näiltä | these
+näille | these
+näinä | these
+näiksi | these
+nuo | those
+noiden | those
+noita | those
+noissa | those
+noista | those
+noihin | those
+noilla | those
+noilta | those
+noille | those
+noina | those
+noiksi | those
+ne | they
+niiden | they
+niitä | they
+niissä | they
+niistä | they
+niihin | they
+niillä | they
+niiltä | they
+niille | they
+niinä | they
+niiksi | they
+kuka | who
+kenen | who
+kenet | who
+ketä | who
+kenessä | who
+kenestä | who
+keneen | who
+kenellä | who
+keneltä | who
+kenelle | who
+kenenä | who
+keneksi | who
+ketkä | who (pl)
+keiden | who (pl)
+ketkä | who (pl)
+keitä | who (pl)
+keissä | who (pl)
+keistä | who (pl)
+keihin | who (pl)
+keillä | who (pl)
+keiltä | who (pl)
+keille | who (pl)
+keinä | who (pl)
+keiksi | who (pl)
+mikä | which what
+minkä | which what
+minkä | which what
+mitä | which what
+missä | which what
+mistä | which what
+mihin | which what
+millä | which what
+miltä | which what
+mille | which what
+minä | which what
+miksi | which what
+mitkä | which what (pl)
+joka | who which
+jonka | who which
+jota | who which
+jossa | who which
+josta | who which
+johon | who which
+jolla | who which
+jolta | who which
+jolle | who which
+jona | who which
+joksi | who which
+jotka | who which  (pl)
+joiden | who which  (pl)
+joita | who which  (pl)
+joissa | who which  (pl)
+joista | who which  (pl)
+joihin | who which  (pl)
+joilla | who which  (pl)
+joilta | who which  (pl)
+joille | who which  (pl)
+joina | who which  (pl)
+joiksi | who which  (pl)
 
 | conjunctions
 

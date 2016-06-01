@@ -11,8 +11,8 @@
 
 #define STOPWORDS_FILE_FORMAT "%s/stopwords_%s.txt"
 
-#define STOPWORDS_COMMENT_CHAR1 '|'
-#define STOPWORDS_COMMENT_CHAR2 '#'
+#define STOPWORDS_CUTCHARS "|#\t "
+#define STOPWORDS_DISALLOWED_CHARS "/\\<>.,\":()\t\n\r"
 
 struct fts_filter_stopwords {
 	struct fts_filter filter;
@@ -26,29 +26,33 @@ static int fts_filter_stopwords_read_list(struct fts_filter_stopwords *filter,
 					  const char **error_r)
 {
 	struct istream *input;
-	const char *line, **words, *path;
+	const char *line, *word, *path;
 	int ret = 0;
+	size_t len;
 
 	path = t_strdup_printf(STOPWORDS_FILE_FORMAT,
 			       filter->stopwords_dir, filter->lang->name);
 
 	input = i_stream_create_file(path, IO_BLOCK_SIZE);
-	while ((line = i_stream_read_next_line(input)) != NULL) T_BEGIN {
-		line = t_strcut(line, STOPWORDS_COMMENT_CHAR1);
-		line = t_strcut(line, STOPWORDS_COMMENT_CHAR2);
-
-		words = t_strsplit_spaces(line, " \t");
-		for (; *words != NULL; words++) {
-			const char *word = p_strdup(filter->pool, *words);
-			hash_table_insert(filter->stopwords, word, word);
-		}
-	} T_END;
+	while ((line = i_stream_read_next_line(input)) != NULL) {
+		len = strcspn(line, STOPWORDS_CUTCHARS);
+		if (len == 0)
+			continue;
+		if (strcspn(line, STOPWORDS_DISALLOWED_CHARS) < len)
+			continue;
+		word = p_strndup(filter->pool, line, len);
+		hash_table_insert(filter->stopwords, word, word);
+	}
 
 	if (input->stream_errno != 0) {
 		*error_r = t_strdup_printf("Failed to read stopword list %s: %s",
 					   path, i_stream_get_error(input));
 		ret = -1;
 	}
+
+	if (ret == 0 && hash_table_count(filter->stopwords) == 0)
+		i_warning("Stopwords list \"%s\" seems empty. Is the file correctly formatted?", path);
+
 	i_stream_destroy(&input);
 	return ret;
 }
