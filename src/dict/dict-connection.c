@@ -159,6 +159,7 @@ static void dict_connection_input(struct dict_connection *conn)
 			io_remove(&conn->io);
 			if (conn->to_input != NULL)
 				timeout_remove(&conn->to_input);
+			break;
 		}
 	}
 }
