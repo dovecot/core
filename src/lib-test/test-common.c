@@ -285,6 +285,7 @@ void
 test_expect_no_more_errors(void)
 {
 	test_assert(expected_errors == 0 && expected_error_str == NULL);
+	i_free_and_null(expected_error_str);
 	expected_errors = 0;
 }
 
@@ -292,17 +293,24 @@ static void ATTR_FORMAT(2, 0)
 test_error_handler(const struct failure_context *ctx,
 		   const char *format, va_list args)
 {
-	test_dump_rand_state();
-	default_error_handler(ctx, format, args);
+	bool suppress = FALSE;
+
 	if (expected_errors > 0) {
 		if (expected_error_str != NULL) {
-			test_assert(strstr(format, expected_error_str) != NULL);
-			i_free(expected_error_str);
+			/* test_assert() will reset test_success if need be. */
+			suppress = strstr(format, expected_error_str) != NULL;
+			test_assert(suppress == TRUE);
+			i_free_and_null(expected_error_str);
 		}
 		expected_errors--;
-		return;
+	} else {
+		test_success = FALSE;
 	}
-	test_success = FALSE;
+
+	if (!suppress) {
+		test_dump_rand_state();
+		default_error_handler(ctx, format, args);
+	}
 }
 
 static void ATTR_FORMAT(2, 0) ATTR_NORETURN

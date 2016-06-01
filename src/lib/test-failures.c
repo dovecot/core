@@ -50,15 +50,15 @@ static void test_expected(void)
 {
 	test_begin("expected messages");
 	test_expect_errors(1);
-	i_warning("deliberate warning - be happy you're seeing this");
+	i_warning("deliberate warning - not suppressed");
 	test_expect_no_more_errors();
 	test_end();
 }
 static void test_expected_str(void)
 {
 	test_begin("expected strings in messages");
-	test_expect_error_string("be happy");
-	i_error("deliberate error - be happy you're seeing this");
+	test_expect_error_string("be unhappy");
+	i_error("deliberate error - suppressed - be unhappy if you see this");
 	test_expect_no_more_errors();
 	test_end();
 }
