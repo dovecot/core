@@ -348,6 +348,22 @@ static void test_fts_filter_stopwords_fail_lazy_init(void)
 
 }
 
+static void test_fts_filter_stopwords_malformed(void)
+{
+	const struct fts_language malformed = { .name = "malformed" };
+	struct fts_filter *filter = NULL;
+	const char *error = NULL, *token = "foobar";
+
+	test_begin("fts filter stopwords, malformed list");
+	test_assert(fts_filter_create(fts_filter_stopwords, NULL, &malformed, stopword_settings, &filter, &error) == 0);
+	test_expect_error_string("seems empty. Is the file correctly formatted?");
+	test_assert(fts_filter_filter(filter, &token, &error) > 0);
+	test_expect_no_more_errors();
+	fts_filter_unref(&filter);
+	test_end();
+
+}
+
 #ifdef HAVE_FTS_STEMMER
 static void test_fts_filter_stemmer_snowball_stem_english(void)
 {
@@ -893,6 +909,7 @@ int main(void)
 		test_fts_filter_stopwords_fra,
 		test_fts_filter_stopwords_no,
 		test_fts_filter_stopwords_fail_lazy_init,
+		test_fts_filter_stopwords_malformed,
 #ifdef HAVE_FTS_STEMMER
 		test_fts_filter_stemmer_snowball_stem_english,
 		test_fts_filter_stemmer_snowball_stem_french,
