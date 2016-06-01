@@ -14,6 +14,7 @@ libfs_la_SOURCES = \
 	fs-randomfail.c \
 	fs-posix.c \
 	fs-test.c \
+	fs-test-async.c \
 	fs-sis.c \
 	fs-sis-common.c \
 	fs-sis-queue.c \
