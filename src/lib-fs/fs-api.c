@@ -707,6 +707,13 @@ void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 	(void)fs_write_stream_finish_int(file, FALSE);
 }
 
+void fs_write_stream_abort_async(struct fs_file *file)
+{
+	i_assert(file->output == NULL);
+
+	fs_write_stream_abort(file, &file->output);
+}
+
 void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
 		       const void *digest)
 {
