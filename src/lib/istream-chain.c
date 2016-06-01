@@ -46,7 +46,7 @@ i_stream_chain_append_internal(struct istream_chain *chain,
 		i_stream_ref(stream);	
 
 	if (chain->head == NULL && stream != NULL) {
-		struct chain_istream *cstream = (struct chain_istream *)stream;
+		struct chain_istream *cstream = (struct chain_istream *)chain->stream;
 
 		if (cstream->have_explicit_max_buffer_size) {
 			i_stream_set_max_buffer_size(stream,
