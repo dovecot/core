@@ -744,11 +744,11 @@ struct doveadm_cmd_ver2 doveadm_cmd_mailbox_update_ver2 = {
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('g', "mailbox-guid", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('V', "uid-validity", CMD_PARAM_INT64, 0)
-DOVEADM_CMD_PARAM('N', "min-next-uid", CMD_PARAM_INT64, 0)
-DOVEADM_CMD_PARAM('R', "min-first-recent-uid", CMD_PARAM_INT64, 0)
-DOVEADM_CMD_PARAM('H', "min-highest-modseq", CMD_PARAM_INT64, 0)
-DOVEADM_CMD_PARAM('P', "min-highest-pvt-modseq", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('V', "uid-validity", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('N', "min-next-uid", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('R', "min-first-recent-uid", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('H', "min-highest-modseq", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('P', "min-highest-pvt-modseq", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
