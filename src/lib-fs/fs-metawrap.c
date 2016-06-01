@@ -383,8 +383,6 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 	int ret;
 
 	if (_file->output != NULL) {
-		if (_file->output->closed)
-			success = FALSE;
 		if (_file->output == file->super_output)
 			_file->output = NULL;
 		else
