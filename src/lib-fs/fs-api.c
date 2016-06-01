@@ -651,8 +651,10 @@ static int fs_write_stream_finish_int(struct fs_file *file, bool success)
 		   indicated a failure. */
 		i_assert(success);
 	}
-	if (ret != 0)
+	if (ret != 0) {
+		i_assert(file->output == NULL);
 		file->writing_stream = FALSE;
+	}
 	return ret;
 }
 
@@ -661,6 +663,7 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 	bool success = TRUE;
 
 	i_assert(*output == file->output || *output == NULL);
+	i_assert(output != &file->output);
 
 	*output = NULL;
 	if (file->output != NULL) {
