@@ -682,21 +682,18 @@ int fs_write_stream_finish_async(struct fs_file *file)
 
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 {
+	int ret;
+
 	i_assert(*output == file->output);
+	i_assert(file->output != NULL);
+	i_assert(output != &file->output);
 
 	*output = NULL;
-	if (file->output != NULL)
-		o_stream_ignore_last_errors(file->output);
+	o_stream_ignore_last_errors(file->output);
 	/* make sure we don't have an old error lying around */
 	fs_set_error(file->fs, "Write aborted");
-	(void)fs_write_stream_finish_int(file, FALSE);
-}
-
-void fs_write_stream_abort_async(struct fs_file *file)
-{
-	i_assert(file->output == NULL);
-
-	fs_write_stream_abort(file, &file->output);
+	ret = fs_write_stream_finish_int(file, FALSE);
+	i_assert(ret != 0);
 }
 
 void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,

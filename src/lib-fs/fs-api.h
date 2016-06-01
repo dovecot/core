@@ -268,11 +268,10 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output);
 int fs_write_stream_finish_async(struct fs_file *file);
 /* Abort writing via stream. Anything written to the stream is discarded.
    o_stream_ignore_last_errors() is called on the output stream so the caller
-   doesn't need to do it. */
+   doesn't need to do it. This must not be called after
+   fs_write_stream_finish(), i.e. it can't be used to abort a pending async
+   write. */
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output);
-/* Abort writing to a stream after fs_write_stream_finish() was already
-   called. */
-void fs_write_stream_abort_async(struct fs_file *file);
 
 /* Set a hash to the following write. The storage can then verify that the
    input data matches the specified hash, or fail if it doesn't. Typically

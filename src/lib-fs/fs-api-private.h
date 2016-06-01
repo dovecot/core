@@ -48,6 +48,8 @@ struct fs_vfuncs {
 
 	int (*write)(struct fs_file *file, const void *data, size_t size);
 	void (*write_stream)(struct fs_file *file);
+	/* After write_stream_finish() is called once, all the following
+	   (async) calls will have success==TRUE. */
 	int (*write_stream_finish)(struct fs_file *file, bool success);
 
 	int (*lock)(struct fs_file *file, unsigned int secs,
