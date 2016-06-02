@@ -214,6 +214,7 @@ sql_dict_find_map(struct sql_dict *dict, const char *path,
 
 static int
 sql_dict_value_escape(string_t *str, struct sql_dict *dict,
+		      const struct dict_sql_map *map,
 		      enum dict_sql_type value_type, const char *field_name,
 		      const char *value, const char *value_suffix,
 		      const char **error_r)
@@ -229,8 +230,8 @@ sql_dict_value_escape(string_t *str, struct sql_dict *dict,
 	case DICT_SQL_TYPE_UINT:
 		if (value_suffix[0] != '\0' || str_to_uint(value, &num) < 0) {
 			*error_r = t_strdup_printf(
-				"field %s value isn't unsigned integer: %s%s",
-				field_name, value, value_suffix);
+				"%s field's value isn't unsigned integer: %s%s (in pattern: %s)",
+				field_name, value, value_suffix, map->pattern);
 			return -1;
 		}
 		str_printfa(str, "%u", num);
@@ -243,8 +244,8 @@ sql_dict_value_escape(string_t *str, struct sql_dict *dict,
 	if (hex_to_binary(value, buf) < 0) {
 		/* we shouldn't get untrusted input here. it's also a bit
 		   annoying to handle this error. */
-		*error_r = t_strdup_printf("field %s value isn't hexblob: %s",
-					   field_name, value);
+		*error_r = t_strdup_printf("%s field's value isn't hexblob: %s (in pattern: %s)",
+					   field_name, value, map->pattern);
 		return -1;
 	}
 	str_append(buf, value_suffix);
@@ -254,11 +255,12 @@ sql_dict_value_escape(string_t *str, struct sql_dict *dict,
 
 static int
 sql_dict_field_escape_value(string_t *str, struct sql_dict *dict,
+			    const struct dict_sql_map *map,
 			    const struct dict_sql_field *field,
 			    const char *value, const char *value_suffix,
 			    const char **error_r)
 {
-	return sql_dict_value_escape(str, dict, field->value_type,
+	return sql_dict_value_escape(str, dict, map, field->value_type,
 				     field->name, value, value_suffix, error_r);
 }
 
@@ -290,7 +292,7 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		if (i > 0)
 			str_append(query, " AND");
 		str_printfa(query, " %s = ", sql_fields[i].name);
-		if (sql_dict_field_escape_value(query, dict, &sql_fields[i],
+		if (sql_dict_field_escape_value(query, dict, map, &sql_fields[i],
 						values[i], "", error_r) < 0)
 			return -1;
 	}
@@ -302,11 +304,11 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 			str_append(query, " AND");
 		if (i < count2) {
 			str_printfa(query, " %s LIKE ", sql_fields[i].name);
-			if (sql_dict_field_escape_value(query, dict, &sql_fields[i],
+			if (sql_dict_field_escape_value(query, dict, map, &sql_fields[i],
 							values[i], "/%", error_r) < 0)
 				return -1;
 			str_printfa(query, " AND %s NOT LIKE ", sql_fields[i].name);
-			if (sql_dict_field_escape_value(query, dict, &sql_fields[i],
+			if (sql_dict_field_escape_value(query, dict, map, &sql_fields[i],
 							values[i], "/%/%", error_r) < 0)
 				return -1;
 		} else {
@@ -321,7 +323,7 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 				str_append(query, " AND");
 			str_printfa(query, " %s LIKE ",
 				    sql_fields[i].name);
-			if (sql_dict_field_escape_value(query, dict, &sql_fields[i],
+			if (sql_dict_field_escape_value(query, dict, map, &sql_fields[i],
 							values[i], "/%", error_r) < 0)
 				return -1;
 		}
@@ -908,8 +910,9 @@ static int sql_dict_set_query(const struct dict_sql_build_query *build,
 		else {
 			enum dict_sql_type value_type =
 				sql_dict_map_type(fields[i].map);
-			if (sql_dict_value_escape(suffix, dict, value_type,
-				"value", fields[i].value, "", error_r) < 0)
+			if (sql_dict_value_escape(suffix, dict, fields[i].map,
+				value_type, "value", fields[i].value,
+				"", error_r) < 0)
 				return -1;
 		}
 	}
@@ -926,7 +929,7 @@ static int sql_dict_set_query(const struct dict_sql_build_query *build,
 	for (i = 0; i < count; i++) {
 		str_printfa(prefix, ",%s", sql_fields[i].name);
 		str_append_c(suffix, ',');
-		if (sql_dict_field_escape_value(suffix, dict, &sql_fields[i],
+		if (sql_dict_field_escape_value(suffix, dict, fields[0].map, &sql_fields[i],
 						extra_values[i], "", error_r) < 0)
 			return -1;
 	}
@@ -951,8 +954,9 @@ static int sql_dict_set_query(const struct dict_sql_build_query *build,
 		} else {
 			enum dict_sql_type value_type =
 				sql_dict_map_type(fields[i].map);
-			if (sql_dict_value_escape(prefix, dict, value_type,
-				"value", fields[i].value, "", error_r) < 0)
+			if (sql_dict_value_escape(prefix, dict, fields[i].map,
+				value_type, "value", fields[i].value,
+				"", error_r) < 0)
 				return -1;
 		}
 	}
