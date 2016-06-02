@@ -940,6 +940,7 @@ echo "I/O notifys .... : $have_notify"
 echo "SSL ............ : $have_ssl"
 echo "GSSAPI ......... : $have_gssapi"
 echo "passdbs ........ :$passdb"
+echo "CFLAGS ......... : $CFLAGS"
 if test "$not_passdb" != ""; then
   echo "                 :$not_passdb"
 fi
