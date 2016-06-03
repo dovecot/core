@@ -53,6 +53,15 @@ struct auth_settings {
 	const char *proxy_self;
 	unsigned int failure_delay;
 
+	const char *policy_server_url;
+	const char *policy_server_api_header;
+	unsigned int policy_server_timeout_msecs;
+	const char *policy_hash_mech;
+	const char *policy_hash_nonce;
+	const char *policy_request_attributes;
+	bool policy_reject_on_fail;
+	unsigned int policy_hash_truncate;
+
 	bool stats;
 	bool verbose, debug, debug_passwords;
 	const char *verbose_passwords;

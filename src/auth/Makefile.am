@@ -27,6 +27,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-dns \
+	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-stats \
@@ -117,6 +118,7 @@ auth_SOURCES = \
 	passdb-sql.c \
 	passdb-static.c \
 	passdb-template.c \
+	policy.c \
 	userdb.c \
 	userdb-blocking.c \
 	userdb-checkpassword.c \
@@ -163,6 +165,7 @@ headers = \
 	passdb-cache.h \
 	passdb-template.h \
 	password-scheme.h \
+	policy.h \
 	userdb.h \
 	userdb-blocking.h \
 	userdb-template.h \
