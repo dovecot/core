@@ -277,6 +277,7 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 					      "with invalid header size",
 					      i, name);
 			hdr->header_size = offset;
+			buffer_set_used_size(map->hdr_copy_buf, hdr->header_size);
 			break;
 		}
 		if (mail_index_map_ext_hdr_check(hdr, ext_hdr, name,
@@ -420,6 +421,7 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map)
 	mail_index_fsck_records(index, map, &hdr);
 
 	map->hdr = hdr;
+	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 }
 
 int mail_index_fsck(struct mail_index *index)
