@@ -182,6 +182,12 @@ master_service_init(const char *name, enum master_service_flags flags,
 	   is properly initialized */
 	i_set_failure_prefix("%s(init): ", name);
 
+	/* make sure all the data stack allocations during init will be freed
+	   before we get to ioloop. the corresponding t_pop() is in
+	   master_service_init_finish(). */
+	if ((flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0)
+		t_push(NULL);
+
 	/* ignore these signals as early as possible */
 	lib_signals_init();
         lib_signals_ignore(SIGPIPE, TRUE);
@@ -523,6 +529,10 @@ void master_service_init_finish(struct master_service *service)
 		service->master_status.available_count--;
 	}
 	master_status_update(service);
+
+	/* close data stack frame opened by master_service_init() */
+	if ((service->flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0)
+		t_pop();
 }
 
 void master_service_env_clean(void)

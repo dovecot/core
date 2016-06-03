@@ -32,7 +32,11 @@ enum master_service_flags {
 	   listeners (i.e. the service does STARTTLS). */
 	MASTER_SERVICE_FLAG_USE_SSL_SETTINGS	= 0x200,
 	/* Don't initialize SSL context automatically. */
-	MASTER_SERVICE_FLAG_NO_SSL_INIT		= 0x400
+	MASTER_SERVICE_FLAG_NO_SSL_INIT		= 0x400,
+	/* Don't create a data stack frame between master_service_init() and
+	   master_service_init_finish(). By default this is done to make sure
+	   initialization doesn't unnecessarily use up memory in data stack. */
+	MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME = 0x800
 };
 
 struct master_service_connection {

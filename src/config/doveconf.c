@@ -701,6 +701,9 @@ static void failure_exit_callback(int *status)
 
 int main(int argc, char *argv[])
 {
+	enum master_service_flags master_service_flags =
+		MASTER_SERVICE_FLAG_STANDALONE |
+		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
 	const char *orig_config_path, *config_path, *module;
 	ARRAY(const char *) module_names;
@@ -720,8 +723,7 @@ int main(int argc, char *argv[])
 	}
 
 	memset(&filter, 0, sizeof(filter));
-	master_service = master_service_init("config",
-					     MASTER_SERVICE_FLAG_STANDALONE,
+	master_service = master_service_init("config", master_service_flags,
 					     &argc, &argv, "adf:hHm:nNpPexS");
 	orig_config_path = master_service_get_config_path(master_service);
 
