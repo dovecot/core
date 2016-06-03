@@ -1,0 +1,535 @@
+#include "lib.h"
+#include "net.h"
+#include "str.h"
+#include "istream.h"
+#include "ioloop.h"
+#include "base64.h"
+#include "hex-binary.h"
+#include "hash-method.h"
+#include "http-url.h"
+#include "http-client.h"
+#include "json-parser.h"
+#include "auth-request.h"
+#include "auth-penalty.h"
+#include "auth-settings.h"
+#include "policy.h"
+
+#define AUTH_POLICY_DNS_SOCKET_PATH "dns-client"
+
+static struct http_client_settings http_client_set = {
+	.dns_client_socket_path = AUTH_POLICY_DNS_SOCKET_PATH,
+	.max_connect_attempts = 1,
+	.max_idle_time_msecs = 10000,
+	.max_parallel_connections = 100,
+	.debug = 0,
+	.user_agent = "dovecot/auth-policy-client"
+};
+
+static char *auth_policy_json_template;
+
+static struct http_client *http_client;
+
+struct policy_lookup_ctx {
+	pool_t pool;
+	string_t *json;
+	struct auth_request *request;
+	struct http_client_request *http_request;
+	struct json_parser *parser;
+	struct auth_settings *set;
+	const char *url;
+	bool expect_result;
+	int result;
+	const char *message;
+	auth_policy_callback_t callback;
+	void *callback_context;
+
+	struct istream *payload;
+	struct io *io;
+
+	enum {
+		POLICY_RESULT = 0,
+		POLICY_RESULT_VALUE_STATUS,
+		POLICY_RESULT_VALUE_MESSAGE
+	} parse_state;
+
+	bool parse_error;
+};
+
+struct policy_template_keyvalue {
+	const char *key;
+	const char *value;
+};
+
+static
+int auth_policy_attribute_comparator(const struct policy_template_keyvalue *a,
+	const struct policy_template_keyvalue *b)
+{
+	return strcmp(a->key, b->key);
+}
+
+static
+int auth_policy_strptrcmp(const char *a0, const char *a1,
+			  const char *b0, const char *b1)
+{
+	i_assert(a0 <= a1 && b0 <= b1);
+	return memcmp(a0, b0, I_MIN((a1-a0),(b1-b0)));
+}
+
+static
+void auth_policy_open_key(const char *key, string_t *template)
+{
+	const char *ptr;
+	while((ptr = strchr(key, '/')) != NULL) {
+		str_append_c(template,'"');
+		json_append_escaped(template, t_strndup(key, (ptr-key)));
+		str_append_c(template,'"');
+		str_append_c(template,':');
+		str_append_c(template,'{');
+		key = ptr+1;
+	}
+}
+
+static
+void auth_policy_close_key(const char *key, string_t *template)
+{
+	while((key = strchr(key, '/')) != NULL) { str_append_c(template,'}'); key++; }
+}
+
+static
+void auth_policy_open_and_close_to_key(const char *fromkey, const char *tokey, string_t *template)
+{
+	const char *fptr,*tptr,*fdash,*tdash;
+
+	fptr = strrchr(fromkey, '/');
+	tptr = strrchr(tokey, '/');
+
+	if (fptr == NULL && tptr == NULL) return; /* nothing to do */
+
+	if (fptr == NULL && tptr != NULL) {
+		auth_policy_open_key(tokey, template);
+		return;
+	}
+
+	if (fptr != NULL && tptr == NULL) {
+		str_truncate(template, str_len(template)-1);
+
+		auth_policy_close_key(fromkey, template);
+		str_append_c(template, ',');
+		return;
+	}
+
+	if (auth_policy_strptrcmp(fromkey, fptr, tokey, tptr) == 0) {
+		/* nothing to do, again */
+		return;
+	}
+
+	fptr = fromkey;
+	tptr = tokey;
+
+	while(fptr && tptr) {
+		fdash = strchr(fptr, '/');
+		tdash = strchr(tptr, '/');
+
+		if (fdash == NULL) {
+			auth_policy_open_key(tptr, template);
+			break;
+		}
+		if (tdash == NULL) {
+			str_truncate(template, str_len(template)-1);
+			auth_policy_close_key(fptr, template);
+			str_append_c(template, ',');
+			break;
+		}
+		if (auth_policy_strptrcmp(fptr, fdash, tptr, tdash) != 0) {
+			str_truncate(template, str_len(template)-1);
+			auth_policy_close_key(fptr, template);
+			str_append_c(template, ',');
+			auth_policy_open_key(tptr, template);
+			break;
+		}
+		fptr = fdash+1;
+		tptr = tdash+1;
+	}
+}
+
+void auth_policy_init(void)
+{
+	http_client_set.request_absolute_timeout_msecs = global_auth_settings->policy_server_timeout_msecs;
+	if (global_auth_settings->debug)
+		http_client_set.debug = 1;
+	http_client = http_client_init(&http_client_set);
+
+	/* prepare template */
+
+	ARRAY(struct policy_template_keyvalue) attribute_pairs;
+	const struct policy_template_keyvalue *kvptr;
+	string_t *template = t_str_new(64);
+	const char **ptr;
+	const char *key = NULL;
+	const char **list = t_strsplit_spaces(global_auth_settings->policy_request_attributes, "= ");
+
+	t_array_init(&attribute_pairs, 8);
+	for(ptr = list; *ptr != NULL; ptr++) {
+		struct policy_template_keyvalue pair;
+		if (key == NULL) {
+			key = *ptr;
+		} else {
+			pair.key = key;
+			pair.value = *ptr;
+			key = NULL;
+			array_append(&attribute_pairs, &pair, 1);
+		}
+	}
+	if (key != NULL) {
+		i_fatal("auth_policy_request_attributes contains invalid value");
+	}
+
+	/* then we sort it */
+	array_sort(&attribute_pairs, auth_policy_attribute_comparator);
+
+	/* and build a template string */
+	const char *prevkey = "";
+
+	array_foreach(&attribute_pairs, kvptr) {
+		const char *kptr = strchr(kvptr->key, '/');
+		auth_policy_open_and_close_to_key(prevkey, kvptr->key, template);
+		str_append_c(template,'"');
+		json_append_escaped(template, (kptr != NULL?kptr+1:kvptr->key));
+		str_append_c(template,'"');
+		str_append_c(template,':');
+		str_append_c(template,'"');
+		str_append(template,kvptr->value);
+		str_append_c(template,'"');
+		str_append_c(template,',');
+		prevkey = kvptr->key;
+	}
+
+	auth_policy_open_and_close_to_key(prevkey, "", template);
+	str_truncate(template, str_len(template)-1);
+	auth_policy_json_template = i_strdup(str_c(template));
+}
+
+void auth_policy_deinit(void)
+{
+	if (http_client != NULL)
+		http_client_deinit(&http_client);
+	i_free(auth_policy_json_template);
+}
+
+static
+void auth_policy_finish(void *ctx)
+{
+	struct policy_lookup_ctx *context = ctx;
+
+	if (context->parser != NULL) {
+		const char *error ATTR_UNUSED;
+		json_parser_deinit(&(context->parser), &error);
+	}
+	if (context->http_request != NULL)
+		http_client_request_abort(&(context->http_request));
+}
+
+static
+void auth_policy_parse_response(struct policy_lookup_ctx *context)
+{
+	enum json_type type;
+	const char *value;
+	int ret;
+
+	while((ret = json_parse_next(context->parser, &type, &value)) == 1) {
+		if (context->parse_state == POLICY_RESULT) {
+			if (type != JSON_TYPE_OBJECT_KEY)
+				break;
+			else if (strcmp(value, "status") == 0)
+				context->parse_state = POLICY_RESULT_VALUE_STATUS;
+			else if (strcmp(value, "msg") == 0)
+				context->parse_state = POLICY_RESULT_VALUE_MESSAGE;
+			else break;
+		} else if (context->parse_state == POLICY_RESULT_VALUE_STATUS) {
+			if (type != JSON_TYPE_NUMBER || str_to_int(value, &(context->result)) != 0)
+				break;
+			context->parse_state = POLICY_RESULT;
+		} else if (context->parse_state == POLICY_RESULT_VALUE_MESSAGE) {
+			if (type != JSON_TYPE_STRING)
+				break;
+			if (*value != '\0')
+				context->message = p_strdup(context->pool, value);
+			context->parse_state = POLICY_RESULT;
+		} else {
+			break;
+		}
+	}
+
+	if (ret == 0 && !context->payload->eof)
+		return;
+
+	context->parse_error = TRUE;
+
+	io_remove(&(context->io));
+
+	if (context->payload->stream_errno != 0) {
+		auth_request_log_error(context->request, "policy",
+			"Error reading policy server result: %s",
+			i_stream_get_error(context->payload));
+	} else if (ret == 0 && context->payload->eof) {
+		auth_request_log_error(context->request, "policy",
+			"Policy server result was too short");
+	} else if (ret == 1) {
+		auth_request_log_error(context->request, "policy",
+			"Policy server response was malformed");
+	} else {
+		const char *error = "unknown";
+		if (json_parser_deinit(&(context->parser), &error) != 0)
+			auth_request_log_error(context->request, "policy",
+				"Policy server response JSON parse error: %s", error);
+		else if (context->parse_state == POLICY_RESULT)
+			context->parse_error = FALSE;
+	}
+	i_stream_unref(&(context->payload));
+
+	if (context->parse_error) {
+		context->result = (context->set->policy_reject_on_fail ? -1 : 0);
+	}
+
+	context->request->policy_refusal = FALSE;
+
+	if (context->result < 0) {
+		if (context->message != NULL) {
+			/* set message here */
+			auth_request_log_debug(context->request, "policy",
+				"Policy response %d with message: %s",
+				context->result, context->message);
+			auth_request_set_field(context->request, "reason", context->message, NULL);
+		}
+		context->request->policy_refusal = TRUE;
+	} else {
+		auth_request_log_debug(context->request, "policy",
+			"Policy response %d", context->result);
+	}
+
+	if (context->request->policy_refusal == TRUE && context->set->verbose == TRUE) {
+		auth_request_log_info(context->request, "policy", "Authentication failure due to policy server refusal%s%s",
+			(context->message!=NULL?": ":""),
+			(context->message!=NULL?context->message:""));
+	}
+
+	if (context->callback) {
+		context->callback(context->result, context->callback_context);
+	}
+};
+
+static
+void auth_policy_process_response(const struct http_response *response,
+	void *ctx)
+{
+	struct policy_lookup_ctx *context = ctx;
+
+	context->payload = response->payload;
+
+	if ((response->status / 10) != 20) {
+		auth_request_log_error(context->request, "policy",
+			"Policy server HTTP error: %d %s", response->status, response->reason);
+		if (context->callback)
+			context->callback(context->result, context->callback_context);
+		return;
+	}
+
+	if (response->payload == NULL) {
+		if (context->expect_result)
+			auth_request_log_error(context->request, "policy",
+				"Policy server result was empty");
+		if (context->callback)
+			context->callback(context->result, context->callback_context);
+		return;
+	}
+
+	if (context->expect_result) {
+		i_stream_ref(response->payload);
+		context->io = io_add_istream(response->payload, auth_policy_parse_response, context);
+		context->parser = json_parser_init(response->payload);
+		auth_policy_parse_response(ctx);
+	} else {
+		auth_request_log_debug(context->request, "policy",
+			"Policy response %d", context->result);
+		if (context->callback)
+			context->callback(context->result, context->callback_context);
+	}
+}
+
+static
+void auth_policy_send_request(struct policy_lookup_ctx *context)
+{
+	const char *error;
+	struct http_url *url;
+	if (http_url_parse(context->url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
+			   context->pool, &url, &error) != 0) {
+		auth_request_log_error(context->request, "policy",
+			"Could not parse url %s: %s", context->url, error);
+		auth_policy_finish(context);
+		return;
+	}
+	context->http_request = http_client_request_url(http_client,
+		"POST", url, auth_policy_process_response, (void*)context);
+	http_client_request_set_destroy_callback(context->http_request, auth_policy_finish, context);
+	http_client_request_add_header(context->http_request, "Content-Type", "application/json");
+	if (*context->set->policy_server_api_header != 0) {
+		const char *ptr;
+		if ((ptr = strstr(context->set->policy_server_api_header, ":")) != NULL) {
+			const char *header = t_strcut(context->set->policy_server_api_header, ':');
+			http_client_request_add_header(context->http_request, header, ptr + 1);
+		} else {
+			http_client_request_add_header(context->http_request,
+				"X-API-Key", context->set->policy_server_api_header);
+		}
+	}
+	if (url->user != NULL) {
+		/* allow empty password */
+		http_client_request_set_auth_simple(context->http_request, url->user,
+			(url->password != NULL ? url->password : ""));
+	}
+	struct istream *is = i_stream_create_from_buffer(context->json);
+	http_client_request_set_payload(context->http_request, is, FALSE);
+	i_stream_unref(&is);
+	http_client_request_submit(context->http_request);
+}
+
+static
+const char *auth_policy_escape_function(const char *string,
+	const struct auth_request *auth_request ATTR_UNUSED)
+{
+	string_t *tmp = t_str_new(64);
+	json_append_escaped(tmp, string);
+	return str_c(tmp);
+}
+
+static
+const struct var_expand_table *policy_get_var_expand_table(struct auth_request *auth_request,
+	const char *hashed_password)
+{
+	struct var_expand_table *table;
+	unsigned int count = 1;
+
+	table = auth_request_get_var_expand_table_full(auth_request, auth_policy_escape_function,
+						       &count);
+	table[0].key = '\0';
+	table[0].long_key = "hashed_password";
+	table[0].value = hashed_password;
+	if (table[0].value != NULL)
+		table[0].value = auth_policy_escape_function(table[0].value, auth_request);
+
+	return table;
+}
+
+static
+void auth_policy_create_json(struct policy_lookup_ctx *context,
+	const char *password, bool include_success)
+{
+	const struct var_expand_table *var_table;
+	context->json = str_new(context->pool, 64);
+	unsigned char *ptr;
+	const struct hash_method *digest = hash_method_lookup(context->set->policy_hash_mech);
+
+	i_assert(digest != NULL);
+
+	void *ctx = t_malloc_no0(digest->context_size);
+	string_t *buffer = t_str_new(64);
+
+	digest->init(ctx);
+	digest->loop(ctx,
+		context->set->policy_hash_nonce,
+		strlen(context->set->policy_hash_nonce));
+	/* use +1 to make sure \0 gets included */
+	digest->loop(ctx, context->request->user, strlen(context->request->user) + 1);
+	if (password != NULL)
+		digest->loop(ctx, password, strlen(password));
+	ptr = (unsigned char*)str_c_modifiable(buffer);
+	digest->result(ctx, ptr);
+	str_truncate(buffer, digest->digest_size);
+	if (context->set->policy_hash_truncate > 0) {
+		/* truncate it to closest byte boundary */
+		int bytes = ((context->set->policy_hash_truncate + 7) & -8)/8;
+		/* remainding bits */
+		int bits = bytes*8 - context->set->policy_hash_truncate;
+		str_truncate(buffer, bytes);
+		ptr = buffer_get_modifiable_data(buffer, NULL);
+		/* right shift everything and left-pad with 0 */
+		if (bits > 0) {
+			for(size_t i=bytes-1;i>0;i--)
+				ptr[i] = (ptr[i]>>(8-bits)) + ((ptr[i-1]&(0xff>>(8-bits)))<<bits);
+			ptr[0] = ptr[0]>>(8-bits);
+		}
+	}
+	const char *hashed_password = binary_to_hex(str_data(buffer), str_len(buffer));
+	str_append_c(context->json, '{');
+	var_table = policy_get_var_expand_table(context->request, hashed_password);
+	auth_request_var_expand_with_table(context->json, auth_policy_json_template,
+					   context->request, var_table,
+					   auth_policy_escape_function);
+	if (include_success) {
+		str_append(context->json, ",\"success\":");
+		if (!context->request->failed && context->request->successful &&
+		    !context->request->internal_failure)
+			str_append(context->json, "true");
+		else
+			str_append(context->json, "false");
+		str_append(context->json, ",\"policy_reject\":");
+		str_append(context->json, context->request->policy_refusal ? "true" : "false");
+	}
+	str_append_c(context->json, '}');
+	auth_request_log_debug(context->request, "policy",
+		"Policy server request JSON: %s", str_c(context->json));
+}
+
+static
+void auth_policy_url(struct policy_lookup_ctx *context, const char *command)
+{
+	size_t len = strlen(context->set->policy_server_url);
+	if (context->set->policy_server_url[len-1] == '&')
+		context->url = p_strdup_printf(context->pool, "%scommand=%s",
+			context->set->policy_server_url, command);
+	else
+		context->url = p_strdup_printf(context->pool, "%s?command=%s",
+			context->set->policy_server_url, command);
+}
+
+void auth_policy_check(struct auth_request *request, const char *password,
+	auth_policy_callback_t cb, void *context)
+{
+	if (*(request->set->policy_server_url) == '\0') {
+		cb(0, context);
+		return;
+	}
+	struct policy_lookup_ctx *ctx = p_new(request->pool, struct policy_lookup_ctx, 1);
+	ctx->pool = request->pool;
+	ctx->request = request;
+	ctx->expect_result = TRUE;
+	ctx->callback = cb;
+	ctx->callback_context = context;
+	ctx->set = request->set;
+
+	auth_policy_url(ctx, "allow");
+	ctx->result = (ctx->set->policy_reject_on_fail ? -1 : 0);
+	auth_request_log_debug(request, "policy", "Policy request %s", ctx->url);
+	T_BEGIN {
+		auth_policy_create_json(ctx, password, FALSE);
+	} T_END;
+	auth_policy_send_request(ctx);
+}
+
+void auth_policy_report(struct auth_request *request)
+{
+	if (*(request->set->policy_server_url) == '\0')
+		return;
+	pool_t pool = pool_alloconly_create("auth policy", 128);
+	struct policy_lookup_ctx *ctx = p_new(pool, struct policy_lookup_ctx, 1);
+	ctx->pool = pool;
+	ctx->request = request;
+	ctx->expect_result = FALSE;
+	ctx->set = request->set;
+	auth_policy_url(ctx, "report");
+	auth_request_log_debug(request, "policy", "Policy request %s", ctx->url);
+	T_BEGIN {
+		auth_policy_create_json(ctx, request->mech_password, TRUE);
+	} T_END;
+	auth_policy_send_request(ctx);
+}
