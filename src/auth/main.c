@@ -30,6 +30,7 @@
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 #include "auth-postfix-connection.h"
+#include "policy.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -246,6 +247,7 @@ static void main_init(void)
 	auth_worker_server_init();
 	auths_init();
 	auth_request_handler_init();
+	auth_policy_init();
 
 	if (worker) {
 		/* workers have only a single connection from the master
@@ -265,6 +267,7 @@ static void main_deinit(void)
 		/* cancel all pending anvil penalty lookups */
 		auth_penalty_deinit(&auth_penalty);
 	}
+	auth_policy_deinit();
 	/* deinit auth workers, which aborts pending requests */
         auth_worker_server_deinit();
 	/* deinit passdbs and userdbs. it aborts any pending async requests. */

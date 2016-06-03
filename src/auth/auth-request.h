@@ -145,6 +145,7 @@ struct auth_request {
 	unsigned int userdb_prefetch_set:1;
 	unsigned int stats_sent:1;
 	unsigned int policy_refusal:1;
+	unsigned int policy_processed:1;
 
 	/* ... mechanism specific data ... */
 };
