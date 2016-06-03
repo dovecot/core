@@ -13,6 +13,8 @@ int mail_index_unpack_num(const uint8_t **p, const uint8_t *end,
 
 bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 				 uint32_t seq, unsigned int *idx_r);
+void mail_index_seq_array_alloc(ARRAY_TYPE(seq_array) *array,
+				size_t record_size);
 bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
 			      const void *record, size_t record_size,
 			      void *old_record) ATTR_NULL(5);

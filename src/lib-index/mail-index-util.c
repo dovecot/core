@@ -116,6 +116,18 @@ bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 					mail_index_seq_record_cmp, idx_r);
 }
 
+void mail_index_seq_array_alloc(ARRAY_TYPE(seq_array) *array,
+				size_t record_size)
+{
+	size_t aligned_record_size = (record_size + 3) & ~3;
+
+	i_assert(!array_is_created(array));
+
+	array_create(array, default_pool,
+		     sizeof(uint32_t) + aligned_record_size,
+		     1024 / (sizeof(uint32_t) + aligned_record_size));
+}
+
 bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
 			      const void *record, size_t record_size,
 			      void *old_record)
@@ -126,11 +138,8 @@ bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
 	/* records need to be 32bit aligned */
 	aligned_record_size = (record_size + 3) & ~3;
 
-	if (!array_is_created(array)) {
-		array_create(array, default_pool,
-			     sizeof(seq) + aligned_record_size,
-			     1024 / (sizeof(seq) + aligned_record_size));
-	}
+	if (!array_is_created(array))
+		mail_index_seq_array_alloc(array, record_size);
 	i_assert(array->arr.element_size == sizeof(seq) + aligned_record_size);
 
 	if (mail_index_seq_array_lookup(array, seq, &idx)) {
