@@ -188,7 +188,7 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 				break;
 
 			value = str_tabunescape(p_strdup(dict->hash_pool, value));
-			hash_table_insert(dict->hash, key, value);
+			hash_table_update(dict->hash, key, value);
 		}
 		i_stream_destroy(&input);
 	}

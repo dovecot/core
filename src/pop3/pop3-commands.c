@@ -814,7 +814,7 @@ static void client_uidls_save(struct client *client)
 		i_assert(mail->seq <= client->highest_seq);
 		seq_uidls[mail->seq-1] = uidl;
 		if (uidl_duplicates_rename)
-			hash_table_insert(prev_uidls, uidl, POINTER_CAST(1));
+			hash_table_update(prev_uidls, uidl, POINTER_CAST(1));
 	}
 	(void)mailbox_search_deinit(&search_ctx);
 	if (uidl_duplicates_rename)

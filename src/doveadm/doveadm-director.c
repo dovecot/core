@@ -242,7 +242,7 @@ user_list_add(const char *username, pool_t pool,
 	old_user = hash_table_lookup(users, POINTER_CAST(user_hash));
 	if (old_user != NULL)
 		user->next = old_user;
-	hash_table_insert(users, POINTER_CAST(user_hash), user);
+	hash_table_update(users, POINTER_CAST(user_hash), user);
 }
 
 static void ATTR_NULL(1)

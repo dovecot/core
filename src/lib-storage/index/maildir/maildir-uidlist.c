@@ -537,7 +537,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		   we'll waste a bit of memory here by allocating the record
 		   twice, but that's not really a problem.  */
 		rec->filename = old_rec->filename;
-		hash_table_insert(uidlist->files, rec->filename, rec);
+		hash_table_update(uidlist->files, rec->filename, rec);
 		uidlist->unsorted = TRUE;
 		return TRUE;
 	} else {
@@ -566,7 +566,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	}
 
 	rec->filename = p_strdup(uidlist->record_pool, line);
-	hash_table_insert(uidlist->files, rec->filename, rec);
+	hash_table_update(uidlist->files, rec->filename, rec);
 	array_append(&uidlist->records, &rec, 1);
 	return TRUE;
 }

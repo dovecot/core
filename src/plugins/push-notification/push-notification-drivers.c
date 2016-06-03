@@ -71,7 +71,7 @@ push_notification_driver_parse_config(const char *p)
 	    key = *args;
 	    value = "";
 	}
-	hash_table_insert(config->config, key, value);
+	hash_table_update(config->config, key, value);
     }
 
     return config;

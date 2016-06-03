@@ -191,7 +191,7 @@ static void stats_read(struct top_context *ctx)
 			stats_line_set_prev_values(ctx, old_line, line);
 			array_append(&ctx->lines, &line, 1);
 		}
-		hash_table_insert(ctx->sessions, line->id, line);
+		hash_table_update(ctx->sessions, line->id, line);
 	}
 
 	if (ctx->input->stream_errno != 0) {

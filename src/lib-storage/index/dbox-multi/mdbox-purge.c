@@ -635,7 +635,7 @@ static int mdbox_altmove_add_files(struct mdbox_purge_context *ctx)
 		}
 
 		action = MDBOX_MSG_ACTION_MOVE_FROM_ALT;
-		hash_table_insert(ctx->altmoves, POINTER_CAST(cur_map_uid),
+		hash_table_update(ctx->altmoves, POINTER_CAST(cur_map_uid),
 				  POINTER_CAST(action));
 		seq_range_array_add(&ctx->purge_file_ids, cur_rec.file_id);
 	}

@@ -138,7 +138,7 @@ duplicate_read_records(struct duplicate_file *file, struct istream *input,
 			d->user = p_strndup(file->pool,
 					    data + hdr.id_size, hdr.user_size);
 			d->time = hdr.stamp;
-			hash_table_insert(file->hash, d, d);
+			hash_table_update(file->hash, d, d);
 		} else {
                         change_count++;
 		}
@@ -276,7 +276,7 @@ void duplicate_mark(struct duplicate_context *ctx,
 	d->time = timestamp;
 
 	ctx->file->changed = TRUE;
-	hash_table_insert(ctx->file->hash, d, d);
+	hash_table_update(ctx->file->hash, d, d);
 }
 
 void duplicate_flush(struct duplicate_context *ctx)
