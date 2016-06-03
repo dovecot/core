@@ -105,7 +105,7 @@ void mail_cache_register_fields(struct mail_cache *cache,
 	char *name;
 	void *value;
 	unsigned int new_idx;
-	unsigned int i, j;
+	unsigned int i, j, registered_count;
 
 	new_idx = cache->fields_count;
 	for (i = 0; i < fields_count; i++) {
@@ -141,10 +141,11 @@ void mail_cache_register_fields(struct mail_cache *cache,
 			  cache->fields_count * sizeof(*cache->field_file_map),
 			  new_idx * sizeof(*cache->field_file_map));
 
+	registered_count = cache->fields_count;
 	for (i = 0; i < fields_count; i++) {
 		unsigned int idx = fields[i].idx;
 
-		if (idx < cache->fields_count)
+		if (idx < registered_count)
 			continue;
 
 		/* new index - save it */
@@ -159,7 +160,9 @@ void mail_cache_register_fields(struct mail_cache *cache,
 
 		hash_table_insert(cache->field_name_hash, name,
 				  POINTER_CAST(idx));
+		registered_count++;
 	}
+	i_assert(registered_count == new_idx);
 	cache->fields_count = new_idx;
 }
 
