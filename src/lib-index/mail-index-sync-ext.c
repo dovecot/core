@@ -283,6 +283,8 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 	/* something changed. get ourself a new map before we start changing
 	   anything in it. */
 	map = mail_index_sync_get_atomic_map(ctx);
+	/* ext was duplicated to the new map. */
+	ext = array_idx_modifiable(&map->extensions, ext_map_idx);
 
 	if (new_padded_hdr_size < old_padded_hdr_size) {
 		/* header shrank */
