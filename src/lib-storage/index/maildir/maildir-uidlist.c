@@ -1701,8 +1701,11 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		rec = p_new(uidlist->record_pool,
 			    struct maildir_uidlist_rec, 1);
 		rec->uid = (uint32_t)-1;
+		rec->filename = p_strdup(uidlist->record_pool, filename);
 		array_append(&uidlist->records, &rec, 1);
 		uidlist->change_counter++;
+
+		hash_table_insert(uidlist->files, rec->filename, rec);
 	}
 	if (uid != 0) {
 		if (rec->uid != uid && rec->uid != (uint32_t)-1) {
@@ -1724,8 +1727,6 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 	rec->flags &= ~MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
 	rec->flags = (rec->flags | flags) &
 		~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
-	rec->filename = p_strdup(uidlist->record_pool, filename);
-	hash_table_insert(uidlist->files, rec->filename, rec);
 
 	ctx->finished = FALSE;
 	*rec_r = rec;
@@ -1816,6 +1817,8 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 			/* didn't exist in uidlist, it's recent */
 			flags |= MAILDIR_UIDLIST_REC_FLAG_RECENT;
 		}
+		rec->filename = p_strdup(ctx->record_pool, filename);
+		hash_table_insert(ctx->files, rec->filename, rec);
 
 		array_append(&ctx->records, &rec, 1);
 	}
@@ -1826,8 +1829,6 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 	}
 
 	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
-	rec->filename = p_strdup(ctx->record_pool, filename);
-	hash_table_insert(ctx->files, rec->filename, rec);
 	*rec_r = rec;
 	return 1;
 }
