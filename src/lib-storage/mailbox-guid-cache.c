@@ -73,6 +73,11 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 			i_error("Couldn't get mailbox %s GUID: %s",
 				info->vname, mailbox_get_last_error(box, NULL));
 			list->guid_cache_errors = TRUE;
+		} else if ((rec = hash_table_lookup(list->guid_cache,
+				(const uint8_t *)metadata.guid)) != NULL) {
+			i_warning("Mailbox %s has duplicate GUID with %s: %s",
+				  info->vname, rec->vname,
+				  guid_128_to_string(metadata.guid));
 		} else {
 			rec = p_new(list->guid_cache_pool,
 				    struct mailbox_guid_cache_rec, 1);
