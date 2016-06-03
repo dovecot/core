@@ -570,6 +570,7 @@ static void mail_index_sync_ext_clear(struct mail_index_view *view,
 	memset(buffer_get_space_unsafe(map->hdr_copy_buf, ext->hdr_offset,
 				       ext->hdr_size), 0, ext->hdr_size);
 	map->hdr_base = map->hdr_copy_buf->data;
+	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 
 	for (seq = 1; seq <= view->map->rec_map->records_count; seq++) {
 		rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
@@ -640,6 +641,7 @@ int mail_index_sync_ext_hdr_update(struct mail_index_sync_map_ctx *ctx,
 
 	buffer_write(map->hdr_copy_buf, ext->hdr_offset + offset, data, size);
 	map->hdr_base = map->hdr_copy_buf->data;
+	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 
 	if (ext->index_idx == ctx->view->index->modseq_ext_id)
 		mail_index_modseq_hdr_update(ctx->modseq_ctx);

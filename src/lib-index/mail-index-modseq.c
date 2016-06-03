@@ -521,6 +521,7 @@ static void mail_index_modseq_update_header(struct mail_index_view *view,
 		buffer_write(map->hdr_copy_buf, ext->hdr_offset,
 			     &new_modseq_hdr, sizeof(new_modseq_hdr));
 		map->hdr_base = map->hdr_copy_buf->data;
+		i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 	}
 }
 

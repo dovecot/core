@@ -496,6 +496,7 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 
 	buffer_write(map->hdr_copy_buf, u->offset, u + 1, u->size);
 	map->hdr_base = map->hdr_copy_buf->data;
+	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 
 	/* @UNSAFE */
 	if ((uint32_t)(u->offset + u->size) <= sizeof(map->hdr)) {
