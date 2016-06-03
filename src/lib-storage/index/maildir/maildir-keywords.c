@@ -168,7 +168,8 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 		*p++ = '\0';
 
 		if (str_to_uint(line, &idx) < 0 ||
-		    idx >= MAILDIR_MAX_KEYWORDS || *p == '\0') {
+		    idx >= MAILDIR_MAX_KEYWORDS || *p == '\0' ||
+		    hash_table_lookup(mk->hash, p) != NULL) {
 			/* shouldn't happen */
 			continue;
 		}
