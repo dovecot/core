@@ -713,6 +713,33 @@ void mail_index_update_header(struct mail_index_transaction *t,
 	}
 }
 
+static void
+mail_index_ext_rec_updates_resize(struct mail_index_transaction *t,
+				  uint32_t ext_id, uint16_t new_record_size)
+{
+	ARRAY_TYPE(seq_array) *array, old_array;
+	unsigned int i;
+
+	if (!array_is_created(&t->ext_rec_updates))
+		return;
+	array = array_idx_modifiable(&t->ext_rec_updates, ext_id);
+	if (!array_is_created(array))
+		return;
+
+	old_array = *array;
+	memset(array, 0, sizeof(*array));
+	mail_index_seq_array_alloc(array, new_record_size);
+
+	/* copy the records' beginnings. leave the end zero-filled. */
+	for (i = 0; i < array_count(&old_array); i++) {
+		const void *old_record = array_idx(&old_array, i);
+
+		memcpy(array_append_space(array), old_record,
+		       old_array.arr.element_size);
+	}
+	array_free(&old_array);
+}
+
 void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 			   uint32_t hdr_size, uint16_t record_size,
 			   uint16_t record_align)
@@ -741,12 +768,13 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 		old_header_size = ext->hdr_size;
 	}
 
-	/* allow only header size changes if extension records have already
-	   been changed in transaction */
-	i_assert(!array_is_created(&t->ext_rec_updates) ||
-		 record_size == (uint16_t)-1 ||
-		 (old_record_size == record_size &&
-		  old_record_align == record_align));
+	if (record_size != old_record_size) {
+		/* if record_size grows, we'll just resize the existing
+		   ext_rec_updates array. it's not possible to shrink
+		   record_size without data loss. */
+		i_assert(record_size > old_record_size);
+		mail_index_ext_rec_updates_resize(t, ext_id, record_size);
+	}
 
 	t->log_ext_updates = TRUE;
 
