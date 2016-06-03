@@ -16,7 +16,7 @@
 #include "auth-token.h"
 #include "auth-master-connection.h"
 #include "auth-request-handler.h"
-
+#include "policy.h"
 
 #define AUTH_FAILURE_DELAY_CHECK_MSECS 500
 
@@ -215,6 +215,8 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 	auth_request_ref(request);
 	auth_request_handler_remove(handler, request);
 
+	auth_policy_report(request);
+
 	if (auth_fields_exists(request->extra_fields, "nodelay")) {
 		/* passdb specifically requested not to delay the reply. */
 		handler->callback(reply, handler->conn);
@@ -267,6 +269,9 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 		   process to pick it up. delete it */
 		auth_request_handler_remove(handler, request);
 	}
+
+	auth_policy_report(request);
+
 	handler->callback(str_c(str), handler->conn);
 }
 

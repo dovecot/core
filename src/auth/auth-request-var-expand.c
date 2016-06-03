@@ -156,6 +156,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[29].value = strchr(orig_user, '@');
 	if (tab[29].value != NULL)
 		tab[29].value = escape_func(tab[29].value+1, auth_request);
+
 	if (auth_request->master_user != NULL)
 		auth_user = auth_request->master_user;
 	else
@@ -165,7 +166,6 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[32].value = strchr(auth_user, '@');
 	if (tab[32].value != NULL)
 		tab[32].value = escape_func(tab[32].value+1, auth_request);
-
 	return ret_tab;
 }
 

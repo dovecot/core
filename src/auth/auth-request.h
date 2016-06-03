@@ -145,6 +145,7 @@ struct auth_request {
 	bool userdb_prefetch_set:1;
 	bool stats_sent:1;
 	bool policy_refusal:1;
+	bool policy_processed:1;
 
 	/* ... mechanism specific data ... */
 };
