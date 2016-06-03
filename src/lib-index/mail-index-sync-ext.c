@@ -262,30 +262,30 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 	struct mail_index_map *map = ctx->view->map;
 	struct mail_index_ext *ext;
 	struct mail_index_ext_header *ext_hdr;
-	uint32_t old_size, new_size, old_record_size;
+	uint32_t old_padded_hdr_size, new_padded_hdr_size, old_record_size;
 	bool modified = FALSE, reorder = FALSE;
 
 	ext = array_idx_modifiable(&map->extensions, ext_map_idx);
 
-	old_size = MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size);
-	new_size = MAIL_INDEX_HEADER_SIZE_ALIGN(u->hdr_size);
+	old_padded_hdr_size = MAIL_INDEX_HEADER_SIZE_ALIGN(ext->hdr_size);
+	new_padded_hdr_size = MAIL_INDEX_HEADER_SIZE_ALIGN(u->hdr_size);
 
-	if (new_size < old_size) {
+	if (new_padded_hdr_size < old_padded_hdr_size) {
 		/* header shrank */
 		if (no_shrink)
-			new_size = old_size;
+			new_padded_hdr_size = old_padded_hdr_size;
 		else {
 			buffer_delete(map->hdr_copy_buf,
-				      ext->hdr_offset + new_size,
-				      old_size - new_size);
+				      ext->hdr_offset + new_padded_hdr_size,
+				      old_padded_hdr_size - new_padded_hdr_size);
 			ext->hdr_size = u->hdr_size;
 			modified = TRUE;
 		}
-	} else if (new_size > old_size) {
+	} else if (new_padded_hdr_size > old_padded_hdr_size) {
 		/* header grown */
 		buffer_insert_zero(map->hdr_copy_buf,
-				   ext->hdr_offset + old_size,
-				   new_size - old_size);
+				   ext->hdr_offset + old_padded_hdr_size,
+				   new_padded_hdr_size - old_padded_hdr_size);
 		ext->hdr_size = u->hdr_size;
 		modified = TRUE;
 	} else {
@@ -327,10 +327,11 @@ sync_ext_resize(const struct mail_transaction_ext_intro *u,
 		i_assert(map->hdr_base == map->hdr_copy_buf->data);
 	}
 
-	if (new_size != old_size) {
+	if (new_padded_hdr_size != old_padded_hdr_size) {
 		/* move all hdr_offset of all extensions after this one */
 		unsigned int i, count = array_count(&map->extensions);
-		ssize_t diff = (ssize_t)new_size - (ssize_t)old_size;
+		ssize_t diff = (ssize_t)new_padded_hdr_size -
+			(ssize_t)old_padded_hdr_size;
 
 		ext = array_idx_modifiable(&map->extensions, 0);
 		for (i = ext_map_idx + 1; i < count; i++) {
