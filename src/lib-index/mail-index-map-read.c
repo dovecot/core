@@ -238,6 +238,7 @@ mail_index_try_read_map(struct mail_index_map *map,
 
 	mail_index_map_copy_hdr(map, hdr);
 	map->hdr_base = map->hdr_copy_buf->data;
+	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 	return 1;
 }
 
