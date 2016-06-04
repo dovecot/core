@@ -329,8 +329,11 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 
 	// create iostream
 	doveadm_print_ostream = iostream_temp_create("/tmp/doveadm.", 0);
+	cctx.cmd = conn->cmd;
 
-	doveadm_print_init(DOVEADM_PRINT_TYPE_JSON);
+	if ((cctx.cmd->flags & CMD_FLAG_NO_PRINT) == 0)
+		doveadm_print_init(DOVEADM_PRINT_TYPE_JSON);
+
 	/* then call it */
 	doveadm_cmd_params_null_terminate_arrays(&conn->pargv);
 	cctx.argv = array_get(&conn->pargv, (unsigned int*)&cctx.argc);
@@ -338,7 +341,6 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	lib_signals_reset_ioloop();
 	doveadm_exit_code = 0;
 
-	cctx.cmd = conn->cmd;
 	cctx.cli = FALSE;
 	cctx.local_ip = conn->client.local_ip;
 	cctx.local_port = conn->client.local_port;
@@ -357,7 +359,8 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);
 
-	doveadm_print_deinit();
+	if ((cctx.cmd->flags & CMD_FLAG_NO_PRINT) == 0)
+		doveadm_print_deinit();
 	if (o_stream_nfinish(doveadm_print_ostream)<0) {
 		i_info("Error writing output in command %s: %s",
 		       conn->cmd->name,
