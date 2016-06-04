@@ -30,7 +30,8 @@ typedef enum {
 
 typedef enum {
 	CMD_FLAG_NONE			= 0x0,
-	CMD_FLAG_HIDDEN			= 0x1
+	CMD_FLAG_HIDDEN			= 0x1,
+	CMD_FLAG_NO_PRINT		= 0x2,
 } doveadm_cmd_flag_t;
 
 struct doveadm_cmd_param {
