@@ -372,7 +372,7 @@ lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
 
 	if (lt->dest_trans != NULL && lt->delayed_error == MAIL_ERROR_NONE) {
 		if (mailbox_transaction_commit(&lt->dest_trans) < 0) {
-			lazy_expunge_set_error(lt, lt->dest_trans->box->storage);
+			lazy_expunge_set_error(lt, ctx->box->storage);
 		}
 	}
 
