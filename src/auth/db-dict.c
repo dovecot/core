@@ -193,8 +193,9 @@ static bool parse_section(const char *type, const char *name,
 				ctx->cur_key->parsed_format =
 					DB_DICT_VALUE_FORMAT_JSON;
 			} else {
-				return t_strconcat("Unknown key format: ",
-						   ctx->cur_key->format, NULL);
+				*errormsg = t_strconcat("Unknown key format: ",
+					ctx->cur_key->format, NULL);
+				return FALSE;
 			}
 		}
 		ctx->cur_key = NULL;
