@@ -1086,7 +1086,7 @@ int mdbox_map_append_next(struct mdbox_map_append_context *ctx,
 		ret = 1;
 		existing = TRUE;
 	} else {
-		ret = mdbox_map_find_appendable_file(ctx, mail_size, flags,
+		ret = mdbox_map_find_appendable_file(ctx, mail_size, want_altpath,
 						     &file_append, output_r);
 		existing = FALSE;
 	}
