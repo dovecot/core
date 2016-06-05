@@ -362,7 +362,7 @@ static int mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 	}
 
 	first_mail_expunge_extra = 1 +
-		sync_ctx->first_mail_crlf_expunged ? 1 : 0;
+		(sync_ctx->first_mail_crlf_expunged ? 1 : 0);
 	if (mails[idx].from_offset +
 	    first_mail_expunge_extra - expunged_space != 0) {
 		sync_ctx->dest_first_mail = mails[idx].from_offset == 0;
