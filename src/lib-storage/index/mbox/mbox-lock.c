@@ -41,7 +41,7 @@ enum mbox_dotlock_op {
 
 struct mbox_lock_context {
 	struct mbox_mailbox *mbox;
-	int lock_status[MBOX_LOCK_COUNT];
+	bool locked_status[MBOX_LOCK_COUNT];
 	bool checked_file;
 
 	int lock_type;
@@ -674,7 +674,8 @@ mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
 {
 	enum mbox_lock_type *lock_types;
         enum mbox_lock_type type;
-	int i, ret = 0, lock_status;
+	int i, ret = 0;
+	bool locked_status;
 
 	ctx->lock_type = lock_type;
 
@@ -684,11 +685,11 @@ mbox_lock_list(struct mbox_lock_context *ctx, int lock_type,
 		ctx->mbox->storage->read_locks;
 	for (i = idx; lock_types[i] != (enum mbox_lock_type)-1; i++) {
 		type = lock_types[i];
-		lock_status = lock_type != F_UNLCK;
+		locked_status = lock_type != F_UNLCK;
 
-		if (ctx->lock_status[type] == lock_status)
+		if (ctx->locked_status[type] == locked_status)
 			continue;
-		ctx->lock_status[type] = lock_status;
+		ctx->locked_status[type] = locked_status;
 
 		ret = lock_data[type].func(ctx, lock_type, max_wait_time);
 		if (ret <= 0)
@@ -733,9 +734,9 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
                         mbox->storage->read_locks;
 
 		for (i = 0; i < MBOX_LOCK_COUNT; i++)
-			ctx.lock_status[i] = 1;
+			ctx.locked_status[i] = TRUE;
 		for (i = 0; read_locks[i] != (enum mbox_lock_type)-1; i++)
-			ctx.lock_status[read_locks[i]] = 0;
+			ctx.locked_status[read_locks[i]] = FALSE;
 		drop_locks = TRUE;
 	} else {
 		drop_locks = FALSE;
@@ -761,11 +762,11 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 		const enum mbox_lock_type *write_locks =
 			mbox->storage->write_locks;
 
-		memset(ctx.lock_status, 0, sizeof(ctx.lock_status));
+		memset(ctx.locked_status, 0, sizeof(ctx.locked_status));
 		for (i = 0; write_locks[i] != (enum mbox_lock_type)-1; i++)
-			ctx.lock_status[write_locks[i]] = 1;
+			ctx.locked_status[write_locks[i]] = TRUE;
 		for (i = 0; read_locks[i] != (enum mbox_lock_type)-1; i++)
-			ctx.lock_status[read_locks[i]] = 0;
+			ctx.locked_status[read_locks[i]] = FALSE;
 
 		mbox->mbox_lock_type = F_WRLCK;
 		mbox_lock_list(&ctx, F_UNLCK, 0, 0);
@@ -877,7 +878,7 @@ int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id)
 	ctx.mbox = mbox;
 
 	for (i = 0; i < MBOX_LOCK_COUNT; i++)
-		ctx.lock_status[i] = 1;
+		ctx.locked_status[i] = TRUE;
 
 	return mbox_unlock_files(&ctx);
 }
