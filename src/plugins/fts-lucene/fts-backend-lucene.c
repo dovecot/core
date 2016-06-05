@@ -178,11 +178,15 @@ fts_backend_lucene_get_last_uid(struct fts_backend *_backend,
 		FTS_LUCENE_USER_CONTEXT(_backend->ns->user);
 	struct fts_index_header hdr;
 	uint32_t set_checksum;
+	int ret;
 
 	if (fts_index_get_header(box, &hdr)) {
 		set_checksum = fts_lucene_settings_checksum(&fuser->set);
-		if (!fts_index_have_compatible_settings(_backend->ns->list,
-							set_checksum)) {
+		ret = fts_index_have_compatible_settings(_backend->ns->list,
+							 set_checksum);
+		if (ret < 0)
+			return -1;
+		if (ret == 0) {
 			/* need to rebuild the index */
 			*last_uid_r = 0;
 		} else {
