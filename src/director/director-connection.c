@@ -1239,7 +1239,7 @@ director_connection_handle_handshake(struct director_connection *conn,
 		if (conn->minor_version < DIRECTOR_VERSION_TAGS_V2 &&
 		    mail_hosts_have_tags(conn->dir->mail_hosts)) {
 			i_error("director(%s): Director version supports incompatible tags", conn->name);
-			return FALSE;
+			return -1;
 		}
 		conn->version_received = TRUE;
 		if (conn->done_pending) {
