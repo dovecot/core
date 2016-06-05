@@ -340,6 +340,7 @@ message_address_parse(pool_t pool, const unsigned char *data, size_t size,
 
 void message_address_write(string_t *str, const struct message_address *addr)
 {
+	const char *tmp;
 	bool first = TRUE, in_group = FALSE;
 
 	/* a) mailbox@domain
@@ -365,7 +366,12 @@ void message_address_write(string_t *str, const struct message_address *addr)
 				i_assert(addr->mailbox == NULL);
 
 				/* cut out the ", " */
-				str_truncate(str, str_len(str)-2);
+				tmp = str_c(str)+str_len(str)-2;
+				i_assert((tmp[0] == ',' || tmp[0] == ':') && tmp[1] == ' ');
+				if (tmp[0] == ',' && tmp[1] == ' ')
+					str_truncate(str, str_len(str)-2);
+				else if (tmp[0] == ':' && tmp[1] == ' ')
+					str_truncate(str, str_len(str)-1);
 				str_append_c(str, ';');
 			}
 
