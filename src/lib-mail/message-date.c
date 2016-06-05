@@ -222,7 +222,11 @@ message_date_parser_tokens(struct message_date_parser_context *ctx,
 		/* missing timezone */
 		*timezone_offset_r = 0;
 	} else {
-		/* timezone */
+		/* timezone. invalid timezones are treated as GMT, because
+		   we may not know all the possible timezones that are used
+		   and it's better to give at least a mostly correct reply.
+		   FIXME: perhaps some different strict version of this
+		   function would be useful? */
 		*timezone_offset_r = parse_timezone(value, len);
 	}
 
