@@ -225,7 +225,9 @@ static int mailbox_alias_delete(struct mailbox *box)
 		return -1;
 	}
 
-	if (mailbox_is_alias_symlink(box)) {
+	if ((ret = mailbox_is_alias_symlink(box)) < 0)
+		return -1;
+	if (ret > 0) {
 		/* we're deleting an alias mailbox. we'll need to handle this
 		   explicitly since box->name points to the original mailbox */
 		symlink_name = alist->module_ctx.super.
@@ -245,12 +247,16 @@ static int mailbox_alias_rename(struct mailbox *src, struct mailbox *dest)
 	struct mailbox_alias_mailbox *abox = MAILBOX_ALIAS_CONTEXT(src);
 	int ret;
 
-	if (mailbox_is_alias_symlink(src)) {
+	if ((ret = mailbox_is_alias_symlink(src)) < 0)
+		return -1;
+	else if (ret > 0) {
 		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Can't rename alias mailboxes");
 		return -1;
 	}
-	if (mailbox_is_alias_symlink(dest)) {
+	if ((ret = mailbox_is_alias_symlink(dest)) < 0)
+		return -1;
+	else {
 		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Can't rename to mailbox alias");
 		return -1;
