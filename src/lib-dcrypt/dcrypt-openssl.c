@@ -1223,7 +1223,7 @@ int dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 }
 
 static
-bool dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
+int dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 	int len, const char **input, const char **error_r)
 {
 	if (len != 2 || strlen(input[1]) < 2 || (strlen(input[1])%2) != 0) {
