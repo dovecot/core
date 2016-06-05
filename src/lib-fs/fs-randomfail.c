@@ -27,6 +27,7 @@ struct randomfail_fs_file {
 	struct fs_file file;
 	struct fs_file *super, *super_read;
 	struct istream *input;
+	bool op_pending[FS_OP_COUNT];
 
 	struct ostream *super_output;
 };
@@ -254,13 +255,13 @@ fs_randomfail_set_async_callback(struct fs_file *_file,
 	fs_file_set_async_callback(file->super, callback, context);
 }
 
-static bool fs_random_fail(struct fs *_fs, enum fs_op op)
+static bool fs_random_fail(struct fs *_fs, int divider, enum fs_op op)
 {
 	struct randomfail_fs *fs = (struct randomfail_fs *)_fs;
 
 	if (fs->op_probability[op] == 0)
 		return FALSE;
-	if ((unsigned int)(rand() % 100) <= fs->op_probability[op]) {
+	if ((unsigned int)(rand() % (100*divider)) <= fs->op_probability[op]) {
 		fs_set_error(_fs, RANDOMFAIL_ERROR);
 		return TRUE;
 	}
@@ -268,11 +269,34 @@ static bool fs_random_fail(struct fs *_fs, enum fs_op op)
 }
 
 static bool
+fs_file_random_fail_begin(struct randomfail_fs_file *file, enum fs_op op)
+{
+	if (!file->op_pending[op]) {
+		if (fs_random_fail(file->file.fs, 2, op))
+			return TRUE;
+	}
+	file->op_pending[op] = TRUE;
+	return FALSE;
+}
+
+static int
+fs_file_random_fail_end(struct randomfail_fs_file *file,
+			int ret, enum fs_op op)
+{
+	if (ret == 0 || errno != ENOENT) {
+		if (fs_random_fail(file->file.fs, 2, op))
+			return TRUE;
+		file->op_pending[op] = FALSE;
+	}
+	return ret;
+}
+
+static bool
 fs_random_fail_range(struct fs *_fs, enum fs_op op, uoff_t *offset_r)
 {
 	struct randomfail_fs *fs = (struct randomfail_fs *)_fs;
 
-	if (!fs_random_fail(_fs, op))
+	if (!fs_random_fail(_fs, 1, op))
 		return FALSE;
 	*offset_r = fs->range_start[op] +
 		rand() % (fs->range_end[op] - fs->range_start[op] + 1);
@@ -281,7 +305,7 @@ fs_random_fail_range(struct fs *_fs, enum fs_op op, uoff_t *offset_r)
 
 static int fs_randomfail_wait_async(struct fs *_fs)
 {
-	if (fs_random_fail(_fs, FS_OP_WAIT))
+	if (fs_random_fail(_fs, 1, FS_OP_WAIT))
 		return -1;
 	return fs_wait_async(_fs->parent);
 }
@@ -300,17 +324,19 @@ fs_randomfail_get_metadata(struct fs_file *_file,
 			   const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
+	int ret;
 
-	if (fs_random_fail(_file->fs, FS_OP_METADATA))
+	if (fs_file_random_fail_begin(file, FS_OP_METADATA))
 		return -1;
-	return fs_get_metadata(file->super, metadata_r);
+	ret = fs_get_metadata(file->super, metadata_r);
+	return fs_file_random_fail_end(file, ret, FS_OP_METADATA);
 }
 
 static bool fs_randomfail_prefetch(struct fs_file *_file, uoff_t length)
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
 
-	if (fs_random_fail(_file->fs, FS_OP_PREFETCH))
+	if (fs_random_fail(_file->fs, 1, FS_OP_PREFETCH))
 		return TRUE;
 	return fs_prefetch(file->super, length);
 }
@@ -318,10 +344,12 @@ static bool fs_randomfail_prefetch(struct fs_file *_file, uoff_t length)
 static ssize_t fs_randomfail_read(struct fs_file *_file, void *buf, size_t size)
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
+	int ret;
 
-	if (fs_random_fail(_file->fs, FS_OP_READ))
+	if (fs_file_random_fail_begin(file, FS_OP_READ))
 		return -1;
-	return fs_read(file->super, buf, size);
+	ret = fs_read(file->super, buf, size);
+	return fs_file_random_fail_end(file, ret, FS_OP_READ);
 }
 
 static struct istream *
@@ -342,10 +370,12 @@ fs_randomfail_read_stream(struct fs_file *_file, size_t max_buffer_size)
 static int fs_randomfail_write(struct fs_file *_file, const void *data, size_t size)
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
+	int ret;
 
-	if (fs_random_fail(_file->fs, FS_OP_WRITE))
+	if (fs_file_random_fail_begin(file, FS_OP_WRITE))
 		return -1;
-	return fs_write(file->super, data, size);
+	ret = fs_write(file->super, data, size);
+	return fs_file_random_fail_end(file, ret, FS_OP_EXISTS);
 }
 
 static void fs_randomfail_write_stream(struct fs_file *_file)
@@ -373,10 +403,10 @@ static int fs_randomfail_write_stream_finish(struct fs_file *_file, bool success
 			_file->output = NULL;
 		else
 			o_stream_unref(&_file->output);
-	}
-	if (!success || fs_random_fail(_file->fs, FS_OP_WRITE)) {
-		fs_write_stream_abort(file->super, &file->super_output);
-		return -1;
+		if (!success || fs_random_fail(_file->fs, 1, FS_OP_WRITE)) {
+			fs_write_stream_abort(file->super, &file->super_output);
+			return -1;
+		}
 	}
 	return fs_write_stream_finish(file->super, &file->super_output);
 }
@@ -386,7 +416,7 @@ fs_randomfail_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lo
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
 
-	if (fs_random_fail(_file->fs, FS_OP_LOCK))
+	if (fs_random_fail(_file->fs, 1, FS_OP_LOCK))
 		return -1;
 	return fs_lock(file->super, secs, lock_r);
 }
@@ -399,52 +429,62 @@ static void fs_randomfail_unlock(struct fs_lock *_lock ATTR_UNUSED)
 static int fs_randomfail_exists(struct fs_file *_file)
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
+	int ret;
 
-	if (fs_random_fail(_file->fs, FS_OP_EXISTS))
+	if (fs_file_random_fail_begin(file, FS_OP_EXISTS))
 		return -1;
-	return fs_exists(file->super);
+	ret = fs_exists(file->super);
+	return fs_file_random_fail_end(file, ret, FS_OP_EXISTS);
 }
 
 static int fs_randomfail_stat(struct fs_file *_file, struct stat *st_r)
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
+	int ret;
 
-	if (fs_random_fail(_file->fs, FS_OP_STAT))
+	if (fs_file_random_fail_begin(file, FS_OP_STAT))
 		return -1;
-	return fs_stat(file->super, st_r);
+	ret = fs_stat(file->super, st_r);
+	return fs_file_random_fail_end(file, ret, FS_OP_STAT);
 }
 
 static int fs_randomfail_copy(struct fs_file *_src, struct fs_file *_dest)
 {
 	struct randomfail_fs_file *src = (struct randomfail_fs_file *)_src;
 	struct randomfail_fs_file *dest = (struct randomfail_fs_file *)_dest;
+	int ret;
 
-	if (fs_random_fail(_dest->fs, FS_OP_COPY))
+	if (fs_file_random_fail_begin(dest, FS_OP_COPY))
 		return -1;
 
 	if (_src != NULL)
-		return fs_copy(src->super, dest->super);
+		ret = fs_copy(src->super, dest->super);
 	else
-		return fs_copy_finish_async(dest->super);
+		ret = fs_copy_finish_async(dest->super);
+	return fs_file_random_fail_end(dest, ret, FS_OP_COPY);
 }
 
 static int fs_randomfail_rename(struct fs_file *_src, struct fs_file *_dest)
 {
 	struct randomfail_fs_file *src = (struct randomfail_fs_file *)_src;
 	struct randomfail_fs_file *dest = (struct randomfail_fs_file *)_dest;
+	int ret;
 
-	if (fs_random_fail(_dest->fs, FS_OP_RENAME))
+	if (fs_file_random_fail_begin(dest, FS_OP_RENAME))
 		return -1;
-	return fs_rename(src->super, dest->super);
+	ret = fs_rename(src->super, dest->super);
+	return fs_file_random_fail_end(dest, ret, FS_OP_RENAME);
 }
 
 static int fs_randomfail_delete(struct fs_file *_file)
 {
 	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
+	int ret;
 
-	if (fs_random_fail(_file->fs, FS_OP_DELETE))
+	if (fs_file_random_fail_begin(file, FS_OP_DELETE))
 		return -1;
-	return fs_delete(file->super);
+	ret = fs_delete(file->super);
+	return fs_file_random_fail_end(file, ret, FS_OP_DELETE);
 }
 
 static struct fs_iter *
