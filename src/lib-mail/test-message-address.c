@@ -20,11 +20,13 @@ static void test_message_address(void)
 	static const char *input[] = {
 		"user@domain", NULL,
 		"<user@domain>", "user@domain",
-		"foo bar <user@domain>", NULL,
-		"\"foo bar\" <user@domain>", "foo bar <user@domain>",
+		"foo bar <user@domain>", "\"foo bar\" <user@domain>",
+		"\"foo bar\" <user@domain>", NULL,
+		"\"foo: <a@b>;,\" <user@domain>", NULL,
 		"<@route:user@domain>", NULL,
 		"<@route@route2:user@domain>", "<@route,@route2:user@domain>",
 		"hello <@route ,@route2:user@domain>", "hello <@route,@route2:user@domain>",
+		"hello", NULL,
 		"user (hello)", NULL,
 		"hello <user>", NULL,
 		"@domain", NULL
@@ -40,9 +42,11 @@ static void test_message_address(void)
 		{ NULL, NULL, NULL, "user", "domain", FALSE },
 		{ NULL, "foo bar", NULL, "user", "domain", FALSE },
 		{ NULL, "foo bar", NULL, "user", "domain", FALSE },
+		{ NULL, "foo: <a@b>;,", NULL, "user", "domain", FALSE },
 		{ NULL, NULL, "@route", "user", "domain", FALSE },
 		{ NULL, NULL, "@route,@route2", "user", "domain", FALSE },
 		{ NULL, "hello", "@route,@route2", "user", "domain", FALSE },
+		{ NULL, "hello", NULL, "", "", TRUE },
 		{ NULL, "hello", NULL, "user", "", TRUE },
 		{ NULL, "hello", NULL, "user", "", TRUE },
 		{ NULL, NULL, NULL, "", "domain", TRUE }
@@ -104,10 +108,13 @@ static void test_message_address(void)
 	str_append(group, "group:;");
 	addr = message_address_parse(pool_datastack_create(), str_data(group),
 				     str_len(group), UINT_MAX, FALSE);
+	str_truncate(str, 0);
+	message_address_write(str, addr);
 	test_assert(addr != NULL && cmp_addr(addr, &group_prefix));
 	addr = addr->next;
 	test_assert(addr != NULL && addr->next == NULL &&
 		    cmp_addr(addr, &group_suffix));
+	test_assert(strcmp(str_c(str), "group:;") == 0);
 	test_end();
 }
 
