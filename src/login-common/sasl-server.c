@@ -135,7 +135,7 @@ static void master_send_request(struct anvil_request *anvil_request)
 	req.remote_ip = client->ip;
 	req.client_pid = getpid();
 	if (client->ssl_proxy != NULL &&
-	    ssl_proxy_get_compression(client->ssl_proxy))
+	    ssl_proxy_get_compression(client->ssl_proxy) != NULL)
 		req.flags |= MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION;
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 

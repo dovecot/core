@@ -290,7 +290,7 @@ prevfile:
 				line = str_unescape(line+1);
 			}
 
-			errormsg = skip ? NULL :
+			errormsg = skip > 0 ? NULL :
 				callback(key, line, context);
 		} else if (strcmp(key, "}") != 0 || *line != '\0') {
 			/* b) + errors */

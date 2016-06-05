@@ -848,7 +848,7 @@ int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id)
 
 	i_assert(mbox->mbox_lock_id == (lock_id & ~1));
 
-	if (lock_id & 1) {
+	if ((lock_id & 1) != 0) {
 		/* dropping exclusive lock */
 		i_assert(mbox->mbox_excl_locks > 0);
 		if (--mbox->mbox_excl_locks > 0)

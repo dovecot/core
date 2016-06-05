@@ -83,7 +83,7 @@ void test_unichar(void)
 	collate_out = buffer_create_dynamic(default_pool, 32);
 	uni_utf8_to_decomposed_titlecase(collate_in, sizeof(collate_in),
 					 collate_out);
-	test_assert(!strcmp(collate_out->data, collate_exp));
+	test_assert(strcmp(collate_out->data, collate_exp) == 0);
 	buffer_free(&collate_out);
 
 	test_assert(!uni_utf8_str_is_valid(overlong_utf8));

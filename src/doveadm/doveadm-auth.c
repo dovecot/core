@@ -88,7 +88,7 @@ cmd_user_input(struct auth_master_connection *conn,
 	} else if (show_field != NULL) {
 		unsigned int show_field_len = strlen(show_field);
 
-		for (; *fields; fields++) {
+		for (; *fields != NULL; fields++) {
 			if (strncmp(*fields, show_field, show_field_len) == 0 &&
 			    (*fields)[show_field_len] == '=')
 				printf("%s\n", *fields + show_field_len + 1);
@@ -98,7 +98,7 @@ cmd_user_input(struct auth_master_connection *conn,
 
 		if (updated_username != NULL)
 			printf("  %-10s: %s\n", "user", updated_username);
-		for (; *fields; fields++) {
+		for (; *fields != NULL; fields++) {
 			p = strchr(*fields, '=');
 			if (p == NULL)
 				printf("  %-10s\n", *fields);

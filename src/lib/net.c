@@ -66,7 +66,7 @@ unsigned int net_ip_hash(const struct ip_addr *ip)
 
 	for (; len > 0; len--, p++) {
 		h = (h << 4) + *p;
-		if ((g = h & 0xf0000000UL)) {
+		if ((g = h & 0xf0000000UL) != 0) {
 			h = h ^ (g >> 24);
 			h = h ^ g;
 		}

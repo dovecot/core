@@ -145,7 +145,7 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 	dest_size = page_size;
 
 	while (psize > 0) {
-		if (bits[poffset / CHAR_BIT] & (1 << (poffset % CHAR_BIT))) {
+		if ((bits[poffset / CHAR_BIT] & (1 << (poffset % CHAR_BIT))) != 0) {
 			/* page is already in cache */
 			dest_offset += page_size;
 			if (dest_offset <= cache->read_highwater) {

@@ -177,8 +177,8 @@
 #endif
 
 #if __GNUC__ > 2
-#  define unlikely(expr) __builtin_expect(!!(expr), 0)
-#  define likely(expr) __builtin_expect(!!(expr), 1)
+#  define unlikely(expr) (__builtin_expect((expr) ? 1 : 0, 0) != 0)
+#  define likely(expr) (__builtin_expect((expr) ? 1 : 0, 1) != 0)
 #else
 #  define unlikely(expr) expr
 #  define likely(expr) expr

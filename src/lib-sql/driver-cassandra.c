@@ -944,7 +944,7 @@ driver_cassandra_get_value(struct cassandra_result *result,
 	CassError rc;
 	const char *type;
 
-	if (cass_value_is_null(value)) {
+	if (cass_value_is_null(value) != 0) {
 		*str_r = NULL;
 		return 0;
 	}
@@ -993,7 +993,7 @@ static int driver_cassandra_result_next_row(struct sql_result *_result)
 	if (result->iterator == NULL)
 		return -1;
 
-	if (!cass_iterator_next(result->iterator))
+	if (cass_iterator_next(result->iterator) == 0)
 		return 0;
 	result->row_count++;
 

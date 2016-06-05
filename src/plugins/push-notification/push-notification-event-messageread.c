@@ -31,9 +31,9 @@ static void push_notification_event_messageread_event(
 
     /* If data struct exists, that means the read flag was changed. */
     data = push_notification_txn_msg_get_eventdata(msg, EVENT_NAME);
-    if ((data == NULL) && !(old_flags & MAIL_SEEN)) {
+    if ((data == NULL) && (old_flags & MAIL_SEEN) == 0) {
         flags = mail_get_flags(mail);
-        if (flags & MAIL_SEEN) {
+        if ((flags & MAIL_SEEN) != 0) {
             data = p_new(ptxn->pool,
                          struct push_notification_event_messageread_data, 1);
             data->read = TRUE;

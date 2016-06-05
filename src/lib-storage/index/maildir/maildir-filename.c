@@ -66,7 +66,7 @@ unsigned int maildir_filename_base_hash(const char *s)
 	while (*s != MAILDIR_INFO_SEP && *s != '\0') {
 		i_assert(*s != '/');
 		h = (h << 4) + *s;
-		if ((g = h & 0xf0000000UL)) {
+		if ((g = h & 0xf0000000UL) != 0) {
 			h = h ^ (g >> 24);
 			h = h ^ g;
 		}

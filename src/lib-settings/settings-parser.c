@@ -919,7 +919,7 @@ bool settings_parse_is_changed(struct setting_parser_context *ctx,
 		return FALSE;
 
 	p = STRUCT_MEMBER_P(link->change_struct, def->offset);
-	return *p;
+	return *p != 0;
 }
 
 int settings_parse_line(struct setting_parser_context *ctx, const char *line)

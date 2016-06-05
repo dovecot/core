@@ -42,7 +42,7 @@ static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
 	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 	/* Well, I'm not exactly sure why the logic in here is this.
 	   It's the same as in Postfix, so it can't be too wrong. */
-	if (is_export && keylength == 512 && ssl_io->ctx->dh_512 != NULL)
+	if (is_export != 0 && keylength == 512 && ssl_io->ctx->dh_512 != NULL)
 		return ssl_io->ctx->dh_512;
 	else
 		return ssl_io->ctx->dh_default;
@@ -110,7 +110,7 @@ ssl_iostream_ctx_use_key(struct ssl_iostream_context *ctx,
 
 	if (openssl_iostream_load_key(set, &pkey, error_r) < 0)
 		return -1;
-	if (!SSL_CTX_use_PrivateKey(ctx->ssl_ctx, pkey)) {
+	if (SSL_CTX_use_PrivateKey(ctx->ssl_ctx, pkey) == 0) {
 		*error_r = t_strdup_printf(
 			"Can't load SSL private key: %s",
 			openssl_iostream_key_load_error());
@@ -149,7 +149,7 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 		
 		while ((ca = PEM_read_bio_X509(in,NULL,NULL,NULL)) != NULL) {
 			r = SSL_CTX_add_extra_chain_cert(ctx, ca);
-			if (!r) {
+			if (r == 0) {
 				X509_free(ca);
 				ret = 0;
 				goto end;
@@ -194,7 +194,7 @@ static int load_ca(X509_STORE *store, const char *ca,
 		i_fatal("sk_X509_NAME_new_null() failed");
 	for(i = 0; i < sk_X509_INFO_num(inf); i++) {
 		itmp = sk_X509_INFO_value(inf, i);
-		if(itmp->x509) {
+		if(itmp->x509 != NULL) {
 			X509_STORE_add_cert(store, itmp->x509);
 			xname = X509_get_subject_name(itmp->x509);
 			if (xname != NULL)
@@ -202,7 +202,7 @@ static int load_ca(X509_STORE *store, const char *ca,
 			if (xname != NULL)
 				sk_X509_NAME_push(xnames, xname);
 		}
-		if(itmp->crl)
+		if(itmp->crl != NULL)
 			X509_STORE_add_crl(store, itmp->crl);
 	}
 	sk_X509_INFO_pop_free(inf, X509_INFO_free);
@@ -269,7 +269,7 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 	ca_dir = set->ca_dir == NULL || *set->ca_dir == '\0' ?
 		NULL : set->ca_dir;
 	if (ca_file != NULL || ca_dir != NULL) {
-		if (!SSL_CTX_load_verify_locations(ctx->ssl_ctx, ca_file, ca_dir)) {
+		if (SSL_CTX_load_verify_locations(ctx->ssl_ctx, ca_file, ca_dir) == 0) {
 			*error_r = t_strdup_printf(
 				"Can't load CA certs from directory %s: %s",
 				set->ca_dir, openssl_iostream_error());
@@ -294,7 +294,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 {
 	ctx->set = ssl_iostream_settings_dup(ctx->pool, set);
 	if (set->cipher_list != NULL &&
-	    !SSL_CTX_set_cipher_list(ctx->ssl_ctx, set->cipher_list)) {
+	    SSL_CTX_set_cipher_list(ctx->ssl_ctx, set->cipher_list) == 0) {
 		*error_r = t_strdup_printf("Can't set cipher list to '%s': %s",
 			set->cipher_list, openssl_iostream_error());
 		return -1;
@@ -385,7 +385,7 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	int nid;
 	const char *curve_name;
 #endif
-	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
+	if (SSL_CTX_need_tmp_RSA(ssl_ctx) != 0)
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
 #ifdef HAVE_ECDH
@@ -396,7 +396,7 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 #ifdef SSL_CTRL_SET_ECDH_AUTO
 	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
 	   selection. */
-	if (!SSL_CTX_set_ecdh_auto(ssl_ctx, 1)) {
+	if (SSL_CTX_set_ecdh_auto(ssl_ctx, 1) == 0) {
 		/* shouldn't happen */
 		*error_r = t_strdup_printf("SSL_CTX_set_ecdh_auto() failed: %s",
 					   openssl_iostream_error());

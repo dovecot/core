@@ -658,7 +658,7 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 		i_assert(ctx->last_boundary == NULL);
 		ctx->multipart = FALSE;
 		ctx->parse_next_block = parse_next_body_to_boundary;
-	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822)
+	} else if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0)
 		ctx->parse_next_block = parse_next_body_message_rfc822_init;
 	else if (ctx->boundaries != NULL)
 		ctx->parse_next_block = parse_next_body_to_boundary;

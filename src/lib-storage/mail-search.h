@@ -126,7 +126,7 @@ struct mail_search_args {
 #define ARG_SET_RESULT(arg, res) \
 	STMT_START { \
 		(arg)->result = !(arg)->match_not ? (res) : \
-			(res) == -1 ? -1 : !(res); \
+			((res) == -1 ? -1 : ((res) == 0 ? 1 : 0)); \
 	} STMT_END
 
 typedef void mail_search_foreach_callback_t(struct mail_search_arg *arg,

@@ -505,8 +505,8 @@ static const char *client_build_uidl_change_string(struct client *client)
 			new_hash ^= crc32_str(client->message_uidls[i]);
 	} else {
 		for (i = 0, new_hash = 0; i < client->messages_count; i++) {
-			if (client->deleted_bitmask[i / CHAR_BIT] &
-			    (1 << (i % CHAR_BIT)))
+			if ((client->deleted_bitmask[i / CHAR_BIT] &
+			     (1 << (i % CHAR_BIT))) != 0)
 				continue;
 			new_hash ^= crc32_str(client->message_uidls[i]);
 		}

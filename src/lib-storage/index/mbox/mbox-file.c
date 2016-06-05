@@ -185,7 +185,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 			return -1;
 		}
 
-		if (mbox->mbox_hdr.dirty_flag)
+		if (mbox->mbox_hdr.dirty_flag != 0)
 			return 0;
 
 		mail_storage_set_critical(&mbox->storage->storage,
@@ -196,7 +196,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 		return 0;
 	}
 
-	if (mbox->mbox_hdr.dirty_flag) {
+	if (mbox->mbox_hdr.dirty_flag != 0) {
 		/* we're dirty - make sure this is the correct mail */
 		if (!mbox_sync_parse_match_mail(mbox, view, seq))
 			return 0;

@@ -153,7 +153,7 @@ int doveadm_connect(const char *path)
 
 int i_strccdascmp(const char *a, const char *b)
 {
-	while(*a && *b) {
+	while(*a != '\0' && *b != '\0') {
 		if ((*a == ' ' || *a == '-') && *a != *b && *b != ' ' && *b != '-') {
 			if (i_toupper(*(a+1)) == *(b)) a++;
 			else break;

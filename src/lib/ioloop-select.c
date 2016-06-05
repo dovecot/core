@@ -99,8 +99,8 @@ void io_loop_handle_remove(struct io_file *io, bool closed ATTR_UNUSED)
 }
 
 #define io_check_condition(ctx, fd, cond) \
-	((FD_ISSET((fd), &(ctx)->tmp_read_fds) && ((cond) & (IO_READ|IO_ERROR))) || \
-	 (FD_ISSET((fd), &(ctx)->tmp_write_fds) && ((cond) & IO_WRITE)) || \
+	((FD_ISSET((fd), &(ctx)->tmp_read_fds) && ((cond) & (IO_READ|IO_ERROR)) != 0) || \
+	 (FD_ISSET((fd), &(ctx)->tmp_write_fds) && ((cond) & IO_WRITE) != 0) || \
 	 (FD_ISSET((fd), &(ctx)->tmp_except_fds)))
 
 void io_loop_handler_run_internal(struct ioloop *ioloop)

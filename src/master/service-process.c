@@ -439,7 +439,7 @@ log_coredump(struct service *service, string_t *str, int status)
 #ifdef WCOREDUMP
 	int signum = WTERMSIG(status);
 
-	if (WCOREDUMP(status)) {
+	if (WCOREDUMP(status) != 0) {
 		str_append(str, " (core dumped)");
 		return;
 	}

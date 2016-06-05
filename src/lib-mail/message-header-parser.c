@@ -275,7 +275,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 
 		line->value = msg + colon_pos+1;
 		line->value_len = size - colon_pos - 1;
-		if (ctx->flags & MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP) {
+		if ((ctx->flags & MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP) != 0) {
 			/* get value. skip all LWSP after ':'. Note that
 			   RFC2822 doesn't say we should, but history behind
 			   it..
@@ -340,7 +340,7 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 				buffer_append_c(ctx->value_buf, '\r');
 			buffer_append_c(ctx->value_buf, '\n');
 		}
-		if ((ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) &&
+		if ((ctx->flags & MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE) != 0 &&
 		    line->value_len > 0 && line->value[0] != ' ' &&
 		    IS_LWSP(line->value[0])) {
 			buffer_append_c(ctx->value_buf, ' ');

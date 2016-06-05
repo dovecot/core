@@ -19,11 +19,11 @@ void buffer_create_from_data(buffer_t *buffer, void *data, size_t size);
 void buffer_create_from_const_data(buffer_t *buffer,
 				   const void *data, size_t size);
 #if defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) > 401
-#define buffer_create_from_data(b,d,s) ({					\
-	(void)COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)?(s):1)); \
+#define buffer_create_from_data(b,d,s) ({				           \
+	(void)COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)); \
 	buffer_create_from_data((b), (d), (s)); })
-#define buffer_create_from_const_data(b,d,s) ({					\
-	(void)COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)?(s):1)); \
+#define buffer_create_from_const_data(b,d,s) ({				           \
+	(void)COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)); \
 	buffer_create_from_const_data((b), (d), (s)); })
 #endif
 /* Creates a dynamically growing buffer. Whenever write would exceed the

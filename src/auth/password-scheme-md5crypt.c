@@ -64,7 +64,7 @@ const char *password_generate_md5_crypt(const char *pw, const char *salt)
 		sp += sizeof(magic)-1;
 
 	/* It stops at the first '$', max 8 chars */
-	for(ep=sp;*ep && *ep != '$' && ep < (sp+8);ep++)
+	for(ep=sp;*ep != '\0' && *ep != '$' && ep < (sp+8);ep++)
 		continue;
 
 	/* get the length of the true salt */
@@ -94,8 +94,8 @@ const char *password_generate_md5_crypt(const char *pw, const char *salt)
 	safe_memset(final, 0, sizeof(final));
 
 	/* Then something really weird... */
-	for (j=0,i = pw_len; i ; i >>= 1)
-		if(i&1)
+	for (j=0,i = pw_len; i != 0; i >>= 1)
+		if ((i&1) != 0)
 		    md5_update(&ctx, final+j, 1);
 		else
 		    md5_update(&ctx, pw+j, 1);
@@ -115,18 +115,18 @@ const char *password_generate_md5_crypt(const char *pw, const char *salt)
 	 */
 	for(i=0;i<1000;i++) {
 		md5_init(&ctx1);
-		if(i & 1)
+		if((i & 1) != 0)
 			md5_update(&ctx1,pw,pw_len);
 		else
 			md5_update(&ctx1,final,MD5_RESULTLEN);
 
-		if(i % 3)
+		if((i % 3) != 0)
 			md5_update(&ctx1,sp,sl);
 
-		if(i % 7)
+		if((i % 7) != 0)
 			md5_update(&ctx1,pw,pw_len);
 
-		if(i & 1)
+		if((i & 1) != 0)
 			md5_update(&ctx1,final,MD5_RESULTLEN);
 		else
 			md5_update(&ctx1,pw,pw_len);

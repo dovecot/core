@@ -412,7 +412,7 @@ static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)
 
 	str_truncate(str, 0);
 	str_printfa(str, "* %u FETCH (", ctx->seq);
-	if (ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID)
+	if ((ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID) != 0)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
 	if ((ctx->client->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0 &&
 	    !ctx->client->nonpermanent_modseqs) {
@@ -431,7 +431,7 @@ static int imap_sync_send_modseq(struct imap_sync_context *ctx, string_t *str)
 
 	str_truncate(str, 0);
 	str_printfa(str, "* %u FETCH (", ctx->seq);
-	if (ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID)
+	if ((ctx->imap_flags & IMAP_SYNC_FLAG_SEND_UID) != 0)
 		str_printfa(str, "UID %u ", ctx->mail->uid);
 	imap_sync_add_modseq(ctx, str);
 	str_append_c(str, ')');
@@ -697,7 +697,7 @@ static void get_common_sync_flags(struct client *client,
 		    cmd->sync->counter == client->sync_counter) {
 			if ((cmd->sync->flags & MAILBOX_SYNC_FLAG_FAST) != 0)
 				fast_count++;
-			if (cmd->sync->flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES)
+			if ((cmd->sync->flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0)
 				noexpunges_count++;
 			*flags_r |= cmd->sync->flags;
 			*imap_flags_r |= cmd->sync->imap_flags;
@@ -830,7 +830,7 @@ static bool cmd_sync_delayed_real(struct client *client)
 	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
 		if (cmd->sync != NULL &&
 		    cmd->sync->counter == client->sync_counter) {
-			if (cmd->sync->flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) {
+			if ((cmd->sync->flags & MAILBOX_SYNC_FLAG_NO_EXPUNGES) != 0) {
 				if (first_nonexpunge == NULL)
 					first_nonexpunge = cmd;
 			} else {

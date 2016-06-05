@@ -70,7 +70,7 @@ push_notification_event_messagenew_event(struct push_notification_txn *ptxn,
     int tz;
     const char *value;
 
-    if (!config->flags) {
+    if (config->flags == 0) {
         return;
     }
 
@@ -84,32 +84,32 @@ push_notification_event_messagenew_event(struct push_notification_txn *ptxn,
     }
 
     if ((data->to == NULL) &&
-        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_TO) &&
+        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_TO) != 0 &&
         (mail_get_first_header(mail, "To", &value) >= 0)) {
         data->to = p_strdup(ptxn->pool, value);
     }
 
     if ((data->from == NULL) &&
-        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_FROM) &&
+        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_FROM) != 0 &&
         (mail_get_first_header(mail, "From", &value) >= 0)) {
         data->from = p_strdup(ptxn->pool, value);
     }
 
     if ((data->subject == NULL) &&
-        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_SUBJECT) &&
+        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_SUBJECT) != 0 &&
         (mail_get_first_header(mail, "Subject", &value) >= 0)) {
         data->subject = p_strdup(ptxn->pool, value);
     }
 
     if ((data->date == -1) &&
-        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_DATE) &&
+        (config->flags & PUSH_NOTIFICATION_MESSAGE_HDR_DATE) != 0 &&
         (mail_get_date(mail, &date, &tz) >= 0)) {
         data->date = date;
         data->date_tz = tz;
     }
 
     if ((data->snippet == NULL) &&
-        (config->flags & PUSH_NOTIFICATION_MESSAGE_BODY_SNIPPET) &&
+        (config->flags & PUSH_NOTIFICATION_MESSAGE_BODY_SNIPPET) != 0 &&
         (mail_get_special(mail, MAIL_FETCH_BODY_SNIPPET, &value) >= 0)) {
         /* [0] contains the snippet algorithm, skip over it */
         i_assert(value[0] != '\0');

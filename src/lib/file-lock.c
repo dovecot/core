@@ -185,7 +185,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		fl.l_start = 0;
 		fl.l_len = 0;
 
-		ret = fcntl(fd, timeout_secs ? F_SETLKW : F_SETLK, &fl);
+		ret = fcntl(fd, timeout_secs != 0 ? F_SETLKW : F_SETLK, &fl);
 		if (timeout_secs != 0) alarm(0);
 
 		if (ret == 0)

@@ -152,7 +152,7 @@ body(struct md4_context *ctx, const void *data, size_t size)
 		d += saved_d;
 
 		ptr += 64;
-	} while (size -= 64);
+	} while ((size -= 64) != 0);
 
 	ctx->a = a;
 	ctx->b = b;
@@ -186,7 +186,7 @@ void md4_update(struct md4_context *ctx, const void *data, size_t size)
 
 	used = saved_lo & 0x3f;
 
-	if (used) {
+	if (used != 0) {
 		free = 64 - used;
 
 		if (size < free) {

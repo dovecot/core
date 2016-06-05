@@ -642,7 +642,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 
 	i_assert(ctx->last_char == '\n');
 
-	if (ctx->mbox_md5_ctx) {
+	if (ctx->mbox_md5_ctx != NULL) {
 		unsigned char hdr_md5_sum[16];
 
 		if (ctx->x_delivery_id_header != NULL) {

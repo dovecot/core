@@ -606,7 +606,7 @@ int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,
 	ext = array_idx_modifiable(&map->extensions, ctx->cur_ext_map_idx);
 	ext->reset_id = u->new_reset_id;
 
-	if (!u->preserve_data)
+	if (u->preserve_data == 0)
 		mail_index_sync_ext_clear(ctx->view, map, ext);
 
 	ext_hdr = get_ext_header(map, ext);

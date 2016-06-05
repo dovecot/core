@@ -127,23 +127,23 @@ maildir_filename_flags_full_set(struct maildir_keywords_sync_ctx *ctx,
 		nextflag = *oldflags == '\0' || *oldflags == MAILDIR_FLAGS_SEP ?
 			256 : (unsigned char) *oldflags;
 
-		if ((flags_left & MAIL_DRAFT) && nextflag > 'D') {
+		if ((flags_left & MAIL_DRAFT) != 0 && nextflag > 'D') {
 			str_append_c(flags_str, 'D');
 			flags_left &= ~MAIL_DRAFT;
 		}
-		if ((flags_left & MAIL_FLAGGED) && nextflag > 'F') {
+		if ((flags_left & MAIL_FLAGGED) != 0 && nextflag > 'F') {
 			str_append_c(flags_str, 'F');
 			flags_left &= ~MAIL_FLAGGED;
 		}
-		if ((flags_left & MAIL_ANSWERED) && nextflag > 'R') {
+		if ((flags_left & MAIL_ANSWERED) != 0 && nextflag > 'R') {
 			str_append_c(flags_str, 'R');
 			flags_left &= ~MAIL_ANSWERED;
 		}
-		if ((flags_left & MAIL_SEEN) && nextflag > 'S') {
+		if ((flags_left & MAIL_SEEN) != 0 && nextflag > 'S') {
 			str_append_c(flags_str, 'S');
 			flags_left &= ~MAIL_SEEN;
 		}
-		if ((flags_left & MAIL_DELETED) && nextflag > 'T') {
+		if ((flags_left & MAIL_DELETED) != 0 && nextflag > 'T') {
 			str_append_c(flags_str, 'T');
 			flags_left &= ~MAIL_DELETED;
 		}

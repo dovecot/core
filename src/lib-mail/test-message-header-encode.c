@@ -69,7 +69,7 @@ static void test_message_header_encode_q(void)
 			message_header_encode_q(str_data(input) + skip,
 						str_len(input) - skip, str,
 						i == 0 ? 0 : i+1);
-			test_assert(verify_q(str_c(str), i, !skip));
+			test_assert(verify_q(str_c(str), i, skip == 0));
 		}
 	}
 	test_end();
@@ -156,7 +156,7 @@ static void test_message_header_encode_b(void)
 			message_header_encode_b(str_data(input) + skip,
 						str_len(input) - skip, str,
 						i == 0 ? 0 : i+1);
-			test_assert(verify_b(str_c(str), i, !skip));
+			test_assert(verify_b(str_c(str), i, skip == 0));
 		}
 	}
 	test_end();

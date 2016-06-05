@@ -17,7 +17,7 @@ static void askpass_str(const char *prompt, buffer_t *pass)
 	char ch;
 	int fd;
 
-	tty = isatty(STDIN_FILENO);
+	tty = isatty(STDIN_FILENO) != 0;
 	if (tty) {
 		fputs(prompt, stderr);
 		fflush(stderr);

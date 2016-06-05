@@ -1503,7 +1503,7 @@ volatile sig_atomic_t terminating = 0;
 static void
 test_signal_handler(int signo)
 {
-	if (terminating)
+	if (terminating != 0)
 		raise(signo);
 	terminating = 1;
 

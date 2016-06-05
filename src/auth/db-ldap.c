@@ -1600,7 +1600,7 @@ static const char *db_ldap_field_expand(const char *data, void *context)
 	ldap_value = hash_table_lookup(ctx->ldap_attrs, field_name);
 	if (ldap_value == NULL) {
 		/* requested ldap attribute wasn't returned at all */
-		if (ctx->debug)
+		if (ctx->debug != NULL)
 			str_printfa(ctx->debug, "; %s missing", field_name);
 		return db_ldap_field_get_default(data);
 	}
@@ -1702,7 +1702,7 @@ bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 		hash_table_lookup(ctx->ldap_attrs, field->ldap_attr_name);
 	if (ldap_value != NULL)
 		ldap_value->used = TRUE;
-	else if (ctx->debug && *field->ldap_attr_name != '\0')
+	else if (ctx->debug != NULL && *field->ldap_attr_name != '\0')
 		str_printfa(ctx->debug, "; %s missing", field->ldap_attr_name);
 
 	str_truncate(ctx->var, 0);

@@ -35,16 +35,16 @@ static int wildcard_match_int(const char *data, const char *mask, bool icase)
 	  return ma[0] == '\0' ? MATCH : NOMATCH;
   }
   /* find the end of each string */
-  while (*(mask++));
+  while (*(mask++) != '\0');
   mask-=2;
-  while (*(data++));
+  while (*(data++) != '\0');
   data-=2;
 
   while (data >= na) {
     /* If the mask runs out of chars before the string, fall back on
      * a wildcard or fail. */
     if (mask < ma) {
-      if (lsm) {
+      if (lsm != NULL) {
         data = --lsn;
         mask = lsm;
         if (data < na)
@@ -79,7 +79,7 @@ static int wildcard_match_int(const char *data, const char *mask, bool icase)
       sofar++;                  /* Tally the match */
       continue;                 /* Next char, please */
     }
-    if (lsm) {                  /* To to fallback on '*' */
+    if (lsm != NULL) {          /* To to fallback on '*' */
       data = --lsn;
       mask = lsm;
       if (data < na)

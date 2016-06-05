@@ -64,7 +64,7 @@ log_get_hdr_update_buffer(struct mail_index_transaction *t, bool prepend)
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 256);
 	for (offset = 0; offset <= sizeof(t->pre_hdr_change); offset++) {
-		if (offset < sizeof(t->pre_hdr_change) && mask[offset]) {
+		if (offset < sizeof(t->pre_hdr_change) && mask[offset] != 0) {
 			if (state == 0) {
 				u.offset = offset;
 				state++;
@@ -294,7 +294,7 @@ mail_transaction_log_append_ext_intros(struct mail_index_export_context *ctx)
 			ext_reset = reset[ext_id];
 		else
 			ext_reset.new_reset_id = 0;
-		if ((ext_id < resize_count && resize[ext_id].name_size) ||
+		if ((ext_id < resize_count && resize[ext_id].name_size > 0) ||
 		    ext_reset.new_reset_id != 0 ||
 		    (ext_id < hdrs_count && hdrs[ext_id].alloc_size > 0)) {
 			if (ext_reset.new_reset_id != 0) {

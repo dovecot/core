@@ -38,7 +38,7 @@ test_timing_verify(const struct timing *t, const int64_t *input,
 			timing_get_median(t) <= copy[input_size/2],
 			input_size);
 	/* when we have 20 elements, [19] is the max, not the 95th %ile, so subtract 1 */
-	test_assert_idx(timing_get_95th(t) == copy[input_size*95/100 - !(input_size%20)],
+	test_assert_idx(timing_get_95th(t) == copy[input_size*95/100 - ((input_size%20) == 0 ? 1 : 0)],
 			input_size);
 
 	i_free(copy);

@@ -180,7 +180,7 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		(struct ntlm_auth_request *)auth_request;
 	const char *error;
 
-	if (!request->challenge) {
+	if (request->challenge == NULL) {
 		const struct ntlmssp_request *ntlm_request =
 			(const struct ntlmssp_request *)data;
 		const struct ntlmssp_challenge *message;
@@ -197,8 +197,8 @@ mech_ntlm_auth_continue(struct auth_request *auth_request,
 		message = ntlmssp_create_challenge(request->pool, ntlm_request,
 						   &message_size);
 		flags = read_le32(&message->flags);
-		request->ntlm2_negotiated = flags & NTLMSSP_NEGOTIATE_NTLM2;
-		request->unicode_negotiated = flags & NTLMSSP_NEGOTIATE_UNICODE;
+		request->ntlm2_negotiated = (flags & NTLMSSP_NEGOTIATE_NTLM2) != 0;
+		request->unicode_negotiated = (flags & NTLMSSP_NEGOTIATE_UNICODE) != 0;
 		request->challenge = message->challenge;
 
 		auth_request_handler_reply_continue(auth_request, message,

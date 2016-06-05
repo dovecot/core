@@ -121,7 +121,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		certname[0] = '\0';
 	else
 		certname[sizeof(certname)-1] = '\0'; /* just in case.. */
-	if (!preverify_ok) {
+	if (preverify_ok == 0) {
 		openssl_iostream_set_error(ssl_io, t_strdup_printf(
 			"Received invalid SSL certificate: %s: %s",
 			X509_verify_cert_error_string(ctx->error), certname));
@@ -130,7 +130,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	} else if (ssl_io->verbose) {
 		i_info("Received valid SSL certificate: %s", certname);
 	}
-	if (!preverify_ok) {
+	if (preverify_ok == 0) {
 		ssl_io->cert_broken = TRUE;
 		if (ssl_io->require_valid_cert) {
 			ssl_io->handshake_failed = TRUE;
@@ -153,7 +153,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 
        if (set->cipher_list != NULL &&
 	    strcmp(ctx_set->cipher_list, set->cipher_list) != 0) {
-		if (!SSL_set_cipher_list(ssl_io->ssl, set->cipher_list)) {
+		if (SSL_set_cipher_list(ssl_io->ssl, set->cipher_list) == 0) {
 			*error_r = t_strdup_printf(
 				"Can't set cipher list to '%s': %s",
 				set->cipher_list, openssl_iostream_error());

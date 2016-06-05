@@ -752,7 +752,7 @@ static void cmd_director_ring_add(struct doveadm_cmd_context *cctx)
 	ctx = cmd_director_init(cctx);
 	if (ctx->ip == NULL ||
 	    net_addr2ip(ctx->ip, &ip) < 0 ||
-	    (ctx->port && net_str2port(ctx->port, &port) < 0)) {
+	    (ctx->port != 0 && net_str2port(ctx->port, &port) < 0)) {
 		director_cmd_help(cctx->cmd);
 		return;
 	}

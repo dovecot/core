@@ -29,19 +29,19 @@ static void push_notification_event_flagsset_debug_msg
     struct push_notification_event_flagsset_data *data = event->data;
     const char *const *keyword;
 
-    if (data->flags_set & MAIL_ANSWERED) {
+    if ((data->flags_set & MAIL_ANSWERED) != 0) {
         i_debug("%s: Answered flag set", EVENT_NAME);
     }
-    if (data->flags_set & MAIL_FLAGGED) {
+    if ((data->flags_set & MAIL_FLAGGED) != 0) {
         i_debug("%s: Flagged flag set", EVENT_NAME);
     }
-    if (data->flags_set & MAIL_DELETED) {
+    if ((data->flags_set & MAIL_DELETED) != 0) {
         i_debug("%s: Deleted flag set", EVENT_NAME);
     }
-    if (data->flags_set & MAIL_SEEN) {
+    if ((data->flags_set & MAIL_SEEN) != 0) {
         i_debug("%s: Seen flag set", EVENT_NAME);
     }
-    if (data->flags_set & MAIL_DRAFT) {
+    if ((data->flags_set & MAIL_DRAFT) != 0) {
         i_debug("%s: Draft flag set", EVENT_NAME);
     }
 
@@ -91,26 +91,26 @@ static void push_notification_event_flagsset_flags_event(
     flags = mail_get_flags(mail);
 
     for (i = 0; i < N_ELEMENTS(flag_check_always); i++) {
-        if ((flags & flag_check_always[i]) &&
-            !(old_flags & flag_check_always[i])) {
+        if ((flags & flag_check_always[i]) != 0 &&
+            (old_flags & flag_check_always[i]) == 0) {
             flags_set |= flag_check_always[i];
         }
     }
 
     if (!config->hide_deleted &&
-        (flags & MAIL_DELETED) &&
-        !(old_flags & MAIL_DELETED)) {
+        (flags & MAIL_DELETED) != 0 &&
+        (old_flags & MAIL_DELETED) == 0) {
         flags_set |= MAIL_DELETED;
     }
 
     if (!config->hide_seen &&
-        (flags & MAIL_SEEN) &&
-        !(old_flags & MAIL_SEEN)) {
+        (flags & MAIL_SEEN) != 0 &&
+        (old_flags & MAIL_SEEN) == 0) {
         flags_set |= MAIL_SEEN;
     }
 
     /* Only create data element if at least one flag was set. */
-    if (flags_set) {
+    if (flags_set != 0) {
         data = push_notification_event_flagsset_get_data(ptxn, msg, ec);
         data->flags_set |= flags_set;
     }

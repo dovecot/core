@@ -509,7 +509,7 @@ dsync_mailbox_export_init(struct mailbox *box,
 	exporter->export_received_timestamps =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS) != 0;
 	exporter->hdr_hash_version =
-		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2) ? 2 : 1;
+		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2) != 0 ? 2 : 1;
 	exporter->no_hdr_hashes =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES) != 0;
 	p_array_init(&exporter->requested_uids, pool, 16);

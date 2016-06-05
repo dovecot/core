@@ -559,7 +559,7 @@ void ldap_connection_kill(struct ldap_connection *conn)
 		timeout_remove(&(conn->to_disconnect));
 	if (conn->to_reconnect != NULL)
 		timeout_remove(&(conn->to_reconnect));
-	if (conn->request_queue) {
+	if (conn->request_queue != NULL) {
 		unsigned int n = aqueue_count(conn->request_queue);
 
 		for (unsigned int i = 0; i < n; i++) {

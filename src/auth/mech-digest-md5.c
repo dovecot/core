@@ -96,7 +96,7 @@ static string_t *get_digest_challenge(struct digest_auth_request *request)
 
 	str_append(str, "qop=\""); first_qop = TRUE;
 	for (i = 0; i < QOP_COUNT; i++) {
-		if (request->qop & (1 << i)) {
+		if ((request->qop & (1 << i)) != 0) {
 			if (first_qop)
 				first_qop = FALSE;
 			else

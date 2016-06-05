@@ -155,9 +155,9 @@ static const char *dict_ldap_map_finish(struct setting_parser_ctx *ctx)
 	if (ctx->cur_map.scope == NULL) {
 		ctx->cur_map.scope_val = 2; /* subtree */
 	} else {
-		if (!strcasecmp(ctx->cur_map.scope, "one")) ctx->cur_map.scope_val = 1;
-		else if (!strcasecmp(ctx->cur_map.scope, "base")) ctx->cur_map.scope_val = 0;
-		else if (!strcasecmp(ctx->cur_map.scope, "subtree")) ctx->cur_map.scope_val = 2;
+		if (strcasecmp(ctx->cur_map.scope, "one") == 0) ctx->cur_map.scope_val = 1;
+		else if (strcasecmp(ctx->cur_map.scope, "base") == 0) ctx->cur_map.scope_val = 0;
+		else if (strcasecmp(ctx->cur_map.scope, "subtree") == 0) ctx->cur_map.scope_val = 2;
 		else return "Scope must be one, base or subtree";
 	}
 	if (!array_is_created(&ctx->cur_map.ldap_attributes)) {

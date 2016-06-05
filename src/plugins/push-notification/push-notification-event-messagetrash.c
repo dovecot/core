@@ -31,9 +31,9 @@ static void push_notification_event_messagetrash_event(
 
     /* If data struct exists, that means the deleted flag was changed. */
     data = push_notification_txn_msg_get_eventdata(msg, EVENT_NAME);
-    if ((data == NULL) && !(old_flags & MAIL_DELETED)) {
+    if ((data == NULL) && (old_flags & MAIL_DELETED) == 0) {
         flags = mail_get_flags(mail);
-        if (flags & MAIL_DELETED) {
+        if ((flags & MAIL_DELETED) != 0) {
             data = p_new(ptxn->pool,
                          struct push_notification_event_messagetrash_data, 1);
             data->trash = TRUE;

@@ -147,7 +147,7 @@ static unsigned int ssl_server_context_hash(const struct ssl_server_context *ctx
 	   and it should be enough to check only the first few bytes. */
 	for (i = 0; i < 16 && ctx->cert[i] != '\0'; i++) {
 		h = (h << 4) + ctx->cert[i];
-		if ((g = h & 0xf0000000UL)) {
+		if ((g = h & 0xf0000000UL) != 0) {
 			h = h ^ (g >> 24);
 			h = h ^ g;
 		}
@@ -832,7 +832,7 @@ static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
 			       int is_export, int keylength)
 {
-	if (is_export && keylength == 512 && ssl_params.dh_512 != NULL)
+	if (is_export != 0 && keylength == 512 && ssl_params.dh_512 != NULL)
 		return ssl_params.dh_512;
 
 	return ssl_params.dh_default;
@@ -890,7 +890,7 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		/* no CRL given with the CA list. don't worry about it. */
 		preverify_ok = 1;
 	}
-	if (!preverify_ok)
+	if (preverify_ok == 0)
 		proxy->cert_broken = TRUE;
 
 	subject = X509_get_subject_name(ctx->current_cert);
@@ -903,8 +903,8 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	}
 
 	if (proxy->ssl_set->verbose_ssl ||
-	    (proxy->login_set->auth_verbose && !preverify_ok)) {
-		if (preverify_ok) {
+	    (proxy->login_set->auth_verbose && preverify_ok == 0)) {
+		if (preverify_ok != 0) {
 			client_log(proxy->client, t_strdup_printf(
 				"Valid certificate: %s", buf));
 		} else {
@@ -964,7 +964,7 @@ static void load_ca(X509_STORE *store, const char *ca,
 	}
 	for(i = 0; i < sk_X509_INFO_num(inf); i++) {
 		itmp = sk_X509_INFO_value(inf, i);
-		if(itmp->x509) {
+		if(itmp->x509 != NULL) {
 			X509_STORE_add_cert(store, itmp->x509);
 			xname = X509_get_subject_name(itmp->x509);
 			if (xname != NULL && xnames_r != NULL) {
@@ -974,7 +974,7 @@ static void load_ca(X509_STORE *store, const char *ca,
 				sk_X509_NAME_push(*xnames_r, xname);
 			}
 		}
-		if(itmp->crl)
+		if(itmp->crl != NULL)
 			X509_STORE_add_crl(store, itmp->crl);
 	}
 	sk_X509_INFO_pop_free(inf, X509_INFO_free);
@@ -1023,7 +1023,7 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 	int nid;
 	const char *curve_name;
 #endif
-	if (SSL_CTX_need_tmp_RSA(ssl_ctx))
+	if (SSL_CTX_need_tmp_RSA(ssl_ctx) != 0)
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 	SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
 #ifdef HAVE_ECDH
@@ -1175,7 +1175,7 @@ ssl_proxy_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 		
 		while ((ca = PEM_read_bio_X509(in,NULL,NULL,NULL)) != NULL) {
 			r = SSL_CTX_add_extra_chain_cert(ctx, ca);
-			if (!r) {
+			if (r == 0) {
 				X509_free(ca);
 				ret = 0;
 				goto end;

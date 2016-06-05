@@ -499,7 +499,7 @@ static unsigned int wstr_hash(const wchar_t *s)
 
 	while (*s != '\0') {
 		h = (h << 4) + *s;
-		if ((g = h & 0xf0000000UL)) {
+		if ((g = h & 0xf0000000UL) != 0) {
 			h = h ^ (g >> 24);
 			h = h ^ g;
 		}

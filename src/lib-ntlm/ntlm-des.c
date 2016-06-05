@@ -290,7 +290,7 @@ struct des_context {
 static uint32_t bitsel(uint32_t * input, const int *bitnums, int size)
 {
 	uint32_t ret = 0;
-	while (size--) {
+	while (size-- > 0) {
 		int bitpos = *bitnums++;
 		ret <<= 1;
 		if (bitpos >= 0)

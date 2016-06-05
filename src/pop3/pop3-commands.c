@@ -53,8 +53,8 @@ static const char *get_msgnum(struct client *client, const char *args,
 	num--;
 
 	if (client->deleted) {
-		if (client->deleted_bitmask[num / CHAR_BIT] &
-		    (1 << (num % CHAR_BIT))) {
+		if ((client->deleted_bitmask[num / CHAR_BIT] &
+		     (1 << (num % CHAR_BIT))) != 0) {
 			client_send_line(client, "-ERR Message is deleted.");
 			return NULL;
 		}
@@ -134,8 +134,8 @@ static void cmd_list_callback(struct client *client)
 		}
 
 		if (client->deleted) {
-			if (client->deleted_bitmask[ctx->msgnum / CHAR_BIT] &
-			    (1 << (ctx->msgnum % CHAR_BIT)))
+			if ((client->deleted_bitmask[ctx->msgnum / CHAR_BIT] &
+			     (1 << (ctx->msgnum % CHAR_BIT))) != 0)
 				continue;
 		}
 
@@ -656,8 +656,8 @@ list_uidls_saved_iter(struct client *client, struct cmd_uidl_context *ctx)
 		uint32_t msgnum = ctx->msgnum++;
 
 		if (client->deleted) {
-			if (client->deleted_bitmask[msgnum / CHAR_BIT] &
-			    (1 << (msgnum % CHAR_BIT)))
+			if ((client->deleted_bitmask[msgnum / CHAR_BIT] &
+			     (1 << (msgnum % CHAR_BIT))) != 0)
 				continue;
 		}
 		found = TRUE;
@@ -700,8 +700,8 @@ static bool list_uids_iter(struct client *client, struct cmd_uidl_context *ctx)
 			break;
 		}
 		if (client->deleted) {
-			if (client->deleted_bitmask[msgnum / CHAR_BIT] &
-			    (1 << (msgnum % CHAR_BIT)))
+			if ((client->deleted_bitmask[msgnum / CHAR_BIT] &
+			     (1 << (msgnum % CHAR_BIT))) != 0)
 				continue;
 		}
 		found = TRUE;

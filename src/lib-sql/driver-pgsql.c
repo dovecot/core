@@ -321,8 +321,8 @@ static void consume_results(struct pgsql_db *db)
 
 	driver_pgsql_stop_io(db);
 
-	while (PQconsumeInput(db->pg)) {
-		if (PQisBusy(db->pg)) {
+	while (PQconsumeInput(db->pg) != 0) {
+		if (PQisBusy(db->pg) != 0) {
 			db->io = io_add(PQsocket(db->pg), IO_READ,
 					consume_results, db);
 			db->io_dir = IO_READ;
@@ -423,12 +423,12 @@ static void get_result(struct pgsql_result *result)
 
 	driver_pgsql_stop_io(db);
 
-	if (!PQconsumeInput(db->pg)) {
+	if (PQconsumeInput(db->pg) == 0) {
 		result_finish(result);
 		return;
 	}
 
-	if (PQisBusy(db->pg)) {
+	if (PQisBusy(db->pg) != 0) {
 		db->io = io_add(PQsocket(db->pg), IO_READ,
 				get_result, result);
 		db->io_dir = IO_READ;
@@ -487,7 +487,7 @@ static void do_query(struct pgsql_result *result, const char *query)
 	result->to = timeout_add(SQL_QUERY_TIMEOUT_SECS * 1000,
 				 query_timeout, result);
 
-	if (!PQsendQuery(db->pg, query) ||
+	if (PQsendQuery(db->pg, query) == 0 ||
 	    (ret = PQflush(db->pg)) < 0) {
 		/* failed to send query */
 		result_finish(result);
@@ -755,7 +755,7 @@ driver_pgsql_result_get_field_value(struct sql_result *_result,
 {
 	struct pgsql_result *result = (struct pgsql_result *)_result;
 
-	if (PQgetisnull(result->pgres, result->rownum, idx))
+	if (PQgetisnull(result->pgres, result->rownum, idx) != 0)
 		return NULL;
 
 	return PQgetvalue(result->pgres, result->rownum, idx);
@@ -769,7 +769,7 @@ driver_pgsql_result_get_field_value_binary(struct sql_result *_result,
 	const char *value;
 	struct pgsql_binary_value *binary_value;
 
-	if (PQgetisnull(result->pgres, result->rownum, idx)) {
+	if (PQgetisnull(result->pgres, result->rownum, idx) != 0) {
 		*size_r = 0;
 		return NULL;
 	}

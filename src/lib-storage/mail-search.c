@@ -399,7 +399,7 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 			subarg = subarg->next;
 		}
 		if (arg->match_not && arg->result != -1)
-			arg->result = !arg->result;
+			arg->result = arg->result > 0 ? 0 : 1;
 	} else if (arg->type == SEARCH_OR) {
 		/* OR-list of conditions */
 		i_assert(arg->value.subargs != NULL);
@@ -421,7 +421,7 @@ static void search_arg_foreach(struct mail_search_arg *arg,
 			subarg = subarg->next;
 		}
 		if (arg->match_not && arg->result != -1)
-			arg->result = !arg->result;
+			arg->result = arg->result > 0 ? 0 : 1;
 	} else {
 		/* just a single condition */
 		callback(arg, context);

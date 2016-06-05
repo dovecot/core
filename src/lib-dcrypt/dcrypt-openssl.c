@@ -170,7 +170,7 @@ static
 void dcrypt_openssl_ctx_sym_destroy(struct dcrypt_context_symmetric **ctx)
 {
 	pool_t pool = (*ctx)->pool;
-	if ((*ctx)->ctx) EVP_CIPHER_CTX_free((*ctx)->ctx);
+	if ((*ctx)->ctx != NULL) EVP_CIPHER_CTX_free((*ctx)->ctx);
 	pool_unref(&pool);
 	*ctx = NULL;
 }

@@ -129,7 +129,7 @@ m_str_ldap_dn(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
 	string_t *ret = t_str_new(256);
 
-	while (*str) {
+	while (*str != '\0') {
 		if (*str == '.')
 			str_append(ret, ",dc=");
 		else

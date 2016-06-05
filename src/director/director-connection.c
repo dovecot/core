@@ -741,14 +741,14 @@ director_cmd_host_hand_start(struct director_connection *conn,
 		return FALSE;
 	}
 
-	if (remote_ring_completed && !conn->dir->ring_handshaked) {
+	if (remote_ring_completed != 0 && !conn->dir->ring_handshaked) {
 		/* clear everything we have and use only what remote sends us */
 		hosts = mail_hosts_get(conn->dir->mail_hosts);
 		while (array_count(hosts) > 0) {
 			hostp = array_idx(hosts, 0);
 			director_remove_host(conn->dir, NULL, NULL, *hostp);
 		}
-	} else if (!remote_ring_completed && conn->dir->ring_handshaked) {
+	} else if (remote_ring_completed == 0 && conn->dir->ring_handshaked) {
 		/* ignore whatever remote sends */
 		conn->ignore_host_events = TRUE;
 	}

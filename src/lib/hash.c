@@ -513,7 +513,7 @@ unsigned int str_hash(const char *p)
 
 	while (*s != '\0') {
 		h = (h << 4) + *s;
-		if ((g = h & 0xf0000000UL)) {
+		if ((g = h & 0xf0000000UL) != 0) {
 			h = h ^ (g >> 24);
 			h = h ^ g;
 		}
@@ -531,7 +531,7 @@ unsigned int strcase_hash(const char *p)
 
 	while (*s != '\0') {
 		h = (h << 4) + i_toupper(*s);
-		if ((g = h & 0xf0000000UL)) {
+		if ((g = h & 0xf0000000UL) != 0) {
 			h = h ^ (g >> 24);
 			h = h ^ g;
 		}
@@ -548,7 +548,7 @@ unsigned int mem_hash(const void *p, unsigned int size)
 
 	for (i = 0; i < size; i++) {
 		h = (h << 4) + *s;
-		if ((g = h & 0xf0000000UL)) {
+		if ((g = h & 0xf0000000UL) != 0) {
 			h = h ^ (g >> 24);
 			h = h ^ g;
 		}

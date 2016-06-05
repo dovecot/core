@@ -29,19 +29,19 @@ static void push_notification_event_flagsclear_debug_msg
     struct push_notification_event_flagsclear_data *data = event->data;
     const char *const *keyword;
 
-    if (data->flags_clear & MAIL_ANSWERED) {
+    if ((data->flags_clear & MAIL_ANSWERED) != 0) {
         i_debug("%s: Answered flag cleared", EVENT_NAME);
     }
-    if (data->flags_clear & MAIL_FLAGGED) {
+    if ((data->flags_clear & MAIL_FLAGGED) != 0) {
         i_debug("%s: Flagged flag cleared", EVENT_NAME);
     }
-    if (data->flags_clear & MAIL_DELETED) {
+    if ((data->flags_clear & MAIL_DELETED) != 0) {
         i_debug("%s: Deleted flag cleared", EVENT_NAME);
     }
-    if (data->flags_clear & MAIL_SEEN) {
+    if ((data->flags_clear & MAIL_SEEN) != 0) {
         i_debug("%s: Seen flag cleared", EVENT_NAME);
     }
-    if (data->flags_clear & MAIL_DRAFT) {
+    if ((data->flags_clear & MAIL_DRAFT) != 0) {
         i_debug("%s: Draft flag cleared", EVENT_NAME);
     }
 
@@ -100,8 +100,8 @@ static void push_notification_event_flagsclear_flags_event(
     flags = mail_get_flags(mail);
 
     for (i = 0; i < N_ELEMENTS(flag_check_always); i++) {
-        if (!(flags & flag_check_always[i]) &&
-            (old_flags & flag_check_always[i])) {
+        if ((flags & flag_check_always[i]) == 0 &&
+            (old_flags & flag_check_always[i]) != 0) {
             data->flags_clear |= flag_check_always[i];
         }
     }

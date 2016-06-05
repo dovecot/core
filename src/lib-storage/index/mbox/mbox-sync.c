@@ -965,7 +965,7 @@ static int mbox_sync_partial_seek_next(struct mbox_sync_context *sync_ctx,
 	} else {
 		/* if there's no sync records left, we can stop. except if
 		   this is a dirty sync, check if there are new messages. */
-		if (!sync_ctx->mbox->mbox_hdr.dirty_flag)
+		if (sync_ctx->mbox->mbox_hdr.dirty_flag == 0)
 			return 0;
 
 		messages_count =
@@ -1067,7 +1067,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 		if (mail_ctx->mail.uid_broken && partial) {
 			/* UID ordering problems, resync everything to make
 			   sure we get everything right */
-			if (sync_ctx->mbox->mbox_hdr.dirty_flag)
+			if (sync_ctx->mbox->mbox_hdr.dirty_flag != 0)
 				return 0;
 
 			mbox_sync_set_critical(sync_ctx,
@@ -1618,7 +1618,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	} else if ((uint32_t)st->st_mtime == mbox_hdr->sync_mtime &&
 		   (uint64_t)st->st_size == mbox_hdr->sync_size) {
 		/* file is fully synced */
-		if (mbox_hdr->dirty_flag && (flags & MBOX_SYNC_UNDIRTY) != 0)
+		if (mbox_hdr->dirty_flag != 0 && (flags & MBOX_SYNC_UNDIRTY) != 0)
 			partial = FALSE;
 		else
 			partial = TRUE;
@@ -1777,7 +1777,7 @@ int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
 	if ((uint32_t)st->st_mtime == mbox->mbox_hdr.sync_mtime &&
 	    (uint64_t)st->st_size == mbox->mbox_hdr.sync_size) {
 		/* fully synced */
-		if (!mbox->mbox_hdr.dirty_flag || leave_dirty)
+		if (mbox->mbox_hdr.dirty_flag != 0 || leave_dirty)
 			return 0;
 		/* flushing dirtyness */
 	}

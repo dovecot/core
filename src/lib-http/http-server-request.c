@@ -100,7 +100,7 @@ void http_server_request_destroy(struct http_server_request **_req)
 	if (req->state < HTTP_SERVER_REQUEST_STATE_FINISHED)
 		req->state = HTTP_SERVER_REQUEST_STATE_ABORTED;
 
-	if (server->ioloop)
+	if (server->ioloop != NULL)
 		io_loop_stop(server->ioloop);
 
 	if (req->delay_destroy) {

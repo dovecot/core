@@ -363,7 +363,7 @@ static void part_write_body(const struct message_part *part,
 	struct message_part_body_data *data = part->context;
 	bool text;
 
-	if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
+	if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0) {
 		str_append(str, "\"message\" \"rfc822\"");
 		text = FALSE;
 	} else {
@@ -406,7 +406,7 @@ static void part_write_body(const struct message_part *part,
 	if (text) {
 		/* text/.. contains line count */
 		str_printfa(str, " %u", part->body_size.lines);
-	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
+	} else if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0) {
 		/* message/rfc822 contains envelope + body + line count */
 		struct message_part_body_data *child_data;
 
@@ -482,7 +482,7 @@ bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
 void imap_bodystructure_write(const struct message_part *part,
 			      string_t *dest, bool extended)
 {
-	if (part->flags & MESSAGE_PART_FLAG_MULTIPART)
+	if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0)
 		part_write_body_multipart(part, dest, extended);
 	else
 		part_write_body(part, dest, extended);

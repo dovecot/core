@@ -198,7 +198,7 @@ message_part_deserialize_part(struct deserialize_context *ctx,
                         children_count = 0;
 		}
 
-		if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
+		if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0) {
 			/* Only one child is possible */
 			if (children_count == 0) {
 				ctx->error =

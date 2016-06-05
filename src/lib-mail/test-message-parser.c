@@ -47,7 +47,7 @@ static bool msg_parts_cmp(struct message_part *p1, struct message_part *p2)
 		if ((p1->children != NULL) != (p2->children != NULL))
 			return FALSE;
 
-		if (p1->children) {
+		if (p1->children != NULL) {
 			if (!msg_parts_cmp(p1->children, p2->children))
 				return FALSE;
 		}
