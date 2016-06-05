@@ -609,7 +609,7 @@ bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 	case SEARCH_FLAGS:
 		return arg1->value.flags == arg2->value.flags;
 	case SEARCH_KEYWORDS:
-		return strcasecmp(arg1->value.str, arg2->value.str);
+		return strcasecmp(arg1->value.str, arg2->value.str) == 0;
 
 	case SEARCH_BEFORE:
 	case SEARCH_ON:
