@@ -8,7 +8,7 @@
 #endif
 
 #ifndef FALSE
-#  define FALSE (0)
+#  define FALSE (!1)
 #endif
 
 #ifndef TRUE
