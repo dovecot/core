@@ -354,33 +354,38 @@ mailbox_list_ns_prefix_match(struct ns_list_iterate_context *ctx,
 	return ret;
 }
 
-static bool
+static int
 ns_prefix_is_visible(struct ns_list_iterate_context *ctx,
 		     struct mail_namespace *ns)
 {
+	int ret;
+
 	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0)
-		return TRUE;
+		return 1;
 	if ((ns->flags & NAMESPACE_FLAG_LIST_CHILDREN) != 0) {
-		if (mailbox_list_match_anything(ctx, ns, ns->prefix))
-			return TRUE;
+		if ((ret = mailbox_list_match_anything(ctx, ns, ns->prefix)) != 0)
+			return ret;
 	}
-	return FALSE;
+	return 0;
 }
 
-static bool
+static int
 ns_prefix_has_visible_child_namespace(struct ns_list_iterate_context *ctx,
 				      const char *prefix)
 {
 	struct mail_namespace *ns;
 	unsigned int prefix_len = strlen(prefix);
+	int ret;
 
 	for (ns = ctx->namespaces; ns != NULL; ns = ns->next) {
 		if (ns->prefix_len > prefix_len &&
-		    strncmp(ns->prefix, prefix, prefix_len) == 0 &&
-		    ns_prefix_is_visible(ctx, ns))
-			return TRUE;
+		    strncmp(ns->prefix, prefix, prefix_len) == 0) {
+			ret = ns_prefix_is_visible(ctx, ns);
+			if (ret != 0)
+				return ret;
+		}
 	}
-	return FALSE;
+	return 0;
 }
 
 static bool
@@ -410,8 +415,8 @@ mailbox_list_match_anything(struct ns_list_iterate_context *ctx,
 	const char *pattern;
 	int ret;
 
-	if (ns_prefix_has_visible_child_namespace(ctx, prefix))
-		return 1;
+	if ((ret = ns_prefix_has_visible_child_namespace(ctx, prefix)) != 0)
+		return ret;
 
 	pattern = t_strconcat(prefix, "%", NULL);
 	list_iter = mailbox_list_iter_init(ns->list, pattern, list_flags);
