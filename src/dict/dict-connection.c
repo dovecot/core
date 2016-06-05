@@ -104,10 +104,31 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	return 0;
 }
 
-static void dict_connection_input(struct dict_connection *conn)
+static void dict_connection_input_more(struct dict_connection *conn)
 {
 	const char *line;
 	int ret;
+
+	while ((line = i_stream_next_line(conn->input)) != NULL) {
+		T_BEGIN {
+			ret = dict_command_input(conn, line);
+		} T_END;
+		if (ret < 0) {
+			dict_connection_destroy(conn);
+			break;
+		}
+		if (array_count(&conn->cmds) >= DICT_CONN_MAX_PENDING_COMMANDS) {
+			io_remove(&conn->io);
+			if (conn->to_input != NULL)
+				timeout_remove(&conn->to_input);
+			break;
+		}
+	}
+}
+
+static void dict_connection_input(struct dict_connection *conn)
+{
+	const char *line;
 
 	if (conn->to_input != NULL)
 		timeout_remove(&conn->to_input);
@@ -143,21 +164,7 @@ static void dict_connection_input(struct dict_connection *conn)
 		}
 	}
 
-	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		T_BEGIN {
-			ret = dict_command_input(conn, line);
-		} T_END;
-		if (ret < 0) {
-			dict_connection_destroy(conn);
-			break;
-		}
-		if (array_count(&conn->cmds) >= DICT_CONN_MAX_PENDING_COMMANDS) {
-			io_remove(&conn->io);
-			if (conn->to_input != NULL)
-				timeout_remove(&conn->to_input);
-			break;
-		}
-	}
+	dict_connection_input_more(conn);
 }
 
 void dict_connection_continue_input(struct dict_connection *conn)
@@ -167,7 +174,7 @@ void dict_connection_continue_input(struct dict_connection *conn)
 
 	conn->io = io_add(conn->fd, IO_READ, dict_connection_input, conn);
 	if (conn->to_input == NULL)
-		conn->to_input = timeout_add_short(0, dict_connection_input, conn);
+		conn->to_input = timeout_add_short(0, dict_connection_input_more, conn);
 }
 
 static int dict_connection_output(struct dict_connection *conn)
