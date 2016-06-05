@@ -8,7 +8,7 @@ struct auth_cache_node {
 	/* Total number of bytes used by this node */
 	uint32_t alloc_size:31;
 	/* TRUE if the user gave the correct password the last time. */
-	uint32_t last_success:1;
+	bool last_success:1;
 
 	char data[4]; /* key \0 value \0 */
 };

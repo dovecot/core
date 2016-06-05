@@ -17,9 +17,9 @@
 
 struct mail_sort_node {
 	uint32_t seq:29;
-	uint32_t wanted:1;
-	uint32_t no_update:1;
-	uint32_t sort_id_changed:1;
+	bool wanted:1;
+	bool no_update:1;
+	bool sort_id_changed:1;
 	uint32_t sort_id;
 };
 ARRAY_DEFINE_TYPE(mail_sort_node, struct mail_sort_node);
