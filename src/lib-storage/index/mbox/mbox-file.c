@@ -154,7 +154,7 @@ int mbox_file_lookup_offset(struct mbox_mailbox *mbox,
 		mail_storage_set_critical(&mbox->storage->storage,
 			"Cached message offset lost for seq %u in mbox file %s",
 			seq, mailbox_get_path(&mbox->box));
-                mbox->mbox_hdr.dirty_flag = TRUE;
+		mbox->mbox_hdr.dirty_flag = 1;
                 mbox->mbox_broken_offsets = TRUE;
 		return 0;
 	}
@@ -191,7 +191,7 @@ int mbox_file_seek(struct mbox_mailbox *mbox, struct mail_index_view *view,
 		mail_storage_set_critical(&mbox->storage->storage,
 			"Cached message offset %s is invalid for mbox file %s",
 			dec2str(offset), mailbox_get_path(&mbox->box));
-		mbox->mbox_hdr.dirty_flag = TRUE;
+		mbox->mbox_hdr.dirty_flag = 1;
 		mbox->mbox_broken_offsets = TRUE;
 		return 0;
 	}

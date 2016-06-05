@@ -1059,7 +1059,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 
 		if (mail_ctx->seq == 1) {
 			if (mbox_sync_imapbase(sync_ctx, mail_ctx)) {
-				sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
+				sync_ctx->mbox->mbox_hdr.dirty_flag = 1;
 				return 0;
 			}
 		}
@@ -1073,7 +1073,7 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 			mbox_sync_set_critical(sync_ctx,
 				"UIDs broken with partial sync");
 
-			sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
+			sync_ctx->mbox->mbox_hdr.dirty_flag = 1;
 			return 0;
 		}
 		if (mail_ctx->mail.uid_broken)
@@ -1212,14 +1212,14 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 	}
 
 	if (!skipped_mails)
-		sync_ctx->mbox->mbox_hdr.dirty_flag = FALSE;
+		sync_ctx->mbox->mbox_hdr.dirty_flag = 0;
 	sync_ctx->mbox->mbox_broken_offsets = FALSE;
 
 	if (uids_broken && sync_ctx->delay_writes) {
 		/* once we get around to writing the changes, we'll need to do
 		   a full sync to avoid the "UIDs broken in partial sync"
 		   error */
-		sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
+		sync_ctx->mbox->mbox_hdr.dirty_flag = 1;
 	}
 	return 1;
 }
@@ -1614,7 +1614,7 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	if ((flags & MBOX_SYNC_FORCE_SYNC) != 0) {
 		/* forcing a full sync. assume file has changed. */
 		partial = FALSE;
-		mbox_hdr->dirty_flag = TRUE;
+		mbox_hdr->dirty_flag = 1;
 	} else if ((uint32_t)st->st_mtime == mbox_hdr->sync_mtime &&
 		   (uint64_t)st->st_size == mbox_hdr->sync_size) {
 		/* file is fully synced */
@@ -1629,13 +1629,13 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 		   likely means that someone had modified some header
 		   and we probably want to know about it */
 		partial = FALSE;
-		sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
+		sync_ctx->mbox->mbox_hdr.dirty_flag = 1;
 	} else {
 		/* see if we can delay syncing the whole file.
 		   normally we only notice expunges and appends
 		   in partial syncing. */
 		partial = TRUE;
-		sync_ctx->mbox->mbox_hdr.dirty_flag = TRUE;
+		sync_ctx->mbox->mbox_hdr.dirty_flag = 1;
 	}
 
 	mbox_sync_restart(sync_ctx);
@@ -1706,7 +1706,7 @@ int mbox_sync_header_refresh(struct mbox_mailbox *mbox)
 
 	memcpy(&mbox->mbox_hdr, data, I_MIN(sizeof(mbox->mbox_hdr), data_size));
 	if (mbox->mbox_broken_offsets)
-		mbox->mbox_hdr.dirty_flag = TRUE;
+		mbox->mbox_hdr.dirty_flag = 1;
 	return 0;
 }
 
