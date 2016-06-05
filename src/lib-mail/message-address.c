@@ -357,8 +357,12 @@ void message_address_write(string_t *str, const struct message_address *addr)
 			if (!in_group) {
 				/* beginning of group. mailbox is the group
 				   name, others are NULL. */
-				if (addr->mailbox != NULL)
+				if (addr->mailbox != NULL && *addr->mailbox != '\0') {
 					str_append(str, addr->mailbox);
+				} else {
+					/* empty group name needs to be quoted */
+					str_append(str, "\"\"");
+				}
 				str_append(str, ": ");
 				first = TRUE;
 			} else {
