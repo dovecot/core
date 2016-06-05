@@ -205,6 +205,11 @@ static int parse_mailbox(struct message_address_parser_context *ctx)
 		/* nope, should be addr-spec */
 		ctx->parser.data = start;
 		ret = parse_addr_spec(ctx);
+		if (ctx->addr.invalid_syntax && ctx->addr.name == NULL &&
+		    ctx->addr.mailbox == NULL && ctx->addr.domain == NULL) {
+			ctx->addr.name = ctx->addr.mailbox;
+			ctx->addr.mailbox = NULL;
+		}
 	}
 
 	if (ret < 0)
