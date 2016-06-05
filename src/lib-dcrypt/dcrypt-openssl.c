@@ -1920,7 +1920,7 @@ bool dcrypt_openssl_public_key_id(struct dcrypt_public_key *key, const char *alg
 	unsigned char buf[EVP_MD_size(md)];
 	EVP_PKEY *pub = (EVP_PKEY*)key;
 	const char *ptr;
-	int ec;
+	bool res;
 	if (pub == NULL) {
 		if (error_r != NULL)
 			*error_r = "key is NULL";
@@ -1945,10 +1945,10 @@ bool dcrypt_openssl_public_key_id(struct dcrypt_public_key *key, const char *alg
 	if (EVP_DigestInit_ex(ctx, md, NULL) < 1 ||
 	    EVP_DigestUpdate(ctx, (const unsigned char*)ptr, len) < 1 ||
 	    EVP_DigestFinal_ex(ctx, buf, &hlen) < 1) {
-		ec = dcrypt_openssl_error(error_r);
+		res = dcrypt_openssl_error(error_r);
 	} else {
 		buffer_append(result, buf, hlen);
-		ec = 0;
+		res = TRUE;
 	}
 
 #if SSLEAY_VERSION_NUMBER >= 0x1010000fL
@@ -1958,7 +1958,7 @@ bool dcrypt_openssl_public_key_id(struct dcrypt_public_key *key, const char *alg
 #endif
 	BIO_vfree(b);
 
-	return ec == 0;
+	return res;
 }
 
 static struct dcrypt_vfs dcrypt_openssl_vfs = {
