@@ -140,7 +140,7 @@ int otp_read_words(const char *data, const char **endptr, unsigned char *hash)
 	hash[7] = (bits[5] >> 2) & 0xff;
 	parity = bits[5] & 3;
 
-	return otp_parity(hash) != parity;
+	return otp_parity(hash) != parity ? 1 : 0;
 }
 
 int otp_read_new_params(const char *data, const char **endptr,
@@ -182,7 +182,7 @@ int otp_parse_response(const char *data, unsigned char *hash, bool hex)
 	if (ret < 0)
 		return ret;
 
-	return otp_check_tail(end);
+	return otp_check_tail(end) ? 1 : 0;
 }
 
 int otp_parse_init_response(const char *data, struct otp_state *new_state,

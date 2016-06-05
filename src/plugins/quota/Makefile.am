@@ -78,6 +78,8 @@ rquota_xdr.c: Makefile rquota.h
 	  cp $(RQUOTA_X) $(top_builddir)/src/plugins/quota/; \
 	fi; \
 	(echo '#include "lib.h"'; \
+	 echo '#undef FALSE'; \
+	 echo '#undef TRUE'; \
 	 echo '#include <rpc/rpc.h>'; \
 	 $(RPCGEN) -c $(top_builddir)/src/plugins/quota/rquota.x | \
 	  sed -e 's/IXDR_PUT/(void)IXDR_PUT/g' \

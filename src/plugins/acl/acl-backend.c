@@ -42,7 +42,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	if (user->mail_debug) {
 		i_debug("acl: initializing backend with data: %s", data);
 		i_debug("acl: acl username = %s", acl_username);
-		i_debug("acl: owner = %d", owner);
+		i_debug("acl: owner = %d", owner ? 1 : 0);
 	}
 
 	group_count = str_array_length(groups);

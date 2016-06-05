@@ -149,7 +149,7 @@ static void nodes_dump(const struct dsync_mailbox_node *node, unsigned int depth
 		for (i = 0; i < depth; i++) printf(" ");
 		printf("%-*s guid:%.5s uidv:%u %d%d %ld\n", 40-depth, node->name,
 		       guid_128_to_string(node->mailbox_guid), node->uid_validity,
-		       node->existence, node->subscribed,
+		       node->existence, node->subscribed ? 1 : 0,
 		       (long)node->last_renamed_or_created);
 		nodes_dump(node->first_child, depth+1);
 	}

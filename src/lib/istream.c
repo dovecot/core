@@ -786,7 +786,7 @@ void i_stream_default_seek_nonseekable(struct istream_private *stream,
 				"Can't seek to offset %"PRIuUOFF_T
 				", because we have data only up to offset %"
 				PRIuUOFF_T" (eof=%d)", v_offset,
-				stream->istream.v_offset, stream->istream.eof);
+				stream->istream.v_offset, stream->istream.eof ? 1 : 0);
 			stream->istream.stream_errno = ESPIPE;
 			return;
 		}

@@ -966,7 +966,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 	} else {
 		dir_debug("Ignoring host %s update vhost_count=%u "
 			  "down=%d last_updown_change=%ld (hosts_hash=%u)",
-			  net_ip2addr(&ip), vhost_count, down,
+			  net_ip2addr(&ip), vhost_count, down ? 1 : 0,
 			  (long)last_updown_change,
 			  mail_hosts_hash(conn->dir->mail_hosts));
 	}
@@ -1735,7 +1735,8 @@ director_connection_send_hosts(struct director_connection *conn, string_t *str)
 
 	send_updowns = conn->minor_version >= DIRECTOR_VERSION_UPDOWN;
 
-	str_printfa(str, "HOST-HAND-START\t%u\n", conn->dir->ring_handshaked);
+	str_printfa(str, "HOST-HAND-START\t%u\n",
+		    conn->dir->ring_handshaked ? 1 : 0);
 	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
 		struct mail_host *host = *hostp;
 		const char *host_tag = mail_host_get_tag(host);
@@ -1754,7 +1755,8 @@ director_connection_send_hosts(struct director_connection *conn, string_t *str)
 		}
 		str_append_c(str, '\n');
 	}
-	str_printfa(str, "HOST-HAND-END\t%u\n", conn->dir->ring_handshaked);
+	str_printfa(str, "HOST-HAND-END\t%u\n",
+		    conn->dir->ring_handshaked ? 1 : 0);
 }
 
 static int director_connection_send_done(struct director_connection *conn)

@@ -435,7 +435,7 @@ static int mbox_sync_read_and_move(struct mbox_sync_context *sync_ctx,
 				"seq=%u uid=%u uid_broken=%d "
 				"originally needed %"PRIuUOFF_T
 				" bytes, now needs %"PRIuSIZE_T" bytes",
-				seq, mails[idx].uid, mails[idx].uid_broken,
+				seq, mails[idx].uid, mails[idx].uid_broken ? 1 : 0,
 				(uoff_t)-mails[idx].space, need_space);
 			return -1;
 		}

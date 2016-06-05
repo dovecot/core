@@ -398,7 +398,7 @@ static int mail_cache_compress_has_file_changed(struct mail_cache *cache)
 				   was unusable and was just unlinked */
 				return 1;
 			}
-			return hdr.file_seq != cache->need_compress_file_seq;
+			return hdr.file_seq != cache->need_compress_file_seq ? 1 : 0;
 		} else if (errno != ESTALE || i >= NFS_ESTALE_RETRY_COUNT) {
 			mail_cache_set_syscall_error(cache, "read()");
 			return -1;

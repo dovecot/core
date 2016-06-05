@@ -465,7 +465,7 @@ const char *restrict_access_get_current_chroot(void)
 void restrict_access_allow_coredumps(bool allow ATTR_UNUSED)
 {
 #ifdef HAVE_PR_SET_DUMPABLE
-	(void)prctl(PR_SET_DUMPABLE, allow, 0, 0, 0);
+	(void)prctl(PR_SET_DUMPABLE, allow ? 1 : 0, 0, 0, 0);
 #endif
 }
 

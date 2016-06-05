@@ -688,7 +688,7 @@ static int driver_pgsql_result_next_row(struct sql_result *_result)
 		return 0;
 	case PGRES_TUPLES_OK:
 		result->rows = PQntuples(result->pgres);
-		return result->rows > 0;
+		return result->rows > 0 ? 1 : 0;
 	case PGRES_EMPTY_QUERY:
 	case PGRES_NONFATAL_ERROR:
 		/* nonfatal error */

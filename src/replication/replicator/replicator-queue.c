@@ -396,7 +396,7 @@ replicator_queue_export_user(struct replicator_user *user, string_t *str)
 		    (long long)user->last_update,
 		    (long long)user->last_fast_sync,
 		    (long long)user->last_full_sync,
-		    user->last_sync_failed);
+		    user->last_sync_failed ? 1 : 0);
 	if (user->state != NULL)
 		str_append_tabescaped(str, user->state);
 	str_printfa(str, "\t%lld\n", (long long)user->last_successful_sync);

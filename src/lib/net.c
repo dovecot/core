@@ -1013,9 +1013,9 @@ const char *net_gethosterror(int error)
 int net_hosterror_notfound(int error)
 {
 #ifdef EAI_NODATA /* NODATA is depricated */
-	return error != 1 && (error == EAI_NONAME || error == EAI_NODATA);
+	return (error != 1 && (error == EAI_NONAME || error == EAI_NODATA)) ? 1 : 0;
 #else
-	return error != 1 && (error == EAI_NONAME);
+	return (error != 1 && (error == EAI_NONAME)) ? 1 : 0;
 #endif
 }
 

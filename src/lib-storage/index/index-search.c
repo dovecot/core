@@ -174,7 +174,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 	switch (arg->type) {
 	case SEARCH_UIDSET:
 	case SEARCH_INTHREAD:
-		return seq_range_exists(&arg->value.seqset, rec->uid);
+		return seq_range_exists(&arg->value.seqset, rec->uid) ? 1 : 0;
 	case SEARCH_FLAGS:
 		/* recent flag shouldn't be set, but indexes from v1.0.x
 		   may contain it. */
@@ -194,7 +194,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 				flags |= rec->flags & pvt_flags_mask;
 			}
 		}
-		return (flags & arg->value.flags) == arg->value.flags;
+		return (flags & arg->value.flags) == arg->value.flags ? 1 : 0;
 	case SEARCH_KEYWORDS:
 		T_BEGIN {
 			ret = search_arg_match_keywords(ctx, arg);
@@ -211,7 +211,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 			modseq = mail_index_modseq_lookup(ctx->view,
 						ctx->mail_ctx.seq);
 		}
-		return modseq >= arg->value.modseq->modseq;
+		return modseq >= arg->value.modseq->modseq ? 1 : 0;
 	}
 	default:
 		return -1;
@@ -259,15 +259,15 @@ static int search_arg_match_mailbox(struct index_search_context *ctx,
 			return -1;
 
 		if (strcasecmp(str, "INBOX") == 0)
-			return strcasecmp(arg->value.str, "INBOX") == 0;
-		return strcmp(str, arg->value.str) == 0;
+			return strcasecmp(arg->value.str, "INBOX") == 0 ? 1 : 0;
+		return strcmp(str, arg->value.str) == 0 ? 1 : 0;
 	case SEARCH_MAILBOX_GLOB:
 		if (imap_match(arg->initialized.mailbox_glob, box->vname) == IMAP_MATCH_YES)
 			return 1;
 		if (mail_get_special(ctx->cur_mail, MAIL_FETCH_MAILBOX_NAME,
 				     &str) < 0)
 			return -1;
-		return imap_match(arg->initialized.mailbox_glob, str) == IMAP_MATCH_YES;
+		return imap_match(arg->initialized.mailbox_glob, str) == IMAP_MATCH_YES ? 1 : 0;
 	default:
 		return -1;
 	}
@@ -333,12 +333,12 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 
 		switch (arg->type) {
 		case SEARCH_BEFORE:
-			return date < arg->value.time;
+			return date < arg->value.time ? 1 : 0;
 		case SEARCH_ON:
-			return date >= arg->value.time &&
-				date < arg->value.time + 3600*24;
+			return (date >= arg->value.time &&
+				date < arg->value.time + 3600*24) ? 1 : 0;
 		case SEARCH_SINCE:
-			return date >= arg->value.time;
+			return date >= arg->value.time ? 1 : 0;
 		default:
 			/* unreachable */
 			break;
@@ -351,20 +351,20 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 			return -1;
 
 		if (arg->type == SEARCH_SMALLER)
-			return virtual_size < arg->value.size;
+			return virtual_size < arg->value.size ? 1 : 0;
 		else
-			return virtual_size > arg->value.size;
+			return virtual_size > arg->value.size ? 1 : 0;
 
 	case SEARCH_GUID:
 		if (mail_get_special(ctx->cur_mail, MAIL_FETCH_GUID, &str) < 0)
 			return -1;
-		return strcmp(str, arg->value.str) == 0;
+		return strcmp(str, arg->value.str) == 0 ? 1 : 0;
 	case SEARCH_REAL_UID: {
 		struct mail *real_mail;
 
 		if (mail_get_backend_mail(ctx->cur_mail, &real_mail) < 0)
 			return -1;
-		return seq_range_exists(&arg->value.seqset, real_mail->uid);
+		return seq_range_exists(&arg->value.seqset, real_mail->uid) ? 1 : 0;
 	}
 	default:
 		return -1;
@@ -405,12 +405,12 @@ static int search_sent(enum mail_search_arg_type type, time_t search_time,
 
 	switch (type) {
 	case SEARCH_BEFORE:
-		return sent_time < search_time;
+		return sent_time < search_time ? 1 : 0;
 	case SEARCH_ON:
-		return sent_time >= search_time &&
-			sent_time < search_time + 3600*24;
+		return (sent_time >= search_time &&
+			sent_time < search_time + 3600*24) ? 1 : 0;
 	case SEARCH_SINCE:
-		return sent_time >= search_time;
+		return sent_time >= search_time ? 1 : 0;
 	default:
                 i_unreached();
 	}

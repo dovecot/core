@@ -84,7 +84,7 @@ int rfc822_skip_comment(struct rfc822_parser_context *ctx)
 						     ctx->data - start);
 				}
 				ctx->data++;
-				return ctx->data != ctx->end;
+				return ctx->data != ctx->end ? 1 : 0;
 			}
 			break;
 		case '\\':
@@ -120,7 +120,7 @@ int rfc822_skip_lwsp(struct rfc822_parser_context *ctx)
 		if (rfc822_skip_comment(ctx) < 0)
 			return -1;
 	}
-	return ctx->data != ctx->end;
+	return ctx->data != ctx->end ? 1 : 0;
 }
 
 int rfc822_parse_atom(struct rfc822_parser_context *ctx, string_t *str)

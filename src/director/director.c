@@ -580,7 +580,7 @@ void director_update_host(struct director *dir, struct director_host *src,
 
 	dir_debug("Updating host %s vhost_count=%u "
 		  "down=%d last_updown_change=%ld (hosts_hash=%u)",
-		  net_ip2addr(&host->ip), host->vhost_count, host->down,
+		  net_ip2addr(&host->ip), host->vhost_count, host->down ? 1 : 0,
 		  (long)host->last_updown_change,
 		  mail_hosts_hash(dir->mail_hosts));
 

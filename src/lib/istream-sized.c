@@ -39,7 +39,7 @@ i_stream_create_sized_default_error_callback(
 		return t_strdup_printf("Stream is larger than expected "
 			"(%"PRIuUOFF_T" > %"PRIuUOFF_T", eof=%d)",
 			data->v_offset + data->new_bytes, data->wanted_size,
-			data->eof);
+			data->eof ? 1 : 0);
 	}
 }
 

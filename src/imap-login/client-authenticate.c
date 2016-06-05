@@ -111,7 +111,7 @@ imap_client_auth_begin(struct imap_client *imap_client, const char *mech_name,
 	char *prefix;
 
 	prefix = i_strdup_printf("%d%s",
-			imap_client->client_ignores_capability_resp_code,
+			imap_client->client_ignores_capability_resp_code ? 1 : 0,
 			imap_client->cmd_tag);
 
 	i_free(imap_client->common.master_data_prefix);

@@ -510,7 +510,7 @@ int client_auth_read_line(struct client *client)
 	if (len > 0 && str_c(client->auth_response)[len-1] == '\r')
 		str_truncate(client->auth_response, len-1);
 
-	return i < size;
+	return i < size ? 1 : 0;
 }
 
 void client_auth_parse_response(struct client *client)

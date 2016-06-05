@@ -1054,9 +1054,9 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	}
 	if (root->quota->set->debug) {
 		i_debug("quota: quota_over_flag=%d(%s) vs currently overquota=%d",
-			root->quota_over_flag_status,
+			root->quota_over_flag_status ? 1 : 0,
 			root->quota_over_flag == NULL ? "(null)" : root->quota_over_flag,
-			cur_overquota);
+			cur_overquota ? 1 : 0);
 	}
 	if (cur_overquota != root->quota_over_flag_status) {
 		name = t_strconcat(root->set->set_name, "_over_script", NULL);

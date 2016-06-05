@@ -544,7 +544,7 @@ static int index_mail_header_is_parsed(struct index_mail *mail,
 
 	match = array_get(&mail->header_match, &count);
 	if (field_idx < count && HEADER_MATCH_USABLE(mail, match[field_idx]))
-		return (match[field_idx] & HEADER_MATCH_FLAG_FOUND) != 0;
+		return (match[field_idx] & HEADER_MATCH_FLAG_FOUND) != 0 ? 1 : 0;
 	return -1;
 }
 

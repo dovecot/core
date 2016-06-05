@@ -101,7 +101,7 @@ client_input_status(struct doveadm_connection *client, const char *const *args)
 		str_printfa(str, "\t%lld\t%lld\t%d\t%lld\n",
 			    (long long)user->last_fast_sync,
 			    (long long)user->last_full_sync,
-			    user->last_sync_failed,
+			    user->last_sync_failed ? 1 : 0,
 			    (long long)user->last_successful_sync);
 		o_stream_send(client->conn.output, str_data(str), str_len(str));
 	}

@@ -827,7 +827,7 @@ void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
 
 	memset(&reset, 0, sizeof(reset));
 	reset.new_reset_id = reset_id;
-	reset.preserve_data = !clear_data;
+	reset.preserve_data = clear_data ? 0 : 1;
 
 	mail_index_ext_set_reset_id(t, ext_id, reset_id);
 

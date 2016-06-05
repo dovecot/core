@@ -691,7 +691,7 @@ static void dsync_brain_mailbox_states_dump(struct dsync_brain *brain)
 			(unsigned long long)state->last_common_modseq,
 			(unsigned long long)state->last_common_pvt_modseq,
 			state->last_messages_count,
-			state->changes_during_sync);
+			state->changes_during_sync ? 1 : 0);
 	}
 	hash_table_iterate_deinit(&iter);
 }

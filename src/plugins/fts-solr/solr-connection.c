@@ -83,7 +83,7 @@ static int solr_xml_parse(struct solr_connection *conn,
 	if (conn->xml_failed)
 		return -1;
 
-	if (XML_Parse(conn->xml_parser, data, size, done) != 0)
+	if (XML_Parse(conn->xml_parser, data, size, done ? 1 : 0) != 0)
 		return 0;
 
 	err = XML_GetErrorCode(conn->xml_parser);

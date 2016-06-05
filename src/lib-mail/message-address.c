@@ -194,7 +194,7 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 		ctx->addr.domain = "SYNTAX_ERROR";
 		ctx->addr.invalid_syntax = TRUE;
 	}
-	return ctx->parser.data != ctx->parser.end;
+	return ctx->parser.data != ctx->parser.end ? 1 : 0;
 }
 
 static int parse_addr_spec(struct message_address_parser_context *ctx)

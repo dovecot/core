@@ -194,7 +194,7 @@ acl_backend_vfile_exists(struct acl_backend_vfile *backend, const char *path,
 
 	if (validity->last_check + (time_t)backend->cache_secs > ioloop_time) {
 		/* use the cached value */
-		return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOTFOUND;
+		return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOTFOUND ? 1 : 0;
 	}
 
 	validity->last_check = ioloop_time;
@@ -479,10 +479,10 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 	if (ret < 0) {
 		if (errno == ENOENT || errno == ENOTDIR) {
 			/* if the file used to exist, we have to re-read it */
-			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOTFOUND;
+			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOTFOUND ? 1 : 0;
 		} 
 		if (errno == EACCES)
-			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOACCESS;
+			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOACCESS ? 1 : 0;
 		i_error("stat(%s) failed: %m", path);
 		return -1;
 	}

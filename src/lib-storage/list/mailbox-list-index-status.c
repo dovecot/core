@@ -643,7 +643,7 @@ static int index_list_update_mailbox(struct mailbox *box)
 		/* if backend state changed on the last check, update it here
 		   now. we probably don't need to bother checking again if the
 		   state had changed? */
-		ret = ilist->index_last_check_changed;
+		ret = ilist->index_last_check_changed ? 1 : 0;
 	}
 	mail_index_view_close(&list_view);
 	if (ret <= 0) {

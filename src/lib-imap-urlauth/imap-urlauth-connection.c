@@ -651,7 +651,7 @@ imap_urlauth_connection_read_literal(struct imap_urlauth_connection *conn)
 	reply.url = urlreq->url;
 	reply.flags = urlreq->flags;
 	reply.bodypartstruct = urlreq->bodypartstruct;
-	reply.binary_has_nuls = urlreq->binary_has_nuls;
+	reply.binary_has_nuls = urlreq->binary_has_nuls ? 1 : 0;
 
 	if (conn->literal_size > 0) {
 		if (imap_urlauth_fetch_reply_set_literal_stream(conn, &reply) < 0)
