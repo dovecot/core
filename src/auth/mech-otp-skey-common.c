@@ -24,9 +24,9 @@ void otp_lock_init(void)
 			  strcase_hash, strcasecmp);
 }
 
-int otp_try_lock(struct auth_request *auth_request)
+bool otp_try_lock(struct auth_request *auth_request)
 {
-	if (hash_table_lookup(otp_lock_table, auth_request->user))
+	if (hash_table_lookup(otp_lock_table, auth_request->user) != NULL)
 		return FALSE;
 
 	hash_table_insert(otp_lock_table, auth_request->user, auth_request);

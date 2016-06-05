@@ -416,7 +416,7 @@ service_get_client_limit(struct master_settings *set, const char *name)
 static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
-	static int warned_auth = FALSE, warned_anvil = FALSE;
+	static bool warned_auth = FALSE, warned_anvil = FALSE;
 	struct master_settings *set = _set;
 	struct service_settings *const *services;
 	const char *const *strings;

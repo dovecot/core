@@ -313,7 +313,7 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 
 	/* finish handling expunges, so we don't break when updating
 	   recent flags */
-	while (index_mailbox_sync_next_expunge(ctx, &sync_rec) > 0) ;
+	while (index_mailbox_sync_next_expunge(ctx, &sync_rec)) ;
 
 	/* convert sequences to uids before syncing view */
 	index_sync_search_results_uidify(ctx);

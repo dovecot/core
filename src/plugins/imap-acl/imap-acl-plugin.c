@@ -190,7 +190,7 @@ static bool have_positive_owner_rights(struct acl_backend *backend,
 	bool ret = FALSE;
 
 	iter = acl_object_list_init(aclobj);
-	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
+	while (acl_object_list_next(iter, &rights) > 0) {
 		if (acl_rights_is_owner(backend, &rights)) {
 			if (rights.rights != NULL) {
 				ret = TRUE;

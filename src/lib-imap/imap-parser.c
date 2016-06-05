@@ -152,9 +152,9 @@ const char *imap_parser_get_error(struct imap_parser *parser,
 }
 
 /* skip over everything parsed so far, plus the following whitespace */
-static int imap_parser_skip_to_next(struct imap_parser *parser,
-				    const unsigned char **data,
-				    size_t *data_size)
+static bool imap_parser_skip_to_next(struct imap_parser *parser,
+				     const unsigned char **data,
+				     size_t *data_size)
 {
 	size_t i;
 
@@ -192,7 +192,7 @@ static void imap_parser_open_list(struct imap_parser *parser)
 	parser->cur_type = ARG_PARSE_NONE;
 }
 
-static int imap_parser_close_list(struct imap_parser *parser)
+static bool imap_parser_close_list(struct imap_parser *parser)
 {
 	struct imap_arg *arg;
 
@@ -299,7 +299,7 @@ static void imap_parser_save_arg(struct imap_parser *parser,
 	parser->cur_type = ARG_PARSE_NONE;
 }
 
-static int is_valid_atom_char(struct imap_parser *parser, char chr)
+static bool is_valid_atom_char(struct imap_parser *parser, char chr)
 {
 	const char *error_msg;
 
@@ -317,8 +317,8 @@ static int is_valid_atom_char(struct imap_parser *parser, char chr)
 	return FALSE;
 }
 
-static int imap_parser_read_atom(struct imap_parser *parser,
-				 const unsigned char *data, size_t data_size)
+static bool imap_parser_read_atom(struct imap_parser *parser,
+				  const unsigned char *data, size_t data_size)
 {
 	size_t i;
 
@@ -347,8 +347,8 @@ static int imap_parser_read_atom(struct imap_parser *parser,
 	return parser->cur_type == ARG_PARSE_NONE;
 }
 
-static int imap_parser_read_string(struct imap_parser *parser,
-				   const unsigned char *data, size_t data_size)
+static bool imap_parser_read_string(struct imap_parser *parser,
+				    const unsigned char *data, size_t data_size)
 {
 	size_t i;
 
@@ -391,7 +391,7 @@ static int imap_parser_read_string(struct imap_parser *parser,
 	return parser->cur_type == ARG_PARSE_NONE;
 }
 
-static int imap_parser_literal_end(struct imap_parser *parser)
+static bool imap_parser_literal_end(struct imap_parser *parser)
 {
 	if (parser->literal_minus && parser->literal_nonsync &&
 		parser->literal_size > 4096) {
@@ -423,9 +423,9 @@ static int imap_parser_literal_end(struct imap_parser *parser)
 	return TRUE;
 }
 
-static int imap_parser_read_literal(struct imap_parser *parser,
-				    const unsigned char *data,
-				    size_t data_size)
+static bool imap_parser_read_literal(struct imap_parser *parser,
+				     const unsigned char *data,
+				     size_t data_size)
 {
 	size_t i, prev_size;
 
@@ -469,9 +469,9 @@ static int imap_parser_read_literal(struct imap_parser *parser,
 	return FALSE;
 }
 
-static int imap_parser_read_literal_data(struct imap_parser *parser,
-					 const unsigned char *data,
-					 size_t data_size)
+static bool imap_parser_read_literal_data(struct imap_parser *parser,
+					  const unsigned char *data,
+					  size_t data_size)
 {
 	if (parser->literal_skip_crlf) {
 		/* skip \r\n or \n, anything else gives an error */
@@ -573,7 +573,7 @@ static bool imap_parser_read_text(struct imap_parser *parser,
 
 /* Returns TRUE if argument was fully processed. Also returns TRUE if
    an argument inside a list was processed. */
-static int imap_parser_read_arg(struct imap_parser *parser)
+static bool imap_parser_read_arg(struct imap_parser *parser)
 {
 	const unsigned char *data;
 	size_t data_size;

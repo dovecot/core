@@ -1214,7 +1214,7 @@ static void test_run_client_server(
 		if (debug)
 			i_debug("server: PID=%s", my_pid);
 		/* child: server */
-		ioloop_nested = FALSE;
+		ioloop_nested = NULL;
 		ioloop = io_loop_create();
 		test_server_init(server_set);
 		io_loop_run(ioloop);
@@ -1226,7 +1226,7 @@ static void test_run_client_server(
 			i_debug("client: PID=%s", my_pid);
 		i_close_fd(&fd_listen);
 		/* parent: client */
-		ioloop_nested = FALSE;
+		ioloop_nested = NULL;
 		ioloop = io_loop_create();
 		client_init(client_set);
 		io_loop_run(ioloop);

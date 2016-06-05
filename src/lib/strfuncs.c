@@ -510,7 +510,7 @@ int i_strcasecmp_p(const char *const *p1, const char *const *p2)
 }
 
 static char **
-split_str(pool_t pool, const char *data, const char *separators, int spaces)
+split_str(pool_t pool, const char *data, const char *separators, bool spaces)
 {
         char **array;
 	char *str;

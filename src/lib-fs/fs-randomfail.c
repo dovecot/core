@@ -59,7 +59,7 @@ static bool fs_op_find(const char *str, enum fs_op *op_r)
 	return FALSE;
 }
 
-static bool
+static int
 fs_randomfail_add_probability(struct randomfail_fs *fs,
 			      const char *key, const char *value,
 			      const char **error_r)

@@ -402,7 +402,7 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	if (mailbox_list_settings_parse_full(user, p + 1, FALSE,
 					     &set, &error) < 0)
 		return "";
-	if (mailbox_list_set_get_root_path(&set, type, &path) <= 0)
+	if (!mailbox_list_set_get_root_path(&set, type, &path))
 		return "";
 	return path;
 }
@@ -433,7 +433,7 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 {
 	unsigned int ns_prefix_len = strlen(ns_prefix);
 	string_t *escaped_name = t_str_new(64);
-	char dirstart = TRUE;
+	bool dirstart = TRUE;
 
 	/* no escaping of namespace prefix */
 	if (strncmp(ns_prefix, vname, ns_prefix_len) == 0) {
@@ -1554,20 +1554,17 @@ static bool mailbox_list_init_changelog(struct mailbox_list *list)
 int mailbox_list_mkdir_missing_index_root(struct mailbox_list *list)
 {
 	const char *root_dir, *index_dir;
-	int ret;
 
 	if (list->index_root_dir_created)
 		return 1;
 
 	/* if index root dir hasn't been created yet, do it now */
-	ret = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
-					 &index_dir);
-	if (ret <= 0)
-		return ret;
-	ret = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					 &root_dir);
-	if (ret <= 0)
-		return ret;
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+					&index_dir))
+		return 0;
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					&root_dir))
+		return 0;
 
 	if (strcmp(root_dir, index_dir) != 0) {
 		if (mailbox_list_mkdir_root(list, index_dir,

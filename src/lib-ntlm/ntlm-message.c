@@ -56,7 +56,7 @@ static unsigned int append_string(buffer_t *buf, const char *str,
 }
 
 static void ntlmssp_append_string(buffer_t *buf, size_t buffer_offset,
-				  const char *str, int unicode)
+				  const char *str, bool unicode)
 {
 	struct ntlmssp_buffer buffer;
 	unsigned int length;
@@ -146,7 +146,7 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 {
 	buffer_t *buf;
 	uint32_t flags = ntlmssp_flags(read_le32(&request->flags));
-	int unicode = flags & NTLMSSP_NEGOTIATE_UNICODE;
+	bool unicode = (flags & NTLMSSP_NEGOTIATE_UNICODE) != 0;
 	struct ntlmssp_challenge c;
 
 	buf = buffer_create_dynamic(pool, sizeof(struct ntlmssp_challenge));

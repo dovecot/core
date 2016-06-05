@@ -203,7 +203,7 @@ fts_parser_script_try_init(struct mail_user *user,
 	int fd;
 
 	parse_content_disposition(content_disposition, &filename);
-	if (script_support_content(user, &content_type, filename) <= 0)
+	if (!script_support_content(user, &content_type, filename))
 		return NULL;
 
 	fd = script_connect(user, &path);

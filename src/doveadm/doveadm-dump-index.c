@@ -734,7 +734,7 @@ static bool test_dump_index(const char *path)
 		return FALSE;
 
 	ret = mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY) > 0;
-	if (ret > 0)
+	if (ret)
 		mail_index_close(index);
 	mail_index_free(&index);
 	return ret;

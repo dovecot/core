@@ -390,7 +390,8 @@ bool imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
 	struct istream *input;
 	struct imap_parser *parser;
 	const struct imap_arg *args;
-	int ret;
+	int args_count;
+	bool ret;
 
 	i_assert(field < IMAP_ENVELOPE_FIELDS);
 
@@ -398,8 +399,8 @@ bool imap_envelope_parse(const char *envelope, enum imap_envelope_field field,
 	parser = imap_parser_create(input, NULL, (size_t)-1);
 
 	(void)i_stream_read(input);
-	ret = imap_parser_read_args(parser, field+1, 0, &args);
-	if (ret > (int)field) {
+	args_count = imap_parser_read_args(parser, field+1, 0, &args);
+	if (args_count > (int)field) {
 		ret = imap_envelope_parse_arg(&args[field], field,
 					      envelope, result_type, result);
 	} else {

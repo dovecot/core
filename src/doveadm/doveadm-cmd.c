@@ -111,11 +111,11 @@ doveadm_cmd_find_multi_word(const char *cmdname, int *_argc,
 	unsigned int len;
 
 	if (argc < 2)
-		return NULL;
+		return FALSE;
 
 	len = strlen(argv[1]);
 	if (strncmp(cmdname, argv[1], len) != 0)
-		return NULL;
+		return FALSE;
 
 	argc--; argv++;
 	if (cmdname[len] == ' ') {

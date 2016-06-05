@@ -264,7 +264,7 @@ int cydir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	dest_prefixlen = str_len(dest_path);
 
 	seq_range_array_iter_init(&iter, &_t->changes->saved_uids); n = 0;
-	while (seq_range_array_iter_nth(&iter, n++, &uid) > 0) {
+	while (seq_range_array_iter_nth(&iter, n++, &uid)) {
 		str_truncate(src_path, src_prefixlen);
 		str_truncate(dest_path, dest_prefixlen);
 		str_printfa(src_path, "%u", n-1);

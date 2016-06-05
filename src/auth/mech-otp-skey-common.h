@@ -6,13 +6,13 @@ struct otp_auth_request {
 
 	pool_t pool;
 
-	int lock;
+	bool lock;
 
 	struct otp_state state;
 };
 
 void otp_lock_init(void);
-int otp_try_lock(struct auth_request *auth_request);
+bool otp_try_lock(struct auth_request *auth_request);
 void otp_unlock(struct auth_request *auth_request);
 
 void otp_set_credentials_callback(bool success,

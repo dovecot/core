@@ -132,7 +132,7 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	return TRUE;
 }
 
-static int
+static bool
 master_input_cache_flush(struct auth_master_connection *conn, const char *args)
 {
 	const char *const *list;

@@ -42,7 +42,7 @@ struct imap_urlauth_request {
 	imap_urlauth_request_callback_t *callback;
 	void *context;
 
-	unsigned int binary_has_nuls;
+	bool binary_has_nuls;
 };
 
 struct imap_urlauth_target {

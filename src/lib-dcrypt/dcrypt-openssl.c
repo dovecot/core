@@ -747,7 +747,7 @@ bool dcrypt_openssl_decrypt_point_v1(buffer_t *data, buffer_t *key, BIGNUM **poi
 	safe_memset(buffer_get_modifiable_data(tmp, NULL), 0,tmp->used);
 	buffer_set_used_size(key, 0);
 
-	if (*point_r == FALSE)
+	if (*point_r == NULL)
 		return dcrypt_openssl_error(error_r);
 
 	return TRUE;

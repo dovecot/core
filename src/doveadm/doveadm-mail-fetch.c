@@ -127,7 +127,7 @@ static int fetch_hdr(struct fetch_cmd_context *ctx)
 		return -1;
 
 	input = i_stream_create_limit(input, hdr_size.physical_size);
-	if ((ret = doveadm_print_istream(input) < 0))
+	if ((ret = doveadm_print_istream(input)) < 0)
 		fetch_set_istream_error(ctx, input);
 	i_stream_unref(&input);
 	return ret;
@@ -217,7 +217,7 @@ static int fetch_body_field(struct fetch_cmd_context *ctx)
 		imap_msgpart_free(&msgpart);
 		return -1;
 	}
-	if ((ret = doveadm_print_istream(result.input) < 0))
+	if ((ret = doveadm_print_istream(result.input)) < 0)
 		fetch_set_istream_error(ctx, result.input);
 	i_stream_unref(&result.input);
 	imap_msgpart_free(&msgpart);
@@ -234,7 +234,7 @@ static int fetch_body(struct fetch_cmd_context *ctx)
 		return -1;
 
 	i_stream_skip(input, hdr_size.physical_size);
-	if ((ret = doveadm_print_istream(input) < 0))
+	if ((ret = doveadm_print_istream(input)) < 0)
 		fetch_set_istream_error(ctx, input);
 	return ret;
 }
@@ -258,7 +258,7 @@ static int fetch_text(struct fetch_cmd_context *ctx)
 
 	if (mail_get_stream(ctx->mail, NULL, NULL, &input) < 0)
 		return -1;
-	if ((ret = doveadm_print_istream(input) < 0))
+	if ((ret = doveadm_print_istream(input)) < 0)
 		fetch_set_istream_error(ctx, input);
 	return ret;
 }

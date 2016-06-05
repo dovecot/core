@@ -56,7 +56,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	i_unlink_if_exists(trie_path);
 	i_unlink_if_exists(uidlist_path);
 	trie = squat_trie_init(trie_path, time(NULL),
-			       FILE_LOCK_METHOD_FCNTL, FALSE, 0600, (gid_t)-1);
+			       FILE_LOCK_METHOD_FCNTL, 0, 0600, (gid_t)-1);
 
 	clock_start = clock();
 	gettimeofday(&tv_start, NULL);

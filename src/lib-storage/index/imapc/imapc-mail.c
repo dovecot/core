@@ -310,7 +310,7 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 			return -1;
 
 		if (data->stream == NULL) {
-			if (imapc_mail_failed(_mail, "BODY[]"))
+			if (imapc_mail_failed(_mail, "BODY[]") < 0)
 				return -1;
 			i_assert(data->stream == NULL);
 

@@ -23,7 +23,7 @@
 #define NOMATCH 0
 #define MATCH (match+sofar)
 
-static int wildcard_match_int(const char *data, const char *mask, int icase)
+static int wildcard_match_int(const char *data, const char *mask, bool icase)
 {
   const char *ma = mask, *na = data, *lsm = NULL, *lsn = NULL;
   int match = 1;

@@ -56,7 +56,8 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 {
 	const unsigned char *msg_start, *sender_end, *msg_end;
 	struct tm tm;
-	int esc, alt_stamp, timezone_secs = 0, seen_timezone = FALSE;
+	bool esc, alt_stamp, seen_timezone = FALSE;
+	int timezone_secs = 0;
 	time_t t;
 
 	*time_r = (time_t)-1;

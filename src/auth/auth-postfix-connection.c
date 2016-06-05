@@ -39,7 +39,7 @@ static void auth_postfix_connection_unref(struct auth_postfix_connection **_conn
 
 static struct auth_postfix_connection *auth_postfix_connections;
 
-static int
+static bool
 postfix_input_auth_request(struct auth_postfix_connection *conn,
 			   const char *username,
 			   struct auth_request **request_r, const char **error_r)

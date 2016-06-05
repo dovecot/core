@@ -368,7 +368,7 @@ int fts_mail_user_init(struct mail_user *user, const char **error_r)
 	p_array_init(&fuser->languages, user->pool, 4);
 
 	if (fts_user_init_languages(user, fuser, error_r) < 0 ||
-	    fts_user_init_data_language(user, fuser, error_r)) {
+	    fts_user_init_data_language(user, fuser, error_r) < 0) {
 		fts_user_free(fuser);
 		return -1;
 	}

@@ -151,7 +151,7 @@ doveadm_expire_mail_cmd_get_next_user(struct doveadm_mail_cmd_context *ctx,
 						       username_r);
 		} T_END;
 		if (ret > 0)
-			return TRUE;
+			return 1;
 		if (ret < 0 && ectx->delete_nonexistent_users) {
 			/* user has been deleted */
 			dict_unset(ectx->trans, key);
@@ -283,7 +283,7 @@ doveadm_expire_analyze_and_query(struct doveadm_mail_cmd_context *ctx,
 	return FALSE;
 }
 
-static time_t
+static bool
 doveadm_expire_analyze_or_query(struct doveadm_mail_cmd_context *ctx,
 				const struct mail_search_arg *args)
 {

@@ -164,7 +164,7 @@ static bool auth_passdb_list_have_lookup_credentials(const struct auth *auth)
 	return FALSE;
 }
 
-static int auth_passdb_list_have_set_credentials(const struct auth *auth)
+static bool auth_passdb_list_have_set_credentials(const struct auth *auth)
 {
 	const struct auth_passdb *passdb;
 

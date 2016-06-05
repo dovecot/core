@@ -355,8 +355,8 @@ int services_listen(struct service_list *service_list)
 	return ret;
 }
 
-static int listener_equals(const struct service_listener *l1,
-			   const struct service_listener *l2)
+static bool listener_equals(const struct service_listener *l1,
+			    const struct service_listener *l2)
 {
 	if (l1->type != l2->type)
 		return FALSE;

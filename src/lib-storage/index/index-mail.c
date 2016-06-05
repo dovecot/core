@@ -168,7 +168,7 @@ static bool index_mail_get_fixed_field(struct index_mail *mail,
 {
 	const unsigned int field_idx = mail->ibox->cache_fields[field].idx;
 	buffer_t buf;
-	int ret;
+	bool ret;
 
 	buffer_create_from_data(&buf, data, data_size);
 	if (index_mail_cache_lookup_field(mail, &buf, field_idx) <= 0)

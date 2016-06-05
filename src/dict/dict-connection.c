@@ -141,7 +141,7 @@ static void dict_connection_input(struct dict_connection *conn)
 			dict_connection_destroy(conn);
 			return;
 		}
-		if (dict_connection_dict_init(conn)) {
+		if (dict_connection_dict_init(conn) < 0) {
 			dict_connection_destroy(conn);
 			return;
 		}
