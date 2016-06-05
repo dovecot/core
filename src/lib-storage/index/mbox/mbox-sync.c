@@ -436,7 +436,7 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 					MODIFY_REPLACE, mbox_flags);
 		mbox_sync_update_index_keywords(mail_ctx);
 
-		if (sync_ctx->mbox->mbox_save_md5 != 0) {
+		if (sync_ctx->mbox->mbox_save_md5) {
 			mail_index_update_ext(sync_ctx->t, sync_ctx->idx_seq,
 				sync_ctx->mbox->md5hdr_ext_idx,
 				mail_ctx->hdr_md5_sum, NULL);
@@ -466,7 +466,7 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 			mbox_sync_update_index_keywords(mail_ctx);
 
 		/* see if we need to update md5 sum. */
-		if (sync_ctx->mbox->mbox_save_md5 != 0)
+		if (sync_ctx->mbox->mbox_save_md5)
 			mbox_sync_update_md5_if_changed(mail_ctx);
 	}
 

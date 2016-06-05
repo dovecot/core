@@ -132,7 +132,7 @@ mech_skey_auth_phase2(struct auth_request *auth_request,
 	} else {
 		const char *words = t_strndup(data, data_size);
 
-		ret = otp_parse_response(words, hash, 0);
+		ret = otp_parse_response(words, hash, FALSE);
 		if (ret < 0) {
 			auth_request_log_error(&request->auth_request, AUTH_SUBSYS_MECH,
 					       "invalid response");

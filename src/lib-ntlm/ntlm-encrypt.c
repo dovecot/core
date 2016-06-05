@@ -53,7 +53,7 @@ void lm_hash(const char *passwd, unsigned char hash[LM_HASH_SIZE])
 void ntlm_v1_hash(const char *passwd, unsigned char hash[NTLMSSP_HASH_SIZE])
 {
 	size_t len;
-	void *wpwd = t_unicode_str(passwd, 0, &len);
+	void *wpwd = t_unicode_str(passwd, FALSE, &len);
 
 	md4_get_digest(wpwd, len, hash);
 
@@ -64,7 +64,7 @@ static void
 hmac_md5_ucs2le_string_ucase(struct hmac_context *ctx, const char *str)
 {
 	size_t len;
-	unsigned char *wstr = t_unicode_str(str, 1, &len);
+	unsigned char *wstr = t_unicode_str(str, TRUE, &len);
 
 	hmac_update(ctx, wstr, len);
 }

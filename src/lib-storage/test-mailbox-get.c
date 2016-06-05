@@ -122,8 +122,8 @@ static void test_mailbox_get_expunges(void)
 
 	t_array_init(&expunges, 32);
 	modseq = 98ULL << 32;
-	test_assert(mailbox_get_expunges(box, modseq, &uids_filter,
-					 &expunges) == 0);
+	test_assert(!mailbox_get_expunges(box, modseq, &uids_filter,
+					  &expunges));
 
 	exp = array_get(&expunges, &count);
 	test_assert(count == 5);
