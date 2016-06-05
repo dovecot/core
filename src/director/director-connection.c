@@ -927,6 +927,11 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 
 			str_printfa(str, "director(%s): Host %s is being updated before previous update had finished (",
 				  conn->name, net_ip2addr(&host->ip));
+			if (host->down != down &&
+			    host->last_updown_change > last_updown_change) {
+				/* our host has a newer change. preserve it. */
+				down = host->down;
+			}
 			if (host->down != down) {
 				if (host->down)
 					str_append(str, "down -> up");
@@ -942,10 +947,6 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			str_append(str, ") - ");
 
 			vhost_count = I_MIN(vhost_count, host->vhost_count);
-			if (host->down != down) {
-				if (host->last_updown_change <= last_updown_change)
-					down = host->last_updown_change;
-			}
 			last_updown_change = I_MAX(last_updown_change,
 						   host->last_updown_change);
 			str_printfa(str, "setting to state=%s vhosts=%u",
