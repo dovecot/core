@@ -162,6 +162,10 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 		str_truncate(ctx->parser.last_comment, 0);
 
 	ret = parse_local_part(ctx);
+	if (ret <= 0) {
+		/* end of input or parsing local-part failed */
+		ctx->addr.invalid_syntax = TRUE;
+	}
 	if (ret != 0 && *ctx->parser.data == '@') {
 		ret2 = parse_domain(ctx);
 		if (ret2 <= 0)
