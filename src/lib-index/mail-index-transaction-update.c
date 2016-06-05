@@ -744,18 +744,19 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 			   uint32_t hdr_size, uint16_t record_size,
 			   uint16_t record_align)
 {
+	const struct mail_index_registered_ext *rext;
+	const struct mail_transaction_ext_intro *resizes;
+	unsigned int resizes_count;
 	struct mail_transaction_ext_intro intro;
-	uint32_t old_record_size, old_record_align, old_header_size;
+	uint32_t old_record_size = 0, old_record_align, old_header_size;
 
 	memset(&intro, 0, sizeof(intro));
+	rext = array_idx(&t->view->index->extensions, ext_id);
 
 	/* get ext_id from transaction's map if it's there */
 	if (!mail_index_map_get_ext_idx(t->view->map, ext_id, &intro.ext_id)) {
 		/* have to create it */
-		const struct mail_index_registered_ext *rext;
-
 		intro.ext_id = (uint32_t)-1;
-		rext = array_idx(&t->view->index->extensions, ext_id);
 		old_record_size = rext->record_size;
 		old_record_align = rext->record_align;
 		old_header_size = rext->hdr_size;
@@ -763,9 +764,25 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 		const struct mail_index_ext *ext;
 
 		ext = array_idx(&t->view->map->extensions, intro.ext_id);
-		old_record_size = ext->record_size;
 		old_record_align = ext->record_align;
 		old_header_size = ext->hdr_size;
+	}
+
+	/* get the record size. if there are any existing record updates,
+	   they're using the registered size, not the map's existing
+	   record_size. */
+	if (array_is_created(&t->ext_resizes))
+		resizes = array_get(&t->ext_resizes, &resizes_count);
+	else {
+		resizes = NULL;
+		resizes_count = 0;
+	}
+	if (ext_id < resizes_count && resizes[ext_id].name_size != 0) {
+		/* already resized once. use the resized value. */
+		old_record_size = resizes[ext_id].record_size;
+	} else {
+		/* use the registered values. */
+		record_size = rext->record_size;
 	}
 
 	if (record_size != old_record_size) {
