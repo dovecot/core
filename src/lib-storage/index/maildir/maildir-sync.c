@@ -226,9 +226,9 @@ struct maildir_sync_context {
 	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
 	struct maildir_index_sync_context *index_sync_ctx;
 
-	unsigned int partial:1;
-	unsigned int locked:1;
-	unsigned int racing:1;
+	bool partial:1;
+	bool locked:1;
+	bool racing:1;
 };
 
 void maildir_sync_set_racing(struct maildir_sync_context *ctx)

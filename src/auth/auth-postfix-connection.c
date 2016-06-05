@@ -29,7 +29,7 @@ struct auth_postfix_connection {
 	struct ostream *output;
 	struct io *io;
 
-	unsigned int destroyed:1;
+	bool destroyed:1;
 };
 
 static void postfix_input(struct auth_postfix_connection *conn);

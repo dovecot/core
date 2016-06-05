@@ -38,10 +38,10 @@ struct db_passwd_file {
 	HASH_TABLE(char *, struct passwd_file *) files;
         struct passwd_file *default_file;
 
-	unsigned int vars:1;
-	unsigned int userdb:1;
-	unsigned int userdb_warn_missing:1;
-	unsigned int debug:1;
+	bool vars:1;
+	bool userdb:1;
+	bool userdb_warn_missing:1;
+	bool debug:1;
 };
 
 struct passwd_user *

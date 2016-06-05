@@ -37,11 +37,11 @@ struct ostream_private {
 	stream_flush_callback_t *callback;
 	void *context;
 
-	unsigned int corked:1;
-	unsigned int closing:1;
-	unsigned int last_errors_not_checked:1;
-	unsigned int error_handling_disabled:1;
-	unsigned int noverflow:1;
+	bool corked:1;
+	bool closing:1;
+	bool last_errors_not_checked:1;
+	bool error_handling_disabled:1;
+	bool noverflow:1;
 };
 
 struct ostream *

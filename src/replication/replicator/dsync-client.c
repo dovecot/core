@@ -30,8 +30,8 @@ struct dsync_client {
 	void *context;
 
 	time_t last_connect_failure;
-	unsigned int handshaked:1;
-	unsigned int cmd_sent:1;
+	bool handshaked:1;
+	bool cmd_sent:1;
 };
 
 struct dsync_client *

@@ -21,7 +21,7 @@ struct imap_urlauth_client {
 
 	const struct imap_urlauth_login_settings *set;
 
-	unsigned int version_received:1;
+	bool version_received:1;
 };
 
 static void

@@ -26,9 +26,9 @@ struct quota_settings {
 			  uoff_t size, bool *too_large_r);
 
 	const char *quota_exceeded_msg;
-	unsigned int debug:1;
-	unsigned int initialized:1;
-	unsigned int vsizes:1;
+	bool debug:1;
+	bool initialized:1;
+	bool vsizes:1;
 };
 
 struct quota_rule {
@@ -39,13 +39,13 @@ struct quota_rule {
 	int bytes_percent, count_percent;
 
 	/* Don't include this mailbox in quota */
-	unsigned int ignore:1;
+	bool ignore:1;
 };
 
 struct quota_warning_rule {
 	struct quota_rule rule;
 	const char *command;
-	unsigned int reverse:1;
+	bool reverse:1;
 };
 
 struct quota_backend_vfuncs {
@@ -100,7 +100,7 @@ struct quota_root_settings {
 	struct quota_rule grace_rule;
 
 	/* Limits in default_rule override backend's quota limits */
-	unsigned int force_default_rule:1;
+	bool force_default_rule:1;
 };
 
 struct quota_root {
@@ -136,22 +136,22 @@ struct quota_root {
 	const char *quota_over_flag;
 
 	/* don't enforce quota when saving */
-	unsigned int no_enforcing:1;
+	bool no_enforcing:1;
 	/* quota is automatically updated. update() should be called but the
 	   bytes/count won't be used. */
-	unsigned int auto_updating:1;
+	bool auto_updating:1;
 	/* If user has unlimited quota, disable quota tracking */
-	unsigned int disable_unlimited_tracking:1;
+	bool disable_unlimited_tracking:1;
 	/* Set while quota is being recalculated to avoid recursion. */
-	unsigned int recounting:1;
+	bool recounting:1;
 	/* Quota root is hidden (to e.g. IMAP GETQUOTAROOT) */
-	unsigned int hidden:1;
+	bool hidden:1;
 	/* Is quota_over_flag* initialized yet? */
-	unsigned int quota_over_flag_initialized:1;
+	bool quota_over_flag_initialized:1;
 	/* Is user currently over quota? */
-	unsigned int quota_over_flag_status:1;
+	bool quota_over_flag_status:1;
 	/* Did we already check quota_over_flag correctness? */
-	unsigned int quota_over_flag_checked:1;
+	bool quota_over_flag_checked:1;
 };
 
 struct quota_transaction_context {
@@ -177,11 +177,11 @@ struct quota_transaction_context {
 	struct mail *tmp_mail;
 	enum quota_recalculate recalculate;
 
-	unsigned int limits_set:1;
-	unsigned int failed:1;
-	unsigned int sync_transaction:1;
+	bool limits_set:1;
+	bool failed:1;
+	bool sync_transaction:1;
 	/* TRUE if all roots have auto_updating=TRUE */
-	unsigned int auto_updating:1;
+	bool auto_updating:1;
 };
 
 /* Register storage to all user's quota roots. */

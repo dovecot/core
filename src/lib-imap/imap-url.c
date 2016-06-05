@@ -121,7 +121,7 @@ struct imap_url_parser {
 	struct imap_url *url;
 	const struct imap_url *base;
 
-	unsigned int relative:1;
+	bool relative:1;
 };
 
 static int

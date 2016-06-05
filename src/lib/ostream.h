@@ -35,10 +35,10 @@ struct ostream {
 	/* overflow is set when some of the data given to send()
 	   functions was neither sent nor buffered. It's never unset inside
 	   ostream code. */
-	unsigned int overflow:1;
+	bool overflow:1;
 	/* o_stream_send() writes all the data or returns failure */
-	unsigned int blocking:1;
-	unsigned int closed:1;
+	bool blocking:1;
+	bool closed:1;
 
 	struct ostream_private *real_stream;
 };

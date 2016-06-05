@@ -47,7 +47,7 @@ struct digest_auth_request {
 	char *authzid; /* may be NULL, authorization ID */
 	unsigned char response[32];
 	unsigned long maxbuf;
-	unsigned int nonce_found:1;
+	bool nonce_found:1;
 
 	/* final reply: */
 	char *rspauth;

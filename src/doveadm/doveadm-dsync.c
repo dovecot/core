@@ -90,19 +90,19 @@ struct dsync_cmd_context {
 
 	unsigned int lock_timeout;
 
-	unsigned int lock:1;
-	unsigned int purge_remote:1;
-	unsigned int sync_visible_namespaces:1;
-	unsigned int default_replica_location:1;
-	unsigned int oneway:1;
-	unsigned int backup:1;
-	unsigned int reverse_backup:1;
-	unsigned int remote_user_prefix:1;
-	unsigned int no_mail_sync:1;
-	unsigned int no_mailbox_renames:1;
-	unsigned int local_location_from_arg:1;
-	unsigned int replicator_notify:1;
-	unsigned int exited:1;
+	bool lock:1;
+	bool purge_remote:1;
+	bool sync_visible_namespaces:1;
+	bool default_replica_location:1;
+	bool oneway:1;
+	bool backup:1;
+	bool reverse_backup:1;
+	bool remote_user_prefix:1;
+	bool no_mail_sync:1;
+	bool no_mailbox_renames:1;
+	bool local_location_from_arg:1;
+	bool replicator_notify:1;
+	bool exited:1;
 };
 
 static bool legacy_dsync = FALSE;

@@ -30,12 +30,12 @@ struct zlib_istream {
 	uint32_t crc32;
 	struct stat last_parent_statbuf;
 
-	unsigned int gz:1;
-	unsigned int log_errors:1;
-	unsigned int marked:1;
-	unsigned int header_read:1;
-	unsigned int trailer_read:1;
-	unsigned int zs_closed:1;
+	bool gz:1;
+	bool log_errors:1;
+	bool marked:1;
+	bool header_read:1;
+	bool trailer_read:1;
+	bool zs_closed:1;
 };
 
 static void i_stream_zlib_init(struct zlib_istream *zstream);

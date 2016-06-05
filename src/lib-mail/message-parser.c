@@ -19,7 +19,7 @@ struct message_boundary {
 	const char *boundary;
 	size_t len;
 
-	unsigned int epilogue_found:1;
+	bool epilogue_found:1;
 };
 
 struct message_parser_ctx {
@@ -44,10 +44,10 @@ struct message_parser_ctx {
 	int (*parse_next_block)(struct message_parser_ctx *ctx,
 				struct message_block *block_r);
 
-	unsigned int part_seen_content_type:1;
-	unsigned int multipart:1;
-	unsigned int preparsed:1;
-	unsigned int eof:1;
+	bool part_seen_content_type:1;
+	bool multipart:1;
+	bool preparsed:1;
+	bool eof:1;
 };
 
 message_part_header_callback_t *null_message_part_header_callback = NULL;

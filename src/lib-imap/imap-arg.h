@@ -57,7 +57,7 @@ struct imap_arg {
 		uoff_t literal_size;
 		ARRAY_TYPE(imap_arg_list) list;
 	} _data;
-	unsigned int literal8:1; /* BINARY literal8 used */
+	bool literal8:1; /* BINARY literal8 used */
 };
 
 /* RFC 3501's astring type. Note that this doesn't return TRUE for

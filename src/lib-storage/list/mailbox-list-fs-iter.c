@@ -48,9 +48,9 @@ struct fs_list_iterate_context {
 	/* current directory we're handling */
 	struct list_dir_context *dir;
 
-	unsigned int inbox_found:1;
-	unsigned int inbox_has_children:1;
-	unsigned int list_inbox_inbox:1;
+	bool inbox_found:1;
+	bool inbox_has_children:1;
+	bool list_inbox_inbox:1;
 };
 
 static int

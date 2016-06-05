@@ -38,7 +38,7 @@ struct chkpw_auth_request {
 	unsigned int output_pos, output_len;
 
 	int exit_status;
-	unsigned int exited:1;
+	bool exited:1;
 };
 
 struct db_checkpassword {

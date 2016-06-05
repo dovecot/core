@@ -16,8 +16,8 @@ struct cmd_idle_context {
 	struct imap_sync_context *sync_ctx;
 	struct timeout *keepalive_to, *to_hibernate;
 
-	unsigned int manual_cork:1;
-	unsigned int sync_pending:1;
+	bool manual_cork:1;
+	bool sync_pending:1;
 };
 
 static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx);

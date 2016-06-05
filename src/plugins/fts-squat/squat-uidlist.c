@@ -27,7 +27,7 @@
 
 struct uidlist_list {
 	unsigned int uid_count:31;
-	unsigned int uid_begins_with_pointer:1;
+	bool uid_begins_with_pointer:1;
 	uint32_t uid_list[UIDLIST_LIST_SIZE];
 };
 
@@ -54,8 +54,8 @@ struct squat_uidlist {
 	const uint32_t *cur_block_end_indexes;
 
 	size_t max_size;
-	unsigned int corrupted:1;
-	unsigned int building:1;
+	bool corrupted:1;
+	bool building:1;
 };
 
 struct squat_uidlist_build_context {
@@ -69,7 +69,7 @@ struct squat_uidlist_build_context {
 	uint32_t list_start_idx;
 
 	struct squat_uidlist_file_header build_hdr;
-	unsigned int need_reopen:1;
+	bool need_reopen:1;
 };
 
 struct squat_uidlist_rebuild_context {

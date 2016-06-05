@@ -26,8 +26,8 @@ struct imap_urlauth_fetch_reply {
 	const char *bodypartstruct;
 	const char *error;
 
-	unsigned int succeeded:1;
-	unsigned int binary_has_nuls:1;
+	bool succeeded:1;
+	bool binary_has_nuls:1;
 };
 
 /* Callback to handle fetch reply. Returns 1 if handled completely and ready

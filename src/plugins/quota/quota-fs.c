@@ -73,9 +73,9 @@ struct fs_quota_root {
 	gid_t gid;
 	struct fs_quota_mountpoint *mount;
 
-	unsigned int inode_per_mail:1;
-	unsigned int user_disabled:1;
-	unsigned int group_disabled:1;
+	bool inode_per_mail:1;
+	bool user_disabled:1;
+	bool group_disabled:1;
 #ifdef FS_QUOTA_NETBSD
 	struct quotahandle *qh;
 #endif

@@ -25,11 +25,11 @@ struct mail_thread_root_node {
 	uint32_t parent_root_idx1;
 
 	/* subject contained a Re: or Fwd: */
-	unsigned int reply_or_forward:1;
+	bool reply_or_forward:1;
 	/* a dummy node */
-	unsigned int dummy:1;
+	bool dummy:1;
 	/* ignore this node - it's a dummy without children */
-	unsigned int ignore:1;
+	bool ignore:1;
 };
 
 struct thread_finish_context {
@@ -42,8 +42,8 @@ struct thread_finish_context {
 	ARRAY(struct mail_thread_shadow_node) shadow_nodes;
 	unsigned int next_new_root_idx;
 
-	unsigned int use_sent_date:1;
-	unsigned int return_seqs:1;
+	bool use_sent_date:1;
+	bool return_seqs:1;
 };
 
 struct mail_thread_iterate_context {

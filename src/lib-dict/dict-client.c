@@ -50,8 +50,8 @@ struct client_dict {
 	unsigned int async_commits;
 	unsigned int iter_replies_skip;
 
-	unsigned int in_iteration:1;
-	unsigned int handshaked:1;
+	bool in_iteration:1;
+	bool handshaked:1;
 };
 
 struct client_dict_iterate_context {
@@ -75,9 +75,9 @@ struct client_dict_transaction_context {
 	unsigned int id;
 	unsigned int connect_counter;
 
-	unsigned int sent_begin:1;
-	unsigned int async:1;
-	unsigned int committed:1;
+	bool sent_begin:1;
+	bool async:1;
+	bool committed:1;
 };
 
 static int client_dict_connect(struct client_dict *dict, const char **error_r);

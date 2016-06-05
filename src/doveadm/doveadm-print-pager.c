@@ -14,8 +14,8 @@ struct doveadm_print_pager_context {
 	ARRAY(struct doveadm_print_pager_header) headers;
 	unsigned int header_idx;
 
-	unsigned int streaming:1;
-	unsigned int first_page:1;
+	bool streaming:1;
+	bool first_page:1;
 };
 
 static struct doveadm_print_pager_context *ctx;

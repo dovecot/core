@@ -32,8 +32,8 @@ struct auth_request_handler {
 
 	auth_master_request_callback_t *master_callback;
 
-	unsigned int destroyed:1;
-	unsigned int token_auth:1;
+	bool destroyed:1;
+	bool token_auth:1;
 };
 
 static ARRAY(struct auth_request *) auth_failures_arr;

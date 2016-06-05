@@ -31,12 +31,12 @@ struct message_header_line {
 
 	uoff_t name_offset, full_value_offset;
 
-	unsigned int continues:1; /* multiline header, continues in next line */
-	unsigned int continued:1; /* multiline header, continues */
-	unsigned int eoh:1; /* "end of headers" line */
-	unsigned int no_newline:1; /* no \n after this line */
-	unsigned int crlf_newline:1; /* newline was \r\n */
-	unsigned int use_full_value:1; /* set if you want full_value */
+	bool continues:1; /* multiline header, continues in next line */
+	bool continued:1; /* multiline header, continues */
+	bool eoh:1; /* "end of headers" line */
+	bool no_newline:1; /* no \n after this line */
+	bool crlf_newline:1; /* newline was \r\n */
+	bool use_full_value:1; /* set if you want full_value */
 };
 
 /* called once with hdr = NULL at the end of headers */

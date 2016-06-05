@@ -24,7 +24,7 @@
 struct msg_map_common {
 	/* sha1(header) - set only when needed */
 	unsigned char hdr_sha1[SHA1_RESULTLEN];
-	unsigned int hdr_sha1_set:1;
+	bool hdr_sha1_set:1;
 };
 
 struct pop3_uidl_map {
@@ -53,10 +53,10 @@ struct pop3_migration_mail_storage {
 	const char *pop3_box_vname;
 	ARRAY(struct pop3_uidl_map) pop3_uidl_map;
 
-	unsigned int all_mailboxes:1;
-	unsigned int pop3_all_hdr_sha1_set:1;
-	unsigned int ignore_missing_uidls:1;
-	unsigned int skip_size_check:1;
+	bool all_mailboxes:1;
+	bool pop3_all_hdr_sha1_set:1;
+	bool ignore_missing_uidls:1;
+	bool skip_size_check:1;
 };
 
 struct pop3_migration_mailbox {
@@ -67,10 +67,10 @@ struct pop3_migration_mailbox {
 
 	struct mail_cache_field cache_field;
 
-	unsigned int cache_field_registered:1;
-	unsigned int uidl_synced:1;
-	unsigned int uidl_sync_failed:1;
-	unsigned int uidl_ordered:1;
+	bool cache_field_registered:1;
+	bool uidl_synced:1;
+	bool uidl_sync_failed:1;
+	bool uidl_ordered:1;
 };
 
 /* NOTE: these headers must be sorted */

@@ -96,12 +96,12 @@ struct client {
 	/* Module-specific contexts. */
 	ARRAY(union pop3_module_context *) module_contexts;
 
-	unsigned int disconnected:1;
-	unsigned int deleted:1;
-	unsigned int waiting_input:1;
-	unsigned int anvil_sent:1;
-	unsigned int message_uidls_save:1;
-	unsigned int delete_success:1;
+	bool disconnected:1;
+	bool deleted:1;
+	bool waiting_input:1;
+	bool anvil_sent:1;
+	bool message_uidls_save:1;
+	bool delete_success:1;
 };
 
 struct pop3_module_register {

@@ -27,8 +27,8 @@ struct config_connection {
 	struct ostream *output;
 	struct io *io;
 
-	unsigned int version_received:1;
-	unsigned int handshaked:1;
+	bool version_received:1;
+	bool handshaked:1;
 };
 
 static struct config_connection *config_connections = NULL;

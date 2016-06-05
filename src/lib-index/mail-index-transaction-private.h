@@ -81,25 +81,25 @@ struct mail_index_transaction {
 	/* Module-specific contexts. */
 	ARRAY(union mail_index_transaction_module_context *) module_contexts;
 
-	unsigned int no_appends:1;
+	bool no_appends:1;
 
-	unsigned int sync_transaction:1;
-	unsigned int appends_nonsorted:1;
-	unsigned int expunges_nonsorted:1;
-	unsigned int drop_unnecessary_flag_updates:1;
-	unsigned int pre_hdr_changed:1;
-	unsigned int post_hdr_changed:1;
-	unsigned int reset:1;
-	unsigned int index_deleted:1;
-	unsigned int index_undeleted:1;
-	unsigned int commit_deleted_index:1;
-	unsigned int tail_offset_changed:1;
+	bool sync_transaction:1;
+	bool appends_nonsorted:1;
+	bool expunges_nonsorted:1;
+	bool drop_unnecessary_flag_updates:1;
+	bool pre_hdr_changed:1;
+	bool post_hdr_changed:1;
+	bool reset:1;
+	bool index_deleted:1;
+	bool index_undeleted:1;
+	bool commit_deleted_index:1;
+	bool tail_offset_changed:1;
 	/* non-extension updates. flag updates don't change this because
 	   they may be added and removed, so be sure to check that the updates
 	   array is non-empty also. */
-	unsigned int log_updates:1;
+	bool log_updates:1;
 	/* extension updates */
-	unsigned int log_ext_updates:1;
+	bool log_ext_updates:1;
 };
 
 #define MAIL_INDEX_TRANSACTION_HAS_CHANGES(t) \

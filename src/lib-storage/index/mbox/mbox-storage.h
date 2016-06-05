@@ -34,7 +34,7 @@ struct mbox_storage {
 	const struct mbox_settings *set;
 	enum mbox_lock_type *read_locks;
 	enum mbox_lock_type *write_locks;
-	unsigned int lock_settings_initialized:1;
+	bool lock_settings_initialized:1;
 };
 
 struct mbox_mailbox {
@@ -59,16 +59,16 @@ struct mbox_mailbox {
 
 	struct mbox_md5_vfuncs md5_v;
 
-	unsigned int no_mbox_file:1;
-	unsigned int invalid_mbox_file:1;
-	unsigned int mbox_broken_offsets:1;
-	unsigned int mbox_save_md5:1;
-	unsigned int mbox_dotlocked:1;
-	unsigned int mbox_used_privileges:1;
-	unsigned int mbox_privileged_locking:1;
-	unsigned int syncing:1;
-	unsigned int backend_readonly:1;
-	unsigned int backend_readonly_set:1;
+	bool no_mbox_file:1;
+	bool invalid_mbox_file:1;
+	bool mbox_broken_offsets:1;
+	bool mbox_save_md5:1;
+	bool mbox_dotlocked:1;
+	bool mbox_used_privileges:1;
+	bool mbox_privileged_locking:1;
+	bool syncing:1;
+	bool backend_readonly:1;
+	bool backend_readonly_set:1;
 };
 
 struct mbox_transaction_context {

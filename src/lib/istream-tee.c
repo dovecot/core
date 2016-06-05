@@ -17,7 +17,7 @@ struct tee_child_istream {
 	struct tee_istream *tee;
 	struct tee_child_istream *next;
 
-	unsigned int last_read_waiting:1;
+	bool last_read_waiting:1;
 };
 
 static void tee_streams_update_buffer(struct tee_istream *tee)

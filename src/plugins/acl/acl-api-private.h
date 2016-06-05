@@ -57,8 +57,8 @@ struct acl_backend {
 
 	struct acl_backend_vfuncs v;
 
-	unsigned int owner:1;
-	unsigned int debug:1;
+	bool owner:1;
+	bool debug:1;
 };
 
 struct acl_mailbox_list_context {
@@ -79,7 +79,7 @@ struct acl_object_list_iter {
 
 	struct acl_rights *rights;
 	unsigned int idx, count;
-	unsigned int failed:1;
+	bool failed:1;
 };
 
 extern const char *const all_mailbox_rights[];

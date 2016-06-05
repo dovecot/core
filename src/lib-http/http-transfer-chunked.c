@@ -47,7 +47,7 @@ struct http_transfer_chunked_istream {
 
 	struct http_header_parser *header_parser;
 
-	unsigned int finished:1;
+	bool finished:1;
 };
 
 /* Chunk parser */
@@ -533,7 +533,7 @@ struct http_transfer_chunked_ostream {
 
 	size_t chunk_size, chunk_pos;
 
-	unsigned int chunk_active:1;
+	bool chunk_active:1;
 };
 
 static size_t _log16(size_t in)

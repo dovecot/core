@@ -51,9 +51,9 @@ struct server_connection {
 
 	enum server_reply_state state;
 
-	unsigned int handshaked:1;
-	unsigned int authenticated:1;
-	unsigned int streaming:1;
+	bool handshaked:1;
+	bool authenticated:1;
+	bool streaming:1;
 };
 
 static struct server_connection *printing_conn = NULL;

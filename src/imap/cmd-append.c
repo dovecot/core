@@ -41,10 +41,10 @@ struct cmd_append_context {
 	struct mail_save_context *save_ctx;
 	unsigned int count;
 
-	unsigned int message_input:1;
-	unsigned int binary_input:1;
-	unsigned int catenate:1;
-	unsigned int failed:1;
+	bool message_input:1;
+	bool binary_input:1;
+	bool catenate:1;
+	bool failed:1;
 };
 
 static void cmd_append_finish(struct cmd_append_context *ctx);

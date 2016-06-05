@@ -33,8 +33,8 @@ struct quota_mailbox {
 	ARRAY(uoff_t) expunge_sizes;
 	unsigned int prev_idx;
 
-	unsigned int recalculate:1;
-	unsigned int sync_transaction_expunge:1;
+	bool recalculate:1;
+	bool sync_transaction_expunge:1;
 };
 
 struct quota_user_module quota_user_module =

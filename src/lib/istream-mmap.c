@@ -17,7 +17,7 @@ struct mmap_istream {
 	off_t mmap_offset;
 	uoff_t v_size;
 
-	unsigned int autoclose_fd:1;
+	bool autoclose_fd:1;
 };
 
 static size_t mmap_pagemask = 0;

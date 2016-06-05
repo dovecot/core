@@ -74,13 +74,13 @@ struct ssl_proxy {
 
 	const char *cert_error;
 	char *last_error;
-	unsigned int handshaked:1;
-	unsigned int destroyed:1;
-	unsigned int cert_received:1;
-	unsigned int cert_broken:1;
-	unsigned int client_proxy:1;
-	unsigned int flushing:1;
-	unsigned int failed:1;
+	bool handshaked:1;
+	bool destroyed:1;
+	bool cert_received:1;
+	bool cert_broken:1;
+	bool client_proxy:1;
+	bool flushing:1;
+	bool failed:1;
 };
 
 struct ssl_parameters {

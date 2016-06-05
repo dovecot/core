@@ -20,7 +20,7 @@ struct mail_host {
 	struct mail_tag *tag;
 
 	/* host was recently changed and ring hasn't synced yet since */
-	unsigned int desynced:1;
+	bool desynced:1;
 };
 ARRAY_DEFINE_TYPE(mail_host, struct mail_host *);
 

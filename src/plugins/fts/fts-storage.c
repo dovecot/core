@@ -48,16 +48,16 @@ struct fts_transaction_context {
 	uint32_t next_index_seq;
 	uint32_t highest_virtual_uid;
 
-	unsigned int precached:1;
-	unsigned int mails_saved:1;
-	unsigned int failed:1;
+	bool precached:1;
+	bool mails_saved:1;
+	bool failed:1;
 };
 
 struct fts_mail {
 	union mail_module_context module_ctx;
 	char score[30];
 
-	unsigned int virtual_mail:1;
+	bool virtual_mail:1;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_storage_module,

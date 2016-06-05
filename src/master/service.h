@@ -110,15 +110,15 @@ struct service {
 	time_t last_drop_warning;
 
 	/* all processes are in use and new connections are coming */
-	unsigned int listen_pending:1;
+	bool listen_pending:1;
 	/* service is currently listening for new connections */
-	unsigned int listening:1;
+	bool listening:1;
 	/* TRUE if service has at least one inet_listener */
-	unsigned int have_inet_listeners:1;
+	bool have_inet_listeners:1;
 	/* service_login_notify()'s last notification state */
-	unsigned int last_login_full_notify:1;
+	bool last_login_full_notify:1;
 	/* service has exited at least once with exit code 0 */
-	unsigned int have_successful_exits:1;
+	bool have_successful_exits:1;
 };
 
 struct service_list {
@@ -143,10 +143,10 @@ struct service_list {
 
 	ARRAY(struct service *) services;
 
-	unsigned int destroying:1;
-	unsigned int destroyed:1;
-	unsigned int sigterm_sent:1;
-	unsigned int sigterm_sent_to_log:1;
+	bool destroying:1;
+	bool destroyed:1;
+	bool sigterm_sent:1;
+	bool sigterm_sent_to_log:1;
 };
 
 HASH_TABLE_DEFINE_TYPE(pid_process, void *, struct service_process *);

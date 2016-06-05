@@ -48,11 +48,11 @@ struct auth_worker_connection {
 	struct auth_worker_request *request;
 	unsigned int id_counter;
 
-	unsigned int received_error:1;
-	unsigned int restart:1;
-	unsigned int shutdown:1;
-	unsigned int timeout_pending_resume:1;
-	unsigned int resuming:1;
+	bool received_error:1;
+	bool restart:1;
+	bool shutdown:1;
+	bool timeout_pending_resume:1;
+	bool resuming:1;
 };
 
 static ARRAY(struct auth_worker_connection *) connections = ARRAY_INIT;

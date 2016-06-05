@@ -31,8 +31,8 @@ struct director_host {
 	time_t last_network_failure;
 	time_t last_protocol_failure;
 	/* we are this director */
-	unsigned int self:1;
-	unsigned int removed:1;
+	bool self:1;
+	bool removed:1;
 };
 
 struct director_host *

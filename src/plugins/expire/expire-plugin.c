@@ -45,8 +45,8 @@ struct expire_mailbox {
 struct expire_transaction_context {
 	union mailbox_transaction_module_context module_ctx;
 
-	unsigned int saves:1;
-	unsigned int first_expunged:1;
+	bool saves:1;
+	bool first_expunged:1;
 };
 
 const char *expire_plugin_version = DOVECOT_ABI_VERSION;

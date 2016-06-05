@@ -44,7 +44,7 @@ struct imap_msgpart {
 	/* which part of the message part to fetch (default: 0..(uoff_t)-1) */
 	uoff_t partial_offset, partial_size;
 
-	unsigned int decode_cte_to_binary:1;
+	bool decode_cte_to_binary:1;
 };
 
 struct imap_msgpart_open_ctx {

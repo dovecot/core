@@ -90,11 +90,11 @@ struct director {
 
 	/* director ring handshaking is complete.
 	   director can start serving clients. */
-	unsigned int ring_handshaked:1;
-	unsigned int ring_handshake_warning_sent:1;
-	unsigned int ring_synced:1;
-	unsigned int sync_frozen:1;
-	unsigned int sync_pending:1;
+	bool ring_handshaked:1;
+	bool ring_handshake_warning_sent:1;
+	bool ring_synced:1;
+	bool sync_frozen:1;
+	bool sync_pending:1;
 };
 
 extern bool director_debug;

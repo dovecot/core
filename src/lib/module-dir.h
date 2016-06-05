@@ -18,13 +18,13 @@ struct module_dir_load_settings {
 	void *filter_context;
 
 	/* Require all plugins to have <plugin_name>_init() function */
-	unsigned int require_init_funcs:1;
+	bool require_init_funcs:1;
 	/* Enable debug logging */
-	unsigned int debug:1;
+	bool debug:1;
 	/* If dlopen() fails for some modules, silently skip it. */
-	unsigned int ignore_dlopen_errors:1;
+	bool ignore_dlopen_errors:1;
 	/* Don't fail if some specified modules weren't found */
-	unsigned int ignore_missing:1;
+	bool ignore_missing:1;
 };
 
 struct module {
@@ -34,7 +34,7 @@ struct module {
 	void (*init)(struct module *module);
 	void (*deinit)(void);
 
-	unsigned int initialized:1;
+	bool initialized:1;
 
         struct module *next;
 };

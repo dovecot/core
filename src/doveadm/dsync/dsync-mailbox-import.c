@@ -39,11 +39,11 @@ struct importer_new_mail {
 	/* UID for the mail in the virtual \All mailbox */
 	uint32_t virtual_all_uid;
 
-	unsigned int uid_in_local:1;
-	unsigned int uid_is_usable:1;
-	unsigned int skip:1;
-	unsigned int expunged:1;
-	unsigned int copy_failed:1;
+	bool uid_in_local:1;
+	bool uid_is_usable:1;
+	bool skip:1;
+	bool expunged:1;
+	bool copy_failed:1;
 };
 
 /* for quickly testing that two-way sync doesn't actually do any unexpected
@@ -107,21 +107,21 @@ struct dsync_mailbox_importer {
 
 	enum mail_error mail_error;
 
-	unsigned int failed:1;
-	unsigned int require_full_resync:1;
-	unsigned int debug:1;
-	unsigned int stateful_import:1;
-	unsigned int last_common_uid_found:1;
-	unsigned int cur_uid_has_change:1;
-	unsigned int cur_mail_skip:1;
-	unsigned int local_expunged_guids_set:1;
-	unsigned int new_uids_assigned:1;
-	unsigned int want_mail_requests:1;
-	unsigned int master_brain:1;
-	unsigned int revert_local_changes:1;
-	unsigned int mails_have_guids:1;
-	unsigned int mails_use_guid128:1;
-	unsigned int delete_mailbox:1;
+	bool failed:1;
+	bool require_full_resync:1;
+	bool debug:1;
+	bool stateful_import:1;
+	bool last_common_uid_found:1;
+	bool cur_uid_has_change:1;
+	bool cur_mail_skip:1;
+	bool local_expunged_guids_set:1;
+	bool new_uids_assigned:1;
+	bool want_mail_requests:1;
+	bool master_brain:1;
+	bool revert_local_changes:1;
+	bool mails_have_guids:1;
+	bool mails_use_guid128:1;
+	bool delete_mailbox:1;
 };
 
 static const char *dsync_mail_change_type_names[] = {

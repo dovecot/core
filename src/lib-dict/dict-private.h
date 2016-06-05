@@ -53,13 +53,13 @@ struct dict_iterate_context {
 	dict_iterate_callback_t *async_callback;
 	void *async_context;
 
-	unsigned int has_more:1;
+	bool has_more:1;
 };
 
 struct dict_transaction_context {
 	struct dict *dict;
 
-	unsigned int changed:1;
+	bool changed:1;
 };
 
 extern struct dict dict_driver_client;

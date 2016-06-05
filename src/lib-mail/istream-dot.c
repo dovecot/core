@@ -12,13 +12,13 @@ struct dot_istream {
 	/* how far in string "\r\n.\r" are we */
 	unsigned int state;
 	/* state didn't actually start with \r */
-	unsigned int state_no_cr:1;
+	bool state_no_cr:1;
 	/* state didn't contain \n either (only at the beginnign of stream) */
-	unsigned int state_no_lf:1;
+	bool state_no_lf:1;
 	/* we've seen the "." line, keep returning EOF */
-	unsigned int dot_eof:1;
+	bool dot_eof:1;
 
-	unsigned int send_last_lf:1;
+	bool send_last_lf:1;
 };
 
 static int i_stream_dot_read_some(struct dot_istream *dstream)

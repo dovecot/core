@@ -26,15 +26,15 @@ struct pop3c_mailbox {
 	   the UID may not exist for the entire session */
 	uint32_t *msg_uids;
 
-	unsigned int logged_in:1;
+	bool logged_in:1;
 };
 
 struct pop3c_mail {
 	struct index_mail imail;
 	struct istream *prefetch_stream;
 
-	unsigned int prefetching:1;
-	unsigned int prefetching_body:1;
+	bool prefetching:1;
+	bool prefetching_body:1;
 };
 
 struct mail *

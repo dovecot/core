@@ -76,9 +76,9 @@ struct mail_transaction_log_file {
 	struct file_lock *file_lock;
 	time_t lock_created;
 
-	unsigned int locked:1;
-	unsigned int locked_sync_offset_updated:1;
-	unsigned int corrupted:1;
+	bool locked:1;
+	bool locked_sync_offset_updated:1;
+	bool corrupted:1;
 };
 
 struct mail_transaction_log {
@@ -97,8 +97,8 @@ struct mail_transaction_log {
 	unsigned int dotlock_count;
 	struct dotlock *dotlock;
 
-	unsigned int nfs_flush:1;
-	unsigned int log_2_unlink_checked:1;
+	bool nfs_flush:1;
+	bool log_2_unlink_checked:1;
 };
 
 void

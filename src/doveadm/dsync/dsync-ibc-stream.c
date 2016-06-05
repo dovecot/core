@@ -160,15 +160,15 @@ struct dsync_ibc_stream {
 	char value_output_last;
 
 	enum item_type last_recv_item, last_sent_item;
-	unsigned int last_recv_item_eol:1;
-	unsigned int last_sent_item_eol:1;
+	bool last_recv_item_eol:1;
+	bool last_sent_item_eol:1;
 
-	unsigned int version_received:1;
-	unsigned int handshake_received:1;
-	unsigned int has_pending_data:1;
-	unsigned int finish_received:1;
-	unsigned int done_received:1;
-	unsigned int stopped:1;
+	bool version_received:1;
+	bool handshake_received:1;
+	bool has_pending_data:1;
+	bool finish_received:1;
+	bool done_received:1;
+	bool stopped:1;
 };
 
 static const char *dsync_ibc_stream_get_state(struct dsync_ibc_stream *ibc)

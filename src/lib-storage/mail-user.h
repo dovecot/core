@@ -59,38 +59,38 @@ struct mail_user {
 
 	/* User doesn't exist (as reported by userdb lookup when looking
 	   up home) */
-	unsigned int nonexistent:1;
+	bool nonexistent:1;
 	/* Either home is set or there is no home for the user. */
-	unsigned int home_looked_up:1;
+	bool home_looked_up:1;
 	/* User is anonymous */
-	unsigned int anonymous:1;
+	bool anonymous:1;
 	/* This is an autocreated user (e.g. for shared namespace or
 	   lda raw storage) */
-	unsigned int autocreated:1;
+	bool autocreated:1;
 	/* mail_user_init() has been called */
-	unsigned int initialized:1;
+	bool initialized:1;
 	/* SET_STR_VARS in user's all settings have been expanded.
 	   This happens near the beginning of the user initialization,
 	   so this is rarely needed to be checked. */
-	unsigned int settings_expanded:1;
+	bool settings_expanded:1;
 	/* Shortcut to mail_storage_settings.mail_debug */
-	unsigned int mail_debug:1;
+	bool mail_debug:1;
 	/* If INBOX can't be opened, log an error, but only once. */
-	unsigned int inbox_open_error_logged:1;
+	bool inbox_open_error_logged:1;
 	/* Fuzzy search works for this user (FTS enabled) */
-	unsigned int fuzzy_search:1;
+	bool fuzzy_search:1;
 	/* We're running dsync */
-	unsigned int dsyncing:1;
+	bool dsyncing:1;
 	/* Failed to create attribute dict, don't try again */
-	unsigned int attr_dict_failed:1;
+	bool attr_dict_failed:1;
 	/* We're deinitializing the user */
-	unsigned int deinitializing:1;
+	bool deinitializing:1;
 	/* Enable administrator user commands for the user */
-	unsigned int admin:1;
+	bool admin:1;
 	/* Enable all statistics gathering */
-	unsigned int stats_enabled:1;
+	bool stats_enabled:1;
 	/* Enable autoexpunging at deinit. */
-	unsigned int autoexpunge_enabled:1;
+	bool autoexpunge_enabled:1;
 };
 
 struct mail_user_module_register {

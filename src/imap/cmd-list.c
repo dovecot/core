@@ -21,10 +21,10 @@ struct cmd_list_context {
 
 	struct mailbox_list_iterate_context *list_iter;
 
-	unsigned int lsub:1;
-	unsigned int lsub_no_unsubscribed:1;
-	unsigned int used_listext:1;
-	unsigned int used_status:1;
+	bool lsub:1;
+	bool lsub_no_unsubscribed:1;
+	bool used_listext:1;
+	bool used_status:1;
 };
 
 static void

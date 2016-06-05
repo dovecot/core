@@ -84,12 +84,12 @@ struct maildir_mailbox {
 	uint32_t maildir_ext_id;
 	uint32_t maildir_list_index_ext_id;
 
-	unsigned int synced:1;
-	unsigned int syncing_commit:1;
-	unsigned int private_flags_mask_set:1;
-	unsigned int backend_readonly:1;
-	unsigned int backend_readonly_set:1;
-	unsigned int sync_uidlist_refreshed:1;
+	bool synced:1;
+	bool syncing_commit:1;
+	bool private_flags_mask_set:1;
+	bool backend_readonly:1;
+	bool backend_readonly_set:1;
+	bool sync_uidlist_refreshed:1;
 };
 
 extern struct mail_vfuncs maildir_mail_vfuncs;

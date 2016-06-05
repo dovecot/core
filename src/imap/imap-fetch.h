@@ -37,8 +37,8 @@ struct imap_fetch_context_handler {
 	const char *name;
 	const char *nil_reply;
 
-	unsigned int buffered:1;
-	unsigned int want_deinit:1;
+	bool buffered:1;
+	bool want_deinit:1;
 };
 
 struct imap_fetch_qresync_args {
@@ -61,14 +61,14 @@ struct imap_fetch_state {
 	int (*cont_handler)(struct imap_fetch_context *ctx);
 	uint64_t *cur_stats_sizep;
 
-	unsigned int fetching:1;
-	unsigned int seen_flags_changed:1;
-	unsigned int cur_first:1;
-	unsigned int cur_flushed:1;
-	unsigned int line_partial:1;
-	unsigned int line_finished:1;
-	unsigned int skipped_expunged_msgs:1;
-	unsigned int failed:1;
+	bool fetching:1;
+	bool seen_flags_changed:1;
+	bool cur_first:1;
+	bool cur_flushed:1;
+	bool line_partial:1;
+	bool line_finished:1;
+	bool skipped_expunged_msgs:1;
+	bool failed:1;
 };
 
 struct imap_fetch_context {
@@ -85,10 +85,10 @@ struct imap_fetch_context {
 
 	struct imap_fetch_state state;
 
-	unsigned int initialized:1;
-	unsigned int flags_have_handler:1;
-	unsigned int flags_update_seen:1;
-	unsigned int flags_show_only_seen_changes:1;
+	bool initialized:1;
+	bool flags_have_handler:1;
+	bool flags_update_seen:1;
+	bool flags_show_only_seen_changes:1;
 };
 
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,

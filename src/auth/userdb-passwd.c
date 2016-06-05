@@ -21,7 +21,7 @@ struct passwd_userdb_module {
 	struct userdb_template *tmpl;
 
 	unsigned int fast_count, slow_count;
-	unsigned int slow_warned:1;
+	bool slow_warned:1;
 };
 
 struct passwd_userdb_iterate_context {

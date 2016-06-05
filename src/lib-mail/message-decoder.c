@@ -35,7 +35,7 @@ struct message_decoder_context {
 	char *content_type, *content_charset;
 	enum message_cte message_cte;
 
-	unsigned int binary_input:1;
+	bool binary_input:1;
 };
 
 static void

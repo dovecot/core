@@ -30,7 +30,7 @@ struct doveadm_print_table_context {
 	unsigned int hdr_idx;
 	unsigned int columns;
 
-	unsigned int lengths_set:1;
+	bool lengths_set:1;
 };
 
 static struct doveadm_print_table_context *ctx;

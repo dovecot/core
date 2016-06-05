@@ -61,9 +61,9 @@ struct mailbox_list_notify_index {
 	char *list_log_path, *inbox_log_path;
 	struct stat list_last_st, inbox_last_st;
 
-	unsigned int initialized:1;
-	unsigned int read_failed:1;
-	unsigned int inbox_event_pending:1;
+	bool initialized:1;
+	bool read_failed:1;
+	bool inbox_event_pending:1;
 };
 
 int mailbox_list_index_notify_init(struct mailbox_list *list,

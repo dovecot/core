@@ -90,7 +90,7 @@ struct connection {
 
 	enum connection_disconnect_reason disconnect_reason;
 
-	unsigned int version_received:1;
+	bool version_received:1;
 };
 
 struct connection_list {

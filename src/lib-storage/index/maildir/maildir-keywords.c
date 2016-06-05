@@ -36,8 +36,8 @@ struct maildir_keywords {
         struct dotlock_settings dotlock_settings;
 
 	time_t synced_mtime;
-	unsigned int synced:1;
-	unsigned int changed:1;
+	bool synced:1;
+	bool changed:1;
 };
 
 struct maildir_keywords_sync_ctx {

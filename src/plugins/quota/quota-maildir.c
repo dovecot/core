@@ -33,7 +33,7 @@ struct maildir_quota_root {
 	time_t recalc_last_stamp;
 	off_t last_size;
 
-	unsigned int limits_initialized:1;
+	bool limits_initialized:1;
 };
 
 struct maildir_list_context {

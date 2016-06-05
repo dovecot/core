@@ -24,8 +24,8 @@ struct userdb_sql_request {
 struct sql_userdb_iterate_context {
 	struct userdb_iterate_context ctx;
 	struct sql_result *result;
-	unsigned int freed:1;
-	unsigned int call_iter:1;
+	bool freed:1;
+	bool call_iter:1;
 };
 
 static void userdb_sql_iterate_next(struct userdb_iterate_context *_ctx);

@@ -17,11 +17,11 @@ struct replicator_user {
 
 	enum replication_priority priority;
 	/* User isn't currently in replication queue */
-	unsigned int popped:1;
+	bool popped:1;
 	/* Last replication sync failed */
-	unsigned int last_sync_failed:1;
+	bool last_sync_failed:1;
 	/* Force a full sync on the next replication */
-	unsigned int force_full_sync:1;
+	bool force_full_sync:1;
 };
 
 typedef void replicator_sync_callback_t(bool success, void *context);

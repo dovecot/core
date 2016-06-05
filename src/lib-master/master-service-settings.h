@@ -49,16 +49,16 @@ struct master_service_settings_output {
 	/* some settings for this service (or if service was not given,
 	   all services) contain local/remote ip/host specific settings
 	   (but this lookup didn't necessarily return any of them). */
-	unsigned int service_uses_local:1;
-	unsigned int service_uses_remote:1;
+	bool service_uses_local:1;
+	bool service_uses_remote:1;
 	/* returned settings contain settings specific to given
 	   local/remote ip/host */
-	unsigned int used_local:1;
-	unsigned int used_remote:1;
+	bool used_local:1;
+	bool used_remote:1;
 	/* Config couldn't be read because we don't have enough permissions.
 	   The process probably should be restarted and the settings read
 	   before dropping privileges. */
-	unsigned int permission_denied:1;
+	bool permission_denied:1;
 };
 
 extern const struct setting_parser_info master_service_setting_parser_info;

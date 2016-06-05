@@ -12,7 +12,7 @@ struct imap_metadata_transaction {
 	enum mail_error error;
 	char *error_string;
 
-	unsigned int server:1;
+	bool server:1;
 };
 
 bool imap_metadata_verify_entry_name(const char *name, const char **error_r)

@@ -71,12 +71,12 @@ struct client {
 	const struct imap_urlauth_worker_settings *set;
 	const struct mail_storage_settings *mail_set;
 
-	unsigned int debug:1;
-	unsigned int finished:1;
-	unsigned int waiting_input:1;
-	unsigned int version_received:1;
-	unsigned int access_received:1;
-	unsigned int access_anonymous:1;
+	bool debug:1;
+	bool finished:1;
+	bool waiting_input:1;
+	bool version_received:1;
+	bool access_received:1;
+	bool access_anonymous:1;
 };
 
 static bool verbose_proctitle = FALSE;

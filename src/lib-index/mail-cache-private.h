@@ -99,9 +99,9 @@ struct mail_cache_field_private {
 	uint32_t uid_highwater;
 
 	/* Unused fields aren't written to cache file */
-	unsigned int used:1;
-	unsigned int adding:1;
-	unsigned int decision_dirty:1;
+	bool used:1;
+	bool adding:1;
+	bool decision_dirty:1;
 };
 
 struct mail_cache {
@@ -152,13 +152,13 @@ struct mail_cache {
 	unsigned int *file_field_map;
 	unsigned int file_fields_count;
 
-	unsigned int opened:1;
-	unsigned int locked:1;
-	unsigned int last_lock_failed:1;
-	unsigned int hdr_modified:1;
-	unsigned int field_header_write_pending:1;
-	unsigned int compressing:1;
-	unsigned int map_with_read:1;
+	bool opened:1;
+	bool locked:1;
+	bool last_lock_failed:1;
+	bool hdr_modified:1;
+	bool field_header_write_pending:1;
+	bool compressing:1;
+	bool map_with_read:1;
 };
 
 struct mail_cache_loop_track {
@@ -183,7 +183,7 @@ struct mail_cache_view {
 	uint8_t cached_exists_value;
 	uint32_t cached_exists_seq;
 
-	unsigned int no_decision_updates:1;
+	bool no_decision_updates:1;
 };
 
 struct mail_cache_iterate_field {
@@ -204,10 +204,10 @@ struct mail_cache_lookup_iterate_ctx {
 
 	unsigned int trans_next_idx;
 
-	unsigned int stop:1;
-	unsigned int failed:1;
-	unsigned int memory_appends_checked:1;
-	unsigned int disk_appends_checked:1;
+	bool stop:1;
+	bool failed:1;
+	bool memory_appends_checked:1;
+	bool disk_appends_checked:1;
 };
 
 /* Explicitly lock the cache file. Returns -1 if error / timed out,

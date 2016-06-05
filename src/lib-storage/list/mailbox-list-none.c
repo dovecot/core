@@ -10,7 +10,7 @@
 struct noop_list_iterate_context {
 	struct mailbox_list_iterate_context ctx;
 	struct mailbox_info inbox_info;
-	unsigned int list_inbox:1;
+	bool list_inbox:1;
 };
 
 extern struct mailbox_list none_mailbox_list;

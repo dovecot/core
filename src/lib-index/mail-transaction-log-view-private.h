@@ -27,7 +27,7 @@ struct mail_transaction_log_view {
 	uoff_t mark_offset, mark_next_offset;
 	uint64_t mark_modseq;
 
-	unsigned int broken:1;
+	bool broken:1;
 };
 
 #endif

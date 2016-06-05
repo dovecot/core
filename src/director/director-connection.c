@@ -116,19 +116,19 @@ struct director_connection {
 	/* set during command execution */
 	const char *cur_cmd, *cur_line;
 
-	unsigned int in:1;
-	unsigned int connected:1;
-	unsigned int version_received:1;
-	unsigned int me_received:1;
-	unsigned int handshake_received:1;
-	unsigned int ignore_host_events:1;
-	unsigned int handshake_sending_hosts:1;
-	unsigned int ping_waiting:1;
-	unsigned int synced:1;
-	unsigned int wrong_host:1;
-	unsigned int verifying_left:1;
-	unsigned int users_unsorted:1;
-	unsigned int done_pending:1;
+	bool in:1;
+	bool connected:1;
+	bool version_received:1;
+	bool me_received:1;
+	bool handshake_received:1;
+	bool ignore_host_events:1;
+	bool handshake_sending_hosts:1;
+	bool ping_waiting:1;
+	bool synced:1;
+	bool wrong_host:1;
+	bool verifying_left:1;
+	bool users_unsorted:1;
+	bool done_pending:1;
 };
 
 static void director_connection_disconnected(struct director_connection **conn,

@@ -31,8 +31,8 @@ struct cydir_save_context {
 	struct mail *mail;
 	int fd;
 
-	unsigned int failed:1;
-	unsigned int finished:1;
+	bool failed:1;
+	bool finished:1;
 };
 
 static char *cydir_generate_tmp_filename(void)

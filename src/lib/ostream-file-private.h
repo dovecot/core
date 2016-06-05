@@ -19,13 +19,13 @@ struct file_ostream {
 	size_t buffer_size, optimal_block_size;
 	size_t head, tail; /* first unsent/unused byte */
 
-	unsigned int full:1; /* if head == tail, is buffer empty or full? */
-	unsigned int file:1;
-	unsigned int flush_pending:1;
-	unsigned int socket_cork_set:1;
-	unsigned int no_socket_cork:1;
-	unsigned int no_sendfile:1;
-	unsigned int autoclose_fd:1;
+	bool full:1; /* if head == tail, is buffer empty or full? */
+	bool file:1;
+	bool flush_pending:1;
+	bool socket_cork_set:1;
+	bool no_socket_cork:1;
+	bool no_sendfile:1;
+	bool autoclose_fd:1;
 };
 
 struct ostream *

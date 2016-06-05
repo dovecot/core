@@ -49,12 +49,12 @@ struct imap_notify_context {
 	struct imap_fetch_context *fetch_ctx;
 	struct timeout *to_watch;
 
-	unsigned int have_subscriptions:1;
-	unsigned int selected_set:1;
-	unsigned int selected_immediate_expunges:1;
-	unsigned int send_immediate_status:1;
-	unsigned int watching_mailbox:1;
-	unsigned int notifying:1;
+	bool have_subscriptions:1;
+	bool selected_set:1;
+	bool selected_immediate_expunges:1;
+	bool send_immediate_status:1;
+	bool watching_mailbox:1;
+	bool notifying:1;
 };
 
 bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,

@@ -57,11 +57,11 @@ struct imapc_command {
 	void *context;
 
 	/* This is the AUTHENTICATE command */
-	unsigned int authenticate:1;
+	bool authenticate:1;
 	/* This is the IDLE command */
-	unsigned int idle:1;
+	bool idle:1;
 	/* Waiting for '+' literal reply before we can continue */
-	unsigned int wait_for_literal:1;
+	bool wait_for_literal:1;
 };
 ARRAY_DEFINE_TYPE(imapc_command, struct imapc_command *);
 
@@ -125,10 +125,10 @@ struct imapc_connection {
 	struct timeval throttle_end_timeval;
 	struct timeout *to_throttle, *to_throttle_shrink;
 
-	unsigned int reconnecting:1;
-	unsigned int idling:1;
-	unsigned int idle_stopping:1;
-	unsigned int idle_plus_waiting:1;
+	bool reconnecting:1;
+	bool idling:1;
+	bool idle_stopping:1;
+	bool idle_plus_waiting:1;
 };
 
 static void imapc_connection_capability_cb(const struct imapc_command_reply *reply,

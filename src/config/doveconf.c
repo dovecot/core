@@ -38,7 +38,7 @@ struct config_dump_human_context {
 	ARRAY_TYPE(const_string) errors;
 	struct config_export_context *export_ctx;
 
-	unsigned int list_prefix_sent:1;
+	bool list_prefix_sent:1;
 };
 
 #define LIST_KEY_PREFIX "\001"

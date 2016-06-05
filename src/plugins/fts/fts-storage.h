@@ -35,10 +35,10 @@ struct fts_search_context {
 
 	struct fts_indexer_context *indexer_ctx;
 
-	unsigned int virtual_mailbox:1;
-	unsigned int fts_lookup_success:1;
-	unsigned int indexing_timed_out:1;
-	unsigned int enforced:1;
+	bool virtual_mailbox:1;
+	bool fts_lookup_success:1;
+	bool indexing_timed_out:1;
+	bool enforced:1;
 };
 
 /* Figure out if we want to use full text search indexes and update

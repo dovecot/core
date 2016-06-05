@@ -20,9 +20,9 @@ struct auth_master_connection {
 	   this uid. Don't allow LIST/PASS lookups. */
 	uid_t userdb_restricted_uid;
 
-	unsigned int version_received:1;
-	unsigned int destroyed:1;
-	unsigned int userdb_only:1;
+	bool version_received:1;
+	bool destroyed:1;
+	bool userdb_only:1;
 };
 
 struct auth_master_connection *

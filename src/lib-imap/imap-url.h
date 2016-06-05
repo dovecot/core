@@ -34,7 +34,7 @@ struct imap_url {
 	size_t uauth_token_size;
 	time_t uauth_expire; /* (time_t)-1 if not set */
 
-	unsigned int have_partial:1;
+	bool have_partial:1;
 };
 
 /*

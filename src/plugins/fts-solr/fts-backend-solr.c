@@ -55,12 +55,12 @@ struct solr_fts_backend_update_context {
 	uint32_t last_indexed_uid;
 	unsigned int mails_since_flush;
 
-	unsigned int tokenized_input:1;
-	unsigned int last_indexed_uid_set:1;
-	unsigned int body_open:1;
-	unsigned int documents_added:1;
-	unsigned int expunges:1;
-	unsigned int truncate_header:1;
+	bool tokenized_input:1;
+	bool last_indexed_uid_set:1;
+	bool body_open:1;
+	bool documents_added:1;
+	bool expunges:1;
+	bool truncate_header:1;
 };
 
 static const char *solr_escape_chars = "+-&|!(){}[]^\"~*?:\\/ ";

@@ -90,15 +90,15 @@ struct maildir_uidlist {
 
 	guid_128_t mailbox_guid;
 
-	unsigned int recreate:1;
-	unsigned int recreate_on_change:1;
-	unsigned int initial_read:1;
-	unsigned int initial_hdr_read:1;
-	unsigned int retry_rewind:1;
-	unsigned int locked_refresh:1;
-	unsigned int unsorted:1;
-	unsigned int have_mailbox_guid:1;
-	unsigned int opened_readonly:1;
+	bool recreate:1;
+	bool recreate_on_change:1;
+	bool initial_read:1;
+	bool initial_hdr_read:1;
+	bool retry_rewind:1;
+	bool locked_refresh:1;
+	bool unsorted:1;
+	bool have_mailbox_guid:1;
+	bool opened_readonly:1;
 };
 
 struct maildir_uidlist_sync_ctx {
@@ -113,11 +113,11 @@ struct maildir_uidlist_sync_ctx {
 	unsigned int new_files_count;
 	unsigned int finish_change_counter;
 
-	unsigned int partial:1;
-	unsigned int finished:1;
-	unsigned int changed:1;
-	unsigned int failed:1;
-	unsigned int locked:1;
+	bool partial:1;
+	bool finished:1;
+	bool changed:1;
+	bool failed:1;
+	bool locked:1;
 };
 
 struct maildir_uidlist_iter_ctx {

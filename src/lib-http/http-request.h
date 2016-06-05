@@ -45,8 +45,8 @@ struct http_request {
 
 	ARRAY_TYPE(const_string) connection_options;
 
-	unsigned int connection_close:1;
-	unsigned int expect_100_continue:1;
+	bool connection_close:1;
+	bool expect_100_continue:1;
 };
 
 static inline bool

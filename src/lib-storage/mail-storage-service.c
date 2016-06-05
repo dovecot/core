@@ -63,9 +63,9 @@ struct mail_storage_service_ctx {
 	pool_t userdb_next_pool;
 	const char *const **userdb_next_fieldsp;
 
-	unsigned int debug:1;
-	unsigned int log_initialized:1;
-	unsigned int config_permission_denied:1;
+	bool debug:1;
+	bool log_initialized:1;
+	bool config_permission_denied:1;
 };
 
 struct mail_storage_service_user {
@@ -84,8 +84,8 @@ struct mail_storage_service_user {
 
 	unsigned int session_id_counter;
 
-	unsigned int anonymous:1;
-	unsigned int admin:1;
+	bool anonymous:1;
+	bool admin:1;
 };
 
 struct module *mail_storage_service_modules = NULL;

@@ -34,15 +34,15 @@ struct imap_client {
 	const char *cmd_tag, *cmd_name;
 	struct imap_client_cmd_id *cmd_id;
 
-	unsigned int cmd_finished:1;
-	unsigned int proxy_sasl_ir:1;
-	unsigned int proxy_logindisabled:1;
-	unsigned int proxy_seen_banner:1;
-	unsigned int skip_line:1;
-	unsigned int id_logged:1;
-	unsigned int proxy_capability_request_sent:1;
-	unsigned int client_ignores_capability_resp_code:1;
-	unsigned int auth_mech_name_parsed:1;
+	bool cmd_finished:1;
+	bool proxy_sasl_ir:1;
+	bool proxy_logindisabled:1;
+	bool proxy_seen_banner:1;
+	bool skip_line:1;
+	bool id_logged:1;
+	bool proxy_capability_request_sent:1;
+	bool client_ignores_capability_resp_code:1;
+	bool auth_mech_name_parsed:1;
 };
 
 bool client_skip_line(struct imap_client *client);

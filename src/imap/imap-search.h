@@ -42,9 +42,9 @@ struct imap_search_context {
 
 	uint64_t highest_seen_modseq;
 
-	unsigned int have_seqsets:1;
-	unsigned int have_modseqs:1;
-	unsigned int sorting:1;
+	bool have_seqsets:1;
+	bool have_modseqs:1;
+	bool sorting:1;
 };
 
 int cmd_search_parse_return_if_found(struct imap_search_context *ctx,

@@ -13,7 +13,7 @@ struct mail_index_sync_list {
 	const ARRAY_TYPE(uid_range) *array;
 	unsigned int idx;
 	unsigned int keyword_idx:31;
-	unsigned int keyword_remove:1;
+	bool keyword_remove:1;
 };
 
 struct mail_index_expunge_handler {
@@ -37,12 +37,12 @@ struct mail_index_sync_map_ctx {
 
         enum mail_index_sync_handler_type type;
 
-	unsigned int sync_handlers_initialized:1;
-	unsigned int expunge_handlers_set:1;
-	unsigned int expunge_handlers_used:1;
-	unsigned int cur_ext_ignore:1;
-	unsigned int internal_update:1; /* used by keywords for ext_intro */
-	unsigned int errors:1;
+	bool sync_handlers_initialized:1;
+	bool expunge_handlers_set:1;
+	bool expunge_handlers_used:1;
+	bool cur_ext_ignore:1;
+	bool internal_update:1; /* used by keywords for ext_intro */
+	bool errors:1;
 };
 
 extern struct mail_transaction_map_functions mail_index_map_sync_funcs;

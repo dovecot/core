@@ -37,7 +37,7 @@ struct http_header_parser {
 
 	enum http_header_parse_state state;
 
-	unsigned int lenient:1;
+	bool lenient:1;
 };
 
 struct http_header_parser *

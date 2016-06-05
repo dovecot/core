@@ -58,16 +58,16 @@ struct http_server_response {
 	http_server_tunnel_callback_t tunnel_callback;
 	void *tunnel_context;
 
-	unsigned int have_hdr_connection:1;
-	unsigned int have_hdr_date:1;
-	unsigned int have_hdr_body_spec:1;
+	bool have_hdr_connection:1;
+	bool have_hdr_date:1;
+	bool have_hdr_body_spec:1;
 
-	unsigned int payload_chunked:1;
-	unsigned int payload_blocking:1;
-	unsigned int payload_direct:1;
-	unsigned int payload_corked:1;
-	unsigned int close:1;
-	unsigned int submitted:1;
+	bool payload_chunked:1;
+	bool payload_blocking:1;
+	bool payload_direct:1;
+	bool payload_corked:1;
+	bool close:1;
+	bool submitted:1;
 };
 
 struct http_server_request {
@@ -90,11 +90,11 @@ struct http_server_request {
 	void (*destroy_callback)(void *);
 	void *destroy_context;
 
-	unsigned int payload_halted:1;
-	unsigned int sent_100_continue:1;
-	unsigned int delay_destroy:1;
-	unsigned int destroy_pending:1;
-	unsigned int failed:1;
+	bool payload_halted:1;
+	bool sent_100_continue:1;
+	bool delay_destroy:1;
+	bool destroy_pending:1;
+	bool failed:1;
 };
 
 struct http_server_connection {
@@ -121,13 +121,13 @@ struct http_server_connection {
 
 	struct http_server_stats stats;
 
-	unsigned int ssl:1;
-	unsigned int closed:1;
-	unsigned int close_indicated:1;
-	unsigned int input_broken:1;
-	unsigned int output_locked:1;
-	unsigned int in_req_callback:1;  /* performing request callback (busy) */
-	unsigned int switching_ioloop:1; /* in the middle of switching ioloop */
+	bool ssl:1;
+	bool closed:1;
+	bool close_indicated:1;
+	bool input_broken:1;
+	bool output_locked:1;
+	bool in_req_callback:1;  /* performing request callback (busy) */
+	bool switching_ioloop:1; /* in the middle of switching ioloop */
 };
 
 struct http_server {
@@ -140,7 +140,7 @@ struct http_server {
 
 	struct connection_list *conn_list;
 
-	unsigned int shutting_down:1;    /* shutting down server */
+	bool shutting_down:1;    /* shutting down server */
 };
 
 static inline const char *

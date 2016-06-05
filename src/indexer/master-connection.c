@@ -30,7 +30,7 @@ struct master_connection {
 	struct istream *input;
 	struct ostream *output;
 
-	unsigned int version_received:1;
+	bool version_received:1;
 };
 
 static void ATTR_NULL(1, 2)

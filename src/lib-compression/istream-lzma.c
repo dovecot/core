@@ -20,9 +20,9 @@ struct lzma_istream {
 	size_t high_pos;
 	struct stat last_parent_statbuf;
 
-	unsigned int log_errors:1;
-	unsigned int marked:1;
-	unsigned int strm_closed:1;
+	bool log_errors:1;
+	bool marked:1;
+	bool strm_closed:1;
 };
 
 static void i_stream_lzma_close(struct iostream_private *stream,

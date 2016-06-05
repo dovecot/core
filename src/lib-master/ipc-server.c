@@ -33,7 +33,7 @@ struct ipc_server {
 	struct istream *input;
 	struct ostream *output;
 
-	unsigned int version_received:1;
+	bool version_received:1;
 };
 
 static void ipc_server_disconnect(struct ipc_server *server);

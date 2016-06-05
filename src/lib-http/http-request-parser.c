@@ -33,7 +33,7 @@ struct http_request_parser {
 	const char *request_method;
 	const char *request_target;
 
-	unsigned int skipping_line:1;
+	bool skipping_line:1;
 };
 
 struct http_request_parser *

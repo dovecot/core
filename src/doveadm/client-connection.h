@@ -15,8 +15,8 @@ struct client_connection {
 	in_port_t local_port, remote_port;
 	const struct doveadm_settings *set;
 
-	unsigned int handshaked:1;
-	unsigned int authenticated:1;
+	bool handshaked:1;
+	bool authenticated:1;
 };
 
 struct client_connection *

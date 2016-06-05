@@ -28,7 +28,7 @@ struct acl_lookup_dict_iter {
 	ARRAY_TYPE(const_string) iter_values;
 	unsigned int iter_idx, iter_value_idx;
 
-	unsigned int failed:1;
+	bool failed:1;
 };
 
 struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)

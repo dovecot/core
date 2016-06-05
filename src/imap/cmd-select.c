@@ -24,7 +24,7 @@ struct imap_select_context {
 	ARRAY_TYPE(uint32_t) qresync_sample_seqset;
 	ARRAY_TYPE(uint32_t) qresync_sample_uidset;
 
-	unsigned int condstore:1;
+	bool condstore:1;
 };
 
 static int select_qresync_get_uids(struct imap_select_context *ctx,

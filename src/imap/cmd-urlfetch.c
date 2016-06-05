@@ -19,10 +19,10 @@ struct cmd_urlfetch_context {
 	struct imap_urlauth_fetch *ufetch;
 	struct istream *input;
 
-	unsigned int failed:1;
-	unsigned int finished:1;
-	unsigned int extended:1;
-	unsigned int in_io_handler:1;
+	bool failed:1;
+	bool finished:1;
+	bool extended:1;
+	bool in_io_handler:1;
 };
 
 struct cmd_urlfetch_url {

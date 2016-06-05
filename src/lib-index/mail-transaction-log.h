@@ -177,11 +177,11 @@ struct mail_transaction_log_append_ctx {
 	unsigned int transaction_count;
 
 	/* same as mail_index_transaction->sync_transaction */
-	unsigned int index_sync_transaction:1;
+	bool index_sync_transaction:1;
 	/* same as mail_index_transaction->tail_offset_changed */
-	unsigned int tail_offset_changed:1;
-	unsigned int sync_includes_this:1;
-	unsigned int want_fsync:1;
+	bool tail_offset_changed:1;
+	bool sync_includes_this:1;
+	bool want_fsync:1;
 };
 
 #define LOG_IS_BEFORE(seq1, offset1, seq2, offset2) \

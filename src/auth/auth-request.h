@@ -96,53 +96,53 @@ struct auth_request {
 
 	/* this is a lookup on auth socket (not login socket).
 	   skip any proxying stuff if enabled. */
-	unsigned int auth_only:1;
+	bool auth_only:1;
 	/* we're doing a userdb lookup now (we may have done passdb lookup
 	   earlier) */
-	unsigned int userdb_lookup:1;
+	bool userdb_lookup:1;
 	/* DIGEST-MD5 kludge */
-	unsigned int domain_is_realm:1;
+	bool domain_is_realm:1;
 	/* auth_debug is enabled for this request */
-	unsigned int debug:1;
+	bool debug:1;
 
 	/* flags received from auth client: */
-	unsigned int secured:1;
-	unsigned int final_resp_ok:1;
-	unsigned int no_penalty:1;
-	unsigned int valid_client_cert:1;
-	unsigned int cert_username:1;
-	unsigned int request_auth_token:1;
+	bool secured:1;
+	bool final_resp_ok:1;
+	bool no_penalty:1;
+	bool valid_client_cert:1;
+	bool cert_username:1;
+	bool request_auth_token:1;
 
 	/* success/failure states: */
-	unsigned int successful:1;
-	unsigned int failed:1; /* overrides any other success */
-	unsigned int internal_failure:1;
-	unsigned int passdbs_seen_user_unknown:1;
-	unsigned int passdbs_seen_internal_failure:1;
-	unsigned int userdbs_seen_internal_failure:1;
+	bool successful:1;
+	bool failed:1; /* overrides any other success */
+	bool internal_failure:1;
+	bool passdbs_seen_user_unknown:1;
+	bool passdbs_seen_internal_failure:1;
+	bool userdbs_seen_internal_failure:1;
 
 	/* current state: */
-	unsigned int accept_cont_input:1;
-	unsigned int skip_password_check:1;
-	unsigned int prefer_plain_credentials:1;
-	unsigned int in_delayed_failure_queue:1;
-	unsigned int removed_from_handler:1;
-	unsigned int snapshot_have_userdb_prefetch_set:1;
+	bool accept_cont_input:1;
+	bool skip_password_check:1;
+	bool prefer_plain_credentials:1;
+	bool in_delayed_failure_queue:1;
+	bool removed_from_handler:1;
+	bool snapshot_have_userdb_prefetch_set:1;
 	/* each passdb lookup can update the current success-status using the
 	   result_* rules. the authentication succeeds only if this is TRUE
 	   at the end. mechanisms that don't require passdb, but do a passdb
 	   lookup anyway (e.g. GSSAPI) need to set this to TRUE by default. */
-	unsigned int passdb_success:1;
+	bool passdb_success:1;
 	/* userdb equivalent of passdb_success */
-	unsigned int userdb_success:1;
+	bool userdb_success:1;
 	/* the last userdb lookup failed either due to "tempfail" extra field
 	   or because one of the returned uid/gid fields couldn't be translated
 	   to a number */
-	unsigned int userdb_lookup_tempfailed:1;
+	bool userdb_lookup_tempfailed:1;
 	/* userdb_* fields have been set by the passdb lookup, userdb prefetch
 	   will work. */
-	unsigned int userdb_prefetch_set:1;
-	unsigned int stats_sent:1;
+	bool userdb_prefetch_set:1;
+	bool stats_sent:1;
 
 	/* ... mechanism specific data ... */
 };

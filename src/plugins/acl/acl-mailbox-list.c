@@ -22,8 +22,8 @@ struct acl_mailbox_list_iterate_context {
 	struct mailbox_info info;
 
 	char sep;
-	unsigned int hide_nonlistable_subscriptions:1;
-	unsigned int simple_star_glob:1;
+	bool hide_nonlistable_subscriptions:1;
+	bool simple_star_glob:1;
 };
 
 static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {

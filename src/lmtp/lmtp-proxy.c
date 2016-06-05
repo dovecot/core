@@ -19,8 +19,8 @@ struct lmtp_proxy_recipient {
 	const char *reply;
 	unsigned int idx;
 
-	unsigned int rcpt_to_failed:1;
-	unsigned int data_reply_received:1;
+	bool rcpt_to_failed:1;
+	bool data_reply_received:1;
 };
 
 struct lmtp_proxy_connection {
@@ -31,8 +31,8 @@ struct lmtp_proxy_connection {
 	struct istream *data_input;
 	struct timeout *to;
 
-	unsigned int finished:1;
-	unsigned int failed:1;
+	bool finished:1;
+	bool failed:1;
 };
 
 struct lmtp_proxy {
@@ -53,7 +53,7 @@ struct lmtp_proxy {
 	lmtp_proxy_finish_callback_t *finish_callback;
 	void *finish_context;
 
-	unsigned int finished:1;
+	bool finished:1;
 };
 
 static void lmtp_conn_finish(void *context);

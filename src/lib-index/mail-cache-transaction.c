@@ -44,8 +44,8 @@ struct mail_cache_transaction_ctx {
 
 	unsigned int records_written;
 
-	unsigned int tried_compression:1;
-	unsigned int changes:1;
+	bool tried_compression:1;
+	bool changes:1;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(cache_mail_index_transaction_module,

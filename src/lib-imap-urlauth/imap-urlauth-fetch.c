@@ -44,13 +44,13 @@ struct imap_urlauth_fetch {
 		char *bodypartstruct;
 		char *error;
 
-		unsigned int succeeded:1;
-		unsigned int binary_has_nuls:1;
+		bool succeeded:1;
+		bool binary_has_nuls:1;
 	} pending_reply;
 
-	unsigned int failed:1;
-	unsigned int waiting_local:1;
-	unsigned int waiting_service:1;
+	bool failed:1;
+	bool waiting_local:1;
+	bool waiting_service:1;
 };
 
 static void imap_urlauth_fetch_abort_local(struct imap_urlauth_fetch *ufetch)

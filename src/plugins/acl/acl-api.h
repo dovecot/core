@@ -77,7 +77,7 @@ struct acl_rights {
 	const char *const *neg_rights;
 
 	/* These rights are global for all users */
-	unsigned int global:1;
+	bool global:1;
 };
 ARRAY_DEFINE_TYPE(acl_rights, struct acl_rights);
 

@@ -15,13 +15,13 @@ struct raw_mbox_istream {
 	uoff_t from_offset, hdr_offset, body_offset, mail_size;
 	uoff_t input_peak_offset;
 
-	unsigned int locked:1;
-	unsigned int seeked:1;
-	unsigned int crlf_ending:1;
-	unsigned int corrupted:1;
-	unsigned int mail_size_forced:1;
-	unsigned int eof:1;
-	unsigned int header_missing_eoh:1;
+	bool locked:1;
+	bool seeked:1;
+	bool crlf_ending:1;
+	bool corrupted:1;
+	bool mail_size_forced:1;
+	bool eof:1;
+	bool header_missing_eoh:1;
 };
 
 static void i_stream_raw_mbox_destroy(struct iostream_private *stream)

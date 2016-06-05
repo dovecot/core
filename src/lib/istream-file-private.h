@@ -8,9 +8,9 @@ struct file_istream {
 
 	uoff_t skip_left;
 
-	unsigned int file:1;
-	unsigned int autoclose_fd:1;
-	unsigned int seen_eof:1;
+	bool file:1;
+	bool autoclose_fd:1;
+	bool seen_eof:1;
 };
 
 struct istream *

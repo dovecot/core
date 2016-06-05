@@ -142,7 +142,7 @@ struct mail_storage {
 	ARRAY(union mail_storage_module_context *) module_contexts;
 
 	/* Failed to create shared attribute dict, don't try again */
-	unsigned int shared_attr_dict_failed:1;
+	bool shared_attr_dict_failed:1;
 };
 
 struct mail_attachment_part {
@@ -371,40 +371,40 @@ struct mailbox {
 
 	/* When FAST open flag is used, the mailbox isn't actually opened until
 	   it's synced for the first time. */
-	unsigned int opened:1;
+	bool opened:1;
 	/* Mailbox was deleted while we had it open. */
-	unsigned int mailbox_deleted:1;
+	bool mailbox_deleted:1;
 	/* Mailbox is being created */
-	unsigned int creating:1;
+	bool creating:1;
 	/* Mailbox is being deleted */
-	unsigned int deleting:1;
+	bool deleting:1;
 	/* Don't use MAIL_INDEX_SYNC_FLAG_DELETING_INDEX for sync flag */
-	unsigned int delete_sync_check:1;
+	bool delete_sync_check:1;
 	/* Delete mailbox only if it's empty */
-	unsigned int deleting_must_be_empty:1;
+	bool deleting_must_be_empty:1;
 	/* The backend wants to skip checking if there are 0 messages before
 	   calling mailbox_list.delete_mailbox() */
-	unsigned int delete_skip_empty_check:1;
+	bool delete_skip_empty_check:1;
 	/* Mailbox was already marked as deleted within this allocation. */
-	unsigned int marked_deleted:1;
+	bool marked_deleted:1;
 	/* TRUE if this is an INBOX for this user */
-	unsigned int inbox_user:1;
+	bool inbox_user:1;
 	/* TRUE if this is an INBOX for this namespace (user or shared) */
-	unsigned int inbox_any:1;
+	bool inbox_any:1;
 	/* When copying to this mailbox, require that mailbox_copy() uses
 	   mailbox_save_*() to actually save a new physical copy rather than
 	   simply incrementing a reference count (e.g. via hard link) */
-	unsigned int disable_reflink_copy_to:1;
+	bool disable_reflink_copy_to:1;
 	/* Don't allow creating any new keywords */
-	unsigned int disallow_new_keywords:1;
+	bool disallow_new_keywords:1;
 	/* Mailbox has been synced at least once */
-	unsigned int synced:1;
+	bool synced:1;
 	/* Updating cache file is disabled */
-	unsigned int mail_cache_disabled:1;
+	bool mail_cache_disabled:1;
 	/* Update first_saved field to mailbox list index. */
-	unsigned int update_first_saved:1;
+	bool update_first_saved:1;
 	/* mailbox_verify_create_name() only checks for mailbox_verify_name() */
-	unsigned int skip_create_name_restrictions:1;
+	bool skip_create_name_restrictions:1;
 };
 
 struct mail_vfuncs {
@@ -561,11 +561,11 @@ struct mailbox_transaction_context {
 	/* these statistics are never reset by mail-storage API: */
 	struct mailbox_transaction_stats stats;
 	/* Set to TRUE to update stats_* fields */
-	unsigned int stats_track:1;
+	bool stats_track:1;
 	/* We've done some non-transactional (e.g. dovecot-uidlist updates) */
-	unsigned int nontransactional_changes:1;
+	bool nontransactional_changes:1;
 	/* FIXME: v2.3: this should be in attribute_get/set() parameters */
-	unsigned int internal_attribute:1;
+	bool internal_attribute:1;
 };
 
 union mail_search_module_context {
@@ -594,8 +594,8 @@ struct mail_search_context {
 
 	ARRAY(union mail_search_module_context *) module_contexts;
 
-	unsigned int seen_lost_data:1;
-	unsigned int progress_hidden:1;
+	bool seen_lost_data:1;
+	bool progress_hidden:1;
 };
 
 struct mail_save_data {
@@ -628,15 +628,15 @@ struct mail_save_context {
 
 	/* mailbox_save_alloc() called, but finish/cancel not.
 	   the same context is usually returned by the backends for reuse. */
-	unsigned int unfinished:1;
+	bool unfinished:1;
 	/* mailbox_save_finish() or mailbox_copy() is being called. */
-	unsigned int finishing:1;
+	bool finishing:1;
 	/* mail was copied using saving */
-	unsigned int copying_via_save:1;
+	bool copying_via_save:1;
 	/* mail is being saved, not copied */
-	unsigned int saving:1;
+	bool saving:1;
 	/* mail is being moved - ignore quota */
-	unsigned int moving:1;
+	bool moving:1;
 };
 
 struct mailbox_sync_context {

@@ -117,25 +117,25 @@ struct http_client_request {
 
 	enum http_request_state state;
 
-	unsigned int have_hdr_authorization:1;
-	unsigned int have_hdr_body_spec:1;
-	unsigned int have_hdr_connection:1;
-	unsigned int have_hdr_date:1;
-	unsigned int have_hdr_expect:1;
-	unsigned int have_hdr_host:1;
-	unsigned int have_hdr_user_agent:1;
+	bool have_hdr_authorization:1;
+	bool have_hdr_body_spec:1;
+	bool have_hdr_connection:1;
+	bool have_hdr_date:1;
+	bool have_hdr_expect:1;
+	bool have_hdr_host:1;
+	bool have_hdr_user_agent:1;
 
-	unsigned int payload_sync:1;
-	unsigned int payload_sync_continue:1;
-	unsigned int payload_chunked:1;
-	unsigned int payload_wait:1;
-	unsigned int urgent:1;
-	unsigned int submitted:1;
-	unsigned int listed:1;
-	unsigned int connect_tunnel:1;
-	unsigned int connect_direct:1;
-	unsigned int ssl_tunnel:1;
-	unsigned int preserve_exact_reason:1;
+	bool payload_sync:1;
+	bool payload_sync_continue:1;
+	bool payload_chunked:1;
+	bool payload_wait:1;
+	bool urgent:1;
+	bool submitted:1;
+	bool listed:1;
+	bool connect_tunnel:1;
+	bool connect_direct:1;
+	bool ssl_tunnel:1;
+	bool preserve_exact_reason:1;
 };
 
 struct http_client_connection {
@@ -165,17 +165,17 @@ struct http_client_connection {
 	/* requests that have been sent, waiting for response */
 	ARRAY_TYPE(http_client_request) request_wait_list;
 
-	unsigned int connected:1;           /* connection is connected */
-	unsigned int tunneling:1;          /* last sent request turns this
+	bool connected:1;           /* connection is connected */
+	bool tunneling:1;          /* last sent request turns this
 	                                      connection into tunnel */
-	unsigned int connect_initialized:1; /* connection was initialized */
-	unsigned int connect_succeeded:1;
-	unsigned int closing:1;
-	unsigned int disconnected:1;
-	unsigned int close_indicated:1;
-	unsigned int output_locked:1;       /* output is locked; no pipelining */
-	unsigned int output_broken:1;       /* output is broken; no more requests */
-	unsigned int in_req_callback:1;  /* performin request callback (busy) */
+	bool connect_initialized:1; /* connection was initialized */
+	bool connect_succeeded:1;
+	bool closing:1;
+	bool disconnected:1;
+	bool close_indicated:1;
+	bool output_locked:1;       /* output is locked; no pipelining */
+	bool output_broken:1;       /* output is broken; no more requests */
+	bool in_req_callback:1;  /* performin request callback (busy) */
 };
 
 struct http_client_peer {
@@ -202,12 +202,12 @@ struct http_client_peer {
 	struct timeout *to_backoff;
 	unsigned int backoff_time_msecs;
 
-	unsigned int disconnected:1;     /* peer is already disconnected */
-	unsigned int no_payload_sync:1;  /* expect: 100-continue failed before */
-	unsigned int seen_100_response:1;/* expect: 100-continue succeeded before */
-	unsigned int allows_pipelining:1;/* peer is known to allow persistent
+	bool disconnected:1;     /* peer is already disconnected */
+	bool no_payload_sync:1;  /* expect: 100-continue failed before */
+	bool seen_100_response:1;/* expect: 100-continue succeeded before */
+	bool allows_pipelining:1;/* peer is known to allow persistent
 	                                     connections */
-	unsigned int handling_requests:1;/* currently running request handler */
+	bool handling_requests:1;/* currently running request handler */
 };
 
 struct http_client_queue {
@@ -261,7 +261,7 @@ struct http_client_host {
 	/* active DNS lookup */
 	struct dns_lookup *dns_lookup;
 
-	unsigned int unix_local:1;
+	bool unix_local:1;
 };
 
 struct http_client {

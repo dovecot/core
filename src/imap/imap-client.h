@@ -91,14 +91,14 @@ struct client_command_context {
 
 	struct client_sync_context *sync;
 
-	unsigned int uid:1; /* used UID command */
-	unsigned int cancel:1; /* command is wanted to be cancelled */
-	unsigned int param_error:1;
-	unsigned int search_save_result:1; /* search result is being updated */
-	unsigned int search_save_result_used:1; /* command uses search save */
-	unsigned int temp_executed:1; /* temporary execution state tracking */
-	unsigned int tagline_sent:1;
-	unsigned int executing:1;
+	bool uid:1; /* used UID command */
+	bool cancel:1; /* command is wanted to be cancelled */
+	bool param_error:1;
+	bool search_save_result:1; /* search result is being updated */
+	bool search_save_result_used:1; /* command uses search save */
+	bool temp_executed:1; /* temporary execution state tracking */
+	bool tagline_sent:1;
+	bool executing:1;
 };
 
 struct imap_client_vfuncs {
@@ -183,25 +183,25 @@ struct client {
 
 	/* syncing marks this TRUE when it sees \Deleted flags. this is by
 	   EXPUNGE for Outlook-workaround. */
-	unsigned int sync_seen_deletes:1;
-	unsigned int disconnected:1;
-	unsigned int destroyed:1;
-	unsigned int handling_input:1;
-	unsigned int syncing:1;
-	unsigned int id_logged:1;
-	unsigned int mailbox_examined:1;
-	unsigned int anvil_sent:1;
-	unsigned int tls_compression:1;
-	unsigned int input_skip_line:1; /* skip all the data until we've
+	bool sync_seen_deletes:1;
+	bool disconnected:1;
+	bool destroyed:1;
+	bool handling_input:1;
+	bool syncing:1;
+	bool id_logged:1;
+	bool mailbox_examined:1;
+	bool anvil_sent:1;
+	bool tls_compression:1;
+	bool input_skip_line:1; /* skip all the data until we've
 					   found a new line */
-	unsigned int modseqs_sent_since_sync:1;
-	unsigned int notify_immediate_expunges:1;
-	unsigned int notify_count_changes:1;
-	unsigned int notify_flag_changes:1;
-	unsigned int imap_metadata_enabled:1;
-	unsigned int nonpermanent_modseqs:1;
-	unsigned int state_import_bad_idle_done:1;
-	unsigned int state_import_idle_continue:1;
+	bool modseqs_sent_since_sync:1;
+	bool notify_immediate_expunges:1;
+	bool notify_count_changes:1;
+	bool notify_flag_changes:1;
+	bool imap_metadata_enabled:1;
+	bool nonpermanent_modseqs:1;
+	bool state_import_bad_idle_done:1;
+	bool state_import_idle_continue:1;
 };
 
 struct imap_module_register {

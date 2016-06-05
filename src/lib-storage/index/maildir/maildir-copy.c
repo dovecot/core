@@ -17,7 +17,7 @@
 
 struct hardlink_ctx {
 	const char *dest_path;
-	unsigned int success:1;
+	bool success:1;
 };
 
 static int do_hardlink(struct maildir_mailbox *mbox, const char *path,

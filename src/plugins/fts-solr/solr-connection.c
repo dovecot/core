@@ -52,7 +52,7 @@ struct solr_connection_post {
 
 	struct http_client_request *http_req;
 
-	unsigned int failed:1;
+	bool failed:1;
 };
 
 struct solr_connection {
@@ -68,10 +68,10 @@ struct solr_connection {
 	struct istream *payload;
 	struct io *io;
 
-	unsigned int debug:1;
-	unsigned int posting:1;
-	unsigned int xml_failed:1;
-	unsigned int http_ssl:1;
+	bool debug:1;
+	bool posting:1;
+	bool xml_failed:1;
+	bool http_ssl:1;
 };
 
 static int solr_xml_parse(struct solr_connection *conn,

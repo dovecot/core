@@ -208,7 +208,7 @@ struct mail_index_view_sync_rec {
 	enum mail_index_view_sync_type type;
 
 	/* TRUE if this was a hidden transaction. */
-	unsigned int hidden:1;
+	bool hidden:1;
 };
 
 struct mail_index_transaction_commit_result {

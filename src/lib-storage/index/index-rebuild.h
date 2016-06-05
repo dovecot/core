@@ -14,7 +14,7 @@ struct index_rebuild_context {
 	struct mail_index *backup_index;
 	struct mail_index_view *backup_view;
 
-	unsigned int cache_used:1;
+	bool cache_used:1;
 };
 
 typedef unsigned int

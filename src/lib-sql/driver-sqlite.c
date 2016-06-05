@@ -18,7 +18,7 @@ struct sqlite_db {
 	pool_t pool;
 	const char *dbfile;
 	sqlite3 *sqlite;
-	unsigned int connected:1;
+	bool connected:1;
 	int rc;
 };
 
@@ -31,7 +31,7 @@ struct sqlite_result {
 
 struct sqlite_transaction_context {
 	struct sql_transaction_context ctx;
-	unsigned int failed:1;
+	bool failed:1;
 };
 
 extern const struct sql_db driver_sqlite_db;

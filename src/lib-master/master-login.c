@@ -29,7 +29,7 @@ struct master_login_connection {
 	struct io *io;
 	struct ostream *output;
 
-	unsigned int login_success:1;
+	bool login_success:1;
 };
 
 struct master_login_postlogin {
@@ -51,7 +51,7 @@ struct master_login {
 	char *postlogin_socket_path;
 	unsigned int postlogin_timeout_secs;
 
-	unsigned int stopping:1;
+	bool stopping:1;
 };
 
 static void master_login_conn_close(struct master_login_connection *conn);

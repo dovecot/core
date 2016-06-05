@@ -22,15 +22,15 @@ struct imapc_mailbox_list {
 
 	/* mailboxes/subscriptions are fully refreshed only during
 	   mailbox list iteration. */
-	unsigned int refreshed_subscriptions:1;
-	unsigned int refreshed_mailboxes:1;
+	bool refreshed_subscriptions:1;
+	bool refreshed_mailboxes:1;
 	/* mailbox list's "recently refreshed" state is reset by syncing a
 	   mailbox. mainly we use this to cache mailboxes' existence to avoid
 	   issuing a LIST command every time. */
-	unsigned int refreshed_mailboxes_recently:1;
-	unsigned int index_list_failed:1;
-	unsigned int root_sep_pending:1;
-	unsigned int root_sep_lookup_failed:1;
+	bool refreshed_mailboxes_recently:1;
+	bool index_list_failed:1;
+	bool root_sep_pending:1;
+	bool root_sep_lookup_failed:1;
 };
 
 int imapc_list_get_mailbox_flags(struct mailbox_list *list, const char *name,

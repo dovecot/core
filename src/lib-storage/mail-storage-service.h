@@ -57,9 +57,9 @@ struct mail_storage_service_input {
 	enum mail_storage_service_flags flags_override_remove;
 
 	/* override MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP for this lookup */
-	unsigned int no_userdb_lookup:1;
+	bool no_userdb_lookup:1;
 	/* Enable auth_debug=yes for this lookup */
-	unsigned int debug:1;
+	bool debug:1;
 };
 
 extern struct module *mail_storage_service_modules;

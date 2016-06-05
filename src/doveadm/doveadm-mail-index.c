@@ -22,8 +22,8 @@ struct index_cmd_context {
 
 	int queue_fd;
 	unsigned int max_recent_msgs;
-	unsigned int queue:1;
-	unsigned int have_wildcards:1;
+	bool queue:1;
+	bool have_wildcards:1;
 };
 
 static int cmd_index_box_precache(struct mailbox *box)

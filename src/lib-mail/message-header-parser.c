@@ -17,8 +17,8 @@ struct message_header_parser_ctx {
 	buffer_t *value_buf;
 
 	enum message_header_parser_flags flags;
-	unsigned int skip_line:1;
-	unsigned int has_nuls:1;
+	bool skip_line:1;
+	bool has_nuls:1;
 };
 
 struct message_header_parser_ctx *

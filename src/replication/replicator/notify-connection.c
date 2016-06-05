@@ -26,8 +26,8 @@ struct notify_connection {
 
 	struct replicator_queue *queue;
 
-	unsigned int version_received:1;
-	unsigned int destroyed:1;
+	bool version_received:1;
+	bool destroyed:1;
 };
 
 struct notify_sync_request {

@@ -32,7 +32,7 @@ struct master_login_auth_request {
 	master_login_auth_request_callback_t *callback;
 	void *context;
 
-	unsigned int aborted:1;
+	bool aborted:1;
 };
 
 struct master_login_auth {
@@ -53,9 +53,9 @@ struct master_login_auth {
 
 	pid_t auth_server_pid;
 
-	unsigned int request_auth_token:1;
-	unsigned int version_received:1;
-	unsigned int spid_received:1;
+	bool request_auth_token:1;
+	bool version_received:1;
+	bool spid_received:1;
 };
 
 static void master_login_auth_set_timeout(struct master_login_auth *auth);

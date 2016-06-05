@@ -14,7 +14,7 @@ struct ssl_iostream_context {
 	DH *dh_512, *dh_default;
 	int username_nid;
 
-	unsigned int client_ctx:1;
+	bool client_ctx:1;
 };
 
 struct ssl_iostream {
@@ -42,14 +42,14 @@ struct ssl_iostream {
 	ssl_iostream_handshake_callback_t *handshake_callback;
 	void *handshake_context;
 
-	unsigned int handshaked:1;
-	unsigned int handshake_failed:1;
-	unsigned int cert_received:1;
-	unsigned int cert_broken:1;
-	unsigned int want_read:1;
-	unsigned int input_handler:1;
-	unsigned int ostream_flush_waiting_input:1;
-	unsigned int closed:1;
+	bool handshaked:1;
+	bool handshake_failed:1;
+	bool cert_received:1;
+	bool cert_broken:1;
+	bool want_read:1;
+	bool input_handler:1;
+	bool ostream_flush_waiting_input:1;
+	bool closed:1;
 };
 
 extern int dovecot_ssl_extdata_index;

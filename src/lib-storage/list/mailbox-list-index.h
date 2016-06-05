@@ -107,12 +107,12 @@ struct mailbox_list_index {
 	HASH_TABLE(void *, struct mailbox_list_index_node *) mailbox_hash;
 	struct mailbox_list_index_node *mailbox_tree;
 
-	unsigned int pending_init:1;
-	unsigned int opened:1;
-	unsigned int syncing:1;
-	unsigned int updating_status:1;
-	unsigned int has_backing_store:1;
-	unsigned int index_last_check_changed:1;
+	bool pending_init:1;
+	bool opened:1;
+	bool syncing:1;
+	bool updating_status:1;
+	bool has_backing_store:1;
+	bool index_last_check_changed:1;
 };
 
 struct mailbox_list_index_iterate_context {
@@ -127,7 +127,7 @@ struct mailbox_list_index_iterate_context {
 	string_t *path;
 	struct mailbox_list_index_node *next_node;
 
-	unsigned int failed:1;
+	bool failed:1;
 };
 
 extern MODULE_CONTEXT_DEFINE(mailbox_list_index_module,

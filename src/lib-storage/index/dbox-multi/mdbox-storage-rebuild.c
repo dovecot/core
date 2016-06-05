@@ -32,7 +32,7 @@ struct mdbox_rebuild_msg {
 	uint32_t map_uid;
 
 	uint16_t refcount;
-	unsigned int seen_zero_ref_in_map:1;
+	bool seen_zero_ref_in_map:1;
 };
 
 struct rebuild_msg_mailbox {
@@ -60,8 +60,8 @@ struct mdbox_storage_rebuild_context {
 
 	struct rebuild_msg_mailbox prev_msg;
 
-	unsigned int have_pop3_uidls:1;
-	unsigned int have_pop3_orders:1;
+	bool have_pop3_uidls:1;
+	bool have_pop3_orders:1;
 };
 
 static struct mdbox_storage_rebuild_context *

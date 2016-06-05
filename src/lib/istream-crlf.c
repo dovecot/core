@@ -7,8 +7,8 @@
 struct crlf_istream {
 	struct istream_private istream;
 
-	unsigned int pending_cr:1;
-	unsigned int last_cr:1;
+	bool pending_cr:1;
+	bool last_cr:1;
 };
 
 static int i_stream_crlf_read_common(struct crlf_istream *cstream)

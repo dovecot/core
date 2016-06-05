@@ -14,7 +14,7 @@ struct imapc_sync_context {
 	ARRAY_TYPE(seq_range) expunged_uids;
 	unsigned int sync_command_count;
 
-	unsigned int failed:1;
+	bool failed:1;
 };
 
 struct mailbox_sync_context *

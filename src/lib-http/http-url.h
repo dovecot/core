@@ -24,7 +24,7 @@ struct http_url {
 	/* #fragment (still encoded) */
 	const char *enc_fragment;
 
-	unsigned int have_ssl:1;
+	bool have_ssl:1;
 };
 
 /*

@@ -19,9 +19,9 @@ struct lz4_istream {
 	buffer_t *chunk_buf;
 	uint32_t chunk_size, chunk_left, max_uncompressed_chunk_size;
 
-	unsigned int log_errors:1;
-	unsigned int marked:1;
-	unsigned int header_read:1;
+	bool log_errors:1;
+	bool marked:1;
+	bool header_read:1;
 };
 
 static void i_stream_lz4_close(struct iostream_private *stream,

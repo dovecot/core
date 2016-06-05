@@ -47,9 +47,9 @@ struct master_service_settings_cache {
 	   (doesn't count memory used by hash table or global sets) */
 	size_t cache_malloc_size;
 
-	unsigned int done_initial_lookup:1;
-	unsigned int service_uses_local:1;
-	unsigned int service_uses_remote:1;
+	bool done_initial_lookup:1;
+	bool service_uses_local:1;
+	bool service_uses_remote:1;
 };
 
 struct master_service_settings_cache *

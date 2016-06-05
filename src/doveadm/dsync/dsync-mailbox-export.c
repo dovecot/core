@@ -57,13 +57,13 @@ struct dsync_mailbox_exporter {
 	const char *error;
 	enum mail_error mail_error;
 
-	unsigned int body_search_initialized:1;
-	unsigned int auto_export_mails:1;
-	unsigned int mails_have_guids:1;
-	unsigned int minimal_dmail_fill:1;
-	unsigned int return_all_mails:1;
-	unsigned int export_received_timestamps:1;
-	unsigned int no_hdr_hashes:1;
+	bool body_search_initialized:1;
+	bool auto_export_mails:1;
+	bool mails_have_guids:1;
+	bool minimal_dmail_fill:1;
+	bool return_all_mails:1;
+	bool export_received_timestamps:1;
+	bool no_hdr_hashes:1;
 };
 
 static int dsync_mail_error(struct dsync_mailbox_exporter *exporter,

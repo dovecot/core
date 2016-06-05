@@ -31,8 +31,8 @@ struct login_connection {
 	struct auth_connection *auth;
 	struct director *dir;
 
-	unsigned int handshaked:1;
-	unsigned int destroyed:1;
+	bool handshaked:1;
+	bool destroyed:1;
 };
 
 struct login_host_request {

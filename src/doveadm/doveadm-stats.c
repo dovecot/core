@@ -22,7 +22,7 @@ struct top_line {
 	/* [headers_count] */
 	const char **prev_values, **cur_values;
 
-	unsigned int flip:1;
+	bool flip:1;
 };
 
 struct top_context {
@@ -43,7 +43,7 @@ struct top_context {
 	unsigned int last_update_idx, user_idx;
 	unsigned int sort_idx1, sort_idx2;
 
-	unsigned int flip:1;
+	bool flip:1;
 };
 
 static struct top_context *sort_ctx = NULL;

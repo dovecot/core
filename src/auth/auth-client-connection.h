@@ -18,9 +18,9 @@ struct auth_client_connection {
 	uint8_t cookie[MASTER_AUTH_COOKIE_SIZE];
 	struct auth_request_handler *request_handler;
 
-	unsigned int login_requests:1;
-	unsigned int version_received:1;
-	unsigned int token_auth:1;
+	bool login_requests:1;
+	bool version_received:1;
+	bool token_auth:1;
 };
 
 void auth_client_connection_create(struct auth *auth, int fd,

@@ -27,7 +27,7 @@ struct imap_msgpart_url {
 	
 	struct imap_msgpart_open_result result;
 
-	unsigned int decode_cte_to_binary:1;
+	bool decode_cte_to_binary:1;
 };
 
 int imap_msgpart_url_create(struct mail_user *user, const struct imap_url *url,

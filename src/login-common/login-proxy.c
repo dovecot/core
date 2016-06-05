@@ -54,11 +54,11 @@ struct login_proxy {
 
 	proxy_callback_t *callback;
 
-	unsigned int connected:1;
-	unsigned int destroying:1;
-	unsigned int disconnecting:1;
-	unsigned int delayed_disconnect:1;
-	unsigned int num_waiting_connections_updated:1;
+	bool connected:1;
+	bool destroying:1;
+	bool disconnecting:1;
+	bool delayed_disconnect:1;
+	bool num_waiting_connections_updated:1;
 };
 
 static struct login_proxy_state *proxy_state;

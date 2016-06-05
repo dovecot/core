@@ -36,7 +36,7 @@ struct worker_connection {
 	struct aqueue *request_queue;
 
 	unsigned int process_limit;
-	unsigned int version_received:1;
+	bool version_received:1;
 };
 
 struct worker_connection *

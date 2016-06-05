@@ -45,8 +45,8 @@ struct client_state {
 	struct mail_user *dest_user;
 	struct mail *first_saved_mail;
 
-	unsigned int mail_body_7bit:1;
-	unsigned int mail_body_8bitmime:1;
+	bool mail_body_7bit:1;
+	bool mail_body_8bitmime:1;
 };
 
 struct client {
@@ -80,7 +80,7 @@ struct client {
 	unsigned int proxy_ttl;
 	unsigned int proxy_timeout_secs;
 
-	unsigned int disconnected:1;
+	bool disconnected:1;
 };
 
 extern unsigned int clients_count;

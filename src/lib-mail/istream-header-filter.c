@@ -27,22 +27,22 @@ struct header_filter_istream {
 	unsigned int cur_line, parsed_lines;
 	ARRAY(unsigned int) match_change_lines;
 
-	unsigned int header_read:1;
-	unsigned int seen_eoh:1;
-	unsigned int header_parsed:1;
-	unsigned int headers_edited:1;
-	unsigned int exclude:1;
-	unsigned int crlf:1;
-	unsigned int crlf_preserve:1;
-	unsigned int hide_body:1;
-	unsigned int add_missing_eoh:1;
-	unsigned int end_body_with_lf:1;
-	unsigned int last_lf_added:1;
-	unsigned int last_orig_crlf:1;
-	unsigned int last_added_newline:1;
-	unsigned int eoh_not_matched:1;
-	unsigned int callbacks_called:1;
-	unsigned int prev_matched:1;
+	bool header_read:1;
+	bool seen_eoh:1;
+	bool header_parsed:1;
+	bool headers_edited:1;
+	bool exclude:1;
+	bool crlf:1;
+	bool crlf_preserve:1;
+	bool hide_body:1;
+	bool add_missing_eoh:1;
+	bool end_body_with_lf:1;
+	bool last_lf_added:1;
+	bool last_orig_crlf:1;
+	bool last_added_newline:1;
+	bool eoh_not_matched:1;
+	bool callbacks_called:1;
+	bool prev_matched:1;
 };
 
 header_filter_callback *null_header_filter_callback = NULL;

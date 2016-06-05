@@ -17,7 +17,7 @@ struct bzlib_ostream {
 	char outbuf[CHUNK_SIZE];
 	unsigned int outbuf_offset, outbuf_used;
 
-	unsigned int flushed:1;
+	bool flushed:1;
 };
 
 static void o_stream_bzlib_close(struct iostream_private *stream,

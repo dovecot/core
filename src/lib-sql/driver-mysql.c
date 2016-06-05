@@ -42,7 +42,7 @@ struct mysql_db {
 	MYSQL *mysql;
 	unsigned int next_query_connection;
 
-	unsigned int ssl_set:1;
+	bool ssl_set:1;
 };
 
 struct mysql_result {
@@ -63,7 +63,7 @@ struct mysql_transaction_context {
 	pool_t query_pool;
 	const char *error;
 
-	unsigned int failed:1;
+	bool failed:1;
 };
 
 extern const struct sql_db driver_mysql_db;

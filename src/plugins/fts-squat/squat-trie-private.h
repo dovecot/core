@@ -56,12 +56,12 @@ struct squat_node {
 	/* TRUE = children.data contains our children.
 	   FALSE = children.offset contains offset to our children in the
 	   index file. */
-	unsigned int children_not_mapped:1;
+	bool children_not_mapped:1;
 	/* When allocating our children, use a sequential array. */
-	unsigned int want_sequential:1;
+	bool want_sequential:1;
 	/* This node's children are in a sequential array, meaning that the
 	   first SEQUENTIAL_COUNT children have chars[n] = n. */
-	unsigned int have_sequential:1;
+	bool have_sequential:1;
 
 	/* Number of UIDs that exists in parent node but not in this one
 	   (i.e. number of UIDs [0..next_uid-1] not in this node's uidlist).
@@ -138,7 +138,7 @@ struct squat_trie {
 	unsigned int default_partial_len;
 	unsigned int default_full_len;
 
-	unsigned int corrupted:1;
+	bool corrupted:1;
 };
 
 #define SQUAT_PACK_MAX_SIZE ((sizeof(uint32_t) * 8 + 7) / 7)

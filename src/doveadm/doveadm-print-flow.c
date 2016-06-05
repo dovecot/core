@@ -15,7 +15,7 @@ struct doveadm_print_flow_context {
 	ARRAY(struct doveadm_print_flow_header) headers;
 	unsigned int header_idx;
 
-	unsigned int streaming:1;
+	bool streaming:1;
 };
 
 static struct doveadm_print_flow_context *ctx;

@@ -29,8 +29,8 @@ struct imapc_save_context {
 	ARRAY_TYPE(seq_range) dest_saved_uids;
 	unsigned int save_count;
 
-	unsigned int failed:1;
-	unsigned int finished:1;
+	bool failed:1;
+	bool finished:1;
 };
 
 struct imapc_save_cmd_context {

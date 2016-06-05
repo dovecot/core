@@ -85,8 +85,8 @@ struct dsync_ibc {
 	io_callback_t *io_callback;
 	void *io_context;
 
-	unsigned int failed:1;
-	unsigned int timeout:1;
+	bool failed:1;
+	bool timeout:1;
 };
 
 #endif

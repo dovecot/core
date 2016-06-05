@@ -31,7 +31,7 @@ struct penalty_rec {
 
 	unsigned int penalty:16;
 	unsigned int last_update:LAST_UPDATE_BITS; /* last_penalty + n */
-	unsigned int checksum_is_pointer:1;
+	bool checksum_is_pointer:1;
 	/* we use value up to two different checksums.
 	   after that switch to pointer. */
 	union {

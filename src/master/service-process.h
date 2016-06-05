@@ -28,7 +28,7 @@ struct service_process {
 	/* kill the process if it doesn't send initial status notification */
 	struct timeout *to_status;
 
-	unsigned int destroyed:1;
+	bool destroyed:1;
 };
 
 #define SERVICE_PROCESS_IS_INITIALIZED(process) \

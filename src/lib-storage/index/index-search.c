@@ -46,9 +46,9 @@ struct search_header_context {
 
         struct message_header_line *hdr;
 
-	unsigned int parse_headers:1;
-	unsigned int custom_header:1;
-	unsigned int threading:1;
+	bool parse_headers:1;
+	bool custom_header:1;
+	bool threading:1;
 };
 
 struct search_body_context {

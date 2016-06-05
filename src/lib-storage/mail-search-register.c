@@ -9,7 +9,7 @@ struct mail_search_register {
 	ARRAY(struct mail_search_register_arg) args;
 	mail_search_register_fallback_t *fallback;
 
-	unsigned int args_sorted:1;
+	bool args_sorted:1;
 };
 
 struct mail_search_register *mail_search_register_init(void)

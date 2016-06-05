@@ -30,8 +30,8 @@ struct fts_indexer_context {
 	int fd;
 	struct istream *input;
 
-	unsigned int notified:1;
-	unsigned int failed:1;
+	bool notified:1;
+	bool failed:1;
 };
 
 int fts_indexer_cmd(struct mail_user *user, const char *cmd,

@@ -76,7 +76,7 @@ struct fts_backend {
 	struct fts_backend_vfuncs v;
 	struct mail_namespace *ns;
 
-	unsigned int updating:1;
+	bool updating:1;
 };
 
 struct fts_backend_update_context {
@@ -85,8 +85,8 @@ struct fts_backend_update_context {
 
 	struct mailbox *cur_box, *backend_box;
 
-	unsigned int build_key_open:1;
-	unsigned int failed:1;
+	bool build_key_open:1;
+	bool failed:1;
 };
 
 struct fts_index_header {

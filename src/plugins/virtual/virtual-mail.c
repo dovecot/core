@@ -20,7 +20,7 @@ struct virtual_mail {
 	ARRAY(struct mail *) backend_mails;
 
 	/* mail is lost if backend_mail doesn't point to correct mail */
-	unsigned int cur_lost:1;
+	bool cur_lost:1;
 };
 
 struct mail *

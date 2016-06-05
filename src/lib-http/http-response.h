@@ -31,7 +31,7 @@ struct http_response {
 
 	ARRAY_TYPE(const_string) connection_options;
 
-	unsigned int connection_close:1;
+	bool connection_close:1;
 };
 
 void

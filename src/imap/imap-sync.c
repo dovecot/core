@@ -44,11 +44,11 @@ struct imap_sync_context {
 
 	unsigned int messages_count;
 
-	unsigned int failed:1;
-	unsigned int finished:1;
-	unsigned int no_newmail:1;
-	unsigned int have_new_mails:1;
-	unsigned int search_update_notifying:1;
+	bool failed:1;
+	bool finished:1;
+	bool no_newmail:1;
+	bool have_new_mails:1;
+	bool search_update_notifying:1;
 };
 
 static void uids_to_seqs(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)

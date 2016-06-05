@@ -42,9 +42,9 @@ struct pam_passdb_module {
 	const char *service_name, *pam_cache_key;
 	unsigned int requests_left;
 
-	unsigned int pam_setcred:1;
-	unsigned int pam_session:1;
-	unsigned int failure_show_msg:1;
+	bool pam_setcred:1;
+	bool pam_session:1;
+	bool failure_show_msg:1;
 };
 
 struct pam_conv_context {

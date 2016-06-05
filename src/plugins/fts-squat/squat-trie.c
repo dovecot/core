@@ -39,7 +39,7 @@ struct squat_trie_build_context {
 	struct dotlock *dotlock;
 
 	uint32_t first_uid;
-	unsigned int compress_nodes:1;
+	bool compress_nodes:1;
 };
 
 struct squat_trie_iterate_node {

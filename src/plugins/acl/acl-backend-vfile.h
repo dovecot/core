@@ -47,8 +47,8 @@ struct acl_backend_vfile {
 	unsigned int acllist_change_counter;
 
 	unsigned int cache_secs;
-	unsigned int rebuilding_acllist:1;
-	unsigned int iterating_acllist:1;
+	bool rebuilding_acllist:1;
+	bool iterating_acllist:1;
 };
 
 void acl_vfile_write_rights_list(string_t *dest, const char *const *rights);

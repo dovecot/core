@@ -13,7 +13,7 @@ struct jsonstr_istream {
 	struct istream_private istream;
 
 	/* The end '"' was found */
-	unsigned int str_end:1;
+	bool str_end:1;
 };
 
 static int

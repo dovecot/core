@@ -44,10 +44,10 @@ struct virtual_sync_context {
 	enum mailbox_sync_flags flags;
 	uint32_t uid_validity;
 
-	unsigned int ext_header_changed:1;
-	unsigned int ext_header_rewrite:1;
-	unsigned int expunge_removed:1;
-	unsigned int index_broken:1;
+	bool ext_header_changed:1;
+	bool ext_header_rewrite:1;
+	bool expunge_removed:1;
+	bool index_broken:1;
 };
 
 static void virtual_sync_backend_box_deleted(struct virtual_sync_context *ctx,

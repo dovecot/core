@@ -12,16 +12,16 @@ struct indexer_request {
 	unsigned int max_recent_msgs;
 
 	/* index messages in this mailbox */
-	unsigned int index:1;
+	bool index:1;
 	/* optimize this mailbox */
-	unsigned int optimize:1;
+	bool optimize:1;
 	/* currently indexing this mailbox */
-	unsigned int working:1;
+	bool working:1;
 	/* after indexing is finished, add this request back to the queue and
 	   reindex it (i.e. a new indexing request came while we were
 	   working.) */
-	unsigned int reindex_head:1;
-	unsigned int reindex_tail:1;
+	bool reindex_head:1;
+	bool reindex_tail:1;
 
 	/* when working finished, call this number of contexts and leave the
 	   rest to the reindexing. */

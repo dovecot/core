@@ -40,9 +40,9 @@ struct mdbox_storage {
 	   has changed from this value) */
 	uint32_t corrupted_rebuild_count;
 
-	unsigned int corrupted:1;
-	unsigned int rebuilding_storage:1;
-	unsigned int preallocate_space:1;
+	bool corrupted:1;
+	bool rebuilding_storage:1;
+	bool preallocate_space:1;
 };
 
 struct mdbox_mail_index_record {
@@ -59,8 +59,8 @@ struct mdbox_mailbox {
 	uint32_t map_uid_validity;
 	uint32_t ext_id, hdr_ext_id, guid_ext_id;
 
-	unsigned int mdbox_deleted_synced:1;
-	unsigned int creating:1;
+	bool mdbox_deleted_synced:1;
+	bool creating:1;
 };
 
 extern struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs;

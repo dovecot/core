@@ -14,7 +14,7 @@ struct auth_client {
 
 	unsigned int request_id_counter;
 
-	unsigned int debug:1;
+	bool debug:1;
 };
 
 #endif

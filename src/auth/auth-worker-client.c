@@ -34,9 +34,9 @@ struct auth_worker_client {
 	struct timeout *to_idle;
 	time_t cmd_start;
 
-	unsigned int version_received:1;
-	unsigned int dbhash_received:1;
-	unsigned int error_sent:1;
+	bool version_received:1;
+	bool dbhash_received:1;
+	bool error_sent:1;
 };
 
 struct auth_worker_list_context {

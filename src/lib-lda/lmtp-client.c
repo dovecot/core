@@ -33,8 +33,8 @@ struct lmtp_rcpt {
 
 	struct lmtp_recipient_params params;
 
-	unsigned int data_called:1;
-	unsigned int failed:1;
+	bool data_called:1;
+	bool failed:1;
 };
 
 struct lmtp_client {
@@ -73,12 +73,12 @@ struct lmtp_client {
 	unsigned char output_last;
 	struct lmtp_client_times times;
 
-	unsigned int running:1;
-	unsigned int xclient_sent:1;
-	unsigned int rcpt_to_successes:1;
-	unsigned int output_finished:1;
-	unsigned int finish_called:1;
-	unsigned int global_remote_failure:1;
+	bool running:1;
+	bool xclient_sent:1;
+	bool rcpt_to_successes:1;
+	bool output_finished:1;
+	bool finish_called:1;
+	bool global_remote_failure:1;
 };
 
 static void lmtp_client_send_rcpts(struct lmtp_client *client);

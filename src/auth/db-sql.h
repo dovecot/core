@@ -24,11 +24,11 @@ struct sql_connection {
 	struct sql_settings set;
 	struct sql_db *db;
 
-	unsigned int default_password_query:1;
-	unsigned int default_user_query:1;
-	unsigned int default_update_query:1;
-	unsigned int default_iterate_query:1;
-	unsigned int userdb_used:1;
+	bool default_password_query:1;
+	bool default_user_query:1;
+	bool default_update_query:1;
+	bool default_iterate_query:1;
+	bool userdb_used:1;
 };
 
 struct sql_connection *db_sql_init(const char *config_path, bool userdb);

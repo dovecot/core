@@ -45,7 +45,7 @@ struct user {
 	/* TRUE, if the user's timestamp was close to being expired and we're
 	   now doing a ring-wide sync for this user to make sure we don't
 	   assign conflicting hosts to it */
-	unsigned int weak:1;
+	bool weak:1;
 };
 
 /* Create a new directory. Users are dropped if their time gets older

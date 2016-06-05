@@ -46,9 +46,9 @@ struct ns_list_iterate_context {
 	struct mailbox_info inbox_info;
 	const struct mailbox_info *pending_backend_info;
 
-	unsigned int cur_ns_prefix_sent:1;
-	unsigned int inbox_list:1;
-	unsigned int inbox_listed:1;
+	bool cur_ns_prefix_sent:1;
+	bool inbox_list:1;
+	bool inbox_listed:1;
 };
 
 static bool ns_match_next(struct ns_list_iterate_context *ctx, 

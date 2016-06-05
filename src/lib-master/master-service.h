@@ -46,10 +46,10 @@ struct master_service_connection {
 	struct ip_addr real_remote_ip, real_local_ip;
 	in_port_t real_remote_port, real_local_port;
 
-	unsigned int fifo:1;
-	unsigned int ssl:1;
+	bool fifo:1;
+	bool ssl:1;
 
-	unsigned int accepted:1;
+	bool accepted:1;
 };
 
 typedef void

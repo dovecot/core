@@ -79,7 +79,7 @@ struct pop3c_client {
 	const char *input_line;
 	struct istream *dot_input;
 
-	unsigned int running:1;
+	bool running:1;
 };
 
 static void

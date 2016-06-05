@@ -14,7 +14,7 @@ struct mailbox_list_index_sync_context {
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 
-	unsigned int syncing_list:1;
+	bool syncing_list:1;
 };
 
 int mailbox_list_index_sync_begin(struct mailbox_list *list,

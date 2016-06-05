@@ -19,8 +19,8 @@ struct master_instance_list {
 
 	ARRAY(struct master_instance) instances;
 
-	unsigned int locked:1;
-	unsigned int config_paths_changed:1;
+	bool locked:1;
+	bool config_paths_changed:1;
 };
 
 struct master_instance_list_iter {

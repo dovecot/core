@@ -35,10 +35,10 @@ struct mail_thread_node {
 	   from our parent. */
 	unsigned int parent_link_refcount:30;
 	/* If uid is expunged, rebuild the thread tree. */
-	unsigned int expunge_rebuilds:1;
+	bool expunge_rebuilds:1;
 	/* If a link between this node and its child gets unreferenced,
 	   rebuild the thread tree. */
-	unsigned int child_unref_rebuilds:1;
+	bool child_unref_rebuilds:1;
 };
 ARRAY_DEFINE_TYPE(mail_thread_node, struct mail_thread_node);
 #define MAIL_THREAD_NODE_EXISTS(node) \

@@ -44,7 +44,7 @@ struct duplicate_file {
 
 	int new_fd;
 	struct dotlock *dotlock;
-	unsigned int changed:1;
+	bool changed:1;
 };
 
 struct duplicate_context {

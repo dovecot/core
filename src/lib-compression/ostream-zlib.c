@@ -22,9 +22,9 @@ struct zlib_ostream {
 
 	uint32_t crc, bytes32;
 
-	unsigned int gz:1;
-	unsigned int header_sent:1;
-	unsigned int flushed:1;
+	bool gz:1;
+	bool header_sent:1;
+	bool flushed:1;
 };
 
 static void o_stream_zlib_close(struct iostream_private *stream,

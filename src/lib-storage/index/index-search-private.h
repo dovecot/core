@@ -28,11 +28,11 @@ struct index_search_context {
 	struct timeval last_nonblock_timeval;
 	unsigned long long cost, next_time_check_cost;
 
-	unsigned int failed:1;
-	unsigned int sorted:1;
-	unsigned int have_seqsets:1;
-	unsigned int have_index_args:1;
-	unsigned int have_mailbox_args:1;
+	bool failed:1;
+	bool sorted:1;
+	bool have_seqsets:1;
+	bool have_index_args:1;
+	bool have_mailbox_args:1;
 };
 
 struct mail *index_search_get_mail(struct index_search_context *ctx);

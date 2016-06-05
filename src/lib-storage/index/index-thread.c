@@ -26,8 +26,8 @@ struct mail_thread_context {
 	struct mail_search_args *search_args;
 	ARRAY_TYPE(seq_range) added_uids;
 
-	unsigned int failed:1;
-	unsigned int corrupted:1;
+	bool failed:1;
+	bool corrupted:1;
 };
 
 struct mail_thread_mailbox {

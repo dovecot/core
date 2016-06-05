@@ -101,8 +101,8 @@ struct cassandra_result {
 	sql_query_callback_t *callback;
 	void *context;
 
-	unsigned int query_sent:1;
-	unsigned int finished:1;
+	bool query_sent:1;
+	bool finished:1;
 };
 
 struct cassandra_transaction_context {
@@ -115,9 +115,9 @@ struct cassandra_transaction_context {
 	pool_t query_pool;
 	char *error;
 
-	unsigned int begin_succeeded:1;
-	unsigned int begin_failed:1;
-	unsigned int failed:1;
+	bool begin_succeeded:1;
+	bool begin_failed:1;
+	bool failed:1;
 };
 
 extern const struct sql_db driver_cassandra_db;

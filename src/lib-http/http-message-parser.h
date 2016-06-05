@@ -31,8 +31,8 @@ struct http_message {
 	ARRAY_TYPE(http_transfer_coding) transfer_encoding;
 	ARRAY_TYPE(const_string) connection_options;
 
-	unsigned int connection_close:1;
-	unsigned int have_content_length:1;
+	bool connection_close:1;
+	bool have_content_length:1;
 };
 
 struct http_message_parser {
@@ -52,7 +52,7 @@ struct http_message_parser {
 	pool_t msg_pool;
 	struct http_message msg;
 
-	unsigned int lenient:1;
+	bool lenient:1;
 };
 
 void http_message_parser_init(struct http_message_parser *parser,

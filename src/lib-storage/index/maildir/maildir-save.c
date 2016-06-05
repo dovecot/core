@@ -34,7 +34,7 @@ struct maildir_filename {
 	uoff_t size, vsize;
 	enum mail_flags flags;
 	unsigned int pop3_order;
-	unsigned int preserve_filename:1;
+	bool preserve_filename:1;
 	unsigned int keywords_count;
 	/* unsigned int keywords[]; */
 };
@@ -61,12 +61,12 @@ struct maildir_save_context {
 	int fd;
 	uint32_t first_seq, seq, last_nonrecent_uid;
 
-	unsigned int have_keywords:1;
-	unsigned int have_preserved_filenames:1;
-	unsigned int locked:1;
-	unsigned int failed:1;
-	unsigned int last_save_finished:1;
-	unsigned int locked_uidlist_refresh:1;
+	bool have_keywords:1;
+	bool have_preserved_filenames:1;
+	bool locked:1;
+	bool failed:1;
+	bool last_save_finished:1;
+	bool locked_uidlist_refresh:1;
 };
 
 static int maildir_file_move(struct maildir_save_context *ctx,

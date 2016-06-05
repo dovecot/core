@@ -8,7 +8,7 @@
 struct doveadm_print_tab_context {
 	unsigned int header_idx, header_count;
 
-	unsigned int header_written:1;
+	bool header_written:1;
 };
 
 static struct doveadm_print_tab_context ctx;

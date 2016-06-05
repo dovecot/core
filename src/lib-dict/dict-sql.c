@@ -30,7 +30,7 @@ struct sql_dict {
 	const char *username;
 	const struct dict_sql_settings *set;
 
-	unsigned int has_on_duplicate_key:1;
+	bool has_on_duplicate_key:1;
 };
 
 struct sql_dict_iterate_context {

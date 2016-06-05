@@ -48,7 +48,7 @@ struct mail_index_strmap_view {
 	uint32_t next_str_idx;
 	uint32_t lost_expunged_uid;
 
-	unsigned int desynced:1;
+	bool desynced:1;
 };
 
 struct mail_index_strmap_read_context {
@@ -65,7 +65,7 @@ struct mail_index_strmap_read_context {
 	uint32_t next_ref_index;
 	unsigned int rec_size;
 
-	unsigned int too_large_uids:1;
+	bool too_large_uids:1;
 };
 
 struct mail_index_strmap_view_sync {

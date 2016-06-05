@@ -18,7 +18,7 @@ struct message_search_context {
 	struct message_part *prev_part;
 
 	struct message_decoder_context *decoder;
-	unsigned int content_type_text:1; /* text/any or message/any */
+	bool content_type_text:1; /* text/any or message/any */
 };
 
 struct message_search_context *

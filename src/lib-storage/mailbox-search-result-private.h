@@ -14,9 +14,9 @@ struct mail_search_result {
 	ARRAY_TYPE(seq_range) never_uids;
 	ARRAY_TYPE(seq_range) removed_uids, added_uids;
 
-	unsigned int args_have_flags:1;
-	unsigned int args_have_keywords:1;
-	unsigned int args_have_modseq:1;
+	bool args_have_flags:1;
+	bool args_have_keywords:1;
+	bool args_have_modseq:1;
 };
 
 struct mail_search_result *

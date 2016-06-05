@@ -18,7 +18,7 @@ struct static_userdb_module {
 	struct userdb_module module;
 	struct userdb_template *tmpl;
 
-	unsigned int allow_all_users:1;
+	bool allow_all_users:1;
 };
 
 static void static_lookup_real(struct auth_request *auth_request,

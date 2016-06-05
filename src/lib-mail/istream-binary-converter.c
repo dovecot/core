@@ -24,7 +24,7 @@ struct binary_converter_istream {
 
 	buffer_t *hdr_buf;
 	unsigned int cte_header_len;
-	unsigned int content_type_seen:1;
+	bool content_type_seen:1;
 };
 
 static void stream_add_data(struct binary_converter_istream *bstream,

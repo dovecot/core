@@ -35,7 +35,7 @@ struct pgsql_db {
 	char *error;
 	const char *connect_state;
 
-	unsigned int fatal_error:1;
+	bool fatal_error:1;
 };
 
 struct pgsql_binary_value {
@@ -58,7 +58,7 @@ struct pgsql_result {
 	sql_query_callback_t *callback;
 	void *context;
 
-	unsigned int timeout:1;
+	bool timeout:1;
 };
 
 struct pgsql_transaction_context {
@@ -71,7 +71,7 @@ struct pgsql_transaction_context {
 	pool_t query_pool;
 	const char *error;
 
-	unsigned int failed:1;
+	bool failed:1;
 };
 
 extern const struct sql_db driver_pgsql_db;

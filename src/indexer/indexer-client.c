@@ -27,9 +27,9 @@ struct indexer_client {
 	struct ostream *output;
 	struct io *io;
 
-	unsigned int version_received:1;
-	unsigned int handshaked:1;
-	unsigned int destroyed:1;
+	bool version_received:1;
+	bool handshaked:1;
+	bool destroyed:1;
 };
 
 struct indexer_client_request {

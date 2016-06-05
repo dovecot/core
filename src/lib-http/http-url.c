@@ -23,8 +23,8 @@ struct http_url_parser {
 
 	enum http_request_target_format req_format;
 
- 	unsigned int relative:1;
-	unsigned int request_target:1;
+ 	bool relative:1;
+	bool request_target:1;
 };
 
 static bool http_url_parse_authority(struct http_url_parser *url_parser)

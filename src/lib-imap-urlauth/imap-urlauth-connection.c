@@ -79,7 +79,7 @@ struct imap_urlauth_connection {
 	/* userid => target struct */
 	struct imap_urlauth_target *targets_head, *targets_tail;
 
-	unsigned int reading_literal:1;
+	bool reading_literal:1;
 };
 
 #define IMAP_URLAUTH_RECONNECT_MIN_SECS 2

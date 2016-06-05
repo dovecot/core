@@ -21,9 +21,9 @@ struct imap_fetch_body_data {
 	const char *section; /* NOTE: always uppercased */
 	struct imap_msgpart *msgpart;
 
-	unsigned int partial:1;
-	unsigned int binary:1;
-	unsigned int binary_size:1;
+	bool partial:1;
+	bool binary:1;
+	bool binary_size:1;
 };
 
 static void fetch_read_error(struct imap_fetch_context *ctx,

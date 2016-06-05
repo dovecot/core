@@ -30,8 +30,8 @@ struct lucene_fts_backend {
 
 	struct fts_expunge_log *expunge_log;
 
-	unsigned int dir_created:1;
-	unsigned int updating:1;
+	bool dir_created:1;
+	bool updating:1;
 };
 
 struct lucene_fts_backend_update_context {

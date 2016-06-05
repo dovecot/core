@@ -252,21 +252,21 @@ struct mailbox_status {
 	enum mail_flags permanent_flags;
 
 	/* All keywords can be permanently modified (STATUS_PERMANENT_FLAGS) */
-	unsigned int permanent_keywords:1;
+	bool permanent_keywords:1;
 	/* More keywords can be created (STATUS_PERMANENT_FLAGS) */
-	unsigned int allow_new_keywords:1;
+	bool allow_new_keywords:1;
 	/* Modseqs aren't permanent (index is in memory) (STATUS_HIGHESTMODSEQ) */
-	unsigned int nonpermanent_modseqs:1;
+	bool nonpermanent_modseqs:1;
 	/* Modseq tracking has never been enabled for this mailbox
 	   yet. (STATUS_HIGHESTMODSEQ) */
-	unsigned int no_modseq_tracking:1;
+	bool no_modseq_tracking:1;
 
 	/* Messages have GUIDs (always set) */
-	unsigned int have_guids:1;
+	bool have_guids:1;
 	/* mailbox_save_set_guid() works (always set) */
-	unsigned int have_save_guids:1;
+	bool have_save_guids:1;
 	/* GUIDs are always 128bit (always set) */
-	unsigned int have_only_guid128:1;
+	bool have_only_guid128:1;
 };
 
 struct mailbox_cache_field {
@@ -338,7 +338,7 @@ struct mailbox_sync_rec {
 };
 struct mailbox_sync_status {
 	/* There are expunges that haven't been synced yet */
-	unsigned int sync_delayed_expunges:1;
+	bool sync_delayed_expunges:1;
 };
 
 struct mailbox_expunge_rec {
@@ -365,10 +365,10 @@ struct mail {
 	struct mailbox_transaction_context *transaction;
 	uint32_t seq, uid;
 
-	unsigned int expunged:1;
-	unsigned int saving:1; /* This mail is still being saved */
-	unsigned int has_nuls:1; /* message data is known to contain NULs */
-	unsigned int has_no_nuls:1; /* -''- known to not contain NULs */
+	bool expunged:1;
+	bool saving:1; /* This mail is still being saved */
+	bool has_nuls:1; /* message data is known to contain NULs */
+	bool has_no_nuls:1; /* -''- known to not contain NULs */
 
 	/* If the lookup is aborted, error is set to MAIL_ERROR_NOTPOSSIBLE */
 	enum mail_lookup_abort lookup_abort;

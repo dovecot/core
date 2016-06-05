@@ -69,10 +69,10 @@ struct lock_info {
 	time_t last_change;
 	unsigned int wait_usecs;
 
-	unsigned int have_pid:1;
-	unsigned int pid_read:1;
-	unsigned int use_io_notify:1;
-	unsigned int lock_stated:1;
+	bool have_pid:1;
+	bool pid_read:1;
+	bool use_io_notify:1;
+	bool lock_stated:1;
 };
 
 static struct dotlock *

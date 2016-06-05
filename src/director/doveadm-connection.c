@@ -34,7 +34,7 @@ struct doveadm_connection {
 	struct ostream *output;
 	struct director *dir;
 
-	unsigned int handshaked:1;
+	bool handshaked:1;
 };
 
 static struct doveadm_connection *doveadm_connections;

@@ -21,7 +21,7 @@ struct mdbox_map {
 
 	struct mailbox_list *root_list;
 
-	unsigned int verify_existing_file_ids:1;
+	bool verify_existing_file_ids:1;
 };
 
 struct mdbox_map_append {
@@ -42,7 +42,7 @@ struct mdbox_map_append_context {
 
 	unsigned int files_nonappendable_count;
 
-	unsigned int failed:1;
+	bool failed:1;
 };
 
 struct mdbox_map_atomic_context {
@@ -51,10 +51,10 @@ struct mdbox_map_atomic_context {
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *sync_view;
 
-	unsigned int map_refreshed:1;
-	unsigned int locked:1;
-	unsigned int success:1;
-	unsigned int failed:1;
+	bool map_refreshed:1;
+	bool locked:1;
+	bool success:1;
+	bool failed:1;
 };
 
 int mdbox_map_view_lookup_rec(struct mdbox_map *map,

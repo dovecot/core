@@ -120,8 +120,8 @@ struct dbox_file {
 	ARRAY(const char *) metadata;
 	uoff_t metadata_read_offset;
 
-	unsigned int appending:1;
-	unsigned int corrupted:1;
+	bool appending:1;
+	bool corrupted:1;
 };
 
 struct dbox_file_append_context {

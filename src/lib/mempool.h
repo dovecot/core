@@ -42,8 +42,8 @@ struct pool_vfuncs {
 struct pool {
 	const struct pool_vfuncs *v;
 
-	unsigned int alloconly_pool:1;
-	unsigned int datastack_pool:1;
+	bool alloconly_pool:1;
+	bool datastack_pool:1;
 };
 
 /* system_pool uses calloc() + realloc() + free() */

@@ -27,7 +27,7 @@ struct client {
 
 	enum imap_urlauth_worker_state worker_state;
 
-	unsigned int disconnected:1;
+	bool disconnected:1;
 };
 
 extern struct client *imap_urlauth_clients;

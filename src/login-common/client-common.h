@@ -68,11 +68,11 @@ struct client_auth_reply {
 	/* all the key=value fields returned by passdb */
 	const char *const *all_fields;
 
-	unsigned int proxy:1;
-	unsigned int proxy_nopipelining:1;
-	unsigned int temp:1;
-	unsigned int nologin:1;
-	unsigned int authz_failure:1;
+	bool proxy:1;
+	bool proxy_nopipelining:1;
+	bool temp:1;
+	bool nologin:1;
+	bool authz_failure:1;
 };
 
 struct client_vfuncs {
@@ -154,27 +154,27 @@ struct client {
 	ARRAY(union login_client_module_context *) module_contexts;
 
 	char *virtual_user, *virtual_user_orig, *virtual_auth_user;
-	unsigned int destroyed:1;
-	unsigned int input_blocked:1;
-	unsigned int login_success:1;
-	unsigned int starttls:1;
-	unsigned int tls:1;
-	unsigned int secured:1;
-	unsigned int trusted:1;
-	unsigned int ssl_servername_settings_read:1;
-	unsigned int authenticating:1;
-	unsigned int auth_tried_disabled_plaintext:1;
-	unsigned int auth_tried_unsupported_mech:1;
-	unsigned int auth_try_aborted:1;
-	unsigned int auth_initializing:1;
-	unsigned int auth_process_comm_fail:1;
-	unsigned int proxy_auth_failed:1;
-	unsigned int proxy_nopipelining:1;
-	unsigned int auth_waiting:1;
-	unsigned int auth_user_disabled:1;
-	unsigned int auth_pass_expired:1;
-	unsigned int notified_auth_ready:1;
-	unsigned int notified_disconnect:1;
+	bool destroyed:1;
+	bool input_blocked:1;
+	bool login_success:1;
+	bool starttls:1;
+	bool tls:1;
+	bool secured:1;
+	bool trusted:1;
+	bool ssl_servername_settings_read:1;
+	bool authenticating:1;
+	bool auth_tried_disabled_plaintext:1;
+	bool auth_tried_unsupported_mech:1;
+	bool auth_try_aborted:1;
+	bool auth_initializing:1;
+	bool auth_process_comm_fail:1;
+	bool proxy_auth_failed:1;
+	bool proxy_nopipelining:1;
+	bool auth_waiting:1;
+	bool auth_user_disabled:1;
+	bool auth_pass_expired:1;
+	bool notified_auth_ready:1;
+	bool notified_disconnect:1;
 	/* ... */
 };
 

@@ -24,7 +24,7 @@ struct auth_penalty_request {
 struct auth_penalty {
 	struct anvil_client *client;
 
-	unsigned int disabled:1;
+	bool disabled:1;
 };
 
 struct auth_penalty *auth_penalty_init(const char *path)

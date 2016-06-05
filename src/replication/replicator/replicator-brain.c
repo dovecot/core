@@ -21,7 +21,7 @@ struct replicator_brain {
 
 	ARRAY_TYPE(dsync_client) dsync_clients;
 
-	unsigned int deinitializing:1;
+	bool deinitializing:1;
 };
 
 static void replicator_brain_fill(struct replicator_brain *brain);

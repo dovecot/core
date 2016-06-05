@@ -25,7 +25,7 @@ struct mailbox_tree_iterate_context {
 	string_t *path_str;
 	size_t parent_pos;
 
-	unsigned int first_child:1;
+	bool first_child:1;
 };
 
 struct mailbox_tree_context *mailbox_tree_init(char separator)

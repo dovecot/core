@@ -43,9 +43,9 @@ struct auth_master_connection {
 			       void *context);
 	void *reply_context;
 
-	unsigned int sent_handshake:1;
-	unsigned int handshaked:1;
-	unsigned int aborted:1;
+	bool sent_handshake:1;
+	bool handshaked:1;
+	bool aborted:1;
 };
 
 struct auth_master_lookup_ctx {

@@ -57,14 +57,14 @@ struct imap_parser {
 	enum imap_parser_error error;
 	const char *error_msg;
 
-	unsigned int literal_minus:1;
-	unsigned int literal_skip_crlf:1;
-	unsigned int literal_nonsync:1;
-	unsigned int literal8:1;
-	unsigned int literal_size_return:1;
-	unsigned int eol:1;
-	unsigned int args_added_extra_eol:1;
-	unsigned int fatal_error:1;
+	bool literal_minus:1;
+	bool literal_skip_crlf:1;
+	bool literal_nonsync:1;
+	bool literal8:1;
+	bool literal_size_return:1;
+	bool eol:1;
+	bool args_added_extra_eol:1;
+	bool fatal_error:1;
 };
 
 struct imap_parser *

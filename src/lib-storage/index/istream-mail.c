@@ -11,8 +11,8 @@ struct mail_istream {
 
 	struct mail *mail;
 	uoff_t expected_size;
-	unsigned int files_read_increased:1;
-	unsigned int input_has_body:1;
+	bool files_read_increased:1;
+	bool input_has_body:1;
 };
 
 static bool i_stream_mail_try_get_cached_size(struct mail_istream *mstream)

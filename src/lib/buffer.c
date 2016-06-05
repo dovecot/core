@@ -16,8 +16,8 @@ struct real_buffer {
 
 	pool_t pool;
 
-	unsigned int alloced:1;
-	unsigned int dynamic:1;
+	bool alloced:1;
+	bool dynamic:1;
 };
 typedef int buffer_check_sizes[COMPILE_ERROR_IF_TRUE(sizeof(struct real_buffer) > sizeof(buffer_t)) ?1:1];
 

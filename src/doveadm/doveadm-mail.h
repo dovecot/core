@@ -92,13 +92,13 @@ struct doveadm_mail_cmd_context {
 	int exit_code;
 
 	/* This command is being called by a remote doveadm client. */
-	unsigned int proxying:1;
+	bool proxying:1;
 	/* We're handling only a single user */
-	unsigned int iterate_single_user:1;
+	bool iterate_single_user:1;
 	/* We're going through all users (not set for wildcard usernames) */
-	unsigned int iterate_all_users:1;
+	bool iterate_all_users:1;
 	/* Running from CLI doveadm (not doveadm-server) */
-	unsigned int cli:1;
+	bool cli:1;
 };
 
 struct doveadm_mail_cmd {

@@ -39,8 +39,8 @@ struct lazy_expunge_mail_user {
 struct lazy_expunge_mailbox_list {
 	union mailbox_list_module_context module_ctx;
 
-	unsigned int allow_rename:1;
-	unsigned int internal_namespace:1;
+	bool allow_rename:1;
+	bool internal_namespace:1;
 };
 
 struct lazy_expunge_transaction {

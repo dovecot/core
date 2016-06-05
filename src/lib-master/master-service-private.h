@@ -70,17 +70,17 @@ struct master_service {
 
 	struct master_service_haproxy_conn *haproxy_conns;
 
-	unsigned int killed:1;
-	unsigned int stopping:1;
-	unsigned int keep_environment:1;
-	unsigned int log_directly:1;
-	unsigned int initial_status_sent:1;
-	unsigned int die_with_master:1;
-	unsigned int call_avail_overflow:1;
-	unsigned int config_path_changed_with_param:1;
-	unsigned int want_ssl_settings:1;
-	unsigned int ssl_ctx_initialized:1;
-	unsigned int config_path_from_master:1;
+	bool killed:1;
+	bool stopping:1;
+	bool keep_environment:1;
+	bool log_directly:1;
+	bool initial_status_sent:1;
+	bool die_with_master:1;
+	bool call_avail_overflow:1;
+	bool config_path_changed_with_param:1;
+	bool want_ssl_settings:1;
+	bool ssl_ctx_initialized:1;
+	bool config_path_from_master:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);

@@ -49,11 +49,11 @@ struct mbox_sync_mail {
 	ARRAY_TYPE(keyword_indexes) keywords;
 	uint8_t flags;
 
-	unsigned int uid_broken:1;
-	unsigned int expunged:1;
-	unsigned int pseudo:1;
-	unsigned int status_broken:1;
-	unsigned int xstatus_broken:1;
+	bool uid_broken:1;
+	bool expunged:1;
+	bool pseudo:1;
+	bool status_broken:1;
+	bool xstatus_broken:1;
 
 	uoff_t from_offset;
 	uoff_t body_size;
@@ -89,14 +89,14 @@ struct mbox_sync_mail_context {
 	uint32_t parsed_uid, last_uid_updated_value;
 	unsigned int last_uid_value_start_pos;
 
-	unsigned int have_eoh:1;
-	unsigned int need_rewrite:1;
-	unsigned int seen_imapbase:1;
-	unsigned int updated:1;
-	unsigned int recent:1;
-	unsigned int dirty:1;
-	unsigned int imapbase_rewrite:1;
-	unsigned int imapbase_updated:1;
+	bool have_eoh:1;
+	bool need_rewrite:1;
+	bool seen_imapbase:1;
+	bool updated:1;
+	bool recent:1;
+	bool dirty:1;
+	bool imapbase_rewrite:1;
+	bool imapbase_updated:1;
 };
 
 struct mbox_sync_context {
@@ -136,18 +136,18 @@ struct mbox_sync_context {
 	uint32_t last_nonrecent_uid;
 	off_t expunged_space, space_diff;
 
-	unsigned int dest_first_mail:1;
-	unsigned int first_mail_crlf_expunged:1;
+	bool dest_first_mail:1;
+	bool first_mail_crlf_expunged:1;
 
 	/* global flags: */
-	unsigned int keep_recent:1;
-	unsigned int readonly:1;
-	unsigned int delay_writes:1;
-	unsigned int renumber_uids:1;
-	unsigned int moved_offsets:1;
-	unsigned int ext_modified:1;
-	unsigned int index_reset:1;
-	unsigned int errors:1;
+	bool keep_recent:1;
+	bool readonly:1;
+	bool delay_writes:1;
+	bool renumber_uids:1;
+	bool moved_offsets:1;
+	bool ext_modified:1;
+	bool index_reset:1;
+	bool errors:1;
 };
 
 int mbox_sync_header_refresh(struct mbox_mailbox *mbox);
