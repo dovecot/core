@@ -296,11 +296,8 @@ static int doveadm_fs_delete_async_fname(struct fs_delete_ctx *ctx,
 	if ((ret = cmd_fs_delete_ctx_run(ctx)) < 0)
 		return -1;
 	if (fname != NULL) {
-		if (ret > 0 && fs_wait_async(ctx->fs) < 0) {
-			i_error("fs_wait_async() failed: %s", fs_last_error(ctx->fs));
-			doveadm_exit_code = EX_TEMPFAIL;
-			return -1;;
-		}
+		if (ret > 0)
+			fs_wait_async(ctx->fs);
 		return doveadm_fs_delete_async_fname(ctx, fname);
 	}
 	return 0;
@@ -311,11 +308,7 @@ static void doveadm_fs_delete_async_finish(struct fs_delete_ctx *ctx)
 	unsigned int i;
 
 	while (doveadm_exit_code == 0 && cmd_fs_delete_ctx_run(ctx) > 0) {
-		if (fs_wait_async(ctx->fs) < 0) {
-			i_error("fs_wait_async() failed: %s", fs_last_error(ctx->fs));
-			doveadm_exit_code = EX_TEMPFAIL;
-			break;
-		}
+		fs_wait_async(ctx->fs);
 	}
 	for (i = 0; i < ctx->files_count; i++) {
 		if (ctx->files[i] != NULL)

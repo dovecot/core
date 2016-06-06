@@ -570,13 +570,8 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 		/* read the whole input stream before returning */
 		while ((ret = i_stream_read_more(input, &data, &size)) >= 0) {
 			i_stream_skip(input, size);
-			if (ret == 0) {
-				if (fs_wait_async(file->fs) < 0) {
-					input->stream_errno = errno;
-					input->eof = TRUE;
-					break;
-				}
-			}
+			if (ret == 0)
+				fs_wait_async(file->fs);
 		}
 		i_stream_seek(input, 0);
 	}
@@ -738,22 +733,17 @@ void fs_file_set_async_callback(struct fs_file *file,
 		callback(context);
 }
 
-int fs_wait_async(struct fs *fs)
+void fs_wait_async(struct fs *fs)
 {
-	int ret;
-
 	/* recursion not allowed */
 	i_assert(fs->prev_ioloop == NULL);
 
-	if (fs->v.wait_async == NULL)
-		ret = 0;
-	else T_BEGIN {
+	if (fs->v.wait_async != NULL) T_BEGIN {
 		fs->prev_ioloop = current_ioloop;
-		ret = fs->v.wait_async(fs);
+		fs->v.wait_async(fs);
 		i_assert(current_ioloop == fs->prev_ioloop);
 		fs->prev_ioloop = NULL;
 	} T_END;
-	return ret;
 }
 
 int fs_lock(struct fs_file *file, unsigned int secs, struct fs_lock **lock_r)

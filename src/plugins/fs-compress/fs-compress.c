@@ -177,9 +177,9 @@ fs_compress_set_async_callback(struct fs_file *_file,
 	fs_file_set_async_callback(file->super, callback, context);
 }
 
-static int fs_compress_wait_async(struct fs *_fs)
+static void fs_compress_wait_async(struct fs *_fs)
 {
-	return fs_wait_async(_fs->parent);
+	fs_wait_async(_fs->parent);
 }
 
 static void

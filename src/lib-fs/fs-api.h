@@ -285,9 +285,8 @@ void fs_file_set_async_callback(struct fs_file *file,
 				fs_file_async_callback_t *callback,
 				void *context);
 /* Wait until some file can be read/written to more before returning.
-   It's an error to call this when there are no pending async operations.
-   Returns 0 if ok, -1 if timed out. */
-int fs_wait_async(struct fs *fs);
+   It's an error to call this when there are no pending async operations. */
+void fs_wait_async(struct fs *fs);
 
 /* Returns 1 if file exists, 0 if not, -1 if error occurred. */
 int fs_exists(struct fs_file *file);

@@ -173,9 +173,9 @@ fs_metawrap_set_async_callback(struct fs_file *_file,
 	fs_file_set_async_callback(file->super, callback, context);
 }
 
-static int fs_metawrap_wait_async(struct fs *_fs)
+static void fs_metawrap_wait_async(struct fs *_fs)
 {
-	return fs_wait_async(_fs->parent);
+	fs_wait_async(_fs->parent);
 }
 
 static void
@@ -215,8 +215,7 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 				break;
 
 			i_assert(!file->input->blocking);
-			if (fs_wait_async(_file->fs) < 0)
-				return -1;
+			fs_wait_async(_file->fs);
 		}
 		if (ret == -1 && file->input->stream_errno != 0) {
 			fs_set_error(_file->fs, "read(%s) failed: %s",

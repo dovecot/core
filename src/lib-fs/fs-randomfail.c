@@ -303,11 +303,9 @@ fs_random_fail_range(struct fs *_fs, enum fs_op op, uoff_t *offset_r)
 	return TRUE;
 }
 
-static int fs_randomfail_wait_async(struct fs *_fs)
+static void fs_randomfail_wait_async(struct fs *_fs)
 {
-	if (fs_random_fail(_fs, 1, FS_OP_WAIT))
-		return -1;
-	return fs_wait_async(_fs->parent);
+	fs_wait_async(_fs->parent);
 }
 
 static void

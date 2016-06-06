@@ -88,9 +88,8 @@ fs_test_set_async_callback(struct fs_file *_file,
 	file->async_context = context;
 }
 
-static int fs_test_wait_async(struct fs *_fs ATTR_UNUSED)
+static void fs_test_wait_async(struct fs *_fs ATTR_UNUSED)
 {
-	return 0;
 }
 
 static void
