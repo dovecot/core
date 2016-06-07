@@ -26,7 +26,8 @@ void fts_tokenizer_delete_trailing_invalid_char(const unsigned char *data,
 	size_t pos = *len;
 
 	/* the token may contain '.' in the end - remove all of them. */
-	while (pos > 0 && data[pos-1] == '.')
+	while (pos > 0 &&
+		  (data[pos-1] == '.' || data[pos-1] == '-'))
 	    pos--;
 	*len = pos;
 }

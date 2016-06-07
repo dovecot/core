@@ -17,7 +17,9 @@
 	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.tld " \
 	"trailing, period@blue.com. " \
 	"multi-trialing, mul@trail.com..... " \
-	"m@s"
+	"m@s " \
+	"hypen@hypen-hypen.com " \
+	"hypen@hypen-hypen-sick.com.-"
 
 static const char *test_inputs[] = {
 	/* generic things and word truncation: */
@@ -317,6 +319,8 @@ static void test_fts_tokenizer_address_only(void)
 		"period@blue.com", /*trailing period '.' in email */
 		"mul@trail.com",
 		"m@s", /*one letter local-part and domain name */
+		"hypen@hypen-hypen.com",
+		"hypen@hypen-hypen-sick.com",
 		NULL
 	};
 	struct fts_tokenizer *tok;
@@ -340,6 +344,8 @@ static void test_fts_tokenizer_address_parent(const char *name, const char * con
 		"trailing", "period", "blue", "com", "period@blue.com",
 		"multi", "trialing", "mul", "trail", "com", "mul@trail.com",
 		"m", "s", "m@s",
+		"hypen", "hypen", "hypen", "com", "hypen@hypen-hypen.com",
+		"hypen", "hypen", "hypen", "sick", "com", "hypen@hypen-hypen-sick.com",
 		NULL
 	};
 	struct fts_tokenizer *tok, *gen_tok;
@@ -376,6 +382,8 @@ static void test_fts_tokenizer_address_search(void)
 		"trailing", "period@blue.com",
 		"multi", "trialing", "mul@trail.com",
 		"m@s",
+		"hypen@hypen-hypen.com",
+		"hypen@hypen-hypen-sick.com",
 		NULL
 	};
 	static const char *const settings[] = { "search", "", NULL };
