@@ -179,6 +179,15 @@ void test_assert_failed_idx(const char *code, const char *file, unsigned int lin
 	test_success = FALSE;
 }
 
+void test_assert_failed_strcmp(const char *code, const char *file, unsigned int line,
+				const char * src, const char * dst)
+{
+	printf("%s: Assert(#%u) failed: %s\n", file, line, code);
+	printf("        \"%s\" != \"%s\"\n", src, dst);
+	fflush(stdout);
+	test_success = FALSE;
+}
+
 static void
 test_dump_rand_state(void)
 {
