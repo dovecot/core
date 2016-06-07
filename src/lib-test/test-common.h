@@ -17,8 +17,17 @@ void test_begin(const char *name);
 #define test_assert_idx(code, i) STMT_START { \
 		if (!(code)) test_assert_failed_idx(#code, __FILE__, __LINE__, i); \
 	} STMT_END
+/* Additional parameters are s1 (source) and s2 (destination) string
+ * in strcmp().
+ */
+#define test_assert_strcmp(s1, s2) STMT_START { \
+		if ((strcmp(s1,s2) != 0)) test_assert_failed_strcmp("strcmp(" #s1 ","  #s2 ")", __FILE__, __LINE__, s1, s2); \
+	} STMT_END
+
 void test_assert_failed(const char *code, const char *file, unsigned int line);
 void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i);
+void test_assert_failed_strcmp(const char *code, const char *file, unsigned int line,
+				const char * src, const char * dst);
 bool test_has_failed(void);
 /* If you're testing nasty cases which you want to warn, surround the noisy op with these */
 void test_expect_errors(unsigned int expected);
