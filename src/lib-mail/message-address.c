@@ -457,7 +457,7 @@ void message_address_write(string_t *str, const struct message_address *addr)
 
 			if (addr->name != NULL) {
 				/* check for MIME encoded-word */
-				if (strstr(addr->name, "=?"))
+				if (strstr(addr->name, "=?") != NULL)
 					/* MIME encoded-word MUST NOT appear within a 'quoted-string'
 					   so escaping and quoting of phrase is not possible, instead
 					   use obsolete RFC822 phrase syntax which allow spaces */
