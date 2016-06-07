@@ -10,6 +10,7 @@
 #include "all-settings.h"
 #include "config-parser.h"
 #include "config-request.h"
+#include "old-set-parser.h"
 
 struct config_export_context {
 	pool_t pool;
@@ -442,6 +443,22 @@ int config_export_finish(struct config_export_context **_ctx)
 			continue;
 
 		T_BEGIN {
+			/* maybe do it here */
+			if (settings_parse_is_valid_key(parser->parser, "ssl_dh")) {
+				enum setting_type stype;
+				const char *const *value = settings_parse_get_value(parser->parser,
+					"ssl_dh", &stype);
+
+				if (**value == '\0') {
+					const char *newval;
+					if (old_settings_ssl_dh_load(&newval, &error)) {
+						settings_parse_line(parser->parser, t_strdup_printf("%s=%s", "ssl_dh", newval));
+					} else {
+						i_error("%s", error);
+						ret = -1;
+					}
+				}
+			}
 			settings_export(ctx, parser->root, FALSE,
 					settings_parser_get(parser->parser),
 					settings_parser_get_changes(parser->parser));

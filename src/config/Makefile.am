@@ -14,6 +14,7 @@ AM_CPPFLAGS = \
 	-DEXAMPLE_CONFIG_DIR=\""$(exampledir)"\" \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DSSLDIR=\""$(ssldir)\"" \
+	-DSYSCONFDIR=\""$(pkgsysconfdir)"\" \
 	$(BINARY_CFLAGS)
 
 config_LDADD = \
