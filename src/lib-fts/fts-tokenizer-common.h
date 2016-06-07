@@ -3,4 +3,7 @@
 void
 fts_tokenizer_delete_trailing_partial_char(const unsigned char *data,
                                            size_t *len);
+void
+fts_tokenizer_delete_trailing_invalid_char(const unsigned char *data,
+		   size_t *len);
 #endif

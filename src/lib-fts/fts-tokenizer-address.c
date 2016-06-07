@@ -79,6 +79,9 @@ static void
 fts_tokenizer_address_current_token(struct email_address_fts_tokenizer *tok,
                                     const char **token_r)
 {
+	const unsigned char *data = tok->last_word->data;
+	size_t len = tok->last_word->used;
+
 	tok->tokenizer.skip_parents = TRUE;
 	tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
 	if (str_len(tok->last_word) > tok->max_length) {
@@ -86,15 +89,15 @@ fts_tokenizer_address_current_token(struct email_address_fts_tokenizer *tok,
 		/* As future proofing, delete partial utf8.
 		   IS_DTEXT() does not actually allow utf8 addresses
 		   yet though. */
-		const unsigned char *data = tok->last_word->data;
-		size_t len = tok->last_word->used;
+		len = tok->last_word->used;
 		fts_tokenizer_delete_trailing_partial_char(data, &len);
 		i_assert(len <= tok->max_length);
-		*token_r = len == 0 ? "" :
-			t_strndup(tok->last_word->data, len);
-	} else {
-		*token_r = t_strdup(str_c(tok->last_word));
 	}
+
+	if (len > 0)
+		fts_tokenizer_delete_trailing_invalid_char(data, &len);
+	*token_r = len == 0 ? "" :
+		t_strndup(data, len);
 }
 
 static bool
@@ -189,7 +192,7 @@ fts_tokenizer_email_address_parse_domain(struct email_address_fts_tokenizer *tok
 	while (pos < size && (IS_DTEXT(data[pos]) || data[pos] == '.'))
 		pos++;
 	 /* A complete domain name */
-	if ((pos > 1 && pos < size) || /* non-atext after atext in this data*/
+	if ((pos > 0 && pos < size) || /* non-atext after atext in this data*/
 	    (pos < size && !domain_is_empty(tok))) { /* non-atext after previous atext */
 		str_append_n(tok->last_word, data, pos);
 		*skip_r = pos;

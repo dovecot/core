@@ -4,16 +4,20 @@
 #include "unichar.h"
 #include "test-common.h"
 #include "fts-tokenizer.h"
+#include "fts-tokenizer-common.h"
 #include "fts-tokenizer-private.h"
 #include "fts-tokenizer-generic-private.h"
 
-
+/*there should be a trailing space ' ' at the end of each string except the last one*/
 #define TEST_INPUT_ADDRESS \
 	"@invalid invalid@ Abc Dfg <abc.dfg@example.com>, " \
 	"Bar Baz <bar@example.org>" \
 	"Foo Bar (comment)foo.bar@host.example.org " \
 	"foo, foo@domain " \
-	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.tld"
+	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.tld " \
+	"trailing, period@blue.com. " \
+	"multi-trialing, mul@trail.com..... " \
+	"m@s"
 
 static const char *test_inputs[] = {
 	/* generic things and word truncation: */
@@ -78,11 +82,11 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 	/* test all input at once */
 	outi = first_outi;
 	while (fts_tokenizer_next(tok, input, input_len, &token, &error) > 0) {
-		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
+		test_assert_strcmp(token, expected_output[outi]);
 		outi++;
 	}
 	while (fts_tokenizer_next(tok, NULL, 0, &token, &error) > 0) {
-		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
+		test_assert_strcmp(token, expected_output[outi]);
 		outi++;
 	}
 	test_assert_idx(expected_output[outi] == NULL, outi);
@@ -92,12 +96,12 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 	for (i = 0; i < input_len; i += char_len) {
 		char_len = uni_utf8_char_bytes(input[i]);
 		while (fts_tokenizer_next(tok, input+i, char_len, &token, &error) > 0) {
-			test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
+			test_assert_strcmp(token, expected_output[outi]);
 			outi++;
 		}
 	}
 	while (fts_tokenizer_final(tok, &token, &error) > 0) {
-		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
+		test_assert_strcmp(token, expected_output[outi]);
 		outi++;
 	}
 	test_assert_idx(expected_output[outi] == NULL, outi);
@@ -109,12 +113,12 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 		for (char_len = 0; char_len < max; )
 			char_len += uni_utf8_char_bytes(input[i+char_len]);
 		while (fts_tokenizer_next(tok, input+i, char_len, &token, &error) > 0) {
-			test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
+			test_assert_strcmp(token, expected_output[outi]);
 			outi++;
 		}
 	}
 	while (fts_tokenizer_final(tok, &token, &error) > 0) {
-		test_assert_idx(strcmp(token, expected_output[outi]) == 0, outi);
+		test_assert_strcmp(token, expected_output[outi]);
 		outi++;
 	}
 	test_assert_idx(expected_output[outi] == NULL, outi);
@@ -309,7 +313,11 @@ static void test_fts_tokenizer_address_only(void)
 	static const char *const expected_output[] = {
 		"abc.dfg@example.com", "bar@example.org",
 		"foo.bar@host.example.org", "foo@domain",
-		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu", NULL
+		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",
+		"period@blue.com", /*trailing period '.' in email */
+		"mul@trail.com",
+		"m@s", /*one letter local-part and domain name */
+		NULL
 	};
 	struct fts_tokenizer *tok;
 	const char *error;
@@ -328,7 +336,11 @@ static void test_fts_tokenizer_address_parent(const char *name, const char * con
 		"invalid", "invalid", "Abc", "Dfg", "abc", "dfg", "example", "com", "abc.dfg@example.com",
 		"Bar", "Baz", "bar", "example", "org", "bar@example.org",
 		"Foo", "Bar", "comment", "foo", "bar", "host", "example", "org", "foo.bar@host.example.org",
-		"foo", "foo", "domain", "foo@domain", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",  "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz","tld", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",  NULL
+		"foo", "foo", "domain", "foo@domain", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",  "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz","tld", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",
+		"trailing", "period", "blue", "com", "period@blue.com",
+		"multi", "trialing", "mul", "trail", "com", "mul@trail.com",
+		"m", "s", "m@s",
+		NULL
 	};
 	struct fts_tokenizer *tok, *gen_tok;
 	const char *error;
@@ -360,7 +372,11 @@ static void test_fts_tokenizer_address_search(void)
 		"invalid", "invalid", "Abc", "Dfg", "abc.dfg@example.com",
 		"Bar", "Baz", "bar@example.org",
 		"Foo", "Bar", "comment", "foo.bar@host.example.org",
-		"foo", "foo@domain", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu", NULL
+		"foo", "foo@domain", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",
+		"trailing", "period@blue.com",
+		"multi", "trialing", "mul@trail.com",
+		"m@s",
+		NULL
 	};
 	static const char *const settings[] = { "search", "", NULL };
 	struct fts_tokenizer *tok, *gen_tok;
@@ -418,5 +434,6 @@ int main(void)
 	fts_tokenizers_init();
 	ret = test_run(test_functions);
 	fts_tokenizers_deinit();
+
 	return ret;
 }
