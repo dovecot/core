@@ -16,7 +16,6 @@ libdcrypt_la_CFLAGS = $(AM_CPPFLAGS) \
 if BUILD_OPENSSL
 pkglib_LTLIBRARIES += libdcrypt_openssl.la
 libdcrypt_openssl_la_SOURCES = dcrypt-openssl.c
-libdcrypt_openssl_la_DEPENDENCIES = $(SSL_LIBS)
 libdcrypt_openssl_la_LDFLAGS = -module -avoid-version -shared $(SSL_LIBS)
 libdcrypt_openssl_la_CFLAGS = $(AM_CPPFLAGS) \
 	$(SSL_CFLAGS)
