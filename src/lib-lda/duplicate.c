@@ -343,7 +343,8 @@ struct duplicate_context *duplicate_init(struct mail_user *user)
 	}
 
 	ctx = i_new(struct duplicate_context, 1);
-	ctx->path = i_strconcat(home, "/"DUPLICATE_FNAME, NULL);
+	ctx->path = home == NULL ? NULL :
+		i_strconcat(home, "/"DUPLICATE_FNAME, NULL);
 	ctx->dotlock_set = default_duplicate_dotlock_set;
 
 	mail_set = mail_user_set_get_storage_set(user);
