@@ -261,7 +261,7 @@ fs_file_random_fail_end(struct randomfail_fs_file *file,
 {
 	if (ret == 0 || errno != EAGAIN) {
 		if (fs_random_fail(file->file.fs, 2, op))
-			return TRUE;
+			return -1;
 		file->op_pending[op] = FALSE;
 	}
 	return ret;

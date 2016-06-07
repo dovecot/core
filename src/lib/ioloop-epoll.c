@@ -72,11 +72,11 @@ static int epoll_event_mask(struct io_list *list)
 		if (io == NULL)
 			continue;
 
-		if (io->io.condition & IO_READ)
+		if ((io->io.condition & IO_READ) != 0)
 			events |= IO_EPOLL_INPUT;
-		if (io->io.condition & IO_WRITE)
+		if ((io->io.condition & IO_WRITE) != 0)
 			events |= IO_EPOLL_OUTPUT;
-		if (io->io.condition & IO_ERROR)
+		if ((io->io.condition & IO_ERROR) != 0)
 			events |= IO_EPOLL_ERROR;
 	}
 
