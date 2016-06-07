@@ -189,7 +189,7 @@ fts_tokenizer_email_address_parse_domain(struct email_address_fts_tokenizer *tok
 {
 	size_t pos = 0;
 
-	while (pos < size && (IS_DTEXT(data[pos]) || data[pos] == '.'))
+	while (pos < size && (IS_DTEXT(data[pos]) || data[pos] == '.' || data[pos] == '-'))
 		pos++;
 	 /* A complete domain name */
 	if ((pos > 0 && pos < size) || /* non-atext after atext in this data*/
