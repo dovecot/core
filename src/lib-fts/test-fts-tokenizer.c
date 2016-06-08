@@ -424,6 +424,18 @@ static void test_fts_tokenizer_address_search(void)
 	test_end();
 }
 
+static void test_fts_tokenizer_delete_trailing_partial_char()
+{
+	const char* str[] = {"\x7f", "\xC2\x80", "\xE0\x80\x80","\xF0\x80\x80\x80"};
+	unsigned int i;
+	size_t new_size;
+	for (i = 0; i < 4; i++) {
+		new_size = i+1;
+		fts_tokenizer_delete_trailing_partial_char((unsigned char*)str[i], &new_size);
+		test_assert( i+1 == new_size);
+	}
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -435,6 +447,7 @@ int main(void)
 		test_fts_tokenizer_address_parent_simple,
 		test_fts_tokenizer_address_parent_tr29,
 		test_fts_tokenizer_address_search,
+		test_fts_tokenizer_delete_trailing_partial_char,
 		NULL
 	};
 	int ret;
