@@ -24,6 +24,8 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 struct client_connection *doveadm_client;
 int doveadm_exit_code = 0;
 
+static pool_t doveadm_settings_pool;
+
 static void doveadm_die(void)
 {
 	/* do nothing. doveadm connections should be over soon. */
@@ -66,10 +68,10 @@ static void main_preinit(void)
 static void main_init(void)
 {
 	doveadm_server = TRUE;
+	doveadm_settings_pool = pool_alloconly_create("doveadm settings", 1024);
 	doveadm_settings = master_service_settings_get_others(master_service)[0];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info,
-					doveadm_settings,
-					pool_datastack_create());
+					doveadm_settings, doveadm_settings_pool);
 
 	doveadm_http_server_init();
 	doveadm_cmds_init();
@@ -90,6 +92,7 @@ static void main_deinit(void)
 	doveadm_print_deinit();
 	doveadm_cmds_deinit();
 	doveadm_http_server_deinit();
+	pool_unref(&doveadm_settings_pool);
 }
 
 int main(int argc, char *argv[])
