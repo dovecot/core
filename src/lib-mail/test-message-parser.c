@@ -68,6 +68,32 @@ static bool msg_parts_cmp(struct message_part *p1, struct message_part *p2)
 	return TRUE;
 }
 
+static void test_parsed_parts(struct istream *input, struct message_part *parts)
+{
+	struct message_parser_ctx *parser;
+	struct message_block block;
+	struct message_part *parts2;
+	uoff_t i, input_size;
+	const char *error;
+	int ret;
+
+	i_stream_seek(input, 0);
+	if (i_stream_get_size(input, TRUE, &input_size) < 0)
+		i_unreached();
+
+	parser = message_parser_init_from_parts(parts, input, 0,
+					MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK);
+	for (i = 1; i <= input_size*2+1; i++) {
+		test_istream_set_size(input, i/2);
+		if (i > TEST_MSG_LEN*2)
+			test_istream_set_allow_eof(input, TRUE);
+		while ((ret = message_parser_parse_next_block(parser,
+							      &block)) > 0) ;
+	}
+	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
+	test_assert(msg_parts_cmp(parts, parts2));
+}
+
 static void test_message_parser_small_blocks(void)
 {
 	struct message_parser_ctx *parser;
@@ -171,18 +197,25 @@ static const char input_msg[] =
 	message_parser_deinit(&parser, &parts);
 
 	test_assert((parts->flags & MESSAGE_PART_FLAG_MULTIPART) != 0);
+	test_assert(parts->header_size.lines == 2);
+	test_assert(parts->header_size.physical_size == 48);
+	test_assert(parts->header_size.virtual_size == 48+2);
 	test_assert(parts->body_size.lines == 8);
 	test_assert(parts->body_size.physical_size == 112);
 	test_assert(parts->body_size.virtual_size == 112+7);
+	test_assert(parts->children->physical_pos == 55);
 	test_assert(parts->children->header_size.physical_size == 0);
 	test_assert(parts->children->body_size.physical_size == 0);
 	test_assert(parts->children->body_size.lines == 0);
+	test_assert(parts->children->next->physical_pos == 62);
 	test_assert(parts->children->next->header_size.physical_size == 24);
 	test_assert(parts->children->next->header_size.virtual_size == 24);
 	test_assert(parts->children->next->header_size.lines == 0);
+	test_assert(parts->children->next->next->physical_pos == 94);
 	test_assert(parts->children->next->next->header_size.physical_size == 24);
 	test_assert(parts->children->next->next->header_size.virtual_size == 24);
 	test_assert(parts->children->next->next->header_size.lines == 0);
+	test_assert(parts->children->next->next->next->physical_pos == 127);
 	test_assert(parts->children->next->next->next->header_size.physical_size == 23);
 	test_assert(parts->children->next->next->next->header_size.virtual_size == 23);
 	test_assert(parts->children->next->next->next->header_size.lines == 0);
@@ -192,6 +225,7 @@ static const char input_msg[] =
 	}
 	test_assert(parts->children->next->next->next->next == NULL);
 
+	test_parsed_parts(input, parts);
 	i_stream_unref(&input);
 	pool_unref(&pool);
 	test_end();
@@ -252,6 +286,7 @@ static const char input_msg[] =
 	test_assert(parts->children->next->body_size.virtual_size == 5+2);
 	test_assert(parts->children->next->children == NULL);
 
+	test_parsed_parts(input, parts);
 	i_stream_unref(&input);
 	pool_unref(&pool);
 	test_end();
@@ -286,6 +321,7 @@ static const char input_msg[] =
 
 	test_assert(parts->children == NULL);
 
+	test_parsed_parts(input, parts);
 	i_stream_unref(&input);
 	pool_unref(&pool);
 	test_end();
@@ -304,7 +340,7 @@ static const char input_msg[] =
 	pool_t pool;
 	int ret;
 
-	test_begin("message parser truncated mime headers 3");
+	test_begin("message parser empty multipart");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
@@ -323,6 +359,7 @@ static const char input_msg[] =
 
 	test_assert(parts->children == NULL);
 
+	test_parsed_parts(input, parts);
 	i_stream_unref(&input);
 	pool_unref(&pool);
 	test_end();
@@ -380,6 +417,7 @@ static const char input_msg[] =
 	test_assert(parts->children->children->body_size.physical_size == 5);
 	test_assert(parts->children->children->body_size.virtual_size == 5+1);
 
+	test_parsed_parts(input, parts);
 	i_stream_unref(&input);
 	pool_unref(&pool);
 	test_end();
@@ -437,6 +475,7 @@ static const char input_msg[] =
 	test_assert(parts->children->children->body_size.physical_size == 5);
 	test_assert(parts->children->children->body_size.virtual_size == 5+1);
 
+	test_parsed_parts(input, parts);
 	i_stream_unref(&input);
 	pool_unref(&pool);
 	test_end();
@@ -494,6 +533,7 @@ static const char input_msg[] =
 	test_assert(parts->children->children->body_size.physical_size == 5);
 	test_assert(parts->children->children->body_size.virtual_size == 5+1);
 
+	test_parsed_parts(input, parts);
 	i_stream_unref(&input);
 	pool_unref(&pool);
 	test_end();
@@ -569,6 +609,7 @@ static const char input_msg[] =
 	test_assert(part->children == NULL);
 	test_assert(part->next == NULL);
 
+	test_parsed_parts(input, parts);
 	i_stream_unref(&input);
 	pool_unref(&pool);
 	test_end();
@@ -596,6 +637,7 @@ static void test_message_parser_no_eoh(void)
 	test_assert(message_parser_parse_next_block(parser, &block) < 0);
 	message_parser_deinit(&parser, &parts);
 
+	test_parsed_parts(input, parts);
 	i_stream_unref(&input);
 	pool_unref(&pool);
 	test_end();
