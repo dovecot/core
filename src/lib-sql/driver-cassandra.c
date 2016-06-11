@@ -707,7 +707,16 @@ static void query_callback(CassFuture *future, void *context)
 		result->error = i_strdup_printf("Query '%s' failed: %.*s",
 						result->query,
 						(int)errsize, errmsg);
-		if (error == CASS_ERROR_SERVER_UNAVAILABLE &&
+		/* unavailable = cassandra server knows that there aren't
+		   enough nodes available.
+
+		   write timeout = cassandra server couldn't reach all the
+		   needed nodes. this may be because it hasn't yet detected
+		   that the servers are down, or because the servers are just
+		   too busy. we'll try the fallback consistency to avoid
+		   unnecessary temporary errors. */
+		if ((error == CASS_ERROR_SERVER_UNAVAILABLE ||
+		     error == CASS_ERROR_SERVER_WRITE_TIMEOUT) &&
 		    result->fallback_consistency != result->consistency) {
 			/* retry with fallback consistency */
 			query_resend_with_fallback(result);
