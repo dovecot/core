@@ -33,6 +33,7 @@ message_parse_header_init(struct istream *input, struct message_size *hdr_size,
 	ctx->name = str_new(default_pool, 128);
 	ctx->flags = flags;
 	ctx->value_buf = buffer_create_dynamic(default_pool, 4096);
+	i_stream_ref(input);
 
 	if (hdr_size != NULL)
 		memset(hdr_size, 0, sizeof(*hdr_size));
@@ -43,6 +44,7 @@ void message_parse_header_deinit(struct message_header_parser_ctx **_ctx)
 {
 	struct message_header_parser_ctx *ctx = *_ctx;
 
+	i_stream_unref(&ctx->input);
 	buffer_free(&ctx->value_buf);
 	str_free(&ctx->name);
 	i_free(ctx);
