@@ -757,7 +757,6 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 	if (!mail_index_map_get_ext_idx(t->view->map, ext_id, &intro.ext_id)) {
 		/* have to create it */
 		intro.ext_id = (uint32_t)-1;
-		old_record_size = rext->record_size;
 		old_record_align = rext->record_align;
 		old_header_size = rext->hdr_size;
 	} else {
@@ -782,10 +781,10 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 		old_record_size = resizes[ext_id].record_size;
 	} else {
 		/* use the registered values. */
-		record_size = rext->record_size;
+		old_record_size = rext->record_size;
 	}
 
-	if (record_size != old_record_size) {
+	if (record_size != old_record_size && record_size != (uint16_t)-1) {
 		/* if record_size grows, we'll just resize the existing
 		   ext_rec_updates array. it's not possible to shrink
 		   record_size without data loss. */
