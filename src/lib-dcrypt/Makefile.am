@@ -35,12 +35,13 @@ EXTRA_DIST = \
 	sample-v1.asc \
 	sample-v2.asc
 
-noinst_PROGRAMS = test-crypto test-stream
+test_programs = test-crypto test-stream
+noinst_PROGRAMS = $(test_programs)
 
 check: check-am check-test
 
 check-test: all-am
-	for bin in $(check_PROGRAMS); do \
+	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
 

@@ -188,6 +188,8 @@ bool dcrypt_key_type_private(struct dcrypt_private_key *key, enum dcrypt_key_typ
 bool dcrypt_key_type_public(struct dcrypt_public_key *key, enum dcrypt_key_type *type);
 bool dcrypt_key_id_public(struct dcrypt_public_key *key, const char *algorithm, buffer_t *result, const char **error_r); /* return digest of key */
 bool dcrypt_key_id_public_old(struct dcrypt_public_key *key, buffer_t *result, const char **error_r); /* return SHA1 sum of key */
+bool dcrypt_key_id_private(struct dcrypt_private_key *key, const char *algorithm, buffer_t *result, const char **error_r); /* return digest of key */
+bool dcrypt_key_id_private_old(struct dcrypt_private_key *key, buffer_t *result, const char **error_r); /* return SHA1 sum of key */
 
 bool dcrypt_key_string_get_info(const char *key_data, enum dcrypt_key_format *format_r, enum dcrypt_key_version *version_r,
 	enum dcrypt_key_kind *kind_r, enum dcrypt_key_encryption_type *encryption_type_r, const char **encryption_key_hash_r,

@@ -92,6 +92,8 @@ struct dcrypt_vfs {
 	bool (*public_key_type)(struct dcrypt_public_key *key, enum dcrypt_key_type *key_type);
 	bool (*public_key_id)(struct dcrypt_public_key *key, const char *algorithm, buffer_t *result, const char **error_r);
 	bool (*public_key_id_old)(struct dcrypt_public_key *key, buffer_t *result, const char **error_r);
+	bool (*private_key_id)(struct dcrypt_private_key *key, const char *algorithm, buffer_t *result, const char **error_r);
+	bool (*private_key_id_old)(struct dcrypt_private_key *key, buffer_t *result, const char **error_r);
 };
 
 void dcrypt_set_vfs(struct dcrypt_vfs *vfs);

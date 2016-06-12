@@ -242,6 +242,14 @@ bool dcrypt_key_id_public_old(struct dcrypt_public_key *key, buffer_t *result, c
 {
 	return dcrypt_vfs->public_key_id_old(key, result, error_r);
 }
+bool dcrypt_key_id_private(struct dcrypt_private_key *key, const char *algorithm, buffer_t *result, const char **error_r)
+{
+	return dcrypt_vfs->private_key_id(key, algorithm, result, error_r);
+}
+bool dcrypt_key_id_private_old(struct dcrypt_private_key *key, buffer_t *result, const char **error_r)
+{
+	return dcrypt_vfs->private_key_id_old(key, result, error_r);
+}
 void dcrypt_keypair_free(struct dcrypt_keypair *keypair)
 {
 	dcrypt_vfs->free_keypair(keypair);
