@@ -478,6 +478,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 	   intro is corrupted */
 	ctx->cur_ext_map_idx = (uint32_t)-2;
 	ctx->cur_ext_ignore = TRUE;
+	ctx->cur_ext_record_size = 0;
 
 	if (u->ext_id != (uint32_t)-1 &&
 	    (!array_is_created(&map->extensions) ||
@@ -537,6 +538,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		return -1;
 	}
 
+	ctx->cur_ext_record_size = u->record_size;
 	if (ext != NULL) {
 		/* exists already */
 		if (u->reset_id == ext->reset_id) {
@@ -675,7 +677,7 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 
 	ext = array_idx(&view->map->extensions, ctx->cur_ext_map_idx);
-	i_assert(ext->record_offset + ext->record_size <=
+	i_assert(ext->record_offset + ctx->cur_ext_record_size <=
 		 view->map->hdr.record_size);
 
 	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
@@ -696,7 +698,11 @@ mail_index_sync_ext_rec_update(struct mail_index_sync_map_ctx *ctx,
 	}
 
 	/* @UNSAFE */
-	memcpy(old_data, u + 1, ext->record_size);
+	memcpy(old_data, u + 1, ctx->cur_ext_record_size);
+	if (ctx->cur_ext_record_size < ext->record_size) {
+		memset(PTR_OFFSET(old_data, ctx->cur_ext_record_size), 0,
+		       ext->record_size - ctx->cur_ext_record_size);
+	}
 	return 1;
 }
 
@@ -724,7 +730,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 		return 1;
 
 	ext = array_idx(&view->map->extensions, ctx->cur_ext_map_idx);
-	i_assert(ext->record_offset + ext->record_size <=
+	i_assert(ext->record_offset + ctx->cur_ext_record_size <=
 		 view->map->hdr.record_size);
 
 	rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq);
@@ -732,8 +738,8 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 
 	min_value = u->diff >= 0 ? 0 : (uint64_t)(-(int64_t)u->diff);
 
-	max_value = ext->record_size == 8 ? (uint64_t)-1 :
-		((uint64_t)1 << (ext->record_size*8)) - 1;
+	max_value = ctx->cur_ext_record_size == 8 ? (uint64_t)-1 :
+		((uint64_t)1 << (ctx->cur_ext_record_size*8)) - 1;
 	if (u->diff <= 0) {
 		/* skip */
 	} else if (max_value >= (uint32_t)u->diff) {
@@ -745,7 +751,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 		return -1;
 	}
 
-	switch (ext->record_size) {
+	switch (ctx->cur_ext_record_size) {
 	case 1: {
 		uint8_t *num = data;
 
@@ -778,7 +784,7 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	default:
 		mail_index_sync_set_corrupted(ctx,
 			"Extension record inc with invalid size=%u",
-			ext->record_size);
+			ctx->cur_ext_record_size);
 		return -1;
 	}
 	if (orig_num < min_value) {

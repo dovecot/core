@@ -712,7 +712,6 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 	}
 	case MAIL_TRANSACTION_EXT_REC_UPDATE: {
 		const struct mail_transaction_ext_rec_update *rec;
-		const struct mail_index_ext *ext;
 		unsigned int i, record_size;
 
 		if (ctx->cur_ext_map_idx == (uint32_t)-1) {
@@ -728,10 +727,8 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 			break;
 		}
 
-		ext = array_idx(&ctx->view->map->extensions,
-				ctx->cur_ext_map_idx);
 		/* the record is padded to 32bits in the transaction log */
-		record_size = (sizeof(*rec) + ext->record_size + 3) & ~3;
+		record_size = (sizeof(*rec) + ctx->cur_ext_record_size + 3) & ~3;
 
 		for (i = 0; i < hdr->size; i += record_size) {
 			rec = CONST_PTR_OFFSET(data, i);
