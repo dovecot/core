@@ -7,7 +7,7 @@ struct dcrypt_context_symmetric;
 /* Look for a private key for a specified public key digest and set it to
    priv_key_r. Returns 1 if ok, 0 if key doesn't exist, -1 on internal error. */
 typedef int
-i_stream_decrypt_get_key_callback_t(const unsigned char *pubkey_digest,
+i_stream_decrypt_get_key_callback_t(const char *pubkey_digest,
 				    struct dcrypt_private_key **priv_key_r,
 				    const char **error_r, void *context);
 
