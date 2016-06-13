@@ -240,19 +240,27 @@ int ldap_dict_wait(struct dict *dict) {
 
 	ctx->prev_ioloop = current_ioloop;
 	ctx->ioloop = io_loop_create();
-	ldap_client_switch_ioloop(ctx->client);
+	dict_switch_ioloop(dict);
 
 	do {
 		io_loop_run(current_ioloop);
 	} while (ctx->pending > 0);
 
 	io_loop_set_current(ctx->prev_ioloop);
-	ldap_client_switch_ioloop(ctx->client);
+	dict_switch_ioloop(dict);
 	io_loop_set_current(ctx->ioloop);
 	io_loop_destroy(&ctx->ioloop);
 	ctx->prev_ioloop = NULL;
 
 	return 0;
+}
+
+static bool ldap_dict_switch_ioloop(struct dict *dict)
+{
+	struct ldap_dict *ctx = (struct ldap_dict *)dict;
+
+	ldap_client_switch_ioloop(ctx->client);
+	return ctx->pending > 0;
 }
 
 static
@@ -429,7 +437,8 @@ struct dict dict_driver_ldap = {
 		NULL, /*ldap_unset,*/
 		NULL, /*ldap_append,*/
 		NULL, /*ldap_atomic_inc,*/
-		ldap_dict_lookup_async
+		ldap_dict_lookup_async,
+		ldap_dict_switch_ioloop
 	}
 };
 

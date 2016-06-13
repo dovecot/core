@@ -1260,7 +1260,8 @@ static struct dict sql_dict = {
 		sql_dict_unset,
 		sql_dict_append,
 		sql_dict_atomic_inc,
-		sql_dict_lookup_async
+		sql_dict_lookup_async,
+		NULL
 	}
 };
 

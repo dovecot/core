@@ -38,6 +38,7 @@ struct dict_vfuncs {
 
 	void (*lookup_async)(struct dict *dict, const char *key,
 			     dict_lookup_callback_t *callback, void *context);
+	bool (*switch_ioloop)(struct dict *dict);
 };
 
 struct dict {
