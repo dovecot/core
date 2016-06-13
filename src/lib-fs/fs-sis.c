@@ -12,7 +12,6 @@
 
 struct sis_fs {
 	struct fs fs;
-	struct fs *super;
 };
 
 struct sis_fs_file {
@@ -31,7 +30,7 @@ struct sis_fs_file {
 
 static void fs_sis_copy_error(struct sis_fs *fs)
 {
-	fs_set_error(&fs->fs, "%s", fs_last_error(fs->super));
+	fs_set_error(&fs->fs, "%s", fs_last_error(fs->fs.parent));
 }
 
 static void fs_sis_file_copy_error(struct sis_fs_file *file)
@@ -53,7 +52,6 @@ static struct fs *fs_sis_alloc(void)
 static int
 fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 {
-	struct sis_fs *fs = (struct sis_fs *)_fs;
 	enum fs_properties props;
 	const char *parent_name, *parent_args, *error;
 
@@ -70,11 +68,11 @@ fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 		parent_name = t_strdup_until(args, parent_args);
 		parent_args++;
 	}
-	if (fs_init(parent_name, parent_args, set, &fs->super, &error) < 0) {
+	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
 		fs_set_error(_fs, "%s", error);
 		return -1;
 	}
-	props = fs_get_properties(fs->super);
+	props = fs_get_properties(_fs->parent);
 	if ((props & FS_SIS_REQUIRED_PROPS) != FS_SIS_REQUIRED_PROPS) {
 		fs_set_error(_fs, "%s backend can't be used with SIS",
 			     parent_name);
@@ -87,16 +85,14 @@ static void fs_sis_deinit(struct fs *_fs)
 {
 	struct sis_fs *fs = (struct sis_fs *)_fs;
 
-	if (fs->super != NULL)
-		fs_deinit(&fs->super);
+	if (_fs->parent != NULL)
+		fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 
 static enum fs_properties fs_sis_get_properties(struct fs *_fs)
 {
-	struct sis_fs *fs = (struct sis_fs *)_fs;
-
-	return fs_get_properties(fs->super);
+	return fs_get_properties(_fs->parent);
 }
 
 static struct fs_file *
@@ -124,7 +120,7 @@ fs_sis_file_init(struct fs *_fs, const char *path,
 
 	/* if hashes/<hash> already exists, open it */
 	file->hash_path = i_strdup_printf("%s/"HASH_DIR_NAME"/%s", dir, hash);
-	file->hash_file = fs_file_init(fs->super, file->hash_path,
+	file->hash_file = fs_file_init(_fs->parent, file->hash_path,
 				       FS_OPEN_MODE_READONLY);
 
 	file->hash_input = fs_read_stream(file->hash_file, IO_BLOCK_SIZE);
@@ -137,7 +133,7 @@ fs_sis_file_init(struct fs *_fs, const char *path,
 		i_stream_destroy(&file->hash_input);
 	}
 
-	file->super = fs_file_init(fs->super, path, mode | flags);
+	file->super = fs_file_init(_fs->parent, path, mode | flags);
 	return &file->file;
 }
 
@@ -181,9 +177,7 @@ fs_sis_set_async_callback(struct fs_file *_file,
 
 static int fs_sis_wait_async(struct fs *_fs)
 {
-	struct sis_fs *fs = (struct sis_fs *)_fs;
-
-	return fs_wait_async(fs->super);
+	return fs_wait_async(_fs->parent);
 }
 
 static void
@@ -486,9 +480,7 @@ static int fs_sis_delete(struct fs_file *_file)
 static struct fs_iter *
 fs_sis_iter_init(struct fs *_fs, const char *path, enum fs_iter_flags flags)
 {
-	struct sis_fs *fs = (struct sis_fs *)_fs;
-
-	return fs_iter_init(fs->super, path, flags);
+	return fs_iter_init(_fs->parent, path, flags);
 }
 
 const struct fs fs_class_sis = {

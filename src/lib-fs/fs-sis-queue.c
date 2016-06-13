@@ -10,7 +10,6 @@
 
 struct sis_queue_fs {
 	struct fs fs;
-	struct fs *super;
 	char *queue_dir;
 };
 
@@ -22,7 +21,7 @@ struct sis_queue_fs_file {
 
 static void fs_sis_queue_copy_error(struct sis_queue_fs *fs)
 {
-	fs_set_error(&fs->fs, "%s", fs_last_error(fs->super));
+	fs_set_error(&fs->fs, "%s", fs_last_error(fs->fs.parent));
 }
 
 static void fs_sis_queue_file_copy_error(struct sis_queue_fs_file *file)
@@ -64,7 +63,7 @@ fs_sis_queue_init(struct fs *_fs, const char *args,
 		parent_args = "";
 	else
 		parent_name = t_strdup_until(parent_name, parent_args++);
-	if (fs_init(parent_name, parent_args, set, &fs->super, &error) < 0) {
+	if (fs_init(parent_name, parent_args, set, &_fs->parent, &error) < 0) {
 		fs_set_error(_fs, "%s", error);
 		return -1;
 	}
@@ -75,17 +74,15 @@ static void fs_sis_queue_deinit(struct fs *_fs)
 {
 	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
 
-	if (fs->super != NULL)
-		fs_deinit(&fs->super);
+	if (_fs->parent != NULL)
+		fs_deinit(&_fs->parent);
 	i_free(fs->queue_dir);
 	i_free(fs);
 }
 
 static enum fs_properties fs_sis_queue_get_properties(struct fs *_fs)
 {
-	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
-
-	return fs_get_properties(fs->super);
+	return fs_get_properties(_fs->parent);
 }
 
 static struct fs_file *
@@ -103,7 +100,7 @@ fs_sis_queue_file_init(struct fs *_fs, const char *path,
 	if (mode == FS_OPEN_MODE_APPEND)
 		fs_set_error(_fs, "APPEND mode not supported");
 	else
-		file->super = fs_file_init(fs->super, path, mode | flags);
+		file->super = fs_file_init(_fs->parent, path, mode | flags);
 	return &file->file;
 }
 
@@ -144,9 +141,7 @@ fs_sis_queue_set_async_callback(struct fs_file *_file,
 
 static int fs_sis_queue_wait_async(struct fs *_fs)
 {
-	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
-
-	return fs_wait_async(fs->super);
+	return fs_wait_async(_fs->parent);
 }
 
 static void
@@ -206,9 +201,9 @@ static void fs_sis_queue_add(struct sis_queue_fs_file *file)
 		fname = path;
 
 	queue_path = t_strdup_printf("%s/%s", fs->queue_dir, fname);
-	queue_file = fs_file_init(fs->super, queue_path, FS_OPEN_MODE_CREATE);
+	queue_file = fs_file_init(fs->fs.parent, queue_path, FS_OPEN_MODE_CREATE);
 	if (fs_write(queue_file, "", 0) < 0 && errno != EEXIST)
-		i_error("fs-sis-queue: %s", fs_last_error(fs->super));
+		i_error("fs-sis-queue: %s", fs_last_error(fs->fs.parent));
 	fs_file_deinit(&queue_file);
 }
 
@@ -348,9 +343,7 @@ static struct fs_iter *
 fs_sis_queue_iter_init(struct fs *_fs, const char *path,
 		       enum fs_iter_flags flags)
 {
-	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
-
-	return fs_iter_init(fs->super, path, flags);
+	return fs_iter_init(_fs->parent, path, flags);
 }
 
 const struct fs fs_class_sis_queue = {
