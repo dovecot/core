@@ -76,7 +76,7 @@ distclean-generic:
 test_programs = \
 	test-dict
 
-noinst_PROGRAMS = $(test_programs)
+noinst_PROGRAMS = $(test_programs) test-dict-client
 
 test_libs = \
 	../lib-test/libtest.la \
@@ -85,6 +85,10 @@ test_libs = \
 test_dict_SOURCES = test-dict.c
 test_dict_LDADD = dict.lo $(test_libs)
 test_dict_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
+
+test_dict_client_SOURCES = test-dict-client.c
+test_dict_client_LDADD = $(noinst_LTLIBRARIES) ../lib/liblib.la
+test_dict_client_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
 
 check: check-am check-test
 check-test: all-am
