@@ -138,16 +138,14 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 		/* generate a new intro structure */
 		intro = buffer_append_space_unsafe(buf, sizeof(*intro));
 		intro->ext_id = idx;
+		intro->record_size = rext->record_size;
+		intro->record_align = rext->record_align;
 		if (idx == (uint32_t)-1) {
 			intro->hdr_size = rext->hdr_size;
-			intro->record_size = rext->record_size;
-			intro->record_align = rext->record_align;
 			intro->name_size = strlen(rext->name);
 		} else {
 			ext = array_idx(&t->view->index->map->extensions, idx);
 			intro->hdr_size = ext->hdr_size;
-			intro->record_size = ext->record_size;
-			intro->record_align = ext->record_align;
 			intro->name_size = 0;
 		}
 		intro->flags = MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_SHRINK;

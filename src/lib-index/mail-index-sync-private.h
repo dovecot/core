@@ -27,6 +27,7 @@ struct mail_index_sync_map_ctx {
 	struct mail_index_view *view;
 	struct mail_index_modseq_sync *modseq_ctx;
 	uint32_t cur_ext_map_idx;
+	uint32_t cur_ext_record_size;
 
 	uint32_t ext_intro_seq;
 	uoff_t ext_intro_offset, ext_intro_end_offset;
