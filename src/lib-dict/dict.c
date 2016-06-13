@@ -101,6 +101,14 @@ void dict_wait(struct dict *dict)
 		dict->v.wait(dict);
 }
 
+bool dict_switch_ioloop(struct dict *dict)
+{
+	if (dict->v.switch_ioloop != NULL)
+		return dict->v.switch_ioloop(dict);
+	else
+		return FALSE;
+}
+
 static bool dict_key_prefix_is_valid(const char *key)
 {
 	return strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0 ||

@@ -552,24 +552,26 @@ static void client_dict_wait(struct dict *_dict)
 
 	dict->prev_ioloop = current_ioloop;
 	io_loop_set_current(dict->ioloop);
-
-	if (dict->to_idle != NULL)
-		dict->to_idle = io_loop_move_timeout(&dict->to_idle);
-	if (dict->to_requests != NULL)
-		dict->to_requests = io_loop_move_timeout(&dict->to_requests);
-	connection_switch_ioloop(&dict->conn.conn);
-
+	dict_switch_ioloop(_dict);
 	while (array_count(&dict->cmds) > 0)
 		io_loop_run(dict->ioloop);
 
 	io_loop_set_current(dict->prev_ioloop);
 	dict->prev_ioloop = NULL;
 
+	dict_switch_ioloop(_dict);
+}
+
+static bool client_dict_switch_ioloop(struct dict *_dict)
+{
+	struct client_dict *dict = (struct client_dict *)_dict;
+
 	if (dict->to_idle != NULL)
 		dict->to_idle = io_loop_move_timeout(&dict->to_idle);
 	if (dict->to_requests != NULL)
 		dict->to_requests = io_loop_move_timeout(&dict->to_requests);
 	connection_switch_ioloop(&dict->conn.conn);
+	return array_count(&dict->cmds) > 0;
 }
 
 static void
@@ -1008,6 +1010,7 @@ struct dict dict_driver_client = {
 		client_dict_set,
 		client_dict_unset,
 		client_dict_atomic_inc,
-		client_dict_lookup_async
+		client_dict_lookup_async,
+		client_dict_switch_ioloop
 	}
 };

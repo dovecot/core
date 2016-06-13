@@ -73,6 +73,10 @@ int dict_init(const char *uri, const struct dict_settings *set,
 void dict_deinit(struct dict **dict);
 /* Wait for all pending asynchronous operations to finish. */
 void dict_wait(struct dict *dict);
+/* Switch the dict to the current ioloop. This can be used to do dict_wait()
+   among other IO work. Returns TRUE if there is actually some work that can
+   be waited on. */
+bool dict_switch_ioloop(struct dict *dict) ATTR_NOWARN_UNUSED_RESULT;
 
 /* Lookup value for key. Set it to NULL if it's not found.
    Returns 1 if found, 0 if not found and -1 if lookup failed. */
