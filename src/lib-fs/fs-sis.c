@@ -513,6 +513,7 @@ const struct fs fs_class_sis = {
 		fs_sis_delete,
 		fs_sis_iter_init,
 		NULL,
+		NULL,
 		NULL
 	}
 };

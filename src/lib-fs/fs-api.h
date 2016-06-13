@@ -288,6 +288,10 @@ void fs_file_set_async_callback(struct fs_file *file,
    It's an error to call this when there are no pending async operations.
    Returns 0 if ok, -1 if timed out. */
 int fs_wait_async(struct fs *fs);
+/* Switch the fs to the current ioloop. This can be used to do fs_wait_async()
+   among other IO work. Returns TRUE if there is actually some work that can
+   be waited on. */
+bool fs_switch_ioloop(struct fs *fs) ATTR_NOWARN_UNUSED_RESULT;
 
 /* Returns 1 if file exists, 0 if not, -1 if error occurred. */
 int fs_exists(struct fs_file *file);
