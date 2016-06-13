@@ -138,25 +138,16 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	}
 
 	buffer_t *check = buffer_create_dynamic(pool_datastack_create(), 32);
-	struct dcrypt_public_key *pubkey = NULL;
 
-	/* do we have correct private key? */
-	if (!dcrypt_key_convert_private_to_public(stream->priv_key, &pubkey, &error)) {
-		io_stream_set_error(&stream->istream.iostream, "Cannot convert private key to public: %s", error);
-		return -1;
-	}
-	ec = 0;
-	if (!dcrypt_key_id_public_old(pubkey, check, &error)) {
+	if (!dcrypt_key_id_private_old(stream->priv_key, check, &error)) {
 		io_stream_set_error(&stream->istream.iostream, "Cannot get public key hash: %s", error);
-		ec = -1;
+		return -1;
 	} else {
 		if (memcmp(digest_pos, check->data, I_MIN(digest_len,check->used)) != 0) {
 			io_stream_set_error(&stream->istream.iostream, "Private key not available");
-			ec = -1;
+			return -1;
 		}
 	}
-	dcrypt_key_free_public(&pubkey);
-	if (ec != 0) return ec;
 
 	/* derive shared secret */
 	if (!dcrypt_ecdh_derive_secret_local(stream->priv_key, &ephemeral_key, secret, &error)) {
@@ -296,10 +287,7 @@ ssize_t i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg, u
 			return -1;
 		}
 		buffer_create_from_data(&buf, dgst, sizeof(dgst));
-		struct dcrypt_public_key *pub = NULL;
-		dcrypt_key_convert_private_to_public(stream->priv_key, &pub, NULL);
-		dcrypt_key_id_public(pub, "sha256", &buf, NULL);
-		dcrypt_key_free_public(&pub);
+		dcrypt_key_id_private(stream->priv_key, "sha256", &buf, NULL);
 	}
 
 	/* for each key */
