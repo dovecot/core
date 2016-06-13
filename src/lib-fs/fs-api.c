@@ -746,6 +746,20 @@ void fs_wait_async(struct fs *fs)
 	} T_END;
 }
 
+bool fs_switch_ioloop(struct fs *fs)
+{
+	bool ret = FALSE;
+
+	if (fs->v.switch_ioloop != NULL) {
+		T_BEGIN {
+			ret = fs->v.switch_ioloop(fs);
+		} T_END;
+	} else if (fs->parent != NULL) {
+		ret = fs_switch_ioloop(fs->parent);
+	}
+	return ret;
+}
+
 int fs_lock(struct fs_file *file, unsigned int secs, struct fs_lock **lock_r)
 {
 	int ret;

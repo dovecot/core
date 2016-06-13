@@ -66,6 +66,8 @@ struct fs_vfuncs {
 				     enum fs_iter_flags flags);
 	const char *(*iter_next)(struct fs_iter *iter);
 	int (*iter_deinit)(struct fs_iter *iter);
+
+	bool (*switch_ioloop)(struct fs *fs);
 };
 
 struct fs {

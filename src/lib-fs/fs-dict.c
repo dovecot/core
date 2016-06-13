@@ -322,6 +322,7 @@ const struct fs fs_class_dict = {
 		fs_dict_delete,
 		fs_dict_iter_init,
 		fs_dict_iter_next,
-		fs_dict_iter_deinit
+		fs_dict_iter_deinit,
+		NULL
 	}
 };

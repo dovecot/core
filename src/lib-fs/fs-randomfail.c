@@ -565,6 +565,7 @@ const struct fs fs_class_randomfail = {
 		fs_randomfail_delete,
 		fs_randomfail_iter_init,
 		fs_randomfail_iter_next,
-		fs_randomfail_iter_deinit
+		fs_randomfail_iter_deinit,
+		NULL
 	}
 };

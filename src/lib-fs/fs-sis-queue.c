@@ -376,6 +376,7 @@ const struct fs fs_class_sis_queue = {
 		fs_sis_queue_delete,
 		fs_sis_queue_iter_init,
 		NULL,
+		NULL,
 		NULL
 	}
 };

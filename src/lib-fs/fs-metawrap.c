@@ -597,6 +597,7 @@ const struct fs fs_class_metawrap = {
 		fs_metawrap_delete,
 		fs_metawrap_iter_init,
 		fs_metawrap_iter_next,
-		fs_metawrap_iter_deinit
+		fs_metawrap_iter_deinit,
+		NULL
 	}
 };
