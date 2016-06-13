@@ -14,7 +14,7 @@
 
 #include <unistd.h>
 
-#define DICT_CONN_MAX_PENDING_COMMANDS 5
+#define DICT_CONN_MAX_PENDING_COMMANDS 1000
 
 static struct dict_connection *dict_connections;
 static unsigned int dict_connections_count = 0;
