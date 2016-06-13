@@ -109,6 +109,9 @@ static void dict_connection_input_more(struct dict_connection *conn)
 	const char *line;
 	int ret;
 
+	if (conn->to_input != NULL)
+		timeout_remove(&conn->to_input);
+
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
 		T_BEGIN {
 			ret = dict_command_input(conn, line);
@@ -129,9 +132,6 @@ static void dict_connection_input_more(struct dict_connection *conn)
 static void dict_connection_input(struct dict_connection *conn)
 {
 	const char *line;
-
-	if (conn->to_input != NULL)
-		timeout_remove(&conn->to_input);
 
 	switch (i_stream_read(conn->input)) {
 	case 0:
