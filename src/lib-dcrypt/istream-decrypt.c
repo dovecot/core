@@ -120,8 +120,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	if (stream->priv_key == NULL) {
 		/* see if we can get one */
 		if (stream->key_callback != NULL) {
-			unsigned char *key_id = t_malloc_no0(digest_len);
-			memcpy(key_id, digest_pos, digest_len);
+			const char *key_id = binary_to_hex(digest_pos, digest_len);
 			int ret = stream->key_callback(key_id, &(stream->priv_key), &error, stream->key_context);
 			if (ret < 0) {
 				io_stream_set_error(&stream->istream.iostream, "Private key not available: %s", error);
@@ -297,9 +296,9 @@ ssize_t i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg, u
 		ktype = *data++;
 
 		if (stream->key_callback != NULL) {
-			memcpy(dgst, data, sizeof(dgst));
+			const char *hexdgst = binary_to_hex(data, sizeof(dgst)); /* digest length */
 			/* hope you going to give us right key.. */
-			int ret = stream->key_callback(dgst, &(stream->priv_key), &error, stream->key_context);
+			int ret = stream->key_callback(hexdgst, &(stream->priv_key), &error, stream->key_context);
 			if (ret < 0) {
 				io_stream_set_error(&stream->istream.iostream, "Private key not available: %s", error);
 				return -1;
