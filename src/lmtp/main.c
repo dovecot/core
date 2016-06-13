@@ -25,7 +25,7 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
-const char *dns_client_socket_path, *base_dir;
+char *dns_client_socket_path, *base_dir;
 struct mail_storage_service_ctx *storage_service;
 struct anvil_client *anvil;
 
@@ -64,7 +64,7 @@ static void main_init(void)
 		memset(&conn, 0, sizeof(conn));
 		(void)client_create(STDIN_FILENO, STDOUT_FILENO, &conn);
 	}
-	dns_client_socket_path = t_abspath(DNS_CLIENT_SOCKET_PATH);
+	dns_client_socket_path = i_strdup(t_abspath(DNS_CLIENT_SOCKET_PATH));
 }
 
 static void main_deinit(void)
@@ -72,6 +72,8 @@ static void main_deinit(void)
 	clients_destroy();
 	if (anvil != NULL)
 		anvil_client_deinit(&anvil);
+	i_free(dns_client_socket_path);
+	i_free(base_dir);
 }
 
 int main(int argc, char *argv[])
@@ -90,6 +92,7 @@ int main(int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 		MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT |
 		MAIL_STORAGE_SERVICE_FLAG_AUTOEXPUNGE;
+	const char *tmp_base_dir;
 	int c;
 
 	if (IS_STANDALONE()) {
@@ -112,8 +115,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (t_get_current_dir(&base_dir) < 0)
+	if (t_get_current_dir(&tmp_base_dir) < 0)
 		i_fatal("getcwd() failed: %m");
+	base_dir = i_strdup(tmp_base_dir);
+
 	drop_privileges();
 	master_service_init_log(master_service,
 				t_strdup_printf("lmtp(%s): ", my_pid));
