@@ -28,10 +28,10 @@ int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
 	if (tv1->tv_sec > tv2->tv_sec)
 		return 1;
 
-	if (tv1->tv_usec - tv2->tv_usec < (int)usec_margin)
+	if ((tv2->tv_usec - tv1->tv_usec) > (int)usec_margin)
 		return -1;
-	if (tv1->tv_usec - tv2->tv_usec > (int)usec_margin)
-		return -1;
+	if ((tv1->tv_usec - tv2->tv_usec) > (int)usec_margin)
+		return 1;
 	return 0;
 }
 
