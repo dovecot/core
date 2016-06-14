@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "time-util.h"
 #include "connection.h"
 #include "test-common.h"
 #include "http-url.h"
@@ -1496,6 +1497,110 @@ static void test_client_deinit_early(void)
 }
 
 /*
+ * Retry with delay
+ */
+
+/* server */
+
+static void
+test_retry_with_delay_input(struct server_connection *conn)
+{
+	string_t *resp;
+
+	resp = t_str_new(512);
+	str_printfa(resp, 
+		"HTTP/1.1 500 Internal Server Error\r\n"
+		"\r\n");
+	o_stream_nsend(conn->conn.output,
+		str_data(resp), str_len(resp));
+	server_connection_deinit(&conn);
+}
+
+static void test_server_retry_with_delay(unsigned int index)
+{
+	test_server_input = test_retry_with_delay_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _client_retry_with_delay_ctx {
+	struct http_client_request *req;
+	unsigned int retries;
+	struct timeval time;
+};
+
+static void
+test_client_retry_with_delay_response(
+	const struct http_response *resp,
+	struct _client_retry_with_delay_ctx *ctx)
+{
+	int real_delay, exp_delay;
+
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == 500);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (ctx->retries > 0) {
+		/* check delay */
+		real_delay = timeval_diff_msecs(&ioloop_timeval, &ctx->time);
+		exp_delay = (1 << (ctx->retries-1)) * 50;
+		if (real_delay < exp_delay) {
+			i_fatal("Retry delay is too short %d < %d",
+				real_delay, exp_delay);
+		}
+	}
+
+	http_client_request_delay_msecs(ctx->req, (1 << ctx->retries) * 50);
+	ctx->time = ioloop_timeval;
+	if (http_client_request_try_retry(ctx->req)) {
+		ctx->retries++;
+		if (debug)
+			i_debug("retrying");
+		return;
+	}
+
+	i_free(ctx);
+	io_loop_stop(ioloop);
+}
+
+static void
+test_client_retry_with_delay(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _client_retry_with_delay_ctx *ctx;
+
+	ctx = i_new(struct _client_retry_with_delay_ctx, 1);
+	ctx->time = ioloop_timeval;
+
+	http_client = http_client_init(client_set);
+
+	ctx->req = hreq = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/retry-with-delay.txt",
+		test_client_retry_with_delay_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+}
+
+/* test */
+
+static void test_retry_with_delay(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.max_attempts = 3;
+
+	test_begin("retry with delay");
+	test_run_client_server(&http_client_set,
+		test_client_retry_with_delay,
+		test_server_retry_with_delay, 1);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -1515,6 +1620,7 @@ static void (*test_functions[])(void) = {
 	test_request_timed_out,
 	test_request_aborted_early,
 	test_client_deinit_early,
+	test_retry_with_delay,
 	NULL
 };
 
