@@ -63,7 +63,7 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 	u.uid = 1;
 #define TEST_ATOMIC(_type, _value, _diff, _ret) \
 	{ _type *n = ptr; *n = _value; } \
-	ext->record_size = sizeof(_type); \
+	ctx.cur_ext_record_size = sizeof(_type); \
 	u.diff = _diff; \
 	test_assert(mail_index_sync_ext_atomic_inc(&ctx, &u) == _ret);
 
@@ -81,7 +81,7 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 	TEST_ATOMIC_BLOCK(uint8_t, 255);
 	TEST_ATOMIC_BLOCK(uint16_t, 65535);
 
-	ext->record_size = 5;
+	ctx.cur_ext_record_size = 5;
 	u.diff = 0;
 	test_assert(mail_index_sync_ext_atomic_inc(&ctx, &u) == -1);
 
