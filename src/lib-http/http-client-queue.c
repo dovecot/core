@@ -743,6 +743,12 @@ void http_client_queue_submit_request(struct http_client_queue *queue,
 
 		if (timeval_cmp_margin(&req->release_time,
 			&ioloop_timeval, TIMEOUT_CMP_MARGIN_USECS) > 0) {
+			http_client_queue_debug(queue,
+				"Delayed request %s%s submitted (time remaining: %d msecs)",
+				http_client_request_label(req),
+				(req->urgent ? " (urgent)" : ""),
+				timeval_diff_msecs(&req->release_time, &ioloop_timeval));
+
 			(void)array_bsearch_insert_pos(&queue->delayed_requests,
 					&req, http_client_queue_delayed_cmp, &insert_idx);
 			array_insert(&queue->delayed_requests, insert_idx, &req, 1);
