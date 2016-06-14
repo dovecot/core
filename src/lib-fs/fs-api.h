@@ -175,6 +175,9 @@ struct fs_stats {
 	/* Number of fs_iter_init() calls. */
 	unsigned int iter_count;
 
+	/* Number of bytes written by fs_write*() calls. */
+	uint64_t write_bytes;
+
 	/* Cumulative sum of usecs spent on calls - set only if
 	   fs_settings.enable_timing=TRUE */
 	struct timing *timings[FS_OP_COUNT];

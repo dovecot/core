@@ -608,6 +608,7 @@ int fs_write(struct fs_file *file, const void *data, size_t size)
 		} T_END;
 		if (!(ret < 0 && errno == EAGAIN)) {
 			file->fs->stats.write_count++;
+			file->fs->stats.write_bytes += size;
 			fs_file_timing_end(file, FS_OP_WRITE);
 		}
 		return ret;
@@ -674,6 +675,7 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 				     o_stream_get_error(file->output));
 			success = FALSE;
 		}
+		file->fs->stats.write_bytes += file->output->offset;
 	}
 	return fs_write_stream_finish_int(file, success);
 }
