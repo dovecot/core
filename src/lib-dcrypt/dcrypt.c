@@ -22,12 +22,12 @@ bool dcrypt_initialize(const char *backend, const char **error_r)
 	mod_set.require_init_funcs = 1;
 	dcrypt_module = module_dir_load(DCRYPT_MODULE_DIR, implementation, &mod_set);
 	if (dcrypt_module == NULL) {
-		if (*error_r != NULL)
+		if (error_r != NULL)
 			*error_r = "No such module";
 		return FALSE;
 	}
 	if (dcrypt_module->init == NULL) {
-		if (*error_r != NULL)
+		if (error_r != NULL)
 			*error_r = "Module missing init/deinit";
 		return FALSE;
 	}
