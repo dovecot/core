@@ -285,6 +285,26 @@ void test_load_v2_key(void)
 	test_end();
 }
 
+static
+void test_load_v2_public_key(void)
+{
+	struct dcrypt_public_key *pub;
+	const char *error;
+
+	test_begin("test_load_v2_public_key");
+	const char *key = "2\t305e301006072a8648ce3d020106052b81040026034a000303a9288126a4ef239199d7ebe784d0b81b545df40e1feac5980965914524005fd11d18cf71cfd875a037172275dda474bcf6a96fd4824c9019b108e5258c0548ee70c6ce1d67ca5d";
+
+	test_assert(dcrypt_key_load_public(&pub, DCRYPT_FORMAT_DOVECOT, key, &error));
+
+	buffer_t *tmp = buffer_create_dynamic(default_pool, 256);
+
+	test_assert(dcrypt_key_store_public(pub, DCRYPT_FORMAT_DOVECOT, tmp, &error));
+
+	test_assert(strcmp(key, str_c(tmp))==0);
+
+	test_end();
+}
+
 int main(void) {
 	dcrypt_initialize("openssl", NULL);
 	random_init();
@@ -294,6 +314,7 @@ int main(void) {
 		test_hmac_test_vectors,
 		test_load_v1_key,
 		test_load_v2_key,
+		test_load_v2_public_key,
 		NULL
 	};
 
