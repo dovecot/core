@@ -1231,11 +1231,13 @@ int dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 	buffer_t tmp;
 	size_t keylen = strlen(input[1])/2;
 	unsigned char keybuf[keylen];
+	const unsigned char *ptr;
 	buffer_create_from_data(&tmp, keybuf, keylen);
 	hex_to_binary(input[1], &tmp);
+	ptr = keybuf;
 
 	EVP_PKEY *pkey = EVP_PKEY_new();
-	if (d2i_PUBKEY(&pkey, (const unsigned char**)(tmp.data), tmp.used)==NULL) {
+	if (d2i_PUBKEY(&pkey, &ptr, keylen)==NULL) {
 		EVP_PKEY_free(pkey);
 		dcrypt_openssl_error(error_r);
 		return -1;
