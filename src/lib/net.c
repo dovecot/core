@@ -376,6 +376,13 @@ int net_set_cork(int fd ATTR_UNUSED, bool cork ATTR_UNUSED)
 #endif
 }
 
+int net_set_tcp_nodelay(int fd, bool nodelay)
+{
+	int val = nodelay;
+
+	return setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
+}
+
 int net_set_send_buffer_size(int fd, size_t size)
 {
 	int opt;

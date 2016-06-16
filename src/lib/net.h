@@ -92,6 +92,8 @@ void net_set_nonblock(int fd, bool nonblock);
 /* Set TCP_CORK if supported, ie. don't send out partial frames.
    Returns 0 if ok, -1 if failed. */
 int net_set_cork(int fd, bool cork) ATTR_NOWARN_UNUSED_RESULT;
+/* Set TCP_NODELAY, which disables the Nagle algorithm. */
+int net_set_tcp_nodelay(int fd, bool nodelay);
 
 /* Set socket kernel buffer sizes */
 int net_set_send_buffer_size(int fd, size_t size);
