@@ -132,7 +132,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 	}
 	if (preverify_ok == 0) {
 		ssl_io->cert_broken = TRUE;
-		if (ssl_io->require_valid_cert) {
+		if (!ssl_io->allow_invalid_cert) {
 			ssl_io->handshake_failed = TRUE;
 			return 0;
 		}
@@ -199,7 +199,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 
 	ssl_io->verbose = set->verbose;
 	ssl_io->verbose_invalid_cert = set->verbose_invalid_cert || set->verbose;
-	ssl_io->require_valid_cert = set->require_valid_cert;
+	ssl_io->allow_invalid_cert = set->allow_invalid_cert;
 	return 0;
 }
 

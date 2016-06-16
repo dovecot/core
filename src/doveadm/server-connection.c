@@ -433,7 +433,6 @@ static int server_connection_init_ssl(struct server_connection *conn)
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
 	ssl_set.verify_remote_cert = TRUE;
-	ssl_set.require_valid_cert = TRUE;
 	ssl_set.verbose_invalid_cert = TRUE;
 
 	if (io_stream_create_ssl_client(conn->server->ssl_ctx,

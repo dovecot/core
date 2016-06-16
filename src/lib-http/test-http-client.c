@@ -360,7 +360,7 @@ int main(int argc, char *argv[])
 		i_fatal("Couldn't initialize DNS client: %s", error);
 
 	memset(&ssl_set, 0, sizeof(ssl_set));
-	ssl_set.require_valid_cert = FALSE;
+	ssl_set.allow_invalid_cert = TRUE;
 	ssl_set.ca_dir = "/etc/ssl/certs"; /* debian */
 	ssl_set.ca_file = "/etc/pki/tls/cert.pem"; /* redhat */
 

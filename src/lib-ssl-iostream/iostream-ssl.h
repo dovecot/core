@@ -16,7 +16,7 @@ struct ssl_iostream_settings {
 
 	bool verbose, verbose_invalid_cert; /* stream-only */
 	bool verify_remote_cert; /* neither/both */
-	bool require_valid_cert; /* stream-only */
+	bool allow_invalid_cert; /* stream-only */
 	bool prefer_server_ciphers;
 	bool compression;
 	bool tickets;

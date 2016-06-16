@@ -570,7 +570,6 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 	if (client->set.ssl_verify) {
 		ssl_set.verbose_invalid_cert = TRUE;
 		ssl_set.verify_remote_cert = TRUE;
-		ssl_set.require_valid_cert = TRUE;
 	}
 
 	if (client->set.debug)
