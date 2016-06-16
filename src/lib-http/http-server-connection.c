@@ -1072,6 +1072,7 @@ http_server_connection_create(struct http_server *server,
 			i_error("net_set_recv_buffer_size(%"PRIuSIZE_T") failed: %m",
 				set->socket_recv_buffer_size);
 	}
+	(void)net_set_tcp_nodelay(fd_out, TRUE);
 
 	/* get a name for this connection */
 	if (fd_in != fd_out || net_getpeername(fd_in, &addr, &port) < 0) {
