@@ -1195,6 +1195,7 @@ http_client_connection_connected(struct connection *_conn, bool success)
 		conn->connected_timestamp = ioloop_timeval;
 		http_client_connection_debug(conn, "Connected");
 
+		(void)net_set_tcp_nodelay(_conn->fd_out, TRUE);
 		if (set->socket_send_buffer_size > 0) {
 			if (net_set_send_buffer_size(_conn->fd_out,
 				set->socket_send_buffer_size) < 0)

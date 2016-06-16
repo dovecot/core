@@ -1035,6 +1035,8 @@ http_server_connection_create(struct http_server *server,
 	conn->callbacks = callbacks;
 	conn->context = context;
 
+	(void)net_set_tcp_nodelay(fd_out, TRUE);
+
 	/* get a name for this connection */
 	if (fd_in != fd_out || net_getpeername(fd_in, &addr, &port) < 0) {
 		name = t_strdup_printf("[%u]", id);
