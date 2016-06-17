@@ -137,6 +137,7 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 			HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS :
 			set->connect_backoff_max_time_msecs;
 	client->set.no_auto_redirect = set->no_auto_redirect;
+	client->set.no_auto_retry = set->no_auto_retry;
 	client->set.no_ssl_tunnel = set->no_ssl_tunnel;
 	client->set.max_redirects = set->max_redirects;
 	client->set.response_hdr_limits = set->response_hdr_limits;

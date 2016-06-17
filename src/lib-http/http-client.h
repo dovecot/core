@@ -72,6 +72,9 @@ struct http_client_settings {
 	/* don't automatically act upon redirect responses */
 	bool no_auto_redirect;
 
+	/* never automatically retry requests */
+	bool no_auto_retry;
+
 	/* if we use a proxy, delegate SSL negotiation to proxy, rather than
 	   creating a CONNECT tunnel through the proxy for the SSL link */
 	bool no_ssl_tunnel;
