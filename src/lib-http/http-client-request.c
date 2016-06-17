@@ -55,7 +55,7 @@ http_client_request_debug(struct http_client_request *req,
  * Request
  */
 
-static void
+static bool
 http_client_request_send_error(struct http_client_request *req,
 			       unsigned int status, const char *error);
 
@@ -1104,12 +1104,13 @@ bool http_client_request_callback(struct http_client_request *req,
 	return TRUE;
 }
 
-static void
+static bool
 http_client_request_send_error(struct http_client_request *req,
 			       unsigned int status, const char *error)
 {
 	http_client_request_callback_t *callback;
 	bool sending = (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT);
+	unsigned int orig_attempts = req->attempts;
 
 	req->state = HTTP_REQUEST_STATE_ABORTED;
 
@@ -1121,28 +1122,38 @@ http_client_request_send_error(struct http_client_request *req,
 		http_response_init(&response, status, error);
 		(void)callback(&response, req->context);
 
-		/* release payload early (prevents server/client deadlock in proxy) */
-		if (!sending && req->payload_input != NULL)
-			i_stream_unref(&req->payload_input);
+		if (req->attempts != orig_attempts) {
+			/* retrying */
+			req->callback = callback;
+			http_client_request_resubmit(req);
+			return FALSE;
+		} else {
+			/* release payload early (prevents server/client deadlock in proxy) */
+			if (!sending && req->payload_input != NULL)
+				i_stream_unref(&req->payload_input);
+		}
 	}
 	if (req->payload_wait && req->client->ioloop != NULL)
 		io_loop_stop(req->client->ioloop);
+	return TRUE;
 }
 
 void http_client_request_error_delayed(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
+	bool destroy;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	*_req = NULL;
 
 	i_assert(req->delayed_error != NULL && req->delayed_error_status != 0);
-	http_client_request_send_error(req, req->delayed_error_status,
+	destroy = http_client_request_send_error(req, req->delayed_error_status,
 				       req->delayed_error);
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
-	http_client_request_destroy(&req);
+	if (destroy)
+		http_client_request_destroy(&req);
 }
 
 void http_client_request_error(struct http_client_request **_req,
@@ -1166,8 +1177,8 @@ void http_client_request_error(struct http_client_request **_req,
 		req->delayed_error_status = status;
 		http_client_delay_request_error(req->client, req);
 	} else {
-		http_client_request_send_error(req, status, error);
-		http_client_request_destroy(&req);
+		if (http_client_request_send_error(req, status, error))
+			http_client_request_destroy(&req);
 	}
 	*_req = NULL;
 }
