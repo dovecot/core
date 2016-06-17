@@ -679,16 +679,30 @@ struct _connection_lost_ctx {
 	unsigned int count;
 };
 
+struct _connection_lost_request_ctx {
+	struct _connection_lost_ctx *ctx;
+	struct http_client_request *req;
+};
+
 static void
 test_client_connection_lost_response(
 	const struct http_response *resp,
-	struct _connection_lost_ctx *ctx)
+	struct _connection_lost_request_ctx *rctx)
 {
+	struct _connection_lost_ctx *ctx = rctx->ctx;
+
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
 	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (http_client_request_try_retry(rctx->req)) {
+		if (debug)
+			i_debug("retrying");
+		return;
+	}
+	i_free(rctx);
 
 	if (--ctx->count == 0) {
 		i_free(ctx);
@@ -704,6 +718,7 @@ test_client_connection_lost(const struct http_client_settings *client_set)
 		"server the opportunity to close the connection before the payload "
 		"is finished.";
 	struct _connection_lost_ctx *ctx;
+	struct _connection_lost_request_ctx *rctx;
 	struct http_client_request *hreq;
 	struct istream *input;
 
@@ -714,16 +729,22 @@ test_client_connection_lost(const struct http_client_settings *client_set)
 
 	input = i_stream_create_from_data(payload, sizeof(payload)-1);
 
-	hreq = http_client_request(http_client,
+	rctx = i_new(struct _connection_lost_request_ctx, 1);
+	rctx->ctx = ctx;
+
+	rctx->req = hreq = http_client_request(http_client,
 		"GET", net_ip2addr(&bind_ip), "/connection-lost.txt",
-		test_client_connection_lost_response, ctx);
+		test_client_connection_lost_response, rctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_set_payload(hreq, input, FALSE);
 	http_client_request_submit(hreq);
 
-	hreq = http_client_request(http_client,
+	rctx = i_new(struct _connection_lost_request_ctx, 1);
+	rctx->ctx = ctx;
+
+	rctx->req = hreq = http_client_request(http_client,
 		"GET", net_ip2addr(&bind_ip), "/connection-lost2.txt",
-		test_client_connection_lost_response, ctx);
+		test_client_connection_lost_response, rctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
@@ -756,6 +777,14 @@ static void test_connection_lost(void)
 
 	test_begin("connection lost: three attempts");
 	http_client_set.max_attempts = 3;
+	test_run_client_server(&http_client_set,
+		test_client_connection_lost,
+		test_server_connection_lost, 1);
+	test_end();
+
+	test_begin("connection lost: manual retry");
+	http_client_set.max_attempts = 3;
+	http_client_set.no_auto_retry = TRUE;
 	test_run_client_server(&http_client_set,
 		test_client_connection_lost,
 		test_server_connection_lost, 1);
