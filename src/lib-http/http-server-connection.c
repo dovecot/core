@@ -1055,6 +1055,9 @@ http_server_connection_create(struct http_server *server,
 	conn->callbacks = callbacks;
 	conn->context = context;
 
+	net_set_nonblock(fd_in, TRUE);
+	if (fd_in != fd_out)
+		net_set_nonblock(fd_out, TRUE);
 	(void)net_set_tcp_nodelay(fd_out, TRUE);
 
 	/* get a name for this connection */
