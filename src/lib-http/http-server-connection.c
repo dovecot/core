@@ -6,6 +6,7 @@
 #include "str.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "istream-timeout.h"
 #include "ostream.h"
 #include "connection.h"
 #include "iostream-rawlog.h"
@@ -302,6 +303,7 @@ static bool
 http_server_connection_handle_request(struct http_server_connection *conn,
 	struct http_server_request *req)
 {
+	const struct http_server_settings *set = &conn->server->set;
 	struct istream *payload;
 
 	i_assert(!conn->in_req_callback);
@@ -318,7 +320,11 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		/* wrap the stream to capture the destroy event without destroying the
 		   actual payload stream. */
 		conn->incoming_payload = req->req.payload =
-			i_stream_create_limit(req->req.payload, (uoff_t)-1);
+			i_stream_create_timeout(req->req.payload,
+				set->max_client_idle_time_msecs);
+		/* we've received the request itself, and we can't reset the
+		   timeout during the payload reading. */
+		http_server_connection_timeout_stop(conn);
 	} else {
 		conn->incoming_payload = req->req.payload =
 			i_stream_create_from_data("", 0);
