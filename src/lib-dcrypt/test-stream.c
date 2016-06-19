@@ -57,7 +57,7 @@ void test_static_v1_input(void)
 
 	test_begin("test_static_v1_input");
 
-	struct istream *is_1 = i_stream_create_file("sample-v1.asc", IO_BLOCK_SIZE);
+	struct istream *is_1 = i_stream_create_file(DCRYPT_SRC_DIR"/sample-v1.asc", IO_BLOCK_SIZE);
 	struct istream *is_2 = i_stream_create_base64_decoder(is_1);
 	i_stream_unref(&is_1);
 	struct istream *is_3 = i_stream_create_decrypt(is_2, test_v1_kp.priv);
@@ -91,7 +91,7 @@ void test_static_v2_input(void)
 	unsigned char hash_dgst[hash->digest_size];
 	hash->init(hash_ctx);
 
-	struct istream *is_1 = i_stream_create_file("sample-v2.asc", IO_BLOCK_SIZE);
+	struct istream *is_1 = i_stream_create_file(DCRYPT_SRC_DIR"/sample-v2.asc", IO_BLOCK_SIZE);
 	struct istream *is_2 = i_stream_create_base64_decoder(is_1);
 	i_stream_unref(&is_1);
 	struct istream *is_3 = i_stream_create_decrypt(is_2, test_v2_kp.priv);
