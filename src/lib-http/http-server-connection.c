@@ -1011,6 +1011,7 @@ http_server_connection_create(struct http_server *server,
 	int fd_in, int fd_out, bool ssl,
 	const struct http_server_callbacks *callbacks, void *context)
 {
+	const struct http_server_settings *set = &server->set;
 	struct http_server_connection *conn;
 	static unsigned int id = 0;
 	struct ip_addr addr;
@@ -1028,6 +1029,19 @@ http_server_connection_create(struct http_server *server,
 	net_set_nonblock(fd_in, TRUE);
 	if (fd_in != fd_out)
 		net_set_nonblock(fd_out, TRUE);
+
+	if (set->socket_send_buffer_size > 0) {
+		if (net_set_send_buffer_size(fd_out,
+			set->socket_send_buffer_size) < 0)
+			i_error("net_set_send_buffer_size(%"PRIuSIZE_T") failed: %m",
+				set->socket_send_buffer_size);
+	}
+	if (set->socket_recv_buffer_size > 0) {
+		if (net_set_recv_buffer_size(fd_in,
+			set->socket_recv_buffer_size) < 0)
+			i_error("net_set_recv_buffer_size(%"PRIuSIZE_T") failed: %m",
+				set->socket_recv_buffer_size);
+	}
 
 	/* get a name for this connection */
 	if (fd_in != fd_out || net_getpeername(fd_in, &addr, &port) < 0) {
