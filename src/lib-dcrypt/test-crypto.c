@@ -301,6 +301,8 @@ void test_load_v2_public_key(void)
 	test_assert(dcrypt_key_store_public(pub, DCRYPT_FORMAT_DOVECOT, tmp, &error));
 
 	test_assert(strcmp(key, str_c(tmp))==0);
+	buffer_free(&tmp);
+	dcrypt_key_free_public(&pub);
 
 	test_end();
 }
