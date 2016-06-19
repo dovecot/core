@@ -955,6 +955,11 @@ int mail_index_sync_map(struct mail_index_map **_map,
 					    &reset, &reason);
 	if (ret <= 0) {
 		mail_index_view_close(&view);
+		if (force && ret < 0) {
+			/* if we failed because of a syscall error, make sure
+			   we return a failure. */
+			return -1;
+		}
 		if (force && ret == 0) {
 			/* the seq/offset is probably broken */
 			mail_index_set_error(index, "Index %s: Lost log for "
