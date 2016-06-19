@@ -1323,9 +1323,8 @@ bool dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype, cons
 				return FALSE;
 			}
 		} else {
-			if (error_r != NULL)
-				*error_r = "Unsupported encryption key";
-			return FALSE;
+			/* Loading the key should have failed */
+			i_unreached();
 		}
 		/* add encryption key id, reuse peer_key buffer */
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD) {
@@ -1401,9 +1400,8 @@ bool dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key, co
 		ptr = buffer_append_space_unsafe(buf, len);
 		BN_bn2mpi(pk, ptr);
 	} else {
-		if (*error_r != NULL)
-			*error_r = "Unsupported key type";
-		return FALSE;
+		/* Loading the key should have failed */
+		i_unreached();
 	}
 
 	/* see if we want ECDH based or password based encryption */
@@ -1640,9 +1638,8 @@ bool dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key, s
 		EVP_PKEY_set1_EC_KEY(pk, eck);
 		EC_KEY_free(eck);
 	} else {
-		if (error_r != NULL)
-			*error_r = "Invalid private key";
-		return FALSE;
+		/* Loading the key should have failed */
+		i_unreached();
 	}
 
 	*pub_key_r = (struct dcrypt_public_key*)pk;
@@ -1869,6 +1866,7 @@ bool dcrypt_openssl_private_key_type(struct dcrypt_private_key *key, enum dcrypt
 	if (priv == NULL) return FALSE;
 	if (EVP_PKEY_base_id(priv) == EVP_PKEY_RSA) *key_type = DCRYPT_KEY_RSA;
 	else if (EVP_PKEY_base_id(priv) == EVP_PKEY_EC) *key_type = DCRYPT_KEY_EC;
+	else i_unreached();
 	return FALSE;
 }
 
@@ -1879,6 +1877,7 @@ bool dcrypt_openssl_public_key_type(struct dcrypt_public_key *key, enum dcrypt_k
 	if (pub == NULL) return FALSE;
 	if (EVP_PKEY_base_id(pub) == EVP_PKEY_RSA) *key_type = DCRYPT_KEY_RSA;
 	else if (EVP_PKEY_base_id(pub) == EVP_PKEY_EC) *key_type = DCRYPT_KEY_EC;
+	else i_unreached();
 	return FALSE;
 }
 
