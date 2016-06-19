@@ -134,7 +134,7 @@ void test_cipher_aead_test_vectors(void)
 	test_assert(dcrypt_ctx_sym_init(ctx, &error));
 	test_assert(dcrypt_ctx_sym_update(ctx, pt->data, pt->used, res, &error));
 	test_assert(dcrypt_ctx_sym_final(ctx, res, &error));
-	dcrypt_ctx_sym_get_tag(ctx, tag_res);
+	test_assert(dcrypt_ctx_sym_get_tag(ctx, tag_res));
 
 	test_assert(buffer_cmp(ct, res) == TRUE);
 	test_assert(buffer_cmp(tag, tag_res) == TRUE);
@@ -205,7 +205,7 @@ void test_load_v1_key(void)
 		/* check that key_id matches */
 		struct dcrypt_public_key *pubkey = NULL;
 		dcrypt_key_convert_private_to_public(pkey, &pubkey);
-		dcrypt_key_store_public(pubkey, DCRYPT_FORMAT_DOVECOT, key_1, NULL);
+		test_assert(dcrypt_key_store_public(pubkey, DCRYPT_FORMAT_DOVECOT, key_1, NULL));
 		buffer_set_used_size(key_1, 0);
 		dcrypt_key_id_public(pubkey, "sha256", key_1, &error);
 		test_assert(strcmp("792caad4d38c9eb2134a0cbc844eae386116de096a0ccafc98479825fc99b6a1", binary_to_hex(key_1->data, key_1->used)) == 0);
@@ -219,9 +219,9 @@ void test_load_v1_key(void)
 			/* check that key_id matches */
 			struct dcrypt_public_key *pubkey = NULL;
 			dcrypt_key_convert_private_to_public(pkey2, &pubkey);
-			dcrypt_key_store_public(pubkey, DCRYPT_FORMAT_DOVECOT, key_1, NULL);
+			test_assert(dcrypt_key_store_public(pubkey, DCRYPT_FORMAT_DOVECOT, key_1, NULL));
 			buffer_set_used_size(key_1, 0);
-			dcrypt_key_id_public_old(pubkey, key_1, &error);
+			test_assert(dcrypt_key_id_public_old(pubkey, key_1, &error));
 			test_assert(strcmp("7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f", binary_to_hex(key_1->data, key_1->used)) == 0);
 
 			dcrypt_key_free_public(&pubkey);
