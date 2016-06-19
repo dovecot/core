@@ -256,7 +256,7 @@ static int mailbox_alias_rename(struct mailbox *src, struct mailbox *dest)
 	}
 	if ((ret = mailbox_is_alias_symlink(dest)) < 0)
 		return -1;
-	else {
+	else if (ret > 0) {
 		mail_storage_set_error(src->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Can't rename to mailbox alias");
 		return -1;
