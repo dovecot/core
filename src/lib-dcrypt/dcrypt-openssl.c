@@ -1506,7 +1506,7 @@ bool dcrypt_openssl_load_public_key(struct dcrypt_public_key **key_r, enum dcryp
 	BIO *key_in = BIO_new_mem_buf((void*)data, strlen(data));
 
 	key = PEM_read_bio_PUBKEY(key_in, &key, NULL, NULL);
-	(void)BIO_reset(key_in);
+	if (BIO_reset(key_in) <= 0) i_unreached();
 	if (key == NULL) { /* ec keys are bother */
 		/* read the header */
 		char buf[27]; /* begin public key */
@@ -1565,7 +1565,8 @@ bool dcrypt_openssl_store_private_key(struct dcrypt_private_key *key, enum dcryp
 
 	ec = PEM_write_bio_PrivateKey(key_out, pkey, algo, NULL, 0, NULL, (void*)password);
 
-	(void)BIO_flush(key_out);
+	if (BIO_flush(key_out) <= 0)
+		ec = -1;
 
 	if (ec != 1) {
 		BIO_vfree(key_out);
@@ -1598,10 +1599,12 @@ bool dcrypt_openssl_store_public_key(struct dcrypt_public_key *key, enum dcrypt_
 		(void)BIO_puts(key_out, "-----BEGIN PUBLIC KEY-----\n");
 		(void)BIO_push(b64, key_out);
 		ec = i2d_EC_PUBKEY_bio(b64, EVP_PKEY_get0_EC_KEY(pkey));
-		(void)BIO_flush(b64);
+		if (BIO_flush(b64) <= 0)
+			ec = -1;
 		(void)BIO_pop(b64);
 		BIO_vfree(b64);
-		(void)BIO_puts(key_out, "-----END PUBLIC KEY-----");
+		if (BIO_puts(key_out, "-----END PUBLIC KEY-----") <= 0)
+			ec = -1;
 	}
 
 	if (ec != 1) {
