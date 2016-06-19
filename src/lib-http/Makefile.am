@@ -65,7 +65,8 @@ test_nocheck_programs = \
 	test-http-payload \
 	test-http-client \
 	test-http-client-errors \
-	test-http-server
+	test-http-server \
+	test-http-server-errors
 
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
@@ -173,6 +174,13 @@ test_http_server_LDFLAGS = -export-dynamic
 test_http_server_LDADD = \
 	$(test_http_libs)
 test_http_server_DEPENDENCIES = \
+	$(test_http_deps)
+
+test_http_server_errors_SOURCES = test-http-server-errors.c
+test_http_server_errors_LDFLAGS = -export-dynamic
+test_http_server_errors_LDADD = \
+	$(test_http_libs)
+test_http_server_errors_DEPENDENCIES = \
 	$(test_http_deps)
 
 check: check-am check-test
