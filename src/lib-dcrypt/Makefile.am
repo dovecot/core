@@ -52,9 +52,9 @@ LIBDOVECOT_TEST = \
 	$(MODULE_LIBS)
 
 test_crypto_LDADD = $(LIBDOVECOT_TEST)
-test_crypto_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_MODULE_DIR=\"$(top_srcdir)/src/lib-dcrypt/.libs\"
+test_crypto_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_MODULE_DIR=\".libs\" -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_crypto_SOURCES = $(libdcrypt_la_SOURCES) test-crypto.c
 
 test_stream_LDADD = $(LIBDOVECOT_TEST)
-test_stream_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_MODULE_DIR=\"$(top_srcdir)/src/lib-dcrypt/.libs\"
+test_stream_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_MODULE_DIR=\".libs\" -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_stream_SOURCES = $(libdcrypt_la_SOURCES) test-stream.c
