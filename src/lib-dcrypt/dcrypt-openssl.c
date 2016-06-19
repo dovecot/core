@@ -1658,11 +1658,7 @@ bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_fo
 	char *encryption_key_hash = NULL;
 	char *key_hash = NULL;
 
-	if (key_data == NULL) {
-		if (error_r != NULL)
-			*error_r = "NULL key passed";
-		return FALSE;
-	}
+	i_assert(key_data != NULL);
 
 	/* is it PEM key */
 	if (strncmp(key_data, "-----BEGIN ", 11) == 0) {
@@ -1888,11 +1884,7 @@ bool dcrypt_openssl_public_key_id_old(struct dcrypt_public_key *key, buffer_t *r
 	unsigned char buf[SHA256_DIGEST_LENGTH];
 	EVP_PKEY *pub = (EVP_PKEY*)key;
 
-	if (pub == NULL) {
-		if (error_r != NULL)
-			*error_r = "key is NULL";
-		return FALSE;
-	}
+	i_assert(pub != NULL);
 	if (EVP_PKEY_base_id(pub) != EVP_PKEY_EC) {
 		if (error_r != NULL)
 			*error_r = "Only EC key supported";
@@ -1913,11 +1905,7 @@ bool dcrypt_openssl_private_key_id_old(struct dcrypt_private_key *key, buffer_t 
 	unsigned char buf[SHA256_DIGEST_LENGTH];
 	EVP_PKEY *priv = (EVP_PKEY*)key;
 
-	if (priv == NULL) {
-		if (error_r != NULL)
-			*error_r = "key is NULL";
-		return FALSE;
-	}
+	i_assert(priv != NULL);
 	if (EVP_PKEY_base_id(priv) != EVP_PKEY_EC) {
 		if (error_r != NULL)
 			*error_r = "Only EC key supported";
@@ -1979,14 +1967,10 @@ bool dcrypt_openssl_public_key_id(struct dcrypt_public_key *key, const char *alg
 	const EVP_MD *md = EVP_get_digestbyname(algorithm);
 	EVP_PKEY *pub = (EVP_PKEY*)key;
 
+	i_assert(pub != NULL);
 	if (md == NULL) {
 		if (error_r != NULL)
 			*error_r = t_strdup_printf("Unknown cipher %s", algorithm);
-		return FALSE;
-	}
-	if (pub == NULL) {
-		if (error_r != NULL)
-			*error_r = "key is NULL";
 		return FALSE;
 	}
 
@@ -1999,14 +1983,10 @@ bool dcrypt_openssl_private_key_id(struct dcrypt_private_key *key, const char *a
 	const EVP_MD *md = EVP_get_digestbyname(algorithm);
 	EVP_PKEY *priv = (EVP_PKEY*)key;
 
+	i_assert(priv != NULL);
 	if (md == NULL) {
 		if (error_r != NULL)
 			*error_r = t_strdup_printf("Unknown cipher %s", algorithm);
-		return FALSE;
-	}
-	if (priv == NULL) {
-		if (error_r != NULL)
-			*error_r = "key is NULL";
 		return FALSE;
 	}
 
