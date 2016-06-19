@@ -182,7 +182,7 @@ bool dcrypt_key_store_private(struct dcrypt_private_key *key, enum dcrypt_key_fo
 
 bool dcrypt_key_store_public(struct dcrypt_public_key *key, enum dcrypt_key_format format, buffer_t *destination, const char **error_r);
 
-bool dcrypt_key_convert_private_to_public(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r, const char **error_r);
+void dcrypt_key_convert_private_to_public(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r);
 
 void dcrypt_keypair_free(struct dcrypt_keypair *keypair);
 

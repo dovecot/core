@@ -72,7 +72,7 @@ struct dcrypt_vfs {
 		const char *password, struct dcrypt_public_key *enc_key, const char **error_r);
 	bool (*store_public_key)(struct dcrypt_public_key *key, enum dcrypt_key_format format, buffer_t *destination, const char **error_r);
 
-	bool (*private_to_public_key)(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r, const char **error_r);
+	void (*private_to_public_key)(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r);
 
 	bool (*key_string_get_info)(const char *key_data, enum dcrypt_key_format *format_r, enum dcrypt_key_version *version_r,
 		enum dcrypt_key_kind *kind_r, enum dcrypt_key_encryption_type *encryption_type_r, const char **encryption_key_hash_r,
