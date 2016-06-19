@@ -204,7 +204,7 @@ void test_load_v1_key(void)
 		buffer_set_used_size(key_1, 0);
 		/* check that key_id matches */
 		struct dcrypt_public_key *pubkey = NULL;
-		dcrypt_key_convert_private_to_public(pkey, &pubkey, &error);
+		dcrypt_key_convert_private_to_public(pkey, &pubkey);
 		dcrypt_key_store_public(pubkey, DCRYPT_FORMAT_DOVECOT, key_1, NULL);
 		buffer_set_used_size(key_1, 0);
 		dcrypt_key_id_public(pubkey, "sha256", key_1, &error);
@@ -218,7 +218,7 @@ void test_load_v1_key(void)
 			buffer_set_used_size(key_1, 0);
 			/* check that key_id matches */
 			struct dcrypt_public_key *pubkey = NULL;
-			dcrypt_key_convert_private_to_public(pkey2, &pubkey, &error);
+			dcrypt_key_convert_private_to_public(pkey2, &pubkey);
 			dcrypt_key_store_public(pubkey, DCRYPT_FORMAT_DOVECOT, key_1, NULL);
 			buffer_set_used_size(key_1, 0);
 			dcrypt_key_id_public_old(pubkey, key_1, &error);
@@ -270,7 +270,7 @@ void test_load_v2_key(void)
 	dcrypt_key_free_private(&priv);
 
 	struct dcrypt_public_key *pub = NULL;
-	test_assert_idx(dcrypt_key_convert_private_to_public(priv2, &pub, &error), 3);
+	dcrypt_key_convert_private_to_public(priv2, &pub);
 	test_assert_idx(dcrypt_key_load_private(&priv, DCRYPT_FORMAT_DOVECOT, keys[3], NULL, priv2, &error), 3);
 	test_assert_idx(dcrypt_key_store_private(priv, DCRYPT_FORMAT_DOVECOT, "ecdh-aes-256-ctr", tmp, NULL, pub, &error), 3);
 	buffer_set_used_size(tmp, 0);

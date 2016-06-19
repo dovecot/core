@@ -107,8 +107,6 @@ struct dcrypt_private_key {
 };
 
 static
-bool dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key, const char **error_r);
-static
 bool dcrypt_openssl_public_key_id(struct dcrypt_public_key *key, const char *algorithm, buffer_t *result, const char **error_r);
 static
 bool dcrypt_openssl_public_key_id_old(struct dcrypt_public_key *key, buffer_t *result, const char **error_r);
@@ -117,7 +115,7 @@ bool dcrypt_openssl_private_key_id(struct dcrypt_private_key *key, const char *a
 static
 bool dcrypt_openssl_private_key_id_old(struct dcrypt_private_key *key, buffer_t *result, const char **error_r);
 static
-bool dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r, const char **error_r ATTR_UNUSED);
+void dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r);
 static
 void dcrypt_openssl_free_private_key(struct dcrypt_private_key **key);
 static
@@ -714,7 +712,8 @@ bool dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_
 	if (kind == DCRYPT_KEY_RSA) {
 		if (dcrypt_openssl_generate_rsa_key(bits, &pkey, error_r)) {
 			pair_r->priv = (struct dcrypt_private_key*)pkey;
-			return dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub), error_r);
+			dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub));
+			return TRUE;
 		} else return dcrypt_openssl_error(error_r);
 	} else if (kind == DCRYPT_KEY_EC) {
 		int nid = OBJ_sn2nid(curve);
@@ -725,7 +724,8 @@ bool dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_
 		}
 		if (dcrypt_openssl_generate_ec_key(nid, &pkey, error_r)) {
 			pair_r->priv = (struct dcrypt_private_key*)pkey;
-			return dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub), error_r);
+			dcrypt_openssl_private_to_public_key(pair_r->priv, &(pair_r->pub));
+			return TRUE;
 		} else return dcrypt_openssl_error(error_r);
 	}
 	if (error_r != NULL)
@@ -1021,8 +1021,8 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 		buffer_t *data = buffer_create_dynamic(pool_datastack_create(), 128);
 
 		/* check that we have correct decryption key */
-		if (!dcrypt_openssl_private_to_public_key(dec_key, &pubkey, error_r) ||
-		    !dcrypt_openssl_public_key_id(pubkey, "sha256", data, error_r)) {
+		dcrypt_openssl_private_to_public_key(dec_key, &pubkey);
+		if (!dcrypt_openssl_public_key_id(pubkey, "sha256", data, error_r)) {
 			if (pubkey != NULL) dcrypt_openssl_free_public_key(&pubkey);
 			return FALSE;
 		}
@@ -1619,7 +1619,7 @@ bool dcrypt_openssl_store_public_key(struct dcrypt_public_key *key, enum dcrypt_
 }
 
 static
-bool dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r, const char **error_r)
+void dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r)
 {
 	EVP_PKEY *pkey = (EVP_PKEY*)priv_key;
 	EVP_PKEY *pk;
@@ -1643,7 +1643,6 @@ bool dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key, s
 	}
 
 	*pub_key_r = (struct dcrypt_public_key*)pk;
-	return TRUE;
 }
 
 static

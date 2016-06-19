@@ -218,9 +218,9 @@ bool dcrypt_key_store_public(struct dcrypt_public_key *key, enum dcrypt_key_form
 	return dcrypt_vfs->store_public_key(key, format, destination, error_r);
 }
 
-bool dcrypt_key_convert_private_to_public(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r, const char **error_r)
+void dcrypt_key_convert_private_to_public(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r)
 {
-	return dcrypt_vfs->private_to_public_key(priv_key, pub_key_r, error_r);
+	dcrypt_vfs->private_to_public_key(priv_key, pub_key_r);
 }
 bool dcrypt_key_string_get_info(const char *key_data, enum dcrypt_key_format *format_r, enum dcrypt_key_version *version_r,
 	enum dcrypt_key_kind *kind_r, enum dcrypt_key_encryption_type *encryption_type_r, const char **encryption_key_hash_r,
