@@ -234,6 +234,7 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 	case HTTP_SERVER_REQUEST_STATE_PAYLOAD_IN:
 		/* finished reading request */
 		req->state = HTTP_SERVER_REQUEST_STATE_PROCESSING;
+		http_server_connection_timeout_stop(conn);
 		if (req->response != NULL && req->response->submitted)
 			http_server_request_submit_response(req);
 		break;
