@@ -189,8 +189,8 @@ void dcrypt_keypair_free(struct dcrypt_keypair *keypair);
 void dcrypt_key_free_public(struct dcrypt_public_key **key);
 void dcrypt_key_free_private(struct dcrypt_private_key **key);
 
-bool dcrypt_key_type_private(struct dcrypt_private_key *key, enum dcrypt_key_type *type);
-bool dcrypt_key_type_public(struct dcrypt_public_key *key, enum dcrypt_key_type *type);
+enum dcrypt_key_type dcrypt_key_type_private(struct dcrypt_private_key *key);
+enum dcrypt_key_type dcrypt_key_type_public(struct dcrypt_public_key *key);
 bool dcrypt_key_id_public(struct dcrypt_public_key *key, const char *algorithm, buffer_t *result, const char **error_r); /* return digest of key */
 bool dcrypt_key_id_public_old(struct dcrypt_public_key *key, buffer_t *result, const char **error_r); /* return SHA1 sum of key */
 bool dcrypt_key_id_private(struct dcrypt_private_key *key, const char *algorithm, buffer_t *result, const char **error_r); /* return digest of key */

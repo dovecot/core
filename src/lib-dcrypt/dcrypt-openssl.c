@@ -1855,25 +1855,23 @@ bool dcrypt_openssl_name2oid(const char *name, buffer_t *oid, const char **error
 }
 
 static
-bool dcrypt_openssl_private_key_type(struct dcrypt_private_key *key, enum dcrypt_key_type *key_type)
+enum dcrypt_key_type dcrypt_openssl_private_key_type(struct dcrypt_private_key *key)
 {
 	EVP_PKEY *priv = (EVP_PKEY*)key;
-	if (priv == NULL) return FALSE;
-	if (EVP_PKEY_base_id(priv) == EVP_PKEY_RSA) *key_type = DCRYPT_KEY_RSA;
-	else if (EVP_PKEY_base_id(priv) == EVP_PKEY_EC) *key_type = DCRYPT_KEY_EC;
+	i_assert(priv != NULL);
+	if (EVP_PKEY_base_id(priv) == EVP_PKEY_RSA) return DCRYPT_KEY_RSA;
+	else if (EVP_PKEY_base_id(priv) == EVP_PKEY_EC) return DCRYPT_KEY_EC;
 	else i_unreached();
-	return FALSE;
 }
 
 static
-bool dcrypt_openssl_public_key_type(struct dcrypt_public_key *key, enum dcrypt_key_type *key_type)
+enum dcrypt_key_type dcrypt_openssl_public_key_type(struct dcrypt_public_key *key)
 {
 	EVP_PKEY *pub = (EVP_PKEY*)key;
-	if (pub == NULL) return FALSE;
-	if (EVP_PKEY_base_id(pub) == EVP_PKEY_RSA) *key_type = DCRYPT_KEY_RSA;
-	else if (EVP_PKEY_base_id(pub) == EVP_PKEY_EC) *key_type = DCRYPT_KEY_EC;
+	i_assert(pub != NULL);
+	if (EVP_PKEY_base_id(pub) == EVP_PKEY_RSA) return DCRYPT_KEY_RSA;
+	else if (EVP_PKEY_base_id(pub) == EVP_PKEY_EC) return DCRYPT_KEY_EC;
 	else i_unreached();
-	return FALSE;
 }
 
 /** this is the v1 old legacy way of doing key id's **/
