@@ -621,7 +621,7 @@ static void dump_record(struct mail_index_view *view, unsigned int seq)
 		} else if (strcmp(ext[i].name, "obox") == 0) {
 			const struct obox_mail_index_record *orec = data;
 			printf("                   : guid = %s\n", guid_128_to_string(orec->guid));
-			printf("                   : oid  = %s\n", guid_128_to_string(orec->oid));
+			printf("                   : oid  = %s\n", binary_to_hex(orec->oid, ext[i].record_size - sizeof(orec->guid)));
 		} else if (strcmp(ext[i].name, "mobox") == 0) {
 			const struct mobox_mail_index_record *orec = data;
 			printf("                   : map_uid   = %u\n", orec->map_uid);
