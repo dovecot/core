@@ -834,15 +834,20 @@ http_server_connection_next_response(struct http_server_connection *conn)
 	req = conn->request_queue_head;
 	if (req == NULL) {
 		/* no requests pending */
+		http_server_connection_debug(conn, "No more requests pending");
 		http_server_connection_timeout_start(conn);
 		return FALSE;
 	}
 	if (req->state < HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND) {
 		if (req->state == HTTP_SERVER_REQUEST_STATE_PROCESSING) {
 			/* server is causing idle time */
+			http_server_connection_debug(conn,
+				"Not ready to respond: Server is processing");
 			http_server_connection_timeout_stop(conn);
 		} else {
 			/* client is causing idle time */
+			http_server_connection_debug(conn,
+				"Not ready to respond: Waiting for client");
 			http_server_connection_timeout_start(conn);
 		}
 		
@@ -875,6 +880,8 @@ http_server_connection_next_response(struct http_server_connection *conn)
 	i_assert(req->state == HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND &&
 		req->response != NULL);
 
+	http_server_connection_debug(conn,
+		"Sending response");
 	http_server_connection_timeout_start(conn);
 
 	http_server_request_ref(req);
@@ -964,9 +971,15 @@ int http_server_connection_output(struct http_server_connection *conn)
 				return -1;
 		} else if (conn->io_resp_payload != NULL) {
 			/* server is causing idle time */
+			http_server_connection_debug(conn,
+				"Not ready to continue response: "
+				"Server is producing response");
 			http_server_connection_timeout_stop(conn);
 		} else {
 			/* client is causing idle time */
+			http_server_connection_debug(conn,
+				"Not ready to continue response: "
+				"Waiting for client");
 			http_server_connection_timeout_start(conn);
 		}
 	}
