@@ -292,7 +292,7 @@ void test_load_v2_public_key(void)
 	const char *error;
 
 	test_begin("test_load_v2_public_key");
-	const char *key = "2\t305e301006072a8648ce3d020106052b81040026034a000303a9288126a4ef239199d7ebe784d0b81b545df40e1feac5980965914524005fd11d18cf71cfd875a037172275dda474bcf6a96fd4824c9019b108e5258c0548ee70c6ce1d67ca5d";
+	const char *key = "2\t3058301006072a8648ce3d020106052b810400230344000301c50954e734dd8b410a607764a7057065a45510da52f2c6e28e0cb353b9c389fa8cb786943ae991fce9befed78fb162fbbc615415f06af06c8cc80c37f4e94ff6c7";
 
 	test_assert(dcrypt_key_load_public(&pub, DCRYPT_FORMAT_DOVECOT, key, &error));
 
