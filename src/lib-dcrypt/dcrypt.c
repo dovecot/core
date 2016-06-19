@@ -230,13 +230,13 @@ bool dcrypt_key_string_get_info(const char *key_data, enum dcrypt_key_format *fo
 		encryption_key_hash_r, key_hash_r, error_r);
 }
 
-bool dcrypt_key_type_private(struct dcrypt_private_key *key, enum dcrypt_key_type *type)
+enum dcrypt_key_type dcrypt_key_type_private(struct dcrypt_private_key *key)
 {
-	return dcrypt_vfs->private_key_type(key, type);
+	return dcrypt_vfs->private_key_type(key);
 }
-bool dcrypt_key_type_public(struct dcrypt_public_key *key, enum dcrypt_key_type *type)
+enum dcrypt_key_type dcrypt_key_type_public(struct dcrypt_public_key *key)
 {
-	return dcrypt_vfs->public_key_type(key, type);
+	return dcrypt_vfs->public_key_type(key);
 }
 bool dcrypt_key_id_public(struct dcrypt_public_key *key, const char *algorithm, buffer_t *result, const char **error_r)
 {

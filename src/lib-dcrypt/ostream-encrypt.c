@@ -258,7 +258,7 @@ int o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream, const cha
 	encrypted_key = buffer_create_dynamic(pool_datastack_create(), 256);
 	temp_key = buffer_create_dynamic(pool_datastack_create(), 48);
 
-	dcrypt_key_type_public(pubkey, &ktype);
+	ktype = dcrypt_key_type_public(pubkey);
 
 	if (ktype == DCRYPT_KEY_RSA) {
 		/* encrypt key as R (as we don't need DH with RSA)*/

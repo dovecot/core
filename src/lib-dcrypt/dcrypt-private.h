@@ -90,8 +90,8 @@ struct dcrypt_vfs {
 	const char *(*oid2name)(const unsigned char *oid, size_t oid_len, const char **error_r);
 	bool (*name2oid)(const char *name, buffer_t *oid, const char **error_r);
 
-	bool (*private_key_type)(struct dcrypt_private_key *key, enum dcrypt_key_type *key_type);
-	bool (*public_key_type)(struct dcrypt_public_key *key, enum dcrypt_key_type *key_type);
+	enum dcrypt_key_type (*private_key_type)(struct dcrypt_private_key *key);
+	enum dcrypt_key_type (*public_key_type)(struct dcrypt_public_key *key);
 	bool (*public_key_id)(struct dcrypt_public_key *key, const char *algorithm, buffer_t *result, const char **error_r);
 	bool (*public_key_id_old)(struct dcrypt_public_key *key, buffer_t *result, const char **error_r);
 	bool (*private_key_id)(struct dcrypt_private_key *key, const char *algorithm, buffer_t *result, const char **error_r);
