@@ -196,6 +196,7 @@ bool dcrypt_pbkdf2(const unsigned char *password, size_t password_len, const uns
 
 bool dcrypt_keypair_generate(struct dcrypt_keypair *pair_r, enum dcrypt_key_type kind, unsigned int bits, const char *curve, const char **error_r)
 {
+	memset(pair_r, 0, sizeof(*pair_r));
 	return dcrypt_vfs->generate_keypair(pair_r, kind, bits, curve, error_r);
 }
 
