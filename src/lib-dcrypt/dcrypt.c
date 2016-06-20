@@ -9,6 +9,7 @@ static struct dcrypt_vfs *dcrypt_vfs = NULL;
 bool dcrypt_initialize(const char *backend, const char **error_r)
 {
 	struct module_dir_load_settings mod_set;
+	const char *error;
 
 	if (dcrypt_vfs != NULL) {
 		return TRUE;
@@ -19,19 +20,14 @@ bool dcrypt_initialize(const char *backend, const char **error_r)
 
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
-	mod_set.require_init_funcs = 1;
-	dcrypt_module = module_dir_load(DCRYPT_MODULE_DIR, implementation, &mod_set);
-	if (dcrypt_module == NULL) {
+	mod_set.require_init_funcs = TRUE;
+	if (module_dir_try_load_missing(&dcrypt_module, DCRYPT_MODULE_DIR,
+					implementation, &mod_set, &error) < 0) {
 		if (error_r != NULL)
-			*error_r = "No such module";
+			*error_r = error;
 		return FALSE;
 	}
-	if (dcrypt_module->init == NULL) {
-		if (error_r != NULL)
-			*error_r = "Module missing init/deinit";
-		return FALSE;
-	}
-	dcrypt_module->init(dcrypt_module);
+	module_dir_init(dcrypt_module);
 	i_assert(dcrypt_vfs != NULL);
 	/* Destroy SSL module after(most of) the others. Especially lib-fs
 	   backends may still want to access SSL module in their own
@@ -42,10 +38,7 @@ bool dcrypt_initialize(const char *backend, const char **error_r)
 
 void dcrypt_deinitialize(void)
 {
-	if (dcrypt_module != NULL) {
-		dcrypt_module->deinit();
-		module_dir_unload(&dcrypt_module);
-	}
+	module_dir_unload(&dcrypt_module);
 }
 
 void dcrypt_set_vfs(struct dcrypt_vfs *vfs)
