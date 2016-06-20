@@ -112,7 +112,7 @@ static void test_client_slow_request(unsigned int index)
 struct _slow_request {
 	struct http_server_request *req;
 	struct timeout *to_delay;
-	unsigned int serviced:1;
+	bool serviced:1;
 };
 
 static void
@@ -216,7 +216,7 @@ struct _hanging_request_payload {
 	struct http_server_request *req;
 	struct istream *payload_input;
 	struct io *io;
-	unsigned int serviced:1;
+	bool serviced:1;
 };
 
 static void
@@ -352,7 +352,7 @@ struct _hanging_response_payload {
 	struct http_server_request *req;
 	struct istream *payload_input;
 	struct io *io;
-	unsigned int serviced:1;
+	bool serviced:1;
 };
 
 static void
