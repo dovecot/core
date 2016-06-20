@@ -3,7 +3,8 @@ pkglib_LTLIBRARIES =
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-test
+	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-ssl-iostream
 
 libdcrypt_la_SOURCES = \
 	dcrypt.c \
@@ -16,7 +17,8 @@ libdcrypt_la_CFLAGS = $(AM_CPPFLAGS) \
 if BUILD_OPENSSL
 pkglib_LTLIBRARIES += libdcrypt_openssl.la
 libdcrypt_openssl_la_SOURCES = dcrypt-openssl.c dcrypt.c
-libdcrypt_openssl_la_LDFLAGS = -module -avoid-version -shared $(SSL_LIBS) ../lib/liblib.la
+libdcrypt_openssl_la_LDFLAGS = -module -avoid-version -shared ../lib-ssl-iostream/libdovecot_openssl_common.la ../lib/liblib.la
+libdcrypt_openssl_la_DEPENDENCIES = ../lib-ssl-iostream/libdovecot_openssl_common.la ../lib/liblib.la
 libdcrypt_openssl_la_CFLAGS = $(AM_CPPFLAGS) \
 	-DDCRYPT_MODULE_DIR=\"$(pkglibdir)\"
 	$(SSL_CFLAGS)
