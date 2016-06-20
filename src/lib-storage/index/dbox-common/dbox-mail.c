@@ -5,6 +5,7 @@
 #include "str.h"
 #include "index-storage.h"
 #include "index-mail.h"
+#include "index-pop3-uidl.h"
 #include "dbox-attachment.h"
 #include "dbox-storage.h"
 #include "dbox-file.h"
@@ -223,15 +224,31 @@ int dbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			  const char **value_r)
 {
 	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	int ret;
 
 	/* keep the UIDL in cache file, otherwise POP3 would open all
 	   mail files and read the metadata. same for GUIDs if they're
 	   used. */
 	switch (field) {
 	case MAIL_FETCH_UIDL_BACKEND:
-		return dbox_get_cached_metadata(mail, DBOX_METADATA_POP3_UIDL,
-						MAIL_CACHE_POP3_UIDL, value_r);
+		if (!index_pop3_uidl_can_exist(_mail)) {
+			*value_r = "";
+			return 0;
+		}
+		ret = dbox_get_cached_metadata(mail, DBOX_METADATA_POP3_UIDL,
+					       MAIL_CACHE_POP3_UIDL, value_r);
+		if (ret == 0) {
+			index_pop3_uidl_update_exists(&mail->imail.mail.mail,
+						      (*value_r)[0] != '\0');
+		}
+		return ret;
 	case MAIL_FETCH_POP3_ORDER:
+		if (!index_pop3_uidl_can_exist(_mail)) {
+			/* we're assuming that if there's a POP3 order, there's
+			   also a UIDL */
+			*value_r = "";
+			return 0;
+		}
 		return dbox_get_cached_metadata(mail, DBOX_METADATA_POP3_ORDER,
 						MAIL_CACHE_POP3_ORDER, value_r);
 	case MAIL_FETCH_GUID:

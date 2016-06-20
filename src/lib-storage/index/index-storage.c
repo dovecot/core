@@ -294,6 +294,9 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 		mail_index_ext_register(box->index, "hdr-vsize",
 					sizeof(struct mailbox_index_vsize), 0,
 					sizeof(uint64_t));
+	box->pop3_uidl_hdr_ext_id =
+		mail_index_ext_register(box->index, "hdr-pop3-uidl",
+					sizeof(struct mailbox_index_pop3_uidl), 0, 0);
 
 	box->opened = TRUE;
 

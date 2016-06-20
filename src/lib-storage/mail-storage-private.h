@@ -292,6 +292,10 @@ struct mailbox_index_vsize {
 	uint32_t message_count;
 };
 
+struct mailbox_index_pop3_uidl {
+	uint32_t max_uid_with_pop3_uidl;
+};
+
 struct mailbox_index_first_saved {
 	uint32_t uid;
 	uint32_t timestamp;
@@ -346,6 +350,7 @@ struct mailbox {
 	enum mailbox_feature enabled_features;
 	struct mail_msgpart_partial_cache partial_cache;
 	uint32_t vsize_hdr_ext_id;
+	uint32_t pop3_uidl_hdr_ext_id;
 
 	/* MAIL_RECENT flags handling */
 	ARRAY_TYPE(seq_range) recent_flags;
@@ -550,6 +555,9 @@ struct mailbox_transaction_context {
 
 	struct mail_transaction_commit_changes *changes;
 	ARRAY(union mailbox_transaction_module_context *) module_contexts;
+
+	uint32_t prev_pop3_uidl_tracking_seq;
+	uint32_t highest_pop3_uidl_uid;
 
 	struct mail_save_context *save_ctx;
 	/* number of mails saved/copied within this transaction. */

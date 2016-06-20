@@ -157,11 +157,15 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 		str_printfa(str, "%c%s\n", DBOX_METADATA_POP3_UIDL,
 			    mdata->pop3_uidl);
 		ctx->have_pop3_uidls = TRUE;
+		ctx->highest_pop3_uidl_seq =
+			I_MAX(ctx->highest_pop3_uidl_seq, ctx->seq);
 	}
 	if (mdata->pop3_order != 0) {
 		str_printfa(str, "%c%u\n", DBOX_METADATA_POP3_ORDER,
 			    mdata->pop3_order);
 		ctx->have_pop3_orders = TRUE;
+		ctx->highest_pop3_uidl_seq =
+			I_MAX(ctx->highest_pop3_uidl_seq, ctx->seq);
 	}
 
 	guid = mdata->guid;

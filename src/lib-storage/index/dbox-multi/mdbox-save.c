@@ -11,6 +11,7 @@
 #include "ostream.h"
 #include "write-full.h"
 #include "index-mail.h"
+#include "index-pop3-uidl.h"
 #include "mail-copy.h"
 #include "dbox-save.h"
 #include "mdbox-storage.h"
@@ -325,6 +326,17 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
 	mail_index_append_finish_uids(ctx->ctx.trans, hdr->next_uid,
 				      &_t->changes->saved_uids);
+
+	if (ctx->ctx.highest_pop3_uidl_seq != 0) {
+		struct seq_range_iter iter;
+		uint32_t uid;
+
+		seq_range_array_iter_init(&iter, &_t->changes->saved_uids);
+		if (!seq_range_array_iter_nth(&iter,
+				ctx->ctx.highest_pop3_uidl_seq-1, &uid))
+			i_unreached();
+		index_pop3_uidl_set_max_uid(&ctx->mbox->box, ctx->ctx.trans, uid);
+	}
 
 	/* save map UIDs to mailbox index */
 	if (first_map_uid != 0)

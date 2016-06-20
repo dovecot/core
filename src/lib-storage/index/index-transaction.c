@@ -5,6 +5,7 @@
 #include "dict.h"
 #include "index-storage.h"
 #include "index-sync-private.h"
+#include "index-pop3-uidl.h"
 #include "index-mail.h"
 
 static void index_transaction_free(struct mailbox_transaction_context *t)
@@ -29,6 +30,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 	const char *error;
 	int ret = 0;
 
+	index_pop3_uidl_update_exists_finish(t);
 	if (t->nontransactional_changes)
 		t->changes->changed = TRUE;
 
