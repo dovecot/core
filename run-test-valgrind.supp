@@ -16,10 +16,26 @@
    fun:lzma_easy_encoder
 }
 {
-   <openssl_centos6_v1_0_1_compression_methods>
+   <openssl_centos6_i386_v1_0_1_compression_methods>
    Memcheck:Leak
    fun:malloc
    obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   fun:module_dir_init
+   fun:dcrypt_initialize
+   fun:main
+}
+{
+   <openssl_centos6_v1_0_1_compression_methods>
+   Memcheck:Leak
+   fun:malloc
    obj:*
    obj:*
    obj:*
