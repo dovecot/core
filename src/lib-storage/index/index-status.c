@@ -264,6 +264,45 @@ static void get_metadata_precache_fields(struct mailbox *box,
 	metadata_r->precache_fields = cache;
 }
 
+static int
+index_mailbox_get_first_save_date(struct mailbox *box,
+				  struct mailbox_metadata *metadata_r)
+{
+	const struct mail_index_header *hdr;
+	struct mailbox_transaction_context *t;
+	struct mail *mail;
+	uint32_t seq;
+	int ret = -1;
+
+	hdr = mail_index_get_header(box->view);
+	if (hdr->messages_count == 0) {
+		metadata_r->first_save_date = (time_t)-1;
+		return 0;
+	}
+
+	t = mailbox_transaction_begin(box, 0);
+	mail = mail_alloc(t, 0, NULL);
+	for (seq = 1; seq <= hdr->messages_count; seq++) {
+		mail_set_seq(mail, seq);
+		if (mail_get_save_date(mail, &metadata_r->first_save_date) == 0) {
+			ret = 0;
+			break;
+		}
+		if (mailbox_get_last_mail_error(box) != MAIL_ERROR_EXPUNGED) {
+			/* failed */
+			break;
+		}
+	}
+	mail_free(&mail);
+	(void)mailbox_transaction_commit(&t);
+	if (seq > hdr->messages_count) {
+		/* all messages were expunged after all */
+		metadata_r->first_save_date = (time_t)-1;
+		return 0;
+	}
+	return ret;
+}
+
 int index_mailbox_get_metadata(struct mailbox *box,
 			       enum mailbox_metadata_items items,
 			       struct mailbox_metadata *metadata_r)
@@ -294,6 +333,10 @@ int index_mailbox_get_metadata(struct mailbox *box,
 	}
 	if ((items & MAILBOX_METADATA_PHYSICAL_SIZE) != 0) {
 		if (index_mailbox_get_physical_size(box, metadata_r) < 0)
+			return -1;
+	}
+	if ((items & MAILBOX_METADATA_FIRST_SAVE_DATE) != 0) {
+		if (index_mailbox_get_first_save_date(box, metadata_r) < 0)
 			return -1;
 	}
 	if ((items & MAILBOX_METADATA_CACHE_FIELDS) != 0)
