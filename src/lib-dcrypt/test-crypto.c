@@ -308,7 +308,7 @@ void test_load_v2_public_key(void)
 }
 
 int main(void) {
-	dcrypt_initialize("openssl", NULL);
+	dcrypt_initialize("openssl", NULL, NULL);
 	random_init();
 	static void (*test_functions[])(void) = {
 		test_cipher_test_vectors,

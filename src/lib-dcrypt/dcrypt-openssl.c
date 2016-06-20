@@ -134,6 +134,16 @@ bool dcrypt_openssl_error(const char **error_r)
 	return FALSE;
 }
 
+static
+bool dcrypt_openssl_initialize(const struct dcrypt_settings *set, const char **error_r)
+{
+	if (set->crypto_device != NULL && set->crypto_device[0] != '\0') {
+		if (dovecot_openssl_common_global_set_engine(set->crypto_device, error_r) <= 0)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 /* legacy function for old formats that generates
    hex encoded point from EC public key
  */
@@ -2006,6 +2016,7 @@ bool dcrypt_openssl_private_key_id(struct dcrypt_private_key *key, const char *a
 
 
 static struct dcrypt_vfs dcrypt_openssl_vfs = {
+	.initialize = dcrypt_openssl_initialize,
 	.ctx_sym_create = dcrypt_openssl_ctx_sym_create,
 	.ctx_sym_destroy = dcrypt_openssl_ctx_sym_destroy,
 	.ctx_sym_set_key = dcrypt_openssl_ctx_sym_set_key,

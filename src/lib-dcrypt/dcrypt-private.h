@@ -9,6 +9,8 @@
 #define DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD 2
 
 struct dcrypt_vfs {
+	bool (*initialize)(const struct dcrypt_settings *set, const char **error_r);
+
 	bool (*ctx_sym_create)(const char *algorithm,
 		enum dcrypt_sym_mode mode,
 		struct dcrypt_context_symmetric **ctx_r, const char **error_r);

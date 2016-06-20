@@ -49,10 +49,15 @@ enum dcrypt_key_kind {
 	DCRYPT_KEY_KIND_PRIVATE
 };
 
+struct dcrypt_settings {
+	/* OpenSSL engine to use */
+	const char *crypto_device;
+};
+
 /**
  * load and initialize dcrypt backend, use either openssl or gnutls
  */
-bool dcrypt_initialize(const char *backend, const char **error_r);
+bool dcrypt_initialize(const char *backend, const struct dcrypt_settings *set, const char **error_r);
 
 /**
  * deinitialize dcrypt
