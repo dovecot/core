@@ -14,6 +14,7 @@ EXTRA_DIST = \
 	ChangeLog \
 	cc-wrapper.sh.in \
 	update-version.sh \
+	run-test-valgrind.supp \
 	$(conf_DATA)
 
 noinst_DATA = dovecot-config
