@@ -3,14 +3,13 @@
 #include "lib.h"
 #include "safe-memset.h"
 #include "iostream-openssl.h"
+#include "dovecot-openssl-common.h"
 
 #include <openssl/crypto.h>
 #include <openssl/x509.h>
-#include <openssl/engine.h>
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-#include <openssl/rand.h>
 
 #if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L
 #  define HAVE_ECDH
@@ -22,7 +21,6 @@ struct ssl_iostream_password_context {
 };
 
 static bool ssl_global_initialized = FALSE;
-static ENGINE *ssl_iostream_engine;
 int dovecot_ssl_extdata_index;
 
 static int ssl_iostream_init_global(const struct ssl_iostream_settings *set,
@@ -525,52 +523,36 @@ void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx)
 
 void openssl_iostream_global_deinit(void)
 {
-	if (ssl_iostream_engine != NULL)
-		ENGINE_finish(ssl_iostream_engine);
-	ENGINE_cleanup();
-	EVP_cleanup();
-	CRYPTO_cleanup_all_ex_data();
-	ERR_remove_state(0);
-	ERR_free_strings();
+	dovecot_openssl_common_global_unref();
 }
 
 static int ssl_iostream_init_global(const struct ssl_iostream_settings *set,
 				    const char **error_r)
 {
 	static char dovecot[] = "dovecot";
-	unsigned char buf;
+	const char *error;
 
 	if (ssl_global_initialized)
 		return 0;
 
 	ssl_global_initialized = TRUE;
-	SSL_library_init();
-	SSL_load_error_strings();
-	OpenSSL_add_all_algorithms();
+	dovecot_openssl_common_global_ref();
 
 	dovecot_ssl_extdata_index =
 		SSL_get_ex_new_index(0, dovecot, NULL, NULL, NULL);
 
-	/* PRNG initialization might want to use /dev/urandom, make sure it
-	   does it before chrooting. We might not have enough entropy at
-	   the first try, so this function may fail. It's still been
-	   initialized though. */
-	(void)RAND_bytes(&buf, 1);
-
 	if (set->crypto_device != NULL && *set->crypto_device != '\0') {
-		ENGINE_load_builtin_engines();
-		ssl_iostream_engine = ENGINE_by_id(set->crypto_device);
-		if (ssl_iostream_engine == NULL) {
-			*error_r = t_strdup_printf(
+		switch (dovecot_openssl_common_global_set_engine(set->crypto_device, &error)) {
+		case 0:
+			error = t_strdup_printf(
 				"Unknown ssl_crypto_device: %s",
 				set->crypto_device);
+			/* fall through */
+		case -1:
+			*error_r = error;
 			/* we'll deinit at exit in any case */
 			return -1;
 		}
-		ENGINE_init(ssl_iostream_engine);
-		ENGINE_set_default_RSA(ssl_iostream_engine);
-		ENGINE_set_default_DSA(ssl_iostream_engine);
-		ENGINE_set_default_ciphers(ssl_iostream_engine);
 	}
 	return 0;
 }

@@ -6,6 +6,7 @@
 #include "randgen.h"
 #include "array.h"
 #include "module-dir.h"
+#include "dovecot-openssl-common.h"
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <openssl/err.h>
@@ -2059,14 +2060,11 @@ static struct dcrypt_vfs dcrypt_openssl_vfs = {
 
 void dcrypt_openssl_init(struct module *module ATTR_UNUSED)
 {
-	OpenSSL_add_all_algorithms();
-	ERR_load_crypto_strings();
+	dovecot_openssl_common_global_ref();
 	dcrypt_set_vfs(&dcrypt_openssl_vfs);
 }
 
 void dcrypt_openssl_deinit(void)
 {
-#if OPENSSL_API_COMPAT < 0x10100000L
-	OBJ_cleanup();
-#endif
+	dovecot_openssl_common_global_unref();
 }
