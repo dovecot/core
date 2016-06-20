@@ -917,6 +917,7 @@ src/plugins/stats/Makefile
 src/plugins/imap-stats/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
+src/plugins/welcome/Makefile
 src/plugins/zlib/Makefile
 src/plugins/imap-zlib/Makefile
 stamp.h
