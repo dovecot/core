@@ -8,20 +8,35 @@
 #include "mail-user.h"
 #include "mail-autoexpunge.h"
 
-static int mailbox_autoexpunge(struct mailbox *box, time_t expire_time)
+static int
+mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
+		    unsigned int max_mails)
 {
 	struct mailbox_transaction_context *t;
 	struct mail *mail;
 	struct mailbox_metadata metadata;
 	const struct mail_index_header *hdr;
+	struct mailbox_status status;
 	uint32_t seq;
-	time_t timestamp;
+	time_t timestamp, expire_time;
 	int ret = 0;
+
+	if ((unsigned int)ioloop_time < interval_time)
+		expire_time = 0;
+	else
+		expire_time = ioloop_time - interval_time;
 
 	/* first try to check quickly from mailbox list index if we should
 	   bother opening this mailbox. */
-	if (mailbox_get_metadata(box, MAILBOX_METADATA_FIRST_SAVE_DATE,
-				 &metadata) == 0) {
+	if (mailbox_get_status(box, STATUS_MESSAGES, &status) < 0)
+		return -1;
+	if (interval_time == 0 && status.messages <= max_mails)
+		return 0;
+
+	if (max_mails == 0 || status.messages <= max_mails) {
+		if (mailbox_get_metadata(box, MAILBOX_METADATA_FIRST_SAVE_DATE,
+					 &metadata) < 0)
+			return -1;
 		if (metadata.first_save_date == (time_t)-1 ||
 		    metadata.first_save_date > expire_time)
 			return 0;
@@ -41,7 +56,15 @@ static int mailbox_autoexpunge(struct mailbox *box, time_t expire_time)
 	hdr = mail_index_get_header(box->view);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		mail_set_seq(mail, seq);
-		if (mail_get_save_date(mail, &timestamp) == 0) {
+		if (max_mails > 0 && hdr->messages_count - seq + 1 > max_mails) {
+			/* max_mails is still being reached -> expunge.
+			   don't even check saved-dates before we're
+			   below max_mails. */
+			mail_expunge(mail);
+		} else if (interval_time == 0) {
+			/* only max_mails is used. nothing further to do. */
+			break;
+		} else if (mail_get_save_date(mail, &timestamp) == 0) {
 			if (timestamp > expire_time)
 				break;
 			mail_expunge(mail);
@@ -61,18 +84,16 @@ static int mailbox_autoexpunge(struct mailbox *box, time_t expire_time)
 
 static void
 mailbox_autoexpunge_set(struct mail_namespace *ns, const char *vname,
-			unsigned int autoexpunge)
+			unsigned int autoexpunge,
+			unsigned int autoexpunge_max_mails)
 {
 	struct mailbox *box;
-	time_t expire_time;
-
-	expire_time = ioloop_time - autoexpunge;
 
 	/* autoexpunge is configured by admin, so we can safely ignore
 	   any ACLs the user might normally have against expunging in
 	   the mailbox. */
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_IGNORE_ACLS);
-	if (mailbox_autoexpunge(box, expire_time) < 0) {
+	if (mailbox_autoexpunge(box, autoexpunge, autoexpunge_max_mails) < 0) {
 		i_error("Failed to autoexpunge mailbox '%s': %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_error(box, NULL));
@@ -92,7 +113,8 @@ mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
 				      MAILBOX_LIST_ITER_SKIP_ALIASES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
-		mailbox_autoexpunge_set(ns, info->vname, set->autoexpunge);
+		mailbox_autoexpunge_set(ns, info->vname, set->autoexpunge,
+					set->autoexpunge_max_mails);
 	} T_END;
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Failed to iterate autoexpunge mailboxes '%s%s': %s",
@@ -110,8 +132,8 @@ static void mail_namespace_autoexpunge(struct mail_namespace *ns)
 		return;
 
 	array_foreach(&ns->set->mailboxes, box_set) {
-		if ((*box_set)->autoexpunge == 0 ||
-		    (unsigned int)ioloop_time < (*box_set)->autoexpunge)
+		if ((*box_set)->autoexpunge == 0 &&
+		    (*box_set)->autoexpunge_max_mails == 0)
 			continue;
 
 		if (strpbrk((*box_set)->name, "*?") != NULL)
@@ -122,7 +144,8 @@ static void mail_namespace_autoexpunge(struct mail_namespace *ns)
 				vname = t_strndup(ns->prefix, ns->prefix_len - 1);
 			else
 				vname = t_strconcat(ns->prefix, (*box_set)->name, NULL);
-			mailbox_autoexpunge_set(ns, vname, (*box_set)->autoexpunge);
+			mailbox_autoexpunge_set(ns, vname, (*box_set)->autoexpunge,
+						(*box_set)->autoexpunge_max_mails);
 		}
 	}
 }

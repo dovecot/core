@@ -127,6 +127,7 @@ static const struct setting_define mailbox_setting_defines[] = {
 	DEF(SET_STR, driver),
 	DEF(SET_STR, comment),
 	DEF(SET_TIME, autoexpunge),
+	DEF(SET_UINT, autoexpunge_max_mails),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -139,7 +140,8 @@ const struct mailbox_settings mailbox_default_settings = {
 	.special_use = "",
 	.driver = "",
 	.comment = "",
-	.autoexpunge = 0
+	.autoexpunge = 0,
+	.autoexpunge_max_mails = 0
 };
 
 const struct setting_parser_info mailbox_setting_parser_info = {
