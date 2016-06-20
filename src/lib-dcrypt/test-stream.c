@@ -217,7 +217,7 @@ void test_write_read_v2(void)
 }
 
 int main(void) {
-	dcrypt_initialize("openssl", NULL);
+	dcrypt_initialize("openssl", NULL, NULL);
 	random_init();
 
 	dcrypt_key_load_private(&test_v1_kp.priv, DCRYPT_FORMAT_PEM, key_v1_priv, NULL, NULL, NULL);

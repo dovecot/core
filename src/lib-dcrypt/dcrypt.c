@@ -5,8 +5,9 @@
 
 static struct module *dcrypt_module = NULL;
 static struct dcrypt_vfs *dcrypt_vfs = NULL;
+static const struct dcrypt_settings dcrypt_default_set;
 
-bool dcrypt_initialize(const char *backend, const char **error_r)
+bool dcrypt_initialize(const char *backend, const struct dcrypt_settings *set, const char **error_r)
 {
 	struct module_dir_load_settings mod_set;
 	const char *error;
@@ -15,6 +16,8 @@ bool dcrypt_initialize(const char *backend, const char **error_r)
 		return TRUE;
 	}
 	if (backend == NULL) backend = "openssl"; /* default for now */
+	if (set == NULL)
+		set = &dcrypt_default_set;
 
 	const char *implementation = t_strconcat("dcrypt_",backend,NULL);
 
@@ -29,6 +32,12 @@ bool dcrypt_initialize(const char *backend, const char **error_r)
 	}
 	module_dir_init(dcrypt_module);
 	i_assert(dcrypt_vfs != NULL);
+	if (dcrypt_vfs->initialize != NULL) {
+		if (!dcrypt_vfs->initialize(set, error_r)) {
+			dcrypt_deinitialize();
+			return FALSE;
+		}
+	}
 	/* Destroy SSL module after(most of) the others. Especially lib-fs
 	   backends may still want to access SSL module in their own
 	   atexit-callbacks. */
@@ -39,6 +48,7 @@ bool dcrypt_initialize(const char *backend, const char **error_r)
 void dcrypt_deinitialize(void)
 {
 	module_dir_unload(&dcrypt_module);
+	dcrypt_vfs = NULL;
 }
 
 void dcrypt_set_vfs(struct dcrypt_vfs *vfs)
