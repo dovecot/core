@@ -48,15 +48,19 @@ check-test: all-am
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
 
-LIBDOVECOT_TEST = \
+LIBDOVECOT_TEST_DEPS = \
 	../lib-test/libtest.la \
-	../lib/liblib.la \
+	../lib/liblib.la
+LIBDOVECOT_TEST = \
+	$(LIBDOVECOT_TEST_DEPS) \
 	$(MODULE_LIBS)
 
 test_crypto_LDADD = $(LIBDOVECOT_TEST)
+test_crypto_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
 test_crypto_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_MODULE_DIR=\".libs\" -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_crypto_SOURCES = $(libdcrypt_la_SOURCES) test-crypto.c
 
 test_stream_LDADD = $(LIBDOVECOT_TEST)
+test_stream_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
 test_stream_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_MODULE_DIR=\".libs\" -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_stream_SOURCES = $(libdcrypt_la_SOURCES) test-stream.c
