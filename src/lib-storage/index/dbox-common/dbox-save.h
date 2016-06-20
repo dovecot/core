@@ -14,6 +14,7 @@ struct dbox_save_context {
 
 	struct ostream *dbox_output;
 
+	uint32_t highest_pop3_uidl_seq;
 	unsigned int failed:1;
 	unsigned int finished:1;
 	unsigned int have_pop3_uidls:1;
