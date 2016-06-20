@@ -132,73 +132,48 @@ test_http_request_parser_LDADD = \
 	$(test_libs)
 test_http_request_parser_DEPENDENCIES = $(test_deps)
 
-test_http_payload_SOURCES = test-http-payload.c
-test_http_payload_LDFLAGS = -export-dynamic
-test_http_payload_LDADD = \
+test_http_libs = \
 	libhttp.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
 	../lib-settings/libsettings.la \
 	$(test_libs)
-test_http_payload_DEPENDENCIES = \
+test_http_deps = \
 	libhttp.la \
 	../lib-dns/libdns.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-master/libmaster.la \
 	../lib-settings/libsettings.la \
 	$(test_deps)
+
+test_http_payload_SOURCES = test-http-payload.c
+test_http_payload_LDFLAGS = -export-dynamic
+test_http_payload_LDADD = \
+	$(test_http_libs)
+test_http_payload_DEPENDENCIES = \
+	$(test_http_deps)
 
 test_http_client_SOURCES = test-http-client.c
 test_http_client_LDFLAGS = -export-dynamic
 test_http_client_LDADD = \
-	libhttp.la \
-	../lib-dns/libdns.la \
-	../lib-ssl-iostream/libssl_iostream.la \
-	../lib-master/libmaster.la \
-	../lib-settings/libsettings.la \
-	$(test_libs)
+	$(test_http_libs)
 test_http_client_DEPENDENCIES = \
-	libhttp.la \
-	../lib-dns/libdns.la \
-	../lib-ssl-iostream/libssl_iostream.la \
-	../lib-master/libmaster.la \
-	../lib-settings/libsettings.la \
-	$(test_deps)
+	$(test_http_deps)
 
 test_http_client_errors_SOURCES = test-http-client-errors.c
 test_http_client_errors_LDFLAGS = -export-dynamic
 test_http_client_errors_LDADD = \
-	libhttp.la \
-	../lib-dns/libdns.la \
-	../lib-ssl-iostream/libssl_iostream.la \
-	../lib-master/libmaster.la \
-	../lib-settings/libsettings.la \
-	$(test_libs)
+	$(test_http_libs)
 test_http_client_errors_DEPENDENCIES = \
-	libhttp.la \
-	../lib-dns/libdns.la \
-	../lib-ssl-iostream/libssl_iostream.la \
-	../lib-master/libmaster.la \
-	../lib-settings/libsettings.la \
-	$(test_deps)
+	$(test_http_deps)
 
 test_http_server_SOURCES = test-http-server.c
 test_http_server_LDFLAGS = -export-dynamic
 test_http_server_LDADD = \
-	libhttp.la \
-	../lib-dns/libdns.la \
-	../lib-ssl-iostream/libssl_iostream.la \
-	../lib-master/libmaster.la \
-	../lib-settings/libsettings.la \
-	$(test_libs)
+	$(test_http_libs)
 test_http_server_DEPENDENCIES = \
-	libhttp.la \
-	../lib-dns/libdns.la \
-	../lib-ssl-iostream/libssl_iostream.la \
-	../lib-master/libmaster.la \
-	../lib-settings/libsettings.la \
-	$(test_deps)
+	$(test_http_deps)
 
 check: check-am check-test
 check-test: all-am
