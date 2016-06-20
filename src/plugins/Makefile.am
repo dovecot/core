@@ -39,6 +39,7 @@ SUBDIRS = \
 	imap-stats \
 	trash \
 	virtual \
+	welcome \
 	$(ZLIB) \
 	$(FTS_LUCENE) \
 	$(FTS_SOLR) \
