@@ -10,12 +10,41 @@
 static int openssl_init_refcount = 0;
 static ENGINE *dovecot_openssl_engine;
 
+static void *dovecot_openssl_malloc(size_t size)
+{
+	/* this may be performance critical, so don't use
+	   i_malloc() or calloc() */
+	void *mem = malloc(size);
+	if (mem == NULL) {
+		i_fatal_status(FATAL_OUTOFMEM,
+			"OpenSSL: malloc(%"PRIuSIZE_T"): Out of memory", size);
+	}
+	return mem;
+}
+
+static void *dovecot_openssl_realloc(void *ptr, size_t size)
+{
+	void *mem = realloc(ptr, size);
+	if (mem == NULL) {
+		i_fatal_status(FATAL_OUTOFMEM,
+			"OpenSSL: realloc(%"PRIuSIZE_T"): Out of memory", size);
+	}
+	return mem;
+}
+
 void dovecot_openssl_common_global_ref(void)
 {
 	unsigned char buf;
 
 	if (openssl_init_refcount++ > 0)
 		return;
+
+	/* use our own memory allocation functions that will die instead of
+	   returning NULL. this avoids random failures on out-of-memory
+	   conditions. */
+	if (CRYPTO_set_mem_functions(dovecot_openssl_malloc,
+				     dovecot_openssl_realloc, free) == 0)
+		i_warning("CRYPTO_set_mem_functions() was called too late");
 
 	SSL_library_init();
 	SSL_load_error_strings();
