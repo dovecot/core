@@ -69,9 +69,11 @@ try_create_new(const char *path, const struct file_create_settings *set,
 			/* just created by somebody else */
 			ret = 0;
 		} else if (errno == ENOENT) {
-			/* our temp file was just deleted by somebody else,
-			   retry creating it. */
-			ret = 0;
+			/* nobody should be deleting the temp file unless the
+			   entire directory is deleted. */
+			*error_r = t_strdup_printf(
+				"Temporary file %s was unexpectedly deleted",
+				str_c(temp_path));
 		} else {
 			*error_r = t_strdup_printf("link(%s, %s) failed: %m",
 						   str_c(temp_path), path);
