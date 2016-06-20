@@ -363,7 +363,7 @@ static int settings_get_time_full(const char *str, unsigned int *interval_r,
 	while (*p == ' ') p++;
 	if (*p == '\0' && num != 0) {
 		*error_r = t_strdup_printf("Time interval '%s' is missing units "
-			"(add e.g. 's' for seconds): ", str);
+			"(add e.g. 's' for seconds)", str);
 		return -1;
 	}
 	switch (i_toupper(*p)) {
