@@ -39,7 +39,7 @@ commands.
 .PP
 In the first form,
 .BR doveadm (1)
-will executed the
+will execute the
 .B expunge
 action with the environment of the logged in system user.
 .PP
