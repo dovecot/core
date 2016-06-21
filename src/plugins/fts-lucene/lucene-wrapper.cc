@@ -820,15 +820,15 @@ rescan_next(struct rescan_context *ctx, Document *doc)
 }
 
 static void
-rescan_clear_unseen_mailbox(struct rescan_context *rescan_ctx,
-			    struct mailbox_list *list,
+rescan_clear_unseen_mailbox(struct lucene_index *index,
+			    struct rescan_context *rescan_ctx,
 			    const char *vname,
 			    const struct fts_index_header *hdr)
 {
 	struct mailbox *box;
 	struct mailbox_metadata metadata;
 
-	box = mailbox_alloc(list, vname,
+	box = mailbox_alloc(index->list, vname,
 			    (enum mailbox_flags)0);
 	if (mailbox_open(box) == 0 &&
 	    mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
@@ -861,7 +861,7 @@ static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 
 	iter = mailbox_list_iter_init(index->list, "*", iter_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL)
-		rescan_clear_unseen_mailbox(rescan_ctx, index->list, info->vname, &hdr);
+		rescan_clear_unseen_mailbox(index, rescan_ctx, info->vname, &hdr);
 	(void)mailbox_list_iter_deinit(&iter);
 
 	if (ns->prefix_len > 0 &&
@@ -869,7 +869,7 @@ static void rescan_clear_unseen_mailboxes(struct lucene_index *index,
 		/* namespace prefix itself isn't returned by the listing */
 		vname = t_strndup(index->list->ns->prefix,
 				  index->list->ns->prefix_len-1);
-		rescan_clear_unseen_mailbox(rescan_ctx, index->list, vname, &hdr);
+		rescan_clear_unseen_mailbox(index, rescan_ctx, vname, &hdr);
 	}
 }
 
