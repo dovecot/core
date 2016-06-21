@@ -377,18 +377,17 @@ doveadm_build_options(const struct doveadm_cmd_param par[],
 {
 	for(size_t i=0; par[i].name != NULL; i++) {
 		struct option longopt;
+
+		memset(&longopt, 0, sizeof(longopt));
 		longopt.name = par[i].name;
-		longopt.flag = 0;
-		longopt.val = 0;
 		if (par[i].short_opt != '\0') {
 			longopt.val = par[i].short_opt;
 			str_append_c(shortopts, par[i].short_opt);
 			if (par[i].type != CMD_PARAM_BOOL)
 				str_append_c(shortopts, ':');
-		} else {
-			if (par[i].type != CMD_PARAM_BOOL) longopt.has_arg = 1;
-			else longopt.has_arg = 0;
 		}
+		if (par[i].type != CMD_PARAM_BOOL)
+			longopt.has_arg = 1;
 		array_append(longopts, &longopt, 1);
 	}
 	array_append_zero(longopts);
