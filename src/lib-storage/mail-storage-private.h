@@ -410,6 +410,8 @@ struct mailbox {
 	unsigned int update_first_saved:1;
 	/* mailbox_verify_create_name() only checks for mailbox_verify_name() */
 	unsigned int skip_create_name_restrictions:1;
+	/* v2.2.x API kludge: quick-parameter to list_index_has_changed() */
+	unsigned int list_index_has_changed_quick:1;
 };
 
 struct mail_vfuncs {

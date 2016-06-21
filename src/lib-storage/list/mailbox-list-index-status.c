@@ -786,8 +786,11 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 		/* our in-memory tree is out of sync */
 		ret = 1;
 	} else T_BEGIN {
+		/* kludge: avoid breaking API for v2.2.x. Fixed in v2.3.x. */
+		box->list_index_has_changed_quick = TRUE;
 		ret = box->v.list_index_has_changed == NULL ? 0 :
 			box->v.list_index_has_changed(box, view, seq);
+		box->list_index_has_changed_quick = FALSE;
 	} T_END;
 
 	if (ret != 0) {
