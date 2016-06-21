@@ -197,12 +197,13 @@ static int fs_posix_rmdir_parents(struct posix_fs *fs, const char *path)
 {
 	const char *p;
 
-	if (fs->root_path == NULL)
+	if (fs->root_path == NULL && fs->path_prefix == NULL)
 		return 0;
 
 	while ((p = strrchr(path, '/')) != NULL) {
 		path = t_strdup_until(path, p);
-		if (strcmp(path, fs->root_path) == 0)
+		if ((fs->root_path != NULL && strcmp(path, fs->root_path) == 0) ||
+		    (fs->path_prefix != NULL && strncmp(path, fs->path_prefix, strlen(path)) == 0))
 			break;
 		if (rmdir(path) == 0) {
 			/* success, continue to parent */
