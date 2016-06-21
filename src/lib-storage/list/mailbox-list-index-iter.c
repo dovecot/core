@@ -101,10 +101,12 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 						    &ctx->info.flags);
 	}
 
-	box = mailbox_alloc(ctx->ctx.list, ctx->info.vname, 0);
-	mailbox_list_index_status_set_info_flags(box, node->uid,
-						 &ctx->info.flags);
-	mailbox_free(&box);
+	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) == 0) {
+		box = mailbox_alloc(ctx->ctx.list, ctx->info.vname, 0);
+		mailbox_list_index_status_set_info_flags(box, node->uid,
+							 &ctx->info.flags);
+		mailbox_free(&box);
+	}
 }
 
 static void
