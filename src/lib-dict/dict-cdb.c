@@ -122,20 +122,9 @@ static int cdb_dict_lookup(struct dict *_dict, pool_t pool,
 struct dict dict_driver_cdb = {
 	.name = "cdb",
 	{
-		cdb_dict_init,
-		cdb_dict_deinit,
-		NULL,
-		cdb_dict_lookup,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL
+		.init = cdb_dict_init,
+		.deinit = cdb_dict_deinit,
+		.lookup = cdb_dict_lookup,
 	}
 };
 #endif

@@ -1007,21 +1007,20 @@ struct dict dict_driver_client = {
 	.name = "proxy",
 
 	{
-		client_dict_init,
-		client_dict_deinit,
-		client_dict_wait,
-		client_dict_lookup,
-		client_dict_iterate_init,
-		client_dict_iterate,
-		client_dict_iterate_deinit,
-		client_dict_transaction_init,
-		client_dict_transaction_commit,
-		client_dict_transaction_rollback,
-		client_dict_set,
-		client_dict_unset,
-		NULL,
-		client_dict_atomic_inc,
-		client_dict_lookup_async,
-		client_dict_switch_ioloop
+		.init = client_dict_init,
+		.deinit = client_dict_deinit,
+		.wait = client_dict_wait,
+		.lookup = client_dict_lookup,
+		.iterate_init = client_dict_iterate_init,
+		.iterate = client_dict_iterate,
+		.iterate_deinit = client_dict_iterate_deinit,
+		.transaction_init = client_dict_transaction_init,
+		.transaction_commit = client_dict_transaction_commit,
+		.transaction_rollback = client_dict_transaction_rollback,
+		.set = client_dict_set,
+		.unset = client_dict_unset,
+		.atomic_inc = client_dict_atomic_inc,
+		.lookup_async = client_dict_lookup_async,
+		.switch_ioloop = client_dict_switch_ioloop
 	}
 };

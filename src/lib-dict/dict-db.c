@@ -465,19 +465,18 @@ db_dict_atomic_inc(struct dict_transaction_context *_ctx ATTR_UNUSED,
 struct dict dict_driver_db = {
 	.name = "db",
 	{
-		db_dict_init,
-		db_dict_deinit,
-		NULL,
-		db_dict_lookup,
-		db_dict_iterate_init,
-		db_dict_iterate,
-		db_dict_iterate_deinit,
-		db_dict_transaction_init,
-		db_dict_transaction_commit,
-		db_dict_transaction_rollback,
-		db_dict_set,
-		db_dict_unset,
-		db_dict_atomic_inc
+		.init = db_dict_init,
+		.deinit = db_dict_deinit,
+		.lookup = db_dict_lookup,
+		.iterate_init = db_dict_iterate_init,
+		.iterate = db_dict_iterate,
+		.iterate_deinit = db_dict_iterate_deinit,
+		.transaction_init = db_dict_transaction_init,
+		.transaction_commit = db_dict_transaction_commit,
+		.transaction_rollback = db_dict_transaction_rollback,
+		.set = db_dict_set,
+		.unset = db_dict_unset,
+		.atomic_inc = db_dict_atomic_inc,
 	}
 };
 #endif
