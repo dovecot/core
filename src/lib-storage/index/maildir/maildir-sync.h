@@ -50,7 +50,7 @@ int maildir_sync_lookup(struct maildir_mailbox *mbox, uint32_t uid,
 
 int maildir_list_index_has_changed(struct mailbox *box,
 				   struct mail_index_view *list_view,
-				   uint32_t seq);
+				   uint32_t seq, bool quick);
 void maildir_list_index_update_sync(struct mailbox *box,
 				    struct mail_index_transaction *trans,
 				    uint32_t seq);

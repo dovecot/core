@@ -459,7 +459,7 @@ index_storage_list_index_has_changed_full(struct mailbox *box,
 
 int index_storage_list_index_has_changed(struct mailbox *box,
 					 struct mail_index_view *list_view,
-					 uint32_t seq)
+					 uint32_t seq, bool quick ATTR_UNUSED)
 {
 	switch (index_storage_list_index_has_changed_full(box, list_view, seq)) {
 	case INDEX_STORAGE_LIST_CHANGE_ERROR:

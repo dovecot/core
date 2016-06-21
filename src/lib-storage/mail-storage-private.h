@@ -206,10 +206,11 @@ struct mailbox_vfuncs {
 	int (*attribute_iter_deinit)(struct mailbox_attribute_iter *iter);
 
 	/* Lookup sync extension record and figure out if it mailbox has
-	   changed since. Returns 1 = yes, 0 = no, -1 = error. */
+	   changed since. Returns 1 = yes, 0 = no, -1 = error. if quick==TRUE,
+	   return 1 if it's too costly to find out exactly. */
 	int (*list_index_has_changed)(struct mailbox *box,
 				      struct mail_index_view *list_view,
-				      uint32_t seq);
+				      uint32_t seq, bool quick);
 	/* Update the sync extension record. */
 	void (*list_index_update_sync)(struct mailbox *box,
 				       struct mail_index_transaction *trans,

@@ -164,7 +164,7 @@ bool index_keyword_array_cmp(const ARRAY_TYPE(keyword_indexes) *k1,
 
 int index_storage_list_index_has_changed(struct mailbox *box,
 					 struct mail_index_view *list_view,
-					 uint32_t seq);
+					 uint32_t seq, bool quick);
 enum index_storage_list_change
 index_storage_list_index_has_changed_full(struct mailbox *box,
 					  struct mail_index_view *list_view,

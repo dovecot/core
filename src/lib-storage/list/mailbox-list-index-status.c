@@ -60,7 +60,7 @@ index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
 		ret = 1;
 	} else T_BEGIN {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
-			box->v.list_index_has_changed(box, view, seq);
+			box->v.list_index_has_changed(box, view, seq, FALSE);
 	} T_END;
 
 	if (ret != 0) {
@@ -787,7 +787,7 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 		ret = 1;
 	} else T_BEGIN {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
-			box->v.list_index_has_changed(box, view, seq);
+			box->v.list_index_has_changed(box, view, seq, TRUE);
 	} T_END;
 
 	if (ret != 0) {

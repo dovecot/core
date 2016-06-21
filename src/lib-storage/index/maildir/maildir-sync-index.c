@@ -702,7 +702,7 @@ maildir_list_get_ext_id(struct maildir_mailbox *mbox,
 
 int maildir_list_index_has_changed(struct mailbox *box,
 				   struct mail_index_view *list_view,
-				   uint32_t seq)
+				   uint32_t seq, bool quick)
 {
 	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
 	const struct maildir_list_index_record *rec;
@@ -713,7 +713,7 @@ int maildir_list_index_has_changed(struct mailbox *box,
 	bool expunged;
 	int ret;
 
-	ret = index_storage_list_index_has_changed(box, list_view, seq);
+	ret = index_storage_list_index_has_changed(box, list_view, seq, quick);
 	if (ret != 0 || box->storage->set->mailbox_list_index_very_dirty_syncs)
 		return ret;
 	if (mbox->storage->set->maildir_very_dirty_syncs) {

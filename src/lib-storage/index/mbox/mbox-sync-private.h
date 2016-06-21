@@ -185,7 +185,7 @@ int mbox_sync_get_guid(struct mbox_mailbox *mbox);
 
 int mbox_list_index_has_changed(struct mailbox *box,
 				struct mail_index_view *list_view,
-				uint32_t seq);
+				uint32_t seq, bool quick);
 void mbox_list_index_update_sync(struct mailbox *box,
 				 struct mail_index_transaction *trans,
 				 uint32_t seq);
