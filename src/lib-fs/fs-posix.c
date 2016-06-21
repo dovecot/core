@@ -88,7 +88,7 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 	fs->lock_method = FS_POSIX_LOCK_METHOD_FLOCK;
 	fs->mode = FS_DEFAULT_MODE;
 
-	tmp = t_strsplit_spaces(args, " ");
+	tmp = t_strsplit_spaces(args, ":");
 	for (; *tmp != NULL; tmp++) {
 		const char *arg = *tmp;
 
