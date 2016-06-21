@@ -381,16 +381,12 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	doveadm_fs_delete_async_finish(&ctx);
 }
 
-static void
-cmd_fs_delete_recursive(int argc, char *argv[], unsigned int async_count)
+static void cmd_fs_delete_recursive_path(struct fs *fs, const char *path,
+					 unsigned int async_count)
 {
-	struct fs *fs;
 	struct fs_file *file;
-	const char *path;
 	unsigned int path_len;
 
-	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_delete);
-	path = argv[0];
 	path_len = strlen(path);
 	if (path_len > 0 && path[path_len-1] != '/')
 		path = t_strconcat(path, "/", NULL);
@@ -406,6 +402,17 @@ cmd_fs_delete_recursive(int argc, char *argv[], unsigned int async_count)
 		}
 		fs_file_deinit(&file);
 	}
+}
+
+static void
+cmd_fs_delete_recursive(int argc, char *argv[], unsigned int async_count)
+{
+	struct fs *fs;
+	unsigned int i;
+
+	fs = cmd_fs_init(&argc, &argv, 0, cmd_fs_delete);
+	for (i = 0; argv[i] != NULL; i++)
+		cmd_fs_delete_recursive_path(fs, argv[i], async_count);
 	fs_deinit(&fs);
 }
 
