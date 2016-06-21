@@ -34,8 +34,8 @@ struct index_list_storage_module index_list_storage_module =
 	((box)->inbox_any)
 
 static int
-index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
-		     uint32_t *seq_r)
+index_list_open_view(struct mailbox *box, bool refresh,
+		     struct mail_index_view **view_r, uint32_t *seq_r)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mailbox_list_index_node *node;
@@ -58,6 +58,9 @@ index_list_open_view(struct mailbox *box, struct mail_index_view **view_r,
 	if (!mail_index_lookup_seq(view, node->uid, &seq)) {
 		/* our in-memory tree is out of sync */
 		ret = 1;
+	} else if (!refresh) {
+		/* this operation doesn't need the index to be up-to-date */
+		ret = 0;
 	} else T_BEGIN {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
 			box->v.list_index_has_changed(box, view, seq);
@@ -89,7 +92,7 @@ index_list_exists(struct mailbox *box, bool auto_boxes,
 	uint32_t seq;
 	int ret;
 
-	if ((ret = index_list_open_view(box, &view, &seq)) <= 0) {
+	if ((ret = index_list_open_view(box, FALSE, &view, &seq)) <= 0) {
 		/* failure / not found. fallback to the real storage check
 		   just in case to see if the mailbox was just created. */
 		return ibox->module_ctx.super.
@@ -186,6 +189,9 @@ index_list_get_cached_status(struct mailbox *box,
 	uint32_t seq;
 	int ret;
 
+	if (items == 0)
+		return 1;
+
 	if ((items & STATUS_UNSEEN) != 0 &&
 	    (mailbox_get_private_flags_mask(box) & MAIL_SEEN) != 0) {
 		/* can't get UNSEEN from list index, since each user has
@@ -193,7 +199,7 @@ index_list_get_cached_status(struct mailbox *box,
 		return 0;
 	}
 
-	if ((ret = index_list_open_view(box, &view, &seq)) <= 0)
+	if ((ret = index_list_open_view(box, TRUE, &view, &seq)) <= 0)
 		return ret;
 
 	ret = mailbox_list_index_status(box->list, view, seq, items,
@@ -230,7 +236,7 @@ index_list_get_cached_guid(struct mailbox *box, guid_128_t guid_r)
 		return 0;
 	}
 
-	if ((ret = index_list_open_view(box, &view, &seq)) <= 0)
+	if ((ret = index_list_open_view(box, FALSE, &view, &seq)) <= 0)
 		return ret;
 
 	ret = mailbox_list_index_status(box->list, view, seq, 0,
@@ -252,7 +258,7 @@ static int index_list_get_cached_vsize(struct mailbox *box, uoff_t *vsize_r)
 
 	i_assert(!ilist->syncing);
 
-	if ((ret = index_list_open_view(box, &view, &seq)) <= 0)
+	if ((ret = index_list_open_view(box, TRUE, &view, &seq)) <= 0)
 		return ret;
 
 	ret = mailbox_list_index_status(box->list, view, seq,
@@ -283,7 +289,7 @@ index_list_get_cached_first_saved(struct mailbox *box,
 
 	memset(first_saved_r, 0, sizeof(*first_saved_r));
 
-	if ((ret = index_list_open_view(box, &view, &seq)) <= 0)
+	if ((ret = index_list_open_view(box, TRUE, &view, &seq)) <= 0)
 		return ret;
 
 	mail_index_lookup_ext(view, seq, ilist->first_saved_ext_id,
@@ -700,7 +706,7 @@ void mailbox_list_index_update_mailbox_index(struct mailbox *box,
 	int ret;
 
 	memset(&changes, 0, sizeof(changes));
-	if ((ret = index_list_open_view(box, &list_view, &changes.seq)) <= 0)
+	if ((ret = index_list_open_view(box, TRUE, &list_view, &changes.seq)) <= 0)
 		return;
 
 	(void)mailbox_list_index_status(box->list, list_view, changes.seq,
