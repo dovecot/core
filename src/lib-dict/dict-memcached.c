@@ -365,20 +365,8 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 struct dict dict_driver_memcached = {
 	.name = "memcached",
 	{
-		memcached_dict_init,
-		memcached_dict_deinit,
-		NULL,
-		memcached_dict_lookup,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL
+		.init = memcached_dict_init,
+		.deinit = memcached_dict_deinit,
+		.lookup = memcached_dict_lookup,
 	}
 };

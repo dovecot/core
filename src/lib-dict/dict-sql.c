@@ -1224,21 +1224,20 @@ static struct dict sql_dict = {
 	.name = "sql",
 
 	{
-		sql_dict_init,
-		sql_dict_deinit,
-		sql_dict_wait,
-		sql_dict_lookup,
-		sql_dict_iterate_init,
-		sql_dict_iterate,
-		sql_dict_iterate_deinit,
-		sql_dict_transaction_init,
-		sql_dict_transaction_commit,
-		sql_dict_transaction_rollback,
-		sql_dict_set,
-		sql_dict_unset,
-		sql_dict_atomic_inc,
-		sql_dict_lookup_async,
-		NULL
+		.init = sql_dict_init,
+		.deinit = sql_dict_deinit,
+		.wait = sql_dict_wait,
+		.lookup = sql_dict_lookup,
+		.iterate_init = sql_dict_iterate_init,
+		.iterate = sql_dict_iterate,
+		.iterate_deinit = sql_dict_iterate_deinit,
+		.transaction_init = sql_dict_transaction_init,
+		.transaction_commit = sql_dict_transaction_commit,
+		.transaction_rollback = sql_dict_transaction_rollback,
+		.set = sql_dict_set,
+		.unset = sql_dict_unset,
+		.atomic_inc = sql_dict_atomic_inc,
+		.lookup_async = sql_dict_lookup_async,
 	}
 };
 
