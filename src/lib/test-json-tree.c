@@ -57,7 +57,7 @@ struct {
 void test_json_tree(void)
 {
 	struct json_tree *tree;
-	struct json_tree_node *root, *node, *node1, *node2;
+	const struct json_tree_node *root, *node, *node1, *node2;
 	unsigned int i;
 
 	test_begin("json tree");
@@ -70,7 +70,6 @@ void test_json_tree(void)
 	root = json_tree_root(tree);
 	i_assert(root != NULL);
 	test_assert(root->value_type == JSON_TYPE_OBJECT);
-	root = root->value.child;
 	i_assert(root != NULL);
 
 	for (i = 0; i < 10+2; i += 2) {

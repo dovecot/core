@@ -8,7 +8,8 @@ struct json_tree {
 	struct json_tree_node *root, *cur, *cur_child;
 };
 
-struct json_tree *json_tree_init(void)
+struct json_tree *
+json_tree_init_type(enum json_type container)
 {
 	struct json_tree *tree;
 	pool_t pool;
@@ -17,7 +18,7 @@ struct json_tree *json_tree_init(void)
 	tree = p_new(pool, struct json_tree, 1);
 	tree->pool = pool;
 	tree->root = tree->cur = p_new(tree->pool, struct json_tree_node, 1);
-	tree->cur->value_type = JSON_TYPE_OBJECT;
+	tree->cur->value_type = container == JSON_TYPE_ARRAY ? container : JSON_TYPE_OBJECT;
 	return tree;
 }
 
@@ -130,14 +131,18 @@ int json_tree_append(struct json_tree *tree, enum json_type type,
 	return 0;
 }
 
-struct json_tree_node *json_tree_root(struct json_tree *tree)
+const struct json_tree_node *
+json_tree_root(const struct json_tree *tree)
 {
 	return tree->root;
 }
 
-struct json_tree_node *
-json_tree_find_key(struct json_tree_node *node, const char *key)
+const struct json_tree_node *
+json_tree_find_key(const struct json_tree_node *node, const char *key)
 {
+	i_assert(node->value_type == JSON_TYPE_OBJECT);
+
+	node = json_tree_get_child(node);
 	for (; node != NULL; node = node->next) {
 		if (node->key != NULL && strcmp(node->key, key) == 0)
 			return node;
@@ -145,22 +150,23 @@ json_tree_find_key(struct json_tree_node *node, const char *key)
 	return NULL;
 }
 
-struct json_tree_node *
-json_tree_find_child_with(struct json_tree_node *node,
+const struct json_tree_node *
+json_tree_find_child_with(const struct json_tree_node *node,
 			  const char *key, const char *value)
 {
-	struct json_tree_node *child;
+	const struct json_tree_node *child;
 
 	i_assert(node->value_type == JSON_TYPE_OBJECT ||
 		 node->value_type == JSON_TYPE_ARRAY);
 
-	for (node = node->value.child; node != NULL; node = node->next) {
+	for (node = json_tree_get_child(node); node != NULL; node = node->next) {
 		if (node->value_type != JSON_TYPE_OBJECT)
 			continue;
 
-		child = json_tree_find_key(node->value.child, key);
-		if (child != NULL && child->value.str != NULL &&
-		    strcmp(child->value.str, value) == 0)
+		child = json_tree_find_key(node, key);
+		if (child != NULL &&
+		    json_tree_get_value_str(child) != NULL &&
+		    strcmp(json_tree_get_value_str(child), value) == 0)
 			return node;
 	}
 	return NULL;
