@@ -100,11 +100,11 @@ int dovecot_openssl_common_global_set_engine(const char *engine,
 		dovecot_openssl_engine = NULL;
 		return -1;
 	}
-	if (ENGINE_set_default_RSA(dovecot_openssl_engine) == 0)
-		i_unreached();
-	if (ENGINE_set_default_DSA(dovecot_openssl_engine) == 0)
-		i_unreached();
-	if (ENGINE_set_default_ciphers(dovecot_openssl_engine) == 0)
-		i_unreached();
+	if (ENGINE_set_default(dovecot_openssl_engine, ENGINE_METHOD_ALL) == 0) {
+		*error_r = t_strdup_printf("ENGINE_set_default(%s) failed", engine);
+		ENGINE_free(dovecot_openssl_engine);
+		dovecot_openssl_engine = NULL;
+		return -1;
+	}
 	return 1;
 }
