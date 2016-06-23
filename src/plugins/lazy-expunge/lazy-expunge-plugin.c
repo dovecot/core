@@ -27,6 +27,11 @@
 #define LAZY_EXPUNGE_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, lazy_expunge_mail_module)
 
+struct lazy_expunge_mail {
+	union mail_module_context module_ctx;
+	bool moving;
+};
+
 struct lazy_expunge_mail_user {
 	union mail_user_module_context module_ctx;
 
@@ -267,13 +272,17 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT(ns->user);
 	struct mail_private *mail = (struct mail_private *)_mail;
-	union mail_module_context *mmail = LAZY_EXPUNGE_MAIL_CONTEXT(mail);
+	struct lazy_expunge_mail *mmail = LAZY_EXPUNGE_MAIL_CONTEXT(mail);
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
 	struct mail *real_mail;
 	struct mail_save_context *save_ctx;
 	const char *error;
+	bool moving = mmail->moving;
 	int ret;
+
+	/* Clear this in case the mail is used for non-move later on. */
+	mmail->moving = FALSE;
 
 	/* don't copy the mail if we're expunging from lazy_expunge
 	   namespace (even if it's via a virtual mailbox) */
@@ -282,7 +291,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		return;
 	}
 	if (lazy_expunge_is_internal_mailbox(real_mail->box)) {
-		mmail->super.expunge(_mail);
+		mmail->module_ctx.super.expunge(_mail);
 		return;
 	}
 
@@ -290,12 +299,14 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		/* we want to copy only the last instance of the mail to
 		   lazy_expunge namespace. other instances will be expunged
 		   immediately. */
-		if ((ret = lazy_expunge_mail_is_last_instace(_mail)) < 0) {
+		if (moving)
+			ret = 0;
+		else if ((ret = lazy_expunge_mail_is_last_instace(_mail)) < 0) {
 			lazy_expunge_set_error(lt, _mail->box->storage);
 			return;
 		}
 		if (ret == 0) {
-			mmail->super.expunge(_mail);
+			mmail->module_ctx.super.expunge(_mail);
 			return;
 		}
 	}
@@ -327,7 +338,18 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	save_ctx->data.flags &= ~MAIL_DELETED;
 	if (mailbox_copy(&save_ctx, _mail) < 0 && !_mail->expunged)
 		lazy_expunge_set_error(lt, lt->dest_box->storage);
-	mmail->super.expunge(_mail);
+	mmail->module_ctx.super.expunge(_mail);
+}
+
+static int lazy_expunge_copy(struct mail_save_context *ctx, struct mail *_mail)
+{
+	struct mail_private *mail = (struct mail_private *)_mail;
+	union mailbox_module_context *mbox =
+		LAZY_EXPUNGE_CONTEXT(ctx->transaction->box);
+	struct lazy_expunge_mail *mmail = LAZY_EXPUNGE_MAIL_CONTEXT(mail);
+
+	mmail->moving = ctx->moving;
+	return mbox->super.copy(ctx, _mail);
 }
 
 static struct mailbox_transaction_context *
@@ -409,17 +431,17 @@ static void lazy_expunge_mail_allocated(struct mail *_mail)
 		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct mail_vfuncs *v = mail->vlast;
-	union mail_module_context *mmail;
+	struct lazy_expunge_mail *mmail;
 
 	if (lt == NULL)
 		return;
 
-	mmail = p_new(mail->pool, union mail_module_context, 1);
-	mmail->super = *v;
-	mail->vlast = &mmail->super;
+	mmail = p_new(mail->pool, struct lazy_expunge_mail, 1);
+	mmail->module_ctx.super = *v;
+	mail->vlast = &mmail->module_ctx.super;
 
 	v->expunge = lazy_expunge_mail_expunge;
-	MODULE_CONTEXT_SET_SELF(mail, lazy_expunge_mail_module, mmail);
+	MODULE_CONTEXT_SET(mail, lazy_expunge_mail_module, mmail);
 }
 
 static int
@@ -457,6 +479,7 @@ static void lazy_expunge_mailbox_allocated(struct mailbox *box)
 	MODULE_CONTEXT_SET_SELF(box, lazy_expunge_mail_storage_module, mbox);
 
 	if (!lazy_expunge_is_internal_mailbox(box)) {
+		v->copy = lazy_expunge_copy;
 		v->transaction_begin = lazy_expunge_transaction_begin;
 		v->transaction_commit = lazy_expunge_transaction_commit;
 		v->transaction_rollback = lazy_expunge_transaction_rollback;
