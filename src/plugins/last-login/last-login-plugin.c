@@ -72,7 +72,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	}
 
 	dict_value = mail_user_plugin_getenv(user, "last_login_dict");
-	if (dict_value == NULL)
+	if (dict_value == NULL || dict_value[0] == '\0')
 		return;
 
 	memset(&set, 0, sizeof(set));
