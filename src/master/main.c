@@ -18,6 +18,7 @@
 #include "master-service-settings.h"
 #include "askpass.h"
 #include "capabilities.h"
+#include "master-client.h"
 #include "service.h"
 #include "service-anvil.h"
 #include "service-listen.h"
@@ -526,6 +527,7 @@ static void main_init(const struct master_settings *set)
 	create_pid_file(pidfile_path);
 	create_config_symlink(set);
 	instance_update(set);
+	master_clients_init();
 
 	services_monitor_start(services);
 }
@@ -542,6 +544,7 @@ static void global_dead_pipe_close(void)
 
 static void main_deinit(void)
 {
+	master_clients_deinit();
 	instance_update_now(instances);
 	timeout_remove(&to_instance);
 	master_instance_list_deinit(&instances);
