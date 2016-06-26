@@ -25,6 +25,7 @@ dovecot_SOURCES = \
 	capabilities-posix.c \
 	dup2-array.c \
 	main.c \
+	master-client.c \
 	master-settings.c \
 	service-anvil.c \
 	service-listen.c \
@@ -39,6 +40,7 @@ noinst_HEADERS = \
 	capabilities.h \
 	common.h \
 	dup2-array.h \
+	master-client.h \
 	master-settings.h \
 	sd-daemon.h \
 	service-anvil.h \
