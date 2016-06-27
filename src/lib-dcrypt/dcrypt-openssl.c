@@ -55,7 +55,7 @@
 
  public key
  ----------
- 2<tab>HEX(i2d_PUBKEY)
+ 2<tab>HEX(i2d_PUBKEY)<tab>key id
 
  - enctype none
  2<tab>key algo oid<tab>0<tab>(RSA = i2d_PrivateKey, EC=Private Point)<tab>key id
@@ -549,6 +549,7 @@ bool dcrypt_openssl_generate_ec_key(int nid, EVP_PKEY **key, const char **error_
 static
 bool dcrypt_openssl_generate_rsa_key(int bits, EVP_PKEY **key, const char **error_r)
 {
+	i_assert(bits >= 256);
 	int ec = 0;
 
 	EVP_PKEY_CTX *ctx;
@@ -568,6 +569,7 @@ bool dcrypt_openssl_generate_rsa_key(int bits, EVP_PKEY **key, const char **erro
 static
 bool dcrypt_openssl_ecdh_derive_secret_local(struct dcrypt_private_key *local_key, buffer_t *R, buffer_t *S, const char **error_r)
 {
+	i_assert(local_key != NULL);
 	EVP_PKEY *local = (EVP_PKEY*)local_key;
 	BN_CTX *bn_ctx = BN_CTX_new();
 	if (bn_ctx == NULL)
@@ -606,6 +608,7 @@ bool dcrypt_openssl_ecdh_derive_secret_local(struct dcrypt_private_key *local_ke
 		return dcrypt_openssl_error(error_r);
 	}
 	EVP_PKEY_set1_EC_KEY(peer, ec_key);
+	EC_KEY_free(ec_key);
 	EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(local, NULL);
 
 	/* initialize derivation */
@@ -613,7 +616,7 @@ bool dcrypt_openssl_ecdh_derive_secret_local(struct dcrypt_private_key *local_ke
 	    EVP_PKEY_derive_init(pctx) != 1 ||
 	    EVP_PKEY_derive_set_peer(pctx, peer) != 1) {
 		EVP_PKEY_CTX_free(pctx);
-		EC_KEY_free(ec_key);
+		EVP_PKEY_free(peer);
 		return dcrypt_openssl_error(error_r);
 	}
 
@@ -621,19 +624,18 @@ bool dcrypt_openssl_ecdh_derive_secret_local(struct dcrypt_private_key *local_ke
 	size_t len;
 	if (EVP_PKEY_derive(pctx, NULL, &len) != 1) {
 		EVP_PKEY_CTX_free(pctx);
-		EC_KEY_free(ec_key);
+		EVP_PKEY_free(peer);
 		return dcrypt_openssl_error(error_r);
 	}
 	unsigned char buf[len];
 	memset(buf,0,len);
 	if (EVP_PKEY_derive(pctx, buf, &len) != 1) {
 		EVP_PKEY_CTX_free(pctx);
-		EC_KEY_free(ec_key);
+		EVP_PKEY_free(peer);
 		return dcrypt_openssl_error(error_r);
 	}
 	EVP_PKEY_CTX_free(pctx);
 	buffer_append(S, buf, len);
-	EC_KEY_free(ec_key);
 	EVP_PKEY_free(peer);
 	return TRUE;
 }
@@ -843,7 +845,6 @@ bool dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_
 	const char **error_r)
 {
 	int nid, ec, enctype;
-	EC_KEY *eckey = NULL;
 	BIGNUM *point = NULL;
 
 	if (str_to_int(input[1], &nid) != 0) {
@@ -858,15 +859,11 @@ bool dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_
 		return FALSE;
 	}
 
-	eckey = EC_KEY_new_by_curve_name(nid);
-	if (eckey == NULL) return dcrypt_openssl_error(error_r);
-
 	/* decode and optionally decipher private key value */
 	if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_NONE) {
 		point = BN_new();
 		if (point == NULL || BN_hex2bn(&point, input[3]) < 1) {
 			BN_free(point);
-			EC_KEY_free(eckey);
 			return dcrypt_openssl_error(error_r);
 		}
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD) {
@@ -874,23 +871,24 @@ bool dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_
 		const char *enc_priv_pt = input[3];
 		const char *salt = input[4];
 		if (!dcrypt_openssl_decrypt_point_password_v1(enc_priv_pt, password, salt, &point, error_r)) {
-			EC_KEY_free(eckey);
 			return FALSE;
 		}
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PK) {
 		/* by key */
 		const char *enc_priv_pt = input[3];
 		const char *peer_key = input[4];
+		i_assert(dec_key != NULL);
 		if (!dcrypt_openssl_decrypt_point_ec_v1(dec_key, enc_priv_pt, peer_key, &point, error_r)) {
-			EC_KEY_free(eckey);
 			return FALSE;
 		}
 	} else {
 		if (error_r != NULL)
 			*error_r = "Invalid key data";
-		EC_KEY_free(eckey);
 		return FALSE;
 	}
+
+	EC_KEY *eckey = EC_KEY_new_by_curve_name(nid);
+	if (eckey == NULL) return dcrypt_openssl_error(error_r);
 
 	/* assign private key */
 	BN_CTX *bnctx = BN_CTX_new();
@@ -1134,6 +1132,7 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 			return dcrypt_openssl_error(error_r);
 		}
 		EVP_PKEY_set1_RSA(pkey, rsa);
+		RSA_free(rsa);
 		*key_r = (struct dcrypt_private_key *)pkey;
 	} else {
 		int ec;
@@ -1226,7 +1225,7 @@ int dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 	int len, const char **input, const char **error_r)
 {
 	int nid;
-	if (len != 3) {
+	if (len != 4) {
 		if (error_r != NULL)
 			*error_r = "Corrupted data";
 		return -1;
@@ -1249,7 +1248,7 @@ int dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 	EC_POINT *point = EC_POINT_new(EC_KEY_get0_group(eckey));
 	if (bnctx == NULL || point == NULL ||
 	    EC_POINT_hex2point(EC_KEY_get0_group(eckey),
- 	    input[2], point, bnctx) == NULL) {
+	    input[2], point, bnctx) == NULL) {
 		BN_CTX_free(bnctx);
 		EC_KEY_free(eckey);
 		EC_POINT_free(point);
@@ -1266,6 +1265,16 @@ int dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 	if (EC_KEY_check_key(eckey) == 1) {
 		EVP_PKEY *key = EVP_PKEY_new();
 		EVP_PKEY_set1_EC_KEY(key, eckey);
+		EC_KEY_free(eckey);
+		/* make sure digest matches */
+		buffer_t *dgst = buffer_create_dynamic(pool_datastack_create(), 32);
+		dcrypt_openssl_public_key_id_old((struct dcrypt_public_key *)key, dgst, NULL);
+		if (strcmp(binary_to_hex(dgst->data, dgst->used), input[len-1]) != 0) {
+			if (error_r != NULL)
+				*error_r = "Key id mismatch after load";
+			EVP_PKEY_free(key);
+			return -1;
+		}
 		*key_r = (struct dcrypt_public_key *)key;
 		return 0;
 	}
@@ -1278,7 +1287,7 @@ static
 int dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 	int len, const char **input, const char **error_r)
 {
-	if (len != 2 || strlen(input[1]) < 2 || (strlen(input[1])%2) != 0) {
+	if (len != 3 || strlen(input[1]) < 2 || (strlen(input[1])%2) != 0) {
 		if (error_r != NULL)
 			*error_r = "Corrupted data";
 		return -1;
@@ -1295,6 +1304,16 @@ int dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 	if (pkey == NULL || d2i_PUBKEY(&pkey, &ptr, keylen)==NULL) {
 		EVP_PKEY_free(pkey);
 		dcrypt_openssl_error(error_r);
+		return -1;
+	}
+
+	/* make sure digest matches */
+	buffer_t *dgst = buffer_create_dynamic(pool_datastack_create(), 32);
+	dcrypt_openssl_public_key_id((struct dcrypt_public_key *)pkey, "sha256", dgst, NULL);
+	if (strcmp(binary_to_hex(dgst->data, dgst->used), input[len-1]) != 0) {
+		if (error_r != NULL)
+			*error_r = "Key id mismatch after load";
+		EVP_PKEY_free(pkey);
 		return -1;
 	}
 
@@ -1494,17 +1513,31 @@ bool dcrypt_openssl_store_public_key_dovecot(struct dcrypt_public_key *key, buff
 {
 	EVP_PKEY *pubkey = (EVP_PKEY*)key;
 	unsigned char *tmp = NULL;
+	size_t dest_used = buffer_get_used_size(destination);
 
 	int rv = i2d_PUBKEY(pubkey, &tmp);
 
 	if (tmp == NULL)
 		return dcrypt_openssl_error(error_r);
+
 	/* then store it */
 	str_append_c(destination, '2');
 	str_append_c(destination, '\t');
 	binary_to_hex_append(destination, tmp, rv);
 	OPENSSL_free(tmp);
 
+	/* append public key ID */
+	str_append_c(destination, '\t');
+
+	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 32);
+	bool res = dcrypt_openssl_public_key_id(key, "sha256", buf, error_r);
+
+	if (!res) {
+		buffer_set_used_size(destination, dest_used);
+		return FALSE;
+	}
+
+	str_append(destination, binary_to_hex(buf->data, buf->used));
 	return TRUE;
 }
 
@@ -1575,10 +1608,9 @@ bool dcrypt_openssl_load_public_key(struct dcrypt_public_key **key_r, enum dcryp
 			EC_KEY_set_conv_form(eckey, POINT_CONVERSION_COMPRESSED);
 			EC_KEY_set_asn1_flag(eckey, OPENSSL_EC_NAMED_CURVE);
 			key = EVP_PKEY_new();
-			if (key == NULL)
-				EC_KEY_free(eckey);
-			else
+			if (key != NULL)
 				EVP_PKEY_set1_EC_KEY(key, eckey);
+			EC_KEY_free(eckey);
 		}
 	}
 
@@ -1695,7 +1727,9 @@ void dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key, s
 
 	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA)
 	{
-		EVP_PKEY_set1_RSA(pk, RSAPublicKey_dup(EVP_PKEY_get0_RSA(pkey)));
+		RSA *rsa = RSAPublicKey_dup(EVP_PKEY_get0_RSA(pkey));
+		EVP_PKEY_set1_RSA(pk, rsa);
+		RSA_free(rsa);
 	} else if (EVP_PKEY_base_id(pkey) == EVP_PKEY_EC) {
 		EC_KEY* eck = EVP_PKEY_get1_EC_KEY(pkey);
 		EC_KEY_set_asn1_flag(eck, OPENSSL_EC_NAMED_CURVE);
@@ -1756,7 +1790,7 @@ bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_fo
 		/* field 1 - version */
 		if (strcmp(fields[0], "1") == 0) {
 			version = DCRYPT_KEY_VERSION_1;
-			if (nfields == 3) {
+			if (nfields == 4) {
 				kind = DCRYPT_KEY_KIND_PUBLIC;
 			} else if (nfields == 5 && strcmp(fields[2],"0") == 0) {
 				kind = DCRYPT_KEY_KIND_PRIVATE;
@@ -1764,7 +1798,7 @@ bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_fo
 			} else if (nfields == 6 && strcmp(fields[2],"2") == 0) {
 				kind = DCRYPT_KEY_KIND_PRIVATE;
 				encryption_type = DCRYPT_KEY_ENCRYPTION_TYPE_PASSWORD;
-			} else if (nfields == 11 && strcmp(fields[2],"1") == 0) {
+			} else if (nfields == 7 && strcmp(fields[2],"1") == 0) {
 				kind = DCRYPT_KEY_KIND_PRIVATE;
 				encryption_type = DCRYPT_KEY_ENCRYPTION_TYPE_KEY;
 				if (encryption_key_hash_r != NULL)
@@ -1776,7 +1810,7 @@ bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_fo
 			}
 		} else if (strcmp(fields[0], "2") == 0) {
 			version = DCRYPT_KEY_VERSION_1;
-			if (nfields == 2) {
+			if (nfields == 3) {
 				kind = DCRYPT_KEY_KIND_PUBLIC;
 			} else if (nfields == 5 && strcmp(fields[2],"0") == 0) {
 				kind = DCRYPT_KEY_KIND_PRIVATE;
