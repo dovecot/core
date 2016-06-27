@@ -166,6 +166,8 @@ void test_cipher_aead_test_vectors(void)
 static
 void test_hmac_test_vectors(void)
 {
+	test_begin("test_hmac_test_vectors");
+
 	buffer_t *pt, *ct, *key, *res;
 	pt = buffer_create_dynamic(pool_datastack_create(), 50);
 	key = buffer_create_dynamic(pool_datastack_create(), 20);
@@ -187,6 +189,94 @@ void test_hmac_test_vectors(void)
 		test_assert(buffer_cmp(ct, res));
 		dcrypt_ctx_hmac_destroy(&hctx);
 	}
+
+	test_end();
+}
+
+static
+void test_load_v1_keys(void)
+{
+	test_begin("test_load_v1_keys");
+
+	const char *error = NULL;
+	const char *data1 = "1\t716\t1\t0567e6bf9579813ae967314423b0fceb14bda24749303923de9a9bb9370e0026f995901a57e63113eeb2baf0c940e978d00686cbb52bd5014bc318563375876255\t0300E46DA2125427BE968EB3B649910CDC4C405E5FFDE18D433A97CABFEE28CEEFAE9EE356C792004FFB80981D67E741B8CC036A34235A8D2E1F98D1658CFC963D07EB\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0\t7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f";
+
+	enum dcrypt_key_format format;
+	enum dcrypt_key_version version;
+	enum dcrypt_key_kind kind;
+	enum dcrypt_key_encryption_type encryption_type;
+	const char *encryption_key_hash = NULL;
+	const char *key_hash = NULL;
+
+	bool ret = dcrypt_key_string_get_info(data1, &format, &version,
+			&kind, &encryption_type, &encryption_key_hash,
+			&key_hash, &error);
+
+	test_assert(ret == TRUE);
+	test_assert(error == NULL);
+	test_assert(format == DCRYPT_FORMAT_DOVECOT);
+	test_assert(version == DCRYPT_KEY_VERSION_1);
+	test_assert(kind == DCRYPT_KEY_KIND_PRIVATE);
+	test_assert(encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_KEY);
+	test_assert(strcmp(encryption_key_hash, "d0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0") == 0);
+	test_assert(strcmp(key_hash, "7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f") == 0);
+
+	const char* data2 = "1\t716\t0301EB00973C4EFC8FCECA4EA33E941F50B561199A5159BCB6C2EED9DD1D62D65E38A254979D89E28F0C28883E71EE2AD264CD16B863FA094A8F6F69A56B62E8918040\t7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f";
+
+	error = NULL;
+	encryption_key_hash = NULL;
+	key_hash = NULL;
+
+	ret = dcrypt_key_string_get_info(data2, &format, &version,
+			&kind, &encryption_type, &encryption_key_hash,
+			&key_hash, &error);
+
+	test_assert(ret == TRUE);
+	test_assert(error == NULL);
+	test_assert(format == DCRYPT_FORMAT_DOVECOT);
+	test_assert(version == DCRYPT_KEY_VERSION_1);
+	test_assert(kind == DCRYPT_KEY_KIND_PUBLIC);
+	test_assert(encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE);
+	test_assert(encryption_key_hash == NULL);
+	test_assert(strcmp(key_hash, "7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f") == 0);
+
+	/* This is the key that should be able to decrypt key1 */
+	const char *data3 = "1\t716\t0\t048FD04FD3612B22D32790C592CF21CEF417EFD2EA34AE5F688FA5B51BED29E05A308B68DA78E16E90B47A11E133BD9A208A2894FD01B0BEE865CE339EA3FB17AC\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0";
+
+	error = NULL;
+	encryption_key_hash = NULL;
+	key_hash = NULL;
+
+	ret = dcrypt_key_string_get_info(data3, &format, &version,
+			&kind, &encryption_type, &encryption_key_hash,
+			&key_hash, &error);
+	test_assert(ret == TRUE);
+	test_assert(error == NULL);
+	test_assert(format == DCRYPT_FORMAT_DOVECOT);
+	test_assert(version == DCRYPT_KEY_VERSION_1);
+	test_assert(kind == DCRYPT_KEY_KIND_PRIVATE);
+	test_assert(encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE);
+	test_assert(encryption_key_hash == NULL);
+	test_assert(strcmp(key_hash, "d0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0") == 0);
+
+	/* key3's key_hash should and does match key1's encryption_key_hash */
+	struct dcrypt_private_key *pkey = NULL;
+	struct dcrypt_private_key *pkey2 = NULL;
+	pkey = NULL;
+	error = NULL;
+
+	ret = dcrypt_key_load_private(&pkey2, format, data3, NULL, NULL, &error);
+	test_assert(ret == TRUE);
+	test_assert(error == NULL);
+
+	ret = dcrypt_key_load_private(&pkey, format, data1, NULL, pkey2, &error);
+	test_assert(ret == TRUE);
+	test_assert(error == NULL);
+
+	dcrypt_key_free_private(&pkey2);
+	dcrypt_key_free_private(&pkey);
+
+	test_end();
 }
 
 static
@@ -196,7 +286,7 @@ void test_load_v1_key(void)
 
 	buffer_t *key_1 = buffer_create_dynamic(pool_datastack_create(), 128);
 
-	struct dcrypt_private_key *pkey, *pkey2;
+	struct dcrypt_private_key *pkey = NULL, *pkey2 = NULL;
 	const char *error = NULL;
 
 	test_assert(dcrypt_key_load_private(&pkey, DCRYPT_FORMAT_DOVECOT, "1\t716\t0\t048FD04FD3612B22D32790C592CF21CEF417EFD2EA34AE5F688FA5B51BED29E05A308B68DA78E16E90B47A11E133BD9A208A2894FD01B0BEE865CE339EA3FB17AC\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0", NULL, NULL, &error));
@@ -229,6 +319,49 @@ void test_load_v1_key(void)
 		}
 		dcrypt_key_free_private(&pkey);
 	}
+
+	test_end();
+}
+
+static
+void test_load_v1_public_key(void)
+{
+	test_begin("test_load_v1_public_key");
+
+	const char* data1 = "1\t716\t030131D8A5FD5167947A0AE9CB112ADED6526654635AA5887051EE2364414B60FF32EBA8FA0BBE9485DBDE8794BBBCB44BBFC0D662A4287A848BA570D4E5E45A11FE0F\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0";
+
+	const char* error = NULL;
+	const char* key_hash = NULL;
+	const char* encryption_key_hash = NULL;
+
+	enum dcrypt_key_format format;
+	enum dcrypt_key_version version;
+	enum dcrypt_key_kind kind;
+	enum dcrypt_key_encryption_type encryption_type;
+
+	bool ret = dcrypt_key_string_get_info(data1, &format, &version,
+			&kind, &encryption_type, &encryption_key_hash,
+			&key_hash, &error);
+
+	test_assert(ret == TRUE);
+	test_assert(error == NULL);
+	test_assert(format == DCRYPT_FORMAT_DOVECOT);
+	test_assert(version == DCRYPT_KEY_VERSION_1);
+	test_assert(kind == DCRYPT_KEY_KIND_PUBLIC);
+	test_assert(encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE);
+	test_assert(key_hash != NULL);
+	test_assert(strcmp(key_hash, "d0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0") == 0);
+	test_assert(encryption_key_hash == NULL);
+
+	struct dcrypt_public_key *pub_key = NULL;
+	ret = dcrypt_key_load_public(&pub_key, format, data1, &error);
+	test_assert(ret == TRUE);
+	test_assert(error == NULL);
+
+	test_assert(dcrypt_key_type_public(pub_key) == DCRYPT_KEY_EC);
+
+	dcrypt_key_free_public(&pub_key);
+	test_assert(pub_key == NULL);
 
 	test_end();
 }
@@ -288,41 +421,111 @@ void test_load_v2_key(void)
 static
 void test_load_v2_public_key(void)
 {
-	struct dcrypt_public_key *pub;
+	struct dcrypt_public_key *pub = NULL;
 	const char *error;
 
 	test_begin("test_load_v2_public_key");
-	const char *key = "2\t3058301006072a8648ce3d020106052b810400230344000301c50954e734dd8b410a607764a7057065a45510da52f2c6e28e0cb353b9c389fa8cb786943ae991fce9befed78fb162fbbc615415f06af06c8cc80c37f4e94ff6c7";
+	const char *key = "2\t3058301006072a8648ce3d020106052b810400230344000301c50954e734dd8b410a607764a7057065a45510da52f2c6e28e0cb353b9c389fa8cb786943ae991fce9befed78fb162fbbc615415f06af06c8cc80c37f4e94ff6c7\t185a7212542782e239111f9c19d126ad55b18ddaf4883d66afe8d9627c3607d8";
 
 	test_assert(dcrypt_key_load_public(&pub, DCRYPT_FORMAT_DOVECOT, key, &error));
 
 	buffer_t *tmp = buffer_create_dynamic(default_pool, 256);
 
-	test_assert(dcrypt_key_store_public(pub, DCRYPT_FORMAT_DOVECOT, tmp, &error));
+	if (pub != NULL) {
+		test_assert(dcrypt_key_store_public(pub, DCRYPT_FORMAT_DOVECOT, tmp, &error));
+		test_assert(strcmp(key, str_c(tmp))==0);
+		buffer_free(&tmp);
+		dcrypt_key_free_public(&pub);
+	}
 
-	test_assert(strcmp(key, str_c(tmp))==0);
-	buffer_free(&tmp);
-	dcrypt_key_free_public(&pub);
+	test_end();
+}
+
+static
+void test_gen_and_get_info_rsa_pem(void)
+{
+	test_begin("test_gen_and_get_info_rsa_pem");
+
+	const char *error = NULL;
+	bool ret = FALSE;
+	struct dcrypt_keypair pair;
+	string_t* buf = str_new(default_pool, 4096);
+
+	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_RSA, 1024, NULL, NULL);
+	test_assert(ret == TRUE);
+
+	/* test public key */
+	enum dcrypt_key_format format;
+	enum dcrypt_key_version version;
+	enum dcrypt_key_kind kind;
+	enum dcrypt_key_encryption_type encryption_type;
+	const char *encryption_key_hash;
+	const char *key_hash;
+
+	ret = dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_PEM, buf,
+			&error);
+	test_assert(ret == TRUE);
+
+	ret = dcrypt_key_string_get_info(str_c(buf), &format, &version,
+			&kind, &encryption_type, &encryption_key_hash,
+			&key_hash, &error);
+	test_assert(ret == TRUE);
+	test_assert(format == DCRYPT_FORMAT_PEM);
+	test_assert(version == DCRYPT_KEY_VERSION_NA);
+
+	test_assert(kind == DCRYPT_KEY_KIND_PUBLIC);
+	test_assert(encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE);
+	test_assert(encryption_key_hash == NULL);
+	test_assert(key_hash == NULL);
+
+	/* test private key */
+	buffer_set_used_size(buf, 0);
+	ret = dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_PEM, NULL,
+			buf, NULL, NULL, &error);
+
+	test_assert(ret == TRUE);
+
+	ret = dcrypt_key_string_get_info(str_c(buf), &format, &version,
+			&kind, &encryption_type, &encryption_key_hash,
+			&key_hash, &error);
+
+	test_assert(ret == TRUE);
+	test_assert(format == DCRYPT_FORMAT_PEM);
+	test_assert(version == DCRYPT_KEY_VERSION_NA);
+
+	test_assert(kind == DCRYPT_KEY_KIND_PRIVATE);
+
+	test_assert(encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE);
+	test_assert(encryption_key_hash == NULL);
+	test_assert(key_hash == NULL);
+
+	dcrypt_keypair_free(&pair);
+	buffer_free(&buf);
 
 	test_end();
 }
 
 int main(void) {
-	dcrypt_initialize("openssl", NULL, NULL);
 	random_init();
+	dcrypt_initialize("openssl", NULL, NULL);
+
 	static void (*test_functions[])(void) = {
 		test_cipher_test_vectors,
 		test_cipher_aead_test_vectors,
 		test_hmac_test_vectors,
+		test_load_v1_keys,
 		test_load_v1_key,
+		test_load_v1_public_key,
 		test_load_v2_key,
 		test_load_v2_public_key,
+		test_gen_and_get_info_rsa_pem,
 		NULL
 	};
 
-	int ret;
+	int ret = test_run(test_functions);
 
-	ret = test_run(test_functions);
+	dcrypt_deinitialize();
+	random_deinit();
 
 	return ret;
 }
