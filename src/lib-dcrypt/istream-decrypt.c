@@ -70,7 +70,8 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	buffer_t *key = buffer_create_dynamic(pool_datastack_create(), 256);
 
 	hdr_len = ((data[0] << 8) | data[1]) + 12;
-	if (mlen < hdr_len) {
+
+	if (mlen < hdr_len - pos) {
 		/* try to read more */
 		return 0;
 	}
