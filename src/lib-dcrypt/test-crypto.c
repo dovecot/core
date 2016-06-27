@@ -349,8 +349,7 @@ void test_load_v1_public_key(void)
 	test_assert(version == DCRYPT_KEY_VERSION_1);
 	test_assert(kind == DCRYPT_KEY_KIND_PUBLIC);
 	test_assert(encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE);
-	test_assert(key_hash != NULL);
-	test_assert(strcmp(key_hash, "d0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0") == 0);
+	test_assert(key_hash != NULL && strcmp(key_hash, "d0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0") == 0);
 	test_assert(encryption_key_hash == NULL);
 
 	struct dcrypt_public_key *pub_key = NULL;
