@@ -41,6 +41,7 @@ static const char key_v2_pub[] = "-----BEGIN PUBLIC KEY-----\n" \
 "-----END PUBLIC KEY-----";
 
 static const char test_sample_v1_hash[] = "1d7cc2cc1f1983f76241cc42389911e88590ad58cf9d54cafeb5b198d3723dd1";
+static const char test_sample_v1_short_hash[] = "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c";
 static const char test_sample_v2_hash[] = "2e31218656dd34db65b321688bf418dee4ee785e99eb9c21e0d29b4af27a863e";
 
 static struct dcrypt_keypair test_v1_kp;
@@ -77,6 +78,41 @@ void test_static_v1_input(void)
 	hash->result(hash_ctx, hash_dgst);
 
 	test_assert(strcmp(test_sample_v1_hash, binary_to_hex(hash_dgst, sizeof(hash_dgst))) == 0);
+
+	test_end();
+}
+
+static
+void test_static_v1_input_short(void)
+{
+	ssize_t siz;
+	const struct hash_method *hash = hash_method_lookup("sha256");
+	unsigned char hash_ctx[hash->context_size];
+	unsigned char hash_dgst[hash->digest_size];
+	hash->init(hash_ctx);
+
+	test_begin("test_static_v1_input_short");
+
+	struct istream *is_1 = i_stream_create_file(DCRYPT_SRC_DIR"/sample-v1_short.asc", IO_BLOCK_SIZE);
+	struct istream *is_2 = i_stream_create_base64_decoder(is_1);
+	i_stream_unref(&is_1);
+	struct istream *is_3 = i_stream_create_decrypt(is_2, test_v1_kp.priv);
+	i_stream_unref(&is_2);
+	struct istream *is_4 = i_stream_create_hash(is_3, hash, hash_ctx);
+	i_stream_unref(&is_3);
+
+	while((siz = i_stream_read(is_4))>0) { i_stream_skip(is_4, siz); }
+
+	if (is_4->stream_errno != 0)
+		i_debug("error: %s", i_stream_get_error(is_4));
+
+	test_assert(is_4->stream_errno == 0);
+
+	i_stream_unref(&is_4);
+
+	hash->result(hash_ctx, hash_dgst);
+
+	test_assert(strcmp(test_sample_v1_short_hash, binary_to_hex(hash_dgst, sizeof(hash_dgst))) == 0);
 
 	test_end();
 }
@@ -227,6 +263,7 @@ int main(void) {
 
 	static void (*test_functions[])(void) = {
 		test_static_v1_input,
+		test_static_v1_input_short,
 		test_static_v2_input,
 		test_write_read_v1,
 		test_write_read_v2,
