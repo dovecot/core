@@ -36,6 +36,7 @@ pkginc_lib_HEADERS = $(headers)
 
 EXTRA_DIST = \
 	sample-v1.asc \
+	sample-v1_short.asc \
 	sample-v2.asc
 
 test_programs = test-crypto test-stream
