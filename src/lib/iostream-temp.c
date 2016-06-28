@@ -159,6 +159,7 @@ static int o_stream_temp_dup_istream(struct temp_ostream *outstream,
 			return o_stream_temp_dup_cancel(outstream);
 		return 0;
 	}
+	i_assert(instream->v_offset <= in_size);
 
 	if (outstream->dupstream == NULL) {
 		outstream->dupstream = instream;
@@ -185,8 +186,10 @@ static off_t o_stream_temp_send_istream(struct ostream_private *_outstream,
 
 	if ((outstream->flags & IOSTREAM_TEMP_FLAG_TRY_FD_DUP) != 0) {
 		orig_offset = outstream->dupstream_offset;
-		if ((ret = o_stream_temp_dup_istream(outstream, instream)) > 0)
+		if ((ret = o_stream_temp_dup_istream(outstream, instream)) > 0) {
+			i_assert(outstream->dupstream_offset >= orig_offset);
 			return outstream->dupstream_offset - orig_offset;
+		}
 		if (ret < 0)
 			return -1;
 		outstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
