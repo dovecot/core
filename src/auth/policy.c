@@ -35,7 +35,7 @@ struct policy_lookup_ctx {
 	struct auth_request *request;
 	struct http_client_request *http_request;
 	struct json_parser *parser;
-	struct auth_settings *set;
+	const struct auth_settings *set;
 	const char *url;
 	bool expect_result;
 	int result;
@@ -126,7 +126,7 @@ void auth_policy_open_and_close_to_key(const char *fromkey, const char *tokey, s
 	fptr = fromkey;
 	tptr = tokey;
 
-	while(fptr && tptr) {
+	while (fptr != NULL && tptr != NULL) {
 		fdash = strchr(fptr, '/');
 		tdash = strchr(tptr, '/');
 
@@ -313,7 +313,7 @@ void auth_policy_parse_response(struct policy_lookup_ctx *context)
 			(context->message!=NULL?context->message:""));
 	}
 
-	if (context->callback) {
+	if (context->callback != NULL) {
 		context->callback(context->result, context->callback_context);
 	}
 };
@@ -329,7 +329,7 @@ void auth_policy_process_response(const struct http_response *response,
 	if ((response->status / 10) != 20) {
 		auth_request_log_error(context->request, "policy",
 			"Policy server HTTP error: %d %s", response->status, response->reason);
-		if (context->callback)
+		if (context->callback != NULL)
 			context->callback(context->result, context->callback_context);
 		return;
 	}
@@ -338,7 +338,7 @@ void auth_policy_process_response(const struct http_response *response,
 		if (context->expect_result)
 			auth_request_log_error(context->request, "policy",
 				"Policy server result was empty");
-		if (context->callback)
+		if (context->callback != NULL)
 			context->callback(context->result, context->callback_context);
 		return;
 	}
@@ -351,7 +351,7 @@ void auth_policy_process_response(const struct http_response *response,
 	} else {
 		auth_request_log_debug(context->request, "policy",
 			"Policy response %d", context->result);
-		if (context->callback)
+		if (context->callback != NULL)
 			context->callback(context->result, context->callback_context);
 	}
 }
