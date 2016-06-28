@@ -71,7 +71,7 @@ bool dovecot_openssl_common_global_unref(void)
 #if OPENSSL_VERSION_NUMBER < 0x10001000L
 	OBJ_cleanup();
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+#ifdef HAVE_SSL_COMP_FREE_COMPRESSION_METHODS
 	SSL_COMP_free_compression_methods();
 #endif
 	ENGINE_cleanup();
