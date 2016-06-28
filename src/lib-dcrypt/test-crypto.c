@@ -441,6 +441,35 @@ void test_load_v2_public_key(void)
 }
 
 static
+void test_get_info_v2_key(void) {
+	test_begin("test_get_info_v2_key");
+
+	const char *key = "2\t305e301006072a8648ce3d020106052b81040026034a000203fcc90034fa03d6fb79a0fc8b3b43c3398f68e76029307360cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b7945ed9d182f3156550e9ee30b237a0217dbf79d28975f31\t86706b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d90966e84dc";
+	enum dcrypt_key_format format;
+	enum dcrypt_key_version version = DCRYPT_KEY_VERSION_NA;
+	enum dcrypt_key_kind kind;
+	enum dcrypt_key_encryption_type encryption_type;
+	const char *encryption_key_hash = NULL;
+	const char *key_hash = NULL;
+	const char *error = NULL;
+
+	test_assert(dcrypt_key_string_get_info(key, &format, &version,
+			&kind, &encryption_type, &encryption_key_hash,
+			&key_hash, &error));
+	test_assert(error == NULL);
+	test_assert(format == DCRYPT_FORMAT_DOVECOT);
+	test_assert(version == DCRYPT_KEY_VERSION_2);
+
+	test_assert(kind == DCRYPT_KEY_KIND_PUBLIC);
+	test_assert(encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE);
+	test_assert(encryption_key_hash == NULL);
+	test_assert(key_hash != NULL && strcmp(key_hash,
+		"86706b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d90966e84dc") == 0);
+
+	test_end();
+}
+
+static
 void test_gen_and_get_info_rsa_pem(void)
 {
 	test_begin("test_gen_and_get_info_rsa_pem");
@@ -517,6 +546,7 @@ int main(void) {
 		test_load_v1_public_key,
 		test_load_v2_key,
 		test_load_v2_public_key,
+		test_get_info_v2_key,
 		test_gen_and_get_info_rsa_pem,
 		NULL
 	};
