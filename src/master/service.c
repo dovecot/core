@@ -283,6 +283,8 @@ service_create(pool_t pool, const struct service_settings *set,
 	service->log_fd[1] = -1;
 	service->status_fd[0] = -1;
 	service->status_fd[1] = -1;
+	service->master_dead_pipe_fd[0] = -1;
+	service->master_dead_pipe_fd[1] = -1;
 	service->log_process_internal_fd = -1;
 	service->login_notify_fd = -1;
 
@@ -424,8 +426,6 @@ services_create_real(const struct master_settings *set, pool_t pool,
 	service_list->set = set;
 	service_list->master_log_fd[0] = -1;
 	service_list->master_log_fd[1] = -1;
-	service_list->master_dead_pipe_fd[0] = -1;
-	service_list->master_dead_pipe_fd[1] = -1;
 
 	service_settings = array_get(&set->services, &count);
 	p_array_init(&service_list->services, pool, count);
