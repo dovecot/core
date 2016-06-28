@@ -348,7 +348,8 @@ static int lazy_expunge_copy(struct mail_save_context *ctx, struct mail *_mail)
 		LAZY_EXPUNGE_CONTEXT(ctx->transaction->box);
 	struct lazy_expunge_mail *mmail = LAZY_EXPUNGE_MAIL_CONTEXT(mail);
 
-	mmail->moving = ctx->moving;
+	if (mmail != NULL)
+		mmail->moving = ctx->moving;
 	return mbox->super.copy(ctx, _mail);
 }
 
