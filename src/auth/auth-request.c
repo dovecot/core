@@ -1650,6 +1650,11 @@ void auth_request_set_field(struct auth_request *request,
 		name = t_strndup(name, name_len-10);
 		if (auth_fields_exists(request->extra_fields, name))
 			return;
+	} else if (name_len > 7 && strcmp(name+name_len-7, ":remove") == 0) {
+		/* remove this field entirely */
+		name = t_strndup(name, name_len-7);
+		auth_fields_remove(request->extra_fields, name);
+		return;
 	}
 
 	if (strcmp(name, "password") == 0) {
@@ -1814,6 +1819,11 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		name = t_strndup(name, name_len-10);
 		if (auth_fields_exists(request->userdb_reply, name))
 			return;
+	} else if (name_len > 7 && strcmp(name+name_len-7, ":remove") == 0) {
+		/* remove this field entirely */
+		name = t_strndup(name, name_len-7);
+		auth_fields_remove(request->userdb_reply, name);
+		return;
 	}
 
 	if (strcmp(name, "uid") == 0) {
