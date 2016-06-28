@@ -543,6 +543,20 @@ void service_monitor_stop(struct service *service)
 		timeout_remove(&service->to_prefork);
 }
 
+void service_monitor_stop_close(struct service *service)
+{
+	struct service_listener *const *listeners;
+
+	service_monitor_stop(service);
+
+	array_foreach(&service->listeners, listeners) {
+		struct service_listener *l = *listeners;
+
+		if (l->fd != -1)
+			i_close_fd(&l->fd);
+	}
+}
+
 static void services_monitor_wait(struct service_list *service_list)
 {
 	struct service *const *servicep;
