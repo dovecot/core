@@ -307,7 +307,8 @@ int main(int argc, char *argv[])
 
 	master_service = master_service_init("lda",
 		MASTER_SERVICE_FLAG_STANDALONE |
-		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
+		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR |
+		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
 		&argc, &argv, "a:d:ef:m:p:r:");
 
 	memset(&ctx, 0, sizeof(ctx));
