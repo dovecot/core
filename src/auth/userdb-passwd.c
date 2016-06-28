@@ -145,6 +145,10 @@ passwd_iterate_want_pw(struct passwd *pw, const struct auth_settings *set)
 		return FALSE;
 	if (pw->pw_uid > (uid_t)set->last_valid_uid && set->last_valid_uid != 0)
 		return FALSE;
+	if (pw->pw_gid < (gid_t)set->first_valid_gid)
+		return FALSE;
+	if (pw->pw_gid > (gid_t)set->last_valid_gid && set->last_valid_gid != 0)
+		return FALSE;
 	return TRUE;
 }
 

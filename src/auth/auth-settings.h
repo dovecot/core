@@ -79,6 +79,8 @@ struct auth_settings {
 	bool verbose_proctitle;
 	unsigned int first_valid_uid;
 	unsigned int last_valid_uid;
+	unsigned int first_valid_gid;
+	unsigned int last_valid_gid;
 
 	/* generated: */
 	char username_chars_map[256];

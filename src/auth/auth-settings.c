@@ -264,6 +264,8 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF_NOPREFIX(SET_BOOL, verbose_proctitle),
 	DEF_NOPREFIX(SET_UINT, first_valid_uid),
 	DEF_NOPREFIX(SET_UINT, last_valid_uid),
+	DEF_NOPREFIX(SET_UINT, first_valid_gid),
+	DEF_NOPREFIX(SET_UINT, last_valid_gid),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -313,6 +315,8 @@ static const struct auth_settings auth_default_settings = {
 	.verbose_proctitle = FALSE,
 	.first_valid_uid = 500,
 	.last_valid_uid = 0,
+	.first_valid_gid = 1,
+	.last_valid_gid = 0,
 };
 
 const struct setting_parser_info auth_setting_parser_info = {
