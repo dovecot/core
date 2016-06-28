@@ -184,6 +184,7 @@ o_stream_temp_dup_istream(struct temp_ostream *outstream,
 			return o_stream_temp_dup_cancel(outstream, res_r);
 		return FALSE;
 	}
+	i_assert(instream->v_offset <= in_size);
 
 	if (outstream->dupstream == NULL) {
 		outstream->dupstream = instream;
