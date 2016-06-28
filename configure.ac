@@ -1692,6 +1692,9 @@ if test $want_openssl != no && test $have_ssl = no; then
     AC_CHECK_LIB(ssl, SSL_get_servername, [
       AC_DEFINE(HAVE_SSL_GET_SERVERNAME,, [Build with TLS hostname support])
     ],, $SSL_LIBS)
+    AC_CHECK_LIB(ssl, SSL_COMP_free_compression_methods, [
+      AC_DEFINE(HAVE_SSL_COMP_FREE_COMPRESSION_METHODS,, [Build with SSL_COMP_free_compression_methods() support])
+    ],, $SSL_LIBS)
   fi
 fi
 AM_CONDITIONAL(BUILD_OPENSSL, test "$have_openssl" = "yes")
