@@ -1809,7 +1809,7 @@ bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_fo
 				return FALSE;
 			}
 		} else if (strcmp(fields[0], "2") == 0) {
-			version = DCRYPT_KEY_VERSION_1;
+			version = DCRYPT_KEY_VERSION_2;
 			if (nfields == 3) {
 				kind = DCRYPT_KEY_KIND_PUBLIC;
 			} else if (nfields == 5 && strcmp(fields[2],"0") == 0) {
@@ -1828,6 +1828,10 @@ bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_fo
 					*error_r = "Invalid dovecot v2 encoding";
 				return FALSE;
 			}
+		} else {
+			if (error_r != NULL)
+				*error_r = "Invalid dovecot key version";
+			return FALSE;
 		}
 
 		/* last field is always key hash */
