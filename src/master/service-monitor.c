@@ -452,17 +452,20 @@ void services_monitor_start(struct service_list *service_list)
 		return;
 	service_anvil_monitor_start(service_list);
 
-	if (pipe(service_list->master_dead_pipe_fd) < 0)
-		i_error("pipe() failed: %m");
-	fd_close_on_exec(service_list->master_dead_pipe_fd[0], TRUE);
-	fd_close_on_exec(service_list->master_dead_pipe_fd[1], TRUE);
-
 	array_foreach(&service_list->services, services) {
 		struct service *service = *services;
 
 		if (service->type == SERVICE_TYPE_LOGIN) {
 			if (service_login_create_notify_fd(service) < 0)
 				continue;
+		}
+		if (service->master_dead_pipe_fd[0] == -1) {
+			if (pipe(service->master_dead_pipe_fd) < 0) {
+				service_error(service, "pipe() failed: %m");
+				continue;
+			}
+			fd_close_on_exec(service->master_dead_pipe_fd[0], TRUE);
+			fd_close_on_exec(service->master_dead_pipe_fd[1], TRUE);
 		}
 		if (service->status_fd[0] == -1) {
 			/* we haven't yet created status pipe */
@@ -519,6 +522,10 @@ void service_monitor_stop(struct service *service)
 			service->status_fd[i] = -1;
 		}
 	}
+	if (service->master_dead_pipe_fd[0] != -1) {
+		i_close_fd(&service->master_dead_pipe_fd[0]);
+		i_close_fd(&service->master_dead_pipe_fd[1]);
+	}
 	if (service->login_notify_fd != -1) {
 		if (close(service->login_notify_fd) < 0) {
 			service_error(service,
@@ -560,15 +567,6 @@ static void services_monitor_wait(struct service_list *service_list)
 void services_monitor_stop(struct service_list *service_list, bool wait)
 {
 	struct service *const *services;
-
-	if (service_list->master_dead_pipe_fd[0] != -1) {
-		if (close(service_list->master_dead_pipe_fd[0]) < 0)
-			i_error("close(master dead pipe) failed: %m");
-		if (close(service_list->master_dead_pipe_fd[1]) < 0)
-			i_error("close(master dead pipe) failed: %m");
-		service_list->master_dead_pipe_fd[0] = -1;
-		service_list->master_dead_pipe_fd[1] = -1;
-	}
 
 	if (wait) {
 		/* we've notified all children that the master is dead.
