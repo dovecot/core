@@ -5,9 +5,9 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings
 
 LIBDICT_LDAP = libdict_ldap.la
-libdict_ldap_la_DEPENDENCIES = $(LIBDOVECOT_LDAP)
+libdict_ldap_la_DEPENDENCIES = $(LIBDOVECOT_LDAP) $(LIBDOVECOT_DEPS)
 libdict_ldap_la_LDFLAGS = -module -avoid-version
-libdict_ldap_la_LIBADD = $(LIBDOVECOT_LDAP)
+libdict_ldap_la_LIBADD = $(LIBDOVECOT_LDAP) $(LIBDOVECOT)
 
 module_dictdir = $(moduledir)/dict
 module_dict_LTLIBRARIES = \
