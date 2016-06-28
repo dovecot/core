@@ -75,6 +75,7 @@ doveadm_common_cmds = \
 	doveadm-penalty.c \
 	doveadm-proxy.c \
 	doveadm-replicator.c \
+	doveadm-service.c \
 	doveadm-sis.c \
 	doveadm-stats.c \
 	doveadm-who.c
