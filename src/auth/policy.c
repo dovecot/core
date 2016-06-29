@@ -495,7 +495,7 @@ void auth_policy_url(struct policy_lookup_ctx *context, const char *command)
 void auth_policy_check(struct auth_request *request, const char *password,
 	auth_policy_callback_t cb, void *context)
 {
-	if (*(request->set->policy_server_url) == '\0') {
+	if (request->master != NULL || *(request->set->policy_server_url) == '\0') {
 		cb(0, context);
 		return;
 	}
@@ -518,6 +518,9 @@ void auth_policy_check(struct auth_request *request, const char *password,
 
 void auth_policy_report(struct auth_request *request)
 {
+	if (request->master != NULL)
+		return;
+
 	if (*(request->set->policy_server_url) == '\0')
 		return;
 	pool_t pool = pool_alloconly_create("auth policy", 128);
