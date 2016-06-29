@@ -262,6 +262,9 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 	str_printfa(str, "OK\t%u\tuser=", request->id);
 	str_append_tabescaped(str, request->user);
 	auth_str_append_extra_fields(request, str);
+
+	auth_policy_report(request);
+
 	if (handler->master_callback == NULL ||
 	    auth_fields_exists(request->extra_fields, "nologin") ||
 	    auth_fields_exists(request->extra_fields, "proxy")) {
@@ -269,8 +272,6 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 		   process to pick it up. delete it */
 		auth_request_handler_remove(handler, request);
 	}
-
-	auth_policy_report(request);
 
 	handler->callback(str_c(str), handler->conn);
 }
