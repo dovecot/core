@@ -599,6 +599,7 @@ static void rcpt_anvil_lookup_callback(const char *reply, void *context)
 {
 	struct mail_recipient *rcpt = context;
 	struct client *client = rcpt->client;
+	const struct mail_storage_service_input *input;
 	unsigned int parallel_count;
 
 	i_assert(rcpt->anvil_query != NULL);
@@ -612,6 +613,12 @@ static void rcpt_anvil_lookup_callback(const char *reply, void *context)
 
 	if (parallel_count < client->lmtp_set->lmtp_user_concurrency_limit) {
 		client_send_line(client, "250 2.1.5 OK");
+
+		rcpt->anvil_connect_sent = TRUE;
+		input = mail_storage_service_user_get_input(rcpt->service_user);
+		master_service_anvil_send(master_service, t_strconcat(
+			"CONNECT\t", my_pid, "\t", master_service_get_name(master_service),
+			"/", input->username, "\n", NULL));
 		array_append(&client->state.rcpt_to, &rcpt, 1);
 	} else {
 		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL_PREFIX
@@ -875,11 +882,6 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.save_dest_mail = array_count(&client->state.rcpt_to) > 1 &&
 		client->state.first_saved_mail == NULL;
 
-	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\t", master_service_get_name(master_service),
-			"/", username, "\n", NULL));
-	}
 	if (mail_deliver(&dctx, &storage) == 0) {
 		if (dctx.dest_mail != NULL) {
 			i_assert(client->state.first_saved_mail == NULL);
@@ -908,11 +910,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 				 rcpt->address);
 		ret = -1;
 	}
-	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\t", master_service_get_name(master_service),
-			"/", username, "\n", NULL));
-	}
+	client_rcpt_anvil_disconnect(rcpt);
 	return ret;
 }
 
