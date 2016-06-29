@@ -41,8 +41,6 @@
 
 #define LMTP_PROXY_DEFAULT_TIMEOUT_MSECS (1000*125)
 
-static void client_input_data_write(struct client *client);
-
 int cmd_lhlo(struct client *client, const char *args)
 {
 	struct rfc822_parser_context parser;
@@ -600,21 +598,30 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 static void rcpt_anvil_lookup_callback(const char *reply, void *context)
 {
 	struct mail_recipient *rcpt = context;
+	struct client *client = rcpt->client;
+	unsigned int parallel_count;
 
-	i_assert(rcpt->client->state.anvil_queries > 0);
+	i_assert(rcpt->anvil_query != NULL);
 
 	rcpt->anvil_query = NULL;
 	if (reply == NULL) {
 		/* lookup failed */
-	} else if (str_to_uint(reply, &rcpt->parallel_count) < 0) {
+	} else if (str_to_uint(reply, &parallel_count) < 0) {
 		i_error("Invalid reply from anvil: %s", reply);
 	}
-	if (--rcpt->client->state.anvil_queries == 0 &&
-	    rcpt->client->state.anvil_pending_data_write) {
-		/* DATA command was finished, but we were still waiting on
-		   anvil before handling any users */
-		client_input_data_write(rcpt->client);
+
+	if (parallel_count < client->lmtp_set->lmtp_user_concurrency_limit) {
+		client_send_line(client, "250 2.1.5 OK");
+		array_append(&client->state.rcpt_to, &rcpt, 1);
+	} else {
+		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL_PREFIX
+				 "Too many concurrent deliveries for user",
+				 rcpt->address);
+		mail_storage_service_user_free(&rcpt->service_user);
 	}
+
+	client_io_reset(client);
+	client_input_handle(client);
 }
 
 int cmd_rcpt(struct client *client, const char *args)
@@ -718,18 +725,22 @@ int cmd_rcpt(struct client *client, const char *args)
 		mail_storage_service_user_free(&rcpt->service_user);
 		return 0;
 	}
-	array_append(&client->state.rcpt_to, &rcpt, 1);
-	client_send_line(client, "250 2.1.5 OK");
 
-	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
+	if (client->lmtp_set->lmtp_user_concurrency_limit == 0) {
+		array_append(&client->state.rcpt_to, &rcpt, 1);
+		client_send_line(client, "250 2.1.5 OK");
+		return 0;
+	} else {
 		const char *query = t_strconcat("LOOKUP\t",
 			master_service_get_name(master_service),
 			"/", str_tabescape(username), NULL);
-		client->state.anvil_queries++;
+		io_remove(&client->io);
 		rcpt->anvil_query = anvil_client_query(anvil, query,
 					rcpt_anvil_lookup_callback, rcpt);
+		/* stop processing further commands while anvil query is
+		   pending */
+		return rcpt->anvil_query != NULL ? 0 : -1;
 	}
-	return 0;
 }
 
 int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
@@ -788,18 +799,8 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	enum mail_error mail_error;
 	int ret;
 
-	i_assert(client->state.anvil_queries == 0);
-
 	input = mail_storage_service_user_get_input(rcpt->service_user);
 	username = t_strdup(input->username);
-
-	if (client->lmtp_set->lmtp_user_concurrency_limit > 0 &&
-	    rcpt->parallel_count >= client->lmtp_set->lmtp_user_concurrency_limit) {
-		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL_PREFIX
-				 "Too many concurrent deliveries for user",
-				 rcpt->address);
-		return -1;
-	}
 
 	mail_set = mail_storage_service_user_get_mail_set(rcpt->service_user);
 	set_parser = mail_storage_service_user_get_settings_parser(rcpt->service_user);
@@ -1250,10 +1251,7 @@ static void client_input_data_handle(struct client *client)
 		return;
 	}
 
-	if (client->state.anvil_queries == 0)
-		client_input_data_write(client);
-	else
-		client->state.anvil_pending_data_write = TRUE;
+	client_input_data_write(client);
 }
 
 static void client_input_data(struct client *client)
