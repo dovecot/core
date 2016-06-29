@@ -1706,6 +1706,8 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		uidlist->change_counter++;
 
 		hash_table_insert(uidlist->files, rec->filename, rec);
+	} else if (strcmp(rec->filename, filename) != 0) {
+		rec->filename = p_strdup(uidlist->record_pool, filename);
 	}
 	if (uid != 0) {
 		if (rec->uid != uid && rec->uid != (uint32_t)-1) {
@@ -1800,6 +1802,8 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 		   to check for duplicates. */
 		rec->flags &= ~(MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
 				MAILDIR_UIDLIST_REC_FLAG_MOVED);
+		if (strcmp(rec->filename, filename) != 0)
+			rec->filename = p_strdup(ctx->record_pool, filename);
 	} else {
 		old_rec = hash_table_lookup(uidlist->files, filename);
 		i_assert(old_rec != NULL || UIDLIST_IS_LOCKED(uidlist));
