@@ -33,6 +33,7 @@
 #define AUTH_DNS_SOCKET_PATH "dns-client"
 #define AUTH_DNS_DEFAULT_TIMEOUT_MSECS (1000*10)
 #define AUTH_DNS_WARN_MSECS 500
+#define AUTH_REQUEST_MAX_DELAY_SECS (60*5)
 #define CACHED_PASSWORD_SCHEME "SHA1"
 
 struct auth_request_proxy_dns_lookup_ctx {
@@ -170,11 +171,14 @@ void auth_request_success(struct auth_request *request,
 }
 
 static
-void auth_request_success_continue(struct auth_request *request,
-				   const void *data, size_t data_size)
+void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 {
+	struct auth_request *request = ctx->request;
 	struct auth_stats *stats;
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	if (request->to_penalty != NULL)
+		timeout_remove(&request->to_penalty);
 
 	if (request->failed || !request->passdb_success) {
 		/* password was valid, but some other check failed. */
@@ -182,11 +186,19 @@ void auth_request_success_continue(struct auth_request *request,
 		return;
 	}
 
+	if (request->delay_until > ioloop_time) {
+		unsigned int delay_secs = request->delay_until - ioloop_time;
+		request->to_penalty = timeout_add(delay_secs * 1000,
+			auth_request_success_continue, ctx);
+		return;
+	}
+
 	request->successful = TRUE;
-	if (data_size > 0 && !request->final_resp_ok) {
+	if (ctx->success_data->used > 0 && !request->final_resp_ok) {
 		/* we'll need one more SASL round, since client doesn't support
 		   the final SASL response */
-		auth_request_handler_reply_continue(request, data, data_size);
+		auth_request_handler_reply_continue(request,
+			ctx->success_data->data, ctx->success_data->used);
 		return;
 	}
 
@@ -198,7 +210,7 @@ void auth_request_success_continue(struct auth_request *request,
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
 	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_SUCCESS,
-				   data, data_size);
+		ctx->success_data->data, ctx->success_data->used);
 }
 
 void auth_request_fail(struct auth_request *request)
@@ -838,7 +850,7 @@ void auth_request_policy_penalty_finish(void *context)
 		auth_request_lookup_credentials_policy_continue(ctx->request, ctx->scheme, ctx->callback_lookup);
 		return;
 	case AUTH_POLICY_CHECK_TYPE_SUCCESS:
-		auth_request_success_continue(ctx->request, ctx->success_data->data, ctx->success_data->used);
+		auth_request_success_continue(ctx);
 		return;
 	default:
 		i_unreached();
@@ -1677,6 +1689,21 @@ void auth_request_set_field(struct auth_request *request,
 		auth_request_validate_networks(request, name, value, &request->remote_ip);
 	} else if (strcmp(name, "fail") == 0) {
 		request->failed = TRUE;
+	} else if (strcmp(name, "delay_until") == 0) {
+		time_t timestamp;
+
+		if (str_to_time(value, &timestamp) < 0) {
+			auth_request_log_error(request, AUTH_SUBSYS_DB,
+				"Invalid delay_until timestamp '%s'", value);
+		} else if (timestamp <= ioloop_time) {
+			/* no more delays */
+		} else if (ioloop_time - timestamp > AUTH_REQUEST_MAX_DELAY_SECS) {
+			auth_request_log_error(request, AUTH_SUBSYS_DB,
+				"delay_until timestamp %s is too much in the future, failing", value);
+			request->failed = TRUE;
+		} else {
+			request->delay_until = timestamp;
+		}
 	} else if (strcmp(name, "allow_real_nets") == 0) {
 		auth_request_validate_networks(request, name, value, &request->real_remote_ip);
 	} else if (strncmp(name, "userdb_", 7) == 0) {
