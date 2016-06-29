@@ -16,7 +16,7 @@
 #include "auth-token.h"
 #include "auth-master-connection.h"
 #include "auth-request-handler.h"
-#include "policy.h"
+#include "auth-policy.h"
 
 #define AUTH_FAILURE_DELAY_CHECK_MSECS 500
 

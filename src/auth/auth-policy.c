@@ -12,7 +12,7 @@
 #include "auth-request.h"
 #include "auth-penalty.h"
 #include "auth-settings.h"
-#include "policy.h"
+#include "auth-policy.h"
 
 #define AUTH_POLICY_DNS_SOCKET_PATH "dns-client"
 
