@@ -44,7 +44,7 @@ void dovecot_openssl_common_global_ref(void)
 	   conditions. */
 	if (CRYPTO_set_mem_functions(dovecot_openssl_malloc,
 				     dovecot_openssl_realloc, free) == 0)
-		i_warning("CRYPTO_set_mem_functions() was called too late");
+		/*i_warning("CRYPTO_set_mem_functions() was called too late")*/;
 
 	SSL_library_init();
 	SSL_load_error_strings();
