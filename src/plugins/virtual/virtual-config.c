@@ -348,13 +348,11 @@ static int virtual_config_box_metadata_match(struct mailbox *box,
 
 	imtrans = imap_metadata_transaction_begin(box);
 	ret = imap_metadata_get(imtrans, bbox->metadata_entry, &value);
-	if (ret < 0) {
+	if (ret < 0)
 		*error_r = t_strdup(imap_metadata_transaction_get_last_error(imtrans, NULL));
-		return -1;
-	}
 	if (ret > 0)
 		ret = wildcard_match(value.value, bbox->metadata_value) ? 1 : 0;
-	if (bbox->negative_match)
+	if (ret >= 0 && bbox->negative_match)
 		ret = ret > 0 ? 0 : 1;
 	(void)imap_metadata_transaction_commit(&imtrans, NULL, NULL);
 	return ret;
@@ -445,7 +443,7 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx,
 		*error_r = mailbox_list_get_last_error(user->namespaces->list, NULL);
 		return -1;
 	}
-	return 0;
+	return ret < 0 ? -1 : 0;
 }
 
 static void virtual_config_search_args_dup(struct virtual_mailbox *mbox)
