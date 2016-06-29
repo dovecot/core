@@ -105,6 +105,7 @@ void mail_search_arg_init(struct mail_search_args *args,
 				thread_args->pool = args->pool;
 				thread_args->args = arg->value.subargs;
 				thread_args->simplified = TRUE;
+				thread_args->init_refcount = 1;
 				/* simplification should have unnested all
 				   inthreads, so we'll assume that
 				   have_inthreads=FALSE */
