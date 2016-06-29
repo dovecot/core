@@ -600,7 +600,7 @@ static void rcpt_anvil_lookup_callback(const char *reply, void *context)
 	struct mail_recipient *rcpt = context;
 	struct client *client = rcpt->client;
 	const struct mail_storage_service_input *input;
-	unsigned int parallel_count;
+	unsigned int parallel_count = 0;
 
 	i_assert(rcpt->anvil_query != NULL);
 
