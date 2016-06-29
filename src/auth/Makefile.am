@@ -68,6 +68,7 @@ auth_SOURCES = \
 	auth-cache.c \
 	auth-client-connection.c \
 	auth-master-connection.c \
+	auth-policy.c \
 	auth-postfix-connection.c \
 	mech-otp-skey-common.c \
 	mech-plain-common.c \
@@ -118,7 +119,6 @@ auth_SOURCES = \
 	passdb-sql.c \
 	passdb-static.c \
 	passdb-template.c \
-	policy.c \
 	userdb.c \
 	userdb-blocking.c \
 	userdb-checkpassword.c \
@@ -143,6 +143,7 @@ headers = \
 	mech-otp-skey-common.h \
 	mech-plain-common.h \
 	auth-penalty.h \
+	auth-policy.h \
 	auth-request.h \
 	auth-request-handler.h \
 	auth-request-stats.h \
@@ -165,7 +166,6 @@ headers = \
 	passdb-cache.h \
 	passdb-template.h \
 	password-scheme.h \
-	policy.h \
 	userdb.h \
 	userdb-blocking.h \
 	userdb-template.h \

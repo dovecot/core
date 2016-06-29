@@ -18,7 +18,7 @@
 #include "auth-request-stats.h"
 #include "auth-client-connection.h"
 #include "auth-master-connection.h"
-#include "policy.h"
+#include "auth-policy.h"
 #include "passdb.h"
 #include "passdb-blocking.h"
 #include "passdb-cache.h"

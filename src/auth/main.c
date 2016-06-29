@@ -30,7 +30,7 @@
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 #include "auth-postfix-connection.h"
-#include "policy.h"
+#include "auth-policy.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
