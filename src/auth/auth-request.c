@@ -1691,10 +1691,24 @@ void auth_request_set_field(struct auth_request *request,
 		request->failed = TRUE;
 	} else if (strcmp(name, "delay_until") == 0) {
 		time_t timestamp;
+		unsigned int extra_secs = 0;
+		const char *p;
 
+		p = strchr(value, '+');
+		if (p != NULL) {
+			value = t_strdup_until(value, p++);
+			if (str_to_uint(p, &extra_secs) < 0) {
+				auth_request_log_error(request, AUTH_SUBSYS_DB,
+					"Invalid delay_until randomness number '%s'", p);
+				request->failed = TRUE;
+			} else {
+				extra_secs = rand() % extra_secs;
+			}
+		}
 		if (str_to_time(value, &timestamp) < 0) {
 			auth_request_log_error(request, AUTH_SUBSYS_DB,
 				"Invalid delay_until timestamp '%s'", value);
+			request->failed = TRUE;
 		} else if (timestamp <= ioloop_time) {
 			/* no more delays */
 		} else if (timestamp - ioloop_time > AUTH_REQUEST_MAX_DELAY_SECS) {
@@ -1702,6 +1716,10 @@ void auth_request_set_field(struct auth_request *request,
 				"delay_until timestamp %s is too much in the future, failing", value);
 			request->failed = TRUE;
 		} else {
+			/* add randomness, but not too much of it */
+			timestamp += extra_secs;
+			if (timestamp - ioloop_time > AUTH_REQUEST_MAX_DELAY_SECS)
+				timestamp = ioloop_time + AUTH_REQUEST_MAX_DELAY_SECS;
 			request->delay_until = timestamp;
 		}
 	} else if (strcmp(name, "allow_real_nets") == 0) {
