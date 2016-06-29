@@ -478,6 +478,12 @@ sql_dict_lookup_async_callback(struct sql_result *sql_result,
 	else if (result.ret > 0) {
 		result.value = sql_dict_result_unescape_value(ctx->map,
 			pool_datastack_create(), sql_result);
+		if (result.value == NULL) {
+			/* NULL value returned. we'll treat this as
+			   "not found", which is probably what is usually
+			   wanted. */
+			result.ret = 0;
+		}
 	}
 	ctx->callback(&result, ctx->context);
 
