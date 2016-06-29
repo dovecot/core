@@ -117,18 +117,26 @@ static int maildir_file_do_try(struct maildir_mailbox *mbox, uint32_t uid,
 }
 
 static int do_racecheck(struct maildir_mailbox *mbox, const char *path,
-			void *context ATTR_UNUSED)
+			void *context)
 {
+	const uint32_t *uidp = context;
 	struct stat st;
+	int ret;
 
-	if (lstat(path, &st) == 0 && (st.st_mode & S_IFMT) == S_IFLNK) {
+	ret = lstat(path, &st);
+	if (ret == 0 && (st.st_mode & S_IFMT) == S_IFLNK) {
 		/* most likely a symlink pointing to a nonexistent file */
 		mail_storage_set_critical(&mbox->storage->storage,
-			"Maildir: Symlink destination doesn't exist: %s", path);
+			"Maildir: Symlink destination doesn't exist for UID=%u: %s", *uidp, path);
 		return -2;
-	} else {
+	} else if (ret < 0 && errno != ENOENT) {
 		mail_storage_set_critical(&mbox->storage->storage,
-			"maildir_file_do(%s): Filename keeps changing", path);
+			"lstat(%s) failed: %m", path);
+		return -1;
+	} else {
+		/* success or ENOENT, either way we're done */
+		mail_storage_set_critical(&mbox->storage->storage,
+			"maildir_file_do(%s): Filename keeps changing for UID=%u", path, *uidp);
 		return -1;
 	}
 }
@@ -160,7 +168,7 @@ int maildir_file_do(struct maildir_mailbox *mbox, uint32_t uid,
 	}
 
 	if (i == MAILDIR_RESYNC_RETRY_COUNT) T_BEGIN {
-		ret = maildir_file_do_try(mbox, uid, do_racecheck, context);
+		ret = maildir_file_do_try(mbox, uid, do_racecheck, &uid);
 	} T_END;
 
 	return ret == -2 ? 0 : ret;
