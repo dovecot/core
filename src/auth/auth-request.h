@@ -71,6 +71,7 @@ struct auth_request {
 	unsigned int client_pid;
 	unsigned int id;
 	time_t last_access;
+	time_t delay_until;
 	pid_t session_pid;
 
 	const char *service, *mech_name, *session_id;
