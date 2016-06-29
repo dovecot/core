@@ -872,19 +872,19 @@ void auth_request_verify_plain(struct auth_request *request,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
-	ctx->request = request;
-	if (request->mech_password == NULL)
-		ctx->password = p_strdup(request->pool, password);
-	else
-		ctx->password = request->mech_password;
-	ctx->callback_plain = callback;
-	ctx->type = AUTH_POLICY_CHECK_TYPE_PLAIN;
-
 	if (request->policy_processed)
 		auth_request_verify_plain_continue(request, ctx->password, callback);
-	else
+	else {
+		ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
+		ctx->request = request;
+		if (request->mech_password == NULL)
+			ctx->password = p_strdup(request->pool, password);
+		else
+			ctx->password = request->mech_password;
+		ctx->callback_plain = callback;
+		ctx->type = AUTH_POLICY_CHECK_TYPE_PLAIN;
 		auth_policy_check(request, ctx->password, auth_request_policy_check_callback, ctx);
+	}
 }
 
 static
@@ -1038,16 +1038,19 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
-	ctx->request = request;
-	if (request->credentials_scheme == NULL)
-		ctx->scheme = p_strdup(request->pool, scheme);
-	else
-		ctx->scheme = request->credentials_scheme;
-	ctx->callback_lookup = callback;
-	ctx->type = AUTH_POLICY_CHECK_TYPE_LOOKUP;
-
-	auth_policy_check(request, ctx->password, auth_request_policy_check_callback, ctx);
+	if (request->policy_processed)
+		auth_request_lookup_credentials_policy_continue(request, scheme, callback);
+	else {
+		ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
+		ctx->request = request;
+		if (request->credentials_scheme == NULL)
+			ctx->scheme = p_strdup(request->pool, scheme);
+		else
+			ctx->scheme = request->credentials_scheme;
+		ctx->callback_lookup = callback;
+		ctx->type = AUTH_POLICY_CHECK_TYPE_LOOKUP;
+		auth_policy_check(request, ctx->password, auth_request_policy_check_callback, ctx);
+	}
 }
 
 static
