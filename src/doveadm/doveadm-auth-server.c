@@ -367,6 +367,7 @@ static void cmd_user_ver2(struct doveadm_cmd_context *cctx)
 	(void)doveadm_cmd_param_str(cctx, "field", &show_field);
 	(void)doveadm_cmd_param_bool(cctx, "userdb-only", &userdb_only);
 
+	memset(&input, 0, sizeof(input));
 	if (doveadm_cmd_param_array(cctx, "auth-info", &optval))
 		for(;*optval != NULL; optval++)
 			auth_user_info_parse(&input.info, *optval);
