@@ -16,7 +16,6 @@ struct mail_recipient {
 
 	struct anvil_query *anvil_query;
 	struct mail_storage_service_user *service_user;
-	unsigned int parallel_count;
 };
 
 struct client_state {
@@ -25,9 +24,6 @@ struct client_state {
 	const char *mail_from;
 	ARRAY(struct mail_recipient *) rcpt_to;
 	unsigned int rcpt_idx;
-
-	unsigned int anvil_queries;
-	bool anvil_pending_data_write;
 
 	unsigned int data_end_idx;
 
