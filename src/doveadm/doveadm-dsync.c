@@ -460,7 +460,7 @@ static void cmd_dsync_log_remote_status(int status, bool remote_errors_logged,
 
 static void cmd_dsync_run_remote(struct mail_user *user)
 {
-	i_set_failure_prefix("dsync-local(%s): ", user->username);
+	i_set_failure_prefix("dsync-local(%s)<%s>: ", user->username, user->session_id);
 	io_loop_run(current_ioloop);
 }
 
@@ -1108,7 +1108,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	} else {
 		/* the log messages go via stderr to the remote dsync,
 		   so the names are reversed */
-		i_set_failure_prefix("dsync-remote(%s): ", user->username);
+		i_set_failure_prefix("dsync-remote(%s)<%s>: ", user->username, user->session_id);
 		name = "local";
 	}
 
