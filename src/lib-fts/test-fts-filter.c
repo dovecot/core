@@ -555,20 +555,20 @@ static void test_fts_filter_normalizer_french(void)
 	FILE *input;
 	const char * const settings[] =
 		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove", NULL};
-	char buf[4096] = {0};
+	char buf[250] = {0};
 	const char *error = NULL;
 	const char *tokens;
 	unsigned char sha512_digest[SHA512_RESULTLEN];
 	struct sha512_ctx ctx;
 	const unsigned char correct_digest[] = {
-		0x78, 0x1e, 0xb9, 0x04, 0xa4, 0x92, 0xca, 0x88,
-		0x1e, 0xef, 0x7b, 0xc8, 0x3e, 0x4a, 0xa8, 0xdb,
-		0x9c, 0xd4, 0x42, 0x5c, 0x64, 0x81, 0x06, 0xd5,
-		0x72, 0x93, 0x38, 0x0c, 0x09, 0xce, 0xbe, 0xdf,
-		0x65, 0xff, 0x36, 0x35, 0x05, 0x77, 0xcc, 0xc6,
-		0xff, 0x44, 0x2c, 0x31, 0x10, 0x00, 0xf6, 0x8d,
-		0x15, 0x25, 0x1e, 0x54, 0x67, 0x2a, 0x5b, 0xc1,
-		0xdb, 0x84, 0xc5, 0x0d, 0x43, 0x7e, 0x8c, 0x70};
+		0x06, 0x80, 0xf1, 0x81, 0xf2, 0xed, 0xfb, 0x6d,
+		0xcd, 0x7d, 0xcb, 0xbd, 0xc4, 0x87, 0xc3, 0xf6,
+		0xb8, 0x6a, 0x01, 0x82, 0xdf, 0x0a, 0xb5, 0x92,
+		0x6b, 0x9b, 0x7b, 0x21, 0x5e, 0x62, 0x40, 0xbd,
+		0xbf, 0x15, 0xb9, 0x7b, 0x75, 0x9c, 0x4e, 0xc9,
+		0xe8, 0x48, 0xaa, 0x08, 0x63, 0xf2, 0xa0, 0x6c,
+		0x20, 0x4c, 0x01, 0xe3, 0xb3, 0x4f, 0x15, 0xc6,
+		0x8c, 0xd6, 0x7a, 0xb7, 0xc5, 0xc6, 0x85, 0x00};
 	const char *udhr_path;
 
 	test_begin("fts filter normalizer French UDHR");
@@ -662,6 +662,39 @@ static void test_fts_filter_normalizer_invalid_id(void)
 	test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
 	test_assert(error == NULL);
 	test_assert(fts_filter_filter(norm, &token, &error) < 0 && error != NULL);
+	fts_filter_unref(&norm);
+	test_end();
+}
+
+static void test_fts_filter_normalizer_oversized(void)
+{
+	struct fts_filter *norm = NULL;
+	const char *settings[] =
+		{"id", "Any-Lower; NFKD; [: Nonspacing Mark :] Remove", "maxlen", "250",
+		 NULL};
+	const char *error = NULL;
+	const char *token = "\xe4\x95\x91\x25\xe2\x94\xad\xe1\x90\xad\xee\x94\x81\xe2\x8e\x9e"
+						"\xe7\x9a\xb7\xea\xbf\x97\xe3\xb2\x8f\xe4\x9c\xbe\xee\xb4\x98\xe1"
+						"\x8d\x99\xe2\x91\x83\xe3\xb1\xb8\xef\xbf\xbd\xe8\xbb\x9c\xef\xbf"
+						"\xbd\xea\xbb\x98\xea\xb5\xac\xe4\x87\xae\xe4\x88\x93\xe9\x86\x8f"
+						"\xe9\x86\x83\xe6\x8f\x8d\xe7\xa3\x9d\xed\x89\x96\xe2\x89\x85\xe6"
+						"\x8c\x82\xec\x80\x98\xee\x91\x96\xe7\xa8\x8a\xec\xbc\x85\xeb\x9c"
+						"\xbd\xeb\x97\x95\xe3\xa4\x9d\xd7\xb1\xea\xa7\x94\xe0\xbb\xac\xee"
+						"\x95\x87\xd5\x9d\xe8\xba\x87\xee\x8b\xae\xe5\xb8\x80\xe9\x8d\x82"
+						"\xe7\xb6\x8c\xe7\x9b\xa0\xef\x82\x9f\xed\x96\xa4\xe3\x8d\xbc\xe1"
+						"\x81\xbd\xe9\x81\xb2\xea\xac\xac\xec\x9b\x98\xe7\x84\xb2\xee\xaf"
+						"\xbc\xeb\xa2\x9d\xe9\x86\xb3\xe0\xb0\x89\xeb\x80\xb6\xe3\x8c\x9d"
+						"\xe9\x8f\x9e\xe2\xae\x8a\xee\x9e\x9a\xef\xbf\xbd\xe7\xa3\x9b\xe4"
+						"\xa3\x8b\xe4\x82\xb9\xeb\x8e\x93\xec\xb5\x82\xe5\xa7\x81\xe2\x8c"
+						"\x97\xea\xbb\xb4\xe5\x85\xb7\xeb\x96\xbe\xe7\x97\x91\xea\xbb\x98"
+						"\xe6\xae\xb4\xe9\x8a\x85\xc4\xb9\xe4\x90\xb2\xe9\x96\xad\xef\x90"
+						"\x9c\xe5\xa6\xae\xe9\x93\x91\xe8\x87\xa1";
+
+	test_begin("fts filter normalizer over-sized token");
+	test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL, settings, &norm, &error) == 0);
+	test_assert(error == NULL);
+	test_assert(fts_filter_filter(norm, &token, &error) >= 0);
+	test_assert(strlen(token) <= 250);
 	fts_filter_unref(&norm);
 	test_end();
 }
@@ -922,6 +955,7 @@ int main(void)
 		test_fts_filter_normalizer_empty,
 		test_fts_filter_normalizer_baddata,
 		test_fts_filter_normalizer_invalid_id,
+		test_fts_filter_normalizer_oversized,
 #ifdef HAVE_FTS_STEMMER
 		test_fts_filter_normalizer_stopwords_stemmer_eng,
 		test_fts_filter_stopwords_normalizer_stemmer_no,

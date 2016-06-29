@@ -24,8 +24,10 @@ extern const struct fts_filter *fts_filter_stemmer_snowball;
  Settings: "id", description of the normalizing/translitterating rules
  to use.  See
  http://userguide.icu-project.org/transforms/general#TOC-Transliterator-Identifiers
- for syntax.  Defaults to "Any-Lower; NFKD; [: Nonspacing Mark :]
- Remove; NFC"
+ for syntax. Defaults to "Any-Lower; NFKD; [: Nonspacing Mark :] Remove; NFC"
+
+ "maxlen", maximum length of tokens that ICU normalizer will output.
+  Defaults to 250.
  */
 extern const struct fts_filter *fts_filter_normalizer_icu;
 
