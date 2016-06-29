@@ -568,16 +568,19 @@ static bool dsync_brain_finish(struct dsync_brain *brain)
 {
 	const char *error;
 	enum mail_error mail_error;
+	bool require_full_resync;
 	enum dsync_ibc_recv_ret ret;
 
 	if (!brain->master_brain) {
 		dsync_ibc_send_finish(brain->ibc,
 				      brain->failed ? "dsync failed" : NULL,
-				      brain->mail_error);
+				      brain->mail_error,
+				      brain->require_full_resync);
 		brain->state = DSYNC_STATE_DONE;
 		return TRUE;
 	} 
-	ret = dsync_ibc_recv_finish(brain->ibc, &error, &mail_error);
+	ret = dsync_ibc_recv_finish(brain->ibc, &error, &mail_error,
+				    &require_full_resync);
 	if (ret == DSYNC_IBC_RECV_RET_TRYAGAIN)
 		return FALSE;
 	if (error != NULL) {
@@ -587,6 +590,8 @@ static bool dsync_brain_finish(struct dsync_brain *brain)
 		    (brain->mail_error == 0 || brain->mail_error == MAIL_ERROR_TEMP))
 			brain->mail_error = mail_error;
 	}
+	if (require_full_resync)
+		brain->require_full_resync = TRUE;
 	brain->state = DSYNC_STATE_DONE;
 	return TRUE;
 }

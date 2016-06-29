@@ -343,10 +343,6 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 
 	i_assert(brain->box != NULL);
 
-	if (brain->require_full_resync) {
-		brain->mailbox_state.last_uidvalidity = 0;
-		brain->require_full_resync = FALSE;
-	}
 	array_append(&brain->remote_mailbox_states, &brain->mailbox_state, 1);
 	if (brain->box_exporter != NULL) {
 		const char *errstr;

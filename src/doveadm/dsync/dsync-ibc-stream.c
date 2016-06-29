@@ -125,7 +125,7 @@ static const struct {
 	},
 	{ .name = "finish",
 	  .chr = 'F',
-	  .optional_keys = "error mail_error",
+	  .optional_keys = "error mail_error require_full_resync",
 	  .min_minor_version = DSYNC_PROTOCOL_MINOR_HAVE_FINISH
 	},
 	{ .name = "mailbox_cache_field",
@@ -1905,7 +1905,8 @@ dsync_ibc_stream_recv_mail(struct dsync_ibc *_ibc, struct dsync_mail **mail_r)
 
 static void
 dsync_ibc_stream_send_finish(struct dsync_ibc *_ibc, const char *error,
-			     enum mail_error mail_error)
+			     enum mail_error mail_error,
+			     bool require_full_resync)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
 	struct dsync_serializer_encoder *encoder;
@@ -1919,13 +1920,16 @@ dsync_ibc_stream_send_finish(struct dsync_ibc *_ibc, const char *error,
 		dsync_serializer_encode_add(encoder, "mail_error",
 					    dec2str(mail_error));
 	}
+	if (require_full_resync)
+		dsync_serializer_encode_add(encoder, "require_full_resync", "");
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
 }
 
 static enum dsync_ibc_recv_ret
 dsync_ibc_stream_recv_finish(struct dsync_ibc *_ibc, const char **error_r,
-			     enum mail_error *mail_error_r)
+			     enum mail_error *mail_error_r,
+			     bool *require_full_resync_r)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
 	struct dsync_deserializer_decoder *decoder;
@@ -1935,6 +1939,7 @@ dsync_ibc_stream_recv_finish(struct dsync_ibc *_ibc, const char **error_r,
 
 	*error_r = NULL;
 	*mail_error_r = 0;
+	*require_full_resync_r = FALSE;
 
 	p_clear(ibc->ret_pool);
 
@@ -1952,6 +1957,8 @@ dsync_ibc_stream_recv_finish(struct dsync_ibc *_ibc, const char **error_r,
 		dsync_ibc_input_error(ibc, decoder, "Invalid mail_error");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
+	if (dsync_deserializer_decode_try(decoder, "require_full_resync", &value))
+		*require_full_resync_r = TRUE;
 	*mail_error_r = i;
 
 	ibc->finish_received = TRUE;

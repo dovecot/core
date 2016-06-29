@@ -45,6 +45,7 @@ struct item {
 		struct {
 			const char *error;
 			enum mail_error mail_error;
+			bool require_full_resync;
 		} finish;
 	} u;
 };
@@ -491,7 +492,8 @@ dsync_ibc_pipe_recv_mail(struct dsync_ibc *ibc, struct dsync_mail **mail_r)
 
 static void
 dsync_ibc_pipe_send_finish(struct dsync_ibc *ibc, const char *error,
-			   enum mail_error mail_error)
+			   enum mail_error mail_error,
+			   bool require_full_resync)
 {
 	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
 	struct item *item;
@@ -499,11 +501,13 @@ dsync_ibc_pipe_send_finish(struct dsync_ibc *ibc, const char *error,
 	item = dsync_ibc_pipe_push_item(pipe->remote, ITEM_FINISH);
 	item->u.finish.error = p_strdup(item->pool, error);
 	item->u.finish.mail_error = mail_error;
+	item->u.finish.require_full_resync = require_full_resync;
 }
 
 static enum dsync_ibc_recv_ret
 dsync_ibc_pipe_recv_finish(struct dsync_ibc *ibc, const char **error_r,
-			   enum mail_error *mail_error_r)
+			   enum mail_error *mail_error_r,
+			   bool *require_full_resync_r)
 {
 	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
 	struct item *item;
@@ -514,6 +518,7 @@ dsync_ibc_pipe_recv_finish(struct dsync_ibc *ibc, const char **error_r,
 
 	*error_r = item->u.finish.error;
 	*mail_error_r = item->u.finish.mail_error;
+	*require_full_resync_r = item->u.finish.require_full_resync;
 	return DSYNC_IBC_RECV_RET_OK;
 }
 
