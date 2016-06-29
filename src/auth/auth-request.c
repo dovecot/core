@@ -872,9 +872,10 @@ void auth_request_verify_plain(struct auth_request *request,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (request->policy_processed)
-		auth_request_verify_plain_continue(request, ctx->password, callback);
-	else {
+	if (request->policy_processed) {
+		auth_request_verify_plain_continue(request,
+			p_strdup(request->pool, password), callback);
+	} else {
 		ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
 		ctx->request = request;
 		if (request->mech_password == NULL)
