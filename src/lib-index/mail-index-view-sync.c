@@ -428,7 +428,7 @@ view_sync_get_log_lost_changes(struct mail_index_view_sync_ctx *ctx,
 
 	/* handle expunges and sync flags */
 	seqi = seqj = 1;
-	while (seqi < old_count && seqj < new_count) {
+	while (seqi <= old_count && seqj <= new_count) {
 		old_rec = MAIL_INDEX_REC_AT_SEQ(old_map, seqi);
 		new_rec = MAIL_INDEX_REC_AT_SEQ(new_map, seqj);
 		if (old_rec->uid == new_rec->uid) {
