@@ -145,8 +145,8 @@ static int o_stream_temp_dup_cancel(struct temp_ostream *tstream)
 	return ret < 0 ? -1 : 0;
 }
 
-static int o_stream_temp_dup_istream(struct temp_ostream *outstream,
-				     struct istream *instream)
+static off_t o_stream_temp_dup_istream(struct temp_ostream *outstream,
+				       struct istream *instream)
 {
 	uoff_t in_size;
 	off_t ret;
