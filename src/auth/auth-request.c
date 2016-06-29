@@ -1697,7 +1697,7 @@ void auth_request_set_field(struct auth_request *request,
 				"Invalid delay_until timestamp '%s'", value);
 		} else if (timestamp <= ioloop_time) {
 			/* no more delays */
-		} else if (ioloop_time - timestamp > AUTH_REQUEST_MAX_DELAY_SECS) {
+		} else if (timestamp - ioloop_time > AUTH_REQUEST_MAX_DELAY_SECS) {
 			auth_request_log_error(request, AUTH_SUBSYS_DB,
 				"delay_until timestamp %s is too much in the future, failing", value);
 			request->failed = TRUE;
