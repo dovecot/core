@@ -972,8 +972,9 @@ maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 			/* UID is expunged */
 			*find_uid = 0;
 		} else if ((flags & MAILDIR_UIDLIST_REC_FLAG_NONSYNCED) == 0) {
-			/* we didn't find it, possibly expunged? */
 			*find_uid = 0;
+		} else {
+			/* we didn't find it, possibly expunged? */
 		}
 	}
 
