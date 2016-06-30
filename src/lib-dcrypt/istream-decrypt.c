@@ -60,7 +60,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 
 	const unsigned char *digest_pos = NULL, *key_digest_pos = NULL, *key_ct_pos = NULL;
 
-	size_t pos = 7;
+	size_t pos = 9;
 	size_t digest_len = 0;
 	size_t key_ct_len = 0;
 	size_t key_digest_size = 0;
@@ -585,7 +585,8 @@ ssize_t i_stream_decrypt_read_header(struct decrypt_istream *stream,
 	uint32_t hdr_len;
 	if (!get_msb32(&data, end, &hdr_len))
 		return 0;
-	if ((size_t)(end-data) < hdr_len)
+	/* do not forget stream format */
+	if ((size_t)(end-data)+1 < hdr_len)
 		return 0;
 
 	int ret;
@@ -669,6 +670,13 @@ i_stream_decrypt_read(struct istream_private *stream)
 
 		if (ret == -1 && (size == 0 || stream->parent->stream_errno != 0)) {
 			stream->istream.stream_errno = stream->parent->stream_errno;
+
+			/* file was empty */
+			if (!dstream->initialized && size == 0 && stream->parent->eof) {
+				stream->istream.eof = TRUE;
+				return -1;
+			}
+
 			if (stream->istream.stream_errno != 0)
 				return -1;
 
