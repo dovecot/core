@@ -113,7 +113,7 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 		if (!http_client_request_unref(req_idx))
 			continue;
 		/* resubmit the request, which may drop it */
-		if ((*req_idx)->state < HTTP_REQUEST_STATE_FINISHED)
+		if (req->state < HTTP_REQUEST_STATE_FINISHED)
 			http_client_request_resubmit(req);
 	}	
 	array_clear(&conn->request_wait_list);
