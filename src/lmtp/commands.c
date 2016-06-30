@@ -602,8 +602,6 @@ static void rcpt_anvil_lookup_callback(const char *reply, void *context)
 	const struct mail_storage_service_input *input;
 	unsigned int parallel_count = 0;
 
-	i_assert(rcpt->anvil_query != NULL);
-
 	rcpt->anvil_query = NULL;
 	if (reply == NULL) {
 		/* lookup failed */
