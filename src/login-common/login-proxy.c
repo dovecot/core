@@ -197,10 +197,12 @@ static void proxy_client_disconnected_input(struct login_proxy *proxy)
 static int server_output(struct login_proxy *proxy)
 {
 	proxy->last_io = ioloop_time;
+	o_stream_cork(proxy->server_output);
 	if (o_stream_flush(proxy->server_output) < 0) {
 		login_proxy_free_ostream(&proxy, proxy->server_output, TRUE);
 		return 1;
 	}
+	o_stream_uncork(proxy->server_output);
 
 	if (proxy->client_io == NULL &&
 	    o_stream_get_buffer_used_size(proxy->server_output) <
@@ -216,10 +218,12 @@ static int server_output(struct login_proxy *proxy)
 static int proxy_client_output(struct login_proxy *proxy)
 {
 	proxy->last_io = ioloop_time;
+	o_stream_cork(proxy->client_output);
 	if (o_stream_flush(proxy->client_output) < 0) {
 		login_proxy_free_ostream(&proxy, proxy->client_output, FALSE);
 		return 1;
 	}
+	o_stream_uncork(proxy->client_output);
 
 	if (proxy->server_io == NULL &&
 	    o_stream_get_buffer_used_size(proxy->client_output) <
