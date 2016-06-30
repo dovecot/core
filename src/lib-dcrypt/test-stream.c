@@ -137,8 +137,8 @@ void test_static_v2_input(void)
 
 	while((amt = i_stream_read(is_4))>0) { i_stream_skip(is_4, amt); }
 
-        if (is_4->stream_errno != 0)
-                i_debug("error: %s", i_stream_get_error(is_4));
+	if (is_4->stream_errno != 0)
+		i_debug("error: %s", i_stream_get_error(is_4));
 
 	test_assert(is_4->stream_errno == 0);
 
@@ -187,8 +187,8 @@ void test_write_read_v1(void)
 	struct ostream *os_2 = o_stream_create_encrypt(os, "<unused>", test_v2_kp.pub, IO_STREAM_ENC_VERSION_1);
 	o_stream_nsend(os_2, payload, sizeof(payload));
 
-        if (os_2->stream_errno != 0)
-                i_debug("error: %s", o_stream_get_error(os_2));
+	if (os_2->stream_errno != 0)
+		i_debug("error: %s", o_stream_get_error(os_2));
 
 	test_assert(os_2->stream_errno == 0);
 	test_assert(o_stream_nfinish(os_2) == 0);
@@ -215,6 +215,77 @@ void test_write_read_v1(void)
 }
 
 static
+void test_write_read_v1_short(void)
+{
+	test_begin("test_write_read_v1_short");
+	unsigned char payload[1];
+	const unsigned char *ptr;
+	size_t pos = 0, siz;
+	random_fill_weak(payload, 1);
+
+	struct ostream *os = iostream_temp_create("/tmp", 0);
+	struct ostream *os_2 = o_stream_create_encrypt(os, "<unused>", test_v2_kp.pub, IO_STREAM_ENC_VERSION_1);
+	o_stream_nsend(os_2, payload, sizeof(payload));
+
+	if (os_2->stream_errno != 0)
+		i_debug("error: %s", o_stream_get_error(os_2));
+
+	test_assert(os_2->stream_errno == 0);
+	test_assert(o_stream_nfinish(os_2) == 0);
+	test_assert(os_2->stream_errno == 0);
+
+	o_stream_unref(&os_2);
+
+	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is_2 = i_stream_create_decrypt(is, test_v2_kp.priv);
+	i_stream_unref(&is);
+
+	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
+		test_assert_idx(pos + siz <= sizeof(payload), pos);
+		if (pos + siz > sizeof(payload)) break;
+		test_assert_idx(memcmp(ptr, payload + pos, siz) == 0, pos);
+		i_stream_skip(is_2, siz);
+	}
+
+	test_assert(is_2->stream_errno == 0);
+
+	i_stream_unref(&is_2);
+
+	test_end();
+}
+
+static
+void test_write_read_v1_empty(void)
+{
+	const unsigned char *ptr;
+	size_t siz;
+	test_begin("test_write_read_v1_empty");
+	struct ostream *os = iostream_temp_create("/tmp", 0);
+	struct ostream *os_2 = o_stream_create_encrypt(os, "<unused>", test_v1_kp.pub, IO_STREAM_ENC_VERSION_1);
+	test_assert(o_stream_nfinish(os_2) == 0);
+	if (os_2->stream_errno != 0)
+		i_debug("error: %s", o_stream_get_error(os_2));
+
+	o_stream_unref(&os_2);
+	/* this should've been enough */
+
+	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
+	i_stream_unref(&is);
+
+	/* read should not fail */
+	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
+		test_assert(FALSE); /* should never be reached */
+	};
+
+	test_assert(is_2->stream_errno == 0);
+	if (is_2->stream_errno != 0)
+		i_debug("error: %s", i_stream_get_error(is_2));
+	i_stream_unref(&is_2);
+	test_end();
+}
+
+static
 void test_write_read_v2(void)
 {
 	test_begin("test_write_read_v2");
@@ -225,10 +296,10 @@ void test_write_read_v2(void)
 
 	struct ostream *os = iostream_temp_create("/tmp", 0);
 	struct ostream *os_2 = o_stream_create_encrypt(os, "aes-256-gcm-sha256", test_v1_kp.pub, IO_STREAM_ENC_INTEGRITY_AEAD);
-	o_stream_nsend(os_2, payload, IO_BLOCK_SIZE);
+	o_stream_nsend(os_2, payload, sizeof(payload));
 	test_assert(o_stream_nfinish(os_2) == 0);
-        if (os_2->stream_errno != 0)
-                i_debug("error: %s", o_stream_get_error(os_2));
+	if (os_2->stream_errno != 0)
+		i_debug("error: %s", o_stream_get_error(os_2));
 
 	o_stream_unref(&os_2);
 
@@ -244,11 +315,80 @@ void test_write_read_v2(void)
 	}
 
 	test_assert(is_2->stream_errno == 0);
-        if (is_2->stream_errno != 0)
-                i_debug("error: %s", i_stream_get_error(is_2));
+	if (is_2->stream_errno != 0)
+		i_debug("error: %s", i_stream_get_error(is_2));
 
 	i_stream_unref(&is_2);
 
+	test_end();
+}
+
+static
+void test_write_read_v2_short(void)
+{
+	test_begin("test_write_read_v2_short");
+	unsigned char payload[1];
+	const unsigned char *ptr;
+	size_t pos = 0, siz;
+	random_fill_weak(payload, 1);
+
+	struct ostream *os = iostream_temp_create("/tmp", 0);
+	struct ostream *os_2 = o_stream_create_encrypt(os, "aes-256-gcm-sha256", test_v1_kp.pub, IO_STREAM_ENC_INTEGRITY_AEAD);
+	o_stream_nsend(os_2, payload, sizeof(payload));
+	test_assert(o_stream_nfinish(os_2) == 0);
+	if (os_2->stream_errno != 0)
+		i_debug("error: %s", o_stream_get_error(os_2));
+
+	o_stream_unref(&os_2);
+
+	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
+	i_stream_unref(&is);
+
+	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
+		test_assert_idx(pos + siz <= sizeof(payload), pos);
+		if (pos + siz > sizeof(payload)) break;
+		test_assert_idx(memcmp(ptr, payload + pos, siz) == 0, pos);
+		i_stream_skip(is_2, siz);
+	}
+
+	test_assert(is_2->stream_errno == 0);
+	if (is_2->stream_errno != 0)
+		i_debug("error: %s", i_stream_get_error(is_2));
+
+	i_stream_unref(&is_2);
+
+	test_end();
+}
+
+static
+void test_write_read_v2_empty(void)
+{
+	const unsigned char *ptr;
+	size_t siz;
+	test_begin("test_write_read_v2_empty");
+	struct ostream *os = iostream_temp_create("/tmp", 0);
+	struct ostream *os_2 = o_stream_create_encrypt(os, "aes-256-gcm-sha256", test_v1_kp.pub, IO_STREAM_ENC_INTEGRITY_AEAD);
+	test_assert(o_stream_nfinish(os_2) == 0);
+	if (os_2->stream_errno != 0)
+		i_debug("error: %s", o_stream_get_error(os_2));
+
+	o_stream_unref(&os_2);
+	/* this should've been enough */
+
+	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
+	i_stream_unref(&is);
+
+	/* read should not fail */
+	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
+		test_assert(FALSE); /* should never be reached */
+	};
+
+	test_assert(is_2->stream_errno == 0);
+	if (is_2->stream_errno != 0)
+		i_debug("error: %s", i_stream_get_error(is_2));
+	i_stream_unref(&is_2);
 	test_end();
 }
 
@@ -266,7 +406,11 @@ int main(void) {
 		test_static_v1_input_short,
 		test_static_v2_input,
 		test_write_read_v1,
+		test_write_read_v1_short,
+		test_write_read_v1_empty,
 		test_write_read_v2,
+		test_write_read_v2_short,
+		test_write_read_v2_empty,
 		NULL
 	};
 
