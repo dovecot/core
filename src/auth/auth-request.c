@@ -49,8 +49,6 @@ struct auth_policy_check_ctx {
 		AUTH_POLICY_CHECK_TYPE_SUCCESS,
 	} type;
 	struct auth_request *request;
-	const char *scheme;
-	char *password;
 
 	buffer_t *success_data;
 
@@ -69,11 +67,9 @@ auth_request_userdb_import(struct auth_request *request, const char *args);
 
 static
 void auth_request_verify_plain_continue(struct auth_request *request,
-					char *password,
 					verify_plain_callback_t *callback);
 static
 void auth_request_lookup_credentials_policy_continue(struct auth_request *request,
-						     const char *scheme,
 						     lookup_credentials_callback_t *callback);
 static
 void auth_request_policy_check_callback(int result, void *context);
@@ -167,7 +163,7 @@ void auth_request_success(struct auth_request *request,
 	ctx->success_data = buffer_create_dynamic(request->pool, data_size);
 	buffer_append(ctx->success_data, data, data_size);
         ctx->type = AUTH_POLICY_CHECK_TYPE_SUCCESS;
-	auth_policy_check(request, ctx->password, auth_request_policy_check_callback, ctx);
+	auth_policy_check(request, request->mech_password, auth_request_policy_check_callback, ctx);
 }
 
 static
@@ -844,10 +840,10 @@ void auth_request_policy_penalty_finish(void *context)
 
 	switch(ctx->type) {
 	case AUTH_POLICY_CHECK_TYPE_PLAIN:
-		auth_request_verify_plain_continue(ctx->request, ctx->password, ctx->callback_plain);
+		auth_request_verify_plain_continue(ctx->request, ctx->callback_plain);
 		return;
 	case AUTH_POLICY_CHECK_TYPE_LOOKUP:
-		auth_request_lookup_credentials_policy_continue(ctx->request, ctx->scheme, ctx->callback_lookup);
+		auth_request_lookup_credentials_policy_continue(ctx->request, ctx->callback_lookup);
 		return;
 	case AUTH_POLICY_CHECK_TYPE_SUCCESS:
 		auth_request_success_continue(ctx);
@@ -884,30 +880,30 @@ void auth_request_verify_plain(struct auth_request *request,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
+	if (request->mech_password == NULL)
+		request->mech_password = p_strdup(request->pool, password);
+	else
+		i_assert(request->mech_password == password);
+
 	if (request->policy_processed) {
-		auth_request_verify_plain_continue(request,
-			p_strdup(request->pool, password), callback);
+		auth_request_verify_plain_continue(request, callback);
 	} else {
 		ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
 		ctx->request = request;
-		if (request->mech_password == NULL)
-			ctx->password = p_strdup(request->pool, password);
-		else
-			ctx->password = request->mech_password;
 		ctx->callback_plain = callback;
 		ctx->type = AUTH_POLICY_CHECK_TYPE_PLAIN;
-		auth_policy_check(request, ctx->password, auth_request_policy_check_callback, ctx);
+		auth_policy_check(request, request->mech_password, auth_request_policy_check_callback, ctx);
 	}
 }
 
 static
 void auth_request_verify_plain_continue(struct auth_request *request,
-					char *password,
 					verify_plain_callback_t *callback) {
 
 	struct auth_passdb *passdb;
 	enum passdb_result result;
 	const char *cache_key;
+	const char *password = request->mech_password;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
@@ -924,11 +920,7 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 	}
 
         passdb = request->passdb;
-	if (request->mech_password == NULL)
-		/* this is allocated on start */
-		request->mech_password = password;
-	else
-		i_assert(request->mech_password == password);
+
 	request->private_callback.verify_plain = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
@@ -1051,24 +1043,24 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
+	if (request->credentials_scheme == NULL)
+		request->credentials_scheme = p_strdup(request->pool, scheme);
+	else
+		i_assert(request->credentials_scheme == scheme);
+
 	if (request->policy_processed)
-		auth_request_lookup_credentials_policy_continue(request, scheme, callback);
+		auth_request_lookup_credentials_policy_continue(request, callback);
 	else {
 		ctx = p_new(request->pool, struct auth_policy_check_ctx, 1);
 		ctx->request = request;
-		if (request->credentials_scheme == NULL)
-			ctx->scheme = p_strdup(request->pool, scheme);
-		else
-			ctx->scheme = request->credentials_scheme;
 		ctx->callback_lookup = callback;
 		ctx->type = AUTH_POLICY_CHECK_TYPE_LOOKUP;
-		auth_policy_check(request, ctx->password, auth_request_policy_check_callback, ctx);
+		auth_policy_check(request, ctx->request->mech_password, auth_request_policy_check_callback, ctx);
 	}
 }
 
 static
 void auth_request_lookup_credentials_policy_continue(struct auth_request *request,
-						     const char *scheme,
 						     lookup_credentials_callback_t *callback)
 {
 	struct auth_passdb *passdb;
@@ -1083,8 +1075,6 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 	}
 	passdb = request->passdb;
 
-	if (request->credentials_scheme == NULL)
-		request->credentials_scheme = p_strdup(request->pool, scheme);
 	request->private_callback.lookup_credentials = callback;
 
 	cache_key = passdb_cache == NULL ? NULL : passdb->cache_key;
