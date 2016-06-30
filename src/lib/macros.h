@@ -227,9 +227,8 @@
 #endif
 
 #ifdef __cplusplus
+#  undef STATIC_ARRAY
 #  define STATIC_ARRAY
-#else
-#  define STATIC_ARRAY static
 #endif
 
 #endif
