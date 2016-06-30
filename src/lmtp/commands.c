@@ -754,7 +754,7 @@ int cmd_rcpt(struct client *client, const char *args)
 					rcpt_anvil_lookup_callback, rcpt);
 		/* stop processing further commands while anvil query is
 		   pending */
-		return rcpt->anvil_query != NULL ? 0 : -1;
+		return rcpt->anvil_query == NULL ? 0 : -1;
 	}
 }
 
