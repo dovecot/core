@@ -162,7 +162,7 @@ void auth_request_success(struct auth_request *request,
 	ctx->request = request;
 	ctx->success_data = buffer_create_dynamic(request->pool, data_size);
 	buffer_append(ctx->success_data, data, data_size);
-        ctx->type = AUTH_POLICY_CHECK_TYPE_SUCCESS;
+	 ctx->type = AUTH_POLICY_CHECK_TYPE_SUCCESS;
 	auth_policy_check(request, request->mech_password, auth_request_policy_check_callback, ctx);
 }
 
@@ -283,7 +283,7 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 
 	auth_str_add_keyvalue(dest, "service", request->service);
 
-        if (request->master_user != NULL) {
+	 if (request->master_user != NULL) {
 		auth_str_add_keyvalue(dest, "master-user",
 				      request->master_user);
 	}
@@ -517,9 +517,9 @@ static void auth_request_save_cache(struct auth_request *request,
 		   strdup() it so that mech_password doesn't get
 		   cleared too early. */
 		if (!password_generate_encoded(request->mech_password,
-					       request->user,
-					       CACHED_PASSWORD_SCHEME,
-					       &encoded_password))
+						request->user,
+						CACHED_PASSWORD_SCHEME,
+						&encoded_password))
 			i_unreached();
 		request->passdb_password =
 			p_strconcat(request->pool, "{"CACHED_PASSWORD_SCHEME"}",
@@ -643,7 +643,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		return TRUE;
 	case PASSDB_RESULT_PASS_EXPIRED:
 		auth_request_set_field(request, "reason",
-				       "Password expired", NULL);
+					"Password expired", NULL);
 		return TRUE;
 
 	case PASSDB_RESULT_OK:
@@ -703,7 +703,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		next_passdb = request->passdb->next;
 	}
 	while (next_passdb != NULL &&
-	       auth_request_want_skip_passdb(request, next_passdb))
+		auth_request_want_skip_passdb(request, next_passdb))
 		next_passdb = next_passdb->next;
 
 	if (*result == PASSDB_RESULT_OK) {
@@ -725,7 +725,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 
 	if (passdb_continue && next_passdb != NULL) {
 		/* try next passdb. */
-                request->passdb = next_passdb;
+		  request->passdb = next_passdb;
 		request->passdb_password = NULL;
 
 		if (*result == PASSDB_RESULT_USER_UNKNOWN) {
@@ -873,8 +873,8 @@ void auth_request_policy_check_callback(int result, void *context)
 }
 
 void auth_request_verify_plain(struct auth_request *request,
-			       const char *password,
-			       verify_plain_callback_t *callback)
+				const char *password,
+				verify_plain_callback_t *callback)
 {
 	struct auth_policy_check_ctx *ctx;
 
@@ -919,7 +919,7 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 		return;
 	}
 
-        passdb = request->passdb;
+	 passdb = request->passdb;
 
 	request->private_callback.verify_plain = callback;
 
@@ -949,9 +949,9 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 
 static void
 auth_request_lookup_credentials_finish(enum passdb_result result,
-				       const unsigned char *credentials,
-				       size_t size,
-				       struct auth_request *request)
+					const unsigned char *credentials,
+					size_t size,
+					struct auth_request *request)
 {
 	passdb_template_export(request->passdb->override_fields_tmpl, request);
 	if (!auth_request_handle_passdb_callback(&result, request)) {
@@ -969,7 +969,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 		}
 		auth_request_lookup_credentials(request,
 			request->credentials_scheme,
-                	request->private_callback.lookup_credentials);
+		  	request->private_callback.lookup_credentials);
 	} else {
 		if (request->delayed_credentials != NULL && size == 0) {
 			/* we did multiple passdb lookups, but the last one
@@ -1032,7 +1032,7 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 	}
 
 	auth_request_lookup_credentials_finish(result, credentials, size,
-					       request);
+						request);
 }
 
 void auth_request_lookup_credentials(struct auth_request *request,
@@ -1184,13 +1184,13 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	if (value == NULL || (expired && !use_expired)) {
 		stats->auth_cache_miss_count++;
 		auth_request_log_debug(request, AUTH_SUBSYS_DB,
-				       value == NULL ? "userdb cache miss" :
-				       "userdb cache expired");
+					value == NULL ? "userdb cache miss" :
+					"userdb cache expired");
 		return FALSE;
 	}
 	stats->auth_cache_hit_count++;
 	auth_request_log_debug(request, AUTH_SUBSYS_DB,
-			       "userdb cache hit: %s", value);
+				"userdb cache hit: %s", value);
 
 	if (*value == '\0') {
 		/* negative cache entry */
@@ -1257,7 +1257,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 
 	next_userdb = userdb->next;
 	while (next_userdb != NULL &&
-	       auth_request_want_skip_userdb(request, next_userdb))
+		auth_request_want_skip_userdb(request, next_userdb))
 		next_userdb = next_userdb->next;
 
 	if (userdb_continue && next_userdb != NULL) {
@@ -1322,7 +1322,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		}
 	}
 
-        request->private_callback.userdb(result, request);
+	 request->private_callback.userdb(result, request);
 }
 
 void auth_request_lookup_user(struct auth_request *request,
@@ -1366,7 +1366,7 @@ void auth_request_lookup_user(struct auth_request *request,
 
 static char *
 auth_request_fix_username(struct auth_request *request, const char *username,
-                          const char **error_r)
+			     const char **error_r)
 {
 	const struct auth_settings *set = request->set;
 	unsigned char *p;
@@ -1375,12 +1375,12 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 	if (*set->default_realm != '\0' &&
 	    strchr(username, '@') == NULL) {
 		user = p_strconcat(request->pool, username, "@",
-                                   set->default_realm, NULL);
+					set->default_realm, NULL);
 	} else {
 		user = p_strdup(request->pool, username);
 	}
 
-        for (p = (unsigned char *)user; *p != '\0'; p++) {
+	 for (p = (unsigned char *)user; *p != '\0'; p++) {
 		if (set->username_translation_map[*p & 0xff] != 0)
 			*p = set->username_translation_map[*p & 0xff];
 		if (set->username_chars_map[*p & 0xff] == 0) {
@@ -1414,11 +1414,11 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		*error_r = "Empty username";
 		return NULL;
 	}
-        return user;
+	 return user;
 }
 
 bool auth_request_set_username(struct auth_request *request,
-			       const char *username, const char **error_r)
+				const char *username, const char **error_r)
 {
 	const struct auth_settings *set = request->set;
 	const char *p, *login_username = NULL;
@@ -1447,7 +1447,7 @@ bool auth_request_set_username(struct auth_request *request,
 		username = request->user;
 	}
 
-        request->user = auth_request_fix_username(request, username, error_r);
+	 request->user = auth_request_fix_username(request, username, error_r);
 	if (request->user == NULL)
 		return FALSE;
 	if (request->translated_username == NULL) {
@@ -1465,8 +1465,8 @@ bool auth_request_set_username(struct auth_request *request,
 }
 
 bool auth_request_set_login_username(struct auth_request *request,
-                                     const char *username,
-                                     const char **error_r)
+					  const char *username,
+					  const char **error_r)
 {
 	struct auth_passdb *master_passdb;
 
@@ -1481,7 +1481,7 @@ bool auth_request_set_login_username(struct auth_request *request,
 		return TRUE;
 	}
 
-        /* lookup request->user from masterdb first */
+	 /* lookup request->user from masterdb first */
 	master_passdb = auth_request_get_auth(request)->masterdbs;
 	if (master_passdb == NULL) {
 		*error_r = "Master user login attempted without master passdbs";
@@ -1489,21 +1489,21 @@ bool auth_request_set_login_username(struct auth_request *request,
 	}
 	request->passdb = master_passdb;
 
-        request->requested_login_user =
-                auth_request_fix_username(request, username, error_r);
+	request->requested_login_user =
+		auth_request_fix_username(request, username, error_r);
 	if (request->requested_login_user == NULL)
 		return FALSE;
 
 	auth_request_log_debug(request, AUTH_SUBSYS_DB,
-			       "Master user lookup for login: %s",
-			       request->requested_login_user);
+				"Master user lookup for login: %s",
+				request->requested_login_user);
 	return TRUE;
 }
 
 static void
 auth_request_validate_networks(struct auth_request *request,
-			       const char *name, const char *networks,
-			       const struct ip_addr *remote_ip)
+				const char *name, const char *networks,
+				const struct ip_addr *remote_ip)
 {
 	const char *const *net;
 	struct ip_addr net_ip;
@@ -1618,8 +1618,8 @@ auth_request_try_update_username(struct auth_request *request,
 
 	if (strcmp(request->user, new_value) != 0) {
 		auth_request_log_debug(request, AUTH_SUBSYS_DB,
-				       "username changed %s -> %s",
-				       request->user, new_value);
+					"username changed %s -> %s",
+					request->user, new_value);
 		request->user = p_strdup(request->pool, new_value);
 	}
 	return TRUE;
@@ -1814,7 +1814,7 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 	auth_request_var_expand(path, path_template, request, NULL);
 	if (stat(str_c(path), &st) < 0) {
 		auth_request_log_error(request, AUTH_SUBSYS_DB,
-				       "stat(%s) failed: %m", str_c(path));
+					"stat(%s) failed: %m", str_c(path));
 	} else {
 		auth_fields_add(request->userdb_reply,
 				"uid", dec2str(st.st_uid), 0);
@@ -1987,7 +1987,7 @@ auth_request_proxy_finish_ip(struct auth_request *request,
 		/* proxying to ourself - log in without proxying by dropping
 		   all the proxying fields. */
 		bool proxy_always = auth_fields_exists(request->extra_fields,
-						       "proxy_always");
+							"proxy_always");
 
 		auth_request_proxy_finish_failure(request);
 		if (proxy_always) {
@@ -2074,7 +2074,7 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	request->dns_lookup_ctx = ctx;
 
 	if (dns_lookup(host, &dns_set, auth_request_proxy_dns_callback, ctx,
-		       &ctx->dns_lookup) < 0) {
+			&ctx->dns_lookup) < 0) {
 		/* failed early */
 		return -1;
 	}
@@ -2256,7 +2256,7 @@ int auth_request_password_verify(struct auth_request *request,
 
 	if (auth_fields_exists(request->extra_fields, "nopassword")) {
 		auth_request_log_debug(request, subsystem,
-				       "Allowing any password");
+					"Allowing any password");
 		return 1;
 	}
 
@@ -2269,7 +2269,7 @@ int auth_request_password_verify(struct auth_request *request,
 				scheme, error);
 		} else {
 			auth_request_log_error(request, subsystem,
-					       "Unknown scheme %s", scheme);
+						"Unknown scheme %s", scheme);
 		}
 		return -1;
 	}
@@ -2283,8 +2283,8 @@ int auth_request_password_verify(struct auth_request *request,
 		const char *password_str = request->set->debug_passwords ?
 			t_strdup_printf(" '%s'", crypted_password) : "";
 		auth_request_log_error(request, subsystem,
-				       "Invalid password%s in passdb: %s",
-				       password_str, error);
+					"Invalid password%s in passdb: %s",
+					password_str, error);
 	} else if (ret == 0) {
 		auth_request_log_password_mismatch(request, subsystem);
 	}
