@@ -136,7 +136,7 @@ bool dcrypt_ctx_sym_final(struct dcrypt_context_symmetric *ctx, buffer_t *result
 
 void dcrypt_ctx_sym_set_padding(struct dcrypt_context_symmetric *ctx, bool padding)
 {
-	return dcrypt_vfs->ctx_sym_set_padding(ctx, padding);
+	dcrypt_vfs->ctx_sym_set_padding(ctx, padding);
 }
 
 bool dcrypt_ctx_hmac_create(const char *algorithm, struct dcrypt_context_hmac **ctx_r, const char **error_r)
