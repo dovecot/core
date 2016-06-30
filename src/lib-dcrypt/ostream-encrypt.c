@@ -496,6 +496,9 @@ int o_stream_encrypt_flush(struct ostream_private *stream)
 	const char *error;
 	struct encrypt_ostream *estream = (struct encrypt_ostream *)stream;
 
+	/* if nothing was written, we are done */
+	if (!estream->prefix_written) return o_stream_flush(stream->parent);
+
 	i_assert(!estream->finalized);
 	estream->finalized = TRUE;
 
