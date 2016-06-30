@@ -5,6 +5,7 @@
 #include "settings-parser.h"
 #include "service-settings.h"
 #include "mail-storage-settings.h"
+#include "lda-settings.h"
 #include "imap-settings.h"
 
 #include <stddef.h>
@@ -101,6 +102,7 @@ static const struct imap_settings imap_default_settings = {
 
 static const struct setting_parser_info *imap_setting_dependencies[] = {
 	&mail_user_setting_parser_info,
+	&lda_setting_parser_info,
 	NULL
 };
 
