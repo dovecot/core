@@ -203,17 +203,10 @@ int o_stream_encrypt_keydata_create_v1(struct encrypt_ostream *stream)
 		return -1;
 	}
 
-	if (ec == 0) {
-		/* same as above */
-		dcrypt_ctx_sym_set_iv(stream->ctx_sym, (const unsigned char*)"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 16);
-		dcrypt_ctx_sym_set_key(stream->ctx_sym, seed, sizeof(seed));
-	}
+	/* same as above */
+	dcrypt_ctx_sym_set_iv(stream->ctx_sym, (const unsigned char*)"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 16);
+	dcrypt_ctx_sym_set_key(stream->ctx_sym, seed, sizeof(seed));
 	safe_memset(seed, 0, sizeof(seed));
-
-	if (ec != 0) {
-		io_stream_set_error(&stream->ostream.iostream, "Encryption init error: %s", error);
-		return -1;
-	}
 
 	if (!dcrypt_ctx_sym_init(stream->ctx_sym, &error)) {
 		io_stream_set_error(&stream->ostream.iostream, "Encryption init error: %s", error);
