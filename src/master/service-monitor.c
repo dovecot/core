@@ -505,6 +505,14 @@ void services_monitor_start(struct service_list *service_list)
 	}
 }
 
+static void service_monitor_close_dead_pipe(struct service *service)
+{
+	if (service->master_dead_pipe_fd[0] != -1) {
+		i_close_fd(&service->master_dead_pipe_fd[0]);
+		i_close_fd(&service->master_dead_pipe_fd[1]);
+	}
+}
+
 void service_monitor_stop(struct service *service)
 {
 	int i;
@@ -522,10 +530,7 @@ void service_monitor_stop(struct service *service)
 			service->status_fd[i] = -1;
 		}
 	}
-	if (service->master_dead_pipe_fd[0] != -1) {
-		i_close_fd(&service->master_dead_pipe_fd[0]);
-		i_close_fd(&service->master_dead_pipe_fd[1]);
-	}
+	service_monitor_close_dead_pipe(service);
 	if (service->login_notify_fd != -1) {
 		if (close(service->login_notify_fd) < 0) {
 			service_error(service,
@@ -581,6 +586,9 @@ static void services_monitor_wait(struct service_list *service_list)
 void services_monitor_stop(struct service_list *service_list, bool wait)
 {
 	struct service *const *services;
+
+	array_foreach(&service_list->services, services)
+		service_monitor_close_dead_pipe(*services);
 
 	if (wait) {
 		/* we've notified all children that the master is dead.
