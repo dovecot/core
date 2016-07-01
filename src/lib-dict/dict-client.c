@@ -114,6 +114,8 @@ client_dict_cmd_init(struct client_dict *dict, const char *query)
 {
 	struct client_dict_cmd *cmd;
 
+	io_loop_time_refresh();
+
 	cmd = i_new(struct client_dict_cmd, 1);
 	cmd->refcount = 1;
 	cmd->dict = dict;
