@@ -1,4 +1,4 @@
-v2.2.25 2016-06-xx  Timo Sirainen <tss@iki.fi>
+v2.2.25 2016-07-01  Timo Sirainen <tss@iki.fi>
 
 	* lmtp: Start tracking lmtp_user_concurrency_limit and reject already
 	  at RCPT TO stage. This avoids MTA unnecessarily completing DATA only
