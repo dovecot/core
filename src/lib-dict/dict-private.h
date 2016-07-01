@@ -63,6 +63,9 @@ struct dict_transaction_context {
 	bool changed:1;
 };
 
+void dict_transaction_commit_async_noop_callback(
+	const struct dict_commit_result *result, void *context);
+
 extern struct dict dict_driver_client;
 extern struct dict dict_driver_file;
 extern struct dict dict_driver_fs;

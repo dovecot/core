@@ -36,6 +36,7 @@ struct client_dict_cmd {
 	bool retry_errors;
 	bool no_replies;
 	bool unfinished;
+	bool background;
 
 	void (*callback)(struct client_dict_cmd *cmd,
 			 const char *line, const char *error);
@@ -361,7 +362,8 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 		/* more lines needed for this command */
 		return 1;
 	}
-	diff = timeval_diff_msecs(&ioloop_timeval, &cmds[0]->start_time);
+	diff = cmds[0]->background ? 0 :
+		timeval_diff_msecs(&ioloop_timeval, &cmds[0]->start_time);
 	if (diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
 		i_warning("read(%s): dict lookup took %u.%03u seconds: %s",
 			  dict->conn.conn.name, diff/1000, diff % 1000,
@@ -711,6 +713,9 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 	struct client_dict_iter_result *result;
 	const char *key = NULL, *value = NULL;
 
+	if (ctx->deinit)
+		cmd->background = TRUE;
+
 	if (error != NULL) {
 		/* failed */
 	} else switch (*line) {
@@ -919,6 +924,8 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 		cmd->callback = client_dict_transaction_commit_callback;
 		cmd->api_callback.commit = callback;
 		cmd->api_callback.context = context;
+		if (callback == dict_transaction_commit_async_noop_callback)
+			cmd->background = TRUE;
 		if (client_dict_cmd_send(dict, &cmd, NULL)) {
 			if (!async)
 				client_dict_wait(_ctx->dict);

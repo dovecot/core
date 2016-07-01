@@ -22,8 +22,8 @@ static struct dict *dict_driver_lookup(const char *name)
 	return NULL;
 }
 
-static
-void dict_transaction_commit_default_callback(const struct dict_commit_result *result ATTR_UNUSED, 
+void dict_transaction_commit_async_noop_callback(
+	const struct dict_commit_result *result ATTR_UNUSED,
 	void *context ATTR_UNUSED)
 {
 	/* do nothing */
@@ -241,7 +241,7 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 
 	*_ctx = NULL;
 	if (callback == NULL)
-		callback = dict_transaction_commit_default_callback;
+		callback = dict_transaction_commit_async_noop_callback;
 	ctx->dict->v.transaction_commit(ctx, TRUE, callback, context);
 }
 
