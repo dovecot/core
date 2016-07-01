@@ -717,12 +717,14 @@ static void query_callback(CassFuture *future, void *context)
 	if (error != CASS_OK) {
 		const char *errmsg;
 		size_t errsize;
+		int msecs;
 
 		cass_future_error_message(future, &errmsg, &errsize);
 		i_free(result->error);
-		result->error = i_strdup_printf("Query '%s' failed: %.*s",
-						result->query,
-						(int)errsize, errmsg);
+
+		msecs = timeval_diff_msecs(&ioloop_timeval, &result->start_time);
+		result->error = i_strdup_printf("Query '%s' failed: %.*s (in %u.%03u secs)",
+			result->query, (int)errsize, errmsg, msecs/1000, msecs%1000);
 		/* unavailable = cassandra server knows that there aren't
 		   enough nodes available.
 
