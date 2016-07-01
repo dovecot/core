@@ -258,6 +258,23 @@ This command is used to subscribe one or more mailboxes.
 .PP
 This command is used to unsubscribe one or more mailboxes.
 .\"------------------------------------------------------------------------
+.SS mailbox update
+.B doveadm mailbox update
+[\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP]
+[\fB\-S\fP \fIsocket_path\fP]
+[\fB\--mailbox-guid\fP \fIguid\fP]
+[\fB\--uid-validity\fP \fIuid\fP]
+[\fB\--min-next-uid\fP \fIuid\fP]
+[\fB\--min-first-recent-uid\fP \fIuid\fP]
+[\fB\--min-highest-modseq\fP \fIseq\fP]
+[\fB\--min-highest-pvt-modseq\fP \fIseq\fP]
+.IR mailbox\ ...
+.PP
+This command is used to set UID validity, next UID, first recent UID and modification sequence values.
+.PP
+Usually this is only ever to be used during migration, or restoring mailbox after disaster.
+Settings these values is highly discouraged, and is not supported for all mail backends.
+.\"------------------------------------------------------------------------
 .SH EXAMPLE
 List subscribed mailboxes, beginning with \(aqdovecot\(aq, of user bob.
 .sp
