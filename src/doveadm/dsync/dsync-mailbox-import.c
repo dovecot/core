@@ -62,6 +62,7 @@ struct dsync_mailbox_importer {
 	uint32_t remote_first_recent_uid;
 	uint64_t remote_highest_modseq, remote_highest_pvt_modseq;
 	time_t sync_since_timestamp;
+	uoff_t sync_max_size;
 	enum mailbox_transaction_flags transaction_flags;
 	unsigned int hdr_hash_version;
 
@@ -216,7 +217,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  uint32_t remote_first_recent_uid,
 			  uint64_t remote_highest_modseq,
 			  uint64_t remote_highest_pvt_modseq,
-			  time_t sync_since_timestamp, const char *sync_flag,
+			  time_t sync_since_timestamp, uoff_t sync_max_size,
+			  const char *sync_flag,
 			  enum dsync_mailbox_import_flags flags)
 {
 	struct dsync_mailbox_importer *importer;
@@ -239,6 +241,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->remote_highest_modseq = remote_highest_modseq;
 	importer->remote_highest_pvt_modseq = remote_highest_pvt_modseq;
 	importer->sync_since_timestamp = sync_since_timestamp;
+	importer->sync_max_size = sync_max_size;
 	importer->stateful_import = importer->last_common_uid_found;
 	if (sync_flag != NULL) {
 		if (sync_flag[0] == '-') {
@@ -1347,6 +1350,14 @@ dsync_mailbox_import_want_change(struct dsync_mailbox_importer *importer,
 			return FALSE;
 		}
 	}
+	if (importer->sync_max_size > 0) {
+		i_assert(change->virtual_size != (uoff_t)-1);
+		if (change->virtual_size < importer->sync_max_size) {
+			/* mail is too large - skip it */
+			*result_r = "Ignoring missing local mail with too large size";
+			return FALSE;
+		}
+	}
 	if (importer->sync_flag != 0) {
 		bool have_flag = (change->final_flags & importer->sync_flag) != 0;
 
@@ -1632,9 +1643,9 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 {
 	int ret;
 
-	i_assert(importer->sync_since_timestamp == 0 ||
-		 change->received_timestamp > 0 ||
-		 change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
+	i_assert(change->type == DSYNC_MAIL_CHANGE_TYPE_EXPUNGE ||
+		 ((change->received_timestamp > 0 || importer->sync_since_timestamp == 0) &&
+		  (change->virtual_size != (uoff_t)-1 || importer->sync_max_size == 0)));
 
 	/* try to find the matching local mail */
 	if (!importer_next_mail(importer, change->uid)) {

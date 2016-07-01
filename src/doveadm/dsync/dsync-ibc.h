@@ -58,6 +58,8 @@ struct dsync_ibc_settings {
 	const char *const *exclude_mailboxes;
 	/* Sync only mails with received timestamp at least this high. */
 	time_t sync_since_timestamp;
+	/* Don't sync mails larger than this. */
+	uoff_t sync_max_size;
 	/* Sync only mails with specified flags. */
 	const char *sync_flags;
 

@@ -67,6 +67,7 @@ struct dsync_cmd_context {
 	ARRAY_TYPE(const_string) exclude_mailboxes;
 	ARRAY_TYPE(const_string) namespace_prefixes;
 	time_t sync_since_timestamp;
+	uoff_t sync_max_size;
 	unsigned int io_timeout_secs;
 
 	const char *remote_name;
@@ -568,6 +569,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 			"%s ", net_ip2addr(&_ctx->cur_client_ip));
 	}
 	set.sync_since_timestamp = ctx->sync_since_timestamp;
+	set.sync_max_size = ctx->sync_max_size;
 	set.sync_box = ctx->mailbox;
 	set.sync_flag = ctx->sync_flags;
 	set.virtual_all_box = ctx->virtual_all_box;
@@ -1037,6 +1039,10 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 't':
 		if (mail_parse_human_timestamp(optarg, &ctx->sync_since_timestamp) < 0)
 			i_fatal("Invalid -t parameter: %s", optarg);
+		break;
+	case 'S':
+		if (settings_parse_size(optarg, &ctx->sync_max_size) < 0)
+			i_fatal("Invalid -S parameter: %s", optarg);
 		break;
 	case 'T':
 		if (str_to_uint(optarg, &ctx->io_timeout_secs) < 0)

@@ -77,7 +77,8 @@ static const struct {
 	  	"debug sync_visible_namespaces exclude_mailboxes  "
 	  	"send_mail_requests backup_send backup_recv lock_timeout "
 	  	"no_mail_sync no_mailbox_renames no_backup_overwrite purge_remote "
-		"no_notify sync_since_timestamp sync_flags virtual_all_box"
+		"no_notify sync_since_timestamp sync_max_size sync_flags "
+	  	"virtual_all_box"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
@@ -707,6 +708,10 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "sync_since_timestamp",
 			t_strdup_printf("%ld", (long)set->sync_since_timestamp));
 	}
+	if (set->sync_max_size > 0) {
+		dsync_serializer_encode_add(encoder, "sync_max_size",
+			t_strdup_printf("%llu", (unsigned long long)set->sync_max_size));
+	}
 	if (set->sync_flags != NULL) {
 		dsync_serializer_encode_add(encoder, "sync_flags",
 					    set->sync_flags);
@@ -816,6 +821,14 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		    set->sync_since_timestamp == 0) {
 			dsync_ibc_input_error(ibc, decoder,
 				"Invalid sync_since_timestamp: %s", value);
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+	}
+	if (dsync_deserializer_decode_try(decoder, "sync_max_size", &value)) {
+		if (str_to_uoff(value, &set->sync_max_size) < 0 ||
+		    set->sync_max_size == 0) {
+			dsync_ibc_input_error(ibc, decoder,
+				"Invalid sync_max_size: %s", value);
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
 		}
 	}
@@ -1631,6 +1644,10 @@ dsync_ibc_stream_send_change(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "received_timestamp",
 			t_strdup_printf("%lx", (unsigned long)change->received_timestamp));
 	}
+	if (change->virtual_size > 0) {
+		dsync_serializer_encode_add(encoder, "virtual_size",
+			t_strdup_printf("%llx", (unsigned long long)change->virtual_size));
+	}
 
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
@@ -1736,6 +1753,11 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 	if (dsync_deserializer_decode_try(decoder, "received_timestamp", &value) &&
 	    str_to_time(value, &change->received_timestamp) < 0) {
 		dsync_ibc_input_error(ibc, decoder, "Invalid received_timestamp");
+		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	}
+	if (dsync_deserializer_decode_try(decoder, "virtual_size", &value) &&
+	    str_to_uoff(value, &change->virtual_size) < 0) {
+		dsync_ibc_input_error(ibc, decoder, "Invalid virtual_size");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 
