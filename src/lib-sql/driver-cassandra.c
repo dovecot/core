@@ -25,6 +25,8 @@
 #define CASSANDRA_FALLBACK_FIRST_RETRY_MSECS 50
 #define CASSANDRA_FALLBACK_MAX_RETRY_MSECS (1000*60)
 
+#define CASS_QUERY_DEFAULT_WARN_TIMEOUT_MSECS (5*1000)
+
 typedef void driver_cassandra_callback_t(CassFuture *future, void *context);
 
 enum cassandra_query_type {
@@ -56,6 +58,7 @@ struct cassandra_db {
 	unsigned int protocol_version;
 	unsigned int num_threads;
 	unsigned int connect_timeout_msecs, request_timeout_msecs;
+	unsigned int warn_timeout_msecs;
 	in_port_t port;
 
 	CassCluster *cluster;
@@ -384,6 +387,7 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 	db->delete_consistency = CASS_CONSISTENCY_LOCAL_QUORUM;
 	db->connect_timeout_msecs = SQL_CONNECT_TIMEOUT_SECS*1000;
 	db->request_timeout_msecs = SQL_QUERY_TIMEOUT_SECS*1000;
+	db->warn_timeout_msecs = CASS_QUERY_DEFAULT_WARN_TIMEOUT_MSECS;
 
 	args = t_strsplit_spaces(connect_string, " ");
 	for (; *args != NULL; args++) {
@@ -447,6 +451,9 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		} else if (strcmp(key, "request_timeout") == 0) {
 			if (settings_get_time_msecs(value, &db->request_timeout_msecs, &error) < 0)
 				i_fatal("cassandra: Invalid request_timeout '%s': %s", value, error);
+		} else if (strcmp(key, "warn_timeout") == 0) {
+			if (settings_get_time_msecs(value, &db->warn_timeout_msecs, &error) < 0)
+				i_fatal("cassandra: Invalid warn_timeout '%s': %s", value, error);
 		} else if (strcmp(key, "metrics") == 0) {
 			i_free(db->metrics_path);
 			db->metrics_path = i_strdup(value);
@@ -614,6 +621,8 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 	struct cassandra_db *db = (struct cassandra_db *)_result->db;
         struct cassandra_result *result = (struct cassandra_result *)_result;
 	struct timeval now;
+	const char *str;
+	long long reply_usecs;
 
 	i_assert(!result->api.callback);
 	i_assert(result->callback == NULL);
@@ -621,14 +630,21 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 	if (_result == db->sync_result)
 		db->sync_result = NULL;
 
-	if (db->log_level >= CASS_LOG_DEBUG) {
+	reply_usecs = timeval_diff_usecs(&result->finish_time, &result->start_time);
+	if (db->log_level >= CASS_LOG_DEBUG ||
+	    reply_usecs/1000 >= db->warn_timeout_msecs) {
 		if (gettimeofday(&now, NULL) < 0)
 			i_fatal("gettimeofday() failed: %m");
-		i_debug("cassandra: Finished query '%s' (%u rows, %lld+%lld us): %s", result->query,
-			result->row_count,
-			timeval_diff_usecs(&result->finish_time, &result->start_time),
+		str = t_strdup_printf(
+			"cassandra: Finished query '%s' (%u rows, %lld+%lld us): %s",
+			result->query, result->row_count, reply_usecs,
 			timeval_diff_usecs(&now, &result->finish_time),
 			result->error != NULL ? result->error : "success");
+
+		if (reply_usecs/1000 >= db->warn_timeout_msecs)
+			i_warning("%s", str);
+		else
+			i_debug("%s", str);
 	}
 
 	if (result->result != NULL)
