@@ -28,8 +28,13 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 
 	/* first try to check quickly from mailbox list index if we should
 	   bother opening this mailbox. */
-	if (mailbox_get_status(box, STATUS_MESSAGES, &status) < 0)
+	if (mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
+		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND) {
+			/* autocreated mailbox doesn't exist yet */
+			return 0;
+		}
 		return -1;
+	}
 	if (interval_time == 0 && status.messages <= max_mails)
 		return 0;
 
@@ -42,13 +47,8 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 			return 0;
 	}
 
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0) {
-		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND) {
-			/* autocreated mailbox doesn't exist yet */
-			return 0;
-		}
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
 		return -1;
-	}
 
 	t = mailbox_transaction_begin(box, 0);
 	mail = mail_alloc(t, 0, NULL);
