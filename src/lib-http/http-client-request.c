@@ -1084,7 +1084,7 @@ bool http_client_request_callback(struct http_client_request *req,
 			unsigned int total_msecs =
 				timeval_diff_msecs(&ioloop_timeval, &req->submit_time);
 			response_copy.reason = t_strdup_printf(
-				"%s (%u attempts in %u.%03u secs)",
+				"%s (%u retries in %u.%03u secs)",
 				response_copy.reason, req->attempts,
 				total_msecs/1000, total_msecs%1000);
 		}
