@@ -639,6 +639,7 @@ int cmd_mailbox_update_run(struct doveadm_mail_cmd_context *_ctx,
 	struct update_cmd_context *ctx = (struct update_cmd_context *)_ctx;
 	struct mail_namespace *ns;
 	struct mailbox *box;
+	enum mail_error mail_error;
 	int ret = 0;
 
 	ns = mail_namespace_find(user->namespaces, ctx->mailbox);
@@ -647,7 +648,8 @@ int cmd_mailbox_update_run(struct doveadm_mail_cmd_context *_ctx,
 	if ((ret = mailbox_update(box, &(ctx->update))) != 0) {
 		i_error("Cannot update %s: %s",
 			ctx->mailbox,
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_error(box, &mail_error));
+		doveadm_mail_failed_error(_ctx, mail_error);
 	}
 
 	mailbox_free(&box);
