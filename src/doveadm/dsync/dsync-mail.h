@@ -81,6 +81,9 @@ struct dsync_mail_change {
 
 	/* Received timestamp for saves, if brain.sync_since_timestamp is set */
 	time_t received_timestamp;
+	/* Mail's size for saves if brain.sync_max_size is set,
+	   (uoff_t)-1 otherwise. */
+	uoff_t virtual_size;
 };
 
 struct mailbox_header_lookup_ctx *

@@ -233,6 +233,7 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 					  remote_dsync_box->highest_modseq,
 					  remote_dsync_box->highest_pvt_modseq,
 					  brain->sync_since_timestamp,
+					  brain->sync_max_size,
 					  brain->sync_flag,
 					  import_flags);
 }
@@ -322,6 +323,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_MINIMAL_DMAIL_FILL;
 	if (brain->sync_since_timestamp > 0)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS;
+	if (brain->sync_max_size > 0)
+		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES;
 	if (brain->hdr_hash_v2)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2;
 	if (remote_dsync_box->messages_count == 0) {
