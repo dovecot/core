@@ -55,6 +55,7 @@ struct cassandra_db {
 	CassConsistency read_consistency, write_consistency, delete_consistency;
 	CassConsistency read_fallback_consistency, write_fallback_consistency, delete_fallback_consistency;
 	CassLogLevel log_level;
+	bool debug_queries;
 	unsigned int protocol_version;
 	unsigned int num_threads;
 	unsigned int connect_timeout_msecs, request_timeout_msecs;
@@ -439,6 +440,8 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		} else if (strcmp(key, "log_level") == 0) {
 			if (log_level_parse(value, &db->log_level) < 0)
 				i_fatal("cassandra: Unknown log_level: %s", value);
+		} else if (strcmp(key, "debug_queries") == 0) {
+			db->debug_queries = TRUE;
 		} else if (strcmp(key, "version") == 0) {
 			if (str_to_uint(value, &db->protocol_version) < 0)
 				i_fatal("cassandra: Invalid version: %s", value);
@@ -631,7 +634,7 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 		db->sync_result = NULL;
 
 	reply_usecs = timeval_diff_usecs(&result->finish_time, &result->start_time);
-	if (db->log_level >= CASS_LOG_DEBUG ||
+	if (db->log_level >= CASS_LOG_DEBUG || db->debug_queries ||
 	    reply_usecs/1000 >= db->warn_timeout_msecs) {
 		if (gettimeofday(&now, NULL) < 0)
 			i_fatal("gettimeofday() failed: %m");
