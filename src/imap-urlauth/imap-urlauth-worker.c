@@ -721,7 +721,6 @@ static void client_input(struct client *client)
 
 static int client_output(struct client *client)
 {
-	o_stream_cork(client->output);
 	if (o_stream_flush(client->output) < 0) {
 		if (client->ctrl_output != NULL)
 			(void)o_stream_send_str(client->ctrl_output, "DISCONNECTED\n");
@@ -744,7 +743,6 @@ static int client_output(struct client *client)
 		}
 	}
 
-	o_stream_uncork(client->output);
 	if (client->url != NULL) {
 		/* url not finished yet */
 		return 0;

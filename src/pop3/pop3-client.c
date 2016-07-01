@@ -805,7 +805,6 @@ static void client_input(struct client *client)
 
 static int client_output(struct client *client)
 {
-	o_stream_cork(client->output);
 	if (o_stream_flush(client->output) < 0) {
 		client_destroy(client, NULL);
 		return 1;
@@ -835,7 +834,6 @@ static int client_output(struct client *client)
 		}
 	}
 
-	o_stream_uncork(client->output);
 	if (client->cmd != NULL) {
 		/* command not finished yet */
 		return 0;

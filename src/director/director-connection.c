@@ -1830,9 +1830,7 @@ static int director_connection_output(struct director_connection *conn)
 
 	if (conn->user_iter != NULL) {
 		/* still handshaking USER list */
-		o_stream_cork(conn->output);
 		ret = director_connection_send_users(conn);
-		o_stream_uncork(conn->output);
 		if (ret < 0) {
 			director_connection_disconnected(&conn,
 				o_stream_get_error(conn->output));

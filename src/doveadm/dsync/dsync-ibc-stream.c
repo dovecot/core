@@ -295,7 +295,6 @@ static int dsync_ibc_stream_output(struct dsync_ibc_stream *ibc)
 	struct ostream *output = ibc->output;
 	int ret;
 
-	o_stream_cork(ibc->output);
 	if ((ret = o_stream_flush(output)) < 0)
 		ret = 1;
 	else if (ibc->value_output != NULL) {
@@ -306,7 +305,6 @@ static int dsync_ibc_stream_output(struct dsync_ibc_stream *ibc)
 
 	if (!dsync_ibc_is_send_queue_full(&ibc->ibc))
 		ibc->ibc.io_callback(ibc->ibc.io_context);
-	o_stream_uncork(ibc->output);
 	return ret;
 }
 

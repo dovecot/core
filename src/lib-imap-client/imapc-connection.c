@@ -2122,7 +2122,6 @@ static int imapc_connection_output(struct imapc_connection *conn)
 	if (conn->to != NULL)
 		timeout_reset(conn->to);
 
-	o_stream_cork(conn->output);
 	if ((ret = o_stream_flush(conn->output)) < 0)
 		return 1;
 
@@ -2135,7 +2134,6 @@ static int imapc_connection_output(struct imapc_connection *conn)
 			imapc_command_send_more(conn);
 		}
 	}
-	o_stream_uncork(conn->output);
 	imapc_connection_unref(&conn);
 	return ret;
 }

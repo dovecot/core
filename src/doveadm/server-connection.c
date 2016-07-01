@@ -137,11 +137,9 @@ static int server_connection_output(struct server_connection *conn)
 {
 	int ret;
 
-	o_stream_cork(conn->output);
 	ret = o_stream_flush(conn->output);
 	if (ret > 0 && conn->cmd_input != NULL && conn->delayed_cmd == NULL)
 		ret = server_connection_send_cmd_input_more(conn);
-	o_stream_uncork(conn->output);
 	if (ret < 0)
 		server_connection_destroy(&conn);
 	return ret;

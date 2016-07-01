@@ -1218,7 +1218,6 @@ int client_output(struct client *client)
 	if (client->to_idle_output != NULL)
 		timeout_reset(client->to_idle_output);
 
-	o_stream_cork(client->output);
 	if ((ret = o_stream_flush(client->output)) < 0) {
 		client_destroy(client, NULL);
 		return 1;
@@ -1227,7 +1226,6 @@ int client_output(struct client *client)
 	client_output_commands(client);
 	(void)cmd_sync_delayed(client);
 
-	o_stream_uncork(client->output);
 	imap_refresh_proctitle();
 	if (client->output->closed)
 		client_destroy(client, NULL);

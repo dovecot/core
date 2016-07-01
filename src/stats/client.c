@@ -114,14 +114,12 @@ static int client_output(struct client *client)
 {
 	int ret = 1;
 
-	o_stream_cork(client->output);
 	if (o_stream_flush(client->output) < 0) {
 		client_destroy(&client);
 		return 1;
 	}
 	if (client->cmd_more != NULL)
 		ret = client->cmd_more(client);
-	o_stream_uncork(client->output);
 
 	if (ret > 0) {
 		client->cmd_more = NULL;

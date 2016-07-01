@@ -649,13 +649,11 @@ static int lmtp_client_output(struct lmtp_client *client)
 	int ret;
 
 	lmtp_client_ref(client);
-	o_stream_cork(client->output);
 	if ((ret = o_stream_flush(client->output)) < 0)
 		lmtp_client_fail(client, ERRSTR_TEMP_REMOTE_FAILURE
 				 " (disconnected in output)");
 	else if (client->input_state == LMTP_INPUT_STATE_DATA)
 		(void)lmtp_client_send_data(client);
-	o_stream_uncork(client->output);
 	if (client->to != NULL)
 		timeout_reset(client->to);
 	lmtp_client_unref(&client);
