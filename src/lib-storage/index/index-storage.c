@@ -719,7 +719,13 @@ int index_storage_mailbox_delete_pre(struct mailbox *box)
 		if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 			return -1;
 		mailbox_get_open_status(box, STATUS_MESSAGES, &status);
-		if (status.messages != 0) {
+		if (status.messages == 0)
+			;
+		else if (box->deleting_must_be_empty) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+					       "Mailbox isn't empty");
+			return -1;
+		} else {
 			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
 				"New mails were added to mailbox during deletion");
 			return -1;
