@@ -259,7 +259,7 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 	}
 }
 
-static void
+static bool
 client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx)
 {
 	struct client_dict *dict = (struct client_dict *)ctx->ctx.dict;
@@ -275,8 +275,11 @@ client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx)
 	cmd = client_dict_cmd_init(dict, query);
 	cmd->no_replies = TRUE;
 	cmd->retry_errors = TRUE;
-	if (!client_dict_cmd_send(dict, &cmd, &error))
+	if (!client_dict_cmd_send(dict, &cmd, &error)) {
 		ctx->error = i_strdup(error);
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static void
@@ -290,8 +293,10 @@ client_dict_send_transaction_query(struct client_dict_transaction_context *ctx,
 	if (ctx->error != NULL)
 		return;
 
-	if (!ctx->sent_begin)
-		client_dict_transaction_send_begin(ctx);
+	if (!ctx->sent_begin) {
+		if (!client_dict_transaction_send_begin(ctx))
+			return;
+	}
 
 	cmd = client_dict_cmd_init(dict, query);
 	cmd->no_replies = TRUE;
