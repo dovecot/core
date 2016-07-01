@@ -61,6 +61,8 @@ struct client_dict {
 	enum dict_data_type value_type;
 
 	time_t last_failed_connect;
+	char *last_connect_error;
+
 	struct ioloop *ioloop, *prev_ioloop;
 	struct timeout *to_requests;
 	struct timeout *to_idle;
@@ -374,25 +376,28 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 
 static int client_dict_connect(struct client_dict *dict, const char **error_r)
 {
-	const char *query;
+	const char *query, *error;
 
 	if (dict->conn.conn.fd_in != -1)
 		return 0;
 	if (dict->last_failed_connect == ioloop_time) {
 		/* Try again later */
-		*error_r = "Waiting until the next connect attempt";
+		*error_r = dict->last_connect_error;
 		return -1;
 	}
 
 	if (connection_client_connect(&dict->conn.conn) < 0) {
 		dict->last_failed_connect = ioloop_time;
 		if (errno == EACCES) {
-			*error_r = eacces_error_get("net_connect_unix",
-						    dict->conn.conn.name);
+			error = eacces_error_get("net_connect_unix",
+						 dict->conn.conn.name);
 		} else {
-			*error_r = t_strdup_printf(
+			error = t_strdup_printf(
 				"net_connect_unix(%s) failed: %m", dict->conn.conn.name);
 		}
+		i_free(dict->last_connect_error);
+		dict->last_connect_error = i_strdup(error);
+		*error_r = error;
 		return -1;
 	}
 
@@ -540,6 +545,7 @@ static void client_dict_deinit(struct dict *_dict)
 	io_loop_set_current(old_ioloop);
 
 	array_free(&dict->cmds);
+	i_free(dict->last_connect_error);
 	i_free(dict->username);
 	i_free(dict->uri);
 	i_free(dict);
