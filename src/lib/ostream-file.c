@@ -462,6 +462,7 @@ static void o_stream_grow_buffer(struct file_ostream *fstream, size_t bytes)
 static void stream_send_io(struct file_ostream *fstream)
 {
 	struct ostream *ostream = &fstream->ostream.ostream;
+	bool use_cork = !fstream->ostream.corked;
 	int ret;
 
 	/* Set flush_pending = FALSE first before calling the flush callback,
@@ -471,10 +472,14 @@ static void stream_send_io(struct file_ostream *fstream)
 	fstream->flush_pending = FALSE;
 
 	o_stream_ref(ostream);
+	if (use_cork)
+		o_stream_cork(ostream);
 	if (fstream->ostream.callback != NULL)
 		ret = fstream->ostream.callback(fstream->ostream.context);
 	else
 		ret = o_stream_file_flush(&fstream->ostream);
+	if (use_cork)
+		o_stream_uncork(ostream);
 
 	if (ret == 0)
 		fstream->flush_pending = TRUE;
