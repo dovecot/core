@@ -14,6 +14,8 @@ libdcrypt_la_SOURCES = \
 libdcrypt_la_CFLAGS = $(AM_CPPFLAGS) \
 	-DDCRYPT_MODULE_DIR=\"$(pkglibdir)\"
 
+libdcrypt_la_LDFLAGS = -export-dynamic
+
 if BUILD_OPENSSL
 pkglib_LTLIBRARIES += libdcrypt_openssl.la
 libdcrypt_openssl_la_SOURCES = dcrypt-openssl.c dcrypt.c
