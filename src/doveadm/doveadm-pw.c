@@ -36,6 +36,7 @@ static void cmd_pw(int argc, char *argv[])
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.ignore_dlopen_errors = TRUE;
+	mod_set.debug = doveadm_debug;
 
 	modules = module_dir_load_missing(modules, AUTH_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
