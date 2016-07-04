@@ -533,6 +533,36 @@ void test_gen_and_get_info_rsa_pem(void)
 	test_end();
 }
 
+static
+void test_get_info_rsa_private_key(void)
+{
+	test_begin("test_get_info_rsa_private_key");
+
+	const char *key = "-----BEGIN RSA PRIVATE KEY-----\n"
+"MIICXQIBAAKBgQC89q02I9NezBLQ+otn5XLYE7S+GsKUz59ogr45DA/6MI9jey0W\n"
+"56SeWQ1FJD1vDhAx/TRBMfOmhcIPsBjc5sakYOawPdoiqLjOIlO+iHwnbbmLuMsq\n"
+"ue09vgvZsKjuTr2F5DOFQY43Bq/Nd+4bjHJItdOM58+xwA2I/8vDbtI8jwIDAQAB\n"
+"AoGBAJCUrTMfdjqyKjN7f+6ewKBTc5eBIiB6O53ba3B6qj7jqNKVDIrZ8jq2KFEe\n"
+"yWKPgBS/h5vafHKNJU6bjmp2qMUJPB7PTA876eDo0cq9PplUqihiTlXJFwNQYtF+\n"
+"o27To5t25+5qdSAj657+lQfFT9Xn9fzYHDmotURxH10FgFkBAkEA+7Ny6lBTeb3W\n"
+"LnP0UPfPzQLilEr8u81PLWe69RGtsEaMQHGpHOl4e+bvvVYbG1cgxwxI1m01uR9r\n"
+"qpD3qLUdrQJBAMAw6UvN8R+opYTZzwqK7Nliil2QZMPmXM04SV1iFq26NM60w2Fm\n"
+"HqOOh0EbpSWsFtIgxJFWoZOtrguxqCJuUqsCQF3EoXf3StHczhDqM8eCOpD2lTCH\n"
+"qxXPy8JvlW+9EUbNUWykq0rRE4idJQ0VKe4KjHR6+Buh/dSkhvi5Hvpj1tUCQHRv\n"
+"LWeXZLVhXqWVrzEb6VHpuRnmGKX2MdLCfu/sNQEbBlMUgCnJzFYaSybOsMaZ81lq\n"
+"MKw8Z7coSYEcKFhzrfECQQD7l+4Bhy8Zuz6VoGGIZwIhxkJrImBFmaUwx8N6jg20\n"
+"sgDRYwCoGkGd7B8uIHZLJoWzSSutHiu5i5PYUy5VT1yT\n"
+"-----END RSA PRIVATE KEY-----\n";
+
+	const char *error = NULL;
+
+	test_assert(!dcrypt_key_string_get_info(key, NULL, NULL,
+			NULL, NULL, NULL, NULL, &error));
+	test_assert(error != NULL && strstr(error, "pkey") != NULL);
+
+	test_end();
+}
+
 int main(void) {
 	random_init();
 	dcrypt_initialize("openssl", NULL, NULL);
@@ -548,6 +578,7 @@ int main(void) {
 		test_load_v2_public_key,
 		test_get_info_v2_key,
 		test_gen_and_get_info_rsa_pem,
+		test_get_info_rsa_private_key,
 		NULL
 	};
 

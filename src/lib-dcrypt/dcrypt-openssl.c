@@ -1762,6 +1762,13 @@ bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_fo
 		format = DCRYPT_FORMAT_PEM;
 		version = DCRYPT_KEY_VERSION_NA;
 		key_data += 11;
+		if (strncmp(key_data, "RSA ", 4) == 0) {
+			if (error_r != NULL)
+				*error_r = "RSA private key format not "
+					"supported, convert it to PKEY format "
+					"with openssl pkey";
+			return FALSE;
+		}
 		if (strncmp(key_data, "ENCRYPTED ", 10) == 0) {
 			encryption_type = DCRYPT_KEY_ENCRYPTION_TYPE_PASSWORD;
 			key_data += 10;
