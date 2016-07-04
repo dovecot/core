@@ -426,6 +426,7 @@ services_create_real(const struct master_settings *set, pool_t pool,
 	service_list->set = set;
 	service_list->master_log_fd[0] = -1;
 	service_list->master_log_fd[1] = -1;
+	service_list->master_fd = -1;
 
 	service_settings = array_get(&set->services, &count);
 	p_array_init(&service_list->services, pool, count);
