@@ -1009,7 +1009,7 @@ fi
 
 AC_CACHE_CHECK([if we can use C99 static in array sizes],i_cv_c99_static_arrays,[
   AC_TRY_COMPILE([
-    void foo(int arr[static 20]);
+    void foo(unsigned char [static 20]);
   ], [
   ], [
     i_cv_c99_static_arrays=yes
