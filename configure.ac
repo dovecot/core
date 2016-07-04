@@ -5,6 +5,8 @@ AC_PREREQ([2.59])
 AC_INIT([Dovecot],[2.2.25],[dovecot@dovecot.org])
 AC_DEFINE_UNQUOTED([DOVECOT_ABI_VERSION], "2.2.ABIv25($PACKAGE_VERSION)", [Dovecot ABI version])
 
+AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_SRCDIR([src])
 
 AM_INIT_AUTOMAKE([foreign])
