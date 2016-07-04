@@ -6,7 +6,6 @@
 #include "fd-close-on-exec.h"
 #include "ioloop.h"
 #include "net.h"
-#include "master-client.h"
 #ifdef HAVE_SYSTEMD
 #include "sd-daemon.h"
 #endif
@@ -357,10 +356,6 @@ static int services_listen_master(struct service_list *service_list)
 
 	if (service_list->master_fd == -1)
 		return 0;
-
-	service_list->io_master =
-		io_add(service_list->master_fd, IO_READ,
-		       master_client_connected, service_list);
 	return 1;
 }
 
