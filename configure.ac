@@ -1703,6 +1703,7 @@ if test $want_openssl != no && test $have_ssl = no; then
   if test "$have_openssl" = "yes"; then
     AC_DEFINE(HAVE_OPENSSL,, [Build with OpenSSL support])
     have_ssl="yes (OpenSSL)"
+    build_dcrypt="no"
 
     AC_CHECK_LIB(ssl, SSL_get_current_compression, [
       AC_DEFINE(HAVE_SSL_COMPRESSION,, [Build with OpenSSL compression])
@@ -1713,9 +1714,14 @@ if test $want_openssl != no && test $have_ssl = no; then
     AC_CHECK_LIB(ssl, SSL_COMP_free_compression_methods, [
       AC_DEFINE(HAVE_SSL_COMP_FREE_COMPRESSION_METHODS,, [Build with SSL_COMP_free_compression_methods() support])
     ],, $SSL_LIBS)
+    AC_CHECK_LIB(ssl, [EC_KEY_new],
+       [build_dcrypt="yes"],
+       AC_MSG_WARN([No ECC support in OpenSSL - not enabling dcrypt]),
+    $SSL_LIBS)
   fi
 fi
 AM_CONDITIONAL(BUILD_OPENSSL, test "$have_openssl" = "yes")
+AM_CONDITIONAL(HAVE_DCRYPT, test "$build_dcrypt" != "no")
 
 if test $want_gnutls != no && test $have_ssl = no; then
   AC_CHECK_LIB(gnutls, gnutls_global_init, [
@@ -2537,7 +2543,11 @@ dnl **
 dnl ** Shared libraries usage
 dnl **
 
-LIBDOVECOT_LA_LIBS='$(top_builddir)/src/lib-dict-extra/libdict_extra.la $(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-stats/libstats.la $(top_builddir)/src/lib-http/libhttp.la $(top_builddir)/src/lib-fs/libfs.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-dns/libdns.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-sasl/libsasl.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la $(top_builddir)/src/lib-dcrypt/libdcrypt.la $(top_builddir)/src/lib-test/libtest.la $(top_builddir)/src/lib/liblib.la'
+if test "$build_dcrypt" = "yes"; then
+  lib_dcrypt="$(top_builddir)/src/lib-dcrypt/libdcrypt.la"
+fi
+
+LIBDOVECOT_LA_LIBS='$(top_builddir)/src/lib-dict-extra/libdict_extra.la $(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-stats/libstats.la $(top_builddir)/src/lib-http/libhttp.la $(top_builddir)/src/lib-fs/libfs.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-dns/libdns.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-sasl/libsasl.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la $(lib_dcrypt) $(top_builddir)/src/lib-test/libtest.la $(top_builddir)/src/lib/liblib.la'
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS)"
