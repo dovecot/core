@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "str.h"
 #include "safe-mkstemp.h"
+#include "master-client.h"
 #include "service.h"
 #include "service-process.h"
 #include "service-process-notify.h"
@@ -451,6 +452,12 @@ void services_monitor_start(struct service_list *service_list)
 	if (services_log_init(service_list) < 0)
 		return;
 	service_anvil_monitor_start(service_list);
+
+	if (service_list->io_master == NULL) {
+		service_list->io_master =
+			io_add(service_list->master_fd, IO_READ,
+			       master_client_connected, service_list);
+	}
 
 	array_foreach(&service_list->services, services) {
 		struct service *service = *services;
