@@ -4,7 +4,8 @@ AC_PREREQ([2.59])
 # recompiling plugins. Most importantly that means if any structs are changed.
 AC_INIT([Dovecot],[2.2.devel],[dovecot@dovecot.org])
 AC_DEFINE_UNQUOTED([DOVECOT_ABI_VERSION], "2.2.ABIv20($PACKAGE_VERSION)", [Dovecot ABI version])
-
+AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([.])
 AC_CONFIG_SRCDIR([src])
 
 AM_INIT_AUTOMAKE([foreign])
