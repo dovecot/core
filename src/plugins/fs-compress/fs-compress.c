@@ -17,17 +17,12 @@ struct compress_fs {
 struct compress_fs_file {
 	struct fs_file file;
 	struct compress_fs *fs;
-	struct fs_file *super, *super_read;
+	struct fs_file *super_read;
 	enum fs_open_mode open_mode;
 	struct istream *input;
 
 	struct ostream *super_output;
 	struct ostream *temp_output;
-};
-
-struct compress_fs_iter {
-	struct fs_iter iter;
-	struct fs_iter *super;
 };
 
 extern const struct fs fs_class_compress;
@@ -103,11 +98,6 @@ static void fs_compress_deinit(struct fs *_fs)
 	i_free(fs);
 }
 
-static enum fs_properties fs_compress_get_properties(struct fs *_fs)
-{
-	return fs_get_properties(_fs->parent);
-}
-
 static struct fs_file *
 fs_compress_file_init(struct fs *_fs, const char *path,
 		      enum fs_open_mode mode, enum fs_open_flags flags)
@@ -124,15 +114,15 @@ fs_compress_file_init(struct fs *_fs, const char *path,
 	/* avoid unnecessarily creating two seekable streams */
 	flags &= ~FS_OPEN_FLAG_SEEKABLE;
 
-	file->super = fs_file_init(_fs->parent, path, mode | flags);
+	file->file.parent = fs_file_init(_fs->parent, path, mode | flags);
 	if (mode == FS_OPEN_MODE_READONLY &&
 	    (flags & FS_OPEN_FLAG_ASYNC) == 0) {
-		/* use async stream for super, so fs_read_stream() won't create
+		/* use async stream for parent, so fs_read_stream() won't create
 		   another seekable stream unneededly */
 		file->super_read = fs_file_init(_fs->parent, path, mode | flags |
 						FS_OPEN_FLAG_ASYNC);
 	} else {
-		file->super_read = file->super;
+		file->super_read = file->file.parent;
 	}
 	return &file->file;
 }
@@ -141,9 +131,9 @@ static void fs_compress_file_deinit(struct fs_file *_file)
 {
 	struct compress_fs_file *file = (struct compress_fs_file *)_file;
 
-	if (file->super_read != file->super && file->super_read != NULL)
+	if (file->super_read != _file->parent && file->super_read != NULL)
 		fs_file_deinit(&file->super_read);
-	fs_file_deinit(&file->super);
+	fs_file_deinit(&_file->parent);
 	i_free(file->file.path);
 	i_free(file);
 }
@@ -156,55 +146,8 @@ static void fs_compress_file_close(struct fs_file *_file)
 		i_stream_unref(&file->input);
 	if (file->super_read != NULL)
 		fs_file_close(file->super_read);
-	if (file->super != NULL)
-		fs_file_close(file->super);
-}
-
-static const char *fs_compress_file_get_path(struct fs_file *_file)
-{
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
-
-	return fs_file_path(file->super);
-}
-
-static void
-fs_compress_set_async_callback(struct fs_file *_file,
-			       fs_file_async_callback_t *callback,
-			       void *context)
-{
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
-
-	fs_file_set_async_callback(file->super, callback, context);
-}
-
-static int fs_compress_wait_async(struct fs *_fs)
-{
-	return fs_wait_async(_fs->parent);
-}
-
-static void
-fs_compress_set_metadata(struct fs_file *_file, const char *key,
-			 const char *value)
-{
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
-
-	fs_set_metadata(file->super, key, value);
-}
-
-static int
-fs_compress_get_metadata(struct fs_file *_file,
-			 const ARRAY_TYPE(fs_metadata) **metadata_r)
-{
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
-
-	return fs_get_metadata(file->super, metadata_r);
-}
-
-static bool fs_compress_prefetch(struct fs_file *_file, uoff_t length)
-{
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
-
-	return fs_prefetch(file->super, length);
+	if (_file->parent != NULL)
+		fs_file_close(_file->parent);
 }
 
 static struct istream *
@@ -258,128 +201,39 @@ static int fs_compress_write_stream_finish(struct fs_file *_file, bool success)
 		if (file->temp_output != NULL)
 			o_stream_destroy(&file->temp_output);
 		if (file->super_output != NULL)
-			fs_write_stream_abort(file->super, &file->super_output);
+			fs_write_stream_abort(_file->parent, &file->super_output);
 		return -1;
 	}
 
 	if (file->super_output != NULL) {
 		i_assert(file->temp_output == NULL);
-		return fs_write_stream_finish(file->super, &file->super_output);
+		return fs_write_stream_finish(_file->parent, &file->super_output);
 	}
 	if (file->temp_output == NULL) {
 		/* finishing up */
 		i_assert(file->super_output == NULL);
-		return fs_write_stream_finish(file->super, &file->temp_output);
+		return fs_write_stream_finish(_file->parent, &file->temp_output);
 	}
 	/* finish writing the temporary file */
 	input = iostream_temp_finish(&file->temp_output, IO_BLOCK_SIZE);
-	file->super_output = fs_write_stream(file->super);
+	file->super_output = fs_write_stream(_file->parent);
 	if (o_stream_send_istream(file->super_output, input) >= 0)
-		ret = fs_write_stream_finish(file->super, &file->super_output);
+		ret = fs_write_stream_finish(_file->parent, &file->super_output);
 	else if (input->stream_errno != 0) {
 		fs_set_error(_file->fs, "read(%s) failed: %s",
 			     i_stream_get_name(input),
 			     i_stream_get_error(input));
-		fs_write_stream_abort(file->super, &file->super_output);
+		fs_write_stream_abort(_file->parent, &file->super_output);
 		ret = -1;
 	} else {
 		i_assert(file->super_output->stream_errno != 0);
 		fs_set_error(_file->fs, "write(%s) failed: %s",
 			     o_stream_get_name(file->super_output),
 			     o_stream_get_error(file->super_output));
-		fs_write_stream_abort(file->super, &file->super_output);
+		fs_write_stream_abort(_file->parent, &file->super_output);
 		ret = -1;
 	}
 	i_stream_unref(&input);
-	return ret;
-}
-
-static int
-fs_compress_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
-{
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
-
-	return fs_lock(file->super, secs, lock_r);
-}
-
-static void fs_compress_unlock(struct fs_lock *_lock ATTR_UNUSED)
-{
-	i_unreached();
-}
-
-static int fs_compress_exists(struct fs_file *_file)
-{
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
-
-	return fs_exists(file->super);
-}
-
-static int fs_compress_stat(struct fs_file *_file, struct stat *st_r)
-{
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
-
-	return fs_stat(file->super, st_r);
-}
-
-static int fs_compress_copy(struct fs_file *_src, struct fs_file *_dest)
-{
-	struct compress_fs_file *src = (struct compress_fs_file *)_src;
-	struct compress_fs_file *dest = (struct compress_fs_file *)_dest;
-
-	if (_src != NULL)
-		return fs_copy(src->super, dest->super);
-	else
-		return fs_copy_finish_async(dest->super);
-}
-
-static int fs_compress_rename(struct fs_file *_src, struct fs_file *_dest)
-{
-	struct compress_fs_file *src = (struct compress_fs_file *)_src;
-	struct compress_fs_file *dest = (struct compress_fs_file *)_dest;
-
-	return fs_rename(src->super, dest->super);
-}
-
-static int fs_compress_delete(struct fs_file *_file)
-{
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
-
-	return fs_delete(file->super);
-}
-
-static struct fs_iter *
-fs_compress_iter_init(struct fs *_fs, const char *path,
-		      enum fs_iter_flags flags)
-{
-	struct compress_fs_iter *iter;
-
-	iter = i_new(struct compress_fs_iter, 1);
-	iter->iter.fs = _fs;
-	iter->iter.flags = flags;
-	iter->super = fs_iter_init(_fs->parent, path, flags);
-	return &iter->iter;
-}
-
-static const char *fs_compress_iter_next(struct fs_iter *_iter)
-{
-	struct compress_fs_iter *iter = (struct compress_fs_iter *)_iter;
-	const char *fname;
-
-	iter->super->async_callback = _iter->async_callback;
-	iter->super->async_context = _iter->async_context;
-
-	fname = fs_iter_next(iter->super);
-	_iter->async_have_more = iter->super->async_have_more;
-	return fname;
-}
-
-static int fs_compress_iter_deinit(struct fs_iter *_iter)
-{
-	struct compress_fs_iter *iter = (struct compress_fs_iter *)_iter;
-	int ret;
-
-	ret = fs_iter_deinit(&iter->super);
-	i_free(iter);
 	return ret;
 }
 
@@ -389,31 +243,31 @@ const struct fs fs_class_compress = {
 		fs_compress_alloc,
 		fs_compress_init,
 		fs_compress_deinit,
-		fs_compress_get_properties,
+		fs_wrapper_get_properties,
 		fs_compress_file_init,
 		fs_compress_file_deinit,
 		fs_compress_file_close,
-		fs_compress_file_get_path,
-		fs_compress_set_async_callback,
-		fs_compress_wait_async,
-		fs_compress_set_metadata,
-		fs_compress_get_metadata,
-		fs_compress_prefetch,
+		fs_wrapper_file_get_path,
+		fs_wrapper_set_async_callback,
+		fs_wrapper_wait_async,
+		fs_wrapper_set_metadata,
+		fs_wrapper_get_metadata,
+		fs_wrapper_prefetch,
 		fs_read_via_stream,
 		fs_compress_read_stream,
 		fs_write_via_stream,
 		fs_compress_write_stream,
 		fs_compress_write_stream_finish,
-		fs_compress_lock,
-		fs_compress_unlock,
-		fs_compress_exists,
-		fs_compress_stat,
-		fs_compress_copy,
-		fs_compress_rename,
-		fs_compress_delete,
-		fs_compress_iter_init,
-		fs_compress_iter_next,
-		fs_compress_iter_deinit,
+		fs_wrapper_lock,
+		fs_wrapper_unlock,
+		fs_wrapper_exists,
+		fs_wrapper_stat,
+		fs_wrapper_copy,
+		fs_wrapper_rename,
+		fs_wrapper_delete,
+		fs_wrapper_iter_init,
+		fs_wrapper_iter_next,
+		fs_wrapper_iter_deinit,
 		NULL
 	}
 };
