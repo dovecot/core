@@ -645,8 +645,11 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 	if (ret < 0)
 		return -1;
 
-	if (autoindex)
-		fts_queue_index(box);
+	if (autoindex) {
+		T_BEGIN {
+			fts_queue_index(box);
+		} T_END;
+	}
 	return 0;
 }
 
