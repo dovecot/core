@@ -730,8 +730,13 @@ mail_namespace_find_unsubscribable(struct mail_namespace *namespaces,
 struct mail_namespace *
 mail_namespace_find_inbox(struct mail_namespace *namespaces)
 {
-	while ((namespaces->flags & NAMESPACE_FLAG_INBOX_USER) == 0)
+	i_assert(namespaces != NULL);
+
+	/* there should always be an INBOX */
+	while ((namespaces->flags & NAMESPACE_FLAG_INBOX_USER) == 0) {
 		namespaces = namespaces->next;
+		i_assert(namespaces != NULL);
+	}
 	return namespaces;
 }
 
