@@ -17,7 +17,6 @@ struct sis_fs {
 struct sis_fs_file {
 	struct fs_file file;
 	struct sis_fs *fs;
-	struct fs_file *super;
 	enum fs_open_mode open_mode;
 
 	struct fs_file *hash_file;
@@ -78,11 +77,6 @@ static void fs_sis_deinit(struct fs *_fs)
 	i_free(fs);
 }
 
-static enum fs_properties fs_sis_get_properties(struct fs *_fs)
-{
-	return fs_get_properties(_fs->parent);
-}
-
 static struct fs_file *
 fs_sis_file_init(struct fs *_fs, const char *path,
 		 enum fs_open_mode mode, enum fs_open_flags flags)
@@ -121,7 +115,7 @@ fs_sis_file_init(struct fs *_fs, const char *path,
 		i_stream_destroy(&file->hash_input);
 	}
 
-	file->super = fs_file_init(_fs->parent, path, mode | flags);
+	file->file.parent = fs_file_init(_fs->parent, path, mode | flags);
 	return &file->file;
 }
 
@@ -130,7 +124,7 @@ static void fs_sis_file_deinit(struct fs_file *_file)
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
 	fs_file_deinit(&file->hash_file);
-	fs_file_deinit(&file->super);
+	fs_file_deinit(&_file->parent);
 	i_free(file->hash);
 	i_free(file->hash_path);
 	i_free(file->file.path);
@@ -144,68 +138,7 @@ static void fs_sis_file_close(struct fs_file *_file)
 	if (file->hash_input != NULL)
 		i_stream_unref(&file->hash_input);
 	fs_file_close(file->hash_file);
-	fs_file_close(file->super);
-}
-
-static const char *fs_sis_file_get_path(struct fs_file *_file)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	return fs_file_path(file->super);
-}
-
-static void
-fs_sis_set_async_callback(struct fs_file *_file,
-			  fs_file_async_callback_t *callback, void *context)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	fs_file_set_async_callback(file->super, callback, context);
-}
-
-static int fs_sis_wait_async(struct fs *_fs)
-{
-	return fs_wait_async(_fs->parent);
-}
-
-static void
-fs_sis_set_metadata(struct fs_file *_file, const char *key,
-		    const char *value)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	fs_set_metadata(file->super, key, value);
-}
-
-static int
-fs_sis_get_metadata(struct fs_file *_file,
-		    const ARRAY_TYPE(fs_metadata) **metadata_r)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	return fs_get_metadata(file->super, metadata_r);
-}
-
-static bool fs_sis_prefetch(struct fs_file *_file, uoff_t length)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	return fs_prefetch(file->super, length);
-}
-
-static ssize_t fs_sis_read(struct fs_file *_file, void *buf, size_t size)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	return fs_read(file->super, buf, size);
-}
-
-static struct istream *
-fs_sis_read_stream(struct fs_file *_file, size_t max_buffer_size)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	return fs_read_stream(file->super, max_buffer_size);
+	fs_file_close(_file->parent);
 }
 
 static bool fs_sis_try_link(struct sis_fs_file *file)
@@ -217,22 +150,22 @@ static bool fs_sis_try_link(struct sis_fs_file *file)
 		return FALSE;
 
 	/* we can use the existing file */
-	if (fs_copy(file->hash_file, file->super) < 0) {
+	if (fs_copy(file->hash_file, file->file.parent) < 0) {
 		if (errno != ENOENT && errno != EMLINK)
 			i_error("fs-sis: %s", fs_file_last_error(file->hash_file));
 		/* failed to use link(), continue as if it hadn't been equal */
 		return FALSE;
 	}
-	if (fs_stat(file->super, &st2) < 0) {
-		i_error("fs-sis: %s", fs_file_last_error(file->super));
-		if (fs_delete(file->super) < 0)
-			i_error("fs-sis: %s", fs_file_last_error(file->super));
+	if (fs_stat(file->file.parent, &st2) < 0) {
+		i_error("fs-sis: %s", fs_file_last_error(file->file.parent));
+		if (fs_delete(file->file.parent) < 0)
+			i_error("fs-sis: %s", fs_file_last_error(file->file.parent));
 		return FALSE;
 	}
 	if (st->st_ino != st2.st_ino) {
 		/* the hashes/ file was already replaced with something else */
-		if (fs_delete(file->super) < 0)
-			i_error("fs-sis: %s", fs_file_last_error(file->super));
+		if (fs_delete(file->file.parent) < 0)
+			i_error("fs-sis: %s", fs_file_last_error(file->file.parent));
 		return FALSE;
 	}
 	return TRUE;
@@ -240,7 +173,7 @@ static bool fs_sis_try_link(struct sis_fs_file *file)
 
 static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 {
-	struct fs *super_fs = file->super->fs;
+	struct fs *super_fs = file->file.parent->fs;
 	struct fs_file *temp_file;
 	const char *hash_fname;
 	string_t *temp_path;
@@ -249,7 +182,7 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 	if (file->hash_input == NULL) {
 		/* hash file didn't exist previously. we should be able to
 		   create it with link() */
-		if (fs_copy(file->super, file->hash_file) < 0) {
+		if (fs_copy(file->file.parent, file->hash_file) < 0) {
 			if (errno == EEXIST) {
 				/* the file was just created. it's probably
 				   a duplicate, but it's too much trouble
@@ -276,14 +209,14 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 	/* replace existing hash file atomically */
 	temp_file = fs_file_init(super_fs, str_c(temp_path),
 				 FS_OPEN_MODE_READONLY);
-	ret = fs_copy(file->super, temp_file);
+	ret = fs_copy(file->file.parent, temp_file);
 	if (ret < 0 && errno == EEXIST) {
 		/* either someone's racing us or it's a stale file.
 		   try to continue. */
 		if (fs_delete(temp_file) < 0 &&
 		    errno != ENOENT)
 			i_error("fs-sis: %s", fs_last_error(super_fs));
-		ret = fs_copy(file->super, temp_file);
+		ret = fs_copy(file->file.parent, temp_file);
 	}
 	if (ret < 0) {
 		i_error("fs-sis: %s", fs_last_error(super_fs));
@@ -306,7 +239,7 @@ static int fs_sis_write(struct fs_file *_file, const void *data, size_t size)
 {
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
-	if (file->super == NULL)
+	if (_file->parent == NULL)
 		return -1;
 
 	if (file->hash_input != NULL &&
@@ -317,7 +250,7 @@ static int fs_sis_write(struct fs_file *_file, const void *data, size_t size)
 			return 0;
 	}
 
-	if (fs_write(file->super, data, size) < 0)
+	if (fs_write(_file->parent, data, size) < 0)
 		return -1;
 	T_BEGIN {
 		fs_sis_replace_hash_file(file);
@@ -331,11 +264,11 @@ static void fs_sis_write_stream(struct fs_file *_file)
 
 	i_assert(_file->output == NULL);
 
-	if (file->super == NULL) {
+	if (_file->parent == NULL) {
 		_file->output = o_stream_create_error_str(EINVAL, "%s",
 						fs_file_last_error(_file));
 	} else {
-		file->fs_output = fs_write_stream(file->super);
+		file->fs_output = fs_write_stream(_file->parent);
 		if (file->hash_input == NULL) {
 			_file->output = file->fs_output;
 			o_stream_ref(_file->output);
@@ -353,8 +286,8 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
 	if (!success) {
-		if (file->super != NULL)
-			fs_write_stream_abort(file->super, &file->fs_output);
+		if (_file->parent != NULL)
+			fs_write_stream_abort(_file->parent, &file->fs_output);
 		o_stream_unref(&_file->output);
 		return -1;
 	}
@@ -364,14 +297,14 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 	    i_stream_is_eof(file->hash_input)) {
 		o_stream_unref(&_file->output);
 		if (fs_sis_try_link(file)) {
-			fs_write_stream_abort(file->super, &file->fs_output);
+			fs_write_stream_abort(_file->parent, &file->fs_output);
 			return 1;
 		}
 	}
 	if (_file->output != NULL)
 		o_stream_unref(&_file->output);
 
-	if (fs_write_stream_finish(file->super, &file->fs_output) < 0)
+	if (fs_write_stream_finish(_file->parent, &file->fs_output) < 0)
 		return -1;
 	T_BEGIN {
 		fs_sis_replace_hash_file(file);
@@ -379,65 +312,12 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 	return 1;
 }
 
-static int
-fs_sis_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	if (fs_lock(file->super, secs, lock_r) < 0)
-		return -1;
-	return 0;
-}
-
-static void fs_sis_unlock(struct fs_lock *_lock ATTR_UNUSED)
-{
-	i_unreached();
-}
-
-static int fs_sis_exists(struct fs_file *_file)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	return fs_exists(file->super);
-}
-
-static int fs_sis_stat(struct fs_file *_file, struct stat *st_r)
-{
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
-	return fs_stat(file->super, st_r);
-}
-
-static int fs_sis_copy(struct fs_file *_src, struct fs_file *_dest)
-{
-	struct sis_fs_file *src = (struct sis_fs_file *)_src;
-	struct sis_fs_file *dest = (struct sis_fs_file *)_dest;
-
-	return fs_copy(src->super, dest->super);
-}
-
-static int fs_sis_rename(struct fs_file *_src, struct fs_file *_dest)
-{
-	struct sis_fs_file *src = (struct sis_fs_file *)_src;
-	struct sis_fs_file *dest = (struct sis_fs_file *)_dest;
-
-	return fs_rename(src->super, dest->super);
-}
-
 static int fs_sis_delete(struct fs_file *_file)
 {
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-
 	T_BEGIN {
-		fs_sis_try_unlink_hash_file(_file->fs, file->super);
+		fs_sis_try_unlink_hash_file(_file->fs, _file->parent);
 	} T_END;
-	return fs_delete(file->super);
-}
-
-static struct fs_iter *
-fs_sis_iter_init(struct fs *_fs, const char *path, enum fs_iter_flags flags)
-{
-	return fs_iter_init(_fs->parent, path, flags);
+	return fs_delete(_file->parent);
 }
 
 const struct fs fs_class_sis = {
@@ -446,29 +326,29 @@ const struct fs fs_class_sis = {
 		fs_sis_alloc,
 		fs_sis_init,
 		fs_sis_deinit,
-		fs_sis_get_properties,
+		fs_wrapper_get_properties,
 		fs_sis_file_init,
 		fs_sis_file_deinit,
 		fs_sis_file_close,
-		fs_sis_file_get_path,
-		fs_sis_set_async_callback,
-		fs_sis_wait_async,
-		fs_sis_set_metadata,
-		fs_sis_get_metadata,
-		fs_sis_prefetch,
-		fs_sis_read,
-		fs_sis_read_stream,
+		fs_wrapper_file_get_path,
+		fs_wrapper_set_async_callback,
+		fs_wrapper_wait_async,
+		fs_wrapper_set_metadata,
+		fs_wrapper_get_metadata,
+		fs_wrapper_prefetch,
+		fs_wrapper_read,
+		fs_wrapper_read_stream,
 		fs_sis_write,
 		fs_sis_write_stream,
 		fs_sis_write_stream_finish,
-		fs_sis_lock,
-		fs_sis_unlock,
-		fs_sis_exists,
-		fs_sis_stat,
-		fs_sis_copy,
-		fs_sis_rename,
+		fs_wrapper_lock,
+		fs_wrapper_unlock,
+		fs_wrapper_exists,
+		fs_wrapper_stat,
+		fs_wrapper_copy,
+		fs_wrapper_rename,
 		fs_sis_delete,
-		fs_sis_iter_init,
+		fs_wrapper_iter_init,
 		NULL,
 		NULL,
 		NULL
