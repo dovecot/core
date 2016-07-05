@@ -142,7 +142,7 @@ mail_namespace_find_subscribable(struct mail_namespace *namespaces,
 struct mail_namespace *
 mail_namespace_find_unsubscribable(struct mail_namespace *namespaces,
 				   const char *mailbox);
-/* Returns the INBOX namespace, or NULL if there is no such  */
+/* Returns the INBOX namespace. It always exists, so NULL is never returned. */
 struct mail_namespace *
 mail_namespace_find_inbox(struct mail_namespace *namespaces);
 /* Find a namespace with given prefix. */
