@@ -2,6 +2,7 @@
 #define FS_API_PRIVATE_H
 
 #include "fs-api.h"
+#include "fs-wrapper.h"
 #include "module-context.h"
 
 #include <sys/time.h>
@@ -98,6 +99,7 @@ struct fs_file {
 	/* linked list of all files */
 	struct fs_file *prev, *next;
 
+	struct fs_file *parent; /* for wrapper filesystems */
 	struct fs *fs;
 	struct ostream *output;
 	char *path;
