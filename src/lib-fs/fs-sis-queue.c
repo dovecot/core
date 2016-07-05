@@ -188,7 +188,7 @@ static void fs_sis_queue_add(struct sis_queue_fs_file *file)
 	queue_path = t_strdup_printf("%s/%s", fs->queue_dir, fname);
 	queue_file = fs_file_init(fs->fs.parent, queue_path, FS_OPEN_MODE_CREATE);
 	if (fs_write(queue_file, "", 0) < 0 && errno != EEXIST)
-		i_error("fs-sis-queue: %s", fs_last_error(fs->fs.parent));
+		i_error("fs-sis-queue: %s", fs_file_last_error(queue_file));
 	fs_file_deinit(&queue_file);
 }
 
