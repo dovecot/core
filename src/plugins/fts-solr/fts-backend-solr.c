@@ -510,21 +510,39 @@ fts_backend_solr_update_set_build_key(struct fts_backend_update_context *_ctx,
 {
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
+	struct solr_fts_backend *backend = (struct solr_fts_backend *)ctx->ctx.backend;
+	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(backend->backend.ns->user);
 
 	if (key->uid != ctx->prev_uid)
 		fts_backend_solr_uid_changed(ctx, key->uid);
 
+	bool want_indexed = FALSE;
+	bool want_hdr = TRUE;
+	if (key->type == FTS_BACKEND_BUILD_KEY_HDR || key->type == FTS_BACKEND_BUILD_KEY_MIME_HDR) {
+		if (fts_header_want_indexed(key->hdr_name)) {
+			want_indexed = TRUE;
+		} else if (fuser->set.limit_mime_hdr) {
+			want_hdr = FALSE;
+		}
+
+		if (!want_indexed && !want_hdr) {
+			return FALSE;
+		}
+	}
+
 	switch (key->type) {
 	case FTS_BACKEND_BUILD_KEY_HDR:
-		if (fts_header_want_indexed(key->hdr_name)) {
-			ctx->cur_value2 =
-				fts_solr_field_get(ctx, key->hdr_name);
-		}
+		if (want_indexed)
+		    ctx->cur_value2 = fts_solr_field_get(ctx, key->hdr_name);
 		/* fall through */
 	case FTS_BACKEND_BUILD_KEY_MIME_HDR:
 		ctx->cur_value = fts_solr_field_get(ctx, "hdr");
-		xml_encode(ctx->cur_value, key->hdr_name);
-		str_append(ctx->cur_value, ": ");
+		if (want_hdr) {
+			if(!fuser->set.skip_mime_hdr_fieldname) {
+				xml_encode(ctx->cur_value, key->hdr_name);
+				str_append(ctx->cur_value, ": ");
+			}
+		}
 		break;
 	case FTS_BACKEND_BUILD_KEY_BODY_PART:
 		if (!ctx->body_open) {
@@ -843,7 +861,7 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 		if (solr_search(_backend, str, box_guid,
 				&result->maybe_uids, &result->scores) < 0)
 			return -1;
-	}               
+	}
 	result->scores_sorted = TRUE;
 	return 0;
 }
