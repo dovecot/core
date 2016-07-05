@@ -219,20 +219,20 @@ static bool fs_sis_try_link(struct sis_fs_file *file)
 	/* we can use the existing file */
 	if (fs_copy(file->hash_file, file->super) < 0) {
 		if (errno != ENOENT && errno != EMLINK)
-			i_error("fs-sis: %s", fs_last_error(file->super->fs));
+			i_error("fs-sis: %s", fs_file_last_error(file->hash_file));
 		/* failed to use link(), continue as if it hadn't been equal */
 		return FALSE;
 	}
 	if (fs_stat(file->super, &st2) < 0) {
-		i_error("fs-sis: %s", fs_last_error(file->super->fs));
+		i_error("fs-sis: %s", fs_file_last_error(file->super));
 		if (fs_delete(file->super) < 0)
-			i_error("fs-sis: %s", fs_last_error(file->super->fs));
+			i_error("fs-sis: %s", fs_file_last_error(file->super));
 		return FALSE;
 	}
 	if (st->st_ino != st2.st_ino) {
 		/* the hashes/ file was already replaced with something else */
 		if (fs_delete(file->super) < 0)
-			i_error("fs-sis: %s", fs_last_error(file->super->fs));
+			i_error("fs-sis: %s", fs_file_last_error(file->super));
 		return FALSE;
 	}
 	return TRUE;
