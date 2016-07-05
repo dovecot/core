@@ -28,18 +28,6 @@ struct sis_fs_file {
 	bool opened;
 };
 
-static void fs_sis_copy_error(struct sis_fs *fs)
-{
-	fs_set_error(&fs->fs, "%s", fs_last_error(fs->fs.parent));
-}
-
-static void fs_sis_file_copy_error(struct sis_fs_file *file)
-{
-	struct sis_fs *fs = (struct sis_fs *)file->file.fs;
-
-	fs_sis_copy_error(fs);
-}
-
 static struct fs *fs_sis_alloc(void)
 {
 	struct sis_fs *fs;
@@ -208,11 +196,8 @@ static bool fs_sis_prefetch(struct fs_file *_file, uoff_t length)
 static ssize_t fs_sis_read(struct fs_file *_file, void *buf, size_t size)
 {
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-	ssize_t ret;
 
-	if ((ret = fs_read(file->super, buf, size)) < 0)
-		fs_sis_file_copy_error(file);
-	return ret;
+	return fs_read(file->super, buf, size);
 }
 
 static struct istream *
@@ -332,10 +317,8 @@ static int fs_sis_write(struct fs_file *_file, const void *data, size_t size)
 			return 0;
 	}
 
-	if (fs_write(file->super, data, size) < 0) {
-		fs_sis_file_copy_error(file);
+	if (fs_write(file->super, data, size) < 0)
 		return -1;
-	}
 	T_BEGIN {
 		fs_sis_replace_hash_file(file);
 	} T_END;
@@ -370,10 +353,8 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
 	if (!success) {
-		if (file->super != NULL) {
+		if (file->super != NULL)
 			fs_write_stream_abort(file->super, &file->fs_output);
-			fs_sis_file_copy_error(file);
-		}
 		o_stream_unref(&_file->output);
 		return -1;
 	}
@@ -390,10 +371,8 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 	if (_file->output != NULL)
 		o_stream_unref(&_file->output);
 
-	if (fs_write_stream_finish(file->super, &file->fs_output) < 0) {
-		fs_sis_file_copy_error(file);
+	if (fs_write_stream_finish(file->super, &file->fs_output) < 0)
 		return -1;
-	}
 	T_BEGIN {
 		fs_sis_replace_hash_file(file);
 	} T_END;
@@ -405,10 +384,8 @@ fs_sis_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 {
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
-	if (fs_lock(file->super, secs, lock_r) < 0) {
-		fs_sis_file_copy_error(file);
+	if (fs_lock(file->super, secs, lock_r) < 0)
 		return -1;
-	}
 	return 0;
 }
 
@@ -421,22 +398,14 @@ static int fs_sis_exists(struct fs_file *_file)
 {
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
-	if (fs_exists(file->super) < 0) {
-		fs_sis_copy_error(file->fs);
-		return -1;
-	}
-	return 0;
+	return fs_exists(file->super);
 }
 
 static int fs_sis_stat(struct fs_file *_file, struct stat *st_r)
 {
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
-	if (fs_stat(file->super, st_r) < 0) {
-		fs_sis_copy_error(file->fs);
-		return -1;
-	}
-	return 0;
+	return fs_stat(file->super, st_r);
 }
 
 static int fs_sis_copy(struct fs_file *_src, struct fs_file *_dest)
@@ -444,11 +413,7 @@ static int fs_sis_copy(struct fs_file *_src, struct fs_file *_dest)
 	struct sis_fs_file *src = (struct sis_fs_file *)_src;
 	struct sis_fs_file *dest = (struct sis_fs_file *)_dest;
 
-	if (fs_copy(src->super, dest->super) < 0) {
-		fs_sis_copy_error(src->fs);
-		return -1;
-	}
-	return 0;
+	return fs_copy(src->super, dest->super);
 }
 
 static int fs_sis_rename(struct fs_file *_src, struct fs_file *_dest)
@@ -456,11 +421,7 @@ static int fs_sis_rename(struct fs_file *_src, struct fs_file *_dest)
 	struct sis_fs_file *src = (struct sis_fs_file *)_src;
 	struct sis_fs_file *dest = (struct sis_fs_file *)_dest;
 
-	if (fs_rename(src->super, dest->super) < 0) {
-		fs_sis_copy_error(src->fs);
-		return -1;
-	}
-	return 0;
+	return fs_rename(src->super, dest->super);
 }
 
 static int fs_sis_delete(struct fs_file *_file)
@@ -470,11 +431,7 @@ static int fs_sis_delete(struct fs_file *_file)
 	T_BEGIN {
 		fs_sis_try_unlink_hash_file(_file->fs, file->super);
 	} T_END;
-	if (fs_delete(file->super) < 0) {
-		fs_sis_copy_error(file->fs);
-		return -1;
-	}
-	return 0;
+	return fs_delete(file->super);
 }
 
 static struct fs_iter *
