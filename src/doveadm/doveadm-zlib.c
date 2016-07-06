@@ -70,7 +70,8 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 	i_stream_unref(&input);
 
 	while (i_stream_read_more(input2, &data, &size) != -1) {
-		fwrite(data, 1, size, stdout);
+		if (fwrite(data, 1, size, stdout) != size)
+			break;
 		i_stream_skip(input2, size);
 	}
 	i_stream_unref(&input2);
