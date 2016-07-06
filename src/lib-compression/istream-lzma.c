@@ -152,7 +152,7 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 		return -1;
 	case LZMA_OPTIONS_ERROR:
 		lzma_read_error(zstream, "Unsupported xz options");
-		stream->istream.stream_errno = EINVAL;
+		stream->istream.stream_errno = EIO;
 		return -1;
 	case LZMA_MEM_ERROR:
 		i_fatal_status(FATAL_OUTOFMEM, "lzma.read(%s): Out of memory",
@@ -167,7 +167,7 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 	default:
 		lzma_read_error(zstream, t_strdup_printf(
 			"lzma_code() failed with %d", ret));
-		stream->istream.stream_errno = EINVAL;
+		stream->istream.stream_errno = EIO;
 		return -1;
 	}
 	if (out_size == 0) {

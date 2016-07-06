@@ -281,7 +281,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		break;
 	case Z_NEED_DICT:
 		zlib_read_error(zstream, "can't read file without dict");
-		stream->istream.stream_errno = EINVAL;
+		stream->istream.stream_errno = EIO;
 		return -1;
 	case Z_DATA_ERROR:
 		zlib_read_error(zstream, "corrupted data");
