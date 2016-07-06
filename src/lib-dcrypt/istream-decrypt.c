@@ -114,6 +114,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 
 	if (i < 4) {
 		io_stream_set_error(&stream->istream.iostream, "Invalid or corrupted header");
+		stream->istream.istream.stream_errno = EINVAL;
 		return -1;
 	}
 
@@ -526,6 +527,7 @@ int i_stream_decrypt_header_contents(struct decrypt_istream *stream,
 		dcrypt_ctx_hmac_set_key(stream->ctx_mac, ptr, tagsize);
 		if (!dcrypt_ctx_hmac_init(stream->ctx_mac, &error)) {
 			io_stream_set_error(&stream->istream.iostream, "MAC error: %s", error);
+			stream->istream.istream.stream_errno = EINVAL;
 			failed = TRUE;
 		}
 		stream->ftr = dcrypt_ctx_hmac_get_digest_length(stream->ctx_mac);
@@ -555,6 +557,7 @@ ssize_t i_stream_decrypt_read_header(struct decrypt_istream *stream,
 		return 0;
 	if (memcmp(data, IOSTREAM_CRYPT_MAGIC, sizeof(IOSTREAM_CRYPT_MAGIC)) != 0) {
 		io_stream_set_error(&stream->istream.iostream, "Invalid magic");
+		stream->istream.istream.stream_errno = EINVAL;
 		return -1;
 	}
 	data += sizeof(IOSTREAM_CRYPT_MAGIC);
@@ -594,6 +597,7 @@ ssize_t i_stream_decrypt_read_header(struct decrypt_istream *stream,
 		return -1;
 	else if (ret == 0) {
 		io_stream_set_error(&stream->istream.iostream, "Decryption error: truncate header length");
+		stream->istream.istream.stream_errno = EINVAL;
 		return -1;
 	}
 	stream->initialized = TRUE;
@@ -704,8 +708,9 @@ i_stream_decrypt_read(struct istream_private *stream)
 			ssize_t hret;
 			if ((hret=i_stream_decrypt_read_header
 				(dstream, data, size)) <= 0) {
-				if (hret < 0) {
-					stream->istream.stream_errno = EINVAL;
+				if (hret < 0 && stream->istream.stream_errno == 0) {
+					/* assume temporary failure */
+					stream->istream.stream_errno = EIO;
 				}
 				return hret;
 			}
@@ -851,7 +856,7 @@ i_stream_create_sym_decrypt(struct istream *input, struct dcrypt_context_symmetr
 
 	if (ec != 0) {
 		io_stream_set_error(&dstream->istream.iostream, "Cannot initialize decryption: %s", error);
-		dstream->istream.istream.stream_errno = EINVAL;
+		dstream->istream.istream.stream_errno = EIO;
 	};
 
 	return &dstream->istream.istream;
