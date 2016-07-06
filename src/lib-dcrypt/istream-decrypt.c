@@ -734,6 +734,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 				    data, decrypt_size, &error)) {
 					io_stream_set_error(&stream->iostream,
 						"MAC error: %s", error);
+					stream->istream.stream_errno = EINVAL;
 					return -1;
 				}
 			}
@@ -747,10 +748,13 @@ i_stream_decrypt_read(struct istream_private *stream)
 				if (!dcrypt_ctx_hmac_final(dstream->ctx_mac, &db, &error)) {
 					io_stream_set_error(&stream->iostream,
 						"Cannot verify MAC: %s", error);
+					stream->istream.stream_errno = EINVAL;
+					return -1;
 				}
 				if (memcmp(dgst, data + decrypt_size, dcrypt_ctx_hmac_get_digest_length(dstream->ctx_mac)) != 0) {
 					io_stream_set_error(&stream->iostream,
 						"Cannot verify MAC: mismatch");
+					stream->istream.stream_errno = EINVAL;
 					return -1;
 				}
 			} else if ((dstream->flags & IO_STREAM_ENC_INTEGRITY_AEAD) == IO_STREAM_ENC_INTEGRITY_AEAD) {
