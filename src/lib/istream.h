@@ -7,7 +7,18 @@
 struct istream {
 	uoff_t v_offset;
 
+	/* Commonly used errors:
+
+	   ENOENT  - File/object doesn't exist.
+	   EPIPE   - Stream ended unexpectedly (or i_stream_close() was called).
+	   ESPIPE  - i_stream_seek() was used on a stream that can't be seeked.
+	   ENOBUFS - i_stream_read_next_line() was used for a too long line.
+	   EIO     - Internal error. Retrying may work, but it may also be
+	             because of a misconfiguration.
+	   EINVAL  - Stream is corrupted.
+	*/
 	int stream_errno;
+
 	unsigned int mmaped:1; /* be careful when copying data */
 	unsigned int blocking:1; /* read() shouldn't return 0 */
 	unsigned int closed:1;
@@ -117,7 +128,8 @@ ssize_t i_stream_read(struct istream *stream);
    was successful. */
 void i_stream_skip(struct istream *stream, uoff_t count);
 /* Seek to specified position from beginning of file. Never fails, the next
-   read tells if it was successful. This works only for files. */
+   read tells if it was successful. This works only for files, others will
+   set stream_errno=ESPIPE. */
 void i_stream_seek(struct istream *stream, uoff_t v_offset);
 /* Like i_stream_seek(), but also giving a hint that after reading some data
    we could be seeking back to this mark or somewhere after it. If input
