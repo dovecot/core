@@ -305,6 +305,7 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 	auth_str_append_extra_fields(request, str);
 
 	switch (request->passdb_result) {
+	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 	case PASSDB_RESULT_USER_UNKNOWN:
