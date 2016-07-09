@@ -341,6 +341,7 @@ static void pass_callback_finish(struct auth_request *auth_request,
 	case PASSDB_RESULT_PASS_EXPIRED:
 		str_printfa(str, "NOTFOUND\t%u", auth_request->id);
 		break;
+	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_PASSWORD_MISMATCH:
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		str_printfa(str, "FAIL\t%u", auth_request->id);

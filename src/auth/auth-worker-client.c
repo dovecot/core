@@ -152,7 +152,10 @@ static void verify_plain_callback(enum passdb_result result,
 	str_printfa(str, "%u\t", request->id);
 
 	if (result == PASSDB_RESULT_OK)
-		str_append(str, "OK");
+		if (auth_fields_exists(request->extra_fields, "noauthenticate"))
+			str_append(str, "NEXT");
+		else
+			str_append(str, "OK");
 	else
 		str_printfa(str, "FAIL\t%d", result);
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
@@ -235,10 +238,13 @@ lookup_credentials_callback(enum passdb_result result,
 	str = t_str_new(128);
 	str_printfa(str, "%u\t", request->id);
 
-	if (result != PASSDB_RESULT_OK)
+	if (result != PASSDB_RESULT_OK && result != PASSDB_RESULT_NEXT)
 		str_printfa(str, "FAIL\t%d", result);
 	else {
-		str_append(str, "OK\t");
+		if (result == PASSDB_RESULT_NEXT)
+			str_append(str, "NEXT\t");
+		else
+			str_append(str, "OK\t");
 		str_append_tabescaped(str, request->user);
 		str_append_c(str, '\t');
 		if (request->credentials_scheme[0] != '\0') {

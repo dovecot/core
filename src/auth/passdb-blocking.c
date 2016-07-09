@@ -36,6 +36,13 @@ auth_worker_reply_parse(struct auth_request *request, const char *reply)
 		return PASSDB_RESULT_OK;
 	}
 
+	if (strcmp(*args, "NEXT") == 0 && args[1] != NULL) {
+		/* NEXT \t user [\t extra] */
+		auth_request_set_field(request, "user", args[1], NULL);
+		auth_worker_reply_parse_args(request, args + 1);
+		return PASSDB_RESULT_NEXT;
+	}
+
 	if (strcmp(*args, "FAIL") == 0 && args[1] != NULL) {
 		int result;
 		/* FAIL \t result [\t user \t password [\t extra]] */

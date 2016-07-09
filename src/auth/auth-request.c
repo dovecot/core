@@ -485,6 +485,7 @@ static void auth_request_save_cache(struct auth_request *request,
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 		/* can be cached */
 		break;
+	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
 		/* FIXME: we can't cache this now, or cache lookup would
@@ -652,6 +653,11 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		result_rule = request->passdb->result_internalfail;
 		break;
+	case PASSDB_RESULT_NEXT:
+		auth_request_log_debug(request, AUTH_SUBSYS_DB,
+			"Not performing authentication (noauthenticate set)");
+		result_rule = AUTH_DB_RULE_CONTINUE;
+		break;
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 	case PASSDB_RESULT_USER_UNKNOWN:
 	case PASSDB_RESULT_PASSWORD_MISMATCH:
@@ -692,6 +698,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	/* nopassword check is specific to a single passdb and shouldn't leak
 	   to the next one. we already added it to cache. */
 	auth_fields_remove(request->extra_fields, "nopassword");
+	auth_fields_remove(request->extra_fields, "noauthenticate");
 
 	if (request->requested_login_user != NULL &&
 	    *result == PASSDB_RESULT_OK) {
@@ -706,7 +713,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		auth_request_want_skip_passdb(request, next_passdb))
 		next_passdb = next_passdb->next;
 
-	if (*result == PASSDB_RESULT_OK) {
+	if (*result == PASSDB_RESULT_OK || *result == PASSDB_RESULT_NEXT) {
 		/* this passdb lookup succeeded, preserve its extra fields */
 		auth_fields_snapshot(request->extra_fields);
 		request->snapshot_have_userdb_prefetch_set =
@@ -776,6 +783,10 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	if (result == PASSDB_RESULT_OK &&
+	    auth_fields_exists(request->extra_fields, "noauthenticate"))
+		result = PASSDB_RESULT_NEXT;
 
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_save_cache(request, result);
@@ -1008,6 +1019,10 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 	i_assert(request->state == AUTH_REQUEST_STATE_PASSDB);
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
+
+	if (result == PASSDB_RESULT_OK &&
+	    auth_fields_exists(request->extra_fields, "noauthenticate"))
+		result = PASSDB_RESULT_NEXT;
 
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_save_cache(request, result);
@@ -2254,7 +2269,8 @@ int auth_request_password_verify(struct auth_request *request,
 		return 0;
 	}
 
-	if (auth_fields_exists(request->extra_fields, "nopassword")) {
+	if (auth_fields_exists(request->extra_fields, "nopassword") ||
+	    auth_fields_exists(request->extra_fields, "noauthenticate")) {
 		auth_request_log_debug(request, subsystem,
 					"Allowing any password");
 		return 1;
