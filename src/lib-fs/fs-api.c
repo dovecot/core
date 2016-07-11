@@ -288,9 +288,29 @@ enum fs_properties fs_get_properties(struct fs *fs)
 void fs_metadata_init(struct fs_file *file)
 {
 	if (file->metadata_pool == NULL) {
+		i_assert(!array_is_created(&file->metadata));
 		file->metadata_pool = pool_alloconly_create("fs metadata", 1024);
 		p_array_init(&file->metadata, file->metadata_pool, 8);
 	}
+}
+
+void fs_metadata_init_or_clear(struct fs_file *file)
+{
+	if (file->metadata_pool == NULL)
+		fs_metadata_init(file);
+	else T_BEGIN {
+		const struct fs_metadata *md;
+		ARRAY_TYPE(fs_metadata) internal_metadata;
+
+		t_array_init(&internal_metadata, 4);
+		array_foreach(&file->metadata, md) {
+			if (strncmp(md->key, FS_METADATA_INTERNAL_PREFIX,
+				    strlen(FS_METADATA_INTERNAL_PREFIX)) == 0)
+				array_append(&internal_metadata, md, 1);
+		}
+		array_clear(&file->metadata);
+		array_append_array(&file->metadata, &internal_metadata);
+	} T_END;
 }
 
 void fs_default_set_metadata(struct fs_file *file,
