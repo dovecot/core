@@ -492,7 +492,11 @@ int o_stream_encrypt_flush(struct ostream_private *stream)
 	/* if nothing was written, we are done */
 	if (!estream->prefix_written) return o_stream_flush(stream->parent);
 
-	i_assert(!estream->finalized);
+	if (estream->finalized) {
+		/* we've already flushed the encrypted output.
+		   just flush the parent. */
+		return o_stream_flush(stream->parent);
+	}
 	estream->finalized = TRUE;
 
 	/* acquire last block */
