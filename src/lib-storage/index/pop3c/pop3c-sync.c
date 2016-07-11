@@ -148,11 +148,10 @@ pop3c_get_local_msgs(pool_t pool, ARRAY_TYPE(pop3c_sync_msg) *local_msgs,
 	for (seq = 1; seq <= messages_count; seq++) {
 		str_truncate(str, 0);
 		if (mail_cache_lookup_field(cache_view, str, seq,
-					    cache_idx) > 0) {
-			msg.seq = seq;
+					    cache_idx) > 0)
 			msg.uidl = p_strdup(pool, str_c(str));
-			array_idx_set(local_msgs, seq-1, &msg);
-		}
+		msg.seq = seq;
+		array_idx_set(local_msgs, seq-1, &msg);
 	}
 }
 
@@ -231,12 +230,13 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 
 		if (lidx >= lcount)
 			ret = 1;
-		else if (ridx >= rcount)
+		else if (ridx >= rcount || lmsg[lidx].uidl == NULL)
 			ret = -1;
 		else
 			ret = strcmp(lmsg[lidx].uidl, rmsg[ridx].uidl);
 		if (ret < 0) {
-			/* message expunged in remote */
+			/* message expunged in remote, or we didn't have a
+			   local message's UIDL in cache. */
 			mail_index_expunge(sync_trans, lseq);
 			lidx++;
 		} else if (ret > 0) {
