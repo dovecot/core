@@ -328,12 +328,18 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 				      &_t->changes->saved_uids);
 
 	if (ctx->ctx.highest_pop3_uidl_seq != 0) {
+		const struct dbox_save_mail *mails;
 		struct seq_range_iter iter;
+		unsigned int highest_pop3_uidl_idx;
 		uint32_t uid;
 
+		mails = array_idx(&ctx->mails, 0);
+		highest_pop3_uidl_idx =
+			ctx->ctx.highest_pop3_uidl_seq - mails[0].seq;
+		i_assert(mails[highest_pop3_uidl_idx].seq == ctx->ctx.highest_pop3_uidl_seq);
+
 		seq_range_array_iter_init(&iter, &_t->changes->saved_uids);
-		if (!seq_range_array_iter_nth(&iter,
-				ctx->ctx.highest_pop3_uidl_seq-1, &uid))
+		if (!seq_range_array_iter_nth(&iter, highest_pop3_uidl_idx, &uid))
 			i_unreached();
 		index_pop3_uidl_set_max_uid(&ctx->mbox->box, ctx->ctx.trans, uid);
 	}
