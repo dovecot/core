@@ -556,7 +556,7 @@ ssize_t i_stream_decrypt_read_header(struct decrypt_istream *stream,
 	if (mlen < sizeof(IOSTREAM_CRYPT_MAGIC))
 		return 0;
 	if (memcmp(data, IOSTREAM_CRYPT_MAGIC, sizeof(IOSTREAM_CRYPT_MAGIC)) != 0) {
-		io_stream_set_error(&stream->istream.iostream, "Invalid magic");
+		io_stream_set_error(&stream->istream.iostream, "Stream is not encrypted (invalid magic)");
 		stream->istream.istream.stream_errno = EINVAL;
 		return -1;
 	}
