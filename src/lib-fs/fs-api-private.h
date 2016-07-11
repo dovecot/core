@@ -165,6 +165,7 @@ void fs_set_error_async(struct fs *fs);
 ssize_t fs_read_via_stream(struct fs_file *file, void *buf, size_t size);
 int fs_write_via_stream(struct fs_file *file, const void *data, size_t size);
 void fs_metadata_init(struct fs_file *file);
+void fs_metadata_init_or_clear(struct fs_file *file);
 void fs_default_set_metadata(struct fs_file *file,
 			     const char *key, const char *value);
 int fs_default_copy(struct fs_file *src, struct fs_file *dest);
