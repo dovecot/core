@@ -559,6 +559,7 @@ gssapi_credentials_callback(enum passdb_result result,
 		/* user is explicitly disabled, don't allow it to log in */
 		auth_request_fail(request);
 		return;
+	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
 	case PASSDB_RESULT_USER_UNKNOWN:
 	case PASSDB_RESULT_PASSWORD_MISMATCH:
