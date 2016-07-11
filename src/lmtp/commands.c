@@ -908,7 +908,6 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 				 rcpt->address);
 		ret = -1;
 	}
-	client_rcpt_anvil_disconnect(rcpt);
 	return ret;
 }
 
