@@ -746,6 +746,11 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 			request->passdbs_seen_internal_failure = TRUE;
 		}
 		return FALSE;
+	} else if (*result == PASSDB_RESULT_NEXT) {
+		/* admin forgot to put proper passdb last */
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"Last passdb had noauthenticate field, cannot authenticate user");
+		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (request->passdb_success) {
 		/* either this or a previous passdb lookup succeeded. */
 		*result = PASSDB_RESULT_OK;
