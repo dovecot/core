@@ -143,6 +143,9 @@ void passdb_handle_credentials(enum passdb_result result,
 	if (result != PASSDB_RESULT_OK) {
 		callback(result, NULL, 0, auth_request);
 		return;
+	} else if (auth_fields_exists(auth_request->extra_fields, "noauthenticate")) {
+		callback(PASSDB_RESULT_NEXT, NULL, 0, auth_request);
+		return;
 	}
 
 	if (password != NULL) {
