@@ -49,6 +49,7 @@ Makefile.in
 src/**/test-*
 !src/**/test-*.c
 !src/**/test-*.h
+!src/**/test-*.inc
 
 doc/man/doveadm-acl.1
 doc/man/doveadm-altmove.1

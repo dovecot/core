@@ -361,7 +361,8 @@ test_lib_SOURCES = \
 	test-wildcard-match.c
 
 test_headers = \
-	test-lib.h
+	test-lib.h \
+	test-lib.inc
 
 test_lib_LDADD = $(test_libs)
 test_lib_DEPENDENCIES = $(test_libs)
