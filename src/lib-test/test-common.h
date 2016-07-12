@@ -45,13 +45,32 @@ void test_out_reason(const char *name, bool success, const char *reason)
 	ATTR_NULL(3);
 
 int test_run(void (*test_functions[])(void));
+struct named_test {
+	const char *name;
+	void (*func)(void);
+};
+int test_run_named(struct named_test tests[], const char *match);
+
+#define TEST_DECL(x) void x(void);
+#define TEST_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */
+#define TEST_NAMED(x) { .name = #x , .func = x },
 
 enum fatal_test_state {
 	FATAL_TEST_FINISHED, /* no more test stages, don't call again */
 	FATAL_TEST_FAILURE,  /* single stage has failed, continue */
 	FATAL_TEST_ABORT,    /* something's gone horrifically wrong */
 };
+struct named_fatal {
+	const char *name;
+	enum fatal_test_state (*func)(int);
+};
 int test_run_with_fatals(void (*test_functions[])(void),
 			 enum fatal_test_state (*fatal_functions[])(int));
+int test_run_named_with_fatals(const char *match, struct named_test tests[],
+			       struct named_fatal fatals[]);
+
+#define FATAL_DECL(x) enum fatal_test_state x(int);
+#define FATAL_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */
+#define FATAL_NAMED(x) { .name = #x , .func = x },
 
 #endif
