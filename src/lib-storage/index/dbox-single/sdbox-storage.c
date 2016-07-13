@@ -6,6 +6,7 @@
 #include "mail-index-modseq.h"
 #include "mail-search-build.h"
 #include "mailbox-list-private.h"
+#include "index-pop3-uidl.h"
 #include "dbox-mail.h"
 #include "dbox-save.h"
 #include "sdbox-file.h"
@@ -261,6 +262,9 @@ int sdbox_mailbox_create_indexes(struct mailbox *box,
 		mail_index_update_highest_modseq(trans,
 						 update->min_highest_modseq);
 	}
+
+	if (box->inbox_user)
+		index_pop3_uidl_set_max_uid(box, trans, 0);
 
 	sdbox_update_header(mbox, trans, update);
 	if (new_trans != NULL) {

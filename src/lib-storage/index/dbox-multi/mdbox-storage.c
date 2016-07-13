@@ -9,6 +9,7 @@
 #include "mail-index-alloc-cache.h"
 #include "mailbox-log.h"
 #include "mailbox-list-private.h"
+#include "index-pop3-uidl.h"
 #include "dbox-mail.h"
 #include "dbox-save.h"
 #include "mdbox-map.h"
@@ -306,6 +307,9 @@ mdbox_write_index_header(struct mailbox *box,
 						 update->min_highest_modseq);
 	}
 	mail_index_view_close(&view);
+
+	if (box->inbox_user)
+		index_pop3_uidl_set_max_uid(box, trans, 0);
 
 	mdbox_update_header(mbox, trans, update);
 	if (new_trans != NULL) {
