@@ -395,7 +395,7 @@ static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 		stream->line_crlf = FALSE;
 	}
 
-	if (stream->w_buffer != NULL) {
+	if (stream->buffer == stream->w_buffer) {
 		/* modify the buffer directly */
 		stream->w_buffer[end] = '\0';
 		ret = (char *)stream->w_buffer + stream->skip;
