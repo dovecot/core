@@ -65,8 +65,13 @@ void index_pop3_uidl_update_exists_finish(struct mailbox_transaction_context *tr
 	size_t size;
 	bool seen_all_msgs;
 
-	if (trans->highest_pop3_uidl_uid == 0)
+	mail_index_get_header_ext(trans->view, trans->box->pop3_uidl_hdr_ext_id,
+				  &data, &size);
+
+	if (trans->highest_pop3_uidl_uid == 0 && size >= sizeof(uidl)) {
+		/* header already set and nothing to change */
 		return;
+	}
 
 	/* First check that we actually looked at UIDL for all messages.
 	   Otherwise we can't say for sure if the newest messages had UIDLs. */
@@ -89,8 +94,6 @@ void index_pop3_uidl_update_exists_finish(struct mailbox_transaction_context *tr
 		return;
 
 	/* check if we have already the same header */
-	mail_index_get_header_ext(trans->view, trans->box->pop3_uidl_hdr_ext_id,
-				  &data, &size);
 	if (size >= sizeof(uidl)) {
 		memcpy(&uidl, data, size);
 		if (trans->highest_pop3_uidl_uid == uidl.max_uid_with_pop3_uidl)
