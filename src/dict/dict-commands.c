@@ -180,7 +180,6 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 
 	cmd_stats_update(cmd, cmd_stats.iterations);
 	cmd->reply = i_strdup(str_c(str));
-	dict_connection_cmds_flush(cmd->conn);
 	return 1;
 }
 
@@ -491,8 +490,10 @@ static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd)
 	struct dict_connection_cmd *const *first_cmdp;
 	
 	first_cmdp = array_idx(&cmd->conn->cmds, 0);
-	if (*first_cmdp == cmd)
-		(void)cmd_iterate_flush(cmd);
+	if (*first_cmdp == cmd) {
+		if (cmd_iterate_flush(cmd) > 0)
+			dict_connection_cmds_flush(cmd->conn);
+	}
 }
 
 void dict_connection_cmds_output_more(struct dict_connection *conn)
@@ -511,6 +512,7 @@ void dict_connection_cmds_output_more(struct dict_connection *conn)
 			/* unfinished */
 			break;
 		}
+		dict_connection_cmds_flush(cmd->conn);
 		/* cmd should be freed now */
 	}
 }
