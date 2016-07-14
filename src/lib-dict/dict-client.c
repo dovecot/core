@@ -32,6 +32,7 @@ struct client_dict_cmd {
 	struct client_dict *dict;
 	struct timeval start_time;
 	char *query;
+	char *commit_query_human;
 
 	bool retry_errors;
 	bool no_replies;
@@ -97,9 +98,11 @@ struct client_dict_transaction_context {
 	struct dict_transaction_context ctx;
 	struct client_dict_transaction_context *prev, *next;
 
+	char *first_query;
 	char *error;
 
 	unsigned int id;
+	unsigned int query_count;
 
 	bool sent_begin:1;
 };
@@ -136,6 +139,7 @@ static bool client_dict_cmd_unref(struct client_dict_cmd *cmd)
 	if (--cmd->refcount > 0)
 		return TRUE;
 
+	i_free(cmd->commit_query_human);
 	i_free(cmd->query);
 	i_free(cmd);
 	return FALSE;
@@ -303,6 +307,10 @@ client_dict_send_transaction_query(struct client_dict_transaction_context *ctx,
 			return;
 	}
 
+	ctx->query_count++;
+	if (ctx->first_query == NULL)
+		ctx->first_query = i_strdup(query);
+
 	cmd = client_dict_cmd_init(dict, query);
 	cmd->no_replies = TRUE;
 	if (!client_dict_cmd_send(dict, &cmd, &error))
@@ -366,9 +374,17 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 	}
 	diff = cmds[0]->background ? 0 :
 		timeval_diff_msecs(&ioloop_timeval, &cmds[0]->start_time);
-	if (diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
-		i_warning("read(%s): dict lookup took %u.%03u seconds: %s",
+	if (diff < DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS)
+		;
+	else if (cmds[0]->commit_query_human != NULL) {
+		i_warning("read(%s): dict commit took %u.%03u seconds: %s",
 			  dict->conn.conn.name, diff/1000, diff % 1000,
+			  cmds[0]->commit_query_human);
+	} else {
+		const char *type = cmds[0]->iter != NULL ?
+			"iteration" : "lookup";
+		i_warning("read(%s): dict %s took %u.%03u seconds: %s",
+			  dict->conn.conn.name, type, diff/1000, diff % 1000,
 			  cmds[0]->query);
 	}
 	client_dict_cmd_unref(cmds[0]);
@@ -907,6 +923,15 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	dict_post_api_callback(dict);
 }
 
+
+static void
+client_dict_transaction_free(struct client_dict_transaction_context *ctx)
+{
+	i_free(ctx->first_query);
+	i_free(ctx->error);
+	i_free(ctx);
+}
+
 static void
 client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			       bool async,
@@ -924,6 +949,10 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	if (ctx->sent_begin && ctx->error == NULL) {
 		query = t_strdup_printf("%c%u", DICT_PROTOCOL_CMD_COMMIT, ctx->id);
 		cmd = client_dict_cmd_init(dict, query);
+		cmd->commit_query_human = i_strdup_printf(
+			"%s (%u commands, first: %s)", query,
+			ctx->query_count, ctx->first_query);
+
 		cmd->callback = client_dict_transaction_commit_callback;
 		cmd->api_callback.commit = callback;
 		cmd->api_callback.context = context;
@@ -947,9 +976,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 		callback(&result, context);
 	}
 
-	i_free(ctx->error);
-	i_free(ctx);
-
+	client_dict_transaction_free(ctx);
 	client_dict_add_timeout(dict);
 }
 
@@ -969,8 +996,7 @@ client_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	}
 
 	DLLIST_REMOVE(&dict->transactions, ctx);
-	i_free(ctx);
-
+	client_dict_transaction_free(ctx);
 	client_dict_add_timeout(dict);
 }
 
