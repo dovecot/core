@@ -875,7 +875,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 	for (i = 0; boxes[i] != NULL; i++) ;
 	search_all_mailboxes = i > SOLR_QUERY_MAX_MAILBOX_COUNT;
 	if (!search_all_mailboxes)
-		str_append(str, "%2B(");
+		str_append(str, "+%2B(");
 	len = str_len(str);
 
 	for (i = 0; boxes[i] != NULL; i++) {
