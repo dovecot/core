@@ -561,7 +561,7 @@ void o_stream_encrypt_destroy(struct iostream_private *stream)
 	if (estream->key_data != NULL) i_free(estream->key_data);
 	if (estream->cipher_oid != NULL) buffer_free(&(estream->cipher_oid));
 	if (estream->mac_oid != NULL) buffer_free(&(estream->mac_oid));
-
+	if (estream->pub != NULL) dcrypt_key_unref_public(&(estream->pub));
 	o_stream_unref(&estream->ostream.parent);
 }
 
@@ -645,6 +645,7 @@ o_stream_create_encrypt(struct ostream *output, const char *algorithm,
 	struct encrypt_ostream *estream = o_stream_create_encrypt_common(flags);
 	int ec;
 
+	dcrypt_key_ref_public(box_pub);
 	estream->pub = box_pub;
 
 	T_BEGIN {
