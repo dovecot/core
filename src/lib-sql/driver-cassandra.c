@@ -726,6 +726,9 @@ static void query_callback(CassFuture *future, void *context)
 		i_free(result->error);
 
 		msecs = timeval_diff_msecs(&ioloop_timeval, &result->start_time);
+		result->api.error_type = error == CASS_ERROR_SERVER_WRITE_TIMEOUT ?
+			SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN :
+			SQL_RESULT_ERROR_TYPE_UNKNOWN;
 		result->error = i_strdup_printf("Query '%s' failed: %.*s (in %u.%03u secs)",
 			result->query, (int)errsize, errmsg, msecs/1000, msecs%1000);
 		/* unavailable = cassandra server knows that there aren't
