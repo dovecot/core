@@ -323,6 +323,11 @@ const char *sql_result_get_error(struct sql_result *result)
 	return result->v.get_error(result);
 }
 
+enum sql_result_error_type sql_result_get_error_type(struct sql_result *result)
+{
+	return result->error_type;
+}
+
 static void
 sql_result_not_connected_free(struct sql_result *result ATTR_UNUSED)
 {

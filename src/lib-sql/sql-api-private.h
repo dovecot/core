@@ -141,6 +141,7 @@ struct sql_result {
 	struct sql_field_map *map;
 	void *fetch_dest;
 	size_t fetch_dest_size;
+	enum sql_result_error_type error_type;
 
 	unsigned int failed:1;
 	unsigned int failed_try_retry:1;
