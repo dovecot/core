@@ -273,8 +273,8 @@ void test_load_v1_keys(void)
 	test_assert(ret == TRUE);
 	test_assert(error == NULL);
 
-	dcrypt_key_free_private(&pkey2);
-	dcrypt_key_free_private(&pkey);
+	dcrypt_key_unref_private(&pkey2);
+	dcrypt_key_unref_private(&pkey);
 
 	test_end();
 }
@@ -300,7 +300,7 @@ void test_load_v1_key(void)
 		dcrypt_key_id_public(pubkey, "sha256", key_1, &error);
 		test_assert(strcmp("792caad4d38c9eb2134a0cbc844eae386116de096a0ccafc98479825fc99b6a1", binary_to_hex(key_1->data, key_1->used)) == 0);
 
-		dcrypt_key_free_public(&pubkey);
+		dcrypt_key_unref_public(&pubkey);
 		pkey2 = NULL;
 
 		test_assert(dcrypt_key_load_private(&pkey2, DCRYPT_FORMAT_DOVECOT, "1\t716\t1\t0567e6bf9579813ae967314423b0fceb14bda24749303923de9a9bb9370e0026f995901a57e63113eeb2baf0c940e978d00686cbb52bd5014bc318563375876255\t0300E46DA2125427BE968EB3B649910CDC4C405E5FFDE18D433A97CABFEE28CEEFAE9EE356C792004FFB80981D67E741B8CC036A34235A8D2E1F98D1658CFC963D07EB\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0\t7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f", NULL, pkey, &error));
@@ -314,10 +314,10 @@ void test_load_v1_key(void)
 			test_assert(dcrypt_key_id_public_old(pubkey, key_1, &error));
 			test_assert(strcmp("7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f", binary_to_hex(key_1->data, key_1->used)) == 0);
 
-			dcrypt_key_free_public(&pubkey);
-			dcrypt_key_free_private(&pkey2);
+			dcrypt_key_unref_public(&pubkey);
+			dcrypt_key_unref_private(&pkey2);
 		}
-		dcrypt_key_free_private(&pkey);
+		dcrypt_key_unref_private(&pkey);
 	}
 
 	test_end();
@@ -359,7 +359,7 @@ void test_load_v1_public_key(void)
 
 	test_assert(dcrypt_key_type_public(pub_key) == DCRYPT_KEY_EC);
 
-	dcrypt_key_free_public(&pub_key);
+	dcrypt_key_unref_public(&pub_key);
 	test_assert(pub_key == NULL);
 
 	test_end();
@@ -394,21 +394,21 @@ void test_load_v2_key(void)
 	test_assert_idx(dcrypt_key_store_private(priv, DCRYPT_FORMAT_DOVECOT, NULL, tmp, NULL, NULL, &error), 1);
 	test_assert_idx(strcmp(str_c(tmp), keys[1])==0, 1);
 	buffer_set_used_size(tmp, 0);
-	dcrypt_key_free_private(&priv);
+	dcrypt_key_unref_private(&priv);
 
 	test_assert_idx(dcrypt_key_load_private(&priv, DCRYPT_FORMAT_DOVECOT, keys[2], "This Is Sparta", NULL, &error), 2);
 	test_assert_idx(dcrypt_key_store_private(priv, DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", tmp, "This Is Sparta", NULL, &error), 2);
 	buffer_set_used_size(tmp, 0);
-	dcrypt_key_free_private(&priv);
+	dcrypt_key_unref_private(&priv);
 
 	struct dcrypt_public_key *pub = NULL;
 	dcrypt_key_convert_private_to_public(priv2, &pub);
 	test_assert_idx(dcrypt_key_load_private(&priv, DCRYPT_FORMAT_DOVECOT, keys[3], NULL, priv2, &error), 3);
 	test_assert_idx(dcrypt_key_store_private(priv, DCRYPT_FORMAT_DOVECOT, "ecdh-aes-256-ctr", tmp, NULL, pub, &error), 3);
 	buffer_set_used_size(tmp, 0);
-	dcrypt_key_free_private(&priv2);
-	dcrypt_key_free_private(&priv);
-	dcrypt_key_free_public(&pub);
+	dcrypt_key_unref_private(&priv2);
+	dcrypt_key_unref_private(&priv);
+	dcrypt_key_unref_public(&pub);
 
 	buffer_free(&tmp);
 
@@ -434,7 +434,7 @@ void test_load_v2_public_key(void)
 		test_assert(dcrypt_key_store_public(pub, DCRYPT_FORMAT_DOVECOT, tmp, &error));
 		test_assert(strcmp(key, str_c(tmp))==0);
 		buffer_free(&tmp);
-		dcrypt_key_free_public(&pub);
+		dcrypt_key_unref_public(&pub);
 	}
 
 	test_end();
@@ -527,7 +527,7 @@ void test_gen_and_get_info_rsa_pem(void)
 	test_assert(encryption_key_hash == NULL);
 	test_assert(key_hash == NULL);
 
-	dcrypt_keypair_free(&pair);
+	dcrypt_keypair_unref(&pair);
 	buffer_free(&buf);
 
 	test_end();

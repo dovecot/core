@@ -394,10 +394,10 @@ void test_write_read_v2_empty(void)
 
 static
 void test_free_keys() {
-	dcrypt_key_free_private(&test_v1_kp.priv);
-	dcrypt_key_free_public(&test_v1_kp.pub);
-	dcrypt_key_free_private(&test_v2_kp.priv);
-	dcrypt_key_free_public(&test_v2_kp.pub);
+	dcrypt_key_unref_private(&test_v1_kp.priv);
+	dcrypt_key_unref_public(&test_v1_kp.pub);
+	dcrypt_key_unref_private(&test_v2_kp.priv);
+	dcrypt_key_unref_public(&test_v2_kp.pub);
 }
 
 int main(void) {
