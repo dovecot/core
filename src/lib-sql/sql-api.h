@@ -24,6 +24,13 @@ struct sql_field_def {
 	size_t offset;
 };
 
+enum sql_result_error_type {
+	SQL_RESULT_ERROR_TYPE_UNKNOWN = 0,
+	/* It's unknown whether write succeeded or not. This could be due to
+	   a timeout or a disconnection from server. */
+	SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN
+};
+
 #define SQL_DEF_STRUCT(name, struct_name, type, c_type) \
 	{ (type) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		((struct struct_name *)0)->name, c_type), \
@@ -123,6 +130,7 @@ const char *const *sql_result_get_values(struct sql_result *result);
 
 /* Return last error message in result. */
 const char *sql_result_get_error(struct sql_result *result);
+enum sql_result_error_type sql_result_get_error_type(struct sql_result *result);
 
 /* Begin a new transaction. Currently you're limited to only one open
    transaction at a time. */
