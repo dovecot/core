@@ -78,9 +78,11 @@ struct dcrypt_vfs {
 		enum dcrypt_key_kind *kind_r, enum dcrypt_key_encryption_type *encryption_type_r, const char **encryption_key_hash_r,
 		const char **key_hash_r, const char **error_r);
 
-	void (*free_keypair)(struct dcrypt_keypair *keypair);
-	void (*free_public_key)(struct dcrypt_public_key **key);
-	void (*free_private_key)(struct dcrypt_private_key **key);
+	void (*unref_keypair)(struct dcrypt_keypair *keypair);
+	void (*unref_public_key)(struct dcrypt_public_key **key);
+	void (*unref_private_key)(struct dcrypt_private_key **key);
+        void (*ref_public_key)(struct dcrypt_public_key *key);
+        void (*ref_private_key)(struct dcrypt_private_key *key);
 
 	bool (*rsa_encrypt)(struct dcrypt_public_key *key, const unsigned char *data, size_t data_len,
 		buffer_t *result, const char **error_r);
