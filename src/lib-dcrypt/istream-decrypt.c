@@ -132,6 +132,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 				io_stream_set_error(&stream->istream.iostream, "Private key not available");
 				return -1;
 			}
+			dcrypt_key_ref_private(stream->priv_key);
 		} else {
 			io_stream_set_error(&stream->istream.iostream, "Private key not available");
 			return -1;
@@ -306,6 +307,7 @@ ssize_t i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg, u
 				return -1;
 			}
 			if (ret > 0) {
+				dcrypt_key_ref_private(stream->priv_key);
 				have_key = TRUE;
 				break;
 			}
@@ -803,6 +805,8 @@ void i_stream_decrypt_destroy(struct iostream_private *stream)
 		dcrypt_ctx_sym_destroy(&(dstream->ctx_sym));
 	if (dstream->ctx_mac != NULL)
 		dcrypt_ctx_hmac_destroy(&(dstream->ctx_mac));
+	if (dstream->priv_key != NULL)
+		dcrypt_key_unref_private(&(dstream->priv_key));
 
 	i_stream_unref(&(dstream->istream.parent));
 }
@@ -835,6 +839,7 @@ i_stream_create_decrypt(struct istream *input, struct dcrypt_private_key *priv_k
 	struct decrypt_istream *dstream;
 
 	dstream = i_stream_create_decrypt_common(input);
+	dcrypt_key_ref_private(priv_key);
 	dstream->priv_key = priv_key;
 	return &dstream->istream.istream;
 }
