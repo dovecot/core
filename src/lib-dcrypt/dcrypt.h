@@ -184,10 +184,11 @@ bool dcrypt_key_store_public(struct dcrypt_public_key *key, enum dcrypt_key_form
 
 void dcrypt_key_convert_private_to_public(struct dcrypt_private_key *priv_key, struct dcrypt_public_key **pub_key_r);
 
-void dcrypt_keypair_free(struct dcrypt_keypair *keypair);
-
-void dcrypt_key_free_public(struct dcrypt_public_key **key);
-void dcrypt_key_free_private(struct dcrypt_private_key **key);
+void dcrypt_keypair_unref(struct dcrypt_keypair *keypair);
+void dcrypt_key_ref_public(struct dcrypt_public_key *key);
+void dcrypt_key_ref_private(struct dcrypt_private_key *key);
+void dcrypt_key_unref_public(struct dcrypt_public_key **key);
+void dcrypt_key_unref_private(struct dcrypt_private_key **key);
 
 enum dcrypt_key_type dcrypt_key_type_private(struct dcrypt_private_key *key);
 enum dcrypt_key_type dcrypt_key_type_public(struct dcrypt_public_key *key);
