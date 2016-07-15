@@ -1085,8 +1085,6 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	if (request->credentials_scheme == NULL)
 		request->credentials_scheme = p_strdup(request->pool, scheme);
-	else
-		i_assert(request->credentials_scheme == scheme);
 
 	if (request->policy_processed)
 		auth_request_lookup_credentials_policy_continue(request, callback);
