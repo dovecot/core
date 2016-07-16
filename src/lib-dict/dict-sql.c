@@ -802,7 +802,15 @@ sql_dict_transaction_commit_callback(const struct sql_commit_result *sql_result,
 	else {
 		result.error = t_strdup_printf("sql dict: commit failed: %s",
 					       sql_result->error);
-		result.ret = DICT_COMMIT_RET_FAILED;
+		switch (sql_result->error_type) {
+		case SQL_RESULT_ERROR_TYPE_UNKNOWN:
+		default:
+			result.ret = DICT_COMMIT_RET_FAILED;
+			break;
+		case SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN:
+			result.ret = DICT_COMMIT_RET_WRITE_UNCERTAIN;
+			break;
+		}
 	}
 
 	if (ctx->async_callback != NULL)

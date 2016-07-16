@@ -305,6 +305,10 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 	case DICT_COMMIT_RET_NOTFOUND:
 		chr = DICT_PROTOCOL_REPLY_NOTFOUND;
 		break;
+	case DICT_COMMIT_RET_WRITE_UNCERTAIN:
+		i_assert(result->error != NULL);
+		chr = DICT_PROTOCOL_REPLY_WRITE_UNCERTAIN;
+		break;
 	case DICT_COMMIT_RET_FAILED:
 	default:
 		i_assert(result->error != NULL);
@@ -314,7 +318,8 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 	if (async)
 		str_append_c(str, DICT_PROTOCOL_REPLY_ASYNC_COMMIT);
 	str_printfa(str, "%c%u", chr, cmd->trans_id);
-	if (chr == DICT_PROTOCOL_REPLY_FAIL) {
+	if (chr != DICT_PROTOCOL_REPLY_OK &&
+	    chr != DICT_PROTOCOL_REPLY_NOTFOUND) {
 		str_append_c(str, '\t');
 		str_append_tabescaped(str, result->error);
 	}

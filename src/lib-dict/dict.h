@@ -48,6 +48,9 @@ enum dict_commit_ret {
 	DICT_COMMIT_RET_OK = 1,
 	DICT_COMMIT_RET_NOTFOUND = 0,
 	DICT_COMMIT_RET_FAILED = -1,
+	/* write may or may not have succeeded (e.g. write timeout or
+	   disconnected from server) */
+	DICT_COMMIT_RET_WRITE_UNCERTAIN = -2,
 };
 
 struct dict_commit_result {

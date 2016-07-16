@@ -40,7 +40,8 @@ struct client_dict_cmd {
 	bool background;
 
 	void (*callback)(struct client_dict_cmd *cmd,
-			 const char *line, const char *error);
+			 const char *line, const char *error,
+			 bool disconnected);
         struct client_dict_iterate_context *iter;
 
 	struct {
@@ -168,16 +169,17 @@ static bool
 dict_cmd_callback_line(struct client_dict_cmd *cmd, const char *line)
 {
 	cmd->unfinished = FALSE;
-	cmd->callback(cmd, line, NULL);
+	cmd->callback(cmd, line, NULL, FALSE);
 	return !cmd->unfinished;
 }
 
 static void
-dict_cmd_callback_error(struct client_dict_cmd *cmd, const char *error)
+dict_cmd_callback_error(struct client_dict_cmd *cmd, const char *error,
+			bool disconnected)
 {
 	cmd->unfinished = FALSE;
 	if (cmd->callback != NULL)
-		cmd->callback(cmd, NULL, error);
+		cmd->callback(cmd, NULL, error, disconnected);
 	i_assert(!cmd->unfinished);
 }
 
@@ -252,7 +254,8 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 		return TRUE;
 	} else if (ret < 0) {
 		i_assert(error != NULL);
-		dict_cmd_callback_error(cmd, error);
+		/* we didn't successfully send this command to dict */
+		dict_cmd_callback_error(cmd, error, FALSE);
 		client_dict_cmd_unref(cmd);
 		if (error_r != NULL)
 			*error_r = error;
@@ -443,7 +446,7 @@ client_dict_abort_commands(struct client_dict *dict, const char *reason)
 	array_clear(&dict->cmds);
 
 	array_foreach(&cmds_copy, cmdp) {
-		dict_cmd_callback_error(*cmdp, reason);
+		dict_cmd_callback_error(*cmdp, reason, TRUE);
 		client_dict_cmd_unref(*cmdp);
 	}
 }
@@ -608,7 +611,7 @@ static bool client_dict_switch_ioloop(struct dict *_dict)
 
 static void
 client_dict_lookup_async_callback(struct client_dict_cmd *cmd, const char *line,
-				  const char *error)
+				  const char *error, bool disconnected ATTR_UNUSED)
 {
 	struct client_dict *dict = cmd->dict;
 	struct dict_lookup_result result;
@@ -725,7 +728,7 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 
 static void
 client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
-				const char *error)
+				const char *error, bool disconnected ATTR_UNUSED)
 {
 	struct client_dict_iterate_context *ctx = cmd->iter;
 	struct client_dict *dict = cmd->dict;
@@ -887,7 +890,8 @@ client_dict_transaction_init(struct dict *_dict)
 
 static void
 client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
-					const char *line, const char *error)
+					const char *line, const char *error,
+					bool disconnected)
 {
 	struct client_dict *dict = cmd->dict;
 	struct dict_commit_result result = {
@@ -896,6 +900,8 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 
 	if (error != NULL) {
 		/* failed */
+		if (disconnected)
+			result.ret = DICT_COMMIT_RET_WRITE_UNCERTAIN;
 		result.error = error;
 	} else switch (*line) {
 	case DICT_PROTOCOL_REPLY_OK:
@@ -904,6 +910,9 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	case DICT_PROTOCOL_REPLY_NOTFOUND:
 		result.ret = DICT_COMMIT_RET_NOTFOUND;
 		break;
+	case DICT_PROTOCOL_REPLY_WRITE_UNCERTAIN:
+		result.ret = DICT_COMMIT_RET_WRITE_UNCERTAIN;
+		/* fallthrough */
 	case DICT_PROTOCOL_REPLY_FAIL: {
 		const char *error = strchr(line+1, '\t');
 
