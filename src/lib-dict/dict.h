@@ -44,9 +44,19 @@ struct dict_lookup_result {
 	const char *error;
 };
 
+enum dict_commit_ret {
+	DICT_COMMIT_RET_OK = 1,
+	DICT_COMMIT_RET_NOTFOUND = 0,
+	DICT_COMMIT_RET_FAILED = -1,
+	/* write may or may not have succeeded (e.g. write timeout or
+	   disconnected from server) */
+	DICT_COMMIT_RET_WRITE_UNCERTAIN = -2,
+};
+
 typedef void dict_lookup_callback_t(const struct dict_lookup_result *result,
 				    void *context);
 typedef void dict_iterate_callback_t(void *context);
+/* ret = enum dict_commit_ret */
 typedef void dict_transaction_commit_callback_t(int ret, void *context);
 
 void dict_driver_register(struct dict *driver);

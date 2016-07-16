@@ -296,6 +296,10 @@ cmd_commit_finish(struct dict_connection_cmd *cmd, int ret, bool async)
 	case 0:
 		chr = DICT_PROTOCOL_REPLY_NOTFOUND;
 		break;
+	case DICT_COMMIT_RET_WRITE_UNCERTAIN:
+		chr = DICT_PROTOCOL_REPLY_WRITE_UNCERTAIN;
+		break;
+	case DICT_COMMIT_RET_FAILED:
 	default:
 		chr = DICT_PROTOCOL_REPLY_FAIL;
 		break;
