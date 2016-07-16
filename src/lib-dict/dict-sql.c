@@ -790,16 +790,17 @@ sql_dict_transaction_has_nonexistent(struct sql_dict_transaction_context *ctx)
 }
 
 static void
-sql_dict_transaction_commit_callback(const char *error,
+sql_dict_transaction_commit_callback(const struct sql_commit_result *sql_result,
 				     struct sql_dict_transaction_context *ctx)
 {
 	struct dict_commit_result result;
 
 	memset(&result, 0, sizeof(result));
-	if (error == NULL)
+	if (sql_result->error == NULL)
 		result.ret = sql_dict_transaction_has_nonexistent(ctx) ? 0 : 1;
 	else {
-		result.error = t_strdup_printf("sql dict: commit failed: %s", error);
+		result.error = t_strdup_printf("sql dict: commit failed: %s",
+					       sql_result->error);
 		result.ret = -1;
 	}
 

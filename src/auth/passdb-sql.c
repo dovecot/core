@@ -194,29 +194,29 @@ static void sql_lookup_credentials(struct auth_request *request,
         sql_lookup_pass(sql_request);
 }
 
-static void sql_set_credentials_callback(const char *error,
+static void sql_set_credentials_callback(const struct sql_commit_result *sql_result,
 					 struct passdb_sql_request *sql_request)
 {
 	struct passdb_module *_module =
 		sql_request->auth_request->passdb->passdb;
 	struct sql_passdb_module *module = (struct sql_passdb_module *)_module;
 
-	if (error != NULL) {
+	if (sql_result->error != NULL) {
 		if (!module->conn->default_update_query) {
 			auth_request_log_error(sql_request->auth_request,
 				AUTH_SUBSYS_DB,
-				"Set credentials query failed: %s", error);
+				"Set credentials query failed: %s", sql_result->error);
 		} else {
 			auth_request_log_error(sql_request->auth_request,
 				AUTH_SUBSYS_DB,
 				"Set credentials query failed: %s"
 				"(using built-in default update_query: %s)",
-				error, module->conn->set.update_query);
+				sql_result->error, module->conn->set.update_query);
 		}
 	}
 
 	sql_request->callback.
-		set_credentials(error == NULL, sql_request->auth_request);
+		set_credentials(sql_result->error == NULL, sql_request->auth_request);
 	i_free(sql_request);
 }
 

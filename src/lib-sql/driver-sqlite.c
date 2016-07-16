@@ -336,7 +336,7 @@ driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
 	struct sqlite_transaction_context *ctx =
 		(struct sqlite_transaction_context *)_ctx;
 	struct sqlite_db *db = (struct sqlite_db *)ctx->ctx.db;
-	const char *errmsg;
+	struct sql_commit_result commit_result;
 
 	if (!ctx->failed) {
 		sql_exec(_ctx->db, "COMMIT");
@@ -344,13 +344,14 @@ driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
 			ctx->failed = TRUE;
 	}
 
+	memset(&commit_result, 0, sizeof(commit_result));
 	if (ctx->failed) {
-		errmsg = sqlite3_errmsg(db->sqlite);
-		callback(errmsg, context);
+		commit_result.error = sqlite3_errmsg(db->sqlite);
+		callback(&commit_result, context);
                 /* also does i_free(ctx) */
 		driver_sqlite_transaction_rollback(_ctx);
 	} else {
-		callback(NULL, context);
+		callback(&commit_result, context);
 		i_free(ctx);
 	}
 }

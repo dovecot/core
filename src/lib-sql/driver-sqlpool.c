@@ -77,7 +77,7 @@ static void
 driver_sqlpool_query_callback(struct sql_result *result,
 			      struct sqlpool_request *request);
 static void
-driver_sqlpool_commit_callback(const char *error,
+driver_sqlpool_commit_callback(const struct sql_commit_result *result,
 			       struct sqlpool_transaction_context *ctx);
 
 static struct sqlpool_request * ATTR_NULL(2)
@@ -717,10 +717,10 @@ driver_sqlpool_transaction_free(struct sqlpool_transaction_context *ctx)
 }
 
 static void
-driver_sqlpool_commit_callback(const char *error,
+driver_sqlpool_commit_callback(const struct sql_commit_result *result,
 			       struct sqlpool_transaction_context *ctx)
 {
-	ctx->callback(error, ctx->context);
+	ctx->callback(result, ctx->context);
 	driver_sqlpool_transaction_free(ctx);
 }
 

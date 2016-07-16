@@ -541,12 +541,13 @@ static void
 driver_mysql_transaction_commit(struct sql_transaction_context *ctx,
 				sql_commit_callback_t *callback, void *context)
 {
+	struct sql_commit_result result;
 	const char *error;
 
+	memset(&result, 0, sizeof(result));
 	if (sql_transaction_commit_s(&ctx, &error) < 0)
-		callback(error, context);
-	else
-		callback(NULL, context);
+		result.error = error;
+	callback(&result, context);
 }
 
 static int ATTR_NULL(3)
