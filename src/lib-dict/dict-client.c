@@ -891,7 +891,7 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 {
 	struct client_dict *dict = cmd->dict;
 	struct dict_commit_result result = {
-		.ret = -1, .error = NULL
+		.ret = DICT_COMMIT_RET_FAILED, .error = NULL
 	};
 
 	if (error != NULL) {
@@ -899,10 +899,10 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		result.error = error;
 	} else switch (*line) {
 	case DICT_PROTOCOL_REPLY_OK:
-		result.ret = 1;
+		result.ret = DICT_COMMIT_RET_OK;
 		break;
 	case DICT_PROTOCOL_REPLY_NOTFOUND:
-		result.ret = 0;
+		result.ret = DICT_COMMIT_RET_NOTFOUND;
 		break;
 	case DICT_PROTOCOL_REPLY_FAIL: {
 		const char *error = strchr(line+1, '\t');
@@ -912,7 +912,7 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		break;
 	}
 	default:
-		result.ret = -1;
+		result.ret = DICT_COMMIT_RET_FAILED;
 		result.error = t_strdup_printf(
 			"dict-client: Invalid commit reply: %s", line);
 		client_dict_disconnect(dict, result.error);
@@ -965,13 +965,13 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	} else if (ctx->error != NULL) {
 		/* already failed */
 		struct dict_commit_result result = {
-			.ret = -1, .error = ctx->error
+			.ret = DICT_COMMIT_RET_FAILED, .error = ctx->error
 		};
 		callback(&result, context);
 	} else {
 		/* nothing changed */
 		struct dict_commit_result result = {
-			.ret = 1, .error = NULL
+			.ret = DICT_COMMIT_RET_OK, .error = NULL
 		};
 		callback(&result, context);
 	}

@@ -44,8 +44,14 @@ struct dict_lookup_result {
 	const char *error;
 };
 
+enum dict_commit_ret {
+	DICT_COMMIT_RET_OK = 1,
+	DICT_COMMIT_RET_NOTFOUND = 0,
+	DICT_COMMIT_RET_FAILED = -1,
+};
+
 struct dict_commit_result {
-	int ret;
+	enum dict_commit_ret ret;
 	const char *error;
 };
 

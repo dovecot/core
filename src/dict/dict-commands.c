@@ -299,12 +299,13 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 	cmd_stats_update(cmd, cmd_stats.commits);
 
 	switch (result->ret) {
-	case 1:
+	case DICT_COMMIT_RET_OK:
 		chr = DICT_PROTOCOL_REPLY_OK;
 		break;
-	case 0:
+	case DICT_COMMIT_RET_NOTFOUND:
 		chr = DICT_PROTOCOL_REPLY_NOTFOUND;
 		break;
+	case DICT_COMMIT_RET_FAILED:
 	default:
 		i_assert(result->error != NULL);
 		chr = DICT_PROTOCOL_REPLY_FAIL;

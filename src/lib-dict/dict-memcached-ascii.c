@@ -88,7 +88,9 @@ static void
 memcached_ascii_disconnected(struct memcached_ascii_connection *conn,
 			     const char *reason)
 {
-	const struct dict_commit_result result = { -1, reason };
+	const struct dict_commit_result result = {
+		DICT_COMMIT_RET_FAILED, reason
+	};
 	const struct memcached_ascii_dict_reply *reply;
 
 	connection_disconnect(&conn->conn);
@@ -201,7 +203,9 @@ static int memcached_ascii_input_reply_read(struct memcached_ascii_dict *dict,
 static int memcached_ascii_input_reply(struct memcached_ascii_dict *dict,
 				       const char **error_r)
 {
-	const struct dict_commit_result result = { 1, NULL };
+	const struct dict_commit_result result = {
+		DICT_COMMIT_RET_OK, NULL
+	};
 	struct memcached_ascii_dict_reply *replies;
 	unsigned int count;
 	int ret;
@@ -630,7 +634,7 @@ memcached_ascii_transaction_commit(struct dict_transaction_context *_ctx,
 	struct memcached_ascii_dict *dict =
 		(struct memcached_ascii_dict *)_ctx->dict;
 	struct dict_memcached_ascii_commit_ctx commit_ctx;
-	struct dict_commit_result result = { 1, NULL };
+	struct dict_commit_result result = { DICT_COMMIT_RET_OK, NULL };
 
 	if (_ctx->changed) {
 		memset(&commit_ctx, 0, sizeof(commit_ctx));

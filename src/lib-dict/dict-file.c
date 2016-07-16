@@ -634,11 +634,11 @@ file_dict_transaction_commit(struct dict_transaction_context *_ctx,
 
 	memset(&result, 0, sizeof(result));
 	if (file_dict_write_changes(ctx, &atomic_inc_not_found, &result.error) < 0)
-		result.ret = -1;
+		result.ret = DICT_COMMIT_RET_FAILED;
 	else if (atomic_inc_not_found)
-		result.ret = 0;
+		result.ret = DICT_COMMIT_RET_NOTFOUND;
 	else
-		result.ret = 1;
+		result.ret = DICT_COMMIT_RET_OK;
 	pool_unref(&ctx->pool);
 
 	callback(&result, context);

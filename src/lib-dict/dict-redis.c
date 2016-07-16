@@ -98,7 +98,9 @@ static void redis_callback(struct redis_dict *dict,
 static void
 redis_disconnected(struct redis_connection *conn, const char *reason)
 {
-	const struct dict_commit_result result = { -1, reason };
+	const struct dict_commit_result result = {
+		DICT_COMMIT_RET_FAILED, reason
+	};
 	const struct redis_dict_reply *reply;
 
 	conn->dict->db_id_set = FALSE;
@@ -257,7 +259,9 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 		reply = array_idx_modifiable(&dict->replies, 0);
 		i_assert(reply->reply_count > 0);
 		if (--reply->reply_count == 0) {
-			const struct dict_commit_result result = { 1, NULL };
+			const struct dict_commit_result result = {
+				DICT_COMMIT_RET_OK, NULL
+			};
 			redis_callback(dict, reply, &result);
 			array_delete(&dict->replies, 0, 1);
 			/* if we're running in a dict-ioloop, we're handling a
@@ -603,7 +607,7 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	struct redis_dict *dict = (struct redis_dict *)_ctx->dict;
 	struct redis_dict_reply *reply;
 	unsigned int i;
-	struct dict_commit_result result = { .ret = 1 };
+	struct dict_commit_result result = { .ret = DICT_COMMIT_RET_OK };
 
 	i_assert(dict->transaction_open);
 	dict->transaction_open = FALSE;

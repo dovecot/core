@@ -797,11 +797,12 @@ sql_dict_transaction_commit_callback(const struct sql_commit_result *sql_result,
 
 	memset(&result, 0, sizeof(result));
 	if (sql_result->error == NULL)
-		result.ret = sql_dict_transaction_has_nonexistent(ctx) ? 0 : 1;
+		result.ret = sql_dict_transaction_has_nonexistent(ctx) ?
+			DICT_COMMIT_RET_NOTFOUND : DICT_COMMIT_RET_OK;
 	else {
 		result.error = t_strdup_printf("sql dict: commit failed: %s",
 					       sql_result->error);
-		result.ret = -1;
+		result.ret = DICT_COMMIT_RET_FAILED;
 	}
 
 	if (ctx->async_callback != NULL)
@@ -822,7 +823,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	struct dict_commit_result result;
 
 	memset(&result, 0, sizeof(result));
-	result.ret = -1;
+	result.ret = DICT_COMMIT_RET_FAILED;
 	result.error = t_strdup(ctx->error);
 
 	if (ctx->prev_inc_map != NULL)
@@ -833,7 +834,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	} else if (!_ctx->changed) {
 		/* nothing changed, no need to commit */
 		sql_transaction_rollback(&ctx->sql_ctx);
-		result.ret = 1;
+		result.ret = DICT_COMMIT_RET_OK;
 	} else if (async) {
 		ctx->async_callback = callback;
 		ctx->async_context = context;
@@ -845,9 +846,9 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 			"sql dict: commit failed: %s", error);
 	} else {
 		if (sql_dict_transaction_has_nonexistent(ctx))
-			result.ret = 0;
+			result.ret = DICT_COMMIT_RET_NOTFOUND;
 		else
-			result.ret = 1;
+			result.ret = DICT_COMMIT_RET_OK;
 	}
 	sql_dict_transaction_free(ctx);
 
