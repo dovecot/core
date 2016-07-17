@@ -1341,7 +1341,8 @@ const struct sql_db driver_cassandra_db = {
 
 		driver_cassandra_update,
 
-		driver_cassandra_escape_blob
+		driver_cassandra_escape_blob,
+		NULL
 	}
 };
 
