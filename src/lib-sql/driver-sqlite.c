@@ -425,7 +425,8 @@ const struct sql_db driver_sqlite_db = {
 		driver_sqlite_transaction_rollback,
 		driver_sqlite_update,
 
-		driver_sqlite_escape_blob
+		driver_sqlite_escape_blob,
+		NULL
 	}
 };
 

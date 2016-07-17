@@ -832,6 +832,7 @@ struct sql_db driver_sqlpool_db = {
 
 		driver_sqlpool_update,
 
-		driver_sqlpool_escape_blob
+		driver_sqlpool_escape_blob,
+		NULL
 	}
 };

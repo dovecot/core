@@ -1165,7 +1165,8 @@ const struct sql_db driver_pgsql_db = {
 
 		driver_pgsql_update,
 
-		driver_pgsql_escape_blob
+		driver_pgsql_escape_blob,
+		NULL
 	}
 };
 

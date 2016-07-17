@@ -678,7 +678,8 @@ const struct sql_db driver_mysql_db = {
 
 		driver_mysql_update,
 
-		driver_mysql_escape_blob
+		driver_mysql_escape_blob,
+		NULL
 	}
 };
 

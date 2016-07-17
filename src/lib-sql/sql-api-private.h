@@ -78,6 +78,9 @@ struct sql_db_vfuncs {
 		       unsigned int *affected_rows);
 	const char *(*escape_blob)(struct sql_db *db,
 				   const unsigned char *data, size_t size);
+	void (*transaction_commit2)(struct sql_transaction_context *ctx,
+				    sql_commit2_callback_t *callback,
+				    void *context);
 };
 
 struct sql_db {
