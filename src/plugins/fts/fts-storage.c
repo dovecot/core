@@ -762,7 +762,7 @@ static bool fts_autoindex_exclude_match(struct mailbox *box)
 
 	exclude_list = fts_exclude_get_patterns(user);
 	if (exclude_list == NULL)
-		return TRUE;
+		return FALSE;
 
 	set = mailbox_settings_find(mailbox_get_namespace(box),
 				    mailbox_get_vname(box));
