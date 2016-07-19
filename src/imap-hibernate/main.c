@@ -42,6 +42,7 @@ int main(int argc, char *argv[])
 	restrict_access_by_env(NULL, FALSE);
 	restrict_access_allow_coredumps(TRUE);
 
+	imap_clients_init();
 	imap_master_connections_init();
 	imap_hibernate_clients_init();
 	master_service_init_finish(master_service);
