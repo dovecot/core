@@ -29,36 +29,36 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 	struct stat st;
 	int old_errno;
 
-	for (; first_fd <= last_fd; first_fd++) {
-		if (fcntl(first_fd, F_GETFD, 0) == -1 && errno == EBADF)
+	for (int fd = first_fd; fd <= last_fd; ++fd) {
+		if (fcntl(fd, F_GETFD, 0) == -1 && errno == EBADF)
 			continue;
 
 		old_errno = errno;
 
-		if (net_getsockname(first_fd, &addr, &port) == 0) {
+		if (net_getsockname(fd, &addr, &port) == 0) {
 			if (addr.family == AF_UNIX) {
 				struct sockaddr_un sa;
 
 				socklen_t socklen = sizeof(sa);
 
-				if (getsockname(first_fd, (void *)&sa,
+				if (getsockname(fd, (void *)&sa,
 						&socklen) < 0)
 					sa.sun_path[0] = '\0';
 
 				i_panic("Leaked UNIX socket fd %d: %s",
-					first_fd, sa.sun_path);
+					fd, sa.sun_path);
 			}
 
-			if (net_getpeername(first_fd, &raddr, &rport) < 0) {
+			if (net_getpeername(fd, &raddr, &rport) < 0) {
 				memset(&raddr, 0, sizeof(raddr));
 				rport = 0;
 			}
 			i_panic("Leaked socket fd %d: %s:%u -> %s:%u",
-				first_fd, net_ip2addr(&addr), port,
+				fd, net_ip2addr(&addr), port,
 				net_ip2addr(&raddr), rport);
 		}
 
-		if (fstat(first_fd, &st) == 0) {
+		if (fstat(fd, &st) == 0) {
 #ifdef __APPLE__
 			/* OSX workaround: gettimeofday() calls shm_open()
 			   internally and the fd won't get closed on exec.
@@ -69,16 +69,16 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 #endif
 #ifdef HAVE_SYS_SYSMACROS_H
 			i_panic("Leaked file fd %d: dev %s.%s inode %s",
-				first_fd, dec2str(major(st.st_dev)),
+				fd, dec2str(major(st.st_dev)),
 				dec2str(minor(st.st_dev)), dec2str(st.st_ino));
 #else
 			i_panic("Leaked file fd %d: dev %s inode %s",
-				first_fd, dec2str(st.st_dev),
+				fd, dec2str(st.st_dev),
 				dec2str(st.st_ino));
 #endif
 		}
 
 		i_panic("Leaked unknown fd %d (errno = %s)",
-			first_fd, strerror(old_errno));
+			fd, strerror(old_errno));
 	}
 }
