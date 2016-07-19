@@ -356,6 +356,7 @@ static int services_listen_master(struct service_list *service_list)
 
 	if (service_list->master_fd == -1)
 		return 0;
+	fd_close_on_exec(service_list->master_fd, TRUE);
 	return 1;
 }
 
