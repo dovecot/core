@@ -18,7 +18,7 @@ mailbox_header_lookup_init_real(struct mailbox *box,
 	const char *const *name;
 	const char **sorted_headers, **dest_name;
 	pool_t pool;
-	unsigned int i, count;
+	unsigned int i, j, count;
 
 	i_assert(*headers != NULL);
 
@@ -33,10 +33,13 @@ mailbox_header_lookup_init_real(struct mailbox *box,
 
 	/* @UNSAFE */
 	fields = t_new(struct mail_cache_field, count);
-	for (i = 0; i < count; i++) {
+	for (i = j = 0; i < count; i++) {
+		if (i > 0 && strcasecmp(headers[i-1], headers[i]) == 0)
+			continue;
 		header_field.name = t_strconcat("hdr.", headers[i], NULL);
-		fields[i] = header_field;
+		fields[j++] = header_field;
 	}
+	count = j;
 	mail_cache_register_fields(box->cache, fields, count);
 
 	pool = pool_alloconly_create("mailbox_header_lookup_ctx", 1024);
@@ -52,7 +55,7 @@ mailbox_header_lookup_init_real(struct mailbox *box,
 	dest_name = p_new(pool, const char *, count + 1);
 	for (i = 0; i < count; i++) {
 		ctx->idx[i] = fields[i].idx;
-		dest_name[i] = p_strdup(pool, headers[i]);
+		dest_name[i] = p_strdup(pool, fields[i].name + strlen("hdr."));
 	}
 	ctx->name = dest_name;
 	return ctx;
