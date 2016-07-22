@@ -28,6 +28,7 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 	in_port_t port, rport;
 	struct stat st;
 	int old_errno;
+	bool leaks = FALSE;
 
 	for (int fd = first_fd; fd <= last_fd; ++fd) {
 		if (fcntl(fd, F_GETFD, 0) == -1 && errno == EBADF)
@@ -45,17 +46,21 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 						&socklen) < 0)
 					sa.sun_path[0] = '\0';
 
-				i_panic("Leaked UNIX socket fd %d: %s",
+				i_error("Leaked UNIX socket fd %d: %s",
 					fd, sa.sun_path);
+				leaks = TRUE;
+				continue;
 			}
 
 			if (net_getpeername(fd, &raddr, &rport) < 0) {
 				memset(&raddr, 0, sizeof(raddr));
 				rport = 0;
 			}
-			i_panic("Leaked socket fd %d: %s:%u -> %s:%u",
+			i_error("Leaked socket fd %d: %s:%u -> %s:%u",
 				fd, net_ip2addr(&addr), port,
 				net_ip2addr(&raddr), rport);
+			leaks = TRUE;
+			continue;
 		}
 
 		if (fstat(fd, &st) == 0) {
@@ -68,17 +73,25 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 				continue;
 #endif
 #ifdef HAVE_SYS_SYSMACROS_H
-			i_panic("Leaked file fd %d: dev %s.%s inode %s",
+			i_error("Leaked file fd %d: dev %s.%s inode %s",
 				fd, dec2str(major(st.st_dev)),
 				dec2str(minor(st.st_dev)), dec2str(st.st_ino));
+			leaks = TRUE;
+			continue;
 #else
-			i_panic("Leaked file fd %d: dev %s inode %s",
+			i_error("Leaked file fd %d: dev %s inode %s",
 				fd, dec2str(st.st_dev),
 				dec2str(st.st_ino));
+			leaks = TRUE;
+			continue;
 #endif
 		}
 
-		i_panic("Leaked unknown fd %d (errno = %s)",
+		i_error("Leaked unknown fd %d (errno = %s)",
 			fd, strerror(old_errno));
+		leaks = TRUE;
+		continue;
 	}
+	if (leaks)
+		i_fatal("fd leak found");
 }
