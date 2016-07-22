@@ -503,7 +503,7 @@ i_stream_get_data(struct istream *stream, size_t *size_r)
 
 	if (_stream->skip >= _stream->pos) {
 		*size_r = 0;
-		return NULL;
+		return &uchar_nul;
 	}
 
 	if (i_stream_is_buffer_invalid(_stream)) {
@@ -528,7 +528,7 @@ i_stream_get_data(struct istream *stream, size_t *size_r)
 			_stream->skip = _stream->pos = 0;
 			stream->eof = FALSE;
 		}
-		return NULL;
+		return &uchar_nul;
 	}
 
         *size_r = _stream->pos - _stream->skip;
