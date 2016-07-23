@@ -512,6 +512,7 @@ const struct fs fs_class_metawrap = {
 		fs_wrapper_iter_init,
 		fs_wrapper_iter_next,
 		fs_wrapper_iter_deinit,
-		NULL
+		NULL,
+		fs_wrapper_get_nlinks,
 	}
 };

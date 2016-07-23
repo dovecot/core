@@ -418,6 +418,7 @@ const struct fs fs_class_test = {
 		fs_test_iter_init,
 		fs_test_iter_next,
 		fs_test_iter_deinit,
-		NULL
+		NULL,
+		NULL,
 	}
 };

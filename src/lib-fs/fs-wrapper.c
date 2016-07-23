@@ -108,6 +108,11 @@ int fs_wrapper_stat(struct fs_file *file, struct stat *st_r)
 	return fs_stat(file->parent, st_r);
 }
 
+int fs_wrapper_get_nlinks(struct fs_file *file, nlink_t *nlinks_r)
+{
+	return fs_get_nlinks(file->parent, nlinks_r);
+}
+
 int fs_wrapper_copy(struct fs_file *src, struct fs_file *dest)
 {
 	if (src != NULL)
