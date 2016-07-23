@@ -69,6 +69,7 @@ struct fs_vfuncs {
 	int (*iter_deinit)(struct fs_iter *iter);
 
 	bool (*switch_ioloop)(struct fs *fs);
+	int (*get_nlinks)(struct fs_file *file, nlink_t *nlinks_r);
 };
 
 struct fs {

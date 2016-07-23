@@ -514,6 +514,7 @@ const struct fs fs_class_sis = {
 		fs_sis_iter_init,
 		NULL,
 		NULL,
-		NULL
+		NULL,
+		fs_wrapper_get_nlinks,
 	}
 };

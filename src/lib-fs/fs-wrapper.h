@@ -24,6 +24,7 @@ int fs_wrapper_lock(struct fs_file *file, unsigned int secs,
 void fs_wrapper_unlock(struct fs_lock *_lock);
 int fs_wrapper_exists(struct fs_file *file);
 int fs_wrapper_stat(struct fs_file *file, struct stat *st_r);
+int fs_wrapper_get_nlinks(struct fs_file *file, nlink_t *nlinks_r);
 int fs_wrapper_copy(struct fs_file *src, struct fs_file *dest);
 int fs_wrapper_rename(struct fs_file *src, struct fs_file *dest);
 int fs_wrapper_delete(struct fs_file *file);

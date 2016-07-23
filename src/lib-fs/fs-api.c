@@ -839,6 +839,33 @@ int fs_stat(struct fs_file *file, struct stat *st_r)
 	return ret;
 }
 
+int fs_get_nlinks(struct fs_file *file, nlink_t *nlinks_r)
+{
+	int ret;
+
+	if (file->fs->v.get_nlinks == NULL) {
+		struct stat st;
+
+		if (fs_stat(file, &st) < 0)
+			return -1;
+		*nlinks_r = st.st_nlink;
+		return 0;
+	}
+
+	if (!file->read_or_prefetch_counted &&
+	    !file->lookup_metadata_counted && !file->stat_counted) {
+		file->stat_counted = TRUE;
+		file->fs->stats.stat_count++;
+		fs_file_timing_start(file, FS_OP_STAT);
+	}
+	T_BEGIN {
+		ret = file->fs->v.get_nlinks(file, nlinks_r);
+	} T_END;
+	if (!(ret < 0 && errno == EAGAIN))
+		fs_file_timing_end(file, FS_OP_STAT);
+	return ret;
+}
+
 int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 {
 	/* we're going to be counting this as read+write, so remove the

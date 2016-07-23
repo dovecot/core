@@ -888,6 +888,7 @@ const struct fs fs_class_posix = {
 		fs_posix_iter_init,
 		fs_posix_iter_next,
 		fs_posix_iter_deinit,
-		NULL
+		NULL,
+		NULL,
 	}
 };

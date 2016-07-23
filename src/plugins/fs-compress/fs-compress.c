@@ -414,6 +414,7 @@ const struct fs fs_class_compress = {
 		fs_compress_iter_init,
 		fs_compress_iter_next,
 		fs_compress_iter_deinit,
-		NULL
+		NULL,
+		fs_wrapper_get_nlinks
 	}
 };
