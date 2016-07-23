@@ -446,6 +446,17 @@ static int fs_randomfail_stat(struct fs_file *_file, struct stat *st_r)
 	return fs_file_random_fail_end(file, ret, FS_OP_STAT);
 }
 
+static int fs_randomfail_get_nlinks(struct fs_file *_file, nlink_t *nlinks_r)
+{
+	struct randomfail_fs_file *file = (struct randomfail_fs_file *)_file;
+	int ret;
+
+	if (fs_file_random_fail_begin(file, FS_OP_STAT))
+		return -1;
+	ret = fs_get_nlinks(file->super, nlinks_r);
+	return fs_file_random_fail_end(file, ret, FS_OP_STAT);
+}
+
 static int fs_randomfail_copy(struct fs_file *_src, struct fs_file *_dest)
 {
 	struct randomfail_fs_file *src = (struct randomfail_fs_file *)_src;
@@ -566,6 +577,7 @@ const struct fs fs_class_randomfail = {
 		fs_randomfail_iter_init,
 		fs_randomfail_iter_next,
 		fs_randomfail_iter_deinit,
-		NULL
+		NULL,
+		fs_randomfail_get_nlinks,
 	}
 };

@@ -303,6 +303,10 @@ int fs_delete(struct fs_file *file);
 /* Returns 0 if ok, -1 if error occurred (e.g. errno=ENOENT).
    All fs backends may not support all stat fields. */
 int fs_stat(struct fs_file *file, struct stat *st_r);
+/* Get number of links to the file. This is the same as using fs_stat()'s
+   st_nlinks field, except not all backends support returning it via fs_stat().
+   Returns 0 if ok, -1 if error occurred. */
+int fs_get_nlinks(struct fs_file *file, nlink_t *nlinks_r);
 /* Copy an object with possibly updated metadata. Destination parent
    directories are created automatically. Returns 0 if ok, -1 if error
    occurred. */
