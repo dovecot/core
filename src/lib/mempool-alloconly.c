@@ -222,11 +222,11 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 		size = nearest_power(size);
 #ifdef DEBUG
 		if (!apool->disable_warning) {
-			/* i_warning() overwrites unallocated data in data
+			/* i_debug() overwrites unallocated data in data
 			   stack, so make sure everything is allocated before
 			   calling it. */
 			t_buffer_alloc_last_full();
-			i_warning("Growing pool '%s' with: %"PRIuSIZE_T,
+			i_debug("Growing pool '%s' with: %"PRIuSIZE_T,
 				  apool->name, size);
 		}
 #endif

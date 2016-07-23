@@ -294,14 +294,6 @@ test_error_handler(const struct failure_context *ctx,
 {
 	test_dump_rand_state();
 	default_error_handler(ctx, format, args);
-#ifdef DEBUG
-	if (ctx->type == LOG_TYPE_WARNING &&
-	    strstr(format, "Growing") != NULL) {
-		/* ignore "Growing memory pool" and "Growing data stack"
-		   warnings */
-		return;
-	}
-#endif
 	if (expected_errors > 0) {
 		if (expected_error_str != NULL) {
 			test_assert(strstr(format, expected_error_str) != NULL);

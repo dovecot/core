@@ -413,9 +413,9 @@ static void *t_malloc_real(size_t size, bool permanent)
 
 #ifdef DEBUG
 	if (warn && getenv("DEBUG_SILENT") == NULL) {
-		/* warn after allocation, so if i_warning() wants to
+		/* warn after allocation, so if i_debug() wants to
 		   allocate more memory we don't go to infinite loop */
-		i_warning("Growing data stack by %"PRIuSIZE_T" as "
+		i_debug("Growing data stack by %"PRIuSIZE_T" as "
 			  "'%s' reaches %llu bytes from %u allocations.",
 			  current_block->size,
 			  current_frame_block->marker[frame_pos],
