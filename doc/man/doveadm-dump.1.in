@@ -58,6 +58,9 @@ IMAP COMPRESSION extension.
 .B dcrypt-file
 Dump metadata of a dcrypt encrypted file.
 .TP
+.B dcrypt-key
+Dump metadata of a dcrypt key.
+.TP
 .B index
 \(rA dovecot.index, dovecot.map.index
 .TP

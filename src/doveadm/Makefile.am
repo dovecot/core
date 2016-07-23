@@ -118,6 +118,7 @@ doveadm_common_dump_cmds = \
 	doveadm-dump-mailboxlog.c \
 	doveadm-dump-thread.c \
 	doveadm-dump-dcrypt-file.c \
+	doveadm-dump-dcrypt-key.c \
 	doveadm-zlib.c
 
 common = \
