@@ -43,7 +43,9 @@ decode_test(const char *base64_input, const char *output, bool broken_input)
 		    (input->stream_errno == EINVAL && broken_input));
 
 	data = i_stream_get_data(input, &size);
-	test_assert(size == strlen(output) && memcmp(data, output, size) == 0);
+	test_assert(size == strlen(output));
+	if (size > 0)
+		test_assert(memcmp(data, output, size) == 0);
 	i_stream_unref(&input);
 	i_stream_unref(&input_data);
 }
