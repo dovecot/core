@@ -66,7 +66,7 @@ mail_storage_try_copy(struct mail_save_context **_ctx, struct mail *mail)
 	   to help anything. */
 	pmail->v.set_uid_cache_updates(mail, TRUE);
 
-	if (mail_get_stream(mail, NULL, NULL, &input) < 0) {
+	if (mail_get_stream_because(mail, NULL, NULL, "copying", &input) < 0) {
 		mail_copy_set_failed(ctx, mail, "stream");
 		return -1;
 	}

@@ -438,7 +438,7 @@ static int client_reply_msg_expunged(struct client *client, unsigned int msgnum)
 }
 
 static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines,
-		 uoff_t *byte_counter)
+		 const char *reason, uoff_t *byte_counter)
 {
         struct fetch_context *ctx;
 	int ret;
@@ -451,7 +451,7 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines,
 			       MAIL_FETCH_STREAM_BODY, NULL);
 	mail_set_seq(ctx->mail, msgnum_to_seq(client, msgnum));
 
-	if (mail_get_stream(ctx->mail, NULL, NULL, &ctx->stream) < 0) {
+	if (mail_get_stream_because(ctx->mail, NULL, NULL, reason, &ctx->stream) < 0) {
 		ret = client_reply_msg_expunged(client, msgnum);
 		fetch_deinit(ctx);
 		return ret;
@@ -495,7 +495,7 @@ static int cmd_retr(struct client *client, const char *args)
 		client->last_seen_pop3_msn = msgnum+1;
 
 	client->retr_count++;
-	return fetch(client, msgnum, (uoff_t)-1, &client->retr_bytes);
+	return fetch(client, msgnum, (uoff_t)-1, "RETR", &client->retr_bytes);
 }
 
 static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
@@ -556,7 +556,7 @@ static int cmd_top(struct client *client, const char *args)
 		return -1;
 
 	client->top_count++;
-	return fetch(client, msgnum, max_lines, &client->top_bytes);
+	return fetch(client, msgnum, max_lines, "TOP", &client->top_bytes);
 }
 
 struct cmd_uidl_context {

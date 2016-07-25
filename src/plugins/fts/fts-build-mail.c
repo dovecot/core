@@ -468,7 +468,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	const char *error;
 	int ret;
 
-	if (mail_get_stream(mail, NULL, NULL, &input) < 0) {
+	if (mail_get_stream_because(mail, NULL, NULL, "fts indexing", &input) < 0) {
 		if (mail->expunged)
 			return 0;
 		i_error("Failed to read mailbox %s mail UID=%u stream: %s",
