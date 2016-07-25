@@ -91,6 +91,7 @@ struct client_dict_iterate_context {
 	unsigned int result_idx;
 
 	bool async;
+	bool seen_results;
 	bool finished;
 	bool deinit;
 };
@@ -111,6 +112,8 @@ struct client_dict_transaction_context {
 static struct connection_list *dict_connections;
 
 static int client_dict_connect(struct client_dict *dict, const char **error_r);
+static int client_dict_reconnect(struct client_dict *dict, const char *reason,
+				 const char **error_r);
 static void client_dict_disconnect(struct client_dict *dict, const char *reason);
 
 static struct client_dict_cmd *
@@ -187,17 +190,18 @@ static void client_dict_input_timeout(struct client_dict *dict)
 {
 	struct client_dict_cmd *const *cmds;
 	unsigned int count;
+	const char *error;
 
 	cmds = array_get(&dict->cmds, &count);
 	i_assert(count > 0);
 
 	int input_diff = timeval_diff_msecs(&ioloop_timeval, &dict->last_input);
 	int cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmds[0]->start_time);
-	client_dict_disconnect(dict, t_strdup_printf(
+	(void)client_dict_reconnect(dict, t_strdup_printf(
 		"Timeout: No input from dict for %u.%03u secs "
 		"(%u commands pending, oldest sent %u.%03u secs ago: %s)",
 		input_diff/1000, input_diff%1000, count,
-		cmd_diff/1000, cmd_diff%1000, cmds[0]->query));
+		cmd_diff/1000, cmd_diff%1000, cmds[0]->query), &error);
 }
 
 static int
@@ -245,8 +249,7 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 	}
 	if (ret < 0 && retry) {
 		/* Reconnect and try again. */
-		client_dict_disconnect(dict, error);
-		if (client_dict_connect(dict, &error) < 0)
+		if (client_dict_reconnect(dict, error, &error) < 0)
 			;
 		else if (client_dict_cmd_query_send(dict, cmd->query) < 0) {
 			error = t_strdup_printf("write(%s) failed: %s", dict->conn.conn.name,
@@ -477,6 +480,58 @@ static void client_dict_disconnect(struct client_dict *dict, const char *reason)
 	if (dict->to_requests != NULL)
 		timeout_remove(&dict->to_requests);
 	connection_disconnect(&dict->conn.conn);
+}
+
+static int client_dict_reconnect(struct client_dict *dict, const char *reason,
+				 const char **error_r)
+{
+	ARRAY(struct client_dict_cmd *) retry_cmds;
+	struct client_dict_cmd *const *cmdp, *cmd;
+	const char *error;
+	int ret;
+
+	t_array_init(&retry_cmds, array_count(&dict->cmds));
+	for (unsigned int i = 0; i < array_count(&dict->cmds); ) {
+		cmdp = array_idx(&dict->cmds, i);
+		if (!(*cmdp)->retry_errors) {
+			i++;
+		} else if ((*cmdp)->iter != NULL &&
+			   (*cmdp)->iter->seen_results) {
+			/* don't retry iteration that already returned
+			   something to the caller. otherwise we'd return
+			   duplicates. */
+			i++;
+		} else {
+			array_append(&retry_cmds, cmdp, 1);
+			array_delete(&dict->cmds, i, 1);
+		}
+	}
+	client_dict_disconnect(dict, reason);
+	if (client_dict_connect(dict, error_r) < 0) {
+		reason = t_strdup_printf("%s - reconnect failed: %s",
+					 reason, *error_r);
+		array_foreach(&retry_cmds, cmdp) {
+			dict_cmd_callback_error(*cmdp, reason, TRUE);
+			client_dict_cmd_unref(*cmdp);
+		}
+		return -1;
+	}
+	if (array_count(&retry_cmds) == 0)
+		return 0;
+	i_warning("%s - reconnected", reason);
+
+	ret = 0; error = "";
+	array_foreach(&retry_cmds, cmdp) {
+		cmd = *cmdp;
+		/* if it fails again, don't retry anymore */
+		cmd->retry_errors = FALSE;
+		if (ret < 0) {
+			dict_cmd_callback_error(cmd, error, TRUE);
+			client_dict_cmd_unref(cmd);
+		} else if (!client_dict_cmd_send(dict, &cmd, &error))
+			ret = -1;
+	}
+	return ret;
 }
 
 static void dict_conn_destroy(struct connection *_conn)
@@ -847,6 +902,7 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 		*value_r = results[ctx->result_idx].value;
 		ctx->ctx.has_more = TRUE;
 		ctx->result_idx++;
+		ctx->seen_results = TRUE;
 		return TRUE;
 	}
 	ctx->ctx.has_more = !ctx->finished;
