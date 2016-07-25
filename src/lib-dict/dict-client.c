@@ -185,11 +185,19 @@ dict_cmd_callback_error(struct client_dict_cmd *cmd, const char *error,
 
 static void client_dict_input_timeout(struct client_dict *dict)
 {
-	int diff = timeval_diff_msecs(&ioloop_timeval, &dict->last_input);
+	struct client_dict_cmd *const *cmds;
+	unsigned int count;
 
+	cmds = array_get(&dict->cmds, &count);
+	i_assert(count > 0);
+
+	int input_diff = timeval_diff_msecs(&ioloop_timeval, &dict->last_input);
+	int cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmds[0]->start_time);
 	client_dict_disconnect(dict, t_strdup_printf(
-		"Timeout: No input from dict for %u.%03u secs",
-		diff/1000, diff%1000));
+		"Timeout: No input from dict for %u.%03u secs "
+		"(%u commands pending, oldest sent %u.%03u secs ago: %s)",
+		input_diff/1000, input_diff%1000, count,
+		cmd_diff/1000, cmd_diff%1000, cmds[0]->query));
 }
 
 static int
