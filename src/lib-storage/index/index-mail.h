@@ -188,7 +188,8 @@ void index_mail_parse_header(struct message_part *part,
 			     struct message_header_line *hdr,
 			     struct index_mail *mail) ATTR_NULL(1);
 int index_mail_parse_headers(struct index_mail *mail,
-			     struct mailbox_header_lookup_ctx *headers)
+			     struct mailbox_header_lookup_ctx *headers,
+			     const char *reason)
 	ATTR_NULL(2);
 int index_mail_headers_get_envelope(struct index_mail *mail);
 
@@ -265,5 +266,7 @@ void index_mail_cache_parse_deinit(struct mail *mail, time_t received_date,
 int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 				  unsigned int field_idx);
 void index_mail_save_finish(struct mail_save_context *ctx);
+
+const char *index_mail_cache_reason(struct mail *mail, const char *reason);
 
 #endif
