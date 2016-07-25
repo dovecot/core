@@ -392,6 +392,29 @@ void test_write_read_v2_empty(void)
 	test_end();
 }
 
+static int no_op_cb(const char *digest ATTR_UNUSED,
+		struct dcrypt_private_key **priv_key_r ATTR_UNUSED,
+		const char **error_r ATTR_UNUSED,
+		void *context ATTR_UNUSED)
+{
+	return 0;
+}
+
+static void test_read_8byte_garbage(void)
+{
+	test_begin("test_read_8byte_garbage");
+
+	struct istream *is = i_stream_create_from_data("12345678", 8);
+	struct istream *ds = i_stream_create_decrypt_callback(is,
+			no_op_cb, NULL);
+	ssize_t siz = i_stream_read(ds);
+	test_assert(siz < 0);
+	i_stream_unref(&ds);
+	i_stream_unref(&is);
+
+	test_end();
+}
+
 static
 void test_free_keys() {
 	dcrypt_key_unref_private(&test_v1_kp.priv);
@@ -420,6 +443,7 @@ int main(void) {
 		test_write_read_v2_short,
 		test_write_read_v2_empty,
 		test_free_keys,
+		test_read_8byte_garbage,
 		NULL
 	};
 
