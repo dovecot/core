@@ -857,10 +857,21 @@ int mail_get_header_stream(struct mail *mail,
 int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 		    struct message_size *body_size, struct istream **stream_r)
 	ATTR_NULL(2, 3);
+/* Same as mail_get_stream(), but specify a reason why the mail is being read.
+   This can be useful for debugging purposes. */
+int mail_get_stream_because(struct mail *mail, struct message_size *hdr_size,
+			    struct message_size *body_size,
+			    const char *reason, struct istream **stream_r)
+	ATTR_NULL(2, 3);
 /* Similar to mail_get_stream(), but the stream may or may not contain the
    message body. */
 int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
 			struct istream **stream_r) ATTR_NULL(2);
+/* Same as mail_get_hdr_stream(), but specify a reason why the header is being
+   read. This can be useful for debugging purposes. */
+int mail_get_hdr_stream_because(struct mail *mail,
+				struct message_size *hdr_size,
+				const char *reason, struct istream **stream_r);
 /* Returns the message part's body decoded to 8bit binary. If the
    Content-Transfer-Encoding isn't supported, returns -1 and sets error to
    MAIL_ERROR_CONVERSION. If the part refers to a multipart, all of its
