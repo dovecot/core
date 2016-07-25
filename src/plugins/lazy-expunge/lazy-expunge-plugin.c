@@ -281,6 +281,9 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	bool moving = mmail->moving;
 	int ret;
 
+	if (lt->delayed_error != MAIL_ERROR_NONE)
+		return;
+
 	/* Clear this in case the mail is used for non-move later on. */
 	mmail->moving = FALSE;
 
