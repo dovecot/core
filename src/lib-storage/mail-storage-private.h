@@ -503,6 +503,8 @@ struct mail_private {
 
 	pool_t pool, data_pool;
 	ARRAY(union mail_module_context *) module_contexts;
+
+	const char *get_stream_reason;
 };
 
 struct mailbox_list_context {
