@@ -154,7 +154,8 @@ static void hdr_write(string_t *str, struct message_header_line *hdr)
 {
 	if (!hdr->continued) {
 		str_append(str, hdr->name);
-		str_append_n(str, hdr->middle, hdr->middle_len);
+		if (hdr->middle_len > 0)
+			str_append_n(str, hdr->middle, hdr->middle_len);
 	}
 	str_append_n(str, hdr->value, hdr->value_len);
 	if (!hdr->no_newline) {

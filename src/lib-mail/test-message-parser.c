@@ -118,7 +118,7 @@ static void test_message_parser_small_blocks(void)
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
 		if (block.hdr != NULL)
 			message_header_line_write(output, block.hdr);
-		else
+		else if (block.size > 0)
 			str_append_n(output, block.data, block.size);
 	}
 
