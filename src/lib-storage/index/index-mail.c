@@ -1077,9 +1077,11 @@ void index_mail_stream_log_failure_for(struct index_mail *mail,
 			return;
 	}
 	mail_storage_set_critical(_mail->box->storage,
-		"read(%s) failed: %s (uid=%u, box=%s)",
+		"read(%s) failed: %s (uid=%u, box=%s, read reason=%s)",
 		i_stream_get_name(input), i_stream_get_error(input),
-		_mail->uid, mailbox_get_vname(_mail->box));
+		_mail->uid, mailbox_get_vname(_mail->box),
+		mail->mail.get_stream_reason == NULL ? "" :
+		mail->mail.get_stream_reason);
 }
 
 static int index_mail_parse_body(struct index_mail *mail,
@@ -1141,6 +1143,14 @@ int index_mail_init_stream(struct index_mail *mail,
 	struct istream *input;
 	bool has_nuls;
 	int ret;
+
+	if (_mail->box->storage->user->mail_debug &&
+	    mail->mail.get_stream_reason != NULL &&
+	    mail->mail.get_stream_reason[0] != '\0') {
+		i_debug("Mailbox %s: Opened mail UID=%u because: %s",
+			_mail->box->vname, _mail->uid,
+			mail->mail.get_stream_reason);
+	}
 
 	if (!data->initialized_wrapper_stream &&
 	    _mail->transaction->stats_track) {

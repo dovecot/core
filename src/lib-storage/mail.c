@@ -247,21 +247,13 @@ void mail_set_aborted(struct mail *mail)
 int mail_get_stream(struct mail *mail, struct message_size *hdr_size,
 		    struct message_size *body_size, struct istream **stream_r)
 {
-	struct mail_private *p = (struct mail_private *)mail;
-	int ret;
-
-	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
-		mail_set_aborted(mail);
-		return -1;
-	}
-	T_BEGIN {
-		ret = p->v.get_stream(mail, TRUE, hdr_size, body_size, stream_r);
-	} T_END;
-	return ret;
+	return mail_get_stream_because(mail, hdr_size, body_size,
+				       "mail stream", stream_r);
 }
 
-int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
-			struct istream **stream_r)
+int mail_get_stream_because(struct mail *mail, struct message_size *hdr_size,
+			    struct message_size *body_size,
+			    const char *reason, struct istream **stream_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 	int ret;
@@ -271,7 +263,34 @@ int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
 		return -1;
 	}
 	T_BEGIN {
+		p->get_stream_reason = reason;
+		ret = p->v.get_stream(mail, TRUE, hdr_size, body_size, stream_r);
+		p->get_stream_reason = "";
+	} T_END;
+	return ret;
+}
+
+int mail_get_hdr_stream(struct mail *mail, struct message_size *hdr_size,
+			struct istream **stream_r)
+{
+	return mail_get_hdr_stream_because(mail, hdr_size, "header stream", stream_r);
+}
+
+int mail_get_hdr_stream_because(struct mail *mail,
+				struct message_size *hdr_size,
+				const char *reason, struct istream **stream_r)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
+
+	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+		mail_set_aborted(mail);
+		return -1;
+	}
+	T_BEGIN {
+		p->get_stream_reason = reason;
 		ret = p->v.get_stream(mail, FALSE, hdr_size, NULL, stream_r);
+		p->get_stream_reason = "";
 	} T_END;
 	return ret;
 }
