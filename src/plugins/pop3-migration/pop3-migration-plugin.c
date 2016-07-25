@@ -273,7 +273,7 @@ get_hdr_sha1(struct mail *mail, unsigned char sha1_r[STATIC_ARRAY SHA1_RESULTLEN
 	   So we'll try to avoid this by falling back to full FETCH BODY[]
 	   (and/or RETR) and we'll parse the header ourself from it. This
 	   should work around any similar bugs in all IMAP/POP3 servers. */
-	if (mail_get_stream(mail, &hdr_size, NULL, &input) < 0) {
+	if (mail_get_stream_because(mail, &hdr_size, NULL, "pop3-migration", &input) < 0) {
 		errstr = mailbox_get_last_error(mail->box, &error);
 		i_error("pop3_migration: Failed to get body for msg %u: %s",
 			mail->seq, errstr);

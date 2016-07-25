@@ -713,8 +713,8 @@ static int search_arg_match_text(struct mail_search_arg *args,
 	} else if (have_headers) {
 		/* we need to read the entire header */
 		ret = have_body ?
-			mail_get_stream(ctx->cur_mail, NULL, NULL, &input) :
-			mail_get_hdr_stream(ctx->cur_mail, NULL, &input);
+			mail_get_stream_because(ctx->cur_mail, NULL, NULL, "search", &input) :
+			mail_get_hdr_stream_because(ctx->cur_mail, NULL, "search", &input);
 		if (ret < 0)
 			failed = TRUE;
 		else {
@@ -766,7 +766,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		/* we didn't search headers. */
 		struct message_size hdr_size;
 
-		if (mail_get_stream(ctx->cur_mail, &hdr_size, NULL, &input) < 0)
+		if (mail_get_stream_because(ctx->cur_mail, &hdr_size, NULL, "search", &input) < 0)
 			return -1;
 		i_stream_seek(input, hdr_size.physical_size);
 	}

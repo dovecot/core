@@ -361,8 +361,8 @@ blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
 static int
 index_mail_read_binary_to_cache(struct mail *_mail,
 				const struct message_part *part,
-				bool include_hdr, bool *binary_r,
-				bool *converted_r)
+				bool include_hdr, const char *reason,
+				bool *binary_r, bool *converted_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mail_binary_cache *cache = &_mail->box->storage->binary_cache;
@@ -373,7 +373,7 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 	t_array_init(&ctx.blocks, 8);
 
 	mail_storage_free_binary_cache(_mail->box->storage);
-	if (mail_get_stream(_mail, NULL, NULL, &ctx.input) < 0)
+	if (mail_get_stream_because(_mail, NULL, NULL, reason, &ctx.input) < 0)
 		return -1;
 
 	if (add_binary_part(&ctx, part, include_hdr) < 0) {
@@ -490,7 +490,7 @@ index_mail_get_binary_size(struct mail *_mail,
 	if (!get_cached_binary_parts(mail)) {
 		/* not found. parse the whole message */
 		if (index_mail_read_binary_to_cache(_mail, all_parts, TRUE,
-						    &binary, &converted) < 0)
+						    "binary.size", &binary, &converted) < 0)
 			return -1;
 	}
 
@@ -567,7 +567,7 @@ int index_mail_get_binary_stream(struct mail *_mail,
 		converted = TRUE;
 	} else {
 		if (index_mail_read_binary_to_cache(_mail, part, include_hdr,
-						    &binary, &converted) < 0)
+						    "binary stream", &binary, &converted) < 0)
 			return -1;
 		mail->data.cache_fetch_fields |= MAIL_FETCH_STREAM_BINARY;
 	}
