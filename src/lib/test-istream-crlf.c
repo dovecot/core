@@ -66,7 +66,9 @@ static void test_istream_crlf_input(const char *input)
 				test_assert(pos + (unsigned int)ret1 == size);
 				pos += ret1;
 			}
-			test_assert_idx(memcmp(data, str_data(output), size) == 0, j*10000+i);
+			if (size > 0)
+				test_assert_idx(memcmp(data, str_data(output),
+							size) == 0, j*10000+i);
 		}
 		test_assert_idx(size == str_len(output), j*10000+i);
 		i_stream_unref(&crlf_istream);

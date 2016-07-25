@@ -72,8 +72,10 @@ static ssize_t test_read(struct istream_private *stream)
 			stream->buffer = stream->w_buffer;
 			stream->buffer_size = cur_max;
 		}
-		memcpy(stream->w_buffer + new_skip_diff, tstream->orig_buffer,
-		       cur_max - new_skip_diff);
+		ssize_t size = cur_max - new_skip_diff;
+		if (size > 0)
+			memcpy(stream->w_buffer + new_skip_diff,
+				tstream->orig_buffer, (size_t)size);
 
 		ret = cur_max - stream->pos;
 		stream->pos = cur_max;
