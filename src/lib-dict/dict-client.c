@@ -272,7 +272,7 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 			*error_r = error;
 		return FALSE;
 	} else {
-		if (dict->to_requests == NULL) {
+		if (dict->to_requests == NULL && !cmd->background) {
 			dict->to_requests =
 				timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MSECS,
 					    client_dict_input_timeout, dict);
@@ -353,6 +353,21 @@ static void client_dict_add_timeout(struct client_dict *dict)
 		if (dict->to_requests != NULL)
 			timeout_remove(&dict->to_requests);
 	}
+}
+
+static void client_dict_cmd_backgrounded(struct client_dict *dict)
+{
+	struct client_dict_cmd *const *cmdp;
+
+	if (dict->to_requests == NULL)
+		return;
+
+	array_foreach(&dict->cmds, cmdp) {
+		if (!(*cmdp)->background)
+			return;
+	}
+	/* we only have background-commands. remove the request timeout. */
+	timeout_remove(&dict->to_requests);
 }
 
 static int dict_conn_input_line(struct connection *_conn, const char *line)
@@ -799,8 +814,10 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 	struct client_dict_iter_result *result;
 	const char *key = NULL, *value = NULL;
 
-	if (ctx->deinit)
+	if (ctx->deinit) {
 		cmd->background = TRUE;
+		client_dict_cmd_backgrounded(dict);
+	}
 
 	if (error != NULL) {
 		/* failed */
