@@ -89,7 +89,8 @@ static void test_istream_dot_one(const struct dot_test *test,
 		test_assert(i_stream_read(input) == -1);
 
 		data = i_stream_get_data(input, &size);
-		str_append_n(str, data, size);
+		if (size > 0)
+			str_append_n(str, data, size);
 	}
 	test_assert(input->stream_errno == 0);
 	test_assert(str_len(str) == output_len);
@@ -100,7 +101,8 @@ static void test_istream_dot_one(const struct dot_test *test,
 	(void)i_stream_read(test_input);
 	data = i_stream_get_data(test_input, &size);
 	test_assert(size == strlen(test->parent_input));
-	test_assert(memcmp(data, test->parent_input, size) == 0);
+	if (size > 0)
+		test_assert(memcmp(data, test->parent_input, size) == 0);
 
 	i_stream_unref(&test_input);
 	i_stream_unref(&input);

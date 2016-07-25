@@ -425,7 +425,8 @@ static void test_istream_end_body_with_lf(void)
 		test_assert(i_stream_read(filter) >= 0);
 
 		data = i_stream_get_data(filter, &size);
-		str_append_n(str, data, size);
+		if (size > 0)
+			str_append_n(str, data, size);
 		i_stream_skip(filter, size);
 	}
 	test_istream_set_size(istream, input_len);
