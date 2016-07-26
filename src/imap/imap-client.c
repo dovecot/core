@@ -1229,8 +1229,14 @@ int client_output(struct client *client)
 	imap_refresh_proctitle();
 	if (client->output->closed)
 		client_destroy(client, NULL);
-	else
+	else {
+		/* corking is added automatically by ostream-file. we need to
+		   uncork here before client_check_command_hangs() is called,
+		   because otherwise it can assert-crash due to ioloop not
+		   having IO_WRITE callback set for the ostream. */
+		o_stream_uncork(client->output);
 		client_continue_pending_input(client);
+	}
 	return ret;
 }
 
