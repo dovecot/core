@@ -22,15 +22,15 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 				       unsigned int *count) ATTR_NULL(2);
 
 void auth_request_var_expand(string_t *dest, const char *str,
-			     struct auth_request *auth_request,
+			     const struct auth_request *auth_request,
 			     auth_request_escape_func_t *escape_func);
 void auth_request_var_expand_with_table(string_t *dest, const char *str,
-					struct auth_request *auth_request,
+					const struct auth_request *auth_request,
 					const struct var_expand_table *table,
 					auth_request_escape_func_t *escape_func);
 const char *
 t_auth_request_var_expand(const char *str,
-			  struct auth_request *auth_request,
+			  const struct auth_request *auth_request,
 			  auth_request_escape_func_t *escape_func);
 
 const char *auth_request_str_escape(const char *string,
