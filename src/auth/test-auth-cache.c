@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "auth-request.h"
 #include "auth-cache.h"
 #include "test-common.h"
@@ -17,11 +18,14 @@ const struct var_expand_table auth_request_var_expand_static_tab[] = {
 	{ '\0', NULL, NULL }
 };
 
-const struct var_expand_table *
-auth_request_get_var_expand_table(const struct auth_request *auth_request ATTR_UNUSED,
-				  auth_request_escape_func_t *escape_func ATTR_UNUSED)
+const char *
+t_auth_request_var_expand(const char *str,
+			  const struct auth_request *auth_request ATTR_UNUSED,
+			  auth_request_escape_func_t *escape_func ATTR_UNUSED)
 {
-	return auth_request_var_expand_static_tab;
+	string_t *dest = t_str_new(128);
+	var_expand(dest, str, auth_request_var_expand_static_tab);
+	return str_c(dest);
 }
 
 static void test_auth_cache_parse_key(void)
