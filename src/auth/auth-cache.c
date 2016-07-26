@@ -340,18 +340,13 @@ static const char *
 auth_request_expand_cache_key(const struct auth_request *request,
 			      const char *key)
 {
-	string_t *str;
-
 	/* Uniquely identify the request's passdb/userdb with the P/U prefix
 	   and by "%!", which expands to the passdb/userdb ID number. */
 	key = t_strconcat(request->userdb_lookup ? "U" : "P", "%!",
 			  request->master_user == NULL ? "" : "+%{master_user}",
 			  "\t", key, NULL);
 
-	str = t_str_new(256);
-	var_expand(str, key,
-		   auth_request_get_var_expand_table(request, auth_cache_escape));
-	return str_c(str);
+	return t_auth_request_var_expand(key, request, auth_cache_escape);
 }
 
 const char *
