@@ -6,7 +6,7 @@
 #include "auth-request.h"
 
 struct auth_request_var_expand_ctx {
-	struct auth_request *auth_request;
+	const struct auth_request *auth_request;
 	auth_request_escape_func_t *escape_func;
 };
 
@@ -224,7 +224,7 @@ const struct var_expand_func_table auth_request_var_funcs_table[] = {
 };
 
 void auth_request_var_expand(string_t *dest, const char *str,
-			     struct auth_request *auth_request,
+			     const struct auth_request *auth_request,
 			     auth_request_escape_func_t *escape_func)
 {
 	auth_request_var_expand_with_table(dest, str, auth_request,
@@ -233,7 +233,7 @@ void auth_request_var_expand(string_t *dest, const char *str,
 }
 
 void auth_request_var_expand_with_table(string_t *dest, const char *str,
-					struct auth_request *auth_request,
+					const struct auth_request *auth_request,
 					const struct var_expand_table *table,
 					auth_request_escape_func_t *escape_func)
 {
@@ -248,7 +248,7 @@ void auth_request_var_expand_with_table(string_t *dest, const char *str,
 
 const char *
 t_auth_request_var_expand(const char *str,
-			  struct auth_request *auth_request,
+			  const struct auth_request *auth_request,
 			  auth_request_escape_func_t *escape_func)
 {
 	string_t *dest = t_str_new(128);
