@@ -422,6 +422,7 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		return FALSE;
 	}
 
+	auth_request->userdb_lookup = TRUE;
 	auth_request->userdb =
 		auth_userdb_find_by_id(auth_request->userdb, userdb_id);
 	if (auth_request->userdb == NULL) {
