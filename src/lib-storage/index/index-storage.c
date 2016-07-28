@@ -244,7 +244,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 
 	index_flags = ibox->index_flags;
 	if (move_to_memory)
-		ibox->index_flags &= ~MAIL_INDEX_OPEN_FLAG_CREATE;
+		index_flags &= ~MAIL_INDEX_OPEN_FLAG_CREATE;
 
 	if (index_storage_mailbox_alloc_index(box) < 0)
 		return -1;
