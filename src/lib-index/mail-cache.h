@@ -137,4 +137,10 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 /* Delete the cache file. */
 void mail_cache_reset(struct mail_cache *cache);
 
+/* Returns human-readable reason for why a cached field is missing for
+   the specified mail. This is mainly for debugging purposes, so the exact
+   field doesn't matter here. */
+const char *
+mail_cache_get_missing_reason(struct mail_cache_view *view, uint32_t seq);
+
 #endif
