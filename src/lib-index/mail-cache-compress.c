@@ -161,7 +161,7 @@ mail_cache_compress_get_fields(struct mail_cache_copy_context *ctx,
 
 static int
 mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
-		int fd, uint32_t *file_seq_r,
+		int fd, uint32_t *file_seq_r, uoff_t *file_size_r, uint32_t *max_uid_r,
 		ARRAY_TYPE(uint32_t) *ext_offsets)
 {
         struct mail_cache_copy_context ctx;
@@ -176,6 +176,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	uint32_t message_count, seq, first_new_seq, ext_offset;
 	unsigned int i, used_fields_count, orig_fields_count, record_count;
 	time_t max_drop_time;
+
+	*max_uid_r = 0;
 
 	/* get the latest info on fields */
 	if (mail_cache_header_fields_read(cache) < 0)
@@ -274,6 +276,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			/* nothing cached */
 			ext_offset = 0;
 		} else {
+			mail_index_lookup_uid(view, seq, max_uid_r);
 			cache_rec.size = ctx.buffer->used;
 			ext_offset = output->offset;
 			buffer_write(ctx.buffer, 0, &cache_rec,
@@ -306,6 +309,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		array_free(ext_offsets);
 		return -1;
 	}
+	*file_size_r = output->offset;
 	o_stream_destroy(&output);
 
 	if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
@@ -326,12 +330,14 @@ mail_cache_compress_write(struct mail_cache *cache,
 			  int fd, const char *temp_path, bool *unlock)
 {
 	struct stat st;
-	uint32_t file_seq, old_offset;
+	uint32_t file_seq, old_offset, max_uid;
 	ARRAY_TYPE(uint32_t) ext_offsets;
 	const uint32_t *offsets;
+	uoff_t file_size;
 	unsigned int i, count;
 
-	if (mail_cache_copy(cache, trans, fd, &file_seq, &ext_offsets) < 0)
+	if (mail_cache_copy(cache, trans, fd, &file_seq, &file_size,
+			    &max_uid, &ext_offsets) < 0)
 		return -1;
 
 	if (fstat(fd, &st) < 0) {
@@ -343,6 +349,13 @@ mail_cache_compress_write(struct mail_cache *cache,
 		mail_cache_set_syscall_error(cache, "rename()");
 		array_free(&ext_offsets);
 		return -1;
+	}
+
+	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_DEBUG) != 0) {
+		i_debug("%s: Compressed, file_seq changed %u -> %u, "
+			"size=%"PRIuUOFF_T", max_uid=%u", cache->filepath,
+			cache->need_compress_file_seq, file_seq,
+			file_size, max_uid);
 	}
 
 	/* once we're sure that the compression was successful,
