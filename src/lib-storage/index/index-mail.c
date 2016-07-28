@@ -905,8 +905,10 @@ index_mail_find_first_text_mime_part(struct message_part *parts)
 
 			i_assert(sub_body_data != NULL);
 
-			if (strcasecmp(sub_body_data->content_type, "\"text\"") == 0) {
-				if (strcasecmp(sub_body_data->content_subtype, "\"plain\"") == 0)
+			if (sub_body_data->content_type == NULL ||
+			    strcasecmp(sub_body_data->content_type, "\"text\"") == 0) {
+				if (sub_body_data->content_subtype == NULL ||
+				    strcasecmp(sub_body_data->content_subtype, "\"plain\"") == 0)
 					return part;
 				if (strcasecmp(sub_body_data->content_subtype, "\"html\"") == 0)
 					html_part = part;
