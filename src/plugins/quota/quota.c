@@ -1093,8 +1093,12 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 	uoff_t size;
 	int ret;
 
-	if (mail_get_physical_size(mail, &size) < 0)
+	if (mail_get_physical_size(mail, &size) < 0) {
+		i_error("quota: Failed to get mail size (box=%s, uid=%u): %s",
+			mail->box->vname, mail->uid,
+			mailbox_get_last_error(mail->box, NULL));
 		return -1;
+	}
 
 	ret = quota_test_alloc(ctx, size, too_large_r);
 	if (ret <= 0)
