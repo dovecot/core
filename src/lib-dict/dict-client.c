@@ -770,10 +770,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 		if (ctx->error == NULL)
 			ctx->error = i_strdup(error);
 		ctx->finished = TRUE;
-		if (dict->prev_ioloop != NULL) {
-			/* stop client_dict_wait() */
-			io_loop_stop(dict->ioloop);
-		}
+		client_dict_iter_api_callback(ctx, dict);
 		client_dict_iterate_free(ctx);
 		return;
 	}
