@@ -97,16 +97,21 @@ shlibs = \
 	index/libstorage_index.la \
 	register/libstorage_register.la \
 	../lib-index/libindex.la \
-	../lib-imap-storage/libimap-storage.la \
-	../lib-dovecot/libdovecot.la
+	../lib-imap-storage/libimap-storage.la
 
 libstorage_la_LIBADD = $(shlibs)
 libstorage_la_DEPENDENCIES = $(shlibs)
 
 pkglib_LTLIBRARIES = libdovecot-storage.la
 libdovecot_storage_la_SOURCES = 
-libdovecot_storage_la_LIBADD = libstorage.la $(LINKED_STORAGE_LDADD)
-libdovecot_storage_la_DEPENDENCIES = libstorage.la
+libdovecot_storage_la_LIBADD = \
+	libstorage.la \
+	../lib-dovecot/libdovecot.la \
+	$(LINKED_STORAGE_LDADD)
+libdovecot_storage_la_DEPENDENCIES = \
+	libstorage.la \
+	../lib-dovecot/libdovecot.la \
+	$(LIBDOVECOT_DEPS)
 libdovecot_storage_la_LDFLAGS = -export-dynamic
 
 test_programs = \
