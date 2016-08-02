@@ -151,10 +151,31 @@ static void test_var_expand_with_funcs(void)
 	test_end();
 }
 
+static void test_var_get_key(void)
+{
+	static struct {
+		const char *str;
+		char key;
+	} tests[] = {
+		{ "x", 'x' },
+		{ "2.5Mx", 'x' },
+		{ "200MDx", 'x' },
+		{ "200MD{foo}", '{' },
+		{ "{foo}", '{' },
+		{ "", '\0' },
+	};
+
+	test_begin("var_get_key");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++)
+		test_assert_idx(var_get_key(tests[i].str) == tests[i].key, i);
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_ranges();
 	test_var_expand_builtin();
 	test_var_get_key_range();
 	test_var_expand_with_funcs();
+	test_var_get_key();
 }
