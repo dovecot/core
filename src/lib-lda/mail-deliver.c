@@ -288,6 +288,35 @@ void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *sessio
 	}
 }
 
+static struct mail *
+mail_deliver_open_mail(struct mailbox *box,
+		       const struct mail_transaction_commit_changes *changes,
+		       enum mail_fetch_field wanted_fields,
+		       struct mailbox_transaction_context **trans_r)
+{
+	struct mailbox_transaction_context *t;
+	struct mail *mail;
+	const struct seq_range *range;
+
+	*trans_r = NULL;
+
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
+		return NULL;
+
+	range = array_idx(&changes->saved_uids, 0);
+	i_assert(range[0].seq1 == range[0].seq2);
+
+	t = mailbox_transaction_begin(box, 0);
+	mail = mail_alloc(t, wanted_fields, NULL);
+
+	if (!mail_set_uid(mail, range[0].seq1)) {
+		mail_free(&mail);
+		mailbox_transaction_rollback(&t);
+	}
+	*trans_r = t;
+	return mail;
+}
+
 int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		      enum mail_flags flags, const char *const *keywords,
 		      struct mail_storage **storage_r)
@@ -302,7 +331,6 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	enum mail_error error;
 	const char *mailbox_name, *errstr, *guid;
 	struct mail_transaction_commit_changes changes;
-	const struct seq_range *range;
 	bool default_save;
 	int ret = 0;
 
@@ -364,20 +392,13 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	if (ret == 0) {
 		ctx->saved_mail = TRUE;
 		mail_deliver_log(ctx, "saved mail to %s", mailbox_name);
-
-		if (ctx->save_dest_mail &&
-		    mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) == 0) {
-			range = array_idx(&changes.saved_uids, 0);
-			i_assert(range[0].seq1 == range[0].seq2);
-
-			t = mailbox_transaction_begin(box, 0);
-			ctx->dest_mail = mail_alloc(t, MAIL_FETCH_STREAM_BODY,
-						    NULL);
+		if (ctx->save_dest_mail) {
 			/* copying needs the message body. with maildir we also
 			   need to get the GUID in case the message gets
 			   expunged */
-			if (!mail_set_uid(ctx->dest_mail, range[0].seq1) ||
-			    mail_get_special(ctx->dest_mail, MAIL_FETCH_GUID, &guid) < 0) {
+			ctx->dest_mail = mail_deliver_open_mail(box, &changes,
+				MAIL_FETCH_STREAM_BODY | MAIL_FETCH_GUID, &t);
+			if (mail_get_special(ctx->dest_mail, MAIL_FETCH_GUID, &guid) < 0) {
 				mail_free(&ctx->dest_mail);
 				mailbox_transaction_rollback(&t);
 			}
