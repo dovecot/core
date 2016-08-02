@@ -25,7 +25,8 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 			   void *func_context) ATTR_NULL(3, 4, 5);
 
 /* Returns the actual key character for given string, ie. skip any modifiers
-   that are before it. The string should be the data after the '%' character. */
+   that are before it. The string should be the data after the '%' character.
+   For %{long_variable}, '{' is returned. */
 char var_get_key(const char *str) ATTR_PURE;
 /* Similar to var_get_key(), but works for long keys as well. For single char
    keys size=1, while for e.g. %{key} size=3 and idx points to 'k'. */
