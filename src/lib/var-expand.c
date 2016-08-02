@@ -473,7 +473,7 @@ bool var_has_key(const char *str, char key, const char *long_key)
 		if (*str == '%' && str[1] != '\0') {
 			str++;
 			c = var_get_key(str);
-			if (c == key)
+			if (c == key && key != '\0')
 				return TRUE;
 
 			if (c == '{' && long_key != NULL) {
