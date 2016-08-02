@@ -253,6 +253,7 @@ static void main_preinit(void)
 			"(for standalone keep director_servers empty)");
 	}
 
+	directors_init();
 	director = director_init(set, &listen_ip, listen_port,
 				 director_state_changed);
 	director_host_add_from_string(director, set->director_servers);
@@ -273,6 +274,7 @@ static void main_deinit(void)
 	if (notify_conn != NULL)
 		notify_connection_deinit(&notify_conn);
 	director_deinit(&director);
+	directors_deinit();
 	doveadm_connections_deinit();
 	login_connections_deinit();
 	auth_connections_deinit();

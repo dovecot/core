@@ -175,6 +175,9 @@ void director_update_send_version(struct director *dir,
 
 int director_connect_host(struct director *dir, struct director_host *host);
 
+void directors_init(void);
+void directors_deinit(void);
+
 void dir_debug(const char *fmt, ...) ATTR_FORMAT(1, 2);
 
 #endif
