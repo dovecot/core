@@ -32,7 +32,8 @@ char var_get_key(const char *str) ATTR_PURE;
    keys size=1, while for e.g. %{key} size=3 and idx points to 'k'. */
 void var_get_key_range(const char *str, unsigned int *idx_r,
 		       unsigned int *size_r);
-/* Returns TRUE if key variable is used in the string. long_key may be NULL. */
+/* Returns TRUE if key variable is used in the string.
+   If key is '\0', it's ignored. If long_key is NULL, it's ignored. */
 bool var_has_key(const char *str, char key, const char *long_key) ATTR_PURE;
 
 const struct var_expand_table *

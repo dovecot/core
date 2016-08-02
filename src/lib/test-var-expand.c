@@ -171,6 +171,31 @@ static void test_var_get_key(void)
 	test_end();
 }
 
+static void test_var_has_key(void)
+{
+	static struct {
+		const char *str;
+		char key;
+		const char *long_key;
+		bool result;
+	} tests[] = {
+		{ "%x%y", 'x', NULL, TRUE },
+		{ "%x%y", 'y', NULL, TRUE },
+		{ "%x%y", 'z', NULL, FALSE },
+		{ "%{foo}", 'f', NULL, FALSE },
+		{ "%{foo}", 'o', NULL, FALSE },
+		{ "%{foo}", '\0', "foo", TRUE },
+		{ "%{foo}", 'o', "foo", TRUE },
+		{ "%2.5Mx%y", 'x', NULL, TRUE },
+		{ "%2.5M{foo}", '\0', "foo", TRUE },
+	};
+
+	test_begin("var_has_key");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++)
+		test_assert_idx(var_has_key(tests[i].str, tests[i].key, tests[i].long_key) == tests[i].result, i);
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_ranges();
@@ -178,4 +203,5 @@ void test_var_expand(void)
 	test_var_get_key_range();
 	test_var_expand_with_funcs();
 	test_var_get_key();
+	test_var_has_key();
 }
