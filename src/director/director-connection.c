@@ -36,6 +36,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "time-util.h"
 #include "master-service.h"
 #include "mail-host.h"
 #include "director.h"
@@ -98,6 +99,8 @@ struct director_connection {
 	char *name;
 	time_t created;
 	unsigned int minor_version;
+
+	struct timeval last_input, last_output;
 
 	/* for incoming connections the director host isn't known until
 	   ME-line is received */
@@ -1692,6 +1695,7 @@ static void director_connection_input(struct director_connection *conn)
 		i_stream_skip(conn->input, i_stream_get_data_size(conn->input));
 		return;
 	}
+	conn->last_input = ioloop_timeval;
 
 	director_sync_freeze(dir);
 	prev_offset = conn->input->v_offset;
@@ -1826,6 +1830,7 @@ static int director_connection_output(struct director_connection *conn)
 {
 	int ret;
 
+	conn->last_output = ioloop_timeval;
 	if (conn->user_iter != NULL) {
 		/* still handshaking USER list */
 		o_stream_cork(conn->output);
@@ -2068,7 +2073,20 @@ void director_connection_send(struct director_connection *conn,
 static void
 director_connection_ping_idle_timeout(struct director_connection *conn)
 {
-	i_error("director(%s): Ping timed out, disconnecting", conn->name);
+	int input_diff = timeval_diff_msecs(&ioloop_timeval, &conn->last_input);
+	int output_diff = timeval_diff_msecs(&ioloop_timeval, &conn->last_output);
+	string_t *str = t_str_new(128);
+
+	str_printfa(str, "Ping timed out, disconnecting "
+		    "(last input %u.%03u s ago, last output %u.%03u s ago",
+		    input_diff/1000, input_diff%1000,
+		    output_diff/1000, output_diff%1000);
+	if (conn->handshake_received)
+		str_append(str, ", handshaked");
+	if (conn->synced)
+		str_append(str, ", synced");
+	str_append_c(str, ')');
+	i_error("director(%s): %s", conn->name, str_c(str));
 	director_connection_disconnected(&conn, "Ping timeout");
 }
 
