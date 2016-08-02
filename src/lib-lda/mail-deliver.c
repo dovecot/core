@@ -68,6 +68,7 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 		{ '\0', NULL, "delivery_time" },
 		{ '\0', NULL, "session_time" },
 		{ '\0', NULL, "to_envelope" },
+		{ '\0', NULL, "storage_id" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -99,6 +100,7 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 		tab[8].value = dec2str(ctx->session_time_msecs);
 		tab[9].value = ctx->dest_addr;
 	}
+	(void)mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &tab[10].value);
 	return tab;
 }
 
@@ -393,7 +395,6 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 
 	if (ret == 0) {
 		ctx->saved_mail = TRUE;
-		mail_deliver_log(ctx, "saved mail to %s", mailbox_name);
 		if (ctx->save_dest_mail) {
 			/* copying needs the message body. with maildir we also
 			   need to get the GUID in case the message gets
@@ -404,7 +405,23 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 				mail_free(&ctx->dest_mail);
 				mailbox_transaction_rollback(&t);
 			}
+			/* might as well get the storage_id */
+			(void)mail_get_special(ctx->dest_mail, MAIL_FETCH_STORAGE_ID,
+					       &ctx->var_expand_table[10].value);
+		} else if (var_has_key(ctx->set->deliver_log_format, '\0', "storage_id")) {
+			/* storage ID is available only after commit. */
+			struct mail *mail = mail_deliver_open_mail(box, &changes,
+				MAIL_FETCH_STORAGE_ID, &t);
+			if (mail != NULL) {
+				const char *str;
+
+				(void)mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &str);
+				ctx->var_expand_table[10].value = t_strdup(str);
+				mail_free(&mail);
+				(void)mailbox_transaction_commit(&t);
+			}
 		}
+		mail_deliver_log(ctx, "saved mail to %s", mailbox_name);
 		pool_unref(&changes.pool);
 	} else {
 		mail_deliver_log(ctx, "save failed to %s: %s", mailbox_name,
