@@ -388,15 +388,8 @@ void var_expand(string_t *dest, const char *str,
 	var_expand_with_funcs(dest, str, table, NULL, NULL);
 }
 
-char var_get_key(const char *str)
-{
-	unsigned int idx, size;
-
-	var_get_key_range(str, &idx, &size);
-	return str[idx];
-}
-
-void var_get_key_range(const char *str, unsigned int *idx_r,
+static bool
+var_get_key_range_full(const char *str, unsigned int *idx_r,
 		       unsigned int *size_r)
 {
 	const struct var_expand_modifier *m;
@@ -425,6 +418,7 @@ void var_get_key_range(const char *str, unsigned int *idx_r,
 		/* short key */
 		*idx_r = i;
 		*size_r = str[i] == '\0' ? 0 : 1;
+		return FALSE;
 	} else {
 		/* long key */
 		*idx_r = ++i;
@@ -433,7 +427,23 @@ void var_get_key_range(const char *str, unsigned int *idx_r,
 				break;
 		}
 		*size_r = i - *idx_r;
+		return TRUE;
 	}
+}
+
+char var_get_key(const char *str)
+{
+	unsigned int idx, size;
+
+	if (var_get_key_range_full(str, &idx, &size))
+		return '{';
+	return str[idx];
+}
+
+void var_get_key_range(const char *str, unsigned int *idx_r,
+		       unsigned int *size_r)
+{
+	(void)var_get_key_range_full(str, idx_r, size_r);
 }
 
 static bool var_has_long_key(const char **str, const char *long_key)
