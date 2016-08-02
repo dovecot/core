@@ -20,7 +20,8 @@ static struct connection_list *master_clients;
 
 static void imap_master_connection_timeout(struct imap_master_connection *conn)
 {
-	i_error("Timeout communicating with %s", conn->conn.name);
+	i_error("Timeout communicating with %s (version %sreceived)",
+		conn->conn.name, conn->conn.version_received ? "" : "not ");
 	imap_master_connection_deinit(&conn);
 }
 
