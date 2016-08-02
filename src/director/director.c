@@ -5,6 +5,7 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
+#include "log-throttle.h"
 #include "ipc-client.h"
 #include "user-directory.h"
 #include "mail-host.h"
@@ -23,6 +24,14 @@
 #define DIRECTOR_DELAYED_DIR_REMOVE_MSECS (1000*30)
 
 bool director_debug;
+
+static struct log_throttle *user_move_throttle;
+static struct log_throttle *user_kill_fail_throttle;
+
+static const struct log_throttle_settings director_log_throttle_settings = {
+	.throttle_at_max_per_interval = 100,
+	.unthrottle_at_max_per_interval = 2,
+};
 
 static bool director_is_self_ip_set(struct director *dir)
 {
@@ -744,6 +753,12 @@ director_finish_user_kill(struct director *dir, struct user *user, bool self)
 	}
 }
 
+static void director_user_kill_fail_throttled(unsigned int new_events_count,
+					      void *context ATTR_UNUSED)
+{
+	i_error("Failed to kill %u users' connections", new_events_count);
+}
+
 static void director_kill_user_callback(enum ipc_client_cmd_state state,
 					const char *data, void *context)
 {
@@ -760,8 +775,10 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	case IPC_CLIENT_CMD_STATE_OK:
 		break;
 	case IPC_CLIENT_CMD_STATE_ERROR:
-		i_error("Failed to kill user %u connections: %s",
-			ctx->username_hash, data);
+		if (log_throttle_accept(user_kill_fail_throttle)) {
+			i_error("Failed to kill user %u connections: %s",
+				ctx->username_hash, data);
+		}
 		/* we can't really do anything but continue anyway */
 		break;
 	}
@@ -779,12 +796,21 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	i_free(ctx);
 }
 
+static void director_user_move_throttled(unsigned int new_events_count,
+					 void *context ATTR_UNUSED)
+{
+	i_error("%u users' move timed out, their state may now be inconsistent",
+		new_events_count);
+}
+
 static void director_user_move_timeout(struct user *user)
 {
 	i_assert(user->kill_state != USER_KILL_STATE_DELAY);
 
-	i_error("Finishing user %u move timed out, "
-		"its state may now be inconsistent", user->username_hash);
+	if (log_throttle_accept(user_move_throttle)) {
+		i_error("Finishing user %u move timed out, "
+			"its state may now be inconsistent", user->username_hash);
+	}
 
 	user->kill_state = USER_KILL_STATE_NONE;
 	timeout_remove(&user->to_move);
@@ -1066,4 +1092,20 @@ void dir_debug(const char *fmt, ...)
 		i_debug("%s", t_strdup_vprintf(fmt, args));
 	} T_END;
 	va_end(args);
+}
+
+void directors_init(void)
+{
+	user_move_throttle =
+		log_throttle_init(&director_log_throttle_settings,
+				  director_user_move_throttled, NULL);
+	user_kill_fail_throttle =
+		log_throttle_init(&director_log_throttle_settings,
+				  director_user_kill_fail_throttled, NULL);
+}
+
+void directors_deinit(void)
+{
+	log_throttle_deinit(&user_move_throttle);
+	log_throttle_deinit(&user_kill_fail_throttle);
 }
