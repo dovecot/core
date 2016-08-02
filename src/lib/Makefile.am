@@ -91,6 +91,7 @@ liblib_la_SOURCES = \
 	json-tree.c \
 	lib.c \
 	lib-signals.c \
+	log-throttle.c \
 	md4.c \
 	md5.c \
 	mempool.c \
@@ -229,6 +230,7 @@ headers = \
 	lib.h \
 	lib-signals.h \
 	llist.h \
+	log-throttle.h \
 	macros.h \
 	md4.h \
 	md5.h \
@@ -329,6 +331,7 @@ test_lib_SOURCES = \
 	test-json-parser.c \
 	test-json-tree.c \
 	test-llist.c \
+	test-log-throttle.c \
 	test-mempool-alloconly.c \
 	test-pkcs5.c \
 	test-net.c \

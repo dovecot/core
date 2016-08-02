@@ -36,6 +36,7 @@ int main(void)
 		test_json_parser,
 		test_json_tree,
 		test_llist,
+		test_log_throttle,
 		test_mempool_alloconly,
 		test_net,
 		test_numpack,
