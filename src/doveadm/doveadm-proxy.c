@@ -89,6 +89,8 @@ static void cmd_proxy_kick_callback(enum ipc_client_cmd_state state,
 	case IPC_CLIENT_CMD_STATE_REPLY:
 		return;
 	case IPC_CLIENT_CMD_STATE_OK:
+		if (data[0] == '\0')
+			data = "0";
 		doveadm_print(data);
 		break;
 	case IPC_CLIENT_CMD_STATE_ERROR:
@@ -111,7 +113,7 @@ static void cmd_proxy_kick(int argc, char *argv[])
 	}
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
-	doveadm_print_formatted_set_format("{count} connections kicked");
+	doveadm_print_formatted_set_format("%{count} connections kicked");
 	doveadm_print_header_simple("count");
 	ipc_client_cmd(ctx->ipc, t_strdup_printf("proxy\t*\tKICK\t%s", argv[optind]),
 		       cmd_proxy_kick_callback, NULL);
