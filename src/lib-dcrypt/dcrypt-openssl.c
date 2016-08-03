@@ -1213,8 +1213,21 @@ bool dcrypt_openssl_load_private_key_dovecot(struct dcrypt_private_key **key_r,
 	const char *data, const char *password, struct dcrypt_private_key *key,
 	const char **error_r)
 {
+	/* FIXME: duplicated from info */
+	if (strncmp(data, "1:", 2) == 0) {
+		if (error_r != NULL)
+			*error_r = "Dovecot v1 key format "
+				"uses tab to separate fields";
+		return FALSE;
+	} else if (strncmp(data, "2\t", 2) == 0) {
+		if (error_r != NULL)
+			*error_r = "Dovecot v2 key format uses "
+				"colon to separate fields";
+		return FALSE;
+	}
+
 	bool ret;
-	const char **input = t_strsplit_tab(data);
+	const char **input = t_strsplit(data, ":\t");
 	size_t len = str_array_length(input);
 
 	if (len < 4) {
@@ -1344,9 +1357,21 @@ static
 bool dcrypt_openssl_load_public_key_dovecot(struct dcrypt_public_key **key_r,
 	const char *data, const char **error_r)
 {
-	int ec = 0;
+	/* FIXME: duplicated from info */
+	if (strncmp(data, "1:", 2) == 0) {
+		if (error_r != NULL)
+			*error_r = "Dovecot v1 key format "
+				"uses tab to separate fields";
+		return FALSE;
+	} else if (strncmp(data, "2\t", 2) == 0) {
+		if (error_r != NULL)
+			*error_r = "Dovecot v2 key format uses "
+				"colon to separate fields";
+		return FALSE;
+	}
 
-	const char **input = t_strsplit_tab(data);
+	int ec = 0;
+	const char **input = t_strsplit(data, ":\t");
 	size_t len = str_array_length(input);
 
 	if (len < 2) ec = -1;
@@ -1378,14 +1403,14 @@ bool dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype, cons
 	cipher = t_str_lcase(cipher);
 
 	str_append(destination, cipher);
-	str_append_c(destination, '\t');
+	str_append_c(destination, ':');
 	random_fill(salt, sizeof(salt));
 	binary_to_hex_append(destination, salt, sizeof(salt));
 	buffer_t saltbuf;
 	buffer_create_from_const_data(&saltbuf, salt, sizeof(salt));
 
 	/* so we don't have to make new version if we ever upgrade these */
-	str_append(destination, t_strdup_printf("\t%s\t%d\t",
+	str_append(destination, t_strdup_printf(":%s:%d:",
 		DCRYPT_DOVECOT_KEY_ENCRYPT_HASH,
 		DCRYPT_DOVECOT_KEY_ENCRYPT_ROUNDS));
 
@@ -1422,11 +1447,11 @@ bool dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype, cons
 
 	/* some additional fields or private key version */
 	if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PK) {
-		str_append_c(destination, '\t');
+		str_append_c(destination, ':');
 
 		/* for RSA, this is the actual encrypted secret */
 		binary_to_hex_append(destination, peer_key->data, peer_key->used);
-		str_append_c(destination, '\t');
+		str_append_c(destination, ':');
 
 		buffer_set_used_size(peer_key, 0);
 		if (!dcrypt_openssl_public_key_id(enc_key, "sha256", peer_key, error_r))
@@ -1500,7 +1525,7 @@ bool dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key, co
 	}
 
 	/* put in OID and encryption type */
-	str_append(destination, t_strdup_printf("2\t%s\t%d\t",
+	str_append(destination, t_strdup_printf("2:%s:%d:",
 		objtxt, enctype));
 
 	/* perform encryption if desired */
@@ -1514,7 +1539,7 @@ bool dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key, co
 	}
 
 	/* append public key id */
-	str_append_c(destination, '\t');
+	str_append_c(destination, ':');
 	buffer_set_used_size(buf, 0);
 	bool res = dcrypt_openssl_private_key_id(key, "sha256", buf, error_r);
 	binary_to_hex_append(destination, buf->data, buf->used);
@@ -1541,12 +1566,12 @@ bool dcrypt_openssl_store_public_key_dovecot(struct dcrypt_public_key *key, buff
 
 	/* then store it */
 	str_append_c(destination, '2');
-	str_append_c(destination, '\t');
+	str_append_c(destination, ':');
 	binary_to_hex_append(destination, tmp, rv);
 	OPENSSL_free(tmp);
 
 	/* append public key ID */
-	str_append_c(destination, '\t');
+	str_append_c(destination, ':');
 
 	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 32);
 	bool res = dcrypt_openssl_public_key_id(key, "sha256", buf, error_r);
@@ -1805,7 +1830,18 @@ bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_fo
 			return FALSE;
 		}
 	} else {
-		const char **fields = t_strsplit_tab(key_data);
+		if (strncmp(key_data, "1:", 2) == 0) {
+			if (error_r != NULL)
+				*error_r = "Dovecot v1 key format "
+					"uses tab to separate fields";
+			return FALSE;
+		} else if (strncmp(key_data, "2\t", 2) == 0) {
+			if (error_r != NULL)
+				*error_r = "Dovecot v2 key format uses "
+					"colon to separate fields";
+			return FALSE;
+		}
+		const char **fields = t_strsplit(key_data, ":\t");
 		int nfields = str_array_length(fields);
 
 		if (nfields < 2) {
