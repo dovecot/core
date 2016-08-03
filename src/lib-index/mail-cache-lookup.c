@@ -635,8 +635,10 @@ mail_cache_get_missing_reason(struct mail_cache_view *view, uint32_t seq)
 		if (offset != 0)
 			break;
 	}
-	if (seq == 0)
-		return t_strdup_printf("Cache file is empty, reset_id=%u", reset_id);
+	if (seq == 0) {
+		return t_strdup_printf("Cache file is empty, reset_id=%u",
+				       view->cache->hdr->file_seq);
+	}
 
 	uint32_t uid;
 	mail_index_lookup_uid(view->view, seq, &uid);
