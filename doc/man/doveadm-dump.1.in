@@ -55,6 +55,9 @@ directory
 Uncompress an IMAP traffic log, which contains data compressed using the
 IMAP COMPRESSION extension.
 .TP
+.B dcrypt-file
+Dump metadata of a dcrypt encrypted file.
+.TP
 .B index
 \(rA dovecot.index, dovecot.map.index
 .TP
