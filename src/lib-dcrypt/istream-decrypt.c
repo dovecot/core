@@ -646,7 +646,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 
 		/* if something is already decrypted, return as much of it as
 		   we can */
-		if (dstream->buf->used > 0) {
+		if (dstream->initialized && dstream->buf->used > 0) {
 			size_t new_pos, bytes;
 
 			/* only return up to max_buffer_size bytes, even when buffer
@@ -708,15 +708,38 @@ i_stream_decrypt_read(struct istream_private *stream)
 
 		if (!dstream->initialized) {
 			ssize_t hret;
+
+			/* put the data in buffer */
+			buffer_append(dstream->buf, data, size);
+
 			if ((hret=i_stream_decrypt_read_header
-				(dstream, data, size)) <= 0) {
+				(dstream, dstream->buf->data, dstream->buf->used)) <= 0) {
 				if (hret < 0 && stream->istream.stream_errno == 0) {
 					/* assume temporary failure */
 					stream->istream.stream_errno = EIO;
+					return -1;
 				}
-				return hret;
+
+				if (hret == 0 && stream->parent->eof) {
+					/* not encrypted by us */
+					stream->istream.stream_errno = EINVAL;
+					io_stream_set_error(&stream->iostream,
+						"Truncated header");
+					return -1;
+				}
 			}
-			i_stream_skip(stream->parent, hret);
+
+			if (hret == 0) {
+				/* see if we can get more data */
+				i_stream_skip(stream->parent, size);
+				continue;
+			} else {
+				/* clean up buffer */
+				safe_memset(buffer_get_modifiable_data(dstream->buf, 0), 0, dstream->buf->used);
+				buffer_set_used_size(dstream->buf, 0);
+				i_stream_skip(stream->parent, hret);
+			}
+
 			data = i_stream_get_data(stream->parent, &size);
 		}
 		decrypt_size = size;
@@ -826,7 +849,7 @@ struct decrypt_istream *i_stream_create_decrypt_common(struct istream *input)
 	dstream->istream.istream.blocking = TRUE;
 	dstream->istream.istream.seekable = FALSE;
 
-	dstream->buf = buffer_create_dynamic(default_pool, 128);
+	dstream->buf = buffer_create_dynamic(default_pool, 512);
 
 	(void)i_stream_create(&dstream->istream, input,
 			      i_stream_get_fd(input));
