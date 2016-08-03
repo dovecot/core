@@ -374,9 +374,9 @@ void test_load_v2_key(void)
 "yLJV2ui8A/CUyqyEMrezvwgMO6EkAyIAAybRUR3MsH0+0PQcDwkrXOJ9aePwzTQV\n" \
 "DN51+n1JCxbI\n" \
 "-----END PRIVATE KEY-----\n",
-		"2\t1.2.840.10045.3.1.7\t0\t0000002100b6e40903eb9ba19595c201dc0dc8b255dae8bc03f094caac8432b7b3bf080c3b\tab13d251976dedab546b67354e7678821740dd534b749c2857f66bf62bbaddfd",
-		"2\t1.2.840.10045.3.1.7\t2\taes-256-ctr\t2b19763d4bbf7754\tsha256\t2048\tc36fa194669a1aec400eae32fbadaa7c58b14f53c464cfbb0a4b61fbe24ab7750637c4025d\tab13d251976dedab546b67354e7678821740dd534b749c2857f66bf62bbaddfd",
-		"2\t1.2.840.10045.3.1.7\t1\taes-256-ctr\t7c7f1d12a7c011de\tsha256\t2048\tf5d1de11d58a81b141cf038012a618623e9d7b18062deeb3a4e35872c62ca0837db8688370\t021abfbc5bc4f6cf49c40b9fc388c4616ea079941675f477ee4557df1919626d35\tab13d251976dedab546b67354e7678821740dd534b749c2857f66bf62bbaddfd\tab13d251976dedab546b67354e7678821740dd534b749c2857f66bf62bbaddfd"
+		"2:1.2.840.10045.3.1.7:0:0000002100b6e40903eb9ba19595c201dc0dc8b255dae8bc03f094caac8432b7b3bf080c3b:ab13d251976dedab546b67354e7678821740dd534b749c2857f66bf62bbaddfd",
+		"2:1.2.840.10045.3.1.7:2:aes-256-ctr:2b19763d4bbf7754:sha256:2048:c36fa194669a1aec400eae32fbadaa7c58b14f53c464cfbb0a4b61fbe24ab7750637c4025d:ab13d251976dedab546b67354e7678821740dd534b749c2857f66bf62bbaddfd",
+		"2:1.2.840.10045.3.1.7:1:aes-256-ctr:7c7f1d12a7c011de:sha256:2048:f5d1de11d58a81b141cf038012a618623e9d7b18062deeb3a4e35872c62ca0837db8688370:021abfbc5bc4f6cf49c40b9fc388c4616ea079941675f477ee4557df1919626d35:ab13d251976dedab546b67354e7678821740dd534b749c2857f66bf62bbaddfd:ab13d251976dedab546b67354e7678821740dd534b749c2857f66bf62bbaddfd"
 	};
 
 	test_begin("test_load_v2_key");
@@ -424,7 +424,7 @@ void test_load_v2_public_key(void)
 	const char *error;
 
 	test_begin("test_load_v2_public_key");
-	const char *key = "2\t3058301006072a8648ce3d020106052b810400230344000301c50954e734dd8b410a607764a7057065a45510da52f2c6e28e0cb353b9c389fa8cb786943ae991fce9befed78fb162fbbc615415f06af06c8cc80c37f4e94ff6c7\t185a7212542782e239111f9c19d126ad55b18ddaf4883d66afe8d9627c3607d8";
+	const char *key = "2:3058301006072a8648ce3d020106052b810400230344000301c50954e734dd8b410a607764a7057065a45510da52f2c6e28e0cb353b9c389fa8cb786943ae991fce9befed78fb162fbbc615415f06af06c8cc80c37f4e94ff6c7:185a7212542782e239111f9c19d126ad55b18ddaf4883d66afe8d9627c3607d8";
 
 	test_assert(dcrypt_key_load_public(&pub, DCRYPT_FORMAT_DOVECOT, key, &error));
 
@@ -444,7 +444,7 @@ static
 void test_get_info_v2_key(void) {
 	test_begin("test_get_info_v2_key");
 
-	const char *key = "2\t305e301006072a8648ce3d020106052b81040026034a000203fcc90034fa03d6fb79a0fc8b3b43c3398f68e76029307360cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b7945ed9d182f3156550e9ee30b237a0217dbf79d28975f31\t86706b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d90966e84dc";
+	const char *key = "2:305e301006072a8648ce3d020106052b81040026034a000203fcc90034fa03d6fb79a0fc8b3b43c3398f68e76029307360cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b7945ed9d182f3156550e9ee30b237a0217dbf79d28975f31:86706b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d90966e84dc";
 	enum dcrypt_key_format format;
 	enum dcrypt_key_version version = DCRYPT_KEY_VERSION_NA;
 	enum dcrypt_key_kind kind;
@@ -563,6 +563,61 @@ void test_get_info_rsa_private_key(void)
 	test_end();
 }
 
+static
+void test_get_info_invalid_keys(void) {
+	test_begin("test_get_info_invalid_keys");
+
+	const char *key = "1:716:030131D8A5FD5167947A0AE9CB112ADED6526654635AA5887051EE2364414B60FF32EBA8FA0BBE9485DBDE8794BBBCB44BBFC0D662A4287A848BA570D4E5E45A11FE0F:d0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0";
+	const char *error = NULL;
+
+	test_assert(dcrypt_key_string_get_info(key, NULL, NULL,
+			NULL, NULL, NULL, NULL, &error) == FALSE);
+	test_assert(error != NULL);
+	test_assert(strstr(error, "tab") != NULL);
+
+	key = "2\t305e301006072a8648ce3d020106052b81040026034a000203fcc90034fa03d6fb79a0fc8b3b43c3398f68e76029307360cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b7945ed9d182f3156550e9ee30b237a0217dbf79d28975f31\t86706b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d90966e84dc";
+	error = NULL;
+
+	test_assert(dcrypt_key_string_get_info(key, NULL, NULL,
+			NULL, NULL, NULL, NULL, &error) == FALSE);
+	test_assert(error != NULL);
+	test_assert(strstr(error, "colon") != NULL);
+
+	key = "2";
+	error = NULL;
+
+	test_assert(dcrypt_key_string_get_info(key, NULL, NULL,
+			NULL, NULL, NULL, NULL, &error) == FALSE);
+	test_assert(error != NULL);
+	test_assert(strstr(error, "Unknown") != NULL);
+
+	test_end();
+}
+
+static
+void test_load_invalid_keys(void) {
+	test_begin("test_load_invalid_keys");
+
+	const char *error = NULL;
+	const char *key = "1:716:0301EB00973C4EFC8FCECA4EA33E941F50B561199A5159BCB6C2EED9DD1D62D65E38A254979D89E28F0C28883E71EE2AD264CD16B863FA094A8F6F69A56B62E8918040:7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f";
+	struct dcrypt_public_key *pub_key = NULL;
+
+	bool ret = dcrypt_key_load_public(&pub_key, DCRYPT_FORMAT_DOVECOT,
+			key, &error);
+	test_assert(ret == FALSE);
+	test_assert(error != NULL);
+
+	error = NULL;
+	key = "2:305e301006072a8648ce3d020106052b81040026034a000203fcc90034fa03d6fb79a0fc8b3b43c3398f68e76029307360cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b7945ed9d182f3156550e9ee30b237a0217dbf79d28975f31:86706b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d90966e84dc";
+	struct dcrypt_private_key *priv_key = NULL;
+
+	ret = dcrypt_key_load_private(&priv_key, DCRYPT_FORMAT_DOVECOT, key, NULL, NULL, &error);
+	test_assert(ret == FALSE);
+	test_assert(error != NULL);
+
+	test_end();
+}
+
 int main(void) {
 	random_init();
 	dcrypt_initialize("openssl", NULL, NULL);
@@ -579,6 +634,8 @@ int main(void) {
 		test_get_info_v2_key,
 		test_gen_and_get_info_rsa_pem,
 		test_get_info_rsa_private_key,
+		test_get_info_invalid_keys,
+		test_load_invalid_keys,
 		NULL
 	};
 
