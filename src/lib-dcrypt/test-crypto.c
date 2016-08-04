@@ -353,7 +353,7 @@ void test_load_v1_public_key(void)
 	test_assert(encryption_key_hash == NULL);
 
 	struct dcrypt_public_key *pub_key = NULL;
-	ret = dcrypt_key_load_public(&pub_key, format, data1, &error);
+	ret = dcrypt_key_load_public(&pub_key, data1, &error);
 	test_assert(ret == TRUE);
 	test_assert(error == NULL);
 
@@ -426,7 +426,7 @@ void test_load_v2_public_key(void)
 	test_begin("test_load_v2_public_key");
 	const char *key = "2:3058301006072a8648ce3d020106052b810400230344000301c50954e734dd8b410a607764a7057065a45510da52f2c6e28e0cb353b9c389fa8cb786943ae991fce9befed78fb162fbbc615415f06af06c8cc80c37f4e94ff6c7:185a7212542782e239111f9c19d126ad55b18ddaf4883d66afe8d9627c3607d8";
 
-	test_assert(dcrypt_key_load_public(&pub, DCRYPT_FORMAT_DOVECOT, key, &error));
+	test_assert(dcrypt_key_load_public(&pub, key, &error));
 
 	buffer_t *tmp = buffer_create_dynamic(default_pool, 256);
 
@@ -602,8 +602,7 @@ void test_load_invalid_keys(void) {
 	const char *key = "1:716:0301EB00973C4EFC8FCECA4EA33E941F50B561199A5159BCB6C2EED9DD1D62D65E38A254979D89E28F0C28883E71EE2AD264CD16B863FA094A8F6F69A56B62E8918040:7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f";
 	struct dcrypt_public_key *pub_key = NULL;
 
-	bool ret = dcrypt_key_load_public(&pub_key, DCRYPT_FORMAT_DOVECOT,
-			key, &error);
+	bool ret = dcrypt_key_load_public(&pub_key, key, &error);
 	test_assert(ret == FALSE);
 	test_assert(error != NULL);
 
