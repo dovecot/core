@@ -124,6 +124,10 @@ static
 void dcrypt_openssl_unref_public_key(struct dcrypt_public_key **key);
 static
 bool dcrypt_openssl_rsa_decrypt(struct dcrypt_private_key *key, const unsigned char *data, size_t data_len, buffer_t *result, const char **error_r);
+static
+bool dcrypt_openssl_key_string_get_info(const char *key_data, enum dcrypt_key_format *format_r, enum dcrypt_key_version *version_r,
+	enum dcrypt_key_kind *kind_r, enum dcrypt_key_encryption_type *encryption_type_r, const char **encryption_key_hash_r,
+	const char **key_hash_r, const char **error_r);
 
 static
 bool dcrypt_openssl_error(const char **error_r)
@@ -1247,25 +1251,20 @@ bool dcrypt_openssl_load_private_key_dovecot(struct dcrypt_private_key **key_r,
 }
 
 static
-int dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
+bool dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 	int len, const char **input, const char **error_r)
 {
 	int nid;
-	if (len != 4) {
-		if (error_r != NULL)
-			*error_r = "Corrupted data";
-		return -1;
-	}
 	if (str_to_int(input[1], &nid) != 0) {
 		if (error_r != NULL)
 			*error_r = "Corrupted data";
-		return -1;
+		return FALSE;
 	}
 
 	EC_KEY *eckey = EC_KEY_new_by_curve_name(nid);
 	if (eckey == NULL) {
 		dcrypt_openssl_error(error_r);
-		return -1;
+		return FALSE;
 	}
 
 	EC_KEY_set_asn1_flag(eckey, OPENSSL_EC_NAMED_CURVE);
@@ -1279,7 +1278,7 @@ int dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 		EC_KEY_free(eckey);
 		EC_POINT_free(point);
 		dcrypt_openssl_error(error_r);
-		return -1;
+		return FALSE;
 	}
 	BN_CTX_free(bnctx);
 
@@ -1300,27 +1299,22 @@ int dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 			if (error_r != NULL)
 				*error_r = "Key id mismatch after load";
 			EVP_PKEY_free(key);
-			return -1;
+			return FALSE;
 		}
 		*key_r = i_new(struct dcrypt_public_key, 1);
 		(*key_r)->key = key;
 		(*key_r)->ref++;
-		return 0;
+		return TRUE;
 	}
 
 	dcrypt_openssl_error(error_r);
-	return -1;
+	return FALSE;
 }
 
 static
-int dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
+bool dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 	int len, const char **input, const char **error_r)
 {
-	if (len != 3 || strlen(input[1]) < 2 || (strlen(input[1])%2) != 0) {
-		if (error_r != NULL)
-			*error_r = "Corrupted data";
-		return -1;
-	}
 	buffer_t tmp;
 	size_t keylen = strlen(input[1])/2;
 	unsigned char keybuf[keylen];
@@ -1333,7 +1327,7 @@ int dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 	if (pkey == NULL || d2i_PUBKEY(&pkey, &ptr, keylen)==NULL) {
 		EVP_PKEY_free(pkey);
 		dcrypt_openssl_error(error_r);
-		return -1;
+		return FALSE;
 	}
 
 	/* make sure digest matches */
@@ -1344,50 +1338,36 @@ int dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 		if (error_r != NULL)
 			*error_r = "Key id mismatch after load";
 		EVP_PKEY_free(pkey);
-		return -1;
+		return FALSE;
 	}
 
 	*key_r = i_new(struct dcrypt_public_key, 1);
 	(*key_r)->key = pkey;
 	(*key_r)->ref++;
-	return 0;
+	return TRUE;
 }
 
 static
 bool dcrypt_openssl_load_public_key_dovecot(struct dcrypt_public_key **key_r,
-	const char *data, const char **error_r)
+	const char *data, enum dcrypt_key_version version,
+	const char **error_r)
 {
-	/* FIXME: duplicated from info */
-	if (strncmp(data, "1:", 2) == 0) {
-		if (error_r != NULL)
-			*error_r = "Dovecot v1 key format "
-				"uses tab to separate fields";
-		return FALSE;
-	} else if (strncmp(data, "2\t", 2) == 0) {
-		if (error_r != NULL)
-			*error_r = "Dovecot v2 key format uses "
-				"colon to separate fields";
-		return FALSE;
-	}
-
-	int ec = 0;
 	const char **input = t_strsplit(data, ":\t");
 	size_t len = str_array_length(input);
 
-	if (len < 2) ec = -1;
-	if (ec == 0 && *(input[0]) == '1') {
-		ec = dcrypt_openssl_load_public_key_dovecot_v1(key_r, len,
+	switch (version) {
+	case DCRYPT_KEY_VERSION_1:
+		return dcrypt_openssl_load_public_key_dovecot_v1(key_r, len,
 			input, error_r);
-	} else if (ec == 0 && *(input[0]) == '2') {
-		ec = dcrypt_openssl_load_public_key_dovecot_v2(key_r, len,
+		break;
+	case DCRYPT_KEY_VERSION_2:
+		return dcrypt_openssl_load_public_key_dovecot_v2(key_r, len,
 			input, error_r);
-	} else {
-		if (error_r != NULL)
-			*error_r = "Unsupported key version";
-		ec = -1;
+		break;
+	case DCRYPT_KEY_VERSION_NA:
+		i_unreached();
 	}
-
-	return (ec == 0 ? TRUE : FALSE);
+	return FALSE;
 }
 
 static
@@ -1622,10 +1602,22 @@ static
 bool dcrypt_openssl_load_public_key(struct dcrypt_public_key **key_r, enum dcrypt_key_format format,
 	const char *data, const char **error_r)
 {
-	EVP_PKEY *key = NULL;
-	if (format == DCRYPT_FORMAT_DOVECOT)
-		return dcrypt_openssl_load_public_key_dovecot(key_r, data, error_r);
+	enum dcrypt_key_version version;
+	enum dcrypt_key_kind kind;
+	if (!dcrypt_openssl_key_string_get_info(data, &format, &version,
+				&kind, NULL, NULL, NULL, error_r)) {
+		return FALSE;
+	}
+	if (kind != DCRYPT_KEY_KIND_PUBLIC) {
+		if (error_r != NULL) *error_r = "key is not public";
+		return FALSE;
+	}
 
+	if (format == DCRYPT_FORMAT_DOVECOT)
+		return dcrypt_openssl_load_public_key_dovecot(key_r, data,
+				version, error_r);
+
+	EVP_PKEY *key = NULL;
 	BIO *key_in = BIO_new_mem_buf((void*)data, strlen(data));
 	if (key_in == NULL)
 		return dcrypt_openssl_error(error_r);
