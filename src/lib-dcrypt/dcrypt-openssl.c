@@ -1215,39 +1215,22 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 static
 bool dcrypt_openssl_load_private_key_dovecot(struct dcrypt_private_key **key_r,
 	const char *data, const char *password, struct dcrypt_private_key *key,
-	const char **error_r)
+	enum dcrypt_key_version version, const char **error_r)
 {
-	/* FIXME: duplicated from info */
-	if (strncmp(data, "1:", 2) == 0) {
-		if (error_r != NULL)
-			*error_r = "Dovecot v1 key format "
-				"uses tab to separate fields";
-		return FALSE;
-	} else if (strncmp(data, "2\t", 2) == 0) {
-		if (error_r != NULL)
-			*error_r = "Dovecot v2 key format uses "
-				"colon to separate fields";
-		return FALSE;
-	}
-
-	bool ret;
 	const char **input = t_strsplit(data, ":\t");
 	size_t len = str_array_length(input);
 
-	if (len < 4) {
-		if (error_r != NULL)
-			*error_r = "Corrupted data";
-		ret = FALSE;
-	} else if (*(input[0])== '1')
-		ret = dcrypt_openssl_load_private_key_dovecot_v1(key_r, len, input, password, key, error_r);
-	else if (*(input[0])== '2')
-		ret = dcrypt_openssl_load_private_key_dovecot_v2(key_r, len, input, password, key, error_r);
-	else {
-		if (error_r != NULL)
-			*error_r = "Unsupported key version";
-		ret = FALSE;
+	switch (version) {
+	case DCRYPT_KEY_VERSION_1:
+		return dcrypt_openssl_load_private_key_dovecot_v1(key_r, len,
+				input, password, key, error_r);
+	case DCRYPT_KEY_VERSION_2:
+		return dcrypt_openssl_load_private_key_dovecot_v2(key_r, len,
+				input, password, key, error_r);
+	case DCRYPT_KEY_VERSION_NA:
+		i_unreached();
 	}
-	return ret;
+	return FALSE;
 }
 
 static
@@ -1566,13 +1549,26 @@ bool dcrypt_openssl_store_public_key_dovecot(struct dcrypt_public_key *key, buff
 }
 
 static
-bool dcrypt_openssl_load_private_key(struct dcrypt_private_key **key_r, enum dcrypt_key_format format,
-	const char *data, const char *password, struct dcrypt_private_key *dec_key,
-	const char **error_r)
+bool dcrypt_openssl_load_private_key(struct dcrypt_private_key **key_r,
+	enum dcrypt_key_format format, const char *data, const char *password,
+	struct dcrypt_private_key *dec_key, const char **error_r)
 {
-	EVP_PKEY *key = NULL, *key2;
+	enum dcrypt_key_version version;
+	enum dcrypt_key_kind kind;
+	if (!dcrypt_openssl_key_string_get_info(data, &format, &version,
+				&kind, NULL, NULL, NULL, error_r)) {
+		return FALSE;
+	}
+	if (kind != DCRYPT_KEY_KIND_PRIVATE) {
+		if (error_r != NULL) *error_r = "key is not private";
+		return FALSE;
+	}
+
 	if (format == DCRYPT_FORMAT_DOVECOT)
-		return dcrypt_openssl_load_private_key_dovecot(key_r, data, password, dec_key, error_r);
+		return dcrypt_openssl_load_private_key_dovecot(key_r, data,
+				password, dec_key, version, error_r);
+
+	EVP_PKEY *key = NULL, *key2;
 
 	BIO *key_in = BIO_new_mem_buf((void*)data, strlen(data));
 
