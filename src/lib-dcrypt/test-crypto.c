@@ -619,7 +619,10 @@ void test_load_invalid_keys(void) {
 
 int main(void) {
 	random_init();
-	dcrypt_initialize("openssl", NULL, NULL);
+	if (!dcrypt_initialize(NULL, NULL, NULL)) {
+		i_error("No functional dcrypt backend found - skipping tests");
+		return 0;
+	}
 
 	static void (*test_functions[])(void) = {
 		test_cipher_test_vectors,
