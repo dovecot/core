@@ -847,7 +847,7 @@ struct decrypt_istream *i_stream_create_decrypt_common(struct istream *input)
 	dstream->istream.iostream.destroy = i_stream_decrypt_destroy;
 
 	dstream->istream.istream.readable_fd = FALSE;
-	dstream->istream.istream.blocking = TRUE;
+	dstream->istream.istream.blocking = input->blocking;
 	dstream->istream.istream.seekable = FALSE;
 
 	dstream->buf = buffer_create_dynamic(default_pool, 512);
