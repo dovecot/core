@@ -8,7 +8,6 @@
 #include "istream-decrypt.h"
 #include "istream-hash.h"
 #include "istream-base64.h"
-#include "iostream-temp.h"
 #include "randgen.h"
 #include "hash-method.h"
 #include "test-common.h"
@@ -183,7 +182,8 @@ void test_write_read_v1(void)
 	size_t pos = 0, siz;
 	random_fill_weak(payload, IO_BLOCK_SIZE);
 
-	struct ostream *os = iostream_temp_create("/tmp", 0);
+	buffer_t *buf = buffer_create_dynamic(default_pool, sizeof(payload));
+	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os, "<unused>", test_v2_kp.pub, IO_STREAM_ENC_VERSION_1);
 	o_stream_nsend(os_2, payload, sizeof(payload));
 
@@ -196,7 +196,7 @@ void test_write_read_v1(void)
 
 	o_stream_unref(&os_2);
 
-	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v2_kp.priv);
 	i_stream_unref(&is);
 
@@ -210,6 +210,7 @@ void test_write_read_v1(void)
 	test_assert(is_2->stream_errno == 0);
 
 	i_stream_unref(&is_2);
+	buffer_free(&buf);
 
 	test_end();
 }
@@ -223,7 +224,8 @@ void test_write_read_v1_short(void)
 	size_t pos = 0, siz;
 	random_fill_weak(payload, 1);
 
-	struct ostream *os = iostream_temp_create("/tmp", 0);
+	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
+	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os, "<unused>", test_v2_kp.pub, IO_STREAM_ENC_VERSION_1);
 	o_stream_nsend(os_2, payload, sizeof(payload));
 
@@ -236,7 +238,7 @@ void test_write_read_v1_short(void)
 
 	o_stream_unref(&os_2);
 
-	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v2_kp.priv);
 	i_stream_unref(&is);
 
@@ -250,6 +252,7 @@ void test_write_read_v1_short(void)
 	test_assert(is_2->stream_errno == 0);
 
 	i_stream_unref(&is_2);
+	buffer_free(&buf);
 
 	test_end();
 }
@@ -260,7 +263,8 @@ void test_write_read_v1_empty(void)
 	const unsigned char *ptr;
 	size_t siz;
 	test_begin("test_write_read_v1_empty");
-	struct ostream *os = iostream_temp_create("/tmp", 0);
+	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
+	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os, "<unused>", test_v1_kp.pub, IO_STREAM_ENC_VERSION_1);
 	test_assert(o_stream_nfinish(os_2) == 0);
 	if (os_2->stream_errno != 0)
@@ -269,7 +273,7 @@ void test_write_read_v1_empty(void)
 	o_stream_unref(&os_2);
 	/* this should've been enough */
 
-	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
 	i_stream_unref(&is);
 
@@ -282,6 +286,7 @@ void test_write_read_v1_empty(void)
 	if (is_2->stream_errno != 0)
 		i_debug("error: %s", i_stream_get_error(is_2));
 	i_stream_unref(&is_2);
+	buffer_free(&buf);
 	test_end();
 }
 
@@ -294,7 +299,8 @@ void test_write_read_v2(void)
 	size_t pos = 0, siz;
 	random_fill_weak(payload, IO_BLOCK_SIZE);
 
-	struct ostream *os = iostream_temp_create("/tmp", 0);
+	buffer_t *buf = buffer_create_dynamic(default_pool, sizeof(payload));
+	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os, "aes-256-gcm-sha256", test_v1_kp.pub, IO_STREAM_ENC_INTEGRITY_AEAD);
 	o_stream_nsend(os_2, payload, sizeof(payload));
 	test_assert(o_stream_nfinish(os_2) == 0);
@@ -303,7 +309,7 @@ void test_write_read_v2(void)
 
 	o_stream_unref(&os_2);
 
-	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
 	i_stream_unref(&is);
 
@@ -319,6 +325,7 @@ void test_write_read_v2(void)
 		i_debug("error: %s", i_stream_get_error(is_2));
 
 	i_stream_unref(&is_2);
+	buffer_free(&buf);
 
 	test_end();
 }
@@ -332,7 +339,8 @@ void test_write_read_v2_short(void)
 	size_t pos = 0, siz;
 	random_fill_weak(payload, 1);
 
-	struct ostream *os = iostream_temp_create("/tmp", 0);
+	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
+	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os, "aes-256-gcm-sha256", test_v1_kp.pub, IO_STREAM_ENC_INTEGRITY_AEAD);
 	o_stream_nsend(os_2, payload, sizeof(payload));
 	test_assert(o_stream_nfinish(os_2) == 0);
@@ -341,7 +349,7 @@ void test_write_read_v2_short(void)
 
 	o_stream_unref(&os_2);
 
-	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
 	i_stream_unref(&is);
 
@@ -357,6 +365,7 @@ void test_write_read_v2_short(void)
 		i_debug("error: %s", i_stream_get_error(is_2));
 
 	i_stream_unref(&is_2);
+	buffer_free(&buf);
 
 	test_end();
 }
@@ -367,7 +376,8 @@ void test_write_read_v2_empty(void)
 	const unsigned char *ptr;
 	size_t siz;
 	test_begin("test_write_read_v2_empty");
-	struct ostream *os = iostream_temp_create("/tmp", 0);
+	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
+	struct ostream *os = o_stream_create_buffer(buf);
 	struct ostream *os_2 = o_stream_create_encrypt(os, "aes-256-gcm-sha256", test_v1_kp.pub, IO_STREAM_ENC_INTEGRITY_AEAD);
 	test_assert(o_stream_nfinish(os_2) == 0);
 	if (os_2->stream_errno != 0)
@@ -376,7 +386,7 @@ void test_write_read_v2_empty(void)
 	o_stream_unref(&os_2);
 	/* this should've been enough */
 
-	struct istream *is = iostream_temp_finish(&os, IO_BLOCK_SIZE);
+	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
 	i_stream_unref(&is);
 
@@ -389,6 +399,7 @@ void test_write_read_v2_empty(void)
 	if (is_2->stream_errno != 0)
 		i_debug("error: %s", i_stream_get_error(is_2));
 	i_stream_unref(&is_2);
+	buffer_free(&buf);
 	test_end();
 }
 
