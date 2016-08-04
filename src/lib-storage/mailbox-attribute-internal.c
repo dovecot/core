@@ -11,11 +11,12 @@
  /* /private/specialuse (RFC 6154) */
 
 static int
-mailbox_attribute_specialuse_get(struct mailbox_transaction_context *t,
-  const char *key ATTR_UNUSED,
-	struct mail_attribute_value *value_r)
+mailbox_attribute_specialuse_get(struct mailbox *box,
+	const char *key ATTR_UNUSED,
+	struct mail_attribute_value *value_r,
+	bool internal_attribute ATTR_UNUSED)
 {
-	const struct mailbox_settings *set = t->box->set;
+	const struct mailbox_settings *set = box->set;
 
 	if (set == NULL || *set->special_use == '\0')
 		return 0;
@@ -36,11 +37,12 @@ iattr_mbox_prv_special_use = {
 /* /private/comment, /shared/comment (RFC 5464) */
 
 static int
-mailbox_attribute_comment_get(struct mailbox_transaction_context *t,
+mailbox_attribute_comment_get(struct mailbox *box,
 	const char *key ATTR_UNUSED,
-	struct mail_attribute_value *value_r)
+	struct mail_attribute_value *value_r,
+	bool internal_attribute ATTR_UNUSED)
 {
-	const struct mailbox_settings *set = t->box->set;
+	const struct mailbox_settings *set = box->set;
 
 	if (set == NULL || *set->comment == '\0')
 		return 0;
@@ -73,11 +75,12 @@ iattr_mbox_shd_comment = {
 /* /shared/comment (RFC 5464) */
 
 static int
-server_attribute_comment_get(struct mailbox_transaction_context *t,
+server_attribute_comment_get(struct mailbox *box,
 	const char *key ATTR_UNUSED,
-	struct mail_attribute_value *value_r)
+	struct mail_attribute_value *value_r,
+	bool internal_attribute ATTR_UNUSED)
 {
-	const struct mail_storage_settings *set = t->box->storage->set;
+	const struct mail_storage_settings *set = box->storage->set;
 
 	if (*set->mail_server_comment == '\0')
 		return 0;
@@ -98,11 +101,12 @@ iattr_serv_shd_comment = {
 /* /shared/admin (RFC 5464) */
 
 static int
-server_attribute_admin_get(struct mailbox_transaction_context *t,
+server_attribute_admin_get(struct mailbox *box,
 	const char *key ATTR_UNUSED,
-	struct mail_attribute_value *value_r)
+	struct mail_attribute_value *value_r,
+	bool internal_attribute ATTR_UNUSED)
 {
-	const struct mail_storage_settings *set = t->box->storage->set;
+	const struct mail_storage_settings *set = box->storage->set;
 
 	if (*set->mail_server_admin == '\0')
 		return 0;

@@ -191,7 +191,8 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 
 int index_storage_attribute_set(struct mailbox_transaction_context *t,
 				enum mail_attribute_type type, const char *key,
-				const struct mail_attribute_value *value)
+				const struct mail_attribute_value *value,
+				bool internal_attribute)
 {
 	struct dict_transaction_context *dtrans;
 	const char *mailbox_prefix;
@@ -199,7 +200,7 @@ int index_storage_attribute_set(struct mailbox_transaction_context *t,
 	time_t ts = value->last_change != 0 ? value->last_change : ioloop_time;
 	int ret = 0;
 
-	if (!t->internal_attribute &&
+	if (!internal_attribute &&
 	    !MAILBOX_ATTRIBUTE_KEY_IS_USER_ACCESSIBLE(key)) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_PARAMS,
 			"Internal attributes cannot be changed directly");
@@ -230,9 +231,10 @@ int index_storage_attribute_set(struct mailbox_transaction_context *t,
 	return ret;
 }
 
-int index_storage_attribute_get(struct mailbox_transaction_context *t,
+int index_storage_attribute_get(struct mailbox *box,
 				enum mail_attribute_type type, const char *key,
-				struct mail_attribute_value *value_r)
+				struct mail_attribute_value *value_r,
+				bool internal_attribute)
 {
 	struct dict *dict;
 	const char *mailbox_prefix, *error;
@@ -240,18 +242,18 @@ int index_storage_attribute_get(struct mailbox_transaction_context *t,
 
 	memset(value_r, 0, sizeof(*value_r));
 
-	if (!t->internal_attribute &&
+	if (!internal_attribute &&
 	    !MAILBOX_ATTRIBUTE_KEY_IS_USER_ACCESSIBLE(key))
 		return 0;
 
-	if (index_storage_get_dict(t->box, type, &dict, &mailbox_prefix) < 0)
+	if (index_storage_get_dict(box, type, &dict, &mailbox_prefix) < 0)
 		return -1;
 
 	ret = dict_lookup(dict, pool_datastack_create(),
 			  key_get_prefixed(type, mailbox_prefix, key),
 			  &value_r->value, &error);
 	if (ret < 0) {
-		mail_storage_set_critical(t->box->storage,
+		mail_storage_set_critical(box->storage,
 			"Failed to set attribute %s: %s", key, error);
 		return -1;
 	}

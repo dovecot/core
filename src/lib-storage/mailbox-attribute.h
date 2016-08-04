@@ -94,11 +94,11 @@ struct mailbox_attribute_internal {
 	enum mail_attribute_internal_flags flags;
 
 	/* Get the value of this internal attribute */
-	int (*get)(struct mailbox_transaction_context *t, const char *key,
-		   struct mail_attribute_value *value_r);
+	int (*get)(struct mailbox *box, const char *key,
+		   struct mail_attribute_value *value_r, bool internal_attribute);
 	/* Set the value of this internal attribute */ 
 	int (*set)(struct mailbox_transaction_context *t, const char *key,
-		   const struct mail_attribute_value *value);
+		   const struct mail_attribute_value *value, bool internal_attribute);
 };
 
 void mailbox_attribute_register_internal(
@@ -122,12 +122,12 @@ int mailbox_attribute_unset(struct mailbox_transaction_context *t,
 			    enum mail_attribute_type type, const char *key);
 /* Returns value for mailbox attribute key. Returns 1 if value was returned,
    0 if value wasn't found (set to NULL), -1 if error */
-int mailbox_attribute_get(struct mailbox_transaction_context *t,
+int mailbox_attribute_get(struct mailbox *box,
 			  enum mail_attribute_type type, const char *key,
 			  struct mail_attribute_value *value_r);
 /* Same as mailbox_attribute_get(), but the returned value may be either an
    input stream or a string. */
-int mailbox_attribute_get_stream(struct mailbox_transaction_context *t,
+int mailbox_attribute_get_stream(struct mailbox *box,
 				 enum mail_attribute_type type, const char *key,
 				 struct mail_attribute_value *value_r);
 

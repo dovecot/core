@@ -174,7 +174,7 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
 			/* notify about assignment */
-			if (iattr->set != NULL && iattr->set(t, key, value) < 0)
+			if (iattr->set != NULL && iattr->set(t, key, value, TRUE) < 0)
 				return -1;
 			break;
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY:
@@ -185,18 +185,13 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 				return -1;
 			}
 			/* assign internal attribute */
-			return iattr->set(t, key, value);
+			return iattr->set(t, key, value, TRUE);
 		default:
 			i_unreached();
 		}
 	}
 	
-	/* FIXME: v2.3 should move the internal_attribute to attribute_set()
-	   parameter (as flag). not done yet for API backwards compatibility */
-	t->internal_attribute = iattr != NULL &&
-		iattr->rank != MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY;
-	ret = t->box->v.attribute_set(t, type, key, value);
-	t->internal_attribute = FALSE;
+	ret = t->box->v.attribute_set(t, type, key, value, (iattr != NULL && iattr->rank != MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY));
 	return ret;
 }
 
@@ -251,7 +246,7 @@ int mailbox_attribute_value_to_string(struct mail_storage *storage,
 }
 
 static int
-mailbox_attribute_get_common(struct mailbox_transaction_context *t,
+mailbox_attribute_get_common(struct mailbox *box,
 			     enum mail_attribute_type type, const char *key,
 			     struct mail_attribute_value *value_r)
 {
@@ -261,7 +256,7 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 	iattr = mailbox_internal_attribute_get(type, key);
 
 	/* allow internal server attributes only for the inbox */
-	if (iattr != NULL && !t->box->inbox_user &&
+	if (iattr != NULL && !box->inbox_user &&
 	    strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
 	    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
 		iattr = NULL;
@@ -270,7 +265,7 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 	if (iattr != NULL) {
 		switch (iattr->rank) {
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
-			if ((ret = iattr->get(t, key, value_r)) != 0) {
+			if ((ret = iattr->get(box, key, value_r, TRUE)) != 0) {
 				if (ret < 0)
 					return -1;
 				value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
@@ -279,7 +274,7 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:
 			break;
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY:
-			if ((ret = iattr->get(t, key, value_r)) <= 0)
+			if ((ret = iattr->get(box, key, value_r, TRUE)) <= 0)
 				return ret;
 			value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
 			return 1;
@@ -288,24 +283,20 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 		}
 	}
 
-	/* user entries - FIXME: v2.3 should move the internal_attribute to
-	   attribute_get() parameter (as flag). not done yet for API backwards
-	   compatibility */
-	t->internal_attribute = iattr != NULL &&
-		iattr->rank != MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY;
-	ret = t->box->v.attribute_get(t, type, key, value_r);
-	t->internal_attribute = FALSE;
+	bool internal_attribute = (iattr != NULL && iattr->rank != MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY);
+
+	ret = box->v.attribute_get(box, type, key, value_r, internal_attribute);
 	if (ret != 0)
 		return ret;
 
 	/* default entries */
 	if (iattr != NULL) {
 		switch (iattr->rank) {
-		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:		
+		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:
 			if (iattr->get == NULL)
 				ret = 0;
 			else {
-				if ((ret = iattr->get(t, key, value_r)) < 0)
+				if ((ret = iattr->get(box, key, value_r, internal_attribute)) < 0)
 					return ret;
 			}
 			if (ret > 0) {
@@ -321,19 +312,20 @@ mailbox_attribute_get_common(struct mailbox_transaction_context *t,
 	return 0;
 }
 
-int mailbox_attribute_get(struct mailbox_transaction_context *t,
+int mailbox_attribute_get(struct mailbox *box,
 			  enum mail_attribute_type type, const char *key,
 			  struct mail_attribute_value *value_r)
 {
 	int ret;
 	memset(value_r, 0, sizeof(*value_r));
-	if ((ret = mailbox_attribute_get_common(t, type, key, value_r)) <= 0)
+	if ((ret = mailbox_attribute_get_common(box, type, key,
+				value_r)) <= 0)
 		return ret;
 	i_assert(value_r->value != NULL);
 	return 1;
 }
 
-int mailbox_attribute_get_stream(struct mailbox_transaction_context *t,
+int mailbox_attribute_get_stream(struct mailbox *box,
 				 enum mail_attribute_type type, const char *key,
 				 struct mail_attribute_value *value_r)
 {
@@ -341,7 +333,8 @@ int mailbox_attribute_get_stream(struct mailbox_transaction_context *t,
 
 	memset(value_r, 0, sizeof(*value_r));
 	value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_INT_STREAMS;
-	if ((ret = mailbox_attribute_get_common(t, type, key, value_r)) <= 0)
+	if ((ret = mailbox_attribute_get_common(box, type, key,
+				value_r)) <= 0)
 		return ret;
 	i_assert(value_r->value != NULL || value_r->value_stream != NULL);
 	return 1;
