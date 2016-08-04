@@ -572,24 +572,21 @@ void test_get_info_invalid_keys(void) {
 
 	test_assert(dcrypt_key_string_get_info(key, NULL, NULL,
 			NULL, NULL, NULL, NULL, &error) == FALSE);
-	test_assert(error != NULL);
-	test_assert(strstr(error, "tab") != NULL);
+	test_assert(error != NULL && strstr(error, "tab") != NULL);
 
 	key = "2\t305e301006072a8648ce3d020106052b81040026034a000203fcc90034fa03d6fb79a0fc8b3b43c3398f68e76029307360cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b7945ed9d182f3156550e9ee30b237a0217dbf79d28975f31\t86706b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d90966e84dc";
 	error = NULL;
 
 	test_assert(dcrypt_key_string_get_info(key, NULL, NULL,
 			NULL, NULL, NULL, NULL, &error) == FALSE);
-	test_assert(error != NULL);
-	test_assert(strstr(error, "colon") != NULL);
+	test_assert(error != NULL && strstr(error, "colon") != NULL);
 
 	key = "2";
 	error = NULL;
 
 	test_assert(dcrypt_key_string_get_info(key, NULL, NULL,
 			NULL, NULL, NULL, NULL, &error) == FALSE);
-	test_assert(error != NULL);
-	test_assert(strstr(error, "Unknown") != NULL);
+	test_assert(error != NULL && strstr(error, "Unknown") != NULL);
 
 	test_end();
 }
