@@ -427,9 +427,9 @@ int main(void) {
 	dcrypt_initialize("openssl", NULL, NULL);
 	random_init();
 
-	test_assert(dcrypt_key_load_private(&test_v1_kp.priv, DCRYPT_FORMAT_PEM, key_v1_priv, NULL, NULL, NULL));
+	test_assert(dcrypt_key_load_private(&test_v1_kp.priv, key_v1_priv, NULL, NULL, NULL));
 	test_assert(dcrypt_key_load_public(&test_v1_kp.pub, DCRYPT_FORMAT_PEM, key_v1_pub, NULL));
-	test_assert(dcrypt_key_load_private(&test_v2_kp.priv, DCRYPT_FORMAT_PEM, key_v2_priv, NULL, NULL, NULL));
+	test_assert(dcrypt_key_load_private(&test_v2_kp.priv, key_v2_priv, NULL, NULL, NULL));
 	test_assert(dcrypt_key_load_public(&test_v2_kp.pub, DCRYPT_FORMAT_PEM, key_v2_pub, NULL));
 
 	static void (*test_functions[])(void) = {

@@ -63,7 +63,7 @@ struct dcrypt_vfs {
 	bool (*generate_keypair)(struct dcrypt_keypair *pair_r, enum dcrypt_key_type kind,
 		unsigned int bits, const char *curve, const char **error_r);
 
-	bool (*load_private_key)(struct dcrypt_private_key **key_r, enum dcrypt_key_format format, const char *data,
+	bool (*load_private_key)(struct dcrypt_private_key **key_r, const char *data,
 		const char *password, struct dcrypt_private_key *dec_key, const char **error_r);
 	bool (*load_public_key)(struct dcrypt_public_key **key_r, enum dcrypt_key_format format, const char *data,
 		const char **error_r);
