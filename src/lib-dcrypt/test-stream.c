@@ -194,6 +194,7 @@ void test_write_read_v1(void)
 	test_assert(o_stream_nfinish(os_2) == 0);
 	test_assert(os_2->stream_errno == 0);
 
+	o_stream_unref(&os);
 	o_stream_unref(&os_2);
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
@@ -241,6 +242,7 @@ void test_write_read_v1_short(void)
 	test_assert(o_stream_nfinish(os_2) == 0);
 	test_assert(os_2->stream_errno == 0);
 
+	o_stream_unref(&os);
 	o_stream_unref(&os_2);
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
@@ -280,6 +282,7 @@ void test_write_read_v1_empty(void)
 	if (os_2->stream_errno != 0)
 		i_debug("error: %s", o_stream_get_error(os_2));
 
+	o_stream_unref(&os);
 	o_stream_unref(&os_2);
 	/* this should've been enough */
 
@@ -322,6 +325,7 @@ void test_write_read_v2(void)
 	if (os_2->stream_errno != 0)
 		i_debug("error: %s", o_stream_get_error(os_2));
 
+	o_stream_unref(&os);
 	o_stream_unref(&os_2);
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
@@ -367,6 +371,7 @@ void test_write_read_v2_short(void)
 	if (os_2->stream_errno != 0)
 		i_debug("error: %s", o_stream_get_error(os_2));
 
+	o_stream_unref(&os);
 	o_stream_unref(&os_2);
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
@@ -408,6 +413,7 @@ void test_write_read_v2_empty(void)
 	if (os_2->stream_errno != 0)
 		i_debug("error: %s", o_stream_get_error(os_2));
 
+	o_stream_unref(&os);
 	o_stream_unref(&os_2);
 	/* this should've been enough */
 
