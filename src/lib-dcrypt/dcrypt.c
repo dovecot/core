@@ -200,10 +200,10 @@ bool dcrypt_keypair_generate(struct dcrypt_keypair *pair_r, enum dcrypt_key_type
 	return dcrypt_vfs->generate_keypair(pair_r, kind, bits, curve, error_r);
 }
 
-bool dcrypt_key_load_private(struct dcrypt_private_key **key_r, enum dcrypt_key_format format, const char *data,
+bool dcrypt_key_load_private(struct dcrypt_private_key **key_r, const char *data,
 	const char *password, struct dcrypt_private_key *dec_key, const char **error_r)
 {
-	return dcrypt_vfs->load_private_key(key_r, format, data, password, dec_key, error_r);
+	return dcrypt_vfs->load_private_key(key_r, data, password, dec_key, error_r);
 }
 bool dcrypt_key_load_public(struct dcrypt_public_key **key_r, enum dcrypt_key_format format, const char *data, const char **error_r)
 {

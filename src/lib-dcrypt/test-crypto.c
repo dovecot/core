@@ -265,11 +265,11 @@ void test_load_v1_keys(void)
 	pkey = NULL;
 	error = NULL;
 
-	ret = dcrypt_key_load_private(&pkey2, format, data3, NULL, NULL, &error);
+	ret = dcrypt_key_load_private(&pkey2, data3, NULL, NULL, &error);
 	test_assert(ret == TRUE);
 	test_assert(error == NULL);
 
-	ret = dcrypt_key_load_private(&pkey, format, data1, NULL, pkey2, &error);
+	ret = dcrypt_key_load_private(&pkey, data1, NULL, pkey2, &error);
 	test_assert(ret == TRUE);
 	test_assert(error == NULL);
 
@@ -289,7 +289,7 @@ void test_load_v1_key(void)
 	struct dcrypt_private_key *pkey = NULL, *pkey2 = NULL;
 	const char *error = NULL;
 
-	test_assert(dcrypt_key_load_private(&pkey, DCRYPT_FORMAT_DOVECOT, "1\t716\t0\t048FD04FD3612B22D32790C592CF21CEF417EFD2EA34AE5F688FA5B51BED29E05A308B68DA78E16E90B47A11E133BD9A208A2894FD01B0BEE865CE339EA3FB17AC\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0", NULL, NULL, &error));
+	test_assert(dcrypt_key_load_private(&pkey, "1\t716\t0\t048FD04FD3612B22D32790C592CF21CEF417EFD2EA34AE5F688FA5B51BED29E05A308B68DA78E16E90B47A11E133BD9A208A2894FD01B0BEE865CE339EA3FB17AC\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0", NULL, NULL, &error));
 	if (pkey != NULL) {
 		buffer_set_used_size(key_1, 0);
 		/* check that key_id matches */
@@ -303,7 +303,7 @@ void test_load_v1_key(void)
 		dcrypt_key_unref_public(&pubkey);
 		pkey2 = NULL;
 
-		test_assert(dcrypt_key_load_private(&pkey2, DCRYPT_FORMAT_DOVECOT, "1\t716\t1\t0567e6bf9579813ae967314423b0fceb14bda24749303923de9a9bb9370e0026f995901a57e63113eeb2baf0c940e978d00686cbb52bd5014bc318563375876255\t0300E46DA2125427BE968EB3B649910CDC4C405E5FFDE18D433A97CABFEE28CEEFAE9EE356C792004FFB80981D67E741B8CC036A34235A8D2E1F98D1658CFC963D07EB\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0\t7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f", NULL, pkey, &error));
+		test_assert(dcrypt_key_load_private(&pkey2, "1\t716\t1\t0567e6bf9579813ae967314423b0fceb14bda24749303923de9a9bb9370e0026f995901a57e63113eeb2baf0c940e978d00686cbb52bd5014bc318563375876255\t0300E46DA2125427BE968EB3B649910CDC4C405E5FFDE18D433A97CABFEE28CEEFAE9EE356C792004FFB80981D67E741B8CC036A34235A8D2E1F98D1658CFC963D07EB\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0\t7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f", NULL, pkey, &error));
 		if (pkey2 != NULL) {
 			buffer_set_used_size(key_1, 0);
 			/* check that key_id matches */
@@ -385,25 +385,25 @@ void test_load_v2_key(void)
 
 	struct dcrypt_private_key *priv,*priv2;
 
-	test_assert_idx(dcrypt_key_load_private(&priv2, DCRYPT_FORMAT_PEM, keys[0], NULL, NULL, &error), 0);
+	test_assert_idx(dcrypt_key_load_private(&priv2, keys[0], NULL, NULL, &error), 0);
 	test_assert_idx(dcrypt_key_store_private(priv2, DCRYPT_FORMAT_PEM, NULL, tmp, NULL, NULL, &error), 0);
 	test_assert_idx(strcmp(str_c(tmp), keys[0])==0, 0);
 	buffer_set_used_size(tmp, 0);
 
-	test_assert_idx(dcrypt_key_load_private(&priv, DCRYPT_FORMAT_DOVECOT, keys[1], NULL, NULL, &error), 1);
+	test_assert_idx(dcrypt_key_load_private(&priv, keys[1], NULL, NULL, &error), 1);
 	test_assert_idx(dcrypt_key_store_private(priv, DCRYPT_FORMAT_DOVECOT, NULL, tmp, NULL, NULL, &error), 1);
 	test_assert_idx(strcmp(str_c(tmp), keys[1])==0, 1);
 	buffer_set_used_size(tmp, 0);
 	dcrypt_key_unref_private(&priv);
 
-	test_assert_idx(dcrypt_key_load_private(&priv, DCRYPT_FORMAT_DOVECOT, keys[2], "This Is Sparta", NULL, &error), 2);
+	test_assert_idx(dcrypt_key_load_private(&priv, keys[2], "This Is Sparta", NULL, &error), 2);
 	test_assert_idx(dcrypt_key_store_private(priv, DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", tmp, "This Is Sparta", NULL, &error), 2);
 	buffer_set_used_size(tmp, 0);
 	dcrypt_key_unref_private(&priv);
 
 	struct dcrypt_public_key *pub = NULL;
 	dcrypt_key_convert_private_to_public(priv2, &pub);
-	test_assert_idx(dcrypt_key_load_private(&priv, DCRYPT_FORMAT_DOVECOT, keys[3], NULL, priv2, &error), 3);
+	test_assert_idx(dcrypt_key_load_private(&priv, keys[3], NULL, priv2, &error), 3);
 	test_assert_idx(dcrypt_key_store_private(priv, DCRYPT_FORMAT_DOVECOT, "ecdh-aes-256-ctr", tmp, NULL, pub, &error), 3);
 	buffer_set_used_size(tmp, 0);
 	dcrypt_key_unref_private(&priv2);
@@ -611,7 +611,7 @@ void test_load_invalid_keys(void) {
 	key = "2:305e301006072a8648ce3d020106052b81040026034a000203fcc90034fa03d6fb79a0fc8b3b43c3398f68e76029307360cdcb9e27bb7e84b3c19dfb7244763bc4d442d216f09b7b7945ed9d182f3156550e9ee30b237a0217dbf79d28975f31:86706b69d1f640011a65d26a42f2ba20a619173644e1cc7475eb1d90966e84dc";
 	struct dcrypt_private_key *priv_key = NULL;
 
-	ret = dcrypt_key_load_private(&priv_key, DCRYPT_FORMAT_DOVECOT, key, NULL, NULL, &error);
+	ret = dcrypt_key_load_private(&priv_key, key, NULL, NULL, &error);
 	test_assert(ret == FALSE);
 	test_assert(error != NULL);
 
