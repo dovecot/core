@@ -400,17 +400,22 @@ static int no_op_cb(const char *digest ATTR_UNUSED,
 	return 0;
 }
 
-static void test_read_8byte_garbage(void)
+static void test_read_0_to_400_byte_garbage(void)
 {
-	test_begin("test_read_8byte_garbage");
+	test_begin("test_read_0_to_100_byte_garbage");
 
-	struct istream *is = i_stream_create_from_data("12345678", 8);
-	struct istream *ds = i_stream_create_decrypt_callback(is,
-			no_op_cb, NULL);
-	ssize_t siz = i_stream_read(ds);
-	test_assert(siz < 0);
-	i_stream_unref(&ds);
-	i_stream_unref(&is);
+	char data[512];
+	memset(data, 0, sizeof(data));
+
+	for (size_t s = 0; s <= 400; ++s) {
+		struct istream *is = i_stream_create_from_data(data, s);
+		struct istream *ds = i_stream_create_decrypt_callback(is,
+				no_op_cb, NULL);
+		ssize_t siz = i_stream_read(ds);
+		test_assert(siz < 0);
+		i_stream_unref(&ds);
+		i_stream_unref(&is);
+	}
 
 	test_end();
 }
@@ -446,7 +451,7 @@ int main(void) {
 		test_write_read_v2_short,
 		test_write_read_v2_empty,
 		test_free_keys,
-		test_read_8byte_garbage,
+		test_read_0_to_400_byte_garbage,
 		NULL
 	};
 
