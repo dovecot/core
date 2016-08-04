@@ -48,11 +48,25 @@ static void last_login_user_deinit(struct mail_user *user)
 }
 
 static void
-last_login_dict_commit(const struct dict_commit_result *result ATTR_UNUSED,
+last_login_dict_commit(const struct dict_commit_result *result,
 		       void *context)
 {
 	struct mail_user *user = context;
 	struct last_login_user *luser = LAST_LOGIN_USER_CONTEXT(user);
+
+	switch(result->ret) {
+	case DICT_COMMIT_RET_OK:
+	case DICT_COMMIT_RET_NOTFOUND:
+		break;
+	case DICT_COMMIT_RET_FAILED:
+		i_error("last_login_dict: Failed to write value for user %s: %s",
+			user->username, result->error);
+		break;
+	case DICT_COMMIT_RET_WRITE_UNCERTAIN:
+		i_error("last_login_dict: Write was unconfirmed (timeout or disconnect) for user %s: %s",
+			 user->username, result->error);
+		break;
+	};
 
 	/* don't deinit the dict immediately here, lib-dict will just crash */
 	luser->to = timeout_add(0, last_login_dict_deinit, user);
