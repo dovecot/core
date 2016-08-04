@@ -714,9 +714,10 @@ i_stream_decrypt_read(struct istream_private *stream)
 
 			if ((hret=i_stream_decrypt_read_header
 				(dstream, dstream->buf->data, dstream->buf->used)) <= 0) {
-				if (hret < 0 && stream->istream.stream_errno == 0) {
-					/* assume temporary failure */
-					stream->istream.stream_errno = EIO;
+				if (hret < 0) {
+					if (stream->istream.stream_errno == 0)
+						/* assume temporary failure */
+						stream->istream.stream_errno = EIO;
 					return -1;
 				}
 
