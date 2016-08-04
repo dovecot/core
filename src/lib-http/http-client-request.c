@@ -89,6 +89,10 @@ http_client_request_new(struct http_client *client, const char *method,
 	req->context = context;
 	req->date = (time_t)-1;
 
+	/* default to client-wide settings: */
+	req->max_attempts = client->set.max_attempts;
+	req->attempt_timeout_msecs = client->set.request_timeout_msecs;
+
 	req->state = HTTP_REQUEST_STATE_NEW;
 	return req;
 }
@@ -433,6 +437,24 @@ void http_client_request_set_timeout(struct http_client_request *req,
 
 	req->timeout_time = *time;
 	req->timeout_msecs = 0;
+}
+
+void http_client_request_set_attempt_timeout_msecs(struct http_client_request *req,
+	unsigned int msecs)
+{
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+
+	req->attempt_timeout_msecs = msecs;
+}
+
+void http_client_request_set_max_attempts(struct http_client_request *req,
+	unsigned int max_attempts)
+{
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+
+	req->max_attempts = max_attempts;
 }
 
 void http_client_request_set_auth_simple(struct http_client_request *req,
@@ -1359,7 +1381,7 @@ bool http_client_request_try_retry(struct http_client_request *req)
 		(!req->payload_sync || req->payload_sync_continue))
 		return FALSE;
 	/* limit the number of attempts for each request */
-	if (req->attempts+1 >= req->client->set.max_attempts)
+	if (req->attempts+1 >= req->max_attempts)
 		return FALSE;
 	req->attempts++;
 

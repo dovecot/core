@@ -102,6 +102,8 @@ struct http_client_request {
 	struct timeval response_time;
 	struct timeval timeout_time;
 	unsigned int timeout_msecs;
+	unsigned int attempt_timeout_msecs;
+	unsigned int max_attempts;
 
 	unsigned int attempts;
 	unsigned int redirects;

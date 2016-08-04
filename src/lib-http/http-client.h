@@ -285,6 +285,13 @@ void http_client_request_set_timeout_msecs(struct http_client_request *req,
 void http_client_request_set_timeout(struct http_client_request *req,
 	const struct timeval *time);
 
+/* Override http_client_settings.request_timeout_msecs */
+void http_client_request_set_attempt_timeout_msecs(struct http_client_request *req,
+	unsigned int msecs);
+/* Override http_client_settings.max_attempts */
+void http_client_request_set_max_attempts(struct http_client_request *req,
+	unsigned int max_attempts);
+
 /* set the username:password credentials for this request for simple
    authentication. This function is meant for simple schemes that use a
    password. More complex schemes will need to be handled manually.

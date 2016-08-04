@@ -358,7 +358,10 @@ http_client_connection_request_timeout(struct http_client_connection *conn)
 void http_client_connection_start_request_timeout(
 	struct http_client_connection *conn)
 {
-	unsigned int timeout_msecs = conn->client->set.request_timeout_msecs;
+	unsigned int timeout_msecs =
+		conn->pending_request != NULL ?
+		conn->pending_request->attempt_timeout_msecs :
+		conn->client->set.request_timeout_msecs;
 
 	if (timeout_msecs == 0)
 		;
@@ -604,7 +607,7 @@ http_client_connection_return_response(
 		   actual payload stream. */
 		conn->incoming_payload = response->payload =
 			i_stream_create_timeout(response->payload,
-				conn->client->set.request_timeout_msecs);
+				req->attempt_timeout_msecs);
 		i_stream_add_destroy_callback(response->payload,
 					      http_client_payload_destroyed,
 					      req);
