@@ -199,9 +199,13 @@ void test_write_read_v1(void)
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v2_kp.priv);
-	i_stream_unref(&is);
 
-	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
+	size_t offset = 0;
+	while(i_stream_read_data(is_2, &ptr, &siz, 0)>=0) {
+		if (offset == buf->used)
+			test_istream_set_allow_eof(is, TRUE);
+		test_istream_set_size(is, offset);
+
 		test_assert_idx(pos + siz <= sizeof(payload), pos);
 		if (pos + siz > sizeof(payload)) break;
 		test_assert_idx(memcmp(ptr, payload + pos, siz) == 0, pos);
@@ -210,6 +214,7 @@ void test_write_read_v1(void)
 
 	test_assert(is_2->stream_errno == 0);
 
+	i_stream_unref(&is);
 	i_stream_unref(&is_2);
 	buffer_free(&buf);
 
@@ -242,9 +247,13 @@ void test_write_read_v1_short(void)
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v2_kp.priv);
-	i_stream_unref(&is);
 
-	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
+	size_t offset = 0;
+	while(i_stream_read_data(is_2, &ptr, &siz, 0)>=0) {
+		if (offset == buf->used)
+			test_istream_set_allow_eof(is, TRUE);
+		test_istream_set_size(is, offset);
+
 		test_assert_idx(pos + siz <= sizeof(payload), pos);
 		if (pos + siz > sizeof(payload)) break;
 		test_assert_idx(memcmp(ptr, payload + pos, siz) == 0, pos);
@@ -253,6 +262,7 @@ void test_write_read_v1_short(void)
 
 	test_assert(is_2->stream_errno == 0);
 
+	i_stream_unref(&is);
 	i_stream_unref(&is_2);
 	buffer_free(&buf);
 
@@ -278,16 +288,21 @@ void test_write_read_v1_empty(void)
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
-	i_stream_unref(&is);
 
 	/* read should not fail */
-	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
-		test_assert(FALSE); /* should never be reached */
+	size_t offset = 0;
+	ssize_t ret;
+	while ((ret = i_stream_read_data(is_2, &ptr, &siz, 0)) >= 0) {
+		test_assert(ret == 0);
+		if (offset == buf->used)
+			test_istream_set_allow_eof(is, TRUE);
+		test_istream_set_size(is, offset);
 	};
 
 	test_assert(is_2->stream_errno == 0);
 	if (is_2->stream_errno != 0)
 		i_debug("error: %s", i_stream_get_error(is_2));
+	i_stream_unref(&is);
 	i_stream_unref(&is_2);
 	buffer_free(&buf);
 	test_end();
@@ -315,9 +330,13 @@ void test_write_read_v2(void)
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
-	i_stream_unref(&is);
 
-	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
+	size_t offset = 0;
+	while(i_stream_read_data(is_2, &ptr, &siz, 0)>=0) {
+		if (offset == buf->used)
+			test_istream_set_allow_eof(is, TRUE);
+		test_istream_set_size(is, offset);
+
 		test_assert_idx(pos + siz <= sizeof(payload), pos);
 		if (pos + siz > sizeof(payload)) break;
 		test_assert_idx(memcmp(ptr, payload + pos, siz) == 0, pos);
@@ -328,6 +347,7 @@ void test_write_read_v2(void)
 	if (is_2->stream_errno != 0)
 		i_debug("error: %s", i_stream_get_error(is_2));
 
+	i_stream_unref(&is);
 	i_stream_unref(&is_2);
 	buffer_free(&buf);
 
@@ -356,9 +376,13 @@ void test_write_read_v2_short(void)
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
-	i_stream_unref(&is);
 
-	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
+	size_t offset = 0;
+	while(i_stream_read_data(is_2, &ptr, &siz, 0)>=0) {
+		if (offset == buf->used)
+			test_istream_set_allow_eof(is, TRUE);
+		test_istream_set_size(is, offset);
+
 		test_assert_idx(pos + siz <= sizeof(payload), pos);
 		if (pos + siz > sizeof(payload)) break;
 		test_assert_idx(memcmp(ptr, payload + pos, siz) == 0, pos);
@@ -369,6 +393,7 @@ void test_write_read_v2_short(void)
 	if (is_2->stream_errno != 0)
 		i_debug("error: %s", i_stream_get_error(is_2));
 
+	i_stream_unref(&is);
 	i_stream_unref(&is_2);
 	buffer_free(&buf);
 
@@ -394,16 +419,21 @@ void test_write_read_v2_empty(void)
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
-	i_stream_unref(&is);
 
 	/* read should not fail */
-	while(i_stream_read_data(is_2, &ptr, &siz, 0)>0) {
-		test_assert(FALSE); /* should never be reached */
+	size_t offset = 0;
+	ssize_t ret;
+	while ((ret = i_stream_read_data(is_2, &ptr, &siz, 0)) >= 0) {
+		test_assert(ret == 0);
+		if (offset == buf->used)
+			test_istream_set_allow_eof(is, TRUE);
+		test_istream_set_size(is, offset);
 	};
 
 	test_assert(is_2->stream_errno == 0);
 	if (is_2->stream_errno != 0)
 		i_debug("error: %s", i_stream_get_error(is_2));
+	i_stream_unref(&is);
 	i_stream_unref(&is_2);
 	buffer_free(&buf);
 	test_end();
@@ -425,11 +455,18 @@ static void test_read_0_to_400_byte_garbage(void)
 	memset(data, 0, sizeof(data));
 
 	for (size_t s = 0; s <= 400; ++s) {
-		struct istream *is = i_stream_create_from_data(data, s);
+		struct istream *is = test_istream_create_data(data, s);
 		struct istream *ds = i_stream_create_decrypt_callback(is,
 				no_op_cb, NULL);
-		ssize_t siz = i_stream_read(ds);
-		test_assert(siz < 0);
+		test_istream_set_allow_eof(is, FALSE);
+		ssize_t siz = 0;
+		for (size_t offset = 0; offset <= s && siz == 0; offset++) {
+			if (offset == s)
+				test_istream_set_allow_eof(is, TRUE);
+			test_istream_set_size(is, offset);
+			siz = i_stream_read(ds);
+		}
+		test_assert_idx(siz < 0, s);
 		i_stream_unref(&ds);
 		i_stream_unref(&is);
 	}
