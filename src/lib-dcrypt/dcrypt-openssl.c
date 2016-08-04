@@ -880,6 +880,10 @@ bool dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_
 		}
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD) {
 		/* by password */
+		if (password == NULL) {
+			if (error_r != NULL) *error_r = "password missing";
+			return FALSE;
+		}
 		const char *enc_priv_pt = input[3];
 		const char *salt = input[4];
 		if (!dcrypt_openssl_decrypt_point_password_v1(enc_priv_pt, password, salt, &point, error_r)) {
@@ -887,9 +891,12 @@ bool dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_
 		}
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PK) {
 		/* by key */
+		if (dec_key == NULL) {
+			if (error_r != NULL) *error_r = "decrypt key missing";
+			return FALSE;
+		}
 		const char *enc_priv_pt = input[3];
 		const char *peer_key = input[4];
-		i_assert(dec_key != NULL);
 		if (!dcrypt_openssl_decrypt_point_ec_v1(dec_key, enc_priv_pt, peer_key, &point, error_r)) {
 			return FALSE;
 		}
@@ -1051,6 +1058,10 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 				*error_r = "Corrupted data";
 		}
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PK) {
+		if (dec_key == NULL) {
+			if (error_r != NULL) *error_r = "decrypt key missing";
+			return FALSE;
+		}
 		unsigned int rounds;
 		struct dcrypt_public_key *pubkey = NULL;
 		if (str_to_uint(input[6], &rounds) != 0) {
@@ -1102,6 +1113,10 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 			return FALSE;
 		}
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD) {
+		if (password == NULL) {
+			if (error_r != NULL) *error_r = "password missing";
+			return FALSE;
+		}
 		unsigned int rounds;
 		if (str_to_uint(input[6], &rounds) != 0) {
 			if (error_r != NULL)
