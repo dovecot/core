@@ -205,9 +205,9 @@ bool dcrypt_key_load_private(struct dcrypt_private_key **key_r, const char *data
 {
 	return dcrypt_vfs->load_private_key(key_r, data, password, dec_key, error_r);
 }
-bool dcrypt_key_load_public(struct dcrypt_public_key **key_r, enum dcrypt_key_format format, const char *data, const char **error_r)
+bool dcrypt_key_load_public(struct dcrypt_public_key **key_r, const char *data, const char **error_r)
 {
-	return dcrypt_vfs->load_public_key(key_r, format, data, error_r);
+	return dcrypt_vfs->load_public_key(key_r, data, error_r);
 }
 bool dcrypt_key_store_private(struct dcrypt_private_key *key, enum dcrypt_key_format format, const char *cipher, buffer_t *destination,
 	const char *password, struct dcrypt_public_key *enc_key, const char **error_r)

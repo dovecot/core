@@ -1596,9 +1596,10 @@ bool dcrypt_openssl_load_private_key(struct dcrypt_private_key **key_r,
 }
 
 static
-bool dcrypt_openssl_load_public_key(struct dcrypt_public_key **key_r, enum dcrypt_key_format format,
+bool dcrypt_openssl_load_public_key(struct dcrypt_public_key **key_r,
 	const char *data, const char **error_r)
 {
+	enum dcrypt_key_format format;
 	enum dcrypt_key_version version;
 	enum dcrypt_key_kind kind;
 	if (!dcrypt_openssl_key_string_get_info(data, &format, &version,
