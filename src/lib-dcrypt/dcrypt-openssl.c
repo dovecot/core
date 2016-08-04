@@ -1067,7 +1067,6 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 		dcrypt_openssl_unref_public_key(&pubkey);
 
 		if (strcmp(binary_to_hex(data->data, data->used), input[9]) != 0) {
-			dcrypt_openssl_unref_public_key(&pubkey);
 			if (error_r != NULL)
 				*error_r = "No private key available";
 			return FALSE;
