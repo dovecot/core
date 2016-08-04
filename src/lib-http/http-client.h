@@ -223,6 +223,13 @@ void http_client_request_set_timeout_msecs(struct http_client_request *req,
 void http_client_request_set_timeout(struct http_client_request *req,
 	const struct timeval *time);
 
+/* Override http_client_settings.request_timeout_msecs */
+void http_client_request_set_attempt_timeout_msecs(struct http_client_request *req,
+	unsigned int msecs);
+/* Override http_client_settings.max_attempts */
+void http_client_request_set_max_attempts(struct http_client_request *req,
+	unsigned int max_attempts);
+
 void http_client_request_set_auth_simple(struct http_client_request *req,
 	const char *username, const char *password);
 
