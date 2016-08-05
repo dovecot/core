@@ -122,6 +122,7 @@ struct dsync_mailbox_importer {
 	unsigned int mails_have_guids:1;
 	unsigned int mails_use_guid128:1;
 	unsigned int delete_mailbox:1;
+	unsigned int empty_hdr_workaround:1;
 };
 
 static const char *dsync_mail_change_type_names[] = {
@@ -278,6 +279,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128) != 0;
 	importer->hdr_hash_version =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_HDR_HASH_V2) != 0 ? 2 : 1;
+	importer->empty_hdr_workaround =
+		(flags & DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND) != 0;
 
 	mailbox_get_open_status(importer->box, STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ | STATUS_HIGHESTPVTMODSEQ,
@@ -784,7 +787,16 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 		i_assert(save_change->type != DSYNC_MAIL_CHANGE_TYPE_EXPUNGE);
 	}
 
-	diff = importer_mail_cmp(&m1, &m2);
+	if (importer->empty_hdr_workaround && !importer->mails_have_guids &&
+	    importer->cur_mail != NULL && save_change != NULL &&
+	    (dsync_mail_hdr_hash_is_empty(m1.guid) ||
+	     dsync_mail_hdr_hash_is_empty(m2.guid))) {
+		/* one of the headers is empty. assume it's broken and that
+		   the header matches what we have currently. */
+		diff = 0;
+	} else {
+		diff = importer_mail_cmp(&m1, &m2);
+	}
 	if (diff < 0) {
 		/* add a record for local mail */
 		i_assert(importer->cur_mail != NULL);

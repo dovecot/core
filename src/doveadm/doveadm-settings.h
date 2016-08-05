@@ -3,6 +3,12 @@
 
 #include "net.h"
 
+/* <settings checks> */
+enum dsync_features {
+	DSYNC_FEATURE_EMPTY_HDR_WORKAROUND = 0x1,
+};
+/* </settings checks> */
+
 struct doveadm_settings {
 	const char *base_dir;
 	const char *libexec_dir;
@@ -22,7 +28,8 @@ struct doveadm_settings {
 	const char *ssl_client_ca_file;
 	const char *director_username_hash;
 	const char *doveadm_api_key;
-
+	const char *dsync_features;
+	enum dsync_features parsed_features;
 	ARRAY(const char *) plugin_envs;
 };
 

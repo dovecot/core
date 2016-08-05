@@ -220,6 +220,8 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_NO_NOTIFY;
 	if (brain->hdr_hash_v2)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_HDR_HASH_V2;
+	if (brain->empty_hdr_workaround)
+		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND;
 
 	brain->box_importer = brain->backup_send ? NULL :
 		dsync_mailbox_import_init(brain->box, brain->virtual_all_box,

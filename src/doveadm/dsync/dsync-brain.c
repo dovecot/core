@@ -143,6 +143,7 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 	brain->no_mailbox_renames =
 		(flags & DSYNC_BRAIN_FLAG_NO_MAILBOX_RENAMES) != 0;
 	brain->no_notify = (flags & DSYNC_BRAIN_FLAG_NO_NOTIFY) != 0;
+	brain->empty_hdr_workaround = (flags & DSYNC_BRAIN_FLAG_EMPTY_HDR_WORKAROUND) != 0;
 }
 
 static void

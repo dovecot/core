@@ -32,7 +32,9 @@ enum dsync_brain_flags {
 	   be removed once the renaming logic has no more bugs.. */
 	DSYNC_BRAIN_FLAG_NO_MAILBOX_RENAMES	= 0x200,
 	/* Add MAILBOX_TRANSACTION_FLAG_NO_NOTIFY to transactions. */
-	DSYNC_BRAIN_FLAG_NO_NOTIFY		= 0x400
+	DSYNC_BRAIN_FLAG_NO_NOTIFY		= 0x400,
+	/* Workaround missing Date/Message-ID headers */
+	DSYNC_BRAIN_FLAG_EMPTY_HDR_WORKAROUND	= 0x800,
 };
 
 enum dsync_brain_sync_type {
