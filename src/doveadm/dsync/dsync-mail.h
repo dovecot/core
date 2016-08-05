@@ -88,6 +88,12 @@ dsync_mail_get_hash_headers(struct mailbox *box);
 
 int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
 			    const char **hdr_hash_r);
+static inline bool dsync_mail_hdr_hash_is_empty(const char *hdr_hash)
+{
+	/* md5(\n) */
+	return strcmp(hdr_hash, "68b329da9893e34099c7d8ad5cb9c940") == 0;
+}
+
 int dsync_mail_fill(struct mail *mail, bool minimal_fill,
 		    struct dsync_mail *dmail_r, const char **error_field_r);
 int dsync_mail_fill_nonminimal(struct mail *mail, struct dsync_mail *dmail_r,

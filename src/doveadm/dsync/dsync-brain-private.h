@@ -114,6 +114,7 @@ struct dsync_brain {
 	bool no_notify:1;
 	bool hdr_hash_v2:1;
 	bool failed:1;
+	bool empty_hdr_workaround:1;
 };
 
 extern const char *dsync_box_state_names[DSYNC_BOX_STATE_DONE+1];
