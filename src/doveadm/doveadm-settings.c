@@ -71,6 +71,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(SET_STR, ssl_client_ca_file),
 	DEF(SET_STR, director_username_hash),
 	DEF(SET_STR, doveadm_api_key),
+	DEF(SET_STR, dsync_features),
 
 	{ SET_STRLIST, "plugin", offsetof(struct doveadm_settings, plugin_envs), NULL },
 
@@ -92,6 +93,7 @@ const struct doveadm_settings doveadm_default_settings = {
 	.doveadm_allowed_commands = "",
 	.dsync_alt_char = "_",
 	.dsync_remote_cmd = "ssh -l%{login} %{host} doveadm dsync-server -u%u -U",
+	.dsync_features = "",
 	.ssl_client_ca_dir = "",
 	.ssl_client_ca_file = "",
 	.director_username_hash = "%Lu",
@@ -129,6 +131,43 @@ fix_base_path(struct doveadm_settings *set, pool_t pool, const char **str)
 }
 
 /* <settings checks> */
+struct dsync_feature_list {
+	const char *name;
+	enum dsync_features num;
+};
+
+static const struct dsync_feature_list dsync_feature_list[] = {
+	{ "empty_header_workaround", DSYNC_FEATURE_EMPTY_HDR_WORKAROUND },
+	{ NULL, 0 }
+};
+
+static int
+dsync_settings_parse_features(struct doveadm_settings *set,
+			      const char **error_r)
+{
+	enum dsync_features features = 0;
+	const struct dsync_feature_list *list;
+	const char *const *str;
+
+	str = t_strsplit_spaces(set->dsync_features, " ,");
+	for (; *str != NULL; str++) {
+		list = dsync_feature_list;
+		for (; list->name != NULL; list++) {
+			if (strcasecmp(*str, list->name) == 0) {
+				features |= list->num;
+				break;
+			}
+		}
+		if (list->name == NULL) {
+			*error_r = t_strdup_printf("dsync_features: "
+				"Unknown feature: %s", *str);
+			return -1;
+		}
+	}
+	set->parsed_features = features;
+	return 0;
+}
+
 static bool doveadm_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				   const char **error_r)
 {
@@ -142,6 +181,8 @@ static bool doveadm_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		*error_r = "dsync_alt_char must not be empty";
 		return FALSE;
 	}
+	if (dsync_settings_parse_features(set, error_r) != 0)
+		return FALSE;
 	return TRUE;
 }
 /* </settings checks> */

@@ -17,6 +17,7 @@
 #include "settings-parser.h"
 #include "imap-util.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
@@ -103,6 +104,7 @@ struct dsync_cmd_context {
 	unsigned int local_location_from_arg:1;
 	unsigned int replicator_notify:1;
 	unsigned int exited:1;
+	unsigned int empty_hdr_workaround:1;
 };
 
 static bool legacy_dsync = FALSE;
@@ -571,6 +573,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	set.lock_timeout_secs = ctx->lock_timeout;
 	set.state = ctx->state_input;
 	set.mailbox_alt_char = doveadm_settings->dsync_alt_char[0];
+
 	if (array_count(&ctx->exclude_mailboxes) > 0) {
 		/* array is NULL-terminated in init() */
 		set.exclude_mailboxes = array_idx(&ctx->exclude_mailboxes, 0);
@@ -620,6 +623,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAIL_SYNC;
 	if (ctx->oneway)
 		brain_flags |= DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE;
+	if (ctx->empty_hdr_workaround)
+		brain_flags |= DSYNC_BRAIN_FLAG_EMPTY_HDR_WORKAROUND;
 	if (doveadm_debug)
 		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
 
@@ -1062,6 +1067,8 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 			     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 	p_array_init(&ctx->exclude_mailboxes, ctx->ctx.pool, 4);
 	p_array_init(&ctx->namespace_prefixes, ctx->ctx.pool, 4);
+        if ((doveadm_settings->parsed_features & DSYNC_FEATURE_EMPTY_HDR_WORKAROUND) != 0)
+                ctx->empty_hdr_workaround = TRUE;
 	return &ctx->ctx;
 }
 
@@ -1177,6 +1184,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 	ctx->ctx.v.parse_arg = cmd_mailbox_dsync_server_parse_arg;
 	ctx->ctx.v.run = cmd_dsync_server_run;
 	ctx->sync_type = DSYNC_BRAIN_SYNC_TYPE_CHANGED;
+
 	ctx->fd_in = STDIN_FILENO;
 	ctx->fd_out = STDOUT_FILENO;
 	return &ctx->ctx;
