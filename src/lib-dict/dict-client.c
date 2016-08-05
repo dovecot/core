@@ -744,35 +744,43 @@ client_dict_lookup_async(struct dict *_dict, const char *key,
 	client_dict_cmd_send(dict, &cmd, NULL);
 }
 
+struct client_dict_sync_lookup {
+	struct dict_lookup_result result;
+	char *error;
+};
+
 static void client_dict_lookup_callback(const struct dict_lookup_result *result,
 					void *context)
 {
-	struct dict_lookup_result *result_copy = context;
+	struct client_dict_sync_lookup *lookup = context;
 
-	*result_copy = *result;
+	lookup->result = *result;
+	if (result->ret == -1)
+		lookup->error = i_strdup(result->error);
 }
 
 static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 			      const char **value_r, const char **error_r)
 {
-	struct dict_lookup_result result;
+	struct client_dict_sync_lookup lookup;
 
-	memset(&result, 0, sizeof(result));
-	result.ret = -2;
+	memset(&lookup, 0, sizeof(lookup));
+	lookup.result.ret = -2;
 
-	client_dict_lookup_async(_dict, key, client_dict_lookup_callback, &result);
-	if (result.ret == -2)
+	client_dict_lookup_async(_dict, key, client_dict_lookup_callback, &lookup);
+	if (lookup.result.ret == -2)
 		client_dict_wait(_dict);
 
-	switch (result.ret) {
+	switch (lookup.result.ret) {
 	case -1:
-		*error_r = result.error;
+		*error_r = t_strdup(lookup.error);
+		i_free(lookup.error);
 		return -1;
 	case 0:
 		*value_r = NULL;
 		return 0;
 	case 1:
-		*value_r = p_strdup(pool, result.value);
+		*value_r = p_strdup(pool, lookup.result.value);
 		return 1;
 	}
 	i_unreached();
