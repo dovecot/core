@@ -16,13 +16,13 @@
 #include "lib.h"
 #include "buffer.h"
 #include "randgen.h"
+#include "dcrypt-iostream.h"
 #include "ostream-encrypt.h"
 #include "ostream-private.h"
 #include "hash-method.h"
 #include "sha2.h"
 #include "safe-memset.h"
 #include "dcrypt.h"
-#include "dcrypt-iostream-private.h"
 
 #include <arpa/inet.h>
 
