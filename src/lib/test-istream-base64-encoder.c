@@ -13,8 +13,21 @@ static struct test {
 } tests[] = {
 	{ "hello world", 80, FALSE, "aGVsbG8gd29ybGQ=" },
 	{ "hello world", 4, FALSE, "aGVs\nbG8g\nd29y\nbGQ=" },
-	{ "hello world", 4, TRUE, "aGVs\r\nbG8g\r\nd29y\r\nbGQ=", },
+	{ "hello world", 4, TRUE, "aGVs\r\nbG8g\r\nd29y\r\nbGQ=" },
+	{ "hello worlds", 80, FALSE, "aGVsbG8gd29ybGRz" },
+	{ "hello worlds", 4, FALSE, "aGVs\nbG8g\nd29y\nbGRz" },
+	{ "hello worlds", 4, TRUE, "aGVs\r\nbG8g\r\nd29y\r\nbGRz" },
+	{ "hell world", 80, FALSE, "aGVsbCB3b3JsZA==" },
+	{ "hell world", 4, FALSE, "aGVs\nbCB3\nb3Js\nZA==" },
+	{ "hell world", 4, TRUE, "aGVs\r\nbCB3\r\nb3Js\r\nZA==" },
+	{ "hello to the world!!", 80, FALSE,
+		"aGVsbG8gdG8gdGhlIHdvcmxkISE=" },
+	{ "hello to the world!!", 8, FALSE,
+		"aGVsbG8g\ndG8gdGhl\nIHdvcmxk\nISE=" },
+	{ "hello to the world!!", 8, TRUE,
+		"aGVsbG8g\r\ndG8gdGhl\r\nIHdvcmxk\r\nISE=" },
 };
+
 
 static const char *hello = "hello world";
 
@@ -24,6 +37,7 @@ static void encode_test(const char *text, unsigned int chars_per_line,
 	unsigned int i, text_len = strlen(text);
 	struct istream *input, *input_data;
 	const unsigned char *data;
+	uoff_t stream_size;
 	size_t size;
 	ssize_t ret;
 
@@ -42,6 +56,10 @@ static void encode_test(const char *text, unsigned int chars_per_line,
 
 	data = i_stream_get_data(input, &size);
 	test_assert(size == strlen(output) && memcmp(data, output, size) == 0);
+
+	ret = i_stream_get_size(input, TRUE, &stream_size);
+	test_assert(ret > 0);
+	test_assert(size == stream_size);
 
 	i_stream_unref(&input);
 	i_stream_unref(&input_data);
