@@ -8,20 +8,13 @@
 #include "istream.h"
 #include "istream-decrypt.h"
 #include "istream-private.h"
-#include "dcrypt-iostream-private.h"
+#include "dcrypt-iostream.h"
 
 #include "hex-binary.h"
 
 #include <arpa/inet.h>
 
 #define ISTREAM_DECRYPT_READ_FIRST 15
-
-enum io_stream_encrypt_flags {
-	IO_STREAM_ENC_INTEGRITY_HMAC = 0x1,
-	IO_STREAM_ENC_INTEGRITY_AEAD = 0x2,
-	IO_STREAM_ENC_INTEGRITY_NONE = 0x4,
-	IO_STREAM_ENC_VERSION_1      = 0x8,
-};
 
 struct decrypt_istream {
 	struct istream_private istream;
