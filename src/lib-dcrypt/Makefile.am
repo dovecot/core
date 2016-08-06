@@ -26,7 +26,7 @@ endif
 
 headers = \
 	dcrypt.h \
-	dcrypt-iostream-private.h \
+	dcrypt-iostream.h \
 	dcrypt-private.h \
 	ostream-encrypt.h \
 	istream-decrypt.h
