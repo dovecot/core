@@ -36,11 +36,18 @@ struct decrypt_istream {
 	struct dcrypt_context_symmetric *ctx_sym;
 	struct dcrypt_context_hmac *ctx_mac;
 
-	enum {
-		DECRYPT_FORMAT_V1,
-		DECRYPT_FORMAT_V2
-	} format;
+	enum decrypt_istream_format format;
 };
+
+enum decrypt_istream_format i_stream_encrypt_get_format(const struct istream *input)
+{
+	return ((const struct decrypt_istream*)input->real_stream)->format;
+}
+
+enum io_stream_encrypt_flags i_stream_encrypt_get_flags(const struct istream *input)
+{
+	return ((const struct decrypt_istream*)input->real_stream)->flags;
+}
 
 static
 ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
