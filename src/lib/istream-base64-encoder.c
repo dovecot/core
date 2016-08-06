@@ -143,6 +143,35 @@ i_stream_base64_encoder_seek(struct istream_private *stream,
 	i_stream_default_seek_nonseekable(stream, v_offset, mark);
 }
 
+static int
+i_stream_base64_encoder_stat(struct istream_private *stream,
+	bool exact ATTR_UNUSED)
+{
+	struct base64_encoder_istream *bstream =
+		(struct base64_encoder_istream *)stream;
+	const struct stat *st;
+	off_t newlines, size;
+
+	if (i_stream_stat(stream->parent, exact, &st) < 0) {
+		stream->istream.stream_errno = stream->parent->stream_errno;
+		return -1;
+	}
+
+	stream->statbuf = *st;
+	
+	/* calculate size of encoded data */
+	size = (st->st_size / 3) * 4 +
+		((st->st_size % 3) == 0 ? 0 : 4);
+
+	/* update size with added newlines */
+	newlines = (size / bstream->chars_per_line - 1) +
+		((size % bstream->chars_per_line) == 0 ? 0 : 1);
+	size += newlines * (bstream->crlf ? 2 : 1);
+
+	stream->statbuf.st_size = size;
+	return 0;
+}
+
 struct istream *
 i_stream_create_base64_encoder(struct istream *input,
 			       unsigned int chars_per_line, bool crlf)
@@ -158,6 +187,7 @@ i_stream_create_base64_encoder(struct istream *input,
 
 	bstream->istream.read = i_stream_base64_encoder_read;
 	bstream->istream.seek = i_stream_base64_encoder_seek;
+	bstream->istream.stat = i_stream_base64_encoder_stat;
 
 	bstream->istream.istream.readable_fd = FALSE;
 	bstream->istream.istream.blocking = input->blocking;
