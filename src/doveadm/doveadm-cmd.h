@@ -79,6 +79,7 @@ struct doveadm_cmd_context {
 	bool cli;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
+	struct client_connection *conn;
 };
 
 ARRAY_DEFINE_TYPE(doveadm_cmd, struct doveadm_cmd);
