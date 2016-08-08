@@ -174,6 +174,8 @@ static off_t o_stream_temp_dup_istream(struct temp_ostream *outstream,
 	ret = in_size - instream->v_offset;
 	i_stream_seek(instream, in_size);
 	outstream->dupstream_offset = instream->v_offset;
+	outstream->ostream.ostream.offset =
+		outstream->dupstream_offset - outstream->dupstream_start_offset;
 	return ret;
 }
 
