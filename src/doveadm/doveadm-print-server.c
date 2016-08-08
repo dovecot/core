@@ -54,9 +54,7 @@ doveadm_print_server_print_stream(const unsigned char *value, size_t size)
 		doveadm_print_server_print("");
 		return;
 	}
-	T_BEGIN {
-		str_append_tabescaped(ctx.str, t_strndup(value, size));
-	} T_END;
+	str_append_tabescaped_n(ctx.str, value, size);
 
 	if (str_len(ctx.str) >= IO_BLOCK_SIZE)
 		doveadm_print_server_flush();
