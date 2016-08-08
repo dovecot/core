@@ -42,6 +42,7 @@ struct server_connection {
 	struct istream *input;
 	struct ostream *output;
 	struct ssl_iostream *ssl_iostream;
+	struct timeout *to_input;
 
 	struct istream *cmd_input;
 	struct ostream *cmd_output;
@@ -76,9 +77,8 @@ static void print_connection_released(void)
 
 		conns[i]->io = io_add(conns[i]->fd, IO_READ,
 				      server_connection_input, conns[i]);
-		server_connection_input(conns[i]);
-		if (printing_conn != NULL)
-			break;
+		conns[i]->to_input = timeout_add_short(0,
+			server_connection_input, conns[i]);
 	}
 }
 
@@ -278,6 +278,9 @@ static void server_log_disconnect_error(struct server_connection *conn)
 static void server_connection_input(struct server_connection *conn)
 {
 	const char *line;
+
+	if (conn->to_input != NULL)
+		timeout_remove(&conn->to_input);
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
@@ -523,6 +526,8 @@ void server_connection_destroy(struct server_connection **_conn)
 	if (printing_conn == conn)
 		print_connection_released();
 
+	if (conn->to_input != NULL)
+		timeout_remove(&conn->to_input);
 	if (conn->input != NULL)
 		i_stream_destroy(&conn->input);
 	if (conn->output != NULL)
