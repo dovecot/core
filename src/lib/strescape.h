@@ -21,6 +21,7 @@ int str_unescape_next(const char **str, const char **unescaped_r);
    using \001. */
 const char *str_tabescape(const char *str);
 void str_append_tabescaped(string_t *dest, const char *src);
+void str_append_tabescaped_n(string_t *dest, const unsigned char *src, size_t src_size);
 void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size);
 char *str_tabunescape(char *str);
 const char *t_str_tabunescape(const char *str);
