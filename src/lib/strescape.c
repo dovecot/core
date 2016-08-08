@@ -101,10 +101,14 @@ int str_unescape_next(const char **str, const char **unescaped_r)
 	return 0;
 }
 
-void str_append_tabescaped(string_t *dest, const char *src)
+void str_append_tabescaped_n(string_t *dest, const unsigned char *src, size_t src_size)
 {
-	for (; *src != '\0'; src++) {
-		switch (*src) {
+	for (size_t i = 0; i < src_size; i++) {
+		switch (src[i]) {
+		case '\000':
+			str_append_c(dest, '\001');
+			str_append_c(dest, '0');
+			break;
 		case '\001':
 			str_append_c(dest, '\001');
 			str_append_c(dest, '1');
@@ -122,11 +126,16 @@ void str_append_tabescaped(string_t *dest, const char *src)
 			str_append_c(dest, 'n');
 			break;
 		default:
-			str_append_c(dest, *src);
+			str_append_c(dest, src[i]);
 			break;
 		}
 	}
 }
+
+void str_append_tabescaped(string_t *dest, const char *src) {
+	str_append_tabescaped_n(dest, (const unsigned char*)src, strlen(src));
+}
+
 
 const char *str_tabescape(const char *str)
 {
@@ -161,6 +170,9 @@ void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size)
 			i++;
 			if (i < src_size) {
 				switch (src_c[i]) {
+				case '0':
+					str_append_c(dest, '\000');
+					break;
 				case '1':
 					str_append_c(dest, '\001');
 					break;
@@ -203,6 +215,9 @@ char *str_tabunescape(char *str)
 			if (*str == '\0')
 				break;
 			switch (*str) {
+			case '0':
+				*dest++ = '\000';
+				break;
 			case '1':
 				*dest++ = '\001';
 				break;
