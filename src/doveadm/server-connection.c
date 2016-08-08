@@ -173,8 +173,7 @@ static void server_flush_field(struct server_connection *conn, string_t *str,
 	} else {
 		str_truncate(str, 0);
 		str_append_tabunescaped(str, data, size);
-		doveadm_print_stream(str->data, str->used);
-		doveadm_print_stream("", 0);
+		doveadm_print(str_c(str));
 	}
 }
 
