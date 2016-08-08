@@ -77,6 +77,7 @@ struct doveadm_cmd_context {
 
 	const char *username;
 	bool cli;
+	bool tcp_server;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 	struct client_connection *conn;

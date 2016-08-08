@@ -573,7 +573,8 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 
 	ctx->iterate_single_user =
 		!ctx->iterate_all_users && wildcard_user == NULL;
-	if (doveadm_print_is_initialized() && !ctx->iterate_single_user) {
+	if (doveadm_print_is_initialized() &&
+	    (!ctx->iterate_single_user || ctx->add_username_header)) {
 		doveadm_print_header("username", "Username",
 				     DOVEADM_PRINT_HEADER_FLAG_STICKY |
 				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
@@ -587,6 +588,8 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		}
 
+		if (ctx->add_username_header)
+			doveadm_print_sticky("username", cctx->username);
 		ret = doveadm_mail_single_user(ctx, cctx, &error);
 		if (ret < 0) {
 			/* user lookup/init failed somehow */
@@ -953,7 +956,10 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			continue;
 
 		if (strcmp(arg->name, "all-users") == 0) {
-			mctx->iterate_all_users = arg->value.v_bool;
+			if (cctx->tcp_server)
+				mctx->add_username_header = TRUE;
+			else
+				mctx->iterate_all_users = arg->value.v_bool;
 			fieldstr = "-A";
 			array_append(&full_args, &fieldstr, 1);
 		} else if (strcmp(arg->name, "socket-path") == 0) {
@@ -962,16 +968,21 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 				doveadm_settings->doveadm_worker_count = 1;
 		} else if (strcmp(arg->name, "user") == 0) {
 			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-			mctx->cur_username = arg->value.v_string;
+			if (!cctx->tcp_server)
+				mctx->cur_username = arg->value.v_string;
 
 			fieldstr = "-u";
 			array_append(&full_args, &fieldstr, 1);
 			array_append(&full_args, &arg->value.v_string, 1);
-			if (strchr(mctx->cur_username, '*') != NULL ||
-			    strchr(mctx->cur_username, '?') != NULL) {
-				wildcard_user = mctx->cur_username;
-				mctx->cur_username = NULL;
-			} else {
+			if (strchr(arg->value.v_string, '*') != NULL ||
+			    strchr(arg->value.v_string, '?') != NULL) {
+				if (cctx->tcp_server)
+					mctx->add_username_header = TRUE;
+				else {
+					wildcard_user = arg->value.v_string;
+					mctx->cur_username = NULL;
+				}
+			} else if (!cctx->tcp_server) {
 				cctx->username = mctx->cur_username;
 			}
 		} else if (strcmp(arg->name, "user-file") == 0) {
