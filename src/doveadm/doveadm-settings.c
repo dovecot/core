@@ -137,7 +137,7 @@ struct dsync_feature_list {
 };
 
 static const struct dsync_feature_list dsync_feature_list[] = {
-	{ "empty_header_workaround", DSYNC_FEATURE_EMPTY_HDR_WORKAROUND },
+	{ "empty-header-workaround", DSYNC_FEATURE_EMPTY_HDR_WORKAROUND },
 	{ NULL, 0 }
 };
 
