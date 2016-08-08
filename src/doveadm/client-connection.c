@@ -297,6 +297,7 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	cctx.remote_ip = conn->remote_ip;
 	cctx.local_port = conn->local_port;
 	cctx.remote_port = conn->remote_port;
+	cctx.conn = conn;
 
 	flags = args[0];
 	cctx.username = args[1];
