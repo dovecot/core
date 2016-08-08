@@ -1549,7 +1549,12 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 		*result_r = "Error fetching header stream";
 		return -1;
 	}
-	if (strcmp(change->hdr_hash, hdr_hash) == 0) {
+	if (importer->empty_hdr_workaround &&
+	    (dsync_mail_hdr_hash_is_empty(change->hdr_hash) ||
+	     dsync_mail_hdr_hash_is_empty(hdr_hash))) {
+		*result_r = "Empty headers found with workaround enabled - assuming a match";
+		return 1;
+	} else if (strcmp(change->hdr_hash, hdr_hash) == 0) {
 		*result_r = "Headers hashes match";
 		return 1;
 	} else {
