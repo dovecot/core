@@ -15,11 +15,13 @@ static void test_iostream_temp_create_sized_memory(void)
 	test_begin("iostream_temp_create_sized() memory");
 	output = iostream_temp_create_sized(".intentional-nonexistent-error/", 0, "test", 4);
 	test_assert(o_stream_send(output, "123", 3) == 3);
+	test_assert(output->offset == 3);
 	test_assert(o_stream_send(output, "4", 1) == 1);
+	test_assert(output->offset == 4);
 	test_assert(o_stream_get_fd(output) == -1);
 
 	/* now we'll try to switch to writing to a file, but it'll fail */
-	test_expect_errors(1);
+	test_expect_error_string("safe_mkstemp");
 	test_assert(o_stream_send(output, "5", 1) == 1);
 	test_expect_no_more_errors();
 
@@ -35,9 +37,12 @@ static void test_iostream_temp_create_sized_disk(void)
 	test_begin("iostream_temp_create_sized() disk");
 	output = iostream_temp_create_sized(".", 0, "test", 4);
 	test_assert(o_stream_send(output, "123", 3) == 3);
+	test_assert(output->offset == 3);
 	test_assert(o_stream_send(output, "4", 1) == 1);
+	test_assert(output->offset == 4);
 	test_assert(o_stream_get_fd(output) == -1);
 	test_assert(o_stream_send(output, "5", 1) == 1);
+	test_assert(output->offset == 5);
 	test_assert(o_stream_get_fd(output) != -1);
 	o_stream_destroy(&output);
 	test_end();
@@ -62,6 +67,7 @@ static void test_iostream_temp_istream(void)
 	output = iostream_temp_create_sized(".nonexistent/",
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 1);
 	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
+	test_assert(output->offset == 6);
 	temp_input = iostream_temp_finish(&output, 128);
 	test_assert(i_stream_read(temp_input) == 6);
 	i_stream_destroy(&temp_input);
@@ -71,8 +77,10 @@ static void test_iostream_temp_istream(void)
 	output = iostream_temp_create_sized(".intentional-nonexistent-error/",
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 4);
 	test_assert(o_stream_send(output, "1234", 4) == 4);
-	test_expect_errors(1);
+	test_assert(output->offset == 4);
+	test_expect_error_string("safe_mkstemp");
 	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
+	test_assert(output->offset == 10);
 	test_expect_no_more_errors();
 	o_stream_destroy(&output);
 
@@ -81,8 +89,10 @@ static void test_iostream_temp_istream(void)
 	output = iostream_temp_create_sized(".intentional-nonexistent-error/",
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 4);
 	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
-	test_expect_errors(1);
+	test_assert(output->offset == 6);
+	test_expect_error_string("safe_mkstemp");
 	test_assert(o_stream_send(output, "1", 1) == 1);
+	test_assert(output->offset == 7);
 	test_expect_no_more_errors();
 	o_stream_destroy(&output);
 
@@ -92,8 +102,10 @@ static void test_iostream_temp_istream(void)
 	output = iostream_temp_create_sized(".intentional-nonexistent-error/",
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 4);
 	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
-	test_expect_errors(1);
+	test_assert(output->offset == 6);
+	test_expect_error_string("safe_mkstemp");
 	test_assert(o_stream_send_istream(output, input2) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
+	test_assert(output->offset == 12);
 	test_expect_no_more_errors();
 	o_stream_destroy(&output);
 	i_stream_unref(&input2);
