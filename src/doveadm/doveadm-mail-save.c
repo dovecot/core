@@ -118,10 +118,6 @@ static struct doveadm_mail_cmd_context *cmd_save_alloc(void)
 	return &ctx->ctx;
 }
 
-struct doveadm_mail_cmd cmd_save = {
-	cmd_save_alloc, "save", "[-m mailbox]"
-};
-
 struct doveadm_cmd_ver2 doveadm_cmd_save_ver2 = {
 	.name = "save",
 	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-m mailbox]",
