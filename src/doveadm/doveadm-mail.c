@@ -125,6 +125,7 @@ doveadm_mail_cmd_alloc_size(size_t size)
 	pool = pool_alloconly_create("doveadm mail cmd", 1024);
 	ctx = p_malloc(pool, size);
 	ctx->pool = pool;
+	ctx->cmd_input_fd = -1;
 	return ctx;
 }
 
