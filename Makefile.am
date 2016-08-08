@@ -13,7 +13,6 @@ EXTRA_DIST = \
 	COPYING.LGPL \
 	COPYING.MIT \
 	ChangeLog \
-	cc-wrapper.sh.in \
 	update-version.sh \
 	run-test-valgrind.supp \
 	$(conf_DATA)

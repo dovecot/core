@@ -6,7 +6,7 @@
 # unlimited permission to copy and/or distribute it, with or without
 # modifications, as long as this notice is preserved.
 
-# serial 23
+# serial 24
 
 AC_DEFUN([DC_DOVECOT_MODULEDIR],[
 	AC_ARG_WITH(moduledir,
@@ -136,4 +136,29 @@ AC_DEFUN([DC_DOVECOT],[
 
 	DC_PLUGIN_DEPS
 	DC_DOVECOT_TEST_WRAPPER
+])
+
+AC_DEFUN([DC_CC_WRAPPER],[
+  if test "$want_shared_libs" != "yes"; then
+    # want_shared_libs=no is for internal use. the liblib.la check is for plugins
+    if test "$want_shared_libs" = "no" || echo "$LIBDOVECOT" | grep "/liblib.la" > /dev/null; then
+      if test "$with_gnu_ld" = yes; then
+	# libtool can't handle using whole-archive flags, so we need to do this
+	# with a CC wrapper.. shouldn't be much of a problem, since most people
+	# are building with shared libs.
+	cat > cc-wrapper.sh <<EOF
+#!/bin/sh
+
+if echo "\$[*]" | grep -- -ldl > /dev/null; then
+  # the binary uses plugins. make sure we include everything from .a libs
+  exec $CC -Wl,--whole-archive \$[*] -Wl,--no-whole-archive
+else
+  exec $CC \$[*]
+fi
+EOF
+	chmod +x cc-wrapper.sh
+	CC=`pwd`/cc-wrapper.sh
+      fi
+    fi
+  fi
 ])
