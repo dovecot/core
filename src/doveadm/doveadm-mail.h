@@ -97,6 +97,8 @@ struct doveadm_mail_cmd_context {
 	bool iterate_single_user:1;
 	/* We're going through all users (not set for wildcard usernames) */
 	bool iterate_all_users:1;
+	/* Add username header to all replies */
+	bool add_username_header:1;
 	/* Running from CLI doveadm (not doveadm-server) */
 	bool cli:1;
 };
