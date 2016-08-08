@@ -59,6 +59,7 @@ struct server_connection {
 static struct server_connection *printing_conn = NULL;
 
 static void server_connection_input(struct server_connection *conn);
+static bool server_connection_input_one(struct server_connection *conn);
 
 static void print_connection_released(void)
 {
@@ -264,10 +265,7 @@ static void server_log_disconnect_error(struct server_connection *conn)
 
 static void server_connection_input(struct server_connection *conn)
 {
-	const unsigned char *data;
-	size_t size;
 	const char *line;
-	int exit_code;
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
@@ -314,24 +312,34 @@ static void server_connection_input(struct server_connection *conn)
 		}
 	}
 
+	while (server_connection_input_one(conn)) ;
+}
+
+static bool server_connection_input_one(struct server_connection *conn)
+{
+	const unsigned char *data;
+	size_t size;
+	const char *line;
+	int exit_code;
+
 	data = i_stream_get_data(conn->input, &size);
 	if (size == 0)
-		return;
+		return FALSE;
 
 	switch (conn->state) {
 	case SERVER_REPLY_STATE_DONE:
 		i_error("doveadm server sent unexpected input");
 		server_connection_destroy(&conn);
-		return;
+		return FALSE;
 	case SERVER_REPLY_STATE_PRINT:
 		server_handle_input(conn, data, size);
 		if (conn->state != SERVER_REPLY_STATE_RET)
-			break;
+			return FALSE;
 		/* fall through */
 	case SERVER_REPLY_STATE_RET:
 		line = i_stream_next_line(conn->input);
 		if (line == NULL)
-			return;
+			return FALSE;
 		if (line[0] == '+')
 			server_connection_callback(conn, 0, "");
 		else if (line[0] == '-') {
@@ -347,14 +355,16 @@ static void server_connection_input(struct server_connection *conn)
 			i_error("doveadm server sent broken input "
 				"(expected cmd reply): %s", line);
 			server_connection_destroy(&conn);
-			break;
+			return FALSE;
 		}
 		if (conn->callback == NULL) {
 			/* we're finished, close the connection */
 			server_connection_destroy(&conn);
+			return FALSE;
 		}
-		break;
+		return TRUE;
 	}
+	i_unreached();
 }
 
 static int server_connection_read_settings(struct server_connection *conn)
