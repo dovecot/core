@@ -292,6 +292,7 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	}
 	memset(&cctx, 0, sizeof(cctx));
 	cctx.cli = FALSE;
+	cctx.tcp_server = TRUE;
 
 	cctx.local_ip = conn->local_ip;
 	cctx.remote_ip = conn->remote_ip;
