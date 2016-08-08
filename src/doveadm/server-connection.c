@@ -157,12 +157,9 @@ server_connection_callback(struct server_connection *conn,
 
 static void stream_data(string_t *str, const unsigned char *data, size_t size)
 {
-	const char *text;
-
 	str_truncate(str, 0);
-	str_append_n(str, data, size);
-	text = str_tabunescape(str_c_modifiable(str));
-	doveadm_print_stream(text, strlen(text));
+	str_append_tabunescaped(str, data, size);
+	doveadm_print_stream(str->data, str->used);
 }
 
 static void server_flush_field(struct server_connection *conn, string_t *str,
@@ -174,12 +171,9 @@ static void server_flush_field(struct server_connection *conn, string_t *str,
 			stream_data(str, data, size);
 		doveadm_print_stream("", 0);
 	} else {
-		const char *text;
-
 		str_truncate(str, 0);
-		str_append_n(str, data, size);
-		text = str_tabunescape(str_c_modifiable(str));
-		doveadm_print(text);
+		str_append_tabunescaped(str, data, size);
+		doveadm_print(str_c(str));
 	}
 }
 
