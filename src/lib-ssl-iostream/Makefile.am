@@ -16,7 +16,7 @@ libdovecot_openssl_common_la_SOURCES = \
 	dovecot-openssl-common.c
 
 libssl_iostream_openssl_la_LDFLAGS = -module -avoid-version
-libssl_iostream_openssl_la_LIBADD = libdovecot_openssl_common.la
+libssl_iostream_openssl_la_LIBADD = libdovecot_openssl_common.la $(SSL_LIBS)
 libssl_iostream_openssl_la_SOURCES = \
 	iostream-openssl.c \
 	iostream-openssl-common.c \
