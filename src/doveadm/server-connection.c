@@ -58,17 +58,28 @@ struct server_connection {
 };
 
 static struct server_connection *printing_conn = NULL;
+static ARRAY(struct doveadm_server *) print_pending_servers = ARRAY_INIT;
 
 static void server_connection_input(struct server_connection *conn);
 static bool server_connection_input_one(struct server_connection *conn);
 
-static void print_connection_released(void)
+static void server_set_print_pending(struct doveadm_server *server)
 {
-	struct doveadm_server *server = printing_conn->server;
+	struct doveadm_server *const *serverp;
+
+	if (!array_is_created(&print_pending_servers))
+		i_array_init(&print_pending_servers, 16);
+	array_foreach(&print_pending_servers, serverp) {
+		if (*serverp == server)
+			return;
+	}
+	array_append(&print_pending_servers, &server, 1);
+}
+
+static void server_print_connection_released(struct doveadm_server *server)
+{
 	struct server_connection *const *conns;
 	unsigned int i, count;
-
-	printing_conn = NULL;
 
 	conns = array_get(&server->connections, &count);
 	for (i = 0; i < count; i++) {
@@ -80,6 +91,19 @@ static void print_connection_released(void)
 		conns[i]->to_input = timeout_add_short(0,
 			server_connection_input, conns[i]);
 	}
+}
+
+static void print_connection_released(void)
+{
+	struct doveadm_server *const *serverp;
+
+	printing_conn = NULL;
+	if (!array_is_created(&print_pending_servers))
+		return;
+
+	array_foreach(&print_pending_servers, serverp)
+		server_print_connection_released(*serverp);
+	array_free(&print_pending_servers);
 }
 
 static int server_connection_send_cmd_input_more(struct server_connection *conn)
@@ -180,6 +204,7 @@ server_handle_input(struct server_connection *conn,
 	} else {
 		/* someone else is printing. don't continue until it
 		   goes away */
+		server_set_print_pending(conn->server);
 		io_remove(&conn->io);
 		return;
 	}
