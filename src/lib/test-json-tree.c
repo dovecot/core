@@ -76,7 +76,7 @@ void test_json_tree(void)
 		node = json_tree_find_key(root, test_input[i].value);
 		test_assert(node != NULL &&
 			    node->value_type == test_input[i+1].type &&
-			    null_strcmp(node->value.str, test_input[i+1].value) == 0);
+			    null_strcmp(json_tree_get_value_str(node), test_input[i+1].value) == 0);
 	}
 
 	node = json_tree_find_key(root, "key-obj");
@@ -84,24 +84,24 @@ void test_json_tree(void)
 
 	node = json_tree_find_key(root, "key-arr-empty");
 	test_assert(node != NULL && node->value_type == JSON_TYPE_ARRAY &&
-		    node->value.child == NULL);
+		    json_tree_get_child(node) == NULL);
 
 	node = json_tree_find_key(root, "key-arr");
 	test_assert(node != NULL && node->value_type == JSON_TYPE_ARRAY);
-	node = node->value.child;
+	node = json_tree_get_child(node);
 	test_assert(node != NULL && node->value_type == JSON_TYPE_STRING &&
-		    strcmp(node->value.str, "foo") == 0);
+		    strcmp(json_tree_get_value_str(node), "foo") == 0);
 	node = node->next;
 	test_assert(node != NULL && node->value_type == JSON_TYPE_ARRAY &&
-		    node->value.child != NULL &&
-		    node->value.child->next == NULL &&
-		    node->value.child->value_type == JSON_TYPE_TRUE);
+		    json_tree_get_child(node) != NULL &&
+		    json_tree_get_child(node)->next == NULL &&
+		    json_tree_get_child(node)->value_type == JSON_TYPE_TRUE);
 	node = node->next;
 	test_assert(node != NULL && node->value_type == JSON_TYPE_OBJECT &&
-		    node->value.child != NULL &&
-		    node->value.child->next == NULL &&
-		    node->value.child->value_type == JSON_TYPE_ARRAY &&
-		    node->value.child->value.child == NULL);
+		    json_tree_get_child(node) != NULL &&
+		    json_tree_get_child(node)->next == NULL &&
+		    json_tree_get_child(node)->value_type == JSON_TYPE_ARRAY &&
+		    json_tree_get_child(json_tree_get_child(node)) == NULL);
 
 	node1 = json_tree_find_child_with(node->parent, "aobj-key", "value1");
 	node2 = json_tree_find_child_with(node->parent, "aobj-key", "value2");
