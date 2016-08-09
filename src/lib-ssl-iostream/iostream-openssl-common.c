@@ -32,11 +32,17 @@ int openssl_get_protocol_options(const char *protocols)
 			name++;
 			neg = TRUE;
 		}
+#ifdef SSL_TXT_SSLV2
 		if (strcasecmp(name, SSL_TXT_SSLV2) == 0)
 			proto = DOVECOT_SSL_PROTO_SSLv2;
-		else if (strcasecmp(name, SSL_TXT_SSLV3) == 0)
+		else
+#endif
+#ifdef SSL_TXT_SSLV3
+		if (strcasecmp(name, SSL_TXT_SSLV3) == 0)
 			proto = DOVECOT_SSL_PROTO_SSLv3;
-		else if (strcasecmp(name, SSL_TXT_TLSV1) == 0)
+		else
+#endif
+		if (strcasecmp(name, SSL_TXT_TLSV1) == 0)
 			proto = DOVECOT_SSL_PROTO_TLSv1;
 #ifdef SSL_TXT_TLSV1_1
 		else if (strcasecmp(name, SSL_TXT_TLSV1_1) == 0)

@@ -10,7 +10,11 @@
 static int openssl_init_refcount = 0;
 static ENGINE *dovecot_openssl_engine;
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+static void *dovecot_openssl_malloc(size_t size, const char *u0 ATTR_UNUSED, int u1 ATTR_UNUSED)
+#else
 static void *dovecot_openssl_malloc(size_t size)
+#endif
 {
 	/* this may be performance critical, so don't use
 	   i_malloc() or calloc() */
@@ -22,7 +26,11 @@ static void *dovecot_openssl_malloc(size_t size)
 	return mem;
 }
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+static void *dovecot_openssl_realloc(void *ptr, size_t size, const char *u0 ATTR_UNUSED, int u1 ATTR_UNUSED)
+#else
 static void *dovecot_openssl_realloc(void *ptr, size_t size)
+#endif
 {
 	void *mem = realloc(ptr, size);
 	if (mem == NULL) {
@@ -30,6 +38,15 @@ static void *dovecot_openssl_realloc(void *ptr, size_t size)
 			"OpenSSL: realloc(%"PRIuSIZE_T"): Out of memory", size);
 	}
 	return mem;
+}
+
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+static void dovecot_openssl_free(void *ptr, const char *u0 ATTR_UNUSED, int u1 ATTR_UNUSED)
+#else
+static void dovecot_openssl_free(void *ptr)
+#endif
+{
+	free(ptr);
 }
 
 void dovecot_openssl_common_global_ref(void)
@@ -43,7 +60,7 @@ void dovecot_openssl_common_global_ref(void)
 	   returning NULL. this avoids random failures on out-of-memory
 	   conditions. */
 	if (CRYPTO_set_mem_functions(dovecot_openssl_malloc,
-				     dovecot_openssl_realloc, free) == 0) {
+				     dovecot_openssl_realloc, dovecot_openssl_free) == 0) {
 		/*i_warning("CRYPTO_set_mem_functions() was called too late");*/
 	}
 
@@ -78,7 +95,11 @@ bool dovecot_openssl_common_global_unref(void)
 	ENGINE_cleanup();
 	EVP_cleanup();
 	CRYPTO_cleanup_all_ex_data();
+#if OPENSSL_VERSION_NUMBER < 0x10000000L
 	ERR_remove_state(0);
+#elif OPENSSL_VERSION_NUMBER < 0x10100000L
+	ERR_remove_thread_state(NULL);
+#endif
 	ERR_free_strings();
 	return FALSE;
 }
