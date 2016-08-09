@@ -826,7 +826,12 @@ void ssl_proxy_destroy(struct ssl_proxy *proxy)
 static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 			    int is_export ATTR_UNUSED, int keylength)
 {
-	return RSA_generate_key(keylength, RSA_F4, NULL, NULL);
+	RSA *rsa = RSA_new();
+	BIGNUM *e = BN_new();
+	BN_set_word(e, RSA_F4);
+	RSA_generate_key_ex(rsa, keylength, e, NULL);
+	BN_free(e);
+	return rsa;
 }
 
 static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
@@ -876,6 +881,7 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 {
 	SSL *ssl;
         struct ssl_proxy *proxy;
+	int ctxerr;
 	char buf[1024];
 	X509_NAME *subject;
 
@@ -883,23 +889,26 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 					 SSL_get_ex_data_X509_STORE_CTX_idx());
 	proxy = SSL_get_ex_data(ssl, extdata_index);
 	proxy->cert_received = TRUE;
+	ctxerr = X509_STORE_CTX_get_error(ctx);
 
 	if (proxy->client_proxy && !proxy->login_set->ssl_require_crl &&
-	    (ctx->error == X509_V_ERR_UNABLE_TO_GET_CRL ||
-	     ctx->error == X509_V_ERR_CRL_HAS_EXPIRED)) {
+	    (ctxerr == X509_V_ERR_UNABLE_TO_GET_CRL ||
+	     ctxerr == X509_V_ERR_CRL_HAS_EXPIRED)) {
 		/* no CRL given with the CA list. don't worry about it. */
 		preverify_ok = 1;
 	}
 	if (!preverify_ok)
 		proxy->cert_broken = TRUE;
 
-	subject = X509_get_subject_name(ctx->current_cert);
+	subject = X509_get_subject_name(X509_STORE_CTX_get_current_cert(ctx));
 	(void)X509_NAME_oneline(subject, buf, sizeof(buf));
 	buf[sizeof(buf)-1] = '\0'; /* just in case.. */
 
+	ctxerr = X509_STORE_CTX_get_error(ctx);
+
 	if (proxy->cert_error == NULL) {
 		proxy->cert_error = p_strdup_printf(proxy->client->pool, "%s: %s",
-			X509_verify_cert_error_string(ctx->error), buf);
+			X509_verify_cert_error_string(ctxerr), buf);
 	}
 
 	if (proxy->ssl_set->verbose_ssl ||
@@ -910,7 +919,7 @@ static int ssl_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 		} else {
 			client_log(proxy->client, t_strdup_printf(
 				"Invalid certificate: %s: %s",
-				X509_verify_cert_error_string(ctx->error), buf));
+				X509_verify_cert_error_string(ctxerr), buf));
 		}
 	}
 

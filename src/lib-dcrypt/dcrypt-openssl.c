@@ -67,9 +67,10 @@
   2<tab>key algo oid<tab>1<tab>symmetric algo name<tab>salt<tab>hash algo<tab>rounds<tab>E(RSA = i2d_PrivateKey, EC=Private Point)<tab>key id
 **/
 
-#if SSLEAY_VERSION_NUMBER < 0x1010000fL
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 #define EVP_PKEY_get0_EC_KEY(x) x->pkey.ec
 #define EVP_PKEY_get0_RSA(x) x->pkey.rsa
+#define OBJ_length(o) ((o)->length)
 #endif
 
 struct dcrypt_context_symmetric {
@@ -89,7 +90,7 @@ struct dcrypt_context_symmetric {
 struct dcrypt_context_hmac {
 	pool_t pool;
 	const EVP_MD *md;
-#if SSLEAY_VERSION_NUMBER >= 0x1010000fL
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	HMAC_CTX *ctx;
 #else
 	HMAC_CTX ctx;
@@ -426,7 +427,7 @@ static
 void dcrypt_openssl_ctx_hmac_destroy(struct dcrypt_context_hmac **ctx)
 {
 	pool_t pool = (*ctx)->pool;
-#if SSLEAY_VERSION_NUMBER >= 0x1010000fL
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	if ((*ctx)->ctx) HMAC_CTX_free((*ctx)->ctx);
 #else
 	HMAC_cleanup(&((*ctx)->ctx));
@@ -469,12 +470,11 @@ bool dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx, const char **
 {
 	int ec;
 	i_assert(ctx->md != NULL);
-#if SSLEAY_VERSION_NUMBER >= 0x1010000fL
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	ctx->ctx = HMAC_CTX_new();
 	if (ctx->ctx == NULL) return dcrypt_openssl_error(error_r);
 	ec = HMAC_Init_ex(ctx->ctx, ctx->key, ctx->klen, ctx->md, NULL);
 #else
-	HMAC_CTX_init(&ctx->ctx);
 	ec = HMAC_Init_ex(&(ctx->ctx), ctx->key, ctx->klen, ctx->md, NULL);
 #endif
 	if (ec != 1) return dcrypt_openssl_error(error_r);
@@ -484,7 +484,7 @@ static
 bool dcrypt_openssl_ctx_hmac_update(struct dcrypt_context_hmac *ctx, const unsigned char *data, size_t data_len, const char **error_r)
 {
 	int ec;
-#if SSLEAY_VERSION_NUMBER >= 0x1010000fL
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	ec = HMAC_Update(ctx->ctx, data, data_len);
 #else
 	ec = HMAC_Update(&(ctx->ctx), data, data_len);
@@ -498,7 +498,7 @@ bool dcrypt_openssl_ctx_hmac_final(struct dcrypt_context_hmac *ctx, buffer_t *re
 	int ec;
 	unsigned char buf[HMAC_MAX_MD_CBLOCK];
 	unsigned int outl;
-#if SSLEAY_VERSION_NUMBER >= 0x1010000fL
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	ec = HMAC_Final(ctx->ctx, buf, &outl);
 	HMAC_CTX_free(ctx->ctx);
 	ctx->ctx = NULL;
@@ -2028,12 +2028,15 @@ bool dcrypt_openssl_name2oid(const char *name, buffer_t *oid, const char **error
 	ASN1_OBJECT *obj = OBJ_txt2obj(name, 0);
 	if (obj == NULL)
 		return dcrypt_openssl_error(error_r);
-	if (obj->length == 0) {
+
+	size_t len =  OBJ_length(obj);
+	if (len == 0)
+	{
 		if (error_r != NULL)
 			*error_r = "Object has no OID assigned";
 		return FALSE;
 	}
-	unsigned char *bufptr = buffer_append_space_unsafe(oid, obj->length + 2);
+	unsigned char *bufptr = buffer_append_space_unsafe(oid, len + 2);
 	i2d_ASN1_OBJECT(obj, &bufptr);
 	ASN1_OBJECT_free(obj);
 	if (bufptr != NULL) {
@@ -2127,7 +2130,7 @@ bool dcrypt_openssl_public_key_id_evp(EVP_PKEY *key, const EVP_MD *md, buffer_t 
 	long len = BIO_get_mem_data(b, &ptr);
 	unsigned int hlen = sizeof(buf);
 	/* then hash it */
-#if SSLEAY_VERSION_NUMBER >= 0x1010000fL
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
 #else
 	EVP_MD_CTX *ctx = EVP_MD_CTX_create();
@@ -2141,7 +2144,7 @@ bool dcrypt_openssl_public_key_id_evp(EVP_PKEY *key, const EVP_MD *md, buffer_t 
 		buffer_append(result, buf, hlen);
 		res = TRUE;
 	}
-#if SSLEAY_VERSION_NUMBER >= 0x1010000fL
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_MD_CTX_free(ctx);
 #else
 	EVP_MD_CTX_destroy(ctx);
