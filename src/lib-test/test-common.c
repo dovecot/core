@@ -5,7 +5,7 @@
 #include "test-common.h"
 
 #include <stdio.h>
-
+#include <unistd.h> /* _exit() */
 #include <setjmp.h> /* for fatal tests */
 
 /* To test the firing of i_assert, we need non-local jumps, i.e. setjmp */
@@ -457,4 +457,14 @@ int test_run_named_with_fatals(const char *match, struct named_test tests[],
 	i_set_fatal_handler(test_fatal_handler);
 	test_run_named_fatals(fatals, match);
 	return test_deinit();
+}
+
+void ATTR_NORETURN
+test_exit(int status)
+{
+	i_free_and_null(expected_error_str);
+	i_free_and_null(test_prefix);
+	(void)t_pop(); /* as we were within a T_BEGIN { tests[i].func(); } T_END */
+	lib_deinit();
+	_exit(status);
 }

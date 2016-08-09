@@ -73,4 +73,7 @@ int test_run_named_with_fatals(const char *match, struct named_test tests[],
 #define FATAL_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */
 #define FATAL_NAMED(x) { .name = #x , .func = x },
 
+/* If a fork() wants to exit(), then this will avoid valgrind leak errors */
+void test_exit(int status) ATTR_NORETURN;
+
 #endif
