@@ -176,7 +176,7 @@ void test_istream_unix(void)
 	case 0:
 		i_close_fd(&fd[0]);
 		test_istream_unix_client(fd[1]);
-		_exit(0);
+		test_exit(0);
 	default:
 		i_close_fd(&fd[1]);
 		test_istream_unix_server(fd[0]);
