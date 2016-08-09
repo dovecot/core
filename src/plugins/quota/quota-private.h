@@ -182,6 +182,8 @@ struct quota_transaction_context {
 	bool sync_transaction:1;
 	/* TRUE if all roots have auto_updating=TRUE */
 	bool auto_updating:1;
+	/* Quota doesn't need to be updated within this transaction. */
+	bool no_quota_updates:1;
 };
 
 /* Register storage to all user's quota roots. */
