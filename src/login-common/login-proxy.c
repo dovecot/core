@@ -366,6 +366,20 @@ static int login_proxy_connect(struct login_proxy *proxy)
 {
 	struct login_proxy_record *rec = proxy->state_rec;
 
+	/* this needs to be done early, since login_proxy_free() shrinks
+	   num_waiting_connections. */
+	proxy->num_waiting_connections_updated = FALSE;
+	rec->num_waiting_connections++;
+
+	if (proxy->ip.family == 0 &&
+	    net_addr2ip(proxy->host, &proxy->ip) < 0) {
+		client_log_err(proxy->client, t_strdup_printf(
+			"proxy(%s): BUG: host %s is not an IP "
+			"(auth should have changed it)",
+			proxy->client->virtual_user, proxy->host));
+		return -1;
+	}
+
 	if (rec->last_success.tv_sec == 0) {
 		/* first connect to this IP. don't start immediately failing
 		   the check below. */
@@ -378,7 +392,6 @@ static int login_proxy_connect(struct login_proxy *proxy)
 		client_log_err(proxy->client, t_strdup_printf(
 			"proxy(%s): Host %s:%u is down",
 			proxy->client->virtual_user, proxy->host, proxy->port));
-		login_proxy_free(&proxy);
 		return -1;
 	}
 
@@ -387,7 +400,6 @@ static int login_proxy_connect(struct login_proxy *proxy)
 					  &proxy->source_ip);
 	if (proxy->server_fd == -1) {
 		proxy_log_connect_error(proxy);
-		login_proxy_free(&proxy);
 		return -1;
 	}
 	proxy->server_io = io_add(proxy->server_fd, IO_WRITE,
@@ -396,10 +408,6 @@ static int login_proxy_connect(struct login_proxy *proxy)
 		proxy->to = timeout_add(proxy->connect_timeout_msecs,
 					proxy_connect_timeout, proxy);
 	}
-
-	proxy->num_waiting_connections_updated = FALSE;
-	proxy->state_rec = rec;
-	proxy->state_rec->num_waiting_connections++;
 	return 0;
 }
 
@@ -440,15 +448,9 @@ int login_proxy_new(struct client *client,
 						 proxy->port);
 	client_ref(client);
 
-	if (set->ip.family == 0 &&
-	    net_addr2ip(set->host, &proxy->ip) < 0) {
-		client_log_err(client, t_strdup_printf(
-			"proxy(%s): BUG: host %s is not an IP "
-			"(auth should have changed it)",
-			client->virtual_user, set->host));
-	} else {
-		if (login_proxy_connect(proxy) < 0)
-			return -1;
+	if (login_proxy_connect(proxy) < 0) {
+		login_proxy_free(&proxy);
+		return -1;
 	}
 
 	DLLIST_PREPEND(&login_proxies_pending, proxy);
