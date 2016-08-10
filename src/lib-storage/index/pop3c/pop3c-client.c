@@ -870,6 +870,11 @@ int pop3c_client_cmd_stream(struct pop3c_client *client, const char *cmdline,
 	struct pop3c_client_sync_cmd_ctx ctx;
 	const char *reply;
 
+	if (client->state == POP3C_CLIENT_STATE_DISCONNECTED) {
+		*error_r = "Disconnected from server";
+		return -1;
+	}
+
 	memset(&ctx, 0, sizeof(ctx));
 	*input_r = pop3c_client_cmd_stream_async(client, cmdline,
 						 pop3c_client_cmd_reply, &ctx);
