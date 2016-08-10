@@ -81,6 +81,8 @@ struct connection {
 	struct timeout *to;
 	time_t last_input;
 	struct timeval last_input_tv;
+	struct timeval connect_started;
+	struct timeval connect_finished;
 
 	/* for IP client: */
 	struct ip_addr ip;

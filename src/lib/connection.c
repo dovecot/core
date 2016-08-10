@@ -153,6 +153,7 @@ static void connection_client_connected(struct connection *conn, bool success)
 {
 	i_assert(conn->list->set.client);
 
+	conn->connect_finished = ioloop_timeval;
 	if (success)
 		connection_init_streams(conn);
 	if (conn->list->v.client_connected != NULL)
@@ -274,6 +275,7 @@ int connection_client_connect(struct connection *conn)
 	if (fd == -1)
 		return -1;
 	conn->fd_in = conn->fd_out = fd;
+	conn->connect_started = ioloop_timeval;
 
 	if (conn->port != 0 ||
 	    conn->list->set.delayed_unix_client_connected_callback) {
