@@ -42,7 +42,6 @@ static bool user_callback(const char *reply, void *context)
 		args = "";
 	}
 
-	request->userdb_reply = auth_fields_init(request->pool);
 	if (*args != '\0') {
 		auth_fields_import(request->userdb_reply, args, 0);
 		if (auth_fields_exists(request->userdb_reply, "tempfail"))
