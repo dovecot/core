@@ -1110,9 +1110,16 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 		return 1;
 
 	if (mail_get_physical_size(mail, &size) < 0) {
+		enum mail_error error;
+		const char *errstr = mailbox_get_last_error(mail->box, &error);
+
+		if (error == MAIL_ERROR_EXPUNGED) {
+			/* mail being copied was already expunged. it'll fail,
+			   so just return success for the quota allocated. */
+			return 1;
+		}
 		i_error("quota: Failed to get mail size (box=%s, uid=%u): %s",
-			mail->box->vname, mail->uid,
-			mailbox_get_last_error(mail->box, NULL));
+			mail->box->vname, mail->uid, errstr);
 		return -1;
 	}
 
