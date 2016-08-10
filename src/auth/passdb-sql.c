@@ -99,8 +99,7 @@ static void sql_query_callback(struct sql_result *result,
 			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
 				"Password query returned multiple matches");
 		} else if (auth_request->passdb_password == NULL &&
-			   !auth_fields_exists(auth_request->extra_fields, "nopassword") &&
-			   !auth_fields_exists(auth_request->extra_fields, "noauthenticate")) {
+			   !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
 			auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
 				"Empty password returned without nopassword");
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
