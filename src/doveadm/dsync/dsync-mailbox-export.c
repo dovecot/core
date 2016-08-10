@@ -545,7 +545,7 @@ dsync_mailbox_export_iter_next_nonexistent_attr(struct dsync_mailbox_exporter *e
 			continue;
 
 		/* lookup the value mainly to get its last_change value. */
-		if (mailbox_attribute_get_stream(exporter->trans, attr->type,
+		if (mailbox_attribute_get_stream(exporter->box, attr->type,
 						 attr->key, &value) < 0) {
 			exporter->error = p_strdup_printf(exporter->pool,
 				"Mailbox attribute %s lookup failed: %s", attr->key,
@@ -597,7 +597,7 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 		if (attr_change == NULL && !export_all_attrs)
 			continue;
 
-		if (mailbox_attribute_get_stream(exporter->trans,
+		if (mailbox_attribute_get_stream(exporter->box,
 						 exporter->attr_type, key,
 						 &value) < 0) {
 			exporter->error = p_strdup_printf(exporter->pool,

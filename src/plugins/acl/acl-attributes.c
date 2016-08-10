@@ -137,7 +137,8 @@ static int acl_have_attribute_rights(struct mailbox *box)
 
 int acl_attribute_set(struct mailbox_transaction_context *t,
 		      enum mail_attribute_type type, const char *key,
-		      const struct mail_attribute_value *value)
+		      const struct mail_attribute_value *value,
+		      bool internal_attribute)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
 
@@ -146,21 +147,22 @@ int acl_attribute_set(struct mailbox_transaction_context *t,
 	if (strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_ACL,
 		    strlen(MAILBOX_ATTRIBUTE_PREFIX_ACL)) == 0)
 		return acl_attribute_update_acl(t, key, value);
-	return abox->module_ctx.super.attribute_set(t, type, key, value);
+	return abox->module_ctx.super.attribute_set(t, type, key, value, internal_attribute);
 }
 
-int acl_attribute_get(struct mailbox_transaction_context *t,
+int acl_attribute_get(struct mailbox *box,
 		      enum mail_attribute_type type, const char *key,
-		      struct mail_attribute_value *value_r)
+		      struct mail_attribute_value *value_r,
+		      bool internal_attribute)
 {
-	struct acl_mailbox *abox = ACL_CONTEXT(t->box);
+	struct acl_mailbox *abox = ACL_CONTEXT(box);
 
-	if (acl_have_attribute_rights(t->box) < 0)
+	if (acl_have_attribute_rights(box) < 0)
 		return -1;
 	if (strncmp(key, MAILBOX_ATTRIBUTE_PREFIX_ACL,
 		    strlen(MAILBOX_ATTRIBUTE_PREFIX_ACL)) == 0)
-		return acl_attribute_get_acl(t->box, key, value_r);
-	return abox->module_ctx.super.attribute_get(t, type, key, value_r);
+		return acl_attribute_get_acl(box, key, value_r);
+	return abox->module_ctx.super.attribute_get(box, type, key, value_r, internal_attribute);
 }
 
 struct mailbox_attribute_iter *

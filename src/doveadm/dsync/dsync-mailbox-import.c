@@ -324,7 +324,7 @@ dsync_mailbox_import_lookup_attr(struct dsync_mailbox_importer *importer,
 
 	*attr_r = NULL;
 
-	if (mailbox_attribute_get_stream(importer->trans, type, key, &value) < 0) {
+	if (mailbox_attribute_get_stream(importer->box, type, key, &value) < 0) {
 		i_error("Mailbox %s: Failed to get attribute %s: %s",
 			mailbox_get_vname(importer->box), key,
 			mailbox_get_last_error(importer->box, &importer->mail_error));

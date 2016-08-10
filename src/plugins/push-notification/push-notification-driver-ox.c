@@ -141,7 +141,6 @@ static const char *push_notification_driver_ox_get_metadata
     struct push_notification_driver_ox_config *dconfig = dtxn->duser->context;
     struct mail_attribute_value attr;
     struct mailbox *inbox;
-    struct mailbox_transaction_context *mctx = NULL;
     struct mail_namespace *ns;
     bool success = FALSE, use_existing_txn = FALSE;
     int ret;
@@ -155,39 +154,23 @@ static const char *push_notification_driver_ox_get_metadata
     /* Get canonical INBOX, where private server-level metadata is stored.
      * See imap/cmd-getmetadata.c */
     if ((dtxn->ptxn->t != NULL) && dtxn->ptxn->mbox->inbox_user) {
-        /* Use the currently open transaction. */
         inbox = dtxn->ptxn->mbox;
-        mctx = dtxn->ptxn->t;
         use_existing_txn = TRUE;
     } else {
         ns = mail_namespace_find_inbox(dtxn->ptxn->muser->namespaces);
         inbox = mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_READONLY);
-        if (mailbox_open(inbox) < 0) {
-            i_error(OX_LOG_LABEL "Skipped because unable to open INBOX: %s",
-                    mailbox_get_last_error(inbox, NULL));
-        } else {
-            mctx = mailbox_transaction_begin(inbox, 0);
-        }
     }
 
-    if (mctx != NULL) {
-        ret = mailbox_attribute_get(mctx, MAIL_ATTRIBUTE_TYPE_PRIVATE,
+    ret = mailbox_attribute_get(inbox, MAIL_ATTRIBUTE_TYPE_PRIVATE,
                                     OX_METADATA_KEY, &attr);
-        if (ret < 0) {
-            i_error(OX_LOG_LABEL "Skipped because unable to get attribute: %s",
-                    mailbox_get_last_error(inbox, NULL));
-        } else if (ret == 0) {
-            push_notification_driver_debug(OX_LOG_LABEL, dtxn->ptxn->muser,
-                                           "Skipped because not active (/private/"OX_METADATA_KEY" METADATA not set)");
-        } else {
-            success = TRUE;
-        }
-
-        if (!use_existing_txn && (mailbox_transaction_commit(&mctx) < 0)) {
-            i_error(OX_LOG_LABEL "Transaction commit failed: %s",
-                    mailbox_get_last_error(inbox, NULL));
-            /* the commit doesn't matter though. */
-        }
+    if (ret < 0) {
+        i_error(OX_LOG_LABEL "Skipped because unable to get attribute: %s",
+                mailbox_get_last_error(inbox, NULL));
+    } else if (ret == 0) {
+        push_notification_driver_debug(OX_LOG_LABEL, dtxn->ptxn->muser,
+                                       "Skipped because not active (/private/"OX_METADATA_KEY" METADATA not set)");
+    } else {
+        success = TRUE;
     }
 
     if (!use_existing_txn) {
