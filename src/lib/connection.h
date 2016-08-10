@@ -80,6 +80,7 @@ struct connection {
 
 	struct timeout *to;
 	time_t last_input;
+	struct timeval last_input_tv;
 
 	/* for IP client: */
 	struct ip_addr ip;
