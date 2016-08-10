@@ -291,6 +291,7 @@ int connection_client_connect(struct connection *conn)
 
 void connection_disconnect(struct connection *conn)
 {
+	conn->last_input = 0;
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
 	if (conn->io != NULL)
