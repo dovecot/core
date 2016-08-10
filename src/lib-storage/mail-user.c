@@ -419,7 +419,13 @@ bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module)
 
 bool mail_user_plugin_getenv_bool(struct mail_user *user, const char *name)
 {
-	const char *env = mail_user_set_plugin_getenv(user->set, name);
+	return mail_user_set_plugin_getenv_bool(user->set, name);
+}
+
+bool mail_user_set_plugin_getenv_bool(const struct mail_user_settings *set,
+				      const char *name)
+{
+	const char *env = mail_user_set_plugin_getenv(set, name);
 
 	if (env == NULL)
 		return FALSE;

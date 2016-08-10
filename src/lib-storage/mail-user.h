@@ -149,6 +149,8 @@ const char *mail_user_plugin_getenv(struct mail_user *user, const char *name);
 bool mail_user_plugin_getenv_bool(struct mail_user *user, const char *name);
 const char *mail_user_set_plugin_getenv(const struct mail_user_settings *set,
 					const char *name);
+bool mail_user_set_plugin_getenv_bool(const struct mail_user_settings *set,
+				      const char *name);
 
 /* Add more namespaces to user's namespaces. The ->next pointers may be
    changed, so the namespaces pointer will be updated to user->namespaces. */
