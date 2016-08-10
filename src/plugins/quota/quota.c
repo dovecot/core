@@ -784,7 +784,7 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	return ctx;
 }
 
-static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
+int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 {
 	struct quota_root *const *roots;
 	const char *mailbox_name;
@@ -793,6 +793,8 @@ static int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 	bool use_grace, ignored;
 	int ret;
 
+	if (ctx->limits_set)
+		return 0;
 	ctx->limits_set = TRUE;
 	mailbox_name = mailbox_get_vname(ctx->box);
 	/* use quota_grace only for LDA/LMTP */
@@ -1102,10 +1104,8 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 	uoff_t size;
 	int ret;
 
-	if (!ctx->limits_set) {
-		if (quota_transaction_set_limits(ctx) < 0)
-			return -1;
-	}
+	if (quota_transaction_set_limits(ctx) < 0)
+		return -1;
 
 	if (ctx->no_quota_updates)
 		return 1;
@@ -1143,10 +1143,8 @@ int quota_test_alloc(struct quota_transaction_context *ctx,
 	if (ctx->failed)
 		return -1;
 
-	if (!ctx->limits_set) {
-		if (quota_transaction_set_limits(ctx) < 0)
-			return -1;
-	}
+	if (quota_transaction_set_limits(ctx) < 0)
+		return -1;
 	if (ctx->no_quota_updates)
 		return 1;
 	/* this is a virtual function mainly for trash plugin and similar,
