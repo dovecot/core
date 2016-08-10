@@ -8,6 +8,7 @@
 #include "net.h"
 #include "strescape.h"
 #include "llist.h"
+#include "time-util.h"
 #include "connection.h"
 
 #include <unistd.h>
@@ -384,6 +385,24 @@ const char *connection_disconnect_reason(struct connection *conn)
 		return io_stream_get_disconnect_reason(conn->input, conn->output);
 	}
 	i_unreached();
+}
+
+const char *connection_input_timeout_reason(struct connection *conn)
+{
+	if (conn->last_input_tv.tv_sec != 0) {
+		int diff = timeval_diff_msecs(&ioloop_timeval, &conn->last_input_tv);
+		return t_strdup_printf("No input for %u.%03u secs",
+				       diff/1000, diff%1000);
+	} else if (conn->connect_finished.tv_sec != 0) {
+		int diff = timeval_diff_msecs(&ioloop_timeval, &conn->connect_finished);
+		return t_strdup_printf(
+			"No input since connected %u.%03u secs ago",
+			diff/1000, diff%1000);
+	} else {
+		int diff = timeval_diff_msecs(&ioloop_timeval, &conn->connect_started);
+		return t_strdup_printf("connect() timed out after %u.%03u secs",
+				       diff/1000, diff%1000);
+	}
 }
 
 void connection_switch_ioloop(struct connection *conn)
