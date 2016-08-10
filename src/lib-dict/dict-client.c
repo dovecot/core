@@ -70,7 +70,6 @@ struct client_dict {
 	struct timeout *to_requests;
 	struct timeout *to_idle;
 	unsigned int idle_msecs;
-	struct timeval last_input;
 
 	ARRAY(struct client_dict_cmd *) cmds;
 	struct client_dict_transaction_context *transactions;
@@ -195,12 +194,11 @@ static void client_dict_input_timeout(struct client_dict *dict)
 	cmds = array_get(&dict->cmds, &count);
 	i_assert(count > 0);
 
-	int input_diff = timeval_diff_msecs(&ioloop_timeval, &dict->last_input);
 	int cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmds[0]->start_time);
 	(void)client_dict_reconnect(dict, t_strdup_printf(
-		"Timeout: No input from dict for %u.%03u secs "
+		"Dict server timeout: %s "
 		"(%u commands pending, oldest sent %u.%03u secs ago: %s)",
-		input_diff/1000, input_diff%1000, count,
+		connection_input_timeout_reason(&dict->conn.conn), count,
 		cmd_diff/1000, cmd_diff%1000, cmds[0]->query), &error);
 }
 
@@ -379,7 +377,6 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 	bool finished;
 	int diff;
 
-	dict->last_input = ioloop_timeval;
 	if (dict->to_requests != NULL)
 		timeout_reset(dict->to_requests);
 
