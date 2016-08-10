@@ -27,15 +27,6 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-/* 16 * (255+1) = 4096 which is the standard PATH_MAX. Having these settings
-   prevents malicious user from creating eg. "a/a/a/.../a" mailbox name and
-   then start renaming them to larger names from end to beginning, which
-   eventually would start causing the failures when trying to use too
-   long mailbox names. 255 is the standard single directory name length, so
-   allow up to that high. */
-#define MAILBOX_MAX_HIERARCHY_LEVELS 16
-#define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 255
-
 #define MAILBOX_LIST_FS_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_fs_module)
 
@@ -1653,28 +1644,6 @@ void mailbox_list_set_changelog_timestamp(struct mailbox_list *list,
 					  time_t stamp)
 {
 	list->changelog_timestamp = stamp;
-}
-
-bool mailbox_list_name_is_too_large(const char *name, char sep)
-{
-	unsigned int levels = 1, level_len = 0;
-
-	for (; *name != '\0'; name++) {
-		if (*name == sep) {
-			if (level_len > MAILBOX_MAX_HIERARCHY_NAME_LENGTH)
-				return TRUE;
-			levels++;
-			level_len = 0;
-		} else {
-			level_len++;
-		}
-	}
-
-	if (level_len > MAILBOX_MAX_HIERARCHY_NAME_LENGTH)
-		return TRUE;
-	if (levels > MAILBOX_MAX_HIERARCHY_LEVELS)
-		return TRUE;
-	return FALSE;
 }
 
 enum mailbox_list_file_type

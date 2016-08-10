@@ -30,6 +30,7 @@
 #include <ctype.h>
 
 #define MAILBOX_DELETE_RETRY_SECS 30
+#define MAILBOX_MAX_HIERARCHY_NAME_LENGTH 255
 
 extern struct mail_search_register *mail_search_register_imap;
 extern struct mail_search_register *mail_search_register_human;
@@ -971,8 +972,6 @@ void mailbox_skip_create_name_restrictions(struct mailbox *box, bool set)
 
 int mailbox_verify_create_name(struct mailbox *box)
 {
-	char sep = mail_namespace_get_sep(box->list->ns);
-
 	/* mailbox_alloc() already checks that vname is valid UTF8,
 	   so we don't need to verify that.
 
@@ -987,7 +986,25 @@ int mailbox_verify_create_name(struct mailbox *box)
 			"Control characters not allowed in new mailbox names");
 		return -1;
 	}
-	if (mailbox_list_name_is_too_large(box->vname, sep)) {
+	if (strlen(box->vname) > MAILBOX_LIST_NAME_MAX_LENGTH) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				       "Mailbox name too long");
+		return -1;
+	}
+	/* check individual component names, too */
+	const char *old_name = box->name;
+	const char *name;
+	const char sep = mailbox_list_get_hierarchy_sep(box->list);
+	while((name = strchr(old_name, sep)) != NULL) {
+		if (name - old_name > MAILBOX_MAX_HIERARCHY_NAME_LENGTH) {
+			mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
+				"Mailbox name too long");
+			return -1;
+		}
+		name++;
+		old_name = name;
+	}
+	if (old_name != NULL && strlen(old_name) > MAILBOX_MAX_HIERARCHY_NAME_LENGTH) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 				       "Mailbox name too long");
 		return -1;
@@ -1469,6 +1486,41 @@ mailbox_lists_rename_compatible(struct mailbox_list *list1,
 	return TRUE;
 }
 
+static
+int mailbox_rename_check_children(struct mailbox *src, struct mailbox *dest)
+{
+	int ret = 0;
+	size_t src_prefix_len = strlen(src->vname)+1; /* include separator */
+	size_t dest_prefix_len = strlen(dest->vname)+1;
+	/* this can return folders with * in their name, that are not
+	   actually our children */
+	const char *pattern = t_strdup_printf("%s%c*", src->vname,
+				  mail_namespace_get_sep(src->list->ns));
+
+	struct mailbox_list_iterate_context *iter = mailbox_list_iter_init(src->list, pattern,
+				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+
+	const struct mailbox_info *child;
+	while((child = mailbox_list_iter_next(iter)) != NULL) {
+		if (strncmp(child->vname, src->vname, src_prefix_len) != 0)
+			continue; /* not our child */
+		/* if total length of new name exceeds the limit, fail */
+		if (strlen(child->vname + src_prefix_len)+dest_prefix_len > MAILBOX_LIST_NAME_MAX_LENGTH) {
+			mail_storage_set_error(dest->storage, MAIL_ERROR_PARAMS,
+				"Mailbox or child name too long");
+			ret = -1;
+			break;
+		}
+	}
+
+	/* something went bad */
+	if (mailbox_list_iter_deinit(&iter) < 0) {
+		mail_storage_copy_list_error(dest->storage, src->list);
+		ret = -1;
+	}
+	return ret;
+}
+
 int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 {
 	const char *error = NULL;
@@ -1485,6 +1537,10 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 		mail_storage_copy_error(dest->storage, src->storage);
 		return -1;
 	}
+	if (mailbox_rename_check_children(src, dest) != 0) {
+		return -1;
+	}
+
 	if (!mail_storages_rename_compatible(src->storage,
 					     dest->storage, &error) ||
 	    !mailbox_lists_rename_compatible(src->list,

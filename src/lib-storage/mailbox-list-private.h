@@ -204,7 +204,6 @@ void mailbox_list_iter_update(struct mailbox_list_iter_update_context *ctx,
 			      const char *name);
 int mailbox_list_iter_subscriptions_refresh(struct mailbox_list *list);
 
-bool mailbox_list_name_is_too_large(const char *name, char sep);
 enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);
 int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
 					 const char *dir_path,
