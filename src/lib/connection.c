@@ -292,6 +292,7 @@ int connection_client_connect(struct connection *conn)
 void connection_disconnect(struct connection *conn)
 {
 	conn->last_input = 0;
+	memset(&conn->last_input_tv, 0, sizeof(conn->last_input_tv));
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
 	if (conn->io != NULL)
@@ -327,6 +328,7 @@ void connection_deinit(struct connection *conn)
 int connection_input_read(struct connection *conn)
 {
 	conn->last_input = ioloop_time;
+	conn->last_input_tv = ioloop_timeval;
 	if (conn->to != NULL)
 		timeout_reset(conn->to);
 
