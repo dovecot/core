@@ -2278,8 +2278,7 @@ int auth_request_password_verify(struct auth_request *request,
 		return 0;
 	}
 
-	if (auth_fields_exists(request->extra_fields, "nopassword") ||
-	    auth_fields_exists(request->extra_fields, "noauthenticate")) {
+	if (auth_fields_exists(request->extra_fields, "nopassword")) {
 		auth_request_log_debug(request, subsystem,
 					"Allowing any password");
 		return 1;
