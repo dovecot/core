@@ -1746,11 +1746,17 @@ void auth_request_set_field(struct auth_request *request,
 			return;
 		}
 		auth_request_set_userdb_field(request, name + 7, value);
+	} else if (strcmp(name, "noauthenticate") == 0) {
+		/* add "nopassword" also so that passdbs won't try to verify
+		   the password. */
+		auth_fields_add(request->extra_fields, name, value, 0);
+		auth_fields_add(request->extra_fields, "nopassword", NULL, 0);
 	} else if (strcmp(name, "nopassword") == 0) {
 		/* NULL password - anything goes */
 		const char *password = request->passdb_password;
 
-		if (password != NULL) {
+		if (password != NULL &&
+		    !auth_fields_exists(request->extra_fields, "noauthenticate")) {
 			(void)password_get_scheme(&password);
 			if (*password != '\0') {
 				auth_request_log_error(request, AUTH_SUBSYS_DB,
