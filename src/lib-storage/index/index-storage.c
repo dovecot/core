@@ -1022,7 +1022,7 @@ int index_storage_expunged_sync_begin(struct mailbox *box,
 		/* race condition - need to abort the sync and retry with
 		   the vsize locked */
 		mail_index_sync_rollback(ctx_r);
-		index_storage_expunging_init(box);
+		index_storage_expunging_deinit(box);
 		return index_storage_expunged_sync_begin(box, ctx_r, view_r,
 							 trans_r, flags);
 	}
