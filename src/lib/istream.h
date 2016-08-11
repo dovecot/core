@@ -42,11 +42,22 @@ struct istream *i_stream_create_file(const char *path, size_t max_buffer_size);
 struct istream *i_stream_create_mmap(int fd, size_t block_size,
 				     uoff_t start_offset, uoff_t v_size,
 				     bool autoclose_fd);
+/* Create an input stream using the provided data block. That data block must
+remain allocated during the full lifetime of the stream. */
 struct istream *i_stream_create_from_data(const void *data, size_t size);
 #define i_stream_create_from_buffer(buf) \
 	i_stream_create_from_data((buf)->data, (buf)->used)
 #define i_stream_create_from_string(str) \
 	i_stream_create_from_data(str_data(str), str_len(str))
+/* Create an input stream using a copy of the provided data block. The
+   provided data block may be freed at any time. The copy is freed when the
+   stream is destroyed. */
+struct istream *
+i_stream_create_copy_from_data(const void *data, size_t size);
+#define i_stream_create_copy_from_buffer(buf) \
+	i_stream_create_copy_from_data((buf)->data, (buf)->used)
+#define i_stream_create_copy_from_string(str) \
+	i_stream_create_copy_from_data(str_data(str), str_len(str))
 struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size);
 struct istream *i_stream_create_range(struct istream *input,
 				      uoff_t v_offset, uoff_t v_size);

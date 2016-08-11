@@ -36,3 +36,27 @@ struct istream *i_stream_create_from_data(const void *data, size_t size)
 	i_stream_set_name(&stream->istream, "(buffer)");
 	return &stream->istream;
 }
+
+static void i_stream_copied_data_free(void *data)
+{
+	i_free(data);
+}
+struct istream *
+i_stream_create_copy_from_data(const void *data, size_t size)
+{
+	struct istream *stream;
+	void *buffer;
+
+	if (size == 0) {
+		buffer = "";
+	} else {
+		buffer = i_malloc(size);
+		memcpy(buffer, data, size);
+	}
+	stream = i_stream_create_from_data(buffer, size);
+	if (size > 0) {
+		i_stream_add_destroy_callback
+			(stream, i_stream_copied_data_free, buffer);
+	}
+	return stream;
+}
