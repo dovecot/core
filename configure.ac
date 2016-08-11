@@ -1678,6 +1678,7 @@ dnl ** SSL
 dnl **
 
 have_ssl=no
+build_dcrypt_openssl=no
 
 if test $want_openssl != no && test $have_ssl = no; then
   if test "$PKG_CONFIG" != "" && $PKG_CONFIG --exists openssl 2>/dev/null; then
@@ -1705,7 +1706,7 @@ if test $want_openssl != no && test $have_ssl = no; then
   if test "$have_openssl" = "yes"; then
     AC_DEFINE(HAVE_OPENSSL,, [Build with OpenSSL support])
     have_ssl="yes (OpenSSL)"
-    build_dcrypt="no"
+    build_dcrypt_openssl="no"
 
     AC_CHECK_LIB(ssl, SSL_get_current_compression, [
       AC_DEFINE(HAVE_SSL_COMPRESSION,, [Build with OpenSSL compression])
@@ -1717,13 +1718,14 @@ if test $want_openssl != no && test $have_ssl = no; then
       AC_DEFINE(HAVE_SSL_COMP_FREE_COMPRESSION_METHODS,, [Build with SSL_COMP_free_compression_methods() support])
     ],, $SSL_LIBS)
     AC_CHECK_LIB(ssl, [EC_KEY_new],
-       [build_dcrypt="yes"],
+       [build_dcrypt_openssl="yes"],
        AC_MSG_WARN([No ECC support in OpenSSL - not enabling dcrypt]),
     $SSL_LIBS)
   fi
 fi
+
 AM_CONDITIONAL(BUILD_OPENSSL, test "$have_openssl" = "yes")
-AM_CONDITIONAL(HAVE_DCRYPT, test "$build_dcrypt" != "no")
+AM_CONDITIONAL(BUILD_DCRYPT_OPENSSL, test "$build_dcrypt_openssl" = "yes")
 
 if test $want_gnutls != no && test $have_ssl = no; then
   AC_CHECK_LIB(gnutls, gnutls_global_init, [
@@ -2545,13 +2547,8 @@ dnl **
 dnl ** Shared libraries usage
 dnl **
 
-if test "$build_dcrypt" = "yes"; then
-  lib_dcrypt='$(top_builddir)/src/lib-dcrypt/libdcrypt.la'
-fi
 
-
-LIBDOVECOT_LA_LIBS='$(top_builddir)/src/lib-dict-extra/libdict_extra.la $(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-stats/libstats.la $(top_builddir)/src/lib-http/libhttp.la $(top_builddir)/src/lib-fs/libfs.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-dns/libdns.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-sasl/libsasl.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la'
-LIBDOVECOT_LA_LIBS="$LIBDOVECOT_LA_LIBS $lib_dcrypt \$(top_builddir)/src/lib-test/libtest.la \$(top_builddir)/src/lib/liblib.la"
+LIBDOVECOT_LA_LIBS='$(top_builddir)/src/lib-dict-extra/libdict_extra.la $(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-stats/libstats.la $(top_builddir)/src/lib-http/libhttp.la $(top_builddir)/src/lib-fs/libfs.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-dns/libdns.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-sasl/libsasl.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la $(top_builddir)/src/lib-dcrypt/libdcrypt.la $(top_builddir)/src/lib-test/libtest.la $(top_builddir)/src/lib/liblib.la'
 
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
@@ -3015,7 +3012,7 @@ echo "I/O notifys .... : $have_notify"
 echo "SSL ............ : $have_ssl"
 echo "GSSAPI ......... : $have_gssapi"
 echo "passdbs ........ :$passdb"
-echo "dcrypt ..........: $build_dcrypt"
+echo "dcrypt ..........: $build_dcrypt_openssl"
 
 if test "$not_passdb" != ""; then
   echo "                 :$not_passdb"

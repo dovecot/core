@@ -16,7 +16,7 @@ libdcrypt_la_CFLAGS = $(AM_CPPFLAGS) \
 
 libdcrypt_la_LDFLAGS = -export-dynamic
 
-if BUILD_OPENSSL
+if BUILD_DCRYPT_OPENSSL
 pkglib_LTLIBRARIES += libdcrypt_openssl.la
 libdcrypt_openssl_la_SOURCES = dcrypt-openssl.c dcrypt.c
 libdcrypt_openssl_la_LDFLAGS = -module -avoid-version -shared ../lib-ssl-iostream/libdovecot_openssl_common.la ../lib/liblib.la
