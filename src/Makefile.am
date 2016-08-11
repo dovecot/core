@@ -2,10 +2,6 @@ if HAVE_LDAP
 LIB_LDAP=lib-ldap
 endif
 
-if HAVE_DCRYPT
-LIB_DCRYPT=lib-dcrypt
-endif
-
 LIBDOVECOT_SUBDIRS = \
 	lib-test \
 	lib \
@@ -14,7 +10,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-master \
 	lib-charset \
 	lib-ssl-iostream \
-	$(LIB_DCRYPT) \
+	lib-dcrypt \
 	lib-dns \
 	lib-dict \
 	lib-sasl \
