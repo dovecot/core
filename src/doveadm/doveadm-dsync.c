@@ -955,7 +955,7 @@ static bool
 cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
-	const char *str;
+	const char *str, *error;
 
 	switch (c) {
 	case '1':
@@ -1039,8 +1039,8 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 			i_fatal("Invalid -t parameter: %s", optarg);
 		break;
 	case 'S':
-		if (settings_parse_size(optarg, &ctx->sync_max_size) < 0)
-			i_fatal("Invalid -S parameter: %s", optarg);
+		if (settings_get_size(optarg, &ctx->sync_max_size, &error) < 0)
+			i_fatal("Invalid -S parameter '%s': %s", optarg, error);
 		break;
 	case 'T':
 		if (str_to_uint(optarg, &ctx->io_timeout_secs) < 0)
