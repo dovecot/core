@@ -91,7 +91,7 @@ cmd_user_input(struct auth_master_connection *conn,
 		string_t *json_field = t_str_new(show_field_len+1);
 		json_append_escaped(json_field, show_field);
 		o_stream_nsend_str(doveadm_print_ostream, t_strdup_printf("\"%s\":", str_c(json_field)));
-		for (; *fields; fields++) {
+		for (; *fields != NULL; fields++) {
 			if (strncmp(*fields, show_field, show_field_len) == 0 &&
 			    (*fields)[show_field_len] == '=') {
 				string_t *jsonval = t_str_new(32);
@@ -113,7 +113,7 @@ cmd_user_input(struct auth_master_connection *conn,
 			o_stream_nsend_str(doveadm_print_ostream, str_c(jsonval));
 			o_stream_nsend_str(doveadm_print_ostream, "\"");
 		}
-		for (; *fields; fields++) {
+		for (; *fields != NULL; fields++) {
 			const char *field = *fields;
 			if (*field == '\0') continue;
 			p = strchr(*fields, '=');

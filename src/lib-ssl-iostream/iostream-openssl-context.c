@@ -157,7 +157,7 @@ ssl_iostream_ctx_use_dh(struct ssl_iostream_context *ctx,
 
 	if (openssl_iostream_load_dh(set, &dh, error_r) < 0)
 		return -1;
-	if (!SSL_CTX_set_tmp_dh(ctx->ssl_ctx, dh)) {
+	if (SSL_CTX_set_tmp_dh(ctx->ssl_ctx, dh) == 0) {
 		 *error_r = t_strdup_printf(
 			"Can't load DH parameters: %s",
 			openssl_iostream_key_load_error());

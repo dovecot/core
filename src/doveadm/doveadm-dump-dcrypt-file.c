@@ -41,7 +41,7 @@ static void dcrypt_istream_dump_metadata(const struct istream *stream)
 	}
 }
 
-static int dcrypt_file_dump_metadata(const char *filename, bool print)
+static bool dcrypt_file_dump_metadata(const char *filename, bool print)
 {
 	bool ret = FALSE;
 	struct istream *is = i_stream_create_file(filename, IO_BLOCK_SIZE);
