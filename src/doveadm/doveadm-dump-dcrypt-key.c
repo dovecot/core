@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "dcrypt.h"
+#include "dcrypt-iostream.h"
 #include "ostream-encrypt.h"
 #include "istream-private.h"
 #include "istream-decrypt.h"
