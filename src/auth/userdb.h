@@ -24,7 +24,6 @@ struct userdb_module {
 	const char *args;
 	/* The default caching key for this module, or NULL if caching isn't
 	   wanted. This is updated by settings in auth_userdb. */
-#define default_cache_key cache_key /* FIXME: remove in v2.3 - for API backwards compatibility */
 	const char *default_cache_key;
 
 	/* If blocking is set to TRUE, use child processes to access
