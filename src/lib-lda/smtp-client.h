@@ -15,12 +15,4 @@ int smtp_client_deinit(struct smtp_client *client, const char **error_r);
 /* Same as smtp_client_deinit(), but timeout after given number of seconds. */
 int smtp_client_deinit_timeout(struct smtp_client *client,
 			       unsigned int timeout_secs, const char **error_r);
-
-/* FIXME: obsolete API, remove in v2.3: */
-struct smtp_client * ATTR_NULL(3)
-smtp_client_open(const struct lda_settings *set, const char *destination,
-		 const char *return_path, struct ostream **output_r);
-/* Returns sysexits-compatible return value */
-int smtp_client_close(struct smtp_client *client);
-
 #endif

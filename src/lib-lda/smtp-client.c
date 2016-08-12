@@ -362,35 +362,3 @@ int smtp_client_deinit_timeout(struct smtp_client *client,
 	smtp_client_abort(&client);
 	return ret;
 }
-
-struct smtp_client *
-smtp_client_open(const struct lda_settings *set, const char *destination,
-		 const char *return_path, struct ostream **output_r)
-{
-	struct smtp_client *client;
-
-	client = smtp_client_init(set, return_path);
-	smtp_client_add_rcpt(client, destination);
-	*output_r = smtp_client_send(client);
-	return client;
-}
-
-int smtp_client_close(struct smtp_client *client)
-{
-	const char *error;
-	int ret;
-
-	if (!client->use_smtp)
-		return smtp_client_deinit_sendmail(client);
-
-	ret = smtp_client_deinit(client, &error);
-	if (ret < 0) {
-		i_error("%s", error);
-		return EX_TEMPFAIL;
-	}
-	if (ret == 0) {
-		i_error("%s", error);
-		return EX_NOPERM;
-	}
-	return 0;
-}
