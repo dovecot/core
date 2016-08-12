@@ -395,7 +395,6 @@ int http_response_parse_next(struct http_response_parser *parser,
 	response->retry_after = retry_after;
 	response->payload = parser->parser.payload;
 	response->header = parser->parser.msg.header;
-	response->headers = *http_header_get_fields(response->header); /* FIXME: remove in v2.3 */
 	response->connection_options = parser->parser.msg.connection_options;
 	response->connection_close = parser->parser.msg.connection_close;
 	return 1;
