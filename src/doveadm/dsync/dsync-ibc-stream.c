@@ -114,7 +114,7 @@ static const struct {
 	  .required_keys = "type uid",
 	  .optional_keys = "guid hdr_hash modseq pvt_modseq "
 	  	"add_flags remove_flags final_flags "
-	  	"keywords_reset keyword_changes"
+		"keywords_reset keyword_changes received_timestamp virtual_size"
 	},
 	{ .name = "mail_request",
 	  .chr = 'R',
