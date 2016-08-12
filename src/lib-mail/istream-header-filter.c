@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "sort.h"
 #include "message-parser.h"
 #include "istream-private.h"
 #include "istream-header-filter.h"

@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "hash.h"
 #include "str.h"
+#include "sort.h"
 #include "mail-index.h"
 #include "mail-storage.h"
 #include "mailbox-list-index-sync.h"

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "sort.h"
 #include "bsearch-insert-pos.h"
 #include "file-cache.h"
 #include "file-lock.h"

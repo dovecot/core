@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "sort.h"
 #include "module-dir.h"
 
 #ifdef HAVE_MODULES

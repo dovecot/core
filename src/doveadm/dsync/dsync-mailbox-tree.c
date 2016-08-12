@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "str.h"
+#include "sort.h"
 #include "mailbox-list-private.h"
 #include "dsync-mailbox-tree-private.h"
 

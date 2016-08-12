@@ -489,19 +489,9 @@ int i_memcasecmp(const void *p1, const void *p2, size_t size)
         return 0;
 }
 
-int bsearch_strcmp(const char *key, const char *const *member)
-{
-	return strcmp(key, *member);
-}
-
 int i_strcmp_p(const char *const *p1, const char *const *p2)
 {
 	return strcmp(*p1, *p2);
-}
-
-int bsearch_strcasecmp(const char *key, const char *const *member)
-{
-	return strcasecmp(key, *member);
 }
 
 int i_strcasecmp_p(const char *const *p1, const char *const *p2)

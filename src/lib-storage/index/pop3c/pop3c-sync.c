@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "bsearch-insert-pos.h"
 #include "str.h"
+#include "sort.h"
 #include "strnum.h"
 #include "index-mail.h"
 #include "pop3c-client.h"

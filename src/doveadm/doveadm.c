@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "sort.h"
 #include "ostream.h"
 #include "env-util.h"
 #include "execv-const.h"

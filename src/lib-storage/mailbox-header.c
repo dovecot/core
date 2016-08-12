@@ -1,6 +1,7 @@
 /* Copyright (c) 2003-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "sort.h"
 #include "mail-cache.h"
 #include "mail-storage-private.h"
 

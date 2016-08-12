@@ -133,6 +133,7 @@ liblib_la_SOURCES = \
 	seq-range-array.c \
 	sha1.c \
 	sha2.c \
+	sort.c \
 	str.c \
 	str-find.c \
 	str-sanitize.c \

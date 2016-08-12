@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "hash.h"
+#include "sort.h"
 #include "mail-storage-settings.h"
 #include "mailbox-list.h"
 #include "mail-namespace.h"

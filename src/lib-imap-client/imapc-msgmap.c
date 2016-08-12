@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "imapc-msgmap.h"
+#include "sort.h"
 
 struct imapc_msgmap {
 	ARRAY_TYPE(uint32_t) uids;
