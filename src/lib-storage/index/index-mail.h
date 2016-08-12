@@ -225,7 +225,7 @@ int index_mail_get_binary_stream(struct mail *_mail,
 				 struct istream **stream_r);
 int index_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			   const char **value_r);
-struct mail *index_mail_get_real_mail(struct mail *mail);
+int index_mail_get_backend_mail(struct mail *mail, struct mail **real_mail_r);
 
 void index_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 			     enum mail_flags flags);

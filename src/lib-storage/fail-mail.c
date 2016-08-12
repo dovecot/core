@@ -194,9 +194,11 @@ fail_mail_get_special(struct mail *mail ATTR_UNUSED,
 	return -1;
 }
 
-static struct mail * fail_mail_get_real_mail(struct mail *mail)
+static int fail_mail_get_backend_mail(struct mail *mail,
+				      struct mail **real_mail_r)
 {
-	return mail;
+	*real_mail_r = mail;
+	return 0;
 }
 
 static void
@@ -256,7 +258,7 @@ struct mail_vfuncs fail_mail_vfuncs = {
 	fail_mail_get_stream,
 	fail_mail_get_binary_stream,
 	fail_mail_get_special,
-	fail_mail_get_real_mail,
+	fail_mail_get_backend_mail,
 	fail_mail_update_flags,
 	fail_mail_update_keywords,
 	fail_mail_update_modseq,

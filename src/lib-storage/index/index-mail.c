@@ -1459,9 +1459,11 @@ int index_mail_get_special(struct mail *_mail,
 	}
 }
 
-struct mail *index_mail_get_real_mail(struct mail *mail)
+int index_mail_get_backend_mail(struct mail *mail,
+				struct mail **real_mail_r)
 {
-	return mail;
+	*real_mail_r = mail;
+	return 0;
 }
 
 struct mail *

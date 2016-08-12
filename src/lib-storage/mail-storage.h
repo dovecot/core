@@ -889,9 +889,6 @@ int mail_get_special(struct mail *mail, enum mail_fetch_field field,
 /* Returns the mail for the physical message. Normally this is the mail itself,
    but in virtual mailboxes it points to the backend mailbox. */
 int mail_get_backend_mail(struct mail *mail, struct mail **real_mail_r);
-/* FIXME: For backwards compatibility for now, use mail_get_backend_mail()
-   instead. */
-struct mail *mail_get_real_mail(struct mail *mail);
 
 /* Update message flags. */
 void mail_update_flags(struct mail *mail, enum modify_type modify_type,
