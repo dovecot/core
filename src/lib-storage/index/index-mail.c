@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "mailbox-recent-flags.h"
 #include "message-date.h"
 #include "message-part-serialize.h"
 #include "message-parser.h"

@@ -46,6 +46,7 @@
 #include "mbox-storage.h"
 #include "index-sync-changes.h"
 #include "mailbox-uidvalidity.h"
+#include "mailbox-recent-flags.h"
 #include "mbox-from.h"
 #include "mbox-file.h"
 #include "mbox-lock.h"

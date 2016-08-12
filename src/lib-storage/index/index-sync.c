@@ -6,6 +6,7 @@
 #include "array.h"
 #include "index-mailbox-size.h"
 #include "index-sync-private.h"
+#include "mailbox-recent-flags.h"
 
 struct index_storage_list_index_record {
 	uint32_t size;

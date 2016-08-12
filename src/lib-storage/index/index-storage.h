@@ -4,7 +4,6 @@
 #include "file-dotlock.h"
 #include "mail-storage-private.h"
 #include "mail-index-private.h"
-#include "mailbox-recent-flags.h" /* FIXME: remove in v2.3 */
 #include "mailbox-watch.h"
 
 #define MAILBOX_FULL_SYNC_INTERVAL 5
@@ -83,12 +82,6 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest);
 
 bool index_storage_is_readonly(struct mailbox *box);
 bool index_storage_is_inconsistent(struct mailbox *box);
-
-/* FIXME: for backwards compatibility - remove in v2.3 */
-#define index_mailbox_set_recent_seq(box, view, seq1, seq2) \
-	mailbox_recent_flags_set_seqs(box, view, seq1, seq2)
-#define index_mailbox_check_add(box, path) mailbox_watch_add(box, path)
-#define index_mailbox_check_remove_all(box) mailbox_watch_remove_all(box)
 
 enum mail_index_sync_flags index_storage_get_sync_flags(struct mailbox *box);
 bool index_mailbox_want_full_sync(struct mailbox *box,

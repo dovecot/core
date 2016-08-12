@@ -5,6 +5,7 @@
 #include "sdbox-storage.h"
 #include "sdbox-file.h"
 #include "sdbox-sync.h"
+#include "mailbox-recent-flags.h"
 
 #define SDBOX_REBUILD_COUNT 3
 

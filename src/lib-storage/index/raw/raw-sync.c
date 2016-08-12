@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "raw-storage.h"
 #include "raw-sync.h"
+#include "mailbox-recent-flags.h"
 
 static int raw_sync(struct raw_mailbox *mbox)
 {

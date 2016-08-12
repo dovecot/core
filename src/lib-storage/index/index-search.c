@@ -19,6 +19,7 @@
 #include "index-sort.h"
 #include "mail-search.h"
 #include "mailbox-search-result-private.h"
+#include "mailbox-recent-flags.h"
 #include "index-search-private.h"
 
 #include <ctype.h>

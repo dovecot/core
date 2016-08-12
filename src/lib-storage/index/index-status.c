@@ -4,6 +4,7 @@
 #include "array.h"
 #include "mail-cache.h"
 #include "mail-index-modseq.h"
+#include "mailbox-recent-flags.h"
 #include "index-storage.h"
 
 static void

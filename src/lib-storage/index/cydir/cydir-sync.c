@@ -5,6 +5,7 @@
 #include "str.h"
 #include "cydir-storage.h"
 #include "cydir-sync.h"
+#include "mailbox-recent-flags.h"
 
 static void cydir_sync_set_uidvalidity(struct cydir_sync_context *ctx)
 {

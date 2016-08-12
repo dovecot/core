@@ -5,6 +5,7 @@
 #include "mail-cache.h"
 #include "mail-index-modseq.h"
 #include "mailbox-list-private.h"
+#include "mailbox-recent-flags.h"
 #include "index-storage.h"
 #include "index-rebuild.h"
 

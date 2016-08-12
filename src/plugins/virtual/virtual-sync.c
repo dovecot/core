@@ -8,6 +8,7 @@
 #include "mail-index-modseq.h"
 #include "mail-search-build.h"
 #include "mailbox-search-result-private.h"
+#include "mailbox-recent-flags.h"
 #include "index-sync-private.h"
 #include "index-search-result.h"
 #include "virtual-storage.h"

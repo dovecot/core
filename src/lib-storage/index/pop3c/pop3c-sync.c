@@ -11,6 +11,7 @@
 #include "pop3c-client.h"
 #include "pop3c-storage.h"
 #include "pop3c-sync.h"
+#include "mailbox-recent-flags.h"
 
 struct pop3c_sync_msg {
 	uint32_t seq;

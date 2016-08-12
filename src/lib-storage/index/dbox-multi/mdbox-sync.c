@@ -21,6 +21,7 @@
 #include "mdbox-map.h"
 #include "mdbox-file.h"
 #include "mdbox-sync.h"
+#include "mailbox-recent-flags.h"
 
 
 static int

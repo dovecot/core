@@ -17,6 +17,7 @@
 #include "maildir-filename.h"
 #include "maildir-filename-flags.h"
 #include "maildir-sync.h"
+#include "mailbox-recent-flags.h"
 
 #include <stdio.h>
 #include <unistd.h>
