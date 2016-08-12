@@ -912,10 +912,9 @@ void mail_expunge(struct mail *mail);
 /* Add missing fields to cache. */
 void mail_precache(struct mail *mail);
 /* Mark a cached field corrupted and have it recalculated. */
-void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field);
-void mail_set_cache_corrupted_reason(struct mail *mail,
-				     enum mail_fetch_field field,
-				     const char *reason);
+void mail_set_cache_corrupted(struct mail *mail,
+			      enum mail_fetch_field field,
+			      const char *reason);
 
 /* Return 128 bit GUID using input string. If guid is already 128 bit hex
    encoded, it's returned as-is. Otherwise SHA1 sum is taken and its last

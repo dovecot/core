@@ -224,14 +224,8 @@ static void fail_mail_expunge(struct mail *mail ATTR_UNUSED)
 
 static void
 fail_mail_set_cache_corrupted(struct mail *mail ATTR_UNUSED,
-			      enum mail_fetch_field field ATTR_UNUSED)
-{
-}
-
-static void
-fail_mail_set_cache_corrupted_reason(struct mail *mail ATTR_UNUSED,
-				     enum mail_fetch_field field ATTR_UNUSED,
-				     const char *reason ATTR_UNUSED)
+			      enum mail_fetch_field field ATTR_UNUSED,
+			      const char *reason ATTR_UNUSED)
 {
 }
 
@@ -271,5 +265,4 @@ struct mail_vfuncs fail_mail_vfuncs = {
 	fail_mail_expunge,
 	fail_mail_set_cache_corrupted,
 	NULL,
-	fail_mail_set_cache_corrupted_reason
 };

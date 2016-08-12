@@ -475,11 +475,9 @@ struct mail_vfuncs {
 	void (*update_pop3_uidl)(struct mail *mail, const char *uidl);
 	void (*expunge)(struct mail *mail);
 	void (*set_cache_corrupted)(struct mail *mail,
-				    enum mail_fetch_field field);
+				    enum mail_fetch_field field,
+				    const char *reason);
 	int (*istream_opened)(struct mail *mail, struct istream **input);
-	void (*set_cache_corrupted_reason)(struct mail *mail,
-					   enum mail_fetch_field field,
-					   const char *reason);
 };
 
 union mail_module_context {

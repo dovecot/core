@@ -157,7 +157,7 @@ void index_mail_set_message_parts_corrupted(struct mail *mail, const char *error
 	else
 		parts_str = binary_to_hex(part_buf->data, part_buf->used);
 
-	mail_set_cache_corrupted_reason(mail,
+	mail_set_cache_corrupted(mail,
 		MAIL_FETCH_MESSAGE_PARTS, t_strdup_printf(
 		"Cached MIME parts don't match message during parsing: %s (parts=%s)",
 		error, parts_str));
@@ -1381,7 +1381,7 @@ int index_mail_get_special(struct mail *_mail,
 			if (imap_body_parse_from_bodystructure(
 					data->bodystructure, str, &error) < 0) {
 				/* broken, continue.. */
-				mail_set_cache_corrupted_reason(_mail,
+				mail_set_cache_corrupted(_mail,
 					MAIL_FETCH_IMAP_BODYSTRUCTURE, t_strdup_printf(
 					"Invalid BODYSTRUCTURE %s: %s",
 					data->bodystructure, error));
@@ -2157,14 +2157,8 @@ void index_mail_precache(struct mail *mail)
 }
 
 void index_mail_set_cache_corrupted(struct mail *mail,
-				    enum mail_fetch_field field)
-{
-	index_mail_set_cache_corrupted_reason(mail, field, "");
-}
-
-void index_mail_set_cache_corrupted_reason(struct mail *mail,
-					   enum mail_fetch_field field,
-					   const char *reason)
+				    enum mail_fetch_field field,
+				    const char *reason)
 {
 	struct index_mail *imail = (struct index_mail *)mail;
 	const char *field_name;

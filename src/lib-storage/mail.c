@@ -421,24 +421,12 @@ void mail_precache(struct mail *mail)
 	} T_END;
 }
 
-void mail_set_cache_corrupted(struct mail *mail, enum mail_fetch_field field)
-{
-	mail_set_cache_corrupted_reason(mail, field, "");
-}
-
-void mail_set_cache_corrupted_reason(struct mail *mail,
-				     enum mail_fetch_field field,
-				     const char *reason)
+void mail_set_cache_corrupted(struct mail *mail,
+			      enum mail_fetch_field field,
+			      const char *reason)
 {
 	struct mail_private *p = (struct mail_private *)mail;
-
-	/* FIXME: v2.3: rename set_cache_corrupted_reason() to just
-	   set_cache_corrupted(). we have two here for backwards API
-	   compatibility. */
-	if (p->v.set_cache_corrupted_reason != NULL)
-		p->v.set_cache_corrupted_reason(mail, field, reason);
-	else
-		p->v.set_cache_corrupted(mail, field);
+	p->v.set_cache_corrupted(mail, field, reason);
 }
 
 void mail_generate_guid_128_hash(const char *guid, guid_128_t guid_128_r)

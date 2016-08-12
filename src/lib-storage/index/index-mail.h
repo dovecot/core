@@ -236,10 +236,8 @@ void index_mail_update_pvt_modseq(struct mail *mail, uint64_t min_pvt_modseq);
 void index_mail_expunge(struct mail *mail);
 void index_mail_precache(struct mail *mail);
 void index_mail_set_cache_corrupted(struct mail *mail,
-				    enum mail_fetch_field field);
-void index_mail_set_cache_corrupted_reason(struct mail *mail,
-					   enum mail_fetch_field field,
-					   const char *reason);
+				    enum mail_fetch_field field,
+				    const char *reason);
 int index_mail_opened(struct mail *mail, struct istream **stream);
 int index_mail_stream_check_failure(struct index_mail *mail);
 void index_mail_stream_log_failure_for(struct index_mail *mail,

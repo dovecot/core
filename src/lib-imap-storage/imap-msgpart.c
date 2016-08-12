@@ -769,7 +769,7 @@ imap_msgpart_parse_bodystructure(struct mail *mail,
 
 	if (imap_bodystructure_parse(bodystructure, pmail->data_pool,
 				     all_parts, &error) < 0) {
-		mail_set_cache_corrupted_reason(mail,
+		mail_set_cache_corrupted(mail,
 			MAIL_FETCH_IMAP_BODYSTRUCTURE, t_strdup_printf(
 			"Invalid message_part/BODYSTRUCTURE %s: %s",
 			bodystructure, error));

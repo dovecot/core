@@ -108,7 +108,7 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 		if (state->cur_input->v_offset != state->cur_size) {
 			/* Input stream gave less data than expected */
-			mail_set_cache_corrupted_reason(state->cur_mail,
+			mail_set_cache_corrupted(state->cur_mail,
 				state->cur_size_field, t_strdup_printf(
 				"read(%s): FETCH %s got too little data: "
 				"%"PRIuUOFF_T" vs %"PRIuUOFF_T,

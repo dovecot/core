@@ -606,5 +606,4 @@ struct mail_vfuncs imapc_mail_vfuncs = {
 	index_mail_expunge,
 	index_mail_set_cache_corrupted,
 	index_mail_opened,
-	index_mail_set_cache_corrupted_reason
 };
