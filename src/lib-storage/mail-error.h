@@ -8,8 +8,6 @@
 
 /* And just for making error strings consistent: */
 #define MAIL_ERRSTR_NO_QUOTA "Not enough disk quota"
-/* FIXME: Obsolete - remove for v2.3 */
-#define MAIL_ERRSTR_NO_SPACE MAIL_ERRSTR_NO_QUOTA
 #define MAIL_ERRSTR_LOCK_TIMEOUT "Timeout while waiting for lock"
 
 /* Message to show to users when critical error occurs */
@@ -49,9 +47,6 @@ enum mail_error {
 	/* Can't do the requested data conversion because the original data
 	   isn't valid. */
 	MAIL_ERROR_INVALIDDATA,
-
-	/* FIXME: Obsolete - remove in v2.3 */
-	MAIL_ERROR_NOSPACE = MAIL_ERROR_NOQUOTA
 };
 
 /* Convert errno to mail_error and an error string. Returns TRUE if successful,
