@@ -10,7 +10,7 @@ struct http_header_limits {
 };
 
 struct http_header_field {
-	const char *key; /* FIXME: rename to 'name' for v2.3 */
+	const char *name;
 	const char *value;
 	size_t size;
 };
@@ -19,7 +19,7 @@ ARRAY_DEFINE_TYPE(http_header_field, struct http_header_field);
 static inline bool http_header_field_is(const struct http_header_field *hfield,
 	const char *name)
 {
-	return (strcasecmp(hfield->key, name) == 0);
+	return (strcasecmp(hfield->name, name) == 0);
 }
 
 struct http_header *

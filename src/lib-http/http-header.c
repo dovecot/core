@@ -30,7 +30,7 @@ http_header_field_add(struct http_header *header,
 	void *value;
 
 	hfield = array_append_space(&header->fields);
-	hfield->key = p_strdup(pool, name);
+	hfield->name = p_strdup(pool, name);
 	hfield->size = size;
 
 	value = p_malloc(pool, size+1);
