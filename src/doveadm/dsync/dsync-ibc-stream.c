@@ -1663,6 +1663,7 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 	struct dsync_mail_change *change;
 	const char *value;
 	unsigned int uintval;
+	unsigned long long ullongval;
 	enum dsync_ibc_recv_ret ret;
 
 	p_clear(pool);
@@ -1750,15 +1751,19 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 			array_append(&change->keyword_changes, &value, 1);
 		}
 	}
-	if (dsync_deserializer_decode_try(decoder, "received_timestamp", &value) &&
-	    str_to_time(value, &change->received_timestamp) < 0) {
-		dsync_ibc_input_error(ibc, decoder, "Invalid received_timestamp");
-		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	if (dsync_deserializer_decode_try(decoder, "received_timestamp", &value)) {
+		if (str_to_ullong_hex(value, &ullongval) < 0) {
+			dsync_ibc_input_error(ibc, decoder, "Invalid received_timestamp");
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+		change->received_timestamp = ullongval;
 	}
-	if (dsync_deserializer_decode_try(decoder, "virtual_size", &value) &&
-	    str_to_uoff(value, &change->virtual_size) < 0) {
-		dsync_ibc_input_error(ibc, decoder, "Invalid virtual_size");
-		return DSYNC_IBC_RECV_RET_TRYAGAIN;
+	if (dsync_deserializer_decode_try(decoder, "virtual_size", &value)) {
+		if (str_to_ullong_hex(value, &ullongval) < 0) {
+			dsync_ibc_input_error(ibc, decoder, "Invalid virtual_size");
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+		change->virtual_size = ullongval;
 	}
 
 	*change_r = change;
