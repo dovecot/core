@@ -12,11 +12,13 @@ void *mmap_file(int fd, size_t *length, int prot)
 	if (fstat(fd, &st) < 0)
 		return MAP_FAILED;
 
+#if OFF_T_MAX > SSIZE_T_MAX
 	if (st.st_size > SSIZE_T_MAX) {
 		/* too large file to map into memory */
 		errno = EFBIG;
 		return MAP_FAILED;
 	}
+#endif
 
 	*length = (size_t)st.st_size;
 	if (*length == 0)
