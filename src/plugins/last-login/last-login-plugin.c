@@ -135,6 +135,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	} else {
 		i_error("last_login_dict: Invalid last_login_precision '%s'", precision);
 	}
+	dict_transaction_no_slowness_warning(trans);
 	dict_transaction_commit_async(&trans, last_login_dict_commit, user);
 }
 
