@@ -147,9 +147,7 @@ fts_backend_squat_set_box(struct squat_fts_backend *backend,
 	if (backend->full_len != 0)
 		squat_trie_set_full_len(backend->trie, backend->full_len);
 	backend->box = box;
-	ret = squat_trie_open(backend->trie);
-	if (ret < 0)
-		return -1;
+	return squat_trie_open(backend->trie);
 }
 
 static int
