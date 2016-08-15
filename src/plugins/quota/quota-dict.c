@@ -230,6 +230,7 @@ dict_quota_update(struct quota_root *_root,
 			dict_atomic_inc(dt, DICT_QUOTA_CURRENT_COUNT_PATH,
 					ctx->count_used);
 		}
+		dict_transaction_no_slowness_warning(dt);
 		dict_transaction_commit_async(&dt, dict_quota_update_callback,
 					      root);
 	}
