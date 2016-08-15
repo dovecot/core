@@ -202,6 +202,11 @@ struct dict_transaction_context *dict_transaction_begin(struct dict *dict)
 	return dict->v.transaction_init(dict);
 }
 
+void dict_transaction_no_slowness_warning(struct dict_transaction_context *ctx)
+{
+	ctx->no_slowness_warning = TRUE;
+}
+
 struct dict_commit_sync_result {
 	int ret;
 	char *error;

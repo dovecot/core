@@ -61,6 +61,7 @@ struct dict_transaction_context {
 	struct dict *dict;
 
 	bool changed:1;
+	bool no_slowness_warning:1;
 };
 
 void dict_transaction_commit_async_noop_callback(
