@@ -375,7 +375,6 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 	struct client_dict_cmd *const *cmds;
 	unsigned int count;
 	bool finished;
-	int diff;
 
 	if (dict->to_requests != NULL)
 		timeout_reset(dict->to_requests);
@@ -397,21 +396,6 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 	if (!finished) {
 		/* more lines needed for this command */
 		return 1;
-	}
-	diff = cmds[0]->background ? 0 :
-		timeval_diff_msecs(&ioloop_timeval, &cmds[0]->start_time);
-	if (diff < DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS)
-		;
-	else if (cmds[0]->commit_query_human != NULL) {
-		i_warning("read(%s): dict commit took %u.%03u seconds: %s",
-			  dict->conn.conn.name, diff/1000, diff % 1000,
-			  cmds[0]->commit_query_human);
-	} else {
-		const char *type = cmds[0]->iter != NULL ?
-			"iteration" : "lookup";
-		i_warning("read(%s): dict %s took %u.%03u seconds: %s",
-			  dict->conn.conn.name, type, diff/1000, diff % 1000,
-			  cmds[0]->query);
 	}
 	client_dict_cmd_unref(cmds[0]);
 	array_delete(&dict->cmds, 0, 1);
@@ -718,6 +702,19 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd, const char *line,
 		result.ret = -1;
 		break;
 	}
+
+	int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+	if (result.error != NULL) {
+		/* include timing info always in error messages */
+		result.error = t_strdup_printf("%s (reply took %u.%03u secs)",
+			result.error, diff/1000, diff%1000);
+	} else if (!cmd->background &&
+		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
+		i_warning("read(%s): dict lookup took %u.%03u seconds: %s",
+			  dict->conn.conn.name, diff/1000, diff % 1000,
+			  cmd->query);
+	}
+
 	dict_pre_api_callback(dict);
 	cmd->api_callback.lookup(&result, cmd->api_callback.context);
 	dict_post_api_callback(dict);
@@ -794,11 +791,29 @@ static void client_dict_iterate_free(struct client_dict_iterate_context *ctx)
 
 static void
 client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
-			      struct client_dict *dict)
+			      struct client_dict_cmd *cmd)
 {
+	struct client_dict *dict = cmd->dict;
+
 	if (ctx->deinit) {
 		/* iterator was already deinitialized */
 		return;
+	}
+	if (ctx->finished) {
+		int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+		if (ctx->error != NULL) {
+			/* include timing info always in error messages */
+			char *new_error = i_strdup_printf(
+				"%s (reply took %u.%03u secs)",
+				ctx->error, diff/1000, diff%1000);
+			i_free(ctx->error);
+			ctx->error = new_error;
+		} else if (!cmd->background &&
+			   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
+			i_warning("read(%s): dict iteration took %u.%03u seconds: %s",
+				  dict->conn.conn.name, diff/1000, diff % 1000,
+				  cmd->query);
+		}
 	}
 	if (ctx->ctx.async_callback != NULL) {
 		dict_pre_api_callback(dict);
@@ -830,7 +845,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 	case '\0':
 		/* end of iteration */
 		ctx->finished = TRUE;
-		client_dict_iter_api_callback(ctx, dict);
+		client_dict_iter_api_callback(ctx, cmd);
 		client_dict_iterate_free(ctx);
 		return;
 	case DICT_PROTOCOL_REPLY_OK:
@@ -855,7 +870,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 		if (ctx->error == NULL)
 			ctx->error = i_strdup(error);
 		ctx->finished = TRUE;
-		client_dict_iter_api_callback(ctx, dict);
+		client_dict_iter_api_callback(ctx, cmd);
 		client_dict_iterate_free(ctx);
 		return;
 	}
@@ -871,7 +886,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 	result->key = p_strdup(ctx->results_pool, t_str_tabunescape(key));
 	result->value = p_strdup(ctx->results_pool, t_str_tabunescape(value));
 
-	client_dict_iter_api_callback(ctx, dict);
+	client_dict_iter_api_callback(ctx, cmd);
 }
 
 static struct dict_iterate_context *
@@ -980,6 +995,8 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	struct client_dict *dict = cmd->dict;
 	int ret = -1;
 
+	i_assert(cmd->commit_query_human != NULL);
+
 	if (error != NULL) {
 		/* failed */
 		i_error("dict-client: Commit failed: %s", error);
@@ -1009,6 +1026,19 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		client_dict_disconnect(dict, error);
 		break;
 	}
+
+	int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+	if (result.error != NULL) {
+		/* include timing info always in error messages */
+		result.error = t_strdup_printf("%s (reply took %u.%03u secs)",
+			result.error, diff/1000, diff%1000);
+	} else if (!cmd->background &&
+		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
+		i_warning("read(%s): dict commit took %u.%03u seconds: %s",
+			  dict->conn.conn.name, diff/1000, diff % 1000,
+			  cmd->commit_query_human);
+	}
+
 	dict_pre_api_callback(dict);
 	cmd->api_callback.commit(ret, cmd->api_callback.context);
 	dict_post_api_callback(dict);
