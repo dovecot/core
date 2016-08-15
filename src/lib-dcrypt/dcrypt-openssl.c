@@ -281,7 +281,7 @@ bool dcrypt_openssl_ctx_sym_get_tag(struct dcrypt_context_symmetric *ctx, buffer
 static
 unsigned int dcrypt_openssl_ctx_sym_get_key_length(struct dcrypt_context_symmetric *ctx)
 {
-	return EVP_CIPHER_iv_length(ctx->cipher);
+	return EVP_CIPHER_key_length(ctx->cipher);
 }
 static
 unsigned int dcrypt_openssl_ctx_sym_get_iv_length(struct dcrypt_context_symmetric *ctx)
