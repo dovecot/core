@@ -30,7 +30,7 @@ struct snippet_context {
 static bool snippet_generate(struct snippet_context *ctx,
 			     const unsigned char *data, size_t size)
 {
-	unsigned int i, count;
+	size_t i, count;
 
 	if (ctx->html2text != NULL) {
 		buffer_set_used_size(ctx->plain_output, 0);
@@ -42,6 +42,7 @@ static bool snippet_generate(struct snippet_context *ctx,
 
 	/* message-decoder should feed us only valid and complete
 	   UTF-8 input */
+
 	for (i = 0; i < size; i += count) {
 		count = 1;
 		switch (ctx->state) {
@@ -53,9 +54,17 @@ static bool snippet_generate(struct snippet_context *ctx,
 			ctx->state = SNIPPET_STATE_NORMAL;
 			/* fallthrough */
 		case SNIPPET_STATE_NORMAL:
+			if (size-i >= 3 &&
+			     ((data[i] == U'\xEF' && data[i+1] == U'\xBB' && data[i+2] == U'\xBF') ||
+			      (data[i] == U'\xBF' && data[i+1] == U'\xBB' && data[i+2] == U'\xEF'))) {
+				count += 2; /* because we skip +1 next */
+				break;
+			}
 			if (data[i] == '\r' || data[i] == '\n' ||
 			    data[i] == '\t' || data[i] == ' ') {
-				ctx->add_whitespace = TRUE;
+				/* skip any leading whitespace */
+				if (str_len(ctx->snippet) > 1)
+					ctx->add_whitespace = TRUE;
 				if (data[i] == '\n')
 					ctx->state = SNIPPET_STATE_NEWLINE;
 				break;
