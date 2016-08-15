@@ -118,6 +118,11 @@ int dict_iterate_deinit(struct dict_iterate_context **ctx);
 
 /* Start a new dictionary transaction. */
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict);
+/* Don't log a warning if the transaction commit took a long time.
+   This is needed if there are no guarantees that an asynchronous commit will
+   finish up anytime soon. Mainly useful for transactions which aren't
+   especially important whether they finish or not. */
+void dict_transaction_no_slowness_warning(struct dict_transaction_context *ctx);
 /* Commit the transaction. Returns 1 if ok, 0 if dict_atomic_inc() was used
    on a nonexistent key, -1 if failed. */
 int dict_transaction_commit(struct dict_transaction_context **ctx);

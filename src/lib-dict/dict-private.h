@@ -60,6 +60,7 @@ struct dict_transaction_context {
 	struct dict *dict;
 
 	unsigned int changed:1;
+	unsigned int no_slowness_warning:1;
 };
 
 extern struct dict dict_driver_client;
