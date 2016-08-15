@@ -32,7 +32,6 @@ struct client_dict_cmd {
 	struct client_dict *dict;
 	struct timeval start_time;
 	char *query;
-	char *commit_query_human;
 
 	bool retry_errors;
 	bool no_replies;
@@ -43,6 +42,7 @@ struct client_dict_cmd {
 			 const char *line, const char *error,
 			 bool disconnected);
         struct client_dict_iterate_context *iter;
+	struct client_dict_transaction_context *trans;
 
 	struct {
 		dict_lookup_callback_t *lookup;
@@ -142,7 +142,8 @@ static bool client_dict_cmd_unref(struct client_dict_cmd *cmd)
 	if (--cmd->refcount > 0)
 		return TRUE;
 
-	i_free(cmd->commit_query_human);
+	i_assert(cmd->trans == NULL);
+
 	i_free(cmd->query);
 	i_free(cmd);
 	return FALSE;
@@ -988,6 +989,17 @@ client_dict_transaction_init(struct dict *_dict)
 }
 
 static void
+client_dict_transaction_free(struct client_dict_transaction_context **_ctx)
+{
+	struct client_dict_transaction_context *ctx = *_ctx;
+
+	*_ctx = NULL;
+	i_free(ctx->first_query);
+	i_free(ctx->error);
+	i_free(ctx);
+}
+
+static void
 client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 					const char *line, const char *error,
 					bool disconnected)
@@ -995,11 +1007,13 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	struct client_dict *dict = cmd->dict;
 	int ret = -1;
 
-	i_assert(cmd->commit_query_human != NULL);
+	i_assert(cmd->trans != NULL);
 
+	int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
 	if (error != NULL) {
 		/* failed */
-		i_error("dict-client: Commit failed: %s", error);
+		i_error("dict-client: Commit failed: %s "
+			"(reply took %u.%03u secs)", error, diff/1000, diff%1000);
 		if (disconnected)
 			ret = DICT_COMMIT_RET_WRITE_UNCERTAIN;
 	} else switch (*line) {
@@ -1015,41 +1029,34 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	case DICT_PROTOCOL_REPLY_FAIL: {
 		const char *error = strchr(line+1, '\t');
 
-		i_error("dict-client: server returned failure: %s",
-			error != NULL ? t_str_tabunescape(error) : "");
+		i_error("dict-client: server returned failure: %s "
+			"(reply took %u.%03u secs)",
+			error != NULL ? t_str_tabunescape(error) : "",
+			diff/1000, diff%1000);
 		break;
 	}
 	default:
 		ret = -1;
-		error = t_strdup_printf("dict-client: Invalid commit reply: %s", line);
+		error = t_strdup_printf("dict-client: Invalid commit reply: %s "
+			"(reply took %u.%03u secs)", line, diff/1000, diff%1000);
 		i_error("%s", error);
 		client_dict_disconnect(dict, error);
 		break;
 	}
 
-	int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
-	if (result.error != NULL) {
-		/* include timing info always in error messages */
-		result.error = t_strdup_printf("%s (reply took %u.%03u secs)",
-			result.error, diff/1000, diff%1000);
-	} else if (!cmd->background &&
-		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
-		i_warning("read(%s): dict commit took %u.%03u seconds: %s",
+	if (ret >= 0 && !cmd->background &&
+	    diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
+		i_warning("read(%s): dict commit took %u.%03u seconds: "
+			  "%s (%u commands, first: %s)",
 			  dict->conn.conn.name, diff/1000, diff % 1000,
-			  cmd->commit_query_human);
+			  cmd->query, cmd->trans->query_count,
+			  cmd->trans->first_query);
 	}
+	client_dict_transaction_free(&cmd->trans);
 
 	dict_pre_api_callback(dict);
 	cmd->api_callback.commit(ret, cmd->api_callback.context);
 	dict_post_api_callback(dict);
-}
-
-static void
-client_dict_transaction_free(struct client_dict_transaction_context *ctx)
-{
-	i_free(ctx->first_query);
-	i_free(ctx->error);
-	i_free(ctx);
 }
 
 static void commit_sync_callback(int ret, void *context)
@@ -1076,9 +1083,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	if (ctx->sent_begin && ctx->error == NULL) {
 		query = t_strdup_printf("%c%u", DICT_PROTOCOL_CMD_COMMIT, ctx->id);
 		cmd = client_dict_cmd_init(dict, query);
-		cmd->commit_query_human = i_strdup_printf(
-			"%s (%u commands, first: %s)", query,
-			ctx->query_count, ctx->first_query);
+		cmd->trans = ctx;
 
 		cmd->callback = client_dict_transaction_commit_callback;
 		if (callback != NULL) {
@@ -1098,15 +1103,16 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 		/* already failed */
 		if (callback != NULL)
 			callback(-1, context);
+		client_dict_transaction_free(&ctx);
 		ret = -1;
 	} else {
 		/* nothing changed */
 		if (callback != NULL)
 			callback(1, context);
+		client_dict_transaction_free(&ctx);
 		ret = 1;
 	}
 
-	client_dict_transaction_free(ctx);
 	client_dict_add_timeout(dict);
 	return ret;
 }
@@ -1127,7 +1133,7 @@ client_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	}
 
 	DLLIST_REMOVE(&dict->transactions, ctx);
-	client_dict_transaction_free(ctx);
+	client_dict_transaction_free(&ctx);
 	client_dict_add_timeout(dict);
 }
 
