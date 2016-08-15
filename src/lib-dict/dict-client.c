@@ -1045,6 +1045,7 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	}
 
 	if (ret >= 0 && !cmd->background &&
+	    !cmd->trans->ctx.no_slowness_warning &&
 	    diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
 		i_warning("read(%s): dict commit took %u.%03u seconds: "
 			  "%s (%u commands, first: %s)",
