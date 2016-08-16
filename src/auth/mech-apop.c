@@ -101,6 +101,12 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 		username = ++tmp;
 		while (tmp != end && *tmp != '\0')
 			tmp++;
+	} else {
+		/* should never happen */
+		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
+			"malformed data");
+		auth_request_fail(auth_request);
+		return;
 	}
 
 	if (tmp + 1 + 16 != end) {
