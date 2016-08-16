@@ -439,6 +439,8 @@ int index_mail_parse_headers(struct index_mail *mail,
 	if (mail_get_hdr_stream_because(&mail->mail.mail, NULL, reason, &input) < 0)
 		return -1;
 
+	i_assert(data->stream != NULL);
+
 	index_mail_parse_header_init(mail, headers);
 
 	if (data->parts == NULL || data->save_bodystructure_header) {
