@@ -304,7 +304,9 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 		o_stream_nsend(output, key, value-key);
 		o_stream_nsend_str(output, " = ");
 		if (hide_passwords && value[1] != '\0' &&
-		    value-key > 9 && strncmp(value-9, "_password", 9) == 0) {
+		    ((value-key > 9 && strncmp(value-9, "_password", 9) == 0) ||
+		     strncmp(key, "ssl_key",7) == 0 ||
+		     strncmp(key, "ssl_dh",6) == 0))  {
 			o_stream_nsend_str(output, " # hidden, use -P to show it");
 		} else if (!value_need_quote(value+1))
 			o_stream_nsend_str(output, value+1);
