@@ -1,3 +1,4 @@
+pkgsysconfdir = $(sysconfdir)/dovecot
 pkglibexecdir = $(libexecdir)/dovecot
 exampledir = $(docdir)/example-config
 
