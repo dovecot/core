@@ -202,8 +202,7 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 			unlinked_something = TRUE;
 		else if (errno != ENOENT && !UNLINK_EISDIR(errno)) {
 			mailbox_list_set_critical(list,
-				"unlink_directory(%s) failed: %m",
-				str_c(full_path));
+				"unlink(%s) failed: %m", str_c(full_path));
 		}
 	}
 	if (errno != 0)
