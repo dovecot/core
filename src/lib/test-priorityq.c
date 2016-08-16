@@ -61,8 +61,10 @@ void test_priorityq(void)
 			test_assert(priorityq_count(pq) == N_ELEMENTS(output) - j);
 
 			item = (struct pq_test_item *)priorityq_peek(pq);
+			i_assert(item != NULL);
 			test_assert(output[j] == item->num);
 			item = (struct pq_test_item *)priorityq_pop(pq);
+			i_assert(item != NULL);
 			test_assert(output[j] == item->num);
 		}
 		test_assert(priorityq_count(pq) == 0);
