@@ -691,11 +691,18 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		/* we don't want to write core files to any users' home
 		   directories since they could contain information about other
 		   users' mails as well. so do no chdiring to home. */
-	} else if (*home != '\0' &&
-		   (user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR) == 0) {
+	} else if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR) == 0) {
 		/* If possible chdir to home directory, so that core file
-		   could be written in case we crash. */
-		if (chdir(home) < 0) {
+		   could be written in case we crash.
+
+		   fallback to chdir()ing to root directory. this is needed
+		   because the current directory may not be accessible after
+		   dropping privileges, and for example unlink_directory()
+		   requires ability to open the current directory. */
+		if (home[0] == '\0') {
+			if (chdir("/") < 0)
+				i_error("chdir(/) failed: %m");
+		} else if (chdir(home) < 0) {
 			if (errno == EACCES) {
 				i_error("%s", eacces_error_get("chdir",
 						t_strconcat(home, "/", NULL)));
@@ -703,6 +710,9 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 				i_error("chdir(%s) failed: %m", home);
 			else if (mail_set->mail_debug)
 				i_debug("Home dir not found: %s", home);
+
+			if (chdir("/") < 0)
+				i_error("chdir(/) failed: %m");
 		}
 	}
 
