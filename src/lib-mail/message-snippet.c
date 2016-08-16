@@ -55,8 +55,8 @@ static bool snippet_generate(struct snippet_context *ctx,
 			/* fallthrough */
 		case SNIPPET_STATE_NORMAL:
 			if (size-i >= 3 &&
-			     ((data[i] == U'\xEF' && data[i+1] == U'\xBB' && data[i+2] == U'\xBF') ||
-			      (data[i] == U'\xBF' && data[i+1] == U'\xBB' && data[i+2] == U'\xEF'))) {
+			     ((data[i] == 0xEF && data[i+1] == 0xBB && data[i+2] == 0xBF) ||
+			      (data[i] == 0xBF && data[i+1] == 0xBB && data[i+2] == 0xEF))) {
 				count += 2; /* because we skip +1 next */
 				break;
 			}
