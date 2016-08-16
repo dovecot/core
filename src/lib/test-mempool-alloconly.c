@@ -17,7 +17,7 @@ static bool mem_has_bytes(const void *mem, size_t size, uint8_t b)
 void test_mempool_alloconly(void)
 {
 #define SENTRY_SIZE 32
-#define SENTRY_CHAR '\xDE'
+#define SENTRY_CHAR 0xDE
 #define PMALLOC_MAX_COUNT 128
 	pool_t pool;
 	unsigned int i, j, k;
