@@ -183,6 +183,7 @@ void md5_init(struct md5_context *ctx)
 
 	ctx->lo = 0;
 	ctx->hi = 0;
+	memset(ctx->block, 0, sizeof(ctx->block));
 }
 
 void md5_update(struct md5_context *ctx, const void *data, size_t size)
