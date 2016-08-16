@@ -109,8 +109,10 @@ void master_login_auth_disconnect(struct master_login_auth *auth)
 	if (auth->io != NULL)
 		io_remove(&auth->io);
 	if (auth->fd != -1) {
-		i_stream_destroy(&auth->input);
-		o_stream_destroy(&auth->output);
+		if (auth->input != NULL)
+			i_stream_destroy(&auth->input);
+		if (auth->output != NULL)
+			o_stream_destroy(&auth->output);
 
 		net_disconnect(auth->fd);
 		auth->fd = -1;
