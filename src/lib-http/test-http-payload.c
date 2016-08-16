@@ -757,6 +757,8 @@ test_client_download_response(const struct http_response *resp,
 	}
 
 	fstream = test_file_open(path, &status, &reason);
+	i_assert(fstream != NULL);
+
 	if (status != resp->status) {
 		i_fatal("test client: download: "
 			"got wrong response for %s: %u %s (expected: %u %s)",
