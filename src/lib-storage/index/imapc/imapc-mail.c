@@ -462,6 +462,7 @@ static int imapc_mail_get_hdr_hash(struct index_mail *imail)
 		imail->data.stream->v_offset;
 	if (mail_get_hdr_stream(&imail->mail.mail, NULL, &input) < 0)
 		return -1;
+	i_assert(imail->data.stream != NULL);
 	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&sha1_ctx, data, size);
 		i_stream_skip(input, size);
