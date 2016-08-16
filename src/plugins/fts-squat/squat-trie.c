@@ -482,6 +482,9 @@ node_read_children(struct squat_trie *trie, struct squat_node *node, int level)
 						   level);
 			children = NODE_CHILDREN_NODES(node);
 		}
+
+		i_assert(children != NULL);
+
 		child = &children[child_idx];
 
 		/* 1) child offset */
