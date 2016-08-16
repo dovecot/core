@@ -454,7 +454,8 @@ int config_export_finish(struct config_export_context **_ctx)
 				if (value == NULL || **value == '\0') {
 					const char *newval;
 					if (old_settings_ssl_dh_load(&newval, &error)) {
-						settings_parse_line(parser->parser, t_strdup_printf("%s=%s", "ssl_dh", newval));
+						if (newval != NULL)
+							settings_parse_line(parser->parser, t_strdup_printf("%s=%s", "ssl_dh", newval));
 					} else {
 						i_error("%s", error);
 						ret = -1;

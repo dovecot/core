@@ -82,13 +82,15 @@ bool old_settings_ssl_dh_load(const char **value, const char **error_r)
 
 	/* try read it */
 	struct istream *is = i_stream_create_file(fn, IO_BLOCK_SIZE);
+
 	if (is->stream_errno == ENOENT) {
 		/* this is given because the ssl-parameters.dat file is no more there
 		 and we don't want to to make go searching for the file
 		 this code is only ever reached if ssl_dh_parameters is empty anyways
 		 */
-		*error_r = "ssl enabled, but ssl_dh not set";
-		return FALSE;
+		/* check moved to correct place from here */
+		*value = NULL;
+		return TRUE;
 	} else if (is->stream_errno != 0) {
 		*error_r = t_strdup(i_stream_get_error(is));
 		return FALSE;
@@ -130,6 +132,10 @@ bool old_settings_ssl_dh_load(const char **value, const char **error_r)
 			i_warning("You can generate it with: dd if=%s bs=1 skip=%u | openssl dh -inform der > %s", fn, off, SYSCONFDIR"/dh.pem");
 			seen_ssl_parameters_dat = TRUE;
 		}
+	} else if (is->stream_errno == ENOENT) {
+		/* check for empty ssl_dh elsewhere */
+		*value = NULL;
+		return TRUE;
 	} else {
 		*error_r = "ssl enabled, but ssl_dh not set";
 		return FALSE;
