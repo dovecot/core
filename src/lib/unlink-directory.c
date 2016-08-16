@@ -33,6 +33,7 @@
 #define _GNU_SOURCE /* for O_NOFOLLOW with Linux */
 
 #include "lib.h"
+#include "abspath.h"
 #include "unlink-directory.h"
 
 #include <fcntl.h>
@@ -41,7 +42,8 @@
 #include <sys/stat.h>
 
 static int
-unlink_directory_r(const char *dir, enum unlink_directory_flags flags)
+unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
+		   const char **error_r)
 {
 	DIR *dirp;
 	struct dirent *d;
@@ -50,30 +52,40 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags)
 
 #ifdef O_NOFOLLOW
 	dir_fd = open(dir, O_RDONLY | O_NOFOLLOW);
-	if (dir_fd == -1)
+	if (dir_fd == -1) {
+		*error_r = t_strdup_printf(
+			"open(%s, O_RDONLY | O_NOFOLLOW) failed: %m", dir);
 		return -1;
+	}
 #else
 	struct stat st2;
 
-	if (lstat(dir, &st) < 0)
+	if (lstat(dir, &st) < 0) {
+		*error_r = t_strdup_printf("lstat(%s) failed: %m", dir);
 		return -1;
+	}
 
 	if (!S_ISDIR(st.st_mode)) {
-		if ((st.st_mode & S_IFMT) != S_IFLNK)
+		if ((st.st_mode & S_IFMT) != S_IFLNK) {
+			*error_r = t_strdup_printf("%s is not a directory: %s", dir);
 			errno = ENOTDIR;
-		else {
+		} else {
 			/* be compatible with O_NOFOLLOW */
 			errno = ELOOP;
+			*error_r = t_strdup_printf("%s is a symlink, not a directory: %s", dir);
 		}
 		return -1;
 	}
 
 	dir_fd = open(dir, O_RDONLY);
-	if (dir_fd == -1)
+	if (dir_fd == -1) {
+		*error_r = t_strdup_printf("open(%s, O_RDONLY) failed: %m", dir);
 		return -1;
+	}
 
 	if (fstat(dir_fd, &st2) < 0) {
 		i_close_fd(&dir_fd);
+		*error_r = t_strdup_printf("fstat(%s) failed: %m", dir);
 		return -1;
 	}
 
@@ -82,17 +94,21 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags)
 		/* directory was just replaced with something else. */
 		i_close_fd(&dir_fd);
 		errno = ENOTDIR;
+		*error_r = t_strdup_printf(
+			"%s race condition: directory was just replaced", dir);
 		return -1;
 	}
 #endif
 	if (fchdir(dir_fd) < 0) {
                 i_close_fd(&dir_fd);
+		*error_r = t_strdup_printf("fchdir(%s) failed: %m", dir);
 		return -1;
 	}
 
 	dirp = opendir(".");
 	if (dirp == NULL) {
 		i_close_fd(&dir_fd);
+		*error_r = t_strdup_printf("opendir(.) (in %s) failed: %m", dir);
 		return -1;
 	}
 
@@ -117,7 +133,7 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags)
 				errno = 0;
 			} else if (S_ISDIR(st.st_mode) &&
 				   (flags & UNLINK_DIRECTORY_FLAG_FILES_ONLY) == 0) {
-				if (unlink_directory_r(d->d_name, flags) < 0) {
+				if (unlink_directory_r(d->d_name, flags, error_r) < 0) {
 					if (errno != ENOENT)
 						break;
 					errno = 0;
@@ -156,33 +172,45 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags)
 	old_errno = errno;
 
 	i_close_fd(&dir_fd);
-	if (closedir(dirp) < 0)
+	if (closedir(dirp) < 0) {
+		*error_r = t_strdup_printf("closedir(%s) failed: %m", dir);
 		return -1;
+	}
 
 	if (old_errno != 0) {
 		errno = old_errno;
+		*error_r = t_strdup_printf("readdir(%s) failed: %m", dir);
 		return -1;
 	}
 
 	return 0;
 }
 
-int unlink_directory(const char *dir, enum unlink_directory_flags flags)
+int unlink_directory(const char *dir, enum unlink_directory_flags flags,
+		     const char **error_r)
 {
+	const char *orig_dir;
 	int fd, ret, old_errno;
 
-	fd = open(".", O_RDONLY);
-	if (fd == -1)
-		return -1;
+	if (t_get_current_dir(&orig_dir) < 0)
+		orig_dir = ".";
 
-	ret = unlink_directory_r(dir, flags);
+	fd = open(".", O_RDONLY);
+	if (fd == -1) {
+		*error_r = t_strdup_printf(
+			"Can't preserve current directory %s: "
+			"open(.) failed: %m", orig_dir);
+		return -1;
+	}
+
+	ret = unlink_directory_r(dir, flags, error_r);
 	if (ret < 0 && errno == ENOENT)
 		ret = 0;
 	old_errno = errno;
 
 	if (fchdir(fd) < 0) {
 		i_fatal("unlink_directory(%s): "
-			"Can't fchdir() back to our original dir: %m", dir);
+			"Can't fchdir() back to our original dir %s: %m", dir, orig_dir);
 	}
 	i_close_fd(&fd);
 
@@ -193,6 +221,7 @@ int unlink_directory(const char *dir, enum unlink_directory_flags flags)
 
 	if ((flags & UNLINK_DIRECTORY_FLAG_RMDIR) != 0) {
 		if (rmdir(dir) < 0 && errno != ENOENT) {
+			*error_r = t_strdup_printf("rmdir(%s) failed: %m", dir);
 			if (errno == EEXIST) {
 				/* standardize errno */
 				errno = ENOTEMPTY;

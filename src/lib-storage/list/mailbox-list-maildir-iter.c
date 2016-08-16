@@ -245,7 +245,7 @@ int maildir_list_get_mailbox_flags(struct mailbox_list *list,
 static bool maildir_delete_trash_dir(struct maildir_list_iterate_context *ctx,
 				     const char *fname)
 {
-	const char *path;
+	const char *path, *error;
 	struct stat st;
 
 	if (fname[1] != ctx->prefix_char || ctx->prefix_char == '\0' ||
@@ -258,7 +258,7 @@ static bool maildir_delete_trash_dir(struct maildir_list_iterate_context *ctx,
 	path = t_strdup_printf("%s/%s", ctx->dir, fname);
 	if (stat(path, &st) == 0 &&
 	    st.st_mtime < ioloop_time - 3600)
-		(void)mailbox_list_delete_trash(path);
+		(void)mailbox_list_delete_trash(path, &error);
 
 	return TRUE;
 }

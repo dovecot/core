@@ -11,7 +11,10 @@ enum unlink_directory_flags {
 };
 
 /* Unlink directory and/or everything under it.
-   Returns 0 if successful, -1 if error. */
-int unlink_directory(const char *dir, enum unlink_directory_flags flags);
+   Returns 0 if successful, -1 if error. If the directory doesn't exist,
+   -1 and errno=ENOENT is returned. The returned error message contains the
+   exact syscall that failed, e.g. "open(path) failed: Permission denied" */
+int unlink_directory(const char *dir, enum unlink_directory_flags flags,
+		     const char **error_r);
 
 #endif

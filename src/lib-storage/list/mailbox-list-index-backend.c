@@ -460,7 +460,7 @@ static void
 index_list_try_delete(struct mailbox_list *_list, const char *name,
 		      enum mailbox_list_path_type type)
 {
-	const char *mailbox_path, *path;
+	const char *mailbox_path, *path, *error;
 
 	if (mailbox_list_get_path(_list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX,
 				  &mailbox_path) <= 0 ||
@@ -477,10 +477,10 @@ index_list_try_delete(struct mailbox_list *_list, const char *name,
 							     rmdir_path) < 0)
 			return;
 	} else {
-		if (mailbox_list_delete_trash(path) < 0 &&
+		if (mailbox_list_delete_trash(path, &error) < 0 &&
 		    errno != ENOENT && errno != ENOTEMPTY) {
 			mailbox_list_set_critical(_list,
-				"unlink_directory(%s) failed: %m", path);
+				"unlink_directory(%s) failed: %s", path, error);
 		}
 	}
 
