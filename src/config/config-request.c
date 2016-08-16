@@ -443,13 +443,15 @@ int config_export_finish(struct config_export_context **_ctx)
 			continue;
 
 		T_BEGIN {
-			/* maybe do it here */
-			if (settings_parse_is_valid_key(parser->parser, "ssl_dh")) {
-				enum setting_type stype;
-				const char *const *value = settings_parse_get_value(parser->parser,
+			enum setting_type stype;
+			const char *const *value = settings_parse_get_value(parser->parser, "ssl", &stype);
+
+			if (value != NULL && strcmp(*value, "no") != 0 &&
+			    settings_parse_is_valid_key(parser->parser, "ssl_dh")) {
+				value = settings_parse_get_value(parser->parser,
 					"ssl_dh", &stype);
 
-				if (**value == '\0') {
+				if (value == NULL || **value == '\0') {
 					const char *newval;
 					if (old_settings_ssl_dh_load(&newval, &error)) {
 						settings_parse_line(parser->parser, t_strdup_printf("%s=%s", "ssl_dh", newval));
