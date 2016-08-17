@@ -608,7 +608,7 @@ static int client_unhibernate_cmp(const void *p1, const void *p2)
 		 IMAP_CLIENT_MOVE_BACK_WITH_INPUT_TIMEOUT_SECS :
 		 IMAP_CLIENT_MOVE_BACK_WITHOUT_INPUT_TIMEOUT_SECS);
 	t2 = c2->move_back_start +
-		(c1->input_pending ?
+		(c2->input_pending ?
 		 IMAP_CLIENT_MOVE_BACK_WITH_INPUT_TIMEOUT_SECS :
 		 IMAP_CLIENT_MOVE_BACK_WITHOUT_INPUT_TIMEOUT_SECS);
 	if (t1 < t2)
