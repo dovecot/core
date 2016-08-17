@@ -54,13 +54,13 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	const unsigned char *data, size_t mlen)
 {
 	const char *error = NULL;
-	size_t hdr_len = 0;
+	size_t keydata_len = 0;
 	uint16_t len;
 	int ec, i = 0;
 
 	const unsigned char *digest_pos = NULL, *key_digest_pos = NULL, *key_ct_pos = NULL;
 
-	size_t pos = 9;
+	size_t pos = sizeof(IOSTREAM_CRYPT_MAGIC);
 	size_t digest_len = 0;
 	size_t key_ct_len = 0;
 	size_t key_digest_size = 0;
@@ -69,9 +69,10 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	buffer_t *secret = buffer_create_dynamic(pool_datastack_create(), 256);
 	buffer_t *key = buffer_create_dynamic(pool_datastack_create(), 256);
 
-	hdr_len = ((data[0] << 8) | data[1]) + 12;
-
-	if (mlen < hdr_len - pos) {
+	if (mlen < 2)
+		return 0;
+	keydata_len = (data[0] << 8) | data[1];
+	if (mlen-2 < keydata_len) {
 		/* try to read more */
 		return 0;
 	}
@@ -79,12 +80,14 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	data+=2;
 	mlen-=2;
 
-	memcpy(&len, data, 2);
-
-	while(i < 4 && mlen > 2 && (len = ntohs(len)) <= (mlen - 2) && len > 0) {
+	while (i < 4 && mlen > 2) {
+		memcpy(&len, data, 2);
+		len = ntohs(len);
 		data += 2;
 		mlen -= 2;
 		pos += 2;
+		if (len == 0 || len > mlen)
+			break;
 
 		switch(i++) {
 		case 0:
@@ -109,7 +112,6 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 		pos += len;
 		data += len;
 		mlen -= len;
-		memcpy(&len, data, 2);
 	}
 
 	if (i < 4) {
@@ -227,7 +229,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	stream->initialized = TRUE;
 	/* now we are ready to decrypt stream */
 
-	return hdr_len;
+	return sizeof(IOSTREAM_CRYPT_MAGIC) + 1 + 2 + keydata_len;
 }
 
 static bool get_msb32(const unsigned char **_data, const unsigned char *end, uint32_t *num_r)
