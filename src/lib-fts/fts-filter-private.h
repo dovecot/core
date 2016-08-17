@@ -26,9 +26,10 @@ struct fts_filter_vfuncs {
 struct fts_filter {
 	const char *class_name; /* name of the class this is based on */
 	struct fts_filter_vfuncs v;
-	int refcount;
 	struct fts_filter *parent;
 	string_t *token;
+	size_t max_length;
+	int refcount;
 };
 
 #endif
