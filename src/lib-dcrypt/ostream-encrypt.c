@@ -84,7 +84,7 @@ int o_stream_encrypt_send_header_v1(struct encrypt_ostream *stream)
 	/* version */
 	c = 1;
 	buffer_append(values, &c, 1);
-	/* header length including this and data written so far */
+	/* key data length */
 	s = htons(stream->key_data_len);
 	buffer_append(values, &s, 2);
 	/* then write key data */
