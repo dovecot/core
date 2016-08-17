@@ -670,8 +670,8 @@ i_stream_decrypt_read(struct istream_private *stream)
 		}
 		/* need to read more input */
 		ret = i_stream_read(stream->parent);
-		if (ret == 0)
-			return 0;
+		if (ret == 0 || ret == -2)
+			return ret;
 		data = i_stream_get_data(stream->parent, &size);
 
 		if (ret == -1 && (size == 0 || stream->parent->stream_errno != 0)) {
@@ -709,11 +709,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 		if (!dstream->initialized) {
 			ssize_t hret;
 
-			/* put the data in buffer */
-			buffer_append(dstream->buf, data, size);
-
-			if ((hret=i_stream_decrypt_read_header
-				(dstream, dstream->buf->data, dstream->buf->used)) <= 0) {
+			if ((hret=i_stream_decrypt_read_header(dstream, data, size)) <= 0) {
 				if (hret < 0) {
 					if (stream->istream.stream_errno == 0)
 						/* assume temporary failure */
@@ -732,7 +728,6 @@ i_stream_decrypt_read(struct istream_private *stream)
 
 			if (hret == 0) {
 				/* see if we can get more data */
-				i_stream_skip(stream->parent, size);
 				continue;
 			} else {
 				/* clean up buffer */
