@@ -24,14 +24,18 @@ After=local-fs.target network.target
 
 [Service]
 Type=forking
+ExecStartPre=-@libexecdir@/dovecot/prestartscript
 ExecStart=@sbindir@/dovecot
 PIDFile=@rundir@/master.pid
 ExecReload=@bindir@/doveadm reload
 ExecStop=@bindir@/doveadm stop
+ExecStopPost=-@libexecdir@/dovecot/poststopscript
 PrivateTmp=true
 NonBlocking=yes
-# Enable this if your systemd is new enough to support it:
-#ProtectSystem=full
+ProtectSystem=full
+PrivateDevices=true
+NoNewPrivileges=true
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_IPC_LOCK CAP_KILL CAP_NET_BIND_SERVICE CAP_SETGID CAP_SETUID CAP_SYS_CHROOT CAP_SYS_RESOURCE
 
 [Install]
 WantedBy=multi-user.target
