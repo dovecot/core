@@ -836,8 +836,10 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 		return -1;
 	}
 	str = t_str_new(256);
-	var_expand(str, client->state.dest_user->set->mail_log_prefix,
-		   mail_user_var_expand_table(client->state.dest_user));
+	var_expand_with_funcs(str, client->state.dest_user->set->mail_log_prefix,
+			      mail_user_var_expand_table(client->state.dest_user),
+			      mail_user_var_expand_func_table,
+			      client->state.dest_user);
 	i_set_failure_prefix("%s", str_c(str));
 
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
