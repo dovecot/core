@@ -275,6 +275,7 @@ int fs_write_stream_finish_async(struct fs_file *file);
    fs_write_stream_finish(), i.e. it can't be used to abort a pending async
    write. */
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output);
+void fs_write_stream_abort_error(struct fs_file *file, struct ostream **output, const char *error_fmt, ...) ATTR_FORMAT(3, 4);
 
 /* Set a hash to the following write. The storage can then verify that the
    input data matches the specified hash, or fail if it doesn't. Typically

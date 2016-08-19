@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "fs-api-private.h"
+#include "ostream.h"
 
 struct wrapper_fs_iter {
 	struct fs_iter iter;
@@ -78,7 +79,10 @@ void fs_wrapper_write_stream(struct fs_file *file)
 int fs_wrapper_write_stream_finish(struct fs_file *file, bool success)
 {
 	if (!success) {
-		fs_write_stream_abort(file->parent, &file->output);
+		fs_write_stream_abort_error(file->parent, &file->output,
+					    "write(%s) failed: %s",
+					    o_stream_get_name(file->output),
+					    o_stream_get_error(file->output));
 		return -1;
 	}
 

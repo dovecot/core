@@ -287,7 +287,10 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 
 	if (!success) {
 		if (_file->parent != NULL)
-			fs_write_stream_abort(_file->parent, &file->fs_output);
+			fs_write_stream_abort_error(_file->parent, &file->fs_output,
+						    "write(%s) error: %s",
+						    o_stream_get_name(file->fs_output),
+						    o_stream_get_error(file->fs_output));
 		o_stream_unref(&_file->output);
 		return -1;
 	}
