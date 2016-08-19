@@ -201,7 +201,10 @@ static int fs_compress_write_stream_finish(struct fs_file *_file, bool success)
 		if (file->temp_output != NULL)
 			o_stream_destroy(&file->temp_output);
 		if (file->super_output != NULL)
-			fs_write_stream_abort(_file->parent, &file->super_output);
+			fs_write_stream_abort_error(_file->parent, &file->super_output,
+						    "write(%s) failed: %s",
+						    o_stream_get_name(file->super_output),
+						    o_stream_get_error(file->super_output));
 		return -1;
 	}
 
@@ -220,17 +223,17 @@ static int fs_compress_write_stream_finish(struct fs_file *_file, bool success)
 	if (o_stream_send_istream(file->super_output, input) >= 0)
 		ret = fs_write_stream_finish(_file->parent, &file->super_output);
 	else if (input->stream_errno != 0) {
-		fs_set_error(_file->fs, "read(%s) failed: %s",
-			     i_stream_get_name(input),
-			     i_stream_get_error(input));
-		fs_write_stream_abort(_file->parent, &file->super_output);
+		fs_write_stream_abort_error(_file->parent, &file->super_output,
+					    "read(%s) failed: %s",
+					    i_stream_get_name(input),
+					    i_stream_get_error(input));
 		ret = -1;
 	} else {
 		i_assert(file->super_output->stream_errno != 0);
-		fs_set_error(_file->fs, "write(%s) failed: %s",
-			     o_stream_get_name(file->super_output),
-			     o_stream_get_error(file->super_output));
-		fs_write_stream_abort(_file->parent, &file->super_output);
+		fs_write_stream_abort_error(_file->parent, &file->super_output,
+					    "write(%s) failed: %s",
+					    o_stream_get_name(file->super_output),
+					    o_stream_get_error(file->super_output));
 		ret = -1;
 	}
 	i_stream_unref(&input);
