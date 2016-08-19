@@ -276,7 +276,8 @@ void fs_file_close(struct fs_file *file)
 
 	if (file->copy_input != NULL) {
 		i_stream_unref(&file->copy_input);
-		fs_write_stream_abort(file, &file->copy_output);
+		fs_write_stream_abort_error(file, &file->copy_output, "fs_file_close(%s)",
+					    o_stream_get_name(file->copy_output));
 	}
 	i_free_and_null(file->write_digest);
 	if (file->fs->v.file_close != NULL) T_BEGIN {
@@ -736,11 +737,6 @@ void fs_write_stream_abort_error(struct fs_file *file, struct ostream **output, 
 	i_assert(ret != 0);
 
 	va_end(args);
-}
-
-void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
-{
-	fs_write_stream_abort_error(file, output, "Write aborted");
 }
 
 void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,

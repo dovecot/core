@@ -40,7 +40,7 @@ static void test_fs_async_write(const char *test_name, struct fs *fs)
 			test_assert(test_file->contents->used == 0);
 			break;
 		case 2:
-			fs_write_stream_abort(file, &output);
+			fs_write_stream_abort_error(file, &output, "test");
 			test_assert(test_file->contents->used == 0);
 			break;
 		}

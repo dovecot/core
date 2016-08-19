@@ -300,7 +300,9 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 	    i_stream_is_eof(file->hash_input)) {
 		o_stream_unref(&_file->output);
 		if (fs_sis_try_link(file)) {
-			fs_write_stream_abort(_file->parent, &file->fs_output);
+			fs_write_stream_abort_error(_file->parent, &file->fs_output,
+						    "fs_sis_try_link(%s) failed",
+						    o_stream_get_name(file->fs_output));
 			return 1;
 		}
 	}
