@@ -829,7 +829,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 		i_assert(auth_request->state == AUTH_REQUEST_STATE_FINISHED);
 		auth_request_handler_reply(auth_request,
 					   AUTH_CLIENT_RESULT_FAILURE,
-					   &uchar_nul, 0);
+					   uchar_empty_ptr, 0);
 		auth_request_unref(&auth_request);
 	}
 }

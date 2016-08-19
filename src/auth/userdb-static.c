@@ -101,7 +101,7 @@ static void static_lookup(struct auth_request *auth_request,
 		} else {
 			static_credentials_callback(
 				PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
-				&uchar_nul, 0, auth_request);
+				uchar_empty_ptr, 0, auth_request);
 		}
 	} else {
 		static_lookup_real(auth_request, callback);

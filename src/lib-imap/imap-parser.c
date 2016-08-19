@@ -516,7 +516,7 @@ static bool imap_parser_read_literal_data(struct imap_parser *parser,
 	} else {
 		/* we want to save only literal size, not the literal itself. */
 		parser->literal_size_return = TRUE;
-		imap_parser_save_arg(parser, &uchar_nul, 0);
+		imap_parser_save_arg(parser, uchar_empty_ptr, 0);
 		return FALSE;
 	}
 }

@@ -1116,7 +1116,7 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 			"passdb doesn't support credential lookups");
 		auth_request_lookup_credentials_callback(
 					PASSDB_RESULT_SCHEME_NOT_AVAILABLE,
-					&uchar_nul, 0, request);
+					uchar_empty_ptr, 0, request);
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_lookup_credentials(request);
 	} else {

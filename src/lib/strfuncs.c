@@ -19,6 +19,7 @@ enum _str_trim_sides {
 };
 
 const unsigned char uchar_nul = '\0';
+const unsigned char *uchar_empty_ptr = { 0 };
 
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 {
