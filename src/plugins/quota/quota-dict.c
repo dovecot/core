@@ -102,8 +102,10 @@ static void dict_quota_deinit(struct quota_root *_root)
 
 	i_assert(root->to_update == NULL);
 
-	if (root->dict != NULL)
+	if (root->dict != NULL) {
+		dict_wait(root->dict);
 		dict_deinit(&root->dict);
+	}
 	i_free(root);
 }
 
