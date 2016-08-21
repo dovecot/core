@@ -139,7 +139,36 @@ static void test_fts_filter_lowercase_utf8(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		token = tests[i].input;
 		test_assert_idx(fts_filter_filter(filter, &token, &error) > 0 &&
-				strcmp(token, tests[i].output) == 0, 0);
+		                strcmp(token, tests[i].output) == 0, 0);
+	}
+	fts_filter_unref(&filter);
+	test_end();
+}
+
+static void test_fts_filter_lowercase_too_long_utf8(void)
+{
+	struct {
+		const char *input;
+		const char *output;
+	} tests[] = {
+		{ "f\xC3\x85\xC3\x85", "f\xC3\xA5\xC3\xA5" },
+		{ "abcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxy" },
+		{ "abc\xC3\x85""defghijklmnopqrstuvwxyz", "abc\xC3\xA5""defghijklmnopqrstuvw" },
+		{ "abcdefghijklmnopqrstuvwx\xC3\x85", "abcdefghijklmnopqrstuvwx" }
+	};
+	struct fts_filter *filter;
+	const char *error;
+	const char *token;
+	const char * const settings[] = {"maxlen", "25", NULL};
+	unsigned int i;
+
+	test_begin("fts filter lowercase, too long UTF8");
+	test_assert(fts_filter_create(fts_filter_lowercase, NULL, &english_language, settings, &filter, &error) == 0);
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		token = tests[i].input;
+		test_assert_idx(fts_filter_filter(filter, &token, &error) > 0 &&
+		                strcmp(token, tests[i].output) == 0, 0);
 	}
 	fts_filter_unref(&filter);
 	test_end();
@@ -936,6 +965,7 @@ int main(void)
 		test_fts_filter_lowercase,
 #ifdef HAVE_LIBICU
 		test_fts_filter_lowercase_utf8,
+		test_fts_filter_lowercase_too_long_utf8,
 #endif
 		test_fts_filter_stopwords_eng,
 		test_fts_filter_stopwords_fin,

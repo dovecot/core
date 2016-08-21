@@ -78,6 +78,7 @@ libfts_la_LIBADD = \
 libfts_la_SOURCES = \
 	fts-filter.c \
 	fts-filter-contractions.c \
+	fts-filter-common.c \
 	fts-filter-english-possessive.c \
 	fts-filter-lowercase.c \
 	fts-filter-normalizer-icu.c \
@@ -94,6 +95,7 @@ libfts_la_SOURCES = \
 headers = \
 	fts-common.h \
 	fts-filter.h \
+	fts-filter-common.h \
 	fts-filter-private.h \
 	fts-icu.h \
 	fts-language.h \
