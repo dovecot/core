@@ -719,11 +719,9 @@ int fs_write_stream_finish_async(struct fs_file *file)
 	return fs_write_stream_finish_int(file, TRUE);
 }
 
-void fs_write_stream_abort_error(struct fs_file *file, struct ostream **output, const char *error_fmt, ...)
+static void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 {
 	int ret;
-	va_list args;
-	va_start(args, error_fmt);
 
 	i_assert(*output == file->output);
 	i_assert(file->output != NULL);
@@ -732,11 +730,24 @@ void fs_write_stream_abort_error(struct fs_file *file, struct ostream **output, 
 	*output = NULL;
 	o_stream_ignore_last_errors(file->output);
 	/* make sure we don't have an old error lying around */
-	fs_set_verror(file->fs, error_fmt, args);
 	ret = fs_write_stream_finish_int(file, FALSE);
 	i_assert(ret != 0);
+}
 
+void fs_write_stream_abort_error(struct fs_file *file, struct ostream **output, const char *error_fmt, ...)
+{
+	va_list args;
+	va_start(args, error_fmt);
+	fs_set_verror(file->fs, error_fmt, args);
+	fs_write_stream_abort(file, output);
 	va_end(args);
+}
+
+void fs_write_stream_abort_parent(struct fs_file *file, struct ostream **output)
+{
+	i_assert(file->parent != NULL);
+	i_assert(fs_filelast_error(file->parent) != NULL);
+	fs_write_stream_abort(file, output);
 }
 
 void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
