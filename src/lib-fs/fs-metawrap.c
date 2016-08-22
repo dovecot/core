@@ -410,6 +410,9 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 		ret = -1;
 	} else {
 		i_assert(i_stream_is_eof(input));
+		/* because of the "end of metadata" LF, there's always at least
+		   1 byte */
+		i_assert(file->super_output->offset > 0);
 		ret = fs_write_stream_finish(_file->parent, &file->super_output);
 	}
 	i_stream_unref(&input);
