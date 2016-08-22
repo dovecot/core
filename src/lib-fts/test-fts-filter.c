@@ -728,6 +728,25 @@ static void test_fts_filter_normalizer_oversized(void)
 	test_end();
 }
 
+static void test_fts_filter_normalizer_truncation(void)
+{
+	struct fts_filter *norm = NULL;
+	const char *settings[] =
+		{"id", "Any-Lower;", "maxlen", "10",
+		 NULL};
+	const char *error = NULL;
+	const char *token = "abcdefghi\xC3\x85";
+
+	test_begin("fts filter normalizer token truncated mid letter");
+	test_assert(fts_filter_create(fts_filter_normalizer_icu, NULL, NULL,
+	                              settings, &norm, &error) == 0);
+	test_assert(error == NULL);
+	test_assert(fts_filter_filter(norm, &token, &error) >= 0);
+	test_assert(strcmp(token, "abcdefghi") == 0);
+	fts_filter_unref(&norm);
+	test_end();
+}
+
 #ifdef HAVE_FTS_STEMMER
 static void test_fts_filter_normalizer_stopwords_stemmer_eng(void)
 {
@@ -986,6 +1005,7 @@ int main(void)
 		test_fts_filter_normalizer_baddata,
 		test_fts_filter_normalizer_invalid_id,
 		test_fts_filter_normalizer_oversized,
+		test_fts_filter_normalizer_truncation,
 #ifdef HAVE_FTS_STEMMER
 		test_fts_filter_normalizer_stopwords_stemmer_eng,
 		test_fts_filter_stopwords_normalizer_stemmer_no,
