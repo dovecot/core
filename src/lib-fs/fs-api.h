@@ -277,6 +277,9 @@ int fs_write_stream_finish_async(struct fs_file *file);
 void fs_write_stream_abort(struct fs_file *file, struct ostream **output);
 void fs_write_stream_abort_error(struct fs_file *file, struct ostream **output, const char *error_fmt, ...) ATTR_FORMAT(3, 4);
 
+/* Same as above, except it closes the *parent* file and error is left untouched */
+void fs_write_stream_abort_parent(struct fs_file *file, struct ostream **output);
+
 /* Set a hash to the following write. The storage can then verify that the
    input data matches the specified hash, or fail if it doesn't. Typically
    implemented by Content-MD5 header. */
