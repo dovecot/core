@@ -4,7 +4,7 @@
 #include "buffer.h"
 #include "str.h"
 #include "unichar.h" /* unicode replacement char */
-#include "fts-tokenizer-common.h"
+#include "fts-filter-common.h"
 #include "fts-filter-private.h"
 #include "fts-language.h"
 
@@ -19,7 +19,6 @@ struct fts_filter_normalizer_icu {
 	UTransliterator *transliterator;
 	buffer_t *utf16_token, *trans_token;
 	string_t *utf8_token;
-	unsigned int maxlen;
 };
 
 static void fts_filter_normalizer_icu_destroy(struct fts_filter *filter)
@@ -69,7 +68,7 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	np->utf16_token = buffer_create_dynamic(pp, 128);
 	np->trans_token = buffer_create_dynamic(pp, 128);
 	np->utf8_token = buffer_create_dynamic(pp, 128);
-	np->maxlen = max_length;
+	np->filter.max_length = max_length;
 	*filter_r = &np->filter;
 	return 0;
 }
@@ -101,11 +100,7 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 
 	fts_icu_utf16_to_utf8(np->utf8_token, np->trans_token->data,
 			      np->trans_token->used / sizeof(UChar));
-	if (str_len(np->utf8_token) > np->maxlen) {
-		size_t len = np->maxlen;
-		fts_tokenizer_delete_trailing_partial_char(np->utf8_token->data, &len);
-		str_truncate(np->utf8_token, len);
-	}
+	fts_filter_truncate_token(np->utf8_token, np->filter.max_length);
 	*token = str_c(np->utf8_token);
 	return 1;
 }
