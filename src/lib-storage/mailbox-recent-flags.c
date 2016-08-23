@@ -96,3 +96,11 @@ void mailbox_recent_flags_expunge_seqs(struct mailbox *box,
 			box->recent_flags_count--;
 	}
 }
+
+void mailbox_recent_flags_expunge_uid(struct mailbox *box, uint32_t uid)
+{
+	if (array_is_created(&box->recent_flags)) {
+		if (seq_range_array_remove(&box->recent_flags, uid))
+			box->recent_flags_count--;
+	}
+}
