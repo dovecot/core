@@ -747,7 +747,7 @@ void fs_write_stream_abort_parent(struct fs_file *file, struct ostream **output)
 {
 	i_assert(file->parent != NULL);
 	i_assert(fs_file_last_error(file->parent) != NULL);
-	fs_write_stream_abort(file, output);
+	fs_write_stream_abort(file->parent, output);
 }
 
 void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
