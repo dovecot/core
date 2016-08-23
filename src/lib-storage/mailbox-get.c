@@ -66,19 +66,22 @@ add_guid_expunges(ARRAY_TYPE(seq_range) *expunged_uids, uint32_t min_uid,
 static int
 mailbox_get_expunges_init(struct mailbox *box, uint64_t prev_modseq,
 			  struct mail_transaction_log_view **log_view_r,
-			  uint32_t *tail_seq_r)
+			  bool *modseq_too_old_r)
 {
 	struct mail_transaction_log_view *log_view;
-	uint32_t log_seq, tail_seq = 0;
+	uint32_t log_seq, tail_seq;
 	uoff_t log_offset;
 	const char *reason;
 	bool reset;
 	int ret;
 
+	*modseq_too_old_r = FALSE;
+
 	if (!mail_index_modseq_get_next_log_offset(box->view, prev_modseq,
 						   &log_seq, &log_offset)) {
 		log_seq = 1;
 		log_offset = 0;
+		*modseq_too_old_r = TRUE;
 	}
 	if (log_seq > box->view->log_file_head_seq ||
 	    (log_seq == box->view->log_file_head_seq &&
@@ -100,6 +103,7 @@ mailbox_get_expunges_init(struct mailbox *box, uint64_t prev_modseq,
 					box->view->log_file_head_offset,
 					&reset, &reason);
 		i_assert(ret != 0);
+		*modseq_too_old_r = TRUE;
 	}
 	if (ret <= 0) {
 		mail_transaction_log_view_close(&log_view);
@@ -107,7 +111,6 @@ mailbox_get_expunges_init(struct mailbox *box, uint64_t prev_modseq,
 	}
 
 	*log_view_r = log_view;
-	*tail_seq_r = tail_seq;
 	return 0;
 }
 
@@ -162,13 +165,14 @@ mailbox_get_expunges_full(struct mailbox *box, uint64_t prev_modseq,
 	const struct mail_transaction_header *thdr;
 	const struct seq_range *range;
 	const void *tdata;
-	uint32_t min_uid, tail_seq;
+	uint32_t min_uid;
+	bool modseq_too_old;
 	int ret;
 
 	i_assert(array_count(uids_filter) > 0);
 	i_assert(expunged_uids == NULL || expunges == NULL);
 
-	ret = mailbox_get_expunges_init(box, prev_modseq, &log_view, &tail_seq);
+	ret = mailbox_get_expunges_init(box, prev_modseq, &log_view, &modseq_too_old);
 	if (ret != 0)
 		return ret > 0;
 
@@ -208,7 +212,7 @@ mailbox_get_expunges_full(struct mailbox *box, uint64_t prev_modseq,
 	}
 
 	mail_transaction_log_view_close(&log_view);
-	return ret < 0 || tail_seq != 0 ? FALSE : TRUE;
+	return ret < 0 || modseq_too_old ? FALSE : TRUE;
 }
 
 bool mailbox_get_expunges(struct mailbox *box, uint64_t prev_modseq,
