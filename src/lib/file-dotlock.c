@@ -5,6 +5,7 @@
 #include "str.h"
 #include "hex-binary.h"
 #include "hostpid.h"
+#include "file-lock.h"
 #include "eacces-error.h"
 #include "write-full.h"
 #include "safe-mkstemp.h"
@@ -496,6 +497,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 
 	last_notify = 0; do_wait = FALSE;
 
+	file_lock_wait_start();
 	do {
 		if (do_wait) {
 			if (prev_last_change != lock_info.last_change) {
@@ -560,6 +562,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 		do_wait = TRUE;
 		now = time(NULL);
 	} while (now < max_wait_time);
+	file_lock_wait_end();
 
 	if (ret > 0) {
 		if (fstat(lock_info.fd, &st) < 0) {
