@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "istream.h"
 #include "file-lock.h"
+#include "time-util.h"
 
 #include <time.h>
 #include <sys/stat.h>
@@ -17,6 +18,9 @@ struct file_lock {
 	int lock_type;
 	enum file_lock_method lock_method;
 };
+
+static struct timeval lock_wait_start;
+static uint64_t file_lock_wait_usecs = 0;
 
 bool file_lock_method_parse(const char *name, enum file_lock_method *method_r)
 {
@@ -165,8 +169,10 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 
 	i_assert(fd != -1);
 
-	if (timeout_secs != 0)
+	if (timeout_secs != 0) {
 		alarm(timeout_secs);
+		file_lock_wait_start();
+	}
 
 	lock_type_str = lock_type == F_UNLCK ? "unlock" :
 		(lock_type == F_RDLCK ? "read-lock" : "write-lock");
@@ -186,7 +192,10 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		fl.l_len = 0;
 
 		ret = fcntl(fd, timeout_secs != 0 ? F_SETLKW : F_SETLK, &fl);
-		if (timeout_secs != 0) alarm(0);
+		if (timeout_secs != 0) {
+			alarm(0);
+			file_lock_wait_end();
+		}
 
 		if (ret == 0)
 			break;
@@ -237,7 +246,10 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		}
 
 		ret = flock(fd, operation);
-		if (timeout_secs != 0) alarm(0);
+		if (timeout_secs != 0) {
+			alarm(0);
+			file_lock_wait_end();
+		}
 
 		if (ret == 0)
 			break;
@@ -340,4 +352,29 @@ void file_lock_free(struct file_lock **_lock)
 
 	i_free(lock->path);
 	i_free(lock);
+}
+
+void file_lock_wait_start(void)
+{
+	i_assert(lock_wait_start.tv_sec == 0);
+
+	if (gettimeofday(&lock_wait_start, NULL) < 0)
+		i_fatal("gettimeofday() failed: %m");
+}
+
+void file_lock_wait_end(void)
+{
+	struct timeval now;
+
+	i_assert(lock_wait_start.tv_sec != 0);
+
+	if (gettimeofday(&now, NULL) < 0)
+		i_fatal("gettimeofday() failed: %m");
+	file_lock_wait_usecs += timeval_diff_usecs(&now, &lock_wait_start);
+	lock_wait_start.tv_sec = 0;
+}
+
+uint64_t file_lock_wait_get_total_usecs(void)
+{
+	return file_lock_wait_usecs;
 }
