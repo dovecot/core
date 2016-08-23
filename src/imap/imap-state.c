@@ -385,7 +385,7 @@ import_send_expunges(struct client *client,
 	t_array_init(&expunged_seqs, array_count(&expunged_uids)+1); seq = 0;
 	while (mailbox_search_next(search_ctx, &mail)) {
 		while (seq_range_array_iter_nth(&iter, n, &expunged_uid) &&
-		       expunged_uid < mail->uid) {
+		       expunged_uid < mail->uid && seq < state->messages) {
 			seq++; n++;
 			array_append(&expunged_seqs, &seq, 1);
 			crc = crc32_data_more(crc, &expunged_uid,
@@ -397,7 +397,8 @@ import_send_expunges(struct client *client,
 		if (++seq == state->messages)
 			break;
 	}
-	while (seq_range_array_iter_nth(&iter, n, &expunged_uid)) {
+	while (seq_range_array_iter_nth(&iter, n, &expunged_uid) &&
+	       seq < state->messages) {
 		seq++; n++;
 		array_append(&expunged_seqs, &seq, 1);
 		crc = crc32_data_more(crc, &expunged_uid,
