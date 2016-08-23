@@ -5,6 +5,7 @@
 #include "llist.h"
 #include "str.h"
 #include "strescape.h"
+#include "file-lock.h"
 #include "time-util.h"
 #include "connection.h"
 #include "ostream.h"
@@ -669,6 +670,17 @@ static bool client_dict_switch_ioloop(struct dict *_dict)
 	return array_count(&dict->cmds) > 0;
 }
 
+static const char *dict_warnings_sec(int msecs)
+{
+	int ioloop_msecs = (io_loop_get_wait_usecs(current_ioloop)+999) / 1000;
+	int lock_msecs = (file_lock_wait_get_total_usecs()+999) / 1000;
+
+	return t_strdup_printf(
+		"%u.%03u secs (%u.%03u in ioloop, %u.%03u in locks)",
+		msecs/1000, msecs%1000, ioloop_msecs/1000, ioloop_msecs%1000,
+		lock_msecs/1000, lock_msecs%1000);
+}
+
 static void
 client_dict_lookup_async_callback(struct client_dict_cmd *cmd, const char *line,
 				  const char *error, bool disconnected ATTR_UNUSED)
@@ -706,12 +718,12 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd, const char *line,
 	int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
 	if (result.error != NULL) {
 		/* include timing info always in error messages */
-		result.error = t_strdup_printf("%s (reply took %u.%03u secs)",
-			result.error, diff/1000, diff%1000);
+		result.error = t_strdup_printf("%s (reply took %s)",
+			result.error, dict_warnings_sec(diff));
 	} else if (!cmd->background &&
 		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
-		i_warning("read(%s): dict lookup took %u.%03u seconds: %s",
-			  dict->conn.conn.name, diff/1000, diff % 1000,
+		i_warning("read(%s): dict lookup took %s: %s",
+			  dict->conn.conn.name, dict_warnings_sec(diff),
 			  cmd->query);
 	}
 
@@ -803,15 +815,14 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 		int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
 		if (ctx->error != NULL) {
 			/* include timing info always in error messages */
-			char *new_error = i_strdup_printf(
-				"%s (reply took %u.%03u secs)",
-				ctx->error, diff/1000, diff%1000);
+			char *new_error = i_strdup_printf("%s (reply took %s)",
+				ctx->error, dict_warnings_sec(diff));
 			i_free(ctx->error);
 			ctx->error = new_error;
 		} else if (!cmd->background &&
 			   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
-			i_warning("read(%s): dict iteration took %u.%03u seconds: %s",
-				  dict->conn.conn.name, diff/1000, diff % 1000,
+			i_warning("read(%s): dict iteration took %s: %s",
+				  dict->conn.conn.name, dict_warnings_sec(diff),
 				  cmd->query);
 		}
 	}
@@ -1043,13 +1054,13 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
 	if (result.error != NULL) {
 		/* include timing info always in error messages */
-		result.error = t_strdup_printf("%s (reply took %u.%03u secs)",
-			result.error, diff/1000, diff%1000);
+		result.error = t_strdup_printf("%s (reply took %s)",
+			result.error, dict_warnings_sec(diff));
 	} else if (!cmd->background && !cmd->trans->ctx.no_slowness_warning &&
 		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
-		i_warning("read(%s): dict commit took %u.%03u seconds: "
+		i_warning("read(%s): dict commit took %s: "
 			  "%s (%u commands, first: %s)",
-			  dict->conn.conn.name, diff/1000, diff % 1000,
+			  dict->conn.conn.name, dict_warnings_sec(diff),
 			  cmd->query, cmd->trans->query_count,
 			  cmd->trans->first_query);
 	}
