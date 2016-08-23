@@ -401,7 +401,11 @@ static int fs_randomfail_write_stream_finish(struct fs_file *_file, bool success
 			_file->output = NULL;
 		else
 			o_stream_unref(&_file->output);
-		if (!success || fs_random_fail(_file->fs, 1, FS_OP_WRITE)) {
+		if (!success) {
+			fs_write_stream_abort_parent(_file->parent, &file->super_output);
+			return -1;
+		}
+		if (!fs_random_fail(_file->fs, 1, FS_OP_WRITE)) {
 			fs_write_stream_abort_error(file->super, &file->super_output, RANDOMFAIL_ERROR);
 			return -1;
 		}
