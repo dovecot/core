@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "buffer.h"
 #include "unichar.h"
 #include "fts-filter-private.h"
 #include "fts-filter-common.h"
