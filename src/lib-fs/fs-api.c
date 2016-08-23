@@ -737,7 +737,7 @@ void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 void fs_write_stream_abort_parent(struct fs_file *file, struct ostream **output)
 {
 	i_assert(file->parent != NULL);
-	i_assert(fs_filelast_error(file->parent) != NULL);
+	i_assert(fs_file_last_error(file->parent) != NULL);
 	fs_write_stream_abort_int(file, output);
 }
 
@@ -908,20 +908,20 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 	}
 	while (o_stream_send_istream(dest->copy_output, dest->copy_input) > 0) ;
 	if (dest->copy_input->stream_errno != 0) {
-		errno = dest->copy_input->stream_errno;
 		fs_write_stream_abort_error(dest, &dest->copy_output,
 					    "read(%s) failed: %s",
 					    i_stream_get_name(dest->copy_input),
 					    i_stream_get_error(dest->copy_input));
+		errno = dest->copy_input->stream_errno;
 		i_stream_unref(&dest->copy_input);
 		return -1;
 	}
 	if (dest->copy_output->stream_errno != 0) {
-		errno = dest->copy_output->stream_errno;
 		fs_write_stream_abort_error(dest, &dest->copy_output,
 					    "write(%s) failed: %s",
 					    o_stream_get_name(dest->copy_output),
 					    o_stream_get_error(dest->copy_output));
+		errno = dest->copy_output->stream_errno;
 		i_stream_unref(&dest->copy_input);
 		return -1;
 	}
