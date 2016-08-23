@@ -41,9 +41,12 @@ struct istream_attachment_settings {
 	int (*open_attachment_ostream)(struct istream_attachment_info *info,
 				       struct ostream **output_r,
 				       const char **error_r, void *context);
-	/* Finish output stream */
+	/* Finish output stream. If success==FALSE, *error contains the error
+	   and the error shouldn't be replaced (other than maybe enhanced).
+	   Otherwise, if close_attachment_ostream() fails and returns -1, it
+	   should also set *error. */
 	int (*close_attachment_ostream)(struct ostream *output, bool success,
-					const char **error_r, void *context);
+					const char **error, void *context);
 };
 
 struct istream *
