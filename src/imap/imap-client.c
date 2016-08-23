@@ -275,7 +275,7 @@ static const char *client_get_commands_status(struct client *client)
 {
 	struct client_command_context *cmd, *last_cmd = NULL;
 	unsigned int msecs_in_ioloop;
-	uint64_t running_usecs = 0, ioloop_wait_usecs;
+	uint64_t running_usecs = 0, lock_wait_usecs = 0, ioloop_wait_usecs;
 	unsigned long long bytes_in = 0, bytes_out = 0;
 	string_t *str;
 	enum io_condition cond;
@@ -296,6 +296,7 @@ static const char *client_get_commands_status(struct client *client)
 		if (cmd->next != NULL)
 			str_append_c(str, ',');
 		running_usecs += cmd->running_usecs;
+		lock_wait_usecs += cmd->lock_wait_usecs;
 		bytes_in += cmd->bytes_in;
 		bytes_out += cmd->bytes_out;
 		last_cmd = cmd;
@@ -320,6 +321,11 @@ static const char *client_get_commands_status(struct client *client)
 		    (int)((running_usecs+999)/1000 / 1000),
 		    (int)((running_usecs+999)/1000 % 1000), cond_str,
 		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
+	if (lock_wait_usecs > 0) {
+		int lock_wait_msecs = (lock_wait_usecs+999)/1000;
+		str_printfa(str, ", %d.%03d in locks",
+			    lock_wait_msecs/1000, lock_wait_msecs%1000);
+	}
 	str_printfa(str, ", %llu B in + %llu+%"PRIuSIZE_T" B out, state=%s)",
 		    bytes_in, bytes_out,
 		    o_stream_get_buffer_used_size(client->output),
