@@ -198,9 +198,8 @@ static void ldap_auth_bind(struct ldap_connection *conn,
 				     auth_request);
 		return;
 	}
-
-	brequest->request.callback = ldap_auth_bind_callback;
-	db_ldap_request(conn, &brequest->request);
+        brequest->request.callback = ldap_auth_bind_callback;
+        db_ldap_request(conn, &brequest->request);
 }
 
 static void
@@ -363,7 +362,7 @@ ldap_verify_plain_auth_bind_userdn(struct auth_request *auth_request,
 	brequest->request.type = LDAP_REQUEST_TYPE_BIND;
 
 	dn = t_str_new(512);
-	auth_request_var_expand(dn, conn->set.auth_bind_userdn, auth_request, ldap_escape);
+	auth_request_var_expand(dn, conn->set.auth_bind_userdn, auth_request, ldapdn_escape);
 
 	brequest->dn = p_strdup(auth_request->pool, str_c(dn));
         ldap_auth_bind(conn, brequest);

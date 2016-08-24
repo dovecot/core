@@ -304,7 +304,6 @@ static int db_ldap_request_bind(struct ldap_connection *conn,
 	i_assert(conn->conn_state == LDAP_CONN_STATE_BOUND_AUTH ||
 		 conn->conn_state == LDAP_CONN_STATE_BOUND_DEFAULT);
 	i_assert(conn->pending_count == 0);
-
 	request->msgid = ldap_bind(conn->ld, brequest->dn,
 				   request->auth_request->mech_password,
 				   LDAP_AUTH_SIMPLE);
@@ -1433,6 +1432,35 @@ db_ldap_value_get_var_expand_table(struct auth_request *auth_request,
 	table[0].key = '$';
 	table[0].value = ldap_value;
 	return table;
+}
+
+/* rfc2253 escaping */
+#define IS_LDAPDN_ESCAPED_CHAR(c) \
+	((c) == '"' || (c) == '+' || (c) == ',' || (c) == '\\' || (c) == '<' || (c) == '>' || (c) == ';')
+
+const char *ldapdn_escape(const char *str,
+			const struct auth_request *auth_request ATTR_UNUSED)
+{
+	const char *p;
+	string_t *ret;
+
+	for (p = str; *p != '\0'; p++) {
+		if (IS_LDAPDN_ESCAPED_CHAR(*p))
+			break;
+	}
+
+	if (*p == '\0')
+		return str;
+
+	ret = t_str_new((size_t) (p - str) + 64);
+	str_append_n(ret, str, (size_t) (p - str));
+
+	for (; *p != '\0'; p++) {
+		if (IS_LDAPDN_ESCAPED_CHAR(*p))
+			str_append_c(ret, '\\');
+		str_append_c(ret, *p);
+	}
+	return str_c(ret);
 }
 
 #define IS_LDAP_ESCAPED_CHAR(c) \
