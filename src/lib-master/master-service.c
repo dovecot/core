@@ -430,6 +430,7 @@ bool master_service_parse_option(struct master_service *service,
 
 	switch (opt) {
 	case 'c':
+		i_free(service->config_path);
 		service->config_path = i_strdup(arg);
 		service->config_path_changed_with_param = TRUE;
 		break;
