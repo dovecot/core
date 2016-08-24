@@ -199,6 +199,8 @@ void db_ldap_enable_input(struct ldap_connection *conn, bool enable);
 
 const char *ldap_escape(const char *str,
 			const struct auth_request *auth_request);
+const char *ldapdn_escape(const char *str,
+			const struct auth_request *auth_request);
 const char *ldap_get_error(struct ldap_connection *conn);
 
 struct db_ldap_result_iterate_context *
