@@ -121,6 +121,7 @@ static
 void test_static_v2_input(void)
 {
 	test_begin("test_static_v2_input");
+
 	ssize_t amt;
 	const struct hash_method *hash = hash_method_lookup("sha256");
 	unsigned char hash_ctx[hash->context_size];
@@ -322,10 +323,10 @@ static
 void test_write_read_v2(void)
 {
 	test_begin("test_write_read_v2");
-	unsigned char payload[IO_BLOCK_SIZE];
+	unsigned char payload[IO_BLOCK_SIZE*10];
 	const unsigned char *ptr;
 	size_t pos = 0, siz;
-	random_fill_weak(payload, IO_BLOCK_SIZE);
+	random_fill_weak(payload, IO_BLOCK_SIZE*10);
 
 	buffer_t *buf = buffer_create_dynamic(default_pool, sizeof(payload));
 	struct ostream *os = o_stream_create_buffer(buf);
@@ -339,6 +340,10 @@ void test_write_read_v2(void)
 	o_stream_unref(&os_2);
 
 	struct istream *is = test_istream_create_data(buf->data, buf->used);
+	/* test regression where read fails due to incorrect behaviour
+	   when buffer is full before going to decrypt code */
+	i_stream_set_max_buffer_size(is, 8192);
+	i_stream_read(is);
 	struct istream *is_2 = i_stream_create_decrypt(is, test_v1_kp.priv);
 
 	size_t offset = 0;
