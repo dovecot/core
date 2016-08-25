@@ -670,10 +670,12 @@ i_stream_decrypt_read(struct istream_private *stream)
 			stream->istream.eof = TRUE;
 			return -1;
 		}
+
 		/* need to read more input */
 		ret = i_stream_read(stream->parent);
-		if (ret == 0 || ret == -2)
+		if (ret == 0)
 			return ret;
+
 		data = i_stream_get_data(stream->parent, &size);
 
 		if (ret == -1 && (size == 0 || stream->parent->stream_errno != 0)) {
