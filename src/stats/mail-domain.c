@@ -25,7 +25,6 @@ struct mail_domain *mail_domain_login_create(const char *name)
 
 	domain = hash_table_lookup(mail_domains_hash, name);
 	if (domain != NULL) {
-		mail_domain_login(domain);
 		return domain;
 	}
 
@@ -37,7 +36,6 @@ struct mail_domain *mail_domain_login_create(const char *name)
 	hash_table_insert(mail_domains_hash, domain->name, domain);
 	DLLIST_PREPEND_FULL(&stable_mail_domains, domain,
 			    stable_prev, stable_next);
-	mail_domain_login(domain);
 	global_memory_alloc(mail_domain_memsize(domain));
 	return domain;
 }
@@ -46,7 +44,6 @@ void mail_domain_login(struct mail_domain *domain)
 {
 	domain->num_logins++;
 	domain->num_connected_sessions++;
-	mail_global_login();
 	mail_domain_refresh(domain, NULL);
 }
 
