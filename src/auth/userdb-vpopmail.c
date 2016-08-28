@@ -61,7 +61,10 @@ userdb_vpopmail_get_quota(const char *template, const char *vpop_str)
 	    strcmp(vpop_str, "NOQUOTA") == 0)
 		return "";
 
-	tab = var_expand_table_build('q', format_maildirquota(vpop_str), '\0');
+	tab = t_new(struct var_expand_table, 2);
+	tab[0].key = 'q';
+	tab[0].value = format_maildirquota(vpop_str);
+
 	quota = t_str_new(128);
 	var_expand(quota, template, tab);
 	return str_c(quota);

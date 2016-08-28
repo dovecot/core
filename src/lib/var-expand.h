@@ -36,7 +36,4 @@ void var_get_key_range(const char *str, unsigned int *idx_r,
    If key is '\0', it's ignored. If long_key is NULL, it's ignored. */
 bool var_has_key(const char *str, char key, const char *long_key) ATTR_PURE;
 
-const struct var_expand_table *
-var_expand_table_build(char key, const char *value, char key2, ...);
-
 #endif
