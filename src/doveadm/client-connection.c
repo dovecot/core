@@ -72,7 +72,6 @@ doveadm_cmd_server_run_ver2(struct client_connection *conn,
 			    struct doveadm_cmd_context *cctx)
 {
 	i_getopt_reset();
-	doveadm_exit_code = 0;
 	if (doveadm_cmd_run_ver2(argc, argv, cctx) < 0)
 		doveadm_exit_code = EX_USAGE;
 	doveadm_cmd_server_post(conn, cctx->cmd->name);
@@ -84,7 +83,6 @@ doveadm_cmd_server_run(struct client_connection *conn,
 		       const struct doveadm_cmd *cmd)
 {
 	i_getopt_reset();
-	doveadm_exit_code = 0;
 	cmd->cmd(argc, (char **)argv);
 	doveadm_cmd_server_post(conn, cmd->name);
 }
@@ -299,6 +297,7 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 	cctx.local_port = conn->local_port;
 	cctx.remote_port = conn->remote_port;
 	cctx.conn = conn;
+	doveadm_exit_code = 0;
 
 	flags = args[0];
 	cctx.username = args[1];
@@ -333,7 +332,7 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	o_stream_uncork(conn->output);
 
-	/* flush the output and disconnect */
+	/* flush the output and possibly run next command */
 	net_set_nonblock(conn->fd, FALSE);
 	(void)o_stream_flush(conn->output);
 	net_set_nonblock(conn->fd, TRUE);
