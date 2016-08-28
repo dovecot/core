@@ -47,6 +47,8 @@
 #  include <gssapi/gssapi_ext.h>
 #endif
 
+#define krb5_boolean2bool(X) ((X) != 0)
+
 /* Non-zero flags defined in RFC 2222 */
 enum sasl_gssapi_qop {
 	SASL_GSSAPI_QOP_UNSPECIFIED = 0x00,
@@ -176,7 +178,7 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 				       &gss_principal);
 	str_free(&principal_name);
 
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
 				      "importing principal name");
 		return major_status;
@@ -185,7 +187,7 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 	major_status = gss_acquire_cred(&minor_status, gss_principal, 0, 
 					GSS_C_NULL_OID_SET, GSS_C_ACCEPT,
 					ret_r, NULL, NULL);
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
 				      "acquiring service credentials");
 		mech_gssapi_log_error(request, minor_status, GSS_C_MECH_CODE,
@@ -208,7 +210,7 @@ import_name(struct auth_request *request, void *str, size_t len)
 	name_buf.length = len;
 	major_status = gss_import_name(&minor_status, &name_buf,
 				       GSS_C_NO_OID, &name);
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
 				      "gss_import_name");
 		return GSS_C_NO_NAME;
@@ -223,7 +225,7 @@ duplicate_name(struct auth_request *request, gss_name_t old)
 	gss_name_t new;
 
 	major_status = gss_duplicate_name(&minor_status, old, &new);
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		mech_gssapi_log_error(request, major_status, GSS_C_GSS_CODE,
 				      "gss_duplicate_name");
 		return GSS_C_NO_NAME;
@@ -303,7 +305,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 		NULL  /* delegated_cred_handle */
 	);
 
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		mech_gssapi_log_error(auth_request, major_status,
 				      GSS_C_GSS_CODE,
 				      "processing incoming data");
@@ -382,7 +384,7 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	major_status = gss_wrap(&minor_status, request->gss_ctx, 0,
 				GSS_C_QOP_DEFAULT, &inbuf, NULL, &outbuf);
 
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		mech_gssapi_log_error(&request->auth_request, major_status,
 			GSS_C_GSS_CODE, "sending security layer negotiation");
 		mech_gssapi_log_error(&request->auth_request, minor_status,
@@ -469,8 +471,9 @@ mech_gssapi_krb5_userok(struct gssapi_auth_request *request,
 
 		/* See if the principal is authorized to act as the
 		   specified (UNIX) user */
-		if (!authorized)
-			authorized = krb5_kuserok(ctx, princ, login_user);
+		if (!authorized) {
+			authorized = krb5_boolean2bool(krb5_kuserok(ctx, princ, login_user));
+		}
 
 		krb5_free_principal(ctx, princ);
 	}
@@ -494,7 +497,7 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 					request->authn_name,
 					request->authz_name,
 					&equal_authn_authz);
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		mech_gssapi_log_error(auth_request, major_status,
 				      GSS_C_GSS_CODE,
 				      "gss_compare_name failed");
@@ -509,7 +512,7 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 	/* Solaris */
 	major_status = __gss_userok(&minor_status, request->authn_name,
 				    login_user, &login_ok);
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		mech_gssapi_log_error(auth_request, major_status,
 				      GSS_C_GSS_CODE, "__gss_userok failed");
 		return -1;
@@ -586,7 +589,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	major_status = gss_unwrap(&minor_status, request->gss_ctx,
 				  &inbuf, &outbuf, NULL, NULL);
 
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		mech_gssapi_log_error(auth_request, major_status,
 				      GSS_C_GSS_CODE,
 				      "final negotiation: gss_unwrap");
@@ -687,7 +690,7 @@ mech_gssapi_auth_initial(struct auth_request *request,
 		obtain_service_credentials(request,
 					   &gssapi_request->service_cred);
 
-	if (GSS_ERROR(major_status)) {
+	if (GSS_ERROR(major_status) != 0) {
 		auth_request_internal_failure(request);
 		return;
 	}
