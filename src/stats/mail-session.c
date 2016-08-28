@@ -13,6 +13,7 @@
 #include "mail-user.h"
 #include "mail-ip.h"
 #include "mail-session.h"
+#include "mail-domain.h"
 
 /* If session doesn't receive any updates for this long, assume that the
    process associated with it has crashed, and forcibly disconnect the
@@ -107,6 +108,9 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 				       mail_session_idle_timeout, session);
 
 	session->user = mail_user_login(args[1]);
+	session->user->num_logins++;
+	mail_domain_login(session->user->domain);
+
 	for (i = 3; args[i] != NULL; i++) {
 		if (strncmp(args[i], "rip=", 4) == 0 &&
 		    net_addr2ip(args[i] + 4, &ip) == 0)
@@ -127,6 +131,8 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 		mail_ip_ref(session->ip);
 	}
 	global_memory_alloc(mail_session_memsize(session));
+
+	mail_global_login();
 	return 0;
 }
 
