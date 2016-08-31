@@ -365,7 +365,7 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 		if (file->super_output != NULL) {
 			/* no metawrap */
 			i_assert(file->temp_output == NULL);
-			fs_write_stream_abort_parent(_file->parent, &file->super_output);
+			fs_write_stream_abort_parent(_file, &file->super_output);
 		} else {
 			i_assert(file->temp_output != NULL);
 			o_stream_destroy(&file->temp_output);
