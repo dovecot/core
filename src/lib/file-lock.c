@@ -114,9 +114,9 @@ file_lock_find_proc_locks(int lock_fd ATTR_UNUSED)
 
 		/* number: FLOCK/POSIX ADVISORY READ/WRITE pid
 		   major:minor:inode region-start region-end */
-		if (str_array_length(args) < 8)
-			continue;
-		if (strcmp(args[5], node_buf) == 0) {
+		if (str_array_length(args) < 8) {
+			; /* don't continue from within a T_BEGIN {...} T_END */
+		} else if (strcmp(args[5], node_buf) == 0) {
 			lock_type = strcmp(args[3], "READ") == 0 ?
 				"READ" : "WRITE";
 			if (str_to_pid(args[4], &pid) < 0)
