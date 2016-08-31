@@ -73,21 +73,27 @@ static void login_connection_input(struct login_connection *conn)
 
 static void login_connection_authreply_input(struct login_connection *conn)
 {
+	bool bail = FALSE;
 	const char *line;
 
-	while ((line = i_stream_read_next_line(conn->input)) != NULL) T_BEGIN {
+	while (!bail && (line = i_stream_read_next_line(conn->input)) != NULL) T_BEGIN {
 		if (!conn->handshaked) {
 			if (!version_string_verify(line, "director-authreply-client",
 						   AUTHREPLY_PROTOCOL_MAJOR_VERSION)) {
 				i_error("authreply client sent invalid handshake: %s", line);
 				login_connection_deinit(&conn);
-				return;
+				bail = TRUE; /* don't return from within a T_BEGIN {...} T_END */
+			} else {
+				conn->handshaked = TRUE;
 			}
-			conn->handshaked = TRUE;
 		} else {
 			auth_input_line(line, conn);
 		}
 	} T_END;
+
+	if (bail)
+		return;
+
 	if (conn->input->eof) {
 		if (conn->input->stream_errno != 0 &&
 		    conn->input->stream_errno != ECONNRESET) {
