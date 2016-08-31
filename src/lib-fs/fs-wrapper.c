@@ -79,7 +79,7 @@ void fs_wrapper_write_stream(struct fs_file *file)
 int fs_wrapper_write_stream_finish(struct fs_file *file, bool success)
 {
 	if (!success) {
-		fs_write_stream_abort_parent(file->parent, &file->output);
+		fs_write_stream_abort_parent(file, &file->output);
 		return -1;
 	}
 

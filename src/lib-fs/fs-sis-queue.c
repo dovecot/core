@@ -149,7 +149,7 @@ static int fs_sis_queue_write_stream_finish(struct fs_file *_file, bool success)
 
 	if (!success) {
 		if (_file->parent != NULL)
-			fs_write_stream_abort_parent(_file->parent, &_file->output);
+			fs_write_stream_abort_parent(_file, &_file->output);
 		return -1;
 	}
 
