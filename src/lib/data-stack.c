@@ -69,6 +69,7 @@ struct stack_frame_block {
 
 unsigned int data_stack_frame = 0;
 
+static bool data_stack_initialized = FALSE;
 static int frame_pos = BLOCK_FRAME_COUNT-1; /* in current_frame_block */
 static struct stack_frame_block *current_frame_block;
 static struct stack_frame_block *unused_frame_blocks;
@@ -133,7 +134,7 @@ unsigned int t_push(const char *marker)
 	frame_pos++;
 	if (frame_pos == BLOCK_FRAME_COUNT) {
 		/* frame block full */
-		if (unlikely(data_stack_frame == 0)) {
+		if (unlikely(!data_stack_initialized)) {
 			/* kludgy, but allow this before initialization */
 			frame_pos = 0;
 			data_stack_init();
@@ -363,7 +364,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
-	if (unlikely(data_stack_frame == 0)) {
+	if (unlikely(!data_stack_initialized)) {
 		/* kludgy, but allow this before initialization */
 		data_stack_init();
 	}
@@ -567,11 +568,12 @@ void data_stack_set_clean_after_pop(bool enable ATTR_UNUSED)
 
 void data_stack_init(void)
 {
-	if (data_stack_frame > 0) {
+	if (data_stack_initialized) {
 		/* already initialized (we did auto-initialization in
 		   t_malloc/t_push) */
 		return;
 	}
+	data_stack_initialized = TRUE;
 	data_stack_frame = 1;
 
 	outofmem_area.block.size = outofmem_area.block.left =
