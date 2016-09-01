@@ -133,7 +133,7 @@ unsigned int t_push(const char *marker)
 	frame_pos++;
 	if (frame_pos == BLOCK_FRAME_COUNT) {
 		/* frame block full */
-		if (data_stack_frame == 0) {
+		if (unlikely(data_stack_frame == 0)) {
 			/* kludgy, but allow this before initialization */
 			frame_pos = 0;
 			data_stack_init();
