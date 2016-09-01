@@ -39,7 +39,7 @@ extern data_stack_frame_t data_stack_frame;
    is called. Returns the current stack frame number, which can be used
    to detect missing t_pop() calls:
 
-   x = t_push(__func__); .. if (t_pop() != x) abort();
+   x = t_push(__func__); .. if (!t_pop(x)) abort();
 
    In DEBUG mode, t_push_named() makes a temporary allocation for the name,
    but is safe to call in a loop as it performs the allocation within its own
@@ -47,10 +47,9 @@ extern data_stack_frame_t data_stack_frame;
 */
 data_stack_frame_t t_push(const char *marker) ATTR_HOT;
 data_stack_frame_t t_push_named(const char *format, ...) ATTR_HOT ATTR_FORMAT(1, 2);
-data_stack_frame_t t_pop(void) ATTR_HOT;
-/* Simplifies the if (t_pop() != x) check by comparing it internally and
-   panicking if it doesn't match. */
-void t_pop_check(data_stack_frame_t *id) ATTR_HOT;
+/* Returns TRUE on success, FALSE if t_pop() call was leaked. The caller
+   should panic. */
+bool t_pop(data_stack_frame_t *id) ATTR_HOT;
 
 /* Usage: T_BEGIN { code } T_END */
 #ifndef DEBUG
@@ -65,7 +64,11 @@ void t_pop_check(data_stack_frame_t *id) ATTR_HOT;
 	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(T_CAT2(__FILE__,__LINE__));
 #endif
 #define T_END \
-	t_pop_check(&_data_stack_cur_id); } STMT_END
+	STMT_START { \
+		if (unlikely(!t_pop(&_data_stack_cur_id))) \
+			i_panic("Leaked t_pop() call"); \
+	} STMT_END; \
+	} STMT_END
 
 /* WARNING: Be careful when using these functions, it's too easy to
    accidentally save the returned value somewhere permanently.

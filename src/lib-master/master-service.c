@@ -535,7 +535,7 @@ void master_service_init_finish(struct master_service *service)
 
 	/* close data stack frame opened by master_service_init() */
 	if ((service->flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0) {
-		if (t_pop() != service->datastack_frame_id)
+		if (!t_pop(&service->datastack_frame_id))
 			i_panic("Leaked t_pop() call");
 	}
 }

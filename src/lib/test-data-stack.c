@@ -122,7 +122,7 @@ static void test_ds_recurse(int depth, int number, size_t size)
 		test_assert_idx(strspn(ps[i], tag) == size - 2, i);
 		test_assert_idx(ps[i][size-1] == tag[0], i);
 	}
-	test_assert_idx(t_id == t_pop(), depth);
+	test_assert_idx(t_pop(&t_id), depth);
 }
 
 static void test_ds_recursive(int count, int depth)
@@ -165,7 +165,7 @@ enum fatal_test_state fatal_data_stack(int stage)
 		undo_ptr = NULL;
 		/* t_pop musn't abort, that would cause recursion */
 		things_are_messed_up = TRUE;
-		if (t_id != NONEXISTENT_STACK_FRAME_ID && t_pop() != t_id)
+		if (t_id != NONEXISTENT_STACK_FRAME_ID && !t_pop(&t_id))
 			return FATAL_TEST_ABORT; /* abort, things are messed up with us */
 		things_are_messed_up = FALSE;
 		t_id = NONEXISTENT_STACK_FRAME_ID;
@@ -205,7 +205,7 @@ enum fatal_test_state fatal_data_stack(int stage)
 		undo_data = *undo_ptr;
 		*undo_ptr = '*';
 		/* t_pop will now fail */
-		(void)t_pop();
+		(void)t_pop(&t_id);
 		t_id = NONEXISTENT_STACK_FRAME_ID; /* We're FUBAR, mustn't pop next entry */
 		return FATAL_TEST_FAILURE;
 	}
@@ -218,7 +218,7 @@ enum fatal_test_state fatal_data_stack(int stage)
 		undo_data = *undo_ptr;
 		*undo_ptr = '*';
 		/* t_pop will now fail */
-		(void)t_pop();
+		(void)t_pop(&t_id);
 		t_id = NONEXISTENT_STACK_FRAME_ID; /* We're FUBAR, mustn't pop next entry */
 		return FATAL_TEST_FAILURE;
 	}

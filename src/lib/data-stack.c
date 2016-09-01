@@ -70,6 +70,8 @@ struct stack_frame_block {
 data_stack_frame_t data_stack_frame = 0;
 
 static bool data_stack_initialized = FALSE;
+static data_stack_frame_t root_frame_id;
+
 static int frame_pos = BLOCK_FRAME_COUNT-1; /* in current_frame_block */
 static struct stack_frame_block *current_frame_block;
 static struct stack_frame_block *unused_frame_blocks;
@@ -260,7 +262,7 @@ static void t_pop_verify(void)
 }
 #endif
 
-data_stack_frame_t t_pop(void)
+bool t_pop(data_stack_frame_t *id)
 {
 	struct stack_frame_block *frame_block;
 
@@ -306,15 +308,10 @@ data_stack_frame_t t_pop(void)
 		frame_block->prev = unused_frame_blocks;
 		unused_frame_blocks = frame_block;
 	}
-
-	return --data_stack_frame;
-}
-
-void t_pop_check(data_stack_frame_t *id)
-{
-	if (unlikely(t_pop() != *id))
-		i_panic("Leaked t_pop() call");
+	if (unlikely(--data_stack_frame != *id))
+		return FALSE;
 	*id = 0;
+	return TRUE;
 }
 
 static struct stack_block *mem_block_alloc(size_t min_size)
@@ -590,14 +587,13 @@ void data_stack_init(void)
 	last_buffer_block = NULL;
 	last_buffer_size = 0;
 
-	(void)t_push("data_stack_init");
+	root_frame_id = t_push("data_stack_init");
 }
 
 void data_stack_deinit(void)
 {
-	(void)t_pop();
-
-	if (frame_pos != BLOCK_FRAME_COUNT-1)
+	if (!t_pop(&root_frame_id) ||
+	    frame_pos != BLOCK_FRAME_COUNT-1)
 		i_panic("Missing t_pop() call");
 
 #ifndef USE_GC
