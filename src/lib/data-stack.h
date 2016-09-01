@@ -31,7 +31,11 @@
       overflows.
 */
 
+#ifndef DEBUG
 typedef unsigned int data_stack_frame_t;
+#else
+typedef struct data_stack_frame *data_stack_frame_t;
+#endif
 
 extern data_stack_frame_t data_stack_frame;
 

@@ -67,6 +67,12 @@ struct stack_frame_block {
 #endif
 };
 
+#ifdef DEBUG
+struct data_stack_frame {
+	int dummy;
+};
+#endif
+
 data_stack_frame_t data_stack_frame = 0;
 
 static bool data_stack_initialized = FALSE;
@@ -571,7 +577,7 @@ void data_stack_init(void)
 		return;
 	}
 	data_stack_initialized = TRUE;
-	data_stack_frame = 1;
+	data_stack_frame = (data_stack_frame_t)1;
 
 	outofmem_area.block.size = outofmem_area.block.left =
 		sizeof(outofmem_area) - sizeof(outofmem_area.block);
