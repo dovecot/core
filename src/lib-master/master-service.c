@@ -152,6 +152,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 		    int *argc, char **argv[], const char *getopt_str)
 {
 	struct master_service *service;
+	data_stack_frame_t datastack_frame_id = 0;
 	unsigned int count;
 	const char *value;
 
@@ -186,7 +187,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	   before we get to ioloop. the corresponding t_pop() is in
 	   master_service_init_finish(). */
 	if ((flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0)
-		t_push(NULL);
+		datastack_frame_id = t_push(NULL);
 
 	/* ignore these signals as early as possible */
 	lib_signals_init();
@@ -210,6 +211,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->ioloop = io_loop_create();
 	service->service_count_left = UINT_MAX;
 	service->config_fd = -1;
+	service->datastack_frame_id = datastack_frame_id;
 
 	service->config_path = i_strdup(getenv(MASTER_CONFIG_FILE_ENV));
 	if (service->config_path == NULL)
@@ -532,8 +534,10 @@ void master_service_init_finish(struct master_service *service)
 	master_status_update(service);
 
 	/* close data stack frame opened by master_service_init() */
-	if ((service->flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0)
-		t_pop();
+	if ((service->flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0) {
+		if (t_pop() != service->datastack_frame_id)
+			i_panic("Leaked t_pop() call");
+	}
 }
 
 void master_service_env_clean(void)

@@ -34,6 +34,7 @@ struct master_service {
 	ARRAY_TYPE(const_string) config_overrides;
 	int config_fd;
 	int syslog_facility;
+	data_stack_frame_t datastack_frame_id;
 
 	struct master_service_listener *listeners;
 	unsigned int socket_count;
