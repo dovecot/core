@@ -478,7 +478,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 {
 	struct priorityq_item *item;
 	struct timeval tv, tv_call, prev_ioloop_timeval = ioloop_timeval;
-	unsigned int t_id;
+	data_stack_frame_t t_id;
 
 	if (gettimeofday(&ioloop_timeval, NULL) < 0)
 		i_fatal("gettimeofday(): %m");
@@ -549,7 +549,7 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 void io_loop_call_io(struct io *io)
 {
 	struct ioloop *ioloop = io->ioloop;
-	unsigned int t_id;
+	data_stack_frame_t t_id;
 
 	if (io->pending) {
 		i_assert(ioloop->io_pending_count > 0);

@@ -93,7 +93,7 @@ static void test_ds_recurse(int depth, int number, size_t size)
 	char **ps;
 	char tag[2] = { depth+1, '\0' };
 	int try_fails = 0;
-	unsigned int t_id = t_push_named("test_ds_recurse[%i]", depth);
+	data_stack_frame_t t_id = t_push_named("test_ds_recurse[%i]", depth);
 	ps = t_buffer_get_type(char *, number);
 	i_assert(ps != NULL);
 	t_buffer_alloc_type(char *, number);
@@ -148,9 +148,10 @@ void test_data_stack(void)
 enum fatal_test_state fatal_data_stack(int stage)
 {
 #ifdef DEBUG
+#define NONEXISTENT_STACK_FRAME_ID (data_stack_frame_t)999999999
 	/* If we abort, then we'll be left with a dangling t_push()
 	   keep a record of our temporary stack id, so we can clean up. */
-	static unsigned int t_id = 999999999;
+	static data_stack_frame_t t_id = NONEXISTENT_STACK_FRAME_ID;
 	static unsigned char *undo_ptr = NULL;
 	static unsigned char undo_data;
 	static bool things_are_messed_up = FALSE;
@@ -164,10 +165,10 @@ enum fatal_test_state fatal_data_stack(int stage)
 		undo_ptr = NULL;
 		/* t_pop musn't abort, that would cause recursion */
 		things_are_messed_up = TRUE;
-		if (t_id != 999999999 && t_pop() != t_id)
+		if (t_id != NONEXISTENT_STACK_FRAME_ID && t_pop() != t_id)
 			return FATAL_TEST_ABORT; /* abort, things are messed up with us */
 		things_are_messed_up = FALSE;
-		t_id = 999999999;
+		t_id = NONEXISTENT_STACK_FRAME_ID;
 		test_end();
 	}
 
@@ -205,7 +206,7 @@ enum fatal_test_state fatal_data_stack(int stage)
 		*undo_ptr = '*';
 		/* t_pop will now fail */
 		(void)t_pop();
-		t_id = 999999999; /* We're FUBAR, mustn't pop next entry */
+		t_id = NONEXISTENT_STACK_FRAME_ID; /* We're FUBAR, mustn't pop next entry */
 		return FATAL_TEST_FAILURE;
 	}
 
@@ -218,7 +219,7 @@ enum fatal_test_state fatal_data_stack(int stage)
 		*undo_ptr = '*';
 		/* t_pop will now fail */
 		(void)t_pop();
-		t_id = 999999999; /* We're FUBAR, mustn't pop next entry */
+		t_id = NONEXISTENT_STACK_FRAME_ID; /* We're FUBAR, mustn't pop next entry */
 		return FATAL_TEST_FAILURE;
 	}
 

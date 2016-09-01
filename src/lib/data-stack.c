@@ -67,7 +67,7 @@ struct stack_frame_block {
 #endif
 };
 
-unsigned int data_stack_frame = 0;
+data_stack_frame_t data_stack_frame = 0;
 
 static bool data_stack_initialized = FALSE;
 static int frame_pos = BLOCK_FRAME_COUNT-1; /* in current_frame_block */
@@ -127,7 +127,7 @@ static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 	}
 }
 
-unsigned int t_push(const char *marker)
+data_stack_frame_t t_push(const char *marker)
 {
 	struct stack_frame_block *frame_block;
 
@@ -179,9 +179,9 @@ unsigned int t_push(const char *marker)
 	return data_stack_frame++;
 }
 
-unsigned int t_push_named(const char *format, ...)
+data_stack_frame_t t_push_named(const char *format, ...)
 {
-	unsigned int ret = t_push(NULL);
+	data_stack_frame_t ret = t_push(NULL);
 #ifdef DEBUG
 	va_list args;
 	va_start(args, format);
@@ -260,7 +260,7 @@ static void t_pop_verify(void)
 }
 #endif
 
-unsigned int t_pop(void)
+data_stack_frame_t t_pop(void)
 {
 	struct stack_frame_block *frame_block;
 
@@ -310,7 +310,7 @@ unsigned int t_pop(void)
 	return --data_stack_frame;
 }
 
-void t_pop_check(unsigned int *id)
+void t_pop_check(data_stack_frame_t *id)
 {
 	if (unlikely(t_pop() != *id))
 		i_panic("Leaked t_pop() call");

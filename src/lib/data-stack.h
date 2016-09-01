@@ -31,7 +31,9 @@
       overflows.
 */
 
-extern unsigned int data_stack_frame;
+typedef unsigned int data_stack_frame_t;
+
+extern data_stack_frame_t data_stack_frame;
 
 /* All t_..() allocations between t_push*() and t_pop() are freed after t_pop()
    is called. Returns the current stack frame number, which can be used
@@ -43,24 +45,24 @@ extern unsigned int data_stack_frame;
    but is safe to call in a loop as it performs the allocation within its own
    frame. However, you should always prefer to use T_BEGIN { ... } T_END below.
 */
-unsigned int t_push(const char *marker) ATTR_HOT;
-unsigned int t_push_named(const char *format, ...) ATTR_HOT ATTR_FORMAT(1, 2);
-unsigned int t_pop(void) ATTR_HOT;
+data_stack_frame_t t_push(const char *marker) ATTR_HOT;
+data_stack_frame_t t_push_named(const char *format, ...) ATTR_HOT ATTR_FORMAT(1, 2);
+data_stack_frame_t t_pop(void) ATTR_HOT;
 /* Simplifies the if (t_pop() != x) check by comparing it internally and
    panicking if it doesn't match. */
-void t_pop_check(unsigned int *id) ATTR_HOT;
+void t_pop_check(data_stack_frame_t *id) ATTR_HOT;
 
 /* Usage: T_BEGIN { code } T_END */
 #ifndef DEBUG
 #define T_BEGIN \
-	STMT_START { unsigned int _data_stack_cur_id = t_push(NULL);
+	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(NULL);
 #elif defined (__GNUC__) && !defined (__STRICT_ANSI__)
 #define T_BEGIN \
-	STMT_START { unsigned int _data_stack_cur_id = t_push(__FUNCTION__);
+	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(__FUNCTION__);
 #else
 #define T_CAT2(a,b) (a ":" #b)
 #define T_BEGIN \
-	STMT_START { unsigned int _data_stack_cur_id = t_push(T_CAT2(__FILE__,__LINE__));
+	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(T_CAT2(__FILE__,__LINE__));
 #endif
 #define T_END \
 	t_pop_check(&_data_stack_cur_id); } STMT_END

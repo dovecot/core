@@ -40,7 +40,7 @@ struct datastack_pool {
 	struct pool pool;
 	int refcount;
 
-	unsigned int data_stack_frame;
+	data_stack_frame_t data_stack_frame;
 };
 
 pool_t pool_datastack_create(void)
