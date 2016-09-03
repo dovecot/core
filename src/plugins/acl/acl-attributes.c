@@ -195,6 +195,9 @@ acl_attribute_iter_next_acl(struct acl_mailbox_attribute_iter *aiter)
 {
 	struct acl_rights rights;
 
+	if (aiter->failed)
+		return NULL;
+
 	while (acl_object_list_next(aiter->acl_iter, &rights)) {
 		if (rights.global)
 			continue;
@@ -205,7 +208,6 @@ acl_attribute_iter_next_acl(struct acl_mailbox_attribute_iter *aiter)
 	if (acl_object_list_deinit(&aiter->acl_iter) < 0) {
 		mail_storage_set_internal_error(aiter->iter.box->storage);
 		aiter->failed = TRUE;
-		return NULL;
 	}
 	return NULL;
 }
@@ -237,8 +239,10 @@ int acl_attribute_iter_deinit(struct mailbox_attribute_iter *iter)
 		if (abox->module_ctx.super.attribute_iter_deinit(aiter->super) < 0)
 			ret = -1;
 	}
-	if (aiter->acl_iter != NULL)
-		acl_object_list_deinit(&aiter->acl_iter);
+	if (aiter->acl_iter != && acl_object_list_deinit(&aiter->acl_iter) < 0) {
+		mail_storage_set_internal_error(aiter->iter.box->storage);
+		ret = -1;
+	}
 	if (aiter->acl_name != NULL)
 		str_free(&aiter->acl_name);
 	i_free(aiter);
