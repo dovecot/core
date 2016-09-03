@@ -62,9 +62,9 @@ void acl_backend_vfile_acllist_verify(struct acl_backend_vfile *backend,
 
 struct acl_mailbox_list_context *
 acl_backend_vfile_nonowner_iter_init(struct acl_backend *backend);
-int acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *ctx,
+bool acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *ctx,
 					 const char **name_r);
-void
+int
 acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx);
 int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *backend);
 

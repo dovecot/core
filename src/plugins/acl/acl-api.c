@@ -169,21 +169,21 @@ struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj)
         return aclobj->backend->v.object_list_init(aclobj);
 }
 
-int acl_object_list_next(struct acl_object_list_iter *iter,
+bool acl_object_list_next(struct acl_object_list_iter *iter,
                          struct acl_rights *rights_r)
 {
 	if (iter->failed)
-		return -1;
+		return FALSE;
 
 	return iter->aclobj->backend->v.object_list_next(iter, rights_r);
 }
 
-void acl_object_list_deinit(struct acl_object_list_iter **_iter)
+int acl_object_list_deinit(struct acl_object_list_iter **_iter)
 {
 	struct acl_object_list_iter *iter = *_iter;
 
 	*_iter = NULL;
-        iter->aclobj->backend->v.object_list_deinit(iter);
+        return iter->aclobj->backend->v.object_list_deinit(iter);
 }
 
 struct acl_object_list_iter *
@@ -213,25 +213,35 @@ acl_default_object_list_init(struct acl_object *aclobj)
 		iter->rights = p_new(pool, struct acl_rights, iter->count);
 		for (i = 0; i < iter->count; i++)
 			acl_rights_dup(&aclobj_rights[i], pool, &iter->rights[i]);
-	}
+	} else
+		iter->empty = TRUE;
 	return iter;
 }
 
-int acl_default_object_list_next(struct acl_object_list_iter *iter,
+bool acl_default_object_list_next(struct acl_object_list_iter *iter,
 				 struct acl_rights *rights_r)
 {
 	if (iter->failed)
-		return -1;
+		return FALSE;
 
 	if (iter->idx == iter->count)
-		return 0;
+		return FALSE;
 	*rights_r = iter->rights[iter->idx++];
-	return 1;
+	return TRUE;
 }
 
-void acl_default_object_list_deinit(struct acl_object_list_iter *iter)
+int acl_default_object_list_deinit(struct acl_object_list_iter *iter)
 {
+	int ret = 0;
+	if (iter->failed)
+		ret = -1;
+	else if (iter->empty)
+		ret = 0;
+	else
+		ret = 1;
+
 	pool_unref(&iter->pool);
+	return ret;
 }
 
 struct acl_mailbox_list_context *
@@ -240,19 +250,18 @@ acl_backend_nonowner_lookups_iter_init(struct acl_backend *backend)
 	return backend->v.nonowner_lookups_iter_init(backend);
 }
 
-int acl_backend_nonowner_lookups_iter_next(struct acl_mailbox_list_context *ctx,
+bool acl_backend_nonowner_lookups_iter_next(struct acl_mailbox_list_context *ctx,
 					   const char **name_r)
 {
 	return ctx->backend->v.nonowner_lookups_iter_next(ctx, name_r);
 }
 
-void
-acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **_ctx)
+int acl_backend_nonowner_lookups_iter_deinit(struct acl_mailbox_list_context **_ctx)
 {
 	struct acl_mailbox_list_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	ctx->backend->v.nonowner_lookups_iter_deinit(ctx);
+	return ctx->backend->v.nonowner_lookups_iter_deinit(ctx);
 }
 
 int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend)

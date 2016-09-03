@@ -85,14 +85,13 @@ static int cmd_acl_get_mailbox(struct doveadm_acl_cmd_context *ctx,
 	backend = acl_mailbox_list_get_backend(box->list);
 
 	iter = acl_object_list_init(aclobj);
-	while ((ret = acl_object_list_next(iter, &rights)) > 0) T_BEGIN {
+	while (acl_object_list_next(iter, &rights)) T_BEGIN {
 		if (!ctx->get_match_me ||
 		    acl_backend_rights_match_me(backend, &rights))
 			cmd_acl_get_right(&rights);
 	} T_END;
-	acl_object_list_deinit(&iter);
 
-	if (ret < 0) {
+	if ((ret = acl_object_list_deinit(&iter))<0) {
 		i_error("ACL iteration failed");
 		doveadm_mail_failed_error(&ctx->ctx, MAIL_ERROR_TEMP);
 	}
@@ -445,12 +444,11 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 	}
 
 	iter = acl_backend_nonowner_lookups_iter_init(backend);
-	while ((ret = acl_backend_nonowner_lookups_iter_next(iter, &name)) > 0) {
+	while (acl_backend_nonowner_lookups_iter_next(iter, &name)) {
 		if (strcmp(name, box->name) == 0)
 			break;
 	}
-	acl_backend_nonowner_lookups_iter_deinit(&iter);
-	if (ret < 0)
+	if ((ret = acl_backend_nonowner_lookups_iter_deinit(&iter))<0)
 		i_fatal("ACL non-owner iteration failed");
 	if (ret == 0) {
 		i_error("Mailbox not found from dovecot-acl-list, rebuilding");

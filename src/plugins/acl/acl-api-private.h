@@ -17,9 +17,9 @@ struct acl_backend_vfuncs {
 
 	struct acl_mailbox_list_context *
 		(*nonowner_lookups_iter_init)(struct acl_backend *backend);
-	int (*nonowner_lookups_iter_next)(struct acl_mailbox_list_context *ctx,
+	bool (*nonowner_lookups_iter_next)(struct acl_mailbox_list_context *ctx,
 					  const char **name_r);
-	void (*nonowner_lookups_iter_deinit)
+	int (*nonowner_lookups_iter_deinit)
 		(struct acl_mailbox_list_context *ctx);
 	int (*nonowner_lookups_rebuild)(struct acl_backend *backend);
 
@@ -36,9 +36,9 @@ struct acl_backend_vfuncs {
 
 	struct acl_object_list_iter *
 		(*object_list_init)(struct acl_object *aclobj);
-	int (*object_list_next)(struct acl_object_list_iter *iter,
+	bool (*object_list_next)(struct acl_object_list_iter *iter,
 				struct acl_rights *rights_r);
-	void (*object_list_deinit)(struct acl_object_list_iter *iter);
+	int (*object_list_deinit)(struct acl_object_list_iter *iter);
 };
 
 struct acl_backend {
@@ -63,6 +63,10 @@ struct acl_backend {
 
 struct acl_mailbox_list_context {
 	struct acl_backend *backend;
+
+	bool empty:1;
+	bool failed:1;
+	const char *error;
 };
 
 struct acl_object {
@@ -79,16 +83,19 @@ struct acl_object_list_iter {
 
 	struct acl_rights *rights;
 	unsigned int idx, count;
+
+	bool empty:1;
 	bool failed:1;
+	const char *error;
 };
 
 extern const char *const all_mailbox_rights[];
 
 struct acl_object_list_iter *
 acl_default_object_list_init(struct acl_object *aclobj);
-int acl_default_object_list_next(struct acl_object_list_iter *iter,
-				 struct acl_rights *rights_r);
-void acl_default_object_list_deinit(struct acl_object_list_iter *iter);
+bool acl_default_object_list_next(struct acl_object_list_iter *iter,
+				  struct acl_rights *rights_r);
+int acl_default_object_list_deinit(struct acl_object_list_iter *iter);
 
 const char *const *
 acl_backend_mask_get_names(struct acl_backend *backend,

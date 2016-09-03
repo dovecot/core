@@ -83,7 +83,7 @@ static int acl_attribute_get_acl(struct mailbox *box, const char *key,
 	}
 
 	iter = acl_object_list_init(aclobj);
-	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
+	while (acl_object_list_next(iter, &rights)) {
 		if (!rights.global &&
 		    rights.id_type == wanted_rights.id_type &&
 		    null_strcmp(rights.identifier, wanted_rights.identifier) == 0) {
@@ -91,9 +91,8 @@ static int acl_attribute_get_acl(struct mailbox *box, const char *key,
 			break;
 		}
 	}
-	if (ret < 0)
+	if ((ret = acl_object_list_deinit(&iter)) < 0)
 		mail_storage_set_internal_error(box->storage);
-	acl_object_list_deinit(&iter);
 	return ret;
 }
 
@@ -195,21 +194,19 @@ static const char *
 acl_attribute_iter_next_acl(struct acl_mailbox_attribute_iter *aiter)
 {
 	struct acl_rights rights;
-	int ret;
 
-	while ((ret = acl_object_list_next(aiter->acl_iter, &rights)) > 0) {
+	while (acl_object_list_next(aiter->acl_iter, &rights)) {
 		if (rights.global)
 			continue;
 		str_truncate(aiter->acl_name, strlen(MAILBOX_ATTRIBUTE_PREFIX_ACL));
 		acl_rights_write_id(aiter->acl_name, &rights);
 		return str_c(aiter->acl_name);
 	}
-	if (ret < 0) {
+	if (acl_object_list_deinit(&aiter->acl_iter) < 0) {
 		mail_storage_set_internal_error(aiter->iter.box->storage);
 		aiter->failed = TRUE;
 		return NULL;
 	}
-	acl_object_list_deinit(&aiter->acl_iter);
 	return NULL;
 }
 

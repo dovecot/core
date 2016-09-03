@@ -379,7 +379,7 @@ acl_backend_vfile_nonowner_iter_init(struct acl_backend *_backend)
 	return &ctx->ctx;
 }
 
-int acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *_ctx,
+bool acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *_ctx,
 					 const char **name_r)
 {
 	struct acl_mailbox_list_context_vfile *ctx =
@@ -389,22 +389,35 @@ int acl_backend_vfile_nonowner_iter_next(struct acl_mailbox_list_context *_ctx,
 	const struct acl_backend_vfile_acllist *acllist;
 	unsigned int count;
 
+	if (_ctx->failed)
+		return FALSE;
+
 	acllist = array_get(&backend->acllist, &count);
+	if (count == 0)
+		_ctx->empty = TRUE;
 	if (ctx->idx == count)
-		return 0;
+		return FALSE;
 
 	*name_r = acllist[ctx->idx++].name;
-	return 1;
+	return TRUE;
 }
 
-void
+int
 acl_backend_vfile_nonowner_iter_deinit(struct acl_mailbox_list_context *ctx)
 {
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)ctx->backend;
+	int ret;
 
 	backend->iterating_acllist = FALSE;
+	if (ctx->failed)
+		ret = -1;
+	else if (ctx->empty)
+		ret = 0;
+	else
+		ret = 1;
 	i_free(ctx);
+	return ret;
 }
 
 int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *_backend)
