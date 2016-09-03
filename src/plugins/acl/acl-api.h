@@ -156,7 +156,7 @@ int acl_object_update(struct acl_object *aclobj,
 /* List all identifiers. */
 struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj);
 bool acl_object_list_next(struct acl_object_list_iter *iter,
-                         struct acl_rights *rights_r);
+			  struct acl_rights *rights_r);
 int acl_object_list_deinit(struct acl_object_list_iter **iter);
 
 /* Returns the canonical ID for the right. */

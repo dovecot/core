@@ -134,7 +134,7 @@ static int acl_object_get_my_rights_real(struct acl_object *aclobj, pool_t pool,
 }
 
 int acl_object_get_my_rights(struct acl_object *aclobj, pool_t pool,
-                             const char *const **rights_r)
+			     const char *const **rights_r)
 {
 	int ret;
 
@@ -161,16 +161,16 @@ int acl_object_last_changed(struct acl_object *aclobj, time_t *last_changed_r)
 int acl_object_update(struct acl_object *aclobj,
 		      const struct acl_rights_update *update)
 {
-        return aclobj->backend->v.object_update(aclobj, update);
+	return aclobj->backend->v.object_update(aclobj, update);
 }
 
 struct acl_object_list_iter *acl_object_list_init(struct acl_object *aclobj)
 {
-        return aclobj->backend->v.object_list_init(aclobj);
+	return aclobj->backend->v.object_list_init(aclobj);
 }
 
 bool acl_object_list_next(struct acl_object_list_iter *iter,
-                         struct acl_rights *rights_r)
+			 struct acl_rights *rights_r)
 {
 	if (iter->failed)
 		return FALSE;
@@ -183,7 +183,7 @@ int acl_object_list_deinit(struct acl_object_list_iter **_iter)
 	struct acl_object_list_iter *iter = *_iter;
 
 	*_iter = NULL;
-        return iter->aclobj->backend->v.object_list_deinit(iter);
+	return iter->aclobj->backend->v.object_list_deinit(iter);
 }
 
 struct acl_object_list_iter *
