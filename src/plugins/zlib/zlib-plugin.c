@@ -75,13 +75,14 @@ static void zlib_mail_cache_close(struct zlib_user *zuser)
 
 static struct istream *
 zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
-		     struct istream *input)
+		     struct istream *input, bool do_cache)
 {
 	struct zlib_mail_cache *cache = &zuser->cache;
 	struct istream *inputs[2];
 	string_t *temp_prefix = t_str_new(128);
 
-	zlib_mail_cache_close(zuser);
+	if (do_cache)
+		zlib_mail_cache_close(zuser);
 
 	/* zlib istream is seekable, but very slow. create a seekable istream
 	   which we can use to quickly seek around in the stream that's been
@@ -101,15 +102,18 @@ zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
 						 i_stream_get_name(inputs[0])));
 	i_stream_unref(&inputs[0]);
 
-	cache->to = timeout_add(ZLIB_MAIL_CACHE_EXPIRE_MSECS,
-				zlib_mail_cache_close, zuser);
-	cache->box = mail->box;
-	cache->uid = mail->uid;
-	cache->input = input;
-
-	/* index-mail wants the stream to be destroyed at close, so create
-	   a new stream instead of just increasing reference. */
-	return i_stream_create_limit(cache->input, (uoff_t)-1);
+	if (do_cache) {
+		cache->to = timeout_add(ZLIB_MAIL_CACHE_EXPIRE_MSECS,
+					zlib_mail_cache_close, zuser);
+		cache->box = mail->box;
+		cache->uid = mail->uid;
+		cache->input = input;
+		/* index-mail wants the stream to be destroyed at close, so create
+		   a new stream instead of just increasing reference. */
+		return i_stream_create_limit(cache->input, (uoff_t)-1);
+	} else {
+		return input;
+	}
 }
 
 static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
@@ -127,7 +131,7 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 		return zmail->module_ctx.super.istream_opened(_mail, stream);
 	}
 
-	if (cache->uid == _mail->uid && cache->box == _mail->box) {
+	if (_mail->uid > 0 && cache->uid == _mail->uid && cache->box == _mail->box) {
 		/* use the cached stream. when doing partial reads it should
 		   already be seeked into the wanted offset. */
 		i_stream_unref(stream);
@@ -148,8 +152,8 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 		input = *stream;
 		*stream = handler->create_istream(input, TRUE);
 		i_stream_unref(&input);
-
-		*stream = zlib_mail_cache_open(zuser, _mail, *stream);
+		/* dont cache the stream if _mail->uid is 0 */
+		*stream = zlib_mail_cache_open(zuser, _mail, *stream, (_mail->uid > 0));
 	}
 	return zmail->module_ctx.super.istream_opened(_mail, stream);
 }
@@ -162,7 +166,7 @@ static void zlib_mail_close(struct mail *_mail)
 	struct zlib_mail_cache *cache = &zuser->cache;
 	uoff_t size;
 
-	if (cache->uid == _mail->uid && cache->box == _mail->box) {
+	if (_mail->uid > 0 && cache->uid == _mail->uid && cache->box == _mail->box) {
 		/* make sure we have read the entire email into the seekable
 		   stream (which causes the original input stream to be
 		   unrefed). we can't safely keep the original input stream
