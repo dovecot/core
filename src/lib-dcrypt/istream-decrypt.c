@@ -732,6 +732,12 @@ i_stream_decrypt_read(struct istream_private *stream)
 
 			if (hret == 0) {
 				/* see if we can get more data */
+				if (ret == -2) {
+					stream->istream.stream_errno = EINVAL;
+					io_stream_set_error(&stream->iostream,
+						"Header too large (more than %"PRIuSIZE_T" bytes)", size);
+					return -1;
+				}
 				continue;
 			} else {
 				/* clean up buffer */

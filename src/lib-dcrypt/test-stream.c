@@ -497,6 +497,22 @@ static void test_read_0_to_400_byte_garbage(void)
 	test_end();
 }
 
+static void test_read_large_header(void)
+{
+	test_begin("test_read_large_header");
+
+	struct istream *is = test_istream_create_data(IOSTREAM_CRYPT_MAGIC, sizeof(IOSTREAM_CRYPT_MAGIC));
+	struct istream *ds = i_stream_create_decrypt_callback(is, no_op_cb, NULL);
+	test_istream_set_allow_eof(is, FALSE);
+	test_istream_set_max_buffer_size(is, sizeof(IOSTREAM_CRYPT_MAGIC));
+
+	test_assert(i_stream_read(ds) == -1);
+	i_stream_unref(&ds);
+	i_stream_unref(&is);
+
+	test_end();
+}
+
 static
 void test_free_keys() {
 	dcrypt_key_unref_private(&test_v1_kp.priv);
@@ -529,6 +545,7 @@ int main(void) {
 		test_write_read_v2_empty,
 		test_free_keys,
 		test_read_0_to_400_byte_garbage,
+		test_read_large_header,
 		NULL
 	};
 
