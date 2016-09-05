@@ -564,24 +564,32 @@ bool fts_expunge_log_contains(const struct fts_expunge_log_append_ctx *ctx,
 		return FALSE;
 	return seq_range_exists(&mailbox->uids, uid);	
 }
-void fts_expunge_log_append_remove(struct fts_expunge_log_append_ctx *from,
+int fts_expunge_log_append_remove(struct fts_expunge_log_append_ctx *from,
 				   const struct fts_expunge_log_read_record *record)
 {
 	const uint8_t *guid_p = record->mailbox_guid;
 	struct fts_expunge_log_mailbox *mailbox = hash_table_lookup(from->mailboxes, guid_p);
-	i_assert(mailbox != NULL); /* may only remove things that exist */
+	if (mailbox == NULL)
+		return 0; /* may only remove things that exist */
+
 	mailbox->uids_count -= seq_range_array_remove_seq_range(&mailbox->uids, &record->uids);
+	return 1;
 }
 int fts_expunge_log_subtract(struct fts_expunge_log_append_ctx *from,
 			     struct fts_expunge_log *subtract)
 {
+	unsigned int failures = 0;
 	struct fts_expunge_log_read_ctx *read_ctx = fts_expunge_log_read_begin(subtract);
 	read_ctx->unlink = FALSE;
 
 	const struct fts_expunge_log_read_record *record;
-	while ((record = fts_expunge_log_read_next(read_ctx)) != NULL)
-		fts_expunge_log_append_remove(from, record);
-
+	while ((record = fts_expunge_log_read_next(read_ctx)) != NULL) {
+		if (fts_expunge_log_append_remove(from, record) <= 0)
+			failures++;
+	}
+	if (failures > 0)
+		i_warning("fts: Expunge log subtract ignored %u nonexistent mailbox GUIDs",
+			  failures);
 	return fts_expunge_log_read_end(&read_ctx);
 }
 /* It could be argued that somehow adding a log (file) to the append context

@@ -22,9 +22,11 @@ void fts_expunge_log_append_range(struct fts_expunge_log_append_ctx *ctx,
 				  const struct seq_range *uids);
 void fts_expunge_log_append_record(struct fts_expunge_log_append_ctx *ctx,
 				   const struct fts_expunge_log_read_record *record);
-/* in-memory flattened structures may have records removed from them, file-backed ones may not */
-void fts_expunge_log_append_remove(struct fts_expunge_log_append_ctx *ctx,
-				   const struct fts_expunge_log_read_record *record);
+/* In-memory flattened structures may have records removed from them,
+   file-backed ones may not. Non-existence of UIDs is not an error,
+   non-existence of mailbox GUID causes an error return of 0. */
+int fts_expunge_log_append_remove(struct fts_expunge_log_append_ctx *ctx,
+				  const struct fts_expunge_log_read_record *record);
 int fts_expunge_log_append_commit(struct fts_expunge_log_append_ctx **ctx);
 /* Do not commit non-backed structures, abort them after use. */
 int fts_expunge_log_append_abort(struct fts_expunge_log_append_ctx **ctx);
@@ -46,7 +48,8 @@ int fts_expunge_log_flatten(const char *path,
 			    struct fts_expunge_log_append_ctx **flattened_r);
 bool fts_expunge_log_contains(const struct fts_expunge_log_append_ctx *ctx,
 			      const guid_128_t mailbox_guid, uint32_t uid);
-/* Modify in-place a flattened log. */
+/* Modify in-place a flattened log. If non-existent mailbox GUIDs are
+   encountered, a warning will be logged. */
 int fts_expunge_log_subtract(struct fts_expunge_log_append_ctx *from,
 			     struct fts_expunge_log *subtract);
 /* Write a modified flattened log as a new file. */
