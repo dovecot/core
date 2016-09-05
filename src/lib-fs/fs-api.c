@@ -888,6 +888,7 @@ int fs_get_nlinks(struct fs_file *file, nlink_t *nlinks_r)
 
 int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 {
+	int tmp_errno;
 	/* we're going to be counting this as read+write, so remove the
 	   copy_count we just added */
 	dest->fs->stats.copy_count--;
@@ -917,11 +918,13 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 		return -1;
 	}
 	if (dest->copy_output->stream_errno != 0) {
+		/* errno might not survive abort error */
+		tmp_errno = dest->copy_output->stream_errno;
 		fs_write_stream_abort_error(dest, &dest->copy_output,
 					    "write(%s) failed: %s",
 					    o_stream_get_name(dest->copy_output),
 					    o_stream_get_error(dest->copy_output));
-		errno = dest->copy_output->stream_errno;
+		errno = tmp_errno;
 		i_stream_unref(&dest->copy_input);
 		return -1;
 	}
