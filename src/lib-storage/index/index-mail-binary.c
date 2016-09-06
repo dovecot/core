@@ -367,6 +367,7 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct mail_binary_cache *cache = &_mail->box->storage->binary_cache;
 	struct binary_ctx ctx;
+	struct istream *is;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.mail = _mail;
@@ -381,26 +382,18 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 		return -1;
 	}
 
-	cache->to = timeout_add(MAIL_BINARY_CACHE_EXPIRE_MSECS,
-				mail_storage_free_binary_cache,
-				_mail->box->storage);
-	cache->box = _mail->box;
-	cache->uid = _mail->uid;
-	cache->orig_physical_pos = part->physical_pos;
-	cache->include_hdr = include_hdr;
-
 	if (array_count(&ctx.blocks) != 0) {
-		cache->input = i_streams_merge(blocks_get_streams(&ctx),
+		is = i_streams_merge(blocks_get_streams(&ctx),
 					       IO_BLOCK_SIZE,
 					       fd_callback, _mail);
 	} else {
-		cache->input = i_stream_create_from_data("", 0);
+		is = i_stream_create_from_data("", 0);
 	}
-	i_stream_set_name(cache->input, t_strdup_printf(
+	i_stream_set_name(is, t_strdup_printf(
 		"<binary stream of mailbox %s UID %u>",
 		_mail->box->vname, _mail->uid));
-	if (blocks_count_lines(&ctx, cache->input) < 0) {
-		if (cache->input->stream_errno == EINVAL) {
+	if (blocks_count_lines(&ctx, is) < 0) {
+		if (is->stream_errno == EINVAL) {
 			/* MIME part contains invalid data */
 			mail_storage_set_error(_mail->box->storage,
 					       MAIL_ERROR_INVALIDDATA,
@@ -408,21 +401,34 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 		} else {
 			mail_storage_set_critical(_mail->box->storage,
 				"read(%s) failed: %s",
-				i_stream_get_name(cache->input),
-				i_stream_get_error(cache->input));
+				i_stream_get_name(is),
+				i_stream_get_error(is));
 		}
-		mail_storage_free_binary_cache(_mail->box->storage);
+		i_stream_unref(&is);
 		binary_streams_free(&ctx);
 		return -1;
 	}
-	i_assert(!i_stream_have_bytes_left(cache->input));
-	cache->size = cache->input->v_offset;
-	i_stream_seek(cache->input, 0);
+
+	if (_mail->uid > 0) {
+		cache->to = timeout_add(MAIL_BINARY_CACHE_EXPIRE_MSECS,
+					mail_storage_free_binary_cache,
+					_mail->box->storage);
+		cache->box = _mail->box;
+		cache->uid = _mail->uid;
+		cache->orig_physical_pos = part->physical_pos;
+		cache->include_hdr = include_hdr;
+		cache->input = is;
+	}
+
+	i_assert(!i_stream_have_bytes_left(is));
+	cache->size = is->v_offset;
+	i_stream_seek(is, 0);
 
 	if (part->parent == NULL && include_hdr &&
 	    mail->data.bin_parts == NULL) {
 		binary_parts_update(&ctx, part, &mail->data.bin_parts);
-		binary_parts_cache(&ctx);
+		if (_mail->uid > 0)
+			binary_parts_cache(&ctx);
 	}
 	binary_streams_free(&ctx);
 
