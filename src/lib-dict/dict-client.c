@@ -1073,8 +1073,10 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 
 static void commit_sync_callback(int ret, void *context)
 {
-	int *ret_p = context;
-	*ret_p = ret;
+	if (context != NULL) {
+		int *ret_p = context;
+		*ret_p = ret;
+	}
 }
 
 static int
@@ -1103,7 +1105,7 @@ client_dict_transaction_commit(struct dict_transaction_context *_ctx,
 			cmd->api_callback.context = context;
 		} else {
 			cmd->api_callback.commit = commit_sync_callback;
-			cmd->api_callback.context = &ret;
+			cmd->api_callback.context = (async ? NULL : &ret);
 			if (async)
 				cmd->background = TRUE;
 		}
