@@ -423,7 +423,7 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 
 	if (virtual_skip == 0) {
 		/* no need to seek */
-	} else if (cache->uid == mail->uid &&
+	} else if (mail->uid > 0 && cache->uid == mail->uid &&
 		   cache->physical_start == physical_start &&
 		   cache->virtual_pos < virtual_skip) {
 		/* use cache */
@@ -437,7 +437,8 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 		return errinput;
 	}
 
-	if ((msgpart->partial_offset != 0 ||
+	if (mail->uid > 0 &&
+	    (msgpart->partial_offset != 0 ||
 	     msgpart->partial_size != (uoff_t)-1) && !input->eof) {
 		/* update cache */
 		cache->uid = mail->uid;
