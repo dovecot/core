@@ -42,17 +42,15 @@ static void drop_privileges(void)
 
 	/* by default we don't drop any privileges, but keep running as root. */
 	restrict_access_get_env(&set);
-	if (set.uid != 0) {
-		/* open config connection before dropping privileges */
-		struct master_service_settings_input input;
-		struct master_service_settings_output output;
+	/* open config connection before dropping privileges */
+	struct master_service_settings_input input;
+	struct master_service_settings_output output;
 
-		memset(&input, 0, sizeof(input));
-		input.module = "lmtp";
-		input.service = "lmtp";
-		(void)master_service_settings_read(master_service,
-						   &input, &output, &error);
-	}
+	memset(&input, 0, sizeof(input));
+	input.module = "lmtp";
+	input.service = "lmtp";
+	(void)master_service_settings_read(master_service,
+					   &input, &output, &error);
 	restrict_access_by_env(NULL, FALSE);
 }
 
