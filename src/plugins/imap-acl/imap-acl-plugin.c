@@ -190,7 +190,7 @@ static bool have_positive_owner_rights(struct acl_backend *backend,
 	bool ret = FALSE;
 
 	iter = acl_object_list_init(aclobj);
-	while (acl_object_list_next(iter, &rights) > 0) {
+	while (acl_object_list_next(iter, &rights)) {
 		if (acl_rights_is_owner(backend, &rights)) {
 			if (rights.rights != NULL) {
 				ret = TRUE;
@@ -198,7 +198,7 @@ static bool have_positive_owner_rights(struct acl_backend *backend,
 			}
 		}
 	}
-	acl_object_list_deinit(&iter);
+	(void)acl_object_list_deinit(&iter);
 	return ret;
 }
 
@@ -221,7 +221,7 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 
 	tmp = t_str_new(128);
 	iter = acl_object_list_init(aclobj);
-	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
+	while (acl_object_list_next(iter, &rights)) {
 		if (acl_rights_is_owner(backend, &rights)) {
 			if (rights.id_type == ACL_ID_OWNER && convert_owner) {
 				rights.id_type = ACL_ID_USER;
@@ -249,7 +249,7 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 			imap_acl_write_right(dest, tmp, &rights, TRUE);
 		}
 	}
-	acl_object_list_deinit(&iter);
+	ret = acl_object_list_deinit(&iter);
 
 	if (!seen_positive_owner && username != NULL && add_default) {
 		/* no positive owner rights returned, write default ACLs */

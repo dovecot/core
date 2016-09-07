@@ -111,7 +111,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 	struct acl_rights rights;
 	const char *name, *id_dup;
 	string_t *id;
-	int ret, ret2 = 0;
+	int ret = 0;
 
 	if ((ns->flags & NAMESPACE_FLAG_NOACL) != 0 || ns->owner == NULL ||
 	    ACL_LIST_CONTEXT(ns->list) == NULL)
@@ -120,11 +120,11 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 	id = t_str_new(128);
 	backend = acl_mailbox_list_get_backend(ns->list);
 	ctx = acl_backend_nonowner_lookups_iter_init(backend);
-	while ((ret = acl_backend_nonowner_lookups_iter_next(ctx, &name)) > 0) {
+	while (acl_backend_nonowner_lookups_iter_next(ctx, &name)) {
 		aclobj = acl_object_init_from_name(backend, name);
 
 		iter = acl_object_list_init(aclobj);
-		while ((ret = acl_object_list_next(iter, &rights)) > 0) {
+		while (acl_object_list_next(iter, &rights)) {
 			/* avoid pointless user -> user entries,
 			   which some clients do */
 			if (acl_rights_has_nonowner_lookup_changes(&rights) &&
@@ -137,13 +137,11 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 				array_append(ids, &id_dup, 1);
 			}
 		}
-		acl_object_list_deinit(&iter);
-		if (ret < 0)
-			ret2 = -1;
+		if (acl_object_list_deinit(&iter) < 0) ret = -1;
 		acl_object_deinit(&aclobj);
 	}
-	acl_backend_nonowner_lookups_iter_deinit(&ctx);
-	return ret < 0 || ret2 < 0 ? -1 : 0;
+	if (acl_backend_nonowner_lookups_iter_deinit(&ctx) < 0) ret = -1;
+	return ret;
 }
 
 static int

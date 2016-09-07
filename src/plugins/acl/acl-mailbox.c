@@ -102,11 +102,12 @@ static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 	parent_aclobj = acl_object_init_from_parent(alist->rights.backend,
 						    box->name);
 	iter = acl_object_list_init(parent_aclobj);
-	while (acl_object_list_next(iter, &update.rights) > 0) {
+	while (acl_object_list_next(iter, &update.rights)) {
 		/* don't copy global ACL rights. */
 		if (!update.rights.global)
 			(void)acl_object_update(abox->aclobj, &update);
 	}
+	/* FIXME: Add error handling */
 	acl_object_list_deinit(&iter);
 	acl_object_deinit(&parent_aclobj);
 }
@@ -622,7 +623,6 @@ acl_mailbox_update_removed_id(struct acl_object *aclobj,
 {
 	struct acl_object_list_iter *iter;
 	struct acl_rights rights;
-	int ret;
 
 	if (update->modify_mode != ACL_MODIFY_MODE_CLEAR &&
 	    update->neg_modify_mode != ACL_MODIFY_MODE_CLEAR)
@@ -633,13 +633,12 @@ acl_mailbox_update_removed_id(struct acl_object *aclobj,
 
 	/* mixed clear/non-clear. see if the identifier exists anymore */
 	iter = acl_object_list_init(aclobj);
-	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
+	while (acl_object_list_next(iter, &rights)) {
 		if (rights.id_type == update->rights.id_type &&
 		    null_strcmp(rights.identifier, update->rights.identifier) == 0)
 			break;
 	}
-	acl_object_list_deinit(&iter);
-	return ret == 0;
+	return acl_object_list_deinit(&iter) == 0;
 }
 
 int acl_mailbox_update_acl(struct mailbox_transaction_context *t,

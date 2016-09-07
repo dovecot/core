@@ -184,11 +184,11 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 	aclobj = acl_object_init_from_name(&backend->backend, name);
 
 	iter = acl_object_list_init(aclobj);
-	while ((ret = acl_object_list_next(iter, &rights)) > 0) {
+	while (acl_object_list_next(iter, &rights)) {
 		if (acl_rights_has_nonowner_lookup_changes(&rights))
 			break;
 	}
-	acl_object_list_deinit(&iter);
+	ret = acl_object_list_deinit(&iter);
 
 	if (acl_backend_vfile_object_get_mtime(aclobj, &acllist.mtime) < 0)
 		ret = -1;

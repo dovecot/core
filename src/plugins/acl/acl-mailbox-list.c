@@ -90,7 +90,6 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 	struct mailbox_list_iter_update_context update_ctx;
 	const char *name;
-	int ret;
 
 	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_RAW_LIST |
 			       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0)
@@ -120,17 +119,16 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 	update_ctx.tree_ctx = mailbox_tree_init(ctx->sep);
 
 	nonowner_list_ctx = acl_backend_nonowner_lookups_iter_init(backend);
-	while ((ret = acl_backend_nonowner_lookups_iter_next(nonowner_list_ctx,
-							     &name)) > 0) {
+	while (acl_backend_nonowner_lookups_iter_next(nonowner_list_ctx,
+							     &name)) {
 		T_BEGIN {
 			const char *vname =
 				mailbox_list_get_vname(ns->list, name);
 			mailbox_list_iter_update(&update_ctx, vname);
 		} T_END;
 	}
-	acl_backend_nonowner_lookups_iter_deinit(&nonowner_list_ctx);
 
-	if (ret == 0)
+	if (acl_backend_nonowner_lookups_iter_deinit(&nonowner_list_ctx) == 0)
 		ctx->lookup_boxes = update_ctx.tree_ctx;
 	else
 		mailbox_tree_deinit(&update_ctx.tree_ctx);
