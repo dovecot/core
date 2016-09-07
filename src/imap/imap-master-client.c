@@ -215,7 +215,6 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	if (ret < 0) {
 		i_error("imap-master(%s): Failed to create client: %s",
 			input.username, error);
-		master_service_client_connection_destroyed(master_service);
 		i_close_fd(&fd_client);
 		return -1;
 	}
