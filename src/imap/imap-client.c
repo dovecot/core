@@ -840,7 +840,14 @@ static void client_check_command_hangs(struct client *client)
 	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
 		switch (cmd->state) {
 		case CLIENT_COMMAND_STATE_WAIT_INPUT:
-			i_assert(client->io != NULL);
+			/* We need to be reading input for this command.
+			   However, if there is already an output lock for
+			   another command we'll wait for it to finish first.
+			   This is needed because if there are any literals
+			   we'd need to send "+ OK" responses. */
+			i_assert(client->io != NULL ||
+				 (client->output_cmd_lock != NULL &&
+				  client->output_cmd_lock != client->input_lock));
 			unfinished_count++;
 			break;
 		case CLIENT_COMMAND_STATE_WAIT_OUTPUT:
@@ -1043,6 +1050,8 @@ static bool client_handle_next_command(struct client *client, bool *remove_io_r)
 	if (client->input_lock != NULL) {
 		if (client->input_lock->state ==
 		    CLIENT_COMMAND_STATE_WAIT_UNAMBIGUITY ||
+		    /* we can't send literal "+ OK" replies if output is
+		       locked by another command. */
 		    (client->output_cmd_lock != NULL &&
 		     client->output_cmd_lock != client->input_lock)) {
 			*remove_io_r = TRUE;
