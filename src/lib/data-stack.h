@@ -31,13 +31,13 @@
       overflows.
 */
 
-#ifndef DEBUG
+#ifndef STATIC_CHECKER
 typedef unsigned int data_stack_frame_t;
 #else
 typedef struct data_stack_frame *data_stack_frame_t;
 #endif
 
-extern data_stack_frame_t data_stack_frame;
+extern unsigned int data_stack_frame_id;
 
 /* All t_..() allocations between t_push*() and t_pop() are freed after t_pop()
    is called. Returns the current stack frame number, which can be used

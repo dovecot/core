@@ -67,13 +67,13 @@ struct stack_frame_block {
 #endif
 };
 
-#ifdef DEBUG
+#ifdef STATIC_CHECKER
 struct data_stack_frame {
-	int dummy;
+	unsigned int id;
 };
 #endif
 
-data_stack_frame_t data_stack_frame = 0;
+unsigned int data_stack_frame_id = 0;
 
 static bool data_stack_initialized = FALSE;
 static data_stack_frame_t root_frame_id;
@@ -184,7 +184,13 @@ data_stack_frame_t t_push(const char *marker)
 	(void)marker; /* only used for debugging */
 #endif
 
-	return data_stack_frame++;
+#ifndef STATIC_CHECKER
+	return data_stack_frame_id++;
+#else
+	struct data_stack_frame *frame = i_new(struct data_stack_frame, 1);
+	frame->id = data_stack_frame_id++;
+	return frame;
+#endif
 }
 
 data_stack_frame_t t_push_named(const char *format, ...)
@@ -314,9 +320,17 @@ bool t_pop(data_stack_frame_t *id)
 		frame_block->prev = unused_frame_blocks;
 		unused_frame_blocks = frame_block;
 	}
-	if (unlikely(--data_stack_frame != *id))
+#ifndef STATIC_CHECKER
+	if (unlikely(--data_stack_frame_id != *id))
 		return FALSE;
 	*id = 0;
+#else
+	unsigned int frame_id = (*id)->id;
+	i_free_and_null(*id);
+
+	if (unlikely(--data_stack_frame_id != frame_id))
+		return FALSE;
+#endif
 	return TRUE;
 }
 
@@ -577,7 +591,7 @@ void data_stack_init(void)
 		return;
 	}
 	data_stack_initialized = TRUE;
-	data_stack_frame = (data_stack_frame_t)1;
+	data_stack_frame_id = 1;
 
 	outofmem_area.block.size = outofmem_area.block.left =
 		sizeof(outofmem_area) - sizeof(outofmem_area.block);

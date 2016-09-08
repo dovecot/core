@@ -40,7 +40,7 @@ struct datastack_pool {
 	struct pool pool;
 	int refcount;
 
-	data_stack_frame_t data_stack_frame;
+	unsigned int data_stack_frame;
 };
 
 pool_t pool_datastack_create(void)
@@ -50,7 +50,7 @@ pool_t pool_datastack_create(void)
 	dpool = t_new(struct datastack_pool, 1);
 	dpool->pool = static_data_stack_pool;
 	dpool->refcount = 1;
-	dpool->data_stack_frame = data_stack_frame;
+	dpool->data_stack_frame = data_stack_frame_id;
 	return &dpool->pool;
 }
 
@@ -63,7 +63,7 @@ static void pool_data_stack_ref(pool_t pool)
 {
 	struct datastack_pool *dpool = (struct datastack_pool *) pool;
 
-	if (unlikely(dpool->data_stack_frame != data_stack_frame))
+	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_ref(): stack frame changed");
 
 	dpool->refcount++;
@@ -73,7 +73,7 @@ static void pool_data_stack_unref(pool_t *pool)
 {
 	struct datastack_pool *dpool = (struct datastack_pool *)*pool;
 
-	if (unlikely(dpool->data_stack_frame != data_stack_frame))
+	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_unref(): stack frame changed");
 
 	dpool->refcount--;
@@ -89,7 +89,7 @@ static void *pool_data_stack_malloc(pool_t pool ATTR_UNUSED, size_t size)
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
-	if (unlikely(dpool->data_stack_frame != data_stack_frame))
+	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_malloc(): stack frame changed");
 
 	return t_malloc0(size);
@@ -99,7 +99,7 @@ static void pool_data_stack_free(pool_t pool, void *mem ATTR_UNUSED)
 {
 	struct datastack_pool *dpool = (struct datastack_pool *) pool;
 
-	if (unlikely(dpool->data_stack_frame != data_stack_frame))
+	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_free(): stack frame changed");
 }
 
@@ -113,7 +113,7 @@ static void *pool_data_stack_realloc(pool_t pool, void *mem,
 	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
-	if (unlikely(dpool->data_stack_frame != data_stack_frame))
+	if (unlikely(dpool->data_stack_frame != data_stack_frame_id))
 		i_panic("pool_data_stack_realloc(): stack frame changed");
 
 	if (mem == NULL)
