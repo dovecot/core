@@ -138,7 +138,7 @@ static int imap_hibernate_process_read(int fd, const char *path)
 
 static int
 imap_hibernate_process_send(struct client *client,
-			    const buffer_t *state, int fd_notify)
+			    const buffer_t *state, int fd_notify, int *fd_r)
 {
 	string_t *cmd = t_str_new(512);
 	const char *path;
@@ -146,6 +146,8 @@ imap_hibernate_process_send(struct client *client,
 	int fd;
 
 	i_assert(state->used > 0);
+
+	*fd_r = -1;
 
 	path = t_strconcat(client->user->set->base_dir,
 			   "/"IMAP_HIBERNATE_SOCKET_NAME, NULL);
@@ -169,8 +171,12 @@ imap_hibernate_process_send(struct client *client,
 			ret = imap_hibernate_process_read(fd, path);
 	}
 	alarm(0);
-	net_disconnect(fd);
-	return ret < 0 ? -1 : 0;
+	if (ret < 0) {
+		net_disconnect(fd);
+		return -1;
+	}
+	*fd_r = fd;
+	return 0;
 }
 
 bool imap_client_hibernate(struct client **_client)
@@ -178,7 +184,7 @@ bool imap_client_hibernate(struct client **_client)
 	struct client *client = *_client;
 	buffer_t *state;
 	const char *error;
-	int ret, fd_notify = -1;
+	int ret, fd_notify = -1, fd_hibernate = -1;
 
 	if (client->fd_in != client->fd_out) {
 		/* we won't try to hibernate stdio clients */
@@ -215,7 +221,7 @@ bool imap_client_hibernate(struct client **_client)
 		}
 	}
 	if (ret > 0) {
-		if (imap_hibernate_process_send(client, state, fd_notify) < 0)
+		if (imap_hibernate_process_send(client, state, fd_notify, &fd_hibernate) < 0)
 			ret = -1;
 	}
 	if (fd_notify != -1)
@@ -227,6 +233,12 @@ bool imap_client_hibernate(struct client **_client)
 		client_destroy(client, NULL);
 		*_client = NULL;
 	}
+	/* notify imap-hibernate that we're done by closing the connection.
+	   do this only after client is destroyed. this way imap-hibernate
+	   won't try to launch another imap process too early and cause
+	   problems (like sending duplicate session ID to stats process) */
+	if (fd_hibernate != -1)
+		net_disconnect(fd_hibernate);
 	buffer_free(&state);
 	return ret > 0;
 }
