@@ -31,6 +31,12 @@ AS_HELP_STRING([--enable-devel-checks], [Enable some extra expensive checks for 
 		want_devel_checks=yes
 	fi)
 
+AC_ARG_ENABLE(static-checker,
+AS_HELP_STRING([--enable-static-checker], [Enable code to be used when building with static code analyzer]),
+	if test x$enableval = xyes; then
+		AC_DEFINE(STATIC_CHECKER,, [Building with static code analyzer])
+	fi)
+
 AC_ARG_ENABLE(asserts,
 AS_HELP_STRING([--enable-asserts], [Enable asserts (default)]),
 	if test x$enableval = xno; then
