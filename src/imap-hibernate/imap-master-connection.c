@@ -5,7 +5,7 @@
 #include "connection.h"
 #include "imap-master-connection.h"
 
-#define IMAP_MASTER_CONNECTION_TIMEOUT_MSECS 5000
+#define IMAP_MASTER_CONNECTION_TIMEOUT_MSECS 30000
 
 struct imap_master_connection {
 	struct connection conn;
