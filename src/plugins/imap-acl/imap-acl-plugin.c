@@ -294,7 +294,7 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	ret = imap_acl_write_aclobj(str, backend,
 				    acl_mailbox_get_aclobj(box), TRUE,
 				    ns->type == MAIL_NAMESPACE_TYPE_PRIVATE);
-	if (ret == 0) {
+	if (ret > -1) {
 		client_send_line(cmd->client, str_c(str));
 		client_send_tagline(cmd, "OK Getacl completed.");
 	} else {
