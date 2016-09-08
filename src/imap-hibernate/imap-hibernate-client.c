@@ -16,6 +16,7 @@ struct imap_hibernate_client {
 	struct connection conn;
 	struct imap_client *imap_client;
 	bool imap_client_created;
+	bool finished;
 	bool debug;
 };
 
@@ -34,6 +35,8 @@ static void imap_hibernate_client_destroy(struct connection *conn)
 
 	if (!client->imap_client_created)
 		master_service_client_connection_destroyed(master_service);
+	else if (client->finished)
+		imap_client_create_finish(client->imap_client);
 	connection_deinit(conn);
 	i_free(conn);
 }
@@ -177,6 +180,10 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 		conn->version_received = TRUE;
 		return 1;
 	}
+	if (client->finished) {
+		i_error("Received unexpected line: %s", line);
+		return -1;
+	}
 
 	if (client->imap_client == NULL) {
 		char *const *args;
@@ -219,15 +226,14 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 	} else if (ret == 0) {
 		/* still need to read another fd */
 		i_stream_unix_set_read_fd(conn->input);
-		o_stream_send_str(conn->output, "+\n");
-		return 1;
 	} else {
-		/* finished - always disconnect the hibernate client
-		   afterwards */
-		o_stream_send_str(conn->output, "+\n");
-		imap_client_create_finish(client->imap_client);
-		return -1;
+		/* finished - wait for disconnection from imap before finishing.
+		   this way the old imap process will have time to destroy
+		   itself before we have a chance to create another one. */
+		client->finished = TRUE;
 	}
+	o_stream_send_str(conn->output, "+\n");
+	return 1;
 }
 
 void imap_hibernate_client_create(int fd, bool debug)
