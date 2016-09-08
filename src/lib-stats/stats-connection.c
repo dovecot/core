@@ -69,7 +69,7 @@ void stats_connection_unref(struct stats_connection **_conn)
 	i_free(conn);
 }
 
-void stats_connection_send(struct stats_connection *conn, const string_t *str)
+int stats_connection_send(struct stats_connection *conn, const string_t *str)
 {
 	static bool pipe_warned = FALSE;
 	ssize_t ret;
@@ -78,11 +78,11 @@ void stats_connection_send(struct stats_connection *conn, const string_t *str)
 	   to notify the stats process anymore. even if one exists, it doesn't
 	   know about us. */
 	if (master_service_is_master_stopped(master_service))
-		return;
+		return -1;
 
 	if (conn->fd == -1) {
 		if (!stats_connection_open(conn))
-			return;
+			return -1;
 	}
 
 	if (str_len(str) > PIPE_BUF && !pipe_warned) {
@@ -95,6 +95,7 @@ void stats_connection_send(struct stats_connection *conn, const string_t *str)
 	ret = write(conn->fd, str_data(str), str_len(str));
 	if (ret == (ssize_t)str_len(str)) {
 		/* success */
+		return 0;
 	} else if (ret < 0 && errno == EAGAIN) {
 		/* stats process is busy */
 		if (ioloop_time > conn->next_warning_timestamp) {
@@ -102,6 +103,7 @@ void stats_connection_send(struct stats_connection *conn, const string_t *str)
 			conn->next_warning_timestamp = ioloop_time +
 				STATS_EAGAIN_WARN_INTERVAL_SECS;
 		}
+		return -1;
 	} else {
 		/* error - reconnect */
 		if (ret < 0) {
@@ -114,5 +116,6 @@ void stats_connection_send(struct stats_connection *conn, const string_t *str)
 		if (close(conn->fd) < 0)
 			i_error("close(%s) failed: %m", conn->path);
 		conn->fd = -1;
+		return -1;
 	}
 }
