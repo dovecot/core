@@ -93,8 +93,8 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 	session = hash_table_lookup(mail_sessions_hash, session_id);
 	if (session != NULL) {
 		*error_r = t_strdup_printf(
-			"CONNECT: Duplicate session ID %s for user %s service %s",
-			session_id, args[1], args[2]);
+			"CONNECT: Duplicate session ID %s for user %s service %s (old PID %ld, new PID %ld)",
+			session_id, args[1], args[2], (long)session->pid, (long)pid);
 		return -1;
 	}
 	session = i_malloc(sizeof(struct mail_session) + stats_alloc_size());
