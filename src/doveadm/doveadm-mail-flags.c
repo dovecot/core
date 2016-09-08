@@ -47,7 +47,7 @@ cmd_flags_run_box(struct flags_cmd_context *ctx,
 	}
 	if (kw != NULL)
 		mailbox_keywords_unref(&kw);
-	return doveadm_mail_iter_deinit(&iter);
+	return doveadm_mail_iter_deinit_sync(&iter);
 }
 
 static int
