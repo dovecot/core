@@ -14,6 +14,7 @@ struct stats_user {
 	struct ioloop_context *ioloop_ctx;
 	struct stats_connection *stats_conn;
 	const char *stats_session_id;
+	bool stats_connected;
 
 	unsigned int refresh_secs;
 	bool track_commands;
