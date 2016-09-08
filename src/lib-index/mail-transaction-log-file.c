@@ -251,6 +251,12 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	} else {
 		hdr->file_seq = 1;
 	}
+	if (hdr->initial_modseq == 0) {
+		/* modseq tracking in log files is required for many reasons
+		   nowadays, even if per-message modseqs aren't enabled in
+		   dovecot.index. */
+		hdr->initial_modseq = 1;
+	}
 
 	if (log->head != NULL) {
 		/* make sure the sequence always increases to avoid crashes
