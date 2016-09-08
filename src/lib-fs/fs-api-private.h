@@ -172,4 +172,8 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest);
 
 void fs_file_timing_end(struct fs_file *file, enum fs_op op);
 
+/* Same as fs_write_stream_abort_error(), except it closes the *parent* file
+   and error is left untouched */
+void fs_write_stream_abort_parent(struct fs_file *file, struct ostream **output);
+
 #endif
