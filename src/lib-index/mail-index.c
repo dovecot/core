@@ -753,7 +753,10 @@ void mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 		index->error = i_strdup_vprintf(fmt, va);
 		va_end(va);
 
-		i_error("%s", index->error);
+		if (ioloop_time != index->last_error_time) {
+			index->last_error_time = ioloop_time;
+			i_error("%s", index->error);
+		}
 	}
 }
 
