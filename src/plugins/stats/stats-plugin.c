@@ -125,7 +125,12 @@ static void session_stats_refresh(struct mail_user *user)
 	time_t now = time(NULL);
 	bool changed;
 
-	if (session_stats_need_send(suser, now, &changed, &to_next_secs)) {
+	if (!suser->stats_connected) {
+		if (mail_stats_connection_connect(suser->stats_conn, user) == 0)
+			suser->stats_connected = TRUE;
+	}
+	if (session_stats_need_send(suser, now, &changed, &to_next_secs) &&
+	    suser->stats_connected) {
 		suser->session_sent_duplicate = !changed;
 		suser->last_session_update = now;
 		stats_copy(suser->last_sent_session_stats, suser->session_stats);
@@ -333,7 +338,8 @@ static void stats_user_deinit(struct mail_user *user)
 					 stats_io_deactivate, user);
 	/* send final stats before disconnection */
 	session_stats_refresh(user);
-	mail_stats_connection_disconnect(stats_conn, user);
+	if (suser->stats_connected)
+		mail_stats_connection_disconnect(stats_conn, user);
 
 	if (suser->to_stats_timeout != NULL)
 		timeout_remove(&suser->to_stats_timeout);
@@ -437,7 +443,8 @@ static void stats_user_created(struct mail_user *user)
 	suser->last_sent_session_stats = stats_alloc(user->pool);
 
 	MODULE_CONTEXT_SET(user, stats_user_module, suser);
-	mail_stats_connection_connect(suser->stats_conn, user);
+	if (mail_stats_connection_connect(suser->stats_conn, user) == 0)
+		suser->stats_connected = TRUE;
 	suser->to_stats_timeout =
 		timeout_add(suser->refresh_secs*1000,
 			    session_stats_refresh_timeout, user);

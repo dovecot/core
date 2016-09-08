@@ -11,8 +11,8 @@
 #include "stats-plugin.h"
 #include "mail-stats-connection.h"
 
-void mail_stats_connection_connect(struct stats_connection *conn,
-				   struct mail_user *user)
+int mail_stats_connection_connect(struct stats_connection *conn,
+				  struct mail_user *user)
 {
 	struct stats_user *suser = STATS_USER_CONTEXT(user);
 	string_t *str = t_str_new(128);
@@ -36,7 +36,7 @@ void mail_stats_connection_connect(struct stats_connection *conn,
 		str_append(str, net_ip2addr(user->remote_ip));
 	}
 	str_append_c(str, '\n');
-	stats_connection_send(conn, str);
+	return stats_connection_send(conn, str);
 }
 
 void mail_stats_connection_disconnect(struct stats_connection *conn,
@@ -48,7 +48,10 @@ void mail_stats_connection_disconnect(struct stats_connection *conn,
 	str_append(str, "DISCONNECT\t");
 	str_append(str, suser->stats_session_id);
 	str_append_c(str, '\n');
-	stats_connection_send(conn, str);
+	if (stats_connection_send(conn, str) < 0) {
+		/* we could retry this later, but stats process will forget it
+		   anyway after 15 minutes. */
+	}
 }
 
 void mail_stats_connection_send_session(struct stats_connection *conn,
@@ -68,5 +71,5 @@ void mail_stats_connection_send_session(struct stats_connection *conn,
 	base64_encode(buf->data, buf->used, str);
 
 	str_append_c(str, '\n');
-	stats_connection_send(conn, str);
+	(void)stats_connection_send(conn, str);
 }

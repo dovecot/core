@@ -6,8 +6,8 @@
 struct mail_stats;
 struct mail_user;
 
-void mail_stats_connection_connect(struct stats_connection *conn,
-				   struct mail_user *user);
+int mail_stats_connection_connect(struct stats_connection *conn,
+				  struct mail_user *user);
 void mail_stats_connection_disconnect(struct stats_connection *conn,
 				      struct mail_user *user);
 
