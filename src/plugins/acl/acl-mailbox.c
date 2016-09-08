@@ -638,7 +638,7 @@ acl_mailbox_update_removed_id(struct acl_object *aclobj,
 		    null_strcmp(rights.identifier, update->rights.identifier) == 0)
 			break;
 	}
-	return acl_object_list_deinit(&iter) == 0;
+	return acl_object_list_deinit(&iter) >= 0;
 }
 
 int acl_mailbox_update_acl(struct mailbox_transaction_context *t,

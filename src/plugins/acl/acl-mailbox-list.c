@@ -128,7 +128,7 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 		} T_END;
 	}
 
-	if (acl_backend_nonowner_lookups_iter_deinit(&nonowner_list_ctx) == 0)
+	if (acl_backend_nonowner_lookups_iter_deinit(&nonowner_list_ctx) >= 0)
 		ctx->lookup_boxes = update_ctx.tree_ctx;
 	else
 		mailbox_tree_deinit(&update_ctx.tree_ctx);
