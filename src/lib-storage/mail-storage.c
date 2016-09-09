@@ -1004,7 +1004,7 @@ int mailbox_verify_create_name(struct mailbox *box)
 		name++;
 		old_name = name;
 	}
-	if (old_name != NULL && strlen(old_name) > MAILBOX_MAX_HIERARCHY_NAME_LENGTH) {
+	if (strlen(old_name) > MAILBOX_MAX_HIERARCHY_NAME_LENGTH) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 				       "Mailbox name too long");
 		return -1;

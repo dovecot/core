@@ -1075,7 +1075,7 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 		/* check that we have correct decryption key */
 		dcrypt_openssl_private_to_public_key(dec_key, &pubkey);
 		if (!dcrypt_openssl_public_key_id(pubkey, "sha256", data, error_r)) {
-			if (pubkey != NULL) dcrypt_openssl_unref_public_key(&pubkey);
+			dcrypt_openssl_unref_public_key(&pubkey);
 			return FALSE;
 		}
 

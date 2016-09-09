@@ -164,21 +164,17 @@ mailbox_list_iter_init_multiple(struct mailbox_list *list,
 				enum mailbox_list_iter_flags flags)
 {
 	struct mailbox_list_iterate_context *ctx;
-	int ret = 0;
 
 	i_assert(*patterns != NULL);
 
 	if ((flags & (MAILBOX_LIST_ITER_SELECT_SUBSCRIBED |
 		      MAILBOX_LIST_ITER_RETURN_SUBSCRIBED)) != 0) {
-		ret = mailbox_list_iter_subscriptions_refresh(list);
-		if (ret < 0)
+		if (mailbox_list_iter_subscriptions_refresh(list) < 0)
 			return &mailbox_list_iter_failed;
 	}
 
 	ctx = list->v.iter_init(list, patterns, flags);
-	if (ret < 0)
-		ctx->failed = TRUE;
-	else if ((flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0)
+	if ((flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0)
 		mailbox_list_iter_init_autocreate(ctx);
 	return ctx;
 }

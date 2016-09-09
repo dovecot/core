@@ -2052,11 +2052,15 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 	} else {
 		/* zero string length - list all root UIDs as definite
 		   answers */
+#if 0 /* FIXME: this code is never actually reached now. */
 		ret = squat_uidlist_get_seqrange(trie->uidlist,
 						 trie->root.uid_list_idx,
 						 &ctx.tmp_uids);
 		squat_trie_filter_type(type, &ctx.tmp_uids,
 				       definite_uids);
+#else
+		i_unreached();
+#endif
 	}
 	seq_range_array_remove_seq_range(maybe_uids, definite_uids);
 	squat_trie_add_unknown(trie, maybe_uids);

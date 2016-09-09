@@ -106,14 +106,10 @@ void dbox_save_end(struct dbox_save_context *ctx)
 		ctx->failed = TRUE;
 	}
 	if (mdata->output != dbox_output) {
-		if (mdata->output != NULL) {
-			/* e.g. zlib plugin had changed this */
-			o_stream_ref(dbox_output);
-			o_stream_destroy(&mdata->output);
-			mdata->output = dbox_output;
-		} else {
-			i_assert(ctx->failed);
-		}
+		/* e.g. zlib plugin had changed this */
+		o_stream_ref(dbox_output);
+		o_stream_destroy(&mdata->output);
+		mdata->output = dbox_output;
 	}
 	index_mail_cache_parse_deinit(ctx->ctx.dest_mail,
 				      ctx->ctx.data.received_date,
