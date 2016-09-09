@@ -175,7 +175,7 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 		enum setting_type type;
 
 		value = settings_parse_get_value(set_parser, key, &type);
-		if (type == SET_STR) {
+		if (value != NULL && type == SET_STR) {
 			const char *const *strp = value;
 
 			line = t_strdup_printf("%s=%s%s",
