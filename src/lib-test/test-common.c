@@ -458,11 +458,12 @@ int test_run_named_with_fatals(const char *match, struct named_test tests[],
 void ATTR_NORETURN
 test_exit(int status)
 {
-	data_stack_frame_t id = 0;
-
 	i_free_and_null(expected_error_str);
 	i_free_and_null(test_prefix);
+#ifndef STATIC_CHECKER
+	data_stack_frame_t id = 0;
 	(void)t_pop(&id); /* as we were within a T_BEGIN { tests[i].func(); } T_END */
+#endif
 	lib_deinit();
 	_exit(status);
 }
