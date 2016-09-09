@@ -533,6 +533,7 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		if (fd == -1) {
 			*error_r = t_strdup_printf(
 				"dict-file: creat(%s) failed: %m", temp_path);
+			file_unlock(&lock);
 			return -1;
 		}
 		break;
