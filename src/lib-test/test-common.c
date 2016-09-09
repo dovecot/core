@@ -314,6 +314,7 @@ test_error_handler(const struct failure_context *ctx,
 			suppress = strstr(str, expected_error_str) != NULL;
 			test_assert(suppress == TRUE);
 			i_free_and_null(expected_error_str);
+			va_end(args2);
 		} T_END;
 		expected_errors--;
 	} else {
