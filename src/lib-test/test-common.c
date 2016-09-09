@@ -306,12 +306,15 @@ test_error_handler(const struct failure_context *ctx,
 	}
 #endif
 	if (expected_errors > 0) {
-		if (expected_error_str != NULL) {
+		if (expected_error_str != NULL) T_BEGIN {
 			/* test_assert() will reset test_success if need be. */
-			suppress = strstr(format, expected_error_str) != NULL;
+			va_list args2;
+			VA_COPY(args2, args);
+			const char *str = t_strdup_vprintf(format, args2);
+			suppress = strstr(str, expected_error_str) != NULL;
 			test_assert(suppress == TRUE);
 			i_free_and_null(expected_error_str);
-		}
+		} T_END;
 		expected_errors--;
 	} else {
 		test_success = FALSE;
