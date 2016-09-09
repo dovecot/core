@@ -223,7 +223,7 @@ void auth_policy_finish(void *ctx)
 
 	if (context->parser != NULL) {
 		const char *error ATTR_UNUSED;
-		json_parser_deinit(&(context->parser), &error);
+		(void)json_parser_deinit(&(context->parser), &error);
 	}
 	if (context->http_request != NULL)
 		http_client_request_abort(&(context->http_request));
