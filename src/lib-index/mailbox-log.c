@@ -176,6 +176,7 @@ int mailbox_log_append(struct mailbox_log *log,
 	if (log->fd == -1) {
 		if (mailbox_log_open(log) < 0)
 			return -1;
+		i_assert(log->fd != -1);
 	}
 
 	/* We don't bother with locking, atomic appends will protect us.

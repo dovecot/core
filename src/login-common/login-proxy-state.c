@@ -138,6 +138,7 @@ static bool login_proxy_state_try_notify(struct login_proxy_state *state,
 	if (state->notify_fd == -1) {
 		if (login_proxy_state_notify_open(state) < 0)
 			return TRUE;
+		i_assert(state->notify_fd != -1);
 	}
 
 	T_BEGIN {

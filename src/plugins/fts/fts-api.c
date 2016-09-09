@@ -125,6 +125,7 @@ static void fts_backend_set_cur_mailbox(struct fts_backend_update_context *ctx)
 {
 	fts_backend_update_unset_build_key(ctx);
 	if (ctx->backend_box != ctx->cur_box) {
+		i_assert(ctx->cur_box != NULL);
 		ctx->backend->v.update_set_mailbox(ctx, ctx->cur_box);
 		ctx->backend_box = ctx->cur_box;
 	}

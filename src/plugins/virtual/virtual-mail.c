@@ -131,6 +131,7 @@ static int backend_mail_get(struct virtual_mail *vmail,
 			return -1;
 		}
 		(void)virtual_mail_set_backend_mail(mail, bbox);
+		i_assert(vmail->cur_backend_mail != NULL);
 	}
 	virtual_backend_box_accessed(mbox, bbox);
 	vmail->cur_lost = !mail_set_uid(vmail->cur_backend_mail,
