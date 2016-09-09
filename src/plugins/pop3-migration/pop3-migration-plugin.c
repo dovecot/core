@@ -235,6 +235,7 @@ get_hdr_sha1(struct mail *mail, unsigned char sha1_r[STATIC_ARRAY SHA1_RESULTLEN
 	const char *errstr;
 	enum mail_error error;
 	bool have_eoh;
+	int ret;
 
 	if (mail_get_hdr_stream(mail, &hdr_size, &input) < 0) {
 		errstr = mailbox_get_last_error(mail->box, &error);
@@ -279,10 +280,19 @@ get_hdr_sha1(struct mail *mail, unsigned char sha1_r[STATIC_ARRAY SHA1_RESULTLEN
 			mail->seq, errstr);
 		return error == MAIL_ERROR_EXPUNGED ? 0 : -1;
 	}
-	return pop3_migration_get_hdr_sha1(mail->seq, input,
-					   hdr_size.physical_size,
-					   sha1_r, &have_eoh);
-
+	ret = pop3_migration_get_hdr_sha1(mail->seq, input,
+					  hdr_size.physical_size,
+					  sha1_r, &have_eoh);
+	if (ret == 0) {
+		if (!have_eoh)
+			i_warning("pop3_migration: Truncated email with UID %u stored as truncated", mail->uid);
+		struct index_mail *imail = (struct index_mail *)mail;
+		index_mail_cache_add_idx(imail, get_cache_idx(mail),
+					 sha1_r, SHA1_RESULTLEN);
+		return 1;
+	} else {
+		return -1;
+	}
 }
 
 static bool
