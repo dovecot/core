@@ -2406,9 +2406,14 @@ void auth_request_log_info(struct auth_request *auth_request,
 	if (auth_request->set->debug) {
 		/* auth_debug=yes overrides auth_verbose settings */
 	} else {
-		const char *db_auth_verbose = auth_request->userdb_lookup ?
-			auth_request->userdb->set->auth_verbose :
-			auth_request->passdb->set->auth_verbose;
+		const char *db_auth_verbose;
+
+		if (auth_request->userdb_lookup)
+			db_auth_verbose = auth_request->userdb->set->auth_verbose;
+		else if (auth_request->passdb != NULL)
+			db_auth_verbose = auth_request->passdb->set->auth_verbose;
+		else
+			db_auth_verbose = "d";
 		switch (db_auth_verbose[0]) {
 		case 'y':
 			break;
