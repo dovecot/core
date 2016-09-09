@@ -495,6 +495,7 @@ static int fs_posix_write(struct fs_file *_file, const void *data, size_t size)
 	if (file->fd == -1) {
 		if (fs_posix_open(file) < 0)
 			return -1;
+		i_assert(file->fd != -1);
 	}
 
 	if (file->open_mode != FS_OPEN_MODE_APPEND) {

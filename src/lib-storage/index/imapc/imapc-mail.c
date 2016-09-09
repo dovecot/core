@@ -187,6 +187,7 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	old_offset = data->stream == NULL ? 0 : data->stream->v_offset;
 	if (mail_get_stream(_mail, NULL, NULL, &input) < 0)
 		return -1;
+	i_assert(data->stream != NULL);
 	i_stream_seek(data->stream, old_offset);
 
 	ret = i_stream_get_size(data->stream, TRUE,

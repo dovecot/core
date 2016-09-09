@@ -54,6 +54,7 @@ ssize_t i_stream_file_read(struct istream_private *stream)
 	if (stream->fd == -1) {
 		if (i_stream_file_open(stream) < 0)
 			return -1;
+		i_assert(stream->fd != -1);
 	}
 
 	offset = stream->istream.v_offset + (stream->pos - stream->skip);

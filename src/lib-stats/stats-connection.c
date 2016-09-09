@@ -83,6 +83,7 @@ int stats_connection_send(struct stats_connection *conn, const string_t *str)
 	if (conn->fd == -1) {
 		if (!stats_connection_open(conn))
 			return -1;
+		i_assert(conn->fd != -1);
 	}
 
 	if (str_len(str) > PIPE_BUF && !pipe_warned) {
