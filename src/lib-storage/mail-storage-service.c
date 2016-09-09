@@ -610,7 +610,7 @@ service_drop_privileges(struct mail_storage_service_user *user,
 	}
 
 	if (keep_setuid_root) {
-		if (current_euid != rset.uid) {
+		if (current_euid != rset.uid && rset.uid != (uid_t)-1) {
 			if (current_euid != 0) {
 				/* we're changing the UID,
 				   switch back to root first */
