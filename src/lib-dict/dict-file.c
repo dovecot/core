@@ -537,6 +537,7 @@ static int file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		if (fd == -1) {
 			i_error("file dict commit: creat(%s) failed: %m",
 				temp_path);
+			file_unlock(&lock);
 			return -1;
 		}
 		break;
