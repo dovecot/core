@@ -371,11 +371,12 @@ imap_urlauth_request_fail(struct imap_urlauth_connection *conn,
 		} T_END;
 	}
 
+	void *urlreq_context = urlreq->context;
 	imap_urlauth_request_drop(conn, urlreq);
 
 	if (ret < 0) {
 		/* Drop any related requests upon error */
-		imap_urlauth_request_abort_by_context(conn, urlreq->context);
+		imap_urlauth_request_abort_by_context(conn, urlreq_context);
 	}
 
 	if (ret != 0)
