@@ -37,8 +37,7 @@ void doveadm_print_header(const char *key, const char *title,
 	struct doveadm_print_header hdr;
 	struct doveadm_print_header_context *hdr_ctx;
 
-	if (title == NULL)
-		flags |= DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE;
+	i_assert(title != NULL);
 
 	memset(&hdr, 0, sizeof(hdr));
 	hdr.key = key;
