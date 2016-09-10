@@ -892,7 +892,10 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 		return;
 	}
 
-	key = t_strdup_until(key, value++);
+	if (value != NULL)
+		key = t_strdup_until(key, value++);
+	else
+		value = "";
 	result = array_append_space(&ctx->results);
 	result->key = p_strdup(ctx->results_pool, t_str_tabunescape(key));
 	result->value = p_strdup(ctx->results_pool, t_str_tabunescape(value));
