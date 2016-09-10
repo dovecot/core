@@ -131,14 +131,24 @@ auth_callback(struct auth_client_request *request ATTR_UNUSED,
 	if (status == 0)
 		i_fatal("passdb expects SASL continuation");
 
-	if (status < 0)
+	switch (status) {
+	case AUTH_REQUEST_STATUS_ABORT:
+		i_unreached();
+	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
+	case AUTH_REQUEST_STATUS_FAIL:
 		printf("passdb: %s auth failed\n", input->username);
-	else {
+		break;
+	case AUTH_REQUEST_STATUS_CONTINUE:
+		printf("passdb: %s auth unexpectedly requested continuation\n",
+		       input->username);
+		break;
+	case AUTH_REQUEST_STATUS_OK:
 		input->success = TRUE;
 		printf("passdb: %s auth succeeded\n", input->username);
+		break;
 	}
 
-	if (*args != NULL) {
+	if (args != NULL && *args != NULL) {
 		printf("extra fields:\n");
 		for (; *args != NULL; args++)
 			printf("  %s\n", *args);
