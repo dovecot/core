@@ -1159,6 +1159,11 @@ static void test_client_echo_continue(void)
 				ioloop_nested_first, ioloop_nested_last, ioloop_nested_depth);
 		}
 		ioloop_nested_first = ioloop_nested_last = 0;
+
+		if (client_files_first >= count) {
+			io_loop_stop(current_ioloop);
+			return;
+		}
 	}
 }
 
