@@ -5,6 +5,7 @@
 #include "hostpid.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "istream-chain.h"
 #include "ostream.h"
 #include "time-util.h"
 #include "connection.h"
@@ -1032,7 +1033,7 @@ test_early_success_input(struct server_connection *conn)
 		"Content-Length: 18\r\n"
 		"\r\n"
 		"Everything is OK\r\n";
-	
+
 	usleep(200000);
 	o_stream_nsend_str(conn->conn.output, resp);
 	server_connection_deinit(&conn);
@@ -1088,15 +1089,25 @@ test_client_early_success(const struct http_client_settings *client_set)
 	http_client_request_set_port(hreq, bind_ports[0]);
 
 	T_BEGIN {
-		payload = t_str_new(204800);
-		for (i = 0; i < 3200; i++) {
+		struct istream_chain *chain;
+		struct istream *input, *chain_input;
+
+		payload = t_str_new(64*3000);
+		for (i = 0; i < 3000; i++) {
 			str_append(payload,
 				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n"
 				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n");
 		}
 
-		http_client_request_set_payload_data
-			(hreq, str_data(payload), str_len(payload));
+		chain_input = i_stream_create_chain(&chain);
+
+		input = i_stream_create_copy_from_data
+			(str_data(payload), str_len(payload));
+		i_stream_chain_append(chain, input);
+		i_stream_unref(&input);
+
+		http_client_request_set_payload(hreq, chain_input, FALSE);
+		i_stream_unref(&chain_input);
 	} T_END;
 	http_client_request_submit(hreq);
 
@@ -1576,7 +1587,7 @@ test_client_retry_with_delay_response(
 		/* check delay */
 		real_delay = timeval_diff_msecs(&ioloop_timeval, &ctx->time);
 		exp_delay = (1 << (ctx->retries-1)) * 50;
-		if (real_delay < exp_delay) {
+		if (real_delay < exp_delay-2) {
 			i_fatal("Retry delay is too short %d < %d",
 				real_delay, exp_delay);
 		}
