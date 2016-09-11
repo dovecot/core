@@ -40,6 +40,7 @@ static pid_t server_pid = (pid_t)-1;
 static struct ioloop *ioloop_nested = NULL;
 static unsigned ioloop_nested_first = 0;
 static unsigned ioloop_nested_last = 0;
+static unsigned ioloop_nested_depth = 0;
 
 /*
  * Test files
@@ -1132,9 +1133,11 @@ static void test_client_echo_continue(void)
 			ioloop_nested_last = client_files_last;
 
 		if (debug) {
-			i_debug("test client: echo: entering ioloop for %u...%u",
-				ioloop_nested_first, ioloop_nested_last);
+			i_debug("test client: echo: entering ioloop for %u...%u (depth=%u)",
+				ioloop_nested_first, ioloop_nested_last, ioloop_nested_depth);
 		}
+
+		ioloop_nested_depth++;
 
 		ioloop_nested = io_loop_create();
 		http_client_switch_ioloop(http_client);
@@ -1149,9 +1152,11 @@ static void test_client_echo_continue(void)
 		io_loop_destroy(&ioloop_nested);
 		ioloop_nested = NULL;
 
+		ioloop_nested_depth--;
+
 		if (debug) {
-			i_debug("test client: echo: leaving ioloop for %u...%u",
-				ioloop_nested_first, ioloop_nested_last);
+			i_debug("test client: echo: leaving ioloop for %u...%u (depth=%u)",
+				ioloop_nested_first, ioloop_nested_last, ioloop_nested_depth);
 		}
 		ioloop_nested_first = ioloop_nested_last = 0;
 	}
@@ -1217,6 +1222,7 @@ static void test_run_client_server(
 			i_debug("server: PID=%s", my_pid);
 		/* child: server */
 		ioloop_nested = NULL;
+		ioloop_nested_depth = 0;
 		ioloop = io_loop_create();
 		test_server_init(server_set);
 		io_loop_run(ioloop);
@@ -1229,6 +1235,7 @@ static void test_run_client_server(
 		i_close_fd(&fd_listen);
 		/* parent: client */
 		ioloop_nested = NULL;
+		ioloop_nested_depth = 0;
 		ioloop = io_loop_create();
 		client_init(client_set);
 		io_loop_run(ioloop);
