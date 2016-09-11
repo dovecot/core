@@ -266,6 +266,7 @@ struct http_client_host {
 	struct dns_lookup *dns_lookup;
 
 	bool unix_local:1;
+	bool explicit_ip:1;
 };
 
 struct http_client {

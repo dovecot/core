@@ -99,15 +99,13 @@ static void http_client_host_lookup
 {
 	struct http_client *client = host->client;
 	struct dns_lookup_settings dns_set;
-	struct ip_addr ip, *ips;
+	struct ip_addr *ips;
 	unsigned int ips_count;
 	int ret;
 
-	if (net_addr2ip(host->name, &ip) == 0) {
-		host->ips_count = 1;
-		host->ips = i_new(struct ip_addr, host->ips_count);
-		host->ips[0] = ip;
-	} else if (client->set.dns_client != NULL) {
+	i_assert(!host->explicit_ip);
+
+	if (client->set.dns_client != NULL) {
 		http_client_host_debug(host,
 			"Performing asynchronous DNS lookup");
 		(void)dns_client_lookup(client->set.dns_client, host->name,
@@ -177,6 +175,7 @@ struct http_client_host *http_client_host_get
 
 	} else {
 		const char *hostname = host_url->host.name;
+		struct ip_addr ip = host_url->host.ip;
 
 		host = hash_table_lookup(client->hosts, hostname);
 		if (host == NULL) {
@@ -185,10 +184,11 @@ struct http_client_host *http_client_host_get
 			hostname = host->name;
 			hash_table_insert(client->hosts, hostname, host);
 
-			if (host_url->host.ip.family != 0) {
+			if (ip.family != 0 || net_addr2ip(host->name, &ip) == 0) {
 				host->ips_count = 1;
 				host->ips = i_new(struct ip_addr, host->ips_count);
-				host->ips[0] = host_url->host.ip;
+				host->ips[0] = ip;
+				host->explicit_ip = TRUE;
 			}
 
 			http_client_host_debug(host, "Host created");
