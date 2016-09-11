@@ -252,6 +252,7 @@ struct http_client_host {
 	struct dns_lookup *dns_lookup;
 
 	unsigned int unix_local:1;
+	unsigned int explicit_ip:1;
 };
 
 struct http_client {
