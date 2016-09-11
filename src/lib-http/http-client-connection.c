@@ -1341,17 +1341,18 @@ http_client_connection_tunnel_response(const struct http_response *response,
 {
 	struct http_client_tunnel tunnel;
 	const char *name = http_client_peer_addr2str(&conn->peer->addr);
+	struct http_client_request *req = conn->connect_request;
+
+	conn->connect_request = NULL;
 
 	if (response->status != 200) {
 		http_client_peer_connection_failure(conn->peer, t_strdup_printf(
 			"Tunnel connect(%s) failed: %d %s", name,
 				response->status, response->reason));
-		conn->connect_request = NULL;
 		return;
 	}
 
-	http_client_request_start_tunnel(conn->connect_request, &tunnel);
-	conn->connect_request = NULL;
+	http_client_request_start_tunnel(req, &tunnel);
 
 	connection_init_from_streams
 		(conn->client->conn_list, &conn->conn, name, tunnel.input, tunnel.output);
