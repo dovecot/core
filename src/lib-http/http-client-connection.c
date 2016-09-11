@@ -48,6 +48,15 @@ http_client_connection_debug(struct http_client_connection *conn,
 static void http_client_connection_ready(struct http_client_connection *conn);
 static void http_client_connection_input(struct connection *_conn);
 
+static inline void
+http_client_connection_failure(struct http_client_connection *conn,
+					 const char *reason)
+{
+	struct http_client_peer *peer = conn->peer;
+
+	http_client_peer_connection_failure(peer, reason);
+}
+
 unsigned int
 http_client_connection_count_pending(struct http_client_connection *conn)
 {
@@ -531,7 +540,7 @@ static void http_client_connection_destroy(struct connection *_conn)
 				_conn->name, msecs/1000, msecs%1000);
 		}
 		http_client_connection_debug(conn, "%s", error);
-		http_client_peer_connection_failure(conn->peer, error);
+		http_client_connection_failure(conn, error);
 		break;
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
 		/* retry pending requests if possible */
@@ -1226,7 +1235,7 @@ http_client_connection_connected(struct connection *_conn, bool success)
 	const char *error;
 
 	if (!success) {
-		http_client_peer_connection_failure(conn->peer, t_strdup_printf(
+		http_client_connection_failure(conn, t_strdup_printf(
 			"connect(%s) failed: %m", _conn->name));
 	} else {
 		conn->connected_timestamp = ioloop_timeval;
@@ -1247,8 +1256,8 @@ http_client_connection_connected(struct connection *_conn, bool success)
 
 		if (http_client_peer_addr_is_https(&conn->peer->addr)) {
 			if (http_client_connection_ssl_init(conn, &error) < 0) {
-				http_client_peer_connection_failure(conn->peer, error);
 				http_client_connection_debug(conn, "%s", error);
+				http_client_connection_failure(conn, error);
 				http_client_connection_close(&conn);
 			}
 			return;
@@ -1346,7 +1355,7 @@ http_client_connection_tunnel_response(const struct http_response *response,
 	conn->connect_request = NULL;
 
 	if (response->status != 200) {
-		http_client_peer_connection_failure(conn->peer, t_strdup_printf(
+		http_client_connection_failure(conn, t_strdup_printf(
 			"Tunnel connect(%s) failed: %d %s", name,
 				response->status, response->reason));
 		return;
