@@ -19,7 +19,8 @@ LIBDOVECOT_SUBDIRS = \
 	lib-fs \
 	lib-mail \
 	lib-imap \
-	lib-imap-storage
+	lib-imap-storage \
+	lib-program-client
 
 SUBDIRS = \
 	$(LIBDOVECOT_SUBDIRS) \
