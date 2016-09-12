@@ -20,7 +20,7 @@ dnl
 
 AC_DEFUN([AC_LD_RELRO],[
     RELRO_LDFLAGS=
-    if test $disable_hardening = no; then
+    if test $enable_hardening = yes; then
       AC_MSG_CHECKING([for how to force completely read-only GOT table])
       ld_help=`$CXX -Wl,-help 2>&1`
       case $ld_help in

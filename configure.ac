@@ -17,12 +17,12 @@ ACLOCAL_AMFLAGS='-I $(top_srcdir)/m4'
 AC_SUBST(ACLOCAL_AMFLAGS)
 
 AC_ARG_ENABLE(hardening,
-AS_HELP_STRING([--disable-hardening=no], [Disable various hardenings (default: no)]),
-        disable_hardening=$enableval,
-        disable_hardening=no)
+AS_HELP_STRING([--enable-hardening=yes], [Enable various hardenings (default: yes)]),
+        enable_hardening=$enableval,
+        enable_hardening=yes)
 
-AC_MSG_CHECKING([Whether to disable hardening])
-AC_MSG_RESULT([$disable_hardening])
+AC_MSG_CHECKING([Whether to enable hardening])
+AC_MSG_RESULT([$enable_hardening])
 
 AC_ARG_ENABLE(devel-checks,
 AS_HELP_STRING([--enable-devel-checks], [Enable some extra expensive checks for developers]),

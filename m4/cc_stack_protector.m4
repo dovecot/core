@@ -4,7 +4,7 @@ dnl
 
 AC_DEFUN([AC_CC_F_STACK_PROTECTOR],[
     AC_REQUIRE([gl_UNKNOWN_WARNINGS_ARE_ERRORS])
-    if test $disable_hardening = no; then
+    if test $enable_hardening = yes; then
       case "$host" in
         *)
           gl_COMPILER_OPTION_IF([-fstack-protector-strong], [

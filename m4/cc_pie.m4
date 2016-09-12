@@ -23,7 +23,7 @@ AC_DEFUN([AC_CC_PIE],[
     PIE_CFLAGS=
     PIE_LDFLAGS=
 
-    if test $disable_hardening = no; then
+    if test $enable_hardening = yes; then
       OLD_CFLAGS=$CFLAGS
       case "$host" in
         *-*-mingw* | *-*-msvc* | *-*-cygwin* )
