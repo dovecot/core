@@ -1,6 +1,156 @@
 #ifndef MAILBOX_ATTRIBUTE_H
 #define MAILBOX_ATTRIBUTE_H
 
+/*
+ * Attribute Handling in Dovecot
+ * =============================
+ *
+ * What IMAP & doveadm users see gets translated into one of several things
+ * depending on if we're operating on a mailbox or on server metadata (""
+ * mailbox in IMAP parlance).  Consider these examples:
+ *
+ *	/private/foo
+ *	/shared/foo
+ *
+ * Here "foo" can be any RFC defined attribute name, or a vendor-prefixed
+ * non-standard name.  (Our vendor prefix is "vendor/vendor.dovecot".)
+ *
+ * In all cases, the "/private" and "/shared" user visible prefixes get
+ * replaced by priv/<GUID> and shared/<GUID>, respectively.  (Here, <GUID>
+ * is the GUID of the mailbox with which the attribute is associated.)  This
+ * way, attributes for all mailboxes can be stored in a single dict.  For
+ * example, the above examples would map to:
+ *
+ *	priv/<GUID>/foo
+ *	shared/<GUID>/foo
+ *
+ * More concrete examples:
+ *
+ *	/private/comment
+ *	/private/vendor/vendor.dovecot/abc
+ *
+ * turn into:
+ *
+ *	priv/<GUID>/comment
+ *	priv/<GUID>/vendor/vendor.dovecot/abc
+ *
+ * Server attributes, that is attributes not associated with a mailbox, are
+ * stored in the INBOX mailbox with a special prefix -
+ * vendor/vendor.dovecot/pvt/server.  For example, the server attribute
+ * /private/comment gets mapped to:
+ *
+ *	priv/<INBOX GUID>/vendor/vendor.dovecot/pvt/server/comment
+ *
+ * This means that if we set a /private/comment server attribute as well as
+ * /private/comment INBOX mailbox attribute, we'll see the following paths
+ * used in the dict:
+ *
+ *	priv/<INBOX GUID>/comment                                   <- mailbox attr
+ *	priv/<INBOX GUID>/vendor/vendor.dovecot/pvt/server/comment  <- server attr
+ *
+ * The case of vendor specific server attributes is a bit confusing, but
+ * consistent.  For example, this server attribute:
+ *
+ *	/private/vendor/vendor.dovecot/abc
+ *
+ * It will get mapped to:
+ *
+ *	priv/<INBOX GUID>/vendor/vendor.dovecot/pvt/server/vendor/vendor.dovecot/abc
+ *	                  |                              | |                       |
+ *	                  \----- server attr prefix -----/ \-- server attr name ---/
+ *
+ *
+ * Internal Attributes
+ * -------------------
+ *
+ * The final aspect of attribute handling in Dovecot are the so called
+ * "internal attributes".
+ *
+ * The easiest way to explain internal attributes is to summarize attributes
+ * in general.  Attributes are just <key,value> pairs that are stored in a
+ * dict.  The key is mangled according to the above rules before passed to
+ * the dict code.  That is, the key already encodes whether the attribute is
+ * private or shared, the GUID of the mailbox (or of INBOX for server
+ * attributes), etc.  There is no processing of the value.  It is stored and
+ * returned to clients verbatim.
+ *
+ * Internal attributes, on the other hand, are special cased attributes.
+ * That is, the code contains a list of specific attribute names and how to
+ * handle them.  Each internal attribute is defined by a struct
+ * mailbox_attribute_internal.  It contains the pre-parsed name of the
+ * attribute (type, key, and flags), and how to handle getting and setting
+ * of the attribute (rank, get, and set).
+ *
+ * The values for these attributes may come from two places - from the
+ * attributes dict, or from the get function pointer.  Which source to use
+ * is identified by the rank (MAIL_ATTRIBUTE_INTERNAL_RANK_*).
+ *
+ *
+ * Access
+ * ------
+ *
+ * In general, a user (IMAP or doveadm) can access all attributes for a
+ * mailbox.  The one exception are attributes under:
+ *
+ *	/private/vendor/vendor.dovecot/pvt
+ *	/shared/vendor/vendor.dovecot/pvt
+ *
+ * Which as you may recall map to:
+ *
+ *	priv/<GUID>/vendor/vendor.dovecot/pvt
+ *	shared/<GUID>/vendor/vendor.dovecot/pvt
+ *
+ * These are deemed internal to Dovecot, and therefore of no concern to the
+ * user.
+ *
+ * Server attributes have a similar restriction.  That is, attributes
+ * beginning with the following are not accessible:
+ *
+ *	/private/vendor/vendor.dovecot/pvt
+ *	/shared/vendor/vendor.dovecot/pvt
+ *
+ * However since server attributes are stored under the INBOX mailbox, these
+ * paths map to:
+ *
+ *	priv/<INBOX GUID>/vendor/vendor.dovecot/pvt/server/vendor/vendor.dovecot/pvt
+ *	shared/<INBOX GUID>/vendor/vendor.dovecot/pvt/server/vendor/vendor.dovecot/pvt
+ *
+ * As a result, the code performs access checks via the
+ * MAILBOX_ATTRIBUTE_KEY_IS_USER_ACCESSIBLE() macro to make sure that the
+ * user is allowed access to the attribute.
+ *
+ *
+ * Nicknames
+ * ---------
+ *
+ * Since every path stored in the dict begins with priv/<GUID> or
+ * shared/<GUID>, these prefixes are often omitted.  This also matches the
+ * internal implementation where the priv/ or shared/ prefix is specified
+ * using an enum, and only the path after the GUID is handled as a string.
+ * For example:
+ *
+ *	priv/<GUID>/vendor/vendor.dovecot/pvt/server/foo
+ *
+ * would be refered to as:
+ *
+ *	vendor/vendor.dovecot/pvt/server/foo
+ *
+ * Since some of the generated paths are very long, developers often use a
+ * shorthand to refer to some of these paths.  For example,
+ *
+ *	pvt/server/pvt
+ *
+ * is really:
+ *
+ *	vendor/vendor.dovecot/pvt/server/vendor/vendor.dovecot/pvt
+ *
+ * Which when fully specified with a type and INBOX's GUID would turn into
+ * one of the following:
+ *
+ *	priv/<GUID>/vendor/vendor.dovecot/pvt/server/vendor/vendor.dovecot/pvt
+ *	shared/<GUID>/vendor/vendor.dovecot/pvt/server/vendor/vendor.dovecot/pvt
+ */
+
 struct mailbox;
 struct mailbox_transaction_context;
 
@@ -89,7 +239,7 @@ enum mail_attribute_internal_flags {
 
 struct mailbox_attribute_internal {
 	enum mail_attribute_type type;
-	const char *key;
+	const char *key; /* relative to the GUID, e.g., "comment" */
 	enum mail_attribute_internal_rank rank;
 	enum mail_attribute_internal_flags flags;
 
