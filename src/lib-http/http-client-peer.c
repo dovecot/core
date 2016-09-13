@@ -630,8 +630,13 @@ bool http_client_peer_have_queue(struct http_client_peer *peer,
 void http_client_peer_link_queue(struct http_client_peer *peer,
 			       struct http_client_queue *queue)
 {
-	if (!http_client_peer_have_queue(peer, queue))
+	if (!http_client_peer_have_queue(peer, queue)) {
 		array_append(&peer->queues, &queue, 1);
+
+		http_client_peer_debug(peer,
+			"Linked queue %s (%d queues linked)",
+			queue->name, array_count(&peer->queues));
+	}
 }
 
 void http_client_peer_unlink_queue(struct http_client_peer *peer,
@@ -643,6 +648,11 @@ void http_client_peer_unlink_queue(struct http_client_peer *peer,
 		if (*queue_idx == queue) {
 			array_delete(&peer->queues,
 				array_foreach_idx(&peer->queues, queue_idx), 1);
+
+			http_client_peer_debug(peer,
+				"Unlinked queue %s (%d queues linked)",
+				queue->name, array_count(&peer->queues));
+
 			if (array_count(&peer->queues) == 0) {
 				if (http_client_peer_start_backoff_timer(peer)) {
 					/* will disconnect any pending connections */
