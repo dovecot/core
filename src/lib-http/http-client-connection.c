@@ -72,6 +72,18 @@ bool http_client_connection_is_idle(struct http_client_connection *conn)
 	return (conn->to_idle != NULL);
 }
 
+bool http_client_connection_is_active(struct http_client_connection *conn)
+{
+	if (!conn->connected)
+		return FALSE;
+
+	if (conn->in_req_callback || conn->pending_request != NULL)
+		return TRUE;
+
+	return (array_is_created(&conn->request_wait_list) &&
+		array_count(&conn->request_wait_list) > 0);
+}
+
 static void
 http_client_connection_retry_requests(struct http_client_connection *conn,
 	unsigned int status, const char *error)
