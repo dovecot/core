@@ -26,6 +26,10 @@
 #define CONST_PTR_OFFSET(ptr, offset) \
 	((const void *) (((const unsigned char *) (ptr)) + (offset)))
 
+#define container_of(ptr, type, name) \
+	(type *)((uintptr_t)(ptr) - (uintptr_t)offsetof(type, name) + \
+		 COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(ptr, &((type *) 0)->name))
+
 /* Don't use simply MIN/MAX, as they're often defined elsewhere in include
    files that are included after this file generating tons of warnings. */
 #define I_MIN(a, b)  (((a) < (b)) ? (a) : (b))
