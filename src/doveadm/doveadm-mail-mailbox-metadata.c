@@ -62,6 +62,8 @@ cmd_mailbox_metadata_parse_key(const char *arg,
 			       enum mail_attribute_type *type_r,
 			       const char **key_r)
 {
+	arg = t_str_lcase(arg);
+
 	if (strncmp(arg, "/private/", 9) == 0) {
 		*type_r = MAIL_ATTRIBUTE_TYPE_PRIVATE;
 		*key_r = arg + 9;
@@ -78,7 +80,6 @@ cmd_mailbox_metadata_parse_key(const char *arg,
 		i_fatal_status(EX_USAGE, "Invalid metadata key '%s': "
 			       "Must begin with /private or /shared", arg);
 	}
-	*key_r = t_str_lcase(*key_r);
 }
 
 static void
