@@ -282,6 +282,10 @@ int http_client_connection_check_ready(struct http_client_connection *conn)
 						"EOF"));
 			return -1;
 		}
+
+		/* we may have read some data */
+		if (i_stream_get_data_size(conn->conn.input) > 0)
+			i_stream_set_input_pending(conn->conn.input, TRUE);
 	}
 	return 1;
 }
