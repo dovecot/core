@@ -7,6 +7,7 @@
 #include "hostpid.h"
 #include "net.h"
 #include "iostream.h"
+#include "iostream-rawlog.h"
 #include "istream.h"
 #include "ostream.h"
 #include "time-util.h"
@@ -122,6 +123,11 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client->user = user;
 	client->notify_count_changes = TRUE;
 	client->notify_flag_changes = TRUE;
+
+	if (set->rawlog_dir[0] != '\0') {
+		(void)iostream_rawlog_create(set->rawlog_dir, &client->input,
+					     &client->output);
+	}
 
 	mail_namespaces_set_storage_callbacks(user->namespaces,
 					      &mail_storage_callbacks, client);

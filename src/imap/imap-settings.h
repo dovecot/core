@@ -15,6 +15,7 @@ enum imap_client_workarounds {
 
 struct imap_settings {
 	bool verbose_proctitle;
+	const char *rawlog_dir;
 
 	/* imap: */
 	uoff_t imap_max_line_length;
