@@ -1013,6 +1013,10 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			}
 			mctx->cmd_input = arg->value.v_istream;
 			i_stream_ref(mctx->cmd_input);
+		} else if (strcmp(arg->name, "allow-empty-mailbox-name") == 0) {
+			/* allow an empty mailbox name - to access server
+			   attributes */
+			mctx->allow_empty_mailbox_name = arg->value.v_bool;
 
 		/* Keep all named special parameters above this line */
 
