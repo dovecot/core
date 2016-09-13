@@ -371,6 +371,8 @@ bool http_client_peer_is_connected(struct http_client_peer *peer);
 unsigned int
 http_client_peer_idle_connections(struct http_client_peer *peer);
 unsigned int
+http_client_peer_active_connections(struct http_client_peer *peer);
+unsigned int
 http_client_peer_pending_connections(struct http_client_peer *peer);
 void http_client_peer_switch_ioloop(struct http_client_peer *peer);
 

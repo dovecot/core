@@ -765,6 +765,21 @@ http_client_peer_idle_connections(struct http_client_peer *peer)
 }
 
 unsigned int
+http_client_peer_active_connections(struct http_client_peer *peer)
+{
+	struct http_client_connection *const *conn_idx;
+	unsigned int active = 0;
+
+	/* find idle connections */
+	array_foreach(&peer->conns, conn_idx) {
+		if (http_client_connection_is_active(*conn_idx))
+			active++;
+	}
+
+	return active;
+}
+
+unsigned int
 http_client_peer_pending_connections(struct http_client_peer *peer)
 {
 	struct http_client_connection *const *conn_idx;
