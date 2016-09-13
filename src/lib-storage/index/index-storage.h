@@ -114,11 +114,11 @@ int index_mailbox_get_physical_size(struct mailbox *box,
 int index_storage_attribute_set(struct mailbox_transaction_context *t,
 				enum mail_attribute_type type, const char *key,
 				const struct mail_attribute_value *value,
-				bool internal_attribute);
+				bool unused);
 int index_storage_attribute_get(struct mailbox *box,
 				enum mail_attribute_type type, const char *key,
 				struct mail_attribute_value *value_r,
-				bool internal_attribute);
+				bool unused);
 struct mailbox_attribute_iter *
 index_storage_attribute_iter_init(struct mailbox *box,
 				  enum mail_attribute_type type,
