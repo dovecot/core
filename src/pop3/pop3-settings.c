@@ -60,6 +60,7 @@ struct service_settings pop3_service_settings = {
 
 static const struct setting_define pop3_setting_defines[] = {
 	DEF(SET_BOOL, verbose_proctitle),
+	DEF(SET_STR_VARS, rawlog_dir),
 
 	DEF(SET_BOOL, pop3_no_flag_updates),
 	DEF(SET_BOOL, pop3_enable_last),
@@ -78,6 +79,7 @@ static const struct setting_define pop3_setting_defines[] = {
 
 static const struct pop3_settings pop3_default_settings = {
 	.verbose_proctitle = FALSE,
+	.rawlog_dir = "",
 
 	.pop3_no_flag_updates = FALSE,
 	.pop3_enable_last = FALSE,

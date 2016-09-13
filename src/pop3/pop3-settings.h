@@ -16,6 +16,7 @@ enum pop3_delete_type {
 
 struct pop3_settings {
 	bool verbose_proctitle;
+	const char *rawlog_dir;
 
 	/* pop3: */
 	bool pop3_no_flag_updates;

@@ -7,6 +7,7 @@
 #include "iostream.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream-rawlog.h"
 #include "crc32.h"
 #include "str.h"
 #include "llist.h"
@@ -399,6 +400,11 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 	client->output = o_stream_create_fd(fd_out, (size_t)-1, FALSE);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, client_output, client);
+
+	if (set->rawlog_dir[0] != '\0') {
+		(void)iostream_rawlog_create(set->rawlog_dir, &client->input,
+					     &client->output);
+	}
 
 	p_array_init(&client->module_contexts, client->pool, 5);
 	client->io = io_add_istream(client->input, client_input, client);
