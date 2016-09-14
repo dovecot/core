@@ -762,12 +762,15 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 	num_pending = http_client_peer_requests_pending(peer, &num_urgent);
 
 	http_client_peer_debug(peer,
-		"Lost a connection "
-		"(%d connections left, %u requests pending, %u requests urgent)",
-		array_count(&peer->conns), num_pending, num_urgent);
+		"Lost a connection (%u queues linked, %u connections left, "
+			"%u requests pending, %u requests urgent)",
+		array_count(&peer->queues), array_count(&peer->conns),
+		num_pending, num_urgent);
 
 	if (peer->handling_requests) {
 		/* we got here from the request handler loop */
+		http_client_peer_debug(peer,
+			"Lost a connection while handling requests");
 		return;
 	}
 
