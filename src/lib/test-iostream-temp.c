@@ -48,6 +48,31 @@ static void test_iostream_temp_create_sized_disk(void)
 	test_end();
 }
 
+static void test_iostream_temp_create_write_error(void)
+{
+	struct ostream *output;
+
+	test_begin("iostream_temp_create_sized() write error");
+	output = iostream_temp_create_sized(".", 0, "test", 1);
+
+	test_assert(o_stream_send(output, "123", 3) == 3);
+	test_assert(o_stream_get_fd(output) != -1);
+	test_assert(output->offset == 3);
+	test_assert(o_stream_temp_move_to_memory(output) == 0);
+	test_assert(o_stream_get_fd(output) == -1);
+	test_assert(o_stream_send(output, "45", 2) == 2);
+	test_assert(output->offset == 5);
+
+	const unsigned char *data;
+	size_t size;
+	struct istream *input = iostream_temp_finish(&output, 128);
+	test_assert(i_stream_read_bytes(input, &data, &size, 5) == 1 &&
+		    memcmp(data, "12345", 5) == 0);
+	i_stream_destroy(&input);
+
+	test_end();
+}
+
 static void test_iostream_temp_istream(void)
 {
 	struct istream *input, *input2, *temp_input;
@@ -120,5 +145,6 @@ void test_iostream_temp(void)
 {
 	test_iostream_temp_create_sized_memory();
 	test_iostream_temp_create_sized_disk();
+	test_iostream_temp_create_write_error();
 	test_iostream_temp_istream();
 }

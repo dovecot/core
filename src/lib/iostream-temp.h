@@ -25,4 +25,7 @@ struct ostream *iostream_temp_create_sized(const char *temp_path_prefix,
 struct istream *iostream_temp_finish(struct ostream **output,
 				     size_t max_buffer_size);
 
+/* For internal testing: */
+int o_stream_temp_move_to_memory(struct ostream *output);
+
 #endif

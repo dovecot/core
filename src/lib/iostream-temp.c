@@ -79,6 +79,36 @@ static int o_stream_temp_move_to_fd(struct temp_ostream *tstream)
 	return 0;
 }
 
+int o_stream_temp_move_to_memory(struct ostream *output)
+{
+	struct temp_ostream *tstream =
+		(struct temp_ostream *)output->real_stream;
+	unsigned char buf[IO_BLOCK_SIZE];
+	uoff_t offset = 0;
+	ssize_t ret = 0;
+
+	i_assert(tstream->buf == NULL);
+	tstream->buf = buffer_create_dynamic(default_pool, 8192);
+	while (offset < tstream->ostream.ostream.offset &&
+	       (ret = pread(tstream->fd, buf, sizeof(buf), offset)) > 0) {
+		if ((size_t)ret > tstream->ostream.ostream.offset - offset)
+			ret = tstream->ostream.ostream.offset - offset;
+		buffer_append(tstream->buf, buf, ret);
+		offset += ret;
+	}
+	if (ret < 0) {
+		/* not really expecting this to happen */
+		i_error("iostream-temp %s: read(%s*) failed: %m",
+			o_stream_get_name(&tstream->ostream.ostream),
+			tstream->temp_path_prefix);
+		tstream->ostream.ostream.stream_errno = EIO;
+		return -1;
+	}
+	i_close_fd(&tstream->fd);
+	tstream->ostream.fd = -1;
+	return 0;
+}
+
 static ssize_t
 o_stream_temp_fd_sendv(struct temp_ostream *tstream,
 		       const struct const_iovec *iov, unsigned int iov_count)
@@ -88,8 +118,18 @@ o_stream_temp_fd_sendv(struct temp_ostream *tstream,
 
 	for (i = 0; i < iov_count; i++) {
 		if (write_full(tstream->fd, iov[i].iov_base, iov[i].iov_len) < 0) {
-			tstream->ostream.ostream.stream_errno = errno;
-			return -1;
+			i_error("iostream-temp %s: write(%s*) failed: %m - moving to memory",
+				o_stream_get_name(&tstream->ostream.ostream),
+				tstream->temp_path_prefix);
+			if (o_stream_temp_move_to_memory(&tstream->ostream.ostream) < 0)
+				return -1;
+			for (; i < iov_count; i++) {
+				buffer_append(tstream->buf, iov[i].iov_base, iov[i].iov_len);
+				bytes += iov[i].iov_len;
+				tstream->ostream.ostream.offset += iov[i].iov_len;
+			}
+			i_assert(tstream->fd_tried);
+			return bytes;
 		}
 		bytes += iov[i].iov_len;
 		tstream->ostream.ostream.offset += iov[i].iov_len;
