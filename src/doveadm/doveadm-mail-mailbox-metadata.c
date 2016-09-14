@@ -14,7 +14,48 @@ struct metadata_cmd_context {
 	enum mail_attribute_type key_type;
 	const char *key;
 	struct mail_attribute_value value;
+	bool empty_mailbox_name;
 };
+
+static int
+cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
+				  struct mail_user *user,
+				  const char *op,
+				  struct mail_namespace **ns_r,
+				  struct mailbox **box_r)
+{
+	mctx->empty_mailbox_name = mctx->mailbox[0] == '\0';
+
+	if (mctx->empty_mailbox_name) {
+		if (!mctx->ctx.allow_empty_mailbox_name) {
+			i_error("Failed to %s: %s", op,
+				"mailbox name cannot be empty");
+			mctx->ctx.exit_code = EX_USAGE;
+			return -1;
+		}
+
+		/* server attribute */
+		*ns_r = mail_namespace_find_inbox(user->namespaces);
+		*box_r = mailbox_alloc((*ns_r)->list, "INBOX", 0);
+
+		mctx->key = t_strconcat(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
+					mctx->key, NULL);
+	} else {
+		/* mailbox attributes */
+		*ns_r = mail_namespace_find(user->namespaces, mctx->mailbox);
+		*box_r = mailbox_alloc((*ns_r)->list, mctx->mailbox, 0);
+	}
+
+	if (mailbox_open(*box_r) < 0) {
+		i_error("Failed to open mailbox: %s",
+			mailbox_get_last_error(*box_r, NULL));
+		doveadm_mail_failed_mailbox(&mctx->ctx, *box_r);
+		mailbox_free(box_r);
+		return -1;
+	}
+
+	return 0;
+}
 
 static int
 cmd_mailbox_metadata_set_run(struct doveadm_mail_cmd_context *_ctx,
@@ -24,47 +65,19 @@ cmd_mailbox_metadata_set_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
-	bool empty_mailbox_name;
-	const char *key;
 	int ret;
 
-	empty_mailbox_name = (ctx->mailbox[0] == '\0');
+	ret = cmd_mailbox_metadata_open_mailbox(ctx, user, "set attribute",
+						&ns, &box);
+	if (ret != 0)
+		return ret;
 
-	if (empty_mailbox_name) {
-		if (!_ctx->allow_empty_mailbox_name) {
-			i_error("Failed to set attribute: %s",
-				"mailbox name cannot be empty");
-			_ctx->exit_code = EX_USAGE;
-			return -1;
-		}
-
-		/* server attribute */
-		ns = mail_namespace_find_inbox(user->namespaces);
-		box = mailbox_alloc(ns->list, "INBOX", 0);
-
-		key = t_strconcat(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
-				  ctx->key);
-	} else {
-		/* mailbox attributes */
-		ns = mail_namespace_find(user->namespaces, ctx->mailbox);
-		box = mailbox_alloc(ns->list, ctx->mailbox, 0);
-
-		key = ctx->key;
-	}
-
-	if (mailbox_open(box) < 0) {
-		i_error("Failed to open mailbox: %s",
-			mailbox_get_last_error(box, NULL));
-		doveadm_mail_failed_mailbox(_ctx, box);
-		mailbox_free(&box);
-		return -1;
-	}
-	trans = mailbox_transaction_begin(box, empty_mailbox_name ?
+	trans = mailbox_transaction_begin(box, ctx->empty_mailbox_name ?
 					  MAILBOX_TRANSACTION_FLAG_EXTERNAL : 0);
 
 	ret = ctx->value.value == NULL ?
-		mailbox_attribute_unset(trans, ctx->key_type, key) :
-		mailbox_attribute_set(trans, ctx->key_type, key, &ctx->value);
+		mailbox_attribute_unset(trans, ctx->key_type, ctx->key) :
+		mailbox_attribute_set(trans, ctx->key_type, ctx->key, &ctx->value);
 	if (ret < 0) {
 		i_error("Failed to set attribute: %s",
 			mailbox_get_last_error(box, NULL));
@@ -165,40 +178,14 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mail_attribute_value value;
-	const char *key;
 	int ret;
 
-	if (ctx->mailbox[0] == '\0') {
-		if (!_ctx->allow_empty_mailbox_name) {
-			i_error("Failed to get attribute: %s",
-				"mailbox name cannot be empty");
-			_ctx->exit_code = EX_USAGE;
-			return -1;
-		}
+	ret = cmd_mailbox_metadata_open_mailbox(ctx, user, "get attribute",
+						&ns, &box);
+	if (ret != 0)
+		return ret;
 
-		/* server attribute */
-		ns = mail_namespace_find_inbox(user->namespaces);
-		box = mailbox_alloc(ns->list, "INBOX", 0);
-
-		key = t_strconcat(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
-				  ctx->key);
-	} else {
-		/* mailbox attribute */
-		ns = mail_namespace_find(user->namespaces, ctx->mailbox);
-		box = mailbox_alloc(ns->list, ctx->mailbox, 0);
-
-		key = ctx->key;
-	}
-
-	if (mailbox_open(box) < 0) {
-		i_error("Failed to open mailbox: %s",
-			mailbox_get_last_error(box, NULL));
-		doveadm_mail_failed_mailbox(_ctx, box);
-		mailbox_free(&box);
-		return -1;
-	}
-
-	ret = mailbox_attribute_get_stream(box, ctx->key_type, key, &value);
+	ret = mailbox_attribute_get_stream(box, ctx->key_type, ctx->key, &value);
 	if (ret < 0) {
 		i_error("Failed to get attribute: %s",
 			mailbox_get_last_error(box, NULL));
@@ -273,33 +260,10 @@ cmd_mailbox_metadata_list_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox *box;
 	int ret = 0;
 
-	if (ctx->mailbox[0] == '\0') {
-		if (!_ctx->allow_empty_mailbox_name) {
-			i_error("Failed to list attributes: %s",
-				"mailbox name cannot be empty");
-			_ctx->exit_code = EX_USAGE;
-			return -1;
-		}
-
-		/* server attribute */
-		ns = mail_namespace_find_inbox(user->namespaces);
-		box = mailbox_alloc(ns->list, "INBOX", 0);
-
-		ctx->key = t_strconcat(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
-				       ctx->key);
-	} else {
-		/* mailbox attribute */
-		ns = mail_namespace_find(user->namespaces, ctx->mailbox);
-		box = mailbox_alloc(ns->list, ctx->mailbox, 0);
-	}
-
-	if (mailbox_open(box) < 0) {
-		i_error("Failed to open mailbox: %s",
-			mailbox_get_last_error(box, NULL));
-		doveadm_mail_failed_mailbox(_ctx, box);
-		mailbox_free(&box);
-		return -1;
-	}
+	ret = cmd_mailbox_metadata_open_mailbox(ctx, user, "list attributes",
+						&ns, &box);
+	if (ret != 0)
+		return ret;
 
 	if (ctx->key == NULL || ctx->key_type == MAIL_ATTRIBUTE_TYPE_PRIVATE) {
 		if (cmd_mailbox_metadata_list_run_iter(ctx, box, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0) {
