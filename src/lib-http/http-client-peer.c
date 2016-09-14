@@ -183,6 +183,23 @@ bool http_client_peer_is_connected(struct http_client_peer *peer)
 	return FALSE;
 }
 
+static void
+http_client_peer_cancel(struct http_client_peer *peer)
+{
+	struct http_client_connection **conn;
+	ARRAY_TYPE(http_client_connection) conns;
+
+	http_client_peer_debug(peer, "Peer cancel");
+
+	/* make a copy of the connection array; freed connections modify it */
+	t_array_init(&conns, array_count(&peer->conns));
+	array_copy(&conns.arr, 0, &peer->conns.arr, 0, array_count(&peer->conns));
+	array_foreach_modifiable(&conns, conn) {
+		if (!http_client_connection_is_active(*conn))
+			http_client_connection_close(conn);
+	}
+}
+
 static unsigned int
 http_client_peer_requests_pending(struct http_client_peer *peer,
 				  unsigned int *num_urgent_r)
@@ -236,13 +253,13 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	/* FIXME: limit the number of requests handled in one run to prevent
 	   I/O starvation. */
 
-	/* disconnect if we're not linked to any queue anymore */
+	/* disconnect pending connections if we're not linked to any queue
+	   anymore */
 	if (array_count(&peer->queues) == 0) {
-		i_assert(peer->to_backoff != NULL);
 		http_client_peer_debug(peer,
-			"Peer no longer used; will now disconnect "
+			"Peer no longer used; will now cancel pending connections "
 			"(%u connections exist)", array_count(&peer->conns));
-		http_client_peer_close(&peer);
+		http_client_peer_cancel(peer);
 		return;
 	}
 
