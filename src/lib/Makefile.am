@@ -55,6 +55,7 @@ liblib_la_SOURCES = \
 	ipwd.c \
 	iostream.c \
 	iostream-pump.c \
+	iostream-proxy.c \
 	iostream-rawlog.c \
 	iostream-temp.c \
 	iso8601-date.c \
@@ -205,6 +206,7 @@ headers = \
 	iostream.h \
 	iostream-private.h \
 	iostream-pump.h \
+	iostream-proxy.h \
 	iostream-rawlog.h \
 	iostream-rawlog-private.h \
 	iostream-temp.h \
