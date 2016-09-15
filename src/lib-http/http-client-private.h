@@ -236,6 +236,9 @@ struct http_client_queue {
 	   this can be more than one when soft connect timeouts are enabled */
 	ARRAY_TYPE(http_client_peer) pending_peers;
 
+	/* currently active peer */
+	struct http_client_peer *cur_peer;
+
 	/* all requests associated to this queue
 	   (ordered by earliest timeout first) */
 	ARRAY_TYPE(http_client_request) requests; 
