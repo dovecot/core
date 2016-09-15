@@ -838,8 +838,13 @@ pop3_migration_mailbox_search_init(struct mailbox_transaction_context *t,
 
 static void pop3_migration_mailbox_allocated(struct mailbox *box)
 {
+	struct pop3_migration_mail_storage *mstorage =
+		POP3_MIGRATION_CONTEXT(box->storage);
 	struct mailbox_vfuncs *v = box->vlast;
 	struct pop3_migration_mailbox *mbox;
+
+	if (mstorage == NULL)
+		return;
 
 	mbox = p_new(box->pool, struct pop3_migration_mailbox, 1);
 	mbox->module_ctx.super = *v;
