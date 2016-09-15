@@ -54,6 +54,7 @@ liblib_la_SOURCES = \
 	imem.c \
 	ipwd.c \
 	iostream.c \
+	iostream-pump.c \
 	iostream-rawlog.c \
 	iostream-temp.c \
 	iso8601-date.c \
@@ -203,6 +204,7 @@ headers = \
 	ipwd.h \
 	iostream.h \
 	iostream-private.h \
+	iostream-pump.h \
 	iostream-rawlog.h \
 	iostream-rawlog-private.h \
 	iostream-temp.h \
