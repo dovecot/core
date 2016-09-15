@@ -904,6 +904,12 @@ http_client_queue_requests_pending(struct http_client_queue *queue,
 	return array_count(&queue->queued_requests) + urg_count;
 }
 
+unsigned int
+http_client_queue_requests_active(struct http_client_queue *queue)
+{
+	return array_count(&queue->requests);
+}
+
 /*
  * ioloop
  */

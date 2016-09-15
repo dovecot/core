@@ -489,6 +489,8 @@ http_client_queue_claim_request(struct http_client_queue *queue,
 unsigned int
 http_client_queue_requests_pending(struct http_client_queue *queue,
 	unsigned int *num_urgent_r) ATTR_NULL(2);
+unsigned int
+http_client_queue_requests_active(struct http_client_queue *queue);
 void
 http_client_queue_connection_success(struct http_client_queue *queue,
 					 const struct http_client_peer_addr *addr);
