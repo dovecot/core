@@ -555,6 +555,7 @@ http_client_peer_disconnect(struct http_client_peer *peer)
 {
 	struct http_client_connection **conn;
 	ARRAY_TYPE(http_client_connection) conns;
+	struct http_client_queue *const *queue;
 
 	if (peer->disconnected)
 		return;
@@ -575,9 +576,15 @@ http_client_peer_disconnect(struct http_client_peer *peer)
 	if (peer->to_backoff != NULL)
 		timeout_remove(&peer->to_backoff);
 
+	/* unlist in client */
 	hash_table_remove
 		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);
 	DLLIST_REMOVE(&peer->client->peers_list, peer);
+
+	/* unlink all queues */
+	array_foreach(&peer->queues, queue)
+		http_client_queue_peer_disconnected(*queue, peer);
+	array_clear(&peer->queues);
 }
 
 void http_client_peer_ref(struct http_client_peer *peer)
@@ -599,6 +606,8 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 	http_client_peer_debug(peer, "Peer destroy");
 
 	http_client_peer_disconnect(peer);
+
+	i_assert(array_count(&peer->queues) == 0);
 
 	array_free(&peer->conns);
 	array_free(&peer->queues);
