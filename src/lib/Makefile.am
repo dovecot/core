@@ -326,6 +326,7 @@ test_lib_SOURCES = \
 	test-hex-binary.c \
 	test-ioloop.c \
 	test-iso8601-date.c \
+	test-iostream-pump.c \
 	test-iostream-temp.c \
 	test-istream.c \
 	test-istream-base64-decoder.c \
