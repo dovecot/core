@@ -65,6 +65,7 @@ safe_mkstemp_full(string_t *prefix, mode_t mode, uid_t uid, gid_t gid,
 		}
 		i_close_fd(&fd);
 		i_unlink(str_c(prefix));
+		str_truncate(prefix, prefix_len);
 		return -1;
 	}
 	return fd;
@@ -83,13 +84,23 @@ int safe_mkstemp_group(string_t *prefix, mode_t mode,
 
 int safe_mkstemp_hostpid(string_t *prefix, mode_t mode, uid_t uid, gid_t gid)
 {
+	size_t orig_prefix_len = str_len(prefix);
+	int fd;
+
 	str_printfa(prefix, "%s.%s.", my_hostname, my_pid);
-	return safe_mkstemp(prefix, mode, uid, gid);
+	if ((fd = safe_mkstemp(prefix, mode, uid, gid)) == -1)
+		str_truncate(prefix, orig_prefix_len);
+	return fd;
 }
 
 int safe_mkstemp_hostpid_group(string_t *prefix, mode_t mode,
 			       gid_t gid, const char *gid_origin)
 {
+	size_t orig_prefix_len = str_len(prefix);
+	int fd;
+
 	str_printfa(prefix, "%s.%s.", my_hostname, my_pid);
-	return safe_mkstemp_group(prefix, mode, gid, gid_origin);
+	if ((fd = safe_mkstemp_group(prefix, mode, gid, gid_origin)) == -1)
+		str_truncate(prefix, orig_prefix_len);
+	return fd;
 }
