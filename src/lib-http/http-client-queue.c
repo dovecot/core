@@ -110,6 +110,7 @@ http_client_queue_create(struct http_client_host *host,
 		}
 
 		queue->ips_connect_idx = 0;
+		i_array_init(&queue->pending_peers, 8);
 		i_array_init(&queue->requests, 16);
 		i_array_init(&queue->queued_requests, 16);
 		i_array_init(&queue->queued_urgent_requests, 16);
@@ -133,14 +134,12 @@ void http_client_queue_free(struct http_client_queue *queue)
 		queue->cur_peer = NULL;
 		http_client_peer_unlink_queue(peer, queue);
 	}
-	if (array_is_created(&queue->pending_peers)) {
-		t_array_init(&peers, array_count(&queue->pending_peers));
-		array_copy(&peers.arr, 0, &queue->pending_peers.arr, 0,
-			array_count(&queue->pending_peers));
-		array_foreach(&peers, peer_idx)
-			http_client_peer_unlink_queue(*peer_idx, queue);
-		array_free(&queue->pending_peers);
-	}
+	t_array_init(&peers, array_count(&queue->pending_peers));
+	array_copy(&peers.arr, 0, &queue->pending_peers.arr, 0,
+		array_count(&queue->pending_peers));
+	array_foreach(&peers, peer_idx)
+		http_client_peer_unlink_queue(*peer_idx, queue);
+	array_free(&queue->pending_peers);
 
 	/* abort all requests */
 	http_client_queue_fail
@@ -274,8 +273,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 	/* already got a peer? */
 	peer = NULL;
 	if (queue->cur_peer != NULL) {
-		i_assert(!array_is_created(&queue->pending_peers) ||
-			array_count(&queue->pending_peers) == 0);
+		i_assert(array_count(&queue->pending_peers) == 0);
 
 		/* is it still the one we want? */
 		if (http_client_peer_addr_cmp(addr, &queue->cur_peer->addr) == 0) {
@@ -316,8 +314,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 
 	if (http_client_peer_is_connected(peer)) {
 		/* drop any pending peers */
-		if (array_is_created(&queue->pending_peers) &&
-			array_count(&queue->pending_peers) > 0) {
+		if (array_count(&queue->pending_peers) > 0) {
 			struct http_client_peer *const *peer_idx;
 
 			array_foreach(&queue->pending_peers, peer_idx) {
@@ -329,22 +326,18 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 		queue->cur_peer = peer;
 
 	} else {
+		struct http_client_peer *const *peer_idx;
 		unsigned int msecs;
 		bool new_peer = TRUE;
 
 		/* not already connected, wait for connections */
-		if (!array_is_created(&queue->pending_peers)) {
-			i_array_init(&queue->pending_peers, 8);
-		} else {
-			struct http_client_peer *const *peer_idx;
 
-			/* we may be waiting for this peer already */
-			array_foreach(&queue->pending_peers, peer_idx) {
-				if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
-					i_assert(*peer_idx == peer);
-					new_peer = FALSE;
-					break;
-				}
+		/* we may be waiting for this peer already */
+		array_foreach(&queue->pending_peers, peer_idx) {
+			if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
+				i_assert(*peer_idx == peer);
+				new_peer = FALSE;
+				break;
 			}
 		}
 		if (new_peer) {
@@ -395,8 +388,7 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 	/* drop all other attempts to the hport. note that we get here whenever
 	   a connection is successfully created, so pending_peers array
 	   may be empty. */
-	if (array_is_created(&queue->pending_peers) &&
-		array_count(&queue->pending_peers) > 0) {
+	if (array_count(&queue->pending_peers) > 0) {
 		struct http_client_peer *const *peer_idx;
 
 		array_foreach(&queue->pending_peers, peer_idx) {
@@ -431,8 +423,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	struct http_client_peer *const *peer_idx;
 
 	i_assert(queue->cur_peer == NULL);
-	i_assert(array_is_created(&queue->pending_peers) &&
-		array_count(&queue->pending_peers) > 0);
+	i_assert(array_count(&queue->pending_peers) > 0);
 
 	http_client_queue_debug(queue,
 		"Failed to set up connection to %s%s: %s "
@@ -440,8 +431,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		http_client_peer_addr2str(addr),
 		(https_name == NULL ? "" :
 			t_strdup_printf(" (SSL=%s)", https_name)),
-		reason, (array_is_created(&queue->pending_peers) ?
-		 	array_count(&queue->pending_peers): 0),
+		reason, array_count(&queue->pending_peers),
 		array_count(&queue->requests));
 
 	/* we're still doing the initial connections to this hport. if
@@ -519,9 +509,6 @@ http_client_queue_peer_disconnected(struct http_client_queue *queue,
 		queue->cur_peer = NULL;
 		return;
 	}
-
-	if (!array_is_created(&queue->pending_peers))
-		return;
 
 	array_foreach(&queue->pending_peers, peer_idx) {
 		if (*peer_idx == peer) {
