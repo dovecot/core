@@ -422,6 +422,24 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	return;
 }
 
+void
+http_client_queue_peer_disconnected(struct http_client_queue *queue,
+	struct http_client_peer *peer)
+{
+	struct http_client_peer *const *peer_idx;
+
+	if (!array_is_created(&queue->pending_peers))
+		return;
+
+	array_foreach(&queue->pending_peers, peer_idx) {
+		if (*peer_idx == peer) {
+			array_delete(&queue->pending_peers,
+				array_foreach_idx(&queue->pending_peers, peer_idx), 1);
+			break;
+		}
+	}
+}
+
 /*
  * Main request queue
  */

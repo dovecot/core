@@ -399,6 +399,8 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 					 const struct http_client_peer_addr *addr);
 void http_client_queue_connection_failure(struct http_client_queue *queue,
  	const struct http_client_peer_addr *addr, const char *reason);
+void http_client_queue_peer_disconnected(struct http_client_queue *queue,
+	struct http_client_peer *peer);
 void http_client_queue_switch_ioloop(struct http_client_queue *queue);
 
 struct http_client_host *
