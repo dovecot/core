@@ -104,6 +104,9 @@ int http_client_peer_addr_cmp
  * Peer
  */
 
+static void
+http_client_peer_drop(struct http_client_peer **_peer);
+
 const char *
 http_client_peer_label(struct http_client_peer *peer)
 {
@@ -241,8 +244,8 @@ static void http_client_peer_check_idle(struct http_client_peer *peer)
 
 	if (array_count(&peer->conns) == 0 &&
 		http_client_peer_requests_pending(peer, &num_urgent) == 0) {
-		/* no connections or pending requests; die immediately */
-		http_client_peer_close(&peer);
+		/* no connections or pending requests; disconnect immediately */
+		http_client_peer_drop(&peer);
 		return;
 	}
 
@@ -628,6 +631,33 @@ void http_client_peer_close(struct http_client_peer **_peer)
 	(void)http_client_peer_unref(_peer);
 }
 
+static void http_client_peer_drop(struct http_client_peer **_peer)
+{
+	struct http_client_peer *peer = *_peer;
+	unsigned int conns_active =
+		http_client_peer_active_connections(peer);
+
+	if (conns_active > 0) {
+		http_client_peer_debug(peer,
+			"Not dropping peer (%d connections active)",
+			conns_active);
+		return;
+	}
+
+	if (http_client_peer_start_backoff_timer(peer)) {
+		http_client_peer_debug(peer,
+			"Dropping peer (waiting for backof timeout)");
+
+		/* will disconnect any pending connections */
+		http_client_peer_trigger_request_handler(peer);
+	} else {
+		http_client_peer_debug(peer,
+			"Dropping peer now");
+		/* drop peer immediately */
+		http_client_peer_close(_peer);
+	}
+}
+
 struct http_client_peer *
 http_client_peer_get(struct http_client *client,
 			   const struct http_client_peer_addr *addr)
@@ -679,15 +709,8 @@ void http_client_peer_unlink_queue(struct http_client_peer *peer,
 				"Unlinked queue %s (%d queues linked)",
 				queue->name, array_count(&peer->queues));
 
-			if (array_count(&peer->queues) == 0) {
-				if (http_client_peer_start_backoff_timer(peer)) {
-					/* will disconnect any pending connections */
-					http_client_peer_trigger_request_handler(peer);
-				} else {
-					/* drop peer immediately */
-					http_client_peer_close(&peer);
-				}
-			}
+			if (array_count(&peer->queues) == 0)
+				http_client_peer_drop(&peer);
 			return;
 		}
 	}
