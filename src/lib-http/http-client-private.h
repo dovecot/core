@@ -270,6 +270,9 @@ struct http_client_host {
 	/* active DNS lookup */
 	struct dns_lookup *dns_lookup;
 
+	/* timeouts */
+	struct timeout *to_idle;
+
 	bool unix_local:1;
 	bool explicit_ip:1;
 };
@@ -528,6 +531,7 @@ void http_client_host_free(struct http_client_host **_host);
 void http_client_host_submit_request(struct http_client_host *host,
 	struct http_client_request *req);
 void http_client_host_switch_ioloop(struct http_client_host *host);
+void http_client_host_check_idle(struct http_client_host *host);
 int http_client_host_refresh(struct http_client_host *host);
 
 /*

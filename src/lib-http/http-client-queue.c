@@ -412,7 +412,6 @@ void http_client_queue_connection_setup(struct http_client_queue *queue)
 	(void)http_client_queue_connection_attempt(queue);
 }
 
-
 unsigned int
 http_client_queue_host_lookup_done(struct http_client_queue *queue)
 {
@@ -647,6 +646,9 @@ http_client_queue_drop_request(struct http_client_queue *queue,
 	}
 	req->queue = NULL;
 	array_delete(&queue->requests, i, 1);
+
+	if (array_count(&queue->requests) == 0)
+		http_client_host_check_idle(queue->host);
 	return;
 }
 
