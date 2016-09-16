@@ -70,6 +70,7 @@ struct client_auth_reply {
 
 	unsigned int proxy:1;
 	unsigned int proxy_nopipelining:1;
+	unsigned int proxy_not_trusted:1;
 	unsigned int temp:1;
 	unsigned int nologin:1;
 	unsigned int authz_failure:1;
@@ -176,6 +177,7 @@ struct client {
 	unsigned int auth_process_comm_fail:1;
 	unsigned int proxy_auth_failed:1;
 	unsigned int proxy_nopipelining:1;
+	unsigned int proxy_not_trusted:1;
 	unsigned int auth_waiting:1;
 	unsigned int auth_user_disabled:1;
 	unsigned int auth_pass_expired:1;
