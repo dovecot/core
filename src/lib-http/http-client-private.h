@@ -18,6 +18,7 @@
 #define HTTP_CLIENT_DEFAULT_DNS_LOOKUP_TIMEOUT_MSECS (1000*10)
 #define HTTP_CLIENT_DEFAULT_BACKOFF_TIME_MSECS (100)
 #define HTTP_CLIENT_DEFAULT_BACKOFF_MAX_TIME_MSECS (1000*60)
+#define HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS (1000*60*30)
 
 /*
  * Types
@@ -261,6 +262,7 @@ struct http_client_host {
 	/* the ip addresses DNS returned for this host */
 	unsigned int ips_count;
 	struct ip_addr *ips;
+	struct timeval ips_timeout;
 
 	/* requests are managed on a per-port basis */
 	ARRAY_TYPE(http_client_queue) queues;
@@ -478,6 +480,8 @@ void http_client_queue_free(struct http_client_queue *queue);
 void http_client_queue_fail(struct http_client_queue *queue,
 	unsigned int status, const char *error);
 void http_client_queue_connection_setup(struct http_client_queue *queue);
+unsigned int
+http_client_queue_host_lookup_done(struct http_client_queue *queue);
 void http_client_queue_submit_request(struct http_client_queue *queue,
 	struct http_client_request *req);
 void
@@ -524,6 +528,7 @@ void http_client_host_free(struct http_client_host **_host);
 void http_client_host_submit_request(struct http_client_host *host,
 	struct http_client_request *req);
 void http_client_host_switch_ioloop(struct http_client_host *host);
+int http_client_host_refresh(struct http_client_host *host);
 
 /*
  * Client

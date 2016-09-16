@@ -96,6 +96,8 @@ struct http_client *http_client_init(const struct http_client_settings *set)
 	client->set.dns_client = set->dns_client;
 	client->set.dns_client_socket_path =
 		p_strdup_empty(pool, set->dns_client_socket_path);
+	client->set.dns_ttl_msecs = (set->dns_ttl_msecs == 0 ?
+		HTTP_CLIENT_DEFAULT_DNS_TTL_MSECS : set->dns_ttl_msecs);
 	client->set.user_agent = p_strdup_empty(pool, set->user_agent);
 	client->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
