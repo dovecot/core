@@ -15,6 +15,8 @@
 
 #include "http-client-private.h"
 
+#define HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS 100
+
 /*
  * Logging
  */
@@ -54,6 +56,8 @@ http_client_host_lookup_failure(struct http_client_host *host,
 		http_client_queue_fail(*queue_idx,
 			HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED, error);
 	}
+
+	http_client_host_check_idle(host);
 }
 
 static void
@@ -76,6 +80,7 @@ http_client_host_dns_callback(const struct dns_lookup_result *result,
 		"DNS lookup successful; got %d IPs", result->ips_count);
 
 	i_assert(result->ips_count > 0);
+	i_free(host->ips);
 	host->ips_count = result->ips_count;
 	host->ips = i_new(struct ip_addr, host->ips_count);
 	memcpy(host->ips, result->ips, sizeof(*host->ips) * host->ips_count);
@@ -101,6 +106,9 @@ static void http_client_host_lookup
 	int ret;
 
 	i_assert(!host->explicit_ip);
+	i_assert(host->dns_lookup == NULL);
+
+	host->ips_count = 0;
 
 	if (client->set.dns_client != NULL) {
 		http_client_host_debug(host,
@@ -135,6 +143,7 @@ static void http_client_host_lookup
 		http_client_host_debug(host,
 			"DNS lookup successful; got %d IPs", ips_count);
 
+		i_free(host->ips);
 		host->ips_count = ips_count;
 		host->ips = i_new(struct ip_addr, ips_count);
 		memcpy(host->ips, ips, ips_count * sizeof(*ips));
@@ -158,6 +167,9 @@ int http_client_host_refresh(struct http_client_host *host)
 
 	if (host->ips_count > 0 &&
 		timeval_cmp(&host->ips_timeout, &ioloop_timeval) > 0)
+		return 0;
+
+	if (host->to_idle != NULL)
 		return 0;
 
 	http_client_host_debug(host,
@@ -247,6 +259,10 @@ void http_client_host_submit_request(struct http_client_host *host,
 	queue = http_client_queue_create(host, &addr);
 	http_client_queue_submit_request(queue, req);
 
+	/* cancel host idle timeout */
+	if (host->to_idle != NULL)
+		timeout_remove(&host->to_idle);
+
 	if (host->unix_local) {
 		http_client_queue_connection_setup(queue);
 		return;
@@ -257,29 +273,37 @@ void http_client_host_submit_request(struct http_client_host *host,
 		http_client_host_lookup(host);
 
 	/* make a connection if we have an IP already */
-	if (host->ips_count == 0)
-		return;
-
-	http_client_queue_connection_setup(queue);
+	if (host->ips_count > 0)
+		http_client_queue_connection_setup(queue);
 }
 
 void http_client_host_free(struct http_client_host **_host)
 {
 	struct http_client_host *host = *_host;
 	struct http_client_queue *const *queue_idx;
+	ARRAY_TYPE(http_client_queue) queues;
 	const char *hostname = host->name;
 
 	http_client_host_debug(host, "Host destroy");
 
+	if (host->to_idle != NULL)
+		timeout_remove(&host->to_idle);
+
 	DLLIST_REMOVE(&host->client->hosts_list, host);
-	if (host != host->client->unix_host)
+	if (host == host->client->unix_host)
+		host->client->unix_host = NULL;
+	else
 		hash_table_remove(host->client->hosts, hostname);
 
 	if (host->dns_lookup != NULL)
 		dns_lookup_abort(&host->dns_lookup);
 
 	/* drop request queues */
-	array_foreach(&host->queues, queue_idx) {
+	t_array_init(&queues, array_count(&host->queues));
+	array_copy(&queues.arr, 0,
+		&host->queues.arr, 0, array_count(&host->queues));
+	array_clear(&host->queues);
+	array_foreach(&queues, queue_idx) {
 		http_client_queue_free(*queue_idx);
 	}
 	array_free(&host->queues);
@@ -287,6 +311,45 @@ void http_client_host_free(struct http_client_host **_host)
 	i_free(host->ips);
 	i_free(host->name);
 	i_free(host);
+}
+
+static void
+http_client_host_idle_timeout(struct http_client_host *host)
+{
+	http_client_host_debug(host, "Idle host timed out");
+	http_client_host_free(&host);
+}
+
+void http_client_host_check_idle(struct http_client_host *host)
+{
+	struct http_client_queue *const *queue_idx;
+	unsigned int requests = 0;
+	int timeout = 0;
+
+	if (host->to_idle != NULL)
+		return;
+
+	array_foreach(&host->queues, queue_idx) {
+		requests += http_client_queue_requests_active(*queue_idx);
+	}
+
+	if (requests > 0)
+		return;
+
+	if (!host->unix_local && !host->explicit_ip &&
+		host->ips_timeout.tv_sec > 0) {
+		timeout = timeval_diff_msecs
+			(&host->ips_timeout, &ioloop_timeval);
+	}
+
+	if (timeout <= HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS)
+		timeout = HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS;
+
+	host->to_idle = timeout_add_short(timeout,
+		http_client_host_idle_timeout, host);
+
+	http_client_host_debug(host,
+		"Host is idle (timeout = %u msecs)", timeout);
 }
 
 void http_client_host_switch_ioloop(struct http_client_host *host)
@@ -297,4 +360,6 @@ void http_client_host_switch_ioloop(struct http_client_host *host)
 		dns_lookup_switch_ioloop(host->dns_lookup);
 	array_foreach(&host->queues, queue_idx)
 		http_client_queue_switch_ioloop(*queue_idx);
+	if (host->to_idle != NULL)
+		host->to_idle = io_loop_move_timeout(&host->to_idle);
 }
