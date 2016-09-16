@@ -719,9 +719,7 @@ openssl_iostream_get_last_error(struct ssl_iostream *ssl_io)
 	return ssl_io->last_error;
 }
 
-const struct iostream_ssl_vfuncs ssl_vfuncs = {
-	openssl_iostream_global_deinit,
-
+static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	openssl_iostream_context_init_client,
 	openssl_iostream_context_init_server,
 	openssl_iostream_context_deinit,
@@ -747,3 +745,13 @@ const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	openssl_iostream_get_security_string,
 	openssl_iostream_get_last_error
 };
+
+void iostream_openssl_init(void)
+{
+	iostream_ssl_module_init(&ssl_vfuncs);
+}
+
+void iostream_openssl_deinit(void)
+{
+	openssl_iostream_global_deinit();
+}

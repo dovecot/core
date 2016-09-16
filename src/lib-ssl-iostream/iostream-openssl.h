@@ -101,4 +101,7 @@ int openssl_iostream_context_import_params(struct ssl_iostream_context *ctx,
 					   const buffer_t *input);
 void openssl_iostream_context_free_params(struct ssl_iostream_context *ctx);
 
+void iostream_openssl_init(void);
+void iostream_openssl_deinit(void);
+
 #endif
