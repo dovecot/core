@@ -173,6 +173,8 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	int msecs, ret, i, j;
 	bool call;
 
+	i_assert(ctx != NULL);
+
         /* get the time left for next timeout task */
 	msecs = io_loop_get_wait_time(ioloop, &tv);
 
