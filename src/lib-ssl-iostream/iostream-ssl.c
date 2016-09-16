@@ -14,11 +14,15 @@ static const struct iostream_ssl_vfuncs *ssl_vfuncs = NULL;
 #ifdef HAVE_SSL
 static void ssl_module_unload(void)
 {
-	module_dir_deinit(ssl_module);
-	ssl_vfuncs->global_deinit();
 	module_dir_unload(&ssl_module);
 }
 #endif
+
+void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs)
+{
+	ssl_vfuncs = vfuncs;
+	ssl_module_loaded = TRUE;
+}
 
 static int ssl_module_load(const char **error_r)
 {
@@ -29,12 +33,15 @@ static int ssl_module_load(const char **error_r)
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.setting_name = "<built-in lib-ssl-iostream lookup>";
+	mod_set.require_init_funcs = TRUE;
 	ssl_module = module_dir_load(MODULE_DIR, plugin_name, &mod_set);
-
-	ssl_vfuncs = module_get_symbol(ssl_module, "ssl_vfuncs");
-	if (ssl_vfuncs == NULL) {
-		*error_r = t_strdup_printf("%s: Broken plugin: "
-			"ssl_vfuncs symbol not found", plugin_name);
+	if (module_dir_try_load_missing(&ssl_module, MODULE_DIR, plugin_name,
+					&mod_set, error_r) < 0)
+		return -1;
+	if (!ssl_module_loaded) {
+		*error_r = t_strdup_printf(
+			"%s didn't call iostream_ssl_module_init() - SSL not initialized",
+			plugin_name);
 		module_dir_unload(&ssl_module);
 		return -1;
 	}
@@ -43,7 +50,6 @@ static int ssl_module_load(const char **error_r)
 	   backends may still want to access SSL module in their own
 	   atexit-callbacks. */
 	lib_atexit_priority(ssl_module_unload, LIB_ATEXIT_PRIORITY_LOW);
-	ssl_module_loaded = TRUE;
 	return 0;
 #else
 	*error_r = "SSL support not compiled in";
