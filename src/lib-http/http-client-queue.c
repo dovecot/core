@@ -216,6 +216,37 @@ http_client_queue_is_last_connect_ip(struct http_client_queue *queue)
 }
 
 static void
+http_client_queue_recover_from_lookup(struct http_client_queue *queue)
+{
+	struct http_client_host *host = queue->host;
+	struct http_client_peer_addr new_addr = queue->addr;
+	unsigned int i;
+
+	i_assert(queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX);
+
+	if (queue->cur_peer == NULL) {
+		queue->ips_connect_idx = queue->ips_connect_start_idx = 0;
+		return;
+	}
+
+	/* try to find current peer amongst new IPs */
+	for (i = 0; i < host->ips_count; i++) {
+		new_addr.a.tcp.ip = host->ips[i];
+		if (http_client_peer_addr_cmp
+			(&new_addr, &queue->cur_peer->addr) == 0)
+			break;
+	}
+
+	if (i < host->ips_count) {
+		/* continue with current peer */
+		queue->ips_connect_idx = queue->ips_connect_start_idx = i;
+	} else {
+		/* reset connect attempts */
+		queue->ips_connect_idx = queue->ips_connect_start_idx = 0;
+	}
+}
+
+static void
 http_client_queue_soft_connect_timeout(struct http_client_queue *queue)
 {
 	struct http_client_host *host = queue->host;
@@ -258,9 +289,22 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 		array_count(&queue->queued_requests) +
 		array_count(&queue->queued_urgent_requests);
 	const char *ssl = "";
+	int ret;
 
 	if (num_requests == 0)
 		return NULL;
+
+	/* check whether host IPs are still up-to-date */
+	if ((ret=http_client_host_refresh(host)) < 0) {
+		/* performing asynchronous lookup */
+		if (queue->to_connect != NULL)
+			timeout_remove(&queue->to_connect);
+		return NULL;
+	}
+	if (ret > 0) {
+		/* new lookup performed */
+		http_client_queue_recover_from_lookup(queue);
+	}
 
 	/* update our peer address */
 	if (queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX) {
@@ -368,11 +412,24 @@ void http_client_queue_connection_setup(struct http_client_queue *queue)
 	(void)http_client_queue_connection_attempt(queue);
 }
 
+
+unsigned int
+http_client_queue_host_lookup_done(struct http_client_queue *queue)
+{
+	unsigned int reqs_pending =
+		http_client_queue_requests_pending(queue, NULL);
+	http_client_queue_recover_from_lookup(queue);
+	if (reqs_pending > 0)
+		http_client_queue_connection_setup(queue);
+	return reqs_pending;
+}
+
 void
 http_client_queue_connection_success(struct http_client_queue *queue,
 					 const struct http_client_peer_addr *addr)
 {
-	if (queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX) {
+	if (queue->host->dns_lookup == NULL &&
+		queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX) {
 		/* we achieved at least one connection the the addr->ip */
 		queue->ips_connect_start_idx =
 			http_client_host_get_ip_idx(queue->host, &addr->a.tcp.ip);

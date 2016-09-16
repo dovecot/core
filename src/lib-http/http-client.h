@@ -22,6 +22,7 @@ struct http_client_settings {
 	   c) Otherwise, blocking gethostbyname() lookups are used. */
 	struct dns_client *dns_client;
 	const char *dns_client_socket_path;
+	unsigned int dns_ttl_msecs;
 
 	/* ssl configuration */
 	const char *ssl_ca_dir, *ssl_ca_file, *ssl_ca;

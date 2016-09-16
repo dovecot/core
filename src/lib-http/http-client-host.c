@@ -9,6 +9,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "time-util.h"
 #include "dns-lookup.h"
 #include "http-response-parser.h"
 
@@ -59,12 +60,14 @@ static void
 http_client_host_dns_callback(const struct dns_lookup_result *result,
 			      struct http_client_host *host)
 {
+	struct http_client *client = host->client;
 	struct http_client_queue *const *queue_idx;
 	unsigned int requests = 0;
 
 	host->dns_lookup = NULL;
 
 	if (result->ret != 0) {
+		/* lookup failed */
 		http_client_host_lookup_failure(host, result->error);
 		return;
 	}
@@ -76,18 +79,13 @@ http_client_host_dns_callback(const struct dns_lookup_result *result,
 	host->ips_count = result->ips_count;
 	host->ips = i_new(struct ip_addr, host->ips_count);
 	memcpy(host->ips, result->ips, sizeof(*host->ips) * host->ips_count);
-	
-	/* FIXME: make DNS result expire */
+
+	host->ips_timeout = ioloop_timeval;
+	timeval_add_msecs(&host->ips_timeout, client->set.dns_ttl_msecs);
 
 	/* make connections to requested ports */
 	array_foreach_modifiable(&host->queues, queue_idx) {
-		struct http_client_queue *queue = *queue_idx;
-		unsigned int reqs_pending = 
-			http_client_queue_requests_pending(queue, NULL);
-		queue->ips_connect_idx = queue->ips_connect_start_idx = 0;
-		if (reqs_pending > 0)
-			http_client_queue_connection_setup(queue);
-		requests += reqs_pending;
+		requests += http_client_queue_host_lookup_done(*queue_idx);
 	}
 
 	if (requests == 0 && host->client->ioloop != NULL)
@@ -100,7 +98,6 @@ static void http_client_host_lookup
 	struct http_client *client = host->client;
 	struct dns_lookup_settings dns_set;
 	struct ip_addr *ips;
-	unsigned int ips_count;
 	int ret;
 
 	i_assert(!host->explicit_ip);
@@ -127,6 +124,8 @@ static void http_client_host_lookup
 		(void)dns_lookup(host->name, &dns_set,
 				 http_client_host_dns_callback, host, &host->dns_lookup);
 	} else {
+		unsigned int ips_count;
+
 		ret = net_gethostbyname(host->name, &ips, &ips_count);
 		if (ret != 0) {
 			http_client_host_lookup_failure(host, net_gethosterror(ret));
@@ -140,6 +139,34 @@ static void http_client_host_lookup
 		host->ips = i_new(struct ip_addr, ips_count);
 		memcpy(host->ips, ips, ips_count * sizeof(*ips));
 	}
+
+	if (host->ips_count > 0) {
+		host->ips_timeout = ioloop_timeval;
+		timeval_add_msecs(&host->ips_timeout, client->set.dns_ttl_msecs);
+	}
+}
+
+int http_client_host_refresh(struct http_client_host *host)
+{
+	if (host->unix_local)
+		return 0;
+	if (host->explicit_ip)
+		return 0;
+
+	if (host->dns_lookup != NULL)
+		return -1;
+
+	if (host->ips_count > 0 &&
+		timeval_cmp(&host->ips_timeout, &ioloop_timeval) > 0)
+		return 0;
+
+	http_client_host_debug(host,
+		"IPs have expired; need to refresh DNS lookup");
+
+	http_client_host_lookup(host);
+	if (host->dns_lookup != NULL)
+		return -1;
+	return (host->ips_count > 0 ? 1 : -1);
 }
 
 static struct http_client_host *http_client_host_create
