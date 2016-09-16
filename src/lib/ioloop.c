@@ -393,6 +393,10 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 	struct timeout *timeout;
 	int msecs;
 
+	/* if there are pending io, do not wait, possibly
+           forever, for them, but process them directly. */
+	if (current_ioloop->io_pending_count > 0) return 0;
+
 	item = priorityq_peek(ioloop->timeouts);
 	timeout = (struct timeout *)item;
 	if (timeout == NULL) {
