@@ -70,6 +70,7 @@ struct client_auth_reply {
 
 	bool proxy:1;
 	bool proxy_nopipelining:1;
+	bool proxy_not_trusted:1;
 	bool temp:1;
 	bool nologin:1;
 	bool authz_failure:1;
@@ -176,6 +177,7 @@ struct client {
 	bool auth_process_comm_fail:1;
 	bool proxy_auth_failed:1;
 	bool proxy_nopipelining:1;
+	bool proxy_not_trusted:1;
 	bool auth_waiting:1;
 	bool auth_user_disabled:1;
 	bool auth_pass_expired:1;

@@ -168,7 +168,8 @@ static int proxy_input_banner(struct imap_client *client,
 		i_free(client->proxy_backend_capability);
 		client->proxy_backend_capability =
 			i_strdup(t_strcut(line + 5 + 12, ']'));
-		if (str_array_icase_find(capabilities, "ID")) {
+		if (str_array_icase_find(capabilities, "ID") &&
+		    !client->common.proxy_not_trusted) {
 			proxy_write_id(client, str);
 			if (client->common.proxy_nopipelining) {
 				/* write login or starttls after I OK */
