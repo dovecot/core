@@ -158,7 +158,8 @@ test_http_payload_DEPENDENCIES = \
 test_http_client_SOURCES = test-http-client.c
 test_http_client_LDFLAGS = -export-dynamic
 test_http_client_LDADD = \
-	$(test_http_libs)
+	$(test_http_libs) \
+	../lib-ssl-iostream/libssl_iostream_openssl.la
 test_http_client_DEPENDENCIES = \
 	$(test_http_deps)
 

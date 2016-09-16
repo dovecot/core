@@ -8,6 +8,8 @@
 #include "http-url.h"
 #include "http-client.h"
 #include "dns-lookup.h"
+#include "iostream-ssl.h"
+#include "iostream-openssl.h"
 
 struct http_test_request {
 	struct io *io;
@@ -340,6 +342,7 @@ int main(int argc, char *argv[])
 	struct ioloop *ioloop;
 
 	lib_init();
+	iostream_openssl_init();
 
 	ioloop = io_loop_create();
 	io_loop_set_running(ioloop);
@@ -393,5 +396,6 @@ int main(int argc, char *argv[])
 	dns_client_deinit(&dns_client);
 
 	io_loop_destroy(&ioloop);
+	iostream_openssl_deinit();
 	lib_deinit();
 }
