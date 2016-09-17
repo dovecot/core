@@ -227,6 +227,8 @@ void auth_policy_finish(void *ctx)
 	}
 	if (context->http_request != NULL)
 		http_client_request_abort(&(context->http_request));
+	if (context->request != NULL)
+		auth_request_unref(&context->request);
 }
 
 static
@@ -391,6 +393,7 @@ void auth_policy_send_request(struct policy_lookup_ctx *context)
 	http_client_request_set_payload(context->http_request, is, FALSE);
 	i_stream_unref(&is);
 	http_client_request_submit(context->http_request);
+	auth_request_ref(context->request);
 }
 
 static
