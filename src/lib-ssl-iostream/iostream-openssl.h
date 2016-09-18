@@ -95,7 +95,7 @@ const char *
 openssl_iostream_use_certificate_error(const char *cert, const char *set_name);
 void openssl_iostream_clear_errors(void);
 
-void iostream_openssl_init(void);
-void iostream_openssl_deinit(void);
+void ssl_iostream_openssl_init(void);
+void ssl_iostream_openssl_deinit(void);
 
 #endif

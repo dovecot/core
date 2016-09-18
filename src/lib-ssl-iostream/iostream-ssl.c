@@ -45,6 +45,7 @@ static int ssl_module_load(const char **error_r)
 		module_dir_unload(&ssl_module);
 		return -1;
 	}
+	module_dir_init(ssl_module);
 
 	/* Destroy SSL module after (most of) the others. Especially lib-fs
 	   backends may still want to access SSL module in their own

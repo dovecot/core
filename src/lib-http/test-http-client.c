@@ -343,7 +343,7 @@ int main(int argc, char *argv[])
 	struct ioloop *ioloop;
 
 	lib_init();
-	iostream_openssl_init();
+	ssl_iostream_openssl_init();
 
 	ioloop = io_loop_create();
 	io_loop_set_running(ioloop);
@@ -400,6 +400,6 @@ int main(int argc, char *argv[])
 	dns_client_deinit(&dns_client);
 
 	io_loop_destroy(&ioloop);
-	iostream_openssl_deinit();
+	ssl_iostream_openssl_deinit();
 	lib_deinit();
 }
