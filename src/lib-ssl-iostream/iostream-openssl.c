@@ -746,12 +746,12 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	openssl_iostream_get_last_error
 };
 
-void iostream_openssl_init(void)
+void ssl_iostream_openssl_init(void)
 {
 	iostream_ssl_module_init(&ssl_vfuncs);
 }
 
-void iostream_openssl_deinit(void)
+void ssl_iostream_openssl_deinit(void)
 {
 	openssl_iostream_global_deinit();
 }
