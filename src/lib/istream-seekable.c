@@ -477,6 +477,7 @@ i_stream_create_seekable_path(struct istream *input[],
 	struct seekable_istream *sstream;
 	struct istream *stream;
 
+	i_assert(temp_path_prefix != NULL);
 	i_assert(max_buffer_size > 0);
 
 	if (inputs_are_seekable(input))
