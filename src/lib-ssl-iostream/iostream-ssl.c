@@ -38,6 +38,7 @@ static int ssl_module_load(const char **error_r)
 	if (module_dir_try_load_missing(&ssl_module, MODULE_DIR, plugin_name,
 					&mod_set, error_r) < 0)
 		return -1;
+	module_dir_init(ssl_module);
 	if (!ssl_module_loaded) {
 		*error_r = t_strdup_printf(
 			"%s didn't call iostream_ssl_module_init() - SSL not initialized",
@@ -45,7 +46,6 @@ static int ssl_module_load(const char **error_r)
 		module_dir_unload(&ssl_module);
 		return -1;
 	}
-	module_dir_init(ssl_module);
 
 	/* Destroy SSL module after (most of) the others. Especially lib-fs
 	   backends may still want to access SSL module in their own
