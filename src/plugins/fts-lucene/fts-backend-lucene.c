@@ -310,7 +310,7 @@ fts_backend_lucene_update_set_mailbox(struct fts_backend_update_context *_ctx,
 		fts_index_set_last_uid(ctx->box, ctx->last_uid);
 		ctx->last_uid = 0;
 	}
-	if (ctx->first_box_vname == NULL)
+	if (ctx->first_box_vname == NULL && box != NULL)
 		ctx->first_box_vname = i_strdup(box->vname);
 	ctx->box = box;
 	ctx->last_indexed_uid_set = FALSE;
