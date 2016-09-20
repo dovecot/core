@@ -380,7 +380,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		   either STARTTLS or login */
 		client->proxy_state = IMAP_PROXY_STATE_ID;
 
-		if (client->proxy_nopipelining)
+		if (client->proxy_nopipelining) {
 			str = t_str_new(128);
 			if ((ret = proxy_write_starttls(imap_client, str)) < 0) {
 				return -1;
