@@ -396,7 +396,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		/* Reply to ID command we sent, ignore it */
 		return 0;
 	} else if (strncmp(line, "* ", 2) == 0) {
-		/* untagged reply. just foward it. */
+		/* untagged reply. just forward it. */
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
 		return 0;
 	} else {
