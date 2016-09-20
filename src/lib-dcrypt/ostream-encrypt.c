@@ -484,7 +484,7 @@ ssize_t o_stream_encrypt_sendv(struct ostream_private *stream,
 }
 
 static
-int o_stream_encrypt_flush(struct ostream_private *stream)
+int o_stream_encrypt_finalize(struct ostream_private *stream)
 {
 	const char *error;
 	struct encrypt_ostream *estream = (struct encrypt_ostream *)stream;
@@ -545,7 +545,7 @@ void o_stream_encrypt_close(struct iostream_private *stream,
 	struct encrypt_ostream *estream = (struct encrypt_ostream *)stream;
 	if (estream->ctx_sym != NULL && !estream->finalized &&
 	    estream->ostream.ostream.stream_errno == 0)
-		o_stream_encrypt_flush(&estream->ostream);
+		o_stream_encrypt_finalize(&estream->ostream);
 	if (close_parent) {
 		o_stream_close(estream->ostream.parent);
 	}
@@ -629,7 +629,6 @@ o_stream_create_encrypt_common(enum io_stream_encrypt_flags flags)
 
 	estream = i_new(struct encrypt_ostream, 1);
 	estream->ostream.sendv = o_stream_encrypt_sendv;
-	estream->ostream.flush = o_stream_encrypt_flush;
 	estream->ostream.iostream.close = o_stream_encrypt_close;
 	estream->ostream.iostream.destroy = o_stream_encrypt_destroy;
 
