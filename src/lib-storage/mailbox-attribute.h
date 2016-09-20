@@ -245,10 +245,10 @@ struct mailbox_attribute_internal {
 
 	/* Get the value of this internal attribute */
 	int (*get)(struct mailbox *box, const char *key,
-		   struct mail_attribute_value *value_r, bool internal_attribute);
-	/* Set the value of this internal attribute */ 
+		   struct mail_attribute_value *value_r);
+	/* Set the value of this internal attribute */
 	int (*set)(struct mailbox_transaction_context *t, const char *key,
-		   const struct mail_attribute_value *value, bool internal_attribute);
+		   const struct mail_attribute_value *value);
 };
 
 void mailbox_attribute_register_internal(

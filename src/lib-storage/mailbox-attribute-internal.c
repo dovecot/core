@@ -13,8 +13,7 @@
 static int
 mailbox_attribute_specialuse_get(struct mailbox *box,
 	const char *key ATTR_UNUSED,
-	struct mail_attribute_value *value_r,
-	bool internal_attribute ATTR_UNUSED)
+	struct mail_attribute_value *value_r)
 {
 	const struct mailbox_settings *set = box->set;
 
@@ -39,8 +38,7 @@ iattr_mbox_prv_special_use = {
 static int
 mailbox_attribute_comment_get(struct mailbox *box,
 	const char *key ATTR_UNUSED,
-	struct mail_attribute_value *value_r,
-	bool internal_attribute ATTR_UNUSED)
+	struct mail_attribute_value *value_r)
 {
 	const struct mailbox_settings *set = box->set;
 
@@ -77,8 +75,7 @@ iattr_mbox_shd_comment = {
 static int
 server_attribute_comment_get(struct mailbox *box,
 	const char *key ATTR_UNUSED,
-	struct mail_attribute_value *value_r,
-	bool internal_attribute ATTR_UNUSED)
+	struct mail_attribute_value *value_r)
 {
 	const struct mail_storage_settings *set = box->storage->set;
 
@@ -103,8 +100,7 @@ iattr_serv_shd_comment = {
 static int
 server_attribute_admin_get(struct mailbox *box,
 	const char *key ATTR_UNUSED,
-	struct mail_attribute_value *value_r,
-	bool internal_attribute ATTR_UNUSED)
+	struct mail_attribute_value *value_r)
 {
 	const struct mail_storage_settings *set = box->storage->set;
 

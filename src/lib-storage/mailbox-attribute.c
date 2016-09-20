@@ -174,7 +174,7 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
 			/* notify about assignment */
-			if (iattr->set != NULL && iattr->set(t, key, value, TRUE) < 0)
+			if (iattr->set != NULL && iattr->set(t, key, value) < 0)
 				return -1;
 			break;
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY:
@@ -185,13 +185,13 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 				return -1;
 			}
 			/* assign internal attribute */
-			return iattr->set(t, key, value, TRUE);
+			return iattr->set(t, key, value);
 		default:
 			i_unreached();
 		}
 	}
-	
-	ret = t->box->v.attribute_set(t, type, key, value, (iattr != NULL && iattr->rank != MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY));
+
+	ret = t->box->v.attribute_set(t, type, key, value);
 	return ret;
 }
 
@@ -265,16 +265,17 @@ mailbox_attribute_get_common(struct mailbox *box,
 	if (iattr != NULL) {
 		switch (iattr->rank) {
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
-			if ((ret = iattr->get(box, key, value_r, TRUE)) != 0) {
+			if ((ret = iattr->get(box, key, value_r)) != 0) {
 				if (ret < 0)
 					return -1;
 				value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
 				return 1;
 			}
+			break;
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_DEFAULT:
 			break;
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY:
-			if ((ret = iattr->get(box, key, value_r, TRUE)) <= 0)
+			if ((ret = iattr->get(box, key, value_r)) <= 0)
 				return ret;
 			value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
 			return 1;
@@ -283,9 +284,7 @@ mailbox_attribute_get_common(struct mailbox *box,
 		}
 	}
 
-	bool internal_attribute = (iattr != NULL && iattr->rank != MAIL_ATTRIBUTE_INTERNAL_RANK_AUTHORITY);
-
-	ret = box->v.attribute_get(box, type, key, value_r, internal_attribute);
+	ret = box->v.attribute_get(box, type, key, value_r);
 	if (ret != 0)
 		return ret;
 
@@ -296,13 +295,14 @@ mailbox_attribute_get_common(struct mailbox *box,
 			if (iattr->get == NULL)
 				ret = 0;
 			else {
-				if ((ret = iattr->get(box, key, value_r, internal_attribute)) < 0)
+				if ((ret = iattr->get(box, key, value_r)) < 0)
 					return ret;
 			}
 			if (ret > 0) {
 				value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_READONLY;
 				return 1;
 			}
+			break;
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
 			break;
 		default:

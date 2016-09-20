@@ -33,12 +33,10 @@ int acl_mailbox_update_acl(struct mailbox_transaction_context *t,
 
 int acl_attribute_set(struct mailbox_transaction_context *t,
 		      enum mail_attribute_type type, const char *key,
-		      const struct mail_attribute_value *value,
-		      bool internal_attribute);
+		      const struct mail_attribute_value *value);
 int acl_attribute_get(struct mailbox *box,
 		      enum mail_attribute_type type, const char *key,
-		      struct mail_attribute_value *value_r,
-		      bool internal_attribute);
+		      struct mail_attribute_value *value_r);
 struct mailbox_attribute_iter *
 acl_attribute_iter_init(struct mailbox *box, enum mail_attribute_type type,
 			const char *prefix);

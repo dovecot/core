@@ -191,8 +191,7 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 
 int index_storage_attribute_set(struct mailbox_transaction_context *t,
 				enum mail_attribute_type type, const char *key,
-				const struct mail_attribute_value *value,
-				bool unused ATTR_UNUSED)
+				const struct mail_attribute_value *value)
 {
 	struct dict_transaction_context *dtrans;
 	const char *mailbox_prefix;
@@ -226,8 +225,7 @@ int index_storage_attribute_set(struct mailbox_transaction_context *t,
 
 int index_storage_attribute_get(struct mailbox *box,
 				enum mail_attribute_type type, const char *key,
-				struct mail_attribute_value *value_r,
-				bool unused ATTR_UNUSED)
+				struct mail_attribute_value *value_r)
 {
 	struct dict *dict;
 	const char *mailbox_prefix, *error;
