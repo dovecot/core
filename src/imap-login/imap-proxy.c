@@ -55,6 +55,22 @@ static void proxy_free_password(struct client *client)
 	i_free_and_null(client->proxy_password);
 }
 
+static int proxy_write_starttls(struct imap_client *client, string_t *str)
+{
+	enum login_proxy_ssl_flags ssl_flags = login_proxy_get_ssl_flags(client->common.login_proxy);
+	if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) != 0) {
+		if (client->proxy_backend_capability != NULL &&
+		    !str_array_icase_find(t_strsplit(client->proxy_backend_capability, " "), "STARTTLS")) {
+			client_log_err(&client->common,
+			"proxy: Remote doesn't support STARTTLS");
+			return -1;
+		}
+		str_append(str, "S STARTTLS\r\n");
+		return 1;
+	}
+	return 0;
+}
+
 static int proxy_write_login(struct imap_client *client, string_t *str)
 {
 	struct dsasl_client_settings sasl_set;
@@ -131,9 +147,9 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 static int proxy_input_banner(struct imap_client *client,
 			      struct ostream *output, const char *line)
 {
-	enum login_proxy_ssl_flags ssl_flags;
 	const char *const *capabilities = NULL;
 	string_t *str;
+	int ret;
 
 	if (strncmp(line, "* OK ", 5) != 0) {
 		client_log_err(&client->common, t_strdup_printf(
@@ -145,8 +161,6 @@ static int proxy_input_banner(struct imap_client *client,
 	str = t_str_new(128);
 	if (strncmp(line + 5, "[CAPABILITY ", 12) == 0) {
 		capabilities = t_strsplit(t_strcut(line + 5 + 12, ']'), " ");
-		if (str_array_icase_find(capabilities, "ID"))
-			proxy_write_id(client, str);
 		if (str_array_icase_find(capabilities, "SASL-IR"))
 			client->proxy_sasl_ir = TRUE;
 		if (str_array_icase_find(capabilities, "LOGINDISABLED"))
@@ -154,18 +168,19 @@ static int proxy_input_banner(struct imap_client *client,
 		i_free(client->proxy_backend_capability);
 		client->proxy_backend_capability =
 			i_strdup(t_strcut(line + 5 + 12, ']'));
+		if (str_array_icase_find(capabilities, "ID")) {
+			proxy_write_id(client, str);
+			if (client->common.proxy_nopipelining) {
+				/* write login or starttls after I OK */
+				o_stream_nsend(output, str_data(str), str_len(str));
+				return 0;
+			}
+		}
 	}
 
-	ssl_flags = login_proxy_get_ssl_flags(client->common.login_proxy);
-	if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) != 0) {
-		if (capabilities != NULL &&
-		    !str_array_icase_find(capabilities, "STARTTLS")) {
-			client_log_err(&client->common,
-				"proxy: Remote doesn't support STARTTLS");
-			return -1;
-		}
-		str_append(str, "S STARTTLS\r\n");
-	} else {
+	if ((ret = proxy_write_starttls(client, str)) < 0) {
+		return -1;
+	} else if (ret == 0) {
 		if (proxy_write_login(client, str) < 0)
 			return -1;
 	}
@@ -359,10 +374,26 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return 1;
 		}
 		return 0;
-	} else if (strncasecmp(line, "I ", 2) == 0 ||
-		   strncasecmp(line, "* ID ", 5) == 0) {
-		/* Reply to ID command we sent, ignore it */
+	} else if (strncasecmp(line, "I ", 2) == 0) {
+		/* Reply to ID command we sent, ignore it unless
+		   pipelining is disabled, in which case send
+		   either STARTTLS or login */
 		client->proxy_state = IMAP_PROXY_STATE_ID;
+
+		if (client->proxy_nopipelining)
+			str = t_str_new(128);
+			if ((ret = proxy_write_starttls(imap_client, str)) < 0) {
+				return -1;
+			} else if (ret == 0) {
+				if (proxy_write_login(imap_client, str) < 0)
+					return -1;
+			}
+			o_stream_nsend(output, str_data(str), str_len(str));
+			return 1;
+		}
+		return 0;
+	} else if (strncasecmp(line, "* ID ", 5) == 0) {
+		/* Reply to ID command we sent, ignore it */
 		return 0;
 	} else if (strncmp(line, "* ", 2) == 0) {
 		/* untagged reply. just foward it. */
