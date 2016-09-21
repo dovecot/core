@@ -392,7 +392,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	}
 	if (timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
 	    rec->last_failure.tv_sec - rec->last_success.tv_sec > PROXY_IMMEDIATE_FAILURE_SECS &&
-	    rec->num_waiting_connections != 0) {
+	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
 		client_log_err(proxy->client, t_strdup_printf(
 			"proxy(%s): Host %s:%u is down",
