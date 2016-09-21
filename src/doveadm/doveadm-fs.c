@@ -78,11 +78,11 @@ static void cmd_fs_get(int argc, char *argv[])
 	i_assert(ret == -1);
 	if (input->stream_errno == ENOENT) {
 		i_error("%s doesn't exist: %s", fs_file_path(file),
-			fs_file_last_error(file));
+			i_stream_get_error(input));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else if (input->stream_errno != 0) {
 		i_error("read(%s) failed: %s", fs_file_path(file),
-			fs_file_last_error(file));
+			i_stream_get_error(input));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	i_stream_unref(&input);
