@@ -23,7 +23,11 @@ struct istream_chain {
 struct chain_istream {
 	struct istream_private istream;
 
-	size_t prev_stream_left, prev_skip;
+	/* how much of the previous link's stream still exists at the
+	   beginning of our buffer. skipping through this should point to
+	   the beginning of the current link's stream. */
+	size_t prev_stream_left;
+	size_t prev_skip;
 	bool have_explicit_max_buffer_size;
 	
 	struct istream_chain chain;
@@ -131,12 +135,16 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 
 	if (cstream->prev_stream_left > 0) {
 		/* we've already buffered some of the prev_input. continue
-		   appending the rest to it. */
+		   appending the rest to it. if it's already at EOF, there's
+		   nothing more to append. */
 		cur_data_pos = cstream->istream.pos -
 			(cstream->istream.skip + cstream->prev_stream_left);
 		i_assert(cur_data_pos <= data_size);
 		data += cur_data_pos;
 		data_size -= cur_data_pos;
+		/* the stream has now become "previous", so its contents in
+		   buffer are now part of prev_stream_left. */
+		cstream->prev_stream_left += cur_data_pos;
 	} else {
 		cstream->istream.pos = 0;
 		cstream->istream.skip = 0;
