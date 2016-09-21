@@ -1027,7 +1027,7 @@ static int db_ldap_bind_sasl(struct ldap_connection *conn)
 }
 #endif
 
-static int db_ldap_bind(struct ldap_connection *conn)
+static int db_ldap_bind_simple(struct ldap_connection *conn)
 {
 	int msgid;
 
@@ -1053,6 +1053,19 @@ static int db_ldap_bind(struct ldap_connection *conn)
 		timeout_remove(&conn->to);
 	conn->to = timeout_add(DB_LDAP_REQUEST_LOST_TIMEOUT_SECS*1000,
 			       ldap_connection_timeout, conn);
+	return 0;
+}
+
+static int db_ldap_bind(struct ldap_connection *conn)
+{
+	if (conn->set.sasl_bind) {
+		if (db_ldap_bind_sasl(conn) < 0)
+			return -1;
+	} else {
+		if (db_ldap_bind_simple(conn) < 0)
+			return -1;
+	}
+
 	return 0;
 }
 
@@ -1228,13 +1241,9 @@ int db_ldap_connect(struct ldap_connection *conn)
 #endif
 	}
 
-	if (conn->set.sasl_bind) {
-		if (db_ldap_bind_sasl(conn) < 0)
-			return -1;
-	} else {
-		if (db_ldap_bind(conn) < 0)
-			return -1;
-	}
+	if (db_ldap_bind(conn) < 0)
+		return -1;
+
 	if (debug) {
 		if (gettimeofday(&end, NULL) == 0) {
 			int msecs = timeval_diff_msecs(&end, &start);
