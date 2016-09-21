@@ -30,10 +30,23 @@ o_stream_failure_at_sendv(struct ostream_private *stream,
 	unsigned int i;
 	struct const_iovec *iov_dup;
 	unsigned int iov_dup_count;
-	uoff_t bytes_until_failure;
+	uoff_t bytes_until_failure, blocking_bytes_count = 0;
 	ssize_t ret;
 
-	if (fstream->failure_offset <= stream->ostream.offset) {
+	if (stream->ostream.blocking) {
+		/* blocking ostream must return either a full success or a
+		   failure. if the current write would go past failure_offset,
+		   return a failure now before writing anything. */
+		for (i = 0; i < iov_count; i++)
+			blocking_bytes_count += iov[i].iov_len;
+		if (blocking_bytes_count > 0) {
+			/* if we're exactly at the failure offset after this
+			   write, fail it only on the next write. */
+			blocking_bytes_count--;
+		}
+	}
+
+	if (fstream->failure_offset <= stream->ostream.offset + blocking_bytes_count) {
 		io_stream_set_error(&stream->iostream, "%s",
 				    fstream->error_string);
 		stream->ostream.stream_errno = errno = EIO;
