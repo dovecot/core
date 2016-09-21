@@ -89,7 +89,7 @@ static void test_istream_chain_accumulate(void)
 	const unsigned char *data;
 	size_t size;
 
-	test_begin("istream chain");
+	test_begin("istream chain accumulate");
 
 	test_input = test_istream_create("aaaaaaaaaaaaaaaaaaaa");
 	test_input2 = test_istream_create("bbbbbbbbbbbbbbbbbbbbbbbbb");
@@ -174,6 +174,8 @@ static void test_istream_chain_accumulate(void)
 	i_stream_unref(&test_input);
 	i_stream_unref(&test_input2);
 	i_stream_unref(&test_input3);
+	i_stream_unref(&test_input4);
+	i_stream_unref(&test_input5);
 	test_end();
 }
 
