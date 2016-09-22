@@ -178,6 +178,7 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 {
 	const unsigned char *data;
 	size_t size;
+	struct message_header_hash_context hash_ctx;
 	struct sha1_ctxt sha1_ctx;
 	struct pop3_hdr_context hdr_ctx;
 
@@ -190,8 +191,9 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 				pop3_header_filter_callback, &hdr_ctx);
 
 	sha1_init(&sha1_ctx);
+	memset(&hash_ctx, 0, sizeof(hash_ctx));
 	while (i_stream_read_more(input, &data, &size) > 0) {
-		message_header_hash_more(&hash_method_sha1, &sha1_ctx, 2,
+		message_header_hash_more(&hash_ctx, &hash_method_sha1, &sha1_ctx, 2,
 					 data, size);
 		i_stream_skip(input, size);
 	}

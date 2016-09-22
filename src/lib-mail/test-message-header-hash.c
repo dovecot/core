@@ -14,12 +14,14 @@ static const unsigned char test_output[] =
 
 static void test_dsync_mail_hash_more(void)
 {
+	struct message_header_hash_context ctx;
 	struct md5_context md5_ctx;
 	unsigned char md5_input[MD5_RESULTLEN], md5_output[MD5_RESULTLEN];
 
 	test_begin("dsync_mail_hash_more v2");
 	md5_init(&md5_ctx);
-	message_header_hash_more(&hash_method_md5, &md5_ctx, 2,
+	memset(&ctx, 0, sizeof(ctx));
+	message_header_hash_more(&ctx, &hash_method_md5, &md5_ctx, 2,
 				 test_input, sizeof(test_input)-1);
 	md5_final(&md5_ctx, md5_input);
 
@@ -28,6 +30,17 @@ static void test_dsync_mail_hash_more(void)
 	md5_final(&md5_ctx, md5_output);
 
 	test_assert(memcmp(md5_input, md5_output, MD5_RESULTLEN) == 0);
+
+	/* single byte at a time */
+	md5_init(&md5_ctx);
+	memset(&ctx, 0, sizeof(ctx));
+	for (unsigned int i = 0; i < sizeof(test_input)-1; i++) {
+		message_header_hash_more(&ctx, &hash_method_md5, &md5_ctx, 2,
+					 test_input + i, 1);
+	}
+	md5_final(&md5_ctx, md5_input);
+	test_assert(memcmp(md5_input, md5_output, MD5_RESULTLEN) == 0);
+
 	test_end();
 }
 
