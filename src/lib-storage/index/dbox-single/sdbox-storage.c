@@ -263,8 +263,11 @@ int sdbox_mailbox_create_indexes(struct mailbox *box,
 						 update->min_highest_modseq);
 	}
 
-	if (box->inbox_user)
+	if (box->inbox_user && box->creating) {
+		/* initialize pop3-uidl header when creating mailbox
+		   (not on mailbox_update()) */
 		index_pop3_uidl_set_max_uid(box, trans, 0);
+	}
 
 	sdbox_update_header(mbox, trans, update);
 	if (new_trans != NULL) {

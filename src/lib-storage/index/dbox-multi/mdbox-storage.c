@@ -310,8 +310,11 @@ mdbox_write_index_header(struct mailbox *box,
 	}
 	mail_index_view_close(&view);
 
-	if (box->inbox_user)
+	if (box->inbox_user && box->creating) {
+		/* initialize pop3-uidl header when creating mailbox
+		   (not on mailbox_update()) */
 		index_pop3_uidl_set_max_uid(box, trans, 0);
+	}
 
 	mdbox_update_header(mbox, trans, update);
 	if (new_trans != NULL) {
