@@ -393,13 +393,13 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 	struct timeout *timeout;
 	int msecs;
 
-	/* if there are pending io, do not wait, possibly
-           forever, for them, but process them directly. */
-	if (current_ioloop->io_pending_count > 0) return 0;
-
 	item = priorityq_peek(ioloop->timeouts);
 	timeout = (struct timeout *)item;
-	if (timeout == NULL) {
+
+	/* we need to see if there are pending IO waiting,
+	   if there is, we set msecs = 0 to ensure they are
+	   processed without delay */
+	if (timeout == NULL && ioloop->io_pending_count == 0) {
 		/* no timeouts. use INT_MAX msecs for timeval and
 		   return -1 for poll/epoll infinity. */
 		tv_r->tv_sec = INT_MAX / 1000;
@@ -408,8 +408,14 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 		return -1;
 	}
 
-	tv_now.tv_sec = 0;
-	msecs = timeout_get_wait_time(timeout, tv_r, &tv_now);
+	if (ioloop->io_pending_count > 0) {
+		if (gettimeofday(&tv_now, NULL) < 0)
+			i_fatal("gettimeofday(): %m");
+		msecs = 0;
+	} else {
+		tv_now.tv_sec = 0;
+		msecs = timeout_get_wait_time(timeout, tv_r, &tv_now);
+	}
 	ioloop->next_max_time = (tv_now.tv_sec + msecs/1000) + 1;
 
 	/* update ioloop_timeval - this is meant for io_loop_handle_timeouts()'s
