@@ -30,6 +30,7 @@ int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
 {
 	struct istream *hdr_input, *input;
 	struct mailbox_header_lookup_ctx *hdr_ctx;
+	struct message_header_hash_context hash_ctx;
 	struct md5_context md5_ctx;
 	unsigned char md5_result[MD5_RESULTLEN];
 	const unsigned char *data;
@@ -45,13 +46,14 @@ int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
 	input = i_stream_create_lf(hdr_input);
 
 	md5_init(&md5_ctx);
+	memset(&hash_ctx, 0, sizeof(hash_ctx));
 	while (!i_stream_is_eof(input)) {
 		if (i_stream_read_data(input, &data, &size, 0) == -1)
 			break;
 		if (size == 0)
 			break;
-		message_header_hash_more(&hash_method_md5, &md5_ctx, version,
-					 data, size);
+		message_header_hash_more(&hash_ctx, &hash_method_md5, &md5_ctx,
+					 version, data, size);
 		i_stream_skip(input, size);
 	}
 	if (input->stream_errno != 0)
