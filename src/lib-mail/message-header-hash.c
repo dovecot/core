@@ -27,9 +27,7 @@ void message_header_hash_more(const struct hash_method *method, void *context,
 
 	   So we'll just replace all control and 8bit chars with '?' and
 	   remove any repeated '?', which hopefully will satisfy everybody.
-
-	   (Keep this code in sync with pop3-migration plugin.)
-	   */
+	*/
 	for (i = start = 0; i < size; i++) {
 		if ((data[i] < 0x20 || data[i] >= 0x7f || data[i] == '?') &&
 		    (data[i] != '\t' && data[i] != '\n')) {
