@@ -605,7 +605,7 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 	struct imap_msg_map *imap_map;
 	unsigned int pop3_idx, imap_idx, pop3_count, imap_count;
 	unsigned int first_seq, missing_uids_count;
-	uint32_t first_missing_idx = (uint32_t)-1;
+	uint32_t first_missing_idx = 0, first_missing_seq = (uint32_t)-1;
 	int ret;
 
 	first_seq = mbox->first_unfound_idx+1;
@@ -653,8 +653,11 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 		} else if (!pop3_map[pop3_idx].common.hdr_sha1_set) {
 			/* we treated this mail as expunged - ignore */
 		} else {
-			if (first_missing_idx == (uint32_t)-1)
+			uint32_t seq = pop3_map[pop3_idx].pop3_seq;
+			if (first_missing_seq > seq) {
+				first_missing_seq = seq;
 				first_missing_idx = pop3_idx;
+			}
 			missing_uids_count++;
 		}
 	}
@@ -663,8 +666,7 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 
 		str_printfa(str, "pop3_migration: %u POP3 messages have no "
 			    "matching IMAP messages (first POP3 msg %u UIDL %s)",
-			    missing_uids_count,
-			    pop3_map[first_missing_idx].pop3_seq,
+			    missing_uids_count, first_missing_seq,
 			    pop3_map[first_missing_idx].pop3_uidl);
 		if (imap_count + missing_uids_count == pop3_count) {
 			str_append(str, " - all IMAP messages were found "
