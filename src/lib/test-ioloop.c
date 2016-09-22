@@ -4,6 +4,7 @@
 #include "net.h"
 #include "time-util.h"
 #include "ioloop.h"
+#include "istream.h"
 
 #include <unistd.h>
 
@@ -98,8 +99,31 @@ static void test_ioloop_find_fd_conditions(void)
 	test_end();
 }
 
+static void io_callback_pending_io(void *context ATTR_UNUSED)
+{
+	io_loop_stop(current_ioloop);
+}
+
+static void test_ioloop_pending_io(void)
+{
+	test_begin("ioloop pending io");
+
+	struct istream *is = i_stream_create_from_data("data", 4);
+	struct ioloop *ioloop = io_loop_create();
+	struct io *io = io_add_istream(is, io_callback_pending_io, NULL);
+	io_loop_set_current(ioloop);
+	io_set_pending(io);
+	io_loop_run(ioloop);
+	io_remove(&io);
+	i_stream_unref(&is);
+	io_loop_destroy(&ioloop);
+
+	test_end();
+}
+
 void test_ioloop(void)
 {
 	test_ioloop_timeout();
 	test_ioloop_find_fd_conditions();
+	test_ioloop_pending_io();
 }
