@@ -305,7 +305,8 @@ proxy_log_connect_error(struct login_proxy *proxy)
 static void proxy_reconnect_timeout(struct login_proxy *proxy)
 {
 	timeout_remove(&proxy->to);
-	(void)login_proxy_connect(proxy);
+	if (login_proxy_connect(proxy) < 0)
+		login_proxy_free(&proxy);
 }
 
 static bool proxy_try_reconnect(struct login_proxy *proxy)
@@ -487,8 +488,10 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 		i_stream_destroy(&proxy->server_input);
 	if (proxy->server_output != NULL)
 		o_stream_destroy(&proxy->server_output);
-	if (proxy->server_fd != -1)
+	if (proxy->server_fd != -1) {
 		net_disconnect(proxy->server_fd);
+		proxy->server_fd = -1;
+	}
 }
 
 static void login_proxy_free_final(struct login_proxy *proxy)
