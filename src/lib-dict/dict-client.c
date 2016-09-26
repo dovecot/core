@@ -190,13 +190,29 @@ dict_cmd_callback_error(struct client_dict_cmd *cmd, const char *error,
 static void client_dict_input_timeout(struct client_dict *dict)
 {
 	struct client_dict_cmd *const *cmds;
-	unsigned int count;
+	unsigned int i, count;
 	const char *error;
+	int cmd_diff;
 
+	/* find the first expired non-background command */
 	cmds = array_get(&dict->cmds, &count);
-	i_assert(count > 0);
+	for (i = 0; i < count; i++) {
+		if (cmds[i]->background)
+			continue;
+		cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmds[i]->start_time);
+		if (cmd_diff < DICT_CLIENT_REQUEST_TIMEOUT_MSECS) {
+			/* need to re-create this timeout. the currently-oldest
+			   command was added when another command was still
+			   running with an older timeout. */
+			timeout_remove(&dict->to_requests);
+			dict->to_requests =
+				timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MSECS - cmd_diff,
+					    client_dict_input_timeout, dict);
+		}
+		break;
+	}
+	i_assert(i < count); /* we can't have only background commands */
 
-	int cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmds[0]->start_time);
 	(void)client_dict_reconnect(dict, t_strdup_printf(
 		"Dict server timeout: %s "
 		"(%u commands pending, oldest sent %u.%03u secs ago: %s)",
