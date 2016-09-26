@@ -711,6 +711,19 @@ static const char *openssl_iostream_get_server_name(struct ssl_iostream *ssl_io)
 }
 
 static const char *
+openssl_iostream_get_compression(struct ssl_iostream *ssl_io)
+{
+#if defined(HAVE_SSL_COMPRESSION) && !defined(OPENSSL_NO_COMP)
+	const COMP_METHOD *comp;
+
+	comp = SSL_get_current_compression(ssl_io->ssl);
+	return comp == NULL ? NULL : SSL_COMP_get_name(comp);
+#else
+	return NULL;
+#endif
+}
+
+static const char *
 openssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 {
 	const SSL_CIPHER *cipher;
@@ -764,6 +777,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	openssl_iostream_cert_match_name,
 	openssl_iostream_get_peer_name,
 	openssl_iostream_get_server_name,
+	openssl_iostream_get_compression,
 	openssl_iostream_get_security_string,
 	openssl_iostream_get_last_error
 };

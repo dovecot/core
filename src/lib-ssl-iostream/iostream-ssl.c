@@ -200,6 +200,11 @@ const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io)
 	return ssl_vfuncs->get_server_name(ssl_io);
 }
 
+const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io)
+{
+	return ssl_vfuncs->get_compression(ssl_io);
+}
+
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 {
 	return ssl_vfuncs->get_security_string(ssl_io);

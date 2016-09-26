@@ -32,6 +32,7 @@ struct iostream_ssl_vfuncs {
 	int (*cert_match_name)(struct ssl_iostream *ssl_io, const char *name);
 	const char *(*get_peer_name)(struct ssl_iostream *ssl_io);
 	const char *(*get_server_name)(struct ssl_iostream *ssl_io);
+	const char *(*get_compression)(struct ssl_iostream *ssl_io);
 	const char *(*get_security_string)(struct ssl_iostream *ssl_io);
 	const char *(*get_last_error)(struct ssl_iostream *ssl_io);
 };

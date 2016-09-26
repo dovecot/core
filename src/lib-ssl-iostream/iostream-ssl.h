@@ -71,6 +71,7 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
 				     const char *host, const char **error_r);
 int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name);
 const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io);
+const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io);
