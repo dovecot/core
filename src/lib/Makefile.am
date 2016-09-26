@@ -358,6 +358,7 @@ test_lib_SOURCES = \
 	test-timing.c \
 	test-unichar.c \
 	test-utc-mktime.c \
+	test-uri.c \
 	test-var-expand.c \
 	test-wildcard-match.c
 

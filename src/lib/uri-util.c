@@ -1075,6 +1075,67 @@ string_t *uri_parser_get_tmpbuf(struct uri_parser *parser, size_t size)
 	return parser->tmpbuf;
 }
 
+int uri_parse_absolute_generic(struct uri_parser *parser,
+	enum uri_parse_flags flags)
+{
+	int relative, aret, ret = 0;
+
+	/*
+	   URI           = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+
+	   hier-part     = "//" authority path-abempty
+		               / path-absolute
+		               / path-rootless
+		               / path-empty
+	   path-abempty  = *( "/" segment )
+	   path-absolute = "/" [ segment-nz *( "/" segment ) ]
+	   path-rootless = segment-nz *( "/" segment )
+	   path-empty    = 0<pchar>
+
+	   segment       = *pchar
+	   segment-nz    = 1*pchar
+	 */
+
+	/* scheme ":" */
+	if ((flags & URI_PARSE_SCHEME_EXTERNAL) == 0 &&
+		(ret=uri_parse_scheme(parser, NULL)) <= 0) {
+		if (ret == 0)
+			parser->error = "Missing scheme";
+		return -1;
+	}
+
+	/* "//" authority */
+	if ((aret=uri_parse_slashslash_authority
+		(parser, NULL)) < 0)
+		return -1;
+
+	/* path-absolute / path-rootless / path-empty */
+	if (aret == 0) {
+		ret = uri_parse_path(parser, &relative, NULL);
+	/* path-abempty */
+	} else if (parser->cur < parser->end && *parser->cur == '/') {
+		ret = uri_parse_path(parser,	&relative, NULL);
+		i_assert(ret <= 0 || relative == 0);
+	}
+	if (ret < 0)
+		return -1;
+
+	/* [ "?" query ] */
+	if (uri_parse_query(parser, NULL) < 0)
+		return -1;
+
+	/* [ "#" fragment ] */
+	if ((ret=uri_parse_fragment(parser, NULL)) < 0)
+		return ret;
+	if (ret > 0 && (flags & URI_PARSE_ALLOW_FRAGMENT_PART) == 0) {
+		parser->error = "Fragment part not allowed";
+		return -1;
+	}
+
+	i_assert(parser->cur == parser->end);
+	return 0;
+}
+
 /*
  * Generic URI manipulation
  */
@@ -1092,6 +1153,33 @@ void uri_host_copy(pool_t pool, struct uri_host *dest,
 
 	*dest = *src;
 	dest->name = p_strdup(pool, host_name);
+}
+
+/*
+ * Check generic URI
+ */
+
+int uri_check_data(const unsigned char *data, size_t size,
+	enum uri_parse_flags flags, const char **error_r)
+{
+	struct uri_parser parser;
+	int ret;
+
+	memset(&parser, 0, sizeof(parser));
+	parser.pool = pool_datastack_create();
+	parser.begin = parser.cur = data;
+	parser.end = data + size;
+
+	ret = uri_parse_absolute_generic(&parser, flags);
+	*error_r = parser.error;
+	return ret;
+}
+
+int uri_check(const char *uri, enum uri_parse_flags flags,
+	const char **error_r)
+{
+	return uri_check_data
+		((unsigned char *)uri, strlen(uri), flags, error_r);
 }
 
 /*

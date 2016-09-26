@@ -7,6 +7,13 @@
  * Generic URI parsing.
  */
 
+enum uri_parse_flags {
+	/* Scheme part 'scheme:' is already parsed externally. */
+	URI_PARSE_SCHEME_EXTERNAL = BIT(0),
+	/* Allow '#fragment' part in URI */
+	URI_PARSE_ALLOW_FRAGMENT_PART = BIT(1),
+};
+
 struct uri_host {
 	const char *name;
 	struct ip_addr ip;
@@ -173,6 +180,14 @@ void uri_parser_init(struct uri_parser *parser,
 string_t *uri_parser_get_tmpbuf(struct uri_parser *parser,
 	size_t size);
 
+/* Parse a generic (RFC3986) absolute URI for validity.
+   Returns 0 if valid and -1 otherwise. Note that some URI formats like
+   "sip", "aix" and "aaa" violate RFC3986 and will currently fail with
+   this function.
+ */
+int uri_parse_absolute_generic(struct uri_parser *parser,
+	enum uri_parse_flags flags);
+
 /*
  * Generic URI manipulation
  */
@@ -180,6 +195,19 @@ string_t *uri_parser_get_tmpbuf(struct uri_parser *parser,
 /* copy uri_host struct from src to dest and allocate it on pool */
 void uri_host_copy(pool_t pool, struct uri_host *dest,
 	const struct uri_host *src);
+
+/*
+ * Generic URI validation
+ */
+
+/* Check whether the provided data is a valid absolute RFC3986 URI.
+   Returns 0 if valid and -1 otherwise. */
+int uri_check_data(const unsigned char *data, size_t size,
+	enum uri_parse_flags flags, const char **error_r);
+/* Check whether the provided string is a valid absolute RFC3986 URI.
+   Returns 0 if valid and -1 otherwise. */
+int uri_check(const char *uri, enum uri_parse_flags,
+	const char **error_r);
 
 /*
  * Generic URI construction
