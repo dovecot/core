@@ -46,6 +46,7 @@ imap_urlauth_init(struct mail_user *user,
 		uctx->access_user = i_strdup("anonymous");
 	else
 		uctx->access_user = i_strdup(config->access_user);
+	uctx->access_service = i_strdup(config->access_service);
 	uctx->access_anonymous = config->access_anonymous;
 	if (config->access_applications != NULL &&
 	    *config->access_applications != NULL) {
@@ -59,7 +60,7 @@ imap_urlauth_init(struct mail_user *user,
 
 	if (config->socket_path != NULL) {
 		uctx->conn = imap_urlauth_connection_init(config->socket_path,
-					user, config->session_id, timeout);
+					config->access_service, user, config->session_id, timeout);
 	}
 	return uctx;
 }
@@ -74,6 +75,7 @@ void imap_urlauth_deinit(struct imap_urlauth_context **_uctx)
 		imap_urlauth_connection_deinit(&uctx->conn);
 	i_free(uctx->url_host);
 	i_free(uctx->access_user);
+	i_free(uctx->access_service);
 	i_free(uctx->access_applications);
 	i_free(uctx);
 }
@@ -117,8 +119,8 @@ imap_urlauth_internal_verify(const char *rumpurl,
 }
 
 static bool
-access_applications_have_access(struct imap_url *url,
-				const char *const *access_applications)
+access_applications_have_access(struct imap_urlauth_context *uctx,
+				struct imap_url *url, const char *const *access_applications)
 {
 	const char *const *application;
 
@@ -131,16 +133,17 @@ access_applications_have_access(struct imap_url *url,
 		bool have_userid = FALSE;
 		size_t len = strlen(app);
 
-		if (app[len-1] == '+') {
+		if (app[len-1] == '+')
 			have_userid = TRUE;
-			app = t_strndup(app, len-1);
-		}
 
-		if (strcasecmp(url->uauth_access_application, app) == 0) {
-			if (have_userid)
-				return url->uauth_access_user != NULL;
-			else
+		if (strncasecmp(url->uauth_access_application, app, len-1) == 0) {
+			if (!have_userid) {
+				/* this access application must have no userid */
 				return url->uauth_access_user == NULL;
+			}
+
+			/* this access application must have a userid */
+			return (!uctx->access_anonymous && url->uauth_access_user != NULL);
 		}
 	}
 	return FALSE;
@@ -151,51 +154,60 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 			  struct imap_url *url, bool ignore_unknown,
 			  const char **error_r)
 {
+	const char *userid;
+
 	if (url->uauth_access_application == NULL) {
 		*error_r = "URL is missing URLAUTH";
 		return FALSE;
 	}
 
-	if (strcasecmp(url->uauth_access_application, "user") == 0) {
-		/* user+<access_user> */
-		if (uctx->access_anonymous ||
-		    strcasecmp(url->uauth_access_user, uctx->access_user) != 0)  {
-			if (uctx->access_anonymous) {
-				*error_r = t_strdup_printf(
-					"No 'user+%s' access allowed for anonymous user",
-					url->uauth_access_user);
-			} else {
-				*error_r = t_strdup_printf("No 'user+%s' access allowed for user %s",
-					url->uauth_access_user, uctx->access_user);
-			}
-			return FALSE;
+	if (strcmp(uctx->access_service, "imap") == 0) {
+		/* these access types are only allowed if URL is accessed through imap */
+		if (strcasecmp(url->uauth_access_application, "user") == 0) {
+			/* user+<access_user> */
+			if (!uctx->access_anonymous ||
+				  strcasecmp(url->uauth_access_user, uctx->access_user) == 0)
+				return TRUE;
+		} else if (strcasecmp(url->uauth_access_application, "authuser") == 0) {
+			/* authuser */
+			if (!uctx->access_anonymous)
+				return TRUE;
+		} else if (strcasecmp(url->uauth_access_application, "anonymous") == 0) {
+			/* anonymous */
+			return TRUE;
+		} else if (ignore_unknown || access_applications_have_access
+			(uctx, url, uctx->access_applications)) {
+			return TRUE;
 		}
-	} else if (strcasecmp(url->uauth_access_application, "authuser") == 0) {
-		/* authuser */
-		if (uctx->access_anonymous) {
-			*error_r = "No 'authuser' access allowed for anonymous user";
-			return FALSE;
-		}
-	} else if (strcasecmp(url->uauth_access_application, "anonymous") == 0) {
-		/* anonymous */
-	} else if (!ignore_unknown &&
-		   !access_applications_have_access(url, uctx->access_applications)) {
-		const char *userid = url->uauth_access_user == NULL ? "" :
-			t_strdup_printf("+%s", url->uauth_access_user);
+	} else if (strcmp(uctx->access_service, "submission") == 0) {
+		/* accessed directly through submission service */
 
-		if (uctx->access_anonymous) {
+		if (strcasecmp(url->uauth_access_application, "submit") != 0) {
+			userid = url->uauth_access_user == NULL ? "" :
+				t_strdup_printf("+%s", url->uauth_access_user);
 			*error_r = t_strdup_printf(
-				"No '%s%s' access allowed for anonymous user",
+				"No '%s%s' access allowed for submission service",
 				url->uauth_access_application, userid);
-		} else {
-			*error_r = t_strdup_printf(
-				"No '%s%s' access allowed for user %s",
-				url->uauth_access_application, userid, uctx->access_user);
+			return FALSE;
+		} else if (!uctx->access_anonymous &&
+			strcasecmp(url->uauth_access_user, uctx->access_user) == 0) {
+			return TRUE;
 		}
-		return FALSE;
 	}
 
-	return TRUE;
+	userid = url->uauth_access_user == NULL ? "" :
+		t_strdup_printf("+%s", url->uauth_access_user);
+
+	if (uctx->access_anonymous) {
+		*error_r = t_strdup_printf(
+			"No '%s%s' access allowed for anonymous user",
+			url->uauth_access_application, userid);
+	} else {
+		*error_r = t_strdup_printf(
+			"No '%s%s' access allowed for user %s",
+			url->uauth_access_application, userid, uctx->access_user);
+	}
+	return FALSE;
 }
 
 static bool

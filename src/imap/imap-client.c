@@ -65,8 +65,9 @@ static void client_init_urlauth(struct client *client)
 	config.socket_path = t_strconcat(client->user->set->base_dir,
 					 "/"IMAP_URLAUTH_SOCKET_NAME, NULL);
 	config.session_id = client->session_id;
-	config.access_anonymous = client->user->anonymous;
 	config.access_user = client->user->username;
+	config.access_service = "imap";
+	config.access_anonymous = client->user->anonymous;
 
 	client->urlauth_ctx = imap_urlauth_init(client->user, &config);
 }

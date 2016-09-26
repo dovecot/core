@@ -11,6 +11,7 @@ struct imap_urlauth_context {
 	in_port_t url_port;
 
 	char *access_user;
+	char *access_service;
 	const char **access_applications;
 
 	bool access_anonymous:1;
