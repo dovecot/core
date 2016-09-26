@@ -282,7 +282,14 @@ void client_auth_fail(struct client *client, const char *text);
 const char *client_get_session_id(struct client *client);
 
 bool client_read(struct client *client);
+
 void client_input(struct client *client);
+
+static inline bool
+client_does_custom_io(struct client *client)
+{
+	return (client->v.input == NULL);
+}
 
 void client_notify_auth_ready(struct client *client);
 void client_notify_status(struct client *client, bool bad, const char *text);

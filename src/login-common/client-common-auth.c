@@ -71,8 +71,10 @@ static void client_auth_failed(struct client *client)
 
 	io_remove(&client->io);
 
-	client->io = io_add(client->fd, IO_READ, client_input, client);
-	client_input(client);
+	if (!client_does_custom_io(client)) {
+		client->io = io_add(client->fd, IO_READ, client_input, client);
+		client_input(client);
+	}
 }
 
 static void client_auth_waiting_timeout(struct client *client)
@@ -580,7 +582,8 @@ void client_auth_respond(struct client *client, const char *response)
 	client->auth_waiting = FALSE;
 	client_set_auth_waiting(client);
 	auth_client_request_continue(client->auth_request, response);
-	io_remove(&client->io);
+	if (!client_does_custom_io(client))
+		io_remove(&client->io);
 }
 
 void client_auth_abort(struct client *client)
@@ -752,9 +755,11 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 		i_assert(client->io == NULL);
 		client->auth_waiting = TRUE;
-		client->io = io_add(client->fd, IO_READ,
-				    client_auth_input, client);
-		client_auth_input(client);
+		if (!client_does_custom_io(client)) {
+			client->io = io_add(client->fd, IO_READ,
+					    client_auth_input, client);
+			client_auth_input(client);
+		}
 		return;
 	}
 
@@ -831,7 +836,7 @@ void clients_notify_auth_connected(void)
 
 		client_notify_auth_ready(client);
 
-		if (client->input_blocked) {
+		if (!client_does_custom_io(client) && client->input_blocked) {
 			client->input_blocked = FALSE;
 			client_input(client);
 		}

@@ -493,7 +493,10 @@ int client_init_ssl(struct client *client)
 
 	if (client->starttls) {
 		io_remove(&client->io);
-		client->io = io_add_istream(client->input, client_input, client);
+		if (!client_does_custom_io(client)) {
+			client->io = io_add_istream(client->input,
+						    client_input, client);
+		}
 	}
 	return 0;
 }
@@ -1078,6 +1081,7 @@ bool client_read(struct client *client)
 
 void client_input(struct client *client)
 {
+	i_assert(client->v.input != NULL);
 	client->v.input(client);
 }
 
