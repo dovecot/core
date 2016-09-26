@@ -51,7 +51,6 @@ struct ssl_iostream {
 	bool cert_received:1;
 	bool cert_broken:1;
 	bool want_read:1;
-	bool input_handler:1;
 	bool ostream_flush_waiting_input:1;
 	bool closed:1;
 };

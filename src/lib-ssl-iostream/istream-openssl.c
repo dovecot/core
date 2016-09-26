@@ -93,7 +93,6 @@ static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
 	/* now make sure that we read everything already buffered in OpenSSL
 	   into the stream (without reading anything more). this makes I/O loop
 	   behave similarly for ssl-istream as file-istream. */
-	sstream->ssl_io->input_handler = FALSE;
 	stream->max_buffer_size = (size_t)-1;
 	while ((ret = SSL_read(ssl_io->ssl, buffer, sizeof(buffer))) > 0) {
 		memcpy(i_stream_alloc(stream, ret), buffer, ret);
@@ -109,11 +108,9 @@ static ssize_t i_stream_ssl_read(struct istream_private *stream)
 	struct ssl_istream *sstream = (struct ssl_istream *)stream;
 	ssize_t ret;
 
-	sstream->ssl_io->input_handler = TRUE;
 	if ((ret = i_stream_ssl_read_real(stream)) >= 0) {
 		i_assert(i_stream_get_data_size(sstream->ssl_io->plain_input) == 0);
 	}
-	sstream->ssl_io->input_handler = FALSE;
 	return ret;
 }
 
