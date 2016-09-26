@@ -342,6 +342,17 @@ static void client_dict_timeout(struct client_dict *dict)
 		client_dict_disconnect(dict, "Idle disconnection");
 }
 
+static bool client_dict_have_nonbackground_cmds(struct client_dict *dict)
+{
+	struct client_dict_cmd *const *cmdp;
+
+	array_foreach(&dict->cmds, cmdp) {
+		if (!(*cmdp)->background)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void client_dict_add_timeout(struct client_dict *dict)
 {
 	if (dict->to_idle != NULL) {
@@ -352,22 +363,25 @@ static void client_dict_add_timeout(struct client_dict *dict)
 					    client_dict_timeout, dict);
 		if (dict->to_requests != NULL)
 			timeout_remove(&dict->to_requests);
+	} else if (dict->transactions == NULL &&
+		   !client_dict_have_nonbackground_cmds(dict)) {
+		/* we had non-background commands, but now we're back to
+		   having only background commands. remove timeouts. */
+		if (dict->to_requests != NULL)
+			timeout_remove(&dict->to_requests);
 	}
 }
 
 static void client_dict_cmd_backgrounded(struct client_dict *dict)
 {
-	struct client_dict_cmd *const *cmdp;
-
 	if (dict->to_requests == NULL)
 		return;
 
-	array_foreach(&dict->cmds, cmdp) {
-		if (!(*cmdp)->background)
-			return;
+	if (!client_dict_have_nonbackground_cmds(dict)) {
+		/* we only have background-commands.
+		   remove the request timeout. */
+		timeout_remove(&dict->to_requests);
 	}
-	/* we only have background-commands. remove the request timeout. */
-	timeout_remove(&dict->to_requests);
 }
 
 static int dict_conn_input_line(struct connection *_conn, const char *line)
