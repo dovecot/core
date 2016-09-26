@@ -34,6 +34,10 @@ struct client_dict_cmd {
 	struct timeval start_time;
 	char *query;
 
+	uint64_t start_main_ioloop_usecs;
+	uint64_t start_dict_ioloop_usecs;
+	uint64_t start_lock_usecs;
+
 	bool retry_errors;
 	bool no_replies;
 	bool unfinished;
@@ -128,6 +132,17 @@ client_dict_cmd_init(struct client_dict *dict, const char *query)
 	cmd->dict = dict;
 	cmd->query = i_strdup(query);
 	cmd->start_time = ioloop_timeval;
+	if (current_ioloop == dict->ioloop) {
+		/* coming here from client_dict_wait() */
+		i_assert(dict->prev_ioloop != NULL);
+		cmd->start_main_ioloop_usecs =
+			io_loop_get_wait_usecs(dict->prev_ioloop);
+	} else {
+		cmd->start_main_ioloop_usecs =
+			io_loop_get_wait_usecs(current_ioloop);
+	}
+	cmd->start_dict_ioloop_usecs = io_loop_get_wait_usecs(dict->ioloop);
+	cmd->start_lock_usecs = file_lock_wait_get_total_usecs();
 	return cmd;
 }
 
@@ -700,14 +715,34 @@ static bool client_dict_switch_ioloop(struct dict *_dict)
 	return array_count(&dict->cmds) > 0;
 }
 
-static const char *dict_warnings_sec(int msecs)
+static const char *dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs)
 {
-	int ioloop_msecs = (io_loop_get_wait_usecs(current_ioloop)+999) / 1000;
-	int lock_msecs = (file_lock_wait_get_total_usecs()+999) / 1000;
+	int main_ioloop_msecs;
+
+	/* we'll assume that the main ioloop is always the same in here and
+	   in client_dict_cmd_init(), which strictly doesn't have to be true,
+	   but practically is. */
+	if (current_ioloop == cmd->dict->ioloop) {
+		/* coming here from client_dict_wait() */
+		i_assert(cmd->dict->prev_ioloop != NULL);
+		main_ioloop_msecs =
+			(io_loop_get_wait_usecs(cmd->dict->prev_ioloop) -
+			 cmd->start_main_ioloop_usecs + 999) / 1000;
+	} else {
+		main_ioloop_msecs =
+			(io_loop_get_wait_usecs(current_ioloop) -
+			 cmd->start_main_ioloop_usecs + 999) / 1000;
+	}
+	int dict_ioloop_msecs = (io_loop_get_wait_usecs(cmd->dict->ioloop) -
+				 cmd->start_dict_ioloop_usecs + 999) / 1000;
+	int lock_msecs = (file_lock_wait_get_total_usecs() -
+			  cmd->start_lock_usecs + 999) / 1000;
 
 	return t_strdup_printf(
-		"%u.%03u secs (%u.%03u in ioloop, %u.%03u in locks)",
-		msecs/1000, msecs%1000, ioloop_msecs/1000, ioloop_msecs%1000,
+		"%u.%03u secs (%u.%03u in main ioloop, %u.%03u in dict wait, "
+		"%u.%03u in locks)", msecs/1000, msecs%1000,
+		main_ioloop_msecs/1000, main_ioloop_msecs%1000,
+		dict_ioloop_msecs/1000, dict_ioloop_msecs%1000,
 		lock_msecs/1000, lock_msecs%1000);
 }
 
@@ -749,11 +784,11 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd, const char *line,
 	if (result.error != NULL) {
 		/* include timing info always in error messages */
 		result.error = t_strdup_printf("%s (reply took %s)",
-			result.error, dict_warnings_sec(diff));
+			result.error, dict_warnings_sec(cmd, diff));
 	} else if (!cmd->background &&
 		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
 		i_warning("read(%s): dict lookup took %s: %s",
-			  dict->conn.conn.name, dict_warnings_sec(diff),
+			  dict->conn.conn.name, dict_warnings_sec(cmd, diff),
 			  cmd->query);
 	}
 
@@ -846,13 +881,13 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 		if (ctx->error != NULL) {
 			/* include timing info always in error messages */
 			char *new_error = i_strdup_printf("%s (reply took %s)",
-				ctx->error, dict_warnings_sec(diff));
+				ctx->error, dict_warnings_sec(cmd, diff));
 			i_free(ctx->error);
 			ctx->error = new_error;
 		} else if (!cmd->background &&
 			   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
 			i_warning("read(%s): dict iteration took %s: %s",
-				  dict->conn.conn.name, dict_warnings_sec(diff),
+				  dict->conn.conn.name, dict_warnings_sec(cmd, diff),
 				  cmd->query);
 		}
 	}
@@ -1088,12 +1123,12 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	if (result.error != NULL) {
 		/* include timing info always in error messages */
 		result.error = t_strdup_printf("%s (reply took %s)",
-			result.error, dict_warnings_sec(diff));
+			result.error, dict_warnings_sec(cmd, diff));
 	} else if (!cmd->background && !cmd->trans->ctx.no_slowness_warning &&
 		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
 		i_warning("read(%s): dict commit took %s: "
 			  "%s (%u commands, first: %s)",
-			  dict->conn.conn.name, dict_warnings_sec(diff),
+			  dict->conn.conn.name, dict_warnings_sec(cmd, diff),
 			  cmd->query, cmd->trans->query_count,
 			  cmd->trans->first_query);
 	}
