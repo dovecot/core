@@ -596,7 +596,7 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 
 	ctx->finish_min_msg_count = reset ? 0 :
 		view->map->hdr.messages_count - expunge_count;
-	if (reset && view->map->hdr.messages_count > 0) {
+	if (reset) {
 		view->inconsistent = TRUE;
 		mail_index_set_error(view->index,
 				     "%s reset, view is now inconsistent",
