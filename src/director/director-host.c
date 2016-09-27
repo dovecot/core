@@ -28,6 +28,8 @@ director_host_add(struct director *dir,
 {
 	struct director_host *host;
 
+	i_assert(director_host_lookup(dir, ip, port) == NULL);
+
 	host = i_new(struct director_host, 1);
 	host->dir = dir;
 	host->refcount = 1;
@@ -159,8 +161,10 @@ static void director_host_add_string(struct director *dir, const char *host)
 	if (net_gethostbyname(host, &ips, &ips_count) < 0)
 		i_fatal("Unknown director host: %s", host);
 
-	for (i = 0; i < ips_count; i++)
-		(void)director_host_add(dir, &ips[i], port);
+	for (i = 0; i < ips_count; i++) {
+		if (director_host_lookup(dir, &ips[i], port) == NULL)
+			(void)director_host_add(dir, &ips[i], port);
+	}
 }
 
 void director_host_add_from_string(struct director *dir, const char *hosts)
