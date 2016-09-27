@@ -18,7 +18,6 @@
 #include <sys/socket.h>
 
 #define MIN_BACKLOG 4
-#define MAX_BACKLOG 511
 
 static unsigned int service_get_backlog(struct service *service)
 {
@@ -28,14 +27,10 @@ static unsigned int service_get_backlog(struct service *service)
 	i_assert(service->client_limit > 0);
 
 	/* as unlikely as it is, avoid overflows */
-	if (service->process_limit > MAX_BACKLOG ||
-	    service->client_limit > MAX_BACKLOG)
-		backlog = MAX_BACKLOG;
-	else {
+	if (service->client_limit > INT_MAX / service->process_limit)
+		backlog = INT_MAX;
+	else
 		backlog = service->process_limit * service->client_limit;
-		if (backlog > MAX_BACKLOG)
-			backlog = MAX_BACKLOG;
-	}
 	return I_MAX(backlog, MIN_BACKLOG);
 }
 
