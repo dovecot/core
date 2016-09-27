@@ -345,6 +345,15 @@ int index_mailbox_sync_deinit(struct mailbox_sync_context *_ctx,
 	/* update vsize header if wanted */
 	index_mailbox_vsize_update_appends(_ctx->box);
 
+	if (ret == 0 && mail_index_view_is_inconsistent(_ctx->box->view)) {
+		/* we probably had MAILBOX_SYNC_FLAG_FIX_INCONSISTENT set,
+		   but the view got broken in the middle. FIXME: We could
+		   attempt to fix it automatically. In any case now the view
+		   isn't usable and we can't return success. */
+		mailbox_set_index_error(_ctx->box);
+		ret = -1;
+	}
+
 	index_mailbox_sync_free(ctx);
 	return ret;
 }
