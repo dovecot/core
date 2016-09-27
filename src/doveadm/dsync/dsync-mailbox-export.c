@@ -310,7 +310,7 @@ search_add_save(struct dsync_mailbox_exporter *exporter, struct mail *mail)
 			received_timestamp = 1;
 		}
 	}
-	if (exporter->export_received_timestamps) {
+	if (exporter->export_virtual_sizes) {
 		if (mail_get_virtual_size(mail, &virtual_size) < 0)
 			return dsync_mail_error(exporter, mail, "virtual-size");
 		i_assert(virtual_size != (uoff_t)-1);
