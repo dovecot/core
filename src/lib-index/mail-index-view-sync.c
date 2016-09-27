@@ -42,13 +42,15 @@ struct mail_index_view_sync_ctx {
 
 static int
 view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
-			     bool *reset_r)
+			     bool *reset_r, bool *partial_sync_r)
 {
 	const struct mail_index_header *hdr = &view->index->map->hdr;
 	uint32_t start_seq, end_seq;
 	uoff_t start_offset, end_offset;
 	const char *reason;
 	int ret;
+
+	*partial_sync_r = FALSE;
 
 	start_seq = view->log_file_expunge_seq;
 	start_offset = view->log_file_expunge_offset;
@@ -89,6 +91,7 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 				view->log_file_expunge_seq);
 			break;
 		}
+		*partial_sync_r = TRUE;
 	}
 	return 1;
 }
@@ -523,7 +526,7 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_view_sync_ctx *ctx;
 	struct mail_index_map *tmp_map;
 	unsigned int expunge_count = 0;
-	bool reset, sync_expunges, have_expunges;
+	bool reset, partial_sync, sync_expunges, have_expunges;
 	int ret;
 
 	i_assert(!view->syncing);
@@ -556,7 +559,7 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		return ctx;
 	}
 
-	ret = view_sync_set_log_view_range(view, sync_expunges, &reset);
+	ret = view_sync_set_log_view_range(view, sync_expunges, &reset, &partial_sync);
 	if (ret < 0) {
 		ctx->failed = TRUE;
 		return ctx;
@@ -600,7 +603,7 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 				     view->index->filepath);
 	}
 
-	if (!have_expunges) {
+	if (!have_expunges && !partial_sync) {
 		/* no expunges, we can just replace the map */
 		if (view->index->map->hdr.messages_count <
 		    ctx->finish_min_msg_count) {
@@ -617,9 +620,12 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		mail_index_unmap(&view->map);
 		view->map = view->index->map;
 	} else {
-		/* expunges seen. create a private map which we update.
-		   if we're syncing expunges the map will finally be replaced
-		   with the head map to remove the expunged messages. */
+		/* a) expunges seen. b) doing a partial sync because we saw
+		   a reset.
+
+		   Create a private map which we update. If we're syncing
+		   expunges the map will finally be replaced with the head map
+		   to remove the expunged messages. */
 		ctx->sync_map_update = TRUE;
 
 		if (view->map->refcount > 1) {
