@@ -326,6 +326,13 @@ static int imap_sync_finish(struct imap_sync_context *ctx, bool aborting)
 		client_disconnect_with_error(client,
 					     "Mailbox UIDVALIDITY changed");
 	}
+	if (mailbox_is_inconsistent(ctx->box)) {
+		client_disconnect_with_error(client,
+			"IMAP session state is inconsistent, please relogin.");
+		/* we can't trust status information anymore, so don't try to
+		   sync message counts. */
+		return -1;
+	}
 	if (!ctx->no_newmail && !aborting) {
 		if (ctx->status.messages < ctx->messages_count)
 			i_panic("Message count decreased");
