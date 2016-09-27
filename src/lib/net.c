@@ -35,6 +35,19 @@ union sockaddr_union_unix {
 #  define NEEDS_LOCAL_CREDS 1
 #endif
 
+/* If connect() fails with EADDRNOTAVAIL (or some others on FreeBSD), retry it
+   this many times.
+
+   This is needed on busy systems kernel may assign the same source port to two
+   sockets at bind() stage, which is what we generally want to allow more than
+   64k outgoing connections to different destinations. However, at bind() stage
+   the kernel doesn't know the destination yet. So it's possible that it
+   assigns the same source port to two (or more) sockets that have the same
+   destination IP+port as well. In this case connect() will fail with
+   EADDRNOTAVAIL. We'll need to retry this and hope that the next attempt won't
+   conflict. */
+#define MAX_CONNECT_RETRIES 4
+
 bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2)
 {
 	return net_ip_cmp(ip1, ip2) == 0;
@@ -128,38 +141,7 @@ static inline in_port_t sin_get_port(union sockaddr_union *so)
 	return 0;
 }
 
-#ifdef __FreeBSD__
-static int
-net_connect_ip_full_freebsd(const struct ip_addr *ip, in_port_t port,
-			    const struct ip_addr *my_ip, int sock_type,
-			    bool blocking);
-
-static int net_connect_ip_full(const struct ip_addr *ip, in_port_t port,
-			       const struct ip_addr *my_ip, int sock_type,
-			       bool blocking)
-{
-	int fd, try;
-
-	for (try = 0;;) {
-		fd = net_connect_ip_full_freebsd(ip, port, my_ip, sock_type, blocking);
-		if (fd != -1 || ++try == 5 ||
-		    (errno != EADDRINUSE && errno != EACCES))
-			break;
-		/*
-		   This may be just a temporary problem:
-
-		   EADDRINUSE: busy
-		   EACCES: pf may cause this if another connection used
-		           the same port recently
-		*/
-	}
-	return fd;
-}
-/* then some kludging: */
-#define net_connect_ip_full net_connect_ip_full_freebsd
-#endif
-
-static int net_connect_ip_full(const struct ip_addr *ip, in_port_t port,
+static int net_connect_ip_once(const struct ip_addr *ip, in_port_t port,
 			       const struct ip_addr *my_ip, int sock_type, bool blocking)
 {
 	union sockaddr_union so;
@@ -214,9 +196,29 @@ static int net_connect_ip_full(const struct ip_addr *ip, in_port_t port,
 
 	return fd;
 }
+
+static int net_connect_ip_full(const struct ip_addr *ip, in_port_t port,
+			       const struct ip_addr *my_ip, int sock_type,
+			       bool blocking)
+{
+	int fd, try;
+
+	for (try = 0;;) {
+		fd = net_connect_ip_once(ip, port, my_ip, sock_type, blocking);
+		if (fd != -1 || try++ >= MAX_CONNECT_RETRIES ||
+		    (errno != EADDRNOTAVAIL
 #ifdef __FreeBSD__
-#  undef net_connect_ip_full
+		     /* busy */
+		     && errno != EADDRINUSE
+		     /* pf may cause this if another connection used
+			the same port recently */
+		     && errno != EACCES
 #endif
+		    ))
+			break;
+	}
+	return fd;
+}
 
 int net_connect_ip(const struct ip_addr *ip, in_port_t port,
 		   const struct ip_addr *my_ip)
