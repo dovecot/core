@@ -39,7 +39,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:l:m:n:NO:Pr:Rs:t:T:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:I:l:m:n:NO:Pr:Rs:t:T:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -1040,9 +1040,9 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		if (mail_parse_human_timestamp(optarg, &ctx->sync_since_timestamp) < 0)
 			i_fatal("Invalid -t parameter: %s", optarg);
 		break;
-	case 'S':
+	case 'I':
 		if (settings_get_size(optarg, &ctx->sync_max_size, &error) < 0)
-			i_fatal("Invalid -S parameter '%s': %s", optarg, error);
+			i_fatal("Invalid -I parameter '%s': %s", optarg, error);
 		break;
 	case 'T':
 		if (str_to_uint(optarg, &ctx->io_timeout_secs) < 0)
