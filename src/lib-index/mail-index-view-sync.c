@@ -601,6 +601,8 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		mail_index_set_error(view->index,
 				     "%s reset, view is now inconsistent",
 				     view->index->filepath);
+		ctx->failed = TRUE;
+		return ctx;
 	}
 
 	if (!have_expunges && !partial_sync) {
