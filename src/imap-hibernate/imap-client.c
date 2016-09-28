@@ -26,8 +26,8 @@
 
 #define IMAP_MASTER_SOCKET_NAME "imap-master"
 
-/* we only need enough for "DONE\r\nIDLE\r\n" */
-#define IMAP_MAX_INBUF 12
+/* we only need enough for "DONE\r\n<tag> IDLE\r\n" */
+#define IMAP_MAX_INBUF 12 + 1 + 128 /* DONE\r\nIDLE\r\n + ' ' + <tag> */
 
 /* If client has sent input and we can't recreate imap process in this
    many seconds, disconnect the client. */
@@ -266,6 +266,17 @@ imap_client_input_parse(const unsigned char *data, size_t size)
 	if (data[0] != '\n')
 		return IMAP_CLIENT_INPUT_STATE_BAD;
 	data++; size--;
+
+	/* skip over tag */
+	while(size > 6 &&
+	      data[0] != ' ' &&
+	      data[0] != '\r' &&
+	      data[0] != '\t' ) { data++; size--; }
+
+	if (size == 0)
+		return IMAP_CLIENT_INPUT_STATE_UNKNOWN;
+	if (data[0] != ' ')
+		return IMAP_CLIENT_INPUT_STATE_BAD;
 
 	/* skip over IDLE[\r]\n - checking this assumes that the DONE and IDLE
 	   are sent in the same IP packet, otherwise we'll unnecessarily
