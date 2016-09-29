@@ -14,6 +14,7 @@ struct import_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
 	const char *src_location;
+	const char *src_username;
 	struct mail_user *src_user;
 	const char *dest_parent;
 	bool subscribe;
@@ -163,7 +164,9 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 	/* create a user for accessing the source storage */
 	memset(&input, 0, sizeof(input));
 	input.module = "mail";
-	input.username = dest_user->username;
+	input.username = ctx->src_username != NULL ?
+			 ctx->src_username :
+			 dest_user->username;
 
 	input.flags_override_add = MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES |
 		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS;
@@ -227,6 +230,9 @@ static bool cmd_import_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
 
 	switch (c) {
+	case 'U':
+		ctx->src_username = p_strdup(_ctx->pool, optarg);
+		break;
 	case 's':
 		ctx->subscribe = TRUE;
 		break;
@@ -252,9 +258,10 @@ static struct doveadm_mail_cmd_context *cmd_import_alloc(void)
 struct doveadm_cmd_ver2 doveadm_cmd_import_ver2 = {
 	.name = "import",
 	.mail_cmd = cmd_import_alloc,
-	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[-s] <source mail location> <dest parent mailbox> <search query>",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[-U source-user] [-s] <source mail location> <dest parent mailbox> <search query>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('U', "source-user", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('s', "subscribe", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "source-location", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "dest-parent-mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
