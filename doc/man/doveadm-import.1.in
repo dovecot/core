@@ -6,12 +6,16 @@ doveadm\-import \- Import messages matching given search query
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] " import " [" \-S
 .IR socket_path ]
+.RB [ \-U
+.IR source_user ]
 .RB [ \-s ]
 .I source_location dest_parent search_query
 .br
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " import " [" \-S
 .IR socket_path ]
+.RB [ \-U
+.IR source_user ]
 .RB [ \-s ]
 .BI \-A " source_location dest_parent search_query"
 .br
@@ -24,6 +28,8 @@ doveadm\-import \- Import messages matching given search query
 .\"-------------------------------------
 .BR doveadm " [" \-Dv "] " import " [" \-S
 .IR socket_path ]
+.RB [ \-U
+.IR source_user ]
 .RB [ \-s ]
 .BI \-u " user source_location dest_parent search_query"
 .\"------------------------------------------------------------------------
@@ -37,7 +43,9 @@ mailbox, or to root level if
 .I dest_parent
 is empty (\(dq\(dq). The
 .I search_query
-can be used to restrict which mailboxes or messages are imported.
+can be used to restrict which mailboxes or messages are imported. By default
+the import is done in destination user's context, you can use \-U to change
+this.
 
 In the first form,
 .BR doveadm (1)
@@ -76,6 +84,11 @@ and all new mailboxes under it will be subscribed to.
 .\"-------------------------------------
 @INCLUDE:option-u-user@
 .\"------------------------------------------------------------------------
+.TP
+.B \-U username
+When the
+.B \-U
+option is present, the source box is opened with given username.
 .SH ARGUMENTS
 .TP
 .I dest_parent
