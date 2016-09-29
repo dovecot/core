@@ -643,12 +643,18 @@ struct mail_save_context {
 	unsigned int unfinished:1;
 	/* mailbox_save_finish() or mailbox_copy() is being called. */
 	unsigned int finishing:1;
-	/* mail was copied using saving */
+	/* mail was copied or moved using saving (requires:
+	   copying_or_moving==TRUE). */
 	unsigned int copying_via_save:1;
-	/* mail is being saved, not copied */
+	/* mail is being saved, not copied. However, this is set also with
+	   mailbox_save_using_mail() and then copying_or_moving==TRUE. */
 	unsigned int saving:1;
-	/* mail is being moved - ignore quota */
+	/* mail is being moved - ignore quota (requires:
+	   copying_or_moving==TRUE && saving==FALSE). */
 	unsigned int moving:1;
+	/* mail is being copied or moved. However, this is set also with
+	   mailbox_save_using_mail() and then saving==TRUE. */
+	unsigned int copying_or_moving:1;
 };
 
 struct mailbox_sync_context {
