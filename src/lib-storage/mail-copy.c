@@ -92,6 +92,8 @@ mail_storage_try_copy(struct mail_save_context **_ctx, struct mail *mail)
 
 int mail_storage_copy(struct mail_save_context *ctx, struct mail *mail)
 {
+	i_assert(ctx->copying_or_moving);
+
 	if (ctx->data.keywords != NULL) {
 		/* keywords gets unreferenced twice: first in
 		   mailbox_save_cancel()/_finish() and second time in

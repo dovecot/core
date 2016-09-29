@@ -2081,8 +2081,15 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 		return -1;
 	}
 
-	if (!(*ctx)->copying_via_save)
+	if (!(*ctx)->copying_or_moving) {
+		/* We're actually saving the mail. We're not being called by
+		   mail_storage_copy() because backend didn't support fast
+		   copying. */
+		i_assert(!(*ctx)->copying_via_save);
 		(*ctx)->saving = TRUE;
+	} else {
+		i_assert((*ctx)->copying_via_save);
+	}
 	if (box->v.save_begin == NULL) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
 				       "Saving messages not supported");
@@ -2121,6 +2128,23 @@ mailbox_save_add_pvt_flags(struct mailbox_transaction_context *t,
 	save->flags = pvt_flags;
 }
 
+static void mailbox_save_context_reset(struct mail_save_context *ctx)
+{
+	i_assert(!ctx->unfinished);
+	if (!ctx->copying_or_moving) {
+		/* we're finishing a save (not copy/move) */
+		i_assert(!ctx->copying_via_save);
+		i_assert(ctx->saving);
+		ctx->saving = FALSE;
+	} else {
+		i_assert(ctx->copying_via_save);
+		/* We came from mailbox_copy(). saving==TRUE is possible here
+		   if we also came from mailbox_save_using_mail(). Don't set
+		   saving=FALSE yet in that case, because copy() is still
+		   running. */
+	}
+}
+
 int mailbox_save_finish(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
@@ -2154,8 +2178,7 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	}
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
-	i_assert(!ctx->unfinished);
-	ctx->saving = FALSE;
+	mailbox_save_context_reset(ctx);
 	return ret;
 }
 
@@ -2178,8 +2201,7 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 		mail = (struct mail_private *)ctx->dest_mail;
 		mail->v.close(&mail->mail);
 	}
-	i_assert(!ctx->unfinished);
-	ctx->saving = FALSE;
+	mailbox_save_context_reset(ctx);
 }
 
 struct mailbox_transaction_context *
@@ -2188,7 +2210,7 @@ mailbox_save_get_transaction(struct mail_save_context *ctx)
 	return ctx->transaction;
 }
 
-int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
+static int mailbox_copy_int(struct mail_save_context **_ctx, struct mail *mail)
 {
 	struct mail_save_context *ctx = *_ctx;
 	struct mailbox_transaction_context *t = ctx->transaction;
@@ -2211,6 +2233,9 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 		mailbox_save_cancel(&ctx);
 		return -1;
 	}
+
+	i_assert(!ctx->copying_or_moving);
+	ctx->copying_or_moving = TRUE;
 	ctx->finishing = TRUE;
 	T_BEGIN {
 		ret = t->box->v.copy(ctx, backend_mail);
@@ -2226,8 +2251,19 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	i_assert(!ctx->unfinished);
 
 	ctx->copying_via_save = FALSE;
-	ctx->saving = FALSE;
+	ctx->copying_or_moving = FALSE;
+	ctx->saving = FALSE; /* if we came from mailbox_save_using_mail() */
 	return ret;
+}
+
+int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
+{
+	struct mail_save_context *ctx = *_ctx;
+
+	i_assert(!ctx->saving);
+	i_assert(!ctx->moving);
+
+	return mailbox_copy_int(_ctx, mail);
 }
 
 int mailbox_move(struct mail_save_context **_ctx, struct mail *mail)
@@ -2235,19 +2271,25 @@ int mailbox_move(struct mail_save_context **_ctx, struct mail *mail)
 	struct mail_save_context *ctx = *_ctx;
 	int ret;
 
+	i_assert(!ctx->saving);
 	i_assert(!ctx->moving);
 
 	ctx->moving = TRUE;
-	if ((ret = mailbox_copy(_ctx, mail)) == 0)
+	if ((ret = mailbox_copy_int(_ctx, mail)) == 0)
 		mail_expunge(mail);
 	ctx->moving = FALSE;
 	return ret;
 }
 
-int mailbox_save_using_mail(struct mail_save_context **ctx, struct mail *mail)
+int mailbox_save_using_mail(struct mail_save_context **_ctx, struct mail *mail)
 {
-	(*ctx)->saving = TRUE;
-	return mailbox_copy(ctx, mail);
+	struct mail_save_context *ctx = *_ctx;
+
+	i_assert(!ctx->saving);
+	i_assert(!ctx->moving);
+
+	ctx->saving = TRUE;
+	return mailbox_copy_int(_ctx, mail);
 }
 
 bool mailbox_is_inconsistent(struct mailbox *box)
