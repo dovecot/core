@@ -2233,14 +2233,15 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 int mailbox_move(struct mail_save_context **_ctx, struct mail *mail)
 {
 	struct mail_save_context *ctx = *_ctx;
+	int ret;
+
+	i_assert(!ctx->moving);
 
 	ctx->moving = TRUE;
-	if (mailbox_copy(_ctx, mail) < 0)
-		return -1;
-
-	mail_expunge(mail);
+	if ((ret = mailbox_copy(_ctx, mail)) == 0)
+		mail_expunge(mail);
 	ctx->moving = FALSE;
-	return 0;
+	return ret;
 }
 
 int mailbox_save_using_mail(struct mail_save_context **ctx, struct mail *mail)
