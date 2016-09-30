@@ -546,6 +546,8 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	user2->auth_token = p_strdup(user2->pool, user->auth_token);
 	user2->auth_user = p_strdup(user2->pool, user->auth_user);
 	user2->session_id = p_strdup(user2->pool, user->session_id);
+	user2->userdb_fields = user->userdb_fields == NULL ? NULL :
+		p_strarray_dup(user2->pool, user->userdb_fields);
 	return user2;
 }
 
