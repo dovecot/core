@@ -5,7 +5,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-charset
 
 libtest_la_SOURCES = \
-	test-common.c
+	test-common.c \
+	test-istream.c
 
 headers = \
 	test-common.h
