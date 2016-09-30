@@ -6,7 +6,8 @@ AM_CPPFLAGS = \
 
 libtest_la_SOURCES = \
 	test-common.c \
-	test-istream.c
+	test-istream.c \
+	test-ostream.c
 
 headers = \
 	test-common.h
