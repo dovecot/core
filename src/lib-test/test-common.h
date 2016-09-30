@@ -7,6 +7,14 @@ void test_istream_set_size(struct istream *input, uoff_t size);
 void test_istream_set_allow_eof(struct istream *input, bool allow);
 void test_istream_set_max_buffer_size(struct istream *input, size_t size);
 
+struct ostream *test_ostream_create(buffer_t *output);
+struct ostream *test_ostream_create_nonblocking(buffer_t *output,
+						size_t max_internal_buffer_size);
+/* When output->used reaches max_size, start buffering output internally.
+   When internal buffer reaches max_internal_buffer_size, start returning 0 for
+   o_stream_send*(). */
+void test_ostream_set_max_output_size(struct ostream *output, size_t max_size);
+
 void test_begin(const char *name);
 #define test_assert(code) STMT_START { \
 	if (!(code)) test_assert_failed(#code, __FILE__, __LINE__); \
