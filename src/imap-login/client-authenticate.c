@@ -101,7 +101,13 @@ void imap_client_auth_result(struct client *client,
 				       IMAP_RESP_CODE_PRIVACYREQUIRED, text);
 		break;
 	case CLIENT_AUTH_RESULT_PASS_EXPIRED:
+		client_send_reply_code(client, IMAP_CMD_REPLY_NO,
+				       IMAP_RESP_CODE_EXPIRED, text);
+		break;
 	case CLIENT_AUTH_RESULT_LOGIN_DISABLED:
+		client_send_reply_code(client, IMAP_CMD_REPLY_NO,
+				       IMAP_RESP_CODE_CONTACTADMIN, text);
+		break;
 	case CLIENT_AUTH_RESULT_AUTHFAILED:
 		client_send_reply_code(client, IMAP_CMD_REPLY_NO,
 				       IMAP_RESP_CODE_AUTHFAILED, text);
