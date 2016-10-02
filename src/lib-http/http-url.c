@@ -301,8 +301,6 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 	if ((ret = uri_parse_query(parser, &part)) < 0)
 		return FALSE;
 	if (ret > 0) {
-		if (!uri_data_decode(parser, part, NULL, NULL)) // check only
-			return FALSE;
 		if (url != NULL)
 			url->enc_query = p_strdup(parser->pool, part);
 	} else if (relative && !have_path && url != NULL) {
@@ -317,8 +315,6 @@ static bool http_url_do_parse(struct http_url_parser *url_parser)
 			parser->error = "URL fragment not allowed for HTTP URL in this context";
 			return FALSE;
 		}
-		if (!uri_data_decode(parser, part, NULL, NULL)) // check only
-			return FALSE;
 		if (url != NULL)
 			url->enc_fragment =  p_strdup(parser->pool, part);
 	} else if (relative && !have_path && url != NULL) {
