@@ -82,7 +82,8 @@ o_stream_test_sendv(struct ostream_private *stream,
 		ret += n;
 		if (n != cur_iov.iov_len)
 			break;
-		cur_iov = iov[++i];
+		if (++i < iov_count)
+			cur_iov = iov[i];
 	} while (i < iov_count);
 
 	tstream->flush_pending = TRUE;
