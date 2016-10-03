@@ -751,28 +751,28 @@ openssl_iostream_get_last_error(struct ssl_iostream *ssl_io)
 }
 
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
-	openssl_iostream_context_init_client,
-	openssl_iostream_context_init_server,
-	openssl_iostream_context_deinit,
+	.context_init_client = openssl_iostream_context_init_client,
+	.context_init_server = openssl_iostream_context_init_server,
+	.context_deinit = openssl_iostream_context_deinit,
 
-	openssl_iostream_create,
-	openssl_iostream_unref,
-	openssl_iostream_destroy,
+	.create = openssl_iostream_create,
+	.unref = openssl_iostream_unref,
+	.destroy = openssl_iostream_destroy,
 
-	openssl_iostream_handshake,
-	openssl_iostream_set_handshake_callback,
+	.handshake = openssl_iostream_handshake,
+	.set_handshake_callback = openssl_iostream_set_handshake_callback,
 
-	openssl_iostream_set_log_prefix,
-	openssl_iostream_is_handshaked,
-	openssl_iostream_has_handshake_failed,
-	openssl_iostream_has_valid_client_cert,
-	openssl_iostream_has_broken_client_cert,
-	openssl_iostream_cert_match_name,
-	openssl_iostream_get_peer_name,
-	openssl_iostream_get_server_name,
-	openssl_iostream_get_compression,
-	openssl_iostream_get_security_string,
-	openssl_iostream_get_last_error
+	.set_log_prefix = openssl_iostream_set_log_prefix,
+	.is_handshaked = openssl_iostream_is_handshaked,
+	.has_handshake_failed = openssl_iostream_has_handshake_failed,
+	.has_valid_client_cert = openssl_iostream_has_valid_client_cert,
+	.has_broken_client_cert = openssl_iostream_has_broken_client_cert,
+	.cert_match_name = openssl_iostream_cert_match_name,
+	.get_peer_name = openssl_iostream_get_peer_name,
+	.get_server_name = openssl_iostream_get_server_name,
+	.get_compression = openssl_iostream_get_compression,
+	.get_security_string = openssl_iostream_get_security_string,
+	.get_last_error = openssl_iostream_get_last_error,
 };
 
 void ssl_iostream_openssl_init(void)
