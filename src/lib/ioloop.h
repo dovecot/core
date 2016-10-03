@@ -48,24 +48,27 @@ extern struct ioloop *current_ioloop;
    Don't try to add multiple handlers for the same type. It's not checked and
    the behavior will be undefined. */
 struct io *io_add(int fd, enum io_condition condition,
+		  const char *source_filename,
 		  unsigned int source_linenum,
 		  io_callback_t *callback, void *context) ATTR_NULL(5);
 #define io_add(fd, condition, callback, context) \
-	io_add(fd, condition, __LINE__ + \
+	io_add(fd, condition, __FILE__, __LINE__ + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(io_callback_t *)callback, context)
 enum io_notify_result
-io_add_notify(const char *path, unsigned int source_linenum,
+io_add_notify(const char *path, const char *source_filename,
+	      unsigned int source_linenum,
 	      io_callback_t *callback, void *context,
 	      struct io **io_r) ATTR_NULL(3);
 #define io_add_notify(path, callback, context, io_r) \
-	io_add_notify(path, __LINE__ + \
+	io_add_notify(path, __FILE__, __LINE__ + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(io_callback_t *)callback, context, io_r)
-struct io *io_add_istream(struct istream *input, unsigned int source_linenum,
+struct io *io_add_istream(struct istream *input, const char *source_filename,
+			  unsigned int source_linenum,
 			  io_callback_t *callback, void *context) ATTR_NULL(3);
 #define io_add_istream(input, callback, context) \
-	io_add_istream(input, __LINE__ + \
+	io_add_istream(input, __FILE__, __LINE__ + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(io_callback_t *)callback, context)
 
@@ -83,26 +86,29 @@ void io_set_pending(struct io *io);
 
 /* Timeout handlers */
 struct timeout *
-timeout_add(unsigned int msecs, unsigned int source_linenum,
+timeout_add(unsigned int msecs, const char *source_filename,
+	    unsigned int source_linenum,
 	    timeout_callback_t *callback, void *context) ATTR_NULL(4);
 #define timeout_add(msecs, callback, context) \
-	timeout_add(msecs, __LINE__ + \
+	timeout_add(msecs, __FILE__, __LINE__ + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))) + \
 		COMPILE_ERROR_IF_TRUE(__builtin_constant_p(msecs) && \
 				      (msecs > 0 && msecs < 1000)), \
 		(io_callback_t *)callback, context)
 struct timeout *
-timeout_add_short(unsigned int msecs, unsigned int source_linenum,
+timeout_add_short(unsigned int msecs, const char *source_filename,
+		  unsigned int source_linenum,
 		  timeout_callback_t *callback, void *context) ATTR_NULL(4);
 #define timeout_add_short(msecs, callback, context) \
-	timeout_add_short(msecs, __LINE__ + \
+	timeout_add_short(msecs, __FILE__, __LINE__ + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(io_callback_t *)callback, context)
 struct timeout *timeout_add_absolute(const struct timeval *time,
+			    const char *source_filename,
 			    unsigned int source_linenum,
 			    timeout_callback_t *callback, void *context) ATTR_NULL(4);
 #define timeout_add_absolute(time, callback, context) \
-	timeout_add_absolute(time, __LINE__ + \
+	timeout_add_absolute(time, __FILE__, __LINE__ + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
 		(io_callback_t *)callback, context)
 /* Remove timeout handler, and set timeout pointer to NULL. */

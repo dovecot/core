@@ -35,6 +35,7 @@ struct ioloop {
 
 struct io {
 	enum io_condition condition;
+	const char *source_filename;
 	unsigned int source_linenum;
 	/* trigger I/O callback even if OS doesn't think there is input
 	   pending */
@@ -62,6 +63,7 @@ struct io_file {
 
 struct timeout {
 	struct priorityq_item item;
+	const char *source_filename;
 	unsigned int source_linenum;
 
         unsigned int msecs;

@@ -86,7 +86,8 @@ static void inotify_input(struct ioloop *ioloop)
 
 #undef io_add_notify
 enum io_notify_result
-io_add_notify(const char *path, unsigned int source_linenum,
+io_add_notify(const char *path, const char *source_filename,
+	      unsigned int source_linenum,
 	      io_callback_t *callback, void *context, struct io **io_r)
 {
 	struct ioloop_notify_handler_context *ctx =
@@ -126,6 +127,7 @@ io_add_notify(const char *path, unsigned int source_linenum,
 	}
 
 	*io_r = io_notify_fd_add(&ctx->fd_ctx, wd, callback, context);
+	(*io_r)->source_filename = source_filename;
 	(*io_r)->source_linenum = source_linenum;
 	return IO_NOTIFY_ADDED;
 }
@@ -197,8 +199,9 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 		struct io_notify *io = ctx->fd_ctx.notifies;
 		struct io *_io = &io->io;
 
-		i_warning("I/O notify leak: %p (line %u, fd %d)",
+		i_warning("I/O notify leak: %p (%s:%u, fd %d)",
 			  (void *)_io->callback,
+			  _io->source_filename,
 			  _io->source_linenum, io->fd);
 		io_remove(&_io);
 	}

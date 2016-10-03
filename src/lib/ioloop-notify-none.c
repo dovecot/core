@@ -8,6 +8,7 @@
 #undef io_add_notify
 enum io_notify_result
 io_add_notify(const char *path ATTR_UNUSED,
+	      const char *source_filename ATTR_UNUSED,
 	      unsigned int source_linenum ATTR_UNUSED,
 	      io_callback_t *callback ATTR_UNUSED,
 	      void *context ATTR_UNUSED, struct io **io_r)
