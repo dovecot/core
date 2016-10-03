@@ -279,11 +279,13 @@ ssl_iostream_ctx_verify_remote_cert(struct ssl_iostream_context *ctx,
 				    STACK_OF(X509_NAME) *ca_names)
 {
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
-	X509_STORE *store;
+	if (!ctx->set->skip_crl_check) {
+		X509_STORE *store;
 
-	store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
-	X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK |
-			     X509_V_FLAG_CRL_CHECK_ALL);
+		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
+		X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK |
+				     X509_V_FLAG_CRL_CHECK_ALL);
+	}
 #endif
 
 	SSL_CTX_set_client_CA_list(ctx->ssl_ctx, ca_names);
