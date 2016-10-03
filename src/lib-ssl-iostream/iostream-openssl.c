@@ -296,8 +296,8 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 
 static void openssl_iostream_free(struct ssl_iostream *ssl_io)
 {
-	i_stream_unref(&ssl_io->plain_input);
 	o_stream_unref(&ssl_io->plain_output);
+	i_stream_unref(&ssl_io->plain_input);
 	BIO_free(ssl_io->bio_ext);
 	SSL_free(ssl_io->ssl);
 	i_free(ssl_io->plain_stream_errstr);
