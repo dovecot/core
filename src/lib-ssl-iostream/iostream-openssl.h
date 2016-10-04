@@ -8,6 +8,12 @@
 #ifndef HAVE_ASN1_STRING_GET0_DATA
 #  define ASN1_STRING_get0_data(str) ASN1_STRING_data(str)
 #endif
+enum openssl_iostream_sync_type {
+	OPENSSL_IOSTREAM_SYNC_TYPE_FIRST_READ,
+	OPENSSL_IOSTREAM_SYNC_TYPE_CONTINUE_READ,
+	OPENSSL_IOSTREAM_SYNC_TYPE_WRITE,
+	OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE
+};
 
 struct ssl_iostream_context {
 	SSL_CTX *ssl_ctx;
@@ -81,19 +87,20 @@ int openssl_get_protocol_options(const char *protocols);
 
 /* Sync plain_input/plain_output streams with BIOs. Returns TRUE if at least
    one byte was read/written. */
-bool openssl_iostream_bio_sync(struct ssl_iostream *ssl_io);
+bool openssl_iostream_bio_sync(struct ssl_iostream *ssl_io,
+			       enum openssl_iostream_sync_type type);
 /* Call when there's more data available in plain_input/plain_output.
    Returns 1 if it's ok to continue with SSL_read/SSL_write, 0 if not
    (still handshaking), -1 if error occurred. */
-int openssl_iostream_more(struct ssl_iostream *ssl_io);
+int openssl_iostream_more(struct ssl_iostream *ssl_io,
+			  enum openssl_iostream_sync_type type);
 
 /* Returns 1 if the operation should be retried (we read/wrote more data),
    0 if the operation should retried later once more data has been
    read/written, -1 if a fatal error occurred (errno is set). */
 int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
+				  enum openssl_iostream_sync_type type,
 				  const char *func_name);
-int openssl_iostream_handle_write_error(struct ssl_iostream *ssl_io, int ret,
-					const char *func_name);
 
 const char *openssl_iostream_error(void);
 const char *openssl_iostream_key_load_error(void);

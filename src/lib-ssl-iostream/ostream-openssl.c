@@ -94,8 +94,8 @@ static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 				CONST_PTR_OFFSET(sstream->buffer->data, pos),
 				sstream->buffer->used - pos);
 		if (ret <= 0) {
-			ret = openssl_iostream_handle_write_error(sstream->ssl_io,
-								  ret, "SSL_write");
+			ret = openssl_iostream_handle_error(sstream->ssl_io,
+				ret, OPENSSL_IOSTREAM_SYNC_TYPE_WRITE, "SSL_write");
 			if (ret < 0) {
 				io_stream_set_error(&sstream->ostream.iostream,
 					"%s", sstream->ssl_io->last_error);
@@ -106,7 +106,8 @@ static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 				break;
 		} else {
 			pos += ret;
-			(void)openssl_iostream_bio_sync(sstream->ssl_io);
+			(void)openssl_iostream_bio_sync(sstream->ssl_io,
+				OPENSSL_IOSTREAM_SYNC_TYPE_WRITE);
 		}
 	}
 	buffer_delete(sstream->buffer, 0, pos);
@@ -118,7 +119,8 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 	int ret;
 
-	if ((ret = openssl_iostream_more(sstream->ssl_io)) < 0) {
+	if ((ret = openssl_iostream_more(sstream->ssl_io,
+				OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE)) < 0) {
 		/* handshake failed */
 		io_stream_set_error(&stream->iostream, "%s",
 				    sstream->ssl_io->last_error);

@@ -325,7 +325,7 @@ static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
 		   the error queue */
 		openssl_iostream_clear_errors();
 	}
-	(void)openssl_iostream_more(ssl_io);
+	(void)openssl_iostream_more(ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_WRITE);
 	(void)o_stream_flush(ssl_io->plain_output);
 	/* close the plain i/o streams, because their fd may be closed soon,
 	   but we may still keep this ssl-iostream referenced until later. */
@@ -389,18 +389,27 @@ static bool openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 
 static ssize_t
 openssl_iostream_read_more(struct ssl_iostream *ssl_io,
+			   enum openssl_iostream_sync_type type,
 			   const unsigned char **data_r, size_t *size_r)
 {
 	*data_r = i_stream_get_data(ssl_io->plain_input, size_r);
 	if (*size_r > 0)
 		return 0;
 
+	if (type == OPENSSL_IOSTREAM_SYNC_TYPE_CONTINUE_READ) {
+		/* only the first i_stream_read() call attempts to read more
+		   input. the following reads will just process the buffered
+		   data. */
+		return 0;
+	}
+
 	if (i_stream_read_more(ssl_io->plain_input, data_r, size_r) < 0)
 		return -1;
 	return 0;
 }
 
-static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io)
+static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
+				       enum openssl_iostream_sync_type type)
 {
 	const unsigned char *data;
 	size_t bytes, size;
@@ -410,7 +419,7 @@ static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io)
 	while ((bytes = BIO_ctrl_get_write_guarantee(ssl_io->bio_ext)) > 0) {
 		/* bytes contains how many bytes we can write to bio_ext */
 		ssl_io->plain_input->real_stream->try_alloc_limit = bytes;
-		ret = openssl_iostream_read_more(ssl_io, &data, &size);
+		ret = openssl_iostream_read_more(ssl_io, type, &data, &size);
 		ssl_io->plain_input->real_stream->try_alloc_limit = 0;
 		if (ret == -1 && size == 0 && !bytes_read) {
 			if (ssl_io->plain_input->stream_errno != 0) {
@@ -460,23 +469,27 @@ static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io)
 			ssl_io->ostream_flush_waiting_input = FALSE;
 			o_stream_set_flush_pending(ssl_io->plain_output, TRUE);
 		}
-		i_stream_set_input_pending(ssl_io->ssl_input, TRUE);
+		if (type != OPENSSL_IOSTREAM_SYNC_TYPE_FIRST_READ &&
+		    type != OPENSSL_IOSTREAM_SYNC_TYPE_CONTINUE_READ)
+			i_stream_set_input_pending(ssl_io->ssl_input, TRUE);
 		ssl_io->want_read = FALSE;
 	}
 	return bytes_read;
 }
 
-bool openssl_iostream_bio_sync(struct ssl_iostream *ssl_io)
+bool openssl_iostream_bio_sync(struct ssl_iostream *ssl_io,
+			       enum openssl_iostream_sync_type type)
 {
 	bool ret;
 
 	ret = openssl_iostream_bio_output(ssl_io);
-	if (openssl_iostream_bio_input(ssl_io))
+	if (openssl_iostream_bio_input(ssl_io, type))
 		ret = TRUE;
 	return ret;
 }
 
-int openssl_iostream_more(struct ssl_iostream *ssl_io)
+int openssl_iostream_more(struct ssl_iostream *ssl_io,
+			  enum openssl_iostream_sync_type type)
 {
 	int ret;
 
@@ -484,7 +497,7 @@ int openssl_iostream_more(struct ssl_iostream *ssl_io)
 		if ((ret = ssl_iostream_handshake(ssl_io)) <= 0)
 			return ret;
 	}
-	(void)openssl_iostream_bio_sync(ssl_io);
+	(void)openssl_iostream_bio_sync(ssl_io, type);
 	return 1;
 }
 
@@ -500,9 +513,9 @@ static void openssl_iostream_closed(struct ssl_iostream *ssl_io)
 	}
 }
 
-static int
-openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
-				   const char *func_name, bool write_error)
+int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
+				  enum openssl_iostream_sync_type type,
+				  const char *func_name)
 {
 	const char *errstr = NULL;
 	int err;
@@ -510,8 +523,8 @@ openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 	err = SSL_get_error(ssl_io->ssl, ret);
 	switch (err) {
 	case SSL_ERROR_WANT_WRITE:
-		if (!openssl_iostream_bio_sync(ssl_io)) {
-			if (!write_error)
+		if (!openssl_iostream_bio_sync(ssl_io, type)) {
+			if (type != OPENSSL_IOSTREAM_SYNC_TYPE_WRITE)
 				i_panic("SSL ostream buffer size not unlimited");
 			return 0;
 		}
@@ -522,7 +535,7 @@ openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 		return 1;
 	case SSL_ERROR_WANT_READ:
 		ssl_io->want_read = TRUE;
-		(void)openssl_iostream_bio_sync(ssl_io);
+		(void)openssl_iostream_bio_sync(ssl_io, type);
 		if (ssl_io->closed) {
 			openssl_iostream_closed(ssl_io);
 			return -1;
@@ -572,18 +585,6 @@ openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 	return -1;
 }
 
-int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
-				  const char *func_name)
-{
-	return openssl_iostream_handle_error_full(ssl_io, ret, func_name, FALSE);
-}
-
-int openssl_iostream_handle_write_error(struct ssl_iostream *ssl_io, int ret,
-					const char *func_name)
-{
-	return openssl_iostream_handle_error_full(ssl_io, ret, func_name, TRUE);
-}
-
 static int
 openssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
 				 const char *verify_name)
@@ -604,20 +605,20 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	if (ssl_io->ctx->client_ctx) {
 		while ((ret = SSL_connect(ssl_io->ssl)) <= 0) {
 			ret = openssl_iostream_handle_error(ssl_io, ret,
-							    "SSL_connect()");
+				OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE, "SSL_connect()");
 			if (ret <= 0)
 				return ret;
 		}
 	} else {
 		while ((ret = SSL_accept(ssl_io->ssl)) <= 0) {
 			ret = openssl_iostream_handle_error(ssl_io, ret,
-							    "SSL_accept()");
+				OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE, "SSL_accept()");
 			if (ret <= 0)
 				return ret;
 		}
 	}
 	/* handshake finished */
-	(void)openssl_iostream_bio_sync(ssl_io);
+	(void)openssl_iostream_bio_sync(ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE);
 
 	if (ssl_io->handshake_callback != NULL) {
 		if (ssl_io->handshake_callback(&error, ssl_io->handshake_context) < 0) {
