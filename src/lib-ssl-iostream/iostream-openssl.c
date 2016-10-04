@@ -409,8 +409,7 @@ static bool openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 		   fully succeed or completely fail due to some error. */
 		sent = o_stream_send(ssl_io->plain_output, buffer, bytes);
 		if (sent < 0) {
-			i_assert(ssl_io->plain_output->closed ||
-				 ssl_io->plain_output->stream_errno != 0);
+			i_assert(ssl_io->plain_output->stream_errno != 0);
 			i_free(ssl_io->plain_stream_errstr);
 			ssl_io->plain_stream_errstr =
 				i_strdup(o_stream_get_error(ssl_io->plain_output));
