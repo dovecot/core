@@ -107,8 +107,10 @@ mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
 {
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
+	const char *iter_name;
 
-	iter = mailbox_list_iter_init(ns->list, set->name,
+	iter_name = t_strconcat(ns->prefix, set->name, NULL);
+	iter = mailbox_list_iter_init(ns->list, iter_name,
 				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 				      MAILBOX_LIST_ITER_SKIP_ALIASES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
@@ -117,9 +119,8 @@ mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
 					set->autoexpunge_max_mails);
 	} T_END;
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		i_error("Failed to iterate autoexpunge mailboxes '%s%s': %s",
-			ns->prefix, set->name,
-			mailbox_list_get_last_error(ns->list, NULL));
+		i_error("Failed to iterate autoexpunge mailboxes '%s': %s",
+			iter_name, mailbox_list_get_last_error(ns->list, NULL));
 	}
 }
 
