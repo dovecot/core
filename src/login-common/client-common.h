@@ -154,6 +154,11 @@ struct client {
 	ARRAY(union login_client_module_context *) module_contexts;
 
 	char *virtual_user, *virtual_user_orig, *virtual_auth_user;
+	/* passdb user_* fields are set here after a successful auth.
+	   This is a NULL-terminated array where fields are in the same order
+	   as in global_alt_usernames. If some field doesn't exist, it's "".
+	   Can also be NULL if there are no user_* fields. */
+	const char **alt_usernames;
 	bool destroyed:1;
 	bool input_blocked:1;
 	bool login_success:1;

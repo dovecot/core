@@ -2,6 +2,7 @@
 
 #include "hostpid.h"
 #include "login-common.h"
+#include "array.h"
 #include "iostream.h"
 #include "istream.h"
 #include "ostream.h"
@@ -59,12 +60,45 @@ void client_set_auth_waiting(struct client *client)
 			    client_auth_waiting_timeout, client);
 }
 
-static void client_auth_parse_args(struct client *client,
+static void alt_username_set(ARRAY_TYPE(const_string) *alt_usernames, pool_t pool,
+			     const char *key, const char *value)
+{
+	char *const *fields;
+	unsigned int i, count;
+
+	fields = array_get(&global_alt_usernames, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(fields[i], key) == 0)
+			break;
+	}
+	if (i == count) {
+		char *new_key = i_strdup(key);
+		array_append(&global_alt_usernames, &new_key, 1);
+	}
+
+	value = p_strdup(pool, value);
+	if (i < array_count(alt_usernames)) {
+		array_idx_set(alt_usernames, i, &value);
+		return;
+	}
+
+	/* array is NULL-terminated, so if there are unused fields in
+	   the middle set them as "" */
+	while (array_count(alt_usernames) < i) {
+		const char *empty_str = "";
+		array_append(alt_usernames, &empty_str, 1);
+	}
+	array_append(alt_usernames, &value, 1);
+}
+
+static void client_auth_parse_args(struct client *client, bool success,
 				   const char *const *args,
 				   struct client_auth_reply *reply_r)
 {
 	const char *key, *value, *p;
+	ARRAY_TYPE(const_string) alt_usernames;
 
+	t_array_init(&alt_usernames, 4);
 	memset(reply_r, 0, sizeof(*reply_r));
 
 	for (; *args != NULL; args++) {
@@ -136,8 +170,22 @@ static void client_auth_parse_args(struct client *client,
 		} else if (strcmp(key, "user") == 0 ||
 			   strcmp(key, "postlogin_socket") == 0) {
 			/* already handled in sasl-server.c */
+		} else if (strncmp(key, "user_", 5) == 0) {
+			if (success) {
+				alt_username_set(&alt_usernames, client->pool,
+						 key, value);
+			}
 		} else if (client->set->auth_debug)
 			i_debug("Ignoring unknown passdb extra field: %s", key);
+	}
+	if (array_count(&alt_usernames) > 0) {
+		const char **alt;
+
+		alt = p_new(client->pool, const char *,
+			    array_count(&alt_usernames) + 1);
+		memcpy(alt, array_idx(&alt_usernames, 0),
+		       sizeof(*alt) * array_count(&alt_usernames));
+		client->alt_usernames = alt;
 	}
 	if (reply_r->port == 0)
 		reply_r->port = login_binary->default_port;
@@ -564,7 +612,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
-			client_auth_parse_args(client, args, &reply);
+			client_auth_parse_args(client, TRUE, args, &reply);
 			reply.all_fields = args;
 			if (client_auth_handle_reply(client, &reply, TRUE))
 				break;
@@ -578,7 +626,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (client->to_auth_waiting != NULL)
 			timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
-			client_auth_parse_args(client, args, &reply);
+			client_auth_parse_args(client, FALSE, args, &reply);
 			reply.nologin = TRUE;
 			reply.all_fields = args;
 			if (client_auth_handle_reply(client, &reply, FALSE))
