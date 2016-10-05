@@ -41,6 +41,7 @@ struct anvil_client *anvil;
 const char *login_rawlog_dir = NULL;
 unsigned int initial_service_count;
 struct login_module_register login_module_register;
+ARRAY_TYPE(string) global_alt_usernames;
 
 const struct login_settings *global_login_settings;
 const struct master_service_ssl_settings *global_ssl_settings;
@@ -397,6 +398,7 @@ static void main_init(const char *login_socket)
 	/* make sure we can't fork() */
 	restrict_process_count(1);
 
+	i_array_init(&global_alt_usernames, 4);
 	master_service_set_avail_overflow_callback(master_service,
 						   client_destroy_oldest);
 	master_service_set_die_callback(master_service, login_die);
@@ -418,6 +420,11 @@ static void main_deinit(void)
 	login_binary->deinit();
 	auth_client_deinit(&auth_client);
 	master_auth_deinit(&master_auth);
+
+	char **strp;
+	array_foreach_modifiable(&global_alt_usernames, strp)
+		i_free(*strp);
+	array_free(&global_alt_usernames);
 
 	if (anvil != NULL)
 		anvil_client_deinit(&anvil);
