@@ -558,21 +558,28 @@ fts_transaction_begin(struct mailbox *box,
 	return t;
 }
 
-static int fts_transaction_end(struct mailbox_transaction_context *t)
+static int fts_transaction_end(struct mailbox_transaction_context *t, const char **error_r)
 {
 	struct fts_transaction_context *ft = FTS_CONTEXT(t);
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(t->box->list);
 	int ret = ft->failed ? -1 : 0;
 
+	if (ft->failed)
+		*error_r = "transaction context";
+
 	if (ft->precached) {
 		i_assert(flist->update_ctx_refcount > 0);
 		if (--flist->update_ctx_refcount == 0) {
-			if (fts_backend_update_deinit(&flist->update_ctx) < 0)
+			if (fts_backend_update_deinit(&flist->update_ctx) < 0) {
 				ret = -1;
+				*error_r = "backend deinit";
+			}
 		}
 	} else if (ft->highest_virtual_uid > 0) {
-		if (fts_index_set_last_uid(t->box, ft->highest_virtual_uid) < 0)
+		if (fts_index_set_last_uid(t->box, ft->highest_virtual_uid) < 0) {
 			ret = -1;
+			*error_r = "index last uid setting";
+		}
 	}
 	if (ft->scores != NULL)
 		fts_scores_unref(&ft->scores);
@@ -583,8 +590,9 @@ static int fts_transaction_end(struct mailbox_transaction_context *t)
 static void fts_transaction_rollback(struct mailbox_transaction_context *t)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(t->box);
+	const char *error;
 
-	(void)fts_transaction_end(t);
+	(void)fts_transaction_end(t, &error);
 	fbox->module_ctx.super.transaction_rollback(t);
 }
 
@@ -630,14 +638,16 @@ fts_transaction_commit(struct mailbox_transaction_context *t,
 	struct mailbox *box = t->box;
 	bool autoindex;
 	int ret = 0;
+	const char *error;
 
 	autoindex = ft->mails_saved && !fbox->fts_mailbox_excluded &&
 		mail_user_plugin_getenv(box->storage->user,
 					"fts_autoindex") != NULL;
 
-	if (fts_transaction_end(t) < 0) {
+	if (fts_transaction_end(t, &error) < 0) {
 		mail_storage_set_error(t->box->storage, MAIL_ERROR_TEMP,
-				       "FTS transaction commit failed");
+				       t_strdup_printf("FTS transaction commit failed: %s",
+						       error));
 		ret = -1;
 	}
 	if (fbox->module_ctx.super.transaction_commit(t, changes_r) < 0)
