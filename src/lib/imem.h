@@ -11,8 +11,10 @@ void *i_malloc(size_t size) ATTR_MALLOC ATTR_RETURNS_NONNULL;
 void *i_realloc(void *mem, size_t old_size, size_t new_size)
 	ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL;
 
-#define i_free(mem) p_free(default_pool, mem)
-#define i_free_and_null(mem) p_free_and_null(default_pool, mem)
+/* i_free() and i_free_and_null() are now guaranteed to both set mem=NULL,
+   so either one of them can be used. */
+#define i_free(mem) p_free_and_null(default_pool, mem)
+#define i_free_and_null(mem) i_free(mem)
 
 /* string functions */
 char *i_strdup(const char *str) ATTR_MALLOC;

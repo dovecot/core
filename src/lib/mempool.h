@@ -82,17 +82,13 @@ p_realloc(pool_t pool, void *mem, size_t old_size, size_t new_size)
 	return pool->v->realloc(pool, mem, old_size, new_size);
 }
 
-/* Free the memory. Currently it also sets memory to NULL, but that shouldn't
-   be relied on as it's only an extra safety check. It might as well be later
-   changed to some invalid pointer causing a segfault, or removed completely
-   in some "optimization".. */
+/* Free the memory. p_free() and p_free_and_null() are now guaranteed to both
+   set mem=NULL, so either one of them can be used. */
 #define p_free(pool, mem) \
 	STMT_START { \
 		p_free_internal(pool, mem);	\
 		(mem) = NULL;			\
 	} STMT_END
-
-/* A macro that's guaranteed to set mem = NULL. */
 #define p_free_and_null(pool, mem) p_free(pool, mem)
 
 static inline void p_free_internal(pool_t pool, void *mem)
