@@ -2128,13 +2128,16 @@ mailbox_save_add_pvt_flags(struct mailbox_transaction_context *t,
 	save->flags = pvt_flags;
 }
 
-static void mailbox_save_context_reset(struct mail_save_context *ctx)
+static void
+mailbox_save_context_reset(struct mail_save_context *ctx, bool success)
 {
 	i_assert(!ctx->unfinished);
 	if (!ctx->copying_or_moving) {
-		/* we're finishing a save (not copy/move) */
+		/* we're finishing a save (not copy/move). Note that we could
+		   have come here also from mailbox_save_cancel(), in which
+		   case ctx->saving may be FALSE. */
 		i_assert(!ctx->copying_via_save);
-		i_assert(ctx->saving);
+		i_assert(ctx->saving || !success);
 		ctx->saving = FALSE;
 	} else {
 		i_assert(ctx->copying_via_save);
@@ -2178,7 +2181,7 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 	}
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
-	mailbox_save_context_reset(ctx);
+	mailbox_save_context_reset(ctx, TRUE);
 	return ret;
 }
 
@@ -2201,7 +2204,7 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 		mail = (struct mail_private *)ctx->dest_mail;
 		mail->v.close(&mail->mail);
 	}
-	mailbox_save_context_reset(ctx);
+	mailbox_save_context_reset(ctx, FALSE);
 }
 
 struct mailbox_transaction_context *
