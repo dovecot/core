@@ -315,6 +315,58 @@ static void str_free_i(string_t *str)
     str_free(&str);
 }
 
+static int push_notification_driver_ox_get_mailbox_status
+(struct push_notification_driver_txn *dtxn,
+ struct push_notification_txn_msg *msg,
+ struct mailbox_status *r_box_status)
+{
+    struct mail_user *user = dtxn->ptxn->muser;
+    struct mail_namespace *ns;
+    struct mailbox *box;
+    struct mailbox_transaction_context *mctx = NULL;
+    bool use_existing_txn = FALSE;
+
+    /* Get current mailbox */
+    if ((dtxn->ptxn->t != NULL) && dtxn->ptxn->mbox->inbox_user) {
+        /* Use the currently open transaction. */
+        box = dtxn->ptxn->mbox;
+        mctx = dtxn->ptxn->t;
+        use_existing_txn = TRUE;
+    } else {
+        ns = mail_namespace_find(user->namespaces, msg->mailbox);
+        box = mailbox_alloc(ns->list, msg->mailbox, MAILBOX_FLAG_READONLY);
+        if (mailbox_open(box) < 0) {
+            i_error(OX_LOG_LABEL "Unable to open mailbox to get status: %s",
+                    mailbox_get_last_error(box, NULL));
+            return -1;
+        } else {
+            mctx = mailbox_transaction_begin(box, 0);
+        }
+    }
+
+    if (mctx != NULL) {
+        mailbox_get_open_status(box, STATUS_UNSEEN, r_box_status);
+        push_notification_driver_debug(OX_LOG_LABEL, user, "Got mailbox status: %s",
+                mailbox_get_name(box));
+
+        if (!use_existing_txn && (mailbox_transaction_commit(&mctx) < 0)) {
+            i_error(OX_LOG_LABEL "Transaction commit failed: %s",
+                    mailbox_get_last_error(box, NULL));
+            /* the commit doesn't matter though. */
+        }
+    } else {
+        i_error(OX_LOG_LABEL "Begin mailbox transaction failed: %s", msg->mailbox);
+        return -1;
+    }
+
+    if (!use_existing_txn) {
+        mailbox_free(&box);
+    }
+
+    return 0;
+}
+
+
 static void push_notification_driver_ox_process_msg
 (struct push_notification_driver_txn *dtxn,
  struct push_notification_txn_msg *msg)
@@ -328,6 +380,12 @@ static void push_notification_driver_ox_process_msg
     struct push_notification_driver_ox_txn *txn =
         (struct push_notification_driver_ox_txn *)dtxn->context;
     struct mail_user *user = dtxn->ptxn->muser;
+    struct mailbox_status box_status;
+    bool status_success = TRUE;
+
+    if (push_notification_driver_ox_get_mailbox_status(dtxn, msg, &box_status) < 0) {
+        status_success = FALSE;
+    }
 
     messagenew = push_notification_txn_msg_get_eventdata(msg, "MessageNew");
     if (messagenew == NULL) {
@@ -364,7 +422,13 @@ static void push_notification_driver_ox_process_msg
 	str_append(str, "\",\"snippet\":\"");
 	json_append_escaped(str, messagenew->snippet);
     }
-    str_append(str, "\"}");
+    if (status_success) {
+    /* The current mail isn't counted yet, therefore +1. */
+    str_printfa(str, "\",\"unseen\":%u", box_status.unseen + 1);
+    } else {
+        str_append(str, "\"");
+    }
+    str_append(str, "}");
 
     push_notification_driver_debug(OX_LOG_LABEL, user,
                                    "Sending notification: %s", str_c(str));
