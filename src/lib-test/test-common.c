@@ -328,10 +328,7 @@ test_exit(int status)
 {
 	i_free_and_null(expected_error_str);
 	i_free_and_null(test_prefix);
-#ifndef STATIC_CHECKER
-	data_stack_frame_t id = 0;
-	(void)t_pop(&id); /* as we were within a T_BEGIN { tests[i].func(); } T_END */
-#endif
+	t_pop_last_unsafe(); /* as we were within a T_BEGIN { tests[i].func(); } T_END */
 	lib_deinit();
 	_exit(status);
 }

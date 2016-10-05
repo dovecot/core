@@ -54,6 +54,8 @@ data_stack_frame_t t_push_named(const char *format, ...) ATTR_HOT ATTR_FORMAT(1,
 /* Returns TRUE on success, FALSE if t_pop() call was leaked. The caller
    should panic. */
 bool t_pop(data_stack_frame_t *id) ATTR_HOT;
+/* Pop the last data stack frame. This shouldn't be called outside test code. */
+void t_pop_last_unsafe(void);
 
 /* Usage: T_BEGIN { code } T_END */
 #ifndef DEBUG

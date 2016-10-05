@@ -274,7 +274,7 @@ static void t_pop_verify(void)
 }
 #endif
 
-bool t_pop(data_stack_frame_t *id)
+void t_pop_last_unsafe(void)
 {
 	struct stack_frame_block *frame_block;
 
@@ -320,15 +320,21 @@ bool t_pop(data_stack_frame_t *id)
 		frame_block->prev = unused_frame_blocks;
 		unused_frame_blocks = frame_block;
 	}
+	data_stack_frame_id--;
+}
+
+bool t_pop(data_stack_frame_t *id)
+{
+	t_pop_last_unsafe();
 #ifndef STATIC_CHECKER
-	if (unlikely(--data_stack_frame_id != *id))
+	if (unlikely(data_stack_frame_id != *id))
 		return FALSE;
 	*id = 0;
 #else
 	unsigned int frame_id = (*id)->id;
 	i_free_and_null(*id);
 
-	if (unlikely(--data_stack_frame_id != frame_id))
+	if (unlikely(data_stack_frame_id != frame_id))
 		return FALSE;
 #endif
 	return TRUE;
