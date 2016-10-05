@@ -128,4 +128,7 @@ size_t pool_alloconly_get_total_used_size(pool_t pool);
 /* Returns how much system memory has been allocated for this pool. */
 size_t pool_alloconly_get_total_alloc_size(pool_t pool);
 
+/* private: */
+void pool_system_free(pool_t pool, void *mem);
+
 #endif

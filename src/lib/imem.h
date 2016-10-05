@@ -13,7 +13,15 @@ void *i_realloc(void *mem, size_t old_size, size_t new_size)
 
 /* i_free() and i_free_and_null() are now guaranteed to both set mem=NULL,
    so either one of them can be used. */
-#define i_free(mem) p_free_and_null(default_pool, mem)
+#ifndef STATIC_CHECKER
+#  define i_free(mem) p_free_and_null(default_pool, mem)
+#else
+#  define i_free(mem) \
+	STMT_START { \
+		pool_system_free(default_pool, mem); \
+		(mem) = NULL; \
+	} STMT_END
+#endif
 #define i_free_and_null(mem) i_free(mem)
 
 /* string functions */

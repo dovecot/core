@@ -26,7 +26,6 @@ static const char *pool_system_get_name(pool_t pool);
 static void pool_system_ref(pool_t pool);
 static void pool_system_unref(pool_t *pool);
 static void *pool_system_malloc(pool_t pool, size_t size);
-static void pool_system_free(pool_t pool, void *mem);
 static void *pool_system_realloc(pool_t pool, void *mem,
 				 size_t old_size, size_t new_size);
 static void pool_system_clear(pool_t pool);
@@ -95,8 +94,7 @@ static void *pool_system_malloc(pool_t pool ATTR_UNUSED, size_t size)
 	return mem;
 }
 
-static void pool_system_free(pool_t pool ATTR_UNUSED,
-			     void *mem ATTR_UNUSED)
+void pool_system_free(pool_t pool ATTR_UNUSED, void *mem ATTR_UNUSED)
 {
 #ifdef DEBUG
 	int old_errno = errno;
