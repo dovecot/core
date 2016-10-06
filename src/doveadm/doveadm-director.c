@@ -4,6 +4,7 @@
 #include "md5.h"
 #include "hash.h"
 #include "str.h"
+#include "strescape.h"
 #include "net.h"
 #include "istream.h"
 #include "write-full.h"
@@ -586,6 +587,7 @@ static void cmd_director_kick(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	const char *line;
+	string_t *cmd = t_str_new(64);
 
 	ctx = cmd_director_init(cctx);
 	if (ctx->user == NULL) {
@@ -593,7 +595,11 @@ static void cmd_director_kick(struct doveadm_cmd_context *cctx)
 		return;
 	}
 
-	director_send(ctx, t_strdup_printf("USER-KICK\t%s\n", ctx->user));
+	str_append(cmd, "USER-KICK\t");
+	str_append_tabescaped(cmd, ctx->user);
+	str_append_c(cmd, '\n');
+
+	director_send(ctx, str_c(cmd));
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
 		i_error("failed");
