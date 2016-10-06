@@ -317,53 +317,32 @@ static void str_free_i(string_t *str)
 
 static int push_notification_driver_ox_get_mailbox_status
 (struct push_notification_driver_txn *dtxn,
- struct push_notification_txn_msg *msg,
  struct mailbox_status *r_box_status)
 {
-    struct mail_user *user = dtxn->ptxn->muser;
-    struct mail_namespace *ns;
+    /* The already opened mailbox. We cannot use or sync it, because we are within a save transaction. */
+    struct mailbox *mbox = dtxn->ptxn->mbox;
     struct mailbox *box;
-    struct mailbox_transaction_context *mctx = NULL;
-    bool use_existing_txn = FALSE;
+    int ret;
 
-    /* Get current mailbox */
-    if ((dtxn->ptxn->t != NULL) && dtxn->ptxn->mbox->inbox_user) {
-        /* Use the currently open transaction. */
-        box = dtxn->ptxn->mbox;
-        mctx = dtxn->ptxn->t;
-        use_existing_txn = TRUE;
+    /* open and sync new instance of the same mailbox to get most recent status */
+    box = mailbox_alloc(mailbox_get_namespace(mbox)->list, mailbox_get_name(mbox), MAILBOX_FLAG_READONLY);
+    mailbox_open(box);
+    if (mailbox_sync(box, 0) < 0) {
+        i_warning("mailbox_sync(%s): %s", mailbox_get_vname(mbox), mailbox_get_last_error(box, NULL));
+    }
+
+    /* only 'unseen' is needed at the moment */
+    ret = mailbox_get_status(box, STATUS_UNSEEN, r_box_status);
+    if (ret < 0) {
+        i_error("Could not get mailbox '%s' status: %s",
+                mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
     } else {
-        ns = mail_namespace_find(user->namespaces, msg->mailbox);
-        box = mailbox_alloc(ns->list, msg->mailbox, MAILBOX_FLAG_READONLY);
-        if (mailbox_open(box) < 0) {
-            i_error(OX_LOG_LABEL "Unable to open mailbox to get status: %s",
-                    mailbox_get_last_error(box, NULL));
-            return -1;
-        } else {
-            mctx = mailbox_transaction_begin(box, 0);
-        }
+        push_notification_driver_debug(OX_LOG_LABEL, dtxn->ptxn->muser, "Got status of mailbox '%s': (unseen: %u)",
+                                       mailbox_get_vname(box), r_box_status->unseen);
     }
 
-    if (mctx != NULL) {
-        mailbox_get_open_status(box, STATUS_UNSEEN, r_box_status);
-        push_notification_driver_debug(OX_LOG_LABEL, user, "Got mailbox status: %s",
-                mailbox_get_name(box));
-
-        if (!use_existing_txn && (mailbox_transaction_commit(&mctx) < 0)) {
-            i_error(OX_LOG_LABEL "Transaction commit failed: %s",
-                    mailbox_get_last_error(box, NULL));
-            /* the commit doesn't matter though. */
-        }
-    } else {
-        i_error(OX_LOG_LABEL "Begin mailbox transaction failed: %s", msg->mailbox);
-        return -1;
-    }
-
-    if (!use_existing_txn) {
-        mailbox_free(&box);
-    }
-
-    return 0;
+    mailbox_free(&box);
+    return ret;
 }
 
 
@@ -383,7 +362,7 @@ static void push_notification_driver_ox_process_msg
     struct mailbox_status box_status;
     bool status_success = TRUE;
 
-    if (push_notification_driver_ox_get_mailbox_status(dtxn, msg, &box_status) < 0) {
+    if (push_notification_driver_ox_get_mailbox_status(dtxn, &box_status) < 0) {
         status_success = FALSE;
     }
 
@@ -423,8 +402,7 @@ static void push_notification_driver_ox_process_msg
 	json_append_escaped(str, messagenew->snippet);
     }
     if (status_success) {
-    /* The current mail isn't counted yet, therefore +1. */
-    str_printfa(str, "\",\"unseen\":%u", box_status.unseen + 1);
+    str_printfa(str, "\",\"unseen\":%u", box_status.unseen);
     } else {
         str_append(str, "\"");
     }
