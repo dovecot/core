@@ -69,6 +69,8 @@ imapc_client_init(const struct imapc_client_settings *set)
 		IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS;
 	client->set.cmd_timeout_msecs = set->cmd_timeout_msecs != 0 ?
 		set->cmd_timeout_msecs : IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS;
+	client->set.max_line_length = set->max_line_length != 0 ?
+		set->max_line_length : IMAPC_DEFAULT_MAX_LINE_LENGTH;
 	client->set.throttle_set = set->throttle_set;
 
 	if (client->set.throttle_set.init_msecs == 0)

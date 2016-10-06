@@ -56,6 +56,7 @@ enum imapc_client_ssl_mode {
 
 #define IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS (1000*30)
 #define IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS (1000*60*5)
+#define IMAPC_DEFAULT_MAX_LINE_LENGTH ((size_t)-1)
 
 struct imapc_throttling_settings {
 	unsigned int init_msecs;
@@ -92,6 +93,10 @@ struct imapc_client_settings {
 	/* Timeout for IMAP commands. Reset every time more data is being
 	   sent or received. 0 = default. */
 	unsigned int cmd_timeout_msecs;
+
+	/* Maximum allowed line length (not including literals read as
+	   streams). 0 = unlimited. */
+	size_t max_line_length;
 
 	struct imapc_throttling_settings throttle_set;
 };
