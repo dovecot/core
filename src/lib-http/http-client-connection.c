@@ -703,7 +703,7 @@ static void http_client_connection_input(struct connection *_conn)
 	if (conn->ssl_iostream != NULL &&
 		!ssl_iostream_is_handshaked(conn->ssl_iostream)) {
 		/* finish SSL negotiation by reading from input stream */
-		while ((ret=i_stream_read(conn->conn.input)) > 0) {
+		while ((ret=i_stream_read(conn->conn.input)) > 0 || ret == -2) {
 			if (ssl_iostream_is_handshaked(conn->ssl_iostream))
 				break;
 		}

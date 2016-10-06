@@ -226,6 +226,8 @@ i_stream_bzlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		stream->pos = stream->skip;
 	} else {
 		/* read and cache forward */
+		ssize_t ret;
+
 		do {
 			size_t avail = stream->pos - stream->skip;
 
@@ -237,7 +239,8 @@ i_stream_bzlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 			}
 
 			i_stream_skip(&stream->istream, avail);
-		} while (i_stream_read(&stream->istream) >= 0);
+		} while ((ret = i_stream_read(&stream->istream)) > 0);
+		i_assert(ret == -1);
 
 		if (stream->istream.v_offset != v_offset) {
 			/* some failure, we've broken it */
@@ -280,11 +283,13 @@ i_stream_bzlib_stat(struct istream_private *stream, bool exact)
 
 	if (zstream->stream_size == (uoff_t)-1) {
 		uoff_t old_offset = stream->istream.v_offset;
+		ssize_t ret;
 
 		do {
 			size = i_stream_get_data_size(&stream->istream);
 			i_stream_skip(&stream->istream, size);
-		} while (i_stream_read(&stream->istream) > 0);
+		} while ((ret = i_stream_read(&stream->istream)) > 0);
+		i_assert(ret == -1);
 
 		i_stream_seek(&stream->istream, old_offset);
 		if (zstream->stream_size == (uoff_t)-1)

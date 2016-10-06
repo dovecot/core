@@ -35,13 +35,13 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 		mailbox_transaction_rollback(&trans);
 		return -1;
 	}
-	while ((ret = i_stream_read(input)) > 0 || ret == -2) {
+	do {
 		if (mailbox_save_continue(save_ctx) < 0) {
 			save_failed = TRUE;
 			ret = -1;
 			break;
 		}
-	}
+	} while ((ret = i_stream_read(input)) > 0);
 	i_assert(ret == -1);
 
 	if (input->stream_errno != 0) {
