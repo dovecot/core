@@ -16,6 +16,7 @@ struct imap_client_state {
 	dev_t peer_dev;
 	ino_t peer_ino;
 
+	char *tag;
 	const unsigned char *state;
 	size_t state_size;
 

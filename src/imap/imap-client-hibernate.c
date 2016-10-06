@@ -44,6 +44,9 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 				     const buffer_t *state, int fd_notify)
 {
 	struct stat peer_st;
+	const char *tag;
+
+	tag = client->command_queue == NULL ? NULL : client->command_queue->tag;
 
 	str_append_tabescaped(cmd, client->user->username);
 	str_append_c(cmd, '\t');
@@ -81,6 +84,8 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_printfa(cmd, "\tuid=%s", dec2str(client->user->uid));
 	if (client->user->gid != (gid_t)-1)
 		str_printfa(cmd, "\tgid=%s", dec2str(client->user->gid));
+	if (tag != NULL)
+		str_printfa(cmd, "\ttag=%s", tag);
 	str_append(cmd, "\tstats=");
 	str_append_tabescaped(cmd, client_stats(client));
 	if (client->command_queue != NULL &&

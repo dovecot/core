@@ -127,6 +127,8 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 					"Invalid idle_notify_interval value: %s", value);
 				return -1;
 			}
+		} else if (strcmp(key, "tag") == 0) {
+			state_r->tag = i_strdup(value);
 		} else if (strcmp(key, "state") == 0) {
 			buffer_t *state_buf;
 
@@ -140,6 +142,10 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			state_r->state = state_buf->data;
 			state_r->state_size = state_buf->used;
 		}
+	}
+	if (state_r->tag == NULL) {
+		*error_r = "Missing tag";
+		return -1;
 	}
 	if (peer_dev_major != 0 || peer_dev_minor != 0)
 		state_r->peer_dev = makedev(peer_dev_major, peer_dev_minor);
