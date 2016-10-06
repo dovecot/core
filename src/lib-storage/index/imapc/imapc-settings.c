@@ -30,6 +30,7 @@ static const struct setting_define imapc_setting_defines[] = {
 	DEF(SET_STR, imapc_list_prefix),
 	DEF(SET_TIME, imapc_cmd_timeout),
 	DEF(SET_TIME, imapc_max_idle_time),
+	DEF(SET_SIZE, imapc_max_line_length),
 
 	DEF(SET_STR, pop3_deleted_flag),
 
@@ -53,6 +54,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_list_prefix = "",
 	.imapc_cmd_timeout = 5*60,
 	.imapc_max_idle_time = 60*29,
+	.imapc_max_line_length = 0,
 
 	.pop3_deleted_flag = ""
 };

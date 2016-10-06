@@ -281,6 +281,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	set.use_proxyauth = (imapc_set->parsed_features & IMAPC_FEATURE_PROXYAUTH) != 0;
 	set.cmd_timeout_msecs = imapc_set->imapc_cmd_timeout * 1000;
 	set.max_idle_time = imapc_set->imapc_max_idle_time;
+	set.max_line_length = imapc_set->imapc_max_line_length;
 	set.dns_client_socket_path = *ns->user->set->base_dir == '\0' ? "" :
 		t_strconcat(ns->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);

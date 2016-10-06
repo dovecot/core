@@ -1437,11 +1437,15 @@ static void imapc_connection_input(struct imapc_connection *conn)
 		imapc_connection_input_pending(conn);
 
 	if (ret < 0) {
-		/* disconnected */
+		/* disconnected or buffer full */
 		str = t_str_new(128);
 		if (conn->disconnect_reason != NULL) {
 			str_printfa(str, "Server disconnected with message: %s",
 				    conn->disconnect_reason);
+		} else if (ret == -2) {
+			str_printfa(str, "Server sent too large input "
+				    "(buffer full at %"PRIuSIZE_T")",
+				    i_stream_get_data_size(conn->input));
 		} else if (conn->ssl_iostream == NULL) {
 			errstr = conn->input->stream_errno == 0 ? "EOF" :
 				i_stream_get_error(conn->input);
@@ -1640,7 +1644,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 		}
 	}
 	conn->fd = fd;
-	conn->input = conn->raw_input = i_stream_create_fd(fd, (size_t)-1);
+	conn->input = conn->raw_input =
+		i_stream_create_fd(fd, conn->client->set.max_line_length);
 	conn->output = conn->raw_output = o_stream_create_fd(fd, (size_t)-1);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
@@ -1653,7 +1658,8 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	o_stream_set_flush_callback(conn->output, imapc_connection_output,
 				    conn);
 	conn->io = io_add(fd, IO_WRITE, imapc_connection_connected, conn);
-	conn->parser = imap_parser_create(conn->input, NULL, (size_t)-1);
+	conn->parser = imap_parser_create(conn->input, NULL,
+					  conn->client->set.max_line_length);
 	conn->to = timeout_add(conn->client->set.connect_timeout_msecs,
 			       imapc_connection_timeout, conn);
 	conn->to_output = timeout_add(conn->client->set.max_idle_time*1000,

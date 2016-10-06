@@ -36,6 +36,7 @@ struct imapc_settings {
 	const char *imapc_list_prefix;
 	unsigned int imapc_cmd_timeout;
 	unsigned int imapc_max_idle_time;
+	uoff_t imapc_max_line_length;
 
 	const char *pop3_deleted_flag;
 
