@@ -27,6 +27,7 @@ struct director_context {
 	const char *ip;
 	const char *port;
 	const char *vhost_count;
+	const char *passdb_field;
 
 	struct istream *users_input;
 	struct istream *input;
@@ -125,6 +126,8 @@ cmd_director_init(struct doveadm_cmd_context *cctx)
 		ctx->port = NULL;
 	if (!doveadm_cmd_param_str(cctx, "vhost-count", &(ctx->vhost_count)))
 		ctx->vhost_count = NULL;
+	if (!doveadm_cmd_param_str(cctx, "passdb-field", &(ctx->passdb_field)))
+		ctx->passdb_field = NULL;
 	if (!ctx->user_map)
 		director_connect(ctx);
 	return ctx;
@@ -595,11 +598,19 @@ static void cmd_director_kick(struct doveadm_cmd_context *cctx)
 		return;
 	}
 
-	str_append(cmd, "USER-KICK\t");
-	str_append_tabescaped(cmd, ctx->user);
-	str_append_c(cmd, '\n');
-
+	if (ctx->passdb_field == NULL) {
+		str_append(cmd, "USER-KICK\t");
+		str_append_tabescaped(cmd, ctx->user);
+		str_append_c(cmd, '\n');
+	} else {
+		str_append(cmd, "USER-KICK-ALT\t");
+		str_append_tabescaped(cmd, ctx->passdb_field);
+		str_append_c(cmd, '\t');
+		str_append_tabescaped(cmd, ctx->user);
+		str_append_c(cmd, '\n');
+	}
 	director_send(ctx, str_c(cmd));
+
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
 		i_error("failed");
@@ -921,9 +932,10 @@ DOVEADM_CMD_PARAMS_END
 {
 	.name = "director kick",
 	.cmd = cmd_director_kick,
-	.usage = "[-a <director socket path>] <user>",
+	.usage = "[-a <director socket path>] [-f <passdb field>] <user>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "passdb-field", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 },

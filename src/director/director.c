@@ -907,6 +907,32 @@ void director_kick_user(struct director *dir, struct director_host *src,
 	director_update_send_version(dir, src, DIRECTOR_VERSION_USER_KICK, str_c(cmd));
 }
 
+void director_kick_user_alt(struct director *dir, struct director_host *src,
+			    struct director_host *orig_src,
+			    const char *field, const char *value)
+{
+	string_t *cmd = t_str_new(64);
+
+	str_append(cmd, "proxy\t*\tKICK-ALT\t");
+	str_append_tabescaped(cmd, field);
+	str_append_c(cmd, '\t');
+	str_append_tabescaped(cmd, value);
+	ipc_client_cmd(dir->ipc_proxy, str_c(cmd),
+		       director_kick_user_callback, (void *)NULL);
+
+	if (orig_src == NULL) {
+		orig_src = dir->self_host;
+		orig_src->last_seq++;
+	}
+	str_printfa(cmd, "USER-KICK-ALT\t%s\t%u\t%u\t",
+		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq);
+	str_append_tabescaped(cmd, field);
+	str_append_c(cmd, '\t');
+	str_append_tabescaped(cmd, value);
+	str_append_c(cmd, '\n');
+	director_update_send_version(dir, src, DIRECTOR_VERSION_USER_KICK_ALT, str_c(cmd));
+}
+
 void director_kick_user_hash(struct director *dir, struct director_host *src,
 			     struct director_host *orig_src,
 			     unsigned int username_hash,
