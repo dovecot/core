@@ -25,7 +25,6 @@ enum imap_state_type_public {
 enum imap_state_type_internal {
 	IMAP_STATE_TYPE_ID_LOGGED		= 'I',
 	IMAP_STATE_TYPE_TLS_COMPRESSION		= 'C',
-	IMAP_STATE_TYPE_IDLE_CMD_TAG		= 'T'
 };
 
 enum imap_state_feature {
@@ -298,12 +297,6 @@ int imap_state_export_base(struct client *client, bool internal,
 			buffer_append_c(dest, IMAP_STATE_TYPE_ID_LOGGED);
 		if (client->tls_compression)
 			buffer_append_c(dest, IMAP_STATE_TYPE_TLS_COMPRESSION);
-		if (client->command_queue != NULL) {
-			i_assert(strcasecmp(client->command_queue->name, "IDLE") == 0);
-			buffer_append_c(dest, IMAP_STATE_TYPE_IDLE_CMD_TAG);
-			buffer_append(dest, client->command_queue->tag,
-				      strlen(client->command_queue->tag) + 1);
-		}
 	}
 
 	/* IMAP SEARCHRES extension */
@@ -748,18 +741,8 @@ import_state_tls_compression(struct client *client,
 	return 0;
 }
 
-static ssize_t
-import_state_idle_cmd_tag(struct client *client, const unsigned char *data,
-			  size_t size, const char **error_r)
+void imap_state_import_idle_cmd_tag(struct client *client, const char *tag)
 {
-	const unsigned char *p = data, *end = data + size;
-	const char *tag;
-
-	if (import_string(&p, end, &tag) < 0) {
-		*error_r = "Missing idle tag";
-		return 0;
-	}
-
 	if (client->state_import_idle_continue) {
 		/* IDLE command continues */
 		struct client_command_context *cmd;
@@ -788,7 +771,6 @@ import_state_idle_cmd_tag(struct client *client, const unsigned char *data,
 			"%s %s Idle completed.", tag,
 			client->state_import_bad_idle_done ? "BAD" : "OK"));
 	}
-	return p - data;
 }
 
 static struct {
@@ -807,8 +789,7 @@ static struct {
 			  size_t size, const char **error_r);
 } imap_states_internal[] = {
 	{ IMAP_STATE_TYPE_ID_LOGGED, import_state_id_logged },
-	{ IMAP_STATE_TYPE_TLS_COMPRESSION, import_state_tls_compression },
-	{ IMAP_STATE_TYPE_IDLE_CMD_TAG, import_state_idle_cmd_tag },
+	{ IMAP_STATE_TYPE_TLS_COMPRESSION, import_state_tls_compression }
 };
 
 static ssize_t

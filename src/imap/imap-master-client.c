@@ -26,6 +26,8 @@ struct imap_master_input {
 	buffer_t *client_output;
 	/* IMAP connection state */
 	buffer_t *state;
+	/* command tag */
+	const char *tag;
 
 	dev_t peer_dev;
 	ino_t peer_ino;
@@ -136,6 +138,8 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 					"Invalid state base64 value: %s", value);
 				return -1;
 			}
+		} else if (strcmp(key, "tag") == 0) {
+			master_input_r->tag = t_strdup(value);
 		} else if (strcmp(key, "bad-done") == 0) {
 			master_input_r->state_import_bad_idle_done = TRUE;
 		} else if (strcmp(key, "idle-continue") == 0) {
@@ -246,6 +250,9 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		client_destroy(imap_client, "Client state initialization failed");
 		return -1;
 	}
+
+	if (master_input.tag != NULL)
+		imap_state_import_idle_cmd_tag(imap_client, master_input.tag);
 
 	/* make sure all pending input gets handled */
 	i_assert(imap_client->to_delayed_input == NULL);
