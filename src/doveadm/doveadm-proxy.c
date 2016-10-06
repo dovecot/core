@@ -165,8 +165,10 @@ static void cmd_proxy_kick(int argc, char *argv[])
 		str_append(cmd, "KICK-ALT\t");
 		str_append_tabescaped(cmd, ctx->username_field);
 	}
-	str_append_c(cmd, '\t');
-	str_append_tabescaped(cmd, argv[optind]);
+	for (; argv[optind] != NULL; optind++) {
+		str_append_c(cmd, '\t');
+		str_append_tabescaped(cmd, argv[optind]);
+	}
 	ipc_client_cmd(ctx->ipc, str_c(cmd), cmd_proxy_kick_callback, NULL);
 	io_loop_run(current_ioloop);
 	ipc_client_deinit(&ctx->ipc);
@@ -183,12 +185,12 @@ DOVEADM_CMD_PARAMS_END
 },
 {
 	.name = "proxy kick",
-	.usage = "[-a <ipc socket path>] [-f <passdb field>] <user>",
+	.usage = "[-a <ipc socket path>] [-f <passdb field>] <user> [...]",
 	.old_cmd = cmd_proxy_kick,
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('f', "passdb-field", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 }
 };
