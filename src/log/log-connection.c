@@ -283,9 +283,13 @@ static int log_connection_handshake(struct log_connection *log)
 	size_t size;
 	ssize_t ret;
 
+	/* we're reading from a FIFO, so we're assuming that we're getting a
+	   full handshake packet immediately. if not, treat it as an error
+	   message that we want to log. */
 	ret = i_stream_read(log->input);
 	if (ret < 0) {
-		i_error("read(log %s) failed: %m", log->default_prefix);
+		i_error("read(log %s) failed: %s", log->default_prefix,
+			i_stream_get_error(log->input));
 		return -1;
 	}
 	if ((size_t)ret < sizeof(handshake)) {
@@ -336,6 +340,9 @@ static void log_connection_input(struct log_connection *log)
 			log_connection_destroy(log);
 			return;
 		}
+		/* come back here even if we read something else besides a
+		   handshake. the first few lines could be coming from e.g.
+		   libc before the proper handshake line is sent. */
 	}
 
 	io_loop_time_refresh();
