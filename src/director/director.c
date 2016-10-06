@@ -885,20 +885,22 @@ director_kick_user_callback(enum ipc_client_cmd_state state ATTR_UNUSED,
 void director_kick_user(struct director *dir, struct director_host *src,
 			struct director_host *orig_src, const char *username)
 {
-	const char *cmd;
+	string_t *cmd = t_str_new(64);
 
-	cmd = t_strdup_printf("proxy\t*\tKICK\t%s", username);
-	ipc_client_cmd(dir->ipc_proxy, cmd,
+	str_append(cmd, "proxy\t*\tKICK\t");
+	str_append_tabescaped(cmd, username);
+	ipc_client_cmd(dir->ipc_proxy, str_c(cmd),
 		       director_kick_user_callback, (void *)NULL);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
 		orig_src->last_seq++;
 	}
-	cmd = t_strdup_printf("USER-KICK\t%s\t%u\t%u\t%s\n",
-		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
-		username);
-	director_update_send_version(dir, src, DIRECTOR_VERSION_USER_KICK, cmd);
+	str_printfa(cmd, "USER-KICK\t%s\t%u\t%u\t",
+		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq);
+	str_append_tabescaped(cmd, username);
+	str_append_c(cmd, '\n');
+	director_update_send_version(dir, src, DIRECTOR_VERSION_USER_KICK, str_c(cmd));
 }
 
 void director_kick_user_hash(struct director *dir, struct director_host *src,
