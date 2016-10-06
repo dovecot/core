@@ -20,13 +20,13 @@
 static
 int program_client_seekable_fd_callback(const char **path_r, void *context)
 {
-	struct program_client *pclient = (struct program_client *) context;
+	struct program_client *pclient = (struct program_client *)context;
 	string_t *path;
 	int fd;
 
 	path = t_str_new(128);
 	str_append(path, pclient->temp_prefix);
-	fd = safe_mkstemp(path, 0600, (uid_t) - 1, (gid_t) - 1);
+	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
 		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;
@@ -65,9 +65,8 @@ int program_client_connect(struct program_client *pclient)
 	int ret;
 
 	if (pclient->set.client_connect_timeout_msecs != 0) {
-		pclient->to = timeout_add
-			(pclient->set.client_connect_timeout_msecs,
-			 program_client_connect_timeout, pclient);
+		pclient->to = timeout_add(pclient->set.client_connect_timeout_msecs,
+					  program_client_connect_timeout, pclient);
 	}
 
 	if ((ret = pclient->connect(pclient)) < 0) {
@@ -261,8 +260,7 @@ void program_client_program_input(struct program_client *pclient)
 	if (pclient->output_seekable && pclient->seekable_output == NULL) {
 		struct istream *input_list[2] = { input, NULL };
 
-		input = i_stream_create_seekable(input_list,
-						 MAX_OUTPUT_MEMORY_BUFFER,
+		input = i_stream_create_seekable(input_list, MAX_OUTPUT_MEMORY_BUFFER,
 						 program_client_seekable_fd_callback,
 						 pclient);
 		i_stream_unref(&pclient->program_input);
@@ -353,8 +351,7 @@ int program_client_connected(struct program_client *pclient)
 	if (pclient->program_output != NULL &&
 	    (ret = program_client_program_output(pclient)) == 0) {
 		if (pclient->program_output != NULL) {
-			o_stream_set_flush_callback
-				(pclient->program_output,
+			o_stream_set_flush_callback(pclient->program_output,
 				 program_client_program_output, pclient);
 		}
 	}
@@ -415,7 +412,7 @@ struct istream *program_client_get_output_seekable(struct program_client *pclien
 
 #undef program_client_set_extra_fd
 void program_client_set_extra_fd(struct program_client *pclient, int fd,
-				 program_client_fd_callback_t * callback, void *context)
+				 program_client_fd_callback_t *callback, void *context)
 {
 	struct program_client_extra_fd *efds;
 	struct program_client_extra_fd *efd = NULL;
@@ -466,14 +463,13 @@ void program_client_init_streams(struct program_client *pclient)
 	if (pclient->fd_in >= 0) {
 		struct istream *input;
 
-		input = i_stream_create_fd(pclient->fd_in, (size_t) - 1);
+		input = i_stream_create_fd(pclient->fd_in, (size_t)-1);
 
 		pclient->program_input = input;
 		i_stream_set_name(pclient->program_input, "program stdout");
 
-		pclient->io = io_add
-			(pclient->fd_in, IO_READ, program_client_program_input,
-			 pclient);
+		pclient->io = io_add(pclient->fd_in, IO_READ,
+				     program_client_program_input, pclient);
 	}
 
 	/* Create streams for additional output through side-channel fds */
@@ -485,14 +481,12 @@ void program_client_init_streams(struct program_client *pclient)
 		for(i = 0; i < count; i++) {
 			i_assert(efds[i].parent_fd >= 0);
 			efds[i].input = i_stream_create_fd
-				(efds[i].parent_fd, (size_t) - 1);
+				(efds[i].parent_fd, (size_t)-1);
 			i_stream_set_name(efds[i].input,
-					  t_strdup_printf
-					  ("program output fd=%d",
-					   efds[i].child_fd));
-			efds[i].io =
-				io_add(efds[i].parent_fd, IO_READ,
-				       program_client_extra_fd_input, &efds[i]);
+					  t_strdup_printf("program output fd=%d",
+							  efds[i].child_fd));
+			efds[i].io = io_add(efds[i].parent_fd, IO_READ,
+					    program_client_extra_fd_input, &efds[i]);
 		}
 	}
 }

@@ -31,7 +31,7 @@ struct program_client {
 
 	char *path;
 	const char **args;
-	  ARRAY_TYPE(const_string) envs;
+	ARRAY_TYPE(const_string) envs;
 
 	int fd_in, fd_out;
 	struct io *io;
@@ -43,7 +43,7 @@ struct program_client {
 	struct ostream *output, *program_output;
 	char *temp_prefix;
 
-	  ARRAY(struct program_client_extra_fd) extra_fds;
+	ARRAY(struct program_client_extra_fd) extra_fds;
 
 	enum program_client_error error;
 	int exit_code;
