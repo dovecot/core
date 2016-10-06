@@ -165,7 +165,7 @@ int program_client_local_connect(struct program_client *pclient)
 	}
 
 	/* fork child */
-	if ((slclient->pid = fork()) == (pid_t) - 1) {
+	if ((slclient->pid = fork()) == (pid_t)-1) {
 		i_error("fork() failed: %m");
 
 		/* clean up */
