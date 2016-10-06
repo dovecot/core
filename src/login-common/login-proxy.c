@@ -839,8 +839,32 @@ void login_proxy_kill_idle(void)
 	}
 }
 
+static bool
+want_kick_virtual_user(struct client *client, const char *const *args,
+		       unsigned int key_idx ATTR_UNUSED)
+{
+	return str_array_find(args, client->virtual_user);
+}
+
+static bool
+want_kick_alt_username(struct client *client, const char *const *args,
+		       unsigned int key_idx)
+{
+	unsigned int i;
+
+	if (client->alt_usernames == NULL)
+		return FALSE;
+	for (i = 0; i < key_idx; i++) {
+		if (client->alt_usernames[i] == NULL)
+			return FALSE;
+	}
+	return str_array_find(args, client->alt_usernames[i]);
+}
+
 static void
-login_proxy_cmd_kick(struct ipc_cmd *cmd, const char *const *args)
+login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
+			  bool (*want_kick)(struct client *, const char *const *,
+					    unsigned int), unsigned int key_idx)
 {
 	struct login_proxy *proxy, *next;
 	unsigned int count = 0;
@@ -853,7 +877,7 @@ login_proxy_cmd_kick(struct ipc_cmd *cmd, const char *const *args)
 	for (proxy = login_proxies; proxy != NULL; proxy = next) {
 		next = proxy->next;
 
-		if (strcmp(proxy->client->virtual_user, args[0]) == 0) {
+		if (want_kick(proxy->client, args, key_idx)) {
 			login_proxy_free_delayed(&proxy, KILLED_BY_ADMIN_REASON);
 			count++;
 		}
@@ -861,12 +885,42 @@ login_proxy_cmd_kick(struct ipc_cmd *cmd, const char *const *args)
 	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) {
 		next = proxy->next;
 
-		if (strcmp(proxy->client->virtual_user, args[0]) == 0) {
+		if (want_kick(proxy->client, args, key_idx)) {
 			client_destroy(proxy->client, "Connection kicked");
 			count++;
 		}
 	}
 	ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
+}
+
+static void
+login_proxy_cmd_kick(struct ipc_cmd *cmd, const char *const *args)
+{
+	login_proxy_cmd_kick_full(cmd, args, want_kick_virtual_user, 0);
+}
+
+static void
+login_proxy_cmd_kick_alt(struct ipc_cmd *cmd, const char *const *args)
+{
+	char *const *fields;
+	unsigned int i, count;
+
+	if (args[0] == NULL) {
+		ipc_cmd_fail(&cmd, "Missing parameter");
+		return;
+	}
+	fields = array_get(&global_alt_usernames, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(fields[i], args[0]) == 0)
+			break;
+	}
+	if (i == count) {
+		/* field doesn't exist, but it's not an error necessarily */
+		ipc_cmd_success_reply(&cmd, "0");
+		return;
+	}
+
+	login_proxy_cmd_kick_full(cmd, args+1, want_kick_alt_username, i);
 }
 
 static unsigned int director_username_hash(struct client *client)
@@ -973,6 +1027,8 @@ static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line)
 	args++;
 	if (strcmp(name, "KICK") == 0)
 		login_proxy_cmd_kick(cmd, args);
+	else if (strcmp(name, "KICK-ALT") == 0)
+		login_proxy_cmd_kick_alt(cmd, args);
 	else if (strcmp(name, "KICK-DIRECTOR-HASH") == 0)
 		login_proxy_cmd_kick_director_hash(cmd, args);
 	else if (strcmp(name, "LIST-FULL") == 0)
