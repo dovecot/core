@@ -6,7 +6,7 @@
 
 #define DIRECTOR_VERSION_NAME "director"
 #define DIRECTOR_VERSION_MAJOR 1
-#define DIRECTOR_VERSION_MINOR 7
+#define DIRECTOR_VERSION_MINOR 8
 
 /* weak users supported in protocol */
 #define DIRECTOR_VERSION_WEAK_USERS 1
@@ -24,6 +24,8 @@
 #define DIRECTOR_VERSION_UPDOWN 6
 /* user tag version 2 supported */
 #define DIRECTOR_VERSION_TAGS_V2 7
+/* user-kick-alt supported */
+#define DIRECTOR_VERSION_USER_KICK_ALT 8
 
 /* Minimum time between even attempting to communicate with a director that
    failed due to a protocol error. */
@@ -149,6 +151,10 @@ void director_move_user(struct director *dir, struct director_host *src,
 	ATTR_NULL(3);
 void director_kick_user(struct director *dir, struct director_host *src,
 			struct director_host *orig_src, const char *username)
+	ATTR_NULL(3);
+void director_kick_user_alt(struct director *dir, struct director_host *src,
+			    struct director_host *orig_src,
+			    const char *field, const char *value)
 	ATTR_NULL(3);
 void director_kick_user_hash(struct director *dir, struct director_host *src,
 			     struct director_host *orig_src,

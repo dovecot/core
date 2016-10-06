@@ -1090,6 +1090,25 @@ director_cmd_user_kick(struct director_connection *conn,
 }
 
 static bool
+director_cmd_user_kick_alt(struct director_connection *conn,
+			   const char *const *args)
+{
+	struct director_host *dir_host;
+	int ret;
+
+	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
+		return ret > 0;
+
+	if (str_array_length(args) != 2) {
+		director_cmd_error(conn, "Invalid parameters");
+		return FALSE;
+	}
+
+	director_kick_user_alt(conn->dir, conn->host, dir_host, args[0], args[1]);
+	return TRUE;
+}
+
+static bool
 director_cmd_user_kick_hash(struct director_connection *conn,
 			    const char *const *args)
 {
@@ -1579,6 +1598,8 @@ director_connection_handle_cmd(struct director_connection *conn,
 		return director_cmd_user_move(conn, args);
 	if (strcmp(cmd, "USER-KICK") == 0)
 		return director_cmd_user_kick(conn, args);
+	if (strcmp(cmd, "USER-KICK-ALT") == 0)
+		return director_cmd_user_kick_alt(conn, args);
 	if (strcmp(cmd, "USER-KICK-HASH") == 0)
 		return director_cmd_user_kick_hash(conn, args);
 	if (strcmp(cmd, "USER-KILLED") == 0)
