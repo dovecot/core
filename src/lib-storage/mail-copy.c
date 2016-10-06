@@ -76,10 +76,13 @@ mail_storage_try_copy(struct mail_save_context **_ctx, struct mail *mail)
 	if (mailbox_save_begin(_ctx, input) < 0)
 		return -1;
 
+	ssize_t ret;
 	do {
 		if (mailbox_save_continue(ctx) < 0)
 			break;
-	} while (i_stream_read(input) != -1);
+		ret = i_stream_read(input);
+		i_assert(ret != 0);
+	} while (ret != -1);
 
 	if (input->stream_errno != 0) {
 		mail_storage_set_critical(ctx->transaction->box->storage,

@@ -200,8 +200,11 @@ static void doveadm_http_server_json_success(void *context, struct istream *resu
 
 static int doveadm_http_server_istream_read(struct client_connection_http *conn)
 {
-	while (i_stream_read(conn->cmd_param->value.v_istream) > 0)
-		i_stream_skip(conn->cmd_param->value.v_istream, i_stream_get_data_size(conn->cmd_param->value.v_istream));
+	const unsigned char *data;
+	size_t size;
+
+	while (i_stream_read_more(conn->cmd_param->value.v_istream, &data, &size) > 0)
+		i_stream_skip(conn->cmd_param->value.v_istream, size);
 	if (!conn->cmd_param->value.v_istream->eof)
 		return 0;
 

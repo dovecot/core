@@ -205,12 +205,10 @@ cmd_append_catenate_mpurl(struct client_command_context *cmd,
 	/* add this input stream to chain */
 	i_stream_chain_append(ctx->catchain, mpresult.input);
 	/* save by reading the chain stream */
-	while (!i_stream_is_eof(mpresult.input)) {
+	do {
 		ret = i_stream_read(mpresult.input);
 		i_assert(ret != 0); /* we can handle only blocking input here */
-		if (mailbox_save_continue(ctx->save_ctx) < 0 || ret == -1)
-			break;
-	}
+	} while (mailbox_save_continue(ctx->save_ctx) == 0 && ret != -1);
 
 	if (mpresult.input->stream_errno != 0) {
 		mail_storage_set_critical(ctx->box->storage,

@@ -35,6 +35,7 @@ int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
 	unsigned char md5_result[MD5_RESULTLEN];
 	const unsigned char *data;
 	size_t size;
+	ssize_t sret;
 	int ret = 0;
 
 	hdr_ctx = mailbox_header_lookup_init(mail->box, hashed_headers);
@@ -47,15 +48,12 @@ int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
 
 	md5_init(&md5_ctx);
 	memset(&hash_ctx, 0, sizeof(hash_ctx));
-	while (!i_stream_is_eof(input)) {
-		if (i_stream_read_more(input, &data, &size) == -1)
-			break;
-		if (size == 0)
-			break;
+	while ((sret = i_stream_read_more(input, &data, &size)) > 0) {
 		message_header_hash_more(&hash_ctx, &hash_method_md5, &md5_ctx,
 					 version, data, size);
 		i_stream_skip(input, size);
 	}
+	i_assert(sret == -1);
 	if (input->stream_errno != 0)
 		ret = -1;
 	i_stream_unref(&input);

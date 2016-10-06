@@ -598,8 +598,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 		return mbox_save_body(ctx);
 	}
 
-	while ((ret = i_stream_read(ctx->input)) > 0) {
-		data = i_stream_get_data(ctx->input, &size);
+	while ((ret = i_stream_read_more(ctx->input, &data, &size)) > 0) {
 		for (i = 0; i < size; i++) {
 			if (data[i] == '\n' &&
 			    ((i == 0 && ctx->last_char == '\n') ||

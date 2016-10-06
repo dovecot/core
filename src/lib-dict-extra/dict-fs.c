@@ -94,7 +94,7 @@ static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	path = fs_dict_get_full_key(dict, key);
 	file = fs_file_init(dict->fs, path, FS_OPEN_MODE_READONLY);
 	input = fs_read_stream(file, IO_BLOCK_SIZE);
-	i_stream_read(input);
+	(void)i_stream_read(input);
 
 	str = str_new(pool, i_stream_get_data_size(input)+1);
 	while ((ret = i_stream_read_more(input, &data, &size)) > 0) {

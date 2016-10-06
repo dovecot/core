@@ -163,8 +163,11 @@ static struct doveadm_mail_cmd_context *cmd_purge_alloc(void)
 
 static void doveadm_mail_cmd_input_input(struct doveadm_mail_cmd_context *ctx)
 {
-	while (i_stream_read(ctx->cmd_input) > 0)
-		i_stream_skip(ctx->cmd_input, i_stream_get_data_size(ctx->cmd_input));
+	const unsigned char *data;
+	size_t size;
+
+	while (i_stream_read_more(ctx->cmd_input, &data, &size) > 0)
+		i_stream_skip(ctx->cmd_input, size);
 	if (!ctx->cmd_input->eof)
 		return;
 
