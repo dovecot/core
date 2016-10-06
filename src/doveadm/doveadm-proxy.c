@@ -41,21 +41,59 @@ cmd_proxy_init(int argc, char *argv[], const char *getopt_args,
 	return ctx;
 }
 
-static void cmd_proxy_list_callback(enum ipc_client_cmd_state state,
-				    const char *data, void *context ATTR_UNUSED)
+static void cmd_proxy_list_header(const char *const *args)
 {
+	struct {
+		const char *key;
+		const char *title;
+	} header_map[] = {
+		{ "service", "proto" },
+		{ "src-ip", "src ip" },
+		{ "dest-ip", "dest ip" },
+		{ "dest-port", "port" },
+	};
+	for (unsigned int i = 0; args[i] != NULL; i++) {
+		const char *arg = args[i];
+
+		if (strcmp(arg, "username") == 0 ||
+		    strncmp(arg, "user_", 5) == 0) {
+			doveadm_print_header(arg, arg,
+					     DOVEADM_PRINT_HEADER_FLAG_EXPAND);
+			continue;
+		}
+		const char *title = arg;
+		for (unsigned int j = 0; j < N_ELEMENTS(header_map); j++) {
+			if (strcmp(header_map[j].key, arg) == 0) {
+				title = header_map[j].title;
+				break;
+			}
+		}
+		doveadm_print_header(arg, title, 0);
+	}
+}
+
+static void cmd_proxy_list_callback(enum ipc_client_cmd_state state,
+				    const char *data, void *context)
+{
+	bool *seen_header = context;
+
 	switch (state) {
-	case IPC_CLIENT_CMD_STATE_REPLY:
-		T_BEGIN {
-			const char *const *args = t_strsplit_tab(data);
+	case IPC_CLIENT_CMD_STATE_REPLY: {
+		const char *const *args = t_strsplit_tab(data);
+
+		if (!*seen_header) {
+			cmd_proxy_list_header(args);
+			*seen_header = TRUE;
+		} else {
 			for (; *args != NULL; args++)
 				doveadm_print(*args);
-		} T_END;
+		}
 		return;
+	}
 	case IPC_CLIENT_CMD_STATE_OK:
 		break;
 	case IPC_CLIENT_CMD_STATE_ERROR:
-		i_error("LIST failed: %s", data);
+		i_error("LIST-FULL failed: %s", data);
 		break;
 	}
 	io_loop_stop(current_ioloop);
@@ -64,19 +102,15 @@ static void cmd_proxy_list_callback(enum ipc_client_cmd_state state,
 static void cmd_proxy_list(int argc, char *argv[])
 {
 	struct proxy_context *ctx;
+	bool seen_header = FALSE;
 
 	ctx = cmd_proxy_init(argc, argv, "a:", cmd_proxy_list);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
-	doveadm_print_header("username", "username", DOVEADM_PRINT_HEADER_FLAG_EXPAND);
-	doveadm_print_header("service", "proto", 0);
-	doveadm_print_header("src-ip", "src ip", 0);
-	doveadm_print_header("dest-ip", "dest ip", 0);
-	doveadm_print_header("dest-port", "port", 0);
 
 	io_loop_set_running(current_ioloop);
-	ipc_client_cmd(ctx->ipc, "proxy\t*\tLIST",
-		       cmd_proxy_list_callback, NULL);
+	ipc_client_cmd(ctx->ipc, "proxy\t*\tLIST-FULL",
+		       cmd_proxy_list_callback, &seen_header);
 	if (io_loop_is_running(current_ioloop))
 		io_loop_run(current_ioloop);
 	ipc_client_deinit(&ctx->ipc);
