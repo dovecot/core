@@ -5,7 +5,9 @@
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
+#include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "str-sanitize.h"
 #include "time-util.h"
 #include "master-service.h"
@@ -915,30 +917,51 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 }
 
 static void
-login_proxy_cmd_list_reply(struct ipc_cmd *cmd,
+login_proxy_cmd_list_reply(struct ipc_cmd *cmd, string_t *str,
 			   struct login_proxy *proxy)
 {
-	T_BEGIN {
-		const char *reply;
+	unsigned int i, alt_count = array_count(&global_alt_usernames);
 
-		reply = t_strdup_printf("%s\t%s\t%s\t%s\t%u",
-					proxy->client->virtual_user,
-					login_binary->protocol,
-					net_ip2addr(&proxy->client->ip),
-					net_ip2addr(&proxy->ip), proxy->port);
-		ipc_cmd_send(cmd, reply);
-	} T_END;
+	str_truncate(str, 0);
+	str_append_tabescaped(str, proxy->client->virtual_user);
+	str_append_c(str, '\t');
+	i = 0;
+	if (proxy->client->alt_usernames != NULL) {
+		for (; proxy->client->alt_usernames[i] != NULL; i++) {
+			str_append_tabescaped(str, proxy->client->alt_usernames[i]);
+			str_append_c(str, '\t');
+		}
+		i_assert(i <= alt_count);
+	}
+	for (; i < alt_count; i++)
+		str_append_c(str, '\t');
+
+	str_printfa(str, "%s\t%s\t%s\t%u", login_binary->protocol,
+		    net_ip2addr(&proxy->client->ip),
+		    net_ip2addr(&proxy->ip), proxy->port);
+	ipc_cmd_send(cmd, str_c(str));
 }
 
 static void
 login_proxy_cmd_list(struct ipc_cmd *cmd, const char *const *args ATTR_UNUSED)
 {
 	struct login_proxy *proxy;
+	char *const *fieldp;
+	string_t *str = t_str_new(64);
+
+	str_append(str, "username\t");
+	array_foreach(&global_alt_usernames, fieldp) {
+		str_append_tabescaped(str, *fieldp);
+		str_append_c(str, '\t');
+	}
+	str_append(str, "service\tsrc-ip\tdest-ip\tdest-port");
+
+	ipc_cmd_send(cmd, str_c(str));
 
 	for (proxy = login_proxies; proxy != NULL; proxy = proxy->next)
-		login_proxy_cmd_list_reply(cmd, proxy);
+		login_proxy_cmd_list_reply(cmd, str, proxy);
 	for (proxy = login_proxies_pending; proxy != NULL; proxy = proxy->next)
-		login_proxy_cmd_list_reply(cmd, proxy);
+		login_proxy_cmd_list_reply(cmd, str, proxy);
 	ipc_cmd_success(&cmd);
 }
 
@@ -952,7 +975,7 @@ static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line)
 		login_proxy_cmd_kick(cmd, args);
 	else if (strcmp(name, "KICK-DIRECTOR-HASH") == 0)
 		login_proxy_cmd_kick_director_hash(cmd, args);
-	else if (strcmp(name, "LIST") == 0)
+	else if (strcmp(name, "LIST-FULL") == 0)
 		login_proxy_cmd_list(cmd, args);
 	else
 		ipc_cmd_fail(&cmd, "Unknown command");
