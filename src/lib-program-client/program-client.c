@@ -18,6 +18,15 @@
 #define MAX_OUTPUT_MEMORY_BUFFER (1024*128)
 
 static
+void program_client_callback(struct program_client *pclient, int result, void *context)
+{
+	program_client_callback_t *callback = pclient->callback;
+	i_assert(pclient->callback != NULL);
+	pclient->callback = NULL;
+	callback(result, context);
+}
+
+static
 int program_client_seekable_fd_callback(const char **path_r, void *context)
 {
 	struct program_client *pclient = (struct program_client *)context;
@@ -116,9 +125,6 @@ void program_client_disconnect(struct program_client *pclient, bool force)
 	bool error = FALSE;
 	int ret;
 
-	if (pclient->ioloop != NULL)
-		io_loop_stop(pclient->ioloop);
-
 	if (pclient->disconnected)
 		return;
 
@@ -154,6 +160,12 @@ void program_client_disconnect(struct program_client *pclient, bool force)
 	if (error && pclient->error == PROGRAM_CLIENT_ERROR_NONE) {
 		pclient->error = PROGRAM_CLIENT_ERROR_OTHER;
 	}
+
+	program_client_callback(pclient,
+		pclient->error != PROGRAM_CLIENT_ERROR_NONE ?
+			-1 :
+			pclient->exit_code,
+		pclient->context);
 }
 
 void program_client_fail(struct program_client *pclient, enum program_client_error error)
@@ -317,7 +329,8 @@ void program_client_program_input(struct program_client *pclient)
 		}
 		if (!program_client_input_pending(pclient))
 			program_client_disconnect(pclient, FALSE);
-	}
+	} else
+		program_client_disconnect(pclient, FALSE);
 }
 
 static
@@ -499,30 +512,84 @@ void program_client_destroy(struct program_client **_pclient)
 
 	if (pclient->input != NULL)
 		i_stream_unref(&pclient->input);
+	if (pclient->program_input != NULL)
+		i_stream_unref(&pclient->program_input);
+	if (pclient->program_output != NULL)
+		o_stream_unref(&pclient->program_output);
 	if (pclient->output != NULL)
 		o_stream_unref(&pclient->output);
 	if (pclient->seekable_output != NULL)
 		i_stream_unref(&pclient->seekable_output);
 	if (pclient->io != NULL)
 		io_remove(&pclient->io);
-	if (pclient->ioloop != NULL)
-		io_loop_destroy(&pclient->ioloop);
 	i_free(pclient->temp_prefix);
 	pool_unref(&pclient->pool);
 	*_pclient = NULL;
 }
 
+void program_client_switch_ioloop(struct program_client *pclient)
+{
+	if (pclient->input != NULL)
+		i_stream_switch_ioloop(pclient->input);
+	if (pclient->program_input != NULL)
+		i_stream_switch_ioloop(pclient->program_input);
+	if (pclient->seekable_output != NULL)
+		i_stream_switch_ioloop(pclient->seekable_output);
+	if (pclient->output != NULL)
+		o_stream_switch_ioloop(pclient->output);
+	if (pclient->program_output != NULL)
+		o_stream_switch_ioloop(pclient->program_output);
+	if (pclient->to != NULL)
+		pclient->to = io_loop_move_timeout(&pclient->to);
+	if (pclient->io != NULL)
+		pclient->io = io_loop_move_io(&pclient->io);
+}
+
+static
+void program_client_run_callback(int result, int *context)
+{
+	*context = result;
+	io_loop_stop(current_ioloop);
+}
+
 int program_client_run(struct program_client *pclient)
+{
+	int ret = 0;
+	struct ioloop *prev_ioloop = current_ioloop;
+	struct ioloop *ioloop = io_loop_create();
+
+	program_client_switch_ioloop(pclient);
+
+	program_client_run_async(pclient, program_client_run_callback, &ret);
+
+	if (ret == 0) {
+		io_loop_run(ioloop);
+	}
+
+	io_loop_set_current(prev_ioloop);
+	program_client_switch_ioloop(pclient);
+	io_loop_set_current(ioloop);
+	io_loop_destroy(&ioloop);
+
+	if (pclient->error != PROGRAM_CLIENT_ERROR_NONE)
+		return -1;
+
+	return pclient->exit_code;
+}
+
+#undef program_client_run_async
+void program_client_run_async(struct program_client *pclient, program_client_callback_t *callback, void *context)
 {
 	int ret;
 
-	/* reset */
+	i_assert(callback != NULL);
+
 	pclient->disconnected = FALSE;
 	pclient->exit_code = 1;
 	pclient->error = PROGRAM_CLIENT_ERROR_NONE;
 
-	pclient->ioloop = io_loop_create();
-
+	pclient->callback = callback;
+	pclient->context = context;
 	if ((ret = program_client_connect(pclient)) >= 0) {
 		/* run output */
 		if (ret > 0 && pclient->program_output != NULL &&
@@ -531,27 +598,15 @@ int program_client_run(struct program_client *pclient)
 				(pclient->program_output,
 				 program_client_program_output, pclient);
 		}
-
-		/* run i/o event loop */
 		if (ret < 0) {
 			i_error("write(%s) failed: %s",
 				o_stream_get_name(pclient->program_output),
 				o_stream_get_error(pclient->program_output));
 			pclient->error = PROGRAM_CLIENT_ERROR_IO;
-		} else if (!pclient->disconnected &&
-			   (ret == 0 ||
-			    program_client_input_pending(pclient))) {
-			io_loop_run(pclient->ioloop);
+			program_client_callback(pclient, ret, context);
+			return;
 		}
-
-		/* finished */
-		program_client_disconnect(pclient, FALSE);
+	} else {
+		program_client_callback(pclient, ret, context);
 	}
-
-	io_loop_destroy(&pclient->ioloop);
-
-	if (pclient->error != PROGRAM_CLIENT_ERROR_NONE)
-		return -1;
-
-	return pclient->exit_code;
 }
