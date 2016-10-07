@@ -199,8 +199,10 @@ void program_client_remote_connected(struct program_client *pclient)
 	program_client_init_streams(pclient);
 
 	if (!slclient->noreply) {
+		struct istream *is = pclient->program_input;
 		pclient->program_input =
 			program_client_istream_create(pclient, pclient->program_input);
+		i_stream_unref(&is);
 	}
 
 	str = t_str_new(1024);

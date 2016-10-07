@@ -35,7 +35,6 @@ struct program_client {
 
 	int fd_in, fd_out;
 	struct io *io;
-	struct ioloop *ioloop;
 	struct timeout *to;
 	time_t start_time;
 
@@ -44,6 +43,9 @@ struct program_client {
 	char *temp_prefix;
 
 	ARRAY(struct program_client_extra_fd) extra_fds;
+
+	program_client_callback_t *callback;
+	void *context;
 
 	enum program_client_error error;
 	int exit_code;
