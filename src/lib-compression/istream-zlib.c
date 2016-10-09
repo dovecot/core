@@ -379,7 +379,7 @@ i_stream_zlib_seek(struct istream_private *stream, uoff_t v_offset, bool mark)
 		stream->pos = stream->skip;
 	} else {
 		/* read and cache forward */
-		ssize_t ret;
+		ssize_t ret = -1;
 
 		do {
 			size_t avail = stream->pos - stream->skip;
