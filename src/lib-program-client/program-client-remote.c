@@ -232,7 +232,7 @@ void program_client_remote_connected(struct program_client *pclient)
 }
 
 static
-int program_client_remote_connect(struct program_client *pclient)
+int program_client_unix_connect(struct program_client *pclient)
 {
 	struct program_client_remote *slclient =
 		(struct program_client_remote *) pclient;
@@ -317,17 +317,17 @@ int program_client_remote_disconnect(struct program_client *pclient, bool force)
 }
 
 struct program_client *
-program_client_remote_create(const char *socket_path, const char *const *args,
-			     const struct program_client_settings *set,
-			     bool noreply)
+program_client_unix_create(const char *socket_path, const char *const *args,
+			   const struct program_client_settings *set,
+			   bool noreply)
 {
 	struct program_client_remote *pclient;
 	pool_t pool;
 
-	pool = pool_alloconly_create("program client remote", 1024);
+	pool = pool_alloconly_create("program client unix", 1024);
 	pclient = p_new(pool, struct program_client_remote, 1);
 	program_client_init(&pclient->client, pool, socket_path, args, set);
-	pclient->client.connect = program_client_remote_connect;
+	pclient->client.connect = program_client_unix_connect;
 	pclient->client.close_output = program_client_remote_close_output;
 	pclient->client.disconnect = program_client_remote_disconnect;
 	pclient->noreply = noreply;

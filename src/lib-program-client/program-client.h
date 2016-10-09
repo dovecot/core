@@ -23,7 +23,7 @@ typedef void program_client_callback_t(int, void *);
 struct program_client *program_client_local_create(const char *bin_path,
 	const char *const *args,
 	const struct program_client_settings *set);
-struct program_client *program_client_remote_create(const char *socket_path,
+struct program_client *program_client_unix_create(const char *socket_path,
 	const char *const *args,
 	const struct program_client_settings *set, bool noreply);
 
