@@ -332,6 +332,21 @@ void fs_default_set_metadata(struct fs_file *file,
 	metadata->value = p_strdup(file->metadata_pool, value);
 }
 
+const char *fs_metadata_find(const ARRAY_TYPE(fs_metadata) *metadata,
+			     const char *key)
+{
+	const struct fs_metadata *md;
+
+	if (array_is_created(metadata))
+		return NULL;
+
+	array_foreach(metadata, md) {
+		if (strcmp(md->key, key) == 0)
+			return md->value;
+	}
+	return NULL;
+}
+
 void fs_set_metadata(struct fs_file *file, const char *key, const char *value)
 {
 	i_assert(key != NULL);
@@ -412,18 +427,11 @@ int fs_lookup_metadata(struct fs_file *file, const char *key,
 		       const char **value_r)
 {
 	const ARRAY_TYPE(fs_metadata) *metadata;
-	const struct fs_metadata *md;
 
 	if (fs_get_metadata(file, &metadata) < 0)
 		return -1;
-	array_foreach(metadata, md) {
-		if (strcmp(md->key, key) == 0) {
-			*value_r = md->value;
-			return 1;
-		}
-	}
-	*value_r = NULL;
-	return 0;
+	*value_r = fs_metadata_find(metadata, key);
+	return *value_r != NULL ? 1 : 0;
 }
 
 const char *fs_file_path(struct fs_file *file)
