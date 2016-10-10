@@ -6,9 +6,10 @@
 #include "fs-test.h"
 #include "test-common.h"
 
+static const struct fs_settings fs_set;
+
 static void test_fs_metawrap_stat(void)
 {
-	struct fs_settings fs_set;
 	struct fs *fs;
 	struct fs_file *file;
 	struct test_fs_file *test_file;
@@ -19,7 +20,6 @@ static void test_fs_metawrap_stat(void)
 
 	test_begin("fs metawrap stat");
 
-	memset(&fs_set, 0, sizeof(fs_set));
 	if (fs_init("metawrap", "test", &fs_set, &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 
@@ -53,11 +53,28 @@ static void test_fs_metawrap_async(void)
 	test_fs_async("double-metawrap", FS_PROPERTY_METADATA, "metawrap", "metawrap:test");
 }
 
+static void test_fs_metawrap_write_empty(void)
+{
+	struct fs *fs;
+	const char *error;
+
+	test_begin("fs metawrap write empty file");
+	if (fs_init("metawrap", "test", &fs_set, &fs, &error) < 0)
+		i_fatal("fs_init() failed: %s", error);
+	struct fs_file *file = fs_file_init(fs, "foo", FS_OPEN_MODE_REPLACE);
+	struct ostream *output = fs_write_stream(file);
+	test_assert(fs_write_stream_finish(file, &output) > 0);
+	fs_file_deinit(&file);
+	fs_deinit(&fs);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_fs_metawrap_stat,
 		test_fs_metawrap_async,
+		test_fs_metawrap_write_empty,
 		NULL
 	};
 	return test_run(test_functions);
