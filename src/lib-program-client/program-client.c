@@ -312,6 +312,8 @@ void program_client_program_input(struct program_client *pclient)
 					program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 					return;
 				}
+				if (sent == 0)
+					return;
 				size = (size_t)sent;
 			}
 
