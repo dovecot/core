@@ -84,6 +84,10 @@ static void last_login_mail_user_created(struct mail_user *user)
 		   not lda's raw user or accessed shared users */
 		return;
 	}
+	if (user->session_restored) {
+		/* This is IMAP unhibernation, not a real login. */
+		return;
+	}
 
 	dict_value = mail_user_plugin_getenv(user, "last_login_dict");
 	if (dict_value == NULL || dict_value[0] == '\0')
