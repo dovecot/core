@@ -740,10 +740,16 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	text = strcasecmp(content_type, "text") == 0;
 	message_rfc822 = strcasecmp(content_type, "message") == 0 &&
 		strcasecmp(subtype, "rfc822") == 0;
+#if 0
+	/* Disabled for now. Earlier Dovecot versions handled broken
+	   Content-Type headers by writing them as "text" "plain" to
+	   BODYSTRUCTURE reply, but the message_part didn't have
+	   MESSAGE_PART_FLAG_TEXT. */
 	if (text != ((part->flags & MESSAGE_PART_FLAG_TEXT) != 0)) {
 		*error_r = "message_part text flag doesn't match BODYSTRUCTURE";
 		return -1;
 	}
+#endif
 	if (message_rfc822 != ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0)) {
 		*error_r = "message_part message/rfc822 flag doesn't match BODYSTRUCTURE";
 		return -1;
