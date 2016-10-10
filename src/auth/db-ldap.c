@@ -1019,7 +1019,7 @@ static int db_ldap_bind_sasl(struct ldap_connection *conn)
 	return 0;
 }
 #else
-static int db_ldap_bind_sasl(struct ldap_connection *conn)
+static int db_ldap_bind_sasl(struct ldap_connection *conn ATTR_UNUSED)
 {
 	i_unreached(); /* already checked at init */
 
