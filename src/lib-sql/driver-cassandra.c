@@ -56,6 +56,7 @@ struct cassandra_db {
 	CassConsistency read_fallback_consistency, write_fallback_consistency, delete_fallback_consistency;
 	CassLogLevel log_level;
 	bool debug_queries;
+	bool latency_aware_routing;
 	unsigned int protocol_version;
 	unsigned int num_threads;
 	unsigned int connect_timeout_secs, request_timeout_secs;
@@ -442,6 +443,8 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 				i_fatal("cassandra: Unknown log_level: %s", value);
 		} else if (strcmp(key, "debug_queries") == 0) {
 			db->debug_queries = TRUE;
+		} else if (strcmp(key, "latency_aware_routing") == 0) {
+			db->latency_aware_routing = TRUE;
 		} else if (strcmp(key, "version") == 0) {
 			if (str_to_uint(value, &db->protocol_version) < 0)
 				i_fatal("cassandra: Invalid version: %s", value);
@@ -569,6 +572,8 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 		cass_cluster_set_protocol_version(db->cluster, db->protocol_version);
 	if (db->num_threads != 0)
 		cass_cluster_set_num_threads_io(db->cluster, db->num_threads);
+	if (db->latency_aware_routing)
+		cass_cluster_set_latency_aware_routing(db->cluster, TRUE);
 	db->session = cass_session_new();
 	if (db->metrics_path != NULL)
 		db->to_metrics = timeout_add(1000, driver_cassandra_metrics_write, db);
