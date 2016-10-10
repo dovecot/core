@@ -36,13 +36,13 @@ static void parse_content_type(struct message_part_body_data *data,
 	string_t *str;
 	unsigned int i;
 	bool charset_found = FALSE;
+	int ret;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
 	rfc822_skip_lwsp(&parser);
 
 	str = t_str_new(256);
-	if (rfc822_parse_content_type(&parser, str) < 0)
-		return;
+	ret = rfc822_parse_content_type(&parser, str);
 
 	/* Save content type and subtype */
 	value = str_c(str);
@@ -55,6 +55,16 @@ static void parse_content_type(struct message_part_body_data *data,
 	}
 	str_truncate(str, i);
 	data->content_type = imap_get_string(data->pool, str_c(str));
+
+	if (ret < 0) {
+		/* Content-Type is broken, but we wanted to get it as well as
+		   we could. Don't try to read the parameters anymore though.
+
+		   We don't completely ignore a broken Content-Type, because
+		   then it would be written as text/plain. This would cause a
+		   mismatch with the message_part's MESSAGE_PART_FLAG_TEXT. */
+		return;
+	}
 
 	/* parse parameters and save them */
 	str_truncate(str, 0);
