@@ -19,6 +19,7 @@ doveadm\-backup \- Dovecot\(aqs one\-way mailbox synchronization utility
 [\fB\-s\fP \fIstate\fP]
 [\fB\-T\fP \fIsecs\fP]
 [\fB\-t\fP \fIstart date\fP]
+[\fB\-e\fP \fIend date\fP]
 \fB\-d\fP|\fIdestination\fP
 .\"-------------------------------------
 .PP
@@ -35,6 +36,7 @@ doveadm\-backup \- Dovecot\(aqs one\-way mailbox synchronization utility
 [\fB\-s\fP \fIstate\fP]
 [\fB\-T\fP \fIsecs\fP]
 [\fB\-t\fP \fIstart date\fP]
+[\fB\-e\fP \fIend date\fP]
 \fB\-d\fP|\fIdestination\fP
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
