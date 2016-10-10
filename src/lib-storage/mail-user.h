@@ -37,6 +37,9 @@ struct mail_user {
 	struct ip_addr *local_ip, *remote_ip;
 	const char *auth_token, *auth_user;
 	const char *const *userdb_fields;
+	/* Timestamp when this session was initially created. Most importantly
+	   this stays the same after IMAP client is hibernated and restored. */
+	time_t session_create_time;
 
 	const struct var_expand_table *var_expand_table;
 	/* If non-NULL, fail the user initialization with this error.
@@ -91,6 +94,8 @@ struct mail_user {
 	bool stats_enabled:1;
 	/* Enable autoexpunging at deinit. */
 	bool autoexpunge_enabled:1;
+	/* This session was restored (e.g. IMAP unhibernation) */
+	bool session_restored:1;
 };
 
 struct mail_user_module_register {

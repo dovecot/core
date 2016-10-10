@@ -47,6 +47,10 @@ struct mail_storage_service_input {
 	/* If set, use this string as the session ID prefix, but also append
 	   a unique session ID suffix to it. */
 	const char *session_id_prefix;
+	/* If non-zero, override timestamp when session was created and set
+	   mail_user.session_restored=TRUE */
+	time_t session_create_time;
+
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 

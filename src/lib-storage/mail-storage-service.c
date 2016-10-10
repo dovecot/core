@@ -660,6 +660,11 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->admin = user->admin;
 	mail_user->auth_token = p_strdup(mail_user->pool, user->auth_token);
 	mail_user->auth_user = p_strdup(mail_user->pool, user->auth_user);
+	if (user->input.session_create_time != 0) {
+		mail_user->session_create_time =
+			user->input.session_create_time;
+		mail_user->session_restored = TRUE;
+	}
 	if (user->session_id_counter++ == 0) {
 		mail_user->session_id =
 			p_strdup(mail_user->pool, user->input.session_id);
@@ -1232,6 +1237,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			mail_storage_service_generate_session_id(user_pool,
 				input->session_id_prefix);
 	}
+	user->input.session_create_time = input->session_create_time;
 	user->user_info = user_info;
 	user->flags = flags;
 
