@@ -94,7 +94,7 @@ static
 void test_program_io_async(void) {
 	test_begin("test_program_io (async)");
 
-	int ret;
+	int ret = -2;
 	struct ioloop *ioloop = io_loop_create();
 	io_loop_set_current(ioloop);
 
@@ -114,7 +114,8 @@ void test_program_io_async(void) {
 
 	program_client_run_async(pc, test_program_io_async_callback, &ret);
 
-	io_loop_run(ioloop);
+	if (ret == -2)
+		io_loop_run(ioloop);
 
 	test_assert(strcmp(str_c(output), pclient_test_io_string) == 0);
 
