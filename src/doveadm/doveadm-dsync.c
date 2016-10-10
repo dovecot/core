@@ -1200,11 +1200,11 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 
 struct doveadm_mail_cmd cmd_dsync_mirror = {
 	cmd_dsync_alloc, "sync",
-	"[-1fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] -d|<dest>"
+	"[-1fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] [-t <start date>] -d|<dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_backup = {
 	cmd_dsync_backup_alloc, "backup",
-	"[-fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] -d|<dest>"
+	"[-fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] [-t <start date>] -d|<dest>"
 };
 struct doveadm_mail_cmd cmd_dsync_server = {
 	cmd_dsync_server_alloc, "dsync-server", &doveadm_mail_cmd_hide
