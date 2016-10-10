@@ -554,7 +554,7 @@ void program_client_run_callback(int result, int *context)
 
 int program_client_run(struct program_client *pclient)
 {
-	int ret = 0;
+	int ret = -2;
 	struct ioloop *prev_ioloop = current_ioloop;
 	struct ioloop *ioloop = io_loop_create();
 
@@ -562,7 +562,7 @@ int program_client_run(struct program_client *pclient)
 
 	program_client_run_async(pclient, program_client_run_callback, &ret);
 
-	if (ret == 0) {
+	if (ret == -2) {
 		io_loop_run(ioloop);
 	}
 
