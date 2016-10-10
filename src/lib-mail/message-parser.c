@@ -475,6 +475,7 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 	struct rfc822_parser_context parser;
 	const char *const *results;
 	string_t *content_type;
+	int ret;
 
 	if (ctx->part_seen_content_type)
 		return;
@@ -484,8 +485,7 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 	rfc822_skip_lwsp(&parser);
 
 	content_type = t_str_new(64);
-	if (rfc822_parse_content_type(&parser, content_type) < 0)
-		return;
+	ret = rfc822_parse_content_type(&parser, content_type);
 
 	if (strcasecmp(str_c(content_type), "message/rfc822") == 0)
 		ctx->part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
@@ -500,6 +500,8 @@ static void parse_content_type(struct message_parser_ctx *ctx,
 			ctx->part->flags |= MESSAGE_PART_FLAG_MULTIPART_DIGEST;
 	}
 
+	if (ret < 0)
+		return;
 	if ((ctx->part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
 	    ctx->last_boundary != NULL)
 		return;
