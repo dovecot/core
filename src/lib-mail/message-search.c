@@ -57,11 +57,10 @@ static void parse_content_type(struct message_search_context *ctx,
 	rfc822_skip_lwsp(&parser);
 
 	content_type = t_str_new(64);
-	if (rfc822_parse_content_type(&parser, content_type) >= 0) {
-		ctx->content_type_text =
-			strncasecmp(str_c(content_type), "text/", 5) == 0 ||
-			strncasecmp(str_c(content_type), "message/", 8) == 0;
-	}
+	(void)rfc822_parse_content_type(&parser, content_type);
+	ctx->content_type_text =
+		strncasecmp(str_c(content_type), "text/", 5) == 0 ||
+		strncasecmp(str_c(content_type), "message/", 8) == 0;
 }
 
 static void handle_header(struct message_search_context *ctx,
