@@ -339,7 +339,12 @@ void fs_set_metadata(struct fs_file *file, const char *key, const char *value)
 
 	if (file->fs->v.set_metadata != NULL) T_BEGIN {
 		file->fs->v.set_metadata(file, key, value);
-		file->metadata_changed = TRUE;
+		if (strncmp(key, FS_METADATA_INTERNAL_PREFIX,
+			    strlen(FS_METADATA_INTERNAL_PREFIX)) == 0) {
+			/* internal metadata change, which isn't stored. */
+		} else {
+			file->metadata_changed = TRUE;
+		}
 	} T_END;
 }
 
