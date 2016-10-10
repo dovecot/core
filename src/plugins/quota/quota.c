@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "str.h"
+#include "ioloop.h"
 #include "net.h"
 #include "write-full.h"
 #include "eacces-error.h"
@@ -18,6 +19,11 @@
 #define DEFAULT_QUOTA_EXCEEDED_MSG \
 	"Quota exceeded (mailbox for user is full)"
 #define QUOTA_LIMIT_SET_PATH DICT_PATH_PRIVATE"quota/limit/"
+
+/* How many seconds after the userdb lookup do we still want to execute the
+   quota_over_script. This applies to quota_over_flag_lazy_check=yes and also
+   after unhibernating IMAP connections. */
+#define QUOTA_OVER_FLAG_MAX_DELAY_SECS 10
 
 struct quota_root_iter {
 	struct quota *quota;
@@ -1039,6 +1045,17 @@ static void quota_over_flag_check_root(struct quota_root *root)
 
 	if (root->quota_over_flag_checked)
 		return;
+	if (root->quota->user->session_create_time +
+	    QUOTA_OVER_FLAG_MAX_DELAY_SECS < ioloop_time) {
+		/* userdb's quota_over_flag lookup is too old. */
+		return;
+	}
+	if (root->quota->user->session_restored) {
+		/* we don't know whether the quota_over_script was executed
+		   before hibernation. just assume that it was, so we don't
+		   unnecessarily call it too often. */
+		return;
+	}
 	root->quota_over_flag_checked = TRUE;
 	quota_over_flag_init_root(root);
 
