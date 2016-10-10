@@ -39,7 +39,7 @@
 #include <ctype.h>
 #include <sys/wait.h>
 
-#define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:I:l:m:n:NO:Pr:Rs:t:T:Ux:"
+#define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:I:l:m:n:NO:Pr:Rs:t:e:T:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
 /* The broken_char is mainly set to get a proper error message when trying to
    convert a mailbox with a name that can't be used properly translated between
@@ -67,6 +67,7 @@ struct dsync_cmd_context {
 	ARRAY_TYPE(const_string) exclude_mailboxes;
 	ARRAY_TYPE(const_string) namespace_prefixes;
 	time_t sync_since_timestamp;
+	time_t sync_until_timestamp;
 	uoff_t sync_max_size;
 	unsigned int io_timeout_secs;
 
@@ -569,6 +570,13 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 			"%s ", net_ip2addr(&_ctx->cur_client_ip));
 	}
 	set.sync_since_timestamp = ctx->sync_since_timestamp;
+	set.sync_until_timestamp = ctx->sync_until_timestamp;
+
+	if (set.sync_since_timestamp > 0 && set.sync_until_timestamp > 0 &&
+	    set.sync_since_timestamp > set.sync_until_timestamp) {
+		i_fatal("start date is later than end date");
+	}
+
 	set.sync_max_size = ctx->sync_max_size;
 	set.sync_box = ctx->mailbox;
 	set.sync_flag = ctx->sync_flags;
@@ -1039,6 +1047,10 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 't':
 		if (mail_parse_human_timestamp(optarg, &ctx->sync_since_timestamp) < 0)
 			i_fatal("Invalid -t parameter: %s", optarg);
+		break;
+	case 'e':
+		if (mail_parse_human_timestamp(optarg, &ctx->sync_until_timestamp) < 0)
+			i_fatal("Invalid -e parameter: %s", optarg);
 		break;
 	case 'I':
 		if (settings_get_size(optarg, &ctx->sync_max_size, &error) < 0)

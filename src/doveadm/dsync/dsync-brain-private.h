@@ -58,6 +58,7 @@ struct dsync_brain {
 	const char *const *exclude_mailboxes;
 	enum dsync_brain_sync_type sync_type;
 	time_t sync_since_timestamp;
+	time_t sync_until_timestamp;
 	uoff_t sync_max_size;
 	const char *sync_flag;
 	char alt_char;
