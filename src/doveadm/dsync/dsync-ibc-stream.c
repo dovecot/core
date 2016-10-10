@@ -77,7 +77,7 @@ static const struct {
 	  	"debug sync_visible_namespaces exclude_mailboxes  "
 	  	"send_mail_requests backup_send backup_recv lock_timeout "
 	  	"no_mail_sync no_mailbox_renames no_backup_overwrite purge_remote "
-		"no_notify sync_since_timestamp sync_max_size sync_flags "
+		"no_notify sync_since_timestamp sync_max_size sync_flags sync_until_timestamp"
 	  	"virtual_all_box"
 	},
 	{ .name = "mailbox_state",
@@ -711,6 +711,10 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "sync_since_timestamp",
 			t_strdup_printf("%ld", (long)set->sync_since_timestamp));
 	}
+	if (set->sync_until_timestamp > 0) {
+		dsync_serializer_encode_add(encoder, "sync_until_timestamp",
+			t_strdup_printf("%ld", (long)set->sync_since_timestamp));
+	}
 	if (set->sync_max_size > 0) {
 		dsync_serializer_encode_add(encoder, "sync_max_size",
 			t_strdup_printf("%llu", (unsigned long long)set->sync_max_size));
@@ -824,6 +828,14 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		    set->sync_since_timestamp == 0) {
 			dsync_ibc_input_error(ibc, decoder,
 				"Invalid sync_since_timestamp: %s", value);
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+	}
+	if (dsync_deserializer_decode_try(decoder, "sync_until_timestamp", &value)) {
+		if (str_to_time(value, &set->sync_until_timestamp) < 0 ||
+		    set->sync_until_timestamp == 0) {
+			dsync_ibc_input_error(ibc, decoder,
+				"Invalid sync_until_timestamp: %s", value);
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
 		}
 	}

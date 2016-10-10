@@ -69,6 +69,8 @@ struct dsync_brain_settings {
 	char mailbox_alt_char;
 	/* Sync only mails with received timestamp at least this high. */
 	time_t sync_since_timestamp;
+	/* Sync only mails with received timestamp less or equal than this */
+	time_t sync_until_timestamp;
 	/* Don't sync mails larger than this. */
 	uoff_t sync_max_size;
 	/* Sync only mails which contains / doesn't contain this flag.

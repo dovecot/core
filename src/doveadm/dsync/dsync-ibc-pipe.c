@@ -180,6 +180,7 @@ dsync_ibc_pipe_send_handshake(struct dsync_ibc *ibc,
 	memcpy(item->u.set.sync_box_guid, set->sync_box_guid,
 	       sizeof(item->u.set.sync_box_guid));
 	item->u.set.sync_since_timestamp = set->sync_since_timestamp;
+	item->u.set.sync_until_timestamp = set->sync_until_timestamp;
 	item->u.set.sync_max_size = set->sync_max_size;
 	item->u.set.sync_flags = p_strdup(item->pool, set->sync_flags);
 }

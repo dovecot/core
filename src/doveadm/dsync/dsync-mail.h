@@ -79,7 +79,7 @@ struct dsync_mail_change {
 	/* +add, -remove, =final, &add_and_final. */
 	ARRAY_TYPE(const_string) keyword_changes;
 
-	/* Received timestamp for saves, if brain.sync_since_timestamp is set */
+	/* Received timestamp for saves, if brain.sync_since/until_timestamp is set */
 	time_t received_timestamp;
 	/* Mail's size for saves if brain.sync_max_size is set,
 	   (uoff_t)-1 otherwise. */
