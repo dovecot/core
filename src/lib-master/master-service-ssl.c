@@ -63,6 +63,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	i_zero(&ssl_set);
 	ssl_set.protocols = set->ssl_protocols;
 	ssl_set.cipher_list = set->ssl_cipher_list;
+	ssl_set.curve_list = set->ssl_curve_list;
 	ssl_set.ca = set->ssl_ca;
 	ssl_set.cert = set->ssl_cert;
 	ssl_set.key = set->ssl_key;

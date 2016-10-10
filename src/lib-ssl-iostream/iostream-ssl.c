@@ -219,6 +219,7 @@ ssl_iostream_settings_dup(pool_t pool,
 
 	new_set->protocols = p_strdup(pool, old_set->protocols);
 	new_set->cipher_list = p_strdup(pool, old_set->cipher_list);
+	new_set->curve_list = p_strdup(pool, old_set->curve_list);
 	new_set->ca = p_strdup(pool, old_set->ca);
 	new_set->ca_file = p_strdup(pool, old_set->ca_file);
 	new_set->ca_dir = p_strdup(pool, old_set->ca_dir);

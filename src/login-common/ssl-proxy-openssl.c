@@ -91,6 +91,7 @@ struct ssl_server_context {
 	const char *ca;
 	const char *dh;
 	const char *cipher_list;
+	const char *curve_list;
 	const char *protocols;
 	bool verify_client_cert;
 	bool prefer_server_ciphers;
@@ -157,6 +158,8 @@ static int ssl_server_context_cmp(const struct ssl_server_context *ctx1,
 	if (null_strcmp(ctx1->ca, ctx2->ca) != 0)
 		return 1;
 	if (null_strcmp(ctx1->cipher_list, ctx2->cipher_list) != 0)
+		return 1;
+	if (null_strcmp(ctx1->curve_list, ctx2->curve_list) != 0)
 		return 1;
 	if (null_strcmp(ctx1->protocols, ctx2->protocols) != 0)
 		return 1;
@@ -513,6 +516,7 @@ ssl_server_context_get(const struct login_settings *login_set,
 	lookup_ctx.key = set->ssl_key;
 	lookup_ctx.ca = set->ssl_ca;
 	lookup_ctx.cipher_list = set->ssl_cipher_list;
+	lookup_ctx.curve_list = set->ssl_curve_list;
 	lookup_ctx.protocols = set->ssl_protocols;
 	lookup_ctx.verify_client_cert = set->ssl_verify_client_cert ||
 		login_set->auth_ssl_require_client_cert ||
@@ -1176,6 +1180,7 @@ ssl_server_context_init(const struct login_settings *login_set,
 	ctx->ca = p_strdup(pool, ssl_set->ssl_ca);
 	ctx->dh = p_strdup(pool, ssl_set->ssl_dh);
 	ctx->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
+	ctx->curve_list = p_strdup(pool, ssl_set->ssl_curve_list);
 	ctx->protocols = p_strdup(pool, ssl_set->ssl_protocols);
 	ctx->verify_client_cert = ssl_set->ssl_verify_client_cert ||
 		login_set->auth_ssl_require_client_cert ||
@@ -1196,6 +1201,13 @@ ssl_server_context_init(const struct login_settings *login_set,
 	if (ctx->prefer_server_ciphers)
 		SSL_CTX_set_options(ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	SSL_CTX_set_options(ssl_ctx, openssl_get_protocol_options(ctx->protocols));
+
+#ifdef HAVE_SSL_CTX_SET1_CURVES_LIST
+	if (ctx->curve_list != NULL && strlen(ctx->curve_list) > 0 &&
+			SSL_CTX_set1_curves_list(ssl_ctx, ctx->curve_list) != 1) {
+		i_fatal("Failed to set curve list to '%s'", ctx->curve_list);
+	}
+#endif
 
 	if (ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->cert) != 1) {
 		i_fatal("Can't load ssl_cert: %s",

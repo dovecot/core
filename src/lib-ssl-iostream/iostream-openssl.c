@@ -160,6 +160,17 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			return -1;
 		}
 	}
+#ifdef HAVE_SSL_CTX_SET1_CURVES_LIST
+	if (set->curve_list != NULL && strlen(set->curve_list) > 0 &&
+		(ctx_set->curve_list == NULL || strcmp(ctx_set->curve_list, set->curve_list) != 0)) {
+		if (SSL_set1_curves_list(ssl_io->ssl, set->curve_list) == 0) {
+			*error_r = t_strdup_printf(
+					"Failed to set curve list to '%s'",
+					set->curve_list);
+			return -1;
+		}
+	}
+#endif
 	if (set->prefer_server_ciphers)
 		SSL_set_options(ssl_io->ssl, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	if (set->protocols != NULL) {

@@ -346,6 +346,14 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			set->cipher_list, openssl_iostream_error());
 		return -1;
 	}
+#ifdef HAVE_SSL_CTX_SET1_CURVES_LIST
+	if (set->curve_list != NULL && strlen(set->curve_list) > 0 &&
+		SSL_CTX_set1_curves_list(ctx->ssl_ctx, set->curve_list) == 0) {
+		*error_r = t_strdup_printf("Failed to set curve list to '%s'",
+					   set->curve_list);
+		return -1;
+	}
+#endif
 	if (set->prefer_server_ciphers) {
 		SSL_CTX_set_options(ctx->ssl_ctx,
 				    SSL_OP_CIPHER_SERVER_PREFERENCE);

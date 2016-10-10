@@ -22,6 +22,7 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(SET_STR, ssl_key_password),
 	DEF(SET_STR, ssl_dh),
 	DEF(SET_STR, ssl_cipher_list),
+	DEF(SET_STR, ssl_curve_list),
 	DEF(SET_STR, ssl_protocols),
 	DEF(SET_STR, ssl_cert_username_field),
 	DEF(SET_STR, ssl_crypto_device),
@@ -46,6 +47,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_key_password = "",
 	.ssl_dh = "",
 	.ssl_cipher_list = "ALL:!LOW:!SSLv2:!EXP:!aNULL",
+	.ssl_curve_list = "",
 #ifdef SSL_TXT_SSLV2
 	.ssl_protocols = "!SSLv2 !SSLv3",
 #else
@@ -130,6 +132,14 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			return FALSE;
 		}
 	}
+
+#ifndef HAVE_SSL_CTX_SET1_CURVES_LIST
+	if (*set->ssl_curve_list != '\0') {
+		*error_r = "ssl_curve_list is set, but the linked openssl "
+			   "version does not support it";
+		return FALSE;
+	}
+#endif
 
 	return TRUE;
 #endif
