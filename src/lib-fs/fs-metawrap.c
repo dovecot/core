@@ -287,21 +287,29 @@ fs_metawrap_append_metadata(struct metawrap_fs_file *file, string_t *str)
 	str_append_c(str, '\n');
 }
 
-static void fs_metawrap_write_metadata(void *context)
+static void
+fs_metawrap_write_metadata_to(struct metawrap_fs_file *file,
+			      struct ostream *output)
 {
-	struct metawrap_fs_file *file = context;
 	string_t *str = t_str_new(256);
 	ssize_t ret;
 
 	fs_metawrap_append_metadata(file, str);
 	file->metadata_write_size = str_len(str);
 
-	ret = o_stream_send(file->file.output, str_data(str), str_len(str));
+	ret = o_stream_send(output, str_data(str), str_len(str));
 	if (ret < 0)
-		o_stream_close(file->file.output);
+		o_stream_close(output);
 	else
 		i_assert((size_t)ret == str_len(str));
 	file->metadata_changed_since_write = FALSE;
+}
+
+static void fs_metawrap_write_metadata(void *context)
+{
+	struct metawrap_fs_file *file = context;
+
+	fs_metawrap_write_metadata_to(file, file->file.output);
 }
 
 static void fs_metawrap_write_stream(struct fs_file *_file)
@@ -383,6 +391,10 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 		return fs_write_stream_finish_async(_file->parent);
 	}
 	/* finish writing the temporary file */
+	if (file->temp_output->offset == 0) {
+		/* empty file */
+		fs_metawrap_write_metadata_to(file, file->temp_output);
+	}
 	input = iostream_temp_finish(&file->temp_output, IO_BLOCK_SIZE);
 	if (file->metadata_changed_since_write) {
 		/* we'll need to recreate the metadata. do this by creating a
