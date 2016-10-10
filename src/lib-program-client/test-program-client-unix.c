@@ -83,7 +83,7 @@ void test_program_client_destroy(struct test_client **_client)
 }
 
 static
-int test_program_input_handle(struct test_client *client, char *line)
+int test_program_input_handle(struct test_client *client, const char *line)
 {
 	int cmp;
 	const char *arg;
@@ -156,7 +156,7 @@ static
 void test_program_input(struct test_client *client)
 
 {
-	char *line;
+	const char *line = "";
 
 	if (client->state == CLIENT_STATE_BODY) {
 		if (test_program_input_handle(client, NULL)==0 && !client->in->eof) return;
@@ -220,7 +220,7 @@ static
 void test_program_teardown(void)
 {
 	test_begin("test_program_teardown");
-	if (test_globals.client)
+	if (test_globals.client != NULL)
 		test_program_client_destroy(&test_globals.client);
 	io_remove(&test_globals.io);
 	close(test_globals.listen_fd);
