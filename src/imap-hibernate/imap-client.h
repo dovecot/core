@@ -9,6 +9,7 @@ struct imap_client_state {
 	/* optional: */
 	const char *session_id, *userdb_fields, *stats;
 	struct ip_addr local_ip, remote_ip;
+	time_t session_created;
 
 	uid_t uid;
 	gid_t gid;

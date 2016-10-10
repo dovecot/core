@@ -117,6 +117,12 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			state_r->idle_cmd = TRUE;
 		} else if (strcmp(key, "session") == 0) {
 			state_r->session_id = value;
+		} else if (strcmp(key, "session_created") == 0) {
+			if (str_to_time(value, &state_r->session_created) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid session_created value: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "userdb_fields") == 0) {
 			state_r->userdb_fields = value;
 		} else if (strcmp(key, "notify_fd") == 0) {
