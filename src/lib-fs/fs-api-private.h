@@ -168,6 +168,8 @@ void fs_metadata_init(struct fs_file *file);
 void fs_metadata_init_or_clear(struct fs_file *file);
 void fs_default_set_metadata(struct fs_file *file,
 			     const char *key, const char *value);
+const char *fs_metadata_find(const ARRAY_TYPE(fs_metadata) *metadata,
+			     const char *key);
 int fs_default_copy(struct fs_file *src, struct fs_file *dest);
 
 void fs_file_timing_end(struct fs_file *file, enum fs_op op);
