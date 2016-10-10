@@ -133,6 +133,10 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		str_append(str, "\tsession=");
 		str_append_tabescaped(str, state->session_id);
 	}
+	if (state->session_created != 0) {
+		str_printfa(str, "\tsession_created=%s",
+			    dec2str(state->session_created));
+	}
 	if (state->tag != NULL)
 		str_printfa(str, "\ttag=%s", client->state.tag);
 	if (state->local_ip.family != 0)
