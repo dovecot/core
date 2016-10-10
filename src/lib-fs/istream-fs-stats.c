@@ -11,7 +11,7 @@ struct fs_stats_istream {
 };
 
 static ssize_t
-i_stream_mail_read(struct istream_private *stream)
+i_stream_fs_stats_read(struct istream_private *stream)
 {
 	struct fs_stats_istream *sstream = (struct fs_stats_istream *)stream;
 	ssize_t ret;
@@ -39,7 +39,7 @@ i_stream_create_fs_stats(struct istream *input, struct fs_file *file)
 	sstream->file = file;
 	sstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	sstream->istream.stream_size_passthrough = TRUE;
-	sstream->istream.read = i_stream_mail_read;
+	sstream->istream.read = i_stream_fs_stats_read;
 	sstream->istream.istream.blocking = input->blocking;
 	sstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&sstream->istream, input,
