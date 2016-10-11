@@ -224,7 +224,7 @@ static off_t o_stream_temp_send_istream(struct ostream_private *_outstream,
 {
 	struct temp_ostream *outstream = (struct temp_ostream *)_outstream;
 	uoff_t orig_offset;
-	int ret;
+	off_t ret;
 
 	if ((outstream->flags & IOSTREAM_TEMP_FLAG_TRY_FD_DUP) != 0) {
 		orig_offset = outstream->dupstream_offset;
