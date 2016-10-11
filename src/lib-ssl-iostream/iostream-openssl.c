@@ -162,7 +162,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 	}
 #if OPENSSL_VERSION_NUMBER >= 0x10002000L
 	if (set->curve_list != NULL && strlen(set->curve_list) > 0 &&
-		strcmp(ctx_set->curve_list, set->curve_list) != 0) {
+		(ctx_set->curve_list == NULL || strcmp(ctx_set->curve_list, set->curve_list) != 0)) {
 		if (SSL_set1_curves_list(ssl_io->ssl, set->curve_list) == 0) {
 			*error_r = t_strdup_printf(
 				"Can't set curve list to '%s': %s",
