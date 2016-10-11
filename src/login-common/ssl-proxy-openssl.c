@@ -1202,10 +1202,12 @@ ssl_server_context_init(const struct login_settings *login_set,
 		SSL_CTX_set_options(ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	SSL_CTX_set_options(ssl_ctx, openssl_get_protocol_options(ctx->protocols));
 
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
 	if (strlen(ctx->curve_list) > 0 && SSL_CTX_set1_curves_list(ssl_ctx, ctx->curve_list) != 1) {
 		i_fatal("Can't set curve list to '%s': %s",
 				ctx->curve_list, openssl_iostream_error());
 	}
+#endif
 
 	if (ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->cert) != 1) {
 		i_fatal("Can't load ssl_cert: %s",
