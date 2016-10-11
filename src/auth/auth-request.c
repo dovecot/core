@@ -1327,9 +1327,10 @@ void auth_request_userdb_callback(enum userdb_result result,
 
 	if (request->userdb_lookup_tempfailed) {
 		/* no caching */
-	} else if (result != USERDB_RESULT_INTERNAL_FAILURE)
-		auth_request_userdb_save_cache(request, result);
-	else if (passdb_cache != NULL && userdb->cache_key != NULL) {
+	} else if (result != USERDB_RESULT_INTERNAL_FAILURE) {
+		if (!request->userdb_result_from_cache)
+			auth_request_userdb_save_cache(request, result);
+	} else if (passdb_cache != NULL && userdb->cache_key != NULL) {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
 		   expired record. */
@@ -1353,6 +1354,7 @@ void auth_request_lookup_user(struct auth_request *request,
 
 	request->private_callback.userdb = callback;
 	request->userdb_lookup = TRUE;
+	request->userdb_result_from_cache = FALSE;
 	if (request->userdb_reply == NULL)
 		auth_request_init_userdb_reply(request);
 	else {
@@ -1369,6 +1371,7 @@ void auth_request_lookup_user(struct auth_request *request,
 
 		if (auth_request_lookup_user_cache(request, cache_key,
 						   &result, FALSE)) {
+			request->userdb_result_from_cache = TRUE;
 			auth_request_userdb_callback(result, request);
 			return;
 		}
