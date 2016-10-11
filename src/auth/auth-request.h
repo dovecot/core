@@ -144,6 +144,8 @@ struct auth_request {
 	/* userdb_* fields have been set by the passdb lookup, userdb prefetch
 	   will work. */
 	bool userdb_prefetch_set:1;
+	/* userdb lookup's results are from cache */
+	bool userdb_result_from_cache:1;
 	bool stats_sent:1;
 	bool policy_refusal:1;
 	bool policy_processed:1;
