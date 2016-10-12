@@ -13,6 +13,8 @@ EXTRA_DIST = \
 	COPYING.LGPL \
 	COPYING.MIT \
 	ChangeLog \
+	README \
+	README.md \
 	update-version.sh \
 	run-test-valgrind.supp \
 	$(conf_DATA)
@@ -20,6 +22,9 @@ EXTRA_DIST = \
 noinst_DATA = dovecot-config
 
 nodist_pkginclude_HEADERS = config.h
+
+README: README.md
+	$(PANDOC) -f markdown_github -t plain -o $@ $<
 
 ChangeLog:
 	git log --name-status --pretty="format:%ai %aN <%aE> (%h)%n%n%w(80,4,4)%s%n%n%b" 5d5c4f2bfb812c767084c0338dae692db476da10^.. > ChangeLog || rm -f ChangeLog
