@@ -38,6 +38,8 @@ Makefile.in
 /dovecot-config
 /dovecot-config.in
 /dovecot-version.h
+/README
+/INSTALL
 
 /aclocal.m4
 /m4/libtool.m4
