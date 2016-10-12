@@ -4,15 +4,20 @@
 #ifndef PROGRAM_CLIENT_H
 #define PROGRAM_CLIENT_H
 
+#include "restrict-access.h"
+
 struct program_client;
 
 struct program_client_settings {
 	unsigned int client_connect_timeout_msecs;
 	unsigned int input_idle_timeout_secs;
+	/* initialize with
+	   restrict_access_init(&set.restrict_set);
+	*/
+	struct restrict_access_settings restrict_set;
+	const char *home;
 
-	uid_t uid;
-	gid_t gid;
-
+	bool allow_root:1;
 	bool debug:1;
 	bool drop_stderr:1;
 };

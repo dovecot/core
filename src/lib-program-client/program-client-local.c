@@ -9,6 +9,7 @@
 #include "net.h"
 #include "istream.h"
 #include "ostream.h"
+#include "restrict-access.h"
 
 #include "program-client-private.h"
 
@@ -210,39 +211,8 @@ int program_client_local_connect(struct program_client *pclient)
 			}
 		}
 
-		/* drop privileges if we have any */
-		if (getuid() == 0) {
-			uid_t uid;
-			gid_t gid;
-
-			/* switch back to root */
-			if (seteuid(0) < 0)
-				i_fatal("seteuid(0) failed: %m");
-
-			/* drop gids first */
-			gid = getgid();
-			if (gid == 0 || gid != pclient->set.gid) {
-				if (pclient->set.gid != 0)
-					gid = pclient->set.gid;
-				else
-					gid = getegid();
-			}
-			if (setgroups(1, &gid) < 0)
-				i_fatal("setgroups(%d) failed: %m", gid);
-			if (gid != 0 && setgid(gid) < 0)
-				i_fatal("setgid(%d) failed: %m", gid);
-
-			/* drop uid */
-			if (pclient->set.uid != 0)
-				uid = pclient->set.uid;
-			else
-				uid = geteuid();
-			if (uid != 0 && setuid(uid) < 0)
-				i_fatal("setuid(%d) failed: %m", uid);
-		}
-
-		i_assert(pclient->set.uid == 0 || getuid() != 0);
-		i_assert(pclient->set.gid == 0 || getgid() != 0);
+		restrict_access(&pclient->set.restrict_set, pclient->set.home,
+				!pclient->set.allow_root);
 
 		if (array_is_created(&pclient->envs))
 			envs = array_get(&pclient->envs, &count);
