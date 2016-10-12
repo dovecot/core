@@ -23,9 +23,9 @@ enum dcrypt_key_type {
 
 /**
  * dovecot key format:
- * version tab version-specific data
+ * version version-specific data
  * v1: version tab nid tab raw ec private key (in hex)
- * v2: version tab algorithm oid tab private-or-public-key-only (in hex)
+ * v2: version colon algorithm oid colon private-or-public-key-only (in hex)
  */
 enum dcrypt_key_format {
 	DCRYPT_FORMAT_PEM,
