@@ -24,6 +24,12 @@ struct program_client_settings pc_set = {
 	.client_connect_timeout_msecs = 5000,
 	.input_idle_timeout_secs = 1000,
 	.debug = FALSE,
+	.restrict_set = {
+		.uid = (uid_t)-1,
+		.gid = (gid_t)-1,
+	},
+	/* we need to permit root when running make check as root */
+	.allow_root = TRUE,
 };
 
 static

@@ -30,8 +30,6 @@ static
 struct program_client_settings pc_set = {
 	.client_connect_timeout_msecs = 1000,
 	.input_idle_timeout_secs = 5000,
-	.gid = -1,
-	.uid = -1,
 	.debug = TRUE,
 };
 
