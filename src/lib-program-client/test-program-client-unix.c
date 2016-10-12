@@ -15,7 +15,7 @@
 
 #include <unistd.h>
 
-static const char *TEST_SOCKET = "/tmp/program-client-test.sock";
+static const char *TEST_SOCKET = "program-client-test.sock";
 static const char *pclient_test_io_string = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
 					    "Praesent vehicula ac leo vel placerat. Nullam placerat \n"
 					    "volutpat leo, sed ultricies felis pulvinar quis. Nam \n"
@@ -113,7 +113,7 @@ int test_program_input_handle(struct test_client *client, const char *line)
 		array_append(&client->args, &arg, 1);
 		break;
 	case CLIENT_STATE_BODY:
-		client->os_body = iostream_temp_create_named("/tmp", 0, "test_program_input body");
+		client->os_body = iostream_temp_create_named(".dovecot.test.", 0, "test_program_input body");
 		switch(o_stream_send_istream(client->os_body, client->in)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
@@ -223,8 +223,9 @@ void test_program_teardown(void)
 	if (test_globals.client != NULL)
 		test_program_client_destroy(&test_globals.client);
 	io_remove(&test_globals.io);
-	close(test_globals.listen_fd);
+	i_close_fd(&test_globals.listen_fd);
 	io_loop_destroy(&test_globals.ioloop);
+	i_unlink(TEST_SOCKET);
 	test_end();
 }
 
