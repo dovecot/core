@@ -947,7 +947,7 @@ struct mailbox_list imapc_mailbox_list = {
 	.props = MAILBOX_LIST_PROP_NO_ROOT | MAILBOX_LIST_PROP_AUTOCREATE_DIRS,
 	.mailbox_name_max_length = MAILBOX_LIST_NAME_MAX_LENGTH,
 
-	{
+	.v = {
 		imapc_list_alloc,
 		imapc_list_init,
 		imapc_list_deinit,
