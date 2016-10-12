@@ -107,9 +107,8 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 			enum mailbox_list_flags flags,
 			struct mailbox_list **list_r, const char **error_r)
 {
-	const struct mailbox_list *const *class_p;
+	const struct mailbox_list *class;
 	struct mailbox_list *list;
-	unsigned int idx;
 
 	i_assert(ns->list == NULL ||
 		 (flags & MAILBOX_LIST_FLAG_SECONDARY) != 0);
@@ -117,27 +116,26 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	i_assert(set->subscription_fname == NULL ||
 		 *set->subscription_fname != '\0');
 
-	if (!mailbox_list_driver_find(driver, &idx)) {
+	if ((class = mailbox_list_find_class(driver)) == NULL) {
 		*error_r = "Unknown driver name";
 		return -1;
 	}
 
-	class_p = array_idx(&mailbox_list_drivers, idx);
-	if (((*class_p)->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 &&
+	if ((class->props & MAILBOX_LIST_PROP_NO_MAILDIR_NAME) != 0 &&
 	    *set->maildir_name != '\0') {
 		*error_r = "maildir_name not supported by this driver";
 		return -1;
 	}
-	if (((*class_p)->props & MAILBOX_LIST_PROP_NO_ALT_DIR) != 0 &&
+	if ((class->props & MAILBOX_LIST_PROP_NO_ALT_DIR) != 0 &&
 	    set->alt_dir != NULL) {
 		*error_r = "alt_dir not supported by this driver";
 		return -1;
 	}
 
 	i_assert(set->root_dir == NULL || *set->root_dir != '\0' ||
-		 ((*class_p)->props & MAILBOX_LIST_PROP_NO_ROOT) != 0);
+		 (class->props & MAILBOX_LIST_PROP_NO_ROOT) != 0);
 
-	list = (*class_p)->v.alloc();
+	list = class->v.alloc();
 	array_create(&list->module_contexts, list->pool, sizeof(void *), 5);
 
 	list->ns = ns;
