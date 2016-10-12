@@ -7,6 +7,7 @@
 #include "sha1.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "array.h"
 #include "safe-memset.h"
 #include "str-sanitize.h"
 #include "strescape.h"
@@ -334,6 +335,15 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_append(dest, "\tsuccessful");
 	if (request->mech_name != NULL)
 		auth_str_add_keyvalue(dest, "mech", request->mech_name);
+	/* export any userdb fields */
+	if (request->userdb_reply != NULL) {
+		const ARRAY_TYPE(auth_field) *fields = auth_fields_export(request->userdb_reply);
+		const struct auth_field *field;
+		array_foreach(fields, field) {
+			str_printfa(dest, "\tuserdb_%s=", field->key);
+			str_append_tabescaped(dest, field->value);
+		}
+	}
 }
 
 bool auth_request_import_info(struct auth_request *request,
@@ -442,7 +452,11 @@ bool auth_request_import(struct auth_request *request,
 		request->skip_password_check = TRUE;
 	else if (strcmp(key, "mech") == 0)
 		request->mech_name = p_strdup(request->pool, value);
-	else
+	else if (strncmp(key, "userdb_", 7) == 0) {
+		if (request->userdb_reply == NULL)
+			request->userdb_reply = auth_fields_init(request->pool);
+		auth_fields_add(request->userdb_reply, key+7, value, 0);
+	} else
 		return FALSE;
 
 	return TRUE;
