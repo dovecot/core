@@ -15,6 +15,8 @@ EXTRA_DIST = \
 	ChangeLog \
 	README \
 	README.md \
+	INSTALL \
+	INSTALL.md \
 	update-version.sh \
 	run-test-valgrind.supp \
 	$(conf_DATA)
@@ -24,6 +26,9 @@ noinst_DATA = dovecot-config
 nodist_pkginclude_HEADERS = config.h
 
 README: README.md
+	$(PANDOC) -f markdown_github -t plain -o $@ $<
+
+INSTALL: INSTALL.md
 	$(PANDOC) -f markdown_github -t plain -o $@ $<
 
 ChangeLog:
