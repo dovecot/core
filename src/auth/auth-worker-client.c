@@ -437,7 +437,8 @@ auth_worker_handle_user(struct auth_worker_client *client,
 		return FALSE;
 	}
 
-	auth_request_init_userdb_reply(auth_request);
+	if (auth_request->userdb_reply == NULL)
+		auth_request_init_userdb_reply(auth_request);
 	auth_request->userdb->userdb->iface->
 		lookup(auth_request, lookup_user_callback);
 	return TRUE;
@@ -605,7 +606,7 @@ auth_worker_handle_line(struct auth_worker_client *client, const char *line)
 	unsigned int id;
 	bool ret = FALSE;
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL || args[1] == NULL || args[2] == NULL ||
 	    str_to_uint(args[0], &id) < 0) {
 		i_error("BUG: Invalid input: %s", line);
