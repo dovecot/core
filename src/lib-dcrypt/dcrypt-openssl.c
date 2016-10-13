@@ -1456,7 +1456,7 @@ bool dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key, co
 		obj = OBJ_nid2obj(EVP_PKEY_id(pkey));
 	}
 
-	int enctype = 0;
+	int enctype = DCRYPT_KEY_ENCRYPTION_TYPE_NONE;
 	int ln = OBJ_obj2txt(objtxt, sizeof(objtxt), obj, 1);
 	if (ln < 1)
 		return dcrypt_openssl_error(error_r);
@@ -1500,6 +1500,8 @@ bool dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key, co
 		i_assert(password != NULL);
 		enctype = DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD;
 		cipher2 = cipher;
+	} else if (enctype == DCRYPT_KEY_ENCRYPTION_TYPE_NONE) {
+		i_assert(enc_key == NULL && password == NULL);
 	}
 
 	/* put in OID and encryption type */
@@ -1507,7 +1509,7 @@ bool dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key, co
 		objtxt, enctype));
 
 	/* perform encryption if desired */
-	if (enctype > 0) {
+	if (enctype != DCRYPT_KEY_ENCRYPTION_TYPE_NONE) {
 		if (!dcrypt_openssl_encrypt_private_key_dovecot(buf, enctype, cipher2, password, enc_key, destination, error_r)) {
 			buffer_set_used_size(destination, dest_used);
 			return FALSE;
