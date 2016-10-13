@@ -592,6 +592,81 @@ void test_get_info_invalid_keys(void) {
 }
 
 static
+void test_get_info_key_encrypted(void) {
+	test_begin("test_get_info_key_encrypted");
+
+	struct dcrypt_keypair p1, p2;
+	const char *error = NULL;
+	bool ret = dcrypt_keypair_generate(&p1, DCRYPT_KEY_EC, 0, "sect571k1", &error);
+	test_assert(ret == TRUE);
+	ret = dcrypt_keypair_generate(&p2, DCRYPT_KEY_EC, 0, "sect571k1", &error);
+	test_assert(ret == TRUE);
+
+	string_t* buf = str_new(default_pool, 4096);
+
+	buffer_set_used_size(buf, 0);
+	ret = dcrypt_key_store_private(p1.priv, DCRYPT_FORMAT_DOVECOT, "ecdh-aes-256-ctr", buf, NULL, p2.pub, &error);
+	test_assert(ret == TRUE);
+
+	enum dcrypt_key_format format;
+	enum dcrypt_key_version version;
+	enum dcrypt_key_kind kind;
+	enum dcrypt_key_encryption_type enc_type;
+	const char *enc_hash;
+	const char *key_hash;
+
+	ret = dcrypt_key_string_get_info(str_c(buf), &format, &version,
+			&kind, &enc_type, &enc_hash, &key_hash, &error);
+	test_assert(ret == TRUE);
+	test_assert(format == DCRYPT_FORMAT_DOVECOT);
+	test_assert(version == DCRYPT_KEY_VERSION_2);
+	test_assert(kind == DCRYPT_KEY_KIND_PRIVATE);
+	test_assert(enc_type == DCRYPT_KEY_ENCRYPTION_TYPE_KEY);
+	test_assert(enc_hash != NULL);
+	test_assert(key_hash != NULL);
+
+	dcrypt_keypair_unref(&p1);
+	dcrypt_keypair_unref(&p2);
+
+	test_end();
+}
+
+static
+void test_get_info_pw_encrypted(void) {
+	test_begin("test_get_info_pw_encrypted");
+
+	struct dcrypt_keypair p1;
+	const char *error;
+	bool ret = dcrypt_keypair_generate(&p1, DCRYPT_KEY_EC, 0, "sect571k1", &error);
+	test_assert(ret == TRUE);
+
+	string_t* buf = str_new(default_pool, 4096);
+	ret = dcrypt_key_store_private(p1.priv, DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", buf, "pw", NULL, &error);
+	test_assert(ret == TRUE);
+
+	enum dcrypt_key_format format;
+	enum dcrypt_key_version version;
+	enum dcrypt_key_kind kind;
+	enum dcrypt_key_encryption_type enc_type;
+	const char *enc_hash;
+	const char *key_hash;
+
+	ret = dcrypt_key_string_get_info(str_c(buf), &format, &version,
+			&kind, &enc_type, &enc_hash, &key_hash, &error);
+	test_assert(ret == TRUE);
+	test_assert(format == DCRYPT_FORMAT_DOVECOT);
+	test_assert(version == DCRYPT_KEY_VERSION_2);
+	test_assert(kind == DCRYPT_KEY_KIND_PRIVATE);
+	test_assert(enc_type == DCRYPT_KEY_ENCRYPTION_TYPE_PASSWORD);
+	test_assert(enc_hash == NULL);
+	test_assert(key_hash != NULL);
+
+	dcrypt_keypair_unref(&p1);
+
+	test_end();
+}
+
+static
 void test_load_invalid_keys(void) {
 	test_begin("test_load_invalid_keys");
 
@@ -634,6 +709,8 @@ int main(void) {
 		test_gen_and_get_info_rsa_pem,
 		test_get_info_rsa_private_key,
 		test_get_info_invalid_keys,
+		test_get_info_key_encrypted,
+		test_get_info_pw_encrypted,
 		test_load_invalid_keys,
 		NULL
 	};

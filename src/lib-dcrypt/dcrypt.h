@@ -178,6 +178,11 @@ bool dcrypt_key_load_private(struct dcrypt_private_key **key_r, const char *data
 bool dcrypt_key_load_public(struct dcrypt_public_key **key_r, const char *data,
 	const char **error_r);
 
+/**
+ * When encrypting with public key, the cipher parameter here must begin with
+ * ecdh-, for example ecdh-aes-256-ctr. An example of a valid cipher for
+ * encrypting with password would be aes-256-ctr.
+ */
 bool dcrypt_key_store_private(struct dcrypt_private_key *key, enum dcrypt_key_format format, const char *cipher, 
 	buffer_t *destination, const char *password, struct dcrypt_public_key *enc_key, const char **error_r);
 
