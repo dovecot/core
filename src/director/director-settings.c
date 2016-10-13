@@ -71,6 +71,7 @@ static const struct setting_define director_setting_defines[] = {
 	DEF(SET_STR, director_servers),
 	DEF(SET_STR, director_mail_servers),
 	DEF(SET_STR, director_username_hash),
+	DEF(SET_STR, director_flush_socket),
 	DEF(SET_TIME, director_user_expire),
 	DEF(SET_TIME, director_user_kick_delay),
 	DEF(SET_IN_PORT, director_doveadm_port),
@@ -85,6 +86,7 @@ const struct director_settings director_default_settings = {
 	.director_servers = "",
 	.director_mail_servers = "",
 	.director_username_hash = "%Lu",
+	.director_flush_socket = "",
 	.director_user_expire = 60*15,
 	.director_user_kick_delay = 2,
 	.director_doveadm_port = 0
