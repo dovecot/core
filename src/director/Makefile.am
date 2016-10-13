@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-program-client \
 	$(BINARY_CFLAGS)
 
 director_LDADD = $(LIBDOVECOT) \
