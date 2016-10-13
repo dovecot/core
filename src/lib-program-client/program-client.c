@@ -566,6 +566,38 @@ void program_client_switch_ioloop(struct program_client *pclient)
 	pclient->switch_ioloop(pclient);
 }
 
+struct program_client *
+program_client_create(const char *uri, const char *const *args,
+		      const struct program_client_settings *set,
+		      bool noreply)
+{
+	if (strncmp(uri, "exec:", 5) == 0) {
+		return program_client_local_create(
+			uri+5,
+			args,
+			set);
+	} else if (strncmp(uri, "unix:", 5) == 0) {
+		return program_client_unix_create(
+			uri+5,
+			args,
+			set, noreply);
+	} else if (strncmp(uri, "tcp:", 4) == 0) {
+		const char *host;
+		in_port_t port;
+		if (net_str2hostport(uri+4, 0, &host, &port) < 0 || port == 0) {
+			i_error("program-client-net: Invalid syntax, must be host:port");
+			return NULL;
+		}
+		return program_client_net_create(
+			host, port,
+			args,
+			set, noreply);
+	} else {
+		i_error("Unsupported program client scheme in '%s'", uri);
+	}
+	return NULL;
+}
+
 static
 void program_client_run_callback(int result, int *context)
 {

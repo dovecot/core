@@ -41,6 +41,10 @@ program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 			      in_port_t port, const char *const *args,
 			      const struct program_client_settings *set,
 			      bool noreply);
+struct program_client *program_client_create(const char *uri,
+	const char *const *args,
+	const struct program_client_settings *set, bool noreply);
+
 void program_client_destroy(struct program_client **_pclient);
 
 void program_client_set_input(struct program_client *pclient,
