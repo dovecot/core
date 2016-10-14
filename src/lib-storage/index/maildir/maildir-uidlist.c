@@ -1301,7 +1301,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 			}
 		}
 		str_append(str, " :");
-		strp = strchr(rec->filename, ':');
+		strp = strchr(rec->filename, *MAILDIR_INFO_SEP_S);
 		if (strp == NULL)
 			str_append(str, rec->filename);
 		else
