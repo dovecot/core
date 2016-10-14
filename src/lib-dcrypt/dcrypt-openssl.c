@@ -729,6 +729,7 @@ static
 bool dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r, enum dcrypt_key_type kind, unsigned int bits, const char *curve, const char **error_r)
 {
 	EVP_PKEY *pkey = NULL;
+	memset(pair_r, 0, sizeof(struct dcrypt_keypair));
 	if (kind == DCRYPT_KEY_RSA) {
 		if (dcrypt_openssl_generate_rsa_key(bits, &pkey, error_r)) {
 			pair_r->priv = i_new(struct dcrypt_private_key, 1);
