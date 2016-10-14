@@ -602,7 +602,7 @@ void test_get_info_key_encrypted(void) {
 	ret = dcrypt_keypair_generate(&p2, DCRYPT_KEY_EC, 0, "sect571k1", &error);
 	test_assert(ret == TRUE);
 
-	string_t* buf = str_new(default_pool, 4096);
+	string_t* buf = t_str_new(4096);
 
 	buffer_set_used_size(buf, 0);
 	ret = dcrypt_key_store_private(p1.priv, DCRYPT_FORMAT_DOVECOT, "ecdh-aes-256-ctr", buf, NULL, p2.pub, &error);
@@ -640,7 +640,7 @@ void test_get_info_pw_encrypted(void) {
 	bool ret = dcrypt_keypair_generate(&p1, DCRYPT_KEY_EC, 0, "sect571k1", &error);
 	test_assert(ret == TRUE);
 
-	string_t* buf = str_new(default_pool, 4096);
+	string_t* buf = t_str_new(4096);
 	ret = dcrypt_key_store_private(p1.priv, DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", buf, "pw", NULL, &error);
 	test_assert(ret == TRUE);
 
