@@ -589,37 +589,33 @@ int uri_parse_slashslash_authority(struct uri_parser *parser,
 
 int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r)
 {
-	const unsigned char *first = parser->cur;
-	int ret;
+	const unsigned char *p = parser->cur;
 
-	while (parser->cur < parser->end) {
-		if (*parser->cur == '%') {
-			unsigned char ch = 0;
-			if ((ret=uri_parse_pct_encoded(parser, &ch)) < 0)
-				return -1;
-			if (ret > 0)
-				continue;
+	while (p < parser->end) {
+		if (*p == '%') {
+			p++;
+			continue;
 		}
 
-		if ((*parser->cur & 0x80) != 0 ||
-			(_uri_char_lookup[*parser->cur] & CHAR_MASK_PCHAR) == 0)
+		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & CHAR_MASK_PCHAR) == 0)
 			break;
 
-		parser->cur++;
+		p++;
 	}
 
-	if (parser->cur < parser->end &&
-		*parser->cur != '/' && *parser->cur != '?' && *parser->cur != '#' ) {
+	if (p < parser->end &&
+		*p != '/' && *p != '?' && *p != '#' ) {
 		parser->error =
 			"Path component contains invalid character";
 		return -1;
 	}
 
-	if (first == parser->cur)
+	if (p == parser->cur)
 		return 0;
 
 	if (segment_r != NULL)
-		*segment_r = p_strdup_until(parser->pool, first, parser->cur);
+		*segment_r = p_strdup_until(parser->pool, parser->cur, p);
+	parser->cur = p;
 	return 1;
 }
 
@@ -724,8 +720,7 @@ int uri_parse_path(struct uri_parser *parser,
 
 int uri_parse_query(struct uri_parser *parser, const char **query_r)
 {
-	const unsigned char *first = parser->cur;
-	int ret;
+	const unsigned char *p = parser->cur;
 
 	/* RFC 3986:
 	 *
@@ -733,39 +728,35 @@ int uri_parse_query(struct uri_parser *parser, const char **query_r)
 	 * query         = *( pchar / "/" / "?" )
 	 * pchar         = unreserved / pct-encoded / sub-delims / ":" / "@"
 	 */
-	if (parser->cur >= parser->end || *parser->cur != '?')
+	if (p >= parser->end || *p != '?')
 		return 0;
-	parser->cur++;
+	p++;
 
-	while (parser->cur < parser->end) {
-		if (*parser->cur == '%') {
-			unsigned char ch = 0;
-			if ((ret=uri_parse_pct_encoded(parser, &ch)) < 0)
-				return -1;
-			if (ret > 0)
-				continue;
+	while (p < parser->end) {
+		if (*p == '%') {
+			p++;
+			continue;
 		}
 
-		if ((*parser->cur & 0x80) != 0 ||
-			(_uri_char_lookup[*parser->cur] & CHAR_MASK_QCHAR) == 0)
+		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & CHAR_MASK_QCHAR) == 0)
 			break;
-		parser->cur++;
+		p++;
 	}
 
-	if (parser->cur < parser->end && *parser->cur != '#') {
+	if (p < parser->end && *p != '#') {
 		parser->error = "Query component contains invalid character";
 		return -1;
 	}
 
 	if (query_r != NULL)
-		*query_r = p_strdup_until(parser->pool, first+1, parser->cur);
+		*query_r = p_strdup_until(parser->pool, parser->cur+1, p);
+	parser->cur = p;
 	return 1;
 }
 
 int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 {
-	const unsigned char *first = parser->cur;
-	int ret;
+	const unsigned char *p = parser->cur;
 
 	/* RFC 3986:
 	 *
@@ -774,32 +765,29 @@ int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 	 * pchar         = unreserved / pct-encoded / sub-delims / ":" / "@"
 	 */
 
-	if (parser->cur >= parser->end || *parser->cur != '#')
+	if (p >= parser->end || *p != '#')
 		return 0;
-	parser->cur++;
+	p++;
 
-	while (parser->cur < parser->end) {
-		if (*parser->cur == '%') {
-			unsigned char ch = 0;
-			if ((ret=uri_parse_pct_encoded(parser, &ch)) < 0)
-				return -1;
-			if (ret > 0)
-				continue;
+	while (p < parser->end) {
+		if (*p == '%') {
+			p++;
+			continue;
 		}
 
-		if ((*parser->cur & 0x80) != 0 ||
-			(_uri_char_lookup[*parser->cur] & CHAR_MASK_QCHAR) == 0)
+		if ((*p & 0x80) != 0 || (_uri_char_lookup[*p] & CHAR_MASK_QCHAR) == 0)
 			break;
-		parser->cur++;
+		p++;
 	}
 
-	if (parser->cur < parser->end) {
+	if (p < parser->end) {
 		parser->error = "Fragment component contains invalid character";
 		return -1;
 	}
 
 	if (fragment_r != NULL)
-		*fragment_r = p_strdup_until(parser->pool, first+1, parser->cur);
+		*fragment_r = p_strdup_until(parser->pool, parser->cur+1, p);
+	parser->cur = p;
 	return 1;
 }
 
