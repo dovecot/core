@@ -29,9 +29,8 @@ static void test_mail_index_modseq_get_next_log_offset(void)
 	struct mail_index_view *view, *view2;
 	struct mail_index_transaction *trans;
 	uint32_t seq, uid;
-	const char *error;
 
-	(void)unlink_directory(TESTDIR_NAME, UNLINK_DIRECTORY_FLAG_RMDIR, &error);
+	(void)unlink_directory(TESTDIR_NAME, UNLINK_DIRECTORY_FLAG_RMDIR);
 	if (mkdir(TESTDIR_NAME, 0700) < 0)
 		i_error("mkdir(%s) failed: %m", TESTDIR_NAME);
 
@@ -78,7 +77,7 @@ static void test_mail_index_modseq_get_next_log_offset(void)
 	mail_index_close(index);
 	mail_index_free(&index);
 
-	(void)unlink_directory(TESTDIR_NAME, UNLINK_DIRECTORY_FLAG_RMDIR, &error);
+	(void)unlink_directory(TESTDIR_NAME, UNLINK_DIRECTORY_FLAG_RMDIR);
 	test_end();
 }
 
