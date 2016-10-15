@@ -10,7 +10,7 @@ struct program_client;
 
 struct program_client_settings {
 	unsigned int client_connect_timeout_msecs;
-	unsigned int input_idle_timeout_secs;
+	unsigned int input_idle_timeout_msecs;
 	/* initialize with
 	   restrict_access_init(&set.restrict_set);
 	*/

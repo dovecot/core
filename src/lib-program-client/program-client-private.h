@@ -36,7 +36,7 @@ struct program_client {
 	int fd_in, fd_out;
 	struct io *io;
 	struct timeout *to;
-	time_t start_time;
+	struct timeval start_time;
 
 	struct istream *input, *program_input, *seekable_output;
 	struct ostream *output, *program_output;
