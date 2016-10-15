@@ -56,15 +56,15 @@ int program_client_seekable_fd_callback(const char **path_r, void *context)
 static
 void program_client_timeout(struct program_client *pclient)
 {
-	i_error("program `%s' execution timed out (> %d secs)",
-		pclient->path, pclient->set.input_idle_timeout_secs);
+	i_error("program `%s' execution timed out (> %u msecs)",
+		pclient->path, pclient->set.input_idle_timeout_msecs);
 	program_client_fail(pclient, PROGRAM_CLIENT_ERROR_RUN_TIMEOUT);
 }
 
 static
 void program_client_connect_timeout(struct program_client *pclient)
 {
-	i_error("program `%s' socket connection timed out (> %d msecs)",
+	i_error("program `%s' socket connection timed out (> %u msecs)",
 		pclient->path, pclient->set.client_connect_timeout_msecs);
 	program_client_fail(pclient, PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT);
 }
@@ -364,13 +364,13 @@ int program_client_connected(struct program_client *pclient)
 {
 	int ret = 1;
 
-	pclient->start_time = ioloop_time;
+	pclient->start_time = ioloop_timeval;
 	if (pclient->to != NULL)
 		timeout_remove(&pclient->to);
-	if (pclient->set.input_idle_timeout_secs != 0) {
+	if (pclient->set.input_idle_timeout_msecs != 0) {
 		pclient->to =
-			timeout_add(pclient->set.input_idle_timeout_secs *
-				    1000, program_client_timeout, pclient);
+			timeout_add(pclient->set.input_idle_timeout_msecs,
+				    program_client_timeout, pclient);
 	}
 
 	/* run output */
