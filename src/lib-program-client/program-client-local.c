@@ -11,7 +11,7 @@
 #include "ostream.h"
 #include "restrict-access.h"
 #include "child-wait.h"
-
+#include "time-util.h"
 #include "program-client-private.h"
 
 #include <sys/types.h>
@@ -365,9 +365,9 @@ void program_client_local_kill(struct program_client_local *slclient)
 
 		/* Timed out again */
 		if (slclient->client.debug) {
-			i_debug("program `%s' (%d) did not die after %d seconds: "
+			i_debug("program `%s' (%d) did not die after %d milliseconds: "
 				"sending KILL signal",
-				slclient->client.path, slclient->pid, KILL_TIMEOUT / 1000);
+				slclient->client.path, slclient->pid, KILL_TIMEOUT);
 		}
 
 		/* Kill it brutally now, it should die right away */
@@ -383,9 +383,9 @@ void program_client_local_kill(struct program_client_local *slclient)
 	}
 
 	if (slclient->client.debug)
-		i_debug("program `%s'(%d) execution timed out after %llu seconds: "
+		i_debug("program `%s'(%d) execution timed out after %u milliseconds: "
 			"sending TERM signal", slclient->client.path, slclient->pid,
-			(unsigned long long int)slclient->client.set.input_idle_timeout_secs);
+			slclient->client.set.input_idle_timeout_msecs);
 
 	/* send sigterm, keep on waiting */
 	slclient->sent_term = TRUE;
@@ -411,7 +411,7 @@ void program_client_local_disconnect(struct program_client *pclient, bool force)
 	struct program_client_local *slclient =
 		(struct program_client_local *) pclient;
 	pid_t pid = slclient->pid;
-	time_t runtime, timeout = 0;
+	unsigned long runtime, timeout = 0;
 
 	if (slclient->exited) {
 		program_client_local_exited(slclient);
@@ -435,23 +435,23 @@ void program_client_local_disconnect(struct program_client *pclient, bool force)
 	}
 
 	/* Calculate timeout */
-	runtime = ioloop_time - pclient->start_time;
-	if (!force && pclient->set.input_idle_timeout_secs > 0 &&
-	    runtime < (time_t) pclient->set.input_idle_timeout_secs)
-		timeout = pclient->set.input_idle_timeout_secs - runtime;
+	runtime = timeval_diff_msecs(&ioloop_timeval, &pclient->start_time);
+	if (!force && pclient->set.input_idle_timeout_msecs > 0 &&
+	    runtime < pclient->set.input_idle_timeout_msecs)
+		timeout = pclient->set.input_idle_timeout_msecs - runtime;
 
 	if (pclient->debug) {
-		i_debug("waiting for program `%s' to finish after %llu seconds",
-			pclient->path, (unsigned long long int) runtime);
+		i_debug("waiting for program `%s' to finish after %lu msecs",
+			pclient->path, runtime);
 	}
 
 	force = force ||
-		(timeout == 0 && pclient->set.input_idle_timeout_secs > 0);
+		(timeout == 0 && pclient->set.input_idle_timeout_msecs > 0);
 
 	if (!force) {
 		if (timeout > 0)
 			slclient->to_kill =
-				timeout_add_short(timeout * 1000,
+				timeout_add_short(timeout,
 						  program_client_local_kill,
 						  slclient);
 	} else {
