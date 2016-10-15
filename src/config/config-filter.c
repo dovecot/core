@@ -36,7 +36,7 @@ static bool config_filter_match_rest(const struct config_filter *mask,
 	if (mask->local_name != NULL) {
 		if (filter->local_name == NULL)
 			return FALSE;
-		if (strcmp(filter->local_name, mask->local_name) != 0)
+		if (strcasecmp(filter->local_name, mask->local_name) != 0)
 			return FALSE;
 	}
 	/* FIXME: it's not comparing full masks */
@@ -82,7 +82,7 @@ bool config_filters_equal(const struct config_filter *f1,
 	if (!net_ip_compare(&f1->local_net, &f2->local_net))
 		return FALSE;
 
-	if (null_strcmp(f1->local_name, f2->local_name) != 0)
+	if (null_strcasecmp(f1->local_name, f2->local_name) != 0)
 		return FALSE;
 
 	return TRUE;
