@@ -1,10 +1,8 @@
 #ifndef USER_DIRECTORY_H
 #define USER_DIRECTORY_H
 
-#include "director.h"
-
 #define USER_IS_BEING_KILLED(user) \
-	((user)->kill_state != USER_KILL_STATE_NONE)
+	((user)->kill_ctx != NULL)
 
 struct user {
 	/* sorted by time */
@@ -18,25 +16,21 @@ struct user {
 
 	struct mail_host *host;
 
-	/* Move timeout to make sure user's connections won't silently hang
-	   indefinitely if there is some trouble moving it. */
-	struct timeout *to_move;
-	/* If not USER_KILL_STATE_NONE, don't allow new connections until all
+	/* If non-NULL, don't allow new connections until all
 	   directors have killed the user's connections. */
-	enum user_kill_state kill_state;
+	struct director_kill_context *kill_ctx;
 
 	/* TRUE, if the user's timestamp was close to being expired and we're
 	   now doing a ring-wide sync for this user to make sure we don't
 	   assign conflicting hosts to it */
 	bool weak:1;
-	/* TRUE, if this server initiated the user's kill. */
-	bool kill_is_self_initiated:1;
 };
 
 /* Create a new directory. Users are dropped if their time gets older
    than timeout_secs. */
 struct user_directory *
-user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt);
+user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt,
+		    void (*user_free_hook)(struct user *));
 void user_directory_deinit(struct user_directory **dir);
 
 /* Returns the number of users currently in directory. */
