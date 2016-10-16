@@ -48,6 +48,7 @@ struct sql_dict_iterate_context {
 	unsigned int path_idx, sql_fields_start_idx, next_map_idx;
 	bool synchronous_result;
 	bool failed;
+	bool iter_query_sent;
 };
 
 struct sql_dict_inc_row {
@@ -646,20 +647,21 @@ static void sql_dict_iterate_callback(struct sql_result *result,
 		ctx->ctx.async_callback(ctx->ctx.async_context);
 }
 
-static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx,
-				       const char **error_r)
+static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
-	char *error = NULL;
+	const char *error;
+	unsigned int path_idx = ctx->path_idx;
 	int ret;
 
 	T_BEGIN {
 		string_t *query = t_str_new(256);
 
-		ret = sql_dict_iterate_build_next_query(ctx, query, error_r);
+		ret = sql_dict_iterate_build_next_query(ctx, query, &error);
 		if (ret <= 0) {
 			/* failed */
-			error = i_strdup(*error_r);
+			i_error("sql dict iterate failed for %s: %s",
+				ctx->paths[path_idx], error);
 		} else if ((ctx->flags & DICT_ITERATE_FLAG_ASYNC) == 0) {
 			ctx->result = sql_query_s(dict->db, str_c(query));
 		} else {
@@ -670,8 +672,6 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx,
 			ctx->synchronous_result = FALSE;
 		}
 	} T_END;
-	*error_r = t_strdup(error);
-	i_free(error);
 	return ret;
 }
 
@@ -681,7 +681,6 @@ sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
 {
 	struct sql_dict_iterate_context *ctx;
 	unsigned int i, path_count;
-	const char *error;
 	pool_t pool;
 
 	pool = pool_alloconly_create("sql dict iterate", 512);
@@ -696,13 +695,6 @@ sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
 		ctx->paths[i] = p_strdup(pool, paths[i]);
 
 	ctx->key = str_new(pool, 256);
-	if (sql_dict_iterate_next_query(ctx, &error) <= 0) {
-		i_error("sql dict iterate failed for %s: %s",
-			paths[0], error);
-		ctx->result = NULL;
-		ctx->failed = TRUE;
-		return &ctx->ctx;
-	}
 	return &ctx->ctx;
 }
 
@@ -711,32 +703,35 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 {
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
-	const char *p, *value, *error;
+	const char *p, *value;
 	unsigned int i, sql_field_i, count;
 	int ret;
 
 	_ctx->has_more = FALSE;
 	if (ctx->failed)
 		return FALSE;
-
-	for (;;) {
-		if (ctx->result == NULL) {
-			/* wait for async lookup to finish */
-			i_assert((ctx->flags & DICT_ITERATE_FLAG_ASYNC) != 0);
-			_ctx->has_more = TRUE;
+	if (!ctx->iter_query_sent) {
+		ctx->iter_query_sent = TRUE;
+		if (sql_dict_iterate_next_query(ctx) <= 0)
 			return FALSE;
-		}
+	}
 
-		ret = sql_result_next_row(ctx->result);
-		if (ret != 0)
-			break;
+	if (ctx->result == NULL) {
+		/* wait for async lookup to finish */
+		i_assert((ctx->flags & DICT_ITERATE_FLAG_ASYNC) != 0);
+		_ctx->has_more = TRUE;
+		return FALSE;
+	}
+
+	ret = sql_result_next_row(ctx->result);
+	if (ret == 0) {
 		/* see if there are more results in the next map.
 		   don't do it if we're looking for an exact match, since we
 		   already should have handled it. */
 		if ((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0)
 			return FALSE;
-		if ((ret = sql_dict_iterate_next_query(ctx, &error)) == 0)
-			return FALSE;
+		ctx->iter_query_sent = FALSE;
+		return sql_dict_iterate(_ctx, key_r, value_r);
 	}
 	if (ret < 0) {
 		ctx->failed = TRUE;
