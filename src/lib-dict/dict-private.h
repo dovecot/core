@@ -54,6 +54,7 @@ struct dict_iterate_context {
 	void *async_context;
 
 	unsigned int has_more:1;
+	uint64_t row_count, max_rows;
 };
 
 struct dict_transaction_context {
