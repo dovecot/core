@@ -167,8 +167,16 @@ dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 bool dict_iterate(struct dict_iterate_context *ctx,
 		  const char **key_r, const char **value_r)
 {
-	return ctx == &dict_iter_unsupported ? FALSE :
-		ctx->dict->v.iterate(ctx, key_r, value_r);
+	if (ctx == &dict_iter_unsupported)
+		return FALSE;
+	if (ctx->max_rows > 0 && ctx->row_count >= ctx->max_rows) {
+		/* row count was limited */
+		return FALSE;
+	}
+	if (!ctx->dict->v.iterate(ctx, key_r, value_r))
+		return FALSE;
+	ctx->row_count++;
+	return TRUE;
 }
 
 void dict_iterate_set_async_callback(struct dict_iterate_context *ctx,
@@ -177,6 +185,12 @@ void dict_iterate_set_async_callback(struct dict_iterate_context *ctx,
 {
 	ctx->async_callback = callback;
 	ctx->async_context = context;
+}
+
+void dict_iterate_set_limit(struct dict_iterate_context *ctx,
+			    uint64_t max_rows)
+{
+	ctx->max_rows = max_rows;
 }
 
 bool dict_iterate_has_more(struct dict_iterate_context *ctx)

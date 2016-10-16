@@ -109,6 +109,10 @@ dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 void dict_iterate_set_async_callback(struct dict_iterate_context *ctx,
 				     dict_iterate_callback_t *callback,
 				     void *context);
+/* Limit how many rows will be returned by the iteration (0 = unlimited).
+   This allows backends to optimize the query (e.g. use LIMIT 1 with SQL). */
+void dict_iterate_set_limit(struct dict_iterate_context *ctx,
+			    uint64_t max_rows);
 /* If dict_iterate() returns FALSE, the iteration may be finished or if this
    is an async iteration it may be waiting for more data. If this function
    returns TRUE, the dict callback is called again with more data. */

@@ -54,6 +54,8 @@ struct dict_iterate_context {
 	dict_iterate_callback_t *async_callback;
 	void *async_context;
 
+	uint64_t row_count, max_rows;
+
 	bool has_more:1;
 };
 
