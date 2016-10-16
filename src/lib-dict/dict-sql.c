@@ -616,6 +616,12 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 	} else if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_VALUE) != 0)
 		str_printfa(query, " ORDER BY %s", map->value_field);
 
+	if (ctx->ctx.max_rows > 0) {
+		i_assert(ctx->ctx.row_count < ctx->ctx.max_rows);
+		str_printfa(query, " LIMIT %llu",
+			(unsigned long long)(ctx->ctx.max_rows - ctx->ctx.row_count));
+	}
+
 	ctx->map = map;
 	return 1;
 }
