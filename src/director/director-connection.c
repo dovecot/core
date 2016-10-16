@@ -572,11 +572,11 @@ director_user_refresh(struct director_connection *conn,
 			str_printfa(str, ",handshaking,recv_ts=%ld",
 				    (long)timestamp);
 		}
-		if (user->to_move != NULL)
-			str_append(str, ",moving");
 		if (USER_IS_BEING_KILLED(user)) {
+			if (user->kill_ctx->to_move != NULL)
+				str_append(str, ",moving");
 			str_printfa(str, ",kill_state=%s",
-				    user_kill_state_names[user->kill_state]);
+				    user_kill_state_names[user->kill_ctx->kill_state]);
 		}
 		str_append_c(str, ')');
 		i_error("%s", str_c(str));

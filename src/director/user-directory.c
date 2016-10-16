@@ -28,6 +28,7 @@ struct user_directory {
 	struct user *prev_insert_pos;
 
 	ARRAY(struct user_directory_iter *) iters;
+	void (*user_free_hook)(struct user *);
 
 	char *username_hash_fmt;
 	unsigned int timeout_secs;
@@ -54,11 +55,8 @@ static void user_free(struct user_directory *dir, struct user *user)
 	i_assert(user->host->user_count > 0);
 	user->host->user_count--;
 
-	if (user->to_move != NULL) {
-		/* director_user_expire is very short. user expired before
-		   moving the user finished or timed out. */
-		timeout_remove(&user->to_move);
-	}
+	if (dir->user_free_hook != NULL)
+		dir->user_free_hook(user);
 	user_move_iters(dir, user);
 
 	hash_table_remove(dir->hash, POINTER_CAST(user->username_hash));
@@ -281,7 +279,8 @@ bool user_directory_user_is_near_expiring(struct user_directory *dir,
 }
 
 struct user_directory *
-user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt)
+user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt,
+		    void (*user_free_hook)(struct user *))
 {
 	struct user_directory *dir;
 
@@ -298,6 +297,7 @@ user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt)
 	i_assert(dir->timeout_secs/2 > dir->user_near_expiring_secs);
 
 	dir->username_hash_fmt = i_strdup(username_hash_fmt);
+	dir->user_free_hook = user_free_hook;
 	hash_table_create_direct(&dir->hash, default_pool, 0);
 	i_array_init(&dir->iters, 8);
 	return dir;

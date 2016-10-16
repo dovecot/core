@@ -63,6 +63,31 @@ extern const char *user_kill_state_names[USER_KILL_STATE_DELAY+1];
 
 typedef void director_state_change_callback_t(struct director *dir);
 
+/* When a user gets freed, the kill_ctx may still be left alive. It's also
+   possible for the user to come back, in which case the kill_ctx is usually
+   NULL, but another kill could have also started. The previous kill_ctx is
+   valid only if it matches the current user's kill_ctx. */
+#define DIRECTOR_KILL_CONTEXT_IS_VALID(user, ctx) \
+	((user) != NULL && (user)->kill_ctx == ctx)
+
+struct director_kill_context {
+	struct director *dir;
+	unsigned int username_hash;
+	bool kill_is_self_initiated;
+	bool callback_pending;
+
+	enum user_kill_state kill_state;
+	/* Move timeout to make sure user's connections won't silently hang
+	   indefinitely if there is some trouble moving it. */
+	struct timeout *to_move;
+
+	/* these are set only for director_flush_socket handling: */
+	struct ip_addr host_ip;
+	struct program_client *pclient;
+	struct ostream *reply;
+	char *socket_path;
+};
+
 struct director {
 	const struct director_settings *set;
 
