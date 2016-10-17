@@ -16,6 +16,13 @@
 #include <sys/wait.h>
 #include <sysexits.h>
 
+#define PROGRAM_CLIENT_VERSION_MAJOR "3"
+#define PROGRAM_CLIENT_VERSION_MINOR "0"
+
+#define PROGRAM_CLIENT_VERSION_STRING "VERSION\tscript\t" \
+		PROGRAM_CLIENT_VERSION_MAJOR "\t" \
+		PROGRAM_CLIENT_VERSION_MINOR "\n"
+
 /*
  * Script client input stream
  */
@@ -206,7 +213,7 @@ void program_client_remote_connected(struct program_client *pclient)
 	}
 
 	str = t_str_new(1024);
-	str_append(str, "VERSION\tscript\t3\t0\n");
+	str_append(str, PROGRAM_CLIENT_VERSION_STRING);
 	if (slclient->noreply)
 		str_append(str, "noreply\n");
 	else
