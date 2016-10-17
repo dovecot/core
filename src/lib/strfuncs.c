@@ -434,6 +434,16 @@ int null_strcmp(const char *s1, const char *s2)
 	return strcmp(s1, s2);
 }
 
+int null_strcasecmp(const char *s1, const char *s2)
+{
+        if (s1 == NULL)
+                return s2 == NULL ? 0 : -1;
+        if (s2 == NULL)
+                return 1;
+
+        return strcasecmp(s1, s2);
+}
+
 int i_memcasecmp(const void *p1, const void *p2, size_t size)
 {
 	const unsigned char *s1 = p1;

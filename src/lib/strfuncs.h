@@ -60,6 +60,7 @@ const char *t_str_rtrim(const char *str, const char *chars);
 /*const char *t_str_trim(const char *str, const char *chars);*/
 
 int null_strcmp(const char *s1, const char *s2) ATTR_PURE;
+int null_strcasecmp(const char *s1, const char *s2) ATTR_PURE;
 int bsearch_strcmp(const char *key, const char *const *member) ATTR_PURE;
 int bsearch_strcasecmp(const char *key, const char *const *member) ATTR_PURE;
 int i_memcasecmp(const void *p1, const void *p2, size_t size) ATTR_PURE;
