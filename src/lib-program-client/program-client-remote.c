@@ -316,6 +316,11 @@ void program_client_remote_disconnect(struct program_client *pclient, bool force
 	program_client_disconnected(pclient);
 }
 
+static
+void program_client_remote_switch_ioloop(struct program_client *pclient ATTR_UNUSED)
+{
+}
+
 struct program_client *
 program_client_unix_create(const char *socket_path, const char *const *args,
 			   const struct program_client_settings *set,
@@ -330,6 +335,7 @@ program_client_unix_create(const char *socket_path, const char *const *args,
 	pclient->client.connect = program_client_unix_connect;
 	pclient->client.close_output = program_client_remote_close_output;
 	pclient->client.disconnect = program_client_remote_disconnect;
+	pclient->client.switch_ioloop = program_client_remote_switch_ioloop;
 	pclient->noreply = noreply;
 
 	return &pclient->client;

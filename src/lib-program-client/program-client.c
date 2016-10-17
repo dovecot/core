@@ -563,7 +563,7 @@ void program_client_switch_ioloop(struct program_client *pclient)
 		pclient->to = io_loop_move_timeout(&pclient->to);
 	if (pclient->io != NULL)
 		pclient->io = io_loop_move_io(&pclient->io);
-	lib_signals_reset_ioloop();
+	pclient->switch_ioloop(pclient);
 }
 
 static
