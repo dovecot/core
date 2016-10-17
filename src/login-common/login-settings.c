@@ -120,6 +120,7 @@ login_set_var_expand_table(const struct master_service_settings_input *input)
 		{ 'r', NULL, "rip" },
 		{ 'p', NULL, "pid" },
 		{ 's', NULL, "service" },
+		{ '\0', NULL, "local_name" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -131,6 +132,7 @@ login_set_var_expand_table(const struct master_service_settings_input *input)
 	tab[1].value = net_ip2addr(&input->remote_ip);
 	tab[2].value = my_pid;
 	tab[3].value = input->service;
+	tab[4].value = input->local_name;
 	return tab;
 }
 

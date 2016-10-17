@@ -319,6 +319,8 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_printfa(dest, "\treal_lport=%u", request->real_local_port);
 	if (request->real_remote_port != 0)
 		str_printfa(dest, "\treal_rport=%u", request->real_remote_port);
+	if (request->local_name != 0)
+		str_printfa(dest, "\tlocal_name=%s", request->local_name);
 	if (request->session_id != NULL)
 		str_printfa(dest, "\tsession=%s", request->session_id);
 	if (request->debug)
@@ -377,6 +379,8 @@ bool auth_request_import_info(struct auth_request *request,
 		(void)net_str2port(value, &request->real_local_port);
 	else if (strcmp(key, "real_rport") == 0)
 		(void)net_str2port(value, &request->real_remote_port);
+	else if (strcmp(key, "local_name") == 0)
+		request->local_name = p_strdup(request->pool, value);
 	else if (strcmp(key, "session") == 0)
 		request->session_id = p_strdup(request->pool, value);
 	else if (strcmp(key, "debug") == 0)

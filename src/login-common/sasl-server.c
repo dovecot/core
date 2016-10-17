@@ -360,6 +360,7 @@ void sasl_server_auth_begin(struct client *client,
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;
 	info.local_port = client->local_port;
+	info.local_name = client->local_name;
 	info.remote_port = client->remote_port;
 	info.real_local_ip = client->real_local_ip;
 	info.real_remote_ip = client->real_remote_ip;
