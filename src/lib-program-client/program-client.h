@@ -22,6 +22,8 @@ struct program_client_settings {
 	bool allow_root:1;
 	bool debug:1;
 	bool drop_stderr:1;
+	/* use o_stream_dot */
+	bool use_dotstream:1;
 };
 
 typedef void program_client_fd_callback_t(void *context, struct istream *input);

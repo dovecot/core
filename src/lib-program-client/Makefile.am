@@ -3,7 +3,8 @@ noinst_LTLIBRARIES = libprogram_client.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
-	-I$(top_srcdir)/src/lib-dns
+	-I$(top_srcdir)/src/lib-dns \
+	-I$(top_srcdir)/src/lib-mail
 
 libprogram_client_la_SOURCES = \
 	program-client.c \
@@ -30,6 +31,7 @@ test_libs = \
 	libprogram_client.la \
 	../lib-dns/libdns.la  \
 	../lib-test/libtest.la \
+	../lib-mail/libmail.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
 

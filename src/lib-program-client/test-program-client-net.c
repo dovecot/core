@@ -9,20 +9,22 @@
 #include "array.h"
 #include "istream.h"
 #include "ostream.h"
+#include "istream-dot.h"
+#include "ostream-dot.h"
 #include "net.h"
 #include "iostream-temp.h"
 #include "program-client.h"
 
 #include <unistd.h>
 
-static const char *pclient_test_io_string = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
-					    "Praesent vehicula ac leo vel placerat. Nullam placerat \n"
-					    "volutpat leo, sed ultricies felis pulvinar quis. Nam \n"
-					    "tempus, augue ut tempor cursus, neque felis commodo lacus, \n"
-					    "sit amet tincidunt arcu justo vel augue. Proin dapibus \n"
-					    "vulputate maximus. Mauris congue lacus felis, sed varius \n"
-					    "leo finibus sagittis. Cum sociis natoque penatibus et magnis \n"
-					    "dis parturient montes, nascetur ridiculus mus. Aliquam \n"
+static const char *pclient_test_io_string = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\r\n"
+					    "Praesent vehicula ac leo vel placerat. Nullam placerat \r\n"
+					    "volutpat leo, sed ultricies felis pulvinar quis. Nam \r\n"
+					    "tempus, augue ut tempor cursus, neque felis commodo lacus, \r\n"
+					    "sit amet tincidunt arcu justo vel augue. Proin dapibus \r\n"
+					    "vulputate maximus. Mauris congue lacus felis, sed varius \r\n"
+					    "leo finibus sagittis. Cum sociis natoque penatibus et magnis \r\n"
+					    "dis parturient montes, nascetur ridiculus mus. Aliquam \r\n"
 					    "laoreet arcu a hendrerit consequat. Duis vitae erat tellus.";
 
 static
@@ -102,6 +104,7 @@ int test_program_input_handle(struct test_client *client, const char *line)
 {
 	int cmp = -1;
 	const char *arg;
+	struct istream *is;
 
 	switch(client->state) {
 	case CLIENT_STATE_INIT:
@@ -132,8 +135,12 @@ int test_program_input_handle(struct test_client *client, const char *line)
 		break;
 	case CLIENT_STATE_BODY:
 		client->os_body =
-			iostream_temp_create_named(".dovecot.test.",
-						   0, "test_program_input body");
+			iostream_temp_create_named(".dovecot.test.", 0,
+						   "test_program_input body");
+		is = client->in;
+		client->in = i_stream_create_dot(is, FALSE);
+		i_stream_unref(&is);
+
 		switch(o_stream_send_istream(client->os_body, client->in)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
@@ -141,7 +148,8 @@ int test_program_input_handle(struct test_client *client, const char *line)
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
-			client->body = iostream_temp_finish(&client->os_body, -1);
+			client->body = iostream_temp_finish(&client->os_body,
+							    -1);
 			return 1;
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 			i_panic("Cannot write to ostream-temp");
@@ -156,38 +164,56 @@ void test_program_run(struct test_client *client)
 {
 	const char *arg;
 
-	timeout_remove(&test_globals.to);
+	struct ostream *os;
 
-	test_assert(array_count(&client->args) > 0);
-	arg = *array_idx(&client->args, 0);
-	if (strcmp(arg, "test_program_success")==0) {
-		/* return hello world */
-		o_stream_nsend_str(client->out, t_strdup_printf("%s %s\n+\n",
-				   *array_idx(&client->args, 1),
-				   *array_idx(&client->args, 2)));
-	} else if (strcmp(arg, "test_program_io")==0) {
-		o_stream_send_istream(client->out, client->body);
-		o_stream_nsend_str(client->out, "+\n");
-	} else if (strcmp(arg, "test_program_failure")==0) {
-		o_stream_nsend_str(client->out, "-\n");
+	timeout_remove(&test_globals.to);
+	test_assert(array_is_created(&client->args));
+	if (array_is_created(&client->args)) {
+		test_assert(array_count(&client->args) > 0);
+		if (array_count(&client->args) > 0) {
+			arg = *array_idx(&client->args, 0);
+			if (strcmp(arg, "test_program_success")==0) {
+				/* return hello world */
+				o_stream_nsend_str(client->out, t_strdup_printf(
+						   "%s %s\r\n.\n+\n",
+						   *array_idx(&client->args, 1),
+						   *array_idx(&client->args, 2)));
+			} else if (strcmp(arg, "test_program_io")==0) {
+				os = o_stream_create_dot(client->out, FALSE);
+				o_stream_send_istream(os, client->body);
+				o_stream_flush(os);
+				o_stream_unref(&os);
+				o_stream_nsend_str(client->out, "+\n");
+			} else if (strcmp(arg, "test_program_failure")==0) {
+				o_stream_nsend_str(client->out, ".\n-\n");
+			}
+		} else
+			o_stream_nsend_str(client->out, ".\n-\n");
 	}
+	test_program_client_destroy(&client);
 }
 
 static
 void test_program_input(struct test_client *client)
-
 {
 	const char *line = "";
+	int ret = 0;
 
 	if (client->state == CLIENT_STATE_BODY) {
 		if (test_program_input_handle(client, NULL)==0 &&
 		    !client->in->eof)
 			return;
 	} else {
-		line = i_stream_read_next_line(client->in);
+		while((line = i_stream_read_next_line(client->in)) != NULL) {
+			ret = test_program_input_handle(client, line);
+			if (client->state == CLIENT_STATE_BODY)
+				ret = test_program_input_handle(client, NULL);
+			if (ret != 0) break;
+		}
 
 		if ((line == NULL && !client->in->eof) ||
-		    (line != NULL && test_program_input_handle(client, line) == 0))
+		    (line != NULL &&
+		     ret == 0))
 			return;
 	}
 
@@ -202,8 +228,6 @@ void test_program_input(struct test_client *client)
 		else
 			i_warning("Client sent invalid line: %s", line);
 	}
-
-	test_program_client_destroy(&client);
 }
 
 static
@@ -240,7 +264,7 @@ void test_program_setup(void) {
 	net_addr2ip("127.0.0.1", &ip);
 
 	test_globals.listen_fd = net_listen(&ip, &test_globals.port, 1);
-;
+
 	if (test_globals.listen_fd < 0)
 		i_fatal("Cannot create TCP listener: %m");
 
@@ -278,7 +302,7 @@ void test_program_success(void) {
 	};
 
 	struct program_client *pc =
-		program_client_net_create("95.175.99.158", 33333, args,
+		program_client_net_create("127.0.0.1", test_globals.port, args,
 					  &pc_set, FALSE);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
@@ -291,7 +315,7 @@ void test_program_success(void) {
 		test_program_io_loop_run();
 
 	test_assert(ret == 1);
-	test_assert(strcmp(str_c(output), "hello world\n") == 0);
+	test_assert(strcmp(str_c(output), "hello world") == 0);
 
 	program_client_destroy(&pc);
 

@@ -8,6 +8,8 @@
 #include "safe-mkstemp.h"
 #include "istream-private.h"
 #include "istream-seekable.h"
+#include "ostream-dot.h"
+#include "istream-dot.h"
 #include "ostream.h"
 #include "lib-signals.h"
 
@@ -123,7 +125,8 @@ void program_client_disconnect_extra_fds(struct program_client *pclient)
 void program_client_disconnected(struct program_client *pclient)
 {
 	if (pclient->program_input != NULL) {
-		if (pclient->output_seekable)
+		if (pclient->output_seekable ||
+		    pclient->set.use_dotstream)
 			i_stream_unref(&pclient->program_input);
 		else
 			i_stream_destroy(&pclient->program_input);
@@ -230,11 +233,33 @@ int program_client_program_output(struct program_client *pclient)
 		return ret;
 	}
 
+	if (!pclient->output_dot_created &&
+	    pclient->set.use_dotstream &&
+	    output != NULL) {
+		pclient->dot_output = o_stream_create_dot(output, FALSE);
+		pclient->output_dot_created = TRUE;
+	}
+	if (pclient->output_dot_created &&
+	    pclient->dot_output != NULL)
+		output = pclient->dot_output;
+
 	if (input != NULL && output != NULL) {
 		res = o_stream_send_istream(output, input);
-
 		switch (res) {
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+			if (pclient->output_dot_created) {
+				if ((ret = o_stream_flush(pclient->dot_output)) <= 0) {
+					if (ret < 0) {
+						i_error("write(%s) failed: %s",
+							o_stream_get_name(pclient->dot_output),
+							o_stream_get_error(pclient->dot_output));
+						program_client_fail(pclient,
+								    PROGRAM_CLIENT_ERROR_IO);
+					}
+				}
+				o_stream_unref(&pclient->dot_output);
+				output = pclient->program_output;
+			}
 			i_stream_unref(&pclient->input);
 			input = NULL;
 			break;
@@ -255,6 +280,20 @@ int program_client_program_output(struct program_client *pclient)
 			program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 			return -1;
 		}
+	} else if (input == NULL &&
+		   output != NULL &&
+		   pclient->output_dot_created) {
+		if ((ret = o_stream_flush(pclient->dot_output)) <= 0) {
+			if (ret < 0) {
+				i_error("write(%s) failed: %s",
+					o_stream_get_name(output),
+					o_stream_get_error(output));
+					program_client_fail(pclient,
+							    PROGRAM_CLIENT_ERROR_IO);
+			}
+			return ret;
+		}
+		o_stream_unref(&pclient->dot_output);
 	}
 
 	if (input == NULL) {
@@ -291,11 +330,30 @@ void program_client_program_input(struct program_client *pclient)
 	}
 
 	if (input != NULL) {
+		if (!pclient->input_dot_created &&
+		    pclient->set.use_dotstream) {
+			pclient->dot_input = i_stream_create_dot(input, FALSE);
+			pclient->input_dot_created = TRUE;
+		}
+		if (pclient->input_dot_created &&
+		    pclient->dot_input != NULL)
+			input = pclient->dot_input;
+		else if (pclient->set.use_dotstream) {
+			/* just read it empty */
+			while(i_stream_read_more(input, &data,
+						 &size) > 0)
+				i_stream_skip(input, size);
+			output = NULL;
+		}
 		if (output != NULL) {
 			res = o_stream_send_istream(output, input);
-
 			switch (res) {
 			case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+				if (pclient->set.use_dotstream &&
+				    pclient->dot_input != NULL) {
+					i_stream_unref(&pclient->dot_input);
+					input = pclient->program_input;
+				}
 				break;
 			case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 			case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
@@ -487,13 +545,9 @@ void program_client_init_streams(struct program_client *pclient)
 		o_stream_set_name(pclient->program_output, "program stdin");
 	}
 	if (pclient->fd_in >= 0) {
-		struct istream *input;
-
-		input = i_stream_create_fd(pclient->fd_in, (size_t)-1);
-
-		pclient->program_input = input;
+		pclient->program_input =
+			i_stream_create_fd(pclient->fd_in, (size_t)-1);
 		i_stream_set_name(pclient->program_input, "program stdout");
-
 		pclient->io = io_add(pclient->fd_in, IO_READ,
 				     program_client_program_input, pclient);
 	}
@@ -527,6 +581,8 @@ void program_client_destroy(struct program_client **_pclient)
 
 	if (pclient->input != NULL)
 		i_stream_unref(&pclient->input);
+	if (pclient->dot_input != NULL)
+		i_stream_unref(&pclient->dot_input);
 	if (pclient->program_input != NULL)
 		i_stream_unref(&pclient->program_input);
 	if (pclient->program_output != NULL)

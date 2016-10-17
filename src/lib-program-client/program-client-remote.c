@@ -493,6 +493,8 @@ int program_client_remote_close_output(struct program_client *pclient)
 	int fd_out = pclient->fd_out, fd_in = pclient->fd_in;
 
 	pclient->fd_out = -1;
+	if (fd_out >= 0 && pclient->set.use_dotstream)
+		return 1;
 
 	/* Shutdown output; program stdin will get EOF */
 	if (fd_out >= 0) {
@@ -589,7 +591,7 @@ program_client_net_create(const char *host, in_port_t port,
 	pclient->client.close_output = program_client_remote_close_output;
 	pclient->client.disconnect = program_client_remote_disconnect;
 	pclient->noreply = noreply;
-
+	pclient->client.set.use_dotstream = TRUE;
 	return &pclient->client;
 }
 
@@ -614,8 +616,10 @@ program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 	pclient->client.disconnect = program_client_remote_disconnect;
 	pclient->client.switch_ioloop = program_client_remote_switch_ioloop;
 	pclient->noreply = noreply;
+	pclient->client.set.use_dotstream = TRUE;
 	pclient->ips = p_memdup(pool, ips,
 				sizeof(struct ip_addr)*ips_count);
 	pclient->ips_count = ips_count;
 	return &pclient->client;
 }
+

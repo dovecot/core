@@ -39,7 +39,8 @@ struct program_client {
 	struct timeval start_time;
 
 	struct istream *input, *program_input, *seekable_output;
-	struct ostream *output, *program_output;
+	struct istream *dot_input;
+	struct ostream *output, *program_output, *dot_output;
 	char *temp_prefix;
 
 	ARRAY(struct program_client_extra_fd) extra_fds;
@@ -60,6 +61,8 @@ struct program_client {
 	bool debug:1;
 	bool disconnected:1;
 	bool output_seekable:1;
+	bool input_dot_created:1;
+	bool output_dot_created:1;
 };
 
 void program_client_init(struct program_client *pclient, pool_t pool, const char *path,
