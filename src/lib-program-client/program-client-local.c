@@ -465,6 +465,17 @@ void program_client_local_destroy(struct program_client *pclient ATTR_UNUSED)
 	child_wait_deinit();
 }
 
+static
+void program_client_local_switch_ioloop(struct program_client *pclient)
+{
+	struct program_client_local *slclient =
+		(struct program_client_local *)pclient;
+
+	if (slclient->to_kill)
+		slclient->to_kill = io_loop_move_timeout(&slclient->to_kill);
+	lib_signals_reset_ioloop();
+}
+
 struct program_client *
 program_client_local_create(const char *bin_path,
 			    const char *const *args,
@@ -478,6 +489,7 @@ program_client_local_create(const char *bin_path,
 	program_client_init(&pclient->client, pool, bin_path, args, set);
 	pclient->client.connect = program_client_local_connect;
 	pclient->client.close_output = program_client_local_close_output;
+	pclient->client.switch_ioloop = program_client_local_switch_ioloop;
 	pclient->client.disconnect = program_client_local_disconnect;
 	pclient->client.destroy = program_client_local_destroy;
 	pclient->pid = -1;

@@ -53,6 +53,7 @@ struct program_client {
 
 	int (*connect) (struct program_client * pclient);
 	int (*close_output) (struct program_client * pclient);
+	void (*switch_ioloop) (struct program_client * pclient);
 	void (*disconnect) (struct program_client * pclient, bool force);
 	void (*destroy) (struct program_client * pclient);
 
