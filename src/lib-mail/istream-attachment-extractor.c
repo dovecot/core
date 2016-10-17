@@ -375,7 +375,9 @@ static int astream_decode_base64(struct attachment_istream *astream)
 	o_stream_cork(output);
 
 	hash_format_reset(astream->set.hash_format);
-	while ((ret = i_stream_read_more(base64_input, &data, &size)) > 0) {
+	size_t bytes_needed = 1;
+	while ((ret = i_stream_read_bytes(base64_input, &data, &size,
+					  bytes_needed)) > 0) {
 		buffer_set_used_size(buf, 0);
 		if (base64_decode(data, size, &size, buf) < 0) {
 			i_error("istream-attachment: BUG: "
@@ -387,6 +389,7 @@ static int astream_decode_base64(struct attachment_istream *astream)
 		o_stream_nsend(output, buf->data, buf->used);
 		hash_format_loop(astream->set.hash_format,
 				 buf->data, buf->used);
+		bytes_needed = i_stream_get_data_size(base64_input) + 1;
 	}
 	if (ret != -1) {
 		i_assert(failed);
