@@ -9,6 +9,7 @@
 #include "istream-private.h"
 #include "istream-seekable.h"
 #include "ostream.h"
+#include "lib-signals.h"
 
 #include "program-client-private.h"
 
@@ -562,6 +563,7 @@ void program_client_switch_ioloop(struct program_client *pclient)
 		pclient->to = io_loop_move_timeout(&pclient->to);
 	if (pclient->io != NULL)
 		pclient->io = io_loop_move_io(&pclient->io);
+	lib_signals_reset_ioloop();
 }
 
 static
