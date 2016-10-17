@@ -185,6 +185,20 @@ static void fs_dict_write_stream(struct fs_file *_file)
 	o_stream_set_name(_file->output, file->key);
 }
 
+static void fs_dict_write_rename_if_needed(struct dict_fs_file *file)
+{
+	struct dict_fs *fs = (struct dict_fs *)file->file.fs;
+	const char *new_fname;
+
+	new_fname = fs_metadata_find(&file->file.metadata, FS_METADATA_WRITE_FNAME);
+	if (new_fname == NULL)
+		return;
+
+	file->file.path = p_strdup(file->pool, new_fname);
+	file->key = fs->path_prefix == NULL ? p_strdup(file->pool, new_fname) :
+		p_strconcat(file->pool, fs->path_prefix, new_fname, NULL);
+}
+
 static int fs_dict_write_stream_finish(struct fs_file *_file, bool success)
 {
 	struct dict_fs_file *file = (struct dict_fs_file *)_file;
@@ -195,6 +209,7 @@ static int fs_dict_write_stream_finish(struct fs_file *_file, bool success)
 	if (!success)
 		return -1;
 
+	fs_dict_write_rename_if_needed(file);
 	trans = dict_transaction_begin(fs->dict);
 	switch (fs->encoding) {
 	case FS_DICT_VALUE_ENCODING_RAW:
@@ -302,7 +317,8 @@ const struct fs fs_class_dict = {
 		NULL,
 		NULL,
 		NULL, NULL,
-		NULL, NULL,
+		fs_default_set_metadata,
+		NULL,
 		fs_dict_prefetch,
 		NULL,
 		fs_dict_read_stream,
