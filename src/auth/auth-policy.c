@@ -526,9 +526,8 @@ void auth_policy_report(struct auth_request *request)
 
 	if (*(request->set->policy_server_url) == '\0')
 		return;
-	pool_t pool = pool_alloconly_create("auth policy", 128);
-	struct policy_lookup_ctx *ctx = p_new(pool, struct policy_lookup_ctx, 1);
-	ctx->pool = pool;
+	struct policy_lookup_ctx *ctx = p_new(request->pool, struct policy_lookup_ctx, 1);
+	ctx->pool = request->pool;
 	ctx->request = request;
 	ctx->expect_result = FALSE;
 	ctx->set = request->set;
