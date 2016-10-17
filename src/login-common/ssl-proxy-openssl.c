@@ -1226,6 +1226,7 @@ static void ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 						  &client->ssl_set,
 						  &other_sets);
 	}
+	client->local_name = p_strdup(client->pool, host);
 	ctx = ssl_server_context_get(client->set, client->ssl_set);
 	SSL_set_SSL_CTX(ssl, ctx->ctx);
 }

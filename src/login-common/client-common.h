@@ -117,6 +117,7 @@ struct client {
 	const struct login_settings *set;
 	const struct master_service_ssl_settings *ssl_set;
 	const char *session_id, *listener_name, *postlogin_socket_path;
+	const char *local_name;
 
 	int fd;
 	struct istream *input;
