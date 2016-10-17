@@ -38,14 +38,16 @@ struct program_client_local {
 };
 
 static
-void program_client_local_waitchild(const struct child_wait_status *, struct program_client_local *);
+void program_client_local_waitchild(const struct child_wait_status *,
+				    struct program_client_local *);
 static
 void program_client_local_disconnect(struct program_client *pclient, bool force);
 static
 void program_client_local_exited(struct program_client_local *slclient);
 
 static
-void exec_child(const char *bin_path, const char *const *args, const char *const *envs,
+void exec_child(const char *bin_path, const char *const *args,
+		const char *const *envs,
 		int in_fd, int out_fd, int *extra_fds, bool drop_stderr)
 {
 	ARRAY_TYPE(const_string) exec_args;
@@ -155,7 +157,8 @@ void program_client_local_waitchild(const struct child_wait_status *status,
 static
 int program_client_local_connect(struct program_client *pclient)
 {
-	struct program_client_local *slclient = (struct program_client_local *) pclient;
+	struct program_client_local *slclient =
+		(struct program_client_local *)pclient;
 	int fd_in[2] = { -1, -1 }, fd_out[2] = {-1, -1};
 	struct program_client_extra_fd *efds = NULL;
 	int *parent_extra_fds = NULL, *child_extra_fds = NULL;
@@ -280,8 +283,10 @@ int program_client_local_connect(struct program_client *pclient)
 
 	program_client_init_streams(pclient);
 
-	slclient->child_wait = child_wait_new_with_pid(slclient->pid, program_client_local_waitchild,
-				slclient);
+	slclient->child_wait =
+		child_wait_new_with_pid(slclient->pid,
+					program_client_local_waitchild,
+					slclient);
 	return program_client_connected(pclient);
 }
 

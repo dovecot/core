@@ -65,14 +65,17 @@ struct program_client {
 	bool output_dot_created:1;
 };
 
-void program_client_init(struct program_client *pclient, pool_t pool, const char *path,
-			 const char *const *args, const struct program_client_settings *set);
+void program_client_init(struct program_client *pclient, pool_t pool,
+			 const char *path,
+			 const char *const *args,
+			 const struct program_client_settings *set);
 
 void program_client_init_streams(struct program_client *pclient);
 
 int program_client_connected(struct program_client *pclient);
 
-void program_client_fail(struct program_client *pclient, enum program_client_error error);
+void program_client_fail(struct program_client *pclient,
+			 enum program_client_error error);
 
 void program_client_program_input(struct program_client *pclient);
 

@@ -23,8 +23,6 @@
 		PROGRAM_CLIENT_VERSION_MAJOR "\t" \
 		PROGRAM_CLIENT_VERSION_MINOR "\n"
 
-
-
 static
 void program_client_net_connect_again(struct program_client *pclient);
 
@@ -224,7 +222,8 @@ void program_client_remote_connected(struct program_client *pclient)
 	if (!slclient->noreply) {
 		struct istream *is = pclient->program_input;
 		pclient->program_input =
-			program_client_istream_create(pclient, pclient->program_input);
+			program_client_istream_create(pclient,
+						      pclient->program_input);
 		i_stream_unref(&is);
 	}
 

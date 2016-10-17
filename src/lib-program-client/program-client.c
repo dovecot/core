@@ -21,7 +21,8 @@
 #define MAX_OUTPUT_MEMORY_BUFFER (1024*128)
 
 static
-void program_client_callback(struct program_client *pclient, int result, void *context)
+void program_client_callback(struct program_client *pclient, int result, void
+			     *context)
 {
 	program_client_callback_t *callback = pclient->callback;
 	i_assert(pclient->callback != NULL);
@@ -179,7 +180,8 @@ void program_client_disconnect(struct program_client *pclient, bool force)
 	pclient->disconnect(pclient, force);
 }
 
-void program_client_fail(struct program_client *pclient, enum program_client_error error)
+void program_client_fail(struct program_client *pclient,
+			 enum program_client_error error)
 {
 	if (pclient->error != PROGRAM_CLIENT_ERROR_NONE)
 		return;
@@ -443,8 +445,10 @@ int program_client_connected(struct program_client *pclient)
 	return ret;
 }
 
-void program_client_init(struct program_client *pclient, pool_t pool, const char *path,
-			 const char *const *args, const struct program_client_settings *set)
+void program_client_init(struct program_client *pclient, pool_t pool,
+			 const char *path,
+			 const char *const *args,
+			 const struct program_client_settings *set)
 {
 	pclient->pool = pool;
 	pclient->path = p_strdup(pool, path);
@@ -456,7 +460,8 @@ void program_client_init(struct program_client *pclient, pool_t pool, const char
 	pclient->fd_out = -1;
 }
 
-void program_client_set_input(struct program_client *pclient, struct istream *input)
+void program_client_set_input(struct program_client *pclient,
+			      struct istream *input)
 {
 	if (pclient->input != NULL)
 		i_stream_unref(&pclient->input);
@@ -465,7 +470,8 @@ void program_client_set_input(struct program_client *pclient, struct istream *in
 	pclient->input = input;
 }
 
-void program_client_set_output(struct program_client *pclient, struct ostream *output)
+void program_client_set_output(struct program_client *pclient,
+			       struct ostream *output)
 {
 	if (pclient->output != NULL)
 		o_stream_unref(&pclient->output);
@@ -476,7 +482,8 @@ void program_client_set_output(struct program_client *pclient, struct ostream *o
 	i_free(pclient->temp_prefix);
 }
 
-void program_client_set_output_seekable(struct program_client *pclient, const char *temp_prefix)
+void program_client_set_output_seekable(struct program_client *pclient,
+					const char *temp_prefix)
 {
 	if (pclient->output != NULL)
 		o_stream_unref(&pclient->output);
@@ -496,7 +503,8 @@ struct istream *program_client_get_output_seekable(struct program_client *pclien
 
 #undef program_client_set_extra_fd
 void program_client_set_extra_fd(struct program_client *pclient, int fd,
-				 program_client_fd_callback_t *callback, void *context)
+				 program_client_fd_callback_t *callback,
+				 void *context)
 {
 	struct program_client_extra_fd *efds;
 	struct program_client_extra_fd *efd = NULL;
@@ -524,7 +532,8 @@ void program_client_set_extra_fd(struct program_client *pclient, int fd,
 	efd->context = context;
 }
 
-void program_client_set_env(struct program_client *pclient, const char *name, const char *value)
+void program_client_set_env(struct program_client *pclient, const char *name,
+			    const char *value)
 {
 	const char *env;
 
@@ -566,7 +575,8 @@ void program_client_init_streams(struct program_client *pclient)
 					  t_strdup_printf("program output fd=%d",
 							  efds[i].child_fd));
 			efds[i].io = io_add(efds[i].parent_fd, IO_READ,
-					    program_client_extra_fd_input, &efds[i]);
+					    program_client_extra_fd_input,
+					    &efds[i]);
 		}
 	}
 }
@@ -687,7 +697,9 @@ int program_client_run(struct program_client *pclient)
 }
 
 #undef program_client_run_async
-void program_client_run_async(struct program_client *pclient, program_client_callback_t *callback, void *context)
+void program_client_run_async(struct program_client *pclient,
+			      program_client_callback_t *callback,
+			      void *context)
 {
 	int ret;
 

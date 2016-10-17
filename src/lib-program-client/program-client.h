@@ -75,10 +75,11 @@ void program_client_set_env(struct program_client *pclient,
 /* Since script service cannot return system exit code, the exit value shall be
    -1, 0, or 1. -1 is internal error, 0 is failure and 1 is success */
 int program_client_run(struct program_client *pclient);
-void program_client_run_async(struct program_client *pclient, program_client_callback_t *, void*);
+void program_client_run_async(struct program_client *pclient,
+			      program_client_callback_t *, void*);
 #define program_client_run_async(pclient, callback, context) \
-	program_client_run_async(pclient, (program_client_callback_t*)callback, (char*)context + \
-		CALLBACK_TYPECHECK(callback, \
+	program_client_run_async(pclient, (program_client_callback_t*)callback, \
+		(char*)context + CALLBACK_TYPECHECK(callback, \
 			void (*)(int, typeof(context))))
 
 #endif
