@@ -134,7 +134,6 @@ int fs_init(const char *driver, const char *args,
 {
 	const struct fs *fs_class;
 	const char *temp_file_prefix;
-	unsigned int i;
 
 	fs_class = fs_class_find(driver);
 	if (fs_class == NULL) {
@@ -149,9 +148,6 @@ int fs_init(const char *driver, const char *args,
 	}
 	if (fs_alloc(fs_class, args, set, fs_r, error_r) < 0)
 		return -1;
-
-	for (i = 0; i < FS_OP_COUNT; i++)
-		(*fs_r)->stats.timings[i] = timing_init();
 
 	temp_file_prefix = set->temp_file_prefix != NULL ?
 		set->temp_file_prefix : ".temp.dovecot";
@@ -199,8 +195,10 @@ void fs_unref(struct fs **_fs)
 	i_free(fs->username);
 	i_free(fs->session_id);
 	i_free(fs->temp_path_prefix);
-	for (i = 0; i < FS_OP_COUNT; i++)
-		timing_deinit(&fs->stats.timings[i]);
+	for (i = 0; i < FS_OP_COUNT; i++) {
+		if (fs->stats.timings[i] != NULL)
+			timing_deinit(&fs->stats.timings[i]);
+	}
 	T_BEGIN {
 		fs->v.deinit(fs);
 	} T_END;
@@ -356,7 +354,7 @@ static void fs_file_timing_start(struct fs_file *file, enum fs_op op)
 }
 
 static void
-fs_timing_end(struct timing *timing, const struct timeval *start_tv)
+fs_timing_end(struct timing **timing, const struct timeval *start_tv)
 {
 	struct timeval now;
 	long long diff;
@@ -365,8 +363,11 @@ fs_timing_end(struct timing *timing, const struct timeval *start_tv)
 		i_fatal("gettimeofday() failed: %m");
 
 	diff = timeval_diff_usecs(&now, start_tv);
-	if (diff > 0)
-		timing_add_usecs(timing, diff);
+	if (diff > 0) {
+		if (*timing == NULL)
+			*timing = timing_init();
+		timing_add_usecs(*timing, diff);
+	}
 }
 
 void fs_file_timing_end(struct fs_file *file, enum fs_op op)
@@ -374,7 +375,7 @@ void fs_file_timing_end(struct fs_file *file, enum fs_op op)
 	if (!file->fs->set.enable_timing || file->timing_start[op].tv_sec == 0)
 		return;
 
-	fs_timing_end(file->fs->stats.timings[op], &file->timing_start[op]);
+	fs_timing_end(&file->fs->stats.timings[op], &file->timing_start[op]);
 	/* don't count this again */
 	file->timing_start[op].tv_sec = 0;
 }
@@ -1073,7 +1074,7 @@ const char *fs_iter_next(struct fs_iter *iter)
 		/* first result returned - count this as the finish time, since
 		   we don't want to count the time caller spends on this
 		   iteration. */
-		fs_timing_end(iter->fs->stats.timings[FS_OP_ITER], &iter->start_time);
+		fs_timing_end(&iter->fs->stats.timings[FS_OP_ITER], &iter->start_time);
 		/* don't count this again */
 		iter->start_time.tv_sec = 0;
 	}
@@ -1124,20 +1125,32 @@ void fs_set_error_async(struct fs *fs)
 	errno = EAGAIN;
 }
 
+static uint64_t
+fs_stats_count_ops(const struct fs_stats *stats, const enum fs_op ops[],
+		   unsigned int ops_count)
+{
+	uint64_t ret = 0;
+
+	for (unsigned int i = 0; i < ops_count; i++) {
+		if (stats->timings[ops[i]] != NULL)
+			ret += timing_get_sum(stats->timings[ops[i]]);
+	}
+	return ret;
+}
+
 uint64_t fs_stats_get_read_usecs(const struct fs_stats *stats)
 {
-	return timing_get_sum(stats->timings[FS_OP_METADATA]) +
-		timing_get_sum(stats->timings[FS_OP_PREFETCH]) +
-		timing_get_sum(stats->timings[FS_OP_READ]) +
-		timing_get_sum(stats->timings[FS_OP_EXISTS]) +
-		timing_get_sum(stats->timings[FS_OP_STAT]) +
-		timing_get_sum(stats->timings[FS_OP_ITER]);
+	const enum fs_op read_ops[] = {
+		FS_OP_METADATA, FS_OP_PREFETCH, FS_OP_READ, FS_OP_EXISTS,
+		FS_OP_STAT, FS_OP_ITER
+	};
+	return fs_stats_count_ops(stats, read_ops, N_ELEMENTS(read_ops));
 }
 
 uint64_t fs_stats_get_write_usecs(const struct fs_stats *stats)
 {
-	return timing_get_sum(stats->timings[FS_OP_WRITE]) +
-		timing_get_sum(stats->timings[FS_OP_COPY]) +
-		timing_get_sum(stats->timings[FS_OP_DELETE]);
+	const enum fs_op write_ops[] = {
+		FS_OP_WRITE, FS_OP_COPY, FS_OP_DELETE
+	};
+	return fs_stats_count_ops(stats, write_ops, N_ELEMENTS(write_ops));
 }
-
