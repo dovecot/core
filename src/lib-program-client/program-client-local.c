@@ -10,6 +10,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "restrict-access.h"
+#include "child-wait.h"
 
 #include "program-client-private.h"
 
@@ -21,11 +22,27 @@
 #include <fcntl.h>
 #include <grp.h>
 
+#define KILL_TIMEOUT 5000
+
 struct program_client_local {
 	struct program_client client;
 
+	struct child_wait *child_wait;
+	struct timeout *to_kill;
+
 	pid_t pid;
+	int status;
+	bool exited:1;
+	bool stopping:1;
+	bool sent_term:1;
 };
+
+static
+void program_client_local_waitchild(const struct child_wait_status *, struct program_client_local *);
+static
+void program_client_local_disconnect(struct program_client *pclient, bool force);
+static
+void program_client_local_exited(struct program_client_local *slclient);
 
 static
 void exec_child(const char *bin_path, const char *const *args, const char *const *envs,
@@ -117,6 +134,22 @@ void exec_child(const char *bin_path, const char *const *args, const char *const
 
 	args = array_idx(&exec_args, 0);
 	execvp_const(args[0], args);
+}
+
+static
+void program_client_local_waitchild(const struct child_wait_status *status,
+				    struct program_client_local *slclient)
+{
+	i_assert(slclient->pid == status->pid);
+
+	slclient->status = status->status;
+	slclient->exited = TRUE;
+	slclient->pid = -1;
+
+	if (slclient->stopping)
+		program_client_local_exited(slclient);
+	else
+		program_client_program_input(&slclient->client);
 }
 
 static
@@ -246,6 +279,9 @@ int program_client_local_connect(struct program_client *pclient)
 	}
 
 	program_client_init_streams(pclient);
+
+	slclient->child_wait = child_wait_new_with_pid(slclient->pid, program_client_local_waitchild,
+				slclient);
 	return program_client_connected(pclient);
 }
 
@@ -265,20 +301,138 @@ int program_client_local_close_output(struct program_client *pclient)
 }
 
 static
-int program_client_local_disconnect(struct program_client *pclient, bool force)
+void program_client_local_exited(struct program_client_local *slclient)
 {
-	struct program_client_local *slclient =	(struct program_client_local *) pclient;
-	pid_t pid = slclient->pid, ret;
+	if (slclient->to_kill != NULL)
+		timeout_remove(&slclient->to_kill);
+	if (slclient->child_wait != NULL)
+		child_wait_free(&slclient->child_wait);
+
+	struct program_client *pclient = &slclient->client;
+	slclient->exited = TRUE;
+	slclient->pid = -1;
+	/* Evaluate child exit status */
+	pclient->exit_code = -1;
+
+	if (WIFEXITED(slclient->status)) {
+		/* Exited */
+		int exit_code = WEXITSTATUS(slclient->status);
+
+		if (exit_code != 0) {
+			i_info("program `%s' terminated with non-zero exit code %d",
+			       pclient->path, exit_code);
+			pclient->exit_code = 0;
+		} else {
+			pclient->exit_code = 1;
+		}
+	} else if (WIFSIGNALED(slclient->status)) {
+		/* Killed with a signal */
+		if (slclient->sent_term) {
+			i_error("program `%s' was forcibly terminated with signal %d",
+				pclient->path, WTERMSIG(slclient->status));
+		} else {
+			i_error("program `%s' terminated abnormally, signal %d",
+				pclient->path, WTERMSIG(slclient->status));
+		}
+	} else if (WIFSTOPPED(slclient->status)) {
+		/* Stopped */
+		i_error("program `%s' stopped, signal %d",
+			pclient->path, WSTOPSIG(slclient->status));
+	} else {
+		/* Something else */
+		i_error("program `%s' terminated abnormally, return status %d",
+			pclient->path, slclient->status);
+	}
+
+	program_client_disconnected(pclient);
+}
+
+static
+void program_client_local_kill(struct program_client_local *slclient)
+{
+	/* time to die */
+	if (slclient->to_kill != NULL)
+		timeout_remove(&slclient->to_kill);
+
+	i_assert(slclient->pid != (pid_t)-1);
+
+	if (slclient->client.error == PROGRAM_CLIENT_ERROR_NONE)
+		slclient->client.error = PROGRAM_CLIENT_ERROR_RUN_TIMEOUT;
+
+	if (slclient->sent_term) {
+		/* no need for this anymore */
+		child_wait_free(&slclient->child_wait);
+
+		/* Timed out again */
+		if (slclient->client.debug) {
+			i_debug("program `%s' (%d) did not die after %d seconds: "
+				"sending KILL signal",
+				slclient->client.path, slclient->pid, KILL_TIMEOUT / 1000);
+		}
+
+		/* Kill it brutally now, it should die right away */
+		if (kill(slclient->pid, SIGKILL) < 0) {
+			i_error("failed to send SIGKILL signal to program `%s'",
+				slclient->client.path);
+		} else if (waitpid(slclient->pid, &slclient->status, 0) < 0) {
+			i_error("waitpid(%s) failed: %m",
+				slclient->client.path);
+		}
+		program_client_local_exited(slclient);
+		return;
+	}
+
+	if (slclient->client.debug)
+		i_debug("program `%s'(%d) execution timed out after %llu seconds: "
+			"sending TERM signal", slclient->client.path, slclient->pid,
+			(unsigned long long int)slclient->client.set.input_idle_timeout_secs);
+
+	/* send sigterm, keep on waiting */
+	slclient->sent_term = TRUE;
+
+	/* Kill child gently first */
+	if (kill(slclient->pid, SIGTERM) < 0) {
+		i_error("failed to send SIGTERM signal to program `%s'",
+			slclient->client.path);
+		(void)kill(slclient->pid, SIGKILL);
+		program_client_local_exited(slclient);
+		return;
+	}
+
+	i_assert(slclient->child_wait != NULL);
+
+	slclient->to_kill = timeout_add_short(KILL_TIMEOUT,
+			    program_client_local_kill, slclient);
+}
+
+static
+void program_client_local_disconnect(struct program_client *pclient, bool force)
+{
+	struct program_client_local *slclient =
+		(struct program_client_local *) pclient;
+	pid_t pid = slclient->pid;
 	time_t runtime, timeout = 0;
-	int status;
+
+	if (slclient->exited) {
+		program_client_local_exited(slclient);
+		return;
+	}
+
+	if (slclient->stopping) return;
+	slclient->stopping = TRUE;
 
 	if (pid < 0) {
 		/* program never started */
 		pclient->exit_code = 0;
-		return 0;
+		program_client_local_exited(slclient);
+		return;
 	}
 
-	slclient->pid = -1;
+	/* make sure it hasn't already been reaped */
+	if (waitpid(slclient->pid, &slclient->status, WNOHANG) > 0) {
+		program_client_local_exited(slclient);
+		return;
+	}
 
 	/* Calculate timeout */
 	runtime = ioloop_time - pclient->start_time;
@@ -291,108 +445,24 @@ int program_client_local_disconnect(struct program_client *pclient, bool force)
 			pclient->path, (unsigned long long int) runtime);
 	}
 
-	/* Wait for child to exit */
 	force = force ||
 		(timeout == 0 && pclient->set.input_idle_timeout_secs > 0);
+
 	if (!force) {
-		alarm(timeout);
-		ret = waitpid(pid, &status, 0);
-		alarm(0);
+		if (timeout > 0)
+			slclient->to_kill =
+				timeout_add_short(timeout * 1000,
+						  program_client_local_kill,
+						  slclient);
+	} else {
+		program_client_local_kill(slclient);
 	}
-	if (force || ret < 0) {
-		if (!force && errno != EINTR) {
-			i_error("waitpid(%s) failed: %m", pclient->path);
-			(void) kill(pid, SIGKILL);
-			return -1;
-		}
+}
 
-		/* Timed out */
-		force = TRUE;
-		if (pclient->error == PROGRAM_CLIENT_ERROR_NONE)
-			pclient->error = PROGRAM_CLIENT_ERROR_RUN_TIMEOUT;
-		if (pclient->debug) {
-			i_debug("program `%s' execution timed out after %llu seconds: "
-				"sending TERM signal", pclient->path,
-				(unsigned long long int)pclient->set.input_idle_timeout_secs);
-		}
-
-		/* Kill child gently first */
-		if (kill(pid, SIGTERM) < 0) {
-			i_error("failed to send SIGTERM signal to program `%s'",
-				pclient->path);
-			(void) kill(pid, SIGKILL);
-			return -1;
-		}
-
-		/* Wait for it to die (give it some more time) */
-		alarm(5);
-		ret = waitpid(pid, &status, 0);
-		alarm(0);
-		if (ret < 0) {
-			if (errno != EINTR) {
-				i_error("waitpid(%s) failed: %m",
-					pclient->path);
-				(void) kill(pid, SIGKILL);
-				return -1;
-			}
-
-			/* Timed out again */
-			if (pclient->debug) {
-				i_debug("program `%s' execution timed out: sending KILL signal", pclient->path);
-			}
-
-			/* Kill it brutally now */
-			if (kill(pid, SIGKILL) < 0) {
-				i_error("failed to send SIGKILL signal to program `%s'", pclient->path);
-				return -1;
-			}
-
-			/* Now it will die immediately */
-			if (waitpid(pid, &status, 0) < 0) {
-				i_error("waitpid(%s) failed: %m",
-					pclient->path);
-				return -1;
-			}
-		}
-	}
-
-	/* Evaluate child exit status */
-	pclient->exit_code = -1;
-	if (WIFEXITED(status)) {
-		/* Exited */
-		int exit_code = WEXITSTATUS(status);
-
-		if (exit_code != 0) {
-			i_info("program `%s' terminated with non-zero exit code %d", pclient->path, exit_code);
-			pclient->exit_code = 0;
-			return 0;
-		}
-
-		pclient->exit_code = 1;
-		return 1;
-
-	} else if (WIFSIGNALED(status)) {
-		/* Killed with a signal */
-
-		if (force) {
-			i_error("program `%s' was forcibly terminated with signal %d", pclient->path, WTERMSIG(status));
-		} else {
-			i_error("program `%s' terminated abnormally, signal %d",
-				pclient->path, WTERMSIG(status));
-		}
-		return -1;
-
-	} else if (WIFSTOPPED(status)) {
-		/* Stopped */
-		i_error("program `%s' stopped, signal %d",
-			pclient->path, WSTOPSIG(status));
-		return -1;
-	}
-
-	/* Something else */
-	i_error("program `%s' terminated abnormally, return status %d",
-		pclient->path, status);
-	return -1;
+static
+void program_client_local_destroy(struct program_client *pclient ATTR_UNUSED)
+{
+	child_wait_deinit();
 }
 
 struct program_client *
@@ -409,7 +479,9 @@ program_client_local_create(const char *bin_path,
 	pclient->client.connect = program_client_local_connect;
 	pclient->client.close_output = program_client_local_close_output;
 	pclient->client.disconnect = program_client_local_disconnect;
+	pclient->client.destroy = program_client_local_destroy;
 	pclient->pid = -1;
+	child_wait_init();
 
 	return &pclient->client;
 }
