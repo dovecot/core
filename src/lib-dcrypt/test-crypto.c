@@ -668,6 +668,65 @@ void test_get_info_pw_encrypted(void) {
 }
 
 static
+void test_password_change(void) {
+	test_begin("test_password_change");
+
+	const char *pw1 = "first password";
+	struct dcrypt_keypair orig;
+	const char *error = NULL;
+
+	bool ret = dcrypt_keypair_generate(&orig, DCRYPT_KEY_EC, 0, "secp521r1", &error);
+	test_assert(ret == TRUE);
+
+	string_t *buf = t_str_new(4096);
+	ret = dcrypt_key_store_private(orig.priv, DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", buf, pw1, NULL, &error);
+	test_assert(ret == TRUE);
+
+	/* load the pw-encrypted key */
+	struct dcrypt_private_key *k1_priv = NULL;
+	ret = dcrypt_key_load_private(&k1_priv, str_c(buf), pw1, NULL, &error);
+	test_assert(ret == TRUE);
+
+	/* encrypt a key with the pw-encrypted key k1 */
+	struct dcrypt_keypair k2;
+	ret = dcrypt_keypair_generate(&k2, DCRYPT_KEY_EC, 0, "secp521r1", &error);
+	test_assert(ret == TRUE);
+
+	string_t *buf2 = t_str_new(4096);
+	struct dcrypt_public_key *k1_pub = NULL;
+	dcrypt_key_convert_private_to_public(k1_priv, &k1_pub);
+	ret = dcrypt_key_store_private(k2.priv, DCRYPT_FORMAT_DOVECOT, "ecdh-aes-256-ctr", buf2, NULL, k1_pub, &error);
+	test_assert(ret == TRUE);
+
+	/* change the password */
+	const char *pw2 = "second password";
+	string_t *buf3 = t_str_new(4096);
+
+	/* encrypt k1 with pw2 */
+	ret = dcrypt_key_store_private(k1_priv, DCRYPT_FORMAT_DOVECOT, "aes-256-ctr", buf3, pw2, NULL, &error);
+	test_assert(ret == TRUE);
+
+	/* load the pw2 encrypted key */
+	struct dcrypt_private_key *k2_priv = NULL;
+	ret = dcrypt_key_load_private(&k2_priv, str_c(buf3), pw2, NULL, &error);
+	test_assert(ret == TRUE);
+
+	/* load the key that was encrypted with pw1 using the pw2 encrypted key */
+	struct dcrypt_private_key *k3_priv = NULL;
+	ret = dcrypt_key_load_private(&k3_priv, str_c(buf2), NULL, k2_priv, &error);
+	test_assert(ret == TRUE);
+
+	dcrypt_key_unref_private(&k1_priv);
+	dcrypt_key_unref_public(&k1_pub);
+	dcrypt_key_unref_private(&k2_priv);
+	dcrypt_key_unref_private(&k3_priv);
+	dcrypt_keypair_unref(&orig);
+	dcrypt_keypair_unref(&k2);
+
+	test_end();
+}
+
+static
 void test_load_invalid_keys(void) {
 	test_begin("test_load_invalid_keys");
 
@@ -712,6 +771,7 @@ int main(void) {
 		test_get_info_invalid_keys,
 		test_get_info_key_encrypted,
 		test_get_info_pw_encrypted,
+		test_password_change,
 		test_load_invalid_keys,
 		NULL
 	};
