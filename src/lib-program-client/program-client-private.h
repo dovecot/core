@@ -47,12 +47,14 @@ struct program_client {
 	program_client_callback_t *callback;
 	void *context;
 
+	bool other_error;
 	enum program_client_error error;
 	int exit_code;
 
 	int (*connect) (struct program_client * pclient);
 	int (*close_output) (struct program_client * pclient);
-	int (*disconnect) (struct program_client * pclient, bool force);
+	void (*disconnect) (struct program_client * pclient, bool force);
+	void (*destroy) (struct program_client * pclient);
 
 	bool debug:1;
 	bool disconnected:1;
@@ -67,5 +69,9 @@ void program_client_init_streams(struct program_client *pclient);
 int program_client_connected(struct program_client *pclient);
 
 void program_client_fail(struct program_client *pclient, enum program_client_error error);
+
+void program_client_program_input(struct program_client *pclient);
+
+void program_client_disconnected(struct program_client *pclient);
 
 #endif

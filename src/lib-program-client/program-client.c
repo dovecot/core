@@ -119,21 +119,8 @@ void program_client_disconnect_extra_fds(struct program_client *pclient)
 	}
 }
 
-static
-void program_client_disconnect(struct program_client *pclient, bool force)
+void program_client_disconnected(struct program_client *pclient)
 {
-	int ret, error = FALSE;
-
-	if (pclient->disconnected)
-		return;
-
-	if ((ret = program_client_close_output(pclient)) < 0)
-		error = TRUE;
-
-	program_client_disconnect_extra_fds(pclient);
-	if ((ret = pclient->disconnect(pclient, force)) < 0)
-		error = TRUE;
-
 	if (pclient->program_input != NULL) {
 		if (pclient->output_seekable)
 			i_stream_unref(&pclient->program_input);
@@ -143,8 +130,6 @@ void program_client_disconnect(struct program_client *pclient, bool force)
 	if (pclient->program_output != NULL)
 		o_stream_destroy(&pclient->program_output);
 
-	if (pclient->to != NULL)
-		timeout_remove(&pclient->to);
 	if (pclient->io != NULL)
 		io_remove(&pclient->io);
 
@@ -156,7 +141,8 @@ void program_client_disconnect(struct program_client *pclient, bool force)
 	pclient->fd_in = pclient->fd_out = -1;
 
 	pclient->disconnected = TRUE;
-	if (error && pclient->error == PROGRAM_CLIENT_ERROR_NONE) {
+
+	if (pclient->other_error && pclient->error == PROGRAM_CLIENT_ERROR_NONE) {
 		pclient->error = PROGRAM_CLIENT_ERROR_OTHER;
 	}
 
@@ -165,6 +151,28 @@ void program_client_disconnect(struct program_client *pclient, bool force)
 			-1 :
 			pclient->exit_code,
 		pclient->context);
+}
+
+static
+void program_client_disconnect(struct program_client *pclient, bool force)
+{
+	int ret;
+
+	if (pclient->disconnected)
+		return;
+	pclient->disconnected = TRUE;
+
+	if (pclient->to != NULL)
+		timeout_remove(&pclient->to);
+	if (pclient->io != NULL)
+		io_remove(&pclient->io);
+
+	if ((ret = program_client_close_output(pclient)) < 0)
+		pclient->other_error = TRUE;
+
+	program_client_disconnect_extra_fds(pclient);
+
+	pclient->disconnect(pclient, force);
 }
 
 void program_client_fail(struct program_client *pclient, enum program_client_error error)
@@ -218,6 +226,7 @@ int program_client_program_output(struct program_client *pclient)
 				o_stream_get_error(output));
 			program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 		}
+
 		return ret;
 	}
 
@@ -278,7 +287,6 @@ int program_client_program_output(struct program_client *pclient)
 	return 1;
 }
 
-static
 void program_client_program_input(struct program_client *pclient)
 {
 	struct istream *input = pclient->program_input;
@@ -331,8 +339,15 @@ void program_client_program_input(struct program_client *pclient)
 					program_client_disconnect(pclient, FALSE);
 			}
 		}
-	} else
-		program_client_disconnect(pclient, FALSE);
+		if (program_client_input_pending(pclient))
+			return;
+		if (!input->eof) {
+			program_client_fail(pclient,
+					    PROGRAM_CLIENT_ERROR_IO);
+			return;
+		}
+	}
+	program_client_disconnect(pclient, FALSE);
 }
 
 static
@@ -512,6 +527,8 @@ void program_client_destroy(struct program_client **_pclient)
 
 	program_client_disconnect(pclient, TRUE);
 
+	i_assert(pclient->callback == NULL);
+
 	if (pclient->input != NULL)
 		i_stream_unref(&pclient->input);
 	if (pclient->program_input != NULL)
@@ -522,9 +539,14 @@ void program_client_destroy(struct program_client **_pclient)
 		o_stream_unref(&pclient->output);
 	if (pclient->seekable_output != NULL)
 		i_stream_unref(&pclient->seekable_output);
+
 	if (pclient->io != NULL)
 		io_remove(&pclient->io);
 	i_free(pclient->temp_prefix);
+
+	if (pclient->destroy != NULL)
+		pclient->destroy(pclient);
+
 	pool_unref(&pclient->pool);
 	*_pclient = NULL;
 }
@@ -608,7 +630,5 @@ void program_client_run_async(struct program_client *pclient, program_client_cal
 			program_client_callback(pclient, ret, context);
 			return;
 		}
-	} else {
-		program_client_callback(pclient, ret, context);
 	}
 }
