@@ -117,6 +117,8 @@ struct mail_storage {
 	int obj_refcount;
 	/* Linked list of all mailboxes in the storage */
 	struct mailbox *mailboxes;
+	/* A "root dir" to enable storage sharing.  It is only ever used for
+	 * uniqueness checking (via strcmp) and never used as a path. */
 	const char *unique_root_dir;
 
 	char *error_string;
