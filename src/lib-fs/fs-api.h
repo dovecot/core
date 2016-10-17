@@ -13,6 +13,10 @@ struct hash_method;
    This can be later on used to optimize reads by setting it before reading
    the file. */
 #define FS_METADATA_OBJECTID FS_METADATA_INTERNAL_PREFIX"ObjectID"
+/* Calling this before fs_write_stream_finish() allows renaming the filename.
+   This can be useful if you don't know the final filename before writing it
+   (e.g. filename contains the file size). */
+#define FS_METADATA_WRITE_FNAME FS_METADATA_INTERNAL_PREFIX"WriteFilename"
 
 enum fs_properties {
 	FS_PROPERTY_METADATA	= 0x01,
