@@ -28,6 +28,8 @@ static uint32_t mailbox_uidvalidity_next_fallback(void)
 		uid_validity = (uint32_t)ioloop_time;
 	else
 		uid_validity++;
+	if (uid_validity == 0)
+		uid_validity = 1;
 	return uid_validity;
 }
 
@@ -88,6 +90,8 @@ mailbox_uidvalidity_rename(const char *path, uint32_t *uid_validity,
 
 		str_printfa(src, ".%08x", *uid_validity);
 		*uid_validity += 1;
+		if (*uid_validity == 0)
+			*uid_validity += 1;
 		str_printfa(dest, ".%08x", *uid_validity);
 
 		if ((ret = rename(str_c(src), str_c(dest))) == 0 ||
@@ -209,7 +213,8 @@ uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path)
 		return mailbox_uidvalidity_next_rescan(list, path);
 	}
 	buf[sizeof(buf)-1] = 0;
-	if (ret == 0 || str_to_uint32_hex(buf, &cur_value) < 0) {
+	if (ret == 0 || str_to_uint32_hex(buf, &cur_value) < 0 ||
+	    cur_value == 0) {
 		/* broken value */
 		i_close_fd(&fd);
 		return mailbox_uidvalidity_next_rescan(list, path);
