@@ -61,13 +61,9 @@ void t_pop_last_unsafe(void);
 #ifndef DEBUG
 #define T_BEGIN \
 	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(NULL);
-#elif defined (__GNUC__) && !defined (__STRICT_ANSI__)
-#define T_BEGIN \
-	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(__FUNCTION__);
 #else
-#define T_CAT2(a,b) (a ":" #b)
 #define T_BEGIN \
-	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(T_CAT2(__FILE__,__LINE__));
+	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(__func__);
 #endif
 #define T_END \
 	STMT_START { \

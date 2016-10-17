@@ -187,24 +187,15 @@
 /* Provide macros for error handling. */
 #ifdef DISABLE_ASSERTS
 #  define i_assert(expr)
-#elif defined (__GNUC__) && !defined (__STRICT_ANSI__)
+#else
 
 #define i_assert(expr)			STMT_START{			\
      if (unlikely(!(expr)))						\
        i_panic("file %s: line %d (%s): assertion failed: (%s)",		\
 		__FILE__,						\
 		__LINE__,						\
-		__FUNCTION__,					\
+		__func__,					\
 		#expr);			}STMT_END
-
-#else /* !__GNUC__ */
-
-#define i_assert(expr)			STMT_START{		\
-     if (unlikely(!(expr)))					\
-       i_panic("file %s: line %d: assertion failed: (%s)",	\
-	      __FILE__,						\
-	      __LINE__,						\
-	      #expr);			}STMT_END
 
 #endif
 
