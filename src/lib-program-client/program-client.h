@@ -5,6 +5,7 @@
 #define PROGRAM_CLIENT_H
 
 #include "restrict-access.h"
+#include "net.h"
 
 struct program_client;
 
@@ -15,6 +16,7 @@ struct program_client_settings {
 	   restrict_access_init(&set.restrict_set);
 	*/
 	struct restrict_access_settings restrict_set;
+	const char *dns_client_socket_path;
 	const char *home;
 
 	bool allow_root:1;
@@ -31,7 +33,14 @@ struct program_client *program_client_local_create(const char *bin_path,
 struct program_client *program_client_unix_create(const char *socket_path,
 	const char *const *args,
 	const struct program_client_settings *set, bool noreply);
-
+struct program_client *program_client_net_create(const char *host, in_port_t port,
+	const char *const *args,
+	const struct program_client_settings *set, bool noreply);
+struct program_client *
+program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
+			      in_port_t port, const char *const *args,
+			      const struct program_client_settings *set,
+			      bool noreply);
 void program_client_destroy(struct program_client **_pclient);
 
 void program_client_set_input(struct program_client *pclient,
