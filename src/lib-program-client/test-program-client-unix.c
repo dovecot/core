@@ -68,7 +68,8 @@ void test_program_client_destroy(struct test_client **_client)
 	if (o_stream_nfinish(client->out) != 0)
 		i_error("output error: %s", o_stream_get_error(client->out));
 
-	io_remove(&client->io);
+	if (client->io != NULL)
+		io_remove(&client->io);
 	o_stream_unref(&client->out);
 	i_stream_unref(&client->in);
 	if (client->os_body != NULL)
@@ -135,6 +136,8 @@ void test_program_run(struct test_client *client)
 {
 	const char *arg;
 
+	timeout_remove(&test_globals.to);
+
 	test_assert(array_count(&client->args) > 0);
 	arg = *array_idx(&client->args, 0);
 	if (strcmp(arg, "test_program_success")==0) {
@@ -148,6 +151,7 @@ void test_program_run(struct test_client *client)
 	} else if (strcmp(arg, "test_program_failure")==0) {
 		o_stream_nsend_str(client->out, "-\n");
 	}
+	test_program_client_destroy(&client);
 }
 
 static
@@ -166,8 +170,12 @@ void test_program_input(struct test_client *client)
 			return;
 	}
 
-	if (client->in->eof)
-		test_program_run(client);
+	if (client->in->eof) {
+		io_remove(&client->io);
+		/* incur slight delay to check if the connection gets
+		   prematurely closed */
+		test_globals.to = timeout_add_short(100, test_program_run, client);
+	}
 
 	if (client->state != CLIENT_STATE_BODY) {
 		if (client->in->eof)
@@ -175,8 +183,6 @@ void test_program_input(struct test_client *client)
 		else
 			i_warning("Client sent invalid line: %s", line);
 	}
-
-	test_program_client_destroy(&client);
 }
 
 static
