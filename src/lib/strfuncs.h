@@ -64,6 +64,7 @@ const char *t_str_rtrim(const char *str, const char *chars);
 const char *p_str_rtrim(pool_t pool, const char *str, const char *chars);
 
 int null_strcmp(const char *s1, const char *s2) ATTR_PURE;
+int null_strcasecmp(const char *s1, const char *s2) ATTR_PURE;
 int i_memcasecmp(const void *p1, const void *p2, size_t size) ATTR_PURE;
 int i_strcmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
 int i_strcasecmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
