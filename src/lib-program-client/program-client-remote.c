@@ -287,11 +287,11 @@ int program_client_remote_close_output(struct program_client *pclient)
 }
 
 static
-int program_client_remote_disconnect(struct program_client *pclient, bool force)
+void program_client_remote_disconnect(struct program_client *pclient, bool force)
 {
 	struct program_client_remote *slclient =
 		(struct program_client_remote *)pclient;
-	int ret = 0;
+	int ret;
 
 	if (pclient->error == PROGRAM_CLIENT_ERROR_NONE && !slclient->noreply &&
 	    pclient->program_input != NULL && !force) {
@@ -306,14 +306,14 @@ int program_client_remote_disconnect(struct program_client *pclient, bool force)
 
 		/* Get exit code */
 		if (!pclient->program_input->eof)
-			ret = -1;
+			pclient->exit_code = -1;
 		else
 			ret = pclient->exit_code;
 	} else {
-		ret = 1;
+		pclient->exit_code = 1;
 	}
 
-	return ret;
+	program_client_disconnected(pclient);
 }
 
 struct program_client *
