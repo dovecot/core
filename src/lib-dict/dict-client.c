@@ -818,8 +818,9 @@ client_dict_lookup_async(struct dict *_dict, const char *key,
 }
 
 struct client_dict_sync_lookup {
-	struct dict_lookup_result result;
 	char *error;
+	char *value;
+	int ret;
 };
 
 static void client_dict_lookup_callback(const struct dict_lookup_result *result,
@@ -827,9 +828,11 @@ static void client_dict_lookup_callback(const struct dict_lookup_result *result,
 {
 	struct client_dict_sync_lookup *lookup = context;
 
-	lookup->result = *result;
+	lookup->ret = result->ret;
 	if (result->ret == -1)
 		lookup->error = i_strdup(result->error);
+	else if (result->ret == 1)
+		lookup->value = i_strdup(result->value);
 }
 
 static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
@@ -838,22 +841,24 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	struct client_dict_sync_lookup lookup;
 
 	memset(&lookup, 0, sizeof(lookup));
-	lookup.result.ret = -2;
+	lookup.ret = -2;
 
 	client_dict_lookup_async(_dict, key, client_dict_lookup_callback, &lookup);
-	if (lookup.result.ret == -2)
+	if (lookup.ret == -2)
 		client_dict_wait(_dict);
 
-	switch (lookup.result.ret) {
+	switch (lookup.ret) {
 	case -1:
 		i_error("dict-client: Lookup '%s' failed: %s", key, lookup.error);
 		i_free(lookup.error);
 		return -1;
 	case 0:
+		i_assert(lookup.value == NULL);
 		*value_r = NULL;
 		return 0;
 	case 1:
-		*value_r = p_strdup(pool, lookup.result.value);
+		*value_r = p_strdup(pool, lookup.value);
+		i_free(lookup.value);
 		return 1;
 	}
 	i_unreached();
