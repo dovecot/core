@@ -597,9 +597,9 @@ void test_get_info_key_encrypted(void) {
 
 	struct dcrypt_keypair p1, p2;
 	const char *error = NULL;
-	bool ret = dcrypt_keypair_generate(&p1, DCRYPT_KEY_EC, 0, "sect571k1", &error);
+	bool ret = dcrypt_keypair_generate(&p1, DCRYPT_KEY_EC, 0, "secp521r1", &error);
 	test_assert(ret == TRUE);
-	ret = dcrypt_keypair_generate(&p2, DCRYPT_KEY_EC, 0, "sect571k1", &error);
+	ret = dcrypt_keypair_generate(&p2, DCRYPT_KEY_EC, 0, "secp521r1", &error);
 	test_assert(ret == TRUE);
 
 	string_t* buf = t_str_new(4096);
@@ -638,7 +638,7 @@ void test_get_info_pw_encrypted(void) {
 	struct dcrypt_keypair p1;
 	memset(&p1, 0, sizeof(p1));
 	const char *error;
-	bool ret = dcrypt_keypair_generate(&p1, DCRYPT_KEY_EC, 0, "sect571k1", &error);
+	bool ret = dcrypt_keypair_generate(&p1, DCRYPT_KEY_EC, 0, "secp521r1", &error);
 	test_assert(ret == TRUE);
 
 	string_t* buf = t_str_new(4096);
