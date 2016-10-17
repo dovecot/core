@@ -41,6 +41,7 @@ struct auth_request_info {
 	const char *service;
 	const char *session_id;
 	const char *cert_username;
+	const char *local_name;
 	enum auth_request_flags flags;
 
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;

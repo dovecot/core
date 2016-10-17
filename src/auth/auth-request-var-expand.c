@@ -45,6 +45,7 @@ auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
 	{ '\0', NULL, "auth_user" },
 	{ '\0', NULL, "auth_username" },
 	{ '\0', NULL, "auth_domain" },
+	{ '\0', NULL, "local_name" },
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
 };
@@ -167,6 +168,10 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[32].value = strchr(auth_user, '@');
 	if (tab[32].value != NULL)
 		tab[32].value = escape_func(tab[32].value+1, auth_request);
+	if (auth_request->local_name != NULL)
+		tab[33].value = escape_func(auth_request->local_name, auth_request);
+	else
+		tab[33].value = "";
 	return ret_tab;
 }
 
