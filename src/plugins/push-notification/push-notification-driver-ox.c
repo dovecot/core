@@ -390,19 +390,19 @@ static void push_notification_driver_ox_process_msg
     str_printfa(str, "\",\"imap-uidvalidity\":%u,\"imap-uid\":%u",
                 msg->uid_validity, msg->uid);
     if (messagenew->from != NULL) {
-	str_append(str, ",\"from\":\"");
-	json_append_escaped(str, messagenew->from);
+        str_append(str, ",\"from\":\"");
+        json_append_escaped(str, messagenew->from);
     }
     if (messagenew->subject != NULL) {
-	str_append(str, "\",\"subject\":\"");
-	json_append_escaped(str, messagenew->subject);
+        str_append(str, "\",\"subject\":\"");
+        json_append_escaped(str, messagenew->subject);
     }
     if (messagenew->snippet != NULL) {
-	str_append(str, "\",\"snippet\":\"");
-	json_append_escaped(str, messagenew->snippet);
+        str_append(str, "\",\"snippet\":\"");
+        json_append_escaped(str, messagenew->snippet);
     }
     if (status_success) {
-    str_printfa(str, "\",\"unseen\":%u", box_status.unseen);
+        str_printfa(str, "\",\"unseen\":%u", box_status.unseen);
     } else {
         str_append(str, "\"");
     }
