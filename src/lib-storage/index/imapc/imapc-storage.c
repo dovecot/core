@@ -349,6 +349,29 @@ imapc_storage_create(struct mail_storage *_storage,
 	struct imapc_mailbox_list *imapc_list = NULL;
 
 	storage->set = mail_storage_get_driver_settings(_storage);
+
+	/* serialize all the settings */
+	_storage->unique_root_dir = p_strdup_printf(_storage->pool,
+						    "%s%s://(%s|%s):%s@%s:%u/%s mechs:%s features:%s "
+						    "rawlog:%s cmd_timeout:%u maxidle:%u maxline:%zu "
+						    "pop3delflg:%s root_dir:%s",
+						    storage->set->imapc_ssl,
+						    storage->set->imapc_ssl_verify ? "(verify)" : "",
+						    storage->set->imapc_user,
+						    storage->set->imapc_master_user,
+						    storage->set->imapc_password,
+						    storage->set->imapc_host,
+						    storage->set->imapc_port,
+						    storage->set->imapc_list_prefix,
+						    storage->set->imapc_sasl_mechanisms,
+						    storage->set->imapc_features,
+						    storage->set->imapc_rawlog_dir,
+						    storage->set->imapc_cmd_timeout,
+						    storage->set->imapc_max_idle_time,
+						    (size_t) storage->set->imapc_max_line_length,
+						    storage->set->pop3_deleted_flag,
+						    ns->list->set.root_dir);
+
 	if (strcmp(ns->list->name, MAILBOX_LIST_NAME_IMAPC) == 0) {
 		imapc_list = (struct imapc_mailbox_list *)ns->list;
 		storage->client = imapc_list->client;
@@ -365,6 +388,7 @@ imapc_storage_create(struct mail_storage *_storage,
 					       imapc_untagged_status);
 	imapc_storage_client_register_untagged(storage->client, "NAMESPACE",
 					       imapc_untagged_namespace);
+
 	return 0;
 }
 
@@ -1065,7 +1089,8 @@ static bool imapc_is_inconsistent(struct mailbox *box)
 
 struct mail_storage imapc_storage = {
 	.name = IMAPC_STORAGE_NAME,
-	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
+		       MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT,
 
 	.v = {
 		imapc_get_setting_parser_info,

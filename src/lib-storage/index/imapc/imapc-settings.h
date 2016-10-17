@@ -19,6 +19,10 @@ enum imapc_features {
 };
 /* </settings checks> */
 
+/*
+ * NOTE: Any additions here should be reflected in imapc_storage_create's
+ * serialization of settings.
+ */
 struct imapc_settings {
 	const char *imapc_host;
 	in_port_t imapc_port;
