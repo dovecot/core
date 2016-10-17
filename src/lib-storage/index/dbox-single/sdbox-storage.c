@@ -344,11 +344,6 @@ static int sdbox_mailbox_open(struct mailbox *box)
 		return 0;
 	}
 
-	if (box->creating) {
-		/* wait for mailbox creation to initialize the index */
-		return 0;
-	}
-
 	/* get/generate mailbox guid */
 	if (sdbox_read_header(mbox, &hdr, FALSE, &need_resize) < 0) {
 		/* looks like the mailbox is corrupted */
