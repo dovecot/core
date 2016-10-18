@@ -328,7 +328,7 @@ const char *fs_metadata_find(const ARRAY_TYPE(fs_metadata) *metadata,
 {
 	const struct fs_metadata *md;
 
-	if (array_is_created(metadata))
+	if (!array_is_created(metadata))
 		return NULL;
 
 	array_foreach(metadata, md) {
