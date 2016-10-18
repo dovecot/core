@@ -178,13 +178,14 @@ static bool dcrypt_key_dump_metadata(const char *filename, bool print)
 	if (key_hash != NULL)
 		printf("key_hash: %s\n", key_hash);
 
+	const char *data = t_str_rtrim(buf, "\r\n\t ");
 	switch (kind) {
 	case DCRYPT_KEY_KIND_PUBLIC:
-		dcrypt_dump_public_key_metadata(buf);
+		dcrypt_dump_public_key_metadata(data);
 		break;
 	case DCRYPT_KEY_KIND_PRIVATE:
 		if (encryption_type == DCRYPT_KEY_ENCRYPTION_TYPE_NONE)
-			dcrypt_dump_private_key_metadata(buf);
+			dcrypt_dump_private_key_metadata(data);
 		break;
 	}
 	return TRUE;
