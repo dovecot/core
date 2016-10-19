@@ -348,7 +348,9 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 		i_info("Executing command '%s' as '%s'", cctx.cmd->name, user);
 	else
 		i_info("Executing command '%s'", cctx.cmd->name);
+	client_connection_set_proctitle(&conn->client, cctx.cmd->name);
 	cctx.cmd->cmd(&cctx);
+	client_connection_set_proctitle(&conn->client, "");
 
 	io_loop_set_current(prev_ioloop);
 	lib_signals_reset_ioloop();

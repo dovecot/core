@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "restrict-access.h"
+#include "process-title.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "settings-parser.h"
@@ -22,6 +23,7 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 };
 
 struct client_connection *doveadm_client;
+bool doveadm_verbose_proctitle;
 int doveadm_exit_code = 0;
 
 static pool_t doveadm_settings_pool;
@@ -72,6 +74,10 @@ static void main_init(void)
 	doveadm_settings = master_service_settings_get_others(master_service)[0];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info,
 					doveadm_settings, doveadm_settings_pool);
+	doveadm_verbose_proctitle =
+		master_service_settings_get(master_service)->verbose_proctitle;
+	if (doveadm_verbose_proctitle)
+		process_title_set("[idling]");
 
 	doveadm_http_server_init();
 	doveadm_cmds_init();

@@ -11,6 +11,7 @@
 #define DOVEADM_EX_NOTFOUND EX_NOHOST
 #define DOVEADM_EX_NOTPOSSIBLE EX_DATAERR
 
+extern bool doveadm_verbose_proctitle;
 extern int doveadm_exit_code;
 
 void usage(void) ATTR_NORETURN;
