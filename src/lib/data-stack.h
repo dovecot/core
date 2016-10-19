@@ -58,13 +58,9 @@ bool t_pop(data_stack_frame_t *id) ATTR_HOT;
 void t_pop_last_unsafe(void);
 
 /* Usage: T_BEGIN { code } T_END */
-#ifndef DEBUG
 #define T_BEGIN \
-	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(NULL);
-#else
-#define T_BEGIN \
-	STMT_START { data_stack_frame_t _data_stack_cur_id = t_push(__func__);
-#endif
+	STMT_START { \
+		data_stack_frame_t _data_stack_cur_id = t_push(__func__);
 #define T_END \
 	STMT_START { \
 		if (unlikely(!t_pop(&_data_stack_cur_id))) \

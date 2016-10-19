@@ -59,8 +59,8 @@ struct stack_frame_block {
 	struct stack_block *block[BLOCK_FRAME_COUNT];
 	size_t block_space_used[BLOCK_FRAME_COUNT];
 	size_t last_alloc_size[BLOCK_FRAME_COUNT];
-#ifdef DEBUG
 	const char *marker[BLOCK_FRAME_COUNT];
+#ifdef DEBUG
 	/* Fairly arbitrary profiling data */
 	unsigned long long alloc_bytes[BLOCK_FRAME_COUNT];
 	unsigned int alloc_count[BLOCK_FRAME_COUNT];
@@ -176,12 +176,10 @@ data_stack_frame_t t_push(const char *marker)
 	current_frame_block->block[frame_pos] = current_block;
 	current_frame_block->block_space_used[frame_pos] = current_block->left;
 	current_frame_block->last_alloc_size[frame_pos] = 0;
-#ifdef DEBUG
 	current_frame_block->marker[frame_pos] = marker;
+#ifdef DEBUG
 	current_frame_block->alloc_bytes[frame_pos] = 0ULL;
 	current_frame_block->alloc_count[frame_pos] = 0;
-#else
-	(void)marker; /* only used for debugging */
 #endif
 
 #ifndef STATIC_CHECKER
