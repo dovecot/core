@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "strescape.h"
+#include "process-title.h"
 #include "settings-parser.h"
 #include "iostream-ssl.h"
 #include "master-service.h"
@@ -327,10 +328,12 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 		return FALSE;
 	}
 
+	client_connection_set_proctitle(conn, cmd_name);
 	o_stream_cork(conn->output);
 	if (doveadm_cmd_handle(conn, cmd_name, argc-2, (const char**)(args+2), &cctx) < 0)
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	o_stream_uncork(conn->output);
+	client_connection_set_proctitle(conn, "");
 
 	/* flush the output and possibly run next command */
 	net_set_nonblock(conn->fd, FALSE);
@@ -548,11 +551,12 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 		return NULL;
         doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
 
+	conn->name = p_strdup(pool, net_ip2addr(&conn->remote_ip));
 	conn->io = io_add(fd, IO_READ, client_connection_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
-	i_stream_set_name(conn->input, net_ip2addr(&conn->remote_ip));
-	o_stream_set_name(conn->output, net_ip2addr(&conn->remote_ip));
+	i_stream_set_name(conn->input, conn->name);
+	o_stream_set_name(conn->output, conn->name);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	if (ssl) {
@@ -562,6 +566,7 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 		}
 	}
 	client_connection_send_auth_handshake(conn, listen_fd);
+	client_connection_set_proctitle(conn, "");
 
 	doveadm_print_ostream = conn->output;
 	return conn;
@@ -594,4 +599,22 @@ void client_connection_destroy(struct client_connection **_conn)
 	doveadm_print_ostream = NULL;
 	doveadm_client = NULL;
 	master_service_client_connection_destroyed(master_service);
+
+	if (doveadm_verbose_proctitle)
+		process_title_set("[idling]");
+}
+
+void client_connection_set_proctitle(struct client_connection *conn,
+				     const char *text)
+{
+	const char *str;
+
+	if (!doveadm_verbose_proctitle)
+		return;
+
+	if (text[0] == '\0')
+		str = t_strdup_printf("[%s]", conn->name);
+	else
+		str = t_strdup_printf("[%s %s]", conn->name, text);
+	process_title_set(str);
 }

@@ -7,6 +7,7 @@ struct client_connection {
 	pool_t pool;
 
 	int fd;
+	const char *name;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
