@@ -236,11 +236,11 @@ static void fix_groups_list(const struct restrict_access_settings *set,
 }
 
 static const char *
-get_setuid_error_str(const struct restrict_access_settings *set)
+get_setuid_error_str(const struct restrict_access_settings *set, uid_t target_uid)
 {
 	string_t *str = t_str_new(128);
 
-	str_printfa(str, "setuid(%s", get_uid_str(set->uid));
+	str_printfa(str, "setuid(%s", get_uid_str(target_uid));
 	if (set->uid_source != NULL)
 		str_printfa(str, " from %s", set->uid_source);
 	str_printfa(str, ") failed with euid=%s: %m ",
@@ -250,7 +250,7 @@ get_setuid_error_str(const struct restrict_access_settings *set)
 	} else {
 		str_printfa(str, "(This binary should probably be called with "
 			    "process user set to %s instead of %s)",
-			    get_uid_str(set->uid), get_uid_str(geteuid()));
+			    get_uid_str(target_uid), get_uid_str(geteuid()));
 	}
 	return str_c(str);
 }
@@ -260,6 +260,7 @@ void restrict_access(const struct restrict_access_settings *set,
 {
 	bool is_root, have_root_group, preserve_groups = FALSE;
 	bool allow_root_gid;
+	uid_t target_uid = set->uid;
 
 	is_root = geteuid() == 0;
 
@@ -267,10 +268,10 @@ void restrict_access(const struct restrict_access_settings *set,
 	    set->drop_setuid_root &&
 	    getuid() == 0) {
 		/* recover current effective UID */
-		if (set->uid == (uid_t)-1)
-			set->uid = geteuid();
+		if (target_uid == (uid_t)-1)
+			target_uid = geteuid();
 		else
-			i_assert(set->uid > 0);
+			i_assert(target_uid > 0);
 		/* try to elevate to root */
 		if (seteuid(0) < 0)
 			i_fatal("seteuid(0) failed: %m");
@@ -339,16 +340,16 @@ void restrict_access(const struct restrict_access_settings *set,
 	}
 
 	/* uid last */
-	if (set->uid != (uid_t)-1) {
-		if (setuid(set->uid) != 0)
-			i_fatal("%s", get_setuid_error_str(set));
+	if (target_uid != (uid_t)-1) {
+		if (setuid(target_uid) != 0)
+			i_fatal("%s", get_setuid_error_str(set, target_uid));
 	}
 
 	/* verify that we actually dropped the privileges */
-	if ((set->uid != (uid_t)-1 && set->uid != 0) || disallow_root) {
+	if ((target_uid != (uid_t)-1 && target_uid != 0) || disallow_root) {
 		if (setuid(0) == 0) {
 			if (disallow_root &&
-			    (set->uid == 0 || set->uid == (uid_t)-1))
+			    (target_uid == 0 || target_uid == (uid_t)-1))
 				i_fatal("This process must not be run as root");
 
 			i_fatal("We couldn't drop root privileges");
@@ -362,8 +363,8 @@ void restrict_access(const struct restrict_access_settings *set,
 	else
 		allow_root_gid = FALSE;
 
-	if (!allow_root_gid && set->uid != 0 &&
-	    (set->uid != (uid_t)-1 || !is_root)) {
+	if (!allow_root_gid && target_uid != 0 &&
+	    (target_uid != (uid_t)-1 || !is_root)) {
 		if (getgid() == 0 || getegid() == 0 || setgid(0) == 0) {
 			if (process_primary_gid == 0)
 				i_fatal("GID 0 isn't permitted");
