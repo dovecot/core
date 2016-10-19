@@ -326,19 +326,15 @@ static int push_notification_driver_ox_get_mailbox_status
 
     /* open and sync new instance of the same mailbox to get most recent status */
     box = mailbox_alloc(mailbox_get_namespace(mbox)->list, mailbox_get_name(mbox), MAILBOX_FLAG_READONLY);
-    mailbox_open(box);
     if (mailbox_sync(box, 0) < 0) {
-        i_warning("mailbox_sync(%s): %s", mailbox_get_vname(mbox), mailbox_get_last_error(box, NULL));
-    }
-
-    /* only 'unseen' is needed at the moment */
-    ret = mailbox_get_status(box, STATUS_UNSEEN, r_box_status);
-    if (ret < 0) {
-        i_error("Could not get mailbox '%s' status: %s",
-                mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+        i_error("mailbox_sync(%s) failed: %s", mailbox_get_vname(mbox), mailbox_get_last_error(box, NULL));
+        ret = -1;
     } else {
+        /* only 'unseen' is needed at the moment */
+        mailbox_get_open_status(box, STATUS_UNSEEN, r_box_status);
         push_notification_driver_debug(OX_LOG_LABEL, dtxn->ptxn->muser, "Got status of mailbox '%s': (unseen: %u)",
                                        mailbox_get_vname(box), r_box_status->unseen);
+        ret = 0;
     }
 
     mailbox_free(&box);
