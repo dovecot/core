@@ -517,7 +517,6 @@ void program_client_remote_disconnect(struct program_client *pclient, bool force
 {
 	struct program_client_remote *slclient =
 		(struct program_client_remote *)pclient;
-	int ret;
 
 	if (pclient->error == PROGRAM_CLIENT_ERROR_NONE && !slclient->noreply &&
 	    pclient->program_input != NULL && !force) {
@@ -525,16 +524,14 @@ void program_client_remote_disconnect(struct program_client *pclient, bool force
 		size_t size;
 
 		/* Skip any remaining program output and parse the exit code */
-		while ((ret = i_stream_read_more
-			(pclient->program_input, &data, &size)) > 0) {
+		while (i_stream_read_more
+			(pclient->program_input, &data, &size) > 0) {
 			i_stream_skip(pclient->program_input, size);
 		}
 
 		/* Get exit code */
 		if (!pclient->program_input->eof)
 			pclient->exit_code = -1;
-		else
-			ret = pclient->exit_code;
 	} else {
 		pclient->exit_code = 1;
 	}
