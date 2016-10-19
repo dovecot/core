@@ -263,6 +263,20 @@ void restrict_access(const struct restrict_access_settings *set,
 
 	is_root = geteuid() == 0;
 
+	if (!is_root &&
+	    set->drop_setuid_root &&
+	    getuid() == 0) {
+		/* recover current effective UID */
+		if (set->uid == (uid_t)-1)
+			set->uid = geteuid();
+		else
+			i_assert(set->uid > 0);
+		/* try to elevate to root */
+		if (seteuid(0) < 0)
+			i_fatal("seteuid(0) failed: %m");
+		is_root = TRUE;
+	}
+
 	/* set the primary/privileged group */
 	process_primary_gid = set->gid;
 	process_privileged_gid = set->privileged_gid;
