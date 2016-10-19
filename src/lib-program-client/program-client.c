@@ -397,7 +397,7 @@ void program_client_program_input(struct program_client *pclient)
 		}
 		if (program_client_input_pending(pclient))
 			return;
-		if (!input->eof) {
+		if (pclient->program_input != NULL && !input->eof) {
 			program_client_fail(pclient,
 					    PROGRAM_CLIENT_ERROR_IO);
 			return;
