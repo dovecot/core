@@ -15,7 +15,7 @@
 
 #include <unistd.h>
 
-static const char *TEST_SOCKET = "/tmp/program-client-test.sock";
+static const char *TEST_SOCKET = "program-client-test.sock";
 static const char *pclient_test_io_string = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
 					    "Praesent vehicula ac leo vel placerat. Nullam placerat \n"
 					    "volutpat leo, sed ultricies felis pulvinar quis. Nam \n"
@@ -68,7 +68,8 @@ void test_program_client_destroy(struct test_client **_client)
 	if (o_stream_nfinish(client->out) != 0)
 		i_error("output error: %s", o_stream_get_error(client->out));
 
-	io_remove(&client->io);
+	if (client->io != NULL)
+		io_remove(&client->io);
 	o_stream_unref(&client->out);
 	i_stream_unref(&client->in);
 	if (client->os_body != NULL)
@@ -83,11 +84,10 @@ void test_program_client_destroy(struct test_client **_client)
 static
 int test_program_input_handle(struct test_client *client, const char *line)
 {
-	size_t siz;
-	ssize_t ret;
-	const unsigned char *data;
-	int cmp;
+	int cmp, ret;
 	const char *arg;
+	const unsigned char *data;
+	size_t siz;
 
 	switch(client->state) {
 	case CLIENT_STATE_INIT:
@@ -140,10 +140,13 @@ int test_program_input_handle(struct test_client *client, const char *line)
 static
 void test_program_run(struct test_client *client)
 {
-	const char *arg;
-	size_t siz;
 	int ret;
+	const char *arg;
 	const unsigned char *data;
+	size_t siz;
+
+	timeout_remove(&test_globals.to);
+
 	test_assert(array_count(&client->args) > 0);
 	arg = *array_idx(&client->args, 0);
 	if (strcmp(arg, "test_program_success")==0) {
@@ -161,6 +164,7 @@ void test_program_run(struct test_client *client)
 	} else if (strcmp(arg, "test_program_failure")==0) {
 		o_stream_nsend_str(client->out, "-\n");
 	}
+	test_program_client_destroy(&client);
 }
 
 static
@@ -173,13 +177,18 @@ void test_program_input(struct test_client *client)
 		if (test_program_input_handle(client, NULL)==0 && !client->in->eof) return;
 	} else {
 		line = i_stream_read_next_line(client->in);
+
 		if ((line == NULL && !client->in->eof) ||
 		    (line != NULL && test_program_input_handle(client, line) == 0))
 			return;
 	}
 
-	if (client->in->eof)
-		test_program_run(client);
+	if (client->in->eof) {
+		io_remove(&client->io);
+		/* incur slight delay to check if the connection gets
+		   prematurely closed */
+		test_globals.to = timeout_add_short(100, test_program_run, client);
+	}
 
 	if (client->state != CLIENT_STATE_BODY) {
 		if (client->in->eof)
@@ -187,8 +196,6 @@ void test_program_input(struct test_client *client)
 		else
 			i_warning("Client sent invalid line: %s", line);
 	}
-
-	test_program_client_destroy(&client);
 }
 
 static
@@ -233,8 +240,9 @@ void test_program_teardown(void)
 	if (test_globals.client != NULL)
 		test_program_client_destroy(&test_globals.client);
 	io_remove(&test_globals.io);
-	close(test_globals.listen_fd);
+	i_close_fd(&test_globals.listen_fd);
 	io_loop_destroy(&test_globals.ioloop);
+	i_unlink(TEST_SOCKET);
 	test_end();
 }
 
@@ -258,7 +266,7 @@ void test_program_success(void) {
 		program_client_remote_create(TEST_SOCKET, args, &pc_set, FALSE);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
-	struct ostream *os = o_stream_create_buffer(output);
+	struct ostream *os = test_ostream_create(output);
 	program_client_set_output(pc, os);
 
 	program_client_run_async(pc, test_program_async_callback, &ret);
@@ -293,7 +301,7 @@ void test_program_io(void) {
 	program_client_set_input(pc, is);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
-	struct ostream *os = o_stream_create_buffer(output);
+	struct ostream *os = test_ostream_create(output);
 	program_client_set_output(pc, os);
 
 	program_client_run_async(pc, test_program_async_callback, &ret);
@@ -301,7 +309,6 @@ void test_program_io(void) {
 	io_loop_run(current_ioloop);
 
 	test_assert(ret == 1);
-
 	test_assert(strcmp(str_c(output), pclient_test_io_string) == 0);
 
 	program_client_destroy(&pc);
@@ -327,7 +334,7 @@ void test_program_failure(void) {
 		program_client_remote_create(TEST_SOCKET, args, &pc_set, FALSE);
 
 	buffer_t *output = buffer_create_dynamic(default_pool, 16);
-	struct ostream *os = o_stream_create_buffer(output);
+	struct ostream *os = test_ostream_create(output);
 	program_client_set_output(pc, os);
 
 	program_client_run_async(pc, test_program_async_callback, &ret);
