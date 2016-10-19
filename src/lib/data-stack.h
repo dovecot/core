@@ -43,7 +43,7 @@ extern unsigned int data_stack_frame_id;
    is called. Returns the current stack frame number, which can be used
    to detect missing t_pop() calls:
 
-   x = t_push(__func__); .. if (!t_pop(x)) abort();
+   x = t_push(marker); .. if (!t_pop(x)) abort();
 
    In DEBUG mode, t_push_named() makes a temporary allocation for the name,
    but is safe to call in a loop as it performs the allocation within its own
@@ -58,9 +58,10 @@ bool t_pop(data_stack_frame_t *id) ATTR_HOT;
 void t_pop_last_unsafe(void);
 
 /* Usage: T_BEGIN { code } T_END */
+#define T_CAT2(a,b) (a ":" #b)
 #define T_BEGIN \
 	STMT_START { \
-		data_stack_frame_t _data_stack_cur_id = t_push(__func__);
+		data_stack_frame_t _data_stack_cur_id = t_push(T_CAT2(__FILE__, __LINE__));
 #define T_END \
 	STMT_START { \
 		if (unlikely(!t_pop(&_data_stack_cur_id))) \
