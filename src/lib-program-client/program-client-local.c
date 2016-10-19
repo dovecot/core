@@ -247,6 +247,11 @@ int program_client_local_connect(struct program_client *pclient)
 			}
 		}
 
+		/* if we want to allow root, then we will not drop
+		   root privileges */
+		pclient->set.restrict_set.drop_setuid_root =
+			!pclient->set.allow_root;
+
 		restrict_access(&pclient->set.restrict_set, pclient->set.home,
 				!pclient->set.allow_root);
 
