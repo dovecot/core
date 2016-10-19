@@ -39,8 +39,9 @@ test_program_client_remote_LDADD = $(test_libs)
 check: check-am check-test
 check-test: all-am
 	for bin in $(test_programs); do \
-	  if test "$bin" = "test-program-client-local"; then \
+	  if test "$$bin" = "test-program-client-local"; then \
 	    if ! env NOVALGRIND=yes $(RUN_TEST) ./$$bin; then exit 1; fi; \
           else \
 	    if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	  fi \
 	done

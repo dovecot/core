@@ -7,6 +7,7 @@
 #include "str.h"
 #include "istream.h"
 #include "ostream.h"
+#include "lib-signals.h"
 #include "program-client.h"
 
 static const char *pclient_test_io_string = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
@@ -23,7 +24,7 @@ static
 struct program_client_settings pc_set = {
 	.client_connect_timeout_msecs = 5000,
 	.input_idle_timeout_msecs = 1000,
-	.debug = FALSE,
+	.debug = TRUE,
 	.restrict_set = {
 		.uid = (uid_t)-1,
 		.gid = (gid_t)-1,
@@ -101,8 +102,9 @@ void test_program_io_async(void) {
 	test_begin("test_program_io (async)");
 
 	int ret = -2;
+
+	struct ioloop *prev_ioloop = current_ioloop;
 	struct ioloop *ioloop = io_loop_create();
-	io_loop_set_current(ioloop);
 
 	const char *const args[] = {
 		NULL
@@ -110,6 +112,8 @@ void test_program_io_async(void) {
 
 	struct program_client *pc =
 		program_client_local_create("/bin/cat", args, &pc_set);
+
+	lib_signals_reset_ioloop();
 
 	struct istream *is = test_istream_create(pclient_test_io_string);
 	program_client_set_input(pc, is);
@@ -130,7 +134,9 @@ void test_program_io_async(void) {
 	i_stream_unref(&is);
 	o_stream_unref(&os);
 	buffer_free(&output);
-
+	io_loop_set_current(prev_ioloop);
+	lib_signals_reset_ioloop();
+	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);
 
 	test_end();
@@ -164,6 +170,8 @@ void test_program_failure(void) {
 
 int main(void)
 {
+	int ret;
+
 	void (*tests[])(void) = {
 		test_program_success,
 		test_program_io_sync,
@@ -172,5 +180,10 @@ int main(void)
 		NULL
 	};
 
-	return test_run(tests);
+	struct ioloop *ioloop = io_loop_create();
+	lib_signals_init();
+	ret = test_run(tests);
+	lib_signals_deinit();
+	io_loop_destroy(&ioloop);
+	return ret;
 }
