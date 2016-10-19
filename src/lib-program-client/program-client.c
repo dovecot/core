@@ -249,19 +249,6 @@ int program_client_program_output(struct program_client *pclient)
 		res = o_stream_send_istream(output, input);
 		switch (res) {
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
-			if (pclient->output_dot_created) {
-				if ((ret = o_stream_flush(pclient->dot_output)) <= 0) {
-					if (ret < 0) {
-						i_error("write(%s) failed: %s",
-							o_stream_get_name(pclient->dot_output),
-							o_stream_get_error(pclient->dot_output));
-						program_client_fail(pclient,
-								    PROGRAM_CLIENT_ERROR_IO);
-					}
-				}
-				o_stream_unref(&pclient->dot_output);
-				output = pclient->program_output;
-			}
 			i_stream_unref(&pclient->input);
 			input = NULL;
 			break;
@@ -282,9 +269,11 @@ int program_client_program_output(struct program_client *pclient)
 			program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 			return -1;
 		}
-	} else if (input == NULL &&
-		   output != NULL &&
-		   pclient->output_dot_created) {
+	}
+
+	if (input == NULL &&
+	    output != NULL &&
+	    pclient->output_dot_created) {
 		if ((ret = o_stream_flush(pclient->dot_output)) <= 0) {
 			if (ret < 0) {
 				i_error("write(%s) failed: %s",
