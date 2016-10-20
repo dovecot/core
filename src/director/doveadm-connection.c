@@ -551,6 +551,7 @@ static int
 doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 			const char *const *args)
 {
+	struct user_directory *users = conn->dir->users;
 	struct user *user;
 	struct mail_host *host;
 	const char *username, *tag;
@@ -565,10 +566,10 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 		tag = args[1] != NULL ? args[1] : "";
 	}
 	if (str_to_uint(username, &username_hash) < 0)
-		username_hash = user_directory_get_username_hash(conn->dir->users, username);
+		username_hash = user_directory_get_username_hash(users, username);
 
 	/* get user's current host */
-	user = user_directory_lookup(conn->dir->users, username_hash);
+	user = user_directory_lookup(users, username_hash);
 	if (user == NULL)
 		str_append(str, "\t0");
 	else {
@@ -632,6 +633,7 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 static int
 doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 {
+	struct user_directory *users = conn->dir->users;
 	unsigned int username_hash;
 	struct user *user;
 	struct mail_host *host;
@@ -649,8 +651,8 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 	}
 
 	if (str_to_uint(args[0], &username_hash) < 0)
-		username_hash = user_directory_get_username_hash(conn->dir->users, args[0]);
-	user = user_directory_lookup(conn->dir->users, username_hash);
+		username_hash = user_directory_get_username_hash(users, args[0]);
+	user = user_directory_lookup(users, username_hash);
 	if (user != NULL && USER_IS_BEING_KILLED(user)) {
 		o_stream_nsend_str(conn->output, "TRYAGAIN\n");
 		return 1;
