@@ -6,6 +6,22 @@
 
 struct mail_host_list;
 
+struct mail_vhost {
+	unsigned int hash;
+	struct mail_host *host;
+};
+
+/* mail_tags aren't removed/freed before mail_hosts_deinit(), so it's safe
+   to add pointers to them. */
+struct mail_tag {
+	/* "" = no tag */
+	char *name;
+	ARRAY(struct mail_vhost) vhosts;
+	/* temporary user -> host associations */
+	struct user_directory *users;
+};
+ARRAY_DEFINE_TYPE(mail_tag, struct mail_tag *);
+
 struct mail_host {
 	struct mail_host_list *list;
 
@@ -52,9 +68,19 @@ bool mail_hosts_have_usable(struct mail_host_list *list);
 const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list);
 bool mail_hosts_have_tags(struct mail_host_list *list);
 
-struct mail_host_list *mail_hosts_init(bool consistent_hashing);
+const ARRAY_TYPE(mail_tag) *mail_hosts_get_tags(struct mail_host_list *list);
+struct mail_tag *
+mail_tag_find(struct mail_host_list *list, const char *tag_name);
+struct user *
+mail_hosts_find_user(struct mail_host_list *list, const char *tag_name,
+		     unsigned int username_hash);
+
+struct mail_host_list *
+mail_hosts_init(unsigned int user_expire_secs, bool consistent_hashing,
+		user_free_hook_t *user_free_hook);
 void mail_hosts_deinit(struct mail_host_list **list);
 
 struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src);
+void mail_hosts_sort_users(struct mail_host_list *list);
 
 #endif

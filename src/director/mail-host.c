@@ -5,25 +5,17 @@
 #include "bsearch-insert-pos.h"
 #include "crc32.h"
 #include "md5.h"
+#include "user-directory.h"
 #include "mail-host.h"
 
 #define VHOST_MULTIPLIER 100
 
-struct mail_vhost {
-	unsigned int hash;
-	struct mail_host *host;
-};
-
-struct mail_tag {
-	/* "" = no tag */
-	char *name;
-	ARRAY(struct mail_vhost) vhosts;
-};
-
 struct mail_host_list {
-	ARRAY(struct mail_tag *) tags;
+	ARRAY_TYPE(mail_tag) tags;
 	ARRAY_TYPE(mail_host) hosts;
+	user_free_hook_t *user_free_hook;
 	unsigned int hosts_hash;
+	unsigned int user_expire_secs;
 	bool consistent_hashing;
 	bool vhosts_unsorted;
 	bool have_vhosts;
@@ -153,7 +145,7 @@ mail_hosts_sort(struct mail_host_list *list)
 	}
 }
 
-static struct mail_tag *
+struct mail_tag *
 mail_tag_find(struct mail_host_list *list, const char *tag_name)
 {
 	struct mail_tag *const *tagp;
@@ -175,6 +167,8 @@ mail_tag_get(struct mail_host_list *list, const char *tag_name)
 		tag = i_new(struct mail_tag, 1);
 		tag->name = i_strdup(tag_name);
 		i_array_init(&tag->vhosts, 16*VHOST_MULTIPLIER);
+		tag->users = user_directory_init(list->user_expire_secs,
+						 list->user_free_hook);
 		array_append(&list->tags, &tag, 1);
 	}
 	return tag;
@@ -182,6 +176,7 @@ mail_tag_get(struct mail_host_list *list, const char *tag_name)
 
 static void mail_tag_free(struct mail_tag *tag)
 {
+	user_directory_deinit(&tag->users);
 	array_free(&tag->vhosts);
 	i_free(tag->name);
 	i_free(tag);
@@ -508,12 +503,22 @@ bool mail_hosts_have_tags(struct mail_host_list *list)
 	return FALSE;
 }
 
-struct mail_host_list *mail_hosts_init(bool consistent_hashing)
+const ARRAY_TYPE(mail_tag) *mail_hosts_get_tags(struct mail_host_list *list)
+{
+	return &list->tags;
+}
+
+struct mail_host_list *
+mail_hosts_init(unsigned int user_expire_secs, bool consistent_hashing,
+		user_free_hook_t *user_free_hook)
 {
 	struct mail_host_list *list;
 
 	list = i_new(struct mail_host_list, 1);
+	list->user_expire_secs = user_expire_secs;
 	list->consistent_hashing = consistent_hashing;
+	list->user_free_hook = user_free_hook;
+
 	i_array_init(&list->hosts, 16);
 	i_array_init(&list->tags, 4);
 	return list;
@@ -551,11 +556,20 @@ struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src)
 	struct mail_host_list *dest;
 	struct mail_host *const *hostp, *dest_host;
 
-	dest = mail_hosts_init(src->consistent_hashing);
+	dest = mail_hosts_init(src->user_expire_secs, src->consistent_hashing,
+			       src->user_free_hook);
 	array_foreach(&src->hosts, hostp) {
 		dest_host = mail_host_dup(*hostp);
 		array_append(&dest->hosts, &dest_host, 1);
 	}
 	mail_hosts_sort(dest);
 	return dest;
+}
+
+void mail_hosts_sort_users(struct mail_host_list *list)
+{
+	struct mail_tag *const *tagp;
+
+	array_foreach(&list->tags, tagp)
+		user_directory_sort((*tagp)->users);
 }

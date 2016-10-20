@@ -1,6 +1,7 @@
 /* Copyright (c) 2010-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "master-service.h"
@@ -17,13 +18,13 @@ struct notify_connection {
 	struct director *dir;
 };
 
-static void notify_update_user(struct director *dir, const char *username,
-			       unsigned int username_hash)
+static void notify_update_user(struct director *dir, struct mail_tag *tag,
+			       const char *username, unsigned int username_hash)
 {
 	struct user *user;
 	int diff;
 
-	user = user_directory_lookup(dir->users, username_hash);
+	user = user_directory_lookup(tag->users, username_hash);
 	if (user == NULL)
 		return;
 
@@ -32,19 +33,21 @@ static void notify_update_user(struct director *dir, const char *username,
 		i_warning("notify: User %s refreshed too late (%d secs)",
 			  username, diff);
 	}
-	user_directory_refresh(dir->users, user);
+	user_directory_refresh(tag->users, user);
 	director_update_user(dir, dir->self_host, user);
 }
 
 static void notify_connection_input(struct notify_connection *conn)
 {
+	struct mail_tag *const *tagp;
 	const char *line;
 	unsigned int hash;
 
 	while ((line = i_stream_read_next_line(conn->input)) != NULL) {
 		if (!director_get_username_hash(conn->dir, line, &hash))
 			continue;
-		notify_update_user(conn->dir, line, hash);
+		array_foreach(mail_hosts_get_tags(conn->dir->mail_hosts), tagp)
+			notify_update_user(conn->dir, *tagp, line, hash);
 	}
 	if (conn->input->eof) {
 		i_error("notify: read() unexpectedly returned EOF");
