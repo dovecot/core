@@ -54,6 +54,7 @@ dovecot-config: dovecot-config.in Makefile
 	-e "s|^\(dovecot_pkglibexecdir\)=|\1=$(libexecdir)/dovecot|" \
 	-e "s|^\(dovecot_docdir\)=|\1=$(docdir)|" \
 	-e "s|^\(dovecot_moduledir\)=|\1=$(moduledir)|" \
+	-e "s|^\(dovecot_statedir\)=|\1=$(statedir)|" \
 	) > dovecot-config
 
 if HAVE_SYSTEMD
