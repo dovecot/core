@@ -30,6 +30,16 @@
 
 bool director_debug;
 
+const char *user_kill_state_names[USER_KILL_STATE_DELAY+1] = {
+	"none",
+	"killing",
+	"notify-received",
+	"waiting-for-notify",
+	"waiting-for-everyone",
+	"flushing",
+	"delay",
+};
+
 static struct log_throttle *user_move_throttle;
 static struct log_throttle *user_kill_fail_throttle;
 
