@@ -179,7 +179,7 @@ director_request_existing(struct director_request *request, struct user *user,
 	struct director *dir = request->dir;
 	struct mail_host *host;
 
-	if (user->kill_state != USER_KILL_STATE_NONE) {
+	if (USER_IS_BEING_KILLED(user)) {
 		/* delay processing this user's connections until
 		   its existing connections have been killed */
 		request->delay_reason = REQUEST_DELAY_KILL;

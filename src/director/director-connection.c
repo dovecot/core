@@ -549,7 +549,7 @@ director_user_refresh(struct director_connection *conn,
 			  "replacing host %s with %s", username_hash,
 			  net_ip2addr(&user->host->ip), net_ip2addr(&host->ip));
 		ret = TRUE;
-	} else if (user->kill_state != USER_KILL_STATE_NONE) {
+	} else if (USER_IS_BEING_KILLED(user)) {
 		/* user is still being moved - ignore conflicting host updates
 		   from other directors who don't yet know about the move. */
 		dir_debug("user refresh: %u is being moved, "
@@ -574,7 +574,7 @@ director_user_refresh(struct director_connection *conn,
 		}
 		if (user->to_move != NULL)
 			str_append(str, ",moving");
-		if (user->kill_state != USER_KILL_STATE_NONE) {
+		if (USER_IS_BEING_KILLED(user)) {
 			str_printfa(str, ",kill_state=%s",
 				    user_kill_state_names[user->kill_state]);
 		}
