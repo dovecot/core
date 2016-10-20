@@ -282,7 +282,8 @@ mail_storage_match_class(struct mail_storage *storage,
 		return FALSE;
 
 	if ((storage->class_flags & MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) != 0 &&
-	    strcmp(storage->unique_root_dir, set->root_dir ? set->root_dir : "") != 0)
+	    strcmp(storage->unique_root_dir,
+	    	(set->root_dir != NULL ? set->root_dir : "")) != 0)
 		return FALSE;
 
 	if (strcmp(storage->name, "shared") == 0) {
