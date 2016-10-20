@@ -348,7 +348,7 @@ int mail_hosts_parse_and_add(struct mail_host_list *list,
 	return ret;
 }
 
-const char *mail_host_get_tag(struct mail_host *host)
+const char *mail_host_get_tag(const struct mail_host *host)
 {
 	return host->tag->name;
 }
