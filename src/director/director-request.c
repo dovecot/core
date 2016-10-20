@@ -126,7 +126,7 @@ void director_request(struct director *dir, const char *username,
 {
 	struct director_request *request;
 	unsigned int username_hash =
-		user_directory_get_username_hash(dir->users, username);
+		director_get_username_hash(dir, username);
 
 	dir->num_requests++;
 
