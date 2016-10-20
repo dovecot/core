@@ -9,7 +9,13 @@ struct strinput {
 	const char *output;
 };
 
-void test_strescape(void)
+static const char *tabescaped_input = "\0011\001t\001r\001nplip\001n";
+static const char *tabunescaped_input = "\001\t\r\nplip\n";
+
+static const char *wrong_tabescaped_input = "a\001\001b\001\nc\0011\001t\001r\001nplip\001n";
+static const char *wrong_tabescaped_output = "a\001b\nc\001\t\r\nplip\n";
+
+static void test_str_escape(void)
 {
 	static struct strinput unesc[] = {
 		{ "foo", "foo" },
@@ -86,4 +92,71 @@ void test_strescape(void)
 	test_assert(strcmp(str_c(str), "2l") == 0);
 	test_assert(strcmp(str_c(str), str_tabunescape(t_strdup_noconst(tabstr))) == 0);
 	test_end();
+}
+
+static void test_tabescape(void)
+{
+	string_t *str = t_str_new(128);
+
+	test_begin("string tabescaping");
+	test_assert(strcmp(str_tabescape(tabunescaped_input), tabescaped_input) == 0);
+
+	str_append_tabescaped(str, tabunescaped_input);
+	test_assert(strcmp(str_c(str), tabescaped_input) == 0);
+
+	/* unescaping */
+	str_truncate(str, 0);
+	str_append_tabunescaped(str, tabescaped_input, strlen(tabescaped_input));
+	test_assert(strcmp(str_c(str), tabunescaped_input) == 0);
+
+	test_assert(strcmp(str_tabunescape(t_strdup_noconst(tabescaped_input)), tabunescaped_input) == 0);
+	test_assert(strcmp(t_str_tabunescape(tabescaped_input), tabunescaped_input) == 0);
+
+	/* unescaping with wrongly written tabescape-input */
+	str_truncate(str, 0);
+	str_append_tabunescaped(str, wrong_tabescaped_input, strlen(wrong_tabescaped_input));
+	test_assert(strcmp(str_c(str), wrong_tabescaped_output) == 0);
+
+	test_assert(strcmp(str_tabunescape(t_strdup_noconst(wrong_tabescaped_input)), wrong_tabescaped_output) == 0);
+	test_assert(strcmp(t_str_tabunescape(wrong_tabescaped_input), wrong_tabescaped_output) == 0);
+
+	test_end();
+}
+
+static void test_strsplit_tabescaped(void)
+{
+	const char *input = t_strdup_printf("%s\t%s\t%s\t",
+		tabescaped_input, tabescaped_input, tabescaped_input);
+	const char *const output[] = {
+		tabunescaped_input,
+		tabunescaped_input,
+		tabunescaped_input,
+		"",
+		NULL
+	};
+	const char *const *args;
+
+	test_begin("*_strsplit_tabescaped()");
+
+	args = t_strsplit_tabescaped("");
+	test_assert(args[0] == NULL);
+
+	args = t_strsplit_tabescaped("\t");
+	test_assert(args[0][0] == '\0' && args[1][0] == '\0' && args[2] == NULL);
+
+	args = t_strsplit_tabescaped(tabescaped_input);
+	test_assert(strcmp(args[0], tabunescaped_input) == 0 && args[1] == NULL);
+
+	args = t_strsplit_tabescaped(input);
+	for (unsigned int i = 0; i < N_ELEMENTS(output); i++)
+		test_assert_idx(null_strcmp(output[i], args[i]) == 0, i);
+
+	test_end();
+}
+
+void test_strescape(void)
+{
+	test_str_escape();
+	test_tabescape();
+	test_strsplit_tabescaped();
 }
