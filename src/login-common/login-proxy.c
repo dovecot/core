@@ -510,8 +510,10 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 		o_stream_destroy(&proxy->client_output);
 	if (proxy->client_fd != -1)
 		net_disconnect(proxy->client_fd);
-	if (proxy->ssl_server_proxy != NULL)
+	if (proxy->ssl_server_proxy != NULL) {
+		ssl_proxy_destroy(proxy->ssl_server_proxy);
 		ssl_proxy_free(&proxy->ssl_server_proxy);
+	}
 	i_free(proxy->host);
 	i_free(proxy);
 }
