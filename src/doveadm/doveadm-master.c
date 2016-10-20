@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "strescape.h"
 #include "istream.h"
 #include "write-full.h"
 #include "doveadm.h"
@@ -104,6 +105,21 @@ static struct istream *master_service_send_cmd(const char *cmd)
 	return i_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
 }
 
+static struct istream *
+master_service_send_cmd_with_args(const char *cmd, const char *const *args)
+{
+	string_t *str = t_str_new(128);
+
+	str_append(str, cmd);
+	if (args != NULL) {
+		for (unsigned int i = 0; args[i] != NULL; i++) {
+			str_append_c(str, '\t');
+			str_append_tabescaped(str, args[i]);
+		}
+	}
+	return master_service_send_cmd(str_c(str));
+}
+
 static void cmd_service_stop(struct doveadm_cmd_context *cctx)
 {
 	const char *line, *const *services;
@@ -111,13 +127,8 @@ static void cmd_service_stop(struct doveadm_cmd_context *cctx)
 	if (!doveadm_cmd_param_array(cctx, "service", &services))
 		i_fatal("service parameter missing");
 
-	string_t *cmd = t_str_new(128);
-	str_append(cmd, "STOP");
-	for (unsigned int i = 0; services[i] != NULL; i++) {
-		str_append_c(cmd, '\t');
-		str_append(cmd, services[i]);
-	}
-	struct istream *input = master_service_send_cmd(str_c(cmd));
+	struct istream *input =
+		master_service_send_cmd_with_args("STOP", services);
 
 	alarm(5);
 	if (i_stream_read_next_line(input) == NULL ||
