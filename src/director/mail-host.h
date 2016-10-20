@@ -38,7 +38,7 @@ mail_host_get_by_hash(struct mail_host_list *list, unsigned int hash,
 
 int mail_hosts_parse_and_add(struct mail_host_list *list,
 			     const char *hosts_string);
-const char *mail_host_get_tag(struct mail_host *host);
+const char *mail_host_get_tag(const struct mail_host *host);
 void mail_host_set_tag(struct mail_host *host, const char *tag_name);
 void mail_host_set_down(struct mail_host *host, bool down, time_t timestamp);
 void mail_host_set_vhost_count(struct mail_host *host,
