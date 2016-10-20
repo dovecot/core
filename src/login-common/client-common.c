@@ -511,6 +511,7 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ '\0', NULL, "auth_username" },
 	{ '\0', NULL, "auth_domain" },
 	{ '\0', NULL, "listener" },
+	{ '\0', NULL, "local_name" },
 	{ '\0', NULL, NULL }
 };
 
@@ -585,6 +586,7 @@ get_var_expand_table(struct client *client)
 		tab[24].value = tab[21].value;
 	}
 	tab[25].value = client->listener_name;
+	tab[26].value = str_sanitize(client->local_name, 256);
 	return tab;
 }
 
