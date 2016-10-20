@@ -104,18 +104,18 @@ static struct istream *master_service_send_cmd(const char *cmd)
 	return i_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
 }
 
-static void cmd_service_stop(int argc, char *argv[])
+static void cmd_service_stop(struct doveadm_cmd_context *cctx)
 {
-	const char *line;
+	const char *line, *const *services;
 
-	if (argc == 1)
-		help_ver2(&doveadm_cmd_service_stop_ver2);
+	if (!doveadm_cmd_param_array(cctx, "service", &services))
+		i_fatal("service parameter missing");
 
 	string_t *cmd = t_str_new(128);
 	str_append(cmd, "STOP");
-	for (int i = 1; i < argc; i++) {
+	for (unsigned int i = 0; services[i] != NULL; i++) {
 		str_append_c(cmd, '\t');
-		str_append(cmd, argv[i]);
+		str_append(cmd, services[i]);
 	}
 	struct istream *input = master_service_send_cmd(str_c(cmd));
 
@@ -154,7 +154,7 @@ DOVEADM_CMD_PARAMS_END
 };
 
 struct doveadm_cmd_ver2 doveadm_cmd_service_stop_ver2 = {
-	.old_cmd = cmd_service_stop,
+	.cmd = cmd_service_stop,
 	.name = "service stop",
 	.usage = "<service> [<service> [...]]",
 DOVEADM_CMD_PARAMS_START
