@@ -82,7 +82,9 @@ static void doveadm_cmd_host_list_removed(struct doveadm_connection *conn)
 	string_t *str = t_str_new(1024);
 	int ret;
 
-	orig_hosts_list = mail_hosts_init(conn->dir->set->director_consistent_hashing);
+	orig_hosts_list = mail_hosts_init(conn->dir->set->director_user_expire,
+					  conn->dir->set->director_consistent_hashing,
+					  NULL);
 	(void)mail_hosts_parse_and_add(orig_hosts_list,
 				       conn->dir->set->director_mail_servers);
 
@@ -450,6 +452,7 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 
 	if (cmd->iter == NULL)
 		cmd->iter = director_iterate_users_init(dir);
+
 	while ((user = director_iterate_users_next(cmd->iter)) != NULL) {
 		if (user->host != host)
 			continue;
@@ -551,11 +554,11 @@ static int
 doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 			const char *const *args)
 {
-	struct user_directory *users = conn->dir->users;
 	struct user *user;
 	struct mail_host *host;
 	const char *username, *tag;
 	unsigned int username_hash;
+	struct mail_tag *mail_tag;
 	string_t *str = t_str_new(256);
 
 	if (args[0] == NULL) {
@@ -569,7 +572,9 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 		username_hash = director_get_username_hash(conn->dir, username);
 
 	/* get user's current host */
-	user = user_directory_lookup(users, username_hash);
+	mail_tag = mail_tag_find(conn->dir->mail_hosts, tag);
+	user = mail_tag == NULL ? NULL :
+		user_directory_lookup(mail_tag->users, username_hash);
 	if (user == NULL)
 		str_append(str, "\t0");
 	else {
@@ -633,7 +638,6 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 static int
 doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 {
-	struct user_directory *users = conn->dir->users;
 	unsigned int username_hash;
 	struct user *user;
 	struct mail_host *host;
@@ -652,7 +656,7 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 
 	if (str_to_uint(args[0], &username_hash) < 0)
 		username_hash = director_get_username_hash(conn->dir, args[0]);
-	user = user_directory_lookup(users, username_hash);
+	user = user_directory_lookup(host->tag->users, username_hash);
 	if (user != NULL && USER_IS_BEING_KILLED(user)) {
 		o_stream_nsend_str(conn->output, "TRYAGAIN\n");
 		return 1;

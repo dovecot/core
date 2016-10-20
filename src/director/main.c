@@ -40,13 +40,23 @@ static struct notify_connection *notify_conn;
 static struct timeout *to_proctitle_refresh;
 static ARRAY(enum director_socket_type) listener_socket_types;
 
+static unsigned int director_total_users_count(void)
+{
+	struct mail_tag *const *tagp;
+	unsigned int count = 0;
+
+	array_foreach(mail_hosts_get_tags(director->mail_hosts), tagp)
+		count += user_directory_count((*tagp)->users);
+	return count;
+}
+
 static void director_refresh_proctitle_timeout(void *context ATTR_UNUSED)
 {
 	static uint64_t prev_requests = 0, prev_input = 0, prev_output;
 	string_t *str;
 
 	str = t_str_new(64);
-	str_printfa(str, "[%u users", user_directory_count(director->users));
+	str_printfa(str, "[%u users", director_total_users_count());
 	if (director->users_moving_count > 0)
 		str_printfa(str, ", %u moving", director->users_moving_count);
 	str_printfa(str, ", %lu req/s",

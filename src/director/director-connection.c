@@ -502,7 +502,7 @@ director_user_refresh(struct director_connection *conn,
 	struct director *dir = conn->dir;
 	struct user *user;
 	bool ret = FALSE, unset_weak_user = FALSE;
-	struct user_directory *users = dir->users;
+	struct user_directory *users = host->tag->users;
 
 	*forced_r = FALSE;
 
@@ -1236,7 +1236,7 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 	if (conn->users_unsorted && conn->user_iter == NULL) {
 		/* we sent our user list before receiving remote's */
 		conn->users_unsorted = FALSE;
-		user_directory_sort(conn->dir->users);
+		mail_hosts_sort_users(conn->dir->mail_hosts);
 	}
 
 	str = t_str_new(128);
@@ -1906,7 +1906,7 @@ static int director_connection_send_users(struct director_connection *conn)
 	if (conn->users_unsorted && conn->handshake_received) {
 		/* we received remote's list of users before sending ours */
 		conn->users_unsorted = FALSE;
-		user_directory_sort(conn->dir->users);
+		mail_hosts_sort_users(conn->dir->mail_hosts);
 	}
 
 	ret = o_stream_flush(conn->output);

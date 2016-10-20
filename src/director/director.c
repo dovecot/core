@@ -629,7 +629,7 @@ void director_remove_host(struct director *dir, struct director_host *src,
 			  struct director_host *orig_src,
 			  struct mail_host *host)
 {
-	struct user_directory *users = dir->users;
+	struct user_directory *users = host->tag->users;
 
 	if (src != NULL) {
 		if (orig_src == NULL) {
@@ -652,7 +652,7 @@ void director_flush_host(struct director *dir, struct director_host *src,
 			 struct director_host *orig_src,
 			 struct mail_host *host)
 {
-	struct user_directory *users = dir->users;
+	struct user_directory *users = host->tag->users;
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -719,10 +719,12 @@ static void
 director_flush_user_continue(int result, struct director_kill_context *ctx)
 {
 	struct director *dir = ctx->dir;
-	struct user *user =
-		user_directory_lookup(dir->users, ctx->username_hash);
-
 	ctx->callback_pending = FALSE;
+
+	struct user *user = user_directory_lookup(ctx->tag->users,
+						  ctx->username_hash);
+	if (user != NULL)
+		director_user_kill_finish_delayed(dir, user,result == 1);
 
 	if (result == 0) {
 		struct istream *is = iostream_temp_finish(&ctx->reply, (size_t)-1);
@@ -918,7 +920,6 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 					const char *data, void *context)
 {
 	struct director_kill_context *ctx = context;
-	struct user_directory *users = ctx->dir->users;
 	struct user *user;
 
 	/* this is an asynchronous notification about user being killed.
@@ -941,7 +942,7 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 
 	ctx->callback_pending = FALSE;
 
-	user = user_directory_lookup(users, ctx->username_hash);
+	user = user_directory_lookup(ctx->tag->users, ctx->username_hash);
 	if (!DIRECTOR_KILL_CONTEXT_IS_VALID(user, ctx)) {
 		/* user was already freed - ignore */
 		i_assert(ctx->to_move == NULL);
@@ -995,6 +996,7 @@ director_kill_user(struct director *dir, struct director_host *src,
 
 	user->kill_ctx = ctx = i_new(struct director_kill_context, 1);
 	ctx->dir = dir;
+	ctx->tag = old_host->tag;
 	ctx->username_hash = user->username_hash;
 	ctx->kill_is_self_initiated = src->self;
 	if (old_host != NULL)
@@ -1024,7 +1026,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 			struct director_host *orig_src,
 			unsigned int username_hash, struct mail_host *host)
 {
-	struct user_directory *users = dir->users;
+	struct user_directory *users = host->tag->users;
 	struct user *user;
 
 	/* 1. move this user's host, and set its "killing" flag to delay all of
@@ -1164,12 +1166,13 @@ director_send_user_killed_everywhere(struct director *dir,
 		username_hash));
 }
 
-void director_user_killed(struct director *dir, unsigned int username_hash)
+static void
+director_user_tag_killed(struct director *dir, struct mail_tag *tag,
+			 unsigned int username_hash)
 {
-	struct user_directory *users = dir->users;
 	struct user *user;
 
-	user = user_directory_lookup(users, username_hash);
+	user = user_directory_lookup(tag->users, username_hash);
 	if (user == NULL || !USER_IS_BEING_KILLED(user))
 		return;
 
@@ -1200,14 +1203,24 @@ void director_user_killed(struct director *dir, unsigned int username_hash)
 	}
 }
 
-void director_user_killed_everywhere(struct director *dir,
-				     struct director_host *src,
-				     struct director_host *orig_src,
-				     unsigned int username_hash)
+void director_user_killed(struct director *dir, unsigned int username_hash)
+{
+	struct mail_tag *const *tagp;
+
+	array_foreach(mail_hosts_get_tags(dir->mail_hosts), tagp)
+		director_user_tag_killed(dir, *tagp, username_hash);
+}
+
+static void
+director_user_tag_killed_everywhere(struct director *dir,
+				    struct mail_tag *tag,
+				    struct director_host *src,
+				    struct director_host *orig_src,
+				    unsigned int username_hash)
 {
 	struct user *user;
 
-	user = user_directory_lookup(dir->users, username_hash);
+	user = user_directory_lookup(tag->users, username_hash);
 	if (user == NULL) {
 		dir_debug("User %u no longer exists - ignoring USER-KILLED-EVERYWHERE",
 			  username_hash);
@@ -1226,6 +1239,19 @@ void director_user_killed_everywhere(struct director *dir,
 
 	director_flush_user(dir, user);
 	director_send_user_killed_everywhere(dir, src, orig_src, username_hash);
+}
+
+void director_user_killed_everywhere(struct director *dir,
+				     struct director_host *src,
+				     struct director_host *orig_src,
+				     unsigned int username_hash)
+{
+	struct mail_tag *const *tagp;
+
+	array_foreach(mail_hosts_get_tags(dir->mail_hosts), tagp) {
+		director_user_tag_killed_everywhere(dir, *tagp, src, orig_src,
+						    username_hash);
+	}
 }
 
 static void director_state_callback_timeout(struct director *dir)
@@ -1296,9 +1322,9 @@ director_init(const struct director_settings *set,
 	i_array_init(&dir->dir_hosts, 16);
 	i_array_init(&dir->pending_requests, 16);
 	i_array_init(&dir->connections, 8);
-	dir->users = user_directory_init(set->director_user_expire,
-					 director_user_freed);
-	dir->mail_hosts = mail_hosts_init(set->director_consistent_hashing);
+	dir->mail_hosts = mail_hosts_init(set->director_user_expire,
+					  set->director_consistent_hashing,
+					  director_user_freed);
 
 	dir->ipc_proxy = ipc_client_init(DIRECTOR_IPC_PROXY_PATH);
 	dir->ring_min_version = DIRECTOR_VERSION_MINOR;
@@ -1319,7 +1345,6 @@ void director_deinit(struct director **_dir)
 		director_connection_deinit(&conn, "Shutting down");
 	}
 
-	user_directory_deinit(&dir->users);
 	mail_hosts_deinit(&dir->mail_hosts);
 	mail_hosts_deinit(&dir->orig_config_hosts);
 
@@ -1362,28 +1387,48 @@ void dir_debug(const char *fmt, ...)
 }
 
 struct director_user_iter {
+	struct director *dir;
+	unsigned int tag_idx;
 	struct user_directory_iter *user_iter;
 };
 
 struct director_user_iter *director_iterate_users_init(struct director *dir)
 {
 	struct director_user_iter *iter = i_new(struct director_user_iter, 1);
-
-	iter->user_iter = user_directory_iter_init(dir->users);
+	iter->dir = dir;
 	return iter;
 }
 
 struct user *director_iterate_users_next(struct director_user_iter *iter)
 {
-	return user_directory_iter_next(iter->user_iter);
+	const ARRAY_TYPE(mail_tag) *tags;
+	struct user *user;
+
+	i_assert(iter != NULL);
+
+	if (iter->user_iter == NULL) {
+		tags = mail_hosts_get_tags(iter->dir->mail_hosts);
+		if (iter->tag_idx >= array_count(tags))
+			return NULL;
+		struct mail_tag *const *tagp = array_idx(tags, iter->tag_idx);
+		iter->user_iter = user_directory_iter_init((*tagp)->users);
+	}
+	user = user_directory_iter_next(iter->user_iter);
+	if (user == NULL) {
+		user_directory_iter_deinit(&iter->user_iter);
+		iter->tag_idx++;
+		return director_iterate_users_next(iter);
+	} else
+		return user;
 }
 
 void director_iterate_users_deinit(struct director_user_iter **_iter)
 {
+	i_assert(_iter != NULL && *_iter != NULL);
 	struct director_user_iter *iter = *_iter;
-
 	*_iter = NULL;
-	user_directory_iter_deinit(&iter->user_iter);
+	if (iter->user_iter != NULL)
+		user_directory_iter_deinit(&iter->user_iter);
 	i_free(iter);
 }
 
