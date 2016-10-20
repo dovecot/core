@@ -21,6 +21,7 @@ static struct doveadm_cmd *doveadm_commands[] = {
 static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
 	&doveadm_cmd_service_stop_ver2,
 	&doveadm_cmd_service_status_ver2,
+	&doveadm_cmd_process_status_ver2,
 	&doveadm_cmd_stop_ver2,
 	&doveadm_cmd_reload_ver2,
 	&doveadm_cmd_stats_dump_ver2,

@@ -194,6 +194,46 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 	i_stream_destroy(&input);
 }
 
+static void cmd_process_status(struct doveadm_cmd_context *cctx)
+{
+	const char *line, *const *services;
+
+	if (!doveadm_cmd_param_array(cctx, "service", &services))
+		services = NULL;
+
+	struct istream *input =
+		master_service_send_cmd_with_args("PROCESS-STATUS", services);
+
+	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+	doveadm_print_header_simple("name");
+	doveadm_print_header_simple("pid");
+	doveadm_print_header_simple("available_count");
+	doveadm_print_header_simple("total_count");
+	doveadm_print_header_simple("idle_start");
+	doveadm_print_header_simple("last_status_update");
+	doveadm_print_header_simple("last_kill_sent");
+
+	alarm(5);
+	while ((line = i_stream_read_next_line(input)) != NULL) {
+		if (line[0] == '\0')
+			break;
+		T_BEGIN {
+			const char *const *args = t_strsplit_tabescaped(line);
+			if (str_array_length(args) >= 7) {
+				for (unsigned int i = 0; i < 7; i++)
+					doveadm_print(args[i]);
+			}
+		} T_END;
+	}
+	if (line == NULL) {
+		i_error("read(%s) failed: %s", i_stream_get_name(input),
+			i_stream_get_error(input));
+		doveadm_exit_code = EX_TEMPFAIL;
+	}
+	alarm(0);
+	i_stream_destroy(&input);
+}
+
 struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2 = {
 	.old_cmd = cmd_stop,
 	.name = "stop",
@@ -222,6 +262,15 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_service_status_ver2 = {
 	.cmd = cmd_service_status,
 	.name = "service status",
+	.usage = "[<service> [...]]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "service", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+};
+
+struct doveadm_cmd_ver2 doveadm_cmd_process_status_ver2 = {
+	.cmd = cmd_process_status,
+	.name = "process status",
 	.usage = "[<service> [...]]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('\0', "service", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
