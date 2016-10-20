@@ -31,7 +31,7 @@ struct director_reset_cmd {
 
 	struct director *dir;
 	struct doveadm_connection *_conn;
-	struct user_directory_iter *iter;
+	struct director_user_iter *iter;
 	unsigned int host_idx, hosts_count;
 	unsigned int max_moving_users;
 };
@@ -428,7 +428,7 @@ static void doveadm_reset_cmd_free(struct director_reset_cmd *cmd)
 	DLLIST_REMOVE(&reset_cmds, cmd);
 
 	if (cmd->iter != NULL)
-		user_directory_iter_deinit(&cmd->iter);
+		director_iterate_users_deinit(&cmd->iter);
 	if (cmd->_conn != NULL)
 		cmd->_conn->reset_cmd = NULL;
 	i_free(cmd);
@@ -449,8 +449,8 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 		director_connection_cork(dir->right);
 
 	if (cmd->iter == NULL)
-		cmd->iter = user_directory_iter_init(dir->users);
-	while ((user = user_directory_iter_next(cmd->iter)) != NULL) {
+		cmd->iter = director_iterate_users_init(dir);
+	while ((user = director_iterate_users_next(cmd->iter)) != NULL) {
 		if (user->host != host)
 			continue;
 		new_host = mail_host_get_by_hash(dir->mail_hosts,
@@ -464,7 +464,7 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 			break;
 	}
 	if (user == NULL)
-		user_directory_iter_deinit(&cmd->iter);
+		director_iterate_users_deinit(&cmd->iter);
 	if (dir->right != NULL)
 		director_connection_uncork(dir->right);
 	return user == NULL;
@@ -599,7 +599,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 static int
 doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 {
-	struct user_directory_iter *iter;
+	struct director_user_iter *iter;
 	struct user *user;
 	struct ip_addr ip;
 
@@ -612,8 +612,8 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 		ip.family = 0;
 	}
 
-	iter = user_directory_iter_init(conn->dir->users);
-	while ((user = user_directory_iter_next(iter)) != NULL) {
+	iter = director_iterate_users_init(conn->dir);
+	while ((user = director_iterate_users_next(iter)) != NULL) {
 		if (ip.family == 0 ||
 		    net_ip_compare(&ip, &user->host->ip)) T_BEGIN {
 			unsigned int expire_time = user->timestamp +
@@ -625,7 +625,7 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 				net_ip2addr(&user->host->ip)));
 		} T_END;
 	}
-	user_directory_iter_deinit(&iter);
+	director_iterate_users_deinit(&iter);
 	o_stream_nsend(conn->output, "\n", 1);
 	return 1;
 }
