@@ -1364,6 +1364,32 @@ void dir_debug(const char *fmt, ...)
 	va_end(args);
 }
 
+struct director_user_iter {
+	struct user_directory_iter *user_iter;
+};
+
+struct director_user_iter *director_iterate_users_init(struct director *dir)
+{
+	struct director_user_iter *iter = i_new(struct director_user_iter, 1);
+
+	iter->user_iter = user_directory_iter_init(dir->users);
+	return iter;
+}
+
+struct user *director_iterate_users_next(struct director_user_iter *iter)
+{
+	return user_directory_iter_next(iter->user_iter);
+}
+
+void director_iterate_users_deinit(struct director_user_iter **_iter)
+{
+	struct director_user_iter *iter = *_iter;
+
+	*_iter = NULL;
+	user_directory_iter_deinit(&iter->user_iter);
+	i_free(iter);
+}
+
 void directors_init(void)
 {
 	user_move_throttle =

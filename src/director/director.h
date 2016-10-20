@@ -240,4 +240,8 @@ void directors_deinit(void);
 
 void dir_debug(const char *fmt, ...) ATTR_FORMAT(1, 2);
 
+struct director_user_iter *director_iterate_users_init(struct director *dir);
+struct user *director_iterate_users_next(struct director_user_iter *iter);
+void director_iterate_users_deinit(struct director_user_iter **_iter);
+
 #endif

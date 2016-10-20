@@ -114,7 +114,7 @@ struct director_connection {
 	struct ostream *output;
 	struct timeout *to_disconnect, *to_ping, *to_pong;
 
-	struct user_directory_iter *user_iter;
+	struct director_user_iter *user_iter;
 
 	/* set during command execution */
 	const char *cur_cmd, *cur_line;
@@ -1880,7 +1880,7 @@ static int director_connection_send_users(struct director_connection *conn)
 
 	i_assert(conn->version_received);
 
-	while ((user = user_directory_iter_next(conn->user_iter)) != NULL) {
+	while ((user = director_iterate_users_next(conn->user_iter)) != NULL) {
 		T_BEGIN {
 			string_t *str = t_str_new(128);
 
@@ -1902,7 +1902,7 @@ static int director_connection_send_users(struct director_connection *conn)
 			}
 		}
 	}
-	user_directory_iter_deinit(&conn->user_iter);
+	director_iterate_users_deinit(&conn->user_iter);
 	if (director_connection_send_done(conn) < 0)
 		return -1;
 
@@ -2020,7 +2020,8 @@ static void director_finish_sending_handshake(struct director_connection *conn)
 	director_connection_send_hosts(conn);
 
 	i_assert(conn->user_iter == NULL);
-	conn->user_iter = user_directory_iter_init(conn->dir->users);
+	conn->user_iter = director_iterate_users_init(conn->dir);
+
 	if (director_connection_send_users(conn) == 0)
 		o_stream_set_flush_pending(conn->output, TRUE);
 
@@ -2088,7 +2089,7 @@ void director_connection_deinit(struct director_connection **_conn,
 	if (conn->connect_request_to != NULL)
 		director_host_unref(conn->connect_request_to);
 	if (conn->user_iter != NULL)
-		user_directory_iter_deinit(&conn->user_iter);
+		director_iterate_users_deinit(&conn->user_iter);
 	if (conn->to_disconnect != NULL)
 		timeout_remove(&conn->to_disconnect);
 	if (conn->to_pong != NULL)
