@@ -35,6 +35,32 @@ struct director;
 struct mail_host;
 struct user;
 
+enum user_kill_state {
+	/* User isn't being killed */
+	USER_KILL_STATE_NONE,
+	/* We're still killing the user's connections */
+	USER_KILL_STATE_KILLING,
+	/* Like above, but our left side already announced it was finished
+	   with killing its user connections */
+	USER_KILL_STATE_KILLING_NOTIFY_RECEIVED,
+	/* We're done killing, but we have to wait for the left side to
+	   finish killing its user connections before sending USER-KILLED to
+	   our right side */
+	USER_KILL_STATE_KILLED_WAITING_FOR_NOTIFY,
+	/* We're done killing, but waiting for USER-KILLED-EVERYWHERE
+	   notification until this state gets reset. */
+	USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE,
+	/* Waiting for the flush socket to finish. */
+	USER_KILL_STATE_FLUSHING,
+	/* Wait for a while for the user connections to actually die. Note that
+	   only at this stage we can be sure that all the directors know about
+	   the user move (although it could be earlier if we added a new
+	   USER-MOVED notification). */
+	USER_KILL_STATE_DELAY
+	/* NOTE: remember to update also user_kill_state_names[] */
+};
+extern const char *user_kill_state_names[USER_KILL_STATE_DELAY+1];
+
 typedef void director_state_change_callback_t(struct director *dir);
 
 struct director {
