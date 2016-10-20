@@ -69,6 +69,12 @@ int i_memcasecmp(const void *p1, const void *p2, size_t size) ATTR_PURE;
 int i_strcmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
 int i_strcasecmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
 
+static inline char *i_strchr_to_next(const char *str, char chr)
+{
+	char *tmp = (char *)strchr(str, chr);
+	return tmp == NULL ? NULL : tmp+1;
+}
+
 /* separators is an array of separator characters, not a separator string.
    an empty data string results in an array containing only NULL. */
 char **p_strsplit(pool_t pool, const char *data, const char *separators)
