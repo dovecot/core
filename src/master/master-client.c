@@ -1,6 +1,9 @@
 /* Copyright (c) 2016 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "array.h"
+#include "str.h"
+#include "strescape.h"
 #include "ostream.h"
 #include "connection.h"
 #include "service.h"
@@ -10,6 +13,37 @@
 struct master_client {
 	struct connection conn;
 };
+
+static void
+master_client_service_status_output(string_t *str,
+				    const struct service *service)
+{
+	str_append_tabescaped(str, service->set->name);
+	str_printfa(str, "\t%u\t%u\t%u\t%u\t%u\t%ld\t%u\t%ld\t%c\t%c\n",
+		    service->process_count, service->process_avail,
+		    service->process_limit, service->client_limit,
+		    service->to_throttle == NULL ? 0 : service->throttle_secs,
+		    (long)service->exit_failure_last,
+		    service->exit_failures_in_sec,
+		    (long)service->last_drop_warning,
+		    service->listen_pending ? 'y' : 'n',
+		    service->listening ? 'y' : 'n');
+}
+
+static int
+master_client_service_status(struct master_client *client)
+{
+	struct service *const *servicep;
+	string_t *str = t_str_new(128);
+
+	array_foreach(&services->services, servicep) {
+		str_truncate(str, 0);
+		master_client_service_status_output(str, *servicep);
+		o_stream_nsend(client->conn.output, str_data(str), str_len(str));
+	}
+	o_stream_nsend_str(client->conn.output, "\n");
+	return 1;
+}
 
 static int
 master_client_stop(struct master_client *client, const char *const *args)
@@ -40,6 +74,8 @@ master_client_input_args(struct connection *conn, const char *const *args)
 	}
 	args++;
 
+	if (strcmp(cmd, "SERVICE-STATUS") == 0)
+		return master_client_service_status(client);
 	if (strcmp(cmd, "STOP") == 0)
 		return master_client_stop(client, args);
 	i_error("%s: Unknown command: %s", conn->name, cmd);
