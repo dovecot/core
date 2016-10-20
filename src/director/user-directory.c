@@ -74,7 +74,7 @@ static bool user_directory_user_has_connections(struct user_directory *dir,
 	if (expire_timestamp > ioloop_time)
 		return TRUE;
 
-	if (user->kill_state != USER_KILL_STATE_NONE) {
+	if (USER_IS_BEING_KILLED(user)) {
 		/* don't free this user until the kill is finished */
 		return TRUE;
 	}

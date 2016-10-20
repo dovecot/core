@@ -1010,7 +1010,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->host->user_count++;
 		user->timestamp = ioloop_time;
 	}
-	if (user->kill_state == USER_KILL_STATE_NONE) {
+	if (!USER_IS_BEING_KILLED(user)) {
 		ctx = i_new(struct director_kill_context, 1);
 		ctx->dir = dir;
 		ctx->username_hash = username_hash;
