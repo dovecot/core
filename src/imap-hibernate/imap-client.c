@@ -278,6 +278,8 @@ imap_client_input_parse(const unsigned char *data, size_t size, const char **tag
 	if (data[0] != '\n')
 		return IMAP_CLIENT_INPUT_STATE_BAD;
 	data++; size--;
+	if (size == 0)
+		return state;
 
 	tag_start = data;
 
@@ -289,7 +291,7 @@ imap_client_input_parse(const unsigned char *data, size_t size, const char **tag
 	tag_end = data;
 
 	if (size == 0)
-		return IMAP_CLIENT_INPUT_STATE_UNKNOWN;
+		return state;
 	if (data[0] != ' ')
 		return IMAP_CLIENT_INPUT_STATE_BAD;
 	data++; size--;
