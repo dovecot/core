@@ -95,7 +95,7 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	buffer_t buf;
 
 	/* <id> <client-pid> <client-id> <cookie> [<parameters>] */
-	list = t_strsplit_tab(args);
+	list = t_strsplit_tabescaped(args);
 	if (str_array_length(list) < 4 ||
 	    str_to_uint(list[0], &id) < 0 ||
 	    str_to_uint(list[1], &client_pid) < 0 ||
@@ -139,7 +139,7 @@ master_input_cache_flush(struct auth_master_connection *conn, const char *args)
 	unsigned int count;
 
 	/* <id> [<user> [<user> [..]] */
-	list = t_strsplit_tab(args);
+	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL) {
 		i_error("BUG: doveadm sent broken CACHE-FLUSH");
 		return FALSE;
@@ -169,7 +169,7 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 	unsigned int id;
 
 	/* <id> <userid> [<parameters>] */
-	list = t_strsplit_tab(args);
+	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || list[1] == NULL ||
 	    str_to_uint(list[0], &id) < 0) {
 		i_error("BUG: Master sent broken %s", cmd);
@@ -531,7 +531,7 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	unsigned int id;
 
 	/* <id> [<parameters>] */
-	list = t_strsplit_tab(args);
+	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || str_to_uint(list[0], &id) < 0) {
 		i_error("BUG: Master sent broken LIST");
 		return FALSE;

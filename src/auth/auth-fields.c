@@ -118,7 +118,7 @@ void auth_fields_import(struct auth_fields *fields, const char *str,
 			enum auth_field_flags flags)
 {
 	T_BEGIN {
-		const char *const *arg = t_strsplit_tab(str);
+		const char *const *arg = t_strsplit_tabescaped(str);
 		const char *key, *value;
 
 		for (; *arg != NULL; arg++) {

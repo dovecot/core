@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "write-full.h"
 #include "str.h"
+#include "strescape.h"
 #include "syslog-util.h"
 #include "eacces-error.h"
 #include "env-util.h"
@@ -334,7 +335,7 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 	}
 
 	T_BEGIN {
-		const char *const *arg = t_strsplit_tab(line);
+		const char *const *arg = t_strsplit_tabescaped(line);
 		ARRAY_TYPE(const_string) services;
 
 		p_array_init(&services, pool, 8);

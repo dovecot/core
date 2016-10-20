@@ -7,6 +7,7 @@
 #include "wildcard-match.h"
 #include "hash.h"
 #include "str.h"
+#include "strescape.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 #include "doveadm-who.h"
@@ -51,7 +52,7 @@ who_user_has_ip(const struct who_user *user, const struct ip_addr *ip)
 
 static int who_parse_line(const char *line, struct who_line *line_r)
 {
-	const char *const *args = t_strsplit_tab(line);
+	const char *const *args = t_strsplit_tabescaped(line);
 	const char *ident = args[0];
 	const char *pid_str = args[1];
 	const char *refcount_str = args[2];

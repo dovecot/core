@@ -1633,7 +1633,7 @@ director_connection_handle_line(struct director_connection *conn,
 
 	dir_debug("input: %s: %s", conn->name, line);
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	cmd = args[0]; args++;
 	if (cmd == NULL) {
 		director_cmd_error(conn, "Received empty line");

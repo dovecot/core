@@ -1,6 +1,7 @@
 /* Copyright (c) 2004-2016 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
+#include "strescape.h"
 #include "restrict-process-size.h"
 #include "auth-request-stats.h"
 #include "password-scheme.h"
@@ -72,7 +73,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		return TRUE;
 	}
 
-	list = t_strsplit_tab(value);
+	list = t_strsplit_tabescaped(value);
 
 	cached_pw = list[0];
 	if (*cached_pw == '\0') {
@@ -132,7 +133,7 @@ bool passdb_cache_lookup_credentials(struct auth_request *request,
 		return TRUE;
 	}
 
-	list = t_strsplit_tab(value);
+	list = t_strsplit_tabescaped(value);
 	auth_request_set_fields(request, list + 1, NULL);
 
 	*result_r = PASSDB_RESULT_OK;

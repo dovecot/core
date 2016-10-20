@@ -1754,7 +1754,7 @@ dsync_ibc_stream_recv_change(struct dsync_ibc *_ibc,
 
 	if (dsync_deserializer_decode_try(decoder, "keyword_changes", &value) &&
 	    *value != '\0') {
-		const char *const *changes = t_strsplit_tab(value);
+		const char *const *changes = t_strsplit_tabescaped(value);
 		unsigned int i, count = str_array_length(changes);
 
 		p_array_init(&change->keyword_changes, pool, count);

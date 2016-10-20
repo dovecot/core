@@ -22,6 +22,7 @@
 #include "write-full.h"
 #include "hash.h"
 #include "llist.h"
+#include "strescape.h"
 #include "imap-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -497,7 +498,7 @@ static void admin_read_hosts(struct admin_connection *conn)
 			break;
 		/* ip vhost-count user-count */
 		T_BEGIN {
-			const char *const *args = t_strsplit_tab(line);
+			const char *const *args = t_strsplit_tabescaped(line);
 			struct host *host;
 
 			host = i_new(struct host, 1);

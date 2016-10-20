@@ -48,8 +48,6 @@ static const char *const*
 indexer_client_next_line(struct indexer_client *client)
 {
 	const char *line;
-	char **args;
-	unsigned int i;
 
 	line = i_stream_next_line(client->input);
 	if (line == NULL)

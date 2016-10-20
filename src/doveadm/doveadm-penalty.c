@@ -5,6 +5,7 @@
 #include "net.h"
 #include "istream.h"
 #include "hash.h"
+#include "strescape.h"
 #include "time-util.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
@@ -26,7 +27,7 @@ struct penalty_context {
 
 static void penalty_parse_line(const char *line, struct penalty_line *line_r)
 {
-	const char *const *args = t_strsplit_tab(line);
+	const char *const *args = t_strsplit_tabescaped(line);
 	const char *ident = args[0];
 	const char *penalty_str = args[1];
 	const char *last_penalty_str = args[2];

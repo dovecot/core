@@ -201,7 +201,7 @@ doveadm_cmd_director_add(struct doveadm_connection *conn, const char *line)
 	struct ip_addr ip;
 	in_port_t port = conn->dir->self_port;
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL ||
 	    net_addr2ip(line, &ip) < 0 ||
 	    (args[1] != NULL && net_str2port(args[1], &port) < 0)) {
@@ -225,7 +225,7 @@ doveadm_cmd_director_remove(struct doveadm_connection *conn, const char *line)
 	struct ip_addr ip;
 	in_port_t port = 0;
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL ||
 	    net_addr2ip(line, &ip) < 0 ||
 	    (args[1] != NULL && net_str2port(args[1], &port) < 0)) {
@@ -255,7 +255,7 @@ doveadm_cmd_host_set_or_update(struct doveadm_connection *conn, const char *line
 	struct ip_addr ip;
 	unsigned int vhost_count = UINT_MAX;
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	ip_str = args[0];
 	if (ip_str != NULL) {
 		tag = strchr(ip_str, '@');
@@ -481,7 +481,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 	unsigned int username_hash;
 	string_t *str = t_str_new(256);
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL) {
 		username = "";
 		tag = "";
@@ -563,7 +563,7 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
 	struct mail_host *host;
 	struct ip_addr ip;
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL || args[1] == NULL ||
 	    net_addr2ip(args[1], &ip) < 0) {
 		i_error("doveadm sent invalid USER-MOVE parameters: %s", line);
@@ -594,7 +594,7 @@ doveadm_cmd_user_kick(struct doveadm_connection *conn, const char *line)
 {
 	const char *const *args;
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL) {
 		i_error("doveadm sent invalid USER-KICK parameters: %s", line);
 		return FALSE;

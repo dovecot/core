@@ -1018,7 +1018,7 @@ login_proxy_cmd_list(struct ipc_cmd *cmd, const char *const *args ATTR_UNUSED)
 
 static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line)
 {
-	const char *const *args = t_strsplit_tab(line);
+	const char *const *args = t_strsplit_tabescaped(line);
 	const char *name = args[0];
 
 	args++;

@@ -4,6 +4,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "strescape.h"
 #include "master-service.h"
 #include "master-interface.h"
 #include "connect-limit.h"
@@ -39,7 +40,7 @@ anvil_connection_next_line(struct anvil_connection *conn)
 	const char *line;
 
 	line = i_stream_next_line(conn->input);
-	return line == NULL ? NULL : t_strsplit_tab(line);
+	return line == NULL ? NULL : t_strsplit_tabescaped(line);
 }
 
 static int

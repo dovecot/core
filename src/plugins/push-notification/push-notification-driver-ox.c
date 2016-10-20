@@ -11,6 +11,7 @@
 #include "mailbox-attribute.h"
 #include "mail-storage-private.h"
 #include "str.h"
+#include "strescape.h"
 
 #include "push-notification-drivers.h"
 #include "push-notification-event-messagenew.h"
@@ -232,7 +233,7 @@ static bool push_notification_driver_ox_begin_txn
     txn = p_new(dtxn->ptxn->pool, struct push_notification_driver_ox_txn, 1);
 
     /* Valid keys: user */
-    args = t_strsplit_tab(md_value);
+    args = t_strsplit_tabescaped(md_value);
     for (; *args != NULL; args++) {
         key = *args;
 
