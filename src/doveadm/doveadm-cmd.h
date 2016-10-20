@@ -149,6 +149,7 @@ void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv);
 void doveadm_cmd_params_null_terminate_arrays(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv);
 
 extern struct doveadm_cmd_ver2 doveadm_cmd_service_stop_ver2;
+extern struct doveadm_cmd_ver2 doveadm_cmd_service_status_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_stats_reset_ver2;
