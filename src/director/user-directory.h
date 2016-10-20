@@ -3,6 +3,9 @@
 
 #include "director.h"
 
+#define USER_IS_BEING_KILLED(user) \
+	((user)->kill_state != USER_KILL_STATE_NONE)
+
 struct user {
 	/* sorted by time */
 	struct user *prev, *next;
