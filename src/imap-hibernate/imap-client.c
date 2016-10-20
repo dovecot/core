@@ -485,6 +485,7 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		tab[11].value = auth_user;
 		tab[12].value = t_strcut(auth_user, '@');
 		tab[13].value = strchr(auth_user, '@');
+		if (tab[13].value != NULL) tab[13].value++;
 	}
 	return tab;
 }

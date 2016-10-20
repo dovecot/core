@@ -436,6 +436,7 @@ get_var_expand_table(struct master_service *service,
 		tab[10].value = user->auth_user;
 		tab[11].value = t_strcut(user->auth_user, '@');
 		tab[12].value = strchr(user->auth_user, '@');
+		if (tab[12].value != NULL) tab[12].value++;
 	}
 	return tab;
 }
