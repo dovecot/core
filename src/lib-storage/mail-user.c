@@ -260,6 +260,7 @@ mail_user_var_expand_table(struct mail_user *user)
 		tab[11].value = user->auth_user;
 		tab[12].value = p_strdup(user->pool, t_strcut(user->auth_user, '@'));
 		tab[13].value = strchr(user->auth_user, '@');
+		if (tab[13].value != NULL) tab[13].value++;
 	}
 
 	user->var_expand_table = tab;
