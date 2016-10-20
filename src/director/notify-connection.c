@@ -42,7 +42,7 @@ static void notify_connection_input(struct notify_connection *conn)
 	unsigned int hash;
 
 	while ((line = i_stream_read_next_line(conn->input)) != NULL) {
-		if (!user_directory_get_username_hash(conn->dir->users, line, &hash))
+		if (!director_get_username_hash(conn->dir, line, &hash))
 			continue;
 		notify_update_user(conn->dir, line, hash);
 	}

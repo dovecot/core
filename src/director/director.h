@@ -235,6 +235,10 @@ void director_update_send_version(struct director *dir,
 
 int director_connect_host(struct director *dir, struct director_host *host);
 
+bool
+director_get_username_hash(struct director *dir, const char *username,
+			   unsigned int *hash_r);
+
 void directors_init(void);
 void directors_deinit(void);
 

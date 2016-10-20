@@ -29,7 +29,7 @@ struct user {
 /* Create a new directory. Users are dropped if their time gets older
    than timeout_secs. */
 struct user_directory *
-user_directory_init(unsigned int timeout_secs, const char *username_hash_fmt,
+user_directory_init(unsigned int timeout_secs,
 		    void (*user_free_hook)(struct user *));
 void user_directory_deinit(struct user_directory **dir);
 
@@ -51,10 +51,6 @@ void user_directory_remove_host(struct user_directory *dir,
 /* Sort users based on the timestamp. This is called only after updating
    timestamps based on remote director's user list after handshake. */
 void user_directory_sort(struct user_directory *dir);
-
-bool user_directory_get_username_hash(struct user_directory *dir,
-				      const char *username,
-				      unsigned int *hash_r);
 
 bool user_directory_user_is_recently_updated(struct user_directory *dir,
 					     struct user *user);

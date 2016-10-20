@@ -47,7 +47,7 @@ static void test_user_directory_ascending(void)
 	unsigned int i;
 
 	test_begin("user directory ascending");
-	dir = user_directory_init(USER_DIR_TIMEOUT, "%u", NULL);
+	dir = user_directory_init(USER_DIR_TIMEOUT, NULL);
 	(void)user_directory_add(dir, 1, host, ioloop_time + count+1);
 
 	for (i = 0; i < count; i++)
@@ -65,7 +65,7 @@ static void test_user_directory_descending(void)
 	unsigned int i;
 
 	test_begin("user directory descending");
-	dir = user_directory_init(USER_DIR_TIMEOUT, "%u", NULL);
+	dir = user_directory_init(USER_DIR_TIMEOUT, NULL);
 
 	for (i = 0; i < count; i++)
 		(void)user_directory_add(dir, i+1, host, ioloop_time - i);
@@ -82,7 +82,7 @@ static void test_user_directory_random(void)
 	unsigned int i, count = 10000 + rand()%10000;
 
 	test_begin("user directory random");
-	dir = user_directory_init(USER_DIR_TIMEOUT, "%u", NULL);
+	dir = user_directory_init(USER_DIR_TIMEOUT, NULL);
 	for (i = 0; i < count; i++) {
 		if (rand() % 10 == 0)
 			timestamp = ioloop_time;

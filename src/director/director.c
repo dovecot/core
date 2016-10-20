@@ -12,6 +12,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-temp.h"
+#include "mail-user-hash.h"
 #include "user-directory.h"
 #include "mail-host.h"
 #include "director-host.h"
@@ -1299,7 +1300,6 @@ director_init(const struct director_settings *set,
 	i_array_init(&dir->pending_requests, 16);
 	i_array_init(&dir->connections, 8);
 	dir->users = user_directory_init(set->director_user_expire,
-					 set->director_username_hash,
 					 director_user_freed);
 	dir->mail_hosts = mail_hosts_init(set->director_consistent_hashing);
 
@@ -1388,6 +1388,20 @@ void director_iterate_users_deinit(struct director_user_iter **_iter)
 	*_iter = NULL;
 	user_directory_iter_deinit(&iter->user_iter);
 	i_free(iter);
+}
+
+bool
+director_get_username_hash(struct director *dir, const char *username,
+			   unsigned int *hash_r)
+{
+	const char *error;
+
+	if (mail_user_hash(username, dir->set->director_username_hash, hash_r,
+			   &error))
+		return TRUE;
+	i_error("Failed to expand director_user_expire=%s: %s",
+		dir->set->director_username_hash, error);
+	return FALSE;
 }
 
 void directors_init(void)
