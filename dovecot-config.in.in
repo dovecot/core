@@ -46,3 +46,4 @@ dovecot_pkglibdir=
 dovecot_pkglibexecdir=
 dovecot_docdir=
 dovecot_moduledir=
+dovecot_statedir=
