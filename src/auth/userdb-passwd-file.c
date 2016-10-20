@@ -131,8 +131,8 @@ static void passwd_file_iterate_next(struct userdb_iterate_context *_ctx)
 			if (*line == '\0' || *line == ':' || *line == '#')
 				continue; /* no username or comment */
 			if (ctx->skip_passdb_entries &&
-			    ((p = strchr(line, ':')) == NULL ||
-			     strchr(p+1, ':') == NULL)) {
+			    ((p = i_strchr_to_next(line, ':')) == NULL ||
+			     strchr(p, ':') == NULL)) {
 				/* only passdb info */
 				continue;
 			}

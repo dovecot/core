@@ -34,8 +34,7 @@ unsigned int mail_user_hash(const char *username, const char *format)
 		memcpy(tab, static_tab, sizeof(static_tab));
 		tab[0].value = username;
 		tab[1].value = t_strcut(username, '@');
-		tab[2].value = strchr(username, '@');
-		if (tab[2].value != NULL) tab[2].value++;
+		tab[2].value = i_strchr_to_next(username, '@');
 
 		var_expand(str, format, tab);
 		md5_get_digest(str_data(str), str_len(str), md5);

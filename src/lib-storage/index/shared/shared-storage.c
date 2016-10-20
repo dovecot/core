@@ -221,8 +221,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	} else {
 		if (domain == NULL) {
 			/* no domain given, use ours (if we have one) */
-			domain = strchr(user->username, '@');
-			if (domain != NULL) domain++;
+			domain = i_strchr_to_next(user->username, '@');
 		}
 		userdomain = domain == NULL ? username :
 			t_strconcat(username, "@", domain, NULL);

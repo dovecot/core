@@ -33,10 +33,8 @@ struct mail_user *mail_user_login(const char *username)
 		return user;
 	}
 
-	domain = strchr(username, '@');
-	if (domain != NULL)
-		domain++;
-	else
+	domain = i_strchr_to_next(username, '@');
+	if (domain == NULL)
 		domain = "";
 
 	user = i_malloc(sizeof(struct mail_user) + stats_alloc_size());

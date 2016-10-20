@@ -1606,12 +1606,12 @@ static const char *db_ldap_field_get_default(const char *data)
 {
 	const char *p;
 
-	p = strchr(data, ':');
+	p = i_strchr_to_next(data, ':');
 	if (p == NULL)
 		return "";
 	else {
 		/* default value given */
-		return p+1;
+		return p;
 	}
 }
 

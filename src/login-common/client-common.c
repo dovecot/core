@@ -518,8 +518,7 @@ get_var_expand_users(struct var_expand_table *tab, const char *user)
 
 	tab[0].value = user;
 	tab[1].value = t_strcut(user, '@');
-	tab[2].value = strchr(user, '@');
-	if (tab[2].value != NULL) tab[2].value++;
+	tab[2].value = i_strchr_to_next(user, '@');
 
 	for (i = 0; i < 3; i++)
 		tab[i].value = str_sanitize(tab[i].value, 80);

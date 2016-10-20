@@ -815,11 +815,9 @@ mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
 		}
 	}
 
-	data = strchr(list->ns->set->location, ':');
+	data = i_strchr_to_next(list->ns->set->location, ':');
 	if (data == NULL)
 		data = "";
-	else
-		data++;
 	if (mail_storage_create_full(list->ns, driver, data, 0,
 				     storage_r, &error) < 0) {
 		mailbox_list_set_critical(list,

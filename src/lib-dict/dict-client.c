@@ -1110,7 +1110,7 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		result.ret = DICT_COMMIT_RET_WRITE_UNCERTAIN;
 		/* fallthrough */
 	case DICT_PROTOCOL_REPLY_FAIL: {
-		const char *error = strchr(line+1, '\t');
+		const char *error = i_strchr_to_next(line+1, '\t');
 
 		result.error = t_strdup_printf("dict-server returned failure: %s",
 			error != NULL ? t_str_tabunescape(error) : "");

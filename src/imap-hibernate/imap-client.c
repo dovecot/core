@@ -463,8 +463,7 @@ imap_client_get_var_expand_table(struct imap_client *client)
 
 	tab[0].value = client->state.username;
 	tab[1].value = t_strcut(client->state.username, '@');
-	tab[2].value = strchr(client->state.username, '@');
-	if (tab[2].value != NULL) tab[2].value++;
+	tab[2].value = i_strchr_to_next(client->state.username, '@');
 	tab[3].value = "imap-hibernate";
 	tab[4].value = NULL; /* we shouldn't need this */
 	tab[5].value = client->state.local_ip.family == 0 ? NULL :
@@ -484,8 +483,7 @@ imap_client_get_var_expand_table(struct imap_client *client)
 	} else {
 		tab[11].value = auth_user;
 		tab[12].value = t_strcut(auth_user, '@');
-		tab[13].value = strchr(auth_user, '@');
-		if (tab[13].value != NULL) tab[13].value++;
+		tab[13].value = i_strchr_to_next(auth_user, '@');
 	}
 	return tab;
 }

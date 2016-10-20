@@ -417,8 +417,7 @@ get_var_expand_table(struct master_service *service,
 
 	tab[0].value = input->username;
 	tab[1].value = t_strcut(input->username, '@');
-	tab[2].value = strchr(input->username, '@');
-	if (tab[2].value != NULL) tab[2].value++;
+	tab[2].value = i_strchr_to_next(input->username, '@');
 	tab[3].value = service->name;
 	tab[4].value = net_ip2addr(&input->local_ip);
 	tab[5].value = net_ip2addr(&input->remote_ip);
@@ -435,8 +434,7 @@ get_var_expand_table(struct master_service *service,
 	} else {
 		tab[10].value = user->auth_user;
 		tab[11].value = t_strcut(user->auth_user, '@');
-		tab[12].value = strchr(user->auth_user, '@');
-		if (tab[12].value != NULL) tab[12].value++;
+		tab[12].value = i_strchr_to_next(user->auth_user, '@');
 	}
 	return tab;
 }

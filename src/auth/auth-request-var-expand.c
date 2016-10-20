@@ -89,9 +89,9 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[0].value = escape_func(auth_request->user, auth_request);
 	tab[1].value = escape_func(t_strcut(auth_request->user, '@'),
 				   auth_request);
-	tab[2].value = strchr(auth_request->user, '@');
+	tab[2].value = i_strchr_to_next(auth_request->user, '@');
 	if (tab[2].value != NULL)
-		tab[2].value = escape_func(tab[2].value+1, auth_request);
+		tab[2].value = escape_func(tab[2].value, auth_request);
 	tab[3].value = escape_func(auth_request->service, auth_request);
 	/* tab[4] = we have no home dir */
 	if (auth_request->local_ip.family != 0)
@@ -123,9 +123,9 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[15].value = escape_func(login_user, auth_request);
 		tab[16].value = escape_func(t_strcut(login_user, '@'),
 					    auth_request);
-		tab[17].value = strchr(login_user, '@');
+		tab[17].value = i_strchr_to_next(login_user, '@');
 		if (tab[17].value != NULL) {
-			tab[17].value = escape_func(tab[17].value+1,
+			tab[17].value = escape_func(tab[17].value,
 						    auth_request);
 		}
 	}
@@ -137,9 +137,9 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[20].value = net_ip2addr(&auth_request->real_remote_ip);
 	tab[21].value = dec2str(auth_request->real_local_port);
 	tab[22].value = dec2str(auth_request->real_remote_port);
-	tab[23].value = strchr(auth_request->user, '@');
+	tab[23].value = i_strchr_to_next(auth_request->user, '@');
 	if (tab[23].value != NULL) {
-		tab[23].value = escape_func(t_strcut(tab[23].value+1, '@'),
+		tab[23].value = escape_func(t_strcut(tab[23].value, '@'),
 					    auth_request);
 	}
 	tab[24].value = strrchr(auth_request->user, '@');
@@ -154,9 +154,9 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		auth_request->original_username : auth_request->user;
 	tab[27].value = escape_func(orig_user, auth_request);
 	tab[28].value = escape_func(t_strcut(orig_user, '@'), auth_request);
-	tab[29].value = strchr(orig_user, '@');
+	tab[29].value = i_strchr_to_next(orig_user, '@');
 	if (tab[29].value != NULL)
-		tab[29].value = escape_func(tab[29].value+1, auth_request);
+		tab[29].value = escape_func(tab[29].value, auth_request);
 
 	if (auth_request->master_user != NULL)
 		auth_user = auth_request->master_user;
@@ -164,13 +164,11 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		auth_user = orig_user;
 	tab[30].value = escape_func(auth_user, auth_request);
 	tab[31].value = escape_func(t_strcut(auth_user, '@'), auth_request);
-	tab[32].value = strchr(auth_user, '@');
+	tab[32].value = i_strchr_to_next(auth_user, '@');
 	if (tab[32].value != NULL)
-		tab[32].value = escape_func(tab[32].value+1, auth_request);
+		tab[32].value = escape_func(tab[32].value, auth_request);
 	if (auth_request->local_name != NULL)
 		tab[33].value = escape_func(auth_request->local_name, auth_request);
-	else
-		tab[33].value = "";
 	return ret_tab;
 }
 

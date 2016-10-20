@@ -240,8 +240,7 @@ mail_user_var_expand_table(struct mail_user *user)
 
 	tab[0].value = user->username;
 	tab[1].value = p_strdup(user->pool, t_strcut(user->username, '@'));
-	tab[2].value = strchr(user->username, '@');
-	if (tab[2].value != NULL) tab[2].value++;
+	tab[2].value = i_strchr_to_next(user->username, '@');
 	tab[3].value = user->service;
 	tab[4].value = user->_home; /* don't look it up unless we need it */
 	tab[5].value = user->local_ip == NULL ? NULL :
@@ -259,8 +258,7 @@ mail_user_var_expand_table(struct mail_user *user)
 	} else {
 		tab[11].value = user->auth_user;
 		tab[12].value = p_strdup(user->pool, t_strcut(user->auth_user, '@'));
-		tab[13].value = strchr(user->auth_user, '@');
-		if (tab[13].value != NULL) tab[13].value++;
+		tab[13].value = i_strchr_to_next(user->auth_user, '@');
 	}
 
 	user->var_expand_table = tab;

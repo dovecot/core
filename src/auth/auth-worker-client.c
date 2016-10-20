@@ -115,8 +115,8 @@ static void auth_worker_send_reply(struct auth_worker_client *client,
 	o_stream_nsend(client->output, str_data(str), str_len(str));
 	if (o_stream_nfinish(client->output) < 0 && request != NULL &&
 	    cmd_duration > AUTH_WORKER_WARN_DISCONNECTED_LONG_CMD_SECS) {
-		p = strchr(str_c(str), '\t');
-		p = p == NULL ? "BUG" : t_strcut(p+1, '\t');
+		p = i_strchr_to_next(str_c(str), '\t');
+		p = p == NULL ? "BUG" : t_strcut(p, '\t');
 
 		i_warning("Auth master disconnected us while handling "
 			  "request for %s for %ld secs (result=%s)",

@@ -1305,9 +1305,9 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 					&reply.resp_text_value) < 0)
 			return -1;
 
-		p = strchr(reply.text_full, ']');
+		p = i_strchr_to_next(reply.text_full, ']');
 		i_assert(p != NULL);
-		reply.text_without_resp = p + 1;
+		reply.text_without_resp = p;
 		if (reply.text_without_resp[0] == ' ')
 			reply.text_without_resp++;
 	} else {
