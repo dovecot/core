@@ -209,7 +209,7 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 	if (ctx->return_value >= 0) {
 		ctx->fields = p_new(ctx->pool, const char *, len + 1);
 		for (i = 0; i < len; i++)
-			ctx->fields[i] = str_tabunescape(p_strdup(ctx->pool, args[i]));
+			ctx->fields[i] = p_strdup(ctx->pool, args[i]);
 	} else {
 		/* put the reason string into first field */
 		ctx->fields = p_new(ctx->pool, const char *, 2);
@@ -233,7 +233,7 @@ auth_handle_line(struct auth_master_connection *conn, const char *line)
 {
 	const char *cmd, *const *args, *id, *wanted_id;
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	cmd = *args; args++;
 	if (*args == NULL)
 		id = "";

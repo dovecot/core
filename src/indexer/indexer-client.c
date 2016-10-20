@@ -55,10 +55,7 @@ indexer_client_next_line(struct indexer_client *client)
 	if (line == NULL)
 		return NULL;
 
-	args = p_strsplit(pool_datastack_create(), line, "\t");
-	for (i = 0; args[i] != NULL; i++)
-		args[i] = str_tabunescape(args[i]);
-	return (void *)args;
+	return t_strsplit_tabescaped(line);
 }
 
 static int

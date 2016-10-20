@@ -61,17 +61,12 @@ static const char *const*
 client_read_next_line(struct client *client)
 {
 	const char *line;
-	char **args;
-	unsigned int i;
 
 	line = i_stream_next_line(client->input);
 	if (line == NULL)
 		return NULL;
 
-	args = p_strsplit(pool_datastack_create(), line, "\t");
-	for (i = 0; args[i] != NULL; i++)
-		args[i] = str_tabunescape(args[i]);
-	return (void *)args;
+	return t_strsplit_tabescaped(line);
 }
 
 static void client_input(struct client *client)

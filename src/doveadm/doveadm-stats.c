@@ -8,6 +8,7 @@
 #include "hash.h"
 #include "str.h"
 #include "strescape.h"
+#include "strescape.h"
 #include "write-full.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
@@ -54,17 +55,12 @@ static char **
 p_read_next_line(pool_t pool, struct istream *input)
 {
 	const char *line;
-	char **args;
-	unsigned int i;
 
 	line = i_stream_read_next_line(input);
 	if (line == NULL)
 		return NULL;
 
-	args = p_strsplit(pool, line, "\t");
-	for (i = 0; args[i] != NULL; i++)
-		args[i] = str_tabunescape(args[i]);
-	return args;
+	return p_strsplit_tabescaped(pool, line);
 }
 
 static const char *const*

@@ -276,14 +276,12 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	return doveadm_exit_code == 0 ? 0 : -1;
 }
 
-static bool client_handle_command(struct client_connection *conn, char **args)
+static bool client_handle_command(struct client_connection *conn,
+				  const char *const *args)
 {
 	struct doveadm_cmd_context cctx;
 	const char *flags, *cmd_name;
-	unsigned int argc;
-
-	for (argc = 0; args[argc] != NULL; argc++)
-		args[argc] = str_tabunescape(args[argc]);
+	unsigned int argc = str_array_length(args);
 
 	if (argc < 3) {
 		i_error("doveadm client: No command given");
@@ -330,7 +328,7 @@ static bool client_handle_command(struct client_connection *conn, char **args)
 
 	client_connection_set_proctitle(conn, cmd_name);
 	o_stream_cork(conn->output);
-	if (doveadm_cmd_handle(conn, cmd_name, argc-2, (const char**)(args+2), &cctx) < 0)
+	if (doveadm_cmd_handle(conn, cmd_name, argc-2, args+2, &cctx) < 0)
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	o_stream_uncork(conn->output);
 	client_connection_set_proctitle(conn, "");
@@ -442,9 +440,9 @@ static void client_connection_input(struct client_connection *conn)
 	while (ok && !conn->input->closed &&
 	       (line = i_stream_read_next_line(conn->input)) != NULL) {
 		T_BEGIN {
-			char **args;
+			const char *const *args;
 
-			args = p_strsplit(pool_datastack_create(), line, "\t");
+			args = t_strsplit_tabescaped(line);
 			ok = client_handle_command(conn, args);
 		} T_END;
 	}
