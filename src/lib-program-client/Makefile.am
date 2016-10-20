@@ -32,6 +32,7 @@ test_libs = \
 	../lib-dns/libdns.la  \
 	../lib-test/libtest.la \
 	../lib-mail/libmail.la \
+	../lib-charset/libcharset.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
 
