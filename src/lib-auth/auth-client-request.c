@@ -81,8 +81,10 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 	    info->real_remote_port != info->remote_port)
 		str_printfa(str, "\treal_rport=%u", info->real_remote_port);
 	if (info->local_name != NULL &&
-	    *info->local_name != '\0')
-		str_printfa(str, "\tlocal_name=%s", info->local_name);
+	    *info->local_name != '\0') {
+		str_append(str, "\tlocal_name=");
+		str_append_tabescaped(str, info->local_name);
+	}
 	if (info->initial_resp_base64 != NULL) {
 		str_append(str, "\tresp=");
 		str_append_tabescaped(str, info->initial_resp_base64);

@@ -319,8 +319,10 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_printfa(dest, "\treal_lport=%u", request->real_local_port);
 	if (request->real_remote_port != 0)
 		str_printfa(dest, "\treal_rport=%u", request->real_remote_port);
-	if (request->local_name != 0)
-		str_printfa(dest, "\tlocal_name=%s", request->local_name);
+	if (request->local_name != 0) {
+		str_append(dest, "\tlocal_name=");
+		str_append_tabescaped(dest, request->local_name);
+	}
 	if (request->session_id != NULL)
 		str_printfa(dest, "\tsession=%s", request->session_id);
 	if (request->debug)
