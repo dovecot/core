@@ -5,6 +5,7 @@
 #include "ldap-private.h"
 
 #include <stdio.h>
+#include <sys/time.h>
 
 struct ldap_search_ctx {
 	const struct ldap_search_input *input;
