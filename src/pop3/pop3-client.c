@@ -568,7 +568,7 @@ static const char *client_stats(struct client *client)
 		tab[9].value = "";
 	tab[10].value = client->session_id;
 	tab[11].value = client->delete_success ?
-		dec2str(client->deleted_size) : 0;
+		dec2str(client->deleted_size) : "0";
 
 	str = t_str_new(128);
 	var_expand(str, client->set->pop3_logout_format, tab);
