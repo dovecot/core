@@ -503,12 +503,13 @@ director_user_refresh(struct director_connection *conn,
 	struct director *dir = conn->dir;
 	struct user *user;
 	bool ret = FALSE, unset_weak_user = FALSE;
+	struct user_directory *users = dir->users;
 
 	*forced_r = FALSE;
 
-	user = user_directory_lookup(dir->users, username_hash);
+	user = user_directory_lookup(users, username_hash);
 	if (user == NULL) {
-		*user_r = user_directory_add(dir->users, username_hash,
+		*user_r = user_directory_add(users, username_hash,
 					     host, timestamp);
 		(*user_r)->weak = weak;
 		dir_debug("user refresh: %u added", username_hash);
@@ -527,7 +528,7 @@ director_user_refresh(struct director_connection *conn,
 			/* weak user marked again as weak */
 		}
 	} else if (weak &&
-		   !user_directory_user_is_recently_updated(dir->users, user)) {
+		   !user_directory_user_is_recently_updated(users, user)) {
 		/* mark the user as weak */
 		dir_debug("user refresh: %u set weak", username_hash);
 		user->weak = TRUE;
@@ -541,7 +542,7 @@ director_user_refresh(struct director_connection *conn,
 		ret = TRUE;
 	} else if (user->host == host) {
 		/* update to the same host */
-	} else if (user_directory_user_is_near_expiring(dir->users, user)) {
+	} else if (user_directory_user_is_near_expiring(users, user)) {
 		/* host conflict for a user that is already near expiring. we can
 		   assume that the other director had already dropped this user
 		   and we should have as well. use the new host. */
@@ -609,7 +610,7 @@ director_user_refresh(struct director_connection *conn,
 		ret = TRUE;
 	}
 	if (timestamp == ioloop_time && (time_t)user->timestamp != timestamp) {
-		user_directory_refresh(dir->users, user);
+		user_directory_refresh(users, user);
 		ret = TRUE;
 	}
 	dir_debug("user refresh: %u refreshed timeout to %ld",

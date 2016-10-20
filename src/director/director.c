@@ -625,6 +625,8 @@ void director_remove_host(struct director *dir, struct director_host *src,
 			  struct director_host *orig_src,
 			  struct mail_host *host)
 {
+	struct user_directory *users = dir->users;
+
 	if (src != NULL) {
 		if (orig_src == NULL) {
 			orig_src = dir->self_host;
@@ -637,7 +639,7 @@ void director_remove_host(struct director *dir, struct director_host *src,
 			orig_src->last_seq, net_ip2addr(&host->ip)));
 	}
 
-	user_directory_remove_host(dir->users, host);
+	user_directory_remove_host(users, host);
 	mail_host_remove(host);
 	director_sync(dir);
 }
@@ -646,6 +648,8 @@ void director_flush_host(struct director *dir, struct director_host *src,
 			 struct director_host *orig_src,
 			 struct mail_host *host)
 {
+	struct user_directory *users = dir->users;
+
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
 		orig_src->last_seq++;
@@ -655,7 +659,7 @@ void director_flush_host(struct director *dir, struct director_host *src,
 		"HOST-FLUSH\t%s\t%u\t%u\t%s\n",
 		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
 		net_ip2addr(&host->ip)));
-	user_directory_remove_host(dir->users, host);
+	user_directory_remove_host(users, host);
 	director_sync(dir);
 }
 
@@ -916,6 +920,7 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 					const char *data, void *context)
 {
 	struct director_kill_context *ctx = context;
+	struct user_directory *users = ctx->dir->users;
 	struct user *user;
 
 	/* this is an asynchronous notification about user being killed.
@@ -938,7 +943,7 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 
 	ctx->callback_pending = FALSE;
 
-	user = user_directory_lookup(ctx->dir->users, ctx->username_hash);
+	user = user_directory_lookup(users, ctx->username_hash);
 	if (!DIRECTOR_KILL_CONTEXT_IS_VALID(user, ctx)) {
 		/* user was already freed - ignore */
 		i_assert(ctx->to_move == NULL);
@@ -1021,6 +1026,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 			struct director_host *orig_src,
 			unsigned int username_hash, struct mail_host *host)
 {
+	struct user_directory *users = dir->users;
 	struct user *user;
 
 	/* 1. move this user's host, and set its "killing" flag to delay all of
@@ -1039,9 +1045,9 @@ void director_move_user(struct director *dir, struct director_host *src,
 	   5. after receiving USER-KILLED-EVERYWHERE notification,
 	   new connections are again allowed for the user.
 	*/
-	user = user_directory_lookup(dir->users, username_hash);
+	user = user_directory_lookup(users, username_hash);
 	if (user == NULL) {
-		user = user_directory_add(dir->users, username_hash,
+		user = user_directory_add(users, username_hash,
 					  host, ioloop_time);
 		director_kill_user(dir, src, user, NULL);
 	} else {
@@ -1162,9 +1168,10 @@ director_send_user_killed_everywhere(struct director *dir,
 
 void director_user_killed(struct director *dir, unsigned int username_hash)
 {
+	struct user_directory *users = dir->users;
 	struct user *user;
 
-	user = user_directory_lookup(dir->users, username_hash);
+	user = user_directory_lookup(users, username_hash);
 	if (user == NULL || !USER_IS_BEING_KILLED(user))
 		return;
 

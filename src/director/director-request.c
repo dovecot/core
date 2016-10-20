@@ -182,6 +182,7 @@ director_request_existing(struct director_request *request, struct user *user,
 			  const char *tag)
 {
 	struct director *dir = request->dir;
+	struct user_directory *users = dir->users;
 	struct mail_host *host;
 
 	if (USER_IS_BEING_KILLED(user)) {
@@ -208,7 +209,7 @@ director_request_existing(struct director_request *request, struct user *user,
 			  request->username_hash);
 		return FALSE;
 	}
-	if (!user_directory_user_is_near_expiring(dir->users, user))
+	if (!user_directory_user_is_near_expiring(users, user))
 		return TRUE;
 
 	/* user is close to being expired. another director may have
@@ -272,6 +273,7 @@ director_request_existing(struct director_request *request, struct user *user,
 bool director_request_continue(struct director_request *request)
 {
 	struct director *dir = request->dir;
+	struct user_directory *users = dir->users;
 	struct mail_host *host;
 	struct user *user;
 	const char *tag;
@@ -285,12 +287,12 @@ bool director_request_continue(struct director_request *request)
 		return FALSE;
 	}
 
-	user = user_directory_lookup(dir->users, request->username_hash);
+	user = user_directory_lookup(users, request->username_hash);
 	tag = request->username_tag == NULL ? "" : request->username_tag;
 	if (user != NULL) {
 		if (!director_request_existing(request, user, tag))
 			return FALSE;
-		user_directory_refresh(dir->users, user);
+		user_directory_refresh(users, user);
 		dir_debug("request: %u refreshed timeout to %u",
 			  request->username_hash, user->timestamp);
 	} else {
@@ -311,7 +313,7 @@ bool director_request_continue(struct director_request *request)
 				  request->username_hash);
 			return FALSE;
 		}
-		user = user_directory_add(dir->users, request->username_hash,
+		user = user_directory_add(users, request->username_hash,
 					  host, ioloop_time);
 		dir_debug("request: %u added timeout to %u (hosts_hash=%u)",
 			  request->username_hash, user->timestamp,
