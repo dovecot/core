@@ -481,7 +481,7 @@ void program_client_local_switch_ioloop(struct program_client *pclient)
 	struct program_client_local *plclient =
 		(struct program_client_local *)pclient;
 
-	if (plclient->to_kill)
+	if (plclient->to_kill != NULL)
 		plclient->to_kill = io_loop_move_timeout(&plclient->to_kill);
 	lib_signals_reset_ioloop();
 }

@@ -546,7 +546,7 @@ void program_client_remote_switch_ioloop(struct program_client *pclient)
 		(struct program_client_remote *)pclient;
 	if (prclient->to_retry != NULL)
 		prclient->to_retry = io_loop_move_timeout(&prclient->to_retry);
-	if (prclient->lookup)
+	if (prclient->lookup != NULL)
 		dns_lookup_switch_ioloop(prclient->lookup);
 }
 
