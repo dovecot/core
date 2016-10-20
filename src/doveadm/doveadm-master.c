@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "write-full.h"
 #include "doveadm.h"
+#include "doveadm-print.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -148,6 +149,51 @@ static void cmd_service_stop(struct doveadm_cmd_context *cctx)
 	i_stream_destroy(&input);
 }
 
+static void cmd_service_status(struct doveadm_cmd_context *cctx)
+{
+	const char *line, *const *services;
+
+	if (!doveadm_cmd_param_array(cctx, "service", &services))
+		services = NULL;
+
+	struct istream *input = master_service_send_cmd("SERVICE-STATUS");
+
+	doveadm_print_init("pager");
+	doveadm_print_header_simple("name");
+	doveadm_print_header_simple("process_count");
+	doveadm_print_header_simple("process_avail");
+	doveadm_print_header_simple("process_limit");
+	doveadm_print_header_simple("client_limit");
+	doveadm_print_header_simple("throttle_secs");
+	doveadm_print_header_simple("exit_failure_last");
+	doveadm_print_header_simple("exit_failures_in_sec");
+	doveadm_print_header_simple("last_drop_warning");
+	doveadm_print_header_simple("listen_pending");
+	doveadm_print_header_simple("listening");
+
+	alarm(5);
+	while ((line = i_stream_read_next_line(input)) != NULL) {
+		if (line[0] == '\0')
+			break;
+		T_BEGIN {
+			const char *const *args = t_strsplit_tabescaped(line);
+			if (str_array_length(args) >= 11 &&
+			    (services == NULL ||
+			     str_array_find(services, args[0]))) {
+				for (unsigned int i = 0; i < 11; i++)
+					doveadm_print(args[i]);
+			}
+		} T_END;
+	}
+	if (line == NULL) {
+		i_error("read(%s) failed: %s", i_stream_get_name(input),
+			i_stream_get_error(input));
+		doveadm_exit_code = EX_TEMPFAIL;
+	}
+	alarm(0);
+	i_stream_destroy(&input);
+}
+
 struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2 = {
 	.old_cmd = cmd_stop,
 	.name = "stop",
@@ -168,6 +214,15 @@ struct doveadm_cmd_ver2 doveadm_cmd_service_stop_ver2 = {
 	.cmd = cmd_service_stop,
 	.name = "service stop",
 	.usage = "<service> [<service> [...]]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "service", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+};
+
+struct doveadm_cmd_ver2 doveadm_cmd_service_status_ver2 = {
+	.cmd = cmd_service_status,
+	.name = "service status",
+	.usage = "[<service> [...]]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('\0', "service", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
