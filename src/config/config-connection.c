@@ -5,6 +5,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "strescape.h"
 #include "settings-parser.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -42,7 +43,7 @@ config_connection_next_line(struct config_connection *conn)
 	if (line == NULL)
 		return NULL;
 
-	return t_strsplit_tab(line);
+	return t_strsplit_tabescaped(line);
 }
 
 static void

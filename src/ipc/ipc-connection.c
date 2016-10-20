@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
+#include "strescape.h"
 #include "master-service.h"
 #include "ipc-group.h"
 #include "ipc-connection.h"
@@ -127,7 +128,7 @@ static void ipc_connection_input(struct ipc_connection *conn)
 		if ((line = i_stream_next_line(conn->input)) == NULL)
 			return;
 
-		args = t_strsplit_tab(line);
+		args = t_strsplit_tabescaped(line);
 		if (str_array_length(args) < 3 ||
 		    strcmp(args[0], "HANDSHAKE") != 0) {
 			i_error("IPC server sent invalid handshake");

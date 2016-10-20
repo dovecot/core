@@ -152,7 +152,7 @@ cmd_director_status_user(struct director_context *ctx)
 		return;
 	}
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) != 4 ||
 	    str_to_uint(args[1], &expires) < 0) {
 		i_error("Invalid reply from director");
@@ -211,7 +211,7 @@ static void cmd_director_status(struct doveadm_cmd_context *cctx)
 			unsigned int arg_count;
 			time_t ts;
 
-			args = t_strsplit_tab(line);
+			args = t_strsplit_tabescaped(line);
 			arg_count = str_array_length(args);
 			if (arg_count >= 6) {
 				/* ip vhosts users tag updown updown-ts */
@@ -391,7 +391,7 @@ static void cmd_director_map(struct doveadm_cmd_context *cctx)
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit_tab(line);
+			args = t_strsplit_tabescaped(line);
 			if (str_array_length(args) < 3 ||
 			    str_to_uint(args[0], &user_hash) < 0 ||
 			    str_to_uint(args[1], &expires) < 0 ||
@@ -755,7 +755,7 @@ static void cmd_director_dump(struct doveadm_cmd_context *cctx)
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit_tab(line);
+			args = t_strsplit_tabescaped(line);
 			if (str_array_length(args) >= 2) {
 				const char *host = args[0];
 				const char *tag = args[3];
@@ -874,7 +874,7 @@ static void cmd_director_ring_status(struct doveadm_cmd_context *cctx)
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit_tab(line);
+			args = t_strsplit_tabescaped(line);
 			if (str_array_length(args) >= 5 &&
 			    str_to_ulong(args[3], &l) == 0) {
 				doveadm_print(args[0]);

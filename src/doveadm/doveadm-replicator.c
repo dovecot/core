@@ -167,7 +167,7 @@ static void cmd_replicator_status(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			args = t_strsplit_tab(line);
+			args = t_strsplit_tabescaped(line);
 			if (str_array_length(args) >= 5 &&
 			    str_to_time(args[2], &last_fast) == 0 &&
 			    str_to_time(args[3], &last_full) == 0 &&
@@ -207,7 +207,7 @@ static void cmd_replicator_dsync_status(int argc, char *argv[])
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			const char *const *args = t_strsplit_tab(line);
+			const char *const *args = t_strsplit_tabescaped(line);
 
 			for (i = 0; i < 3; i++) {
 				if (args[i] == NULL)

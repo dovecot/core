@@ -8,6 +8,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "net.h"
+#include "strescape.h"
 #include "eacces-error.h"
 #include "auth-client-private.h"
 #include "auth-client-request.h"
@@ -206,7 +207,7 @@ auth_server_connection_input_line(struct auth_server_connection *conn,
 	if (conn->client->debug)
 		i_debug("auth input: %s", line);
 
-	args = t_strsplit_tab(line);
+	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL) {
 		i_error("Auth server sent empty line");
 		return -1;

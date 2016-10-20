@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "llist.h"
+#include "strescape.h"
 #include "master-service.h"
 #include "director.h"
 #include "director-request.h"
@@ -199,7 +200,7 @@ static void auth_input_line(const char *line, void *context)
 	}
 
 	/* OK <id> [<parameters>] */
-	args = t_strsplit_tab(line_params);
+	args = t_strsplit_tabescaped(line_params);
 	if (*args != NULL) {
 		/* we should always get here, but in case we don't just
 		   forward as-is and let login process handle the error. */

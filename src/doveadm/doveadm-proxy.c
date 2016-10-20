@@ -85,7 +85,7 @@ static void cmd_proxy_list_callback(enum ipc_client_cmd_state state,
 
 	switch (state) {
 	case IPC_CLIENT_CMD_STATE_REPLY: {
-		const char *const *args = t_strsplit_tab(data);
+		const char *const *args = t_strsplit_tabescaped(data);
 
 		if (!*seen_header) {
 			cmd_proxy_list_header(args);

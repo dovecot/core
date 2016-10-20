@@ -120,7 +120,7 @@ static int auth_input_handshake(struct auth_master_connection *conn)
 	const char *line, *const *tmp;
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		tmp = t_strsplit_tab(line);
+		tmp = t_strsplit_tabescaped(line);
 		if (strcmp(tmp[0], "VERSION") == 0 &&
 		    tmp[1] != NULL && tmp[2] != NULL) {
 			if (strcmp(tmp[1], dec2str(AUTH_PROTOCOL_MAJOR)) != 0) {
