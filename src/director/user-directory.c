@@ -36,16 +36,6 @@ struct user_directory {
 	unsigned int user_near_expiring_secs;
 };
 
-const char *user_kill_state_names[USER_KILL_STATE_DELAY+1] = {
-	"none",
-	"killing",
-	"notify-received",
-	"waiting-for-notify",
-	"waiting-for-everyone",
-	"flushing",
-	"delay",
-};
-
 static void user_move_iters(struct user_directory *dir, struct user *user)
 {
 	struct user_directory_iter *const *iterp;
