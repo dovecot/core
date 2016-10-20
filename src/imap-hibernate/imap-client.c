@@ -436,55 +436,47 @@ static void imap_client_add_idle_keepalive_timeout(struct imap_client *client)
 static const struct var_expand_table *
 imap_client_get_var_expand_table(struct imap_client *client)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ 's', NULL, "service" },
-		{ 'h', NULL, "home" },
-		{ 'l', NULL, "lip" },
-		{ 'r', NULL, "rip" },
-		{ 'p', NULL, "pid" },
-		{ 'i', NULL, "uid" },
-		{ '\0', NULL, "gid" },
-		{ '\0', NULL, "session" },
-		{ '\0', NULL, "auth_user" },
-		{ '\0', NULL, "auth_username" },
-		{ '\0', NULL, "auth_domain" },
+	const char *username = t_strcut(client->state.username, '@');
+	const char *domain = i_strchr_to_next(client->state.username, '@');
+	const char *local_ip = client->state.local_ip.family == 0 ? NULL :
+		net_ip2addr(&client->state.local_ip);
+	const char *remote_ip = client->state.remote_ip.family == 0 ? NULL :
+		net_ip2addr(&client->state.remote_ip);
+
+	const char *auth_user, *auth_username, *auth_domain;
+	imap_client_parse_userdb_fields(client, &auth_user);
+	if (auth_user == NULL) {
+		auth_user = client->state.username;
+		auth_username = username;
+		auth_domain = domain;
+	} else {
+		auth_username = t_strcut(auth_user, '@');
+		auth_domain = i_strchr_to_next(auth_user, '@');
+	}
+
+	const struct var_expand_table stack_tab[] = {
+		{ 'u', client->state.username, "user" },
+		{ 'n', username, "username" },
+		{ 'd', domain, "domain" },
+		{ 's', "imap-hibernate", "service" },
+		{ 'h', NULL /* we shouldn't need this */, "home" },
+		{ 'l', local_ip, "lip" },
+		{ 'r', remote_ip, "rip" },
+		{ 'p', my_pid, "pid" },
+		{ 'i', dec2str(client->state.uid), "uid" },
+		{ '\0', dec2str(client->state.gid), "gid" },
+		{ '\0', client->state.session_id, "session" },
+		{ '\0', auth_user, "auth_user" },
+		{ '\0', auth_username, "auth_username" },
+		{ '\0', auth_domain, "auth_domain" },
 		/* NOTE: keep this synced with lib-storage's
 		   mail_user_var_expand_table() */
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
-	const char *auth_user;
 
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-
-	tab[0].value = client->state.username;
-	tab[1].value = t_strcut(client->state.username, '@');
-	tab[2].value = i_strchr_to_next(client->state.username, '@');
-	tab[3].value = "imap-hibernate";
-	tab[4].value = NULL; /* we shouldn't need this */
-	tab[5].value = client->state.local_ip.family == 0 ? NULL :
-		net_ip2addr(&client->state.local_ip);
-	tab[6].value = client->state.remote_ip.family == 0 ? NULL :
-		net_ip2addr(&client->state.remote_ip);
-	tab[7].value = my_pid;
-	tab[8].value = dec2str(client->state.uid);
-	tab[9].value = dec2str(client->state.gid);
-	tab[10].value = client->state.session_id;
-
-	imap_client_parse_userdb_fields(client, &auth_user);
-	if (auth_user == NULL) {
-		tab[11].value = tab[0].value;
-		tab[12].value = tab[1].value;
-		tab[13].value = tab[2].value;
-	} else {
-		tab[11].value = auth_user;
-		tab[12].value = t_strcut(auth_user, '@');
-		tab[13].value = i_strchr_to_next(auth_user, '@');
-	}
+	tab = t_malloc_no0(sizeof(stack_tab));
+	memcpy(tab, stack_tab, sizeof(stack_tab));
 	return tab;
 }
 

@@ -530,45 +530,29 @@ static const char *client_build_uidl_change_string(struct client *client)
 
 static const char *client_stats(struct client *client)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'p', NULL, "top_bytes" },
-		{ 't', NULL, "top_count" },
-		{ 'b', NULL, "retr_bytes" },
-		{ 'r', NULL, "retr_count" },
-		{ 'd', NULL, "deleted_count" },
-		{ 'm', NULL, "message_count" },
-		{ 's', NULL, "message_bytes" },
-		{ 'i', NULL, "input" },
-		{ 'o', NULL, "output" },
-		{ 'u', NULL, "uidl_change" },
-		{ '\0', NULL, "session" },
-		{ 'd', NULL, "deleted_bytes" },
+	const char *uidl_change = "";
+	if (var_has_key(client->set->pop3_logout_format,
+			'o', "uidl_change"))
+		uidl_change = client_build_uidl_change_string(client);
+
+	const struct var_expand_table tab[] = {
+		{ 'p', dec2str(client->top_bytes), "top_bytes" },
+		{ 't', dec2str(client->top_count), "top_count" },
+		{ 'b', dec2str(client->retr_bytes), "retr_bytes" },
+		{ 'r', dec2str(client->retr_count), "retr_count" },
+		{ 'd', !client->delete_success ? "0" :
+		       dec2str(client->deleted_count), "deleted_count" },
+		{ 'm', dec2str(client->messages_count), "message_count" },
+		{ 's', dec2str(client->total_size), "message_bytes" },
+		{ 'i', dec2str(client->input->v_offset), "input" },
+		{ 'o', dec2str(client->output->offset), "output" },
+		{ 'u', uidl_change, "uidl_change" },
+		{ '\0', client->session_id, "session" },
+		{ 'd', !client->delete_success ? "0" :
+		       dec2str(client->deleted_size), "deleted_bytes" },
 		{ '\0', NULL, NULL }
 	};
-	struct var_expand_table *tab;
 	string_t *str;
-
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-
-	tab[0].value = dec2str(client->top_bytes);
-	tab[1].value = dec2str(client->top_count);
-	tab[2].value = dec2str(client->retr_bytes);
-	tab[3].value = dec2str(client->retr_count);
-	tab[4].value = client->delete_success ?
-		dec2str(client->deleted_count) : "0";
-	tab[5].value = dec2str(client->messages_count);
-	tab[6].value = dec2str(client->total_size);
-	tab[7].value = dec2str(client->input->v_offset);
-	tab[8].value = dec2str(client->output->offset);
-	if (var_has_key(client->set->pop3_logout_format,
-			tab[9].key, tab[9].long_key))
-		tab[9].value = client_build_uidl_change_string(client);
-	else
-		tab[9].value = "";
-	tab[10].value = client->session_id;
-	tab[11].value = client->delete_success ?
-		dec2str(client->deleted_size) : "0";
 
 	str = t_str_new(128);
 	var_expand(str, client->set->pop3_logout_format, tab);

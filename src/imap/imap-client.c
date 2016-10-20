@@ -237,35 +237,20 @@ void client_command_cancel(struct client_command_context **_cmd)
 
 const char *client_stats(struct client *client)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'i', NULL, "input" },
-		{ 'o', NULL, "output" },
-		{ '\0', NULL, "session" },
-		{ '\0', NULL, "fetch_hdr_count" },
-		{ '\0', NULL, "fetch_hdr_bytes" },
-		{ '\0', NULL, "fetch_body_count" },
-		{ '\0', NULL, "fetch_body_bytes" },
-		{ '\0', NULL, "deleted" },
-		{ '\0', NULL, "expunged" },
-		{ '\0', NULL, "trashed" },
+	const struct var_expand_table tab[] = {
+		{ 'i', dec2str(i_stream_get_absolute_offset(client->input)), "input" },
+		{ 'o', dec2str(client->output->offset), "output" },
+		{ '\0', client->session_id, "session" },
+		{ '\0', dec2str(client->fetch_hdr_count), "fetch_hdr_count" },
+		{ '\0', dec2str(client->fetch_hdr_bytes), "fetch_hdr_bytes" },
+		{ '\0', dec2str(client->fetch_body_count), "fetch_body_count" },
+		{ '\0', dec2str(client->fetch_body_bytes), "fetch_body_bytes" },
+		{ '\0', dec2str(client->deleted_count), "deleted" },
+		{ '\0', dec2str(client->expunged_count), "expunged" },
+		{ '\0', dec2str(client->trashed_count), "trashed" },
 		{ '\0', NULL, NULL }
 	};
-	struct var_expand_table *tab;
 	string_t *str;
-
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-
-	tab[0].value = dec2str(i_stream_get_absolute_offset(client->input));
-	tab[1].value = dec2str(client->output->offset);
-	tab[2].value = client->session_id;
-	tab[3].value = dec2str(client->fetch_hdr_count);
-	tab[4].value = dec2str(client->fetch_hdr_bytes);
-	tab[5].value = dec2str(client->fetch_body_count);
-	tab[6].value = dec2str(client->fetch_body_bytes);
-	tab[7].value = dec2str(client->deleted_count);
-	tab[8].value = dec2str(client->expunged_count);
-	tab[9].value = dec2str(client->trashed_count);
 
 	str = t_str_new(128);
 	var_expand(str, client->set->imap_logout_format, tab);

@@ -8,13 +8,6 @@
 
 unsigned int mail_user_hash(const char *username, const char *format)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ '\0', NULL, NULL }
-	};
-	struct var_expand_table *tab;
 	unsigned char md5[MD5_RESULTLEN];
 	unsigned int i, hash = 0;
 
@@ -28,13 +21,13 @@ unsigned int mail_user_hash(const char *username, const char *format)
 				       strlen(username), md5);
 		} T_END;
 	} else T_BEGIN {
+		const struct var_expand_table tab[] = {
+			{ 'u', username, "user" },
+			{ 'n', t_strcut(username, '@'), "username" },
+			{ 'd', i_strchr_to_next(username, '@'), "domain" },
+			{ '\0', NULL, NULL }
+		};
 		string_t *str = t_str_new(128);
-
-		tab = t_malloc_no0(sizeof(static_tab));
-		memcpy(tab, static_tab, sizeof(static_tab));
-		tab[0].value = username;
-		tab[1].value = t_strcut(username, '@');
-		tab[2].value = i_strchr_to_next(username, '@');
 
 		var_expand(str, format, tab);
 		md5_get_digest(str_data(str), str_len(str), md5);

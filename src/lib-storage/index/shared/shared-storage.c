@@ -139,14 +139,6 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	struct mailbox_list *list = (*_ns)->list;
 	struct shared_storage *storage = (struct shared_storage *)_storage;
 	struct mail_user *user = _storage->user;
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ 'h', NULL, "home" },
-		{ '\0', NULL, NULL }
-	};
-	struct var_expand_table *tab;
 	struct mail_namespace *new_ns, *ns = *_ns;
 	struct mail_namespace_settings *ns_set, *unexpanded_ns_set;
 	struct mail_user *owner;
@@ -234,11 +226,13 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	/* expand the namespace prefix and see if it already exists.
 	   this should normally happen only when the mailbox is being opened */
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-	tab[0].value = userdomain;
-	tab[1].value = username;
-	tab[2].value = domain;
+	struct var_expand_table tab[] = {
+		{ 'u', userdomain, "user" },
+		{ 'n', username, "username" },
+		{ 'd', domain, "domain" },
+		{ 'h', NULL, "home" },
+		{ '\0', NULL, NULL }
+	};
 
 	prefix = t_str_new(128);
 	str_append(prefix, ns->prefix);

@@ -394,48 +394,44 @@ get_var_expand_table(struct master_service *service,
 		     const struct mail_storage_service_input *input,
 		     const struct mail_storage_service_privileges *priv)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ 's', NULL, "service" },
-		{ 'l', NULL, "lip" },
-		{ 'r', NULL, "rip" },
-		{ 'p', NULL, "pid" },
-		{ 'i', NULL, "uid" },
-		{ '\0', NULL, "gid" },
-		{ '\0', NULL, "session" },
-		{ '\0', NULL, "auth_user" },
-		{ '\0', NULL, "auth_username" },
-		{ '\0', NULL, "auth_domain" },
+	const char *username = t_strcut(input->username, '@');
+	const char *domain = i_strchr_to_next(input->username, '@');
+	const char *uid = priv == NULL ? NULL :
+		dec2str(priv->uid == (uid_t)-1 ? geteuid() : priv->uid);
+	const char *gid = priv == NULL ? NULL :
+		dec2str(priv->gid == (gid_t)-1 ? getegid() : priv->gid);
+
+	const char *auth_user, *auth_username, *auth_domain;
+	if (user == NULL || user->auth_user == NULL) {
+		auth_user = input->username;
+		auth_username = username;
+		auth_domain = domain;
+	} else {
+		auth_user = user->auth_user;
+		auth_username = t_strcut(user->auth_user, '@');
+		auth_domain = i_strchr_to_next(user->auth_user, '@');
+	}
+
+	const struct var_expand_table stack_tab[] = {
+		{ 'u', input->username, "user" },
+		{ 'n', username, "username" },
+		{ 'd', domain, "domain" },
+		{ 's', service->name, "service" },
+		{ 'l', net_ip2addr(&input->local_ip), "lip" },
+		{ 'r', net_ip2addr(&input->remote_ip), "rip" },
+		{ 'p', my_pid, "pid" },
+		{ 'i', uid, "uid" },
+		{ '\0', gid, "gid" },
+		{ '\0', input->session_id, "session" },
+		{ '\0', auth_user, "auth_user" },
+		{ '\0', auth_username, "auth_username" },
+		{ '\0', auth_domain, "auth_domain" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-
-	tab[0].value = input->username;
-	tab[1].value = t_strcut(input->username, '@');
-	tab[2].value = i_strchr_to_next(input->username, '@');
-	tab[3].value = service->name;
-	tab[4].value = net_ip2addr(&input->local_ip);
-	tab[5].value = net_ip2addr(&input->remote_ip);
-	tab[6].value = my_pid;
-	tab[7].value = priv == NULL ? NULL :
-		dec2str(priv->uid == (uid_t)-1 ? geteuid() : priv->uid);
-	tab[8].value = priv == NULL ? NULL :
-		dec2str(priv->gid == (gid_t)-1 ? getegid() : priv->gid);
-	tab[9].value = input->session_id;
-	if (user == NULL || user->auth_user == NULL) {
-		tab[10].value = tab[0].value;
-		tab[11].value = tab[1].value;
-		tab[12].value = tab[2].value;
-	} else {
-		tab[10].value = user->auth_user;
-		tab[11].value = t_strcut(user->auth_user, '@');
-		tab[12].value = i_strchr_to_next(user->auth_user, '@');
-	}
+	tab = t_malloc_no0(sizeof(stack_tab));
+	memcpy(tab, stack_tab, sizeof(stack_tab));
 	return tab;
 }
 

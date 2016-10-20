@@ -209,57 +209,54 @@ void mail_user_set_vars(struct mail_user *user, const char *service,
 const struct var_expand_table *
 mail_user_var_expand_table(struct mail_user *user)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ 's', NULL, "service" },
-		{ 'h', NULL, "home" },
-		{ 'l', NULL, "lip" },
-		{ 'r', NULL, "rip" },
-		{ 'p', NULL, "pid" },
-		{ 'i', NULL, "uid" },
-		{ '\0', NULL, "gid" },
-		{ '\0', NULL, "session" },
-		{ '\0', NULL, "auth_user" },
-		{ '\0', NULL, "auth_username" },
-		{ '\0', NULL, "auth_domain" },
+	/* use a cached table, unless home directory has been set afterwards */
+	if (user->var_expand_table != NULL &&
+	    user->var_expand_table[4].value == user->_home)
+		return user->var_expand_table;
+
+	const char *username =
+		p_strdup(user->pool, t_strcut(user->username, '@'));
+	const char *domain = i_strchr_to_next(user->username, '@');
+	const char *local_ip = user->local_ip == NULL ? NULL :
+		p_strdup(user->pool, net_ip2addr(user->local_ip));
+	const char *remote_ip = user->remote_ip == NULL ? NULL :
+		p_strdup(user->pool, net_ip2addr(user->remote_ip));
+
+	const char *auth_user, *auth_username, *auth_domain;
+	if (user->auth_user == NULL) {
+		auth_user = user->username;
+		auth_username = username;
+		auth_domain = domain;
+	} else {
+		auth_user = user->auth_user;
+		auth_username =
+			p_strdup(user->pool, t_strcut(user->auth_user, '@'));
+		auth_domain = i_strchr_to_next(user->auth_user, '@');
+	}
+
+	const struct var_expand_table stack_tab[] = {
+		{ 'u', user->username, "user" },
+		{ 'n', username, "username" },
+		{ 'd', domain, "domain" },
+		{ 's', user->service, "service" },
+		{ 'h', user->_home /* don't look it up unless we need it */, "home" },
+		{ 'l', local_ip, "lip" },
+		{ 'r', remote_ip, "rip" },
+		{ 'p', my_pid, "pid" },
+		{ 'i', p_strdup(user->pool, dec2str(user->uid)), "uid" },
+		{ '\0', p_strdup(user->pool, dec2str(user->gid)), "gid" },
+		{ '\0', user->session_id, "session" },
+		{ '\0', auth_user, "auth_user" },
+		{ '\0', auth_username, "auth_username" },
+		{ '\0', auth_domain, "auth_domain" },
 		/* NOTE: keep this synced with imap-hibernate's
 		   imap_client_var_expand_table() */
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 
-	/* use a cached table, unless home directory has been set afterwards */
-	if (user->var_expand_table != NULL &&
-	    user->var_expand_table[4].value == user->_home)
-		return user->var_expand_table;
-
-	tab = p_malloc(user->pool, sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-
-	tab[0].value = user->username;
-	tab[1].value = p_strdup(user->pool, t_strcut(user->username, '@'));
-	tab[2].value = i_strchr_to_next(user->username, '@');
-	tab[3].value = user->service;
-	tab[4].value = user->_home; /* don't look it up unless we need it */
-	tab[5].value = user->local_ip == NULL ? NULL :
-		p_strdup(user->pool, net_ip2addr(user->local_ip));
-	tab[6].value = user->remote_ip == NULL ? NULL :
-		p_strdup(user->pool, net_ip2addr(user->remote_ip));
-	tab[7].value = my_pid;
-	tab[8].value = p_strdup(user->pool, dec2str(user->uid));
-	tab[9].value = p_strdup(user->pool, dec2str(user->gid));
-	tab[10].value = user->session_id;
-	if (user->auth_user == NULL) {
-		tab[11].value = tab[0].value;
-		tab[12].value = tab[1].value;
-		tab[13].value = tab[2].value;
-	} else {
-		tab[11].value = user->auth_user;
-		tab[12].value = p_strdup(user->pool, t_strcut(user->auth_user, '@'));
-		tab[13].value = i_strchr_to_next(user->auth_user, '@');
-	}
+	tab = p_malloc(user->pool, sizeof(stack_tab));
+	memcpy(tab, stack_tab, sizeof(stack_tab));
 
 	user->var_expand_table = tab;
 	return user->var_expand_table;

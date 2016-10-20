@@ -623,25 +623,16 @@ client_var_expand_func_passdb(const char *data, void *context)
 static const char *
 client_get_log_str(struct client *client, const char *msg)
 {
-	static const struct var_expand_table static_tab[3] = {
-		{ 's', NULL, NULL },
-		{ '$', NULL, NULL },
-		{ '\0', NULL, NULL }
-	};
 	static const struct var_expand_func_table func_table[] = {
 		{ "passdb", client_var_expand_func_passdb },
 		{ NULL, NULL }
 	};
 	const struct var_expand_table *var_expand_table;
-	struct var_expand_table *tab;
 	char *const *e;
 	string_t *str, *str2;
 	unsigned int pos;
 
 	var_expand_table = get_var_expand_table(client);
-
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
 
 	str = t_str_new(256);
 	str2 = t_str_new(128);
@@ -668,10 +659,13 @@ client_get_log_str(struct client *client, const char *msg)
 	if (str_len(str) > 0)
 		str_truncate(str, str_len(str)-2);
 
-	tab[0].value = t_strdup(str_c(str));
-	tab[1].value = msg;
-	str_truncate(str, 0);
+	const struct var_expand_table tab[3] = {
+		{ 's', t_strdup(str_c(str)), NULL },
+		{ '$', msg, NULL },
+		{ '\0', NULL, NULL }
+	};
 
+	str_truncate(str, 0);
 	var_expand(str, client->set->login_log_format, tab);
 	return str_c(str);
 }

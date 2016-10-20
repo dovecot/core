@@ -34,18 +34,11 @@ static void
 acl_shared_namespace_add(struct mail_namespace *ns,
 			 struct mail_storage *storage, const char *userdomain)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'u', NULL, "user" },
-		{ 'n', NULL, "username" },
-		{ 'd', NULL, "domain" },
-		{ '\0', NULL, NULL }
-	};
 	struct shared_storage *sstorage = (struct shared_storage *)storage;
 	struct mail_namespace *new_ns = ns;
-	struct var_expand_table *tab;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	const char *p, *mailbox;
+	const char *mailbox;
 	string_t *str;
 
 	if (strcmp(ns->user->username, userdomain) == 0) {
@@ -53,13 +46,12 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 		return;
 	}
 
-	p = strchr(userdomain, '@');
-
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-	tab[0].value = userdomain;
-	tab[1].value = p == NULL ? userdomain : t_strdup_until(userdomain, p);
-	tab[2].value = p == NULL ? "" : p + 1;
+	const struct var_expand_table tab[] = {
+		{ 'u', userdomain, "user" },
+		{ 'n', t_strcut(userdomain, '@'), "username" },
+		{ 'd', i_strchr_to_next(userdomain, '@'), "domain" },
+		{ '\0', NULL, NULL }
+	};
 
 	str = t_str_new(128);
 	var_expand(str, sstorage->ns_prefix_pattern, tab);

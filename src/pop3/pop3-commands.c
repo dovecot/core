@@ -570,17 +570,9 @@ static int
 pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 	     bool *permanent_uidl_r)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'v', NULL, "uidvalidity" },
-		{ 'u', NULL, "uid" },
-		{ 'm', NULL, "md5" },
-		{ 'f', NULL, "filename" },
-		{ 'g', NULL, "guid" },
-		{ '\0', NULL, NULL }
-	};
-	struct var_expand_table *tab;
-	char uid_str[MAX_INT_STRLEN];
+	char uid_str[MAX_INT_STRLEN] = { 0 };
 	const char *uidl;
+	const char *hdr_md5 = NULL, *filename = NULL, *guid = NULL;
 
 	if (mail_get_special(mail, MAIL_FETCH_UIDL_BACKEND, &uidl) == 0 &&
 	    *uidl != '\0') {
@@ -598,22 +590,17 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 		return 0;
 	}
 
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-	tab[0].value = t_strdup_printf("%u", client->uid_validity);
-
 	if ((client->uidl_keymask & UIDL_UID) != 0) {
 		if (i_snprintf(uid_str, sizeof(uid_str), "%u", mail->uid) < 0)
 			i_unreached();
-		tab[1].value = uid_str;
 	}
 	if ((client->uidl_keymask & UIDL_MD5) != 0) {
 		if (mail_get_special(mail, MAIL_FETCH_HEADER_MD5,
-				     &tab[2].value) < 0) {
+				     &hdr_md5) < 0) {
 			i_error("UIDL: Header MD5 lookup failed: %s",
 				mailbox_get_last_error(mail->box, NULL));
 			return -1;
-		} else if (*tab[2].value == '\0') {
+		} else if (hdr_md5[0] == '\0') {
 			i_error("UIDL: Header MD5 not found "
 				"(pop3_uidl_format=%%m not supported by storage?)");
 			return -1;
@@ -621,11 +608,11 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 	}
 	if ((client->uidl_keymask & UIDL_FILE_NAME) != 0) {
 		if (mail_get_special(mail, MAIL_FETCH_STORAGE_ID,
-				     &tab[3].value) < 0) {
+				     &filename) < 0) {
 			i_error("UIDL: File name lookup failed: %s",
 				mailbox_get_last_error(mail->box, NULL));
 			return -1;
-		} else if (*tab[3].value == '\0') {
+		} else if (filename[0] == '\0') {
 			i_error("UIDL: File name not found "
 				"(pop3_uidl_format=%%f not supported by storage?)");
 			return -1;
@@ -633,16 +620,25 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 	}
 	if ((client->uidl_keymask & UIDL_GUID) != 0) {
 		if (mail_get_special(mail, MAIL_FETCH_GUID,
-				     &tab[4].value) < 0) {
+				     &guid) < 0) {
 			i_error("UIDL: Message GUID lookup failed: %s",
 				mailbox_get_last_error(mail->box, NULL));
 			return -1;
-		} else if (*tab[4].value == '\0') {
+		} else if (guid[0] == '\0') {
 			i_error("UIDL: Message GUID not found "
 				"(pop3_uidl_format=%%g not supported by storage?)");
 			return -1;
 		}
 	}
+
+	const struct var_expand_table tab[] = {
+		{ 'v', dec2str(client->uid_validity), "uidvalidity" },
+		{ 'u', uid_str, "uid" },
+		{ 'm', hdr_md5, "md5" },
+		{ 'f', filename, "filename" },
+		{ 'g', guid, "guid" },
+		{ '\0', NULL, NULL }
+	};
 	var_expand(str, client->mail_set->pop3_uidl_format, tab);
 	return 0;
 }

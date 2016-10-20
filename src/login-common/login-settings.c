@@ -115,24 +115,18 @@ static bool login_settings_check(void *_set, pool_t pool,
 static const struct var_expand_table *
 login_set_var_expand_table(const struct master_service_settings_input *input)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'l', NULL, "lip" },
-		{ 'r', NULL, "rip" },
-		{ 'p', NULL, "pid" },
-		{ 's', NULL, "service" },
-		{ '\0', NULL, "local_name" },
+	const struct var_expand_table stack_tab[] = {
+		{ 'l', net_ip2addr(&input->local_ip), "lip" },
+		{ 'r', net_ip2addr(&input->remote_ip), "rip" },
+		{ 'p', my_pid, "pid" },
+		{ 's', input->service, "service" },
+		{ '\0', input->local_name, "local_name" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
 
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-
-	tab[0].value = net_ip2addr(&input->local_ip);
-	tab[1].value = net_ip2addr(&input->remote_ip);
-	tab[2].value = my_pid;
-	tab[3].value = input->service;
-	tab[4].value = input->local_name;
+	tab = t_malloc_no0(sizeof(stack_tab));
+	memcpy(tab, stack_tab, sizeof(stack_tab));
 	return tab;
 }
 

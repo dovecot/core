@@ -24,26 +24,21 @@ static const struct var_expand_table *
 get_var_expand_table(struct mail *mail, const char *reason,
 		     const char *recipient)
 {
-	static struct var_expand_table static_tab[] = {
-		{ 'n', NULL, "crlf" },
-		{ 'r', NULL, "reason" },
-		{ 's', NULL, "subject" },
-		{ 't', NULL, "to" },
+	const char *subject;
+	if (mail_get_first_header(mail, "Subject", &subject) <= 0)
+		subject = "";
+
+	const struct var_expand_table stack_tab[] = {
+		{ 'n', "\r\n", "crlf" },
+		{ 'r', reason, "reason" },
+		{ 's', subject, "subject" },
+		{ 't', recipient, "to" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
-	const char *subject;
 
-	tab = t_malloc_no0(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-
-	tab[0].value = "\r\n";
-	tab[1].value = reason;
-	if (mail_get_first_header(mail, "Subject", &subject) <= 0)
-		subject = "";
-	tab[2].value = str_sanitize(subject, 80);
-	tab[3].value = recipient;
-
+	tab = t_malloc_no0(sizeof(stack_tab));
+	memcpy(tab, stack_tab, sizeof(stack_tab));
 	return tab;
 }
 
