@@ -571,6 +571,32 @@ void program_client_switch_ioloop(struct program_client *pclient)
 	pclient->switch_ioloop(pclient);
 }
 
+int program_client_create(const char *uri, const char *const *args,
+			  const struct program_client_settings *set,
+			  bool noreply, struct program_client **pc_r,
+			  const char **error_r)
+{
+	if (strncmp(uri, "exec:", 5) == 0) {
+		*pc_r = program_client_local_create(
+			uri+5,
+			args,
+			set);
+		return 0;
+	} else if (strncmp(uri, "unix:", 5) == 0) {
+		*pc_r = program_client_remote_create(
+			uri+5,
+			args,
+			set, noreply);
+		return 0;
+	} else {
+		*error_r = t_strdup_printf(
+			"Unsupported program client scheme '%s'",
+			t_strcut(uri, ':'));
+		return -1;
+	}
+}
+
+
 static
 void program_client_run_callback(int result, int *context)
 {

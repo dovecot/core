@@ -31,6 +31,10 @@ struct program_client *program_client_local_create(const char *bin_path,
 struct program_client *program_client_remote_create(const char *socket_path,
 	const char *const *args,
 	const struct program_client_settings *set, bool noreply);
+int program_client_create(const char *uri, const char *const *args,
+			  const struct program_client_settings *set,
+			  bool noreply, struct program_client **pc_r,
+			  const char **error_r);
 
 void program_client_destroy(struct program_client **_pclient);
 
