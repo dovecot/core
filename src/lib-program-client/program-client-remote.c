@@ -260,7 +260,7 @@ int program_client_unix_connect(struct program_client *pclient)
 		(struct program_client_remote *) pclient;
 	int fd;
 
-	if ((fd = net_connect_unix_with_retries(pclient->path, 1000)) < 0) {
+	if ((fd = net_connect_unix(pclient->path)) < 0) {
 		switch (errno) {
 		case EACCES:
 			i_error("%s",
