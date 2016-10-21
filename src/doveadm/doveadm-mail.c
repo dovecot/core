@@ -366,6 +366,8 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	else
 		i_set_failure_prefix("doveadm(%s,%s): ", ip, cctx->username);
 	doveadm_cctx_to_storage_service_input(cctx, &input);
+	if (ctx->cmd_input != NULL)
+		i_stream_seek(ctx->cmd_input, 0);
 
 	/* see if we want to execute this command via (another)
 	   doveadm server */
@@ -398,8 +400,6 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 	}
 
-	if (ctx->cmd_input != NULL)
-		i_stream_seek(ctx->cmd_input, 0);
 	if (ctx->v.run(ctx, ctx->cur_mail_user) < 0) {
 		i_assert(ctx->exit_code != 0);
 	}
