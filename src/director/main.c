@@ -240,6 +240,11 @@ static void main_preinit(void)
 	struct ip_addr listen_ip;
 	in_port_t listen_port;
 
+	/* make sure we die with master even with shutdown_clients=no.
+	   otherwise there will be two director processes and everything is
+	   broken. it's only the login processes that need to stay alive. */
+	master_service_set_die_with_master(master_service, TRUE);
+
 	if (master_service_settings_get(master_service)->verbose_proctitle) {
 		to_proctitle_refresh =
 			timeout_add(1000, director_refresh_proctitle_timeout,
