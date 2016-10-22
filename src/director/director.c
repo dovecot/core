@@ -700,6 +700,7 @@ void director_update_user_weak(struct director *dir, struct director_host *src,
 struct director_user_kill_finish_ctx {
 	struct director *dir;
 	unsigned int username_hash;
+	struct ip_addr host_ip;
 	struct user *user;
 	struct program_client *pclient;
 	struct ostream *reply;
@@ -723,14 +724,14 @@ director_flush_user_continue(int result,
 		data = i_stream_read_next_line(is);
 		i_error("%s: Failed to flush user hash %u in host %s: %s",
 			ctx->socket_path,
-			user->username_hash,
-			net_ip2addr(&user->host->ip),
+			ctx->username_hash,
+			net_ip2addr(&ctx->host_ip),
 			data == NULL ? "(no output to stdout)" : data);
 		while((data = i_stream_read_next_line(is)) != NULL) {
 			i_error("%s: Failed to flush user hash %u in host %s: %s",
 				ctx->socket_path,
-				user->username_hash,
-				net_ip2addr(&user->host->ip),
+				ctx->username_hash,
+				net_ip2addr(&ctx->host_ip),
 				data);
 		}
 		i_stream_unref(&is);
@@ -760,6 +761,7 @@ director_flush_user(struct director *dir, struct user *user)
 	struct director_user_kill_finish_ctx *ctx =
 		i_new(struct director_user_kill_finish_ctx, 1);
 	ctx->username_hash = user->username_hash;
+	ctx->host_ip = user->host->ip;
 	ctx->dir = dir;
 
 	string_t *s_sock = str_new(default_pool, 32);
