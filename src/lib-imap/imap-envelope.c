@@ -144,18 +144,10 @@ void imap_envelope_parse_header(pool_t pool,
 		*addr_p = message_address_parse(pool, hdr->full_value,
 						hdr->full_value_len,
 						UINT_MAX, TRUE);
-	} else if (str_p != NULL) T_BEGIN {
-		string_t *str = t_str_new(128);
-
-		if (str_p != &d->subject) {
-			imap_append_string(str,
-				t_strndup(hdr->full_value, hdr->full_value_len));
-		} else {
-			imap_append_string_for_humans(str,
-				hdr->full_value, hdr->full_value_len);
-		}
-		*str_p = p_strdup(pool, str_c(str));
-	} T_END;
+	} else if (str_p != NULL) {
+		*str_p = p_strndup(pool,
+			hdr->full_value, hdr->full_value_len);
+	}
 }
 
 static void imap_write_address(string_t *str, struct message_address *addr)
@@ -199,9 +191,15 @@ void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 		return;
 	}
 
-	str_append(str, NVL(data->date, "NIL"));
+	imap_append_nstring(str, data->date);
 	str_append_c(str, ' ');
-	str_append(str, NVL(data->subject, "NIL"));
+	if (data->subject == NULL)
+		str_append(str, "NIL");
+	else {
+		imap_append_string_for_humans(str,
+			(const unsigned char *)data->subject,
+			strlen(data->subject));
+	}
 
 	str_append_c(str, ' ');
 	imap_write_address(str, data->from);
@@ -217,9 +215,9 @@ void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 	imap_write_address(str, data->bcc);
 
 	str_append_c(str, ' ');
-	str_append(str, NVL(data->in_reply_to, "NIL"));
+	imap_append_nstring(str, data->in_reply_to);
 	str_append_c(str, ' ');
-	str_append(str, NVL(data->message_id, "NIL"));
+	imap_append_nstring(str, data->message_id);
 }
 
 static bool

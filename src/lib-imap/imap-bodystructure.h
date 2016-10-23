@@ -1,23 +1,27 @@
 #ifndef IMAP_BODYSTRUCTURE_H
 #define IMAP_BODYSTRUCTURE_H
 
+struct message_part_param {
+	const char *name;
+	const char *value;
+};
+
 struct message_part_data {
-	/* NOTE: all the strings are stored via imap_quote(), so they contain
-	   "quoted-text" or {123}\r\nliterals */
 	const char *content_type, *content_subtype;
-	const char *content_type_params; /* "key" "value" "key2" "value2" .. */
+	const struct message_part_param *content_type_params;
+	unsigned int content_type_params_count;
+
 	const char *content_transfer_encoding;
 	const char *content_id;
 	const char *content_description;
 	const char *content_disposition;
-	const char *content_disposition_params; /* "key" "value" "key2" "value2" .. */
+	const struct message_part_param *content_disposition_params;
+	unsigned int content_disposition_params_count;
 	const char *content_md5;
-	const char *content_language; /* "lang1" "lang2" "lang3" .. */
+	const char *const *content_language;
 	const char *content_location;
 
-	/* either one of these is set, but not both: */
 	struct message_part_envelope_data *envelope;
-	const char *envelope_str;
 };
 
 struct message_part;

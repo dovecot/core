@@ -12,20 +12,36 @@
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
 
-#define DEFAULT_CHARSET \
-	"\"charset\" \"us-ascii\""
+#define DEFAULT_CHARSET "us-ascii"
 
 #define EMPTY_BODYSTRUCTURE \
-        "(\"text\" \"plain\" ("DEFAULT_CHARSET") NIL NIL \"7bit\" 0 0)"
+        "(\"text\" \"plain\" (\"charset\" \""DEFAULT_CHARSET"\") NIL NIL \"7bit\" 0 0)"
 
-#define NVL(str, nullstr) ((str) != NULL ? (str) : (nullstr))
-
-static char *imap_get_string(pool_t pool, const char *value)
+static void
+parse_mime_parameters(struct rfc822_parser_context *parser,
+	pool_t pool, const struct message_part_param **params_r,
+	unsigned int *params_count_r)
 {
-	string_t *str = t_str_new(64);
+	const char *const *results;
+	struct message_part_param *params;
+	unsigned int params_count, i;
 
-	imap_append_string(str, value);
-	return p_strdup(pool, str_c(str));
+	rfc2231_parse(parser, &results);
+
+	params_count = str_array_length(results);
+	i_assert((params_count % 2) == 0);
+	params_count /= 2;
+
+	if (params_count > 0) {
+		params = p_new(pool, struct message_part_param, params_count);
+		for (i = 0; i < params_count; i++) {
+			params[i].name = p_strdup(pool, results[i*2+0]);
+			params[i].value = p_strdup(pool, results[i*2+1]);
+		}
+		*params_r = params;
+	}
+
+	*params_count_r = params_count;
 }
 
 static void
@@ -33,10 +49,9 @@ parse_content_type(struct message_part_data *data,
 	pool_t pool, struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
-	const char *value, *const *results;
 	string_t *str;
+	const char *value;
 	unsigned int i;
-	bool charset_found = FALSE;
 	int ret;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
@@ -49,13 +64,12 @@ parse_content_type(struct message_part_data *data,
 	value = str_c(str);
 	for (i = 0; value[i] != '\0'; i++) {
 		if (value[i] == '/') {
-			data->content_subtype =
-				imap_get_string(pool, value + i+1);
+			data->content_subtype = p_strdup(pool, value + i+1);
 			break;
 		}
 	}
 	str_truncate(str, i);
-	data->content_type = imap_get_string(pool, str_c(str));
+	data->content_type = p_strdup(pool, str_c(str));
 
 	if (ret < 0) {
 		/* Content-Type is broken, but we wanted to get it as well as
@@ -67,29 +81,9 @@ parse_content_type(struct message_part_data *data,
 		return;
 	}
 
-	/* parse parameters and save them */
-	str_truncate(str, 0);
-	rfc2231_parse(&parser, &results);
-	for (; *results != NULL; results += 2) {
-		if (strcasecmp(results[0], "charset") == 0)
-			charset_found = TRUE;
-
-		str_append_c(str, ' ');
-		imap_append_string(str, results[0]);
-		str_append_c(str, ' ');
-		imap_append_string(str, results[1]);
-	}
-
-	if (!charset_found &&
-	    strcasecmp(data->content_type, "\"text\"") == 0) {
-		/* set a default charset */
-		str_append_c(str, ' ');
-		str_append(str, DEFAULT_CHARSET);
-	}
-	if (str_len(str) > 0) {
-		data->content_type_params =
-			p_strdup(pool, str_c(str) + 1);
-	}
+	parse_mime_parameters(&parser, pool,
+		&data->content_type_params,
+		&data->content_type_params_count);
 }
 
 static void
@@ -106,7 +100,7 @@ parse_content_transfer_encoding(struct message_part_data *data,
 	if (rfc822_parse_mime_token(&parser, str) >= 0 &&
 	    rfc822_skip_lwsp(&parser) == 0 && str_len(str) > 0) {
 		data->content_transfer_encoding =
-			imap_get_string(pool, str_c(str));
+			p_strdup(pool, str_c(str));
 	}
 }
 
@@ -115,7 +109,6 @@ parse_content_disposition(struct message_part_data *data,
 	pool_t pool, struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
-	const char *const *results;
 	string_t *str;
 
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
@@ -124,21 +117,11 @@ parse_content_disposition(struct message_part_data *data,
 	str = t_str_new(256);
 	if (rfc822_parse_mime_token(&parser, str) < 0)
 		return;
-	data->content_disposition = imap_get_string(pool, str_c(str));
+	data->content_disposition = p_strdup(pool, str_c(str));
 
-	/* parse parameters and save them */
-	str_truncate(str, 0);
-	rfc2231_parse(&parser, &results);
-	for (; *results != NULL; results += 2) {
-		str_append_c(str, ' ');
-		imap_append_string(str, results[0]);
-		str_append_c(str, ' ');
-		imap_append_string(str, results[1]);
-	}
-	if (str_len(str) > 0) {
-		data->content_disposition_params =
-			p_strdup(pool, str_c(str) + 1);
-	}
+	parse_mime_parameters(&parser, pool,
+		&data->content_disposition_params,
+		&data->content_disposition_params_count);
 }
 
 static void
@@ -146,6 +129,7 @@ parse_content_language(struct message_part_data *data,
 	pool_t pool, const unsigned char *value, size_t value_len)
 {
 	struct rfc822_parser_context parser;
+	ARRAY_TYPE(const_string) langs;
 	string_t *str;
 
 	/* Language-Header = "Content-Language" ":" 1#Language-tag
@@ -155,12 +139,15 @@ parse_content_language(struct message_part_data *data,
 
 	rfc822_parser_init(&parser, value, value_len, NULL);
 
+	t_array_init(&langs, 16);
 	str = t_str_new(128);
-	str_append_c(str, '"');
 
 	rfc822_skip_lwsp(&parser);
 	while (rfc822_parse_atom(&parser, str) >= 0) {
-		str_append(str, "\" \"");
+		const char *lang = p_strdup(pool, str_c(str));
+
+		array_append(&langs, &lang, 1);
+		str_truncate(str, 0);
 
 		if (parser.data == parser.end || *parser.data != ',')
 			break;
@@ -168,14 +155,16 @@ parse_content_language(struct message_part_data *data,
 		rfc822_skip_lwsp(&parser);
 	}
 
-	if (str_len(str) > 1) {
-		str_truncate(str, str_len(str) - 2);
-		data->content_language = p_strdup(pool, str_c(str));
+	if (array_count(&langs) > 0) {
+		array_append_zero(&langs);
+		data->content_language =
+			p_strarray_dup(pool, array_idx(&langs, 0));
 	}
 }
 
-static void parse_content_header(struct message_part_data *data,
-				 pool_t pool, struct message_header_line *hdr)
+static void
+parse_content_header(struct message_part_data *data,
+	pool_t pool, struct message_header_line *hdr)
 {
 	const char *name = hdr->name + strlen("Content-");
 	const char *value;
@@ -191,13 +180,13 @@ static void parse_content_header(struct message_part_data *data,
 	case 'i':
 	case 'I':
 		if (strcasecmp(name, "ID") == 0 && data->content_id == NULL)
-			data->content_id = imap_get_string(pool, value);
+			data->content_id = p_strdup(pool, value);
 		break;
 
 	case 'm':
 	case 'M':
 		if (strcasecmp(name, "MD5") == 0 && data->content_md5 == NULL)
-			data->content_md5 = imap_get_string(pool, value);
+			data->content_md5 = p_strdup(pool, value);
 		break;
 
 	case 't':
@@ -213,11 +202,11 @@ static void parse_content_header(struct message_part_data *data,
 	case 'L':
 		if (strcasecmp(name, "Language") == 0 &&
 		    data->content_language == NULL) {
-			parse_content_language(data, pool, hdr->full_value,
-					       hdr->full_value_len);
+			parse_content_language(data, pool,
+				hdr->full_value, hdr->full_value_len);
 		} else if (strcasecmp(name, "Location") == 0 &&
 			   data->content_location == NULL) {
-			data->content_location = imap_get_string(pool, value);
+			data->content_location = p_strdup(pool, value);
 		}
 		break;
 
@@ -225,7 +214,7 @@ static void parse_content_header(struct message_part_data *data,
 	case 'D':
 		if (strcasecmp(name, "Description") == 0 &&
 		    data->content_description == NULL)
-			data->content_description = imap_get_string(pool, value);
+			data->content_description = p_strdup(pool, value);
 		else if (strcasecmp(name, "Disposition") == 0 &&
 			 data->content_disposition_params == NULL)
 			parse_content_disposition(data, pool, hdr);
@@ -286,7 +275,40 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 }
 
 static void
-imap_bodystructure_write_siblings(const struct message_part *part,
+params_write(const struct message_part_param *params,
+	unsigned int params_count, string_t *str,
+	bool default_charset)
+{
+	unsigned int i;
+	bool seen_charset;
+
+	if (!default_charset && params_count == 0) {
+		str_append(str, "NIL");
+		return;
+	}
+	str_append_c(str, '(');
+
+	seen_charset = FALSE;
+	for (i = 0; i < params_count; i++) {
+		if (i > 0)
+			str_append_c(str, ' ');
+		if (default_charset &&
+			strcasecmp(params[i].name, "charset") == 0)
+			seen_charset = TRUE;
+		imap_append_string(str, params[i].name);
+		str_append_c(str, ' ');
+		imap_append_string(str, params[i].value);
+	}
+	if (default_charset && !seen_charset) {
+		if (i > 0)
+			str_append_c(str, ' ');
+		str_append(str, "\"charset\" \""DEFAULT_CHARSET"\"");
+	}
+	str_append_c(str, ')');
+}
+
+static void
+part_write_bodystructure_siblings(const struct message_part *part,
 				  string_t *dest, bool extended)
 {
 	for (; part != NULL; part = part->next) {
@@ -297,7 +319,7 @@ imap_bodystructure_write_siblings(const struct message_part *part,
 }
 
 static void
-part_write_bodystructure_data_common(struct message_part_data *data,
+part_write_bodystructure_common(const struct message_part_data *data,
 				     string_t *str)
 {
 	str_append_c(str, ' ');
@@ -305,16 +327,12 @@ part_write_bodystructure_data_common(struct message_part_data *data,
 		str_append(str, "NIL");
 	else {
 		str_append_c(str, '(');
-		str_append(str, data->content_disposition);
-		str_append_c(str, ' ');
+		imap_append_string(str, data->content_disposition);
 
-		if (data->content_disposition_params == NULL)
-			str_append(str, "NIL");
-		else {
-			str_append_c(str, '(');
-			str_append(str, data->content_disposition_params);
-			str_append_c(str, ')');
-		}
+		str_append_c(str, ' ');
+		params_write(data->content_disposition_params,
+			data->content_disposition_params_count, str, FALSE);
+
 		str_append_c(str, ')');
 	}
 
@@ -322,22 +340,33 @@ part_write_bodystructure_data_common(struct message_part_data *data,
 	if (data->content_language == NULL)
 		str_append(str, "NIL");
 	else {
+		const char *const *lang = data->content_language;
+
+		i_assert(*lang != NULL);
 		str_append_c(str, '(');
-		str_append(str, data->content_language);
+		imap_append_string(str, *lang);
+		lang++;
+		while (*lang != NULL) {
+			str_append_c(str, ' ');
+			imap_append_string(str, *lang);
+			lang++;
+		}
 		str_append_c(str, ')');
 	}
 
 	str_append_c(str, ' ');
-	str_append(str, NVL(data->content_location, "NIL"));
+	imap_append_nstring(str, data->content_location);
 }
 
 static void part_write_body_multipart(const struct message_part *part,
 				      string_t *str, bool extended)
 {
-	struct message_part_data *data = part->data;
+	const struct message_part_data *data = part->data;
+
+	i_assert(part->data != NULL);
 
 	if (part->children != NULL)
-		imap_bodystructure_write_siblings(part->children, str, extended);
+		part_write_bodystructure_siblings(part->children, str, extended);
 	else {
 		/* no parts in multipart message,
 		   that's not allowed. write a single
@@ -347,7 +376,7 @@ static void part_write_body_multipart(const struct message_part *part,
 
 	str_append_c(str, ' ');
 	if (data->content_subtype != NULL)
-		str_append(str, data->content_subtype);
+		imap_append_string(str, data->content_subtype);
 	else
 		str_append(str, "\"x-unknown\"");
 
@@ -355,84 +384,79 @@ static void part_write_body_multipart(const struct message_part *part,
 		return;
 
 	/* BODYSTRUCTURE data */
-	str_append_c(str, ' ');
-	if (data->content_type_params == NULL)
-		str_append(str, "NIL");
-	else {
-		str_append_c(str, '(');
-		str_append(str, data->content_type_params);
-		str_append_c(str, ')');
-	}
 
-	part_write_bodystructure_data_common(data, str);
+	str_append_c(str, ' ');
+	params_write(data->content_type_params,
+		data->content_type_params_count, str, FALSE);
+
+	part_write_bodystructure_common(data, str);
 }
 
 static void part_write_body(const struct message_part *part,
 			    string_t *str, bool extended)
 {
-	struct message_part_data *data = part->data;
+	const struct message_part_data *data = part->data;
 	bool text;
+
+	i_assert(part->data != NULL);
 
 	if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0) {
 		str_append(str, "\"message\" \"rfc822\"");
 		text = FALSE;
 	} else {
 		/* "content type" "subtype" */
-		text = data->content_type == NULL ||
-			strcasecmp(data->content_type, "\"text\"") == 0;
-		str_append(str, NVL(data->content_type, "\"text\""));
+		if (data->content_type == NULL) {
+			text = TRUE;
+			str_append(str, "\"text\"");
+		} else {
+			text = (strcasecmp(data->content_type, "text") == 0);
+			imap_append_string(str, data->content_type);
+		}
 		str_append_c(str, ' ');
 
 		if (data->content_subtype != NULL)
-			str_append(str, data->content_subtype);
+			imap_append_string(str, data->content_subtype);
 		else {
 			if (text)
 				str_append(str, "\"plain\"");
 			else
 				str_append(str, "\"unknown\"");
-
 		}
 	}
 
 	/* ("content type param key" "value" ...) */
 	str_append_c(str, ' ');
-	if (data->content_type_params == NULL) {
-		if (!text)
-			str_append(str, "NIL");
-		else
-			str_append(str, "("DEFAULT_CHARSET")");
-	} else {
-		str_append_c(str, '(');
-		str_append(str, data->content_type_params);
-		str_append_c(str, ')');
-	}
+	params_write(data->content_type_params,
+		data->content_type_params_count, str, text);
 
-	str_printfa(str, " %s %s %s %"PRIuUOFF_T,
-		    NVL(data->content_id, "NIL"),
-		    NVL(data->content_description, "NIL"),
-		    NVL(data->content_transfer_encoding, "\"7bit\""),
-		    part->body_size.virtual_size);
+	str_append_c(str, ' ');
+	imap_append_nstring(str, data->content_id);
+	str_append_c(str, ' ');
+	imap_append_nstring(str, data->content_description);
+	str_append_c(str, ' ');
+	if (data->content_transfer_encoding != NULL)
+		imap_append_string(str, data->content_transfer_encoding);
+	else
+		str_append(str, "\"7bit\"");
+	str_printfa(str, " %"PRIuUOFF_T, part->body_size.virtual_size);
 
 	if (text) {
 		/* text/.. contains line count */
 		str_printfa(str, " %u", part->body_size.lines);
 	} else if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0) {
 		/* message/rfc822 contains envelope + body + line count */
-		struct message_part_data *child_data;
+		const struct message_part_data *child_data;
 
 		i_assert(part->children != NULL);
 		i_assert(part->children->next == NULL);
 
-                child_data = part->children->data;
+		child_data = part->children->data;
 
 		str_append(str, " (");
-		if (child_data->envelope_str != NULL)
-			str_append(str, child_data->envelope_str);
-		else
-			imap_envelope_write_part_data(child_data->envelope, str);
+		imap_envelope_write_part_data(child_data->envelope, str);
 		str_append(str, ") ");
 
-		imap_bodystructure_write_siblings(part->children, str, extended);
+		part_write_bodystructure_siblings(part->children, str, extended);
 		str_printfa(str, " %u", part->body_size.lines);
 	}
 
@@ -444,8 +468,8 @@ static void part_write_body(const struct message_part *part,
 	/* "md5" ("content disposition" ("disposition" "params"))
 	   ("body" "language" "params") "location" */
 	str_append_c(str, ' ');
-	str_append(str, NVL(data->content_md5, "NIL"));
-	part_write_bodystructure_data_common(data, str);
+	imap_append_nstring(str, data->content_md5);
+	part_write_bodystructure_common(data, str);
 }
 
 bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
@@ -463,12 +487,13 @@ bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
 
 	/* must be text/plain */
 	if (data->content_subtype != NULL &&
-	    strcasecmp(data->content_subtype, "\"plain\"") != 0)
+	    strcasecmp(data->content_subtype, "plain") != 0)
 		return FALSE;
 
 	/* only allowed parameter is charset=us-ascii, which is also default */
-	if (data->content_type_params != NULL &&
-	    strcasecmp(data->content_type_params, DEFAULT_CHARSET) != 0)
+	if (data->content_type_params_count > 0 &&
+	    (strcasecmp(data->content_type_params[0].name, "charset") != 0 ||
+	     strcasecmp(data->content_type_params[0].value, DEFAULT_CHARSET) != 0))
 		return FALSE;
 
 	if (data->content_id != NULL ||
@@ -476,7 +501,7 @@ bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
 		return FALSE;
 
 	if (data->content_transfer_encoding != NULL &&
-	    strcasecmp(data->content_transfer_encoding, "\"7bit\"") != 0)
+	    strcasecmp(data->content_transfer_encoding, "7bit") != 0)
 		return FALSE;
 
 	/* BODYSTRUCTURE checks: */
@@ -531,22 +556,6 @@ static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
 	return TRUE;
 }
 
-static bool
-get_nstring(const struct imap_arg *arg, pool_t pool, string_t *tmpstr,
-	    const char **value_r)
-{
-	if (arg->type == IMAP_ARG_NIL) {
-		*value_r = NULL;
-		return TRUE;
-	}
-
-	str_truncate(tmpstr, 0);
-	if (!str_append_nstring(tmpstr, arg))
-		return FALSE;
-	*value_r = p_strdup(pool, str_c(tmpstr));
-	return TRUE;
-}
-
 static void
 imap_write_envelope_list(const struct imap_arg *args, string_t *str,
 	bool toplevel)
@@ -582,74 +591,77 @@ imap_write_envelope(const struct imap_arg *args, string_t *str)
 	imap_write_envelope_list(args, str, TRUE);
 }
 
-static int imap_write_nstring_list(const struct imap_arg *args, string_t *str)
+static int
+imap_bodystructure_strlist_parse(const struct imap_arg *arg,
+	pool_t pool, const char *const **list_r)
 {
-	str_truncate(str, 0);
-	while (!IMAP_ARG_IS_EOL(args)) {
-		if (!str_append_nstring(str, &args[0]))
-			return -1;
-		args++;
-		if (IMAP_ARG_IS_EOL(args))
-			break;
-		str_append_c(str, ' ');
-	}
-	return 0;
-}
-
-static int imap_write_params(const struct imap_arg *arg, pool_t pool,
-			     string_t *tmpstr, unsigned int divisible,
-			     const char **value_r)
-{
+	const char *item, **list;
 	const struct imap_arg *list_args;
-	unsigned int list_count;
+	unsigned int list_count, i;
 
 	if (arg->type == IMAP_ARG_NIL) {
-		*value_r = NULL;
+		*list_r = NULL;
 		return 0;
 	}
-	if (arg->type == IMAP_ARG_STRING) {
-		if (divisible > 1)
-			return -1;
-		str_truncate(tmpstr, 0);
-		str_append_nstring(tmpstr, arg);
+	if (imap_arg_get_nstring(arg, &item)) {
+		list = p_new(pool, const char *, 2);
+		list[0] = p_strdup(pool, item);
 	} else {
 		if (!imap_arg_get_list_full(arg, &list_args, &list_count))
 			return -1;
-		if ((list_count % divisible) != 0)
-			return -1;
-		if (imap_write_nstring_list(list_args, tmpstr) < 0)
-			return -1;
+
+		list = p_new(pool, const char *, list_count+1);
+		for (i = 0; i < list_count; i++) {
+			if (!imap_arg_get_nstring(&list_args[i], &item))
+				return -1;
+			list[i] = p_strdup(pool, item);
+		}
 	}
-	*value_r = p_strdup(pool, str_c(tmpstr));
+	*list_r = list;
 	return 0;
 }
 
 static int
-imap_bodystructure_parse_lines(const struct imap_arg *arg,
-			       const struct message_part *part,
-			       const char **error_r)
+imap_bodystructure_params_parse(const struct imap_arg *arg,
+	pool_t pool, const struct message_part_param **params_r,
+	unsigned int *count_r)
 {
-	const char *value;
-	unsigned int lines;
-	
-	if (!imap_arg_get_atom(arg, &value) ||
-	    str_to_uint(value, &lines) < 0) {
-		*error_r = "Invalid lines field";
-		return -1;
+	struct message_part_param *params;
+	const struct imap_arg *list_args;
+	unsigned int list_count, params_count, i;
+
+	if (arg->type == IMAP_ARG_NIL) {
+		*params_r = NULL;
+		return 0;
 	}
-	if (lines != part->body_size.lines) {
-		*error_r = "message_part lines doesn't match lines in BODYSTRUCTURE";
+	if (!imap_arg_get_list_full(arg, &list_args, &list_count))
 		return -1;
+	if ((list_count % 2) != 0)
+		return -1;
+
+	params_count = list_count/2;
+	params = p_new(pool, struct message_part_param, params_count+1);
+	for (i = 0; i < params_count; i++) {
+		const char *name, *value;
+
+		if (!imap_arg_get_nstring(&list_args[i*2+0], &name))
+			return -1;
+		if (!imap_arg_get_nstring(&list_args[i*2+1], &value))
+			return -1;
+		params[i].name = p_strdup(pool, name);
+		params[i].value = p_strdup(pool, value);
 	}
+	*params_r = params;
+	*count_r = params_count;
 	return 0;
 }
 
 static int
-imap_bodystructure_parse_args_common(struct message_part_data *data,
-				     pool_t pool, string_t *tmpstr,
-				     const struct imap_arg *args,
+imap_bodystructure_parse_args_common(struct message_part *part,
+				     pool_t pool, const struct imap_arg *args,
 				     const char **error_r)
 {
+	struct message_part_data *data = part->data;
 	const struct imap_arg *list_args;
 
 	if (args->type == IMAP_ARG_EOL)
@@ -660,13 +672,15 @@ imap_bodystructure_parse_args_common(struct message_part_data *data,
 		*error_r = "Invalid content-disposition list";
 		return -1;
 	} else {
-		if (!get_nstring(list_args++, pool, tmpstr,
-				 &data->content_disposition)) {
+		if (!imap_arg_get_nstring
+			(list_args++, &data->content_disposition)) {
 			*error_r = "Invalid content-disposition";
 			return -1;
 		}
-		if (imap_write_params(list_args, pool, tmpstr, 2,
-				      &data->content_disposition_params) < 0) {
+		data->content_disposition = p_strdup(pool, data->content_disposition);
+		if (imap_bodystructure_params_parse(list_args, pool,
+			&data->content_disposition_params,
+			&data->content_disposition_params_count) < 0) {
 			*error_r = "Invalid content-disposition params";
 			return -1;
 		}
@@ -674,34 +688,36 @@ imap_bodystructure_parse_args_common(struct message_part_data *data,
 	}
 	if (args->type == IMAP_ARG_EOL)
 		return 0;
-	if (imap_write_params(args++, pool, tmpstr, 1,
-			      &data->content_language) < 0) {
+	if (imap_bodystructure_strlist_parse
+		(args++, pool, &data->content_language) < 0) {
 		*error_r = "Invalid content-language";
 		return -1;
 	}
 	if (args->type == IMAP_ARG_EOL)
 		return 0;
-	if (!get_nstring(args++, pool, tmpstr, &data->content_location)) {
+	if (!imap_arg_get_nstring
+		(args++, &data->content_location)) {
 		*error_r = "Invalid content-location";
 		return -1;
 	}
+	data->content_location = p_strdup(pool, data->content_location);
 	return 0;
 }
 
 static int
 imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
-			      struct message_part *part, string_t *tmpstr,
+			      struct message_part *part,
 			      const char **error_r)
 {
 	struct message_part_data *data;
 	struct message_part *child_part;
 	const struct imap_arg *list_args;
-	const char *value, *content_type, *subtype;
+	const char *value, *content_type, *subtype, *error;
+	bool multipart, text, message_rfc822, has_lines;
+	unsigned int lines;
 	uoff_t vsize;
-	bool multipart, text, message_rfc822;
 
 	i_assert(part->data == NULL);
-
 	part->data = data = p_new(pool, struct message_part_data, 1);
 
 	multipart = FALSE;
@@ -715,8 +731,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 
 		list_args = imap_arg_as_list(args);
 		if (imap_bodystructure_parse_args(list_args, pool,
-						  child_part, tmpstr,
-						  error_r) < 0)
+						  child_part, error_r) < 0)
 			return -1;
 		child_part = child_part->next;
 
@@ -729,21 +744,22 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 			*error_r = "message_part hierarchy doesn't match BODYSTRUCTURE";
 			return -1;
 		}
-
-		data->content_type = "\"multipart\"";
-		if (!get_nstring(args++, pool, tmpstr, &data->content_subtype)) {
+		data->content_type = "multipart";
+		if (!imap_arg_get_nstring(args++, &data->content_subtype)) {
 			*error_r = "Invalid multipart content-type";
 			return -1;
 		}
+		data->content_subtype = p_strdup(pool, data->content_subtype);
 		if (args->type == IMAP_ARG_EOL)
 			return 0;
-		if (imap_write_params(args++, pool, tmpstr, 2,
-				      &data->content_type_params) < 0) {
+		if (imap_bodystructure_params_parse(args++, pool,
+			&data->content_type_params,
+			&data->content_type_params_count) < 0) {
 			*error_r = "Invalid content params";
 			return -1;
 		}
-		return imap_bodystructure_parse_args_common(data, pool, tmpstr,
-							    args, error_r);
+		return imap_bodystructure_parse_args_common
+			(part, pool, args, error_r);
 	}
 	if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0) {
 		*error_r = "message_part multipart flag doesn't match BODYSTRUCTURE";
@@ -756,15 +772,14 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		*error_r = "Invalid content-type";
 		return -1;
 	}
-
-	if (!get_nstring(&args[0], pool, tmpstr, &data->content_type) ||
-	    !get_nstring(&args[1], pool, tmpstr, &data->content_subtype))
-		i_unreached();
+	data->content_type = p_strdup(pool, content_type);
+	data->content_subtype = p_strdup(pool, subtype);
 	args += 2;
 
 	text = strcasecmp(content_type, "text") == 0;
 	message_rfc822 = strcasecmp(content_type, "message") == 0 &&
 		strcasecmp(subtype, "rfc822") == 0;
+
 #if 0
 	/* Disabled for now. Earlier Dovecot versions handled broken
 	   Content-Type headers by writing them as "text" "plain" to
@@ -781,25 +796,30 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	}
 
 	/* ("content type param key" "value" ...) | NIL */
-	if (imap_write_params(args++, pool, tmpstr, 2,
-			      &data->content_type_params) < 0) {
+	if (imap_bodystructure_params_parse(args++, pool,
+		&data->content_type_params,
+		&data->content_type_params_count) < 0) {
 		*error_r = "Invalid content params";
 		return -1;
 	}
 
 	/* "content id" "content description" "transfer encoding" size */
-	if (!get_nstring(args++, pool, tmpstr, &data->content_id)) {
+	if (!imap_arg_get_nstring(args++, &data->content_id)) {
 		*error_r = "Invalid content-id";
 		return -1;
 	}
-	if (!get_nstring(args++, pool, tmpstr, &data->content_description)) {
+	if (!imap_arg_get_nstring(args++, &data->content_description)) {
 		*error_r = "Invalid content-description";
 		return -1;
 	}
-	if (!get_nstring(args++, pool, tmpstr, &data->content_transfer_encoding)) {
+	if (!imap_arg_get_nstring(args++, &data->content_transfer_encoding)) {
 		*error_r = "Invalid content-transfer-encoding";
 		return -1;
 	}
+	data->content_id = p_strdup(pool, data->content_id);
+	data->content_description = p_strdup(pool, data->content_description);
+	data->content_transfer_encoding =
+		p_strdup(pool, data->content_transfer_encoding);
 	if (!imap_arg_get_atom(args++, &value) ||
 	    str_to_uoff(value, &vsize) < 0) {
 		*error_r = "Invalid size field";
@@ -813,13 +833,15 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 
 	if (text) {
 		/* text/xxx - text lines */
-		if (imap_bodystructure_parse_lines(args, part, error_r) < 0)
+		if (!imap_arg_get_atom(args++, &value) ||
+		    str_to_uint(value, &lines) < 0) {
+			*error_r = "Invalid lines field";
 			return -1;
-		args++;
+		}
 		i_assert(part->children == NULL);
+		has_lines = TRUE;
 	} else if (message_rfc822) {
 		/* message/rfc822 - envelope + bodystructure + text lines */
-		struct message_part_data *child_data;
 
 		i_assert(part->children != NULL &&
 			 part->children->next == NULL);
@@ -828,45 +850,55 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 			*error_r = "Child bodystructure list expected";
 			return -1;
 		}
-		if (imap_bodystructure_parse_args(list_args, pool,
-						  part->children,
-						  tmpstr, error_r) < 0)
+		if (imap_bodystructure_parse_args
+			(list_args, pool, part->children, error_r) < 0)
 			return -1;
 
-		/* save envelope to the child's context data */
 		if (!imap_arg_get_list(&args[0], &list_args)) {
 			*error_r = "Envelope list expected";
 			return -1;
 		}
-		str_truncate(tmpstr, 0);
-		imap_write_envelope(list_args, tmpstr);
-		child_data = part->children->data;
-		child_data->envelope_str = p_strdup(pool, str_c(tmpstr));
-
-		args += 2;
-		if (imap_bodystructure_parse_lines(args, part, error_r) < 0)
+		if (!imap_envelope_parse_args(list_args, pool,
+			&part->children->data->envelope, &error)) {
+			*error_r = t_strdup_printf
+				("Invalid envelope list: %s", error);
 			return -1;
-		args++;
+		}
+		args += 2;
+		if (!imap_arg_get_atom(args++, &value) ||
+		    str_to_uint(value, &lines) < 0) {
+			*error_r = "Invalid lines field";
+			return -1;
+		}
+		has_lines = TRUE;
 	} else {
 		i_assert(part->children == NULL);
+		has_lines = FALSE;
 	}
-
+	if (has_lines && lines != part->body_size.lines) {
+		*error_r = "message_part lines "
+			"doesn't match lines in BODYSTRUCTURE";
+		return -1;
+	}
 	if (args->type == IMAP_ARG_EOL)
 		return 0;
-	if (!get_nstring(args++, pool, tmpstr, &data->content_md5)) {
+	if (!imap_arg_get_nstring(args++, &data->content_md5)) {
 		*error_r = "Invalid content-md5";
 		return -1;
 	}
-	return imap_bodystructure_parse_args_common(data, pool, tmpstr,
-						    args, error_r);
+	data->content_md5 = p_strdup(pool, data->content_md5);
+	return imap_bodystructure_parse_args_common
+		(part, pool, args, error_r);
 }
 
-int imap_bodystructure_parse(const char *bodystructure, pool_t pool,
-			     struct message_part *parts, const char **error_r)
+int imap_bodystructure_parse(const char *bodystructure,
+	pool_t pool, struct message_part *parts,
+	const char **error_r)
 {
 	struct istream *input;
 	struct imap_parser *parser;
 	const struct imap_arg *args;
+	char *error;
 	int ret;
 
 	i_assert(parts != NULL);
@@ -876,7 +908,7 @@ int imap_bodystructure_parse(const char *bodystructure, pool_t pool,
 	(void)i_stream_read(input);
 
 	parser = imap_parser_create(input, NULL, (size_t)-1);
-	ret = imap_parser_finish_line(parser, 0, IMAP_PARSE_FLAG_NO_UNESCAPE |
+	ret = imap_parser_finish_line(parser, 0,
 				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("IMAP parser failed: %s",
@@ -884,11 +916,19 @@ int imap_bodystructure_parse(const char *bodystructure, pool_t pool,
 	} else if (ret == 0) {
 		*error_r = "Empty bodystructure";
 		ret = -1;
-	} else T_BEGIN {
-		string_t *tmpstr = t_str_new(256);
-		ret = imap_bodystructure_parse_args(args, pool, parts,
-						    tmpstr, error_r);
-	} T_END;
+	} else {
+		T_BEGIN {
+			ret = imap_bodystructure_parse_args
+				(args, pool, parts, error_r);
+			if (ret < 0)
+				error = i_strdup(*error_r);
+		} T_END;
+
+		if (ret < 0) {
+			*error_r = t_strdup(error);
+			i_free(error);
+		}
+	}
 
 	imap_parser_unref(&parser);
 	i_stream_destroy(&input);
