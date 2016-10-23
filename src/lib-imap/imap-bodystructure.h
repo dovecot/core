@@ -11,7 +11,15 @@ void imap_bodystructure_write(const struct message_part *part,
 			      string_t *dest, bool extended);
 
 /* Parse BODYSTRUCTURE and save the contents to message_part->data for each
-   message tree node. Returns 0 if ok, -1 if bodystructure wasn't valid. */
+   message tree node. If the parts argument points to NULL, the message_part
+   tree is created from the BODYSTRUCTURE. Otherwise, existing tree is used.
+   Returns 0 if ok, -1 if bodystructure wasn't valid. */
+int imap_bodystructure_parse_full(const char *bodystructure, pool_t pool,
+			     struct message_part **parts, const char **error_r);
+
+/* Parse BODYSTRUCTURE and save the contents to message_part->data for each
+   message tree node. The parts argument must point to an existing message_part
+   tree. Returns 0 if ok, -1 if bodystructure wasn't valid. */
 int imap_bodystructure_parse(const char *bodystructure, pool_t pool,
 			     struct message_part *parts, const char **error_r);
 
