@@ -10,8 +10,6 @@
 #include "imap-quote.h"
 
 struct message_part_envelope_data {
-	pool_t pool;
-
 	const char *date, *subject;
 	struct message_address *from, *sender, *reply_to;
 	struct message_address *to, *cc, *bcc;
@@ -93,7 +91,6 @@ void imap_envelope_parse_header(pool_t pool,
 
 	if (*data == NULL) {
 		*data = p_new(pool, struct message_part_envelope_data, 1);
-		(*data)->pool = pool;
 	}
 
 	if (hdr == NULL || !imap_envelope_get_field(hdr->name, &field))
