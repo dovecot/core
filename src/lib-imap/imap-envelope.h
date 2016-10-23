@@ -4,8 +4,6 @@
 struct imap_arg;
 struct message_part_envelope_data;
 
-extern const char *imap_envelope_headers[];
-
 /* Write envelope to given string */
 void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 				   string_t *str);

@@ -38,6 +38,8 @@ struct message_part_data {
 	struct message_part_envelope_data *envelope;
 };
 
+extern const char *message_part_envelope_headers[];
+
 /*
  *
  */
