@@ -523,74 +523,6 @@ void imap_bodystructure_write(const struct message_part *part,
 		part_write_body(part, dest, extended);
 }
 
-static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
-{
-	const char *cstr;
-
-	if (!imap_arg_get_nstring(arg, &cstr))
-		return FALSE;
-
-	switch (arg->type) {
-	case IMAP_ARG_NIL:
-		str_append(str, "NIL");
-		break;
-	case IMAP_ARG_ATOM:
-		str_append(str, cstr);
-		break;
-	case IMAP_ARG_STRING:
-		str_append_c(str, '"');
-		/* NOTE: we're parsing with no-unescape flag,
-		   so don't double-escape it here */
-		str_append(str, cstr);
-		str_append_c(str, '"');
-		break;
-	case IMAP_ARG_LITERAL: {
-		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", strlen(cstr));
-		str_append(str, cstr);
-		break;
-	}
-	default:
-		i_unreached();
-		return FALSE;
-	}
-	return TRUE;
-}
-
-static void
-imap_write_envelope_list(const struct imap_arg *args, string_t *str,
-	bool toplevel)
-{
-	const struct imap_arg *children;
-
-	/* don't do any typechecking, just write it out */
-	while (!IMAP_ARG_IS_EOL(args)) {
-		bool list = FALSE;
-
-		if (!str_append_nstring(str, args)) {
-			if (!imap_arg_get_list(args, &children)) {
-				/* everything is either nstring or list */
-				i_unreached();
-			}
-
-			str_append_c(str, '(');
-			imap_write_envelope_list(children, str, FALSE);
-			str_append_c(str, ')');
-
-			list = TRUE;
-		}
-		args++;
-
-		if ((toplevel || !list) && !IMAP_ARG_IS_EOL(args))
-			str_append_c(str, ' ');
-	}
-}
-
-static void
-imap_write_envelope(const struct imap_arg *args, string_t *str)
-{
-	imap_write_envelope_list(args, str, TRUE);
-}
-
 static int
 imap_bodystructure_strlist_parse(const struct imap_arg *arg,
 	pool_t pool, const char *const **list_r)
@@ -933,6 +865,74 @@ int imap_bodystructure_parse(const char *bodystructure,
 	imap_parser_unref(&parser);
 	i_stream_destroy(&input);
 	return ret;
+}
+
+static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
+{
+	const char *cstr;
+
+	if (!imap_arg_get_nstring(arg, &cstr))
+		return FALSE;
+
+	switch (arg->type) {
+	case IMAP_ARG_NIL:
+		str_append(str, "NIL");
+		break;
+	case IMAP_ARG_ATOM:
+		str_append(str, cstr);
+		break;
+	case IMAP_ARG_STRING:
+		str_append_c(str, '"');
+		/* NOTE: we're parsing with no-unescape flag,
+		   so don't double-escape it here */
+		str_append(str, cstr);
+		str_append_c(str, '"');
+		break;
+	case IMAP_ARG_LITERAL: {
+		str_printfa(str, "{%"PRIuSIZE_T"}\r\n", strlen(cstr));
+		str_append(str, cstr);
+		break;
+	}
+	default:
+		i_unreached();
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static void
+imap_write_envelope_list(const struct imap_arg *args, string_t *str,
+	bool toplevel)
+{
+	const struct imap_arg *children;
+
+	/* don't do any typechecking, just write it out */
+	while (!IMAP_ARG_IS_EOL(args)) {
+		bool list = FALSE;
+
+		if (!str_append_nstring(str, args)) {
+			if (!imap_arg_get_list(args, &children)) {
+				/* everything is either nstring or list */
+				i_unreached();
+			}
+
+			str_append_c(str, '(');
+			imap_write_envelope_list(children, str, FALSE);
+			str_append_c(str, ')');
+
+			list = TRUE;
+		}
+		args++;
+
+		if ((toplevel || !list) && !IMAP_ARG_IS_EOL(args))
+			str_append_c(str, ' ');
+	}
+}
+
+static void
+imap_write_envelope(const struct imap_arg *args, string_t *str)
+{
+	imap_write_envelope_list(args, str, TRUE);
 }
 
 static int imap_parse_bodystructure_args(const struct imap_arg *args,
