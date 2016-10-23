@@ -94,9 +94,9 @@ envelope_get_field(const char *name)
 	return ENVELOPE_FIELD_UNKNOWN;
 }
 
-void imap_envelope_parse_header(pool_t pool,
-				struct message_part_envelope_data **data,
-				struct message_header_line *hdr)
+void message_part_envelope_parse_from_header(pool_t pool,
+	struct message_part_envelope_data **data,
+	struct message_header_line *hdr)
 {
 	struct message_part_envelope_data *d;
 	enum envelope_field field;
