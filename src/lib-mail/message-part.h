@@ -3,6 +3,8 @@
 
 #include "message-size.h"
 
+struct message_part_data;
+
 /* Note that these flags are used directly by message-parser-serialize, so
    existing flags can't be changed without breaking backwards compatibility */
 enum message_part_flags {
@@ -30,6 +32,8 @@ struct message_part {
 	uoff_t physical_pos; /* absolute position from beginning of message */
 	struct message_size header_size;
 	struct message_size body_size;
+
+	struct message_part_data *data;
 
 	/* total number of message_parts under children */
 	unsigned int children_count;

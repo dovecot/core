@@ -238,16 +238,16 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 	bool parent_rfc822;
 
 	if (hdr == NULL) {
-		if (part->context == NULL) {
+		if (part->data == NULL) {
 			/* no Content-* headers. add an empty context
 			   structure anyway. */
-			part->context = part_data =
+			part->data = part_data =
 				p_new(pool, struct message_part_data, 1);
 			part_data->pool = pool;
 		} else if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
 			/* If there was no Mime-Version, forget all
 			   the Content-stuff */
-			part_data = part->context;
+			part_data = part->data;
 			envelope = part_data->envelope;
 
 			i_zero(part_data);
@@ -265,13 +265,13 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 	if (!parent_rfc822 && strncasecmp(hdr->name, "Content-", 8) != 0)
 		return;
 
-	if (part->context == NULL) {
+	if (part->data == NULL) {
 		/* initialize message part data */
-		part->context = part_data =
+		part->data = part_data =
 			p_new(pool, struct message_part_data, 1);
 		part_data->pool = pool;
 	}
-	part_data = part->context;
+	part_data = part->data;
 
 	if (strncasecmp(hdr->name, "Content-", 8) == 0) {
 		T_BEGIN {
@@ -334,7 +334,7 @@ part_write_bodystructure_data_common(struct message_part_data *data,
 static void part_write_body_multipart(const struct message_part *part,
 				      string_t *str, bool extended)
 {
-	struct message_part_data *data = part->context;
+	struct message_part_data *data = part->data;
 
 	if (part->children != NULL)
 		imap_bodystructure_write_siblings(part->children, str, extended);
@@ -370,7 +370,7 @@ static void part_write_body_multipart(const struct message_part *part,
 static void part_write_body(const struct message_part *part,
 			    string_t *str, bool extended)
 {
-	struct message_part_data *data = part->context;
+	struct message_part_data *data = part->data;
 	bool text;
 
 	if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
@@ -423,7 +423,7 @@ static void part_write_body(const struct message_part *part,
 		i_assert(part->children != NULL);
 		i_assert(part->children->next == NULL);
 
-                child_data = part->children->context;
+                child_data = part->children->data;
 
 		str_append(str, " (");
 		if (child_data->envelope_str != NULL)
@@ -450,7 +450,7 @@ static void part_write_body(const struct message_part *part,
 
 bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
 {
-	const struct message_part_data *data = part->context;
+	const struct message_part_data *data = part->data;
 
 	i_assert(part->parent == NULL);
 
@@ -700,9 +700,9 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	uoff_t vsize;
 	bool multipart, text, message_rfc822;
 
-	i_assert(part->context == NULL);
+	i_assert(part->data == NULL);
 
-	part->context = data = p_new(pool, struct message_part_data, 1);
+	part->data = data = p_new(pool, struct message_part_data, 1);
 	data->pool = pool;
 
 	multipart = FALSE;
@@ -841,7 +841,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		}
 		str_truncate(tmpstr, 0);
 		imap_write_envelope(list_args, tmpstr);
-		child_data = part->children->context;
+		child_data = part->children->data;
 		child_data->envelope_str = p_strdup(pool, str_c(tmpstr));
 
 		args += 2;

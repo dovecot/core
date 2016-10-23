@@ -944,7 +944,7 @@ static void index_mail_cache_dates(struct index_mail *mail)
 static struct message_part *
 index_mail_find_first_text_mime_part(struct message_part *parts)
 {
-	struct message_part_data *body_data = parts->context;
+	struct message_part_data *body_data = parts->data;
 	struct message_part *part;
 
 	i_assert(body_data != NULL);
@@ -966,7 +966,7 @@ index_mail_find_first_text_mime_part(struct message_part *parts)
 
 		for (part = parts->children; part != NULL; part = part->next) {
 			struct message_part_data *sub_body_data =
-				part->context;
+				part->data;
 
 			i_assert(sub_body_data != NULL);
 
