@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "istream.h"
 #include "str.h"
+#include "message-part-data.h"
 #include "message-parser.h"
 #include "imap-bodystructure.h"
 #include "test-common.h"
