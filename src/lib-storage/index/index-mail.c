@@ -8,6 +8,7 @@
 #include "hex-binary.h"
 #include "str.h"
 #include "message-date.h"
+#include "message-part-data.h"
 #include "message-part-serialize.h"
 #include "message-parser.h"
 #include "message-snippet.h"

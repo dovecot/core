@@ -27,6 +27,7 @@ libmail_la_SOURCES = \
 	message-id.c \
 	message-parser.c \
 	message-part.c \
+	message-part-data.c \
 	message-part-serialize.c \
 	message-search.c \
 	message-size.c \
@@ -63,6 +64,7 @@ headers = \
 	message-id.h \
 	message-parser.h \
 	message-part.h \
+	message-part-data.h \
 	message-part-serialize.h \
 	message-search.h \
 	message-size.h \

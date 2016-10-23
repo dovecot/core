@@ -4,168 +4,17 @@
 #include "istream.h"
 #include "str.h"
 #include "message-address.h"
+#include "message-part-data.h"
 #include "message-parser.h"
 #include "imap-parser.h"
 #include "imap-envelope.h"
 #include "imap-quote.h"
-
-struct message_part_envelope_data {
-	const char *date, *subject;
-	struct message_address *from, *sender, *reply_to;
-	struct message_address *to, *cc, *bcc;
-
-	const char *in_reply_to, *message_id;
-};
-
-enum envelope_field {
-	ENVELOPE_FIELD_DATE = 0,
-	ENVELOPE_FIELD_SUBJECT,
-	ENVELOPE_FIELD_FROM,
-	ENVELOPE_FIELD_SENDER,
-	ENVELOPE_FIELD_REPLY_TO,
-	ENVELOPE_FIELD_TO,
-	ENVELOPE_FIELD_CC,
-	ENVELOPE_FIELD_BCC,
-	ENVELOPE_FIELD_IN_REPLY_TO,
-	ENVELOPE_FIELD_MESSAGE_ID,
-
-	ENVELOPE_FIELD_UNKNOWN
-};
 
 const char *imap_envelope_headers[] = {
 	"Date", "Subject", "From", "Sender", "Reply-To",
 	"To", "Cc", "Bcc", "In-Reply-To", "Message-ID",
 	NULL
 };
-
-static enum envelope_field
-envelope_get_field(const char *name)
-{
-	switch (*name) {
-	case 'B':
-	case 'b':
-		if (strcasecmp(name, "Bcc") == 0)
-			return ENVELOPE_FIELD_BCC;
-		break;
-	case 'C':
-	case 'c':
-		if (strcasecmp(name, "Cc") == 0)
-			return ENVELOPE_FIELD_CC;
-		break;
-	case 'D':
-	case 'd':
-		if (strcasecmp(name, "Date") == 0)
-			return ENVELOPE_FIELD_DATE;
-		break;
-	case 'F':
-	case 'f':
-		if (strcasecmp(name, "From") == 0)
-			return ENVELOPE_FIELD_FROM;
-		break;
-	case 'I':
-	case 'i':
-		if (strcasecmp(name, "In-reply-to") == 0)
-			return ENVELOPE_FIELD_IN_REPLY_TO;
-		break;
-	case 'M':
-	case 'm':
-		if (strcasecmp(name, "Message-id") == 0)
-			return ENVELOPE_FIELD_MESSAGE_ID;
-		break;
-	case 'R':
-	case 'r':
-		if (strcasecmp(name, "Reply-to") == 0)
-			return ENVELOPE_FIELD_REPLY_TO;
-		break;
-	case 'S':
-	case 's':
-		if (strcasecmp(name, "Subject") == 0)
-			return ENVELOPE_FIELD_SUBJECT;
-		if (strcasecmp(name, "Sender") == 0)
-			return ENVELOPE_FIELD_SENDER;
-		break;
-	case 'T':
-	case 't':
-		if (strcasecmp(name, "To") == 0)
-			return ENVELOPE_FIELD_TO;
-		break;
-	}
-
-	return ENVELOPE_FIELD_UNKNOWN;
-}
-
-void message_part_envelope_parse_from_header(pool_t pool,
-	struct message_part_envelope_data **data,
-	struct message_header_line *hdr)
-{
-	struct message_part_envelope_data *d;
-	enum envelope_field field;
-	struct message_address **addr_p;
-	const char **str_p;
-
-	if (*data == NULL) {
-		*data = p_new(pool, struct message_part_envelope_data, 1);
-	}
-
-	if (hdr == NULL)
-		return;
-	field = envelope_get_field(hdr->name);
-	if (field == ENVELOPE_FIELD_UNKNOWN)
-		return;
-
-	if (hdr->continues) {
-		/* wait for full value */
-		hdr->use_full_value = TRUE;
-		return;
-	}
-
-	d = *data;
-	addr_p = NULL; str_p = NULL;
-	switch (field) {
-	case ENVELOPE_FIELD_DATE:
-		str_p = &d->date;
-		break;
-	case ENVELOPE_FIELD_SUBJECT:
-		str_p = &d->subject;
-		break;
-	case ENVELOPE_FIELD_MESSAGE_ID:
-		str_p = &d->message_id;
-		break;
-	case ENVELOPE_FIELD_IN_REPLY_TO:
-		str_p = &d->in_reply_to;
-		break;
-
-	case ENVELOPE_FIELD_CC:
-		addr_p = &d->cc;
-		break;
-	case ENVELOPE_FIELD_BCC:
-		addr_p = &d->bcc;
-		break;
-	case ENVELOPE_FIELD_FROM:
-		addr_p = &d->from;
-		break;
-	case ENVELOPE_FIELD_SENDER:
-		addr_p = &d->sender;
-		break;
-	case ENVELOPE_FIELD_TO:
-		addr_p = &d->to;
-		break;
-	case ENVELOPE_FIELD_REPLY_TO:
-		addr_p = &d->reply_to;
-		break;
-	case ENVELOPE_FIELD_UNKNOWN:
-		i_unreached();
-	}
-
-	if (addr_p != NULL) {
-		*addr_p = message_address_parse(pool, hdr->full_value,
-						hdr->full_value_len,
-						UINT_MAX, TRUE);
-	} else if (str_p != NULL) {
-		*str_p = p_strndup(pool,
-			hdr->full_value, hdr->full_value_len);
-	}
-}
 
 static void imap_write_address(string_t *str, struct message_address *addr)
 {
