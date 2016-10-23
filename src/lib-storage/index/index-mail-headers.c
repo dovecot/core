@@ -293,7 +293,7 @@ void index_mail_parse_header(struct message_part *part,
 
 	if (data->save_bodystructure_header) {
 		i_assert(part != NULL);
-		imap_bodystructure_parse_header(mail->mail.data_pool, part, hdr);
+		message_part_data_parse_from_header(mail->mail.data_pool, part, hdr);
 	}
 
 	if (data->save_envelope) {

@@ -384,7 +384,7 @@ msg_parse(pool_t pool, const char *message, bool parse_bodystructure)
 			MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
 		if (parse_bodystructure) {
-			imap_bodystructure_parse_header(pool, block.part,
+			message_part_data_parse_from_header(pool, block.part,
 							block.hdr);
 		}
 	}
