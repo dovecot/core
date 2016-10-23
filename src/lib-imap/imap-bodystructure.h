@@ -1,7 +1,7 @@
 #ifndef IMAP_BODYSTRUCTURE_H
 #define IMAP_BODYSTRUCTURE_H
 
-struct message_part_body_data {
+struct message_part_data {
 	pool_t pool;
 	/* NOTE: all the strings are stored via imap_quote(), so they contain
 	   "quoted-text" or {123}\r\nliterals */
@@ -34,7 +34,7 @@ bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
 	ATTR_PURE;
 
 /* Write a BODY/BODYSTRUCTURE from given message_part. The
-   message_part->contexts must contain struct message_part_body_data.
+   message_part->contexts must contain struct message_part_data.
    part->body_size.virtual_size and .lines are also used for writing it. */
 void imap_bodystructure_write(const struct message_part *part,
 			      string_t *dest, bool extended);

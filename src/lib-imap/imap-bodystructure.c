@@ -28,7 +28,7 @@ static char *imap_get_string(pool_t pool, const char *value)
 	return p_strdup(pool, str_c(str));
 }
 
-static void parse_content_type(struct message_part_body_data *data,
+static void parse_content_type(struct message_part_data *data,
 			       struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
@@ -91,7 +91,7 @@ static void parse_content_type(struct message_part_body_data *data,
 	}
 }
 
-static void parse_content_transfer_encoding(struct message_part_body_data *data,
+static void parse_content_transfer_encoding(struct message_part_data *data,
 					    struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
@@ -108,7 +108,7 @@ static void parse_content_transfer_encoding(struct message_part_body_data *data,
 	}
 }
 
-static void parse_content_disposition(struct message_part_body_data *data,
+static void parse_content_disposition(struct message_part_data *data,
 				      struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
@@ -139,7 +139,7 @@ static void parse_content_disposition(struct message_part_body_data *data,
 }
 
 static void parse_content_language(const unsigned char *value, size_t value_len,
-				   struct message_part_body_data *data)
+				   struct message_part_data *data)
 {
 	struct rfc822_parser_context parser;
 	string_t *str;
@@ -170,7 +170,7 @@ static void parse_content_language(const unsigned char *value, size_t value_len,
 	}
 }
 
-static void parse_content_header(struct message_part_body_data *d,
+static void parse_content_header(struct message_part_data *d,
 				 struct message_header_line *hdr,
 				 pool_t pool)
 {
@@ -233,7 +233,7 @@ static void parse_content_header(struct message_part_body_data *d,
 void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 				     struct message_header_line *hdr)
 {
-	struct message_part_body_data *part_data;
+	struct message_part_data *part_data;
 	struct message_part_envelope_data *envelope;
 	bool parent_rfc822;
 
@@ -242,7 +242,7 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 			/* no Content-* headers. add an empty context
 			   structure anyway. */
 			part->context = part_data =
-				p_new(pool, struct message_part_body_data, 1);
+				p_new(pool, struct message_part_data, 1);
 			part_data->pool = pool;
 		} else if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
 			/* If there was no Mime-Version, forget all
@@ -268,7 +268,7 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 	if (part->context == NULL) {
 		/* initialize message part data */
 		part->context = part_data =
-			p_new(pool, struct message_part_body_data, 1);
+			p_new(pool, struct message_part_data, 1);
 		part_data->pool = pool;
 	}
 	part_data = part->context;
@@ -297,7 +297,7 @@ imap_bodystructure_write_siblings(const struct message_part *part,
 }
 
 static void
-part_write_bodystructure_data_common(struct message_part_body_data *data,
+part_write_bodystructure_data_common(struct message_part_data *data,
 				     string_t *str)
 {
 	str_append_c(str, ' ');
@@ -334,7 +334,7 @@ part_write_bodystructure_data_common(struct message_part_body_data *data,
 static void part_write_body_multipart(const struct message_part *part,
 				      string_t *str, bool extended)
 {
-	struct message_part_body_data *data = part->context;
+	struct message_part_data *data = part->context;
 
 	if (part->children != NULL)
 		imap_bodystructure_write_siblings(part->children, str, extended);
@@ -370,7 +370,7 @@ static void part_write_body_multipart(const struct message_part *part,
 static void part_write_body(const struct message_part *part,
 			    string_t *str, bool extended)
 {
-	struct message_part_body_data *data = part->context;
+	struct message_part_data *data = part->context;
 	bool text;
 
 	if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
@@ -418,7 +418,7 @@ static void part_write_body(const struct message_part *part,
 		str_printfa(str, " %u", part->body_size.lines);
 	} else if (part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) {
 		/* message/rfc822 contains envelope + body + line count */
-		struct message_part_body_data *child_data;
+		struct message_part_data *child_data;
 
 		i_assert(part->children != NULL);
 		i_assert(part->children->next == NULL);
@@ -450,7 +450,7 @@ static void part_write_body(const struct message_part *part,
 
 bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
 {
-	const struct message_part_body_data *data = part->context;
+	const struct message_part_data *data = part->context;
 
 	i_assert(part->parent == NULL);
 
@@ -645,7 +645,7 @@ imap_bodystructure_parse_lines(const struct imap_arg *arg,
 }
 
 static int
-imap_bodystructure_parse_args_common(struct message_part_body_data *data,
+imap_bodystructure_parse_args_common(struct message_part_data *data,
 				     pool_t pool, string_t *tmpstr,
 				     const struct imap_arg *args,
 				     const char **error_r)
@@ -693,7 +693,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 			      struct message_part *part, string_t *tmpstr,
 			      const char **error_r)
 {
-	struct message_part_body_data *data;
+	struct message_part_data *data;
 	struct message_part *child_part;
 	const struct imap_arg *list_args;
 	const char *value, *content_type, *subtype;
@@ -702,7 +702,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 
 	i_assert(part->context == NULL);
 
-	part->context = data = p_new(pool, struct message_part_body_data, 1);
+	part->context = data = p_new(pool, struct message_part_data, 1);
 	data->pool = pool;
 
 	multipart = FALSE;
@@ -820,7 +820,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		i_assert(part->children == NULL);
 	} else if (message_rfc822) {
 		/* message/rfc822 - envelope + bodystructure + text lines */
-		struct message_part_body_data *child_data;
+		struct message_part_data *child_data;
 
 		i_assert(part->children != NULL &&
 			 part->children->next == NULL);
