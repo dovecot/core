@@ -49,6 +49,11 @@ extern const char *message_part_envelope_headers[];
 bool message_part_data_is_plain_7bit(const struct message_part *part)
 	ATTR_PURE;
 
+/* Returns TRUE if this message part has a filename. The filename is
+   returned in filename_r. */
+bool message_part_data_get_filename(const struct message_part *part,
+	const char **filename_r);
+
 /*
  * Header parsing
  */
