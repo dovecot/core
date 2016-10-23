@@ -2,7 +2,6 @@
 #define IMAP_BODYSTRUCTURE_H
 
 struct message_part_data {
-	pool_t pool;
 	/* NOTE: all the strings are stored via imap_quote(), so they contain
 	   "quoted-text" or {123}\r\nliterals */
 	const char *content_type, *content_subtype;

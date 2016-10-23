@@ -28,8 +28,9 @@ static char *imap_get_string(pool_t pool, const char *value)
 	return p_strdup(pool, str_c(str));
 }
 
-static void parse_content_type(struct message_part_data *data,
-			       struct message_header_line *hdr)
+static void
+parse_content_type(struct message_part_data *data,
+	pool_t pool, struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
 	const char *value, *const *results;
@@ -49,12 +50,12 @@ static void parse_content_type(struct message_part_data *data,
 	for (i = 0; value[i] != '\0'; i++) {
 		if (value[i] == '/') {
 			data->content_subtype =
-				imap_get_string(data->pool, value + i+1);
+				imap_get_string(pool, value + i+1);
 			break;
 		}
 	}
 	str_truncate(str, i);
-	data->content_type = imap_get_string(data->pool, str_c(str));
+	data->content_type = imap_get_string(pool, str_c(str));
 
 	if (ret < 0) {
 		/* Content-Type is broken, but we wanted to get it as well as
@@ -87,12 +88,13 @@ static void parse_content_type(struct message_part_data *data,
 	}
 	if (str_len(str) > 0) {
 		data->content_type_params =
-			p_strdup(data->pool, str_c(str) + 1);
+			p_strdup(pool, str_c(str) + 1);
 	}
 }
 
-static void parse_content_transfer_encoding(struct message_part_data *data,
-					    struct message_header_line *hdr)
+static void
+parse_content_transfer_encoding(struct message_part_data *data,
+	pool_t pool, struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
 	string_t *str;
@@ -104,12 +106,13 @@ static void parse_content_transfer_encoding(struct message_part_data *data,
 	if (rfc822_parse_mime_token(&parser, str) >= 0 &&
 	    rfc822_skip_lwsp(&parser) == 0 && str_len(str) > 0) {
 		data->content_transfer_encoding =
-			imap_get_string(data->pool, str_c(str));
+			imap_get_string(pool, str_c(str));
 	}
 }
 
-static void parse_content_disposition(struct message_part_data *data,
-				      struct message_header_line *hdr)
+static void
+parse_content_disposition(struct message_part_data *data,
+	pool_t pool, struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
 	const char *const *results;
@@ -121,7 +124,7 @@ static void parse_content_disposition(struct message_part_data *data,
 	str = t_str_new(256);
 	if (rfc822_parse_mime_token(&parser, str) < 0)
 		return;
-	data->content_disposition = imap_get_string(data->pool, str_c(str));
+	data->content_disposition = imap_get_string(pool, str_c(str));
 
 	/* parse parameters and save them */
 	str_truncate(str, 0);
@@ -134,12 +137,13 @@ static void parse_content_disposition(struct message_part_data *data,
 	}
 	if (str_len(str) > 0) {
 		data->content_disposition_params =
-			p_strdup(data->pool, str_c(str) + 1);
+			p_strdup(pool, str_c(str) + 1);
 	}
 }
 
-static void parse_content_language(const unsigned char *value, size_t value_len,
-				   struct message_part_data *data)
+static void
+parse_content_language(struct message_part_data *data,
+	pool_t pool, const unsigned char *value, size_t value_len)
 {
 	struct rfc822_parser_context parser;
 	string_t *str;
@@ -166,13 +170,12 @@ static void parse_content_language(const unsigned char *value, size_t value_len,
 
 	if (str_len(str) > 1) {
 		str_truncate(str, str_len(str) - 2);
-		data->content_language = p_strdup(data->pool, str_c(str));
+		data->content_language = p_strdup(pool, str_c(str));
 	}
 }
 
 static void parse_content_header(struct message_part_data *d,
-				 struct message_header_line *hdr,
-				 pool_t pool)
+				 pool_t pool, struct message_header_line *hdr)
 {
 	const char *name = hdr->name + strlen("Content-");
 	const char *value;
@@ -200,18 +203,18 @@ static void parse_content_header(struct message_part_data *d,
 	case 't':
 	case 'T':
 		if (strcasecmp(name, "Type") == 0 && d->content_type == NULL)
-			parse_content_type(d, hdr);
+			parse_content_type(d, pool, hdr);
 		else if (strcasecmp(name, "Transfer-Encoding") == 0 &&
 			 d->content_transfer_encoding == NULL)
-			parse_content_transfer_encoding(d, hdr);
+			parse_content_transfer_encoding(d, pool, hdr);
 		break;
 
 	case 'l':
 	case 'L':
 		if (strcasecmp(name, "Language") == 0 &&
 		    d->content_language == NULL) {
-			parse_content_language(hdr->full_value,
-					       hdr->full_value_len, d);
+			parse_content_language(d, pool, hdr->full_value,
+					       hdr->full_value_len);
 		} else if (strcasecmp(name, "Location") == 0 &&
 			   d->content_location == NULL) {
 			d->content_location = imap_get_string(pool, value);
@@ -225,7 +228,7 @@ static void parse_content_header(struct message_part_data *d,
 			d->content_description = imap_get_string(pool, value);
 		else if (strcasecmp(name, "Disposition") == 0 &&
 			 d->content_disposition_params == NULL)
-			parse_content_disposition(d, hdr);
+			parse_content_disposition(d, pool, hdr);
 		break;
 	}
 }
@@ -243,7 +246,6 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 			   structure anyway. */
 			part->data = part_data =
 				p_new(pool, struct message_part_data, 1);
-			part_data->pool = pool;
 		} else if ((part->flags & MESSAGE_PART_FLAG_IS_MIME) == 0) {
 			/* If there was no Mime-Version, forget all
 			   the Content-stuff */
@@ -251,7 +253,6 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 			envelope = part_data->envelope;
 
 			i_zero(part_data);
-			part_data->pool = pool;
 			part_data->envelope = envelope;
 		}
 		return;
@@ -269,13 +270,12 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 		/* initialize message part data */
 		part->data = part_data =
 			p_new(pool, struct message_part_data, 1);
-		part_data->pool = pool;
 	}
 	part_data = part->data;
 
 	if (strncasecmp(hdr->name, "Content-", 8) == 0) {
 		T_BEGIN {
-			parse_content_header(part_data, hdr, pool);
+			parse_content_header(part_data, pool, hdr);
 		} T_END;
 	}
 
@@ -703,7 +703,6 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	i_assert(part->data == NULL);
 
 	part->data = data = p_new(pool, struct message_part_data, 1);
-	data->pool = pool;
 
 	multipart = FALSE;
 	child_part = part->children;
