@@ -950,17 +950,17 @@ index_mail_find_first_text_mime_part(struct message_part *parts)
 	i_assert(body_data != NULL);
 
 	if (body_data->content_type == NULL ||
-	    strcasecmp(body_data->content_type, "\"text\"") == 0) {
+	    strcasecmp(body_data->content_type, "text") == 0) {
 		/* use any text/ part, even if we don't know what exactly
 		   it is. */
 		return parts;
 	}
-	if (strcasecmp(body_data->content_type, "\"multipart\"") != 0) {
+	if (strcasecmp(body_data->content_type, "multipart") != 0) {
 		/* for now we support only text Content-Types */
 		return NULL;
 	}
 
-	if (strcasecmp(body_data->content_subtype, "\"alternative\"") == 0) {
+	if (strcasecmp(body_data->content_subtype, "alternative") == 0) {
 		/* text/plain > text/html > text/ */
 		struct message_part *html_part = NULL, *text_part = NULL;
 
@@ -971,11 +971,11 @@ index_mail_find_first_text_mime_part(struct message_part *parts)
 			i_assert(sub_body_data != NULL);
 
 			if (sub_body_data->content_type == NULL ||
-			    strcasecmp(sub_body_data->content_type, "\"text\"") == 0) {
+			    strcasecmp(sub_body_data->content_type, "text") == 0) {
 				if (sub_body_data->content_subtype == NULL ||
-				    strcasecmp(sub_body_data->content_subtype, "\"plain\"") == 0)
+				    strcasecmp(sub_body_data->content_subtype, "plain") == 0)
 					return part;
-				if (strcasecmp(sub_body_data->content_subtype, "\"html\"") == 0)
+				if (strcasecmp(sub_body_data->content_subtype, "html") == 0)
 					html_part = part;
 				else
 					text_part = part;
