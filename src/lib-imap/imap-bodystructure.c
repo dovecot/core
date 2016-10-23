@@ -196,7 +196,7 @@ static void part_write_body(const struct message_part *part,
 		child_data = part->children->data;
 
 		str_append(str, " (");
-		imap_envelope_write_part_data(child_data->envelope, str);
+		imap_envelope_write(child_data->envelope, str);
 		str_append(str, ") ");
 
 		part_write_bodystructure_siblings(part->children, str, extended);

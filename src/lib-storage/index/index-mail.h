@@ -85,7 +85,7 @@ struct index_mail_data {
 	struct message_binary_part *bin_parts;
 	const char *envelope, *body, *bodystructure, *guid, *filename;
 	const char *from_envelope, *body_snippet;
-	struct message_part_envelope_data *envelope_data;
+	struct message_part_envelope *envelope_data;
 
 	uint32_t seq;
 	uint32_t cache_flags;

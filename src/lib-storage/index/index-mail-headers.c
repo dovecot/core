@@ -269,7 +269,7 @@ static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)
 	string_t *str;
 
 	str = str_new(mail->mail.data_pool, 256);
-	imap_envelope_write_part_data(mail->data.envelope_data, str);
+	imap_envelope_write(mail->data.envelope_data, str);
 	mail->data.envelope = str_c(str);
 
 	if (mail_cache_field_can_add(_mail->transaction->cache_trans,

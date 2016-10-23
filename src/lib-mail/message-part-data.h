@@ -12,7 +12,7 @@ struct message_part_param {
 	const char *value;
 };
 
-struct message_part_envelope_data {
+struct message_part_envelope {
 	const char *date, *subject;
 	struct message_address *from, *sender, *reply_to;
 	struct message_address *to, *cc, *bcc;
@@ -35,7 +35,7 @@ struct message_part_data {
 	const char *const *content_language;
 	const char *content_location;
 
-	struct message_part_envelope_data *envelope;
+	struct message_part_envelope *envelope;
 };
 
 extern const char *message_part_envelope_headers[];
@@ -55,7 +55,7 @@ bool message_part_data_is_plain_7bit(const struct message_part *part)
 
 /* Update envelope data based from given header field */
 void message_part_envelope_parse_from_header(pool_t pool,
-	struct message_part_envelope_data **_data,
+	struct message_part_envelope **_data,
 	struct message_header_line *hdr);
 
 /* Parse a single header. Note that this modifies part->context. */
