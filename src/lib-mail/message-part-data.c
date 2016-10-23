@@ -141,16 +141,16 @@ envelope_get_field(const char *name)
 }
 
 void message_part_envelope_parse_from_header(pool_t pool,
-	struct message_part_envelope_data **data,
+	struct message_part_envelope **data,
 	struct message_header_line *hdr)
 {
-	struct message_part_envelope_data *d;
+	struct message_part_envelope *d;
 	enum envelope_field field;
 	struct message_address **addr_p;
 	const char **str_p;
 
 	if (*data == NULL) {
-		*data = p_new(pool, struct message_part_envelope_data, 1);
+		*data = p_new(pool, struct message_part_envelope, 1);
 	}
 
 	if (hdr == NULL)
@@ -425,7 +425,7 @@ void message_part_data_parse_from_header(pool_t pool,
 	struct message_header_line *hdr)
 {
 	struct message_part_data *part_data;
-	struct message_part_envelope_data *envelope;
+	struct message_part_envelope *envelope;
 	bool parent_rfc822;
 
 	if (hdr == NULL) {

@@ -39,7 +39,7 @@ static void imap_write_address(string_t *str, struct message_address *addr)
 	str_append_c(str, ')');
 }
 
-void imap_envelope_write_part_data(struct message_part_envelope_data *data,
+void imap_envelope_write(struct message_part_envelope *data,
 				   string_t *str)
 {
 #define NVL(str, nullstr) ((str) != NULL ? (str) : (nullstr))
@@ -147,12 +147,12 @@ imap_envelope_parse_addresses(const struct imap_arg *arg,
 }
 
 bool imap_envelope_parse_args(const struct imap_arg *args,
-	pool_t pool, struct message_part_envelope_data **envlp_r,
+	pool_t pool, struct message_part_envelope **envlp_r,
 	const char **error_r)
 {
-	struct message_part_envelope_data *envlp;
+	struct message_part_envelope *envlp;
 
-	envlp = p_new(pool, struct message_part_envelope_data, 1);
+	envlp = p_new(pool, struct message_part_envelope, 1);
 
 	if (!imap_arg_get_nstring(args++, &envlp->date)) {
 		*error_r = "Invalid date field";
