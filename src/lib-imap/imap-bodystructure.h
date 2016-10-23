@@ -32,9 +32,9 @@ void message_part_data_parse_from_header(pool_t pool,
 	struct message_part *part,
 	struct message_header_line *hdr);
 
-/* Returns TRUE if BODYSTRUCTURE is
-   ("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" n n NIL NIL NIL) */
-bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
+/* Returns TRUE if this message part has content-type "text/plain",
+   chaset "us-ascii" and content-tranfer-encoding "7bit" */
+bool message_part_data_is_plain_7bit(const struct message_part *part)
 	ATTR_PURE;
 
 /* Write a BODY/BODYSTRUCTURE from given message_part. The message_part->data

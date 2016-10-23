@@ -643,7 +643,7 @@ static void index_mail_body_parsed_cache_flags(struct index_mail *mail)
 						_mail->seq, cache_flags_idx);
 
 	if (data->parsed_bodystructure &&
-	    imap_bodystructure_is_plain_7bit(data->parts) &&
+	    message_part_data_is_plain_7bit(data->parts) &&
 	    (want_cached || want_plain_bodystructure_cached(mail))) {
 		cache_flags |= MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII;
 		/* we need message_parts cached to be able to

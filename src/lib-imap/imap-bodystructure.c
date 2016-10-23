@@ -473,7 +473,7 @@ static void part_write_body(const struct message_part *part,
 	part_write_bodystructure_common(data, str);
 }
 
-bool imap_bodystructure_is_plain_7bit(const struct message_part *part)
+bool message_part_data_is_plain_7bit(const struct message_part *part)
 {
 	const struct message_part_data *data = part->data;
 
