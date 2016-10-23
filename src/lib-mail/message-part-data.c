@@ -63,6 +63,30 @@ bool message_part_data_is_plain_7bit(const struct message_part *part)
 	return TRUE;
 }
 
+bool message_part_data_get_filename(const struct message_part *part,
+	const char **filename_r)
+{
+	const struct message_part_data *data = part->data;
+	const struct message_part_param *params;
+	unsigned int params_count, i;
+
+	params = data->content_disposition_params;
+	params_count = data->content_disposition_params_count;
+
+	if (data->content_disposition != NULL &&
+		strcasecmp(data->content_disposition, "attachment") != 0) {
+		return FALSE;
+	}
+	for (i = 0; i < params_count; i++) {
+		if (strcasecmp(params[i].name, "filename") == 0 &&
+			params[i].value != NULL) {
+			*filename_r = params[i].value;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 /*
  * Header parsing
  */
