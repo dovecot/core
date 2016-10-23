@@ -457,6 +457,37 @@ static void test_imap_bodystructure_parse(void)
 	} T_END;
 }
 
+static void test_imap_bodystructure_parse_full(void)
+{
+	const char *error;
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < parse_tests_count; i++) T_BEGIN {
+		struct parse_test *test = &parse_tests[i];
+		struct message_part *parts = NULL;
+		string_t *str = t_str_new(128);
+		pool_t pool = pool_alloconly_create("imap bodystructure parse full", 1024);
+
+		test_begin(t_strdup_printf("imap bodystructure parser full [%u]", i));
+
+		ret = imap_bodystructure_parse_full(test->bodystructure,
+							   pool, &parts, &error);
+		test_assert(ret == 0);
+
+		if (ret == 0) {
+			str_truncate(str, 0);
+			imap_bodystructure_write(parts, str, TRUE);
+			test_assert(strcmp(str_c(str), test->bodystructure) == 0);
+		} else {
+			i_error("Invalid BODYSTRUCTURE: %s", error);
+		}
+
+		pool_unref(&pool);
+		test_end();
+	} T_END;
+}
+
 static void test_imap_bodystructure_normalize(void)
 {
 	struct message_part *parts;
@@ -495,6 +526,7 @@ int main(void)
 		test_imap_bodystructure_write,
 		test_imap_bodystructure_parse,
 		test_imap_bodystructure_normalize,
+		test_imap_bodystructure_parse_full,
 		NULL
 	};
 	return test_run(test_functions);

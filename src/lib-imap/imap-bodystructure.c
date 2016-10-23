@@ -339,44 +339,79 @@ imap_bodystructure_parse_args_common(struct message_part *part,
 
 static int
 imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
-			      struct message_part *part,
+			      struct message_part **_part,
 			      const char **error_r)
 {
+	struct message_part *part = *_part, *child_part;;
+	struct message_part **child_part_p;
 	struct message_part_data *data;
-	struct message_part *child_part;
 	const struct imap_arg *list_args;
 	const char *value, *content_type, *subtype, *error;
-	bool multipart, text, message_rfc822, has_lines;
+	bool multipart, text, message_rfc822, parsing_tree, has_lines;
 	unsigned int lines;
 	uoff_t vsize;
 
-	i_assert(part->data == NULL);
+	if (part != NULL) {
+		/* parsing with pre-existing message_part tree */
+		parsing_tree = FALSE;
+	} else {
+		/* parsing message_part tree from BODYSTRUCTURE as well */
+		part = *_part = p_new(pool, struct message_part, 1);
+		parsing_tree = TRUE;
+	}
 	part->data = data = p_new(pool, struct message_part_data, 1);
 
 	multipart = FALSE;
-	child_part = part->children;
-	while (args->type == IMAP_ARG_LIST) {
-		if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
-		    child_part == NULL) {
-			*error_r = "message_part hierarchy doesn't match BODYSTRUCTURE";
-			return -1;
+	if (!parsing_tree) {
+		child_part = part->children;
+		while (args->type == IMAP_ARG_LIST) {
+			if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
+				  child_part == NULL) {
+				*error_r = "message_part hierarchy "
+					"doesn't match BODYSTRUCTURE";
+				return -1;
+			}
+
+			list_args = imap_arg_as_list(args);
+			if (imap_bodystructure_parse_args(list_args, pool,
+								&child_part, error_r) < 0)
+				return -1;
+			child_part = child_part->next;
+
+			multipart = TRUE;
+			args++;
 		}
 
-		list_args = imap_arg_as_list(args);
-		if (imap_bodystructure_parse_args(list_args, pool,
-						  child_part, error_r) < 0)
+		if (multipart) {
+			if (child_part != NULL) {
+				*error_r = "message_part hierarchy "
+					"doesn't match BODYSTRUCTURE";
+				return -1;
+			}
+		} else 	if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0) {
+			*error_r = "message_part multipart flag "
+				"doesn't match BODYSTRUCTURE";
 			return -1;
-		child_part = child_part->next;
+		}
+	} else {
+		child_part_p = &part->children;
+		while (args->type == IMAP_ARG_LIST) {
+			list_args = imap_arg_as_list(args);
+			if (imap_bodystructure_parse_args(list_args, pool,
+								child_part_p, error_r) < 0)
+				return -1;
+			(*child_part_p)->parent = part;
+			child_part_p = &(*child_part_p)->next;
 
-		multipart = TRUE;
-		args++;
+			multipart = TRUE;
+			args++;
+		}
+		if (multipart) {
+			part->flags |= MESSAGE_PART_FLAG_MULTIPART;
+		}
 	}
 
 	if (multipart) {
-		if (child_part != NULL) {
-			*error_r = "message_part hierarchy doesn't match BODYSTRUCTURE";
-			return -1;
-		}
 		data->content_type = "multipart";
 		if (!imap_arg_get_nstring(args++, &data->content_subtype)) {
 			*error_r = "Invalid multipart content-type";
@@ -394,10 +429,6 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		return imap_bodystructure_parse_args_common
 			(part, pool, args, error_r);
 	}
-	if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0) {
-		*error_r = "message_part multipart flag doesn't match BODYSTRUCTURE";
-		return -1;
-	}
 
 	/* "content type" "subtype" */
 	if (!imap_arg_get_astring(&args[0], &content_type) ||
@@ -413,19 +444,29 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	message_rfc822 = strcasecmp(content_type, "message") == 0 &&
 		strcasecmp(subtype, "rfc822") == 0;
 
+	if (!parsing_tree) {
 #if 0
-	/* Disabled for now. Earlier Dovecot versions handled broken
-	   Content-Type headers by writing them as "text" "plain" to
-	   BODYSTRUCTURE reply, but the message_part didn't have
-	   MESSAGE_PART_FLAG_TEXT. */
-	if (text != ((part->flags & MESSAGE_PART_FLAG_TEXT) != 0)) {
-		*error_r = "message_part text flag doesn't match BODYSTRUCTURE";
-		return -1;
-	}
+		/* Disabled for now. Earlier Dovecot versions handled broken
+		   Content-Type headers by writing them as "text" "plain" to
+		   BODYSTRUCTURE reply, but the message_part didn't have
+		   MESSAGE_PART_FLAG_TEXT. */
+		if (text != ((part->flags & MESSAGE_PART_FLAG_TEXT) != 0)) {
+			*error_r = "message_part text flag "
+				"doesn't match BODYSTRUCTURE";
+			return -1;
+		}
 #endif
-	if (message_rfc822 != ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0)) {
-		*error_r = "message_part message/rfc822 flag doesn't match BODYSTRUCTURE";
-		return -1;
+		if (message_rfc822 !=
+			((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0)) {
+			*error_r = "message_part message/rfc822 flag "
+				"doesn't match BODYSTRUCTURE";
+			return -1;
+		}
+	} else {
+		if (text)
+			part->flags |= MESSAGE_PART_FLAG_TEXT;
+		if (message_rfc822)
+			part->flags |= MESSAGE_PART_FLAG_MESSAGE_RFC822;
 	}
 
 	/* ("content type param key" "value" ...) | NIL */
@@ -458,10 +499,14 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		*error_r = "Invalid size field";
 		return -1;
 	}
-	if (vsize != part->body_size.virtual_size) {
-		*error_r = "message_part virtual_size doesn't match "
-			"size in BODYSTRUCTURE";
-		return -1;
+	if (!parsing_tree) {
+		if (vsize != part->body_size.virtual_size) {
+			*error_r = "message_part virtual_size doesn't match "
+				"size in BODYSTRUCTURE";
+			return -1;
+		}
+	} else {
+		part->body_size.virtual_size = vsize;
 	}
 
 	if (text) {
@@ -476,16 +521,23 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	} else if (message_rfc822) {
 		/* message/rfc822 - envelope + bodystructure + text lines */
 
-		i_assert(part->children != NULL &&
-			 part->children->next == NULL);
+		if (!parsing_tree) {
+			i_assert(part->children != NULL &&
+				 part->children->next == NULL);
+		}
 
 		if (!imap_arg_get_list(&args[1], &list_args)) {
 			*error_r = "Child bodystructure list expected";
 			return -1;
 		}
 		if (imap_bodystructure_parse_args
-			(list_args, pool, part->children, error_r) < 0)
+			(list_args, pool, &part->children, error_r) < 0)
 			return -1;
+		if (parsing_tree) {
+			i_assert(part->children != NULL &&
+				 part->children->next == NULL);
+			part->children->parent = part;
+		}
 
 		if (!imap_arg_get_list(&args[0], &list_args)) {
 			*error_r = "Envelope list expected";
@@ -506,12 +558,17 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		has_lines = TRUE;
 	} else {
 		i_assert(part->children == NULL);
+		lines = 0;
 		has_lines = FALSE;
 	}
-	if (has_lines && lines != part->body_size.lines) {
-		*error_r = "message_part lines "
-			"doesn't match lines in BODYSTRUCTURE";
-		return -1;
+	if (!parsing_tree) {
+		if (has_lines && lines != part->body_size.lines) {
+			*error_r = "message_part lines "
+				"doesn't match lines in BODYSTRUCTURE";
+			return -1;
+		}
+	} else {
+		part->body_size.lines = lines;
 	}
 	if (args->type == IMAP_ARG_EOL)
 		return 0;
@@ -524,8 +581,8 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		(part, pool, args, error_r);
 }
 
-int imap_bodystructure_parse(const char *bodystructure,
-	pool_t pool, struct message_part *parts,
+int imap_bodystructure_parse_full(const char *bodystructure,
+	pool_t pool, struct message_part **parts,
 	const char **error_r)
 {
 	struct istream *input;
@@ -535,8 +592,7 @@ int imap_bodystructure_parse(const char *bodystructure,
 	int ret;
 	bool fatal;
 
-	i_assert(parts != NULL);
-	i_assert(parts->next == NULL);
+	i_assert(*parts == NULL || (*parts)->next == NULL);
 
 	input = i_stream_create_from_data(bodystructure, strlen(bodystructure));
 	(void)i_stream_read(input);
@@ -567,6 +623,16 @@ int imap_bodystructure_parse(const char *bodystructure,
 	imap_parser_unref(&parser);
 	i_stream_destroy(&input);
 	return ret;
+}
+
+int imap_bodystructure_parse(const char *bodystructure,
+	pool_t pool, struct message_part *parts,
+	const char **error_r)
+{
+	i_assert(parts != NULL);
+
+	return imap_bodystructure_parse_full(bodystructure,
+		pool, &parts, error_r);
 }
 
 static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
