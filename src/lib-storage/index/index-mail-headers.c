@@ -293,7 +293,7 @@ void index_mail_parse_header(struct message_part *part,
 	}
 
 	if (data->save_envelope) {
-		imap_envelope_parse_header(mail->mail.data_pool,
+		message_part_envelope_parse_from_header(mail->mail.data_pool,
 					   &data->envelope_data, hdr);
 
 		if (hdr == NULL)
@@ -469,7 +469,7 @@ static void
 imap_envelope_parse_callback(struct message_header_line *hdr,
 			     struct index_mail *mail)
 {
-	imap_envelope_parse_header(mail->mail.data_pool,
+	message_part_envelope_parse_from_header(mail->mail.data_pool,
 				   &mail->data.envelope_data, hdr);
 
 	if (hdr == NULL)

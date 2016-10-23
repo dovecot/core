@@ -271,7 +271,7 @@ void message_part_data_parse_from_header(pool_t pool,
 
 	if (parent_rfc822) {
 		/* message/rfc822, we need the envelope */
-		imap_envelope_parse_header(pool, &part_data->envelope, hdr);
+		message_part_envelope_parse_from_header(pool, &part_data->envelope, hdr);
 	}
 }
 
