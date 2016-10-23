@@ -221,3 +221,130 @@ void imap_envelope_write_part_data(struct message_part_envelope_data *data,
 	str_append_c(str, ' ');
 	str_append(str, NVL(data->message_id, "NIL"));
 }
+
+static bool
+imap_envelope_parse_address(const struct imap_arg *arg,
+	pool_t pool, struct message_address **addr_r)
+{
+	struct message_address *addr;
+	const struct imap_arg *list_args;
+	const char *name, *route, *mailbox, *domain;
+	unsigned int list_count;
+
+	if (!imap_arg_get_list_full(arg, &list_args, &list_count))
+		return FALSE;
+
+	/* we require 4 arguments, strings or NILs */
+	if (list_count < 4)
+		return FALSE;
+
+	if (!imap_arg_get_nstring(&list_args[0], &name))
+		return FALSE;
+	if (!imap_arg_get_nstring(&list_args[1], &route))
+		return FALSE;
+	if (!imap_arg_get_nstring(&list_args[2], &mailbox))
+		return FALSE;
+	if (!imap_arg_get_nstring(&list_args[3], &domain))
+		return FALSE;
+
+	addr = p_new(pool, struct message_address, 1);
+	addr->name = p_strdup(pool, name);
+	addr->route = p_strdup(pool, route);
+	addr->mailbox = p_strdup(pool, mailbox);
+	addr->domain = p_strdup(pool, domain);
+
+	*addr_r = addr;
+	return TRUE;
+}
+
+static bool
+imap_envelope_parse_addresses(const struct imap_arg *arg,
+	pool_t pool, struct message_address **addrs_r)
+{
+	struct message_address *first, *addr, *prev;
+	const struct imap_arg *list_args;
+
+	if (arg->type == IMAP_ARG_NIL) {
+		*addrs_r = NULL;
+		return TRUE;
+	}
+
+	if (!imap_arg_get_list(arg, &list_args))
+		return FALSE;
+
+	first = addr = prev = NULL;
+	for (; !IMAP_ARG_IS_EOL(list_args); list_args++) {
+		if (!imap_envelope_parse_address
+			(list_args, pool, &addr))
+			return FALSE;
+		if (first == NULL)
+			first = addr;
+		if (prev != NULL)
+			prev->next = addr;
+		prev = addr;
+	}
+
+	*addrs_r = first;
+	return TRUE;
+}
+
+bool imap_envelope_parse_args(const struct imap_arg *args,
+	pool_t pool, struct message_part_envelope_data **envlp_r,
+	const char **error_r)
+{
+	struct message_part_envelope_data *envlp;
+
+	envlp = p_new(pool, struct message_part_envelope_data, 1);
+
+	if (!imap_arg_get_nstring(args++, &envlp->date)) {
+		*error_r = "Invalid date field";
+		return FALSE;
+	}
+	envlp->date = p_strdup(pool, envlp->date);
+
+	if (!imap_arg_get_nstring(args++, &envlp->subject)) {
+		*error_r = "Invalid subject field";
+		return FALSE;
+	}
+	envlp->subject = p_strdup(pool, envlp->subject);
+
+	if (!imap_envelope_parse_addresses(args++, pool, &envlp->from)) {
+		*error_r = "Invalid from field";
+		return FALSE;
+	}
+	if (!imap_envelope_parse_addresses(args++, pool, &envlp->sender)) {
+		*error_r = "Invalid sender field";
+		return FALSE;
+	}
+	if (!imap_envelope_parse_addresses(args++, pool, &envlp->reply_to)) {
+		*error_r = "Invalid reply_to field";
+		return FALSE;
+	}
+	if (!imap_envelope_parse_addresses(args++, pool, &envlp->to)) {
+		*error_r = "Invalid to field";
+		return FALSE;
+	}
+	if (!imap_envelope_parse_addresses(args++, pool, &envlp->cc)) {
+		*error_r = "Invalid cc field";
+		return FALSE;
+	}
+	if (!imap_envelope_parse_addresses(args++, pool, &envlp->bcc)) {
+		*error_r = "Invalid bcc field";
+		return FALSE;
+	}
+
+	if (!imap_arg_get_nstring(args++, &envlp->in_reply_to)) {
+		*error_r = "Invalid in_reply_to field";
+		return FALSE;
+	}
+	envlp->in_reply_to = p_strdup(pool, envlp->in_reply_to);
+
+	if (!imap_arg_get_nstring(args++, &envlp->message_id)) {
+		*error_r = "Invalid message_id field";
+		return FALSE;
+	}
+	envlp->message_id = p_strdup(pool, envlp->message_id);
+
+	*envlp_r = envlp;
+	return TRUE;
+}
