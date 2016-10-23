@@ -607,7 +607,7 @@ static void parse_bodystructure_part_header(struct message_part *part,
 					    struct message_header_line *hdr,
 					    pool_t pool)
 {
-	imap_bodystructure_parse_header(pool, part, hdr);
+	message_part_data_parse_from_header(pool, part, hdr);
 }
 
 static bool want_plain_bodystructure_cached(struct index_mail *mail)
@@ -1997,7 +1997,7 @@ void index_mail_cache_parse_continue(struct mail *_mail)
 			if (block.hdr == NULL)
 				mail->data.header_parsed = TRUE;
 		} else {
-			imap_bodystructure_parse_header(mail->mail.data_pool,
+			message_part_data_parse_from_header(mail->mail.data_pool,
 							block.part, block.hdr);
 		}
 	}

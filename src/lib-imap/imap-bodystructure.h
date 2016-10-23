@@ -28,8 +28,9 @@ struct message_part;
 struct message_header_line;
 
 /* Parse a single header. Note that this modifies part->data. */
-void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
-				     struct message_header_line *hdr);
+void message_part_data_parse_from_header(pool_t pool,
+	struct message_part *part,
+	struct message_header_line *hdr);
 
 /* Returns TRUE if BODYSTRUCTURE is
    ("text" "plain" ("charset" "us-ascii") NIL NIL "7bit" n n NIL NIL NIL) */

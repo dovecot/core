@@ -222,8 +222,9 @@ parse_content_header(struct message_part_data *data,
 	}
 }
 
-void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
-				     struct message_header_line *hdr)
+void message_part_data_parse_from_header(pool_t pool,
+	struct message_part *part,
+	struct message_header_line *hdr)
 {
 	struct message_part_data *part_data;
 	struct message_part_envelope_data *envelope;
