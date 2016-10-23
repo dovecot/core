@@ -174,7 +174,7 @@ parse_content_language(struct message_part_data *data,
 	}
 }
 
-static void parse_content_header(struct message_part_data *d,
+static void parse_content_header(struct message_part_data *data,
 				 pool_t pool, struct message_header_line *hdr)
 {
 	const char *name = hdr->name + strlen("Content-");
@@ -190,45 +190,45 @@ static void parse_content_header(struct message_part_data *d,
 	switch (*name) {
 	case 'i':
 	case 'I':
-		if (strcasecmp(name, "ID") == 0 && d->content_id == NULL)
-			d->content_id = imap_get_string(pool, value);
+		if (strcasecmp(name, "ID") == 0 && data->content_id == NULL)
+			data->content_id = imap_get_string(pool, value);
 		break;
 
 	case 'm':
 	case 'M':
-		if (strcasecmp(name, "MD5") == 0 && d->content_md5 == NULL)
-			d->content_md5 = imap_get_string(pool, value);
+		if (strcasecmp(name, "MD5") == 0 && data->content_md5 == NULL)
+			data->content_md5 = imap_get_string(pool, value);
 		break;
 
 	case 't':
 	case 'T':
-		if (strcasecmp(name, "Type") == 0 && d->content_type == NULL)
-			parse_content_type(d, pool, hdr);
+		if (strcasecmp(name, "Type") == 0 && data->content_type == NULL)
+			parse_content_type(data, pool, hdr);
 		else if (strcasecmp(name, "Transfer-Encoding") == 0 &&
-			 d->content_transfer_encoding == NULL)
-			parse_content_transfer_encoding(d, pool, hdr);
+			 data->content_transfer_encoding == NULL)
+			parse_content_transfer_encoding(data, pool, hdr);
 		break;
 
 	case 'l':
 	case 'L':
 		if (strcasecmp(name, "Language") == 0 &&
-		    d->content_language == NULL) {
-			parse_content_language(d, pool, hdr->full_value,
+		    data->content_language == NULL) {
+			parse_content_language(data, pool, hdr->full_value,
 					       hdr->full_value_len);
 		} else if (strcasecmp(name, "Location") == 0 &&
-			   d->content_location == NULL) {
-			d->content_location = imap_get_string(pool, value);
+			   data->content_location == NULL) {
+			data->content_location = imap_get_string(pool, value);
 		}
 		break;
 
 	case 'd':
 	case 'D':
 		if (strcasecmp(name, "Description") == 0 &&
-		    d->content_description == NULL)
-			d->content_description = imap_get_string(pool, value);
+		    data->content_description == NULL)
+			data->content_description = imap_get_string(pool, value);
 		else if (strcasecmp(name, "Disposition") == 0 &&
-			 d->content_disposition_params == NULL)
-			parse_content_disposition(d, pool, hdr);
+			 data->content_disposition_params == NULL)
+			parse_content_disposition(data, pool, hdr);
 		break;
 	}
 }
