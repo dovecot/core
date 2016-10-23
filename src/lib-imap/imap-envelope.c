@@ -10,12 +10,6 @@
 #include "imap-envelope.h"
 #include "imap-quote.h"
 
-const char *imap_envelope_headers[] = {
-	"Date", "Subject", "From", "Sender", "Reply-To",
-	"To", "Cc", "Bcc", "In-Reply-To", "Message-ID",
-	NULL
-};
-
 static void imap_write_address(string_t *str, struct message_address *addr)
 {
 	if (addr == NULL) {

@@ -503,7 +503,7 @@ int index_mail_headers_get_envelope(struct index_mail *mail)
 
 	mail->data.save_envelope = TRUE;
 	header_ctx = mailbox_header_lookup_init(mail->mail.mail.box,
-						imap_envelope_headers);
+						message_part_envelope_headers);
 	if (mail_get_header_stream(&mail->mail.mail, header_ctx, &stream) < 0) {
 		mailbox_header_lookup_unref(&header_ctx);
 		return -1;

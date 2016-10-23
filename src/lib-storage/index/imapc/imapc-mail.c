@@ -5,6 +5,7 @@
 #include "hex-binary.h"
 #include "sha1.h"
 #include "istream.h"
+#include "message-part-data.h"
 #include "imap-envelope.h"
 #include "imapc-msgmap.h"
 #include "imapc-mail.h"
@@ -382,7 +383,7 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 		/* the common code already checked this partially,
 		   but we need a guaranteed correct answer */
 		header_ctx = mailbox_header_lookup_init(_mail->box,
-							imap_envelope_headers);
+							message_part_envelope_headers);
 		if (!imapc_mail_has_headers_in_cache(mail, header_ctx))
 			data->access_part |= PARSE_HDR;
 		mailbox_header_lookup_unref(&header_ctx);
