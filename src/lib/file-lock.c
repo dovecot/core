@@ -21,6 +21,7 @@ struct file_lock {
 
 static struct timeval lock_wait_start;
 static uint64_t file_lock_wait_usecs = 0;
+static long long file_lock_slow_warning_usecs = -1;
 
 bool file_lock_method_parse(const char *name, enum file_lock_method *method_r)
 {
@@ -194,7 +195,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		ret = fcntl(fd, timeout_secs ? F_SETLKW : F_SETLK, &fl);
 		if (timeout_secs != 0) {
 			alarm(0);
-			file_lock_wait_end();
+			file_lock_wait_end(path);
 		}
 
 		if (ret == 0)
@@ -248,7 +249,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 		ret = flock(fd, operation);
 		if (timeout_secs != 0) {
 			alarm(0);
-			file_lock_wait_end();
+			file_lock_wait_end(path);
 		}
 
 		if (ret == 0)
@@ -362,7 +363,26 @@ void file_lock_wait_start(void)
 		i_fatal("gettimeofday() failed: %m");
 }
 
-void file_lock_wait_end(void)
+static void file_lock_wait_init_warning(void)
+{
+	const char *value;
+
+	i_assert(file_lock_slow_warning_usecs == -1);
+
+	value = getenv("FILE_LOCK_SLOW_WARNING_MSECS");
+	if (value == NULL)
+		file_lock_slow_warning_usecs = LLONG_MAX;
+	else if (str_to_llong(value, &file_lock_slow_warning_usecs) == 0 &&
+		 file_lock_slow_warning_usecs > 0) {
+		file_lock_slow_warning_usecs *= 1000;
+	} else {
+		i_error("FILE_LOCK_SLOW_WARNING_MSECS: "
+			"Invalid value '%s' - ignoring", value);
+		file_lock_slow_warning_usecs = LLONG_MAX;
+	}
+}
+
+void file_lock_wait_end(const char *lock_name)
 {
 	struct timeval now;
 
@@ -370,7 +390,17 @@ void file_lock_wait_end(void)
 
 	if (gettimeofday(&now, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
-	file_lock_wait_usecs += timeval_diff_usecs(&now, &lock_wait_start);
+	long long diff = timeval_diff_usecs(&now, &lock_wait_start);
+	if (diff > file_lock_slow_warning_usecs) {
+		if (file_lock_slow_warning_usecs < 0)
+			file_lock_wait_init_warning();
+		if (diff > file_lock_slow_warning_usecs) {
+			int diff_msecs = (diff + 999) / 1000;
+			i_warning("Locking %s took %d.%03d secs", lock_name,
+				  diff_msecs / 1000, diff_msecs % 1000);
+		}
+	}
+	file_lock_wait_usecs += diff;
 	lock_wait_start.tv_sec = 0;
 }
 

@@ -58,7 +58,7 @@ const char *file_lock_find(int lock_fd, enum file_lock_method lock_method,
 
 /* Track the duration of a lock wait. */
 void file_lock_wait_start(void);
-void file_lock_wait_end(void);
+void file_lock_wait_end(const char *lock_name);
 /* Return how many microseconds has been spent on lock waiting. */
 uint64_t file_lock_wait_get_total_usecs(void);
 
