@@ -764,8 +764,12 @@ director_flush_user(struct director *dir, struct user *user)
 		{ '\0', NULL, NULL }
 	};
 
-	/* execute flush script, if set */
-	if (*dir->set->director_flush_socket == '\0') {
+	/* Execute flush script, if set. Only the director that started the
+	   user moving will call the flush script. Having each director do it
+	   would be redundant since they're all supposed to be performing the
+	   same flush task to the same backend. */
+	if (*dir->set->director_flush_socket == '\0' ||
+	    !user->kill_is_self_initiated) {
 		director_user_kill_finish_delayed(dir, user, FALSE);
 		return;
 	}
@@ -821,6 +825,7 @@ static void director_user_move_free(struct director *dir, struct user *user)
 	dir_debug("User %u move finished at state=%s", user->username_hash,
 		  user_kill_state_names[user->kill_state]);
 
+	user->kill_is_self_initiated = FALSE;
 	user->kill_state = USER_KILL_STATE_NONE;
 	timeout_remove(&user->to_move);
 
@@ -1004,6 +1009,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		dir->users_moving_count++;
 		user->to_move = timeout_add(DIRECTOR_USER_MOVE_TIMEOUT_MSECS,
 					    director_user_move_timeout, user);
+		user->kill_is_self_initiated = src->self;
 		user->kill_state = USER_KILL_STATE_KILLING;
 		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
 				      username_hash);
