@@ -50,6 +50,8 @@ struct user {
 	   now doing a ring-wide sync for this user to make sure we don't
 	   assign conflicting hosts to it */
 	bool weak:1;
+	/* TRUE, if this server initiated the user's kill. */
+	bool kill_is_self_initiated:1;
 };
 
 /* Create a new directory. Users are dropped if their time gets older
