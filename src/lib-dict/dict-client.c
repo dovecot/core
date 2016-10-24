@@ -34,7 +34,7 @@ struct client_dict_cmd {
 	struct timeval start_time;
 	char *query;
 
-	uint64_t start_main_ioloop_usecs;
+	uint64_t start_global_ioloop_usecs;
 	uint64_t start_dict_ioloop_usecs;
 	uint64_t start_lock_usecs;
 
@@ -132,15 +132,7 @@ client_dict_cmd_init(struct client_dict *dict, const char *query)
 	cmd->dict = dict;
 	cmd->query = i_strdup(query);
 	cmd->start_time = ioloop_timeval;
-	if (current_ioloop == dict->ioloop) {
-		/* coming here from client_dict_wait() */
-		i_assert(dict->prev_ioloop != NULL);
-		cmd->start_main_ioloop_usecs =
-			io_loop_get_wait_usecs(dict->prev_ioloop);
-	} else {
-		cmd->start_main_ioloop_usecs =
-			io_loop_get_wait_usecs(current_ioloop);
-	}
+	cmd->start_global_ioloop_usecs = ioloop_global_wait_usecs;
 	cmd->start_dict_ioloop_usecs = io_loop_get_wait_usecs(dict->ioloop);
 	cmd->start_lock_usecs = file_lock_wait_get_total_usecs();
 	return cmd;
@@ -718,32 +710,19 @@ static bool client_dict_switch_ioloop(struct dict *_dict)
 
 static const char *dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs)
 {
-	int main_ioloop_msecs;
-
-	/* we'll assume that the main ioloop is always the same in here and
-	   in client_dict_cmd_init(), which strictly doesn't have to be true,
-	   but practically is. */
-	if (current_ioloop == cmd->dict->ioloop) {
-		/* coming here from client_dict_wait() */
-		i_assert(cmd->dict->prev_ioloop != NULL);
-		main_ioloop_msecs =
-			(io_loop_get_wait_usecs(cmd->dict->prev_ioloop) -
-			 cmd->start_main_ioloop_usecs + 999) / 1000;
-	} else {
-		main_ioloop_msecs =
-			(io_loop_get_wait_usecs(current_ioloop) -
-			 cmd->start_main_ioloop_usecs + 999) / 1000;
-	}
+	int global_ioloop_msecs = (ioloop_global_wait_usecs -
+				   cmd->start_global_ioloop_usecs + 999) / 1000;
 	int dict_ioloop_msecs = (io_loop_get_wait_usecs(cmd->dict->ioloop) -
 				 cmd->start_dict_ioloop_usecs + 999) / 1000;
+	int other_ioloop_msecs = global_ioloop_msecs - dict_ioloop_msecs;
 	int lock_msecs = (file_lock_wait_get_total_usecs() -
 			  cmd->start_lock_usecs + 999) / 1000;
 
 	return t_strdup_printf(
-		"%u.%03u secs (%u.%03u in main ioloop, %u.%03u in dict wait, "
-		"%u.%03u in locks)", msecs/1000, msecs%1000,
-		main_ioloop_msecs/1000, main_ioloop_msecs%1000,
+		"%d.%03d secs (%d.%03d in dict wait, %d.%03d in other ioloops, "
+		"%d.%03d in locks)", msecs/1000, msecs%1000,
 		dict_ioloop_msecs/1000, dict_ioloop_msecs%1000,
+		other_ioloop_msecs/1000, other_ioloop_msecs%1000,
 		lock_msecs/1000, lock_msecs%1000);
 }
 
