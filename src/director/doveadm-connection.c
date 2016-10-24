@@ -576,7 +576,7 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
 	}
 
 	if (str_to_uint(args[0], &username_hash) < 0)
-		username_hash = user_directory_get_username_hash(conn->dir->users, line);
+		username_hash = user_directory_get_username_hash(conn->dir->users, args[0]);
 	user = user_directory_lookup(conn->dir->users, username_hash);
 	if (user != NULL && user->kill_state != USER_KILL_STATE_NONE) {
 		o_stream_nsend_str(conn->output, "TRYAGAIN\n");
