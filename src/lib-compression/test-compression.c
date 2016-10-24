@@ -94,6 +94,29 @@ static void test_compression(void)
 	}
 }
 
+static void test_uncompress_file(const char *path)
+{
+	const struct compression_handler *handler;
+	struct istream *input, *file_input;
+	const unsigned char *data;
+	size_t size;
+
+	handler = compression_lookup_handler_from_ext(path);
+	if (handler == NULL)
+		i_fatal("Can't detect compression algorithm from path %s", path);
+	if (handler->create_istream == NULL)
+		i_fatal("Support not compiled in for %s", handler->name);
+
+	file_input = i_stream_create_file(path, IO_BLOCK_SIZE);
+	input = handler->create_istream(file_input, 1);
+	while (i_stream_read_more(input, &data, &size) > 0) {
+		if (write(STDOUT_FILENO, data, size) < 0)
+			break;
+		i_stream_skip(input, size);
+	}
+	i_stream_destroy(&input);
+}
+
 static void test_compress_file(const char *in_path, const char *out_path)
 {
 	const struct compression_handler *handler;
@@ -161,6 +184,10 @@ int main(int argc, char *argv[])
 		test_compression,
 		NULL
 	};
+	if (argc == 2) {
+		test_uncompress_file(argv[1]);
+		return 0;
+	}
 	if (argc == 3) {
 		test_compress_file(argv[1], argv[2]);
 		return 0;
