@@ -11,6 +11,7 @@
 #include "istream-timeout.h"
 #include "ostream.h"
 #include "time-util.h"
+#include "file-lock.h"
 #include "iostream-rawlog.h"
 #include "iostream-ssl.h"
 #include "http-response-parser.h"
@@ -198,6 +199,24 @@ http_client_connection_get_timing_info(struct http_client_connection *conn)
 			str_printfa(str, ", %u attempts in %u.%03u secs",
 				    (*requestp)->attempts + 1,
 				    total_msecs/1000, total_msecs%1000);
+		}
+		int other_ioloop_msecs = (ioloop_global_wait_usecs -
+			(*requestp)->sent_global_ioloop_usecs + 999) / 1000;
+		if (conn->client->ioloop != NULL) {
+			int http_ioloop_msecs =
+				(io_loop_get_wait_usecs(conn->client->ioloop) + 999) / 1000;
+			other_ioloop_msecs -= http_ioloop_msecs;
+			str_printfa(str, ", %d.%03d in http ioloop",
+				    http_ioloop_msecs/1000, http_ioloop_msecs%1000);
+		}
+		str_printfa(str, ", %d.%03d in other ioloops",
+			    other_ioloop_msecs/1000, other_ioloop_msecs%1000);
+
+		int lock_msecs = (file_lock_wait_get_total_usecs() -
+				  (*requestp)->sent_lock_usecs + 999) / 1000;
+		if (lock_msecs > 0) {
+			str_printfa(str, ", %d.%03d in locks",
+				    lock_msecs/1000, lock_msecs%1000);
 		}
 	} else {
 		str_append(str, "No requests");
