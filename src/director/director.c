@@ -1092,6 +1092,22 @@ void director_kick_user_hash(struct director *dir, struct director_host *src,
 	director_update_send_version(dir, src, DIRECTOR_VERSION_USER_KICK, cmd);
 }
 
+static void
+director_send_user_killed_everywhere(struct director *dir,
+				     struct director_host *src,
+				     struct director_host *orig_src,
+				     unsigned int username_hash)
+{
+	if (orig_src == NULL) {
+		orig_src = dir->self_host;
+		orig_src->last_seq++;
+	}
+	director_update_send(dir, src, t_strdup_printf(
+		"USER-KILLED-EVERYWHERE\t%s\t%u\t%u\t%u\n",
+		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
+		username_hash));
+}
+
 void director_user_killed(struct director *dir, unsigned int username_hash)
 {
 	struct user *user;
@@ -1107,10 +1123,18 @@ void director_user_killed(struct director *dir, unsigned int username_hash)
 	case USER_KILL_STATE_KILLED_WAITING_FOR_NOTIFY:
 		director_finish_user_kill(dir, user, TRUE);
 		break;
+	case USER_KILL_STATE_KILLING_NOTIFY_RECEIVED:
+		dir_debug("User %u kill_state=%s - ignoring USER-KILLED",
+			  username_hash, user_kill_state_names[user->kill_state]);
+		break;
 	case USER_KILL_STATE_NONE:
 	case USER_KILL_STATE_FLUSHING:
 	case USER_KILL_STATE_DELAY:
-	case USER_KILL_STATE_KILLING_NOTIFY_RECEIVED:
+		/* move restarted. state=none can also happen if USER-MOVE was
+		   sent while we were still moving. send back
+		   USER-KILLED-EVERYWHERE to avoid hangs. */
+		director_send_user_killed_everywhere(dir, dir->self_host, NULL,
+						     username_hash);
 		break;
 	case USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE:
 		director_user_killed_everywhere(dir, dir->self_host,
@@ -1132,15 +1156,7 @@ void director_user_killed_everywhere(struct director *dir,
 		return;
 
 	director_flush_user(dir, user);
-
-	if (orig_src == NULL) {
-		orig_src = dir->self_host;
-		orig_src->last_seq++;
-	}
-	director_update_send(dir, src, t_strdup_printf(
-		"USER-KILLED-EVERYWHERE\t%s\t%u\t%u\t%u\n",
-		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
-		user->username_hash));
+	director_send_user_killed_everywhere(dir, src, orig_src, username_hash);
 }
 
 static void director_state_callback_timeout(struct director *dir)
