@@ -316,6 +316,25 @@ static bool director_has_outgoing_connections(struct director *dir)
 	return FALSE;
 }
 
+static void director_send_delayed_syncs(struct director *dir)
+{
+	struct director_host *const *hostp;
+
+	i_assert(dir->right != NULL);
+
+	dir_debug("director(%s): Sending delayed SYNCs", dir->right->name);
+	array_foreach(&dir->dir_hosts, hostp) {
+		if ((*hostp)->delayed_sync_seq == 0)
+			continue;
+
+		director_sync_send(dir, *hostp, (*hostp)->delayed_sync_seq,
+				   (*hostp)->delayed_sync_minor_version,
+				   (*hostp)->delayed_sync_timestamp,
+				   (*hostp)->delayed_sync_hosts_hash);
+		(*hostp)->delayed_sync_seq = 0;
+	}
+}
+
 static bool director_connection_assign_right(struct director_connection *conn)
 {
 	struct director *dir = conn->dir;
@@ -343,6 +362,7 @@ static bool director_connection_assign_right(struct director_connection *conn)
 	i_free(conn->name);
 	conn->name = i_strdup_printf("%s/right", conn->host->name);
 	director_connection_assigned(conn);
+	director_send_delayed_syncs(dir);
 	return TRUE;
 }
 
@@ -1422,6 +1442,13 @@ director_connection_sync_host(struct director_connection *conn,
 			/* forward it to the connection on right */
 			director_sync_send(dir, host, seq, minor_version,
 					   timestamp, hosts_hash);
+		} else {
+			dir_debug("director(%s): We have no right connection - "
+				  "delay replying to SYNC until finished", conn->name);
+			host->delayed_sync_seq = seq;
+			host->delayed_sync_minor_version = minor_version;
+			host->delayed_sync_timestamp = timestamp;
+			host->delayed_sync_hosts_hash = hosts_hash;
 		}
 	}
 	return TRUE;
