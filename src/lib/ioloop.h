@@ -41,6 +41,8 @@ extern time_t ioloop_time;
 extern struct timeval ioloop_timeval;
 
 extern struct ioloop *current_ioloop;
+/* Number of microseconds spent on all the ioloops waiting for themselves. */
+extern uint64_t ioloop_global_wait_usecs;
 
 /* You can create different handlers for IO_READ and IO_WRITE. IO_READ and
    IO_ERROR can't use different handlers (and there's no point anyway).
