@@ -1716,7 +1716,7 @@ if test $want_openssl != no && test $have_ssl = no; then
     AC_CHECK_LIB(ssl, SSL_COMP_free_compression_methods, [
       AC_DEFINE(HAVE_SSL_COMP_FREE_COMPRESSION_METHODS,, [Build with SSL_COMP_free_compression_methods() support])
     ],, $SSL_LIBS)
-    AC_CHECK_LIB(ssl, [EVP_PKEY_CTX_set_ec_paramgen_curve_nid],
+    AC_CHECK_LIB(ssl, [EVP_PKEY_CTX_new_id],
        [build_dcrypt_openssl="yes"],
        AC_MSG_WARN([No ECC support in OpenSSL - not enabling dcrypt]),
     $SSL_LIBS)
