@@ -801,16 +801,22 @@ director_flush_user(struct director *dir, struct user *user)
 	program_client_run_async(ctx->pclient, director_flush_user_continue, ctx);
 }
 
+static void director_user_move_free(struct director *dir, struct user *user)
+{
+	i_assert(user->to_move != NULL);
+
+	user->kill_state = USER_KILL_STATE_NONE;
+	timeout_remove(&user->to_move);
+
+	dir->state_change_callback(dir);
+}
+
 static void
 director_user_kill_finish_delayed_to(struct director_user_kill_finish_ctx *ctx)
 {
 	i_assert(ctx->user->kill_state == USER_KILL_STATE_DELAY);
 
-	ctx->user->kill_state = USER_KILL_STATE_NONE;
-	if (ctx->user->to_move != NULL)
-		timeout_remove(&ctx->user->to_move);
-
-	ctx->dir->state_change_callback(ctx->dir);
+	director_user_move_free(ctx->dir, ctx->user);
 	i_free(ctx);
 }
 
@@ -820,11 +826,8 @@ director_user_kill_finish_delayed(struct director *dir, struct user *user,
 {
 	struct director_user_kill_finish_ctx *ctx;
 
-	timeout_remove(&user->to_move);
-
 	if (skip_delay) {
-		user->kill_state = USER_KILL_STATE_NONE;
-		dir->state_change_callback(dir);
+		director_user_move_free(dir, user);
 		return;
 	}
 
@@ -837,6 +840,7 @@ director_user_kill_finish_delayed(struct director *dir, struct user *user,
 	/* wait for a while for the kills to finish in the backend server,
 	   so there are no longer any processes running for the user before we
 	   start letting new in connections to the new server. */
+	timeout_remove(&user->to_move);
 	user->to_move = timeout_add(dir->set->director_user_kick_delay * 1000,
 				    director_user_kill_finish_delayed_to, ctx);
 }
@@ -925,12 +929,9 @@ static void director_user_move_timeout(struct user *user)
 			"its state may now be inconsistent", user->username_hash);
 	}
 
-	user->kill_state = USER_KILL_STATE_NONE;
-	timeout_remove(&user->to_move);
-
 	/* FIXME: shouldn't use global director, but for now there's no easy
 	   way to get access to it otherwise */
-	director->state_change_callback(director);
+	director_user_move_free(director, user);
 }
 
 void director_move_user(struct director *dir, struct director_host *src,
