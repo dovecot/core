@@ -992,9 +992,10 @@ static void director_cmd_help(const struct doveadm_cmd_ver2 *cmd)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_director); i++) {
-		if (doveadm_cmd_director+i == cmd)
+		if (doveadm_cmd_director[i].cmd == cmd->cmd)
 			help_ver2(&doveadm_cmd_director[i]);
 	}
+	i_unreached();
 }
 
 void doveadm_register_director_commands(void)
