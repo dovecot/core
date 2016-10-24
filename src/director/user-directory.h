@@ -16,6 +16,8 @@ enum user_kill_state {
 	/* We're done killing, but waiting for USER-KILLED-EVERYWHERE
 	   notification until this state gets reset. */
 	USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE,
+	/* Waiting for the flush socket to finish. */
+	USER_KILL_STATE_FLUSHING,
 	/* Wait for a while for the user connections to actually die. Note that
 	   only at this stage we can be sure that all the directors know about
 	   the user move (although it could be earlier if we added a new
