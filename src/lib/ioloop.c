@@ -15,8 +15,9 @@
 
 time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
-
 struct ioloop *current_ioloop = NULL;
+uint64_t ioloop_global_wait_usecs = 0;
+
 static ARRAY(io_switch_callback_t *) io_switch_callbacks = ARRAY_INIT;
 
 static void io_loop_initialize_handler(struct ioloop *ioloop)
@@ -524,8 +525,10 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 			ioloop->time_moved_callback(ioloop->next_max_time,
 						    ioloop_timeval.tv_sec);
 		}
-		ioloop->ioloop_wait_usecs +=
+		long long diff =
 			timeval_diff_usecs(&ioloop_timeval, &prev_ioloop_timeval);
+		ioloop->ioloop_wait_usecs += diff;
+		ioloop_global_wait_usecs += diff;
 	}
 
 	ioloop_time = ioloop_timeval.tv_sec;
