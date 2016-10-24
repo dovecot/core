@@ -194,14 +194,13 @@ static void doveadm_cmd_director_list(struct doveadm_connection *conn)
 }
 
 static int
-doveadm_cmd_director_add(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_director_add(struct doveadm_connection *conn,
+			 const char *const *args)
 {
-	const char *const *args;
 	struct director_host *host;
 	struct ip_addr ip;
 	in_port_t port = conn->dir->self_port;
 
-	args = t_strsplit_tab(line);
 	if (args[0] == NULL ||
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    (args[1] != NULL && net_str2port(args[1], &port) < 0)) {
@@ -218,14 +217,13 @@ doveadm_cmd_director_add(struct doveadm_connection *conn, const char *line)
 }
 
 static int
-doveadm_cmd_director_remove(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_director_remove(struct doveadm_connection *conn,
+			    const char *const *args)
 {
-	const char *const *args;
 	struct director_host *host;
 	struct ip_addr ip;
 	in_port_t port = 0;
 
-	args = t_strsplit_tab(line);
 	if (args[0] == NULL ||
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    (args[1] != NULL && net_str2port(args[1], &port) < 0)) {
@@ -246,16 +244,15 @@ doveadm_cmd_director_remove(struct doveadm_connection *conn, const char *line)
 }
 
 static int
-doveadm_cmd_host_set_or_update(struct doveadm_connection *conn, const char *line,
-			       bool update)
+doveadm_cmd_host_set_or_update(struct doveadm_connection *conn,
+			       const char *const *args, bool update)
 {
 	struct director *dir = conn->dir;
-	const char *const *args, *ip_str, *tag = "";
+	const char *ip_str, *tag = "";
 	struct mail_host *host;
 	struct ip_addr ip;
 	unsigned int vhost_count = UINT_MAX;
 
-	args = t_strsplit_tab(line);
 	ip_str = args[0];
 	if (ip_str != NULL) {
 		tag = strchr(ip_str, '@');
@@ -267,8 +264,8 @@ doveadm_cmd_host_set_or_update(struct doveadm_connection *conn, const char *line
 	if (ip_str == NULL || net_addr2ip(ip_str, &ip) < 0 ||
 	    (args[1] != NULL && str_to_uint(args[1], &vhost_count) < 0) ||
 	    (args[1] == NULL && update)) {
-		i_error("doveadm sent invalid %s parameters: %s",
-			update ? "HOST-UPDATE" : "HOST-SET", line);
+		i_error("doveadm sent invalid %s parameters",
+			update ? "HOST-UPDATE" : "HOST-SET");
 		return -1;
 	}
 	if (vhost_count > MAX_VALID_VHOST_COUNT && vhost_count != UINT_MAX) {
@@ -302,27 +299,28 @@ doveadm_cmd_host_set_or_update(struct doveadm_connection *conn, const char *line
 }
 
 static int
-doveadm_cmd_host_set(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_host_set(struct doveadm_connection *conn, const char *const *args)
 {
-	return doveadm_cmd_host_set_or_update(conn, line, FALSE);
+	return doveadm_cmd_host_set_or_update(conn, args, FALSE);
 }
 
 static int
-doveadm_cmd_host_update(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_host_update(struct doveadm_connection *conn, const char *const *args)
 {
-	return doveadm_cmd_host_set_or_update(conn, line, TRUE);
+	return doveadm_cmd_host_set_or_update(conn, args, TRUE);
 }
 
 static int
 doveadm_cmd_host_updown(struct doveadm_connection *conn, bool down,
-			const char *line)
+			const char *const *args)
 {
 	struct mail_host *host;
 	struct ip_addr ip;
 
-	if (net_addr2ip(line, &ip) < 0) {
+	if (args[0] == NULL || net_addr2ip(args[0], &ip) < 0) {
 		i_error("doveadm sent invalid %s parameters: %s",
-			down ? "HOST-DOWN" : "HOST-UP", line);
+			down ? "HOST-DOWN" : "HOST-UP",
+			args[0] == NULL ? "" : args[0]);
 		return -1;
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
@@ -346,12 +344,13 @@ doveadm_cmd_host_updown(struct doveadm_connection *conn, bool down,
 }
 
 static int
-doveadm_cmd_host_remove(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_host_remove(struct doveadm_connection *conn,
+			const char *const *args)
 {
 	struct mail_host *host;
 	struct ip_addr ip;
 
-	if (net_addr2ip(line, &ip) < 0) {
+	if (args[0] == NULL || net_addr2ip(args[0], &ip) < 0) {
 		i_error("doveadm sent invalid HOST-REMOVE parameters");
 		return -1;
 	}
@@ -384,17 +383,17 @@ doveadm_cmd_host_flush_all(struct doveadm_connection *conn)
 }
 
 static int
-doveadm_cmd_host_flush(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_host_flush(struct doveadm_connection *conn, const char *const *args)
 {
 	struct mail_host *host;
 	struct ip_addr ip;
 
-	if (*line == '\0') {
+	if (args[0] == NULL || args[0][0] == '\0') {
 		doveadm_cmd_host_flush_all(conn);
 		return 1;
 	}
 
-	if (net_addr2ip(line, &ip) < 0) {
+	if (net_addr2ip(args[0], &ip) < 0) {
 		i_error("doveadm sent invalid HOST-FLUSH parameters");
 		return -1;
 	}
@@ -448,17 +447,18 @@ doveadm_cmd_host_reset_users_all(struct doveadm_connection *conn)
 }
 
 static int
-doveadm_cmd_host_reset_users(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
+			     const char *const *args)
 {
 	struct mail_host *host;
 	struct ip_addr ip;
 
-	if (line[0] == '\0') {
+	if (args[0] == NULL || args[0][0] == '\0') {
 		doveadm_cmd_host_reset_users_all(conn);
 		return 1;
 	}
 
-	if (net_addr2ip(line, &ip) < 0) {
+	if (net_addr2ip(args[0], &ip) < 0) {
 		i_error("doveadm sent invalid HOST-RESET-USERS parameters");
 		return -1;
 	}
@@ -473,15 +473,15 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn, const char *line)
 }
 
 static int
-doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_user_lookup(struct doveadm_connection *conn,
+			const char *const *args)
 {
 	struct user *user;
 	struct mail_host *host;
-	const char *username, *tag, *const *args;
+	const char *username, *tag;
 	unsigned int username_hash;
 	string_t *str = t_str_new(256);
 
-	args = t_strsplit_tab(line);
 	if (args[0] == NULL) {
 		username = "";
 		tag = "";
@@ -521,14 +521,14 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn, const char *line)
 }
 
 static int
-doveadm_cmd_user_list(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 {
 	struct user_directory_iter *iter;
 	struct user *user;
 	struct ip_addr ip;
 
-	if (*line != '\0') {
-		if (net_addr2ip(line, &ip) < 0) {
+	if (args[0] != NULL && args[0][0] != '\0') {
+		if (net_addr2ip(args[0], &ip) < 0) {
 			i_error("doveadm sent invalid USER-LIST parameters");
 			return -1;
 		}
@@ -555,18 +555,16 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *line)
 }
 
 static int
-doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 {
 	unsigned int username_hash;
-	const char *const *args;
 	struct user *user;
 	struct mail_host *host;
 	struct ip_addr ip;
 
-	args = t_strsplit_tab(line);
 	if (args[0] == NULL || args[1] == NULL ||
 	    net_addr2ip(args[1], &ip) < 0) {
-		i_error("doveadm sent invalid USER-MOVE parameters: %s", line);
+		i_error("doveadm sent invalid USER-MOVE parameters");
 		return -1;
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
@@ -590,13 +588,10 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *line)
 }
 
 static int
-doveadm_cmd_user_kick(struct doveadm_connection *conn, const char *line)
+doveadm_cmd_user_kick(struct doveadm_connection *conn, const char *const *args)
 {
-	const char *const *args;
-
-	args = t_strsplit_tab(line);
 	if (args[0] == NULL) {
-		i_error("doveadm sent invalid USER-KICK parameters: %s", line);
+		i_error("doveadm sent invalid USER-KICK parameters");
 		return -1;
 	}
 
@@ -608,17 +603,16 @@ doveadm_cmd_user_kick(struct doveadm_connection *conn, const char *line)
 static int
 doveadm_connection_cmd(struct doveadm_connection *conn, const char *line)
 {
-	const char *cmd, *args;
+	const char *cmd, *const *args;
 	int ret = 1;
 
-	args = strchr(line, '\t');
-	if (args == NULL) {
-		cmd = line;
-		args = "";
-	} else {
-		cmd = t_strdup_until(line, args);
-		args++;
+	args = t_strsplit_tabescaped(line);
+	if (args[0] == NULL) {
+		i_error("doveadm sent empty command line");
+		return -1;
 	}
+	cmd = args[0];
+	args++;
 
 	if (strcmp(cmd, "HOST-LIST") == 0)
 		doveadm_cmd_host_list(conn);
@@ -682,7 +676,9 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 	}
 
 	while ((line = i_stream_read_next_line(conn->input)) != NULL && ret > 0) {
-		ret = doveadm_connection_cmd(conn, line);
+		T_BEGIN {
+			ret = doveadm_connection_cmd(conn, line);
+		} T_END;
 	}
 	if (conn->input->eof || conn->input->stream_errno != 0 || ret < 0)
 		doveadm_connection_deinit(&conn);
