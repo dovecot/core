@@ -83,6 +83,9 @@ bool user_directory_user_is_recently_updated(struct user_directory *dir,
 bool user_directory_user_is_near_expiring(struct user_directory *dir,
 					  struct user *user);
 
+/* Iterate through users in the directory. It's safe to modify user directory
+   while iterators are running. The moved/removed users will just be skipped
+   over. */
 struct user_directory_iter *
 user_directory_iter_init(struct user_directory *dir);
 struct user *user_directory_iter_next(struct user_directory_iter *iter);
