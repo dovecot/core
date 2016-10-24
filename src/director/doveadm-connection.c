@@ -203,7 +203,7 @@ doveadm_cmd_director_add(struct doveadm_connection *conn, const char *line)
 
 	args = t_strsplit_tab(line);
 	if (args[0] == NULL ||
-	    net_addr2ip(line, &ip) < 0 ||
+	    net_addr2ip(args[0], &ip) < 0 ||
 	    (args[1] != NULL && net_str2port(args[1], &port) < 0)) {
 		i_error("doveadm sent invalid DIRECTOR-ADD parameters");
 		return -1;
@@ -227,7 +227,7 @@ doveadm_cmd_director_remove(struct doveadm_connection *conn, const char *line)
 
 	args = t_strsplit_tab(line);
 	if (args[0] == NULL ||
-	    net_addr2ip(line, &ip) < 0 ||
+	    net_addr2ip(args[0], &ip) < 0 ||
 	    (args[1] != NULL && net_str2port(args[1], &port) < 0)) {
 		i_error("doveadm sent invalid DIRECTOR-REMOVE parameters");
 		return -1;
