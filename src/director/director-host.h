@@ -30,6 +30,14 @@ struct director_host {
 	/* Last time host was detected to be down */
 	time_t last_network_failure;
 	time_t last_protocol_failure;
+
+	/* When we finish getting a right connection, send a SYNC with these
+	   parameters (if delayed_sync_seq != 0) */
+	uint32_t delayed_sync_seq;
+	unsigned int delayed_sync_minor_version;
+	unsigned int delayed_sync_timestamp;
+	unsigned int delayed_sync_hosts_hash;
+
 	/* we are this director */
 	unsigned int self:1;
 	unsigned int removed:1;
