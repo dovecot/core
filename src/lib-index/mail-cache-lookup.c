@@ -199,7 +199,7 @@ mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 				return 1;
 			ctx->memory_appends_checked = TRUE;
 		}
-		if (MAIL_CACHE_IS_UNUSABLE(view->cache))
+		if (MAIL_CACHE_IS_UNUSABLE(view->cache) || ctx->stop)
 			return 0;
 
 		/* check data already written to cache file */
