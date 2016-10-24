@@ -927,7 +927,9 @@ static void director_user_move_timeout(struct user *user)
 
 	if (log_throttle_accept(user_move_throttle)) {
 		i_error("Finishing user %u move timed out, "
-			"its state may now be inconsistent", user->username_hash);
+			"its state may now be inconsistent (state=%s)",
+			user->username_hash,
+			user_kill_state_names[user->kill_state]);
 	}
 
 	/* FIXME: shouldn't use global director, but for now there's no easy
