@@ -497,11 +497,14 @@ static bool director_cmd_me(struct director_connection *conn,
 static bool
 director_user_refresh(struct director_connection *conn,
 		      unsigned int username_hash, struct mail_host *host,
-		      time_t timestamp, bool weak, struct user **user_r)
+		      time_t timestamp, bool weak, bool *forced_r,
+		      struct user **user_r)
 {
 	struct director *dir = conn->dir;
 	struct user *user;
 	bool ret = FALSE, unset_weak_user = FALSE;
+
+	*forced_r = FALSE;
 
 	user = user_directory_lookup(dir->users, username_hash);
 	if (user == NULL) {
@@ -585,7 +588,10 @@ director_user_refresh(struct director_connection *conn,
 		if (net_ip_cmp(&user->host->ip, &host->ip) > 0) {
 			/* change the host. we'll also need to remove the user
 			   from the old host's user_count, because we can't
-			   keep track of the user for more than one host */
+			   keep track of the user for more than one host.
+
+			   send the updated USER back to the sender as well. */
+			*forced_r = TRUE;
 		} else {
 			/* keep the host */
 			host = user->host;
@@ -628,7 +634,7 @@ director_handshake_cmd_user(struct director_connection *conn,
 	struct ip_addr ip;
 	struct mail_host *host;
 	struct user *user;
-	bool weak;
+	bool weak, forced;
 
 	if (str_array_length(args) < 3 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
@@ -647,7 +653,7 @@ director_handshake_cmd_user(struct director_connection *conn,
 	}
 
 	(void)director_user_refresh(conn, username_hash, host,
-				    timestamp, weak, &user);
+				    timestamp, weak, &forced, &user);
 	if (user->timestamp < timestamp) {
 		conn->users_unsorted = TRUE;
 		user->timestamp = timestamp;
@@ -663,6 +669,7 @@ director_cmd_user(struct director_connection *conn,
 	struct ip_addr ip;
 	struct mail_host *host;
 	struct user *user;
+	bool forced;
 
 	/* NOTE: if more parameters are added, update also
 	   CMD_IS_USER_HANDHAKE() macro */
@@ -680,9 +687,11 @@ director_cmd_user(struct director_connection *conn,
 	}
 
 	if (director_user_refresh(conn, username_hash,
-				  host, ioloop_time, FALSE, &user)) {
+				  host, ioloop_time, FALSE, &forced, &user)) {
+		struct director_host *src_host =
+			forced ? conn->dir->self_host : conn->host;
 		i_assert(!user->weak);
-		director_update_user(conn->dir, conn->host, user);
+		director_update_user(conn->dir, src_host, user);
 	}
 	return TRUE;
 }
@@ -828,7 +837,7 @@ director_cmd_user_weak(struct director_connection *conn,
 	struct mail_host *host;
 	struct user *user;
 	struct director_host *src_host = conn->host;
-	bool weak = TRUE, weak_forward = FALSE;
+	bool weak = TRUE, weak_forward = FALSE, forced;
 	int ret;
 
 	/* note that unlike other commands we don't want to just ignore
@@ -876,8 +885,10 @@ director_cmd_user_weak(struct director_connection *conn,
 	}
 
 	if (director_user_refresh(conn, username_hash,
-				  host, ioloop_time, weak, &user) ||
+				  host, ioloop_time, weak, &forced, &user) ||
 	    weak_forward) {
+		if (forced)
+			src_host = conn->dir->self_host;
 		if (!user->weak)
 			director_update_user(conn->dir, src_host, user);
 		else {
