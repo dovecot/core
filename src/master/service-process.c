@@ -474,6 +474,11 @@ log_coredump(struct service *service, string_t *str, int status)
 		return;
 	}
 #endif
+	if (service->set->chroot[0] != '\0') {
+		str_printfa(str, " (core not dumped - try to clear "
+			    "service %s { chroot = } )", service->set->name);
+		return;
+	}
 
 	str_append(str, " (core not dumped)");
 #endif
