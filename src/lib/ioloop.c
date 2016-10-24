@@ -422,6 +422,8 @@ int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 		if (gettimeofday(&tv_now, NULL) < 0)
 			i_fatal("gettimeofday(): %m");
 		msecs = 0;
+		tv_r->tv_sec = 0;
+		tv_r->tv_usec = 0;
 	} else {
 		tv_now.tv_sec = 0;
 		msecs = timeout_get_wait_time(timeout, tv_r, &tv_now);
