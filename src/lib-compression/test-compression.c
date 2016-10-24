@@ -1,6 +1,7 @@
 /* Copyright (c) 2014-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "istream.h"
 #include "ostream.h"
 #include "sha1.h"
@@ -94,6 +95,69 @@ static void test_compression(void)
 	}
 }
 
+static void test_gz(const char *str1, const char *str2)
+{
+	const struct compression_handler *gz = compression_lookup_handler("gz");
+	struct ostream *buf_output, *output;
+	struct istream *test_input, *input;
+	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 512);
+
+	if (gz == NULL || gz->create_ostream == NULL)
+		return; /* not compiled in */
+
+	/* write concated output */
+	buf_output = o_stream_create_buffer(buf);
+
+	output = gz->create_ostream(buf_output, 6);
+	o_stream_nsend_str(output, str1);
+	test_assert(o_stream_nfinish(output) == 0);
+	o_stream_destroy(&output);
+
+	if (str2[0] != '\0') {
+		output = gz->create_ostream(buf_output, 6);
+		o_stream_nsend_str(output, "world");
+		test_assert(o_stream_nfinish(output) == 0);
+		o_stream_destroy(&output);
+	}
+
+	o_stream_destroy(&buf_output);
+
+	/* read concated input */
+	const unsigned char *data;
+	size_t size;
+	test_input = test_istream_create_data(buf->data, buf->used);
+	test_istream_set_allow_eof(test_input, FALSE);
+	input = gz->create_istream(test_input, 1);
+	for (size_t i = 0; i <= buf->used; i++) {
+		test_istream_set_size(test_input, i);
+		test_assert(i_stream_read(input) >= 0);
+	}
+	test_istream_set_allow_eof(test_input, TRUE);
+	test_assert(i_stream_read(input) == -1);
+	test_assert(input->stream_errno == 0);
+
+	data = i_stream_get_data(input, &size);
+	test_assert(size == strlen(str1)+strlen(str2) &&
+		    memcmp(data, str1, strlen(str1)) == 0 &&
+		    memcmp(data+strlen(str1), str2, strlen(str2)) == 0);
+	i_stream_unref(&input);
+	i_stream_unref(&test_input);
+}
+
+static void test_gz_concat(void)
+{
+	test_begin("gz concat");
+	test_gz("hello", "world");
+	test_end();
+}
+
+static void test_gz_no_concat(void)
+{
+	test_begin("gz concat");
+	test_gz("hello", "");
+	test_end();
+}
+
 static void test_uncompress_file(const char *path)
 {
 	const struct compression_handler *handler;
@@ -182,6 +246,8 @@ int main(int argc, char *argv[])
 {
 	static void (*test_functions[])(void) = {
 		test_compression,
+		test_gz_concat,
+		test_gz_no_concat,
 		NULL
 	};
 	if (argc == 2) {
