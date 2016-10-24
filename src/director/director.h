@@ -65,6 +65,8 @@ struct director {
 	struct mail_host_list *orig_config_hosts;
 	/* temporary user -> host associations */
 	struct user_directory *users;
+	/* Number of users currently being moved */
+	unsigned int users_moving_count;
 
 	/* these requests are waiting for directors to be in synced */
 	ARRAY(struct director_request *) pending_requests;
