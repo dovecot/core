@@ -42,6 +42,7 @@ const char *user_kill_state_names[USER_KILL_STATE_DELAY+1] = {
 	"notify-received",
 	"waiting-for-notify",
 	"waiting-for-everyone",
+	"flushing",
 	"delay",
 };
 
