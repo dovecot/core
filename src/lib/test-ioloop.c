@@ -69,8 +69,9 @@ static void test_ioloop_fd(void)
 
 	struct timeout *to = timeout_add(2000, test_ioloop_fd_to, &test_ctx);
 
-	(void)write(fds[0], "ltr", 3);
-	(void)write(fds[1], "rtl", 3);
+	if (write(fds[0], "ltr", 3) != 3 ||
+	    write(fds[1], "rtl", 3) != 3)
+		i_fatal("write() failed: %m");
 
 	io_loop_run(ioloop);
 
