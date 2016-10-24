@@ -8,11 +8,85 @@
 
 #include <unistd.h>
 
+struct test_ctx {
+	bool got_left;
+	bool got_right;
+	bool got_to;
+};
+
 static void timeout_callback(struct timeval *tv)
 {
 	if (gettimeofday(tv, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
 	io_loop_stop(current_ioloop);
+}
+
+static void test_ioloop_fd_cb_left(struct test_ctx *ctx)
+{
+	ctx->got_left = TRUE;
+	if (ctx->got_left && ctx->got_right)
+		io_loop_stop(current_ioloop);
+}
+
+static void test_ioloop_fd_cb_right(struct test_ctx *ctx)
+{
+	ctx->got_right = TRUE;
+	if (ctx->got_left && ctx->got_right)
+		io_loop_stop(current_ioloop);
+}
+
+static void test_ioloop_fd_to(struct test_ctx *ctx)
+{
+	ctx->got_to = TRUE;
+	io_loop_stop(current_ioloop);
+}
+
+static void test_ioloop_fd(void)
+{
+	test_begin("ioloop fd");
+
+	struct test_ctx test_ctx;
+	int fds[2];
+	int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
+
+	test_assert(ret == 0);
+	if (ret < 0) {
+		i_error("socketpair() failed: %m");
+		test_end();
+		return;
+	}
+
+	memset(&test_ctx, 0, sizeof(test_ctx));
+
+	struct ioloop *ioloop = io_loop_create();
+
+	struct io *io_left =
+			io_add(fds[0], IO_READ,
+			       test_ioloop_fd_cb_left, &test_ctx);
+	struct io *io_right =
+			io_add(fds[1], IO_READ,
+				test_ioloop_fd_cb_right, &test_ctx);
+
+	struct timeout *to = timeout_add(2000, test_ioloop_fd_to, &test_ctx);
+
+	(void)write(fds[0], "ltr", 3);
+	(void)write(fds[1], "rtl", 3);
+
+	io_loop_run(ioloop);
+
+	timeout_remove(&to);
+	io_remove(&io_left);
+	io_remove(&io_right);
+
+	test_assert(test_ctx.got_to == FALSE);
+	test_assert(test_ctx.got_left == TRUE);
+	test_assert(test_ctx.got_right == TRUE);
+
+	io_loop_destroy(&ioloop);
+	i_close_fd(&fds[0]);
+	i_close_fd(&fds[1]);
+
+	test_end();
 }
 
 static void test_ioloop_timeout(void)
@@ -126,4 +200,5 @@ void test_ioloop(void)
 	test_ioloop_timeout();
 	test_ioloop_find_fd_conditions();
 	test_ioloop_pending_io();
+	test_ioloop_fd();
 }
