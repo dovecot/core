@@ -791,6 +791,8 @@ director_flush_user(struct director *dir, struct user *user)
 		t_strdup_printf("%u", user->username_hash), NULL};
 
 	user->kill_state = USER_KILL_STATE_FLUSHING;
+	dir_debug("Flushing user %u via %s", user->username_hash,
+		  ctx->socket_path);
 
 	if ((program_client_create(ctx->socket_path, args, &set, FALSE,
 				   &ctx->pclient, &error)) != 0) {
@@ -815,6 +817,9 @@ director_flush_user(struct director *dir, struct user *user)
 static void director_user_move_free(struct director *dir, struct user *user)
 {
 	i_assert(user->to_move != NULL);
+
+	dir_debug("User %u move finished at state=%s", user->username_hash,
+		  user_kill_state_names[user->kill_state]);
 
 	user->kill_state = USER_KILL_STATE_NONE;
 	timeout_remove(&user->to_move);
@@ -1004,6 +1009,12 @@ void director_move_user(struct director *dir, struct director_host *src,
 				      username_hash);
 		ipc_client_cmd(dir->ipc_proxy, cmd,
 			       director_kill_user_callback, ctx);
+	} else {
+		/* User is being moved again before the previous move
+		   finished. We'll just continue wherever we left off
+		   earlier. */
+		dir_debug("User %u move restarted - previous kill_state=%s",
+			  username_hash, user_kill_state_names[user->kill_state]);
 	}
 
 	if (orig_src == NULL) {
@@ -1151,9 +1162,16 @@ void director_user_killed_everywhere(struct director *dir,
 	struct user *user;
 
 	user = user_directory_lookup(dir->users, username_hash);
-	if (user == NULL ||
-	    user->kill_state != USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE)
+	if (user == NULL) {
+		dir_debug("User %u no longer exists - ignoring USER-KILLED-EVERYWHERE",
+			  username_hash);
 		return;
+	}
+	if (user->kill_state != USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE) {
+		dir_debug("User %u kill_state=%s - ignoring USER-KILLED-EVERYWHERE",
+			  username_hash, user_kill_state_names[user->kill_state]);
+		return;
+	}
 
 	director_flush_user(dir, user);
 	director_send_user_killed_everywhere(dir, src, orig_src, username_hash);

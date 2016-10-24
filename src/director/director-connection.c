@@ -776,6 +776,8 @@ director_cmd_host_hand_start(struct director_connection *conn,
 
 	if (remote_ring_completed && !conn->dir->ring_handshaked) {
 		/* clear everything we have and use only what remote sends us */
+		dir_debug("%s: We're joining a ring - replace all hosts",
+			  conn->name);
 		hosts = mail_hosts_get(conn->dir->mail_hosts);
 		while (array_count(hosts) > 0) {
 			hostp = array_idx(hosts, 0);
@@ -783,16 +785,20 @@ director_cmd_host_hand_start(struct director_connection *conn,
 		}
 	} else if (!remote_ring_completed && conn->dir->ring_handshaked) {
 		/* ignore whatever remote sends */
+		dir_debug("%s: Remote is joining our ring - "
+			  "ignore all remote HOSTs", conn->name);
 		conn->ignore_host_events = TRUE;
+	} else {
+		dir_debug("%s: Merge rings' hosts", conn->name);
 	}
 	conn->handshake_sending_hosts = TRUE;
 	return TRUE;
 }
 
 static int
-director_cmd_is_seen(struct director_connection *conn,
-		     const char *const **_args,
-		     struct director_host **host_r)
+director_cmd_is_seen_full(struct director_connection *conn,
+			  const char *const **_args, unsigned int *seq_r,
+			  struct director_host **host_r)
 {
 	const char *const *args = *_args;
 	struct ip_addr ip;
@@ -808,6 +814,7 @@ director_cmd_is_seen(struct director_connection *conn,
 		return -1;
 	}
 	*_args = args + 3;
+	*seq_r = seq;
 
 	host = director_host_lookup(conn->dir, &ip, port);
 	if (host == NULL || host->removed) {
@@ -824,6 +831,16 @@ director_cmd_is_seen(struct director_connection *conn,
 		host->last_seq = seq;
 	}
 	return 0;
+}
+
+static int
+director_cmd_is_seen(struct director_connection *conn,
+		     const char *const **_args,
+		     struct director_host **host_r)
+{
+	unsigned int seq;
+
+	return director_cmd_is_seen_full(conn, _args, &seq, host_r);
 }
 
 static bool
@@ -1185,16 +1202,24 @@ director_cmd_user_killed_everywhere(struct director_connection *conn,
 				    const char *const *args)
 {
 	struct director_host *dir_host;
-	unsigned int username_hash;
+	unsigned int seq, username_hash;
 	int ret;
 
-	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) != 0)
-		return ret > 0;
+	if ((ret = director_cmd_is_seen_full(conn, &args, &seq, &dir_host)) < 0)
+		return FALSE;
 
 	if (str_array_length(args) != 1 ||
 	    str_to_uint(args[0], &username_hash) < 0) {
 		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
+	}
+
+	if (ret > 0) {
+		i_assert(dir_host != NULL);
+		dir_debug("User %u - ignoring already seen USER-KILLED-EVERYWHERE "
+			  "with seq=%u <= %s.last_seq=%u", username_hash,
+			  seq, dir_host->name, dir_host->last_seq);
+		return TRUE;
 	}
 
 	director_user_killed_everywhere(conn->dir, conn->host,
