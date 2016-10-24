@@ -806,6 +806,9 @@ static void director_user_move_free(struct director *dir, struct user *user)
 	user->kill_state = USER_KILL_STATE_NONE;
 	timeout_remove(&user->to_move);
 
+	i_assert(dir->users_moving_count > 0);
+	dir->users_moving_count--;
+
 	dir->state_change_callback(dir);
 }
 
@@ -976,6 +979,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		ctx->username_hash = username_hash;
 		ctx->self = src->self;
 
+		dir->users_moving_count++;
 		user->to_move = timeout_add(DIRECTOR_USER_MOVE_TIMEOUT_MSECS,
 					    director_user_move_timeout, user);
 		user->kill_state = USER_KILL_STATE_KILLING;

@@ -47,6 +47,8 @@ static void director_refresh_proctitle_timeout(void *context ATTR_UNUSED)
 
 	str = t_str_new(64);
 	str_printfa(str, "[%u users", user_directory_count(director->users));
+	if (director->users_moving_count > 0)
+		str_printfa(str, ", %u moving", director->users_moving_count);
 	str_printfa(str, ", %lu req/s",
 		    (unsigned long)(director->num_requests - prev_requests));
 	str_printfa(str, ", %llu+%llu kB/s",
