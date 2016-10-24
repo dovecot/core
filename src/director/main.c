@@ -35,7 +35,7 @@ enum director_socket_type {
 	DIRECTOR_SOCKET_TYPE_DOVEADM
 };
 
-static struct director *director;
+struct director *director;
 static struct notify_connection *notify_conn;
 static struct timeout *to_proctitle_refresh;
 static ARRAY(enum director_socket_type) listener_socket_types;

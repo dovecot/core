@@ -927,6 +927,10 @@ static void director_user_move_timeout(struct user *user)
 
 	user->kill_state = USER_KILL_STATE_NONE;
 	timeout_remove(&user->to_move);
+
+	/* FIXME: shouldn't use global director, but for now there's no easy
+	   way to get access to it otherwise */
+	director->state_change_callback(director);
 }
 
 void director_move_user(struct director *dir, struct director_host *src,
