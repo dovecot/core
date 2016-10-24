@@ -562,7 +562,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 		do_wait = TRUE;
 		now = time(NULL);
 	} while (now < max_wait_time);
-	file_lock_wait_end();
+	file_lock_wait_end(dotlock->path);
 
 	if (ret > 0) {
 		if (fstat(lock_info.fd, &st) < 0) {
