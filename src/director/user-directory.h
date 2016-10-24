@@ -21,7 +21,9 @@ enum user_kill_state {
 	   the user move (although it could be earlier if we added a new
 	   USER-MOVED notification). */
 	USER_KILL_STATE_DELAY
+	/* NOTE: remember to update also user_kill_state_names[] */
 };
+extern const char *user_kill_state_names[USER_KILL_STATE_DELAY+1];
 
 struct user {
 	/* sorted by time */
