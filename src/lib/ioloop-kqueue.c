@@ -117,18 +117,26 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 	struct timespec ts;
 	struct io_file *io;
 	unsigned int events_count;
-	int ret, i;
+	int ret, i, msecs;
 
 	/* get the time left for next timeout task */
-	io_loop_get_wait_time(ioloop, &tv);
+	msecs = io_loop_get_wait_time(ioloop, &tv);
 	ts.tv_sec = tv.tv_sec;
 	ts.tv_nsec = tv.tv_usec * 1000;
 
 	/* wait for events */
 	events = array_get_modifiable(&ctx->events, &events_count);
-	ret = kevent (ctx->kq, NULL, 0, events, events_count, &ts);
-	if (ret < 0 && errno != EINTR)
-		i_panic("kevent(): %m");
+
+	if (events_count > 0) {
+		ret = kevent (ctx->kq, NULL, 0, events, events_count, &ts);
+		if (ret < 0 && errno != EINTR)
+			i_panic("kevent() failed: %m");
+	} else {
+		if (msecs < 0)
+			i_panic("BUG: No IOs or timeouts set. Not waiting for infinity.");
+		usleep(msecs * 1000);
+		ret = 0;
+	}
 
 	/* reference all IOs */
 	for (i = 0; i < ret; i++) {
