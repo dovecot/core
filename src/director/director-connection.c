@@ -131,9 +131,9 @@ struct director_connection {
 	bool wrong_host:1;
 	bool verifying_left:1;
 	bool users_unsorted:1;
-	bool done_pending:1;
 };
 
+static void director_finish_sending_handshake(struct director_connection *conn);
 static void director_connection_disconnected(struct director_connection **conn,
 					     const char *reason);
 static void director_connection_reconnect(struct director_connection **conn,
@@ -1284,10 +1284,7 @@ director_connection_handle_handshake(struct director_connection *conn,
 			return -1;
 		}
 		conn->version_received = TRUE;
-		if (conn->done_pending) {
-			if (director_connection_send_done(conn) < 0)
-				return -1;
-		}
+		director_finish_sending_handshake(conn);
 		return 1;
 	}
 	if (!conn->version_received) {
@@ -1766,24 +1763,30 @@ static void director_connection_input(struct director_connection *conn)
 		timeout_reset(conn->to_ping);
 }
 
-static void director_connection_send_directors(struct director_connection *conn,
-					       string_t *str)
+static void director_connection_send_directors(struct director_connection *conn)
 {
 	struct director_host *const *hostp;
+	string_t *str = t_str_new(64);
 
 	array_foreach(&conn->dir->dir_hosts, hostp) {
 		if ((*hostp)->removed)
 			continue;
+
+		str_truncate(str, 0);
 		str_printfa(str, "DIRECTOR\t%s\t%u\n",
 			    net_ip2addr(&(*hostp)->ip), (*hostp)->port);
+		director_connection_send(conn, str_c(str));
 	}
 }
 
 static void
-director_connection_send_hosts(struct director_connection *conn, string_t *str)
+director_connection_send_hosts(struct director_connection *conn)
 {
 	struct mail_host *const *hostp;
 	bool send_updowns;
+	string_t *str = t_str_new(128);
+
+	i_assert(conn->version_received);
 
 	send_updowns = conn->minor_version >= DIRECTOR_VERSION_UPDOWN;
 
@@ -1806,9 +1809,12 @@ director_connection_send_hosts(struct director_connection *conn, string_t *str)
 				str_append_tabescaped(str, host->hostname);
 		}
 		str_append_c(str, '\n');
+		director_connection_send(conn, str_c(str));
+		str_truncate(str, 0);
 	}
 	str_printfa(str, "HOST-HAND-END\t%u\n",
 		    conn->dir->ring_handshaked ? 1 : 0);
+	director_connection_send(conn, str_c(str));
 }
 
 static int director_connection_send_done(struct director_connection *conn)
@@ -1826,7 +1832,6 @@ static int director_connection_send_done(struct director_connection *conn)
 		return -1;
 	}
 	director_connection_send(conn, "DONE\n");
-	conn->done_pending = FALSE;
 	return 0;
 }
 
@@ -1834,6 +1839,8 @@ static int director_connection_send_users(struct director_connection *conn)
 {
 	struct user *user;
 	int ret;
+
+	i_assert(conn->version_received);
 
 	while ((user = user_directory_iter_next(conn->user_iter)) != NULL) {
 		T_BEGIN {
@@ -1858,12 +1865,8 @@ static int director_connection_send_users(struct director_connection *conn)
 		}
 	}
 	user_directory_iter_deinit(&conn->user_iter);
-	if (!conn->version_received)
-		conn->done_pending = TRUE;
-	else {
-		if (director_connection_send_done(conn) < 0)
-			return -1;
-	}
+	if (director_connection_send_done(conn) < 0)
+		return -1;
 
 	if (conn->users_unsorted && conn->handshake_received) {
 		/* we received remote's list of users before sending ours */
@@ -1941,8 +1944,6 @@ director_connection_init_in(struct director *dir, int fd,
 
 static void director_connection_connected(struct director_connection *conn)
 {
-	struct director *dir = conn->dir;
-	string_t *str = t_str_new(1024);
 	int err;
 
 	if ((err = net_geterror(conn->fd)) != 0) {
@@ -1964,13 +1965,27 @@ static void director_connection_connected(struct director_connection *conn)
 
 	o_stream_cork(conn->output);
 	director_connection_send_handshake(conn);
-	director_connection_send_directors(conn, str);
-	director_connection_send_hosts(conn, str);
-	director_connection_send(conn, str_c(str));
+	director_connection_send_directors(conn);
+	o_stream_uncork(conn->output);
+	/* send the rest of the handshake after we've received the remote's
+	   version number */
+}
 
-	conn->user_iter = user_directory_iter_init(dir->users);
+static void director_finish_sending_handshake(struct director_connection *conn)
+{
+	if (
+	    conn->in) {
+		/* only outgoing connections send hosts & users */
+		return;
+	}
+	o_stream_cork(conn->output);
+	director_connection_send_hosts(conn);
+
+	i_assert(conn->user_iter == NULL);
+	conn->user_iter = user_directory_iter_init(conn->dir->users);
 	if (director_connection_send_users(conn) == 0)
 		o_stream_set_flush_pending(conn->output, TRUE);
+
 	o_stream_uncork(conn->output);
 }
 
