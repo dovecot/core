@@ -722,9 +722,9 @@ static void cmd_director_dump(struct doveadm_cmd_context *cctx)
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
 	if (ctx->explicit_socket_path)
-		doveadm_print_formatted_set_format("doveadm director %{command} -a %{socket-path} %{host} %{vhost_count}");
+		doveadm_print_formatted_set_format("doveadm director %{command} -a %{socket-path} %{host} %{vhost_count}\n");
 	else
-		doveadm_print_formatted_set_format("doveadm director %{command} %{host} %{vhost_count}");
+		doveadm_print_formatted_set_format("doveadm director %{command} %{host} %{vhost_count}\n");
 
 	doveadm_print_header_simple("command");
 	doveadm_print_header_simple("socket-path");
