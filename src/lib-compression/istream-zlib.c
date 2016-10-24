@@ -36,6 +36,7 @@ struct zlib_istream {
 	unsigned int header_read:1;
 	unsigned int trailer_read:1;
 	unsigned int zs_closed:1;
+	unsigned int starting_concated_output:1;
 };
 
 static void i_stream_zlib_init(struct zlib_istream *zstream);
@@ -188,12 +189,31 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 			stream->istream.eof = TRUE;
 			return -1;
 		}
+		zstream->starting_concated_output = TRUE;
+	}
+	if (zstream->starting_concated_output) {
+		/* make sure there actually is something in parent stream.
+		   we don't want to reset the stream unless we actually see
+		   some concated output. */
+		ret = i_stream_read_more(stream->parent, &data, &size);
+		if (ret <= 0) {
+			if (ret == 0)
+				return 0;
+			if (stream->parent->stream_errno != 0) {
+				stream->istream.stream_errno =
+					stream->parent->stream_errno;
+			}
+			stream->istream.eof = TRUE;
+			return -1;
+		}
+
 		/* gzip file with concatenated content */
 		zstream->eof_offset = (uoff_t)-1;
 		zstream->stream_size = (uoff_t)-1;
 		zstream->header_read = FALSE;
 		zstream->trailer_read = FALSE;
 		zstream->crc32 = 0;
+		zstream->starting_concated_output = FALSE;
 
 		(void)inflateEnd(&zstream->zs);
 		i_stream_zlib_init(zstream);
