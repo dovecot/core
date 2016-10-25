@@ -3,6 +3,7 @@
 
 #define DOVEADM_PRINT_TYPE_TAB "tab"
 #define DOVEADM_PRINT_TYPE_FLOW "flow"
+#define DOVEADM_PRINT_TYPE_PAGER "pager"
 #define DOVEADM_PRINT_TYPE_TABLE "table"
 #define DOVEADM_PRINT_TYPE_SERVER "server"
 #define DOVEADM_PRINT_TYPE_JSON "json"
