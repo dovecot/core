@@ -158,7 +158,7 @@ static void cmd_service_status(struct doveadm_cmd_context *cctx)
 
 	struct istream *input = master_service_send_cmd("SERVICE-STATUS");
 
-	doveadm_print_init("pager");
+	doveadm_print_init(DOVEADM_PRINT_TYPE_PAGER);
 	doveadm_print_header_simple("name");
 	doveadm_print_header_simple("process_count");
 	doveadm_print_header_simple("process_avail");

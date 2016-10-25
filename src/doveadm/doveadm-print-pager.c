@@ -102,7 +102,7 @@ static void doveadm_print_pager_deinit(void)
 }
 
 struct doveadm_print_vfuncs doveadm_print_pager_vfuncs = {
-	"pager",
+	DOVEADM_PRINT_TYPE_PAGER,
 
 	doveadm_print_pager_init,
 	doveadm_print_pager_deinit,
