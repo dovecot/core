@@ -63,7 +63,7 @@ static void cmd_fs_get(int argc, char *argv[])
 	size_t size;
 	ssize_t ret;
 
-	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
+	doveadm_print_init(DOVEADM_PRINT_TYPE_PAGER);
 	doveadm_print_header("content", "content", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_get);
