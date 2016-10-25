@@ -118,14 +118,26 @@ parse_tag_name(struct mail_html2text *ht,
 
 static bool html_entity_get_unichar(const char *name, unichar_t *chr_r)
 {
-	unsigned int i;
+	unichar_t chr;
 
-	for (i = 0; i < N_ELEMENTS(html_entities); i++) {
+	for (size_t i = 0; i < N_ELEMENTS(html_entities); i++) {
 		if (strcasecmp(html_entities[i].name, name) == 0) {
 			*chr_r = html_entities[i].chr;
 			return TRUE;
 		}
 	}
+
+	/* maybe it's just encoded binary byte
+	   it can be &#nnn; or &#xnnn;
+	*/
+	if (name[0] == '#' &&
+	    ((name[1] == 'x' &&
+	      str_to_uint32_hex(name+2, &chr) == 0) ||
+	     str_to_uint32(name+1, &chr) == 0)) {
+		*chr_r = chr;
+		return TRUE;
+	}
+
 	return FALSE;
 }
 
