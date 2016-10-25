@@ -961,7 +961,7 @@ static void director_user_move_timeout(struct user *user)
 
 static void
 director_kill_user(struct director *dir, struct director_host *src,
-		   struct user *user)
+		   struct user *user, struct mail_host *old_host)
 {
 	struct director_kill_context *ctx;
 	const char *cmd;
@@ -986,10 +986,19 @@ director_kill_user(struct director *dir, struct director_host *src,
 				   director_user_move_timeout, user);
 	ctx->kill_state = USER_KILL_STATE_KILLING;
 
-	cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
-			      user->username_hash);
-	ctx->callback_pending = TRUE;
-	ipc_client_cmd(dir->ipc_proxy, cmd, director_kill_user_callback, ctx);
+	if (old_host != NULL) {
+		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
+				      user->username_hash);
+		ctx->callback_pending = TRUE;
+		ipc_client_cmd(dir->ipc_proxy, cmd,
+			       director_kill_user_callback, ctx);
+	} else {
+		/* we didn't even know about the user before now.
+		   don't bother performing a local kick, since it wouldn't
+		   kick anything. */
+		director_finish_user_kill(ctx->dir, user,
+					  ctx->kill_is_self_initiated);
+	}
 }
 
 void director_move_user(struct director *dir, struct director_host *src,
@@ -1018,7 +1027,10 @@ void director_move_user(struct director *dir, struct director_host *src,
 	if (user == NULL) {
 		user = user_directory_add(dir->users, username_hash,
 					  host, ioloop_time);
+		director_kill_user(dir, src, user, NULL);
 	} else {
+		struct mail_host *old_host = user->host;
+
 		if (user->host == host) {
 			/* user is already in this host */
 			return;
@@ -1027,8 +1039,8 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->host = host;
 		user->host->user_count++;
 		user->timestamp = ioloop_time;
+		director_kill_user(dir, src, user, old_host);
 	}
-	director_kill_user(dir, src, user);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
