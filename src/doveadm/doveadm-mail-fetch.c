@@ -663,7 +663,7 @@ static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)
 	ctx = doveadm_mail_cmd_alloc(struct fetch_cmd_context);
 	ctx->ctx.v.init = cmd_fetch_init;
 	ctx->ctx.v.run = cmd_fetch_run;
-	doveadm_print_init("pager");
+	doveadm_print_init(DOVEADM_PRINT_TYPE_PAGER);
 	return &ctx->ctx;
 }
 
