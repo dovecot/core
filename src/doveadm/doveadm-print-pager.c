@@ -7,6 +7,7 @@
 
 struct doveadm_print_pager_header {
 	const char *title;
+	enum doveadm_print_header_flags flags;
 };
 
 struct doveadm_print_pager_context {
@@ -26,6 +27,7 @@ doveadm_print_pager_header(const struct doveadm_print_header *hdr)
 	struct doveadm_print_pager_header *fhdr;
 
 	fhdr = array_append_space(&ctx->headers);
+	fhdr->flags = hdr->flags;
 	fhdr->title = p_strdup(ctx->pool, hdr->title);
 }
 
@@ -45,8 +47,10 @@ static void doveadm_print_pager_print(const char *value)
 		o_stream_nsend(doveadm_print_ostream, "\f\n", 2);
 	}
 	ctx->first_page = FALSE;
-	o_stream_nsend_str(doveadm_print_ostream, hdr->title);
-	o_stream_nsend(doveadm_print_ostream, ": ", 2);
+	if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0) {
+		o_stream_nsend_str(doveadm_print_ostream, hdr->title);
+		o_stream_nsend(doveadm_print_ostream, ": ", 2);
+	}
 	o_stream_nsend_str(doveadm_print_ostream, value);
 	o_stream_nsend(doveadm_print_ostream, "\n", 1);
 	pager_next_hdr();
@@ -60,8 +64,10 @@ doveadm_print_pager_print_stream(const unsigned char *value, size_t size)
 
 	if (!ctx->streaming) {
 		ctx->streaming = TRUE;
-		o_stream_nsend_str(doveadm_print_ostream, hdr->title);
-		o_stream_nsend(doveadm_print_ostream, ":\n", 2);
+		if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0) {
+			o_stream_nsend_str(doveadm_print_ostream, hdr->title);
+			o_stream_nsend(doveadm_print_ostream, ":\n", 2);
+		}
 	}
 	o_stream_nsend(doveadm_print_ostream, value, size);
 	if (size == 0) {
