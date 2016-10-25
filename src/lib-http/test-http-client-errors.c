@@ -32,6 +32,7 @@ struct server_connection {
 typedef void (*test_server_init_t)(unsigned int index);
 typedef void (*test_client_init_t)
 	(const struct http_client_settings *client_set);
+typedef void (*test_dns_init_t)(void);
 
 /*
  * State
@@ -42,6 +43,9 @@ static struct ip_addr bind_ip;
 static in_port_t *bind_ports = 0;
 static struct ioloop *ioloop;
 static bool debug = FALSE;
+
+/* dns */
+static pid_t dns_pid = (pid_t)-1;
 
 /* server */
 static struct io *io_listen;
@@ -75,7 +79,8 @@ static void test_run_client_server(
 	const struct http_client_settings *client_set,
 	test_client_init_t client_test,
 	test_server_init_t server_test,
-	unsigned int server_tests_count)
+	unsigned int server_tests_count,
+	test_dns_init_t dns_test)
 	ATTR_NULL(3);
 
 /*
@@ -138,7 +143,7 @@ static void test_host_lookup_failed(void)
 	test_begin("host lookup failed");
 	test_run_client_server(&http_client_set,
 		test_client_host_lookup_failed,
-		NULL, 0);
+		NULL, 0, NULL);
 	test_end();
 }
 
@@ -212,7 +217,8 @@ static void test_connection_refused(void)
 	test_begin("connection refused");
 	test_run_client_server(&http_client_set,
 		test_client_connection_refused,
-		test_server_connection_refused, 1);
+		test_server_connection_refused, 1,
+		NULL);
 	test_end();
 }
 
@@ -279,7 +285,7 @@ static void test_connection_timed_out(void)
 	test_begin("connection timed out");
 	test_run_client_server(&http_client_set,
 		test_client_connection_timed_out,
-		NULL, 0);
+		NULL, 0, NULL);
 	test_end();
 }
 
@@ -392,21 +398,24 @@ static void test_invalid_redirect(void)
 	http_client_set.max_redirects = 0;
 	test_run_client_server(&http_client_set,
 		test_client_invalid_redirect,
-		test_server_invalid_redirect1, 1);
+		test_server_invalid_redirect1, 1,
+		NULL);
 	test_end();
 
 	test_begin("invalid redirect: bad location");
 	http_client_set.max_redirects = 1;
 	test_run_client_server(&http_client_set,
 		test_client_invalid_redirect,
-		test_server_invalid_redirect2, 1);
+		test_server_invalid_redirect2, 1,
+		NULL);
 	test_end();
 
 	test_begin("invalid redirect: too many");
 	http_client_set.max_redirects = 1;
 	test_run_client_server(&http_client_set,
 		test_client_invalid_redirect,
-		test_server_invalid_redirect3, 3);
+		test_server_invalid_redirect3, 3,
+		NULL);
 	test_end();
 }
 
@@ -486,7 +495,8 @@ static void test_unseekable_redirect(void)
 	test_begin("unseekable redirect");
 	test_run_client_server(&http_client_set,
 		test_client_unseekable_redirect,
-		test_server_unseekable_redirect, 2);
+		test_server_unseekable_redirect, 2,
+		NULL);
 	test_end();
 }
 
@@ -556,7 +566,8 @@ static void test_unseekable_retry(void)
 	test_begin("unseekable retry");
 	test_run_client_server(&http_client_set,
 		test_client_unseekable_retry,
-		test_server_unseekable_retry, 2);
+		test_server_unseekable_retry, 2,
+		NULL);
 	test_end();
 }
 
@@ -633,7 +644,8 @@ static void test_broken_payload(void)
 	test_begin("broken payload");
 	test_run_client_server(&http_client_set,
 		test_client_broken_payload,
-		test_server_broken_payload, 1);
+		test_server_broken_payload, 1,
+		NULL);
 	test_end();
 }
 
@@ -766,21 +778,24 @@ static void test_connection_lost(void)
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
 		test_client_connection_lost,
-		test_server_connection_lost, 1);
+		test_server_connection_lost, 1,
+		NULL);
 	test_end();
 
 	test_begin("connection lost: two attempts");
 	http_client_set.max_attempts = 2;
 	test_run_client_server(&http_client_set,
 		test_client_connection_lost,
-		test_server_connection_lost, 1);
+		test_server_connection_lost, 1,
+		NULL);
 	test_end();
 
 	test_begin("connection lost: three attempts");
 	http_client_set.max_attempts = 3;
 	test_run_client_server(&http_client_set,
 		test_client_connection_lost,
-		test_server_connection_lost, 1);
+		test_server_connection_lost, 1,
+		NULL);
 	test_end();
 
 	test_begin("connection lost: manual retry");
@@ -788,7 +803,8 @@ static void test_connection_lost(void)
 	http_client_set.no_auto_retry = TRUE;
 	test_run_client_server(&http_client_set,
 		test_client_connection_lost,
-		test_server_connection_lost, 1);
+		test_server_connection_lost, 1,
+		NULL);
 	test_end();
 }
 
@@ -887,7 +903,8 @@ static void test_connection_lost_100(void)
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
 		test_client_connection_lost_100,
-		test_server_connection_lost_100, 1);
+		test_server_connection_lost_100, 1,
+		NULL);
 	test_end();
 }
 
@@ -1015,7 +1032,8 @@ static void test_connection_lost_sub_ioloop(void)
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
 		test_client_connection_lost_sub_ioloop,
-		test_server_connection_lost_sub_ioloop, 2);
+		test_server_connection_lost_sub_ioloop, 2,
+		NULL);
 	test_end();
 }
 
@@ -1130,7 +1148,8 @@ static void test_early_success(void)
 	test_begin("early succes");
 	test_run_client_server(&http_client_set,
 		test_client_early_success,
-		test_server_early_success, 1);
+		test_server_early_success, 1,
+		NULL);
 	test_end();
 }
 
@@ -1214,7 +1233,8 @@ static void test_bad_response(void)
 	test_begin("bad response");
 	test_run_client_server(&http_client_set,
 		test_client_bad_response,
-		test_server_bad_response, 1);
+		test_server_bad_response, 1,
+		NULL);
 	test_end();
 }
 
@@ -1296,7 +1316,8 @@ static void test_request_timed_out(void)
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
 		test_client_request_timed_out,
-		test_server_request_timed_out, 1);
+		test_server_request_timed_out, 1,
+		NULL);
 	test_end();
 
 	test_begin("request timed out: two attempts");
@@ -1304,7 +1325,8 @@ static void test_request_timed_out(void)
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
 		test_client_request_timed_out,
-		test_server_request_timed_out, 1);
+		test_server_request_timed_out, 1,
+		NULL);
 	test_end();
 
 	test_begin("request absolutely timed out");
@@ -1313,7 +1335,8 @@ static void test_request_timed_out(void)
 	http_client_set.max_attempts = 3;
 	test_run_client_server(&http_client_set,
 		test_client_request_timed_out,
-		test_server_request_timed_out, 1);
+		test_server_request_timed_out, 1,
+		NULL);
 	test_end();
 
 	test_begin("request double timed out");
@@ -1322,7 +1345,8 @@ static void test_request_timed_out(void)
 	http_client_set.max_attempts = 3;
 	test_run_client_server(&http_client_set,
 		test_client_request_timed_out,
-		test_server_request_timed_out, 1);
+		test_server_request_timed_out, 1,
+		NULL);
 	test_end();
 }
 
@@ -1432,7 +1456,8 @@ static void test_request_aborted_early(void)
 	test_begin("request aborted early");
 	test_run_client_server(&http_client_set,
 		test_client_request_aborted_early,
-		test_server_request_aborted_early, 1);
+		test_server_request_aborted_early, 1,
+		NULL);
 	test_end();
 }
 
@@ -1532,7 +1557,8 @@ static void test_client_deinit_early(void)
 	test_begin("client deinit early");
 	test_run_client_server(&http_client_set,
 		test_client_client_deinit_early,
-		test_server_client_deinit_early, 1);
+		test_server_client_deinit_early, 1,
+		NULL);
 	test_end();
 }
 
@@ -1636,7 +1662,408 @@ static void test_retry_with_delay(void)
 	test_begin("retry with delay");
 	test_run_client_server(&http_client_set,
 		test_client_retry_with_delay,
-		test_server_retry_with_delay, 1);
+		test_server_retry_with_delay, 1,
+		NULL);
+	test_end();
+}
+
+/*
+ * DNS service failure
+ */
+
+/* client */
+
+struct _dns_service_failure {
+	unsigned int count;
+};
+
+static void
+test_client_dns_service_failure_response(
+	const struct http_response *resp,
+	struct _dns_service_failure *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static void
+test_client_dns_service_failure(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _dns_service_failure *ctx;
+
+	ctx = i_new(struct _dns_service_failure, 1);
+	ctx->count = 2;
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", "example.com", "/dns-service-failure.txt",
+		test_client_dns_service_failure_response, ctx);
+	http_client_request_set_port(hreq, 80);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", "example.com", "/dns-service-failure2.txt",
+		test_client_dns_service_failure_response, ctx);
+	http_client_request_set_port(hreq, 80);
+	http_client_request_submit(hreq);
+}
+
+/* test */
+
+static void test_dns_service_failure(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.dns_client_socket_path = "./frop";
+
+	test_begin("dns service failure");
+	test_run_client_server(&http_client_set,
+		test_client_dns_service_failure,
+		NULL, 0, NULL);
+	test_end();
+}
+
+/*
+ * DNS timeout
+ */
+
+/* dns */
+
+static void
+test_dns_timeout_input(struct server_connection *conn ATTR_UNUSED)
+{
+	/* hang */
+	sleep(100);
+	server_connection_deinit(&conn);
+}
+
+static void test_dns_dns_timeout(void)
+{
+	test_server_input = test_dns_timeout_input;
+	test_server_run(0);
+}
+
+/* client */
+
+struct _dns_timeout {
+	unsigned int count;
+};
+
+static void
+test_client_dns_timeout_response(
+	const struct http_response *resp,
+	struct _dns_timeout *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static void
+test_client_dns_timeout(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _dns_timeout *ctx;
+
+	ctx = i_new(struct _dns_timeout, 1);
+	ctx->count = 2;
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", "example.com", "/dns-timeout.txt",
+		test_client_dns_timeout_response, ctx);
+	http_client_request_set_port(hreq, 80);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", "example.com", "/dns-timeout2.txt",
+		test_client_dns_timeout_response, ctx);
+	http_client_request_set_port(hreq, 80);
+	http_client_request_submit(hreq);
+}
+
+/* test */
+
+static void test_dns_timeout(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.request_timeout_msecs = 2000;
+	http_client_set.connect_timeout_msecs = 2000;
+	http_client_set.dns_client_socket_path = "./dns-test";
+
+	test_begin("dns timeout");
+	test_run_client_server(&http_client_set,
+		test_client_dns_timeout,
+		NULL, 0,
+		test_dns_dns_timeout);
+	test_end();
+}
+
+/*
+ * DNS lookup failure
+ */
+
+/* dns */
+
+static void
+test_dns_lookup_failure_input(struct server_connection *conn)
+{
+	o_stream_nsend_str(conn->conn.output,
+		t_strdup_printf("%d\n", EAI_FAIL));
+	server_connection_deinit(&conn);
+}
+
+static void test_dns_dns_lookup_failure(void)
+{
+	test_server_input = test_dns_lookup_failure_input;
+	test_server_run(0);
+}
+
+/* client */
+
+struct _dns_lookup_failure {
+	unsigned int count;
+};
+
+static void
+test_client_dns_lookup_failure_response(
+	const struct http_response *resp,
+	struct _dns_lookup_failure *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static void
+test_client_dns_lookup_failure(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _dns_lookup_failure *ctx;
+
+	ctx = i_new(struct _dns_lookup_failure, 1);
+	ctx->count = 2;
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", "example.com", "/dns-lookup-failure.txt",
+		test_client_dns_lookup_failure_response, ctx);
+	http_client_request_set_port(hreq, 80);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", "example.com", "/dns-lookup-failure2.txt",
+		test_client_dns_lookup_failure_response, ctx);
+	http_client_request_set_port(hreq, 80);
+	http_client_request_submit(hreq);
+}
+
+/* test */
+
+static void test_dns_lookup_failure(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.dns_client_socket_path = "./dns-test";
+
+	test_begin("dns lookup failure");
+	test_run_client_server(&http_client_set,
+		test_client_dns_lookup_failure,
+		NULL, 0,
+		test_dns_dns_lookup_failure);
+	test_end();
+}
+
+/*
+ * DNS lookup ttl
+ */
+
+/* dns */
+
+static void
+test_dns_lookup_ttl_input(struct server_connection *conn)
+{
+	static unsigned int count = 0;
+	const char *line;
+
+	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (debug)
+			i_debug("DNS REQUEST %u: %s", count, line);
+
+		if (count == 0) {
+			o_stream_nsend_str(conn->conn.output,
+				"0 1\n127.0.0.1\n");
+		} else {
+			o_stream_nsend_str(conn->conn.output,
+				t_strdup_printf("%d\n", EAI_FAIL));
+			if (count > 4)
+				server_connection_deinit(&conn);
+		}
+		count++;
+	}
+}
+
+static void test_dns_dns_lookup_ttl(void)
+{
+	test_server_input = test_dns_lookup_ttl_input;
+	test_server_run(0);
+}
+
+/* server */
+
+static void
+test_server_dns_lookup_ttl_input(struct server_connection *conn)
+{
+	string_t *resp;
+
+	resp = t_str_new(512);
+	str_printfa(resp,
+		"HTTP/1.1 200 OK\r\n"
+		"Connection: close\r\n"
+		"\r\n");
+	o_stream_nsend(conn->conn.output,
+		str_data(resp), str_len(resp));
+	server_connection_deinit(&conn);
+}
+
+static void test_server_dns_lookup_ttl(unsigned int index)
+{
+	test_server_input = test_server_dns_lookup_ttl_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _dns_lookup_ttl {
+	struct http_client *client;
+	unsigned int count;
+	struct timeout *to;
+};
+
+static void
+test_client_dns_lookup_ttl_response_stage2(
+	const struct http_response *resp,
+	struct _dns_lookup_ttl *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static void
+test_client_dns_lookup_ttl_stage2_start(struct _dns_lookup_ttl *ctx)
+{
+	struct http_client_request *hreq;
+
+	timeout_remove(&ctx->to);
+
+	ctx->count = 2;
+
+	hreq = http_client_request(ctx->client,
+		"GET", "example.com", "/dns-lookup-ttl-stage2.txt",
+		test_client_dns_lookup_ttl_response_stage2, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(ctx->client,
+		"GET", "example.com", "/dns-lookup-ttl2-stage2.txt",
+		test_client_dns_lookup_ttl_response_stage2, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+}
+
+static void
+test_client_dns_lookup_ttl_response_stage1(
+	const struct http_response *resp,
+	struct _dns_lookup_ttl *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == 200);
+
+	if (--ctx->count == 0) {
+		ctx->to = timeout_add(2000,
+			test_client_dns_lookup_ttl_stage2_start, ctx);
+	}
+}
+
+static void
+test_client_dns_lookup_ttl(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _dns_lookup_ttl *ctx;
+
+	ctx = i_new(struct _dns_lookup_ttl, 1);
+	ctx->count = 2;
+
+	ctx->client = http_client = http_client_init(client_set);
+
+	hreq = http_client_request(ctx->client,
+		"GET", "example.com", "/dns-lookup-ttl-stage1.txt",
+		test_client_dns_lookup_ttl_response_stage1, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(ctx->client,
+		"GET", "example.com", "/dns-lookup-ttl2-stage1.txt",
+		test_client_dns_lookup_ttl_response_stage1, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+}
+
+/* test */
+
+static void test_dns_lookup_ttl(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.dns_client_socket_path = "./dns-test";
+	http_client_set.dns_ttl_msecs = 1000;
+
+	test_begin("dns lookup ttl");
+	test_run_client_server(&http_client_set,
+		test_client_dns_lookup_ttl,
+		test_server_dns_lookup_ttl, 1,
+		test_dns_dns_lookup_ttl);
 	test_end();
 }
 
@@ -1661,6 +2088,10 @@ static void (*test_functions[])(void) = {
 	test_request_aborted_early,
 	test_client_deinit_early,
 	test_retry_with_delay,
+	test_dns_service_failure,
+	test_dns_timeout,
+	test_dns_lookup_failure,
+	test_dns_lookup_ttl,
 	NULL
 };
 
@@ -1816,13 +2247,20 @@ static void test_servers_kill_all(void)
 		}
 	}
 	server_pids_count = 0;
+
+	if (dns_pid != (pid_t)-1) {
+		(void)kill(dns_pid, SIGKILL);
+		(void)waitpid(dns_pid, NULL, 0);
+		dns_pid = (pid_t)-1;
+	}
 }
 
 static void test_run_client_server(
 	const struct http_client_settings *client_set,
 	test_client_init_t client_test,
 	test_server_init_t server_test,
-	unsigned int server_tests_count)
+	unsigned int server_tests_count,
+	test_dns_init_t dns_test)
 {
 	unsigned int i;
 
@@ -1872,6 +2310,38 @@ static void test_run_client_server(
 			i_debug("client: PID=%s", my_pid);
 	}
 
+	if (dns_test != NULL) {
+		int fd;
+
+		i_unlink_if_exists("./dns-test");
+		fd = net_listen_unix("./dns-test", 128);
+		if (fd == -1) {
+			i_fatal("listen(./dns-test) failed: %m");
+		}
+
+		fd_listen = fd;
+		if ((dns_pid = fork()) == (pid_t)-1)
+			i_fatal("fork() failed: %m");
+		if (dns_pid == 0) {
+			dns_pid = (pid_t)-1;
+			hostpid_init();
+			if (debug)
+				i_debug("dns server: PID=%s", my_pid);
+			/* child: server */
+			ioloop = io_loop_create();
+			dns_test();
+			io_loop_destroy(&ioloop);
+			if (fd_listen != -1)
+				i_close_fd(&fd_listen);
+			/* wait for it to be killed; this way, valgrind will not
+			   object to this process going away inelegantly. */
+			sleep(60);
+			exit(1);
+		}
+		if (fd_listen != -1)
+			i_close_fd(&fd_listen);
+	}
+
 	/* parent: client */
 
 	usleep(100000); /* wait a little for server setup */
@@ -1885,6 +2355,8 @@ static void test_run_client_server(
 	test_servers_kill_all();
 	i_free(server_pids);
 	i_free(bind_ports);
+
+	i_unlink_if_exists("./dns-test");
 }
 
 /*
