@@ -31,7 +31,7 @@ get_var_expand_table(struct mail *mail, const char *reason,
 	const struct var_expand_table stack_tab[] = {
 		{ 'n', "\r\n", "crlf" },
 		{ 'r', reason, "reason" },
-		{ 's', subject, "subject" },
+		{ 's', str_sanitize(subject, 80), "subject" },
 		{ 't', recipient, "to" },
 		{ '\0', NULL, NULL }
 	};
