@@ -281,9 +281,11 @@ static void main_deinit(void)
 		timeout_remove(&to_proctitle_refresh);
 	if (notify_conn != NULL)
 		notify_connection_deinit(&notify_conn);
+	/* deinit doveadm connections before director, so it can clean up
+	   its pending work, such as abort user moves. */
+	doveadm_connections_deinit();
 	director_deinit(&director);
 	directors_deinit();
-	doveadm_connections_deinit();
 	login_connections_deinit();
 	auth_connections_deinit();
 	array_free(&listener_socket_types);
