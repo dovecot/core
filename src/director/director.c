@@ -766,8 +766,14 @@ director_flush_user(struct director *dir, struct user *user)
 	/* Execute flush script, if set. Only the director that started the
 	   user moving will call the flush script. Having each director do it
 	   would be redundant since they're all supposed to be performing the
-	   same flush task to the same backend. */
+	   same flush task to the same backend.
+
+	   Flushing is also not triggered if we're moving a user that we just
+	   created due to the user move. This means that the user doesn't have
+	   an old host, so we couldn't really even perform any flushing on the
+	   backend. */
 	if (*dir->set->director_flush_socket == '\0' ||
+	    ctx->old_host_ip.family == 0 ||
 	    !ctx->kill_is_self_initiated) {
 		director_user_kill_finish_delayed(dir, user, FALSE);
 		return;
@@ -787,8 +793,13 @@ director_flush_user(struct director *dir, struct user *user)
 
 	restrict_access_init(&set.restrict_set);
 
-	const char *const args[] = {"FLUSH",
-		t_strdup_printf("%u", user->username_hash), NULL};
+	const char *const args[] = {
+		"FLUSH",
+		t_strdup_printf("%u", user->username_hash),
+		net_ip2addr(&ctx->old_host_ip),
+		net_ip2addr(&user->host->ip),
+		NULL
+	};
 
 	ctx->kill_state = USER_KILL_STATE_FLUSHING;
 	dir_debug("Flushing user %u via %s", user->username_hash,
@@ -978,6 +989,8 @@ director_kill_user(struct director *dir, struct director_host *src,
 	ctx->dir = dir;
 	ctx->username_hash = user->username_hash;
 	ctx->kill_is_self_initiated = src->self;
+	if (old_host != NULL)
+		ctx->old_host_ip = old_host->ip;
 
 	dir->users_moving_count++;
 	ctx->to_move = timeout_add(DIRECTOR_USER_MOVE_TIMEOUT_MSECS,

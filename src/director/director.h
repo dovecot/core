@@ -73,6 +73,7 @@ typedef void director_state_change_callback_t(struct director *dir);
 struct director_kill_context {
 	struct director *dir;
 	unsigned int username_hash;
+	struct ip_addr old_host_ip;
 	bool kill_is_self_initiated;
 	bool callback_pending;
 
