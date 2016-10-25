@@ -957,13 +957,44 @@ static void director_user_move_timeout(struct user *user)
 	director_user_move_free(user);
 }
 
+static void
+director_kill_user(struct director *dir, struct director_host *src,
+		   struct user *user)
+{
+	struct director_kill_context *ctx;
+	const char *cmd;
+
+	if (USER_IS_BEING_KILLED(user)) {
+		/* User is being moved again before the previous move
+		   finished. We'll just continue wherever we left off
+		   earlier. */
+		dir_debug("User %u move restarted - previous kill_state=%s",
+			  user->username_hash,
+			  user_kill_state_names[user->kill_ctx->kill_state]);
+		return;
+	}
+
+	user->kill_ctx = ctx = i_new(struct director_kill_context, 1);
+	ctx->dir = dir;
+	ctx->username_hash = user->username_hash;
+	ctx->kill_is_self_initiated = src->self;
+
+	dir->users_moving_count++;
+	ctx->to_move = timeout_add(DIRECTOR_USER_MOVE_TIMEOUT_MSECS,
+				   director_user_move_timeout, user);
+	ctx->kill_state = USER_KILL_STATE_KILLING;
+
+	cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
+			      user->username_hash);
+	ctx->callback_pending = TRUE;
+	ipc_client_cmd(dir->ipc_proxy, cmd, director_kill_user_callback, ctx);
+}
+
 void director_move_user(struct director *dir, struct director_host *src,
 			struct director_host *orig_src,
 			unsigned int username_hash, struct mail_host *host)
 {
 	struct user *user;
-	const char *cmd;
-	struct director_kill_context *ctx;
 
 	/* 1. move this user's host, and set its "killing" flag to delay all of
 	   its future connections until all directors have killed the
@@ -995,29 +1026,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->host->user_count++;
 		user->timestamp = ioloop_time;
 	}
-	if (!USER_IS_BEING_KILLED(user)) {
-		user->kill_ctx = ctx = i_new(struct director_kill_context, 1);
-		ctx->dir = dir;
-		ctx->username_hash = username_hash;
-		ctx->kill_is_self_initiated = src->self;
-
-		dir->users_moving_count++;
-		ctx->to_move = timeout_add(DIRECTOR_USER_MOVE_TIMEOUT_MSECS,
-					   director_user_move_timeout, user);
-		ctx->kill_state = USER_KILL_STATE_KILLING;
-
-		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
-				      username_hash);
-		ctx->callback_pending = TRUE;
-		ipc_client_cmd(dir->ipc_proxy, cmd,
-			       director_kill_user_callback, ctx);
-	} else {
-		/* User is being moved again before the previous move
-		   finished. We'll just continue wherever we left off
-		   earlier. */
-		dir_debug("User %u move restarted - previous kill_state=%s",
-			  username_hash, user_kill_state_names[user->kill_ctx->kill_state]);
-	}
+	director_kill_user(dir, src, user);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
