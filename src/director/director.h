@@ -153,7 +153,6 @@ struct director {
 };
 
 extern bool director_debug;
-extern struct director *director; /* FIXME: shouldn't be global */
 
 /* Create a new director. If listen_ip specifies an actual IP, it's used with
    listen_port for finding ourself from the director_servers setting.
