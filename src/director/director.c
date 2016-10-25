@@ -882,7 +882,7 @@ director_user_kill_finish_delayed(struct director *dir, struct user *user,
 struct director_kill_context {
 	struct director *dir;
 	unsigned int username_hash;
-	bool self;
+	bool kill_is_self_initiated;
 };
 
 static void
@@ -941,7 +941,7 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	} else if (user->kill_state == USER_KILL_STATE_KILLING ||
 		   user->kill_state == USER_KILL_STATE_KILLING_NOTIFY_RECEIVED) {
 		/* we were still waiting for the kill notification */
-		director_finish_user_kill(ctx->dir, user, ctx->self);
+		director_finish_user_kill(ctx->dir, user, ctx->kill_is_self_initiated);
 	} else {
 		/* we don't currently want to kill the user */
 	}
@@ -1014,7 +1014,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		ctx = i_new(struct director_kill_context, 1);
 		ctx->dir = dir;
 		ctx->username_hash = username_hash;
-		ctx->self = src->self;
+		ctx->kill_is_self_initiated = src->self;
 
 		dir->users_moving_count++;
 		user->to_move = timeout_add(DIRECTOR_USER_MOVE_TIMEOUT_MSECS,
