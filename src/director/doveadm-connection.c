@@ -520,7 +520,7 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 		}
 
 		for (i = 0; i < count; i++) {
-			if (net_ip_compare(&hosts[i]->ip, &ip) == 0)
+			if (net_ip_compare(&hosts[i]->ip, &ip))
 				break;
 		}
 		if (i == count) {
