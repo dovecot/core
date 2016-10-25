@@ -150,6 +150,9 @@ static void
 client_update_info(struct imap_client *client,
 		   const char *key, const char *value)
 {
+	/* do not try to process NIL value */
+	if (value == NULL)
+		return;
 	if (strcasecmp(key, "x-originating-ip") == 0) {
 		(void)net_addr2ip(value, &client->common.ip);
 	} else if (strcasecmp(key, "x-originating-port") == 0) {
