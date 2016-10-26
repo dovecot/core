@@ -86,6 +86,7 @@ int program_client_connect(struct program_client *pclient)
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 		return -1;
 	}
+
 	return ret;
 }
 
@@ -696,8 +697,6 @@ void program_client_run_async(struct program_client *pclient,
 			      program_client_callback_t *callback,
 			      void *context)
 {
-	int ret;
-
 	i_assert(callback != NULL);
 
 	pclient->disconnected = FALSE;
@@ -706,21 +705,6 @@ void program_client_run_async(struct program_client *pclient,
 
 	pclient->callback = callback;
 	pclient->context = context;
-	if ((ret = program_client_connect(pclient)) >= 0) {
-		/* run output */
-		if (ret > 0 && pclient->program_output != NULL &&
-		    (ret = o_stream_flush(pclient->program_output)) == 0) {
-			o_stream_set_flush_callback
-				(pclient->program_output,
-				 program_client_program_output, pclient);
-		}
-		if (ret < 0) {
-			i_error("write(%s) failed: %s",
-				o_stream_get_name(pclient->program_output),
-				o_stream_get_error(pclient->program_output));
-			pclient->error = PROGRAM_CLIENT_ERROR_IO;
-			program_client_callback(pclient, ret, context);
-			return;
-		}
-	}
+	if (program_client_connect(pclient) < 0)
+		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 }
