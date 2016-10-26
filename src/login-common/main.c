@@ -346,11 +346,14 @@ static void main_preinit(void)
 	    - 1 for login proxy
 	    - 2 for client-side ssl proxy
 	    - 2 for server-side ssl proxy (with login proxy)
+
+	   However, login process nowadays supports plugins, there are rawlogs
+	   and so on. Don't enforce the fd limit anymore, but use this value
+	   for optimizing the ioloop's fd table size.
 	*/
 	max_fds = MASTER_LISTEN_FD_FIRST + 16 +
 		master_service_get_socket_count(master_service) +
 		master_service_get_client_limit(master_service)*6;
-	restrict_fd_limit(max_fds);
 	io_loop_set_max_fd_count(current_ioloop, max_fds);
 
 	i_assert(strcmp(global_ssl_settings->ssl, "no") == 0 ||
