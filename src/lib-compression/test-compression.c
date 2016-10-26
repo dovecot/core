@@ -127,7 +127,7 @@ static void test_gz(const char *str1, const char *str2)
 	size_t size;
 	test_input = test_istream_create_data(buf->data, buf->used);
 	test_istream_set_allow_eof(test_input, FALSE);
-	input = gz->create_istream(test_input, 1);
+	input = gz->create_istream(test_input, TRUE);
 	for (size_t i = 0; i <= buf->used; i++) {
 		test_istream_set_size(test_input, i);
 		test_assert(i_stream_read(input) >= 0);
@@ -172,7 +172,7 @@ static void test_uncompress_file(const char *path)
 		i_fatal("Support not compiled in for %s", handler->name);
 
 	file_input = i_stream_create_file(path, IO_BLOCK_SIZE);
-	input = handler->create_istream(file_input, 1);
+	input = handler->create_istream(file_input, TRUE);
 	while (i_stream_read_more(input, &data, &size) > 0) {
 		if (write(STDOUT_FILENO, data, size) < 0)
 			break;
