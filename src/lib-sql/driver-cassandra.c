@@ -573,7 +573,7 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	if (db->num_threads != 0)
 		cass_cluster_set_num_threads_io(db->cluster, db->num_threads);
 	if (db->latency_aware_routing)
-		cass_cluster_set_latency_aware_routing(db->cluster, TRUE);
+		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
 	db->session = cass_session_new();
 	if (db->metrics_path != NULL)
 		db->to_metrics = timeout_add(1000, driver_cassandra_metrics_write, db);
