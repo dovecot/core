@@ -16,6 +16,10 @@
 #define EMPTY_BODYSTRUCTURE "(\"text\" \"plain\" " \
 	"(\"charset\" \""MESSAGE_PART_DEFAULT_CHARSET"\") NIL NIL \"7bit\" 0 0)"
 
+/*
+ * IMAP BODY/BODYSTRUCTURE write
+ */
+
 static void
 params_write(const struct message_part_param *params,
 	unsigned int params_count, string_t *str,
@@ -223,6 +227,10 @@ void imap_bodystructure_write(const struct message_part *part,
 	else
 		part_write_body(part, dest, extended);
 }
+
+/*
+ * IMAP BODYSTRUCTURE parsing
+ */
 
 static int
 imap_bodystructure_strlist_parse(const struct imap_arg *arg,
@@ -634,6 +642,10 @@ int imap_bodystructure_parse(const char *bodystructure,
 	return imap_bodystructure_parse_full(bodystructure,
 		pool, &parts, error_r);
 }
+
+/*
+ * IMAP BODYSTRUCTURE to BODY conversion
+ */
 
 static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
 {
