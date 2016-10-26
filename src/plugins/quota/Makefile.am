@@ -13,6 +13,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/maildir \
+	-I$(top_srcdir)/src/lib-program-client \
 	-I$(top_srcdir)/src/doveadm
 
 NOPLUGIN_LDFLAGS =

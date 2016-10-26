@@ -13,6 +13,8 @@
 #include "mailbox-list-private.h"
 #include "quota-private.h"
 #include "quota-fs.h"
+#include "llist.h"
+#include "program-client.h"
 
 #include <sys/wait.h>
 
@@ -877,9 +879,14 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 static void quota_warning_execute(struct quota_root *root, const char *cmd,
 				  const char *last_arg)
 {
-	const char *socket_path, *const *args;
-	string_t *str;
-	int fd;
+	const char *socket_path, *const *args, *error, *scheme, *ptr;
+
+	struct program_client_settings set = {
+		.client_connect_timeout_msecs = 1000,
+	};
+	struct program_client *pc;
+
+	restrict_access_init(&set.restrict_set);
 
 	if (root->quota->set->debug)
 		i_debug("quota: Executing warning: %s", cmd);
@@ -894,37 +901,34 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 		args = new_args;
 	}
 	socket_path = args[0];
+
+	if ((ptr = strchr(socket_path, ':')) != NULL) {
+		scheme = t_strcut(socket_path, ':');
+		socket_path = ptr+1;
+	} else {
+		scheme = "unix";
+	}
+
+	if (*socket_path != '/' &&
+	    strcmp(scheme, "unix") == 0)
+		socket_path =
+			t_strconcat(root->quota->user->set->base_dir,
+				    "/", socket_path, NULL);
+
+	socket_path = t_strdup_printf("%s:%s", scheme, socket_path);
+
 	args++;
 
-	if (*socket_path != '/') {
-		socket_path = t_strconcat(root->quota->user->set->base_dir, "/",
-					  socket_path, NULL);
-	}
-	if ((fd = net_connect_unix_with_retries(socket_path, 1000)) < 0) {
-		if (errno == EACCES) {
-			i_error("quota: %s",
-				eacces_error_get("net_connect_unix",
-						 socket_path));
-		} else {
-			i_error("quota: net_connect_unix(%s) failed: %m",
-				socket_path);
-		}
+	if (program_client_create(socket_path, args, &set, TRUE,
+				  &pc, &error) < 0) {
+		i_error("program_client_create(%s) failed: %s", socket_path,
+			error);
 		return;
 	}
 
-	str = t_str_new(1024);
-	str_append(str, "VERSION\tscript\t3\t0\nnoreply\n");
-	for (; *args != NULL; args++) {
-		str_append(str, *args);
-		str_append_c(str, '\n');
-	}
-	str_append_c(str, '\n');
+	(void)program_client_run(pc);
 
-	net_set_nonblock(fd, FALSE);
-	if (write_full(fd, str_data(str), str_len(str)) < 0)
-		i_error("write(%s) failed: %m", socket_path);
-	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", socket_path);
+	program_client_destroy(&pc);
 }
 
 static void quota_warnings_execute(struct quota_transaction_context *ctx,
