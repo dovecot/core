@@ -152,9 +152,9 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r);
 const char *net_ip2addr(const struct ip_addr *ip);
 /* char* -> struct ip_addr translation. */
 int net_addr2ip(const char *addr, struct ip_addr *ip);
-/* char* -> net_port_t translation */
+/* char* -> in_port_t translation */
 int net_str2port(const char *str, in_port_t *port_r);
-/* char* -> net_port_t translation (allows port zero) */
+/* char* -> in_port_t translation (allows port zero) */
 int net_str2port_zero(const char *str, in_port_t *port_r);
 /* Parse "host", "host:port", "IPv4", "IPv4:port", "IPv6", "[IPv6]" or
    "[IPv6]:port" to its host and port components. [IPv6] address is returned
