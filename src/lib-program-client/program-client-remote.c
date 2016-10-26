@@ -216,6 +216,7 @@ void program_client_remote_connected(struct program_client *pclient)
 	const char **args = pclient->args;
 	string_t *str;
 
+	timeout_remove(&pclient->to);
 	io_remove(&pclient->io);
 	program_client_init_streams(pclient);
 
@@ -254,11 +255,25 @@ void program_client_remote_connected(struct program_client *pclient)
 }
 
 static
+int program_client_unix_connect(struct program_client *pclient);
+static
+void program_client_unix_reconnect(struct program_client *pclient)
+{
+	(void)program_client_unix_connect(pclient);
+}
+
+static
 int program_client_unix_connect(struct program_client *pclient)
 {
 	struct program_client_remote *prclient =
 		(struct program_client_remote *) pclient;
 	int fd;
+
+	if (pclient->set.debug)
+		i_debug("Trying to connect %s", pclient->path);
+
+	if (prclient->to_retry != NULL)
+		timeout_remove(&prclient->to_retry);
 
 	if ((fd = net_connect_unix(pclient->path)) < 0) {
 		switch (errno) {
@@ -267,14 +282,18 @@ int program_client_unix_connect(struct program_client *pclient)
 				eacces_error_get("net_connect_unix",
 						 pclient->path));
 			return -1;
+		case EAGAIN:
+			prclient->to_retry =
+				timeout_add_short(100,
+						  program_client_unix_reconnect,
+						  pclient);
+			return 0;
 		default:
 			i_error("net_connect_unix(%s) failed: %m",
 				pclient->path);
 			return -1;
 		}
 	}
-
-	net_set_nonblock(fd, TRUE);
 
 	pclient->fd_in = (prclient->noreply && pclient->output == NULL &&
 			  !pclient->output_seekable ? -1 : fd);
@@ -517,6 +536,9 @@ void program_client_remote_disconnect(struct program_client *pclient, bool force
 {
 	struct program_client_remote *prclient =
 		(struct program_client_remote *)pclient;
+
+	if (prclient->to_retry != NULL)
+		timeout_remove(&prclient->to_retry);
 
 	if (pclient->error == PROGRAM_CLIENT_ERROR_NONE && !prclient->noreply &&
 	    pclient->program_input != NULL && !force) {
