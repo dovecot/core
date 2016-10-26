@@ -10,6 +10,10 @@
 #include "imap-envelope.h"
 #include "imap-quote.h"
 
+/*
+ * Envelope write
+ */
+
 static void imap_write_address(string_t *str, struct message_address *addr)
 {
 	if (addr == NULL) {
@@ -79,6 +83,10 @@ void imap_envelope_write(struct message_part_envelope *data,
 	str_append_c(str, ' ');
 	imap_append_nstring(str, data->message_id);
 }
+
+/*
+ * ENVELOPE parsing
+ */
 
 static bool
 imap_envelope_parse_address(const struct imap_arg *arg,
