@@ -81,6 +81,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 
 	test_assert(memcmp(input_sha1, output_sha1, sizeof(input_sha1)) == 0);
 	i_unlink(path);
+	i_close_fd(&fd);
 
 	test_end();
 }
