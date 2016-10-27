@@ -196,6 +196,54 @@ static void test_var_has_key(void)
 	test_end();
 }
 
+static const char *test_var_expand_hashing_func1(const char *data,
+						 void *context ATTR_UNUSED)
+{
+	return data;
+}
+
+static void test_var_expand_hashing(void)
+{
+	test_begin("var_expand_hashing");
+
+	static struct var_expand_table table[] = {
+		{'\0', "example", "value" },
+		{'\0', "other-example", "other-value" },
+		{'\0', NULL, NULL}
+	};
+
+	static struct {
+		const char *in;
+		const char *out;
+	} tests[] = {
+		{ "md5: %M{value} %{md5:value}", "md5: 1a79a4d60de6718e8e5b326e338ae533 1a79a4d60de6718e8e5b326e338ae533" },
+		{ "sha1: %{sha1:value}", "sha1: c3499c2729730a7f807efb8676a92dcb6f8a3f8f" },
+		{ "sha1: %{sha1:func1:example}", "sha1: c3499c2729730a7f807efb8676a92dcb6f8a3f8f" },
+		{ "truncate: %{sha1;truncate=12:value}", "truncate: 0c34" },
+		{ "truncate: %{sha1;truncate=16:value}", "truncate: c349" },
+		{ "rounds,salt: %{sha1;rounds=1000,salt=seawater:value}", "rounds,salt: b515c85884f6b82dc7588279f3643a73e55d2289" },
+		{ "rounds,salt,expand: %{sha1;rounds=1000,salt=%{other-value}:value} %{other-value}", "rounds,salt,expand: 49a598ee110af615e175f2e4511cc5d7ccff96ab other-example" },
+		{ "format: %4.8{sha1:value}", "format: 9c272973" },
+		{ "base64: %{sha1;format=base64:value}", "base64: w0mcJylzCn+AfvuGdqkty2+KP48=" },
+	};
+
+	static const struct var_expand_func_table func_table[] = {
+		{ "func1", test_var_expand_hashing_func1 },
+		{ NULL, NULL }
+	};
+
+	string_t *str = t_str_new(128);
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		str_truncate(str, 0);
+		var_expand_with_funcs(str, tests[i].in, table,
+				      func_table, NULL);
+		test_assert_idx(strcmp(str_c(str), tests[i].out) == 0, i);
+	}
+
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_ranges();
@@ -204,4 +252,5 @@ void test_var_expand(void)
 	test_var_expand_with_funcs();
 	test_var_get_key();
 	test_var_has_key();
+	test_var_expand_hashing();
 }
