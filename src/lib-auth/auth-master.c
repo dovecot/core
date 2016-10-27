@@ -223,7 +223,8 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 	}
 	if (debug) {
 		args = args_hide_passwords(args);
-		i_debug("auth input: %s", t_strarray_join(args, " "));
+		i_debug("auth %s input: %s", ctx->expected_reply,
+			t_strarray_join(args, " "));
 	}
 	return TRUE;
 }
