@@ -1,4 +1,4 @@
-v2.2.26 2016-10-xx  Timo Sirainen <tss@iki.fi>
+v2.2.26 2016-10-27  Timo Sirainen <tss@iki.fi>
 
 	* master: Removed hardcoded 511 backlog limit for listen(). The kernel
 	  should limit this as needed.
@@ -18,6 +18,8 @@ v2.2.26 2016-10-xx  Timo Sirainen <tss@iki.fi>
 	+ auth: If passdb returns noauthenticate=yes extra field, assume that
 	  it only set extra fields and authentication wasn't actually performed.
 	+ auth: passdb static now supports password={scheme} prefix.
+	+ auth, login_log_format_elements: Added %{local_name} variable, which
+	  expands to TLS SNI hostname if given.
 	+ imapc: Added imapc_max_line_length to limit maximum memory usage.
 	+ imap, pop3: Added rawlog_dir setting to store IMAP/POP3 traffic logs.
 	  This replaces at least partially the rawlog plugin.
@@ -30,10 +32,18 @@ v2.2.26 2016-10-xx  Timo Sirainen <tss@iki.fi>
 	+ doveadm sync/backup: Fixed -t parameter and added -e for "end date".
 	+ doveadm mailbox metadata: Added -s parameter to allow accessing
 	  server metadata by using empty mailbox name.
+	+ Added "doveadm service status" and "doveadm process status" commands.
+	+ director: Added director_flush_socket. See
+	  http://wiki2.dovecot.org/Director#Flush_socket
+	+ doveadm director flush: Users are now moved only max 100 at a time to
+	  avoid load spikes. --max-parallel parameter overrides this.
+	+ Added FILE_LOCK_SLOW_WARNING_MSECS environment, which logs a warning
+	  if any lock is waited on or kept for this many milliseconds.
 
 	- master process's listener socket was leaked to all child processes.
 	  This might have allowed untrusted processes to capture and prevent
 	  "doveadm service stop" comands from working.
+	- login proxy: Fixed crash when outgoing SSL connections were hanging.
 	- auth: userdb fields weren't passed to auth-workers, so %{userdb:*}
 	  from previous userdbs didn't work there.
 	- auth: Each userdb lookup from cache reset its TTL.
@@ -55,6 +65,9 @@ v2.2.26 2016-10-xx  Timo Sirainen <tss@iki.fi>
 	- Fixed writing >2GB to iostream-temp files (used by fs-compress,
 	  fs-metawrap, doveadm-http)
 	- director: Ignore duplicates in director_servers setting.
+	- director: Many fixes related to connection handshaking, user moving
+	  and error handling.
+	- director: Don't break with shutdown_clients=no
 	- zlib, IMAP BINARY: Fixed internal caching when accessing multiple
 	  newly created mails. They all had UID=0 and the next mail could have
 	  wrongly used the previously cached mail.
