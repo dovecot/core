@@ -324,6 +324,17 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 			var = NULL;
 			if (*str == '{' && (end = strchr(str, '}')) != NULL) {
 				/* %{long_key} */
+				unsigned int ctr = 1;
+				end = str;
+				while(*++end != '\0' && ctr > 0) {
+					if (*end == '{') ctr++;
+					if (*end == '}') ctr--;
+				}
+				if (ctr == 0)
+					/* it needs to come back a bit */
+					end--;
+				/* if there is no } it will consume rest of the
+				   string */
 				len = end - (str + 1);
 				var = var_expand_long(table, func_table,
 						      str+1, len, context);
