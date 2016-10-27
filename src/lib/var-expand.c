@@ -5,7 +5,11 @@
 #include "md5.h"
 #include "hash.h"
 #include "hex-binary.h"
+#include "base64.h"
 #include "hostpid.h"
+#include "hmac.h"
+#include "pkcs5.h"
+#include "hash-method.h"
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
@@ -26,6 +30,11 @@ struct var_expand_modifier {
 	char key;
 	const char *(*func)(const char *, struct var_expand_context *);
 };
+
+static const char *
+var_expand_long(const struct var_expand_table *table,
+		const struct var_expand_func_table *func_table,
+		const void *key_start, unsigned int key_len, void *context);
 
 static const char *
 m_str_lcase(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
@@ -184,6 +193,156 @@ var_expand_short(const struct var_expand_table *table, char key)
 	return NULL;
 }
 
+static int
+var_expand_hash(const struct var_expand_table *table,
+	        const struct var_expand_func_table *func_table,
+	        const char *key, const char *field, void *context,
+	        const char **result_r, const char **error_r)
+{
+	enum {
+		FORMAT_HEX,
+		FORMAT_HEX_UC,
+		FORMAT_BASE64
+	} format = FORMAT_HEX;
+
+	const char *p = strchr(key, ';');
+	const char *const *args = NULL;
+	const char *algo = key;
+	const char *value;
+
+	if (p != NULL) {
+		algo = t_strcut(key, ';');
+		args = t_strsplit(p+1, ",");
+	}
+
+	const struct hash_method *method;
+	if (strcmp(algo, "pkcs5") == 0) {
+		method = hash_method_lookup("sha256");
+	} else if ((method = hash_method_lookup(algo)) == NULL) {
+		return 0;
+	}
+
+	string_t *field_value = t_str_new(64);
+	string_t *salt = t_str_new(64);
+	string_t *tmp = t_str_new(method->digest_size);
+
+	value = var_expand_long(table, func_table, field, strlen(field), context);
+
+	str_append(field_value, value);
+
+	/* default values */
+	unsigned int rounds = 1;
+	unsigned int truncbits = 0;
+
+	if (strcmp(algo, "pkcs5") == 0) {
+		rounds = 2048;
+		str_append(salt, field);
+	}
+
+	while(args != NULL && *args != NULL) {
+		const char *k = t_strcut(*args, '=');
+		const char *value = strchr(*args, '=');
+		if (value == NULL) {
+			args++;
+			continue;
+		} else {
+			value++;
+		}
+		if (strcmp(k, "rounds") == 0) {
+			if (str_to_uint(value, &rounds)<0) {
+				*error_r = t_strdup_printf(
+					"Cannot parse hash arguments:"
+					"'%s' is not number for rounds",
+					value);
+				return -1;
+			}
+			if (rounds < 1) {
+				*error_r = t_strdup_printf(
+					"Cannot parse hash arguments:"
+					"rounds must be at least 1");
+				return -1;
+			}
+		} else if (strcmp(k, "truncate") == 0) {
+			if (str_to_uint(value, &truncbits)<0) {
+				*error_r = t_strdup_printf(
+					"Cannot parse hash arguments:"
+					"'%s' is not number for truncbits",
+					value);
+				return -1;
+			}
+			truncbits = I_MIN(truncbits, method->digest_size*8);
+		} else if (strcmp(k, "salt") == 0) {
+			str_truncate(salt, 0);
+			var_expand_with_funcs(salt, value, table,
+					      func_table, context);
+			break;
+		} else if (strcmp(k, "format") == 0) {
+			if (strcmp(value, "hex") == 0) {
+				format = FORMAT_HEX;
+			} else if (strcmp(value, "hexuc") == 0){
+				format = FORMAT_HEX_UC;
+			} else if (strcmp(value, "base64") == 0) {
+				format = FORMAT_BASE64;
+			} else {
+				*error_r = t_strdup_printf(
+					"Cannot parse hash arguments:"
+					"'%s' is not supported format",
+					value);
+				return -1;
+			}
+		}
+		args++;
+	}
+
+	str_truncate(tmp, 0);
+
+	if (strcmp(algo, "pkcs5") == 0) {
+		if (pkcs5_pbkdf(PKCS5_PBKDF2, method,
+				field_value->data, field_value->used,
+				salt->data, salt->used,
+				rounds, HMAC_MAX_CONTEXT_SIZE, tmp) != 0) {
+			*error_r = "Cannot hash: PKCS5_PBKDF2 failed";
+			return -1;
+		}
+	} else {
+		void *context = t_malloc(method->context_size);
+
+		str_append_str(tmp, field_value);
+
+		for(;rounds>0;rounds--) {
+			method->init(context);
+			if (salt->used > 0)
+				method->loop(context, salt->data, salt->used);
+			method->loop(context, tmp->data, tmp->used);
+			unsigned char *digest =
+				buffer_get_modifiable_data(tmp, NULL);
+			method->result(context, digest);
+			if (tmp->used != method->digest_size)
+				buffer_set_used_size(tmp, method->digest_size);
+		}
+	}
+
+	if (truncbits > 0)
+		buffer_truncate_rshift_bits(tmp, truncbits);
+
+	switch(format) {
+		case FORMAT_HEX:
+			*result_r = binary_to_hex(tmp->data, tmp->used);
+			return 1;
+		case FORMAT_HEX_UC:
+			*result_r = binary_to_hex(tmp->data, tmp->used);
+			return 1;
+		case FORMAT_BASE64: {
+			string_t *dest = t_str_new(64);
+			base64_encode(tmp->data, tmp->used, dest);
+			*result_r = str_c(dest);
+			return 1;
+		}
+	}
+
+	i_unreached();
+}
+
 static const char *
 var_expand_func(const struct var_expand_func_table *func_table,
 		const char *key, const char *data, void *context)
@@ -212,7 +371,7 @@ var_expand_long(const struct var_expand_table *table,
 		const void *key_start, unsigned int key_len, void *context)
 {
         const struct var_expand_table *t;
-	const char *key, *value = NULL;
+	const char *error, *key, *value = NULL;
 
 	if (table != NULL) {
 		for (t = table; !TABLE_LAST(t); t++) {
@@ -243,12 +402,21 @@ var_expand_long(const struct var_expand_table *table,
 
 	if (value == NULL) {
 		const char *data = strchr(key, ':');
+		int ret;
 
 		if (data != NULL)
 			key = t_strdup_until(key, data++);
 		else
 			data = "";
-		value = var_expand_func(func_table, key, data, context);
+
+		/* try with hash first */
+		if ((ret = var_expand_hash(table, func_table, key,
+				    data, context, &value, &error)) < 0) {
+			i_error("Failed to expand %s: %s", key, error);
+			value = "";
+		} else if (ret == 0) {
+			value = var_expand_func(func_table, key, data, context);
+		}
 	}
 	if (value == NULL)
 		return t_strdup_printf("UNSUPPORTED_VARIABLE_%s", key);
