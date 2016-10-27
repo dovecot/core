@@ -184,7 +184,7 @@ static void dump_list_header(const void *data, size_t size)
 		name_start = CONST_PTR_OFFSET(data, i);
 		len = (const char *)p - (const char *)name_start;
 
-		printf(" - %d : %.*s\n", id, (int)len, name_start);
+		printf(" - %d : %.*s\n", id, (int)len, (const char *)name_start);
 
 		i += len + 1;
 	}
