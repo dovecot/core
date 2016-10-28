@@ -1,3 +1,12 @@
+v2.2.26.0 2016-10-28  Timo Sirainen <tss@iki.fi>
+
+	- Fixed some compiling issues.
+	- auth: Fixed assert-crash when using NTLM or SKEY mechanisms and
+	  multiple passdbs.
+	- auth: Fixed crash when exporting to auth-worker passdb extra fields
+	  that had empty values.
+	- dsync: Fixed assert-crash in dsync_brain_sync_mailbox_deinit
+
 v2.2.26 2016-10-27  Timo Sirainen <tss@iki.fi>
 
 	* master: Removed hardcoded 511 backlog limit for listen(). The kernel
