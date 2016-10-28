@@ -88,8 +88,6 @@ char **p_strsplit_spaces(pool_t pool, const char *data, const char *separators)
 const char **t_strsplit_spaces(const char *data, const char *separators)
 	ATTR_MALLOC ATTR_RETURNS_NONNULL;
 void p_strsplit_free(pool_t pool, char **arr);
-/* Optimized version of t_strsplit(data, "\t") */
-const char **t_strsplit_tab(const char *data) ATTR_MALLOC ATTR_RETURNS_NONNULL;
 
 const char *dec2str(uintmax_t number);
 
