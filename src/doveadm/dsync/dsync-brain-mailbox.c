@@ -354,7 +354,7 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 	if (brain->box_exporter != NULL) {
 		const char *errstr;
 
-		i_assert(brain->failed ||
+		i_assert(brain->failed || brain->require_full_resync ||
 			 brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_CHANGED);
 		if (dsync_mailbox_export_deinit(&brain->box_exporter,
 						&errstr, &error) < 0)
