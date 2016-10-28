@@ -162,29 +162,30 @@ int test_program_input_handle(struct test_client *client, const char *line)
 static
 void test_program_run(struct test_client *client)
 {
-	const char *arg;
+	const char *const *args;
+	unsigned int count;
 
 	struct ostream *os;
 
 	timeout_remove(&test_globals.to);
 	test_assert(array_is_created(&client->args));
 	if (array_is_created(&client->args)) {
-		test_assert(array_count(&client->args) > 0);
-		if (array_count(&client->args) > 0) {
-			arg = *array_idx(&client->args, 0);
-			if (strcmp(arg, "test_program_success")==0) {
+		args = array_get(&client->args, &count);
+		test_assert(count > 0);
+		if (count > 0) {
+			if (strcmp(args[0], "test_program_success")==0) {
 				/* return hello world */
+				i_assert(count >= 3);
 				o_stream_nsend_str(client->out, t_strdup_printf(
 						   "%s %s\r\n.\n+\n",
-						   *array_idx(&client->args, 1),
-						   *array_idx(&client->args, 2)));
-			} else if (strcmp(arg, "test_program_io")==0) {
+						   args[1], args[2]));
+			} else if (strcmp(args[0], "test_program_io")==0) {
 				os = o_stream_create_dot(client->out, FALSE);
 				o_stream_send_istream(os, client->body);
 				o_stream_flush(os);
 				o_stream_unref(&os);
 				o_stream_nsend_str(client->out, "+\n");
-			} else if (strcmp(arg, "test_program_failure")==0) {
+			} else if (strcmp(args[0], "test_program_failure")==0) {
 				o_stream_nsend_str(client->out, ".\n-\n");
 			}
 		} else
