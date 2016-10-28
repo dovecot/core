@@ -92,7 +92,7 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 	for (; *args != NULL; args++) {
 		value = strchr(*args, '=');
 		if (value == NULL)
-			(void)auth_request_import(auth_request, *args, NULL);
+			(void)auth_request_import(auth_request, *args, "");
 		else {
 			key = t_strdup_until(*args, value++);
 			(void)auth_request_import(auth_request, key, value);

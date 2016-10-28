@@ -356,6 +356,8 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 bool auth_request_import_info(struct auth_request *request,
 			      const char *key, const char *value)
 {
+	i_assert(value != NULL);
+
 	/* authentication and user lookups may set these */
 	if (strcmp(key, "service") == 0)
 		request->service = p_strdup(request->pool, value);
@@ -399,6 +401,8 @@ bool auth_request_import_info(struct auth_request *request,
 bool auth_request_import_auth(struct auth_request *request,
 			      const char *key, const char *value)
 {
+	i_assert(value != NULL);
+
 	if (auth_request_import_info(request, key, value))
 		return TRUE;
 
@@ -429,6 +433,8 @@ bool auth_request_import_master(struct auth_request *request,
 {
 	pid_t pid;
 
+	i_assert(value != NULL);
+
 	/* master request lookups may set these */
 	if (strcmp(key, "session_pid") == 0) {
 		if (str_to_pid(value, &pid) == 0)
@@ -443,6 +449,8 @@ bool auth_request_import_master(struct auth_request *request,
 bool auth_request_import(struct auth_request *request,
 			 const char *key, const char *value)
 {
+	i_assert(value != NULL);
+
 	if (auth_request_import_auth(request, key, value))
 		return TRUE;
 
