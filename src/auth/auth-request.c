@@ -344,8 +344,11 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		const ARRAY_TYPE(auth_field) *fields = auth_fields_export(request->userdb_reply);
 		const struct auth_field *field;
 		array_foreach(fields, field) {
-			str_printfa(dest, "\tuserdb_%s=", field->key);
-			str_append_tabescaped(dest, field->value);
+			str_printfa(dest, "\tuserdb_%s", field->key);
+			if (field->value != NULL) {
+				str_append_c(dest, '=');
+				str_append_tabescaped(dest, field->value);
+			}
 		}
 	}
 }
