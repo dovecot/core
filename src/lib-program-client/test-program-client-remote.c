@@ -141,27 +141,28 @@ static
 void test_program_run(struct test_client *client)
 {
 	int ret;
-	const char *arg;
+	const char *const *args;
+	unsigned int count;
 	const unsigned char *data;
 	size_t siz;
 
 	timeout_remove(&test_globals.to);
 
-	test_assert(array_count(&client->args) > 0);
-	arg = *array_idx(&client->args, 0);
-	if (strcmp(arg, "test_program_success")==0) {
+	args = array_get(&client->args, &count);
+	test_assert(count > 0);
+	if (strcmp(args[0], "test_program_success")==0) {
 		/* return hello world */
+		test_assert(count >= 3);
 		o_stream_nsend_str(client->out, t_strdup_printf("%s %s\n+\n",
-				   *array_idx(&client->args, 1),
-				   *array_idx(&client->args, 2)));
-	} else if (strcmp(arg, "test_program_io")==0) {
+				   args[1], args[2]));
+	} else if (strcmp(args[0], "test_program_io")==0) {
 		do {
 			data = i_stream_get_data(client->body, &siz);
 			o_stream_nsend(client->out, data, siz);
 			i_stream_skip(client->body, siz);
 		} while((ret = i_stream_read(client->body))>0);
 		o_stream_nsend_str(client->out, "+\n");
-	} else if (strcmp(arg, "test_program_failure")==0) {
+	} else if (strcmp(args[0], "test_program_failure")==0) {
 		o_stream_nsend_str(client->out, "-\n");
 	}
 	test_program_client_destroy(&client);
