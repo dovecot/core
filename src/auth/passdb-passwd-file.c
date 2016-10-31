@@ -17,16 +17,37 @@ struct passwd_file_passdb_module {
 	const char *username_format;
 };
 
+static void
+passwd_file_add_extra_fields(struct auth_request *request, char *const *fields)
+{
+	string_t *str = t_str_new(512);
+        const struct var_expand_table *table;
+	const char *key, *value;
+	unsigned int i;
+
+	table = auth_request_get_var_expand_table(request, NULL);
+
+	for (i = 0; fields[i] != NULL; i++) {
+		value = strchr(fields[i], '=');
+		if (value != NULL) {
+			key = t_strdup_until(fields[i], value);
+			str_truncate(str, 0);
+			auth_request_var_expand_with_table(str, value + 1,
+							   request, table, NULL);
+			value = str_c(str);
+		} else {
+			key = fields[i];
+			value = "";
+		}
+		auth_request_set_field(request, key, value, NULL);
+	}
+}
+
 static void passwd_file_save_results(struct auth_request *request,
 				     const struct passwd_user *pu,
 				     const char **crypted_pass_r,
 				     const char **scheme_r)
 {
-        const struct var_expand_table *table;
-	const char *key, *value;
-	string_t *str;
-	char **p;
-
 	*crypted_pass_r = pu->password != NULL ? pu->password : "";
 	*scheme_r = password_get_scheme(crypted_pass_r);
 	if (*scheme_r == NULL)
@@ -36,25 +57,8 @@ static void passwd_file_save_results(struct auth_request *request,
 	auth_request_set_field(request, "password",
 			       *crypted_pass_r, *scheme_r);
 
-	if (pu->extra_fields != NULL) {
-		str = t_str_new(512);
-		table = auth_request_get_var_expand_table(request, NULL);
-
-		for (p = pu->extra_fields; *p != NULL; p++) {
-			value = strchr(*p, '=');
-			if (value != NULL) {
-				key = t_strdup_until(*p, value);
-				str_truncate(str, 0);
-				auth_request_var_expand_with_table(str, value + 1,
-					request, table, NULL);
-				value = str_c(str);
-			} else {
-				key = *p;
-				value = "";
-			}
-			auth_request_set_field(request, key, value, NULL);
-		}
-	}
+	if (pu->extra_fields != NULL)
+		passwd_file_add_extra_fields(request, pu->extra_fields);
 }
 
 static void

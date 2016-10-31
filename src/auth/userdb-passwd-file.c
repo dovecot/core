@@ -27,6 +27,35 @@ struct passwd_file_userdb_module {
 	const char *username_format;
 };
 
+static void
+passwd_file_add_extra_fields(struct auth_request *request, char *const *fields)
+{
+	string_t *str = t_str_new(512);
+        const struct var_expand_table *table;
+	const char *key, *value;
+	unsigned int i;
+
+	table = auth_request_get_var_expand_table(request, NULL);
+
+	for (i = 0; fields[i] != NULL; i++) {
+		if (strncmp(fields[i], "userdb_", 7) != 0)
+			continue;
+
+		key = fields[i] + 7;
+		value = strchr(key, '=');
+		if (value != NULL) {
+			key = t_strdup_until(key, value);
+			str_truncate(str, 0);
+			auth_request_var_expand_with_table(str, value + 1,
+							   request, table, NULL);
+			value = str_c(str);
+		} else {
+			value = "";
+		}
+		auth_request_set_userdb_field(request, key, value);
+	}
+}
+
 static void passwd_file_lookup(struct auth_request *auth_request,
 			       userdb_callback_t *callback)
 {
@@ -34,10 +63,6 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	struct passwd_file_userdb_module *module =
 		(struct passwd_file_userdb_module *)_module;
 	struct passwd_user *pu;
-        const struct var_expand_table *table;
-	string_t *str;
-	const char *key, *value;
-	char **p;
 	int ret;
 
 	ret = db_passwd_file_lookup(module->pwf, auth_request,
@@ -59,28 +84,8 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	if (pu->home != NULL)
 		auth_request_set_userdb_field(auth_request, "home", pu->home);
 
-	if (pu->extra_fields != NULL) {
-		str = t_str_new(512);
-		table = auth_request_get_var_expand_table(auth_request, NULL);
-
-		for (p = pu->extra_fields; *p != NULL; p++) {
-			if (strncmp(*p, "userdb_", 7) != 0)
-				continue;
-
-			key = *p + 7;
-			value = strchr(key, '=');
-			if (value != NULL) {
-				key = t_strdup_until(key, value);
-				str_truncate(str, 0);
-				auth_request_var_expand_with_table(str, value + 1,
-					auth_request, table, NULL);
-				value = str_c(str);
-			} else {
-				value = "";
-			}
-			auth_request_set_userdb_field(auth_request, key, value);
-		}
-	}
+	if (pu->extra_fields != NULL)
+		passwd_file_add_extra_fields(auth_request, pu->extra_fields);
 
 	callback(USERDB_RESULT_OK, auth_request);
 }
