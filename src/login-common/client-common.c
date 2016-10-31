@@ -600,24 +600,30 @@ static bool have_username_key(const char *str)
 	return FALSE;
 }
 
-static const char *
-client_var_expand_func_passdb(const char *data, void *context)
+static int
+client_var_expand_func_passdb(const char *data, void *context,
+			      const char **value_r,
+			      const char **error_r ATTR_UNUSED)
 {
 	struct client *client = context;
 	const char *field_name = data;
 	unsigned int i, field_name_len;
 
+	*value_r = NULL;
+
 	if (client->auth_passdb_args == NULL)
-		return NULL;
+		return 1;
 
 	field_name_len = strlen(field_name);
 	for (i = 0; client->auth_passdb_args[i] != NULL; i++) {
 		if (strncmp(client->auth_passdb_args[i], field_name,
 			    field_name_len) == 0 &&
-		    client->auth_passdb_args[i][field_name_len] == '=')
-			return client->auth_passdb_args[i] + field_name_len+1;
+		    client->auth_passdb_args[i][field_name_len] == '=') {
+			*value_r = client->auth_passdb_args[i] + field_name_len+1;
+			return 1;
+		}
 	}
-	return NULL;
+	return 1;
 }
 
 static const char *

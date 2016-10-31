@@ -9,14 +9,17 @@ struct var_expand_table {
 
 struct var_expand_func_table {
 	const char *key;
-	/* %{key:data}, or data is "" with %{key}, */
-	const char *(*func)(const char *data, void *context);
+	/* %{key:data}, or data is "" with %{key}.
+	   Returns 1 on success, 0 if data is invalid, -1 on temporary error. */
+	int (*func)(const char *data, void *context,
+		    const char **value_r, const char **error_r);
 };
 
 /* Expand % variables in src and append the string in dest.
    table must end with key = 0. Returns 1 on success, 0 if the format string
-   contained invalid/unknown %variables. Even in case of errors the dest string
-   is still written as fully as possible. */
+   contained invalid/unknown %variables, -1 if one of the functions returned
+   temporary error. Even in case of errors the dest string is still written as
+   fully as possible. */
 int var_expand(string_t *dest, const char *str,
 	       const struct var_expand_table *table,
 	       const char **error_r);

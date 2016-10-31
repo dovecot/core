@@ -593,8 +593,10 @@ struct ldap_field_find_subquery_context {
 	const char *name;
 };
 
-static const char *
-db_ldap_field_subquery_find(const char *data, void *context)
+static int
+db_ldap_field_subquery_find(const char *data, void *context,
+			    const char **value_r,
+			    const char **error_r ATTR_UNUSED)
 {
 	struct ldap_field_find_subquery_context *ctx = context;
 	char *ldap_attr;
@@ -609,9 +611,9 @@ db_ldap_field_subquery_find(const char *data, void *context)
 			array_append(&ctx->attr_names, &ldap_attr, 1);
 		}
 	}
-	return NULL;
+	*value_r = NULL;
+	return 1;
 }
-
 
 static int
 ldap_request_send_subquery(struct ldap_connection *conn,
@@ -1349,8 +1351,10 @@ struct ldap_field_find_context {
 	pool_t pool;
 };
 
-static const char *
-db_ldap_field_find(const char *data, void *context)
+static int
+db_ldap_field_find(const char *data, void *context,
+		   const char **value_r,
+		   const char **error_r ATTR_UNUSED)
 {
 	struct ldap_field_find_context *ctx = context;
 	char *ldap_attr;
@@ -1360,7 +1364,8 @@ db_ldap_field_find(const char *data, void *context)
 		if (strchr(ldap_attr, '@') == NULL)
 			array_append(&ctx->attr_names, &ldap_attr, 1);
 	}
-	return NULL;
+	*value_r = NULL;
+	return 1;
 }
 
 void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
@@ -1624,7 +1629,9 @@ static const char *db_ldap_field_get_default(const char *data)
 	}
 }
 
-static const char *db_ldap_field_expand(const char *data, void *context)
+static int
+db_ldap_field_expand(const char *data, void *context,
+		     const char **value_r, const char **error_r ATTR_UNUSED)
 {
 	struct db_ldap_result_iterate_context *ctx = context;
 	struct db_ldap_value *ldap_value;
@@ -1635,33 +1642,42 @@ static const char *db_ldap_field_expand(const char *data, void *context)
 		/* requested ldap attribute wasn't returned at all */
 		if (ctx->debug != NULL)
 			str_printfa(ctx->debug, "; %s missing", field_name);
-		return db_ldap_field_get_default(data);
+		*value_r = db_ldap_field_get_default(data);
+		return 1;
 	}
 	ldap_value->used = TRUE;
 
 	if (ldap_value->values[0] == NULL) {
 		/* no value for ldap attribute */
-		return db_ldap_field_get_default(data);
+		*value_r = db_ldap_field_get_default(data);
+		return 1;
 	}
 	if (ldap_value->values[1] != NULL) {
 		auth_request_log_warning(ctx->auth_request, AUTH_SUBSYS_DB,
 			"Multiple values found for '%s', using value '%s'",
 			field_name, ldap_value->values[0]);
 	}
-	return ldap_value->values[0];
+	*value_r = ldap_value->values[0];
+	return 1;
 }
 
-static const char *db_ldap_field_ptr_expand(const char *data, void *context)
+static int
+db_ldap_field_ptr_expand(const char *data, void *context,
+			 const char **value_r, const char **error_r)
 {
 	struct db_ldap_result_iterate_context *ctx = context;
 	const char *field_name, *suffix;
+	int ret;
 
 	suffix = strchr(t_strcut(data, ':'), '@');
-	field_name = db_ldap_field_expand(data, ctx);
-	if (field_name[0] == '\0')
-		return "";
+	if ((ret = db_ldap_field_expand(data, ctx, &field_name, error_r)) <= 0)
+		return ret;
+	if (field_name[0] == '\0') {
+		*value_r = "";
+		return 1;
+	}
 	field_name = t_strconcat(field_name, suffix, NULL);
-	return db_ldap_field_expand(field_name, ctx);
+	return db_ldap_field_expand(field_name, ctx, value_r, error_r);
 }
 
 static struct var_expand_func_table ldap_var_funcs_table[] = {

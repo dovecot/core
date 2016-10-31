@@ -196,7 +196,8 @@ var_expand_func(const struct var_expand_func_table *func_table,
 		const char *key, const char *data, void *context,
 		const char **var_r, const char **error_r)
 {
-	const char *value;
+	const char *value = NULL;
+	int ret;
 
 	if (strcmp(key, "env") == 0) {
 		value = getenv(data);
@@ -206,9 +207,9 @@ var_expand_func(const struct var_expand_func_table *func_table,
 	if (func_table != NULL) {
 		for (; func_table->key != NULL; func_table++) {
 			if (strcmp(func_table->key, key) == 0) {
-				value = func_table->func(data, context);
+				ret = func_table->func(data, context, &value, error_r);
 				*var_r = value != NULL ? value : "";
-				return 1;
+				return ret;
 			}
 		}
 	}

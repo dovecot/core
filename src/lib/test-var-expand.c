@@ -106,22 +106,49 @@ static void test_var_get_key_range(void)
 	test_end();
 }
 
-static const char *test_var_expand_func1(const char *data, void *context)
+static int test_var_expand_func1(const char *data, void *context,
+				 const char **value_r,
+				 const char **error_r ATTR_UNUSED)
 {
 	test_assert(*(int *)context == 0xabcdef);
-	return t_strdup_printf("<%s>", data);
+	*value_r = t_strdup_printf("<%s>", data);
+	return 1;
 }
 
-static const char *test_var_expand_func2(const char *data ATTR_UNUSED,
-					 void *context ATTR_UNUSED)
+static int test_var_expand_func2(const char *data ATTR_UNUSED,
+				 void *context ATTR_UNUSED,
+				 const char **value_r,
+				 const char **error_r ATTR_UNUSED)
 {
-	return "";
+	*value_r = "";
+	return 1;
 }
 
-static const char *test_var_expand_func3(const char *data ATTR_UNUSED,
-					 void *context ATTR_UNUSED)
+static int test_var_expand_func3(const char *data ATTR_UNUSED,
+				 void *context ATTR_UNUSED,
+				 const char **value_r,
+				 const char **error_r ATTR_UNUSED)
 {
-	return NULL;
+	*value_r = NULL;
+	return 1;
+}
+
+static int test_var_expand_func4(const char *data,
+				 void *context ATTR_UNUSED,
+				 const char **value_r ATTR_UNUSED,
+				 const char **error_r)
+{
+	*error_r = t_strdup_printf("Unknown data %s", data == NULL ? "" : data);
+	return 0;
+}
+
+static int test_var_expand_func5(const char *data ATTR_UNUSED,
+				 void *context ATTR_UNUSED,
+				 const char **value_r ATTR_UNUSED,
+				 const char **error_r)
+{
+	*error_r = "Internal error";
+	return -1;
 }
 
 static void test_var_expand_with_funcs(void)
@@ -130,7 +157,11 @@ static void test_var_expand_with_funcs(void)
 		{ "%{func1}", "<>", 1 },
 		{ "%{func1:foo}", "<foo>", 1 },
 		{ "%{func2}", "", 1 },
-		{ "%{func3}", "", 1 }
+		{ "%{func3}", "", 1 },
+		{ "%{func4}", "", 0 },
+		{ "%{func5}", "", -1 },
+		{ "%{func4}%{func5}", "", -1 },
+		{ "%{func5}%{func4}%{func3}", "", -1 },
 	};
 	static struct var_expand_table table[] = {
 		{ '\0', NULL, NULL }
@@ -139,6 +170,8 @@ static void test_var_expand_with_funcs(void)
 		{ "func1", test_var_expand_func1 },
 		{ "func2", test_var_expand_func2 },
 		{ "func3", test_var_expand_func3 },
+		{ "func4", test_var_expand_func4 },
+		{ "func5", test_var_expand_func5 },
 		{ NULL, NULL }
 	};
 	string_t *str = t_str_new(128);

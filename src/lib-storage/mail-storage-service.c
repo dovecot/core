@@ -793,13 +793,16 @@ const char *mail_storage_service_fields_var_expand(const char *data,
 	return field_get_default(data);
 }
 
-static const char *
-mail_storage_service_input_var_userdb(const char *data, void *context)
+static int
+mail_storage_service_input_var_userdb(const char *data, void *context,
+				      const char **value_r,
+				      const char **error_r ATTR_UNUSED)
 {
 	struct mail_storage_service_user *user = context;
 
-	return mail_storage_service_fields_var_expand(data,
+	*value_r = mail_storage_service_fields_var_expand(data,
 			user == NULL ? NULL : user->input.userdb_fields);
+	return 1;
 }
 
 static int

@@ -195,20 +195,25 @@ static const char *field_get_default(const char *data)
 	}
 }
 
-static const char *
-auth_request_var_expand_func_passdb(const char *data, void *context)
+static int
+auth_request_var_expand_func_passdb(const char *data, void *context,
+				    const char **value_r,
+				    const char **error_r ATTR_UNUSED)
 {
 	struct auth_request_var_expand_ctx *ctx = context;
 	const char *field_name = t_strcut(data, ':');
 	const char *value;
 
 	value = auth_fields_find(ctx->auth_request->extra_fields, field_name);
-	return ctx->escape_func(value != NULL ? value : field_get_default(data),
-				ctx->auth_request);
+	*value_r = ctx->escape_func(value != NULL ? value : field_get_default(data),
+				    ctx->auth_request);
+	return 1;
 }
 
-static const char *
-auth_request_var_expand_func_userdb(const char *data, void *context)
+static int
+auth_request_var_expand_func_userdb(const char *data, void *context,
+				    const char **value_r,
+				    const char **error_r ATTR_UNUSED)
 {
 	struct auth_request_var_expand_ctx *ctx = context;
 	const char *field_name = t_strcut(data, ':');
@@ -216,8 +221,9 @@ auth_request_var_expand_func_userdb(const char *data, void *context)
 
 	value = ctx->auth_request->userdb_reply == NULL ? NULL :
 		auth_fields_find(ctx->auth_request->userdb_reply, field_name);
-	return ctx->escape_func(value != NULL ? value : field_get_default(data),
-				ctx->auth_request);
+	*value_r = ctx->escape_func(value != NULL ? value : field_get_default(data),
+				    ctx->auth_request);
+	return 1;
 }
 
 const struct var_expand_func_table auth_request_var_funcs_table[] = {

@@ -272,12 +272,15 @@ mail_user_var_expand_table(struct mail_user *user)
 	return user->var_expand_table;
 }
 
-static const char *
-mail_user_var_expand_func_userdb(const char *data, void *context)
+static int
+mail_user_var_expand_func_userdb(const char *data, void *context,
+				 const char **value_r,
+				 const char **error_r ATTR_UNUSED)
 {
 	struct mail_user *user = context;
 
-	return mail_storage_service_fields_var_expand(data, user->userdb_fields);
+	*value_r = mail_storage_service_fields_var_expand(data, user->userdb_fields);
+	return 1;
 }
 
 void mail_user_set_home(struct mail_user *user, const char *home)
