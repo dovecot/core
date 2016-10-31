@@ -48,9 +48,9 @@ struct passdb_module_interface {
 				   lookup_credentials_callback_t *callback);
 
 	/* Update credentials */
-	int (*set_credentials)(struct auth_request *request,
-			       const char *new_credentials,
-			       set_credentials_callback_t *callback);
+	void (*set_credentials)(struct auth_request *request,
+				const char *new_credentials,
+				set_credentials_callback_t *callback);
 };
 
 struct passdb_module {

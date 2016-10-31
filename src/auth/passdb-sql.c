@@ -219,9 +219,9 @@ static void sql_set_credentials_callback(const struct sql_commit_result *sql_res
 	i_free(sql_request);
 }
 
-static int sql_set_credentials(struct auth_request *request,
-			       const char *new_credentials,
-			       set_credentials_callback_t *callback)
+static void sql_set_credentials(struct auth_request *request,
+				const char *new_credentials,
+				set_credentials_callback_t *callback)
 {
 	struct sql_passdb_module *module =
 		(struct sql_passdb_module *) request->passdb->passdb;
@@ -242,7 +242,6 @@ static int sql_set_credentials(struct auth_request *request,
 	sql_update(transaction, query);
 	sql_transaction_commit(&transaction,
 			       sql_set_credentials_callback, sql_request);
-	return 0;
 }
 
 static struct passdb_module *
