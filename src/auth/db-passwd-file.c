@@ -428,12 +428,12 @@ path_fix(const char *path,
 	return t_strdup_until(path, p);
 }
 
-struct passwd_user *
-db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request,
-		      const char *username_format)
+int db_passwd_file_lookup(struct db_passwd_file *db,
+			  struct auth_request *request,
+			  const char *username_format,
+			  struct passwd_user **user_r)
 {
 	struct passwd_file *pw;
-	struct passwd_user *pu;
 	string_t *username, *dest;
 
 	if (!db->vars)
@@ -451,7 +451,7 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request,
 
 	if (passwd_file_sync(request, pw) < 0) {
 		/* pw may be freed now */
-		return NULL;
+		return -1;
 	}
 
 	username = t_str_new(256);
@@ -462,10 +462,12 @@ db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request,
 			       "lookup: user=%s file=%s",
 			       str_c(username), pw->path);
 
-	pu = hash_table_lookup(pw->users, str_c(username));
-	if (pu == NULL)
-                auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
-	return pu;
+	*user_r = hash_table_lookup(pw->users, str_c(username));
+	if (*user_r == NULL) {
+		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
+		return 0;
+	}
+	return 1;
 }
 
 #endif

@@ -38,10 +38,11 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	string_t *str;
 	const char *key, *value;
 	char **p;
+	int ret;
 
-	pu = db_passwd_file_lookup(module->pwf, auth_request,
-				   module->username_format);
-	if (pu == NULL || pu->uid == 0) {
+	ret = db_passwd_file_lookup(module->pwf, auth_request,
+				    module->username_format, &pu);
+	if (ret <= 0 || pu->uid == 0) {
 		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
 	}

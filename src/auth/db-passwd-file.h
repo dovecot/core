@@ -44,9 +44,10 @@ struct db_passwd_file {
 	bool debug:1;
 };
 
-struct passwd_user *
-db_passwd_file_lookup(struct db_passwd_file *db, struct auth_request *request,
-		      const char *username_format);
+int db_passwd_file_lookup(struct db_passwd_file *db,
+			  struct auth_request *request,
+			  const char *username_format,
+			  struct passwd_user **user_r);
 
 struct db_passwd_file *
 db_passwd_file_init(const char *path, bool userdb, bool debug);
