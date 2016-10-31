@@ -364,7 +364,7 @@ static int fs_randomfail_write_stream_finish(struct fs_file *_file, bool success
 			fs_write_stream_abort_parent(_file, &file->super_output);
 			return -1;
 		}
-		if (!fs_random_fail(_file->fs, 1, FS_OP_WRITE)) {
+		if (fs_random_fail(_file->fs, 1, FS_OP_WRITE)) {
 			fs_write_stream_abort_error(_file->parent, &file->super_output, RANDOMFAIL_ERROR);
 			return -1;
 		}
