@@ -350,8 +350,10 @@ static void cmd_director_map(struct doveadm_cmd_context *cctx)
 
 	if (ctx->host == NULL || ctx->hash_map)
 		ips_count = 0;
-	else
-		if (director_get_host(ctx->host, &ips, &ips_count) != 0) return;
+	else if (director_get_host(ctx->host, &ips, &ips_count) != 0) {
+		director_disconnect(ctx);
+		return;
+	}
 
 	pool = pool_alloconly_create("director map users", 1024*128);
 	hash_table_create_direct(&users, pool, 0);
@@ -458,7 +460,10 @@ cmd_director_add_or_update(struct doveadm_cmd_context *cctx, bool update)
 		if (ctx->tag != NULL)
 			host = t_strdup_until(ctx->host, ctx->tag++);
 	}
-	if (director_get_host(host, &ips, &ips_count) != 0) return;
+	if (director_get_host(host, &ips, &ips_count) != 0) {
+		director_disconnect(ctx);
+		return;
+	}
 	cmd = t_str_new(128);
 	for (i = 0; i < ips_count; i++) {
 		str_truncate(cmd, 0);
@@ -511,7 +516,10 @@ cmd_director_ipcmd(const char *cmd_name, const char *success_result,
 		return;
 	}
 
-	if (director_get_host(host, &ips, &ips_count) != 0) return;
+	if (director_get_host(host, &ips, &ips_count) != 0) {
+		director_disconnect(ctx);
+		return;
+	}
 	for (i = 0; i < ips_count; i++) {
 		director_send(ctx, t_strdup_printf(
 			"%s\t%s\n", cmd_name, net_ip2addr(&ips[i])));
@@ -564,7 +572,10 @@ static void cmd_director_move(struct doveadm_cmd_context *cctx)
 
 	user_hash = mail_user_hash(ctx->user, doveadm_settings->director_username_hash);
 
-	if (director_get_host(ctx->host, &ips, &ips_count) != 0) return;
+	if (director_get_host(ctx->host, &ips, &ips_count) != 0) {
+		director_disconnect(ctx);
+		return;
+	}
 	ip_str = net_ip2addr(&ips[0]);
 	director_send(ctx, t_strdup_printf(
 		"USER-MOVE\t%u\t%s\n", user_hash, ip_str));
@@ -676,8 +687,9 @@ static void cmd_director_flush(struct doveadm_cmd_context *cctx)
 	if (net_addr2ip(ctx->host, &ip) == 0) {
 		ips = &ip;
 		ips_count = 1;
-	} else {
-		if (director_get_host(ctx->host, &ips, &ips_count) != 0) return;
+	} else if (director_get_host(ctx->host, &ips, &ips_count) != 0) {
+		director_disconnect(ctx);
+		return;
 	}
 
 	cmd = t_str_new(64);
