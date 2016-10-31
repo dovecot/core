@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 
+static bool lib_initialized = FALSE;
+
 struct atexit_callback {
 	int priority;
 	lib_atexit_callback_t *callback;
@@ -116,6 +118,7 @@ void lib_atexit_run(void)
 void lib_init(void)
 {
 	struct timeval tv;
+	i_assert(!lib_initialized);
 
 	/* standard way to get rand() return different values. */
 	if (gettimeofday(&tv, NULL) < 0)
@@ -124,10 +127,18 @@ void lib_init(void)
 
 	data_stack_init();
 	hostpid_init();
+	lib_initialized = TRUE;
+}
+
+bool lib_is_initialized(void)
+{
+	return lib_initialized;
 }
 
 void lib_deinit(void)
 {
+	i_assert(lib_initialized);
+	lib_initialized = FALSE;
 	lib_atexit_run();
 	ipwd_deinit();
 	hostpid_deinit();
