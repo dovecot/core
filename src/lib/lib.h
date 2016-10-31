@@ -76,6 +76,7 @@ void lib_atexit_priority(lib_atexit_callback_t *callback, int priority);
 void lib_atexit_run(void);
 
 void lib_init(void);
+bool lib_is_initialized(void);
 void lib_deinit(void);
 
 #endif
