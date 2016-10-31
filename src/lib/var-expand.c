@@ -167,6 +167,24 @@ static const struct var_expand_modifier modifiers[] = {
 };
 
 static const char *
+var_expand_short(const struct var_expand_table *table, char key)
+{
+        const struct var_expand_table *t;
+
+	if (table != NULL) {
+		for (t = table; !TABLE_LAST(t); t++) {
+			if (t->key == key)
+				return t->value != NULL ? t->value : "";
+		}
+	}
+
+	/* not found */
+	if (key == '%')
+		return "%";
+	return NULL;
+}
+
+static const char *
 var_expand_func(const struct var_expand_func_table *func_table,
 		const char *key, const char *data, void *context)
 {
@@ -243,7 +261,6 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 			   void *context)
 {
         const struct var_expand_modifier *m;
-        const struct var_expand_table *t;
 	const char *var;
         struct var_expand_context ctx;
 	const char *(*modifier[MAX_MODIFIER_COUNT])
@@ -329,20 +346,8 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 						      str+1, len, context);
 				i_assert(var != NULL);
 				str = end;
-			} else if (table != NULL) {
-				for (t = table; !TABLE_LAST(t); t++) {
-					if (t->key == *str) {
-						var = t->value != NULL ?
-							t->value : "";
-						break;
-					}
-				}
-			}
-
-			if (var == NULL) {
-				/* not found */
-				if (*str == '%')
-					var = "%";
+			} else {
+				var = var_expand_short(table, *str);
 			}
 
 			if (var != NULL) {
