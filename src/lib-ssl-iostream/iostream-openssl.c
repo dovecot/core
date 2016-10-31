@@ -163,7 +163,9 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 	if (set->prefer_server_ciphers)
 		SSL_set_options(ssl_io->ssl, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	if (set->protocols != NULL) {
+#if defined(HAVE_SSL_CLEAR_OPTIONS)
 		SSL_clear_options(ssl_io->ssl, OPENSSL_ALL_PROTOCOL_OPTIONS);
+#endif
 		SSL_set_options(ssl_io->ssl,
 				openssl_get_protocol_options(set->protocols));
 	}
