@@ -14,15 +14,18 @@ struct var_expand_func_table {
 };
 
 /* Expand % variables in src and append the string in dest.
-   table must end with key = 0. */
-void var_expand(string_t *dest, const char *str,
-		const struct var_expand_table *table);
+   table must end with key = 0. Returns 1 on success, 0 if the format string
+   contained invalid/unknown %variables. Even in case of errors the dest string
+   is still written as fully as possible. */
+int var_expand(string_t *dest, const char *str,
+	       const struct var_expand_table *table,
+	       const char **error_r);
 /* Like var_expand(), but support also callback functions for
    variable expansion. */
-void var_expand_with_funcs(string_t *dest, const char *str,
-			   const struct var_expand_table *table,
-			   const struct var_expand_func_table *func_table,
-			   void *func_context) ATTR_NULL(3, 4, 5);
+int var_expand_with_funcs(string_t *dest, const char *str,
+			  const struct var_expand_table *table,
+			  const struct var_expand_func_table *func_table,
+			  void *func_context, const char **error_r) ATTR_NULL(3, 4, 5);
 
 /* Returns the actual key character for given string, ie. skip any modifiers
    that are before it. The string should be the data after the '%' character.

@@ -553,9 +553,13 @@ static const char *client_stats(struct client *client)
 		{ '\0', NULL, NULL }
 	};
 	string_t *str;
+	const char *error;
 
 	str = t_str_new(128);
-	var_expand(str, client->set->pop3_logout_format, tab);
+	if (var_expand(str, client->set->pop3_logout_format, tab, &error) <= 0) {
+		i_error("Failed to expand pop3_logout_format=%s: %s",
+			client->set->pop3_logout_format, error);
+	}
 	return str_c(str);
 }
 

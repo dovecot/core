@@ -146,7 +146,7 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 {
 	va_list args;
 	string_t *str;
-	const char *msg;
+	const char *msg, *error;
 
 	if (*ctx->set->deliver_log_format == '\0')
 		return;
@@ -161,7 +161,11 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	/* update %$ */
 	ctx->var_expand_table[0].value = msg;
 	mail_deliver_log_var_expand_table_update_times(ctx, ctx->var_expand_table);
-	var_expand(str, ctx->set->deliver_log_format, ctx->var_expand_table);
+	if (var_expand(str, ctx->set->deliver_log_format,
+		       ctx->var_expand_table, &error) <= 0) {
+		i_error("Failed to expand deliver_log_format=%s: %s",
+			ctx->set->deliver_log_format, error);
+	}
 	ctx->var_expand_table[0].value = "";
 	ctx->var_expand_table[VAR_EXPAND_DELIVERY_TIME_IDX].value = "";
 

@@ -110,6 +110,7 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	struct ldap_connection *conn = module->conn;
 	const char **attr_names = (const char **)conn->user_attr_names;
 	struct userdb_ldap_request *request;
+	const char *error;
 	string_t *str;
 
 	auth_request_ref(auth_request);
@@ -117,11 +118,24 @@ static void userdb_ldap_lookup(struct auth_request *auth_request,
 	request->userdb_callback = callback;
 
 	str = t_str_new(512);
-	auth_request_var_expand(str, conn->set.base, auth_request, ldap_escape);
+	if (auth_request_var_expand(str, conn->set.base, auth_request,
+				    ldap_escape, &error) <= 0) {
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			"Failed to expand base=%s: %s", conn->set.base, error);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		return;
+	}
 	request->request.base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	auth_request_var_expand(str, conn->set.user_filter, auth_request, ldap_escape);
+	if (auth_request_var_expand(str, conn->set.user_filter, auth_request,
+				    ldap_escape, &error) <= 0) {
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			"Failed to expand user_filter=%s: %s",
+			conn->set.user_filter, error);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		return;
+	}
 	request->request.filter = p_strdup(auth_request->pool, str_c(str));
 
 	request->request.attr_map = &conn->user_attr_map;
@@ -191,6 +205,7 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	struct ldap_userdb_iterate_context *ctx;
 	struct userdb_iter_ldap_request *request;
 	const char **attr_names = (const char **)conn->iterate_attr_names;
+	const char *error;
 	string_t *str;
 
 	ctx = i_new(struct ldap_userdb_iterate_context, 1);
@@ -205,12 +220,22 @@ userdb_ldap_iterate_init(struct auth_request *auth_request,
 	request->request.request.auth_request = auth_request;
 
 	str = t_str_new(512);
-	auth_request_var_expand(str, conn->set.base, auth_request, ldap_escape);
+	if (auth_request_var_expand(str, conn->set.base, auth_request,
+				    ldap_escape, &error) <= 0) {
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			"Failed to expand base=%s: %s", conn->set.base, error);
+		ctx->ctx.failed = TRUE;
+	}
 	request->request.base = p_strdup(auth_request->pool, str_c(str));
 
 	str_truncate(str, 0);
-	auth_request_var_expand(str, conn->set.iterate_filter,
-				auth_request, ldap_escape);
+	if (auth_request_var_expand(str, conn->set.iterate_filter,
+				    auth_request, ldap_escape, &error) <= 0) {
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			"Failed to expand iterate_filter=%s: %s",
+			conn->set.iterate_filter, error);
+		ctx->ctx.failed = TRUE;
+	}
 	request->request.filter = p_strdup(auth_request->pool, str_c(str));
 	request->request.attr_map = &conn->iterate_attr_map;
 	request->request.attributes = conn->iterate_attr_names;

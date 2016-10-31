@@ -762,6 +762,7 @@ director_flush_user(struct director *dir, struct user *user)
 		{ 'h', user->host->hostname, "host" },
 		{ '\0', NULL, NULL }
 	};
+	const char *error;
 
 	/* Execute flush script, if set. Only the director that started the
 	   user moving will call the flush script. Having each director do it
@@ -782,10 +783,14 @@ director_flush_user(struct director *dir, struct user *user)
 	ctx->host_ip = user->host->ip;
 
 	string_t *s_sock = str_new(default_pool, 32);
-	var_expand(s_sock, dir->set->director_flush_socket, tab);
+	if (var_expand(s_sock, dir->set->director_flush_socket, tab, &error) <= 0) {
+		i_error("Failed to expand director_flush_socket=%s: %s",
+			dir->set->director_flush_socket, error);
+		director_user_kill_finish_delayed(dir, user, FALSE);
+		return;
+	}
 	ctx->socket_path = str_free_without_data(&s_sock);
 
-	const char *error;
 	struct program_client_settings set = {
 		.client_connect_timeout_msecs = 10000,
 		.dns_client_socket_path = DIRECTOR_DNS_SOCKET_PATH,

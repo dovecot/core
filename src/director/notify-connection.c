@@ -25,7 +25,9 @@ static void notify_connection_input(struct notify_connection *conn)
 	int diff;
 
 	while ((line = i_stream_read_next_line(conn->input)) != NULL) {
-		hash = user_directory_get_username_hash(conn->dir->users, line);
+		if (!user_directory_get_username_hash(conn->dir->users, line, &hash))
+			continue;
+
 		user = user_directory_lookup(conn->dir->users, hash);
 		if (user != NULL) {
 			diff = ioloop_time - user->timestamp;

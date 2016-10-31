@@ -236,7 +236,12 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	prefix = t_str_new(128);
 	str_append(prefix, ns->prefix);
-	var_expand(prefix, storage->ns_prefix_pattern, tab);
+	if (var_expand(prefix, storage->ns_prefix_pattern, tab, &error) <= 0) {
+		mailbox_list_set_critical(list,
+			"Failed to expand namespace prefix '%s': %s",
+			storage->ns_prefix_pattern, error);
+		return -1;
+	}
 
 	*_ns = mail_namespace_find_prefix(user->namespaces, str_c(prefix));
 	if (*_ns != NULL) {
@@ -273,6 +278,15 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		}
 	}
 
+	location = t_str_new(256);
+	if (ret > 0 &&
+	    var_expand(location, storage->location, tab, &error) <= 0) {
+		mailbox_list_set_critical(list,
+			"Failed to expand namespace location '%s': %s",
+			storage->location, error);
+		return -1;
+	}
+
 	/* create the new namespace */
 	new_ns = i_new(struct mail_namespace, 1);
 	new_ns->refcount = 1;
@@ -286,10 +300,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	new_ns->mail_set = _storage->set;
 	i_array_init(&new_ns->all_storages, 2);
 
-	location = t_str_new(256);
-	if (ret > 0)
-		var_expand(location, storage->location, tab);
-	else {
+	if (ret <= 0) {
 		get_nonexistent_user_location(storage, userdomain, location);
 		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
 		if (ns->user->mail_debug) {

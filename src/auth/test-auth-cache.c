@@ -18,14 +18,15 @@ const struct var_expand_table auth_request_var_expand_static_tab[] = {
 	{ '\0', NULL, NULL }
 };
 
-const char *
-t_auth_request_var_expand(const char *str,
-			  const struct auth_request *auth_request ATTR_UNUSED,
-			  auth_request_escape_func_t *escape_func ATTR_UNUSED)
+int t_auth_request_var_expand(const char *str,
+			      const struct auth_request *auth_request ATTR_UNUSED,
+			      auth_request_escape_func_t *escape_func ATTR_UNUSED,
+			      const char **value_r, const char **error_r)
 {
 	string_t *dest = t_str_new(128);
-	var_expand(dest, str, auth_request_var_expand_static_tab);
-	return str_c(dest);
+	int ret = var_expand(dest, str, auth_request_var_expand_static_tab, error_r);
+	*value_r = str_c(dest);
+	return ret;
 }
 
 static void test_auth_cache_parse_key(void)

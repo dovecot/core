@@ -88,6 +88,7 @@ userdb_dict_iterate_init(struct auth_request *auth_request,
 		(struct dict_userdb_module *)_module;
 	struct dict_userdb_iterate_context *ctx;
 	string_t *path;
+	const char *error;
 
 	ctx = i_new(struct dict_userdb_iterate_context, 1);
 	ctx->ctx.auth_request = auth_request;
@@ -106,8 +107,14 @@ userdb_dict_iterate_init(struct auth_request *auth_request,
 
 	path = t_str_new(128);
 	str_append(path, DICT_PATH_SHARED);
-	auth_request_var_expand(path, module->conn->set.iterate_prefix,
-				auth_request, NULL);
+	if (auth_request_var_expand(path, module->conn->set.iterate_prefix,
+				    auth_request, NULL, &error) <= 0) {
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+			"Failed to expand iterate_prefix=%s: %s",
+			module->conn->set.iterate_prefix, error);
+		ctx->ctx.failed = TRUE;
+		return &ctx->ctx;
+	}
 	ctx->key_prefix = p_strdup(auth_request->pool, str_c(path));
 	ctx->key_prefix_len = strlen(ctx->key_prefix);
 

@@ -98,8 +98,11 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 		ctx->dsn ? "delivery-status" : "disposition-notification",
 		boundary);
     str_append(str, "Subject: ");
-    var_expand(str, ctx->set->rejection_subject,
-	       get_var_expand_table(mail, reason, recipient));
+    if (var_expand(str, ctx->set->rejection_subject,
+		   get_var_expand_table(mail, reason, recipient), &error) <= 0) {
+	    i_error("Failed to expand rejection_subject=%s: %s",
+		    ctx->set->rejection_subject, error);
+    }
     str_append(str, "\r\n");
 
     str_append(str, "Auto-Submitted: auto-replied (rejected)\r\n");
@@ -112,8 +115,11 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
     str_append(str, "Content-Disposition: inline\r\n");
     str_append(str, "Content-Transfer-Encoding: 8bit\r\n\r\n");
 
-    var_expand(str, ctx->set->rejection_reason,
-	       get_var_expand_table(mail, reason, recipient));
+    if (var_expand(str, ctx->set->rejection_reason,
+		   get_var_expand_table(mail, reason, recipient), &error) <= 0) {
+	    i_error("Failed to expand rejection_reason=%s: %s",
+		    ctx->set->rejection_reason, error);
+    }
     str_append(str, "\r\n");
 
     if (ctx->dsn) {

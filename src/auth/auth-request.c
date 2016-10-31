@@ -798,7 +798,14 @@ static void
 auth_request_verify_plain_callback_finish(enum passdb_result result,
 					  struct auth_request *request)
 {
-	passdb_template_export(request->passdb->override_fields_tmpl, request);
+	const char *error;
+
+	if (passdb_template_export(request->passdb->override_fields_tmpl,
+				   request, &error) < 0) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"Failed to expand override_fields: %s", error);
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+	}
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
 		auth_request_verify_plain(request, request->mech_password,
@@ -949,7 +956,7 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 
 	struct auth_passdb *passdb;
 	enum passdb_result result;
-	const char *cache_key;
+	const char *cache_key, *error;
 	const char *password = request->mech_password;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
@@ -987,8 +994,13 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 			PASSDB_RESULT_INTERNAL_FAILURE, request);
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_verify_plain(request);
+	} else if (passdb_template_export(passdb->default_fields_tmpl,
+					  request, &error) < 0) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"Failed to expand default_fields: %s", error);
+		auth_request_verify_plain_callback(
+			PASSDB_RESULT_INTERNAL_FAILURE, request);
 	} else {
-		passdb_template_export(passdb->default_fields_tmpl, request);
 		passdb->passdb->iface.verify_plain(request, password,
 					   auth_request_verify_plain_callback);
 	}
@@ -1000,7 +1012,14 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 					size_t size,
 					struct auth_request *request)
 {
-	passdb_template_export(request->passdb->override_fields_tmpl, request);
+	const char *error;
+
+	if (passdb_template_export(request->passdb->override_fields_tmpl,
+				   request, &error) < 0) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"Failed to expand override_fields: %s", error);
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+	}
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
 		if (request->skip_password_check &&
@@ -1113,7 +1132,7 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 						     lookup_credentials_callback_t *callback)
 {
 	struct auth_passdb *passdb;
-	const char *cache_key, *cache_cred, *cache_scheme;
+	const char *cache_key, *cache_cred, *cache_scheme, *error;
 	enum passdb_result result;
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
@@ -1150,8 +1169,14 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 					uchar_empty_ptr, 0, request);
 	} else if (passdb->passdb->blocking) {
 		passdb_blocking_lookup_credentials(request);
+	} else if (passdb_template_export(passdb->default_fields_tmpl,
+					  request, &error) < 0) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"Failed to expand default_fields: %s", error);
+		auth_request_lookup_credentials_callback(
+					PASSDB_RESULT_INTERNAL_FAILURE,
+					uchar_empty_ptr, 0, request);
 	} else {
-		passdb_template_export(passdb->default_fields_tmpl, request);
 		passdb->passdb->iface.lookup_credentials(request,
 			auth_request_lookup_credentials_callback);
 	}
@@ -1266,6 +1291,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 	struct auth_userdb *userdb = request->userdb;
 	struct auth_userdb *next_userdb;
 	enum auth_db_rule result_rule;
+	const char *error;
 	bool userdb_continue = FALSE;
 
 	switch (result) {
@@ -1317,7 +1343,14 @@ void auth_request_userdb_callback(enum userdb_result result,
 		if (result == USERDB_RESULT_OK) {
 			/* this userdb lookup succeeded, preserve its extra
 			   fields */
-			userdb_template_export(userdb->override_fields_tmpl, request);
+			if (userdb_template_export(userdb->override_fields_tmpl,
+						   request, &error) < 0) {
+				auth_request_log_error(request, AUTH_SUBSYS_DB,
+					"Failed to expand override_fields: %s", error);
+				request->private_callback.userdb(
+					USERDB_RESULT_INTERNAL_FAILURE, request);
+				return;
+			}
 			auth_fields_snapshot(request->userdb_reply);
 		} else {
 			/* this userdb lookup failed, remove any extra fields
@@ -1332,8 +1365,14 @@ void auth_request_userdb_callback(enum userdb_result result,
 	}
 
 	if (request->userdb_success) {
-		result = USERDB_RESULT_OK;
-		userdb_template_export(userdb->override_fields_tmpl, request);
+		if (userdb_template_export(userdb->override_fields_tmpl,
+					   request, &error) < 0) {
+			auth_request_log_error(request, AUTH_SUBSYS_DB,
+				"Failed to expand override_fields: %s", error);
+			result = USERDB_RESULT_INTERNAL_FAILURE;
+		} else {
+			result = USERDB_RESULT_OK;
+		}
 	} else if (request->userdbs_seen_internal_failure ||
 		   result == USERDB_RESULT_INTERNAL_FAILURE) {
 		/* one of the userdb lookups failed. the user might have been
@@ -1379,7 +1418,7 @@ void auth_request_lookup_user(struct auth_request *request,
 			      userdb_callback_t *callback)
 {
 	struct auth_userdb *userdb = request->userdb;
-	const char *cache_key;
+	const char *cache_key, *error;
 
 	request->private_callback.userdb = callback;
 	request->userdb_lookup = TRUE;
@@ -1390,7 +1429,14 @@ void auth_request_lookup_user(struct auth_request *request,
 		/* we still want to set default_fields. these override any
 		   existing fields set by previous userdbs (because if that is
 		   unwanted, ":protected" can be used). */
-		userdb_template_export(userdb->default_fields_tmpl, request);
+		if (userdb_template_export(userdb->default_fields_tmpl,
+					   request, &error) < 0) {
+			auth_request_log_error(request, AUTH_SUBSYS_DB,
+				"Failed to expand default_fields: %s", error);
+			auth_request_userdb_callback(
+				USERDB_RESULT_INTERNAL_FAILURE, request);
+			return;
+		}
 	}
 
 	/* (for now) auth_cache is shared between passdb and userdb */
@@ -1448,6 +1494,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		/* username format given, put it through variable expansion.
 		   we'll have to temporarily replace request->user to get
 		   %u to be the wanted username */
+		const char *error;
 		char *old_username;
 		string_t *dest;
 
@@ -1455,7 +1502,12 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		request->user = user;
 
 		dest = t_str_new(256);
-		auth_request_var_expand(dest, set->username_format, request, NULL);
+		if (auth_request_var_expand(dest, set->username_format,
+					    request, NULL, &error) <= 0) {
+			*error_r = t_strdup_printf(
+				"Failed to expand username_format=%s: %s",
+				set->username_format, error);
+		}
 		user = p_strdup(request->pool, str_c(dest));
 
 		request->user = old_username;
@@ -1858,8 +1910,14 @@ void auth_request_set_fields(struct auth_request *request,
 
 void auth_request_init_userdb_reply(struct auth_request *request)
 {
+	const char *error;
+
 	request->userdb_reply = auth_fields_init(request->pool);
-	userdb_template_export(request->userdb->default_fields_tmpl, request);
+	if (userdb_template_export(request->userdb->default_fields_tmpl,
+				   request, &error) <= 0) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"Failed to expand default_fields: %s", error);
+	}
 }
 
 static void auth_request_set_uidgid_file(struct auth_request *request,
@@ -1867,10 +1925,15 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 {
 	string_t *path;
 	struct stat st;
+	const char *error;
 
 	path = t_str_new(256);
-	auth_request_var_expand(path, path_template, request, NULL);
-	if (stat(str_c(path), &st) < 0) {
+	if (auth_request_var_expand(path, path_template, request,
+				    NULL, &error) <= 0) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"Failed to expand uidgid_file=%s: %s", path_template, error);
+		request->userdb_lookup_tempfailed = TRUE;
+	} else if (stat(str_c(path), &st) < 0) {
 		auth_request_log_error(request, AUTH_SUBSYS_DB,
 					"stat(%s) failed: %m", str_c(path));
 		request->userdb_lookup_tempfailed = TRUE;

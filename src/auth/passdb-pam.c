@@ -312,14 +312,21 @@ pam_verify_plain(struct auth_request *request, const char *password,
         struct passdb_module *_module = request->passdb->passdb;
         struct pam_passdb_module *module = (struct pam_passdb_module *)_module;
 	enum passdb_result result;
-	const char *service;
+	const char *service, *error;
 
 	if (module->requests_left > 0) {
 		if (--module->requests_left == 0)
 			worker_restart_request = TRUE;
 	}
 
-	service = t_auth_request_var_expand(module->service_name, request, NULL);
+	if (t_auth_request_var_expand(module->service_name, request, NULL,
+				      &service, &error) <= 0) {
+		auth_request_log_debug(request, AUTH_SUBSYS_DB,
+			"Failed to expand service %s: %s",
+			module->service_name, error);
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		return;
+	}
 
 	auth_request_log_debug(request, AUTH_SUBSYS_DB,
 			       "lookup service=%s", service);

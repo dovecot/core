@@ -465,9 +465,13 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	const char *hashed_password = binary_to_hex(str_data(buffer), str_len(buffer));
 	str_append_c(context->json, '{');
 	var_table = policy_get_var_expand_table(context->request, hashed_password);
-	auth_request_var_expand_with_table(context->json, auth_policy_json_template,
-					   context->request, var_table,
-					   auth_policy_escape_function);
+	const char *error;
+	if (auth_request_var_expand_with_table(context->json, auth_policy_json_template,
+					       context->request, var_table,
+					       auth_policy_escape_function, &error) <= 0) {
+		auth_request_log_error(context->request, "policy",
+			"Failed to expand auth policy template: %s", error);
+	}
 	if (include_success) {
 		str_append(context->json, ",\"success\":");
 		if (!context->request->failed && context->request->successful &&

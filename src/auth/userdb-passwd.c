@@ -84,6 +84,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 		(struct passwd_userdb_module *)_module;
 	struct passwd pw;
 	struct timeval start_tv;
+	const char *error;
 	int ret;
 
 	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB, "lookup");
@@ -114,7 +115,11 @@ static void passwd_lookup(struct auth_request *auth_request,
 	auth_request_set_userdb_field(auth_request, "gid", dec2str(pw.pw_gid));
 	auth_request_set_userdb_field(auth_request, "home", pw.pw_dir);
 
-	userdb_template_export(module->tmpl, auth_request);
+	if (userdb_template_export(module->tmpl, auth_request, &error) < 0) {
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+				       "Failed to expand template: %s", error);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+	}
 
 	callback(USERDB_RESULT_OK, auth_request);
 }

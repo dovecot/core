@@ -226,35 +226,39 @@ const struct var_expand_func_table auth_request_var_funcs_table[] = {
 	{ NULL, NULL }
 };
 
-void auth_request_var_expand(string_t *dest, const char *str,
-			     const struct auth_request *auth_request,
-			     auth_request_escape_func_t *escape_func)
+int auth_request_var_expand(string_t *dest, const char *str,
+			    const struct auth_request *auth_request,
+			    auth_request_escape_func_t *escape_func,
+			    const char **error_r)
 {
-	auth_request_var_expand_with_table(dest, str, auth_request,
+	return auth_request_var_expand_with_table(dest, str, auth_request,
 		auth_request_get_var_expand_table(auth_request, escape_func),
-		escape_func);
+		escape_func, error_r);
 }
 
-void auth_request_var_expand_with_table(string_t *dest, const char *str,
-					const struct auth_request *auth_request,
-					const struct var_expand_table *table,
-					auth_request_escape_func_t *escape_func)
+int auth_request_var_expand_with_table(string_t *dest, const char *str,
+				       const struct auth_request *auth_request,
+				       const struct var_expand_table *table,
+				       auth_request_escape_func_t *escape_func,
+				       const char **error_r)
 {
 	struct auth_request_var_expand_ctx ctx;
 
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.auth_request = auth_request;
 	ctx.escape_func = escape_func == NULL ? escape_none : escape_func;
-	var_expand_with_funcs(dest, str, table,
-			      auth_request_var_funcs_table, &ctx);
+	return var_expand_with_funcs(dest, str, table,
+				     auth_request_var_funcs_table, &ctx, error_r);
 }
 
-const char *
-t_auth_request_var_expand(const char *str,
-			  const struct auth_request *auth_request,
-			  auth_request_escape_func_t *escape_func)
+int t_auth_request_var_expand(const char *str,
+			      const struct auth_request *auth_request ATTR_UNUSED,
+			      auth_request_escape_func_t *escape_func ATTR_UNUSED,
+			      const char **value_r, const char **error_r)
 {
 	string_t *dest = t_str_new(128);
-	auth_request_var_expand(dest, str, auth_request, escape_func);
-	return str_c(dest);
+	int ret = auth_request_var_expand(dest, str, auth_request,
+					  escape_func, error_r);
+	*value_r = str_c(dest);
+	return ret;
 }

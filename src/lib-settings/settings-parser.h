@@ -185,15 +185,17 @@ void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
    actually knowing what the variables are. */
 void settings_parse_var_skip(struct setting_parser_context *ctx);
 /* Expand all unexpanded variables using the given table. Update the string
-   pointers so that they can be used without skipping over the '1'. */
-void settings_var_expand(const struct setting_parser_info *info,
-			 void *set, pool_t pool,
-			 const struct var_expand_table *table);
-void settings_var_expand_with_funcs(const struct setting_parser_info *info,
-				    void *set, pool_t pool,
-				    const struct var_expand_table *table,
-				    const struct var_expand_func_table *func_table,
-				    void *func_context);
+   pointers so that they can be used without skipping over the '1'.
+   Returns the same as var_expand(). */
+int settings_var_expand(const struct setting_parser_info *info,
+			void *set, pool_t pool,
+			const struct var_expand_table *table,
+			const char **error_r);
+int settings_var_expand_with_funcs(const struct setting_parser_info *info,
+				   void *set, pool_t pool,
+				   const struct var_expand_table *table,
+				   const struct var_expand_func_table *func_table,
+				   void *func_context, const char **error_r);
 /* Go through all the settings and return the first one that has an unexpanded
    setting containing the given %key. */
 bool settings_vars_have_key(const struct setting_parser_info *info, void *set,

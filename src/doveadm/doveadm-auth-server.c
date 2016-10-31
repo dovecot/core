@@ -327,18 +327,26 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		cmd_user_mail_print_fields(input, user, userdb_fields, show_field);
 	else {
 		string_t *str = t_str_new(128);
-		var_expand_with_funcs(str, expand_field,
-				      mail_user_var_expand_table(user),
-				      mail_user_var_expand_func_table, user);
-		string_t *value = t_str_new(128);
-		json_append_escaped(value, expand_field);
-		o_stream_nsend_str(doveadm_print_ostream, "\"");
-		o_stream_nsend_str(doveadm_print_ostream, str_c(value));
-		o_stream_nsend_str(doveadm_print_ostream, "\":\"");
-		str_truncate(value, 0);
-		json_append_escaped(value, str_c(str));
-		o_stream_nsend_str(doveadm_print_ostream, str_c(value));
-		o_stream_nsend_str(doveadm_print_ostream, "\"");
+		if (var_expand_with_funcs(str, expand_field,
+					  mail_user_var_expand_table(user),
+					  mail_user_var_expand_func_table, user,
+					  &error) <= 0) {
+			string_t *str = t_str_new(128);
+			str_printfa(str, "\"error\":\"Failed to expand field: ");
+			json_append_escaped(str, error);
+			str_append_c(str, '"');
+			o_stream_nsend(doveadm_print_ostream, str_data(str), str_len(str));
+		} else {
+			string_t *value = t_str_new(128);
+			json_append_escaped(value, expand_field);
+			o_stream_nsend_str(doveadm_print_ostream, "\"");
+			o_stream_nsend_str(doveadm_print_ostream, str_c(value));
+			o_stream_nsend_str(doveadm_print_ostream, "\":\"");
+			str_truncate(value, 0);
+			json_append_escaped(value, str_c(str));
+			o_stream_nsend_str(doveadm_print_ostream, str_c(value));
+			o_stream_nsend_str(doveadm_print_ostream, "\"");
+		}
 
 	}
 

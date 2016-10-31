@@ -21,17 +21,19 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 				       auth_request_escape_func_t *escape_func,
 				       unsigned int *count) ATTR_NULL(2);
 
-void auth_request_var_expand(string_t *dest, const char *str,
-			     const struct auth_request *auth_request,
-			     auth_request_escape_func_t *escape_func);
-void auth_request_var_expand_with_table(string_t *dest, const char *str,
-					const struct auth_request *auth_request,
-					const struct var_expand_table *table,
-					auth_request_escape_func_t *escape_func);
-const char *
-t_auth_request_var_expand(const char *str,
-			  const struct auth_request *auth_request,
-			  auth_request_escape_func_t *escape_func);
+int auth_request_var_expand(string_t *dest, const char *str,
+			    const struct auth_request *auth_request,
+			    auth_request_escape_func_t *escape_func,
+			    const char **error_r);
+int auth_request_var_expand_with_table(string_t *dest, const char *str,
+				       const struct auth_request *auth_request,
+				       const struct var_expand_table *table,
+				       auth_request_escape_func_t *escape_func,
+				       const char **error_r);
+int t_auth_request_var_expand(const char *str,
+			      const struct auth_request *auth_request,
+			      auth_request_escape_func_t *escape_func,
+			      const char **value_r, const char **error_r);
 
 const char *auth_request_str_escape(const char *string,
 				    const struct auth_request *request);

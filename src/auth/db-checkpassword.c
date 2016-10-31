@@ -294,9 +294,14 @@ checkpassword_get_cmd(struct auth_request *request, const char *args,
 		      const char *checkpassword_reply_path)
 {
 	string_t *str;
+	const char *error;
 
 	str = t_str_new(256);
-	auth_request_var_expand(str, args, request, NULL);
+	if (auth_request_var_expand(str, args, request, NULL, &error) <= 0) {
+		i_error("Failed to expand checkpassword_path=%s: %s",
+			args, error);
+	}
+
 	return t_strconcat(str_c(str), " ", checkpassword_reply_path, NULL);
 }
 

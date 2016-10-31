@@ -228,7 +228,7 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
 	struct var_expand_table *tab;
 	ARRAY_TYPE(const_string) cmd_args;
 	string_t *str, *str2;
-	const char *value, *const *args;
+	const char *value, *const *args, *error;
 
 	tab = t_malloc_no0(sizeof(static_tab));
 	memcpy(tab, static_tab, sizeof(static_tab));
@@ -250,8 +250,11 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
 			   text in the parameter, skip it. */
 			str_truncate(str, 0);
 			str_truncate(str2, 0);
-			var_expand(str, *args, tab);
-			var_expand(str2, *args, static_tab);
+			if (var_expand(str, *args, tab, &error) <= 0 ||
+			    var_expand(str2, *args, static_tab, &error) <= 0) {
+				i_error("Failed to expand dsync_remote_cmd=%s: %s",
+					*args, error);
+			}
 			if (strcmp(str_c(str), str_c(str2)) == 0 &&
 			    str_len(str) > 0)
 				continue;

@@ -190,8 +190,9 @@ login_settings_read(pool_t pool,
 	for (i = 0; i < count; i++)
 		sets[i] = login_setting_dup(pool, input.roots[i], cache_sets[i]);
 
-	settings_var_expand(&login_setting_parser_info, sets[0], pool,
-			    login_set_var_expand_table(&input));
+	if (settings_var_expand(&login_setting_parser_info, sets[0], pool,
+				login_set_var_expand_table(&input), &error) <= 0)
+		i_fatal("Failed to expand settings: %s", error);
 
 	*ssl_set_r =
 		login_setting_dup(pool, &master_service_ssl_setting_parser_info,

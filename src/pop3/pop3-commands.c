@@ -639,7 +639,14 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 		{ 'g', guid, "guid" },
 		{ '\0', NULL, NULL }
 	};
-	var_expand(str, client->mail_set->pop3_uidl_format, tab);
+	const char *error;
+
+	if (var_expand(str, client->mail_set->pop3_uidl_format,
+		       tab, &error) <= 0) {
+		i_error("UIDL: Failed to expand pop3_uidl_format=%s: %s",
+			client->mail_set->pop3_uidl_format, error);
+		return -1;
+	}
 	return 0;
 }
 

@@ -76,6 +76,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		(struct imap_passdb_module *)_module;
 	struct imap_auth_request *request;
 	struct imapc_client_settings set;
+	const char *error;
 	string_t *str;
 
 	set = module->set;
@@ -88,11 +89,25 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 
 	if (module->set_have_vars) {
 		str = t_str_new(128);
-		auth_request_var_expand(str, set.username, auth_request, NULL);
+		if (auth_request_var_expand(str, set.username, auth_request,
+					    NULL, &error) <= 0) {
+			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+				"Failed to expand username=%s: %s",
+				set.username, error);
+			callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
+			return;
+		}
 		set.username = t_strdup(str_c(str));
 
 		str_truncate(str, 0);
-		auth_request_var_expand(str, set.host, auth_request, NULL);
+		if (auth_request_var_expand(str, set.host, auth_request,
+					    NULL, &error) <= 0) {
+			auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+				"Failed to expand host=%s: %s",
+				set.host, error);
+			callback(PASSDB_RESULT_INTERNAL_FAILURE, auth_request);
+			return;
+		}
 		set.host = t_strdup(str_c(str));
 	}
 	auth_request_log_debug(auth_request, AUTH_SUBSYS_DB,

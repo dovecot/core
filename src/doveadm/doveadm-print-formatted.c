@@ -56,11 +56,15 @@ static void doveadm_print_formatted_print(const char *value)
 	if (ctx.format == NULL) {
 		i_fatal("formatted formatter cannot be used without a format.");
 	}
+	const char *error;
 	struct var_expand_table *entry = array_idx_modifiable(&ctx.headers, ctx.idx++);
 	entry->value = value;
 
 	if (ctx.idx >= array_count(&ctx.headers)) {
-		var_expand(ctx.buf, ctx.format, array_idx(&ctx.headers,0));
+		if (var_expand(ctx.buf, ctx.format, array_idx(&ctx.headers,0), &error) <= 0) {
+			i_error("Failed to expand print format '%s': %s",
+				ctx.format, error);
+		}
 		doveadm_print_formatted_flush();
 		ctx.idx = 0;
 	}

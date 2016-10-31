@@ -413,7 +413,12 @@ static int db_dict_iter_lookup_key_values(struct db_dict_value_iter *iter)
 			continue;
 
 		str_truncate(path, strlen(DICT_PATH_SHARED));
-		var_expand(path, key->key->key, iter->var_expand_table);
+		ret = var_expand(path, key->key->key, iter->var_expand_table, &error);
+		if (ret <= 0) {
+			auth_request_log_error(iter->auth_request, AUTH_SUBSYS_DB,
+				"Failed to expand key %s: %s", key->key->key, error);
+			return -1;
+		}
 		ret = dict_lookup(iter->conn->dict, iter->pool,
 				  str_c(path), &key->value, &error);
 		if (ret > 0) {
@@ -465,9 +470,15 @@ int db_dict_value_iter_init(struct dict_connection *conn,
 		struct db_dict_key *new_key = p_new(iter->pool, struct db_dict_key, 1);
 		memcpy(new_key, key, sizeof(struct db_dict_key));
 		string_t *expanded_key = str_new(iter->pool, strlen(key->key));
-		auth_request_var_expand_with_table(expanded_key, key->key, auth_request,
-						   iter->var_expand_table,
-						   NULL);
+		const char *error;
+		if (auth_request_var_expand_with_table(expanded_key, key->key, auth_request,
+						       iter->var_expand_table,
+						       NULL, &error) <= 0) {
+			auth_request_log_error(iter->auth_request, AUTH_SUBSYS_DB,
+				"Failed to expand key %s: %s", key->key, error);
+			pool_unref(&pool);
+			return -1;
+		}
 		new_key->key = str_c(expanded_key);
 		iterkey->key = new_key;
 	}
@@ -600,14 +611,21 @@ bool db_dict_value_iter_next(struct db_dict_value_iter *iter,
 		{ NULL, NULL }
 	};
 	const struct db_dict_field *field;
+	const char *error;
 
 	if (iter->field_idx == array_count(iter->fields))
 		return db_dict_value_iter_object_next(iter, key_r, value_r);
 	field = array_idx(iter->fields, iter->field_idx++);
 
 	str_truncate(iter->tmpstr, 0);
-	var_expand_with_funcs(iter->tmpstr, field->value,
-			      iter->var_expand_table, var_funcs_table, iter);
+	if (var_expand_with_funcs(iter->tmpstr, field->value,
+				  iter->var_expand_table, var_funcs_table,
+				  iter, &error) <= 0) {
+		iter->error = p_strdup_printf(iter->pool,
+			"Failed to expand %s=%s: %s",
+			field->name, field->value, error);
+		return FALSE;
+	}
 	*key_r = field->name;
 	*value_r = str_c(iter->tmpstr);
 	return TRUE;

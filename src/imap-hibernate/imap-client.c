@@ -506,7 +506,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	struct imap_client *client;
 	pool_t pool = pool_alloconly_create("imap client", 256);
 	void *statebuf;
-	const char *ident;
+	const char *ident, *error;
 
 	i_assert(state->username != NULL);
 	i_assert(state->mail_log_prefix != NULL);
@@ -533,8 +533,12 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		string_t *str;
 
 		str = t_str_new(256);
-		var_expand(str, state->mail_log_prefix,
-			   imap_client_get_var_expand_table(client));
+		if (var_expand(str, state->mail_log_prefix,
+			       imap_client_get_var_expand_table(client),
+			       &error) <= 0) {
+			i_error("Failed to expand mail_log_prefix=%s: %s",
+				state->mail_log_prefix, error);
+		}
 		client->log_prefix = p_strdup(pool, str_c(str));
 	} T_END;
 

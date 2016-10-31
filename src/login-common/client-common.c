@@ -627,8 +627,10 @@ client_get_log_str(struct client *client, const char *msg)
 		{ "passdb", client_var_expand_func_passdb },
 		{ NULL, NULL }
 	};
+	static bool expand_error_logged = FALSE;
 	const struct var_expand_table *var_expand_table;
 	char *const *e;
+	const char *error;
 	string_t *str, *str2;
 	unsigned int pos;
 
@@ -638,13 +640,22 @@ client_get_log_str(struct client *client, const char *msg)
 	str2 = t_str_new(128);
 	for (e = client->set->log_format_elements_split; *e != NULL; e++) {
 		pos = str_len(str);
-		var_expand_with_funcs(str, *e, var_expand_table,
-				      func_table, client);
+		if (var_expand_with_funcs(str, *e, var_expand_table,
+					  func_table, client, &error) <= 0 &&
+		    !expand_error_logged) {
+			i_error("Failed to expand log_format_elements=%s: %s",
+				*e, error);
+			expand_error_logged = TRUE;
+		}
 		if (have_username_key(*e)) {
 			/* username is added even if it's empty */
 		} else {
 			str_truncate(str2, 0);
-			var_expand(str2, *e, login_var_expand_empty_tab);
+			if (var_expand(str2, *e, login_var_expand_empty_tab,
+				       &error) <= 0) {
+				/* we just logged this error above. no need
+				   to do it again. */
+			}
 			if (strcmp(str_c(str)+pos, str_c(str2)) == 0) {
 				/* empty %variables, don't add */
 				str_truncate(str, pos);
@@ -666,7 +677,11 @@ client_get_log_str(struct client *client, const char *msg)
 	};
 
 	str_truncate(str, 0);
-	var_expand(str, client->set->login_log_format, tab);
+	if (var_expand(str, client->set->login_log_format, tab, &error) <= 0) {
+		i_error("Failed to expand login_log_format=%s: %s",
+			client->set->login_log_format, error);
+		expand_error_logged = TRUE;
+	}
 	return str_c(str);
 }
 

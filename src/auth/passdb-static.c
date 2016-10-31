@@ -12,17 +12,28 @@ struct static_passdb_module {
 };
 
 static enum passdb_result
-static_save_fields(struct auth_request *request, const char **password_r, const char **scheme_r)
+static_save_fields(struct auth_request *request, const char **password_r,
+		   const char **scheme_r)
 {
 	struct static_passdb_module *module =
 		(struct static_passdb_module *)request->passdb->passdb;
+	const char *error;
 
 	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
-	passdb_template_export(module->tmpl, request);
+	if (passdb_template_export(module->tmpl, request, &error) < 0) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"Failed to expand template: %s", error);
+		return PASSDB_RESULT_INTERNAL_FAILURE;
+	}
 
 	if (module->static_password_tmpl != NULL) {
-		*password_r = t_auth_request_var_expand(
-			module->static_password_tmpl, request, NULL);
+		if (t_auth_request_var_expand(module->static_password_tmpl,
+				request, NULL, password_r, &error) <= 0) {
+			auth_request_log_error(request, AUTH_SUBSYS_DB,
+				"Failed to expand password=%s: %s",
+				module->static_password_tmpl, error);
+			return PASSDB_RESULT_INTERNAL_FAILURE;
+		}
 	} else if (auth_fields_exists(request->extra_fields, "nopassword")) {
 		*password_r = "";
 	} else {

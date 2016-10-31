@@ -162,12 +162,12 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 	return ldap_client_init(&set, &dict->client, error_r);
 }
 
-static void
+static bool
 ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
                       ARRAY_TYPE(const_string) *values, bool priv,
-                      string_t *query_r)
+                      string_t *query_r, const char **error_r)
 {
-	const char *template;
+	const char *template, *error;
 	ARRAY(struct var_expand_table) exp;
 	struct var_expand_table entry;
 
@@ -192,7 +192,11 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 	array_append_zero(&exp);
 
-	var_expand(query_r, template, array_idx(&exp, 0));
+	if (var_expand(query_r, template, array_idx(&exp, 0), &error) <= 0) {
+		*error_r = t_strdup_printf("Failed to expand %s: %s", template, error);
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static
@@ -376,6 +380,8 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 	struct ldap_search_input input;
 	struct ldap_dict *ctx = (struct ldap_dict*)dict;
 	struct dict_ldap_op *op;
+	const char *error;
+
 	pool_t oppool = pool_alloconly_create("ldap dict lookup", 64);
 	string_t *query = str_new(oppool, 64);
 	op = p_new(oppool, struct dict_ldap_op, 1);
@@ -398,7 +404,11 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 		memset(&input, 0, sizeof(input));
 		input.base_dn = map->base_dn;
 		input.scope = map->scope_val;
-		ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query);
+		if (!ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query, &error)) {
+			op->res.error = error;
+			callback(&(op->res), context);
+			pool_unref(&oppool);
+		}
 		input.filter = str_c(query);
 		input.attributes = attributes;
 		input.timeout_secs = ctx->set->timeout;

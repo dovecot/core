@@ -920,10 +920,18 @@ login_proxy_cmd_kick_alt(struct ipc_cmd *cmd, const char *const *args)
 	login_proxy_cmd_kick_full(cmd, args+1, want_kick_alt_username, i);
 }
 
-static unsigned int director_username_hash(struct client *client)
+static bool director_username_hash(struct client *client, unsigned int *hash_r)
 {
-	return mail_user_hash(client->virtual_user,
-			      client->set->director_username_hash);
+	const char *error;
+
+	if (!mail_user_hash(client->virtual_user,
+			    client->set->director_username_hash,
+			    hash_r, &error)) {
+		i_error("Failed to expand director_username_hash=%s: %s",
+			client->set->director_username_hash, error);
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static void
@@ -931,7 +939,7 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 {
 	struct login_proxy *proxy, *next;
 	struct ip_addr except_ip;
-	unsigned int hash, count = 0;
+	unsigned int hash, proxy_hash, count = 0;
 
 	if (args[0] == NULL || str_to_uint(args[0], &hash) < 0) {
 		ipc_cmd_fail(&cmd, "Invalid parameters");
@@ -949,7 +957,8 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 	for (proxy = login_proxies; proxy != NULL; proxy = next) {
 		next = proxy->next;
 
-		if (director_username_hash(proxy->client) == hash &&
+		if (director_username_hash(proxy->client, &proxy_hash) &&
+		    proxy_hash == hash &&
 		    !net_ip_compare(&proxy->ip, &except_ip)) {
 			login_proxy_free_delayed(&proxy, KILLED_BY_DIRECTOR_REASON);
 			count++;
@@ -958,7 +967,8 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) {
 		next = proxy->next;
 
-		if (director_username_hash(proxy->client) == hash &&
+		if (director_username_hash(proxy->client, &proxy_hash) &&
+		    proxy_hash == hash &&
 		    !net_ip_compare(&proxy->ip, &except_ip)) {
 			client_destroy(proxy->client, "Connection kicked");
 			count++;

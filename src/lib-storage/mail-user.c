@@ -80,7 +80,7 @@ struct mail_user *mail_user_alloc(const char *username,
 static void
 mail_user_expand_plugins_envs(struct mail_user *user)
 {
-	const char **envs, *home;
+	const char **envs, *home, *error;
 	string_t *str;
 	unsigned int i, count;
 
@@ -101,9 +101,15 @@ mail_user_expand_plugins_envs(struct mail_user *user)
 			return;
 		}
 		str_truncate(str, 0);
-		var_expand_with_funcs(str, envs[i+1],
-				      mail_user_var_expand_table(user),
-				      mail_user_var_expand_func_table, user);
+		if (var_expand_with_funcs(str, envs[i+1],
+					  mail_user_var_expand_table(user),
+					  mail_user_var_expand_func_table, user,
+					  &error) <= 0) {
+			user->error = p_strdup_printf(user->pool,
+				"Failed to expand plugin setting %s = '%s': %s",
+				envs[i], envs[i+1], error);
+			return;
+		}
 		envs[i+1] = p_strdup(user->pool, str_c(str));
 	}
 }
@@ -111,7 +117,7 @@ mail_user_expand_plugins_envs(struct mail_user *user)
 int mail_user_init(struct mail_user *user, const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
-	const char *home, *key, *value;
+	const char *home, *key, *value, *error;
 	bool need_home_dir;
 
 	need_home_dir = user->_home == NULL &&
@@ -124,9 +130,13 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	}
 
 	/* expand settings after we can expand %h */
-	settings_var_expand_with_funcs(user->set_info, user->set,
-				       user->pool, mail_user_var_expand_table(user),
-				       mail_user_var_expand_func_table, user);
+	if (settings_var_expand_with_funcs(user->set_info, user->set,
+					   user->pool, mail_user_var_expand_table(user),
+					   mail_user_var_expand_func_table, user,
+					   &error) <= 0) {
+		user->error = p_strdup_printf(user->pool,
+			"Failed to expand settings: %s", error);
+	}
 	user->settings_expanded = TRUE;
 	mail_user_expand_plugins_envs(user);
 
@@ -352,26 +362,31 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 	return ret;
 }
 
-static void mail_user_get_mail_home(struct mail_user *user)
+static bool mail_user_get_mail_home(struct mail_user *user)
 {
-	const char *home = user->set->mail_home;
+	const char *error, *home = user->set->mail_home;
 	string_t *str;
 
 	if (user->settings_expanded) {
 		user->_home = home[0] != '\0' ? home : NULL;
-		return;
+		return TRUE;
 	}
 	/* we're still initializing user. need to do the expansion ourself. */
 	i_assert(home[0] == SETTING_STRVAR_UNEXPANDED[0]);
 	home++;
 	if (home[0] == '\0')
-		return;
+		return TRUE;
 
 	str = t_str_new(128);
-	var_expand_with_funcs(str, home,
-			      mail_user_var_expand_table(user),
-			      mail_user_var_expand_func_table, user);
+	if (var_expand_with_funcs(str, home,
+				  mail_user_var_expand_table(user),
+				  mail_user_var_expand_func_table, user,
+				  &error) <= 0) {
+		i_error("Failed to expand mail_home=%s: %s", home, error);
+		return FALSE;
+	}
 	user->_home = p_strdup(user->pool, str_c(str));
+	return TRUE;
 }
 
 int mail_user_get_home(struct mail_user *user, const char **home_r)
@@ -385,7 +400,8 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 
 	if (mail_user_auth_master_conn == NULL) {
 		/* no userdb connection. we can only use mail_home setting. */
-		mail_user_get_mail_home(user);
+		if (!mail_user_get_mail_home(user))
+			return -1;
 	} else if ((ret = mail_user_userdb_lookup_home(user)) < 0) {
 		/* userdb lookup failed */
 		return -1;
@@ -395,7 +411,8 @@ int mail_user_get_home(struct mail_user *user, const char **home_r)
 	} else if (user->_home == NULL) {
 		/* no home returned by userdb lookup, fallback to
 		   mail_home setting. */
-		mail_user_get_mail_home(user);
+		if (!mail_user_get_mail_home(user))
+			return -1;
 	}
 	user->home_looked_up = TRUE;
 

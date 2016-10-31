@@ -166,60 +166,75 @@ static const struct var_expand_modifier modifiers[] = {
 	{ '\0', NULL }
 };
 
-static const char *
-var_expand_short(const struct var_expand_table *table, char key)
+static int
+var_expand_short(const struct var_expand_table *table, char key,
+		 const char **var_r, const char **error_r)
 {
         const struct var_expand_table *t;
 
 	if (table != NULL) {
 		for (t = table; !TABLE_LAST(t); t++) {
-			if (t->key == key)
-				return t->value != NULL ? t->value : "";
+			if (t->key == key) {
+				*var_r = t->value != NULL ? t->value : "";
+				return 1;
+			}
 		}
 	}
 
 	/* not found */
-	if (key == '%')
-		return "%";
-	return NULL;
+	if (key == '%') {
+		*var_r = "%";
+		return 1;
+	}
+	if (*error_r == NULL)
+		*error_r = t_strdup_printf("Unknown variable '%%%c'", key);
+	return 0;
 }
 
-static const char *
+static int
 var_expand_func(const struct var_expand_func_table *func_table,
-		const char *key, const char *data, void *context)
+		const char *key, const char *data, void *context,
+		const char **var_r, const char **error_r)
 {
 	const char *value;
 
 	if (strcmp(key, "env") == 0) {
 		value = getenv(data);
-		return value != NULL ? value : "";
+		*var_r = value != NULL ? value : "";
+		return 1;
 	}
-	if (func_table == NULL)
-		return NULL;
-
-	for (; func_table->key != NULL; func_table++) {
-		if (strcmp(func_table->key, key) == 0) {
-			value = func_table->func(data, context);
-			return value != NULL ? value : "";
+	if (func_table != NULL) {
+		for (; func_table->key != NULL; func_table++) {
+			if (strcmp(func_table->key, key) == 0) {
+				value = func_table->func(data, context);
+				*var_r = value != NULL ? value : "";
+				return 1;
+			}
 		}
 	}
-	return NULL;
+	if (*error_r == NULL)
+		*error_r = t_strdup_printf("Unknown variable '%%%s'", key);
+	*var_r = t_strdup_printf("UNSUPPORTED_VARIABLE_%s", key);
+	return 0;
 }
 
-static const char *
+static int
 var_expand_long(const struct var_expand_table *table,
 		const struct var_expand_func_table *func_table,
-		const void *key_start, unsigned int key_len, void *context)
+		const void *key_start, unsigned int key_len, void *context,
+		const char **var_r, const char **error_r)
 {
         const struct var_expand_table *t;
 	const char *key, *value = NULL;
+	int ret = 1;
 
 	if (table != NULL) {
 		for (t = table; !TABLE_LAST(t); t++) {
 			if (t->long_key != NULL &&
 			    strncmp(t->long_key, key_start, key_len) == 0 &&
 			    t->long_key[key_len] == '\0') {
-				return t->value != NULL ? t->value : "";
+				*var_r = t->value != NULL ? t->value : "";
+				return 1;
 			}
 		}
 	}
@@ -248,17 +263,16 @@ var_expand_long(const struct var_expand_table *table,
 			key = t_strdup_until(key, data++);
 		else
 			data = "";
-		value = var_expand_func(func_table, key, data, context);
+		ret = var_expand_func(func_table, key, data, context, &value, error_r);
 	}
-	if (value == NULL)
-		return t_strdup_printf("UNSUPPORTED_VARIABLE_%s", key);
-	return value;
+	*var_r = value;
+	return ret;
 }
 
-void var_expand_with_funcs(string_t *dest, const char *str,
-			   const struct var_expand_table *table,
-			   const struct var_expand_func_table *func_table,
-			   void *context)
+int var_expand_with_funcs(string_t *dest, const char *str,
+			  const struct var_expand_table *table,
+			  const struct var_expand_func_table *func_table,
+			  void *context, const char **error_r)
 {
         const struct var_expand_modifier *m;
 	const char *var;
@@ -267,6 +281,9 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 		(const char *, struct var_expand_context *);
 	const char *end;
 	unsigned int i, len, modifier_count;
+	int ret, final_ret = 1;
+
+	*error_r = NULL;
 
 	memset(&ctx, 0, sizeof(ctx));
 	for (; *str != '\0'; str++) {
@@ -342,13 +359,16 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 			if (*str == '{' && (end = strchr(str, '}')) != NULL) {
 				/* %{long_key} */
 				len = end - (str + 1);
-				var = var_expand_long(table, func_table,
-						      str+1, len, context);
+				ret = var_expand_long(table, func_table,
+						      str+1, len, context,
+						      &var, error_r);
 				i_assert(var != NULL);
 				str = end;
 			} else {
-				var = var_expand_short(table, *str);
+				ret = var_expand_short(table, *str, &var, error_r);
 			}
+			if (final_ret > ret)
+				final_ret = ret;
 
 			if (var != NULL) {
 				for (i = 0; i < modifier_count; i++)
@@ -385,12 +405,13 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 			}
 		}
 	}
+	return final_ret;
 }
 
-void var_expand(string_t *dest, const char *str,
-		const struct var_expand_table *table)
+int var_expand(string_t *dest, const char *str,
+	       const struct var_expand_table *table, const char **error_r)
 {
-	var_expand_with_funcs(dest, str, table, NULL, NULL);
+	return var_expand_with_funcs(dest, str, table, NULL, NULL, error_r);
 }
 
 static bool

@@ -1269,16 +1269,19 @@ void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
 		settings_parse_set_key_expandeded(ctx, pool, *keys);
 }
 
-static void ATTR_NULL(3, 4, 5)
+static int ATTR_NULL(3, 4, 5)
 settings_var_expand_info(const struct setting_parser_info *info, void *set,
 			 pool_t pool,
 			 const struct var_expand_table *table,
 			 const struct var_expand_func_table *func_table,
-			 void *func_context, string_t *str)
+			 void *func_context, string_t *str,
+			 const char **error_r)
 {
 	const struct setting_define *def;
 	void *value, *const *children;
+	const char *error;
 	unsigned int i, count;
+	int ret, final_ret = 1;
 
 	for (def = info->defines; def->key != NULL; def++) {
 		value = PTR_OFFSET(set, def->offset);
@@ -1307,8 +1310,14 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 				*val += 1;
 			} else if (**val == SETTING_STRVAR_UNEXPANDED[0]) {
 				str_truncate(str, 0);
-				var_expand_with_funcs(str, *val + 1, table,
-						      func_table, func_context);
+				ret = var_expand_with_funcs(str, *val + 1, table,
+							    func_table, func_context,
+							    &error);
+				if (final_ret > ret) {
+					final_ret = ret;
+					*error_r = t_strdup_printf(
+						"%s: %s", def->key, error);
+				}
 				*val = p_strdup(pool, str_c(str));
 			} else {
 				i_assert(**val == SETTING_STRVAR_EXPANDED[0]);
@@ -1325,46 +1334,64 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 
 			children = array_get(val, &count);
 			for (i = 0; i < count; i++) {
-				settings_var_expand_info(def->list_info,
+				ret = settings_var_expand_info(def->list_info,
 					children[i], pool, table, func_table,
-					func_context, str);
+					func_context, str, &error);
+				if (final_ret > ret) {
+					final_ret = ret;
+					*error_r = error;
+				}
 			}
 			break;
 		}
 		}
 	}
+	return final_ret;
 }
 
-void settings_var_expand(const struct setting_parser_info *info,
-			 void *set, pool_t pool,
-			 const struct var_expand_table *table)
+int settings_var_expand(const struct setting_parser_info *info,
+			void *set, pool_t pool,
+			const struct var_expand_table *table,
+			const char **error_r)
 {
-	settings_var_expand_with_funcs(info, set, pool, table, NULL, NULL);
+	return settings_var_expand_with_funcs(info, set, pool, table,
+					      NULL, NULL, error_r);
 }
 
-void settings_var_expand_with_funcs(const struct setting_parser_info *info,
-				    void *set, pool_t pool,
-				    const struct var_expand_table *table,
-				    const struct var_expand_func_table *func_table,
-				    void *func_context)
+int settings_var_expand_with_funcs(const struct setting_parser_info *info,
+				   void *set, pool_t pool,
+				   const struct var_expand_table *table,
+				   const struct var_expand_func_table *func_table,
+				   void *func_context, const char **error_r)
 {
-	string_t *str;
+	char *error_dup = NULL;
+	int ret;
 
 	T_BEGIN {
-		str = t_str_new(256);
-		settings_var_expand_info(info, set, pool, table,
-					 func_table, func_context, str);
+		const char *error;
+		string_t *str = t_str_new(256);
+
+		ret = settings_var_expand_info(info, set, pool, table,
+					       func_table, func_context, str,
+					       &error);
+		if (ret <= 0)
+			error_dup = i_strdup(error);
 	} T_END;
+	*error_r = t_strdup(error_dup);
+	i_free(error_dup);
+	return ret;
 }
 
 void settings_parse_var_skip(struct setting_parser_context *ctx)
 {
 	unsigned int i;
+	const char *error;
 
 	for (i = 0; i < ctx->root_count; i++) {
-		settings_var_expand_info(ctx->roots[i].info,
-					 ctx->roots[i].set_struct,
-					 NULL, NULL, NULL, NULL, NULL);
+		(void)settings_var_expand_info(ctx->roots[i].info,
+					       ctx->roots[i].set_struct,
+					       NULL, NULL, NULL, NULL, NULL,
+					       &error);
 	}
 }
 

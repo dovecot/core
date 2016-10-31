@@ -609,9 +609,15 @@ client_handle_user_command(struct client *client, const char *cmd,
 	restrict_access_allow_coredumps(TRUE);
 
 	set = mail_storage_service_user_get_set(user)[1];
-	settings_var_expand(&imap_urlauth_worker_setting_parser_info, set,
-			    mail_user->pool,
-			    mail_user_var_expand_table(mail_user));
+	if (settings_var_expand(&imap_urlauth_worker_setting_parser_info, set,
+				mail_user->pool,
+				mail_user_var_expand_table(mail_user),
+				&error) <= 0) {
+		client_send_line(client, "NO");
+		client_abort(client, t_strdup_printf(
+			"Session aborted: Failed to expand settings: %s", error));
+		return 0;
+	}
 
 	if (set->verbose_proctitle) {
 		verbose_proctitle = TRUE;

@@ -235,6 +235,19 @@ static void cmd_director_status(struct doveadm_cmd_context *cctx)
 	director_disconnect(ctx);
 }
 
+static bool user_hash_expand(const char *username, unsigned int *hash_r)
+{
+	const char *error;
+
+	if (!mail_user_hash(username, doveadm_settings->director_username_hash,
+			    hash_r, &error)) {
+		i_error("Failed to expand director_username_hash=%s: %s",
+			doveadm_settings->director_username_hash, error);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void
 user_list_add(const char *username, pool_t pool,
 	      HASH_TABLE_TYPE(user_list) users)
@@ -242,9 +255,11 @@ user_list_add(const char *username, pool_t pool,
 	struct user_list *user, *old_user;
 	unsigned int user_hash;
 
+	if (!user_hash_expand(username, &user_hash))
+		return;
+
 	user = p_new(pool, struct user_list, 1);
 	user->name = p_strdup(pool, username);
-	user_hash = mail_user_hash(username, doveadm_settings->director_username_hash);
 
 	old_user = hash_table_lookup(users, POINTER_CAST(user_hash));
 	if (old_user != NULL)
@@ -340,10 +355,11 @@ static void cmd_director_map(struct doveadm_cmd_context *cctx)
 
 	if (ctx->user_map) {
 		/* user -> hash mapping */
-		user_hash = mail_user_hash(ctx->host, doveadm_settings->director_username_hash);
-		doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
-		doveadm_print_header("hash", "hash", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
-		doveadm_print(t_strdup_printf("%u", user_hash));
+		if (user_hash_expand(ctx->host, &user_hash)) {
+			doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+			doveadm_print_header("hash", "hash", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+			doveadm_print(t_strdup_printf("%u", user_hash));
+		}
 		director_disconnect(ctx);
 		return;
 	}
@@ -570,9 +586,8 @@ static void cmd_director_move(struct doveadm_cmd_context *cctx)
 		return;
 	}
 
-	user_hash = mail_user_hash(ctx->user, doveadm_settings->director_username_hash);
-
-	if (director_get_host(ctx->host, &ips, &ips_count) != 0) {
+	if (!user_hash_expand(ctx->user, &user_hash) ||
+	    director_get_host(ctx->host, &ips, &ips_count) != 0) {
 		director_disconnect(ctx);
 		return;
 	}

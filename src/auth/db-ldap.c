@@ -624,7 +624,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 		{ NULL, NULL }
 	};
 	const struct ldap_field *field;
-	const char *p;
+	const char *p, *error;
 	char *name;
 	struct ldap_field_find_subquery_context ctx;
 	string_t *tmp_str = t_str_new(64);
@@ -637,8 +637,14 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	array_foreach(request->attr_map, field) {
 		if (field->ldap_attr_name[0] == '\0') {
 			str_truncate(tmp_str, 0);
-			var_expand_with_funcs(tmp_str, field->value, NULL,
-					      var_funcs_table, &ctx);
+			if (var_expand_with_funcs(tmp_str, field->value, NULL,
+						  var_funcs_table, &ctx, &error) <= 0) {
+				auth_request_log_error(request->request.auth_request,
+					AUTH_SUBSYS_DB,
+					"Failed to expand subquery %s: %s",
+					field->value, error);
+				return -1;
+			}
 		} else {
 			p = strchr(field->ldap_attr_name, '@');
 			if (p != NULL &&
@@ -1369,7 +1375,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 	struct ldap_field_find_context ctx;
 	struct ldap_field *field;
 	string_t *tmp_str;
-	const char *const *attr, *attr_data, *p;
+	const char *const *attr, *attr_data, *p, *error;
 	char *ldap_attr, *name, *templ;
 	unsigned int i;
 
@@ -1406,8 +1412,11 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 		} else {
 			*templ++ = '\0';
 			str_truncate(tmp_str, 0);
-			var_expand_with_funcs(tmp_str, templ, NULL,
-					      var_funcs_table, &ctx);
+			if (var_expand_with_funcs(tmp_str, templ, NULL,
+						  var_funcs_table, &ctx, &error) <= 0) {
+				i_error("LDAP %s: Failed to expand attr_names=%s: %s",
+					conn->config_path, name, error);
+			}
 			if (strchr(templ, '%') == NULL) {
 				/* backwards compatibility:
 				   attr=name=prefix means same as
@@ -1667,7 +1676,7 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 			    struct db_ldap_value *ldap_value)
 {
 	const struct var_expand_table *var_table;
-	const char *const *values;
+	const char *const *values, *error;
 
 	if (ldap_value != NULL)
 		values = ldap_value->values;
@@ -1699,8 +1708,12 @@ db_ldap_result_return_value(struct db_ldap_result_iterate_context *ctx,
 		      (and less importantly the same for other variables) */
 		var_table = db_ldap_value_get_var_expand_table(ctx->auth_request,
 							       values[0]);
-		var_expand_with_funcs(ctx->var, field->value, var_table,
-				      ldap_var_funcs_table, ctx);
+		if (var_expand_with_funcs(ctx->var, field->value, var_table,
+					  ldap_var_funcs_table, ctx, &error) <= 0) {
+			auth_request_log_warning(ctx->auth_request, AUTH_SUBSYS_DB,
+				"Failed to expand template %s: %s",
+				field->value, error);
+		}
 		ctx->val_1_arr[0] = str_c(ctx->var);
 		values = ctx->val_1_arr;
 	}
@@ -1711,9 +1724,11 @@ bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 				 const char **name_r,
 				 const char *const **values_r)
 {
+	const struct var_expand_table *tab;
 	const struct ldap_field *field;
 	struct db_ldap_value *ldap_value;
 	unsigned int pos;
+	const char *error;
 
 	do {
 		if (ctx->attr_idx == array_count(ctx->attr_map))
@@ -1740,9 +1755,12 @@ bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 		str_append_c(ctx->var, '\0');
 		pos = str_len(ctx->var);
 
-		var_expand_with_funcs(ctx->var, field->name,
-			auth_request_get_var_expand_table(ctx->auth_request, NULL),
-			ldap_var_funcs_table, ctx);
+		tab = auth_request_get_var_expand_table(ctx->auth_request, NULL);
+		if (var_expand_with_funcs(ctx->var, field->name, tab,
+					  ldap_var_funcs_table, ctx, &error) <= 0) {
+			auth_request_log_warning(ctx->auth_request, AUTH_SUBSYS_DB,
+				"Failed to expand %s: %s", field->name, error);
+		}
 		*name_r = str_c(ctx->var) + pos;
 	}
 

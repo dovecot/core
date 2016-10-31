@@ -529,9 +529,14 @@ static void driver_cassandra_metrics_write(struct cassandra_db *db)
 	};
 	string_t *path = t_str_new(64);
 	string_t *data;
+	const char *error;
 	int fd;
 
-	var_expand(path, db->metrics_path, tab);
+	if (var_expand(path, db->metrics_path, tab, &error) <= 0) {
+		i_error("cassandra: Failed to expand metrics_path=%s: %s",
+			db->metrics_path, error);
+		return;
+	}
 
 	fd = open(str_c(path), O_WRONLY | O_CREAT | O_TRUNC | O_NONBLOCK, 0600);
 	if (fd == -1) {

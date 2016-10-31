@@ -27,12 +27,12 @@ struct passwd_file_userdb_module {
 	const char *username_format;
 };
 
-static void
+static int
 passwd_file_add_extra_fields(struct auth_request *request, char *const *fields)
 {
 	string_t *str = t_str_new(512);
         const struct var_expand_table *table;
-	const char *key, *value;
+	const char *key, *value, *error;
 	unsigned int i;
 
 	table = auth_request_get_var_expand_table(request, NULL);
@@ -46,14 +46,20 @@ passwd_file_add_extra_fields(struct auth_request *request, char *const *fields)
 		if (value != NULL) {
 			key = t_strdup_until(key, value);
 			str_truncate(str, 0);
-			auth_request_var_expand_with_table(str, value + 1,
-							   request, table, NULL);
+			if (auth_request_var_expand_with_table(str, value + 1,
+					request, table, NULL, &error) <= 0) {
+				auth_request_log_error(request, AUTH_SUBSYS_DB,
+					"Failed to expand extra field %s: %s",
+					fields[i], error);
+				return -1;
+			}
 			value = str_c(str);
 		} else {
 			value = "";
 		}
 		auth_request_set_userdb_field(request, key, value);
 	}
+	return 0;
 }
 
 static void passwd_file_lookup(struct auth_request *auth_request,
@@ -68,7 +74,8 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	ret = db_passwd_file_lookup(module->pwf, auth_request,
 				    module->username_format, &pu);
 	if (ret <= 0 || pu->uid == 0) {
-		callback(USERDB_RESULT_USER_UNKNOWN, auth_request);
+		callback(ret < 0 ? USERDB_RESULT_INTERNAL_FAILURE :
+			 USERDB_RESULT_USER_UNKNOWN, auth_request);
 		return;
 	}
 
@@ -84,8 +91,11 @@ static void passwd_file_lookup(struct auth_request *auth_request,
 	if (pu->home != NULL)
 		auth_request_set_userdb_field(auth_request, "home", pu->home);
 
-	if (pu->extra_fields != NULL)
-		passwd_file_add_extra_fields(auth_request, pu->extra_fields);
+	if (pu->extra_fields != NULL &&
+	    passwd_file_add_extra_fields(auth_request, pu->extra_fields) < 0) {
+		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		return;
+	}
 
 	callback(USERDB_RESULT_OK, auth_request);
 }

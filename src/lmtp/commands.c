@@ -851,17 +851,29 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 				 rcpt->address);
 		return -1;
 	}
-	str = t_str_new(256);
-	var_expand_with_funcs(str, client->state.dest_user->set->mail_log_prefix,
-			      mail_user_var_expand_table(client->state.dest_user),
-			      mail_user_var_expand_func_table,
-			      client->state.dest_user);
-	i_set_failure_prefix("%s", str_c(str));
 
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
 	lda_set = sets[1];
-	settings_var_expand(&lda_setting_parser_info, lda_set, client->pool,
-		mail_user_var_expand_table(client->state.dest_user));
+	if (settings_var_expand(&lda_setting_parser_info, lda_set, client->pool,
+			mail_user_var_expand_table(client->state.dest_user), &error) <= 0) {
+		i_error("Failed to expand settings: %s", error);
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 rcpt->address);
+		return -1;
+	}
+
+	str = t_str_new(256);
+	if (var_expand_with_funcs(str, client->state.dest_user->set->mail_log_prefix,
+				  mail_user_var_expand_table(client->state.dest_user),
+				  mail_user_var_expand_func_table,
+				  client->state.dest_user, &error) <= 0) {
+		i_error("Failed to expand mail_log_prefix=%s: %s",
+			client->state.dest_user->set->mail_log_prefix, error);
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 rcpt->address);
+		return -1;
+	}
+	i_set_failure_prefix("%s", str_c(str));
 
 	memset(&dctx, 0, sizeof(dctx));
 	dctx.session = session;

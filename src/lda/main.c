@@ -425,9 +425,11 @@ int main(int argc, char *argv[])
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 	lda_set = mail_storage_service_user_get_set(service_user)[1];
-	settings_var_expand(&lda_setting_parser_info, lda_set,
-			    ctx.dest_user->pool,
-			    mail_user_var_expand_table(ctx.dest_user));
+	if (settings_var_expand(&lda_setting_parser_info, lda_set,
+				ctx.dest_user->pool,
+				mail_user_var_expand_table(ctx.dest_user),
+				&errstr) <= 0)
+		i_fatal("Failed to expand settings: %s", errstr);
 	ctx.set = lda_set;
 
 	if (ctx.dest_user->mail_debug && *user_source != '\0') {

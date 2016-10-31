@@ -38,7 +38,7 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 	struct mail_namespace *new_ns = ns;
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	const char *mailbox;
+	const char *mailbox, *error;
 	string_t *str;
 
 	if (strcmp(ns->user->username, userdomain) == 0) {
@@ -54,7 +54,11 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 	};
 
 	str = t_str_new(128);
-	var_expand(str, sstorage->ns_prefix_pattern, tab);
+	if (var_expand(str, sstorage->ns_prefix_pattern, tab, &error) <= 0) {
+		i_error("Failed to expand namespace prefix %s: %s",
+			sstorage->ns_prefix_pattern, error);
+		return;
+	}
 	mailbox = str_c(str);
 	if (shared_storage_get_namespace(&new_ns, &mailbox) < 0)
 		return;

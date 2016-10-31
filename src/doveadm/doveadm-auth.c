@@ -579,10 +579,14 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		cmd_user_mail_print_fields(input, user, userdb_fields, show_field);
 	else {
 		string_t *str = t_str_new(128);
-		var_expand_with_funcs(str, expand_field,
-				      mail_user_var_expand_table(user),
-				      mail_user_var_expand_func_table, user);
-		printf("%s\n", str_c(str));
+		if (var_expand_with_funcs(str, expand_field,
+					  mail_user_var_expand_table(user),
+					  mail_user_var_expand_func_table, user,
+					  &error) <= 0) {
+			i_error("Failed to expand %s: %s", expand_field, error);
+		} else {
+			printf("%s\n", str_c(str));
+		}
 	}
 
 	mail_user_unref(&user);

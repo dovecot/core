@@ -17,12 +17,12 @@ struct passwd_file_passdb_module {
 	const char *username_format;
 };
 
-static void
+static int
 passwd_file_add_extra_fields(struct auth_request *request, char *const *fields)
 {
 	string_t *str = t_str_new(512);
         const struct var_expand_table *table;
-	const char *key, *value;
+	const char *key, *value, *error;
 	unsigned int i;
 
 	table = auth_request_get_var_expand_table(request, NULL);
@@ -32,8 +32,13 @@ passwd_file_add_extra_fields(struct auth_request *request, char *const *fields)
 		if (value != NULL) {
 			key = t_strdup_until(fields[i], value);
 			str_truncate(str, 0);
-			auth_request_var_expand_with_table(str, value + 1,
-							   request, table, NULL);
+			if (auth_request_var_expand_with_table(str, value + 1,
+					request, table, NULL, &error) <= 0) {
+				auth_request_log_error(request, AUTH_SUBSYS_DB,
+					"Failed to expand extra field %s: %s",
+					fields[i], error);
+				return -1;
+			}
 			value = str_c(str);
 		} else {
 			key = fields[i];
@@ -41,12 +46,13 @@ passwd_file_add_extra_fields(struct auth_request *request, char *const *fields)
 		}
 		auth_request_set_field(request, key, value, NULL);
 	}
+	return 0;
 }
 
-static void passwd_file_save_results(struct auth_request *request,
-				     const struct passwd_user *pu,
-				     const char **crypted_pass_r,
-				     const char **scheme_r)
+static int passwd_file_save_results(struct auth_request *request,
+				    const struct passwd_user *pu,
+				    const char **crypted_pass_r,
+				    const char **scheme_r)
 {
 	*crypted_pass_r = pu->password != NULL ? pu->password : "";
 	*scheme_r = password_get_scheme(crypted_pass_r);
@@ -57,8 +63,11 @@ static void passwd_file_save_results(struct auth_request *request,
 	auth_request_set_field(request, "password",
 			       *crypted_pass_r, *scheme_r);
 
-	if (pu->extra_fields != NULL)
-		passwd_file_add_extra_fields(request, pu->extra_fields);
+	if (pu->extra_fields != NULL) {
+		if (passwd_file_add_extra_fields(request, pu->extra_fields) < 0)
+			return -1;
+	}
+	return 0;
 }
 
 static void
@@ -80,7 +89,10 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 
-	passwd_file_save_results(request, pu, &crypted_pass, &scheme);
+	if (passwd_file_save_results(request, pu, &crypted_pass, &scheme) < 0) {
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		return;
+	}
 
 	ret = auth_request_password_verify(request, password, crypted_pass,
 					   scheme, AUTH_SUBSYS_DB);
@@ -108,7 +120,10 @@ passwd_file_lookup_credentials(struct auth_request *request,
 		return;
 	}
 
-	passwd_file_save_results(request, pu, &crypted_pass, &scheme);
+	if (passwd_file_save_results(request, pu, &crypted_pass, &scheme) < 0) {
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, NULL, 0, request);
+		return;
+	}
 
 	passdb_handle_credentials(PASSDB_RESULT_OK, crypted_pass, scheme,
 				  callback, request);

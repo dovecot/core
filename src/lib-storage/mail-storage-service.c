@@ -90,12 +90,13 @@ struct mail_storage_service_user {
 
 struct module *mail_storage_service_modules = NULL;
 
-static void
+static int
 mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
 				string_t *str, const char *format,
 				struct mail_storage_service_user *user,
 				const struct mail_storage_service_input *input,
-				const struct mail_storage_service_privileges *priv);
+				const struct mail_storage_service_privileges *priv,
+				const char **error_r);
 
 static bool
 mail_user_set_get_mail_debug(const struct setting_parser_info *user_info,
@@ -447,22 +448,27 @@ mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
 	return get_var_expand_table(ctx->service, NULL, input, &priv);
 }
 
-static const char *
+static bool
 user_expand_varstr(struct mail_storage_service_ctx *ctx,
 		   struct mail_storage_service_user *user,
 		   struct mail_storage_service_privileges *priv,
-		   const char *str)
+		   const char *str, const char **value_r, const char **error_r)
 {
-	string_t *ret;
+	string_t *value;
+	int ret;
 
-	if (*str == SETTING_STRVAR_EXPANDED[0])
-		return str + 1;
+	if (*str == SETTING_STRVAR_EXPANDED[0]) {
+		*value_r = str + 1;
+		return 1;
+	}
 
 	i_assert(*str == SETTING_STRVAR_UNEXPANDED[0]);
 
-	ret = t_str_new(256);
-	mail_storage_service_var_expand(ctx, ret, str + 1, user, &user->input, priv);
-	return str_c(ret);
+	value = t_str_new(256);
+	ret = mail_storage_service_var_expand(ctx, value, str + 1, user,
+					      &user->input, priv, error_r);
+	*value_r = str_c(value);
+	return ret > 0;
 }
 
 static int
@@ -474,6 +480,7 @@ service_parse_privileges(struct mail_storage_service_ctx *ctx,
 	const struct mail_user_settings *set = user->user_set;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
+	const char *error;
 
 	memset(priv_r, 0, sizeof(*priv_r));
 	if (*set->mail_uid != '\0') {
@@ -516,10 +523,20 @@ service_parse_privileges(struct mail_storage_service_ctx *ctx,
 
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home and chroot sooner so do them separately here. */
-	priv_r->home = user_expand_varstr(ctx, user, priv_r,
-					  user->user_set->mail_home);
-	priv_r->chroot = user_expand_varstr(ctx, user, priv_r,
-					    user->user_set->mail_chroot);
+	if (!user_expand_varstr(ctx, user, priv_r, user->user_set->mail_home,
+				&priv_r->home, &error) <= 0) {
+		*error_r = t_strdup_printf(
+			"Failed to expand mail_home '%s': %s",
+			user->user_set->mail_home, error);
+		return -1;
+	}
+	if (!user_expand_varstr(ctx, user, priv_r, user->user_set->mail_chroot,
+				&priv_r->chroot, &error)) {
+		*error_r = t_strdup_printf(
+			"Failed to expand mail_chroot '%s': %s",
+			user->user_set->mail_chroot, error);
+		return -1;
+	}
 	return 0;
 }
 
@@ -785,20 +802,21 @@ mail_storage_service_input_var_userdb(const char *data, void *context)
 			user == NULL ? NULL : user->input.userdb_fields);
 }
 
-static void
+static int
 mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
 				string_t *str, const char *format,
 				struct mail_storage_service_user *user,
 				const struct mail_storage_service_input *input,
-				const struct mail_storage_service_privileges *priv)
+				const struct mail_storage_service_privileges *priv,
+				const char **error_r)
 {
 	static const struct var_expand_func_table func_table[] = {
 		{ "userdb", mail_storage_service_input_var_userdb },
 		{ NULL, NULL }
 	};
-	var_expand_with_funcs(str, format,
+	return var_expand_with_funcs(str, format,
 		   get_var_expand_table(ctx->service, user, input, priv),
-		   func_table, user);
+		   func_table, user, error_r);
 }
 
 static void
@@ -806,14 +824,16 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,
 			      struct mail_storage_service_privileges *priv)
 {
+	const char *error;
+
 	ctx->log_initialized = TRUE;
 	T_BEGIN {
 		string_t *str;
 
 		str = t_str_new(256);
-		mail_storage_service_var_expand(ctx, str,
+		(void)mail_storage_service_var_expand(ctx, str,
 			user->user_set->mail_log_prefix,
-			user, &user->input, priv);
+			user, &user->input, priv, &error);
 		user->log_prefix = p_strdup(user->pool, str_c(str));
 	} T_END;
 
@@ -1106,10 +1126,11 @@ mail_storage_service_set_log_prefix(struct mail_storage_service_ctx *ctx,
 				    const struct mail_storage_service_privileges *priv)
 {
 	string_t *str;
+	const char *error;
 
 	str = t_str_new(256);
-	mail_storage_service_var_expand(ctx, str, user_set->mail_log_prefix,
-					user, input, priv);
+	(void)mail_storage_service_var_expand(ctx, str, user_set->mail_log_prefix,
+					      user, input, priv, &error);
 	i_set_failure_prefix("%s", str_c(str));
 }
 

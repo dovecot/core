@@ -256,10 +256,17 @@ void user_directory_sort(struct user_directory *dir)
 	array_free(&users);
 }
 
-unsigned int user_directory_get_username_hash(struct user_directory *dir,
-					      const char *username)
+bool user_directory_get_username_hash(struct user_directory *dir,
+				      const char *username,
+				      unsigned int *hash_r)
 {
-	return mail_user_hash(username, dir->username_hash_fmt);
+	const char *error;
+
+	if (mail_user_hash(username, dir->username_hash_fmt, hash_r, &error))
+		return TRUE;
+	i_error("Failed to expand director_user_expire=%s: %s",
+		dir->username_hash_fmt, error);
+	return FALSE;
 }
 
 bool user_directory_user_is_recently_updated(struct user_directory *dir,

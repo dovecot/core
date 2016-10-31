@@ -27,8 +27,13 @@ static void static_lookup_real(struct auth_request *auth_request,
 	struct userdb_module *_module = auth_request->userdb->userdb;
 	struct static_userdb_module *module =
 		(struct static_userdb_module *)_module;
+	const char *error;
 
-	userdb_template_export(module->tmpl, auth_request);
+	if (userdb_template_export(module->tmpl, auth_request, &error) < 0) {
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+				       "Failed to expand template: %s", error);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+	}
 	callback(USERDB_RESULT_OK, auth_request);
 }
 

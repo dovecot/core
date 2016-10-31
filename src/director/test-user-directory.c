@@ -10,8 +10,13 @@
 
 #define USER_DIR_TIMEOUT 1000000
 
-unsigned int mail_user_hash(const char *username ATTR_UNUSED,
-			    const char *format ATTR_UNUSED) { return 0; }
+bool mail_user_hash(const char *username ATTR_UNUSED,
+		    const char *format ATTR_UNUSED,
+		    unsigned int *hash_r, const char **error_r ATTR_UNUSED)
+{
+	*hash_r = 0;
+	return TRUE;
+}
 
 static void
 verify_user_directory(struct user_directory *dir, unsigned int user_count)

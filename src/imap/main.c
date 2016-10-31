@@ -251,10 +251,17 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		verbose_proctitle = TRUE;
 	lda_set = mail_storage_service_user_get_set(user)[2];
 
-	settings_var_expand(&imap_setting_parser_info, imap_set,
-			    mail_user->pool, mail_user_var_expand_table(mail_user));
-	settings_var_expand(&lda_setting_parser_info, lda_set,
-			    mail_user->pool, mail_user_var_expand_table(mail_user));
+	if (settings_var_expand(&imap_setting_parser_info, imap_set,
+				mail_user->pool, mail_user_var_expand_table(mail_user),
+				&errstr) <= 0 ||
+	    settings_var_expand(&lda_setting_parser_info, lda_set,
+				mail_user->pool, mail_user_var_expand_table(mail_user),
+				&errstr) <= 0) {
+		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
+		mail_user_unref(&mail_user);
+		mail_storage_service_user_free(&user);
+		return -1;
+	}
 
 	client = client_create(fd_in, fd_out, input->session_id,
 			       mail_user, user, imap_set, lda_set);
