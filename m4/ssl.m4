@@ -29,6 +29,28 @@ AC_DEFUN([DOVECOT_SSL], [
       AC_DEFINE(HAVE_OPENSSL,, [Build with OpenSSL support])
       have_ssl="yes (OpenSSL)"
   
+      # SSL_clear_options introduced in openssl 0.9.8m but may be backported to
+      # older versions in "enterprise" OS releases; originally implemented as a
+      # macro but as a function in more recent openssl versions
+      AC_CACHE_CHECK([whether SSL_clear_options exists],i_cv_have_ssl_clear_options,[
+        old_LIBS=$LIBS
+        LIBS="$LIBS -lssl"
+        AC_TRY_LINK([
+          #include <openssl/ssl.h>
+        ], [
+          SSL *ssl;
+          long options;
+          SSL_clear_options(ssl, options);
+        ], [
+          i_cv_have_ssl_clear_options=yes
+        ], [
+          i_cv_have_ssl_clear_options=no
+        ])
+        LIBS=$old_LIBS
+      ])
+      if test $i_cv_have_ssl_clear_options = yes; then
+        AC_DEFINE(HAVE_SSL_CLEAR_OPTIONS,, [Define if you have SSL_clear_options])
+      fi
       AC_CHECK_LIB(ssl, SSL_get_current_compression, [
         AC_DEFINE(HAVE_SSL_COMPRESSION,, [Build with OpenSSL compression])
       ],, $SSL_LIBS)
