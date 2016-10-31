@@ -68,10 +68,11 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 	const char *scheme, *crypted_pass;
         int ret;
 
-	pu = db_passwd_file_lookup(module->pwf, request,
-				   module->username_format);
-	if (pu == NULL) {
-		callback(PASSDB_RESULT_USER_UNKNOWN, request);
+	ret = db_passwd_file_lookup(module->pwf, request,
+				    module->username_format, &pu);
+	if (ret <= 0) {
+		callback(ret < 0 ? PASSDB_RESULT_INTERNAL_FAILURE :
+			 PASSDB_RESULT_USER_UNKNOWN, request);
 		return;
 	}
 
@@ -93,11 +94,13 @@ passwd_file_lookup_credentials(struct auth_request *request,
 		(struct passwd_file_passdb_module *)_module;
 	struct passwd_user *pu;
 	const char *crypted_pass, *scheme;
+	int ret;
 
-	pu = db_passwd_file_lookup(module->pwf, request,
-				   module->username_format);
-	if (pu == NULL) {
-		callback(PASSDB_RESULT_USER_UNKNOWN, NULL, 0, request);
+	ret = db_passwd_file_lookup(module->pwf, request,
+				    module->username_format, &pu);
+	if (ret <= 0) {
+		callback(ret < 0 ? PASSDB_RESULT_INTERNAL_FAILURE :
+			 PASSDB_RESULT_USER_UNKNOWN, NULL, 0, request);
 		return;
 	}
 
