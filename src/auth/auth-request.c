@@ -1873,6 +1873,7 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 	if (stat(str_c(path), &st) < 0) {
 		auth_request_log_error(request, AUTH_SUBSYS_DB,
 					"stat(%s) failed: %m", str_c(path));
+		request->userdb_lookup_tempfailed = TRUE;
 	} else {
 		auth_fields_add(request->userdb_reply,
 				"uid", dec2str(st.st_uid), 0);
