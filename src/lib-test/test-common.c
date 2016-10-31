@@ -7,6 +7,8 @@
 #include <unistd.h> /* _exit() */
 #include <setjmp.h> /* for fatal tests */
 
+static bool test_deinit_lib;
+
 /* To test the firing of i_assert, we need non-local jumps, i.e. setjmp */
 static volatile bool expecting_fatal = FALSE;
 static jmp_buf fatal_jmpbuf;
@@ -214,7 +216,12 @@ static void test_init(void)
 	failure_count = 0;
 	total_count = 0;
 
-	lib_init();
+	if (!lib_is_initialized()) {
+		lib_init();
+		test_deinit_lib = TRUE;
+	} else
+		test_deinit_lib = FALSE;
+
 	i_set_error_handler(test_error_handler);
 	/* Don't set fatal handler until actually needed for fatal testing */
 }
@@ -223,7 +230,8 @@ static int test_deinit(void)
 {
 	i_assert(test_prefix == NULL);
 	printf("%u / %u tests failed\n", failure_count, total_count);
-	lib_deinit();
+	if (test_deinit_lib)
+		lib_deinit();
 	return failure_count == 0 ? 0 : 1;
 }
 
