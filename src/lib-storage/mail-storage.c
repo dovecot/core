@@ -1666,8 +1666,6 @@ int mailbox_get_status(struct mailbox *box,
 	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
 
-	if ((items & STATUS_HIGHESTMODSEQ) != 0)
-		mailbox_enable(box, MAILBOX_FEATURE_CONDSTORE);
 	if (box->v.get_status(box, items, status_r) < 0)
 		return -1;
 	i_assert(status_r->have_guids || !status_r->have_save_guids);
@@ -1682,8 +1680,6 @@ void mailbox_get_open_status(struct mailbox *box,
 	i_assert((items & MAILBOX_STATUS_FAILING_ITEMS) == 0);
 
 	mailbox_get_status_set_defaults(box, status_r);
-	if ((items & STATUS_HIGHESTMODSEQ) != 0)
-		mailbox_enable(box, MAILBOX_FEATURE_CONDSTORE);
 	if (box->v.get_status(box, items, status_r) < 0)
 		i_unreached();
 }
