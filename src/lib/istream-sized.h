@@ -22,6 +22,10 @@ istream_sized_callback_t(const struct istream_sized_error_data *data,
 struct istream *i_stream_create_sized(struct istream *input, uoff_t size);
 struct istream *i_stream_create_sized_range(struct istream *input,
 					    uoff_t offset, uoff_t size);
+/* Like i_stream_create_sized*(), but allow input stream's size to be larger. */
+struct istream *i_stream_create_min_sized(struct istream *input, uoff_t min_size);
+struct istream *i_stream_create_min_sized_range(struct istream *input,
+						uoff_t offset, uoff_t min_size);
 /* Same as i_stream_create_sized(), but set the error message via the
    callback. */
 struct istream *
