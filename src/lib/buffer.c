@@ -358,3 +358,28 @@ void buffer_verify_pool(buffer_t *_buf)
 		i_assert(ret == buf->w_buffer);
 	}
 }
+
+void buffer_truncate_rshift_bits(buffer_t *buf, size_t bits)
+{
+	/* no-op if it's shorten than bits in any case.. */
+	if (buf->used * 8 < bits) return;
+
+	if (bits > 0) {
+		/* truncate it to closest byte boundary */
+		size_t bytes = ((bits + 7) & -8U)/8;
+		/* remainding bits */
+		bits = bits % 8;
+		buffer_set_used_size(buf, I_MIN(bytes, buf->used));
+		unsigned char *ptr = buffer_get_modifiable_data(buf, &bytes);
+		/* right shift over byte array */
+		if (bits > 0) {
+			for(size_t i=bytes-1;i>0;i--)
+				ptr[i] = (ptr[i]>>(8-bits)) +
+					 ((ptr[i-1]&(0xff>>(bits)))<<bits);
+			ptr[0] = ptr[0]>>(8-bits);
+		}
+	} else {
+		buffer_set_used_size(buf, 0);
+	}
+}
+
