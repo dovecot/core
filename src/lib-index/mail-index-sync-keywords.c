@@ -225,7 +225,7 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 	i_assert(data_offset < ext->record_size);
 	data_offset += ext->record_offset;
 
-	i_assert(data_offset >= sizeof(struct mail_index_record));
+	i_assert(data_offset >= MAIL_INDEX_RECORD_MIN_SIZE);
 
 	switch (type) {
 	case MODIFY_ADD:

@@ -105,6 +105,7 @@ struct mail_index_header {
 	uint32_t day_first_uid[8];
 };
 
+#define MAIL_INDEX_RECORD_MIN_SIZE (sizeof(uint32_t) + sizeof(uint8_t))
 struct mail_index_record {
 	uint32_t uid;
 	uint8_t flags; /* enum mail_flags | enum mail_index_mail_flags */
