@@ -750,10 +750,22 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return t_strdup_printf("(internal failure, %u successful auths)",
 				       client->auth_successes);
 	}
-	if (client->auth_user_disabled)
+
+	switch (client->last_auth_fail) {
+	case CLIENT_AUTH_FAIL_CODE_AUTHZFAILED:
+		return t_strdup_printf(
+			"(authorization failed, %u attempts in %u secs)",
+			client->auth_attempts, auth_secs);
+	case CLIENT_AUTH_FAIL_CODE_TEMPFAIL:
+		return "(auth service reported temporary failure)";
+	case CLIENT_AUTH_FAIL_CODE_USER_DISABLED:
 		return "(user disabled)";
-	if (client->auth_pass_expired)
+	case CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED:
 		return "(password expired)";
+	default:
+		break;
+	}
+
 	return t_strdup_printf("(auth failed, %u attempts in %u secs)",
 			       client->auth_attempts, auth_secs);
 }

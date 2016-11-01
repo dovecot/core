@@ -23,6 +23,37 @@
 #define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
 #define AUTH_WAITING_WARNING_TIMEOUT_MSECS (10*1000)
 
+struct client_auth_fail_code_id {
+	const char *id;
+	enum client_auth_fail_code code;
+};
+
+static const struct client_auth_fail_code_id client_auth_fail_codes[] = {
+	{ AUTH_CLIENT_FAIL_CODE_AUTHZFAILED,
+		CLIENT_AUTH_FAIL_CODE_AUTHZFAILED },
+	{ AUTH_CLIENT_FAIL_CODE_TEMPFAIL,
+		CLIENT_AUTH_FAIL_CODE_TEMPFAIL },
+	{ AUTH_CLIENT_FAIL_CODE_USER_DISABLED,
+		CLIENT_AUTH_FAIL_CODE_USER_DISABLED },
+	{ AUTH_CLIENT_FAIL_CODE_PASS_EXPIRED,
+		CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED },
+	{ NULL, CLIENT_AUTH_FAIL_CODE_NONE }
+};
+
+static enum client_auth_fail_code
+client_auth_fail_code_lookup(const char *fail_code)
+{
+	const struct client_auth_fail_code_id *fail = client_auth_fail_codes;
+
+	while (fail->id != NULL) {
+		if (strcmp(fail->id, fail_code) == 0)
+			return fail->code;
+		fail++;
+	}
+
+	return CLIENT_AUTH_FAIL_CODE_NONE;
+}
+
 static void client_auth_failed(struct client *client)
 {
 	i_free_and_null(client->master_data_prefix);
@@ -110,18 +141,10 @@ static void client_auth_parse_args(struct client *client, bool success,
 			key = t_strdup_until(*args, p);
 			value = p + 1;
 		}
-		if (strcmp(key, "nologin") == 0)
+		if (strcmp(key, "nologin") == 0) {
 			reply_r->nologin = TRUE;
-		else if (strcmp(key, "proxy") == 0)
+		} else if (strcmp(key, "proxy") == 0)
 			reply_r->proxy = TRUE;
-		else if (strcmp(key, "temp") == 0)
-			reply_r->temp = TRUE;
-		else if (strcmp(key, "authz") == 0)
-			reply_r->authz_failure = TRUE;
-		else if (strcmp(key, "user_disabled") == 0)
-			client->auth_user_disabled = TRUE;
-		else if (strcmp(key, "pass_expired") == 0)
-			client->auth_pass_expired = TRUE;
 		else if (strcmp(key, "reason") == 0)
 			reply_r->reason = value;
 		else if (strcmp(key, "host") == 0)
@@ -169,6 +192,12 @@ static void client_auth_parse_args(struct client *client, bool success,
 				PROXY_SSL_FLAG_STARTTLS;
 			if (strcmp(value, "any-cert") == 0)
 				reply_r->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
+		} else if (strcmp(key, "code") == 0) {
+			if (reply_r->fail_code != CLIENT_AUTH_FAIL_CODE_NONE) {
+				/* code already assigned */
+			} else {
+				reply_r->fail_code = client_auth_fail_code_lookup(value);
+			}
 		} else if (strcmp(key, "user") == 0 ||
 			   strcmp(key, "postlogin_socket") == 0) {
 			/* already handled in sasl-server.c */
@@ -478,29 +507,34 @@ client_auth_handle_reply(struct client *client,
 			return TRUE;
 		}
 	} else if (reply->nologin) {
-		/* Authentication went ok, but for some reason user isn't
-		   allowed to log in. Shouldn't probably happen. */
-		if (reply->reason != NULL) {
-			client_auth_result(client,
-				CLIENT_AUTH_RESULT_AUTHFAILED_REASON,
-				reply, reply->reason);
-		} else if (reply->temp) {
-			const char *timestamp, *msg;
+		enum client_auth_result result = CLIENT_AUTH_RESULT_AUTHFAILED;
+		const char *timestamp, *reason = reply->reason;
 
+		/* Either failed or user login is disabled */
+		switch (reply->fail_code) {
+		case CLIENT_AUTH_FAIL_CODE_AUTHZFAILED:
+			result = CLIENT_AUTH_RESULT_AUTHZFAILED;
+			if (reason == NULL)
+				reason = "Authorization failed";
+			break;
+		case CLIENT_AUTH_FAIL_CODE_TEMPFAIL:
+			result = CLIENT_AUTH_RESULT_TEMPFAIL;
 			timestamp = t_strflocaltime("%Y-%m-%d %H:%M:%S", ioloop_time);
-			msg = t_strdup_printf(AUTH_TEMP_FAILED_MSG" [%s:%s]",
+			reason = t_strdup_printf(AUTH_TEMP_FAILED_MSG" [%s:%s]",
 				      my_hostname, timestamp);
-			client_auth_result(client, CLIENT_AUTH_RESULT_TEMPFAIL,
-					   reply, msg);
-		} else if (reply->authz_failure) {
-			client_auth_result(client,
-				CLIENT_AUTH_RESULT_AUTHZFAILED, reply,
-				"Authorization failed");
-		} else {
-			client_auth_result(client,
-				CLIENT_AUTH_RESULT_AUTHFAILED, reply,
-				AUTH_FAILED_MSG);
+			break;
+		case CLIENT_AUTH_FAIL_CODE_USER_DISABLED:
+		case CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED:
+		default:
+			if (reason != NULL)
+				result = CLIENT_AUTH_RESULT_AUTHFAILED_REASON;
+			else
+				result = CLIENT_AUTH_RESULT_AUTHFAILED;
 		}
+
+		if (reason == NULL)
+			reason = AUTH_FAILED_MSG;
+		client_auth_result(client, result, reply, reason);
 	} else {
 		/* normal login/failure */
 		return FALSE;
@@ -609,6 +643,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		 sasl_reply == SASL_SERVER_REPLY_AUTH_ABORTED ||
 		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED);
 
+	client->last_auth_fail = CLIENT_AUTH_FAIL_CODE_NONE;
 	memset(&reply, 0, sizeof(reply));
 	switch (sasl_reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
@@ -617,6 +652,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (args != NULL) {
 			client_auth_parse_args(client, TRUE, args, &reply);
 			reply.all_fields = args;
+			client->last_auth_fail = reply.fail_code;
 			if (client_auth_handle_reply(client, &reply, TRUE))
 				break;
 		}
@@ -630,6 +666,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 			timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
 			client_auth_parse_args(client, FALSE, args, &reply);
+			client->last_auth_fail = reply.fail_code;
 			reply.nologin = TRUE;
 			reply.all_fields = args;
 			if (client_auth_handle_reply(client, &reply, FALSE))

@@ -4,7 +4,7 @@
 /* Major version changes are not backwards compatible,
    minor version numbers can be ignored. */
 #define AUTH_CLIENT_PROTOCOL_MAJOR_VERSION 1
-#define AUTH_CLIENT_PROTOCOL_MINOR_VERSION 1
+#define AUTH_CLIENT_PROTOCOL_MINOR_VERSION 2
 
 /* GSSAPI can use quite large packets */
 #define AUTH_CLIENT_MAX_LINE_LENGTH 16384
@@ -25,5 +25,11 @@ enum mech_security_flags {
 	/* Provides mutual authentication */
 	MECH_SEC_MUTUAL_AUTH		= 0x0040
 };
+
+/* auth failure codes */
+#define AUTH_CLIENT_FAIL_CODE_AUTHZFAILED       "authz_fail"
+#define AUTH_CLIENT_FAIL_CODE_TEMPFAIL          "temp_fail"
+#define AUTH_CLIENT_FAIL_CODE_USER_DISABLED     "user_disabled"
+#define AUTH_CLIENT_FAIL_CODE_PASS_EXPIRED      "pass_expired"
 
 #endif

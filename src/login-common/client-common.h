@@ -43,6 +43,14 @@ enum client_disconnect_reason {
 	CLIENT_DISCONNECT_INTERNAL_ERROR
 };
 
+enum client_auth_fail_code {
+	CLIENT_AUTH_FAIL_CODE_NONE = 0,
+	CLIENT_AUTH_FAIL_CODE_AUTHZFAILED,
+	CLIENT_AUTH_FAIL_CODE_TEMPFAIL,
+	CLIENT_AUTH_FAIL_CODE_USER_DISABLED,
+	CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED,
+};
+
 enum client_auth_result {
 	CLIENT_AUTH_RESULT_SUCCESS,
 	CLIENT_AUTH_RESULT_REFERRAL_SUCCESS,
@@ -57,6 +65,8 @@ enum client_auth_result {
 
 struct client_auth_reply {
 	const char *master_user, *reason;
+	enum client_auth_fail_code fail_code;
+
 	/* for proxying */
 	const char *host, *hostip, *source_ip;
 	const char *destuser, *password, *proxy_mech;
@@ -71,9 +81,7 @@ struct client_auth_reply {
 	bool proxy:1;
 	bool proxy_nopipelining:1;
 	bool proxy_not_trusted:1;
-	bool temp:1;
 	bool nologin:1;
-	bool authz_failure:1;
 };
 
 struct client_vfuncs {
@@ -150,6 +158,7 @@ struct client {
 
 	unsigned int bad_counter;
 	unsigned int auth_attempts, auth_successes;
+	enum client_auth_fail_code last_auth_fail;
 	pid_t mail_pid;
 
 	/* Module-specific contexts. */
@@ -179,8 +188,6 @@ struct client {
 	bool proxy_nopipelining:1;
 	bool proxy_not_trusted:1;
 	bool auth_waiting:1;
-	bool auth_user_disabled:1;
-	bool auth_pass_expired:1;
 	bool notified_auth_ready:1;
 	bool notified_disconnect:1;
 	/* ... */

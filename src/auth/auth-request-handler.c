@@ -280,6 +280,7 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 static void
 auth_request_handler_reply_failure_finish(struct auth_request *request)
 {
+	const char *code = NULL;
 	string_t *str = t_str_new(128);
 
 	auth_fields_remove(request->extra_fields, "nologin");
@@ -292,34 +293,40 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 				      request->original_username);
 	}
 
-	if (request->internal_failure)
-		str_append(str, "\ttemp");
-	else if (request->master_user != NULL) {
+	if (request->internal_failure) {
+		code = AUTH_CLIENT_FAIL_CODE_TEMPFAIL;
+	} else if (request->master_user != NULL) {
 		/* authentication succeeded, but we can't log in
 		   as the wanted user */
-		str_append(str, "\tauthz");
+		code = AUTH_CLIENT_FAIL_CODE_AUTHZFAILED;
+	} else {
+		switch (request->passdb_result) {
+		case PASSDB_RESULT_NEXT:
+		case PASSDB_RESULT_INTERNAL_FAILURE:
+		case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+		case PASSDB_RESULT_USER_UNKNOWN:
+		case PASSDB_RESULT_PASSWORD_MISMATCH:
+		case PASSDB_RESULT_OK:
+			break;
+		case PASSDB_RESULT_USER_DISABLED:
+			code = AUTH_CLIENT_FAIL_CODE_USER_DISABLED;
+			break;
+		case PASSDB_RESULT_PASS_EXPIRED:
+			code = AUTH_CLIENT_FAIL_CODE_PASS_EXPIRED;
+			break;
+		}
 	}
+
 	if (auth_fields_exists(request->extra_fields, "nodelay")) {
 		/* this is normally a hidden field, need to add it explicitly */
 		str_append(str, "\tnodelay");
 	}
-	auth_str_append_extra_fields(request, str);
 
-	switch (request->passdb_result) {
-	case PASSDB_RESULT_NEXT:
-	case PASSDB_RESULT_INTERNAL_FAILURE:
-	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
-	case PASSDB_RESULT_USER_UNKNOWN:
-	case PASSDB_RESULT_PASSWORD_MISMATCH:
-	case PASSDB_RESULT_OK:
-		break;
-	case PASSDB_RESULT_USER_DISABLED:
-		str_append(str, "\tuser_disabled");
-		break;
-	case PASSDB_RESULT_PASS_EXPIRED:
-		str_append(str, "\tpass_expired");
-		break;
+	if (code != NULL) {
+		str_append(str, "\tcode=");
+		str_append(str, code);
 	}
+	auth_str_append_extra_fields(request, str);
 
 	auth_request_handle_failure(request, str_c(str));
 }
@@ -396,19 +403,32 @@ void auth_request_handler_reply_continue(struct auth_request *request,
 				   reply, reply_size);
 }
 
-static void auth_request_handler_auth_fail(struct auth_request_handler *handler,
+static void
+auth_request_handler_auth_fail_code(struct auth_request_handler *handler,
 					   struct auth_request *request,
-					   const char *reason)
+					   const char *fail_code, const char *reason)
 {
 	string_t *str = t_str_new(128);
 
 	auth_request_log_info(request, AUTH_SUBSYS_MECH, "%s", reason);
 
-	str_printfa(str, "FAIL\t%u\treason=", request->id);
+	str_printfa(str, "FAIL\t%u", request->id);
+	if (*fail_code != '\0') {
+		str_append(str, "\tcode=");
+		str_append(str, fail_code);
+	}
+	str_append(str, "\treason=");
 	str_append_tabescaped(str, reason);
 
 	handler->callback(str_c(str), handler->conn);
 	auth_request_handler_remove(handler, request);
+}
+
+static void auth_request_handler_auth_fail
+(struct auth_request_handler *handler, struct auth_request *request,
+					   const char *reason)
+{
+	auth_request_handler_auth_fail_code(handler, request, "", reason);
 }
 
 static void auth_request_timeout(struct auth_request *request)
