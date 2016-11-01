@@ -248,7 +248,7 @@ static int test_input_stream(struct istream *file_input)
 	const unsigned char *data;
 	size_t size;
 	struct sha1_ctxt hash;
-	uoff_t msg_size;
+	uoff_t msg_size, orig_msg_size;
 	buffer_t *base_buf;
 	unsigned char hash_file[SHA1_RESULTLEN], hash_attached[SHA1_RESULTLEN];
 	int ret = 0;
@@ -261,7 +261,7 @@ static int test_input_stream(struct istream *file_input)
 		i_stream_skip(input, size);
 	}
 	sha1_result(&hash, hash_file);
-	msg_size = input->v_offset;
+	msg_size = orig_msg_size = input->v_offset;
 	i_stream_unref(&input);
 
 	/* read through attachment extractor */
@@ -279,7 +279,7 @@ static int test_input_stream(struct istream *file_input)
 	i_stream_unref(&input2);
 
 	/* rebuild the original stream and see if the hash matches */
-	{
+	for (unsigned int i = 0; i < 2; i++) {
 		input2 = i_stream_create_from_data(base_buf->data, base_buf->used);
 		input = test_build_original_istream(input2, msg_size);
 		i_stream_unref(&input2);
@@ -289,18 +289,21 @@ static int test_input_stream(struct istream *file_input)
 			sha1_loop(&hash, data, size);
 			i_stream_skip(input, size);
 		}
-		test_assert(input->eof && input->stream_errno == 0);
+		test_assert_idx(input->eof && input->stream_errno == 0, i);
 		sha1_result(&hash, hash_attached);
 		i_stream_unref(&input);
 
 		if (memcmp(hash_file, hash_attached, SHA1_RESULTLEN) != 0)
 			ret = -1;
+
+		/* try again without knowing the message's size */
+		msg_size = (uoff_t)-1;
 	}
 
 	/* try with a wrong message size */
 	for (int i = 0; i < 2; i++) {
 		input2 = i_stream_create_from_data(base_buf->data, base_buf->used);
-		input = test_build_original_istream(input2, msg_size +
+		input = test_build_original_istream(input2, orig_msg_size +
 						    (i == 0 ? 1 : -1));
 		i_stream_unref(&input2);
 		while (i_stream_read_more(input, &data, &size) > 0)
