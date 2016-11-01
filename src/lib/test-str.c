@@ -109,6 +109,24 @@ static void test_str_append_n(void)
 	test_end();
 }
 
+static void test_str_truncate(void)
+{
+	string_t *str = t_str_new(8);
+	int i;
+
+	test_begin("str_truncate()");
+	str_append(str, "123456");
+	for (i = 100; i >= 6; i--) {
+		str_truncate(str, i);
+		test_assert_idx(str_len(str) == 6, i);
+	}
+	for (; i >= 0; i--) {
+		str_truncate(str, i);
+		test_assert_idx(str_len(str) == (unsigned int)i, i);
+	}
+	test_end();
+}
+
 void test_str(void)
 {
 	test_str_append();
@@ -116,4 +134,5 @@ void test_str(void)
 	test_str_insert();
 	test_str_delete();
 	test_str_append_n();
+	test_str_truncate();
 }
