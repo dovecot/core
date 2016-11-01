@@ -5,7 +5,6 @@
 #include "array.h"
 #include "str.h"
 #include "mail-host.h"
-#include "user-directory.h"
 #include "director.h"
 #include "director-request.h"
 

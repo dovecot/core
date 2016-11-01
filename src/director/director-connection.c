@@ -42,7 +42,6 @@
 #include "director.h"
 #include "director-host.h"
 #include "director-request.h"
-#include "user-directory.h"
 #include "director-connection.h"
 
 #include <unistd.h>

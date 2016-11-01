@@ -6,7 +6,6 @@
 #include "hash.h"
 #include "llist.h"
 #include "mail-host.h"
-#include "user-directory.h"
 
 /* n% of timeout_secs */
 #define USER_NEAR_EXPIRING_PERCENTAGE 10

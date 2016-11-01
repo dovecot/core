@@ -5,7 +5,7 @@
 #include "istream.h"
 #include "master-service.h"
 #include "director.h"
-#include "user-directory.h"
+#include "mail-host.h"
 #include "notify-connection.h"
 
 #include <unistd.h>
