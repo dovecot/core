@@ -2,6 +2,7 @@
 #define MAIL_HOST_H
 
 #include "net.h"
+#include "user-directory.h"
 
 struct mail_host_list;
 

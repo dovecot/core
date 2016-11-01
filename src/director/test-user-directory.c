@@ -4,7 +4,6 @@
 #include "ioloop.h"
 #include "mail-user-hash.h"
 #include "mail-host.h"
-#include "user-directory.h"
 #include "test-common.h"
 
 
