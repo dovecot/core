@@ -26,11 +26,13 @@ struct user {
 	bool weak:1;
 };
 
+typedef void user_free_hook_t(struct user *);
+
 /* Create a new directory. Users are dropped if their time gets older
    than timeout_secs. */
 struct user_directory *
 user_directory_init(unsigned int timeout_secs,
-		    void (*user_free_hook)(struct user *));
+		    user_free_hook_t *user_free_hook);
 void user_directory_deinit(struct user_directory **dir);
 
 /* Returns the number of users currently in directory. */

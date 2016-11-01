@@ -26,7 +26,7 @@ struct user_directory {
 	struct user *prev_insert_pos;
 
 	ARRAY(struct user_directory_iter *) iters;
-	void (*user_free_hook)(struct user *);
+	user_free_hook_t *user_free_hook;
 
 	unsigned int timeout_secs;
 	/* If user's expire time is less than this many seconds away,
@@ -271,7 +271,7 @@ bool user_directory_user_is_near_expiring(struct user_directory *dir,
 
 struct user_directory *
 user_directory_init(unsigned int timeout_secs,
-		    void (*user_free_hook)(struct user *))
+		    user_free_hook_t *user_free_hook)
 {
 	struct user_directory *dir;
 
