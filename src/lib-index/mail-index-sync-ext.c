@@ -176,7 +176,7 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 	/* we simply try to use the extensions with largest alignment
 	   requirement first. FIXME: if the extension sizes don't match
 	   alignment, this may not give the minimal layout. */
-	offset = sizeof(struct mail_index_record);
+	offset = MAIL_INDEX_RECORD_MIN_SIZE;
 	max_align = sizeof(uint32_t);
 	for (;;) {
 		min_align = (uint16_t)-1;
@@ -213,6 +213,7 @@ static void sync_ext_reorder(struct mail_index_map *map, uint32_t ext_map_idx,
 		offset += max_align - (offset % max_align);
 	}
 	new_record_size = offset;
+	i_assert(new_record_size >= sizeof(struct mail_index_record));
 
 	/* copy the records to new buffer */
 	new_buffer_size = map->rec_map->records_count * new_record_size;
