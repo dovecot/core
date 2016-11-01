@@ -176,6 +176,18 @@ struct istream *i_stream_create_sized(struct istream *input, uoff_t size)
 	return &sstream->istream.istream;
 }
 
+struct istream *i_stream_create_sized_range(struct istream *input,
+					    uoff_t offset, uoff_t size)
+{
+	uoff_t orig_offset = input->v_offset;
+	struct istream *ret;
+
+	input->v_offset = offset;
+	ret = i_stream_create_sized(input, size);
+	input->v_offset = orig_offset;
+	return ret;
+}
+
 #undef i_stream_create_sized_with_callback
 struct istream *
 i_stream_create_sized_with_callback(struct istream *input, uoff_t size,
