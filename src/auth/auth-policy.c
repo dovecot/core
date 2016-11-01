@@ -449,18 +449,7 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	digest->result(ctx, ptr);
 	str_truncate(buffer, digest->digest_size);
 	if (context->set->policy_hash_truncate > 0) {
-		/* truncate it to closest byte boundary */
-		int bytes = ((context->set->policy_hash_truncate + 7) & -8)/8;
-		/* remainding bits */
-		int bits = bytes*8 - context->set->policy_hash_truncate;
-		str_truncate(buffer, bytes);
-		ptr = buffer_get_modifiable_data(buffer, NULL);
-		/* right shift everything and left-pad with 0 */
-		if (bits > 0) {
-			for(size_t i=bytes-1;i>0;i--)
-				ptr[i] = (ptr[i]>>(8-bits)) + ((ptr[i-1]&(0xff>>(8-bits)))<<bits);
-			ptr[0] = ptr[0]>>(8-bits);
-		}
+		buffer_truncate_rshift_bits(buffer, context->set->policy_hash_truncate);
 	}
 	const char *hashed_password = binary_to_hex(str_data(buffer), str_len(buffer));
 	str_append_c(context->json, '{');
