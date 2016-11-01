@@ -122,4 +122,29 @@ buffer_get_used_size(const buffer_t *buf)
    buffer needs to be increased. */
 void buffer_verify_pool(buffer_t *buf);
 
+/* This will truncate your byte buffer to contain at most
+   given number of bits. 
+
+ 1 bits:    01 00000001
+ 2 bits:    03 00000011
+ 3 bits:    07 00000111
+ 4 bits:    0f 00001111
+ 5 bits:    1f 00011111
+ 6 bits:    3f 00111111
+ 7 bits:    7f 01111111
+ 8 bits:    ff 11111111
+ 9 bits:  01ff 0000000111111111
+10 bits:  03ff 0000001111111111
+11 bits:  07ff 0000011111111111
+12 bits:  0fff 0000111111111111
+13 bits:  1fff 0001111111111111
+14 bits:  3fff 0011111111111111
+15 bits:  7fff 0111111111111111
+16 bits:  ffff 1111111111111111
+
+ and so forth
+
+*/
+void buffer_truncate_rshift_bits(buffer_t *buf, size_t bits);
+
 #endif
