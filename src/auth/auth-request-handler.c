@@ -587,7 +587,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		buf = buffer_create_dynamic(pool_datastack_create(),
 					    MAX_BASE64_DECODED_SIZE(len));
 		if (base64_decode(initial_resp, len, NULL, buf) < 0) {
-                        auth_request_handler_auth_fail(handler, request,
+			auth_request_handler_auth_fail_code(handler, request,
+				AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
 				"Invalid base64 data in initial response");
 			return TRUE;
 		}
@@ -643,7 +644,8 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 	buf = buffer_create_dynamic(pool_datastack_create(),
 				    MAX_BASE64_DECODED_SIZE(data_len));
 	if (base64_decode(data, data_len, NULL, buf) < 0) {
-		auth_request_handler_auth_fail(handler, request,
+		auth_request_handler_auth_fail_code(handler, request,
+			AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
 			"Invalid base64 data in continued response");
 		return TRUE;
 	}

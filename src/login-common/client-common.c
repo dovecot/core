@@ -759,6 +759,8 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return "(user disabled)";
 	case CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED:
 		return "(password expired)";
+	case CLIENT_AUTH_FAIL_CODE_INVALID_BASE64:
+		return "(sent invalid base64 in response)";
 	case CLIENT_AUTH_FAIL_CODE_LOGIN_DISABLED:
 		return "(login disabled)";
 	case CLIENT_AUTH_FAIL_CODE_MECH_INVALID:

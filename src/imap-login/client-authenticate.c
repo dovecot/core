@@ -74,6 +74,7 @@ void imap_client_auth_result(struct client *client,
 					       str_c(referral), text);
 		}
 		break;
+	case CLIENT_AUTH_RESULT_INVALID_BASE64:
 	case CLIENT_AUTH_RESULT_ABORTED:
 		client_send_reply(client, IMAP_CMD_REPLY_BAD, text);
 		break;
