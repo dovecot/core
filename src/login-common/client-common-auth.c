@@ -143,6 +143,7 @@ static void client_auth_parse_args(struct client *client, bool success,
 		}
 		if (strcmp(key, "nologin") == 0) {
 			reply_r->nologin = TRUE;
+			reply_r->fail_code = CLIENT_AUTH_FAIL_CODE_LOGIN_DISABLED;
 		} else if (strcmp(key, "proxy") == 0)
 			reply_r->proxy = TRUE;
 		else if (strcmp(key, "reason") == 0)
@@ -525,6 +526,11 @@ client_auth_handle_reply(struct client *client,
 			break;
 		case CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED:
 			result = CLIENT_AUTH_RESULT_PASS_EXPIRED;
+			break;
+		case CLIENT_AUTH_FAIL_CODE_LOGIN_DISABLED:
+			result = CLIENT_AUTH_RESULT_LOGIN_DISABLED;
+			if (reason == NULL)
+				reason = "Login disabled for this user";
 			break;
 		case CLIENT_AUTH_FAIL_CODE_USER_DISABLED:
 		default:

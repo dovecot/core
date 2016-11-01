@@ -65,6 +65,7 @@ void pop3_client_auth_result(struct client *client,
 	case CLIENT_AUTH_RESULT_AUTHZFAILED:
 	case CLIENT_AUTH_RESULT_PASS_EXPIRED:
 	case CLIENT_AUTH_RESULT_SSL_REQUIRED:
+	case CLIENT_AUTH_RESULT_LOGIN_DISABLED:
 		client_send_reply(client, POP3_CMD_REPLY_AUTH_ERROR, text);
 		break;
 	default:
