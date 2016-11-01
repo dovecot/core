@@ -2,7 +2,8 @@
 #define ISTREAM_ATTACHMENT_CONNECTOR_H
 
 /* Start building a message stream. The base_input contains the message
-   without attachments. The final stream must be exactly msg_size bytes. */
+   without attachments. The final stream must be exactly msg_size bytes.
+   If the original msg_size isn't known, it can be set to (uoff_t)-1. */
 struct istream_attachment_connector *
 istream_attachment_connector_begin(struct istream *base_input, uoff_t msg_size);
 
