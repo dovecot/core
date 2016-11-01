@@ -11,6 +11,7 @@ struct sized_istream {
 	void *error_context;
 
 	uoff_t size;
+	bool min_size_only;
 };
 
 static void i_stream_sized_destroy(struct iostream_private *stream)
@@ -102,10 +103,17 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 		   parent is at EOF. */
 	} else if (pos > left) {
 		/* parent has more data available than expected */
-		error = sstream->error_callback(&data, sstream->error_context);
-		io_stream_set_error(&stream->iostream, "%s", error);
-		stream->istream.stream_errno = EINVAL;
-		return -1;
+		if (!sstream->min_size_only) {
+			error = sstream->error_callback(&data, sstream->error_context);
+			io_stream_set_error(&stream->iostream, "%s", error);
+			stream->istream.stream_errno = EINVAL;
+			return -1;
+		}
+		pos = left;
+		if (pos <= stream->pos) {
+			stream->istream.eof = TRUE;
+			ret = -1;
+		}
 	} else if (!stream->istream.eof) {
 		/* still more to read */
 	} else if (stream->istream.stream_errno == ENOENT) {
@@ -184,6 +192,25 @@ struct istream *i_stream_create_sized_range(struct istream *input,
 	input->v_offset = offset;
 	ret = i_stream_create_sized(input, size);
 	input->v_offset = orig_offset;
+	return ret;
+}
+
+struct istream *i_stream_create_min_sized(struct istream *input, uoff_t min_size)
+{
+	struct istream *ret;
+
+	ret= i_stream_create_sized(input, min_size);
+	((struct sized_istream *)ret->real_stream)->min_size_only = TRUE;
+	return ret;
+}
+
+struct istream *i_stream_create_min_sized_range(struct istream *input,
+						uoff_t offset, uoff_t min_size)
+{
+	struct istream *ret;
+
+	ret = i_stream_create_sized_range(input, offset, min_size);
+	((struct sized_istream *)ret->real_stream)->min_size_only = TRUE;
 	return ret;
 }
 
