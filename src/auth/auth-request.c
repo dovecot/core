@@ -1914,7 +1914,7 @@ void auth_request_init_userdb_reply(struct auth_request *request)
 
 	request->userdb_reply = auth_fields_init(request->pool);
 	if (userdb_template_export(request->userdb->default_fields_tmpl,
-				   request, &error) <= 0) {
+				   request, &error) < 0) {
 		auth_request_log_error(request, AUTH_SUBSYS_DB,
 			"Failed to expand default_fields: %s", error);
 	}

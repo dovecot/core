@@ -220,7 +220,7 @@ static void test_auth_request_var_expand_funcs(void)
 			"%{passdb:pkey2}\n%{passdb:pkey2:default2}\n"
 			"%{passdb:pkey3}\n%{passdb:pkey3:default3}\n"
 			"%{passdb:ukey1}\n%{passdb:ukey1:default4}\n",
-			&test_request, test_escape, &value, &error) == 0);
+			&test_request, test_escape, &value, &error) == 1);
 	test_assert(strcmp(value, "+pval1\n+pval1\n\n\n\ndefault3\n\ndefault4\n") == 0);
 
 	test_assert(t_auth_request_var_expand(
@@ -228,7 +228,7 @@ static void test_auth_request_var_expand_funcs(void)
 			"%{userdb:ukey2}\n%{userdb:ukey2:default2}\n"
 			"%{userdb:ukey3}\n%{userdb:ukey3:default3}\n"
 			"%{userdb:pkey1}\n%{userdb:pkey1:default4}\n",
-			&test_request, test_escape, &value, &error) == 0);
+			&test_request, test_escape, &value, &error) == 1);
 	test_assert(strcmp(value, "+uval1\n+uval1\n\n\n\ndefault3\n\ndefault4\n") == 0);
 
 	pool_unref(&pool);
