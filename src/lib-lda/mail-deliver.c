@@ -149,7 +149,7 @@ mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 		{ 'w', dec2str(ctx->cache->vsize), "vsize" },
 		{ '\0', dec2str(delivery_time_msecs), "delivery_time" },
 		{ '\0', dec2str(ctx->session_time_msecs), "session_time" },
-		{ '\0', ctx->dest_addr, "to_envelope" },
+		{ '\0', ctx->rcpt_orig_to, "to_envelope" },
 		{ '\0', ctx->cache->storage_id, "storage_id" },
 		{ '\0', NULL, NULL }
 	};
@@ -316,12 +316,12 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 
 	i_assert(ctx->dest_mail == NULL);
 
-	default_save = strcmp(mailbox, ctx->dest_mailbox_name) == 0;
+	default_save = strcmp(mailbox, ctx->rcpt_default_mailbox) == 0;
 	if (default_save)
 		ctx->tried_default_save = TRUE;
 
 	i_zero(&open_ctx);
-	open_ctx.user = ctx->dest_user;
+	open_ctx.user = ctx->rcpt_user;
 	open_ctx.lda_mailbox_autocreate = ctx->set->lda_mailbox_autocreate;
 	open_ctx.lda_mailbox_autosubscribe = ctx->set->lda_mailbox_autosubscribe;
 
@@ -346,8 +346,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	kw = str_array_length(keywords) == 0 ? NULL :
 		mailbox_keywords_create_valid(box, keywords);
 	save_ctx = mailbox_save_alloc(t);
-	if (ctx->src_envelope_sender != NULL)
-		mailbox_save_set_from_envelope(save_ctx, ctx->src_envelope_sender);
+	if (ctx->mail_from != NULL)
+		mailbox_save_set_from_envelope(save_ctx, ctx->mail_from);
 	mailbox_save_set_flags(save_ctx, flags, kw);
 
 	headers_ctx = mailbox_header_lookup_init(box, lda_log_wanted_headers);
@@ -400,8 +400,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 
 const char *mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 {
-	if (ctx->src_envelope_sender != NULL)
-		return ctx->src_envelope_sender;
+	if (ctx->mail_from != NULL)
+		return ctx->mail_from;
 
 	return mail_deliver_get_address(ctx->src_mail, "Return-Path");
 }
@@ -409,7 +409,7 @@ const char *mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx)
 {
 	static int count = 0;
-	struct mail_user *user = ctx->dest_user;
+	struct mail_user *user = ctx->rcpt_user;
 	const struct mail_storage_settings *mail_set =
 		mail_user_set_get_storage_set(user);
 
@@ -437,7 +437,7 @@ int mail_deliver(struct mail_deliver_context *ctx,
 		 struct mail_storage **storage_r)
 {
 	struct mail_deliver_user *muser =
-		MAIL_DELIVER_USER_CONTEXT(ctx->dest_user);
+		MAIL_DELIVER_USER_CONTEXT(ctx->rcpt_user);
 	int ret;
 
 	i_assert(muser->deliver_ctx == NULL);
@@ -450,7 +450,7 @@ int mail_deliver(struct mail_deliver_context *ctx,
 	if (deliver_mail == NULL)
 		ret = -1;
 	else {
-		ctx->dup_db = mail_duplicate_db_init(ctx->dest_user,
+		ctx->dup_db = mail_duplicate_db_init(ctx->rcpt_user,
 						     DUPLICATE_DB_NAME);
 		if (deliver_mail(ctx, storage_r) <= 0) {
 			/* if message was saved, don't bounce it even though
@@ -469,14 +469,14 @@ int mail_deliver(struct mail_deliver_context *ctx,
 
 	if (ret < 0 && !ctx->tried_default_save) {
 		/* plugins didn't handle this. save into the default mailbox. */
-		ret = mail_deliver_save(ctx, ctx->dest_mailbox_name, 0, NULL,
+		ret = mail_deliver_save(ctx, ctx->rcpt_default_mailbox, 0, NULL,
 					storage_r);
 		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r)) {
 			muser->deliver_ctx = NULL;
 			return -1;
 		}
 	}
-	if (ret < 0 && strcasecmp(ctx->dest_mailbox_name, "INBOX") != 0) {
+	if (ret < 0 && strcasecmp(ctx->rcpt_default_mailbox, "INBOX") != 0) {
 		/* still didn't work. try once more to save it
 		   to INBOX. */
 		ret = mail_deliver_save(ctx, "INBOX", 0, NULL, storage_r);

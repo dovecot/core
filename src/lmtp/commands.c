@@ -833,28 +833,28 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.smtp_set = smtp_set;
 	dctx.session_id = rcpt->session_id;
 	dctx.src_mail = src_mail;
-	dctx.src_envelope_sender = client->state.mail_from;
-	dctx.dest_user = dest_user;
+	dctx.mail_from = client->state.mail_from;
+	dctx.rcpt_user = dest_user;
 	dctx.session_time_msecs =
 		timeval_diff_msecs(&client->state.data_end_timeval,
 				   &client->state.mail_from_timeval);
 	dctx.delivery_time_started = delivery_time_started;
 
-	if (orcpt_get_valid_rfc822(rcpt->params.dsn_orcpt, &dctx.dest_addr)) {
+	if (orcpt_get_valid_rfc822(rcpt->params.dsn_orcpt, &dctx.rcpt_orig_to)) {
 		/* used ORCPT */
 	} else if (*dctx.set->lda_original_recipient_header != '\0') {
-		dctx.dest_addr = mail_deliver_get_address(src_mail,
+		dctx.rcpt_orig_to = mail_deliver_get_address(src_mail,
 				dctx.set->lda_original_recipient_header);
 	}
-	if (dctx.dest_addr == NULL)
-		dctx.dest_addr = rcpt->address;
-	dctx.final_dest_addr = rcpt->address;
+	if (dctx.rcpt_orig_to == NULL)
+		dctx.rcpt_orig_to = rcpt->address;
+	dctx.rcpt_to = rcpt->address;
 	if (*rcpt->detail == '\0' ||
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
-		dctx.dest_mailbox_name = "INBOX";
+		dctx.rcpt_default_mailbox = "INBOX";
 	else {
 		ns = mail_namespace_find_inbox(dest_user->namespaces);
-		dctx.dest_mailbox_name =
+		dctx.rcpt_default_mailbox =
 			t_strconcat(ns->prefix, rcpt->detail, NULL);
 	}
 

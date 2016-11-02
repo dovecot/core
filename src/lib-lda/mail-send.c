@@ -46,7 +46,7 @@ get_var_expand_table(struct mail *mail, const char *reason,
 int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			const char *reason)
 {
-	struct mail_user *user = ctx->dest_user;
+	struct mail_user *user = ctx->rcpt_user;
 	const struct mail_storage_settings *mail_set =
 		mail_user_set_get_storage_set(user);
 	struct mail *mail = ctx->src_mail;

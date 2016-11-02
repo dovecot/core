@@ -89,7 +89,7 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	int fd;
 
 	path = t_str_new(128);
-	mail_user_set_get_temp_prefix(path, ctx->dest_user->set);
+	mail_user_set_get_temp_prefix(path, ctx->rcpt_user->set);
 	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
 		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
@@ -142,10 +142,10 @@ create_raw_stream(struct mail_deliver_context *ctx,
 		}
 	}
 
-	if (sender != NULL && ctx->src_envelope_sender == NULL) {
+	if (sender != NULL && ctx->mail_from == NULL) {
 		/* use the envelope sender from From_-line, but only if it
 		   hasn't been specified with -f already. */
-		ctx->src_envelope_sender = p_strdup(ctx->pool, sender);
+		ctx->mail_from = p_strdup(ctx->pool, sender);
 	}
 	i_free(sender);
 
@@ -180,10 +180,10 @@ lda_raw_mail_open(struct mail_deliver_context *ctx, const char *path)
 
 	sets = master_service_settings_get_others(master_service);
 	raw_mail_user =
-		raw_storage_create_from_set(ctx->dest_user->set_info, sets[0]);
+		raw_storage_create_from_set(ctx->rcpt_user->set_info, sets[0]);
 
-	envelope_sender = ctx->src_envelope_sender != NULL ?
-		ctx->src_envelope_sender : DEFAULT_ENVELOPE_SENDER;
+	envelope_sender = ctx->mail_from != NULL ?
+		ctx->mail_from : DEFAULT_ENVELOPE_SENDER;
 	if (path == NULL) {
 		input = create_raw_stream(ctx, 0, &mtime);
 		i_stream_set_name(input, "stdin");
@@ -209,27 +209,27 @@ lda_raw_mail_open(struct mail_deliver_context *ctx, const char *path)
 }
 
 static void
-lda_set_dest_addr(struct mail_deliver_context *ctx, const char *user,
+lda_set_rcpt_orig_to(struct mail_deliver_context *ctx, const char *user,
 		  const char *destaddr_source)
 {
-	if (ctx->dest_addr == NULL &&
+	if (ctx->rcpt_orig_to == NULL &&
 	    *ctx->set->lda_original_recipient_header != '\0') {
-		ctx->dest_addr = mail_deliver_get_address(ctx->src_mail,
+		ctx->rcpt_orig_to = mail_deliver_get_address(ctx->src_mail,
 					ctx->set->lda_original_recipient_header);
 		destaddr_source = t_strconcat(
 			ctx->set->lda_original_recipient_header, " header", NULL);
 	}
-	if (ctx->dest_addr == NULL) {
-		ctx->dest_addr = strchr(user, '@') != NULL ? user :
+	if (ctx->rcpt_orig_to == NULL) {
+		ctx->rcpt_orig_to = strchr(user, '@') != NULL ? user :
 			t_strconcat(user, "@", ctx->set->hostname, NULL);
 		destaddr_source = "user@hostname";
 	}
-	if (ctx->final_dest_addr == NULL)
-		ctx->final_dest_addr = ctx->dest_addr;
+	if (ctx->rcpt_to == NULL)
+		ctx->rcpt_to = ctx->rcpt_orig_to;
 
-	if (ctx->dest_user->mail_debug) {
+	if (ctx->rcpt_user->mail_debug) {
 		i_debug("Destination address: %s (source: %s)",
-			ctx->dest_addr, destaddr_source);
+			ctx->rcpt_orig_to, destaddr_source);
 	}
 }
 
@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
 	i_zero(&ctx);
 	ctx.session = mail_deliver_session_init();
 	ctx.pool = ctx.session->pool;
-	ctx.dest_mailbox_name = "INBOX";
+	ctx.rcpt_default_mailbox = "INBOX";
 	path = NULL;
 
 	user = getenv("USER");
@@ -325,7 +325,7 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'a':
 			/* original recipient address */
-			ctx.dest_addr = optarg;
+			ctx.rcpt_orig_to = optarg;
 			destaddr_source = "-a parameter";
 			break;
 		case 'd':
@@ -338,7 +338,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			/* envelope sender address */
-			ctx.src_envelope_sender =
+			ctx.mail_from =
 				p_strdup(ctx.pool, address_sanitize(optarg));
 			break;
 		case 'm':
@@ -350,7 +350,7 @@ int main(int argc, char *argv[])
 					i_fatal("Mailbox name not UTF-8: %s",
 						optarg);
 				}
-				ctx.dest_mailbox_name = optarg;
+				ctx.rcpt_default_mailbox = optarg;
 			} T_END;
 			break;
 		case 'p':
@@ -362,7 +362,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'r':
 			/* final recipient address */
-			ctx.final_dest_addr = optarg;
+			ctx.rcpt_to = optarg;
 			break;
 		default:
 			print_help();
@@ -419,7 +419,7 @@ int main(int argc, char *argv[])
 	   _lookup() and _next(), but don't bother) */
 	ctx.delivery_time_started = ioloop_timeval;
 	ret = mail_storage_service_lookup_next(storage_service, &service_input,
-					       &service_user, &ctx.dest_user,
+					       &service_user, &ctx.rcpt_user,
 					       &errstr);
 	if (ret <= 0) {
 		if (ret < 0)
@@ -430,17 +430,17 @@ int main(int argc, char *argv[])
 #ifdef SIGXFSZ
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
-	var_table = mail_user_var_expand_table(ctx.dest_user);
+	var_table = mail_user_var_expand_table(ctx.rcpt_user);
 	smtp_set = mail_storage_service_user_get_set(service_user)[1];
 	lda_set = mail_storage_service_user_get_set(service_user)[2];
 	ret = settings_var_expand(
 		&lda_setting_parser_info,
-		lda_set, ctx.dest_user->pool, var_table,
+		lda_set, ctx.rcpt_user->pool, var_table,
 		&errstr);
 	if (ret > 0) {
 		ret = settings_var_expand(
 			&smtp_submit_setting_parser_info,
-			smtp_set, ctx.dest_user->pool, var_table,
+			smtp_set, ctx.rcpt_user->pool, var_table,
 			&errstr);
 	}
 	if (ret <= 0)
@@ -448,13 +448,13 @@ int main(int argc, char *argv[])
 	ctx.set = lda_set;
 	ctx.smtp_set = smtp_set;
 
-	if (ctx.dest_user->mail_debug && *user_source != '\0') {
+	if (ctx.rcpt_user->mail_debug && *user_source != '\0') {
 		i_debug("userdb lookup skipped, username taken from %s",
 			user_source);
 	}
 
 	ctx.src_mail = lda_raw_mail_open(&ctx, path);
-	lda_set_dest_addr(&ctx, user, destaddr_source);
+	lda_set_rcpt_orig_to(&ctx, user, destaddr_source);
 
 	if (mail_deliver(&ctx, &storage) < 0) {
 		if (ctx.tempfail_error != NULL) {
@@ -506,7 +506,7 @@ int main(int argc, char *argv[])
 		mailbox_free(&box);
 	}
 
-	mail_user_unref(&ctx.dest_user);
+	mail_user_unref(&ctx.rcpt_user);
 	mail_deliver_session_deinit(&ctx.session);
 
 	mail_storage_service_user_unref(&service_user);

@@ -33,18 +33,19 @@ struct mail_deliver_context {
 	const char *session_id;
 	/* Mail to save */
 	struct mail *src_mail;
-	/* Envelope sender, if known. */
-	const char *src_envelope_sender;
 
+	/* Envelope sender, if known. */
+	const char *mail_from;
+
+	/* Envelope recipient (final recipient) */
+	const char *rcpt_to;
+	/* Envelope recipient (original recipient) */
+	const char *rcpt_orig_to;
 	/* Destination user */
-	struct mail_user *dest_user;
-	/* Original recipient address */
-	const char *dest_addr;
-	/* Final recipient address (typically same as dest_addr) */
-	const char *final_dest_addr;
+	struct mail_user *rcpt_user;
 	/* Mailbox where mail should be saved, unless e.g. Sieve does
 	   something to it. */
-	const char *dest_mailbox_name;
+	const char *rcpt_default_mailbox;
 
 	/* Filled with destination mail, if save_dest_mail=TRUE.
 	   The caller must free the mail, its transaction and close
