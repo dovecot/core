@@ -19,6 +19,9 @@ static_save_fields(struct auth_request *request, const char **password_r,
 		(struct static_passdb_module *)request->passdb->passdb;
 	const char *error;
 
+	*password_r = NULL;
+	*scheme_r = NULL;
+
 	auth_request_log_debug(request, AUTH_SUBSYS_DB, "lookup");
 	if (passdb_template_export(module->tmpl, request, &error) < 0) {
 		auth_request_log_error(request, AUTH_SUBSYS_DB,
@@ -39,8 +42,6 @@ static_save_fields(struct auth_request *request, const char **password_r,
 	} else {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
 			"No password returned (and no nopassword)");
-		*password_r = NULL;
-		*scheme_r = NULL;
 		return PASSDB_RESULT_PASSWORD_MISMATCH;
 	}
 
