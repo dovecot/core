@@ -473,7 +473,7 @@ int fts_index_have_compatible_settings(struct mailbox_list *list,
 
 	box = mailbox_alloc(list, vname, 0);
 	if (mailbox_sync(box, (enum mailbox_sync_flags)0) < 0) {
-		i_error("lucene: Failed to sync mailbox INBOX: %s",
+		i_error("fts: Failed to sync mailbox %s: %s", vname,
 			mailbox_get_last_error(box, NULL));
 		ret = -1;
 	} else {
