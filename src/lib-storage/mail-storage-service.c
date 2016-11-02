@@ -459,7 +459,7 @@ user_expand_varstr(struct mail_storage_service_ctx *ctx,
 
 	if (*str == SETTING_STRVAR_EXPANDED[0]) {
 		*value_r = str + 1;
-		return 1;
+		return TRUE;
 	}
 
 	i_assert(*str == SETTING_STRVAR_UNEXPANDED[0]);
@@ -524,7 +524,7 @@ service_parse_privileges(struct mail_storage_service_ctx *ctx,
 	/* variable strings are expanded in mail_user_init(),
 	   but we need the home and chroot sooner so do them separately here. */
 	if (!user_expand_varstr(ctx, user, priv_r, user->user_set->mail_home,
-				&priv_r->home, &error) <= 0) {
+				&priv_r->home, &error)) {
 		*error_r = t_strdup_printf(
 			"Failed to expand mail_home '%s': %s",
 			user->user_set->mail_home, error);
