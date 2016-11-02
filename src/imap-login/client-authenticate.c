@@ -78,6 +78,7 @@ void imap_client_auth_result(struct client *client,
 		client_send_reply(client, IMAP_CMD_REPLY_BAD, text);
 		break;
 	case CLIENT_AUTH_RESULT_AUTHFAILED_REASON:
+	case CLIENT_AUTH_RESULT_MECH_INVALID:
 		if (text[0] == '[')
 			client_send_reply(client, IMAP_CMD_REPLY_NO, text);
 		else {
@@ -94,6 +95,7 @@ void imap_client_auth_result(struct client *client,
 				       IMAP_RESP_CODE_UNAVAILABLE, text);
 		break;
 	case CLIENT_AUTH_RESULT_SSL_REQUIRED:
+	case CLIENT_AUTH_RESULT_MECH_SSL_REQUIRED:
 		client_send_reply_code(client, IMAP_CMD_REPLY_NO,
 				       IMAP_RESP_CODE_PRIVACYREQUIRED, text);
 		break;

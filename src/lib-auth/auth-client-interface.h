@@ -32,4 +32,8 @@ enum mech_security_flags {
 #define AUTH_CLIENT_FAIL_CODE_USER_DISABLED     "user_disabled"
 #define AUTH_CLIENT_FAIL_CODE_PASS_EXPIRED      "pass_expired"
 
+/* not actually returned from auth service */
+#define AUTH_CLIENT_FAIL_CODE_MECH_INVALID      "auth_mech_invalid"
+#define AUTH_CLIENT_FAIL_CODE_MECH_SSL_REQUIRED "auth_mech_ssl_required"
+
 #endif

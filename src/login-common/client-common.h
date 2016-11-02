@@ -50,6 +50,8 @@ enum client_auth_fail_code {
 	CLIENT_AUTH_FAIL_CODE_USER_DISABLED,
 	CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED,
 	CLIENT_AUTH_FAIL_CODE_LOGIN_DISABLED,
+	CLIENT_AUTH_FAIL_CODE_MECH_INVALID,
+	CLIENT_AUTH_FAIL_CODE_MECH_SSL_REQUIRED,
 };
 
 enum client_auth_result {
@@ -64,6 +66,8 @@ enum client_auth_result {
 	CLIENT_AUTH_RESULT_PASS_EXPIRED,
 	CLIENT_AUTH_RESULT_SSL_REQUIRED,
 	CLIENT_AUTH_RESULT_LOGIN_DISABLED,
+	CLIENT_AUTH_RESULT_MECH_INVALID,
+	CLIENT_AUTH_RESULT_MECH_SSL_REQUIRED
 };
 
 struct client_auth_reply {
@@ -182,8 +186,6 @@ struct client {
 	bool trusted:1;
 	bool ssl_servername_settings_read:1;
 	bool authenticating:1;
-	bool auth_tried_disabled_plaintext:1;
-	bool auth_tried_unsupported_mech:1;
 	bool auth_try_aborted:1;
 	bool auth_initializing:1;
 	bool auth_process_comm_fail:1;

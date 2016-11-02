@@ -37,6 +37,10 @@ static const struct client_auth_fail_code_id client_auth_fail_codes[] = {
 		CLIENT_AUTH_FAIL_CODE_USER_DISABLED },
 	{ AUTH_CLIENT_FAIL_CODE_PASS_EXPIRED,
 		CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED },
+	{ AUTH_CLIENT_FAIL_CODE_MECH_INVALID,
+		CLIENT_AUTH_FAIL_CODE_MECH_INVALID },
+	{ AUTH_CLIENT_FAIL_CODE_MECH_SSL_REQUIRED,
+		CLIENT_AUTH_FAIL_CODE_MECH_SSL_REQUIRED },
 	{ NULL, CLIENT_AUTH_FAIL_CODE_NONE }
 };
 
@@ -527,6 +531,12 @@ client_auth_handle_reply(struct client *client,
 		case CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED:
 			result = CLIENT_AUTH_RESULT_PASS_EXPIRED;
 			break;
+		case CLIENT_AUTH_FAIL_CODE_MECH_INVALID:
+			result = CLIENT_AUTH_RESULT_MECH_INVALID;
+			break;
+		case CLIENT_AUTH_FAIL_CODE_MECH_SSL_REQUIRED:
+			result = CLIENT_AUTH_RESULT_MECH_SSL_REQUIRED;
+			break;
 		case CLIENT_AUTH_FAIL_CODE_LOGIN_DISABLED:
 			result = CLIENT_AUTH_RESULT_LOGIN_DISABLED;
 			if (reason == NULL)
@@ -570,7 +580,7 @@ void client_auth_abort(struct client *client)
 
 void client_auth_fail(struct client *client, const char *text)
 {
-	sasl_server_auth_failed(client, text);
+	sasl_server_auth_failed(client, text, NULL);
 }
 
 int client_auth_read_line(struct client *client)
@@ -768,8 +778,10 @@ int client_auth_begin(struct client *client, const char *mech_name,
 
 bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 {
+	bool ssl_required = (strcmp(client->ssl_set->ssl, "required") == 0);
+
 	if (client->secured || (!client->set->disable_plaintext_auth &&
-				strcmp(client->ssl_set->ssl, "required") != 0))
+				!ssl_required))
 		return TRUE;
 
 	if (client->set->auth_verbose) {
@@ -782,9 +794,14 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 			 "without SSL/TLS, but your client did it anyway. "
 			 "If anyone was listening, the password was exposed.");
 	}
-	client_auth_result(client, CLIENT_AUTH_RESULT_SSL_REQUIRED, NULL,
+
+	if (ssl_required) {
+		client_auth_result(client, CLIENT_AUTH_RESULT_SSL_REQUIRED, NULL,
 			   AUTH_PLAINTEXT_DISABLED_MSG);
-	client->auth_tried_disabled_plaintext = TRUE;
+	} else {
+		client_auth_result(client, CLIENT_AUTH_RESULT_MECH_SSL_REQUIRED, NULL,
+			   AUTH_PLAINTEXT_DISABLED_MSG);
+	}
 	client->auth_attempts++;
 	return FALSE;
 }

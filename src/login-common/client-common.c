@@ -720,13 +720,10 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	}
 
 	/* some auth attempts without SSL/TLS */
-	if (client->auth_tried_disabled_plaintext)
-		return "(tried to use disallowed plaintext auth)";
 	if (client->set->auth_ssl_require_client_cert &&
 	    client->ssl_proxy == NULL)
 		return "(cert required, client didn't start TLS)";
-	if (client->auth_tried_unsupported_mech)
-		return "(tried to use unsupported auth mechanism)";
+
 	if (client->auth_waiting && client->auth_attempts == 1) {
 		return t_strdup_printf("(client didn't finish SASL auth, "
 				       "waited %u secs)", auth_secs);
@@ -764,6 +761,10 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return "(password expired)";
 	case CLIENT_AUTH_FAIL_CODE_LOGIN_DISABLED:
 		return "(login disabled)";
+	case CLIENT_AUTH_FAIL_CODE_MECH_INVALID:
+		return "(tried to use unsupported auth mechanism)";
+	case CLIENT_AUTH_FAIL_CODE_MECH_SSL_REQUIRED:
+		return "(tried to use disallowed plaintext auth)";
 	default:
 		break;
 	}

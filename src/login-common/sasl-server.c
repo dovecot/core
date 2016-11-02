@@ -336,17 +336,17 @@ void sasl_server_auth_begin(struct client *client,
 
 	mech = auth_client_find_mech(auth_client, mech_name);
 	if (mech == NULL) {
-		client->auth_tried_unsupported_mech = TRUE;
 		sasl_server_auth_failed(client,
-			"Unsupported authentication mechanism.");
+			"Unsupported authentication mechanism.",
+			AUTH_CLIENT_FAIL_CODE_MECH_INVALID);
 		return;
 	}
 
 	if (!client->secured && client->set->disable_plaintext_auth &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
-		client->auth_tried_disabled_plaintext = TRUE;
 		sasl_server_auth_failed(client,
-			"Plaintext authentication disabled.");
+			"Plaintext authentication disabled.",
+			 AUTH_CLIENT_FAIL_CODE_MECH_SSL_REQUIRED);
 		return;
 	}
 
@@ -373,9 +373,9 @@ void sasl_server_auth_begin(struct client *client,
 					authenticate_callback, client);
 }
 
-static void ATTR_NULL(2)
+static void ATTR_NULL(2, 3)
 sasl_server_auth_cancel(struct client *client, const char *reason,
-			enum sasl_server_reply reply)
+			const char *code, enum sasl_server_reply reply)
 {
 	i_assert(client->authenticating);
 
@@ -390,16 +390,26 @@ sasl_server_auth_cancel(struct client *client, const char *reason,
 	if (client->auth_request != NULL)
 		auth_client_request_abort(&client->auth_request);
 
+	if (code != NULL) {
+		const char *args[2];
+
+		args[0] = t_strconcat("code=", code, NULL);
+		args[1] = NULL;
+		call_client_callback(client, reply, reason, args);
+		return;
+	}
+
 	call_client_callback(client, reply, reason, NULL);
 }
 
-void sasl_server_auth_failed(struct client *client, const char *reason)
+void sasl_server_auth_failed(struct client *client, const char *reason,
+	const char *code)
 {
-	sasl_server_auth_cancel(client, reason, SASL_SERVER_REPLY_AUTH_FAILED);
+	sasl_server_auth_cancel(client, reason, code, SASL_SERVER_REPLY_AUTH_FAILED);
 }
 
 void sasl_server_auth_abort(struct client *client)
 {
 	client->auth_try_aborted = TRUE;
-	sasl_server_auth_cancel(client, NULL, SASL_SERVER_REPLY_AUTH_ABORTED);
+	sasl_server_auth_cancel(client, NULL, NULL, SASL_SERVER_REPLY_AUTH_ABORTED);
 }
