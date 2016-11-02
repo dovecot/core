@@ -523,8 +523,10 @@ client_auth_handle_reply(struct client *client,
 			reason = t_strdup_printf(AUTH_TEMP_FAILED_MSG" [%s:%s]",
 				      my_hostname, timestamp);
 			break;
-		case CLIENT_AUTH_FAIL_CODE_USER_DISABLED:
 		case CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED:
+			result = CLIENT_AUTH_RESULT_PASS_EXPIRED;
+			break;
+		case CLIENT_AUTH_FAIL_CODE_USER_DISABLED:
 		default:
 			if (reason != NULL)
 				result = CLIENT_AUTH_RESULT_AUTHFAILED_REASON;
