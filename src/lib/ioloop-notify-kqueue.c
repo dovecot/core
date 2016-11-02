@@ -152,6 +152,7 @@ io_add_notify(const char *path, const char *source_filename,
 
 	io = i_new(struct io_notify, 1);
 	io->io.condition = IO_NOTIFY;
+	io->io.source_filename = source_filename;
 	io->io.source_linenum = source_linenum;
 	io->io.callback = callback;
 	io->io.context = context;
