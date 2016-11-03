@@ -1926,8 +1926,10 @@ test_dns_lookup_ttl_input(struct server_connection *conn)
 		} else {
 			o_stream_nsend_str(conn->conn.output,
 				t_strdup_printf("%d\n", EAI_FAIL));
-			if (count > 4)
+			if (count > 4) {
 				server_connection_deinit(&conn);
+				return;
+			}
 		}
 		count++;
 	}
