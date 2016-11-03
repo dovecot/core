@@ -20,6 +20,13 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 	ssize_t ret;
 	bool save_failed = FALSE;
 
+	if (input->stream_errno != 0) {
+		i_error("open(%s) failed: %s",
+			i_stream_get_name(input),
+			i_stream_get_error(input));
+		return -1;
+	}
+
 	if (mailbox_open(box) < 0) {
 		i_error("Failed to open mailbox %s: %s",
 			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
