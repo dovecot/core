@@ -323,7 +323,7 @@ static int search_arg_match_cached(struct index_search_context *ctx,
 		}
 
 		if ((arg->value.search_flags &
-		     MAIL_SEARCH_ARG_FLAG_USE_TZ) != 0) {
+		     MAIL_SEARCH_ARG_FLAG_USE_TZ) == 0) {
 			if (!have_tz_offset) {
 				tm = localtime(&date);
 				tz_offset = utc_offset(tm, date);
