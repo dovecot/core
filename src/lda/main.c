@@ -174,7 +174,7 @@ lda_raw_mail_open(struct mail_deliver_context *ctx, const char *path)
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct istream *input;
 	void **sets;
-	const char *envelope_sender;
+	const char *mail_from;
 	time_t mtime;
 	int ret;
 
@@ -182,17 +182,17 @@ lda_raw_mail_open(struct mail_deliver_context *ctx, const char *path)
 	raw_mail_user =
 		raw_storage_create_from_set(ctx->rcpt_user->set_info, sets[0]);
 
-	envelope_sender = ctx->mail_from != NULL ?
+	mail_from = ctx->mail_from != NULL ?
 		ctx->mail_from : DEFAULT_ENVELOPE_SENDER;
 	if (path == NULL) {
 		input = create_raw_stream(ctx, 0, &mtime);
 		i_stream_set_name(input, "stdin");
 		ret = raw_mailbox_alloc_stream(raw_mail_user, input, mtime,
-					       envelope_sender, &box);
+					       mail_from, &box);
 		i_stream_unref(&input);
 	} else {
 		ret = raw_mailbox_alloc_path(raw_mail_user, path, (time_t)-1,
-					     envelope_sender, &box);
+					     mail_from, &box);
 	}
 	if (ret < 0) {
 		i_fatal("Can't open delivery mail as raw: %s",
@@ -210,26 +210,26 @@ lda_raw_mail_open(struct mail_deliver_context *ctx, const char *path)
 
 static void
 lda_set_rcpt_orig_to(struct mail_deliver_context *ctx, const char *user,
-		  const char *destaddr_source)
+		  const char *rcpt_to_source)
 {
 	if (ctx->rcpt_orig_to == NULL &&
 	    *ctx->set->lda_original_recipient_header != '\0') {
 		ctx->rcpt_orig_to = mail_deliver_get_address(ctx->src_mail,
 					ctx->set->lda_original_recipient_header);
-		destaddr_source = t_strconcat(
+		rcpt_to_source = t_strconcat(
 			ctx->set->lda_original_recipient_header, " header", NULL);
 	}
 	if (ctx->rcpt_orig_to == NULL) {
 		ctx->rcpt_orig_to = strchr(user, '@') != NULL ? user :
 			t_strconcat(user, "@", ctx->set->hostname, NULL);
-		destaddr_source = "user@hostname";
+		rcpt_to_source = "user@hostname";
 	}
 	if (ctx->rcpt_to == NULL)
 		ctx->rcpt_to = ctx->rcpt_orig_to;
 
 	if (ctx->rcpt_user->mail_debug) {
 		i_debug("Destination address: %s (source: %s)",
-			ctx->rcpt_orig_to, destaddr_source);
+			ctx->rcpt_orig_to, rcpt_to_source);
 	}
 }
 
@@ -282,7 +282,7 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_input service_input;
 	const struct var_expand_table *var_table;
 	struct mail_storage *storage;
-	const char *user_source = "", *destaddr_source = "";
+	const char *user_source = "", *rcpt_to_source = "";
 	uid_t process_euid;
 	bool stderr_rejection = FALSE;
 	int ret, c;
@@ -326,7 +326,7 @@ int main(int argc, char *argv[])
 		case 'a':
 			/* original recipient address */
 			ctx.rcpt_orig_to = optarg;
-			destaddr_source = "-a parameter";
+			rcpt_to_source = "-a parameter";
 			break;
 		case 'd':
 			/* destination user */
@@ -454,7 +454,7 @@ int main(int argc, char *argv[])
 	}
 
 	ctx.src_mail = lda_raw_mail_open(&ctx, path);
-	lda_set_rcpt_orig_to(&ctx, user, destaddr_source);
+	lda_set_rcpt_orig_to(&ctx, user, rcpt_to_source);
 
 	if (mail_deliver(&ctx, &storage) < 0) {
 		if (ctx.tempfail_error != NULL) {
