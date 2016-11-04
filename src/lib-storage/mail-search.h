@@ -53,8 +53,22 @@ enum mail_search_date_type {
 };
 
 enum mail_search_arg_flag {
-	/* For BEFORE/SINCE/ON searches: Don't drop timezone from
-	   comparisons */
+	/* Used by *BEFORE/SINCE/ON searches.
+
+	   When NOT set: Adjust search timestamps so that the email's timezone
+	   is included in the comparisons. For example
+	   "04-Nov-2016 00:00:00 +0200" would match 4th day. This allows
+	   searching for mails with dates from the email sender's point of
+	   view. For received/saved dates there is no known timezone, and
+	   without this flag the dates are compared using the server's local
+	   timezone.
+
+	   When set: Compare the timestamp as UTC. For example
+	   "04-Nov-2016 00:00:00 +0200" would be treated as
+	   "03-Nov-2016 22:00:00 UTC" and would match 3rd day. This allows
+	   searching for mails within precise time interval. Since imap-dates
+	   don't allow specifying timezone this isn't really possible with IMAP
+	   protocol, except using OLDER/YOUNGER searches. */
 	MAIL_SEARCH_ARG_FLAG_USE_TZ	= 0x01,
 };
 
