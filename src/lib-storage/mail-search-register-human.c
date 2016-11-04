@@ -44,7 +44,7 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 	if (mail_parse_human_timestamp(value, &sarg->value.time, &utc) < 0)
 		sarg->value.time = (time_t)-1;
 	if (utc)
-		sarg->value.search_flags = MAIL_SEARCH_ARG_FLAG_USE_TZ;
+		sarg->value.search_flags = MAIL_SEARCH_ARG_FLAG_UTC_TIMES;
 
 	if (sarg->value.time == (time_t)-1) {
 		ctx->_error = p_strconcat(ctx->pool,

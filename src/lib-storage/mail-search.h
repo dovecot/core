@@ -69,7 +69,7 @@ enum mail_search_arg_flag {
 	   searching for mails within precise time interval. Since imap-dates
 	   don't allow specifying timezone this isn't really possible with IMAP
 	   protocol, except using OLDER/YOUNGER searches. */
-	MAIL_SEARCH_ARG_FLAG_USE_TZ	= 0x01,
+	MAIL_SEARCH_ARG_FLAG_UTC_TIMES	= 0x01,
 };
 
 enum mail_search_modseq_type {

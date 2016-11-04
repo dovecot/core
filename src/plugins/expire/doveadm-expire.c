@@ -250,7 +250,7 @@ doveadm_expire_analyze_and_query(struct doveadm_mail_cmd_context *ctx,
 			if (arg->value.date_type != MAIL_SEARCH_DATE_TYPE_SAVED)
 				break;
 			if ((arg->value.search_flags &
-			     MAIL_SEARCH_ARG_FLAG_USE_TZ) == 0)
+			     MAIL_SEARCH_ARG_FLAG_UTC_TIMES) == 0)
 				break;
 			query.before_time = arg->value.time;
 			break;
