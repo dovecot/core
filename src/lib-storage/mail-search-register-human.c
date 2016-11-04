@@ -35,15 +35,16 @@ arg_new_human_date(struct mail_search_build_context *ctx,
 {
 	struct mail_search_arg *sarg;
 	const char *value;
+	bool utc;
 
 	sarg = mail_search_build_new(ctx, type);
 	if (mail_search_parse_string(ctx->parser, &value) < 0)
 		return NULL;
 
-	if (mail_parse_human_timestamp(value, &sarg->value.time) < 0)
+	if (mail_parse_human_timestamp(value, &sarg->value.time, &utc) < 0)
 		sarg->value.time = (time_t)-1;
-
-	sarg->value.search_flags = MAIL_SEARCH_ARG_FLAG_USE_TZ;
+	if (utc)
+		sarg->value.search_flags = MAIL_SEARCH_ARG_FLAG_USE_TZ;
 
 	if (sarg->value.time == (time_t)-1) {
 		ctx->_error = p_strconcat(ctx->pool,

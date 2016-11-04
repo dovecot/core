@@ -2525,7 +2525,8 @@ mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
 	return index_flags;
 }
 
-int mail_parse_human_timestamp(const char *str, time_t *timestamp_r)
+int mail_parse_human_timestamp(const char *str, time_t *timestamp_r,
+			       bool *utc_r)
 {
 	struct tm tm;
 	unsigned int secs;
@@ -2542,15 +2543,19 @@ int mail_parse_human_timestamp(const char *str, time_t *timestamp_r)
 		tm.tm_mon = (str[5]-'0') * 10 + (str[6]-'0') - 1;
 		tm.tm_mday = (str[8]-'0') * 10 + (str[9]-'0');
 		*timestamp_r = mktime(&tm);
+		*utc_r = FALSE;
 		return 0;
 	} else if (imap_parse_date(str, timestamp_r)) {
 		/* imap date */
+		*utc_r = FALSE;
 		return 0;
 	} else if (str_to_time(str, timestamp_r) == 0) {
 		/* unix timestamp */
+		*utc_r = TRUE;
 		return 0;
 	} else if (settings_get_time(str, &secs, &error) == 0) {
 		*timestamp_r = ioloop_time - secs;
+		*utc_r = TRUE;
 		return 0;
 	} else {
 		return -1;

@@ -969,6 +969,7 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	const char *str, *error;
+	bool utc;
 
 	switch (c) {
 	case '1':
@@ -1048,11 +1049,11 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 		ctx->state_input = optarg;
 		break;
 	case 't':
-		if (mail_parse_human_timestamp(optarg, &ctx->sync_since_timestamp) < 0)
+		if (mail_parse_human_timestamp(optarg, &ctx->sync_since_timestamp, &utc) < 0)
 			i_fatal("Invalid -t parameter: %s", optarg);
 		break;
 	case 'e':
-		if (mail_parse_human_timestamp(optarg, &ctx->sync_until_timestamp) < 0)
+		if (mail_parse_human_timestamp(optarg, &ctx->sync_until_timestamp, &utc) < 0)
 			i_fatal("Invalid -e parameter: %s", optarg);
 		break;
 	case 'I':
