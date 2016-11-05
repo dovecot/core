@@ -4,9 +4,9 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
-#include "safe-mkstemp.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream-temp.h"
 #include "master-service.h"
 #include "lmtp-client.h"
 #include "lda-settings.h"
@@ -24,10 +24,9 @@
 struct smtp_client {
 	pool_t pool;
 	struct ostream *output;
-	int temp_fd;
+	struct istream *input;
 
 	const struct lda_settings *set;
-	const char *temp_path;
 	ARRAY_TYPE(const_string) destinations;
 	const char *return_path;
 	const char *error;
@@ -36,33 +35,6 @@ struct smtp_client {
 	bool finished:1;
 	bool tempfail:1;
 };
-
-static int create_temp_file(const char **path_r)
-{
-	string_t *path;
-	int fd;
-
-	path = t_str_new(128);
-	str_append(path, "/tmp/dovecot.");
-	str_append(path, master_service_get_name(master_service));
-	str_append_c(path, '.');
-
-	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
-	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
-		return -1;
-	}
-
-	/* we just want the fd, unlink it */
-	if (i_unlink(str_c(path)) < 0) {
-		/* shouldn't happen.. */
-		i_close_fd(&fd);
-		return -1;
-	}
-
-	*path_r = str_c(path);
-	return fd;
-}
 
 struct smtp_client *
 smtp_client_init(const struct lda_settings *set, const char *return_path)
@@ -89,16 +61,12 @@ void smtp_client_add_rcpt(struct smtp_client *client, const char *address)
 
 struct ostream *smtp_client_send(struct smtp_client *client)
 {
-	const char *path;
-	int fd;
-
+	i_assert(client->output == NULL);
 	i_assert(array_count(&client->destinations) > 0);
 
-	if ((fd = create_temp_file(&path)) == -1)
-		return o_stream_create_error(errno);
-	client->temp_path = i_strdup(path);
-	client->temp_fd = fd;
-	client->output = o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
+	client->output = iostream_temp_create
+		(t_strconcat("/tmp/dovecot.",
+			master_service_get_name(master_service), NULL), 0);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	return client->output;
 }
@@ -157,7 +125,6 @@ smtp_client_send_host(struct smtp_client *client,
 	struct lmtp_client_settings client_set;
 	struct lmtp_client *lmtp_client;
 	struct ioloop *ioloop;
-	struct istream *input;
 	const char *host, *const *destp;
 	in_port_t port;
 
@@ -192,9 +159,8 @@ smtp_client_send_host(struct smtp_client *client,
 				     data_callback, client);
 	}
 
-	input = i_stream_create_fd(client->temp_fd, (size_t)-1);
-	lmtp_client_send(lmtp_client, input);
-	i_stream_unref(&input);
+	lmtp_client_send(lmtp_client, client->input);
+	i_stream_unref(&client->input);
 
 	if (!client->finished)
 		io_loop_run(ioloop);
@@ -222,7 +188,6 @@ smtp_client_send_sendmail(struct smtp_client *client,
 	unsigned int i;
 	struct program_client_settings pc_set;
 	struct program_client *pc;
-	struct istream *input;
 	int ret;
 
 	sendmail_args = t_strsplit(client->set->sendmail_path, " ");
@@ -251,9 +216,8 @@ smtp_client_send_sendmail(struct smtp_client *client,
 	pc = program_client_local_create
 		(sendmail_bin, array_idx(&args, 0), &pc_set);
 
-	input = i_stream_create_fd(client->temp_fd, (size_t)-1);
-	program_client_set_input(pc, input);
-	i_stream_unref(&input);
+	program_client_set_input(pc, client->input);
+	i_stream_unref(&client->input);
 
 	ret = program_client_run(pc);
 
@@ -275,8 +239,12 @@ void smtp_client_abort(struct smtp_client **_client)
 
 	*_client = NULL;
 
-	o_stream_ignore_last_errors(client->output);
-	o_stream_destroy(&client->output);
+	if (client->output != NULL) {
+		o_stream_ignore_last_errors(client->output);
+		o_stream_destroy(&client->output);
+	}
+	if (client->input != NULL)
+		i_stream_destroy(&client->input);
 	pool_unref(&client->pool);
 }
 
@@ -291,17 +259,8 @@ int smtp_client_deinit_timeout(struct smtp_client *client,
 	int ret;
 
 	/* the mail has been written to a file. now actually send it. */
-
-	if (o_stream_nfinish(client->output) < 0) {
-		*error_r = t_strdup_printf("write(%s) failed: %s",
-			client->temp_path, o_stream_get_error(client->output));
-		return -1;
-	}
-	if (o_stream_seek(client->output, 0) < 0) {
-		*error_r = t_strdup_printf("lseek(%s) failed: %s",
-			client->temp_path, o_stream_get_error(client->output));
-		return -1;
-	}
+	client->input = iostream_temp_finish
+		(&client->output, IO_BLOCK_SIZE);
 
 	if (*client->set->submission_host != '\0') {
 		ret = smtp_client_send_host
