@@ -7,6 +7,7 @@
 
 #include <sys/time.h>
 
+struct smtp_address;
 struct mail_storage;
 struct mail_save_context;
 struct mailbox;
@@ -35,12 +36,12 @@ struct mail_deliver_context {
 	struct mail *src_mail;
 
 	/* Envelope sender, if known. */
-	const char *mail_from;
+	const struct smtp_address *mail_from;
 
 	/* Envelope recipient (final recipient) */
-	const char *rcpt_to;
+	const struct smtp_address *rcpt_to;
 	/* Envelope recipient (original recipient) */
-	const char *rcpt_orig_to;
+	const struct smtp_address *rcpt_orig_to;
 	/* Destination user */
 	struct mail_user *rcpt_user;
 	/* Mailbox where mail should be saved, unless e.g. Sieve does
@@ -85,8 +86,10 @@ mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
 
-const char *mail_deliver_get_address(struct mail *mail, const char *header);
-const char *mail_deliver_get_return_address(struct mail_deliver_context *ctx);
+const struct smtp_address *
+mail_deliver_get_address(struct mail *mail, const char *header);
+const struct smtp_address *
+mail_deliver_get_return_address(struct mail_deliver_context *ctx);
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx);
 
 struct mail_deliver_session *mail_deliver_session_init(void);

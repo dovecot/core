@@ -9,6 +9,7 @@
 #include "unichar.h"
 #include "var-expand.h"
 #include "message-address.h"
+#include "smtp-address.h"
 #include "lda-settings.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
@@ -64,7 +65,8 @@ static MODULE_CONTEXT_DEFINE_INIT(mail_deliver_user_module,
 static MODULE_CONTEXT_DEFINE_INIT(mail_deliver_storage_module,
 				  &mail_storage_module_register);
 
-const char *mail_deliver_get_address(struct mail *mail, const char *header)
+const struct smtp_address *
+mail_deliver_get_address(struct mail *mail, const char *header)
 {
 	struct message_address *addr;
 	const char *str;
@@ -76,7 +78,7 @@ const char *mail_deliver_get_address(struct mail *mail, const char *header)
 				     strlen(str), 1, FALSE);
 	return addr == NULL || addr->mailbox == NULL || addr->domain == NULL ||
 		*addr->mailbox == '\0' || *addr->domain == '\0' ?
-		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
+		NULL : smtp_address_create_from_msg_temp(addr);
 }
 
 static void update_cache(pool_t pool, const char **old_str, const char *new_str)
@@ -106,7 +108,7 @@ mail_deliver_log_update_cache(struct mail_deliver_cache *cache, pool_t pool,
 		subject = str_sanitize(subject, 80);
 	update_cache(pool, &cache->subject, subject);
 
-	from = str_sanitize(mail_deliver_get_address(mail, "From"), 80);
+	from = smtp_address_encode(mail_deliver_get_address(mail, "From"));
 	update_cache(pool, &cache->from, from);
 
 	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE, &from_envelope) > 0)
@@ -149,7 +151,7 @@ mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 		{ 'w', dec2str(ctx->cache->vsize), "vsize" },
 		{ '\0', dec2str(delivery_time_msecs), "delivery_time" },
 		{ '\0', dec2str(ctx->session_time_msecs), "session_time" },
-		{ '\0', ctx->rcpt_orig_to, "to_envelope" },
+		{ '\0', smtp_address_encode(ctx->rcpt_orig_to), "to_envelope" },
 		{ '\0', ctx->cache->storage_id, "storage_id" },
 		{ '\0', NULL, NULL }
 	};
@@ -346,8 +348,10 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	kw = str_array_length(keywords) == 0 ? NULL :
 		mailbox_keywords_create_valid(box, keywords);
 	save_ctx = mailbox_save_alloc(t);
-	if (ctx->mail_from != NULL)
-		mailbox_save_set_from_envelope(save_ctx, ctx->mail_from);
+	if (ctx->mail_from != NULL) {
+		mailbox_save_set_from_envelope(save_ctx,
+			smtp_address_encode(ctx->mail_from));
+	}
 	mailbox_save_set_flags(save_ctx, flags, kw);
 
 	headers_ctx = mailbox_header_lookup_init(box, lda_log_wanted_headers);
@@ -398,12 +402,32 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	return ret;
 }
 
-const char *mail_deliver_get_return_address(struct mail_deliver_context *ctx)
+const struct smtp_address *
+mail_deliver_get_return_address(struct mail_deliver_context *ctx)
 {
+	struct smtp_address *address;
+	const char *path, *error;
+	int ret;
+
 	if (ctx->mail_from != NULL)
 		return ctx->mail_from;
 
-	return mail_deliver_get_address(ctx->src_mail, "Return-Path");
+	if ((ret=mail_get_first_header(ctx->src_mail,
+				       "Return-Path", &path)) <= 0) {
+		if (ret < 0) {
+			struct mailbox *box = ctx->src_mail->box;
+			i_warning("Failed read return-path header: %s",
+				mailbox_get_last_internal_error(box, NULL));
+		}
+		return NULL;
+	}
+	if (smtp_address_parse_path(ctx->pool, path,
+				    SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
+				    &address, &error) < 0) {
+		i_warning("Failed to parse return-path header: %s", error);
+		return NULL;
+	}
+	return address;
 }
 
 const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx)

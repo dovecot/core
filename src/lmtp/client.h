@@ -10,7 +10,7 @@ struct mail_recipient {
 	struct client *client;
 	const char *session_id;
 
-	const char *address;
+	struct smtp_address *address;
 	const char *detail; /* +detail part is also in address */
 	struct lmtp_recipient_params params;
 
@@ -22,7 +22,7 @@ struct mail_recipient {
 struct client_state {
 	const char *name;
 	const char *session_id;
-	const char *mail_from;
+	struct smtp_address *mail_from;
 	ARRAY(struct mail_recipient *) rcpt_to;
 	unsigned int rcpt_idx;
 

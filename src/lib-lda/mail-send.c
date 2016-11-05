@@ -16,6 +16,7 @@
 #include "mail-storage-settings.h"
 #include "lda-settings.h"
 #include "mail-deliver.h"
+#include "smtp-address.h"
 #include "smtp-submit.h"
 #include "mail-send.h"
 
@@ -53,8 +54,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	struct istream *input;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
-	const char *return_addr, *hdr;
-	const char *value, *msgid, *orig_msgid, *boundary, *error;
+	const struct smtp_address *return_addr;
+	const char *hdr, *value, *msgid, *orig_msgid, *boundary, *error;
 	const struct var_expand_table *vtable;
 	string_t *str;
 	int ret;
@@ -71,7 +72,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	}
 
 	return_addr = mail_deliver_get_return_address(ctx);
-	if (return_addr == NULL) {
+	if (smtp_address_isnull(return_addr)) {
 		i_info("msgid=%s: Return-Path missing, rejection reason: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 			str_sanitize(reason, 512));
@@ -80,13 +81,14 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 
 	if (mailbox_get_settings(mail->box)->mail_debug) {
 		i_debug("Sending a rejection to %s: %s",
-			return_addr, str_sanitize(reason, 512));
+			smtp_address_encode(return_addr),
+			str_sanitize(reason, 512));
 	}
 
 	vtable = get_var_expand_table(mail, reason, recipient);
 
 	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, NULL);
-	smtp_submit_add_rcpt(smtp_submit, return_addr);
+	smtp_submit_add_rcpt(smtp_submit, smtp_address_encode(return_addr));
 	output = smtp_submit_send(smtp_submit);
 
 	msgid = mail_deliver_get_new_message_id(ctx);
@@ -98,7 +100,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	str_append(str, "From: ");
 	message_address_write(str, mail_set->parsed_postmaster_address);
 	str_append(str, "\r\n");
-	str_printfa(str, "To: <%s>\r\n", return_addr);
+	str_printfa(str, "To: <%s>\r\n", smtp_address_encode(return_addr));
 	str_append(str, "MIME-Version: 1.0\r\n");
 	str_printfa(str, "Content-Type: "
 		"multipart/report; report-type=%s;\r\n"

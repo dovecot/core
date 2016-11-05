@@ -21,7 +21,9 @@
 #include "master-service-ssl.h"
 #include "iostream-ssl.h"
 #include "rfc822-parser.h"
+#include "smtp-address.h"
 #include "message-date.h"
+#include "message-address.h"
 #include "auth-master.h"
 #include "mail-storage-service.h"
 #include "index/raw/raw-storage.h"
@@ -119,40 +121,6 @@ int cmd_starttls(struct client *client)
 	return 0;
 }
 
-static int parse_address(const char *str, const char **address_r,
-			 const char **rest_r)
-{
-	const char *start;
-
-	if (*str++ != '<')
-		return -1;
-	start = str;
-	if (*str == '"') {
-		/* "quoted-string"@domain */
-		for (str++; *str != '"'; str++) {
-			if (*str == '\\')
-				str++;
-			if (*str == '\0')
-				return -1;
-		}
-		str++;
-	}
-	for (; *str != '>'; str++) {
-		if (*str == '\0' || *str == ' ')
-			return -1;
-	}
-	*address_r = t_strdup_until(start, str);
-	if (*str++ != '>')
-		return -1;
-
-	if (*str == ' ')
-		str++;
-	else if (*str != '\0')
-		return -1;
-	*rest_r = str;
-	return 0;
-}
-
 static const char *
 parse_xtext(struct client *client, const char *value)
 {
@@ -190,16 +158,30 @@ static void lmtp_anvil_init(void)
 
 int cmd_mail(struct client *client, const char *args)
 {
-	const char *addr, *const *argv;
+	struct smtp_address *address;
+	const char *const *argv;
+	const char *error;
 
 	if (client->state.mail_from != NULL) {
 		client_send_line(client, "503 5.5.1 MAIL already given");
 		return 0;
 	}
 
-	if (strncasecmp(args, "FROM:", 5) != 0 ||
-	    parse_address(args + 5, &addr, &args) < 0) {
+	if (strncasecmp(args, "FROM:", 5) != 0) {
 		client_send_line(client, "501 5.5.4 Invalid parameters");
+		return 0;
+	}
+	if (smtp_address_parse_path_full(pool_datastack_create(), args + 5,
+					 SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY,
+					 &address, &error, &args) < 0) {
+		client_send_line(client, "501 5.5.4 Invalid FROM: %s", error);
+		return 0;
+	}
+	if (*args == ' ')
+		args++;
+	else if (*args != '\0') {
+		client_send_line(client, "501 5.5.4 Invalid FROM: "
+			"Invalid character in path");
 		return 0;
 	}
 
@@ -216,10 +198,12 @@ int cmd_mail(struct client *client, const char *args)
 		}
 	}
 
-	client->state.mail_from = p_strdup(client->state_pool, addr);
+	client->state.mail_from =
+		smtp_address_clone(client->state_pool, address);
 	p_array_init(&client->state.rcpt_to, client->state_pool, 64);
 	client_send_line(client, "250 2.1.0 OK");
-	client_state_set(client, "MAIL FROM", client->state.mail_from);
+	client_state_set(client, "MAIL FROM",
+		smtp_address_encode(address));
 
 	if (client->lmtp_set->lmtp_user_concurrency_limit > 0) {
 		/* connect to anvil before dropping privileges */
@@ -316,23 +300,8 @@ client_proxy_is_ourself(const struct client *client,
 	return TRUE;
 }
 
-static const char *
-address_add_detail(const char *username, char delim_c,
-		   const char *detail)
-{
-	const char *domain;
-	const char delim[] = {delim_c, '\0'};
-
-	domain = strchr(username, '@');
-	if (domain == NULL)
-		return t_strconcat(username, delim, detail, NULL);
-	else {
-		username = t_strdup_until(username, domain);
-		return t_strconcat(username, delim, detail, domain, NULL);
-	}
-}
-
-static bool client_proxy_rcpt(struct client *client, const char *address,
+static bool client_proxy_rcpt(struct client *client,
+			      struct smtp_address *address,
 			      const char *username, const char *detail, char delim,
 			      const struct lmtp_recipient_params *params)
 {
@@ -341,6 +310,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
 	const char *args, *const *fields, *errstr, *orig_username = username;
+	struct smtp_address *user;
 	pool_t pool;
 	int ret;
 
@@ -361,7 +331,8 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 				      pool, &fields);
 	if (ret <= 0) {
 		errstr = ret < 0 && fields[0] != NULL ? t_strdup(fields[0]) :
-			t_strdup_printf(ERRSTR_TEMP_USERDB_FAIL, address);
+			t_strdup_printf(ERRSTR_TEMP_USERDB_FAIL,
+				smtp_address_encode(address));
 		pool_unref(&pool);
 		if (ret < 0) {
 			client_send_line(client, "%s", errstr);
@@ -384,15 +355,27 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		return FALSE;
 	}
 	if (strcmp(username, orig_username) != 0) {
+		if (smtp_address_parse_username(pool_datastack_create(),
+						username, &user, &errstr) < 0) {
+			i_error("%s: Username `%s' returned by passdb lookup is not a valid SMTP address",
+				orig_username, username);
+			client_send_line(client, "550 5.3.5 <%s> "
+				"Internal user lookup failure",
+				smtp_address_encode(address));
+			pool_unref(&pool);
+			return FALSE;
+		}
 		/* username changed. change the address as well */
-		if (*detail == '\0')
-			address = username;
-		else
-			address = address_add_detail(username, delim, detail);
+		if (*detail == '\0') {
+			address = user;
+		} else {
+			address = smtp_address_add_detail_temp(user, detail, delim);
+		}
 	} else if (client_proxy_is_ourself(client, &set)) {
 		i_error("Proxying to <%s> loops to itself", username);
 		client_send_line(client, "554 5.4.6 <%s> "
-				 "Proxying loops to itself", address);
+				 "Proxying loops to itself",
+				 smtp_address_encode(address));
 		pool_unref(&pool);
 		return TRUE;
 	}
@@ -409,7 +392,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 	if (array_count(&client->state.rcpt_to) != 0) {
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
-			address);
+			smtp_address_encode(address));
 		pool_unref(&pool);
 		return TRUE;
 	}
@@ -431,48 +414,17 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 			args = " BODY=7BIT";
 		else
 			args = "";
-		lmtp_proxy_mail_from(client->proxy, t_strdup_printf(
-			"<%s>%s", client->state.mail_from, args));
+		lmtp_proxy_mail_from(client->proxy,
+			t_strdup_printf("<%s>%s",
+				smtp_address_encode(client->state.mail_from), args));
 	}
-	if (lmtp_proxy_add_rcpt(client->proxy, address, &set) < 0)
+	if (lmtp_proxy_add_rcpt(client->proxy,
+		smtp_address_encode(address), &set) < 0)
 		client_send_line(client, ERRSTR_TEMP_REMOTE_FAILURE);
 	else
 		client_send_line(client, "250 2.1.5 OK");
 	pool_unref(&pool);
 	return TRUE;
-}
-
-static const char *lmtp_unescape_address(const char *name)
-{
-	string_t *str;
-	const char *p;
-
-	if (*name != '"')
-		return name;
-
-	/* quoted-string local-part. drop the quotes unless there's a
-	   '@' character inside or there's an error. */
-	str = t_str_new(128);
-	for (p = name+1; *p != '"'; p++) {
-		if (*p == '\0')
-			return name;
-		if (*p == '\\') {
-			if (p[1] == '\0') {
-				/* error */
-				return name;
-			}
-			p++;
-		}
-		if (*p == '@')
-			return name;
-		str_append_c(str, *p);
-	}
-	p++;
-	if (*p != '@' && *p != '\0')
-		return name;
-
-	str_append(str, p);
-	return str_c(str);
 }
 
 static void
@@ -482,8 +434,9 @@ client_send_line_overquota(struct client *client,
 	struct lda_settings *lda_set =
 		mail_storage_service_user_get_set(rcpt->service_user)[2];
 
-	client_send_line(client, "%s <%s> %s", lda_set->quota_full_tempfail ?
-			 "452 4.2.2" : "552 5.2.2", rcpt->address, error);
+	client_send_line(client, "%s <%s> %s",
+		lda_set->quota_full_tempfail ? "452 4.2.2" : "552 5.2.2",
+		smtp_address_encode(rcpt->address), error);
 }
 
 static int
@@ -514,7 +467,8 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 							    &user, &errstr);
 
 	if (ret < 0) {
-		i_error("Failed to initialize user %s: %s", rcpt->address, errstr);
+		i_error("Failed to initialize user %s: %s",
+			smtp_address_encode(rcpt->address), errstr);
 		return -1;
 	}
 
@@ -546,7 +500,7 @@ static bool cmd_rcpt_finish(struct client *client, struct mail_recipient *rcpt)
 	if ((ret = lmtp_rcpt_to_is_over_quota(client, rcpt)) != 0) {
 		if (ret < 0) {
 			client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-					 rcpt->address);
+					 smtp_address_encode(rcpt->address));
 		}
 		mail_storage_service_user_unref(&rcpt->service_user);
 		return FALSE;
@@ -573,7 +527,7 @@ static void rcpt_anvil_lookup_callback(const char *reply, void *context)
 	if (parallel_count >= client->lmtp_set->lmtp_user_concurrency_limit) {
 		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL_PREFIX
 				 "Too many concurrent deliveries for user",
-				 rcpt->address);
+				 smtp_address_encode(rcpt->address));
 		mail_storage_service_user_unref(&rcpt->service_user);
 	} else if (cmd_rcpt_finish(client, rcpt)) {
 		rcpt->anvil_connect_sent = TRUE;
@@ -591,7 +545,8 @@ int cmd_rcpt(struct client *client, const char *args)
 {
 	struct mail_recipient *rcpt;
 	struct mail_storage_service_input input;
-	const char *params, *address, *username, *detail;
+	struct smtp_address *address;
+	const char *username, *detail;
 	const char *const *argv;
 	const char *error = NULL;
 	char delim = '\0';
@@ -602,17 +557,28 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 
-	if (strncasecmp(args, "TO:", 3) != 0 ||
-	    parse_address(args + 3, &address, &params) < 0) {
+	if (strncasecmp(args, "TO:", 3) != 0) {
 		client_send_line(client, "501 5.5.4 Invalid parameters");
+		return 0;
+	}
+	if (smtp_address_parse_path_full(pool_datastack_create(), args + 3,
+					 SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART,
+					 &address, &error, &args) < 0) {
+		client_send_line(client, "501 5.5.4 Invalid TO: %s", error);
+		return 0;
+	}
+	if (*args == ' ')
+		args++;
+	else if (*args != '\0') {
+		client_send_line(client, "501 5.5.4 Invalid TO: "
+			"Invalid character in path");
 		return 0;
 	}
 
 	rcpt = p_new(client->state_pool, struct mail_recipient, 1);
 	rcpt->client = client;
-	address = lmtp_unescape_address(address);
 
-	argv = t_strsplit(params, " ");
+	argv = t_strsplit(args, " ");
 	for (; *argv != NULL; argv++) {
 		if (strncasecmp(*argv, "ORCPT=", 6) == 0) {
 			rcpt->params.dsn_orcpt = parse_xtext(client, *argv + 6);
@@ -621,10 +587,13 @@ int cmd_rcpt(struct client *client, const char *args)
 			return 0;
 		}
 	}
-	message_detail_address_parse(client->unexpanded_lda_set->recipient_delimiter,
-				     address, &username, &delim, &detail);
 
-	client_state_set(client, "RCPT TO", address);
+	smtp_address_detail_parse_temp(
+		client->unexpanded_lda_set->recipient_delimiter,
+		address, &username, &delim, &detail);
+
+	client_state_set(client, "RCPT TO",
+		smtp_address_encode(address));
 
 	if (client->lmtp_set->lmtp_proxy) {
 		if (client_proxy_rcpt(client, address, username, detail, delim,
@@ -657,13 +626,14 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	if (ret < 0) {
 		i_error("Failed to lookup user %s: %s", username, error);
-		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL, address);
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+			smtp_address_encode(address));
 		return 0;
 	}
 	if (ret == 0) {
 		client_send_line(client,
 				 "550 5.1.1 <%s> User doesn't exist: %s",
-				 address, username);
+				 smtp_address_encode(address), username);
 		return 0;
 	}
 	if (client->proxy != NULL) {
@@ -672,12 +642,12 @@ int cmd_rcpt(struct client *client, const char *args)
 		   (with and without Return-Path: header) */
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
-			address);
+			smtp_address_encode(address));
 		mail_storage_service_user_unref(&rcpt->service_user);
 		return 0;
 	}
 
-	rcpt->address = p_strdup(client->state_pool, address);
+	rcpt->address = smtp_address_clone(client->state_pool, address);
 	rcpt->detail = p_strdup(client->state_pool, detail);
 
 	if (client->lmtp_set->lmtp_user_concurrency_limit == 0) {
@@ -729,12 +699,20 @@ int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 	return 0;
 }
 
-static bool orcpt_get_valid_rfc822(const char *orcpt, const char **addr_r)
+static bool orcpt_get_valid_rfc822(const char *orcpt,
+	const struct smtp_address **addr_r)
 {
+	struct message_address *rfc822_addr;
+
 	if (orcpt == NULL || strncasecmp(orcpt, "rfc822;", 7) != 0)
 		return FALSE;
-	/* FIXME: we should verify the address further */
-	*addr_r = orcpt + 7;
+
+	rfc822_addr = message_address_parse(pool_datastack_create(),
+		(const unsigned char *)orcpt+7, strlen(orcpt+7), 2, FALSE);
+	if (rfc822_addr == NULL || rfc822_addr->invalid_syntax ||
+		rfc822_addr->next != NULL)
+		return FALSE;
+	*addr_r = smtp_address_create_temp(rfc822_addr->mailbox, rfc822_addr->domain);
 	return TRUE;
 }
 
@@ -788,7 +766,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 				      &dest_user, &error) < 0) {
 		i_error("Failed to initialize user: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 rcpt->address);
+				 smtp_address_encode(rcpt->address));
 		return -1;
 	}
 	client->state.dest_user = dest_user;
@@ -810,7 +788,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	if (ret <= 0) {
 		i_error("Failed to expand settings: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 rcpt->address);
+				 smtp_address_encode(rcpt->address));
 		return -1;
 	}
 
@@ -821,7 +799,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 		i_error("Failed to expand mail_log_prefix=%s: %s",
 			dest_user->set->mail_log_prefix, error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 rcpt->address);
+				 smtp_address_encode(rcpt->address));
 		return -1;
 	}
 	i_set_failure_prefix("%s", str_c(str));
@@ -867,11 +845,13 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			client->state.first_saved_mail = dctx.dest_mail;
 		}
 		client_send_line(client, "250 2.0.0 <%s> %s Saved",
-				 rcpt->address, rcpt->session_id);
+				 smtp_address_encode(rcpt->address),
+				 rcpt->session_id);
 		ret = 0;
 	} else if (dctx.tempfail_error != NULL) {
 		client_send_line(client, "451 4.2.0 <%s> %s",
-				 rcpt->address, dctx.tempfail_error);
+				 smtp_address_encode(rcpt->address),
+				 dctx.tempfail_error);
 		ret = -1;
 	} else if (storage != NULL) {
 		error = mail_storage_get_last_error(storage, &mail_error);
@@ -879,14 +859,14 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 			client_send_line_overquota(client, rcpt, error);
 		} else {
 			client_send_line(client, "451 4.2.0 <%s> %s",
-					 rcpt->address, error);
+					 smtp_address_encode(rcpt->address), error);
 		}
 		ret = -1;
 	} else {
 		/* This shouldn't happen */
 		i_error("BUG: Saving failed to unknown storage");
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 rcpt->address);
+				 smtp_address_encode(rcpt->address));
 		ret = -1;
 	}
 	return ret;
@@ -946,7 +926,7 @@ static void client_rcpt_fail_all(struct client *client)
 
 	array_foreach(&client->state.rcpt_to, rcptp) {
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 (*rcptp)->address);
+				 smtp_address_encode((*rcptp)->address));
 	}
 }
 
@@ -989,7 +969,7 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 	enum mail_error error;
 
 	if (raw_mailbox_alloc_stream(client->raw_mail_user, input,
-				     (time_t)-1, client->state.mail_from,
+				     (time_t)-1, smtp_address_encode(client->state.mail_from),
 				     &box) < 0) {
 		i_error("Can't open delivery mail as raw: %s",
 			mailbox_get_last_internal_error(box, &error));
@@ -1078,7 +1058,8 @@ static const char *client_get_added_headers(struct client *client)
 	string_t *str = t_str_new(200);
 	void **sets;
 	const struct lmtp_settings *lmtp_set;
-	const char *host, *rcpt_to = NULL;
+	const struct smtp_address *rcpt_to = NULL;
+	const char *host;
 
 	if (array_count(&client->state.rcpt_to) == 1) {
 		struct mail_recipient *const *rcptp =
@@ -1104,9 +1085,11 @@ static const char *client_get_added_headers(struct client *client)
 	/* don't set Return-Path when proxying so it won't get added twice */
 	if (array_count(&client->state.rcpt_to) > 0) {
 		str_printfa(str, "Return-Path: <%s>\r\n",
-			    client->state.mail_from);
-		if (rcpt_to != NULL)
-			str_printfa(str, "Delivered-To: %s\r\n", rcpt_to);
+			    smtp_address_encode(client->state.mail_from));
+		if (rcpt_to != NULL) {
+			str_printfa(str, "Delivered-To: %s\r\n",
+				smtp_address_encode(rcpt_to));
+		}
 	}
 
 	str_printfa(str, "Received: from %s", client->lhlo);
@@ -1123,7 +1106,7 @@ static const char *client_get_added_headers(struct client *client)
 
 	str_append(str, "\r\n\t");
 	if (rcpt_to != NULL)
-		str_printfa(str, "for <%s>", rcpt_to);
+		str_printfa(str, "for <%s>", smtp_address_encode(rcpt_to));
 	str_printfa(str, "; %s\r\n", message_date_create(ioloop_time));
 	return str_c(str);
 }
