@@ -266,6 +266,7 @@ headers = \
 	safe-mkstemp.h \
 	sendfile-util.h \
 	seq-range-array.h \
+	sha-common.h \
 	sha1.h \
 	sha2.h \
 	sort.h \
