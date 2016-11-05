@@ -27,16 +27,16 @@ struct smtp_client {
 	int temp_fd;
 	pid_t pid;
 
-	bool use_smtp;
-	bool success;
-	bool finished;
-
 	const struct lda_settings *set;
 	const char *temp_path;
 	ARRAY_TYPE(const_string) destinations;
 	const char *return_path;
 	const char *error;
-	bool tempfail;
+
+	bool use_smtp:1;
+	bool success:1;
+	bool finished:1;
+	bool tempfail:1;
 };
 
 static void ATTR_NORETURN
