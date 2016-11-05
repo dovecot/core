@@ -5,13 +5,13 @@
 #include "array.h"
 #include "str.h"
 #include "safe-mkstemp.h"
-#include "execv-const.h"
 #include "istream.h"
 #include "ostream.h"
 #include "master-service.h"
 #include "lmtp-client.h"
 #include "lda-settings.h"
 #include "mail-deliver.h"
+#include "program-client.h"
 #include "smtp-client.h"
 
 #include <unistd.h>
@@ -25,7 +25,6 @@ struct smtp_client {
 	pool_t pool;
 	struct ostream *output;
 	int temp_fd;
-	pid_t pid;
 
 	const struct lda_settings *set;
 	const char *temp_path;
@@ -33,42 +32,10 @@ struct smtp_client {
 	const char *return_path;
 	const char *error;
 
-	bool use_smtp:1;
 	bool success:1;
 	bool finished:1;
 	bool tempfail:1;
 };
-
-static void ATTR_NORETURN
-smtp_client_run_sendmail(struct smtp_client *client, int fd)
-{
-	const char *const *sendmail_args, *const *argv, *str;
-	ARRAY_TYPE(const_string) args;
-	unsigned int i;
-
-	sendmail_args = t_strsplit(client->set->sendmail_path, " ");
-	t_array_init(&args, 16);
-	for (i = 0; sendmail_args[i] != NULL; i++)
-		array_append(&args, &sendmail_args[i], 1);
-
-	str = "-i"; array_append(&args, &str, 1); /* ignore dots */
-	str = "-f"; array_append(&args, &str, 1);
-	str = client->return_path != NULL && *client->return_path != '\0' ?
-		client->return_path : "<>";
-	array_append(&args, &str, 1);
-
-	str = "--"; array_append(&args, &str, 1);
-	array_append_array(&args, &client->destinations);
-	array_append_zero(&args);
-	argv = array_idx(&args, 0);
-
-	if (dup2(fd, STDIN_FILENO) < 0)
-		i_fatal("dup2() failed: %m");
-
-	master_service_env_clean();
-
-	execv_const(argv[0], argv);
-}
 
 static int create_temp_file(const char **path_r)
 {
@@ -108,9 +75,7 @@ smtp_client_init(const struct lda_settings *set, const char *return_path)
 	client->pool = pool;
 	client->set = set;
 	client->return_path = p_strdup(pool, return_path);
-	client->use_smtp = *set->submission_host != '\0';
 	p_array_init(&client->destinations, pool, 2);
-	client->pid = (pid_t)-1;
 	return client;
 }
 
@@ -122,43 +87,12 @@ void smtp_client_add_rcpt(struct smtp_client *client, const char *address)
 	array_append(&client->destinations, &address, 1);
 }
 
-static struct ostream *smtp_client_send_sendmail(struct smtp_client *client)
-{
-	int fd[2];
-	pid_t pid;
-
-	if (pipe(fd) < 0) {
-		i_error("pipe() failed: %m");
-		return o_stream_create_error(errno);
-	}
-
-	if ((pid = fork()) == (pid_t)-1) {
-		i_error("fork() failed: %m");
-		i_close_fd(&fd[0]); i_close_fd(&fd[1]);
-		return o_stream_create_error(errno);
-	}
-	if (pid == 0) {
-		/* child */
-		i_close_fd(&fd[1]);
-		smtp_client_run_sendmail(client, fd[0]);
-	}
-	i_close_fd(&fd[0]);
-
-	client->output = o_stream_create_fd_autoclose(&fd[1], IO_BLOCK_SIZE);
-	o_stream_set_no_error_handling(client->output, TRUE);
-	client->pid = pid;
-	return client->output;
-}
-
 struct ostream *smtp_client_send(struct smtp_client *client)
 {
 	const char *path;
 	int fd;
 
 	i_assert(array_count(&client->destinations) > 0);
-
-	if (!client->use_smtp)
-		return smtp_client_send_sendmail(client);
 
 	if ((fd = create_temp_file(&path)) == -1)
 		return o_stream_create_error(errno);
@@ -167,36 +101,6 @@ struct ostream *smtp_client_send(struct smtp_client *client)
 	client->output = o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	return client->output;
-}
-
-static int smtp_client_deinit_sendmail(struct smtp_client *client)
-{
-	int ret = EX_TEMPFAIL, status;
-
-	o_stream_destroy(&client->output);
-
-	if (client->pid == (pid_t)-1) {
-		/* smtp_client_send() failed already */
-	} else if (waitpid(client->pid, &status, 0) < 0)
-		i_error("waitpid() failed: %m");
-	else if (WIFEXITED(status)) {
-		ret = WEXITSTATUS(status);
-		if (ret != 0) {
-			i_error("Sendmail process terminated abnormally, "
-				"exit status %d", ret);
-		}
-	} else if (WIFSIGNALED(status)) {
-		i_error("Sendmail process terminated abnormally, signal %d",
-			WTERMSIG(status));
-	} else if (WIFSTOPPED(status)) {
-		i_error("Sendmail process stopped, signal %d",
-			WSTOPSIG(status));
-	} else {
-		i_error("Sendmail process terminated abnormally, "
-			"return status %d", status);
-	}
-	pool_unref(&client->pool);
-	return ret;
 }
 
 static void smtp_client_send_finished(void *context)
@@ -247,7 +151,7 @@ data_callback(enum lmtp_client_result result, const char *reply, void *context)
 }
 
 static int
-smtp_client_send_flush(struct smtp_client *client,
+smtp_client_send_host(struct smtp_client *client,
 		       unsigned int timeout_secs, const char **error_r)
 {
 	struct lmtp_client_settings client_set;
@@ -261,18 +165,6 @@ smtp_client_send_flush(struct smtp_client *client,
 			     DEFAULT_SUBMISSION_PORT, &host, &port) < 0) {
 		*error_r = t_strdup_printf(
 			"Invalid submission_host: %s", host);
-		return -1;
-	}
-
-	if (o_stream_nfinish(client->output) < 0) {
-		*error_r = t_strdup_printf("write(%s) failed: %s",
-			client->temp_path, o_stream_get_error(client->output));
-		return -1;
-	}
-
-	if (o_stream_seek(client->output, 0) < 0) {
-		*error_r = t_strdup_printf("lseek(%s) failed: %s",
-			client->temp_path, o_stream_get_error(client->output));
 		return -1;
 	}
 
@@ -321,6 +213,62 @@ smtp_client_send_flush(struct smtp_client *client,
 	}
 }
 
+static int
+smtp_client_send_sendmail(struct smtp_client *client,
+		       unsigned int timeout_secs, const char **error_r)
+{
+	const char *const *sendmail_args, *sendmail_bin, *str;
+	ARRAY_TYPE(const_string) args;
+	unsigned int i;
+	struct program_client_settings pc_set;
+	struct program_client *pc;
+	struct istream *input;
+	int ret;
+
+	sendmail_args = t_strsplit(client->set->sendmail_path, " ");
+	t_array_init(&args, 16);
+	i_assert(sendmail_args[0] != NULL);
+	sendmail_bin = sendmail_args[0];
+	for (i = 1; sendmail_args[i] != NULL; i++)
+		array_append(&args, &sendmail_args[i], 1);
+
+	str = "-i"; array_append(&args, &str, 1); /* ignore dots */
+	str = "-f"; array_append(&args, &str, 1);
+	str = (client->return_path != NULL &&
+		*client->return_path != '\0' ?
+			client->return_path : "<>");
+	array_append(&args, &str, 1);
+
+	str = "--"; array_append(&args, &str, 1);
+	array_append_array(&args, &client->destinations);
+	array_append_zero(&args);
+
+	memset(&pc_set, 0, sizeof(pc_set));
+	pc_set.client_connect_timeout_msecs = timeout_secs * 1000;
+	pc_set.input_idle_timeout_msecs = timeout_secs * 1000;
+	restrict_access_init(&pc_set.restrict_set);
+
+	pc = program_client_local_create
+		(sendmail_bin, array_idx(&args, 0), &pc_set);
+
+	input = i_stream_create_fd(client->temp_fd, (size_t)-1);
+	program_client_set_input(pc, input);
+	i_stream_unref(&input);
+
+	ret = program_client_run(pc);
+
+	program_client_destroy(&pc);
+
+	if (ret < 0) {
+		*error_r = "Failed to execute sendmail";
+		return -1;
+	} else if (ret == 0) {
+		*error_r = "Sendmail program returned error";
+		return -1;
+	}
+	return 1;
+}
+
 void smtp_client_abort(struct smtp_client **_client)
 {
 	struct smtp_client *client = *_client;
@@ -328,14 +276,8 @@ void smtp_client_abort(struct smtp_client **_client)
 	*_client = NULL;
 
 	o_stream_ignore_last_errors(client->output);
-	if (!client->use_smtp) {
-		if (client->pid != (pid_t)-1)
-			(void)kill(client->pid, SIGTERM);
-		(void)smtp_client_deinit_sendmail(client);
-	} else {
-		o_stream_destroy(&client->output);
-		pool_unref(&client->pool);
-	}
+	o_stream_destroy(&client->output);
+	pool_unref(&client->pool);
 }
 
 int smtp_client_deinit(struct smtp_client *client, const char **error_r)
@@ -348,16 +290,26 @@ int smtp_client_deinit_timeout(struct smtp_client *client,
 {
 	int ret;
 
-	if (!client->use_smtp) {
-		if (smtp_client_deinit_sendmail(client) != 0) {
-			*error_r = "Failed to execute sendmail";
-			return -1;
-		}
-		return 1;
+	/* the mail has been written to a file. now actually send it. */
+
+	if (o_stream_nfinish(client->output) < 0) {
+		*error_r = t_strdup_printf("write(%s) failed: %s",
+			client->temp_path, o_stream_get_error(client->output));
+		return -1;
+	}
+	if (o_stream_seek(client->output, 0) < 0) {
+		*error_r = t_strdup_printf("lseek(%s) failed: %s",
+			client->temp_path, o_stream_get_error(client->output));
+		return -1;
 	}
 
-	/* the mail has been written to a file. now actually send it. */
-	ret = smtp_client_send_flush(client, timeout_secs, error_r);
+	if (*client->set->submission_host != '\0') {
+		ret = smtp_client_send_host
+			(client, timeout_secs, error_r);
+	} else {
+		ret = smtp_client_send_sendmail
+			(client, timeout_secs, error_r);
+	}
 
 	smtp_client_abort(&client);
 	return ret;

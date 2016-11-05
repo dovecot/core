@@ -7,7 +7,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-mail \
-	-I$(top_srcdir)/src/lib-storage
+	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-program-client
 
 liblda_la_SOURCES = \
 	duplicate.c \
