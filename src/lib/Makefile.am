@@ -133,6 +133,7 @@ liblib_la_SOURCES = \
 	seq-range-array.c \
 	sha1.c \
 	sha2.c \
+	sha3.c \
 	sort.c \
 	str.c \
 	str-find.c \
@@ -272,6 +273,7 @@ headers = \
 	sha-common.h \
 	sha1.h \
 	sha2.h \
+	sha3.h \
 	sort.h \
 	str.h \
 	str-find.h \

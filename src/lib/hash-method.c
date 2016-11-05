@@ -5,6 +5,7 @@
 #include "md5.h"
 #include "sha1.h"
 #include "sha2.h"
+#include "sha3.h"
 #include "hash-method.h"
 
 const struct hash_method *hash_method_lookup(const char *name)
@@ -63,6 +64,8 @@ const struct hash_method *hash_methods[] = {
 	&hash_method_sha1,
 	&hash_method_sha256,
 	&hash_method_sha512,
+	&hash_method_sha3_256,
+	&hash_method_sha3_512,
 	&hash_method_size,
 	NULL
 };
