@@ -35,12 +35,7 @@
 #define SHA2_H
 
 #include "hash-method.h"
-
-#define SHA256_RESULTLEN (256 / 8)
-#define SHA256_BLOCK_SIZE (512 / 8)
-
-#define SHA512_RESULTLEN (512 / 8)
-#define SHA512_BLOCK_SIZE (1024 / 8)
+#include "sha-common.h"
 
 struct sha256_ctx {
 	size_t tot_len;
