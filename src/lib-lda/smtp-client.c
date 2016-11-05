@@ -208,115 +208,115 @@ static void smtp_client_send_finished(void *context)
 }
 
 static void
-smtp_client_error(struct smtp_client *smtp_client, const char *error)
+smtp_client_error(struct smtp_client *client, const char *error)
 {
-	if (smtp_client->error == NULL) {
-		smtp_client->error = i_strdup_printf("smtp(%s): %s",
-			smtp_client->set->submission_host, error);
+	if (client->error == NULL) {
+		client->error = i_strdup_printf("smtp(%s): %s",
+			client->set->submission_host, error);
 	}
 }
 
 static void
 rcpt_to_callback(enum lmtp_client_result result, const char *reply, void *context)
 {
-	struct smtp_client *smtp_client = context;
+	struct smtp_client *client = context;
 
 	if (result != LMTP_CLIENT_RESULT_OK) {
 		if (reply[0] != '5')
-			smtp_client->tempfail = TRUE;
-		smtp_client_error(smtp_client, t_strdup_printf(
+			client->tempfail = TRUE;
+		smtp_client_error(client, t_strdup_printf(
 			"RCPT TO failed: %s", reply));
-		smtp_client_send_finished(smtp_client);
+		smtp_client_send_finished(client);
 	}
 }
 
 static void
 data_callback(enum lmtp_client_result result, const char *reply, void *context)
 {
-	struct smtp_client *smtp_client = context;
+	struct smtp_client *client = context;
 
 	if (result != LMTP_CLIENT_RESULT_OK) {
 		if (reply[0] != '5')
-			smtp_client->tempfail = TRUE;
-		smtp_client_error(smtp_client, t_strdup_printf(
+			client->tempfail = TRUE;
+		smtp_client_error(client, t_strdup_printf(
 			"DATA failed: %s", reply));
-		smtp_client_send_finished(smtp_client);
+		smtp_client_send_finished(client);
 	} else {
-		smtp_client->success = TRUE;
+		client->success = TRUE;
 	}
 }
 
 static int
-smtp_client_send_flush(struct smtp_client *smtp_client,
+smtp_client_send_flush(struct smtp_client *client,
 		       unsigned int timeout_secs, const char **error_r)
 {
 	struct lmtp_client_settings client_set;
-	struct lmtp_client *client;
+	struct lmtp_client *lmtp_client;
 	struct ioloop *ioloop;
 	struct istream *input;
 	const char *host, *const *destp;
 	in_port_t port;
 
-	if (net_str2hostport(smtp_client->set->submission_host,
+	if (net_str2hostport(client->set->submission_host,
 			     DEFAULT_SUBMISSION_PORT, &host, &port) < 0) {
 		*error_r = t_strdup_printf(
 			"Invalid submission_host: %s", host);
 		return -1;
 	}
 
-	if (o_stream_nfinish(smtp_client->output) < 0) {
+	if (o_stream_nfinish(client->output) < 0) {
 		*error_r = t_strdup_printf("write(%s) failed: %s",
-			smtp_client->temp_path, o_stream_get_error(smtp_client->output));
+			client->temp_path, o_stream_get_error(client->output));
 		return -1;
 	}
 
-	if (o_stream_seek(smtp_client->output, 0) < 0) {
+	if (o_stream_seek(client->output, 0) < 0) {
 		*error_r = t_strdup_printf("lseek(%s) failed: %s",
-			smtp_client->temp_path, o_stream_get_error(smtp_client->output));
+			client->temp_path, o_stream_get_error(client->output));
 		return -1;
 	}
 
 	i_zero(&client_set);
-	client_set.mail_from = smtp_client->return_path == NULL ? "<>" :
-		t_strconcat("<", smtp_client->return_path, ">", NULL);
-	client_set.my_hostname = smtp_client->set->hostname;
+	client_set.mail_from = client->return_path == NULL ? "<>" :
+		t_strconcat("<", client->return_path, ">", NULL);
+	client_set.my_hostname = client->set->hostname;
 	client_set.timeout_secs = timeout_secs;
 
 	ioloop = io_loop_create();
-	client = lmtp_client_init(&client_set, smtp_client_send_finished,
-				  smtp_client);
+	lmtp_client = lmtp_client_init(&client_set, smtp_client_send_finished,
+				  client);
 
-	if (lmtp_client_connect_tcp(client, LMTP_CLIENT_PROTOCOL_SMTP,
+	if (lmtp_client_connect_tcp(lmtp_client, LMTP_CLIENT_PROTOCOL_SMTP,
 				    host, port) < 0) {
-		lmtp_client_deinit(&client);
+		lmtp_client_deinit(&lmtp_client);
 		io_loop_destroy(&ioloop);
 		*error_r = t_strdup_printf("Couldn't connect to %s:%u",
 					   host, port);
 		return -1;
 	}
 
-	array_foreach(&smtp_client->destinations, destp) {
-		lmtp_client_add_rcpt(client, *destp, rcpt_to_callback,
-				     data_callback, smtp_client);
+	array_foreach(&client->destinations, destp) {
+		lmtp_client_add_rcpt(lmtp_client, *destp, rcpt_to_callback,
+				     data_callback, client);
 	}
 
-	input = i_stream_create_fd(smtp_client->temp_fd, (size_t)-1, FALSE);
-	lmtp_client_send(client, input);
+	input = i_stream_create_fd(client->temp_fd, (size_t)-1, FALSE);
+	lmtp_client_send(lmtp_client, input);
 	i_stream_unref(&input);
 
-	if (!smtp_client->finished)
+	if (!client->finished)
 		io_loop_run(ioloop);
 	io_loop_destroy(&ioloop);
 
-	if (smtp_client->success)
+	if (client->success)
 		return 1;
-	else if (smtp_client->tempfail) {
-		i_assert(smtp_client->error != NULL);
-		*error_r = t_strdup(smtp_client->error);
+	else if (client->tempfail) {
+		i_assert(client->error != NULL);
+		*error_r = t_strdup(client->error);
 		return -1;
 	} else {
-		i_assert(smtp_client->error != NULL);
-		*error_r = t_strdup(smtp_client->error);
+		i_assert(client->error != NULL);
+		*error_r = t_strdup(client->error);
 		return 0;
 	}
 }
