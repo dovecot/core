@@ -8,6 +8,9 @@
 
 #define LMTP_PROXY_DEFAULT_TTL 5
 
+struct smtp_address;
+struct client;
+
 struct lmtp_proxy_settings {
 	const char *my_hostname;
 	const char *dns_client_socket_path;
@@ -44,9 +47,16 @@ void lmtp_proxy_mail_from(struct lmtp_proxy *proxy,
 int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
 			const struct smtp_address *address,
 			const struct lmtp_proxy_rcpt_settings *set);
+
+bool client_proxy_rcpt(struct client *client,
+		       struct smtp_address *address,
+		       const char *username, const char *detail, char delim,
+		       struct smtp_params_rcpt *params);
+
 /* Start proxying */
 void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 		      lmtp_proxy_finish_callback_t *callback, void *context)
 	ATTR_NULL(3);
+
 
 #endif
