@@ -13,6 +13,7 @@ AM_CPPFLAGS = \
 libsmtp_la_SOURCES = \
 	smtp-parser.c \
 	smtp-address.c \
+	smtp-syntax.c \
 	lmtp-client.c \
 	smtp-submit-settings.c \
 	smtp-submit.c
@@ -20,6 +21,7 @@ libsmtp_la_SOURCES = \
 headers = \
 	smtp-parser.h \
 	smtp-address.h \
+	smtp-syntax.h \
 	lmtp-client.h \
 	smtp-submit-settings.h \
 	smtp-submit.h
