@@ -51,6 +51,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	struct ostream *output;
 	const char *return_addr, *hdr;
 	const char *value, *msgid, *orig_msgid, *boundary, *error;
+	const struct var_expand_table *vtable;
 	string_t *str;
 	int ret;
 
@@ -78,6 +79,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			return_addr, str_sanitize(reason, 512));
 	}
 
+	vtable = get_var_expand_table(mail, reason, recipient);
+
 	smtp_client = smtp_client_init(ctx->set, NULL);
 	smtp_client_add_rcpt(smtp_client, return_addr);
 	output = smtp_client_send(smtp_client);
@@ -99,7 +102,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 		boundary);
 	str_append(str, "Subject: ");
 	if (var_expand(str, ctx->set->rejection_subject,
-	    get_var_expand_table(mail, reason, recipient), &error) <= 0) {
+		vtable, &error) <= 0) {
 		i_error("Failed to expand rejection_subject=%s: %s",
 			ctx->set->rejection_subject, error);
 	}
@@ -116,7 +119,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	str_append(str, "Content-Transfer-Encoding: 8bit\r\n\r\n");
 
 	if (var_expand(str, ctx->set->rejection_reason,
-	    get_var_expand_table(mail, reason, recipient), &error) <= 0) {
+		vtable, &error) <= 0) {
 		i_error("Failed to expand rejection_reason=%s: %s",
 			ctx->set->rejection_reason, error);
 	}
