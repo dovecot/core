@@ -23,8 +23,9 @@
 #include <sys/wait.h>
 
 static const struct var_expand_table *
-get_var_expand_table(struct mail *mail, const char *reason,
-		     const char *recipient)
+get_var_expand_table(struct mail *mail,
+		     const struct smtp_address *recipient,
+		     const char *reason)
 {
 	const char *subject;
 	if (mail_get_first_header(mail, "Subject", &subject) <= 0)
@@ -34,7 +35,7 @@ get_var_expand_table(struct mail *mail, const char *reason,
 		{ 'n', "\r\n", "crlf" },
 		{ 'r', reason, "reason" },
 		{ 's', str_sanitize(subject, 80), "subject" },
-		{ 't', recipient, "to" },
+		{ 't', smtp_address_encode(recipient), "to" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -44,7 +45,8 @@ get_var_expand_table(struct mail *mail, const char *reason,
 	return tab;
 }
 
-int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
+int mail_send_rejection(struct mail_deliver_context *ctx,
+			const struct smtp_address *recipient,
 			const char *reason)
 {
 	struct mail_user *user = ctx->rcpt_user;
@@ -80,12 +82,12 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	}
 
 	if (mailbox_get_settings(mail->box)->mail_debug) {
-		i_debug("Sending a rejection to %s: %s",
+		i_debug("Sending a rejection to <%s>: %s",
 			smtp_address_encode(return_addr),
 			str_sanitize(reason, 512));
 	}
 
-	vtable = get_var_expand_table(mail, reason, recipient);
+	vtable = get_var_expand_table(mail, recipient, reason);
 
 	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, NULL);
 	smtp_submit_add_rcpt(smtp_submit, smtp_address_encode(return_addr));
@@ -141,7 +143,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 		str_printfa(str, "Reporting-MTA: dns; %s\r\n", mail_set->hostname);
 		if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 			str_printfa(str, "Original-Recipient: rfc822; %s\r\n", hdr);
-		str_printfa(str, "Final-Recipient: rfc822; %s\r\n", recipient);
+		str_printfa(str, "Final-Recipient: rfc822; %s\r\n",
+			smtp_address_encode(recipient));
 		str_append(str, "Action: failed\r\n");
 		str_printfa(str, "Status: %s\r\n", ctx->mailbox_full ? "5.2.2" : "5.2.0");
 	} else {
@@ -153,7 +156,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			mail_set->hostname);
 		if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 			str_printfa(str, "Original-Recipient: rfc822; %s\r\n", hdr);
-		str_printfa(str, "Final-Recipient: rfc822; %s\r\n", recipient);
+		str_printfa(str, "Final-Recipient: rfc822; %s\r\n",
+			smtp_address_encode(recipient));
 
 		if (orig_msgid != NULL)
 			str_printfa(str, "Original-Message-ID: %s\r\n", orig_msgid);

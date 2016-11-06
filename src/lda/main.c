@@ -496,7 +496,7 @@ int main(int argc, char *argv[])
 
 		if (stderr_rejection)
 			return EX_NOPERM;
-		ret = mail_send_rejection(&ctx, user, errstr);
+		ret = mail_send_rejection(&ctx, ctx.rcpt_to, errstr);
 		if (ret != 0)
 			return ret < 0 ? EX_TEMPFAIL : ret;
 		/* ok, rejection sent */

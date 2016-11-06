@@ -4,7 +4,8 @@
 struct mail;
 struct mail_deliver_context;
 
-int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
+int mail_send_rejection(struct mail_deliver_context *ctx,
+			const struct smtp_address *recipient,
 			const char *reason);
 
 #endif
