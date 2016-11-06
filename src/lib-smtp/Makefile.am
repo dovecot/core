@@ -12,12 +12,14 @@ AM_CPPFLAGS = \
 
 libsmtp_la_SOURCES = \
 	smtp-parser.c \
+	smtp-address.c \
 	lmtp-client.c \
 	smtp-submit-settings.c \
 	smtp-submit.c
 
 headers = \
 	smtp-parser.h \
+	smtp-address.h \
 	lmtp-client.h \
 	smtp-submit-settings.h \
 	smtp-submit.h
@@ -25,7 +27,8 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
-test_programs =
+test_programs = \
+	test-smtp-address
 
 test_nocheck_programs = \
 	test-smtp-submit
@@ -33,7 +36,7 @@ test_nocheck_programs = \
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
 test_libs = \
-	libsmtp.la \
+	$(noinst_LTLIBRARIES) \
 	../lib-program-client/libprogram_client.la \
 	../lib-dns/libdns.la \
 	../lib-mail/libmail.la \
@@ -46,7 +49,7 @@ test_libs = \
 	$(MODULE_LIBS)
 
 test_deps = \
-	libsmtp.la \
+	$(noinst_LTLIBRARIES) \
 	../lib-program-client/libprogram_client.la \
 	../lib-dns/libdns.la \
 	../lib-mail/libmail.la \
@@ -56,6 +59,11 @@ test_deps = \
 	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
+
+test_smtp_address_SOURCES = test-smtp-address.c
+test_smtp_address_LDFLAGS = -export-dynamic
+test_smtp_address_LDADD = $(test_libs)
+test_smtp_address_DEPENDENCIES = $(test_deps)
 
 test_smtp_submit_SOURCES = test-smtp-submit.c
 test_smtp_submit_LDFLAGS = -export-dynamic
