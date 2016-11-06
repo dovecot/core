@@ -12,10 +12,23 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-DTEST_BIN_DIR=\"$(abs_srcdir)/test-bin\"
 
+smtp_server_cmds = \
+	smtp-server-cmd-helo.c \
+	smtp-server-cmd-starttls.c \
+	smtp-server-cmd-auth.c \
+	smtp-server-cmd-mail.c \
+	smtp-server-cmd-rcpt.c \
+	smtp-server-cmd-data.c \
+	smtp-server-cmd-rset.c \
+	smtp-server-cmd-noop.c \
+	smtp-server-cmd-quit.c \
+	smtp-server-cmd-vrfy.c \
+	smtp-server-cmd-xclient.c
+
 libsmtp_la_SOURCES = \
 	smtp-parser.c \
-	smtp-address.c \
 	smtp-syntax.c \
+	smtp-address.c \
 	smtp-common.c \
 	smtp-params.c \
 	smtp-reply.c \
@@ -25,13 +38,19 @@ libsmtp_la_SOURCES = \
 	smtp-client-transaction.c \
 	smtp-client-connection.c \
 	smtp-client.c \
+	$(smtp_server_cmds) \
+	smtp-server-reply.c \
+	smtp-server-command.c \
+	smtp-server-transaction.c \
+	smtp-server-connection.c \
+	smtp-server.c \
 	smtp-submit-settings.c \
 	smtp-submit.c
 
 headers = \
 	smtp-parser.h \
-	smtp-address.h \
 	smtp-syntax.h \
+	smtp-address.h \
 	smtp-common.h \
 	smtp-params.h \
 	smtp-reply.h \
@@ -43,6 +62,8 @@ headers = \
 	smtp-client-connection.h \
 	smtp-client-private.h \
 	smtp-client.h \
+	smtp-server-private.h \
+	smtp-server.h \
 	smtp-submit-settings.h \
 	smtp-submit.h
 
