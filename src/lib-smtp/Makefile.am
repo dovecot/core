@@ -11,11 +11,13 @@ AM_CPPFLAGS = \
 	-DTEST_BIN_DIR=\"$(abs_srcdir)/test-bin\"
 
 libsmtp_la_SOURCES = \
+	smtp-parser.c \
 	lmtp-client.c \
 	smtp-submit-settings.c \
 	smtp-submit.c
 
 headers = \
+	smtp-parser.h \
 	lmtp-client.h \
 	smtp-submit-settings.h \
 	smtp-submit.h
