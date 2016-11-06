@@ -5,6 +5,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-sasl \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-program-client \
 	-I$(top_srcdir)/src/lib-mail \
@@ -18,6 +20,10 @@ libsmtp_la_SOURCES = \
 	smtp-params.c \
 	smtp-reply.c \
 	smtp-reply-parser.c \
+	smtp-client-command.c \
+	smtp-client-transaction.c \
+	smtp-client-connection.c \
+	smtp-client.c \
 	lmtp-client.c \
 	smtp-submit-settings.c \
 	smtp-submit.c
@@ -30,6 +36,11 @@ headers = \
 	smtp-params.h \
 	smtp-reply.h \
 	smtp-reply-parser.h \
+	smtp-client-command.h \
+	smtp-client-transaction.h \
+	smtp-client-connection.h \
+	smtp-client-private.h \
+	smtp-client.h \
 	lmtp-client.h \
 	smtp-submit-settings.h \
 	smtp-submit.h
@@ -56,6 +67,7 @@ test_libs = \
 	../lib-master/libmaster.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
+	../lib-sasl/libsasl.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
@@ -69,6 +81,7 @@ test_deps = \
 	../lib-master/libmaster.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
+	../lib-sasl/libsasl.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
