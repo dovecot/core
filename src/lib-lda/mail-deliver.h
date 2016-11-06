@@ -4,6 +4,7 @@
 #include "guid.h"
 #include "mail-types.h"
 #include "mail-error.h"
+#include "smtp-params.h"
 
 #include <sys/time.h>
 
@@ -37,11 +38,13 @@ struct mail_deliver_context {
 
 	/* Envelope sender, if known. */
 	const struct smtp_address *mail_from;
+	/* MAIL parameters */
+	struct smtp_params_mail mail_params;
 
 	/* Envelope recipient (final recipient) */
 	const struct smtp_address *rcpt_to;
-	/* Envelope recipient (original recipient) */
-	const struct smtp_address *rcpt_orig_to;
+	/* RCPT parameters (can contain original recipient) */
+	struct smtp_params_rcpt rcpt_params;
 	/* Destination user */
 	struct mail_user *rcpt_user;
 	/* Mailbox where mail should be saved, unless e.g. Sieve does

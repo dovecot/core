@@ -2,6 +2,7 @@
 #define CLIENT_H
 
 #include "net.h"
+#include "smtp-params.h"
 #include "lmtp-client.h"
 
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
@@ -12,7 +13,7 @@ struct mail_recipient {
 
 	struct smtp_address *address;
 	const char *detail; /* +detail part is also in address */
-	struct lmtp_recipient_params params;
+	struct smtp_params_rcpt params;
 
 	struct anvil_query *anvil_query;
 	bool anvil_connect_sent;
@@ -23,6 +24,7 @@ struct client_state {
 	const char *name;
 	const char *session_id;
 	struct smtp_address *mail_from;
+	struct smtp_params_mail mail_params;
 	ARRAY(struct mail_recipient *) rcpt_to;
 	unsigned int rcpt_idx;
 
@@ -41,9 +43,6 @@ struct client_state {
 
 	struct mail_user *dest_user;
 	struct mail *first_saved_mail;
-
-	bool mail_body_7bit:1;
-	bool mail_body_8bitmime:1;
 };
 
 struct client {

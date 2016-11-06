@@ -151,7 +151,7 @@ mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 		{ 'w', dec2str(ctx->cache->vsize), "vsize" },
 		{ '\0', dec2str(delivery_time_msecs), "delivery_time" },
 		{ '\0', dec2str(ctx->session_time_msecs), "session_time" },
-		{ '\0', smtp_address_encode(ctx->rcpt_orig_to), "to_envelope" },
+		{ '\0', smtp_address_encode(ctx->rcpt_params.orcpt.addr), "to_envelope" },
 		{ '\0', ctx->cache->storage_id, "storage_id" },
 		{ '\0', NULL, NULL }
 	};

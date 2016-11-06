@@ -206,7 +206,7 @@ lda_set_rcpt_to(struct mail_deliver_context *ctx,
 		rcpt_to_source = "user@hostname";
 	}
 
-	ctx->rcpt_orig_to = rcpt_to;
+	ctx->rcpt_params.orcpt.addr = rcpt_to;
 	if (ctx->rcpt_to == NULL)
 		ctx->rcpt_to = rcpt_to;
 

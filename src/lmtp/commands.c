@@ -121,33 +121,6 @@ int cmd_starttls(struct client *client)
 	return 0;
 }
 
-static const char *
-parse_xtext(struct client *client, const char *value)
-{
-	const char *p;
-	string_t *str;
-	unsigned int i;
-
-	p = strchr(value, '+');
-	if (p == NULL)
-		return p_strdup(client->state_pool, value);
-
-	/*
-	   hexchar = ASCII "+" immediately followed by two upper case
-		     hexadecimal digits
-	*/
-	str = t_str_new(128);
-	for (i = 0; value[i] != '\0'; i++) {
-		if (value[i] == '+' && value[i+1] != '\0' && value[i+2] != '\0') {
-			str_append_c(str, hex2dec((const void *)(value+i+1), 2));
-			i += 2;
-		} else {
-			str_append_c(str, value[i]);
-		}
-	}
-	return p_strdup(client->state_pool, str_c(str));
-}
-
 static void lmtp_anvil_init(void)
 {
 	if (anvil == NULL) {
@@ -159,7 +132,7 @@ static void lmtp_anvil_init(void)
 int cmd_mail(struct client *client, const char *args)
 {
 	struct smtp_address *address;
-	const char *const *argv;
+	enum smtp_param_parse_error pperror;
 	const char *error;
 
 	if (client->state.mail_from != NULL) {
@@ -185,17 +158,21 @@ int cmd_mail(struct client *client, const char *args)
 		return 0;
 	}
 
-	argv = t_strsplit(args, " ");
-	for (; *argv != NULL; argv++) {
-		if (strcasecmp(*argv, "BODY=7BIT") == 0)
-			client->state.mail_body_7bit = TRUE;
-		else if (strcasecmp(*argv, "BODY=8BITMIME") == 0)
-			client->state.mail_body_8bitmime = TRUE;
-		else {
-			client_send_line(client,
-				"501 5.5.4 Unsupported options");
-			return 0;
+	/* [SP Mail-parameters] */
+	if (smtp_params_mail_parse(client->state_pool, args,
+		SMTP_CAPABILITY_8BITMIME, FALSE,
+		&client->state.mail_params, &pperror, &error) < 0) {
+		switch (pperror) {
+		case SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX:
+			client_send_line(client, "501 5.5.4 %s", error);
+			break;
+		case SMTP_PARAM_PARSE_ERROR_NOT_SUPPORTED:
+			client_send_line(client, "555 5.5.4 %s", error);
+			break;
+		default:
+			i_unreached();
 		}
+		return 0;
 	}
 
 	client->state.mail_from =
@@ -408,12 +385,20 @@ static bool client_proxy_rcpt(struct client *client,
 		proxy_set.proxy_ttl = client->proxy_ttl-1;
 
 		client->proxy = lmtp_proxy_init(&proxy_set, client->output);
-		if (client->state.mail_body_8bitmime)
-			args = " BODY=8BITMIME";
-		else if (client->state.mail_body_7bit)
+		args = "";
+		switch (client->state.mail_params.body.type) {
+		case SMTP_PARAM_MAIL_BODY_TYPE_UNSPECIFIED:
+			break;
+		case SMTP_PARAM_MAIL_BODY_TYPE_7BIT:
 			args = " BODY=7BIT";
-		else
-			args = "";
+			break;
+		case SMTP_PARAM_MAIL_BODY_TYPE_8BITMIME:
+			args = " BODY=8BITMIME";
+			break;
+		case SMTP_PARAM_MAIL_BODY_TYPE_BINARYMIME:
+		case SMTP_PARAM_MAIL_BODY_TYPE_EXTENSION:
+			i_unreached();
+		}
 		lmtp_proxy_mail_from(client->proxy,
 			t_strdup_printf("<%s>%s",
 				smtp_address_encode(client->state.mail_from), args));
@@ -547,7 +532,7 @@ int cmd_rcpt(struct client *client, const char *args)
 	struct mail_storage_service_input input;
 	struct smtp_address *address;
 	const char *username, *detail;
-	const char *const *argv;
+	enum smtp_param_parse_error pperror;
 	const char *error = NULL;
 	char delim = '\0';
 	int ret = 0;
@@ -578,14 +563,21 @@ int cmd_rcpt(struct client *client, const char *args)
 	rcpt = p_new(client->state_pool, struct mail_recipient, 1);
 	rcpt->client = client;
 
-	argv = t_strsplit(args, " ");
-	for (; *argv != NULL; argv++) {
-		if (strncasecmp(*argv, "ORCPT=", 6) == 0) {
-			rcpt->params.dsn_orcpt = parse_xtext(client, *argv + 6);
-		} else {
-			client_send_line(client, "501 5.5.4 Unsupported options");
-			return 0;
+	/* [SP Rcpt-parameters] */
+	if (smtp_params_rcpt_parse(client->state_pool, args,
+		SMTP_CAPABILITY_DSN, FALSE,
+		&rcpt->params, &pperror, &error) < 0) {
+		switch (pperror) {
+		case SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX:
+			client_send_line(client, "501 5.5.4 %s", error);
+			break;
+		case SMTP_PARAM_PARSE_ERROR_NOT_SUPPORTED:
+			client_send_line(client, "555 5.5.4 %s", error);
+			break;
+		default:
+			i_unreached();
 		}
+		return 0;
 	}
 
 	smtp_address_detail_parse_temp(
@@ -596,8 +588,12 @@ int cmd_rcpt(struct client *client, const char *args)
 		smtp_address_encode(address));
 
 	if (client->lmtp_set->lmtp_proxy) {
+		struct lmtp_recipient_params params;
+
+		i_zero(&params);
+		params.dsn_orcpt = rcpt->params.orcpt.addr_raw;
 		if (client_proxy_rcpt(client, address, username, detail, delim,
-				      &rcpt->params))
+				      &params))
 			return 0;
 	}
 
@@ -699,23 +695,6 @@ int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 	return 0;
 }
 
-static bool orcpt_get_valid_rfc822(const char *orcpt,
-	const struct smtp_address **addr_r)
-{
-	struct message_address *rfc822_addr;
-
-	if (orcpt == NULL || strncasecmp(orcpt, "rfc822;", 7) != 0)
-		return FALSE;
-
-	rfc822_addr = message_address_parse(pool_datastack_create(),
-		(const unsigned char *)orcpt+7, strlen(orcpt+7), 2, FALSE);
-	if (rfc822_addr == NULL || rfc822_addr->invalid_syntax ||
-		rfc822_addr->next != NULL)
-		return FALSE;
-	*addr_r = smtp_address_create_temp(rfc822_addr->mailbox, rfc822_addr->domain);
-	return TRUE;
-}
-
 static int
 client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	       struct mail *src_mail, struct mail_deliver_session *session)
@@ -812,20 +791,22 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.session_id = rcpt->session_id;
 	dctx.src_mail = src_mail;
 	dctx.mail_from = client->state.mail_from;
+	dctx.mail_params = client->state.mail_params;
 	dctx.rcpt_user = dest_user;
 	dctx.session_time_msecs =
 		timeval_diff_msecs(&client->state.data_end_timeval,
 				   &client->state.mail_from_timeval);
 	dctx.delivery_time_started = delivery_time_started;
 
-	if (orcpt_get_valid_rfc822(rcpt->params.dsn_orcpt, &dctx.rcpt_orig_to)) {
+	dctx.rcpt_params = rcpt->params;
+	if (dctx.rcpt_params.orcpt.addr != NULL) {
 		/* used ORCPT */
 	} else if (*dctx.set->lda_original_recipient_header != '\0') {
-		dctx.rcpt_orig_to = mail_deliver_get_address(src_mail,
+		dctx.rcpt_params.orcpt.addr = mail_deliver_get_address(src_mail,
 				dctx.set->lda_original_recipient_header);
 	}
-	if (dctx.rcpt_orig_to == NULL)
-		dctx.rcpt_orig_to = rcpt->address;
+	if (dctx.rcpt_params.orcpt.addr == NULL)
+		dctx.rcpt_params.orcpt.addr = rcpt->address;
 	dctx.rcpt_to = rcpt->address;
 	if (*rcpt->detail == '\0' ||
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
@@ -1075,8 +1056,8 @@ static const char *client_get_added_headers(struct client *client)
 			rcpt_to = (*rcptp)->address;
 			break;
 		case LMTP_HDR_DELIVERY_ADDRESS_ORIGINAL:
-			if (!orcpt_get_valid_rfc822((*rcptp)->params.dsn_orcpt,
-						    &rcpt_to))
+			rcpt_to = (*rcptp)->params.orcpt.addr;
+			if (rcpt_to == NULL)
 				rcpt_to = (*rcptp)->address;
 			break;
 		}
