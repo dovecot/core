@@ -71,7 +71,9 @@ static const struct setting_define stats_setting_defines[] = {
 	DEF(SET_TIME, user_min_time),
 	DEF(SET_TIME, domain_min_time),
 	DEF(SET_TIME, ip_min_time),
-
+	DEF(SET_STR, carbon_server),
+	DEF(SET_TIME, carbon_interval),
+	DEF(SET_STR, carbon_name),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -82,7 +84,11 @@ const struct stats_settings stats_default_settings = {
 	.session_min_time = 60*15,
 	.user_min_time = 60*60,
 	.domain_min_time = 60*60*12,
-	.ip_min_time = 60*60*12
+	.ip_min_time = 60*60*12,
+
+	.carbon_interval = 30,
+	.carbon_server = "",
+	.carbon_name = ""
 };
 
 const struct setting_parser_info stats_setting_parser_info = {

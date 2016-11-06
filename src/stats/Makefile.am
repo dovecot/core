@@ -26,6 +26,7 @@ stats_SOURCES = \
 	mail-stats.c \
 	mail-user.c \
 	main.c \
+	stats-carbon.c \
 	stats-settings.c
 
 noinst_HEADERS = \
@@ -40,4 +41,5 @@ noinst_HEADERS = \
 	mail-session.h \
 	mail-stats.h \
 	mail-user.h \
+	stats-carbon.h \
 	stats-settings.h
