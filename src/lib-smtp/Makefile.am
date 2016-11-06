@@ -16,6 +16,8 @@ libsmtp_la_SOURCES = \
 	smtp-syntax.c \
 	smtp-common.c \
 	smtp-params.c \
+	smtp-reply.c \
+	smtp-reply-parser.c \
 	lmtp-client.c \
 	smtp-submit-settings.c \
 	smtp-submit.c
@@ -26,6 +28,8 @@ headers = \
 	smtp-syntax.h \
 	smtp-common.h \
 	smtp-params.h \
+	smtp-reply.h \
+	smtp-reply-parser.h \
 	lmtp-client.h \
 	smtp-submit-settings.h \
 	smtp-submit.h
@@ -35,7 +39,8 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-smtp-address \
-	test-smtp-params
+	test-smtp-params \
+	test-smtp-reply-parser
 
 test_nocheck_programs = \
 	test-smtp-submit
@@ -76,6 +81,11 @@ test_smtp_params_SOURCES = test-smtp-params.c
 test_smtp_params_LDFLAGS = -export-dynamic
 test_smtp_params_LDADD = $(test_libs)
 test_smtp_params_DEPENDENCIES = $(test_deps)
+
+test_smtp_reply_parser_SOURCES = test-smtp-reply-parser.c
+test_smtp_reply_parser_LDFLAGS = -export-dynamic
+test_smtp_reply_parser_LDADD = $(test_libs)
+test_smtp_reply_parser_DEPENDENCIES = $(test_deps)
 
 test_smtp_submit_SOURCES = test-smtp-submit.c
 test_smtp_submit_LDFLAGS = -export-dynamic
