@@ -74,8 +74,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	}
 
 	if (mailbox_get_settings(mail->box)->mail_debug) {
-		i_debug("Sending a rejection to %s: %s", recipient,
-			str_sanitize(reason, 512));
+		i_debug("Sending a rejection to %s: %s",
+			return_addr, str_sanitize(reason, 512));
 	}
 
 	smtp_client = smtp_client_init(ctx->set, NULL);
