@@ -12,7 +12,7 @@ AC_DEFUN([DOVECOT_IPV6], [
   #include <netinet/in.h>
   #include <netdb.h>
   #include <arpa/inet.h>]],
-  [[struct in6_addr i;]])],
+  [[struct in6_addr i; (void)i;]])],
   [i_cv_type_in6_addr=yes],
   [i_cv_type_in6_addr=no])])
   if test $i_cv_type_in6_addr = yes; then

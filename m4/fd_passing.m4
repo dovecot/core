@@ -17,13 +17,14 @@ AC_DEFUN([DOVECOT_FD_PASSING], [
         #include <fcntl.h>
         #include "fdpass.h"
         
+	static
         int nopen(void)
         {
   	      int i, n;
   	      struct stat sb;
   	      for (i = n = 0; i < 256; i++)
   		  if (fstat(i, &sb) == 0) n++;
-  	      return n;
+              return n;
         }
         int main(void)
         {

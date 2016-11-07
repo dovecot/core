@@ -3,7 +3,7 @@ AC_DEFUN([DOVECOT_UNSETENV_RET_INT], [
     AC_TRY_COMPILE([
       #include <stdlib.h>
     ], [
-      if (unsetenv("env") < 0) ;
+      if (unsetenv("env") < 0) { }
     ], [
       i_cv_unsetenv_ret_int=yes
     ], [
