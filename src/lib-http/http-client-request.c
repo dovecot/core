@@ -824,10 +824,16 @@ int http_client_request_send_payload(struct http_client_request **_req,
 	i_assert(data != NULL);
 
 	ret = http_client_request_continue_payload(&req, data, size);
-	if (ret < 0)
+	if (ret < 0) {
+		/* failed to send payload */
 		*_req = NULL;
-	else {
-		i_assert(ret == 0);
+	} else if (ret > 0) {
+		/* premature end of request;
+		   server sent error before all payload could be sent */
+		ret = -1;
+		*_req = NULL;
+	} else {
+		/* not finished sending payload */
 		i_assert(req != NULL);
 	}
 	return ret;
