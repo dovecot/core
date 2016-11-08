@@ -1483,6 +1483,97 @@ static void test_request_aborted_early(void)
 }
 
 /*
+ * Request failed blocking
+ */
+
+/* server */
+
+static void
+test_request_failed_blocking_input(struct server_connection *conn)
+{
+	static const char *resp =
+		"HTTP/1.1 500 Internal Server Error\r\n"
+		"\r\n";
+
+	/* respond */
+	o_stream_nsend_str(conn->conn.output, resp);
+	sleep(10);
+	server_connection_deinit(&conn);
+}
+
+static void test_server_request_failed_blocking(unsigned int index)
+{
+	test_server_input = test_request_failed_blocking_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _request_failed_blocking_ctx {
+	struct http_client_request *req;
+};
+
+static void
+test_client_request_failed_blocking_response(
+	const struct http_response *resp,
+	struct _request_failed_blocking_ctx *ctx ATTR_UNUSED)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	i_assert(resp->status == 500);
+}
+
+static bool
+test_client_request_failed_blocking(
+	const struct http_client_settings *client_set)
+{
+	static const char *payload = "This a test payload!";
+	struct http_client_request *hreq;
+	struct _request_failed_blocking_ctx *ctx;
+	unsigned int n;
+	string_t *data;
+
+	data = str_new(default_pool, 1000000);
+	for (n = 0; n < 50000; n++)
+		str_append(data, payload);
+
+	ctx = i_new(struct _request_failed_blocking_ctx, 1);
+
+	http_client = http_client_init(client_set);
+
+	hreq = ctx->req = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/request-failed-blocking.txt",
+		test_client_request_failed_blocking_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+
+	test_assert(http_client_request_send_payload(&hreq,
+		str_data(data), str_len(data)) < 0);
+	i_assert(hreq == NULL);
+
+	str_free(&data);
+	i_free(ctx);
+	return FALSE;
+}
+
+/* test */
+
+static void test_request_failed_blocking(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.socket_send_buffer_size = 4096;
+
+	test_begin("request failed blocking");
+	test_run_client_server(&http_client_set,
+		test_client_request_failed_blocking,
+		test_server_request_failed_blocking, 1,
+		NULL);
+	test_end();
+}
+
+/*
  * Client deinit early
  */
 
@@ -2120,6 +2211,7 @@ static void (*test_functions[])(void) = {
 	test_bad_response,
 	test_request_timed_out,
 	test_request_aborted_early,
+	test_request_failed_blocking,
 	test_client_deinit_early,
 	test_retry_with_delay,
 	test_dns_service_failure,
