@@ -30,7 +30,7 @@ struct server_connection {
 };
 
 typedef void (*test_server_init_t)(unsigned int index);
-typedef void (*test_client_init_t)
+typedef bool (*test_client_init_t)
 	(const struct http_client_settings *client_set);
 typedef void (*test_dns_init_t)(void);
 
@@ -110,7 +110,7 @@ test_client_host_lookup_failed_response(
 	}
 }
 
-static void
+static bool
 test_client_host_lookup_failed(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -130,6 +130,8 @@ test_client_host_lookup_failed(const struct http_client_settings *client_set)
 		"GET", "host.in-addr.arpa", "/host-lookup-failed2.txt",
 		test_client_host_lookup_failed_response, ctx);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -182,7 +184,7 @@ test_client_connection_refused_response(
 	}
 }
 
-static void
+static bool
 test_client_connection_refused(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -204,6 +206,8 @@ test_client_connection_refused(const struct http_client_settings *client_set)
 		test_client_connection_refused_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -249,7 +253,7 @@ test_client_connection_timed_out_response(
 	}
 }
 
-static void
+static bool
 test_client_connection_timed_out(
 	const struct http_client_settings *client_set)
 {
@@ -270,6 +274,8 @@ test_client_connection_timed_out(
 		"GET", "192.168.0.0", "/connection-timed-out2.txt",
 		test_client_connection_timed_out_response, ctx);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -372,7 +378,7 @@ test_client_invalid_redirect_response(
 	io_loop_stop(ioloop);
 }
 
-static void
+static bool
 test_client_invalid_redirect(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -384,6 +390,8 @@ test_client_invalid_redirect(const struct http_client_settings *client_set)
 		test_client_invalid_redirect_response, NULL);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -462,7 +470,7 @@ test_client_unseekable_redirect_response(
 	io_loop_stop(ioloop);
 }
 
-static void
+static bool
 test_client_unseekable_redirect(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -480,7 +488,8 @@ test_client_unseekable_redirect(const struct http_client_settings *client_set)
 	http_client_request_set_payload(hreq, input, FALSE);
 	http_client_request_submit(hreq);
 
-	i_stream_unref(&input);	
+	i_stream_unref(&input);
+	return TRUE;
 }
 
 /* test */
@@ -533,7 +542,7 @@ test_client_unseekable_retry_response(
 	io_loop_stop(ioloop);
 }
 
-static void
+static bool
 test_client_unseekable_retry(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -551,7 +560,8 @@ test_client_unseekable_retry(const struct http_client_settings *client_set)
 	http_client_request_set_payload(hreq, input, FALSE);
 	http_client_request_submit(hreq);
 
-	i_stream_unref(&input);	
+	i_stream_unref(&input);
+	return TRUE;
 }
 
 /* test */
@@ -610,7 +620,7 @@ test_client_broken_payload_response(
 	io_loop_stop(ioloop);
 }
 
-static void
+static bool
 test_client_broken_payload(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -630,7 +640,8 @@ test_client_broken_payload(const struct http_client_settings *client_set)
 	http_client_request_set_payload(hreq, input, FALSE);
 	http_client_request_submit(hreq);
 
-	i_stream_unref(&input);	
+	i_stream_unref(&input);
+	return TRUE;	
 }
 
 /* test */
@@ -723,7 +734,7 @@ test_client_connection_lost_response(
 	}
 }
 
-static void
+static bool
 test_client_connection_lost(const struct http_client_settings *client_set)
 {
 	static const char payload[] =
@@ -761,7 +772,8 @@ test_client_connection_lost(const struct http_client_settings *client_set)
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
-	i_stream_unref(&input);	
+	i_stream_unref(&input);
+	return TRUE;
 }
 
 /* test */
@@ -853,7 +865,7 @@ test_client_connection_lost_100_response(
 	}
 }
 
-static void
+static bool
 test_client_connection_lost_100(
 	const struct http_client_settings *client_set)
 {
@@ -886,7 +898,8 @@ test_client_connection_lost_100(
 	http_client_request_set_payload(hreq, input, TRUE);
 	http_client_request_submit(hreq);
 
-	i_stream_unref(&input);	
+	i_stream_unref(&input);
+	return TRUE;
 }
 
 /* test */
@@ -982,7 +995,7 @@ test_client_connection_lost_sub_ioloop_response(
 	}
 }
 
-static void
+static bool
 test_client_connection_lost_sub_ioloop(
 	const struct http_client_settings *client_set)
 {
@@ -1015,7 +1028,8 @@ test_client_connection_lost_sub_ioloop(
 	http_client_request_set_payload(hreq, input, TRUE);
 	http_client_request_submit(hreq);
 
-	i_stream_unref(&input);	
+	i_stream_unref(&input);
+	return TRUE;
 }
 
 /* test */
@@ -1088,7 +1102,7 @@ test_client_early_success_response(
 	}
 }
 
-static void
+static bool
 test_client_early_success(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -1134,6 +1148,8 @@ test_client_early_success(const struct http_client_settings *client_set)
 		test_client_early_success_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -1198,7 +1214,7 @@ test_client_bad_response_response(
 	}
 }
 
-static void
+static bool
 test_client_bad_response(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -1220,6 +1236,8 @@ test_client_bad_response(const struct http_client_settings *client_set)
 		test_client_bad_response_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -1279,7 +1297,7 @@ test_client_request_timed_out_response(
 	}
 }
 
-static void
+static bool
 test_client_request_timed_out(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -1301,6 +1319,8 @@ test_client_request_timed_out(const struct http_client_settings *client_set)
 		test_client_request_timed_out_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -1418,7 +1438,7 @@ test_client_request_aborted_early_timeout(
 	}
 }
 
-static void
+static bool
 test_client_request_aborted_early(
 	const struct http_client_settings *client_set)
 {
@@ -1443,6 +1463,7 @@ test_client_request_aborted_early(
 
 	ctx->to = timeout_add_short(500,
 		test_client_request_aborted_early_timeout, ctx);
+	return TRUE;
 }
 
 /* test */
@@ -1520,7 +1541,7 @@ test_client_client_deinit_early_timeout(
 	io_loop_stop(ioloop);
 }
 
-static void
+static bool
 test_client_client_deinit_early(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -1544,6 +1565,7 @@ test_client_client_deinit_early(const struct http_client_settings *client_set)
 
 	ctx->to = timeout_add_short(500,
 		test_client_client_deinit_early_timeout, ctx);
+	return TRUE;
 }
 
 /* test */
@@ -1632,7 +1654,7 @@ test_client_retry_with_delay_response(
 	io_loop_stop(ioloop);
 }
 
-static void
+static bool
 test_client_retry_with_delay(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -1648,6 +1670,8 @@ test_client_retry_with_delay(const struct http_client_settings *client_set)
 		test_client_retry_with_delay_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -1694,7 +1718,7 @@ test_client_dns_service_failure_response(
 	}
 }
 
-static void
+static bool
 test_client_dns_service_failure(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -1716,6 +1740,8 @@ test_client_dns_service_failure(const struct http_client_settings *client_set)
 		test_client_dns_service_failure_response, ctx);
 	http_client_request_set_port(hreq, 80);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -1777,7 +1803,7 @@ test_client_dns_timeout_response(
 	}
 }
 
-static void
+static bool
 test_client_dns_timeout(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -1799,6 +1825,8 @@ test_client_dns_timeout(const struct http_client_settings *client_set)
 		test_client_dns_timeout_response, ctx);
 	http_client_request_set_port(hreq, 80);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -1863,7 +1891,7 @@ test_client_dns_lookup_failure_response(
 	}
 }
 
-static void
+static bool
 test_client_dns_lookup_failure(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -1885,6 +1913,8 @@ test_client_dns_lookup_failure(const struct http_client_settings *client_set)
 		test_client_dns_lookup_failure_response, ctx);
 	http_client_request_set_port(hreq, 80);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -2027,7 +2057,7 @@ test_client_dns_lookup_ttl_response_stage1(
 	}
 }
 
-static void
+static bool
 test_client_dns_lookup_ttl(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
@@ -2049,6 +2079,8 @@ test_client_dns_lookup_ttl(const struct http_client_settings *client_set)
 		test_client_dns_lookup_ttl_response_stage1, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
+
+	return TRUE;
 }
 
 /* test */
@@ -2349,8 +2381,8 @@ static void test_run_client_server(
 	usleep(100000); /* wait a little for server setup */
 
 	ioloop = io_loop_create();
-	client_test(client_set);
-	io_loop_run(ioloop);
+	if (client_test(client_set))
+		io_loop_run(ioloop);
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
 
