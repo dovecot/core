@@ -585,10 +585,12 @@ import_state_mailbox_open(struct client *client,
 	/* verify that this still looks like the same mailbox */
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		*error_r = mailbox_get_last_error(box, NULL);
+		mailbox_free(&box);
 		return -1;
 	}
 	if (!guid_128_equals(metadata.guid, state->mailbox_guid)) {
 		*error_r = "Mailbox GUID has changed";
+		mailbox_free(&box);
 		return -1;
 	}
 	mailbox_get_open_status(box, STATUS_UIDVALIDITY | STATUS_UIDNEXT |
@@ -596,14 +598,17 @@ import_state_mailbox_open(struct client *client,
 				STATUS_KEYWORDS, &status);
 	if (status.uidvalidity != state->uidvalidity) {
 		*error_r = "Mailbox UIDVALIDITY has changed";
+		mailbox_free(&box);
 		return -1;
 	}
 	if (status.uidnext < state->uidnext) {
 		*error_r = "Mailbox UIDNEXT shrank";
+		mailbox_free(&box);
 		return -1;
 	}
 	if (status.highest_modseq < state->highest_modseq) {
 		*error_r = "Mailbox HIGHESTMODSEQ shrank";
+		mailbox_free(&box);
 		return -1;
 	}
 
