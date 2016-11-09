@@ -165,6 +165,9 @@ int net_str2port_zero(const char *str, in_port_t *port_r);
    through. */
 int net_str2hostport(const char *str, in_port_t default_port,
 		     const char **host_r, in_port_t *port_r);
+/* Converts ip and port to ipv4:port or [ipv6]:port. Returns -1 if
+   ip is not valid IPv4 or IPv6 address. */
+int net_ipport2str(const struct ip_addr *ip, in_port_t port, const char **str_r);
 
 /* Convert IPv6 mapped IPv4 address to an actual IPv4 address. Returns 0 if
    successful, -1 if the source address isn't IPv6 mapped IPv4 address. */

@@ -1046,6 +1046,18 @@ int net_str2hostport(const char *str, in_port_t default_port,
 	return 0;
 }
 
+int net_ipport2str(const struct ip_addr *ip, in_port_t port, const char **str_r)
+{
+	if (!IPADDR_IS_V4(ip) && !IPADDR_IS_V6(ip)) return -1;
+
+	*str_r = t_strdup_printf("%s%s%s:%u",
+				 IPADDR_IS_V6(ip) ? "[" : "",
+				 net_ip2addr(ip),
+				 IPADDR_IS_V6(ip) ? "]" : "",
+				 port);
+	return 0;
+}
+
 int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 				 struct ip_addr *dest)
 {
