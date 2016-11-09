@@ -341,6 +341,7 @@ void program_client_net_connected(struct program_client *pclient)
 static
 void program_client_net_connect_real(struct program_client *pclient)
 {
+	const char *str;
 	struct program_client_remote *prclient =
 		(struct program_client_remote *) pclient;
 
@@ -352,12 +353,9 @@ void program_client_net_connect_real(struct program_client *pclient)
 
 	i_assert(prclient->ips_count > 0);
 
-	bool ipv6 = prclient->ips->family == AF_INET6;
-	pclient->path = p_strdup_printf(pclient->pool, "%s%s%s:%u",
-					ipv6 ? "[" : "",
-					net_ip2addr(prclient->ips),
-					ipv6 ? "]" : "",
-					prclient->port);
+	if (net_ipport2str(prclient->ips, prclient->port, &str) < 0)
+		i_unreached();
+	pclient->path = p_strdup(pclient->pool, str);
 
 	if (pclient->debug) {
 		i_debug("Trying to connect %s (timeout %u msecs)",
