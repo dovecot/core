@@ -24,9 +24,10 @@ static
 void program_client_callback(struct program_client *pclient, int result, void
 			     *context)
 {
+	/* do not call callback when destroying */
+	if (pclient->destroying) return;
 	program_client_callback_t *callback = pclient->callback;
 	i_assert(pclient->callback != NULL);
-	pclient->callback = NULL;
 	callback(result, context);
 }
 
@@ -574,6 +575,10 @@ void program_client_init_streams(struct program_client *pclient)
 void program_client_destroy(struct program_client **_pclient)
 {
 	struct program_client *pclient = *_pclient;
+	*_pclient = NULL;
+
+	pclient->destroying = TRUE;
+	pclient->callback = NULL;
 
 	program_client_disconnect(pclient, TRUE);
 
@@ -600,7 +605,6 @@ void program_client_destroy(struct program_client **_pclient)
 		pclient->destroy(pclient);
 
 	pool_unref(&pclient->pool);
-	*_pclient = NULL;
 }
 
 void program_client_switch_ioloop(struct program_client *pclient)
