@@ -60,6 +60,7 @@ struct program_client {
 	bool debug:1;
 	bool disconnected:1;
 	bool output_seekable:1;
+	bool destroying:1;
 };
 
 void program_client_init(struct program_client *pclient, pool_t pool, const char *path,
