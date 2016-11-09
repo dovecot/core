@@ -643,7 +643,6 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 static int
 doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 {
-	struct user_directory *users;
 	unsigned int username_hash;
 	struct user *user;
 	struct mail_host *host;
