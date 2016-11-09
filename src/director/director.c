@@ -982,7 +982,8 @@ static void director_user_move_timeout(struct user *user)
 
 static void
 director_kill_user(struct director *dir, struct director_host *src,
-		   struct user *user, struct mail_host *old_host)
+		   struct user *user, struct mail_tag *tag,
+		   struct mail_host *old_host)
 {
 	struct director_kill_context *ctx;
 	const char *cmd;
@@ -999,7 +1000,7 @@ director_kill_user(struct director *dir, struct director_host *src,
 
 	user->kill_ctx = ctx = i_new(struct director_kill_context, 1);
 	ctx->dir = dir;
-	ctx->tag = old_host->tag;
+	ctx->tag = tag;
 	ctx->username_hash = user->username_hash;
 	ctx->kill_is_self_initiated = src->self;
 	if (old_host != NULL)
@@ -1052,7 +1053,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 	if (user == NULL) {
 		user = user_directory_add(users, username_hash,
 					  host, ioloop_time);
-		director_kill_user(dir, src, user, NULL);
+		director_kill_user(dir, src, user, host->tag, NULL);
 	} else {
 		struct mail_host *old_host = user->host;
 
@@ -1064,7 +1065,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->host = host;
 		user->host->user_count++;
 		user->timestamp = ioloop_time;
-		director_kill_user(dir, src, user, old_host);
+		director_kill_user(dir, src, user, old_host->tag, old_host);
 	}
 
 	if (orig_src == NULL) {
