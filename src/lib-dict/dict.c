@@ -171,6 +171,7 @@ bool dict_iterate(struct dict_iterate_context *ctx,
 		return FALSE;
 	if (ctx->max_rows > 0 && ctx->row_count >= ctx->max_rows) {
 		/* row count was limited */
+		ctx->has_more = FALSE;
 		return FALSE;
 	}
 	if (!ctx->dict->v.iterate(ctx, key_r, value_r))
