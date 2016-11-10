@@ -89,12 +89,12 @@ struct client_dict_iter_result {
 struct client_dict_iterate_context {
 	struct dict_iterate_context ctx;
 	char *error;
+	enum dict_iterate_flags flags;
 
 	pool_t results_pool;
 	ARRAY(struct client_dict_iter_result) results;
 	unsigned int result_idx;
 
-	bool async;
 	bool seen_results;
 	bool finished;
 	bool deinit;
@@ -966,7 +966,7 @@ client_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	ctx = i_new(struct client_dict_iterate_context, 1);
 	ctx->ctx.dict = _dict;
 	ctx->results_pool = pool_alloconly_create("client dict iteration", 512);
-	ctx->async = (flags & DICT_ITERATE_FLAG_ASYNC) != 0;
+	ctx->flags = flags;
 	i_array_init(&ctx->results, 64);
 
 	str_printfa(query, "%c%d", DICT_PROTOCOL_CMD_ITERATE, flags);
@@ -1011,7 +1011,7 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	array_clear(&ctx->results);
 	p_clear(ctx->results_pool);
 
-	if (!ctx->async && ctx->ctx.has_more) {
+	if ((ctx->flags & DICT_ITERATE_FLAG_ASYNC) == 0 && ctx->ctx.has_more) {
 		client_dict_wait(_ctx->dict);
 		return client_dict_iterate(_ctx, key_r, value_r);
 	}
