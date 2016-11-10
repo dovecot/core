@@ -315,7 +315,7 @@ sdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			ret = -1;
 	}
 
-	if (mail_index_reset_fscked(box->index))
+	if (ret == 0 && mail_index_reset_fscked(box->index))
 		sdbox_set_mailbox_corrupted(box);
 	if (ret == 0 && (index_mailbox_want_full_sync(&mbox->box, flags) ||
 			 mbox->corrupted_rebuild_count != 0)) {
