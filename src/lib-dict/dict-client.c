@@ -89,12 +89,14 @@ struct client_dict_iter_result {
 struct client_dict_iterate_context {
 	struct dict_iterate_context ctx;
 	char *error;
+	const char **paths;
 	enum dict_iterate_flags flags;
 
 	pool_t results_pool;
 	ARRAY(struct client_dict_iter_result) results;
 	unsigned int result_idx;
 
+	bool cmd_sent;
 	bool seen_results;
 	bool finished;
 	bool deinit;
@@ -957,22 +959,32 @@ static struct dict_iterate_context *
 client_dict_iterate_init(struct dict *_dict, const char *const *paths,
 			 enum dict_iterate_flags flags)
 {
-	struct client_dict *dict = (struct client_dict *)_dict;
         struct client_dict_iterate_context *ctx;
-	struct client_dict_cmd *cmd;
-	string_t *query = t_str_new(256);
-	unsigned int i;
 
 	ctx = i_new(struct client_dict_iterate_context, 1);
 	ctx->ctx.dict = _dict;
 	ctx->results_pool = pool_alloconly_create("client dict iteration", 512);
 	ctx->flags = flags;
+	ctx->paths = p_strarray_dup(system_pool, paths);
 	i_array_init(&ctx->results, 64);
+	return &ctx->ctx;
+}
 
-	str_printfa(query, "%c%d", DICT_PROTOCOL_CMD_ITERATE, flags);
-	for (i = 0; paths[i] != NULL; i++) {
+static void
+client_dict_iterate_cmd_send(struct client_dict_iterate_context *ctx)
+{
+	struct client_dict *dict = (struct client_dict *)ctx->ctx.dict;
+	struct client_dict_cmd *cmd;
+	unsigned int i;
+	string_t *query = t_str_new(256);
+
+	/* we can't do this query in _iterate_init(), because
+	   _set_limit() hasn't been called yet at that point. */
+	str_printfa(query, "%c%d\t%llu", DICT_PROTOCOL_CMD_ITERATE, ctx->flags,
+		    (unsigned long long)ctx->ctx.max_rows);
+	for (i = 0; ctx->paths[i] != NULL; i++) {
 		str_append_c(query, '\t');
-			str_append(query, str_tabescape(paths[i]));
+		str_append(query, str_tabescape(ctx->paths[i]));
 	}
 
 	cmd = client_dict_cmd_init(dict, str_c(query));
@@ -981,7 +993,6 @@ client_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	cmd->retry_errors = TRUE;
 
 	client_dict_cmd_send(dict, &cmd, NULL);
-	return &ctx->ctx;
 }
 
 static bool client_dict_iterate(struct dict_iterate_context *_ctx,
@@ -1005,6 +1016,11 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 		ctx->result_idx++;
 		ctx->seen_results = TRUE;
 		return TRUE;
+	}
+	if (!ctx->cmd_sent) {
+		ctx->cmd_sent = TRUE;
+		client_dict_iterate_cmd_send(ctx);
+		return client_dict_iterate(_ctx, key_r, value_r);
 	}
 	ctx->ctx.has_more = !ctx->finished;
 	ctx->result_idx = 0;
@@ -1031,6 +1047,7 @@ static int client_dict_iterate_deinit(struct dict_iterate_context *_ctx)
 		i_error("dict-client: Iteration failed: %s", ctx->error);
 	array_free(&ctx->results);
 	pool_unref(&ctx->results_pool);
+	i_free(ctx->paths);
 	client_dict_iterate_free(ctx);
 
 	client_dict_add_timeout(dict);

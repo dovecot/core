@@ -187,18 +187,22 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
 {
 	const char *const *args;
 	unsigned int flags;
+	uint64_t max_rows;
 
 	args = t_strsplit_tabescaped(line);
-	if (str_array_length(args) < 2 ||
-	    str_to_uint(args[0], &flags) < 0) {
+	if (str_array_length(args) < 3 ||
+	    str_to_uint(args[0], &flags) < 0 ||
+	    str_to_uint64(args[1], &max_rows) < 0) {
 		i_error("dict client: ITERATE: broken input");
 		return -1;
 	}
 
-	/* <flags> <path> */
+	/* <flags> <max_rows> <path> */
 	flags |= DICT_ITERATE_FLAG_ASYNC;
-	cmd->iter = dict_iterate_init_multiple(cmd->conn->dict, args+1, flags);
+	cmd->iter = dict_iterate_init_multiple(cmd->conn->dict, args+2, flags);
 	cmd->iter_flags = flags;
+	if (max_rows > 0)
+		dict_iterate_set_limit(cmd->iter, max_rows);
 	dict_iterate_set_async_callback(cmd->iter, cmd_iterate_callback, cmd);
 	dict_connection_cmd_output_more(cmd);
 	return 1;
