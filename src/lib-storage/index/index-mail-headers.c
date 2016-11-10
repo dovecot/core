@@ -862,9 +862,6 @@ int index_mail_get_header_stream(struct mail *_mail,
 	struct istream *input;
 	string_t *dest;
 
-	i_assert(headers->count > 0);
-	i_assert(headers->box == _mail->box);
-
 	if (mail->data.save_bodystructure_header) {
 		/* we have to parse the header. */
 		const char *reason =

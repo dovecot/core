@@ -1803,6 +1803,8 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 		    enum mail_fetch_field wanted_fields,
 		    struct mailbox_header_lookup_ctx *wanted_headers)
 {
+	i_assert(wanted_headers == NULL || wanted_headers->box == t->box);
+
 	mail_search_args_ref(args);
 	if (!args->simplified)
 		mail_search_args_simplify(args);

@@ -19,6 +19,8 @@ struct mail *mail_alloc(struct mailbox_transaction_context *t,
 {
 	struct mail *mail;
 
+	i_assert(wanted_headers == NULL || wanted_headers->box == t->box);
+
 	T_BEGIN {
 		mail = t->box->v.mail_alloc(t, wanted_fields, wanted_headers);
 		hook_mail_allocated(mail);
@@ -72,6 +74,8 @@ void mail_add_temp_wanted_fields(struct mail *mail,
 				 struct mailbox_header_lookup_ctx *headers)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+
+	i_assert(headers == NULL || headers->box == mail->box);
 
 	p->v.add_temp_wanted_fields(mail, fields, headers);
 }
@@ -231,6 +235,9 @@ int mail_get_header_stream(struct mail *mail,
 {
 	struct mail_private *p = (struct mail_private *)mail;
 	int ret;
+
+	i_assert(headers->count > 0);
+	i_assert(headers->box == mail->box);
 
 	T_BEGIN {
 		ret = p->v.get_header_stream(mail, headers, stream_r);
