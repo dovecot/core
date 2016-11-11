@@ -537,10 +537,10 @@ void mail_hosts_deinit(struct mail_host_list **_list)
 
 	*_list = NULL;
 
-	array_foreach(&list->hosts, hostp)
-		mail_host_free(*hostp);
 	array_foreach(&list->tags, tagp)
 		mail_tag_free(*tagp);
+	array_foreach(&list->hosts, hostp)
+		mail_host_free(*hostp);
 	array_free(&list->hosts);
 	array_free(&list->tags);
 	i_free(list);
