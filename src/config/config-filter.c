@@ -6,6 +6,7 @@
 #include "master-service-settings.h"
 #include "config-parser.h"
 #include "config-filter.h"
+#include "dns-util.h"
 
 struct config_filter_context {
 	pool_t pool;
@@ -36,7 +37,7 @@ static bool config_filter_match_rest(const struct config_filter *mask,
 	if (mask->local_name != NULL) {
 		if (filter->local_name == NULL)
 			return FALSE;
-		if (strcasecmp(filter->local_name, mask->local_name) != 0)
+		if (dns_match_wildcard(filter->local_name, mask->local_name) != 0)
 			return FALSE;
 	}
 	/* FIXME: it's not comparing full masks */
