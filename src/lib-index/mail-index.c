@@ -689,21 +689,27 @@ int mail_index_unlink(struct mail_index *index)
 	}
 }
 
-int mail_index_reopen_if_changed(struct mail_index *index)
+int mail_index_reopen_if_changed(struct mail_index *index,
+				 const char **reason_r)
 {
 	struct stat st1, st2;
+	int ret;
 
-	if (MAIL_INDEX_IS_IN_MEMORY(index))
+	if (MAIL_INDEX_IS_IN_MEMORY(index)) {
+		*reason_r = "in-memory index";
 		return 0;
+	}
 
 	if (index->fd == -1)
-		return mail_index_try_open_only(index);
+		goto final;
 
 	if ((index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0)
 		nfs_flush_file_handle_cache(index->filepath);
 	if (nfs_safe_stat(index->filepath, &st2) < 0) {
-		if (errno == ENOENT)
+		if (errno == ENOENT) {
+			*reason_r = "index not found via stat()";
 			return 0;
+		}
 		mail_index_set_syscall_error(index, "stat()");
 		return -1;
 	}
@@ -714,17 +720,26 @@ int mail_index_reopen_if_changed(struct mail_index *index)
 			return -1;
 		}
 		/* deleted/recreated, reopen */
+		*reason_r = "index is stale";
 	} else if (st1.st_ino == st2.st_ino &&
 		   CMP_DEV_T(st1.st_dev, st2.st_dev)) {
 		/* the same file */
+		*reason_r = "index unchanged";
 		return 1;
+	} else {
+		*reason_r = "index inode changed";
 	}
 
 	/* new file, new locks. the old fd can keep its locks, they don't
 	   matter anymore as no-one's going to modify the file. */
 	mail_index_close_file(index);
 
-	return mail_index_try_open_only(index);
+final:
+	if ((ret = mail_index_try_open_only(index)) == 0)
+		*reason_r = "index not found via open()";
+	else if (ret > 0)
+		*reason_r = "index opened";
+	return ret;
 }
 
 int mail_index_refresh(struct mail_index *index)
