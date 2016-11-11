@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-view-private.h"
 
@@ -56,6 +57,20 @@ void mail_transaction_log_view_close(struct mail_transaction_log_view **_view)
 
 	array_free(&view->file_refs);
 	i_free(view);
+}
+
+static const char *
+mail_transaction_log_get_file_seqs(struct mail_transaction_log *log)
+{
+	struct mail_transaction_log_file *file;
+	string_t *str = t_str_new(32);
+
+	if (log->files == NULL)
+		return "";
+
+	for (file = log->files; file != NULL; file = file->next)
+		str_printfa(str, ",%u", file->hdr.file_seq);
+	return str_c(str) + 1;
 }
 
 int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
@@ -176,8 +191,9 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				    file->hdr.file_seq > max_file_seq) {
 					/* missing files in the middle */
 					*reason_r = t_strdup_printf(
-						"Missing middle file seq=%u (between %u..%u)",
-						seq, min_file_seq, max_file_seq);
+						"Missing middle file seq=%u (between %u..%u, we have seqs %s)",
+						seq, min_file_seq, max_file_seq,
+						mail_transaction_log_get_file_seqs(view->log));
 					return 0;
 				}
 

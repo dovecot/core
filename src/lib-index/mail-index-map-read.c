@@ -296,7 +296,8 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
 
 /* returns -1 = error, 0 = index files are unusable,
    1 = index files are usable or at least repairable */
-static int mail_index_map_latest_file(struct mail_index *index)
+static int
+mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 {
 	struct mail_index_map *old_map, *new_map;
 	struct stat st;
@@ -305,7 +306,9 @@ static int mail_index_map_latest_file(struct mail_index *index)
 	const char *error;
 	int ret, try;
 
-	ret = mail_index_reopen_if_changed(index);
+	*reason_r = NULL;
+
+	ret = mail_index_reopen_if_changed(index, reason_r);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
@@ -361,6 +364,7 @@ static int mail_index_map_latest_file(struct mail_index *index)
 		} T_END;
 		if (ret != 0 || try == 2) {
 			if (ret < 0) {
+				*reason_r = "Corrupted index file";
 				unusable = TRUE;
 				ret = 0;
 			}
@@ -391,12 +395,14 @@ static int mail_index_map_latest_file(struct mail_index *index)
 
 	mail_index_unmap(&index->map);
 	index->map = new_map;
+	*reason_r = "Index mapped";
 	return 1;
 }
 
 int mail_index_map(struct mail_index *index,
 		   enum mail_index_sync_handler_type type)
 {
+	const char *reason;
 	int ret;
 
 	i_assert(!index->mapping);
@@ -410,7 +416,7 @@ int mail_index_map(struct mail_index *index,
 	if (index->initial_mapped) {
 		/* we're not creating/opening the index.
 		   sync this as a view from transaction log. */
-		ret = mail_index_sync_map(&index->map, type, FALSE);
+		ret = mail_index_sync_map(&index->map, type, FALSE, "initial mapping");
 	} else {
 		ret = 0;
 	}
@@ -421,7 +427,7 @@ int mail_index_map(struct mail_index *index,
 		   logs (which we'll also do even if the reopening succeeds).
 		   if index files are unusable (e.g. major version change)
 		   don't even try to use the transaction log. */
-		ret = mail_index_map_latest_file(index);
+		ret = mail_index_map_latest_file(index, &reason);
 		if (ret > 0) {
 			/* if we're creating the index file, we don't have any
 			   logs yet */
@@ -429,7 +435,7 @@ int mail_index_map(struct mail_index *index,
 				/* and update the map with the latest changes
 				   from transaction log */
 				ret = mail_index_sync_map(&index->map, type,
-							  TRUE);
+							  TRUE, reason);
 			}
 		} else if (ret == 0 && !index->readonly) {
 			/* make sure we don't try to open the file again */

@@ -258,7 +258,8 @@ int mail_index_create_tmp_file(struct mail_index *index,
 
 int mail_index_try_open_only(struct mail_index *index);
 void mail_index_close_file(struct mail_index *index);
-int mail_index_reopen_if_changed(struct mail_index *index);
+int mail_index_reopen_if_changed(struct mail_index *index,
+				 const char **reason_r);
 /* Update/rewrite the main index file from index->map */
 void mail_index_write(struct mail_index *index, bool want_rotate);
 
