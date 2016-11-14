@@ -84,10 +84,8 @@ static int config_add_type(struct setting_parser_context *parser,
 		str_append_c(str, SETTINGS_SEPARATOR);
 		str_append(str, info_type_name_find(info));
 	}
-	str_append_c(str, '=');
-	str_append(str, section_name);
 
-	ret = settings_parse_line(parser, str_c(str));
+	ret = settings_parse_keyvalue(parser, str_c(str), section_name);
 	i_assert(ret > 0);
 	return 0;
 }
