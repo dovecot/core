@@ -196,38 +196,48 @@ dict_cmd_callback_error(struct client_dict_cmd *cmd, const char *error,
 	i_assert(!cmd->unfinished);
 }
 
-static void client_dict_input_timeout(struct client_dict *dict)
+static struct client_dict_cmd *
+client_dict_cmd_first_nonbg(struct client_dict *dict)
 {
 	struct client_dict_cmd *const *cmds;
 	unsigned int i, count;
+
+	cmds = array_get(&dict->cmds, &count);
+	for (i = 0; i < count; i++) {
+		if (!cmds[i]->background)
+			return cmds[i];
+	}
+	return NULL;
+}
+
+static void client_dict_input_timeout(struct client_dict *dict)
+{
+	struct client_dict_cmd *cmd;
 	const char *error;
 	int cmd_diff;
 
-	/* find the first expired non-background command */
-	cmds = array_get(&dict->cmds, &count);
-	for (i = 0; i < count; i++) {
-		if (cmds[i]->background)
-			continue;
-		cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmds[i]->start_time);
-		if (cmd_diff < DICT_CLIENT_REQUEST_TIMEOUT_MSECS) {
-			/* need to re-create this timeout. the currently-oldest
-			   command was added when another command was still
-			   running with an older timeout. */
-			timeout_remove(&dict->to_requests);
-			dict->to_requests =
-				timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MSECS - cmd_diff,
-					    client_dict_input_timeout, dict);
-			return;
-		}
-		break;
+	/* find the first non-background command. there must be at least one. */
+	cmd = client_dict_cmd_first_nonbg(dict);
+	i_assert(cmd != NULL);
+
+	cmd_diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+	if (cmd_diff < DICT_CLIENT_REQUEST_TIMEOUT_MSECS) {
+		/* need to re-create this timeout. the currently-oldest
+		   command was added when another command was still
+		   running with an older timeout. */
+		timeout_remove(&dict->to_requests);
+		dict->to_requests =
+			timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MSECS - cmd_diff,
+				    client_dict_input_timeout, dict);
+		return;
 	}
-	i_assert(i < count); /* we can't have only background commands */
 
 	(void)client_dict_reconnect(dict, t_strdup_printf(
 		"Dict server timeout: %s "
 		"(%u commands pending, oldest sent %u.%03u secs ago: %s)",
-		connection_input_timeout_reason(&dict->conn.conn), count,
-		cmd_diff/1000, cmd_diff%1000, cmds[0]->query), &error);
+		connection_input_timeout_reason(&dict->conn.conn),
+		array_count(&dict->cmds),
+		cmd_diff/1000, cmd_diff%1000, cmd->query), &error);
 }
 
 static int
