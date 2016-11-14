@@ -77,15 +77,29 @@ struct mail_namespace {
 	unsigned int destroyed:1;
 };
 
+
+/* Allocate a new namespace, and fill it based on the passed in settings.
+   This is the most low-level namespace creation function. The storage isn't
+   initialized for the namespace. */
+int mail_namespace_alloc(struct mail_user *user,
+			 struct mail_namespace_settings *ns_set,
+			 struct mail_namespace_settings *unexpanded_set,
+			 struct mail_namespace **ns_r,
+			 const char **error_r);
+
+/* Add and initialize namespaces to user based on namespace settings. */
 int mail_namespaces_init(struct mail_user *user, const char **error_r);
+/* Add and initialize INBOX namespace to user based on the given location. */
 int mail_namespaces_init_location(struct mail_user *user, const char *location,
 				  const char **error_r) ATTR_NULL(2);
+/* Add an empty namespace to user. */
 struct mail_namespace *mail_namespaces_init_empty(struct mail_user *user);
 /* Deinitialize all namespaces. mail_user_deinit() calls this automatically
    for user's namespaces. */
 void mail_namespaces_deinit(struct mail_namespace **namespaces);
 
-/* Manually initialize namespaces one by one. */
+/* Allocate a new namespace and initialize it. This is called automatically by
+   mail_namespaces_init(). */
 int mail_namespaces_init_add(struct mail_user *user,
 			     struct mail_namespace_settings *ns_set,
 			     struct mail_namespace_settings *unexpanded_ns_set,
