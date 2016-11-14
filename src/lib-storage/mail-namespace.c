@@ -438,16 +438,9 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	const struct mail_storage_settings *mail_set;
 	const char *error, *driver, *location_source;
 	bool default_location = FALSE;
+	int ret;
 
 	i_assert(location == NULL || *location != '\0');
-
-	ns = i_new(struct mail_namespace, 1);
-	ns->refcount = 1;
-	ns->type = MAIL_NAMESPACE_TYPE_PRIVATE;
-	ns->flags = NAMESPACE_FLAG_INBOX_USER | NAMESPACE_FLAG_INBOX_ANY |
-		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_SUBSCRIPTIONS;
-	ns->owner = user;
-	i_array_init(&ns->all_storages, 2);
 
 	inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
 	*inbox_set = mail_namespace_default_settings;
@@ -493,11 +486,9 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 				    inbox_set->location, NULL);
 	}
 
-	ns->set = inbox_set;
-	ns->unexpanded_set = unexpanded_inbox_set;
-	ns->mail_set = mail_set;
-	ns->prefix = i_strdup("");
-	ns->user = user;
+	if ((ret = mail_namespace_alloc(user, inbox_set, unexpanded_inbox_set,
+					&ns, error_r)) < 0)
+		return ret;
 
 	if (mail_storage_create(ns, driver, 0, &error) < 0) {
 		if (*inbox_set->location != '\0') {
