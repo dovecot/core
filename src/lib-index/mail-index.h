@@ -309,6 +309,11 @@ void mail_index_transaction_reset(struct mail_index_transaction *t);
 void mail_index_transaction_set_max_modseq(struct mail_index_transaction *t,
 					   uint64_t max_modseq,
 					   ARRAY_TYPE(seq_range) *seqs);
+/* Returns the resulting highest-modseq after this commit. This can be called
+   only if transaction log is locked, which normally means only during mail
+   index syncing. If there are any appends, they all must have been assigned
+   UIDs before calling this. */
+uint64_t mail_index_transaction_get_highest_modseq(struct mail_index_transaction *t);
 
 /* Returns the view transaction was created for. */
 struct mail_index_view *

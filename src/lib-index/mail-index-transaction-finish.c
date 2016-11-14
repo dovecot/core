@@ -218,9 +218,8 @@ get_nonexpunged_uid2(struct mail_index_transaction *t,
 	return uid1;
 }
 
-static void
-mail_index_convert_to_uid_ranges(struct mail_index_transaction *t,
-				 ARRAY_TYPE(seq_range) *array)
+void mail_index_transaction_seq_range_to_uid(struct mail_index_transaction *t,
+					     ARRAY_TYPE(seq_range) *array)
 {
 	struct seq_range *range, *new_range;
 	unsigned int i, count;
@@ -268,8 +267,8 @@ static void keyword_updates_convert_to_uids(struct mail_index_transaction *t)
 		return;
 
 	array_foreach_modifiable(&t->keyword_updates, update) {
-		mail_index_convert_to_uid_ranges(t, &update->add_seq);
-		mail_index_convert_to_uid_ranges(t, &update->remove_seq);
+		mail_index_transaction_seq_range_to_uid(t, &update->add_seq);
+		mail_index_transaction_seq_range_to_uid(t, &update->remove_seq);
 	}
 }
 
@@ -320,7 +319,7 @@ mail_index_transaction_convert_to_uids(struct mail_index_transaction *t)
         keyword_updates_convert_to_uids(t);
 	expunges_convert_to_uids(t);
 	mail_index_convert_to_uids(t, (void *)&t->modseq_updates);
-	mail_index_convert_to_uid_ranges(t, (void *)&t->updates);
+	mail_index_transaction_seq_range_to_uid(t, (void *)&t->updates);
 }
 
 void mail_index_transaction_finish_so_far(struct mail_index_transaction *t)
