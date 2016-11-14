@@ -121,6 +121,7 @@ static int client_dict_connect(struct client_dict *dict, const char **error_r);
 static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 				 const char **error_r);
 static void client_dict_disconnect(struct client_dict *dict, const char *reason);
+static const char *dict_wait_warnings(const struct client_dict_cmd *cmd);
 
 static struct client_dict_cmd *
 client_dict_cmd_init(struct client_dict *dict, const char *query)
@@ -234,10 +235,11 @@ static void client_dict_input_timeout(struct client_dict *dict)
 
 	(void)client_dict_reconnect(dict, t_strdup_printf(
 		"Dict server timeout: %s "
-		"(%u commands pending, oldest sent %u.%03u secs ago: %s)",
+		"(%u commands pending, oldest sent %u.%03u secs ago: %s, %s)",
 		connection_input_timeout_reason(&dict->conn.conn),
 		array_count(&dict->cmds),
-		cmd_diff/1000, cmd_diff%1000, cmd->query), &error);
+		cmd_diff/1000, cmd_diff%1000, cmd->query,
+		dict_wait_warnings(cmd)), &error);
 }
 
 static int
@@ -721,7 +723,7 @@ static bool client_dict_switch_ioloop(struct dict *_dict)
 	return array_count(&dict->cmds) > 0;
 }
 
-static const char *dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs)
+static const char *dict_wait_warnings(const struct client_dict_cmd *cmd)
 {
 	int global_ioloop_msecs = (ioloop_global_wait_usecs -
 				   cmd->start_global_ioloop_usecs + 999) / 1000;
@@ -732,11 +734,16 @@ static const char *dict_warnings_sec(const struct client_dict_cmd *cmd, int msec
 			  cmd->start_lock_usecs + 999) / 1000;
 
 	return t_strdup_printf(
-		"%d.%03d secs (%d.%03d in dict wait, %d.%03d in other ioloops, "
-		"%d.%03d in locks)", msecs/1000, msecs%1000,
+		"%d.%03d in dict wait, %d.%03d in other ioloops, %d.%03d in locks",
 		dict_ioloop_msecs/1000, dict_ioloop_msecs%1000,
 		other_ioloop_msecs/1000, other_ioloop_msecs%1000,
 		lock_msecs/1000, lock_msecs%1000);
+}
+
+static const char *dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs)
+{
+	return t_strdup_printf("%d.%03d secs (%s)", msecs/1000, msecs%1000,
+			       dict_wait_warnings(cmd));
 }
 
 static void
