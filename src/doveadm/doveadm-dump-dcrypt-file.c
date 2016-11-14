@@ -58,8 +58,10 @@ static bool dcrypt_file_dump_metadata(const char *filename, bool print)
 			dcrypt_istream_dump_metadata(ds);
 			printf("decrypt key digest: %s\n", key_digest);
 		}
-	} else if (print) {
-		i_error("%s", i_stream_get_error(ds));
+	} else if (print && ds->stream_errno != 0) {
+		i_error("read(%s) failed: %s",
+			i_stream_get_name(ds),
+			i_stream_get_error(ds));
 	}
 
 	i_stream_unref(&ds);
@@ -80,7 +82,7 @@ static void cmd_dump_dcrypt_file(int argc ATTR_UNUSED, char *argv[])
 {
 	const char *error = NULL;
 	if (!dcrypt_initialize("openssl", NULL, &error))
-		i_fatal("dcrypt_initialize: %s", error);
+		i_fatal("dcrypt_initialize failed: %s", error);
 	(void)dcrypt_file_dump_metadata(argv[1], TRUE);
 	dcrypt_deinitialize();
 }
