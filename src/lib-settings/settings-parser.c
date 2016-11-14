@@ -68,9 +68,6 @@ static const struct setting_parser_info strlist_info = {
 HASH_TABLE_DEFINE_TYPE(setting_link, struct setting_link *,
 		       struct setting_link *);
 
-static int settings_parse_keyvalue(struct setting_parser_context *ctx,
-				   const char *key, const char *value);
-
 static void
 setting_parser_copy_defaults(struct setting_parser_context *ctx, 
 			     const struct setting_parser_info *info,
@@ -792,12 +789,15 @@ settings_parse_strlist(struct setting_parser_context *ctx,
 	array_append(link->array, &vvalue, 1);
 }
 
-static int settings_parse_keyvalue(struct setting_parser_context *ctx,
-				   const char *key, const char *value)
+int settings_parse_keyvalue(struct setting_parser_context *ctx,
+			    const char *key, const char *value)
 {
 	const struct setting_define *def;
 	struct setting_link *link;
 	unsigned int n = 0;
+
+	ctx->error = NULL;
+	ctx->prev_info = NULL;
 
 	if (!settings_find_key_nth(ctx, key, &n, &def, &link)) {
 		ctx->error = p_strconcat(ctx->parser_pool,
@@ -885,9 +885,6 @@ int settings_parse_line(struct setting_parser_context *ctx, const char *line)
 {
 	const char *key, *value;
 	int ret;
-
-	ctx->error = NULL;
-	ctx->prev_info = NULL;
 
 	key = line;
 	value = strchr(line, '=');
