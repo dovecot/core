@@ -299,9 +299,10 @@ void i_stream_seek(struct istream *stream, uoff_t v_offset)
 	    i_stream_can_optimize_seek(_stream))
 		i_stream_skip(stream, v_offset - stream->v_offset);
 	else {
-		if (unlikely(stream->closed))
+		if (unlikely(stream->closed || stream->stream_errno != 0)) {
+			stream->eof = TRUE;
 			return;
-
+		}
 		stream->eof = FALSE;
 		_stream->seek(_stream, v_offset, FALSE);
 	}
@@ -340,8 +341,10 @@ int i_stream_stat(struct istream *stream, bool exact, const struct stat **st_r)
 	if (unlikely(stream->closed))
 		return -1;
 
-	if (_stream->stat(_stream, exact) < 0)
+	if (_stream->stat(_stream, exact) < 0) {
+		stream->eof = TRUE;
 		return -1;
+	}
 	*st_r = &_stream->statbuf;
 	return 0;
 }
@@ -353,7 +356,10 @@ int i_stream_get_size(struct istream *stream, bool exact, uoff_t *size_r)
 	if (unlikely(stream->closed))
 		return -1;
 
-	return _stream->get_size(_stream, exact, size_r);
+	int ret;
+	if ((ret = _stream->get_size(_stream, exact, size_r)) < 0)
+		stream->eof = TRUE;
+	return ret;
 }
 
 bool i_stream_have_bytes_left(struct istream *stream)
@@ -873,6 +879,10 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 		_stream->statbuf.st_ctime = ioloop_time;
 
 	io_stream_init(&_stream->iostream);
+
+	if (_stream->istream.stream_errno != 0)
+		_stream->istream.eof = TRUE;
+
 	return &_stream->istream;
 }
 
