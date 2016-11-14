@@ -824,12 +824,12 @@ int main(int argc, char *argv[])
 		i_fatal("Unknown argument: --%s", argv[optind]);
 	}
 
-	do {
-		null_fd = open("/dev/null", O_WRONLY);
-		if (null_fd == -1)
-			i_fatal("Can't open /dev/null: %m");
-		fd_close_on_exec(null_fd, TRUE);
-	} while (null_fd <= STDERR_FILENO);
+	null_fd = open("/dev/null", O_WRONLY);
+	if (null_fd == -1)
+		i_fatal("Can't open /dev/null: %m");
+	fd_close_on_exec(null_fd, TRUE);
+	i_assert(null_fd > STDERR_FILENO);
+
 	if (pipe(global_master_dead_pipe_fd) < 0)
 		i_fatal("pipe() failed: %m");
 	fd_close_on_exec(global_master_dead_pipe_fd[0], TRUE);
