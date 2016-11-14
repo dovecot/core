@@ -1630,6 +1630,11 @@ mail_storage_service_user_get_service_ctx(struct mail_storage_service_user *user
 	return user->service_ctx;
 }
 
+pool_t mail_storage_service_user_get_pool(struct mail_storage_service_user *user)
+{
+	return user->pool;
+}
+
 void *mail_storage_service_get_settings(struct master_service *service)
 {
 	void **sets, *set;
