@@ -25,7 +25,7 @@ static void dcrypt_dump_public_key_metadata(const char *buf)
 
 	bool ret = dcrypt_key_load_public(&pub_key, buf, &error);
 	if (ret == FALSE) {
-		i_error("dcrypt_key_load_public: %s", error);
+		i_error("dcrypt_key_load_public failed: %s", error);
 		return;
 	}
 	enum dcrypt_key_type key_type = dcrypt_key_type_public(pub_key);
@@ -36,23 +36,23 @@ static void dcrypt_dump_public_key_metadata(const char *buf)
 
 	string_t *hash = t_str_new(128);
 	if (!dcrypt_key_id_public(pub_key, "sha256", hash, &error)) {
-		i_error("dcrypt_key_id_public: %s", error);
-		goto out;
-	}
-	const char *v2_hash = binary_to_hex(hash->data, hash->used);
-	printf("v2 hash: %s\n", v2_hash);
+		i_error("dcrypt_key_id_public failed: %s", error);
+	} else {
+		const char *v2_hash = binary_to_hex(hash->data, hash->used);
+		printf("v2 hash: %s\n", v2_hash);
 
-	if (key_type == DCRYPT_KEY_EC) {
-		buffer_set_used_size(hash, 0);
-		if (!dcrypt_key_id_public_old(pub_key, hash, &error))
-		{
-			i_error("dcrypt_key_id_public_old: %s", error);
-			goto out;
+		if (key_type == DCRYPT_KEY_EC) {
+			buffer_set_used_size(hash, 0);
+			if (!dcrypt_key_id_public_old(pub_key, hash, &error)) {
+				i_error("dcrypt_key_id_public_old failed: %s",
+					error);
+			} else {
+				const char *v1_hash = binary_to_hex(hash->data,
+								    hash->used);
+				printf("v1 hash: %s\n", v1_hash);
+			}
 		}
-		const char *v1_hash = binary_to_hex(hash->data, hash->used);
-		printf("v1 hash: %s\n", v1_hash);
 	}
-out:
 	dcrypt_key_unref_public(&pub_key);
 }
 
@@ -64,7 +64,7 @@ static void dcrypt_dump_private_key_metadata(const char *buf)
 	bool ret = dcrypt_key_load_private(&priv_key, buf, NULL, NULL,
 			&error);
 	if (ret == FALSE) {
-		i_error("dcrypt_key_load_private: %s", error);
+		i_error("dcrypt_key_load_private failed: %s", error);
 		return;
 	}
 	enum dcrypt_key_type key_type = dcrypt_key_type_private(priv_key);
@@ -75,23 +75,22 @@ static void dcrypt_dump_private_key_metadata(const char *buf)
 
 	string_t *hash = t_str_new(128);
 	if (!dcrypt_key_id_private(priv_key, "sha256", hash, &error)) {
-		i_error("dcrypt_key_id_private: %s", error);
-		goto out;
-	}
-	const char *v2_hash = binary_to_hex(hash->data, hash->used);
-	printf("v2 hash: %s\n", v2_hash);
+		i_error("dcrypt_key_id_private failed: %s", error);
+	} else {
+		const char *v2_hash = binary_to_hex(hash->data, hash->used);
+		printf("v2 hash: %s\n", v2_hash);
 
-	if (key_type == DCRYPT_KEY_EC) {
-		buffer_set_used_size(hash, 0);
-		if (!dcrypt_key_id_private_old(priv_key, hash, &error))
-		{
-			i_error("dcrypt_key_id_private_old: %s", error);
-			goto out;
+		if (key_type == DCRYPT_KEY_EC) {
+			buffer_set_used_size(hash, 0);
+			if (!dcrypt_key_id_private_old(priv_key, hash, &error)) {
+				i_error("dcrypt_key_id_private_old failed: %s", error);
+			} else {
+				const char *v1_hash = binary_to_hex(hash->data,
+								    hash->used);
+				printf("v1 hash: %s\n", v1_hash);
+			}
 		}
-		const char *v1_hash = binary_to_hex(hash->data, hash->used);
-		printf("v1 hash: %s\n", v1_hash);
 	}
-out:
 	dcrypt_key_unref_private(&priv_key);
 }
 
@@ -107,7 +106,7 @@ static bool dcrypt_key_dump_metadata(const char *filename, bool print)
 	char buf[KEY_BUF_SIZE+1];
 	ssize_t res = read(fd, buf, KEY_BUF_SIZE);
 	if (res < 0) {
-		if (print) i_error("read(%d) failed: %m", fd);
+		if (print) i_error("read(%s) failed: %m", filename);
 		i_close_fd(&fd);
 		return FALSE;
 	}
@@ -126,7 +125,7 @@ static bool dcrypt_key_dump_metadata(const char *filename, bool print)
 			&kind, &encryption_type, &encryption_key_hash,
 			&key_hash, &error);
 	if (ret == FALSE) {
-		if (print) i_error("dcrypt_key_string_get_info: %s", error);
+		if (print) i_error("dcrypt_key_string_get_info failed: %s", error);
 		return FALSE;
 	}
 	if (!print) return TRUE;
