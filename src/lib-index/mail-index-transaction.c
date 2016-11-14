@@ -161,6 +161,10 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 	if (mail_transaction_log_append_begin(log->index, trans_flags, &ctx) < 0)
 		return -1;
 	ret = mail_transaction_log_file_refresh(t, ctx);
+#ifdef DEBUG
+	uint64_t expected_highest_modseq =
+		mail_index_transaction_get_highest_modseq(t);
+#endif
 	if (ret > 0) T_BEGIN {
 		mail_index_transaction_finish(t);
 		mail_index_transaction_export(t, ctx);
@@ -171,6 +175,10 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 		return -1;
 	mail_transaction_log_get_head(log, &log_seq2, &log_offset2);
 	i_assert(log_seq1 == log_seq2);
+
+#ifdef DEBUG
+	i_assert(expected_highest_modseq == log->head->sync_highest_modseq);
+#endif
 
 	if (t->reset) {
 		/* get rid of the old index. it might just confuse readers,
