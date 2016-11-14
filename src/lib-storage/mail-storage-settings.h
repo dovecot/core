@@ -7,6 +7,7 @@
 #define MAIL_STORAGE_SET_DRIVER_NAME "MAIL"
 
 struct mail_user;
+struct mail_namespace;
 struct mail_storage;
 
 struct mail_storage_settings {
@@ -120,8 +121,13 @@ const void *
 mail_user_set_get_driver_settings(const struct setting_parser_info *info,
 				  const struct mail_user_settings *set,
 				  const char *driver);
+
 const struct mail_storage_settings *
 mail_user_set_get_storage_set(struct mail_user *user);
+/* Get storage-specific settings, which may be namespace-specific. */
+const void *mail_namespace_get_driver_settings(struct mail_namespace *ns,
+					       struct mail_storage *storage);
+/* FIXME: Obsolete - remove in v2.3 */
 const void *mail_storage_get_driver_settings(struct mail_storage *storage);
 
 const struct dynamic_settings_parser *

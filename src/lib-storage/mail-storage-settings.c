@@ -326,6 +326,13 @@ const void *mail_storage_get_driver_settings(struct mail_storage *storage)
 						 storage->name);
 }
 
+const void *mail_namespace_get_driver_settings(struct mail_namespace *ns,
+					       struct mail_storage *storage)
+{
+	return mail_user_set_get_driver_settings(storage->user->set_info,
+						 ns->user_set, storage->name);
+}
+
 const struct dynamic_settings_parser *
 mail_storage_get_dynamic_parsers(pool_t pool)
 {

@@ -348,7 +348,7 @@ imapc_storage_create(struct mail_storage *_storage,
 	struct imapc_storage *storage = (struct imapc_storage *)_storage;
 	struct imapc_mailbox_list *imapc_list = NULL;
 
-	storage->set = mail_storage_get_driver_settings(_storage);
+	storage->set = mail_namespace_get_driver_settings(ns, _storage);
 
 	/* serialize all the settings */
 	_storage->unique_root_dir = p_strdup_printf(_storage->pool,

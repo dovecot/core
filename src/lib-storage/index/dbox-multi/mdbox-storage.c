@@ -40,7 +40,7 @@ int mdbox_storage_create(struct mail_storage *_storage,
 	struct mdbox_storage *storage = (struct mdbox_storage *)_storage;
 	const char *dir;
 
-	storage->set = mail_storage_get_driver_settings(_storage);
+	storage->set = mail_namespace_get_driver_settings(ns, _storage);
 	storage->preallocate_space = storage->set->mdbox_preallocate_space;
 
 	if (*ns->list->set.mailbox_dir_name == '\0') {
