@@ -1472,7 +1472,8 @@ static void settings_set_parent(const struct setting_parser_info *info,
 }
 
 static bool
-setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
+setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool,
+	     bool keep_values)
 {
 	switch (type) {
 	case SET_BOOL: {
@@ -1512,7 +1513,10 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 		const char *const *src_str = src;
 		const char **dest_str = dest;
 
-		*dest_str = p_strdup(pool, *src_str);
+		if (keep_values)
+			*dest_str = *src_str;
+		else
+			*dest_str = p_strdup(pool, *src_str);
 		break;
 	}
 	case SET_DEFLIST:
@@ -1543,9 +1547,9 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 				if (j < dest_count)
 					continue;
 			}
-			dup = p_strdup(pool, strings[i]);
+			dup = keep_values ? strings[i] : p_strdup(pool, strings[i]);
 			array_append(dest_arr, &dup, 1);
-			dup = p_strdup(pool, strings[i+1]);
+			dup = keep_values ? strings[i+1] : p_strdup(pool, strings[i+1]);
 			array_append(dest_arr, &dup, 1);
 		}
 		break;
@@ -1556,8 +1560,8 @@ setting_copy(enum setting_type type, const void *src, void *dest, pool_t pool)
 	return TRUE;
 }
 
-void *settings_dup(const struct setting_parser_info *info,
-		   const void *set, pool_t pool)
+static void *settings_dup_full(const struct setting_parser_info *info,
+			       const void *set, pool_t pool, bool keep_values)
 {
 	const struct setting_define *def;
 	const void *src;
@@ -1574,7 +1578,7 @@ void *settings_dup(const struct setting_parser_info *info,
 		src = CONST_PTR_OFFSET(set, def->offset);
 		dest = PTR_OFFSET(dest_set, def->offset);
 
-		if (!setting_copy(def->type, src, dest, pool)) {
+		if (!setting_copy(def->type, src, dest, pool, keep_values)) {
 			const ARRAY_TYPE(void_array) *src_arr = src;
 			ARRAY_TYPE(void_array) *dest_arr = dest;
 			void *child_set;
@@ -1585,8 +1589,9 @@ void *settings_dup(const struct setting_parser_info *info,
 			children = array_get(src_arr, &count);
 			p_array_init(dest_arr, pool, count);
 			for (i = 0; i < count; i++) {
-				child_set = settings_dup(def->list_info,
-							 children[i], pool);
+				child_set = settings_dup_full(def->list_info,
+							      children[i], pool,
+							      keep_values);
 				array_append(dest_arr, &child_set, 1);
 				settings_set_parent(def->list_info, child_set,
 						    dest_set);
@@ -1594,6 +1599,18 @@ void *settings_dup(const struct setting_parser_info *info,
 		}
 	}
 	return dest_set;
+}
+
+void *settings_dup(const struct setting_parser_info *info,
+		   const void *set, pool_t pool)
+{
+	return settings_dup_full(info, set, pool, FALSE);
+}
+
+void *settings_dup_with_pointers(const struct setting_parser_info *info,
+				 const void *set, pool_t pool)
+{
+	return settings_dup_full(info, set, pool, TRUE);
 }
 
 static void *
@@ -1878,6 +1895,11 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	char *key;
 	unsigned int i;
 	pool_t parser_pool;
+	bool keep_values;
+
+	/* if source and destination pools are the same, there's no need to
+	   duplicate values */
+	keep_values = new_pool == old_ctx->set_pool;
 
 	pool_ref(new_pool);
 	parser_pool = pool_alloconly_create(MEMPOOL_GROWING"dup settings parser",
@@ -1902,9 +1924,9 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 
 		new_ctx->roots[i].info = old_ctx->roots[i].info;
 		new_ctx->roots[i].set_struct =
-			settings_dup(old_ctx->roots[i].info,
-				     old_ctx->roots[i].set_struct,
-				     new_ctx->set_pool);
+			settings_dup_full(old_ctx->roots[i].info,
+					  old_ctx->roots[i].set_struct,
+					  new_ctx->set_pool, keep_values);
 		new_ctx->roots[i].change_struct =
 			settings_changes_dup(old_ctx->roots[i].info,
 					     old_ctx->roots[i].change_struct,
@@ -2113,7 +2135,7 @@ settings_apply(struct setting_link *dest_link,
 		src = CONST_PTR_OFFSET(src_link->set_struct, def->offset);
 		dest = PTR_OFFSET(dest_link->set_struct, def->offset);
 
-		if (setting_copy(def->type, src, dest, pool)) {
+		if (setting_copy(def->type, src, dest, pool, FALSE)) {
 			/* non-list */
 		} else if (def->type == SET_DEFLIST) {
 			settings_copy_deflist(def, src_link, dest_link, pool);
