@@ -341,7 +341,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	struct dsync_brain *brain2;
 	struct mail_user *user2;
 	struct setting_parser_context *set_parser;
-	const char *set_line, *location, *error;
+	const char *location, *error;
 	bool brain1_running, brain2_running, changed1, changed2;
 	int ret;
 
@@ -359,8 +359,7 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 	/* update mail_location and create another user for the
 	   second location. */
 	set_parser = mail_storage_service_user_get_settings_parser(ctx->ctx.cur_service_user);
-	set_line = t_strconcat("mail_location=", location, NULL);
-	if (settings_parse_line(set_parser, set_line) < 0)
+	if (settings_parse_keyvalue(set_parser, "mail_location", location) < 0)
 		i_unreached();
 	ret = mail_storage_service_next(ctx->ctx.storage_service,
 					ctx->ctx.cur_service_user,
