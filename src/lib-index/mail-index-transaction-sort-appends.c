@@ -131,10 +131,12 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 
 	if (!array_is_created(&t->appends))
 		return;
+	recs = array_get_modifiable(&t->appends, &count);
+	i_assert(count > 0);
+
 	if (!t->appends_nonsorted) {
+		i_assert(recs[0].uid != 0);
 #ifdef DEBUG
-		recs = array_get_modifiable(&t->appends, &count);
-		i_assert(count > 0);
 		for (i = 1; i < count; i++)
 			i_assert(recs[i-1].uid < recs[i].uid);
 #endif
@@ -142,11 +144,9 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t)
 	}
 
 	/* first make a copy of the UIDs and map them to sequences */
-	recs = array_get_modifiable(&t->appends, &count);
-	i_assert(count > 0);
-
 	new_uid_map = i_new(struct uid_map, count);
 	for (i = 0; i < count; i++) {
+		i_assert(recs[i].uid != 0);
 		new_uid_map[i].idx = i;
 		new_uid_map[i].uid = recs[i].uid;
 	}
