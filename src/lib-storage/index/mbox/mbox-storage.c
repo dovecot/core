@@ -151,7 +151,7 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		return -1;
 	}
 
-	storage->set = mail_storage_get_driver_settings(_storage);
+	storage->set = mail_namespace_get_driver_settings(ns, _storage);
 
 	if (mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_INDEX, &dir)) {
 		_storage->temp_path_prefix = p_strconcat(_storage->pool, dir,
@@ -706,7 +706,7 @@ static void mbox_storage_add_list(struct mail_storage *storage,
 
 	mlist = p_new(list->pool, struct mbox_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
-	mlist->set = mail_storage_get_driver_settings(storage);
+	mlist->set = mail_namespace_get_driver_settings(list->ns, storage);
 
 	if (strcmp(list->name, MAILBOX_LIST_NAME_FS) == 0 &&
 	    *list->set.maildir_name == '\0') {

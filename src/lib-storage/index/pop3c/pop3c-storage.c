@@ -31,12 +31,12 @@ static struct mail_storage *pop3c_storage_alloc(void)
 
 static int
 pop3c_storage_create(struct mail_storage *_storage,
-		     struct mail_namespace *ns ATTR_UNUSED,
+		     struct mail_namespace *ns,
 		     const char **error_r)
 {
 	struct pop3c_storage *storage = (struct pop3c_storage *)_storage;
 
-	storage->set = mail_storage_get_driver_settings(_storage);
+	storage->set = mail_namespace_get_driver_settings(ns, _storage);
 	if (storage->set->pop3c_host[0] == '\0') {
 		*error_r = "missing pop3c_host";
 		return -1;
