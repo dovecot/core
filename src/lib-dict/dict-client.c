@@ -217,6 +217,7 @@ static void client_dict_input_timeout(struct client_dict *dict)
 			dict->to_requests =
 				timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MSECS - cmd_diff,
 					    client_dict_input_timeout, dict);
+			return;
 		}
 		break;
 	}
