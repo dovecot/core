@@ -137,6 +137,7 @@ bool mail_index_cancel_flag_updates(struct mail_index_transaction *t,
 bool mail_index_cancel_keyword_updates(struct mail_index_transaction *t,
 				       uint32_t seq);
 
+void mail_index_transaction_finish_so_far(struct mail_index_transaction *t);
 void mail_index_transaction_finish(struct mail_index_transaction *t);
 void mail_index_transaction_export(struct mail_index_transaction *t,
 				   struct mail_transaction_log_append_ctx *append_ctx);
