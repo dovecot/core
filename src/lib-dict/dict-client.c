@@ -72,6 +72,7 @@ struct client_dict {
 	char *last_connect_error;
 
 	struct ioloop *ioloop, *prev_ioloop;
+	struct io_wait_timer *wait_timer;
 	struct timeout *to_requests;
 	struct timeout *to_idle;
 	unsigned int idle_msecs;
@@ -136,7 +137,7 @@ client_dict_cmd_init(struct client_dict *dict, const char *query)
 	cmd->query = i_strdup(query);
 	cmd->start_time = ioloop_timeval;
 	cmd->start_global_ioloop_usecs = ioloop_global_wait_usecs;
-	cmd->start_dict_ioloop_usecs = io_loop_get_wait_usecs(dict->ioloop);
+	cmd->start_dict_ioloop_usecs = io_wait_timer_get_usecs(dict->wait_timer);
 	cmd->start_lock_usecs = file_lock_wait_get_total_usecs();
 	return cmd;
 }
@@ -661,6 +662,7 @@ client_dict_init(struct dict *driver, const char *uri,
 	dict->uri = i_strdup(dest_uri + 1);
 
 	dict->ioloop = io_loop_create();
+	dict->wait_timer = io_wait_timer_add();
 	io_loop_set_current(old_ioloop);
 	*dict_r = &dict->dict;
 	return 0;
@@ -673,6 +675,7 @@ static void client_dict_deinit(struct dict *_dict)
 
 	client_dict_disconnect(dict, "Deinit");
 	connection_deinit(&dict->conn.conn);
+	io_wait_timer_remove(&dict->wait_timer);
 
 	i_assert(dict->transactions == NULL);
 	i_assert(array_count(&dict->cmds) == 0);
@@ -714,6 +717,7 @@ static bool client_dict_switch_ioloop(struct dict *_dict)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
 
+	dict->wait_timer = io_wait_timer_move(&dict->wait_timer);
 	if (dict->to_idle != NULL)
 		dict->to_idle = io_loop_move_timeout(&dict->to_idle);
 	if (dict->to_requests != NULL)
@@ -726,7 +730,7 @@ static const char *dict_wait_warnings(const struct client_dict_cmd *cmd)
 {
 	int global_ioloop_msecs = (ioloop_global_wait_usecs -
 				   cmd->start_global_ioloop_usecs + 999) / 1000;
-	int dict_ioloop_msecs = (io_loop_get_wait_usecs(cmd->dict->ioloop) -
+	int dict_ioloop_msecs = (io_wait_timer_get_usecs(cmd->dict->wait_timer) -
 				 cmd->start_dict_ioloop_usecs + 999) / 1000;
 	int other_ioloop_msecs = global_ioloop_msecs - dict_ioloop_msecs;
 	int lock_msecs = (file_lock_wait_get_total_usecs() -
