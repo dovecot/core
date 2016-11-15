@@ -750,9 +750,15 @@ static void cmd_director_dump(struct doveadm_cmd_context *cctx)
 		T_BEGIN {
 			args = t_strsplit_tab(line);
 			if (str_array_length(args) >= 2) {
+				const char *host = args[0];
+				/* this is guaranteed to be at least NULL */
+				if (args[2] != NULL &&
+				    *args[2] != '\0')
+					host = t_strdup_printf("%s@%s", host,
+							       args[2]);
 				doveadm_print("add");
 				doveadm_print(ctx->socket_path);
-				doveadm_print(args[0]);
+				doveadm_print(host);
 				doveadm_print(args[1]);
 			}
 		} T_END;
