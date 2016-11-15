@@ -335,11 +335,13 @@ mailbox_list_index_sync_list(struct mailbox_list_index_sync_context *sync_ctx)
 static void
 mailbox_list_index_sync_update_hdr(struct mailbox_list_index_sync_context *sync_ctx)
 {
-	if (sync_ctx->orig_highest_name_id != sync_ctx->ilist->highest_name_id) {
+	if (sync_ctx->orig_highest_name_id != sync_ctx->ilist->highest_name_id ||
+	    sync_ctx->ilist->corrupted) {
 		/* new names added. this implicitly resets refresh flag */
 		T_BEGIN {
 			mailbox_list_index_sync_names(sync_ctx);
 		} T_END;
+		sync_ctx->ilist->corrupted = FALSE;
 	} else if (mailbox_list_index_need_refresh(sync_ctx->ilist,
 						   sync_ctx->view)) {
 		/* we're synced, reset refresh flag */
