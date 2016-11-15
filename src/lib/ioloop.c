@@ -500,7 +500,7 @@ static void io_loops_timeouts_update(long diff_secs)
 static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 {
 	struct priorityq_item *item;
-	struct timeval tv, tv_call, prev_ioloop_timeval = ioloop_timeval;
+	struct timeval tv, tv_call;
 	unsigned int t_id;
 
 	if (gettimeofday(&ioloop_timeval, NULL) < 0)
@@ -526,7 +526,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 						    ioloop_timeval.tv_sec);
 		}
 		long long diff =
-			timeval_diff_usecs(&ioloop_timeval, &prev_ioloop_timeval);
+			timeval_diff_usecs(&ioloop_timeval, &ioloop->wait_started);
 		ioloop->ioloop_wait_usecs += diff;
 		ioloop_global_wait_usecs += diff;
 	}
@@ -634,6 +634,7 @@ static void io_loop_call_pending(struct ioloop *ioloop)
 void io_loop_handler_run(struct ioloop *ioloop)
 {
 	io_loop_timeouts_start_new(ioloop);
+	ioloop->wait_started = ioloop_timeval;
 	io_loop_handler_run_internal(ioloop);
 	io_loop_call_pending(ioloop);
 }
