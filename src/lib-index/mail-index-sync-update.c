@@ -967,7 +967,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 				"seq=%u offset=%"PRIuUOFF_T": %s "
 				"(initial_mapped=%d, reason=%s)", index->filepath,
 				map->hdr.log_file_seq, start_offset, reason,
-				index->initial_mapped, sync_reason);
+				index->initial_mapped ? 1 : 0, sync_reason);
 			(void)mail_index_fsck(index);
 		}
 		/* can't use it. sync by re-reading index. */

@@ -151,7 +151,7 @@ void sha3_loop(void *context, const void *data, size_t len)
 		return;
 	}
 
-	if(old_tail) { /* will have one word to process */
+	if(old_tail != 0) { /* will have one word to process */
 		/* endian-independent code follows: */
 		len -= old_tail;
 		while (old_tail-- > 0)
