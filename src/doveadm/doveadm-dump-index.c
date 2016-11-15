@@ -190,6 +190,17 @@ static void dump_list_header(const void *data, size_t size)
 	}
 }
 
+static void dump_box_name_header(const void *data, size_t size)
+{
+	char *dest = t_malloc0(size + 1);
+	memcpy(dest, data, size);
+	for (size_t i = 0; i < size; i++) {
+		if (dest[i] == '\0')
+			dest[i] = '\n';
+	}
+	printf(" %s\n", t_strarray_join(t_strsplit(dest, "\n"), "\n "));
+}
+
 static void dump_extension_header(struct mail_index *index,
 				  const struct mail_index_ext *ext)
 {
@@ -309,6 +320,10 @@ static void dump_extension_header(struct mail_index *index,
 		printf("header ........ = %s\n",
 		       binary_to_hex(data, ext->hdr_size));
 		dump_list_header(data, ext->hdr_size);
+	} else if (strcmp(ext->name, "box-name") == 0) {
+		printf("header ........ = %s\n",
+		       binary_to_hex(data, ext->hdr_size));
+		dump_box_name_header(data, ext->hdr_size);
 	} else {
 		printf("header ........ = %s\n",
 		       binary_to_hex(data, ext->hdr_size));
