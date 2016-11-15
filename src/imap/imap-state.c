@@ -402,7 +402,9 @@ import_send_expunges(struct client *client,
 		*error_r = mailbox_get_last_error(client->mailbox, NULL);
 		ret = -1;
 	} else if (seq != state->messages) {
-		*error_r = "Message count mismatch after handling expunges";
+		*error_r = t_strdup_printf("Message count mismatch after "
+					   "handling expunges (%u != %u)",
+					   seq, state->messages);
 		ret = -1;
 	}
 	(void)mailbox_transaction_commit(&trans);
@@ -411,11 +413,15 @@ import_send_expunges(struct client *client,
 
 	seqs = array_get(&expunged_seqs, &expunge_count);
 	if (client->messages_count + expunge_count < state->messages) {
-		*error_r = "Message count too low after handling expunges";
+		*error_r = t_strdup_printf("Message count too low after "
+					   "handling expunges (%u < %u)",
+					   client->messages_count + expunge_count,
+					   state->messages);
 		return -1;
 	}
 	if (crc != state->uids_crc32) {
-		*error_r = "Message UIDs CRC32 mismatch";
+		*error_r = t_strdup_printf("Message UIDs CRC32 mismatch (%u != %u)",
+					   crc, state->uids_crc32);
 		return -1;
 	}
 
@@ -589,7 +595,9 @@ import_state_mailbox_open(struct client *client,
 		return -1;
 	}
 	if (!guid_128_equals(metadata.guid, state->mailbox_guid)) {
-		*error_r = "Mailbox GUID has changed";
+		*error_r = t_strdup_printf("Mailbox GUID has changed %s->%s",
+					   guid_128_to_string(state->mailbox_guid),
+					   guid_128_to_string(metadata.guid));
 		mailbox_free(&box);
 		return -1;
 	}
@@ -597,17 +605,21 @@ import_state_mailbox_open(struct client *client,
 				STATUS_HIGHESTMODSEQ | STATUS_RECENT |
 				STATUS_KEYWORDS, &status);
 	if (status.uidvalidity != state->uidvalidity) {
-		*error_r = "Mailbox UIDVALIDITY has changed";
+		*error_r = t_strdup_printf("Mailbox UIDVALIDITY has changed %u->%u",
+					    state->uidvalidity, status.uidvalidity);
 		mailbox_free(&box);
 		return -1;
 	}
 	if (status.uidnext < state->uidnext) {
-		*error_r = "Mailbox UIDNEXT shrank";
+		*error_r = t_strdup_printf("Mailbox UIDNEXT shrank %u -> %u",
+					   state->uidnext, status.uidnext);
 		mailbox_free(&box);
 		return -1;
 	}
 	if (status.highest_modseq < state->highest_modseq) {
-		*error_r = "Mailbox HIGHESTMODSEQ shrank";
+		*error_r = t_strdup_printf("Mailbox HIGHESTMODSEQ shrank %u -> %u",
+					   state->highest_modseq,
+					   status.highest_modseq);
 		mailbox_free(&box);
 		return -1;
 	}
@@ -623,7 +635,9 @@ import_state_mailbox_open(struct client *client,
 		return -1;
 	i_assert(expunge_count <= state->messages);
 	if (state->messages - expunge_count > client->messages_count) {
-		*error_r = "Mailbox message count shrank";
+		*error_r = t_strdup_printf("Mailbox message count shrank %u -> %u",
+					   client->messages_count,
+					   state->messages - expunge_count);
 		return -1;
 	}
 	if (state->messages - expunge_count < client->messages_count) {
