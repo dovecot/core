@@ -305,7 +305,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 	/* do a second scan to create the actual mailbox tree hierarchy.
 	   this is needed because the parent_uid may be smaller or higher than
 	   the current node's uid */
-	if (*error_r != NULL)
+	if (*error_r != NULL && ilist->has_backing_store)
 		count = 0;
 	for (seq = 1; seq <= count; seq++) {
 		mail_index_lookup_uid(view, seq, &uid);
