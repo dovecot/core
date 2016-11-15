@@ -497,6 +497,14 @@ static void io_loops_timeouts_update(long diff_secs)
 		io_loop_timeouts_update(ioloop, diff_secs);
 }
 
+static void ioloop_add_wait_time(struct ioloop *ioloop)
+{
+	long long diff =
+		timeval_diff_usecs(&ioloop_timeval, &ioloop->wait_started);
+	ioloop->ioloop_wait_usecs += diff;
+	ioloop_global_wait_usecs += diff;
+}
+
 static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 {
 	struct priorityq_item *item;
@@ -525,10 +533,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 			ioloop->time_moved_callback(ioloop->next_max_time,
 						    ioloop_timeval.tv_sec);
 		}
-		long long diff =
-			timeval_diff_usecs(&ioloop_timeval, &ioloop->wait_started);
-		ioloop->ioloop_wait_usecs += diff;
-		ioloop_global_wait_usecs += diff;
+		ioloop_add_wait_time(ioloop);
 	}
 
 	ioloop_time = ioloop_timeval.tv_sec;
