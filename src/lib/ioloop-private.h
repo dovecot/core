@@ -26,6 +26,7 @@ struct ioloop {
 	io_loop_time_moved_callback_t *time_moved_callback;
 	time_t next_max_time;
 	uint64_t ioloop_wait_usecs;
+	struct timeval wait_started;
 
 	unsigned int io_pending_count;
 
