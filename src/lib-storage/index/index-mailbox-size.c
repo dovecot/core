@@ -176,7 +176,8 @@ index_mailbox_vsize_update_write(struct mailbox_vsize_update *update)
 		return;
 	update->written = TRUE;
 
-	if (memcmp(&update->orig_vsize_hdr, &update->vsize_hdr,
+	if (update->rebuild == FALSE &&
+	    memcmp(&update->orig_vsize_hdr, &update->vsize_hdr,
 		   sizeof(update->vsize_hdr)) == 0) {
 		/* no changes */
 		return;
