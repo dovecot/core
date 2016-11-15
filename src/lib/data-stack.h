@@ -58,10 +58,11 @@ bool t_pop(data_stack_frame_t *id) ATTR_HOT;
 void t_pop_last_unsafe(void);
 
 /* Usage: T_BEGIN { code } T_END */
-#define T_CAT2(a,b) (a ":" #b)
+#define T_STRING(x)	#x
+#define T_XSTRING(x)	T_STRING(x)	/* expand and then stringify */
 #define T_BEGIN \
 	STMT_START { \
-		data_stack_frame_t _data_stack_cur_id = t_push(T_CAT2(__FILE__, __LINE__));
+		data_stack_frame_t _data_stack_cur_id = t_push(__FILE__ ":" T_XSTRING(__LINE__));
 #define T_END \
 	STMT_START { \
 		if (unlikely(!t_pop(&_data_stack_cur_id))) \
