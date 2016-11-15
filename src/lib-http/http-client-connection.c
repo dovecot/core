@@ -225,7 +225,8 @@ http_client_connection_get_timing_info(struct http_client_connection *conn)
 			(*requestp)->sent_global_ioloop_usecs + 999) / 1000;
 		if (conn->client->ioloop != NULL) {
 			int http_ioloop_msecs =
-				(io_loop_get_wait_usecs(conn->client->ioloop) + 999) / 1000;
+				(io_wait_timer_get_usecs(conn->io_wait_timer) -
+				 (*requestp)->sent_http_ioloop_usecs + 999) / 1000;
 			other_ioloop_msecs -= http_ioloop_msecs;
 			str_printfa(str, ", %d.%03d in http ioloop",
 				    http_ioloop_msecs/1000, http_ioloop_msecs%1000);
@@ -1439,6 +1440,7 @@ http_client_connection_create(struct http_client_peer *peer)
 	conn->peer = peer;
 	if (peer->addr.type != HTTP_CLIENT_PEER_ADDR_RAW)
 		i_array_init(&conn->request_wait_list, 16);
+	conn->io_wait_timer = io_wait_timer_add();
 
 	conn->label = i_strdup_printf("%s [%d]",
 		http_client_peer_label(peer), conn->id);
@@ -1565,6 +1567,7 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 		ssl_iostream_unref(&conn->ssl_iostream);
 	if (conn->connect_initialized)
 		connection_deinit(&conn->conn);
+	io_wait_timer_remove(&conn->io_wait_timer);
 	
 	i_free(conn->label);
 	i_free(conn);
@@ -1609,5 +1612,6 @@ void http_client_connection_switch_ioloop(struct http_client_connection *conn)
 		conn->to_response = io_loop_move_timeout(&conn->to_response);
 	if (conn->incoming_payload != NULL)
 		i_stream_switch_ioloop(conn->incoming_payload);
+	conn->io_wait_timer = io_wait_timer_move(&conn->io_wait_timer);
 	connection_switch_ioloop(&conn->conn);
 }
