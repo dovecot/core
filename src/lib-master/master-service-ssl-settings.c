@@ -46,7 +46,11 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_key_password = "",
 	.ssl_dh = "",
 	.ssl_cipher_list = "ALL:!LOW:!SSLv2:!EXP:!aNULL",
-	.ssl_protocols = "!SSLv2",
+#ifdef SSL_TXT_SSLV2
+	.ssl_protocols = "!SSLv2 !SSLv3",
+#else
+	.ssl_protocols = "!SSLv3",
+#endif
 	.ssl_cert_username_field = "commonName",
 	.ssl_crypto_device = "",
 	.ssl_verify_client_cert = FALSE,
