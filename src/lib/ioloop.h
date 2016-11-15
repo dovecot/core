@@ -183,6 +183,18 @@ struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop);
    Returns fd on success, -1 on error. */
 int io_loop_extract_notify_fd(struct ioloop *ioloop);
 
+/* IO wait timers can be used to track how much time the io_wait_timer has
+   spent on waiting in its ioloops. This is similar to
+   io_loop_get_wait_usecs(), but it's easier to use when the wait time needs
+   to be tracked across multiple ioloops. */
+struct io_wait_timer *
+io_wait_timer_add(const char *source_filename, unsigned int source_linenum);
+#define io_wait_timer_add() \
+	io_wait_timer_add(__FILE__, __LINE__)
+struct io_wait_timer *io_wait_timer_move(struct io_wait_timer **timer);
+void io_wait_timer_remove(struct io_wait_timer **timer);
+uint64_t io_wait_timer_get_usecs(struct io_wait_timer *timer);
+
 /* Move the given I/O into the current I/O loop if it's not already
    there. New I/O is returned, while the old one is freed. */
 struct io *io_loop_move_io(struct io **io);

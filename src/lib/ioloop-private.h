@@ -18,6 +18,7 @@ struct ioloop {
 	struct io_file *next_io_file;
 	struct priorityq *timeouts;
 	ARRAY(struct timeout *) timeouts_new;
+	struct io_wait_timer *wait_timers;
 
         struct ioloop_handler_context *handler_context;
         struct ioloop_notify_handler_context *notify_handler_context;
@@ -77,6 +78,15 @@ struct timeout {
 	struct ioloop_context *ctx;
 
 	bool one_shot:1;
+};
+
+struct io_wait_timer {
+	struct io_wait_timer *prev, *next;
+	const char *source_filename;
+	unsigned int source_linenum;
+
+	struct ioloop *ioloop;
+	uint64_t usecs;
 };
 
 struct ioloop_context_callback {
