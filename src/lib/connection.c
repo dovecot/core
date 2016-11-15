@@ -110,6 +110,10 @@ int connection_input_line_default(struct connection *conn, const char *line)
 		conn->version_received = TRUE;
 		return 1;
 	}
+	if (args[0] == NULL && !conn->list->set.allow_empty_args_input) {
+		i_error("%s: Unexpectedly received empty line", conn->name);
+		return -1;
+	}
 
 	return conn->list->v.input_args(conn, args);
 }

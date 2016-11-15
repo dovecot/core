@@ -58,6 +58,11 @@ struct connection_settings {
 
 	bool client;
 	bool dont_send_version;
+	/* By default when only input_args() is used, or when
+	   connection_input_line_default() is used, empty lines aren't allowed
+	   since it would result in additional args[0] == NULL check. Setting
+	   this to TRUE passes it through instead of logging an error. */
+	bool allow_empty_args_input;
 	/* Don't call client_connected() immediately on
 	   connection_client_connect() with UNIX sockets. This is mainly
 	   to make the functionality identical with inet sockets, which may
