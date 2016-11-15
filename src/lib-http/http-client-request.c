@@ -1053,6 +1053,8 @@ static int http_client_request_send_real(struct http_client_request *req,
 	req->sent_time = ioloop_timeval;
 	req->sent_lock_usecs = file_lock_wait_get_total_usecs();
 	req->sent_global_ioloop_usecs = ioloop_global_wait_usecs;
+	req->sent_http_ioloop_usecs =
+		io_wait_timer_get_usecs(req->conn->io_wait_timer);
 	o_stream_cork(output);
 	if (o_stream_sendv(output, iov, N_ELEMENTS(iov)) < 0) {
 		*error_r = t_strdup_printf("write(%s) failed: %s",

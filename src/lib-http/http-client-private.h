@@ -109,6 +109,7 @@ struct http_client_request {
 	unsigned int attempts;
 	unsigned int redirects;
 	uint64_t sent_global_ioloop_usecs;
+	uint64_t sent_http_ioloop_usecs;
 	uint64_t sent_lock_usecs;
 
 	unsigned int delayed_error_status;
@@ -166,6 +167,7 @@ struct http_client_connection {
 	struct istream *incoming_payload;
 	struct io *io_req_payload;
 	struct ioloop *last_ioloop;
+	struct io_wait_timer *io_wait_timer;
 
 	/* requests that have been sent, waiting for response */
 	ARRAY_TYPE(http_client_request) request_wait_list;
