@@ -292,7 +292,8 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		node->name = hash_table_lookup(ilist->mailbox_names,
 					       POINTER_CAST(irec->name_id));
 		if (node->name == NULL) {
-			*error_r = "name_id not in index header";
+			*error_r = t_strdup_printf(
+				"name_id=%u not in index header", irec->name_id);
 			if (ilist->has_backing_store)
 				break;
 			/* generate a new name and use it */
@@ -325,7 +326,9 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				node->parent->children = node;
 				continue;
 			}
-			*error_r = "parent_uid points to nonexistent record";
+			*error_r = t_strdup_printf(
+				"parent_uid=%u points to nonexistent record",
+				irec->parent_uid);
 			if (ilist->has_backing_store)
 				break;
 			/* just place it under the root */
@@ -333,10 +336,13 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		if (hash_table_lookup(duplicate_hash, node) == NULL)
 			hash_table_insert(duplicate_hash, node, node);
 		else {
+			const char *old_name = node->name;
 			guid_128_t guid;
 
 			if (ilist->has_backing_store) {
-				*error_r = "Duplicate mailbox in index";
+				*error_r = t_strdup_printf(
+					"Duplicate mailbox '%s' in index",
+					node->name);
 				break;
 			}
 
@@ -347,8 +353,8 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 						     "%s-duplicate-%s", node->name,
 						     guid_128_to_string(guid));
 			*error_r = t_strdup_printf(
-				"Duplicate mailbox in index, renaming to %s",
-				node->name);
+				"Duplicate mailbox '%s' in index, renaming to %s",
+				old_name, node->name);
 		}
 		node->next = ilist->mailbox_tree;
 		ilist->mailbox_tree = node;
