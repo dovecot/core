@@ -254,6 +254,18 @@ mailbox_list_index_node_hash(const struct mailbox_list_index_node *node)
 		POINTER_CAST_TO(node->parent, unsigned int);
 }
 
+static bool node_has_parent(const struct mailbox_list_index_node *parent,
+			    const struct mailbox_list_index_node *node)
+{
+	const struct mailbox_list_index_node *n;
+
+	for (n = parent; n != NULL; n = n->parent) {
+		if (n == node)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 					    struct mail_index_view *view,
 					    const char **error_r)
@@ -325,6 +337,14 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				*error_r = t_strdup_printf(
 					"parent_uid=%u points to nonexistent record",
 					irec->parent_uid);
+				if (ilist->has_backing_store)
+					break;
+				/* just place it under the root */
+				node->corrupted_parent = TRUE;
+			} else if (node_has_parent(parent, node)) {
+				*error_r = t_strdup_printf(
+					"parent_uid=%u loops to node itself (%s)",
+					uid, node->name);
 				if (ilist->has_backing_store)
 					break;
 				/* just place it under the root */
