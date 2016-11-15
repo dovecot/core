@@ -353,6 +353,52 @@ mailbox_list_index_sync_update_hdr(struct mailbox_list_index_sync_context *sync_
 	}
 }
 
+static void
+mailbox_list_index_sync_update_corrupted_node(struct mailbox_list_index_sync_context *sync_ctx,
+					      struct mailbox_list_index_node *node)
+{
+	struct mailbox_list_index_record irec;
+	uint32_t seq;
+	const void *data;
+	bool expunged;
+
+	if (!mail_index_lookup_seq(sync_ctx->view, node->uid, &seq))
+		return;
+
+	if (node->corrupted_parent) {
+		mail_index_lookup_ext(sync_ctx->view, seq,
+				      sync_ctx->ilist->ext_id,
+				      &data, &expunged);
+		i_assert(data != NULL);
+
+		memcpy(&irec, data, sizeof(irec));
+		irec.parent_uid = node->parent == NULL ? 0 : node->parent->uid;
+		mail_index_update_ext(sync_ctx->trans, seq,
+				      sync_ctx->ilist->ext_id, &irec, NULL);
+		node->corrupted_parent = FALSE;
+	}
+}
+
+static void
+mailbox_list_index_sync_update_corrupted_nodes(struct mailbox_list_index_sync_context *sync_ctx,
+					       struct mailbox_list_index_node *node)
+{
+	for (; node != NULL; node = node->next) {
+		mailbox_list_index_sync_update_corrupted_node(sync_ctx, node);
+		mailbox_list_index_sync_update_corrupted_nodes(sync_ctx, node->children);
+	}
+}
+
+static void
+mailbox_list_index_sync_update_corrupted(struct mailbox_list_index_sync_context *sync_ctx)
+{
+	if (!sync_ctx->ilist->corrupted)
+		return;
+
+	mailbox_list_index_sync_update_corrupted_nodes(sync_ctx,
+		sync_ctx->ilist->mailbox_tree);
+}
+
 int mailbox_list_index_sync_end(struct mailbox_list_index_sync_context **_sync_ctx,
 				bool success)
 {
@@ -361,8 +407,10 @@ int mailbox_list_index_sync_end(struct mailbox_list_index_sync_context **_sync_c
 
 	*_sync_ctx = NULL;
 
-	if (success)
+	if (success) {
+		mailbox_list_index_sync_update_corrupted(sync_ctx);
 		mailbox_list_index_sync_update_hdr(sync_ctx);
+	}
 	mail_index_view_close(&sync_ctx->view);
 
 	if (success) {

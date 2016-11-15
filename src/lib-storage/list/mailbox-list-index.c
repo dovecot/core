@@ -258,7 +258,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 					    struct mail_index_view *view,
 					    const char **error_r)
 {
-	struct mailbox_list_index_node *node;
+	struct mailbox_list_index_node *node, *parent;
 	HASH_TABLE(struct mailbox_list_index_node *,
 		   struct mailbox_list_index_node *) duplicate_hash;
 	const struct mail_index_record *rec;
@@ -319,19 +319,22 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 
 		if (irec->parent_uid != 0) {
 			/* node should have a parent */
-			node->parent = mailbox_list_index_lookup_uid(ilist,
-							irec->parent_uid);
-			if (node->parent != NULL) {
-				node->next = node->parent->children;
-				node->parent->children = node;
+			parent = mailbox_list_index_lookup_uid(ilist,
+							       irec->parent_uid);
+			if (parent == NULL) {
+				*error_r = t_strdup_printf(
+					"parent_uid=%u points to nonexistent record",
+					irec->parent_uid);
+				if (ilist->has_backing_store)
+					break;
+				/* just place it under the root */
+				node->corrupted_parent = TRUE;
+			} else {
+				node->parent = parent;
+				node->next = parent->children;
+				parent->children = node;
 				continue;
 			}
-			*error_r = t_strdup_printf(
-				"parent_uid=%u points to nonexistent record",
-				irec->parent_uid);
-			if (ilist->has_backing_store)
-				break;
-			/* just place it under the root */
 		}
 		if (hash_table_lookup(duplicate_hash, node) == NULL)
 			hash_table_insert(duplicate_hash, node, node);
