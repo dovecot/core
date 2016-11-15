@@ -133,7 +133,7 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 	struct mail *mail;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(&ctx->ctx, info, search_args, 0, NULL, FALSE,
+	if (doveadm_mail_iter_init(&ctx->ctx, info, search_args, 0, NULL, TRUE,
 				   &iter) < 0)
 		return -1;
 
