@@ -26,7 +26,7 @@ cmd_expunge_box(struct doveadm_mail_cmd_context *_ctx,
 	enum mail_error error;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL,
+	if (doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL, FALSE,
 				   &iter) < 0)
 		return -1;
 
