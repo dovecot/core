@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "llist.h"
 #include "time-util.h"
 #include "istream-private.h"
 #include "ioloop-private.h"
@@ -499,10 +500,14 @@ static void io_loops_timeouts_update(long diff_secs)
 
 static void ioloop_add_wait_time(struct ioloop *ioloop)
 {
+	struct io_wait_timer *timer;
 	long long diff =
 		timeval_diff_usecs(&ioloop_timeval, &ioloop->wait_started);
 	ioloop->ioloop_wait_usecs += diff;
 	ioloop_global_wait_usecs += diff;
+
+	for (timer = ioloop->wait_timers; timer != NULL; timer = timer->next)
+		timer->usecs += diff;
 }
 
 static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
@@ -739,6 +744,15 @@ void io_loop_destroy(struct ioloop **_ioloop)
 		timeout_free(to);
 	}
 	priorityq_deinit(&ioloop->timeouts);
+
+	while (ioloop->wait_timers != NULL) {
+		struct io_wait_timer *timer = ioloop->wait_timers;
+
+		i_warning("IO wait timer leak: %s:%u",
+			  timer->source_filename,
+			  timer->source_linenum);
+		io_wait_timer_remove(&timer);
+	}
 
 	if (ioloop->handler_context != NULL)
 		io_loop_handler_deinit(ioloop);
@@ -1001,4 +1015,43 @@ enum io_condition io_loop_find_fd_conditions(struct ioloop *ioloop, int fd)
 			conditions |= io->io.condition;
 	}
 	return conditions;
+}
+
+#undef io_wait_timer_add
+struct io_wait_timer *
+io_wait_timer_add(const char *source_filename, unsigned int source_linenum)
+{
+	struct io_wait_timer *timer;
+
+	timer = i_new(struct io_wait_timer, 1);
+	timer->ioloop = current_ioloop;
+	timer->source_filename = source_filename;
+	timer->source_linenum = source_linenum;
+	DLLIST_PREPEND(&current_ioloop->wait_timers, timer);
+	return timer;
+}
+
+struct io_wait_timer *io_wait_timer_move(struct io_wait_timer **_timer)
+{
+	struct io_wait_timer *timer = *_timer;
+
+	*_timer = NULL;
+	DLLIST_REMOVE(&timer->ioloop->wait_timers, timer);
+	DLLIST_PREPEND(&current_ioloop->wait_timers, timer);
+	timer->ioloop = current_ioloop;
+	return timer;
+}
+
+void io_wait_timer_remove(struct io_wait_timer **_timer)
+{
+	struct io_wait_timer *timer = *_timer;
+
+	*_timer = NULL;
+	DLLIST_REMOVE(&timer->ioloop->wait_timers, timer);
+	i_free(timer);
+}
+
+uint64_t io_wait_timer_get_usecs(struct io_wait_timer *timer)
+{
+	return timer->usecs;
 }
