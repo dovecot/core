@@ -31,7 +31,7 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 	struct mail *mail;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args, 0,
+	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args, 0, FALSE,
 				   NULL, &iter) < 0)
 		return -1;
 

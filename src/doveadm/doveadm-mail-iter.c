@@ -22,6 +22,7 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 			   struct mail_search_args *search_args,
 			   enum mail_fetch_field wanted_fields,
 			   const char *const *wanted_headers,
+			   bool readonly,
 			   struct doveadm_mail_iter **iter_r)
 {
 	struct doveadm_mail_iter *iter;
@@ -29,10 +30,13 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 	const char *errstr;
 	enum mail_error error;
 
+	enum mailbox_flags readonly_flag =
+		readonly ? MAILBOX_FLAG_READONLY : 0;
+
 	iter = i_new(struct doveadm_mail_iter, 1);
 	iter->ctx = ctx;
 	iter->box = mailbox_alloc(info->ns->list, info->vname,
-				  MAILBOX_FLAG_IGNORE_ACLS);
+				  MAILBOX_FLAG_IGNORE_ACLS | readonly_flag);
 	iter->search_args = search_args;
 
 	if (mailbox_sync(iter->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
