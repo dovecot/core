@@ -297,6 +297,8 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	box->pop3_uidl_hdr_ext_id =
 		mail_index_ext_register(box->index, "hdr-pop3-uidl",
 					sizeof(struct mailbox_index_pop3_uidl), 0, 0);
+	box->box_name_hdr_ext_id =
+		mail_index_ext_register(box->index, "box-name", 0, 0, 0);
 
 	box->opened = TRUE;
 

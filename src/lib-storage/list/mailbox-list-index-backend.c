@@ -456,6 +456,54 @@ index_list_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 	return 0;
 }
 
+static int index_list_mailbox_open(struct mailbox *box)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+	const void *data;
+	const unsigned char *name_hdr;
+	size_t name_hdr_size;
+
+	if (ibox->module_ctx.super.open(box) < 0)
+		return -1;
+
+	/* if mailbox name has changed, update it to the header. Use \0
+	   as the hierarchy separator in the header. This is to make sure
+	   we don't keep rewriting the name just in case some backend switches
+	   between separators when accessed different ways. */
+
+	/* Get the current mailbox name with \0 separators. */
+	char sep = mailbox_list_get_hierarchy_sep(box->list);
+	char *box_zerosep_name = t_strdup_noconst(box->name);
+	unsigned int box_name_len = strlen(box_zerosep_name);
+	for (unsigned int i = 0; i < box_name_len; i++) {
+		if (box_zerosep_name[i] == sep)
+			box_zerosep_name[i] = '\0';
+	}
+
+	/* Does it match what's in the header now? */
+	mail_index_get_header_ext(box->view, box->box_name_hdr_ext_id,
+				  &data, &name_hdr_size);
+	name_hdr = data;
+	while (name_hdr_size > 0 && name_hdr[name_hdr_size-1] == '\0') {
+		/* Remove trailing \0 - header doesn't shrink always */
+		name_hdr_size--;
+	}
+	if (name_hdr_size == box_name_len &&
+	    memcmp(box_zerosep_name, name_hdr, box_name_len) == 0) {
+		/* Same mailbox name */
+	} else {
+		/* Mailbox name changed - update */
+		struct mail_index_transaction *trans =
+			mail_index_transaction_begin(box->view, 0);
+		mail_index_ext_resize_hdr(trans, box->box_name_hdr_ext_id,
+					  box_name_len);
+		mail_index_update_header_ext(trans, box->box_name_hdr_ext_id, 0,
+					     box_zerosep_name, box_name_len);
+		(void)mail_index_transaction_commit(&trans);
+	}
+	return 0;
+}
+
 static void
 index_list_try_delete(struct mailbox_list *_list, const char *name,
 		      enum mailbox_list_path_type type)
@@ -734,4 +782,5 @@ void mailbox_list_index_backend_init_mailbox(struct mailbox *box)
 	box->v.create_box = index_list_mailbox_create;
 	box->v.update_box = index_list_mailbox_update;
 	box->v.exists = index_list_mailbox_exists;
+	box->v.open = index_list_mailbox_open;
 }
