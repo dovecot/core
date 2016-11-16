@@ -149,24 +149,19 @@ static void *quiet_dlopen(const char *path, int flags)
 	return dlopen(path, flags);
 #else
 	void *handle;
-	int fd, fd_null;
+	int fd;
 
 	/* OpenBSD likes to print all "undefined symbol" errors to stderr.
 	   Hide them by sending them to /dev/null. */
-	fd_null = open("/dev/null", O_WRONLY);
-	if (fd_null == -1)
-		i_fatal("open(/dev/null) failed: %m");
 	fd = dup(STDERR_FILENO);
 	if (fd == -1)
 		i_fatal("dup() failed: %m");
-	if (dup2(fd_null, STDERR_FILENO) < 0)
+	if (dup2(dev_null_fd, STDERR_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
 	handle = dlopen(path, flags);
 	if (dup2(fd, STDERR_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
 	if (close(fd) < 0)
-		i_error("close() failed: %m");
-	if (close(fd_null) < 0)
 		i_error("close() failed: %m");
 	return handle;
 #endif
