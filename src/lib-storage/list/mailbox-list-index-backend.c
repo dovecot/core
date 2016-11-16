@@ -23,6 +23,10 @@ struct index_mailbox_list {
 
 extern struct mailbox_list index_mailbox_list;
 
+static int
+index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
+			  struct mailbox_list *_newlist, const char *newname);
+
 static struct mailbox_list *index_list_alloc(void)
 {
 	struct index_mailbox_list *list;
@@ -522,6 +526,18 @@ static int index_list_mailbox_open(struct mailbox *box)
 		mail_index_update_header_ext(trans, box->box_name_hdr_ext_id, 0,
 					     box_zerosep_name, box_name_len);
 		(void)mail_index_transaction_commit(&trans);
+	} else if (name_hdr_size > 0) {
+		/* Mailbox name is corrupted. Rename it to the previous name. */
+		char sep = mailbox_list_get_hierarchy_sep(box->list);
+		char *newname = t_malloc0(name_hdr_size + 1);
+		memcpy(newname, name_hdr, name_hdr_size);
+		for (size_t i = 0; i < name_hdr_size; i++) {
+			if (newname[i] == '\0')
+				newname[i] = sep;
+		}
+
+		(void)index_list_rename_mailbox(box->list, box->name,
+						box->list, newname);
 	}
 	return 0;
 }
