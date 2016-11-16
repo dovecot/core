@@ -20,7 +20,6 @@
 #include "master-service-settings.h"
 
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <syslog.h>
 
@@ -167,28 +166,6 @@ master_service_init(const char *name, enum master_service_flags flags,
 		fd_debug_verify_leaks(MASTER_LISTEN_FD_FIRST + count, 1024);
 	}
 #endif
-	/* Make sure stdin, stdout and stderr fds exist. We especially rely on
-	   stderr being available and a lot of code doesn't like fd being 0.
-	   We'll open /dev/null as write-only also for stdin, since if any
-	   reads are attempted from it we'll want them to fail. */
-	for (int fd = 0; fd <= 2; fd++) {
-		struct stat st;
-
-		if (fstat(fd, &st) < 0 && errno == EBADF) {
-			int null_fd = open("/dev/null", O_WRONLY);
-			if (null_fd == -1)
-				i_fatal("Can't open /dev/null: %m");
-			else if (null_fd != fd) {
-				/* we don't really expect this to happen.
-				   POSIX guarantees that open() returns the
-				   lowest numbered fd. So this would only mean
-				   that fstat() returned EBADF for a fd that
-				   actually existed. */
-				if (close(null_fd) < 0)
-					i_error("close(/dev/null) failed: %m");
-			}
-		}
-	}
 	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		/* make sure we can dump core, at least until
 		   privileges are dropped. (i'm not really sure why this
