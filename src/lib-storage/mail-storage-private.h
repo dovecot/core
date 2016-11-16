@@ -414,6 +414,9 @@ struct mailbox {
 	bool update_first_saved:1;
 	/* mailbox_verify_create_name() only checks for mailbox_verify_name() */
 	bool skip_create_name_restrictions:1;
+	/* Using LAYOUT=index and mailbox is being opened with a corrupted
+	   mailbox name. Try to revert to the previously known good name. */
+	bool corrupted_mailbox_name:1;
 };
 
 struct mail_vfuncs {
