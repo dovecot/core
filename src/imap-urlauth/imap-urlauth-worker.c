@@ -255,10 +255,7 @@ static void client_destroy(struct client *client)
 	if (client->ctrl_output != NULL)
 		o_stream_destroy(&client->ctrl_output);
 
-	if (client->fd_in >= 0)
-		net_disconnect(client->fd_in);
-	if (client->fd_out >= 0 && client->fd_in != client->fd_out)
-		net_disconnect(client->fd_out);
+	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
 	if (client->fd_ctrl >= 0)
 		net_disconnect(client->fd_ctrl);
 

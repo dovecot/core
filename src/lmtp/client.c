@@ -301,9 +301,7 @@ void client_destroy(struct client *client, const char *prefix,
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 
-	net_disconnect(client->fd_in);
-	if (client->fd_in != client->fd_out)
-		net_disconnect(client->fd_out);
+	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
 	client_state_reset(client, "destroyed");
 	i_free(client->lhlo);
 	pool_unref(&client->state_pool);

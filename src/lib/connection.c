@@ -308,13 +308,7 @@ void connection_disconnect(struct connection *conn)
 		o_stream_close(conn->output);
 		o_stream_destroy(&conn->output);
 	}
-	if (conn->fd_in != -1) {
-		if (close(conn->fd_in) < 0)
-			i_error("close(%s) failed: %m", conn->name);
-		if (conn->fd_in != conn->fd_out && close(conn->fd_out) < 0)
-			i_error("close(%s/out) failed: %m", conn->name);
-		conn->fd_in = conn->fd_out = -1;
-	}
+	fd_close_maybe_stdio(&conn->fd_in, &conn->fd_out);
 }
 
 void connection_deinit(struct connection *conn)

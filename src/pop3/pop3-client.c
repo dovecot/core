@@ -642,9 +642,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 
-	net_disconnect(client->fd_in);
-	if (client->fd_in != client->fd_out)
-		net_disconnect(client->fd_out);
+	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
 	mail_storage_service_user_free(&client->service_user);
 
 	pop3_client_count--;
