@@ -4,13 +4,16 @@
 #include "array.h"
 #include "env-util.h"
 #include "hostpid.h"
+#include "fd-close-on-exec.h"
 #include "ipwd.h"
 #include "process-title.h"
 
+#include <fcntl.h>
 #include <unistd.h>
 #include <sys/time.h>
 
 static bool lib_initialized = FALSE;
+int dev_null_fd = -1;
 
 struct atexit_callback {
 	int priority;
@@ -115,6 +118,24 @@ void lib_atexit_run(void)
 	}
 }
 
+static void lib_open_non_stdio_dev_null(void)
+{
+	dev_null_fd = open("/dev/null", O_WRONLY);
+	if (dev_null_fd == -1)
+		i_fatal("open(/dev/null) failed: %m");
+	/* Make sure stdin, stdout and stderr fds exist. We especially rely on
+	   stderr being available and a lot of code doesn't like fd being 0.
+	   We'll open /dev/null as write-only also for stdin, since if any
+	   reads are attempted from it we'll want them to fail. */
+	while (dev_null_fd < STDERR_FILENO) {
+		dev_null_fd = dup(dev_null_fd);
+		if (dev_null_fd == -1)
+			i_fatal("dup(/dev/null) failed: %m");
+	}
+	/* close the actual /dev/null fd on exec*(), but keep it in stdio fds */
+	fd_close_on_exec(dev_null_fd, TRUE);
+}
+
 void lib_init(void)
 {
 	struct timeval tv;
@@ -127,6 +148,8 @@ void lib_init(void)
 
 	data_stack_init();
 	hostpid_init();
+	lib_open_non_stdio_dev_null();
+
 	lib_initialized = TRUE;
 }
 
@@ -142,6 +165,7 @@ void lib_deinit(void)
 	lib_atexit_run();
 	ipwd_deinit();
 	hostpid_deinit();
+	i_close_fd(&dev_null_fd);
 	data_stack_deinit();
 	env_deinit();
 	failures_deinit();
