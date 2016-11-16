@@ -45,6 +45,7 @@ bool core_dumps_disabled;
 const char *ssl_manual_key_password;
 int null_fd, global_master_dead_pipe_fd[2];
 struct service_list *services;
+bool startup_finished = FALSE;
 
 static char *pidfile_path;
 static struct master_instance_list *instances;
@@ -530,6 +531,7 @@ static void main_init(const struct master_settings *set)
 	master_clients_init();
 
 	services_monitor_start(services);
+	startup_finished = TRUE;
 }
 
 static void global_dead_pipe_close(void)
