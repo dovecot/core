@@ -617,9 +617,9 @@ import_state_mailbox_open(struct client *client,
 		return -1;
 	}
 	if (status.highest_modseq < state->highest_modseq) {
-		*error_r = t_strdup_printf("Mailbox HIGHESTMODSEQ shrank %u -> %u",
-					   state->highest_modseq,
-					   status.highest_modseq);
+		*error_r = t_strdup_printf("Mailbox HIGHESTMODSEQ shrank %llu -> %llu",
+					   (unsigned long long)state->highest_modseq,
+					   (unsigned long long)status.highest_modseq);
 		mailbox_free(&box);
 		return -1;
 	}
