@@ -122,7 +122,7 @@ service_dup_fds(struct service *service)
 	case SERVICE_TYPE_LOG:
 	case SERVICE_TYPE_ANVIL:
 	case SERVICE_TYPE_CONFIG:
-		dup2_append(&dups, null_fd, MASTER_ANVIL_FD);
+		dup2_append(&dups, dev_null_fd, MASTER_ANVIL_FD);
 		break;
 	case SERVICE_TYPE_UNKNOWN:
 	case SERVICE_TYPE_LOGIN:

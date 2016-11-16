@@ -43,7 +43,7 @@ uid_t master_uid;
 gid_t master_gid;
 bool core_dumps_disabled;
 const char *ssl_manual_key_password;
-int null_fd, global_master_dead_pipe_fd[2];
+int global_master_dead_pipe_fd[2];
 struct service_list *services;
 bool startup_finished = FALSE;
 
@@ -824,12 +824,6 @@ int main(int argc, char *argv[])
 		i_fatal("Unknown argument: --%s", argv[optind]);
 	}
 
-	null_fd = open("/dev/null", O_WRONLY);
-	if (null_fd == -1)
-		i_fatal("Can't open /dev/null: %m");
-	fd_close_on_exec(null_fd, TRUE);
-	i_assert(null_fd > STDERR_FILENO);
-
 	if (pipe(global_master_dead_pipe_fd) < 0)
 		i_fatal("pipe() failed: %m");
 	fd_close_on_exec(global_master_dead_pipe_fd[0], TRUE);
@@ -841,10 +835,10 @@ int main(int argc, char *argv[])
 			t_askpass("Give the password for SSL keys: ");
 	}
 
-	if (dup2(null_fd, STDIN_FILENO) < 0)
-		i_fatal("dup2(null_fd) failed: %m");
-	if (!foreground && dup2(null_fd, STDOUT_FILENO) < 0)
-		i_fatal("dup2(null_fd) failed: %m");
+	if (dup2(dev_null_fd, STDIN_FILENO) < 0)
+		i_fatal("dup2(dev_null_fd) failed: %m");
+	if (!foreground && dup2(dev_null_fd, STDOUT_FILENO) < 0)
+		i_fatal("dup2(dev_null_fd) failed: %m");
 
 	pidfile_path =
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);

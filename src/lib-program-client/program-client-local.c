@@ -54,40 +54,26 @@ void exec_child(const char *bin_path, const char *const *args,
 
 	/* Setup stdin/stdout */
 
-	if (in_fd < 0) {
-		in_fd = open("/dev/null", O_RDONLY);
-
-		if (in_fd == -1)
-			i_fatal("open(/dev/null) failed: %m");
-	}
-	if (out_fd < 0) {
-		out_fd = open("/dev/null", O_WRONLY);
-
-		if (out_fd == -1)
-			i_fatal("open(/dev/null) failed: %m");
-	}
+	if (in_fd < 0)
+		in_fd = dev_null_fd;
+	if (out_fd < 0)
+		out_fd = dev_null_fd;
 
 	if (in_fd != STDIN_FILENO && dup2(in_fd, STDIN_FILENO) < 0)
 		i_fatal("dup2(stdin) failed: %m");
 	if (out_fd != STDOUT_FILENO && dup2(out_fd, STDOUT_FILENO) < 0)
 		i_fatal("dup2(stdout) failed: %m");
 
-	if (in_fd != STDIN_FILENO && close(in_fd) < 0)
+	if (in_fd != STDIN_FILENO && in_fd != dev_null_fd && close(in_fd) < 0)
 		i_error("close(in_fd) failed: %m");
-	if (out_fd != STDOUT_FILENO && (out_fd != in_fd) && close(out_fd) < 0)
+	if (out_fd != STDOUT_FILENO && out_fd != dev_null_fd &&
+	    (out_fd != in_fd) && close(out_fd) < 0)
 		i_error("close(out_fd) failed: %m");
 
 	/* Drop stderr if requested */
 	if (drop_stderr) {
-		int err_fd = open("/dev/null", O_WRONLY);
-		if (err_fd == -1)
-			i_fatal("open(/dev/null) failed: %m");
-		if (err_fd != STDERR_FILENO) {
-			if (dup2(err_fd, STDERR_FILENO) < 0)
-				i_fatal("dup2(stderr) failed: %m");
-			if (close(err_fd) < 0)
-				i_error("close(err_fd) failed: %m");
-		}
+		if (dup2(dev_null_fd, STDERR_FILENO) < 0)
+			i_fatal("dup2(stderr) failed: %m");
 	}
 
 	/* Setup extra fds */

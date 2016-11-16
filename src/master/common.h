@@ -9,7 +9,7 @@ extern uid_t master_uid;
 extern gid_t master_gid;
 extern bool core_dumps_disabled;
 extern const char *ssl_manual_key_password;
-extern int null_fd, global_master_dead_pipe_fd[2];
+extern int global_master_dead_pipe_fd[2];
 extern struct service_list *services;
 extern bool startup_finished;
 
