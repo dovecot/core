@@ -144,6 +144,25 @@ index_rebuild_header(struct index_rebuild_context *ctx,
 	mail_index_view_close(&trans_view);
 }
 
+static void
+index_rebuild_box_name_header(struct index_rebuild_context *ctx)
+{
+	const void *name_hdr;
+	size_t name_hdr_size;
+
+	mail_index_get_header_ext(ctx->view, ctx->box->box_name_hdr_ext_id,
+				  &name_hdr, &name_hdr_size);
+	if (name_hdr_size == 0 && ctx->backup_view != NULL) {
+		mail_index_get_header_ext(ctx->backup_view,
+					  ctx->box->box_name_hdr_ext_id,
+					  &name_hdr, &name_hdr_size);
+	}
+	if (name_hdr_size == 0)
+		return;
+	mail_index_update_header_ext(ctx->trans, ctx->box->box_name_hdr_ext_id,
+				     0, name_hdr, name_hdr_size);
+}
+
 struct index_rebuild_context *
 index_index_rebuild_init(struct mailbox *box, struct mail_index_view *view,
 			 struct mail_index_transaction *trans)
@@ -200,6 +219,7 @@ void index_index_rebuild_deinit(struct index_rebuild_context **_ctx,
 		mail_cache_compress_unlock(&lock);
 	}
 	index_rebuild_header(ctx, cb);
+	index_rebuild_box_name_header(ctx);
 	if (ctx->backup_index != NULL) {
 		mail_index_view_close(&ctx->backup_view);
 		mail_index_close(ctx->backup_index);
