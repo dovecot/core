@@ -324,7 +324,7 @@ static int services_verify_systemd(struct service_list *service_list)
 				i_error("systemd listens on port %d, but it's not configured in Dovecot. Closing.",port);
 				if (shutdown(fd, SHUT_RDWR) < 0 && errno != ENOTCONN)
 					i_error("shutdown() failed: %m");
-				if (dup2(null_fd, fd) < 0)
+				if (dup2(dev_null_fd, fd) < 0)
 					i_error("dup2() failed: %m");
 			}
 		}
