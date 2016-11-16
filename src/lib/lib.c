@@ -34,6 +34,25 @@ int close_keep_errno(int *fd)
 	return ret;
 }
 
+void fd_close_maybe_stdio(int *fd_in, int *fd_out)
+{
+	int *fdp[2] = { fd_in, fd_out };
+
+	if (*fd_in == *fd_out)
+		*fd_in = -1;
+
+	for (unsigned int i = 0; i < N_ELEMENTS(fdp); i++) {
+		if (*fdp[i] == -1)
+			;
+		else if (*fdp[i] > 1)
+			i_close_fd(fdp[i]);
+		else if (dup2(dev_null_fd, *fdp[i]) == *fdp[i])
+			*fdp[i] = -1;
+		else
+			i_fatal("dup2(/dev/null, %d) failed: %m", *fdp[i]);
+	}
+}
+
 #undef i_unlink
 int i_unlink(const char *path, const char *source_fname,
 	     unsigned int source_linenum)

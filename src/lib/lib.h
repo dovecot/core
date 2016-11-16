@@ -54,6 +54,10 @@ typedef void lib_atexit_callback_t(void);
 extern int dev_null_fd;
 
 int close_keep_errno(int *fd);
+/* Close fd_in and fd_out, unless they're already -1. They can point to the
+   same fd, in which case they're closed only once. If they point to stdin
+   or stdout, they're replaced with /dev/null. */
+void fd_close_maybe_stdio(int *fd_in, int *fd_out);
 /* Call unlink(). If it fails, log an error including the source filename
    and line number. */
 int i_unlink(const char *path, const char *source_fname,
