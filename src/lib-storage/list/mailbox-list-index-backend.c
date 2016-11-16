@@ -298,7 +298,7 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 		   rename it. */
 		node->flags |= MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
 		mail_index_update_flags(sync_ctx->trans, seq, MODIFY_ADD,
-			MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
+			(enum mail_flags)MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
 	}
 	if (!created &&
 	    (node->flags & (MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
@@ -318,7 +318,8 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 	node->flags &= ~(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
 			 MAILBOX_LIST_INDEX_FLAG_NOSELECT |
 			 MAILBOX_LIST_INDEX_FLAG_NOINFERIORS);
-	mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE, node->flags);
+	mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE,
+				(enum mail_flags)node->flags);
 
 	memcpy(rec.guid, mailbox_guid, sizeof(rec.guid));
 	mail_index_update_ext(sync_ctx->trans, seq, ilist->ext_id, &rec, NULL);
@@ -742,7 +743,7 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 		   new name will be written to the mailbox index header. */
 		newnode->flags &= ~MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
 		mail_index_update_flags(sync_ctx->trans, oldseq, MODIFY_REMOVE,
-					MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
+			(enum mail_flags)MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
 	}
 	mail_index_update_ext(sync_ctx->trans, oldseq,
 			      sync_ctx->ilist->ext_id, &oldrec, NULL);
