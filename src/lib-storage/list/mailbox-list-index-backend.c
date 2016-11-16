@@ -288,11 +288,19 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 		return -1;
 
 	seq = mailbox_list_index_sync_name(sync_ctx, box->name, &node, &created);
+	if (box->corrupted_mailbox_name) {
+		/* an existing mailbox is being created with a "unknown" name.
+		   opening the mailbox will hopefully find its real name and
+		   rename it. */
+		node->flags |= MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
+		mail_index_update_flags(sync_ctx->trans, seq, MODIFY_ADD,
+			MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
+	}
 	if (!created &&
 	    (node->flags & (MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
 			    MAILBOX_LIST_INDEX_FLAG_NOSELECT)) == 0) {
 		/* already selectable */
-		(void)mailbox_list_index_sync_end(&sync_ctx, FALSE);
+		(void)mailbox_list_index_sync_end(&sync_ctx, TRUE);
 		return 0;
 	}
 
@@ -303,8 +311,10 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 	i_assert(guid_128_is_empty(rec.guid));
 
 	/* make it selectable */
-	node->flags = 0;
-	mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE, 0);
+	node->flags &= ~(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
+			 MAILBOX_LIST_INDEX_FLAG_NOSELECT |
+			 MAILBOX_LIST_INDEX_FLAG_NOINFERIORS);
+	mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE, node->flags);
 
 	memcpy(rec.guid, mailbox_guid, sizeof(rec.guid));
 	mail_index_update_ext(sync_ctx->trans, seq, ilist->ext_id, &rec, NULL);
@@ -459,6 +469,9 @@ index_list_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 static bool mailbox_has_corrupted_name(struct mailbox *box)
 {
 	struct mailbox_list_index_node *node;
+
+	if (box->corrupted_mailbox_name)
+		return TRUE;
 
 	node = mailbox_list_index_lookup(box->list, box->name);
 	return node != NULL &&

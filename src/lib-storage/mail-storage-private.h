@@ -413,6 +413,9 @@ struct mailbox {
 	unsigned int skip_create_name_restrictions:1;
 	/* v2.2.x API kludge: quick-parameter to list_index_has_changed() */
 	unsigned int list_index_has_changed_quick:1;
+	/* Using LAYOUT=index and mailbox is being opened with a corrupted
+	   mailbox name. Try to revert to the previously known good name. */
+	unsigned int corrupted_mailbox_name:1;
 };
 
 struct mail_vfuncs {
