@@ -156,9 +156,11 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	for (seq = min_file_seq; seq <= max_file_seq; seq++) {
 		if (file == NULL || file->hdr.file_seq != seq) {
 			/* see if we could find the missing file. if we know
-			   the max. file sequence, make sure NFS attribute
-			   cache gets flushed if necessary. */
-			bool nfs_flush = max_file_seq != (uint32_t)-1;
+			   the max. file sequence or we don't have the the min.
+			   file, make sure NFS attribute cache gets flushed if
+			   necessary. */
+			bool nfs_flush = seq == min_file_seq ||
+				max_file_seq != (uint32_t)-1;
 
 			ret = mail_transaction_log_find_file(view->log, seq,
 							     nfs_flush, &file);
