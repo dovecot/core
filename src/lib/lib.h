@@ -49,6 +49,10 @@ typedef void lib_atexit_callback_t(void);
 #define LIB_ATEXIT_PRIORITY_DEFAULT 0
 #define LIB_ATEXIT_PRIORITY_LOW 10
 
+/* /dev/null opened as O_WRONLY. Opened at lib_init(), so it can be accessed
+   also inside chroots. */
+extern int dev_null_fd;
+
 int close_keep_errno(int *fd);
 /* Call unlink(). If it fails, log an error including the source filename
    and line number. */
