@@ -721,8 +721,8 @@ static void unlink_sockets(const char *path, const char *prefix)
 		   listening in them. do this only at startup, because
 		   when SIGHUPing a child process might catch the new
 		   connection before it notices that it's supposed
-		   to die. null_fd == -1 check is a bit kludgy, but works.. */
-		if (null_fd == -1) {
+		   to die. */
+		if (!startup_finished) {
 			int fd = net_connect_unix(str_c(str));
 			if (fd != -1 || errno != ECONNREFUSED) {
 				i_fatal("Dovecot is already running? "
