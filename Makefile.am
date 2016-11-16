@@ -1,5 +1,5 @@
 aclocaldir = $(datadir)/aclocal
-ACLOCAL_AMFLAGS=-I m4
+ACLOCAL_AMFLAGS=-I . -I m4
 
 SUBDIRS = \
 	. \
