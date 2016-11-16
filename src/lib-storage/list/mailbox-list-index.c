@@ -233,6 +233,7 @@ mailbox_list_index_generate_name(struct mailbox_list_index *ilist,
 	name = p_strdup_printf(ilist->mailbox_pool, "unknown-%s",
 			       guid_128_to_string(guid));
 	node->name = name;
+	node->flags |= MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
 
 	hash_table_insert(ilist->mailbox_names,
 			  POINTER_CAST(node->name_id), name);
@@ -372,6 +373,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			/* we have only the mailbox list index and this node
 			   may have a different GUID, so rename it. */
 			guid_128_generate(guid);
+			node->flags |= MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
 			node->name = p_strdup_printf(ilist->mailbox_pool,
 						     "%s-duplicate-%s", node->name,
 						     guid_128_to_string(guid));

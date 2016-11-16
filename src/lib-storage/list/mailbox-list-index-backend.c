@@ -456,6 +456,15 @@ index_list_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 	return 0;
 }
 
+static bool mailbox_has_corrupted_name(struct mailbox *box)
+{
+	struct mailbox_list_index_node *node;
+
+	node = mailbox_list_index_lookup(box->list, box->name);
+	return node != NULL &&
+		(node->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) != 0;
+}
+
 static int index_list_mailbox_open(struct mailbox *box)
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
@@ -491,7 +500,7 @@ static int index_list_mailbox_open(struct mailbox *box)
 	if (name_hdr_size == box_name_len &&
 	    memcmp(box_zerosep_name, name_hdr, box_name_len) == 0) {
 		/* Same mailbox name */
-	} else {
+	} else if (!mailbox_has_corrupted_name(box)) {
 		/* Mailbox name changed - update */
 		struct mail_index_transaction *trans =
 			mail_index_transaction_begin(box->view, 0);
@@ -699,6 +708,13 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 	oldrec.name_id = newrec.name_id;
 	oldrec.parent_uid = newrec.parent_uid;
 
+	if ((newnode->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) != 0) {
+		/* mailbox is renamed - clear away the corruption flag so the
+		   new name will be written to the mailbox index header. */
+		newnode->flags &= ~MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
+		mail_index_update_flags(sync_ctx->trans, oldseq, MODIFY_REMOVE,
+					MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
+	}
 	mail_index_update_ext(sync_ctx->trans, oldseq,
 			      sync_ctx->ilist->ext_id, &oldrec, NULL);
 	mail_index_expunge(sync_ctx->trans, newseq);
