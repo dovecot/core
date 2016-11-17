@@ -220,6 +220,8 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 	struct mail_index *index = log->index;
 	struct mail_transaction_log_file *file;
 
+	i_assert(index->indexid != 0);
+
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->major_version = MAIL_TRANSACTION_LOG_MAJOR_VERSION;
 	hdr->minor_version = MAIL_TRANSACTION_LOG_MINOR_VERSION;
@@ -842,6 +844,13 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 	if (file->log->index->readonly) {
 		mail_index_set_error(index,
 			"Can't create log file %s: Index is read-only",
+			file->filepath);
+		return -1;
+	}
+
+	if (index->indexid == 0) {
+		mail_index_set_error(index,
+			"Can't create log file %s: Index is marked corrupted",
 			file->filepath);
 		return -1;
 	}
