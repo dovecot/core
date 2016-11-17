@@ -895,7 +895,7 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 			return -1;
 	}
 
-	if (box->opened && (items & STATUS_UIDNEXT) != 0 &&
+	if (box->opened && !box->deleting && (items & STATUS_UIDNEXT) != 0 &&
 	    mbox->sync_uid_next == 0) {
 		/* Courier-workaround, it doesn't send UIDNEXT on SELECT */
 		if (imapc_mailbox_run_status(box, STATUS_UIDNEXT, status_r) < 0)
