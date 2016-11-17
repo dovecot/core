@@ -26,6 +26,7 @@ struct mail_index_sync_ctx {
 
 	unsigned int no_warning:1;
 	unsigned int seen_nonexternal_transactions:1;
+	unsigned int fully_synced:1;
 };
 
 static void mail_index_sync_add_expunge(struct mail_index_sync_ctx *ctx)
@@ -680,6 +681,7 @@ bool mail_index_sync_next(struct mail_index_sync_ctx *ctx,
 	if (i == count) {
 		if (next_i == UINT_MAX) {
 			/* nothing left in sync_list */
+			ctx->fully_synced = TRUE;
 			return FALSE;
 		}
                 ctx->next_uid = next_found_uid;
@@ -773,15 +775,17 @@ mail_index_sync_update_mailbox_offset(struct mail_index_sync_ctx *ctx)
 	uint32_t seq;
 	uoff_t offset;
 
-	if (!mail_transaction_log_view_is_last(ctx->view->log_view)) {
-		/* didn't sync everything */
+	if (!ctx->fully_synced) {
+		/* Everything wasn't synced. This usually means that syncing
+		   was used for locking and nothing was synced. Don't update
+		   tail offset. */
 		mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
 						       &seq, &offset);
-	} else {
-		/* synced everything, but we might also have committed new
-		   transactions. include them also here. */
-		mail_transaction_log_get_head(ctx->index->log, &seq, &offset);
+		return;
 	}
+	/* synced everything, but we might also have committed new
+	   transactions. include them also here. */
+	mail_transaction_log_get_head(ctx->index->log, &seq, &offset);
 	mail_transaction_log_set_mailbox_sync_pos(ctx->index->log, seq, offset);
 
 	/* If tail offset has changed, make sure it gets written to
