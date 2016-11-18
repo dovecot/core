@@ -695,6 +695,7 @@ bool mail_index_modseq_get_next_log_offset(struct mail_index_view *view,
 {
 	struct mail_transaction_log *log = view->index->log;
 	struct mail_transaction_log_file *file, *prev_file;
+	const char *reason;
 	int ret;
 
 	if (log->files == NULL) {
@@ -704,7 +705,7 @@ bool mail_index_modseq_get_next_log_offset(struct mail_index_view *view,
 	while (modseq < log->files->hdr.initial_modseq) {
 		/* try to find the previous log file if it still exists */
 		ret = mail_transaction_log_find_file(log,
-			log->files->hdr.file_seq - 1, FALSE, &file);
+			log->files->hdr.file_seq - 1, FALSE, &file, &reason);
 		if (ret <= 0)
 			return FALSE;
 	}

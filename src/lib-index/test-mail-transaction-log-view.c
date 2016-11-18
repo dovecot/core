@@ -20,7 +20,8 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log ATTR_UNUSED)
 
 int mail_transaction_log_find_file(struct mail_transaction_log *log,
 				   uint32_t file_seq, bool nfs_flush ATTR_UNUSED,
-				   struct mail_transaction_log_file **file_r)
+				   struct mail_transaction_log_file **file_r,
+				   const char **reason_r)
 {
 	struct mail_transaction_log_file *file;
 
@@ -30,6 +31,7 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 			return 1;
 		}
 	}
+	*reason_r = "not found";
 	return 0;
 }
 
