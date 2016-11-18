@@ -154,6 +154,8 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 
 	view->tail = view->head = file = NULL;
 	for (seq = min_file_seq; seq <= max_file_seq; seq++) {
+		const char *reason = NULL;
+
 		if (file == NULL || file->hdr.file_seq != seq) {
 			/* see if we could find the missing file. if we know
 			   the max. file sequence or we don't have the the min.
@@ -163,11 +165,12 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				max_file_seq != (uint32_t)-1;
 
 			ret = mail_transaction_log_find_file(view->log, seq,
-							     nfs_flush, &file);
+				nfs_flush, &file, &reason);
 			if (ret <= 0) {
 				if (ret < 0) {
 					*reason_r = t_strdup_printf(
-						"Failed to find file seq=%u", seq);
+						"Failed to find file seq=%u: %s",
+						seq, reason);
 					return -1;
 				}
 
@@ -177,6 +180,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		}
 
 		if (file == NULL || file->hdr.file_seq != seq) {
+			i_assert(reason != NULL);
 			if (file == NULL && max_file_seq == (uint32_t)-1 &&
 			    view->head == view->log->head) {
 				/* we just wanted to sync everything */
@@ -193,9 +197,9 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				    file->hdr.file_seq > max_file_seq) {
 					/* missing files in the middle */
 					*reason_r = t_strdup_printf(
-						"Missing middle file seq=%u (between %u..%u, we have seqs %s)",
+						"Missing middle file seq=%u (between %u..%u, we have seqs %s): %s",
 						seq, min_file_seq, max_file_seq,
-						mail_transaction_log_get_file_seqs(view->log));
+						mail_transaction_log_get_file_seqs(view->log), reason);
 					return 0;
 				}
 
@@ -342,9 +346,10 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 {
 	struct mail_transaction_log_file *file, *first;
+	const char *reason;
 
 	/* make sure .log.2 file is opened */
-	(void)mail_transaction_log_find_file(view->log, 1, FALSE, &file);
+	(void)mail_transaction_log_find_file(view->log, 1, FALSE, &file, &reason);
 
 	first = view->log->files;
 	i_assert(first != NULL);
@@ -388,11 +393,12 @@ void mail_transaction_log_view_clear(struct mail_transaction_log_view *view,
 				     uint32_t oldest_file_seq)
 {
 	struct mail_transaction_log_file *file;
+	const char *reason;
 
 	mail_transaction_log_view_unref_all(view);
 	if (oldest_file_seq != 0 &&
 	    mail_transaction_log_find_file(view->log, oldest_file_seq, FALSE,
-					   &file) > 0) {
+					   &file, &reason) > 0) {
 		for (; file != NULL; file = file->next) {
 			array_append(&view->file_refs, &file, 1);
 			file->refcount++;

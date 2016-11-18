@@ -364,7 +364,8 @@ void mail_transaction_log_set_mailbox_sync_pos(struct mail_transaction_log *log,
 
 int mail_transaction_log_find_file(struct mail_transaction_log *log,
 				   uint32_t file_seq, bool nfs_flush,
-				   struct mail_transaction_log_file **file_r)
+				   struct mail_transaction_log_file **file_r,
+				   const char **reason_r)
 {
 	struct mail_transaction_log_file *file;
 	int ret;
@@ -374,19 +375,29 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 		if (log->head->locked) {
 			/* transaction log is locked. there's no way a newer
 			   file exists. */
+			*reason_r = "Log is locked - newer log can't exist";
 			return 0;
 		}
 
-		if (mail_transaction_log_refresh(log, FALSE) < 0)
+		if (mail_transaction_log_refresh(log, FALSE) < 0) {
+			*reason_r = "Log refresh failed";
 			return -1;
+		}
 		if (file_seq > log->head->hdr.file_seq) {
-			if (!nfs_flush || !log->nfs_flush)
+			if (!nfs_flush || !log->nfs_flush) {
+				*reason_r = "Requested newer log than exists";
 				return 0;
+			}
 			/* try again, this time flush attribute cache */
-			if (mail_transaction_log_refresh(log, TRUE) < 0)
+			if (mail_transaction_log_refresh(log, TRUE) < 0) {
+				*reason_r = "Log refresh with NFS flush failed";
 				return -1;
-			if (file_seq > log->head->hdr.file_seq)
+			}
+			if (file_seq > log->head->hdr.file_seq) {
+				*reason_r = "Requested newer log than exists - "
+					"still after NFS flush";
 				return 0;
+			}
 		}
 	}
 
@@ -397,19 +408,28 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 		}
 	}
 
-	if (MAIL_INDEX_IS_IN_MEMORY(log->index))
+	if (MAIL_INDEX_IS_IN_MEMORY(log->index)) {
+		*reason_r = "Logs are only in memory";
 		return 0;
+	}
 
 	/* see if we have it in log.2 file */
 	file = mail_transaction_log_file_alloc(log, log->filepath2);
 	if ((ret = mail_transaction_log_file_open(file)) <= 0) {
 		mail_transaction_log_file_free(&file);
+		if (ret < 0)
+			*reason_r = "Failed to open .log.2";
+		else
+			*reason_r = ".log.2 doesn't exist";
 		return ret;
 	}
 
 	/* but is it what we expected? */
-	if (file->hdr.file_seq != file_seq)
+	if (file->hdr.file_seq != file_seq) {
+		*reason_r = t_strdup_printf(".log.2 contains file_seq=%u",
+					    file->hdr.file_seq);
 		return 0;
+	}
 
 	*file_r = file;
 	return 1;
