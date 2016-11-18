@@ -292,6 +292,7 @@ headers = \
 	utc-offset.h \
 	utc-mktime.h \
 	var-expand.h \
+	var-expand-private.h \
 	wildcard-match.h \
 	write-full.h
 
