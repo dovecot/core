@@ -9,7 +9,7 @@
 #include "str-sanitize.h"
 #include "imap-util.h"
 #include "mail-search-build.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mailbox-recent-flags.h"
 #include "imap-client.h"
 #include "imap-fetch.h"
@@ -627,7 +627,6 @@ import_state_mailbox_open(struct client *client,
 	client->mailbox = box;
 	client->mailbox_examined = state->examined;
 	client->messages_count = status.messages;
-	client->recent_count = status.recent;
 	client->uidvalidity = status.uidvalidity;
 	client->notify_uidnext = status.uidnext;
 
@@ -640,6 +639,18 @@ import_state_mailbox_open(struct client *client,
 					   state->messages - expunge_count);
 		return -1;
 	}
+
+	client_update_mailbox_flags(client, status.keywords);
+	array_foreach(&state->recent_uids, range) {
+		for (uid = range->seq1; uid <= range->seq2; uid++) {
+			uint32_t seq;
+
+			if (mail_index_lookup_seq(box->view, uid, &seq))
+				mailbox_recent_flags_set_uid_forced(box, uid);
+		}
+	}
+	client->recent_count = mailbox_recent_flags_count(box);
+
 	if (state->messages - expunge_count < client->messages_count) {
 		/* new messages arrived */
 		client_send_line(client,
@@ -648,11 +659,6 @@ import_state_mailbox_open(struct client *client,
 			t_strdup_printf("* %u RECENT", client->recent_count));
 	}
 
-	client_update_mailbox_flags(client, status.keywords);
-	array_foreach(&state->recent_uids, range) {
-		for (uid = range->seq1; uid <= range->seq2; uid++)
-			mailbox_recent_flags_set_uid_forced(box, uid);
-	}
 	if (array_count(status.keywords) == state->keywords_count &&
 	    mailbox_status_keywords_crc32(&status) == state->keywords_crc32) {
 		/* no changes to keywords */
