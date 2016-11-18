@@ -284,16 +284,18 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 }
 
 static int
-mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
+mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
+			     const char **reason_r)
 {
         struct mail_transaction_log_file *file;
 	struct stat st;
-	const char *reason;
 
 	i_assert(log->head != NULL);
 
-	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(log->head))
+	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(log->head)) {
+		*reason_r = "Log is in memory";
 		return 0;
+	}
 
 	if (nfs_flush && log->nfs_flush)
 		nfs_flush_file_handle_cache(log->filepath);
@@ -302,12 +304,14 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 			mail_index_file_set_syscall_error(log->index,
 							  log->filepath,
 							  "stat()");
+			*reason_r = t_strdup_printf("stat(%s) failed: %m", log->filepath);
 			return -1;
 		}
 		/* see if the whole directory got deleted */
 		if (nfs_safe_stat(log->index->dir, &st) < 0 &&
 		    errno == ENOENT) {
 			log->index->index_deleted = TRUE;
+			*reason_r = "Index directory was deleted";
 			return -1;
 		}
 
@@ -315,11 +319,14 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 		   someone deleted it manually while the index was open. try to
 		   handle this nicely by creating a new log file. */
 		file = log->head;
-		if (mail_transaction_log_create(log, FALSE) < 0)
+		if (mail_transaction_log_create(log, FALSE) < 0) {
+			*reason_r = "Failed to create log";
 			return -1;
+		}
 		i_assert(file->refcount > 0);
 		file->refcount--;
 		log->index->need_recreate = TRUE;
+		*reason_r = "Log created";
 		return 0;
 	} else if (log->head->st_ino == st.st_ino &&
 		   CMP_DEV_T(log->head->st_dev, st.st_dev)) {
@@ -328,11 +335,12 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 		   the existing file has already been unlinked here
 		   (in which case inodes could match but point to
 		   different files) */
+		*reason_r = "Log inode is unchanged";
 		return 0;
 	}
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
-	if (mail_transaction_log_file_open(file, &reason) <= 0) {
+	if (mail_transaction_log_file_open(file, reason_r) <= 0) {
 		mail_transaction_log_file_free(&file);
 		return -1;
 	}
@@ -342,6 +350,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 	if (--log->head->refcount == 0)
 		mail_transaction_logs_clean(log);
 	mail_transaction_log_set_head(log, file);
+	*reason_r = "Log reopened";
 	return 0;
 }
 
@@ -370,6 +379,7 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 				   const char **reason_r)
 {
 	struct mail_transaction_log_file *file;
+	const char *reason;
 	int ret;
 
 	if (file_seq > log->head->hdr.file_seq) {
@@ -381,23 +391,26 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 			return 0;
 		}
 
-		if (mail_transaction_log_refresh(log, FALSE) < 0) {
-			*reason_r = "Log refresh failed";
+		if (mail_transaction_log_refresh(log, FALSE, &reason) < 0) {
+			*reason_r = reason;
 			return -1;
 		}
 		if (file_seq > log->head->hdr.file_seq) {
 			if (!nfs_flush || !log->nfs_flush) {
-				*reason_r = "Requested newer log than exists";
+				*reason_r = t_strdup_printf(
+					"Requested newer log than exists: %s", reason);
 				return 0;
 			}
 			/* try again, this time flush attribute cache */
-			if (mail_transaction_log_refresh(log, TRUE) < 0) {
-				*reason_r = "Log refresh with NFS flush failed";
+			if (mail_transaction_log_refresh(log, TRUE, &reason) < 0) {
+				*reason_r = t_strdup_printf(
+					"Log refresh with NFS flush failed: %s", reason);
 				return -1;
 			}
 			if (file_seq > log->head->hdr.file_seq) {
-				*reason_r = "Requested newer log than exists - "
-					"still after NFS flush";
+				*reason_r = t_strdup_printf(
+					"Requested newer log than exists - "
+					"still after NFS flush: %s", reason);
 				return 0;
 			}
 		}
@@ -438,6 +451,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log,
 {
 	struct mail_transaction_log_file *file;
 	time_t lock_wait_started, lock_secs = 0;
+	const char *reason;
 	int ret = 0;
 
 	if (!log->log_2_unlink_checked) {
@@ -466,7 +480,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log,
 			return -1;
 
 		file->refcount++;
-		ret = mail_transaction_log_refresh(log, TRUE);
+		ret = mail_transaction_log_refresh(log, TRUE, &reason);
 		if (--file->refcount == 0) {
 			mail_transaction_log_file_unlock(file, t_strdup_printf(
 				"trying to lock head for %s", lock_reason));
