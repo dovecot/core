@@ -48,7 +48,7 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 	if (rec_map->mmap_base == MAP_FAILED) {
 		rec_map->mmap_base = NULL;
 		mail_index_set_syscall_error(index, t_strdup_printf(
-			"mmap(size=%"PRIuSIZE_T")", file_size));
+			"mmap(size=%"PRIuUOFF_T")", file_size));
 		return -1;
 	}
 	rec_map->mmap_size = file_size;
