@@ -480,7 +480,8 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
 	if (cache->mmap_base == MAP_FAILED) {
 		cache->mmap_base = NULL;
 		cache->mmap_length = 0;
-		mail_cache_set_syscall_error(cache, "mmap()");
+		mail_cache_set_syscall_error(cache, t_strdup_printf(
+			"mmap(size=%"PRIuSIZE_T")", cache->mmap_length));
 		return -1;
 	}
 	*data_r = offset > cache->mmap_length ? NULL :
