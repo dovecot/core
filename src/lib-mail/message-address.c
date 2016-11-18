@@ -337,7 +337,8 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 	int ret = 0;
 
 	/* address-list    = (address *("," address)) / obs-addr-list */
-	while (max_addresses-- > 0) {
+	while (max_addresses > 0) {
+		max_addresses--;
 		if ((ret = parse_address(ctx)) == 0)
 			break;
 		if (*ctx->parser.data != ',') {

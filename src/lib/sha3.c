@@ -144,9 +144,11 @@ void sha3_loop(void *context, const void *data, size_t len)
 	if(len < old_tail) { /* have no complete word or haven't started
 			      * the word yet */
 		/* endian-independent code follows: */
-		while (len-- > 0)
+		while (len > 0) {
+			len--;
 			ctx->saved |= (uint64_t) (*(buf++)) <<
 					((ctx->byteIndex++) * 8);
+		}
 		i_assert(ctx->byteIndex < 8);
 		return;
 	}
@@ -154,9 +156,11 @@ void sha3_loop(void *context, const void *data, size_t len)
 	if(old_tail != 0) { /* will have one word to process */
 		/* endian-independent code follows: */
 		len -= old_tail;
-		while (old_tail-- > 0)
+		while (old_tail > 0) {
+			old_tail--;
 			ctx->saved |= (uint64_t) (*(buf++)) <<
 				((ctx->byteIndex++) * 8);
+		}
 
 		/* now ready to add saved to the sponge */
 		ctx->s[ctx->wordIndex] ^= ctx->saved;
@@ -200,7 +204,8 @@ void sha3_loop(void *context, const void *data, size_t len)
 
 	/* finally, save the partial word */
 	i_assert(ctx->byteIndex == 0 && tail < 8);
-	while (tail-- > 0) {
+	while (tail > 0) {
+		tail--;
 		ctx->saved |= (uint64_t) (*(buf++)) << ((ctx->byteIndex++) * 8);
 	}
 	i_assert(ctx->byteIndex < 8);
