@@ -175,8 +175,9 @@ static const uint64_t sha512_k[80] =
 
 /* SHA-256 functions */
 
-static void sha256_transf(struct sha256_ctx *ctx, const unsigned char *data,
-			  size_t block_nb)
+static void ATTR_UNSIGNED_WRAPS
+sha256_transf(struct sha256_ctx *ctx, const unsigned char *data,
+	      size_t block_nb)
 {
 	uint32_t w[64];
 	uint32_t wv[8];
@@ -301,8 +302,9 @@ void sha256_get_digest(const void *data, size_t size,
 
 /* SHA-512 functions */
 
-static void sha512_transf(struct sha512_ctx *ctx, const unsigned char *data,
-			  size_t block_nb)
+static void ATTR_UNSIGNED_WRAPS
+sha512_transf(struct sha512_ctx *ctx, const unsigned char *data,
+	      size_t block_nb)
 {
 	uint64_t w[80];
 	uint64_t wv[8];

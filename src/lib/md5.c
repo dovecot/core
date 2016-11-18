@@ -66,7 +66,7 @@
  * This processes one or more 64-byte data blocks, but does NOT update
  * the bit counters.  There're no alignment requirements.
  */
-static const void * ATTR_NOWARN_UNUSED_RESULT
+static const void * ATTR_NOWARN_UNUSED_RESULT ATTR_UNSIGNED_WRAPS
 body(struct md5_context *ctx, const void *data, size_t size)
 {
 	const unsigned char *ptr;
@@ -186,7 +186,8 @@ void md5_init(struct md5_context *ctx)
 	memset(ctx->block, 0, sizeof(ctx->block));
 }
 
-void md5_update(struct md5_context *ctx, const void *data, size_t size)
+void ATTR_UNSIGNED_WRAPS
+md5_update(struct md5_context *ctx, const void *data, size_t size)
 {
 	/* @UNSAFE */
 	uint_fast32_t saved_lo;
@@ -221,7 +222,8 @@ void md5_update(struct md5_context *ctx, const void *data, size_t size)
 	memcpy(ctx->buffer, data, size);
 }
 
-void md5_final(struct md5_context *ctx, unsigned char result[STATIC_ARRAY MD5_RESULTLEN])
+void ATTR_UNSIGNED_WRAPS
+md5_final(struct md5_context *ctx, unsigned char result[STATIC_ARRAY MD5_RESULTLEN])
 {
 	/* @UNSAFE */
 	unsigned long used, free;
