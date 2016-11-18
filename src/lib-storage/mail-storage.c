@@ -2041,7 +2041,7 @@ void mailbox_save_set_uid(struct mail_save_context *ctx, uint32_t uid)
 	ctx->data.uid = uid;
 	if ((ctx->transaction->flags & MAILBOX_TRANSACTION_FLAG_FILL_IN_STUB) != 0) {
 		if (!mail_index_lookup_seq(ctx->transaction->view, uid,
-					   &ctx->data.stub_seq) < 0)
+					   &ctx->data.stub_seq))
 			i_panic("Trying to fill in stub for nonexistent UID %u", uid);
 	}
 }
