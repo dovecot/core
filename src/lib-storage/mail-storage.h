@@ -55,7 +55,12 @@ enum mailbox_flags {
 	   inconsistent. For example this disables lazy_expunge plugin and
 	   quota updates (possibly resulting in broken quota). and This is
 	   useful for example when deleting entire user accounts. */
-	MAILBOX_FLAG_DELETE_UNSAFE	= 0x400
+	MAILBOX_FLAG_DELETE_UNSAFE	= 0x400,
+	/* Mailbox is used for caching purposes. Some of the mails may be
+	   stubs, which exist in the index but that don't have a mail body.
+	   The backend shouldn't treat it as corruption if a mail body isn't
+	   found. */
+	MAILBOX_FLAG_USE_STUBS		= 0x800,
 };
 
 enum mailbox_feature {
@@ -189,7 +194,11 @@ enum mailbox_transaction_flags {
 	/* Don't trigger any notifications for this transaction. This
 	   especially means the notify plugin. This would normally be used only
 	   with _FLAG_SYNC. */
-	MAILBOX_TRANSACTION_FLAG_NO_NOTIFY	= 0x40
+	MAILBOX_TRANSACTION_FLAG_NO_NOTIFY	= 0x40,
+	/* Append fills in an existing stub mail for the specified UID,
+	   instead of saving a new mail. This requires mailbox to be opened
+	   with MAILBOX_FLAG_USE_STUBS. */
+	MAILBOX_TRANSACTION_FLAG_FILL_IN_STUB	= 0x80,
 };
 
 enum mailbox_sync_flags {
