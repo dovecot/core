@@ -75,8 +75,9 @@ static bool snippet_generate(struct snippet_context *ctx,
 				if (ctx->chars_left-- == 0)
 					return FALSE;
 			}
-			if (ctx->chars_left-- == 0)
+			if (ctx->chars_left == 0)
 				return FALSE;
+			ctx->chars_left--;
 			count = uni_utf8_char_bytes(data[i]);
 			i_assert(i + count <= size);
 			str_append_n(ctx->snippet, data + i, count);
