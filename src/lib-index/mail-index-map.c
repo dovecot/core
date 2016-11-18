@@ -82,8 +82,8 @@ mail_index_map_register_ext(struct mail_index_map *map,
 	ext = array_append_space(&map->extensions);
 	ext->name = p_strdup(map->extension_pool, name);
 	ext->ext_offset = ext_offset;
-	ext->hdr_offset = ext_offset +
-		mail_index_map_ext_hdr_offset(strlen(name));
+	ext->hdr_offset = ext_offset == (uint32_t)-1 ? (uint32_t)-1 :
+		ext_offset + mail_index_map_ext_hdr_offset(strlen(name));
 	ext->hdr_size = ext_hdr->hdr_size;
 	ext->record_offset = ext_hdr->record_offset;
 	ext->record_size = ext_hdr->record_size;
