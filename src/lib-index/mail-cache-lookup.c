@@ -477,9 +477,11 @@ static void header_lines_save(struct header_lookup_context *ctx,
 
 	hdr_data = p_new(ctx->pool, struct header_lookup_data, 1);
 	hdr_data->data_size = data_size;
-	hdr_data->data = data_dup = data_size == 0 ? NULL :
-		p_malloc(ctx->pool, data_size);
-	memcpy(data_dup, CONST_PTR_OFFSET(field->data, pos), data_size);
+	if (data_size > 0) {
+		hdr_data->data = data_dup =
+			p_malloc(ctx->pool, data_size);
+		memcpy(data_dup, CONST_PTR_OFFSET(field->data, pos), data_size);
+	}
 
 	for (i = 0; i < lines_count; i++) {
 		hdr_line.line_num = lines[i];

@@ -185,7 +185,8 @@ void buffer_write(buffer_t *_buf, size_t pos,
 	struct real_buffer *buf = (struct real_buffer *)_buf;
 
 	buffer_check_limits(buf, pos, data_size);
-	memcpy(buf->w_buffer + pos, data, data_size);
+	if (data_size > 0)
+		memcpy(buf->w_buffer + pos, data, data_size);
 }
 
 void buffer_append(buffer_t *buf, const void *data, size_t data_size)

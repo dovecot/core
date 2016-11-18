@@ -593,8 +593,10 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 
 void i_stream_compress(struct istream_private *stream)
 {
-	memmove(stream->w_buffer, stream->w_buffer + stream->skip,
-		stream->pos - stream->skip);
+	if (stream->skip != stream->pos) {
+		memmove(stream->w_buffer, stream->w_buffer + stream->skip,
+			stream->pos - stream->skip);
+	}
 	stream->pos -= stream->skip;
 
 	stream->skip = 0;

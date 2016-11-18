@@ -57,8 +57,10 @@ static void vsize_header_refresh(struct mailbox_vsize_update *update)
 
 	mail_index_get_header_ext(update->view, update->box->vsize_hdr_ext_id,
 				  &data, &size);
-	memcpy(&update->orig_vsize_hdr, data,
-	       I_MIN(size, sizeof(update->orig_vsize_hdr)));
+	if (size > 0) {
+		memcpy(&update->orig_vsize_hdr, data,
+		       I_MIN(size, sizeof(update->orig_vsize_hdr)));
+	}
 	if (size == sizeof(update->vsize_hdr))
 		memcpy(&update->vsize_hdr, data, sizeof(update->vsize_hdr));
 	else {
