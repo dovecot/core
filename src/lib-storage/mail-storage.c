@@ -1882,6 +1882,9 @@ mailbox_transaction_begin(struct mailbox *box,
 {
 	struct mailbox_transaction_context *trans;
 
+	i_assert((flags & MAILBOX_TRANSACTION_FLAG_FILL_IN_STUB) == 0 ||
+		 (box->flags & MAILBOX_FLAG_USE_STUBS) != 0);
+
 	i_assert(box->opened);
 
 	box->transaction_count++;
@@ -2036,6 +2039,11 @@ void mailbox_save_set_from_envelope(struct mail_save_context *ctx,
 void mailbox_save_set_uid(struct mail_save_context *ctx, uint32_t uid)
 {
 	ctx->data.uid = uid;
+	if ((ctx->transaction->flags & MAILBOX_TRANSACTION_FLAG_FILL_IN_STUB) != 0) {
+		if (!mail_index_lookup_seq(ctx->transaction->view, uid,
+					   &ctx->data.stub_seq) < 0)
+			i_panic("Trying to fill in stub for nonexistent UID %u", uid);
+	}
 }
 
 void mailbox_save_set_guid(struct mail_save_context *ctx, const char *guid)
@@ -2079,6 +2087,11 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 		mailbox_save_cancel(ctx);
 		return -1;
 	}
+
+	/* if we're filling in a stub, we must have set UID already
+	   (which in turn sets stub_seq) */
+	i_assert(((*ctx)->transaction->flags & MAILBOX_TRANSACTION_FLAG_FILL_IN_STUB) == 0 ||
+		 (*ctx)->data.stub_seq != 0);
 
 	if (!(*ctx)->copying_or_moving) {
 		/* We're actually saving the mail. We're not being called by

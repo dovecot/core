@@ -617,7 +617,7 @@ struct mail_save_data {
 	time_t received_date, save_date;
 	int received_tz_offset;
 
-	uint32_t uid;
+	uint32_t uid, stub_seq;
 	char *guid, *pop3_uidl, *from_envelope;
 	unsigned int pop3_order;
 
