@@ -13,6 +13,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
+#include "var-expand-private.h"
 
 #include <unistd.h>
 #include <ctype.h>
@@ -20,22 +21,12 @@
 #define TABLE_LAST(t) \
 	((t)->key == '\0' && (t)->long_key == NULL)
 
-struct var_expand_context {
-	int offset;
-	int width;
-	bool zero_padding;
-};
-
 struct var_expand_modifier {
 	char key;
 	const char *(*func)(const char *, struct var_expand_context *);
 };
 
-static int
-var_expand_long(const struct var_expand_table *table,
-		const struct var_expand_func_table *func_table,
-		const void *key_start, size_t key_len, void *context,
-		const char **var_r, const char **error_r);
+static ARRAY(struct var_expand_extension_func_table) var_expand_extensions;
 
 static const char *
 m_str_lcase(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
@@ -202,10 +193,9 @@ var_expand_short(const struct var_expand_table *table, char key,
 }
 
 static int
-var_expand_hash(const struct var_expand_table *table,
-	        const struct var_expand_func_table *func_table,
-	        const char *key, const char *field, void *context,
-	        const char **result_r, const char **error_r)
+var_expand_hash(struct var_expand_context *ctx,
+		const char *key, const char *field,
+		const char **result_r, const char **error_r)
 {
 	enum {
 		FORMAT_HEX,
@@ -235,9 +225,10 @@ var_expand_hash(const struct var_expand_table *table,
 	string_t *salt = t_str_new(64);
 	string_t *tmp = t_str_new(method->digest_size);
 
-	if ((ret = var_expand_long(table, func_table, field, strlen(field),
-				   context, &value, error_r)) < 1)
+	if ((ret = var_expand_long(ctx, field, strlen(field),
+				   &value, error_r)) < 1) {
 		return ret;
+	}
 
 	str_append(field_value, value);
 
@@ -284,8 +275,9 @@ var_expand_hash(const struct var_expand_table *table,
 			truncbits = I_MIN(truncbits, method->digest_size*8);
 		} else if (strcmp(k, "salt") == 0) {
 			str_truncate(salt, 0);
-			if (var_expand_with_funcs(salt, value, table,
-					      func_table, context, error_r) < 0) {
+			if (var_expand_with_funcs(salt, value, ctx->table,
+						  ctx->func_table, ctx->context,
+						  error_r) < 0) {
 				return -1;
 			}
 			break;
@@ -385,17 +377,42 @@ var_expand_func(const struct var_expand_func_table *func_table,
 }
 
 static int
-var_expand_long(const struct var_expand_table *table,
-		const struct var_expand_func_table *func_table,
-		const void *key_start, size_t key_len, void *context,
+var_expand_try_extension(struct var_expand_context *ctx,
+			 const char *key, const char *data,
+			 const char **var_r, const char **error_r)
+{
+	int ret;
+	const char *sep = strchr(key, ';');
+
+	if (sep == NULL) sep = key + strlen(key);
+
+	/* try with extensions */
+	const struct var_expand_extension_func_table *f;
+	array_foreach(&var_expand_extensions, f) {
+		/* ensure we won't match abbreviations */
+		size_t len = sep-key;
+		if (strncasecmp(key, f->key, len) == 0 && f->key[len] == '\0')
+			return f->func(ctx, key, data, var_r, error_r);
+	}
+	if ((ret = var_expand_func(ctx->func_table, key, data,
+				   ctx->context, var_r, error_r)) == 0) {
+		*error_r = t_strdup_printf("Unknown variable '%%%s'", key);
+	}
+	return ret;
+}
+
+
+int
+var_expand_long(struct var_expand_context *ctx,
+		const void *key_start, size_t key_len,
 		const char **var_r, const char **error_r)
 {
 	const struct var_expand_table *t;
 	const char *key, *value = NULL;
 	int ret = 1;
 
-	if (table != NULL) {
-		for (t = table; !TABLE_LAST(t); t++) {
+	if (ctx->table != NULL) {
+		for (t = ctx->table; !TABLE_LAST(t); t++) {
 			if (t->long_key != NULL &&
 			    strncmp(t->long_key, key_start, key_len) == 0 &&
 			    t->long_key[key_len] == '\0') {
@@ -430,13 +447,10 @@ var_expand_long(const struct var_expand_table *table,
 		else
 			data = "";
 
-		/* try with hash first */
-		if ((ret = var_expand_hash(table, func_table, key,
-				    data, context, &value, error_r)) < 0) {
+		ret = var_expand_try_extension(ctx, key, data, &value, error_r);
+
+		if (ret <= 0 && value == NULL) {
 			value = "";
-		} else if (ret == 0) {
-			ret = var_expand_func(func_table, key, data, context,
-					      &value, error_r);
 		}
 	}
 	*var_r = value;
@@ -461,6 +475,10 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 	*error_r = NULL;
 
 	i_zero(&ctx);
+	ctx.table = table;
+	ctx.func_table = func_table;
+	ctx.context = context;
+
 	for (; *str != '\0'; str++) {
 		if (*str != '%')
 			str_append_c(dest, *str);
@@ -468,7 +486,11 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 			int sign = 1;
 
 			str++;
-			i_zero(&ctx);
+
+			/* reset per-field modifiers */
+			ctx.offset = 0;
+			ctx.width = 0;
+			ctx.zero_padding = FALSE;
 
 			/* [<offset>.]<width>[<modifiers>]<variable> */
 			if (*str == '-') {
@@ -545,13 +567,13 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 				/* if there is no } it will consume rest of the
 				   string */
 				len = end - (str + 1);
-				ret = var_expand_long(table, func_table,
-						      str+1, len, context,
+				ret = var_expand_long(&ctx, str+1, len,
 						      &var, error_r);
 				i_assert(var != NULL);
 				str = end;
 			} else {
-				ret = var_expand_short(table, *str, &var, error_r);
+				ret = var_expand_short(ctx.table, *str,
+						       &var, error_r);
 			}
 			if (final_ret > ret)
 				final_ret = ret;
@@ -695,4 +717,58 @@ bool var_has_key(const char *str, char key, const char *long_key)
 		}
 	}
 	return FALSE;
+}
+
+void var_expand_extensions_deinit(void)
+{
+	array_free(&var_expand_extensions);
+}
+
+void var_expand_extensions_init(void)
+{
+	i_array_init(&var_expand_extensions, 32);
+
+	/* put all hash methods there */
+	for(const struct hash_method **meth = hash_methods;
+	    *meth != NULL;
+	    meth++) {
+		struct var_expand_extension_func_table *func =
+			array_append_space(&var_expand_extensions);
+		func->key = (*meth)->name;
+		func->func = var_expand_hash;
+	}
+
+	/* pkcs5 */
+	struct var_expand_extension_func_table *func =
+		array_append_space(&var_expand_extensions);
+	func->key = "pkcs5";
+	func->func = var_expand_hash;
+}
+
+void
+var_expand_register_func_array(const struct var_expand_extension_func_table *funcs)
+{
+	for(const struct var_expand_extension_func_table *ptr = funcs;
+	    ptr->key != NULL;
+	    ptr++) {
+		i_assert(*ptr->key != '\0');
+		array_insert(&var_expand_extensions, 0, ptr, 1);
+	}
+}
+
+void
+var_expand_unregister_func_array(const struct var_expand_extension_func_table *funcs)
+{
+	for(const struct var_expand_extension_func_table *ptr = funcs;
+	    ptr->key != NULL;
+	    ptr++) {
+		i_assert(ptr->func != NULL);
+		for(unsigned int i = 0; i < array_count(&var_expand_extensions); i++) {
+			const struct var_expand_extension_func_table *func =
+				array_idx(&var_expand_extensions, i);
+			if (strcasecmp(func->key, ptr->key)) {
+				array_delete(&var_expand_extensions, i, 1);
+			}
+		}
+	}
 }
