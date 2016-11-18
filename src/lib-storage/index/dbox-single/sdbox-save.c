@@ -258,6 +258,27 @@ static int dbox_save_assign_uids(struct sdbox_save_context *ctx,
 	return 0;
 }
 
+static int dbox_save_assign_stub_uids(struct sdbox_save_context *ctx)
+{
+	struct dbox_file *const *files;
+	unsigned int i, count;
+
+	files = array_get(&ctx->files, &count);
+	for (i = 0; i < count; i++) {
+		struct sdbox_file *sfile = (struct sdbox_file *)files[i];
+		uint32_t uid;
+
+		mail_index_lookup_uid(ctx->ctx.trans->view,
+				      ctx->first_saved_seq + i, &uid);
+		i_assert(uid != 0);
+
+		if (sdbox_file_assign_uid(sfile, uid) < 0)
+			return -1;
+	}
+
+	return 0;
+}
+
 static void dbox_save_unref_files(struct sdbox_save_context *ctx)
 {
 	struct dbox_file **files;
@@ -301,13 +322,22 @@ int sdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	dbox_save_update_header_flags(&ctx->ctx, ctx->sync_ctx->sync_view,
 		ctx->mbox->hdr_ext_id, offsetof(struct sdbox_index_header, flags));
 
-	/* assign UIDs for new messages */
 	hdr = mail_index_get_header(ctx->sync_ctx->sync_view);
-	mail_index_append_finish_uids(ctx->ctx.trans, hdr->next_uid,
-				      &_t->changes->saved_uids);
-	if (dbox_save_assign_uids(ctx, &_t->changes->saved_uids) < 0) {
-		sdbox_transaction_save_rollback(_ctx);
-		return -1;
+
+	if ((_ctx->transaction->flags & MAILBOX_TRANSACTION_FLAG_FILL_IN_STUB) == 0) {
+		/* assign UIDs for new messages */
+		mail_index_append_finish_uids(ctx->ctx.trans, hdr->next_uid,
+					      &_t->changes->saved_uids);
+		if (dbox_save_assign_uids(ctx, &_t->changes->saved_uids) < 0) {
+			sdbox_transaction_save_rollback(_ctx);
+			return -1;
+		}
+	} else {
+		/* assign UIDs that we stashed away */
+		if (dbox_save_assign_stub_uids(ctx) < 0) {
+			sdbox_transaction_save_rollback(_ctx);
+			return -1;
+		}
 	}
 
 	if (ctx->ctx.mail != NULL)
