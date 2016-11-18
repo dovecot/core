@@ -184,6 +184,12 @@
 #  define likely(expr) expr
 #endif
 
+#if defined(__clang__)
+#  define ATTR_UNSIGNED_WRAPS __attribute__((no_sanitize("integer")))
+#else
+#  define ATTR_UNSIGNED_WRAPS
+#endif
+
 /* Provide macros for error handling. */
 #ifdef DISABLE_ASSERTS
 #  define i_assert(expr)
