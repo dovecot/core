@@ -116,7 +116,10 @@ mail_transaction_log_file_alloc(struct mail_transaction_log *log,
 				const char *path);
 void mail_transaction_log_file_free(struct mail_transaction_log_file **file);
 
-int mail_transaction_log_file_open(struct mail_transaction_log_file *file);
+/* Returns 1 if log was opened, 0 if it didn't exist or was already open,
+   -1 if error. */
+int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
+				   const char **reason_r);
 int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 				     bool reset);
 int mail_transaction_log_file_lock(struct mail_transaction_log_file *file);
