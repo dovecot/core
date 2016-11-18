@@ -73,7 +73,7 @@ static uint32_t SHA1_K[] = { 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6 };
 
 static void sha1_step(struct sha1_ctxt *);
 
-static void
+static void ATTR_UNSIGNED_WRAPS
 sha1_step(struct sha1_ctxt *ctxt)
 {
 	uint32_t	a, b, c, d, e;
