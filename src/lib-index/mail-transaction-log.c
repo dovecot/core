@@ -59,6 +59,7 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 int mail_transaction_log_open(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file;
+	const char *reason;
 	int ret;
 
 	i_free(log->filepath);
@@ -79,7 +80,7 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 		return 0;
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
-	if ((ret = mail_transaction_log_file_open(file)) <= 0) {
+	if ((ret = mail_transaction_log_file_open(file, &reason)) <= 0) {
 		/* leave the file for _create() */
 		log->open_file = file;
 		return ret;
@@ -287,6 +288,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 {
         struct mail_transaction_log_file *file;
 	struct stat st;
+	const char *reason;
 
 	i_assert(log->head != NULL);
 
@@ -330,7 +332,7 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush)
 	}
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
-	if (mail_transaction_log_file_open(file) <= 0) {
+	if (mail_transaction_log_file_open(file, &reason) <= 0) {
 		mail_transaction_log_file_free(&file);
 		return -1;
 	}
@@ -415,12 +417,8 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 
 	/* see if we have it in log.2 file */
 	file = mail_transaction_log_file_alloc(log, log->filepath2);
-	if ((ret = mail_transaction_log_file_open(file)) <= 0) {
+	if ((ret = mail_transaction_log_file_open(file, reason_r)) <= 0) {
 		mail_transaction_log_file_free(&file);
-		if (ret < 0)
-			*reason_r = "Failed to open .log.2";
-		else
-			*reason_r = ".log.2 doesn't exist";
 		return ret;
 	}
 

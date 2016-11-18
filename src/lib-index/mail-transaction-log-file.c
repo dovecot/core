@@ -881,7 +881,8 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 	return ret;
 }
 
-int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
+int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
+				   const char **reason_r)
 {
 	struct mail_index *index = file->log->index;
         unsigned int i;
@@ -900,10 +901,13 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
 			index->readonly = TRUE;
 		}
 		if (file->fd == -1) {
-			if (errno == ENOENT)
+			if (errno == ENOENT) {
+				*reason_r = "File doesn't exist";
 				return 0;
+			}
 
 			log_file_set_syscall_error(file, "open()");
+			*reason_r = t_strdup_printf("open() failed: %m");
 			return -1;
                 }
 
@@ -915,6 +919,7 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
 			   renamed to .log.2 and we're trying to reopen it.
 			   also possible that hit a race condition where .log
 			   and .log.2 are linked. */
+			*reason_r = "File is already open";
 			return 0;
 		} else {
 			ret = mail_transaction_log_file_read_hdr(file,
@@ -932,11 +937,13 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file)
 			} else {
 				i_unlink_if_exists(file->filepath);
 			}
+			*reason_r = "File is corrupted";
 			return 0;
 		}
 		if (errno != ESTALE ||
 		    i == MAIL_INDEX_ESTALE_RETRY_COUNT) {
 			/* syscall error */
+			*reason_r = t_strdup_printf("fstat() failed: %m");
 			return -1;
 		}
 
