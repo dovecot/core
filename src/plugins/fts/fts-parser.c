@@ -16,7 +16,8 @@ static const char *plaintext_content_types[] = {
 	"text/plain",
 	"message/delivery-status",
 	"message/disposition-notification",
-	"application/pgp-signature"
+	"application/pgp-signature",
+	NULL
 };
 
 bool fts_parser_init(struct mail_user *user,
