@@ -131,6 +131,17 @@ static void test_buffer_random(void)
 	buffer_free(&buf);
 }
 
+static void test_buffer_write(void)
+{
+	buffer_t *buf;
+
+	test_begin("buffer_write");
+	buf = buffer_create_dynamic(pool_datastack_create(), 8);
+	buffer_write(buf, 5, buf, 0);
+	test_assert(buf->used == 5);
+	test_end();
+}
+
 static void test_buffer_set_used_size(void)
 {
 	buffer_t *buf;
@@ -263,6 +274,7 @@ static void test_buffer_truncate_bits(void)
 void test_buffer(void)
 {
 	test_buffer_random();
+	test_buffer_write();
 	test_buffer_set_used_size();
 	test_buffer_truncate_bits();
 }

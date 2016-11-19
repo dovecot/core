@@ -42,7 +42,8 @@ pool_t buffer_get_pool(const buffer_t *buf) ATTR_PURE;
 /* Reset the buffer. used size and it's contents are zeroed. */
 void buffer_reset(buffer_t *buf);
 
-/* Write data to buffer at specified position. */
+/* Write data to buffer at specified position. If pos is beyond the buffer's
+   current size, it is zero-filled up to that point (even if data_size==0). */
 void buffer_write(buffer_t *buf, size_t pos,
 		  const void *data, size_t data_size);
 /* Append data to buffer. */
