@@ -39,7 +39,8 @@ void *buffer_free_without_data(buffer_t **buf);
 /* Returns the pool buffer was created with. */
 pool_t buffer_get_pool(const buffer_t *buf) ATTR_PURE;
 
-/* Write data to buffer at specified position. */
+/* Write data to buffer at specified position. If pos is beyond the buffer's
+   current size, it is zero-filled up to that point (even if data_size==0). */
 void buffer_write(buffer_t *buf, size_t pos,
 		  const void *data, size_t data_size);
 /* Append data to buffer. */
