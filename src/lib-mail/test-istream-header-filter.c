@@ -499,7 +499,7 @@ static void test_istream_hide_body(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		istream = test_istream_create(tests[i].input);
 		test_istream_run(istream,
-				 strlen(tests[i].input) + tests[i].extra,
+				 (int)strlen(tests[i].input) + tests[i].extra,
 				 tests[i].output,
 				 HEADER_FILTER_EXCLUDE |
 				 HEADER_FILTER_CRLF_PRESERVE |

@@ -300,9 +300,9 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 					from_start_pos = i - 6;
 				}
 
-				if (rstream->hdr_offset + rstream->mail_size ==
-				    stream->istream.v_offset + from_start_pos ||
-				    rstream->mail_size == (uoff_t)-1) {
+				if (rstream->mail_size == (uoff_t)-1 ||
+				    rstream->hdr_offset + rstream->mail_size ==
+				    stream->istream.v_offset + from_start_pos) {
 					from_after_pos = i;
 					if (ret == -2) {
 						/* even if we don't have the

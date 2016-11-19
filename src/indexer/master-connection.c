@@ -88,7 +88,7 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 				  metadata.precache_fields, NULL);
 	mail_search_args_unref(&search_args);
 
-	max = status.messages - seq + 1;
+	max = status.messages + 1 - seq;
 	while (mailbox_search_next(ctx, &mail)) {
 		mail_precache(mail);
 		if (++counter % 100 == 0) {
