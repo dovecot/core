@@ -26,7 +26,7 @@
 /* Abort dict lookup after this many seconds. */
 #define DICT_CLIENT_REQUEST_TIMEOUT_MSECS 30000
 /* Log a warning if dict lookup takes longer than this many milliseconds. */
-#define DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS 5000
+#define DICT_CLIENT_DEFAULT_WARN_SLOW_MSECS 5000
 
 struct client_dict_cmd {
 	int refcount;
@@ -68,6 +68,7 @@ struct client_dict {
 
 	char *uri, *username;
 	enum dict_data_type value_type;
+	unsigned warn_slow_msecs;
 
 	time_t last_failed_connect;
 	char *last_connect_error;
@@ -630,19 +631,35 @@ client_dict_init(struct dict *driver, const char *uri,
 	struct client_dict *dict;
 	const char *p, *dest_uri, *path;
 	unsigned int idle_msecs = DICT_CLIENT_DEFAULT_TIMEOUT_MSECS;
+	unsigned int warn_slow_msecs = DICT_CLIENT_DEFAULT_WARN_SLOW_MSECS;
 
-	/* uri = [idle_msecs=<n>:] [<path>] ":" <uri> */
-	if (strncmp(uri, "idle_msecs=", 11) == 0) {
-		p = strchr(uri+11, ':');
-		if (p == NULL) {
-			*error_r = t_strdup_printf("Invalid URI: %s", uri);
-			return -1;
+	/* uri = [idle_msecs=<n>:] [warn_slow_msecs=<n>:] [<path>] ":" <uri> */
+	for (;;) {
+		if (strncmp(uri, "idle_msecs=", 11) == 0) {
+			p = strchr(uri+11, ':');
+			if (p == NULL) {
+				*error_r = t_strdup_printf("Invalid URI: %s", uri);
+				return -1;
+			}
+			if (str_to_uint(t_strdup_until(uri+11, p), &idle_msecs) < 0) {
+				*error_r = "Invalid idle_msecs";
+				return -1;
+			}
+			uri = p+1;
+		} else if (strncmp(uri, "warn_slow_msecs=", 16) == 0) {
+			p = strchr(uri+11, ':');
+			if (p == NULL) {
+				*error_r = t_strdup_printf("Invalid URI: %s", uri);
+				return -1;
+			}
+			if (str_to_uint(t_strdup_until(uri+16, p), &warn_slow_msecs) < 0) {
+				*error_r = "Invalid warn_slow_msecs";
+				return -1;
+			}
+			uri = p+1;
+		} else {
+			break;
 		}
-		if (str_to_uint(t_strdup_until(uri+11, p), &idle_msecs) < 0) {
-			*error_r = "Invalid idle_msecs";
-			return -1;
-		}
-		uri = p+1;
 	}
 	dest_uri = strchr(uri, ':');
 	if (dest_uri == NULL) {
@@ -661,6 +678,7 @@ client_dict_init(struct dict *driver, const char *uri,
 	dict->value_type = set->value_type;
 	dict->username = i_strdup(set->username);
 	dict->idle_msecs = idle_msecs;
+	dict->warn_slow_msecs = warn_slow_msecs;
 	i_array_init(&dict->cmds, 32);
 
 	if (uri[0] == ':') {
@@ -835,7 +853,7 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 		result.error = t_strdup_printf("%s (reply took %s)",
 			result.error, dict_warnings_sec(cmd, diff, extra_args));
 	} else if (!cmd->background &&
-		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
+		   diff >= (int)dict->warn_slow_msecs) {
 		i_warning("read(%s): dict lookup took %s: %s",
 			  dict->conn.conn.name, dict_warnings_sec(cmd, diff, extra_args),
 			  cmd->query);
@@ -940,7 +958,7 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 			i_free(ctx->error);
 			ctx->error = new_error;
 		} else if (!cmd->background &&
-			   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
+			   diff >= (int)dict->warn_slow_msecs) {
 			i_warning("read(%s): dict iteration took %s: %s",
 				  dict->conn.conn.name, dict_warnings_sec(cmd, diff, extra_args),
 				  cmd->query);
@@ -1202,7 +1220,7 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		result.error = t_strdup_printf("%s (reply took %s)",
 			result.error, dict_warnings_sec(cmd, diff, extra_args));
 	} else if (!cmd->background && !cmd->trans->ctx.no_slowness_warning &&
-		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
+		   diff >= (int)dict->warn_slow_msecs) {
 		i_warning("read(%s): dict commit took %s: "
 			  "%s (%u commands, first: %s)",
 			  dict->conn.conn.name, dict_warnings_sec(cmd, diff, extra_args),
