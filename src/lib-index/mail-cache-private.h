@@ -114,6 +114,8 @@ struct mail_cache {
 	ino_t st_ino;
 	dev_t st_dev;
 
+	time_t last_mmap_error_time;
+
 	size_t mmap_length;
 	/* a) mmaping the whole file */
 	void *mmap_base;
