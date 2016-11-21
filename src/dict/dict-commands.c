@@ -161,7 +161,6 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 	const char *key, *value, *error;
 
 	str = t_str_new(256);
-	o_stream_cork(cmd->conn->output);
 	while (dict_iterate(cmd->iter, &key, &value)) {
 		str_truncate(str, 0);
 		str_append_c(str, DICT_PROTOCOL_REPLY_OK);
@@ -177,7 +176,6 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 			if (o_stream_flush(cmd->conn->output) <= 0) {
 				/* continue later when there's more space
 				   in output buffer */
-				o_stream_uncork(cmd->conn->output);
 				o_stream_set_flush_pending(cmd->conn->output, TRUE);
 				return 0;
 			}
@@ -196,7 +194,6 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 	}
 	dict_cmd_reply_handle_timings(cmd, str, cmd_stats.iterations);
 	str_append_c(str, '\n');
-	o_stream_uncork(cmd->conn->output);
 
 	cmd->reply = i_strdup(str_c(str));
 	return 1;
@@ -205,8 +202,13 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 static void cmd_iterate_callback(void *context)
 {
 	struct dict_connection_cmd *cmd = context;
+	struct dict_connection *conn = cmd->conn;
 
+	dict_connection_ref(conn);
+	o_stream_cork(conn->output);
 	dict_connection_cmd_output_more(cmd);
+	o_stream_uncork(conn->output);
+	dict_connection_unref_safe(conn);
 }
 
 static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
