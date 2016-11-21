@@ -872,7 +872,8 @@ dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs,
 		str_printfa(str, ", async-id reply %u.%03u secs ago",
 			    async_reply_msecs/1000, async_reply_msecs%1000);
 	}
-	if (str_array_length(extra_args) >= 4 &&
+	if (extra_args != NULL &&
+	    str_array_length(extra_args) >= 4 &&
 	    str_to_time(extra_args[0], &tv_start.tv_sec) == 0 &&
 	    str_to_uint(extra_args[1], &tv_start_usec) == 0 &&
 	    str_to_time(extra_args[2], &tv_end.tv_sec) == 0 &&
