@@ -17,6 +17,7 @@
 #include "mail-index-sync-private.h"
 #include "mail-index-modseq.h"
 #include "mail-transaction-log.h"
+#include "mail-transaction-log-view-private.h"
 #include "mail-cache.h"
 
 #include <stdio.h>
@@ -600,7 +601,15 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 		mail_index_close_nonopened(index);
 		return ret;
 	}
+
 	index->open_count++;
+
+	if (index->log->head == NULL) {
+		mail_index_close(index);
+		mail_index_set_error(index, "Index is corrupted "
+					    "(log->view->head == NULL)");
+		return -1;
+	}
 
 	i_assert(index->map != NULL);
 	mail_index_alloc_cache_index_opened(index);

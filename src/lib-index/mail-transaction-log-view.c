@@ -15,6 +15,8 @@ mail_transaction_log_view_open(struct mail_transaction_log *log)
 	view->log = log;
 	view->broken = TRUE;
 
+	i_assert(view->log->head != NULL);
+
 	view->head = view->tail = view->log->head;
 	view->head->refcount++;
 	i_array_init(&view->file_refs, 8);
