@@ -2193,6 +2193,138 @@ static void test_dns_lookup_ttl(void)
 }
 
 /*
+ * Peer reuse failure
+ */
+
+/* server */
+
+static void
+test_peer_reuse_failure_input(struct server_connection *conn)
+{
+	static unsigned int seq = 0;
+	static const char *resp =
+		"HTTP/1.1 200 OK\r\n"
+		"\r\n";
+	o_stream_nsend_str(conn->conn.output, resp);
+	if (seq++ > 2) {
+		server_connection_deinit(&conn);
+		io_loop_stop(current_ioloop);
+	}
+}
+
+static void test_server_peer_reuse_failure(unsigned int index)
+{
+	test_server_input = test_peer_reuse_failure_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _peer_reuse_failure {
+	struct timeout *to;
+	bool first:1;
+};
+
+static void
+test_client_peer_reuse_failure_response2(
+	const struct http_response *resp,
+	struct _peer_reuse_failure *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	i_free(ctx);
+	io_loop_stop(ioloop);
+}
+
+static void
+test_client_peer_reuse_failure_next(struct _peer_reuse_failure *ctx)
+{
+	struct http_client_request *hreq;
+
+	timeout_remove(&ctx->to);
+
+	hreq = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/peer-reuse-next.txt",
+		test_client_peer_reuse_failure_response2, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+}
+
+static void
+test_client_peer_reuse_failure_response1(
+	const struct http_response *resp,
+	struct _peer_reuse_failure *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	if (ctx->first) {
+		test_assert(resp->status == 200);
+
+		ctx->first = FALSE;
+		ctx->to = timeout_add_short(500, test_client_peer_reuse_failure_next, ctx);
+	} else {
+		test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
+	}
+
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+}
+
+static bool
+test_client_peer_reuse_failure(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _peer_reuse_failure *ctx;
+
+	ctx = i_new(struct _peer_reuse_failure, 1);
+	ctx->first = TRUE;
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
+		test_client_peer_reuse_failure_response1, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
+		test_client_peer_reuse_failure_response1, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/peer-reuse.txt",
+		test_client_peer_reuse_failure_response1, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_peer_reuse_failure(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.max_connect_attempts = 1;
+	http_client_set.max_idle_time_msecs = 500;
+
+	test_begin("peer reuse failure");
+	test_run_client_server(&http_client_set,
+		test_client_peer_reuse_failure,
+		test_server_peer_reuse_failure, 1,
+		NULL);
+	test_end();
+}
+
+
+/*
  * All tests
  */
 
@@ -2218,6 +2350,7 @@ static void (*test_functions[])(void) = {
 	test_dns_timeout,
 	test_dns_lookup_failure,
 	test_dns_lookup_ttl,
+	test_peer_reuse_failure,
 	NULL
 };
 
