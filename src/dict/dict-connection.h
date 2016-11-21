@@ -31,6 +31,7 @@ struct dict_connection {
 	   array is fast enough */
 	ARRAY(struct dict_connection_transaction) transactions;
 	ARRAY(struct dict_connection_cmd *) cmds;
+	unsigned int async_id_counter;
 
 	unsigned int destroyed:1;
 };

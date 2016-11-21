@@ -33,6 +33,8 @@ struct client_dict_cmd {
 	struct client_dict *dict;
 	struct timeval start_time;
 	char *query;
+	unsigned int async_id;
+	struct timeval async_id_received_time;
 
 	uint64_t start_global_ioloop_usecs;
 	uint64_t start_dict_ioloop_usecs;
@@ -184,9 +186,8 @@ static void dict_post_api_callback(struct client_dict *dict)
 }
 
 static bool
-dict_cmd_callback_line(struct client_dict_cmd *cmd, const char *line)
+dict_cmd_callback_line(struct client_dict_cmd *cmd, const char *const *args)
 {
-	const char *const *args = t_strsplit_tabescaped(line);
 	const char *value = args[0];
 	enum dict_protocol_reply reply;
 
@@ -198,6 +199,7 @@ dict_cmd_callback_line(struct client_dict_cmd *cmd, const char *line)
 		value++;
 		args++;
 	}
+
 	cmd->unfinished = FALSE;
 	cmd->callback(cmd, reply, value, args, NULL, FALSE);
 	return !cmd->unfinished;
@@ -442,16 +444,73 @@ static void client_dict_cmd_backgrounded(struct client_dict *dict)
 	}
 }
 
+static int
+dict_conn_assign_next_async_id(struct dict_connection *conn, const char *line)
+{
+	struct client_dict_cmd *const *cmds;
+	unsigned int i, count, async_id;
+
+	i_assert(line[0] == DICT_PROTOCOL_REPLY_ASYNC_ID);
+
+	if (str_to_uint(line+1, &async_id) < 0 || async_id == 0) {
+		i_error("%s: Received invalid async-id line: %s",
+			conn->conn.name, line);
+		return -1;
+	}
+	cmds = array_get(&conn->dict->cmds, &count);
+	for (i = 0; i < count; i++) {
+		if (cmds[i]->async_id == 0) {
+			cmds[i]->async_id = async_id;
+			cmds[i]->async_id_received_time = ioloop_timeval;
+			return 0;
+		}
+	}
+	i_error("%s: Received async-id line, but all %u commands already have it: %s",
+		conn->conn.name, count, line);
+	return -1;
+}
+
+static int dict_conn_find_async_id(struct dict_connection *conn,
+				   const char *async_arg,
+				   const char *line, unsigned int *idx_r)
+{
+	struct client_dict_cmd *const *cmds;
+	unsigned int i, count, async_id;
+
+	i_assert(async_arg[0] == DICT_PROTOCOL_REPLY_ASYNC_REPLY);
+
+	if (str_to_uint(async_arg+1, &async_id) < 0 || async_id == 0) {
+		i_error("%s: Received invalid async-reply line: %s",
+			conn->conn.name, line);
+		return -1;
+	}
+
+	cmds = array_get(&conn->dict->cmds, &count);
+	for (i = 0; i < count; i++) {
+		if (cmds[i]->async_id == async_id) {
+			*idx_r = i;
+			return 0;
+		}
+	}
+	i_error("%s: Received reply for nonexistent async-id %u: %s",
+		conn->conn.name, async_id, line);
+	return -1;
+}
+
 static int dict_conn_input_line(struct connection *_conn, const char *line)
 {
 	struct dict_connection *conn = (struct dict_connection *)_conn;
 	struct client_dict *dict = conn->dict;
 	struct client_dict_cmd *const *cmds;
-	unsigned int count;
+	const char *const *args;
+	unsigned int i, count;
 	bool finished;
 
 	if (dict->to_requests != NULL)
 		timeout_reset(dict->to_requests);
+
+	if (line[0] == DICT_PROTOCOL_REPLY_ASYNC_ID)
+		return dict_conn_assign_next_async_id(conn, line) < 0 ? -1 : 1;
 
 	cmds = array_get(&conn->dict->cmds, &count);
 	if (count == 0) {
@@ -459,11 +518,20 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 			dict->conn.conn.name, line);
 		return -1;
 	}
-	i_assert(!cmds[0]->no_replies);
 
-	client_dict_cmd_ref(cmds[0]);
-	finished = dict_cmd_callback_line(cmds[0], line);
-	if (!client_dict_cmd_unref(cmds[0])) {
+	args = t_strsplit_tabescaped(line);
+	if (args[0] != NULL && args[0][0] == DICT_PROTOCOL_REPLY_ASYNC_REPLY) {
+		if (dict_conn_find_async_id(conn, args[0], line, &i) < 0)
+			return -1;
+		args++;
+	} else {
+		i = 0;
+	}
+	i_assert(!cmds[i]->no_replies);
+
+	client_dict_cmd_ref(cmds[i]);
+	finished = dict_cmd_callback_line(cmds[i], args);
+	if (!client_dict_cmd_unref(cmds[i])) {
 		/* disconnected during command handling */
 		return -1;
 	}
@@ -471,8 +539,8 @@ static int dict_conn_input_line(struct connection *_conn, const char *line)
 		/* more lines needed for this command */
 		return 1;
 	}
-	client_dict_cmd_unref(cmds[0]);
-	array_delete(&dict->cmds, 0, 1);
+	client_dict_cmd_unref(cmds[i]);
+	array_delete(&dict->cmds, i, 1);
 
 	client_dict_add_timeout(dict);
 	return 1;
@@ -594,6 +662,7 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 	array_foreach(&retry_cmds, cmdp) {
 		cmd = *cmdp;
 		cmd->reconnected = TRUE;
+		cmd->async_id = 0;
 		/* if it fails again, don't retry anymore */
 		cmd->retry_errors = FALSE;
 		if (ret < 0) {
@@ -797,6 +866,12 @@ dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs,
 				&cmd->dict->conn.conn.connect_started);
 		str_printfa(str, ", reconnected %u.%03u secs ago",
 			    reconnected_msecs/1000, reconnected_msecs%1000);
+	}
+	if (cmd->async_id != 0) {
+		int async_reply_msecs =
+			timeval_diff_msecs(&ioloop_timeval, &cmd->async_id_received_time);
+		str_printfa(str, ", async-id reply %u.%03u secs ago",
+			    async_reply_msecs/1000, async_reply_msecs%1000);
 	}
 	if (str_array_length(extra_args) >= 4 &&
 	    str_to_time(extra_args[0], &tv_start.tv_sec) == 0 &&

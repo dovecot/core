@@ -14,6 +14,7 @@
 #include "main.h"
 
 #define DICT_CLIENT_PROTOCOL_TIMINGS_MIN_VERSION 1
+#define DICT_CLIENT_PROTOCOL_UNORDERED_MIN_VERSION 1
 #define DICT_OUTPUT_OPTIMAL_SIZE 1024
 
 struct dict_cmd_func {
@@ -30,7 +31,8 @@ struct dict_connection_cmd {
 	struct dict_iterate_context *iter;
 	enum dict_iterate_flags iter_flags;
 
-	unsigned int trans_id;
+	unsigned int async_reply_id;
+	unsigned int trans_id; /* obsolete */
 };
 
 struct dict_command_stats cmd_stats;
@@ -70,10 +72,14 @@ static void dict_connection_cmds_flush(struct dict_connection *conn)
 {
 	struct dict_connection_cmd *cmd, *const *first_cmdp;
 
+	i_assert(conn->minor_version < DICT_CLIENT_PROTOCOL_UNORDERED_MIN_VERSION);
+
 	dict_connection_ref(conn);
 	while (array_count(&conn->cmds) > 0) {
 		first_cmdp = array_idx(&conn->cmds, 0);
 		cmd = *first_cmdp;
+
+		i_assert(cmd->async_reply_id == 0);
 
 		/* we may be able to start outputting iterations now. */
 		if (cmd->iter != NULL)
@@ -88,6 +94,37 @@ static void dict_connection_cmds_flush(struct dict_connection *conn)
 		dict_connection_cmd_remove(cmd);
 	}
 	dict_connection_unref_safe(conn);
+}
+
+static void dict_connection_cmd_try_flush(struct dict_connection_cmd **_cmd)
+{
+	struct dict_connection_cmd *cmd = *_cmd;
+
+	*_cmd = NULL;
+	if (cmd->conn->minor_version < DICT_CLIENT_PROTOCOL_UNORDERED_MIN_VERSION) {
+		dict_connection_cmds_flush(cmd->conn);
+		return;
+	}
+	i_assert(cmd->async_reply_id != 0);
+	i_assert(cmd->reply != NULL);
+
+	o_stream_nsend_str(cmd->conn->output, t_strdup_printf("%c%u\t%s",
+		DICT_PROTOCOL_REPLY_ASYNC_REPLY,
+		cmd->async_reply_id, cmd->reply));
+	dict_connection_cmd_remove(cmd);
+}
+
+static void dict_connection_cmd_async(struct dict_connection_cmd *cmd)
+{
+	if (cmd->conn->minor_version < DICT_CLIENT_PROTOCOL_UNORDERED_MIN_VERSION)
+		return;
+
+	i_assert(cmd->async_reply_id == 0);
+	cmd->async_reply_id = ++cmd->conn->async_id_counter;
+	if (cmd->async_reply_id == 0)
+		cmd->async_reply_id = ++cmd->conn->async_id_counter;
+	o_stream_nsend_str(cmd->conn->output, t_strdup_printf("%c%u\n",
+		DICT_PROTOCOL_REPLY_ASYNC_ID, cmd->async_reply_id));
 }
 
 static void
@@ -141,12 +178,13 @@ cmd_lookup_callback(const struct dict_lookup_result *result, void *context)
 	str_append_c(str, '\n');
 
 	cmd->reply = i_strdup(str_c(str));
-	dict_connection_cmds_flush(cmd->conn);
+	dict_connection_cmd_try_flush(&cmd);
 }
 
 static int cmd_lookup(struct dict_connection_cmd *cmd, const char *line)
 {
 	/* <key> */
+	dict_connection_cmd_async(cmd);
 	dict_lookup_async(cmd->conn->dict, line, cmd_lookup_callback, cmd);
 	return 1;
 }
@@ -177,6 +215,10 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 	str = t_str_new(256);
 	while (dict_iterate(cmd->iter, &key, &value)) {
 		str_truncate(str, 0);
+		if (cmd->async_reply_id != 0) {
+			str_append_c(str, DICT_PROTOCOL_REPLY_ASYNC_REPLY);
+			str_printfa(str, "%u\t", cmd->async_reply_id);
+		}
 		str_append_c(str, DICT_PROTOCOL_REPLY_OK);
 		str_append_tabescaped(str, key);
 		str_append_c(str, '\t');
@@ -228,6 +270,7 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
 		i_error("dict client: ITERATE: broken input");
 		return -1;
 	}
+	dict_connection_cmd_async(cmd);
 
 	/* <flags> <max_rows> <path> */
 	flags |= DICT_ITERATE_FLAG_ASYNC;
@@ -350,7 +393,7 @@ cmd_commit_finish(struct dict_connection_cmd *cmd, int ret, bool async)
 	cmd->reply = i_strdup(str_c(str));
 
 	dict_connection_transaction_array_remove(cmd->conn, cmd->trans_id);
-	dict_connection_cmds_flush(cmd->conn);
+	dict_connection_cmd_try_flush(&cmd);
 }
 
 static void cmd_commit_callback(int ret, void *context)
@@ -376,6 +419,7 @@ cmd_commit(struct dict_connection_cmd *cmd, const char *line)
 		return -1;
 	cmd->trans_id = trans->id;
 
+	dict_connection_cmd_async(cmd);
 	dict_transaction_commit_async(&trans->ctx, cmd_commit_callback, cmd);
 	return 1;
 }
@@ -389,6 +433,7 @@ cmd_commit_async(struct dict_connection_cmd *cmd, const char *line)
 		return -1;
 	cmd->trans_id = trans->id;
 
+	dict_connection_cmd_async(cmd);
 	dict_transaction_commit_async(&trans->ctx, cmd_commit_callback_async, cmd);
 	return 1;
 }
@@ -532,36 +577,48 @@ int dict_command_input(struct dict_connection *conn, const char *line)
 	return 0;
 }
 
-static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd)
+static bool dict_connection_cmds_try_output_more(struct dict_connection *conn)
 {
-	struct dict_connection_cmd *const *first_cmdp;
-	
-	first_cmdp = array_idx(&cmd->conn->cmds, 0);
-	if (*first_cmdp == cmd) {
-		if (cmd_iterate_flush(cmd) > 0)
-			dict_connection_cmds_flush(cmd->conn);
+	struct dict_connection_cmd *const *cmdp, *cmd;
+
+	/* only iterators may be returning a lot of data */
+	array_foreach(&conn->cmds, cmdp) {
+		cmd = *cmdp;
+
+		if (cmd->iter == NULL) {
+			/* not an iterator */
+		} else if (cmd_iterate_flush(cmd) == 0) {
+			/* unfinished */
+		} else {
+			dict_connection_cmd_try_flush(&cmd);
+			/* cmd should be freed now, restart output */
+			return TRUE;
+		}
+		if (conn->minor_version < DICT_CLIENT_PROTOCOL_TIMINGS_MIN_VERSION)
+			break;
+		/* try to flush the rest */
 	}
+	return FALSE;
 }
 
 void dict_connection_cmds_output_more(struct dict_connection *conn)
 {
-	struct dict_connection_cmd *cmd, *const *first_cmdp;
-
-	/* only iterators may be returning a lot of data */
 	while (array_count(&conn->cmds) > 0) {
-		first_cmdp = array_idx(&conn->cmds, 0);
-		cmd = *first_cmdp;
-
-		if (cmd->iter == NULL)
+		if (!dict_connection_cmds_try_output_more(conn))
 			break;
-
-		if (cmd_iterate_flush(cmd) == 0) {
-			/* unfinished */
-			break;
-		}
-		dict_connection_cmds_flush(cmd->conn);
-		/* cmd should be freed now */
 	}
+}
+
+static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd)
+{
+	struct dict_connection_cmd *const *first_cmdp;
+
+	if (cmd->conn->minor_version < DICT_CLIENT_PROTOCOL_TIMINGS_MIN_VERSION) {
+		first_cmdp = array_idx(&cmd->conn->cmds, 0);
+		if (*first_cmdp != cmd)
+			return;
+	}
+	(void)dict_connection_cmds_try_output_more(cmd->conn);
 }
 
 void dict_commands_init(void)

@@ -37,6 +37,8 @@ enum dict_protocol_reply {
 	DICT_PROTOCOL_REPLY_WRITE_UNCERTAIN = 'W',
 	DICT_PROTOCOL_REPLY_ASYNC_COMMIT = 'A',
 	DICT_PROTOCOL_REPLY_ITER_FINISHED = '\0',
+	DICT_PROTOCOL_REPLY_ASYNC_ID = '*',
+	DICT_PROTOCOL_REPLY_ASYNC_REPLY = '+',
 };
 
 const char *dict_client_escape(const char *src);
