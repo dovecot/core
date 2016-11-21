@@ -32,7 +32,7 @@ struct quota_clone_mailbox {
 	bool quota_changed;
 };
 
-static void quota_clone_flush(struct mailbox *box)
+static void quota_clone_flush_real(struct mailbox *box)
 {
 	struct quota_clone_mailbox *qbox = QUOTA_CLONE_CONTEXT(box);
 	struct quota_clone_user *quser =
@@ -77,6 +77,21 @@ static void quota_clone_flush(struct mailbox *box)
 		qbox->quota_changed = FALSE;
 }
 
+static void quota_clone_flush(struct mailbox *box)
+{
+	struct quota_clone_mailbox *qbox = QUOTA_CLONE_CONTEXT(box);
+	struct quota_clone_user *quser =
+		QUOTA_CLONE_USER_CONTEXT(box->storage->user);
+
+	if (quser->quota_flushing) {
+		/* recursing back from quota recalculation */
+	} else if (qbox->quota_changed) {
+		quser->quota_flushing = TRUE;
+		quota_clone_flush_real(box);
+		quser->quota_flushing = FALSE;
+	}
+}
+
 static int quota_clone_save_finish(struct mail_save_context *ctx)
 {
 	struct quota_clone_mailbox *qbox =
@@ -112,18 +127,10 @@ quota_clone_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 static void quota_clone_mailbox_close(struct mailbox *box)
 {
 	struct quota_clone_mailbox *qbox = QUOTA_CLONE_CONTEXT(box);
-	struct quota_clone_user *quser =
-		QUOTA_CLONE_USER_CONTEXT(box->storage->user);
 
 	qbox->module_ctx.super.close(box);
 
-	if (quser->quota_flushing) {
-		/* recursing back from quota recalculation */
-	} else if (qbox->quota_changed) {
-		quser->quota_flushing = TRUE;
-		quota_clone_flush(box);
-		quser->quota_flushing = FALSE;
-	}
+	quota_clone_flush(box);
 }
 
 static void quota_clone_mailbox_allocated(struct mailbox *box)
