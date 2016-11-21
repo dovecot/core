@@ -3,6 +3,7 @@
 # Generates a self-signed certificate.
 # Edit dovecot-openssl.cnf before running this.
 
+umask 077
 OPENSSL=${OPENSSL-openssl}
 SSLDIR=${SSLDIR-/etc/ssl}
 OPENSSLCONFIG=${OPENSSLCONFIG-dovecot-openssl.cnf}
