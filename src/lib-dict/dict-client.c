@@ -44,7 +44,8 @@ struct client_dict_cmd {
 	bool background;
 
 	void (*callback)(struct client_dict_cmd *cmd,
-			 const char *line, const char *error,
+			 enum dict_protocol_reply reply, const char *value,
+			 const char *const *extra_args, const char *error,
 			 bool disconnected);
         struct client_dict_iterate_context *iter;
 	struct client_dict_transaction_context *trans;
@@ -183,8 +184,20 @@ static void dict_post_api_callback(struct client_dict *dict)
 static bool
 dict_cmd_callback_line(struct client_dict_cmd *cmd, const char *line)
 {
+	const char *const *args = t_strsplit_tabescaped(line);
+	const char *value = args[0];
+	enum dict_protocol_reply reply;
+
+	if (value == NULL) {
+		/* "" is a valid iteration reply */
+		reply = DICT_PROTOCOL_REPLY_ITER_FINISHED;
+	} else {
+		reply = value[0];
+		value++;
+		args++;
+	}
 	cmd->unfinished = FALSE;
-	cmd->callback(cmd, line, NULL, FALSE);
+	cmd->callback(cmd, reply, value, args, NULL, FALSE);
 	return !cmd->unfinished;
 }
 
@@ -192,9 +205,13 @@ static void
 dict_cmd_callback_error(struct client_dict_cmd *cmd, const char *error,
 			bool disconnected)
 {
+	const char *null_arg = NULL;
+
 	cmd->unfinished = FALSE;
-	if (cmd->callback != NULL)
-		cmd->callback(cmd, NULL, error, disconnected);
+	if (cmd->callback != NULL) {
+		cmd->callback(cmd, DICT_PROTOCOL_REPLY_ERROR,
+			      "", &null_arg, error, disconnected);
+	}
 	i_assert(!cmd->unfinished);
 }
 
@@ -751,8 +768,12 @@ static const char *dict_warnings_sec(const struct client_dict_cmd *cmd, int msec
 }
 
 static void
-client_dict_lookup_async_callback(struct client_dict_cmd *cmd, const char *line,
-				  const char *error, bool disconnected ATTR_UNUSED)
+client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
+				  enum dict_protocol_reply reply,
+				  const char *value,
+				  const char *const *extra_args ATTR_UNUSED,
+				  const char *error,
+				  bool disconnected ATTR_UNUSED)
 {
 	struct client_dict *dict = cmd->dict;
 	struct dict_lookup_result result;
@@ -761,24 +782,24 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd, const char *line,
 	if (error != NULL) {
 		result.ret = -1;
 		result.error = error;
-	} else switch (*line) {
+	} else switch (reply) {
 	case DICT_PROTOCOL_REPLY_OK:
-		result.value = t_str_tabunescape(line + 1);
+		result.value = value + 1;
 		result.ret = 1;
 		break;
 	case DICT_PROTOCOL_REPLY_NOTFOUND:
 		result.ret = 0;
 		break;
 	case DICT_PROTOCOL_REPLY_FAIL:
-		result.error = line[1] == '\0' ? "dict-server returned failure" :
+		result.error = value[0] == '\0' ? "dict-server returned failure" :
 			t_strdup_printf("dict-server returned failure: %s",
-			t_str_tabunescape(line+1));
+			value);
 		result.ret = -1;
 		break;
 	default:
 		result.error = t_strdup_printf(
-			"dict-client: Invalid lookup '%s' reply: %s",
-			cmd->query, line);
+			"dict-client: Invalid lookup '%s' reply: %c%s",
+			cmd->query, reply, value);
 		client_dict_disconnect(dict, result.error);
 		result.ret = -1;
 		break;
@@ -911,13 +932,17 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 }
 
 static void
-client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
-				const char *error, bool disconnected ATTR_UNUSED)
+client_dict_iter_async_callback(struct client_dict_cmd *cmd,
+				enum dict_protocol_reply reply,
+				const char *value,
+				const char *const *extra_args,
+				const char *error,
+				bool disconnected ATTR_UNUSED)
 {
 	struct client_dict_iterate_context *ctx = cmd->iter;
 	struct client_dict *dict = cmd->dict;
 	struct client_dict_iter_result *result;
-	const char *key = NULL, *value = NULL;
+	const char *iter_key = NULL, *iter_value = NULL;
 
 	if (ctx->deinit) {
 		cmd->background = TRUE;
@@ -926,8 +951,8 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 
 	if (error != NULL) {
 		/* failed */
-	} else switch (*line) {
-	case '\0':
+	} else switch (reply) {
+	case DICT_PROTOCOL_REPLY_ITER_FINISHED:
 		/* end of iteration */
 		ctx->finished = TRUE;
 		client_dict_iter_api_callback(ctx, cmd);
@@ -935,19 +960,19 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 		return;
 	case DICT_PROTOCOL_REPLY_OK:
 		/* key \t value */
-		key = line+1;
-		value = strchr(key, '\t');
+		iter_key = value;
+		iter_value = extra_args[0];
 		break;
 	case DICT_PROTOCOL_REPLY_FAIL:
-		error = t_strdup_printf("dict-server returned failure: %s", line+1);
+		error = t_strdup_printf("dict-server returned failure: %s", value);
 		break;
 	default:
 		break;
 	}
-	if (value == NULL && error == NULL) {
+	if (iter_value == NULL && error == NULL) {
 		/* broken protocol */
-		error = t_strdup_printf("dict client (%s) sent broken iterate reply: %s",
-					dict->conn.conn.name, line);
+		error = t_strdup_printf("dict client (%s) sent broken iterate reply: %c%s",
+			dict->conn.conn.name, reply, value);
 		client_dict_disconnect(dict, error);
 	}
 
@@ -966,13 +991,9 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd, const char *line,
 		return;
 	}
 
-	if (value != NULL)
-		key = t_strdup_until(key, value++);
-	else
-		value = "";
 	result = array_append_space(&ctx->results);
-	result->key = p_strdup(ctx->results_pool, t_str_tabunescape(key));
-	result->value = p_strdup(ctx->results_pool, t_str_tabunescape(value));
+	result->key = p_strdup(ctx->results_pool, iter_key);
+	result->value = p_strdup(ctx->results_pool, iter_value);
 
 	client_dict_iter_api_callback(ctx, cmd);
 }
@@ -1103,8 +1124,10 @@ client_dict_transaction_free(struct client_dict_transaction_context **_ctx)
 
 static void
 client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
-					const char *line, const char *error,
-					bool disconnected)
+					enum dict_protocol_reply reply,
+					const char *value,
+					const char *const *extra_args,
+					const char *error, bool disconnected)
 {
 	struct client_dict *dict = cmd->dict;
 	int ret = -1;
@@ -1118,7 +1141,7 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 			"(reply took %u.%03u secs)", error, diff/1000, diff%1000);
 		if (disconnected)
 			ret = DICT_COMMIT_RET_WRITE_UNCERTAIN;
-	} else switch (*line) {
+	} else switch (reply) {
 	case DICT_PROTOCOL_REPLY_OK:
 		ret = 1;
 		break;
@@ -1129,18 +1152,18 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		ret = DICT_COMMIT_RET_WRITE_UNCERTAIN;
 		/* fallthrough */
 	case DICT_PROTOCOL_REPLY_FAIL: {
-		const char *error = strchr(line+1, '\t');
+		const char *error = extra_args[0];
 
 		i_error("dict-client: server returned failure: %s "
 			"(reply took %u.%03u secs)",
-			error != NULL ? t_str_tabunescape(error) : "",
+			error != NULL ? error : "",
 			diff/1000, diff%1000);
 		break;
 	}
 	default:
 		ret = -1;
-		error = t_strdup_printf("dict-client: Invalid commit reply: %s "
-			"(reply took %u.%03u secs)", line, diff/1000, diff%1000);
+		error = t_strdup_printf("dict-client: Invalid commit reply: %c%s "
+			"(reply took %u.%03u secs)", reply, value, diff/1000, diff%1000);
 		i_error("%s", error);
 		client_dict_disconnect(dict, error);
 		break;
