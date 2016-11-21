@@ -215,7 +215,6 @@ struct mail_index {
 	ARRAY(union mail_index_module_context *) module_contexts;
 
 	char *error;
-	time_t last_error_time;
 	unsigned int nodiskspace:1;
 	unsigned int index_lock_timeout:1;
 
