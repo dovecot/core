@@ -2,10 +2,15 @@
 
 #include "lib.h"
 #include "module-context.h"
+#include "ioloop.h"
 #include "dict.h"
 #include "mail-storage-private.h"
 #include "quota.h"
 #include "quota-clone-plugin.h"
+
+/* If mailbox is kept open for this many milliseconds after quota update,
+   flush quota-clone. */
+#define QUOTA_CLONE_FLUSH_DELAY_MSECS (10*1000)
 
 #define DICT_QUOTA_CLONE_PATH DICT_PATH_PRIVATE"quota/"
 #define DICT_QUOTA_CLONE_BYTES_PATH DICT_QUOTA_CLONE_PATH"storage"
@@ -29,6 +34,7 @@ struct quota_clone_user {
 
 struct quota_clone_mailbox {
 	union mailbox_module_context module_ctx;
+	struct timeout *to_quota_flush;
 	bool quota_changed;
 };
 
@@ -83,6 +89,9 @@ static void quota_clone_flush(struct mailbox *box)
 	struct quota_clone_user *quser =
 		QUOTA_CLONE_USER_CONTEXT(box->storage->user);
 
+	if (qbox->to_quota_flush != NULL)
+		timeout_remove(&qbox->to_quota_flush);
+
 	if (quser->quota_flushing) {
 		/* recursing back from quota recalculation */
 	} else if (qbox->quota_changed) {
@@ -92,12 +101,23 @@ static void quota_clone_flush(struct mailbox *box)
 	}
 }
 
+static void quota_clone_changed(struct mailbox *box)
+{
+	struct quota_clone_mailbox *qbox = QUOTA_CLONE_CONTEXT(box);
+
+	qbox->quota_changed = TRUE;
+	if (qbox->to_quota_flush == NULL) {
+		qbox->to_quota_flush = timeout_add(QUOTA_CLONE_FLUSH_DELAY_MSECS,
+						   quota_clone_flush, box);
+	}
+}
+
 static int quota_clone_save_finish(struct mail_save_context *ctx)
 {
 	struct quota_clone_mailbox *qbox =
 		QUOTA_CLONE_CONTEXT(ctx->transaction->box);
 
-	qbox->quota_changed = TRUE;
+	quota_clone_changed(ctx->transaction->box);
 	return qbox->module_ctx.super.save_finish(ctx);
 }
 
@@ -107,7 +127,7 @@ quota_clone_copy(struct mail_save_context *ctx, struct mail *mail)
 	struct quota_clone_mailbox *qbox =
 		QUOTA_CLONE_CONTEXT(ctx->transaction->box);
 
-	qbox->quota_changed = TRUE;
+	quota_clone_changed(ctx->transaction->box);
 	return qbox->module_ctx.super.copy(ctx, mail);
 }
 
@@ -121,7 +141,7 @@ quota_clone_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		qbox->module_ctx.super.sync_notify(box, uid, sync_type);
 
 	if (sync_type == MAILBOX_SYNC_TYPE_EXPUNGE)
-		qbox->quota_changed = TRUE;
+		quota_clone_changed(box);
 }
 
 static void quota_clone_mailbox_close(struct mailbox *box)
