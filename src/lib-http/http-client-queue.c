@@ -478,8 +478,17 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	struct http_client_peer *failed_peer;
 	struct http_client_peer *const *peer_idx;
 
-	i_assert(queue->cur_peer == NULL);
-	i_assert(array_count(&queue->pending_peers) > 0);
+	if (queue->cur_peer != NULL) {
+		/* The peer still has some working connections, which means that
+		   pending requests wait until they're picked up by those connections
+		   or the remaining connections fail as well. In the latter case,
+		   connecting to different peer can resolve the situation, but only
+		   if there is more than one IP. In any other case, the requests will
+		   eventually fail. In the future we could start connections to the next
+		   IP at this point already, but that is no small change. */
+		i_assert(array_count(&queue->pending_peers) == 0);
+		return;
+	}
 
 	http_client_queue_debug(queue,
 		"Failed to set up connection to %s%s: %s "
