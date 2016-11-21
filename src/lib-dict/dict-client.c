@@ -760,17 +760,42 @@ static const char *dict_wait_warnings(const struct client_dict_cmd *cmd)
 		lock_msecs/1000, lock_msecs%1000);
 }
 
-static const char *dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs)
+static const char *
+dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs,
+		  const char *const *extra_args)
 {
-	return t_strdup_printf("%d.%03d secs (%s)", msecs/1000, msecs%1000,
-			       dict_wait_warnings(cmd));
+	string_t *str = t_str_new(64);
+	struct timeval tv_start, tv_end;
+	unsigned int tv_start_usec, tv_end_usec;
+
+	str_printfa(str, "%d.%03d secs (%s", msecs/1000, msecs%1000,
+		    dict_wait_warnings(cmd));
+	if (str_array_length(extra_args) >= 4 &&
+	    str_to_time(extra_args[0], &tv_start.tv_sec) == 0 &&
+	    str_to_uint(extra_args[1], &tv_start_usec) == 0 &&
+	    str_to_time(extra_args[2], &tv_end.tv_sec) == 0 &&
+	    str_to_uint(extra_args[3], &tv_end_usec) == 0) {
+		tv_start.tv_usec = tv_start_usec;
+		tv_end.tv_usec = tv_end_usec;
+
+		int server_msecs_since_start =
+			timeval_diff_msecs(&ioloop_timeval, &tv_start);
+		int server_msecs = timeval_diff_msecs(&tv_end, &tv_start);
+		str_printfa(str, ", started on dict-server %u.%03d secs ago, "
+			    "took %u.%03d secs",
+			    server_msecs_since_start/1000,
+			    server_msecs_since_start%1000,
+			    server_msecs/1000, server_msecs%1000);
+	}
+	str_append_c(str, ')');
+	return str_c(str);
 }
 
 static void
 client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 				  enum dict_protocol_reply reply,
 				  const char *value,
-				  const char *const *extra_args ATTR_UNUSED,
+				  const char *const *extra_args,
 				  const char *error,
 				  bool disconnected ATTR_UNUSED)
 {
@@ -808,11 +833,11 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 	if (result.error != NULL) {
 		/* include timing info always in error messages */
 		result.error = t_strdup_printf("%s (reply took %s)",
-			result.error, dict_warnings_sec(cmd, diff));
+			result.error, dict_warnings_sec(cmd, diff, extra_args));
 	} else if (!cmd->background &&
 		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
 		i_warning("read(%s): dict lookup took %s: %s",
-			  dict->conn.conn.name, dict_warnings_sec(cmd, diff),
+			  dict->conn.conn.name, dict_warnings_sec(cmd, diff, extra_args),
 			  cmd->query);
 	}
 
@@ -897,7 +922,8 @@ static void client_dict_iterate_free(struct client_dict_iterate_context *ctx)
 
 static void
 client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
-			      struct client_dict_cmd *cmd)
+			      struct client_dict_cmd *cmd,
+			      const char *const *extra_args)
 {
 	struct client_dict *dict = cmd->dict;
 
@@ -910,13 +936,13 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 		if (ctx->error != NULL) {
 			/* include timing info always in error messages */
 			char *new_error = i_strdup_printf("%s (reply took %s)",
-				ctx->error, dict_warnings_sec(cmd, diff));
+				ctx->error, dict_warnings_sec(cmd, diff, extra_args));
 			i_free(ctx->error);
 			ctx->error = new_error;
 		} else if (!cmd->background &&
 			   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
 			i_warning("read(%s): dict iteration took %s: %s",
-				  dict->conn.conn.name, dict_warnings_sec(cmd, diff),
+				  dict->conn.conn.name, dict_warnings_sec(cmd, diff, extra_args),
 				  cmd->query);
 		}
 	}
@@ -954,13 +980,14 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 	case DICT_PROTOCOL_REPLY_ITER_FINISHED:
 		/* end of iteration */
 		ctx->finished = TRUE;
-		client_dict_iter_api_callback(ctx, cmd);
+		client_dict_iter_api_callback(ctx, cmd, extra_args);
 		client_dict_iterate_free(ctx);
 		return;
 	case DICT_PROTOCOL_REPLY_OK:
 		/* key \t value */
 		iter_key = value;
 		iter_value = extra_args[0];
+		extra_args++;
 		break;
 	case DICT_PROTOCOL_REPLY_FAIL:
 		error = t_strdup_printf("dict-server returned failure: %s", value);
@@ -979,7 +1006,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 		if (ctx->error == NULL)
 			ctx->error = i_strdup(error);
 		ctx->finished = TRUE;
-		client_dict_iter_api_callback(ctx, cmd);
+		client_dict_iter_api_callback(ctx, cmd, extra_args);
 		client_dict_iterate_free(ctx);
 		return;
 	}
@@ -994,7 +1021,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 	result->key = p_strdup(ctx->results_pool, iter_key);
 	result->value = p_strdup(ctx->results_pool, iter_value);
 
-	client_dict_iter_api_callback(ctx, cmd);
+	client_dict_iter_api_callback(ctx, cmd, NULL);
 }
 
 static struct dict_iterate_context *
@@ -1151,10 +1178,13 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		result.ret = DICT_COMMIT_RET_WRITE_UNCERTAIN;
 		/* fallthrough */
 	case DICT_PROTOCOL_REPLY_FAIL: {
+		/* value contains the obsolete trans_id */
 		const char *error = extra_args[0];
 
 		result.error = t_strdup_printf("dict-server returned failure: %s",
 			error != NULL ? t_str_tabunescape(error) : "");
+		if (error != NULL)
+			extra_args++;
 		break;
 	}
 	default:
@@ -1170,12 +1200,12 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	if (result.error != NULL) {
 		/* include timing info always in error messages */
 		result.error = t_strdup_printf("%s (reply took %s)",
-			result.error, dict_warnings_sec(cmd, diff));
+			result.error, dict_warnings_sec(cmd, diff, extra_args));
 	} else if (!cmd->background && !cmd->trans->ctx.no_slowness_warning &&
 		   diff >= DICT_CLIENT_REQUEST_WARN_TIMEOUT_MSECS) {
 		i_warning("read(%s): dict commit took %s: "
 			  "%s (%u commands, first: %s)",
-			  dict->conn.conn.name, dict_warnings_sec(cmd, diff),
+			  dict->conn.conn.name, dict_warnings_sec(cmd, diff, extra_args),
 			  cmd->query, cmd->trans->query_count,
 			  cmd->trans->first_query);
 	}

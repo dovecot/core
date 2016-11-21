@@ -13,6 +13,7 @@
 #include "dict-commands.h"
 #include "main.h"
 
+#define DICT_CLIENT_PROTOCOL_TIMINGS_MIN_VERSION 1
 #define DICT_OUTPUT_OPTIMAL_SIZE 1024
 
 struct dict_cmd_func {
@@ -101,7 +102,6 @@ cmd_stats_update(struct dict_connection_cmd *cmd, struct timing *timing)
 	if (!dict_settings->verbose_proctitle)
 		return;
 
-	io_loop_time_refresh();
 	diff = timeval_diff_usecs(&ioloop_timeval, &cmd->start_timeval);
 	if (diff < 0)
 		diff = 0;
@@ -110,22 +110,41 @@ cmd_stats_update(struct dict_connection_cmd *cmd, struct timing *timing)
 }
 
 static void
+dict_cmd_reply_handle_timings(struct dict_connection_cmd *cmd,
+			      string_t *str, struct timing *timing)
+{
+	io_loop_time_refresh();
+	cmd_stats_update(cmd, timing);
+
+	if (cmd->conn->minor_version < DICT_CLIENT_PROTOCOL_TIMINGS_MIN_VERSION)
+		return;
+	str_printfa(str, "\t%ld\t%u\t%ld\t%u",
+		    (long)cmd->start_timeval.tv_sec,
+		    (unsigned int)cmd->start_timeval.tv_usec,
+		    (long)ioloop_timeval.tv_sec,
+		    (unsigned int)ioloop_timeval.tv_usec);
+}
+
+static void
 cmd_lookup_callback(const struct dict_lookup_result *result, void *context)
 {
 	struct dict_connection_cmd *cmd = context;
-
-	cmd_stats_update(cmd, cmd_stats.lookups);
+	string_t *str = t_str_new(128);
 
 	if (result->ret > 0) {
-		cmd->reply = i_strdup_printf("%c%s\n",
-			DICT_PROTOCOL_REPLY_OK, str_tabescape(result->value));
+		str_append_c(str, DICT_PROTOCOL_REPLY_OK);
+		str_append_tabescaped(str, result->value);
 	} else if (result->ret == 0) {
-		cmd->reply = i_strdup_printf("%c\n", DICT_PROTOCOL_REPLY_NOTFOUND);
+		str_append_c(str, DICT_PROTOCOL_REPLY_NOTFOUND);
 	} else {
 		i_error("%s", result->error);
-		cmd->reply = i_strdup_printf("%c%s\n", DICT_PROTOCOL_REPLY_FAIL,
-					     str_tabescape(result->error));
+		str_append_c(str, DICT_PROTOCOL_REPLY_FAIL);
+		str_append_tabescaped(str, result->error);
 	}
+	dict_cmd_reply_handle_timings(cmd, str, cmd_stats.lookups);
+	str_append_c(str, '\n');
+
+	cmd->reply = i_strdup(str_c(str));
 	dict_connection_cmds_flush(cmd->conn);
 }
 
@@ -175,10 +194,10 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 		i_error("dict_iterate() failed: %s", error);
 		str_printfa(str, "%c%s", DICT_PROTOCOL_REPLY_FAIL, error);
 	}
+	dict_cmd_reply_handle_timings(cmd, str, cmd_stats.iterations);
 	str_append_c(str, '\n');
 	o_stream_uncork(cmd->conn->output);
 
-	cmd_stats_update(cmd, cmd_stats.iterations);
 	cmd->reply = i_strdup(str_c(str));
 	return 1;
 }
@@ -300,8 +319,6 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 	string_t *str = t_str_new(64);
 	char chr;
 
-	cmd_stats_update(cmd, cmd_stats.commits);
-
 	switch (result->ret) {
 	case DICT_COMMIT_RET_OK:
 		chr = DICT_PROTOCOL_REPLY_OK;
@@ -327,6 +344,7 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 		str_append_c(str, '\t');
 		str_append_tabescaped(str, result->error);
 	}
+	dict_cmd_reply_handle_timings(cmd, str, cmd_stats.commits);
 	str_append_c(str, '\n');
 	cmd->reply = i_strdup(str_c(str));
 

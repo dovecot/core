@@ -33,9 +33,9 @@ static int dict_connection_parse_handshake(struct dict_connection *conn,
 	    *line++ != '\t')
 		return -1;
 
-	/* skip minor version */
-	while (*line != '\t' && *line != '\0') line++;
-
+	/* read minor version */
+	if (str_parse_uint(line, &conn->minor_version, &line) < 0)
+		return -1;
 	if (*line++ != '\t')
 		return -1;
 
