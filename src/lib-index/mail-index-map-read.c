@@ -8,6 +8,7 @@
 #include "mail-index-private.h"
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log-private.h"
+#include "ioloop.h"
 
 static void mail_index_map_copy_hdr(struct mail_index_map *map,
 				    const struct mail_index_header *hdr)
@@ -47,8 +48,11 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 				  MAP_PRIVATE, index->fd, 0);
 	if (rec_map->mmap_base == MAP_FAILED) {
 		rec_map->mmap_base = NULL;
-		mail_index_set_syscall_error(index, t_strdup_printf(
-			"mmap(size=%"PRIuUOFF_T")", file_size));
+		if (ioloop_time != index->last_mmap_error_time) {
+			index->last_mmap_error_time = ioloop_time;
+			mail_index_set_syscall_error(index, t_strdup_printf(
+				"mmap(size=%"PRIuUOFF_T")", file_size));
+		}
 		return -1;
 	}
 	rec_map->mmap_size = file_size;

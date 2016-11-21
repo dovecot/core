@@ -183,6 +183,9 @@ struct mail_index {
 	int fd;
 
 	struct mail_index_map *map;
+
+	time_t last_mmap_error_time;
+
 	uint32_t indexid;
 	unsigned int inconsistency_id;
 
