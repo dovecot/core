@@ -46,6 +46,8 @@ struct mail_transaction_log_file {
 	time_t last_mtime;
 	uoff_t last_size;
 
+	time_t last_mmap_error_time;
+
 	struct mail_transaction_log_header hdr;
 	buffer_t mmap_buffer;
 	buffer_t *buffer;
