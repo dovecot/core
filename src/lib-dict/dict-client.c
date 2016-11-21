@@ -38,6 +38,7 @@ struct client_dict_cmd {
 	uint64_t start_dict_ioloop_usecs;
 	uint64_t start_lock_usecs;
 
+	bool reconnected;
 	bool retry_errors;
 	bool no_replies;
 	bool unfinished;
@@ -592,6 +593,7 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 	ret = 0; error = "";
 	array_foreach(&retry_cmds, cmdp) {
 		cmd = *cmdp;
+		cmd->reconnected = TRUE;
 		/* if it fails again, don't retry anymore */
 		cmd->retry_errors = FALSE;
 		if (ret < 0) {
@@ -789,6 +791,13 @@ dict_warnings_sec(const struct client_dict_cmd *cmd, int msecs,
 
 	str_printfa(str, "%d.%03d secs (%s", msecs/1000, msecs%1000,
 		    dict_wait_warnings(cmd));
+	if (cmd->reconnected) {
+		int reconnected_msecs =
+			timeval_diff_msecs(&ioloop_timeval,
+				&cmd->dict->conn.conn.connect_started);
+		str_printfa(str, ", reconnected %u.%03u secs ago",
+			    reconnected_msecs/1000, reconnected_msecs%1000);
+	}
 	if (str_array_length(extra_args) >= 4 &&
 	    str_to_time(extra_args[0], &tv_start.tv_sec) == 0 &&
 	    str_to_uint(extra_args[1], &tv_start_usec) == 0 &&
