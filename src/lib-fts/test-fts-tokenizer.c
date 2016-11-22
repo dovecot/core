@@ -424,16 +424,32 @@ static void test_fts_tokenizer_address_search(void)
 	test_end();
 }
 
-static void test_fts_tokenizer_delete_trailing_partial_char()
+static void test_fts_tokenizer_delete_trailing_partial_char(void)
 {
-	const char* str[] = {"\x7f", "\xC2\x80", "\xE0\x80\x80","\xF0\x80\x80\x80"};
+	const struct {
+		const char *str;
+		unsigned int truncated_len;
+	} tests[] = {
+		/* non-truncated */
+		{ "\x7f", 1 },
+		{ "\xC2\x80", 2 },
+		{ "\xE0\x80\x80", 3 },
+		{ "\xF0\x80\x80\x80", 4 },
+
+		/* truncated */
+		{ "\xF0\x80\x80", 0 },
+		{ "x\xF0\x80\x80", 1 },
+	};
 	unsigned int i;
-	size_t new_size;
-	for (i = 0; i < 4; i++) {
-		new_size = i+1;
-		fts_tokenizer_delete_trailing_partial_char((unsigned char*)str[i], &new_size);
-		test_assert( i+1 == new_size);
+	size_t size;
+
+	test_begin("fts tokenizer delete trailing partial char");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		size = strlen(tests[i].str);
+		fts_tokenizer_delete_trailing_partial_char((const unsigned char *)tests[i].str, &size);
+		test_assert(size == tests[i].truncated_len);
 	}
+	test_end();
 }
 
 int main(void)
