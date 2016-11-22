@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "unichar.h"
+#include "str.h"
 #include "test-common.h"
 #include "fts-tokenizer.h"
 #include "fts-tokenizer-common.h"
@@ -469,6 +470,35 @@ static void test_fts_tokenizer_address_maxlen(void)
 	test_end();
 }
 
+static void test_fts_tokenizer_random(void)
+{
+	const char test_chars[] = { 0, ' ', '.', 'a', 'b', 'c', '-', '@', '\xC3', '\xA4' };
+	const char *const settings[] = {"algorithm", "simple", NULL};
+	const char *const email_settings[] = {"maxlen", "9", NULL};
+	unsigned int i;
+	unsigned char addr[10] = { 0 };
+	string_t *str = t_str_new(20);
+	struct fts_tokenizer *tok, *gen_tok;
+	const char *token, *error;
+
+	test_begin("fts tokenizer random");
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, settings, &gen_tok, &error) == 0);
+	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, gen_tok, email_settings, &tok, &error) == 0);
+
+	for (i = 0; i < 10000; i++) T_BEGIN {
+		for (unsigned int j = 0; j < sizeof(addr); j++)
+			addr[j] = test_chars[rand() % N_ELEMENTS(test_chars)];
+		str_truncate(str, 0);
+		uni_utf8_get_valid_data(addr, sizeof(addr), str);
+		while (fts_tokenizer_next(tok, str_data(str), str_len(str),
+					  &token, &error) > 0) ;
+		while (fts_tokenizer_final(tok, &token, &error) > 0) ;
+	} T_END;
+	fts_tokenizer_unref(&tok);
+	fts_tokenizer_unref(&gen_tok);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -482,6 +512,7 @@ int main(void)
 		test_fts_tokenizer_address_maxlen,
 		test_fts_tokenizer_address_search,
 		test_fts_tokenizer_delete_trailing_partial_char,
+		test_fts_tokenizer_random,
 		NULL
 	};
 	int ret;
