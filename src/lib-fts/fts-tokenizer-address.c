@@ -75,7 +75,7 @@ static void fts_tokenizer_email_address_destroy(struct fts_tokenizer *_tok)
 	i_free(tok);
 }
 
-static void
+static bool
 fts_tokenizer_address_current_token(struct email_address_fts_tokenizer *tok,
                                     const char **token_r)
 {
@@ -98,6 +98,7 @@ fts_tokenizer_address_current_token(struct email_address_fts_tokenizer *tok,
 		fts_tokenizer_delete_trailing_invalid_char(data, &len);
 	*token_r = len == 0 ? "" :
 		t_strndup(data, len);
+	return len > 0;
 }
 
 static bool
@@ -243,8 +244,8 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 
 	if (tok->state == EMAIL_ADDRESS_PARSER_STATE_COMPLETE) {
 		*skip_r = pos;
-		fts_tokenizer_address_current_token(tok, token_r);
-		return 1;
+		if (fts_tokenizer_address_current_token(tok, token_r))
+			return 1;
 	}
 
 	/* end of data, output lingering tokens. first the parents data, then
@@ -261,8 +262,8 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			return 1;
 
 		if (tok->state == EMAIL_ADDRESS_PARSER_STATE_DOMAIN) {
-			fts_tokenizer_address_current_token(tok, token_r);
-			return 1;
+			if (fts_tokenizer_address_current_token(tok, token_r))
+				return 1;
 		}
 		tok->state = EMAIL_ADDRESS_PARSER_STATE_NONE;
 	}
@@ -310,9 +311,11 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			break;
 		case EMAIL_ADDRESS_PARSER_STATE_COMPLETE:
 			*skip_r = pos;
-			if (!fts_tokenizer_address_parent_data(tok, token_r))
-				fts_tokenizer_address_current_token(tok, token_r);
-			return 1;
+			if (fts_tokenizer_address_parent_data(tok, token_r))
+				return 1;
+			if (fts_tokenizer_address_current_token(tok, token_r))
+				return 1;
+			break;
 		default:
 			i_unreached();
 		}
