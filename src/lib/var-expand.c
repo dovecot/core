@@ -91,7 +91,7 @@ static const char *m_str_hash(const char *str, struct var_expand_context *ctx)
 	str_printfa(hash, "%x", value);
 	while ((int)str_len(hash) < ctx->offset)
 		str_insert(hash, 0, "0");
-        ctx->offset = 0;
+	ctx->offset = 0;
 
 	return str_c(hash);
 }
@@ -118,7 +118,7 @@ m_str_newhash(const char *str, struct var_expand_context *ctx)
 	str_printfa(hash, "%x", (unsigned int)value);
 	while ((int)str_len(hash) < ctx->offset)
 		str_insert(hash, 0, "0");
-        ctx->offset = 0;
+	ctx->offset = 0;
 
 	return str_c(hash);
 }
@@ -178,7 +178,7 @@ static const struct var_expand_modifier modifiers[] = {
 static const char *
 var_expand_short(const struct var_expand_table *table, char key)
 {
-        const struct var_expand_table *t;
+	const struct var_expand_table *t;
 
 	if (table != NULL) {
 		for (t = table; !TABLE_LAST(t); t++) {
@@ -370,7 +370,7 @@ var_expand_long(const struct var_expand_table *table,
 		const struct var_expand_func_table *func_table,
 		const void *key_start, size_t key_len, void *context)
 {
-        const struct var_expand_table *t;
+	const struct var_expand_table *t;
 	const char *error, *key, *value = NULL;
 
 	if (table != NULL) {
@@ -428,9 +428,9 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 			   const struct var_expand_func_table *func_table,
 			   void *context)
 {
-        const struct var_expand_modifier *m;
+	const struct var_expand_modifier *m;
 	const char *var;
-        struct var_expand_context ctx;
+	struct var_expand_context ctx;
 	const char *(*modifier[MAX_MODIFIER_COUNT])
 		(const char *, struct var_expand_context *);
 	const char *end;
@@ -487,7 +487,7 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 				ctx.width = sign * ctx.width;
 			}
 
-                        modifier_count = 0;
+			modifier_count = 0;
 			while (modifier_count < MAX_MODIFIER_COUNT) {
 				modifier[modifier_count] = NULL;
 				for (m = modifiers; m->key != '\0'; m++) {
