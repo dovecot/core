@@ -452,6 +452,23 @@ static void test_fts_tokenizer_delete_trailing_partial_char(void)
 	test_end();
 }
 
+static void test_fts_tokenizer_address_maxlen(void)
+{
+	const char *const settings[] = {"maxlen", "5", NULL};
+	const char *input = "...\357\277\275@a";
+	struct fts_tokenizer *tok;
+	const char *token, *error;
+
+	test_begin("fts tokenizer address maxlen");
+	test_assert(fts_tokenizer_create(fts_tokenizer_email_address, NULL, settings, &tok, &error) == 0);
+
+	while (fts_tokenizer_next(tok, (const unsigned char *)input,
+				  strlen(input), &token, &error) > 0) ;
+	while (fts_tokenizer_final(tok, &token, &error) > 0) ;
+	fts_tokenizer_unref(&tok);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
@@ -462,6 +479,7 @@ int main(void)
 		test_fts_tokenizer_address_only,
 		test_fts_tokenizer_address_parent_simple,
 		test_fts_tokenizer_address_parent_tr29,
+		test_fts_tokenizer_address_maxlen,
 		test_fts_tokenizer_address_search,
 		test_fts_tokenizer_delete_trailing_partial_char,
 		NULL
