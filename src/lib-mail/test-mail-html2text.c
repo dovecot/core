@@ -75,10 +75,33 @@ static void test_mail_html2text(void)
 	test_end();
 }
 
+static void test_mail_html2text_random(void)
+{
+	string_t *str = t_str_new(128);
+	struct mail_html2text *ht;
+
+	test_begin("mail_html2text() random");
+	for (unsigned int i = 0; i < 1000; i++) {
+		char valid_chars[] = { '0', 'a', '<', '>', '&', ';', '\\', '\'', '"', '/' };
+		unsigned char s[2];
+
+		ht = mail_html2text_init(0);
+		for (unsigned int i = 0; i < 100; i++) {
+			s[0] = valid_chars[rand() % N_ELEMENTS(valid_chars)];
+			s[1] = valid_chars[rand() % N_ELEMENTS(valid_chars)];
+			mail_html2text_more(ht, s, rand()%2+1, str);
+		}
+		mail_html2text_deinit(&ht);
+		str_truncate(str, 0);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_mail_html2text,
+		test_mail_html2text_random,
 		NULL
 	};
 	return test_run(test_functions);
