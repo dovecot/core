@@ -10,6 +10,8 @@ static struct {
 	const char *input;
 	const char *output;
 } tests[] = {
+	{ "&&aaaaaaaaaa", "" },
+
 	{ "a&amp;&lt;&clubs;&gt;b",
 	  "a&<\xE2\x99\xA3>b" },
 	{ "&", "" },
