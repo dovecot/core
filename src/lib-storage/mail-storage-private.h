@@ -81,7 +81,9 @@ enum mail_storage_class_flags {
 	MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUID128 = 0x200,
 	/* Storage deletes all files internally - mailbox list's
 	   delete_mailbox() shouldn't delete anything itself. */
-	MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES	= 0x400
+	MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES	= 0x400,
+	/* Storage supports stubs (used for caching purposes). */
+	MAIL_STORAGE_CLASS_FLAG_STUBS = 0x800,
 };
 
 struct mail_binary_cache {

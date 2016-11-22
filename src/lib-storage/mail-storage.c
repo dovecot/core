@@ -1157,6 +1157,14 @@ static bool mailbox_try_undelete(struct mailbox *box)
 
 int mailbox_open(struct mailbox *box)
 {
+	/* check that the storage supports stubs if require them */
+	if (((box->flags & MAILBOX_FLAG_USE_STUBS) != 0) &&
+	    ((box->storage->storage_class->class_flags & MAIL_STORAGE_CLASS_FLAG_STUBS) == 0)) {
+		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
+				       "Mailbox does not support mail stubs");
+		return -1;
+	}
+
 	if (mailbox_open_full(box, NULL) < 0) {
 		if (!box->mailbox_deleted)
 			return -1;
