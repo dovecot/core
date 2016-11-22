@@ -307,18 +307,22 @@ void mail_html2text_more(struct mail_html2text *ht,
 		buffer_append(ht->input, data, inc_size);
 		pos = parse_data(ht, ht->input->data,
 				 ht->input->used, output);
-		if (pos != 0) {
-			/* we parsed forward */
-			i_assert(pos >= buf_orig_size);
-			data += pos - buf_orig_size;
-			size -= pos - buf_orig_size;
-			buffer_set_used_size(ht->input, 0);
-		} else {
+		if (pos == 0) {
 			/* we need to add more data into buffer */
 			data += inc_size;
 			size -= inc_size;
 			if (size == 0)
 				return;
+		} else if (pos >= buf_orig_size) {
+			/* we parsed forward */
+			data += pos - buf_orig_size;
+			size -= pos - buf_orig_size;
+			buffer_set_used_size(ht->input, 0);
+		} else {
+			/* invalid input - eat away what we parsed so far
+			   and retry */
+			buffer_set_used_size(ht->input, buf_orig_size);
+			buffer_delete(ht->input, 0, pos);
 		}
 	}
 	pos = parse_data(ht, data, size, output);
