@@ -238,7 +238,7 @@ int mail_index_map_check_header(struct mail_index_map *map,
 	const struct mail_index_header *hdr = &map->hdr;
 
 	if (!mail_index_check_header_compat(index, hdr, (uoff_t)-1, error_r))
-		return -1;
+		return 0;
 
 	/* following some extra checks that only take a bit of CPU */
 	if (hdr->record_size < sizeof(struct mail_index_record)) {

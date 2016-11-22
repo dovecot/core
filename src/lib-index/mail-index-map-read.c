@@ -76,7 +76,7 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 		/* Can't use this file */
 		mail_index_set_error(index, "Corrupted index file %s: %s",
 				     index->filepath, error);
-		return -1;
+		return 0;
 	}
 
 	rec_map->mmap_used_size = hdr->header_size +
@@ -159,7 +159,7 @@ mail_index_try_read_map(struct mail_index_map *map,
 			/* Can't use this file */
 			mail_index_set_error(index, "Corrupted index file %s: %s",
 					     index->filepath, error);
-			return -1;
+			return 0;
 		}
 
 		initial_buf_pos = pos;
