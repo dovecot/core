@@ -483,6 +483,29 @@ static bool mailbox_has_corrupted_name(struct mailbox *box)
 		(node->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) != 0;
 }
 
+static void index_list_rename_corrupted(struct mailbox *box, const char *newname)
+{
+	if (index_list_rename_mailbox(box->list, box->name,
+				      box->list, newname) == 0 ||
+	    box->list->error != MAIL_ERROR_EXISTS)
+		return;
+
+	/* mailbox already exists. don't give up yet, just use the newname
+	   as prefix and add the "lost-xx" as suffix. */
+	char sep = mailbox_list_get_hierarchy_sep(box->list);
+	const char *oldname = box->name;
+
+	/* oldname should be at the root level, but check for hierarchies
+	   anyway to be safe. */
+	const char *p = strrchr(oldname, sep);
+	if (p != NULL)
+		oldname = p+1;
+
+	newname = t_strdup_printf("%s-%s", newname, oldname);
+	(void)index_list_rename_mailbox(box->list, box->name,
+					box->list, newname);
+}
+
 static int index_list_mailbox_open(struct mailbox *box)
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
@@ -537,8 +560,7 @@ static int index_list_mailbox_open(struct mailbox *box)
 				newname[i] = sep;
 		}
 
-		(void)index_list_rename_mailbox(box->list, box->name,
-						box->list, newname);
+		index_list_rename_corrupted(box, newname);
 	}
 	return 0;
 }
