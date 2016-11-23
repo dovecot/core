@@ -94,8 +94,6 @@ lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 	proxy->pool = pool;
 	proxy->client_output = client_output;
 	proxy->set.my_hostname = p_strdup(pool, set->my_hostname);
-	proxy->set.dns_client_socket_path =
-		p_strdup(pool, set->dns_client_socket_path);
 	proxy->set.session_id = p_strdup(pool, set->session_id);
 	proxy->set.source_ip = set->source_ip;
 	proxy->set.source_port = set->source_port;
@@ -105,7 +103,7 @@ lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 
 	i_zero(&lmtp_set);
 	lmtp_set.my_hostname = set->my_hostname;
-	lmtp_set.dns_client_socket_path = set->dns_client_socket_path;
+	lmtp_set.dns_client_socket_path = dns_client_socket_path;
 
 	lmtp_set.proxy_data.source_ip = set->source_ip;
 	lmtp_set.proxy_data.source_port = set->source_port;
@@ -523,7 +521,6 @@ bool client_proxy_rcpt(struct client *client,
 
 		i_zero(&proxy_set);
 		proxy_set.my_hostname = client->my_domain;
-		proxy_set.dns_client_socket_path = dns_client_socket_path;
 		proxy_set.session_id = client->state.session_id;
 		proxy_set.source_ip = client->remote_ip;
 		proxy_set.source_port = client->remote_port;

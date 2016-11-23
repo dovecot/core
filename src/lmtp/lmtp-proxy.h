@@ -13,7 +13,6 @@ struct client;
 
 struct lmtp_proxy_settings {
 	const char *my_hostname;
-	const char *dns_client_socket_path;
 	const char *session_id;
 
 	/* the original client's IP/port that connected to the proxy */
