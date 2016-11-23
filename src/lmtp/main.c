@@ -30,6 +30,8 @@ char *dns_client_socket_path, *base_dir;
 struct mail_storage_service_ctx *storage_service;
 struct anvil_client *anvil;
 
+struct smtp_server *lmtp_server;
+
 void lmtp_anvil_init(void)
 {
 	if (anvil == NULL) {
@@ -41,7 +43,7 @@ void lmtp_anvil_init(void)
 static void client_connected(struct master_service_connection *conn)
 {
 	master_service_client_connection_accept(conn);
-	(void)client_create(conn->fd, conn->fd, conn);
+	(void)client_create(conn->fd, conn->fd, conn->ssl, conn);
 }
 
 static void drop_privileges(void)
@@ -67,10 +69,18 @@ static void drop_privileges(void)
 static void main_init(void)
 {
 	struct master_service_connection conn;
+	struct smtp_server_settings lmtp_set;
+
+	i_zero(&lmtp_set);
+	lmtp_set.protocol = SMTP_PROTOCOL_LMTP;
+	lmtp_set.auth_optional = TRUE;
+	lmtp_set.rcpt_domain_optional = TRUE;
+
+	lmtp_server = smtp_server_init(&lmtp_set);
 
 	if (IS_STANDALONE()) {
 		i_zero(&conn);
-		(void)client_create(STDIN_FILENO, STDOUT_FILENO, &conn);
+		(void)client_create(STDIN_FILENO, STDOUT_FILENO, FALSE, &conn);
 	}
 
 	const char *error, *tmp_socket_path;
@@ -88,6 +98,7 @@ static void main_deinit(void)
 		anvil_client_deinit(&anvil);
 	i_free(dns_client_socket_path);
 	i_free(base_dir);
+	smtp_server_deinit(&lmtp_server);
 }
 
 int main(int argc, char *argv[])

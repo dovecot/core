@@ -2,35 +2,33 @@
 #define CLIENT_H
 
 #include "net.h"
-#include "smtp-params.h"
+#include "smtp-server.h"
 
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 
 struct lmtp_recipient {
 	struct client *client;
-	const char *session_id;
 
-	struct smtp_address *address;
-	const char *detail; /* +detail part is also in address */
-	struct smtp_params_rcpt params;
+	struct smtp_address *path;
+	struct smtp_server_cmd_ctx *rcpt_cmd;
+	struct smtp_server_recipient *rcpt;
+	unsigned int index;
 };
 
 struct client_state {
 	const char *name;
-	const char *session_id;
-	struct smtp_address *mail_from;
-	struct smtp_params_mail mail_params;
+	unsigned int session_id_seq;
 
-	unsigned int data_end_idx;
+	struct timeval data_end_timeval;
 
 	/* Initially we start writing to mail_data. If it grows too large,
 	   start using mail_data_fd. */
 	buffer_t *mail_data;
 	int mail_data_fd;
 	struct ostream *mail_data_output;
-	const char *added_headers;
 
-	struct timeval mail_from_timeval, data_end_timeval;
+	const char *added_headers_local;
+	const char *added_headers_proxy;
 };
 
 struct client {
@@ -41,55 +39,37 @@ struct client {
 	const struct lda_settings *unexpanded_lda_set;
 	const struct lmtp_settings *lmtp_set;
 	const struct master_service_settings *service_set;
-	int fd_in, fd_out;
-	struct io *io;
-	struct istream *input;
-	struct ostream *output;
-	struct ssl_iostream *ssl_iostream;
 
-	struct timeout *to_idle;
-	time_t last_input;
+	struct smtp_server_connection *conn;
+	enum smtp_server_state last_state;
 
 	struct ip_addr remote_ip, local_ip;
 	in_port_t remote_port, local_port;
 
 	struct mail_user *raw_mail_user;
 	const char *my_domain;
-	char *lhlo;
 
 	pool_t state_pool;
 	struct client_state state;
 	struct istream *dot_input;
 	struct lmtp_local *local;
 	struct lmtp_proxy *proxy;
-	unsigned int proxy_ttl;
-	unsigned int proxy_timeout_secs;
 
 	bool disconnected:1;
+	bool destroyed:1;
 };
 
-extern unsigned int clients_count;
-
-struct client *client_create(int fd_in, int fd_out,
+struct client *client_create(int fd_in, int fd_out, bool ssl_start,
 			     const struct master_service_connection *conn);
-void client_destroy(struct client *client, const char *prefix,
+void client_destroy(struct client *client, const char *enh_code,
 		    const char *reason) ATTR_NULL(2, 3);
-void client_disconnect(struct client *client, const char *prefix,
-		       const char *reason);
-unsigned int client_get_rcpt_count(struct client *client);
-void client_state_reset(struct client *client, const char *state_name);
-void client_state_set(struct client *client, const char *name, const char *args);
+void client_disconnect(struct client *client, const char *enh_code,
+		       const char *reason) ATTR_NULL(2, 3);
 const char *client_remote_id(struct client *client);
 
-bool client_is_trusted(struct client *client);
+const char *client_state_get_name(struct client *client);
+void client_state_reset(struct client *client);
 
 void clients_destroy(void);
-
-void client_input_handle(struct client *client);
-int client_input_read(struct client *client);
-void client_io_reset(struct client *client);
-
-void client_send_line(struct client *client, const char *fmt, ...)
-	ATTR_FORMAT(2, 3);
 
 #endif
