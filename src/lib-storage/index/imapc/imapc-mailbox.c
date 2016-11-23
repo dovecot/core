@@ -71,14 +71,17 @@ static int imapc_mailbox_commit_delayed_expunges(struct imapc_mailbox *mbox)
 {
 	struct mail_index_view *view = imapc_mailbox_get_sync_view(mbox);
 	struct mail_index_transaction *trans;
-	const uint32_t *uidp;
-	uint32_t lseq;
+	struct seq_range_iter iter;
+	unsigned int n;
+	uint32_t lseq, uid;
 	int ret;
 
 	trans = mail_index_transaction_begin(view,
 			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-	array_foreach(&mbox->delayed_expunged_uids, uidp) {
-		if (mail_index_lookup_seq(view, *uidp, &lseq))
+
+	seq_range_array_iter_init(&iter, &mbox->delayed_expunged_uids); n = 0;
+	while (seq_range_array_iter_nth(&iter, n++, &uid)) {
+		if (mail_index_lookup_seq(view, uid, &lseq))
 			mail_index_expunge(trans, lseq);
 	}
 	array_clear(&mbox->delayed_expunged_uids);
@@ -483,7 +486,7 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 		   quite a lot of trouble. so instead we'll just delay doing
 		   this expunge until after the current transaction has been
 		   committed. */
-		array_append(&mbox->delayed_expunged_uids, &uid, 1);
+		seq_range_array_add(&mbox->delayed_expunged_uids, uid);
 	} else {
 		/* already expunged by another session */
 	}
