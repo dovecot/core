@@ -247,7 +247,7 @@ static int dbox_save_assign_uids(struct sdbox_save_context *ctx,
 
 		ret = seq_range_array_iter_nth(&iter, n++, &uid);
 		i_assert(ret);
-		if (sdbox_file_assign_uid(sfile, uid) < 0)
+		if (sdbox_file_assign_uid(sfile, uid, FALSE) < 0)
 			return -1;
 		if (ctx->ctx.highest_pop3_uidl_seq == i+1) {
 			index_pop3_uidl_set_max_uid(&ctx->mbox->box,
@@ -272,7 +272,7 @@ static int dbox_save_assign_stub_uids(struct sdbox_save_context *ctx)
 				      ctx->first_saved_seq + i, &uid);
 		i_assert(uid != 0);
 
-		if (sdbox_file_assign_uid(sfile, uid) < 0)
+		if (sdbox_file_assign_uid(sfile, uid, TRUE) < 0)
 			return -1;
 	}
 
