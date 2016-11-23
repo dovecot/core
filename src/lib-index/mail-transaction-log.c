@@ -51,7 +51,7 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 		return;
 	}
 
-	if (st.st_mtime + MAIL_TRANSACTION_LOG2_STALE_SECS <= ioloop_time &&
+	if (st.st_mtime + log->index->log_rotate_log2_stale_secs <= ioloop_time &&
 	    !log->index->readonly)
 		i_unlink_if_exists(log->filepath2);
 }
@@ -215,10 +215,10 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 }
 
 #define LOG_WANT_ROTATE(file) \
-	(((file)->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_MIN_SIZE && \
+	(((file)->sync_offset > (file)->log->index->log_rotate_min_size && \
 	  (time_t)(file)->hdr.create_stamp < \
-	   ioloop_time - MAIL_TRANSACTION_LOG_ROTATE_TIME) || \
-	 ((file)->sync_offset > MAIL_TRANSACTION_LOG_ROTATE_MAX_SIZE))
+	   ioloop_time - (file)->log->index->log_rotate_min_created_ago_secs) || \
+	 ((file)->sync_offset > (file)->log->index->log_rotate_max_size))
 
 bool mail_transaction_log_want_rotate(struct mail_transaction_log *log)
 {

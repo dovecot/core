@@ -246,6 +246,14 @@ void mail_index_set_permissions(struct mail_index *index,
 void mail_index_set_lock_method(struct mail_index *index,
 				enum file_lock_method lock_method,
 				unsigned int max_timeout_secs);
+/* Rotate transaction log after it's a) min_size or larger and it was created
+   at least min_created_ago_secs or b) larger than max_size. Delete .log.2 when
+   it's older than log2_stale_secs. The defaults are min_size=32kB, max_size=1M,
+   min_created_ago_secs=5min, log2_stale_secs=2d. */
+void mail_index_set_log_rotation(struct mail_index *index,
+				 uoff_t min_size, uoff_t max_size,
+				 unsigned int min_created_ago_secs,
+				 unsigned int log2_stale_secs);
 /* When creating a new index file or reseting an existing one, add the given
    extension header data immediately to it. */
 void mail_index_set_ext_init_data(struct mail_index *index, uint32_t ext_id,
