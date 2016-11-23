@@ -442,7 +442,10 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 		context->set->policy_hash_nonce,
 		strlen(context->set->policy_hash_nonce));
 	/* use +1 to make sure \0 gets included */
-	digest->loop(ctx, context->request->user, strlen(context->request->user) + 1);
+	if (context->request->user == NULL)
+		digest->loop(ctx, "\0", 1);
+	else
+		digest->loop(ctx, context->request->user, strlen(context->request->user) + 1);
 	if (password != NULL)
 		digest->loop(ctx, password, strlen(password));
 	ptr = (unsigned char*)str_c_modifiable(buffer);
