@@ -299,22 +299,6 @@ lmtp_proxy_write_reply(string_t *reply, const struct smtp_reply *proxy_reply)
 	}
 }
 
-static void
-lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
-		   struct lmtp_proxy_recipient *rcpt)
-{
-	struct lmtp_proxy_connection *conn = rcpt->conn;
-	string_t *reply;
-
-	i_assert(rcpt->reply == NULL);
-
-	reply = t_str_new(128);
-	lmtp_proxy_write_reply(reply, proxy_reply);
-
-	rcpt->reply = p_strdup(conn->proxy->pool, str_c(reply));
-	rcpt->rcpt_to_failed = !smtp_reply_is_success(proxy_reply);
-}
-
 static bool
 client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 			       const char *const *args, const char **address)
@@ -399,6 +383,22 @@ client_proxy_is_ourself(const struct client *client,
 	if (!net_ip_compare(&ip, &client->local_ip))
 		return FALSE;
 	return TRUE;
+}
+
+static void
+lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
+		   struct lmtp_proxy_recipient *rcpt)
+{
+	struct lmtp_proxy_connection *conn = rcpt->conn;
+	string_t *reply;
+
+	i_assert(rcpt->reply == NULL);
+
+	reply = t_str_new(128);
+	lmtp_proxy_write_reply(reply, proxy_reply);
+
+	rcpt->reply = p_strdup(conn->proxy->pool, str_c(reply));
+	rcpt->rcpt_to_failed = !smtp_reply_is_success(proxy_reply);
 }
 
 int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
