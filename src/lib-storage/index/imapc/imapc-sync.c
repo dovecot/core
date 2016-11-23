@@ -287,7 +287,8 @@ imapc_initial_sync_check(struct imapc_sync_context *ctx, bool nooped)
 				break;
 			}
 			/* it's already expunged and we should have marked it */
-			i_assert(mail_index_is_expunged(view, lseq));
+			i_assert(mail_index_is_expunged(view, lseq) ||
+				 seq_range_exists(&ctx->mbox->delayed_expunged_uids, luid));
 			lseq++;
 		} else {
 			/* message doesn't exist in index, but exists in
