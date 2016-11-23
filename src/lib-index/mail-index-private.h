@@ -171,6 +171,10 @@ struct mail_index {
 	gid_t gid;
 	char *gid_origin;
 
+	uoff_t log_rotate_min_size, log_rotate_max_size;
+	unsigned int log_rotate_min_created_ago_secs;
+	unsigned int log_rotate_log2_stale_secs;
+
 	pool_t extension_pool;
 	ARRAY(struct mail_index_registered_ext) extensions;
 
