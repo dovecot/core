@@ -72,7 +72,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	const unsigned int auth_count =
 		N_ELEMENTS(auth_request_var_expand_static_tab);
 	struct var_expand_table *tab, *ret_tab;
-	const char *orig_user, *auth_user;
+	const char *orig_user, *auth_user, *username;
 
 	if (escape_func == NULL)
 		escape_func = escape_none;
@@ -87,10 +87,11 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	memcpy(tab, auth_request_var_expand_static_tab,
 	       auth_count * sizeof(*tab));
 
-	tab[0].value = escape_func(auth_request->user, auth_request);
-	tab[1].value = escape_func(t_strcut(auth_request->user, '@'),
+	username = auth_request->user != NULL ? auth_request->user : "";
+	tab[0].value = escape_func(username, auth_request);
+	tab[1].value = escape_func(t_strcut(username, '@'),
 				   auth_request);
-	tab[2].value = strchr(auth_request->user, '@');
+	tab[2].value = strchr(username, '@');
 	if (tab[2].value != NULL)
 		tab[2].value = escape_func(tab[2].value+1, auth_request);
 	tab[3].value = escape_func(auth_request->service, auth_request);
@@ -138,12 +139,12 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[20].value = net_ip2addr(&auth_request->real_remote_ip);
 	tab[21].value = dec2str(auth_request->real_local_port);
 	tab[22].value = dec2str(auth_request->real_remote_port);
-	tab[23].value = strchr(auth_request->user, '@');
+	tab[23].value = strchr(username, '@');
 	if (tab[23].value != NULL) {
 		tab[23].value = escape_func(t_strcut(tab[23].value+1, '@'),
 					    auth_request);
 	}
-	tab[24].value = strrchr(auth_request->user, '@');
+	tab[24].value = strrchr(username, '@');
 	if (tab[24].value != NULL)
 		tab[24].value = escape_func(tab[24].value+1, auth_request);
 	tab[25].value = auth_request->master_user == NULL ? NULL :
@@ -152,7 +153,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		dec2str(auth_request->session_pid);
 
 	orig_user = auth_request->original_username != NULL ?
-		auth_request->original_username : auth_request->user;
+		auth_request->original_username : username;
 	tab[27].value = escape_func(orig_user, auth_request);
 	tab[28].value = escape_func(t_strcut(orig_user, '@'), auth_request);
 	tab[29].value = strchr(orig_user, '@');
