@@ -419,6 +419,8 @@ int mailbox_list_index_sync_end(struct mailbox_list_index_sync_context **_sync_c
 	mail_index_view_close(&sync_ctx->view);
 
 	if (success) {
+		struct mail_index_sync_rec sync_rec;
+		while (mail_index_sync_next(sync_ctx->index_sync_ctx, &sync_rec)) ;
 		if ((ret = mail_index_sync_commit(&sync_ctx->index_sync_ctx)) < 0)
 			mailbox_list_index_set_index_error(sync_ctx->list);
 	} else {

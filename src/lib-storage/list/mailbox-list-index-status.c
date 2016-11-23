@@ -686,6 +686,8 @@ static int index_list_update_mailbox(struct mailbox *box)
 		ilist->updating_status = FALSE;
 	}
 
+	struct mail_index_sync_rec sync_rec;
+	while (mail_index_sync_next(list_sync_ctx, &sync_rec)) ;
 	if (mail_index_sync_commit(&list_sync_ctx) < 0) {
 		mailbox_set_index_error(box);
 		return -1;
