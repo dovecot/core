@@ -109,7 +109,7 @@ struct imapc_mailbox {
 	uint32_t highest_nonrecent_uid;
 
 	ARRAY(uint64_t) rseq_modseqs;
-	ARRAY_TYPE(uint32_t) delayed_expunged_uids;
+	ARRAY_TYPE(seq_range) delayed_expunged_uids;
 	uint32_t sync_uid_validity;
 	uint32_t sync_uid_next;
 	uint64_t sync_highestmodseq;
