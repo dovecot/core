@@ -30,6 +30,14 @@ char *dns_client_socket_path, *base_dir;
 struct mail_storage_service_ctx *storage_service;
 struct anvil_client *anvil;
 
+void lmtp_anvil_init(void)
+{
+	if (anvil == NULL) {
+		const char *path = t_strdup_printf("%s/anvil", base_dir);
+		anvil = anvil_client_init(path, NULL, 0);
+	}
+}
+
 static void client_connected(struct master_service_connection *conn)
 {
 	master_service_client_connection_accept(conn);

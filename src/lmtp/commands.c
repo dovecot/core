@@ -121,14 +121,6 @@ int cmd_starttls(struct client *client)
 	return 0;
 }
 
-static void lmtp_anvil_init(void)
-{
-	if (anvil == NULL) {
-		const char *path = t_strdup_printf("%s/anvil", base_dir);
-		anvil = anvil_client_init(path, NULL, 0);
-	}
-}
-
 int cmd_mail(struct client *client, const char *args)
 {
 	struct smtp_address *address;
