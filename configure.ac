@@ -950,6 +950,7 @@ src/plugins/virtual/Makefile
 src/plugins/welcome/Makefile
 src/plugins/zlib/Makefile
 src/plugins/imap-zlib/Makefile
+src/plugins/mail-crypt/Makefile
 stamp.h
 dovecot-config.in])
 
