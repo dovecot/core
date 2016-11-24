@@ -2265,7 +2265,9 @@ static int mailbox_copy_int(struct mail_save_context **_ctx, struct mail *mail)
 	}
 
 	i_assert(!ctx->copying_or_moving);
+	i_assert(ctx->copy_src_mail == NULL);
 	ctx->copying_or_moving = TRUE;
+	ctx->copy_src_mail = mail;
 	ctx->finishing = TRUE;
 	T_BEGIN {
 		ret = t->box->v.copy(ctx, backend_mail);
@@ -2280,6 +2282,7 @@ static int mailbox_copy_int(struct mail_save_context **_ctx, struct mail *mail)
 		mailbox_keywords_unref(&keywords);
 	i_assert(!ctx->unfinished);
 
+	ctx->copy_src_mail = NULL;
 	ctx->copying_via_save = FALSE;
 	ctx->copying_or_moving = FALSE;
 	ctx->saving = FALSE; /* if we came from mailbox_save_using_mail() */
