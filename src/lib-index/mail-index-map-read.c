@@ -442,6 +442,14 @@ int mail_index_map(struct mail_index *index,
 				ret = mail_index_sync_map(&index->map, type,
 							  TRUE, reason);
 			}
+			if (ret == 0) {
+				/* we fsck'd the index. try opening again. */
+				ret = mail_index_map_latest_file(index, &reason);
+				if (ret > 0 && index->indexid != 0) {
+					ret = mail_index_sync_map(&index->map,
+						type, TRUE, reason);
+				}
+			}
 		} else if (ret == 0 && !index->readonly) {
 			/* make sure we don't try to open the file again */
 			if (unlink(index->filepath) < 0 && errno != ENOENT)
