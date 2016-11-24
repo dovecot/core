@@ -425,7 +425,7 @@ int mailbox_list_index_parse(struct mailbox_list *list,
 			mail_index_mark_corrupted(ilist->index);
 			return -1;
 		}
-		ilist->corrupted = TRUE;
+		ilist->corrupted_names_or_parents = TRUE;
 	}
 	if (mailbox_list_index_parse_records(ilist, view, &error) < 0) {
 		mailbox_list_set_critical(list,
@@ -437,7 +437,7 @@ int mailbox_list_index_parse(struct mailbox_list *list,
 		}
 		/* FIXME: find any missing mailboxes, add them and write the
 		   index back. */
-		ilist->corrupted = TRUE;
+		ilist->corrupted_names_or_parents = TRUE;
 	}
 	return 0;
 }

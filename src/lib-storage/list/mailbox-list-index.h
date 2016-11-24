@@ -116,7 +116,7 @@ struct mailbox_list_index {
 	unsigned int updating_status:1;
 	unsigned int has_backing_store:1;
 	unsigned int index_last_check_changed:1;
-	unsigned int corrupted:1;
+	unsigned int corrupted_names_or_parents:1;
 };
 
 struct mailbox_list_index_iterate_context {
