@@ -48,3 +48,10 @@
    fun:dcrypt_initialize
    fun:main
 }
+{
+   <openssl_jessie_v1_0_1_compression_methods>
+   Memcheck:Leak
+   fun:malloc
+   ...
+   fun:module_dir_init
+}
