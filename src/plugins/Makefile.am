@@ -37,6 +37,7 @@ SUBDIRS = \
 	snarf \
 	stats \
 	imap-stats \
+	mail-crypt \
 	trash \
 	virtual \
 	welcome \
