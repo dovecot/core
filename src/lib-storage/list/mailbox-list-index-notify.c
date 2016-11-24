@@ -778,6 +778,9 @@ int mailbox_list_index_notify_next(struct mailbox_list_notify *notify,
 
 	if (!inotify->initialized)
 		mailbox_list_index_notify_read_init(inotify);
+	if (mailbox_list_index_handle_corruption(notify->list) < 0)
+		return -1;
+
 	while (mailbox_list_index_notify_try_next(inotify)) {
 		if ((inotify->notify_rec.events & inotify->notify.mask) != 0) {
 			*rec_r = &inotify->notify_rec;
