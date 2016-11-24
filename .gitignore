@@ -74,6 +74,7 @@ doc/man/doveadm-help.1
 doc/man/doveadm-kick.1
 doc/man/doveadm-log.1
 doc/man/doveadm-mailbox.1
+doc/man/doveadm-mailbox-cryptokey.1
 doc/man/doveadm-mount.1
 doc/man/doveadm-move.1
 doc/man/doveadm-penalty.1

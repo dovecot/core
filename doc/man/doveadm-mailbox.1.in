@@ -64,6 +64,12 @@ When this
 option was given, the created mailboxes will be also added to the user\(aqs
 subscriptions.
 .\"------------------------------------------------------------------------
+.SS mailbox cryptokey
+.B mailbox cryptokey export|generate|list|password
+.PP
+This command is used to manage mail crypt plugin cryptographic keys.
+Please see doveadm-mailbox-cryptokey(1) for more details.
+.\"------------------------------------------------------------------------
 .SS mailbox delete
 .B doveadm mailbox delete
 [\fB\-A\fP|\fB\-u\fP \fIuser\fP|\fB\-F\fP \fIfile\fP]
@@ -319,3 +325,4 @@ doveadm mailbox mutf7 ~peter/mail/台北/日本語
 .\"------------------------------------------------------------------------
 .SH SEE ALSO
 .BR doveadm (1)
+.BR doveadm-mailbox-cryptokey(1)
