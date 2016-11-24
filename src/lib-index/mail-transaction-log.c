@@ -51,7 +51,7 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 		return;
 	}
 
-	if (st.st_mtime + log->index->log_rotate_log2_stale_secs <= ioloop_time &&
+	if (ioloop_time - st.st_mtime >= (time_t)log->index->log_rotate_log2_stale_secs &&
 	    !log->index->readonly)
 		i_unlink_if_exists(log->filepath2);
 }
