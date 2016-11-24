@@ -117,6 +117,8 @@ struct mailbox_list_index {
 	unsigned int has_backing_store:1;
 	unsigned int index_last_check_changed:1;
 	unsigned int corrupted_names_or_parents:1;
+	unsigned int handling_corruption:1;
+	unsigned int call_corruption_callback:1;
 };
 
 struct mailbox_list_index_iterate_context {
@@ -156,6 +158,8 @@ int mailbox_list_index_refresh(struct mailbox_list *list);
 /* Refresh the index regardless of when the last refresh was done. */
 int mailbox_list_index_refresh_force(struct mailbox_list *list);
 void mailbox_list_index_refresh_later(struct mailbox_list *list);
+int mailbox_list_index_handle_corruption(struct mailbox_list *list);
+int mailbox_list_index_set_uncorrupted(struct mailbox_list *list);
 
 struct mailbox_list_index_node *
 mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,

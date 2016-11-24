@@ -230,9 +230,11 @@ int mailbox_list_index_sync_begin(struct mailbox_list *list,
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;
 	const struct mail_index_header *hdr;
+	bool fix_attempted = FALSE;
 
 	i_assert(!ilist->syncing);
 
+retry:
 	if (mailbox_list_index_index_open(list) < 0)
 		return -1;
 
@@ -247,6 +249,14 @@ int mailbox_list_index_sync_begin(struct mailbox_list *list,
 	if (mailbox_list_index_parse(list, view, TRUE) < 0) {
 		mail_index_sync_rollback(&index_sync_ctx);
 		return -1;
+	}
+	if (ilist->call_corruption_callback && !fix_attempted) {
+		/* unlock and resync the index */
+		mail_index_sync_rollback(&index_sync_ctx);
+		if (mailbox_list_index_handle_corruption(list) < 0)
+			return -1;
+		fix_attempted = TRUE;
+		goto retry;
 	}
 
 	sync_ctx = i_new(struct mailbox_list_index_sync_context, 1);
