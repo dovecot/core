@@ -41,6 +41,8 @@ int mdbox_map_open(struct mdbox_map *map);
 int mdbox_map_open_or_create(struct mdbox_map *map);
 /* Refresh the map. Returns 0 if ok, -1 if error. */
 int mdbox_map_refresh(struct mdbox_map *map);
+/* Returns TRUE if map has been fsck'd. */
+bool mdbox_map_is_fscked(struct mdbox_map *map);
 
 /* Return the current rebuild counter */
 uint32_t mdbox_map_get_rebuild_count(struct mdbox_map *map);
@@ -81,6 +83,8 @@ void mdbox_map_atomic_set_failed(struct mdbox_map_atomic_context *atomic);
    transaction or append is committed within this atomic, but not when the
    atomic is used standalone. */
 void mdbox_map_atomic_set_success(struct mdbox_map_atomic_context *atomic);
+/* Remove fsck'd flag. */
+void mdbox_map_atomic_unset_fscked(struct mdbox_map_atomic_context *atomic);
 /* Commit/rollback changes within this atomic context. */
 int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **atomic);
 
