@@ -263,7 +263,7 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 {
 	struct mail_namespace *ns, *inbox_ns = NULL;
 	unsigned int subscriptions_count = 0;
-	bool visible_namespaces = FALSE;
+	bool visible_namespaces = FALSE, have_list_yes = FALSE;
 	char ns_sep, list_sep = '\0';
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
@@ -308,6 +308,8 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 		}
 		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |
 				  NAMESPACE_FLAG_LIST_CHILDREN)) != 0) {
+			if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0)
+				have_list_yes = TRUE;
 			if (list_sep == '\0')
 				list_sep = ns_sep;
 			else if (list_sep != ns_sep) {
@@ -324,7 +326,7 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 		*error_r = "inbox=yes namespace missing";
 		return FALSE;
 	}
-	if (list_sep == '\0') {
+	if (!have_list_yes) {
 		*error_r = "list=yes namespace missing";
 		return FALSE;
 	}
