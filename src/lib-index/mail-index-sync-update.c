@@ -1012,6 +1012,8 @@ int mail_index_sync_map(struct mail_index_map **_map,
 		mail_transaction_log_view_get_prev_pos(view->log_view,
 						       &prev_seq, &prev_offset);
 		map = mail_index_map_alloc(index);
+		if ((index->map->hdr.flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0)
+			map->hdr.flags |= MAIL_INDEX_HDR_FLAG_FSCKD;
 		map->hdr.log_file_seq = prev_seq;
 		map->hdr.log_file_tail_offset = 0;
 		mail_index_sync_replace_map(&sync_map_ctx, map);

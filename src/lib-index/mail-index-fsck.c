@@ -433,6 +433,7 @@ mail_index_fsck_map(struct mail_index *index, struct mail_index_map *map)
 	mail_index_fsck_extensions(index, map, &hdr);
 	mail_index_fsck_records(index, map, &hdr);
 
+	hdr.flags |= MAIL_INDEX_HDR_FLAG_FSCKD;
 	map->hdr = hdr;
 	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 }
