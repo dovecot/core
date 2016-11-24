@@ -216,7 +216,7 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 
 #define LOG_WANT_ROTATE(file) \
 	(((file)->sync_offset > (file)->log->index->log_rotate_min_size && \
-	  (time_t)(file)->hdr.create_stamp < \
+	  (file)->hdr.create_stamp < \
 	   ioloop_time - (file)->log->index->log_rotate_min_created_ago_secs) || \
 	 ((file)->sync_offset > (file)->log->index->log_rotate_max_size))
 
