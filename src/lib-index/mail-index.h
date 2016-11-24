@@ -523,6 +523,9 @@ void mail_index_update_highest_modseq(struct mail_index_transaction *t,
 /* Reset the index before committing this transaction. This is usually done
    only when UIDVALIDITY changes. */
 void mail_index_reset(struct mail_index_transaction *t);
+/* Remove MAIL_INDEX_HDR_FLAG_FSCKD from header if it exists. This must be
+   called only during syncing so that the mailbox is locked. */
+void mail_index_unset_fscked(struct mail_index_transaction *t);
 /* Mark index deleted. No further changes will be possible after the
    transaction has been committed. */
 void mail_index_set_deleted(struct mail_index_transaction *t);

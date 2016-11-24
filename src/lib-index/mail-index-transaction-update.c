@@ -1307,6 +1307,22 @@ void mail_index_reset(struct mail_index_transaction *t)
 	t->reset = TRUE;
 }
 
+void mail_index_unset_fscked(struct mail_index_transaction *t)
+{
+	struct mail_index_header new_hdr =
+		*mail_index_get_header(t->view);
+
+	i_assert(t->view->index->log_sync_locked);
+
+	/* remove fsck'd-flag if it exists. */
+	if ((new_hdr.flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0) {
+		new_hdr.flags &= ~MAIL_INDEX_HDR_FLAG_FSCKD;
+		mail_index_update_header(t,
+			offsetof(struct mail_index_header, flags),
+			&new_hdr.flags, sizeof(new_hdr.flags), FALSE);
+	}
+}
+
 void mail_index_set_deleted(struct mail_index_transaction *t)
 {
 	i_assert(!t->index_undeleted);
