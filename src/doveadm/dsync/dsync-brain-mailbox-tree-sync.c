@@ -57,7 +57,14 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	}
 
 	ret = memcmp(mailbox_guid, metadata.guid, sizeof(metadata.guid));
-	if (ret > 0) {
+
+	/* if THEIR guid is bigger than OUR guid, and we are not doing
+	   backup in either direction, OR GUID did not match and we are
+	   receiving backup, try change the mailbox GUID.
+	*/
+
+	if ((ret > 0 && !brain->backup_recv &&
+	     !brain->backup_send) || (ret != 0 && brain->backup_recv)) {
 		if (brain->debug) {
 			i_debug("brain %c: Changing mailbox %s GUID %s -> %s",
 				brain->master_brain ? 'M' : 'S',
