@@ -216,8 +216,10 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox, bool force)
 
 	if (ret < 0)
 		mail_index_transaction_rollback(&trans);
-	else
+	else {
+		mail_index_unset_fscked(trans);
 		ret = mail_index_transaction_commit(&trans);
+	}
 	mail_index_view_close(&view);
 	mbox->corrupted_rebuild_count = 0;
 	return ret;
