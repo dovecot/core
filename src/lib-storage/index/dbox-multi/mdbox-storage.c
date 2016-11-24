@@ -456,7 +456,8 @@ struct mail_storage mdbox_storage = {
 		dbox_storage_get_list_settings,
 		mdbox_storage_autodetect,
 		mdbox_mailbox_alloc,
-		mdbox_purge
+		mdbox_purge,
+		NULL,
 	}
 };
 

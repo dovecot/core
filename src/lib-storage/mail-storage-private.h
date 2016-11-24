@@ -48,6 +48,11 @@ struct mail_storage_vfuncs {
 					 const char *vname,
 					 enum mailbox_flags flags);
 	int (*purge)(struct mail_storage *storage);
+	/* Called when mailbox list index corruption has been detected.
+	   The callback should add any missing mailboxes to the list index.
+	   Returns 0 on success, -1 on temporary failure that didn't properly
+	   fix the index. */
+	int (*list_index_corrupted)(struct mail_storage *storage);
 };
 
 union mail_storage_module_context {

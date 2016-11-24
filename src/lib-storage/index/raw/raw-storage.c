@@ -214,7 +214,8 @@ struct mail_storage raw_storage = {
 		raw_storage_get_list_settings,
 		NULL,
 		raw_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 

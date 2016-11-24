@@ -417,7 +417,8 @@ struct mail_storage sdbox_storage = {
 		dbox_storage_get_list_settings,
 		sdbox_storage_autodetect,
 		sdbox_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 
@@ -434,7 +435,8 @@ struct mail_storage dbox_storage = {
 		dbox_storage_get_list_settings,
 		sdbox_storage_autodetect,
 		sdbox_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 

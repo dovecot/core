@@ -44,7 +44,8 @@ struct mail_storage fail_storage = {
 		fail_storage_get_list_settings,
 		NULL,
 		fail_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 

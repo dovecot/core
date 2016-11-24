@@ -122,7 +122,8 @@ struct mail_storage cydir_storage = {
 		cydir_storage_get_list_settings,
 		NULL,
 		cydir_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 

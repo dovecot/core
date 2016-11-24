@@ -375,6 +375,7 @@ struct mail_storage shared_storage = {
 		shared_storage_get_list_settings,
 		NULL,
 		fail_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };

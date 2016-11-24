@@ -309,7 +309,8 @@ struct mail_storage pop3c_storage = {
 		pop3c_storage_get_list_settings,
 		NULL,
 		pop3c_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 
