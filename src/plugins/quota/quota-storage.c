@@ -185,14 +185,46 @@ void quota_mail_allocated(struct mail *_mail)
 	MODULE_CONTEXT_SET_SELF(mail, quota_mail_module, qmail);
 }
 
-static int quota_check(struct mail_save_context *ctx)
+static bool
+quota_move_requires_check(struct mailbox *dest_box, struct mailbox *src_box)
+{
+	struct mail_namespace *src_ns = src_box->list->ns;
+	struct mail_namespace *dest_ns = dest_box->list->ns;
+	struct quota_user *quser = QUOTA_USER_CONTEXT(src_ns->user);
+	struct quota_root *const *rootp;
+
+	array_foreach(&quser->quota->roots, rootp) {
+		bool have_src_quota, have_dest_quota;
+
+		have_src_quota = quota_root_is_namespace_visible(*rootp, src_ns);
+		have_dest_quota = quota_root_is_namespace_visible(*rootp, dest_ns);
+		if (have_src_quota == have_dest_quota) {
+			/* Both/neither have this quota */
+		} else if (have_dest_quota) {
+			/* Destination mailbox has a quota that doesn't exist
+			   in source. We'll need to check if it's being
+			   exceeded. */
+			return TRUE;
+		} else {
+			/* Source mailbox has a quota root that doesn't exist
+			   in destination. We're not increasing the source
+			   quota, so ignore it. */
+		}
+	}
+	return FALSE;
+}
+
+static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 {
 	struct mailbox_transaction_context *t = ctx->transaction;
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
 	int ret;
 	bool too_large;
 
-	if (ctx->moving) {
+	i_assert(!ctx->moving || src_box != NULL);
+
+	if (ctx->moving &&
+	     !quota_move_requires_check(ctx->transaction->box, src_box)) {
 		/* the mail is being moved. the quota won't increase (after
 		   the following expunge), so allow this even if user is
 		   currently over quota */
@@ -242,7 +274,7 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 		   quota */
 		return 0;
 	}
-	return quota_check(ctx);
+	return quota_check(ctx, mail->box);
 }
 
 static int
@@ -297,11 +329,13 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 static int quota_save_finish(struct mail_save_context *ctx)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->transaction->box);
+	struct mailbox *src_box;
 
 	if (qbox->module_ctx.super.save_finish(ctx) < 0)
 		return -1;
 
-	return quota_check(ctx);
+	src_box = ctx->copy_src_mail == NULL ? NULL : ctx->copy_src_mail->box;
+	return quota_check(ctx, src_box);
 }
 
 static void quota_mailbox_sync_cleanup(struct quota_mailbox *qbox)
