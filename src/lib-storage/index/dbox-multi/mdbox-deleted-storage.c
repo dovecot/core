@@ -258,7 +258,8 @@ struct mail_storage mdbox_deleted_storage = {
 		dbox_storage_get_list_settings,
 		NULL,
 		mdbox_deleted_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 

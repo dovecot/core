@@ -1101,7 +1101,8 @@ struct mail_storage imapc_storage = {
 		imapc_storage_get_list_settings,
 		NULL,
 		imapc_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 

@@ -821,7 +821,8 @@ struct mail_storage mbox_storage = {
 		mbox_storage_get_list_settings,
 		mbox_storage_autodetect,
 		mbox_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 

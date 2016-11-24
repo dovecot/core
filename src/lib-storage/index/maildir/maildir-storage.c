@@ -678,7 +678,8 @@ struct mail_storage maildir_storage = {
 		maildir_storage_get_list_settings,
 		maildir_storage_autodetect,
 		maildir_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 

@@ -777,7 +777,8 @@ struct mail_storage virtual_storage = {
 		virtual_storage_get_list_settings,
 		NULL,
 		virtual_mailbox_alloc,
-		NULL
+		NULL,
+		NULL,
 	}
 };
 
