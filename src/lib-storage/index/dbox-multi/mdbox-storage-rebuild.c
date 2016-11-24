@@ -581,6 +581,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	mdbox_header_update(ctx, rebuild_ctx, mbox);
 	rebuild_mailbox_multi(ctx, rebuild_ctx, mbox, view, trans);
 	index_index_rebuild_deinit(&rebuild_ctx, dbox_get_uidvalidity_next);
+	mail_index_unset_fscked(trans);
 
 	mail_index_sync_set_reason(sync_ctx, "mdbox storage rebuild");
 	if (mail_index_sync_commit(&sync_ctx) < 0) {
@@ -982,6 +983,7 @@ int mdbox_storage_rebuild(struct mdbox_storage *storage)
 	atomic = mdbox_map_atomic_begin(storage->map);
 	ret = mdbox_storage_rebuild_in_context(storage, atomic);
 	mdbox_map_atomic_set_success(atomic);
+	mdbox_map_atomic_unset_fscked(atomic);
 	if (mdbox_map_atomic_finish(&atomic) < 0)
 		ret = -1;
 	return ret;

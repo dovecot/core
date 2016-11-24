@@ -226,6 +226,8 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		     struct mdbox_sync_context **ctx_r)
 {
 	struct mail_storage *storage = mbox->box.storage;
+	const struct mail_index_header *hdr =
+		mail_index_get_header(mbox->box.view);
 	struct mdbox_sync_context *ctx;
 	const char *reason;
 	enum mail_index_sync_flags sync_flags;
@@ -237,6 +239,8 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 	/* avoid race conditions with mailbox creation, don't check for dbox
 	   headers until syncing has locked the mailbox */
 	rebuild = mbox->storage->corrupted ||
+		(hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0 ||
+		mdbox_map_is_fscked(mbox->storage->map) ||
 		(flags & MDBOX_SYNC_FLAG_FORCE_REBUILD) != 0;
 	if (rebuild && (flags & MDBOX_SYNC_FLAG_NO_REBUILD) == 0) {
 		if (mdbox_storage_rebuild_in_context(mbox->storage, atomic) < 0)

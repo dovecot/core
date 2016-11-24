@@ -238,6 +238,19 @@ int mdbox_map_refresh(struct mdbox_map *map)
 	return ret;
 }
 
+bool mdbox_map_is_fscked(struct mdbox_map *map)
+{
+	const struct mail_index_header *hdr;
+
+	if (map->view == NULL) {
+		/* map isn't opened yet. don't bother. */
+		return FALSE;
+	}
+
+	hdr = mail_index_get_header(map->view);
+	return (hdr->flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0;
+}
+
 static void
 mdbox_map_get_ext_hdr(struct mdbox_map *map, struct mail_index_view *view,
 		      struct mdbox_map_mail_index_header *hdr_r)
@@ -531,6 +544,11 @@ void mdbox_map_atomic_set_success(struct mdbox_map_atomic_context *atomic)
 {
 	if (!atomic->failed)
 		atomic->success = TRUE;
+}
+
+void mdbox_map_atomic_unset_fscked(struct mdbox_map_atomic_context *atomic)
+{
+	mail_index_unset_fscked(atomic->sync_trans);
 }
 
 int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **_atomic)
