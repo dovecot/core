@@ -34,13 +34,26 @@ mail_index_fsck_log_pos(struct mail_index *index, struct mail_index_map *map,
 
 	mail_transaction_log_get_head(index->log, &file_seq, &file_offset);
 	if (hdr->log_file_seq < file_seq) {
+		/* index's log_file_seq is too old. move it to log head. */
 		hdr->log_file_head_offset = hdr->log_file_tail_offset =
 			sizeof(struct mail_transaction_log_header);
-	} else {
+	} else if (hdr->log_file_seq == file_seq) {
+		/* index's log_file_seq matches the current log. make sure the
+		   offsets are valid. */
 		if (hdr->log_file_head_offset > file_offset)
 			hdr->log_file_head_offset = file_offset;
+		else if (hdr->log_file_head_offset < MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE)
+			hdr->log_file_head_offset = MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE;
+
 		if (hdr->log_file_tail_offset > hdr->log_file_head_offset)
 			hdr->log_file_tail_offset = hdr->log_file_head_offset;
+		else if (hdr->log_file_tail_offset < MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE)
+			hdr->log_file_tail_offset = MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE;
+	} else {
+		/* index's log_file_seq is newer than exists. move it to
+		   end of the current log head. */
+		hdr->log_file_head_offset = hdr->log_file_tail_offset =
+			file_offset;
 	}
 	hdr->log_file_seq = file_seq;
 
