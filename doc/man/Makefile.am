@@ -38,6 +38,7 @@ nodist_man1_MANS = \
 	doveadm-log.1 \
 	doveadm-mailbox.1 \
 	doveadm-mount.1 \
+	doveadm-mailbox-cryptokey.1 \
 	doveadm-move.1 \
 	doveadm-penalty.1 \
 	doveadm-proxy.1 \
@@ -87,6 +88,7 @@ EXTRA_DIST = \
 	doveadm-log.1.in \
 	doveadm-mailbox.1.in \
 	doveadm-mount.1.in \
+	doveadm-mailbox-cryptokey.1.in \
 	doveadm-move.1.in \
 	doveadm-penalty.1.in \
 	doveadm-proxy.1.in \

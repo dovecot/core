@@ -1,0 +1,96 @@
+.\" Copyright (c) 2010-2016 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-MAILBOX\-CRYPTOKEY 1 "2016-01-12" "Dovecot v2.2" "Dovecot"
+.SH NAME
+doveadm\-mailbox\-cryptokey \- Mail crypt plugin management
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " -o
+.IR plugin/mail_crypt_private_password=password "
+.BR [ " \-Dv " ] [ " \-f
+.IR formatter " ]
+.BR " mailbox cryptokey export|generate|list|password " [ " \-u
+.IR username
+.BR | " \-A " ] [ " \-S " ] [ " \-F "
+.IR file " ]
+.BR [ "
+.IR other "
+.IR options " ]
+.br
+.SH DESCRIPTION
+Generate new keypair for user or folder. The new keypair is marked as active.
+.SH OPTIONS
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"------------------------------------------------------------------------
+.TP
+.BI \-o\  plugin/mail_crypt_private_password=password
+Dovecot option, needed if you use password protected keys
+.SH SUBCOMMANDS
+.BR export " [ " \-U " ] " |
+.IR mailbox-mask 
+.TP
+.B \-U
+Operate on user keypair only
+.PP
+Exports user's or folder's keypair(s) in PEM format.
+If the keys are password protected, \-o is needed.
+.PP
+.\"------------------------------------------------------------------------
+.BR generate " [ " \-Rf "  [ " \-U " ] " | 
+.IR mailbox-mask " ]
+.TP
+.B \-U
+Operate on user keypair only
+.TP
+.BI \-R
+Re-encrypt all folder keys with current active user key
+.TP
+.B \-f
+Force keypair creation, normally keypair is only created if none found
+.PP
+Generates new keypair for user or folder. If you want to generate new user key
+and use it to secure your folder keys, use generate \-u username \-UR.
+.PP
+If you want to password-protect your key here, use \-o.
+.PP
+.\"------------------------------------------------------------------------
+.BR list " [ " \-U " ] " |
+.IR mailbox-mask
+.TP
+.B \-U
+Operate on user keypair only
+.PP
+List all keys for user or folder. No password is required.
+.PP
+.\"------------------------------------------------------------------------
+.BR password " [ " \-N " | " \-n
+.IR password " ]
+.BR " [ " \-O " | " \-o
+.IR password " ]
+.BR [ " \-C " ]
+.TP
+.B \-O
+Ask for old password
+.TP
+.BI \-o\ old-password
+Provide old password
+.TP
+.B \-N
+Ask for new password
+.TP
+.BI \-n\ new-password
+Provide new password
+.TP
+.B \-C
+Clear (unset/remove) password. Your key will not be protected by password.
+.PP
+Set, change or clear password from your user key.
+.SH SEE ALSO
+.BR doveadm(1)
