@@ -643,6 +643,10 @@ struct mail_save_data {
 struct mail_save_context {
 	struct mailbox_transaction_context *transaction;
 	struct mail *dest_mail;
+	/* Set during mailbox_copy(). This is useful when copying is
+	   implemented via save, and the save_*() methods want to access the
+	   source mail. */
+	struct mail *copy_src_mail;
 
 	/* data that changes for each saved mail */
 	struct mail_save_data data;
