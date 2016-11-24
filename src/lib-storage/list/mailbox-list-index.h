@@ -116,7 +116,7 @@ struct mailbox_list_index {
 	bool updating_status:1;
 	bool has_backing_store:1;
 	bool index_last_check_changed:1;
-	bool corrupted:1;
+	bool corrupted_names_or_parents:1;
 };
 
 struct mailbox_list_index_iterate_context {
