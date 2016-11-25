@@ -10,6 +10,7 @@ static int raw_sync(struct raw_mailbox *mbox)
 {
         struct mail_index_sync_ctx *index_sync_ctx;
 	struct mail_index_view *sync_view;
+	struct mail_index_sync_rec sync_rec;
 	struct mail_index_transaction *trans;
 	uint32_t seq, uid_validity = ioloop_time;
 	enum mail_index_sync_flags sync_flags;
@@ -38,6 +39,7 @@ static int raw_sync(struct raw_mailbox *mbox)
 	mail_index_append(trans, 1, &seq);
 	mailbox_recent_flags_set_uid(&mbox->box, 1);
 
+	while (mail_index_sync_next(index_sync_ctx, &sync_rec)) ;
 	if (mail_index_sync_commit(&index_sync_ctx) < 0) {
 		mailbox_set_index_error(&mbox->box);
 		return -1;
