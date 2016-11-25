@@ -505,7 +505,9 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 	}
 	mail_index_view_close(&view);
 
-	return mailbox_list_index_handle_corruption(list);
+	if (mailbox_list_index_handle_corruption(list) < 0)
+		ret = -1;
+	return ret;
 }
 
 static void mailbox_list_index_refresh_timeout(struct mailbox_list *list)
