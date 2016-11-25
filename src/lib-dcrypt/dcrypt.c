@@ -5,7 +5,9 @@
 
 static struct module *dcrypt_module = NULL;
 static struct dcrypt_vfs *dcrypt_vfs = NULL;
-static const struct dcrypt_settings dcrypt_default_set;
+static const struct dcrypt_settings dcrypt_default_set = {
+	.module_dir = DCRYPT_MODULE_DIR,
+};
 
 bool dcrypt_initialize(const char *backend, const struct dcrypt_settings *set, const char **error_r)
 {
@@ -24,7 +26,7 @@ bool dcrypt_initialize(const char *backend, const struct dcrypt_settings *set, c
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
-	if (module_dir_try_load_missing(&dcrypt_module, DCRYPT_MODULE_DIR,
+	if (module_dir_try_load_missing(&dcrypt_module, set->module_dir,
 					implementation, &mod_set, &error) < 0) {
 		if (error_r != NULL)
 			*error_r = error;

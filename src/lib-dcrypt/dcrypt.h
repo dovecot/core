@@ -52,6 +52,8 @@ enum dcrypt_key_kind {
 struct dcrypt_settings {
 	/* OpenSSL engine to use */
 	const char *crypto_device;
+	/* Look for backends in this directory */
+	const char *module_dir;
 };
 
 /**
