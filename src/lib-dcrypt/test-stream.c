@@ -522,7 +522,11 @@ void test_free_keys() {
 }
 
 int main(void) {
-	if (!dcrypt_initialize(NULL, NULL, NULL)) {
+	struct dcrypt_settings set = {
+		.module_dir = ".libs"
+	};
+
+	if (!dcrypt_initialize(NULL, &set, NULL)) {
 		i_error("No functional dcrypt backend found - skipping tests");
 		return 0;
 	}
