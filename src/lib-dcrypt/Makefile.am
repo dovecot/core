@@ -6,7 +6,8 @@ NOPLUGIN_LDFLAGS=
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
-	-I$(top_srcdir)/src/lib-ssl-iostream
+	-I$(top_srcdir)/src/lib-ssl-iostream \
+	-DDCRYPT_MODULE_DIR=\"$(pkglibdir)\"
 
 libdcrypt_la_SOURCES = \
 	dcrypt.c \
@@ -23,7 +24,6 @@ libdcrypt_openssl_la_LDFLAGS = -module -avoid-version -shared ../lib-ssl-iostrea
 libdcrypt_openssl_la_LIBADD = $(SSL_LIBS)
 libdcrypt_openssl_la_DEPENDENCIES = ../lib-ssl-iostream/libdovecot_openssl_common.la ../lib/liblib.la
 libdcrypt_openssl_la_CFLAGS = $(AM_CPPFLAGS) \
-	-DDCRYPT_MODULE_DIR=\"$(pkglibdir)\" \
 	$(SSL_CFLAGS)
 endif
 
@@ -61,10 +61,10 @@ LIBDOVECOT_TEST = \
 
 test_crypto_LDADD = $(LIBDOVECOT_TEST)
 test_crypto_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
-test_crypto_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_MODULE_DIR=\".libs\" -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
+test_crypto_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_crypto_SOURCES = $(libdcrypt_la_SOURCES) test-crypto.c
 
 test_stream_LDADD = $(LIBDOVECOT_TEST)
 test_stream_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
-test_stream_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_MODULE_DIR=\".libs\" -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
+test_stream_CFLAGS = $(AM_CPPFLAGS) -DDCRYPT_SRC_DIR=\"$(top_srcdir)/src/lib-dcrypt\"
 test_stream_SOURCES = $(libdcrypt_la_SOURCES) test-stream.c

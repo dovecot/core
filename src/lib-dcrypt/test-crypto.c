@@ -752,8 +752,12 @@ void test_load_invalid_keys(void) {
 }
 
 int main(void) {
+	struct dcrypt_settings set = {
+		.module_dir = ".libs"
+	};
+
 	random_init();
-	if (!dcrypt_initialize(NULL, NULL, NULL)) {
+	if (!dcrypt_initialize(NULL, &set, NULL)) {
 		i_error("No functional dcrypt backend found - skipping tests");
 		return 0;
 	}
