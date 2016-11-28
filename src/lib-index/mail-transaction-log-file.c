@@ -1372,6 +1372,8 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file)
 		mail_transaction_log_file_set_corrupted(file,
 			"log file shrank (%"PRIuUOFF_T" < %"PRIuUOFF_T")",
 			file->buffer_offset + (uoff_t)size, file->sync_offset);
+		/* fix the sync_offset to avoid crashes later on */
+		file->sync_offset = file->buffer_offset + size;
 		return -1;
 	}
 	while (file->sync_offset - file->buffer_offset + sizeof(*hdr) <= size) {
