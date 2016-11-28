@@ -163,7 +163,6 @@ unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 
 struct acl_object *acl_backend_get_default_object(struct acl_backend *backend)
 {
-	struct mail_user *user = mailbox_list_get_user(backend->list);
 	struct mail_namespace *ns = mailbox_list_get_namespace(backend->list);
 	const char *default_name = "";
 
