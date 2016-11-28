@@ -1,3 +1,5 @@
+/* Copyright (c) 2009-2016 Dovecot authors, see the included COPYING file */
+
 #include "auth-common.h"
 #include "mech.h"
 #include "passdb.h"
