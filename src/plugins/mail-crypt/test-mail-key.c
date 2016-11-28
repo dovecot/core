@@ -249,7 +249,9 @@ static void test_generate_inbox_key(void)
 		mail_namespace_find_inbox(test_mail_user->namespaces);
 	struct mailbox *box = mailbox_alloc(ns->list, "INBOX",
 					    MAILBOX_FLAG_READONLY);
-	mailbox_open(box);
+	if (mailbox_open(box) < 0)
+		i_fatal("mailbox_open(INBOX) failed: %s",
+			mailbox_get_last_error(box, NULL));
 	if (mail_crypt_box_generate_keypair(box, &pair, user_key, &pubid,
 					    &error) < 0) {
 		i_error("generate_keypair failed: %s", error);
@@ -308,7 +310,9 @@ static void test_verify_keys(void)
 		mail_namespace_find_inbox(test_mail_user->namespaces);
 	struct mailbox *box = mailbox_alloc(ns->list, "INBOX",
 					    MAILBOX_FLAG_READONLY);
-	mailbox_open(box);
+	if (mailbox_open(box) < 0)
+		i_fatal("mailbox_open(INBOX) failed: %s",
+			mailbox_get_last_error(box, NULL));
 	/* verify links */
 
 	/* user's public key */
@@ -403,7 +407,9 @@ static void test_old_key(void)
 		mail_namespace_find_inbox(test_mail_user->namespaces);
 	struct mailbox *box = mailbox_alloc(ns->list, "INBOX",
 					    MAILBOX_FLAG_READONLY);
-	mailbox_open(box);
+	if (mailbox_open(box) < 0)
+		i_fatal("mailbox_open(INBOX) failed: %s",
+			mailbox_get_last_error(box, NULL));
 
 	struct mailbox_transaction_context *t = mailbox_transaction_begin(box, 0);
 
