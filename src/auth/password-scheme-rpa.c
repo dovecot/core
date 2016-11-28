@@ -1,3 +1,4 @@
+/* Copyright (c) 2004-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
