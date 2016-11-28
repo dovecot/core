@@ -245,7 +245,12 @@ static int mcp_keypair_generate(struct mcp_cmd_context *ctx,
 	if ((ret = mail_crypt_box_get_public_key(t, &pair.pub, error_r)) < 0) {
 		ret = -1;
 	} else if (ret == 1 && (!ctx->force || ctx->recrypt_box_keys)) {
-		/* do nothing */
+		/* do nothing, because force isn't being used *OR*
+		   we are recrypting box keys and force refers to
+		   user keypair.
+
+		   FIXME: this could be less confusing altogether */
+		ret = 0;
 	} else {
 		if ((ret = mail_crypt_box_generate_keypair(box, &pair,
 						user_key, pubid_r, error_r)) < 0) {
@@ -370,7 +375,10 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 			res->name = p_strdup(_ctx->pool, info->vname);
 			res->success = FALSE;
 			res->error = p_strdup(_ctx->pool, error);
-		} else if (ret >= 0) {
+		} else if (ret == 0) {
+			/* nothing happened because key already existed and
+			   force wasn't used, skip */
+		} else if (ret > 0) {
 			res = array_append_space(result);
 			res->name = p_strdup(_ctx->pool, info->vname);
 			res->success = TRUE;
