@@ -296,8 +296,17 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 				return ret;
 			}
 
-			if (muser->save_version > 1 &&
-			    mail_crypt_box_generate_keypair(box, &pair, NULL,
+			if (muser->save_version < 2) {
+				mail_storage_set_error(box->storage,
+                                        MAIL_ERROR_PARAMS,
+                                        t_strdup_printf("generate_keypair(%s) failed: "
+                                                        "unsupported save_version=%d",
+                                                        mailbox_get_vname(box),
+                                                        muser->save_version));
+                                return -1;
+			}
+
+			if (mail_crypt_box_generate_keypair(box, &pair, NULL,
 							    &pubid, &error) < 0) {
 				mail_storage_set_error(box->storage,
 					MAIL_ERROR_PARAMS,
