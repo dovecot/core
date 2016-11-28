@@ -1071,9 +1071,10 @@ int mail_crypt_box_generate_keypair(struct mailbox *box,
 				    error_r) < 0) {
 		dcrypt_keypair_unref(pair);
 		ret = -1;
+	} else {
+		mail_crypt_put_key_cache(&muser->key_cache, *pubid_r, pair->priv,
+					 pair->pub);
 	}
-
-	mail_crypt_put_key_cache(&muser->key_cache, *pubid_r, pair->priv, pair->pub);
 
 	dcrypt_key_unref_public(&user_key);
 
