@@ -29,6 +29,17 @@ AC_DEFUN([DOVECOT_SSL], [
       AC_DEFINE(HAVE_OPENSSL,, [Build with OpenSSL support])
       have_ssl="yes (OpenSSL)"
   
+      AC_MSG_CHECKING([if OpenSSL version is 1.0.2 or better])
+
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+	#include <openssl/opensslv.h>
+	#if OPENSSL_VERSION_NUMBER < 0x10002000L
+	#error "fail-compile"
+	#endif]], [[ return 0; ]])], [ssl_version_ge_102=true], [ssl_version_ge_102=false])
+      AC_MSG_RESULT([$ssl_version_ge_102])
+
+      AM_CONDITIONAL([SSL_VERSION_GE_102], [test x$ssl_version_ge_102 = xtrue])
+
       # SSL_clear_options introduced in openssl 0.9.8m but may be backported to
       # older versions in "enterprise" OS releases; originally implemented as a
       # macro but as a function in more recent openssl versions
