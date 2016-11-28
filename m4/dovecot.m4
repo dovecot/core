@@ -39,6 +39,12 @@ AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
 top_srcdir=\$[1]
 shift
 
+if test "\$NOUNDEF" != ""; then
+  noundef="--undef-value-errors=no"
+else
+  noundef=""
+fi
+
 if test "\$NOVALGRIND" != ""; then
   \$[*]
   ret=\$?
@@ -46,9 +52,9 @@ else
   trap "rm -f test.out.\$\$" 0 1 2 3 15
   supp_path="\$top_srcdir/run-test-valgrind.supp"
   if test -r "\$supp_path"; then
-    valgrind -q --trace-children=yes --leak-check=full --suppressions="\$supp_path" --log-file=test.out.\$\$ \$[*]
+    valgrind -q --trace-children=yes --leak-check=full --suppressions="\$supp_path" --log-file=test.out.\$\$ \$noundef \$[*]
   else
-    valgrind -q --trace-children=yes --leak-check=full --log-file=test.out.\$\$ \$[*]
+    valgrind -q --trace-children=yes --leak-check=full --log-file=test.out.\$\$ \$noundef \$[*]
   fi
   ret=\$?
   if test -s test.out.\$\$; then
