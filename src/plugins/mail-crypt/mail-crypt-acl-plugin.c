@@ -350,7 +350,7 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 			i_error("mail-crypt-acl-plugin: "
 				"mailbox_open(%s) failed: %s",
 				mailbox_get_vname(box),
-				error);
+				mailbox_get_last_error(box, NULL));
 		} else if ((ret = mail_crypt_acl_update_private_key(box,
 								    NULL,
 								    TRUE,
