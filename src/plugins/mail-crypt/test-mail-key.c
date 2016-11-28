@@ -119,13 +119,12 @@ test_mail_attribute_set(struct mailbox_transaction_context *t,
 	attr_value.value = value;
 
 	if ((ret = mailbox_attribute_set(t, attr_type,
-					 attr_name, &attr_value)) <= 0) {
-		if (ret < 0) {
-			*error_r = t_strdup_printf("mailbox_attribute_set(%s, %s) failed: %s",
-						   mailbox_get_vname(mailbox_transaction_get_mailbox(t)),
-						   attr_name,
-						   mailbox_get_last_error(mailbox_transaction_get_mailbox(t), NULL));
-		}
+					 attr_name, &attr_value)) < 0) {
+		*error_r = t_strdup_printf("mailbox_attribute_set(%s, %s) failed: %s",
+					   mailbox_get_vname(mailbox_transaction_get_mailbox(t)),
+					   attr_name,
+					   mailbox_get_last_error(mailbox_transaction_get_mailbox(t), NULL));
+
 	}
 
 	return ret;
@@ -412,6 +411,10 @@ static void test_old_key(void)
 				mcp_old_user_key, &error);
 	test_mail_attribute_set(t, FALSE, FALSE, mcp_old_box_key_id,
 				mcp_old_box_key, &error);
+
+	(void)mailbox_transaction_commit(&t);
+
+	t = mailbox_transaction_begin(box, 0);
 
 	error = NULL;
 
