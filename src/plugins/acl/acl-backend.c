@@ -170,12 +170,10 @@ struct acl_object *acl_backend_get_default_object(struct acl_backend *backend)
 	if (backend->default_aclobj != NULL)
 		return backend->default_aclobj;
 
-	/* FIXME: this should probably be made default in v2.3 */
-	if (mail_user_plugin_getenv(user, "acl_defaults_from_inbox") != NULL) {
-		if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE ||
-		    ns->type == MAIL_NAMESPACE_TYPE_SHARED)
-			default_name = "INBOX";
-	}
+	if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE ||
+	    ns->type == MAIL_NAMESPACE_TYPE_SHARED)
+		default_name = "INBOX";
+
 	backend->default_aclobj =
 		acl_object_init_from_name(backend, default_name);
 	return backend->default_aclobj;
