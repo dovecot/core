@@ -1063,14 +1063,12 @@ int mail_crypt_box_generate_keypair(struct mailbox *box,
 
 	ret = 0;
 
-	if (mail_crypt_generate_keypair(curve, pair, pubid_r, error_r) < 0)
-		ret = -1;
-	if (ret == 0 &&
-	    mail_crypt_box_set_keys(box, *pubid_r,
-				    pair->priv, user_key, pair->pub,
-				    error_r) < 0) {
+	if ((ret = mail_crypt_generate_keypair(curve, pair, pubid_r, error_r)) < 0) {
+		/* failed */
+	} else if ((ret = mail_crypt_box_set_keys(box, *pubid_r,
+						pair->priv, user_key, pair->pub,
+						error_r)) < 0) {
 		dcrypt_keypair_unref(pair);
-		ret = -1;
 	} else {
 		mail_crypt_put_key_cache(&muser->key_cache, *pubid_r, pair->priv,
 					 pair->pub);
