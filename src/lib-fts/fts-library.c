@@ -1,3 +1,5 @@
+/* Copyright (c) 2015-2016 Dovecot authors, see the included COPYING file */
+
 #include "lib.h"
 #include "fts-language.h"
 #include "fts-tokenizer.h"

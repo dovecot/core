@@ -1,3 +1,5 @@
+/* Copyright (c) 2016 Dovecot authors, see the included COPYING file */
+
 #include "lib.h"
 #include "buffer.h"
 #include "str.h"
