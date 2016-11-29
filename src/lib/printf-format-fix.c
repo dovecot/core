@@ -36,6 +36,9 @@ static const char *
 printf_format_fix_noalloc(const char *format, size_t *len_r)
 {
 	static const char *printf_skip_chars = "# -+'I.*0123456789hlLjzt";
+	/* as a tiny optimization keep the most commonly used conversion
+	   modifiers first, so strchr() stops early. */
+	static const char *printf_allowed_conversions = "sudcioxXp%eEfFgGaA";
 	const char *ret, *p, *p2;
 
 	p = ret = format;
@@ -43,16 +46,23 @@ printf_format_fix_noalloc(const char *format, size_t *len_r)
 		p = p2+1;
 		while (*p != '\0' && strchr(printf_skip_chars, *p) != NULL)
 			p++;
-		switch (*p) {
-		case 'n':
-			i_panic("%%n modifier used");
-		case 'm':
-			if (ret != format)
-				i_panic("%%m used twice");
-			ret = fix_format_real(format, p-1, len_r);
-			break;
-		case '\0':
+
+		if (*p == '\0') {
 			i_panic("%% modifier missing in '%s'", format);
+		} else if (strchr(printf_allowed_conversions, *p) != NULL) {
+			/* allow & ignore */
+		} else {
+			switch (*p) {
+			case 'n':
+				i_panic("%%n modifier used");
+			case 'm':
+				if (ret != format)
+					i_panic("%%m used twice");
+				ret = fix_format_real(format, p-1, len_r);
+				break;
+			default:
+				i_panic("Unsupported %%%c modifier", *p);
+			}
 		}
 		p++;
 	}
