@@ -357,6 +357,7 @@ test_lib_SOURCES = \
 	test-ostream-escaped.c \
 	test-ostream-failure-at.c \
 	test-ostream-file.c \
+	test-path-util.c \
 	test-primes.c \
 	test-printf-format-fix.c \
 	test-priorityq.c \
