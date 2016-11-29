@@ -21,16 +21,16 @@
 
 /* Structure:
 
-	 http-client:
+   http-client:
 
-	 Acts much like a browser; it is not dedicated to a single host. Client can
+   Acts much like a browser; it is not dedicated to a single host. Client can
    accept requests to different hosts, which can be served at different IPs.
    Redirects are handled in the background by making a new connection.
    Connections to new hosts are created once needed for servicing a request.
 
-	 http-client-request:
+   http-client-request:
 
-	 The request semantics are similar to imapc commands. Create a request, 
+   The request semantics are similar to imapc commands. Create a request,
    optionally modify some aspects of it and finally submit it. Once finished,
    a callback is called with the returned response.
 
