@@ -152,9 +152,11 @@ struct http_client_request {
 
 struct http_client_connection {
 	struct connection conn;
+	unsigned int refcount;
+
+	struct http_client_peer_pool *ppool;
 	struct http_client_peer *peer;
 	struct http_client *client;
-	unsigned int refcount;
 
 	char *label;
 	unsigned int id; // DEBUG: identify parallel connections
@@ -193,6 +195,20 @@ struct http_client_connection {
 	bool in_req_callback:1;     /* performing request callback (busy) */
 };
 
+struct http_client_peer_pool {
+	unsigned int refcount;
+	struct http_client_peer *peer;
+	struct http_client_peer_pool *prev, *next;
+
+	/* all connections to this peer */
+	ARRAY_TYPE(http_client_connection) conns;
+
+	/* available connections to this peer */
+	ARRAY_TYPE(http_client_connection) idle_conns;
+
+	bool destroyed:1;        /* peer pool is being destroyed */
+};
+
 struct http_client_peer {
 	unsigned int refcount;
 	struct http_client_peer_addr addr;
@@ -202,6 +218,8 @@ struct http_client_peer {
 
 	struct http_client *client;
 	struct http_client_peer *prev, *next;
+
+	struct http_client_peer_pool *ppool;
 
 	/* queues using this peer */
 	ARRAY_TYPE(http_client_queue) queues;
@@ -447,16 +465,29 @@ void http_client_connection_check_idle(struct http_client_connection *conn);
 void http_client_connection_switch_ioloop(struct http_client_connection *conn);
 void http_client_connection_start_tunnel(struct http_client_connection **_conn,
 	struct http_client_tunnel *tunnel);
+void http_client_connection_use_idle(struct http_client_connection *conn,
+	struct http_client_peer *peer);
 
 /*
  * Peer
  */
+
+/* address */
 
 unsigned int http_client_peer_addr_hash
 	(const struct http_client_peer_addr *peer) ATTR_PURE;
 int http_client_peer_addr_cmp
 	(const struct http_client_peer_addr *peer1,
 		const struct http_client_peer_addr *peer2) ATTR_PURE;
+
+/* connection pool */
+
+void http_client_peer_pool_ref(struct http_client_peer_pool *ppool);
+void http_client_peer_pool_unref(struct http_client_peer_pool **_ppool);
+
+void http_client_peer_pool_close(struct http_client_peer_pool **_ppool);
+
+/* peer */
 
 const char *
 http_client_peer_label(struct http_client_peer *peer);

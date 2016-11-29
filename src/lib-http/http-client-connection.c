@@ -351,6 +351,7 @@ http_client_connection_idle_timeout(struct http_client_connection *conn)
 
 void http_client_connection_check_idle(struct http_client_connection *conn)
 {
+	struct http_client_peer_pool *ppool = conn->ppool;
 	unsigned int timeout, count;
 
 	if (conn->connected &&
@@ -376,11 +377,11 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 			/* instant death for (urgent) connections above limit */
 			timeout = 0;
 		} else {
-			unsigned int idle_count = http_client_peer_idle_connections(conn->peer);
+			unsigned int idle_count = array_count(&ppool->idle_conns);
 
 			/* kill duplicate connections quicker;
 				 linearly based on the number of connections */
-			i_assert(count >= idle_count + 1);
+			i_assert(array_count(&ppool->conns) >= idle_count + 1);
 			timeout = (conn->client->set.max_parallel_connections - idle_count) *
 				(conn->client->set.max_idle_time_msecs /
 					conn->client->set.max_parallel_connections);
@@ -393,10 +394,39 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 		conn->to_idle =
 			timeout_add(timeout, http_client_connection_idle_timeout, conn);
 
+		array_append(&ppool->idle_conns, &conn, 1);
+
 	} else {
 		/* there should be no idle timeout */
 		i_assert(conn->to_idle == NULL);
 	}
+}
+
+static void
+http_client_connection_stop_idle(struct http_client_connection *conn)
+{
+	struct http_client_connection *const *conn_idx;
+	ARRAY_TYPE(http_client_connection) *conn_arr;
+
+	if (conn->to_idle != NULL)
+		timeout_remove(&conn->to_idle);
+
+	conn_arr = &conn->ppool->idle_conns;
+	array_foreach(conn_arr, conn_idx) {
+		if (*conn_idx == conn) {
+			array_delete(conn_arr, array_foreach_idx(conn_arr, conn_idx), 1);
+			break;
+		}
+	}
+}
+
+void http_client_connection_use_idle(struct http_client_connection *conn,
+	struct http_client_peer *peer)
+{
+	http_client_connection_debug(conn, "Reusing idle connection");
+
+	i_assert(peer->ppool == conn->ppool);
+	http_client_connection_stop_idle(conn);
 }
 
 static void
@@ -497,7 +527,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 
 	i_assert(req->state == HTTP_REQUEST_STATE_QUEUED);
 
-	timeout_remove(&conn->to_idle);
+	http_client_connection_stop_idle(conn);
 
 	req->payload_sync_continue = FALSE;
 	if (conn->peer->no_payload_sync)
@@ -1441,6 +1471,7 @@ struct http_client_connection *
 http_client_connection_create(struct http_client_peer *peer)
 {
 	struct http_client_context *cctx = peer->client->cctx;
+	struct http_client_peer_pool *ppool = peer->ppool;
 	struct http_client_connection *conn;
 	static unsigned int id = 0;
 	const struct http_client_peer_addr *addr = &peer->addr;
@@ -1468,6 +1499,7 @@ http_client_connection_create(struct http_client_peer *peer)
 	conn->refcount = 1;
 	conn->client = peer->client;
 	conn->id = id++;
+	conn->ppool = ppool;
 	conn->peer = peer;
 	if (peer->addr.type != HTTP_CLIENT_PEER_ADDR_RAW)
 		i_array_init(&conn->request_wait_list, 16);
@@ -1495,10 +1527,14 @@ http_client_connection_create(struct http_client_peer *peer)
 	}
 
 	array_append(&peer->conns, &conn, 1);
+	array_append(&ppool->conns, &conn, 1);
+
+	http_client_peer_pool_ref(ppool);
+	http_client_peer_ref(peer);
 
 	http_client_connection_debug(conn,
 		"%s connection created (%d parallel connections exist)%s",
-		conn_type, array_count(&peer->conns),
+		conn_type, array_count(&ppool->conns),
 		(conn->to_input == NULL ? "" : " [broken]"));
 	return conn;
 }
@@ -1513,6 +1549,7 @@ static void
 http_client_connection_disconnect(struct http_client_connection *conn)
 {
 	struct http_client_peer *peer = conn->peer;
+	struct http_client_peer_pool *ppool = conn->ppool;
 	ARRAY_TYPE(http_client_connection) *conn_arr;
 	struct http_client_connection *const *conn_idx;
 
@@ -1551,6 +1588,13 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 	timeout_remove(&conn->to_response);
 
 	/* remove this connection from the list */
+	conn_arr = &ppool->conns;
+	array_foreach(conn_arr, conn_idx) {
+		if (*conn_idx == conn) {
+			array_delete(conn_arr, array_foreach_idx(conn_arr, conn_idx), 1);
+			break;
+		}
+	}
 	conn_arr = &peer->conns;
 	array_foreach(conn_arr, conn_idx) {
 		if (*conn_idx == conn) {
@@ -1561,11 +1605,15 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 
 	if (conn->connect_succeeded)
 		http_client_peer_connection_lost(peer, conn->lost_prematurely);
+
+	http_client_connection_stop_idle(conn); // FIXME: needed?
 }
 
 bool http_client_connection_unref(struct http_client_connection **_conn)
 {
 	struct http_client_connection *conn = *_conn;
+	struct http_client_peer *peer = conn->peer;
+	struct http_client_peer_pool *ppool = conn->ppool;
 
 	i_assert(conn->refcount > 0);
 
@@ -1596,6 +1644,9 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 	
 	i_free(conn->label);
 	i_free(conn);
+
+	http_client_peer_pool_unref(&ppool);
+	http_client_peer_unref(&peer);
 	return FALSE;
 }
 

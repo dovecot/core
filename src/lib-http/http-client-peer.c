@@ -18,6 +18,29 @@
  * Logging
  */
 
+/* Peer pool */
+
+static inline void
+http_client_peer_pool_debug(struct http_client_peer_pool *ppool,
+	const char *format, ...) ATTR_FORMAT(2, 3);
+
+static inline void
+http_client_peer_pool_debug(struct http_client_peer_pool *ppool,
+	const char *format, ...)
+{
+	struct http_client_peer *peer = ppool->peer;
+	va_list args;
+
+	if (peer->client->cctx->set.debug) {
+		va_start(args, format);
+		i_debug("http-client: peer %s: %s",
+			http_client_peer_label(peer), t_strdup_vprintf(format, args));
+		va_end(args);
+	}
+}
+
+/* Peer */
+
 static inline void
 http_client_peer_debug(struct http_client_peer *peer,
 	const char *format, ...) ATTR_FORMAT(2, 3);
@@ -100,6 +123,77 @@ int http_client_peer_addr_cmp
 }
 
 /*
+ * Peer pool
+ */
+
+static struct http_client_peer_pool *
+http_client_peer_pool_create(struct http_client_peer *peer)
+{
+	struct http_client_peer_pool *ppool;
+
+	ppool = i_new(struct http_client_peer_pool, 1);
+	ppool->refcount = 1;
+	ppool->peer = peer;
+
+	i_array_init(&ppool->conns, 16);
+	i_array_init(&ppool->idle_conns, 16);
+
+	http_client_peer_pool_debug(ppool, "Peer pool created");
+
+	return ppool;
+}
+
+void http_client_peer_pool_ref(struct http_client_peer_pool *ppool)
+{
+	if (ppool->destroyed)
+		return;
+	ppool->refcount++;
+}
+
+void http_client_peer_pool_close(struct http_client_peer_pool **_ppool)
+{
+	struct http_client_peer_pool *ppool = *_ppool;
+	struct http_client_connection **conn;
+	ARRAY_TYPE(http_client_connection) conns;
+
+	http_client_peer_pool_ref(ppool);
+
+	/* make a copy of the connection array; freed connections modify it */
+	t_array_init(&conns, array_count(&ppool->conns));
+	array_copy(&conns.arr, 0, &ppool->conns.arr, 0, array_count(&ppool->conns));
+	array_foreach_modifiable(&conns, conn)
+		http_client_connection_unref(conn);
+	i_assert(array_count(&ppool->idle_conns) == 0);
+	i_assert(array_count(&ppool->conns) == 0);
+
+	http_client_peer_pool_unref(_ppool);
+}
+
+void http_client_peer_pool_unref(struct http_client_peer_pool **_ppool)
+{
+	struct http_client_peer_pool *ppool = *_ppool;
+
+	*_ppool = NULL;
+
+	if (ppool->destroyed)
+		return;
+
+	i_assert(ppool->refcount > 0);
+	if (--ppool->refcount > 0)
+		return;
+
+	http_client_peer_pool_debug(ppool, "Peer pool destroy");
+	ppool->destroyed = TRUE;
+
+	i_assert(array_count(&ppool->idle_conns) == 0);
+	i_assert(array_count(&ppool->conns) == 0);
+	array_free(&ppool->idle_conns);
+	array_free(&ppool->conns);
+
+	i_free(ppool);
+}
+
+/*
  * Peer
  */
 
@@ -127,9 +221,23 @@ static void
 http_client_peer_do_connect(struct http_client_peer *peer,
 	unsigned int count)
 {
-	unsigned int i;
+	struct http_client_peer_pool *ppool = peer->ppool;
+	struct http_client_connection *const *idle_conns;
+	unsigned int i, idle_count;
 
-	for (i = 0; i < count; i++) {
+	if (count == 0)
+		return;
+
+	idle_conns = array_get(&ppool->idle_conns, &idle_count);
+	for (i = 0; i < count && i < idle_count; i++) {
+		http_client_connection_use_idle(idle_conns[i], peer);
+
+		http_client_peer_debug(peer,
+			"Using idle connection (connections=%u)",
+			array_count(&peer->conns));
+	}
+
+	for (; i < count; i++) {
 		http_client_peer_debug(peer,
 			"Making new connection %u of %u", i+1, count);
 		(void)http_client_connection_create(peer);
@@ -214,6 +322,9 @@ http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 bool http_client_peer_is_connected(struct http_client_peer *peer)
 {
 	struct http_client_connection *const *conn_idx;
+
+	if (array_count(&peer->ppool->idle_conns) > 0)
+		return TRUE;
 
 	array_foreach(&peer->conns, conn_idx) {
 		if ((*conn_idx)->connected)
@@ -574,6 +685,8 @@ http_client_peer_create(struct http_client *client,
 		(client->peers, (const struct http_client_peer_addr *)&peer->addr, peer);
 	DLLIST_PREPEND(&client->peers_list, peer);
 
+	peer->ppool = http_client_peer_pool_create(peer);
+
 	http_client_peer_debug(peer, "Peer created");
 	return peer;
 }
@@ -634,6 +747,7 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 	http_client_peer_debug(peer, "Peer destroy");
 
 	http_client_peer_disconnect(peer);
+	http_client_peer_pool_unref(&peer->ppool);
 
 	i_assert(array_count(&peer->queues) == 0);
 
@@ -642,6 +756,7 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 	i_free(peer->addr_name);
 	i_free(peer->label);
 	i_free(peer);
+
 	return FALSE;
 }
 
