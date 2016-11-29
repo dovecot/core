@@ -4,6 +4,7 @@
 #include "hash-method.h"
 #include "hmac.h"
 #include "sha-common.h"
+#include "buffer.h"
 
 struct test_vector {
 	const char *prf;
@@ -79,7 +80,24 @@ static void test_hmac_rfc(void)
 	test_end();
 }
 
+static void test_hmac_buffer(void)
+{
+	const struct test_vector *vec = &(test_vectors[0]);
+	test_begin("hmac temporary buffer");
+
+	buffer_t *tmp;
+
+	tmp = t_hmac_data(hash_method_lookup(vec->prf), vec->key, vec->key_len,
+			  vec->data, vec->data_len);
+
+	test_assert(tmp->used == vec->res_len &&
+		    memcmp(tmp->data, vec->res, vec->res_len) == 0);
+
+	test_end();
+}
+
 void test_hmac(void)
 {
 	test_hmac_rfc();
+	test_hmac_buffer();
 }
