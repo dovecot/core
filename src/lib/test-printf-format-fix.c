@@ -99,6 +99,7 @@ enum fatal_test_state fatal_printf_format_fix(unsigned int stage)
 {
 	static const char *fatals[] = {
 		"no no no %n's",
+		"no no no %-1234567890123n's with extra stuff",
 		"%m allowed once, but not twice: %m",
 		"%m must not obscure a later %n",
 		"definitely can't have a tailing %",
