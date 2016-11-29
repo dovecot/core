@@ -35,11 +35,14 @@ fix_format_real(const char *fmt, const char *p, size_t *len_r)
 static const char *
 printf_format_fix_noalloc(const char *format, size_t *len_r)
 {
+	static const char *printf_skip_chars = "# -+'I.*0123456789hlLjzt";
 	const char *ret, *p, *p2;
 
 	p = ret = format;
 	while ((p2 = strchr(p, '%')) != NULL) {
 		p = p2+1;
+		while (*p != '\0' && strchr(printf_skip_chars, *p) != NULL)
+			p++;
 		switch (*p) {
 		case 'n':
 			i_panic("%%n modifier used");
