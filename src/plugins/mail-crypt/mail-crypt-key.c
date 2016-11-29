@@ -1044,8 +1044,6 @@ int mail_crypt_box_generate_keypair(struct mailbox *box,
 		dcrypt_key_ref_public(user_key);
 	}
 
-	ret = 0;
-
 	if ((ret = mail_crypt_generate_keypair(curve, pair, pubid_r, error_r)) < 0) {
 		/* failed */
 	} else if ((ret = mail_crypt_box_set_keys(box, *pubid_r,
