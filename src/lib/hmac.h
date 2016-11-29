@@ -32,4 +32,14 @@ hmac_update(struct hmac_context *_ctx, const void *data, size_t size)
 	ctx->hash->loop(ctx->ctx, data, size);
 }
 
+buffer_t *t_hmac_data(const struct hash_method *meth,
+		      const unsigned char *key, size_t key_len,
+		      const void *data, size_t data_len);
+buffer_t *t_hmac_buffer(const struct hash_method *meth,
+			const unsigned char *key, size_t key_len,
+			const buffer_t *data);
+buffer_t *t_hmac_str(const struct hash_method *meth,
+		     const unsigned char *key, size_t key_len,
+		     const char *data);
+
 #endif
