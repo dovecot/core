@@ -289,7 +289,7 @@ struct http_client_host {
 
 struct http_client {
 	pool_t pool;
-
+	struct http_client_context *cctx;
 	struct http_client_settings set;
 
 	struct ioloop *ioloop;
@@ -308,6 +308,13 @@ struct http_client {
 	struct http_client_peer *peers_list;
 	struct http_client_request *requests_list;
 	unsigned int requests_count;
+};
+
+struct http_client_context {
+	pool_t pool;
+	unsigned int refcount;
+
+	struct http_client_settings set;
 };
 
 /*

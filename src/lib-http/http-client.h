@@ -8,8 +8,9 @@
 struct timeval;
 struct http_response;
 
-struct http_client;
 struct http_client_request;
+struct http_client;
+struct http_client_context;
 
 struct ssl_iostream_settings;
 
@@ -415,7 +416,11 @@ void http_client_request_start_tunnel(struct http_client_request *req,
  * Client
  */
 
-struct http_client *http_client_init(const struct http_client_settings *set);
+struct http_client *
+http_client_init(const struct http_client_settings *set);
+struct http_client *
+http_client_init_shared(struct http_client_context *cctx,
+	const struct http_client_settings *set) ATTR_NULL(1);
 void http_client_deinit(struct http_client **_client);
 
 /* switch this client to the current ioloop */
@@ -427,5 +432,14 @@ void http_client_wait(struct http_client *client);
 /* Returns the total number of pending HTTP requests. */
 unsigned int
 http_client_get_pending_request_count(struct http_client *client);
+
+/*
+ * Client shared context
+ */
+
+struct http_client_context *
+http_client_context_create(const struct http_client_settings *set);
+void http_client_context_ref(struct http_client_context *cctx);
+void http_client_context_unref(struct http_client_context **_cctx);
 
 #endif
