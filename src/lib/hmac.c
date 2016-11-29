@@ -10,6 +10,7 @@
 #include "lib.h"
 #include "hmac.h"
 #include "safe-memset.h"
+#include "buffer.h"
 
 void hmac_init(struct hmac_context *_ctx, const unsigned char *key,
 		size_t key_len, const struct hash_method *meth)
@@ -59,3 +60,36 @@ void hmac_final(struct hmac_context *_ctx, unsigned char *digest)
 	ctx->hash->loop(ctx->ctxo, digest, ctx->hash->digest_size);
 	ctx->hash->result(ctx->ctxo, digest);
 }
+
+buffer_t *t_hmac_data(const struct hash_method *meth,
+		      const unsigned char *key, size_t key_len,
+		      const void *data, size_t data_len)
+{
+	struct hmac_context ctx;
+	i_assert(meth != NULL);
+	i_assert(key != NULL && key_len > 0);
+	i_assert(data != NULL || data_len == 0);
+
+	buffer_t *res = buffer_create_dynamic(pool_datastack_create(), meth->digest_size);
+	hmac_init(&ctx, key, key_len, meth);
+	if (data_len > 0)
+		hmac_update(&ctx, data, data_len);
+	unsigned char *buf = buffer_get_space_unsafe(res, 0, meth->digest_size);
+	hmac_final(&ctx, buf);
+	return res;
+}
+
+buffer_t *t_hmac_buffer(const struct hash_method *meth,
+			const unsigned char *key, size_t key_len,
+			const buffer_t *data)
+{
+	return t_hmac_data(meth, key, key_len, data->data, data->used);
+}
+
+buffer_t *t_hmac_str(const struct hash_method *meth,
+		     const unsigned char *key, size_t key_len,
+		     const char *data)
+{
+	return t_hmac_data(meth, key, key_len, data, strlen(data));
+}
+
