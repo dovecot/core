@@ -256,13 +256,12 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 		/* setting rights for specific user: we can encrypt the
 		   mailbox key for the user. */
 		username = update->rights.identifier;
-		ret = mail_crypt_acl_has_user_read_right(aclobj, username, &error);
+		ret = mail_crypt_acl_has_user_read_right(aclobj, username, NULL);
 
 		if (ret < 0) {
 			i_error("mail-crypt-acl-plugin: "
-				"mail_crypt_acl_has_user_read_right(%s) failed: %s",
-				username,
-				error);
+				"mail_crypt_acl_has_user_read_right(%s) failed",
+				username);
 			break;
 		}
 
@@ -332,8 +331,9 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 		   we could in theory use per-group encrypted keys, which the
 		   users belonging to the group would able to decrypt with
 		   their private key, but that becomes quite complicated. */
-		if ((ret = mail_crypt_acl_has_nonuser_read_right(aclobj, &error)) < 0) {
-		    i_error("mail-crypt-acl-plugin: %s", error);
+		if ((ret = mail_crypt_acl_has_nonuser_read_right(aclobj, NULL)) < 0) {
+		    i_error("mail-crypt-acl-plugin: "
+			    "mail_crypt_acl_has_nonuser_read_right failed");
 		} else if ((ret = mail_crypt_acl_update_private_key(box,
 								    NULL,
 								    TRUE,
