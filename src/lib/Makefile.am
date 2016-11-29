@@ -325,6 +325,7 @@ test_lib_SOURCES = \
 	test-hash.c \
 	test-hash-format.c \
 	test-hash-method.c \
+	test-hmac.c \
 	test-hex-binary.c \
 	test-ioloop.c \
 	test-iso8601-date.c \
