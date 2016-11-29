@@ -1390,6 +1390,7 @@ static void
 http_client_connection_tunnel_response(const struct http_response *response,
 			       struct http_client_connection *conn)
 {
+	struct http_client_context *cctx = conn->client->cctx;
 	struct http_client_tunnel tunnel;
 	const char *name = http_client_peer_addr2str(&conn->peer->addr);
 	struct http_client_request *req = conn->connect_request;
@@ -1406,7 +1407,7 @@ http_client_connection_tunnel_response(const struct http_response *response,
 	http_client_request_start_tunnel(req, &tunnel);
 
 	connection_init_from_streams
-		(conn->client->conn_list, &conn->conn, name, tunnel.input, tunnel.output);
+		(cctx->conn_list, &conn->conn, name, tunnel.input, tunnel.output);
 	i_stream_unref(&tunnel.input);
 	o_stream_unref(&tunnel.output);
 	conn->connect_initialized = TRUE;
@@ -1439,6 +1440,7 @@ http_client_connection_connect_tunnel(struct http_client_connection *conn,
 struct http_client_connection *
 http_client_connection_create(struct http_client_peer *peer)
 {
+	struct http_client_context *cctx = peer->client->cctx;
 	struct http_client_connection *conn;
 	static unsigned int id = 0;
 	const struct http_client_peer_addr *addr = &peer->addr;
@@ -1480,13 +1482,13 @@ http_client_connection_create(struct http_client_peer *peer)
 			(conn, &addr->a.tcp.ip, addr->a.tcp.port);
 		break;
 	case HTTP_CLIENT_PEER_ADDR_UNIX:
-		connection_init_client_unix(peer->client->conn_list, &conn->conn,
+		connection_init_client_unix(cctx->conn_list, &conn->conn,
 			addr->a.un.path);
 		conn->connect_initialized = TRUE;
 		http_client_connection_connect(conn);
 		break;
 	default:
-		connection_init_client_ip(peer->client->conn_list, &conn->conn,
+		connection_init_client_ip(cctx->conn_list, &conn->conn,
 			&addr->a.tcp.ip, addr->a.tcp.port);
 		conn->connect_initialized = TRUE;
 		http_client_connection_connect(conn);

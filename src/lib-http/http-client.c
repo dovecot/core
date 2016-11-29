@@ -188,8 +188,6 @@ http_client_init_shared(struct http_client_context *cctx,
 
 	i_array_init(&client->delayed_failing_requests, 1);
 
-	client->conn_list = http_client_connection_list_init();
-
 	hash_table_create(&client->hosts, default_pool, 0, str_hash, strcmp);
 	hash_table_create(&client->peers, default_pool, 0,
 		http_client_peer_addr_hash, http_client_peer_addr_cmp);
@@ -238,8 +236,6 @@ void http_client_deinit(struct http_client **_client)
 	array_free(&client->delayed_failing_requests);
 	timeout_remove(&client->to_failing_requests);
 
-	connection_list_deinit(&client->conn_list);
-
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
 	http_client_context_unref(&client->cctx);
@@ -248,20 +244,8 @@ void http_client_deinit(struct http_client **_client)
 
 void http_client_switch_ioloop(struct http_client *client)
 {
-	struct connection *_conn = client->conn_list->connections;
 	struct http_client_host *host;
 	struct http_client_peer *peer;
-
-	/* move connections */
-	/* FIXME: we wouldn't necessarily need to switch all of them
-	   immediately, only those that have requests now. but also connections
-	   that get new requests before ioloop is switched again.. */
-	for (; _conn != NULL; _conn = _conn->next) {
-		struct http_client_connection *conn =
-			(struct http_client_connection *)_conn;
-
-		http_client_connection_switch_ioloop(conn);
-	}
 
 	/* move peers */
 	for (peer = client->peers_list; peer != NULL; peer = peer->next)
@@ -276,6 +260,8 @@ void http_client_switch_ioloop(struct http_client *client)
 		client->to_failing_requests =
 			io_loop_move_timeout(&client->to_failing_requests);
 	}
+
+	http_client_context_switch_ioloop(client->cctx);
 }
 
 void http_client_wait(struct http_client *client)
@@ -455,6 +441,8 @@ http_client_context_create(const struct http_client_settings *set)
 	cctx->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 	cctx->set.debug = set->debug;
 
+	cctx->conn_list = http_client_connection_list_init();
+
 	return cctx;
 }
 
@@ -473,5 +461,23 @@ void http_client_context_unref(struct http_client_context **_cctx)
 	if (--cctx->refcount > 0)
 		return;
 
+	connection_list_deinit(&cctx->conn_list);
+
 	pool_unref(&cctx->pool);
+}
+
+void http_client_context_switch_ioloop(struct http_client_context *cctx)
+{
+	struct connection *_conn = cctx->conn_list->connections;
+
+	/* move connections */
+	/* FIXME: we wouldn't necessarily need to switch all of them
+	   immediately, only those that have requests now. but also connections
+	   that get new requests before ioloop is switched again.. */
+	for (; _conn != NULL; _conn = _conn->next) {
+		struct http_client_connection *conn =
+			(struct http_client_connection *)_conn;
+
+		http_client_connection_switch_ioloop(conn);
+	}	
 }

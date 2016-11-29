@@ -299,8 +299,6 @@ struct http_client {
 	ARRAY(struct http_client_request *) delayed_failing_requests;
 	struct timeout *to_failing_requests;
 
-	struct connection_list *conn_list;
-
 	HASH_TABLE_TYPE(http_client_host) hosts;
 	struct http_client_host *unix_host;
 	struct http_client_host *hosts_list;
@@ -315,6 +313,8 @@ struct http_client_context {
 	unsigned int refcount;
 
 	struct http_client_settings set;
+
+	struct connection_list *conn_list;
 };
 
 /*
@@ -565,5 +565,11 @@ void http_client_delay_request_error(struct http_client *client,
 	struct http_client_request *req);
 void http_client_remove_request_error(struct http_client *client,
 	struct http_client_request *req);
+
+/*
+ * Client shared context
+ */
+
+void http_client_context_switch_ioloop(struct http_client_context *cctx);
 
 #endif
