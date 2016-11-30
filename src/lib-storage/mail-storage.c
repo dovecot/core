@@ -1330,6 +1330,13 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	box->creating = FALSE;
 	if (ret == 0)
 		box->list->guid_cache_updated = TRUE;
+	else if (box->opened) {
+		/* Creation failed after (partially) opening the mailbox.
+		   It may not be in a valid state, so close it. */
+		mail_storage_last_error_push(box->storage);
+		mailbox_close(box);
+		mail_storage_last_error_pop(box->storage);
+	}
 	return ret;
 }
 
