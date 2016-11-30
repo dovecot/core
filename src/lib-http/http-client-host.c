@@ -333,6 +333,20 @@ void http_client_host_check_idle(struct http_client_host *host)
 		"Host is idle (timeout = %u msecs)", timeout);
 }
 
+bool http_client_host_get_ip_idx(struct http_client_host *host,
+	const struct ip_addr *ip, unsigned int *idx_r)
+{
+	unsigned int i;
+
+	for (i = 0; i < host->ips_count; i++) {
+		if (net_ip_compare(&host->ips[i], ip)) {
+			*idx_r = i;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 void http_client_host_switch_ioloop(struct http_client_host *host)
 {
 	struct http_client_queue *const *queue_idx;

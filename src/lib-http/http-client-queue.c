@@ -227,10 +227,11 @@ http_client_queue_is_last_connect_ip(struct http_client_queue *queue)
 	const struct http_client_settings *set =
 		&queue->client->set;
 	struct http_client_host *host = queue->host;
+	unsigned int ips_count = http_client_host_get_ips_count(host);
 
 	i_assert(queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX);
-	i_assert(queue->ips_connect_idx < host->ips_count);
-	i_assert(queue->ips_connect_start_idx < host->ips_count);
+	i_assert(queue->ips_connect_idx < ips_count);
+	i_assert(queue->ips_connect_start_idx < ips_count);
 
 	/* if a maximum connect attempts > 1 is set, enforce it directly */
 	if (set->max_connect_attempts > 1 &&
@@ -241,7 +242,7 @@ http_client_queue_is_last_connect_ip(struct http_client_queue *queue)
 	   start connecting from the first IP, so we'll need to treat the IPs as
 	   a ring buffer where we automatically wrap back to the first IP
 	   when necessary. */
-	return (queue->ips_connect_idx + 1) % host->ips_count ==
+	return (queue->ips_connect_idx + 1) % ips_count ==
 		queue->ips_connect_start_idx;
 }
 
@@ -249,8 +250,7 @@ static void
 http_client_queue_recover_from_lookup(struct http_client_queue *queue)
 {
 	struct http_client_host *host = queue->host;
-	struct http_client_peer_addr new_addr = queue->addr;
-	unsigned int i;
+	unsigned int ip_idx;
 
 	i_assert(queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX);
 
@@ -259,17 +259,10 @@ http_client_queue_recover_from_lookup(struct http_client_queue *queue)
 		return;
 	}
 
-	/* try to find current peer amongst new IPs */
-	for (i = 0; i < host->ips_count; i++) {
-		new_addr.a.tcp.ip = host->ips[i];
-		if (http_client_peer_addr_cmp
-			(&new_addr, &queue->cur_peer->addr) == 0)
-			break;
-	}
-
-	if (i < host->ips_count) {
+	if (http_client_host_get_ip_idx(host,
+		&queue->cur_peer->addr.a.tcp.ip, &ip_idx)) {
 		/* continue with current peer */
-		queue->ips_connect_idx = queue->ips_connect_start_idx = i;
+		queue->ips_connect_idx = queue->ips_connect_start_idx = ip_idx;
 	} else {
 		/* reset connect attempts */
 		queue->ips_connect_idx = queue->ips_connect_start_idx = 0;
@@ -281,6 +274,7 @@ http_client_queue_soft_connect_timeout(struct http_client_queue *queue)
 {
 	struct http_client_host *host = queue->host;
 	const struct http_client_peer_addr *addr = &queue->addr;
+	unsigned int ips_count = http_client_host_get_ips_count(host);
 	const char *https_name;
 
 	i_assert(queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX);
@@ -302,7 +296,7 @@ http_client_queue_soft_connect_timeout(struct http_client_queue *queue)
 			t_strdup_printf(" (SSL=%s)", https_name)));
 
 	/* next IP */
-	queue->ips_connect_idx = (queue->ips_connect_idx + 1) % host->ips_count;
+	queue->ips_connect_idx = (queue->ips_connect_idx + 1) % ips_count;
 
 	/* setup connection to new peer (can start new soft timeout) */
 	http_client_queue_connection_setup(queue);
@@ -336,8 +330,9 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 
 	/* update our peer address */
 	if (queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX) {
-		i_assert(queue->ips_connect_idx < host->ips_count);
-		queue->addr.a.tcp.ip = host->ips[queue->ips_connect_idx];
+		const struct ip_addr *ip = http_client_host_get_ip(host,
+			queue->ips_connect_idx);
+		queue->addr.a.tcp.ip = *ip;
 		ssl = http_client_peer_addr_get_https_name(addr);
 		ssl = (ssl == NULL ? "" : t_strdup_printf(" (SSL=%s)", ssl));
 	}
@@ -463,10 +458,12 @@ void
 http_client_queue_connection_success(struct http_client_queue *queue,
 					 const struct http_client_peer_addr *addr)
 {
-	if (queue->host->dns_lookup == NULL &&
+	struct http_client_host *host = queue->host;
+
+	if (http_client_host_ready(host) &&
 		queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX) {
 		/* we achieved at least one connection the the addr->ip */
-		if (!http_client_host_get_ip_idx(queue->host,
+		if (!http_client_host_get_ip_idx(host,
 			&addr->a.tcp.ip, &queue->ips_connect_start_idx)) {
 			/* list of IPs changed during connect */
 			queue->ips_connect_start_idx = 0;
@@ -513,6 +510,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		&queue->client->set;
 	const char *https_name = http_client_peer_addr_get_https_name(addr);
 	struct http_client_host *host = queue->host;
+	unsigned int ips_count = http_client_host_get_ips_count(host);
 	struct http_client_peer *failed_peer;
 	struct http_client_peer *const *peer_idx;
 
@@ -580,7 +578,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		/* all IPs failed, but retry all of them again if we have more
 		   connect attempts left or on the next request. */
 		queue->ips_connect_idx = queue->ips_connect_start_idx =
-			(queue->ips_connect_idx + 1) % host->ips_count;
+			(queue->ips_connect_idx + 1) % ips_count;
 
 		if (set->max_connect_attempts == 0 ||
 			queue->connect_attempts >= set->max_connect_attempts) {
@@ -600,7 +598,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 			return;
 		}
 	} else {
-		queue->ips_connect_idx = (queue->ips_connect_idx + 1) % host->ips_count;
+		queue->ips_connect_idx = (queue->ips_connect_idx + 1) % ips_count;
 	}
 	
 	if (http_client_queue_connection_attempt(queue) != failed_peer)

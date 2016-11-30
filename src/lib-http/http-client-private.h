@@ -560,19 +560,24 @@ void http_client_queue_switch_ioloop(struct http_client_queue *queue);
  * Host
  */
 
-static inline bool
-http_client_host_get_ip_idx(struct http_client_host *host,
-			    const struct ip_addr *ip, unsigned int *idx_r)
+static inline unsigned int
+http_client_host_get_ips_count(struct http_client_host *host)
 {
-	unsigned int i;
+	return host->ips_count;
+}
 
-	for (i = 0; i < host->ips_count; i++) {
-		if (net_ip_compare(&host->ips[i], ip)) {
-			*idx_r = i;
-			return TRUE;
-		}
-	}
-	return FALSE;
+static inline const struct ip_addr *
+http_client_host_get_ip(struct http_client_host *host,
+	unsigned int idx)
+{
+	i_assert(idx < host->ips_count);
+	return &host->ips[idx];
+}
+
+static inline bool
+http_client_host_ready(struct http_client_host *host)
+{
+	return host->dns_lookup == NULL;
 }
 
 struct http_client_host *
@@ -584,6 +589,8 @@ void http_client_host_submit_request(struct http_client_host *host,
 void http_client_host_switch_ioloop(struct http_client_host *host);
 void http_client_host_check_idle(struct http_client_host *host);
 int http_client_host_refresh(struct http_client_host *host);
+bool http_client_host_get_ip_idx(struct http_client_host *host,
+	const struct ip_addr *ip, unsigned int *idx_r);
 
 /*
  * Client
