@@ -9,6 +9,7 @@
 const char *t_abspath(const char *path)
 {
 	const char *dir;
+	i_assert(path != NULL);
 
 	if (*path == '/')
 		return path;
@@ -20,6 +21,9 @@ const char *t_abspath(const char *path)
 
 const char *t_abspath_to(const char *path, const char *root)
 {
+	i_assert(path != NULL);
+	i_assert(root != NULL);
+
 	if (*path == '/')
 		return path;
 
