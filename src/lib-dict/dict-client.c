@@ -25,6 +25,9 @@
 
 /* Abort dict lookup after this many seconds. */
 #define DICT_CLIENT_REQUEST_TIMEOUT_MSECS 30000
+/* When dict lookup timeout is reached, wait a bit longer if the last dict
+   ioloop wait was shorter than this. */
+#define DICT_CLIENT_REQUEST_TIMEOUT_MIN_LAST_IOLOOP_WAIT_MSECS 1000
 /* Log a warning if dict lookup takes longer than this many milliseconds. */
 #define DICT_CLIENT_DEFAULT_WARN_SLOW_MSECS 5000
 
@@ -78,6 +81,7 @@ struct client_dict {
 
 	struct ioloop *ioloop, *prev_ioloop;
 	struct io_wait_timer *wait_timer;
+	uint64_t last_timer_switch_usecs;
 	struct timeout *to_requests;
 	struct timeout *to_idle;
 	unsigned int idle_msecs;
@@ -237,6 +241,7 @@ static void client_dict_input_timeout(struct client_dict *dict)
 {
 	struct client_dict_cmd *cmd;
 	const char *error;
+	uint64_t msecs_in_last_dict_ioloop_wait;
 	int cmd_diff;
 
 	/* find the first non-background command. there must be at least one. */
@@ -251,6 +256,21 @@ static void client_dict_input_timeout(struct client_dict *dict)
 		timeout_remove(&dict->to_requests);
 		dict->to_requests =
 			timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MSECS - cmd_diff,
+				    client_dict_input_timeout, dict);
+		return;
+	}
+
+	/* If we've gotten here because all the time was spent in other ioloops
+	   or locks, make sure there's a bit of time waiting for the dict
+	   ioloop as well. There's a good chance that the reply can be read. */
+	msecs_in_last_dict_ioloop_wait =
+		(io_wait_timer_get_usecs(dict->wait_timer) -
+		 dict->last_timer_switch_usecs + 999) / 1000;
+	if (msecs_in_last_dict_ioloop_wait < DICT_CLIENT_REQUEST_TIMEOUT_MIN_LAST_IOLOOP_WAIT_MSECS) {
+		timeout_remove(&dict->to_requests);
+		dict->to_requests =
+			timeout_add(DICT_CLIENT_REQUEST_TIMEOUT_MIN_LAST_IOLOOP_WAIT_MSECS -
+				    msecs_in_last_dict_ioloop_wait,
 				    client_dict_input_timeout, dict);
 		return;
 	}
@@ -824,6 +844,8 @@ static bool client_dict_switch_ioloop(struct dict *_dict)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
 
+	dict->last_timer_switch_usecs =
+		io_wait_timer_get_usecs(dict->wait_timer);
 	dict->wait_timer = io_wait_timer_move(&dict->wait_timer);
 	if (dict->to_idle != NULL)
 		dict->to_idle = io_loop_move_timeout(&dict->to_idle);
