@@ -94,15 +94,29 @@ dumped state.
 .SS director flush
 .B doveadm director flush
 [\fB\-a\fP \fIdirector_socket_path\fP]
+[\fB\-f\fP]
+[\fB\-\-max\-parallel\fP \fIn\fP]
 \fIhost\fP|\fBall\fP
 .PP
 .B doveadm director flush
-drops all user associations either from the given
+removes all user associations either from the given
 .I host
 or
 .B all
-hosts.
-This command is intended mainly for testing purposes.
+hosts. All the existing connections will be kicked. If
+.B director_flush_socket
+is specified, a flush script is also automatically executed.
+.PP
+Because the kicking and moving of users to new backends creates a temporary
+load spike, all the users aren\'t moved at once. The
+.B \-\-max\-parallel
+parameter specifies how many users can be moved concurrently.
+The default is 100.
+.PP
+If
+.B \-f
+parameter is used, the user associations are simply dropped. Existing
+connections won\'t be kicked and flush scripts aren\'t run.
 .\"-------------------------------------
 .SS director kick
 .B doveadm director kick
