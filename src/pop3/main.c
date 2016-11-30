@@ -5,7 +5,7 @@
 #include "buffer.h"
 #include "istream.h"
 #include "ostream.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "base64.h"
 #include "str.h"
 #include "process-title.h"

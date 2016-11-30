@@ -8,7 +8,7 @@
 #include "write-full.h"
 #include "env-util.h"
 #include "hostpid.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "ipwd.h"
 #include "str.h"
 #include "execv-const.h"

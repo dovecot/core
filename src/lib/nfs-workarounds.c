@@ -28,7 +28,6 @@
 */
 
 #include "lib.h"
-#include "abspath.h"
 #include "nfs-workarounds.h"
 
 #include <fcntl.h>

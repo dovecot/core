@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "module-dir.h"
 #include "env-util.h"
 #include "guid.h"

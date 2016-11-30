@@ -4,7 +4,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "str.h"
 #include "base64.h"
 #include "process-title.h"

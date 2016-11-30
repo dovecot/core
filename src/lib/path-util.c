@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
-#include "abspath.h"
+#include "path-util.h"
 
 #include <unistd.h>
 

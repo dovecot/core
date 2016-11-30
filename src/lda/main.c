@@ -7,7 +7,7 @@
 #include "fd-set-nonblock.h"
 #include "istream.h"
 #include "istream-seekable.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "safe-mkstemp.h"
 #include "eacces-error.h"
 #include "ipwd.h"

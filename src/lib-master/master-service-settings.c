@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "istream.h"
 #include "write-full.h"
 #include "str.h"

@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "lib-signals.h"
 #include "ioloop.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "array.h"
 #include "strescape.h"
 #include "env-util.h"

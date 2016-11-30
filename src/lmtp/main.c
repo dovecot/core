@@ -4,7 +4,7 @@
 #include "array.h"
 #include "ioloop.h"
 #include "hostpid.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
 #include "anvil-client.h"

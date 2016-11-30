@@ -33,7 +33,7 @@
 #define _GNU_SOURCE /* for O_NOFOLLOW with Linux */
 
 #include "lib.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "unlink-directory.h"
 
 #include <fcntl.h>

@@ -1,7 +1,7 @@
 /* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "array.h"
 #include "istream.h"
 #include "ostream.h"

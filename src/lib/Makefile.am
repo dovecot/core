@@ -11,7 +11,6 @@ $(srcdir)/unicodemap.c: unicodemap.pl UnicodeData.txt
 	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
 
 liblib_la_SOURCES = \
-	abspath.c \
 	array.c \
 	aqueue.c \
 	askpass.c \
@@ -118,6 +117,7 @@ liblib_la_SOURCES = \
 	ostream-null.c \
 	ostream-rawlog.c \
 	ostream-unix.c \
+	path-util.c \
 	pkcs5.c \
 	primes.c \
 	printf-format-fix.c \
@@ -158,7 +158,6 @@ liblib_la_SOURCES = \
 	write-full.c
 
 headers = \
-	abspath.h \
 	aqueue.h \
 	array.h \
 	array-decl.h \
@@ -260,6 +259,7 @@ headers = \
 	ostream-null.h \
 	ostream-rawlog.h \
 	ostream-unix.h \
+	path-util.h \
 	pkcs5.h \
 	primes.h \
 	printf-format-fix.h \

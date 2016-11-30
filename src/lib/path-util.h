@@ -1,5 +1,5 @@
-#ifndef ABSPATH_H
-#define ABSPATH_H
+#ifndef PATH_UTIL_H
+#define PATH_UTIL_H
 
 /* Returns path as absolute path. If it's not already absolute path,
    it's assumed to be relative to current working directory. */

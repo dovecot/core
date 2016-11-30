@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "ioloop.h"
 #include "mkdir-parents.h"
 #include "str.h"

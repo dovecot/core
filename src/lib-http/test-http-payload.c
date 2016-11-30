@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "llist.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "hostpid.h"
 #include "ioloop.h"
 #include "istream.h"

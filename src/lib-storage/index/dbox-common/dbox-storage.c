@@ -1,9 +1,8 @@
 /* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "ioloop.h"
-#include "abspath.h"
 #include "fs-api.h"
 #include "mkdir-parents.h"
 #include "unlink-old-files.h"

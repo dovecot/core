@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
-#include "abspath.h"
+#include "path-util.h"
 #include "ipwd.h"
 #include "restrict-access.h"
 #include "eacces-error.h"
