@@ -97,6 +97,7 @@ struct dsync_brain {
 	/* new states for synced mailboxes */
 	ARRAY_TYPE(dsync_mailbox_state) remote_mailbox_states;
 
+	const char *changes_during_sync;
 	enum mail_error mail_error;
 
 	unsigned int master_brain:1;
@@ -110,7 +111,7 @@ struct dsync_brain {
 	unsigned int no_backup_overwrite:1;
 	unsigned int no_mail_prefetch:1;
 	unsigned int no_mailbox_renames:1;
-	unsigned int changes_during_sync:1;
+	unsigned int changes_during_remote_sync:1;
 	unsigned int require_full_resync:1;
 	unsigned int verbose_proctitle:1;
 	unsigned int no_notify:1;
@@ -137,11 +138,14 @@ int dsync_brain_mailbox_alloc(struct dsync_brain *brain, const guid_128_t guid,
 bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 				    struct mailbox *box,
 				    const struct dsync_mailbox *local_box,
-				    const struct dsync_mailbox *remote_box);
+				    const struct dsync_mailbox *remote_box,
+				    const char **reason_r);
 bool dsync_boxes_need_sync(struct dsync_brain *brain,
 			   const struct dsync_mailbox *box1,
 			   const struct dsync_mailbox *box2);
 void dsync_brain_sync_init_box_states(struct dsync_brain *brain);
+void dsync_brain_set_changes_during_sync(struct dsync_brain *brain,
+					 const char *reason);
 
 void dsync_brain_master_send_mailbox(struct dsync_brain *brain);
 bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain);
