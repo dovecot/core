@@ -37,7 +37,17 @@ static bool config_filter_match_rest(const struct config_filter *mask,
 	if (mask->local_name != NULL) {
 		if (filter->local_name == NULL)
 			return FALSE;
-		if (dns_match_wildcard(filter->local_name, mask->local_name) != 0)
+		/* Handle multiple names seperated by spaces in local_name
+		 * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
+		const char *const *local_name = t_strsplit_spaces(mask->local_name, " ");
+		bool matched = FALSE;
+		for (; *local_name != NULL; local_name++) {
+			if (dns_match_wildcard(filter->local_name, *local_name) == 0) {
+				matched = TRUE;
+				break;
+			}
+		}
+		if (!matched)
 			return FALSE;
 	}
 	/* FIXME: it's not comparing full masks */
