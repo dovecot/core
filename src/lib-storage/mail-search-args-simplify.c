@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "hash.h"
 #include "mail-search.h"
 
@@ -105,15 +106,35 @@ static bool mail_search_args_merge_flags(struct mail_search_simplify_ctx *ctx,
 	}
 }
 
+static void mail_search_args_simplify_set(struct mail_search_arg *args)
+{
+	const struct seq_range *seqset;
+	unsigned int count;
+
+	if (args->match_not) {
+		/* invert the set to drop the NOT */
+		args->match_not = FALSE;
+		seq_range_array_invert(&args->value.seqset, 1, (uint32_t)-1);
+	}
+	seqset = array_get(&args->value.seqset, &count);
+	if (count == 1 && seqset->seq1 == 1 && seqset->seq2 == (uint32_t)-1) {
+		/* 1:* is the same as ALL. */
+		args->type = SEARCH_ALL;
+	} else if (count == 0) {
+		/* empty set is the same as NOT ALL. this is mainly coming
+		   from mail_search_args_merge_set() intersection. */
+		args->type = SEARCH_ALL;
+		args->match_not = TRUE;
+	}
+}
+
 static bool mail_search_args_merge_set(struct mail_search_simplify_ctx *ctx,
 				       struct mail_search_arg *args)
 {
 	struct mail_search_simplify_prev_arg mask;
 	struct mail_search_arg **prev_argp;
 
-	if (!((!args->match_not && ctx->parent_and) ||
-	      (args->match_not && !ctx->parent_and)))
-		return FALSE;
+	i_assert(!args->match_not);
 
 	mail_search_arg_get_base_mask(args, &mask);
 	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
@@ -121,6 +142,10 @@ static bool mail_search_args_merge_set(struct mail_search_simplify_ctx *ctx,
 	if (*prev_argp == NULL) {
 		*prev_argp = args;
 		return FALSE;
+	} else if (ctx->parent_and) {
+		seq_range_array_intersect(&(*prev_argp)->value.seqset,
+					  &args->value.seqset);
+		return TRUE;
 	} else {
 		seq_range_array_merge(&(*prev_argp)->value.seqset,
 				      &args->value.seqset);
@@ -526,6 +551,9 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 							  args->type != SEARCH_OR))
 				ctx.removals = TRUE;
 		}
+		if (args->type == SEARCH_SEQSET ||
+		    args->type == SEARCH_UIDSET)
+			mail_search_args_simplify_set(args);
 
 		/* try to merge arguments */
 		merged = FALSE;
