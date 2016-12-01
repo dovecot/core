@@ -134,13 +134,9 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 			return -1;
 		}
 		if (ret == 0) {
-			if (brain->debug) {
-				i_debug("brain %c: Change during sync: "
-					"Mailbox GUID %s deletion conflict: %s",
-					brain->master_brain ? 'M' : 'S',
-					guid_128_to_string(change->mailbox_guid), errstr);
-			}
-			brain->changes_during_sync = TRUE;
+			dsync_brain_set_changes_during_sync(brain, t_strdup_printf(
+				"Mailbox GUID %s deletion conflict: %s",
+				guid_128_to_string(change->mailbox_guid), errstr));
 			return 0;
 		}
 		break;
@@ -153,13 +149,9 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		errstr = mailbox_list_get_last_error(change->ns->list, &error);
 		if (error == MAIL_ERROR_NOTFOUND ||
 		    error == MAIL_ERROR_EXISTS) {
-			if (brain->debug) {
-				i_debug("brain %c: Change during sync: "
-					"Mailbox %s mailbox_list_delete_dir conflict: %s",
-					brain->master_brain ? 'M' : 'S',
-					change->full_name, errstr);
-			}
-			brain->changes_during_sync = TRUE;
+			dsync_brain_set_changes_during_sync(brain, t_strdup_printf(
+				"Mailbox %s mailbox_list_delete_dir conflict: %s",
+				change->full_name, errstr));
 			return 0;
 		} else {
 			i_error("Mailbox sync: mailbox_list_delete_dir failed: %s",
@@ -220,14 +212,9 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		    error == MAIL_ERROR_NOTFOUND) {
 			/* mailbox was already created or was already deleted.
 			   let the next sync figure out what to do */
-			if (brain->debug) {
-				i_debug("brain %c: Change during sync: "
-					"Mailbox %s %s conflict: %s",
-					brain->master_brain ? 'M' : 'S',
-					mailbox_get_vname(box),
-					func_name, errstr);
-			}
-			brain->changes_during_sync = TRUE;
+			dsync_brain_set_changes_during_sync(brain, t_strdup_printf(
+				"Mailbox %s %s conflict: %s",
+				mailbox_get_vname(box), func_name, errstr));
 			ret = 0;
 		} else {
 			i_error("Mailbox %s sync: %s failed: %s",

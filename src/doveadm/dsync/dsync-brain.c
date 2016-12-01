@@ -765,8 +765,15 @@ bool dsync_brain_has_failed(struct dsync_brain *brain)
 	return brain->failed;
 }
 
-bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain)
+const char *dsync_brain_get_unexpected_changes_reason(struct dsync_brain *brain,
+						      bool *remote_only_r)
 {
+	if (brain->changes_during_sync == NULL &&
+	    brain->changes_during_remote_sync) {
+		*remote_only_r = TRUE;
+		return "Remote notified that changes happened during sync";
+	}
+	*remote_only_r = FALSE;
 	return brain->changes_during_sync;
 }
 
@@ -797,4 +804,15 @@ bool dsync_brain_want_namespace(struct dsync_brain *brain,
 		return strcmp(ns->unexpanded_set->location,
 			      SETTING_STRVAR_UNEXPANDED) == 0;
 	}
+}
+
+void dsync_brain_set_changes_during_sync(struct dsync_brain *brain,
+					 const char *reason)
+{
+	if (brain->debug) {
+		i_debug("brain %c: Change during sync: %s",
+			brain->master_brain ? 'M' : 'S', reason);
+	}
+	if (brain->changes_during_sync == NULL)
+		brain->changes_during_sync = p_strdup(brain->pool, reason);
 }
