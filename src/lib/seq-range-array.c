@@ -163,7 +163,7 @@ seq_range_array_add_range_internal(ARRAY_TYPE(seq_range) *array,
 		idx1--;
 
 	if (idx1 == idx2 &&
-	    (idx2 == count || data[idx2].seq1 > seq2+1) &&
+	    (idx2 == count || (seq2 < (uint32_t)-1 && data[idx2].seq1 > seq2+1)) &&
 	    (idx1 == 0 || data[idx1-1].seq2 < seq1-1)) {
 		/* no overlapping */
 		value.seq1 = seq1;
