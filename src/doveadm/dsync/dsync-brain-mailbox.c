@@ -309,7 +309,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		i_warning("Failed to do incremental sync for mailbox %s, "
 			  "retry with a full sync (%s)",
 			  mailbox_get_vname(brain->box), desync_reason);
-		brain->changes_during_sync = TRUE;
+		dsync_brain_set_changes_during_sync(brain, t_strdup_printf(
+			"Incremental sync failed: %s", desync_reason));
 		brain->require_full_resync = TRUE;
 		return 0;
 	}
@@ -363,7 +364,8 @@ void dsync_brain_sync_mailbox_deinit(struct dsync_brain *brain)
 	if (brain->box_importer != NULL) {
 		uint32_t last_common_uid, last_messages_count;
 		uint64_t last_common_modseq, last_common_pvt_modseq;
-		bool changes_during_sync, require_full_resync;
+		const char *changes_during_sync;
+		bool require_full_resync;
 
 		i_assert(brain->failed);
 		(void)dsync_mailbox_import_deinit(&brain->box_importer,
@@ -671,12 +673,14 @@ dsync_cache_fields_update(const struct dsync_mailbox *local_box,
 bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 				    struct mailbox *box,
 				    const struct dsync_mailbox *local_box,
-				    const struct dsync_mailbox *remote_box)
+				    const struct dsync_mailbox *remote_box,
+				    const char **reason_r)
 {
 	struct mailbox_update update;
 	const struct dsync_mailbox_state *state;
 	bool ret = TRUE;
 
+	*reason_r = NULL;
 	memset(&update, 0, sizeof(update));
 
 	if (local_box->uid_validity != remote_box->uid_validity) {
@@ -693,6 +697,7 @@ bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 			   session, because the other side already started
 			   sending mailbox changes, but not for all mails. */
 			dsync_mailbox_state_remove(brain, local_box->mailbox_guid);
+			*reason_r = "UIDVALIDITY changed during a stateful sync, need to restart";
 			ret = FALSE;
 		}
 	}
@@ -738,7 +743,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	const struct dsync_mailbox *dsync_box;
 	struct dsync_mailbox local_dsync_box;
 	struct mailbox *box;
-	const char *errstr;
+	const char *errstr, *resync_reason;
 	enum mail_error error;
 	int ret;
 	bool resync;
@@ -774,13 +779,9 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 			return TRUE;
 		}
 		//FIXME: verify this from log, and if not log an error.
-		if (brain->debug) {
-			i_debug("brain %c: Change during sync: "
-				"Mailbox GUID %s was lost",
-				brain->master_brain ? 'M' : 'S',
-				guid_128_to_string(dsync_box->mailbox_guid));
-		}
-		brain->changes_during_sync = TRUE;
+		dsync_brain_set_changes_during_sync(brain, t_strdup_printf(
+			"Mailbox GUID %s was lost",
+			guid_128_to_string(dsync_box->mailbox_guid)));
 		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
 		return TRUE;
 	}
@@ -814,7 +815,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 			sizeof(dsync_box->mailbox_guid)) == 0);
 
 	resync = !dsync_brain_mailbox_update_pre(brain, box, &local_dsync_box,
-						 dsync_box);
+						 dsync_box, &resync_reason);
 
 	if (!dsync_boxes_need_sync(brain, &local_dsync_box, dsync_box)) {
 		/* no fields appear to have changed, skip this mailbox */
@@ -832,8 +833,9 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	dsync_brain_sync_mailbox_init(brain, box, &local_dsync_box, FALSE);
 	if ((ret = dsync_brain_sync_mailbox_open(brain, dsync_box)) < 0)
 		return TRUE;
+	if (resync)
+		dsync_brain_set_changes_during_sync(brain, resync_reason);
 	if (ret == 0 || resync) {
-		brain->changes_during_sync = TRUE;
 		brain->require_full_resync = TRUE;
 		dsync_brain_sync_mailbox_deinit(brain);
 		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);

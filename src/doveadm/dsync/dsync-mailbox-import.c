@@ -2593,7 +2593,7 @@ reassign_uids_in_seq_range(struct dsync_mailbox_importer *importer,
 
 static int
 reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
-		       bool *changes_during_sync_r)
+		       const char **changes_during_sync_r)
 {
 	ARRAY_TYPE(seq_range) unwanted_uids;
 	const uint32_t *wanted_uids, *saved_uids;
@@ -2637,7 +2637,9 @@ reassign_unwanted_uids(struct dsync_mailbox_importer *importer,
 
 	ret = reassign_uids_in_seq_range(importer, &unwanted_uids);
 	if (ret == 0) {
-		*changes_during_sync_r = TRUE;
+		*changes_during_sync_r = t_strdup_printf(
+			"%u UIDs changed due to UID conflicts",
+			seq_range_count(&unwanted_uids));
 		/* conflicting changes during sync, revert our last-common-uid
 		   back to a safe value. */
 		importer->last_common_uid = importer->local_uid_next - 1;
@@ -2698,7 +2700,7 @@ dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer, bool final)
 }
 
 static int dsync_mailbox_import_finish(struct dsync_mailbox_importer *importer,
-				       bool *changes_during_sync_r)
+				       const char **changes_during_sync_r)
 {
 	struct mailbox_update update;
 	int ret;
@@ -2801,7 +2803,7 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 				uint64_t *last_common_modseq_r,
 				uint64_t *last_common_pvt_modseq_r,
 				uint32_t *last_messages_count_r,
-				bool *changes_during_sync_r,
+				const char **changes_during_sync_r,
 				bool *require_full_resync_r,
 				enum mail_error *error_r)
 {
@@ -2810,7 +2812,7 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 	int ret;
 
 	*_importer = NULL;
-	*changes_during_sync_r = FALSE;
+	*changes_during_sync_r = NULL;
 	*require_full_resync_r = importer->require_full_resync;
 
 	if ((!success || importer->require_full_resync) && !importer->failed) {

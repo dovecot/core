@@ -104,8 +104,11 @@ bool dsync_brain_has_failed(struct dsync_brain *brain);
 void dsync_brain_get_state(struct dsync_brain *brain, string_t *output);
 /* Returns the sync type that was used. Mainly useful with slave brain. */
 enum dsync_brain_sync_type dsync_brain_get_sync_type(struct dsync_brain *brain);
-/* Returns TRUE if there were any unexpected changes during the sync. */
-bool dsync_brain_has_unexpected_changes(struct dsync_brain *brain);
+/* If there were any unexpected changes during the sync, return the reason
+   for them. Otherwise return NULL. If remote_only_r=TRUE, this brain itself
+   didn't see any changes, but the remote brain did. */
+const char *dsync_brain_get_unexpected_changes_reason(struct dsync_brain *brain,
+						      bool *remote_only_r);
 /* Returns TRUE if we want to sync this namespace. */
 bool dsync_brain_want_namespace(struct dsync_brain *brain,
 				struct mail_namespace *ns);
