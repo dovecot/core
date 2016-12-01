@@ -50,6 +50,11 @@ static void test_seq_range_array_add_merge(void)
 	seq_range_array_add(&range, 1);
 	seq_range_array_add(&range, 2);
 	test_assert(array_count(&range) == 2);
+
+	seq_range_array_add_range(&range, 1, (uint32_t)-1);
+	test_assert(array_count(&range) == 1);
+	seq_range_array_add_range(&range, 1, (uint32_t)-1);
+	test_assert(array_count(&range) == 1);
 	test_end();
 }
 
