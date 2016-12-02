@@ -129,13 +129,15 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		ret = dsync_brain_mailbox_alloc(brain, change->mailbox_guid,
 						&box, &errstr, error_r);
 		if (ret < 0) {
-			i_error("Mailbox sync: Couldn't allocate mailbox GUID %s: %s",
+			i_error("Mailbox sync: Couldn't allocate mailbox %s GUID %s: %s",
+				change->full_name,
 				guid_128_to_string(change->mailbox_guid), errstr);
 			return -1;
 		}
 		if (ret == 0) {
 			dsync_brain_set_changes_during_sync(brain, t_strdup_printf(
-				"Mailbox GUID %s deletion conflict: %s",
+				"Mailbox %s GUID %s %s deletion conflict: %s",
+				change->full_name,
 				guid_128_to_string(change->mailbox_guid), errstr));
 			return 0;
 		}
