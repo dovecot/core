@@ -107,15 +107,6 @@ http_client_init_shared(struct http_client_context *cctx,
 	i_assert(cctx != NULL || set != NULL);
 	client->set = cctx->set;
 	if (cctx != NULL && set != NULL) {
-		if (set->dns_client != NULL)
-			client->set.dns_client = set->dns_client;
-		if (set->dns_client_socket_path != NULL &&
-			*set->dns_client_socket_path != '\0') {
-			client->set.dns_client_socket_path =
-				p_strdup_empty(pool, set->dns_client_socket_path);
-		}
-		if (set->dns_ttl_msecs > 0)
-			client->set.dns_ttl_msecs = set->dns_ttl_msecs;
 		if (set->user_agent != NULL && *set->user_agent != '\0')
 			client->set.user_agent = p_strdup_empty(pool, set->user_agent);
 		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
@@ -188,7 +179,6 @@ http_client_init_shared(struct http_client_context *cctx,
 
 	i_array_init(&client->delayed_failing_requests, 1);
 
-	hash_table_create(&client->hosts, default_pool, 0, str_hash, strcmp);
 	hash_table_create(&client->peers, default_pool, 0,
 		http_client_peer_addr_hash, http_client_peer_addr_cmp);
 
@@ -231,7 +221,6 @@ void http_client_deinit(struct http_client **_client)
 		host = client->hosts_list;
 		http_client_host_free(&host);
 	}
-	hash_table_destroy(&client->hosts);
 
 	array_free(&client->delayed_failing_requests);
 	timeout_remove(&client->to_failing_requests);
@@ -251,8 +240,9 @@ void http_client_switch_ioloop(struct http_client *client)
 	for (peer = client->peers_list; peer != NULL; peer = peer->next)
 		http_client_peer_switch_ioloop(peer);
 
-	/* move dns lookups and delayed requests */
-	for (host = client->hosts_list; host != NULL; host = host->next)
+	/* move hosts/queues */
+	for (host = client->hosts_list; host != NULL;
+		host = host->client_next)
 		http_client_host_switch_ioloop(host);
 
 	/* move timeouts */
@@ -443,6 +433,8 @@ http_client_context_create(const struct http_client_settings *set)
 
 	cctx->conn_list = http_client_connection_list_init();
 
+	hash_table_create(&cctx->hosts, default_pool, 0, str_hash, strcmp);
+
 	return cctx;
 }
 
@@ -454,12 +446,20 @@ void http_client_context_ref(struct http_client_context *cctx)
 void http_client_context_unref(struct http_client_context **_cctx)
 {
 	struct http_client_context *cctx = *_cctx;
+	struct http_client_host_shared *hshared;
 
 	*_cctx = NULL;
 
 	i_assert(cctx->refcount > 0);
 	if (--cctx->refcount > 0)
 		return;
+
+	/* free hosts */
+	while (cctx->hosts_list != NULL) {
+		hshared = cctx->hosts_list;
+		http_client_host_shared_free(&hshared);
+	}
+	hash_table_destroy(&cctx->hosts);
 
 	connection_list_deinit(&cctx->conn_list);
 
@@ -469,6 +469,7 @@ void http_client_context_unref(struct http_client_context **_cctx)
 void http_client_context_switch_ioloop(struct http_client_context *cctx)
 {
 	struct connection *_conn = cctx->conn_list->connections;
+	struct http_client_host_shared *hshared;
 
 	/* move connections */
 	/* FIXME: we wouldn't necessarily need to switch all of them
@@ -479,5 +480,10 @@ void http_client_context_switch_ioloop(struct http_client_context *cctx)
 			(struct http_client_connection *)_conn;
 
 		http_client_connection_switch_ioloop(conn);
-	}	
+	}
+
+	/* move dns lookups and delayed requests */
+	for (hshared = cctx->hosts_list; hshared != NULL;
+		hshared = hshared->next)
+		http_client_host_shared_switch_ioloop(hshared);
 }

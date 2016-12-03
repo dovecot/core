@@ -27,6 +27,7 @@
 struct http_client_connection;
 struct http_client_peer;
 struct http_client_queue;
+struct http_client_host_shared;
 struct http_client_host;
 
 ARRAY_DEFINE_TYPE(http_client_request,
@@ -43,8 +44,8 @@ ARRAY_DEFINE_TYPE(http_client_host,
 HASH_TABLE_DEFINE_TYPE(http_client_peer,
 	const struct http_client_peer_addr *,
 	struct http_client_peer *);
-HASH_TABLE_DEFINE_TYPE(http_client_host,
-	const char *, struct http_client_host *);
+HASH_TABLE_DEFINE_TYPE(http_client_host_shared,
+	const char *, struct http_client_host_shared *);
 
 enum http_client_peer_addr_type {
 	HTTP_CLIENT_PEER_ADDR_HTTP = 0,
@@ -281,10 +282,10 @@ struct http_client_queue {
 	struct timeout *to_connect, *to_request, *to_delayed;
 };
 
-struct http_client_host {
-	struct http_client_host *prev, *next;
+struct http_client_host_shared {
+	struct http_client_host_shared *prev, *next;
 
-	struct http_client *client;
+	struct http_client_context *cctx;
 	char *name;
 
 	/* the ip addresses DNS returned for this host */
@@ -292,8 +293,8 @@ struct http_client_host {
 	struct ip_addr *ips;
 	struct timeval ips_timeout;
 
-	/* requests are managed on a per-port basis */
-	ARRAY_TYPE(http_client_queue) queues;
+	/* private instance for each client that uses this host */
+	struct http_client_host *hosts_list;
 
 	/* active DNS lookup */
 	struct dns_lookup *dns_lookup;
@@ -303,6 +304,17 @@ struct http_client_host {
 
 	bool unix_local:1;
 	bool explicit_ip:1;
+};
+
+struct http_client_host {
+	struct http_client_host_shared *shared;
+	struct http_client_host *shared_prev, *shared_next;
+
+	struct http_client *client;
+	struct http_client_host *client_prev, *client_next;
+
+	/* separate queue for each host port */
+	ARRAY_TYPE(http_client_queue) queues;
 };
 
 struct http_client {
@@ -317,8 +329,6 @@ struct http_client {
 	ARRAY(struct http_client_request *) delayed_failing_requests;
 	struct timeout *to_failing_requests;
 
-	HASH_TABLE_TYPE(http_client_host) hosts;
-	struct http_client_host *unix_host;
 	struct http_client_host *hosts_list;
 	HASH_TABLE_TYPE(http_client_peer) peers;
 	struct http_client_peer *peers_list;
@@ -333,6 +343,10 @@ struct http_client_context {
 	struct http_client_settings set;
 
 	struct connection_list *conn_list;
+
+	HASH_TABLE_TYPE(http_client_host_shared) hosts;
+	struct http_client_host_shared *unix_host;
+	struct http_client_host_shared *hosts_list;
 };
 
 /*
@@ -560,24 +574,33 @@ void http_client_queue_switch_ioloop(struct http_client_queue *queue);
  * Host
  */
 
+/* host (shared) */
+
+void http_client_host_shared_free(
+	struct http_client_host_shared **_hshared);
+void http_client_host_shared_switch_ioloop(
+	struct http_client_host_shared *hshared);
+
+/* host */
+
 static inline unsigned int
 http_client_host_get_ips_count(struct http_client_host *host)
 {
-	return host->ips_count;
+	return host->shared->ips_count;
 }
 
 static inline const struct ip_addr *
 http_client_host_get_ip(struct http_client_host *host,
 	unsigned int idx)
 {
-	i_assert(idx < host->ips_count);
-	return &host->ips[idx];
+	i_assert(idx < host->shared->ips_count);
+	return &host->shared->ips[idx];
 }
 
 static inline bool
 http_client_host_ready(struct http_client_host *host)
 {
-	return host->dns_lookup == NULL;
+	return host->shared->dns_lookup == NULL;
 }
 
 struct http_client_host *

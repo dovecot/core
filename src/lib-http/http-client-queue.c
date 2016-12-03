@@ -75,7 +75,7 @@ static struct http_client_queue *
 http_client_queue_create(struct http_client_host *host,
 	const struct http_client_peer_addr *addr)
 {
-	const char *hostname = host->name;
+	const char *hostname = host->shared->name;
 	struct http_client_queue *queue;
 
 	queue = i_new(struct http_client_queue, 1);
