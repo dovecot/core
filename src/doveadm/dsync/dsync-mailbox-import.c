@@ -2858,7 +2858,7 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 		array_free(&importer->mail_requests);
 
 	*last_common_uid_r = importer->last_common_uid;
-	if (!*changes_during_sync_r) {
+	if (*changes_during_sync_r == NULL) {
 		*last_common_modseq_r = importer->remote_highest_modseq;
 		*last_common_pvt_modseq_r = importer->remote_highest_pvt_modseq;
 	} else {
