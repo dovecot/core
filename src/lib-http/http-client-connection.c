@@ -30,11 +30,17 @@ static inline void
 http_client_connection_debug(struct http_client_connection *conn,
 	const char *format, ...)
 {
+	const char *log_prefix;
 	va_list args;
+
+	if (conn->peer != NULL)
+		log_prefix = conn->peer->client->log_prefix;
+	else
+		log_prefix = "http-client: ";
 
 	if (conn->debug || conn->ppool->peer->cctx->set.debug) {
 		va_start(args, format);	
-		i_debug("http-client: conn %s: %s",
+		i_debug("%sconn %s: %s", log_prefix,
 			conn->label, t_strdup_vprintf(format, args));
 		va_end(args);
 	}

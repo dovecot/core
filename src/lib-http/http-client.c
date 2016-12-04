@@ -88,6 +88,7 @@ struct http_client *
 http_client_init_shared(struct http_client_context *cctx,
 	const struct http_client_settings *set)
 {
+	static unsigned int id = 0;
 	struct http_client *client;
 	pool_t pool;
 
@@ -96,11 +97,14 @@ http_client_init_shared(struct http_client_context *cctx,
 	client->pool = pool;
 
 	/* create private context if none is provided */
+	id++;
 	if (cctx != NULL) {
 		client->cctx = cctx;
 		http_client_context_ref(cctx);
+		client->log_prefix = p_strdup_printf(pool, "http-client[%u]: ", id);
 	} else {
 		client->cctx = cctx = http_client_context_create(set);
+		client->log_prefix = "http-client: ";
 	}
 
 	/* merge provided settings with context defaults */

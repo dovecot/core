@@ -356,6 +356,7 @@ struct http_client {
 	pool_t pool;
 	struct http_client_context *cctx;
 	struct http_client_settings set;
+	const char *log_prefix;
 
 	struct ioloop *ioloop;
 	struct ssl_iostream_context *ssl_ctx;

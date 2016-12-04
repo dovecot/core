@@ -59,7 +59,7 @@ http_client_host_debug(struct http_client_host *host,
 
 	if (host->client->set.debug) {
 		va_start(args, format);
-		i_debug("http-client: host %s: %s",
+		i_debug("%shost %s: %s", host->client->log_prefix,
 			host->shared->name, t_strdup_vprintf(format, args));
 		va_end(args);
 	}

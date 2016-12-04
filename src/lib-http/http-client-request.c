@@ -46,7 +46,7 @@ http_client_request_debug(struct http_client_request *req,
 
 	if (req->client->set.debug) {
 		va_start(args, format);	
-		i_debug("http-client: request %s: %s",
+		i_debug("%srequest %s: %s", req->client->log_prefix,
 			http_client_request_label(req), t_strdup_vprintf(format, args));
 		va_end(args);
 	}

@@ -46,7 +46,7 @@ http_client_queue_debug(struct http_client_queue *queue,
 
 		// FIXME: find some other method of distinguishing clients
 		va_start(args, format);	
-		i_debug("http-client: queue %s: %s", 
+		i_debug("%squeue %s: %s", queue->client->log_prefix,
 			queue->name, t_strdup_vprintf(format, args));
 		va_end(args);
 	}

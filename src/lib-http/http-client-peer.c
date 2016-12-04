@@ -88,8 +88,8 @@ http_client_peer_debug(struct http_client_peer *peer,
 	va_list args;
 
 	if (client->set.debug) {
-		va_start(args, format);	
-		i_debug("http-client: peer %s: %s", 
+		va_start(args, format);
+		i_debug("%speer %s: %s", client->log_prefix,
 			http_client_peer_shared_label(pshared), t_strdup_vprintf(format, args));
 		va_end(args);
 	}
