@@ -684,12 +684,14 @@ static void hostname_verify_format(const char *arg)
 
 static void check_wrong_config(const char *config_path)
 {
-	const char *base_dir, *symlink_path, *prev_path;
+	const char *base_dir, *symlink_path, *prev_path, *error;
 
 	base_dir = get_setting("master", "base_dir");
 	symlink_path = t_strconcat(base_dir, "/"PACKAGE".conf", NULL);
-	if (t_readlink(symlink_path, &prev_path) < 0)
+	if (t_readlink(symlink_path, &prev_path, &error) < 0) {
+		i_error("t_readlink(%s) failed: %s", symlink_path, error);
 		return;
+	}
 
 	if (strcmp(prev_path, config_path) != 0) {
 		i_warning("Dovecot was last started using %s, "

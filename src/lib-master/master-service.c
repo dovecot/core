@@ -424,8 +424,9 @@ static bool get_instance_config(const char *name, const char **config_path_r)
 	inst = master_instance_list_find_by_name(list, name);
 	if (inst != NULL) {
 		path = t_strdup_printf("%s/dovecot.conf", inst->base_dir);
-		if (t_readlink(path, config_path_r) < 0)
-			i_fatal("readlink(%s) failed: %m", path);
+		const char *error;
+		if (t_readlink(path, config_path_r, &error) < 0)
+			i_fatal("t_readlink(%s) failed: %s", path, error);
 	}
 	master_instance_list_deinit(&list);
 	return inst != NULL;

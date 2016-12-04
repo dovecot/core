@@ -48,8 +48,10 @@ int t_get_current_dir(const char **dir_r)
 	return 0;
 }
 
-int t_readlink(const char *path, const char **dest_r)
+int t_readlink(const char *path, const char **dest_r, const char **error_r)
 {
+	i_assert(error_r != NULL);
+
 	/* @UNSAFE */
 	ssize_t ret;
 	char *dest;
@@ -60,8 +62,10 @@ int t_readlink(const char *path, const char **dest_r)
 		size = nearest_power(size+1);
 		dest = t_buffer_get(size);
 	}
-	if (ret < 0)
+	if (ret < 0) {
+		*error_r = t_strdup_printf("readlink() failed: %m");
 		return -1;
+	}
 
 	dest[ret] = '\0';
 	t_buffer_alloc(ret + 1);

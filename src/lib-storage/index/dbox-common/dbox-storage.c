@@ -32,12 +32,12 @@ static bool
 dbox_alt_path_has_changed(const char *root_dir, const char *alt_path,
 			  const char *alt_path2, const char *alt_symlink_path)
 {
-	const char *linkpath;
+	const char *linkpath, *error;
 
-	if (t_readlink(alt_symlink_path, &linkpath) < 0) {
+	if (t_readlink(alt_symlink_path, &linkpath, &error) < 0) {
 		if (errno == ENOENT)
 			return alt_path != NULL;
-		i_error("readlink(%s) failed: %m", alt_symlink_path);
+		i_error("t_readlink(%s) failed: %s", alt_symlink_path, error);
 		return FALSE;
 	}
 

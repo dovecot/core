@@ -1691,7 +1691,7 @@ int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
 		return 1;
 
 	T_BEGIN {
-		const char *path, *linkpath;
+		const char *path, *linkpath, *error;
 
 		path = t_strconcat(dir_path, "/", d->d_name, NULL);
 		if (lstat(path, &st) < 0) {
@@ -1700,8 +1700,8 @@ int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
 			ret = -1;
 		} else if (!S_ISLNK(st.st_mode)) {
 			ret = 0;
-		} else if (t_readlink(path, &linkpath) < 0) {
-			i_error("readlink(%s) failed: %m", path);
+		} else if (t_readlink(path, &linkpath, &error) < 0) {
+			i_error("t_readlink(%s) failed: %s", path, error);
 			ret = -1;
 		} else {
 			/* it's an alias only if it points to the same

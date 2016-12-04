@@ -58,15 +58,17 @@ static void
 master_instance_update_config_path(struct master_instance_list *list,
 				   struct master_instance *inst)
 {
-	const char *path, *config_path;
+	const char *path, *config_path, *error;
 
 	/* update instance's config path if it has changed */
 	path = t_strconcat(inst->base_dir, "/"PACKAGE".conf", NULL);
-	if (t_readlink(path, &config_path) == 0) {
-		if (null_strcmp(inst->config_path, config_path) != 0) {
-			inst->config_path = p_strdup(list->pool, config_path);
-			list->config_paths_changed = TRUE;
-		}
+	if (t_readlink(path, &config_path, &error) < 0) {
+		i_error("t_readlink(%s) failed: %s", path, error);
+		return;
+	}
+	if (null_strcmp(inst->config_path, config_path) != 0) {
+		inst->config_path = p_strdup(list->pool, config_path);
+		list->config_paths_changed = TRUE;
 	}
 }
 
