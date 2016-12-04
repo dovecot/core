@@ -127,9 +127,32 @@ static const struct {
 	const char *output;
 } test_strarray_outputs[] = {
 	{ "", "helloworldyay" },
-	/* FIXME: v2.3 - test_output should have separator in the beginning */
-	{ " ", "hello world  yay " },
-	{ "!-?", "hello!-?world!-?!-?yay!-?" }
+	{ " ", " hello world  yay " },
+	{ "!-?", "!-?hello!-?world!-?!-?yay!-?" }
+};
+
+static const char *const test_strarray_input2[] = {
+	"", "", "hello", "world", "", "yay", "", NULL
+};
+static struct {
+	const char *separator;
+	const char *output;
+} test_strarray_outputs2[] = {
+	{ "", "helloworldyay" },
+	{ " ", "  hello world  yay " },
+	{ "!-?", "!-?!-?hello!-?world!-?!-?yay!-?" }
+};
+
+static const char *const test_strarray_input3[] = {
+	"hello", "", "", "yay", NULL
+};
+static struct {
+	const char *separator;
+	const char *output;
+} test_strarray_outputs3[] = {
+	{ "", "helloyay" },
+	{ " ", "hello   yay" },
+	{ "!-?", "hello!-?!-?!-?yay" }
 };
 
 static void test_t_strarray_join(void)
@@ -146,6 +169,16 @@ static void test_t_strarray_join(void)
 		test_assert_idx(strcmp(t_strarray_join(test_strarray_input,
 						       test_strarray_outputs[i].separator),
 				       test_strarray_outputs[i].output) == 0, i);
+	}
+	for (i = 0; i < N_ELEMENTS(test_strarray_outputs2); i++) {
+		test_assert_idx(strcmp(t_strarray_join(test_strarray_input2,
+						       test_strarray_outputs2[i].separator),
+				       test_strarray_outputs2[i].output) == 0, i);
+	}
+	for (i = 0; i < N_ELEMENTS(test_strarray_outputs3); i++) {
+		test_assert_idx(strcmp(t_strarray_join(test_strarray_input3,
+						       test_strarray_outputs3[i].separator),
+				       test_strarray_outputs3[i].output) == 0, i);
 	}
 	test_end();
 }

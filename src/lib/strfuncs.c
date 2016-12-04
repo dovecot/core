@@ -628,7 +628,7 @@ p_strarray_join_n(pool_t pool, const char *const *arr, unsigned int arr_len,
 			str = t_buffer_reget(str, alloc_len);
 		}
 
-		if (pos != 0) {
+		if (i != 0) {
 			memcpy(str + pos, separator, sep_len);
 			pos += sep_len;
 		}
