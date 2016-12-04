@@ -256,19 +256,6 @@ void http_client_host_submit_request(struct http_client_host *host,
 
 	/* cancel host idle timeout */
 	timeout_remove(&host->to_idle);
-
-	if (host->unix_local) {
-		http_client_queue_connection_setup(queue);
-		return;
-	}
-
-	/* start DNS lookup if necessary */
-	if (host->ips_count == 0 && host->dns_lookup == NULL)	
-		http_client_host_lookup(host);
-
-	/* make a connection if we have an IP already */
-	if (host->ips_count > 0)
-		http_client_queue_connection_setup(queue);
 }
 
 void http_client_host_free(struct http_client_host **_host)

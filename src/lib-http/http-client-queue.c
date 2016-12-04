@@ -838,7 +838,8 @@ static void http_client_queue_submit_now(struct http_client_queue *queue,
 
 	} else if (timeval_diff_msecs(&req->timeout_time, &ioloop_timeval) <= 1) {
 		/* pretty much already timed out; don't bother */
-		
+		return;
+
 	} else {
 		unsigned int insert_idx;
 
@@ -847,6 +848,8 @@ static void http_client_queue_submit_now(struct http_client_queue *queue,
 			&req, http_client_queue_request_timeout_cmp, &insert_idx);
 		array_insert(req_queue, insert_idx, &req, 1);
 	}
+
+	http_client_queue_connection_setup(queue);
 }
 
 /*
@@ -881,8 +884,6 @@ http_client_queue_delay_timeout(struct http_client_queue *queue)
 		http_client_queue_set_delay_timer(queue, reqs[i]->release_time);
 	}
 	array_delete(&queue->delayed_requests, 0, finished);
-
-	http_client_queue_connection_setup(queue);
 }
 
 static void
