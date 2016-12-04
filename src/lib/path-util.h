@@ -1,6 +1,40 @@
 #ifndef PATH_UTIL_H
 #define PATH_UTIL_H
 
+/* Returns path as the normalized absolute path, which means that './'
+ * and '../' components are resolved, and that duplicate and trailing
+ * slashes are removed. If it's not already the absolute path, it's
+ * assumed to be relative to the current working directory.
+ *
+ * NOTE: Be careful with this function. The resolution of '../' components
+ * with the parent component as if it were a normal directory is not valid
+ * if the path contains symbolic links.
+ *
+ * Returns 0 on success, and -1 on failure. errno and error_r are set on
+ * failure, and error_r cannot be NULL.
+ */
+int t_normpath(const char *path, const char **npath_r, const char **error_r);
+/* Like t_normpath(), but path is relative to given root. */
+int t_normpath_to(const char *path, const char *root, const char **npath_r,
+		  const char **error_r);
+
+/* Returns path as the real normalized absolute path, which means that all
+ * symbolic links in the path are resolved, that './' and '../' components
+ * are resolved, and that duplicate and trailing slashes are removed. If it's
+ * not already the absolute path, it's assumed to be relative to the current
+ * working directory.
+ *
+ * NOTE: This function calls stat() for each path component and more when
+ * there are symbolic links (just like POSIX realpath()).
+ *
+ * Returns 0 on success, and -1 on failure. errno and error_r are set on
+ * failure, and error_r cannot be NULL.
+ */
+int t_realpath(const char *path, const char **npath_r, const char **error_r);
+/* Like t_realpath(), but path is relative to given root. */
+int t_realpath_to(const char *path, const char *root, const char **npath_r,
+		  const char **error_r);
+
 /* Returns path as absolute path. If it's not already absolute path,
  * it's assumed to be relative to current working directory.
  *
