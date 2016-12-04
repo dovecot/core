@@ -270,33 +270,6 @@ struct http_client_host *http_client_host_get
 	return host;
 }
 
-void http_client_host_submit_request(struct http_client_host *host,
-	struct http_client_request *req)
-{
-	struct http_client_queue *queue;
-	struct http_client_peer_addr addr;
-	const char *error;
-
-	req->host = host;
-
-	http_client_request_get_peer_addr(req, &addr);
-	if (http_client_peer_addr_is_https(&addr) &&
-		host->client->ssl_ctx == NULL) {
-		if (http_client_init_ssl_ctx(host->client, &error) < 0) {
-			http_client_request_error(&req,
-				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, error);
-			return;
-		}
-	}
-
-	/* add request to queue (grouped by tcp port) */
-	queue = http_client_queue_get(host, &addr);
-	http_client_queue_submit_request(queue, req);
-
-	/* cancel host idle timeout */
-	timeout_remove(&host->to_idle);
-}
-
 void http_client_host_free(struct http_client_host **_host)
 {
 	struct http_client_host *host = *_host;
@@ -331,6 +304,33 @@ void http_client_host_free(struct http_client_host **_host)
 	i_free(host->ips);
 	i_free(host->name);
 	i_free(host);
+}
+
+void http_client_host_submit_request(struct http_client_host *host,
+	struct http_client_request *req)
+{
+	struct http_client_queue *queue;
+	struct http_client_peer_addr addr;
+	const char *error;
+
+	req->host = host;
+
+	http_client_request_get_peer_addr(req, &addr);
+	if (http_client_peer_addr_is_https(&addr) &&
+		host->client->ssl_ctx == NULL) {
+		if (http_client_init_ssl_ctx(host->client, &error) < 0) {
+			http_client_request_error(&req,
+				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, error);
+			return;
+		}
+	}
+
+	/* add request to queue (grouped by tcp port) */
+	queue = http_client_queue_get(host, &addr);
+	http_client_queue_submit_request(queue, req);
+
+	/* cancel host idle timeout */
+	timeout_remove(&host->to_idle);
 }
 
 bool http_client_host_get_ip_idx(struct http_client_host *host,
