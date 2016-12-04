@@ -45,6 +45,45 @@ http_client_host_debug(struct http_client_host *host,
  */
 
 static void
+http_client_host_idle_timeout(struct http_client_host *host)
+{
+	http_client_host_debug(host, "Idle host timed out");
+	http_client_host_free(&host);
+}
+
+void http_client_host_check_idle(struct http_client_host *host)
+{
+	struct http_client_queue *const *queue_idx;
+	unsigned int requests = 0;
+	int timeout = 0;
+
+	if (host->to_idle != NULL)
+		return;
+
+	array_foreach(&host->queues, queue_idx) {
+		requests += http_client_queue_requests_active(*queue_idx);
+	}
+
+	if (requests > 0)
+		return;
+
+	if (!host->unix_local && !host->explicit_ip &&
+		host->ips_timeout.tv_sec > 0) {
+		timeout = timeval_diff_msecs
+			(&host->ips_timeout, &ioloop_timeval);
+	}
+
+	if (timeout <= HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS)
+		timeout = HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS;
+
+	host->to_idle = timeout_add_short(timeout,
+		http_client_host_idle_timeout, host);
+
+	http_client_host_debug(host,
+		"Host is idle (timeout = %u msecs)", timeout);
+}
+
+static void
 http_client_host_lookup_failure(struct http_client_host *host,
 			      const char *error)
 {
@@ -292,45 +331,6 @@ void http_client_host_free(struct http_client_host **_host)
 	i_free(host->ips);
 	i_free(host->name);
 	i_free(host);
-}
-
-static void
-http_client_host_idle_timeout(struct http_client_host *host)
-{
-	http_client_host_debug(host, "Idle host timed out");
-	http_client_host_free(&host);
-}
-
-void http_client_host_check_idle(struct http_client_host *host)
-{
-	struct http_client_queue *const *queue_idx;
-	unsigned int requests = 0;
-	int timeout = 0;
-
-	if (host->to_idle != NULL)
-		return;
-
-	array_foreach(&host->queues, queue_idx) {
-		requests += http_client_queue_requests_active(*queue_idx);
-	}
-
-	if (requests > 0)
-		return;
-
-	if (!host->unix_local && !host->explicit_ip &&
-		host->ips_timeout.tv_sec > 0) {
-		timeout = timeval_diff_msecs
-			(&host->ips_timeout, &ioloop_timeval);
-	}
-
-	if (timeout <= HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS)
-		timeout = HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS;
-
-	host->to_idle = timeout_add_short(timeout,
-		http_client_host_idle_timeout, host);
-
-	http_client_host_debug(host,
-		"Host is idle (timeout = %u msecs)", timeout);
 }
 
 bool http_client_host_get_ip_idx(struct http_client_host *host,
