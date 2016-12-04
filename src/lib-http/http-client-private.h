@@ -24,21 +24,27 @@
  * Types
  */
 
-struct http_client_host;
-struct http_client_queue;
-struct http_client_peer;
 struct http_client_connection;
+struct http_client_peer;
+struct http_client_queue;
+struct http_client_host;
 
-ARRAY_DEFINE_TYPE(http_client_host, struct http_client_host *);
-ARRAY_DEFINE_TYPE(http_client_queue, struct http_client_queue *);
-ARRAY_DEFINE_TYPE(http_client_peer, struct http_client_peer *);
-ARRAY_DEFINE_TYPE(http_client_connection, struct http_client_connection *);
-ARRAY_DEFINE_TYPE(http_client_request, struct http_client_request *);
-
-HASH_TABLE_DEFINE_TYPE(http_client_host, const char *,
-	struct http_client_host *);
-HASH_TABLE_DEFINE_TYPE(http_client_peer, const struct http_client_peer_addr *,
+ARRAY_DEFINE_TYPE(http_client_request,
+	struct http_client_request *);
+ARRAY_DEFINE_TYPE(http_client_connection,
+	struct http_client_connection *);
+ARRAY_DEFINE_TYPE(http_client_peer,
 	struct http_client_peer *);
+ARRAY_DEFINE_TYPE(http_client_queue,
+	struct http_client_queue *);
+ARRAY_DEFINE_TYPE(http_client_host,
+	struct http_client_host *);
+
+HASH_TABLE_DEFINE_TYPE(http_client_peer,
+	const struct http_client_peer_addr *,
+	struct http_client_peer *);
+HASH_TABLE_DEFINE_TYPE(http_client_host,
+	const char *, struct http_client_host *);
 
 enum http_client_peer_addr_type {
 	HTTP_CLIENT_PEER_ADDR_HTTP = 0,
@@ -173,8 +179,8 @@ struct http_client_connection {
 	ARRAY_TYPE(http_client_request) request_wait_list;
 
 	bool connected:1;           /* connection is connected */
-	bool tunneling:1;          /* last sent request turns this
-	                                      connection into tunnel */
+	bool tunneling:1;           /* last sent request turns this
+	                               connection into tunnel */
 	bool connect_initialized:1; /* connection was initialized */
 	bool connect_succeeded:1;   /* connection succeeded including SSL */
 	bool connect_failed:1;      /* connection failed */
@@ -184,7 +190,7 @@ struct http_client_connection {
 	bool close_indicated:1;
 	bool output_locked:1;       /* output is locked; no pipelining */
 	bool output_broken:1;       /* output is broken; no more requests */
-	bool in_req_callback:1;  /* performin request callback (busy) */
+	bool in_req_callback:1;     /* performing request callback (busy) */
 };
 
 struct http_client_peer {
@@ -215,7 +221,7 @@ struct http_client_peer {
 	bool no_payload_sync:1;  /* expect: 100-continue failed before */
 	bool seen_100_response:1;/* expect: 100-continue succeeded before */
 	bool allows_pipelining:1;/* peer is known to allow persistent
-	                                     connections */
+	                            connections */
 	bool handling_requests:1;/* currently running request handler */
 };
 
@@ -407,7 +413,7 @@ void http_client_request_finish(struct http_client_request *req);
 struct connection_list *http_client_connection_list_init(void);
 
 struct http_client_connection *
-	http_client_connection_create(struct http_client_peer *peer);
+http_client_connection_create(struct http_client_peer *peer);
 void http_client_connection_ref(struct http_client_connection *conn);
 /* Returns FALSE if unrefing destroyed the connection entirely */
 bool http_client_connection_unref(struct http_client_connection **_conn);
@@ -449,8 +455,8 @@ const char *
 http_client_peer_label(struct http_client_peer *peer);
 
 struct http_client_peer *
-	http_client_peer_get(struct http_client *client,
-		const struct http_client_peer_addr *addr);
+http_client_peer_get(struct http_client *client,
+	const struct http_client_peer_addr *addr);
 void http_client_peer_ref(struct http_client_peer *peer);
 bool http_client_peer_unref(struct http_client_peer **_peer);
 void http_client_peer_close(struct http_client_peer **_peer);
@@ -494,8 +500,7 @@ void http_client_queue_host_lookup_failure(
 	struct http_client_queue *queue, const char *error);
 void http_client_queue_submit_request(struct http_client_queue *queue,
 	struct http_client_request *req);
-void
-http_client_queue_drop_request(struct http_client_queue *queue,
+void http_client_queue_drop_request(struct http_client_queue *queue,
 	struct http_client_request *req);
 struct http_client_request *
 http_client_queue_claim_request(struct http_client_queue *queue,
@@ -505,8 +510,7 @@ http_client_queue_requests_pending(struct http_client_queue *queue,
 	unsigned int *num_urgent_r) ATTR_NULL(2);
 unsigned int
 http_client_queue_requests_active(struct http_client_queue *queue);
-void
-http_client_queue_connection_success(struct http_client_queue *queue,
+void http_client_queue_connection_success(struct http_client_queue *queue,
 					 const struct http_client_peer_addr *addr);
 void http_client_queue_connection_failure(struct http_client_queue *queue,
  	const struct http_client_peer_addr *addr, const char *reason);
