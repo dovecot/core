@@ -38,8 +38,6 @@ AC_DEFUN([DOVECOT_SSL], [
 	#endif]], [[ return 0; ]])], [ssl_version_ge_102=true], [ssl_version_ge_102=false])
       AC_MSG_RESULT([$ssl_version_ge_102])
 
-      AM_CONDITIONAL([SSL_VERSION_GE_102], [test x$ssl_version_ge_102 = xtrue])
-
       # SSL_clear_options introduced in openssl 0.9.8m but may be backported to
       # older versions in "enterprise" OS releases; originally implemented as a
       # macro but as a function in more recent openssl versions
@@ -82,6 +80,7 @@ AC_DEFUN([DOVECOT_SSL], [
   fi
   AM_CONDITIONAL(BUILD_OPENSSL, test "$have_openssl" = "yes")
   AM_CONDITIONAL(BUILD_DCRYPT_OPENSSL, test "$build_dcrypt_openssl" = "yes")
+  AM_CONDITIONAL([SSL_VERSION_GE_102], [test x$ssl_version_ge_102 = xtrue])
 
   if test $want_gnutls != no && test $have_ssl = no; then
     AC_CHECK_LIB(gnutls, gnutls_global_init, [
