@@ -113,8 +113,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (t_get_current_dir(&tmp_base_dir) < 0)
-		i_fatal("getcwd() failed: %m");
+	const char *error;
+	if (t_get_working_dir(&tmp_base_dir, &error) < 0)
+		i_fatal("Could not get working directory: %s", error);
 	base_dir = i_strdup(tmp_base_dir);
 
 	drop_privileges();

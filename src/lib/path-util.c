@@ -8,14 +8,14 @@
 
 const char *t_abspath(const char *path)
 {
-	const char *dir;
 	i_assert(path != NULL);
 
 	if (*path == '/')
 		return path;
 
-	if (t_get_current_dir(&dir) < 0)
-		i_fatal("getcwd() failed: %m");
+	const char *dir, *error;
+	if (t_get_working_dir(&dir, &error) < 0)
+		i_fatal("Failed to get working directory: %s", error);
 	return t_strconcat(dir, "/", path, NULL);
 }
 
@@ -30,16 +30,20 @@ const char *t_abspath_to(const char *path, const char *root)
 	return t_strconcat(root, "/", path, NULL);
 }
 
-int t_get_current_dir(const char **dir_r)
+int t_get_working_dir(const char **dir_r, const char **error_r)
 {
+	i_assert(error_r != NULL);
+
 	/* @UNSAFE */
 	char *dir;
 	size_t size = 128;
 
 	dir = t_buffer_get(size);
 	while (getcwd(dir, size) == NULL) {
-		if (errno != ERANGE)
+		if (errno != ERANGE) {
+			*error_r = t_strdup_printf("getcwd() failed: %m");
 			return -1;
+		}
 		size = nearest_power(size+1);
 		dir = t_buffer_get(size);
 	}

@@ -162,7 +162,11 @@ eacces_error_get_full(const char *func, const char *path, bool creating)
 	errmsg = t_str_new(256);
 	str_printfa(errmsg, "%s(%s)", func, path);
 	if (*path != '/') {
-		if (t_get_current_dir(&dir) == 0) {
+		const char *error;
+		if (t_get_working_dir(&dir, &error) < 0) {
+			i_error("eacces_error_get_full: %s", error);
+			str_printfa(errmsg, " in an unknown directory");
+		} else {
 			str_printfa(errmsg, " in directory %s", dir);
 			path = t_strconcat(dir, "/", path, NULL);
 		}

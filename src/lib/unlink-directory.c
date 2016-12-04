@@ -189,11 +189,14 @@ unlink_directory_r(const char *dir, enum unlink_directory_flags flags,
 int unlink_directory(const char *dir, enum unlink_directory_flags flags,
 		     const char **error_r)
 {
-	const char *orig_dir;
+	const char *orig_dir, *error;
 	int fd, ret, old_errno;
 
-	if (t_get_current_dir(&orig_dir) < 0)
+	if (t_get_working_dir(&orig_dir, &error) < 0) {
+		i_warning("Could not get working directory in unlink_directory(): %s",
+			  error);
 		orig_dir = ".";
+	}
 
 	fd = open(".", O_RDONLY);
 	if (fd == -1) {
