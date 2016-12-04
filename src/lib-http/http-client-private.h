@@ -484,7 +484,7 @@ void http_client_peer_switch_ioloop(struct http_client_peer *peer);
  */
 
 struct http_client_queue *
-http_client_queue_create(struct http_client_host *host,
+http_client_queue_get(struct http_client_host *host,
 	const struct http_client_peer_addr *addr);
 void http_client_queue_free(struct http_client_queue *queue);
 void http_client_queue_connection_setup(struct http_client_queue *queue);

@@ -251,7 +251,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 	}
 
 	/* add request to queue (grouped by tcp port) */
-	queue = http_client_queue_create(host, &addr);
+	queue = http_client_queue_get(host, &addr);
 	http_client_queue_submit_request(queue, req);
 
 	/* cancel host idle timeout */

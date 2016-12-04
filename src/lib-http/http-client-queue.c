@@ -71,54 +71,65 @@ http_client_queue_find(struct http_client_host *host,
 	return NULL;
 }
 
-struct http_client_queue *
+static struct http_client_queue *
 http_client_queue_create(struct http_client_host *host,
+	const struct http_client_peer_addr *addr)
+{
+	const char *hostname = host->name;
+	struct http_client_queue *queue;
+
+	queue = i_new(struct http_client_queue, 1);
+	queue->client = host->client;
+	queue->host = host;
+	queue->addr = *addr;
+
+	switch (addr->type) {
+	case HTTP_CLIENT_PEER_ADDR_RAW:
+		queue->name =
+			i_strdup_printf("raw://%s:%u", hostname, addr->a.tcp.port);
+		queue->addr.a.tcp.https_name = NULL;
+		break;
+	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
+	case HTTP_CLIENT_PEER_ADDR_HTTPS:
+		queue->name =
+			i_strdup_printf("https://%s:%u", hostname, addr->a.tcp.port);
+		queue->addr_name = i_strdup(addr->a.tcp.https_name);
+		queue->addr.a.tcp.https_name = queue->addr_name;
+		break;
+	case HTTP_CLIENT_PEER_ADDR_HTTP:
+		queue->name =
+			i_strdup_printf("http://%s:%u", hostname, addr->a.tcp.port);
+		queue->addr.a.tcp.https_name = NULL;
+		break;
+	case HTTP_CLIENT_PEER_ADDR_UNIX:
+		queue->name = i_strdup_printf("unix:%s", addr->a.un.path);
+		queue->addr_name = i_strdup(addr->a.un.path);
+		queue->addr.a.un.path = queue->addr_name;
+		break;
+	default:
+		i_unreached();
+	}
+
+	queue->ips_connect_idx = 0;
+	i_array_init(&queue->pending_peers, 8);
+	i_array_init(&queue->requests, 16);
+	i_array_init(&queue->queued_requests, 16);
+	i_array_init(&queue->queued_urgent_requests, 16);
+	i_array_init(&queue->delayed_requests, 4);
+	array_append(&host->queues, &queue, 1);
+
+	return queue;
+}
+
+struct http_client_queue *
+http_client_queue_get(struct http_client_host *host,
 	const struct http_client_peer_addr *addr)
 {
 	struct http_client_queue *queue;
 
 	queue = http_client_queue_find(host, addr);
-	if (queue == NULL) {
-		queue = i_new(struct http_client_queue, 1);
-		queue->client = host->client;
-		queue->host = host;
-		queue->addr = *addr;
-
-		switch (addr->type) {
-		case HTTP_CLIENT_PEER_ADDR_RAW:
-			queue->name =
-				i_strdup_printf("raw://%s:%u", host->name, addr->a.tcp.port);
-			queue->addr.a.tcp.https_name = NULL;
-			break;
-		case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
-		case HTTP_CLIENT_PEER_ADDR_HTTPS:
-			queue->name =
-				i_strdup_printf("https://%s:%u", host->name, addr->a.tcp.port);
-			queue->addr_name = i_strdup(addr->a.tcp.https_name);
-			queue->addr.a.tcp.https_name = queue->addr_name;
-			break;
-		case HTTP_CLIENT_PEER_ADDR_HTTP:
-			queue->name =
-				i_strdup_printf("http://%s:%u", host->name, addr->a.tcp.port);
-			queue->addr.a.tcp.https_name = NULL;
-			break;
-		case HTTP_CLIENT_PEER_ADDR_UNIX:
-			queue->name = i_strdup_printf("unix:%s", addr->a.un.path);
-			queue->addr_name = i_strdup(addr->a.un.path);
-			queue->addr.a.un.path = queue->addr_name;
-			break;
-		default:
-			i_unreached();
-		}
-
-		queue->ips_connect_idx = 0;
-		i_array_init(&queue->pending_peers, 8);
-		i_array_init(&queue->requests, 16);
-		i_array_init(&queue->queued_requests, 16);
-		i_array_init(&queue->queued_urgent_requests, 16);
-		i_array_init(&queue->delayed_requests, 4);
-		array_append(&host->queues, &queue, 1);
-	}
+	if (queue == NULL)
+		queue = http_client_queue_create(host, addr);
 
 	return queue;
 }
