@@ -371,6 +371,19 @@ static void http_client_peer_drop(struct http_client_peer **_peer)
 	}
 }
 
+struct http_client_peer *
+http_client_peer_get(struct http_client *client,
+			   const struct http_client_peer_addr *addr)
+{
+	struct http_client_peer *peer;
+
+	peer = hash_table_lookup(client->peers, addr);
+	if (peer == NULL)
+		peer = http_client_peer_create(client, addr);
+
+	return peer;
+}
+
 static void
 http_client_peer_do_connect(struct http_client_peer *peer,
 	unsigned int count)
@@ -799,19 +812,6 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 		peer->to_req_handling =
 			timeout_add_short(0, http_client_peer_handle_requests, peer);
 	}
-}
-
-struct http_client_peer *
-http_client_peer_get(struct http_client *client,
-			   const struct http_client_peer_addr *addr)
-{
-	struct http_client_peer *peer;
-
-	peer = hash_table_lookup(client->peers, addr);
-	if (peer == NULL)
-		peer = http_client_peer_create(client, addr);
-
-	return peer;
 }
 
 bool http_client_peer_have_queue(struct http_client_peer *peer,
