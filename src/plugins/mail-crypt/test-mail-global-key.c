@@ -34,10 +34,6 @@ mail_crypt_load_global_private_keys(const struct fs_crypt_settings *set,
 
 static void test_setup(void)
 {
-	struct dcrypt_settings set = {
-		.module_dir = top_builddir "/src/lib-dcrypt/.libs"
-	};
-	dcrypt_initialize(NULL, &set, NULL);
 	i_array_init(&fs_set.plugin_envs, 8);
 	array_append(&fs_set.plugin_envs, settings, N_ELEMENTS(settings));
 }
@@ -97,19 +93,30 @@ static void test_try_load_keys(void)
 static void test_teardown(void)
 {
 	array_free(&fs_set.plugin_envs);
-	dcrypt_deinitialize();
 }
 
 int main(void)
 {
+	struct dcrypt_settings set = {
+		.module_dir = top_builddir "/src/lib-dcrypt/.libs"
+	};
+
+	random_init();
+	if (!dcrypt_initialize(NULL, &set, NULL)) {
+		i_error("No functional dcrypt backend found - skipping tests");
+		return 0;
+	}
+
 	void (*tests[])(void)  = {
 		test_setup,
 		test_try_load_keys,
 		test_teardown,
 		NULL
 	};
-
-	random_init();
 	int ret = test_run(tests);
+
+	dcrypt_deinitialize();
+	random_deinit();
+
 	return ret;
 }
