@@ -184,7 +184,7 @@
 #  define likely(expr) expr
 #endif
 
-#if defined(__clang__)
+#if defined(__clang__) && ((__clang_major__ > 4) || (__clang_major__ == 3 && __clang_minor__ >= 9))
 #  define ATTR_UNSIGNED_WRAPS __attribute__((no_sanitize("integer")))
 #else
 #  define ATTR_UNSIGNED_WRAPS
