@@ -837,6 +837,7 @@ dnl * that it's unsigned and only some old systems define it as signed.
 AC_CACHE_CHECK([whether size_t is signed],i_cv_signed_size_t,[
   AC_RUN_IFELSE([AC_LANG_SOURCE([[
     #include <sys/types.h>
+    #include <stdlib.h>
     int main() {
       /* return 0 if we're signed */
       exit((size_t)(int)-1 <= 0 ? 0 : 1);
@@ -993,6 +994,7 @@ AC_DEFINE_UNQUOTED(TIME_T_MAX_BITS, $i_cv_gmtime_max_time_t, [max. time_t bits g
 AC_CACHE_CHECK([whether time_t is signed],i_cv_signed_time_t,[
   AC_RUN_IFELSE([AC_LANG_SOURCE([[
     #include <sys/types.h>
+    #include <stdlib.h>
     int main() {
       /* return 0 if we're signed */
       exit((time_t)(int)-1 <= 0 ? 0 : 1);
@@ -1184,6 +1186,7 @@ AC_CACHE_CHECK([whether shared mmaps get updated by write()s],i_cv_mmap_plays_wi
     #include <unistd.h>
     #include <fcntl.h>
     #include <sys/mman.h>
+    #include <string.h>
     int main() {
       /* return 0 if we're signed */
       int f = open("conftest.mmap", O_RDWR|O_CREAT|O_TRUNC, 0600);
@@ -1560,6 +1563,7 @@ dnl ***
 AC_CACHE_CHECK([for an implementation of va_copy()],lib_cv_va_copy,[
 	AC_RUN_IFELSE([AC_LANG_SOURCE([[
 	#include <stdarg.h>
+	#include <stdlib.h>
 	void f (int i, ...) {
 	va_list args1, args2;
 	va_start (args1, i);
@@ -1578,6 +1582,7 @@ AC_CACHE_CHECK([for an implementation of va_copy()],lib_cv_va_copy,[
 AC_CACHE_CHECK([for an implementation of __va_copy()],lib_cv___va_copy,[
 	AC_RUN_IFELSE([AC_LANG_SOURCE([[
 	#include <stdarg.h>
+	#include <stdlib.h>
 	void f (int i, ...) {
 	va_list args1, args2;
 	va_start (args1, i);
@@ -1608,6 +1613,7 @@ fi
 AC_CACHE_CHECK([whether va_lists can be copied by value],lib_cv_va_val_copy,[
 	AC_RUN_IFELSE([AC_LANG_SOURCE([[
 	#include <stdarg.h>
+	#include <stdlib.h>
 	void f (int i, ...) {
 	va_list args1, args2;
 	va_start (args1, i);
@@ -1625,7 +1631,7 @@ AC_CACHE_CHECK([whether va_lists can be copied by value],lib_cv_va_val_copy,[
 ])
 
 if test "x$lib_cv_va_val_copy" = "xno"; then
-  AC_DEFINE(VA_COPY_AS_ARRAY,1, ['va_lists' cannot be copies as values])
+  AC_DEFINE(VA_COPY_AS_ARRAY,1, ['va_lists' cannot be copied as values])
 fi
 
 dnl * dynamic modules?
