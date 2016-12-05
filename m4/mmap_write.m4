@@ -8,6 +8,7 @@ AC_DEFUN([DOVECOT_MMAP_WRITE], [
       #include <unistd.h>
       #include <fcntl.h>
       #include <sys/mman.h>
+      #include <string.h>
       int main() {
         /* return 0 if we're signed */
         int f = open("conftest.mmap", O_RDWR|O_CREAT|O_TRUNC, 0600);

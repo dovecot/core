@@ -2,6 +2,7 @@ AC_DEFUN([DOVECOT_VA_COPY], [
   AC_CACHE_CHECK([for an implementation of va_copy()],lib_cv_va_copy,[
           AC_RUN_IFELSE([AC_LANG_SOURCE([[
           #include <stdarg.h>
+          #include <stdlib.h>
           void f (int i, ...) {
           va_list args1, args2;
           va_start (args1, i);
@@ -20,6 +21,7 @@ AC_DEFUN([DOVECOT_VA_COPY], [
   AC_CACHE_CHECK([for an implementation of __va_copy()],lib_cv___va_copy,[
           AC_RUN_IFELSE([AC_LANG_SOURCE([[
           #include <stdarg.h>
+          #include <stdlib.h>
           void f (int i, ...) {
           va_list args1, args2;
           va_start (args1, i);
@@ -52,6 +54,7 @@ AC_DEFUN([DOVECOT_VA_COPY_BYVAL], [
   AC_CACHE_CHECK([whether va_lists can be copied by value],lib_cv_va_val_copy,[
           AC_RUN_IFELSE([AC_LANG_SOURCE([[
           #include <stdarg.h>
+          #include <stdlib.h>
           void f (int i, ...) {
           va_list args1, args2;
           va_start (args1, i);
@@ -69,6 +72,6 @@ AC_DEFUN([DOVECOT_VA_COPY_BYVAL], [
   ])
   
   if test "x$lib_cv_va_val_copy" = "xno"; then
-    AC_DEFINE(VA_COPY_AS_ARRAY,1, ['va_lists' cannot be copies as values])
+    AC_DEFINE(VA_COPY_AS_ARRAY,1, ['va_lists' cannot be copied as values])
   fi
 ])
