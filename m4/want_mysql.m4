@@ -50,7 +50,7 @@ AC_DEFUN([DOVECOT_WANT_MYSQL], [
   				  $ssl_define
   				  #include <mysql.h>
   				], [
-  				  mysql_set_ssl(0, 0, 0, 0, 0, 0);
+				  mysql_ssl_set(0, 0, 0, 0, 0, 0);
   				], [
   					AC_DEFINE(HAVE_MYSQL_SSL_CIPHER,, [Define if your MySQL library supports setting cipher])
   
