@@ -361,7 +361,7 @@ mail_search_args_count(const struct mail_search_arg *args)
 }
 
 static bool
-mail_search_args_simplify_drop_redundent_args(struct mail_search_arg **argsp,
+mail_search_args_simplify_drop_redundant_args(struct mail_search_arg **argsp,
 					      bool and_arg)
 {
 	struct mail_search_arg *arg, **argp, one_arg, *lowest_arg = NULL;
@@ -542,7 +542,7 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 			if (args->type != SEARCH_INTHREAD) {
 				bool and_arg = args->type == SEARCH_SUB;
 
-				if (mail_search_args_simplify_drop_redundent_args(&args->value.subargs, and_arg))
+				if (mail_search_args_simplify_drop_redundant_args(&args->value.subargs, and_arg))
 					ctx.removals = TRUE;
 				if (mail_search_args_simplify_extract_common(&args->value.subargs, pool, and_arg))
 					ctx.removals = TRUE;
@@ -705,7 +705,7 @@ void mail_search_args_simplify(struct mail_search_args *args)
 			removals = TRUE;
 	}
 	for (;;) {
-		if (mail_search_args_simplify_drop_redundent_args(&args->args, TRUE))
+		if (mail_search_args_simplify_drop_redundant_args(&args->args, TRUE))
 			removals = TRUE;
 		if (mail_search_args_simplify_extract_common(&args->args, args->pool, TRUE))
 			removals = TRUE;
