@@ -283,12 +283,11 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 	if ((ret = mail_crypt_user_get_public_key(user, &user_key,
 						  &error)) <= 0) {
 		struct dcrypt_keypair pair;
-		if (ret == -1) {
+		if (ret < 0) {
 			i_error("mail_crypt_user_get_public_key(%s) failed: %s",
 				user->username,
 				error);
-		} else if (ret == 0 &&
-		    	   mail_crypt_user_generate_keypair(user, &pair,
+		} else if (mail_crypt_user_generate_keypair(user, &pair,
 							     &pubid, &error) < 0) {
 			ret = -1;
 			i_error("mail_crypt_user_generate_keypair(%s) failed: %s",
@@ -309,7 +308,7 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 			user_key = pair.pub;
 			dcrypt_key_unref_private(&pair.priv);
 		}
-		if (ret == -1) return ret;
+		if (ret < 0) return ret;
 	}
 
 	if (ret == 1 && ctx->force &&
