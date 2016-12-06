@@ -204,11 +204,18 @@ config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 	ARRAY_TYPE(config_filter_parsers) matches;
 	ARRAY_TYPE(const_string) service_names;
 	unsigned int i;
+	unsigned int t_id;
 
 	memset(output_r, 0, sizeof(*output_r));
 
 	p_array_init(&matches, pool, 8);
 	p_array_init(&service_names, pool, 8);
+
+	/* create a new stack after matches has been allocated
+	 * so we can free the memory used by config_filter_match_rest
+	 * with the below t_pop call */
+	t_id = t_push("config_filter_find_all");
+
 	for (i = 0; ctx->parsers[i] != NULL; i++) {
 		const struct config_filter *mask = &ctx->parsers[i]->filter;
 
@@ -234,6 +241,10 @@ config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 	if (filter->service == NULL) {
 		array_append_zero(&service_names);
 		output_r->specific_services = array_idx(&service_names, 0);
+	}
+
+	if (t_pop() != t_id) {
+		i_panic("Leaked a t_pop() call in config_filter_find_all");
 	}
 
 	array_sort(&matches, config_filter_parser_cmp);
