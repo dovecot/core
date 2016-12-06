@@ -731,7 +731,8 @@ static void query_callback(CassFuture *future, void *context)
 		i_free(result->error);
 
 		msecs = timeval_diff_msecs(&ioloop_timeval, &result->start_time);
-		result->api.error_type = error == CASS_ERROR_SERVER_WRITE_TIMEOUT ?
+		result->api.error_type = error == CASS_ERROR_SERVER_WRITE_TIMEOUT ||
+			error == CASS_ERROR_LIB_REQUEST_TIMED_OUT ?
 			SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN :
 			SQL_RESULT_ERROR_TYPE_UNKNOWN;
 		result->error = i_strdup_printf("Query '%s' failed: %.*s (in %u.%03u secs)",
