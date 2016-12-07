@@ -716,7 +716,11 @@ void ssl_proxy_destroy(struct ssl_proxy *proxy)
 	if (proxy->io_plain_write != NULL)
 		io_remove(&proxy->io_plain_write);
 
-	(void)SSL_shutdown(proxy->ssl);
+	if (SSL_shutdown(proxy->ssl) != 1) {
+		/* if bidirectional shutdown fails we need to clear
+		   the error queue. */
+		openssl_iostream_clear_errors();
+	}
 
 	net_disconnect(proxy->fd_ssl);
 	net_disconnect(proxy->fd_plain);
