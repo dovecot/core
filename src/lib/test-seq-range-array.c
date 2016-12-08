@@ -170,6 +170,7 @@ static void test_seq_range_array_invert(void)
 	static const unsigned int input[] = {
 		1, 2, 3, 4, 5, UINT_MAX,
 		2, 3, 4, UINT_MAX,
+		3, 4, 5, UINT_MAX,
 		1, 2, 4, 5, UINT_MAX,
 		1, 3, 5, UINT_MAX,
 		1, UINT_MAX,
@@ -205,6 +206,57 @@ static void test_seq_range_array_invert(void)
 			 success);
 		array_free(&range);
 	}
+}
+
+static void test_seq_range_array_invert_edges(void)
+{
+	const struct {
+		int64_t a_seq1, a_seq2, b_seq1, b_seq2;
+		int64_t resa_seq1, resa_seq2, resb_seq1, resb_seq2;
+	} tests[] = {
+		{ -1, -1, -1, -1,
+		  0, 0xffffffff, -1, -1 },
+		{ 0, 0xffffffff, -1, -1,
+		  -1, -1, -1, -1 },
+		{ 0, 0xfffffffe, -1, -1,
+		  0xffffffff, 0xffffffff, -1, -1 },
+		{ 1, 0xfffffffe, -1, -1,
+		  0, 0, 0xffffffff, 0xffffffff },
+		{ 1, 0xffffffff, -1, -1,
+		  0, 0, -1, -1 },
+		{ 0, 0, 0xffffffff, 0xffffffff,
+		  1, 0xfffffffe, -1, -1 },
+		{ 0xffffffff, 0xffffffff, -1, -1,
+		  0, 0xfffffffe, -1, -1 },
+	};
+	ARRAY_TYPE(seq_range) range = ARRAY_INIT;
+	const struct seq_range *result;
+	unsigned int count;
+
+	test_begin("seq_range_array_invert() edges");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
+		t_array_init(&range, 10);
+		if (tests[i].a_seq1 != -1)
+			seq_range_array_add_range(&range, tests[i].a_seq1, tests[i].a_seq2);
+		if (tests[i].b_seq1 != -1)
+			seq_range_array_add_range(&range, tests[i].b_seq1, tests[i].b_seq2);
+		seq_range_array_invert(&range, 0, 0xffffffff);
+
+		result = array_get(&range, &count);
+		if (tests[i].resa_seq1 == -1)
+			test_assert_idx(count == 0, i);
+		else {
+			test_assert(result[0].seq1 == tests[i].resa_seq1);
+			test_assert(result[0].seq2 == tests[i].resa_seq2);
+			if (tests[i].resb_seq1 == -1)
+				test_assert_idx(count == 1, i);
+			else {
+				test_assert(result[1].seq1 == tests[i].resb_seq1);
+				test_assert(result[1].seq2 == tests[i].resb_seq2);
+			}
+		}
+	} T_END;
+	test_end();
 }
 
 static void test_seq_range_create(ARRAY_TYPE(seq_range) *array, uint8_t byte)
@@ -245,6 +297,7 @@ void test_seq_range_array(void)
 	test_seq_range_array_add_merge();
 	test_seq_range_array_remove_nth();
 	test_seq_range_array_invert();
+	test_seq_range_array_invert_edges();
 	test_seq_range_array_have_common();
 	test_seq_range_array_random();
 }
