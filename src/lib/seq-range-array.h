@@ -57,7 +57,9 @@ bool seq_range_array_have_common(const ARRAY_TYPE(seq_range) *array1,
 /* Return number of sequences in the range. */
 unsigned int seq_range_count(const ARRAY_TYPE(seq_range) *array) ATTR_PURE;
 
-/* Invert the sequence range. For example 5:6 -> min_seq:4,7:max_seq. */
+/* Invert the sequence range. For example 5:6 -> min_seq:4,7:max_seq.
+   The array must not have any sequences outside min_seq..max_seq or this
+   function will assert-crash. */
 void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,
 			    uint32_t min_seq, uint32_t max_seq);
 
