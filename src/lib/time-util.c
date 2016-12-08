@@ -55,14 +55,12 @@ long long timeval_diff_usecs(const struct timeval *tv1,
 	return ((long long)secs * 1000000LL) + usecs;
 }
 
-const char *t_strflocaltime(const char *fmt, time_t t)
+static const char *strftime_real(const char *fmt, const struct tm *tm)
 {
-	const struct tm *tm;
 	size_t bufsize = strlen(fmt) + 32;
 	char *buf = t_buffer_get(bufsize);
 	size_t ret;
 
-	tm = localtime(&t);
 	while ((ret = strftime(buf, bufsize, fmt, tm)) == 0) {
 		bufsize *= 2;
 		i_assert(bufsize <= STRFTIME_MAX_BUFSIZE);
@@ -70,4 +68,19 @@ const char *t_strflocaltime(const char *fmt, time_t t)
 	}
 	t_buffer_alloc(ret + 1);
 	return buf;
+}
+
+const char *t_strftime(const char *fmt, const struct tm *tm)
+{
+	return strftime_real(fmt, tm);
+}
+
+const char *t_strflocaltime(const char *fmt, time_t t)
+{
+	return strftime_real(fmt, localtime(&t));
+}
+
+const char *t_strfgmtime(const char *fmt, time_t t)
+{
+	return strftime_real(fmt, gmtime(&t));
 }
