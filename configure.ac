@@ -818,17 +818,7 @@ LDFLAGS="\$(NOPLUGIN_LDFLAGS) $LDFLAGS"
 AC_SUBST(NOPLUGIN_LDFLAGS)
 
 DC_CC_WRAPPER
-
-AC_ARG_VAR(PANDOC, [Path to pandoc program])
-
-# Optional tool for making documentation
-AC_CHECK_PROGS(PANDOC, [pandoc], [true])
-
-if test "$PANDOC" = "true"; then
- if test ! -e README; then
-   AC_MSG_ERROR([Cannot produce documentation without pandoc])
- fi
-fi
+DC_PANDOC
 
 if test "$docdir" = ""; then
   dnl docdir supported only by autoconf v2.59c and later

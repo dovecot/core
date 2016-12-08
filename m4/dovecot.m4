@@ -169,3 +169,16 @@ EOF
     fi
   fi
 ])
+
+AC_DEFUN([DC_PANDOC], [
+  AC_ARG_VAR(PANDOC, [Path to pandoc program])
+
+  # Optional tool for making documentation
+  AC_CHECK_PROGS(PANDOC, [pandoc], [true])
+
+  if test "$PANDOC" = "true"; then
+   if test ! -e README; then
+     AC_MSG_ERROR([Cannot produce documentation without pandoc - disable with PANDOC=false ./configure])
+   fi
+  fi
+])
