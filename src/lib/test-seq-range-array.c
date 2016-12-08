@@ -164,48 +164,51 @@ fail:
 	array_free(&range);
 }
 
+static void test_seq_range_array_invert_minmax(uint32_t min, uint32_t max)
+{
+	ARRAY_TYPE(seq_range) range = ARRAY_INIT;
+	struct seq_range_iter iter;
+	unsigned int n, inverse_mask, mask_inside, mask_size = max-min+1;
+	uint32_t seq;
+
+	i_assert(mask_size <= sizeof(unsigned int)*8);
+	t_array_init(&range, 16);
+	for (unsigned int mask = 0; mask < mask_size; mask++) {
+		array_clear(&range);
+		for (unsigned int i = 0; i < mask_size; i++) {
+			if ((mask & (1 << i)) != 0)
+				seq_range_array_add(&range, min+i);
+		}
+		seq_range_array_invert(&range, min, max);
+
+		inverse_mask = 0;
+		seq_range_array_iter_init(&iter, &range); n = 0;
+		while (seq_range_array_iter_nth(&iter, n++, &seq)) {
+			test_assert(seq >= min && seq <= max);
+			inverse_mask |= 1 << (seq-min);
+		}
+		mask_inside = ((1 << mask_size)-1);
+		test_assert_idx((inverse_mask & ~mask_inside) == 0, mask);
+		test_assert_idx(inverse_mask == (mask ^ mask_inside), mask);
+	}
+}
+
 static void test_seq_range_array_invert(void)
 {
-	static const unsigned int input_min = 1, input_max = 5;
-	static const unsigned int input[] = {
-		1, 2, 3, 4, 5, UINT_MAX,
-		2, 3, 4, UINT_MAX,
-		3, 4, 5, UINT_MAX,
-		1, 2, 4, 5, UINT_MAX,
-		1, 3, 5, UINT_MAX,
-		1, UINT_MAX,
-		5, UINT_MAX,
-		UINT_MAX
-	};
-	ARRAY_TYPE(seq_range) range = ARRAY_INIT;
-	unsigned int i, j, seq, start, num;
-	bool old_exists, success;
-
-	for (i = num = 0; input[i] != UINT_MAX; num++, i++) {
-		success = TRUE;
-		start = i;
-		for (; input[i] != UINT_MAX; i++) {
-			seq_range_array_add_with_init(&range, 32, input[i]);
-			for (j = start; j < i; j++) {
-				if (!seq_range_exists(&range, input[j]))
-					success = FALSE;
-			}
-		}
-
-		seq_range_array_invert(&range, input_min, input_max);
-		for (seq = input_min; seq <= input_max; seq++) {
-			for (j = start; input[j] != UINT_MAX; j++) {
-				if (input[j] == seq)
-					break;
-			}
-			old_exists = input[j] != UINT_MAX;
-			if (seq_range_exists(&range, seq) == old_exists)
-				success = FALSE;
-		}
-		test_out(t_strdup_printf("seq_range_array_invert(%u)", num),
-			 success);
-		array_free(&range);
+	test_begin("seq_range_array_invert()");
+	/* first numbers */
+	for (unsigned int min = 0; min <= 7; min++) {
+		for (unsigned int max = min; max <= 7; max++) T_BEGIN {
+			test_seq_range_array_invert_minmax(min, max);
+		} T_END;
 	}
+	/* last numbers */
+	for (uint64_t min = 0xffffffff-7; min <= 0xffffffff; min++) {
+		for (uint64_t max = min; max <= 0xffffffff; max++) T_BEGIN {
+			test_seq_range_array_invert_minmax(min, max);
+		} T_END;
+	}
+	test_end();
 }
 
 static void test_seq_range_array_invert_edges(void)
