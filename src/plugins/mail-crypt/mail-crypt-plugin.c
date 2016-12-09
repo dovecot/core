@@ -388,7 +388,7 @@ static void mail_crypt_mail_user_created(struct mail_user *user)
 
 	const char *curve = mail_user_plugin_getenv(user, "mail_crypt_curve");
 	buffer_t *tmp = t_str_new(64);
-	if (curve == NULL) {
+	if (curve == NULL || *curve == '\0') {
 		if (user->mail_debug) {
 			i_debug("mail_crypt_plugin: mail_crypt_curve setting "
 				"missing - generating EC keys disabled");
@@ -406,7 +406,7 @@ static void mail_crypt_mail_user_created(struct mail_user *user)
 	const char *version = mail_user_plugin_getenv(user,
 			"mail_crypt_save_version");
 
-	if (version == NULL) {
+	if (version == NULL || *version == '\0') {
 		user->error = p_strdup_printf(user->pool,
 				"mail_crypt_plugin: "
 				"mail_crypt_save_version setting missing "
