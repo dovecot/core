@@ -732,11 +732,13 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *re
 		i_stream_set_name(conn->client.input, net_ip2addr(&conn->client.remote_ip));
 		i_stream_ref(conn->client.input);
 		conn->client.io = io_add_istream(conn->client.input, *ep->handler, conn);
-		conn->client.output = iostream_temp_create_named("/tmp", 0, net_ip2addr(&conn->client.remote_ip));
+		conn->client.output = iostream_temp_create_named
+			("/tmp/doveadm.", 0, net_ip2addr(&conn->client.remote_ip));
 		p_array_init(&conn->pargv, conn->client.pool, 5);
 		ep->handler(conn);
 	} else {
-		conn->client.output = iostream_temp_create_named("/tmp", 0, net_ip2addr(&conn->client.remote_ip));
+		conn->client.output = iostream_temp_create_named
+			("/tmp/doveadm.", 0, net_ip2addr(&conn->client.remote_ip));
 		ep->handler(conn);
 	}
 }
