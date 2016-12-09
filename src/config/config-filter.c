@@ -31,22 +31,32 @@ static bool config_filter_match_service(const struct config_filter *mask,
 	return TRUE;
 }
 
+static bool
+config_filter_match_local_name(const struct config_filter *mask,
+			       const char *filter_local_name)
+{
+	/* Handle multiple names seperated by spaces in local_name
+	   * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
+	const char *const *local_name = t_strsplit_spaces(mask->local_name, " ");
+
+	for (; *local_name != NULL; local_name++) {
+		if (dns_match_wildcard(filter_local_name, *local_name) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static bool config_filter_match_rest(const struct config_filter *mask,
 				     const struct config_filter *filter)
 {
+	bool matched;
+
 	if (mask->local_name != NULL) {
 		if (filter->local_name == NULL)
 			return FALSE;
-		/* Handle multiple names seperated by spaces in local_name
-		 * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
-		const char *const *local_name = t_strsplit_spaces(mask->local_name, " ");
-		bool matched = FALSE;
-		for (; *local_name != NULL; local_name++) {
-			if (dns_match_wildcard(filter->local_name, *local_name) == 0) {
-				matched = TRUE;
-				break;
-			}
-		}
+		T_BEGIN {
+			matched = config_filter_match_local_name(mask, filter->local_name);
+		} T_END;
 		if (!matched)
 			return FALSE;
 	}
