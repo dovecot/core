@@ -250,7 +250,7 @@ static void test_run_named_funcs(struct named_test tests[], const char *match)
 
 static void run_one_fatal(test_fatal_func_t *fatal_function)
 {
-	static int index = 0;
+	static unsigned int index = 0;
 	for (;;) {
 		volatile int jumped = setjmp(fatal_jmpbuf);
 		if (jumped == 0) {

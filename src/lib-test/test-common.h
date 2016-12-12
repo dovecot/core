@@ -72,7 +72,7 @@ enum fatal_test_state {
    is increased by 1. The idea is that each stage would be running an
    individual test that is supposed to crash. The function is called until
    FATAL_TEST_FINISHED or FATAL_TEST_ABORT is returned. */
-typedef enum fatal_test_state test_fatal_func_t(int stage);
+typedef enum fatal_test_state test_fatal_func_t(unsigned int stage);
 
 struct named_fatal {
 	const char *name;
@@ -83,7 +83,7 @@ int test_run_with_fatals(void (*test_functions[])(void),
 int test_run_named_with_fatals(const char *match, struct named_test tests[],
 			       struct named_fatal fatals[]);
 
-#define FATAL_DECL(x) enum fatal_test_state x(int);
+#define FATAL_DECL(x) enum fatal_test_state x(unsigned int);
 #define FATAL_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */
 #define FATAL_NAMED(x) { .name = #x , .func = x },
 

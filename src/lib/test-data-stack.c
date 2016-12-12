@@ -145,7 +145,7 @@ void test_data_stack(void)
 	test_ds_recursive(20, 80);
 }
 
-enum fatal_test_state fatal_data_stack(int stage)
+enum fatal_test_state fatal_data_stack(unsigned int stage)
 {
 #ifdef DEBUG
 #define NONEXISTENT_STACK_FRAME_ID (data_stack_frame_t)999999999
