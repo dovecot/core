@@ -29,6 +29,7 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 	NULL
 };
 
+bool doveadm_verbose_proctitle;
 int doveadm_exit_code = 0;
 
 static void failure_exit_callback(int *status)
@@ -265,6 +266,7 @@ static void doveadm_read_settings(void)
 	service_set = master_service_settings_get(master_service);
 	service_set = settings_dup(&master_service_setting_parser_info,
 				   service_set, pool_datastack_create());
+	doveadm_verbose_proctitle = service_set->verbose_proctitle;
 
 	set = master_service_settings_get_others(master_service)[0];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
