@@ -26,6 +26,7 @@
 #include "macros.h"
 #include "failures.h"
 
+#include "malloc-overflow.h"
 #include "data-stack.h"
 #include "mempool.h"
 #include "imem.h"
