@@ -212,7 +212,7 @@ static void dump_extension_header(struct mail_index *index,
 
 	/* add some padding, since we don't bother to handle undersized
 	   headers correctly */
-	buf = t_malloc0(ext->hdr_size + 128);
+	buf = t_malloc0(MALLOC_ADD(ext->hdr_size, 128));
 	data = CONST_PTR_OFFSET(index->map->hdr_base, ext->hdr_offset);
 	memcpy(buf, data, ext->hdr_size);
 	data = buf;

@@ -113,8 +113,8 @@ tview_apply_flag_updates(struct mail_index_view_transaction *tview,
 		tview->recs_count = t->first_new_seq;
 		tview->record_size = I_MAX(map->hdr.record_size,
 					   tview->view.map->hdr.record_size);
-		tview->recs = i_malloc(tview->record_size *
-				       tview->recs_count);
+		tview->recs = i_malloc(MALLOC_MULTIPLY(tview->record_size,
+						       tview->recs_count));
 		array_append(&tview->all_recs, &tview->recs, 1);
 	}
 	i_assert(tview->recs_count == t->first_new_seq);

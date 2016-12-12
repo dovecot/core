@@ -215,8 +215,10 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 	array_sort(&remote_msgs, pop3c_sync_msg_uidl_cmp);
 
 	/* skip over existing messages with matching UIDLs and expunge the ones
-	   that no longer exist in remote. (+1 to avoid malloc(0) assert) */
-	mbox->msg_uids = i_new(uint32_t, mbox->msg_count + 1);
+	   that no longer exist in remote. */
+	mbox->msg_uids = mbox->msg_count == 0 ?
+		i_new(uint32_t, 1) : /* avoid malloc(0) assert */
+		i_new(uint32_t, mbox->msg_count);
 	cache_trans = mail_cache_get_transaction(cache_view, sync_trans);
 
 	lmsg = array_get(&local_msgs, &lcount);

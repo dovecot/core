@@ -39,7 +39,7 @@ struct mail_user *mail_user_login(const char *username)
 	else
 		domain = "";
 
-	user = i_malloc(sizeof(struct mail_user) + stats_alloc_size());
+	user = i_malloc(MALLOC_ADD(sizeof(struct mail_user), stats_alloc_size()));
 	user->stats = (void *)(user + 1);
 	user->name = i_strdup(username);
 	user->reset_timestamp = ioloop_time;

@@ -827,7 +827,7 @@ static void client_uidls_save(struct client *client)
 	}
 	/* map UIDLs to msgnums (in case POP3 sort ordering is different) */
 	client->message_uidls = p_new(client->uidl_pool, const char *,
-				      client->messages_count+1);
+				      MALLOC_ADD(client->messages_count, 1));
 	for (msgnum = 0; msgnum < client->messages_count; msgnum++) {
 		client->message_uidls[msgnum] =
 			seq_uidls[msgnum_to_seq(client, msgnum) - 1];

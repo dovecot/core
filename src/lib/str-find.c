@@ -83,8 +83,8 @@ struct str_find_context *str_find_init(pool_t pool, const char *key)
 	i_assert(key_len > 0);
 	i_assert(key_len < INT_MAX);
 
-	ctx = p_malloc(pool, sizeof(struct str_find_context) +
-		       sizeof(ctx->goodtab[0]) * key_len);
+	ctx = p_malloc(pool, MALLOC_ADD(sizeof(struct str_find_context),
+		MALLOC_MULTIPLY(sizeof(ctx->goodtab[0]), key_len)));
 	ctx->pool = pool;
 	ctx->matches = p_new(pool, unsigned int, key_len);
 	ctx->key_len = key_len;

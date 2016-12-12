@@ -59,7 +59,8 @@ void log_error_buffer_add(struct log_error_buffer *buf,
 		log_error_buffer_delete_head(buf);
 
 	/* @UNSAFE */
-	data = i_malloc(sizeof(*data) + prefix_size + text_size);
+	data = i_malloc(MALLOC_ADD(sizeof(*data),
+				   MALLOC_ADD(prefix_size, text_size)));
 	data->type = error->type;
 	data->timestamp = error->timestamp;
 	memcpy(data->prefix_text, error->prefix, prefix_size);

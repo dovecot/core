@@ -47,7 +47,7 @@ mail_command_add(struct mail_session *session, const char *name,
 {
 	struct mail_command *cmd;
 
-	cmd = i_malloc(sizeof(struct mail_command) + stats_alloc_size());
+	cmd = i_malloc(MALLOC_ADD(sizeof(struct mail_command), stats_alloc_size()));
 	cmd->stats = (void *)(cmd + 1);
 	cmd->refcount = 1; /* unrefed at "done" */
 	cmd->session = session;
