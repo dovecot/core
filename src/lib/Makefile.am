@@ -235,6 +235,7 @@ headers = \
 	macros.h \
 	md4.h \
 	md5.h \
+	malloc-overflow.h \
 	mempool.h \
 	mkdir-parents.h \
 	mmap-util.h \
@@ -336,6 +337,7 @@ test_lib_SOURCES = \
 	test-json-tree.c \
 	test-llist.c \
 	test-log-throttle.c \
+	test-malloc-overflow.c \
 	test-mempool-alloconly.c \
 	test-pkcs5.c \
 	test-net.c \

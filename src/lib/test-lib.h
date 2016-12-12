@@ -38,6 +38,8 @@ void test_json_parser(void);
 void test_json_tree(void);
 void test_llist(void);
 void test_log_throttle(void);
+void test_malloc_overflow(void);
+enum fatal_test_state fatal_malloc_overflow(unsigned int);
 void test_mempool_alloconly(void);
 enum fatal_test_state fatal_mempool(unsigned int);
 void test_pkcs5_pbkdf2(void);
