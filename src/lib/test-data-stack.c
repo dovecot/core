@@ -94,9 +94,9 @@ static void test_ds_recurse(int depth, int number, size_t size)
 	char tag[2] = { depth+1, '\0' };
 	int try_fails = 0;
 	unsigned int t_id = t_push_named("test_ds_recurse[%i]", depth);
-	ps = t_buffer_get_type(char *, number);
+	ps = t_buffer_get(sizeof(char *) * number);
 	i_assert(ps != NULL);
-	t_buffer_alloc_type(char *, number);
+	t_buffer_alloc(sizeof(char *) * number);
 
 	for (i = 0; i < number; i++) {
 		ps[i] = t_malloc(size/2);
