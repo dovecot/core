@@ -15,6 +15,8 @@
 #include <sys/stat.h>
 #include <ctype.h>
 
+#define DOVEADM_TCP_CONNECT_TIMEOUT_SECS 30
+
 bool doveadm_verbose = FALSE, doveadm_debug = FALSE, doveadm_server = FALSE;
 static struct module *modules = NULL;
 
@@ -104,6 +106,7 @@ doveadm_tcp_connect_port(const char *host, in_port_t port)
 	unsigned int ips_count;
 	int ret, fd;
 
+	alarm(DOVEADM_TCP_CONNECT_TIMEOUT_SECS);
 	ret = net_gethostbyname(host, &ips, &ips_count);
 	if (ret != 0) {
 		i_fatal("Lookup of host %s failed: %s",
@@ -114,6 +117,7 @@ doveadm_tcp_connect_port(const char *host, in_port_t port)
 		i_fatal("connect(%s:%u) failed: %m",
 			net_ip2addr(&ips[0]), port);
 	}
+	alarm(0);
 	return fd;
 }
 
