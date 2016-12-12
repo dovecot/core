@@ -308,6 +308,9 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				      &data, &expunged);
 		if (data == NULL) {
 			*error_r = "Missing list extension data";
+			/* list index is missing, no point trying
+			   to do second scan either */
+			count = 0;
 			break;
 		}
 		irec = data;
