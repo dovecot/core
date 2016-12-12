@@ -549,7 +549,8 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 		return NULL;
         doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
 
-	conn->name = p_strdup(pool, net_ip2addr(&conn->remote_ip));
+	conn->name = conn->remote_ip.family == 0 ? "<local>" :
+		p_strdup(pool, net_ip2addr(&conn->remote_ip));
 	conn->io = io_add(fd, IO_READ, client_connection_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
 	conn->output = o_stream_create_fd(fd, (size_t)-1);
