@@ -69,7 +69,8 @@ pool_t pool_datastack_create(void);
 size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 
 #define p_new(pool, type, count) \
-	((type *) p_malloc(pool, sizeof(type) * (count)))
+	((type *) p_malloc(pool, MALLOC_MULTIPLY((unsigned int)sizeof(type), (count))) + \
+	 COMPILE_ERROR_IF_TRUE(sizeof(type) > UINT_MAX))
 static inline void * ATTR_MALLOC ATTR_RETURNS_NONNULL
 p_malloc(pool_t pool, size_t size)
 {
