@@ -58,26 +58,12 @@ static const struct setting_parser_info *set_roots[] = {
 	NULL
 };
 
-void process_exec(const char *cmd, const char *extra_args[])
+void process_exec(const char *cmd)
 {
 	const char *executable, *p, **argv;
 
 	argv = t_strsplit(cmd, " ");
 	executable = argv[0];
-
-	if (extra_args != NULL) {
-		unsigned int count1, count2;
-		const char **new_argv;
-
-		/* @UNSAFE */
-		count1 = str_array_length(argv);
-		count2 = str_array_length(extra_args);
-		new_argv = t_new(const char *, count1 + count2 + 1);
-		memcpy(new_argv, argv, sizeof(const char *) * count1);
-		memcpy(new_argv + count1, extra_args,
-		       sizeof(const char *) * count2);
-		argv = new_argv;
-	}
 
 	/* hide the path, it's ugly */
 	p = strrchr(argv[0], '/');

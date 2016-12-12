@@ -13,8 +13,7 @@ extern int global_master_dead_pipe_fd[2];
 extern struct service_list *services;
 extern bool startup_finished;
 
-void process_exec(const char *cmd, const char *extra_args[])
-	ATTR_NORETURN ATTR_NULL(2);
+void process_exec(const char *cmd) ATTR_NORETURN;
 
 int get_uidgid(const char *user, uid_t *uid_r, gid_t *gid_r,
 	       const char **error_r);
