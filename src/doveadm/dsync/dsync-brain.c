@@ -18,6 +18,11 @@
 
 #include <sys/stat.h>
 
+enum dsync_brain_title {
+	DSYNC_BRAIN_TITLE_NONE = 0,
+	DSYNC_BRAIN_TITLE_LOCKING,
+};
+
 static const char *dsync_state_names[] = {
 	"master_recv_handshake",
 	"slave_recv_handshake",
@@ -36,7 +41,9 @@ static const char *dsync_state_names[] = {
 
 static void dsync_brain_mailbox_states_dump(struct dsync_brain *brain);
 
-static const char *dsync_brain_get_proctitle(struct dsync_brain *brain)
+static const char *
+dsync_brain_get_proctitle_full(struct dsync_brain *brain,
+			       enum dsync_brain_title title)
 {
 	string_t *str = t_str_new(128);
 	const char *import_title, *export_title;
@@ -70,8 +77,20 @@ static const char *dsync_brain_get_proctitle(struct dsync_brain *brain)
 			}
 		}
 	}
+	switch (title) {
+	case DSYNC_BRAIN_TITLE_NONE:
+		break;
+	case DSYNC_BRAIN_TITLE_LOCKING:
+		str_append(str, " locking "DSYNC_LOCK_FILENAME);
+		break;
+	}
 	str_append_c(str, ']');
 	return str_c(str);
+}
+
+static const char *dsync_brain_get_proctitle(struct dsync_brain *brain)
+{
+	return dsync_brain_get_proctitle_full(brain, DSYNC_BRAIN_TITLE_NONE);
 }
 
 static void dsync_brain_run_io(void *context)
@@ -251,6 +270,9 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 
 	dsync_ibc_set_io_callback(ibc, dsync_brain_run_io, brain);
 	brain->state = DSYNC_STATE_MASTER_RECV_HANDSHAKE;
+
+	if (brain->verbose_proctitle)
+		process_title_set(dsync_brain_get_proctitle(brain));
 	return brain;
 }
 
@@ -277,6 +299,8 @@ dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
 	ibc_set.hostname = my_hostdomain();
 	dsync_ibc_send_handshake(ibc, &ibc_set);
 
+	if (brain->verbose_proctitle)
+		process_title_set(dsync_brain_get_proctitle(brain));
 	dsync_ibc_set_io_callback(ibc, dsync_brain_run_io, brain);
 	return brain;
 }
@@ -380,6 +404,8 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 		return -1;
 	}
 
+	if (brain->verbose_proctitle)
+		process_title_set(dsync_brain_get_proctitle_full(brain, DSYNC_BRAIN_TITLE_LOCKING));
 	brain->lock_path = p_strconcat(brain->pool, home,
 				       "/"DSYNC_LOCK_FILENAME, NULL);
 	for (;;) {
@@ -387,7 +413,7 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 		if (brain->lock_fd == -1) {
 			i_error("Couldn't create lock %s: %m",
 				brain->lock_path);
-			return -1;
+			break;
 		}
 
 		if (file_wait_lock(brain->lock_fd, brain->lock_path, F_WRLCK,
@@ -413,12 +439,17 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 			}
 		} else if (st1.st_ino == st2.st_ino) {
 			/* success */
+			if (brain->verbose_proctitle)
+				process_title_set(dsync_brain_get_proctitle(brain));
 			return 0;
 		}
 		/* file was recreated, try again */
 		i_close_fd(&brain->lock_fd);
 	}
-	i_close_fd(&brain->lock_fd);
+	if (brain->lock_fd != -1)
+		i_close_fd(&brain->lock_fd);
+	if (brain->verbose_proctitle)
+		process_title_set(dsync_brain_get_proctitle(brain));
 	return -1;
 }
 
