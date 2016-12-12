@@ -63,7 +63,7 @@ int main(void)
 		test_wildcard_match,
 		NULL
 	};
-	static enum fatal_test_state (*fatal_functions[])(int) = {
+	static enum fatal_test_state (*fatal_functions[])(unsigned int) = {
 		fatal_array,
 		fatal_data_stack,
 		fatal_mempool,

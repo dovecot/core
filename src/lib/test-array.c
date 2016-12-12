@@ -238,7 +238,7 @@ void test_array(void)
 	test_array_swap();
 }
 
-enum fatal_test_state fatal_array(int stage)
+enum fatal_test_state fatal_array(unsigned int stage)
 {
 	double tmpd[2] = { 42., -42. };
 	short tmps[8] = {1,2,3,4,5,6,7,8};
@@ -276,7 +276,7 @@ enum fatal_test_state fatal_array(int stage)
 	test_end();
 	/* Forces the compiler to check the value of useless_ptr, so that it
 	   must call array_idx (which is marked as pure, and gcc was desperate
-	   to optimise out. Of course, gcc is unaware stage is never -1.*/
-	return (useless_ptr != NULL && stage == -1)
+	   to optimise out. Of course, gcc is unaware stage is never UINT_MAX.*/
+	return (useless_ptr != NULL && stage == UINT_MAX)
 		? FATAL_TEST_FAILURE : FATAL_TEST_FINISHED;
 }

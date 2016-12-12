@@ -95,7 +95,7 @@ void test_printf_format_fix()
 }
 
 /* Want to test the panics too? go for it! */
-enum fatal_test_state fatal_printf_format_fix(int stage)
+enum fatal_test_state fatal_printf_format_fix(unsigned int stage)
 {
 	static const char *fatals[] = {
 		"no no no %n's",
@@ -104,7 +104,7 @@ enum fatal_test_state fatal_printf_format_fix(int stage)
 		"definitely can't have a tailing %",
 	};
 
-	if((unsigned int)stage >= N_ELEMENTS(fatals)) {
+	if(stage >= N_ELEMENTS(fatals)) {
 		test_end();
 		return FATAL_TEST_FINISHED;
 	}

@@ -145,7 +145,7 @@ void test_data_stack(void)
 	test_ds_recursive(20, 80);
 }
 
-enum fatal_test_state fatal_data_stack(int stage)
+enum fatal_test_state fatal_data_stack(unsigned int stage)
 {
 #ifdef DEBUG
 	/* If we abort, then we'll be left with a dangling t_push()
