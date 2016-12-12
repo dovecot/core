@@ -14,6 +14,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
+#include "process-title.h"
 #include "settings-parser.h"
 #include "imap-util.h"
 #include "master-service.h"
@@ -811,6 +812,10 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 
 	ioloop = io_loop_create();
 
+	if (doveadm_verbose_proctitle) {
+		process_title_set(t_strdup_printf(
+			"[dsync - connecting to %s]", server->name));
+	}
 	if (server_connection_create(server, &conn) < 0) {
 		*error_r = "Couldn't create server connection";
 		return -1;
@@ -827,6 +832,11 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	if (ctx->replicator_notify)
 		str_append(cmd, "\t-U");
 	str_append_c(cmd, '\n');
+
+	if (doveadm_verbose_proctitle) {
+		process_title_set(t_strdup_printf(
+			"[dsync - running dsync-server on %s]", server->name));
+	}
 
 	ctx->tcp_conn = conn;
 	server_connection_cmd(conn, str_c(cmd), NULL,
