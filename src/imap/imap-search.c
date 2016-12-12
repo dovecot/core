@@ -603,6 +603,9 @@ bool imap_search_start(struct imap_search_context *ctx,
 	/* we may have moved onto syncing by now */
 	if (cmd->func == cmd_search_more)
 		ctx->to = timeout_add(0, cmd_search_more_callback, cmd);
+
+	cmd->state = CLIENT_COMMAND_STATE_WAIT_EXTERNAL;
+
 	return FALSE;
 }
 
