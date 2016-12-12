@@ -188,6 +188,7 @@ static void doveadm_mail_cmd_input_timeout(struct doveadm_mail_cmd_context *ctx)
 	i_stream_set_name(input, i_stream_get_name(ctx->cmd_input));
 	i_stream_destroy(&ctx->cmd_input);
 	ctx->cmd_input = input;
+	ctx->exit_code = EX_TEMPFAIL;
 	io_loop_stop(current_ioloop);
 }
 
