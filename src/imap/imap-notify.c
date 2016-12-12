@@ -190,7 +190,7 @@ bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,
 {
 	struct mailbox *box;
 	const char *const *namep;
-	unsigned int name_len;
+	size_t name_len;
 	char ns_sep;
 	bool ret;
 

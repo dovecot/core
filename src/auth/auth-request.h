@@ -81,7 +81,7 @@ struct auth_request {
 	struct timeout *to_abort, *to_penalty;
 	unsigned int policy_penalty;
 	unsigned int last_penalty;
-	unsigned int initial_response_len;
+	size_t initial_response_len;
 	const unsigned char *initial_response;
 
 	union {

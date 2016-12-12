@@ -460,7 +460,7 @@ lmtp_client_parse_capabilities(struct lmtp_client *client, const char *lines)
 static bool lmtp_client_send_xclient(struct lmtp_client *client)
 {
 	string_t *str;
-	unsigned int empty_len;
+	size_t empty_len;
 
 	if (client->xclient_args == NULL) {
 		/* not supported */

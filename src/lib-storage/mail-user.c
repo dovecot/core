@@ -524,7 +524,7 @@ mail_user_try_load_class_plugin(struct mail_user *user, const char *name)
 {
 	struct module_dir_load_settings mod_set;
 	struct module *module;
-	unsigned int name_len = strlen(name);
+	size_t name_len = strlen(name);
 
 	memset(&mod_set, 0, sizeof(mod_set));
 	mod_set.abi_version = DOVECOT_ABI_VERSION;

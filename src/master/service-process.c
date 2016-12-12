@@ -172,7 +172,7 @@ drop_privileges(struct service *service)
 {
 	struct restrict_access_settings rset;
 	bool disallow_root;
-	unsigned int len;
+	size_t len;
 
 	if (service->vsz_limit != 0)
 		restrict_process_size(service->vsz_limit);

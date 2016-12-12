@@ -35,7 +35,7 @@ struct file_dict {
 
 struct file_dict_iterate_path {
 	const char *path;
-	unsigned int len;
+	size_t len;
 };
 
 struct file_dict_iterate_context {
@@ -315,7 +315,7 @@ static void file_dict_apply_changes(struct dict_transaction_memory_context *ctx,
 	char *key, *value, *old_value;
 	char *orig_key, *orig_value;
 	const struct dict_transaction_memory_change *change;
-	unsigned int new_len;
+	size_t new_len;
 	long long diff;
 
 	array_foreach(&ctx->changes, change) {

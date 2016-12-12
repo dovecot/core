@@ -144,7 +144,8 @@ cmd_notify_add_mailbox(struct imap_notify_context *ctx,
 	struct imap_notify_namespace *notify_ns;
 	struct imap_notify_mailboxes *notify_boxes;
 	const char *const *names;
-	unsigned int i, count, cur_len, name_len = strlen(name);
+	unsigned int i, count;
+	size_t cur_len, name_len = strlen(name);
 	char ns_sep = mail_namespace_get_sep(ns);
 
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&

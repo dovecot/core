@@ -58,7 +58,7 @@ static void stats_command_post(struct client_command_context *cmd)
 	struct stats_client_command *scmd = IMAP_STATS_IMAP_CONTEXT(cmd);
 	struct stats *new_stats, *diff_stats;
 	const char *error;
-	unsigned int args_pos = 0, args_len = 0;
+	size_t args_pos = 0, args_len = 0;
 	string_t *str;
 	buffer_t *buf;
 
@@ -102,7 +102,7 @@ static void stats_command_post(struct client_command_context *cmd)
 
 	if (str_len(str) > PIPE_BUF) {
 		/* truncate the args so it fits */
-		unsigned int delete_count = str_len(str) - PIPE_BUF;
+		size_t delete_count = str_len(str) - PIPE_BUF;
 
 		i_assert(args_pos != 0);
 		if (delete_count > args_len)

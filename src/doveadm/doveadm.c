@@ -55,7 +55,8 @@ doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
 	const char *cmd, *args, *p, *short_name, *sub_name;
 	const char *prev_name = "", *prev_sub_name = "";
 	const char **lines;
-	unsigned int i, count, prefix_len = strlen(prefix);
+	unsigned int i, count;
+	size_t prefix_len = strlen(prefix);
 
 	/* split lines */
 	lines = (void *)p_strsplit(pool_datastack_create(), str, "\n");
@@ -228,7 +229,7 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 {
 	const struct doveadm_cmd_ver2 *cmd2;
 	const struct doveadm_cmd *cmd;
-	unsigned int len = strlen(cmd_name);
+	size_t len = strlen(cmd_name);
 
 	array_foreach(&doveadm_cmds, cmd) {
 		if (strncmp(cmd->name, cmd_name, len) == 0 &&

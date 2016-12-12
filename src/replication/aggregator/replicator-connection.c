@@ -84,7 +84,7 @@ static bool
 replicator_send_buf(struct replicator_connection *conn, buffer_t *buf)
 {
 	const unsigned char *data = buf->data;
-	unsigned int len = IO_BLOCK_SIZE;
+	size_t len = IO_BLOCK_SIZE;
 
 	/* try to send about IO_BLOCK_SIZE amount of data,
 	   but only full lines */
@@ -265,7 +265,7 @@ static void
 replicator_send(struct replicator_connection *conn,
 		enum replication_priority priority, const char *data)
 {
-	unsigned int data_len = strlen(data);
+	size_t data_len = strlen(data);
 
 	if (conn->fd != -1 &&
 	    o_stream_get_buffer_used_size(conn->output) == 0) {

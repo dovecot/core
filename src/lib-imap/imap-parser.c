@@ -542,7 +542,7 @@ static bool imap_parser_is_next_resp_text(struct imap_parser *parser)
 static bool imap_parser_is_next_text(struct imap_parser *parser)
 {
 	const struct imap_arg *arg;
-	unsigned int len;
+	size_t len;
 
 	if (parser->cur_list != &parser->root_list)
 		return FALSE;

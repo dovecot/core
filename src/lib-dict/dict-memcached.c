@@ -38,7 +38,7 @@ struct memcached_connection {
 	buffer_t *cmd;
 	struct {
 		const unsigned char *value;
-		unsigned int value_len;
+		size_t value_len;
 		enum memcached_response status;
 		bool reply_received;
 	} reply;
@@ -278,7 +278,7 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	struct memcached_dict *dict = (struct memcached_dict *)_dict;
 	struct ioloop *prev_ioloop = current_ioloop;
 	struct timeout *to;
-	unsigned int key_len;
+	size_t key_len;
 
 	if (strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) == 0)
 		key += strlen(DICT_PATH_SHARED);
@@ -291,7 +291,7 @@ memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	key_len = strlen(key);
 	if (key_len > 0xffff) {
 		*error_r = t_strdup_printf(
-			"memcached: Key is too long (%u bytes): %s", key_len, key);
+			"memcached: Key is too long (%"PRIuSIZE_T" bytes): %s", key_len, key);
 		return -1;
 	}
 

@@ -50,7 +50,8 @@ bool array_cmp_i(const struct array *array1, const struct array *array2)
 bool array_equal_fn_i(const struct array *array1, const struct array *array2,
 		      int (*cmp)(const void *, const void*))
 {
-	unsigned int count1, count2, i, size;
+	unsigned int count1, count2, i;
+	size_t size;
 
 	if (!array_is_created_i(array1) || array1->buffer->used == 0)
 		return !array_is_created_i(array2) || array2->buffer->used == 0;
@@ -77,7 +78,8 @@ bool array_equal_fn_ctx_i(const struct array *array1, const struct array *array2
 			  int (*cmp)(const void *, const void *, const void *),
 			  const void *context)
 {
-	unsigned int count1, count2, i, size;
+	unsigned int count1, count2, i;
+	size_t size;
 
 	if (!array_is_created_i(array1) || array1->buffer->used == 0)
 		return !array_is_created_i(array2) || array2->buffer->used == 0;
@@ -144,7 +146,7 @@ const void *array_lsearch_i(const struct array *array, const void *key,
 			    int (*cmp)(const void *, const void *))
 {
 	const void * const data = array->buffer->data;
-	const unsigned int s = array->element_size;
+	const size_t s = array->element_size;
 	unsigned int idx;
 
 	for (idx = 0; idx < array_count_i(array); idx++) {

@@ -203,7 +203,8 @@ test_message_header_parser_long_lines_str(const char *str,
 	struct message_header_parser_ctx *parser;
 	struct message_header_line *hdr;
 	struct istream *input;
-	unsigned int i, len = strlen(str);
+	unsigned int i;
+	size_t len = strlen(str);
 
 	input = test_istream_create(str);
 	test_istream_set_max_buffer_size(input, buffer_size);
@@ -222,7 +223,7 @@ static void test_message_header_parser_long_lines(void)
 	static const char *lf_str = "1234567890: 345\n\n";
 	static const char *crlf_str = "1234567890: 345\r\n\r\n";
 	struct message_size hdr_size;
-	unsigned int i, len;
+	size_t i, len;
 
 	test_begin("message header parser long lines");
 	len = strlen(lf_str);

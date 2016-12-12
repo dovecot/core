@@ -2145,7 +2145,7 @@ static void director_connection_reconnect(struct director_connection **_conn,
 void director_connection_send(struct director_connection *conn,
 			      const char *data)
 {
-	unsigned int len = strlen(data);
+	size_t len = strlen(data);
 	off_t ret;
 
 	if (conn->output->closed || !conn->connected)

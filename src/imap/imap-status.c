@@ -103,7 +103,7 @@ int imap_status_send(struct client *client, const char *mailbox_mutf7,
 {
 	const struct mailbox_status *status = &result->status;
 	string_t *str;
-	unsigned int prefix_len;
+	size_t prefix_len;
 
 	str = t_str_new(128);
 	str_append(str, "* STATUS ");

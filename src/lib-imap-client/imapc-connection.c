@@ -806,7 +806,7 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	struct imapc_connection *conn = context;
 	const unsigned char *sasl_output;
 	unsigned int sasl_output_len;
-	unsigned int input_len;
+	size_t input_len;
 	buffer_t *buf;
 	const char *error;
 
@@ -1980,7 +1980,8 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 	struct imapc_command *const *cmds, *cmd;
 	struct imapc_command_reply reply;
 	const unsigned char *p, *data;
-	unsigned int count, seek_pos, start_pos, end_pos, size;
+	unsigned int count, size;
+	size_t seek_pos, start_pos, end_pos;
 	int ret;
 
 	if (imapc_connection_is_throttled(conn))
@@ -2175,7 +2176,7 @@ bool imapc_command_connection_is_selected(struct imapc_command *cmd)
 
 void imapc_command_send(struct imapc_command *cmd, const char *cmd_str)
 {
-	unsigned int len = strlen(cmd_str);
+	size_t len = strlen(cmd_str);
 
 	cmd->data = str_new(cmd->pool, 6 + len + 2);
 	str_printfa(cmd->data, "%u %s\r\n", cmd->tag, cmd_str);

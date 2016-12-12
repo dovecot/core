@@ -225,7 +225,7 @@ static int fs_dict_write_stream_finish(struct fs_file *_file, bool success)
 		break;
 	}
 	case FS_DICT_VALUE_ENCODING_BASE64: {
-		const unsigned int base64_size =
+		const size_t base64_size =
 			MAX_BASE64_ENCODED_SIZE(file->write_buffer->used);
 		string_t *base64 = t_str_new(base64_size);
 		base64_encode(file->write_buffer->data,

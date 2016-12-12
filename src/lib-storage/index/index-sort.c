@@ -388,7 +388,7 @@ get_display_name(struct mail *mail, const char *header, const char **name_r)
 
 	if (addr->name != NULL) {
 		string_t *str;
-		unsigned int len = strlen(addr->name);
+		size_t len = strlen(addr->name);
 
 		str = t_str_new(len*2);
 		(void)message_header_decode_utf8(

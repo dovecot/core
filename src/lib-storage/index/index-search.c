@@ -446,9 +446,9 @@ msg_search_arg_context(struct index_search_context *ctx,
 }
 
 static void compress_lwsp(string_t *dest, const unsigned char *src,
-			  unsigned int src_len)
+			  size_t src_len)
 {
-	unsigned int i;
+	size_t i;
 	bool prev_lwsp = TRUE;
 
 	for (i = 0; i < src_len; i++) {

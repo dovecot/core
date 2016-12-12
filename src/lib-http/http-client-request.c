@@ -348,7 +348,7 @@ void http_client_request_remove_header(struct http_client_request *req,
 {
 	const unsigned char *data, *p;
 	size_t size, line_len, line_start_pos;
-	unsigned int key_len = strlen(key);
+	size_t key_len = strlen(key);
 
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
 		 /* allow calling for retries */

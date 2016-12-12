@@ -1191,7 +1191,7 @@ void mdbox_map_append_abort(struct mdbox_map_append_context *ctx)
 static int
 mdbox_find_highest_file_id(struct mdbox_map *map, uint32_t *file_id_r)
 {
-	const unsigned int prefix_len = strlen(MDBOX_MAIL_FILE_PREFIX);
+	const size_t prefix_len = strlen(MDBOX_MAIL_FILE_PREFIX);
 	DIR *dir;
 	struct dirent *d;
 	unsigned int id, highest_id = 0;

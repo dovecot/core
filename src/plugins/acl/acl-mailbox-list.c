@@ -233,7 +233,7 @@ acl_mailbox_list_iter_get_name(struct mailbox_list_iterate_context *ctx,
 {
 	struct mail_namespace *ns = ctx->list->ns;
 	const char *name;
-	unsigned int len;
+	size_t len;
 
 	name = mailbox_list_get_storage_name(ns->list, vname);
 	len = strlen(name);
@@ -266,7 +266,7 @@ iter_mailbox_has_visible_children(struct acl_mailbox_list_iterate_context *ctx,
 	const struct mailbox_info *info;
 	string_t *pattern;
 	const char *prefix;
-	unsigned int i, prefix_len;
+	size_t i, prefix_len;
 	bool stars = FALSE, ret = FALSE;
 
 	/* do we have child mailboxes with LOOKUP right that don't match

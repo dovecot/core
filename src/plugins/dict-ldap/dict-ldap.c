@@ -53,12 +53,12 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 
 static bool
 dict_ldap_map_match(const struct dict_ldap_map *map, const char *path,
-		   ARRAY_TYPE(const_string) *values, unsigned int *pat_len_r,
-		   unsigned int *path_len_r, bool partial_ok, bool recurse)
+		   ARRAY_TYPE(const_string) *values, size_t *pat_len_r,
+		   size_t *path_len_r, bool partial_ok, bool recurse)
 {
 	const char *path_start = path;
 	const char *pat, *attribute, *p;
-	unsigned int len;
+	size_t len;
 
 	array_clear(values);
 	pat = map->pattern;
@@ -134,7 +134,8 @@ ldap_dict_find_map(struct ldap_dict *dict, const char *path,
 		  ARRAY_TYPE(const_string) *values)
 {
 	const struct dict_ldap_map *maps;
-	unsigned int i, count, len;
+	unsigned int i, count;
+	size_t len;
 
 	t_array_init(values, dict->set->max_attribute_count);
 	maps = array_get(&dict->set->maps, &count);

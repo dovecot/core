@@ -134,15 +134,15 @@ struct client_input {
 	const char *tag;
 
 	const unsigned char *input;
-	unsigned int input_size;
+	size_t input_size;
 	bool send_untagged_capability;
 };
 
 static void
-client_parse_input(const unsigned char *data, unsigned int len,
+client_parse_input(const unsigned char *data, size_t len,
 		   struct client_input *input_r)
 {
-	unsigned int taglen;
+	size_t taglen;
 
 	i_assert(len > 0);
 

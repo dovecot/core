@@ -1014,7 +1014,7 @@ int mailbox_verify_create_name(struct mailbox *box)
 static bool have_listable_namespace_prefix(struct mail_namespace *ns,
 					   const char *name)
 {
-	unsigned int name_len = strlen(name);
+	size_t name_len = strlen(name);
 
 	for (; ns != NULL; ns = ns->next) {
 		if ((ns->flags & (NAMESPACE_FLAG_LIST_PREFIX |

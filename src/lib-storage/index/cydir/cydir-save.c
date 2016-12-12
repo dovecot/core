@@ -237,7 +237,8 @@ int cydir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	uint32_t uid;
 	const char *dir;
 	string_t *src_path, *dest_path;
-	unsigned int n, src_prefixlen, dest_prefixlen;
+	unsigned int n;
+	size_t src_prefixlen, dest_prefixlen;
 
 	i_assert(ctx->finished);
 

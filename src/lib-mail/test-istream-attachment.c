@@ -326,7 +326,7 @@ static void test_istream_attachment(void)
 
 static bool test_istream_attachment_extractor_one(const char *body)
 {
-	const unsigned int prefix_len = strlen(mail_broken_input_body_prefix);
+	const size_t prefix_len = strlen(mail_broken_input_body_prefix);
 	struct istream_attachment_settings set;
 	struct istream *datainput, *input;
 	char *mail_text;

@@ -10,7 +10,7 @@ struct cydir_sync_context {
 	struct mail_index_transaction *trans;
 
 	string_t *path;
-	unsigned int path_dir_prefix_len;
+	size_t path_dir_prefix_len;
 	uint32_t uid_validity;
 };
 

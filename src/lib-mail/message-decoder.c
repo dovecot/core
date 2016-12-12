@@ -27,7 +27,7 @@ struct message_decoder_context {
 	char *charset_trans_charset;
 	struct charset_translation *charset_trans;
 	char translation_buf[CHARSET_MAX_PENDING_BUF_SIZE];
-	unsigned int translation_size;
+	size_t translation_size;
 
 	struct qp_decoder *qp;
 	buffer_t *encoding_buf;
@@ -201,7 +201,7 @@ static void translation_buf_decode(struct message_decoder_context *ctx,
 				   const unsigned char **data, size_t *size)
 {
 	unsigned char trans_buf[CHARSET_MAX_PENDING_BUF_SIZE+1];
-	unsigned int data_wanted, skip;
+	size_t data_wanted, skip;
 	size_t trans_size, orig_size;
 
 	/* @UNSAFE: move the previously untranslated bytes to trans_buf

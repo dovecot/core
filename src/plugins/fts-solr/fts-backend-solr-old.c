@@ -60,10 +60,10 @@ static bool is_valid_xml_char(unichar_t chr)
 }
 
 static void
-xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
+xml_encode_data(string_t *dest, const unsigned char *data, size_t len)
 {
 	unichar_t chr;
-	unsigned int i;
+	size_t i;
 
 	for (i = 0; i < len; i++) {
 		switch (data[i]) {
@@ -659,7 +659,7 @@ static bool
 solr_add_definite_query_args(string_t *str, struct mail_search_arg *arg,
 			     bool and_args)
 {
-	unsigned int last_len;
+	size_t last_len;
 
 	last_len = str_len(str);
 	for (; arg != NULL; arg = arg->next) {
@@ -761,7 +761,8 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 	struct mailbox *box;
 	const char *box_name;
 	char *box_id;
-	unsigned int i, len;
+	unsigned int i;
+	size_t len;
 
 	/* use a separate filter query for selecting the mailbox. it shouldn't
 	   affect the score and there could be some caching benefits too. */

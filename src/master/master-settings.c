@@ -284,7 +284,7 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 			const char **error_r)
 {
 	struct file_listener_settings *const *sets;
-	unsigned int base_dir_len = strlen(master_set->base_dir);
+	size_t base_dir_len = strlen(master_set->base_dir);
 	enum service_user_default user_default;
 
 	if (!array_is_created(l))
@@ -422,8 +422,9 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	const char *const *strings;
 	ARRAY_TYPE(const_string) all_listeners;
 	struct passwd pw;
-	unsigned int i, j, count, len, client_limit, process_limit;
+	unsigned int i, j, count, client_limit, process_limit;
 	unsigned int max_auth_client_processes, max_anvil_client_processes;
+	size_t len;
 #ifdef CONFIG_BINARY
 	const struct service_settings *default_service;
 #else
@@ -666,7 +667,7 @@ settings_have_auth_unix_listeners_in(const struct master_settings *set,
 {
 	struct service_settings *const *services;
 	struct file_listener_settings *const *uls;
-	unsigned int dir_len = strlen(dir);
+	size_t dir_len = strlen(dir);
 
 	array_foreach(&set->services, services) {
 		struct service_settings *service = *services;
@@ -690,7 +691,7 @@ static void unlink_sockets(const char *path, const char *prefix)
 	struct dirent *dp;
 	struct stat st;
 	string_t *str;
-	unsigned int prefix_len;
+	size_t prefix_len;
 
 	dirp = opendir(path);
 	if (dirp == NULL) {

@@ -9,7 +9,7 @@ struct index_storage_attribute_iter {
 	struct mailbox_attribute_iter iter;
 	struct dict_iterate_context *diter;
 	char *prefix;
-	unsigned int prefix_len;
+	size_t prefix_len;
 	bool dict_disabled;
 };
 

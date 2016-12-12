@@ -699,7 +699,7 @@ doveadm_mail_cmd_try_find_multi_word(const struct doveadm_mail_cmd *cmd,
 				     const char *cmdname, int *argc,
 				     const char *const **argv)
 {
-	unsigned int len;
+	size_t len;
 
 	if (*argc < 2)
 		return FALSE;
@@ -727,7 +727,7 @@ doveadm_mail_cmd_find_from_argv(const char *cmd_name, int *argc,
 				const char *const **argv)
 {
 	const struct doveadm_mail_cmd *cmd;
-	unsigned int cmd_name_len;
+	size_t cmd_name_len;
 	const char *const *orig_argv;
 	int orig_argc;
 
@@ -822,7 +822,7 @@ void doveadm_mail_try_help_name(const char *cmd_name)
 bool doveadm_mail_has_subcommands(const char *cmd_name)
 {
 	const struct doveadm_mail_cmd *cmd;
-	unsigned int len = strlen(cmd_name);
+	size_t len = strlen(cmd_name);
 
 	array_foreach(&doveadm_mail_cmds, cmd) {
 		if (strncmp(cmd->name, cmd_name, len) == 0 &&

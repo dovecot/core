@@ -18,7 +18,8 @@ static void test_istream_dot_one(const struct dot_test *test,
 	struct istream *test_input, *input;
 	const unsigned char *data;
 	size_t size;
-	unsigned int i, outsize, input_len, output_len;
+	unsigned int i;
+	size_t outsize, input_len, output_len;
 	string_t *str;
 	uoff_t offset;
 	int ret;
@@ -111,7 +112,8 @@ static void test_istream_dot_one(const struct dot_test *test,
 static void test_istream_dot_error(const char *input_str, bool test_bufsize)
 {
 	struct istream *test_input, *input;
-	unsigned int i, outsize, input_len;
+	unsigned int i;
+	size_t outsize, input_len;
 	uoff_t offset;
 	int ret;
 

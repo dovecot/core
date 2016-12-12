@@ -43,7 +43,8 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	char *line, *str, buf[4096];
 	buffer_t *valid;
 	int ret, fd;
-	unsigned int len, last = 0, seq = 1, node_count, uidlist_count;
+	unsigned int last = 0, seq = 1, node_count, uidlist_count;
+	size_t len;
 	enum squat_index_type index_type;
 	bool data_header = TRUE, first = TRUE, skip_body = FALSE;
 	bool mime_header = TRUE;

@@ -132,7 +132,7 @@ static int login_proxy_state_notify_open(struct login_proxy_state *state)
 static bool login_proxy_state_try_notify(struct login_proxy_state *state,
 					 const char *user)
 {
-	unsigned int len;
+	size_t len;
 	ssize_t ret;
 
 	if (state->notify_fd == -1) {

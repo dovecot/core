@@ -220,7 +220,7 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 
 	array_foreach(&ctx->mailboxes, namep) {
 		const char *name = *namep;
-		unsigned int len;
+		size_t len;
 		bool directory = FALSE;
 
 		ns = mail_namespace_find(user->namespaces, name);

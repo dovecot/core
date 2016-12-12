@@ -10,7 +10,7 @@
 
 static bool ipc_socket_is_client(const char *name)
 {
-	unsigned int len;
+	size_t len;
 
 	if (strcmp(name, "ipc") == 0)
 		return TRUE;

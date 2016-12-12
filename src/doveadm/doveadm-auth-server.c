@@ -87,7 +87,7 @@ cmd_user_input(struct auth_master_connection *conn,
 			t_strdup_printf("\"error\":\"%s: user doesn't exist\"",
 				lookup_name));
 	} else if (show_field != NULL) {
-		unsigned int show_field_len = strlen(show_field);
+		size_t show_field_len = strlen(show_field);
 		string_t *json_field = t_str_new(show_field_len+1);
 		json_append_escaped(json_field, show_field);
 		o_stream_nsend_str(doveadm_print_ostream, t_strdup_printf("\"%s\":", str_c(json_field)));

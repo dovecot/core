@@ -78,9 +78,10 @@ static void init_goodtab(struct str_find_context *ctx)
 struct str_find_context *str_find_init(pool_t pool, const char *key)
 {
 	struct str_find_context *ctx;
-	unsigned int key_len = strlen(key);
+	size_t key_len = strlen(key);
 
 	i_assert(key_len > 0);
+	i_assert(key_len < INT_MAX);
 
 	ctx = p_malloc(pool, sizeof(struct str_find_context) +
 		       sizeof(ctx->goodtab[0]) * key_len);

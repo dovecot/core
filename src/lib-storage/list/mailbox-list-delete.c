@@ -144,7 +144,7 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 	DIR *dir;
 	struct dirent *d;
 	string_t *full_path;
-	unsigned int dir_len;
+	size_t dir_len;
 	const char *error;
 	bool mailbox_dir, unlinked_something = FALSE;
 
@@ -236,7 +236,7 @@ void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 				    enum mailbox_list_path_type type)
 {
 	const char *root_dir, *p;
-	unsigned int len;
+	size_t len;
 
 	root_dir = mailbox_list_get_root_forced(list, type);
 	if (strncmp(path, root_dir, strlen(root_dir)) != 0) {

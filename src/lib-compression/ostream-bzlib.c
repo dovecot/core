@@ -99,7 +99,7 @@ o_stream_bzlib_send_chunk(struct bzlib_ostream *zstream,
 static int o_stream_bzlib_send_flush(struct bzlib_ostream *zstream)
 {
 	bz_stream *zs = &zstream->zs;
-	unsigned int len;
+	size_t len;
 	bool done = FALSE;
 	int ret;
 

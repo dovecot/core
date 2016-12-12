@@ -19,7 +19,7 @@ struct doveadm_print_table_header {
 	const char *key;
 	const char *title;
 	enum doveadm_print_header_flags flags;
-	unsigned int min_length, max_length, length;
+	size_t min_length, max_length, length;
 };
 
 struct doveadm_print_table_context {
@@ -51,8 +51,8 @@ static void doveadm_calc_header_length(void)
 {
 	struct doveadm_print_table_header *headers;
 	const char *value, *const *values;
-	unsigned int i, line, len, hdr_count, value_count, line_count;
-	unsigned int max_length, orig_length, diff;
+	unsigned int i, line, hdr_count, value_count, line_count;
+	size_t len, max_length, orig_length, diff;
 
 	ctx->lengths_set = TRUE;
 

@@ -28,7 +28,7 @@ mailbox_list_subscription_fill_one(struct mailbox_list *list,
 	struct mail_namespace *namespaces = default_ns->user->namespaces;
 	struct mailbox_node *node;
 	const char *vname, *ns_name, *error;
-	unsigned int len;
+	size_t len;
 	bool created;
 
 	/* default_ns is whatever namespace we're currently listing.

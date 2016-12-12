@@ -9,7 +9,7 @@ bool cmd_rename(struct client_command_context *cmd)
 	struct mail_namespace *old_ns, *new_ns;
 	struct mailbox *old_box, *new_box;
 	const char *oldname, *newname;
-	unsigned int oldlen;
+	size_t oldlen;
 
 	/* <old name> <new name> */
 	if (!client_read_string_args(cmd, 2, &oldname, &newname))

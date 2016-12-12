@@ -364,7 +364,7 @@ static bool sync_node_is_namespace_prefix(struct dsync_mailbox_tree *tree,
 					  struct dsync_mailbox_node *node)
 {
 	const char *full_name;
-	unsigned int prefix_len = node->ns == NULL ? 0 : node->ns->prefix_len;
+	size_t prefix_len = node->ns == NULL ? 0 : node->ns->prefix_len;
 
 	if (strcmp(node->name, "INBOX") == 0 && node->parent == &tree->root)
 		return TRUE;
@@ -390,7 +390,8 @@ sync_rename_node_to_temp(struct dsync_mailbox_tree_sync_ctx *ctx,
 	const char *old_name, *new_name, *p;
 	char name[TEMP_MAX_NAME_LEN+1];
 	buffer_t buf;
-	unsigned int prefix_len, max_prefix_len, counter = 1;
+	size_t prefix_len, max_prefix_len;
+	unsigned int counter = 1;
 
 	i_assert(!sync_node_is_namespace_prefix(tree, node));
 
@@ -963,7 +964,7 @@ mailbox_node_generate_suffix(struct dsync_mailbox_node *node)
 static void suffix_inc(string_t *str)
 {
 	char *data;
-	unsigned int i;
+	size_t i;
 
 	data = str_c_modifiable(str) + str_len(str)-1;
 	for (i = str_len(str); i > 0; i--, data--) {
@@ -988,7 +989,7 @@ sync_rename_temp_mailbox_node(struct dsync_mailbox_tree *tree,
 {
 	const char *p, *new_suffix;
 	string_t *str = t_str_new(256);
-	unsigned int max_prefix_len;
+	size_t max_prefix_len;
 
 	/* The name is currently <oldname>-<temp>. Both sides need to
 	   use equivalent names, so we'll replace the <temp> if possible

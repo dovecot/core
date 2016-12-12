@@ -61,7 +61,7 @@ mail_crypt_load_global_private_keys(const struct fs_crypt_settings *set,
 	string_t *set_key = t_str_new(64);
 	str_append(set_key, set_prefix);
 	str_append(set_key, "_private_key");
-	unsigned int prefix_len = str_len(set_key);
+	size_t prefix_len = str_len(set_key);
 
 	unsigned int i = 1;
 	const char *key_data;

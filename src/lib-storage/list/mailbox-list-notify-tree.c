@@ -44,7 +44,7 @@ mailbox_list_notify_node_build(struct mailbox_list_notify_tree *tree,
 {
 	struct mailbox_node *node;
 	struct mailbox_notify_node *nnode;
-	unsigned int prefix_len;
+	size_t prefix_len;
 	bool created;
 
 	str_append(path, index_node->name);

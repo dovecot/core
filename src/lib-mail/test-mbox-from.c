@@ -50,7 +50,8 @@ static void test_mbox_from_parse(void)
 		{ 0, 0, NULL, -1 },
 		{ 0, 0, NULL, -1 },
 	};
-	unsigned int i, j, len;
+	unsigned int i, j;
+	size_t len;
 	struct tm *tm;
 	char *sender;
 	bool success;

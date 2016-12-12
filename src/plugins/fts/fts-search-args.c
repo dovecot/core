@@ -98,7 +98,7 @@ fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
 				  struct mail_search_arg *orig_arg,
 				  const char *orig_token, const char **error_r)
 {
-	unsigned int orig_token_len = strlen(orig_token);
+	size_t orig_token_len = strlen(orig_token);
 	struct mail_search_arg *and_arg;
 	const char *token, *error;
 	int ret;

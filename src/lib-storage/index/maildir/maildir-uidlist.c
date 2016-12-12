@@ -1149,7 +1149,7 @@ maildir_uidlist_rec_set_ext(struct maildir_uidlist_rec *rec, pool_t pool,
 {
 	const unsigned char *p;
 	buffer_t *buf;
-	unsigned int len;
+	size_t len;
 
 	/* copy existing extensions, except for the one we're updating */
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
@@ -1250,7 +1250,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	string_t *str;
 	const unsigned char *p;
 	const char *strp;
-	unsigned int len;
+	size_t len;
 
 	i_assert(fd != -1);
 

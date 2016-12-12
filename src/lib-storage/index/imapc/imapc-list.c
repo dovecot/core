@@ -357,7 +357,7 @@ imapc_list_get_vname(struct mailbox_list *_list, const char *storage_name)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 	const char *prefix = list->set->imapc_list_prefix;
-	unsigned int prefix_len;
+	size_t prefix_len;
 
 	if (*storage_name == '\0') {
 		/* ACL plugin does these lookups */
@@ -419,7 +419,7 @@ imapc_list_get_fs_name(struct imapc_mailbox_list *list, const char *name)
 	vname = mailbox_list_get_vname(&list->list, name);
 	if (list->set->imapc_list_prefix[0] != '\0') {
 		/* put back the prefix, so it gets included in the filesystem. */
-		unsigned int vname_len = strlen(vname);
+		size_t vname_len = strlen(vname);
 
 		if (ns->prefix_len > 0) {
 			/* skip over the namespace prefix */
@@ -499,7 +499,7 @@ static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
 	const char *imapc_list_prefix = list->set->imapc_list_prefix;
-	unsigned int imapc_list_prefix_len = strlen(imapc_list_prefix);
+	size_t imapc_list_prefix_len = strlen(imapc_list_prefix);
 	const char *fs_name, *vname;
 
 	if (fs_list == NULL)

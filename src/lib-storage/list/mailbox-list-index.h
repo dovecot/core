@@ -128,7 +128,7 @@ struct mailbox_list_index_iterate_context {
 	struct mailbox_info info;
 	pool_t info_pool;
 
-	unsigned int parent_len;
+	size_t parent_len;
 	string_t *path;
 	struct mailbox_list_index_node *next_node;
 

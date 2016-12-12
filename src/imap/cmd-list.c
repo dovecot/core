@@ -31,7 +31,7 @@ static void
 mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
 		  const char *special_use, enum mailbox_info_flags flags)
 {
-	unsigned int orig_len = str_len(str);
+	size_t orig_len = str_len(str);
 
 	if ((flags & MAILBOX_NONEXISTENT) != 0 && !ctx->used_listext) {
 		flags |= MAILBOX_NOSELECT;

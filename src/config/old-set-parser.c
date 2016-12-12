@@ -150,7 +150,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			 const char *key, const char *value)
 {
 	const char *p;
-	unsigned int len;
+	size_t len;
 
 	if (strcmp(key, "base_dir") == 0) {
 		len = strlen(value);
@@ -595,7 +595,7 @@ static void socket_apply(struct config_parser_context *ctx)
 {
 	const struct socket_set *set = &ctx->old->socket_set;
 	const char *path, *prefix;
-	unsigned int len;
+	size_t len;
 	bool master_suffix;
 
 	if (set->path == NULL) {

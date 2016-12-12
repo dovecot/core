@@ -498,7 +498,7 @@ static void lmtp_address_translate(struct client *client, const char **address)
 {
 	const char *transpos = client->lmtp_set->lmtp_address_translate;
 	const char *p, *nextstr, *addrpos = *address;
-	unsigned int len;
+	size_t len;
 	string_t *username, *domain, *dest = NULL;
 
 	if (*transpos == '\0')

@@ -36,7 +36,7 @@ void env_remove(const char *name)
 #endif
 #else
 	extern char **environ;
-	unsigned int len;
+	size_t len;
 	char **envp;
 
 	len = strlen(name);

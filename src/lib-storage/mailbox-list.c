@@ -407,7 +407,7 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 
 static bool need_escape_dirstart(const char *vname, const char *maildir_name)
 {
-	unsigned int len;
+	size_t len;
 
 	if (vname[0] == '.') {
 		if (vname[1] == '\0' || vname[1] == '/')
@@ -429,7 +429,7 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 				char ns_sep, char list_sep, char escape_char,
 				const char *maildir_name)
 {
-	unsigned int ns_prefix_len = strlen(ns_prefix);
+	size_t ns_prefix_len = strlen(ns_prefix);
 	string_t *escaped_name = t_str_new(64);
 	bool dirstart = TRUE;
 
@@ -523,7 +523,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 						  const char *vname)
 {
 	struct mail_namespace *ns = list->ns;
-	unsigned int prefix_len = strlen(ns->prefix);
+	size_t prefix_len = strlen(ns->prefix);
 	const char *storage_name = vname;
 	string_t *str;
 	char list_sep, ns_sep, *ret;
@@ -605,7 +605,7 @@ const char *
 mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
 				  char ns_sep, char list_sep, char escape_char)
 {
-	unsigned int ns_prefix_len = strlen(ns_prefix);
+	size_t ns_prefix_len = strlen(ns_prefix);
 	string_t *dest = t_str_new(strlen(src));
 	unsigned int num;
 
@@ -683,7 +683,7 @@ mailbox_list_escape_broken_name(struct mailbox_list *list,
 const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 					   const char *storage_name)
 {
-	unsigned int i, prefix_len, name_len;
+	size_t i, prefix_len, name_len;
 	const char *vname = storage_name;
 	char list_sep, ns_sep, *ret;
 
@@ -1426,7 +1426,7 @@ int mailbox_list_mailbox(struct mailbox_list *list, const char *name,
 			 enum mailbox_info_flags *flags_r)
 {
 	const char *path, *fname, *rootdir, *dir, *inbox;
-	unsigned int len;
+	size_t len;
 
 	*flags_r = 0;
 
@@ -1732,7 +1732,7 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 					const char **name)
 {
 	const char *root_dir, *path, *mailbox_name;
-	unsigned int len;
+	size_t len;
 
 	if (!list->mail_set->mail_full_filesystem_access)
 		return FALSE;

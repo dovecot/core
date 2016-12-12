@@ -498,7 +498,8 @@ static int mdbox_purge_get_primary_files(struct mdbox_purge_context *ctx)
 	DIR *dir;
 	struct dirent *d;
 	string_t *path;
-	unsigned int file_id, dir_len;
+	unsigned int file_id;
+	size_t dir_len;
 	int ret = 0;
 
 	if (!array_is_created(&dstorage->move_to_alt_map_uids) &&

@@ -91,7 +91,7 @@ shared_list_join_refpattern(struct mailbox_list *list,
 {
 	struct mail_namespace *ns = list->ns;
 	const char *ns_ref, *prefix = list->ns->prefix;
-	unsigned int prefix_len = strlen(prefix);
+	size_t prefix_len = strlen(prefix);
 
 	if (*ref != '\0' && strncmp(ref, prefix, prefix_len) == 0)
 		ns_ref = ref + prefix_len;

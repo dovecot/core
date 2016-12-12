@@ -23,7 +23,7 @@ struct binary_converter_istream {
 	unsigned int base64_block_pos;
 
 	buffer_t *hdr_buf;
-	unsigned int cte_header_len;
+	size_t cte_header_len;
 	bool content_type_seen:1;
 };
 

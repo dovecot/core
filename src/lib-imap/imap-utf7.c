@@ -29,7 +29,7 @@ static const unsigned char imap_b64dec[256] = {
 };
 
 static void
-mbase64_encode(string_t *dest, const unsigned char *in, unsigned int len)
+mbase64_encode(string_t *dest, const unsigned char *in, size_t len)
 {
 	str_append_c(dest, '&');
 	while (len >= 3) {

@@ -4,11 +4,11 @@
 #include "printf-format-fix.h"
 
 static const char *
-fix_format_real(const char *fmt, const char *p, unsigned int *len_r)
+fix_format_real(const char *fmt, const char *p, size_t *len_r)
 {
 	const char *errstr;
 	char *buf;
-	unsigned int len1, len2, len3;
+	size_t len1, len2, len3;
 
 	i_assert((size_t)(p - fmt) < INT_MAX);
 	i_assert(p[0] == '%' && p[1] == 'm');
@@ -33,7 +33,7 @@ fix_format_real(const char *fmt, const char *p, unsigned int *len_r)
 }
 
 static const char *
-printf_format_fix_noalloc(const char *format, unsigned int *len_r)
+printf_format_fix_noalloc(const char *format, size_t *len_r)
 {
 	const char *p;
 	const char *ret = format;
@@ -60,7 +60,7 @@ printf_format_fix_noalloc(const char *format, unsigned int *len_r)
 	return ret;
 }
 
-const char *printf_format_fix_get_len(const char *format, unsigned int *len_r)
+const char *printf_format_fix_get_len(const char *format, size_t *len_r)
 {
 	const char *ret;
 
@@ -73,7 +73,7 @@ const char *printf_format_fix_get_len(const char *format, unsigned int *len_r)
 const char *printf_format_fix(const char *format)
 {
 	const char *ret;
-	unsigned int len;
+	size_t len;
 
 	ret = printf_format_fix_noalloc(format, &len);
 	if (ret != format)
@@ -83,7 +83,7 @@ const char *printf_format_fix(const char *format)
 
 const char *printf_format_fix_unsafe(const char *format)
 {
-	unsigned int len;
+	size_t len;
 
 	return printf_format_fix_noalloc(format, &len);
 }

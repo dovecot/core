@@ -255,7 +255,7 @@ static bool ns_match_next(struct ns_list_iterate_context *ctx,
 	struct imap_match_glob *glob;
 	enum imap_match_result result;
 	const char *prefix_without_sep;
-	unsigned int len;
+	size_t len;
 
 	len = ns->prefix_len;
 	if (len > 0 && ns->prefix[len-1] == mail_namespace_get_sep(ns))
@@ -375,7 +375,7 @@ ns_prefix_has_visible_child_namespace(struct ns_list_iterate_context *ctx,
 				      const char *prefix)
 {
 	struct mail_namespace *ns;
-	unsigned int prefix_len = strlen(prefix);
+	size_t prefix_len = strlen(prefix);
 	int ret;
 
 	for (ns = ctx->namespaces; ns != NULL; ns = ns->next) {
@@ -789,7 +789,8 @@ autocreate_box_match(const ARRAY_TYPE(mailbox_settings) *boxes,
 		     bool only_subscribed, unsigned int *idx_r)
 {
 	struct mailbox_settings *const *sets;
-	unsigned int i, count, len, name_len = strlen(name);
+	unsigned int i, count;
+	size_t len, name_len = strlen(name);
 	enum autocreate_match_result result = 0;
 	char sep = mail_namespace_get_sep(ns);
 
@@ -879,7 +880,7 @@ autocreate_iter_existing(struct mailbox_list_iterate_context *ctx)
 		/* there are autocreate parent boxes.
 		   set their children flag states. */
 		struct autocreate_box *autobox;
-		unsigned int name_len;
+		size_t name_len;
 		char sep = mail_namespace_get_sep(ctx->list->ns);
 
 		array_foreach_modifiable(&actx->boxes, autobox) {
