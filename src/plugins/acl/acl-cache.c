@@ -274,8 +274,8 @@ acl_cache_object_get(struct acl_cache *cache, const char *objname,
 
 	obj_cache = hash_table_lookup(cache->objects, objname);
 	if (obj_cache == NULL) {
-		obj_cache = i_malloc(sizeof(struct acl_object_cache) +
-				     cache->validity_rec_size);
+		obj_cache = i_malloc(MALLOC_ADD(sizeof(struct acl_object_cache),
+						cache->validity_rec_size));
 		obj_cache->name = i_strdup(objname);
 		hash_table_insert(cache->objects, obj_cache->name, obj_cache);
 		*created_r = TRUE;

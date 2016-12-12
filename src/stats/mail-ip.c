@@ -31,7 +31,7 @@ struct mail_ip *mail_ip_login(const struct ip_addr *ip_addr)
 		return ip;
 	}
 
-	ip = i_malloc(sizeof(struct mail_ip) + stats_alloc_size());
+	ip = i_malloc(MALLOC_ADD(sizeof(struct mail_ip), stats_alloc_size()));
 	ip->stats = (void *)(ip + 1);
 	ip->ip = *ip_addr;
 	ip->reset_timestamp = ioloop_time;

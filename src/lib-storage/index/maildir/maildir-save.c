@@ -167,8 +167,8 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 	   into new/ or cur/. */
 	/* @UNSAFE */
 	keyword_count = mdata->keywords == NULL ? 0 : mdata->keywords->count;
-	mf = p_malloc(ctx->pool, sizeof(*mf) +
-		      sizeof(unsigned int) * keyword_count);
+	mf = p_malloc(ctx->pool, MALLOC_ADD(sizeof(*mf),
+		MALLOC_MULTIPLY(sizeof(unsigned int), keyword_count)));
 	mf->tmp_name = mf->dest_basename = p_strdup(ctx->pool, tmp_fname);
 	mf->flags = mdata->flags;
 	mf->size = (uoff_t)-1;

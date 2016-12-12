@@ -690,6 +690,7 @@ const char **p_strarray_dup(pool_t pool, const char *const *arr)
 	char *p;
 	size_t len, size = sizeof(const char *);
 
+	/* @UNSAFE: integer overflow checks are missing */
 	for (i = 0; arr[i] != NULL; i++)
 		size += sizeof(const char *) + strlen(arr[i]) + 1;
 

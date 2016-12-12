@@ -28,7 +28,7 @@ struct mail_domain *mail_domain_login_create(const char *name)
 		return domain;
 	}
 
-	domain = i_malloc(sizeof(struct mail_domain) + stats_alloc_size());
+	domain = i_malloc(MALLOC_ADD(sizeof(struct mail_domain), stats_alloc_size()));
 	domain->stats = (void *)(domain + 1);
 	domain->name = i_strdup(name);
 	domain->reset_timestamp = ioloop_time;
