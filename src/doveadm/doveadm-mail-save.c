@@ -24,6 +24,7 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 		i_error("open(%s) failed: %s",
 			i_stream_get_name(input),
 			i_stream_get_error(input));
+		ctx->ctx.exit_code = EX_TEMPFAIL;
 		return -1;
 	}
 
