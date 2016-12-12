@@ -248,7 +248,7 @@ static void test_run_named_funcs(struct named_test tests[], const char *match)
 	}
 }
 
-static void run_one_fatal(enum fatal_test_state (*fatal_function)(int))
+static void run_one_fatal(test_fatal_func_t *fatal_function)
 {
 	static int index = 0;
 	for (;;) {
@@ -279,7 +279,7 @@ static void run_one_fatal(enum fatal_test_state (*fatal_function)(int))
 		}
 	}
 }
-static void test_run_fatals(enum fatal_test_state (*fatal_functions[])(int index))
+static void test_run_fatals(test_fatal_func_t *fatal_functions[])
 {
 	unsigned int i;
 
@@ -313,7 +313,7 @@ int test_run_named(struct named_test tests[], const char *match)
 	return test_deinit();
 }
 int test_run_with_fatals(void (*test_functions[])(void),
-			 enum fatal_test_state (*fatal_functions[])(int))
+			 test_fatal_func_t *fatal_functions[])
 {
 	test_init();
 	test_run_funcs(test_functions);
