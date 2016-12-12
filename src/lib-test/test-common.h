@@ -79,7 +79,7 @@ struct named_fatal {
 	test_fatal_func_t *func;
 };
 int test_run_with_fatals(void (*test_functions[])(void),
-			 test_fatal_func_t *fatal_functions[]);
+			 test_fatal_func_t *const fatal_functions[]);
 int test_run_named_with_fatals(const char *match, struct named_test tests[],
 			       struct named_fatal fatals[]);
 
