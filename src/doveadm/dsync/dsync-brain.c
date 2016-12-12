@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "hostpid.h"
 #include "str.h"
+#include "file-create-locked.h"
 #include "process-title.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -381,8 +382,12 @@ int dsync_brain_deinit(struct dsync_brain **_brain, enum mail_error *error_r)
 static int
 dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 {
-	struct stat st1, st2;
-	const char *home;
+	const struct file_create_settings lock_set = {
+		.lock_timeout_secs = brain->lock_timeout,
+		.lock_method = FILE_LOCK_METHOD_FCNTL,
+	};
+	const char *home, *error;
+	bool created;
 	int ret;
 
 	if ((ret = strcmp(remote_hostname, my_hostdomain())) < 0) {
@@ -408,49 +413,13 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 		process_title_set(dsync_brain_get_proctitle_full(brain, DSYNC_BRAIN_TITLE_LOCKING));
 	brain->lock_path = p_strconcat(brain->pool, home,
 				       "/"DSYNC_LOCK_FILENAME, NULL);
-	for (;;) {
-		brain->lock_fd = creat(brain->lock_path, 0600);
-		if (brain->lock_fd == -1) {
-			i_error("Couldn't create lock %s: %m",
-				brain->lock_path);
-			break;
-		}
-
-		if (file_wait_lock(brain->lock_fd, brain->lock_path, F_WRLCK,
-				   FILE_LOCK_METHOD_FCNTL, brain->lock_timeout,
-				   &brain->lock) <= 0) {
-			if (errno == EAGAIN) {
-				i_error("Couldn't lock %s: Timed out after %u seconds",
-					brain->lock_path, brain->lock_timeout);
-			} else {
-				i_error("Couldn't lock %s: %m", brain->lock_path);
-			}
-			break;
-		}
-		if (fstat(brain->lock_fd, &st1) < 0) {
-			if (errno != ESTALE) {
-				i_error("fstat(%s) failed: %m", brain->lock_path);
-				break;
-			}
-		} else if (stat(brain->lock_path, &st2) < 0) {
-			if (errno != ENOENT) {
-				i_error("stat(%s) failed: %m", brain->lock_path);
-				break;
-			}
-		} else if (st1.st_ino == st2.st_ino) {
-			/* success */
-			if (brain->verbose_proctitle)
-				process_title_set(dsync_brain_get_proctitle(brain));
-			return 0;
-		}
-		/* file was recreated, try again */
-		i_close_fd(&brain->lock_fd);
-	}
-	if (brain->lock_fd != -1)
-		i_close_fd(&brain->lock_fd);
+	brain->lock_fd = file_create_locked(brain->lock_path, &lock_set,
+					    &brain->lock, &created, &error);
+	if (brain->lock_fd == -1)
+		i_error("Couldn't lock %s: %s", brain->lock_path, error);
 	if (brain->verbose_proctitle)
 		process_title_set(dsync_brain_get_proctitle(brain));
-	return -1;
+	return brain->lock_fd == -1 ? -1 : 0;
 }
 
 static bool dsync_brain_master_recv_handshake(struct dsync_brain *brain)
