@@ -26,7 +26,7 @@ subscribe_is_valid_name(struct client_command_context *cmd, struct mailbox *box)
 
 static bool str_ends_with_char(const char *str, char c)
 {
-	unsigned int len = strlen(str);
+	size_t len = strlen(str);
 
 	return len > 0 && str[len-1] == c;
 }

@@ -1759,7 +1759,8 @@ db_ldap_result_finish_debug(struct db_ldap_result_iterate_context *ctx)
 	struct hash_iterate_context *iter;
 	char *name;
 	struct db_ldap_value *value;
-	unsigned int orig_len, unused_count = 0;
+	unsigned int unused_count = 0;
+	size_t orig_len;
 
 	orig_len = str_len(ctx->debug);
 	if (orig_len == 0) {

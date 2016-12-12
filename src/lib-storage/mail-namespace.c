@@ -654,7 +654,7 @@ mail_namespace_find_mask(struct mail_namespace *namespaces, const char *box,
 {
         struct mail_namespace *ns = namespaces;
 	struct mail_namespace *best = NULL;
-	unsigned int best_len = 0;
+	size_t best_len = 0;
 	bool inbox;
 
 	inbox = strncasecmp(box, "INBOX", 5) == 0;
@@ -769,7 +769,7 @@ mail_namespace_find_prefix(struct mail_namespace *namespaces,
 			   const char *prefix)
 {
         struct mail_namespace *ns;
-	unsigned int len = strlen(prefix);
+	size_t len = strlen(prefix);
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
 		if (ns->prefix_len == len &&
@@ -784,7 +784,7 @@ mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
 				 const char *prefix)
 {
         struct mail_namespace *ns;
-	unsigned int len = strlen(prefix);
+	size_t len = strlen(prefix);
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
 		if (ns->prefix_len == len + 1 &&

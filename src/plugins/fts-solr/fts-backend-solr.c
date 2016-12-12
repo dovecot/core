@@ -80,12 +80,12 @@ static bool is_valid_xml_char(unichar_t chr)
 	return chr < 0x10ffff;
 }
 
-static unsigned int
-xml_encode_data_max(string_t *dest, const unsigned char *data, unsigned int len,
+static size_t
+xml_encode_data_max(string_t *dest, const unsigned char *data, size_t len,
 		    unsigned int max_len)
 {
 	unichar_t chr;
-	unsigned int i;
+	size_t i;
 
 	i_assert(max_len > 0 || len == 0);
 
@@ -135,7 +135,7 @@ xml_encode_data_max(string_t *dest, const unsigned char *data, unsigned int len,
 }
 
 static void
-xml_encode_data(string_t *dest, const unsigned char *data, unsigned int len)
+xml_encode_data(string_t *dest, const unsigned char *data, size_t len)
 {
 	(void)xml_encode_data_max(dest, data, len, len);
 }
@@ -564,7 +564,7 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 {
 	struct solr_fts_backend_update_context *ctx =
 		(struct solr_fts_backend_update_context *)_ctx;
-	unsigned int len;
+	size_t len;
 
 	if (_ctx->failed)
 		return -1;
@@ -707,7 +707,7 @@ static bool
 solr_add_definite_query_args(string_t *str, struct mail_search_arg *arg,
 			     bool and_args)
 {
-	unsigned int last_len;
+	size_t last_len;
 
 	last_len = str_len(str);
 	for (; arg != NULL; arg = arg->next) {
@@ -764,7 +764,7 @@ static bool
 solr_add_maybe_query_args(string_t *str, struct mail_search_arg *arg,
 			  bool and_args)
 {
-	unsigned int last_len;
+	size_t last_len;
 
 	last_len = str_len(str);
 	for (; arg != NULL; arg = arg->next) {
@@ -821,7 +821,7 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 	struct mailbox_status status;
 	string_t *str;
 	const char *box_guid;
-	unsigned int prefix_len;
+	size_t prefix_len;
 
 	if (fts_mailbox_get_guid(box, &box_guid) < 0)
 		return -1;
@@ -862,7 +862,8 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 	HASH_TABLE(char *, struct mailbox *) mailboxes;
 	struct mailbox *box;
 	const char *box_guid;
-	unsigned int i, len;
+	unsigned int i;
+	size_t len;
 	bool search_all_mailboxes;
 
 	/* use a separate filter query for selecting the mailbox. it shouldn't

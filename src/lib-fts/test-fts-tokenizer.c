@@ -80,7 +80,8 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 {
 	const unsigned char *input = (const unsigned char *)_input;
 	const char *token, *error;
-	unsigned int i, outi, max, char_len, input_len = strlen(_input);
+	unsigned int i, outi, max, char_len;
+	size_t input_len = strlen(_input);
 
 	/* test all input at once */
 	outi = first_outi;

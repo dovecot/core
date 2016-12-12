@@ -22,7 +22,7 @@ struct dict_userdb_iterate_context {
 
 	userdb_callback_t *userdb_callback;
 	const char *key_prefix;
-	unsigned int key_prefix_len;
+	size_t key_prefix_len;
 	struct dict_iterate_context *iter;
 };
 

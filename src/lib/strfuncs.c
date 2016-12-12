@@ -114,7 +114,7 @@ char *t_noalloc_strdup_vprintf(const char *format, va_list args,
 #define SNPRINTF_INITIAL_EXTRA_SIZE 256
 	va_list args2;
 	char *tmp;
-	unsigned int init_size;
+	size_t init_size;
 	int ret;
 #ifdef DEBUG
 	int old_errno = errno;
@@ -295,7 +295,7 @@ const char *t_strcut(const char *str, char cutchar)
 const char *t_str_replace(const char *str, char from, char to)
 {
 	char *out;
-	unsigned int i, len;
+	size_t i, len;
 
 	if (strchr(str, from) == NULL)
 		return str;

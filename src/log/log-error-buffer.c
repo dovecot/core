@@ -51,8 +51,8 @@ static void log_error_buffer_delete_head(struct log_error_buffer *buf)
 void log_error_buffer_add(struct log_error_buffer *buf,
 			  const struct log_error *error)
 {
-	unsigned int prefix_size = strlen(error->prefix)+1;
-	unsigned int text_size = strlen(error->text)+1;
+	size_t prefix_size = strlen(error->prefix)+1;
+	size_t text_size = strlen(error->text)+1;
 	struct log_error_data *data;
 
 	if (buf->count == LOG_ERROR_BUFFER_MAX_LINES)

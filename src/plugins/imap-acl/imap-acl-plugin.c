@@ -105,7 +105,8 @@ static void
 imap_acl_write_rights_list(string_t *dest, const char *const *rights)
 {
 	const struct imap_acl_letter_map *map;
-	unsigned int i, orig_len = str_len(dest);
+	unsigned int i;
+	size_t orig_len = str_len(dest);
 	bool append_c = FALSE, append_d = FALSE;
 
 	for (i = 0; rights[i] != NULL; i++) {
@@ -211,7 +212,7 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 	struct acl_rights rights;
 	string_t *tmp;
 	const char *username;
-	unsigned int orig_len = str_len(dest);
+	size_t orig_len = str_len(dest);
 	bool seen_owner = FALSE, seen_positive_owner = FALSE;
 	int ret;
 

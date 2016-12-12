@@ -120,7 +120,7 @@ dsync_namespace_match_parts(struct mail_namespace *ns,
 			    const char *const *name_parts)
 {
 	const char *part, *prefix = ns->prefix;
-	unsigned int part_len;
+	size_t part_len;
 	char ns_sep = mail_namespace_get_sep(ns);
 
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&

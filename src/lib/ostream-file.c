@@ -659,7 +659,7 @@ o_stream_file_write_at(struct ostream_private *stream,
 				   of it in one pwrite(). */
 			} else {
 				/* write only the suffix */
-				unsigned int update_count = size - left;
+				size_t update_count = size - left;
 
 				data = CONST_PTR_OFFSET(data, update_count);
 				size -= update_count;

@@ -25,7 +25,7 @@ struct db_dict_iterate_context {
 
 	DBC *cursor;
 	char *path;
-	unsigned int path_len;
+	size_t path_len;
 
 	DBT pkey, pdata;
 

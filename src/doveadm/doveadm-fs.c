@@ -402,7 +402,7 @@ static void cmd_fs_delete_recursive_path(struct fs *fs, const char *path,
 					 unsigned int async_count)
 {
 	struct fs_file *file;
-	unsigned int path_len;
+	size_t path_len;
 
 	path_len = strlen(path);
 	if (path_len > 0 && path[path_len-1] != '/')

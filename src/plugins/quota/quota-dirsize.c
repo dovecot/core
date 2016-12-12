@@ -125,7 +125,8 @@ static void quota_count_path_add(ARRAY_TYPE(quota_count_path) *paths,
 				 const char *path, bool is_file)
 {
 	struct quota_count_path *count_path;
-	unsigned int i, count, path_len;
+	unsigned int i, count;
+	size_t path_len;
 
 	path_len = strlen(path);
 	count_path = array_get_modifiable(paths, &count);

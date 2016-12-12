@@ -32,7 +32,8 @@ test_istream_run(struct istream *test_istream,
 {
 	struct run_ctx run_ctx = { .callback = callback, .null_hdr_seen = FALSE };
 	struct istream *filter;
-	unsigned int i, output_len = strlen(output);
+	unsigned int i;
+	size_t output_len = strlen(output);
 	const struct stat *st;
 	const unsigned char *data;
 	size_t size;
@@ -85,8 +86,9 @@ static void test_istream_filter(void)
 	const char *input = "From: foo\nFrom: abc\nTo: bar\nSubject: plop\nX-Drop: 1\n\nhello world\n";
 	const char *output = "From: abc\n\nhello world\n";
 	struct istream *istream, *filter, *filter2;
-	unsigned int i, input_len = strlen(input);
-	unsigned int output_len = strlen(output);
+	unsigned int i;
+	size_t input_len = strlen(input);
+	size_t output_len = strlen(output);
 	const unsigned char *data;
 	const struct stat *st;
 	size_t size;
@@ -388,8 +390,9 @@ static void test_istream_end_body_with_lf(void)
 	const char *output = "From: foo\n\nhello world\n";
 	const struct stat *st;
 	struct istream *istream, *filter;
-	unsigned int i, input_len = strlen(input);
-	unsigned int output_len = strlen(output);
+	unsigned int i;
+	size_t input_len = strlen(input);
+	size_t output_len = strlen(output);
 	const unsigned char *data;
 	string_t *str = t_str_new(64);
 	size_t size;

@@ -73,7 +73,8 @@ maildir_filename_append_keywords(struct maildir_keywords_sync_ctx *ctx,
 				 string_t *fname)
 {
 	const unsigned int *indexes;
-	unsigned int i, count, start = str_len(fname);
+	unsigned int i, count;
+	size_t start = str_len(fname);
 	char chr;
 
 	indexes = array_get(keywords, &count);

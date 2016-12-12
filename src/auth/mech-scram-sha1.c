@@ -350,7 +350,7 @@ static void mech_scram_sha1_auth_continue(struct auth_request *auth_request,
 		(struct scram_auth_request *)auth_request;
 	const char *error = NULL;
 	const char *server_final_message;
-	int len;
+	size_t len;
 
 	if (!request->client_first_message_bare) {
 		/* Received client-first-message */

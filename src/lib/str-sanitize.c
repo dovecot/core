@@ -25,7 +25,7 @@ static size_t str_sanitize_skip_start(const char *src, size_t max_bytes)
 static void str_sanitize_truncate_char(string_t *dest, unsigned int initial_pos)
 {
 	const unsigned char *data = str_data(dest);
-	unsigned int len = str_len(dest);
+	size_t len = str_len(dest);
 
 	if (len == initial_pos)
 		return;
@@ -44,7 +44,7 @@ static void str_sanitize_truncate_char(string_t *dest, unsigned int initial_pos)
 
 void str_sanitize_append(string_t *dest, const char *src, size_t max_bytes)
 {
-	unsigned int initial_pos = str_len(dest);
+	size_t initial_pos = str_len(dest);
 	unichar_t chr;
 	size_t i;
 

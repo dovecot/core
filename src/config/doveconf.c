@@ -154,7 +154,7 @@ static void config_dump_human_deinit(struct config_dump_human_context *ctx)
 
 static bool value_need_quote(const char *value)
 {
-	unsigned int len = strlen(value);
+	size_t len = strlen(value);
 
 	if (len == 0)
 		return FALSE;
@@ -176,8 +176,9 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	struct prefix_stack prefix;
 	const char *const *strings, *const *args, *p, *str, *const *prefixes;
 	const char *key, *key2, *value;
-	unsigned int i, j, count, len, prefix_count, skip_len;
-	unsigned int setting_name_filter_len, prefix_idx = UINT_MAX;
+	unsigned int i, j, count, prefix_count;
+	unsigned int prefix_idx = UINT_MAX;
+	size_t len, skip_len, setting_name_filter_len;
 	bool unique_key;
 	int ret = 0;
 
@@ -460,7 +461,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 {
 	static struct config_dump_human_context *ctx;
 	const char *const *str;
-	unsigned int len;
+	size_t len;
 	bool dump_section = FALSE;
 
 	ctx = config_dump_human_init(NULL, scope, FALSE);
@@ -498,7 +499,8 @@ static void config_request_simple_stdout(const char *key, const char *value,
 					 void *context)
 {
 	char **setting_name_filters = context;
-	unsigned int i, filter_len;
+	unsigned int i;
+	size_t filter_len;
 
 	if (setting_name_filters == NULL) {
 		printf("%s=%s\n", key, value);
@@ -599,7 +601,7 @@ static void hostname_verify_format(const char *arg)
 	struct hostname_format fmt;
 	const char *p;
 	unsigned char hash[GUID_128_HOST_HASH_SIZE];
-	unsigned int len, n, limit;
+	unsigned int n, limit;
 	HASH_TABLE(void *, void *) hosts;
 	void *key, *value;
 	string_t *host;
@@ -626,7 +628,7 @@ static void hostname_verify_format(const char *arg)
 		fmt.suffix = p;
 	} else {
 		/* detect host1[suffix] vs host01[suffix] */
-		len = strlen(my_hostname);
+		size_t len = strlen(my_hostname);
 		while (len > 0 && !i_isdigit(my_hostname[len-1]))
 			len--;
 		fmt.suffix = my_hostname + len;

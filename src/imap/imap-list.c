@@ -6,7 +6,7 @@
 
 bool imap_mailbox_flags2str(string_t *str, enum mailbox_info_flags flags)
 {
-	unsigned int orig_len = str_len(str);
+	size_t orig_len = str_len(str);
 
 	if ((flags & MAILBOX_SUBSCRIBED) != 0)
 		str_append(str, "\\Subscribed ");

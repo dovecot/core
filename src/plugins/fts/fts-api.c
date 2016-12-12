@@ -459,7 +459,7 @@ int fts_index_have_compatible_settings(struct mailbox_list *list,
 	struct mailbox *box;
 	struct fts_index_header hdr;
 	const char *vname;
-	unsigned int len;
+	size_t len;
 	int ret;
 
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)

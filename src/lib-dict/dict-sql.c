@@ -43,8 +43,8 @@ struct sql_dict_iterate_context {
 	struct sql_result *result;
 	string_t *key;
 	const struct dict_sql_map *map;
-	unsigned int key_prefix_len, pattern_prefix_len, next_map_idx;
-	unsigned int path_idx, sql_fields_start_idx;
+	size_t key_prefix_len, pattern_prefix_len;
+	unsigned int path_idx, sql_fields_start_idx, next_map_idx;
 	bool synchronous_result;
 	bool failed;
 };
@@ -119,12 +119,12 @@ static int sql_dict_wait(struct dict *dict ATTR_UNUSED)
 
 static bool
 dict_sql_map_match(const struct dict_sql_map *map, const char *path,
-		   ARRAY_TYPE(const_string) *values, unsigned int *pat_len_r,
-		   unsigned int *path_len_r, bool partial_ok, bool recurse)
+		   ARRAY_TYPE(const_string) *values, size_t *pat_len_r,
+		   size_t *path_len_r, bool partial_ok, bool recurse)
 {
 	const char *path_start = path;
 	const char *pat, *field, *p;
-	unsigned int len;
+	size_t len;
 
 	array_clear(values);
 	pat = map->pattern;
@@ -200,7 +200,8 @@ sql_dict_find_map(struct sql_dict *dict, const char *path,
 		  ARRAY_TYPE(const_string) *values)
 {
 	const struct dict_sql_map *maps;
-	unsigned int i, count, len;
+	unsigned int i, count;
+	size_t len;
 
 	t_array_init(values, dict->set->max_field_count);
 	maps = array_get(&dict->set->maps, &count);
@@ -526,7 +527,8 @@ sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	const struct dict_sql_map *maps;
-	unsigned int i, count, pat_len, path_len;
+	unsigned int i, count;
+	size_t pat_len, path_len;
 	bool recurse = (ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0;
 
 	t_array_init(values, dict->set->max_field_count);

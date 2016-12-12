@@ -30,7 +30,7 @@ static struct UCaseMap *fts_icu_csm(void)
 void fts_icu_utf8_to_utf16(buffer_t *dest_utf16, const char *src_utf8)
 {
 	UErrorCode err = U_ZERO_ERROR;
-	unsigned int src_bytes = strlen(src_utf8);
+	size_t src_bytes = strlen(src_utf8);
 	int32_t utf16_len;
 	UChar *dest_data, *retp = NULL;
 	int32_t avail_uchars = 0;

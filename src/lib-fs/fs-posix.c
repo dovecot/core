@@ -31,7 +31,7 @@ enum fs_posix_lock_method {
 struct posix_fs {
 	struct fs fs;
 	char *temp_file_prefix, *root_path, *path_prefix;
-	unsigned int temp_file_prefix_len;
+	size_t temp_file_prefix_len;
 	enum fs_posix_lock_method lock_method;
 	mode_t mode;
 	bool mode_auto;

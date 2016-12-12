@@ -732,7 +732,7 @@ static int unfold_header(pool_t pool, const char **_str)
 static void str_replace_nuls(string_t *str)
 {
 	char *data = str_c_modifiable(str);
-	unsigned int i, len = str_len(str);
+	size_t i, len = str_len(str);
 
 	for (i = 0; i < len; i++) {
 		if (data[i] == '\0')

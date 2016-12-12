@@ -530,8 +530,8 @@ static int index_list_mailbox_open(struct mailbox *box)
 	/* Get the current mailbox name with \0 separators. */
 	char sep = mailbox_list_get_hierarchy_sep(box->list);
 	char *box_zerosep_name = t_strdup_noconst(box->name);
-	unsigned int box_name_len = strlen(box_zerosep_name);
-	for (unsigned int i = 0; i < box_name_len; i++) {
+	size_t box_name_len = strlen(box_zerosep_name);
+	for (size_t i = 0; i < box_name_len; i++) {
 		if (box_zerosep_name[i] == sep)
 			box_zerosep_name[i] = '\0';
 	}
@@ -697,7 +697,7 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 			  struct mailbox_list *_newlist, const char *newname)
 {
 	struct index_mailbox_list *list = (struct index_mailbox_list *)_oldlist;
-	const unsigned int oldname_len = strlen(oldname);
+	const size_t oldname_len = strlen(oldname);
 	struct mailbox_list_index_sync_context *sync_ctx;
 	struct mailbox_list_index_record oldrec, newrec;
 	struct mailbox_list_index_node *oldnode, *newnode, *child;

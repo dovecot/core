@@ -689,7 +689,7 @@ static bool
 mbox_is_internal_name(struct mailbox_list *list ATTR_UNUSED,
 		      const char *name)
 {
-	unsigned int len;
+	size_t len;
 
 	/* don't allow *.lock files/dirs */
 	len = strlen(name);

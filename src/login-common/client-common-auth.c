@@ -534,8 +534,7 @@ void client_auth_fail(struct client *client, const char *text)
 int client_auth_read_line(struct client *client)
 {
 	const unsigned char *data;
-	size_t i, size;
-	unsigned int len;
+	size_t i, size, len;
 
 	if (i_stream_read_data(client->input, &data, &size, 0) == -1) {
 		client_destroy(client, "Disconnected");

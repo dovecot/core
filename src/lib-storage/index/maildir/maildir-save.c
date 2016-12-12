@@ -347,7 +347,7 @@ static int maildir_create_tmp(struct maildir_mailbox *mbox, const char *dir,
 {
 	struct mailbox *box = &mbox->box;
 	const struct mailbox_permissions *perm = mailbox_get_permissions(box);
-	unsigned int prefix_len;
+	size_t prefix_len;
 	const char *tmp_fname;
 	string_t *path;
 	mode_t old_mask;

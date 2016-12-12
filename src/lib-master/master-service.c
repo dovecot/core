@@ -1112,7 +1112,7 @@ bool version_string_verify_full(const char *line, const char *service_name,
 				unsigned major_version,
 				unsigned int *minor_version_r)
 {
-	unsigned int service_name_len = strlen(service_name);
+	size_t service_name_len = strlen(service_name);
 	bool ret;
 
 	if (strncmp(line, "VERSION\t", 8) != 0)

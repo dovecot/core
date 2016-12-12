@@ -167,7 +167,7 @@ parse_setting(const char *key, const char *value,
 	      struct setting_parser_ctx *ctx)
 {
 	struct dict_sql_map_field *field;
-	unsigned int value_len;
+	size_t value_len;
 
 	switch (ctx->type) {
 	case SECTION_ROOT:

@@ -137,7 +137,7 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 	struct setting_parser_context *set_parser = user->set_parser;
 	bool mail_debug;
 	const char *key, *orig_key, *append_value = NULL;
-	unsigned int len;
+	size_t len;
 	int ret;
 
 	mail_debug = mail_user_set_get_mail_debug(user->user_info,
@@ -766,7 +766,8 @@ const char *mail_storage_service_fields_var_expand(const char *data,
 						   const char *const *fields)
 {
 	const char *field_name = t_strcut(data, ':');
-	unsigned int i, field_name_len;
+	unsigned int i;
+	size_t field_name_len;
 
 	if (fields == NULL)
 		return field_get_default(data);
@@ -1121,7 +1122,7 @@ static const char *
 mail_storage_service_generate_session_id(pool_t pool, const char *prefix)
 {
 	guid_128_t guid;
-	unsigned int prefix_len = prefix == NULL ? 0 : strlen(prefix);
+	size_t prefix_len = prefix == NULL ? 0 : strlen(prefix);
 	string_t *str = str_new(pool, MAX_BASE64_ENCODED_SIZE(prefix_len + 1 + sizeof(guid)));
 
 	if (prefix != NULL)
@@ -1350,7 +1351,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 {
 	struct mail_storage_service_privileges priv;
 	const char *error;
-	unsigned int len;
+	size_t len;
 	bool disallow_root =
 		(user->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0;
 	bool temp_priv_drop =

@@ -112,7 +112,7 @@ fts_tokenizer_address_parent_data(struct email_address_fts_tokenizer *tok,
 		/* we're searching and we want to find only the full
 		   user@domain (not "user" and "domain"). we'll do this by
 		   not feeding the last user@domain to parent tokenizer. */
-		unsigned int parent_prefix_len =
+		size_t parent_prefix_len =
 			str_len(tok->parent_data) - str_len(tok->last_word);
 		i_assert(str_len(tok->parent_data) >= str_len(tok->last_word) &&
 			 strcmp(str_c(tok->parent_data) + parent_prefix_len,

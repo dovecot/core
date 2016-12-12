@@ -114,7 +114,8 @@ imap_match_init_multiple_real(pool_t pool, const char *const *patterns,
 {
 	struct imap_match_glob *glob;
 	struct imap_match_pattern *match_patterns;
-	unsigned int i, len, pos, patterns_count, patterns_data_len = 0;
+	unsigned int i, patterns_count;
+	size_t len, pos, patterns_data_len = 0;
 
 	patterns_count = str_array_length(patterns);
 	match_patterns = p_new(pool, struct imap_match_pattern,

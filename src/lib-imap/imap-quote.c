@@ -44,15 +44,16 @@ void imap_append_astring(string_t *dest, const char *src)
 static void
 imap_append_literal(string_t *dest, const char *src, unsigned int pos)
 {
-	unsigned int full_len = pos + strlen(src+pos);
+	size_t full_len = pos + strlen(src+pos);
 
-	str_printfa(dest, "{%u}\r\n", full_len);
+	str_printfa(dest, "{%"PRIuSIZE_T"}\r\n", full_len);
 	buffer_append(dest, src, full_len);
 }
 
 void imap_append_nstring(string_t *dest, const char *src)
 {
-	unsigned int i, escape_count = 0;
+	unsigned int escape_count = 0;
+	size_t i;
 
 	if (src == NULL) {
 		str_append(dest, "NIL");

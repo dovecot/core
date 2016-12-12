@@ -111,7 +111,7 @@ module_check_missing_plugin_dependencies(const struct module_dir_load_settings *
 	const char **deps;
 	struct module *m;
 	string_t *errmsg;
-	unsigned int len;
+	size_t len;
 
 	deps = dlsym(module->handle,
 		     t_strconcat(module->name, "_dependencies", NULL));
@@ -319,7 +319,7 @@ static void check_duplicates(ARRAY_TYPE(const_string) *names,
 struct module *module_dir_find(struct module *modules, const char *name)
 {
 	struct module *module;
-	unsigned int len = strlen(name);
+	size_t len = strlen(name);
 
 	for (module = modules; module != NULL; module = module->next) {
 		if (strncmp(module->name, name, len) == 0) {
@@ -674,7 +674,7 @@ const char *module_file_get_name(const char *fname)
 
 static const char *module_name_drop_suffix(const char *name)
 {
-	unsigned int len;
+	size_t len;
 
 	len = strlen(name);
 	if (len > 7 && strcmp(name + len - 7, "_plugin") == 0)

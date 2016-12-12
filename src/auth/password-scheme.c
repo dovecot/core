@@ -44,7 +44,7 @@ password_scheme_lookup(const char *name, enum password_encoding *encoding_r)
 {
 	const struct password_scheme *scheme;
 	const char *encoding = NULL;
-	unsigned int scheme_len;
+	size_t scheme_len;
 
 	*encoding_r = PW_ENCODING_NONE;
 
@@ -145,7 +145,7 @@ int password_decode(const char *password, const char *scheme,
 	const struct password_scheme *s;
 	enum password_encoding encoding;
 	buffer_t *buf;
-	unsigned int len;
+	size_t len;
 	bool guessed_encoding;
 
 	*error_r = NULL;
@@ -614,7 +614,7 @@ plain_trunc_verify(const char *plaintext, const char *user ATTR_UNUSED,
 		   const unsigned char *raw_password, size_t size,
 		   const char **error_r)
 {
-	unsigned int i, plaintext_len, trunc_len = 0;
+	size_t i, plaintext_len, trunc_len = 0;
 
 	/* format: <length>-<password> */
 	for (i = 0; i < size; i++) {

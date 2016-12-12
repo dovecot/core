@@ -552,7 +552,7 @@ config_parse_line(struct config_parser_context *ctx,
 		  const char **key_r, const char **value_r)
 {
 	const char *key;
-	unsigned int len;
+	size_t len;
 	char *p;
 
 	*key_r = NULL;

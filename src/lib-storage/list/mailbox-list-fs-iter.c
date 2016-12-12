@@ -338,7 +338,7 @@ fs_list_get_valid_patterns(struct fs_list_iterate_context *ctx,
 	struct mailbox_list *_list = ctx->ctx.list;
 	ARRAY(const char *) valid_patterns;
 	const char *pattern, *test_pattern, *real_pattern, *error;
-	unsigned int prefix_len;
+	size_t prefix_len;
 
 	prefix_len = strlen(_list->ns->prefix);
 	p_array_init(&valid_patterns, ctx->ctx.pool, 8);
@@ -378,7 +378,8 @@ static void fs_list_get_roots(struct fs_list_iterate_context *ctx)
 		ctx->ctx.list->mail_set->mail_full_filesystem_access;
 	const char *const *patterns, *pattern, *const *parentp, *const *childp;
 	const char *p, *last, *root, *prefix_vname;
-	unsigned int i, parentlen;
+	unsigned int i;
+	size_t parentlen;
 
 	i_assert(*ctx->valid_patterns != NULL);
 

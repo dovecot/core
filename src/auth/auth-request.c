@@ -1685,7 +1685,7 @@ void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
 			    const char *default_scheme)
 {
-	unsigned int name_len = strlen(name);
+	size_t name_len = strlen(name);
 
 	i_assert(*name != '\0');
 	i_assert(value != NULL);
@@ -1895,7 +1895,7 @@ auth_request_userdb_import(struct auth_request *request, const char *args)
 void auth_request_set_userdb_field(struct auth_request *request,
 				   const char *name, const char *value)
 {
-	unsigned int name_len = strlen(name);
+	size_t name_len = strlen(name);
 	uid_t uid;
 	gid_t gid;
 

@@ -153,7 +153,7 @@ bool config_export_type(string_t *str, const void *value,
 	}
 	case SET_ENUM: {
 		const char *const *val = value;
-		unsigned int len = strlen(*val);
+		size_t len = strlen(*val);
 
 		if (dump_default)
 			str_append(str, *val);
@@ -207,7 +207,8 @@ settings_export(struct config_export_context *ctx,
 	const struct setting_define *def;
 	const void *value, *default_value, *change_value;
 	void *const *children, *const *change_children = NULL;
-	unsigned int i, count, count2, prefix_len;
+	unsigned int i, count, count2;
+	size_t prefix_len;
 	const char *str;
 	char *key;
 	bool dump, dump_default = FALSE;

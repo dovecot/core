@@ -179,7 +179,7 @@ dsync_mailbox_tree_iter_init(struct dsync_mailbox_tree *tree)
 	return iter;
 }
 
-static unsigned int node_get_full_name_length(struct dsync_mailbox_node *node)
+static size_t node_get_full_name_length(struct dsync_mailbox_node *node)
 {
 	if (node->parent->parent == NULL)
 		return strlen(node->name);
@@ -193,7 +193,7 @@ bool dsync_mailbox_tree_iter_next(struct dsync_mailbox_tree_iter *iter,
 				  const char **full_name_r,
 				  struct dsync_mailbox_node **node_r)
 {
-	unsigned int len;
+	size_t len;
 
 	if (iter->cur->first_child != NULL)
 		iter->cur = iter->cur->first_child;
@@ -394,7 +394,7 @@ dsync_mailbox_tree_dup_nodes(struct dsync_mailbox_tree *dest_tree,
 			     const struct dsync_mailbox_node *src,
 			     string_t *path)
 {
-	unsigned int prefix_len = str_len(path);
+	size_t prefix_len = str_len(path);
 	struct dsync_mailbox_node *node;
 
 	if (prefix_len > 0) {

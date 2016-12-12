@@ -49,7 +49,7 @@ bool doveadm_has_unloaded_plugin(const char *name)
 	DIR *dir;
 	struct dirent *d;
 	const char *plugin_name;
-	unsigned int name_len = strlen(name);
+	size_t name_len = strlen(name);
 	bool found = FALSE;
 
 	/* first check that it's not actually loaded */

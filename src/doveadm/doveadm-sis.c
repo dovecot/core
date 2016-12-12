@@ -212,7 +212,7 @@ static void cmd_sis_deduplicate(int argc, char *argv[])
 	struct dirent *d;
 	struct stat st, first_st;
 	string_t *path;
-	unsigned int dir_len;
+	size_t dir_len;
 	int ret;
 
 	if (argc < 3)
@@ -270,7 +270,7 @@ static void cmd_sis_find(int argc, char *argv[])
 	struct dirent *d;
 	struct stat st;
 	string_t *str;
-	unsigned int dir_len, hash_len;
+	size_t dir_len, hash_len;
 
 	if (argc < 3 || strlen(argv[2]) < 4)
 		help(&doveadm_cmd_sis_find);

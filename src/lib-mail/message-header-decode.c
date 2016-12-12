@@ -10,7 +10,7 @@
 
 static size_t
 message_header_decode_encoded(const unsigned char *data, size_t size,
-			      buffer_t *decodebuf, unsigned int *charsetlen_r)
+			      buffer_t *decodebuf, size_t *charsetlen_r)
 {
 #define QCOUNT 3
 	unsigned int num = 0;
@@ -58,9 +58,9 @@ message_header_decode_encoded(const unsigned char *data, size_t size,
 	return start_pos[2] + 2;
 }
 
-static bool is_only_lwsp(const unsigned char *data, unsigned int size)
+static bool is_only_lwsp(const unsigned char *data, size_t size)
 {
-	unsigned int i;
+	size_t i;
 
 	for (i = 0; i < size; i++) {
 		if (!(data[i] == ' ' || data[i] == '\t' ||
@@ -75,7 +75,7 @@ void message_header_decode(const unsigned char *data, size_t size,
 			   void *context)
 {
 	buffer_t *decodebuf = NULL;
-	unsigned int charsetlen = 0;
+	size_t charsetlen = 0;
 	size_t pos, start_pos, ret;
 
 	/* =?charset?Q|B?text?= */

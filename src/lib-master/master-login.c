@@ -240,7 +240,7 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 	struct master_login *login = pl->client->conn->login;
 	char buf[1024];
 	const char **auth_args, **p;
-	unsigned int len;
+	size_t len;
 	ssize_t ret;
 	int fd = -1;
 
@@ -396,7 +396,7 @@ static void master_login_conn_input(struct master_login_connection *conn)
 	struct master_login_client *client;
 	struct master_login *login = conn->login;
 	unsigned char data[MASTER_AUTH_MAX_DATA_SIZE];
-	unsigned int i, session_len = 0;
+	size_t i, session_len = 0;
 	int ret, client_fd;
 
 	ret = master_login_conn_read_request(conn, &req, data, &client_fd);

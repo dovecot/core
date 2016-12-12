@@ -111,7 +111,7 @@ doveadm_cmd_find_multi_word(const char *cmdname, int *_argc,
 {
 	int argc = *_argc;
 	const char *const *argv = *_argv;
-	unsigned int len;
+	size_t len;
 
 	if (argc < 2)
 		return NULL;
@@ -141,7 +141,7 @@ doveadm_cmd_find_with_args(const char *cmd_name, int *argc,
 			   const char *const *argv[])
 {
 	const struct doveadm_cmd *cmd;
-	unsigned int cmd_name_len;
+	size_t cmd_name_len;
 
 	i_assert(*argc > 0);
 

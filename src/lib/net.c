@@ -963,7 +963,7 @@ int net_addr2ip(const char *addr, struct ip_addr *ip)
 		T_BEGIN {
 			if (addr[0] == '[') {
 				/* allow [ipv6 addr] */
-				unsigned int len = strlen(addr);
+				size_t len = strlen(addr);
 				if (addr[len-1] == ']')
 					addr = t_strndup(addr+1, len-2);
 			}

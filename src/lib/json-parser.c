@@ -330,7 +330,7 @@ static int json_parse_number(struct json_parser *parser, const char **value_r)
 
 static int json_parse_atom(struct json_parser *parser, const char *atom)
 {
-	unsigned int avail, len = strlen(atom);
+	size_t avail, len = strlen(atom);
 
 	avail = parser->end - parser->data;
 	if (avail < len) {
@@ -716,7 +716,7 @@ void json_append_escaped(string_t *dest, const char *src)
 
 void json_append_escaped_data(string_t *dest, const unsigned char *src, size_t size)
 {
-	unsigned int i;
+	size_t i;
 
 	for (i = 0; i < size; i++)
 		json_append_escaped_char(dest, src[i]);

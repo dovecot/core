@@ -102,7 +102,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 	case SEARCH_SINCE:
 		if ((capa & IMAPC_CAPABILITY_WITHIN) == 0) {
 			/* a bit kludgy way to check this.. */
-			unsigned int pos = str_len(str);
+			size_t pos = str_len(str);
 			if (!mail_search_arg_to_imap(str, arg, &error))
 				return FALSE;
 			if (strncasecmp(str_c(str) + pos, "OLDER", 5) == 0 ||

@@ -35,7 +35,7 @@ struct chkpw_auth_request {
 	struct io *io_out, *io_in;
 
 	string_t *input_buf;
-	unsigned int output_pos, output_len;
+	size_t output_pos, output_len;
 
 	int exit_status;
 	unsigned int exited:1;
@@ -458,7 +458,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 			   void (*request_callback)())
 {
 	struct chkpw_auth_request *chkpw_auth_request;
-	unsigned int output_len;
+	size_t output_len;
 	int fd_in[2], fd_out[2];
 	pid_t pid;
 
@@ -468,7 +468,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 		output_len += strlen(auth_password);
 	if (output_len > CHECKPASSWORD_MAX_REQUEST_LEN) {
 		auth_request_log_info(request, AUTH_SUBSYS_DB,
-			"Username+password combination too long (%u bytes)",
+			"Username+password combination too long (%"PRIuSIZE_T" bytes)",
 			output_len);
 		callback(request, DB_CHECKPASSWORD_STATUS_FAILURE,
 			 NULL, request_callback);

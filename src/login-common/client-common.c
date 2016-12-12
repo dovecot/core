@@ -610,7 +610,8 @@ client_var_expand_func_passdb(const char *data, void *context)
 {
 	struct client *client = context;
 	const char *field_name = data;
-	unsigned int i, field_name_len;
+	unsigned int i;
+	size_t field_name_len;
 
 	if (client->auth_passdb_args == NULL)
 		return NULL;

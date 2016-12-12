@@ -102,7 +102,7 @@ static void log_fd_flush_stop(struct ioloop *ioloop)
 	io_loop_stop(ioloop);
 }
 
-static int log_fd_write(int fd, const unsigned char *data, unsigned int len)
+static int log_fd_write(int fd, const unsigned char *data, size_t len)
 {
 	struct ioloop *ioloop;
 	struct io *io;
@@ -551,10 +551,10 @@ const char *i_get_failure_prefix(void)
 	return log_prefix != NULL ? log_prefix : "";
 }
 
-static int internal_send_split(string_t *full_str, unsigned int prefix_len)
+static int internal_send_split(string_t *full_str, size_t prefix_len)
 {
 	string_t *str;
-	unsigned int max_text_len, pos = prefix_len;
+	size_t max_text_len, pos = prefix_len;
 
 	str = t_str_new(PIPE_BUF);
 	str_append_n(str, str_c(full_str), prefix_len);
@@ -588,7 +588,7 @@ internal_handler(const struct failure_context *ctx,
 	recursed++;
 	T_BEGIN {
 		string_t *str;
-		unsigned int prefix_len;
+		size_t prefix_len;
 
 		if (!log_prefix_sent && log_prefix != NULL) {
 			log_prefix_sent = TRUE;

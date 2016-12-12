@@ -86,7 +86,7 @@ cmd_user_input(struct auth_master_connection *conn,
 			"%s: user %s doesn't exist\n", lookup_name,
 			input->username);
 	} else if (show_field != NULL) {
-		unsigned int show_field_len = strlen(show_field);
+		size_t show_field_len = strlen(show_field);
 
 		for (; *fields; fields++) {
 			if (strncmp(*fields, show_field, show_field_len) == 0 &&

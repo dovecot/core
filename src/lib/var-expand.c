@@ -34,7 +34,7 @@ struct var_expand_modifier {
 static const char *
 var_expand_long(const struct var_expand_table *table,
 		const struct var_expand_func_table *func_table,
-		const void *key_start, unsigned int key_len, void *context);
+		const void *key_start, size_t key_len, void *context);
 
 static const char *
 m_str_lcase(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
@@ -152,7 +152,7 @@ m_str_ldap_dn(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 static const char *
 m_str_trim(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
 {
-	unsigned int len;
+	size_t len;
 
 	len = strlen(str);
 	while (len > 0 && i_isspace(str[len-1]))
@@ -368,7 +368,7 @@ var_expand_func(const struct var_expand_func_table *func_table,
 static const char *
 var_expand_long(const struct var_expand_table *table,
 		const struct var_expand_func_table *func_table,
-		const void *key_start, unsigned int key_len, void *context)
+		const void *key_start, size_t key_len, void *context)
 {
         const struct var_expand_table *t;
 	const char *error, *key, *value = NULL;
@@ -434,7 +434,8 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 	const char *(*modifier[MAX_MODIFIER_COUNT])
 		(const char *, struct var_expand_context *);
 	const char *end;
-	unsigned int i, len, modifier_count;
+	unsigned int i, modifier_count;
+	size_t len;
 
 	memset(&ctx, 0, sizeof(ctx));
 	for (; *str != '\0'; str++) {
@@ -554,7 +555,7 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 					str_append_n(dest, var, ctx.width);
 				} else {
 					/* %05d -like padding. no truncation. */
-					int len = strlen(var);
+					ssize_t len = strlen(var);
 					while (len < ctx.width) {
 						str_append_c(dest, '0');
 						ctx.width--;

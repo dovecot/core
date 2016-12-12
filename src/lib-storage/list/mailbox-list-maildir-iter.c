@@ -51,7 +51,7 @@ maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 	struct mail_namespace *ns = ctx->ctx.list->ns;
 	struct mailbox_node *node;
 	const char *p;
-	unsigned int vname_len = strlen(vname);
+	size_t vname_len = strlen(vname);
 	bool created;
 	char ns_sep = mail_namespace_get_sep(ns);
 

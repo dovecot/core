@@ -24,7 +24,7 @@ static void test_unchanged()
 
 	test_begin("printf_format_fix(safe)");
 	for (i = 0; i < N_ELEMENTS(tests); ++i) {
-		unsigned int len;
+		size_t len;
 		T_BEGIN {
 			test_assert_idx(printf_format_fix(tests[i])
 					== tests[i], i);
@@ -56,7 +56,7 @@ static void test_ok_changes()
 	needlen = strlen(needle);
 
 	for (i = 0; i < N_ELEMENTS(tests); ++i) {
-		unsigned int len;
+		size_t len;
 		char const *chgd;
 		char const *insert;
 		unsigned int offs;

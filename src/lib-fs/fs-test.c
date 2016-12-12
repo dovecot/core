@@ -322,7 +322,8 @@ static const char *fs_test_iter_next(struct fs_iter *_iter)
 	struct test_fs_iter *iter = (struct test_fs_iter *)_iter;
 	struct test_fs *fs = (struct test_fs *)_iter->fs;
 	const char *const *files, *p;
-	unsigned int count, len, prev_dir_len = strlen(iter->prev_dir);
+	unsigned int count;
+	size_t len, prev_dir_len = strlen(iter->prev_dir);
 
 	files = array_get(&fs->iter_files, &count);
 	for (; iter->idx < count; iter->idx++) {

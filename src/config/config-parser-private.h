@@ -23,7 +23,7 @@ struct config_section_stack {
 	struct config_filter filter;
 	/* root=NULL-terminated list of parsers */
 	struct config_module_parser *parsers;
-	unsigned int pathlen;
+	size_t pathlen;
 
 	const char *open_path;
 	unsigned int open_linenum;
@@ -48,7 +48,7 @@ struct config_parser_context {
 	struct input_stack *cur_input;
 
 	string_t *str;
-	unsigned int pathlen;
+	size_t pathlen;
 	unsigned int section_counter;
 	const char *error;
 
