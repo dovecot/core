@@ -323,7 +323,7 @@ struct service_process *service_process_create(struct service *service)
 		service_reopen_inet_listeners(service);
 		service_dup_fds(service);
 		drop_privileges(service);
-		process_exec(service->executable, NULL);
+		process_exec(service->executable);
 	}
 	i_assert(hash_table_lookup(service_pids, POINTER_CAST(pid)) == NULL);
 
