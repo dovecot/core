@@ -217,12 +217,9 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
 		ret = vstrconcat(str1, args, &len);
 		t_buffer_alloc(len);
 	} else {
-		T_BEGIN {
-			temp = vstrconcat(str1, args, &len);
-			t_buffer_alloc(len);
-			ret = p_malloc(pool, len);
-			memcpy(ret, temp, len);
-		} T_END;
+		temp = vstrconcat(str1, args, &len);
+		ret = p_malloc(pool, len);
+		memcpy(ret, temp, len);
 	}
 
 	va_end(args);
