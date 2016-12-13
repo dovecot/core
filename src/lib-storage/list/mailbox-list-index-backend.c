@@ -516,6 +516,12 @@ static int index_list_mailbox_open(struct mailbox *box)
 	if (ibox->module_ctx.super.open(box) < 0)
 		return -1;
 
+	if (box->view == NULL) {
+		/* FIXME: dsync-merge is performing a delete in obox - remove
+		   this check once dsync-merging is no longer used. */
+		return 0;
+	}
+
 	/* if mailbox name has changed, update it to the header. Use \0
 	   as the hierarchy separator in the header. This is to make sure
 	   we don't keep rewriting the name just in case some backend switches
