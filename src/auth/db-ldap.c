@@ -1419,8 +1419,12 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			str_truncate(tmp_str, 0);
 			if (var_expand_with_funcs(tmp_str, templ, NULL,
 						  var_funcs_table, &ctx, &error) <= 0) {
-				i_error("LDAP %s: Failed to expand attr_names=%s: %s",
-					conn->config_path, name, error);
+				/* This var_expand_with_funcs call fills the
+				 * ldap_field_find_context in ctx, but the
+				 * resulting string_t is not used, and the
+				 * return value or error_r is not checked since
+				 * it gives errors for non-ldap variable
+				 * expansions. */
 			}
 			if (strchr(templ, '%') == NULL) {
 				/* backwards compatibility:
