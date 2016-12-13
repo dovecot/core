@@ -282,8 +282,8 @@ void mail_index_update_highest_modseq(struct mail_index_transaction *t,
 }
 
 static void
-mail_index_expunge_last_append_ext(ARRAY_TYPE(seq_array_array) *ext_updates,
-				   uint32_t seq)
+mail_index_revert_ext(ARRAY_TYPE(seq_array_array) *ext_updates,
+		      uint32_t seq)
 {
 	ARRAY_TYPE(seq_array) *seqs;
 	unsigned int idx;
@@ -299,16 +299,14 @@ mail_index_expunge_last_append_ext(ARRAY_TYPE(seq_array_array) *ext_updates,
 }
 
 static void
-mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
+mail_index_revert_changes_common(struct mail_index_transaction *t, uint32_t seq)
 {
 	struct mail_index_transaction_keyword_update *kw_update;
 	unsigned int i;
 
-	i_assert(seq == t->last_new_seq);
-
 	/* remove extension updates */
-	mail_index_expunge_last_append_ext(&t->ext_rec_updates, seq);
-	mail_index_expunge_last_append_ext(&t->ext_rec_atomics, seq);
+	mail_index_revert_ext(&t->ext_rec_updates, seq);
+	mail_index_revert_ext(&t->ext_rec_atomics, seq);
 	t->log_ext_updates = mail_index_transaction_has_ext_changes(t);
 
 	/* remove keywords */
@@ -328,6 +326,20 @@ mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
 	if (array_is_created(&t->modseq_updates) &&
 	    mail_index_seq_array_lookup((void *)&t->modseq_updates, seq, &i))
 		array_delete(&t->modseq_updates, i, 1);
+}
+
+void mail_index_revert_changes(struct mail_index_transaction *t, uint32_t seq)
+{
+	mail_index_revert_changes_common(t, seq);
+	mail_index_cancel_flag_updates(t, seq);
+}
+
+static void
+mail_index_expunge_last_append(struct mail_index_transaction *t, uint32_t seq)
+{
+	i_assert(seq == t->last_new_seq);
+
+	mail_index_revert_changes_common(t, seq);
 
 	/* and finally remove the append itself */
 	array_delete(&t->appends, seq - t->first_new_seq, 1);
