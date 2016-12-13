@@ -497,6 +497,8 @@ void mail_index_expunge(struct mail_index_transaction *t, uint32_t seq);
 /* Like mail_index_expunge(), but also write message GUID to transaction log. */
 void mail_index_expunge_guid(struct mail_index_transaction *t, uint32_t seq,
 			     const guid_128_t guid_128);
+/* Revert all changes done in this transaction to the given existing mail. */
+void mail_index_revert_changes(struct mail_index_transaction *t, uint32_t seq);
 /* Update flags in index. */
 void mail_index_update_flags(struct mail_index_transaction *t, uint32_t seq,
 			     enum modify_type modify_type,
