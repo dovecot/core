@@ -163,16 +163,18 @@ unsigned int acl_backend_lookup_right(struct acl_backend *backend,
 
 struct acl_object *acl_backend_get_default_object(struct acl_backend *backend)
 {
+	struct mail_user *user = mailbox_list_get_user(backend->list);
 	struct mail_namespace *ns = mailbox_list_get_namespace(backend->list);
 	const char *default_name = "";
 
 	if (backend->default_aclobj != NULL)
 		return backend->default_aclobj;
 
-	if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE ||
-	    ns->type == MAIL_NAMESPACE_TYPE_SHARED)
-		default_name = "INBOX";
-
+	if (mail_user_plugin_getenv(user, "acl_defaults_from_inbox") != NULL) {
+		if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE ||
+		    ns->type == MAIL_NAMESPACE_TYPE_SHARED)
+			default_name = "INBOX";
+	}
 	backend->default_aclobj =
 		acl_object_init_from_name(backend, default_name);
 	return backend->default_aclobj;
