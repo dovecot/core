@@ -444,12 +444,8 @@ static void test_old_key(void)
 
 static void test_setup(void)
 {
-	struct dcrypt_settings set = {
-		.module_dir = top_builddir "/src/lib-dcrypt/.libs"
-	};
 	test_pool = pool_alloconly_create(MEMPOOL_GROWING "mcp test pool", 128);
 	test_ioloop = io_loop_create();
-	dcrypt_initialize(NULL, &set, NULL);
 	/* allocate a user */
 	if (init_test_mail_user() < 0) {
 		test_exit(1);
@@ -462,13 +458,22 @@ static void test_teardown(void)
 	deinit_test_mail_user();
 	struct mail_crypt_user *muser = mail_crypt_get_mail_crypt_user(test_mail_user);
 	mail_crypt_key_cache_destroy(&muser->key_cache);
-	dcrypt_deinitialize();
 	io_loop_destroy(&test_ioloop);
 	pool_unref(&test_pool);
 }
 
 int main(int argc, char **argv)
 {
+	struct dcrypt_settings set = {
+		.module_dir = top_builddir "/src/lib-dcrypt/.libs"
+	};
+
+	random_init();
+	if (!dcrypt_initialize(NULL, &set, NULL)) {
+		i_error("No functional dcrypt backend found - skipping tests");
+		return 0;
+	}
+
 	void (*tests[])(void)  = {
 		test_setup,
 		test_generate_user_key,
@@ -480,15 +485,17 @@ int main(int argc, char **argv)
 		NULL
 	};
 
-
 	master_service = master_service_init("test-mail-key",
 					     MASTER_SERVICE_FLAG_STANDALONE |
 					     MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS |
 					     MASTER_SERVICE_FLAG_NO_SSL_INIT |
 					     MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
 					     &argc, &argv, "");
-	random_init();
 	int ret = test_run(tests);
+
 	master_service_deinit(&master_service);
+	dcrypt_deinitialize();
+	random_deinit();
+
 	return ret;
 }
