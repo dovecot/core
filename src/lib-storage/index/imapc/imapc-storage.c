@@ -424,7 +424,8 @@ static void
 imapc_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 				struct mailbox_list_settings *set)
 {
-	set->layout = MAILBOX_LIST_NAME_IMAPC;
+	if (set->layout == NULL)
+		set->layout = MAILBOX_LIST_NAME_IMAPC;
 	set->escape_char = IMAPC_LIST_ESCAPE_CHAR;
 }
 

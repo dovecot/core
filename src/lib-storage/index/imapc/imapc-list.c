@@ -390,7 +390,7 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 	if (dir == NULL)
 		dir = list->list.set.root_dir;
 
-	if (dir == NULL) {
+	if (dir == NULL || dir[0] == '\0') {
 		/* indexes disabled */
 	} else if (list->index_list == NULL && !list->index_list_failed) {
 		mailbox_list_settings_init_defaults(&list_set);
@@ -937,6 +937,11 @@ int imapc_list_get_mailbox_flags(struct mailbox_list *_list, const char *name,
 		i_assert(list->refreshed_mailboxes_recently);
 	}
 
+	if (list->mailboxes == NULL) {
+		/* imapc list isn't used, but e.g. LAYOUT=none */
+		*flags_r = 0;
+		return 0;
+	}
 	node = mailbox_tree_lookup(list->mailboxes, vname);
 	if (node == NULL)
 		*flags_r = MAILBOX_NONEXISTENT;
