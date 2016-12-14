@@ -534,7 +534,7 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 
 	if (!MAIL_INDEX_IS_IN_MEMORY(index) &&
 	    (index->flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) != 0)
-		cache->file_cache = file_cache_new(-1);
+		cache->file_cache = file_cache_new_path(-1, cache->filepath);
 	cache->map_with_read =
 		(cache->index->flags & MAIL_INDEX_OPEN_FLAG_SAVEONLY) != 0;
 
