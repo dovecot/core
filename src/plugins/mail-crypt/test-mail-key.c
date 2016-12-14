@@ -449,7 +449,10 @@ static void test_setup(void)
 	};
 	test_pool = pool_alloconly_create(MEMPOOL_GROWING "mcp test pool", 128);
 	test_ioloop = io_loop_create();
-	dcrypt_initialize(NULL, &set, NULL);
+	if (!dcrypt_initialize(NULL, &set, NULL)) {
+		i_info("No functional dcrypt backend found - skipping tests");
+		test_exit(0);
+	}
 	/* allocate a user */
 	if (init_test_mail_user() < 0) {
 		test_exit(1);

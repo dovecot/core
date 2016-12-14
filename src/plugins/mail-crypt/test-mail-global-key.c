@@ -37,7 +37,10 @@ static void test_setup(void)
 	struct dcrypt_settings set = {
 		.module_dir = top_builddir "/src/lib-dcrypt/.libs"
 	};
-	dcrypt_initialize(NULL, &set, NULL);
+	if (!dcrypt_initialize(NULL, &set, NULL)) {
+		i_info("No functional dcrypt backend found - skipping tests");
+		test_exit(0);
+	}
 	i_array_init(&fs_set.plugin_envs, 8);
 	array_append(&fs_set.plugin_envs, settings, N_ELEMENTS(settings));
 }
