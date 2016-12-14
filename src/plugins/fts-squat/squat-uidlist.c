@@ -472,7 +472,7 @@ static int squat_uidlist_map(struct squat_uidlist *uidlist)
 	}
 	if (uidlist->file_cache == NULL &&
 	    (uidlist->trie->flags & SQUAT_INDEX_FLAG_MMAP_DISABLE) != 0)
-		uidlist->file_cache = file_cache_new(uidlist->fd);
+		uidlist->file_cache = file_cache_new_path(uidlist->fd, uidlist->path);
 	return squat_uidlist_map_header(uidlist);
 }
 
