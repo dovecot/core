@@ -547,12 +547,16 @@ get_nstring(const struct imap_arg *arg, pool_t pool, string_t *tmpstr,
 	return TRUE;
 }
 
-static void imap_write_list(const struct imap_arg *args, string_t *str)
+static void
+imap_write_envelope_list(const struct imap_arg *args, string_t *str,
+	bool toplevel)
 {
 	const struct imap_arg *children;
 
 	/* don't do any typechecking, just write it out */
 	while (!IMAP_ARG_IS_EOL(args)) {
+		bool list = FALSE;
+
 		if (!str_append_nstring(str, args)) {
 			if (!imap_arg_get_list(args, &children)) {
 				/* everything is either nstring or list */
@@ -560,14 +564,22 @@ static void imap_write_list(const struct imap_arg *args, string_t *str)
 			}
 
 			str_append_c(str, '(');
-			imap_write_list(children, str);
+			imap_write_envelope_list(children, str, FALSE);
 			str_append_c(str, ')');
+
+			list = TRUE;
 		}
 		args++;
 
-		if (!IMAP_ARG_IS_EOL(args))
+		if ((toplevel || !list) && !IMAP_ARG_IS_EOL(args))
 			str_append_c(str, ' ');
 	}
+}
+
+static void
+imap_write_envelope(const struct imap_arg *args, string_t *str)
+{
+	imap_write_envelope_list(args, str, TRUE);
 }
 
 static int imap_write_nstring_list(const struct imap_arg *args, string_t *str)
@@ -814,7 +826,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 			return -1;
 		}
 		str_truncate(tmpstr, 0);
-		imap_write_list(list_args, tmpstr);
+		imap_write_envelope(list_args, tmpstr);
 		child_data = part->children->context;
 		child_data->envelope_str = p_strdup(pool, str_c(tmpstr));
 
@@ -974,7 +986,7 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 			return -1;
 		}
 		str_append_c(str, '(');
-		imap_write_list(list_args, str);
+		imap_write_envelope(list_args, str);
 		str_append(str, ") (");
 
 		if (!imap_arg_get_list(&args[1], &list_args)) {
