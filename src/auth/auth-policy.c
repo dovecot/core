@@ -243,12 +243,13 @@ void auth_policy_parse_response(struct policy_lookup_ctx *context)
 	while((ret = json_parse_next(context->parser, &type, &value)) == 1) {
 		if (context->parse_state == POLICY_RESULT) {
 			if (type != JSON_TYPE_OBJECT_KEY)
-				break;
+				continue;
 			else if (strcmp(value, "status") == 0)
 				context->parse_state = POLICY_RESULT_VALUE_STATUS;
 			else if (strcmp(value, "msg") == 0)
 				context->parse_state = POLICY_RESULT_VALUE_MESSAGE;
-			else break;
+			else
+				continue;
 		} else if (context->parse_state == POLICY_RESULT_VALUE_STATUS) {
 			if (type != JSON_TYPE_NUMBER || str_to_int(value, &(context->result)) != 0)
 				break;
