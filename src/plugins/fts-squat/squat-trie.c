@@ -1492,7 +1492,7 @@ static int squat_trie_map(struct squat_trie *trie, bool building)
 			return -1;
 		if ((trie->flags & SQUAT_INDEX_FLAG_MMAP_DISABLE) != 0 &&
 		    trie->file_cache == NULL)
-			trie->file_cache = file_cache_new(trie->fd);
+			trie->file_cache = file_cache_new_path(trie->fd, trie->path);
 	}
 
 	ret = squat_trie_map_header(trie);
