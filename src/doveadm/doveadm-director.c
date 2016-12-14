@@ -751,11 +751,12 @@ static void cmd_director_dump(struct doveadm_cmd_context *cctx)
 			args = t_strsplit_tab(line);
 			if (str_array_length(args) >= 2) {
 				const char *host = args[0];
+				const char *tag = args[3];
 				/* this is guaranteed to be at least NULL */
-				if (args[2] != NULL &&
-				    *args[2] != '\0')
+				if (tag != NULL &&
+				    *tag != '\0')
 					host = t_strdup_printf("%s@%s", host,
-							       args[2]);
+							       tag);
 				doveadm_print("add");
 				doveadm_print(ctx->socket_path);
 				doveadm_print(host);
