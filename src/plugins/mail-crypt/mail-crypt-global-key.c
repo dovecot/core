@@ -161,6 +161,9 @@ mail_crypt_global_key_find(struct mail_crypt_global_keys *global_keys,
 {
 	const struct mail_crypt_global_private_key *priv_key;
 
+	if (!array_is_created(&global_keys->private_keys))
+		return NULL;
+
 	array_foreach(&global_keys->private_keys, priv_key) {
 		if (strcmp(priv_key->key_id, pubkey_digest) == 0)
 			return priv_key->key;
