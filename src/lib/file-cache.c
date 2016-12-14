@@ -9,6 +9,7 @@
 
 struct file_cache {
 	int fd;
+	char *path;
 	buffer_t *page_bitmask;
 
 	void *mmap_base;
@@ -18,10 +19,16 @@ struct file_cache {
 
 struct file_cache *file_cache_new(int fd)
 {
+	return file_cache_new_path(fd, "");
+}
+
+struct file_cache *file_cache_new_path(int fd, const char *path)
+{
 	struct file_cache *cache;
 
 	cache = i_new(struct file_cache, 1);
 	cache->fd = fd;
+	cache->path = i_strdup(path);
 	cache->page_bitmask = buffer_create_dynamic(default_pool, 128);
 	return cache;
 }
@@ -34,9 +41,10 @@ void file_cache_free(struct file_cache **_cache)
 
 	if (cache->mmap_base != NULL) {
 		if (munmap_anon(cache->mmap_base, cache->mmap_length) < 0)
-			i_error("munmap_anon() failed: %m");
+			i_error("munmap_anon(%s) failed: %m", cache->path);
 	}
 	buffer_free(&cache->page_bitmask);
+	i_free(cache->path);
 	i_free(cache);
 }
 
@@ -63,8 +71,8 @@ int file_cache_set_size(struct file_cache *cache, uoff_t size)
 		return 0;
 
 	if (size > (size_t)-1) {
-		i_error("file_cache_set_size(%"PRIuUOFF_T"): size too large",
-			size);
+		i_error("file_cache_set_size(%s, %"PRIuUOFF_T"): size too large",
+			cache->path, size);
 		return -1;
 	}
 
@@ -72,7 +80,8 @@ int file_cache_set_size(struct file_cache *cache, uoff_t size)
 	if (cache->mmap_base == NULL) {
 		cache->mmap_base = mmap_anon(size);
 		if (cache->mmap_base == MAP_FAILED) {
-			i_error("mmap_anon(%"PRIuUOFF_T") failed: %m", size);
+			i_error("mmap_anon(%s, %"PRIuUOFF_T") failed: %m",
+				cache->path, size);
 			cache->mmap_base = NULL;
 			cache->mmap_length = 0;
 			return -1;
@@ -81,7 +90,8 @@ int file_cache_set_size(struct file_cache *cache, uoff_t size)
 		new_base = mremap_anon(cache->mmap_base, cache->mmap_length,
 				       size, MREMAP_MAYMOVE);
 		if (new_base == MAP_FAILED) {
-			i_error("mremap_anon(%"PRIuUOFF_T") failed: %m", size);
+			i_error("mremap_anon(%s, %"PRIuUOFF_T") failed: %m",
+				cache->path, size);
 			return -1;
 		}
 
@@ -118,7 +128,7 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 
                 if (fstat(cache->fd, &st) < 0) {
                         if (errno != ESTALE)
-                                i_error("fstat(file_cache) failed: %m");
+                                i_error("fstat(%s) failed: %m", cache->path);
 			return -1;
 		}
 
