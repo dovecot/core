@@ -158,6 +158,9 @@ imapc_connection_init(struct imapc_client *client)
 	i_array_init(&conn->cmd_wait_list, 32);
 	i_array_init(&conn->literal_files, 4);
 
+	if (client->set.debug)
+		i_debug("imapc(%s): Created new connection", conn->name);
+
 	imapc_client_ref(client);
 	return conn;
 }
@@ -1737,8 +1740,11 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	}
 	conn->last_connect = ioloop_time;
 
-	if (conn->client->set.debug)
-		i_debug("imapc(%s): Looking up IP address", conn->name);
+	if (conn->client->set.debug) {
+		i_debug("imapc(%s): Looking up IP address "
+			"(reconnect_ok=%d, last_connect=%ld)", conn->name,
+			conn->reconnect_ok, (long)conn->last_connect);
+	}
 
 	memset(&dns_set, 0, sizeof(dns_set));
 	dns_set.dns_client_socket_path =
