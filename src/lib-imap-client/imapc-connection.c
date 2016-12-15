@@ -126,6 +126,7 @@ struct imapc_connection {
 	struct timeout *to_throttle, *to_throttle_shrink;
 
 	unsigned int reconnecting:1;
+	unsigned int reconnect_ok:1;
 	unsigned int idling:1;
 	unsigned int idle_stopping:1;
 	unsigned int idle_plus_waiting:1;
@@ -150,6 +151,7 @@ imapc_connection_init(struct imapc_client *client)
 	conn->name = i_strdup_printf("%s:%u", client->set.host,
 				     client->set.port);
 	conn->literal.fd = -1;
+	conn->reconnect_ok = TRUE;
 	i_array_init(&conn->cmd_send_queue, 8);
 	i_array_init(&conn->cmd_wait_list, 32);
 	i_array_init(&conn->literal_files, 4);
@@ -434,12 +436,16 @@ static bool imapc_connection_can_reconnect(struct imapc_connection *conn)
 {
 	if (conn->selected_box != NULL)
 		return imapc_client_mailbox_can_reconnect(conn->selected_box);
-	else
-		return conn->reconnect_command_count == 0;
+	else {
+		return conn->reconnect_command_count == 0 &&
+			conn->reconnect_ok;
+	}
 }
 
 static void imapc_connection_reconnect(struct imapc_connection *conn)
 {
+	conn->reconnect_ok = FALSE;
+
 	if (conn->selected_box != NULL)
 		imapc_client_mailbox_reconnect(conn->selected_box);
 	else {
@@ -1371,6 +1377,10 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 			if (conn->selected_box != NULL)
 				conn->selected_box->reconnect_ok = TRUE;
 		}
+	}
+	if (conn->reconnect_command_count == 0) {
+		/* we've successfully received replies to some commands. */
+		conn->reconnect_ok = TRUE;
 	}
 	imapc_connection_input_reset(conn);
 	imapc_command_reply_free(cmd, &reply);
