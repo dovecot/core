@@ -24,6 +24,7 @@
 
 #define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE 10000
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
+#define IMAPC_RECONNECT_MIN_RETRY_SECS 10
 
 enum imapc_input_state {
 	IMAPC_INPUT_STATE_NONE = 0,
@@ -95,6 +96,7 @@ struct imapc_connection {
 	enum imapc_input_state input_state;
 	unsigned int cur_tag;
 	uint32_t cur_num;
+	time_t last_connect;
 
 	struct imapc_client_mailbox *selecting_box, *selected_box;
 	enum imapc_connection_state state;
@@ -1727,6 +1729,13 @@ void imapc_connection_connect(struct imapc_connection *conn,
 		array_count(&conn->cmd_send_queue);
 
 	imapc_connection_input_reset(conn);
+
+	if (!conn->reconnect_ok &&
+	    conn->last_connect + IMAPC_RECONNECT_MIN_RETRY_SECS >= ioloop_time) {
+		imapc_connection_set_disconnected(conn);
+		return;
+	}
+	conn->last_connect = ioloop_time;
 
 	if (conn->client->set.debug)
 		i_debug("imapc(%s): Looking up IP address", conn->name);
