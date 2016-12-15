@@ -131,6 +131,9 @@ static void imapc_list_simple_callback(const struct imapc_command_reply *reply,
 		ctx->ret = -1;
 	} else if (ctx->client->auth_failed) {
 		ctx->ret = -1;
+	} else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED) {
+		mailbox_list_set_internal_error(&ctx->client->_list->list);
+		ctx->ret = -1;
 	} else {
 		mailbox_list_set_critical(&ctx->client->_list->list,
 			"imapc: Command failed: %s", reply->text_full);
@@ -284,6 +287,8 @@ static void imapc_storage_sep_callback(const struct imapc_command_reply *reply,
 		imapc_list_copy_error_from_reply(list, MAIL_ERROR_PARAMS, reply);
 	else if (list->client->auth_failed)
 		;
+	else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
+		mailbox_list_set_internal_error(&list->list);
 	else if (!list->list.ns->user->deinitializing) {
 		mailbox_list_set_critical(&list->list,
 			"imapc: Command failed: %s", reply->text_full);

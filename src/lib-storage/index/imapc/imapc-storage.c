@@ -157,6 +157,9 @@ void imapc_simple_callback(const struct imapc_command_reply *reply,
 		ctx->ret = -1;
 	} else if (ctx->client->auth_failed) {
 		ctx->ret = -1;
+	} else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED) {
+		mail_storage_set_internal_error(&ctx->client->_storage->storage);
+		ctx->ret = -1;
 	} else {
 		mail_storage_set_critical(&ctx->client->_storage->storage,
 			"imapc: Command failed: %s", reply->text_full);
@@ -556,6 +559,9 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 		ctx->ret = -1;
 	} else if (ctx->mbox->storage->client->auth_failed) {
 		ctx->ret = -1;
+	} else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED) {
+		ctx->ret = -1;
+		mail_storage_set_internal_error(ctx->mbox->box.storage);
 	} else {
 		mail_storage_set_critical(ctx->mbox->box.storage,
 			"imapc: Opening mailbox '%s' failed: %s",
