@@ -693,6 +693,20 @@ doveadm_cmd_user_kick(struct doveadm_connection *conn, const char *const *args)
 }
 
 static int
+doveadm_cmd_user_kick_alt(struct doveadm_connection *conn, const char *const *args)
+{
+	if (str_array_length(args) < 2) {
+		i_error("doveadm sent invalid USER-KICK-ALT parameters");
+		return -1;
+	}
+
+	director_kick_user_alt(conn->dir, conn->dir->self_host, NULL,
+			       args[0], args[1]);
+	o_stream_nsend(conn->output, "OK\n", 3);
+	return 1;
+}
+
+static int
 doveadm_connection_cmd(struct doveadm_connection *conn, const char *line)
 {
 	const char *cmd, *const *args;
@@ -738,6 +752,8 @@ doveadm_connection_cmd(struct doveadm_connection *conn, const char *line)
 		ret = doveadm_cmd_user_move(conn, args);
 	else if (strcmp(cmd, "USER-KICK") == 0)
 		ret = doveadm_cmd_user_kick(conn, args);
+	else if (strcmp(cmd, "USER-KICK-ALT") == 0)
+		ret = doveadm_cmd_user_kick_alt(conn, args);
 	else {
 		i_error("doveadm sent unknown command: %s", line);
 		ret = -1;
