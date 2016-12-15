@@ -112,12 +112,17 @@ static void mail_search_args_simplify_set(struct mail_search_arg *args)
 	unsigned int count;
 
 	if (args->match_not) {
-		/* invert the set to drop the NOT */
+		/* invert the set to drop the NOT. Note that (uint32_t)-1
+		   matches the last existing mail, which we don't know at this
+		   point. lib-imap/imap-seqset.c has similar code that
+		   disallows using (uint32_t)-1 as a real UID. */
+		if (seq_range_exists(&args->value.seqset, (uint32_t)-1))
+			return;
 		args->match_not = FALSE;
-		seq_range_array_invert(&args->value.seqset, 1, (uint32_t)-1);
+		seq_range_array_invert(&args->value.seqset, 1, (uint32_t)-2);
 	}
 	seqset = array_get(&args->value.seqset, &count);
-	if (count == 1 && seqset->seq1 == 1 && seqset->seq2 == (uint32_t)-1) {
+	if (count == 1 && seqset->seq1 == 1 && seqset->seq2 >= (uint32_t)-2) {
 		/* 1:* is the same as ALL. */
 		args->type = SEARCH_ALL;
 	} else if (count == 0) {
@@ -134,7 +139,10 @@ static bool mail_search_args_merge_set(struct mail_search_simplify_ctx *ctx,
 	struct mail_search_simplify_prev_arg mask;
 	struct mail_search_arg **prev_argp;
 
-	i_assert(!args->match_not);
+	if (args->match_not) {
+		/* "*" used - can't simplify it */
+		return FALSE;
+	}
 
 	mail_search_arg_get_base_mask(args, &mask);
 	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
