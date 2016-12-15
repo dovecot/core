@@ -293,6 +293,6 @@ void imapc_search_reply(const struct imap_arg *args,
 	if (args[0].type != IMAP_ARG_EOL &&
 	    (!imap_arg_atom_equals(&args[0], "ALL") ||
 	     !imap_arg_get_atom(&args[1], &atom) ||
-	     imap_seq_set_parse(atom, &mbox->search_ctx->rseqs) < 0))
+	     imap_seq_set_nostar_parse(atom, &mbox->search_ctx->rseqs) < 0))
 		i_error("Invalid ESEARCH reply");
 }
