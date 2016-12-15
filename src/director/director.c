@@ -1099,6 +1099,7 @@ void director_kick_user(struct director *dir, struct director_host *src,
 		orig_src = dir->self_host;
 		orig_src->last_seq++;
 	}
+	str_truncate(cmd, 0);
 	str_printfa(cmd, "USER-KICK\t%s\t%u\t%u\t",
 		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq);
 	str_append_tabescaped(cmd, username);
@@ -1123,6 +1124,7 @@ void director_kick_user_alt(struct director *dir, struct director_host *src,
 		orig_src = dir->self_host;
 		orig_src->last_seq++;
 	}
+	str_truncate(cmd, 0);
 	str_printfa(cmd, "USER-KICK-ALT\t%s\t%u\t%u\t",
 		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq);
 	str_append_tabescaped(cmd, field);
