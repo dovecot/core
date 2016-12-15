@@ -783,9 +783,10 @@ static void mailbox_list_index_init_finish(struct mailbox_list *list)
 	}
 	i_assert(ilist->has_backing_store || dir != NULL);
 
+	i_assert(list->set.list_index_fname != NULL);
 	ilist->path = dir == NULL ? "(in-memory mailbox list index)" :
-		p_strdup_printf(list->pool, "%s/"MAILBOX_LIST_INDEX_PREFIX, dir);
-	ilist->index = mail_index_alloc(dir, MAILBOX_LIST_INDEX_PREFIX);
+		p_strdup_printf(list->pool, "%s/%s", dir, list->set.list_index_fname);
+	ilist->index = mail_index_alloc(dir, list->set.list_index_fname);
 
 	ilist->ext_id = mail_index_ext_register(ilist->index, "list",
 				sizeof(struct mailbox_list_index_header),

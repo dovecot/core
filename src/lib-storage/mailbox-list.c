@@ -163,6 +163,8 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	list->set.inbox_path = p_strdup(list->pool, set->inbox_path);
 	list->set.subscription_fname =
 		p_strdup(list->pool, set->subscription_fname);
+	list->set.list_index_fname =
+		p_strdup(list->pool, set->list_index_fname);
 	list->set.maildir_name =
 		p_strdup(list->pool, set->maildir_name);
 	list->set.mailbox_dir_name =
@@ -266,6 +268,7 @@ void mailbox_list_settings_init_defaults(struct mailbox_list_settings *set_r)
 	memset(set_r, 0, sizeof(*set_r));
 	set_r->mailbox_dir_name = "";
 	set_r->maildir_name = "";
+	set_r->list_index_fname = MAILBOX_LIST_INDEX_DEFAULT_PREFIX;
 }
 
 static int
@@ -333,6 +336,8 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "MAILBOXDIR") == 0)
 			dest = &set_r->mailbox_dir_name;
+		else if (strcmp(key, "LISTINDEX") == 0)
+			dest = &set_r->list_index_fname;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
 			set_r->index_control_use_maildir_name = TRUE;
 			dest = &set_r->maildir_name;
