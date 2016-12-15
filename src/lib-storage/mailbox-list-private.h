@@ -14,6 +14,7 @@
 #define MAILBOX_LIST_NAME_INDEX "index"
 #define MAILBOX_LIST_NAME_NONE "none"
 
+#define MAILBOX_LIST_INDEX_DEFAULT_PREFIX "dovecot.list.index"
 #define MAILBOX_LOG_FILE_NAME "dovecot.mailbox.log"
 
 #define T_MAILBOX_LIST_ERR_NOT_FOUND(list, name) \
