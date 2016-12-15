@@ -172,6 +172,7 @@ extern struct mailbox_list_module_register mailbox_list_module_register;
 void mailbox_lists_init(void);
 void mailbox_lists_deinit(void);
 
+void mailbox_list_settings_init_defaults(struct mailbox_list_settings *set_r);
 int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 				struct mailbox_list_settings *set_r,
 				const char **error_r);

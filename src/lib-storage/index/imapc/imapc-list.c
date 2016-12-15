@@ -388,13 +388,11 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 	if (dir == NULL) {
 		/* indexes disabled */
 	} else if (list->index_list == NULL && !list->index_list_failed) {
-		memset(&list_set, 0, sizeof(list_set));
+		mailbox_list_settings_init_defaults(&list_set);
 		list_set.layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
 		list_set.root_dir = dir;
 		list_set.escape_char = IMAPC_LIST_ESCAPE_CHAR;
 		list_set.broken_char = IMAPC_LIST_BROKEN_CHAR;
-		list_set.mailbox_dir_name = "";
-		list_set.maildir_name = "";
 
 		if (mailbox_list_create(list_set.layout, list->list.ns,
 					&list_set, MAILBOX_LIST_FLAG_SECONDARY,

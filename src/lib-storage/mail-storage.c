@@ -334,9 +334,7 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 		}
 	}
 
-	memset(&list_set, 0, sizeof(list_set));
-	list_set.mailbox_dir_name = "";
-	list_set.maildir_name = "";
+	mailbox_list_settings_init_defaults(&list_set);
 	if (data == NULL) {
 		/* autodetect */
 	} else if (driver != NULL && strcmp(driver, "shared") == 0) {

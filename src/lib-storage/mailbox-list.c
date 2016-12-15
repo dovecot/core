@@ -261,6 +261,13 @@ static const char *split_next_arg(const char *const **_args)
 	return str;
 }
 
+void mailbox_list_settings_init_defaults(struct mailbox_list_settings *set_r)
+{
+	memset(set_r, 0, sizeof(*set_r));
+	set_r->mailbox_dir_name = "";
+	set_r->maildir_name = "";
+}
+
 static int
 mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 				 bool expand_home,
@@ -271,10 +278,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 
 	*error_r = NULL;
 
-	memset(set_r, 0, sizeof(*set_r));
-	set_r->maildir_name = "";
-	set_r->mailbox_dir_name = "";
-
+	mailbox_list_settings_init_defaults(set_r);
 	if (*data == '\0')
 		return 0;
 
