@@ -183,7 +183,7 @@ bool cmd_store(struct client_command_context *cmd)
 	mail_search_args_unref(&search_args);
 
 	i_array_init(&modified_set, 64);
-	if (ctx.max_modseq < (uint32_t)-1) {
+	if (ctx.max_modseq < (uint64_t)-1) {
 		/* STORE UNCHANGEDSINCE is being used */
 		mailbox_transaction_set_max_modseq(t, ctx.max_modseq,
 						   &modified_set);
