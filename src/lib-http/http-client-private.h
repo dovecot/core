@@ -176,7 +176,8 @@ struct http_client_connection {
 	unsigned int tunneling:1;          /* last sent request turns this
 	                                      connection into tunnel */
 	unsigned int connect_initialized:1; /* connection was initialized */
-	unsigned int connect_succeeded:1;
+	unsigned int connect_succeeded:1;   /* connection succeeded including SSL */
+	unsigned int connect_failed:1;      /* connection failed */
 	unsigned int closing:1;
 	unsigned int disconnected:1;
 	unsigned int close_indicated:1;

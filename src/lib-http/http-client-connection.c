@@ -54,6 +54,7 @@ http_client_connection_failure(struct http_client_connection *conn,
 {
 	struct http_client_peer *peer = conn->peer;
 
+	conn->connect_failed = TRUE;
 	http_client_peer_connection_failure(peer, reason);
 }
 
@@ -258,10 +259,30 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 	unsigned int status, const char *error)
 {
 	struct http_client_connection *conn = *_conn;
+
+	error = t_strdup_printf("%s (%s)", error,
+				http_client_connection_get_timing_info(conn));
+
+	http_client_connection_debug(conn,
+		"Aborting connection with temporary error: %s", error);
+
+	http_client_connection_retry_requests(conn, status, error);
+	http_client_connection_close(_conn);
+}
+
+static void
+http_client_connection_lost(struct http_client_connection **_conn,
+	const char *error) ATTR_NULL(2)
+{
+	struct http_client_connection *conn = *_conn;
 	const char *sslerr;
 
-	if (status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST &&
-	    conn->ssl_iostream != NULL) {
+	if (error == NULL)
+		error = "Connection lost";
+	else
+		error = t_strdup_printf("Connection lost: %s", error);
+
+	if (conn->ssl_iostream != NULL) {
 		sslerr = ssl_iostream_get_last_error(conn->ssl_iostream);
 		if (sslerr != NULL) {
 			error = t_strdup_printf("%s (last SSL error: %s)",
@@ -276,14 +297,9 @@ http_client_connection_abort_temp_error(struct http_client_connection **_conn,
 			return;
 		}
 	}
-	error = t_strdup_printf("%s (%s)", error,
-				http_client_connection_get_timing_info(conn));
 
-	http_client_connection_debug(conn,
-		"Aborting connection with temporary error: %s", error);
-
-	http_client_connection_retry_requests(conn, status, error);
-	http_client_connection_close(_conn);
+	http_client_connection_abort_temp_error(_conn,
+		HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, error);
 }
 
 int http_client_connection_check_ready(struct http_client_connection *conn)
@@ -314,9 +330,8 @@ int http_client_connection_check_ready(struct http_client_connection *conn)
 			int stream_errno = conn->conn.input->stream_errno;
 
 			i_assert(conn->conn.input->stream_errno != 0 || conn->conn.input->eof);
-			http_client_connection_abort_temp_error(&conn,
-				HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
-				t_strdup_printf("Connection lost: read(%s) failed: %s",
+			http_client_connection_lost(&conn,
+				t_strdup_printf("read(%s) failed: %s",
 						i_stream_get_name(conn->conn.input),
 						stream_errno != 0 ?
 						i_stream_get_error(conn->conn.input) :
@@ -455,8 +470,7 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 
 	req->payload_sync_continue = TRUE;
 	if (http_client_request_send_more(req, FALSE, &error) < 0) {
-		http_client_connection_abort_temp_error(&conn,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+		http_client_connection_lost(&conn,
 			t_strdup_printf("Failed to send request: %s", error));
 	}
 }
@@ -501,8 +515,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 		http_client_request_label(req));
 
 	if (http_client_request_send(req, pipelined, &error) < 0) {
-		http_client_connection_abort_temp_error(&conn,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+		http_client_connection_lost(&conn,
 			t_strdup_printf("Failed to send request: %s", error));
 		return -1;
 	}
@@ -556,13 +569,15 @@ static void http_client_connection_destroy(struct connection *_conn)
 		http_client_connection_failure(conn, error);
 		break;
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
-		/* retry pending requests if possible */
-		error = _conn->input == NULL ? "Connection lost" :
-			t_strdup_printf("Connection lost: %s",
-					i_stream_get_error(_conn->input));
-		http_client_connection_debug(conn, "%s", error);
-		http_client_connection_retry_requests(conn,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, error);
+		if (conn->connect_failed) {
+			i_assert(!array_is_created(&conn->request_wait_list) ||
+				array_count(&conn->request_wait_list) == 0);
+			break;
+		}
+		http_client_connection_lost(&conn,
+			(_conn->input == NULL ? NULL :
+				i_stream_get_error(_conn->input)));
+		return;
 	default:
 		break;
 	}
@@ -861,8 +876,7 @@ static void http_client_connection_input(struct connection *_conn)
 			}
 
 			if (http_client_request_send_more(req, FALSE, &error) < 0) {
-				http_client_connection_abort_temp_error(&conn,
-					HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
+				http_client_connection_lost(&conn,
 					t_strdup_printf("Failed to send request: %s", error));
 			}
 			return;
@@ -1003,9 +1017,8 @@ static void http_client_connection_input(struct connection *_conn)
 	if (ret <= 0 &&
 	    (conn->conn.input->eof || conn->conn.input->stream_errno != 0)) {
 		int stream_errno = conn->conn.input->stream_errno;
-		http_client_connection_abort_temp_error(&conn,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
-			t_strdup_printf("Connection lost: read(%s) failed: %s",
+		http_client_connection_lost(&conn,
+			t_strdup_printf("read(%s) failed: %s",
 					i_stream_get_name(conn->conn.input),
 					stream_errno != 0 ?
 					i_stream_get_error(conn->conn.input) :
@@ -1043,9 +1056,8 @@ int http_client_connection_output(struct http_client_connection *conn)
 
 	if ((ret = o_stream_flush(output)) <= 0) {
 		if (ret < 0) {
-			http_client_connection_abort_temp_error(&conn,
-				HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
-				t_strdup_printf("Connection lost: write(%s) failed: %s",
+			http_client_connection_lost(&conn,
+				t_strdup_printf("write(%s) failed: %s",
 						o_stream_get_name(output),
 						o_stream_get_error(output)));
 		}
@@ -1077,9 +1089,7 @@ int http_client_connection_output(struct http_client_connection *conn)
 
 		if (!req->payload_sync || req->payload_sync_continue) {
 			if (http_client_request_send_more(req, pipelined, &error) < 0) {
-				http_client_connection_abort_temp_error(&conn,
-					HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST,
-					t_strdup_printf("Connection lost: %s", error));
+				http_client_connection_lost(&conn, error);
 				return -1;
 			}
 			if (!conn->output_locked) {
