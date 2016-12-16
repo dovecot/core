@@ -34,6 +34,8 @@ struct uri_parser {
 	const unsigned char *begin, *cur, *end;
 
 	string_t *tmpbuf;
+
+	bool allow_pct_nul:1;
 };
 
 /* parse one instance of percent encoding. Returns 1 for success,

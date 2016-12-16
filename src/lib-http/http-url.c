@@ -337,6 +337,7 @@ int http_url_parse(const char *url, struct http_url *base,
 
 	i_zero(&url_parser);
 	uri_parser_init(&url_parser.parser, pool, url);
+	url_parser.parser.allow_pct_nul = (flags & HTTP_URL_ALLOW_PCT_NUL) != 0;
 
 	url_parser.url = p_new(pool, struct http_url, 1);
 	url_parser.base = base;

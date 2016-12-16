@@ -38,7 +38,9 @@ enum http_url_parse_flags {
 	/* Allow '#fragment' part in HTTP URL */
 	HTTP_URL_ALLOW_FRAGMENT_PART = 0x02,
 	/* Allow 'user:password@' part in HTTP URL */
-	HTTP_URL_ALLOW_USERINFO_PART = 0x04
+	HTTP_URL_ALLOW_USERINFO_PART = 0x04,
+	/* Allow URL to contain %00 */
+	HTTP_URL_ALLOW_PCT_NUL = 0x08,
 };
 
 int http_url_parse(const char *url, struct http_url *base,
