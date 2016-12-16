@@ -723,8 +723,6 @@ director_flush_user_continue(int result, struct director_kill_context *ctx)
 
 	struct user *user = user_directory_lookup(ctx->tag->users,
 						  ctx->username_hash);
-	if (user != NULL)
-		director_user_kill_finish_delayed(dir, user,result == 1);
 
 	if (result == 0) {
 		struct istream *is = iostream_temp_finish(&ctx->reply, (size_t)-1);
