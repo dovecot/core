@@ -298,6 +298,9 @@ http_client_connection_lost(struct http_client_connection **_conn,
 		}
 	}
 
+	conn->lost_prematurely = (conn->conn.input != NULL &&
+		conn->conn.input->v_offset == 0 &&
+		i_stream_get_data_size(conn->conn.input) == 0);
 	http_client_connection_abort_temp_error(_conn,
 		HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST, error);
 }
@@ -1546,7 +1549,7 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 	}
 
 	if (conn->connect_succeeded)
-		http_client_peer_connection_lost(peer);
+		http_client_peer_connection_lost(peer, conn->lost_prematurely);
 }
 
 bool http_client_connection_unref(struct http_client_connection **_conn)
