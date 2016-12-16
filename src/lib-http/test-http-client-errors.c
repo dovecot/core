@@ -165,6 +165,7 @@ test_server_connection_refused(unsigned int index ATTR_UNUSED)
 
 struct _connection_refused {
 	unsigned int count;
+	struct timeout *to;
 };
 
 static void
@@ -172,6 +173,10 @@ test_client_connection_refused_response(
 	const struct http_response *resp,
 	struct _connection_refused *ctx)
 {
+	test_assert(ctx->to == NULL);
+	if (ctx->to != NULL)
+		timeout_remove(&ctx->to);
+
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
@@ -184,6 +189,14 @@ test_client_connection_refused_response(
 	}
 }
 
+static void
+test_client_connection_refused_timeout(struct _connection_refused *ctx)
+{
+	if (debug)
+		i_debug("TIMEOUT (ok)");
+	timeout_remove(&ctx->to);
+}
+
 static bool
 test_client_connection_refused(const struct http_client_settings *client_set)
 {
@@ -192,6 +205,11 @@ test_client_connection_refused(const struct http_client_settings *client_set)
 
 	ctx = i_new(struct _connection_refused, 1);
 	ctx->count = 2;
+
+	if (client_set->max_connect_attempts > 0) {
+		ctx->to = timeout_add_short(250,
+			test_client_connection_refused_timeout, ctx);
+	}
 
 	http_client = http_client_init(client_set);
 
@@ -219,6 +237,15 @@ static void test_connection_refused(void)
 	test_client_defaults(&http_client_set);
 
 	test_begin("connection refused");
+	test_run_client_server(&http_client_set,
+		test_client_connection_refused,
+		test_server_connection_refused, 1,
+		NULL);
+	test_end();
+
+	http_client_set.max_connect_attempts = 3;
+
+	test_begin("connection refused backoff");
 	test_run_client_server(&http_client_set,
 		test_client_connection_refused,
 		test_server_connection_refused, 1,
