@@ -254,6 +254,109 @@ static void test_connection_refused(void)
 }
 
 /*
+ * Connection lost prematurely
+ */
+
+/* server */
+
+static void
+test_server_connection_lost_prematurely_input(struct server_connection *conn)
+{
+	server_connection_deinit(&conn);
+}
+
+static void
+test_server_connection_lost_prematurely(unsigned int index)
+{
+	test_server_input = test_server_connection_lost_prematurely_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _connection_lost_prematurely {
+	unsigned int count;
+	struct timeout *to;
+};
+
+static void
+test_client_connection_lost_prematurely_response(
+	const struct http_response *resp,
+	struct _connection_lost_prematurely *ctx)
+{
+	test_assert(ctx->to == NULL);
+	if (ctx->to != NULL)
+		timeout_remove(&ctx->to);
+
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECTION_LOST);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static void
+test_client_connection_lost_prematurely_timeout(
+	struct _connection_lost_prematurely *ctx)
+{
+	if (debug)
+		i_debug("TIMEOUT (ok)");
+	timeout_remove(&ctx->to);
+}
+
+static bool
+test_client_connection_lost_prematurely(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _connection_lost_prematurely *ctx;
+
+	ctx = i_new(struct _connection_lost_prematurely, 1);
+	ctx->count = 2;
+
+	ctx->to = timeout_add_short(250,
+		test_client_connection_lost_prematurely_timeout, ctx);
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/connection-refused-retry.txt",
+		test_client_connection_lost_prematurely_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/connection-refused-retry2.txt",
+		test_client_connection_lost_prematurely_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_connection_lost_prematurely(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.max_connect_attempts = 3;
+	http_client_set.max_attempts = 3;
+
+	test_begin("connection lost prematurely");
+	test_run_client_server(&http_client_set,
+		test_client_connection_lost_prematurely,
+		test_server_connection_lost_prematurely, 1,
+		NULL);
+	test_end();
+}
+
+/*
  * Connection timed out
  */
 
@@ -2358,6 +2461,7 @@ static void test_peer_reuse_failure(void)
 static void (*test_functions[])(void) = {
 	test_host_lookup_failed,
 	test_connection_refused,
+	test_connection_lost_prematurely,
 	test_connection_timed_out,
 	test_invalid_redirect,
 	test_unseekable_redirect,
