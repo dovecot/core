@@ -183,6 +183,28 @@ http_client_peer_start_backoff_timer(struct http_client_peer *peer)
 }
 
 static void
+http_client_peer_increase_backoff_timer(struct http_client_peer *peer)
+{
+	const struct http_client_settings *set = &peer->client->set;
+
+	if (peer->backoff_time_msecs == 0)
+		peer->backoff_time_msecs = set->connect_backoff_time_msecs;
+	else
+		peer->backoff_time_msecs *= 2;
+	if (peer->backoff_time_msecs > set->connect_backoff_max_time_msecs)
+		peer->backoff_time_msecs = set->connect_backoff_max_time_msecs;
+}
+
+static void
+http_client_peer_reset_backoff_timer(struct http_client_peer *peer)
+{
+	peer->backoff_time_msecs = 0;
+
+	if (peer->to_backoff != NULL)
+		timeout_remove(&peer->to_backoff);
+}
+
+static void
 http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 {
 	if (http_client_peer_start_backoff_timer(peer))
@@ -745,10 +767,7 @@ void http_client_peer_connection_success(struct http_client_peer *peer)
 		array_count(&peer->conns));
 
 	peer->last_failure.tv_sec = peer->last_failure.tv_usec = 0;
-	peer->backoff_time_msecs = 0;
-
-	if (peer->to_backoff != NULL)
-		timeout_remove(&peer->to_backoff);
+	http_client_peer_reset_backoff_timer(peer);
 
 	array_foreach(&peer->queues, queue) {
 		http_client_queue_connection_success(*queue, &peer->addr);
@@ -760,7 +779,6 @@ void http_client_peer_connection_success(struct http_client_peer *peer)
 void http_client_peer_connection_failure(struct http_client_peer *peer,
 					 const char *reason)
 {
-	const struct http_client_settings *set = &peer->client->set;
 	struct http_client_queue *const *queue;
 	unsigned int pending;
 
@@ -776,14 +794,8 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 		array_count(&peer->conns), pending);
 
 	/* manage backoff timer only when this was the only attempt */
-	if (pending == 1) {
-		if (peer->backoff_time_msecs == 0)
-			peer->backoff_time_msecs = set->connect_backoff_time_msecs;
-		else
-			peer->backoff_time_msecs *= 2;
-		if (peer->backoff_time_msecs > set->connect_backoff_max_time_msecs)
-			peer->backoff_time_msecs = set->connect_backoff_max_time_msecs;
-	}
+	if (pending == 1)
+		http_client_peer_increase_backoff_timer(peer);
 
 	if (pending > 1) {
 		/* if there are other connections attempting to connect, wait
