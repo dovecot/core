@@ -26,6 +26,8 @@ struct uri_parser {
 	const unsigned char *begin, *cur, *end;
 
 	string_t *tmpbuf;
+
+	bool allow_pct_nul:1;
 };
 
 int uri_parse_pct_encoded(struct uri_parser *parser,

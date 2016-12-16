@@ -125,7 +125,7 @@ uri_parse_pct_encoded_data(struct uri_parser *parser,
 	*ch_r |= (value & 0x0f);
 	*p += 1;
 
-	if (*ch_r == '\0') {
+	if (!parser->allow_pct_nul && *ch_r == '\0') {
 		parser->error =
 			"Percent encoding is not allowed to encode NUL character";
 		return -1;
