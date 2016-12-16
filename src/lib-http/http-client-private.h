@@ -178,6 +178,7 @@ struct http_client_connection {
 	bool connect_initialized:1; /* connection was initialized */
 	bool connect_succeeded:1;   /* connection succeeded including SSL */
 	bool connect_failed:1;      /* connection failed */
+	bool lost_prematurely:1;    /* lost connection before receiving any data */
 	bool closing:1;
 	bool disconnected:1;
 	bool close_indicated:1;
@@ -465,7 +466,8 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer);
 void http_client_peer_connection_success(struct http_client_peer *peer);
 void http_client_peer_connection_failure(struct http_client_peer *peer,
 					 const char *reason);
-void http_client_peer_connection_lost(struct http_client_peer *peer);
+void http_client_peer_connection_lost(struct http_client_peer *peer,
+	bool premature);
 bool http_client_peer_is_connected(struct http_client_peer *peer);
 unsigned int
 http_client_peer_idle_connections(struct http_client_peer *peer);

@@ -813,7 +813,8 @@ void http_client_peer_connection_failure(struct http_client_peer *peer,
 	}
 }
 
-void http_client_peer_connection_lost(struct http_client_peer *peer)
+void http_client_peer_connection_lost(struct http_client_peer *peer,
+	bool premature)
 {
 	unsigned int num_pending, num_urgent;
 
@@ -827,10 +828,20 @@ void http_client_peer_connection_lost(struct http_client_peer *peer)
 	num_pending = http_client_peer_requests_pending(peer, &num_urgent);
 
 	http_client_peer_debug(peer,
-		"Lost a connection (%u queues linked, %u connections left, "
+		"Lost a connection%s (%u queues linked, %u connections left, "
 			"%u requests pending, %u requests urgent)",
+		(premature ? " prematurely" : ""),
 		array_count(&peer->queues), array_count(&peer->conns),
 		num_pending, num_urgent);
+
+	/* update backoff timer if the connection was lost prematurely.
+	   this prevents reconnecting immediately to a server that is
+	   misbehaving by disconnecting before sending a response.
+	 */
+	if (premature) {
+		peer->last_failure = ioloop_timeval;
+		http_client_peer_increase_backoff_timer(peer);
+	}
 
 	if (peer->handling_requests) {
 		/* we got here from the request handler loop */
