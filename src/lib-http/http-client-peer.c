@@ -644,6 +644,9 @@ static void http_client_peer_drop(struct http_client_peer **_peer)
 		return;
 	}
 
+	if (peer->to_backoff != NULL)
+		return;
+
 	if (http_client_peer_start_backoff_timer(peer)) {
 		http_client_peer_debug(peer,
 			"Dropping peer (waiting for backof timeout)");
