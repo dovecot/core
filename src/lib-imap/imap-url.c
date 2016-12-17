@@ -900,7 +900,7 @@ int imap_url_parse(const char *url, const struct imap_url *base,
 	i_assert((flags & IMAP_URL_PARSE_REQUIRE_RELATIVE) == 0 || base != NULL);
 	i_assert((flags & IMAP_URL_PARSE_SCHEME_EXTERNAL) == 0 || base == NULL);
 
-	memset(&url_parser, '\0', sizeof(url_parser));
+	memset(&url_parser, 0, sizeof(url_parser));
 	uri_parser_init(&url_parser.parser, pool_datastack_create(), url);
 
 	url_parser.url = t_new(struct imap_url, 1);

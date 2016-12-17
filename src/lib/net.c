@@ -654,7 +654,7 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 		return 0;
 	}
 
-	memset(&hints, 0, sizeof(struct addrinfo));
+	memset(&hints, 0, sizeof(hints));
 	hints.ai_socktype = SOCK_STREAM;
 
 	/* save error to host_error for later use */
@@ -852,9 +852,9 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 
 	sc = (struct sockcred *)cdata.buf;
 	sc->sc_uid = sc->sc_euid = sc->sc_gid = sc->sc_egid = -1;
-	memset(&cdata.ch, 0, sizeof cdata.ch);
+	memset(&cdata.ch, 0, sizeof(cdata.ch));
 
-	memset(&msg, 0, sizeof msg);
+	memset(&msg, 0, sizeof(msg));
 
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;

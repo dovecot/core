@@ -335,7 +335,7 @@ int http_url_parse(const char *url, struct http_url *base,
 	   flags may also dictate whether relative URLs are allowed/required. */
 	i_assert((flags & HTTP_URL_PARSE_SCHEME_EXTERNAL) == 0 || base == NULL);
 
-	memset(&url_parser, '\0', sizeof(url_parser));
+	memset(&url_parser, 0, sizeof(url_parser));
 	uri_parser_init(&url_parser.parser, pool, url);
 
 	url_parser.url = p_new(pool, struct http_url, 1);
@@ -359,7 +359,7 @@ int http_url_request_target_parse(const char *request_target,
 	struct uri_authority auth;
 	struct http_url base;
 
-	memset(&url_parser, '\0', sizeof(url_parser));
+	memset(&url_parser, 0, sizeof(url_parser));
 	parser = &url_parser.parser;
 	uri_parser_init(parser, pool, host_header);
 
@@ -386,7 +386,7 @@ int http_url_request_target_parse(const char *request_target,
 	base.host = auth.host;
 	base.port = auth.port;
 
-	memset(parser, '\0', sizeof(*parser));
+	memset(parser, 0, sizeof(*parser));
 	uri_parser_init(parser, pool, request_target);
 
 	url_parser.url = p_new(pool, struct http_url, 1);

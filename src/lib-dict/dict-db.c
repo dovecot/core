@@ -234,8 +234,8 @@ static int db_dict_lookup(struct dict *_dict, pool_t pool,
 	uint32_t value;
 	int ret;
 
-	memset(&pkey, 0, sizeof(DBT));
-	memset(&pdata, 0, sizeof(DBT));
+	memset(&pkey, 0, sizeof(pkey));
+	memset(&pdata, 0, sizeof(pdata));
 
 	pkey.data = (char *)key;
 	pkey.size = strlen(key);
