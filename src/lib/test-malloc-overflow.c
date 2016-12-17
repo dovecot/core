@@ -32,7 +32,7 @@ static void test_malloc_overflow_add(void)
 
 	test_begin("MALLOC_ADD()");
 	/* check that no compiler warning is given */
-	test_assert(MALLOC_ADD(2, n) == 2+n);
+	test_assert(MALLOC_ADD(2, n) == 2U+n);
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		test_assert_idx(MALLOC_ADD(tests[i].a, tests[i].b) == tests[i].a + tests[i].b, i);
 		test_assert_idx(MALLOC_ADD(tests[i].b, tests[i].a) == tests[i].b + tests[i].a, i);
