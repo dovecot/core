@@ -1740,8 +1740,9 @@ void imapc_connection_connect(struct imapc_connection *conn,
 
 	if (conn->client->set.debug) {
 		i_debug("imapc(%s): Looking up IP address "
-			"(reconnect_ok=%d, last_connect=%ld)", conn->name,
-			conn->reconnect_ok, (long)conn->last_connect);
+			"(reconnect_ok=%s, last_connect=%ld)", conn->name,
+			(conn->reconnect_ok ? "true" : "false"),
+			(long)conn->last_connect);
 	}
 
 	memset(&dns_set, 0, sizeof(dns_set));
