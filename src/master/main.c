@@ -768,7 +768,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
-	i_assert(optind <= argc);
+	i_assert(optind > 0 && optind <= argc);
 
 	if (doveconf_arg != NULL) {
 		const char **args;
