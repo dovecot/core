@@ -217,6 +217,50 @@ http_client_peer_label(struct http_client_peer *peer)
 	return peer->label;
 }
 
+static struct http_client_peer *
+http_client_peer_create(struct http_client *client,
+			      const struct http_client_peer_addr *addr)
+{
+	struct http_client_peer *peer;
+
+	peer = i_new(struct http_client_peer, 1);
+	peer->refcount = 1;
+	peer->client = client;
+	peer->addr = *addr;
+
+	switch (addr->type) {
+	case HTTP_CLIENT_PEER_ADDR_RAW:
+	case HTTP_CLIENT_PEER_ADDR_HTTP:
+		i_assert(peer->addr.a.tcp.ip.family != 0);
+		break;
+	case HTTP_CLIENT_PEER_ADDR_HTTPS:
+	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
+		i_assert(peer->addr.a.tcp.ip.family != 0);
+		i_assert(client->ssl_ctx != NULL);
+		peer->addr_name = i_strdup(addr->a.tcp.https_name);
+		peer->addr.a.tcp.https_name = peer->addr_name;
+		break;
+	case HTTP_CLIENT_PEER_ADDR_UNIX:
+		peer->addr_name = i_strdup(addr->a.un.path);
+		peer->addr.a.un.path = peer->addr_name;
+		break;
+	default:
+		break;
+	}
+
+	i_array_init(&peer->queues, 16);
+	i_array_init(&peer->conns, 16);
+
+	hash_table_insert
+		(client->peers, (const struct http_client_peer_addr *)&peer->addr, peer);
+	DLLIST_PREPEND(&client->peers_list, peer);
+
+	peer->ppool = http_client_peer_pool_create(peer);
+
+	http_client_peer_debug(peer, "Peer created");
+	return peer;
+}
+
 static void
 http_client_peer_do_connect(struct http_client_peer *peer,
 	unsigned int count)
@@ -645,50 +689,6 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 		peer->to_req_handling =
 			timeout_add_short(0, http_client_peer_handle_requests, peer);
 	}
-}
-
-static struct http_client_peer *
-http_client_peer_create(struct http_client *client,
-			      const struct http_client_peer_addr *addr)
-{
-	struct http_client_peer *peer;
-
-	peer = i_new(struct http_client_peer, 1);
-	peer->refcount = 1;
-	peer->client = client;
-	peer->addr = *addr;
-
-	switch (addr->type) {
-	case HTTP_CLIENT_PEER_ADDR_RAW:
-	case HTTP_CLIENT_PEER_ADDR_HTTP:
-		i_assert(peer->addr.a.tcp.ip.family != 0);
-		break;
-	case HTTP_CLIENT_PEER_ADDR_HTTPS:
-	case HTTP_CLIENT_PEER_ADDR_HTTPS_TUNNEL:
-		i_assert(peer->addr.a.tcp.ip.family != 0);
-		i_assert(client->ssl_ctx != NULL);
-		peer->addr_name = i_strdup(addr->a.tcp.https_name);
-		peer->addr.a.tcp.https_name = peer->addr_name;
-		break;
-	case HTTP_CLIENT_PEER_ADDR_UNIX:
-		peer->addr_name = i_strdup(addr->a.un.path);
-		peer->addr.a.un.path = peer->addr_name;
-		break;
-	default:
-		break;
-	}
-
-	i_array_init(&peer->queues, 16);
-	i_array_init(&peer->conns, 16);
-
-	hash_table_insert
-		(client->peers, (const struct http_client_peer_addr *)&peer->addr, peer);
-	DLLIST_PREPEND(&client->peers_list, peer);
-
-	peer->ppool = http_client_peer_pool_create(peer);
-
-	http_client_peer_debug(peer, "Peer created");
-	return peer;
 }
 
 static void
