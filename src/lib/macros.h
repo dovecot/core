@@ -231,4 +231,8 @@
 #  define STATIC_ARRAY
 #endif
 
+/* Convenience wrappers for initializing a struct */
+#define i_zero(p) memset(p, 0, sizeof(*(p)))
+#define i_zero_safe(p) safe_memset(p, 0, sizeof(*(p)))
+
 #endif
