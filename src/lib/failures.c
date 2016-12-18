@@ -268,7 +268,7 @@ void i_panic(const char *format, ...)
 	struct failure_context ctx;
 	va_list args;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.type = LOG_TYPE_PANIC;
 
 	va_start(args, format);
@@ -281,7 +281,7 @@ void i_fatal(const char *format, ...)
 	struct failure_context ctx;
 	va_list args;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.type = LOG_TYPE_FATAL;
 	ctx.exit_status = FATAL_DEFAULT;
 
@@ -295,7 +295,7 @@ void i_fatal_status(int status, const char *format, ...)
 	struct failure_context ctx;
 	va_list args;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.type = LOG_TYPE_FATAL;
 	ctx.exit_status = status;
 
@@ -635,7 +635,7 @@ static bool line_is_ok(const char *line)
 
 void i_failure_parse_line(const char *line, struct failure_line *failure)
 {
-	memset(failure, 0, sizeof(*failure));
+	i_zero(failure);
 	if (!line_is_ok(line)) {
 		failure->log_type = LOG_TYPE_ERROR;
 		failure->text = line;

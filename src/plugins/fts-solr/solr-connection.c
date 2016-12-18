@@ -122,7 +122,7 @@ int solr_connection_init(const char *url, bool debug,
 	conn->debug = debug;
 
 	if (solr_http_client == NULL) {
-		memset(&http_set, 0, sizeof(http_set));
+		i_zero(&http_set);
 		http_set.max_idle_time_msecs = 5*1000;
 		http_set.max_parallel_connections = 1;
 		http_set.max_pipelined_requests = 1;
@@ -425,7 +425,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	const char *url;
 	int parse_ret;
 
-	memset(&solr_lookup_context, 0, sizeof(solr_lookup_context));
+	i_zero(&solr_lookup_context);
 	solr_lookup_context.result_pool = pool;
 	hash_table_create(&solr_lookup_context.mailboxes, default_pool, 0,
 			  str_hash, strcmp);

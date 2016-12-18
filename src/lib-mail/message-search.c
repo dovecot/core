@@ -121,7 +121,7 @@ bool message_search_more_get_decoded(struct message_search_context *ctx,
 	struct message_header_line *hdr = raw_block->hdr;
 	struct message_block decoded_block;
 
-	memset(decoded_block_r, 0, sizeof(*decoded_block_r));
+	i_zero(decoded_block_r);
 	decoded_block_r->part = raw_block->part;
 
 	if (raw_block->part != ctx->prev_part) {

@@ -36,7 +36,7 @@ message_parse_header_init(struct istream *input, struct message_size *hdr_size,
 	i_stream_ref(input);
 
 	if (hdr_size != NULL)
-		memset(hdr_size, 0, sizeof(*hdr_size));
+		i_zero(hdr_size);
 	return ctx;
 }
 

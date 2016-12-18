@@ -278,8 +278,8 @@ static void virtual_sync_ext_header_rewrite(struct virtual_sync_context *ctx)
 	mailbox_pos = sizeof(ext_hdr);
 	name_pos = mailbox_pos + sizeof(mailbox) * count;
 
-	memset(&ext_hdr, 0, sizeof(ext_hdr));
-	memset(&mailbox, 0, sizeof(mailbox));
+	i_zero(&ext_hdr);
+	i_zero(&mailbox);
 
 	ext_hdr.change_counter = ++ctx->mbox->prev_change_counter;
 	ext_hdr.mailbox_count = count;
@@ -489,7 +489,7 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 		mailbox_search_result_save(search_ctx, result_flags);
 
 	/* add the found UIDs to uidmap. virtual_uid gets assigned later. */
-	memset(&uidmap, 0, sizeof(uidmap));
+	i_zero(&uidmap);
 	array_clear(&bbox->uids);
 	while (mailbox_search_next(search_ctx, &mail)) {
 		uidmap.real_uid = mail->uid;
@@ -592,7 +592,7 @@ virtual_sync_mailbox_box_add(struct virtual_sync_context *ctx,
 	src = dest + add_count;
 
 	/* add/move the UIDs to their correct positions */
-	memset(&rec, 0, sizeof(rec));
+	i_zero(&rec);
 	rec.rec.mailbox_id = bbox->mailbox_id;
 	for (i = 0; i < uid_count; i++) {
 		add_uid = added_uids[i].seq1;
@@ -654,7 +654,7 @@ virtual_sync_backend_add_vmsgs_results(struct virtual_sync_context *ctx,
 
 	mail_index_lookup_uid(ctx->sync_view, vseq, &vuid);
 
-	memset(&uidmap, 0, sizeof(uidmap));
+	i_zero(&uidmap);
 	uidmap.real_uid = real_uid;
 	uidmap.virtual_uid = vuid;
 	array_append(&bbox->uids, &uidmap, 1);
@@ -1076,7 +1076,7 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 		return;
 	}
 
-	memset(&mailbox, 0, sizeof(mailbox));
+	i_zero(&mailbox);
 	mailbox.uid_validity = bbox->sync_uid_validity;
 	mailbox.highest_modseq = bbox->ondisk_highest_modseq;
 	mailbox.next_uid = bbox->sync_next_uid;
@@ -1245,7 +1245,7 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 
 	/* create real mailbox uid -> virtual uid mapping and expunge
 	   messages no longer matching the search rule */
-	memset(&add_rec, 0, sizeof(add_rec));
+	i_zero(&add_rec);
 	bbox = NULL;
 	for (i = 0; i < messages; i++) {
 		vseq = vmails[i].vseq;
@@ -1313,7 +1313,7 @@ static void virtual_sync_new_backend_boxes(struct virtual_sync_context *ctx)
 
 	/* if there are any mailboxes we didn't yet sync, add new messages in
 	   them */
-	memset(&add_rec, 0, sizeof(add_rec));
+	i_zero(&add_rec);
 	bboxes = array_get(&ctx->mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
 		if (bboxes[i]->sync_seen)
@@ -1482,7 +1482,7 @@ virtual_sync_apply_existing_appends(struct virtual_sync_context *ctx)
 					 (uint32_t)-1, &seq, &seq2))
 		return 0;
 
-	memset(&uidmap, 0, sizeof(uidmap));
+	i_zero(&uidmap);
 	for (; seq <= seq2; seq++) {
 		mail_index_lookup_ext(ctx->sync_view, seq, virtual_ext_id,
 				      &data, NULL);

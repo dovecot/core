@@ -231,7 +231,7 @@ static void dsync_brain_sync_half_finished(struct dsync_brain *brain)
 		return;
 
 	/* finished with this mailbox */
-	memset(&state, 0, sizeof(state));
+	i_zero(&state);
 	memcpy(state.mailbox_guid, brain->local_dsync_box.mailbox_guid,
 	       sizeof(state.mailbox_guid));
 	state.last_uidvalidity = brain->local_dsync_box.uid_validity;

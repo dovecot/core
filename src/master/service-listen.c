@@ -260,7 +260,7 @@ static int get_socket_info(int fd, unsigned int *family, in_port_t *port)
 	if (port) *port = -1;
 	if (family) *family = -1;
 
-	memset(&sockaddr, 0, sizeof(sockaddr));
+	i_zero(&sockaddr);
 	l = sizeof(sockaddr);
 
 	if (getsockname(fd, &sockaddr.sa, &l) < 0)

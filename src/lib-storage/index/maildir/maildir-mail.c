@@ -722,7 +722,7 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 	if (strchr(fname, MAILDIR_EXTRA_SEP) == NULL)
 		return;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.physical_size = (uoff_t)-1;
 	if (field == MAIL_FETCH_VIRTUAL_SIZE &&
 	    maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,

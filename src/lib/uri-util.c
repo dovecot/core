@@ -649,7 +649,7 @@ uri_do_parse_host(struct uri_parser *parser,
 	 */
 
 	if (host != NULL)
-		memset(host, 0, sizeof(*host));
+		i_zero(host);
 
 	literal = uri_parser_get_tmpbuf(parser, 256);
 
@@ -739,7 +739,7 @@ uri_do_parse_authority(struct uri_parser *parser,
 	 */
 
 	if (auth != NULL)
-		memset(auth, 0, sizeof(*auth));
+		i_zero(auth);
 
 	/* Scan ahead to check whether there is a [userinfo "@"] uri component */
 	for (p = parser->cur; p < parser->end; p++){
@@ -882,7 +882,7 @@ int uri_parse_path(struct uri_parser *parser,
 	if (path_r != NULL)
 		p_array_init(&segments, parser->pool, 16);
 	else
-		memset(&segments, 0, sizeof(segments));
+		i_zero(&segments);
 
 	/* check for a leading '/' and indicate absolute path
 	   when it is present
@@ -1165,7 +1165,7 @@ int uri_check_data(const unsigned char *data, size_t size,
 	struct uri_parser parser;
 	int ret;
 
-	memset(&parser, 0, sizeof(parser));
+	i_zero(&parser);
 	parser.pool = pool_datastack_create();
 	parser.begin = parser.cur = data;
 	parser.end = data + size;

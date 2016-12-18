@@ -261,7 +261,7 @@ pam_verify_plain_call(struct auth_request *request, const char *service,
 	conv.conv = pam_userpass_conv;
 	conv.appdata_ptr = &ctx;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.request = request;
 	ctx.pass = password;
 

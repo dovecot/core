@@ -633,7 +633,7 @@ file_dict_transaction_commit(struct dict_transaction_context *_ctx,
 	struct dict_commit_result result;
 	bool atomic_inc_not_found;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	if (file_dict_write_changes(ctx, &atomic_inc_not_found, &result.error) < 0)
 		result.ret = DICT_COMMIT_RET_FAILED;
 	else if (atomic_inc_not_found)

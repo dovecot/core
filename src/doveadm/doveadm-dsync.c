@@ -569,7 +569,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	bool remote_only_changes;
 	int ret = 0;
 
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	if (_ctx->cur_client_ip.family != 0) {
 		/* include the doveadm client's IP address in the ps output */
 		set.process_title_prefix = t_strdup_printf(
@@ -777,7 +777,7 @@ static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx,
 	if (ctx->ssl_ctx != NULL)
 		return 0;
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
+	i_zero(&ssl_set);
 	ssl_set.ca_dir = mail_set->ssl_client_ca_dir;
 	ssl_set.ca_file = mail_set->ssl_client_ca_file;
 	ssl_set.verify_remote_cert = TRUE;

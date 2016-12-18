@@ -467,7 +467,7 @@ static void stats_top(const char *path, const char *sort_type)
 {
 	struct top_context ctx;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.path = path;
 	ctx.fd = doveadm_connect(path);
 	ctx.prev_pool = pool_alloconly_create("stats top", 1024*16);

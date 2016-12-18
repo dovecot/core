@@ -95,7 +95,7 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	}
 	uri = strlist[i+1];
 
-	memset(&dict_set, 0, sizeof(dict_set));
+	i_zero(&dict_set);
 	dict_set.value_type = conn->value_type;
 	dict_set.username = conn->username;
 	dict_set.base_dir = dict_settings->base_dir;

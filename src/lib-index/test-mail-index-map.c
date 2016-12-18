@@ -13,8 +13,8 @@ static void test_mail_index_map_lookup_seq_range_count(unsigned int messages_cou
 	struct mail_index_map map;
 	uint32_t seq, first_uid, last_uid, first_seq, last_seq, max_uid;
 
-	memset(&map, 0, sizeof(map));
-	memset(&rec_map, 0, sizeof(rec_map));
+	i_zero(&map);
+	i_zero(&rec_map);
 	map.rec_map = &rec_map;
 	map.hdr.messages_count = messages_count;
 	map.hdr.record_size = sizeof(struct mail_index_record);

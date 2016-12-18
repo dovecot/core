@@ -177,7 +177,7 @@ int fts_icu_transliterator_create(const char *id,
 	UErrorCode err = U_ZERO_ERROR;
 	UParseError perr;
 	ARRAY_TYPE(icu_utf16) id_utf16;
-	memset(&perr, 0, sizeof(perr));
+	i_zero(&perr);
 
 	t_array_init(&id_utf16, strlen(id));
 	fts_icu_utf8_to_utf16(&id_utf16, id);

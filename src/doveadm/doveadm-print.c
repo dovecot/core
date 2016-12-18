@@ -39,7 +39,7 @@ void doveadm_print_header(const char *key, const char *title,
 
 	i_assert(title != NULL);
 
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	hdr.key = key;
 	hdr.title = title;
 	hdr.flags = flags;

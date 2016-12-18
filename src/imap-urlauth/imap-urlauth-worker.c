@@ -577,7 +577,7 @@ client_handle_user_command(struct client *client, const char *cmd,
 	}
 
 	/* lookup user */
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = "imap-urlauth-worker";
 	input.service = "imap-urlauth-worker";
 	input.username = args[0];
@@ -639,7 +639,7 @@ client_handle_user_command(struct client *client, const char *cmd,
 		return 0;
 	}
 
-	memset(&config, 0, sizeof(config));
+	i_zero(&config);
 	config.url_host = set->imap_urlauth_host;
 	config.url_port = set->imap_urlauth_port;
 	config.access_user = client->access_user;

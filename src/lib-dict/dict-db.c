@@ -48,7 +48,7 @@ static int associate_key(DB *pdb ATTR_UNUSED,
 			 const DBT *pkey ATTR_UNUSED,
 			 const DBT *pdata, DBT *skey)
 {
-	memset(skey, 0, sizeof(*skey));
+	i_zero(skey);
 	skey->data = pdata->data;
 	skey->size = pdata->size;
 	return 0;
@@ -234,8 +234,8 @@ static int db_dict_lookup(struct dict *_dict, pool_t pool,
 	uint32_t value;
 	int ret;
 
-	memset(&pkey, 0, sizeof(pkey));
-	memset(&pdata, 0, sizeof(pdata));
+	i_zero(&pkey);
+	i_zero(&pdata);
 
 	pkey.data = (char *)key;
 	pkey.size = strlen(key);
@@ -267,9 +267,9 @@ static int db_dict_iterate_next(struct db_dict_iterate_context *ctx,
 	DBT pkey, pdata, skey;
 	int ret;
 
-	memset(&pkey, 0, sizeof(pkey));
-	memset(&pdata, 0, sizeof(pdata));
-	memset(&skey, 0, sizeof(skey));
+	i_zero(&pkey);
+	i_zero(&pdata);
+	i_zero(&skey);
 
 	if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_VALUE) != 0) {
 		while ((ret = ctx->cursor->c_pget(ctx->cursor, &skey,
@@ -417,8 +417,8 @@ static void db_dict_set(struct dict_transaction_context *_ctx,
 	struct db_dict *dict = (struct db_dict *)_ctx->dict;
 	DBT dkey, ddata;
 
-	memset(&dkey, 0, sizeof(dkey));
-	memset(&ddata, 0, sizeof(ddata));
+	i_zero(&dkey);
+	i_zero(&ddata);
 
 	dkey.data = (char *)key;
 	dkey.size = strlen(key);
@@ -448,7 +448,7 @@ static void db_dict_unset(struct dict_transaction_context *_ctx,
 	struct db_dict *dict = (struct db_dict *)_ctx->dict;
 	DBT dkey;
 
-	memset(&dkey, 0, sizeof(dkey));
+	i_zero(&dkey);
 	dkey.data = (char *)key;
 	dkey.size = strlen(key);
 	

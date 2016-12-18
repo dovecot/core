@@ -416,7 +416,7 @@ int acl_rights_parse_line(const char *line, pool_t pool,
 			id_str = t_strdup_until(id_str, line++);
 	}
 
-	memset(rights_r, 0, sizeof(*rights_r));
+	i_zero(rights_r);
 
 	right_names = acl_right_names_parse(pool, line, &error);
 	if (*id_str != '-')
@@ -441,7 +441,7 @@ int acl_rights_parse_line(const char *line, pool_t pool,
 void acl_rights_dup(const struct acl_rights *src,
 		    pool_t pool, struct acl_rights *dest_r)
 {
-	memset(dest_r, 0, sizeof(*dest_r));
+	i_zero(dest_r);
 	dest_r->id_type = src->id_type;
 	dest_r->identifier = p_strdup(pool, src->identifier);
 	dest_r->rights = src->rights == NULL ? NULL :
@@ -736,7 +736,7 @@ static void apply_owner_default_rights(struct acl_object *aclobj)
 	struct acl_rights_update ru;
 	const char *null = NULL;
 
-	memset(&ru, 0, sizeof(ru));
+	i_zero(&ru);
 	ru.modify_mode = ACL_MODIFY_MODE_REPLACE;
 	ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
 	ru.rights.id_type = ACL_ID_OWNER;
@@ -767,7 +767,7 @@ void acl_object_rebuild_cache(struct acl_object *aclobj)
 	   ACLs are merged. In all other situations the ACLs are replaced
 	   (because there aren't duplicate rights entries and a user can't
 	   match multiple usernames). */
-	memset(&ru, 0, sizeof(ru));
+	i_zero(&ru);
 	rights = array_get(&aclobj->rights, &count);
 	if (!acl_backend_user_is_owner(aclobj->backend))
 		i = 0;
@@ -825,7 +825,7 @@ void acl_object_remove_all_access(struct acl_object *aclobj)
 	static const char *null = NULL;
 	struct acl_rights rights;
 
-	memset(&rights, 0, sizeof(rights));
+	i_zero(&rights);
 	rights.id_type = ACL_ID_ANYONE;
 	rights.rights = &null;
 	array_append(&aclobj->rights, &rights, 1);

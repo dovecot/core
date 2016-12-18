@@ -71,7 +71,7 @@ cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
 	}
 
 	dict_drivers_register_builtin();
-	memset(&dict_set, 0, sizeof(dict_set));
+	i_zero(&dict_set);
 	dict_set.username = username;
 	dict_set.base_dir = doveadm_settings->base_dir;
 	if (dict_init(dict_uri, &dict_set, &dict, &error) < 0) {

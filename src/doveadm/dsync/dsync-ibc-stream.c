@@ -933,7 +933,7 @@ dsync_ibc_stream_recv_mailbox_state(struct dsync_ibc *_ibc,
 	const char *value;
 	enum dsync_ibc_recv_ret ret;
 
-	memset(state_r, 0, sizeof(*state_r));
+	i_zero(state_r);
 
 	ret = dsync_ibc_stream_input_next(ibc, ITEM_MAILBOX_STATE, &decoder);
 	if (ret != DSYNC_IBC_RECV_RET_OK)
@@ -1339,7 +1339,7 @@ parse_cache_field(struct dsync_ibc_stream *ibc, struct dsync_mailbox *box,
 		return -1;
 	}
 
-	memset(&field, 0, sizeof(field));
+	i_zero(&field);
 	value = dsync_deserializer_decode_get(decoder, "name");
 	field.name = p_strdup(ibc->ret_pool, value);
 

@@ -244,7 +244,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	}
 	dsync_brain_mailbox_trees_init(brain);
 
-	memset(&ibc_set, 0, sizeof(ibc_set));
+	i_zero(&ibc_set);
 	ibc_set.hostname = my_hostdomain();
 	ibc_set.sync_ns_prefixes = sync_ns_str == NULL ?
 		NULL : str_c(sync_ns_str);
@@ -295,7 +295,7 @@ dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
 		brain->verbose_proctitle = FALSE;
 	}
 
-	memset(&ibc_set, 0, sizeof(ibc_set));
+	i_zero(&ibc_set);
 	ibc_set.hdr_hash_v2 = TRUE;
 	ibc_set.hostname = my_hostdomain();
 	dsync_ibc_send_handshake(ibc, &ibc_set);

@@ -57,8 +57,8 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 	const char *key, *value;
 	unsigned int peer_dev_major = 0, peer_dev_minor = 0;
 
-	memset(input_r, 0, sizeof(*input_r));
-	memset(master_input_r, 0, sizeof(*master_input_r));
+	i_zero(input_r);
+	i_zero(master_input_r);
 	master_input_r->client_input = buffer_create_dynamic(pool, 64);
 	master_input_r->client_output = buffer_create_dynamic(pool, 16);
 	master_input_r->state = buffer_create_dynamic(pool, 512);

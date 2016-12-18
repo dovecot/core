@@ -335,7 +335,7 @@ static int mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 	unsigned int first_mail_expunge_extra;
 	uint32_t orig_next_uid;
 
-	memset(mail_ctx, 0, sizeof(*mail_ctx));
+	i_zero(mail_ctx);
 	mail_ctx->sync_ctx = sync_ctx;
 	mail_ctx->seq = seq;
 	mail_ctx->header = sync_ctx->header;

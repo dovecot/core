@@ -143,7 +143,7 @@ mail_index_alloc_cache_get(const char *mailbox_path,
 	/* compare index_dir inodes so we don't break even with symlinks.
 	   if index_dir doesn't exist yet or if using in-memory indexes, just
 	   compare mailbox paths */
-	memset(&st, 0, sizeof(st));
+	i_zero(&st);
 	if (index_dir == NULL) {
 		/* in-memory indexes */
 	} else if (stat(index_dir, &st) < 0) {

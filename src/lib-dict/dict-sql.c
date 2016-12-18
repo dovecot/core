@@ -460,7 +460,7 @@ sql_dict_lookup_async_callback(struct sql_result *sql_result,
 {
 	struct dict_lookup_result result;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	result.ret = sql_result_next_row(sql_result);
 	if (result.ret < 0)
 		result.error = sql_result_get_error(sql_result);
@@ -492,7 +492,7 @@ sql_dict_lookup_async(struct dict *_dict, const char *key,
 	if (sql_lookup_get_query(dict, key, query, &map, &error) < 0) {
 		struct dict_lookup_result result;
 
-		memset(&result, 0, sizeof(result));
+		i_zero(&result);
 		result.ret = -1;
 		result.error = error;
 		callback(&result, context);
@@ -800,7 +800,7 @@ sql_dict_transaction_commit_callback(const struct sql_commit_result *sql_result,
 {
 	struct dict_commit_result result;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	if (sql_result->error == NULL)
 		result.ret = sql_dict_transaction_has_nonexistent(ctx) ?
 			DICT_COMMIT_RET_NOTFOUND : DICT_COMMIT_RET_OK;
@@ -835,7 +835,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	const char *error;
 	struct dict_commit_result result;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	result.ret = DICT_COMMIT_RET_FAILED;
 	result.error = t_strdup(ctx->error);
 
@@ -1034,7 +1034,7 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	field.map = map;
 	field.value = value;
 
-	memset(&build, 0, sizeof(build));
+	i_zero(&build);
 	build.dict = dict;
 	t_array_init(&build.fields, 1);
 	array_append(&build.fields, &field, 1);
@@ -1117,7 +1117,7 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	field.map = map;
 	field.value = t_strdup_printf("%lld", diff);
 
-	memset(&build, 0, sizeof(build));
+	i_zero(&build);
 	build.dict = dict;
 	t_array_init(&build.fields, 1);
 	array_append(&build.fields, &field, 1);
@@ -1214,7 +1214,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		struct dict_sql_build_query_field *field;
 		const char *query, *error;
 
-		memset(&build, 0, sizeof(build));
+		i_zero(&build);
 		build.dict = dict;
 		t_array_init(&build.fields, 1);
 		build.extra_values = &values;

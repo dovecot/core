@@ -507,7 +507,7 @@ strmap_read_block_init(struct mail_index_strmap_view *view,
 		return 0;
 	}
 
-	memset(ctx, 0, sizeof(*ctx));
+	i_zero(ctx);
 	ret = i_stream_read_bytes(strmap->input, &data, &size,
 				  sizeof(block_size));
 	if (ret <= 0) {
@@ -656,7 +656,7 @@ strmap_view_sync_block_check_conflicts(struct mail_index_strmap_read_context *ct
 
 	if we detect such a conflict, we can't continue using the
 	strmap index until X has been expunged. */
-	memset(&iter, 0, sizeof(iter));
+	i_zero(&iter);
 	while ((hash_rec = hash2_iterate(ctx->view->hash,
 					 crc32, &iter)) != NULL &&
 	       hash_rec->str_idx != ctx->rec.str_idx) {
@@ -798,7 +798,7 @@ void mail_index_strmap_view_sync_add_unique(struct mail_index_strmap_view_sync *
 		 (uid == view->last_added_uid &&
 		  ref_index > view->last_ref_index));
 
-	memset(&rec, 0, sizeof(rec));
+	i_zero(&rec);
 	rec.uid = uid;
 	rec.ref_index = ref_index;
 	rec.str_idx = view->next_str_idx++;
@@ -825,7 +825,7 @@ static void mail_index_strmap_view_renumber(struct mail_index_strmap_view *view)
 	unsigned int i, dest, count, count2;
 	int ret;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.view = view;
 	ctx.uid_lookup_seq = 1;
 
@@ -976,7 +976,7 @@ mail_index_strmap_recreate_write(struct mail_index_strmap_view *view,
 	idx_hdr = mail_index_get_header(view->view);
 
 	/* write header */
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	hdr.version = MAIL_INDEX_STRMAP_VERSION;
 	hdr.uid_validity = idx_hdr->uid_validity;
 	o_stream_nsend(output, &hdr, sizeof(hdr));

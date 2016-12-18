@@ -631,7 +631,7 @@ ldap_request_send_subquery(struct ldap_connection *conn,
 	struct ldap_field_find_subquery_context ctx;
 	string_t *tmp_str = t_str_new(64);
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	t_array_init(&ctx.attr_names, 8);
 	ctx.name = named_res->field->name;
 
@@ -912,7 +912,7 @@ static void ldap_input(struct ldap_connection *conn)
 		if (conn->ld == NULL)
 			return;
 
-		memset(&timeout, 0, sizeof(timeout));
+		i_zero(&timeout);
 		ret = ldap_result(conn->ld, LDAP_RES_ANY, 0, &timeout, &msg);
 #ifdef OPENLDAP_ASYNC_WORKAROUND
 		if (ret == 0) {
@@ -1007,7 +1007,7 @@ static int db_ldap_bind_sasl(struct ldap_connection *conn)
 	struct db_ldap_sasl_bind_context context;
 	int ret;
 
-	memset(&context, 0, sizeof(context));
+	i_zero(&context);
 	context.authcid = conn->set.dn;
 	context.passwd = conn->set.dnpass;
 	context.realm = conn->set.sasl_realm;
@@ -1219,7 +1219,7 @@ int db_ldap_connect(struct ldap_connection *conn)
 
 	if (debug) {
 		if (gettimeofday(&start, NULL) < 0)
-			memset(&start, 0, sizeof(start));
+			i_zero(&start);
 	}
 	i_assert(conn->pending_count == 0);
 

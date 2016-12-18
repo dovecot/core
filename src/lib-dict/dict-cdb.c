@@ -37,7 +37,7 @@ cdb_dict_init(struct dict *driver, const char *uri,
 	dict->flag = CDB_WITH_NULL | CDB_WITHOUT_NULL;
 
 	/* initialize cdb to 0 (unallocated) */
-	memset(&dict->cdb, 0, sizeof(dict->cdb));
+	i_zero(&dict->cdb);
 
 	dict->fd = open(dict->path, O_RDONLY);
 	if (dict->fd == -1) {

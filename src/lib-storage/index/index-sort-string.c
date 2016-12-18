@@ -144,7 +144,7 @@ static void index_sort_reget_sort_ids(struct sort_string_context *ctx)
 	array_clear(&ctx->zero_nodes);
 	array_clear(&ctx->nonzero_nodes);
 
-	memset(&node, 0, sizeof(node));
+	i_zero(&node);
 	node.wanted = TRUE;
 	seqs = array_get(&ctx->program->seqs, &count);
 	for (i = 0; i < count; i++) {
@@ -226,7 +226,7 @@ void index_sort_list_add_string(struct mail_search_sort_program *program,
 	struct sort_string_context *ctx = program->context;
 	struct mail_sort_node node;
 
-	memset(&node, 0, sizeof(node));
+	i_zero(&node);
 	node.seq = mail->seq;
 	node.wanted = TRUE;
 
@@ -742,7 +742,7 @@ static void index_sort_add_missing(struct sort_string_context *ctx)
 		else {
 			i_assert(next_seq < seqs[i]);
 			for (seq = next_seq; seq < seqs[i]; seq++) {
-				memset(&node, 0, sizeof(node));
+				i_zero(&node);
 				node.seq = seq;
 				index_sort_node_add(ctx, &node);
 			}

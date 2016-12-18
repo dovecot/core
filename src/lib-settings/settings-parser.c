@@ -111,7 +111,7 @@ copy_unique_defaults(struct setting_parser_context *ctx,
 	}
 	p_array_init(arr, ctx->set_pool, count + 4);
 
-	memset(&info, 0, sizeof(info));
+	i_zero(&info);
 	info = *def->list_info;
 
 	for (i = 0; i < count; i++) T_BEGIN {
@@ -587,7 +587,7 @@ get_deflist(struct setting_parser_context *ctx, struct setting_link *parent,
 	if (change_result != NULL && !array_is_created(change_result))
 		p_array_init(change_result, ctx->set_pool, 5);
 
-	memset(&new_link, 0, sizeof(new_link));
+	i_zero(&new_link);
 	new_link.parent = parent;
 	new_link.info = info;
 	new_link.array = result;
@@ -2044,8 +2044,8 @@ settings_copy_deflist_unique(const struct setting_define *def,
 		return 0;
 	type_offset = def->list_info->type_offset;
 
-	memset(&child_dest_link, 0, sizeof(child_dest_link));
-	memset(&child_src_link, 0, sizeof(child_src_link));
+	i_zero(&child_dest_link);
+	i_zero(&child_src_link);
 
 	child_dest_link.info = child_src_link.info = def->list_info;
 

@@ -918,7 +918,7 @@ static void master_service_listen(struct master_service_listener *l)
 		}
 	}
 
-	memset(&conn, 0, sizeof(conn));
+	i_zero(&conn);
 	conn.listen_fd = l->fd;
 	conn.fd = net_accept(l->fd, &conn.remote_ip, &conn.remote_port);
 	if (conn.fd < 0) {

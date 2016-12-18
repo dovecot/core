@@ -20,7 +20,7 @@ static void test_dsync_mail_hash_more(void)
 
 	test_begin("dsync_mail_hash_more v2");
 	md5_init(&md5_ctx);
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	message_header_hash_more(&ctx, &hash_method_md5, &md5_ctx, 2,
 				 test_input, sizeof(test_input)-1);
 	md5_final(&md5_ctx, md5_input);
@@ -33,7 +33,7 @@ static void test_dsync_mail_hash_more(void)
 
 	/* single byte at a time */
 	md5_init(&md5_ctx);
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	for (unsigned int i = 0; i < sizeof(test_input)-1; i++) {
 		message_header_hash_more(&ctx, &hash_method_md5, &md5_ctx, 2,
 					 test_input + i, 1);

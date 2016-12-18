@@ -434,7 +434,7 @@ bool http_date_parse(const unsigned char *data, size_t size,
 	struct http_date_parser parser;
 	time_t timestamp;
 	
-	memset(&parser, 0, sizeof(parser));
+	i_zero(&parser);
 	parser.cur = data;
 	parser.end = data + size;
 

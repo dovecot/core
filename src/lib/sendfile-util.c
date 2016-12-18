@@ -73,7 +73,7 @@ ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 		return 0;
 	}
 
-	memset(&hdtr, 0, sizeof(hdtr));
+	i_zero(&hdtr);
 	ret = sendfile(in_fd, out_fd, *offset, count, &hdtr, &sbytes, 0);
 
 	*offset += sbytes;

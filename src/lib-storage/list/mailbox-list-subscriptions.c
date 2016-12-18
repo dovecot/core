@@ -204,7 +204,7 @@ void mailbox_list_subscriptions_fill(struct mailbox_list_iterate_context *ctx,
 	struct mailbox_tree_iterate_context *iter;
 	const char *name;
 
-	memset(&update_ctx, 0, sizeof(update_ctx));
+	i_zero(&update_ctx);
 	update_ctx.iter_ctx = ctx;
 	update_ctx.tree_ctx = tree;
 	update_ctx.glob = ctx->glob;

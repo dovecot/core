@@ -24,14 +24,14 @@ static void test_message_decoder(void)
 
 	test_begin("message decoder");
 
-	memset(&part, 0, sizeof(part));
-	memset(&input, 0, sizeof(input));
+	i_zero(&part);
+	i_zero(&input);
 	memset(&output, 0xff, sizeof(output));
 	input.part = &part;
 
 	ctx = message_decoder_init(NULL, 0);
 
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	hdr.name = "Content-Transfer-Encoding";
 	hdr.name_len = strlen(hdr.name);
 	hdr.full_value = (const void *)"quoted-printable";
@@ -91,10 +91,10 @@ static void test_message_decoder_current_content_type(void)
 
 	test_begin("message_decoder_current_content_type()");
 
-	memset(&part, 0, sizeof(part));
+	i_zero(&part);
 	part2 = part3 = part;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	memset(&output, 0xff, sizeof(output));
 	input.part = &part;
 
@@ -102,7 +102,7 @@ static void test_message_decoder_current_content_type(void)
 	test_assert(message_decoder_current_content_type(ctx) == NULL);
 
 	/* multipart/mixed */
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	hdr.name = "Content-Type";
 	hdr.name_len = strlen(hdr.name);
 	hdr.full_value = (const void *)"multipart/mixed; boundary=x";

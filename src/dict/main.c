@@ -106,7 +106,7 @@ static void main_init(void)
 				    NULL));
 	}
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 

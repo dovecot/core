@@ -1114,7 +1114,7 @@ http_client_connection_start_tunnel(struct http_client_connection **_conn,
 	i_assert(conn->tunneling);
 
 	/* claim connection streams */
-	memset(tunnel, 0, sizeof(*tunnel));
+	i_zero(tunnel);
 	tunnel->input = conn->conn.input;
 	tunnel->output = conn->conn.output;
 	tunnel->fd_in = conn->conn.fd_in;
@@ -1165,7 +1165,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 			http_client_request_ref(req);
 			conn->tunneling = TRUE;
 
-			memset(&response, 0, sizeof(response));
+			i_zero(&response);
 			response.status = 200;
 			response.reason = "OK";
 
@@ -1214,7 +1214,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 
 	i_assert(conn->client->ssl_ctx != NULL);
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
+	i_zero(&ssl_set);
 	if (!conn->client->set.ssl->allow_invalid_cert) {
 		ssl_set.verbose_invalid_cert = TRUE;
 		ssl_set.verify_remote_cert = TRUE;

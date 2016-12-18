@@ -53,7 +53,7 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 			}
 
 			if (net_getpeername(fd, &raddr, &rport) < 0) {
-				memset(&raddr, 0, sizeof(raddr));
+				i_zero(&raddr);
 				rport = 0;
 			}
 			i_error("Leaked socket fd %d: %s:%u -> %s:%u",

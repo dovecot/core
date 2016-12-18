@@ -151,7 +151,7 @@ static
 int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 {
 	struct ldap_client_settings set;
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.uri = dict->set->uri;
 	set.bind_dn = dict->set->bind_dn;
 	set.password = dict->set->password;
@@ -405,7 +405,7 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 		op->map = map;
 		attributes[0] = map->value_attribute;
 		/* build lookup */
-		memset(&input, 0, sizeof(input));
+		i_zero(&input);
 		input.base_dn = map->base_dn;
 		input.scope = map->scope_val;
 		if (!ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query, &error)) {

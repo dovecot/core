@@ -142,7 +142,7 @@ get_header_field_idx(struct mailbox *box, const char *field,
 {
 	struct mail_cache_field header_field;
 
-	memset(&header_field, 0, sizeof(header_field));
+	i_zero(&header_field);
 	header_field.type = MAIL_CACHE_FIELD_HEADER;
 	header_field.decision = decision;
 	T_BEGIN {
@@ -253,7 +253,7 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	}
 	mail->data.header_parser_initialized = TRUE;
 	mail->data.parse_line_num = 0;
-	memset(&mail->data.parse_line, 0, sizeof(mail->data.parse_line));
+	i_zero(&mail->data.parse_line);
 }
 
 static void index_mail_parse_finish_imap_envelope(struct index_mail *mail)

@@ -152,7 +152,7 @@ bool cmd_store(struct client_command_context *cmd)
 	if (ret <= 0)
 		return ret < 0;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.cmd = cmd;
 	if (!store_parse_args(&ctx, ++args)) {
 		mail_search_args_unref(&search_args);

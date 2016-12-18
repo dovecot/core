@@ -64,7 +64,7 @@ void mail_storage_hooks_add(struct module *module,
 {
 	struct mail_storage_module_hooks new_hook;
 
-	memset(&new_hook, 0, sizeof(new_hook));
+	i_zero(&new_hook);
 	new_hook.module = module;
 	new_hook.hooks = hooks;
 

@@ -1259,13 +1259,13 @@ static void test_run_sequential(
 	/* download files from blocking server */
 
 	/* server settings */
-	memset(&http_server_set, 0, sizeof(http_server_set));
+	i_zero(&http_server_set);
 	http_server_set.max_pipelined_requests = 0;
 	http_server_set.debug = debug;
 	http_server_set.request_limits.max_payload_size = (uoff_t)-1;
 
 	/* client settings */
-	memset(&http_client_set, 0, sizeof(http_client_set));
+	i_zero(&http_client_set);
 	http_client_set.max_idle_time_msecs = 5*1000;
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 1;
@@ -1290,13 +1290,13 @@ static void test_run_pipeline(
 	/* download files from blocking server */
 
 	/* server settings */
-	memset(&http_server_set, 0, sizeof(http_server_set));
+	i_zero(&http_server_set);
 	http_server_set.max_pipelined_requests = 4;
 	http_server_set.debug = debug;
 	http_server_set.request_limits.max_payload_size = (uoff_t)-1;
 
 	/* client settings */
-	memset(&http_client_set, 0, sizeof(http_client_set));
+	i_zero(&http_client_set);
 	http_client_set.max_idle_time_msecs = 5*1000;
 	http_client_set.max_parallel_connections = 1;
 	http_client_set.max_pipelined_requests = 8;
@@ -1321,13 +1321,13 @@ static void test_run_parallel(
 	/* download files from blocking server */
 
 	/* server settings */
-	memset(&http_server_set, 0, sizeof(http_server_set));
+	i_zero(&http_server_set);
 	http_server_set.max_pipelined_requests = 4;
 	http_server_set.debug = debug;
 	http_server_set.request_limits.max_payload_size = (uoff_t)-1;
 
 	/* client settings */
-	memset(&http_client_set, 0, sizeof(http_client_set));
+	i_zero(&http_client_set);
 	http_client_set.max_idle_time_msecs = 5*1000;
 	http_client_set.max_parallel_connections = 40;
 	http_client_set.max_pipelined_requests = 8;
@@ -1556,7 +1556,7 @@ int main(int argc, char *argv[])
   }
 
 	/* listen on localhost */
-	memset(&bind_ip, 0, sizeof(bind_ip));
+	i_zero(&bind_ip);
 	bind_ip.family = AF_INET;
 	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);
 

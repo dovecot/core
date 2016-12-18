@@ -35,7 +35,7 @@ cmd_log_test(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 	master_service->flags |= MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR;
 	master_service_init_log(master_service, "doveadm: ");
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	for (i = 0; i < LAST_LOG_TYPE; i++) {
 		const char *prefix = failure_log_type_prefixes[i];
 
@@ -221,7 +221,7 @@ static void cmd_log_find(int argc, char *argv[])
 	struct log_find_context ctx;
 	unsigned int i;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create("log file", 1024*32);
 	hash_table_create(&ctx.files, ctx.pool, 0, str_hash, strcmp);
 

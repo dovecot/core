@@ -318,7 +318,7 @@ service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 	const char *new_username;
 	int ret;
 
-	memset(&info, 0, sizeof(info));
+	i_zero(&info);
 	info.service = input->service != NULL ? input->service :
 		ctx->service->name;
 	info.local_ip = input->local_ip;
@@ -440,7 +440,7 @@ mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
 {
 	struct mail_storage_service_privileges priv;
 
-	memset(&priv, 0, sizeof(priv));
+	i_zero(&priv);
 	priv.uid = (uid_t)-1;
 	priv.gid = (gid_t)-1;
 	return get_var_expand_table(ctx->service, NULL, input, &priv);
@@ -480,7 +480,7 @@ service_parse_privileges(struct mail_storage_service_ctx *ctx,
 	gid_t gid = (gid_t)-1;
 	const char *error;
 
-	memset(priv_r, 0, sizeof(*priv_r));
+	i_zero(priv_r);
 	if (*set->mail_uid != '\0') {
 		if (!parse_uid(set->mail_uid, &uid, error_r)) {
 			*error_r = t_strdup_printf("%s (from %s)", *error_r,
@@ -986,7 +986,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	flags = input == NULL ? ctx->flags :
 		mail_storage_service_input_get_flags(ctx, input);
 
-	memset(&set_input, 0, sizeof(set_input));
+	i_zero(&set_input);
 	set_input.roots = ctx->set_roots;
 	set_input.preserve_user = TRUE;
 	/* settings reader may exec doveconf, which is going to clear
@@ -1092,7 +1092,7 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0)
 		return 0;
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.binary_name = master_service_get_name(ctx->service);
 	mod_set.setting_name = "mail_plugins";

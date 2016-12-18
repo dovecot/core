@@ -56,7 +56,7 @@ static void test_quota_transaction_is_over(void)
 		if (tests[i].new_size != 1)
 			continue;
 
-		memset(&ctx, 0, sizeof(ctx));
+		i_zero(&ctx);
 		ctx.count_used = tests[i].transaction_diff;
 		if (tests[i].initial_size > tests[i].limit)
 			ctx.count_over = tests[i].initial_size - tests[i].limit;
@@ -71,7 +71,7 @@ static void test_quota_transaction_is_over(void)
 
 	test_begin("quota transcation is over (bytes)");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
-		memset(&ctx, 0, sizeof(ctx));
+		i_zero(&ctx);
 		ctx.count_ceil = 1;
 		ctx.bytes_used = tests[i].transaction_diff;
 		if (tests[i].initial_size > tests[i].limit)

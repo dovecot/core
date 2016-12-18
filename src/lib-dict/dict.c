@@ -128,7 +128,7 @@ void dict_lookup_async(struct dict *dict, const char *key,
 	if (dict->v.lookup_async == NULL) {
 		struct dict_lookup_result result;
 
-		memset(&result, 0, sizeof(result));
+		i_zero(&result);
 		result.ret = dict_lookup(dict, pool_datastack_create(),
 					 key, &result.value, &result.error);
 		callback(&result, context);
@@ -245,7 +245,7 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx,
 
 	*_ctx = NULL;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	ctx->dict->v.transaction_commit(ctx, FALSE,
 		dict_transaction_commit_sync_callback, &result);
 	*error_r = t_strdup(result.error);

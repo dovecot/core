@@ -72,7 +72,7 @@ mcp_user_create(struct mail_user *user, const char *dest_username,
 	if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
 		io_loop_context_deactivate(cur_ioloop_ctx);
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = old_input->module;
 	input.service = old_input->service;
 	input.username = dest_username;
@@ -446,7 +446,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 		struct mailbox *box =
 			mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_READONLY);
 		struct mail_attribute_value value;
-		memset(&value, 0, sizeof(value));
+		i_zero(&value);
 
 		if ((ret = mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_SHARED,
 						 USER_CRYPT_PREFIX
@@ -498,7 +498,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 			mailbox_alloc(info->ns->list,
 				      info->vname, MAILBOX_FLAG_READONLY);
 		struct mail_attribute_value value;
-		memset(&value, 0, sizeof(value));
+		i_zero(&value);
 		array_clear(&ids);
 
 		/* get active ID */
@@ -554,7 +554,7 @@ static int cmd_mcp_key_list_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mcp_cmd_context *ctx =
 		(struct mcp_cmd_context *)_ctx;
 	struct mcp_key_iter_ctx iter_ctx;
-	memset(&iter_ctx, 0, sizeof(iter_ctx));
+	i_zero(&iter_ctx);
 	iter_ctx.pool = _ctx->pool;
 	p_array_init(&iter_ctx.keys, _ctx->pool, 8);
 
@@ -767,7 +767,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 			dcrypt_key_unref_private(&key);
 			if (ret == -1) break;
 
-			memset(&value, 0, sizeof(value));
+			i_zero(&value);
 			value.value = str_c(newkey);
 
 			/* and store it */

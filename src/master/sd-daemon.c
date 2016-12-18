@@ -131,7 +131,7 @@ int sd_is_fifo(int fd, const char *path) {
         if (fd < 0)
                 return -EINVAL;
 
-        memset(&st_fd, 0, sizeof(st_fd));
+        i_zero(&st_fd);
         if (fstat(fd, &st_fd) < 0)
                 return -errno;
 
@@ -141,7 +141,7 @@ int sd_is_fifo(int fd, const char *path) {
         if (path) {
                 struct stat st_path;
 
-                memset(&st_path, 0, sizeof(st_path));
+                i_zero(&st_path);
                 if (stat(path, &st_path) < 0) {
 
                         if (errno == ENOENT || errno == ENOTDIR)
@@ -222,7 +222,7 @@ int sd_is_socket(int fd, int family, int type, int listening) {
                 union sockaddr_union sockaddr;
                 socklen_t l;
 
-                memset(&sockaddr, 0, sizeof(sockaddr));
+                i_zero(&sockaddr);
                 l = sizeof(sockaddr);
 
                 if (getsockname(fd, &sockaddr.sa, &l) < 0)
@@ -248,7 +248,7 @@ int sd_is_socket_inet(int fd, int family, int type, int listening, uint16_t port
         if ((r = sd_is_socket_internal(fd, type, listening)) <= 0)
                 return r;
 
-        memset(&sockaddr, 0, sizeof(sockaddr));
+        i_zero(&sockaddr);
         l = sizeof(sockaddr);
 
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
@@ -290,7 +290,7 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
         if ((r = sd_is_socket_internal(fd, type, listening)) <= 0)
                 return r;
 
-        memset(&sockaddr, 0, sizeof(sockaddr));
+        i_zero(&sockaddr);
         l = sizeof(sockaddr);
 
         if (getsockname(fd, &sockaddr.sa, &l) < 0)
@@ -354,18 +354,18 @@ int sd_notify(int unset_environment, const char *state) {
                 goto finish;
         }
 
-        memset(&sockaddr, 0, sizeof(sockaddr));
+        i_zero(&sockaddr);
         sockaddr.sa.sa_family = AF_UNIX;
         strncpy(sockaddr.un.sun_path, e, sizeof(sockaddr.un.sun_path));
 
         if (sockaddr.un.sun_path[0] == '@')
                 sockaddr.un.sun_path[0] = 0;
 
-        memset(&iovec, 0, sizeof(iovec));
+        i_zero(&iovec);
         iovec.iov_base = (char*) state;
         iovec.iov_len = strlen(state);
 
-        memset(&msghdr, 0, sizeof(msghdr));
+        i_zero(&msghdr);
         msghdr.msg_name = &sockaddr;
         msghdr.msg_namelen = offsetof(struct sockaddr_un, sun_path) + strlen(e);
 

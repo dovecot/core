@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 	prefix = argv[1];
 	uri = argv[2];
 
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.base_dir = "/var/run/dovecot";
 	set.username = "testuser";
 

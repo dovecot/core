@@ -272,7 +272,7 @@ md5_final(struct md5_context *ctx, unsigned char result[STATIC_ARRAY MD5_RESULTL
 	result[14] = ctx->d >> 16;
 	result[15] = ctx->d >> 24;
 
-	safe_memset(ctx, 0, sizeof(*ctx));
+	i_zero_safe(ctx);
 }
 
 void md5_get_digest(const void *data, size_t size,

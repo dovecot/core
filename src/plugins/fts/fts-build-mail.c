@@ -160,7 +160,7 @@ static int fts_build_mail_header(struct fts_mail_build_context *ctx,
 
 	/* hdr->full_value is always set because we get the block from
 	   message_decoder */
-	memset(&key, 0, sizeof(key));
+	i_zero(&key);
 	key.uid = ctx->mail->uid;
 	key.type = block->part->physical_pos == 0 ?
 		FTS_BACKEND_BUILD_KEY_HDR : FTS_BACKEND_BUILD_KEY_MIME_HDR;
@@ -222,7 +222,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	i_assert(ctx->body_parser == NULL);
 
 	*binary_body_r = FALSE;
-	memset(&key, 0, sizeof(key));
+	i_zero(&key);
 	key.uid = ctx->mail->uid;
 	key.part = part;
 
@@ -440,7 +440,7 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx)
 	int ret = 0;
 
 	do {
-		memset(&block, 0, sizeof(block));
+		i_zero(&block);
 		fts_parser_more(ctx->body_parser, &block);
 		if (fts_build_body_block(ctx, &block, FALSE) < 0) {
 			ret = -1;
@@ -477,7 +477,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		return -1;
 	}
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.update_ctx = update_ctx;
 	ctx.mail = mail;
 	if ((update_ctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0)

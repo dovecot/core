@@ -377,7 +377,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	max_drop_time = cache->index->map->hdr.day_stamp == 0 ? 0 :
 		cache->index->map->hdr.day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
 
-	memset(&field, 0, sizeof(field));
+	i_zero(&field);
 	for (i = 0; i < field_hdr->fields_count; i++) {
 		for (p = names; p != end && *p != '\0'; p++) ;
 		if (p == end || *names == '\0') {
@@ -561,7 +561,7 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 	const char *name;
 	uint32_t i;
 
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	hdr.fields_count = cache->file_fields_count;
 	for (i = 0; i < cache->fields_count; i++) {
 		if (CACHE_FIELD_IS_NEWLY_WANTED(cache, i))

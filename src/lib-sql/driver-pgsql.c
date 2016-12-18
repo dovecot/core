@@ -875,7 +875,7 @@ transaction_commit_callback(struct sql_result *result,
 {
 	struct sql_commit_result commit_result;
 
-	memset(&commit_result, 0, sizeof(commit_result));
+	i_zero(&commit_result);
 	if (sql_result_next_row(result) < 0) {
 		commit_result.error = sql_result_get_error(result);
 		commit_result.error_type = sql_result_get_error_type(result);
@@ -920,7 +920,7 @@ transaction_commit_error_callback(struct pgsql_transaction_context *ctx,
 {
 	struct sql_commit_result commit_result;
 
-	memset(&commit_result, 0, sizeof(commit_result));
+	i_zero(&commit_result);
 	commit_result.error = sql_result_get_error(result);
 	commit_result.error_type = sql_result_get_error_type(result);
 
@@ -992,7 +992,7 @@ transaction_trans_query_callback(struct sql_result *result,
 				query->affected_rows) < 0)
 			i_unreached();
 	}
-	memset(&commit_result, 0, sizeof(commit_result));
+	i_zero(&commit_result);
 	ctx->callback(&commit_result, ctx->context);
 	driver_pgsql_transaction_free(ctx);
 }
@@ -1005,7 +1005,7 @@ driver_pgsql_transaction_commit(struct sql_transaction_context *_ctx,
 		(struct pgsql_transaction_context *)_ctx;
 	struct sql_commit_result result;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	ctx->callback = callback;
 	ctx->context = context;
 

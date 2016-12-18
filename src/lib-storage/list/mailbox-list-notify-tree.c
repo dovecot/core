@@ -26,7 +26,7 @@ mailbox_list_notify_node_get_status(struct mailbox_list_notify_tree *tree,
 	if (!mail_index_lookup_seq(tree->view, nnode->index_uid, &seq))
 		return;
 
-	memset(&status, 0, sizeof(status));
+	i_zero(&status);
 	(void)mailbox_list_index_status(tree->list, tree->view, seq,
 		STATUS_UIDVALIDITY | STATUS_UIDNEXT | STATUS_MESSAGES |
 		STATUS_UNSEEN | STATUS_HIGHESTMODSEQ, &status, nnode->guid, NULL);

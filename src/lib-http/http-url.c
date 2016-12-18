@@ -335,7 +335,7 @@ int http_url_parse(const char *url, struct http_url *base,
 	   flags may also dictate whether relative URLs are allowed/required. */
 	i_assert((flags & HTTP_URL_PARSE_SCHEME_EXTERNAL) == 0 || base == NULL);
 
-	memset(&url_parser, 0, sizeof(url_parser));
+	i_zero(&url_parser);
 	uri_parser_init(&url_parser.parser, pool, url);
 
 	url_parser.url = p_new(pool, struct http_url, 1);
@@ -359,7 +359,7 @@ int http_url_request_target_parse(const char *request_target,
 	struct uri_authority auth;
 	struct http_url base;
 
-	memset(&url_parser, 0, sizeof(url_parser));
+	i_zero(&url_parser);
 	parser = &url_parser.parser;
 	uri_parser_init(parser, pool, host_header);
 
@@ -382,11 +382,11 @@ int http_url_request_target_parse(const char *request_target,
 		return 0;
 	}
 
-	memset(&base, 0, sizeof(base));
+	i_zero(&base);
 	base.host = auth.host;
 	base.port = auth.port;
 
-	memset(parser, 0, sizeof(*parser));
+	i_zero(parser);
 	uri_parser_init(parser, pool, request_target);
 
 	url_parser.url = p_new(pool, struct http_url, 1);
@@ -412,7 +412,7 @@ int http_url_request_target_parse(const char *request_target,
 void http_url_copy_authority(pool_t pool, struct http_url *dest,
 	const struct http_url *src)
 {
-	memset(dest, 0, sizeof(*dest));
+	i_zero(dest);
 	uri_host_copy(pool, &dest->host, &src->host);
 	dest->port = src->port;
 	dest->have_ssl = src->have_ssl;

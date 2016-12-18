@@ -136,7 +136,7 @@ static void client_auth_parse_args(struct client *client, bool success,
 	ARRAY_TYPE(const_string) alt_usernames;
 
 	t_array_init(&alt_usernames, 4);
-	memset(reply_r, 0, sizeof(*reply_r));
+	i_zero(reply_r);
 
 	for (; *args != NULL; args++) {
 		p = strchr(*args, '=');
@@ -422,7 +422,7 @@ static int proxy_start(struct client *client,
 		return -1;
 	}
 
-	memset(&proxy_set, 0, sizeof(proxy_set));
+	i_zero(&proxy_set);
 	proxy_set.host = reply->host;
 	if (reply->hostip != NULL &&
 	    net_addr2ip(reply->hostip, &proxy_set.ip) < 0)
@@ -666,7 +666,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		 sasl_reply == SASL_SERVER_REPLY_MASTER_FAILED);
 
 	client->last_auth_fail = CLIENT_AUTH_FAIL_CODE_NONE;
-	memset(&reply, 0, sizeof(reply));
+	i_zero(&reply);
 	switch (sasl_reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
 		if (client->to_auth_waiting != NULL)

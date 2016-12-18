@@ -422,7 +422,7 @@ bool fts_index_get_header(struct mailbox *box, struct fts_index_header *hdr_r)
 	mail_index_get_header_ext(view, fts_index_get_ext_id(box),
 				  &data, &data_size);
 	if (data_size < sizeof(*hdr_r)) {
-		memset(hdr_r, 0, sizeof(*hdr_r));
+		i_zero(hdr_r);
 		ret = FALSE;
 	} else {
 		memcpy(hdr_r, data, data_size);

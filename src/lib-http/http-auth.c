@@ -96,7 +96,7 @@ http_parse_auth_params(struct http_parser *parser,
 	unsigned int count = 0;
 	int ret;
 
-	memset(&param, 0, sizeof(param));
+	i_zero(&param);
 	while ((ret=http_parse_auth_param
 		(parser, &param.name, &param.value)) > 0) {
 		if (!array_is_created(params))
@@ -149,7 +149,7 @@ int http_auth_parse_challenges(const unsigned char *data, size_t size,
 	for (;;) {
 		struct http_auth_challenge chlng;
 
-		memset(&chlng, 0, sizeof(chlng));
+		i_zero(&chlng);
 
 		/* auth-scheme */
 		if ((ret=http_parse_token(&parser, &chlng.scheme)) <= 0) {
@@ -208,7 +208,7 @@ int http_auth_parse_credentials(const unsigned char *data, size_t size,
 	   auth-scheme    = token
 	 */
 
-	memset(crdts, 0, sizeof(*crdts));
+	i_zero(crdts);
 
 	/* auth-scheme */
 	if (http_parse_token(&parser, &crdts->scheme) <= 0)
@@ -382,7 +382,7 @@ http_auth_params_clone(pool_t pool,
 	array_foreach(src, sparam) {
 		struct http_auth_param nparam;
 
-		memset(&nparam, 0, sizeof(nparam));
+		i_zero(&nparam);
 		nparam.name = p_strdup(pool, sparam->name);
 		nparam.value = p_strdup(pool, sparam->value);
 
@@ -443,12 +443,12 @@ http_auth_credentials_clone(pool_t pool,
 void http_auth_basic_challenge_init(struct http_auth_challenge *chlng,
 	const char *realm)
 {
-	memset(chlng, 0, sizeof(*chlng));
+	i_zero(chlng);
 	chlng->scheme = "Basic";
 	if (realm != NULL) {
 		struct http_auth_param param;
 
-		memset(&param, 0, sizeof(param));
+		i_zero(&param);
 		param.name = "realm";
 		param.value = t_strdup(realm);
 
@@ -470,7 +470,7 @@ void http_auth_basic_credentials_init(struct http_auth_credentials *crdts,
 	auth = t_strconcat(username, ":", password, NULL);
 	base64_encode(auth, strlen(auth), data);
 
-	memset(crdts, 0, sizeof(*crdts));
+	i_zero(crdts);
 	crdts->scheme = "Basic";
 	crdts->data = str_c(data);
 }

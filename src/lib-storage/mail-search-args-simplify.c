@@ -58,7 +58,7 @@ mail_search_simplify_prev_arg_hash(const struct mail_search_simplify_prev_arg *a
 static void mail_search_arg_get_base_mask(const struct mail_search_arg *arg,
 					  struct mail_search_simplify_prev_arg *mask_r)
 {
-	memset(mask_r, 0, sizeof(*mask_r));
+	i_zero(mask_r);
 	mask_r->bin_mask.type = arg->type;
 	mask_r->bin_mask.match_not = arg->match_not;
 	mask_r->bin_mask.fuzzy = arg->fuzzy;
@@ -503,7 +503,7 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 	struct mail_search_arg *sub, **all_argsp = argsp;
 	bool merged;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.parent_and = parent_and;
 	ctx.pool = pool_alloconly_create("mail search args simplify", 1024);
 	hash_table_create(&ctx.prev_args, ctx.pool, 0,

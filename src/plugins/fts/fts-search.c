@@ -41,7 +41,7 @@ static int fts_search_lookup_level_single(struct fts_search_context *fctx,
 	struct fts_search_level *level;
 	struct fts_result result;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	p_array_init(&result.definite_uids, fctx->result_pool, 32);
 	p_array_init(&result.maybe_uids, fctx->result_pool, 32);
 	p_array_init(&result.scores, fctx->result_pool, 32);
@@ -166,7 +166,7 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 		&mailboxes_arr, TRUE);
 	array_sort(&mailboxes_arr, mailbox_cmp_fts_backend);
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	result.pool = fctx->result_pool;
 
 	level = array_append_space(&fctx->levels);

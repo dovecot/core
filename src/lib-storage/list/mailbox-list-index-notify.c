@@ -172,7 +172,7 @@ notify_lookup_guid(struct mailbox_list_notify_index *inotify,
 	}
 
 	/* get GUID */
-	memset(status_r, 0, sizeof(*status_r));
+	i_zero(status_r);
 	memset(guid_r, 0, GUID_128_SIZE);
 	(void)mailbox_list_index_status(inotify->notify.list, view, seq,
 					items, status_r, guid_r, NULL);
@@ -573,7 +573,7 @@ mailbox_list_index_notify_lookup(struct mailbox_list_notify_index *inotify,
 	const char *storage_name;
 	char ns_sep = mailbox_list_get_hierarchy_sep(inotify->notify.list);
 
-	memset(rec, 0, sizeof(*rec));
+	i_zero(rec);
 	index_node = notify_lookup_guid(inotify, view, uid,
 					items, status_r, rec->guid);
 	if (index_node == NULL)
@@ -625,7 +625,7 @@ mailbox_list_index_notify_subscribe(struct mailbox_list_notify_index *inotify,
 	struct mailbox_list_notify_rec *rec = &inotify->notify_rec;
 	const char *const *vnamep;
 
-	memset(rec, 0, sizeof(*rec));
+	i_zero(rec);
 	vnamep = array_idx(&inotify->new_subscriptions, idx);
 	rec->vname = *vnamep;
 	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
@@ -641,7 +641,7 @@ mailbox_list_index_notify_unsubscribe(struct mailbox_list_notify_index *inotify,
 	struct mailbox_list_notify_rec *rec = &inotify->notify_rec;
 	const char *const *vnamep;
 
-	memset(rec, 0, sizeof(*rec));
+	i_zero(rec);
 	vnamep = array_idx(&inotify->new_unsubscriptions, idx);
 	rec->vname = *vnamep;
 	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
@@ -698,7 +698,7 @@ mailbox_list_index_notify_change(struct mailbox_list_notify_index *inotify,
 						rec->storage_name);
 	if (nnode == NULL) {
 		/* mailbox didn't exist earlier - report all events as new */
-		memset(&empty_node, 0, sizeof(empty_node));
+		i_zero(&empty_node);
 		nnode = &empty_node;
 	}
 	if (nnode->uidvalidity != status.uidvalidity)
@@ -791,7 +791,7 @@ int mailbox_list_index_notify_next(struct mailbox_list_notify *notify,
 	}
 	if (inotify->inbox_event_pending) {
 		inotify->inbox_event_pending = FALSE;
-		memset(&inotify->notify_rec, 0, sizeof(inotify->notify_rec));
+		i_zero(&inotify->notify_rec);
 		inotify->notify_rec.vname = "INBOX";
 		inotify->notify_rec.storage_name = "INBOX";
 		/* Don't bother trying to figure out which event exactly this

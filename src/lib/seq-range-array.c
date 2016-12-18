@@ -484,7 +484,7 @@ void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,
 void seq_range_array_iter_init(struct seq_range_iter *iter_r,
 			       const ARRAY_TYPE(seq_range) *array)
 {
-	memset(iter_r, 0, sizeof(*iter_r));
+	i_zero(iter_r);
 	iter_r->array = array;
 }
 

@@ -290,7 +290,7 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 
 	/* abort the commands. we'll do it here later so that if the
 	   callback recurses us back here we don't crash */
-	memset(&reply, 0, sizeof(reply));
+	i_zero(&reply);
 	reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 	reply.text_without_resp = reply.text_full =
 		"Disconnected from server";
@@ -328,7 +328,7 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 
 	switch (state) {
 	case IMAPC_CONNECTION_STATE_DISCONNECTED:
-		memset(&reply, 0, sizeof(reply));
+		i_zero(&reply);
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 		reply.text_full = "Disconnected from server";
 		if (conn->disconnect_reason != NULL) {
@@ -372,7 +372,7 @@ imapc_connection_literal_reset(struct imapc_connection_literal *literal)
 	}
 	i_free_and_null(literal->temp_path);
 
-	memset(literal, 0, sizeof(*literal));
+	i_zero(literal);
 	literal->fd = -1;
 }
 
@@ -939,7 +939,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 		return;
 	}
 
-	memset(&sasl_set, 0, sizeof(sasl_set));
+	i_zero(&sasl_set);
 	if (set->master_user == NULL)
 		sasl_set.authid = set->username;
 	else {
@@ -1120,7 +1120,7 @@ static int imapc_connection_input_untagged(struct imapc_connection *conn)
 		}
 		imap_args++;
 	}
-	memset(&reply, 0, sizeof(reply));
+	i_zero(&reply);
 
 	if (strcasecmp(name, "OK") == 0) {
 		if (imapc_connection_handle_imap_resp_text(conn, imap_args,
@@ -1183,7 +1183,7 @@ static int imapc_connection_input_plus(struct imapc_connection *conn)
 			/* continue AUTHENTICATE */
 			struct imapc_command_reply reply;
 
-			memset(&reply, 0, sizeof(reply));
+			i_zero(&reply);
 			reply.state = (enum imapc_command_state)IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE;
 			reply.text_full = line;
 			cmds[0]->callback(&reply, cmds[0]->context);
@@ -1285,7 +1285,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	/* make sure reply texts stays valid if input stream gets freed */
 	line = t_strdup_noconst(line);
 
-	memset(&reply, 0, sizeof(reply));
+	i_zero(&reply);
 
 	linep = strchr(line, ' ');
 	if (linep == NULL)
@@ -1514,7 +1514,7 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 		return -1;
 	}
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
+	i_zero(&ssl_set);
 	if (conn->client->set.ssl_verify) {
 		ssl_set.verbose_invalid_cert = TRUE;
 		ssl_set.verify_remote_cert = TRUE;
@@ -1744,7 +1744,7 @@ void imapc_connection_connect(struct imapc_connection *conn,
 			(long)conn->last_connect);
 	}
 
-	memset(&dns_set, 0, sizeof(dns_set));
+	i_zero(&dns_set);
 	dns_set.dns_client_socket_path =
 		conn->client->set.dns_client_socket_path;
 	dns_set.timeout_msecs = conn->client->set.connect_timeout_msecs;
@@ -2041,7 +2041,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 			return;
 		}
 		/* shouldn't normally happen */
-		memset(&reply, 0, sizeof(reply));
+		i_zero(&reply);
 		reply.text_without_resp = reply.text_full = "Mailbox not open";
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 
@@ -2062,7 +2062,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 	if ((ret = imapc_command_try_send_stream(conn, cmd)) == 0)
 		return;
 	if (ret == -1) {
-		memset(&reply, 0, sizeof(reply));
+		i_zero(&reply);
 		reply.text_without_resp = reply.text_full = "Mailbox not open";
 		reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
 

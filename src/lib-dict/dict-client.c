@@ -927,7 +927,7 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 	struct client_dict *dict = cmd->dict;
 	struct dict_lookup_result result;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	if (error != NULL) {
 		result.ret = -1;
 		result.error = error;
@@ -1013,7 +1013,7 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 {
 	struct client_dict_sync_lookup lookup;
 
-	memset(&lookup, 0, sizeof(lookup));
+	i_zero(&lookup);
 	lookup.ret = -2;
 
 	client_dict_lookup_async(_dict, key, client_dict_lookup_callback, &lookup);

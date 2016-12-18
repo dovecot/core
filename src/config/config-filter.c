@@ -215,7 +215,7 @@ config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 	ARRAY_TYPE(const_string) service_names;
 	unsigned int i;
 
-	memset(output_r, 0, sizeof(*output_r));
+	i_zero(output_r);
 
 	p_array_init(&matches, pool, 8);
 	p_array_init(&service_names, pool, 8);

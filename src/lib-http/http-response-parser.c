@@ -385,7 +385,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 
 	parser->state = HTTP_RESPONSE_PARSE_STATE_INIT;
 
-	memset(response, 0, sizeof(*response));
+	i_zero(response);
 	response->status = parser->response_status;
 	response->reason = parser->response_reason;
 	response->version_major = parser->parser.msg.version_major;

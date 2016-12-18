@@ -57,7 +57,7 @@ void imap_client_auth_result(struct client *client,
 		*/
 		referral = t_str_new(128);
 
-		memset(&url, 0, sizeof(url));
+		i_zero(&url);
 		url.userid = reply->destuser;
 		url.auth_type = client->auth_mech_name;
 		url.host.name = reply->host;

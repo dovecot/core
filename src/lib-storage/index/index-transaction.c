@@ -188,7 +188,7 @@ int index_transaction_commit(struct mailbox_transaction_context *t,
 	struct mail_index_transaction_commit_result result;
 	int ret = 0;
 
-	memset(changes_r, 0, sizeof(*changes_r));
+	i_zero(changes_r);
 	changes_r->pool = pool_alloconly_create(MEMPOOL_GROWING
 						"transaction changes", 512);
 	p_array_init(&changes_r->saved_uids, changes_r->pool, 32);

@@ -353,7 +353,7 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 	struct master_login_connection *conn = client->conn;
 	struct master_auth_reply reply;
 
-	memset(&reply, 0, sizeof(reply));
+	i_zero(&reply);
 	reply.tag = client->auth_req.tag;
 	reply.status = errormsg == NULL ? MASTER_AUTH_STATUS_OK :
 		MASTER_AUTH_STATUS_INTERNAL_ERROR;

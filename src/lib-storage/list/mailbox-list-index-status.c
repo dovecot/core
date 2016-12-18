@@ -292,7 +292,7 @@ index_list_get_cached_first_saved(struct mailbox *box,
 	uint32_t seq;
 	int ret;
 
-	memset(first_saved_r, 0, sizeof(*first_saved_r));
+	i_zero(first_saved_r);
 
 	if ((ret = index_list_open_view(box, TRUE, &view, &seq)) <= 0)
 		return ret;
@@ -407,7 +407,7 @@ index_list_update_fill_changes(struct mailbox *box,
 	struct mailbox_metadata metadata;
 	uint32_t seq1, seq2;
 
-	memset(changes_r, 0, sizeof(*changes_r));
+	i_zero(changes_r);
 
 	node = mailbox_list_index_lookup(box->list, box->name);
 	if (node == NULL)
@@ -460,7 +460,7 @@ index_list_first_saved_update_changes(struct mailbox *box,
 	mail_index_lookup_ext(list_view, changes->seq,
 			      ilist->first_saved_ext_id, &data, &expunged);
 	if (data == NULL)
-		memset(&first_saved, 0, sizeof(first_saved));
+		i_zero(&first_saved);
 	else
 		memcpy(&first_saved, data, sizeof(first_saved));
 	if (mail_index_view_get_messages_count(box->view) > 0)
@@ -484,8 +484,8 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 	struct mailbox_index_vsize old_vsize;
 	guid_128_t old_guid;
 
-	memset(&old_status, 0, sizeof(old_status));
-	memset(&old_vsize, 0, sizeof(old_vsize));
+	i_zero(&old_status);
+	i_zero(&old_vsize);
 	memset(old_guid, 0, sizeof(old_guid));
 	(void)mailbox_list_index_status(box->list, list_view, changes->seq,
 					CACHED_STATUS_ITEMS,
@@ -537,7 +537,7 @@ index_list_update_first_saved(struct mailbox *box,
 	time_t save_date;
 	int ret = 0;
 
-	memset(&first_saved, 0, sizeof(first_saved));
+	i_zero(&first_saved);
 	first_saved.timestamp = (uint32_t)-1;
 
 	if (changes->first_uid != 0) {
@@ -595,7 +595,7 @@ index_list_update(struct mailbox *box, struct mail_index_view *list_view,
 	if (changes->msgs_changed) {
 		struct mailbox_list_index_msgs_record msgs;
 
-		memset(&msgs, 0, sizeof(msgs));
+		i_zero(&msgs);
 		msgs.messages = changes->status.messages;
 		msgs.unseen = changes->status.unseen;
 		msgs.recent = changes->status.recent;
@@ -712,7 +712,7 @@ void mailbox_list_index_update_mailbox_index(struct mailbox *box,
 	bool guid_changed = FALSE;
 	int ret;
 
-	memset(&changes, 0, sizeof(changes));
+	i_zero(&changes);
 	if ((ret = index_list_open_view(box, TRUE, &list_view, &changes.seq)) <= 0)
 		return;
 

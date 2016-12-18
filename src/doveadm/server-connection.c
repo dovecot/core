@@ -419,7 +419,7 @@ static int server_connection_read_settings(struct server_connection *conn)
 	in_port_t port;
 	void *set;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = set_roots;
 	input.service = "doveadm";
 
@@ -461,7 +461,7 @@ static int server_connection_init_ssl(struct server_connection *conn)
 	if (conn->server->ssl_ctx == NULL)
 		return 0;
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
+	i_zero(&ssl_set);
 	ssl_set.verify_remote_cert = TRUE;
 	ssl_set.verbose_invalid_cert = TRUE;
 

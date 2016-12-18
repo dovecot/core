@@ -653,7 +653,7 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 			ret = -1;
 			break;
 		}
-		memset(&rec, 0, sizeof(rec));
+		i_zero(&rec);
 		memcpy(&rec, data, I_MIN(hdr->size, sizeof(rec)));
 		ret = mail_index_sync_ext_reset(ctx, &rec);
 		break;
@@ -831,7 +831,7 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 			      struct mail_index_view *view,
 			      enum mail_index_sync_handler_type type)
 {
-	memset(sync_map_ctx, 0, sizeof(*sync_map_ctx));
+	i_zero(sync_map_ctx);
 	sync_map_ctx->view = view;
 	sync_map_ctx->cur_ext_map_idx = (uint32_t)-1;
 	sync_map_ctx->type = type;

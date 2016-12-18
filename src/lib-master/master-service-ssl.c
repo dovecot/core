@@ -28,7 +28,7 @@ int master_service_ssl_init(struct master_service *service,
 
 	set = master_service_ssl_settings_get(service);
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
+	i_zero(&ssl_set);
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
 	return io_stream_create_ssl_server(service->ssl_ctx, &ssl_set,
@@ -60,7 +60,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 		return;
 	}
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
+	i_zero(&ssl_set);
 	ssl_set.protocols = set->ssl_protocols;
 	ssl_set.cipher_list = set->ssl_cipher_list;
 	ssl_set.ca = set->ssl_ca;

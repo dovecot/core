@@ -215,7 +215,7 @@ int mdbox_read_header(struct mdbox_mailbox *mbox,
 		mdbox_storage_set_corrupted(mbox->storage);
 		return -1;
 	}
-	memset(hdr, 0, sizeof(*hdr));
+	i_zero(hdr);
 	if (data_size > 0)
 		memcpy(hdr, data, I_MIN(data_size, sizeof(*hdr)));
 	*need_resize_r = data_size < sizeof(*hdr);
@@ -230,7 +230,7 @@ void mdbox_update_header(struct mdbox_mailbox *mbox,
 	bool need_resize;
 
 	if (mdbox_read_header(mbox, &hdr, &need_resize) < 0) {
-		memset(&hdr, 0, sizeof(hdr));
+		i_zero(&hdr);
 		need_resize = TRUE;
 	}
 
@@ -399,7 +399,7 @@ mdbox_mailbox_get_guid(struct mdbox_mailbox *mbox, guid_128_t guid_r)
 	}
 
 	if (mdbox_read_header(mbox, &hdr, &need_resize) < 0)
-		memset(&hdr, 0, sizeof(hdr));
+		i_zero(&hdr);
 
 	if (guid_128_is_empty(hdr.mailbox_guid)) {
 		/* regenerate it */

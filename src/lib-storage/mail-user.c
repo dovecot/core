@@ -346,7 +346,7 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 
 	i_assert(!user->home_looked_up);
 
-	memset(&info, 0, sizeof(info));
+	i_zero(&info);
 	info.service = user->service;
 	if (user->local_ip != NULL)
 		info.local_ip = *user->local_ip;
@@ -526,7 +526,7 @@ mail_user_try_load_class_plugin(struct mail_user *user, const char *name)
 	struct module *module;
 	size_t name_len = strlen(name);
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.binary_name = master_service_get_name(master_service);
 	mod_set.setting_name = "<built-in storage lookup>";

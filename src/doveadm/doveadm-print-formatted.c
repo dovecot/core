@@ -28,7 +28,7 @@ void doveadm_print_formatted_set_format(const char *format)
 
 static void doveadm_print_formatted_init(void)
 {
-	memset(&ctx,0,sizeof(ctx));
+	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create("doveadm formatted print", 1024);
 	ctx.buf = str_new(ctx.pool, 256);
 	p_array_init(&ctx.headers, ctx.pool, 8);
@@ -39,7 +39,7 @@ static void
 doveadm_print_formatted_header(const struct doveadm_print_header *hdr)
 {
 	struct var_expand_table entry;
-	memset(&entry, 0, sizeof(entry));
+	i_zero(&entry);
 	entry.key = '\0';
 	entry.long_key = p_strdup(ctx.pool, hdr->key);
 	entry.value = NULL;

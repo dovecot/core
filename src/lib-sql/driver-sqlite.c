@@ -344,7 +344,7 @@ driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
 			ctx->failed = TRUE;
 	}
 
-	memset(&commit_result, 0, sizeof(commit_result));
+	i_zero(&commit_result);
 	if (ctx->failed) {
 		commit_result.error = sqlite3_errmsg(db->sqlite);
 		callback(&commit_result, context);

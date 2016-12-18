@@ -150,7 +150,7 @@ imap_urlauth_fetch_error(struct imap_urlauth_fetch *ufetch, const char *url,
 
 	ufetch->pending_requests--;
 
-	memset(&reply, 0, sizeof(reply));
+	i_zero(&reply);
 	reply.url = url;
 	reply.flags = url_flags;
 	reply.succeeded = FALSE;
@@ -226,7 +226,7 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	}
 
 	/* if requested, read the message part the URL points to */
-	memset(&mpresult, 0, sizeof(mpresult));
+	i_zero(&mpresult);
 	if (success && ((url_flags & IMAP_URLAUTH_FETCH_FLAG_BODY) != 0 ||
 			(url_flags & IMAP_URLAUTH_FETCH_FLAG_BINARY) != 0)) {
 		ret = imap_msgpart_url_read_part(mpurl, &mpresult, &error);
@@ -263,7 +263,7 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 		return;
 	}
 
-	memset(&reply, 0, sizeof(reply));
+	i_zero(&reply);
 	reply.url = url;
 	reply.flags = url_flags;
 	reply.error = errormsg;
@@ -459,7 +459,7 @@ static bool imap_urlauth_fetch_do_continue(struct imap_urlauth_fetch *ufetch)
 
 		ufetch->pending_requests--;
 
-		memset(&reply, 0, sizeof(reply));
+		i_zero(&reply);
 		reply.url = ufetch->pending_reply.url;
 		reply.flags = ufetch->pending_reply.flags;
 		reply.bodypartstruct = ufetch->pending_reply.bodypartstruct;

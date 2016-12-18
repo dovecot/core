@@ -358,7 +358,7 @@ index_list_mailbox_create(struct mailbox *box,
 		/* if no GUID is requested, generate it ourself. set
 		   UIDVALIDITY to index sometimes later. */
 		if (update == NULL)
-			memset(&new_update, 0, sizeof(new_update));
+			i_zero(&new_update);
 		else
 			new_update = *update;
 		if (guid_128_is_empty(new_update.mailbox_guid))

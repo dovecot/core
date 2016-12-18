@@ -198,7 +198,7 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 		return;
 	}
 
-	memset(&dict_set, 0, sizeof(dict_set));
+	i_zero(&dict_set);
 	dict_set.username = user->username;
 	dict_set.base_dir = user->set->base_dir;
 	(void)mail_user_get_home(user, &dict_set.home_dir);

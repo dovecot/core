@@ -194,7 +194,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	/* make sure we have an auth connection */
 	mail_storage_service_init_settings(ctx->storage_service, input);
 
-	memset(&info, 0, sizeof(info));
+	i_zero(&info);
 	info.service = master_service_get_name(master_service);
 	info.local_ip = input->local_ip;
 	info.remote_ip = input->remote_ip;

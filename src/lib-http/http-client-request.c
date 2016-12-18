@@ -669,7 +669,7 @@ http_client_request_get_peer_addr(const struct http_client_request *req,
 	/* the IP address may be unassigned in the returned peer address, since
 	   that is only available at this stage when the target URL has an
 	   explicit IP address. */
-	memset(addr, 0, sizeof(*addr));
+	i_zero(addr);
 	if (host_socket != NULL) {
 		addr->type = HTTP_CLIENT_PEER_ADDR_UNIX;
 		addr->a.un.path = host_socket;		

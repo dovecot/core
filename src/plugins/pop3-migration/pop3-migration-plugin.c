@@ -182,7 +182,7 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 	struct sha1_ctxt sha1_ctx;
 	struct pop3_hdr_context hdr_ctx;
 
-	memset(&hdr_ctx, 0, sizeof(hdr_ctx));
+	i_zero(&hdr_ctx);
 	/* hide headers that might change or be different in IMAP vs. POP3 */
 	input = i_stream_create_header_filter(input, HEADER_FILTER_HIDE_BODY |
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,
@@ -191,7 +191,7 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 				pop3_header_filter_callback, &hdr_ctx);
 
 	sha1_init(&sha1_ctx);
-	memset(&hash_ctx, 0, sizeof(hash_ctx));
+	i_zero(&hash_ctx);
 	while (i_stream_read_more(input, &data, &size) > 0) {
 		message_header_hash_more(&hash_ctx, &hash_method_sha1, &sha1_ctx, 2,
 					 data, size);
@@ -768,7 +768,7 @@ pop3_migration_get_special(struct mail *_mail, enum mail_fetch_field field,
 		if (pop3_migration_uidl_sync_if_needed(_mail->box) < 0)
 			return -1;
 
-		memset(&map_key, 0, sizeof(map_key));
+		i_zero(&map_key);
 		map_key.uid = _mail->uid;
 		map = array_bsearch(&mbox->imap_msg_map, &map_key,
 				    imap_msg_map_uid_cmp);

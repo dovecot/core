@@ -34,7 +34,7 @@ static const char *imap_parse_date_internal(const char *str, struct tm *tm)
 	if (str == NULL || *str == '\0')
 		return NULL;
 
-	memset(tm, 0, sizeof(*tm));
+	i_zero(tm);
 
 	/* "dd-mon-yyyy [hh:mi:ss +|-zone]"
 	   dd is 1-2 digits and may be prefixed with space or zero. */

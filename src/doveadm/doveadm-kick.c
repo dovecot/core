@@ -41,7 +41,7 @@ kick_aggregate_line(struct who_context *_ctx, const struct who_line *line)
 	struct kick_pid *k_pid;
 	struct kick_user new_user, *user;
 
-	memset(&new_user, 0, sizeof(new_user));
+	i_zero(&new_user);
 
 	k_pid = hash_table_lookup(ctx->pids, POINTER_CAST(line->pid));
 	if (k_pid == NULL) {
@@ -179,7 +179,7 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	const char *const *masks;
 	struct kick_context ctx;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.who.anvil_path)))
 		ctx.who.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 	(void)doveadm_cmd_param_bool(cctx, "force", &(ctx.force_kick));

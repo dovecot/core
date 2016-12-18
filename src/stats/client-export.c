@@ -70,7 +70,7 @@ mail_export_parse_filter(const char *const *args, pool_t pool,
 	   since=<timestamp>
 	   connected
 	*/
-	memset(filter_r, 0, sizeof(*filter_r));
+	i_zero(filter_r);
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "user=", 5) == 0)
 			filter_r->user = p_strdup(pool, *args + 5);

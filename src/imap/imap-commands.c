@@ -95,7 +95,7 @@ void command_register(const char *name, command_func_t *func,
 {
 	struct command cmd;
 
-	memset(&cmd, 0, sizeof(cmd));
+	i_zero(&cmd);
 	cmd.name = name;
 	cmd.func = func;
 	cmd.flags = flags;

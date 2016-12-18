@@ -544,7 +544,7 @@ driver_mysql_transaction_commit(struct sql_transaction_context *ctx,
 	struct sql_commit_result result;
 	const char *error;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	if (sql_transaction_commit_s(&ctx, &error) < 0)
 		result.error = error;
 	callback(&result, context);

@@ -637,7 +637,7 @@ memcached_ascii_transaction_commit(struct dict_transaction_context *_ctx,
 	struct dict_commit_result result = { DICT_COMMIT_RET_OK, NULL };
 
 	if (_ctx->changed) {
-		memset(&commit_ctx, 0, sizeof(commit_ctx));
+		i_zero(&commit_ctx);
 		commit_ctx.dict = dict;
 		commit_ctx.memctx = ctx;
 		commit_ctx.callback = callback;

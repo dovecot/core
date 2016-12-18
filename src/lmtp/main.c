@@ -46,7 +46,7 @@ static void drop_privileges(void)
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = "lmtp";
 	input.service = "lmtp";
 	(void)master_service_settings_read(master_service,
@@ -59,7 +59,7 @@ static void main_init(void)
 	struct master_service_connection conn;
 
 	if (IS_STANDALONE()) {
-		memset(&conn, 0, sizeof(conn));
+		i_zero(&conn);
 		(void)client_create(STDIN_FILENO, STDOUT_FILENO, &conn);
 	}
 	dns_client_socket_path = i_strdup(t_abspath(DNS_CLIENT_SOCKET_PATH));

@@ -243,7 +243,7 @@ dsync_mailbox_tree_fix_guid_duplicate(struct dsync_mailbox_tree *tree,
 	const char *change_vname;
 	int ret = 0;
 
-	memset(&update, 0, sizeof(update));
+	i_zero(&update);
 	guid_128_generate(update.mailbox_guid);
 
 	/* just in case the duplication exists in both sides,

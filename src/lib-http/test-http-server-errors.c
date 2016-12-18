@@ -541,7 +541,7 @@ static void
 test_server_defaults(struct http_server_settings *http_set)
 {
 	/* server settings */
-	memset(http_set, 0, sizeof(*http_set));
+	i_zero(http_set);
 	http_set->max_client_idle_time_msecs = 5*1000;
 	http_set->max_pipelined_requests = 1;
 	http_set->debug = debug;
@@ -746,7 +746,7 @@ int main(int argc, char *argv[])
   }
 
 	/* listen on localhost */
-	memset(&bind_ip, 0, sizeof(bind_ip));
+	i_zero(&bind_ip);
 	bind_ip.family = AF_INET;
 	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);	
 

@@ -39,7 +39,7 @@ void test_utc_mktime(void)
 	bool success;
 
 	for (i = 0; i < N_ELEMENTS(input); i++) {
-		memset(&tm, 0, sizeof(tm));
+		i_zero(&tm);
 		tm.tm_year = input[i].year - 1900;
 		tm.tm_mon = input[i].month - 1;
 		tm.tm_mday = input[i].day;

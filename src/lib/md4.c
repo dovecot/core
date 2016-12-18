@@ -257,7 +257,7 @@ void md4_final(struct md4_context *ctx, unsigned char result[STATIC_ARRAY MD4_RE
 	result[14] = ctx->d >> 16;
 	result[15] = ctx->d >> 24;
 
-	safe_memset(ctx, 0, sizeof(*ctx));
+	i_zero_safe(ctx);
 }
 
 void md4_get_digest(const void *data, size_t size,

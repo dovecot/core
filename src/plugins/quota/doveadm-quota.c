@@ -99,7 +99,7 @@ cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 		return -1;
 	}
 
-	memset(&trans, 0, sizeof(trans));
+	i_zero(&trans);
 	trans.quota = quser->quota;
 	trans.recalculate = QUOTA_RECALCULATE_FORCED;
 

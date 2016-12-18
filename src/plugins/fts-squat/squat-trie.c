@@ -174,8 +174,8 @@ static void squat_trie_close(struct squat_trie *trie)
 {
 	trie->corrupted = FALSE;
 	node_free(trie, &trie->root);
-	memset(&trie->root, 0, sizeof(trie->root));
-	memset(&trie->hdr, 0, sizeof(trie->hdr));
+	i_zero(&trie->root);
+	i_zero(&trie->hdr);
 
 	squat_trie_close_fd(trie);
 	if (trie->file_cache != NULL)
@@ -206,7 +206,7 @@ void squat_trie_set_full_len(struct squat_trie *trie, unsigned int len)
 
 static void squat_trie_header_init(struct squat_trie *trie)
 {
-	memset(&trie->hdr, 0, sizeof(trie->hdr));
+	i_zero(&trie->hdr);
 	trie->hdr.version = SQUAT_TRIE_VERSION;
 	trie->hdr.indexid = time(NULL);
 	trie->hdr.uidvalidity = trie->uidvalidity;
@@ -1149,7 +1149,7 @@ squat_trie_iterate_next(struct squat_trie_iterate_context *ctx,
 	if (shift_count != 0)
 		i_array_init(&ctx->cur.shifts, shift_count);
 	else
-		memset(&ctx->cur.shifts, 0, sizeof(ctx->cur.shifts));
+		i_zero(&ctx->cur.shifts);
 	return squat_trie_iterate_first(ctx);
 }
 
@@ -1509,7 +1509,7 @@ static int squat_trie_map(struct squat_trie *trie, bool building)
 
 	if (changed || trie->hdr.root_offset == 0) {
 		node_free(trie, &trie->root);
-		memset(&trie->root, 0, sizeof(trie->root));
+		i_zero(&trie->root);
 		trie->root.want_sequential = TRUE;
 		trie->root.unused_uids = trie->hdr.root_unused_uids;
 		trie->root.next_uid = trie->hdr.root_next_uid;
@@ -1977,7 +1977,7 @@ squat_trie_lookup_real(struct squat_trie *trie, const char *str,
 	array_clear(definite_uids);
 	array_clear(maybe_uids);
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.trie = trie;
 	ctx.type = type;
 	ctx.definite_uids = definite_uids;

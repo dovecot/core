@@ -110,7 +110,7 @@ sin_get_ip(const union sockaddr_union *so, struct ip_addr *ip)
 {
 	/* IP structs may be sent across processes. Clear the whole struct
 	   first to make sure it won't leak any data across processes. */
-	memset(ip, 0, sizeof(*ip));
+	i_zero(ip);
 
 	ip->family = so->sin.sin_family;
 
@@ -120,7 +120,7 @@ sin_get_ip(const union sockaddr_union *so, struct ip_addr *ip)
 	if (ip->family == AF_INET)
 		memcpy(&ip->u.ip4, &so->sin.sin_addr, sizeof(ip->u.ip4));
 	else
-		memset(&ip->u, 0, sizeof(ip->u));
+		i_zero(&ip->u);
 }
 
 static inline void sin_set_port(union sockaddr_union *so, in_port_t port)
@@ -153,7 +153,7 @@ static int net_connect_ip_once(const struct ip_addr *ip, in_port_t port,
 	}
 
 	/* create the socket */
-	memset(&so, 0, sizeof(so));
+	i_zero(&so);
         so.sin.sin_family = ip->family;
 	fd = socket(ip->family, sock_type, 0);
 
@@ -244,7 +244,7 @@ int net_try_bind(const struct ip_addr *ip)
 	int fd;
 
 	/* create the socket */
-	memset(&so, 0, sizeof(so));
+	i_zero(&so);
         so.sin.sin_family = ip->family;
 	fd = socket(ip->family, SOCK_STREAM, 0);
 	if (fd == -1) {
@@ -266,7 +266,7 @@ int net_connect_unix(const char *path)
 	union sockaddr_union_unix sa;
 	int fd, ret;
 
-	memset(&sa, 0, sizeof(sa));
+	i_zero(&sa);
 	sa.un.sun_family = AF_UNIX;
 	if (i_strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
@@ -418,7 +418,7 @@ int net_listen_full(const struct ip_addr *my_ip, in_port_t *port,
 	int ret, fd, opt = 1;
 	socklen_t len;
 
-	memset(&so, 0, sizeof(so));
+	i_zero(&so);
 	sin_set_port(&so, *port);
 	sin_set_ip(&so, my_ip);
 
@@ -493,7 +493,7 @@ int net_listen_unix(const char *path, int backlog)
 	} sa;
 	int fd;
 
-	memset(&sa, 0, sizeof(sa));
+	i_zero(&sa);
 	sa.un.sun_family = AF_UNIX;
 	if (i_strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
@@ -580,7 +580,7 @@ int net_accept(int fd, struct ip_addr *addr_r, in_port_t *port_r)
 	}
 	if (so.sin.sin_family == AF_UNIX) {
 		if (addr_r != NULL)
-			memset(addr_r, 0, sizeof(*addr_r));
+			i_zero(addr_r);
 		if (port_r != NULL) *port_r = 0;
 	} else {
 		if (addr_r != NULL) sin_get_ip(&so, addr_r);
@@ -654,7 +654,7 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 		return 0;
 	}
 
-	memset(&hints, 0, sizeof(hints));
+	i_zero(&hints);
 	hints.ai_socktype = SOCK_STREAM;
 
 	/* save error to host_error for later use */
@@ -688,7 +688,7 @@ int net_gethostbyaddr(const struct ip_addr *ip, const char **name_r)
 	char hbuf[NI_MAXHOST];
 	int ret;
 
-	memset(&so, 0, sizeof(so));
+	i_zero(&so);
 	sin_set_ip(&so, ip);
 	ret = getnameinfo(&so.sa, addrlen, hbuf, sizeof(hbuf), NULL, 0,
 			  NI_NAMEREQD);
@@ -711,7 +711,7 @@ int net_getsockname(int fd, struct ip_addr *addr, in_port_t *port)
 		return -1;
 	if (so.sin.sin_family == AF_UNIX) {
 		if (addr != NULL)
-			memset(addr, 0, sizeof(*addr));
+			i_zero(addr);
 		if (port != NULL) *port = 0;
 	} else {
 		if (addr != NULL) sin_get_ip(&so, addr);
@@ -732,7 +732,7 @@ int net_getpeername(int fd, struct ip_addr *addr, in_port_t *port)
 		return -1;
 	if (so.sin.sin_family == AF_UNIX) {
 		if (addr != NULL)
-			memset(addr, 0, sizeof(*addr));
+			i_zero(addr);
 		if (port != NULL) *port = 0;
 	} else {
 		if (addr != NULL) sin_get_ip(&so, addr);
@@ -852,9 +852,9 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 
 	sc = (struct sockcred *)cdata.buf;
 	sc->sc_uid = sc->sc_euid = sc->sc_gid = sc->sc_egid = -1;
-	memset(&cdata.ch, 0, sizeof(cdata.ch));
+	i_zero(&cdata.ch);
 
-	memset(&msg, 0, sizeof(msg));
+	i_zero(&msg);
 
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;

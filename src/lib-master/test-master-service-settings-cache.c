@@ -101,7 +101,7 @@ int main(void)
 	pool_t pool;
 	int ret;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = "module";
 	input.service = "service_name";
 

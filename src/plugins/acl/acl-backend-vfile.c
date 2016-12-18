@@ -229,7 +229,7 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	if (old_validity != NULL)
 		new_validity = *old_validity;
 	else
-		memset(&new_validity, 0, sizeof(new_validity));
+		i_zero(&new_validity);
 
 	/* See if the mailbox exists. If we wanted recursive lookups we could
 	   skip this, but at least for now we assume that if an existing
@@ -558,7 +558,7 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 		p_clear(_aclobj->rights_pool);
 	}
 
-	memset(&validity, 0, sizeof(validity));
+	i_zero(&validity);
 	if (_aclobj->backend->global_file != NULL)
 		acl_object_add_global_acls(_aclobj);
 	else {

@@ -90,7 +90,7 @@ static void client_handle_request(struct quota_client *client)
 		return;
 	}
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.username = client->recipient;
 
 	ret = mail_storage_service_lookup_next(storage_service, &input,
@@ -197,7 +197,7 @@ static void main_init(void)
 		MAIL_STORAGE_SERVICE_FLAG_ENABLE_CORE_DUMPS |
 		MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR);
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.service = "quota-status";
 	input.module = "mail";
 	input.username = "";

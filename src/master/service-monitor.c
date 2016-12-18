@@ -46,7 +46,7 @@ static void service_process_kill_idle(struct service_process *process)
 			      dec2str(process->pid));
 
 		/* assume this process is busy */
-		memset(&status, 0, sizeof(status));
+		i_zero(&status);
 		service_status_more(process, &status);
 		process->available_count = 0;
 	} else {

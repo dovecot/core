@@ -123,7 +123,7 @@ int index_search_result_update_flags(struct mail_search_result *result,
 
 	/* add a temporary search parameter to limit the search only to
 	   the changed messages */
-	memset(&search_arg, 0, sizeof(search_arg));
+	i_zero(&search_arg);
 	search_arg.type = SEARCH_UIDSET;
 	search_arg.value.seqset = *uids;
 	search_arg.next = result->search_args->args;
@@ -152,7 +152,7 @@ int index_search_result_update_appends(struct mail_search_result *result,
 
 	/* add a temporary search parameter to limit the search only to
 	   the new messages */
-	memset(&search_arg, 0, sizeof(search_arg));
+	i_zero(&search_arg);
 	search_arg.type = SEARCH_SEQSET;
 	t_array_init(&search_arg.value.seqset, 1);
 	seq_range_array_add_range(&search_arg.value.seqset,

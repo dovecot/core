@@ -138,7 +138,7 @@ static bool astream_want_attachment(struct attachment_istream *astream,
 	if (astream->set.want_attachment == NULL)
 		return TRUE;
 
-	memset(&ahdr, 0, sizeof(ahdr));
+	i_zero(&ahdr);
 	ahdr.part = part;
 	ahdr.content_type = astream->part.content_type;
 	ahdr.content_disposition = astream->part.content_disposition;
@@ -461,7 +461,7 @@ astream_part_finish(struct attachment_istream *astream, const char **error_r)
 		return -1;
 	}
 
-	memset(&info, 0, sizeof(info));
+	i_zero(&info);
 	info.start_offset = astream->part.start_offset;
 	/* base64_bytes contains how many valid base64 bytes there are so far.
 	   if the base64 ends properly, it'll specify how much of the MIME part
@@ -543,7 +543,7 @@ static void astream_part_reset(struct attachment_istream *astream)
 	if (part->part_buf != NULL)
 		buffer_free(&part->part_buf);
 
-	memset(part, 0, sizeof(*part));
+	i_zero(part);
 	part->temp_fd = -1;
 	hash_format_reset(astream->set.hash_format);
 }

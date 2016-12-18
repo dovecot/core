@@ -39,7 +39,7 @@ acl_attribute_update_acl(struct mailbox_transaction_context *t, const char *key,
 					      &value_str) < 0)
 		return -1;
 
-	memset(&update, 0, sizeof(update));
+	i_zero(&update);
 	update.modify_mode = ACL_MODIFY_MODE_REPLACE;
 	update.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
 	update.last_change = value->last_change;
@@ -62,7 +62,7 @@ static int acl_attribute_get_acl(struct mailbox *box, const char *key,
 	const char *id;
 	int ret;
 
-	memset(value_r, 0, sizeof(*value_r));
+	i_zero(value_r);
 
 	if (!box->storage->user->dsyncing) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PERM,
@@ -74,7 +74,7 @@ static int acl_attribute_get_acl(struct mailbox *box, const char *key,
 	   can use this information) */
 	(void)acl_object_last_changed(aclobj, &value_r->last_change);
 
-	memset(&wanted_rights, 0, sizeof(wanted_rights));
+	i_zero(&wanted_rights);
 	id = key + strlen(MAILBOX_ATTRIBUTE_PREFIX_ACL);
 	if (acl_identifier_parse(id, &wanted_rights) < 0) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,

@@ -34,7 +34,7 @@ imap_urlauth_backend_trans_set_mailbox_key(struct mailbox *box,
 	random_fill(mailbox_key_r, IMAP_URLAUTH_KEY_LEN);
 	mailbox_key_hex = binary_to_hex(mailbox_key_r,
 					IMAP_URLAUTH_KEY_LEN);
-	memset(&urlauth_key, 0, sizeof(urlauth_key));
+	i_zero(&urlauth_key);
 	urlauth_key.value = mailbox_key_hex;
 	ret = mailbox_attribute_set(t, MAIL_ATTRIBUTE_TYPE_PRIVATE,
 				    IMAP_URLAUTH_KEY, &urlauth_key);

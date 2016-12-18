@@ -227,7 +227,7 @@ void master_auth_request(struct master_auth *auth, int fd,
 {
 	struct master_auth_request_params params;
 
-	memset(&params, 0, sizeof(params));
+	i_zero(&params);
 	params.client_fd = fd;
 	params.request = *request;
 	params.data = data;

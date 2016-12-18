@@ -80,7 +80,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 	/* hard link to tmp/ with a newly generated filename and later when we
 	   have uidlist locked, move it to new/cur. */
 	dest_fname = maildir_filename_generate();
-	memset(&do_ctx, 0, sizeof(do_ctx));
+	i_zero(&do_ctx);
 	do_ctx.dest_path =
 		t_strdup_printf("%s/tmp/%s", mailbox_get_path(&dest_mbox->box),
 				dest_fname);

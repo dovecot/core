@@ -23,7 +23,7 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	if (!array_is_created(&ctx->view->map->extensions))
 		return;
 
-	memset(&eh, 0, sizeof(eh));
+	i_zero(&eh);
 	if (array_is_created(&ctx->expunge_handlers))
 		array_clear(&ctx->expunge_handlers);
 	else
@@ -449,13 +449,13 @@ void mail_index_sync_ext_init(struct mail_index_sync_map_ctx *ctx,
 			return;
 
 		/* make sure it's the expected size */
-		memset(&u, 0, sizeof(u));
+		i_zero(&u);
 		u.hdr_size = rext->hdr_size;
 		u.record_size = rext->record_size;
 		u.record_align = rext->record_align;
 		sync_ext_resize(&u, *ext_map_idx_r, ctx, FALSE);
 	} else {
-		memset(&ext_hdr, 0, sizeof(ext_hdr));
+		i_zero(&ext_hdr);
 		ext_hdr.name_size = strlen(name);
 		ext_hdr.hdr_size = rext->hdr_size;
 		ext_hdr.record_size = rext->record_size;
@@ -523,7 +523,7 @@ int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 		return -1;
 	}
 
-	memset(&ext_hdr, 0, sizeof(ext_hdr));
+	i_zero(&ext_hdr);
 	ext_hdr.name_size = strlen(name);
 	ext_hdr.reset_id = u->reset_id;
 	ext_hdr.hdr_size = u->hdr_size;

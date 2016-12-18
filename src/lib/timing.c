@@ -29,7 +29,7 @@ void timing_deinit(struct timing **_timing)
 
 void timing_reset(struct timing *timing)
 {
-	memset(timing, 0, sizeof(*timing));
+	i_zero(timing);
 }
 
 void timing_add_usecs(struct timing *timing, uint64_t usecs)

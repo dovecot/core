@@ -488,7 +488,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 		now + set->timeout;
 	tmp_path = t_str_new(256);
 
-	memset(&lock_info, 0, sizeof(lock_info));
+	i_zero(&lock_info);
 	lock_info.path = dotlock->path;
 	lock_info.set = set;
 	lock_info.lock_path = lock_path;

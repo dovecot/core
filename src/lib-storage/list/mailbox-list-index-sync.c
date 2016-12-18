@@ -35,7 +35,7 @@ node_add_to_index(struct mailbox_list_index_sync_context *ctx,
 	struct mailbox_list_index_record irec;
 	uint32_t seq;
 
-	memset(&irec, 0, sizeof(irec));
+	i_zero(&irec);
 	irec.name_id = node->name_id;
 	if (node->parent != NULL)
 		irec.parent_uid = node->parent->uid;
@@ -486,7 +486,7 @@ int mailbox_list_index_sync_delete(struct mailbox_list_index_sync_context *sync_
 		i_assert(data != NULL && !expunged);
 		memcpy(&rec, data, sizeof(rec));
 		rec.uid_validity = 0;
-		memset(&rec.guid, 0, sizeof(rec.guid));
+		i_zero(&rec.guid);
 		mail_index_update_ext(sync_ctx->trans, seq,
 				      sync_ctx->ilist->ext_id, &rec, NULL);
 	}

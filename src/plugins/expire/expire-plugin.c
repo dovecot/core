@@ -165,7 +165,7 @@ expire_update(struct mailbox *box, const char *key, time_t timestamp)
 	if (dict_transaction_commit(&dctx, &error) < 0)
 		i_error("expire: dict commit failed: %s", error);
 	else if (euser->expire_cache) {
-		memset(&hdr, 0, sizeof(hdr));
+		i_zero(&hdr);
 		hdr.timestamp = timestamp;
 
 		trans = mail_index_transaction_begin(box->view,
@@ -421,7 +421,7 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 		return;
 	}
 	/* we're using only shared dictionary, the username doesn't matter. */
-	memset(&dict_set, 0, sizeof(dict_set));
+	i_zero(&dict_set);
 	dict_set.value_type = DICT_DATA_TYPE_UINT32;
 	dict_set.username = "";
 	dict_set.base_dir = user->set->base_dir;

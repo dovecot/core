@@ -71,7 +71,7 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 		client->fd = -1;
 	}
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	result.ret = EAI_FAIL;
 	result.error = error;
 
@@ -339,7 +339,7 @@ dns_client_lookup_common(struct dns_client *client,
 	struct dns_lookup_result result;
 	int ret;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	result.ret = EAI_FAIL;
 
 	if ((ret = dns_client_send_request(client, cmd, &result.error)) <= 0) {

@@ -220,7 +220,7 @@ virtual_mailbox_get_list_patterns(struct virtual_parse_context *ctx)
 	struct virtual_backend_box *const *bboxes;
 	unsigned int i, count;
 
-	memset(&pattern, 0, sizeof(pattern));
+	i_zero(&pattern);
 	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
 	p_array_init(&mbox->list_include_patterns, ctx->pool, count);
 	p_array_init(&mbox->list_exclude_patterns, ctx->pool, count);
@@ -490,7 +490,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 		return -1;
 	}
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.sep = mail_namespaces_get_root_sep(storage->user->namespaces);
 	ctx.mbox = mbox;
 	ctx.pool = mbox->box.pool;

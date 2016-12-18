@@ -93,7 +93,7 @@ int file_preallocate(int fd ATTR_UNUSED, off_t size ATTR_UNUSED)
 	/* OSX */
 	fstore_t fs;
 
-	memset(&fs, 0, sizeof(fs));
+	i_zero(&fs);
 	fs.fst_flags = F_ALLOCATECONTIG;
 	fs.fst_posmode = F_PEOFPOSMODE;
 	fs.fst_offset = 0;

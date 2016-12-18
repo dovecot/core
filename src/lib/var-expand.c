@@ -459,7 +459,7 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 
 	*error_r = NULL;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	for (; *str != '\0'; str++) {
 		if (*str != '%')
 			str_append_c(dest, *str);
@@ -467,7 +467,7 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 			int sign = 1;
 
 			str++;
-			memset(&ctx, 0, sizeof(ctx));
+			i_zero(&ctx);
 
 			/* [<offset>.]<width>[<modifiers>]<variable> */
 			if (*str == '-') {

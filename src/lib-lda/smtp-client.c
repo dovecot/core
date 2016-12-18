@@ -135,7 +135,7 @@ smtp_client_send_host(struct smtp_client *client,
 		return -1;
 	}
 
-	memset(&client_set, 0, sizeof(client_set));
+	i_zero(&client_set);
 	client_set.mail_from = client->return_path == NULL ? "<>" :
 		t_strconcat("<", client->return_path, ">", NULL);
 	client_set.my_hostname = client->set->hostname;
@@ -208,7 +208,7 @@ smtp_client_send_sendmail(struct smtp_client *client,
 	array_append_array(&args, &client->destinations);
 	array_append_zero(&args);
 
-	memset(&pc_set, 0, sizeof(pc_set));
+	i_zero(&pc_set);
 	pc_set.client_connect_timeout_msecs = timeout_secs * 1000;
 	pc_set.input_idle_timeout_msecs = timeout_secs * 1000;
 	restrict_access_init(&pc_set.restrict_set);

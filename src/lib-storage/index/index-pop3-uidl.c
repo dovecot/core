@@ -11,7 +11,7 @@ void index_pop3_uidl_set_max_uid(struct mailbox *box,
 {
 	struct mailbox_index_pop3_uidl uidl;
 
-	memset(&uidl, 0, sizeof(uidl));
+	i_zero(&uidl);
 	uidl.max_uid_with_pop3_uidl = uid;
 
 	mail_index_update_header_ext(trans, box->pop3_uidl_hdr_ext_id,

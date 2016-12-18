@@ -136,7 +136,7 @@ static void main_stdio_run(const char *username)
 	buffer_t *input_buf;
 	const char *value, *error, *input_base64;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = input.service = "pop3";
 	input.username = username != NULL ? username : getenv("USER");
 	if (input.username == NULL && IS_STANDALONE())
@@ -165,7 +165,7 @@ login_client_connected(const struct master_login_client *client,
 	const char *error;
 	buffer_t input_buf;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = input.service = "pop3";
 	input.local_ip = client->auth_req.local_ip;
 	input.remote_ip = client->auth_req.remote_ip;
@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 	const char *username = NULL, *auth_socket_path = "auth-master";
 	int c;
 
-	memset(&login_set, 0, sizeof(login_set));
+	i_zero(&login_set);
 	login_set.postlogin_timeout_secs = MASTER_POSTLOGIN_TIMEOUT_DEFAULT;
 
 	if (IS_STANDALONE() && getuid() == 0 &&

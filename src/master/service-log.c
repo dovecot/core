@@ -30,7 +30,7 @@ static int service_log_fds_init(const char *log_prefix, int log_fd[2],
 	fd_close_on_exec(log_fd[0], TRUE);
 	fd_close_on_exec(log_fd[1], TRUE);
 
-	memset(&handshake, 0, sizeof(handshake));
+	i_zero(&handshake);
 	handshake.log_magic = MASTER_LOG_MAGIC;
 	handshake.prefix_len = strlen(log_prefix);
 

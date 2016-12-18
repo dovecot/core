@@ -70,7 +70,7 @@ static void zlib_mail_cache_close(struct zlib_user *zuser)
 		timeout_remove(&cache->to);
 	if (cache->input != NULL)
 		i_stream_unref(&cache->input);
-	memset(cache, 0, sizeof(*cache));
+	i_zero(cache);
 }
 
 static struct istream *

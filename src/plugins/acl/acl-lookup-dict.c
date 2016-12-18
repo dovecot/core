@@ -43,7 +43,7 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 	if (uri != NULL) {
 		struct dict_settings dict_set;
 
-		memset(&dict_set, 0, sizeof(dict_set));
+		i_zero(&dict_set);
 		dict_set.username = "";
 		dict_set.base_dir = user->set->base_dir;
 		if (dict_init(uri, &dict_set, &dict->dict, &error) < 0)

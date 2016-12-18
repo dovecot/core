@@ -179,7 +179,7 @@ static void client_read_settings(struct client *client)
 	struct lda_settings *lda_set;
 	const char *error;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = input.service = "lmtp";
 	input.local_ip = client->local_ip;
 	input.remote_ip = client->remote_ip;
@@ -392,7 +392,7 @@ void client_state_reset(struct client *client, const char *state_name)
 			i_error("close(mail data fd) failed: %m");
 	}
 
-	memset(&client->state, 0, sizeof(client->state));
+	i_zero(&client->state);
 	p_clear(client->state_pool);
 	client->state.mail_data_fd = -1;
 

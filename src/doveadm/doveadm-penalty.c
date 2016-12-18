@@ -33,7 +33,7 @@ static void penalty_parse_line(const char *line, struct penalty_line *line_r)
 	const char *last_penalty_str = args[2];
 	const char *last_update_str = args[3];
 
-	memset(line_r, 0, sizeof(*line_r));
+	i_zero(line_r);
 
 	(void)net_addr2ip(ident, &line_r->ip);
 	if (str_to_uint(penalty_str, &line_r->penalty) < 0 ||
@@ -94,7 +94,7 @@ static void cmd_penalty(struct doveadm_cmd_context *cctx)
 	struct penalty_context ctx;
 	const char *netmask;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.anvil_path)))
 		ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 

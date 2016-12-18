@@ -45,7 +45,7 @@ static bool index_attachment_want(const struct istream_attachment_header *hdr,
 	struct mail_save_context *ctx = context;
 	struct mail_attachment_part apart;
 
-	memset(&apart, 0, sizeof(apart));
+	i_zero(&apart);
 	apart.part = hdr->part;
 	apart.content_type = hdr->content_type;
 	apart.content_disposition = hdr->content_disposition;
@@ -168,7 +168,7 @@ void index_attachment_save_begin(struct mail_save_context *ctx,
 	if (*storage->set->mail_attachment_dir == '\0')
 		return;
 
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.min_size = storage->set->mail_attachment_min_size;
 	if (hash_format_init(storage->set->mail_attachment_hash,
 			     &set.hash_format, &error) < 0) {
@@ -380,7 +380,7 @@ bool index_attachment_parse_extrefs(const char *line, pool_t pool,
 		const char *decode_options = args[i+2];
 		const char *path = args[i+3];
 
-		memset(&extref, 0, sizeof(extref));
+		i_zero(&extref);
 		if (str_to_uoff(start_offset_str, &extref.start_offset) < 0 ||
 		    str_to_uoff(size_str, &extref.size) < 0 ||
 		    extref.start_offset < last_voffset ||

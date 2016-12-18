@@ -135,7 +135,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			return conn;
 	}
 
-	memset(&client_set, 0, sizeof(client_set));
+	i_zero(&client_set);
 	client_set.mail_from = proxy->mail_from;
 	client_set.my_hostname = proxy->set.my_hostname;
 	client_set.dns_client_socket_path = proxy->set.dns_client_socket_path;

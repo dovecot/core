@@ -72,7 +72,7 @@ file_lock_find_fcntl(int lock_fd, int lock_type)
 {
 	struct flock fl;
 
-	memset(&fl, 0, sizeof(fl));
+	i_zero(&fl);
 	fl.l_type = lock_type;
 	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;

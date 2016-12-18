@@ -1554,7 +1554,7 @@ static void index_mail_reset_data(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
 
-	memset(data, 0, sizeof(*data));
+	i_zero(data);
 	p_clear(mail->mail.data_pool);
 
 	data->virtual_size = (uoff_t)-1;

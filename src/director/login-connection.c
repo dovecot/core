@@ -207,7 +207,7 @@ static void auth_input_line(const char *line, void *context)
 		args++;
 	}
 
-	memset(&temp_request, 0, sizeof(temp_request));
+	i_zero(&temp_request);
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "proxy", 5) == 0 &&
 		    ((*args)[5] == '=' || (*args)[5] == '\0'))

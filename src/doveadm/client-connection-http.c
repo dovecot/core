@@ -322,7 +322,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	struct istream *is;
 	const char *user;
 	struct ioloop *ioloop,*prev_ioloop = current_ioloop;
-	memset(&cctx, 0, sizeof(cctx));
+	i_zero(&cctx);
 
 	// create iostream
 	doveadm_print_ostream = iostream_temp_create("/tmp/doveadm.", 0);

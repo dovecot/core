@@ -65,7 +65,7 @@ mountpoint_get_statvfs(const char *path, pool_t pool,
 {
 	struct statvfs buf;
 
-	memset(point_r, 0, sizeof(*point_r));
+	i_zero(point_r);
 	if (statvfs(path, &buf) < 0) {
 		if (errno == ENOENT)
 			return 0;
@@ -89,7 +89,7 @@ mountpoint_get_statvfs(const char *path, pool_t pool,
 int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 {
 #ifdef MOUNTPOINT_UNKNOWN
-	memset(point_r, 0, sizeof(*point_r));
+	i_zero(point_r);
 	errno = ENOSYS;
 	return -1;
 #elif defined (MOUNTPOINT_STATVFS)
@@ -101,7 +101,7 @@ int mountpoint_get(const char *path, pool_t pool, struct mountpoint *point_r)
 	const struct mountpoint *mnt;
 	struct stat st;
 
-	memset(point_r, 0, sizeof(*point_r));
+	i_zero(point_r);
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT)
 			return 0;
@@ -213,7 +213,7 @@ const struct mountpoint *mountpoint_iter_next(struct mountpoint_iter *iter)
 	vmt_object   = vmt_base + vmt->vmt_data[VMT_OBJECT].vmt_off;
 	vmt_stub     = vmt_base + vmt->vmt_data[VMT_STUB].vmt_off;
 
-	memset(&iter->mnt, 0, sizeof(iter->mnt));
+	i_zero(&iter->mnt);
 	switch (vmt->vmt_gfstype) {
 	case MNT_NFS:
 	case MNT_NFS3:
@@ -249,7 +249,7 @@ const struct mountpoint *mountpoint_iter_next(struct mountpoint_iter *iter)
 	if (iter->f == NULL)
 		return NULL;
 
-	memset(&iter->mnt, 0, sizeof(iter->mnt));
+	i_zero(&iter->mnt);
 	while ((getextmntent(iter->f, &ent.ext, sizeof(ent.ext))) == 0) {
 		if (hasmntopt(&ent.ent, MNTOPT_IGNORE) != NULL)
 			continue;
@@ -272,7 +272,7 @@ const struct mountpoint *mountpoint_iter_next(struct mountpoint_iter *iter)
 	if (iter->f == NULL)
 		return NULL;
 
-	memset(&iter->mnt, 0, sizeof(iter->mnt));
+	i_zero(&iter->mnt);
 	while ((ent = getmntent(iter->f)) != NULL) {
 		if (strcmp(ent->mnt_type, MNTTYPE_SWAP) == 0 ||
 		    strcmp(ent->mnt_type, MNTTYPE_IGNORE) == 0 ||

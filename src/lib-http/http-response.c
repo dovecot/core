@@ -11,7 +11,7 @@ void
 http_response_init(struct http_response *resp,
 	unsigned int status, const char *reason)
 {
-	memset(resp, 0, sizeof(*resp));
+	i_zero(resp);
 	resp->version_major = 1;
 	resp->version_minor = 1;
 	resp->date = ioloop_time;

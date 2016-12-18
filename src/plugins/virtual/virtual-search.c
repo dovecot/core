@@ -71,7 +71,7 @@ static void virtual_search_get_records(struct mail_search_context *ctx,
 	const void *data;
 	int result;
 
-	memset(&srec, 0, sizeof(srec));
+	i_zero(&srec);
 	while (index_storage_search_next_update_seq(ctx)) {
 		result = mail_search_get_result(ctx);
 		i_assert(result != 0);

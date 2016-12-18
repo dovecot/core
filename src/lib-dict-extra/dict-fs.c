@@ -43,7 +43,7 @@ fs_dict_init(struct dict *driver, const char *uri,
 		fs_args = p+1;
 	}
 
-	memset(&fs_set, 0, sizeof(fs_set));
+	i_zero(&fs_set);
 	fs_set.username = set->username;
 	fs_set.base_dir = set->base_dir;
 	if (fs_init(fs_driver, fs_args, &fs_set, &fs, error_r) < 0)

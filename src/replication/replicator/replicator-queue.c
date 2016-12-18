@@ -310,7 +310,7 @@ replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 	if (str_array_length(args) < 7)
 		return -1;
 
-	memset(&tmp_user, 0, sizeof(tmp_user));
+	i_zero(&tmp_user);
 	username = args[0];
 	state = t_strdup_noconst(args[6]);
 	if (username[0] == '\0' ||

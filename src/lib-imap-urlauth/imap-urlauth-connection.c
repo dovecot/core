@@ -360,7 +360,7 @@ imap_urlauth_request_fail(struct imap_urlauth_connection *conn,
 	callback = urlreq->callback;
 	urlreq->callback = NULL;
 	if (callback != NULL) {
-		memset(&reply, 0, sizeof(reply));
+		i_zero(&reply);
 		reply.url = urlreq->url;
 		reply.flags = urlreq->flags;
 		reply.succeeded = FALSE;
@@ -648,7 +648,7 @@ imap_urlauth_connection_read_literal(struct imap_urlauth_connection *conn)
 	i_assert(conn->literal_bytes_left == 0);
 
 	/* reply */
-	memset(&reply, 0, sizeof(reply));
+	i_zero(&reply);
 	reply.url = urlreq->url;
 	reply.flags = urlreq->flags;
 	reply.bodypartstruct = urlreq->bodypartstruct;

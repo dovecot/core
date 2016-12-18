@@ -55,7 +55,7 @@ void rfc822_parser_init(struct rfc822_parser_context *ctx,
 			const unsigned char *data, size_t size,
 			string_t *last_comment)
 {
-	memset(ctx, 0, sizeof(*ctx));
+	i_zero(ctx);
 	ctx->data = data;
 	ctx->end = data + size;
 	ctx->last_comment = last_comment;

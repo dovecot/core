@@ -419,7 +419,7 @@ tview_lookup_ext_update(struct mail_index_view_transaction *tview, uint32_t seq,
 			array_idx(&tview->view.index->extensions, ext_id);
 		struct mail_index_ext_header ext_hdr;
 
-		memset(&ext_hdr, 0, sizeof(ext_hdr));
+		i_zero(&ext_hdr);
 		ext_hdr.hdr_size = rext->hdr_size;
 		ext_hdr.record_size = ext_buf->arr.element_size - sizeof(uint32_t);
 		ext_hdr.record_align = rext->record_align;

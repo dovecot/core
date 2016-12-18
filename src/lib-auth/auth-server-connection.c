@@ -39,7 +39,7 @@ auth_server_input_mech(struct auth_server_connection *conn,
 		return -1;
 	}
 
-	memset(&mech_desc, 0, sizeof(mech_desc));
+	i_zero(&mech_desc);
 	mech_desc.name = p_strdup(conn->pool, args[0]);
 
 	if (strcmp(mech_desc.name, "PLAIN") == 0)

@@ -146,7 +146,7 @@ client_parse_input(const unsigned char *data, size_t len,
 
 	i_assert(len > 0);
 
-	memset(input_r, 0, sizeof(*input_r));
+	i_zero(input_r);
 
 	if (data[0] == '1')
 		input_r->send_untagged_capability = TRUE;
@@ -176,7 +176,7 @@ client_add_input(struct client *client, const unsigned char *client_input,
 			i_panic("Couldn't add client input to stream");
 	} else {
 		/* IMAPLOGINTAG environment is compatible with mailfront */
-		memset(&input, 0, sizeof(input));
+		i_zero(&input);
 		input.tag = getenv("IMAPLOGINTAG");
 	}
 
@@ -277,7 +277,7 @@ static void main_stdio_run(const char *username)
 	struct mail_storage_service_input input;
 	const char *value, *error, *input_base64;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = input.service = "imap";
 	input.username = username != NULL ? username : getenv("USER");
 	if (input.username == NULL && IS_STANDALONE())
@@ -312,7 +312,7 @@ login_client_connected(const struct master_login_client *login_client,
 	enum mail_auth_request_flags flags;
 	const char *error;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = input.service = "imap";
 	input.local_ip = login_client->auth_req.local_ip;
 	input.remote_ip = login_client->auth_req.remote_ip;
@@ -384,7 +384,7 @@ int main(int argc, char *argv[])
 	const char *username = NULL, *auth_socket_path = "auth-master";
 	int c;
 
-	memset(&login_set, 0, sizeof(login_set));
+	i_zero(&login_set);
 	login_set.postlogin_timeout_secs = MASTER_POSTLOGIN_TIMEOUT_DEFAULT;
 	login_set.request_auth_token = TRUE;
 

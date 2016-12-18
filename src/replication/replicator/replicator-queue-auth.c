@@ -19,7 +19,7 @@ void replicator_queue_add_auth_users(struct replicator_queue *queue,
 	auth_conn = auth_master_init(auth_socket_path,
 				     AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT);
 
-	memset(&user_info, 0, sizeof(user_info));
+	i_zero(&user_info);
 	user_info.service = REPLICATOR_AUTH_SERVICE_NAME;
 
 	/* add all users into replication queue, so that we can start doing

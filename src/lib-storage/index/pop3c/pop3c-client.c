@@ -120,7 +120,7 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 		client->set.ssl_ca_file = p_strdup(pool, set->ssl_ca_file);
 		client->set.ssl_verify = set->ssl_verify;
 
-		memset(&ssl_set, 0, sizeof(ssl_set));
+		i_zero(&ssl_set);
 		ssl_set.ca_dir = set->ssl_ca_dir;
 		ssl_set.ca_file = set->ssl_ca_file;
 		ssl_set.verify_remote_cert = set->ssl_verify;
@@ -281,7 +281,7 @@ static int pop3c_client_dns_lookup(struct pop3c_client *client)
 		client->ip = ips[0];
 		pop3c_client_connect_ip(client);
 	} else {
-		memset(&dns_set, 0, sizeof(dns_set));
+		i_zero(&dns_set);
 		dns_set.dns_client_socket_path =
 			client->set.dns_client_socket_path;
 		dns_set.timeout_msecs = POP3C_DNS_LOOKUP_TIMEOUT_MSECS;
@@ -566,7 +566,7 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 		return -1;
 	}
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
+	i_zero(&ssl_set);
 	if (client->set.ssl_verify) {
 		ssl_set.verbose_invalid_cert = TRUE;
 		ssl_set.verify_remote_cert = TRUE;
@@ -803,7 +803,7 @@ int pop3c_client_cmd_line(struct pop3c_client *client, const char *cmdline,
 {
 	struct pop3c_client_sync_cmd_ctx ctx;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	pop3c_client_cmd_line_async(client, cmdline, pop3c_client_cmd_reply, &ctx);
 	while (ctx.reply == NULL)
 		pop3c_client_wait_one(client);
@@ -875,7 +875,7 @@ int pop3c_client_cmd_stream(struct pop3c_client *client, const char *cmdline,
 		return -1;
 	}
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	*input_r = pop3c_client_cmd_stream_async(client, cmdline,
 						 pop3c_client_cmd_reply, &ctx);
 	while (ctx.reply == NULL)

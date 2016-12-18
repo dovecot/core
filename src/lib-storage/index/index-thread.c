@@ -579,7 +579,7 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 		mail_thread_deinit(&ctx);
 		return -1;
 	} else {
-		memset(&ctx->added_uids, 0, sizeof(ctx->added_uids));
+		i_zero(&ctx->added_uids);
 		*ctx_r = ctx;
 		return 0;
 	}

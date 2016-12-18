@@ -105,7 +105,7 @@ add_append_record(struct mail_transaction_log_file *file,
 	struct mail_transaction_header hdr;
 	size_t size;
 
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	hdr.type = MAIL_TRANSACTION_APPEND | MAIL_TRANSACTION_EXTERNAL;
 	hdr.size = mail_index_uint32_to_offset(sizeof(hdr) + sizeof(*rec));
 
@@ -139,7 +139,7 @@ static void test_mail_transaction_log_view(void)
 	test_transaction_log_file_add(3);
 
 	/* add an append record to the 3rd log file */
-	memset(&append_rec, 0, sizeof(append_rec));
+	i_zero(&append_rec);
 	append_rec.uid = 1;
 
 	last_log_size = sizeof(struct mail_transaction_log_header) +

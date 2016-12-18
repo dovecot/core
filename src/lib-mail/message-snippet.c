@@ -103,7 +103,7 @@ int message_snippet_generate(struct istream *input,
 	pool_t pool;
 	int ret;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	pool = pool_alloconly_create("message snippet", 1024);
 	ctx.snippet = snippet;
 	ctx.chars_left = max_snippet_chars;

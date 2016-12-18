@@ -245,7 +245,7 @@ static int select_qresync(struct imap_select_context *ctx)
 	search_args->args->value.seqset = ctx->qresync_known_uids;
 	imap_search_add_changed_since(search_args, ctx->qresync_modseq);
 
-	memset(&qresync_args, 0, sizeof(qresync_args));
+	i_zero(&qresync_args);
 	qresync_args.qresync_sample_seqset = &ctx->qresync_sample_seqset;
 	qresync_args.qresync_sample_uidset = &ctx->qresync_sample_uidset;
 

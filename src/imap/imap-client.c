@@ -54,7 +54,7 @@ static void client_init_urlauth(struct client *client)
 {
 	struct imap_urlauth_config config;
 
-	memset(&config, 0, sizeof(config));
+	i_zero(&config);
 	config.url_host = client->set->imap_urlauth_host;
 	config.url_port = client->set->imap_urlauth_port;
 	config.socket_path = t_strconcat(client->user->set->base_dir,

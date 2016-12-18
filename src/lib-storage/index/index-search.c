@@ -516,7 +516,7 @@ static void search_header_arg(struct mail_search_arg *arg,
 		return;
 	}
 
-	memset(&block, 0, sizeof(block));
+	i_zero(&block);
 
 	/* We're searching only for values, so drop header name and middle
 	   parts. We use header searching so that MIME words will be decoded. */
@@ -685,7 +685,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 	if (!have_headers && !have_body)
 		return -1;
 
-	memset(&hdr_ctx, 0, sizeof(hdr_ctx));
+	i_zero(&hdr_ctx);
 	hdr_ctx.index_ctx = ctx;
 	/* hdr_ctx.imail is different from imail for mails in
 	   virtual mailboxes */
@@ -772,7 +772,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		i_stream_seek(input, hdr_size.physical_size);
 	}
 
-	memset(&body_ctx, 0, sizeof(body_ctx));
+	i_zero(&body_ctx);
 	body_ctx.index_ctx = ctx;
 	body_ctx.input = input;
 	(void)mail_get_parts(ctx->cur_mail, &body_ctx.part);

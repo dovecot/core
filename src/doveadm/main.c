@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = set_roots;
 	input.module = "doveadm";
 	input.service = "doveadm";

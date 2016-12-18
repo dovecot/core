@@ -86,7 +86,7 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 		const char *data;
 		type = va_arg(args, int);
 
-		memset(&info, 0, sizeof(info));
+		i_zero(&info);
 		write_le16(&info.type, type);
 
 		switch (type) {
@@ -151,7 +151,7 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 
 	buf = buffer_create_dynamic(pool, sizeof(struct ntlmssp_challenge));
 
-	memset(&c, 0, sizeof(c));
+	i_zero(&c);
 	write_le64(&c.magic, NTLMSSP_MAGIC);
 	write_le32(&c.type, NTLMSSP_MSG_TYPE2);
 	write_le32(&c.flags, flags);

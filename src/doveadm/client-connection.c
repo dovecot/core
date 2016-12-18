@@ -287,7 +287,7 @@ static bool client_handle_command(struct client_connection *conn,
 		i_error("doveadm client: No command given");
 		return FALSE;
 	}
-	memset(&cctx, 0, sizeof(cctx));
+	i_zero(&cctx);
 	cctx.cli = FALSE;
 	cctx.tcp_server = TRUE;
 
@@ -461,7 +461,7 @@ static int client_connection_read_settings(struct client_connection *conn)
 	const char *error;
 	void *set;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = set_roots;
 	input.service = "doveadm";
 	input.local_ip = conn->local_ip;

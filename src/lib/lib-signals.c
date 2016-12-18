@@ -108,7 +108,7 @@ static void sig_handler(int signo)
 
 	if (si == NULL) {
 		/* Solaris can leave this to NULL */
-		memset(&tmp_si, 0, sizeof(tmp_si));
+		i_zero(&tmp_si);
 		tmp_si.si_signo = signo;
 		tmp_si.si_code = SI_NOINFO;
 		si = &tmp_si;
