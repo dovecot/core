@@ -261,6 +261,11 @@ http_client_peer_create(struct http_client *client,
 	return peer;
 }
 
+void http_client_peer_ref(struct http_client_peer *peer)
+{
+	peer->refcount++;
+}
+
 static void
 http_client_peer_disconnect(struct http_client_peer *peer)
 {
@@ -726,11 +731,6 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 		peer->to_req_handling =
 			timeout_add_short(0, http_client_peer_handle_requests, peer);
 	}
-}
-
-void http_client_peer_ref(struct http_client_peer *peer)
-{
-	peer->refcount++;
 }
 
 bool http_client_peer_unref(struct http_client_peer **_peer)
