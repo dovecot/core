@@ -21,35 +21,62 @@
 
 /* Structure:
 
-   http-client:
+   http_client_context:
+
+   Shared context between multiple independent HTTP clients. This allows host
+   name lookup data, peer status and idle connections to be shared between
+   clients.
+
+   http_client:
 
    Acts much like a browser; it is not dedicated to a single host. Client can
    accept requests to different hosts, which can be served at different IPs.
    Redirects are handled in the background by making a new connection.
    Connections to new hosts are created once needed for servicing a request.
 
-   http-client-request:
+   http_client_request:
 
    The request semantics are similar to imapc commands. Create a request,
-   optionally modify some aspects of it and finally submit it. Once finished,
+   optionally modify some aspects of it, and finally submit it. Once finished,
    a callback is called with the returned response.
 
-   http-client-host:
+   http_client_host_shared:
 
-   We maintain a 'cache' of hosts for which we have looked up IPs. One host
+   We maintain a 'cache' of hosts for which we have looked up IPs. This cache
+   is maintained in client context, so multiple clients can share it. One host
    can have multiple IPs.
 
-   http-client-queue:
+   http_client_host:
+
+   A host object maintains client-specific information for a host. The queues
+   that the client has for this host are listed here. For one host, there is a
+   separate queue for each used server port.
+
+   http_client_queue:
 
    Requests are queued in a queue object. These queues are maintained for each
    host:port target and listed in the host object. The queue object is
    responsible for starting connection attempts to TCP port at the various IPs
    known for the host.
 
-   http-client-peer:
+   http_client_peer_pool:
 
-   The peer object groups multiple connections to the same ip/port
-   (== peer_addr).
+   A peer pool lists all unused and pending connections to a peer, grouped by
+   a compatible configuration, e.g. in terms of SSL and rawlog. Once needed,
+   peers can claim/request an existing/new connection from the pool.
+
+   http_client_peer_shared:
+
+   The shared peer object records state information about a peer, which is a
+   service access point (ip:port or unix socket path). The peer object also
+   maintains lists of idle and pending connections to this service, which are
+   grouped in pools with compatible client configuration. Each client has a
+   separate (non-shared) peer object for client-specific state information.
+
+   http_client_peer:
+
+   A peer object maintains client-specific information for a peer. Claimed
+   connections are dedicated to one peer (and therefore one client).
 
    http-client-connection:
 
