@@ -276,6 +276,14 @@ http_client_peer_increase_backoff_timer(struct http_client_peer *peer)
 		peer->backoff_time_msecs = set->connect_backoff_max_time_msecs;
 }
 
+static void
+http_client_peer_reset_backoff_timer(struct http_client_peer *peer)
+{
+	peer->backoff_time_msecs = 0;
+
+	timeout_remove(&peer->to_backoff);
+}
+
 static struct http_client_peer *
 http_client_peer_create(struct http_client *client,
 			      const struct http_client_peer_addr *addr)
@@ -468,14 +476,6 @@ http_client_peer_do_connect(struct http_client_peer *peer,
 			"Making new connection %u of %u", i+1, count);
 		(void)http_client_connection_create(peer);
 	}
-}
-
-static void
-http_client_peer_reset_backoff_timer(struct http_client_peer *peer)
-{
-	peer->backoff_time_msecs = 0;
-
-	timeout_remove(&peer->to_backoff);
 }
 
 static void
