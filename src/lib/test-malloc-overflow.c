@@ -125,13 +125,4 @@ enum fatal_test_state fatal_malloc_overflow(unsigned int stage)
 	if (state != FATAL_TEST_FINISHED)
 		return state;
 	return fatal_malloc_overflow_add(&stage);
-
-	/* individual checks */
-	switch (stage) {
-	case 0:
-		if (stage == 0)
-			test_begin("MALLOC_MULTIPLY() overflows");
-		break;
-	}
-	return FATAL_TEST_FINISHED;
 }
