@@ -303,6 +303,33 @@ http_client_peer_disconnect(struct http_client_peer *peer)
 	array_clear(&peer->queues);
 }
 
+bool http_client_peer_unref(struct http_client_peer **_peer)
+{
+	struct http_client_peer *peer = *_peer;
+	struct http_client_peer_pool *ppool = peer->ppool;
+
+	i_assert(peer->refcount > 0);
+
+	*_peer = NULL;
+
+	if (--peer->refcount > 0)
+		return TRUE;
+
+	http_client_peer_debug(peer, "Peer destroy");
+
+	http_client_peer_disconnect(peer);
+	http_client_peer_pool_unref(&ppool);
+
+	i_assert(array_count(&peer->queues) == 0);
+
+	array_free(&peer->conns);
+	array_free(&peer->queues);
+	i_free(peer->addr_name);
+	i_free(peer->label);
+	i_free(peer);
+	return FALSE;
+}
+
 static void
 http_client_peer_do_connect(struct http_client_peer *peer,
 	unsigned int count)
@@ -731,33 +758,6 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 		peer->to_req_handling =
 			timeout_add_short(0, http_client_peer_handle_requests, peer);
 	}
-}
-
-bool http_client_peer_unref(struct http_client_peer **_peer)
-{
-	struct http_client_peer *peer = *_peer;
-
-	i_assert(peer->refcount > 0);
-
-	*_peer = NULL;
-
-	if (--peer->refcount > 0)
-		return TRUE;
-
-	http_client_peer_debug(peer, "Peer destroy");
-
-	http_client_peer_disconnect(peer);
-	http_client_peer_pool_unref(&peer->ppool);
-
-	i_assert(array_count(&peer->queues) == 0);
-
-	array_free(&peer->conns);
-	array_free(&peer->queues);
-	i_free(peer->addr_name);
-	i_free(peer->label);
-	i_free(peer);
-
-	return FALSE;
 }
 
 void http_client_peer_close(struct http_client_peer **_peer)
