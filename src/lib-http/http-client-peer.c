@@ -262,6 +262,43 @@ http_client_peer_create(struct http_client *client,
 }
 
 static void
+http_client_peer_disconnect(struct http_client_peer *peer)
+{
+	struct http_client_connection **conn;
+	ARRAY_TYPE(http_client_connection) conns;
+	struct http_client_queue *const *queue;
+
+	if (peer->disconnected)
+		return;
+	peer->disconnected = TRUE;
+
+	http_client_peer_debug(peer, "Peer disconnect");
+
+	/* make a copy of the connection array; freed connections modify it */
+	t_array_init(&conns, array_count(&peer->conns));
+	array_copy(&conns.arr, 0, &peer->conns.arr, 0, array_count(&peer->conns));
+	array_foreach_modifiable(&conns, conn) {
+		http_client_connection_peer_closed(conn);
+	}
+	i_assert(array_count(&peer->conns) == 0);
+
+	if (peer->to_req_handling != NULL)
+		timeout_remove(&peer->to_req_handling);
+	if (peer->to_backoff != NULL)
+		timeout_remove(&peer->to_backoff);
+
+	/* unlist in client */
+	hash_table_remove
+		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);
+	DLLIST_REMOVE(&peer->client->peers_list, peer);
+
+	/* unlink all queues */
+	array_foreach(&peer->queues, queue)
+		http_client_queue_peer_disconnected(*queue, peer);
+	array_clear(&peer->queues);
+}
+
+static void
 http_client_peer_do_connect(struct http_client_peer *peer,
 	unsigned int count)
 {
@@ -689,43 +726,6 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 		peer->to_req_handling =
 			timeout_add_short(0, http_client_peer_handle_requests, peer);
 	}
-}
-
-static void
-http_client_peer_disconnect(struct http_client_peer *peer)
-{
-	struct http_client_connection **conn;
-	ARRAY_TYPE(http_client_connection) conns;
-	struct http_client_queue *const *queue;
-
-	if (peer->disconnected)
-		return;
-	peer->disconnected = TRUE;
-
-	http_client_peer_debug(peer, "Peer disconnect");
-
-	/* make a copy of the connection array; freed connections modify it */
-	t_array_init(&conns, array_count(&peer->conns));
-	array_copy(&conns.arr, 0, &peer->conns.arr, 0, array_count(&peer->conns));
-	array_foreach_modifiable(&conns, conn) {
-		http_client_connection_peer_closed(conn);
-	}
-	i_assert(array_count(&peer->conns) == 0);
-
-	if (peer->to_req_handling != NULL)
-		timeout_remove(&peer->to_req_handling);
-	if (peer->to_backoff != NULL)
-		timeout_remove(&peer->to_backoff);
-
-	/* unlist in client */
-	hash_table_remove
-		(peer->client->peers, (const struct http_client_peer_addr *)&peer->addr);
-	DLLIST_REMOVE(&peer->client->peers_list, peer);
-
-	/* unlink all queues */
-	array_foreach(&peer->queues, queue)
-		http_client_queue_peer_disconnected(*queue, peer);
-	array_clear(&peer->queues);
 }
 
 void http_client_peer_ref(struct http_client_peer *peer)
