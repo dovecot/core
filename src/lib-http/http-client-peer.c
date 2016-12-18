@@ -197,8 +197,8 @@ void http_client_peer_pool_unref(struct http_client_peer_pool **_ppool)
  * Peer
  */
 
-static void
-http_client_peer_drop(struct http_client_peer **_peer);
+static bool
+http_client_peer_start_backoff_timer(struct http_client_peer *peer);
 
 const char *
 http_client_peer_label(struct http_client_peer *peer)
@@ -339,6 +339,36 @@ void http_client_peer_close(struct http_client_peer **_peer)
 	http_client_peer_disconnect(peer);
 
 	(void)http_client_peer_unref(_peer);
+}
+
+static void http_client_peer_drop(struct http_client_peer **_peer)
+{
+	struct http_client_peer *peer = *_peer;
+	unsigned int conns_active =
+		http_client_peer_active_connections(peer);
+
+	if (conns_active > 0) {
+		http_client_peer_debug(peer,
+			"Not dropping peer (%d connections active)",
+			conns_active);
+		return;
+	}
+
+	if (peer->to_backoff != NULL)
+		return;
+
+	if (http_client_peer_start_backoff_timer(peer)) {
+		http_client_peer_debug(peer,
+			"Dropping peer (waiting for backof timeout)");
+
+		/* will disconnect any pending connections */
+		http_client_peer_trigger_request_handler(peer);
+	} else {
+		http_client_peer_debug(peer,
+			"Dropping peer now");
+		/* drop peer immediately */
+		http_client_peer_close(_peer);
+	}
 }
 
 static void
@@ -768,36 +798,6 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 	if (peer->to_req_handling == NULL) {
 		peer->to_req_handling =
 			timeout_add_short(0, http_client_peer_handle_requests, peer);
-	}
-}
-
-static void http_client_peer_drop(struct http_client_peer **_peer)
-{
-	struct http_client_peer *peer = *_peer;
-	unsigned int conns_active =
-		http_client_peer_active_connections(peer);
-
-	if (conns_active > 0) {
-		http_client_peer_debug(peer,
-			"Not dropping peer (%d connections active)",
-			conns_active);
-		return;
-	}
-
-	if (peer->to_backoff != NULL)
-		return;
-
-	if (http_client_peer_start_backoff_timer(peer)) {
-		http_client_peer_debug(peer,
-			"Dropping peer (waiting for backof timeout)");
-
-		/* will disconnect any pending connections */
-		http_client_peer_trigger_request_handler(peer);
-	} else {
-		http_client_peer_debug(peer,
-			"Dropping peer now");
-		/* drop peer immediately */
-		http_client_peer_close(_peer);
 	}
 }
 
