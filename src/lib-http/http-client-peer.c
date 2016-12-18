@@ -330,6 +330,17 @@ bool http_client_peer_unref(struct http_client_peer **_peer)
 	return FALSE;
 }
 
+void http_client_peer_close(struct http_client_peer **_peer)
+{
+	struct http_client_peer *peer = *_peer;
+
+	http_client_peer_debug(peer, "Peer close");
+
+	http_client_peer_disconnect(peer);
+
+	(void)http_client_peer_unref(_peer);
+}
+
 static void
 http_client_peer_do_connect(struct http_client_peer *peer,
 	unsigned int count)
@@ -758,17 +769,6 @@ void http_client_peer_trigger_request_handler(struct http_client_peer *peer)
 		peer->to_req_handling =
 			timeout_add_short(0, http_client_peer_handle_requests, peer);
 	}
-}
-
-void http_client_peer_close(struct http_client_peer **_peer)
-{
-	struct http_client_peer *peer = *_peer;
-
-	http_client_peer_debug(peer, "Peer close");
-
-	http_client_peer_disconnect(peer);
-
-	(void)http_client_peer_unref(_peer);
 }
 
 static void http_client_peer_drop(struct http_client_peer **_peer)
