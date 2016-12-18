@@ -199,6 +199,9 @@ void http_client_peer_pool_unref(struct http_client_peer_pool **_ppool)
 
 static bool
 http_client_peer_start_backoff_timer(struct http_client_peer *peer);
+static void
+http_client_peer_do_connect(struct http_client_peer *peer,
+	unsigned int count);
 
 const char *
 http_client_peer_label(struct http_client_peer *peer)
@@ -215,6 +218,24 @@ http_client_peer_label(struct http_client_peer *peer)
 		}
 	}
 	return peer->label;
+}
+
+static void
+http_client_peer_connect_backoff(struct http_client_peer *peer)
+{
+	i_assert(peer->to_backoff != NULL);
+
+	http_client_peer_debug(peer,
+		"Backoff timer expired");
+
+	timeout_remove(&peer->to_backoff);
+
+	if (array_count(&peer->queues) == 0) {
+		http_client_peer_close(&peer);
+		return;
+	}
+
+	http_client_peer_do_connect(peer, 1);
 }
 
 static struct http_client_peer *
@@ -409,24 +430,6 @@ http_client_peer_do_connect(struct http_client_peer *peer,
 			"Making new connection %u of %u", i+1, count);
 		(void)http_client_connection_create(peer);
 	}
-}
-
-static void
-http_client_peer_connect_backoff(struct http_client_peer *peer)
-{
-	i_assert(peer->to_backoff != NULL);
-
-	http_client_peer_debug(peer,
-		"Backoff timer expired");
-
-	timeout_remove(&peer->to_backoff);
-
-	if (array_count(&peer->queues) == 0) {
-		http_client_peer_close(&peer);
-		return;
-	}
-
-	http_client_peer_do_connect(peer, 1);
 }
 
 static bool
