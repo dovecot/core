@@ -197,8 +197,6 @@ void http_client_peer_pool_unref(struct http_client_peer_pool **_ppool)
  * Peer
  */
 
-static bool
-http_client_peer_start_backoff_timer(struct http_client_peer *peer);
 static void
 http_client_peer_do_connect(struct http_client_peer *peer,
 	unsigned int count);
@@ -236,6 +234,33 @@ http_client_peer_connect_backoff(struct http_client_peer *peer)
 	}
 
 	http_client_peer_do_connect(peer, 1);
+}
+
+static bool
+http_client_peer_start_backoff_timer(struct http_client_peer *peer)
+{
+	if (peer->to_backoff != NULL)
+		return TRUE;
+
+	if (peer->last_failure.tv_sec > 0) {
+		int backoff_time_spent =
+			timeval_diff_msecs(&ioloop_timeval, &peer->last_failure);
+
+		if (backoff_time_spent < (int)peer->backoff_time_msecs) {
+			http_client_peer_debug(peer,
+				"Starting backoff timer for %d msecs",
+				peer->backoff_time_msecs - backoff_time_spent);
+			peer->to_backoff = timeout_add
+				((unsigned int)(peer->backoff_time_msecs - backoff_time_spent),
+					http_client_peer_connect_backoff, peer);
+			return TRUE;
+		}
+
+		http_client_peer_debug(peer,
+			"Backoff time already exceeded by %d msecs",
+			backoff_time_spent - peer->backoff_time_msecs);
+	}
+	return FALSE;
 }
 
 static struct http_client_peer *
@@ -430,33 +455,6 @@ http_client_peer_do_connect(struct http_client_peer *peer,
 			"Making new connection %u of %u", i+1, count);
 		(void)http_client_connection_create(peer);
 	}
-}
-
-static bool
-http_client_peer_start_backoff_timer(struct http_client_peer *peer)
-{
-	if (peer->to_backoff != NULL)
-		return TRUE;
-
-	if (peer->last_failure.tv_sec > 0) {
-		int backoff_time_spent =
-			timeval_diff_msecs(&ioloop_timeval, &peer->last_failure);
-
-		if (backoff_time_spent < (int)peer->backoff_time_msecs) {
-			http_client_peer_debug(peer,
-				"Starting backoff timer for %d msecs",
-				peer->backoff_time_msecs - backoff_time_spent);
-			peer->to_backoff = timeout_add
-				((unsigned int)(peer->backoff_time_msecs - backoff_time_spent),
-					http_client_peer_connect_backoff, peer);
-			return TRUE;
-		}
-
-		http_client_peer_debug(peer,
-			"Backoff time already exceeded by %d msecs",
-			backoff_time_spent - peer->backoff_time_msecs);
-	}
-	return FALSE;
 }
 
 static void
