@@ -845,7 +845,7 @@ int mail_get_first_header(struct mail *mail, const char *field,
 int mail_get_first_header_utf8(struct mail *mail, const char *field,
 			       const char **value_r);
 /* Return a NULL-terminated list of values for each found field.
-   Returns -1 if error, 0 otherwise (with or without headers found). */
+   Returns 1 if headers were found, 0 if not (value_r==NULL) or -1 if error. */
 int mail_get_headers(struct mail *mail, const char *field,
 		     const char *const **value_r);
 /* Like mail_get_headers(), but decode MIME encoded words to UTF-8.
