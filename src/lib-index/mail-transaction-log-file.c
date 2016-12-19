@@ -950,7 +950,8 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
 		}
 
 		/* ESTALE - try again */
-		buffer_free(&file->buffer);
+		if (file->buffer != NULL)
+			buffer_free(&file->buffer);
         }
 
 	mail_transaction_log_file_add_to_list(file);
