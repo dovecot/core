@@ -786,7 +786,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	file->fd = new_fd;
 	ret = mail_transaction_log_file_stat(file, FALSE);
 
-	if (need_lock) {
+	if (need_lock && ret == 0) {
 		/* we'll need to preserve the lock */
 		if (mail_transaction_log_file_lock(file) < 0)
 			ret = -1;
@@ -821,8 +821,12 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	}
 
 	if (file_dotlock_replace(dotlock,
-				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) <= 0)
+				 DOTLOCK_REPLACE_FLAG_DONT_CLOSE_FD) <= 0) {
+		/* need to unlock to avoid assert-crash in
+		   mail_transaction_log_file_free() */
+		mail_transaction_log_file_unlock(file, "creation failed");
 		return -1;
+	}
 
 	/* success */
 	file->fd = new_fd;
