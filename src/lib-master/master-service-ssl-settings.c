@@ -46,7 +46,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_key = "",
 	.ssl_key_password = "",
 	.ssl_dh = "",
-	.ssl_cipher_list = "ALL:!LOW:!SSLv2:!EXP:!aNULL",
+	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
 	.ssl_curve_list = "",
 #ifdef SSL_TXT_SSLV2
 	.ssl_protocols = "!SSLv2 !SSLv3",
