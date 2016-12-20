@@ -72,7 +72,7 @@ static int client_input_status_overview(struct doveadm_connection *client)
 		    waiting_failed_count);
 	str_printfa(str, "Total number of known users\t%u\n", user_count);
 	str_append_c(str, '\n');
-	o_stream_send(client->conn.output, str_data(str), str_len(str));
+	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 	return 0;
 }
 
@@ -103,10 +103,10 @@ client_input_status(struct doveadm_connection *client, const char *const *args)
 			    (long long)user->last_full_sync,
 			    user->last_sync_failed ? 1 : 0,
 			    (long long)user->last_successful_sync);
-		o_stream_send(client->conn.output, str_data(str), str_len(str));
+		o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 	}
 	replicator_queue_iter_deinit(&iter);
-	o_stream_send(client->conn.output, "\n", 1);
+	o_stream_nsend(client->conn.output, "\n", 1);
 	return 0;
 }
 
@@ -144,7 +144,7 @@ client_input_status_dsyncs(struct doveadm_connection *client)
 	}
 
 	str_append_c(str, '\n');
-	o_stream_send(client->conn.output, str_data(str), str_len(str));
+	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 	return 0;
 }
 
@@ -166,7 +166,7 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 		return -1;
 	}
 	if (replication_priority_parse(args[0], &priority) < 0) {
-		o_stream_send_str(client->conn.output, "-Invalid priority\n");
+		o_stream_nsend_str(client->conn.output, "-Invalid priority\n");
 		return 0;
 	}
 	full = strchr(args[1], 'f') != NULL;
@@ -175,7 +175,7 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 		user = replicator_queue_add(queue, usermask, priority);
 		if (full)
 			user->force_full_sync = TRUE;
-		o_stream_send_str(client->conn.output, "+1\n");
+		o_stream_nsend_str(client->conn.output, "+1\n");
 		return 0;
 	}
 
@@ -190,7 +190,7 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 		match_count++;
 	}
 	replicator_queue_iter_deinit(&iter);
-	o_stream_send_str(client->conn.output,
+	o_stream_nsend_str(client->conn.output,
 			  t_strdup_printf("+%u\n", match_count));
 	return 0;
 }
@@ -216,7 +216,7 @@ client_input_add(struct doveadm_connection *client, const char *const *args)
 		replicator_queue_add_auth_users(queue, set->auth_socket_path,
 						args[0], ioloop_time);
 	}
-	o_stream_send_str(client->conn.output, "+\n");
+	o_stream_nsend_str(client->conn.output, "+\n");
 	return 0;
 }
 
@@ -234,10 +234,10 @@ client_input_remove(struct doveadm_connection *client, const char *const *args)
 	}
 	user = replicator_queue_lookup(queue, args[0]);
 	if (user == NULL)
-		o_stream_send_str(client->conn.output, "-User not found\n");
+		o_stream_nsend_str(client->conn.output, "-User not found\n");
 	else {
 		replicator_queue_remove(queue, &user);
-		o_stream_send_str(client->conn.output, "+\n");
+		o_stream_nsend_str(client->conn.output, "+\n");
 	}
 	return 0;
 }
@@ -265,7 +265,7 @@ client_input_notify(struct doveadm_connection *client, const char *const *args)
 		i_free(user->state);
 		user->state = i_strdup(args[2]);
 	}
-	o_stream_send_str(client->conn.output, "+\n");
+	o_stream_nsend_str(client->conn.output, "+\n");
 	return 0;
 }
 
