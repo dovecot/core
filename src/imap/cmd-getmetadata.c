@@ -143,7 +143,7 @@ cmd_getmetadata_send_nil_reply(struct imap_getmetadata_context *ctx,
 	   we must return it as NIL. */
 	str = metadata_add_entry(ctx, entry);
 	str_append(str, " NIL");
-	o_stream_send(ctx->cmd->client->output, str_data(str), str_len(str));
+	o_stream_nsend(ctx->cmd->client->output, str_data(str), str_len(str));
 }
 
 static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
