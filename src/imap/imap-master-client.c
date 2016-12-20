@@ -201,14 +201,14 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	if (imap_master_client_parse_input(args, pool, &input, &master_input,
 					   &error) < 0) {
 		i_error("imap-master: Failed to parse client input: %s", error);
-		o_stream_send_str(conn->output, t_strdup_printf(
+		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"-Failed to parse client input: %s\n", error));
 		i_close_fd(&fd_client);
 		return -1;
 	}
 	if (imap_master_client_verify(&master_input, fd_client, &error) < 0) {
 		i_error("imap-master: Failed to verify client input: %s", error);
-		o_stream_send_str(conn->output, t_strdup_printf(
+		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"-Failed to verify client input: %s\n", error));
 		i_close_fd(&fd_client);
 		return -1;
@@ -216,7 +216,7 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	/* Send a success notification before we start anything that lasts
 	   potentially a long time. imap-hibernate process is waiting for us
 	   to answer. Even if we fail later, we log the error anyway. */
-	o_stream_send_str(conn->output, "+\n");
+	o_stream_nsend_str(conn->output, "+\n");
 
 	/* NOTE: before client_create_from_input() on failures we need to close
 	   fd_client, but afterward it gets closed by client_destroy() */

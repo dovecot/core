@@ -133,7 +133,7 @@ imap_orderedsubject_thread_write(struct ostream *output, string_t *reply,
 	unsigned int i, count;
 
 	if (str_len(reply) > 128-10) {
-		o_stream_send(output, str_data(reply), str_len(reply));
+		o_stream_nsend(output, str_data(reply), str_len(reply));
 		str_truncate(reply, 0);
 	}
 
@@ -150,8 +150,8 @@ imap_orderedsubject_thread_write(struct ostream *output, string_t *reply,
 		str_printfa(reply, "(%u ", msgs[0]);
 		for (i = 1; i < count; i++) {
 			if (str_len(reply) > 128-10) {
-				o_stream_send(output, str_data(reply),
-					      str_len(reply));
+				o_stream_nsend(output, str_data(reply),
+					       str_len(reply));
 				str_truncate(reply, 0);
 			}
 			str_printfa(reply, "(%u)", msgs[i]);
@@ -239,7 +239,7 @@ static int imap_thread_orderedsubject(struct client_command_context *cmd,
 						 reply, thread);
 	}
 	str_append(reply, "\r\n");
-	o_stream_send(cmd->client->output, str_data(reply), str_len(reply));
+	o_stream_nsend(cmd->client->output, str_data(reply), str_len(reply));
 
 	array_free(&threads);
 	pool_unref(&pool);
