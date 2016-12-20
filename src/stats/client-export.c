@@ -111,7 +111,7 @@ client_export_stats_headers(struct client *client)
 		str_append(str, stats_field_name(i));
 	}
 	str_append_c(str, '\n');
-	o_stream_send(client->output, str_data(str), str_len(str));
+	o_stream_nsend(client->output, str_data(str), str_len(str));
 }
 
 static void
