@@ -15,12 +15,10 @@ struct dsasl_client_mech {
 	size_t struct_size;
 
 	int (*input)(struct dsasl_client *client,
-		     const unsigned char *input,
-		     unsigned int input_len,
+		     const unsigned char *input, size_t input_len,
 		     const char **error_r);
 	int (*output)(struct dsasl_client *client,
-		      const unsigned char **output_r,
-		      unsigned int *output_len_r,
+		      const unsigned char **output_r, size_t *output_len_r,
 		      const char **error_r);
 	void (*free)(struct dsasl_client *client);
 };

@@ -10,7 +10,7 @@ struct external_dsasl_client {
 
 static int
 mech_external_input(struct dsasl_client *_client,
-		    const unsigned char *input ATTR_UNUSED, unsigned int input_len,
+		    const unsigned char *input ATTR_UNUSED, size_t input_len,
 		    const char **error_r)
 {
 	struct external_dsasl_client *client =
@@ -30,7 +30,7 @@ mech_external_input(struct dsasl_client *_client,
 
 static int
 mech_external_output(struct dsasl_client *_client,
-		     const unsigned char **output_r, unsigned int *output_len_r,
+		     const unsigned char **output_r, size_t *output_len_r,
 		     const char **error_r ATTR_UNUSED)
 {
 	struct external_dsasl_client *client =

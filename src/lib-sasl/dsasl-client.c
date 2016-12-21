@@ -83,16 +83,14 @@ void dsasl_client_free(struct dsasl_client **_client)
 }
 
 int dsasl_client_input(struct dsasl_client *client,
-		       const unsigned char *input,
-		       unsigned int input_len,
+		       const unsigned char *input, size_t input_len,
 		       const char **error_r)
 {
 	return client->mech->input(client, input, input_len, error_r);
 }
 
 int dsasl_client_output(struct dsasl_client *client,
-			const unsigned char **output_r,
-			unsigned int *output_len_r,
+			const unsigned char **output_r, size_t *output_len_r,
 			const char **error_r)
 {
 	return client->mech->output(client, output_r, output_len_r, error_r);

@@ -18,7 +18,7 @@ struct login_dsasl_client {
 static int
 mech_login_input(struct dsasl_client *_client,
 		 const unsigned char *input ATTR_UNUSED,
-		 unsigned int input_len ATTR_UNUSED,
+		 size_t input_len ATTR_UNUSED,
 		 const char **error_r)
 {
 	struct login_dsasl_client *client =
@@ -34,7 +34,7 @@ mech_login_input(struct dsasl_client *_client,
 
 static int
 mech_login_output(struct dsasl_client *_client,
-		  const unsigned char **output_r, unsigned int *output_len_r,
+		  const unsigned char **output_r, size_t *output_len_r,
 		  const char **error_r)
 {
 	struct login_dsasl_client *client =
