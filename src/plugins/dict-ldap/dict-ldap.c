@@ -186,8 +186,11 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 	for(size_t i = 0; i < array_count(values) && i < array_count(&(map->ldap_attributes)); i++) {
 		struct var_expand_table entry;
-		entry.value = *array_idx(values, i);
-		entry.long_key = *array_idx(&(map->ldap_attributes), i);
+		const char *const *valuep = array_idx(values, i);
+		const char *const *long_keyp = array_idx(&(map->ldap_attributes), i);
+
+		entry.value = *valuep;
+		entry.long_key = *long_keyp;
 		array_append(&exp, &entry, 1);
 	}
 
