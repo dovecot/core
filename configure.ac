@@ -2742,6 +2742,11 @@ if test "$want_lz4" != "no"; then
 	AC_ERROR([Can't build with lz4 support: liblz4 not found])
       fi
     ])
+    AC_CHECK_LIB(lz4, LZ4_compress_default, [
+      AC_DEFINE(HAVE_LZ4_COMPRESS_DEFAULT,,
+	[Define if you have LZ4_compress_default])
+    ], [
+    ])
   ], [
     if test "$want_lz4" = "yes"; then
       AC_ERROR([Can't build with lz4 support: lz4.h not found])
