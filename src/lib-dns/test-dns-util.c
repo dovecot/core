@@ -106,7 +106,8 @@ static void test_dns_sort(void)
 	array_sort(&arr, arr_dns_compare);
 
 	for(size_t i = 0; i < N_ELEMENTS(output); i++) {
-		test_assert_idx(dns_compare(*array_idx(&arr, i), output[i]) == 0, i);
+		const char *const *strp = array_idx(&arr, i);
+		test_assert_idx(dns_compare(*strp, output[i]) == 0, i);
 	}
 
 	test_end();
