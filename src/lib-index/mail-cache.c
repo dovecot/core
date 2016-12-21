@@ -777,9 +777,13 @@ int mail_cache_append(struct mail_cache *cache, const void *data, size_t size,
 				mail_cache_set_syscall_error(cache, "fstat()");
 			return -1;
 		}
+		if (st.st_size > (uint32_t)-1) {
+			mail_cache_set_corrupted(cache, "Cache file too large");
+			return -1;
+		}
 		*offset = st.st_size;
 	}
-	if (*offset > (uint32_t)-1 || (uint32_t)-1 - *offset < size) {
+	if ((uint32_t)-1 - *offset < size) {
 		mail_cache_set_corrupted(cache, "Cache file too large");
 		return -1;
 	}
