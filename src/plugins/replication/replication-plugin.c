@@ -126,6 +126,7 @@ static int replication_notify_sync(struct mail_user *user)
 	char buf[1024];
 	int fd;
 	ssize_t ret;
+	bool success = FALSE;
 
 	fd = net_connect_unix(ruser->socket_path);
 	if (fd == -1) {
@@ -141,7 +142,6 @@ static int replication_notify_sync(struct mail_user *user)
 	alarm(ruser->sync_secs);
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
 		i_error("write(%s) failed: %m", ruser->socket_path);
-		ret = -1;
 	} else {
 		/* + | - */
 		ret = read(fd, buf, sizeof(buf));
@@ -156,17 +156,14 @@ static int replication_notify_sync(struct mail_user *user)
 			}
 		} else if (ret == 0) {
 			i_error("read(%s) failed: EOF", ruser->socket_path);
-			ret = -1;
 		} else if (buf[0] == '+') {
 			/* success */
-			ret = 0;
+			success = TRUE;
 		} else if (buf[0] == '-') {
 			/* failure */
 			if (buf[ret-1] == '\n') ret--;
 			i_warning("replication(%s): Sync failure: %s",
 				  user->username, t_strndup(buf+1, ret-1));
-			ret = -1;
-		} else {
 			i_warning("replication(%s): "
 				  "Remote sent invalid input: %s",
 				  user->username, t_strndup(buf, ret));
@@ -175,7 +172,7 @@ static int replication_notify_sync(struct mail_user *user)
 	alarm(0);
 	if (close(fd) < 0)
 		i_error("close(%s) failed: %m", ruser->socket_path);
-	return ret;
+	return success ? 0 : -1;
 }
 
 static void replication_notify(struct mail_namespace *ns,
