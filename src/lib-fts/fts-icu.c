@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "mempool.h"
-#include "buffer.h"
+#include "array.h"
 #include "str.h"
 #include "unichar.h"
 #include "fts-icu.h"
@@ -27,8 +27,10 @@ static struct UCaseMap *fts_icu_csm(void)
 	return icu_csm;
 }
 
-void fts_icu_utf8_to_utf16(buffer_t *dest_utf16, const char *src_utf8)
+void fts_icu_utf8_to_utf16(ARRAY_TYPE(icu_utf16) *dest_utf16,
+			   const char *src_utf8)
 {
+	buffer_t *dest_buf = dest_utf16->arr.buffer;
 	UErrorCode err = U_ZERO_ERROR;
 	size_t src_bytes = strlen(src_utf8);
 	int32_t utf16_len;
@@ -36,14 +38,14 @@ void fts_icu_utf8_to_utf16(buffer_t *dest_utf16, const char *src_utf8)
 	int32_t avail_uchars = 0;
 
 	/* try to encode with the current buffer size */
-	avail_uchars = buffer_get_writable_size(dest_utf16) / sizeof(UChar);
-	dest_data = buffer_get_space_unsafe(dest_utf16, 0,
-				buffer_get_writable_size(dest_utf16));
+	avail_uchars = buffer_get_writable_size(dest_buf) / sizeof(UChar);
+	dest_data = buffer_get_space_unsafe(dest_buf, 0,
+				buffer_get_writable_size(dest_buf));
 	retp = u_strFromUTF8Lenient(dest_data, avail_uchars,
 				    &utf16_len, src_utf8, src_bytes, &err);
 	if (err == U_BUFFER_OVERFLOW_ERROR) {
 		/* try again with a larger buffer */
-		dest_data = buffer_get_space_unsafe(dest_utf16, 0,
+		dest_data = buffer_get_space_unsafe(dest_buf, 0,
 						    utf16_len * sizeof(UChar));
 		err = U_ZERO_ERROR;
 		retp = u_strFromUTF8Lenient(dest_data, utf16_len,
@@ -54,7 +56,7 @@ void fts_icu_utf8_to_utf16(buffer_t *dest_utf16, const char *src_utf8)
 		i_panic("LibICU u_strFromUTF8Lenient() failed: %s",
 			u_errorName(err));
 	}
-	buffer_set_used_size(dest_utf16, utf16_len * sizeof(UChar));
+	buffer_set_used_size(dest_buf, utf16_len * sizeof(UChar));
 	i_assert(retp == dest_data);
 }
 
@@ -89,23 +91,24 @@ void fts_icu_utf16_to_utf8(string_t *dest_utf8, const UChar *src_utf16,
 	i_assert(retp == dest_data);
 }
 
-int fts_icu_translate(buffer_t *dest_utf16, const UChar *src_utf16,
+int fts_icu_translate(ARRAY_TYPE(icu_utf16) *dest_utf16, const UChar *src_utf16,
 		      unsigned int src_len, UTransliterator *transliterator,
 		      const char **error_r)
 {
+	buffer_t *dest_buf = dest_utf16->arr.buffer;
 	UErrorCode err = U_ZERO_ERROR;
 	int32_t utf16_len = src_len;
 	UChar *dest_data;
 	int32_t avail_uchars, limit = src_len;
-	size_t dest_pos = dest_utf16->used;
+	size_t dest_pos = dest_buf->used;
 
 	/* translation is done in-place in the buffer. try first with the
 	   current buffer size. */
-	buffer_append(dest_utf16, src_utf16, src_len*sizeof(UChar));
+	array_append(dest_utf16, src_utf16, src_len);
 
-	avail_uchars = (buffer_get_writable_size(dest_utf16)-dest_pos) / sizeof(UChar);
-	dest_data = buffer_get_space_unsafe(dest_utf16, dest_pos,
-				buffer_get_writable_size(dest_utf16)-dest_pos);
+	avail_uchars = (buffer_get_writable_size(dest_buf)-dest_pos) / sizeof(UChar);
+	dest_data = buffer_get_space_unsafe(dest_buf, dest_pos,
+			buffer_get_writable_size(dest_buf) - dest_pos);
 	utrans_transUChars(transliterator, dest_data, &utf16_len,
 			   avail_uchars, 0, &limit, &err);
 	if (err == U_BUFFER_OVERFLOW_ERROR) {
@@ -113,9 +116,9 @@ int fts_icu_translate(buffer_t *dest_utf16, const UChar *src_utf16,
 		err = U_ZERO_ERROR;
 		avail_uchars = utf16_len;
 		limit = utf16_len = src_len;
-		buffer_write(dest_utf16, dest_pos,
+		buffer_write(dest_buf, dest_pos,
 			     src_utf16, src_len*sizeof(UChar));
-		dest_data = buffer_get_space_unsafe(dest_utf16, dest_pos,
+		dest_data = buffer_get_space_unsafe(dest_buf, dest_pos,
 						    avail_uchars * sizeof(UChar));
 		utrans_transUChars(transliterator, dest_data, &utf16_len,
 				   avail_uchars, 0, &limit, &err);
@@ -124,10 +127,10 @@ int fts_icu_translate(buffer_t *dest_utf16, const UChar *src_utf16,
 	if (U_FAILURE(err)) {
 		*error_r = t_strdup_printf("LibICU utrans_transUChars() failed: %s",
 					   u_errorName(err));
-		buffer_set_used_size(dest_utf16, dest_pos);
+		buffer_set_used_size(dest_buf, dest_pos);
 		return -1;
 	}
-	buffer_set_used_size(dest_utf16, utf16_len * sizeof(UChar));
+	buffer_set_used_size(dest_buf, utf16_len * sizeof(UChar));
 	return 0;
 }
 
@@ -173,14 +176,13 @@ int fts_icu_transliterator_create(const char *id,
 {
 	UErrorCode err = U_ZERO_ERROR;
 	UParseError perr;
-	buffer_t *id_utf16_buf = buffer_create_dynamic(pool_datastack_create(), 2 * strlen(id));
-	UChar *id_utf16;
+	ARRAY_TYPE(icu_utf16) id_utf16;
 	memset(&perr, 0, sizeof(perr));
 
-	fts_icu_utf8_to_utf16(id_utf16_buf, id);
-	id_utf16 = (UChar *)str_c(id_utf16_buf);
-	*transliterator_r = utrans_openU(id_utf16,
-	                                id_utf16_buf->used / sizeof(UChar),
+	t_array_init(&id_utf16, strlen(id));
+	fts_icu_utf8_to_utf16(&id_utf16, id);
+	*transliterator_r = utrans_openU(array_idx(&id_utf16, 0),
+	                                array_count(&id_utf16),
 					UTRANS_FORWARD, NULL, 0, &perr, &err);
 	if (U_FAILURE(err)) {
 		string_t *str = t_str_new(128);

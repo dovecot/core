@@ -1,7 +1,7 @@
 /* Copyright (c) 2015-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "str.h"
 #include "unichar.h"
 #include "test-common.h"
@@ -11,35 +11,36 @@
 
 static void test_fts_icu_utf8_to_utf16_ascii_resize(void)
 {
-	buffer_t *dest = buffer_create_dynamic(pool_datastack_create(), 4);
+	ARRAY_TYPE(icu_utf16) dest;
 
 	test_begin("fts_icu_utf8_to_utf16 ascii resize");
-	test_assert(buffer_get_writable_size(dest) == 4);
-	fts_icu_utf8_to_utf16(dest, "12");
-	test_assert(dest->used == 4);
-	test_assert(buffer_get_writable_size(dest) == 4);
+	t_array_init(&dest, 2);
+	test_assert(buffer_get_writable_size(dest.arr.buffer) == 4);
+	fts_icu_utf8_to_utf16(&dest, "12");
+	test_assert(array_count(&dest) == 2);
+	test_assert(buffer_get_writable_size(dest.arr.buffer) == 4);
 
-	fts_icu_utf8_to_utf16(dest, "123");
-	test_assert(dest->used == 6);
-	test_assert(buffer_get_writable_size(dest) == 7);
+	fts_icu_utf8_to_utf16(&dest, "123");
+	test_assert(array_count(&dest) == 3);
+	test_assert(buffer_get_writable_size(dest.arr.buffer) == 7);
 
-	fts_icu_utf8_to_utf16(dest, "12345");
-	test_assert(dest->used == 10);
+	fts_icu_utf8_to_utf16(&dest, "12345");
+	test_assert(array_count(&dest) == 5);
 
 	test_end();
 }
 
 static void test_fts_icu_utf8_to_utf16_32bit_resize(void)
 {
-	buffer_t *dest;
+	ARRAY_TYPE(icu_utf16) dest;
 	unsigned int i;
 
 	test_begin("fts_icu_utf8_to_utf16 32bit resize");
-	for (i = 2; i <= 5; i++) {
-		dest = buffer_create_dynamic(pool_datastack_create(), i);
-		test_assert(buffer_get_writable_size(dest) == i);
-		fts_icu_utf8_to_utf16(dest, "\xF0\x90\x90\x80"); /* 0x10400 */
-		test_assert(dest->used == 4);
+	for (i = 1; i <= 2; i++) {
+		t_array_init(&dest, i);
+		test_assert(buffer_get_writable_size(dest.arr.buffer) == i*2);
+		fts_icu_utf8_to_utf16(&dest, "\xF0\x90\x90\x80"); /* 0x10400 */
+		test_assert(array_count(&dest) == 2);
 	}
 
 	test_end();
@@ -80,13 +81,13 @@ static void test_fts_icu_utf16_to_utf8_resize(void)
 static UTransliterator *get_translit(const char *id)
 {
 	UTransliterator *translit;
-	buffer_t *id_utf16;
+	ARRAY_TYPE(icu_utf16) id_utf16;
 	UErrorCode err = U_ZERO_ERROR;
 	UParseError perr;
 
-	id_utf16 = buffer_create_dynamic(pool_datastack_create(), 16);
-	fts_icu_utf8_to_utf16(id_utf16, id);
-	translit = utrans_openU(id_utf16->data, id_utf16->used/sizeof(UChar),
+	t_array_init(&id_utf16, 8);
+	fts_icu_utf8_to_utf16(&id_utf16, id);
+	translit = utrans_openU(array_idx(&id_utf16, 0), array_count(&id_utf16),
 				UTRANS_FORWARD, NULL, 0, &perr, &err);
 	test_assert(!U_FAILURE(err));
 	return translit;
@@ -96,18 +97,19 @@ static void test_fts_icu_translate(void)
 {
 	const char *translit_id = "Any-Lower";
 	UTransliterator *translit;
-	buffer_t *dest = buffer_create_dynamic(pool_datastack_create(), 64);
+	ARRAY_TYPE(icu_utf16) dest;
 	const UChar src[] = { 0xbd, 'B', 'C' };
 	const char *error;
 	unsigned int i;
 
 	test_begin("fts_icu_translate");
+	t_array_init(&dest, 32);
 	translit = get_translit(translit_id);
 	for (i = N_ELEMENTS(src); i > 0; i--) {
-		buffer_set_used_size(dest, 0);
-		test_assert(fts_icu_translate(dest, src, i,
+		array_clear(&dest);
+		test_assert(fts_icu_translate(&dest, src, i,
 					      translit, &error) == 0);
-		test_assert(dest->used == i * sizeof(UChar));
+		test_assert(array_count(&dest) == i);
 	}
 	utrans_close(translit);
 	test_end();
@@ -117,22 +119,22 @@ static void test_fts_icu_translate_resize(void)
 {
 	const char *translit_id = "Any-Hex";
 	const char *src_utf8 = "FOO";
-	buffer_t *dest, *src_utf16;
+	ARRAY_TYPE(icu_utf16) src_utf16, dest;
 	UTransliterator *translit;
 	const char *error;
 	unsigned int i;
 
 	test_begin("fts_icu_translate_resize resize");
 
-	src_utf16 = buffer_create_dynamic(pool_datastack_create(), 16);
+	t_array_init(&src_utf16, 8);
 	translit = get_translit(translit_id);
-	for (i = 2; i <= 20; i++) {
-		buffer_set_used_size(src_utf16, 0);
-		fts_icu_utf8_to_utf16(src_utf16, src_utf8);
-		dest = buffer_create_dynamic(pool_datastack_create(), i);
-		test_assert(buffer_get_writable_size(dest) == i);
-		test_assert(fts_icu_translate(dest, src_utf16->data,
-					      src_utf16->used/sizeof(UChar),
+	for (i = 1; i <= 10; i++) {
+		array_clear(&src_utf16);
+		fts_icu_utf8_to_utf16(&src_utf16, src_utf8);
+		t_array_init(&dest, i);
+		test_assert(buffer_get_writable_size(dest.arr.buffer) == i*2);
+		test_assert(fts_icu_translate(&dest, array_idx(&src_utf16, 0),
+					      array_count(&src_utf16),
 					      translit, &error) == 0);
 	}
 

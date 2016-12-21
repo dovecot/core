@@ -1,7 +1,7 @@
 /* Copyright (c) 2014-2016 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "buffer.h"
+#include "array.h"
 #include "str.h"
 #include "unichar.h" /* unicode replacement char */
 #include "fts-filter-common.h"
@@ -17,7 +17,7 @@ struct fts_filter_normalizer_icu {
 	const char *transliterator_id;
 
 	UTransliterator *transliterator;
-	buffer_t *utf16_token, *trans_token;
+	ARRAY_TYPE(icu_utf16) utf16_token, trans_token;
 	string_t *utf8_token;
 };
 
@@ -65,8 +65,8 @@ fts_filter_normalizer_icu_create(const struct fts_language *lang ATTR_UNUSED,
 	np->pool = pp;
 	np->filter = *fts_filter_normalizer_icu;
 	np->transliterator_id = p_strdup(pp, id);
-	np->utf16_token = buffer_create_dynamic(pp, 128);
-	np->trans_token = buffer_create_dynamic(pp, 128);
+	p_array_init(&np->utf16_token, pp, 64);
+	p_array_init(&np->trans_token, pp, 64);
 	np->utf8_token = buffer_create_dynamic(pp, 128);
 	np->filter.max_length = max_length;
 	*filter_r = &np->filter;
@@ -86,20 +86,20 @@ fts_filter_normalizer_icu_filter(struct fts_filter *filter, const char **token,
 		                                  error_r) < 0)
 			return -1;
 
-	fts_icu_utf8_to_utf16(np->utf16_token, *token);
-	buffer_append_zero(np->utf16_token, 2);
-	buffer_set_used_size(np->utf16_token, np->utf16_token->used-2);
-	buffer_set_used_size(np->trans_token, 0);
-	if (fts_icu_translate(np->trans_token, np->utf16_token->data,
-			      np->utf16_token->used / sizeof(UChar),
+	fts_icu_utf8_to_utf16(&np->utf16_token, *token);
+	array_append_zero(&np->utf16_token);
+	array_delete(&np->utf16_token, array_count(&np->utf16_token)-1, 1);
+	array_clear(&np->trans_token);
+	if (fts_icu_translate(&np->trans_token, array_idx(&np->utf16_token, 0),
+			      array_count(&np->utf16_token),
 			      np->transliterator, error_r) < 0)
 		return -1;
 
-	if (np->trans_token->used == 0)
+	if (array_count(&np->trans_token) == 0)
 		return 0;
 
-	fts_icu_utf16_to_utf8(np->utf8_token, np->trans_token->data,
-			      np->trans_token->used / sizeof(UChar));
+	fts_icu_utf16_to_utf8(np->utf8_token, array_idx(&np->trans_token, 0),
+			      array_count(&np->trans_token));
 	fts_filter_truncate_token(np->utf8_token, np->filter.max_length);
 	*token = str_c(np->utf8_token);
 	return 1;
