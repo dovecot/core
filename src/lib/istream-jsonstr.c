@@ -154,8 +154,9 @@ static ssize_t i_stream_jsonstr_read(struct istream_private *stream)
 	ret = dest - stream->pos;
 	if (ret == 0) {
 		/* not enough input */
+		i_assert(i == 0);
 		i_assert(extra > 0);
-		ret = i_stream_jsonstr_read_parent(jstream, i+extra+1);
+		ret = i_stream_jsonstr_read_parent(jstream, extra+1);
 		if (ret <= 0)
 			return ret;
 		return i_stream_jsonstr_read(stream);
