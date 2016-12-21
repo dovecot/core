@@ -71,10 +71,27 @@ static int o_stream_lz4_compress(struct lz4_ostream *zstream)
 	i_assert(zstream->outbuf_offset == 0);
 	i_assert(zstream->outbuf_used == 0);
 
+#if defined(HAVE_LZ4_COMPRESS_DEFAULT)
+	int max_dest_size = LZ4_compressBound(zstream->compressbuf_offset);
+	i_assert(max_dest_size >= 0);
+	if (max_dest_size == 0) {
+		io_stream_set_error(&zstream->ostream.iostream,
+			"lz4-compress: input size %u too large (> %u)",
+			zstream->compressbuf_offset, LZ4_MAX_INPUT_SIZE);
+		zstream->ostream.ostream.stream_errno = EINVAL;
+		return -1;
+	}
+	ret = LZ4_compress_default((void *)zstream->compressbuf,
+				   (void *)(zstream->outbuf +
+				            IOSTREAM_LZ4_CHUNK_PREFIX_LEN),
+				   zstream->compressbuf_offset,
+				   max_dest_size);
+#else
 	ret = LZ4_compress((void *)zstream->compressbuf,
 			   (void *)(zstream->outbuf +
 			            IOSTREAM_LZ4_CHUNK_PREFIX_LEN),
 			   zstream->compressbuf_offset);
+#endif /* defined(HAVE_LZ4_COMPRESS_DEFAULT) */
 	i_assert(ret > 0 && (unsigned int)ret <= sizeof(zstream->outbuf) -
 	         IOSTREAM_LZ4_CHUNK_PREFIX_LEN);
 	zstream->outbuf_used = IOSTREAM_LZ4_CHUNK_PREFIX_LEN + ret;
