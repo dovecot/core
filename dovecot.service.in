@@ -3,18 +3,6 @@
 # If you want to pass additionally command line options to the dovecot
 # binary, create the file:
 # 	`/etc/systemd/system/dovecot.service.d/service.conf'.
-# In this file create a Service section and configure an Environment with
-# the variable `OPTIONS'. For example:
-#
-#	[Service]
-#	Environment='OPTIONS=-p'
-#
-# In the `Service' section you may also specify various other setting.
-# If you have trouble with `Too many open files' you may set:
-#LimitNOFILE=8192
-#
-# If you want to allow the Dovecot services to produce core dumps, use:
-#LimitCORE=infinity
 
 [Unit]
 Description=Dovecot IMAP/POP3 email server
@@ -32,6 +20,13 @@ PrivateTmp=true
 NonBlocking=yes
 # Enable this if your systemd is new enough to support it:
 #ProtectSystem=full
+
+# You can add environment variables with e.g.:
+#Environment='CORE_OUTOFMEM=1'
+# If you have trouble with `Too many open files' you may set:
+#LimitNOFILE=8192
+# If you want to allow the Dovecot services to produce core dumps, use:
+#LimitCORE=infinity
 
 [Install]
 WantedBy=multi-user.target
