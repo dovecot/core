@@ -307,7 +307,9 @@ static ssize_t fs_randomfail_read(struct fs_file *_file, void *buf, size_t size)
 	if (fs_file_random_fail_begin(file, FS_OP_READ))
 		return -1;
 	ret = fs_read(_file->parent, buf, size);
-	return fs_file_random_fail_end(file, ret, FS_OP_READ);
+	if (fs_file_random_fail_end(file, ret < 0 ? -1 : 0, FS_OP_READ) < 0)
+		return -1;
+	return ret;
 }
 
 static struct istream *
