@@ -613,7 +613,7 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 
 		if (ret < 0) {
 			io_stream_set_error(&stream->iostream, "%s", error);
-			stream->istream.stream_errno = EINVAL;
+			stream->istream.stream_errno = EIO;
 		}
 		astream->cur_part = NULL;
 		return -1;
@@ -628,7 +628,7 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 		/* end of a MIME part */
 		if (astream_end_of_part(astream, &error) < 0) {
 			io_stream_set_error(&stream->iostream, "%s", error);
-			stream->istream.stream_errno = EINVAL;
+			stream->istream.stream_errno = EIO;
 			return -1;
 		}
 	}
