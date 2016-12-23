@@ -340,6 +340,7 @@ test_lib_SOURCES = \
 	test-istream-concat.c \
 	test-istream-crlf.c \
 	test-istream-failure-at.c \
+	test-istream-jsonstr.c \
 	test-istream-seekable.c \
 	test-istream-tee.c \
 	test-istream-unix.c \
