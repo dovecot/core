@@ -5,7 +5,7 @@
 #include "numpack.h"
 
 
-static struct test {
+static const struct test {
 	uint64_t input;
 	uint8_t output[10];
 	unsigned int output_size;
@@ -19,7 +19,7 @@ static struct test {
 	{ 0xffffffffffffffff, { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 1 }, 10 },
 	{ 0xfffffffe, { 0xfe, 0xff, 0xff, 0xff, 0xf }, 5 },
 };
-static struct fail {
+static const struct fail {
 	uint8_t input[11];
 	unsigned int input_size;
 } dec_fails[] = {

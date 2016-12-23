@@ -7,7 +7,7 @@
 
 static void test_rfc822_parse_quoted_string(void)
 {
-	const struct {
+	static const struct {
 		const char *input, *output;
 		int ret;
 	} tests[] = {

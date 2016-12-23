@@ -31,7 +31,7 @@ int t_auth_request_var_expand(const char *str,
 
 static void test_auth_cache_parse_key(void)
 {
-	struct {
+	static const struct {
 		const char *in, *out;
 	} tests[] = {
 		{ "%n@%d", "%u" },

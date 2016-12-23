@@ -9,7 +9,7 @@
 
 static void test_pop3_migration_get_hdr_sha1(void)
 {
-	struct {
+	static const struct {
 		const char *input;
 		const char *sha1;
 		bool have_eoh;

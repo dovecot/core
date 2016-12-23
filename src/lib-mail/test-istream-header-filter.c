@@ -449,7 +449,7 @@ static void test_istream_end_body_with_lf(void)
 
 static void test_istream_add_missing_eoh(void)
 {
-	struct {
+	static const struct {
 		const char *input;
 		const char *output;
 		unsigned int extra;
@@ -482,7 +482,7 @@ static void test_istream_add_missing_eoh(void)
 
 static void test_istream_hide_body(void)
 {
-	struct {
+	static const struct {
 		const char *input;
 		const char *output;
 		int extra;

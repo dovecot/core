@@ -10,7 +10,7 @@
 
 #define CURRENT_UNIX_TIME 1000000
 
-static struct {
+static const struct {
 	const char *input, *output;
 } tests[] = {
 	{ "ALL", NULL },

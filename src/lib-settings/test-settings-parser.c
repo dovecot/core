@@ -6,7 +6,7 @@
 
 static void test_settings_get_time(void)
 {
-	struct {
+	static const struct {
 		const char *input;
 		unsigned int output;
 	} tests[] = {

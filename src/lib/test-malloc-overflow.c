@@ -4,7 +4,7 @@
 
 static void test_malloc_overflow_multiply(void)
 {
-	const struct {
+	static const struct {
 		size_t a, b;
 	} tests[] = {
 		{ 0, SIZE_MAX },
@@ -21,7 +21,7 @@ static void test_malloc_overflow_multiply(void)
 
 static void test_malloc_overflow_add(void)
 {
-	const struct {
+	static const struct {
 		size_t a, b;
 	} tests[] = {
 		{ 0, SIZE_MAX },

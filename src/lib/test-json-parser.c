@@ -32,7 +32,7 @@ static const char json_input[] =
 	"\"key12\": [ \"foo\" , 5.24,[true],{\"aobj\":[]}]"
 	"}\n";
 
-static struct {
+static const struct {
 	enum json_type type;
 	const char *value;
 } json_output[] = {
@@ -212,7 +212,7 @@ test_json_parse_input(const char *test_input, enum json_parser_flags flags)
 
 static void test_json_parser_primitive_values(void)
 {
-	static struct {
+	static const struct {
 		const char *str;
 		int ret;
 	} test_inputs[] = {

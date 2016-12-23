@@ -21,7 +21,7 @@ void test_hash_format(void)
 		"%{sha1:168}",
 		NULL
 	};
-	static struct hash_format_test tests[] = {
+	static const struct hash_format_test tests[] = {
 		{ "%{sha1}", "8843d7f92416211de9ebb963ff4ce28125932878" },
 		{ "*%{sha1}*", "*8843d7f92416211de9ebb963ff4ce28125932878*" },
 		{ "*%{sha1:8}*", "*88*" },

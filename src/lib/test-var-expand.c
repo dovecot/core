@@ -19,7 +19,7 @@ struct var_get_key_range_test {
 
 static void test_var_expand_ranges(void)
 {
-	static struct var_expand_test tests[] = {
+	static const struct var_expand_test tests[] = {
 		{ "%v", "value1234", 1 },
 		{ "%3v", "val", 1 },
 		{ "%3.2v", "ue", 1 },
@@ -28,7 +28,7 @@ static void test_var_expand_ranges(void)
 		{ "%0.-1v", "value123", 1 },
 		{ "%-4.-1v", "123", 1 }
 	};
-	static struct var_expand_table table[] = {
+	static const struct var_expand_table table[] = {
 		{ 'v', "value1234", NULL },
 		{ '\0', NULL, NULL }
 	};
@@ -59,7 +59,7 @@ static void test_var_expand_builtin(void)
 		{ "%{nonexistent}", "UNSUPPORTED_VARIABLE_nonexistent", 0 },
 		{ "%{nonexistent:default}", "UNSUPPORTED_VARIABLE_nonexistent", 0 },
 	};
-	static struct var_expand_table table[] = {
+	static const struct var_expand_table table[] = {
 		{ 'v', "value", NULL },
 		{ 'w', "value2", NULL },
 		{ '\0', NULL, NULL }
@@ -83,7 +83,7 @@ static void test_var_expand_builtin(void)
 
 static void test_var_get_key_range(void)
 {
-	static struct var_get_key_range_test tests[] = {
+	static const struct var_get_key_range_test tests[] = {
 		{ "", 0, 0 },
 		{ "{", 1, 0 },
 		{ "k", 0, 1 },
@@ -153,7 +153,7 @@ static int test_var_expand_func5(const char *data ATTR_UNUSED,
 
 static void test_var_expand_with_funcs(void)
 {
-	static struct var_expand_test tests[] = {
+	static const struct var_expand_test tests[] = {
 		{ "%{func1}", "<>", 1 },
 		{ "%{func1:foo}", "<foo>", 1 },
 		{ "%{func2}", "", 1 },
@@ -163,7 +163,7 @@ static void test_var_expand_with_funcs(void)
 		{ "%{func4}%{func5}", "", -1 },
 		{ "%{func5}%{func4}%{func3}", "", -1 },
 	};
-	static struct var_expand_table table[] = {
+	static const struct var_expand_table table[] = {
 		{ '\0', NULL, NULL }
 	};
 	static const struct var_expand_func_table func_table[] = {
@@ -190,7 +190,7 @@ static void test_var_expand_with_funcs(void)
 
 static void test_var_get_key(void)
 {
-	static struct {
+	static const struct {
 		const char *str;
 		char key;
 	} tests[] = {
@@ -210,7 +210,7 @@ static void test_var_get_key(void)
 
 static void test_var_has_key(void)
 {
-	static struct {
+	static const struct {
 		const char *str;
 		char key;
 		const char *long_key;
@@ -247,13 +247,13 @@ static void test_var_expand_hashing(void)
 	const char *error;
 	test_begin("var_expand_hashing");
 
-	static struct var_expand_table table[] = {
+	static const struct var_expand_table table[] = {
 		{'\0', "example", "value" },
 		{'\0', "other-example", "other-value" },
 		{'\0', NULL, NULL}
 	};
 
-	static struct {
+	static const struct {
 		const char *in;
 		const char *out;
 	} tests[] = {

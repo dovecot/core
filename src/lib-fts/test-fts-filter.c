@@ -44,7 +44,7 @@ static void test_fts_filter_contractions_fail(void)
 
 static void test_fts_filter_contractions_fr(void)
 {
-	struct {
+	static const struct {
 		const char *input;
 		const char *output;
 	} tests[] = {
@@ -92,7 +92,7 @@ static void test_fts_filter_contractions_fr(void)
 
 static void test_fts_filter_lowercase(void)
 {
-	struct {
+	static const struct {
 		const char *input;
 		const char *output;
 	} tests[] = {
@@ -120,7 +120,7 @@ static void test_fts_filter_lowercase(void)
 #ifdef HAVE_LIBICU
 static void test_fts_filter_lowercase_utf8(void)
 {
-	struct {
+	static const struct {
 		const char *input;
 		const char *output;
 	} tests[] = {
@@ -147,7 +147,7 @@ static void test_fts_filter_lowercase_utf8(void)
 
 static void test_fts_filter_lowercase_too_long_utf8(void)
 {
-	struct {
+	static const struct {
 		const char *input;
 		const char *output;
 	} tests[] = {

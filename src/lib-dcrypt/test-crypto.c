@@ -20,7 +20,7 @@
 static
 void test_cipher_test_vectors(void)
 {
-	static struct {
+	static const struct {
 		const char *key;
 		const char *iv;
 		const char *pt;

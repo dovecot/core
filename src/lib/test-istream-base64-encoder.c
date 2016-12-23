@@ -5,7 +5,7 @@
 #include "istream-private.h"
 #include "istream-base64.h"
 
-static struct test {
+static const struct test {
 	const char *input;
 	unsigned int chars_per_line;
 	bool crlf;

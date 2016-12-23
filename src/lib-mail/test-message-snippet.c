@@ -6,7 +6,7 @@
 #include "message-snippet.h"
 #include "test-common.h"
 
-static struct {
+static const struct {
 	const char *input;
 	unsigned int max_snippet_chars;
 	const char *output;

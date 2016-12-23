@@ -17,12 +17,12 @@ static const char *wrong_tabescaped_output = "a\001b\nc\001\t\r\nplip\n";
 
 static void test_str_escape(void)
 {
-	static struct strinput unesc[] = {
+	static const struct strinput unesc[] = {
 		{ "foo", "foo" },
 		{ "\\\\\\\\\\\"\\\"\\\'\\\'", "\\\\\"\"\'\'" },
 		{ "\\a\\n\\r\\", "anr" }
 	};
-	static struct strinput tabesc[] = {
+	static const struct strinput tabesc[] = {
 		{ "foo", "foo" },
 		{ "\001", "\0011" },
 		{ "\t", "\001t" },

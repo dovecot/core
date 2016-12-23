@@ -8,7 +8,7 @@
 
 static void test_imap_utf7_by_example(void)
 {
-	static struct test {
+	static const struct test {
 		const char *utf8;
 		const char *mutf7;
 	} tests[] = {

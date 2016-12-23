@@ -6,7 +6,7 @@
 #include "mail-html2text.h"
 #include "test-common.h"
 
-static struct {
+static const struct {
 	const char *input;
 	const char *output;
 } tests[] = {

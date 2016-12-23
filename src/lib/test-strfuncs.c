@@ -122,7 +122,7 @@ static void test_t_str_rtrim(void)
 static const char *const test_strarray_input[] = {
 	"", "hello", "world", "", "yay", "", NULL
 };
-static struct {
+static const struct {
 	const char *separator;
 	const char *output;
 } test_strarray_outputs[] = {

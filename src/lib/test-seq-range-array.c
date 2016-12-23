@@ -213,7 +213,7 @@ static void test_seq_range_array_invert(void)
 
 static void test_seq_range_array_invert_edges(void)
 {
-	const struct {
+	static const struct {
 		int64_t a_seq1, a_seq2, b_seq1, b_seq2;
 		int64_t resa_seq1, resa_seq2, resb_seq1, resb_seq2;
 	} tests[] = {

@@ -12,7 +12,7 @@ struct test_net_is_in_network_input {
 
 static void test_net_is_in_network(void)
 {
-	static struct test_net_is_in_network_input input[] = {
+	static const struct test_net_is_in_network_input input[] = {
 		{ "1.2.3.4", "1.2.3.4", 32, TRUE },
 		{ "1.2.3.4", "1.2.3.3", 32, FALSE },
 		{ "1.2.3.4", "1.2.3.5", 32, FALSE },

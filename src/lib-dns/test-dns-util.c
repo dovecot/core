@@ -7,7 +7,7 @@
 
 static void test_dns_compare(void)
 {
-	struct {
+	static const struct {
 		const char *a;
 		const char *b;
 		int res;
@@ -44,7 +44,7 @@ static void test_dns_compare(void)
 
 static void test_dns_match(void)
 {
-	struct {
+	static const struct {
 		const char *name;
 		const char *mask;
 		int res;

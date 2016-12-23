@@ -133,7 +133,7 @@ static void io_callback(void *context ATTR_UNUSED)
 
 static void test_ioloop_find_fd_conditions(void)
 {
-	struct {
+	static struct {
 		enum io_condition condition;
 		int fd[2];
 		struct io *io;

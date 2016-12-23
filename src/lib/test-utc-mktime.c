@@ -9,7 +9,7 @@ struct test_utc_mktime_input {
 
 void test_utc_mktime(void)
 {
-	static struct test_utc_mktime_input input[] = {
+	static const struct test_utc_mktime_input input[] = {
 #ifdef TIME_T_SIGNED
 		{ 1969, 12, 31, 23, 59, 59 },
 		{ 1901, 12, 13, 20, 45, 53 },

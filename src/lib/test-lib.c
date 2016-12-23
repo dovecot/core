@@ -8,7 +8,7 @@ int main(int argc, char **argv)
 	if (argc > 2 && strcmp(argv[1], "--match") == 0)
 		match = argv[2];
 
-	static struct named_test test_functions[] = {
+	static const struct named_test test_functions[] = {
 #define TEST(x) TEST_NAMED(x)
 #define FATAL(x)
 #include "test-lib.inc"
@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 #undef FATAL
 		{ NULL, NULL }
 	};
-	static struct named_fatal fatal_functions[] = {
+	static const struct named_fatal fatal_functions[] = {
 #define TEST(x)
 #define FATAL(x) FATAL_NAMED(x)
 #include "test-lib.inc"

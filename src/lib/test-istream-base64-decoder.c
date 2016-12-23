@@ -5,7 +5,7 @@
 #include "istream-private.h"
 #include "istream-base64.h"
 
-struct {
+static const struct {
 	const char *input;
 	const char *output;
 } tests[] = {

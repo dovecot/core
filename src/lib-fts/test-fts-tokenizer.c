@@ -428,7 +428,7 @@ static void test_fts_tokenizer_address_search(void)
 
 static void test_fts_tokenizer_delete_trailing_partial_char(void)
 {
-	const struct {
+	static const struct {
 		const char *str;
 		unsigned int truncated_len;
 	} tests[] = {

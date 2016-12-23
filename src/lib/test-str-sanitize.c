@@ -12,7 +12,7 @@ struct str_sanitize_test {
 
 void test_str_sanitize(void)
 {
-	static struct str_sanitize_test tests[] = {
+	static const struct str_sanitize_test tests[] = {
 		{ NULL,    2, NULL },
 		{ "",      2, NULL },
 		{ "a",     2, NULL },

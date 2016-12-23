@@ -3,7 +3,7 @@
 #include "test-lib.h"
 #include "wildcard-match.h"
 
-static struct {
+static const struct {
 	const char *data;
 	const char *mask;
 	bool result;

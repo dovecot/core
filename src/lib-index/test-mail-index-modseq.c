@@ -12,7 +12,7 @@
 
 static void test_mail_index_modseq_get_next_log_offset(void)
 {
-	struct {
+	static const struct {
 		uint32_t log_seq;
 		uoff_t log_offset;
 	} tests[] = {

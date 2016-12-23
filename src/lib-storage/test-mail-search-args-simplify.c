@@ -7,7 +7,7 @@
 #include "mail-search-parser.h"
 #include "mail-search.h"
 
-struct {
+static const struct {
 	const char *input;
 	const char *output;
 } tests[] = {
