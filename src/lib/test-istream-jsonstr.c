@@ -15,6 +15,9 @@ static const struct {
 	{ "\"", "", 0 },
 	{ "foo\\?\"", "foo", EINVAL },
 	{ "foo\\?\"", "foo", EINVAL },
+	{ "", "", EPIPE },
+	{ "\\\"", "\"", EPIPE },
+	{ "foo", "foo", EPIPE },
 };
 
 static void

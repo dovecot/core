@@ -31,6 +31,11 @@ i_stream_jsonstr_read_parent(struct jsonstr_istream *jstream,
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;
 			stream->istream.eof = stream->parent->eof;
+			if (ret == -1 && stream->istream.stream_errno == 0) {
+				io_stream_set_error(&stream->iostream,
+					"EOF before trailing <\"> was seen");
+				stream->istream.stream_errno = EPIPE;
+			}
 			return ret;
 		}
 		size = i_stream_get_data_size(stream->parent);
