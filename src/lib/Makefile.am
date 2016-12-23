@@ -342,6 +342,7 @@ test_lib_SOURCES = \
 	test-istream-failure-at.c \
 	test-istream-jsonstr.c \
 	test-istream-seekable.c \
+	test-istream-sized.c \
 	test-istream-tee.c \
 	test-istream-unix.c \
 	test-json-parser.c \
