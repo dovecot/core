@@ -139,7 +139,7 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 	if (zstream->chunk_left > 0) {
 		if (ret == -1 && zstream->istream.parent->stream_errno == 0) {
 			lz4_read_error(zstream, "truncated lz4 chunk");
-			stream->istream.stream_errno = EINVAL;
+			stream->istream.stream_errno = EPIPE;
 			return -1;
 		}
 		zstream->istream.istream.stream_errno =

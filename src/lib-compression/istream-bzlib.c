@@ -106,7 +106,7 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 		} else {
 			i_assert(stream->parent->eof);
 			bzlib_read_error(zstream, "unexpected EOF");
-			stream->istream.stream_errno = EINVAL;
+			stream->istream.stream_errno = EPIPE;
 		}
 		return -1;
 	}
