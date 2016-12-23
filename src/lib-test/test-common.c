@@ -237,7 +237,8 @@ static void test_run_funcs(void (*test_functions[])(void))
 		} T_END;
 	}
 }
-static void test_run_named_funcs(struct named_test tests[], const char *match)
+static void test_run_named_funcs(const struct named_test tests[],
+				 const char *match)
 {
 	unsigned int i;
 
@@ -306,7 +307,7 @@ int test_run(void (*test_functions[])(void))
 	test_run_funcs(test_functions);
 	return test_deinit();
 }
-int test_run_named(struct named_test tests[], const char *match)
+int test_run_named(const struct named_test tests[], const char *match)
 {
 	test_init();
 	test_run_named_funcs(tests, match);
@@ -321,8 +322,8 @@ int test_run_with_fatals(void (*test_functions[])(void),
 	test_run_fatals(fatal_functions);
 	return test_deinit();
 }
-int test_run_named_with_fatals(const char *match, struct named_test tests[],
-			       struct named_fatal fatals[])
+int test_run_named_with_fatals(const char *match, const struct named_test tests[],
+			       const struct named_fatal fatals[])
 {
 	test_init();
 	test_run_named_funcs(tests, match);

@@ -57,7 +57,7 @@ struct named_test {
 	const char *name;
 	void (*func)(void);
 };
-int test_run_named(struct named_test tests[], const char *match);
+int test_run_named(const struct named_test tests[], const char *match);
 
 #define TEST_DECL(x) void x(void);
 #define TEST_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */
@@ -80,8 +80,8 @@ struct named_fatal {
 };
 int test_run_with_fatals(void (*test_functions[])(void),
 			 test_fatal_func_t *const fatal_functions[]);
-int test_run_named_with_fatals(const char *match, struct named_test tests[],
-			       struct named_fatal fatals[]);
+int test_run_named_with_fatals(const char *match, const struct named_test tests[],
+			       const struct named_fatal fatals[]);
 
 #define FATAL_DECL(x) enum fatal_test_state x(unsigned int);
 #define FATAL_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */
