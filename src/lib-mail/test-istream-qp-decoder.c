@@ -8,21 +8,21 @@
 static const struct {
 	const char *input;
 	const char *output;
-	int ret;
+	int stream_errno;
 } tests[] = {
 	{ "p=C3=A4=C3=A4t=C3=B6s", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", 0 },
 	{ "p=c3=a4=c3=a4t=c3=b6s=  \n", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", 0 },
 	{ "p=c3=a4= \t \n=c3=\r\n=a4t=  \r\n=c3=b6s", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", 0 },
 
-	{ "p=c3=a4\rasdf", "p\xC3\xA4", -1 },
-	{ "p=c", "p", -1 },
-	{ "p=A", "p", -1 },
-	{ "p=Ax", "p", -1 },
-	{ "p=c3=a4=c3=a4t=c3=b6s=  ", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", -1 }
+	{ "p=c3=a4\rasdf", "p\xC3\xA4", EINVAL },
+	{ "p=c", "p", EPIPE },
+	{ "p=A", "p", EPIPE },
+	{ "p=Ax", "p", EINVAL },
+	{ "p=c3=a4=c3=a4t=c3=b6s=  ", "p\xC3\xA4\xC3\xA4t\xC3\xB6s", EPIPE }
 };
 
 static void
-decode_test(const char *qp_input, const char *output, bool broken_input,
+decode_test(const char *qp_input, const char *output, int stream_errno,
 	    unsigned int buffer_size)
 {
 	size_t qp_input_len = strlen(qp_input);
@@ -43,7 +43,7 @@ decode_test(const char *qp_input, const char *output, bool broken_input,
 			str_append_n(str, data, size);
 			i_stream_skip(input, size);
 		}
-		if (ret == -1 && broken_input)
+		if (ret == -1 && stream_errno != 0)
 			break;
 		test_assert(ret == 0);
 	}
@@ -55,8 +55,7 @@ decode_test(const char *qp_input, const char *output, bool broken_input,
 		}
 	}
 	test_assert(ret == -1);
-	test_assert((input->stream_errno == 0 && !broken_input) ||
-		    (input->stream_errno == EINVAL && broken_input));
+	test_assert(input->stream_errno == stream_errno);
 
 	test_assert(strcmp(str_c(str), output) == 0);
 	i_stream_unref(&input);
@@ -71,7 +70,7 @@ static void test_istream_qp_decoder(void)
 		test_begin(t_strdup_printf("istream qp decoder %u", i+1));
 		for (j = 1; j < 10; j++) T_BEGIN {
 			decode_test(tests[i].input, tests[i].output,
-				    tests[i].ret == -1, j);
+				    tests[i].stream_errno, j);
 		} T_END;
 		test_end();
 	}
