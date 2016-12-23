@@ -89,9 +89,6 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	else if (pos > left) {
 		error = sstream->error_callback(&data, sstream->error_context);
 		io_stream_set_error(&stream->iostream, "%s", error);
-		i_error("read(%s) failed: %s",
-			i_stream_get_name(&stream->istream),
-			stream->iostream.error);
 		pos = left;
 		stream->istream.eof = TRUE;
 		stream->istream.stream_errno = EINVAL;
@@ -103,9 +100,6 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	} else {
 		error = sstream->error_callback(&data, sstream->error_context);
 		io_stream_set_error(&stream->iostream, "%s", error);
-		i_error("read(%s) failed: %s",
-			i_stream_get_name(&stream->istream),
-			stream->iostream.error);
 		stream->istream.stream_errno = EINVAL;
 	}
 
