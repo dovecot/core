@@ -75,7 +75,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 {
 	struct dsasl_client_settings sasl_set;
 	const unsigned char *output;
-	unsigned int len;
+	size_t len;
 	const char *mech_name, *error;
 
 	/* Send CAPABILITY command if we don't know the capabilities yet.
@@ -231,7 +231,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 	struct ostream *output;
 	string_t *str;
 	const unsigned char *data;
-	unsigned int data_len;
+	size_t data_len;
 	const char *error;
 	int ret;
 

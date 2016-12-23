@@ -816,8 +816,7 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 {
 	struct imapc_connection *conn = context;
 	const unsigned char *sasl_output;
-	unsigned int sasl_output_len;
-	size_t input_len;
+	size_t input_len, sasl_output_len;
 	buffer_t *buf;
 	const char *error;
 
@@ -959,7 +958,7 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 
 	if ((conn->capabilities & IMAPC_CAPABILITY_SASL_IR) != 0) {
 		const unsigned char *sasl_output;
-		unsigned int sasl_output_len;
+		size_t sasl_output_len;
 		string_t *sasl_output_base64;
 		const char *error;
 

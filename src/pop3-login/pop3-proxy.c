@@ -25,7 +25,7 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 {
 	struct dsasl_client_settings sasl_set;
 	const unsigned char *sasl_output;
-	unsigned int len;
+	size_t len;
 	const char *mech_name, *error;
 	string_t *str;
 
@@ -91,7 +91,7 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 {
 	string_t *str;
 	const unsigned char *data;
-	unsigned int data_len;
+	size_t data_len;
 	const char *error;
 	int ret;
 
