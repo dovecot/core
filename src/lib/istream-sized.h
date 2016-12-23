@@ -16,8 +16,9 @@ typedef const char *
 istream_sized_callback_t(const struct istream_sized_error_data *data,
 			 void *context);
 
-/* Assume that input is exactly the given size. If it's smaller, log an error
-   and fail with EINVAL error. If it's larger, log an error but don't fail. */
+/* Assume that input stream is exactly the given size. If the stream is too
+   small, fail with stream_errno=EPIPE. If stream is too large, fail with
+   stream_errno=EINVAL. */
 struct istream *i_stream_create_sized(struct istream *input, uoff_t size);
 struct istream *i_stream_create_sized_range(struct istream *input,
 					    uoff_t offset, uoff_t size);

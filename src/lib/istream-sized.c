@@ -99,9 +99,10 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	} else if (stream->istream.stream_errno == ENOENT) {
 		/* lost the file */
 	} else {
+		/* EOF before we reached the wanted size */
 		error = sstream->error_callback(&data, sstream->error_context);
 		io_stream_set_error(&stream->iostream, "%s", error);
-		stream->istream.stream_errno = EINVAL;
+		stream->istream.stream_errno = EPIPE;
 	}
 
 	ret = pos > stream->pos ? (ssize_t)(pos - stream->pos) :
