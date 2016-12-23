@@ -64,11 +64,15 @@ i_stream_mail_set_size_corrupted(struct mail_istream *mstream, size_t size)
 	char chr;
 
 	if (mstream->expected_size < cur_size) {
+		/* input stream is larger than cached message size */
 		str = "smaller";
 		chr = '<';
+		mstream->istream.istream.stream_errno = EINVAL;
 	} else {
+		/* input stream is smaller than cached message size */
 		str = "larger";
 		chr = '>';
+		mstream->istream.istream.stream_errno = EPIPE;
 	}
 
 	mail_id = i_stream_mail_get_cached_mail_id(mstream);
@@ -84,7 +88,6 @@ i_stream_mail_set_size_corrupted(struct mail_istream *mstream, size_t size)
 		t_strdup_printf("read(%s) failed: %s",
 				i_stream_get_name(&mstream->istream.istream),
 				mstream->istream.iostream.error));
-	mstream->istream.istream.stream_errno = EINVAL;
 }
 
 static ssize_t
