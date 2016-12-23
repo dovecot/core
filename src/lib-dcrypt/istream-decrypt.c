@@ -85,11 +85,11 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	while (i < 4 && mlen > 2) {
 		memcpy(&len, data, 2);
 		len = ntohs(len);
+		if (len == 0 || len > mlen-2)
+			break;
 		data += 2;
 		mlen -= 2;
 		pos += 2;
-		if (len == 0 || len > mlen)
-			break;
 
 		switch(i++) {
 		case 0:
@@ -118,7 +118,9 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 
 	if (i < 4) {
 		io_stream_set_error(&stream->istream.iostream, "Invalid or corrupted header");
-		stream->istream.istream.stream_errno = EINVAL;
+		/* was it consumed? */
+		stream->istream.istream.stream_errno =
+			mlen > 2 ? EINVAL : EPIPE;
 		return -1;
 	}
 
@@ -609,7 +611,7 @@ ssize_t i_stream_decrypt_read_header(struct decrypt_istream *stream,
 		return -1;
 	else if (ret == 0) {
 		io_stream_set_error(&stream->istream.iostream, "Decryption error: truncate header length");
-		stream->istream.istream.stream_errno = EINVAL;
+		stream->istream.istream.stream_errno = EPIPE;
 		return -1;
 	}
 	stream->initialized = TRUE;
@@ -702,7 +704,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 				io_stream_set_error(&stream->iostream,
 					"Decryption error: %s",
 					"Input truncated in decryption header");
-				stream->istream.stream_errno = EINVAL;
+				stream->istream.stream_errno = EPIPE;
 				return -1;
 			}
 
@@ -731,7 +733,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 
 				if (hret == 0 && stream->parent->eof) {
 					/* not encrypted by us */
-					stream->istream.stream_errno = EINVAL;
+					stream->istream.stream_errno = EPIPE;
 					io_stream_set_error(&stream->iostream,
 						"Truncated header");
 					return -1;
