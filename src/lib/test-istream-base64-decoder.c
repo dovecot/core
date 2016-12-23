@@ -8,14 +8,27 @@
 static const struct {
 	const char *input;
 	const char *output;
+	int stream_errno;
 } tests[] = {
-	{ "aGVsbG8gd29ybGQ=", "hello world" },
-	{ "\naGVs\nbG8g\nd29y\nbGQ=\n", "hello world" },
-	{ "  aGVs    \r\n bG8g  \r\n   d29y  \t \r\n    bGQ= \r\n\r\n", "hello world" },
+	{ "aGVsbG8gd29ybGQ=", "hello world", 0 },
+	{ "\naGVs\nbG8g\nd29y\nbGQ=\n", "hello world", 0 },
+	{ "  aGVs    \r\n bG8g  \r\n   d29y  \t \r\n    bGQ= \r\n\r\n", "hello world", 0 },
+	{ "\r", "", 0 },
+	{ "\n", "", 0 },
+	{ "\r\n", "", 0 },
+	{ "  ", "", 0 },
+	{ "foo", "", EPIPE },
+	{ "foo ", "", EINVAL },
+	{ "Zm9vC", "foo", EPIPE },
+	{ "Zm9v!", "foo", EINVAL },
+	{ "Zm9!v", "", EINVAL },
+	{ "Zm9 v", "", EINVAL },
+	{ "Zm 9v", "", EINVAL },
+	{ "Z m9v", "", EINVAL },
 };
 
 static void
-decode_test(const char *base64_input, const char *output, bool broken_input)
+decode_test(const char *base64_input, const char *output, int stream_errno)
 {
 	unsigned int base64_input_len = strlen(base64_input);
 	struct istream *input_data, *input;
@@ -30,7 +43,7 @@ decode_test(const char *base64_input, const char *output, bool broken_input)
 	for (i = 1; i <= base64_input_len; i++) {
 		test_istream_set_size(input_data, i);
 		while ((ret = i_stream_read(input)) > 0) ;
-		if (ret == -1 && broken_input)
+		if (ret == -1 && stream_errno != 0)
 			break;
 		test_assert(ret == 0);
 	}
@@ -39,8 +52,7 @@ decode_test(const char *base64_input, const char *output, bool broken_input)
 		while ((ret = i_stream_read(input)) > 0) ;
 	}
 	test_assert(ret == -1);
-	test_assert((input->stream_errno == 0 && !broken_input) ||
-		    (input->stream_errno == EINVAL && broken_input));
+	test_assert(input->stream_errno == stream_errno);
 
 	data = i_stream_get_data(input, &size);
 	test_assert(size == strlen(output));
@@ -56,16 +68,7 @@ void test_istream_base64_decoder(void)
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		test_begin(t_strdup_printf("istream base64 decoder %u", i+1));
-		decode_test(tests[i].input, tests[i].output, FALSE);
+		decode_test(tests[i].input, tests[i].output, tests[i].stream_errno);
 		test_end();
 	}
-	test_begin("istream base64 decoder error");
-	decode_test("foo", "", TRUE);
-	decode_test("Zm9vC", "foo", TRUE);
-	decode_test("Zm9v!", "foo", TRUE);
-	decode_test("Zm9!v", "", TRUE);
-	decode_test("Zm9 v", "", TRUE);
-	decode_test("Zm 9v", "", TRUE);
-	decode_test("Z m9v", "", TRUE);
-	test_end();
 }

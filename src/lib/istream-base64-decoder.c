@@ -71,26 +71,43 @@ i_stream_base64_try_decode_block(struct base64_decoder_istream *bstream)
 	return pos > 0 ? 1 : 0;
 }
 
+static void i_stream_base64_last_partial_block(struct istream_private *stream)
+{
+	const unsigned char *data;
+	size_t i, size;
+
+	/* base64 input with a partial block */
+	data = i_stream_get_data(stream->parent, &size);
+	for (i = 0; i < size; i++) {
+		if (!base64_is_valid_char(data[i]))
+			break;
+	}
+	if (i == size) {
+		io_stream_set_error(&stream->iostream,
+			    "base64 input ends with a partial block: 0x%s",
+			    binary_to_hex(data, size));
+		stream->istream.stream_errno = EPIPE;
+	} else {
+		io_stream_set_error(&stream->iostream,
+			"Invalid base64 data: 0x%s",
+			binary_to_hex(data, size));
+		stream->istream.stream_errno = EINVAL;
+	}
+}
+
 static ssize_t i_stream_base64_decoder_read(struct istream_private *stream)
 {
 	struct base64_decoder_istream *bstream =
 		(struct base64_decoder_istream *)stream;
-	const unsigned char *data;
-	size_t pre_count, post_count, size;
+	size_t pre_count, post_count;
 	int ret;
 
 	do {
 		ret = i_stream_read_parent(stream);
 		if (ret <= 0) {
 			if (ret < 0 && stream->istream.stream_errno == 0 &&
-			    i_stream_get_data_size(stream->parent) > 0) {
-				/* base64 input with a partial block */
-				data = i_stream_get_data(stream->parent, &size);
-				io_stream_set_error(&stream->iostream,
-					"base64 input ends with a partial block: 0x%s",
-					binary_to_hex(data, size));
-				stream->istream.stream_errno = EINVAL;
-			}
+			    i_stream_get_data_size(stream->parent) > 0)
+				i_stream_base64_last_partial_block(stream);
 			return ret;
 		}
 
