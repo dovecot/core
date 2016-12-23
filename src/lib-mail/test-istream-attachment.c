@@ -160,6 +160,16 @@ static int test_open_attachment_ostream(struct istream_attachment_info *info,
 	return 0;
 }
 
+static int
+test_open_attachment_ostream_error(struct istream_attachment_info *info ATTR_UNUSED,
+				   struct ostream **output_r ATTR_UNUSED,
+				   const char **error_r,
+				   void *context ATTR_UNUSED)
+{
+	*error_r = "test open error";
+	return -1;
+}
+
 static int test_close_attachment_ostream(struct ostream *output, bool success,
 					 const char **error_r ATTR_UNUSED,
 					 void *context ATTR_UNUSED)
@@ -175,6 +185,16 @@ static int test_close_attachment_ostream(struct ostream *output, bool success,
 		i_unreached();
 	o_stream_destroy(&output);
 	return 0;
+}
+
+static int
+test_close_attachment_ostream_error(struct ostream *output ATTR_UNUSED,
+				    bool success, const char **error,
+				    void *context ATTR_UNUSED)
+{
+	if (success)
+		*error = "test output error";
+	return -1;
 }
 
 static struct istream *
@@ -324,7 +344,7 @@ static void test_istream_attachment(void)
 	test_end();
 }
 
-static bool test_istream_attachment_extractor_one(const char *body)
+static bool test_istream_attachment_extractor_one(const char *body, int err_type)
 {
 	const size_t prefix_len = strlen(mail_broken_input_body_prefix);
 	struct istream_attachment_settings set;
@@ -339,9 +359,19 @@ static bool test_istream_attachment_extractor_one(const char *body)
 	datainput = test_istream_create_data(mail_text, strlen(mail_text));
 
 	get_istream_attachment_settings(&set);
+	if (err_type == 1)
+		set.open_attachment_ostream = test_open_attachment_ostream_error;
+	else if (err_type == 2)
+		set.close_attachment_ostream = test_close_attachment_ostream_error;
 	input = i_stream_create_attachment_extractor(datainput, &set, NULL);
 
 	while ((ret = i_stream_read(input)) > 0) ;
+	if (err_type != 0) {
+		test_assert(ret == -1 && input->stream_errno == EIO);
+		unchanged = FALSE;
+		goto cleanup;
+	}
+	test_assert(ret == -1 && input->stream_errno == 0);
 
 	data = i_stream_get_data(input, &size);
 	i_assert(size >= prefix_len &&
@@ -355,6 +385,7 @@ static bool test_istream_attachment_extractor_one(const char *body)
 		strlen(body) - attachment_data->used == size &&
 		memcmp(data, body + attachment_data->used, size) == 0;
 
+cleanup:
 	if (attachment_data != NULL)
 		buffer_free(&attachment_data);
 	if (array_is_created(&attachments))
@@ -372,9 +403,23 @@ static void test_istream_attachment_extractor(void)
 
 	test_begin("istream attachment extractor");
 	for (i = 0; i < N_ELEMENTS(mail_broken_input_bodies); i++)
-		test_assert(test_istream_attachment_extractor_one(mail_broken_input_bodies[i]));
+		test_assert(test_istream_attachment_extractor_one(mail_broken_input_bodies[i], 0));
 	for (i = 0; i < N_ELEMENTS(mail_nonbroken_input_bodies); i++)
-		test_assert(!test_istream_attachment_extractor_one(mail_nonbroken_input_bodies[i]));
+		test_assert(!test_istream_attachment_extractor_one(mail_nonbroken_input_bodies[i], 0));
+	test_end();
+}
+
+static void test_istream_attachment_extractor_error(void)
+{
+	unsigned int i;
+
+	test_begin("istream attachment extractor error");
+	for (int err_type = 1; err_type <= 2; err_type++) {
+		for (i = 0; i < N_ELEMENTS(mail_broken_input_bodies); i++)
+			test_istream_attachment_extractor_one(mail_broken_input_bodies[i], err_type);
+		for (i = 0; i < N_ELEMENTS(mail_nonbroken_input_bodies); i++)
+			test_istream_attachment_extractor_one(mail_nonbroken_input_bodies[i], err_type);
+	}
 	test_end();
 }
 
@@ -402,6 +447,7 @@ int main(int argc, char *argv[])
 	static void (*const test_functions[])(void) = {
 		test_istream_attachment,
 		test_istream_attachment_extractor,
+		test_istream_attachment_extractor_error,
 		NULL
 	};
 	if (argc > 1)
