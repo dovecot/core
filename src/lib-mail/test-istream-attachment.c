@@ -188,12 +188,14 @@ static int test_close_attachment_ostream(struct ostream *output, bool success,
 }
 
 static int
-test_close_attachment_ostream_error(struct ostream *output ATTR_UNUSED,
+test_close_attachment_ostream_error(struct ostream *output,
 				    bool success, const char **error,
 				    void *context ATTR_UNUSED)
 {
 	if (success)
 		*error = "test output error";
+	o_stream_ignore_last_errors(output);
+	o_stream_destroy(&output);
 	return -1;
 }
 
