@@ -227,7 +227,7 @@ static int test_deinit(void)
 	return failure_count == 0 ? 0 : 1;
 }
 
-static void test_run_funcs(void (*test_functions[])(void))
+static void test_run_funcs(void (*const test_functions[])(void))
 {
 	unsigned int i;
 
@@ -301,7 +301,7 @@ static void test_run_named_fatals(const struct named_fatal fatals[], const char 
 	}
 }
 
-int test_run(void (*test_functions[])(void))
+int test_run(void (*const test_functions[])(void))
 {
 	test_init();
 	test_run_funcs(test_functions);
@@ -313,7 +313,7 @@ int test_run_named(const struct named_test tests[], const char *match)
 	test_run_named_funcs(tests, match);
 	return test_deinit();
 }
-int test_run_with_fatals(void (*test_functions[])(void),
+int test_run_with_fatals(void (*const test_functions[])(void),
 			 test_fatal_func_t *const fatal_functions[])
 {
 	test_init();

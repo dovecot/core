@@ -52,7 +52,7 @@ void test_out_quiet(const char *name, bool success); /* only prints failures */
 void test_out_reason(const char *name, bool success, const char *reason)
 	ATTR_NULL(3);
 
-int test_run(void (*test_functions[])(void));
+int test_run(void (*const test_functions[])(void));
 struct named_test {
 	const char *name;
 	void (*func)(void);
@@ -78,7 +78,7 @@ struct named_fatal {
 	const char *name;
 	test_fatal_func_t *func;
 };
-int test_run_with_fatals(void (*test_functions[])(void),
+int test_run_with_fatals(void (*const test_functions[])(void),
 			 test_fatal_func_t *const fatal_functions[]);
 int test_run_named_with_fatals(const char *match, const struct named_test tests[],
 			       const struct named_fatal fatals[]);
