@@ -59,7 +59,6 @@ struct attachment_istream {
 	struct attachment_istream_part part;
 
 	bool retry_read;
-	bool failed;
 };
 
 static void stream_add_data(struct attachment_istream *astream,
@@ -599,11 +598,6 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 	if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
 		return -2;
 
-	if (astream->failed) {
-		stream->istream.stream_errno = EINVAL;
-		return -1;
-	}
-
 	old_size = stream->pos - stream->skip;
 	switch (message_parser_parse_next_block(astream->parser, &block)) {
 	case -1:
@@ -620,7 +614,6 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 		if (ret < 0) {
 			io_stream_set_error(&stream->iostream, "%s", error);
 			stream->istream.stream_errno = EINVAL;
-			astream->failed = TRUE;
 		}
 		astream->cur_part = NULL;
 		return -1;
@@ -636,7 +629,6 @@ static int astream_read_next(struct attachment_istream *astream, bool *retry_r)
 		if (astream_end_of_part(astream, &error) < 0) {
 			io_stream_set_error(&stream->iostream, "%s", error);
 			stream->istream.stream_errno = EINVAL;
-			astream->failed = TRUE;
 			return -1;
 		}
 	}
