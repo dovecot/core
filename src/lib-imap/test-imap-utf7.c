@@ -166,7 +166,7 @@ static void test_imap_utf7_unnecessary(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_imap_utf7_by_example,
 		test_imap_utf7_ucs4_cases,
 		test_imap_utf7_non_utf16,

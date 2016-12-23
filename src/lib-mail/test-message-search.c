@@ -53,7 +53,7 @@ static void test_message_search_more_get_decoded(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_search_more_get_decoded,
 		NULL
 	};

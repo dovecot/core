@@ -221,7 +221,7 @@ static void test_message_header_encode_data(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_header_encode_q,
 		test_message_header_encode_b,
 		test_message_header_encode,

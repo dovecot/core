@@ -124,7 +124,7 @@ static void test_mail_search_args_imap(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mail_search_args_imap,
 		NULL
 	};

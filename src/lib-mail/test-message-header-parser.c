@@ -286,7 +286,7 @@ static void test_message_header_parser_no_eoh(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_header_parser,
 		test_message_header_parser_partial,
 		test_message_header_parser_long_lines,

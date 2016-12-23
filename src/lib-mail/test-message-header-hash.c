@@ -46,7 +46,7 @@ static void test_dsync_mail_hash_more(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_dsync_mail_hash_more,
 		NULL
 	};

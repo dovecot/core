@@ -141,7 +141,7 @@ static void test_settings_get_time(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_settings_get_time,
 		NULL
 	};

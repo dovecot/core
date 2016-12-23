@@ -143,7 +143,7 @@ static void test_mailbox_get_expunges(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mailbox_get_expunges,
 		NULL
 	};

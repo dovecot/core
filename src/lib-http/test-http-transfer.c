@@ -336,7 +336,7 @@ static void test_http_transfer_chunked_output_valid(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_http_transfer_chunked_input_valid,
 		test_http_transfer_chunked_input_invalid,
 		test_http_transfer_chunked_output_valid,

@@ -114,7 +114,7 @@ static void test_dns_sort(void)
 }
 
 int main(void) {
-	void (*test_functions[])(void) = {
+	void (*const test_functions[])(void) = {
 		test_dns_compare,
 		test_dns_match,
 		test_dns_sort,

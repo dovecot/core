@@ -147,7 +147,7 @@ static void test_message_decoder_current_content_type(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_decoder,
 		test_message_decoder_current_content_type,
 		NULL

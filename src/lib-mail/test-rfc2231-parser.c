@@ -42,7 +42,7 @@ static void test_rfc2231_parser(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_rfc2231_parser,
 		NULL
 	};

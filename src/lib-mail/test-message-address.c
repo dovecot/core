@@ -120,7 +120,7 @@ static void test_message_address(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_address,
 		NULL
 	};

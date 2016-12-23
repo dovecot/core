@@ -53,7 +53,7 @@ static void test_imap_parser_crlf(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_imap_parser_crlf,
 		NULL
 	};

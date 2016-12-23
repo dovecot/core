@@ -40,7 +40,7 @@ static void test_i_strccdascmp(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_i_strccdascmp,
 		NULL
 	};

@@ -49,7 +49,7 @@ static void test_mail_index_map_lookup_seq_range(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mail_index_map_lookup_seq_range,
 		NULL
 	};

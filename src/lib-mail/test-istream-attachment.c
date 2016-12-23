@@ -399,7 +399,7 @@ static int test_input_file(const char *path)
 
 int main(int argc, char *argv[])
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_istream_attachment,
 		test_istream_attachment_extractor,
 		NULL

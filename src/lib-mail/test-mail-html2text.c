@@ -99,7 +99,7 @@ static void test_mail_html2text_random(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mail_html2text,
 		test_mail_html2text_random,
 		NULL

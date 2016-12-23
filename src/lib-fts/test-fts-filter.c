@@ -977,7 +977,7 @@ static void test_fts_filter_english_possessive(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_fts_filter_find,
 		test_fts_filter_contractions_fail,
 		test_fts_filter_contractions_fr,

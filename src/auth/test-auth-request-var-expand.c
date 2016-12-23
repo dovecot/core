@@ -237,7 +237,7 @@ static void test_auth_request_var_expand_funcs(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_auth_request_var_expand_shortlong,
 		test_auth_request_var_expand_flags,
 		test_auth_request_var_expand_long,

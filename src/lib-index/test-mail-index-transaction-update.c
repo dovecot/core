@@ -588,7 +588,7 @@ static void test_mail_index_expunge(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mail_index_append,
 		test_mail_index_flag_update_fastpath,
 		test_mail_index_flag_update_simple_merges,

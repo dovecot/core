@@ -222,7 +222,7 @@ static void test_istream_dot(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_istream_dot,
 		NULL
 	};

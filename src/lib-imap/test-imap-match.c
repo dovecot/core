@@ -118,7 +118,7 @@ static void test_imap_match_globs_equal(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_imap_match,
 		test_imap_match_globs_equal,
 		NULL

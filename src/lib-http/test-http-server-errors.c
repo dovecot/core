@@ -433,7 +433,7 @@ static void test_hanging_response_payload(void)
  * All tests
  */
 
-static void (*test_functions[])(void) = {
+static void (*const test_functions[])(void) = {
 	test_slow_request,
 	test_hanging_request_payload,
 	test_hanging_response_payload,

@@ -96,7 +96,7 @@ static void test_user_directory_random(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_user_directory_ascending,
 		test_user_directory_descending,
 		test_user_directory_random,

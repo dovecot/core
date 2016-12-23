@@ -286,7 +286,7 @@ static void test_mail_index_transaction_finish(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mail_index_transaction_finish,
 		NULL
 	};

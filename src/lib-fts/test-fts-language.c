@@ -301,7 +301,7 @@ static void test_fts_language_register(void)
 int main(void)
 {
 	int ret;
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_fts_language_detect_finnish,
 		test_fts_language_detect_english,
 		test_fts_language_detect_french,

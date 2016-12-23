@@ -475,7 +475,7 @@ static void test_http_url_parse_create(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_http_url_valid,
 		test_http_url_invalid,
 		test_http_url_parse_create,

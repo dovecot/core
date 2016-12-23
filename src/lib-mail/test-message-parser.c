@@ -645,7 +645,7 @@ static void test_message_parser_no_eoh(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_parser_small_blocks,
 		test_message_parser_truncated_mime_headers,
 		test_message_parser_truncated_mime_headers2,

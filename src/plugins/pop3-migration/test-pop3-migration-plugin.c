@@ -42,7 +42,7 @@ static void test_pop3_migration_get_hdr_sha1(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_pop3_migration_get_hdr_sha1,
 		NULL
 	};

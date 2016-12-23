@@ -249,7 +249,7 @@ static void test_http_response_parse_bad(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_http_response_parse_valid,
 		test_http_response_parse_invalid,
 		test_http_response_parse_bad,

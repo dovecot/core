@@ -1494,7 +1494,7 @@ static void test_download_client_nested_ioloop(void)
 	test_end();
 }
 
-static void (*test_functions[])(void) = {
+static void (*const test_functions[])(void) = {
 	test_download_server_nonblocking,
 	test_download_server_blocking,
 	test_echo_server_nonblocking,

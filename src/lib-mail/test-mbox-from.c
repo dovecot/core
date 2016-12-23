@@ -95,7 +95,7 @@ static void test_mbox_from_create(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mbox_from_parse,
 		test_mbox_from_create,
 		NULL

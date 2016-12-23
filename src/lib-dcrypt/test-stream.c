@@ -539,7 +539,7 @@ int main(void) {
 	test_assert(dcrypt_key_load_private(&test_v2_kp.priv, key_v2_priv, NULL, NULL, NULL));
 	test_assert(dcrypt_key_load_public(&test_v2_kp.pub, key_v2_pub, NULL));
 
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_static_v1_input,
 		test_static_v1_input_short,
 		test_static_v2_input,

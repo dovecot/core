@@ -66,7 +66,7 @@ static void test_auth_cache_parse_key(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_auth_cache_parse_key,
 		NULL
 	};

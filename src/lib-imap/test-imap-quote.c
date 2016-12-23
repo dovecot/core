@@ -103,7 +103,7 @@ static void test_imap_append_nstring(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_imap_append_string_for_humans,
 		test_imap_append_astring,
 		test_imap_append_nstring,

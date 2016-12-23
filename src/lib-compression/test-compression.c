@@ -245,7 +245,7 @@ static void test_compress_file(const char *in_path, const char *out_path)
 
 int main(int argc, char *argv[])
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_compression,
 		test_gz_concat,
 		test_gz_no_concat,

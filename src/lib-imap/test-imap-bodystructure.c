@@ -134,7 +134,7 @@ static void test_imap_bodystructure_parse(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_imap_bodystructure_write,
 		test_imap_bodystructure_parse,
 		NULL

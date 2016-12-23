@@ -94,7 +94,7 @@ static void test_master_service_settings_cache(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_master_service_settings_cache,
 		NULL
 	};

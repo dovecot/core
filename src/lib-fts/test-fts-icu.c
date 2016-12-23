@@ -173,7 +173,7 @@ static void test_fts_icu_lcase_resize(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_fts_icu_utf8_to_utf16_ascii_resize,
 		test_fts_icu_utf8_to_utf16_32bit_resize,
 		test_fts_icu_utf16_to_utf8,

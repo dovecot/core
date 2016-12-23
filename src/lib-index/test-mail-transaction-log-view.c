@@ -228,7 +228,7 @@ static void test_mail_transaction_log_view(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mail_transaction_log_view,
 		NULL
 	};

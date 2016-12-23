@@ -58,7 +58,7 @@ static void test_message_date_parse(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_date_parse,
 		NULL
 	};

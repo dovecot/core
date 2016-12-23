@@ -86,7 +86,7 @@ static void test_message_snippet(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_snippet,
 		NULL
 	};

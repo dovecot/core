@@ -92,7 +92,7 @@ static void test_message_header_decode_encode_random(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_header_decode,
 		test_message_header_decode_encode_random,
 		NULL

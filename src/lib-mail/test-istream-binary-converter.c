@@ -202,7 +202,7 @@ static int test_input_file(const char *path)
 
 int main(int argc, char *argv[])
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_istream_binary_converter_mime,
 		test_istream_binary_converter_root,
 		test_istream_binary_converter_root_nonbinary,

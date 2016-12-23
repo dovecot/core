@@ -581,7 +581,7 @@ static void test_istream_empty_missing_eoh_callback(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_istream_filter,
 		test_istream_filter_large_buffer,
 		test_istream_filter_large_buffer2,

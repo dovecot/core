@@ -67,7 +67,7 @@ static void test_rfc822_parse_content_param(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_rfc822_parse_quoted_string,
 		test_rfc822_parse_content_param,
 		NULL

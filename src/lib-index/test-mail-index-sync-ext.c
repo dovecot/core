@@ -90,7 +90,7 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mail_index_sync_ext_atomic_inc,
 		NULL
 	};

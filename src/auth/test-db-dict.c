@@ -43,7 +43,7 @@ static void test_db_dict_parse_cache_key(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_db_dict_parse_cache_key,
 		NULL
 	};

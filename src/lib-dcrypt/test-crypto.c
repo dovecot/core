@@ -762,7 +762,7 @@ int main(void) {
 		return 0;
 	}
 
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_cipher_test_vectors,
 		test_cipher_aead_test_vectors,
 		test_hmac_test_vectors,

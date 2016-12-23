@@ -84,7 +84,7 @@ static void test_mail_index_modseq_get_next_log_offset(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_mail_index_modseq_get_next_log_offset,
 		NULL
 	};

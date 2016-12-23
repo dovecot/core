@@ -2458,7 +2458,7 @@ static void test_peer_reuse_failure(void)
  * All tests
  */
 
-static void (*test_functions[])(void) = {
+static void (*const test_functions[])(void) = {
 	test_host_lookup_failed,
 	test_connection_refused,
 	test_connection_lost_prematurely,

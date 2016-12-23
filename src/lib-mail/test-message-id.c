@@ -38,7 +38,7 @@ static void test_message_id_get_next(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_message_id_get_next,
 		NULL
 	};

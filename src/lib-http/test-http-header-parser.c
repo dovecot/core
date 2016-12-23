@@ -367,7 +367,7 @@ static void test_http_header_parse_invalid(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_http_header_parse_valid,
 		test_http_header_parse_invalid,
 		NULL

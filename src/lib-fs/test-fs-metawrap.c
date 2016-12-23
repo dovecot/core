@@ -71,7 +71,7 @@ static void test_fs_metawrap_write_empty(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_fs_metawrap_stat,
 		test_fs_metawrap_async,
 		test_fs_metawrap_write_empty,

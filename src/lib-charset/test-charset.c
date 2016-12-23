@@ -156,7 +156,7 @@ static void test_charset_iconv_utf7_state(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_charset_is_utf8,
 		test_charset_utf8,
 #ifdef HAVE_ICONV

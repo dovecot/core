@@ -738,7 +738,7 @@ static void test_dsync_mailbox_tree_sync_random(void)
 
 int main(void)
 {
-	static void (*test_functions[])(void) = {
+	static void (*const test_functions[])(void) = {
 		test_dsync_mailbox_tree_sync_creates,
 		test_dsync_mailbox_tree_sync_deletes,
 		test_dsync_mailbox_tree_sync_renames1,
