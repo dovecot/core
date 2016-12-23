@@ -43,6 +43,22 @@ i_stream_create_sized_default_error_callback(
 	}
 }
 
+static ssize_t
+i_stream_sized_parent_read(struct istream_private *stream, size_t *pos_r)
+{
+	ssize_t ret;
+
+	do {
+		if ((ret = i_stream_read(stream->parent)) == -2)
+			break;
+
+		stream->istream.stream_errno = stream->parent->stream_errno;
+		stream->istream.eof = stream->parent->eof;
+		stream->buffer = i_stream_get_data(stream->parent, pos_r);
+	} while (*pos_r <= stream->pos && ret > 0);
+	return ret;
+}
+
 static ssize_t i_stream_sized_read(struct istream_private *stream)
 {
 	struct sized_istream *sstream =
@@ -53,12 +69,6 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	ssize_t ret;
 	size_t pos;
 
-	if (stream->istream.v_offset +
-	    (stream->pos - stream->skip) >= sstream->size) {
-		stream->istream.eof = TRUE;
-		return -1;
-	}
-
 	i_stream_seek(stream->parent, sstream->istream.parent_start_offset +
 		      stream->istream.v_offset);
 
@@ -68,14 +78,17 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	stream->buffer = i_stream_get_data(stream->parent, &pos);
 	if (pos > stream->pos)
 		ret = 0;
-	else do {
-		if ((ret = i_stream_read(stream->parent)) == -2)
+	else {
+		if ((ret = i_stream_sized_parent_read(stream, &pos)) == -2)
 			return -2;
+	}
 
-		stream->istream.stream_errno = stream->parent->stream_errno;
-		stream->istream.eof = stream->parent->eof;
-		stream->buffer = i_stream_get_data(stream->parent, &pos);
-	} while (pos <= stream->pos && ret > 0);
+	left = sstream->size - stream->istream.v_offset;
+	if (pos == left && ret != -1) {
+		/* we have exactly the wanted amount of data left, but we
+		   don't know yet if there is more data in parent. */
+		ret = i_stream_sized_parent_read(stream, &pos);
+	}
 
 	memset(&data, 0, sizeof(data));
 	data.v_offset = stream->istream.v_offset;
@@ -83,14 +96,13 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 	data.wanted_size = sstream->size;
 	data.eof = stream->istream.eof;
 
-	left = sstream->size - stream->istream.v_offset;
-	if (pos == left)
-		stream->istream.eof = TRUE;
-	else if (pos > left) {
+	if (pos == left) {
+		/* we may or may not be finished, depending on whether
+		   parent is at EOF. */
+	} else if (pos > left) {
+		/* parent has more data available than expected */
 		error = sstream->error_callback(&data, sstream->error_context);
 		io_stream_set_error(&stream->iostream, "%s", error);
-		pos = left;
-		stream->istream.eof = TRUE;
 		stream->istream.stream_errno = EINVAL;
 		return -1;
 	} else if (!stream->istream.eof) {
