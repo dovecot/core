@@ -5,6 +5,7 @@
 #include "env-util.h"
 #include "hostpid.h"
 #include "var-expand.h"
+#include "var-expand-private.h"
 
 struct var_expand_test {
 	const char *in;
@@ -242,10 +243,29 @@ static int test_var_expand_hashing_func1(const char *data,
 	return 1;
 }
 
-static void test_var_expand_hashing(void)
+static int test_var_expand_bad_func(struct var_expand_context *ctx ATTR_UNUSED,
+				    const char *key,
+				    const char *field ATTR_UNUSED,
+				    const char **result_r ATTR_UNUSED,
+				    const char **error_r)
+{
+	if (strcmp(key, "notfound") == 0) return 0;
+	*error_r = "Bad parameters";
+	return -1;
+}
+
+static const struct var_expand_extension_func_table test_extension_funcs[] = {
+	{ "notfound", test_var_expand_bad_func },
+	{ "badparam", test_var_expand_bad_func },
+	{ NULL, NULL }
+};
+
+static void test_var_expand_extensions(void)
 {
 	const char *error;
-	test_begin("var_expand_hashing");
+	test_begin("var_expand_extensions");
+
+	var_expand_register_func_array(test_extension_funcs);
 
 	static const struct var_expand_table table[] = {
 		{'\0', "example", "value" },
@@ -277,10 +297,23 @@ static void test_var_expand_hashing(void)
 
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
 		str_truncate(str, 0);
+		error = NULL;
 		test_assert(var_expand_with_funcs(str, tests[i].in, table,
 			    func_table, NULL, &error) == 1);
 		test_assert_idx(strcmp(str_c(str), tests[i].out) == 0, i);
+		if (error != NULL) {
+			i_debug("Error: %s", error);
+		}
 	}
+
+	test_assert(var_expand_with_funcs(str, "notfound: %{notfound:field}",
+		    table, func_table, NULL, &error) == 0);
+	error = NULL;
+	test_assert(var_expand_with_funcs(str, "notfound: %{badparam:field}",
+		    table, func_table, NULL, &error) == -1);
+	test_assert(error != NULL);
+
+	var_expand_unregister_func_array(test_extension_funcs);
 
 	test_end();
 }
@@ -293,5 +326,5 @@ void test_var_expand(void)
 	test_var_expand_with_funcs();
 	test_var_get_key();
 	test_var_has_key();
-	test_var_expand_hashing();
+	test_var_expand_extensions();
 }
