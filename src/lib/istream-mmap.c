@@ -179,6 +179,7 @@ static int fstat_cached(struct mmap_istream *mstream)
 	if (fstat(mstream->istream.fd, &mstream->istream.statbuf) < 0) {
 		i_error("mmap_istream.fstat(%s) failed: %m",
 			i_stream_get_name(&mstream->istream.istream));
+		mstream->istream.istream.stream_errno = errno;
 		return -1;
 	}
 
@@ -205,10 +206,14 @@ struct istream *i_stream_create_mmap(int fd, size_t block_size,
 	if (mmap_pagemask == 0)
 		mmap_pagemask = mmap_get_page_size()-1;
 
+	mstream = i_new(struct mmap_istream, 1);
+
 	if (v_size == 0) {
-		if (fstat(fd, &st) < 0)
+		if (fstat(fd, &st) < 0) {
 			i_error("i_stream_create_mmap(): fstat() failed: %m");
-		else {
+			mstream->istream.istream.eof = TRUE;
+			mstream->istream.istream.stream_errno = errno;
+		} else {
 			v_size = st.st_size;
 			if (start_offset > v_size)
 				start_offset = v_size;
@@ -216,7 +221,6 @@ struct istream *i_stream_create_mmap(int fd, size_t block_size,
 		}
 	}
 
-	mstream = i_new(struct mmap_istream, 1);
 	mstream->autoclose_fd = autoclose_fd;
 	mstream->v_size = v_size;
 
