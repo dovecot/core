@@ -10,6 +10,7 @@
 struct run_ctx {
 	header_filter_callback *callback;
 	bool null_hdr_seen;
+	bool eoh_seen;
 	bool callback_called;
 };
 
@@ -19,6 +20,8 @@ static void run_callback(struct header_filter_istream *input,
 {
 	if (hdr == NULL)
 		ctx->null_hdr_seen = TRUE;
+	if (hdr != NULL && hdr->eoh)
+		ctx->eoh_seen = TRUE;
 	if (ctx->callback != NULL)
 		ctx->callback(input, hdr, matched, NULL);
 	ctx->callback_called = TRUE;
@@ -31,6 +34,7 @@ test_istream_run_prep(struct run_ctx *run_ctx,
 	i_zero(run_ctx);
 	run_ctx->callback = callback;
 	run_ctx->null_hdr_seen = FALSE;
+	run_ctx->eoh_seen = FALSE;
 	run_ctx->callback_called = FALSE;
 }
 
@@ -38,6 +42,7 @@ static void
 test_istream_run_check(struct run_ctx *run_ctx,
 		       struct istream *filter,
 		       const char *output,
+		       enum header_filter_flags flags,
 		       bool first,
 		       size_t *size_r)
 {
@@ -48,6 +53,9 @@ test_istream_run_check(struct run_ctx *run_ctx,
 		test_assert(run_ctx->null_hdr_seen);
 	else
 		test_assert(run_ctx->null_hdr_seen == run_ctx->callback_called);
+
+	if (first && ((flags & HEADER_FILTER_ADD_MISSING_EOH) != 0))
+		test_assert(run_ctx->eoh_seen);
 
 	data = i_stream_get_data(filter, size_r);
 	test_assert(*size_r == strlen(output) &&
@@ -81,7 +89,7 @@ test_istream_run(struct istream *test_istream,
 	test_assert(i_stream_read(filter) > 0);
 	test_assert(i_stream_read(filter) == -1);
 
-	test_istream_run_check(&run_ctx, filter, output, TRUE, &size);
+	test_istream_run_check(&run_ctx, filter, output, flags, TRUE, &size);
 
 	/* run again to make sure it's still correct the second time */
 	test_istream_run_prep(&run_ctx, callback);
@@ -89,7 +97,7 @@ test_istream_run(struct istream *test_istream,
 	i_stream_skip(filter, size);
 	i_stream_seek(filter, 0);
 	while (i_stream_read(filter) > 0) ;
-	test_istream_run_check(&run_ctx, filter, output, FALSE, &size);
+	test_istream_run_check(&run_ctx, filter, output, flags, FALSE, &size);
 	i_stream_unref(&filter);
 }
 
