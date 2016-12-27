@@ -306,10 +306,28 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			return -1;
 		}
 		if (!mstream->seen_eoh && mstream->add_missing_eoh) {
+			bool matched = FALSE;
+
 			mstream->seen_eoh = TRUE;
+
 			if (!mstream->last_added_newline)
 				add_eol(mstream, mstream->last_orig_crlf);
-			add_eol(mstream, mstream->last_orig_crlf);
+
+			if (mstream->callback != NULL) {
+				struct message_header_line fake_eoh_hdr = {
+					.eoh = TRUE,
+					.name = "",
+				};
+				mstream->callback(mstream, &fake_eoh_hdr,
+						  &matched, mstream->context);
+				mstream->callbacks_called = TRUE;
+			}
+
+			if (matched) {
+				mstream->seen_eoh = FALSE;
+			} else {
+				add_eol(mstream, mstream->last_orig_crlf);
+			}
 		}
 	}
 
