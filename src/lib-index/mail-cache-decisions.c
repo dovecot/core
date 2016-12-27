@@ -151,3 +151,26 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 	mail_index_lookup_uid(view->view, seq, &uid);
 	cache->fields[field].uid_highwater = uid;
 }
+
+void mail_cache_decisions_copy(struct mail_index_transaction *itrans,
+			       struct mail_cache *src,
+			       struct mail_cache *dst)
+{
+	struct mail_cache_compress_lock *lock = NULL;
+
+	if (mail_cache_open_and_verify(src) < 0 ||
+	    MAIL_CACHE_IS_UNUSABLE(src))
+		return;
+
+	unsigned int count = 0;
+	struct mail_cache_field *fields =
+		mail_cache_register_get_list(src, pool_datastack_create(), &count);
+	i_assert(fields != NULL || count == 0);
+	if (count > 0)
+		mail_cache_register_fields(dst, fields, count);
+
+	dst->field_header_write_pending = TRUE;
+	(void)mail_cache_compress(dst, itrans, &lock);
+	if (lock != NULL)
+		mail_cache_compress_unlock(&lock);
+}
