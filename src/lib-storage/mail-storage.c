@@ -26,6 +26,7 @@
 #include "mail-search-register.h"
 #include "mailbox-search-result-private.h"
 #include "mailbox-guid-cache.h"
+#include "mail-cache.h"
 
 #include <ctype.h>
 
@@ -1315,6 +1316,33 @@ bool mailbox_is_any_inbox(struct mailbox *box)
 	return box->inbox_any;
 }
 
+static void mailbox_copy_cache_decisions_from_inbox(struct mailbox *box)
+{
+	struct mail_namespace *ns =
+		mail_namespace_find_inbox(box->storage->user->namespaces);
+	struct mailbox *inbox =
+		mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_READONLY);
+	enum mailbox_existence existence;
+
+	/* this should be NoSelect but since inbox can never be
+	   NoSelect we use EXISTENCE_NONE to avoid creating inbox by accident */
+	if (mailbox_exists(inbox, FALSE, &existence) == 0 &&
+	    existence != MAILBOX_EXISTENCE_NONE &&
+	    mailbox_open(inbox) == 0 &&
+	    mailbox_open(box) == 0) {
+		struct mail_index_transaction *dit =
+			mail_index_transaction_begin(box->view,
+						     MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+
+		mail_cache_decisions_copy(dit, inbox->cache, box->cache);
+
+		/* we can't do much about errors here */
+		(void)mail_index_transaction_commit(&dit);
+	}
+
+	mailbox_free(&inbox);
+}
+
 int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)
 {
@@ -1326,9 +1354,11 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	box->creating = TRUE;
 	ret = box->v.create_box(box, update, directory);
 	box->creating = FALSE;
-	if (ret == 0)
+	if (ret == 0) {
 		box->list->guid_cache_updated = TRUE;
-	else if (box->opened) {
+		if (!box->inbox_any)
+			mailbox_copy_cache_decisions_from_inbox(box);
+	} else if (box->opened) {
 		/* Creation failed after (partially) opening the mailbox.
 		   It may not be in a valid state, so close it. */
 		mail_storage_last_error_push(box->storage);
