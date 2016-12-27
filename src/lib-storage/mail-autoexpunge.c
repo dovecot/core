@@ -18,7 +18,9 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 	const struct mail_index_header *hdr;
 	struct mailbox_status status;
 	uint32_t seq;
-	time_t timestamp, expire_time;
+	time_t timestamp, expire_time, last_rename_stamp = 0;
+	const void *data;
+	size_t size;
 	int ret = 0;
 
 	if ((unsigned int)ioloop_time < interval_time)
@@ -50,6 +52,12 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
 		return -1;
 
+	mail_index_get_header_ext(box->view, box->box_last_rename_stamp_ext_id,
+				  &data, &size);
+
+	if (size >= sizeof(uint32_t))
+		last_rename_stamp = *(const uint32_t*)data;
+
 	t = mailbox_transaction_begin(box, 0);
 	mail = mail_alloc(t, 0, NULL);
 
@@ -65,7 +73,7 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 			/* only max_mails is used. nothing further to do. */
 			break;
 		} else if (mail_get_save_date(mail, &timestamp) == 0) {
-			if (timestamp > expire_time)
+			if (I_MAX(last_rename_stamp, timestamp) > expire_time)
 				break;
 			mail_expunge(mail);
 		} else if (mailbox_get_last_mail_error(box) == MAIL_ERROR_EXPUNGED) {
