@@ -109,7 +109,7 @@ void ldap_connection_compare_start(struct ldap_connection *conn,
 	req->send_request_cb = ldap_compare_send;
 	req->timeout_secs = input->timeout_secs;
 
-	return ldap_connection_queue_request(conn, req);
+	ldap_connection_queue_request(conn, req);
 }
 
 bool ldap_compare_result(struct ldap_result *result)
