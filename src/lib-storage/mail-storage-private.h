@@ -361,6 +361,7 @@ struct mailbox {
 	uint32_t vsize_hdr_ext_id;
 	uint32_t pop3_uidl_hdr_ext_id;
 	uint32_t box_name_hdr_ext_id;
+	uint32_t box_last_rename_stamp_ext_id;
 
 	/* MAIL_RECENT flags handling */
 	ARRAY_TYPE(seq_range) recent_flags;

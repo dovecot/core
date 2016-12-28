@@ -299,6 +299,10 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	box->box_name_hdr_ext_id =
 		mail_index_ext_register(box->index, "box-name", 0, 0, 0);
 
+	box->box_last_rename_stamp_ext_id =
+		mail_index_ext_register(box->index, "last-rename-stamp",
+					sizeof(uint32_t), 0, sizeof(uint32_t));
+
 	box->opened = TRUE;
 
 	if ((box->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0)
@@ -792,6 +796,19 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 					dest->list, dest->name) < 0) {
 		mail_storage_copy_list_error(src->storage, src->list);
 		return -1;
+	}
+
+	if (mailbox_open(dest) == 0) {
+		struct mail_index_transaction *t =
+			mail_index_transaction_begin(dest->view, 0);
+
+		uint32_t stamp = ioloop_time;
+
+		mail_index_update_header_ext(t, dest->box_last_rename_stamp_ext_id,
+					     0, &stamp, sizeof(stamp));
+
+		/* can't do much if this fails anyways */
+		(void)mail_index_transaction_commit(&t);
 	}
 
 	/* we'll track mailbox names, instead of GUIDs. We may be renaming a
