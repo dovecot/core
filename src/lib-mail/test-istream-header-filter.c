@@ -24,19 +24,51 @@ static void run_callback(struct header_filter_istream *input,
 	ctx->callback_called = TRUE;
 }
 
+static inline void
+test_istream_run_prep(struct run_ctx *run_ctx,
+		      header_filter_callback *callback)
+{
+	i_zero(run_ctx);
+	run_ctx->callback = callback;
+	run_ctx->null_hdr_seen = FALSE;
+	run_ctx->callback_called = FALSE;
+}
+
+static void
+test_istream_run_check(struct run_ctx *run_ctx,
+		       struct istream *filter,
+		       const char *output,
+		       bool first,
+		       size_t *size_r)
+{
+	const unsigned char *data;
+	const struct stat *st;
+
+	if (first)
+		test_assert(run_ctx->null_hdr_seen);
+	else
+		test_assert(run_ctx->null_hdr_seen == run_ctx->callback_called);
+
+	data = i_stream_get_data(filter, size_r);
+	test_assert(*size_r == strlen(output) &&
+		    memcmp(data, output, *size_r) == 0);
+
+	test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
+		    (uoff_t)st->st_size == *size_r);
+}
+
 static void
 test_istream_run(struct istream *test_istream,
 		 unsigned int input_len, const char *output,
 		 enum header_filter_flags flags,
 		 header_filter_callback *callback)
 {
-	struct run_ctx run_ctx = { .callback = callback, .null_hdr_seen = FALSE };
+	struct run_ctx run_ctx;
 	struct istream *filter;
 	unsigned int i;
-	size_t output_len = strlen(output);
-	const struct stat *st;
-	const unsigned char *data;
 	size_t size;
+
+	test_istream_run_prep(&run_ctx, callback);
 
 	filter = i_stream_create_header_filter(test_istream, flags, NULL, 0,
 					       run_callback, &run_ctx);
@@ -49,22 +81,15 @@ test_istream_run(struct istream *test_istream,
 	test_assert(i_stream_read(filter) > 0);
 	test_assert(i_stream_read(filter) == -1);
 
-	test_assert(run_ctx.null_hdr_seen);
-	run_ctx.null_hdr_seen = FALSE;
-	run_ctx.callback_called = FALSE;
-
-	data = i_stream_get_data(filter, &size);
-	test_assert(size == output_len && memcmp(data, output, size) == 0);
+	test_istream_run_check(&run_ctx, filter, output, TRUE, &size);
 
 	/* run again to make sure it's still correct the second time */
+	test_istream_run_prep(&run_ctx, callback);
+
 	i_stream_skip(filter, size);
 	i_stream_seek(filter, 0);
 	while (i_stream_read(filter) > 0) ;
-	test_assert(run_ctx.null_hdr_seen == run_ctx.callback_called);
-	data = i_stream_get_data(filter, &size);
-	test_assert(size == output_len && memcmp(data, output, size) == 0);
-	test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
-		    (uoff_t)st->st_size == size);
+	test_istream_run_check(&run_ctx, filter, output, FALSE, &size);
 	i_stream_unref(&filter);
 }
 
