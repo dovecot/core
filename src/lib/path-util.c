@@ -270,17 +270,25 @@ int t_realpath_to(const char *path, const char *root, const char **npath_r,
 	return t_realpath(t_strconcat(root, "/", path, NULL), npath_r, error_r);
 }
 
-const char *t_abspath(const char *path)
+int t_abspath(const char *path, const char **abspath_r, const char **error_r)
 {
 	i_assert(path != NULL);
+	i_assert(abspath_r != NULL);
+	i_assert(error_r != NULL);
 
-	if (*path == '/')
-		return path;
+	if (*path == '/') {
+		*abspath_r = path;
+		return 0;
+	}
 
 	const char *dir, *error;
-	if (t_get_working_dir(&dir, &error) < 0)
-		i_fatal("Failed to get working directory: %s", error);
-	return t_strconcat(dir, "/", path, NULL);
+	if (t_get_working_dir(&dir, &error) < 0) {
+		*error_r = t_strconcat("Failed to get working directory: ",
+				       error, NULL);
+		return -1;
+	}
+	*abspath_r = t_strconcat(dir, "/", path, NULL);
+	return 0;
 }
 
 const char *t_abspath_to(const char *path, const char *root)
@@ -336,7 +344,12 @@ bool t_binary_abspath(const char **binpath)
 		return TRUE;
 	} else if (strchr(*binpath, '/') != NULL) {
 		/* relative to current directory */
-		*binpath = t_abspath(*binpath);
+		const char *error;
+		if (t_abspath(*binpath, binpath, &error) < 0) {
+			i_error("t_abspath(%s) failed: %s",
+				*binpath, error);
+			return FALSE;
+		}
 		return TRUE;
 	} else if ((path_env = getenv("PATH")) != NULL) {
 		/* we have to find our executable from path */

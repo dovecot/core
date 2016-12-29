@@ -353,7 +353,10 @@ int main(int argc, char *argv[])
 			break;
 		case 'p':
 			/* input path */
-			path = t_abspath(optarg);
+			if (t_abspath(optarg, &path, &errstr) < 0) {
+				i_fatal("t_abspath(%s) failed: %s",
+					optarg, errstr);
+			}
 			break;
 		case 'r':
 			/* final recipient address */

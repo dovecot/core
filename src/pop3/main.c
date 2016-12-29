@@ -259,9 +259,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	login_set.auth_socket_path = t_abspath(auth_socket_path);
-	if (argv[optind] != NULL)
-		login_set.postlogin_socket_path = t_abspath(argv[optind]);
+	const char *error;
+	if (t_abspath(auth_socket_path, &login_set.auth_socket_path, &error) < 0) {
+		i_fatal("t_abspath(%s) failed: %s", auth_socket_path, error);
+	}
+	if (argv[optind] != NULL) {
+		if (t_abspath(argv[optind], &login_set.postlogin_socket_path, &error) < 0) {
+			i_fatal("t_abspath(%s) failed: %s", argv[optind], error);
+		}
+	}
 	login_set.callback = login_client_connected;
 	login_set.failure_callback = login_client_failed;
 

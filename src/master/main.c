@@ -556,7 +556,11 @@ static const char *get_full_config_path(struct service_list *list)
 	if (*path == '/')
 		return path;
 
-	return p_strdup(list->pool, t_abspath(path));
+	const char *abspath, *error;
+	if (t_abspath(path, &abspath, &error) < 0) {
+		i_fatal("t_abspath(%s) failed: %s", path, error);
+	}
+	return p_strdup(list->pool, abspath);
 }
 
 static void master_time_moved(time_t old_time, time_t new_time)

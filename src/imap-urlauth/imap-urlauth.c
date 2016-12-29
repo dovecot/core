@@ -233,7 +233,9 @@ int main(int argc, char *argv[])
 	if (imap_urlauth_settings->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	login_set.auth_socket_path = t_abspath(auth_socket_path);
+	if (t_abspath(auth_socket_path, &login_set.auth_socket_path, &error) < 0) {
+		i_fatal("t_abspath(%s) failed: %s", auth_socket_path, error);
+	}
 	login_set.callback = login_client_connected;
 	login_set.failure_callback = login_client_failed;
 

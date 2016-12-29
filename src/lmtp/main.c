@@ -62,7 +62,12 @@ static void main_init(void)
 		i_zero(&conn);
 		(void)client_create(STDIN_FILENO, STDOUT_FILENO, &conn);
 	}
-	dns_client_socket_path = i_strdup(t_abspath(DNS_CLIENT_SOCKET_PATH));
+
+	const char *error, *tmp_socket_path;
+	if (t_abspath(DNS_CLIENT_SOCKET_PATH, &tmp_socket_path, &error) < 0) {
+		i_fatal("t_abspath(%s) failed: %s", DNS_CLIENT_SOCKET_PATH, error);
+	}
+	dns_client_socket_path = i_strdup(tmp_socket_path);
 }
 
 static void main_deinit(void)

@@ -41,8 +41,11 @@ int t_realpath_to(const char *path, const char *root, const char **npath_r,
  * In the t_abspath functions, the returned paths are not normalized. This
  * means that './' and '../' are not resolved, but they left in the returned
  * path as given in the parameters. Symbolic links are not resolved either.
+ *
+ * Returns 0 on success, and -1 on failure. error_r is set on failure, and
+ * cannot be NULL.
  */
-const char *t_abspath(const char *path);
+int t_abspath(const char *path, const char **abspath_r, const char **error_r);
 /* Like t_abspath(), but path is relative to given root. */
 const char *t_abspath_to(const char *path, const char *root);
 
