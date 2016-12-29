@@ -780,7 +780,7 @@ static int config_write_value(struct config_parser_context *ctx,
 	string_t *str = ctx->str;
 	const void *var_name, *var_value, *p;
 	enum setting_type var_type;
-	const char *error, *path;
+	const char *error, *path, *full_key;
 	bool dump, expand_parent;
 
 	switch (type) {
@@ -788,15 +788,16 @@ static int config_write_value(struct config_parser_context *ctx,
 		str_append(str, value);
 		break;
 	case CONFIG_LINE_TYPE_KEYFILE:
+		full_key = t_strndup(str_data(ctx->str), str_len(str)-1);
 		if (!ctx->expand_values) {
 			str_append_c(str, '<');
 			str_append(str, value);
 		} else {
-			if (!config_require_key(ctx, key)) {
+			if (!config_require_key(ctx, full_key)) {
 				/* don't even try to open the file */
 			} else {
 				path = fix_relative_path(value, ctx->cur_input);
-				if (str_append_file(str, key, path, &error) < 0) {
+				if (str_append_file(str, full_key, path, &error) < 0) {
 					/* file reading failed */
 					ctx->error = p_strdup(ctx->pool, error);
 					return -1;
