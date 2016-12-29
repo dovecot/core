@@ -334,7 +334,7 @@ int t_readlink(const char *path, const char **dest_r, const char **error_r)
 	return 0;
 }
 
-bool t_binary_abspath(const char **binpath)
+bool t_binary_abspath(const char **binpath, const char **error_r)
 {
 	const char *path_env, *const *paths;
 	string_t *path;
@@ -346,8 +346,8 @@ bool t_binary_abspath(const char **binpath)
 		/* relative to current directory */
 		const char *error;
 		if (t_abspath(*binpath, binpath, &error) < 0) {
-			i_error("t_abspath(%s) failed: %s",
-				*binpath, error);
+			*error_r = t_strdup_printf("t_abspath(%s) failed: %s",
+						   *binpath, error);
 			return FALSE;
 		}
 		return TRUE;
@@ -365,6 +365,10 @@ bool t_binary_abspath(const char **binpath)
 			}
 			str_truncate(path, 0);
 		}
+		*error_r = "Could not find the wanted executable from PATH";
+		return FALSE;
+	} else {
+		*error_r = "PATH environment variable undefined";
+		return FALSE;
 	}
-	return FALSE;
 }

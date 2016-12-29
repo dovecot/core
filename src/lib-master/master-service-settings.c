@@ -108,10 +108,12 @@ master_service_exec_config(struct master_service *service,
 			   const struct master_service_settings_input *input)
 {
 	const char **conf_argv, *binary_path = service->argv[0];
-	const char *home = NULL, *user = NULL, *timestamp = NULL;
+	const char *home = NULL, *user = NULL, *timestamp = NULL, *error = NULL;
 	unsigned int i, argv_max_count;
 
-	(void)t_binary_abspath(&binary_path);
+	if (!t_binary_abspath(&binary_path, &error)) {
+		i_fatal("t_binary_abspath(%s) failed: %s", binary_path, error);
+	}
 
 	if (!service->keep_environment && !input->preserve_environment) {
 		if (input->preserve_home)

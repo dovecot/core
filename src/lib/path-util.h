@@ -58,11 +58,12 @@ int t_get_working_dir(const char **dir_r, const char **error_r);
 int t_readlink(const char *path, const char **dest_r, const char **error_r);
 
 /* Update binpath to be absolute:
-   a) begins with '/' -> no change
-   b) contains '/' -> assume relative to working directory
-   c) set to first executable that's found from $PATH
-
-   If no usable binary was found, return FALSE. */
-bool t_binary_abspath(const char **binpath);
+ * a) begins with '/' -> no change
+ * b) contains '/' -> assume relative to working directory
+ * c) set to first executable that's found from $PATH
+ *
+ * error_r is set on failure, and cannot be NULL.
+ */
+bool t_binary_abspath(const char **binpath, const char **error_r);
 
 #endif
