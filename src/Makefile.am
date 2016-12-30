@@ -18,6 +18,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-http \
 	lib-fs \
 	lib-mail \
+	lib-smtp \
 	lib-imap \
 	lib-imap-storage \
 	lib-program-client
