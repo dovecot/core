@@ -1,4 +1,4 @@
-.\" Copyright (c) 2010-2016 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-PENALTY 1 "2010-07-12" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-penalty \- Show current penalties

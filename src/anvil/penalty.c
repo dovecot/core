@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2016 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
 
 /* The idea behind checksums is that the same username+password doesn't
    increase the penalty, because it's most likely a user with a misconfigured

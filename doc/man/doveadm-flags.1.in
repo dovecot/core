@@ -1,4 +1,4 @@
-.\" Copyright (c) 2013-2016 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-FLAGS 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-flags \- add, remove or replace messages\(aq flags

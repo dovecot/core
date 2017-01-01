@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
 
 /* Auth process maintains a random secret. Once a user authenticates the
    response to the REQUEST command from a master service is augmented with an

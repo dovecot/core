@@ -1,4 +1,4 @@
-.\" Copyright (c) 2010-2016 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-SEARCH 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-search \- Show a list of mailbox GUIDs and message UIDs matching \

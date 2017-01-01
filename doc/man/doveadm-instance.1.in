@@ -1,4 +1,4 @@
-.\" Copyright (c) 2012-2016 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2012-2017 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-INSTANCE 1 "2012-02-16" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-instance \- Manage the list of running Dovecot instances

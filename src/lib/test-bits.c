@@ -1,4 +1,4 @@
-/* Copyright (c) 2001-2016 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2001-2017 Dovecot authors, see the included COPYING file */
 
 /* Unit tests for bit twiddles library */
 

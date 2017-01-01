@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2012-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "array.h"

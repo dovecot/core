@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016 Dovecot authors, see the included COPYING memcached_ascii */
+/* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING memcached_ascii */
 
 #include "lib.h"
 #include "array.h"

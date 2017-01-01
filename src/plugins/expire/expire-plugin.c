@@ -1,4 +1,4 @@
-/* Copyright (c) 2006-2016 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
 
 /* There are several race conditions in this plugin, but they should be
    happening pretty rarely and usually it's not a big problem if the results

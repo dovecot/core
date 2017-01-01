@@ -1,4 +1,4 @@
-.\" Copyright (c) 2013-2016 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-EXEC 1 "2013-08-05" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-exec \- easily execute commands from Dovecot\(aqs libexec_dir

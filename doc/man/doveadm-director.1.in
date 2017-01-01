@@ -1,4 +1,4 @@
-.\" Copyright (c) 2013-2016 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-DIRECTOR 1 "2014-08-30" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-director \- Manage Dovecot directors

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
 #define FS_CLASS_CRYPT fs_class_crypt
 #include "fs-crypt-common.c"
 
