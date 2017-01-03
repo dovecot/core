@@ -59,7 +59,7 @@ mail_cache_register_lookup(struct mail_cache *cache, const char *name);
 const struct mail_cache_field *
 mail_cache_register_get_field(struct mail_cache *cache, unsigned int field_idx);
 /* Returns a list of all registered fields */
-const struct mail_cache_field *
+struct mail_cache_field *
 mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 			     unsigned int *count_r);
 
