@@ -186,7 +186,7 @@ mail_cache_register_get_field(struct mail_cache *cache, unsigned int field_idx)
 	return &cache->fields[field_idx].field;
 }
 
-const struct mail_cache_field *
+struct mail_cache_field *
 mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 			     unsigned int *count_r)
 {
