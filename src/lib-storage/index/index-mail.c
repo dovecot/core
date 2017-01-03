@@ -447,7 +447,20 @@ static bool get_cached_msgpart_sizes(struct index_mail *mail)
 bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 {
 	struct index_mail_data *data = &mail->data;
+	struct mail *_mail = &mail->mail.mail;
 	uoff_t size;
+	const void *idata;
+	bool expunged ATTR_UNUSED;
+	unsigned int idx ATTR_UNUSED;
+
+	/* see if we can get it from index */
+	mail_index_lookup_ext(_mail->transaction->view, _mail->seq,
+			      mail->vsize_ext_id, &idata, &expunged);
+	const uint32_t *vsize = idata;
+
+	if (vsize != NULL && *vsize > 0) {
+		data->virtual_size = (*vsize)-1;
+	}
 
 	data->cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
 	if (data->virtual_size == (uoff_t)-1) {
@@ -468,6 +481,16 @@ bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 		data->body_size_set = TRUE;
 	}
 	*size_r = data->virtual_size;
+
+	/* if vsize is present and wanted for index, but missing from index
+	   add it to index. */
+	if (vsize != NULL && *vsize == 0 &&
+	    data->body_size.virtual_size < (uint32_t)-1) {
+		uint32_t vsize = data->body_size.virtual_size+1;
+		mail_index_update_ext(_mail->transaction->itrans, _mail->seq,
+				      mail->vsize_ext_id, &vsize, NULL);
+	}
+
 	return TRUE;
 }
 
@@ -832,15 +855,39 @@ static void index_mail_body_parsed_cache_body_snippet(struct index_mail *mail)
 
 static void index_mail_cache_sizes(struct index_mail *mail)
 {
+	struct mail *_mail = &mail->mail.mail;
+	struct mail_index_view *view = _mail->transaction->view;
+
 	static enum index_cache_field size_fields[] = {
 		MAIL_CACHE_VIRTUAL_FULL_SIZE,
 		MAIL_CACHE_PHYSICAL_FULL_SIZE
 	};
 	uoff_t sizes[N_ELEMENTS(size_fields)];
 	unsigned int i;
+	uint32_t vsize;
+	uint32_t idx ATTR_UNUSED;
 
 	sizes[0] = mail->data.virtual_size;
 	sizes[1] = mail->data.physical_size;
+
+	/* store the virtual size in index if
+		extension for it exists or
+		extension for box virtual size exists
+	*/
+
+	if ((mail_index_map_get_ext_idx(view->map, mail->vsize_ext_id, &idx) ||
+	     mail_index_map_get_ext_idx(view->map, _mail->box->vsize_hdr_ext_id, &idx)) &&
+	    (sizes[0] != (uoff_t)-1 &&
+	     sizes[0] < (uint32_t)-1)) {
+		/* vsize = 0 means it's not present in index, consult cache.
+		   we store vsize for every +4GB-1 mail to cache because
+		   index can only hold 2^32-1 size. Cache will not be used
+		   when vsize is stored in index. */
+		vsize = sizes[0] + 1;
+		sizes[0] = (uoff_t)-1;
+		mail_index_update_ext(_mail->transaction->itrans, _mail->seq,
+				      mail->vsize_ext_id, &vsize, NULL);
+	}
 
 	for (i = 0; i < N_ELEMENTS(size_fields); i++) {
 		if (sizes[i] != (uoff_t)-1 &&
@@ -1490,7 +1537,9 @@ void index_mail_init(struct index_mail *mail,
 	mail->mail.v = *t->box->mail_vfuncs;
 	mail->mail.mail.box = t->box;
 	mail->mail.mail.transaction = t;
-
+	mail->vsize_ext_id = mail_index_ext_register(t->box->index, "vsize", 0,
+						     sizeof(uint32_t),
+						     sizeof(uint32_t));
 	t->mail_ref_count++;
 	mail->mail.data_pool = pool_alloconly_create("index_mail", 16384);
 	mail->ibox = INDEX_STORAGE_CONTEXT(t->box);
