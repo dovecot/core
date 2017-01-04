@@ -438,7 +438,7 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	i_assert(digest != NULL);
 
 	void *ctx = t_malloc_no0(digest->context_size);
-	string_t *buffer = t_str_new(64);
+	buffer_t *buffer = buffer_create_dynamic(pool_datastack_create(), 64);
 
 	digest->init(ctx);
 	digest->loop(ctx,
@@ -451,13 +451,13 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 		digest->loop(ctx, context->request->user, strlen(context->request->user) + 1);
 	if (password != NULL)
 		digest->loop(ctx, password, strlen(password));
-	ptr = (unsigned char*)str_c_modifiable(buffer);
+	ptr = buffer_get_modifiable_data(buffer, NULL);
 	digest->result(ctx, ptr);
-	str_truncate(buffer, digest->digest_size);
+	buffer_set_used_size(buffer, digest->digest_size);
 	if (context->set->policy_hash_truncate > 0) {
 		buffer_truncate_rshift_bits(buffer, context->set->policy_hash_truncate);
 	}
-	const char *hashed_password = binary_to_hex(str_data(buffer), str_len(buffer));
+	const char *hashed_password = binary_to_hex(buffer->data, buffer->used);
 	str_append_c(context->json, '{');
 	var_table = policy_get_var_expand_table(context->request, hashed_password);
 	const char *error;
