@@ -453,7 +453,7 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 		digest->loop(ctx, password, strlen(password));
 	ptr = (unsigned char*)str_c_modifiable(buffer);
 	digest->result(ctx, ptr);
-	str_truncate(buffer, digest->digest_size);
+	buffer_set_used_size(buffer, digest->digest_size);
 	if (context->set->policy_hash_truncate > 0) {
 		buffer_truncate_rshift_bits(buffer, context->set->policy_hash_truncate);
 	}
