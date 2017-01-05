@@ -637,7 +637,14 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 				      _mail->seq, &field_idx, 1) <= 0) {
 		/* not in cache / error - first see if it's already parsed */
 		p_free(mail->mail.data_pool, dest);
-
+		if (mail->data.header_parser_initialized) {
+		    /* don't try to parse headers recursively. we're here
+		       because message size was wrong and istream-mail
+		       wants to log some cached headers. */
+		    i_assert(mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE);
+		    mail_set_aborted(mail);
+		    return -1;
+		}
 		if (mail->header_seq != mail->data.seq ||
 		    index_mail_header_is_parsed(mail, field_idx) < 0) {
 			/* parse */
