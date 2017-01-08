@@ -73,18 +73,12 @@ void program_client_connect_timeout(struct program_client *pclient)
 static
 int program_client_connect(struct program_client *pclient)
 {
-	int ret;
-
 	if (pclient->set.client_connect_timeout_msecs != 0) {
 		pclient->to = timeout_add(pclient->set.client_connect_timeout_msecs,
 					  program_client_connect_timeout, pclient);
 	}
 
-	if ((ret = pclient->connect(pclient)) < 0) {
-		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
-		return -1;
-	}
-	return ret;
+	return pclient->connect(pclient);
 }
 
 static
