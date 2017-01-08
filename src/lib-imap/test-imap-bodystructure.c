@@ -228,6 +228,146 @@ struct parse_test parse_tests[] = {
 
 static const unsigned int parse_tests_count = N_ELEMENTS(parse_tests);
 
+struct normalize_test {
+	const char *message;
+	const char *input;
+	const char *output;
+};
+
+struct normalize_test normalize_tests[] = {
+	{
+		.message =
+			"From: user@domain.org\n"
+			"Date: Sat, 24 Mar 2017 23:00:00 +0200\n"
+			"Mime-Version: 1.0\n"
+			"Content-Type: text/plain; charset=us-ascii\n"
+			"\n"
+			"body\n",
+		.input =
+			"\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 6 1",
+		.output =
+			"\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 6 1 NIL NIL NIL NIL",
+	}, {
+		.message =
+			"From: user@domain.org\n"
+			"Date: Sat, 24 Mar 2017 23:00:00 +0200\n"
+			"Mime-Version: 1.0\n"
+			"Content-Type: text/plain; charset=us-ascii\n"
+			"Content-MD5: ae6ba5b4c6eb1efd4a9fac3708046cbe\n"
+			"\n"
+			"body\n",
+		.input =
+			"\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 6 1 \"ae6ba5b4c6eb1efd4a9fac3708046cbe\"",
+		.output =
+			"\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 6 1 \"ae6ba5b4c6eb1efd4a9fac3708046cbe\" NIL NIL NIL",
+	}, {
+		.message =
+			"From: user@domain.org\n"
+			"Date: Sat, 24 Mar 2017 23:00:00 +0200\n"
+			"Mime-Version: 1.0\n"
+			"Content-Type: multipart/mixed; boundary=\"foo bar\"\n"
+			"\n"
+			"--foo bar\n"
+			"Content-Type: text/plain; charset=us-ascii\n"
+			"\n"
+			"See attached...\n"
+			"\n"
+			"--foo bar\n"
+			"Content-Type: message/rfc822\n"
+			"\n"
+			"From: user@domain.org\n"
+			"Date: Sat, 24 Mar 2017 23:00:00 +0200\n"
+			"Mime-Version: 1.0\n"
+			"Content-Type: text/plain; charset=us-ascii\n"
+			"\n"
+			"body\n"
+			"\n"
+			"--foo bar--\n"
+			"\n",
+		.input =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1)(\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 133 (\"Sat, 24 Mar 2017 23:00:00 +0200\" NIL ((NIL NIL \"user\" \"domain.org\")) ((NIL NIL \"user\" \"domain.org\")) ((NIL NIL \"user\" \"domain.org\")) NIL NIL NIL NIL NIL) (\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 6 1) 6) \"mixed\"",
+		.output =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1 NIL NIL NIL NIL)(\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 133 (\"Sat, 24 Mar 2017 23:00:00 +0200\" NIL ((NIL NIL \"user\" \"domain.org\")) ((NIL NIL \"user\" \"domain.org\")) ((NIL NIL \"user\" \"domain.org\")) NIL NIL NIL NIL NIL) (\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 6 1 NIL NIL NIL NIL) 6 NIL NIL NIL NIL) \"mixed\" NIL NIL NIL NIL"
+	}, {
+		.message =
+			"From: user@domain.org\n"
+			"Date: Sat, 24 Mar 2017 23:00:00 +0200\n"
+			"Mime-Version: 1.0\n"
+			"Content-Type: multipart/mixed; boundary=\"foo bar\"\n"
+			"\n"
+			"--foo bar\n"
+			"Content-Type: text/plain; charset=us-ascii\n"
+			"\n"
+			"See attached...\n"
+			"\n"
+			"--foo bar--\n"
+			"\n",
+		.input =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1) \"mixed\" (\"boundary\" \"foo bar\")",
+		.output =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1 NIL NIL NIL NIL) \"mixed\" (\"boundary\" \"foo bar\") NIL NIL NIL"
+	}, {
+		.message =
+			"From: user@domain.org\n"
+			"Date: Sat, 24 Mar 2017 23:00:00 +0200\n"
+			"Mime-Version: 1.0\n"
+			"Content-Type: multipart/mixed; boundary=\"foo bar\"\n"
+			"\n"
+			"--foo bar\n"
+			"Content-Type: text/plain; charset=us-ascii\n"
+			"Content-MD5: 6537bae18ed07779c9dc25f24635b0f3\n"
+			"\n"
+			"See attached...\n"
+			"\n"
+			"--foo bar--\n"
+			"\n",
+		.input =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1 \"6537bae18ed07779c9dc25f24635b0f3\") \"mixed\" (\"boundary\" \"foo bar\")",
+		.output =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1 \"6537bae18ed07779c9dc25f24635b0f3\" NIL NIL NIL) \"mixed\" (\"boundary\" \"foo bar\") NIL NIL NIL"
+	}, {
+		.message =
+			"From: user@domain.org\n"
+			"Date: Sat, 24 Mar 2017 23:00:00 +0200\n"
+			"Mime-Version: 1.0\n"
+			"Content-Type: multipart/mixed; boundary=\"foo bar\"\n"
+			"\n"
+			"--foo bar\n"
+			"Content-Type: text/plain; charset=us-ascii\n"
+			"Content-Language: en\n"
+			"\n"
+			"See attached...\n"
+			"\n"
+			"--foo bar--\n"
+			"\n",
+		.input =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1 NIL NIL \"en\") \"mixed\" (\"boundary\" \"foo bar\")",
+		.output =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1 NIL NIL (\"en\") NIL) \"mixed\" (\"boundary\" \"foo bar\") NIL NIL NIL"
+	}, {
+		.message =
+			"From: user@domain.org\n"
+			"Date: Sat, 24 Mar 2017 23:00:00 +0200\n"
+			"Mime-Version: 1.0\n"
+			"Content-Type: multipart/mixed; boundary=\"foo bar\"\n"
+			"\n"
+			"--foo bar\n"
+			"Content-Type: text/plain; charset=us-ascii\n"
+			"Content-Location: http://www.example.com/frop.txt\n"
+			"\n"
+			"See attached...\n"
+			"\n"
+			"--foo bar--\n"
+			"\n",
+		.input =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1 NIL NIL NIL \"http://www.example.com/frop.txt\") \"mixed\" (\"boundary\" \"foo bar\")",
+		.output =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 17 1 NIL NIL NIL \"http://www.example.com/frop.txt\") \"mixed\" (\"boundary\" \"foo bar\") NIL NIL NIL"
+	}
+};
+
+static const unsigned int normalize_tests_count = N_ELEMENTS(normalize_tests);
+
 static struct message_part *
 msg_parse(pool_t pool, const char *message, bool parse_bodystructure)
 {
@@ -316,11 +456,44 @@ static void test_imap_bodystructure_parse(void)
 	} T_END;
 }
 
+static void test_imap_bodystructure_normalize(void)
+{
+	struct message_part *parts;
+	const char *error;
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < normalize_tests_count; i++) T_BEGIN {
+		struct normalize_test *test = &normalize_tests[i];
+		string_t *str = t_str_new(128);
+		pool_t pool = pool_alloconly_create("imap bodystructure parse", 1024);
+
+		test_begin(t_strdup_printf("imap bodystructure normalize [%u]", i));
+		parts = msg_parse(pool, test->message, FALSE);
+
+		ret = imap_bodystructure_parse(test->input,
+							   pool, parts, &error);
+		test_assert(ret == 0);
+
+		if (ret == 0) {
+			str_truncate(str, 0);
+			imap_bodystructure_write(parts, str, TRUE);
+			test_assert(strcmp(str_c(str), test->output) == 0);
+		} else {
+			i_error("Invalid BODYSTRUCTURE: %s", error);
+		}
+
+		pool_unref(&pool);
+		test_end();
+	} T_END;
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_bodystructure_write,
 		test_imap_bodystructure_parse,
+		test_imap_bodystructure_normalize,
 		NULL
 	};
 	return test_run(test_functions);
