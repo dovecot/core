@@ -839,7 +839,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	}
 
 	if (!get_nstring(args++, pool, tmpstr, &data->content_md5)) {
-		*error_r = "Invalid content-description";
+		*error_r = "Invalid content-md5";
 		return -1;
 	}
 	return imap_bodystructure_parse_args_common(data, pool, tmpstr,
