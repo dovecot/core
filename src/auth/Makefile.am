@@ -58,7 +58,8 @@ auth_libs = \
 	../lib-otp/libotp.la \
 	$(LIBDOVECOT_SQL)
 
-auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
+auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS) \
+	-I$(top_srcdir)/src/lib-ssl-iostream
 auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS)
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
 
