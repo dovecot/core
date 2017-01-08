@@ -59,6 +59,8 @@ auth_libs = \
 	$(LIBDOVECOT_SQL)
 
 auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS)
+auth_CPPFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/src/lib-ssl-iostream
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c

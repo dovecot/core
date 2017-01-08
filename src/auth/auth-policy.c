@@ -15,6 +15,7 @@
 #include "auth-penalty.h"
 #include "auth-settings.h"
 #include "auth-policy.h"
+#include "iostream-ssl.h"
 
 #define AUTH_POLICY_DNS_SOCKET_PATH "dns-client"
 
@@ -159,6 +160,12 @@ void auth_policy_init(void)
 	http_client_set.request_absolute_timeout_msecs = global_auth_settings->policy_server_timeout_msecs;
 	if (global_auth_settings->debug)
 		http_client_set.debug = 1;
+	http_client_set.ssl_ca_dir = global_auth_settings->ssl_client_ca_dir;
+	http_client_set.ssl_ca_file = global_auth_settings->ssl_client_ca_file;
+	if (*http_client_set.ssl_ca_dir == '\0' &&
+	    *http_client_set.ssl_ca_file == '\0')
+		http_client_set.ssl_allow_invalid_cert = TRUE;
+
 	http_client = http_client_init(&http_client_set);
 
 	/* prepare template */
