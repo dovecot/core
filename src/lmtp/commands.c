@@ -1269,12 +1269,13 @@ static void client_input_data_handle(struct client *client)
 	if (ret == 0)
 		return;
 
-	if (!client->dot_input->eof) {
+	if (client->dot_input->stream_errno != 0) {
 		/* client probably disconnected */
 		client_destroy(client, NULL, NULL);
 		return;
 	}
 
+	/* the ending "." line was seen. begin saving the mail. */
 	client_input_data_write(client);
 }
 
