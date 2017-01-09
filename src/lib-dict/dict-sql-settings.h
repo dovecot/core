@@ -23,6 +23,11 @@ struct dict_sql_map {
 	bool value_hexblob;
 
 	ARRAY(struct dict_sql_field) sql_fields;
+
+	/* generated: */
+	unsigned int values_count;
+	const char *const *value_fields;
+	const enum dict_sql_type *value_types;
 };
 
 struct dict_sql_settings {

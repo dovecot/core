@@ -395,26 +395,26 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 	return str_c(str);
 }
 
-static enum dict_sql_type 
-sql_dict_map_type(const struct dict_sql_map *map)
-{
-	if (map->value_type != NULL) {
-		if (strcmp(map->value_type, "string") == 0)
-			return DICT_SQL_TYPE_STRING;
-		if (strcmp(map->value_type, "hexblob") == 0)
-			return DICT_SQL_TYPE_HEXBLOB;
-		if (strcmp(map->value_type, "uint") == 0)
-			return DICT_SQL_TYPE_UINT;
-		i_unreached(); /* should have checked already at parsing */
-	}
-	return map->value_hexblob ? DICT_SQL_TYPE_HEXBLOB : DICT_SQL_TYPE_STRING;
-}
-
 static const char *
 sql_dict_result_unescape_value(const struct dict_sql_map *map, pool_t pool,
 			       struct sql_result *result)
 {
-	return sql_dict_result_unescape(sql_dict_map_type(map), pool, result, 0);
+	return sql_dict_result_unescape(map->value_types[0], pool, result, 0);
+}
+
+static const char *const *
+sql_dict_result_unescape_values(const struct dict_sql_map *map, pool_t pool,
+				struct sql_result *result)
+{
+	const char **values;
+	unsigned int i;
+
+	values = p_new(pool, const char *, map->values_count + 1);
+	for (i = 0; i < map->values_count; i++) {
+		values[i] = sql_dict_result_unescape(map->value_types[i],
+						     pool, result, i);
+	}
+	return values;
 }
 
 static const char *
@@ -479,23 +479,20 @@ sql_dict_lookup_async_callback(struct sql_result *sql_result,
 			       struct sql_dict_lookup_context *ctx)
 {
 	struct dict_lookup_result result;
-	const char *values[2] = { NULL, NULL };
 
 	i_zero(&result);
 	result.ret = sql_result_next_row(sql_result);
 	if (result.ret < 0)
 		result.error = sql_result_get_error(sql_result);
 	else if (result.ret > 0) {
-		result.value = sql_dict_result_unescape_value(ctx->map,
+		result.values = sql_dict_result_unescape_values(ctx->map,
 			pool_datastack_create(), sql_result);
+		result.value = result.values[0];
 		if (result.value == NULL) {
 			/* NULL value returned. we'll treat this as
 			   "not found", which is probably what is usually
 			   wanted. */
 			result.ret = 0;
-		} else {
-			values[0] = result.value;
-			result.values = values;
 		}
 	}
 	ctx->callback(&result, ctx->context);
@@ -958,12 +955,12 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 			str_append_c(prefix, ',');
 			str_append_c(suffix, ',');
 		}
-		str_append(prefix, fields[i].map->value_field);
+		str_append(prefix, t_strcut(fields[i].map->value_field, ','));
 		if (build->inc)
 			str_append(suffix, fields[i].value);
 		else {
 			enum dict_sql_type value_type =
-				sql_dict_map_type(fields[i].map);
+				fields[i].map->value_types[0];
 			if (sql_dict_value_escape(suffix, dict, fields[i].map,
 				value_type, "value", fields[i].value,
 				"", error_r) < 0)
@@ -997,17 +994,19 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 
 	str_append(prefix, " ON DUPLICATE KEY UPDATE ");
 	for (i = 0; i < field_count; i++) {
+		const char *first_value_field =
+			t_strcut(fields[i].map->value_field, ',');
 		if (i > 0)
 			str_append_c(prefix, ',');
-		str_append(prefix, fields[i].map->value_field);
+		str_append(prefix, first_value_field);
 		str_append_c(prefix, '=');
 		if (build->inc) {
 			str_printfa(prefix, "%s+%s",
-				    fields[i].map->value_field,
+				    first_value_field,
 				    fields[i].value);
 		} else {
 			enum dict_sql_type value_type =
-				sql_dict_map_type(fields[i].map);
+				fields[i].map->value_types[0];
 			if (sql_dict_value_escape(prefix, dict, fields[i].map,
 				value_type, "value", fields[i].value,
 				"", error_r) < 0)
@@ -1038,10 +1037,12 @@ sql_dict_update_query(struct sql_dict_transaction_context *ctx,
 	sql_dict_transaction_add_timestamp(ctx, query);
 	str_append(query, " SET ");
 	for (i = 0; i < field_count; i++) {
+		const char *first_value_field =
+			t_strcut(fields[i].map->value_field, ',');
 		if (i > 0)
 			str_append_c(query, ',');
-		str_printfa(query, "%s=%s", fields[i].map->value_field,
-			    fields[i].map->value_field);
+		str_printfa(query, "%s=%s", first_value_field,
+			    first_value_field);
 		if (fields[i].value[0] != '-')
 			str_append_c(query, '+');
 		str_append(query, fields[i].value);
