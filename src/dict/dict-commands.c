@@ -526,6 +526,33 @@ static int cmd_atomic_inc(struct dict_connection_cmd *cmd, const char *line)
 	return 0;
 }
 
+static int cmd_timestamp(struct dict_connection_cmd *cmd, const char *line)
+{
+	struct dict_connection_transaction *trans;
+	const char *const *args;
+	long long tv_sec;
+	unsigned int tv_nsec;
+
+	/* <id> <secs> <nsecs> */
+	args = t_strsplit_tabescaped(line);
+	if (str_array_length(args) != 3 ||
+	    str_to_llong(args[1], &tv_sec) < 0 ||
+	    str_to_uint(args[2], &tv_nsec) < 0) {
+		i_error("dict client: ATOMIC_INC: broken input");
+		return -1;
+	}
+
+	if (dict_connection_transaction_lookup_parse(cmd->conn, args[0], &trans) < 0)
+		return -1;
+
+	struct timespec ts = {
+		.tv_sec = tv_sec,
+		.tv_nsec = tv_nsec
+	};
+        dict_transaction_set_timestamp(trans->ctx, &ts);
+	return 0;
+}
+
 static const struct dict_cmd_func cmds[] = {
 	{ DICT_PROTOCOL_CMD_LOOKUP, cmd_lookup },
 	{ DICT_PROTOCOL_CMD_ITERATE, cmd_iterate },
@@ -537,6 +564,7 @@ static const struct dict_cmd_func cmds[] = {
 	{ DICT_PROTOCOL_CMD_UNSET, cmd_unset },
 	{ DICT_PROTOCOL_CMD_APPEND, cmd_append },
 	{ DICT_PROTOCOL_CMD_ATOMIC_INC, cmd_atomic_inc },
+	{ DICT_PROTOCOL_CMD_TIMESTAMP, cmd_timestamp },
 
 	{ 0, NULL }
 };
