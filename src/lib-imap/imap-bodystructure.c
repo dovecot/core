@@ -607,13 +607,19 @@ static int imap_write_params(const struct imap_arg *arg, pool_t pool,
 		*value_r = NULL;
 		return 0;
 	}
-	if (!imap_arg_get_list_full(arg, &list_args, &list_count))
-		return -1;
-	if ((list_count % divisible) != 0)
-		return -1;
-
-	if (imap_write_nstring_list(list_args, tmpstr) < 0)
-		return -1;
+	if (arg->type == IMAP_ARG_STRING) {
+		if (divisible > 1)
+			return -1;
+		str_truncate(tmpstr, 0);
+		str_append_nstring(tmpstr, arg);
+	} else {
+		if (!imap_arg_get_list_full(arg, &list_args, &list_count))
+			return -1;
+		if ((list_count % divisible) != 0)
+			return -1;
+		if (imap_write_nstring_list(list_args, tmpstr) < 0)
+			return -1;
+	}
 	*value_r = p_strdup(pool, str_c(tmpstr));
 	return 0;
 }
@@ -646,6 +652,8 @@ imap_bodystructure_parse_args_common(struct message_part_body_data *data,
 {
 	const struct imap_arg *list_args;
 
+	if (args->type == IMAP_ARG_EOL)
+		return 0;
 	if (args->type == IMAP_ARG_NIL)
 		args++;
 	else if (!imap_arg_get_list(args, &list_args)) {
@@ -664,11 +672,15 @@ imap_bodystructure_parse_args_common(struct message_part_body_data *data,
 		}
 		args++;
 	}
+	if (args->type == IMAP_ARG_EOL)
+		return 0;
 	if (imap_write_params(args++, pool, tmpstr, 1,
 			      &data->content_language) < 0) {
 		*error_r = "Invalid content-language";
 		return -1;
 	}
+	if (args->type == IMAP_ARG_EOL)
+		return 0;
 	if (!get_nstring(args++, pool, tmpstr, &data->content_location)) {
 		*error_r = "Invalid content-location";
 		return -1;
@@ -724,6 +736,8 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 			*error_r = "Invalid multipart content-type";
 			return -1;
 		}
+		if (args->type == IMAP_ARG_EOL)
+			return 0;
 		if (imap_write_params(args++, pool, tmpstr, 2,
 				      &data->content_type_params) < 0) {
 			*error_r = "Invalid content params";
@@ -838,6 +852,8 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		i_assert(part->children == NULL);
 	}
 
+	if (args->type == IMAP_ARG_EOL)
+		return 0;
 	if (!get_nstring(args++, pool, tmpstr, &data->content_md5)) {
 		*error_r = "Invalid content-md5";
 		return -1;
