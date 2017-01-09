@@ -76,6 +76,9 @@ struct auth_settings {
 	ARRAY(struct auth_userdb_settings *) userdbs;
 
 	const char *base_dir;
+	const char *ssl_client_ca_dir;
+	const char *ssl_client_ca_file;
+
 	bool verbose_proctitle;
 	unsigned int first_valid_uid;
 	unsigned int last_valid_uid;
