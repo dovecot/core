@@ -222,6 +222,22 @@ void dict_transaction_no_slowness_warning(struct dict_transaction_context *ctx)
 	ctx->no_slowness_warning = TRUE;
 }
 
+void dict_transaction_set_timestamp(struct dict_transaction_context *ctx,
+				    const struct timespec *ts)
+{
+	/* These asserts are mainly here to guarantee a possibility in future
+	   to change the API to support multiple timestamps within the same
+	   transaction, so this call would apply only to the following
+	   changes. */
+	i_assert(!ctx->changed);
+	i_assert(ctx->timestamp.tv_sec == 0);
+	i_assert(ts->tv_sec > 0);
+
+	ctx->timestamp = *ts;
+	if (ctx->dict->v.set_timestamp != NULL)
+		ctx->dict->v.set_timestamp(ctx, ts);
+}
+
 struct dict_commit_sync_result {
 	int ret;
 	char *error;

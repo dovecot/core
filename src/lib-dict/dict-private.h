@@ -1,6 +1,7 @@
 #ifndef DICT_PRIVATE_H
 #define DICT_PRIVATE_H
 
+#include <time.h>
 #include "dict.h"
 
 struct dict_vfuncs {
@@ -40,6 +41,8 @@ struct dict_vfuncs {
 	void (*lookup_async)(struct dict *dict, const char *key,
 			     dict_lookup_callback_t *callback, void *context);
 	bool (*switch_ioloop)(struct dict *dict);
+	void (*set_timestamp)(struct dict_transaction_context *ctx,
+			      const struct timespec *ts);
 };
 
 struct dict {
@@ -61,6 +64,8 @@ struct dict_iterate_context {
 
 struct dict_transaction_context {
 	struct dict *dict;
+
+	struct timespec timestamp;
 
 	bool changed:1;
 	bool no_slowness_warning:1;
