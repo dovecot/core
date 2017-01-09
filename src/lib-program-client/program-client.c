@@ -330,9 +330,12 @@ void program_client_program_input(struct program_client *pclient)
 					i_stream_get_name(input),
 					i_stream_get_error(input));
 				program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
+				return;
 			} else {
-				if (!program_client_input_pending(pclient))
+				if (!program_client_input_pending(pclient)) {
 					program_client_disconnect(pclient, FALSE);
+					return;
+				}
 			}
 		}
 		if (program_client_input_pending(pclient))
