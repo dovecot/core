@@ -32,8 +32,13 @@ static bool i_stream_mail_try_get_cached_size(struct mail_istream *mstream)
 }
 
 static const char *
-i_stream_mail_get_cached_mail_id(struct mail_istream *mstream)
+i_stream_mail_get_cached_mail_id(struct mail_istream *mstream ATTR_UNUSED)
 {
+#if 0
+	/* FIXME: This function may get called in the middle of header parsing,
+	   which then goes into parsing cached headers and causes crashes.
+	   So disable this for now. Eventually it would be nice if recursion
+	   was possible by each parser using its own private struct. */
 	static const char *headers[] = {
 		"Message-Id",
 		"Date",
@@ -54,6 +59,9 @@ i_stream_mail_get_cached_mail_id(struct mail_istream *mstream)
 	}
 	mail->lookup_abort = orig_lookup_abort;
 	return ret;
+#else
+	return "";
+#endif
 }
 
 static void
