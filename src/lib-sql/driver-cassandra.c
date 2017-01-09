@@ -61,6 +61,7 @@ struct cassandra_db {
 	unsigned int num_threads;
 	unsigned int connect_timeout_secs, request_timeout_secs;
 	unsigned int warn_timeout_secs;
+	unsigned int heartbeat_interval_secs, idle_timeout_secs;
 	in_port_t port;
 
 	CassCluster *cluster;
@@ -451,6 +452,12 @@ static void driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		} else if (strcmp(key, "num_threads") == 0) {
 			if (str_to_uint(value, &db->num_threads) < 0)
 				i_fatal("cassandra: Invalid num_threads: %s", value);
+		} else if (strcmp(key, "heartbeat_interval") == 0) {
+			if (settings_get_time(value, &db->heartbeat_interval_secs, &error) < 0)
+				i_fatal("cassandra: Invalid heartbeat_interval '%s': %s", value, error);
+		} else if (strcmp(key, "idle_timeout") == 0) {
+			if (settings_get_time(value, &db->idle_timeout_secs, &error) < 0)
+				i_fatal("cassandra: Invalid idle_timeout '%s': %s", value, error);
 		} else if (strcmp(key, "connect_timeout") == 0) {
 			if (settings_get_time(value, &db->connect_timeout_secs, &error) < 0)
 				i_fatal("cassandra: Invalid connect_timeout '%s': %s", value, error);
@@ -574,6 +581,10 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 		cass_cluster_set_num_threads_io(db->cluster, db->num_threads);
 	if (db->latency_aware_routing)
 		cass_cluster_set_latency_aware_routing(db->cluster, cass_true);
+	if (db->heartbeat_interval_secs != 0)
+		cass_cluster_set_connection_heartbeat_interval(db->cluster, db->heartbeat_interval_secs);
+	if (db->idle_timeout_secs != 0)
+		cass_cluster_set_connection_idle_timeout(db->cluster, db->idle_timeout_secs);
 	db->session = cass_session_new();
 	if (db->metrics_path != NULL)
 		db->to_metrics = timeout_add(1000, driver_cassandra_metrics_write, db);
