@@ -427,22 +427,12 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 struct dict dict_driver_ldap = {
 	.name = "ldap",
 	{
-		ldap_dict_init,
-		ldap_dict_deinit,
-		ldap_dict_wait,
-		ldap_dict_lookup,
-		NULL, /*ldap_dict_iterate_init,*/
-		NULL, /*ldap_dict_iterate,*/
-		NULL, /*ldap_dict_iterate_deinit,*/
-		NULL, /*ldap_transaction_init,*/
-		NULL, /*ldap_transaction_commit,*/
-		NULL, /*ldap_transaction_rollback,*/
-		NULL, /*ldap_set,*/
-		NULL, /*ldap_unset,*/
-		NULL, /*ldap_append,*/
-		NULL, /*ldap_atomic_inc,*/
-		ldap_dict_lookup_async,
-		ldap_dict_switch_ioloop
+		.init = ldap_dict_init,
+		.deinit = ldap_dict_deinit,
+		.wait = ldap_dict_wait,
+		.lookup = ldap_dict_lookup,
+		.lookup_async = ldap_dict_lookup_async,
+		.switch_ioloop = ldap_dict_switch_ioloop,
 	}
 };
 
