@@ -128,6 +128,7 @@ static void test_imap_bodystructure_parse(void)
 	struct message_part *parts;
 	const char *error;
 	unsigned int i;
+	int ret;
 
 	for (i = 0; i < parse_tests_count; i++) T_BEGIN {
 		struct parse_test *test = &parse_tests[i];
@@ -141,12 +142,17 @@ static void test_imap_bodystructure_parse(void)
 								     str, &error) == 0);
 		test_assert(strcmp(str_c(str), test->body) == 0);
 
-		test_assert(imap_bodystructure_parse(test->bodystructure,
-					     pool, parts, &error) == 0);
+		ret = imap_bodystructure_parse(test->bodystructure,
+							   pool, parts, &error);
+		test_assert(ret == 0);
 
-		str_truncate(str, 0);
-		imap_bodystructure_write(parts, str, TRUE);
-		test_assert(strcmp(str_c(str), test->bodystructure) == 0);
+		if (ret == 0) {
+			str_truncate(str, 0);
+			imap_bodystructure_write(parts, str, TRUE);
+			test_assert(strcmp(str_c(str), test->bodystructure) == 0);
+		} else {
+			i_error("Invalid BODYSTRUCTURE: %s", error);
+		}
 
 		pool_unref(&pool);
 		test_end();
