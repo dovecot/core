@@ -1449,6 +1449,20 @@ static void client_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	client_dict_send_transaction_query(ctx, query);
 }
 
+static void client_dict_set_timestamp(struct dict_transaction_context *_ctx,
+				      const struct timespec *ts)
+{
+	struct client_dict_transaction_context *ctx =
+		(struct client_dict_transaction_context *)_ctx;
+	const char *query;
+
+	query = t_strdup_printf("%c%u\t%s\t%u",
+				DICT_PROTOCOL_CMD_TIMESTAMP,
+				ctx->id, dec2str(ts->tv_sec),
+				(unsigned int)ts->tv_nsec);
+	client_dict_send_transaction_query(ctx, query);
+}
+
 struct dict dict_driver_client = {
 	.name = "proxy",
 
@@ -1467,6 +1481,7 @@ struct dict dict_driver_client = {
 		.unset = client_dict_unset,
 		.atomic_inc = client_dict_atomic_inc,
 		.lookup_async = client_dict_lookup_async,
-		.switch_ioloop = client_dict_switch_ioloop
+		.switch_ioloop = client_dict_switch_ioloop,
+		.set_timestamp = client_dict_set_timestamp,
 	}
 };

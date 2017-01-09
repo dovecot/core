@@ -24,7 +24,8 @@ enum dict_protocol_cmd {
 
 	DICT_PROTOCOL_CMD_SET = 'S', /* <id> <key> <value> */
 	DICT_PROTOCOL_CMD_UNSET = 'U', /* <id> <key> */
-	DICT_PROTOCOL_CMD_ATOMIC_INC = 'A' /* <id> <key> <diff> */
+	DICT_PROTOCOL_CMD_ATOMIC_INC = 'A', /* <id> <key> <diff> */
+	DICT_PROTOCOL_CMD_TIMESTAMP = 'T', /* <id> <secs> <nsecs> */
 };
 
 enum dict_protocol_reply {
