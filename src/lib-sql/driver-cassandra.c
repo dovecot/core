@@ -1001,6 +1001,18 @@ driver_cassandra_get_value(struct cassandra_result *result,
 		type = "int32";
 		break;
 	}
+	case CASS_VALUE_TYPE_BIGINT: {
+		cass_int64_t num;
+
+		rc = cass_value_get_int64(value, &num);
+		if (rc == CASS_OK) {
+			const char *str = t_strdup_printf("%lld", (long long)num);
+			output_size = strlen(str);
+			output = (const void *)str;
+		}
+		type = "int64";
+		break;
+	}
 	default:
 		rc = cass_value_get_bytes(value, &output, &output_size);
 		type = "bytes";
