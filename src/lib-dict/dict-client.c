@@ -1289,8 +1289,10 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	int diff = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
 	if (error != NULL) {
 		/* failed */
-		i_error("dict-client: Commit failed: %s "
-			"(reply took %u.%03u secs)", error, diff/1000, diff%1000);
+		i_error("dict-client: Commit %sfailed: %s "
+			"(reply took %u.%03u secs)",
+			disconnected ? "may have " : "",
+			error, diff/1000, diff%1000);
 		if (disconnected)
 			ret = DICT_COMMIT_RET_WRITE_UNCERTAIN;
 	} else switch (reply) {
@@ -1307,8 +1309,9 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		/* value contains the obsolete trans_id */
 		const char *error = extra_args[0];
 
-		i_error("dict-client: server returned failure: %s "
+		i_error("dict-client: server returned %sfailure: %s "
 			"(reply took %u.%03u secs)",
+			ret == DICT_COMMIT_RET_WRITE_UNCERTAIN ? "uncertain " : "",
 			error != NULL ? error : "",
 			diff/1000, diff%1000);
 		if (error != NULL)
