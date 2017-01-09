@@ -346,7 +346,7 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 	} else if (ret < 0) {
 		i_assert(error != NULL);
 		/* we didn't successfully send this command to dict */
-		dict_cmd_callback_error(cmd, error, FALSE);
+		dict_cmd_callback_error(cmd, error, cmd->reconnected);
 		client_dict_cmd_unref(cmd);
 		if (error_r != NULL)
 			*error_r = error;
