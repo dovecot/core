@@ -49,6 +49,26 @@ static void http_client_connection_ready(struct http_client_connection *conn);
 static void http_client_connection_input(struct connection *_conn);
 
 static inline void
+http_client_connection_ref_request(struct http_client_connection *conn,
+	struct http_client_request *req)
+{
+	i_assert(req->conn == NULL);
+	req->conn = conn;
+	http_client_request_ref(req);
+}
+
+static inline bool
+http_client_connection_unref_request(struct http_client_connection *conn,
+	struct http_client_request **_req)
+{
+	struct http_client_request *req = *_req;
+
+	i_assert(req->conn == conn);
+	req->conn = NULL;
+	return http_client_request_unref(_req);
+}
+
+static inline void
 http_client_connection_failure(struct http_client_connection *conn,
 					 const char *reason)
 {
@@ -106,8 +126,7 @@ http_client_connection_retry_requests(struct http_client_connection *conn,
 	array_foreach_modifiable(&conn->request_wait_list, req_idx) {
 		req = *req_idx;
 		/* drop reference from connection */
-		req->conn = NULL;
-		if (!http_client_request_unref(req_idx))
+		if (!http_client_connection_unref_request(conn, req_idx))
 			continue;
 		/* retry the request, which may drop it */
 		if (req->state < HTTP_REQUEST_STATE_FINISHED) {
@@ -132,8 +151,7 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 	array_foreach_modifiable(&conn->request_wait_list, req_idx) {
 		req = *req_idx;
 		/* drop reference from connection */
-		req->conn = NULL;
-		if (!http_client_request_unref(req_idx))
+		if (!http_client_connection_unref_request(conn, req_idx))
 			continue;
 		/* resubmit the request, which may drop it */
 		if (req->state < HTTP_REQUEST_STATE_FINISHED)
@@ -160,8 +178,7 @@ http_client_connection_abort_error(struct http_client_connection **_conn,
 		req = *req_idx;
 		i_assert(req->submitted);
 		/* drop reference from connection */
-		req->conn = NULL;
-		if (!http_client_request_unref(req_idx))
+		if (!http_client_connection_unref_request(conn, req_idx))
 			continue;
 		/* drop request if not already aborted */
 		http_client_request_error(&req, status, error);
@@ -180,8 +197,7 @@ http_client_connection_abort_any_requests(struct http_client_connection *conn)
 			req = *req_idx;
 			i_assert(req->submitted);
 			/* drop reference from connection */
-			req->conn = NULL;
-			if (!http_client_request_unref(req_idx))
+			if (!http_client_connection_unref_request(conn, req_idx))
 				continue;
 			/* drop request if not already aborted */
 			http_client_request_error(&req,
@@ -193,8 +209,7 @@ http_client_connection_abort_any_requests(struct http_client_connection *conn)
 	if (conn->pending_request != NULL) {
 		req = conn->pending_request;
 		/* drop reference from connection */
-		req->conn = NULL;
-		if (http_client_request_unref(&conn->pending_request)) {
+		if (http_client_connection_unref_request(conn, &conn->pending_request)) {
 			/* drop request if not already aborted */
 			http_client_request_error(&req,
 				HTTP_CLIENT_REQUEST_ERROR_ABORTED,
@@ -511,8 +526,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 
 	/* add request to wait list and add a reference */
 	array_append(&conn->request_wait_list, &req, 1);
-	req->conn = conn;
-	http_client_request_ref(req);
+	http_client_connection_ref_request(conn, req);
 
 	http_client_connection_debug(conn, "Claimed request %s",
 		http_client_request_label(req));
@@ -625,8 +639,7 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 	net_set_nonblock(conn->conn.fd_in, TRUE);
 
 	/* drop reference from connection */
-	req->conn = NULL;
-	if (http_client_request_unref(&conn->pending_request)) {
+	if (http_client_connection_unref_request(conn, &conn->pending_request)) {
 		/* finish request if not already aborted */
 		http_client_request_finish(req);
 	}
@@ -662,7 +675,7 @@ http_client_connection_return_response(
 	i_assert(conn->pending_request == NULL);
 
 	http_client_connection_ref(conn);
-	http_client_request_ref(req);
+	http_client_connection_ref_request(conn, req);
 	req->state = HTTP_REQUEST_STATE_GOT_RESPONSE;
 
 	if (response->payload != NULL) {
@@ -688,7 +701,7 @@ http_client_connection_return_response(
 		/* the callback managed to get this connection disconnected */
 		if (!retrying)
 			http_client_request_finish(req);
-		http_client_request_unref(&req);
+		http_client_connection_unref_request(conn, &req);
 		http_client_connection_unref(&conn);
 		return FALSE;
 	}
@@ -704,7 +717,7 @@ http_client_connection_return_response(
 					       http_client_connection_input,
 					       &conn->conn);
 		}
-		http_client_request_unref(&req);
+		http_client_connection_unref_request(conn, &req);
 		return http_client_connection_unref(&conn);
 	}
 
@@ -714,7 +727,6 @@ http_client_connection_return_response(
 		response->payload = NULL;
 
 		/* maintain request reference while payload is pending */
-		req->conn = conn;
 		conn->pending_request = req;
 
 		/* request is dereferenced in payload destroy callback */
@@ -726,7 +738,7 @@ http_client_connection_return_response(
 		}
 	} else {
 		http_client_request_finish(req);
-		http_client_request_unref(&req);
+		http_client_connection_unref_request(conn, &req);
 	}
 
 	if (conn->incoming_payload == NULL && conn->conn.input != NULL) {
@@ -909,14 +921,13 @@ static void http_client_connection_input(struct connection *_conn)
 
 		/* remove request from queue */
 		array_delete(&conn->request_wait_list, 0, 1);
-		req->conn = NULL;
 		aborted = (req->state == HTTP_REQUEST_STATE_ABORTED);
 		req_ref = req;
-		if (!http_client_request_unref(&req_ref)) {
+		if (!http_client_connection_unref_request(conn, &req_ref)) {
 			i_assert(aborted);
 			req = NULL;
 		}
-		
+
 		conn->close_indicated = response.connection_close;
 
 		if (!aborted) {
@@ -1157,7 +1168,6 @@ http_client_connection_ready(struct http_client_connection *conn)
 		if (req != NULL) {
 			struct http_response response;
 
-			http_client_request_ref(req);
 			conn->tunneling = TRUE;
 
 			i_zero(&response);
@@ -1165,7 +1175,6 @@ http_client_connection_ready(struct http_client_connection *conn)
 			response.reason = "OK";
 
 			(void)http_client_connection_return_response(conn, req, &response);
-			http_client_request_unref(&req);
 			return;
 		} 
 		

@@ -1317,7 +1317,6 @@ void http_client_request_redirect(struct http_client_request *req,
 	req->target = p_strdup(req->pool, target);
 	
 	req->host = NULL;
-	req->conn = NULL;
 
 	origin_url = http_url_create(&req->origin_url);
 
@@ -1374,7 +1373,6 @@ void http_client_request_resubmit(struct http_client_request *req)
 	if (req->payload_output != NULL)
 		o_stream_unref(&req->payload_output);
 
-	req->conn = NULL;
 	req->peer = NULL;
 	req->state = HTTP_REQUEST_STATE_QUEUED;
 	http_client_host_submit_request(req->host, req);
@@ -1418,7 +1416,9 @@ void http_client_request_set_destroy_callback(struct http_client_request *req,
 void http_client_request_start_tunnel(struct http_client_request *req,
 	struct http_client_tunnel *tunnel)
 {
+	struct http_client_connection *conn = req->conn;
+
 	i_assert(req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
 
-	http_client_connection_start_tunnel(&req->conn, tunnel);
+	http_client_connection_start_tunnel(&conn, tunnel);
 }
