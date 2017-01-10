@@ -963,7 +963,6 @@ static void director_user_move_throttled(unsigned int new_events_count,
 static void director_user_move_timeout(struct user *user)
 {
 	i_assert(user->kill_ctx != NULL);
-	i_assert(user->kill_ctx->kill_state != USER_KILL_STATE_FLUSHING);
 	i_assert(user->kill_ctx->kill_state != USER_KILL_STATE_DELAY);
 
 	if (log_throttle_accept(user_move_throttle)) {
@@ -971,6 +970,10 @@ static void director_user_move_timeout(struct user *user)
 			"its state may now be inconsistent (state=%s)",
 			user->username_hash,
 			user_kill_state_names[user->kill_ctx->kill_state]);
+	}
+	if (user->kill_ctx->kill_state == USER_KILL_STATE_FLUSHING) {
+		o_stream_unref(&user->kill_ctx->reply);
+		program_client_destroy(&user->kill_ctx->pclient);
 	}
 	director_user_move_free(user);
 }
