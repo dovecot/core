@@ -225,16 +225,16 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-test_auth_cache_SOURCES = test-auth-cache.c
-test_auth_cache_LDADD = auth-cache.o $(test_libs)
+test_auth_cache_SOURCES = auth-cache.c test-auth-cache.c
+test_auth_cache_LDADD = $(test_libs)
 test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
-test_auth_request_var_expand_SOURCES = test-auth-request-var-expand.c
-test_auth_request_var_expand_LDADD = auth-request-var-expand.o auth-fields.o $(test_libs)
+test_auth_request_var_expand_SOURCES = auth-request-var-expand.c auth-fields.c test-auth-request-var-expand.c
+test_auth_request_var_expand_LDADD = $(test_libs)
 test_auth_request_var_expand_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
-test_db_dict_SOURCES = test-db-dict.c
-test_db_dict_LDADD = db-dict-cache-key.o $(test_libs)
+test_db_dict_SOURCES = db-dict-cache-key.c test-db-dict.c
+test_db_dict_LDADD = $(test_libs)
 test_db_dict_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check: check-am check-test
