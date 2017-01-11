@@ -115,7 +115,7 @@ test_mail_attribute_set(struct mailbox_transaction_context *t,
 
 	int ret;
 
-	memset(&attr_value, 0, sizeof(attr_value));
+	i_zero(&attr_value);
 	attr_value.value = value;
 
 	if ((ret = mailbox_attribute_set(t, attr_type,

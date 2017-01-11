@@ -209,7 +209,7 @@ get_istream_attachment_settings(struct istream_attachment_settings *set_r)
 {
 	const char *error;
 
-	memset(set_r, 0, sizeof(*set_r));
+	i_zero(set_r);
 	set_r->min_size = 1;
 	set_r->drain_parent_input = TRUE;
 	set_r->open_temp_fd = test_open_temp_fd;

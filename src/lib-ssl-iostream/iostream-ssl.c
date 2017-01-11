@@ -30,7 +30,7 @@ static int ssl_module_load(const char **error_r)
 	const char *plugin_name = "ssl_iostream_openssl";
 	struct module_dir_load_settings mod_set;
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.setting_name = "<built-in lib-ssl-iostream lookup>";
 	mod_set.require_init_funcs = TRUE;

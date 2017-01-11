@@ -95,7 +95,7 @@ static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 	struct acl_object_list_iter *iter;
 	struct acl_rights_update update;
 
-	memset(&update, 0, sizeof(update));
+	i_zero(&update);
 	update.modify_mode = ACL_MODIFY_MODE_REPLACE;
 	update.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
 

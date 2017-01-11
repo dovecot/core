@@ -19,7 +19,7 @@ int imap_status_parse_items(struct client_command_context *cmd,
 		return -1;
 	}
 
-	memset(items_r, 0, sizeof(*items_r));
+	i_zero(items_r);
 	for (; !IMAP_ARG_IS_EOL(args); args++) {
 		if (!imap_arg_get_atom(args, &item)) {
 			/* list may contain only atoms */

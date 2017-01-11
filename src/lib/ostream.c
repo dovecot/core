@@ -230,7 +230,7 @@ ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size)
 {
 	struct const_iovec iov;
 
-	memset(&iov, 0, sizeof(iov));
+	i_zero(&iov);
 	iov.iov_base = data;
 	iov.iov_len = size;
 
@@ -278,7 +278,7 @@ void o_stream_nsend(struct ostream *stream, const void *data, size_t size)
 {
 	struct const_iovec iov;
 
-	memset(&iov, 0, sizeof(iov));
+	i_zero(&iov);
 	iov.iov_base = data;
 	iov.iov_len = size;
 

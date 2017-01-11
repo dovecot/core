@@ -605,7 +605,7 @@ ssl_server_context_get(const struct login_settings *login_set,
 {
 	struct ssl_server_context *ctx, lookup_ctx;
 
-	memset(&lookup_ctx, 0, sizeof(lookup_ctx));
+	i_zero(&lookup_ctx);
 	lookup_ctx.cert = set->ssl_cert;
 	lookup_ctx.key = set->ssl_key;
 	lookup_ctx.ca = set->ssl_ca;
@@ -1387,7 +1387,7 @@ void ssl_proxy_init(void)
 	   initialized though. */
 	(void)RAND_bytes(&buf, 1);
 
-	memset(&ssl_params, 0, sizeof(ssl_params));
+	i_zero(&ssl_params);
 	ssl_params.path = SSL_PARAMETERS_PATH;
 
 	ssl_proxy_count = 0;

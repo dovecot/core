@@ -376,7 +376,7 @@ void master_service_config_socket_try_open(struct master_service *service)
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) != 0)
 		return;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.never_exec = TRUE;
 	fd = master_service_open_config(service, &input, &path, &error);
 	if (fd != -1)
@@ -399,7 +399,7 @@ int master_service_settings_read(struct master_service *service,
 	time_t now, timeout;
 	bool use_environment, retry;
 
-	memset(output_r, 0, sizeof(*output_r));
+	i_zero(output_r);
 
 	if (getenv("DOVECONF_ENV") == NULL &&
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
@@ -546,7 +546,7 @@ int master_service_settings_read_simple(struct master_service *service,
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = roots;
 	input.module = service->name;
 	return master_service_settings_read(service, &input, &output, error_r);

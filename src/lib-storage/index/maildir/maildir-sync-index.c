@@ -485,7 +485,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 		mailbox_recent_flags_reset(&mbox->box);
 
 		first_uid = hdr->messages_count + 1;
-		memset(&empty_hdr, 0, sizeof(empty_hdr));
+		i_zero(&empty_hdr);
 		empty_hdr.next_uid = 1;
 		hdr = &empty_hdr;
 	}
@@ -786,7 +786,7 @@ void maildir_list_index_update_sync(struct mailbox *box,
 		return;
 	old_rec = data;
 
-	memset(&new_rec, 0, sizeof(new_rec));
+	i_zero(&new_rec);
 	if (mhdr->new_check_time <= mhdr->new_mtime + MAILDIR_SYNC_SECS ||
 	    mhdr->cur_check_time <= mhdr->cur_mtime + MAILDIR_SYNC_SECS) {
 		/* dirty, we need a refresh next time */

@@ -46,7 +46,7 @@ static void set_cache_decisions(struct mail_cache *cache,
 		if (idx != UINT_MAX) {
 			field = *mail_cache_register_get_field(cache, idx);
 		} else if (strncasecmp(name, "hdr.", 4) == 0) {
-			memset(&field, 0, sizeof(field));
+			i_zero(&field);
 			field.name = name;
 			field.type = MAIL_CACHE_FIELD_HEADER;
 		} else {
@@ -424,7 +424,7 @@ index_storage_mailbox_update_cache(struct mailbox *box,
 			field = old_fields[j];
 		} else if (strncmp(updates[i].name, "hdr.", 4) == 0) {
 			/* new header */
-			memset(&field, 0, sizeof(field));
+			i_zero(&field);
 			field.name = updates[i].name;
 			field.type = MAIL_CACHE_FIELD_HEADER;
 		} else {
@@ -836,7 +836,7 @@ void index_save_context_free(struct mail_save_context *ctx)
 	i_free_and_null(ctx->data.guid);
 	i_free_and_null(ctx->data.pop3_uidl);
 	index_attachment_save_free(ctx);
-	memset(&ctx->data, 0, sizeof(ctx->data));
+	i_zero(&ctx->data);
 
 	ctx->unfinished = FALSE;
 }

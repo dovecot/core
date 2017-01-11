@@ -856,7 +856,7 @@ void io_loop_context_add_callbacks(struct ioloop_context *ctx,
 {
 	struct ioloop_context_callback cb;
 
-	memset(&cb, 0, sizeof(cb));
+	i_zero(&cb);
 	cb.activate = activate;
 	cb.deactivate = deactivate;
 	cb.context = context;

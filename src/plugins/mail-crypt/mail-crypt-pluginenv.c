@@ -20,7 +20,7 @@ fs_crypt_load_settings(void)
 	struct master_service_settings_output output;
 	const char *error;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = set_roots;
 	input.module = "fs-crypt";
 	input.service = "fs-crypt";

@@ -258,7 +258,7 @@ int dcrypt_gnutls_pbkdf2(const unsigned char *password, size_t password_len, con
 		struct hmac_sha512_ctx ctx;
 		hmac_sha512_set_key(&ctx, password_len, password);
 		PBKDF2(&ctx, hmac_sha512_update, hmac_sha512_digest, 64, rounds, salt_len, salt, result_len, buf);
-		memset(&ctx, 0, sizeof(ctx));
+		i_zero(&ctx);
 	} else {
 		*error_r = "Unsupported algorithm";
 		return -1;

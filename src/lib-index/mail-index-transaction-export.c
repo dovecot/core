@@ -57,7 +57,7 @@ log_get_hdr_update_buffer(struct mail_index_transaction *t, bool prepend)
 	uint16_t offset;
 	int state = 0;
 
-	memset(&u, 0, sizeof(u));
+	i_zero(&u);
 
 	data = prepend ? t->pre_hdr_change : t->post_hdr_change;
 	mask = prepend ? t->pre_hdr_mask : t->post_hdr_mask;
@@ -200,8 +200,8 @@ log_append_ext_hdr_update(struct mail_index_export_context *ctx,
 	size_t offset;
 	bool started = FALSE, use_32 = hdr->alloc_size >= 65536;
 
-	memset(&u, 0, sizeof(u));
-	memset(&u32, 0, sizeof(u32));
+	i_zero(&u);
+	i_zero(&u32);
 
 	data = hdr->data;
 	mask = hdr->mask;
@@ -283,7 +283,7 @@ mail_transaction_log_append_ext_intros(struct mail_index_export_context *ctx)
 			ext_count = hdrs_count;
 	}
 
-	memset(&ext_reset, 0, sizeof(ext_reset));
+	i_zero(&ext_reset);
 	buffer_create_from_data(&reset_buf, &ext_reset, sizeof(ext_reset));
 	buffer_set_used_size(&reset_buf, sizeof(ext_reset));
 
@@ -361,7 +361,7 @@ log_append_keyword_update(struct mail_index_export_context *ctx,
 
 	i_assert(uid_buffer->used > 0);
 
-	memset(&kt_hdr, 0, sizeof(kt_hdr));
+	i_zero(&kt_hdr);
 	kt_hdr.modify_type = modify_type;
 	kt_hdr.name_size = strlen(keyword);
 
@@ -417,7 +417,7 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 	enum mail_index_fsync_mask change_mask = 0;
 	struct mail_index_export_context ctx;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.trans = t;
 	ctx.append_ctx = append_ctx;
 

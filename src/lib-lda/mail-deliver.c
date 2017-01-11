@@ -344,7 +344,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	if (default_save)
 		ctx->tried_default_save = TRUE;
 
-	memset(&open_ctx, 0, sizeof(open_ctx));
+	i_zero(&open_ctx);
 	open_ctx.user = ctx->dest_user;
 	open_ctx.lda_mailbox_autocreate = ctx->set->lda_mailbox_autocreate;
 	open_ctx.lda_mailbox_autosubscribe = ctx->set->lda_mailbox_autosubscribe;

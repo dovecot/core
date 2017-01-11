@@ -119,7 +119,7 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type,
 		return -1;
 	}
 
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.username = storage->user->username;
 	set.base_dir = storage->user->set->base_dir;
 	if (mail_user_get_home(storage->user, &set.home_dir) <= 0)
@@ -229,7 +229,7 @@ int index_storage_attribute_get(struct mailbox_transaction_context *t,
 	const char *mailbox_prefix;
 	int ret;
 
-	memset(value_r, 0, sizeof(*value_r));
+	i_zero(value_r);
 
 	if (index_storage_get_dict(t->box, type, &dict, &mailbox_prefix) < 0)
 		return -1;

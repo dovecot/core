@@ -149,7 +149,7 @@ int imap_metadata_unset(struct imap_metadata_transaction *imtrans,
 {
 	struct mail_attribute_value value;
 
-	memset(&value, 0, sizeof(value));
+	i_zero(&value);
 	return imap_metadata_set(imtrans, entry, &value);
 }
 
@@ -159,7 +159,7 @@ int imap_metadata_get(struct imap_metadata_transaction *imtrans,
 	enum mail_attribute_type type;
 	const char *key;
 
-	memset(value_r, 0, sizeof(*value_r));
+	i_zero(value_r);
 	if (!imap_metadata_entry2key(imtrans, entry, &type, &key))
 		return 0;
 	if (imap_metadata_get_mailbox_transaction(imtrans) < 0)
@@ -173,7 +173,7 @@ int imap_metadata_get_stream(struct imap_metadata_transaction *imtrans,
 	enum mail_attribute_type type;
 	const char *key;
 
-	memset(value_r, 0, sizeof(*value_r));
+	i_zero(value_r);
 	if (!imap_metadata_entry2key(imtrans, entry, &type, &key))
 		return 0;
 	if (imap_metadata_get_mailbox_transaction(imtrans) < 0)

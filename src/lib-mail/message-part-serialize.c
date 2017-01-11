@@ -250,7 +250,7 @@ message_part_deserialize(pool_t pool, const void *data, size_t size,
 	struct deserialize_context ctx;
         struct message_part *part;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.pool = pool;
 	ctx.data = data;
 	ctx.end = ctx.data + size;

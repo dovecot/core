@@ -56,7 +56,7 @@ static void test_ioloop_fd(void)
 		return;
 	}
 
-	memset(&test_ctx, 0, sizeof(test_ctx));
+	i_zero(&test_ctx);
 
 	struct ioloop *ioloop = io_loop_create();
 

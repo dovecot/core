@@ -68,7 +68,7 @@ void mail_index_modseq_enable(struct mail_index *index)
 		view = mail_index_view_open(index);
 		trans = mail_index_transaction_begin(view, 0);
 
-		memset(&hdr, 0, sizeof(hdr));
+		i_zero(&hdr);
 		hdr.highest_modseq = mail_index_modseq_get_head(index);
 		mail_index_update_header_ext(trans, index->modseq_ext_id,
 					     0, &hdr, sizeof(hdr));
@@ -513,7 +513,7 @@ static void mail_index_modseq_update_header(struct mail_index_view *view,
 	if (old_modseq_hdr->log_seq < log_seq ||
 	    (old_modseq_hdr->log_seq == log_seq &&
 	     old_modseq_hdr->log_offset < log_offset)) {
-		memset(&new_modseq_hdr, 0, sizeof(new_modseq_hdr));
+		i_zero(&new_modseq_hdr);
 		new_modseq_hdr.highest_modseq = highest_modseq;
 		new_modseq_hdr.log_seq = log_seq;
 		new_modseq_hdr.log_offset = log_offset;

@@ -22,11 +22,11 @@ static void test_message_search_more_get_decoded(void)
 	ctx1 = message_search_init("p\xC3\xA4\xC3\xA4", NULL, 0);
 	ctx2 = message_search_init("p\xC3\xB6\xC3\xB6", NULL, 0);
 
-	memset(&raw_block, 0, sizeof(raw_block));
+	i_zero(&raw_block);
 	raw_block.part = &part;
 
 	/* feed the Content-Type header */
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	hdr.name = "Content-Type"; hdr.name_len = strlen(hdr.name);
 	hdr.value = hdr.full_value = text_plain;
 	hdr.value_len = hdr.full_value_len = sizeof(text_plain)-1;

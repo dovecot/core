@@ -293,9 +293,9 @@ static int view_sync_update_keywords(struct mail_index_view_sync_ctx *ctx,
 		return 0;
 	kw_names = array_idx(&ctx->view->index->keywords, 0);
 
-	memset(&thdr, 0, sizeof(thdr));
+	i_zero(&thdr);
 	thdr.type = MAIL_TRANSACTION_KEYWORD_UPDATE | MAIL_TRANSACTION_EXTERNAL;
-	memset(&kw_up, 0, sizeof(kw_up));
+	i_zero(&kw_up);
 	kw_up.modify_type = MODIFY_ADD;
 	/* add new flags one by one */
 	for (i = 0; i < count; i++) {
@@ -334,7 +334,7 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	old_rec = MAIL_INDEX_REC_AT_SEQ(old_map, old_seq);
 	new_rec = MAIL_INDEX_REC_AT_SEQ(new_map, new_seq);
 
-	memset(&thdr, 0, sizeof(thdr));
+	i_zero(&thdr);
 	if (old_rec->flags != new_rec->flags) {
 		struct mail_transaction_flag_update flag_update;
 
@@ -348,7 +348,7 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 			MAIL_TRANSACTION_EXTERNAL;
 		thdr.size = sizeof(flag_update);
 
-		memset(&flag_update, 0, sizeof(flag_update));
+		i_zero(&flag_update);
 		flag_update.uid1 = flag_update.uid2 = new_rec->uid;
 		flag_update.add_flags = new_rec->flags;
 		flag_update.remove_flags = ~new_rec->flags & 0xff;
@@ -367,7 +367,7 @@ static int view_sync_apply_lost_changes(struct mail_index_view_sync_ctx *ctx,
 		thdr.size = sizeof(kw_reset);
 
 		/* remove all old flags by resetting them */
-		memset(&kw_reset, 0, sizeof(kw_reset));
+		i_zero(&kw_reset);
 		kw_reset.uid1 = kw_reset.uid2 = new_rec->uid;
 		if (mail_index_sync_record(&ctx->sync_map_ctx, &thdr,
 					   &kw_reset) < 0)

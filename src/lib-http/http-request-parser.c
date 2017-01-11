@@ -49,7 +49,7 @@ http_request_parser_init(struct istream *input,
 		hdr_limits = limits->header;
 		max_payload_size = limits->max_payload_size;
 	} else {
-		memset(&hdr_limits, 0, sizeof(hdr_limits));
+		i_zero(&hdr_limits);
 		max_payload_size = 0;
 	}
 
@@ -572,7 +572,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 		return -1;
 	}
 
-	memset(request, 0, sizeof(*request));
+	i_zero(request);
 
 	if (http_url_request_target_parse(parser->request_target, hdr->value,
 		parser->parser.msg.pool, &request->target, &error) < 0) {

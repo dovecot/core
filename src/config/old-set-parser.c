@@ -475,7 +475,7 @@ static bool old_auth_section(struct config_parser_context *ctx,
 		return FALSE;
 	}
 	ctx->old->seen_auth_section = TRUE;
-	memset(&ctx->old->socket_set, 0, sizeof(ctx->old->socket_set));
+	i_zero(&ctx->old->socket_set);
 
 	ctx->old->auth_section++;
 	if ((strcmp(key, "passdb") == 0 || strcmp(key, "userdb") == 0) &&
@@ -570,7 +570,7 @@ static void socket_apply(struct config_parser_context *ctx)
 		config_apply_line(ctx, "group",
 			  t_strdup_printf("%s/group=%s", prefix, set->group), NULL);
 	}
-	memset(&ctx->old->socket_set, 0, sizeof(ctx->old->socket_set));
+	i_zero(&ctx->old->socket_set);
 }
 
 bool old_settings_handle(struct config_parser_context *ctx,

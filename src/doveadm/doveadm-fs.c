@@ -35,12 +35,12 @@ cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
 			fs_cmd_help(cmd);
 	}
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
+	i_zero(&ssl_set);
 	ssl_set.ca_dir = doveadm_settings->ssl_client_ca_dir;
 	ssl_set.ca_file = doveadm_settings->ssl_client_ca_file;
 	ssl_set.verbose = doveadm_debug;
 
-	memset(&fs_set, 0, sizeof(fs_set));
+	i_zero(&fs_set);
 	fs_set.ssl_client_set = &ssl_set;
 	fs_set.temp_dir = "/tmp";
 	fs_set.base_dir = doveadm_settings->base_dir;
@@ -343,7 +343,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	const char *fname, *const *fnamep;
 	int ret;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.fs = fs;
 	ctx.path_prefix = path_prefix;
 	ctx.files_count = I_MAX(async_count, 1);
@@ -443,7 +443,7 @@ static void cmd_fs_delete_paths(int argc, char *argv[],
 
 	fs = cmd_fs_init(&argc, &argv, 0, cmd_fs_delete);
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.fs = fs;
 	ctx.path_prefix = "";
 	ctx.files_count = I_MAX(async_count, 1);

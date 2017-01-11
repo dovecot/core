@@ -112,7 +112,7 @@ static int mountpoint_list_load(struct mountpoint_list *list)
 	unsigned int len;
 	int fd, ret = 0;
 
-	memset(&rec, 0, sizeof(rec));
+	i_zero(&rec);
 
 	fd = open(list->state_path, O_RDONLY);
 	if (fd == -1) {
@@ -294,7 +294,7 @@ int mountpoint_list_add_missing(struct mountpoint_list *list,
 	struct mountpoint_iter *iter;
 	const struct mountpoint *mnt;
 
-	memset(&new_rec, 0, sizeof(new_rec));
+	i_zero(&new_rec);
 	new_rec.state = default_state;
 	new_rec.mounted = TRUE;
 

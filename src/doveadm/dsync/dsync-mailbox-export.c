@@ -208,7 +208,7 @@ search_update_flag_change_guid(struct dsync_mailbox_exporter *exporter,
 		return -1;
 	if (ret == 0) {
 		/* the message was expunged during export */
-		memset(change, 0, sizeof(*change));
+		i_zero(change);
 		change->type = DSYNC_MAIL_CHANGE_TYPE_EXPUNGE;
 		change->uid = mail->uid;
 
@@ -633,7 +633,7 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 		}
 
 		attr = &exporter->attr;
-		memset(attr, 0, sizeof(*attr));
+		i_zero(attr);
 		attr->type = exporter->attr_type;
 		attr->value = p_strdup(exporter->pool, value.value);
 		attr->value_stream = value.value_stream;
@@ -907,7 +907,7 @@ int dsync_mailbox_export_next_mail(struct dsync_mailbox_exporter *exporter,
 	   return them */
 	guids = array_get(&exporter->expunged_guids, &count);
 	if (exporter->expunged_guid_idx < count) {
-		memset(&exporter->dsync_mail, 0, sizeof(exporter->dsync_mail));
+		i_zero(&exporter->dsync_mail);
 		exporter->dsync_mail.guid =
 			guids[exporter->expunged_guid_idx++];
 		*mail_r = &exporter->dsync_mail;

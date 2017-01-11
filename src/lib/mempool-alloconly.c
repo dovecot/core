@@ -130,7 +130,7 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 #endif
 
 	/* create a fake alloconly_pool so we can call block_alloc() */
-	memset(&apool, 0, sizeof(apool));
+	i_zero(&apool);
 	apool.pool = static_alloconly_pool;
 	apool.refcount = 1;
 

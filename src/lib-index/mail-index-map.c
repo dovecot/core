@@ -231,7 +231,7 @@ static void mail_index_header_init(struct mail_index *index,
 {
 	i_assert((sizeof(*hdr) % sizeof(uint64_t)) == 0);
 
-	memset(hdr, 0, sizeof(*hdr));
+	i_zero(hdr);
 
 	hdr->major_version = MAIL_INDEX_MAJOR_VERSION;
 	hdr->minor_version = MAIL_INDEX_MINOR_VERSION;
@@ -253,7 +253,7 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 {
 	struct mail_index_map tmp_map;
 
-	memset(&tmp_map, 0, sizeof(tmp_map));
+	i_zero(&tmp_map);
 	mail_index_header_init(index, &tmp_map.hdr);
 	tmp_map.index = index;
 	tmp_map.hdr_base = &tmp_map.hdr;

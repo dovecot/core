@@ -32,7 +32,7 @@ static void cmd_pw(int argc, char *argv[])
 	random_init();
 	password_schemes_init();
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.ignore_dlopen_errors = TRUE;

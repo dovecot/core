@@ -610,7 +610,7 @@ imapc_list_build_match_tree(struct imapc_mailbox_list_iterate_context *ctx)
 	struct mailbox_node *node;
 	const char *name;
 
-	memset(&update_ctx, 0, sizeof(update_ctx));
+	i_zero(&update_ctx);
 	update_ctx.iter_ctx = &ctx->ctx;
 	update_ctx.tree_ctx = ctx->tree;
 	update_ctx.glob = ctx->ctx.glob;

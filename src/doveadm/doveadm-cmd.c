@@ -381,7 +381,7 @@ doveadm_build_options(const struct doveadm_cmd_param par[],
 	for(size_t i=0; par[i].name != NULL; i++) {
 		struct option longopt;
 
-		memset(&longopt, 0, sizeof(longopt));
+		i_zero(&longopt);
 		longopt.name = par[i].name;
 		if (par[i].short_opt != '\0') {
 			longopt.val = par[i].short_opt;

@@ -23,7 +23,7 @@ static char *chroot_dir = NULL;
 
 void restrict_access_init(struct restrict_access_settings *set)
 {
-	memset(set, 0, sizeof(*set));
+	i_zero(set);
 
 	set->uid = (uid_t)-1;
 	set->gid = (gid_t)-1;

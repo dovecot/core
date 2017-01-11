@@ -638,7 +638,7 @@ void test_get_info_pw_encrypted(void) {
 	test_begin("test_get_info_pw_encrypted");
 
 	struct dcrypt_keypair p1;
-	memset(&p1, 0, sizeof(p1));
+	i_zero(&p1);
 	const char *error;
 	bool ret = dcrypt_keypair_generate(&p1, DCRYPT_KEY_EC, 0, "secp521r1", &error);
 	test_assert(ret == TRUE);

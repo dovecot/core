@@ -158,7 +158,7 @@ static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 			return "Missing fields for pattern variables";
 	}
 	array_append(&ctx->set->maps, &ctx->cur_map, 1);
-	memset(&ctx->cur_map, 0, sizeof(ctx->cur_map));
+	i_zero(&ctx->cur_map);
 	return NULL;
 }
 
@@ -259,7 +259,7 @@ dict_sql_settings_read(const char *path, const char **error_r)
 	if (cache != NULL)
 		return cache->set;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	pool = pool_alloconly_create("dict sql settings", 1024);
 	ctx.pool = pool;
 	ctx.set = p_new(pool, struct dict_sql_settings, 1);

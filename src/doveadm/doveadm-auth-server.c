@@ -295,7 +295,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	pool_t pool;
 	int ret;
 
-	memset(&service_input, 0, sizeof(service_input));
+	i_zero(&service_input);
 	service_input.module = "mail";
 	service_input.service = input->info.service;
 	service_input.username = input->username;
@@ -367,7 +367,7 @@ static void cmd_user_ver2(struct doveadm_cmd_context *cctx)
 	(void)doveadm_cmd_param_str(cctx, "field", &show_field);
 	(void)doveadm_cmd_param_bool(cctx, "userdb-only", &userdb_only);
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	if (doveadm_cmd_param_array(cctx, "auth-info", &optval))
 		for(;*optval != NULL; optval++)
 			auth_user_info_parse(&input.info, *optval);

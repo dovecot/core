@@ -740,7 +740,7 @@ int quota_set_resource(struct quota_root *root, const char *name,
 	if (root->limit_set_dict == NULL) {
 		struct dict_settings set;
 
-		memset(&set, 0, sizeof(set));
+		i_zero(&set);
 		set.username = root->quota->user->username;
 		set.base_dir = root->quota->user->set->base_dir;
 		if (mail_user_get_home(root->quota->user, &set.home_dir) <= 0)

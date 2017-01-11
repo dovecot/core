@@ -570,9 +570,9 @@ imap_msgpart_open_normal(struct mail *mail, struct imap_msgpart *msgpart,
 	struct istream *input = NULL;
 	bool unknown_crlfs = FALSE;
 
-	memset(&hdr_size, 0, sizeof(hdr_size));
-	memset(&body_size, 0, sizeof(body_size));
-	memset(&part_size, 0, sizeof(part_size));
+	i_zero(&hdr_size);
+	i_zero(&body_size);
+	i_zero(&part_size);
 
 	if (*msgpart->section_number != '\0') {
 		/* find the MIME part */
@@ -671,7 +671,7 @@ int imap_msgpart_open(struct mail *mail, struct imap_msgpart *msgpart,
 	bool include_hdr, binary, use_partial_cache, have_crlfs;
 	int ret;
 
-	memset(result_r, 0, sizeof(*result_r));
+	i_zero(result_r);
 
 	if ((ret = imap_msgpart_find_part(mail, msgpart, &part)) < 0)
 		return -1;

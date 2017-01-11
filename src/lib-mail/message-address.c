@@ -23,7 +23,7 @@ static void add_address(struct message_address_parser_context *ctx)
 	addr = p_new(ctx->pool, struct message_address, 1);
 
 	memcpy(addr, &ctx->addr, sizeof(ctx->addr));
-	memset(&ctx->addr, 0, sizeof(ctx->addr));
+	i_zero(&ctx->addr);
 
 	if (ctx->first_addr == NULL)
 		ctx->first_addr = addr;
@@ -307,7 +307,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 {
 	struct message_address_parser_context ctx;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 
 	rfc822_parser_init(&ctx.parser, data, size, t_str_new(128));
 	ctx.pool = pool;

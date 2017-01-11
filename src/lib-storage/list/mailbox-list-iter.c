@@ -467,7 +467,7 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 	if (ns->prefix_len == 0 || !mailbox_list_ns_prefix_match(ctx, ns))
 		return FALSE;
 
-	memset(&ctx->ns_info, 0, sizeof(ctx->ns_info));
+	i_zero(&ctx->ns_info);
 	ctx->ns_info.ns = ns;
 	ctx->ns_info.vname = p_strndup(ctx->pool, ns->prefix,
 				       ns->prefix_len-1);
@@ -906,7 +906,7 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 		ctx->autocreate_ctx;
 	enum imap_match_result match;
 
-	memset(&actx->new_info, 0, sizeof(actx->new_info));
+	i_zero(&actx->new_info);
 	actx->new_info.ns = ctx->list->ns;
 	actx->new_info.vname = autobox->name;
 	actx->new_info.flags = autobox->flags;

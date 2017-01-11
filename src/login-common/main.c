@@ -314,7 +314,7 @@ static void login_load_modules(void)
 	if (global_login_settings->login_plugins[0] == '\0')
 		return;
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.binary_name = login_binary->process_name;
 	mod_set.setting_name = "login_plugins";

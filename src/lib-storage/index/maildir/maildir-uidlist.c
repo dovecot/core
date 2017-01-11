@@ -1990,7 +1990,7 @@ static void maildir_uidlist_swap(struct maildir_uidlist_sync_ctx *ctx)
 
 	hash_table_destroy(&uidlist->files);
 	uidlist->files = ctx->files;
-	memset(&ctx->files, 0, sizeof(ctx->files));
+	i_zero(&ctx->files);
 
 	if (uidlist->record_pool != NULL)
 		pool_unref(&uidlist->record_pool);

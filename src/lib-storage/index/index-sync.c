@@ -517,7 +517,7 @@ void index_storage_list_index_update_sync(struct mailbox *box,
 		return;
 	}
 
-	memset(&new_rec, 0, sizeof(new_rec));
+	i_zero(&new_rec);
 	new_rec.size = st.st_size & 0xffffffffU;
 	new_rec.mtime = st.st_mtime & 0xffffffffU;
 

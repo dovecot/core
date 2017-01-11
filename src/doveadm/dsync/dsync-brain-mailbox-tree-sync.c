@@ -17,7 +17,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	const char *errstr;
 	int ret;
 
-	memset(&update, 0, sizeof(update));
+	i_zero(&update);
 	memcpy(update.mailbox_guid, mailbox_guid, sizeof(update.mailbox_guid));
 	update.uid_validity = uid_validity;
 
@@ -72,7 +72,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 				guid_128_to_string(metadata.guid),
 				guid_128_to_string(mailbox_guid));
 		}
-		memset(&update, 0, sizeof(update));
+		i_zero(&update);
 		memcpy(update.mailbox_guid, mailbox_guid,
 		       sizeof(update.mailbox_guid));
 		if (mailbox_update(box, &update) < 0) {

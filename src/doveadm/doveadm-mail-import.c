@@ -162,7 +162,7 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 	const char *error;
 
 	/* create a user for accessing the source storage */
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = "mail";
 	input.username = ctx->src_username != NULL ?
 			 ctx->src_username :

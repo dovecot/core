@@ -208,7 +208,7 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 		return -1;
 	}
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = "mail";
 	input.service = "indexer-worker";
 	input.username = args[0];

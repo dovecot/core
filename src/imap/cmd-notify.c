@@ -407,8 +407,8 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 	    mailbox_equals(cmd->client->mailbox, info->ns, info->vname))
 		return;
 
-	memset(&items, 0, sizeof(items));
-	memset(&result, 0, sizeof(result));
+	i_zero(&items);
+	i_zero(&result);
 
 	items.status = STATUS_UIDVALIDITY | STATUS_UIDNEXT |
 		STATUS_MESSAGES | STATUS_UNSEEN;

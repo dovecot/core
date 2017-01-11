@@ -135,7 +135,7 @@ client_log_ctx(struct log_connection *log,
 	case LOG_TYPE_ERROR:
 	case LOG_TYPE_FATAL:
 	case LOG_TYPE_PANIC:
-		memset(&err, 0, sizeof(err));
+		i_zero(&err);
 		err.type = ctx->type;
 		err.timestamp = log_time->tv_sec;
 		err.prefix = prefix;
@@ -156,7 +156,7 @@ client_log_fatal(struct log_connection *log, struct log_client *client,
 	struct failure_context failure_ctx;
 	const char *prefix = log->default_prefix;
 
-	memset(&failure_ctx, 0, sizeof(failure_ctx));
+	i_zero(&failure_ctx);
 	failure_ctx.type = LOG_TYPE_FATAL;
 	failure_ctx.timestamp = tm;
 	failure_ctx.timestamp_usecs = log_time->tv_usec;
@@ -266,7 +266,7 @@ log_it(struct log_connection *log, const char *line,
 	}
 	i_assert(failure.log_type < LOG_TYPE_COUNT);
 
-	memset(&failure_ctx, 0, sizeof(failure_ctx));
+	i_zero(&failure_ctx);
 	failure_ctx.type = failure.log_type;
 	failure_ctx.timestamp = tm;
 	failure_ctx.timestamp_usecs = log_time->tv_usec;

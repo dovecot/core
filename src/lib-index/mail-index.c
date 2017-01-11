@@ -169,7 +169,7 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	if (mail_index_ext_lookup(index, name, &ext_id))
 		return ext_id;
 
-	memset(&rext, 0, sizeof(rext));
+	i_zero(&rext);
 	rext.name = p_strdup(index->extension_pool, name);
 	rext.index_idx = array_count(&index->extensions);
 	rext.hdr_size = default_hdr_size;

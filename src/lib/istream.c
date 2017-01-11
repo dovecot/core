@@ -874,7 +874,7 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 	if (_stream->init_buffer_size == 0)
 		_stream->init_buffer_size = I_STREAM_MIN_SIZE;
 
-	memset(&_stream->statbuf, 0, sizeof(_stream->statbuf));
+	i_zero(&_stream->statbuf);
 	_stream->statbuf.st_size = -1;
 	_stream->statbuf.st_atime =
 		_stream->statbuf.st_mtime =

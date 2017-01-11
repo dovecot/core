@@ -72,7 +72,7 @@ mailbox_internal_attribute_get(enum mail_attribute_type type,
 	struct mailbox_attribute_internal dreg;
 	unsigned int insert_idx;
 
-	memset(&dreg, 0, sizeof(dreg));
+	i_zero(&dreg);
 	dreg.type = type;	
 	dreg.key = key;
 
@@ -115,7 +115,7 @@ mailbox_internal_attributes_get(enum mail_attribute_type type,
 		plen--;
 	}
 
-	memset(&dreg, 0, sizeof(dreg));
+	i_zero(&dreg);
 	dreg.type = type;	
 	dreg.key = bare_prefix;
 
@@ -212,7 +212,7 @@ int mailbox_attribute_unset(struct mailbox_transaction_context *t,
 {
 	struct mail_attribute_value value;
 
-	memset(&value, 0, sizeof(value));
+	i_zero(&value);
 	return mailbox_attribute_set_common(t, type, key, &value);
 }
 
@@ -326,7 +326,7 @@ int mailbox_attribute_get(struct mailbox_transaction_context *t,
 			  struct mail_attribute_value *value_r)
 {
 	int ret;
-	memset(value_r, 0, sizeof(*value_r));
+	i_zero(value_r);
 	if ((ret = mailbox_attribute_get_common(t, type, key, value_r)) <= 0)
 		return ret;
 	i_assert(value_r->value != NULL);
@@ -339,7 +339,7 @@ int mailbox_attribute_get_stream(struct mailbox_transaction_context *t,
 {
 	int ret;
 
-	memset(value_r, 0, sizeof(*value_r));
+	i_zero(value_r);
 	value_r->flags |= MAIL_ATTRIBUTE_VALUE_FLAG_INT_STREAMS;
 	if ((ret = mailbox_attribute_get_common(t, type, key, value_r)) <= 0)
 		return ret;

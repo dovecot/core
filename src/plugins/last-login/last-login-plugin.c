@@ -93,7 +93,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	if (dict_value == NULL || dict_value[0] == '\0')
 		return;
 
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.username = user->username;
 	set.base_dir = user->set->base_dir;
 	if (mail_user_get_home(user, &set.home_dir) <= 0)

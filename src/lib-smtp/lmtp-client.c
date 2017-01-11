@@ -734,7 +734,7 @@ int lmtp_client_connect_tcp(struct lmtp_client *client,
 		return -1;
 	}
 
-	memset(&dns_lookup_set, 0, sizeof(dns_lookup_set));
+	i_zero(&dns_lookup_set);
 	dns_lookup_set.dns_client_socket_path =
 		client->set.dns_client_socket_path;
 	dns_lookup_set.timeout_msecs = LMTP_CLIENT_DNS_LOOKUP_TIMEOUT_MSECS;
@@ -808,7 +808,7 @@ void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 {
 	struct lmtp_recipient_params params;
 
-	memset(&params, 0, sizeof(params));
+	i_zero(&params);
 	lmtp_client_add_rcpt_params(client, address, &params, rcpt_to_callback,
 				    data_callback, context);
 }

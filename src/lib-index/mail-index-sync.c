@@ -152,7 +152,7 @@ static void mail_index_sync_add_dirty_updates(struct mail_index_sync_ctx *ctx)
 	const struct mail_index_record *rec;
 	uint32_t seq, messages_count;
 
-	memset(&update, 0, sizeof(update));
+	i_zero(&update);
 
 	messages_count = mail_index_view_get_messages_count(ctx->view);
 	for (seq = 1; seq <= messages_count; seq++) {

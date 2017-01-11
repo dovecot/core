@@ -320,7 +320,7 @@ memcached_dict_lookup_real(struct memcached_dict *dict, pool_t pool,
 				       dict->conn.cmd->data,
 				       dict->conn.cmd->used);
 
-			memset(&dict->conn.reply, 0, sizeof(dict->conn.reply));
+			i_zero(&dict->conn.reply);
 			io_loop_run(dict->ioloop);
 		}
 		timeout_remove(&to);

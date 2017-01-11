@@ -110,7 +110,7 @@ static void fs_class_try_load_plugin(const char *driver)
 	struct module_dir_load_settings mod_set;
 	const struct fs *fs_class;
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.ignore_missing = TRUE;
 

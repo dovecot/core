@@ -90,7 +90,7 @@ vfile_object_add_right(struct acl_object *aclobj, unsigned int idx,
 		return FALSE;
 	}
 
-	memset(&right, 0, sizeof(right));
+	i_zero(&right);
 	right.id_type = update->rights.id_type;
 	right.identifier = p_strdup(aclobj->rights_pool,
 				    update->rights.identifier);

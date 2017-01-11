@@ -967,7 +967,7 @@ int config_parse_file(const char *path, bool expand_values,
 		}
 	}
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create(MEMPOOL_GROWING"config file parser", 1024*256);
 	ctx.path = path;
 	ctx.hide_errors = fd == -1;
@@ -982,7 +982,7 @@ int config_parse_file(const char *path, bool expand_values,
 					     settings_parser_flags);
 	}
 
-	memset(&root, 0, sizeof(root));
+	i_zero(&root);
 	root.path = path;
 	ctx.cur_input = &root;
 	ctx.expand_values = expand_values;
@@ -1052,7 +1052,7 @@ void config_parse_load_modules(void)
 	struct service_settings *const *services, *service_set;
 	unsigned int i, count;
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	modules = module_dir_load(CONFIG_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);

@@ -65,7 +65,7 @@ cmd_batch_add(struct batch_cmd_context *batchctx,
 	if (cmd_ver2 == NULL)
 		cmd = doveadm_mail_cmd_find_from_argv(argv[0], &argc, &argv);
 	else {
-		memset(&tmpcmd, 0, sizeof(tmpcmd));
+		i_zero(&tmpcmd);
 		tmpcmd.usage_args = cmd_ver2->usage;
 		tmpcmd.name = cmd_ver2->name;
 		tmpcmd.alloc = cmd_ver2->mail_cmd;

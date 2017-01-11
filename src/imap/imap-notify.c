@@ -52,7 +52,7 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 	enum mail_error error;
 	int ret = 1;
 
-	memset(&items, 0, sizeof(items));
+	i_zero(&items);
 	if ((client->enabled_features & MAILBOX_FEATURE_CONDSTORE) != 0)
 		items.status |= STATUS_HIGHESTMODSEQ;
 

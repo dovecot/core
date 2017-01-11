@@ -105,7 +105,7 @@ void buffer_create_from_data(buffer_t *buffer, void *data, size_t size)
 	i_assert(sizeof(*buffer) >= sizeof(struct real_buffer));
 
 	buf = (struct real_buffer *)buffer;
-	memset(buf, 0, sizeof(*buf));
+	i_zero(buf);
 	buf->alloc = size;
 	buf->r_buffer = buf->w_buffer = data;
 	/* clear the whole memory area. unnecessary usually, but if the
@@ -123,7 +123,7 @@ void buffer_create_from_const_data(buffer_t *buffer,
 	i_assert(sizeof(*buffer) >= sizeof(struct real_buffer));
 
 	buf = (struct real_buffer *)buffer;
-	memset(buf, 0, sizeof(*buf));
+	i_zero(buf);
 
 	buf->used = buf->alloc = size;
 	buf->r_buffer = data;

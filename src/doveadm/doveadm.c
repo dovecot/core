@@ -254,7 +254,7 @@ static void doveadm_read_settings(void)
 	const struct doveadm_settings *set;
 	const char *error;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = set_roots;
 	input.module = "doveadm";
 	input.service = "doveadm";
@@ -296,7 +296,7 @@ int main(int argc, char *argv[])
 	bool quick_init = FALSE;
 	int c;
 
-	memset(&cctx,0,sizeof(cctx));
+	i_zero(&cctx);
 	cctx.cli = TRUE;
 
 	i_set_failure_exit_callback(failure_exit_callback);

@@ -230,7 +230,7 @@ doveadm_expire_analyze_and_query(struct doveadm_mail_cmd_context *ctx,
 	struct expire_query query;
 	bool have_or = FALSE;
 
-	memset(&query, 0, sizeof(query));
+	i_zero(&query);
 	query.before_time = (time_t)-1;
 
 	for (arg = args; arg != NULL; arg = arg->next) {

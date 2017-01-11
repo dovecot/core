@@ -312,7 +312,7 @@ rebuild_add_missing_map_uids(struct mdbox_storage_rebuild_context *ctx,
 	unsigned int i, count;
 	uint32_t seq;
 
-	memset(&rec, 0, sizeof(rec));
+	i_zero(&rec);
 	msgs = array_get_modifiable(&ctx->msgs, &count);
 	for (i = 0; i < count; i++) {
 		if (msgs[i]->map_uid != 0)
@@ -425,7 +425,7 @@ rebuild_mailbox_multi(struct mdbox_storage_rebuild_context *ctx,
 		mail_index_lookup_ext(view, old_seq, mbox->ext_id,
 				      &data, NULL);
 		if (data == NULL) {
-			memset(&new_dbox_rec, 0, sizeof(new_dbox_rec));
+			i_zero(&new_dbox_rec);
 			map_uid = 0;
 		} else {
 			memcpy(&new_dbox_rec, data, sizeof(new_dbox_rec));
@@ -486,7 +486,7 @@ mdbox_rebuild_get_header(struct mail_index_view *view, uint32_t hdr_ext_id,
 	size_t data_size;
 
 	mail_index_get_header_ext(view, hdr_ext_id, &data, &data_size);
-	memset(hdr_r, 0, sizeof(*hdr_r));
+	i_zero(hdr_r);
 	memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
 	*need_resize_r = data_size < sizeof(*hdr_r);
 }
@@ -501,7 +501,7 @@ static void mdbox_header_update(struct mdbox_storage_rebuild_context *ctx,
 	mdbox_rebuild_get_header(rebuild_ctx->view, mbox->hdr_ext_id,
 				 &hdr, &need_resize);
 	if (rebuild_ctx->backup_view == NULL) {
-		memset(&backup_hdr, 0, sizeof(backup_hdr));
+		i_zero(&backup_hdr);
 		need_resize = TRUE;
 	} else {
 		mdbox_rebuild_get_header(rebuild_ctx->backup_view,
@@ -647,7 +647,7 @@ static int rebuild_msg_mailbox_commit(struct rebuild_msg_mailbox *msg)
 	if (mail_index_sync_commit(&msg->sync_ctx) < 0)
 		return -1;
 	mailbox_free(&msg->box);
-	memset(msg, 0, sizeof(*msg));
+	i_zero(msg);
 	return 0;
 }
 
@@ -753,7 +753,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 	}
 
 	/* add the new message */
-	memset(&dbox_rec, 0, sizeof(dbox_rec));
+	i_zero(&dbox_rec);
 	dbox_rec.map_uid = msg->map_uid;
 	dbox_rec.save_date = ioloop_time;
 	mail_index_append(ctx->prev_msg.trans, ctx->prev_msg.next_uid++, &seq);
@@ -917,7 +917,7 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 	mail_index_get_header_ext(ctx->atomic->sync_view,
 				  ctx->storage->map->map_ext_id,
 				  &data, &data_size);
-	memset(&ctx->orig_map_hdr, 0, sizeof(ctx->orig_map_hdr));
+	i_zero(&ctx->orig_map_hdr);
 	memcpy(&ctx->orig_map_hdr, data,
 	       I_MIN(data_size, sizeof(ctx->orig_map_hdr)));
 	ctx->highest_file_id = ctx->orig_map_hdr.highest_file_id;

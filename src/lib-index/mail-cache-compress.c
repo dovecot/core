@@ -187,7 +187,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	cache_view = mail_cache_view_open(cache, view);
 	output = o_stream_create_fd_file(fd, 0, FALSE);
 
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	hdr.major_version = MAIL_CACHE_MAJOR_VERSION;
 	hdr.minor_version = MAIL_CACHE_MINOR_VERSION;
 	hdr.compat_sizeof_uoff_t = sizeof(uoff_t);
@@ -195,7 +195,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	hdr.file_seq = get_next_file_seq(cache);
 	o_stream_nsend(output, &hdr, sizeof(hdr));
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.cache = cache;
 	ctx.buffer = buffer_create_dynamic(default_pool, 4096);
 	ctx.field_seen = buffer_create_dynamic(default_pool, 64);
@@ -264,7 +264,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 			ctx.field_seen_value++;
 		}
 
-		memset(&cache_rec, 0, sizeof(cache_rec));
+		i_zero(&cache_rec);
 		buffer_append(ctx.buffer, &cache_rec, sizeof(cache_rec));
 
 		mail_cache_lookup_iter_init(cache_view, seq, &iter);

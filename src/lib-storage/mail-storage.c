@@ -1251,7 +1251,7 @@ void mail_storage_free_binary_cache(struct mail_storage *storage)
 
 	timeout_remove(&storage->binary_cache.to);
 	i_stream_destroy(&storage->binary_cache.input);
-	memset(&storage->binary_cache, 0, sizeof(storage->binary_cache));
+	i_zero(&storage->binary_cache);
 }
 
 void mailbox_close(struct mailbox *box)
@@ -1400,7 +1400,7 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 
 static void mailbox_close_reset_path(struct mailbox *box)
 {
-	memset(&box->_perm, 0, sizeof(box->_perm));
+	i_zero(&box->_perm);
 	box->_path = NULL;
 	box->_index_path = NULL;
 }
@@ -1662,7 +1662,7 @@ static void
 mailbox_get_status_set_defaults(struct mailbox *box,
 				struct mailbox_status *status_r)
 {
-	memset(status_r, 0, sizeof(*status_r));
+	i_zero(status_r);
 	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_GUIDS) != 0)
 		status_r->have_guids = TRUE;
 	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS) != 0)
@@ -1700,7 +1700,7 @@ void mailbox_get_open_status(struct mailbox *box,
 int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 			 struct mailbox_metadata *metadata_r)
 {
-	memset(metadata_r, 0, sizeof(*metadata_r));
+	i_zero(metadata_r);
 	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
 
@@ -1757,7 +1757,7 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 
 	*_ctx = NULL;
 
-	memset(status_r, 0, sizeof(*status_r));
+	i_zero(status_r);
 	ret = box->v.sync_deinit(ctx, status_r);
 	if (ret < 0 && box->inbox_user &&
 	    !box->storage->user->inbox_open_error_logged) {
@@ -2417,7 +2417,7 @@ const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box)
 
 void mailbox_refresh_permissions(struct mailbox *box)
 {
-	memset(&box->_perm, 0, sizeof(box->_perm));
+	i_zero(&box->_perm);
 	(void)mailbox_get_permissions(box);
 }
 
@@ -2568,7 +2568,7 @@ int mail_parse_human_timestamp(const char *str, time_t *timestamp_r,
 	    i_isdigit(str[5]) && i_isdigit(str[6]) && str[7] == '-' &&
 	    i_isdigit(str[8]) && i_isdigit(str[9]) && str[10] == '\0') {
 		/* yyyy-mm-dd */
-		memset(&tm, 0, sizeof(tm));
+		i_zero(&tm);
 		tm.tm_year = (str[0]-'0') * 1000 + (str[1]-'0') * 100 +
 			(str[2]-'0') * 10 + (str[3]-'0') - 1900;
 		tm.tm_mon = (str[5]-'0') * 10 + (str[6]-'0') - 1;

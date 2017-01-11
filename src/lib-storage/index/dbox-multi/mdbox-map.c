@@ -259,7 +259,7 @@ mdbox_map_get_ext_hdr(struct mdbox_map *map, struct mail_index_view *view,
 	size_t data_size;
 
 	mail_index_get_header_ext(view, map->map_ext_id, &data, &data_size);
-	memset(hdr_r, 0, sizeof(*hdr_r));
+	i_zero(hdr_r);
 	memcpy(hdr_r, data, I_MIN(data_size, sizeof(*hdr_r)));
 }
 
@@ -382,7 +382,7 @@ int mdbox_map_view_lookup_rec(struct mdbox_map *map,
 	const uint16_t *ref16_p;
 	const void *data;
 
-	memset(rec_r, 0, sizeof(*rec_r));
+	i_zero(rec_r);
 	mail_index_lookup_uid(view, seq, &rec_r->map_uid);
 
 	mail_index_lookup_ext(view, seq, map->map_ext_id, &data, NULL);
@@ -414,7 +414,7 @@ int mdbox_map_get_file_msgs(struct mdbox_map *map, uint32_t file_id,
 		return -1;
 	hdr = mail_index_get_header(map->view);
 
-	memset(&msg, 0, sizeof(msg));
+	i_zero(&msg);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		if (mdbox_map_view_lookup_rec(map, map->view, seq, &rec) < 0)
 			return -1;
@@ -1297,7 +1297,7 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 		return -1;
 
 	/* append map records to index */
-	memset(&rec, 0, sizeof(rec));
+	i_zero(&rec);
 	ref16 = 1;
 	appends = array_get(&ctx->appends, &count);
 	for (i = 0; i < count; i++) {
@@ -1359,7 +1359,7 @@ int mdbox_map_append_move(struct mdbox_map_append_context *ctx,
 	if (mdbox_map_assign_file_ids(ctx, FALSE, "purging - update uids") < 0)
 		return -1;
 
-	memset(&rec, 0, sizeof(rec));
+	i_zero(&rec);
 	appends = array_get(&ctx->appends, &appends_count);
 
 	next_uid = mail_index_get_header(ctx->atomic->sync_view)->next_uid;

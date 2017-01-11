@@ -18,7 +18,7 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 	if (size == 0)
 		return;
 
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	hdr.type = type | ctx->trans_flags;
 	if (type == MAIL_TRANSACTION_EXPUNGE ||
 	    type == MAIL_TRANSACTION_EXPUNGE_GUID)
@@ -229,7 +229,7 @@ int mail_transaction_log_append_begin(struct mail_index *index,
 	ctx->output = buffer_create_dynamic(default_pool, 1024);
 	ctx->trans_flags = flags;
 
-	memset(&boundary, 0, sizeof(boundary));
+	i_zero(&boundary);
 	mail_transaction_log_append_add(ctx, MAIL_TRANSACTION_BOUNDARY,
 					&boundary, sizeof(boundary));
 

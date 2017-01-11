@@ -162,7 +162,7 @@ expire_update(struct mailbox *box, const char *key, time_t timestamp)
 	if (dict_transaction_commit(&dctx) < 0)
 		i_error("expire: dict commit failed");
 	else if (euser->expire_cache) {
-		memset(&hdr, 0, sizeof(hdr));
+		i_zero(&hdr);
 		hdr.timestamp = timestamp;
 
 		trans = mail_index_transaction_begin(box->view,

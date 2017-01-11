@@ -337,7 +337,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		}
 	}
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = set_roots;
 	input.module = MASTER_SERVICE_NAME;
 	input.config_path = services_get_config_socket_path(services);
@@ -410,7 +410,7 @@ static struct master_settings *master_settings_read(void)
 	struct master_service_settings_output output;
 	const char *error;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = set_roots;
 	input.module = "master";
 	input.parse_full_config = TRUE;

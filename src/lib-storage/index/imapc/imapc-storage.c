@@ -116,7 +116,7 @@ void imapc_copy_error_from_reply(struct imapc_storage *storage,
 void imapc_simple_context_init(struct imapc_simple_context *sctx,
 			       struct imapc_storage_client *client)
 {
-	memset(sctx, 0, sizeof(*sctx));
+	i_zero(sctx);
 	sctx->client = client;
 	sctx->ret = -2;
 }
@@ -261,7 +261,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	struct imapc_client_settings set;
 	string_t *str;
 
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.host = imapc_set->imapc_host;
 	if (*set.host == '\0') {
 		*error_r = "missing imapc_host";

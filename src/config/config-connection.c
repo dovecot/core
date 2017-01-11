@@ -75,7 +75,7 @@ static int config_connection_request(struct config_connection *conn,
 
 	/* [<args>] */
 	t_array_init(&modules, 4);
-	memset(&filter, 0, sizeof(filter));
+	i_zero(&filter);
 	for (; *args != NULL; args++) {
 		if (strncmp(*args, "service=", 8) == 0)
 			filter.service = *args + 8;

@@ -115,7 +115,7 @@ void mail_stats_fill(struct stats_user *suser, struct mail_stats *stats_r)
 	static struct rusage prev_usage;
 	struct rusage usage;
 
-	memset(stats_r, 0, sizeof(*stats_r));
+	i_zero(stats_r);
 	/* cputime */
 	if (getrusage(RUSAGE_SELF, &usage) < 0) {
 		if (!getrusage_broken) {

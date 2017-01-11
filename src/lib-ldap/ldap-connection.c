@@ -212,7 +212,7 @@ ldap_connection_result_failure(struct ldap_connection *conn,
 			       int ret, const char *error)
 {
 	struct ldap_result res;
-	memset(&res, 0, sizeof(res));
+	i_zero(&res);
 	res.conn = conn;
 	res.openldap_ret = ret;
 	res.error_string = error;
@@ -228,7 +228,7 @@ void ldap_connection_result_success(struct ldap_connection *conn,
 				    struct ldap_op_queue_entry *req)
 {
 	struct ldap_result res;
-	memset(&res, 0, sizeof(res));
+	i_zero(&res);
 	res.conn = conn;
 	res.openldap_ret = LDAP_SUCCESS;
 	if (req->result_callback != NULL)
@@ -282,7 +282,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 		/* did not succeed */
 		struct ldap_result res;
 
-		memset(&res, 0, sizeof(res));
+		i_zero(&res);
 		res.openldap_ret = ret;
 		if (req->result_callback != NULL)
 			req->result_callback(&res, req->result_callback_ctx);
@@ -417,7 +417,7 @@ void ldap_connection_abort_request(struct ldap_op_queue_entry *req)
 	if (req->msgid > -1)
 		ldap_abandon_ext(req->conn->conn, req->msgid, NULL, NULL);
 
-	memset(&res, 0, sizeof(res));
+	i_zero(&res);
 	res.openldap_ret = LDAP_TIMEOUT;
 	res.error_string = "Aborting LDAP request after timeout";
 	if (req->result_callback != NULL)
@@ -441,7 +441,7 @@ static
 void ldap_connection_abort_all_requests(struct ldap_connection *conn)
 {
 	struct ldap_result res;
-	memset(&res, 0, sizeof(res));
+	i_zero(&res);
 	res.openldap_ret = LDAP_TIMEOUT;
 	res.error_string = "Aborting LDAP requests due to failure";
 

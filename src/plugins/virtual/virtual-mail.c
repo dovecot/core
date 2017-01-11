@@ -184,7 +184,7 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 			      mbox->virtual_ext_id, &data, NULL);
 	memcpy(&vmail->cur_vrec, data, sizeof(vmail->cur_vrec));
 
-	memset(&vmail->imail.data, 0, sizeof(vmail->imail.data));
+	i_zero(&vmail->imail.data);
 	p_clear(vmail->imail.mail.data_pool);
 
 	vmail->imail.data.seq = seq;

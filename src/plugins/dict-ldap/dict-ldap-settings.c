@@ -167,7 +167,7 @@ static const char *dict_ldap_map_finish(struct setting_parser_ctx *ctx)
 			return "Missing attributes for pattern variables";
 	}
 	array_append(&ctx->set->maps, &ctx->cur_map, 1);
-	memset(&ctx->cur_map, 0, sizeof(ctx->cur_map));
+	i_zero(&ctx->cur_map);
 	return NULL;
 }
 
@@ -284,7 +284,7 @@ dict_ldap_settings_read(pool_t pool, const char *path, const char **error_r)
 {
 	struct setting_parser_ctx ctx;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.pool = pool;
 	ctx.set = p_new(pool, struct dict_ldap_settings, 1);
 	t_array_init(&ctx.cur_attributes, 16);

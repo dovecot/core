@@ -63,7 +63,7 @@ push_notification_driver_ox_init_global(struct mail_user *user,
     if (ox_global->http_client == NULL) {
         /* this is going to use the first user's settings, but these are
            unlikely to change between users so it shouldn't matter much. */
-        memset(&http_set, 0, sizeof(http_set));
+        i_zero(&http_set);
         http_set.debug = user->mail_debug;
         http_set.max_attempts = config->http_max_retries+1;
         http_set.request_timeout_msecs = config->http_timeout_msecs;

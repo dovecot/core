@@ -647,7 +647,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 		if (ctx->x_delivery_id_header != NULL) {
 			struct message_header_line hdr;
 
-			memset(&hdr, 0, sizeof(hdr));
+			i_zero(&hdr);
 			hdr.name = ctx->x_delivery_id_header;
 			hdr.name_len = sizeof("X-Delivery-ID")-1;
 			hdr.middle = (const unsigned char *)hdr.name +

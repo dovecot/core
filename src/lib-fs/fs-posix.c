@@ -600,7 +600,7 @@ fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 	struct posix_fs_lock fs_lock, *ret_lock;
 	int ret = -1;
 
-	memset(&fs_lock, 0, sizeof(fs_lock));
+	i_zero(&fs_lock);
 	fs_lock.lock.file = _file;
 
 	switch (fs->lock_method) {
@@ -625,7 +625,7 @@ fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 #endif
 		break;
 	case FS_POSIX_LOCK_METHOD_DOTLOCK:
-		memset(&dotlock_set, 0, sizeof(dotlock_set));
+		i_zero(&dotlock_set);
 		dotlock_set.stale_timeout = FS_POSIX_DOTLOCK_STALE_TIMEOUT_SECS;
 		dotlock_set.use_excl_lock = TRUE;
 		dotlock_set.timeout = secs;

@@ -310,7 +310,7 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR,
 		&argc, &argv, "a:d:ef:m:p:r:");
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.session = mail_deliver_session_init();
 	ctx.pool = ctx.session->pool;
 	ctx.dest_mailbox_name = "INBOX";
@@ -399,7 +399,7 @@ int main(int argc, char *argv[])
 	}
 	master_service_init_finish(master_service);
 
-	memset(&service_input, 0, sizeof(service_input));
+	i_zero(&service_input);
 	service_input.module = "lda";
 	service_input.service = "lda";
 	service_input.username = user;

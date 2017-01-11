@@ -529,7 +529,7 @@ dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 	if (ignore)
 		return 0;
 
-	memset(&value, 0, sizeof(value));
+	i_zero(&value);
 	value.value = attr->value;
 	value.value_stream = attr->value_stream;
 	value.last_change = attr->last_change;
@@ -780,13 +780,13 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	int diff;
 	bool remote_saved;
 
-	memset(&m1, 0, sizeof(m1));
+	i_zero(&m1);
 	if (importer->cur_mail != NULL) {
 		m1.guid = importer->mails_have_guids ?
 			importer->cur_guid : importer->cur_hdr_hash;
 		m1.uid = importer->cur_mail->uid;
 	}
-	memset(&m2, 0, sizeof(m2));
+	i_zero(&m2);
 	if (save_change != NULL) {
 		m2.guid = importer->mails_have_guids ?
 			save_change->guid : save_change->hdr_hash;
@@ -2712,7 +2712,7 @@ static int dsync_mailbox_import_finish(struct dsync_mailbox_importer *importer,
 	if (ret == 0) {
 		/* update mailbox metadata if we successfully saved
 		   everything. */
-		memset(&update, 0, sizeof(update));
+		i_zero(&update);
 		update.min_next_uid = importer->remote_uid_next;
 		update.min_first_recent_uid =
 			I_MIN(importer->last_common_uid+1,

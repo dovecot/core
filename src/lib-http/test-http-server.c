@@ -83,7 +83,7 @@ static void client_init(int fd)
 	struct client *client;
 	struct http_request_limits req_limits;
 
-	memset(&req_limits, 0, sizeof(req_limits));
+	i_zero(&req_limits);
 	req_limits.max_target_length = 4096;
 
 	client = i_new(struct client, 1);

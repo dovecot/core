@@ -132,7 +132,7 @@ cmd_setmetadata_entry_read_stream(struct imap_setmetadata_context *ctx)
 			return 1;
 		}
 
-		memset(&value, 0, sizeof(value));
+		i_zero(&value);
 		value.value_stream = ctx->input;
 		if (imap_metadata_set(ctx->trans, ctx->entry_name, &value) < 0) {
 			/* delay reporting the failure so we'll finish
@@ -167,7 +167,7 @@ cmd_setmetadata_entry(struct imap_setmetadata_context *ctx,
 		/* we have the value already */
 		if (ctx->failed)
 			return 1;
-		memset(&value, 0, sizeof(value));
+		i_zero(&value);
 		value.value = imap_arg_as_nstring(entry_value);
 		ret = imap_metadata_set(ctx->trans, entry_name, &value);
 		if (ret < 0) {

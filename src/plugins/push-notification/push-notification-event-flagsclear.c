@@ -18,7 +18,7 @@ static struct push_notification_event_flagsclear_config default_config;
 
 static void *push_notification_event_flagsclear_default_config(void)
 {
-    memset(&default_config, 0, sizeof(default_config));
+    i_zero(&default_config);
 
     return &default_config;
 }

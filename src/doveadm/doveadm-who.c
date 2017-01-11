@@ -57,7 +57,7 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 	const char *refcount_str = args[2];
 	const char *p, *ip_str;
 
-	memset(line_r, 0, sizeof(*line_r));
+	i_zero(line_r);
 
 	/* ident = service/ip/username (imap, pop3)
 	   or      service/username (lmtp) */
@@ -287,7 +287,7 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 	struct who_context ctx;
 	bool separate_connections = FALSE;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.anvil_path)))
 		ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 	(void)doveadm_cmd_param_bool(cctx, "separate-connections", &separate_connections);

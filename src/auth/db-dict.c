@@ -297,7 +297,7 @@ struct dict_connection *db_dict_init(const char *config_path)
 	p_array_init(&conn->set.parsed_passdb_objects, pool, 2);
 	p_array_init(&conn->set.parsed_userdb_objects, pool, 2);
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.conn = conn;
 	if (!settings_read(config_path, NULL, parse_setting,
 			   parse_section, &ctx, &error))

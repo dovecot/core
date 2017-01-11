@@ -118,7 +118,7 @@ static void http_client_host_lookup
 	} else if (client->set.dns_client_socket_path != NULL) {
 		http_client_host_debug(host,
 			"Performing asynchronous DNS lookup");
-		memset(&dns_set, 0, sizeof(dns_set));
+		i_zero(&dns_set);
 		dns_set.dns_client_socket_path =
 			client->set.dns_client_socket_path;
 		if (client->set.connect_timeout_msecs > 0)

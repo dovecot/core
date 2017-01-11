@@ -222,7 +222,7 @@ index_sort_list_finish_float(struct mail_search_sort_program *program)
 
 void index_sort_list_finish(struct mail_search_sort_program *program)
 {
-	memset(&static_node_cmp_context, 0, sizeof(static_node_cmp_context));
+	i_zero(&static_node_cmp_context);
 	static_node_cmp_context.program = program;
 	static_node_cmp_context.mail = program->temp_mail;
 	static_node_cmp_context.reverse =

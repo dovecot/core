@@ -59,7 +59,7 @@ http_server_response_create(struct http_server_request *req,
 		resp = req->response;
 		i_assert(!resp->submitted);
 		http_server_response_free(resp);
-		memset(resp, 0, sizeof(*resp));
+		i_zero(resp);
 	}
 
 	resp->request = req;
@@ -327,7 +327,7 @@ http_server_response_output_payload(
 	http_server_request_ref(req);
 	resp->payload_blocking = TRUE;
 
-	memset(&rpay, 0, sizeof(rpay));
+	i_zero(&rpay);
 	rpay.resp = resp;
 
 	if (iov == NULL) {
@@ -428,7 +428,7 @@ int http_server_response_send_payload(struct http_server_response **_resp,
 
 	i_assert(data != NULL);
 
-	memset(&iov, 0, sizeof(iov));
+	i_zero(&iov);
 	iov.iov_base = data;
 	iov.iov_len = size;
 	ret = http_server_response_output_payload(&resp, &iov, 1);

@@ -224,7 +224,7 @@ mail_transaction_log_init_hdr(struct mail_transaction_log *log,
 
 	i_assert(index->indexid != 0);
 
-	memset(hdr, 0, sizeof(*hdr));
+	i_zero(hdr);
 	hdr->major_version = MAIL_TRANSACTION_LOG_MAJOR_VERSION;
 	hdr->minor_version = MAIL_TRANSACTION_LOG_MINOR_VERSION;
 	hdr->hdr_size = sizeof(struct mail_transaction_log_header);
@@ -441,7 +441,7 @@ mail_transaction_log_file_read_header(struct mail_transaction_log_file *file)
 
 	i_assert(file->buffer == NULL && file->mmap_base == NULL);
 
-	memset(&file->hdr, 0, sizeof(file->hdr));
+	i_zero(&file->hdr);
 	if (file->last_size < mmap_get_page_size() && file->last_size > 0) {
 		/* just read the entire transaction log to memory.
 		   note that if some of the data hasn't been fully committed

@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
 	const char *auth_socket_path = "auth-master";
 	int c;
 
-	memset(&login_set, 0, sizeof(login_set));
+	i_zero(&login_set);
 	login_set.postlogin_timeout_secs = MASTER_POSTLOGIN_TIMEOUT_DEFAULT;
 
 	if (IS_STANDALONE() && getuid() == 0 &&
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 	}
 	master_service_init_log(master_service, "imap-urlauth: ");
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = set_roots;
 	input.module = "imap-urlauth";
 	input.service = "imap-urlauth";

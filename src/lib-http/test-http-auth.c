@@ -97,7 +97,7 @@ static void test_http_auth_challenges_valid(void)
 
 		test_begin(t_strdup_printf("http auth challenges valid [%d]", i));
 
-		memset(&out, 0, sizeof(out));
+		i_zero(&out);
 		result = (http_auth_parse_challenges
 			((const unsigned char *)challenges_in, strlen(challenges_in), 
 				&out) > 0);

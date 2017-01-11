@@ -134,7 +134,7 @@ int mail_crypt_load_global_private_key(const char *set_key, const char *key_data
 
 void mail_crypt_global_keys_init(struct mail_crypt_global_keys *global_keys_r)
 {
-	memset(global_keys_r, 0, sizeof(*global_keys_r));
+	i_zero(global_keys_r);
 	i_array_init(&global_keys_r->private_keys, 4);
 }
 

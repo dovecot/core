@@ -257,7 +257,7 @@ mdbox_save_set_map_uids(struct mdbox_save_context *ctx,
 
 	mdbox_update_header(mbox, ctx->ctx.trans, NULL);
 
-	memset(&rec, 0, sizeof(rec));
+	i_zero(&rec);
 	rec.save_date = ioloop_time;
 	mails = array_get(&ctx->mails, &count);
 	for (i = 0; i < count; i++) {
@@ -446,7 +446,7 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 		return mail_storage_copy(_ctx, mail);
 	src_mbox = (struct mdbox_mailbox *)mail->box;
 
-	memset(&rec, 0, sizeof(rec));
+	i_zero(&rec);
 	rec.save_date = ioloop_time;
 	if (mdbox_mail_lookup(src_mbox, mail->transaction->view, mail->seq,
 			      &rec.map_uid) < 0) {

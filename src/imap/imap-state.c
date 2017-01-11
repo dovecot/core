@@ -494,7 +494,7 @@ import_state_mailbox_struct(const unsigned char *data, size_t size,
 {
 	const unsigned char *p = data, *end = data + size;
 
-	memset(state_r, 0, sizeof(*state_r));
+	i_zero(state_r);
 	t_array_init(&state_r->recent_uids, 8);
 
 	/* vname */

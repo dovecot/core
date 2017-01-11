@@ -44,7 +44,7 @@ void index_sync_changes_deinit(struct index_sync_changes_context **_ctx)
 void index_sync_changes_reset(struct index_sync_changes_context *ctx)
 {
 	array_clear(&ctx->syncs);
-	memset(&ctx->sync_rec, 0, sizeof(ctx->sync_rec));
+	i_zero(&ctx->sync_rec);
 }
 
 void index_sync_changes_delete_to(struct index_sync_changes_context *ctx,
@@ -112,7 +112,7 @@ void index_sync_changes_read(struct index_sync_changes_context *ctx,
 		}
 
 		if (!mail_index_sync_next(ctx->index_sync_ctx, sync_rec)) {
-			memset(sync_rec, 0, sizeof(*sync_rec));
+			i_zero(sync_rec);
 			break;
 		}
 
@@ -130,7 +130,7 @@ void index_sync_changes_read(struct index_sync_changes_context *ctx,
 							  sync_rec->uid1,
 							  sync_rec->uid2,
 							  &seq1, &seq2);
-			memset(sync_rec, 0, sizeof(*sync_rec));
+			i_zero(sync_rec);
 
 			if (seq1 == 0)
 				break;

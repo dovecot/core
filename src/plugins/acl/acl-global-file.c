@@ -122,7 +122,7 @@ static int acl_global_file_read(struct acl_global_file *file)
 	array_clear(&file->rights);
 	p_clear(file->rights_pool);
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.file = file;
 	i_array_init(&ctx.parse_rights, 32);
 

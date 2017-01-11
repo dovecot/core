@@ -47,7 +47,7 @@ int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
 	input = i_stream_create_lf(hdr_input);
 
 	md5_init(&md5_ctx);
-	memset(&hash_ctx, 0, sizeof(hash_ctx));
+	i_zero(&hash_ctx);
 	while ((sret = i_stream_read_more(input, &data, &size)) > 0) {
 		message_header_hash_more(&hash_ctx, &hash_method_md5, &md5_ctx,
 					 version, data, size);
@@ -68,7 +68,7 @@ int dsync_mail_fill(struct mail *mail, bool minimal_fill,
 {
 	const char *guid;
 
-	memset(dmail_r, 0, sizeof(*dmail_r));
+	i_zero(dmail_r);
 
 	if (mail_get_special(mail, MAIL_FETCH_GUID, &guid) < 0) {
 		*error_field_r = "GUID";

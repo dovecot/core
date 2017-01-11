@@ -145,7 +145,7 @@ int mail_search_build(struct mail_search_register *reg,
 	*args_r = NULL;
 	*error_r = NULL;
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.args = args = mail_search_build_init();
 	ctx.pool = args->pool;
 	ctx.reg = reg;

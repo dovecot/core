@@ -142,7 +142,7 @@ static void sdbox_sync_update_header(struct index_rebuild_context *ctx)
 	bool need_resize;
 
 	if (sdbox_read_header(mbox, &hdr, FALSE, &need_resize) < 0)
-		memset(&hdr, 0, sizeof(hdr));
+		i_zero(&hdr);
 	if (guid_128_is_empty(hdr.mailbox_guid))
 		guid_128_generate(hdr.mailbox_guid);
 	if (++hdr.rebuild_count == 0)

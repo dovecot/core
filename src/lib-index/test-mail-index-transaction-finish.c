@@ -72,7 +72,7 @@ test_mail_index_transaction_finish_flag_updates(unsigned int n_so_far)
 	t = t_new(struct mail_index_transaction, 1);
 	t->drop_unnecessary_flag_updates = TRUE;
 
-	memset(&u, 0, sizeof(u));
+	i_zero(&u);
 	u.add_flags = MAIL_SEEN; u.remove_flags = MAIL_DRAFT;
 
 	test_begin(t_strdup_printf("mail index transaction finish flag updates n_so_far=%u", n_so_far));

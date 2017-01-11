@@ -162,7 +162,7 @@ static void cmd_zlibconnect(int argc ATTR_UNUSED, char *argv[])
 	i_info("Connected to %s port %u. Ctrl-D starts compression",
 	       net_ip2addr(&ips[0]), port);
 
-	memset(&client, 0, sizeof(client));
+	i_zero(&client);
 	client.fd = fd;
 	client.input = i_stream_create_fd(fd, (size_t)-1, FALSE);
 	client.output = o_stream_create_fd(fd, 0, FALSE);

@@ -26,7 +26,7 @@ imap_fetch_cmd_init_handler(struct imap_fetch_context *ctx,
 {
 	struct imap_fetch_init_context init_ctx;
 
-	memset(&init_ctx, 0, sizeof(init_ctx));
+	i_zero(&init_ctx);
 	init_ctx.fetch_ctx = ctx;
 	init_ctx.pool = ctx->ctx_pool;
 	init_ctx.name = name;
@@ -283,7 +283,7 @@ bool cmd_fetch(struct client_command_context *cmd)
 	}
 
 	if (send_vanished) {
-		memset(&qresync_args, 0, sizeof(qresync_args));
+		i_zero(&qresync_args);
 		if (imap_fetch_send_vanished(client, client->mailbox,
 					     search_args, &qresync_args) < 0) {
 			mail_search_args_unref(&search_args);

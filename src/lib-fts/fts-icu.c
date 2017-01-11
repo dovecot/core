@@ -175,7 +175,7 @@ int fts_icu_transliterator_create(const char *id,
 	UParseError perr;
 	buffer_t *id_utf16_buf = buffer_create_dynamic(pool_datastack_create(), 2 * strlen(id));
 	UChar *id_utf16;
-	memset(&perr, 0, sizeof(perr));
+	i_zero(&perr);
 
 	fts_icu_utf8_to_utf16(id_utf16_buf, id);
 	id_utf16 = (UChar *)str_c(id_utf16_buf);

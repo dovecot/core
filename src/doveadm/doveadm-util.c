@@ -27,7 +27,7 @@ void doveadm_load_modules(void)
 	/* some doveadm plugins have dependencies to mail plugins. we can load
 	   only those whose dependencies have been loaded earlier, the rest are
 	   ignored. */
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = doveadm_debug;

@@ -265,7 +265,7 @@ static const char *split_next_arg(const char *const **_args)
 
 void mailbox_list_settings_init_defaults(struct mailbox_list_settings *set_r)
 {
-	memset(set_r, 0, sizeof(*set_r));
+	i_zero(set_r);
 	set_r->mailbox_dir_name = "";
 	set_r->maildir_name = "";
 	set_r->list_index_fname = MAILBOX_LIST_INDEX_DEFAULT_PREFIX;
@@ -879,7 +879,7 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	const char *path, *parent_name, *parent_path, *p;
 	struct stat st;
 
-	memset(permissions_r, 0, sizeof(*permissions_r));
+	i_zero(permissions_r);
 
 	/* use safe defaults */
 	permissions_r->file_uid = (uid_t)-1;
@@ -1593,7 +1593,7 @@ void mailbox_list_add_change(struct mailbox_list *list,
 	stamp = list->changelog_timestamp != (time_t)-1 ?
 		list->changelog_timestamp : ioloop_time;
 
-	memset(&rec, 0, sizeof(rec));
+	i_zero(&rec);
 	rec.type = type;
 	memcpy(rec.mailbox_guid, mailbox_guid, sizeof(rec.mailbox_guid));
 	mailbox_log_record_set_timestamp(&rec, stamp);
@@ -1844,8 +1844,8 @@ int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
 	struct mailbox_list_fs_context *ctx;
 	struct fs *parent_fs;
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
-	memset(&fs_set, 0, sizeof(fs_set));
+	i_zero(&ssl_set);
+	i_zero(&fs_set);
 	mail_user_init_fs_settings(list->ns->user, &fs_set, &ssl_set);
 	fs_set.root_path = root_dir;
 	fs_set.temp_file_prefix = mailbox_list_get_global_temp_prefix(list);

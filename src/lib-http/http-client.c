@@ -289,7 +289,7 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 	if (client->ssl_ctx != NULL)
 		return 0;
 
-	memset(&ssl_set, 0, sizeof(ssl_set));
+	i_zero(&ssl_set);
 	ssl_set.ca_dir = client->set.ssl_ca_dir;
 	ssl_set.ca_file = client->set.ssl_ca_file;
 	ssl_set.ca = client->set.ssl_ca;

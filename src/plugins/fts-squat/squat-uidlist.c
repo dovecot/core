@@ -536,7 +536,7 @@ static int squat_uidlist_open(struct squat_uidlist *uidlist)
 	uidlist->fd = open(uidlist->path, O_RDWR);
 	if (uidlist->fd == -1) {
 		if (errno == ENOENT) {
-			memset(&uidlist->hdr, 0, sizeof(uidlist->hdr));
+			i_zero(&uidlist->hdr);
 			return 0;
 		}
 		i_error("open(%s) failed: %m", uidlist->path);
@@ -678,7 +678,7 @@ static int squat_uidlist_open_or_create(struct squat_uidlist *uidlist)
 	}
 	if (uidlist->locked_file_size == 0) {
 		/* write using 0 until we're finished */
-		memset(&uidlist->hdr, 0, sizeof(uidlist->hdr));
+		i_zero(&uidlist->hdr);
 		if (write_full(uidlist->fd, &uidlist->hdr,
 			       sizeof(uidlist->hdr)) < 0) {
 			i_error("write(%s) failed: %m", uidlist->path);
@@ -717,7 +717,7 @@ int squat_uidlist_build_init(struct squat_uidlist *uidlist,
 	if (ctx->output->offset == 0) {
 		struct squat_uidlist_file_header hdr;
 
-		memset(&hdr, 0, sizeof(hdr));
+		i_zero(&hdr);
 		o_stream_nsend(ctx->output, &hdr, sizeof(hdr));
 	}
 	o_stream_cork(ctx->output);
@@ -934,7 +934,7 @@ int squat_uidlist_rebuild_init(struct squat_uidlist_build_context *build_ctx,
 	ctx->next_uid_list_idx = 0x100;
 	o_stream_cork(ctx->output);
 
-	memset(&hdr, 0, sizeof(hdr));
+	i_zero(&hdr);
 	o_stream_nsend(ctx->output, &hdr, sizeof(hdr));
 
 	ctx->cur_block_start_offset = ctx->output->offset;

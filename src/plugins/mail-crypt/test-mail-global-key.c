@@ -55,7 +55,7 @@ static void test_try_load_keys(void)
 	test_begin("try_load_keys");
 
 	struct mail_crypt_global_keys keys;
-	memset(&keys, 0, sizeof(keys));
+	i_zero(&keys);
 	mail_crypt_global_keys_init(&keys);
 
 	const char *set_prefix = "mail_crypt_global";
@@ -103,7 +103,7 @@ static void test_empty_keyset(void)
 
 	/* this should not crash */
 	struct mail_crypt_global_keys keys;
-	memset(&keys, 0, sizeof(keys));
+	i_zero(&keys);
 	test_assert(mail_crypt_global_key_find(&keys, "423423423423") == NULL);
 
 	test_end();

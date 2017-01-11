@@ -1109,7 +1109,7 @@ int message_parser_parse_next_block(struct message_parser_ctx *ctx,
 	int ret;
 	bool eof = FALSE, full;
 
-	memset(block_r, 0, sizeof(*block_r));
+	i_zero(block_r);
 
 	while ((ret = ctx->parse_next_block(ctx, block_r)) == 0) {
 		ret = message_parser_read_more(ctx, block_r, &full);

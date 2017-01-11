@@ -144,7 +144,7 @@ pop3c_get_local_msgs(pool_t pool, ARRAY_TYPE(pop3c_sync_msg) *local_msgs,
 	struct pop3c_sync_msg msg;
 	uint32_t seq;
 
-	memset(&msg, 0, sizeof(msg));
+	i_zero(&msg);
 	for (seq = 1; seq <= messages_count; seq++) {
 		str_truncate(str, 0);
 		if (mail_cache_lookup_field(cache_view, str, seq,

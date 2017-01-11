@@ -97,7 +97,7 @@ void io_loop_handle_add(struct io_file *io)
 
 	first = ioloop_iolist_add(*list, io);
 
-	memset(&event, 0, sizeof(event));
+	i_zero(&event);
 	event.data.ptr = *list;
 	event.events = epoll_event_mask(*list);
 
@@ -136,7 +136,7 @@ void io_loop_handle_remove(struct io_file *io, bool closed)
 	last = ioloop_iolist_del(*list, io);
 
 	if (!closed) {
-		memset(&event, 0, sizeof(event));
+		i_zero(&event);
 		event.data.ptr = *list;
 		event.events = epoll_event_mask(*list);
 

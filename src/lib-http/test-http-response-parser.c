@@ -104,7 +104,7 @@ static void test_http_response_parse_valid(void)
 		unsigned int pos, response_text_len;
 		int ret = 0;
 
-		memset(&response, 0, sizeof(response));
+		i_zero(&response);
 		test = &valid_response_parse_tests[i];
 		response_text = test->response;
 		response_text_len = strlen(response_text);

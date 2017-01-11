@@ -592,7 +592,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 	if ((t->flags & MAIL_INDEX_TRANSACTION_FLAG_AVOID_FLAG_UPDATES) != 0)
 		t->drop_unnecessary_flag_updates = TRUE;
 
-	memset(&u, 0, sizeof(u));
+	i_zero(&u);
 	u.uid1 = seq1;
 	u.uid2 = seq2;
 
@@ -740,7 +740,7 @@ mail_index_ext_rec_updates_resize(struct mail_index_transaction *t,
 		return;
 
 	old_array = *array;
-	memset(array, 0, sizeof(*array));
+	i_zero(array);
 	mail_index_seq_array_alloc(array, new_record_size);
 
 	/* copy the records' beginnings. leave the end zero-filled. */
@@ -763,7 +763,7 @@ void mail_index_ext_resize(struct mail_index_transaction *t, uint32_t ext_id,
 	struct mail_transaction_ext_intro intro;
 	uint32_t old_record_size = 0, old_record_align, old_header_size;
 
-	memset(&intro, 0, sizeof(intro));
+	i_zero(&intro);
 	rext = array_idx(&t->view->index->extensions, ext_id);
 
 	/* get ext_id from transaction's map if it's there */
@@ -837,7 +837,7 @@ void mail_index_ext_reset(struct mail_index_transaction *t, uint32_t ext_id,
 
 	i_assert(reset_id != 0);
 
-	memset(&reset, 0, sizeof(reset));
+	i_zero(&reset);
 	reset.new_reset_id = reset_id;
 	reset.preserve_data = !clear_data;
 

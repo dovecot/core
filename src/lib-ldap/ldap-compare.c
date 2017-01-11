@@ -22,7 +22,7 @@ ldap_compare_callback(struct ldap_connection *conn,
 	ret = ldap_parse_result(conn->conn, message,
 				&result_err, NULL,
 				&result_errmsg, NULL, NULL, 0);
-	memset(&res, 0, sizeof(res));
+	i_zero(&res);
 	res.openldap_ret = ret;
 	if (ret != LDAP_SUCCESS) {
 		res.error_string = t_strdup_printf(

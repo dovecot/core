@@ -110,7 +110,7 @@ acl_mailbox_try_list_fast(struct acl_mailbox_list_iterate_context *ctx)
 		return;
 
 	/* no LOOKUP right by default, we can optimize this */
-	memset(&update_ctx, 0, sizeof(update_ctx));
+	i_zero(&update_ctx);
 	update_ctx.iter_ctx = &ctx->ctx;
 	update_ctx.glob =
 		imap_match_init(pool_datastack_create(), "*",

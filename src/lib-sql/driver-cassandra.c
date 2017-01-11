@@ -1195,7 +1195,7 @@ transaction_commit_callback(struct sql_result *result, void *context)
 	struct cassandra_transaction_context *ctx = context;
 	struct sql_commit_result commit_result;
 
-	memset(&commit_result, 0, sizeof(commit_result));
+	i_zero(&commit_result);
 	if (sql_result_next_row(result) < 0) {
 		commit_result.error = sql_result_get_error(result);
 		commit_result.error_type = sql_result_get_error_type(result);
@@ -1213,7 +1213,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 	enum cassandra_query_type query_type;
 	struct sql_commit_result result;
 
-	memset(&result, 0, sizeof(result));
+	i_zero(&result);
 	ctx->callback = callback;
 	ctx->context = context;
 

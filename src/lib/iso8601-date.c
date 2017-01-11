@@ -239,7 +239,7 @@ iso8601_date_do_parse(const unsigned char *data, size_t size, struct tm *tm_r,
 	struct iso8601_date_parser parser;
 	time_t timestamp;
 
-	memset(&parser, 0, sizeof(parser));
+	i_zero(&parser);
 	parser.cur = data;
 	parser.end = data + size;
 

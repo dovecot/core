@@ -144,7 +144,7 @@ void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 	if (!view->cache->opened)
 		(void)mail_cache_open_and_verify(view->cache);
 
-	memset(ctx, 0, sizeof(*ctx));
+	i_zero(ctx);
 	ctx->view = view;
 	ctx->seq = seq;
 
@@ -159,7 +159,7 @@ void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 	}
 	ctx->remap_counter = view->cache->remap_counter;
 
-	memset(&view->loop_track, 0, sizeof(view->loop_track));
+	i_zero(&view->loop_track);
 }
 
 static bool
@@ -210,7 +210,7 @@ mail_cache_lookup_iter_next_record(struct mail_cache_lookup_iterate_ctx *ctx)
 
 		ctx->disk_appends_checked = TRUE;
 		ctx->remap_counter = view->cache->remap_counter;
-		memset(&view->loop_track, 0, sizeof(view->loop_track));
+		i_zero(&view->loop_track);
 	}
 
 	if (ctx->stop)
@@ -541,7 +541,7 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 	field_state = buffer_get_modifiable_data(buf, NULL);
 
 	/* lookup the fields */
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.view = view;
 	ctx.pool = *pool_r = pool_alloconly_create(MEMPOOL_GROWING"mail cache headers", 1024);
 	t_array_init(&ctx.lines, 32);

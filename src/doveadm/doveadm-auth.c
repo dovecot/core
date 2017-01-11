@@ -179,7 +179,7 @@ static void auth_connected(struct auth_client *client,
 	base64_resp = t_str_new(128);
 	base64_encode(str_data(init_resp), str_len(init_resp), base64_resp);
 
-	memset(&info, 0, sizeof(info));
+	i_zero(&info);
 	info.mech = "PLAIN";
 	info.service = input->info.service;
 	info.local_ip = input->info.local_ip;
@@ -295,7 +295,7 @@ static void cmd_auth_cache_flush(int argc, char *argv[])
 
 static void authtest_input_init(struct authtest_input *input)
 {
-	memset(input, 0, sizeof(*input));
+	i_zero(input);
 	input->info.service = "doveadm";
 	input->info.debug = doveadm_settings->auth_debug;
 }
@@ -362,7 +362,7 @@ cmd_auth_master_input(const char *auth_master_socket_path,
 	struct master_auth_request master_auth_req;
 	buffer_t buf;
 
-	memset(&master_auth_req, 0, sizeof(master_auth_req));
+	i_zero(&master_auth_req);
 	master_auth_req.tag = 1;
 	master_auth_req.auth_pid = input->auth_pid;
 	master_auth_req.auth_id = input->auth_id;
@@ -549,7 +549,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	pool_t pool;
 	int ret;
 
-	memset(&service_input, 0, sizeof(service_input));
+	i_zero(&service_input);
 	service_input.module = "mail";
 	service_input.service = input->info.service;
 	service_input.username = input->username;

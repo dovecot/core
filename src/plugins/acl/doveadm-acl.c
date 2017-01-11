@@ -230,7 +230,7 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (cmd_acl_mailbox_open(_ctx, user, mailbox, &box) < 0)
 		return -1;
 
-	memset(&update, 0, sizeof(update));
+	i_zero(&update);
 	update.modify_mode = ctx->modify_mode;
 	update.neg_modify_mode = ctx->modify_mode;
 	if (acl_rights_update_import(&update, id, rights, &error) < 0)
@@ -290,7 +290,7 @@ cmd_acl_delete_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 	if (cmd_acl_mailbox_open(ctx, user, mailbox, &box) < 0)
 		return -1;
 
-	memset(&update, 0, sizeof(update));
+	i_zero(&update);
 	if (acl_rights_update_import(&update, id, NULL, &error) < 0)
 		i_fatal_status(EX_USAGE, "%s", error);
 	if ((ret = cmd_acl_mailbox_update(box, &update)) < 0) {

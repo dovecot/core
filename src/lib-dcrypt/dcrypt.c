@@ -25,7 +25,7 @@ bool dcrypt_initialize(const char *backend, const struct dcrypt_settings *set, c
 
 	const char *implementation = t_strconcat("dcrypt_",backend,NULL);
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	if (module_dir_try_load_missing(&dcrypt_module, set->module_dir,
@@ -231,7 +231,7 @@ bool dcrypt_pbkdf2(const unsigned char *password, size_t password_len, const uns
 bool dcrypt_keypair_generate(struct dcrypt_keypair *pair_r, enum dcrypt_key_type kind, unsigned int bits, const char *curve, const char **error_r)
 {
 	i_assert(dcrypt_vfs != NULL);
-	memset(pair_r, 0, sizeof(*pair_r));
+	i_zero(pair_r);
 	return dcrypt_vfs->generate_keypair(pair_r, kind, bits, curve, error_r);
 }
 

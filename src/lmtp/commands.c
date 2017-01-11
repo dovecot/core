@@ -330,11 +330,11 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 	pool_t pool;
 	int ret;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = input.service = "lmtp";
 	mail_storage_service_init_settings(storage_service, &input);
 
-	memset(&info, 0, sizeof(info));
+	i_zero(&info);
 	info.service = master_service_get_name(master_service);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->remote_ip;
@@ -358,7 +358,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 		}
 	}
 
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.port = client->local_port;
 	set.protocol = LMTP_CLIENT_PROTOCOL_LMTP;
 	set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
@@ -402,7 +402,7 @@ static bool client_proxy_rcpt(struct client *client, const char *address,
 	if (client->proxy == NULL) {
 		struct lmtp_proxy_settings proxy_set;
 
-		memset(&proxy_set, 0, sizeof(proxy_set));
+		i_zero(&proxy_set);
 		proxy_set.my_hostname = client->my_domain;
 		proxy_set.dns_client_socket_path = dns_client_socket_path;
 		proxy_set.session_id = client->state.session_id;
@@ -697,7 +697,7 @@ int cmd_rcpt(struct client *client, const char *args)
 					array_count(&client->state.rcpt_to)+1);
 	}
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = input.service = "lmtp";
 	input.username = username;
 	input.local_ip = client->local_ip;
@@ -852,7 +852,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	settings_var_expand(&lda_setting_parser_info, lda_set, client->pool,
 		mail_user_var_expand_table(client->state.dest_user));
 
-	memset(&dctx, 0, sizeof(dctx));
+	i_zero(&dctx);
 	dctx.session = session;
 	dctx.pool = session->pool;
 	dctx.set = lda_set;

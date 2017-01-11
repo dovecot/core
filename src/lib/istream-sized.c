@@ -85,7 +85,7 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 		stream->buffer = i_stream_get_data(stream->parent, &pos);
 	} while (pos <= stream->pos && ret > 0);
 
-	memset(&data, 0, sizeof(data));
+	i_zero(&data);
 	data.v_offset = stream->istream.v_offset;
 	data.new_bytes = pos;
 	data.wanted_size = sstream->size;

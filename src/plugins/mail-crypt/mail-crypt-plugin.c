@@ -77,7 +77,7 @@ static void mail_crypt_cache_close(struct mail_crypt_user *muser)
 		timeout_remove(&cache->to);
 	if (cache->input != NULL)
 		i_stream_unref(&cache->input);
-	memset(cache, 0, sizeof(*cache));
+	i_zero(cache);
 }
 
 static struct istream *

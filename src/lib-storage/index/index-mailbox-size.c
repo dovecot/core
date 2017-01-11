@@ -70,7 +70,7 @@ static void vsize_header_refresh(struct mailbox_vsize_update *update)
 				size);
 		}
 		update->rebuild = TRUE;
-		memset(&update->vsize_hdr, 0, sizeof(update->vsize_hdr));
+		i_zero(&update->vsize_hdr);
 	}
 }
 
@@ -94,7 +94,7 @@ index_mailbox_vsize_check_rebuild(struct mailbox_vsize_update *update)
 		} else {
 			/* some messages have been expunged, rescan */
 		}
-		memset(&update->vsize_hdr, 0, sizeof(update->vsize_hdr));
+		i_zero(&update->vsize_hdr);
 		update->rebuild = TRUE;
 	}
 }
@@ -129,7 +129,7 @@ static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
 		return FALSE;
 
 	perm = mailbox_get_permissions(box);
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.lock_timeout_secs =
 		mail_storage_get_lock_timeout(box->storage, lock_secs);
 	set.lock_method = box->storage->set->parsed_lock_method;
@@ -221,14 +221,14 @@ void index_mailbox_vsize_hdr_expunge(struct mailbox_vsize_update *update,
 	if (update->vsize_hdr.message_count == 0) {
 		mail_storage_set_critical(update->box->storage,
 			"vsize-hdr's message_count shrank below 0");
-		memset(&update->vsize_hdr, 0, sizeof(update->vsize_hdr));
+		i_zero(&update->vsize_hdr);
 		return;
 	}
 	update->vsize_hdr.message_count--;
 	if (update->vsize_hdr.vsize < vsize) {
 		mail_storage_set_critical(update->box->storage,
 			"vsize-hdr's vsize shrank below 0");
-		memset(&update->vsize_hdr, 0, sizeof(update->vsize_hdr));
+		i_zero(&update->vsize_hdr);
 		return;
 	}
 	update->vsize_hdr.vsize -= vsize;

@@ -254,7 +254,7 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 
 	if (!seen_positive_owner && username != NULL && add_default) {
 		/* no positive owner rights returned, write default ACLs */
-		memset(&rights, 0, sizeof(rights));
+		i_zero(&rights);
 		if (!convert_owner) {
 			rights.id_type = ACL_ID_OWNER;
 		} else {
@@ -572,7 +572,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	memset(&update, 0, sizeof(update));
+	i_zero(&update);
 	if (*identifier == '-') {
 		negative = TRUE;
 		identifier++;
@@ -655,7 +655,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	memset(&update, 0, sizeof(update));
+	i_zero(&update);
 	if (*identifier != '-')
 		update.modify_mode = ACL_MODIFY_MODE_CLEAR;
 	else {

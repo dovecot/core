@@ -250,7 +250,7 @@ void imap_bodystructure_parse_header(pool_t pool, struct message_part *part,
 			part_data = part->context;
 			envelope = part_data->envelope;
 
-			memset(part_data, 0, sizeof(*part_data));
+			i_zero(part_data);
 			part_data->pool = pool;
 			part_data->envelope = envelope;
 		}

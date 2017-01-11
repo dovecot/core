@@ -235,7 +235,7 @@ static int fs_test_stat(struct fs_file *_file, struct stat *st_r)
 		errno = ENOENT;
 		return -1;
 	}
-	memset(st_r, 0, sizeof(*st_r));
+	i_zero(st_r);
 	st_r->st_size = file->contents->used;
 	return 0;
 }

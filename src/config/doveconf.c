@@ -608,7 +608,7 @@ static void hostname_verify_format(const char *arg)
 	const char *host2;
 	bool duplicates = FALSE;
 
-	memset(&fmt, 0, sizeof(fmt));
+	i_zero(&fmt);
 	if (arg != NULL) {
 		/* host%d, host%2d, host%02d */
 		p = strchr(arg, '%');
@@ -723,7 +723,7 @@ int main(int argc, char *argv[])
 		i_set_failure_exit_callback(failure_exit_callback);
 	}
 
-	memset(&filter, 0, sizeof(filter));
+	i_zero(&filter);
 	master_service = master_service_init("config",
 					     MASTER_SERVICE_FLAG_STANDALONE,
 					     &argc, &argv, "adf:hHm:nNpPexS");

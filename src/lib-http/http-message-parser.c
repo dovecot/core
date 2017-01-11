@@ -18,7 +18,7 @@ void http_message_parser_init(struct http_message_parser *parser,
 	struct istream *input, const struct http_header_limits *hdr_limits,
 	uoff_t max_payload_size, bool lenient)
 {
-	memset(parser, 0, sizeof(*parser));
+	i_zero(parser);
 	parser->input = input;
 	i_stream_ref(parser->input);
 	if (hdr_limits != NULL)
@@ -53,7 +53,7 @@ void http_message_parser_restart(struct http_message_parser *parser,
 
 	if (parser->msg.pool != NULL)
 		pool_unref(&parser->msg.pool);
-	memset(&parser->msg, 0, sizeof(parser->msg));
+	i_zero(&parser->msg);
 	if (pool == NULL) {
 		parser->msg.pool = pool_alloconly_create("http_message", 4096);
 	} else {

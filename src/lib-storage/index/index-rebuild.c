@@ -132,7 +132,7 @@ index_rebuild_header(struct index_rebuild_context *ctx,
 	}
 
 	/* set highest-modseq */
-	memset(&modseq_hdr, 0, sizeof(modseq_hdr));
+	i_zero(&modseq_hdr);
 	modseq_hdr.highest_modseq = mail_index_modseq_get_highest(ctx->view);
 	if (ctx->backup_view != NULL) {
 		modseq = mail_index_modseq_get_highest(ctx->backup_view);

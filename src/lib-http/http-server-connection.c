@@ -1219,7 +1219,7 @@ void http_server_connection_tunnel(struct http_server_connection **_conn,
 	/* preserve statistics */
 	http_server_connection_update_stats(conn);
 
-	memset(&tunnel, 0, sizeof(tunnel));
+	i_zero(&tunnel);
 	tunnel.input = conn->conn.input;
 	tunnel.output = conn->conn.output;
 	tunnel.fd_in = conn->conn.fd_in;

@@ -276,7 +276,7 @@ smtp_client_send_flush(struct smtp_client *smtp_client,
 		return -1;
 	}
 
-	memset(&client_set, 0, sizeof(client_set));
+	i_zero(&client_set);
 	client_set.mail_from = smtp_client->return_path == NULL ? "<>" :
 		t_strconcat("<", smtp_client->return_path, ">", NULL);
 	client_set.my_hostname = smtp_client->set->hostname;

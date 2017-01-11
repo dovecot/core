@@ -326,7 +326,7 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 		q = rule_def;
 	}
 
-	memset(&rule, 0, sizeof(rule));
+	i_zero(&rule);
 	ret = quota_rule_parse_limits(root_set, &rule, t_strdup_until(q, p),
 				      rule_def, FALSE, error_r);
 	if (ret < 0)

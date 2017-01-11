@@ -264,7 +264,7 @@ static int quota_count_recalculate_box(struct mailbox *box)
 	/* reset the vsize header first */
 	trans = mail_index_transaction_begin(box->view,
 				MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
-	memset(&vsize_hdr, 0, sizeof(vsize_hdr));
+	i_zero(&vsize_hdr);
 	mail_index_update_header_ext(trans, box->vsize_hdr_ext_id,
 				     0, &vsize_hdr, sizeof(vsize_hdr));
 	if (mail_index_transaction_commit(&trans) < 0)

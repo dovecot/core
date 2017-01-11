@@ -189,7 +189,7 @@ static void main_preinit(void)
 
 	services = read_global_settings();
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = global_auth_settings->debug;
@@ -220,7 +220,7 @@ void auth_module_load(const char *names)
 {
 	struct module_dir_load_settings mod_set;
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = global_auth_settings->debug;

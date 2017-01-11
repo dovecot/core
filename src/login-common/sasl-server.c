@@ -128,7 +128,7 @@ static void master_send_request(struct anvil_request *anvil_request)
 	buffer_t *buf;
 	const char *session_id = client_get_session_id(client);
 
-	memset(&req, 0, sizeof(req));
+	i_zero(&req);
 	req.auth_pid = anvil_request->auth_pid;
 	req.auth_id = anvil_request->auth_id;
 	req.local_ip = client->local_ip;
@@ -153,7 +153,7 @@ static void master_send_request(struct anvil_request *anvil_request)
 	client->auth_finished = ioloop_time;
 	client->master_auth_id = req.auth_id;
 
-	memset(&params, 0, sizeof(params));
+	i_zero(&params);
 	params.client_fd = client->fd;
 	params.socket_path = client->postlogin_socket_path;
 	params.request = req;
@@ -354,7 +354,7 @@ void sasl_server_auth_begin(struct client *client,
 		return;
 	}
 
-	memset(&info, 0, sizeof(info));
+	i_zero(&info);
 	info.mech = mech->name;
 	info.service = service;
 	info.session_id = client_get_session_id(client);

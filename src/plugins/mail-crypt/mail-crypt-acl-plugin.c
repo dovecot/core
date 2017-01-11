@@ -142,7 +142,7 @@ mail_crypt_acl_user_create(struct mail_user *user, const char *dest_username,
 	if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
 		io_loop_context_deactivate(cur_ioloop_ctx);
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.module = old_input->module;
 	input.service = old_input->service;
 	input.username = dest_username;

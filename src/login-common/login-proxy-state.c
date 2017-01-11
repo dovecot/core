@@ -91,7 +91,7 @@ login_proxy_state_get(struct login_proxy_state *state,
 {
 	struct login_proxy_record *rec, key;
 
-	memset(&key, 0, sizeof(key));
+	i_zero(&key);
 	key.ip = *ip;
 	key.port = port;
 

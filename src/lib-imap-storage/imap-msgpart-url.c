@@ -74,7 +74,7 @@ int imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
 	const char  *error;
 
 	/* build base url */
-	memset(&base_url, 0, sizeof(base_url));
+	i_zero(&base_url);
 	if (selected_box != NULL) {
 		mailbox_get_open_status(selected_box, STATUS_UIDVALIDITY,
 					&box_status);

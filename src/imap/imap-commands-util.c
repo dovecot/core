@@ -336,7 +336,7 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 
 void msgset_generator_init(struct msgset_generator_context *ctx, string_t *str)
 {
-	memset(ctx, 0, sizeof(*ctx));
+	i_zero(ctx);
 	ctx->str = str;
 	ctx->last_uid = (uint32_t)-1;
 }

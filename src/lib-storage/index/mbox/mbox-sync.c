@@ -138,7 +138,7 @@ mbox_sync_read_next_mail(struct mbox_sync_context *sync_ctx,
 		return 0;
 
 	p_clear(sync_ctx->mail_keyword_pool);
-	memset(mail_ctx, 0, sizeof(*mail_ctx));
+	i_zero(mail_ctx);
 	mail_ctx->sync_ctx = sync_ctx;
 	mail_ctx->seq = ++sync_ctx->seq;
 	mail_ctx->header = sync_ctx->header;
@@ -719,7 +719,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			i_assert(postlf_from_offset != (uoff_t)-1);
 			mail_ctx->mail.from_offset = postlf_from_offset;
 
-			memset(&mail, 0, sizeof(mail));
+			i_zero(&mail);
 			mail.expunged = TRUE;
 			mail.offset = mail.from_offset =
 				mail_ctx->mail.from_offset -
@@ -815,7 +815,7 @@ mbox_sync_handle_missing_space(struct mbox_sync_mail_context *mail_ctx)
 
 	/* mail_ctx may contain wrong data after rewrite, so make sure we
 	   don't try to access it */
-	memset(mail_ctx, 0, sizeof(*mail_ctx));
+	i_zero(mail_ctx);
 
 	sync_ctx->need_space_seq = 0;
 	sync_ctx->space_diff = 0;
@@ -1699,7 +1699,7 @@ int mbox_sync_header_refresh(struct mbox_mailbox *mbox)
 				  &data, &data_size);
 	if (data_size == 0) {
 		/* doesn't exist yet. */
-		memset(&mbox->mbox_hdr, 0, sizeof(mbox->mbox_hdr));
+		i_zero(&mbox->mbox_hdr);
 		return 0;
 	}
 
@@ -1902,7 +1902,7 @@ again:
 		return 0;
 	}
 
-	memset(&sync_ctx, 0, sizeof(sync_ctx));
+	i_zero(&sync_ctx);
 	sync_ctx.mbox = mbox;
 	sync_ctx.keep_recent =
 		(mbox->box.flags & MAILBOX_FLAG_DROP_RECENT) == 0;

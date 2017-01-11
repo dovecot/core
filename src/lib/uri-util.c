@@ -529,7 +529,7 @@ int uri_parse_authority(struct uri_parser *parser,
 	 */
 
 	if (auth != NULL)
-		memset(auth, 0, sizeof(*auth));
+		i_zero(auth);
 
 	/* Scan ahead to check whether there is a [userinfo "@"] uri component */
 	for (p = parser->cur; p < parser->end; p++){
@@ -645,7 +645,7 @@ int uri_parse_path(struct uri_parser *parser,
 	if (path_r != NULL)
 		p_array_init(&segments, parser->pool, 16);
 	else
-		memset(&segments, 0, sizeof(segments));
+		i_zero(&segments);
 
 	/* check for a leading '/' and indicate absolute path
 	   when it is present

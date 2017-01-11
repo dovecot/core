@@ -83,7 +83,7 @@ void mbox_list_index_update_sync(struct mailbox *box,
 		return;
 	old_rec = data;
 
-	memset(&new_rec, 0, sizeof(new_rec));
+	i_zero(&new_rec);
 	new_rec.mtime = mhdr->sync_mtime;
 	new_rec.size = mhdr->sync_size & 0xffffffffU;
 

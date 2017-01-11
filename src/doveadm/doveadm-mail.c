@@ -343,7 +343,7 @@ static void
 doveadm_cctx_to_storage_service_input(const struct doveadm_cmd_context *cctx,
 					struct mail_storage_service_input *input_r)
 {
-	memset(input_r, 0, sizeof(*input_r));
+	i_zero(input_r);
 	input_r->service = "doveadm";
 	input_r->remote_ip = cctx->remote_ip;
 	input_r->remote_port = cctx->remote_port;
@@ -642,7 +642,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	ctx->cli = TRUE;
 	ctx->cur_username = getenv("USER");
 
-	memset(&cctx, 0, sizeof(cctx));
+	i_zero(&cctx);
 
 	getopt_args = "AF:S:u:";
 	/* keep context's getopt_args first in case it contains '+' */
@@ -908,7 +908,7 @@ void doveadm_mail_init(void)
 	for (i = 0; i < N_ELEMENTS(mail_commands_ver2); i++)
 		doveadm_cmd_register_ver2(mail_commands_ver2[i]);
 
-	memset(&mod_set, 0, sizeof(mod_set));
+	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;
 	mod_set.require_init_funcs = TRUE;
 	mod_set.debug = doveadm_debug;

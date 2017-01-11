@@ -70,7 +70,7 @@ void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,
 {
 	struct imap_fetch_init_context init_ctx;
 
-	memset(&init_ctx, 0, sizeof(init_ctx));
+	i_zero(&init_ctx);
 	init_ctx.fetch_ctx = ctx;
 	init_ctx.pool = ctx->ctx_pool;
 
@@ -86,7 +86,7 @@ int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 	struct imap_fetch_init_context init_ctx;
 	const char *str;
 
-	memset(&init_ctx, 0, sizeof(init_ctx));
+	i_zero(&init_ctx);
 	init_ctx.fetch_ctx = imap_fetch_alloc(client, pool);
 	init_ctx.pool = pool;
 	init_ctx.args = list;
@@ -155,7 +155,7 @@ void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 		}
 	}
 
-	memset(&h, 0, sizeof(h));
+	i_zero(&h);
 	h.handler = handler;
 	h.context = context;
 	h.buffered = (flags & IMAP_FETCH_HANDLER_FLAG_BUFFERED) != 0;
@@ -355,7 +355,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 	i_assert(!ctx->state.fetching);
 
         imap_fetch_init(ctx);
-        memset(&ctx->state, 0, sizeof(ctx->state));
+        i_zero(&ctx->state);
 
 	if (array_count(&ctx->all_headers) > 0 &&
 	    ((ctx->fetch_data & (MAIL_FETCH_STREAM_HEADER |

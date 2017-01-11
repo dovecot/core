@@ -533,10 +533,10 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 	struct fetch_field hdr_field, body_field;
 	struct imap_msgpart *msgpart;
 
-	memset(&hdr_field, 0, sizeof(hdr_field));
+	i_zero(&hdr_field);
 	hdr_field.print = fetch_hdr_field;
 
-	memset(&body_field, 0, sizeof(body_field));
+	i_zero(&body_field);
 	body_field.print = fetch_body_field;
 
 	t_array_init(&ctx->fields, 32);

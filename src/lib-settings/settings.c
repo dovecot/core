@@ -195,7 +195,7 @@ bool settings_read_i(const char *path, const char *section,
 		next_section = t_strcut(section, '/');
 	}
 
-	memset(&root, 0, sizeof(root));
+	i_zero(&root);
 	root.path = path;
 	input = &root;
 

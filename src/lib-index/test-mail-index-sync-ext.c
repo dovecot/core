@@ -41,7 +41,7 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 
 	test_begin("mail index sync ext atomic inc");
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.view = t_new(struct mail_index_view, 1);
 	ctx.view->map = t_new(struct mail_index_map, 1);
 	ctx.view->map->hdr.next_uid = 2;
@@ -54,7 +54,7 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 	ext->record_offset = sizeof(struct mail_index_record);
 	ptr = PTR_OFFSET(ctx.view->map->rec_map->records, ext->record_offset);
 
-	memset(&u, 0, sizeof(u));
+	i_zero(&u);
 	test_assert(mail_index_sync_ext_atomic_inc(&ctx, &u) == -1);
 
 	u.uid = 2;

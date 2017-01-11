@@ -58,7 +58,7 @@ int dict_init(const char *uri, enum dict_data_type value_type,
 {
 	struct dict_settings set;
 
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.value_type = value_type;
 	set.username = username;
 	set.base_dir = base_dir;
@@ -133,7 +133,7 @@ void dict_lookup_async(struct dict *dict, const char *key,
 	if (dict->v.lookup_async == NULL) {
 		struct dict_lookup_result result;
 
-		memset(&result, 0, sizeof(result));
+		i_zero(&result);
 		result.ret = dict_lookup(dict, pool_datastack_create(),
 					 key, &result.value);
 		if (result.ret < 0)

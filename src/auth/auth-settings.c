@@ -513,7 +513,7 @@ auth_settings_read(const char *service, pool_t pool,
 	const char *error;
 	void **sets;
 
-	memset(&input, 0, sizeof(input));
+	i_zero(&input);
 	input.roots = set_roots;
 	input.module = "auth";
 	input.service = service;

@@ -62,7 +62,7 @@ tika_get_http_client_url(struct mail_user *user, struct http_url **http_url_r)
 	}
 
 	if (tika_http_client == NULL) {
-		memset(&http_set, 0, sizeof(http_set));
+		i_zero(&http_set);
 		http_set.max_idle_time_msecs = 100;
 		http_set.max_parallel_connections = 1;
 		http_set.max_pipelined_requests = 1;

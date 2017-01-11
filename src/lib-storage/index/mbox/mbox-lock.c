@@ -412,7 +412,7 @@ mbox_lock_dotlock_int(struct mbox_lock_context *ctx, int lock_type, bool try)
 
         ctx->dotlock_last_stale = TRUE;
 
-	memset(&set, 0, sizeof(set));
+	i_zero(&set);
 	set.use_excl_lock = mbox->storage->storage.set->dotlock_use_excl;
 	set.nfs_flush = mbox->storage->storage.set->mail_nfs_storage;
 	set.timeout = mail_storage_get_lock_timeout(&mbox->storage->storage,
@@ -607,7 +607,7 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 	if (lock_type == F_UNLCK && ctx->mbox->mbox_fd == -1)
 		return 1;
 
-	memset(&fl, 0, sizeof(fl));
+	i_zero(&fl);
 	fl.l_type = lock_type;
 	fl.l_whence = SEEK_SET;
 	fl.l_start = 0;
@@ -724,7 +724,7 @@ static int mbox_update_locking(struct mbox_mailbox *mbox, int lock_type,
 		mail_storage_get_lock_timeout(&mbox->storage->storage,
 			mbox->storage->set->mbox_lock_timeout);
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.mbox = mbox;
 
 	if (mbox->mbox_lock_type == F_WRLCK) {
@@ -874,7 +874,7 @@ int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id)
 	if (mbox->mbox_stream != NULL)
 		istream_raw_mbox_set_unlocked(mbox->mbox_stream);
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.mbox = mbox;
 
 	for (i = 0; i < MBOX_LOCK_COUNT; i++)

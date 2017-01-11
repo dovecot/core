@@ -69,7 +69,7 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 		return -1;
 	}
 
-	memset(&dict_set, 0, sizeof(dict_set));
+	i_zero(&dict_set);
 	dict_set.username = set->username;
 	dict_set.base_dir = set->base_dir;
 
@@ -243,7 +243,7 @@ static int fs_dict_stat(struct fs_file *_file, struct stat *st_r)
 {
 	struct dict_fs_file *file = (struct dict_fs_file *)_file;
 
-	memset(st_r, 0, sizeof(*st_r));
+	i_zero(st_r);
 
 	if (fs_dict_lookup(file) < 0)
 		return -1;

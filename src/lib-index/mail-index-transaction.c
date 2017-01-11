@@ -266,7 +266,7 @@ int mail_index_transaction_commit_full(struct mail_index_transaction **_t,
 	}
 
 	*_t = NULL;
-	memset(result_r, 0, sizeof(*result_r));
+	i_zero(result_r);
 	if (t->v.commit(t, result_r) < 0)
 		return -1;
 
