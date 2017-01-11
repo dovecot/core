@@ -1,4 +1,4 @@
-.\" Copyright (c) 2014-2016 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-PROXY 1 "2014-10-07" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-proxy \- Handle Dovecot proxy connections

@@ -1,4 +1,4 @@
-.\" Copyright (c) 2010-2016 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file
 .TH DOVECOT\-LDA 1 "2011-01-16" "Dovecot v2.2" "Dovecot"
 .SH NAME
 dovecot\-lda \- Dovecot\(aqs local mail delivery agent

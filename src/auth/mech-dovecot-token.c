@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
 
 /* Used internally by Dovecot processes to authenticate against each others
    (e.g. imap to imap-urlauth). See auth-token.c */

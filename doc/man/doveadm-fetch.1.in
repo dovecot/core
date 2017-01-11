@@ -1,4 +1,4 @@
-.\" Copyright (c) 2010-2016 Dovecot authors, see the included COPYING file
+.\" Copyright (c) 2010-2017 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-FETCH 1 "2015-05-09" "Dovecot v2.2" "Dovecot"
 .SH NAME
 doveadm\-fetch \- Fetch partial/full messages or message information

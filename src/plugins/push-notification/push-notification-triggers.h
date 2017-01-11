@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
 
 #ifndef PUSH_NOTIFICATION_TRIGGERS_H
 #define PUSH_NOTIFICATION_TRIGGERS_H

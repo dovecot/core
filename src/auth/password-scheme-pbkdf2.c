@@ -1,4 +1,4 @@
-/* Copyright (c) 2015 Dovecot Oy, see the included COPYING file */
+/* Copyright (c) 2015-2017 Dovecot Oy, see the included COPYING file */
 
 #include "lib.h"
 #include "buffer.h"
