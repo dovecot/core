@@ -67,6 +67,12 @@ struct sql_dict_transaction_context {
 	pool_t inc_row_pool;
 	struct sql_dict_inc_row *inc_row;
 
+	const struct dict_sql_map *prev_set_map;
+	char *prev_set_key;
+	char *prev_set_value;
+	pool_t set_row_pool;
+	struct sql_dict_inc_row *set_row;
+
 	dict_transaction_commit_callback_t *async_callback;
 	void *async_context;
 
@@ -76,6 +82,7 @@ struct sql_dict_transaction_context {
 static struct sql_db_cache *dict_sql_db_cache;
 
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx);
+static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx);
 
 static int
 sql_dict_init(struct dict *driver, const char *uri,
@@ -779,6 +786,8 @@ static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 {
 	if (ctx->inc_row_pool != NULL)
 		pool_unref(&ctx->inc_row_pool);
+	if (ctx->set_row_pool != NULL)
+		pool_unref(&ctx->set_row_pool);
 	i_free(ctx->prev_inc_key);
 	i_free(ctx->error);
 	i_free(ctx);
@@ -1030,8 +1039,8 @@ sql_dict_update_query(struct sql_dict_transaction_context *ctx,
 	return 0;
 }
 
-static void sql_dict_set(struct dict_transaction_context *_ctx,
-			 const char *key, const char *value)
+static void sql_dict_set_real(struct dict_transaction_context *_ctx,
+			      const char *key, const char *value)
 {
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;
@@ -1108,6 +1117,22 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 }
 
 static unsigned int *
+sql_dict_next_set_row(struct sql_dict_transaction_context *ctx)
+{
+	struct sql_dict_inc_row *row;
+
+	if (ctx->set_row_pool == NULL) {
+		ctx->set_row_pool =
+			pool_alloconly_create("sql dict set rows", 128);
+	}
+	row = p_new(ctx->set_row_pool, struct sql_dict_inc_row, 1);
+	row->prev = ctx->set_row;
+	row->rows = UINT_MAX;
+	ctx->set_row = row;
+	return &row->rows;
+}
+
+static unsigned int *
 sql_dict_next_inc_row(struct sql_dict_transaction_context *ctx)
 {
 	struct sql_dict_inc_row *row;
@@ -1159,6 +1184,14 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	}
 }
 
+static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
+{
+	sql_dict_set_real(&ctx->ctx, ctx->prev_set_key, ctx->prev_set_value);
+	i_free_and_null(ctx->prev_set_value);
+	i_free_and_null(ctx->prev_set_key);
+	ctx->prev_set_map = NULL;
+}
+
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
 {
 	sql_dict_atomic_inc_real(ctx, ctx->prev_inc_key, ctx->prev_inc_diff);
@@ -1200,6 +1233,70 @@ sql_dict_maps_are_mergeable(struct sql_dict *dict,
 			return FALSE;
 	}
 	return TRUE;
+}
+
+static void sql_dict_set(struct dict_transaction_context *_ctx,
+			 const char *key, const char *value)
+{
+	struct sql_dict_transaction_context *ctx =
+		(struct sql_dict_transaction_context *)_ctx;
+	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
+	const struct dict_sql_map *map;
+	ARRAY_TYPE(const_string) values;
+
+	if (ctx->error != NULL)
+		return;
+
+	map = sql_dict_find_map(dict, key, &values);
+	if (map == NULL) {
+		ctx->error = i_strdup_printf(
+			"sql dict set: Invalid/unmapped key: %s", key);
+		return;
+	}
+
+	if (ctx->prev_set_map == NULL) {
+		/* see if we can merge this increment SQL query with the
+		   next one */
+		ctx->prev_set_map = map;
+		ctx->prev_set_key = i_strdup(key);
+		ctx->prev_set_value = i_strdup(value);
+		return;
+	}
+
+	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_set_map, map,
+					 ctx->prev_set_key, key, &values)) {
+		sql_dict_prev_set_flush(ctx);
+		sql_dict_set_real(&ctx->ctx, key, value);
+	} else {
+		struct dict_sql_build_query build;
+		struct dict_sql_build_query_field *field;
+		const char *query, *error;
+
+		i_zero(&build);
+		build.dict = dict;
+		t_array_init(&build.fields, 1);
+		build.extra_values = &values;
+		build.key1 = key[0];
+		build.inc = TRUE;
+
+		field = array_append_space(&build.fields);
+		field->map = ctx->prev_set_map;
+		field->value = ctx->prev_set_value;
+		field = array_append_space(&build.fields);
+		field->map = map;
+		field->value = value;
+
+		if (sql_dict_set_query(ctx, &build, &query, &error) < 0) {
+			ctx->error = i_strdup_printf(
+				"dict-sql: Failed to set %s: %s", key, error);
+		} else {
+			sql_update_get_rows(ctx->sql_ctx, query,
+					    sql_dict_next_set_row(ctx));
+		}
+		i_free_and_null(ctx->prev_set_value);
+		i_free_and_null(ctx->prev_set_key);
+		ctx->prev_set_map = NULL;
+	}
 }
 
 static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
