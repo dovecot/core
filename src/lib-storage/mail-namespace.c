@@ -294,7 +294,7 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 		    ns->prefix[strlen(ns->prefix)-1] != ns_sep) {
 			*error_r = t_strdup_printf(
 				"list=yes requires prefix=%s "
-				"to end with separator", ns->prefix);
+				"to end with separator %c", ns->prefix, ns_sep);
 			return FALSE;
 		}
 		if (*ns->prefix != '\0' &&
