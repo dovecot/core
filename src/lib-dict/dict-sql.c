@@ -1295,7 +1295,7 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		t_array_init(&build.fields, 1);
 		build.extra_values = &values;
 		build.key1 = key[0];
-		build.inc = FALSE;
+		build.inc = TRUE;
 
 		field = array_append_space(&build.fields);
 		field->map = ctx->prev_set_map;
