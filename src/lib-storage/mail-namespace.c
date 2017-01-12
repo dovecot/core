@@ -384,6 +384,12 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 	T_BEGIN {
 		hook_mail_namespaces_created(namespaces);
 	} T_END;
+
+	/* allow namespace hooks to return failure via the user error */
+	if (namespaces->user->error != NULL) {
+		*error_r = t_strdup(namespaces->user->error);
+		return -1;
+	}
 	return 0;
 }
 
