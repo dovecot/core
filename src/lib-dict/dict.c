@@ -138,6 +138,8 @@ void dict_lookup_async(struct dict *dict, const char *key,
 					 key, &result.value);
 		if (result.ret < 0)
 			result.error = "Lookup failed";
+		const char *const values[] = { result.value, NULL };
+		result.values = values;
 		callback(&result, context);
 		return;
 	}

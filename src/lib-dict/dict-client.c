@@ -927,6 +927,7 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 {
 	struct client_dict *dict = cmd->dict;
 	struct dict_lookup_result result;
+	const char *const values[] = { value, NULL };
 
 	i_zero(&result);
 	if (error != NULL) {
@@ -935,6 +936,7 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 	} else switch (reply) {
 	case DICT_PROTOCOL_REPLY_OK:
 		result.value = value;
+		result.values = values;
 		result.ret = 1;
 		break;
 	case DICT_PROTOCOL_REPLY_NOTFOUND:
