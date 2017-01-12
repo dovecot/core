@@ -123,14 +123,14 @@ static struct istream *create_raw_stream(struct mail_deliver_context *ctx,
 	*mtime_r = (time_t)-1;
 	fd_set_nonblock(fd, FALSE);
 
-	input = i_stream_create_fd(fd, 4096, FALSE);
+	input = i_stream_create_fd(fd, 4096);
 	input->blocking = TRUE;
 	/* If input begins with a From-line, drop it */
-	ret = i_stream_read_data(input, &data, &size, 5);
-	if (ret > 0 && size >= 5 && memcmp(data, "From ", 5) == 0) {
+	ret = i_stream_read_bytes(input, &data, &size, 5);
+	if (ret > 0 && memcmp(data, "From ", 5) == 0) {
 		/* skip until the first LF */
 		i_stream_skip(input, 5);
-		while (i_stream_read_data(input, &data, &size, 0) > 0) {
+		while (i_stream_read_more(input, &data, &size) > 0) {
 			for (i = 0; i < size; i++) {
 				if (data[i] == '\n')
 					break;
@@ -165,25 +165,6 @@ static struct istream *create_raw_stream(struct mail_deliver_context *ctx,
 					 seekable_fd_callback, ctx);
 	i_stream_unref(&input2);
 	return input;
-}
-
-static void set_dest_addr(struct mail_deliver_context *ctx,
-	const char *destaddr_source)
-{
-	if (ctx->dest_addr == NULL &&
-	    *ctx->set->lda_original_recipient_header != '\0') {
-		ctx->dest_addr = mail_deliver_get_address(ctx->src_mail,
-					ctx->set->lda_original_recipient_header);
-		destaddr_source = t_strconcat(
-			ctx->set->lda_original_recipient_header, " header", NULL);
-	}
-	if (ctx->final_dest_addr == NULL)
-		ctx->final_dest_addr = ctx->dest_addr;
-
-	if (ctx->dest_user->mail_debug && ctx->dest_addr != NULL) {
-		i_debug("Destination address: %s (source: %s)",
-			ctx->dest_addr, destaddr_source);
-	}
 }
 
 static void lmtp_client_send_finished(void *context)
@@ -246,6 +227,7 @@ static void client_read_settings(struct client *client,
 	const struct setting_parser_info **set_info)
 {
 	const struct setting_parser_context *set_parser;
+	const struct var_expand_table *tab;
 	struct lda_settings *lda_set;
 	const char *error;
 
@@ -256,9 +238,11 @@ static void client_read_settings(struct client *client,
 
 	lda_set = master_service_settings_parser_get_others(
 		master_service, set_parser)[1];
-	settings_var_expand(&lda_setting_parser_info, lda_set, ctx->pool,
-		mail_storage_service_get_var_expand_table(storage_service,
-			&client->service_input));
+	tab = mail_storage_service_get_var_expand_table(storage_service,
+		&client->service_input);
+	if (settings_var_expand(&lda_setting_parser_info, lda_set,
+			ctx->pool, tab, &error) <= 0)
+		i_fatal("Failed to expand settings: %s", error);
 	ctx->set = lda_set;
 }
 
@@ -272,7 +256,7 @@ static struct mail *client_raw_mail_open(struct mail_deliver_context *ctx,
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
 	struct mailbox_header_lookup_ctx *headers_ctx;
-	struct mail *raw_mail;
+	struct mail *mail;
 	struct istream *input;
 	const char *envelope_sender;
 	time_t mtime;
@@ -297,10 +281,29 @@ static struct mail *client_raw_mail_open(struct mail_deliver_context *ctx,
 
 	trans = mailbox_transaction_begin(box, 0);
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
-	raw_mail = mail_alloc(trans, 0, headers_ctx);
+	mail = mail_alloc(trans, 0, headers_ctx);
 	mailbox_header_lookup_unref(&headers_ctx);
-	mail_set_seq(raw_mail, 1);
-	return raw_mail;
+	mail_set_seq(mail, 1);
+	return mail;
+}
+
+static void set_dest_addr(struct mail_deliver_context *ctx,
+	const char *destaddr_source)
+{
+	if (ctx->dest_addr == NULL &&
+	    *ctx->set->lda_original_recipient_header != '\0') {
+		ctx->dest_addr = mail_deliver_get_address(ctx->src_mail,
+					ctx->set->lda_original_recipient_header);
+		destaddr_source = t_strconcat(
+			ctx->set->lda_original_recipient_header, " header", NULL);
+	}
+	if (ctx->final_dest_addr == NULL)
+		ctx->final_dest_addr = ctx->dest_addr;
+
+	if (ctx->dest_user->mail_debug && ctx->dest_addr != NULL) {
+		i_debug("Destination address: %s (source: %s)",
+			ctx->dest_addr, destaddr_source);
+	}
 }
 
 static struct istream *get_filtered_mail_stream(struct mail *_mail)
@@ -371,7 +374,7 @@ int main(int argc, char *argv[])
 		&lda_setting_parser_info,
 		NULL
 	};
-	const char *host, *envelope_sender, *path = NULL;
+	const char *host, *error, *envelope_sender, *path = NULL;
 	bool stderr_rejection = FALSE;
 	in_port_t port;
 	string_t *mail_log_prefix;
@@ -382,13 +385,13 @@ int main(int argc, char *argv[])
 	master_service = master_service_init("rda", service_flags,
 		&argc, &argv, "a:ef:p:P:r:");
 
-	memset(&ctx, 0, sizeof(ctx));
+	i_zero(&ctx);
 	ctx.session = mail_deliver_session_init();
 	ctx.pool = ctx.session->pool;
 	ctx.timeout_secs = LDA_SUBMISSION_TIMEOUT_SECS;
 	ctx.delivery_time_started = ioloop_timeval;
 
-	memset(&client, 0, sizeof(client));
+	i_zero(&client);
 	client.service_input.module = "lda";
 	client.service_input.service = "rda";
 	client.service_input.username = "";
@@ -408,7 +411,7 @@ int main(int argc, char *argv[])
 				p_strdup(ctx.pool, address_sanitize(optarg));
 			break;
 		case 'p':
-			/* path */
+			/* input path */
 			path = t_abspath(optarg);
 			break;
 		case 'P':
@@ -438,6 +441,7 @@ int main(int argc, char *argv[])
 	}
 	if (net_str2hostport(host, DEFAULT_LMTP_PORT, &host, &port) < 0)
 		i_fatal_status(EX_USAGE, "Invalid LMTP/SMTP host: %s", host);
+	host = p_strdup(ctx.pool, host);
 
 	if (optind != argc) {
 		print_help();
@@ -462,12 +466,13 @@ int main(int argc, char *argv[])
 	/* set log prefix */
 	mail_log_prefix = t_str_new(256);
 	client.service_input.username = ctx.dest_addr;
-	var_expand(mail_log_prefix, ctx.dest_user->set->mail_log_prefix,
+	if (var_expand(mail_log_prefix, ctx.dest_user->set->mail_log_prefix,
 		mail_storage_service_get_var_expand_table(storage_service,
-			&client.service_input));
+			&client.service_input), &error) <= 0)
+		i_fatal("Failed to expand settings: %s", error);
 	master_service_init_log(master_service, str_c(mail_log_prefix));
 
-	memset(&lmtp_client_set, 0, sizeof(lmtp_client_set));
+	i_zero(&lmtp_client_set);
 	envelope_sender = mail_deliver_get_return_address(&ctx);
 	lmtp_client_set.mail_from = envelope_sender == NULL ? "<>" :
 		t_strconcat("<", envelope_sender, ">", NULL);
