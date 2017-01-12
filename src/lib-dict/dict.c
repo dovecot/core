@@ -131,6 +131,8 @@ void dict_lookup_async(struct dict *dict, const char *key,
 		i_zero(&result);
 		result.ret = dict_lookup(dict, pool_datastack_create(),
 					 key, &result.value, &result.error);
+		const char *const values[] = { result.value, NULL };
+		result.values = values;
 		callback(&result, context);
 		return;
 	}

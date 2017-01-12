@@ -299,10 +299,15 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 			/* try extract value */
 			const char *const *values = ldap_entry_get_attribute(entry, op->map->value_attribute);
 			if (values != NULL) {
+				const char **new_values;
+
 				if (op->dict->set->debug > 0)
 					i_debug("ldap_dict_lookup_callback got attribute %s", op->map->value_attribute);
 				op->res.ret = 1;
-				op->res.value = p_strdup(op->pool, values[0]);
+				new_values = p_new(op->pool, const char *, 2);
+				new_values[0] = p_strdup(op->pool, values[0]);
+				op->res.values = new_values;
+				op->res.value = op->res.values[0];
 			} else {
 				if (op->dict->set->debug > 0)
 					i_debug("ldap_dict_lookup_callback dit not get attribute %s", op->map->value_attribute);

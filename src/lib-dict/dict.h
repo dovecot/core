@@ -40,7 +40,13 @@ struct dict_settings {
 
 struct dict_lookup_result {
 	int ret;
+
+	/* First returned value (ret > 0) */
 	const char *value;
+	/* NULL-terminated list of all returned values (ret > 0) */
+	const char *const *values;
+
+	/* Error message for a failed lookup (ret < 0) */
 	const char *error;
 };
 
