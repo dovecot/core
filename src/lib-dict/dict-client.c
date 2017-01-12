@@ -938,6 +938,11 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 		result.values = values;
 		result.ret = 1;
 		break;
+	case DICT_PROTOCOL_REPLY_MULTI_OK:
+		result.values = t_strsplit_tabescaped(value);
+		result.value = result.values[0];
+		result.ret = 1;
+		break;
 	case DICT_PROTOCOL_REPLY_NOTFOUND:
 		result.ret = 0;
 		break;

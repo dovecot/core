@@ -163,14 +163,38 @@ dict_cmd_reply_handle_timings(struct dict_connection_cmd *cmd,
 }
 
 static void
+cmd_lookup_write_reply(struct dict_connection_cmd *cmd,
+		       const char *const *values, string_t *str)
+{
+	string_t *tmp;
+
+	i_assert(values[0] != NULL);
+
+	if (cmd->conn->minor_version < DICT_CLIENT_PROTOCOL_VERSION_MIN_MULTI_OK ||
+	    values[1] == NULL) {
+		str_append_c(str, DICT_PROTOCOL_REPLY_OK);
+		str_append_tabescaped(str, values[0]);
+		return;
+	}
+	/* the results get double-tabescaped so they end up becoming a single
+	   parameter */
+	tmp = t_str_new(128);
+	for (unsigned int i = 0; values[i] != NULL; i++) {
+		str_append_c(tmp, '\t');
+		str_append_tabescaped(tmp, values[i]);
+	}
+	str_append_c(str, DICT_PROTOCOL_REPLY_MULTI_OK);
+	str_append_tabescaped(str, str_c(tmp) + 1);
+}
+
+static void
 cmd_lookup_callback(const struct dict_lookup_result *result, void *context)
 {
 	struct dict_connection_cmd *cmd = context;
 	string_t *str = t_str_new(128);
 
 	if (result->ret > 0) {
-		str_append_c(str, DICT_PROTOCOL_REPLY_OK);
-		str_append_tabescaped(str, result->value);
+		cmd_lookup_write_reply(cmd, result->values, str);
 	} else if (result->ret == 0) {
 		str_append_c(str, DICT_PROTOCOL_REPLY_NOTFOUND);
 	} else {
