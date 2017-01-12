@@ -892,6 +892,7 @@ src/config/Makefile
 src/doveadm/Makefile
 src/doveadm/dsync/Makefile
 src/lda/Makefile
+src/rda/Makefile
 src/log/Makefile
 src/lmtp/Makefile
 src/dict/Makefile

@@ -53,6 +53,7 @@ SUBDIRS = \
 	pop3-login \
 	pop3 \
 	lda \
+	rda \
 	lmtp \
 	log \
 	config \
