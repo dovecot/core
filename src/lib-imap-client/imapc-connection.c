@@ -376,8 +376,8 @@ imapc_connection_literal_reset(struct imapc_connection_literal *literal)
 	literal->fd = -1;
 }
 
-static void imapc_connection_disconnect_full(struct imapc_connection *conn,
-					     bool reconnecting)
+void imapc_connection_disconnect_full(struct imapc_connection *conn,
+				      bool reconnecting)
 {
 	/* timeout may be set also in disconnected state */
 	if (conn->to != NULL)

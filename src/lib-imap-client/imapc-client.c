@@ -328,7 +328,7 @@ void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box)
 	   loop. */
 	box->reconnect_ok = FALSE;
 
-	imapc_connection_disconnect(box->conn);
+	imapc_connection_disconnect_full(box->conn, TRUE);
 	imapc_connection_connect(box->conn, imapc_client_reconnect_cb, box);
 }
 
