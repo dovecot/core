@@ -1269,13 +1269,13 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
 
-	if (ctx->error != NULL)
+	if (ctx->failed)
 		return;
 
 	map = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
-		ctx->error = i_strdup_printf(
-			"sql dict set: Invalid/unmapped key: %s", key);
+		ctx->failed = TRUE;
+		i_error("sql dict set: Invalid/unmapped key: %s", key);
 		return;
 	}
 
@@ -1312,8 +1312,8 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		field->value = value;
 
 		if (sql_dict_set_query(ctx, &build, &query, &error) < 0) {
-			ctx->error = i_strdup_printf(
-				"dict-sql: Failed to set %s: %s", key, error);
+			i_error("dict-sql: Failed to set %s: %s", key, error);
+			ctx->failed = TRUE;
 		} else {
 			sql_update_get_rows(ctx->sql_ctx, query,
 					    sql_dict_next_set_row(ctx));
