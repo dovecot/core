@@ -21,6 +21,12 @@ static int raw_sync(struct raw_mailbox *mbox)
 		MAIL_INDEX_SYNC_FLAG_FLUSH_DIRTY |
 		MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 
+	if (mail_index_view_get_messages_count(mbox->box.view) > 0) {
+		/* already-synced index was opened via
+		   mail-index-alloc-cache. */
+		return 0;
+	}
+
 	ret = mail_index_sync_begin(mbox->box.index, &index_sync_ctx,
 				    &sync_view, &trans, sync_flags);
 	if (ret <= 0) {
