@@ -72,6 +72,9 @@ struct mail_user {
 	unsigned int autocreated:1;
 	/* mail_user_init() has been called */
 	unsigned int initialized:1;
+	/* The initial namespaces have been created and
+	   hook_mail_namespaces_created() has been called. */
+	unsigned int namespaces_created:1;
 	/* SET_STR_VARS in user's all settings have been expanded.
 	   This happens near the beginning of the user initialization,
 	   so this is rarely needed to be checked. */
