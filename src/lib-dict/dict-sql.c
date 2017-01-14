@@ -69,8 +69,6 @@ struct sql_dict_transaction_context {
 	const struct dict_sql_map *prev_set_map;
 	char *prev_set_key;
 	char *prev_set_value;
-	pool_t set_row_pool;
-	struct sql_dict_inc_row *set_row;
 
 	dict_transaction_commit_callback_t *async_callback;
 	void *async_context;
@@ -807,8 +805,6 @@ static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 {
 	if (ctx->inc_row_pool != NULL)
 		pool_unref(&ctx->inc_row_pool);
-	if (ctx->set_row_pool != NULL)
-		pool_unref(&ctx->set_row_pool);
 	i_free(ctx->prev_inc_key);
 	i_free(ctx);
 }
@@ -1072,6 +1068,8 @@ static void sql_dict_set_real(struct dict_transaction_context *_ctx,
 
 	if (ctx->prev_inc_map != NULL)
 		sql_dict_prev_inc_flush(ctx);
+	if (ctx->prev_set_map != NULL)
+		sql_dict_prev_set_flush(ctx);
 
 	T_BEGIN {
 		struct dict_sql_build_query build;
@@ -1141,22 +1139,6 @@ sql_dict_append(struct dict_transaction_context *_ctx,
 
 	i_error("sql dict: Append command not implemented currently");
 	ctx->failed = TRUE;
-}
-
-static unsigned int *
-sql_dict_next_set_row(struct sql_dict_transaction_context *ctx)
-{
-	struct sql_dict_inc_row *row;
-
-	if (ctx->set_row_pool == NULL) {
-		ctx->set_row_pool =
-			pool_alloconly_create("sql dict set rows", 128);
-	}
-	row = p_new(ctx->set_row_pool, struct sql_dict_inc_row, 1);
-	row->prev = ctx->set_row;
-	row->rows = UINT_MAX;
-	ctx->set_row = row;
-	return &row->rows;
 }
 
 static unsigned int *
@@ -1317,8 +1299,7 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 			i_error("dict-sql: Failed to set %s: %s", key, error);
 			ctx->failed = TRUE;
 		} else {
-			sql_update_get_rows(ctx->sql_ctx, query,
-					    sql_dict_next_set_row(ctx));
+			sql_update(ctx->sql_ctx, query);
 		}
 		i_free_and_null(ctx->prev_set_value);
 		i_free_and_null(ctx->prev_set_key);
