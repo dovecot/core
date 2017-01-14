@@ -89,11 +89,28 @@ cmd_dict_init(int *argc, char **argv[],
 				  key_arg_idx, cmd, NULL, dict_r);
 }
 
+struct doveadm_dict_ctx {
+	pool_t pool;
+	int ret;
+	const char *const *values;
+	const char *error;
+};
+
+static void dict_lookup_callback(const struct dict_lookup_result *result,
+				 void *context)
+{
+	struct doveadm_dict_ctx *ctx = context;
+
+	ctx->ret = result->ret;
+	ctx->values = result->values == NULL ? NULL :
+		p_strarray_dup(ctx->pool, result->values);
+	ctx->error = p_strdup(ctx->pool, result->error);
+}
+
 static void cmd_dict_get(int argc, char *argv[])
 {
+	struct doveadm_dict_ctx ctx;
 	struct dict *dict;
-	const char *value;
-	int ret;
 
 	if (cmd_dict_init(&argc, &argv, 1, 0, cmd_dict_get, &dict) < 0)
 		return;
@@ -101,16 +118,27 @@ static void cmd_dict_get(int argc, char *argv[])
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("value", "", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 
-	ret = dict_lookup(dict, pool_datastack_create(), argv[0], &value);
-	if (ret < 0) {
-		i_error("dict_lookup(%s) failed", argv[0]);
+	i_zero(&ctx);
+	ctx.pool = pool_alloconly_create("doveadm dict lookup", 512);
+	ctx.ret = -2;
+	dict_lookup_async(dict, argv[0], dict_lookup_callback, &ctx);
+	while (ctx.ret == -2)
+		dict_wait(dict);
+	if (ctx.ret < 0) {
+		i_error("dict_lookup(%s) failed: %s", argv[0], ctx.error);
 		doveadm_exit_code = EX_TEMPFAIL;
-	} else if (ret == 0) {
+	} else if (ctx.ret == 0) {
 		i_error("%s doesn't exist", argv[0]);
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else {
-		doveadm_print(value);
+		unsigned int i, values_count = str_array_length(ctx.values);
+
+		for (i = 1; i < values_count; i++)
+			doveadm_print_header("value", "", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+		for (i = 0; i < values_count; i++)
+			doveadm_print(ctx.values[i]);
 	}
+	pool_unref(&ctx.pool);
 	dict_deinit(&dict);
 }
 
