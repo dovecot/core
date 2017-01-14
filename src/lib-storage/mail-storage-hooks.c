@@ -292,6 +292,8 @@ void hook_mail_namespaces_created(struct mail_namespace *namespaces)
 	const struct mail_storage_hooks *const *hooks;
 
 	array_foreach(&namespaces->user->hooks, hooks) {
+		if (namespaces->user->error != NULL)
+			break;
 		if ((*hooks)->mail_namespaces_created != NULL) T_BEGIN {
 			(*hooks)->mail_namespaces_created(namespaces);
 		} T_END;
@@ -303,6 +305,8 @@ void hook_mail_namespaces_added(struct mail_namespace *namespaces)
 	const struct mail_storage_hooks *const *hooks;
 
 	array_foreach(&namespaces->user->hooks, hooks) {
+		if (namespaces->user->error != NULL)
+			break;
 		if ((*hooks)->mail_namespaces_added != NULL) T_BEGIN {
 			(*hooks)->mail_namespaces_added(namespaces);
 		} T_END;
