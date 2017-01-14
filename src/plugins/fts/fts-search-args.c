@@ -81,6 +81,11 @@ fts_backend_dovecot_expand_tokens(struct fts_filter *filter,
 		} else if (ret < 0) {
 			*error_r = t_strdup_printf("Couldn't filter search token: %s", error);
 			return -1;
+		} else {
+			/* The filter dropped the token, which means it was
+			   never even indexed. Ignore this word entirely in the
+			   search query. */
+			return 0;
 		}
 	}
 	array_sort(&tokens, i_strcmp_p);
