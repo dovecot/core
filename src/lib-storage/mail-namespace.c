@@ -390,6 +390,7 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 		*error_r = t_strdup(namespaces->user->error);
 		return -1;
 	}
+	namespaces->user->namespaces_created = TRUE;
 	return 0;
 }
 
