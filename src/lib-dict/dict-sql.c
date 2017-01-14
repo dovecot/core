@@ -853,6 +853,8 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 
 	if (ctx->prev_inc_map != NULL)
 		sql_dict_prev_inc_flush(ctx);
+	if (ctx->prev_set_map != NULL)
+		sql_dict_prev_set_flush(ctx);
 
 	if (ctx->error != NULL) {
 		sql_transaction_rollback(&ctx->sql_ctx);
