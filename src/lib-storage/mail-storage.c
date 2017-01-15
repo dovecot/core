@@ -2165,7 +2165,7 @@ mailbox_save_context_reset(struct mail_save_context *ctx, bool success)
 		i_assert(ctx->saving || !success);
 		ctx->saving = FALSE;
 	} else {
-		i_assert(ctx->copying_via_save);
+		i_assert(ctx->copying_via_save || !success);
 		/* We came from mailbox_copy(). saving==TRUE is possible here
 		   if we also came from mailbox_save_using_mail(). Don't set
 		   saving=FALSE yet in that case, because copy() is still
