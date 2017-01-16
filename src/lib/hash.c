@@ -129,6 +129,8 @@ void hash_table_destroy(struct hash_table **_table)
 
 	*_table = NULL;
 
+	i_assert(table->frozen == 0);
+
 	if (!table->node_pool->alloconly_pool) {
 		hash_table_destroy_nodes(table);
 		destroy_node_list(table, table->free_nodes);
@@ -141,6 +143,8 @@ void hash_table_destroy(struct hash_table **_table)
 
 void hash_table_clear(struct hash_table *table, bool free_nodes)
 {
+	i_assert(table->frozen == 0);
+
 	if (!table->node_pool->alloconly_pool)
 		hash_table_destroy_nodes(table);
 
@@ -296,6 +300,8 @@ hash_table_compress(struct hash_table *table, struct hash_node *root)
 {
 	struct hash_node *node, *next;
 
+	i_assert(table->frozen == 0);
+
 	/* remove deleted nodes from the list */
 	for (node = root; node->next != NULL; ) {
 		next = node->next;
@@ -433,6 +439,8 @@ static bool hash_table_resize(struct hash_table *table, bool grow)
 	struct hash_node *old_nodes, *node, *next;
 	unsigned int next_size, old_size, i;
 	float nodes_per_list;
+
+	i_assert(table->frozen == 0);
 
         nodes_per_list = (float) table->nodes_count / (float) table->size;
 	if (nodes_per_list > 0.3 && nodes_per_list < 2.0)
