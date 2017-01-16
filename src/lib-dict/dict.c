@@ -154,16 +154,21 @@ struct dict_iterate_context *
 dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 			   enum dict_iterate_flags flags)
 {
+	struct dict_iterate_context *ctx;
 	unsigned int i;
 
 	i_assert(paths[0] != NULL);
 	for (i = 0; paths[i] != NULL; i++)
 		i_assert(dict_key_prefix_is_valid(paths[i]));
+
 	if (dict->v.iterate_init == NULL) {
 		/* not supported by backend */
-		return &dict_iter_unsupported;
+		ctx = &dict_iter_unsupported;
+	} else {
+		ctx = dict->v.iterate_init(dict, paths, flags);
 	}
-	return dict->v.iterate_init(dict, paths, flags);
+	dict->iter_count++;
+	return ctx;
 }
 
 bool dict_iterate(struct dict_iterate_context *ctx,
@@ -205,6 +210,9 @@ int dict_iterate_deinit(struct dict_iterate_context **_ctx,
 			const char **error_r)
 {
 	struct dict_iterate_context *ctx = *_ctx;
+
+	i_assert(ctx->dict->iter_count > 0);
+	ctx->dict->iter_count--;
 
 	*_ctx = NULL;
 	if (ctx == &dict_iter_unsupported) {
