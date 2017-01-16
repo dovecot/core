@@ -48,6 +48,7 @@ struct dict {
 	const char *name;
 
 	struct dict_vfuncs v;
+	unsigned int iter_count;
 };
 
 struct dict_iterate_context {
