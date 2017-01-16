@@ -1,4 +1,4 @@
-noinst_LTLIBRARIES = libsql.la
+noinst_LTLIBRARIES = libsql.la libdriver_test.la
 
 SQL_DRIVER_PLUGINS =
 
@@ -89,6 +89,13 @@ sql_libs = \
 	$(SQLITE_LIBS) \
 	$(CASSANDRA_LIBS)
 endif
+
+libdriver_test_la_LDFLAGS = -avoid-version
+libdriver_test_la_CPPFLAGS = $(AM_CPPFLAGS) \
+	-I$(top_srcdir)/src/lib-test
+libdriver_test_la_SOURCES = driver-test.c
+
+noinst_HEADERS = driver-test.h
 
 pkglib_LTLIBRARIES = libdovecot-sql.la
 libdovecot_sql_la_SOURCES = 
