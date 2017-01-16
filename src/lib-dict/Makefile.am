@@ -36,6 +36,9 @@ headers = \
 	dict-sql-settings.h \
 	dict-transaction-memory.h
 
+noinst_HEADERS = \
+	dict-sql-private.h
+
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 

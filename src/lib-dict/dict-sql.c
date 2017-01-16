@@ -10,6 +10,7 @@
 #include "dict-private.h"
 #include "dict-sql-settings.h"
 #include "dict-sql.h"
+#include "dict-sql-private.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -20,18 +21,6 @@ enum sql_recurse_type {
 	SQL_DICT_RECURSE_NONE,
 	SQL_DICT_RECURSE_ONE,
 	SQL_DICT_RECURSE_FULL
-};
-
-struct sql_dict {
-	struct dict dict;
-
-	pool_t pool;
-	struct sql_db *db;
-	const char *username;
-	const struct dict_sql_settings *set;
-
-	bool has_on_duplicate_key:1;
-	bool has_using_timestamp:1;
 };
 
 struct sql_dict_iterate_context {
