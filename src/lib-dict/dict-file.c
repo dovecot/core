@@ -110,6 +110,12 @@ static bool file_dict_need_refresh(struct file_dict *dict)
 {
 	struct stat st1, st2;
 
+	if (dict->dict.iter_count > 0) {
+		/* Change nothing while there are iterators or they can crash
+		   because the hash table content recreated. */
+		return FALSE;
+	}
+
 	if (dict->fd == -1)
 		return TRUE;
 
@@ -171,7 +177,7 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 
 	if (file_dict_open_latest(dict, error_r) < 0)
 		return -1;
-	if (dict->refreshed)
+	if (dict->refreshed || dict->dict.iter_count > 0)
 		return 0;
 
 	hash_table_clear(dict->hash, TRUE);
@@ -230,10 +236,11 @@ file_dict_iterate_init(struct dict *_dict, const char *const *paths,
 		ctx->paths[i].len = strlen(paths[i]);
 	}
 	ctx->flags = flags;
-	ctx->iter = hash_table_iterate_init(dict->hash);
 
 	if (file_dict_refresh(dict, &error) < 0)
 		ctx->error = p_strdup(pool, error);
+
+	ctx->iter = hash_table_iterate_init(dict->hash);
 	return &ctx->ctx;
 }
 
