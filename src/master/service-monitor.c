@@ -658,11 +658,7 @@ void services_monitor_reap_children(void)
 
 		service = process->service;
 		if (status == 0) {
-			/* success */
-			if (service->listen_pending &&
-			    !service->list->destroying)
-				service_monitor_listen_start(service);
-			/* one success resets all failures */
+			/* success - one success resets all failures */
 			service->have_successful_exits = TRUE;
 			service->exit_failures_in_sec = 0;
 			service->throttle_secs =
