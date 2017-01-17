@@ -4,6 +4,7 @@
 #define DICT_PATH_PRIVATE "priv/"
 #define DICT_PATH_SHARED "shared/"
 
+struct timespec;
 struct dict;
 struct dict_iterate_context;
 
