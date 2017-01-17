@@ -302,12 +302,16 @@ http_server_request_create_fail_response(struct http_server_request *req,
 
 	req->failed = TRUE;
 
+	i_assert(status / 100 != 1 && status != 204 && status != 304);
+
 	resp = http_server_response_create(req, status, reason);
-	http_server_response_add_header
-		(resp, "Content-Type", "text/plain; charset=utf-8");
-	reason = t_strconcat(reason, "\r\n", NULL);
-	http_server_response_set_payload_data
-		(resp, (const unsigned char *)reason, strlen(reason));
+	if (!http_request_method_is(&req->req, "HEAD")) {
+		http_server_response_add_header
+			(resp, "Content-Type", "text/plain; charset=utf-8");
+		reason = t_strconcat(reason, "\r\n", NULL);
+		http_server_response_set_payload_data
+			(resp, (const unsigned char *)reason, strlen(reason));
+	}
 
 	return resp;
 }
