@@ -469,6 +469,7 @@ void stats_plugin_deinit(void)
 {
 	if (global_stats_conn != NULL)
 		stats_connection_unref(&global_stats_conn);
+	mail_stats_fill_global_deinit();
 	mail_storage_hooks_remove(&stats_mail_storage_hooks);
 	stats_unregister(&mail_stats_item);
 }
