@@ -49,6 +49,7 @@ struct sql_dict_iterate_context {
 	bool synchronous_result;
 	bool failed;
 	bool iter_query_sent;
+	bool allow_null_map; /* allow next map to be NULL */
 };
 
 struct sql_dict_inc_row {
@@ -577,8 +578,12 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 	unsigned int i, count;
 
 	map = sql_dict_iterate_find_next_map(ctx, &values);
+	/* NULL map is allowed if we have already done some lookups */
 	if (map == NULL) {
-		*error_r = "Invalid/unmapped path";
+		if (!ctx->allow_null_map) {
+			*error_r = "Invalid/unmapped path";
+			return -1;
+		}
 		return 0;
 	}
 
@@ -658,10 +663,12 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 		string_t *query = t_str_new(256);
 
 		ret = sql_dict_iterate_build_next_query(ctx, query, &error);
-		if (ret <= 0) {
+		if (ret < 0) {
 			/* failed */
 			i_error("sql dict iterate failed for %s: %s",
 				ctx->paths[path_idx], error);
+		} else if (ret == 0) {
+			/* this is expected error */
 		} else if ((ctx->flags & DICT_ITERATE_FLAG_ASYNC) == 0) {
 			ctx->result = sql_query_s(dict->db, str_c(query));
 		} else {
@@ -731,6 +738,9 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 		if ((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0)
 			return FALSE;
 		ctx->iter_query_sent = FALSE;
+		/* we have gotten *SOME* results, so can allow
+		   unmapped next key now. */
+		ctx->allow_null_map = TRUE;
 		return sql_dict_iterate(_ctx, key_r, value_r);
 	}
 	if (ret < 0) {
