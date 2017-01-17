@@ -498,6 +498,9 @@ cmd_dsync_icb_stream_init(struct dsync_cmd_context *ctx,
 		ctx->input = i_stream_create_fd(ctx->fd_in, (size_t)-1);
 		ctx->output = o_stream_create_fd(ctx->fd_out, (size_t)-1);
 	} else {
+		i_assert(ctx->fd_in == -1 && ctx->fd_out == -1);
+		ctx->fd_in = i_stream_get_fd(ctx->input);
+		ctx->fd_out = o_stream_get_fd(ctx->output);
 		ctx->input_orig_bufsize = i_stream_get_max_buffer_size(ctx->input);
 		ctx->output_orig_bufsize = o_stream_get_max_buffer_size(ctx->output);
 		i_stream_set_max_buffer_size(ctx->input, (size_t)-1);
