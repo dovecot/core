@@ -469,10 +469,10 @@ cmd_director_add_or_update(struct doveadm_cmd_context *cctx, bool update)
 		director_cmd_help(cctx->cmd);
 		return;
 	}
-	if (str_to_uint(host, &i) == 0) {
+	if (str_to_uint(ctx->host, &i) == 0) {
 		/* host is a number. this would translate to an IP address,
 		   which is probably a mistake. */
-		i_error("Invalid host '%s'", host);
+		i_error("Invalid host '%s'", ctx->host);
 		director_cmd_help(cctx->cmd);
 		return;
 	}
