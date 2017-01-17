@@ -559,6 +559,7 @@ static int http_server_response_send_real(struct http_server_response *resp,
 	struct ostream *output = conn->conn.output;
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
+	bool is_head = http_request_method_is(&req->req, "HEAD");
 	int ret = 0;
 
 	*error_r = NULL;
@@ -584,18 +585,24 @@ static int http_server_response_send_real(struct http_server_response *resp,
 		str_append(rtext, "\r\n");
 	}
 	if (resp->payload_input != NULL || resp->payload_direct) {
+		i_assert(resp->tunnel_callback == NULL &&	resp->status / 100 != 1 &&
+			resp->status != 204 && resp->status != 304);
 		if (resp->payload_chunked) {
 			if (http_server_request_version_equals(req, 1, 0)) {
-				/* cannot use Transfer-Encoding */
-				resp->payload_output = output;
-				o_stream_ref(output);
-				/* connection close marks end of payload */
-				resp->close = TRUE;
+				if (!is_head) {
+					/* cannot use Transfer-Encoding */
+					resp->payload_output = output;
+					o_stream_ref(output);
+					/* connection close marks end of payload */
+					resp->close = TRUE;
+				}
 			} else {
 				if (!resp->have_hdr_body_spec)
 					str_append(rtext, "Transfer-Encoding: chunked\r\n");
-				resp->payload_output =
-					http_transfer_chunked_ostream_create(output);
+				if (!is_head) {
+					resp->payload_output =
+						http_transfer_chunked_ostream_create(output);
+				}
 			}
 		} else {
 			/* send Content-Length if we have specified a payload,
@@ -604,12 +611,13 @@ static int http_server_response_send_real(struct http_server_response *resp,
 				str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
 						  resp->payload_size);
 			}
-			resp->payload_output = output;
-			o_stream_ref(output);
+			if (!is_head) {
+				resp->payload_output = output;
+				o_stream_ref(output);
+			}
 		}
 	} else if (resp->tunnel_callback == NULL && resp->status / 100 != 1
-		&& resp->status != 204 && resp->status != 304
-		&& !http_request_method_is(&req->req, "HEAD")) {
+		&& resp->status != 204 && resp->status != 304 && !is_head) {
 		/* RFC 7230, Section 3.3: Message Body
 
 		   Responses to the HEAD request method (Section 4.3.2 of [RFC7231])
