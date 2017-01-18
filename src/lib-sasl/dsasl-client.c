@@ -118,6 +118,7 @@ int dsasl_client_get_result(struct dsasl_client *client,
 			client->mech->get_result(client, key, value_r, error_r);
 		i_assert(ret <= 0 || *value_r != NULL);
 		i_assert(ret >= 0 || *error_r != NULL);
+		return ret;
 	} else
 		return 0;
 }
@@ -131,6 +132,8 @@ void dsasl_clients_init(void)
 	dsasl_client_mech_register(&dsasl_client_mech_external);
 	dsasl_client_mech_register(&dsasl_client_mech_plain);
 	dsasl_client_mech_register(&dsasl_client_mech_login);
+	dsasl_client_mech_register(&dsasl_client_mech_oauthbearer);
+	dsasl_client_mech_register(&dsasl_client_mech_xoauth2);
 }
 
 void dsasl_clients_deinit(void)
