@@ -22,6 +22,12 @@ struct dsasl_client_mech {
 		      const unsigned char **output_r,
 		      unsigned int *output_len_r,
 		      const char **error_r);
+	int (*set_parameter)(struct dsasl_client *client,
+			     const char *key, const char *value,
+			     const char **error_r);
+	int (*get_result)(struct dsasl_client *client,
+			  const char *key, const char **value_r,
+			  const char **error_r);
 	void (*free)(struct dsasl_client *client);
 };
 

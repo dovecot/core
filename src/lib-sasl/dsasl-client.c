@@ -98,6 +98,32 @@ int dsasl_client_output(struct dsasl_client *client,
 	return client->mech->output(client, output_r, output_len_r, error_r);
 }
 
+int dsasl_client_set_parameter(struct dsasl_client *client,
+			       const char *param, const char *value,
+			       const char **error_r)
+{
+	if (client->mech->set_parameter != NULL) {
+		int ret = client->mech->set_parameter(client, param,
+						      value, error_r);
+		i_assert(ret >= 0 || *error_r != NULL);
+		return ret;
+	} else
+		return 0;
+}
+
+int dsasl_client_get_result(struct dsasl_client *client,
+			    const char *key, const char **value_r,
+			    const char **error_r)
+{
+	if (client->mech->get_result != NULL) {
+		int ret =
+			client->mech->get_result(client, key, value_r, error_r);
+		i_assert(ret <= 0 || *value_r != NULL);
+		i_assert(ret >= 0 || *error_r != NULL);
+	} else
+		return 0;
+}
+
 void dsasl_clients_init(void)
 {
 	if (init_refcount++ > 0)
