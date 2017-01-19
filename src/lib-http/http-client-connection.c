@@ -654,14 +654,14 @@ http_client_connection_return_response(
 	struct http_client_request *req,
 	struct http_response *response)
 {
-	struct http_client_connection *tmp_conn;
 	struct istream *payload;
-	bool retrying, ret;
+	bool retrying;
 
 	i_assert(!conn->in_req_callback);
 	i_assert(conn->incoming_payload == NULL);
 	i_assert(conn->pending_request == NULL);
 
+	http_client_connection_ref(conn);
 	http_client_request_ref(req);
 	req->state = HTTP_REQUEST_STATE_GOT_RESPONSE;
 
@@ -683,15 +683,13 @@ http_client_connection_return_response(
 	}
 	
 	conn->in_req_callback = TRUE;
-	http_client_connection_ref(conn);
 	retrying = !http_client_request_callback(req, response);
-	tmp_conn = conn;
-	if (!http_client_connection_unref(&tmp_conn) ||
-		conn->disconnected) {
-		/* the callback managed to get this connection destroyed */
+	if (conn->disconnected) {
+		/* the callback managed to get this connection disconnected */
 		if (!retrying)
 			http_client_request_finish(req);
 		http_client_request_unref(&req);
+		http_client_connection_unref(&conn);
 		return FALSE;
 	}
 	conn->in_req_callback = FALSE;
@@ -707,10 +705,9 @@ http_client_connection_return_response(
 					       &conn->conn);
 		}
 		http_client_request_unref(&req);
-		return TRUE;
+		return http_client_connection_unref(&conn);
 	}
 
-	http_client_connection_ref(conn);
 	if (response->payload != NULL) {
 		req->state = HTTP_REQUEST_STATE_PAYLOAD_IN;
 		payload = response->payload;
@@ -735,12 +732,10 @@ http_client_connection_return_response(
 	if (conn->incoming_payload == NULL && conn->conn.input != NULL) {
 		i_assert(conn->conn.io != NULL ||
 			conn->peer->addr.type == HTTP_CLIENT_PEER_ADDR_RAW);
-		ret = TRUE;
-	} else {
-		ret = FALSE;
+		return http_client_connection_unref(&conn);
 	}
 	http_client_connection_unref(&conn);
-	return ret;
+	return FALSE;
 }
 
 static void http_client_connection_input(struct connection *_conn)
