@@ -894,6 +894,10 @@ director_finish_user_kill(struct director *dir, struct user *user, bool self)
 	i_assert(kill_ctx->kill_state != USER_KILL_STATE_FLUSHING);
 	i_assert(kill_ctx->kill_state != USER_KILL_STATE_DELAY);
 
+	dir_debug("User %u kill finished - %sstate=%s", user->username_hash,
+		  self ? "we started it " : "",
+		  user_kill_state_names[kill_ctx->kill_state]);
+
 	if (dir->right == NULL) {
 		/* we're alone */
 		director_flush_user(dir, user);
@@ -1052,6 +1056,8 @@ void director_move_user(struct director *dir, struct director_host *src,
 	*/
 	user = user_directory_lookup(users, username_hash);
 	if (user == NULL) {
+		dir_debug("User %u move started: User was nonexistent",
+			  username_hash);
 		user = user_directory_add(users, username_hash,
 					  host, ioloop_time);
 	} else if (user->host == host) {
@@ -1060,6 +1066,8 @@ void director_move_user(struct director *dir, struct director_host *src,
 		   killing any of our connections. */
 		old_host = user->host;
 		user->timestamp = ioloop_time;
+		dir_debug("User %u move forwarded: host is already %s",
+			  username_hash, net_ip2addr(&host->ip));
 	} else {
 		/* user is looked up via the new host's tag, so if it's found
 		   the old tag has to be the same. */
@@ -1070,6 +1078,9 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->host = host;
 		user->host->user_count++;
 		user->timestamp = ioloop_time;
+		dir_debug("User %u move started: host %s -> %s",
+			  username_hash, net_ip2addr(&old_host->ip),
+			  net_ip2addr(&host->ip));
 	}
 
 	if (orig_src == NULL) {
