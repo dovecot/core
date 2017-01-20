@@ -1029,6 +1029,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 			unsigned int username_hash, struct mail_host *host)
 {
 	struct user_directory *users = host->tag->users;
+	struct mail_host *old_host = NULL;
 	struct user *user;
 
 	/* 1. move this user's host, and set its "killing" flag to delay all of
@@ -1051,10 +1052,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 	if (user == NULL) {
 		user = user_directory_add(users, username_hash,
 					  host, ioloop_time);
-		director_kill_user(dir, src, user, host->tag, NULL);
 	} else {
-		struct mail_host *old_host = user->host;
-
 		if (user->host == host) {
 			/* user is already in this host */
 			return;
@@ -1063,11 +1061,11 @@ void director_move_user(struct director *dir, struct director_host *src,
 		   the old tag has to be the same. */
 		i_assert(user->host->tag == host->tag);
 
+		old_host = user->host;
 		user->host->user_count--;
 		user->host = host;
 		user->host->user_count++;
 		user->timestamp = ioloop_time;
-		director_kill_user(dir, src, user, old_host->tag, old_host);
 	}
 
 	if (orig_src == NULL) {
@@ -1078,6 +1076,9 @@ void director_move_user(struct director *dir, struct director_host *src,
 		"USER-MOVE\t%s\t%u\t%u\t%u\t%s\n",
 		net_ip2addr(&orig_src->ip), orig_src->port, orig_src->last_seq,
 		user->username_hash, net_ip2addr(&user->host->ip)));
+	/* kill the user only after sending the USER-MOVE, because the kill
+	   may finish instantly. */
+	director_kill_user(dir, src, user, host->tag, old_host);
 }
 
 static void
