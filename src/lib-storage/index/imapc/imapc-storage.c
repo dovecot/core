@@ -598,6 +598,13 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 		return -1;
 	}
 
+	if (imapc_storage_has_modseqs(mbox->storage)) {
+		if (!array_is_created(&mbox->rseq_modseqs))
+			i_array_init(&mbox->rseq_modseqs, 32);
+		else
+			array_clear(&mbox->rseq_modseqs);
+	}
+
 	mbox->client_box =
 		imapc_client_mailbox_open(mbox->storage->client->client, mbox);
 	imapc_client_mailbox_set_reopen_cb(mbox->client_box,
@@ -645,13 +652,6 @@ static int imapc_mailbox_open(struct mailbox *box)
 				       "Mailbox isn't selectable");
 		mailbox_close(box);
 		return -1;
-	}
-
-	if (imapc_storage_has_modseqs(mbox->storage)) {
-		if (!array_is_created(&mbox->rseq_modseqs))
-			i_array_init(&mbox->rseq_modseqs, 32);
-		else
-			array_clear(&mbox->rseq_modseqs);
 	}
 
 	if (imapc_mailbox_select(mbox) < 0) {
