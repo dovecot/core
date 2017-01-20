@@ -264,11 +264,10 @@ static int index_list_get_cached_vsize(struct mailbox *box, uoff_t *vsize_r)
 	ret = mailbox_list_index_status(box->list, view, seq,
 					STATUS_MESSAGES | STATUS_UIDNEXT,
 					&status, NULL, &vsize) ? 1 : 0;
-	if (status.messages == 0 && status.uidnext > 0) {
+	if (ret > 0 && status.messages == 0 && status.uidnext > 0) {
 		/* mailbox is empty. its size has to be zero, regardless of
 		   what the vsize header says. */
 		vsize.vsize = 0;
-		ret = 1;
 	} else if (ret > 0 && (vsize.highest_uid + 1 != status.uidnext ||
 			       vsize.message_count != status.messages)) {
 		/* out of date vsize info */
