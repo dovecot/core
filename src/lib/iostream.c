@@ -29,6 +29,8 @@ void io_stream_init(struct iostream_private *stream)
 
 void io_stream_ref(struct iostream_private *stream)
 {
+	i_assert(stream->refcount > 0);
+
 	stream->refcount++;
 }
 
