@@ -298,6 +298,11 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 	/* disconnect pending connections if we're not linked to any queue
 	   anymore */
 	if (array_count(&peer->queues) == 0) {
+		if (array_count(&peer->conns) == 0 && peer->to_backoff == NULL) {
+			/* peer is completely unused and inactive; drop it immediately */
+			http_client_peer_drop(&peer);
+			return;
+		}
 		http_client_peer_debug(peer,
 			"Peer no longer used; will now cancel pending connections "
 			"(%u connections exist)", array_count(&peer->conns));
