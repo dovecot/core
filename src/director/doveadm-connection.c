@@ -662,8 +662,10 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 		return 1;
 	}
 
-	director_move_user(conn->dir, conn->dir->self_host, NULL,
-			   username_hash, host);
+	if (user == NULL || user->host != host) {
+		director_move_user(conn->dir, conn->dir->self_host, NULL,
+				   username_hash, host);
+	}
 	o_stream_nsend(conn->output, "OK\n", 3);
 	return 1;
 }
