@@ -1059,6 +1059,10 @@ void director_move_user(struct director *dir, struct director_host *src,
 			/* user is already in this host */
 			return;
 		}
+		/* user is looked up via the new host's tag, so if it's found
+		   the old tag has to be the same. */
+		i_assert(user->host->tag == host->tag);
+
 		user->host->user_count--;
 		user->host = host;
 		user->host->user_count++;
