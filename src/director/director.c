@@ -1009,16 +1009,18 @@ director_kill_user(struct director *dir, struct director_host *src,
 				   director_user_move_timeout, user);
 	ctx->kill_state = USER_KILL_STATE_KILLING;
 
-	if (old_host != NULL) {
+	if (old_host != NULL && old_host != user->host) {
 		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
 				      user->username_hash);
 		ctx->callback_pending = TRUE;
 		ipc_client_cmd(dir->ipc_proxy, cmd,
 			       director_kill_user_callback, ctx);
 	} else {
-		/* we didn't even know about the user before now.
+		/* a) we didn't even know about the user before now.
 		   don't bother performing a local kick, since it wouldn't
-		   kick anything. */
+		   kick anything.
+		   b) our host was already correct. notify others that we have
+		   killed the user, but don't really do it. */
 		director_finish_user_kill(ctx->dir, user,
 					  ctx->kill_is_self_initiated);
 	}
@@ -1052,11 +1054,13 @@ void director_move_user(struct director *dir, struct director_host *src,
 	if (user == NULL) {
 		user = user_directory_add(users, username_hash,
 					  host, ioloop_time);
+	} else if (user->host == host) {
+		/* User is already in the wanted host, but another director
+		   didn't think so. We'll need to finish the move without
+		   killing any of our connections. */
+		old_host = user->host;
+		user->timestamp = ioloop_time;
 	} else {
-		if (user->host == host) {
-			/* user is already in this host */
-			return;
-		}
 		/* user is looked up via the new host's tag, so if it's found
 		   the old tag has to be the same. */
 		i_assert(user->host->tag == host->tag);
