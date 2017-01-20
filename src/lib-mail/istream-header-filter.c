@@ -187,8 +187,10 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	}
 
 	max_buffer_size = i_stream_get_max_buffer_size(&mstream->istream.istream);
-	if (mstream->hdr_buf->used >= max_buffer_size)
+	if (mstream->hdr_buf->used >= max_buffer_size) {
+		i_assert(max_buffer_size > 0);
 		return -2;
+	}
 
 	while ((hdr_ret = message_parse_header_next(mstream->hdr_ctx,
 						    &hdr)) > 0) {
@@ -441,11 +443,8 @@ static ssize_t i_stream_header_filter_read(struct istream_private *stream)
 	}
 
 	if (!mstream->header_read ||
-	    stream->istream.v_offset < mstream->header_size.virtual_size) {
-		ret = read_header(mstream);
-		if (ret != -2 || stream->pos != stream->skip)
-			return ret;
-	}
+	    stream->istream.v_offset < mstream->header_size.virtual_size)
+		return read_header(mstream);
 
 	if (mstream->hide_body) {
 		stream->istream.eof = TRUE;
