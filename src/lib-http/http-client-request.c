@@ -757,36 +757,51 @@ http_client_request_continue_payload(struct http_client_request **_req,
 
 	if (req->state == HTTP_REQUEST_STATE_NEW)
 		http_client_request_submit(req);
+	if (req->state == HTTP_REQUEST_STATE_ABORTED) {
+		/* Request already failed */
+		if (req->delayed_error != NULL) {
+			struct http_client_request *tmpreq = req;
 
-	/* Wait for payload data to be written */
-
-	i_assert(client->ioloop == NULL);
-	client->ioloop = io_loop_create();
-	http_client_switch_ioloop(client);
-	if (client->set.dns_client != NULL)
-		dns_client_switch_ioloop(client->set.dns_client);
-
-	while (req->state < HTTP_REQUEST_STATE_PAYLOAD_IN) {
-		http_client_request_debug(req, "Waiting for request to finish");
-		
-		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
-			o_stream_set_flush_pending(req->payload_output, TRUE);
-		io_loop_run(client->ioloop);
-
-		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT &&
-			req->payload_input->eof) {
-			i_stream_unref(&req->payload_input);
-			req->payload_input = NULL;
-			break;
+			/* Handle delayed error outside ioloop; the caller expects callbacks
+			   occurring, so there is no need for delay. Also, it is very
+			   important that any error triggers a callback before
+			   http_client_request_send_payload() finishes, since its return
+			   value is not always checked.
+			 */
+			http_client_remove_request_error(req->client, req);
+			http_client_request_error_delayed(&tmpreq);
 		}
-	}
+	} else {
+		/* Wait for payload data to be written */
 
-	io_loop_set_current(prev_ioloop);
-	http_client_switch_ioloop(client);
-	if (client->set.dns_client != NULL)
-		dns_client_switch_ioloop(client->set.dns_client);
-	io_loop_set_current(client->ioloop);
-	io_loop_destroy(&client->ioloop);
+		i_assert(client->ioloop == NULL);
+		client->ioloop = io_loop_create();
+		http_client_switch_ioloop(client);
+		if (client->set.dns_client != NULL)
+			dns_client_switch_ioloop(client->set.dns_client);
+
+		while (req->state < HTTP_REQUEST_STATE_PAYLOAD_IN) {
+			http_client_request_debug(req, "Waiting for request to finish");
+		
+			if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
+				o_stream_set_flush_pending(req->payload_output, TRUE);
+			io_loop_run(client->ioloop);
+
+			if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT &&
+				req->payload_input->eof) {
+				i_stream_unref(&req->payload_input);
+				req->payload_input = NULL;
+				break;
+			}
+		}
+
+		io_loop_set_current(prev_ioloop);
+		http_client_switch_ioloop(client);
+		if (client->set.dns_client != NULL)
+			dns_client_switch_ioloop(client->set.dns_client);
+		io_loop_set_current(client->ioloop);
+		io_loop_destroy(&client->ioloop);
+	}
 
 	switch (req->state) {
 	case HTTP_REQUEST_STATE_PAYLOAD_IN:
