@@ -101,8 +101,10 @@ static int solr_xml_parse(struct solr_connection *conn,
 	return 0;
 }
 
-int solr_connection_init(const char *url, bool debug,
-			 struct solr_connection **conn_r, const char **error_r)
+int solr_connection_init(const char *url,
+			 const struct ssl_iostream_settings *ssl_client_set,
+			 bool debug, struct solr_connection **conn_r,
+			 const char **error_r)
 {
 	struct http_client_settings http_set;
 	struct solr_connection *conn;
@@ -136,9 +138,10 @@ int solr_connection_init(const char *url, bool debug,
 		http_set.max_pipelined_requests = 1;
 		http_set.max_redirects = 1;
 		http_set.max_attempts = 3;
-		http_set.debug = debug;
 		http_set.connect_timeout_msecs = 5*1000;
 		http_set.request_timeout_msecs = 60*1000;
+		http_set.ssl = ssl_client_set;
+		http_set.debug = debug;
 		solr_http_client = http_client_init(&http_set);
 	}
 

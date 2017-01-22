@@ -13,8 +13,10 @@ struct solr_result {
 	ARRAY_TYPE(fts_score_map) scores;
 };
 
-int solr_connection_init(const char *url, bool debug,
-			 struct solr_connection **conn_r, const char **error_r);
+int solr_connection_init(const char *url,
+			 const struct ssl_iostream_settings *ssl_client_set,
+			 bool debug, struct solr_connection **conn_r,
+			 const char **error_r);
 void solr_connection_deinit(struct solr_connection **conn);
 
 int solr_connection_select(struct solr_connection *conn, const char *query,

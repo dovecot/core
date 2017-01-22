@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "strescape.h"
 #include "unichar.h"
+#include "iostream-ssl.h"
 #include "http-url.h"
 #include "imap-utf7.h"
 #include "mail-storage-private.h"
@@ -243,14 +244,20 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(_backend->ns->user);
+	struct ssl_iostream_settings ssl_set;
 	const char *str;
 
 	if (fuser == NULL) {
 		*error_r = "Invalid fts_solr setting";
 		return -1;
 	}
-	if (solr_connection_init(fuser->set.url, fuser->set.debug,
-				 &backend->solr_conn, error_r) < 0)
+
+	i_zero(&ssl_set);
+	mail_user_init_ssl_client_settings(_backend->ns->user, &ssl_set);
+
+	if (solr_connection_init(fuser->set.url, &ssl_set,
+				 fuser->set.debug, &backend->solr_conn,
+				 error_r) < 0)
 		return -1;
 
 	str = solr_escape_id_str(_backend->ns->user->username);

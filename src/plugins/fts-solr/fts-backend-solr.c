@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "strescape.h"
 #include "unichar.h"
+#include "iostream-ssl.h"
 #include "http-url.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
@@ -181,6 +182,7 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 {
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT(_backend->ns->user);
+	struct ssl_iostream_settings ssl_set;
 
 	if (fuser == NULL) {
 		*error_r = "Invalid fts_solr setting";
@@ -191,8 +193,13 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 		_backend->flags &= ~FTS_BACKEND_FLAG_FUZZY_SEARCH;
 		_backend->flags |= FTS_BACKEND_FLAG_TOKENIZED_INPUT;
 	}
-	return solr_connection_init(fuser->set.url, fuser->set.debug,
-				    &backend->solr_conn, error_r);
+
+	i_zero(&ssl_set);
+	mail_user_init_ssl_client_settings(_backend->ns->user, &ssl_set);
+
+	return solr_connection_init(fuser->set.url, &ssl_set,
+				    fuser->set.debug, &backend->solr_conn,
+				    error_r);
 }
 
 static void fts_backend_solr_deinit(struct fts_backend *_backend)
