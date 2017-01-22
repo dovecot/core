@@ -90,7 +90,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	vtable = get_var_expand_table(mail, recipient, reason);
 
 	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, NULL);
-	smtp_submit_add_rcpt(smtp_submit, smtp_address_encode(return_addr));
+	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);
 
 	msgid = mail_deliver_get_new_message_id(ctx);

@@ -15,6 +15,8 @@
 #include "master-service.h"
 #include "istream-dot.h"
 #include "test-common.h"
+
+#include "smtp-address.h"
 #include "smtp-submit.h"
 
 #include <sys/types.h>
@@ -248,7 +250,7 @@ static void test_connection_timed_out(void)
 	smtp_submit_set.submission_timeout = 1;
 
 	test_begin("connection timed out");
-	test_expect_errors(0);
+	test_expect_errors(1);
 	test_run_client_server(&smtp_submit_set,
 		test_client_connection_timed_out,
 		test_server_connection_timed_out, 1);
@@ -291,9 +293,7 @@ test_client_bad_greeting(const struct smtp_submit_settings *submit_set)
 
 	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], &error);
-	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
-	//test_out_reason("run", ret == 0, error);
-	test_out_reason("run (ret < 0)", ret < 0, error);
+	test_out_reason("run (ret == 0)", ret == 0, error);
 
 	return FALSE;
 }
@@ -333,7 +333,7 @@ test_denied_helo_input(struct server_connection *conn)
 		return;
 	}
 	o_stream_send_str(conn->conn.output,
-		"502 Command not implemented\r\n");
+		"550 Command rejected for testing reasons\r\n");
 	server_connection_deinit(&conn);
 }
 
@@ -361,9 +361,7 @@ test_client_denied_helo(const struct smtp_submit_settings *submit_set)
 
 	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], &error);
-	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
-	//test_out_reason("run", ret == 0, error);
-	test_out_reason("run (ret < 0)", ret < 0, error);
+	test_out_reason("run (ret == 0)", ret == 0, error);
 
 	return FALSE;
 }
@@ -759,10 +757,13 @@ test_client_denied_second_rcpt(const struct smtp_submit_settings *submit_set)
 		t_strdup_printf("127.0.0.1:%u", bind_ports[0]);
 	smtp_submit_set.submission_timeout = 1000;
 
-	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+	smtp_submit = smtp_submit_init_simple(&smtp_submit_set,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"));
 
-	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
-	smtp_submit_add_rcpt(smtp_submit, "rcpt2@example.com");
+	smtp_submit_add_rcpt(smtp_submit,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
+	smtp_submit_add_rcpt(smtp_submit,
+		SMTP_ADDRESS_LITERAL("rcpt2", "example.com"));
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
@@ -1263,7 +1264,7 @@ static void test_data_timeout(void)
 	smtp_submit_set.submission_timeout = 2;
 
 	test_begin("data timeout");
-	test_expect_errors(0);
+	test_expect_errors(1);
 	test_run_client_server(&smtp_submit_set,
 		test_client_data_timout,
 		test_server_data_timout, 1);
@@ -1305,9 +1306,10 @@ test_successful_delivery_input(struct server_connection *conn)
 		ctx = (struct _successful_delivery_server *)conn->context;
 	}
 
+	// FIXME: take structure from test-smtp-client-errors
+
 	for (;;) {
 		if (ctx->state == SUCCESSFUL_DELIVERY_STATE_FINISH) {
-			// FIXME: put somewhere common
 			enum ostream_send_istream_result res;
 
 			if (ctx->dot_input == NULL) {
@@ -1468,9 +1470,11 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	/* submit 1 */
 	smtp_submit_set.submission_host =
 		t_strdup_printf("127.0.0.1:%u",  bind_ports[0]);
-	smtp_submit1 = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+	smtp_submit1 = smtp_submit_init_simple(&smtp_submit_set,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"));
 
-	smtp_submit_add_rcpt(smtp_submit1, "rcpt@example.com");
+	smtp_submit_add_rcpt(smtp_submit1,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
 	output = smtp_submit_send(smtp_submit1);
 	o_stream_send_str(output, test_message1);
 
@@ -1480,9 +1484,11 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	/* submit 2 */
 	smtp_submit_set.submission_host =
 		t_strdup_printf("127.0.0.1:%u",  bind_ports[1]);
-	smtp_submit2 = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+	smtp_submit2 = smtp_submit_init_simple(&smtp_submit_set,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"));
 
-	smtp_submit_add_rcpt(smtp_submit2, "rcpt@example.com");
+	smtp_submit_add_rcpt(smtp_submit2,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
 	output = smtp_submit_send(smtp_submit2);
 	o_stream_send_str(output, test_message2);
 
@@ -1552,9 +1558,11 @@ test_client_failed_sendmail(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set.sendmail_path = sendmail_path;
 	smtp_submit_set.submission_timeout = 5;
 
-	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+	smtp_submit = smtp_submit_init_simple(&smtp_submit_set,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"));
 
-	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
+	smtp_submit_add_rcpt(smtp_submit,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
@@ -1605,9 +1613,11 @@ test_client_successful_sendmail(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set.sendmail_path = sendmail_path;
 	smtp_submit_set.submission_timeout = 5;
 
-	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+	smtp_submit = smtp_submit_init_simple(&smtp_submit_set,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"));
 
-	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
+	smtp_submit_add_rcpt(smtp_submit,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
@@ -1687,9 +1697,11 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 
 	/* submit 1 */
 	smtp_submit_set.sendmail_path = sendmail_path1;
-	smtp_submit1 = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+	smtp_submit1 = smtp_submit_init_simple(&smtp_submit_set,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"));
 
-	smtp_submit_add_rcpt(smtp_submit1, "rcpt@example.com");
+	smtp_submit_add_rcpt(smtp_submit1,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
 	output = smtp_submit_send(smtp_submit1);
 	o_stream_send_str(output, test_message1);
 
@@ -1698,9 +1710,11 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 
 	/* submit 2 */
 	smtp_submit_set.sendmail_path = sendmail_path2;
-	smtp_submit2 = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+	smtp_submit2 = smtp_submit_init_simple(&smtp_submit_set,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"));
 
-	smtp_submit_add_rcpt(smtp_submit2, "rcpt@example.com");
+	smtp_submit_add_rcpt(smtp_submit2,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
 	output = smtp_submit_send(smtp_submit2);
 	o_stream_send_str(output, test_message2);
 
@@ -1793,9 +1807,11 @@ test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 	smtp_submit_set = *smtp_set;
 	smtp_submit_set.submission_host = host,
 
-	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+	smtp_submit = smtp_submit_init_simple(&smtp_submit_set,
+		SMTP_ADDRESS_LITERAL("sender", "example.com"));
 
-	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
+	smtp_submit_add_rcpt(smtp_submit,
+		SMTP_ADDRESS_LITERAL("rcpt", "example.com"));
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, message);
 

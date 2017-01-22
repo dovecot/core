@@ -3,6 +3,7 @@
 
 #include "smtp-submit-settings.h"
 
+struct smtp_address;
 struct smtp_submit_settings;
 struct smtp_submit_session;
 struct smtp_submit;
@@ -18,7 +19,7 @@ struct smtp_submit_result {
 
 typedef void
 smtp_submit_callback_t(const struct smtp_submit_result *result,
-	void *context);
+		       void *context);
 
 /* Use submit session to reuse resources (e.g. SMTP connections) between
    submissions (FIXME: actually implement this) */
@@ -28,14 +29,15 @@ void smtp_submit_session_deinit(struct smtp_submit_session **_session);
 
 struct smtp_submit *
 smtp_submit_init(struct smtp_submit_session *session,
-	const char *return_path);
+		 const struct smtp_address *mail_from);
 struct smtp_submit *
 smtp_submit_init_simple(const struct smtp_submit_settings *set,
-	const char *return_path);
-void smtp_submit_deinit(struct smtp_submit **_sct);
+			const struct smtp_address *mail_from);
+void smtp_submit_deinit(struct smtp_submit **_submit);
 
 /* Add a new recipient */
-void smtp_submit_add_rcpt(struct smtp_submit *subm, const char *address);
+void smtp_submit_add_rcpt(struct smtp_submit *subm,
+	const struct smtp_address *rcpt_to);
 /* Get an output stream where the message can be written to. The recipients
    must already be added before calling this. */
 struct ostream *smtp_submit_send(struct smtp_submit *subm);
@@ -43,7 +45,7 @@ struct ostream *smtp_submit_send(struct smtp_submit *subm);
 /* Submit the message. Callback is called once the message submission
    finishes. */
 void smtp_submit_run_async(struct smtp_submit *subm,
-			       smtp_submit_callback_t *callback, void *context);
+			   smtp_submit_callback_t *callback, void *context);
 #define smtp_submit_run_async(subm, callback, context) \
 	smtp_submit_run_async(subm, \
 		(smtp_submit_callback_t*)callback, \
