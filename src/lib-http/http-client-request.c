@@ -1415,6 +1415,7 @@ bool http_client_request_try_retry(struct http_client_request *req)
 	return TRUE;
 }
 
+#undef http_client_request_set_destroy_callback
 void http_client_request_set_destroy_callback(struct http_client_request *req,
 					      void (*callback)(void *),
 					      void *context)

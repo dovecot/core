@@ -348,6 +348,9 @@ void http_client_request_abort(struct http_client_request **req);
 void http_client_request_set_destroy_callback(struct http_client_request *req,
 					      void (*callback)(void *),
 					      void *context);
+#define http_client_request_set_destroy_callback(req, callback, context) \
+        http_client_request_set_destroy_callback(req, (void(*)(void*))callback, context + \
+                CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 
 /* submits request and blocks until the provided payload is sent. Multiple
    calls are allowed; payload transmission is ended with
