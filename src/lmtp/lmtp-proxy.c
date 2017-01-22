@@ -8,14 +8,17 @@
 #include "ostream.h"
 #include "str.h"
 #include "time-util.h"
-#include "lmtp-client.h"
+#include "smtp-reply.h"
+#include "smtp-client.h"
+#include "smtp-client-connection.h"
+#include "smtp-client-transaction.h"
 #include "lmtp-proxy.h"
 
 #define LMTP_MAX_LINE_LEN 1024
 
 struct lmtp_proxy_recipient {
 	struct lmtp_proxy_connection *conn;
-	const char *address;
+	const struct smtp_address *address;
 	const char *reply;
 	unsigned int idx;
 
@@ -27,7 +30,7 @@ struct lmtp_proxy_connection {
 	struct lmtp_proxy *proxy;
 	struct lmtp_proxy_rcpt_settings set;
 
-	struct lmtp_client *client;
+	struct smtp_client_transaction *lmtp_trans;
 	struct istream *data_input;
 	struct timeout *to;
 
@@ -37,8 +40,12 @@ struct lmtp_proxy_connection {
 
 struct lmtp_proxy {
 	pool_t pool;
-	const char *mail_from;
+	const struct smtp_address *mail_from;
+	struct smtp_params_mail mail_params;
 	struct lmtp_proxy_settings set;
+	struct smtp_server_transaction *trans;
+
+	struct smtp_client *lmtp_client;
 
 	ARRAY(struct lmtp_proxy_connection *) connections;
 	ARRAY(struct lmtp_proxy_recipient *) rcpt_to;
@@ -56,12 +63,17 @@ struct lmtp_proxy {
 	bool finished:1;
 };
 
-static void lmtp_conn_finish(void *context);
+static void
+lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn);
+static void
+lmtp_proxy_data_cb(const struct smtp_reply *reply,
+		   struct lmtp_proxy_recipient *rcpt);
 
 struct lmtp_proxy *
 lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 		struct ostream *client_output)
 {
+	struct smtp_client_settings lmtp_set;
 	struct lmtp_proxy *proxy;
 	pool_t pool;
 
@@ -81,6 +93,20 @@ lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 	proxy->set.proxy_ttl = set->proxy_ttl;
 	i_array_init(&proxy->rcpt_to, 32);
 	i_array_init(&proxy->connections, 32);
+
+	i_zero(&lmtp_set);
+	lmtp_set.my_hostname = set->my_hostname;
+	lmtp_set.dns_client_socket_path = set->dns_client_socket_path;
+
+	lmtp_set.proxy_data.source_ip = set->source_ip;
+	lmtp_set.proxy_data.source_port = set->source_port;
+	lmtp_set.proxy_data.ttl_plus_1 = set->proxy_ttl;
+	if (lmtp_set.proxy_data.ttl_plus_1 == 0)
+		lmtp_set.proxy_data.ttl_plus_1 = LMTP_PROXY_DEFAULT_TTL + 1;
+	else
+		lmtp_set.proxy_data.ttl_plus_1--;
+
+	proxy->lmtp_client = smtp_client_init(&lmtp_set);
 	return proxy;
 }
 
@@ -91,7 +117,8 @@ static void lmtp_proxy_connections_deinit(struct lmtp_proxy *proxy)
 	array_foreach(&proxy->connections, conns) {
 		struct lmtp_proxy_connection *conn = *conns;
 
-		lmtp_client_deinit(&conn->client);
+		if (conn->lmtp_trans != NULL)
+			smtp_client_transaction_destroy(&conn->lmtp_trans);
 	}
 }
 
@@ -102,6 +129,7 @@ void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 	*_proxy = NULL;
 
 	lmtp_proxy_connections_deinit(proxy);
+	smtp_client_deinit(&proxy->lmtp_client);
 	i_stream_unref(&proxy->data_input);
 	o_stream_unref(&proxy->client_output);
 	timeout_remove(&proxy->to_finish);
@@ -110,39 +138,43 @@ void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 	pool_unref(&proxy->pool);
 }
 
-void lmtp_proxy_mail_from(struct lmtp_proxy *proxy, const char *value)
+void lmtp_proxy_mail_from(struct lmtp_proxy *proxy,
+			  const struct smtp_address *address,
+			  const struct smtp_params_mail *params)
 {
-	proxy->mail_from = p_strdup(proxy->pool, value);
+	proxy->mail_from = smtp_address_clone(proxy->pool, address);
+	smtp_params_mail_copy(proxy->pool, &proxy->mail_params, params);
+}
+
+static void
+lmtp_proxy_mail_cb(const struct smtp_reply *proxy_reply ATTR_UNUSED,
+		   struct lmtp_proxy_connection *conn ATTR_UNUSED)
+{
+	/* nothing */
 }
 
 static struct lmtp_proxy_connection *
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			  const struct lmtp_proxy_rcpt_settings *set)
 {
+	struct smtp_client_connection *lmtp_conn;
 	struct lmtp_proxy_connection *const *conns, *conn;
-	struct lmtp_client_settings client_set;
 
 	i_assert(set->timeout_msecs > 0);
 
 	array_foreach(&proxy->connections, conns) {
 		conn = *conns;
 
-		if (conn->set.port == set->port &&
+		if (conn->set.protocol == set->protocol &&
+		    conn->set.port == set->port &&
 		    strcmp(conn->set.host, set->host) == 0)
 			return conn;
 	}
 
-	i_zero(&client_set);
-	client_set.mail_from = proxy->mail_from;
-	client_set.my_hostname = proxy->set.my_hostname;
-	client_set.dns_client_socket_path = proxy->set.dns_client_socket_path;
-	client_set.source_ip = proxy->set.source_ip;
-	client_set.source_port = proxy->set.source_port;
-	client_set.proxy_ttl = proxy->set.proxy_ttl;
-	client_set.proxy_timeout_secs = set->timeout_msecs/1000;
-
 	conn = p_new(proxy->pool, struct lmtp_proxy_connection, 1);
 	conn->proxy = proxy;
+	conn->set.protocol = set->protocol;
+	conn->set.hostip = set->hostip;
 	if (set->hostip.family == 0)
 		conn->set.host = p_strdup(proxy->pool, set->host);
 	else
@@ -151,10 +183,18 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->set.timeout_msecs = set->timeout_msecs;
 	array_append(&proxy->connections, &conn, 1);
 
-	conn->client = lmtp_client_init(&client_set, lmtp_conn_finish, conn);
-	if (lmtp_client_connect_tcp(conn->client, set->protocol,
-				    conn->set.host, conn->set.port) < 0)
-		conn->failed = TRUE;
+	lmtp_conn = smtp_client_connection_create(proxy->lmtp_client,
+		set->protocol, set->host, set->port,
+		SMTP_CLIENT_SSL_MODE_NONE, NULL);
+	smtp_client_connection_connect(lmtp_conn, NULL, NULL);
+
+	conn->lmtp_trans = smtp_client_transaction_create(lmtp_conn,
+		proxy->mail_from, &proxy->mail_params,
+		lmtp_proxy_connection_finish, conn);
+	smtp_client_connection_unref(&lmtp_conn);
+
+	smtp_client_transaction_start(conn->lmtp_trans,
+				      lmtp_proxy_mail_cb, conn);
 
 	if (proxy->max_timeout_msecs < set->timeout_msecs)
 		proxy->max_timeout_msecs = set->timeout_msecs;
@@ -210,37 +250,70 @@ static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy)
 	}
 }
 
-static void lmtp_conn_finish(void *context)
+static void
+lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn)
 {
-	struct lmtp_proxy_connection *conn = context;
-
 	conn->finished = TRUE;
+	conn->lmtp_trans = NULL;
 	timeout_remove(&conn->to);
 	i_stream_unref(&conn->data_input);
 	lmtp_proxy_try_finish(conn->proxy);
 }
 
 static void
-lmtp_proxy_conn_rcpt_to(enum lmtp_client_result result,
-			const char *reply, void *context)
+lmtp_proxy_write_reply(string_t *reply, const struct smtp_reply *proxy_reply)
 {
-	struct lmtp_proxy_recipient *rcpt = context;
-	struct lmtp_proxy_connection *conn = rcpt->conn;
-
-	i_assert(rcpt->reply == NULL);
-
-	rcpt->reply = p_strdup(conn->proxy->pool, reply);
-	rcpt->rcpt_to_failed = result != LMTP_CLIENT_RESULT_OK;
+	if (smtp_reply_is_remote(proxy_reply)) {
+		smtp_reply_write(reply, proxy_reply);
+	} else {
+		str_append(reply, "451 4.4.0 Remote server not answering");
+		switch (proxy_reply->status) {
+		case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
+			str_append(reply, " (DNS lookup)");
+			break;
+		case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
+		case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
+			str_append(reply, " (connect)");
+			break;
+		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
+			str_append(reply, " (connection lost)");
+			break;
+		case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
+			str_append(reply, " (bad reply)");
+			break;			
+		case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
+			str_append(reply, " (timed out)");
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 static void
-lmtp_proxy_conn_data(enum lmtp_client_result result,
-		     const char *reply, void *context)
+lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
+		   struct lmtp_proxy_recipient *rcpt)
 {
-	struct lmtp_proxy_recipient *rcpt = context;
 	struct lmtp_proxy_connection *conn = rcpt->conn;
-	const struct lmtp_client_times *times =
-		lmtp_client_get_times(conn->client);
+	string_t *reply;
+
+	i_assert(rcpt->reply == NULL);
+
+	reply = t_str_new(128);
+	lmtp_proxy_write_reply(reply, proxy_reply);
+
+	rcpt->reply = p_strdup(conn->proxy->pool, str_c(reply));
+	rcpt->rcpt_to_failed = !smtp_reply_is_success(proxy_reply);
+}
+
+static void
+lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
+		   struct lmtp_proxy_recipient *rcpt)
+{
+	struct lmtp_proxy_connection *conn = rcpt->conn;
+	const struct smtp_client_transaction_times *times =
+		smtp_client_transaction_get_times(conn->lmtp_trans);
+	string_t *reply;
 	string_t *msg;
 
 	i_assert(!rcpt->rcpt_to_failed);
@@ -250,40 +323,37 @@ lmtp_proxy_conn_data(enum lmtp_client_result result,
 	if (conn->to != NULL)
 		timeout_reset(conn->to);
 
-	rcpt->reply = p_strdup(conn->proxy->pool, reply);
+	reply = t_str_new(128);
+	lmtp_proxy_write_reply(reply, proxy_reply);
+
+	rcpt->reply = p_strdup(conn->proxy->pool, str_c(reply));
 	rcpt->data_reply_received = TRUE;
 
 	msg = t_str_new(128);
 	str_printfa(msg, "%s: ", conn->proxy->set.session_id);
-	switch (result) {
-	case LMTP_CLIENT_RESULT_OK:
+	if (smtp_reply_is_success(proxy_reply))
 		str_append(msg, "Sent message to");
-		break;
-	case LMTP_CLIENT_RESULT_REMOTE_ERROR:
-	case LMTP_CLIENT_RESULT_INTERNAL_ERROR:
+	else
 		str_append(msg, "Failed to send message to");
-		break;
-	}
 	str_printfa(msg, " <%s> at %s:%u: %s (%u/%u at %u ms)",
-		    rcpt->address, conn->set.host, conn->set.port, reply,
+		    smtp_address_encode(rcpt->address), conn->set.host,
+		    conn->set.port, str_c(reply),
 		    rcpt->idx + 1, array_count(&conn->proxy->rcpt_to),
-		    timeval_diff_msecs(&ioloop_timeval, &times->connect_started));
-	switch (result) {
-	case LMTP_CLIENT_RESULT_OK:
-	case LMTP_CLIENT_RESULT_REMOTE_ERROR:
+		    timeval_diff_msecs(&ioloop_timeval, &times->started));
+	if (smtp_reply_is_success(proxy_reply) ||
+		smtp_reply_is_remote(proxy_reply)) {
 		/* the problem isn't with the proxy, it's with the remote side.
 		   so the remote side will log an error, while for us this is
 		   just an info event */
 		i_info("%s", str_c(msg));
-		break;
-	case LMTP_CLIENT_RESULT_INTERNAL_ERROR:
+	} else {
 		i_error("%s", str_c(msg));
-		break;
 	}
 	lmtp_proxy_try_finish(conn->proxy);
 }
 
-int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
+int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
+			const struct smtp_address *address,
 			const struct lmtp_proxy_rcpt_settings *set)
 {
 	struct lmtp_proxy_connection *conn;
@@ -296,24 +366,19 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy, const char *address,
 	rcpt = p_new(proxy->pool, struct lmtp_proxy_recipient, 1);
 	rcpt->idx = array_count(&proxy->rcpt_to);
 	rcpt->conn = conn;
-	rcpt->address = p_strdup(proxy->pool, address);
+	rcpt->address = smtp_address_clone(proxy->pool, address);
 	array_append(&proxy->rcpt_to, &rcpt, 1);
 
-	lmtp_client_add_rcpt_params(conn->client, address, &set->params,
-				    lmtp_proxy_conn_rcpt_to,
-				    lmtp_proxy_conn_data, rcpt);
+	smtp_client_transaction_add_rcpt(conn->lmtp_trans, address,
+		&set->params, lmtp_proxy_rcpt_cb, lmtp_proxy_data_cb, rcpt);
 	return 0;
 }
 
-static void lmtp_proxy_conn_timeout(struct lmtp_proxy_connection *conn)
+static void
+lmtp_proxy_data_dummy_cb(const struct smtp_reply *proxy_reply ATTR_UNUSED,
+			 struct lmtp_proxy_connection *conn ATTR_UNUSED)
 {
-	const char *line;
-
-	line = t_strdup_printf(ERRSTR_TEMP_REMOTE_FAILURE
-			       " (timeout while waiting for reply to %s) <%s>",
-			       lmtp_client_state_to_string(conn->client),
-			       conn->proxy->set.session_id);
-	lmtp_client_fail(conn->client, line);
+	/* nothing */
 }
 
 void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
@@ -344,8 +409,6 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 			continue;
 		}
 
-		conn->to = timeout_add(proxy->max_timeout_msecs,
-				       lmtp_proxy_conn_timeout, conn);
 		if (size == (uoff_t)-1)
 			conn->data_input = i_stream_create_limit(data_input, (uoff_t)-1);
 		else
@@ -357,9 +420,12 @@ void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
 	array_foreach(&proxy->connections, conns) {
 		struct lmtp_proxy_connection *conn = *conns;
 
+		smtp_client_transaction_set_timeout(conn->lmtp_trans,
+			proxy->max_timeout_msecs);
 		if (conn->data_input != NULL) {
-			lmtp_client_send(conn->client, conn->data_input);
-			lmtp_client_send_more(conn->client);
+			smtp_client_transaction_send(conn->lmtp_trans,
+				conn->data_input,
+				lmtp_proxy_data_dummy_cb, conn);
 		}
 	}
 	/* finish if all of the connections have already failed */

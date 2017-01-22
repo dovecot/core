@@ -3,7 +3,6 @@
 
 #include "net.h"
 #include "smtp-params.h"
-#include "lmtp-client.h"
 
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 

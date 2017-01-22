@@ -231,11 +231,11 @@ client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 			set->timeout_msecs *= 1000;
 		} else if (strcmp(key, "protocol") == 0) {
 			if (strcmp(value, "lmtp") == 0) {
-				set->protocol = LMTP_CLIENT_PROTOCOL_LMTP;
+				set->protocol = SMTP_PROTOCOL_LMTP;
 				if (!port_set)
 					set->port = 24;
 			} else if (strcmp(value, "smtp") == 0) {
-				set->protocol = LMTP_CLIENT_PROTOCOL_SMTP;
+				set->protocol = SMTP_PROTOCOL_SMTP;
 				if (!port_set)
 					set->port = 25;
 			} else {
@@ -280,13 +280,13 @@ client_proxy_is_ourself(const struct client *client,
 static bool client_proxy_rcpt(struct client *client,
 			      struct smtp_address *address,
 			      const char *username, const char *detail, char delim,
-			      const struct lmtp_recipient_params *params)
+			      struct smtp_params_rcpt *params)
 {
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
-	const char *args, *const *fields, *errstr, *orig_username = username;
+	const char *const *fields, *errstr, *orig_username = username;
 	struct smtp_address *user;
 	pool_t pool;
 	int ret;
@@ -322,7 +322,7 @@ static bool client_proxy_rcpt(struct client *client,
 
 	i_zero(&set);
 	set.port = client->local_port;
-	set.protocol = LMTP_CLIENT_PROTOCOL_LMTP;
+	set.protocol = SMTP_PROTOCOL_LMTP;
 	set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
 	set.params = *params;
 
@@ -385,27 +385,11 @@ static bool client_proxy_rcpt(struct client *client,
 		proxy_set.proxy_ttl = client->proxy_ttl-1;
 
 		client->proxy = lmtp_proxy_init(&proxy_set, client->output);
-		args = "";
-		switch (client->state.mail_params.body.type) {
-		case SMTP_PARAM_MAIL_BODY_TYPE_UNSPECIFIED:
-			break;
-		case SMTP_PARAM_MAIL_BODY_TYPE_7BIT:
-			args = " BODY=7BIT";
-			break;
-		case SMTP_PARAM_MAIL_BODY_TYPE_8BITMIME:
-			args = " BODY=8BITMIME";
-			break;
-		case SMTP_PARAM_MAIL_BODY_TYPE_BINARYMIME:
-		case SMTP_PARAM_MAIL_BODY_TYPE_EXTENSION:
-			i_unreached();
-		}
-		lmtp_proxy_mail_from(client->proxy,
-			t_strdup_printf("<%s>%s",
-				smtp_address_encode(client->state.mail_from), args));
+		lmtp_proxy_mail_from(client->proxy, client->state.mail_from,
+			&client->state.mail_params);
 	}
-	if (lmtp_proxy_add_rcpt(client->proxy,
-		smtp_address_encode(address), &set) < 0)
-		client_send_line(client, ERRSTR_TEMP_REMOTE_FAILURE);
+	if (lmtp_proxy_add_rcpt(client->proxy, address, &set) < 0)
+		client_send_line(client, "451 4.4.0 Remote server not answering");
 	else
 		client_send_line(client, "250 2.1.5 OK");
 	pool_unref(&pool);
@@ -588,12 +572,8 @@ int cmd_rcpt(struct client *client, const char *args)
 		smtp_address_encode(address));
 
 	if (client->lmtp_set->lmtp_proxy) {
-		struct lmtp_recipient_params params;
-
-		i_zero(&params);
-		params.dsn_orcpt = rcpt->params.orcpt.addr_raw;
 		if (client_proxy_rcpt(client, address, username, detail, delim,
-				      &params))
+				      &rcpt->params))
 			return 0;
 	}
 
