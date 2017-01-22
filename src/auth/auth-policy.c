@@ -230,10 +230,8 @@ void auth_policy_deinit(void)
 }
 
 static
-void auth_policy_finish(void *ctx)
+void auth_policy_finish(struct policy_lookup_ctx *context)
 {
-	struct policy_lookup_ctx *context = ctx;
-
 	if (context->parser != NULL) {
 		const char *error ATTR_UNUSED;
 		(void)json_parser_deinit(&(context->parser), &error);
