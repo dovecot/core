@@ -183,6 +183,10 @@ const char *mail_user_get_anvil_userip_ident(struct mail_user *user);
 struct mail_storage *
 mail_user_get_storage_class(struct mail_user *user, const char *name);
 
+/* Initialize SSL client settings from mail_user settings. */
+void mail_user_init_ssl_client_settings(struct mail_user *user,
+				struct ssl_iostream_settings *ssl_set);
+
 /* Initialize fs_settings from mail_user settings. */
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,

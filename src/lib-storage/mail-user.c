@@ -617,13 +617,20 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	return user2;
 }
 
-void mail_user_init_fs_settings(struct mail_user *user,
-				struct fs_settings *fs_set,
+void mail_user_init_ssl_client_settings(struct mail_user *user,
 				struct ssl_iostream_settings *ssl_set)
 {
 	const struct mail_storage_settings *mail_set =
 		mail_user_set_get_storage_set(user);
 
+	ssl_set->ca_dir = mail_set->ssl_client_ca_dir;
+	ssl_set->ca_file = mail_set->ssl_client_ca_file;
+}
+
+void mail_user_init_fs_settings(struct mail_user *user,
+				struct fs_settings *fs_set,
+				struct ssl_iostream_settings *ssl_set)
+{
 	fs_set->username = user->username;
 	fs_set->session_id = user->session_id;
 	fs_set->base_dir = user->set->base_dir;
@@ -632,8 +639,7 @@ void mail_user_init_fs_settings(struct mail_user *user,
 	fs_set->enable_timing = user->stats_enabled;
 
 	fs_set->ssl_client_set = ssl_set;
-	ssl_set->ca_dir = mail_set->ssl_client_ca_dir;
-	ssl_set->ca_file = mail_set->ssl_client_ca_file;
+	mail_user_init_ssl_client_settings(user, ssl_set);
 }
 
 void mail_user_stats_fill(struct mail_user *user, struct stats *stats)
