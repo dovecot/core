@@ -3130,6 +3130,101 @@ dcrypt_openssl_private_key_id(struct dcrypt_private_key *key,
 	return dcrypt_openssl_public_key_id_evp(priv, md, result, error_r);
 }
 
+static bool
+dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
+		    const void *data, size_t data_len, buffer_t *signature_r,
+		    enum dcrypt_padding padding, const char **error_r)
+{
+	EVP_PKEY_CTX *pctx = NULL;
+	EVP_MD_CTX *dctx;
+	bool ret;
+	const EVP_MD *md = EVP_get_digestbyname(algorithm);
+	size_t siglen;
+	int pad = dcrypt_openssl_padding_mode(padding, TRUE, error_r);
+
+	if (pad == -1)
+		return FALSE;
+
+	if (md == NULL) {
+		if (error_r != NULL) {
+			 *error_r = t_strdup_printf(
+				"Unknown digest %s", algorithm);
+		}
+		return FALSE;
+	}
+
+	dctx = EVP_MD_CTX_create();
+
+	/* NB! Padding is set only on RSA signatures
+	   ECDSA signatures use whatever is default */
+	if (EVP_DigestSignInit(dctx, &pctx, md, NULL, key->key) != 1 ||
+	    (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA &&
+	     EVP_PKEY_CTX_set_rsa_padding(pctx, pad) != 1) ||
+	    EVP_DigestSignUpdate(dctx, data, data_len) != 1 ||
+	    EVP_DigestSignFinal(dctx, NULL, &siglen) != 1) {
+		ret = dcrypt_openssl_error(error_r);
+	} else {
+		i_assert(siglen > 0);
+		/* @UNSAFE */
+		unsigned char *buf =
+			buffer_append_space_unsafe(signature_r, siglen);
+		if (EVP_DigestSignFinal(dctx, buf, &siglen) != 1) {
+			ret = dcrypt_openssl_error(error_r);
+		} else {
+			buffer_set_used_size(signature_r, siglen);
+			ret = TRUE;
+		}
+	}
+
+	EVP_MD_CTX_destroy(dctx);
+
+	return ret;
+}
+
+static bool
+dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
+		      const void *data, size_t data_len,
+		      const unsigned char *signature, size_t signature_len,
+		      bool *valid_r, enum dcrypt_padding padding,
+		      const char **error_r)
+{
+	EVP_PKEY_CTX *pctx = NULL;
+	EVP_MD_CTX *dctx;
+	bool ret;
+	const EVP_MD *md = EVP_get_digestbyname(algorithm);
+	int rc, pad = dcrypt_openssl_padding_mode(padding, TRUE, error_r);
+
+	if (pad == -1)
+		return FALSE;
+
+	if (md == NULL) {
+		if (error_r != NULL) {
+			 *error_r = t_strdup_printf(
+				"Unknown digest %s", algorithm);
+		}
+		return FALSE;
+	}
+
+	dctx = EVP_MD_CTX_create();
+
+	/* NB! Padding is set only on RSA signatures
+	   ECDSA signatures use whatever is default */
+	if (EVP_DigestVerifyInit(dctx, &pctx, md, NULL, key->key) != 1 ||
+	    (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA &&
+	     EVP_PKEY_CTX_set_rsa_padding(pctx, pad) != 1) ||
+	    EVP_DigestVerifyUpdate(dctx, data, data_len) != 1 ||
+	    (rc = EVP_DigestVerifyFinal(dctx, signature, signature_len)) < 0) {
+		ret = dcrypt_openssl_error(error_r);
+	} else {
+		/* return code 1 means valid signature, otherwise invalid */
+		*valid_r = (rc == 1);
+		ret = TRUE;
+	}
+
+	EVP_MD_CTX_destroy(dctx);
+
+	return ret;
+}
 
 static bool
 dcrypt_openssl_key_store_private_raw(struct dcrypt_private_key *key,
@@ -3550,6 +3645,8 @@ static struct dcrypt_vfs dcrypt_openssl_vfs = {
 	.key_get_usage_private = dcrypt_openssl_key_get_usage_private,
 	.key_set_usage_public = dcrypt_openssl_key_set_usage_public,
 	.key_set_usage_private = dcrypt_openssl_key_set_usage_private,
+	.sign = dcrypt_openssl_sign,
+	.verify = dcrypt_openssl_verify,
 };
 
 void dcrypt_openssl_init(struct module *module ATTR_UNUSED)
