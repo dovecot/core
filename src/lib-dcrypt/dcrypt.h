@@ -57,6 +57,19 @@ enum dcrypt_key_usage {
 	DCRYPT_KEY_USAGE_SIGN,
 };
 
+/* this parameter makes sense with RSA only
+   default for RSA means either PSS (sign/verify)
+   or OAEP (encrypt/decrypt).
+   for ECDSA default can be used.
+*/
+enum dcrypt_padding {
+	DCRYPT_PADDING_DEFAULT,
+	DCRYPT_PADDING_RSA_PKCS1_PSS,
+	DCRYPT_PADDING_RSA_PKCS1_OAEP,
+	DCRYPT_PADDING_RSA_PKCS1, /* for compatibility use only */
+	DCRYPT_PADDING_RSA_NO,
+};
+
 struct dcrypt_settings {
 	/* OpenSSL engine to use */
 	const char *crypto_device;
@@ -205,6 +218,25 @@ bool dcrypt_ecdh_derive_secret_local(struct dcrypt_private_key *local_key,
 bool dcrypt_ecdh_derive_secret_peer(struct dcrypt_public_key *peer_key,
 				    buffer_t *R, buffer_t *S,
 				    const char **error_r);
+
+/** Signature functions
+  algorithm is name of digest algorithm to use, such as SHA256.
+
+  both RSA and EC keys are supported.
+*/
+
+/* returns false on error, true on success */
+bool dcrypt_sign(struct dcrypt_private_key *key, const char *algorithm,
+		 const void *data, size_t data_len, buffer_t *signature_r,
+		 enum dcrypt_padding padding, const char **error_r);
+
+/* check valid_r for signature validity
+   false return means it wasn't able to verify it for other reasons */
+bool dcrypt_verify(struct dcrypt_public_key *key, const char *algorithm,
+		   const void *data, size_t data_len,
+		   const unsigned char *signature, size_t signature_len,
+		   bool *valid_r, enum dcrypt_padding padding,
+		   const char **error_r);
 
 /**
  * generate cryptographic data from password and salt. Use 1000-10000 for rounds.
