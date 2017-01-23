@@ -164,12 +164,15 @@ dcrypt_openssl_private_key_id_old(struct dcrypt_private_key *key,
 static void
 dcrypt_openssl_private_to_public_key(struct dcrypt_private_key *priv_key,
 				     struct dcrypt_public_key **pub_key_r);
-static void dcrypt_openssl_unref_private_key(struct dcrypt_private_key **key);
-static void dcrypt_openssl_unref_public_key(struct dcrypt_public_key **key);
+static void
+dcrypt_openssl_unref_private_key(struct dcrypt_private_key **key);
+static void
+dcrypt_openssl_unref_public_key(struct dcrypt_public_key **key);
 static bool
 dcrypt_openssl_rsa_decrypt(struct dcrypt_private_key *key,
 			   const unsigned char *data, size_t data_len,
-			   buffer_t *result, const char **error_r);
+			   buffer_t *result, enum dcrypt_padding padding,
+			   const char **error_r);
 static bool
 dcrypt_openssl_key_string_get_info(const char *key_data,
 	enum dcrypt_key_format *format_r, enum dcrypt_key_version *version_r,
@@ -190,6 +193,30 @@ static bool dcrypt_openssl_error(const char **error_r)
 	ec = ERR_get_error();
 	*error_r = t_strdup_printf("%s", ERR_error_string(ec, NULL));
 	return FALSE;
+}
+
+static int
+dcrypt_openssl_padding_mode(enum dcrypt_padding padding,
+			    bool sig, const char **error_r)
+{
+	switch (padding) {
+	case DCRYPT_PADDING_DEFAULT:
+		if (sig) return RSA_PKCS1_PSS_PADDING;
+		else return RSA_PKCS1_OAEP_PADDING;
+	case DCRYPT_PADDING_RSA_PKCS1_OAEP:
+		return RSA_PKCS1_OAEP_PADDING;
+	case DCRYPT_PADDING_RSA_PKCS1_PSS:
+		return RSA_PKCS1_PSS_PADDING;
+	case DCRYPT_PADDING_RSA_PKCS1:
+		return RSA_PKCS1_PADDING;
+	case DCRYPT_PADDING_RSA_NO:
+		return RSA_NO_PADDING;
+	default:
+		if (*error_r != NULL)
+			*error_r = "Unsupported padding mode";
+		return -1;
+	}
+	i_unreached();
 }
 
 static bool dcrypt_openssl_initialize(const struct dcrypt_settings *set,
@@ -1283,7 +1310,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		if (EVP_PKEY_base_id((EVP_PKEY*)dec_key) == EVP_PKEY_RSA) {
 			if (!dcrypt_openssl_rsa_decrypt(dec_key,
 				peer_key->data, peer_key->used, secret,
-				error_r))
+				DCRYPT_PADDING_RSA_PKCS1_OAEP, error_r))
 				return FALSE;
 		} else {
 			/* perform ECDH */
@@ -2171,6 +2198,7 @@ dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype,
 			buffer_set_used_size(secret, used+16);
 			if (!dcrypt_rsa_encrypt(enc_key, secret->data,
 						secret->used, peer_key,
+						DCRYPT_PADDING_RSA_PKCS1_OAEP,
 						error_r)) {
 				return FALSE;
 			}
@@ -2859,17 +2887,20 @@ static void dcrypt_openssl_unref_keypair(struct dcrypt_keypair *keypair)
 static bool
 dcrypt_openssl_rsa_encrypt(struct dcrypt_public_key *key,
 			   const unsigned char *data, size_t data_len,
-			   buffer_t *result, const char **error_r)
+			   buffer_t *result, enum dcrypt_padding padding,
+			   const char **error_r)
 {
-	int ec;
 	i_assert(key != NULL && key->key != NULL);
+	int ec, pad = dcrypt_openssl_padding_mode(padding, FALSE, error_r);
+	if (pad == -1)
+		return FALSE;
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(key->key, NULL);
 	size_t outl = EVP_PKEY_size(key->key);
 	unsigned char buf[outl];
 
 	if (ctx == NULL ||
 	    EVP_PKEY_encrypt_init(ctx) < 1 ||
-	    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) < 1 ||
+	    EVP_PKEY_CTX_set_rsa_padding(ctx, pad) < 1 ||
 	    EVP_PKEY_encrypt(ctx, buf, &outl, data, data_len) < 1) {
 		dcrypt_openssl_error(error_r);
 		ec = -1;
@@ -2886,17 +2917,20 @@ dcrypt_openssl_rsa_encrypt(struct dcrypt_public_key *key,
 static bool
 dcrypt_openssl_rsa_decrypt(struct dcrypt_private_key *key,
 			   const unsigned char *data, size_t data_len,
-			   buffer_t *result, const char **error_r)
+			   buffer_t *result, enum dcrypt_padding padding,
+			   const char **error_r)
 {
-	int ec;
 	i_assert(key != NULL && key->key != NULL);
+	int ec, pad = dcrypt_openssl_padding_mode(padding, FALSE, error_r);
+	if (pad == -1)
+		return FALSE;
 	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(key->key, NULL);
 	size_t outl = EVP_PKEY_size(key->key);
 	unsigned char buf[outl];
 
 	if (ctx == NULL ||
 	    EVP_PKEY_decrypt_init(ctx) < 1 ||
-	    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) < 1 ||
+	    EVP_PKEY_CTX_set_rsa_padding(ctx, pad) < 1 ||
 	    EVP_PKEY_decrypt(ctx, buf, &outl, data, data_len) < 1) {
 		dcrypt_openssl_error(error_r);
 		ec = -1;

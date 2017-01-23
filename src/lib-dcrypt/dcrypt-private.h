@@ -129,10 +129,12 @@ struct dcrypt_vfs {
 
 	bool (*rsa_encrypt)(struct dcrypt_public_key *key,
 			    const unsigned char *data, size_t data_len,
-			    buffer_t *result, const char **error_r);
+			    buffer_t *result, enum dcrypt_padding padding,
+			    const char **error_r);
 	bool (*rsa_decrypt)(struct dcrypt_private_key *key,
 			    const unsigned char *data, size_t data_len,
-			    buffer_t *result, const char **error_r);
+			    buffer_t *result, enum dcrypt_padding padding,
+			    const char **error_r);
 
 	const char *(*oid2name)(const unsigned char *oid,
 				size_t oid_len, const char **error_r);
