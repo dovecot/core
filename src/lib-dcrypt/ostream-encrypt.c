@@ -277,8 +277,9 @@ o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream,
 
 	if (ktype == DCRYPT_KEY_RSA) {
 		/* encrypt key as R (as we don't need DH with RSA)*/
-		if (!dcrypt_rsa_encrypt(pubkey, key, key_len,
-					encrypted_key, &error)) {
+		if (!dcrypt_rsa_encrypt(pubkey, key, key_len, encrypted_key,
+					DCRYPT_PADDING_RSA_PKCS1_OAEP,
+					&error)) {
 			io_stream_set_error(&stream->ostream.iostream,
 					    "Cannot encrypt key data: %s",
 					    error);

@@ -435,8 +435,9 @@ i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg,
 
 	/* decrypt the seed */
 	if (ktype == DCRYPT_KEY_RSA) {
-		if (!dcrypt_rsa_decrypt(stream->priv_key, encrypted_key,
-					eklen, key, &error)) {
+		if (!dcrypt_rsa_decrypt(stream->priv_key, encrypted_key, eklen,
+					key, DCRYPT_PADDING_RSA_PKCS1_OAEP,
+					&error)) {
 			io_stream_set_error(&stream->istream.iostream,
 					    "key decryption error: %s", error);
 			return -1;
