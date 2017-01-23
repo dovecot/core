@@ -665,6 +665,10 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 	if (user == NULL || user->host != host) {
 		director_move_user(conn->dir, conn->dir->self_host, NULL,
 				   username_hash, host);
+	} else {
+		/* already the correct host. reset the user's timeout. */
+		user_directory_refresh(host->tag->users, user);
+		director_update_user(conn->dir, conn->dir->self_host, user);
 	}
 	o_stream_nsend(conn->output, "OK\n", 3);
 	return 1;
