@@ -148,6 +148,9 @@ void http_server_request_fail_auth_basic(struct http_server_request *req,
 void http_server_request_set_destroy_callback(struct http_server_request *req,
 					      void (*callback)(void *),
 					      void *context);
+#define http_server_request_set_destroy_callback(req, callback, context) \
+	http_server_request_set_destroy_callback(req, (void(*)(void*))callback, context + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 
 /* Reference a server request */
 void http_server_request_ref(struct http_server_request *req);

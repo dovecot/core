@@ -114,6 +114,7 @@ void http_server_request_destroy(struct http_server_request **_req)
 	http_server_request_unref(_req);
 }
 
+#undef http_server_request_set_destroy_callback
 void http_server_request_set_destroy_callback(struct http_server_request *req,
 					      void (*callback)(void *),
 					      void *context)
