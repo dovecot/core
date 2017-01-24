@@ -409,7 +409,7 @@ client_handle_echo_request(struct client_request *creq,
 /* request */
 
 static void
-http_server_request_destroyed(void *context);
+http_server_request_destroyed(struct client_request *creq);
 
 static struct client_request *
 client_request_init(struct client *client,
@@ -446,11 +446,8 @@ static void client_request_deinit(struct client_request **_creq)
 }
 
 static void
-http_server_request_destroyed(void *context)
+http_server_request_destroyed(struct client_request *creq)
 {
-	struct client_request *creq =
-		(struct client_request *)context;
-
 	client_request_deinit(&creq);
 }
 

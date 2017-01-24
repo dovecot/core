@@ -123,9 +123,8 @@ doveadm_http_server_connection_destroy(void *context, const char *reason ATTR_UN
 }
 
 static void
-doveadm_http_server_request_destroy(void *context)
+doveadm_http_server_request_destroy(struct client_connection_http *conn)
 {
-        struct client_connection_http *conn = context;
 	struct http_server_response *resp = 
 		http_server_request_get_response(conn->http_server_request);
 

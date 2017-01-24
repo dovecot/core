@@ -116,9 +116,8 @@ struct _slow_request {
 };
 
 static void
-test_server_slow_request_destroyed(void *context)
+test_server_slow_request_destroyed(struct _slow_request *ctx)
 {
-	struct _slow_request *ctx = (struct _slow_request *)context;
 	test_assert(ctx->serviced);
 	if (ctx->to_delay != NULL)
 		timeout_remove(&ctx->to_delay);
@@ -220,10 +219,8 @@ struct _hanging_request_payload {
 };
 
 static void
-test_server_hanging_request_payload_destroyed(void *context)
+test_server_hanging_request_payload_destroyed(struct _hanging_request_payload *ctx)
 {
-	struct _hanging_request_payload *ctx =
-		(struct _hanging_request_payload *)context;
 	test_assert(!ctx->serviced);
 	if (ctx->io != NULL)
 		io_remove(&ctx->io);
@@ -356,10 +353,8 @@ struct _hanging_response_payload {
 };
 
 static void
-test_server_hanging_response_payload_destroyed(void *context)
+test_server_hanging_response_payload_destroyed(struct _hanging_response_payload *ctx)
 {
-	struct _hanging_response_payload *ctx =
-		(struct _hanging_response_payload *)context;
 	test_assert(!ctx->serviced);
 	if (ctx->io != NULL)
 		io_remove(&ctx->io);
