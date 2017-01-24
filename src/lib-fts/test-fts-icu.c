@@ -171,6 +171,16 @@ static void test_fts_icu_lcase_resize(void)
 	test_end();
 }
 
+static void test_fts_icu_lcase_resize_invalid_utf8(void)
+{
+	string_t *dest;
+
+	test_begin("fts_icu_lcase resize invalid utf8");
+	dest = t_str_new(1);
+	fts_icu_lcase(dest, ".\x80.");
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -182,6 +192,7 @@ int main(void)
 		test_fts_icu_translate_resize,
 		test_fts_icu_lcase,
 		test_fts_icu_lcase_resize,
+		test_fts_icu_lcase_resize_invalid_utf8,
 		NULL
 	};
 	int ret = test_run(test_functions);
