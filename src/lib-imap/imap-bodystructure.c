@@ -301,7 +301,7 @@ part_write_bodystructure_data_common(struct message_part_body_data *data,
 				     string_t *str)
 {
 	str_append_c(str, ' ');
-	if (data->content_disposition == NULL)
+	if (!data || data->content_disposition == NULL)
 		str_append(str, "NIL");
 	else {
 		str_append_c(str, '(');
@@ -319,7 +319,7 @@ part_write_bodystructure_data_common(struct message_part_body_data *data,
 	}
 
 	str_append_c(str, ' ');
-	if (data->content_language == NULL)
+	if (!data || data->content_language == NULL)
 		str_append(str, "NIL");
 	else {
 		str_append_c(str, '(');
@@ -328,7 +328,11 @@ part_write_bodystructure_data_common(struct message_part_body_data *data,
 	}
 
 	str_append_c(str, ' ');
-	str_append(str, NVL(data->content_location, "NIL"));
+	if (!data || data->content_location == NULL)
+		str_append(str, "NIL");
+	else {
+		str_append(str, data->content_location);
+	}
 }
 
 static void part_write_body_multipart(const struct message_part *part,
@@ -346,7 +350,7 @@ static void part_write_body_multipart(const struct message_part *part,
 	}
 
 	str_append_c(str, ' ');
-	if (data->content_subtype != NULL)
+	if (data && data->content_subtype != NULL)
 		str_append(str, data->content_subtype);
 	else
 		str_append(str, "\"x-unknown\"");
@@ -356,7 +360,7 @@ static void part_write_body_multipart(const struct message_part *part,
 
 	/* BODYSTRUCTURE data */
 	str_append_c(str, ' ');
-	if (data->content_type_params == NULL)
+	if (!data || data->content_type_params == NULL)
 		str_append(str, "NIL");
 	else {
 		str_append_c(str, '(');
