@@ -142,14 +142,17 @@ void fts_icu_lcase(string_t *dest_utf8, const char *src_utf8)
 	avail_bytes = buffer_get_writable_size(dest_utf8) - dest_pos;
 	dest_data = buffer_get_space_unsafe(dest_utf8, dest_pos, avail_bytes);
 
-	dest_full_len = ucasemap_utf8ToLower(csm, dest_data, avail_bytes,
-					     src_utf8, -1, &err);
-	if (err == U_BUFFER_OVERFLOW_ERROR) {
+	/* ucasemap_utf8ToLower() may need to be called multiple times, because
+	   the first return value may not be large enough. */
+	for (unsigned int i = 0;; i++) {
+		dest_full_len = ucasemap_utf8ToLower(csm, dest_data, avail_bytes,
+						     src_utf8, -1, &err);
+		if (err != U_BUFFER_OVERFLOW_ERROR || i == 2)
+			break;
+
 		err = U_ZERO_ERROR;
 		dest_data = buffer_get_space_unsafe(dest_utf8, dest_pos, dest_full_len);
-		dest_full_len = ucasemap_utf8ToLower(csm, dest_data, dest_full_len,
-						     src_utf8, -1, &err);
-		i_assert(err != U_BUFFER_OVERFLOW_ERROR);
+		avail_bytes = dest_full_len;
 	}
 	if (U_FAILURE(err)) {
 		i_fatal("LibICU ucasemap_utf8ToLower() failed: %s",
