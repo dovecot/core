@@ -2157,9 +2157,11 @@ void index_mail_update_pvt_modseq(struct mail *mail, uint64_t min_pvt_modseq)
 
 void index_mail_expunge(struct mail *mail)
 {
+	enum mail_lookup_abort old_abort = mail->lookup_abort;
 	const char *value;
 	guid_128_t guid_128;
 
+	mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
 	if (mail_get_special(mail, MAIL_FETCH_GUID, &value) < 0)
 		mail_index_expunge(mail->transaction->itrans, mail->seq);
 	else {
@@ -2167,6 +2169,7 @@ void index_mail_expunge(struct mail *mail)
 		mail_index_expunge_guid(mail->transaction->itrans,
 					mail->seq, guid_128);
 	}
+	mail->lookup_abort = old_abort;
 }
 
 static void index_mail_parse(struct mail *mail, bool parse_body)
