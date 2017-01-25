@@ -99,7 +99,7 @@ test_dict_client_SOURCES = test-dict-client.c
 test_dict_client_LDADD = $(noinst_LTLIBRARIES) ../lib/liblib.la
 test_dict_client_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
 
-test_dict_sql_CFLAGS = $(AM_CPPFLAGS)
+test_dict_sql_CFLAGS = $(AM_CPPFLAGS) -DDICT_SRC_DIR=\"$(top_srcdir)/src/lib-dict\"
 test_dict_sql_SOURCES = \
 	test-dict-sql.c
 test_dict_sql_LDADD = \
