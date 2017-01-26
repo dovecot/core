@@ -2207,6 +2207,19 @@ void index_mail_precache(struct mail *mail)
 		(void)mail_get_special(mail, MAIL_FETCH_GUID, &str);
 }
 
+static void
+index_mail_reset_vsize_ext(struct mail *mail, struct index_mail *imail)
+{
+	unsigned int idx;
+	uint32_t vsize = 0;
+	struct mail_index_view *view = mail->transaction->view;
+	if (mail_index_map_get_ext_idx(view->map, imail->vsize_ext_id,
+				       &idx)) {
+		mail_index_update_ext(mail->transaction->itrans, mail->seq,
+				      imail->vsize_ext_id, &vsize, NULL);
+	}
+}
+
 void index_mail_set_cache_corrupted(struct mail *mail,
 				    enum mail_fetch_field field,
 				    const char *reason)
@@ -2223,12 +2236,14 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 		imail->data.physical_size = (uoff_t)-1;
 		imail->data.virtual_size = (uoff_t)-1;
 		imail->data.parts = NULL;
+		index_mail_reset_vsize_ext(mail, imail);
 		break;
 	case MAIL_FETCH_VIRTUAL_SIZE:
 		field_name = "virtual size";
 		imail->data.physical_size = (uoff_t)-1;
 		imail->data.virtual_size = (uoff_t)-1;
 		imail->data.parts = NULL;
+		index_mail_reset_vsize_ext(mail, imail);
 		break;
 	case MAIL_FETCH_MESSAGE_PARTS:
 		field_name = "MIME parts";
