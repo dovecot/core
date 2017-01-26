@@ -2,11 +2,53 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "file-create-locked.h"
 #include "mailbox-list-iter.h"
 #include "mail-storage-private.h"
 #include "mail-namespace.h"
 #include "mail-user.h"
 #include "mail-autoexpunge.h"
+
+#define AUTOEXPUNGE_LOCK_FNAME "dovecot.autoexpunge.lock"
+
+struct mailbox_autoexpunge_lock {
+	const char *path;
+	struct file_lock *lock;
+	int fd;
+};
+
+static void mailbox_autoexpunge_lock(struct mail_user *user,
+				     struct mailbox_autoexpunge_lock *lock)
+{
+	struct file_create_settings lock_set;
+	bool created;
+	const char *home, *error;
+	int ret;
+
+	/* Try to lock the autoexpunging. If the lock already exists, another
+	   process is already busy with expunging, so we don't have to do it.
+	   The easiest place where to store the lock file to is the home
+	   directory, but allow autoexpunging to work even if we can't get
+	   it. The lock isn't really required; it 1) improves performance
+	   so that multiple processes won't do the same work unnecessarily,
+	   and 2) it helps to avoid duplicates mails being added with
+	   lazy_expunge. */
+	if ((ret = mail_user_get_home(user, &home)) > 0) {
+		const struct mail_storage_settings *mail_set =
+			mail_user_set_get_storage_set(user);
+		i_zero(&lock_set);
+		lock_set.lock_method = mail_set->parsed_lock_method,
+		lock->path = t_strdup_printf("%s/"AUTOEXPUNGE_LOCK_FNAME, home);
+		lock->fd = file_create_locked(lock->path, &lock_set,
+					      &lock->lock, &created, &error);
+		if (lock->fd == -1) {
+			if (errno != EAGAIN && errno != ENOENT)
+				i_error("autoexpunge: Couldn't lock %s: %s", lock->path, error);
+		}
+	} else if (ret == 0) {
+		i_warning("autoexpunge: User has no home directory, can't lock");
+	}
+}
 
 static int
 mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
@@ -132,7 +174,9 @@ mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
 	}
 }
 
-static void mail_namespace_autoexpunge(struct mail_namespace *ns)
+static void
+mail_namespace_autoexpunge(struct mail_namespace *ns,
+			   struct mailbox_autoexpunge_lock *lock)
 {
 	struct mailbox_settings *const *box_set;
 	const char *vname;
@@ -144,6 +188,8 @@ static void mail_namespace_autoexpunge(struct mail_namespace *ns)
 		if ((*box_set)->autoexpunge == 0 &&
 		    (*box_set)->autoexpunge_max_mails == 0)
 			continue;
+
+		mailbox_autoexpunge_lock(ns->user, lock);
 
 		if (strpbrk((*box_set)->name, "*?") != NULL)
 			mailbox_autoexpunge_wildcards(ns, *box_set);
@@ -161,10 +207,16 @@ static void mail_namespace_autoexpunge(struct mail_namespace *ns)
 
 void mail_user_autoexpunge(struct mail_user *user)
 {
+	struct mailbox_autoexpunge_lock lock = { .fd = -1 };
 	struct mail_namespace *ns;
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
 		if (ns->alias_for == NULL)
-			mail_namespace_autoexpunge(ns);
+			mail_namespace_autoexpunge(ns, &lock);
+	}
+	if (lock.fd != -1) {
+		i_unlink(lock.path);
+		i_close_fd(&lock.fd);
+		file_lock_free(&lock.lock);
 	}
 }
