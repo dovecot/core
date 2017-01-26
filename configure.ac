@@ -2630,7 +2630,7 @@ dnl **
 dnl ** Shared libraries usage
 dnl **
 
-LIBDOVECOT_LA_LIBS='$(top_builddir)/src/lib-dict-extra/libdict_extra.la $(top_builddir)/src/lib-program-client/libprogram_client.la $(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-stats/libstats.la $(top_builddir)/src/lib-http/libhttp.la $(top_builddir)/src/lib-fs/libfs.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-smtp/libsmtp.la $(top_builddir)/src/lib-dns/libdns.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-sasl/libsasl.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la $(top_builddir)/src/lib-dcrypt/libdcrypt.la $(top_builddir)/src/lib-test/libtest.la $(top_builddir)/src/lib/liblib.la'
+LIBDOVECOT_LA_LIBS='$(top_builddir)/src/lib-dict-extra/libdict_extra.la $(top_builddir)/src/lib-oauth2/liboauth2.la $(top_builddir)/src/lib-program-client/libprogram_client.la $(top_builddir)/src/lib-master/libmaster.la $(top_builddir)/src/lib-settings/libsettings.la $(top_builddir)/src/lib-stats/libstats.la $(top_builddir)/src/lib-http/libhttp.la $(top_builddir)/src/lib-fs/libfs.la $(top_builddir)/src/lib-dict/libdict.la $(top_builddir)/src/lib-smtp/libsmtp.la $(top_builddir)/src/lib-dns/libdns.la $(top_builddir)/src/lib-imap/libimap.la $(top_builddir)/src/lib-mail/libmail.la $(top_builddir)/src/lib-sasl/libsasl.la $(top_builddir)/src/lib-auth/libauth.la $(top_builddir)/src/lib-charset/libcharset.la $(top_builddir)/src/lib-ssl-iostream/libssl_iostream.la $(top_builddir)/src/lib-dcrypt/libdcrypt.la $(top_builddir)/src/lib-test/libtest.la $(top_builddir)/src/lib/liblib.la'
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS)"
@@ -2979,6 +2979,7 @@ src/lib-dns/Makefile
 src/lib-fs/Makefile
 src/lib-fts/Makefile
 src/lib-http/Makefile
+src/lib-oauth2/Makefile
 src/lib-imap/Makefile
 src/lib-imap-storage/Makefile
 src/lib-imap-client/Makefile
