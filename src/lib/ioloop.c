@@ -779,6 +779,9 @@ void io_loop_set_current(struct ioloop *ioloop)
 	io_switch_callback_t *const *callbackp;
 	struct ioloop *prev_ioloop = current_ioloop;
 
+	if (ioloop == current_ioloop)
+		return;
+
 	current_ioloop = ioloop;
 	if (array_is_created(&io_switch_callbacks)) {
 		array_foreach(&io_switch_callbacks, callbackp)
