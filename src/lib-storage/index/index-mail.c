@@ -485,7 +485,7 @@ bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 	/* if vsize is present and wanted for index, but missing from index
 	   add it to index. */
 	if (vsize != NULL && *vsize == 0 &&
-	    data->body_size.virtual_size < (uint32_t)-1) {
+	    data->virtual_size < (uint32_t)-1) {
 		uint32_t vsize = data->virtual_size+1;
 		mail_index_update_ext(_mail->transaction->itrans, _mail->seq,
 				      mail->vsize_ext_id, &vsize, NULL);
