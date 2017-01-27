@@ -759,15 +759,15 @@ static void doveadm_http_server_send_response(void *context)
 	http_server_response_submit_close(conn->http_response);
 }
 
-static const struct http_server_settings http_server_set = {
+static struct http_server_settings http_server_set = {
 	.max_client_idle_time_msecs = 0,
         .max_pipelined_requests = 0
 };
 
 void doveadm_http_server_init(void)
 {
+	http_server_set.rawlog_dir = doveadm_settings->doveadm_http_rawlog_dir;
 	doveadm_http_server = http_server_init(&http_server_set);
-	
 }
 
 void doveadm_http_server_deinit(void)
