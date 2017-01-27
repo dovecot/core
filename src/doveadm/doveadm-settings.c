@@ -72,6 +72,7 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(SET_STR, director_username_hash),
 	DEF(SET_STR, doveadm_api_key),
 	DEF(SET_STR, dsync_features),
+	DEF(SET_STR, doveadm_http_rawlog_dir),
 
 	{ SET_STRLIST, "plugin", offsetof(struct doveadm_settings, plugin_envs), NULL },
 
@@ -98,6 +99,7 @@ const struct doveadm_settings doveadm_default_settings = {
 	.ssl_client_ca_file = "",
 	.director_username_hash = "%Lu",
 	.doveadm_api_key = "",
+	.doveadm_http_rawlog_dir = "",
 
 	.plugin_envs = ARRAY_INIT
 };

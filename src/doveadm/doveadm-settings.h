@@ -29,6 +29,7 @@ struct doveadm_settings {
 	const char *director_username_hash;
 	const char *doveadm_api_key;
 	const char *dsync_features;
+	const char *doveadm_http_rawlog_dir;
 	enum dsync_features parsed_features;
 	ARRAY(const char *) plugin_envs;
 };
