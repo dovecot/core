@@ -25,6 +25,8 @@
 #define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE 10000
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
 #define IMAPC_RECONNECT_MIN_RETRY_SECS 10
+/* If LOGOUT reply takes longer than this, disconnect. */
+#define IMAPC_LOGOUT_TIMEOUT_MSECS 5000
 
 enum imapc_input_state {
 	IMAPC_INPUT_STATE_NONE = 0,
@@ -453,6 +455,11 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 	imapc_connection_abort_commands(conn, NULL, reconnecting);
 }
 
+void imapc_connection_set_no_reconnect(struct imapc_connection *conn)
+{
+	conn->reconnect_ok = FALSE;
+}
+
 void imapc_connection_disconnect(struct imapc_connection *conn)
 {
 	imapc_connection_disconnect_full(conn, FALSE);
@@ -466,6 +473,8 @@ static void imapc_connection_set_disconnected(struct imapc_connection *conn)
 
 static bool imapc_connection_can_reconnect(struct imapc_connection *conn)
 {
+	if (conn->client->logging_out)
+		return FALSE;
 	if (conn->selected_box != NULL)
 		return imapc_client_mailbox_can_reconnect(conn->selected_box);
 	else {
@@ -1473,7 +1482,10 @@ static void imapc_connection_input(struct imapc_connection *conn)
 	while (conn->input != NULL && (ret = i_stream_read(conn->input)) > 0)
 		imapc_connection_input_pending(conn);
 
-	if (ret < 0) {
+	if (ret < 0 && conn->client->logging_out &&
+	    conn->disconnect_reason != NULL) {
+		/* expected disconnection */
+	} else if (ret < 0) {
 		/* disconnected or buffer full */
 		str = t_str_new(128);
 		if (conn->disconnect_reason != NULL) {
@@ -2033,6 +2045,11 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		/* wait until we're fully connected */
 		return;
 	}
+	if ((cmd->flags & IMAPC_COMMAND_FLAG_LOGOUT) != 0 &&
+	    array_count(&conn->cmd_wait_list) > 0) {
+		/* wait until existing commands have finished */
+		return;
+	}
 	if (cmd->wait_for_literal) {
 		/* wait until we received '+' */
 		return;
@@ -2064,7 +2081,13 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 
 	/* add timeout for commands if there's not one yet
 	   (pre-login has its own timeout) */
-	if (conn->to == NULL) {
+	if ((cmd->flags & IMAPC_COMMAND_FLAG_LOGOUT) != 0) {
+		/* LOGOUT has a shorter timeout */
+		if (conn->to != NULL)
+			timeout_remove(&conn->to);
+		conn->to = timeout_add(IMAPC_LOGOUT_TIMEOUT_MSECS,
+				       imapc_command_timeout, conn);
+	} else if (conn->to == NULL) {
 		conn->to = timeout_add(conn->client->set.cmd_timeout_msecs,
 				       imapc_command_timeout, conn);
 	}
