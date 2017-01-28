@@ -124,7 +124,7 @@ void imapc_simple_context_init(struct imapc_simple_context *sctx,
 void imapc_simple_run(struct imapc_simple_context *sctx)
 {
 	if (sctx->client->auth_failed) {
-		imapc_client_disconnect(sctx->client->client);
+		imapc_client_logout(sctx->client->client);
 		sctx->ret = -1;
 	}
 	while (sctx->ret == -2)
@@ -402,7 +402,7 @@ static void imapc_storage_destroy(struct mail_storage *_storage)
 
 	/* make sure all pending commands are aborted before anything is
 	   deinitialized */
-	imapc_client_disconnect(storage->client->client);
+	imapc_client_logout(storage->client->client);
 
 	imapc_storage_client_unref(&storage->client);
 	index_storage_destroy(_storage);

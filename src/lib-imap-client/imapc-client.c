@@ -265,6 +265,51 @@ void imapc_client_login(struct imapc_client *client,
 	imapc_connection_connect(conn->conn, callback, context);
 }
 
+struct imapc_logout_ctx {
+	struct imapc_client *client;
+	unsigned int logout_count;
+};
+
+static void
+imapc_client_logout_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
+			     void *context)
+{
+	struct imapc_logout_ctx *ctx = context;
+
+	i_assert(ctx->logout_count > 0);
+
+	if (--ctx->logout_count == 0)
+		imapc_client_stop(ctx->client);
+}
+
+void imapc_client_logout(struct imapc_client *client)
+{
+	struct imapc_logout_ctx ctx = { .client = client };
+	struct imapc_client_connection *const *connp;
+	struct imapc_command *cmd;
+
+	client->logging_out = TRUE;
+
+	/* send LOGOUT to all connections */
+	array_foreach(&client->conns, connp) {
+		imapc_connection_set_no_reconnect((*connp)->conn);
+		ctx.logout_count++;
+		cmd = imapc_connection_cmd((*connp)->conn,
+			imapc_client_logout_callback, &ctx);
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN |
+					IMAPC_COMMAND_FLAG_LOGOUT);
+		imapc_command_send(cmd, "LOGOUT");
+	}
+
+	/* wait for LOGOUT to finish */
+	while (ctx.logout_count > 0)
+		imapc_client_run(client);
+
+	/* we should have disconnected all clients already, but if there were
+	   any timeouts there may be some clients left. */
+	imapc_client_disconnect(client);
+}
+
 struct imapc_client_mailbox *
 imapc_client_mailbox_open(struct imapc_client *client,
 			  void *untagged_box_context)

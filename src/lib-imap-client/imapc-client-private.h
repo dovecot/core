@@ -24,6 +24,7 @@ struct imapc_client {
 	void *state_change_context;
 
 	ARRAY(struct imapc_client_connection *) conns;
+	bool logging_out;
 
 	struct ioloop *ioloop;
 };
