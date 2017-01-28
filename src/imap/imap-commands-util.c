@@ -279,7 +279,7 @@ void client_send_mailbox_flags(struct client *client, bool selecting)
 		array_idx(client->keywords.names, 0);
 	str = t_str_new(128);
 	str_append(str, "* FLAGS (");
-	imap_write_flags(str, MAIL_FLAGS_NONRECENT, keywords);
+	imap_write_flags(str, status.flags, keywords);
 	str_append_c(str, ')');
 	client_send_line(client, str_c(str));
 
