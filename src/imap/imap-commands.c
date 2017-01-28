@@ -228,8 +228,6 @@ void commands_init(void)
 
 void commands_deinit(void)
 {
-        command_unregister_array(imap4rev1_commands, IMAP4REV1_COMMANDS_COUNT);
-        command_unregister_array(imap_ext_commands, IMAP_EXT_COMMANDS_COUNT);
 	array_free(&imap_commands);
 	array_free(&command_hooks);
 }
