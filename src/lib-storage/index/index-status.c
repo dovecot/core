@@ -185,6 +185,7 @@ void index_storage_get_open_status(struct mailbox *box,
 			status_r->allow_new_keywords =
 				!box->disallow_new_keywords;
 		}
+		status_r->flags = MAIL_FLAGS_NONRECENT;
 	}
 }
 

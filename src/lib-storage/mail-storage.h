@@ -258,6 +258,8 @@ struct mailbox_status {
 
 	/* These flags can be permanently modified (STATUS_PERMANENT_FLAGS) */
 	enum mail_flags permanent_flags;
+	/* These flags can be modified (STATUS_PERMANENT_FLAGS) */
+	enum mail_flags flags;
 
 	/* All keywords can be permanently modified (STATUS_PERMANENT_FLAGS) */
 	bool permanent_keywords:1;
