@@ -102,7 +102,7 @@ static int path_normalize(const char *path, bool resolve_links,
 			}
 
 			/* copy segment to normalized path */
-			i_assert(p + seglen < npath + asize);
+			i_assert((npath_pos + seglen) < (npath + asize));
 			(void)memmove(npath_pos, p, seglen);
 			npath_pos += seglen;
 		}
