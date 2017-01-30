@@ -194,6 +194,8 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	const uint8_t *match;
 	unsigned int i, field_idx, match_count;
 
+	i_assert(!mail->data.header_parser_initialized);
+
 	mail->header_seq = data->seq;
 	if (mail->header_data == NULL) {
 		mail->header_data = buffer_create_dynamic(default_pool, 4096);
