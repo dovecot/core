@@ -303,6 +303,9 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	box->box_last_rename_stamp_ext_id =
 		mail_index_ext_register(box->index, "last-rename-stamp",
 					sizeof(uint32_t), 0, sizeof(uint32_t));
+	box->mail_vsize_ext_id = mail_index_ext_register(box->index, "vsize", 0,
+							 sizeof(uint32_t),
+							 sizeof(uint32_t));
 
 	box->opened = TRUE;
 
