@@ -39,10 +39,12 @@ bool message_part_data_is_plain_7bit(const struct message_part *part)
 		return FALSE;
 
 	/* only allowed parameter is charset=us-ascii, which is also default */
-	if (data->content_type_params_count > 0 &&
-	    (strcasecmp(data->content_type_params[0].name, "charset") != 0 ||
-	     strcasecmp(data->content_type_params[0].value,
-				MESSAGE_PART_DEFAULT_CHARSET) != 0))
+	if (data->content_type_params_count == 0) {
+		/* charset defaults to us-ascii */
+	} else if (data->content_type_params_count != 1 ||
+		   strcasecmp(data->content_type_params[0].name, "charset") != 0 ||
+		   strcasecmp(data->content_type_params[0].value,
+			      MESSAGE_PART_DEFAULT_CHARSET) != 0)
 		return FALSE;
 
 	if (data->content_id != NULL ||
