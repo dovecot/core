@@ -596,7 +596,7 @@ int imap_bodystructure_parse_full(const char *bodystructure,
 	struct istream *input;
 	struct imap_parser *parser;
 	const struct imap_arg *args;
-	char *error;
+	char *error = NULL;
 	int ret;
 
 	i_assert(*parts == NULL || (*parts)->next == NULL);
