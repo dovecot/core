@@ -11,8 +11,8 @@
 #define PATH_UTIL_MAX_PATH      8*1024
 #define PATH_UTIL_MAX_SYMLINKS  80
 
-static int t_getcwd_alloc(char **dir_r, size_t *asize_r,
-			  const char **error_r) ATTR_NULL(2)
+static int t_getcwd_noalloc(char **dir_r, size_t *asize_r,
+			    const char **error_r) ATTR_NULL(2)
 {
 	/* @UNSAFE */
 	char *dir;
@@ -48,7 +48,7 @@ static int path_normalize(const char *path, bool resolve_links,
 
 	if (path[0] != '/') {
 		/* relative; initialize npath with current directory */
-		if (t_getcwd_alloc(&npath, &asize, error_r) < 0)
+		if (t_getcwd_noalloc(&npath, &asize, error_r) < 0)
 			return -1;
 		npath_pos = npath + strlen(npath);
 		i_assert(npath[0] == '/');
@@ -304,9 +304,16 @@ const char *t_abspath_to(const char *path, const char *root)
 
 int t_get_working_dir(const char **dir_r, const char **error_r)
 {
+	char *dir;
+
 	i_assert(dir_r != NULL);
 	i_assert(error_r != NULL);
-	return t_getcwd_alloc((char**)dir_r, NULL, error_r);
+	if (t_getcwd_noalloc(&dir, NULL, error_r) < 0)
+		return -1;
+
+	t_buffer_alloc(strlen(dir) + 1);
+	*dir_r = dir;
+	return 0;
 }
 
 int t_readlink(const char *path, const char **dest_r, const char **error_r)
