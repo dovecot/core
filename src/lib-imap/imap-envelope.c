@@ -222,7 +222,7 @@ bool imap_envelope_parse(const char *envelope,
 	struct istream *input;
 	struct imap_parser *parser;
 	const struct imap_arg *args;
-	char *error;
+	char *error = NULL;
 	int ret;
 
 	input = i_stream_create_from_data(envelope, strlen(envelope));
