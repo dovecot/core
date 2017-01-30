@@ -455,7 +455,7 @@ bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 
 	/* see if we can get it from index */
 	mail_index_lookup_ext(_mail->transaction->view, _mail->seq,
-			      mail->vsize_ext_id, &idata, &expunged);
+			      _mail->box->mail_vsize_ext_id, &idata, &expunged);
 	const uint32_t *vsize = idata;
 
 	if (vsize != NULL && *vsize > 0) {
@@ -488,7 +488,7 @@ bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 	    data->virtual_size < (uint32_t)-1) {
 		uint32_t vsize = data->virtual_size+1;
 		mail_index_update_ext(_mail->transaction->itrans, _mail->seq,
-				      mail->vsize_ext_id, &vsize, NULL);
+				      _mail->box->mail_vsize_ext_id, &vsize, NULL);
 	}
 
 	return TRUE;
@@ -875,7 +875,7 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 		extension for box virtual size exists
 	*/
 
-	if ((mail_index_map_get_ext_idx(view->map, mail->vsize_ext_id, &idx) ||
+	if ((mail_index_map_get_ext_idx(view->map, _mail->box->mail_vsize_ext_id, &idx) ||
 	     mail_index_map_get_ext_idx(view->map, _mail->box->vsize_hdr_ext_id, &idx)) &&
 	    (sizes[0] != (uoff_t)-1 &&
 	     sizes[0] < (uint32_t)-1)) {
@@ -886,7 +886,7 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 		vsize = sizes[0] + 1;
 		sizes[0] = (uoff_t)-1;
 		mail_index_update_ext(_mail->transaction->itrans, _mail->seq,
-				      mail->vsize_ext_id, &vsize, NULL);
+				      _mail->box->mail_vsize_ext_id, &vsize, NULL);
 	}
 
 	for (i = 0; i < N_ELEMENTS(size_fields); i++) {
@@ -1537,9 +1537,6 @@ void index_mail_init(struct index_mail *mail,
 	mail->mail.v = *t->box->mail_vfuncs;
 	mail->mail.mail.box = t->box;
 	mail->mail.mail.transaction = t;
-	mail->vsize_ext_id = mail_index_ext_register(t->box->index, "vsize", 0,
-						     sizeof(uint32_t),
-						     sizeof(uint32_t));
 	t->mail_ref_count++;
 	mail->mail.data_pool = pool_alloconly_create("index_mail", 16384);
 	mail->ibox = INDEX_STORAGE_CONTEXT(t->box);
@@ -2205,15 +2202,15 @@ void index_mail_precache(struct mail *mail)
 }
 
 static void
-index_mail_reset_vsize_ext(struct mail *mail, struct index_mail *imail)
+index_mail_reset_vsize_ext(struct mail *mail)
 {
 	unsigned int idx;
 	uint32_t vsize = 0;
 	struct mail_index_view *view = mail->transaction->view;
-	if (mail_index_map_get_ext_idx(view->map, imail->vsize_ext_id,
+	if (mail_index_map_get_ext_idx(view->map, mail->box->mail_vsize_ext_id,
 				       &idx)) {
 		mail_index_update_ext(mail->transaction->itrans, mail->seq,
-				      imail->vsize_ext_id, &vsize, NULL);
+				      mail->box->mail_vsize_ext_id, &vsize, NULL);
 	}
 }
 
@@ -2239,14 +2236,14 @@ void index_mail_set_cache_corrupted_reason(struct mail *mail,
 		imail->data.physical_size = (uoff_t)-1;
 		imail->data.virtual_size = (uoff_t)-1;
 		imail->data.parts = NULL;
-		index_mail_reset_vsize_ext(mail, imail);
+		index_mail_reset_vsize_ext(mail);
 		break;
 	case MAIL_FETCH_VIRTUAL_SIZE:
 		field_name = "virtual size";
 		imail->data.physical_size = (uoff_t)-1;
 		imail->data.virtual_size = (uoff_t)-1;
 		imail->data.parts = NULL;
-		index_mail_reset_vsize_ext(mail, imail);
+		index_mail_reset_vsize_ext(mail);
 		break;
 	case MAIL_FETCH_MESSAGE_PARTS:
 		field_name = "MIME parts";

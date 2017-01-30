@@ -137,7 +137,6 @@ struct index_mail {
 	struct index_mailbox_context *ibox;
 
 	int pop3_state;
-	uint32_t vsize_ext_id;
 
 	/* per-mail variables, here for performance reasons: */
 	uint32_t header_seq;
