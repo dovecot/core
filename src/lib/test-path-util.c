@@ -39,7 +39,7 @@ static int path_height(const char* p) {
 static void test_travel_to_root(void) {
 	int l = path_height(cwd);
 	const char *npath = cwd;
-	for (npath = cwd; l--;) {
+	for (npath = cwd; l != 0; l--) {
 		const char *error;
 		test_assert_idx(t_normpath_to("../", npath, &npath, &error) == 0, l);
 	}
