@@ -867,8 +867,11 @@ static int fetch_x_mailbox(struct imap_fetch_context *ctx, struct mail *mail,
 	const char *name;
 	string_t *mutf7_name;
 
-	if (mail_get_special(mail, MAIL_FETCH_MAILBOX_NAME, &name) < 0)
-		i_panic("mailbox name not returned");
+	if (mail_get_special(mail, MAIL_FETCH_MAILBOX_NAME, &name) < 0) {
+		/* This can happen with virtual mailbox if the backend mail
+		   is expunged. */
+		return -1;
+	}
 
 	mutf7_name = t_str_new(strlen(name)*2);
 	if (imap_utf8_to_utf7(name, mutf7_name) < 0)
