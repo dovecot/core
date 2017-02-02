@@ -2453,6 +2453,157 @@ static void test_peer_reuse_failure(void)
 	test_end();
 }
 
+/*
+ * Reconnect failure
+ */
+
+/* dns */
+
+static void
+test_dns_reconnect_failure_input(struct server_connection *conn)
+{
+	static unsigned int count = 0;
+	const char *line;
+
+	while ((line=i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (debug)
+			i_debug("DNS REQUEST %u: %s", count, line);
+
+		if (count == 0) {
+			o_stream_nsend_str(conn->conn.output,
+				"0 1\n127.0.0.1\n");
+		} else {
+			o_stream_nsend_str(conn->conn.output,
+				t_strdup_printf("%d\n", EAI_FAIL));
+			if (count > 4) {
+				server_connection_deinit(&conn);
+				return;
+			}
+		}
+		count++;
+	}
+}
+
+static void test_dns_reconnect_failure(void)
+{
+	test_server_input = test_dns_reconnect_failure_input;
+	test_server_run(0);
+}
+/* server */
+
+static void
+test_reconnect_failure_input(struct server_connection *conn)
+{
+	static const char *resp =
+		"HTTP/1.1 200 OK\r\n"
+		"Content-Length: 18\r\n"
+		"\r\n"
+		"Everything is OK\r\n";
+
+	o_stream_nsend_str(conn->conn.output, resp);
+	i_close_fd(&fd_listen);
+	sleep(500);
+}
+
+static void test_server_reconnect_failure(unsigned int index)
+{
+	test_server_input = test_reconnect_failure_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _reconnect_failure_ctx {
+	struct timeout *to;
+};
+
+static void
+test_client_reconnect_failure_response2(
+	const struct http_response *resp,
+	struct _reconnect_failure_ctx *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == 9002);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	io_loop_stop(ioloop);
+	i_free(ctx);
+}
+
+static void
+test_client_reconnect_failure_next(
+	struct _reconnect_failure_ctx *ctx)
+{
+	struct http_client_request *hreq;
+
+	if (debug)
+		i_debug("NEXT REQUEST");
+
+	timeout_remove(&ctx->to);
+
+	hreq = http_client_request(http_client,
+		"GET", "example.com", "/reconnect-failure-2.txt",
+		test_client_reconnect_failure_response2, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+}
+
+static void
+test_client_reconnect_failure_response1(
+	const struct http_response *resp,
+	struct _reconnect_failure_ctx *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == 200);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	ctx->to = timeout_add_short(999,
+		test_client_reconnect_failure_next, ctx);
+}
+
+static bool
+test_client_reconnect_failure(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _reconnect_failure_ctx *ctx;
+
+	ctx = i_new(struct _reconnect_failure_ctx, 1);
+	
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", "example.com", "/reconnect-failure-1.txt",
+		test_client_reconnect_failure_response1, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_reconnect_failure(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.dns_client_socket_path = "./dns-test";
+	http_client_set.dns_ttl_msecs = 2000;
+	http_client_set.max_idle_time_msecs = 1000;
+	http_client_set.max_attempts = 1;
+	http_client_set.request_timeout_msecs = 1000;
+
+	test_begin("reconnect failure");
+	test_run_client_server(&http_client_set,
+		test_client_reconnect_failure,
+		test_server_reconnect_failure, 1,
+		test_dns_reconnect_failure);
+	test_end();
+}
 
 /*
  * All tests
@@ -2482,6 +2633,7 @@ static void (*test_functions[])(void) = {
 	test_dns_lookup_failure,
 	test_dns_lookup_ttl,
 	test_peer_reuse_failure,
+	test_reconnect_failure,
 	NULL
 };
 
