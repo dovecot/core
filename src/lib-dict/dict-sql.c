@@ -1127,6 +1127,7 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 		const char *error;
 
 		str_printfa(query, "DELETE FROM %s", map->table);
+		sql_dict_transaction_add_timestamp(ctx, query);
 		if (sql_dict_where_build(dict, map, &values, key[0],
 					 SQL_DICT_RECURSE_NONE, query, &error) < 0) {
 			i_error("dict-sql: Failed to delete %s: %s", key, error);
