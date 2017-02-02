@@ -556,7 +556,7 @@ static int cmd_timestamp(struct dict_connection_cmd *cmd, const char *line)
 	if (str_array_length(args) != 3 ||
 	    str_to_llong(args[1], &tv_sec) < 0 ||
 	    str_to_uint(args[2], &tv_nsec) < 0) {
-		i_error("dict client: ATOMIC_INC: broken input");
+		i_error("dict client: TIMESTAMP: broken input");
 		return -1;
 	}
 
