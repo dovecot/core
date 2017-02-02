@@ -533,6 +533,17 @@ bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size)
 	return ret == 0;
 }
 
+size_t
+str_match(const char *p1, const char *p2)
+{
+	size_t i = 0;
+
+	while(p1[i] != '\0' && p1[i] == p2[i])
+		i++;
+
+	return i;
+}
+
 static char **
 split_str_slow(pool_t pool, const char *data, const char *separators, bool spaces)
 {
