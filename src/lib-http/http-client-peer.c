@@ -735,7 +735,7 @@ void http_client_peer_unlink_queue(struct http_client_peer *peer,
 				queue->name, array_count(&peer->queues));
 
 			if (array_count(&peer->queues) == 0)
-				http_client_peer_drop(&peer);
+				http_client_peer_check_idle(peer);
 			return;
 		}
 	}
