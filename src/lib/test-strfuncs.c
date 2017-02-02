@@ -368,6 +368,45 @@ static void test_dec2str_buf(void)
 	test_end();
 }
 
+static void
+test_str_match(void)
+{
+	static const struct {
+		const char*s1, *s2; size_t match;
+	} tests[] = {
+#define MATCH_TEST(common, left, right) { common left, common right, sizeof(common)-1 }
+		MATCH_TEST("", "", ""),
+		MATCH_TEST("", "x", ""),
+		MATCH_TEST("", "", "x"),
+		MATCH_TEST("", "foo", "bar"),
+		MATCH_TEST("x", "", ""),
+		MATCH_TEST("x", "y", "z"),
+		MATCH_TEST("blahblahblah", "", ""),
+		MATCH_TEST("blahblahblah", "", "bar"),
+		MATCH_TEST("blahblahblah", "foo", ""),
+		MATCH_TEST("blahblahblah", "foo", "bar"),
+#undef MATCH_TEST
+	};
+
+	unsigned int i;
+
+	test_begin("str_match");
+	for (i = 0; i < N_ELEMENTS(tests); i++)
+		test_assert_idx(str_match(tests[i].s1, tests[i].s2) == tests[i].match, i);
+	test_end();
+
+	test_begin("i_strbegins");
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		/* This is just 2 ways of wording the same test, but that also
+		   sanity tests the match values above. */
+		test_assert_idx(str_begins(tests[i].s1, tests[i].s2) ==
+				(strncmp(tests[i].s1, tests[i].s2, strlen(tests[i].s2)) == 0), i);
+		test_assert_idx(str_begins(tests[i].s1, tests[i].s2) ==
+				(strlen(tests[i].s2) == tests[i].match), i);
+	}
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strdup();
@@ -384,4 +423,5 @@ void test_strfuncs(void)
 	test_p_array_const_string_join();
 	test_mem_equals_timing_safe();
 	test_dec2str_buf();
+	test_str_match();
 }

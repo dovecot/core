@@ -72,6 +72,17 @@ int i_strcasecmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
    against timing attacks, so it compares all the bytes every time. */
 bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size);
 
+size_t str_match(const char *p1, const char *p2) ATTR_PURE;
+static inline ATTR_PURE bool str_begins(const char *haystack, const char *needle)
+{
+	return needle[str_match(haystack, needle)] == '\0';
+}
+#if defined(__GNUC__) && (__GNUC__ >= 2)
+/* GCC (and Clang) are known to have a compile-time strlen("literal") shortcut, and
+   an optimised strncmp(), so use that by default. Macro is multi-evaluation safe. */
+# define str_begins(h, n) (__builtin_constant_p(n) ? strncmp((h), (n), strlen(n))==0 : (str_begins)((h), (n)))
+#endif
+
 static inline char *i_strchr_to_next(const char *str, char chr)
 {
 	char *tmp = (char *)strchr(str, chr);
