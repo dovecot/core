@@ -478,18 +478,6 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	struct http_client_peer *failed_peer;
 	struct http_client_peer *const *peer_idx;
 
-	if (queue->cur_peer != NULL) {
-		/* The peer still has some working connections, which means that
-		   pending requests wait until they're picked up by those connections
-		   or the remaining connections fail as well. In the latter case,
-		   connecting to different peer can resolve the situation, but only
-		   if there is more than one IP. In any other case, the requests will
-		   eventually fail. In the future we could start connections to the next
-		   IP at this point already, but that is no small change. */
-		i_assert(array_count(&queue->pending_peers) == 0);
-		return;
-	}
-
 	http_client_queue_debug(queue,
 		"Failed to set up connection to %s%s: %s "
 		"(%u peers pending, %u requests pending)",
@@ -499,25 +487,44 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		reason, array_count(&queue->pending_peers),
 		array_count(&queue->requests));
 
-	/* we're still doing the initial connections to this hport. if
-		 we're also doing parallel connections with soft timeouts
-		 (pending_peer_count>1), wait for them to finish
-		 first. */
-	failed_peer = NULL;
-	array_foreach(&queue->pending_peers, peer_idx) {
-		if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
-			failed_peer = *peer_idx;
-			array_delete(&queue->pending_peers,
-				array_foreach_idx(&queue->pending_peers, peer_idx), 1);
-			break;
+	if (queue->cur_peer != NULL) {
+		if (http_client_peer_is_connected(queue->cur_peer)) {
+			/* The peer still has some working connections, which means that
+				 pending requests wait until they're picked up by those connections
+				 or the remaining connections fail as well. In the latter case,
+				 connecting to different peer can resolve the situation, but only
+				 if there is more than one IP. In any other case, the requests will
+				 eventually fail. In the future we could start connections to the next
+				 IP at this point already, but that is no small change. */
+			i_assert(array_count(&queue->pending_peers) == 0);
+			return;
 		}
-	}
-	i_assert(failed_peer != NULL);
-	if (array_count(&queue->pending_peers) > 0) {
-		http_client_queue_debug(queue,
-			"Waiting for remaining pending peers.");
-		http_client_peer_unlink_queue(failed_peer, queue);
-		return;
+
+		failed_peer = queue->cur_peer;
+		http_client_peer_unlink_queue(queue->cur_peer, queue);
+		queue->cur_peer = NULL;
+
+	} else {
+		/* we're still doing the initial connections to this hport. if
+			 we're also doing parallel connections with soft timeouts
+			 (pending_peer_count>1), wait for them to finish
+			 first. */
+		failed_peer = NULL;
+		array_foreach(&queue->pending_peers, peer_idx) {
+			if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
+				failed_peer = *peer_idx;
+				array_delete(&queue->pending_peers,
+					array_foreach_idx(&queue->pending_peers, peer_idx), 1);
+				break;
+			}
+		}
+		i_assert(failed_peer != NULL);
+		if (array_count(&queue->pending_peers) > 0) {
+			http_client_queue_debug(queue,
+				"Waiting for remaining pending peers.");
+			http_client_peer_unlink_queue(failed_peer, queue);
+			return;
+		}
 	}
 
 	/* one of the connections failed. if we're not using soft timeouts,
