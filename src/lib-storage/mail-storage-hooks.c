@@ -273,6 +273,7 @@ void hook_mail_user_created(struct mail_user *user)
 			hook_build_update(ctx, user->vlast);
 		} T_END;
 	}
+	user->vlast = NULL;
 	pool_unref(&ctx->pool);
 }
 
@@ -326,6 +327,7 @@ void hook_mail_storage_created(struct mail_storage *storage)
 			hook_build_update(ctx, storage->vlast);
 		} T_END;
 	}
+	storage->vlast = NULL;
 	pool_unref(&ctx->pool);
 }
 
@@ -342,6 +344,7 @@ void hook_mailbox_list_created(struct mailbox_list *list)
 			hook_build_update(ctx, list->vlast);
 		} T_END;
 	}
+	list->vlast = NULL;
 	pool_unref(&ctx->pool);
 }
 
@@ -358,6 +361,7 @@ void hook_mailbox_allocated(struct mailbox *box)
 			hook_build_update(ctx, box->vlast);
 		} T_END;
 	}
+	box->vlast = NULL;
 	pool_unref(&ctx->pool);
 }
 
@@ -386,5 +390,6 @@ void hook_mail_allocated(struct mail *mail)
 			hook_build_update(ctx, pmail->vlast);
 		} T_END;
 	}
+	pmail->vlast = NULL;
 	pool_unref(&ctx->pool);
 }
