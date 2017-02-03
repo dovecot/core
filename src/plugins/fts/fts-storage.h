@@ -53,6 +53,5 @@ struct fts_backend *fts_list_backend(struct mailbox_list *list);
 
 void fts_mail_allocated(struct mail *mail);
 void fts_mailbox_allocated(struct mailbox *box);
-void fts_mail_namespaces_added(struct mail_namespace *namespaces);
-
+void fts_mailbox_list_created(struct mailbox_list *list);
 #endif
