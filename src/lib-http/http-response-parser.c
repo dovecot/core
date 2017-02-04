@@ -146,7 +146,6 @@ static int http_response_parse(struct http_response_parser *parser)
 	 */
 	switch (parser->state) {
 	case HTTP_RESPONSE_PARSE_STATE_INIT:
-		http_response_parser_restart(parser);
 		parser->state = HTTP_RESPONSE_PARSE_STATE_VERSION;
 		/* fall through */
 	case HTTP_RESPONSE_PARSE_STATE_VERSION:
@@ -312,6 +311,9 @@ int http_response_parse_next(struct http_response_parser *parser,
 		*error_r = parser->parser.error;
 		return ret;
 	}
+
+	if (parser->state == HTTP_RESPONSE_PARSE_STATE_INIT)
+		http_response_parser_restart(parser);
 
 	/* RFC 7230, Section 3:
 		
