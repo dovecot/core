@@ -61,7 +61,6 @@ void http_message_parser_restart(struct http_message_parser *parser,
 		pool_ref(pool);
 	}
 	parser->msg.date = (time_t)-1;
-	parser->msg.header = http_header_create(parser->msg.pool, 32);
 }
 
 int http_message_parse_version(struct http_message_parser *parser)
@@ -132,6 +131,8 @@ http_message_parse_header(struct http_message_parser *parser,
 	const struct http_header_field *hdr;
 	struct http_parser hparser;
 
+	if (parser->msg.header == NULL)
+		parser->msg.header = http_header_create(parser->msg.pool, 32);
 	hdr = http_header_field_add(parser->msg.header, name, data, size);
 
 	/* RFC 7230, Section 3.2.2: Field Order
@@ -355,6 +356,10 @@ int http_message_parse_headers(struct http_message_parser *parser)
 		&field_name, &field_data, &field_size, &error)) > 0) {
 		if (field_name == NULL) {
 			/* EOH */
+
+			/* Create empty header if there is none */
+			if (parser->msg.header == NULL)
+				parser->msg.header = http_header_create(parser->msg.pool, 1);
 
 			/* handle HTTP/1.0 persistence */
 			if (msg->version_major == 1 && msg->version_minor == 0 &&
