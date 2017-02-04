@@ -304,6 +304,8 @@ int http_response_parse_next(struct http_response_parser *parser,
 	time_t retry_after = (time_t)-1;
 	int ret;
 
+	i_zero(response);
+
 	/* make sure we finished streaming payload from previous response
 	   before we continue. */
 	if ((ret = http_message_parse_finish_payload(&parser->parser)) <= 0) {
@@ -387,7 +389,6 @@ int http_response_parse_next(struct http_response_parser *parser,
 
 	parser->state = HTTP_RESPONSE_PARSE_STATE_INIT;
 
-	i_zero(response);
 	response->status = parser->response_status;
 	response->reason = parser->response_reason;
 	response->version_major = parser->parser.msg.version_major;
