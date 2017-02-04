@@ -11,8 +11,7 @@
 
 #include <time.h>
 
-struct http_response_parse_test {
-	const char *response;
+struct valid_parse_test_response {
 	unsigned char version_major;
 	unsigned char version_minor;
 	unsigned int status;
@@ -20,11 +19,42 @@ struct http_response_parse_test {
 	const char *payload;
 };
 
+struct valid_parse_test {
+	const char *input;
+
+	const struct valid_parse_test_response *responses;
+	unsigned int responses_count;
+};
+
 /* Valid response tests */
 
-static const struct http_response_parse_test
+static const struct valid_parse_test_response valid_responses1[] = {
+	{ 
+		.status = 200,
+		.payload = "This is a piece of stupid text.\r\n"
+	}
+};
+
+static const struct valid_parse_test_response valid_responses2[] = {
+	{ 
+		.status = 200,
+		.payload = "This is a piece of stupid text.\r\n"
+	},{ 
+		.status = 200,
+		.payload = "This is a piece of even more stupid text.\r\n"
+	}
+};
+
+static const struct valid_parse_test_response valid_responses3[] = {
+	{ 
+		.status = 401,
+		.payload = "Frop!"
+	}
+};
+
+static const struct valid_parse_test
 valid_response_parse_tests[] = {
-	{ .response =
+	{ .input =
 			"HTTP/1.1 200 OK\r\n"
 			"Date: Sun, 07 Oct 2012 13:02:27 GMT\r\n"
 			"Server: Apache/2.2.16 (Debian)\r\n"
@@ -37,10 +67,10 @@ valid_response_parse_tests[] = {
 			"Content-Type: text/plain\r\n"
 			"\r\n"
 			"This is a piece of stupid text.\r\n",
-		.status = 200,
-		.payload = "This is a piece of stupid text.\r\n"
+		.responses = valid_responses1,
+		.responses_count = N_ELEMENTS(valid_responses1)
 	},{
-		.response =
+		.input =
 			"HTTP/1.1 200 OK\r\n"
 			"Date: Sun, 07 Oct 2012 13:02:27 GMT\r\n"
 			"Server: Apache/2.2.16 (Debian)\r\n"
@@ -65,10 +95,10 @@ valid_response_parse_tests[] = {
 			"Content-Type: text/plain\r\n"
 			"\r\n"
 			"This is a piece of even more stupid text.\r\n",
-		.status = 200,
-		.payload = "This is a piece of even more stupid text.\r\n"
+		.responses = valid_responses2,
+		.responses_count = N_ELEMENTS(valid_responses2)
 	},{
-		.response =
+		.input =
 			"HTTP/1.1 401 Authorization Required\r\n"
 			"Date: Sun, 07 Oct 2012 19:52:03 GMT\r\n"
 			"Server: Apache/2.2.16 (Debian) PHP/5.3.3-7+squeeze14\r\n"
@@ -81,8 +111,8 @@ valid_response_parse_tests[] = {
 			"Content-Type: text/html; charset=iso-8859-1\r\n"
 			"\r\n"
 			"Frop!",
-		.status = 401,
-		.payload = "Frop!"
+		.responses = valid_responses3,
+		.responses_count = N_ELEMENTS(valid_responses3)
 	}
 };
 
@@ -97,60 +127,75 @@ static void test_http_response_parse_valid(void)
 	for (i = 0; i < valid_response_parse_test_count; i++) T_BEGIN {
 		struct istream *input;
 		struct ostream *output;
-		const struct http_response_parse_test *test;
+		const struct valid_parse_test *test;
+		const struct valid_parse_test_response *tresponse;
 		struct http_response_parser *parser;
-		struct http_response response;
-		const char *response_text, *payload, *error;
-		unsigned int pos, response_text_len;
+		struct http_response presponse;
+		const char *input_text, *payload, *error;
+		unsigned int j, pos, input_text_len;
 		int ret = 0;
 
-		i_zero(&response);
+		i_zero(&presponse);
 		test = &valid_response_parse_tests[i];
-		response_text = test->response;
-		response_text_len = strlen(response_text);
-		input = test_istream_create_data(response_text, response_text_len);
+		input_text = test->input;
+		input_text_len = strlen(input_text);
+		input = test_istream_create_data(input_text, input_text_len);
 		parser = http_response_parser_init(input, NULL);
 
 		test_begin(t_strdup_printf("http response valid [%d]", i));
 
 		payload = NULL;
-		for (pos = 0; pos < response_text_len && ret == 0; pos++) {
+		for (pos = 0; pos < input_text_len && ret == 0; pos++) {
 			test_istream_set_size(input, pos);
-			ret = http_response_parse_next(parser, HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &response, &error);
+			ret = http_response_parse_next(parser,
+				HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &presponse, &error);
 		}
-		test_istream_set_size(input, response_text_len);
+		test_istream_set_size(input, input_text_len);
 		i_stream_unref(&input);
 
+		j = 0;
+		test_out("parse success", ret > 0);
 		while (ret > 0) {
-			if (response.payload != NULL) {
+			if (presponse.payload != NULL) {
 				buffer_set_used_size(payload_buffer, 0);
 				output = o_stream_create_buffer(payload_buffer);
 				test_out("payload receive", 
-					o_stream_send_istream(output, response.payload) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
+					o_stream_send_istream(output, presponse.payload)
+						== OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 				o_stream_destroy(&output);
 				payload = str_c(payload_buffer);
 			} else {
 				payload = NULL;
 			}
-			ret = http_response_parse_next(parser, HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &response, &error);
-		}
 
-		test_out("parse success", ret == 0);
+			test_assert(j < test->responses_count);
+			if (j >= test->responses_count)
+				break;
+			tresponse = &test->responses[j];
 
-		if (ret == 0) {
 			/* verify last response only */
-			test_out(t_strdup_printf("response->status = %d",test->status),
-					response.status == test->status);
-			if (payload == NULL || test->payload == NULL) {
+			test_out(t_strdup_printf("response->status = %d",
+					tresponse->status),
+				presponse.status == tresponse->status);
+			if (payload == NULL || tresponse->payload == NULL) {
 				test_out(t_strdup_printf("response->payload = %s",
 					str_sanitize(payload, 80)),
-					payload == test->payload);
+					payload == tresponse->payload);
 			} else {
 				test_out(t_strdup_printf("response->payload = %s",
 					str_sanitize(payload, 80)),
-					strcmp(payload, test->payload) == 0);
+					strcmp(payload, tresponse->payload) == 0);
 			}
+		
+			ret = http_response_parse_next(parser,
+				HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &presponse, &error);
+			if (++j == test->responses_count)
+				test_out("parse end", ret == 0);
+			else
+				test_out("parse success", ret > 0);
 		}
+
+		test_assert(ret == 0);
 		test_end();
 		http_response_parser_deinit(&parser);
 	} T_END;
@@ -235,14 +280,18 @@ static void test_http_response_parse_bad(void)
 					  sizeof(bad_response_with_nuls)-1);
 	parser = http_response_parser_init(input, NULL);
 	i_stream_unref(&input);
-	while ((ret=http_response_parse_next(parser, HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &response, &error)) > 0);
-	test_out("parse success", ret == 0);
+	ret = http_response_parse_next(parser,
+		HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &response, &error);
+	test_out("parse success", ret > 0);
 	header = http_response_header_get(&response, "server");
 	test_out("header present", header != NULL);
 	if (header != NULL) {
 		test_out(t_strdup_printf("header Server: %s", header),
 			strcmp(header, "textserver") == 0);
 	}
+	ret = http_response_parse_next(parser,
+		HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &response, &error);
+	test_out("parse end", ret == 0);
 	test_end();
 	http_response_parser_deinit(&parser);
 }
