@@ -11,6 +11,8 @@ bool http_request_has_connection_option(const struct http_request *req,
 {
 	const char *const *opt_idx;
 
+	if (!array_is_created(&req->connection_options))
+		return FALSE;
 	array_foreach(&req->connection_options, opt_idx) {
 		if (strcasecmp(*opt_idx, option) == 0)
 			return TRUE;
