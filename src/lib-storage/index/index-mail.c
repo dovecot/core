@@ -882,21 +882,28 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 
 	/* store the virtual size in index if
 		extension for it exists or
-		extension for box virtual size exists
+		extension for box virtual size exists and
+		size fits and is present and
+		size is not cached or
+		cached size differs
 	*/
-
 	if ((mail_index_map_get_ext_idx(view->map, _mail->box->mail_vsize_ext_id, &idx) ||
 	     mail_index_map_get_ext_idx(view->map, _mail->box->vsize_hdr_ext_id, &idx)) &&
 	    (sizes[0] != (uoff_t)-1 &&
 	     sizes[0] < (uint32_t)-1)) {
+		const uint32_t *vsize_ext =
+			index_mail_get_vsize_extension(_mail);
 		/* vsize = 0 means it's not present in index, consult cache.
 		   we store vsize for every +4GB-1 mail to cache because
 		   index can only hold 2^32-1 size. Cache will not be used
 		   when vsize is stored in index. */
 		vsize = sizes[0] + 1;
+		if (vsize_ext == NULL || vsize != *vsize_ext) {
+			mail_index_update_ext(_mail->transaction->itrans, _mail->seq,
+					      _mail->box->mail_vsize_ext_id, &vsize, NULL);
+		}
+		/* it's already in index, so don't update cache */
 		sizes[0] = (uoff_t)-1;
-		mail_index_update_ext(_mail->transaction->itrans, _mail->seq,
-				      _mail->box->mail_vsize_ext_id, &vsize, NULL);
 	}
 
 	for (i = 0; i < N_ELEMENTS(size_fields); i++) {
