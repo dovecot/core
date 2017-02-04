@@ -61,7 +61,7 @@ struct mail_user *mail_user_alloc(const char *username,
 	user->username = p_strdup(pool, username);
 	user->set_info = set_info;
 	user->unexpanded_set = settings_dup(set_info, set, pool);
-	user->set = settings_dup(set_info, set, pool);
+	user->set = settings_dup_with_pointers(set_info, user->unexpanded_set, pool);
 	user->service = master_service_get_name(master_service);
 	user->default_normalizer = uni_utf8_to_decomposed_titlecase;
 	user->session_create_time = ioloop_time;
