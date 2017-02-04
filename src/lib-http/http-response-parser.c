@@ -83,6 +83,7 @@ static int http_response_parse_status(struct http_response_parser *parser)
 static int http_response_parse_reason(struct http_response_parser *parser)
 {
 	const unsigned char *p = parser->parser.cur;
+	pool_t pool;
 
 	/* reason-phrase = *( HTAB / SP / VCHAR / obs-text )
 	 */
@@ -92,8 +93,9 @@ static int http_response_parse_reason(struct http_response_parser *parser)
 
 	if (p == parser->parser.end)
 		return 0;
+	pool = http_message_parser_get_pool(&parser->parser);
 	parser->response_reason =
-		p_strdup_until(parser->parser.msg.pool, parser->parser.cur, p);
+		p_strdup_until(pool, parser->parser.cur, p);
 	parser->parser.cur = p;
 	return 1;
 }

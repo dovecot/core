@@ -62,6 +62,8 @@ void http_message_parser_deinit(struct http_message_parser *parser);
 void http_message_parser_restart(struct http_message_parser *parser,
 	pool_t pool);
 
+pool_t http_message_parser_get_pool(struct http_message_parser *parser);
+
 int http_message_parse_finish_payload(struct http_message_parser *parser);
 int http_message_parse_version(struct http_message_parser *parser);
 int http_message_parse_headers(struct http_message_parser *parser);

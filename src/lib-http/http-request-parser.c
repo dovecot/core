@@ -92,6 +92,7 @@ http_request_parser_restart(struct http_request_parser *parser,
 static int http_request_parse_method(struct http_request_parser *parser)
 {
 	const unsigned char *p = parser->parser.cur;
+	pool_t pool;
 
 	/* method         = token
 	 */
@@ -105,8 +106,9 @@ static int http_request_parse_method(struct http_request_parser *parser)
 	}
 	if (p == parser->parser.end)
 		return 0;
+	pool = http_message_parser_get_pool(&parser->parser);
 	parser->request_method =
-		p_strdup_until(parser->parser.msg.pool, parser->parser.cur, p);
+		p_strdup_until(pool, parser->parser.cur, p);
 	parser->parser.cur = p;
 	return 1;
 }
@@ -115,6 +117,7 @@ static int http_request_parse_target(struct http_request_parser *parser)
 {
 	struct http_message_parser *_parser = &parser->parser;
 	const unsigned char *p = parser->parser.cur;
+	pool_t pool;
 
 	/* We'll just parse anything up to the first SP or a control char.
 	   We could also implement workarounds for buggy HTTP clients and
@@ -138,7 +141,8 @@ static int http_request_parse_target(struct http_request_parser *parser)
 	}
 	if (p == _parser->end)
 		return 0;
-	parser->request_target = p_strdup_until(_parser->msg.pool, _parser->cur, p);
+	pool = http_message_parser_get_pool(_parser);
+	parser->request_target = p_strdup_until(pool, _parser->cur, p);
 	parser->parser.cur = p;
 	return 1;
 }
@@ -574,8 +578,9 @@ int http_request_parse_next(struct http_request_parser *parser,
 
 	i_zero(request);
 
+	pool = http_message_parser_get_pool(&parser->parser);
 	if (http_url_request_target_parse(parser->request_target, hdr->value,
-		parser->parser.msg.pool, &request->target, &error) < 0) {
+		pool, &request->target, &error) < 0) {
 		*error_code_r = HTTP_REQUEST_PARSE_ERROR_BAD_REQUEST;
 		*error_r = t_strdup_printf("Bad request target `%s': %s",
 			parser->request_target, error);
