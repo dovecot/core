@@ -106,6 +106,7 @@ auth_SOURCES = \
 	mech-apop.c \
 	mech-winbind.c \
 	mech-dovecot-token.c \
+	mech-oauth2.c \
 	passdb.c \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
