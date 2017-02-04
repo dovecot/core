@@ -82,6 +82,8 @@ extern const struct mech_module mech_gssapi_spnego;
 #endif
 extern const struct mech_module mech_winbind_ntlm;
 extern const struct mech_module mech_winbind_spnego;
+extern const struct mech_module mech_oauthbearer;
+extern const struct mech_module mech_xoauth2;
 
 static void mech_register_add(struct mechanisms_register *reg,
 			      const struct mech_module *mech)
@@ -211,6 +213,8 @@ void mech_init(const struct auth_settings *set)
 #ifdef BUILTIN_GSSAPI
 	mech_register_module(&mech_gssapi);
 #endif
+	mech_register_module(&mech_oauthbearer);
+	mech_register_module(&mech_xoauth2);
 }
 
 void mech_deinit(const struct auth_settings *set)
@@ -238,4 +242,6 @@ void mech_deinit(const struct auth_settings *set)
 #ifdef BUILTIN_GSSAPI
 	mech_unregister_module(&mech_gssapi);
 #endif
+	mech_unregister_module(&mech_oauthbearer);
+	mech_unregister_module(&mech_xoauth2);
 }
