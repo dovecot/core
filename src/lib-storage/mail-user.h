@@ -116,6 +116,10 @@ extern const struct var_expand_func_table *mail_user_var_expand_func_table;
 struct mail_user *mail_user_alloc(const char *username,
 				  const struct setting_parser_info *set_info,
 				  const struct mail_user_settings *set);
+struct mail_user *
+mail_user_alloc_nodup_set(const char *username,
+			  const struct setting_parser_info *set_info,
+			  const struct mail_user_settings *set);
 /* Returns -1 if settings were invalid. */
 int mail_user_init(struct mail_user *user, const char **error_r);
 
