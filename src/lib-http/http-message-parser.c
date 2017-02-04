@@ -62,7 +62,6 @@ void http_message_parser_restart(struct http_message_parser *parser,
 	}
 	parser->msg.date = (time_t)-1;
 	parser->msg.header = http_header_create(parser->msg.pool, 32);
-	p_array_init(&parser->msg.connection_options, parser->msg.pool, 4);
 }
 
 int http_message_parse_version(struct http_message_parser *parser)
@@ -165,6 +164,8 @@ http_message_parse_header(struct http_message_parser *parser,
 				num_tokens++;
 				if (strcasecmp(option, "close") == 0)
 					parser->msg.connection_close = TRUE;
+				if (!array_is_created(&parser->msg.connection_options))
+					p_array_init(&parser->msg.connection_options, parser->msg.pool, 4);
 				opt_idx = array_append_space(&parser->msg.connection_options);
 				*opt_idx = p_strdup(parser->msg.pool, option);
 			}
@@ -360,13 +361,15 @@ int http_message_parse_headers(struct http_message_parser *parser)
 				!msg->connection_close) {
 				const char *const *option;
 
-				msg->connection_close = TRUE;	
-				array_foreach(&msg->connection_options, option) {
-					if (strcasecmp(*option, "Keep-Alive") == 0) {
-						msg->connection_close = FALSE;
-						break;
+				msg->connection_close = TRUE;
+				if (array_is_created(&parser->msg.connection_options)) {
+					array_foreach(&msg->connection_options, option) {
+						if (strcasecmp(*option, "Keep-Alive") == 0) {
+							msg->connection_close = FALSE;
+							break;
+						}
 					}
-				}			
+				}
 			}
 			return 1;
 		}
