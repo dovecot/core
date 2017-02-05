@@ -429,6 +429,19 @@ static int imap_fetch_send_nil_reply(struct imap_fetch_context *ctx)
 	return 0;
 }
 
+static bool imap_fetch_cur_failed(struct imap_fetch_context *ctx)
+{
+	ctx->failures = TRUE;
+	if (ctx->client->set->parsed_fetch_failure ==
+	    IMAP_CLIENT_FETCH_FAILURE_DISCONNECT_IMMEDIATELY)
+		return FALSE;
+
+	if (!array_is_created(&ctx->fetch_failed_uids))
+		p_array_init(&ctx->fetch_failed_uids, ctx->ctx_pool, 8);
+	seq_range_array_add(&ctx->fetch_failed_uids, ctx->state.cur_mail->uid);
+	return TRUE;
+}
+
 static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 {
 	struct imap_fetch_state *state = &ctx->state;
@@ -452,7 +465,8 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 				if (imap_fetch_send_nil_reply(ctx) < 0)
 					return -1;
 			} else {
-				return -1;
+				if (!imap_fetch_cur_failed(ctx))
+					return -1;
 			}
 		}
 
@@ -517,7 +531,8 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 				} else {
 					i_assert(ret < 0 ||
 						 state->cont_handler != NULL);
-					return -1;
+					if (!imap_fetch_cur_failed(ctx))
+						return -1;
 				}
 			}
 
@@ -549,7 +564,7 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 		state->cur_handler = 0;
 	}
 
-	return 1;
+	return ctx->failures ? -1 : 1;
 }
 
 int imap_fetch_more(struct imap_fetch_context *ctx,

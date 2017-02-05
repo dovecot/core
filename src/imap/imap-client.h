@@ -157,6 +157,7 @@ struct client {
 
 	uint64_t sync_last_full_modseq;
 	uint64_t highest_fetch_modseq;
+	ARRAY_TYPE(seq_range) fetch_failed_uids;
 
 	/* For imap_logout_format statistics: */
 	unsigned int fetch_hdr_count, fetch_body_count;

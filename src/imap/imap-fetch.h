@@ -84,8 +84,10 @@ struct imap_fetch_context {
 	ARRAY_TYPE(keywords) tmp_keywords;
 
 	struct imap_fetch_state state;
+	ARRAY_TYPE(seq_range) fetch_failed_uids;
 
 	bool initialized:1;
+	bool failures:1;
 	bool flags_have_handler:1;
 	bool flags_update_seen:1;
 	bool flags_show_only_seen_changes:1;

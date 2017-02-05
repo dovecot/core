@@ -80,6 +80,8 @@ void imap_client_close_mailbox(struct client *client)
 
 	i_assert(client->mailbox != NULL);
 
+	if (array_is_created(&client->fetch_failed_uids))
+		array_clear(&client->fetch_failed_uids);
 	client_search_updates_free(client);
 
 	box = client->mailbox;

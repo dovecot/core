@@ -72,6 +72,7 @@ static const struct setting_define imap_setting_defines[] = {
 	DEF(SET_STR, imap_logout_format),
 	DEF(SET_STR, imap_id_send),
 	DEF(SET_STR, imap_id_log),
+	DEF(SET_ENUM, imap_fetch_failure),
 	DEF(SET_BOOL, imap_metadata),
 	DEF(SET_BOOL, imap_literal_minus),
 	DEF(SET_TIME, imap_hibernate_timeout),
@@ -99,6 +100,7 @@ static const struct imap_settings imap_default_settings = {
 		"body_count=%{fetch_body_count} body_bytes=%{fetch_body_bytes}",
 	.imap_id_send = "name *",
 	.imap_id_log = "",
+	.imap_fetch_failure = "disconnect-immediately:disconnect-after:no-after",
 	.imap_metadata = FALSE,
 	.imap_literal_minus = FALSE,
 	.imap_hibernate_timeout = 0,
@@ -175,6 +177,18 @@ imap_settings_verify(void *_set, pool_t pool ATTR_UNUSED, const char **error_r)
 
 	if (imap_settings_parse_workarounds(set, error_r) < 0)
 		return FALSE;
+
+	if (strcmp(set->imap_fetch_failure, "disconnect-immediately") == 0)
+		set->parsed_fetch_failure = IMAP_CLIENT_FETCH_FAILURE_DISCONNECT_IMMEDIATELY;
+	else if (strcmp(set->imap_fetch_failure, "disconnect-after") == 0)
+		set->parsed_fetch_failure = IMAP_CLIENT_FETCH_FAILURE_DISCONNECT_AFTER;
+	else if (strcmp(set->imap_fetch_failure, "no-after") == 0)
+		set->parsed_fetch_failure = IMAP_CLIENT_FETCH_FAILURE_NO_AFTER;
+	else {
+		*error_r = t_strdup_printf("Unknown imap_fetch_failure: %s",
+					   set->imap_fetch_failure);
+		return FALSE;
+	}
 	return TRUE;
 }
 /* </settings checks> */
