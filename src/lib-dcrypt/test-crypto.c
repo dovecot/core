@@ -755,10 +755,11 @@ int main(void) {
 	struct dcrypt_settings set = {
 		.module_dir = ".libs"
 	};
+	const char *error;
 
 	random_init();
-	if (!dcrypt_initialize(NULL, &set, NULL)) {
-		i_error("No functional dcrypt backend found - skipping tests");
+	if (!dcrypt_initialize(NULL, &set, &error)) {
+		i_error("No functional dcrypt backend found - skipping tests: %s", error);
 		return 0;
 	}
 
