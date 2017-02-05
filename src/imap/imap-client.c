@@ -369,10 +369,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (client->input_lock != NULL)
 		client_command_cancel(&client->input_lock);
 
-	if (client->mailbox != NULL) {
-		client_search_updates_free(client);
-		mailbox_free(&client->mailbox);
-	}
+	if (client->mailbox != NULL)
+		imap_client_close_mailbox(client);
 	if (client->notify_ctx != NULL)
 		imap_notify_deinit(&client->notify_ctx);
 	if (client->urlauth_ctx != NULL)

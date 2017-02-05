@@ -16,7 +16,6 @@ bool cmd_close(struct client_command_context *cmd)
 		return TRUE;
 
 	i_assert(client->mailbox_change_lock == NULL);
-	client->mailbox = NULL;
 
 	storage = mailbox_get_storage(mailbox);
 	if (imap_expunge(mailbox, NULL, &client->expunged_count) < 0) {
@@ -31,11 +30,7 @@ bool cmd_close(struct client_command_context *cmd)
 	if (mailbox_sync(mailbox, 0) < 0)
 		client_send_untagged_storage_error(client, storage);
 
-	client_search_updates_free(client);
-
-	mailbox_free(&mailbox);
-	client_update_mailbox_flags(client, NULL);
-
+	imap_client_close_mailbox(client);
 	client_send_tagline(cmd, tagged_reply);
 	return TRUE;
 }
