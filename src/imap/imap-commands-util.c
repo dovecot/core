@@ -74,6 +74,21 @@ bool client_verify_open_mailbox(struct client_command_context *cmd)
 	}
 }
 
+void imap_client_close_mailbox(struct client *client)
+{
+	struct mailbox *box;
+
+	i_assert(client->mailbox != NULL);
+
+	client_search_updates_free(client);
+
+	box = client->mailbox;
+	client->mailbox = NULL;
+
+	mailbox_free(&box);
+	client_update_mailbox_flags(client, NULL);
+}
+
 int client_open_save_dest_box(struct client_command_context *cmd,
 			      const char *name, struct mailbox **destbox_r)
 {

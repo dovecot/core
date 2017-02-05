@@ -363,16 +363,10 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 
 static void close_selected_mailbox(struct client *client)
 {
-	struct mailbox *box;
-
 	if (client->mailbox == NULL)
 		return;
 
-	client_search_updates_free(client);
-	box = client->mailbox;
-	client->mailbox = NULL;
-
-	mailbox_free(&box);
+	imap_client_close_mailbox(client);
 	/* CLOSED response is required by QRESYNC */
 	client_send_line(client, "* OK [CLOSED] Previous mailbox closed.");
 }
