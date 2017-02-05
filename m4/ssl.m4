@@ -102,6 +102,9 @@ AC_DEFUN([DOVECOT_SSL], [
         AC_DEFINE(HAVE_SSL_CTX_SET1_CURVES_LIST,, [Define if you have SSL_CTX_set1_curves_list])
       fi
 
+      AC_CHECK_LIB(ssl, OPENSSL_cleanup, [
+        AC_DEFINE(HAVE_OPENSSL_CLEANUP,, [OpenSSL supports OPENSSL_cleanup()])
+      ],, $SSL_LIBS)
       AC_CHECK_LIB(ssl, SSL_get_current_compression, [
         AC_DEFINE(HAVE_SSL_COMPRESSION,, [Build with OpenSSL compression])
       ],, $SSL_LIBS)
