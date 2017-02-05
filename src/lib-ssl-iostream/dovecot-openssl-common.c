@@ -95,10 +95,14 @@ bool dovecot_openssl_common_global_unref(void)
 	ENGINE_cleanup();
 	EVP_cleanup();
 	CRYPTO_cleanup_all_ex_data();
-#if OPENSSL_VERSION_NUMBER < 0x10000000L
-	ERR_remove_state(0);
-#elif OPENSSL_VERSION_NUMBER < 0x10100000L
+#ifdef HAVE_OPENSSL_AUTO_THREAD_DEINIT
+	/* no cleanup needed */
+#elif defined(HAVE_OPENSSL_ERR_REMOVE_THREAD_STATE)
+	/* This was marked as deprecated in v1.1. */
 	ERR_remove_thread_state(NULL);
+#else
+	/* This was deprecated by ERR_remove_thread_state(NULL) in v1.0.0. */
+	ERR_remove_state(0);
 #endif
 	ERR_free_strings();
 #ifdef HAVE_OPENSSL_CLEANUP

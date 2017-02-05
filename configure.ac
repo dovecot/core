@@ -1769,6 +1769,12 @@ if test $want_openssl != no && test $have_ssl = no; then
       AC_DEFINE(HAVE_SSL_NEW_MEM_FUNCS,, [Define if CRYPTO_set_mem_functions has new style parameters])
     fi
 
+    AC_CHECK_LIB(ssl, ERR_remove_thread_state, [
+      AC_DEFINE(HAVE_OPENSSL_ERR_REMOVE_THREAD_STATE,, [Define if you have ERR_remove_thread_state])
+    ],, $SSL_LIBS)
+    AC_CHECK_LIB(ssl, OPENSSL_thread_stop, [
+      AC_DEFINE(HAVE_OPENSSL_AUTO_THREAD_DEINIT,, [Define if OpenSSL performs thread cleanup automatically])
+    ],, $SSL_LIBS)
     AC_CHECK_LIB(ssl, OPENSSL_cleanup, [
       AC_DEFINE(HAVE_OPENSSL_CLEANUP,, [OpenSSL supports OPENSSL_cleanup()])
     ],, $SSL_LIBS)
