@@ -934,7 +934,6 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 	prefix = t_str_new(64);
 	suffix = t_str_new(256);
 	str_printfa(prefix, "INSERT INTO %s", fields[0].map->table);
-	sql_dict_transaction_add_timestamp(ctx, prefix);
 	str_append(prefix, " (");
 	str_append(suffix, ") VALUES (");
 	for (i = 0; i < field_count; i++) {
@@ -974,6 +973,7 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 
 	str_append_str(prefix, suffix);
 	str_append_c(prefix, ')');
+	sql_dict_transaction_add_timestamp(ctx, prefix);
 	if (!dict->has_on_duplicate_key) {
 		*query_r = str_c(prefix);
 		return 0;
