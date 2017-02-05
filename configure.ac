@@ -1769,6 +1769,9 @@ if test $want_openssl != no && test $have_ssl = no; then
       AC_DEFINE(HAVE_SSL_NEW_MEM_FUNCS,, [Define if CRYPTO_set_mem_functions has new style parameters])
     fi
 
+    AC_CHECK_LIB(ssl, OPENSSL_cleanup, [
+      AC_DEFINE(HAVE_OPENSSL_CLEANUP,, [OpenSSL supports OPENSSL_cleanup()])
+    ],, $SSL_LIBS)
     AC_CHECK_LIB(ssl, SSL_get_current_compression, [
       AC_DEFINE(HAVE_SSL_COMPRESSION,, [Build with OpenSSL compression])
     ],, $SSL_LIBS)
