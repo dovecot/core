@@ -61,6 +61,28 @@ AC_DEFUN([DOVECOT_SSL], [
         AC_DEFINE(HAVE_SSL_CLEAR_OPTIONS,, [Define if you have SSL_clear_options])
       fi
 
+      # New style mem functions? Should be in v1.1+
+      AC_CACHE_CHECK([whether CRYPTO_set_mem_functions has new style parameters],i_cv_have_ssl_new_mem_funcs,[
+        old_LIBS=$LIBS
+        LIBS="$LIBS -lssl"
+        AC_TRY_LINK([
+          #include <openssl/ssl.h>
+	  int CRYPTO_set_mem_functions(
+		  void *(*m) (size_t, const char *, int),
+		  void *(*r) (void *, size_t, const char *, int),
+		  void (*f) (void *, const char *, int));
+        ], [
+        ], [
+          i_cv_have_ssl_new_mem_funcs=yes
+        ], [
+          i_cv_have_ssl_new_mem_funcs=no
+        ])
+        LIBS=$old_LIBS
+      ])
+      if test $i_cv_have_ssl_new_mem_funcs = yes; then
+        AC_DEFINE(HAVE_SSL_NEW_MEM_FUNCS,, [Define if CRYPTO_set_mem_functions has new style parameters])
+      fi
+
       # SSL_CTX_set1_curves_list is a macro so plain AC_CHECK_LIB fails here.
       AC_CACHE_CHECK([whether SSL_CTX_set1_curves_list exists],i_cv_have_ssl_ctx_set1_curves_list,[
         old_LIBS=$LIBS
