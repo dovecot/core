@@ -29,7 +29,22 @@ static int ssl_iostream_init_global(const struct ssl_iostream_settings *set,
 static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 			    int is_export ATTR_UNUSED, int keylength)
 {
+#ifdef HAVE_RSA_GENERATE_KEY_EX
+	BIGNUM *bn = BN_new();
+	RSA *rsa = RSA_new();
+
+	if (bn != NULL && BN_set_word(bn, RSA_F4) != 0 &&
+	    RSA_generate_key_ex(rsa, keylength, bn, NULL) != 0)
+		return rsa;
+
+	if (bn != NULL)
+		BN_free(bn);
+	if (rsa != NULL)
+		RSA_free(rsa);
+	return NULL;
+#else
 	return RSA_generate_key(keylength, RSA_F4, NULL, NULL);
+#endif
 }
 
 static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
