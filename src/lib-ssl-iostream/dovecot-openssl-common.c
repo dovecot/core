@@ -86,9 +86,9 @@ bool dovecot_openssl_common_global_unref(void)
 		ENGINE_finish(dovecot_openssl_engine);
 		dovecot_openssl_engine = NULL;
 	}
-#if OPENSSL_VERSION_NUMBER < 0x10001000L
+	/* OBJ_cleanup() is called automatically by EVP_cleanup() in
+	   newer versions. Doesn't hurt to call it anyway. */
 	OBJ_cleanup();
-#endif
 #ifdef HAVE_SSL_COMP_FREE_COMPRESSION_METHODS
 	SSL_COMP_free_compression_methods();
 #endif
