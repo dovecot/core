@@ -177,23 +177,42 @@ static bool cmd_fetch_finished(struct client_command_context *cmd ATTR_UNUSED)
 	return TRUE;
 }
 
+static bool imap_fetch_is_failed_retry(struct imap_fetch_context *ctx)
+{
+	if (!array_is_created(&ctx->client->fetch_failed_uids) ||
+	    !array_is_created(&ctx->fetch_failed_uids))
+		return FALSE;
+	return seq_range_array_have_common(&ctx->client->fetch_failed_uids,
+					   &ctx->fetch_failed_uids);
+
+}
+
+static void imap_fetch_add_failed_uids(struct imap_fetch_context *ctx)
+{
+	if (!array_is_created(&ctx->fetch_failed_uids))
+		return;
+	if (!array_is_created(&ctx->client->fetch_failed_uids)) {
+		p_array_init(&ctx->client->fetch_failed_uids, ctx->client->pool,
+			     array_count(&ctx->fetch_failed_uids));
+	}
+	seq_range_array_merge(&ctx->client->fetch_failed_uids,
+			      &ctx->fetch_failed_uids);
+}
+
 static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			     struct client_command_context *cmd)
 {
 	static const char *ok_message = "OK Fetch completed.";
 	const char *tagged_reply = ok_message;
 	enum mail_error error;
-	bool failed, seen_flags_changed = ctx->state.seen_flags_changed;
+	bool seen_flags_changed = ctx->state.seen_flags_changed;
 
 	if (ctx->state.skipped_expunged_msgs) {
 		tagged_reply = "OK ["IMAP_RESP_CODE_EXPUNGEISSUED"] "
 			"Some messages were already expunged.";
 	}
 
-	failed = imap_fetch_end(ctx) < 0;
-	imap_fetch_free(&ctx);
-
-	if (failed) {
+	if (imap_fetch_end(ctx) < 0) {
 		const char *errstr;
 
 		if (cmd->client->output->closed) {
@@ -205,6 +224,7 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			   happen if we called client_disconnect() here
 			   directly). */
 			cmd->func = cmd_fetch_finished;
+			imap_fetch_free(&ctx);
 			return cmd->cancel;
 		}
 
@@ -217,13 +237,25 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			/* Content was invalid */
 			tagged_reply = t_strdup_printf(
 				"NO ["IMAP_RESP_CODE_PARSE"] %s", errstr);
-		} else {
-			/* We never want to reply NO to FETCH requests,
-			   BYE is preferrable (see imap-ml for reasons). */
+		} else if (cmd->client->set->parsed_fetch_failure != IMAP_CLIENT_FETCH_FAILURE_NO_AFTER ||
+			   imap_fetch_is_failed_retry(ctx)) {
+			/* By default we never want to reply NO to FETCH
+			   requests, because many IMAP clients become confused
+			   about what they should on NO. A disconnection causes
+			   less confusion. */
 			client_disconnect_with_error(cmd->client, errstr);
+			imap_fetch_free(&ctx);
 			return TRUE;
+		} else {
+			/* Use a tagged NO to FETCH failure, but only if client
+			   hasn't repeated the FETCH to the same email (so that
+			   we avoid infinitely retries from client.) */
+			imap_fetch_add_failed_uids(ctx);
+			tagged_reply = t_strdup_printf(
+				"NO ["IMAP_RESP_CODE_SERVERBUG"] %s", errstr);
 		}
 	}
+	imap_fetch_free(&ctx);
 
 	return cmd_sync(cmd,
 			(seen_flags_changed ? 0 : MAILBOX_SYNC_FLAG_FAST) |
