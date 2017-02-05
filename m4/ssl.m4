@@ -92,6 +92,9 @@ AC_DEFUN([DOVECOT_SSL], [
       AC_CHECK_LIB(ssl, RSA_generate_key_ex, [
         AC_DEFINE(HAVE_RSA_GENERATE_KEY_EX,, [Build with RSA_generate_key_ex() support])
       ],, $SSL_LIBS)
+      AC_CHECK_LIB(ssl, ASN1_STRING_get0_data, [
+        AC_DEFINE(HAVE_ASN1_STRING_GET0_DATA,, [Build with ASN1_STRING_get0_data() support])
+      ],, $SSL_LIBS)
       AC_CHECK_LIB(ssl, [EVP_PKEY_CTX_new_id], [have_evp_pkey_ctx_new_id="yes"],, $SSL_LIBS)
       AC_CHECK_LIB(ssl, [EC_KEY_new], [have_ec_key_new="yes"],, $SSL_LIBS)
       if test "$have_evp_pkey_ctx_new_id" = "yes" && test "$have_ec_key_new" = "yes"; then

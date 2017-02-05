@@ -84,7 +84,7 @@ static const char *asn1_string_to_c(ASN1_STRING *asn_str)
 	unsigned int len;
 
 	len = ASN1_STRING_length(asn_str);
-	cstr = t_strndup(ASN1_STRING_data(asn_str), len);
+	cstr = t_strndup(ASN1_STRING_get0_data(asn_str), len);
 	if (strlen(cstr) != len) {
 		/* NULs in the name - could be some MITM attack.
 		   never allow. */
