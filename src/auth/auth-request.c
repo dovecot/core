@@ -277,6 +277,22 @@ auth_str_add_keyvalue(string_t *dest, const char *key, const char *value)
 	}
 }
 
+static void
+auth_request_export_fields(string_t *dest, struct auth_fields *auth_fields,
+			   const char *prefix)
+{
+	const ARRAY_TYPE(auth_field) *fields = auth_fields_export(auth_fields);
+	const struct auth_field *field;
+
+	array_foreach(fields, field) {
+		str_printfa(dest, "\t%s%s", prefix, field->key);
+		if (field->value != NULL) {
+			str_append_c(dest, '=');
+			str_append_tabescaped(dest, field->value);
+		}
+	}
+}
+
 void auth_request_export(struct auth_request *request, string_t *dest)
 {
 	str_append(dest, "user=");
@@ -340,17 +356,8 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 	if (request->mech_name != NULL)
 		auth_str_add_keyvalue(dest, "mech", request->mech_name);
 	/* export any userdb fields */
-	if (request->userdb_reply != NULL) {
-		const ARRAY_TYPE(auth_field) *fields = auth_fields_export(request->userdb_reply);
-		const struct auth_field *field;
-		array_foreach(fields, field) {
-			str_printfa(dest, "\tuserdb_%s", field->key);
-			if (field->value != NULL) {
-				str_append_c(dest, '=');
-				str_append_tabescaped(dest, field->value);
-			}
-		}
-	}
+	if (request->userdb_reply != NULL)
+		auth_request_export_fields(dest, request->userdb_reply, "userdb_");
 }
 
 bool auth_request_import_info(struct auth_request *request,
