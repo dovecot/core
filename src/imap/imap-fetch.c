@@ -528,6 +528,14 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 				i_stream_unref(&state->cur_input);
 		}
 
+		if (state->cur_first) {
+			/* Writing FETCH () violates IMAP RFC. It's a bit
+			   troublesome to delay flushing of "FETCH (" with
+			   non-buffered data, so we'll just fix this by giving
+			   UID as the response. */
+			str_printfa(state->cur_str, "UID %u",
+				    state->cur_mail->uid);
+		}
 		if (str_len(state->cur_str) > 0) {
 			/* no non-buffered handlers */
 			if (imap_fetch_flush_buffer(ctx) < 0)
