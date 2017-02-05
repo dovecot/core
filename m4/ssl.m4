@@ -102,6 +102,12 @@ AC_DEFUN([DOVECOT_SSL], [
         AC_DEFINE(HAVE_SSL_CTX_SET1_CURVES_LIST,, [Define if you have SSL_CTX_set1_curves_list])
       fi
 
+      AC_CHECK_LIB(ssl, ERR_remove_thread_state, [
+        AC_DEFINE(HAVE_OPENSSL_ERR_REMOVE_THREAD_STATE,, [Define if you have ERR_remove_thread_state])
+      ],, $SSL_LIBS)
+      AC_CHECK_LIB(ssl, OPENSSL_thread_stop, [
+        AC_DEFINE(HAVE_OPENSSL_AUTO_THREAD_DEINIT,, [Define if OpenSSL performs thread cleanup automatically])
+      ],, $SSL_LIBS)
       AC_CHECK_LIB(ssl, OPENSSL_cleanup, [
         AC_DEFINE(HAVE_OPENSSL_CLEANUP,, [OpenSSL supports OPENSSL_cleanup()])
       ],, $SSL_LIBS)
