@@ -10,14 +10,10 @@ AM_CPPFLAGS = \
 if BUILD_OPENSSL
 module_LTLIBRARIES = libssl_iostream_openssl.la
 
-noinst_LTLIBRARIES += libdovecot_openssl_common.la
-libdovecot_openssl_common_la_LIBADD = $(SSL_LIBS)
-libdovecot_openssl_common_la_SOURCES = \
-	dovecot-openssl-common.c
-
 libssl_iostream_openssl_la_LDFLAGS = -module -avoid-version
-libssl_iostream_openssl_la_LIBADD = libdovecot_openssl_common.la $(SSL_LIBS)
+libssl_iostream_openssl_la_LIBADD = $(SSL_LIBS)
 libssl_iostream_openssl_la_SOURCES = \
+	dovecot-openssl-common.c \
 	iostream-openssl.c \
 	iostream-openssl-common.c \
 	iostream-openssl-context.c \
