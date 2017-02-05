@@ -26,8 +26,7 @@ libssl_iostream_openssl_la_SOURCES = \
 endif
 
 libssl_iostream_la_SOURCES = \
-	iostream-ssl.c \
-	$(ssl_sources)
+	iostream-ssl.c
 
 noinst_HEADERS = \
 	dovecot-openssl-common.h
