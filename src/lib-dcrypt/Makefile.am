@@ -53,6 +53,7 @@ check-test: all-am
 	done
 
 LIBDOVECOT_TEST_DEPS = \
+	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 LIBDOVECOT_TEST = \
