@@ -10,7 +10,7 @@
 static int openssl_init_refcount = 0;
 static ENGINE *dovecot_openssl_engine;
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#ifdef HAVE_SSL_NEW_MEM_FUNCS
 static void *dovecot_openssl_malloc(size_t size, const char *u0 ATTR_UNUSED, int u1 ATTR_UNUSED)
 #else
 static void *dovecot_openssl_malloc(size_t size)
@@ -26,7 +26,7 @@ static void *dovecot_openssl_malloc(size_t size)
 	return mem;
 }
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#ifdef HAVE_SSL_NEW_MEM_FUNCS
 static void *dovecot_openssl_realloc(void *ptr, size_t size, const char *u0 ATTR_UNUSED, int u1 ATTR_UNUSED)
 #else
 static void *dovecot_openssl_realloc(void *ptr, size_t size)
@@ -40,7 +40,7 @@ static void *dovecot_openssl_realloc(void *ptr, size_t size)
 	return mem;
 }
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#ifdef HAVE_SSL_NEW_MEM_FUNCS
 static void dovecot_openssl_free(void *ptr, const char *u0 ATTR_UNUSED, int u1 ATTR_UNUSED)
 #else
 static void dovecot_openssl_free(void *ptr)

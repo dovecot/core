@@ -1747,6 +1747,28 @@ if test $want_openssl != no && test $have_ssl = no; then
       AC_DEFINE(HAVE_SSL_CLEAR_OPTIONS,, [Define if you have SSL_clear_options])
     fi
 
+    # New style mem functions? Should be in v1.1+
+    AC_CACHE_CHECK([whether CRYPTO_set_mem_functions has new style parameters],i_cv_have_ssl_new_mem_funcs,[
+      old_LIBS=$LIBS
+      LIBS="$LIBS -lssl"
+      AC_TRY_LINK([
+	#include <openssl/ssl.h>
+	int CRYPTO_set_mem_functions(
+		void *(*m) (size_t, const char *, int),
+		void *(*r) (void *, size_t, const char *, int),
+		void (*f) (void *, const char *, int));
+      ], [
+      ], [
+	i_cv_have_ssl_new_mem_funcs=yes
+      ], [
+	i_cv_have_ssl_new_mem_funcs=no
+      ])
+      LIBS=$old_LIBS
+    ])
+    if test $i_cv_have_ssl_new_mem_funcs = yes; then
+      AC_DEFINE(HAVE_SSL_NEW_MEM_FUNCS,, [Define if CRYPTO_set_mem_functions has new style parameters])
+    fi
+
     AC_CHECK_LIB(ssl, SSL_get_current_compression, [
       AC_DEFINE(HAVE_SSL_COMPRESSION,, [Build with OpenSSL compression])
     ],, $SSL_LIBS)
