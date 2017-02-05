@@ -355,6 +355,8 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_append(dest, "\tsuccessful");
 	if (request->mech_name != NULL)
 		auth_str_add_keyvalue(dest, "mech", request->mech_name);
+	/* export passdb extra fields */
+	auth_request_export_fields(dest, request->extra_fields, "passdb_");
 	/* export any userdb fields */
 	if (request->userdb_reply != NULL)
 		auth_request_export_fields(dest, request->userdb_reply, "userdb_");
@@ -476,6 +478,8 @@ bool auth_request_import(struct auth_request *request,
 		request->skip_password_check = TRUE;
 	else if (strcmp(key, "mech") == 0)
 		request->mech_name = p_strdup(request->pool, value);
+	else if (strncmp(key, "passdb_", 7) == 0)
+		auth_fields_add(request->extra_fields, key+7, value, 0);
 	else if (strncmp(key, "userdb_", 7) == 0) {
 		if (request->userdb_reply == NULL)
 			request->userdb_reply = auth_fields_init(request->pool);
