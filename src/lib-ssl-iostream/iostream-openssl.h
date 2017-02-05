@@ -5,6 +5,10 @@
 
 #include <openssl/ssl.h>
 
+#ifndef HAVE_ASN1_STRING_GET0_DATA
+#  define ASN1_STRING_get0_data(str) ASN1_STRING_data(str)
+#endif
+
 struct ssl_iostream_context {
 	SSL_CTX *ssl_ctx;
 
