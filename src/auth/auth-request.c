@@ -622,6 +622,16 @@ static bool
 auth_request_want_skip_passdb(struct auth_request *request,
 			      struct auth_passdb *passdb)
 {
+	/* if mechanism is not supported, skip */
+	const char *const *mech = passdb->passdb->mechanisms;
+
+	/* if request->mech == NULL it means we are doing
+	   lookup without authentication and should not match this */
+	if (mech != NULL && (request->mech == NULL ||
+	     !str_array_icase_find(mech, request->mech->mech_name))) {
+		return TRUE;
+	}
+
 	/* skip_password_check basically specifies if authentication is
 	   finished */
 	bool authenticated = request->skip_password_check;
