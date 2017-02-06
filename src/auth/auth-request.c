@@ -347,6 +347,8 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_append(dest, "\tsecured");
 	if (request->skip_password_check)
 		str_append(dest, "\tskip-password-check");
+	if (request->delayed_credentials != NULL)
+		str_append(dest, "\tdelayed-credentials");
 	if (request->valid_client_cert)
 		str_append(dest, "\tvalid-client-cert");
 	if (request->no_penalty)
@@ -476,7 +478,13 @@ bool auth_request_import(struct auth_request *request,
 		request->successful = TRUE;
 	else if (strcmp(key, "skip-password-check") == 0)
 		request->skip_password_check = TRUE;
-	else if (strcmp(key, "mech") == 0)
+	else if (strcmp(key, "delayed-credentials") == 0) {
+		/* just make passdb_handle_credentials() work identically in
+		   auth-worker as it does in auth-master. the worker shouldn't
+		   care about the actual contents of the credentials. */
+		request->delayed_credentials = &uchar_nul;
+		request->delayed_credentials_size = 1;
+	} else if (strcmp(key, "mech") == 0)
 		request->mech_name = p_strdup(request->pool, value);
 	else if (strncmp(key, "passdb_", 7) == 0)
 		auth_fields_add(request->extra_fields, key+7, value, 0);
