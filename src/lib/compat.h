@@ -11,6 +11,13 @@
 #  define LLONG_MAX 9223372036854775807LL
 #endif
 
+/* We really want NULL to be a pointer, since we have various type-checks
+   that may result in compiler warnings/errors if it's not. */
+#ifndef __cplusplus
+#  undef NULL
+#  define NULL ((void *)0)
+#endif
+
 #ifndef __cplusplus
 #ifdef HAVE__BOOL
 typedef _Bool bool;
