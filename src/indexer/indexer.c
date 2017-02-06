@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "restrict-access.h"
 #include "process-title.h"
 #include "master-service.h"
@@ -18,6 +19,7 @@ struct worker_request {
 static const struct master_service_settings *set;
 static struct indexer_queue *queue;
 static struct worker_pool *worker_pool;
+static struct timeout *to_send_more;
 
 void indexer_refresh_proctitle(void)
 {
@@ -59,6 +61,9 @@ static void queue_try_send_more(struct indexer_queue *queue)
 	struct worker_connection *conn;
 	struct indexer_request *request;
 
+	if (to_send_more != NULL)
+		timeout_remove(&to_send_more);
+
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
 		conn = worker_pool_find_username_connection(worker_pool,
 							    request->username);
@@ -98,8 +103,10 @@ static void worker_status_callback(int percentage, void *context)
 	i_free(request);
 
 	/* if this was the last request for the connection, we can send more
-	   through it */
-	queue_try_send_more(queue);
+	   through it. delay it a bit, since we may be coming here from
+	   worker_connection_disconnect() and we want to finish it up. */
+	if (to_send_more == NULL)
+		to_send_more = timeout_add_short(0, queue_try_send_more, queue);
 }
 
 int main(int argc, char *argv[])
@@ -132,6 +139,8 @@ int main(int argc, char *argv[])
 	indexer_clients_destroy_all();
 	worker_pool_deinit(&worker_pool);
 	indexer_queue_deinit(&queue);
+	if (to_send_more != NULL)
+		timeout_remove(&to_send_more);
 
 	master_service_deinit(&master_service);
         return 0;
