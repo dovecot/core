@@ -127,8 +127,6 @@ mail_user_set_get_storage_set(struct mail_user *user);
 /* Get storage-specific settings, which may be namespace-specific. */
 const void *mail_namespace_get_driver_settings(struct mail_namespace *ns,
 					       struct mail_storage *storage);
-/* FIXME: Obsolete - remove in v2.3 */
-const void *mail_storage_get_driver_settings(struct mail_storage *storage);
 
 const struct dynamic_settings_parser *
 mail_storage_get_dynamic_parsers(pool_t pool);

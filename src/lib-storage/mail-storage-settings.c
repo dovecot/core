@@ -319,13 +319,6 @@ mail_user_set_get_storage_set(struct mail_user *user)
 						 MAIL_STORAGE_SET_DRIVER_NAME);
 }
 
-const void *mail_storage_get_driver_settings(struct mail_storage *storage)
-{
-	return mail_user_set_get_driver_settings(storage->user->set_info,
-						 storage->user->set,
-						 storage->name);
-}
-
 const void *mail_namespace_get_driver_settings(struct mail_namespace *ns,
 					       struct mail_storage *storage)
 {
