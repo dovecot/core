@@ -62,6 +62,8 @@ struct solr_connection {
 	in_port_t http_port;
 	char *http_base_url;
 	char *http_failure;
+	char *http_user;
+	char *http_password;
 
 	int request_status;
 
@@ -107,7 +109,7 @@ int solr_connection_init(const char *url, bool debug,
 	struct http_url *http_url;
 	const char *error;
 
-	if (http_url_parse(url, NULL, 0, pool_datastack_create(),
+	if (http_url_parse(url, NULL, HTTP_URL_ALLOW_USERINFO_PART, pool_datastack_create(),
 			   &http_url, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"fts_solr: Failed to parse HTTP url: %s", error);
@@ -119,6 +121,12 @@ int solr_connection_init(const char *url, bool debug,
 	conn->http_port = http_url->port;
 	conn->http_base_url = i_strconcat(http_url->path, http_url->enc_query, NULL);
 	conn->http_ssl = http_url->have_ssl;
+	if (http_url->user != NULL) {
+		conn->http_user = i_strdup(http_url->user);
+		/* allow empty password */
+		conn->http_password = i_strdup(http_url->password != NULL ? http_url->password : "");
+	}
+
 	conn->debug = debug;
 
 	if (solr_http_client == NULL) {
@@ -151,6 +159,10 @@ void solr_connection_deinit(struct solr_connection **_conn)
 	XML_ParserFree(conn->xml_parser);
 	i_free(conn->http_host);
 	i_free(conn->http_base_url);
+	if (conn->http_user != NULL) {
+		i_free(conn->http_user);
+		i_free(conn->http_password);
+	}
 	i_free(conn);
 }
 
@@ -444,6 +456,9 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 	http_req = http_client_request(solr_http_client, "GET",
 				       conn->http_host, url,
 				       solr_connection_select_response, conn);
+	if (conn->http_user != NULL) {
+		http_client_request_set_auth_simple(http_req, conn->http_user, conn->http_password);
+	}
 	http_client_request_set_port(http_req, conn->http_port);
 	http_client_request_set_ssl(http_req, conn->http_ssl);
 	http_client_request_submit(http_req);
@@ -485,6 +500,9 @@ solr_connection_post_request(struct solr_connection *conn)
 	http_req = http_client_request(solr_http_client, "POST",
 				       conn->http_host, url,
 				       solr_connection_update_response, conn);
+	if (conn->http_user != NULL) {
+		http_client_request_set_auth_simple(http_req, conn->http_user, conn->http_password);
+	}
 	http_client_request_set_port(http_req, conn->http_port);
 	http_client_request_set_ssl(http_req, conn->http_ssl);
 	http_client_request_add_header(http_req, "Content-Type", "text/xml");
