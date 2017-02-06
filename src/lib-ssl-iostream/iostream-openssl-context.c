@@ -34,8 +34,10 @@ static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 	RSA *rsa = RSA_new();
 
 	if (bn != NULL && BN_set_word(bn, RSA_F4) != 0 &&
-	    RSA_generate_key_ex(rsa, keylength, bn, NULL) != 0)
+	    RSA_generate_key_ex(rsa, keylength, bn, NULL) != 0) {
+		BN_free(bn);
 		return rsa;
+	}
 
 	if (bn != NULL)
 		BN_free(bn);
