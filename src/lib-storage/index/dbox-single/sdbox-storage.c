@@ -373,6 +373,32 @@ static void sdbox_mailbox_close(struct mailbox *box)
 }
 
 static int
+sdbox_mailbox_create(struct mailbox *box,
+		     const struct mailbox_update *update, bool directory)
+{
+	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+	struct sdbox_index_header hdr;
+	bool need_resize;
+
+	if (dbox_mailbox_create(box, update, directory) < 0)
+		return -1;
+	if (directory || !guid_128_is_empty(mbox->mailbox_guid))
+		return 0;
+
+	/* another process just created the mailbox. read the mailbox_guid. */
+	if (sdbox_read_header(mbox, &hdr, FALSE, &need_resize) < 0) {
+		mail_storage_set_critical(box->storage,
+			"sdbox %s: Failed to read newly created dbox header",
+			mailbox_get_path(&mbox->box));
+		return -1;
+	}
+	memcpy(mbox->mailbox_guid, hdr.mailbox_guid,
+	       sizeof(mbox->mailbox_guid));
+	i_assert(!guid_128_is_empty(mbox->mailbox_guid));
+	return 0;
+}
+
+static int
 sdbox_mailbox_get_metadata(struct mailbox *box,
 			   enum mailbox_metadata_items items,
 			   struct mailbox_metadata *metadata_r)
@@ -448,7 +474,7 @@ struct mailbox sdbox_mailbox = {
 		sdbox_mailbox_open,
 		sdbox_mailbox_close,
 		index_storage_mailbox_free,
-		dbox_mailbox_create,
+		sdbox_mailbox_create,
 		dbox_mailbox_update,
 		index_storage_mailbox_delete,
 		index_storage_mailbox_rename,
