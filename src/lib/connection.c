@@ -425,7 +425,8 @@ connection_list_init(const struct connection_settings *set,
 		 set->input_full_behavior != CONNECTION_BEHAVIOR_ALLOW);
 	i_assert(set->major_version == 0 ||
 		 (set->service_name_in != NULL &&
-		  set->service_name_out != NULL));
+		  set->service_name_out != NULL &&
+		  set->output_max_size != 0));
 
 	list = i_new(struct connection_list, 1);
 	list->set = *set;
