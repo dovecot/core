@@ -1020,7 +1020,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 	return ret;
 }
 
-static void quota_over_flag_init_root(struct quota_root *root,
+static bool quota_over_flag_init_root(struct quota_root *root,
 				      const char **quota_over_flag_r,
 				      bool *status_r)
 {
@@ -1033,7 +1033,7 @@ static void quota_over_flag_init_root(struct quota_root *root,
 	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
 	flag_mask = mail_user_plugin_getenv(root->quota->user, name);
 	if (flag_mask == NULL)
-		return;
+		return FALSE;
 
 	/* compare quota_over_flag's value (that comes from userdb) to
 	   quota_over_flag_value and save the result. */
@@ -1041,6 +1041,7 @@ static void quota_over_flag_init_root(struct quota_root *root,
 	*quota_over_flag_r = mail_user_plugin_getenv(root->quota->user, name);
 	*status_r = *quota_over_flag_r != NULL &&
 		wildcard_match_icase(*quota_over_flag_r, flag_mask);
+	return TRUE;
 }
 
 static void quota_over_flag_check_root(struct quota_root *root)
@@ -1067,7 +1068,8 @@ static void quota_over_flag_check_root(struct quota_root *root)
 		return;
 	}
 	root->quota_over_flag_checked = TRUE;
-	quota_over_flag_init_root(root, &quota_over_flag, &quota_over_status);
+	if (!quota_over_flag_init_root(root, &quota_over_flag, &quota_over_status))
+		return;
 
 	resources = quota_root_get_resources(root);
 	for (i = 0; resources[i] != NULL; i++) {
