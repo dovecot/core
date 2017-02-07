@@ -19,7 +19,11 @@ DAEMON=/usr/local/sbin/dovecot
 # Uncomment to allow Dovecot daemons to produce core dumps.
 #ulimit -c unlimited
 
+# RedHat config
 [ -e /etc/sysconfig/dovecot ] && . /etc/sysconfig/dovecot
+
+# Debian config
+[ -e /etc/default/dovecot ] && . /etc/default/dovecot
 
 test -x $DAEMON || exit 1
 set -e
