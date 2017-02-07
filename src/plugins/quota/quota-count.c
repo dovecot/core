@@ -55,6 +55,9 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 			i_error("quota: Couldn't get size of mailbox %s: %s",
 				vname, errstr);
 			ret = -1;
+		} else if (error == MAIL_ERROR_INUSE) {
+			/* started on background. don't log an error. */
+			ret = -1;
 		} else {
 			/* non-temporary error, e.g. ACLs denied access. */
 			ret = 0;
