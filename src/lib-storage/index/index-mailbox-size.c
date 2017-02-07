@@ -235,8 +235,7 @@ void index_mailbox_vsize_hdr_expunge(struct mailbox_vsize_update *update,
 }
 
 static int
-index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
-				    bool need_result)
+index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update)
 {
 	struct mailbox_index_vsize *vsize_hdr = &update->vsize_hdr;
 	struct mailbox_transaction_context *trans;
@@ -275,14 +274,8 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 					 MAIL_FETCH_VIRTUAL_SIZE, NULL);
 	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mail_get_virtual_size(mail, &vsize) < 0) {
-			if (mail->expunged) {
-				if (!need_result) {
-					ret = -1;
-					break;
-				}
-				index_mailbox_vsize_update_write(update);
+			if (mail->expunged)
 				continue;
-			}
 			ret = -1;
 			break;
 		}
@@ -325,7 +318,7 @@ int index_mailbox_get_virtual_size(struct mailbox *box,
 	   anyway internally even though we won't be saving the result. */
 	(void)index_mailbox_vsize_update_wait_lock(update);
 
-	ret = index_mailbox_vsize_hdr_add_missing(update, TRUE);
+	ret = index_mailbox_vsize_hdr_add_missing(update);
 	metadata_r->virtual_size = update->vsize_hdr.vsize;
 	index_mailbox_vsize_update_deinit(&update);
 	return ret;
@@ -402,6 +395,6 @@ void index_mailbox_vsize_update_appends(struct mailbox *box)
 	if (update->vsize_hdr.highest_uid + 1 != status.uidnext &&
 	    index_mailbox_vsize_want_updates(update) &&
 	    index_mailbox_vsize_update_try_lock(update))
-		(void)index_mailbox_vsize_hdr_add_missing(update, FALSE);
+		(void)index_mailbox_vsize_hdr_add_missing(update);
 	index_mailbox_vsize_update_deinit(&update);
 }
