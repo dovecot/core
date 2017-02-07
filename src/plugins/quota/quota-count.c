@@ -60,7 +60,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 			ret = 0;
 		}
 	} else {
-		ret = 1;
+		ret = 0;
 		*bytes += root->quota->set->vsizes ?
 			metadata.virtual_size : metadata.physical_size;
 		*count += status.messages;
@@ -147,7 +147,7 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 {
 	struct quota_mailbox_iter *iter;
 	const struct mailbox_info *info;
-	int ret = 0, ret2;
+	int ret = 1;
 
 	*bytes_r = *count_r = 0;
 	if (root->recounting)
@@ -156,11 +156,8 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 
 	iter = quota_mailbox_iter_begin(root);
 	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
-		ret2 = quota_count_mailbox(root, info->ns, info->vname,
-					   bytes_r, count_r);
-		if (ret2 > 0)
-			ret = 1;
-		else if (ret2 < 0) {
+		if (quota_count_mailbox(root, info->ns, info->vname,
+					bytes_r, count_r) < 0) {
 			ret = -1;
 			break;
 		}
