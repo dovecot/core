@@ -946,8 +946,15 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 			       &count_current, &count_limit) < 0)
 		return;
 
-	bytes_before = bytes_current - ctx->bytes_used;
-	count_before = count_current - ctx->count_used;
+	if (ctx->bytes_used > 0 && bytes_current < (uint64_t)ctx->bytes_used)
+		bytes_before = 0;
+	else
+		bytes_before = bytes_current - ctx->bytes_used;
+
+	if (ctx->count_used > 0 && count_current < (uint64_t)ctx->count_used)
+		count_before = 0;
+	else
+		count_before = count_current - ctx->count_used;
 	for (i = 0; i < count; i++) {
 		if (quota_warning_match(&warnings[i],
 					bytes_before, bytes_current,
