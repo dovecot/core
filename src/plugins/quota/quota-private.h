@@ -131,10 +131,6 @@ struct quota_root {
 	/* Module-specific contexts. See quota_module_id. */
 	ARRAY(void) quota_module_contexts;
 
-	/* Set to the current quota_over_flag, regardless of whether
-	   it matches quota_over_flag_value mask. */
-	const char *quota_over_flag;
-
 	/* don't enforce quota when saving */
 	unsigned int no_enforcing:1;
 	/* quota is automatically updated. update() should be called but the
@@ -146,10 +142,6 @@ struct quota_root {
 	unsigned int recounting:1;
 	/* Quota root is hidden (to e.g. IMAP GETQUOTAROOT) */
 	unsigned int hidden:1;
-	/* Is quota_over_flag* initialized yet? */
-	unsigned int quota_over_flag_initialized:1;
-	/* Is user currently over quota? */
-	unsigned int quota_over_flag_status:1;
 	/* Did we already check quota_over_flag correctness? */
 	unsigned int quota_over_flag_checked:1;
 };
