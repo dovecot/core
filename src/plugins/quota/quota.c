@@ -877,7 +877,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 }
 
 static void quota_warning_execute(struct quota_root *root, const char *cmd,
-				  const char *last_arg)
+				  const char *last_arg, const char *reason)
 {
 	const char *socket_path, *const *args, *error, *scheme, *ptr;
 
@@ -889,7 +889,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 	restrict_access_init(&set.restrict_set);
 
 	if (root->quota->set->debug)
-		i_debug("quota: Executing warning: %s", cmd);
+		i_debug("quota: Executing warning: %s (because %s)", cmd, reason);
 
 	args = t_strsplit_spaces(cmd, " ");
 	if (last_arg != NULL) {
@@ -938,6 +938,7 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 	unsigned int i, count;
 	uint64_t bytes_current, bytes_before, bytes_limit;
 	uint64_t count_current, count_before, count_limit;
+	const char *reason;
 
 	warnings = array_get_modifiable(&root->set->warning_rules, &count);
 	if (count == 0)
@@ -955,8 +956,10 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 	for (i = 0; i < count; i++) {
 		if (quota_warning_match(&warnings[i],
 					bytes_before, bytes_current,
-					count_before, count_current)) {
-			quota_warning_execute(root, warnings[i].command, NULL);
+					count_before, count_current,
+					&reason)) {
+			quota_warning_execute(root, warnings[i].command,
+					      NULL, reason);
 			break;
 		}
 	}
@@ -1092,8 +1095,11 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	if (cur_overquota != root->quota_over_flag_status) {
 		name = t_strconcat(root->set->set_name, "_over_script", NULL);
 		overquota_script = mail_user_plugin_getenv(root->quota->user, name);
-		if (overquota_script != NULL)
-			quota_warning_execute(root, overquota_script, root->quota_over_flag);
+		if (overquota_script != NULL) {
+			quota_warning_execute(root, overquota_script,
+					      root->quota_over_flag,
+					      "quota_over_flag mismatch");
+		}
 	}
 }
 

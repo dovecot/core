@@ -208,7 +208,8 @@ int quota_root_parse_grace(struct quota_root_settings *root_set,
 			   const char *value, const char **error_r);
 bool quota_warning_match(const struct quota_warning_rule *w,
 			 uint64_t bytes_before, uint64_t bytes_current,
-			 uint64_t count_before, uint64_t count_current);
+			 uint64_t count_before, uint64_t count_current,
+			 const char **reason_r);
 bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t size);
 int quota_transaction_set_limits(struct quota_transaction_context *ctx);
 
