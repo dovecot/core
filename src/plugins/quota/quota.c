@@ -1021,6 +1021,7 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 }
 
 static bool quota_over_flag_init_root(struct quota_root *root,
+				      const char **quota_over_script_r,
 				      const char **quota_over_flag_r,
 				      bool *status_r)
 {
@@ -1028,6 +1029,11 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 
 	*quota_over_flag_r = NULL;
 	*status_r = FALSE;
+
+	name = t_strconcat(root->set->set_name, "_over_script", NULL);
+	*quota_over_script_r = mail_user_plugin_getenv(root->quota->user, name);
+	if (*quota_over_script_r == NULL)
+		return FALSE;
 
 	/* e.g.: quota_over_flag_value=TRUE or quota_over_flag_value=*  */
 	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
@@ -1046,7 +1052,7 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 
 static void quota_over_flag_check_root(struct quota_root *root)
 {
-	const char *name, *overquota_script, *quota_over_flag;
+	const char *quota_over_script, *quota_over_flag;
 	const char *const *resources;
 	unsigned int i;
 	uint64_t value, limit;
@@ -1068,7 +1074,8 @@ static void quota_over_flag_check_root(struct quota_root *root)
 		return;
 	}
 	root->quota_over_flag_checked = TRUE;
-	if (!quota_over_flag_init_root(root, &quota_over_flag, &quota_over_status))
+	if (!quota_over_flag_init_root(root, &quota_over_script,
+				       &quota_over_flag, &quota_over_status))
 		return;
 
 	resources = quota_root_get_resources(root);
@@ -1098,13 +1105,8 @@ static void quota_over_flag_check_root(struct quota_root *root)
 			cur_overquota ? 1 : 0);
 	}
 	if (cur_overquota != quota_over_status) {
-		name = t_strconcat(root->set->set_name, "_over_script", NULL);
-		overquota_script = mail_user_plugin_getenv(root->quota->user, name);
-		if (overquota_script != NULL) {
-			quota_warning_execute(root, overquota_script,
-					      quota_over_flag,
-					      "quota_over_flag mismatch");
-		}
+		quota_warning_execute(root, quota_over_script, quota_over_flag,
+				      "quota_over_flag mismatch");
 	}
 }
 
