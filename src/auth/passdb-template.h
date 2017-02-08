@@ -10,4 +10,6 @@ bool passdb_template_remove(struct passdb_template *tmpl,
 			    const char *key, const char **value_r);
 bool passdb_template_is_empty(struct passdb_template *tmpl);
 
+const char *const *passdb_template_get_args(struct passdb_template *tmpl, unsigned int *count_r);
+
 #endif
