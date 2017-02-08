@@ -37,6 +37,9 @@ enum mail_index_open_flags {
 	MAIL_INDEX_OPEN_FLAG_SAVEONLY		= 0x400,
 	/* Enable debug logging */
 	MAIL_INDEX_OPEN_FLAG_DEBUG		= 0x800,
+	/* MAIL_INDEX_MAIL_FLAG_DIRTY can be used as a backend-specific flag.
+	   All special handling of the flag is disabled by this. */
+	MAIL_INDEX_OPEN_FLAG_NO_DIRTY		= 0x1000,
 };
 
 enum mail_index_header_compat_flags {
@@ -55,7 +58,9 @@ enum mail_index_header_flag {
 enum mail_index_mail_flags {
 	/* For private use by backend. Replacing flags doesn't change this. */
 	MAIL_INDEX_MAIL_FLAG_BACKEND		= 0x40,
-	/* Message flags haven't been written to backend */
+	/* Message flags haven't been written to backend. If
+	   MAIL_INDEX_OPEN_FLAG_NO_DIRTY is set, this is treated as a
+	   backend-specific flag with no special internal handling. */
 	MAIL_INDEX_MAIL_FLAG_DIRTY		= 0x80,
 	/* Force updating this message's modseq via a flag update record */
 	MAIL_INDEX_MAIL_FLAG_UPDATE_MODSEQ	= 0x100
