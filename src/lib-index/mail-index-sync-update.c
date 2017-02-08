@@ -422,7 +422,8 @@ static int sync_append(const struct mail_index_record *rec,
 	map->hdr.messages_count++;
 	map->hdr.next_uid = rec->uid+1;
 
-	if ((new_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
+	if ((new_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0 &&
+	    (view->index->flags & MAIL_INDEX_OPEN_FLAG_NO_DIRTY) == 0)
 		map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
 	mail_index_header_update_lowwaters(ctx, rec->uid, new_flags);
@@ -447,7 +448,8 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 					       seq1, seq2);
 	}
 
-	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0)
+	if ((u->add_flags & MAIL_INDEX_MAIL_FLAG_DIRTY) != 0 &&
+	    (view->index->flags & MAIL_INDEX_OPEN_FLAG_NO_DIRTY) == 0)
 		view->map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
         flag_mask = ~u->remove_flags;
@@ -856,7 +858,8 @@ static void mail_index_sync_update_hdr_dirty_flag(struct mail_index_map *map)
 	const struct mail_index_record *rec;
 	uint32_t seq;
 
-	if ((map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0)
+	if ((map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0 ||
+	    (map->index->flags & MAIL_INDEX_OPEN_FLAG_NO_DIRTY) != 0)
 		return;
 
 	/* do we have dirty flags anymore? */
