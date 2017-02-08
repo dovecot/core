@@ -1032,14 +1032,24 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 
 	name = t_strconcat(root->set->set_name, "_over_script", NULL);
 	*quota_over_script_r = mail_user_plugin_getenv(root->quota->user, name);
-	if (*quota_over_script_r == NULL)
+	if (*quota_over_script_r == NULL) {
+		if (root->quota->set->debug) {
+			i_debug("quota: quota_over_flag check: "
+				"%s unset - skipping", name);
+		}
 		return FALSE;
+	}
 
 	/* e.g.: quota_over_flag_value=TRUE or quota_over_flag_value=*  */
 	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
 	flag_mask = mail_user_plugin_getenv(root->quota->user, name);
-	if (flag_mask == NULL)
+	if (flag_mask == NULL) {
+		if (root->quota->set->debug) {
+			i_debug("quota: quota_over_flag check: "
+				"%s unset - skipping", name);
+		}
 		return FALSE;
+	}
 
 	/* compare quota_over_flag's value (that comes from userdb) to
 	   quota_over_flag_value and save the result. */
@@ -1065,12 +1075,20 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	if (root->quota->user->session_create_time +
 	    QUOTA_OVER_FLAG_MAX_DELAY_SECS < ioloop_time) {
 		/* userdb's quota_over_flag lookup is too old. */
+		if (root->quota->set->debug) {
+			i_debug("quota: quota_over_flag check: "
+				"Flag lookup time is too old - skipping");
+		}
 		return;
 	}
 	if (root->quota->user->session_restored) {
 		/* we don't know whether the quota_over_script was executed
 		   before hibernation. just assume that it was, so we don't
 		   unnecessarily call it too often. */
+		if (root->quota->set->debug) {
+			i_debug("quota: quota_over_flag check: "
+				"Session was already hibernated - skipping");
+		}
 		return;
 	}
 	root->quota_over_flag_checked = TRUE;
