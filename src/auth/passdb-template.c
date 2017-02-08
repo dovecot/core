@@ -90,3 +90,9 @@ bool passdb_template_is_empty(struct passdb_template *tmpl)
 {
 	return array_count(&tmpl->args) == 0;
 }
+
+const char *const *passdb_template_get_args(struct passdb_template *tmpl, unsigned int *count_r)
+{
+	return array_get(&tmpl->args, count_r);
+}
+
