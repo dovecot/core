@@ -438,6 +438,13 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 				client->set.host, line);
 			return -1;
 		}
+
+		/* the PASS reply can take a long time.
+		   switch to command timeout. */
+		timeout_remove(&client->to);
+		client->to = timeout_add(POP3C_COMMAND_TIMEOUT_MSECS,
+					 pop3c_client_timeout, client);
+
 		o_stream_nsend_str(client->output,
 			t_strdup_printf("PASS %s\r\n", client->set.password));
 		client->state = POP3C_CLIENT_STATE_PASS;
