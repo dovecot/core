@@ -849,12 +849,13 @@ struct mailbox_list index_mailbox_list = {
 	}
 };
 
-void mailbox_list_index_backend_init_mailbox(struct mailbox *box)
+void mailbox_list_index_backend_init_mailbox(struct mailbox *box,
+					     struct mailbox_vfuncs *v)
 {
 	if (strcmp(box->list->name, MAILBOX_LIST_NAME_INDEX) != 0)
 		return;
-	box->v.create_box = index_list_mailbox_create;
-	box->v.update_box = index_list_mailbox_update;
-	box->v.exists = index_list_mailbox_exists;
-	box->v.open = index_list_mailbox_open;
+	v->create_box = index_list_mailbox_create;
+	v->update_box = index_list_mailbox_update;
+	v->exists = index_list_mailbox_exists;
+	v->open = index_list_mailbox_open;
 }

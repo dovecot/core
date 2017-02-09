@@ -36,6 +36,7 @@
 
 struct mail_index_view;
 struct mailbox_index_vsize;
+struct mailbox_vfuncs;
 
 /* stored in mail_index_record.flags: */
 enum mailbox_list_index_flags {
@@ -196,8 +197,9 @@ void mailbox_list_index_notify_wait(struct mailbox_list_notify *notify,
 				    void (*callback)(void *context),
 				    void *context);
 
-void mailbox_list_index_status_init_mailbox(struct mailbox *box);
-void mailbox_list_index_backend_init_mailbox(struct mailbox *box);
+void mailbox_list_index_status_init_mailbox(struct mailbox_vfuncs *v);
+void mailbox_list_index_backend_init_mailbox(struct mailbox *box,
+					     struct mailbox_vfuncs *v);
 void mailbox_list_index_status_init_finish(struct mailbox_list *list);
 
 #endif

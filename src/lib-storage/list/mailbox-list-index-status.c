@@ -819,13 +819,13 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 		*flags |= MAILBOX_UNMARKED;
 }
 
-void mailbox_list_index_status_init_mailbox(struct mailbox *box)
+void mailbox_list_index_status_init_mailbox(struct mailbox_vfuncs *v)
 {
-	box->v.exists = index_list_exists;
-	box->v.get_status = index_list_get_status;
-	box->v.get_metadata = index_list_get_metadata;
-	box->v.sync_deinit = index_list_sync_deinit;
-	box->v.transaction_commit = index_list_transaction_commit;
+	v->exists = index_list_exists;
+	v->get_status = index_list_get_status;
+	v->get_metadata = index_list_get_metadata;
+	v->sync_deinit = index_list_sync_deinit;
+	v->transaction_commit = index_list_transaction_commit;
 }
 
 void mailbox_list_index_status_init_finish(struct mailbox_list *list)
