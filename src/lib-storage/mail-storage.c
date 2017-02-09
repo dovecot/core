@@ -2008,6 +2008,13 @@ mailbox_transaction_get_mailbox(const struct mailbox_transaction_context *t)
 	return t->box;
 }
 
+static void mailbox_save_dest_mail_close(struct mail_save_context *ctx)
+{
+	struct mail_private *mail = (struct mail_private *)ctx->dest_mail;
+
+	mail->v.close(&mail->mail);
+}
+
 struct mail_save_context *
 mailbox_save_alloc(struct mailbox_transaction_context *t)
 {
@@ -2020,7 +2027,26 @@ mailbox_save_alloc(struct mailbox_transaction_context *t)
 	ctx->unfinished = TRUE;
 	ctx->data.received_date = (time_t)-1;
 	ctx->data.save_date = (time_t)-1;
+
+	/* Always have a dest_mail available. A lot of plugins make use
+	   of this. */
+	if (ctx->dest_mail == NULL)
+		ctx->dest_mail = mail_alloc(t, 0, NULL);
+	else {
+		/* make sure the mail isn't used before mail_set_seq_saving() */
+		mailbox_save_dest_mail_close(ctx);
+	}
 	return ctx;
+}
+
+void mailbox_save_context_deinit(struct mail_save_context *ctx)
+{
+	i_assert(ctx->dest_mail != NULL);
+
+	if (!ctx->dest_mail_external)
+		mail_free(&ctx->dest_mail);
+	else
+		ctx->dest_mail = NULL;
 }
 
 void mailbox_save_set_flags(struct mail_save_context *ctx,
@@ -2117,7 +2143,12 @@ void mailbox_save_set_pop3_order(struct mail_save_context *ctx,
 void mailbox_save_set_dest_mail(struct mail_save_context *ctx,
 				struct mail *mail)
 {
+	i_assert(mail != NULL);
+
+	if (!ctx->dest_mail_external)
+		mail_free(&ctx->dest_mail);
 	ctx->dest_mail = mail;
+	ctx->dest_mail_external = TRUE;
 }
 
 int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
@@ -2244,7 +2275,6 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
 	struct mail_keywords *keywords = ctx->data.keywords;
-	struct mail_private *mail;
 
 	*_ctx = NULL;
 	T_BEGIN {
@@ -2252,13 +2282,12 @@ void mailbox_save_cancel(struct mail_save_context **_ctx)
 	} T_END;
 	if (keywords != NULL && !ctx->finishing)
 		mailbox_keywords_unref(&keywords);
-	if (ctx->dest_mail != NULL) {
-		/* the dest_mail is no longer valid. if we're still saving
-		   more mails, the mail sequence may get reused. make sure
-		   the mail gets reset in between */
-		mail = (struct mail_private *)ctx->dest_mail;
-		mail->v.close(&mail->mail);
-	}
+
+	/* the dest_mail is no longer valid. if we're still saving
+	   more mails, the mail sequence may get reused. make sure
+	   the mail gets reset in between */
+	mailbox_save_dest_mail_close(ctx);
+
 	mailbox_save_context_reset(ctx, FALSE);
 }
 
