@@ -78,10 +78,8 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 		psize = dec2str(size);
 	if (mail_get_virtual_size(mail, &size) == 0)
 		vsize = dec2str(size);
-	if (ctx != NULL) {
-		session_time = dec2str(ctx->session_time_msecs);
-		to_envelope = ctx->dest_addr;
-	}
+	session_time = dec2str(ctx->session_time_msecs);
+	to_envelope = ctx->dest_addr;
 	(void)mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &storage_id);
 
 	const struct var_expand_table stack_tab[] = {
@@ -103,15 +101,8 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 
 	tab = t_malloc_no0(sizeof(stack_tab));
 	memcpy(tab, stack_tab, sizeof(stack_tab));
-	if (ctx != NULL)
-		mail_deliver_log_var_expand_table_update_times(ctx, tab);
+	mail_deliver_log_var_expand_table_update_times(ctx, tab);
 	return tab;
-}
-
-const struct var_expand_table *
-mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message)
-{
-	return mail_deliver_get_log_var_expand_table_full(NULL, mail, message);
 }
 
 const struct var_expand_table *
