@@ -17,6 +17,18 @@
 
 deliver_mail_func_t *deliver_mail = NULL;
 
+struct mail_deliver_cache {
+	bool filled;
+
+	const char *message_id;
+	const char *subject;
+	const char *from;
+	const char *from_envelope;
+	const char *storage_id;
+
+	uoff_t psize, vsize;
+};
+
 static const char *lda_log_wanted_headers[] = {
 	"From", "Message-ID", "Subject",
 	NULL
@@ -39,104 +51,92 @@ const char *mail_deliver_get_address(struct mail *mail, const char *header)
 		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
 }
 
-static void
-mail_deliver_log_var_expand_table_update_times(struct mail_deliver_context *ctx,
-					       struct var_expand_table *tab)
+static void update_cache(struct mail_deliver_context *ctx,
+			 const char **old_str, const char *new_str)
 {
-#define VAR_EXPAND_DELIVERY_TIME_IDX 7
-	int delivery_time_msecs;
-
-	io_loop_time_refresh();
-	delivery_time_msecs = timeval_diff_msecs(&ioloop_timeval,
-						 &ctx->delivery_time_started);
-	tab[VAR_EXPAND_DELIVERY_TIME_IDX].value = dec2str(delivery_time_msecs);
+	if (new_str == NULL || new_str[0] == '\0')
+		*old_str = NULL;
+	else if (*old_str == NULL || strcmp(*old_str, new_str) != 0)
+		*old_str = p_strdup(ctx->pool, new_str);
 }
 
-static const struct var_expand_table *
-mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
-					   struct mail *mail,
-					   const char *message)
+static void
+mail_deliver_log_update_cache(struct mail_deliver_context *ctx)
 {
-	const char *message_id, *subject = NULL, *from_envelope = NULL;
-	const char *from, *psize = NULL, *vsize = NULL, *storage_id = NULL;
-	const char *session_time = NULL, *to_envelope = NULL;
-	uoff_t size;
+	struct mail *mail;
+	const char *message_id = NULL, *subject = NULL, *from_envelope = NULL;
+	const char *from, *storage_id = NULL;
 
-	if (mail_get_first_header(mail, "Message-ID", &message_id) <= 0)
-		message_id = "unspecified";
-	else
+	if (ctx->cache == NULL)
+		ctx->cache = p_new(ctx->pool, struct mail_deliver_cache, 1);
+	else if (ctx->cache->filled)
+		return;
+	ctx->cache->filled = TRUE;
+
+	mail = ctx->dest_mail != NULL ? ctx->dest_mail : ctx->src_mail;
+
+	if (mail_get_first_header(mail, "Message-ID", &message_id) > 0)
 		message_id = str_sanitize(message_id, 200);
+	update_cache(ctx, &ctx->cache->message_id, message_id);
 
 	if (mail_get_first_header_utf8(mail, "Subject", &subject) > 0)
 		subject = str_sanitize(subject, 80);
+	update_cache(ctx, &ctx->cache->subject, subject);
+
 	from = str_sanitize(mail_deliver_get_address(mail, "From"), 80);
+	update_cache(ctx, &ctx->cache->from, from);
 
 	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE, &from_envelope) > 0)
 		from_envelope = str_sanitize(from_envelope, 80);
+	update_cache(ctx, &ctx->cache->from_envelope, from_envelope);
 
-	if (mail_get_physical_size(mail, &size) == 0)
-		psize = dec2str(size);
-	if (mail_get_virtual_size(mail, &size) == 0)
-		vsize = dec2str(size);
-	session_time = dec2str(ctx->session_time_msecs);
-	to_envelope = ctx->dest_addr;
 	(void)mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &storage_id);
+	update_cache(ctx, &ctx->cache->storage_id, storage_id);
 
-	const struct var_expand_table stack_tab[] = {
-		{ '$', message, NULL },
-		{ 'm', message_id, "msgid" },
-		{ 's', subject, "subject" },
-		{ 'f', from, "from" },
-		{ 'e', from_envelope, "from_envelope" },
-		{ 'p', psize, "size" },
-		{ 'w', vsize, "vsize" },
-		/* must be VAR_EXPAND_DELIVERY_TIME_IDX */
-		{ '\0', NULL, "delivery_time" },
-		{ '\0', session_time, "session_time" },
-		{ '\0', to_envelope, "to_envelope" },
-		{ '\0', storage_id, "storage_id" },
-		{ '\0', NULL, NULL }
-	};
-	struct var_expand_table *tab;
-
-	tab = t_malloc_no0(sizeof(stack_tab));
-	memcpy(tab, stack_tab, sizeof(stack_tab));
-	mail_deliver_log_var_expand_table_update_times(ctx, tab);
-	return tab;
+	if (mail_get_physical_size(mail, &ctx->cache->psize) < 0)
+		ctx->cache->psize = 0;
+	if (mail_get_virtual_size(mail, &ctx->cache->vsize) < 0)
+		ctx->cache->vsize = 0;
 }
 
 const struct var_expand_table *
 mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 					  const char *message)
 {
-	struct mail *mail;
+	unsigned int delivery_time_msecs;
 
-	mail = ctx->dest_mail != NULL ? ctx->dest_mail : ctx->src_mail;
-	return mail_deliver_get_log_var_expand_table_full(ctx, mail, message);
-}
+	mail_deliver_log_update_cache(ctx);
+	/* This call finishes a mail delivery. With Sieve there may be multiple
+	   mail deliveries. */
+	ctx->cache->filled = FALSE;
 
-static void
-mail_deliver_log_cache_var_expand_table(struct mail_deliver_context *ctx)
-{
-	const struct var_expand_table *src;
-	struct var_expand_table *dest;
-	unsigned int i, len;
+	io_loop_time_refresh();
+	delivery_time_msecs = timeval_diff_msecs(&ioloop_timeval,
+						 &ctx->delivery_time_started);
 
-	src = mail_deliver_ctx_get_log_var_expand_table(ctx, "");
-	for (len = 0; src[len].key != '\0' || src[len].long_key != NULL; len++) ;
-
-	dest = p_new(ctx->pool, struct var_expand_table, len + 1);
-	for (i = 0; i < len; i++) {
-		dest[i] = src[i];
-		dest[i].value = p_strdup(ctx->pool, src[i].value);
-	}
-	ctx->var_expand_table = dest;
+	const struct var_expand_table stack_tab[] = {
+		{ '$', message, NULL },
+		{ 'm', ctx->cache->message_id != NULL ?
+		       ctx->cache->message_id : "unspecified", "msgid" },
+		{ 's', ctx->cache->subject, "subject" },
+		{ 'f', ctx->cache->from, "from" },
+		{ 'e', ctx->cache->from_envelope, "from_envelope" },
+		{ 'p', dec2str(ctx->cache->psize), "size" },
+		{ 'w', dec2str(ctx->cache->vsize), "vsize" },
+		{ '\0', dec2str(delivery_time_msecs), "delivery_time" },
+		{ '\0', dec2str(ctx->session_time_msecs), "session_time" },
+		{ '\0', ctx->dest_addr, "to_envelope" },
+		{ '\0', ctx->cache->storage_id, "storage_id" },
+		{ '\0', NULL, NULL }
+	};
+	return p_memdup(unsafe_data_stack_pool, stack_tab, sizeof(stack_tab));
 }
 
 void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 {
 	va_list args;
 	string_t *str;
+	const struct var_expand_table *tab;
 	const char *msg, *error;
 
 	if (*ctx->set->deliver_log_format == '\0')
@@ -146,19 +146,11 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	msg = t_strdup_vprintf(fmt, args);
 
 	str = t_str_new(256);
-
-	if (ctx->var_expand_table == NULL)
-		mail_deliver_log_cache_var_expand_table(ctx);
-	/* update %$ */
-	ctx->var_expand_table[0].value = msg;
-	mail_deliver_log_var_expand_table_update_times(ctx, ctx->var_expand_table);
-	if (var_expand(str, ctx->set->deliver_log_format,
-		       ctx->var_expand_table, &error) <= 0) {
+	tab = mail_deliver_ctx_get_log_var_expand_table(ctx, msg);
+	if (var_expand(str, ctx->set->deliver_log_format, tab, &error) <= 0) {
 		i_error("Failed to expand deliver_log_format=%s: %s",
 			ctx->set->deliver_log_format, error);
 	}
-	ctx->var_expand_table[0].value = "";
-	ctx->var_expand_table[VAR_EXPAND_DELIVERY_TIME_IDX].value = "";
 
 	i_info("%s", str_c(str));
 	va_end(args);
@@ -379,8 +371,10 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 
 	if (mailbox_save_using_mail(&save_ctx, ctx->src_mail) < 0)
 		ret = -1;
-	else
-		mail_deliver_log_cache_var_expand_table(ctx);
+	else {
+		/* fill the cache while we still have dest_mail */
+		mail_deliver_log_update_cache(ctx);
+	}
 	if (kw != NULL)
 		mailbox_keywords_unref(&kw);
 
@@ -403,7 +397,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 			}
 			/* might as well get the storage_id */
 			(void)mail_get_special(ctx->dest_mail, MAIL_FETCH_STORAGE_ID,
-					       &ctx->var_expand_table[10].value);
+					       &ctx->cache->storage_id);
 		} else if (var_has_key(ctx->set->deliver_log_format, '\0', "storage_id")) {
 			/* storage ID is available only after commit. */
 			struct mail *mail = mail_deliver_open_mail(box, &changes,
@@ -412,7 +406,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 				const char *str;
 
 				(void)mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &str);
-				ctx->var_expand_table[10].value = t_strdup(str);
+				ctx->cache->storage_id = t_strdup(str);
 				mail_free(&mail);
 				(void)mailbox_transaction_commit(&t);
 			}

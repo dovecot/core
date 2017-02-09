@@ -55,8 +55,8 @@ struct mail_deliver_context {
 	   the mailbox. */
 	struct mail *dest_mail;
 
-	/* mail_deliver_log() caches the var expand table here */
-	struct var_expand_table *var_expand_table;
+	/* mail_deliver_log() caches the var expand table values here */
+	struct mail_deliver_cache *cache;
 
 	/* Error message for a temporary failure. This is necessary only when
 	   there is no storage where to get the error message from. */
