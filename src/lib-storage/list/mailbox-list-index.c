@@ -810,6 +810,7 @@ mailbox_list_index_namespaces_added(struct mail_namespace *namespaces)
 
 static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 {
+	struct mailbox_vfuncs *v = box->vlast;
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct index_list_mailbox *ibox;
 
@@ -817,15 +818,16 @@ static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 		return;
 
 	ibox = p_new(box->pool, struct index_list_mailbox, 1);
-	ibox->module_ctx.super = box->v;
+	ibox->module_ctx.super = *v;
+	box->vlast = &ibox->module_ctx.super;
 	MODULE_CONTEXT_SET(box, index_list_storage_module, ibox);
 
 	/* for layout=index these get overridden */
-	box->v.create_box = mailbox_list_index_create_mailbox;
-	box->v.update_box = mailbox_list_index_update_mailbox;
+	v->create_box = mailbox_list_index_create_mailbox;
+	v->update_box = mailbox_list_index_update_mailbox;
 
-	mailbox_list_index_status_init_mailbox(box);
-	mailbox_list_index_backend_init_mailbox(box);
+	mailbox_list_index_status_init_mailbox(v);
+	mailbox_list_index_backend_init_mailbox(box, v);
 }
 
 static struct mail_storage_hooks mailbox_list_index_hooks = {
