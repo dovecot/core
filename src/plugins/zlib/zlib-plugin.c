@@ -31,12 +31,6 @@ struct zlib_mail {
 	bool verifying_save;
 };
 
-struct zlib_transaction_context {
-	union mailbox_transaction_module_context module_ctx;
-
-	struct mail *tmp_mail;
-};
-
 struct zlib_mail_cache {
 	struct timeout *to;
 	struct mailbox *box;
@@ -61,6 +55,14 @@ static MODULE_CONTEXT_DEFINE_INIT(zlib_user_module,
 static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
+
+static bool zlib_mailbox_is_permail(struct mailbox *box)
+{
+	enum mail_storage_class_flags class_flags = box->storage->class_flags;
+
+	return (class_flags & MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS) == 0 &&
+		(class_flags & MAIL_STORAGE_CLASS_FLAG_BINARY_DATA) != 0;
+}
 
 static void zlib_mail_cache_close(struct zlib_user *zuser)
 {
@@ -179,12 +181,11 @@ static void zlib_mail_close(struct mail *_mail)
 
 static void zlib_mail_allocated(struct mail *_mail)
 {
-	struct zlib_transaction_context *zt = ZLIB_CONTEXT(_mail->transaction);
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct mail_vfuncs *v = mail->vlast;
 	struct zlib_mail *zmail;
 
-	if (zt == NULL)
+	if (!zlib_mailbox_is_permail(_mail->box))
 		return;
 
 	zmail = p_new(mail->pool, struct zlib_mail, 1);
@@ -194,69 +195,6 @@ static void zlib_mail_allocated(struct mail *_mail)
 	v->istream_opened = zlib_istream_opened;
 	v->close = zlib_mail_close;
 	MODULE_CONTEXT_SET(mail, zlib_mail_module, zmail);
-}
-
-static struct mailbox_transaction_context *
-zlib_mailbox_transaction_begin(struct mailbox *box,
-			       enum mailbox_transaction_flags flags)
-{
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
-	struct mailbox_transaction_context *t;
-	struct zlib_transaction_context *zt;
-
-	t = zbox->super.transaction_begin(box, flags);
-
-	zt = i_new(struct zlib_transaction_context, 1);
-
-	MODULE_CONTEXT_SET(t, zlib_storage_module, zt);
-	return t;
-}
-
-static void
-zlib_mailbox_transaction_rollback(struct mailbox_transaction_context *t)
-{
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(t->box);
-	struct zlib_transaction_context *zt = ZLIB_CONTEXT(t);
-
-	if (zt->tmp_mail != NULL)
-		mail_free(&zt->tmp_mail);
-
-	zbox->super.transaction_rollback(t);
-	i_free(zt);
-}
-
-static int
-zlib_mailbox_transaction_commit(struct mailbox_transaction_context *t,
-				struct mail_transaction_commit_changes *changes_r)
-{
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(t->box);
-	struct zlib_transaction_context *zt = ZLIB_CONTEXT(t);
-	int ret;
-
-	if (zt->tmp_mail != NULL)
-		mail_free(&zt->tmp_mail);
-
-	ret = zbox->super.transaction_commit(t, changes_r);
-	i_free(zt);
-	return ret;
-}
-
-static int
-zlib_mail_save_begin(struct mail_save_context *ctx, struct istream *input)
-{
-	struct mailbox_transaction_context *t = ctx->transaction;
-	struct zlib_transaction_context *zt = ZLIB_CONTEXT(t);
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(t->box);
-
-	if (ctx->dest_mail == NULL) {
-		if (zt->tmp_mail == NULL) {
-			zt->tmp_mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
-						  NULL);
-		}
-		ctx->dest_mail = zt->tmp_mail;
-	}
-
-	return zbox->super.save_begin(ctx, input);
 }
 
 static int zlib_mail_save_finish(struct mail_save_context *ctx)
@@ -310,11 +248,7 @@ zlib_permail_alloc_init(struct mailbox *box, struct mailbox_vfuncs *v)
 {
 	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
 
-	v->transaction_begin = zlib_mailbox_transaction_begin;
-	v->transaction_rollback = zlib_mailbox_transaction_rollback;
-	v->transaction_commit = zlib_mailbox_transaction_commit;
 	if (zuser->save_handler == NULL) {
-		v->save_begin = zlib_mail_save_begin;
 		v->save_finish = zlib_mail_save_finish;
 	} else {
 		v->save_begin = zlib_mail_save_compress_begin;
@@ -384,7 +318,6 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
 	union mailbox_module_context *zbox;
-	enum mail_storage_class_flags class_flags = box->storage->class_flags;
 
 	zbox = p_new(box->pool, union mailbox_module_context, 1);
 	zbox->super = *v;
@@ -394,8 +327,7 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 
 	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
 
-	if ((class_flags & MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS) == 0 &&
-	    (class_flags & MAIL_STORAGE_CLASS_FLAG_BINARY_DATA) != 0)
+	if (zlib_mailbox_is_permail(box))
 		zlib_permail_alloc_init(box, v);
 }
 
