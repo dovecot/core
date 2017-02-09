@@ -2151,6 +2151,11 @@ void mailbox_save_set_dest_mail(struct mail_save_context *ctx,
 	ctx->dest_mail_external = TRUE;
 }
 
+struct mail *mailbox_save_get_dest_mail(struct mail_save_context *ctx)
+{
+	return ctx->dest_mail;
+}
+
 int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 {
 	struct mailbox *box = (*ctx)->transaction->box;
