@@ -375,9 +375,9 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	mailbox_save_set_flags(save_ctx, flags, kw);
 
 	headers_ctx = mailbox_header_lookup_init(box, lda_log_wanted_headers);
-	ctx->dest_mail = mail_alloc(t, lda_log_wanted_fetch_fields, NULL);
+	ctx->dest_mail = mailbox_save_get_dest_mail(save_ctx);
+	mail_add_temp_wanted_fields(ctx->dest_mail, lda_log_wanted_fetch_fields, NULL);
 	mailbox_header_lookup_unref(&headers_ctx);
-	mailbox_save_set_dest_mail(save_ctx, ctx->dest_mail);
 	mail_deliver_deduplicate_guid_if_needed(ctx->session, save_ctx);
 
 	if (mailbox_save_using_mail(&save_ctx, ctx->src_mail) < 0)
@@ -386,7 +386,6 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		mail_deliver_log_cache_var_expand_table(ctx);
 	if (kw != NULL)
 		mailbox_keywords_unref(&kw);
-	mail_free(&ctx->dest_mail);
 
 	if (ret < 0)
 		mailbox_transaction_rollback(&t);
