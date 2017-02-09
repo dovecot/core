@@ -11,11 +11,6 @@
 #define NOTIFY_MAIL_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, notify_mail_module)
 
-struct notify_transaction_context {
-	union mailbox_transaction_module_context module_ctx;
-	struct mail *tmp_mail;
-};
-
 static MODULE_CONTEXT_DEFINE_INIT(notify_storage_module,
 				  &mail_storage_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(notify_mail_module,
@@ -95,18 +90,9 @@ static void notify_mail_allocated(struct mail *_mail)
 static int
 notify_copy(struct mail_save_context *ctx, struct mail *mail)
 {
-	struct notify_transaction_context *lt =
-		NOTIFY_CONTEXT(ctx->transaction);
 	union mailbox_module_context *lbox =
 		NOTIFY_CONTEXT(ctx->transaction->box);
 	int ret;
-
-	if (ctx->dest_mail == NULL &&
-	    (ctx->transaction->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0) {
-		if (lt->tmp_mail == NULL)
-			lt->tmp_mail = mail_alloc(ctx->transaction, 0, NULL);
-		ctx->dest_mail = lt->tmp_mail;
-	}
 
 	if ((ret = lbox->super.copy(ctx, mail)) < 0)
 		return -1;
@@ -120,23 +106,6 @@ notify_copy(struct mail_save_context *ctx, struct mail *mail)
 		notify_contexts_mail_copy(mail, ctx->dest_mail);
 	}
 	return ret;
-}
-
-static int
-notify_save_begin(struct mail_save_context *ctx, struct istream *input)
-{
-	struct notify_transaction_context *lt =
-		NOTIFY_CONTEXT(ctx->transaction);
-	union mailbox_module_context *lbox =
-		NOTIFY_CONTEXT(ctx->transaction->box);
-
-	if (ctx->dest_mail == NULL &&
-	    (ctx->transaction->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0) {
-		if (lt->tmp_mail == NULL)
-			lt->tmp_mail = mail_alloc(ctx->transaction, 0, NULL);
-		ctx->dest_mail = lt->tmp_mail;
-	}
-	return lbox->super.save_begin(ctx, input);
 }
 
 static int
@@ -160,12 +129,8 @@ notify_transaction_begin(struct mailbox *box,
 {
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(box);
 	struct mailbox_transaction_context *t;
-	struct notify_transaction_context *lt;
 	
 	t = lbox->super.transaction_begin(box, flags);
-
-	lt = i_new(struct notify_transaction_context, 1);
-	MODULE_CONTEXT_SET(t, notify_storage_module, lt);
 
 	if ((t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0)
 		notify_contexts_mail_transaction_begin(t);
@@ -176,13 +141,8 @@ static int
 notify_transaction_commit(struct mailbox_transaction_context *t,
 			  struct mail_transaction_commit_changes *changes_r)
 {
-	struct notify_transaction_context *lt = NOTIFY_CONTEXT(t);
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(t->box);
 	bool no_notify = (t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) != 0;
-
-	if (lt->tmp_mail != NULL)
-		mail_free(&lt->tmp_mail);
-	i_free(lt);
 
 	if ((lbox->super.transaction_commit(t, changes_r)) < 0) {
 		notify_contexts_mail_transaction_rollback(t);
@@ -199,13 +159,8 @@ notify_transaction_commit(struct mailbox_transaction_context *t,
 static void
 notify_transaction_rollback(struct mailbox_transaction_context *t)
 {
-	struct notify_transaction_context *lt = NOTIFY_CONTEXT(t);
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(t->box);
 
-	if (lt->tmp_mail != NULL)
-		mail_free(&lt->tmp_mail);
-	i_free(lt);
-	
 	if ((t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0)
 		notify_contexts_mail_transaction_rollback(t);
 	lbox->super.transaction_rollback(t);
@@ -284,7 +239,6 @@ static void notify_mailbox_allocated(struct mailbox *box)
 	box->vlast = &lbox->super;
 
 	v->copy = notify_copy;
-	v->save_begin = notify_save_begin;
 	v->save_finish = notify_save_finish;
 	v->transaction_begin = notify_transaction_begin;
 	v->transaction_commit = notify_transaction_commit;

@@ -142,8 +142,7 @@ quota_mailbox_transaction_commit(struct mailbox_transaction_context *ctx,
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx);
 
-	if (qt->tmp_mail != NULL)
-		mail_free(&qt->tmp_mail);
+	i_assert(qt->tmp_mail == NULL);
 
 	if (qbox->module_ctx.super.transaction_commit(ctx, changes_r) < 0) {
 		quota_transaction_rollback(&qt);
@@ -160,8 +159,7 @@ quota_mailbox_transaction_rollback(struct mailbox_transaction_context *ctx)
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(ctx->box);
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(ctx);
 
-	if (qt->tmp_mail != NULL)
-		mail_free(&qt->tmp_mail);
+	i_assert(qt->tmp_mail == NULL);
 
 	qbox->module_ctx.super.transaction_rollback(ctx);
 	quota_transaction_rollback(&qt);
@@ -254,14 +252,9 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(t->box);
 
-	if (ctx->dest_mail == NULL) {
-		/* we always want to know the mail size */
-		if (qt->tmp_mail == NULL) {
-			qt->tmp_mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
-						  NULL);
-		}
-		ctx->dest_mail = qt->tmp_mail;
-	}
+	/* we always want to know the mail size */
+	mail_add_temp_wanted_fields(ctx->dest_mail, MAIL_FETCH_PHYSICAL_SIZE, NULL);
+
 	/* get quota before copying any mails. this avoids .vsize.lock
 	   deadlocks with backends that lock mails for expunging/copying. */
 	(void)quota_transaction_set_limits(qt);
@@ -311,14 +304,9 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 		}
 	}
 
-	if (ctx->dest_mail == NULL) {
-		/* we always want to know the mail size */
-		if (qt->tmp_mail == NULL) {
-			qt->tmp_mail = mail_alloc(t, MAIL_FETCH_PHYSICAL_SIZE,
-						  NULL);
-		}
-		ctx->dest_mail = qt->tmp_mail;
-	}
+	/* we always want to know the mail size */
+	mail_add_temp_wanted_fields(ctx->dest_mail, MAIL_FETCH_PHYSICAL_SIZE, NULL);
+
 	/* get quota before copying any mails. this avoids .vsize.lock
 	   deadlocks with backends that lock mails for expunging/copying. */
 	(void)quota_transaction_set_limits(qt);
