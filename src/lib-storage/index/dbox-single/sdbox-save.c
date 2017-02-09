@@ -307,8 +307,6 @@ int sdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	if (array_count(&ctx->files) == 0) {
 		/* the mail must be freed in the commit_pre() */
-		if (ctx->ctx.mail != NULL)
-			mail_free(&ctx->ctx.mail);
 		return 0;
 	}
 
@@ -339,9 +337,6 @@ int sdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 			return -1;
 		}
 	}
-
-	if (ctx->ctx.mail != NULL)
-		mail_free(&ctx->ctx.mail);
 
 	_t->changes->uid_validity = hdr->uid_validity;
 	return 0;
@@ -387,8 +382,5 @@ void sdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 
 	if (ctx->sync_ctx != NULL)
 		(void)sdbox_sync_finish(&ctx->sync_ctx, FALSE);
-
-	if (ctx->ctx.mail != NULL)
-		mail_free(&ctx->ctx.mail);
 	i_free(ctx);
 }

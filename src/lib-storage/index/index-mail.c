@@ -2305,9 +2305,6 @@ void index_mail_save_finish(struct mail_save_context *ctx)
 {
 	struct index_mail *imail = (struct index_mail *)ctx->dest_mail;
 
-	if (imail == NULL)
-		return;
-
 	if (ctx->data.from_envelope != NULL &&
 	    imail->data.from_envelope == NULL) {
 		imail->data.from_envelope =

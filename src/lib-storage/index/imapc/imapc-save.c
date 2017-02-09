@@ -135,9 +135,6 @@ imapc_save_add_to_index(struct imapc_save_context *ctx, uint32_t uid)
 	struct index_mail *imail = (struct index_mail *)_mail;
 	uint32_t seq;
 
-	if (_mail == NULL)
-		return;
-
 	/* we'll temporarily append messages and at commit time expunge
 	   them all, since we can't guarantee that no one else has saved
 	   messages to remote server during our transaction */
