@@ -755,12 +755,11 @@ void mailbox_save_set_pop3_uidl(struct mail_save_context *ctx,
    of the mailbox. Not all backends support this. */
 void mailbox_save_set_pop3_order(struct mail_save_context *ctx,
 				 unsigned int order);
-/* If dest_mail is set, the saved message can be accessed using it. Note that
-   setting it may require mailbox syncing, so don't set it unless you need
-   it. Also you shouldn't try to access it before mailbox_save_finish() is
-   called. */
+/* FIXME: Remove in v2.3. Obsolete - use mailbox_save_get_dest_mail() instead */
 void mailbox_save_set_dest_mail(struct mail_save_context *ctx,
 				struct mail *mail);
+/* Returns the destination mail */
+struct mail *mailbox_save_get_dest_mail(struct mail_save_context *ctx);
 /* Begin saving the message. All mail_save_set_*() calls must have been called
    before this function. If the save initialization fails, the context is freed
    and -1 is returned. After beginning the save you should keep calling
