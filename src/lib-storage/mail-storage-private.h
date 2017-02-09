@@ -666,6 +666,8 @@ struct mail_save_context {
 	/* mail is being copied or moved. However, this is set also with
 	   mailbox_save_using_mail() and then saving==TRUE. */
 	bool copying_or_moving:1;
+	/* dest_mail was set via mailbox_save_set_dest_mail() */
+	bool dest_mail_external:1;
 };
 
 struct mailbox_sync_context {
@@ -758,5 +760,6 @@ void mail_storage_free_binary_cache(struct mail_storage *storage);
 
 enum mail_index_open_flags
 mail_storage_settings_to_index_flags(const struct mail_storage_settings *set);
+void mailbox_save_context_deinit(struct mail_save_context *ctx);
 
 #endif

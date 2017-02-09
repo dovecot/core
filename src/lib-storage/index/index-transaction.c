@@ -50,6 +50,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 	}
 
 	if (t->save_ctx != NULL) {
+		mailbox_save_context_deinit(t->save_ctx);
 		if (ret < 0) {
 			t->box->v.transaction_save_rollback(t->save_ctx);
 			t->save_ctx = NULL;
@@ -79,8 +80,10 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 		}
 	}
 
-	if (t->save_ctx != NULL)
+	if (t->save_ctx != NULL) {
+		i_assert(t->save_ctx->dest_mail == NULL);
 		t->box->v.transaction_save_commit_post(t->save_ctx, result_r);
+	}
 
 	if (pvt_sync_ctx != NULL) {
 		if (index_mailbox_sync_pvt_newmails(pvt_sync_ctx, t) < 0) {
@@ -100,8 +103,10 @@ index_transaction_index_rollback(struct mail_index_transaction *index_trans)
 	struct mailbox_transaction_context *t =
 		MAIL_STORAGE_CONTEXT(index_trans);
 
-	if (t->save_ctx != NULL)
+	if (t->save_ctx != NULL) {
+		mailbox_save_context_deinit(t->save_ctx);
 		t->box->v.transaction_save_rollback(t->save_ctx);
+	}
 
 	i_assert(t->mail_ref_count == 0);
 	t->super.rollback(index_trans);
