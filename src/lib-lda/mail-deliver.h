@@ -85,8 +85,6 @@ extern deliver_mail_func_t *deliver_mail;
 const struct var_expand_table *
 mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 					  const char *message);
-const struct var_expand_table *
-mail_deliver_get_log_var_expand_table(struct mail *mail, const char *message);
 void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	ATTR_FORMAT(2, 3);
 
