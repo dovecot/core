@@ -36,7 +36,6 @@ struct mbox_save_context {
 
 	struct mbox_mailbox *mbox;
 	struct mail_index_transaction *trans;
-	struct mail *mail;
 	uoff_t append_offset, mail_offset;
 	time_t orig_atime;
 
@@ -269,12 +268,11 @@ mbox_save_append_keyword_headers(struct mbox_save_context *ctx,
 
 static int
 mbox_save_init_file(struct mbox_save_context *ctx,
-		    struct mbox_transaction_context *t, bool want_mail)
+		    struct mbox_transaction_context *t)
 {
 	struct mailbox_transaction_context *_t = &t->t;
 	struct mbox_mailbox *mbox = ctx->mbox;
 	struct mail_storage *storage = &mbox->storage->storage;
-	bool empty = FALSE;
 	int ret;
 
 	if (mbox_is_backend_readonly(ctx->mbox)) {
@@ -282,10 +280,6 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 				       "Read-only mbox");
 		return -1;
 	}
-
-	if ((_t->flags & MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS) != 0 ||
-	    ctx->ctx.data.uid != 0)
-		want_mail = TRUE;
 
 	if (ctx->append_offset == (uoff_t)-1) {
 		/* first appended mail in this transaction */
@@ -300,18 +294,12 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		}
 
 		/* update mbox_sync_dirty state */
-		ret = mbox_sync_has_changed_full(mbox, TRUE, &empty);
+		ret = mbox_sync_has_changed(mbox, TRUE);
 		if (ret < 0)
 			return -1;
-		if (!want_mail && ret == 0) {
-			/* we're not required to assign UIDs for the appended
-			   mails immediately. do it only if it doesn't require
-			   syncing. */
-			mbox_save_init_sync(_t);
-		}
 	}
 
-	if (!ctx->synced && (want_mail || empty)) {
+	if (!ctx->synced) {
 		/* we'll need to assign UID for the mail immediately. */
 		if (mbox_sync(mbox, 0) < 0)
 			return -1;
@@ -416,13 +404,10 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 		i_stream_create_crlf(filter) : i_stream_create_lf(filter);
 	i_stream_unref(&filter);
 
-	if (ctx->ctx.dest_mail != NULL) {
-		/* caching creates a tee stream */
-		cache_input =
-			index_mail_cache_parse_init(ctx->ctx.dest_mail, ret);
-		i_stream_unref(&ret);
-		ret = cache_input;
-	}
+	/* caching creates a tee stream */
+	cache_input = index_mail_cache_parse_init(ctx->ctx.dest_mail, ret);
+	i_stream_unref(&ret);
+	ret = cache_input;
 	return ret;
 }
 
@@ -463,7 +448,7 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	ctx->failed = FALSE;
 	ctx->seq = 0;
 
-	if (mbox_save_init_file(ctx, t, _ctx->dest_mail != NULL) < 0) {
+	if (mbox_save_init_file(ctx, t) < 0) {
 		ctx->failed = TRUE;
 		return -1;
 	}
@@ -506,13 +491,6 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		ctx->next_uid++;
 
 		/* parse and cache the mail headers as we read it */
-		if (_ctx->dest_mail == NULL) {
-			if (ctx->mail == NULL) {
-				ctx->mail = mail_alloc(_ctx->transaction,
-						       0, NULL);
-			}
-			_ctx->dest_mail = ctx->mail;
-		}
 		mail_set_seq_saving(_ctx->dest_mail, ctx->seq);
 	}
 	mbox_save_append_flag_headers(ctx->headers, save_flags);
@@ -556,11 +534,9 @@ static int mbox_save_body(struct mbox_save_context *ctx)
 	while ((ret = i_stream_read(ctx->input)) != -1) {
 		if (mbox_save_body_input(ctx) < 0)
 			return -1;
-		if (ctx->ctx.dest_mail != NULL) {
-			/* i_stream_read() may have returned 0 at EOF
-			   because of this parser */
-			index_mail_cache_parse_continue(ctx->ctx.dest_mail);
-		}
+		/* i_stream_read() may have returned 0 at EOF
+		   because of this parser */
+		index_mail_cache_parse_continue(ctx->ctx.dest_mail);
 		if (ret == 0)
 			return 0;
 	}
@@ -628,8 +604,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 		i_assert(size > 0);
 		ctx->last_char = data[size-1];
 		i_stream_skip(ctx->input, size);
-		if (ctx->ctx.dest_mail != NULL)
-			index_mail_cache_parse_continue(ctx->ctx.dest_mail);
+		index_mail_cache_parse_continue(ctx->ctx.dest_mail);
 	}
 	if (ret == 0)
 		return 0;
@@ -697,11 +672,9 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 		} T_END;
 	}
 
-	if (ctx->ctx.dest_mail != NULL) {
-		index_mail_cache_parse_deinit(ctx->ctx.dest_mail,
-					      ctx->ctx.data.received_date,
-					      !ctx->failed);
-	}
+	index_mail_cache_parse_deinit(ctx->ctx.dest_mail,
+				      ctx->ctx.data.received_date,
+				      !ctx->failed);
 	if (ctx->input != NULL)
 		i_stream_destroy(&ctx->input);
 
@@ -737,8 +710,6 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 {
 	if (ctx->output != NULL)
 		o_stream_destroy(&ctx->output);
-	if (ctx->mail != NULL)
-		mail_free(&ctx->mail);
 	str_free(&ctx->headers);
 }
 

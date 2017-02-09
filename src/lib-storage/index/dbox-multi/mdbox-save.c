@@ -361,9 +361,6 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		mail_index_sync_set_reason(ctx->sync_ctx->index_sync_ctx, "saving");
 	}
 
-	if (ctx->ctx.mail != NULL)
-		mail_free(&ctx->ctx.mail);
-
 	_t->changes->uid_validity = hdr->uid_validity;
 	return 0;
 }
@@ -424,8 +421,6 @@ void mdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 	if (ctx->sync_ctx != NULL)
 		(void)mdbox_sync_finish(&ctx->sync_ctx, FALSE);
 
-	if (ctx->ctx.mail != NULL)
-		mail_free(&ctx->ctx.mail);
 	array_free(&ctx->mails);
 	i_free(ctx);
 }
@@ -485,8 +480,7 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	save_mail = array_append_space(&ctx->mails);
 	save_mail->seq = ctx->ctx.seq;
 
-	if (_ctx->dest_mail != NULL)
-		mail_set_seq_saving(_ctx->dest_mail, ctx->ctx.seq);
+	mail_set_seq_saving(_ctx->dest_mail, ctx->ctx.seq);
 	index_save_context_free(_ctx);
 	return 0;
 }

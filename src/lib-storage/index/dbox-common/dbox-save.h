@@ -10,7 +10,6 @@ struct dbox_save_context {
 	/* updated for each appended mail: */
 	uint32_t seq;
 	struct istream *input;
-	struct mail *mail;
 
 	struct ostream *dbox_output;
 

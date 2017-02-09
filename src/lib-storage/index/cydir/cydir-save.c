@@ -28,7 +28,6 @@ struct cydir_save_context {
 	/* updated for each appended mail: */
 	uint32_t seq;
 	struct istream *input;
-	struct mail *mail;
 	int fd;
 
 	unsigned int failed:1;
@@ -115,11 +114,6 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 					 _ctx->data.min_modseq);
 	}
 
-	if (_ctx->dest_mail == NULL) {
-		if (ctx->mail == NULL)
-			ctx->mail = mail_alloc(trans, 0, NULL);
-		_ctx->dest_mail = ctx->mail;
-	}
 	mail_set_seq_saving(_ctx->dest_mail, ctx->seq);
 
 	crlf_input = i_stream_create_crlf(input);
@@ -291,9 +285,6 @@ int cydir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 			return -1;
 		}
 	}
-
-	if (ctx->mail != NULL)
-		mail_free(&ctx->mail);
 	return 0;
 }
 
@@ -321,8 +312,6 @@ void cydir_transaction_save_rollback(struct mail_save_context *_ctx)
 	if (ctx->sync_ctx != NULL)
 		(void)cydir_sync_finish(&ctx->sync_ctx, FALSE);
 
-	if (ctx->mail != NULL)
-		mail_free(&ctx->mail);
 	i_free(ctx->tmp_basename);
 	i_free(ctx);
 }

@@ -1731,14 +1731,6 @@ int mbox_sync_get_guid(struct mbox_mailbox *mbox)
 
 int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 {
-	bool empty;
-
-	return mbox_sync_has_changed_full(mbox, leave_dirty, &empty);
-}
-
-int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
-			       bool *empty_r)
-{
 	const struct stat *st;
 	struct stat statbuf;
 
@@ -1763,7 +1755,6 @@ int mbox_sync_has_changed_full(struct mbox_mailbox *mbox, bool leave_dirty,
 		}
 		st = &statbuf;
 	}
-	*empty_r = st->st_size == 0;
 
 	if (mbox_sync_header_refresh(mbox) < 0)
 		return -1;

@@ -48,7 +48,7 @@ struct maildir_save_context {
 	struct maildir_uidlist_sync_ctx *uidlist_sync_ctx;
 	struct maildir_keywords_sync_ctx *keywords_sync_ctx;
 	struct maildir_index_sync_context *sync_ctx;
-	struct mail *mail, *cur_dest_mail;
+	struct mail *cur_dest_mail;
 
 	const char *tmpdir, *newdir, *curdir;
 	struct maildir_filename *files, **files_tail, *file_last;
@@ -208,11 +208,6 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 		i_assert(ctx->files->next == NULL);
 	}
 
-	if (_ctx->dest_mail == NULL) {
-		if (ctx->mail == NULL)
-			ctx->mail = mail_alloc(_ctx->transaction, 0, NULL);
-		_ctx->dest_mail = ctx->mail;
-	}
 	mail_set_seq_saving(_ctx->dest_mail, ctx->seq);
 
 	if (ctx->input == NULL) {
@@ -981,12 +976,8 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	i_assert(_ctx->data.output == NULL);
 	i_assert(ctx->last_save_finished);
 
-	if (ctx->files_count == 0) {
-		/* the mail must be freed in the commit_pre() */
-		if (ctx->mail != NULL)
-			mail_free(&ctx->mail);
+	if (ctx->files_count == 0)
 		return 0;
-	}
 
 	sync_flags = MAILDIR_UIDLIST_SYNC_PARTIAL |
 		MAILDIR_UIDLIST_SYNC_NOREFRESH;
@@ -1040,13 +1031,6 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	_t->changes->uid_validity =
 		maildir_uidlist_get_uid_validity(ctx->mbox->uidlist);
-
-	if (ctx->mail != NULL) {
-		/* Mail freeing may trigger cache updates and a call to
-		   maildir_save_file_get_path(). Do this before finishing index
-		   sync so we still have keywords_sync_ctx. */
-		mail_free(&ctx->mail);
-	}
 
 	if (ctx->locked) {
 		/* It doesn't matter if index syncing fails */
@@ -1109,7 +1093,5 @@ void maildir_transaction_save_rollback(struct mail_save_context *_ctx)
 	if (ctx->locked)
 		maildir_uidlist_unlock(ctx->mbox->uidlist);
 
-	if (ctx->mail != NULL)
-		mail_free(&ctx->mail);
 	pool_unref(&ctx->pool);
 }
