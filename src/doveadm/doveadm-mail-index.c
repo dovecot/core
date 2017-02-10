@@ -155,6 +155,7 @@ static void cmd_index_queue(struct index_cmd_context *ctx,
 {
 	if (ctx->queue_fd == -1)
 		index_queue_connect(ctx);
+	i_assert(ctx->queue_fd != -1);
 
 	T_BEGIN {
 		string_t *str = t_str_new(256);

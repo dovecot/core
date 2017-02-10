@@ -1428,6 +1428,7 @@ void db_ldap_set_attrs(struct ldap_connection *conn, const char *attrlist,
 			} else if (name[0] == '!' && name == ldap_attr) {
 				/* !ldapAttr */
 				name = "";
+				i_assert(ldap_attr[0] == '!');
 				ldap_attr++;
 				field->skip = TRUE;
 			}

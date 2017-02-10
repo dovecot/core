@@ -226,6 +226,8 @@ void mail_user_autoexpunge(struct mail_user *user)
 		}
 	}
 	if (lock.fd != -1) {
+		i_assert(lock.lock != NULL);
+
 		i_unlink(lock.path);
 		i_close_fd(&lock.fd);
 		file_lock_free(&lock.lock);
