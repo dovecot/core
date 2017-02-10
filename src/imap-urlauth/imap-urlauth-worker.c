@@ -296,7 +296,7 @@ static int client_run_url(struct client *client)
 	}
 
 	if (client->msg_part_input->eof) {
-		o_stream_send(client->output, "\n", 1);
+		(void)o_stream_send(client->output, "\n", 1);
 		imap_msgpart_url_free(&client->url);
 		return 1;
 	}

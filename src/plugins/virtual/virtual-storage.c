@@ -210,7 +210,7 @@ static int virtual_backend_box_alloc(struct virtual_mailbox *mbox,
 	i_array_init(&bbox->sync_pending_removes, 64);
 	/* we use modseqs for being able to check quickly if backend mailboxes
 	   have changed. make sure the backend has them enabled. */
-	mailbox_enable(bbox->box, MAILBOX_FEATURE_CONDSTORE);
+	(void)mailbox_enable(bbox->box, MAILBOX_FEATURE_CONDSTORE);
 	return 1;
 }
 
