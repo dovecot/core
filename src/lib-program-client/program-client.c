@@ -236,8 +236,7 @@ int program_client_program_output(struct program_client *pclient)
 		pclient->dot_output = o_stream_create_dot(output, FALSE);
 		pclient->output_dot_created = TRUE;
 	}
-	if (pclient->output_dot_created &&
-	    pclient->dot_output != NULL)
+	if (pclient->dot_output != NULL)
 		output = pclient->dot_output;
 
 	if (input != NULL && output != NULL) {
@@ -268,7 +267,7 @@ int program_client_program_output(struct program_client *pclient)
 
 	if (input == NULL &&
 	    output != NULL &&
-	    pclient->output_dot_created) {
+	    pclient->dot_output != NULL) {
 		if ((ret = o_stream_flush(pclient->dot_output)) <= 0) {
 			if (ret < 0) {
 				i_error("write(%s) failed: %s",
@@ -321,8 +320,7 @@ void program_client_program_input(struct program_client *pclient)
 			pclient->dot_input = i_stream_create_dot(input, FALSE);
 			pclient->input_dot_created = TRUE;
 		}
-		if (pclient->input_dot_created &&
-		    pclient->dot_input != NULL)
+		if (pclient->dot_input != NULL)
 			input = pclient->dot_input;
 		else if (pclient->set.use_dotstream) {
 			/* just read it empty */
