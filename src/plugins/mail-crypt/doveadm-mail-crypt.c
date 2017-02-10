@@ -100,6 +100,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	struct mail_storage_service_user *dest_service_user;
 	struct ioloop_context *cur_ioloop_ctx;
 	struct dcrypt_public_key *pkey;
+	const char *dest_username;
 	int ret = 0;
 
         bool disallow_insecure = mail_crypt_acl_secure_sharing_enabled(user);
@@ -116,6 +117,8 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 			target_uid, error);
 	} else {
 		i_assert(dest_user != NULL);
+		dest_username = dest_user->username;
+
 		/* get public key from target user */
 		if ((ret = mail_crypt_user_get_public_key(dest_user,
 							  &pkey, error_r)) <= 0) {
@@ -125,7 +128,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 				ret = -1;
 			} else if (ret == 0) {
 				/* perform insecure sharing */
-				dest_user = NULL;
+				dest_username = NULL;
 				pkey = NULL;
 				ret = 1;
 			}
@@ -136,9 +139,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 			t_array_init(&keys, 1);
 			array_append(&keys, &key, 1);
 			ret = mail_crypt_box_share_private_keys(t, pkey,
-								dest_user == NULL ?
-									NULL :
-									dest_user->username,
+								dest_username,
 								&keys, error_r);
 		}
 		
@@ -148,8 +149,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	mail_storage_service_io_deactivate_user(user->_service_user);
 	mail_storage_service_io_activate_user(dest_service_user);
 
-	if (dest_user != NULL)
-		mail_user_unref(&dest_user);
+	mail_user_unref(&dest_user);
 	if (dest_service_user != NULL)
 		mail_storage_service_user_free(&dest_service_user);
 
