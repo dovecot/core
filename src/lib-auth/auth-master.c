@@ -399,6 +399,7 @@ static int auth_master_run_cmd_pre(struct auth_master_connection *conn,
 	if (conn->fd == -1) {
 		if (auth_master_connect(conn) < 0)
 			return -1;
+		i_assert(conn->fd != -1);
 	}
 	auth_master_set_io(conn);
 

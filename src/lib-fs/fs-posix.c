@@ -554,6 +554,7 @@ static void fs_posix_write_stream(struct fs_file *_file)
 		_file->output = o_stream_create_error_str(errno, "%s",
 			fs_file_last_error(_file));
 	} else {
+		i_assert(file->fd != -1);
 		_file->output = o_stream_create_fd_file(file->fd,
 							(uoff_t)-1, FALSE);
 	}

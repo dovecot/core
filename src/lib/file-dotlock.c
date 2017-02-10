@@ -565,6 +565,7 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 	file_lock_wait_end(dotlock->path);
 
 	if (ret > 0) {
+		i_assert(lock_info.fd != -1);
 		if (fstat(lock_info.fd, &st) < 0) {
 			i_error("fstat(%s) failed: %m", lock_path);
 			ret = -1;
