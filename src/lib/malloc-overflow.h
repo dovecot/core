@@ -20,8 +20,14 @@ malloc_multiply_check(size_t a, size_t b, size_t sizeof_a, size_t sizeof_b,
 	}
 	return a * b;
 }
-#define MALLOC_MULTIPLY(a, b) \
+#ifndef STATIC_CHECKER
+#  define MALLOC_MULTIPLY(a, b) \
 	malloc_multiply_check(a, b, sizeof(a), sizeof(b), __FILE__, __LINE__)
+#else
+/* avoid warning every time about sizeof(b) when b contains any arithmetic */
+#  define MALLOC_MULTIPLY(a, b) \
+	malloc_multiply_check(a, b, sizeof(a), sizeof(size_t), __FILE__, __LINE__)
+#endif
 
 static inline size_t
 malloc_add_check(size_t a, size_t b, size_t sizeof_a, size_t sizeof_b,
@@ -36,7 +42,13 @@ malloc_add_check(size_t a, size_t b, size_t sizeof_a, size_t sizeof_b,
 	}
 	return a + b;
 }
-#define MALLOC_ADD(a, b) \
+#ifndef STATIC_CHECKER
+#  define MALLOC_ADD(a, b) \
 	malloc_add_check(a, b, sizeof(a), sizeof(b), __FILE__, __LINE__)
+#else
+/* avoid warning every time about sizeof(b) when b contains any arithmetic */
+#  define MALLOC_ADD(a, b) \
+	malloc_add_check(a, b, sizeof(a), sizeof(size_t), __FILE__, __LINE__)
+#endif
 
 #endif
