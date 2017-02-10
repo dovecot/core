@@ -333,7 +333,7 @@ static void cmd_director_map(struct doveadm_cmd_context *cctx)
 
 	ctx = cmd_director_init(cctx);
 
-	if ((ctx->hash_map && ctx->user_map) && ctx->host == NULL) {
+	if ((ctx->hash_map || ctx->user_map) && ctx->host == NULL) {
 		director_cmd_help(cctx->cmd);
 	return;
 	}
