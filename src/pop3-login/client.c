@@ -138,6 +138,7 @@ static void pop3_client_input(struct client *client)
 				"Too many invalid bad commands.");
 			client_destroy(client,
 				       "Disconnected: Too many bad commands");
+			break;
 		}
 	}
 
