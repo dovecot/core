@@ -301,6 +301,9 @@ void http_client_request_add_header(struct http_client_request *req,
 		 /* allow calling for retries */
 		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
 		 req->state == HTTP_REQUEST_STATE_ABORTED);
+	/* make sure key or value can't break HTTP headers entirely */
+	i_assert(strpbrk(key, ":\r\n") == NULL);
+	i_assert(strpbrk(value, "\r\n") == NULL);
 
 	/* mark presence of special headers */
 	switch (key[0]) {
