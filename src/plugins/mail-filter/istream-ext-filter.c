@@ -148,6 +148,7 @@ static int filter_connect(struct mail_filter_istream *mstream,
 {
 	const char **argv;
 	string_t *str;
+	ssize_t ret;
 	int fd;
 
 	argv = t_strsplit(args, " ");
@@ -179,7 +180,14 @@ static int filter_connect(struct mail_filter_istream *mstream,
 	}
 	str_append_c(str, '\n');
 
-	o_stream_send(mstream->ext_out, str_data(str), str_len(str));
+	ret = o_stream_send(mstream->ext_out, str_data(str), str_len(str));
+	if (ret < 0) {
+		i_error("ext-filter: write(%s) failed: %s", socket_path,
+			o_stream_get_error(mstream->ext_out));
+		i_stream_mail_filter_close(&mstream->istream.iostream, FALSE);
+		return -1;
+	}
+	i_assert((size_t)ret == str_len(str));
 	return 0;
 }
 
