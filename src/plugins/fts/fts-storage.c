@@ -781,7 +781,8 @@ static bool fts_autoindex_exclude_match(struct mailbox *box)
 	for (i = 0; exclude_list[i] != NULL; i++) {
 		if (exclude_list[i][0] == '\\') {
 			/* \Special-use flag */
-			if (str_array_icase_find(special_use, exclude_list[i]))
+			if (special_use != NULL &&
+			    str_array_icase_find(special_use, exclude_list[i]))
 				return TRUE;
 		} else {
 			/* mailbox name with wildcards */
