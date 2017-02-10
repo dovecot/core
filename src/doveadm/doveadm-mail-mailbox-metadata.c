@@ -269,13 +269,13 @@ cmd_mailbox_metadata_list_run(struct doveadm_mail_cmd_context *_ctx,
 	if (ret != 0)
 		return ret;
 
-	if (ctx->key == NULL || ctx->key_type == MAIL_ATTRIBUTE_TYPE_PRIVATE) {
+	if (ctx->key[0] == '\0' || ctx->key_type == MAIL_ATTRIBUTE_TYPE_PRIVATE) {
 		if (cmd_mailbox_metadata_list_run_iter(ctx, box, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0) {
 			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
 		}
 	}
-	if (ctx->key == NULL || ctx->key_type == MAIL_ATTRIBUTE_TYPE_SHARED) {
+	if (ctx->key[0] == '\0' || ctx->key_type == MAIL_ATTRIBUTE_TYPE_SHARED) {
 		if (cmd_mailbox_metadata_list_run_iter(ctx, box, MAIL_ATTRIBUTE_TYPE_SHARED) < 0) {
 			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
