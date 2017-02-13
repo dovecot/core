@@ -156,6 +156,7 @@ int init_test_mail_user(void)
 	};
 
 	mail_storage_service = mail_storage_service_init(master_service, NULL,
+		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS |
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS);
 
