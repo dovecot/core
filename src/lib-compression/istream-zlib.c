@@ -81,6 +81,11 @@ static int i_stream_zlib_read_header(struct istream_private *stream)
 			zlib_read_error(zstream, "missing gz trailer");
 			stream->istream.stream_errno = EINVAL;
 		}
+		if (ret == -2) {
+			zlib_read_error(zstream, "gz header is too large");
+			stream->istream.stream_errno = EINVAL;
+			ret = -1;
+		}
 		return ret;
 	}
 	zstream->prev_size = size;
