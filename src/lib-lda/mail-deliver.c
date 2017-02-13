@@ -24,6 +24,7 @@
 struct mail_deliver_user {
 	union mail_user_module_context module_ctx;
 	struct mail_deliver_context *deliver_ctx;
+	bool want_storage_id;
 };
 
 deliver_mail_func_t *deliver_mail = NULL;
@@ -456,6 +457,9 @@ int mail_deliver(struct mail_deliver_context *ctx,
 
 	i_assert(muser->deliver_ctx == NULL);
 
+	muser->want_storage_id =
+		var_has_key(ctx->set->deliver_log_format, '\0', "storage_id");
+
 	muser->deliver_ctx = ctx;
 	*storage_r = NULL;
 	if (deliver_mail == NULL)
@@ -533,6 +537,58 @@ static int mail_deliver_copy(struct mail_save_context *ctx, struct mail *mail)
 	return 0;
 }
 
+static void
+mail_deliver_cache_update_post_commit(struct mailbox *orig_box, uint32_t uid)
+{
+	struct mail_deliver_user *muser =
+		MAIL_DELIVER_USER_CONTEXT(orig_box->storage->user);
+	struct mailbox *box;
+	struct mailbox_transaction_context *t;
+	struct mail *mail;
+	const char *storage_id;
+
+	if (!muser->want_storage_id)
+		return;
+
+	/* getting storage_id requires a whole new mailbox view that is
+	   synced, so it'll contain the newly written mail. this is racy, so
+	   it's possible another process has already deleted the mail. */
+	box = mailbox_alloc(orig_box->list, orig_box->vname, 0);
+
+	mail = mail_deliver_open_mail(box, uid, MAIL_FETCH_STORAGE_ID, &t);
+	if (mail != NULL) {
+		if (mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &storage_id) < 0 ||
+		    storage_id[0] == '\0')
+			storage_id = NULL;
+		muser->deliver_ctx->cache->storage_id =
+			p_strdup(muser->deliver_ctx->pool, storage_id);
+		mail_free(&mail);
+		(void)mailbox_transaction_commit(&t);
+	} else {
+		muser->deliver_ctx->cache->storage_id = NULL;
+	}
+	mailbox_free(&box);
+}
+
+static int
+mail_deliver_transaction_commit(struct mailbox_transaction_context *ctx,
+				struct mail_transaction_commit_changes *changes_r)
+{
+	struct mailbox *box = ctx->box;
+	union mailbox_module_context *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+
+	if (mbox->super.transaction_commit(ctx, changes_r) < 0)
+		return -1;
+
+	if (array_count(&changes_r->saved_uids) > 0) {
+		const struct seq_range *range =
+			array_idx(&changes_r->saved_uids, 0);
+
+		mail_deliver_cache_update_post_commit(box, range->seq1);
+	}
+	return 0;
+}
+
 static void mail_deliver_mail_user_created(struct mail_user *user)
 {
 	struct mail_deliver_user *muser;
@@ -551,6 +607,7 @@ static void mail_deliver_mailbox_allocated(struct mailbox *box)
 	box->vlast = &mbox->super;
 	v->save_finish = mail_deliver_save_finish;
 	v->copy = mail_deliver_copy;
+	v->transaction_commit = mail_deliver_transaction_commit;
 
 	MODULE_CONTEXT_SET_SELF(box, mail_deliver_storage_module, mbox);
  }
