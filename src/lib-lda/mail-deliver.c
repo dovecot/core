@@ -276,27 +276,22 @@ void mail_deliver_deduplicate_guid_if_needed(struct mail_deliver_session *sessio
 }
 
 static struct mail *
-mail_deliver_open_mail(struct mailbox *box,
-		       const struct mail_transaction_commit_changes *changes,
+mail_deliver_open_mail(struct mailbox *box, uint32_t uid,
 		       enum mail_fetch_field wanted_fields,
 		       struct mailbox_transaction_context **trans_r)
 {
 	struct mailbox_transaction_context *t;
 	struct mail *mail;
-	const struct seq_range *range;
 
 	*trans_r = NULL;
 
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
 		return NULL;
 
-	range = array_idx(&changes->saved_uids, 0);
-	i_assert(range[0].seq1 == range[0].seq2);
-
 	t = mailbox_transaction_begin(box, 0);
 	mail = mail_alloc(t, wanted_fields, NULL);
 
-	if (!mail_set_uid(mail, range[0].seq1)) {
+	if (!mail_set_uid(mail, uid)) {
 		mail_free(&mail);
 		mailbox_transaction_rollback(&t);
 	}
@@ -383,7 +378,11 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 			/* copying needs the message body. with maildir we also
 			   need to get the GUID in case the message gets
 			   expunged */
-			ctx->dest_mail = mail_deliver_open_mail(box, &changes,
+			i_assert(array_count(&changes.saved_uids) == 1);
+			const struct seq_range *range =
+				array_idx(&changes.saved_uids, 0);
+			i_assert(range->seq1 == range->seq2);
+			ctx->dest_mail = mail_deliver_open_mail(box, range->seq1,
 				MAIL_FETCH_STREAM_BODY | MAIL_FETCH_GUID, &t);
 			if (mail_get_special(ctx->dest_mail, MAIL_FETCH_GUID, &guid) < 0) {
 				mail_free(&ctx->dest_mail);
