@@ -80,8 +80,8 @@ struct mailbox_list_index_node {
 
 	uint32_t name_id, uid;
 	enum mailbox_list_index_flags flags;
-	/* parent_uid is corrupted on disk - need to update it */
-	bool corrupted_parent;
+	/* extension data is corrupted on disk - need to update it */
+	bool corrupted_ext;
 	const char *name;
 };
 

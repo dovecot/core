@@ -355,7 +355,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				if (ilist->has_backing_store)
 					break;
 				/* just place it under the root */
-				node->corrupted_parent = TRUE;
+				node->corrupted_ext = TRUE;
 			} else if (node_has_parent(parent, node)) {
 				*error_r = t_strdup_printf(
 					"parent_uid=%u loops to node itself (%s)",
@@ -363,7 +363,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				if (ilist->has_backing_store)
 					break;
 				/* just place it under the root */
-				node->corrupted_parent = TRUE;
+				node->corrupted_ext = TRUE;
 			} else {
 				node->parent = parent;
 				node->next = parent->children;

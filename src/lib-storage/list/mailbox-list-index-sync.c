@@ -376,17 +376,18 @@ mailbox_list_index_sync_update_corrupted_node(struct mailbox_list_index_sync_con
 	if (!mail_index_lookup_seq(sync_ctx->view, node->uid, &seq))
 		return;
 
-	if (node->corrupted_parent) {
+	if (node->corrupted_ext) {
 		mail_index_lookup_ext(sync_ctx->view, seq,
 				      sync_ctx->ilist->ext_id,
 				      &data, &expunged);
 		i_assert(data != NULL);
 
 		memcpy(&irec, data, sizeof(irec));
+		irec.name_id = node->name_id;
 		irec.parent_uid = node->parent == NULL ? 0 : node->parent->uid;
 		mail_index_update_ext(sync_ctx->trans, seq,
 				      sync_ctx->ilist->ext_id, &irec, NULL);
-		node->corrupted_parent = FALSE;
+		node->corrupted_ext = FALSE;
 	}
 	if ((node->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) != 0) {
 		/* rely on lib-index to drop unnecessary updates */
