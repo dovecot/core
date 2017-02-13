@@ -65,7 +65,7 @@ mail_deliver_log_update_cache(struct mail_deliver_context *ctx)
 {
 	struct mail *mail;
 	const char *message_id = NULL, *subject = NULL, *from_envelope = NULL;
-	const char *from, *storage_id = NULL;
+	const char *from;
 
 	if (ctx->cache == NULL)
 		ctx->cache = p_new(ctx->pool, struct mail_deliver_cache, 1);
@@ -89,9 +89,6 @@ mail_deliver_log_update_cache(struct mail_deliver_context *ctx)
 	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE, &from_envelope) > 0)
 		from_envelope = str_sanitize(from_envelope, 80);
 	update_cache(ctx, &ctx->cache->from_envelope, from_envelope);
-
-	(void)mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &storage_id);
-	update_cache(ctx, &ctx->cache->storage_id, storage_id);
 
 	if (mail_get_physical_size(mail, &ctx->cache->psize) < 0)
 		ctx->cache->psize = 0;
@@ -391,21 +388,6 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 			if (mail_get_special(ctx->dest_mail, MAIL_FETCH_GUID, &guid) < 0) {
 				mail_free(&ctx->dest_mail);
 				mailbox_transaction_rollback(&t);
-			}
-			/* might as well get the storage_id */
-			(void)mail_get_special(ctx->dest_mail, MAIL_FETCH_STORAGE_ID,
-					       &ctx->cache->storage_id);
-		} else if (var_has_key(ctx->set->deliver_log_format, '\0', "storage_id")) {
-			/* storage ID is available only after commit. */
-			struct mail *mail = mail_deliver_open_mail(box, &changes,
-				MAIL_FETCH_STORAGE_ID, &t);
-			if (mail != NULL) {
-				const char *str;
-
-				(void)mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &str);
-				ctx->cache->storage_id = t_strdup(str);
-				mail_free(&mail);
-				(void)mailbox_transaction_commit(&t);
 			}
 		}
 		mail_deliver_log(ctx, "saved mail to %s", mailbox_name);
