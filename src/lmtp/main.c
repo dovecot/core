@@ -11,6 +11,7 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-interface.h"
+#include "mail-deliver.h"
 #include "mail-storage-service.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
@@ -63,6 +64,7 @@ static void main_init(void)
 		(void)client_create(STDIN_FILENO, STDOUT_FILENO, &conn);
 	}
 	dns_client_socket_path = t_abspath(DNS_CLIENT_SOCKET_PATH);
+	mail_deliver_hooks_init();
 }
 
 static void main_deinit(void)

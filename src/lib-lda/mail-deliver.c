@@ -12,8 +12,19 @@
 #include "lda-settings.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
+#include "mail-storage-private.h"
 #include "duplicate.h"
 #include "mail-deliver.h"
+
+#define MAIL_DELIVER_USER_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, mail_deliver_user_module)
+#define MAIL_DELIVER_STORAGE_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, mail_deliver_storage_module)
+
+struct mail_deliver_user {
+	union mail_user_module_context module_ctx;
+	struct mail_deliver_context *deliver_ctx;
+};
 
 deliver_mail_func_t *deliver_mail = NULL;
 
@@ -35,6 +46,10 @@ static const char *lda_log_wanted_headers[] = {
 };
 static enum mail_fetch_field lda_log_wanted_fetch_fields =
 	MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE;
+static MODULE_CONTEXT_DEFINE_INIT(mail_deliver_user_module,
+				  &mail_user_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(mail_deliver_storage_module,
+				  &mail_storage_module_register);
 
 const char *mail_deliver_get_address(struct mail *mail, const char *header)
 {
@@ -61,9 +76,9 @@ static void update_cache(struct mail_deliver_context *ctx,
 }
 
 static void
-mail_deliver_log_update_cache(struct mail_deliver_context *ctx)
+mail_deliver_log_update_cache(struct mail_deliver_context *ctx,
+			      struct mail *mail)
 {
-	struct mail *mail;
 	const char *message_id = NULL, *subject = NULL, *from_envelope = NULL;
 	const char *from;
 
@@ -72,8 +87,6 @@ mail_deliver_log_update_cache(struct mail_deliver_context *ctx)
 	else if (ctx->cache->filled)
 		return;
 	ctx->cache->filled = TRUE;
-
-	mail = ctx->dest_mail != NULL ? ctx->dest_mail : ctx->src_mail;
 
 	if (mail_get_first_header(mail, "Message-ID", &message_id) > 0)
 		message_id = str_sanitize(message_id, 200);
@@ -100,9 +113,11 @@ const struct var_expand_table *
 mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 					  const char *message)
 {
+	struct mail *mail = ctx->dest_mail != NULL ?
+		ctx->dest_mail : ctx->src_mail;
 	unsigned int delivery_time_msecs;
 
-	mail_deliver_log_update_cache(ctx);
+	mail_deliver_log_update_cache(ctx, mail);
 	/* This call finishes a mail delivery. With Sieve there may be multiple
 	   mail deliveries. */
 	ctx->cache->filled = FALSE;
@@ -360,10 +375,6 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 
 	if (mailbox_save_using_mail(&save_ctx, ctx->src_mail) < 0)
 		ret = -1;
-	else {
-		/* fill the cache while we still have dest_mail */
-		mail_deliver_log_update_cache(ctx);
-	}
 	if (kw != NULL)
 		mailbox_keywords_unref(&kw);
 
@@ -436,8 +447,13 @@ static bool mail_deliver_is_tempfailed(struct mail_deliver_context *ctx,
 int mail_deliver(struct mail_deliver_context *ctx,
 		 struct mail_storage **storage_r)
 {
+	struct mail_deliver_user *muser =
+		MAIL_DELIVER_USER_CONTEXT(ctx->dest_user);
 	int ret;
 
+	i_assert(muser->deliver_ctx == NULL);
+
+	muser->deliver_ctx = ctx;
 	*storage_r = NULL;
 	if (deliver_mail == NULL)
 		ret = -1;
@@ -452,22 +468,27 @@ int mail_deliver(struct mail_deliver_context *ctx,
 			ret = 0;
 		}
 		duplicate_deinit(&ctx->dup_ctx);
-		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r))
+		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r)) {
+			muser->deliver_ctx = NULL;
 			return -1;
+		}
 	}
 
 	if (ret < 0 && !ctx->tried_default_save) {
 		/* plugins didn't handle this. save into the default mailbox. */
 		ret = mail_deliver_save(ctx, ctx->dest_mailbox_name, 0, NULL,
 					storage_r);
-		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r))
+		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r)) {
+			muser->deliver_ctx = NULL;
 			return -1;
+		}
 	}
 	if (ret < 0 && strcasecmp(ctx->dest_mailbox_name, "INBOX") != 0) {
 		/* still didn't work. try once more to save it
 		   to INBOX. */
 		ret = mail_deliver_save(ctx, "INBOX", 0, NULL, storage_r);
 	}
+	muser->deliver_ctx = NULL;
 	return ret;
 }
 
@@ -477,4 +498,66 @@ deliver_mail_func_t *mail_deliver_hook_set(deliver_mail_func_t *new_hook)
 
 	deliver_mail = new_hook;
 	return old_hook;
+}
+
+static int mail_deliver_save_finish(struct mail_save_context *ctx)
+{
+	struct mailbox *box = ctx->transaction->box;
+	union mailbox_module_context *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	struct mail_deliver_user *muser =
+		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
+
+	if (mbox->super.save_finish(ctx) < 0)
+		return -1;
+
+	/* initialize most of the fields from dest_mail */
+	mail_deliver_log_update_cache(muser->deliver_ctx, ctx->dest_mail);
+	return 0;
+}
+
+static int mail_deliver_copy(struct mail_save_context *ctx, struct mail *mail)
+{
+	struct mailbox *box = ctx->transaction->box;
+	union mailbox_module_context *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	struct mail_deliver_user *muser =
+		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
+
+	if (mbox->super.copy(ctx, mail) < 0)
+		return -1;
+
+	/* initialize most of the fields from dest_mail */
+	mail_deliver_log_update_cache(muser->deliver_ctx, ctx->dest_mail);
+	return 0;
+}
+
+static void mail_deliver_mail_user_created(struct mail_user *user)
+{
+	struct mail_deliver_user *muser;
+
+	muser = p_new(user->pool, struct mail_deliver_user, 1);
+	MODULE_CONTEXT_SET(user, mail_deliver_user_module, muser);
+}
+
+static void mail_deliver_mailbox_allocated(struct mailbox *box)
+{
+	struct mailbox_vfuncs *v = box->vlast;
+	union mailbox_module_context *mbox;
+
+	mbox = p_new(box->pool, union mailbox_module_context, 1);
+	mbox->super = *v;
+	box->vlast = &mbox->super;
+	v->save_finish = mail_deliver_save_finish;
+	v->copy = mail_deliver_copy;
+
+	MODULE_CONTEXT_SET_SELF(box, mail_deliver_storage_module, mbox);
+ }
+
+static struct mail_storage_hooks mail_deliver_hooks = {
+	.mail_user_created = mail_deliver_mail_user_created,
+	.mailbox_allocated = mail_deliver_mailbox_allocated
+};
+
+void mail_deliver_hooks_init(void)
+{
+	mail_storage_hooks_add_internal(&mail_deliver_hooks);
 }

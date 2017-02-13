@@ -113,4 +113,7 @@ int mail_deliver(struct mail_deliver_context *ctx,
    which the new_hook should call if it's non-NULL. */
 deliver_mail_func_t *mail_deliver_hook_set(deliver_mail_func_t *new_hook);
 
+/* Must be called before any storage is created. */
+void mail_deliver_hooks_init(void);
+
 #endif
