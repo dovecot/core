@@ -235,13 +235,14 @@ static int mailbox_list_index_parse_header(struct mailbox_list_index *ilist,
 
 static void
 mailbox_list_index_generate_name(struct mailbox_list_index *ilist,
-				 struct mailbox_list_index_node *node)
+				 struct mailbox_list_index_node *node,
+				 const char *prefix)
 {
 	guid_128_t guid;
 	char *name;
 
 	guid_128_generate(guid);
-	name = p_strdup_printf(ilist->mailbox_pool, "unknown-%s",
+	name = p_strdup_printf(ilist->mailbox_pool, "%s%s", prefix,
 			       guid_128_to_string(guid));
 	node->name = name;
 	node->flags |= MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
@@ -324,7 +325,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			if (ilist->has_backing_store)
 				break;
 			/* generate a new name and use it */
-			mailbox_list_index_generate_name(ilist, node);
+			mailbox_list_index_generate_name(ilist, node, "unknown-");
 		}
 		hash_table_insert(ilist->mailbox_hash,
 				  POINTER_CAST(node->uid), node);
@@ -375,7 +376,6 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			hash_table_insert(duplicate_hash, node, node);
 		else {
 			const char *old_name = node->name;
-			guid_128_t guid;
 
 			if (ilist->has_backing_store) {
 				*error_r = t_strdup_printf(
@@ -386,11 +386,10 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 
 			/* we have only the mailbox list index and this node
 			   may have a different GUID, so rename it. */
-			guid_128_generate(guid);
-			node->flags |= MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
-			node->name = p_strdup_printf(ilist->mailbox_pool,
-						     "%s-duplicate-%s", node->name,
-						     guid_128_to_string(guid));
+			node->corrupted_ext = TRUE;
+			node->name_id = ++ilist->highest_name_id;
+			mailbox_list_index_generate_name(ilist, node,
+				t_strconcat(node->name, "-duplicate-", NULL));
 			*error_r = t_strdup_printf(
 				"Duplicate mailbox '%s' in index, renaming to %s",
 				old_name, node->name);
