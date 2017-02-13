@@ -412,6 +412,7 @@ int main(int argc, char *argv[])
 		MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS;
 	storage_service = mail_storage_service_init(master_service, set_roots,
 						    service_flags);
+	mail_deliver_hooks_init();
 	/* set before looking up the user (or ideally we'd do this between
 	   _lookup() and _next(), but don't bother) */
 	ctx.delivery_time_started = ioloop_timeval;

@@ -11,6 +11,7 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-interface.h"
+#include "mail-deliver.h"
 #include "mail-storage-service.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
@@ -68,6 +69,7 @@ static void main_init(void)
 		i_fatal("t_abspath(%s) failed: %s", DNS_CLIENT_SOCKET_PATH, error);
 	}
 	dns_client_socket_path = i_strdup(tmp_socket_path);
+	mail_deliver_hooks_init();
 }
 
 static void main_deinit(void)
