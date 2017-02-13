@@ -195,6 +195,8 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 struct mail *
 virtual_mail_set_backend_mail(struct mail *mail,
 			      struct virtual_backend_box *bbox);
+void virtual_mail_set_unattached_backend_mail(struct mail *mail,
+					      struct mail *backend_mail);
 
 struct mailbox_sync_context *
 virtual_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);
