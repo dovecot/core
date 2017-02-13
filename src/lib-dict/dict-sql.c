@@ -844,14 +844,15 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	const char *error;
 	struct dict_commit_result result;
 
-	i_zero(&result);
-	result.ret = DICT_COMMIT_RET_FAILED;
-	result.error = t_strdup(ctx->error);
-
 	if (ctx->prev_inc_map != NULL)
 		sql_dict_prev_inc_flush(ctx);
 	if (ctx->prev_set_map != NULL)
 		sql_dict_prev_set_flush(ctx);
+
+	/* note that the above calls might still set ctx->error */
+	i_zero(&result);
+	result.ret = DICT_COMMIT_RET_FAILED;
+	result.error = t_strdup(ctx->error);
 
 	if (ctx->error != NULL) {
 		sql_transaction_rollback(&ctx->sql_ctx);
