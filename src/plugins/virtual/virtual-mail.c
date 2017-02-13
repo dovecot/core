@@ -172,6 +172,18 @@ virtual_mail_set_backend_mail(struct mail *mail,
 	return vmail->cur_backend_mail;
 }
 
+void virtual_mail_set_unattached_backend_mail(struct mail *mail,
+					      struct mail *backend_mail)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mail_private *backend_pmail;
+
+	vmail->cur_backend_mail = backend_mail;
+
+	backend_pmail = (struct mail_private *)backend_mail;
+	backend_pmail->vmail = mail;
+}
+
 static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
