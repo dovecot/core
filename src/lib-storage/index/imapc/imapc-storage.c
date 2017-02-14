@@ -230,7 +230,6 @@ imapc_storage_client_login(const struct imapc_command_reply *reply,
 		return;
 	}
 
-	i_error("imapc: Authentication failed: %s", reply->text_full);
 	client->auth_failed = TRUE;
 
 	if (client->_storage != NULL) {
