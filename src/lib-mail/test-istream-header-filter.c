@@ -9,6 +9,7 @@
 
 struct run_ctx {
 	header_filter_callback *callback;
+	unsigned int callback_call_count;
 	bool null_hdr_seen;
 	bool eoh_seen;
 	bool callback_called;
@@ -18,10 +19,16 @@ static void run_callback(struct header_filter_istream *input,
 			 struct message_header_line *hdr,
 			 bool *matched, struct run_ctx *ctx)
 {
+	i_assert(!ctx->null_hdr_seen);
+
+	ctx->callback_call_count++;
 	if (hdr == NULL)
 		ctx->null_hdr_seen = TRUE;
-	if (hdr != NULL && hdr->eoh)
-		ctx->eoh_seen = TRUE;
+	else {
+		i_assert(!ctx->eoh_seen);
+		if (hdr->eoh)
+			ctx->eoh_seen = TRUE;
+	}
 	if (ctx->callback != NULL)
 		ctx->callback(input, hdr, matched, NULL);
 	ctx->callback_called = TRUE;
@@ -73,7 +80,7 @@ test_istream_run(struct istream *test_istream,
 {
 	struct run_ctx run_ctx;
 	struct istream *filter;
-	unsigned int i;
+	unsigned int i, orig_callback_call_count;
 	size_t size;
 
 	test_istream_run_prep(&run_ctx, callback);
@@ -90,6 +97,7 @@ test_istream_run(struct istream *test_istream,
 	test_assert(i_stream_read(filter) == -1);
 
 	test_istream_run_check(&run_ctx, filter, output, flags, TRUE, &size);
+	orig_callback_call_count = run_ctx.callback_call_count;
 
 	/* run again to make sure it's still correct the second time */
 	test_istream_run_prep(&run_ctx, callback);
@@ -98,6 +106,9 @@ test_istream_run(struct istream *test_istream,
 	i_stream_seek(filter, 0);
 	while (i_stream_read(filter) > 0) ;
 	test_istream_run_check(&run_ctx, filter, output, flags, FALSE, &size);
+	test_assert(run_ctx.callback_call_count == 0 ||
+		    run_ctx.callback_call_count == orig_callback_call_count);
+
 	i_stream_unref(&filter);
 }
 
@@ -513,6 +524,24 @@ static void test_istream_add_missing_eoh(void)
 	test_end();
 }
 
+static void test_istream_add_missing_eoh_and_edit(void)
+{
+	const char *input = "From: foo\nTo: bar\n";
+	const char *output = "From: foo\nTo: 123\nAdded: header\n\n";
+	struct istream *istream;
+
+	test_begin("i_stream_create_header_filter: add missing EOH and edit headers");
+	istream = test_istream_create(input);
+	test_istream_run(istream, strlen(input), output,
+			 HEADER_FILTER_EXCLUDE |
+			 HEADER_FILTER_ADD_MISSING_EOH |
+			 HEADER_FILTER_NO_CR,
+			 edit_callback);
+	i_stream_unref(&istream);
+
+	test_end();
+}
+
 static void test_istream_hide_body(void)
 {
 	struct {
@@ -621,6 +650,7 @@ int main(void)
 		test_istream_callbacks,
 		test_istream_edit,
 		test_istream_add_missing_eoh,
+		test_istream_add_missing_eoh_and_edit,
 		test_istream_end_body_with_lf,
 		test_istream_hide_body,
 		test_istream_strip_eoh,

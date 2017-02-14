@@ -313,7 +313,10 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			if (!mstream->last_added_newline)
 				add_eol(mstream, mstream->last_orig_crlf);
 
-			if (mstream->callback != NULL) {
+			if (mstream->header_parsed && !mstream->headers_edited) {
+				if (mstream->eoh_not_matched)
+					matched = !matched;
+			} else if (mstream->callback != NULL) {
 				struct message_header_line fake_eoh_hdr = {
 					.eoh = TRUE,
 					.name = "",
