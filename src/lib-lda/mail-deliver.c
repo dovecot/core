@@ -114,11 +114,11 @@ const struct var_expand_table *
 mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 					  const char *message)
 {
-	struct mail *mail = ctx->dest_mail != NULL ?
-		ctx->dest_mail : ctx->src_mail;
 	unsigned int delivery_time_msecs;
 
-	mail_deliver_log_update_cache(ctx, mail);
+	/* If a mail was saved/copied, the cache is already filled and the
+	   following call is ignored. Otherwise, only the source mail exists. */
+	mail_deliver_log_update_cache(ctx, ctx->src_mail);
 	/* This call finishes a mail delivery. With Sieve there may be multiple
 	   mail deliveries. */
 	ctx->cache->filled = FALSE;
