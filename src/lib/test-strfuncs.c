@@ -92,6 +92,26 @@ static void test_t_strsplit_tab(void)
 		}
 		strsplit_verify(buf);
 	}
+}
+
+static void test_t_strsplit_spaces(void)
+{
+	const char *const *args;
+
+	test_begin("t_strsplit_spaces");
+	/* empty strings */
+	args = t_strsplit_spaces("", "\n");
+	test_assert(args[0] == NULL);
+	args = t_strsplit_spaces("\n", "\n");
+	test_assert(args[0] == NULL);
+	args = t_strsplit_spaces("\n\n", "\n");
+	test_assert(args[0] == NULL);
+
+	/* multiple separators */
+	args = t_strsplit_spaces(" , ,   ,str1  ,  ,,, , str2   , ", " ,");
+	test_assert(strcmp(args[0], "str1") == 0);
+	test_assert(strcmp(args[1], "str2") == 0);
+	test_assert(args[2] == NULL);
 	test_end();
 }
 
@@ -220,6 +240,7 @@ void test_strfuncs(void)
 	test_p_strarray_dup();
 	test_t_strsplit();
 	test_t_strsplit_tab();
+	test_t_strsplit_spaces();
 	test_t_str_replace();
 	/*test_t_str_trim();*/
 	test_t_str_ltrim();
