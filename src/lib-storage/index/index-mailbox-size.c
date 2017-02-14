@@ -276,7 +276,8 @@ void index_mailbox_vsize_hdr_expunge(struct mailbox_vsize_update *update,
 }
 
 static int
-index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update)
+index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
+				    bool require_result)
 {
 	struct mailbox_index_vsize *vsize_hdr = &update->vsize_hdr;
 	struct mailbox_transaction_context *trans;
@@ -314,8 +315,13 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update)
 	trans = mailbox_transaction_begin(update->box, 0);
 	search_ctx = mailbox_search_init(trans, search_args, NULL,
 					 MAIL_FETCH_VIRTUAL_SIZE, NULL);
-	mails_left = update->box->storage->set->mail_vsize_bg_after_count == 0 ?
-		UINT_MAX : update->box->storage->set->mail_vsize_bg_after_count;
+	if (!require_result)
+		mails_left = 0;
+	else if (update->box->storage->set->mail_vsize_bg_after_count == 0)
+		mails_left = UINT_MAX;
+	else
+		mails_left = update->box->storage->set->mail_vsize_bg_after_count;
+
 	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mails_left == UINT_MAX) {
 			/* we want to build the full vsize here */
@@ -333,7 +339,8 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update)
 				if (mails_left == 0) {
 					mail_storage_set_error(update->box->storage, MAIL_ERROR_INUSE,
 						"Finishing vsize calculation on background");
-					update->finish_in_background = TRUE;
+					if (require_result)
+						update->finish_in_background = TRUE;
 					break;
 				}
 				mails_left--;
@@ -385,7 +392,7 @@ int index_mailbox_get_virtual_size(struct mailbox *box,
 	   anyway internally even though we won't be saving the result. */
 	(void)index_mailbox_vsize_update_wait_lock(update);
 
-	ret = index_mailbox_vsize_hdr_add_missing(update);
+	ret = index_mailbox_vsize_hdr_add_missing(update, TRUE);
 	metadata_r->virtual_size = update->vsize_hdr.vsize;
 	index_mailbox_vsize_update_deinit(&update);
 	return ret;
@@ -462,6 +469,6 @@ void index_mailbox_vsize_update_appends(struct mailbox *box)
 	if (update->vsize_hdr.highest_uid + 1 != status.uidnext &&
 	    index_mailbox_vsize_want_updates(update) &&
 	    index_mailbox_vsize_update_try_lock(update))
-		(void)index_mailbox_vsize_hdr_add_missing(update);
+		(void)index_mailbox_vsize_hdr_add_missing(update, FALSE);
 	index_mailbox_vsize_update_deinit(&update);
 }
