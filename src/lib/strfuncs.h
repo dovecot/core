@@ -82,7 +82,8 @@ char **p_strsplit(pool_t pool, const char *data, const char *separators)
 const char **t_strsplit(const char *data, const char *separators)
 	ATTR_MALLOC ATTR_RETURNS_NONNULL;
 /* like p_strsplit(), but treats multiple adjacent separators as a single
-   separator. */
+   separator. separators at the beginning or at the end of the string are also
+   ignored, so it's not possible for the result to have any empty strings. */
 char **p_strsplit_spaces(pool_t pool, const char *data, const char *separators)
 	ATTR_MALLOC ATTR_RETURNS_NONNULL;
 const char **t_strsplit_spaces(const char *data, const char *separators)
