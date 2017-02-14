@@ -329,6 +329,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	struct mail_save_context *save_ctx;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	struct mail_keywords *kw;
+	struct mail *dest_mail;
 	enum mail_error error;
 	const char *mailbox_name, *errstr, *guid;
 	struct mail_transaction_commit_changes changes;
@@ -372,8 +373,8 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	mailbox_save_set_flags(save_ctx, flags, kw);
 
 	headers_ctx = mailbox_header_lookup_init(box, lda_log_wanted_headers);
-	ctx->dest_mail = mailbox_save_get_dest_mail(save_ctx);
-	mail_add_temp_wanted_fields(ctx->dest_mail, lda_log_wanted_fetch_fields, NULL);
+	dest_mail = mailbox_save_get_dest_mail(save_ctx);
+	mail_add_temp_wanted_fields(dest_mail, lda_log_wanted_fetch_fields, NULL);
 	mailbox_header_lookup_unref(&headers_ctx);
 	mail_deliver_deduplicate_guid_if_needed(ctx->session, save_ctx);
 
