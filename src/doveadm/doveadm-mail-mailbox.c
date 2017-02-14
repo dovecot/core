@@ -55,6 +55,17 @@ struct update_cmd_context {
 	struct mailbox_update update;
 };
 
+struct path_cmd_context {
+	struct doveadm_mailbox_cmd_context ctx;
+	const char *mailbox;
+	enum mailbox_list_path_type path_type;
+};
+
+static const char *mailbox_list_path_type_names[] = {
+	"dir", "alt-dir", "mailbox", "alt-mailbox",
+	"control", "index", "index-private"
+};
+
 void doveadm_mailbox_args_check(const char *const args[])
 {
 	unsigned int i;
@@ -668,6 +679,89 @@ struct doveadm_mail_cmd_context *cmd_mailbox_update_alloc(void)
 	return &ctx->ctx.ctx;
 }
 
+static void
+cmd_mailbox_path_init(struct doveadm_mail_cmd_context *_ctx,
+		      const char *const args[])
+{
+	struct update_cmd_context *ctx = (struct update_cmd_context *)_ctx;
+
+	if (str_array_length(args) != 1)
+		doveadm_mail_help_name("mailbox path");
+
+	doveadm_mailbox_args_check(args);
+
+	ctx->mailbox = args[0];
+	doveadm_print_header("path", "path", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
+}
+
+static bool
+mailbox_list_path_type_name_parse(const char *name,
+				  enum mailbox_list_path_type *type_r)
+{
+	enum mailbox_list_path_type type;
+
+	for (type = 0; type < N_ELEMENTS(mailbox_list_path_type_names); type++) {
+		if (strcmp(mailbox_list_path_type_names[type], name) == 0) {
+			*type_r = type;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static bool
+cmd_mailbox_path_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+{
+	struct path_cmd_context *ctx = (struct path_cmd_context *)_ctx;
+
+	switch (c) {
+	case 't':
+		if (!mailbox_list_path_type_name_parse(optarg, &ctx->path_type))
+			doveadm_mail_help_name("mailbox path");
+		break;
+	default:
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static int
+cmd_mailbox_path_run(struct doveadm_mail_cmd_context *_ctx,
+		     struct mail_user *user)
+{
+	struct path_cmd_context *ctx = (struct path_cmd_context *)_ctx;
+	struct mail_namespace *ns;
+	enum mail_error mail_error;
+	const char *storage_name, *path;
+	int ret;
+
+	ns = mail_namespace_find(user->namespaces, ctx->mailbox);
+	storage_name = mailbox_list_get_storage_name(ns->list, ctx->mailbox);
+	ret = mailbox_list_get_path(ns->list, storage_name, ctx->path_type, &path);
+	if (ret < 0) {
+		i_error("Failed to lookup mailbox %s path: %s",
+			ctx->mailbox,
+			mailbox_list_get_last_error(ns->list, &mail_error));
+		doveadm_mail_failed_error(_ctx, mail_error);
+	} else if (ret > 0) {
+		doveadm_print(path);
+	}
+	return ret;
+}
+
+static struct doveadm_mail_cmd_context *cmd_mailbox_path_alloc(void)
+{
+	struct path_cmd_context *ctx;
+
+	ctx = doveadm_mail_cmd_alloc(struct path_cmd_context);
+	ctx->path_type = MAILBOX_LIST_PATH_TYPE_INDEX;
+	ctx->ctx.ctx.v.parse_arg = cmd_mailbox_path_parse_arg;
+	ctx->ctx.ctx.v.init = cmd_mailbox_path_init;
+	ctx->ctx.ctx.v.run = cmd_mailbox_path_run;
+	doveadm_print_init(DOVEADM_PRINT_TYPE_FLOW);
+	return &ctx->ctx.ctx;
+}
+
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_list_ver2 = {
 	.name = "mailbox list",
 	.mail_cmd = cmd_mailbox_list_alloc,
@@ -754,3 +848,15 @@ DOVEADM_CMD_PARAM('P', "min-highest-pvt-modseq", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
+
+struct doveadm_cmd_ver2 doveadm_cmd_mailbox_path_ver2 = {
+	.name = "mailbox path",
+	.mail_cmd = cmd_mailbox_path_alloc,
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-t <type>] <mailbox>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('t', "type", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAMS_END
+};
+
