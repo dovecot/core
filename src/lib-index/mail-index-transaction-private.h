@@ -121,7 +121,7 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t);
 void mail_index_transaction_sort_expunges(struct mail_index_transaction *t);
 uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t);
 void mail_index_transaction_set_log_updates(struct mail_index_transaction *t);
-void mail_index_update_day_headers(struct mail_index_transaction *t);
+void mail_index_update_day_headers(struct mail_index_transaction *t, time_t day_stamp);
 
 unsigned int
 mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,

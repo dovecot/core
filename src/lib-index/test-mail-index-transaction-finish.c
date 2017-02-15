@@ -18,7 +18,7 @@ void mail_index_ext_set_reset_id(struct mail_index_transaction *t ATTR_UNUSED,
 				 uint32_t ext_id ATTR_UNUSED,
 				 uint32_t reset_id ATTR_UNUSED) { }
 void mail_index_transaction_set_log_updates(struct mail_index_transaction *t ATTR_UNUSED) { }
-void mail_index_update_day_headers(struct mail_index_transaction *t ATTR_UNUSED) {}
+void mail_index_update_day_headers(struct mail_index_transaction *t ATTR_UNUSED, time_t day_stamp ATTR_UNUSED) {}
 bool mail_index_cancel_flag_updates(struct mail_index_transaction *t ATTR_UNUSED,
 				    uint32_t seq ATTR_UNUSED) { return TRUE; }
 bool mail_index_cancel_keyword_updates(struct mail_index_transaction *t ATTR_UNUSED,
