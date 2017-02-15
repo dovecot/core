@@ -142,6 +142,19 @@ static void imapc_command_free(struct imapc_command *cmd);
 static void imapc_command_send_more(struct imapc_connection *conn);
 
 static void
+imapc_auth_ok(struct imapc_connection *conn)
+{
+	if (conn->client->set.debug)
+		i_debug("imapc(%s): Authenticated successfully", conn->name);
+
+	if (conn->client->state_change_callback == NULL)
+		return;
+
+	conn->client->state_change_callback(conn->client->state_change_context,
+					    IMAPC_STATE_CHANGE_AUTH_OK, NULL);
+}
+
+static void
 imapc_auth_failed(struct imapc_connection *conn,
 		  const char *error)
 {
@@ -784,8 +797,7 @@ imapc_connection_auth_finish(struct imapc_connection *conn,
 		return;
 	}
 
-	if (conn->client->set.debug)
-		i_debug("imapc(%s): Authenticated successfully", conn->name);
+	imapc_auth_ok(conn);
 
 	timeout_remove(&conn->to);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DONE);

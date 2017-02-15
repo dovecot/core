@@ -147,6 +147,7 @@ struct imapc_untagged_reply {
 };
 
 enum imapc_state_change_event {
+	IMAPC_STATE_CHANGE_AUTH_OK,
 	IMAPC_STATE_CHANGE_AUTH_FAILED,
 };
 
