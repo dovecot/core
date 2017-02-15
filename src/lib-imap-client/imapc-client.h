@@ -146,12 +146,19 @@ struct imapc_untagged_reply {
 	void *untagged_box_context;
 };
 
+enum imapc_state_change_event {
+	IMAPC_STATE_CHANGE_AUTH_FAILED,
+};
+
 /* Called when tagged reply is received for command. */
 typedef void imapc_command_callback_t(const struct imapc_command_reply *reply,
 				      void *context);
 /* Called each time untagged input is received. */
 typedef void imapc_untagged_callback_t(const struct imapc_untagged_reply *reply,
 				       void *context);
+typedef void imapc_state_change_callback_t(void *context,
+					   enum imapc_state_change_event event,
+					   const char *error);
 
 struct imapc_client *
 imapc_client_init(const struct imapc_client_settings *set);
@@ -207,5 +214,9 @@ imapc_client_get_capabilities(struct imapc_client *client);
 
 int imapc_client_create_temp_fd(struct imapc_client *client,
 				const char **path_r);
+
+void imapc_client_register_state_change_callback(struct imapc_client *client,
+						 imapc_state_change_callback_t *cb,
+						 void *context);
 
 #endif

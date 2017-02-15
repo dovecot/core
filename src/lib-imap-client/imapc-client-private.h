@@ -20,6 +20,9 @@ struct imapc_client {
 	imapc_untagged_callback_t *untagged_callback;
 	void *untagged_context;
 
+	imapc_state_change_callback_t *state_change_callback;
+	void *state_change_context;
+
 	ARRAY(struct imapc_client_connection *) conns;
 
 	struct ioloop *ioloop;
