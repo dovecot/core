@@ -855,7 +855,7 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	if (base64_decode(reply->text_full, input_len, NULL, buf) < 0) {
 		imapc_auth_failed(conn,
 				  t_strdup_printf("Server sent non-base64 input for AUTHENTICATE: %s",
-						  error));
+						  reply->text_full));
 	} else if (dsasl_client_input(conn->sasl_client, buf->data, buf->used, &error) < 0) {
 		imapc_auth_failed(conn, error);
 	} else if (dsasl_client_output(conn->sasl_client, &sasl_output,
