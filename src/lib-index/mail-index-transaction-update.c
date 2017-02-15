@@ -5,10 +5,11 @@
    UIDs. */
 
 #include "lib.h"
-#include "ioloop.h"
 #include "array.h"
 #include "mail-index-private.h"
 #include "mail-index-transaction-private.h"
+
+#include <time.h>
 
 static bool
 mail_index_transaction_has_ext_changes(struct mail_index_transaction *t);
@@ -116,7 +117,8 @@ void mail_index_transaction_set_log_updates(struct mail_index_transaction *t)
 		t->min_highest_modseq != 0;
 }
 
-void mail_index_update_day_headers(struct mail_index_transaction *t)
+void mail_index_update_day_headers(struct mail_index_transaction *t,
+				   time_t day_stamp)
 {
 	struct mail_index_header hdr;
 	const struct mail_index_record *rec;
@@ -129,7 +131,7 @@ void mail_index_update_day_headers(struct mail_index_transaction *t)
 	rec = array_idx(&t->appends, 0);
 
 	/* get beginning of today */
-	tm = *localtime(&ioloop_time);
+	tm = *localtime(&day_stamp);
 	tm.tm_hour = 0;
 	tm.tm_min = 0;
 	tm.tm_sec = 0;
