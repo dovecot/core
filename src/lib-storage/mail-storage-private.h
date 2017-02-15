@@ -395,6 +395,8 @@ struct mailbox {
 	unsigned int creating:1;
 	/* Mailbox is being deleted */
 	unsigned int deleting:1;
+	/* Mailbox is being undeleted */
+	unsigned int mailbox_undeleting:1;
 	/* Don't use MAIL_INDEX_SYNC_FLAG_DELETING_INDEX for sync flag */
 	unsigned int delete_sync_check:1;
 	/* Delete mailbox only if it's empty */

@@ -1136,6 +1136,8 @@ static bool mailbox_try_undelete(struct mailbox *box)
 {
 	time_t mtime;
 
+	i_assert(!box->mailbox_undeleting);
+
 	if ((box->flags & MAILBOX_FLAG_READONLY) != 0) {
 		/* most importantly we don't do this because we want to avoid
 		   a loop: mdbox storage rebuild -> mailbox_open() ->
@@ -1148,7 +1150,10 @@ static bool mailbox_try_undelete(struct mailbox *box)
 	if (mtime + MAILBOX_DELETE_RETRY_SECS > time(NULL))
 		return FALSE;
 
-	if (mailbox_mark_index_deleted(box, FALSE) < 0)
+	box->mailbox_undeleting = TRUE;
+	int ret = mailbox_mark_index_deleted(box, FALSE);
+	box->mailbox_undeleting = FALSE;
+	if (ret < 0)
 		return FALSE;
 	box->mailbox_deleted = FALSE;
 	return TRUE;
@@ -1165,7 +1170,7 @@ int mailbox_open(struct mailbox *box)
 	}
 
 	if (mailbox_open_full(box, NULL) < 0) {
-		if (!box->mailbox_deleted)
+		if (!box->mailbox_deleted || box->mailbox_undeleting)
 			return -1;
 
 		/* mailbox has been marked as deleted. if this deletion
