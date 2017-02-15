@@ -1179,6 +1179,11 @@ int mailbox_open(struct mailbox *box)
 		   undelete it and reopen. */
 		if(!mailbox_try_undelete(box))
 			return -1;
+
+		/* make sure we close the mailbox in the middle. some backends
+		   may not have fully opened the mailbox while it was being
+		   undeleted. */
+		mailbox_close(box);
 		if (mailbox_open_full(box, NULL) < 0)
 			return -1;
 	}
