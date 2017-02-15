@@ -468,3 +468,14 @@ int imapc_client_create_temp_fd(struct imapc_client *client,
 	*path_r = str_c(path);
 	return fd;
 }
+
+void imapc_client_register_state_change_callback(struct imapc_client *client,
+						 imapc_state_change_callback_t *cb,
+						 void *context)
+{
+	i_assert(client->state_change_callback == NULL);
+	i_assert(client->state_change_context == NULL);
+
+	client->state_change_callback = cb;
+	client->state_change_context = context;
+}

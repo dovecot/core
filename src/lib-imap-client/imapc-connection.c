@@ -146,6 +146,13 @@ imapc_auth_failed(struct imapc_connection *conn,
 		  const char *error)
 {
 	i_error("imapc(%s): Authentication failed: %s", conn->name, error);
+
+	if (conn->client->state_change_callback == NULL)
+		return;
+
+	conn->client->state_change_callback(conn->client->state_change_context,
+					    IMAPC_STATE_CHANGE_AUTH_FAILED,
+					    error);
 }
 
 struct imapc_connection *
