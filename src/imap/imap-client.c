@@ -266,12 +266,42 @@ void client_destroy(struct client *client, const char *reason)
 	client->v.destroy(client, reason);
 }
 
+static void
+client_command_stats_append(string_t *str,
+			    const struct client_command_stats *stats,
+			    const char *wait_condition,
+			    size_t buffered_size)
+{
+	uint64_t ioloop_wait_usecs;
+	unsigned int msecs_in_ioloop;
+
+	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
+	msecs_in_ioloop = (ioloop_wait_usecs -
+		stats->start_ioloop_wait_usecs + 999) / 1000;
+	str_printfa(str, "running for %d.%03d + waiting ",
+		    (int)((stats->running_usecs+999)/1000 / 1000),
+		    (int)((stats->running_usecs+999)/1000 % 1000));
+	if (wait_condition[0] != '\0')
+		str_printfa(str, "%s ", wait_condition);
+	str_printfa(str, "for %d.%03d secs",
+		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
+	if (stats->lock_wait_usecs > 0) {
+		int lock_wait_msecs = (stats->lock_wait_usecs+999)/1000;
+		str_printfa(str, ", %d.%03d in locks",
+			    lock_wait_msecs/1000, lock_wait_msecs%1000);
+	}
+	str_printfa(str, ", %llu B in + %llu",
+		    (unsigned long long)stats->bytes_in,
+		    (unsigned long long)stats->bytes_out);
+	if (buffered_size > 0)
+		str_printfa(str, "+%"PRIuSIZE_T, buffered_size);
+	str_append(str, " B out");
+}
+
 static const char *client_get_commands_status(struct client *client)
 {
 	struct client_command_context *cmd, *last_cmd = NULL;
-	unsigned int msecs_in_ioloop;
-	uint64_t running_usecs = 0, lock_wait_usecs = 0, ioloop_wait_usecs;
-	unsigned long long bytes_in = 0, bytes_out = 0;
+	struct client_command_stats all_stats;
 	string_t *str;
 	enum io_condition cond;
 	const char *cond_str;
@@ -279,6 +309,7 @@ static const char *client_get_commands_status(struct client *client)
 	if (client->command_queue == NULL)
 		return "";
 
+	i_zero(&all_stats);
 	str = t_str_new(128);
 	str_append(str, " (");
 	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
@@ -290,10 +321,10 @@ static const char *client_get_commands_status(struct client *client)
 		str_append(str, cmd->name);
 		if (cmd->next != NULL)
 			str_append_c(str, ',');
-		running_usecs += cmd->stats.running_usecs;
-		lock_wait_usecs += cmd->stats.lock_wait_usecs;
-		bytes_in += cmd->stats.bytes_in;
-		bytes_out += cmd->stats.bytes_out;
+		all_stats.running_usecs += cmd->stats.running_usecs;
+		all_stats.lock_wait_usecs += cmd->stats.lock_wait_usecs;
+		all_stats.bytes_in += cmd->stats.bytes_in;
+		all_stats.bytes_out += cmd->stats.bytes_out;
 		last_cmd = cmd;
 	}
 	if (last_cmd == NULL)
@@ -309,21 +340,12 @@ static const char *client_get_commands_status(struct client *client)
 	else
 		cond_str = "nothing";
 
-	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
-	msecs_in_ioloop = (ioloop_wait_usecs -
-		last_cmd->stats.start_ioloop_wait_usecs + 999) / 1000;
-	str_printfa(str, " running for %d.%03d + waiting %s for %d.%03d secs",
-		    (int)((running_usecs+999)/1000 / 1000),
-		    (int)((running_usecs+999)/1000 % 1000), cond_str,
-		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
-	if (lock_wait_usecs > 0) {
-		int lock_wait_msecs = (lock_wait_usecs+999)/1000;
-		str_printfa(str, ", %d.%03d in locks",
-			    lock_wait_msecs/1000, lock_wait_msecs%1000);
-	}
-	str_printfa(str, ", %llu B in + %llu+%"PRIuSIZE_T" B out, state=%s)",
-		    bytes_in, bytes_out,
-		    o_stream_get_buffer_used_size(client->output),
+	all_stats.start_ioloop_wait_usecs =
+		last_cmd->stats.start_ioloop_wait_usecs;
+	str_append_c(str, ' ');
+	client_command_stats_append(str, &all_stats, cond_str,
+		o_stream_get_buffer_used_size(client->output));
+	str_printfa(str, ", state=%s)",
 		    client_command_state_names[last_cmd->state]);
 	return str_c(str);
 }
