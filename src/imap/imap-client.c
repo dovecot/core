@@ -290,10 +290,10 @@ static const char *client_get_commands_status(struct client *client)
 		str_append(str, cmd->name);
 		if (cmd->next != NULL)
 			str_append_c(str, ',');
-		running_usecs += cmd->running_usecs;
-		lock_wait_usecs += cmd->lock_wait_usecs;
-		bytes_in += cmd->bytes_in;
-		bytes_out += cmd->bytes_out;
+		running_usecs += cmd->stats.running_usecs;
+		lock_wait_usecs += cmd->stats.lock_wait_usecs;
+		bytes_in += cmd->stats.bytes_in;
+		bytes_out += cmd->stats.bytes_out;
 		last_cmd = cmd;
 	}
 	if (last_cmd == NULL)
@@ -311,7 +311,7 @@ static const char *client_get_commands_status(struct client *client)
 
 	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
 	msecs_in_ioloop = (ioloop_wait_usecs -
-		last_cmd->start_ioloop_wait_usecs + 999) / 1000;
+		last_cmd->stats.start_ioloop_wait_usecs + 999) / 1000;
 	str_printfa(str, " running for %d.%03d + waiting %s for %d.%03d secs",
 		    (int)((running_usecs+999)/1000 / 1000),
 		    (int)((running_usecs+999)/1000 % 1000), cond_str,
@@ -485,15 +485,15 @@ client_cmd_append_timing_stats(struct client_command_context *cmd,
 	uint64_t ioloop_wait_usecs;
 	unsigned int msecs_since_cmd;
 
-	if (cmd->start_time.tv_sec == 0)
+	if (cmd->stats.start_time.tv_sec == 0)
 		return;
 
 	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
-	msecs_in_cmd = (cmd->running_usecs + 999) / 1000;
+	msecs_in_cmd = (cmd->stats.running_usecs + 999) / 1000;
 	msecs_in_ioloop = (ioloop_wait_usecs -
-			   cmd->start_ioloop_wait_usecs + 999) / 1000;
+			   cmd->stats.start_ioloop_wait_usecs + 999) / 1000;
 	msecs_since_cmd = timeval_diff_msecs(&ioloop_timeval,
-					     &cmd->last_run_timeval);
+					     &cmd->stats.last_run_timeval);
 
 	if (str_data(str)[str_len(str)-1] == '.')
 		str_truncate(str, str_len(str)-1);
@@ -736,9 +736,10 @@ struct client_command_context *client_command_alloc(struct client *client)
 	cmd = p_new(client->command_pool, struct client_command_context, 1);
 	cmd->client = client;
 	cmd->pool = client->command_pool;
-	cmd->start_time = ioloop_timeval;
-	cmd->last_run_timeval = ioloop_timeval;
-	cmd->start_ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
+	cmd->stats.start_time = ioloop_timeval;
+	cmd->stats.last_run_timeval = ioloop_timeval;
+	cmd->stats.start_ioloop_wait_usecs =
+		io_loop_get_wait_usecs(current_ioloop);
 	p_array_init(&cmd->module_contexts, cmd->pool, 5);
 
 	DLLIST_PREPEND(&client->command_queue, cmd);
