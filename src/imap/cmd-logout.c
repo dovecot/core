@@ -8,6 +8,7 @@ bool cmd_logout(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 
+	client->logged_out = TRUE;
 	client_send_line(client, "* BYE Logging out");
 
 	if (client->mailbox != NULL) {

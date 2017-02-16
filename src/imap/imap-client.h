@@ -191,6 +191,7 @@ struct client {
 	/* syncing marks this TRUE when it sees \Deleted flags. this is by
 	   EXPUNGE for Outlook-workaround. */
 	bool sync_seen_deletes:1;
+	bool logged_out:1;
 	bool disconnected:1;
 	bool destroyed:1;
 	bool handling_input:1;
