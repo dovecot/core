@@ -26,6 +26,10 @@
 
 #include <unistd.h>
 
+/* If the last command took longer than this to run, log statistics on
+   where the time was spent. */
+#define IMAP_CLIENT_DISCONNECT_LOG_STATS_CMD_MIN_RUNNING_MSECS 1000
+
 extern struct mail_storage_callbacks mail_storage_callbacks;
 extern struct imap_client_vfuncs imap_client_vfuncs;
 
@@ -303,6 +307,33 @@ client_command_stats_append(string_t *str,
 	str_append(str, " B out");
 }
 
+static const char *client_get_last_command_status(struct client *client)
+{
+	if (client->logged_out)
+		return "";
+	if (client->last_cmd_name == NULL)
+		return " (No commands sent)";
+
+	/* client disconnected without sending LOGOUT. if the last command
+	   took over 1 second to run, log it. */
+	const struct client_command_stats *stats = &client->last_cmd_stats;
+
+	string_t *str = t_str_new(128);
+	int last_run_secs = timeval_diff_msecs(&ioloop_timeval,
+					       &stats->last_run_timeval);
+	str_printfa(str, " (%s finished %d.%03d secs ago",
+		    client->last_cmd_name, last_run_secs/1000,
+		    last_run_secs%1000);
+
+	if (timeval_diff_msecs(&stats->last_run_timeval, &stats->start_time) >=
+	    IMAP_CLIENT_DISCONNECT_LOG_STATS_CMD_MIN_RUNNING_MSECS) {
+		str_append(str, " - ");
+		client_command_stats_append(str, stats, "", 0);
+	}
+	str_append_c(str, ')');
+	return str_c(str);
+}
+
 static const char *client_get_commands_status(struct client *client)
 {
 	struct client_command_context *cmd, *last_cmd = NULL;
@@ -312,7 +343,7 @@ static const char *client_get_commands_status(struct client *client)
 	const char *cond_str;
 
 	if (client->command_queue == NULL)
-		return "";
+		return client_get_last_command_status(client);
 
 	i_zero(&all_stats);
 	str = t_str_new(128);
@@ -333,7 +364,7 @@ static const char *client_get_commands_status(struct client *client)
 		last_cmd = cmd;
 	}
 	if (last_cmd == NULL)
-		return "";
+		return client_get_last_command_status(client);
 
 	cond = io_loop_find_fd_conditions(current_ioloop, client->fd_out);
 	if ((cond & (IO_READ | IO_WRITE)) == (IO_READ | IO_WRITE))
@@ -440,6 +471,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 
 	imap_client_count--;
 	DLLIST_REMOVE(&imap_clients, client);
+
+	i_free(client->last_cmd_name);
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
@@ -812,6 +845,10 @@ void client_command_free(struct client_command_context **_cmd)
 		cmd->cancel = FALSE;
 		client_send_tagline(cmd, "NO Command cancelled.");
 	}
+
+	i_free(client->last_cmd_name);
+	client->last_cmd_name = i_strdup(cmd->name);
+	client->last_cmd_stats = cmd->stats;
 
 	if (!cmd->param_error)
 		client->bad_counter = 0;
