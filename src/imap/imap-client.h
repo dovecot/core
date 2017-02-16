@@ -159,6 +159,9 @@ struct client {
 	struct client_command_context *command_queue;
 	unsigned int command_queue_size;
 
+	char *last_cmd_name;
+	struct client_command_stats last_cmd_stats;
+
 	uint64_t sync_last_full_modseq;
 	uint64_t highest_fetch_modseq;
 	ARRAY_TYPE(seq_range) fetch_failed_uids;
