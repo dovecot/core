@@ -52,6 +52,23 @@ enum client_command_state {
 	CLIENT_COMMAND_STATE_DONE
 };
 
+struct client_command_stats {
+	/* time when command handling was started - typically this is after
+	   reading all the parameters. */
+	struct timeval start_time;
+	/* time when command handling was last finished. this is before
+	   mailbox syncing is done. */
+	struct timeval last_run_timeval;
+	/* io_loop_get_wait_usecs()'s value when the command was started */
+	uint64_t start_ioloop_wait_usecs;
+	/* how many usecs this command itself has spent running */
+	uint64_t running_usecs;
+	/* how many usecs this command itself has spent waiting for locks */
+	uint64_t lock_wait_usecs;
+	/* how many bytes of client input/output command has used */
+	uint64_t bytes_in, bytes_out;
+};
+
 struct client_command_context {
 	struct client_command_context *prev, *next;
 	struct client *client;
@@ -76,20 +93,7 @@ struct client_command_context {
 
 	struct imap_parser *parser;
 	enum client_command_state state;
-	/* time when command handling was started - typically this is after
-	   reading all the parameters. */
-	struct timeval start_time;
-	/* time when command handling was last finished. this is before
-	   mailbox syncing is done. */
-	struct timeval last_run_timeval;
-	/* io_loop_get_wait_usecs()'s value when the command was started */
-	uint64_t start_ioloop_wait_usecs;
-	/* how many usecs this command itself has spent running */
-	uint64_t running_usecs;
-	/* how many usecs this command itself has spent waiting for locks */
-	uint64_t lock_wait_usecs;
-	/* how many bytes of client input/output command has used */
-	uint64_t bytes_in, bytes_out;
+	struct client_command_stats stats;
 
 	struct client_sync_context *sync;
 
