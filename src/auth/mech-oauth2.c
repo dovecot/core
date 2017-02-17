@@ -140,7 +140,7 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 		auth_request_verify_plain(request, token,
 					  xoauth2_verify_callback);
 	else {
-		auth_request_log_info(request, AUTH_SUBSYS_MECH, "invalid input");
+		auth_request_log_info(request, AUTH_SUBSYS_MECH, "Username or token missing");
 		auth_request_fail(request);
 	}
 }
@@ -199,7 +199,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			if ((*ptr)[1] != '=' ||
 			    !oauth2_unescape_username((*ptr)+2, &username)) {
 				 auth_request_log_info(request, AUTH_SUBSYS_MECH,
-						       "Invalid input");
+						       "Invalid username escaping");
 				 auth_request_fail(request);
 				 return;
 			} else if (!auth_request_set_username(request, username, &error)) {
@@ -236,7 +236,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		auth_request_verify_plain(request, token,
 					  oauthbearer_verify_callback);
 	else {
-		auth_request_log_info(request, AUTH_SUBSYS_MECH, "invalid input");
+		auth_request_log_info(request, AUTH_SUBSYS_MECH, "Missing username or token");
 		auth_request_fail(request);
 	}
 }
