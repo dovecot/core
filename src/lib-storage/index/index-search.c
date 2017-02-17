@@ -1285,8 +1285,10 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 
 	if (ctx->mail_ctx.wanted_headers != NULL)
 		mailbox_header_lookup_unref(&ctx->mail_ctx.wanted_headers);
-	if (ctx->mail_ctx.sort_program != NULL)
-		index_sort_program_deinit(&ctx->mail_ctx.sort_program);
+	if (ctx->mail_ctx.sort_program != NULL) {
+		if (index_sort_program_deinit(&ctx->mail_ctx.sort_program) < 0)
+			ret = -1;
+	}
 	if (ctx->thread_ctx != NULL)
 		mail_thread_deinit(&ctx->thread_ctx);
 	array_free(&ctx->mail_ctx.results);
