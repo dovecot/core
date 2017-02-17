@@ -616,9 +616,14 @@ static int imap_search_deinit(struct imap_search_context *ctx)
 	if (mailbox_search_deinit(&ctx->search_ctx) < 0)
 		ret = -1;
 
-	if (ret == 0 && !ctx->cmd->cancel)
+	/* Send the result also after failing. It might have something useful,
+	   even though it didn't fully succeed. The client should be able to
+	   realize that there was some failure because NO is returned. */
+	if (!ctx->cmd->cancel &&
+	    (ret == 0 || array_count(&ctx->result) > 0))
 		imap_search_send_result(ctx);
-	else {
+
+	if (ret < 0 || ctx->cmd->cancel) {
 		/* search failed */
 		if ((ctx->return_options & SEARCH_RETURN_SAVE) != 0)
 			array_clear(&ctx->cmd->client->search_saved_uidset);
