@@ -372,6 +372,14 @@ enum mail_lookup_abort {
 	MAIL_LOOKUP_ABORT_NOT_IN_CACHE
 };
 
+enum mail_access_type {
+	MAIL_ACCESS_TYPE_DEFAULT = 0,
+	/* Mail is being used for searching */
+	MAIL_ACCESS_TYPE_SEARCH,
+	/* Mail is being used for sorting results */
+	MAIL_ACCESS_TYPE_SORT,
+};
+
 struct mail {
 	/* always set */
 	struct mailbox *box;
@@ -392,6 +400,8 @@ struct mail {
 	   stream is opened and some don't. If lookup_abort is
 	   MAIL_LOOKUP_ABORT_NOT_IN_CACHE, this can't become TRUE. */
 	bool mail_metadata_accessed:1;
+
+	enum mail_access_type access_type;
 
 	/* If the lookup is aborted, error is set to MAIL_ERROR_NOTPOSSIBLE */
 	enum mail_lookup_abort lookup_abort;

@@ -170,6 +170,7 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 			 struct mail *mail)
 {
 	enum mail_lookup_abort orig_abort = mail->lookup_abort;
+	enum mail_access_type orig_access_type = mail->access_type;
 	bool prev_slow = mail->mail_stream_opened ||
 		mail->mail_metadata_accessed;
 
@@ -177,9 +178,13 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 
 	if (program->slow_mails_left == 0)
 		mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
+
+	mail->access_type = MAIL_ACCESS_TYPE_SORT;
 	T_BEGIN {
 		program->sort_list_add(program, mail);
 	} T_END;
+	mail->access_type = orig_access_type;
+
 	if (!prev_slow && (mail->mail_stream_opened ||
 			   mail->mail_metadata_accessed)) {
 		i_assert(program->slow_mails_left > 0);
@@ -308,6 +313,7 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 	program = i_new(struct mail_search_sort_program, 1);
 	program->t = t;
 	program->temp_mail = mail_alloc(t, 0, NULL);
+	program->temp_mail->access_type = MAIL_ACCESS_TYPE_SORT;
 
 	program->slow_mails_left =
 		program->t->box->storage->set->mail_sort_max_read_count;

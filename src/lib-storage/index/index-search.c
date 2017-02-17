@@ -1592,9 +1592,14 @@ static int search_more_with_mail(struct index_search_context *ctx,
 		mail_set_seq(mail, _ctx->seq);
 
 		ctx->cur_mail = mail;
+		/* mail's access_type is SEARCH only while using it to process
+		   the search query. afterwards the mail can still be accessed
+		   for fetching. */
+		ctx->cur_mail->access_type = MAIL_ACCESS_TYPE_SEARCH;
 		T_BEGIN {
 			match = search_match_next(ctx);
 		} T_END;
+		ctx->cur_mail->access_type = MAIL_ACCESS_TYPE_DEFAULT;
 		ctx->cur_mail = NULL;
 
 		i_assert(imail->data.search_results == NULL);
