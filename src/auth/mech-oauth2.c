@@ -205,7 +205,8 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			} else if (!auth_request_set_username(request, username, &error)) {
 				auth_request_log_info(request, AUTH_SUBSYS_MECH,
 						      "%s", error);
-				
+			} else {
+				user_given = TRUE;
 			}
 			break;
 		default:
