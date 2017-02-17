@@ -40,8 +40,34 @@ static void
 index_sort_program_set_mail_failed(struct mail_search_sort_program *program,
 				   struct mail *mail)
 {
-	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_EXPUNGED)
+	switch (mailbox_get_last_mail_error(mail->box)) {
+	case MAIL_ERROR_EXPUNGED:
+		break;
+	case MAIL_ERROR_NOTPOSSIBLE:
+		/* just change the error message */
+		mail_storage_set_error(program->t->box->storage, MAIL_ERROR_LIMIT,
+			"Requested sort would have taken too long.");
+		/* fall through */
+	default:
 		program->failed = TRUE;
+		break;
+	}
+}
+
+static time_t
+index_sort_program_set_date_failed(struct mail_search_sort_program *program,
+				   struct mail *mail)
+{
+	index_sort_program_set_mail_failed(program, mail);
+
+	if (mailbox_get_last_mail_error(mail->box) == MAIL_ERROR_LIMIT) {
+		/* limit reached - sort the rest of the mails at the end of
+		   the list by their UIDs */
+		return LONG_MAX;
+	} else {
+		/* expunged / some other error - sort in the beginning */
+		return 0;
+	}
 }
 
 static void
@@ -53,10 +79,8 @@ index_sort_list_add_arrival(struct mail_search_sort_program *program,
 
 	node = array_append_space(nodes);
 	node->seq = mail->seq;
-	if (mail_get_received_date(mail, &node->date) < 0) {
-		index_sort_program_set_mail_failed(program, mail);
-		node->date = 0;
-	}
+	if (mail_get_received_date(mail, &node->date) < 0)
+		node->date = index_sort_program_set_date_failed(program, mail);
 }
 
 static void
@@ -69,14 +93,11 @@ index_sort_list_add_date(struct mail_search_sort_program *program,
 
 	node = array_append_space(nodes);
 	node->seq = mail->seq;
-	if (mail_get_date(mail, &node->date, &tz) < 0) {
-		index_sort_program_set_mail_failed(program, mail);
-		node->date = 0;
-	} else if (node->date == 0) {
-		if (mail_get_received_date(mail, &node->date) < 0) {
-			index_sort_program_set_mail_failed(program, mail);
-			node->date = 0;
-		}
+	if (mail_get_date(mail, &node->date, &tz) < 0)
+		node->date = index_sort_program_set_date_failed(program, mail);
+	else if (node->date == 0) {
+		if (mail_get_received_date(mail, &node->date) < 0)
+			node->date = index_sort_program_set_date_failed(program, mail);
 	}
 }
 
@@ -148,11 +169,23 @@ index_sort_list_add_relevancy(struct mail_search_sort_program *program,
 void index_sort_list_add(struct mail_search_sort_program *program,
 			 struct mail *mail)
 {
+	enum mail_lookup_abort orig_abort = mail->lookup_abort;
+	bool prev_slow = mail->mail_stream_opened ||
+		mail->mail_metadata_accessed;
+
 	i_assert(mail->transaction == program->t);
 
+	if (program->slow_mails_left == 0)
+		mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
 	T_BEGIN {
 		program->sort_list_add(program, mail);
 	} T_END;
+	if (!prev_slow && (mail->mail_stream_opened ||
+			   mail->mail_metadata_accessed)) {
+		i_assert(program->slow_mails_left > 0);
+		program->slow_mails_left--;
+	}
+	mail->lookup_abort = orig_abort;
 }
 
 static int sort_node_date_cmp(const struct mail_sort_node_date *n1,
@@ -275,6 +308,11 @@ index_sort_program_init(struct mailbox_transaction_context *t,
 	program = i_new(struct mail_search_sort_program, 1);
 	program->t = t;
 	program->temp_mail = mail_alloc(t, 0, NULL);
+
+	program->slow_mails_left =
+		program->t->box->storage->set->mail_sort_max_read_count;
+	if (program->slow_mails_left == 0)
+		program->slow_mails_left = UINT_MAX;
 
 	for (i = 0; i < MAX_SORT_PROGRAM_SIZE; i++) {
 		program->sort_program[i] = sort_program[i];
@@ -425,14 +463,30 @@ get_display_name(struct mail *mail, const char *header, const char **name_r)
 	return 0;
 }
 
-int index_sort_header_get(struct mail *mail, uint32_t seq,
+static void
+index_sort_set_seq(struct mail_search_sort_program *program,
+		   struct mail *mail, uint32_t seq)
+{
+	if ((mail->mail_stream_opened || mail->mail_metadata_accessed) &&
+	    program->slow_mails_left > 0)
+		program->slow_mails_left--;
+	mail_set_seq(mail, seq);
+	if (program->slow_mails_left == 0) {
+		/* too many slow lookups - just return the rest of the results
+		   in whatever order. */
+		mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
+	}
+}
+
+int index_sort_header_get(struct mail_search_sort_program *program, uint32_t seq,
 			  enum mail_sort_type sort_type, string_t *dest)
 {
+	struct mail *mail = program->temp_mail;
 	const char *str;
 	int ret;
 	bool reply_or_fw;
 
-	mail_set_seq(mail, seq);
+	index_sort_set_seq(program, mail, seq);
 	str_truncate(dest, 0);
 
 	switch (sort_type & MAIL_SORT_MASK) {
@@ -500,64 +554,54 @@ int index_sort_node_cmp_type(struct mail_search_sort_program *program,
 
 			str1 = t_str_new(256);
 			str2 = t_str_new(256);
-			if (index_sort_header_get(mail, seq1, sort_type, str1) < 0)
+			if (index_sort_header_get(program, seq1, sort_type, str1) < 0)
 				index_sort_program_set_mail_failed(program, mail);
-			if (index_sort_header_get(mail, seq2, sort_type, str2) < 0)
+			if (index_sort_header_get(program, seq2, sort_type, str2) < 0)
 				index_sort_program_set_mail_failed(program, mail);
 
 			ret = strcmp(str_c(str1), str_c(str2));
 		} T_END;
 		break;
 	case MAIL_SORT_ARRIVAL:
-		mail_set_seq(mail, seq1);
-		if (mail_get_received_date(mail, &time1) < 0) {
-			index_sort_program_set_mail_failed(program, mail);
-			time1 = 0;
-		}
+		index_sort_set_seq(program, mail, seq1);
+		if (mail_get_received_date(mail, &time1) < 0)
+			time1 = index_sort_program_set_date_failed(program, mail);
 
-		mail_set_seq(mail, seq2);
-		if (mail_get_received_date(mail, &time2) < 0) {
-			index_sort_program_set_mail_failed(program, mail);
-			time2 = 0;
-		}
+		index_sort_set_seq(program, mail, seq2);
+		if (mail_get_received_date(mail, &time2) < 0)
+			time2 = index_sort_program_set_date_failed(program, mail);
 
 		ret = time1 < time2 ? -1 :
 			(time1 > time2 ? 1 : 0);
 		break;
 	case MAIL_SORT_DATE:
-		mail_set_seq(mail, seq1);
-		if (mail_get_date(mail, &time1, &tz) < 0) {
-			index_sort_program_set_mail_failed(program, mail);
-			time1 = 0;
-		} else if (time1 == 0) {
-			if (mail_get_received_date(mail, &time1) < 0) {
-				index_sort_program_set_mail_failed(program, mail);
-				time1 = 0;
-			}
+		index_sort_set_seq(program, mail, seq1);
+		if (mail_get_date(mail, &time1, &tz) < 0)
+			time1 = index_sort_program_set_date_failed(program, mail);
+		else if (time1 == 0) {
+			if (mail_get_received_date(mail, &time1) < 0)
+				time1 = index_sort_program_set_date_failed(program, mail);
 		}
 
-		mail_set_seq(mail, seq2);
-		if (mail_get_date(mail, &time2, &tz) < 0) {
-			index_sort_program_set_mail_failed(program, mail);
-			time2 = 0;
-		} else if (time2 == 0) {
-			if (mail_get_received_date(mail, &time2) < 0) {
-				index_sort_program_set_mail_failed(program, mail);
-				time2 = 0;
-			}
+		index_sort_set_seq(program, mail, seq2);
+		if (mail_get_date(mail, &time2, &tz) < 0)
+			time2 = index_sort_program_set_date_failed(program, mail);
+		else if (time2 == 0) {
+			if (mail_get_received_date(mail, &time2) < 0)
+				time2 = index_sort_program_set_date_failed(program, mail);
 		}
 
 		ret = time1 < time2 ? -1 :
 			(time1 > time2 ? 1 : 0);
 		break;
 	case MAIL_SORT_SIZE:
-		mail_set_seq(mail, seq1);
+		index_sort_set_seq(program, mail, seq1);
 		if (mail_get_virtual_size(mail, &size1) < 0) {
 			index_sort_program_set_mail_failed(program, mail);
 			size1 = 0;
 		}
 
-		mail_set_seq(mail, seq2);
+		index_sort_set_seq(program, mail, seq2);
 		if (mail_get_virtual_size(mail, &size2) < 0) {
 			index_sort_program_set_mail_failed(program, mail);
 			size2 = 0;
@@ -567,10 +611,10 @@ int index_sort_node_cmp_type(struct mail_search_sort_program *program,
 			(size1 > size2 ? 1 : 0);
 		break;
 	case MAIL_SORT_RELEVANCY:
-		mail_set_seq(mail, seq1);
+		index_sort_set_seq(program, mail, seq1);
 		if (index_sort_get_relevancy(mail, &float1) < 0)
 			index_sort_program_set_mail_failed(program, mail);
-		mail_set_seq(mail, seq2);
+		index_sort_set_seq(program, mail, seq2);
 		if (index_sort_get_relevancy(mail, &float2) < 0)
 			index_sort_program_set_mail_failed(program, mail);
 
@@ -582,10 +626,10 @@ int index_sort_node_cmp_type(struct mail_search_sort_program *program,
 	case MAIL_SORT_POP3_ORDER:
 		/* 32bit numbers would be enough, but since there is already
 		   existing code for uoff_t in sizes, just use them. */
-		mail_set_seq(mail, seq1);
+		index_sort_set_seq(program, mail, seq1);
 		if (index_sort_get_pop3_order(mail, &size1) < 0)
 			index_sort_program_set_mail_failed(program, mail);
-		mail_set_seq(mail, seq2);
+		index_sort_set_seq(program, mail, seq2);
 		if (index_sort_get_pop3_order(mail, &size2) < 0)
 			index_sort_program_set_mail_failed(program, mail);
 
