@@ -47,6 +47,8 @@ enum mail_error {
 	/* Can't do the requested data conversion because the original data
 	   isn't valid. */
 	MAIL_ERROR_INVALIDDATA,
+	/* Operation ran against some kind of a limit. */
+	MAIL_ERROR_LIMIT,
 };
 
 /* Convert errno to mail_error and an error string. Returns TRUE if successful,

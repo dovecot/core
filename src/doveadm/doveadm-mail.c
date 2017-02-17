@@ -53,13 +53,12 @@ int doveadm_killed_signo(void)
 void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 			       enum mail_error error)
 {
-	int exit_code = 0;
+	int exit_code = EX_TEMPFAIL;
 
 	switch (error) {
 	case MAIL_ERROR_NONE:
 		i_unreached();
 	case MAIL_ERROR_TEMP:
-		exit_code = EX_TEMPFAIL;
 		break;
 	case MAIL_ERROR_NOTPOSSIBLE:
 	case MAIL_ERROR_EXISTS:
@@ -81,7 +80,9 @@ void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 		break;
 	case MAIL_ERROR_EXPUNGED:
 	case MAIL_ERROR_INUSE:
-		exit_code = EX_TEMPFAIL;
+		break;
+	case MAIL_ERROR_LIMIT:
+		exit_code = DOVEADM_EX_NOTPOSSIBLE;
 		break;
 	}
 	/* tempfail overrides all other exit codes, otherwise use whatever
