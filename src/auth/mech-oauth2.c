@@ -178,7 +178,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	}
 
 	/* the first field is specified by RFC5801 as gs2-header */
-	for(ptr = t_strsplit(fields[0], ","); *ptr != NULL; ptr++) {
+	for(ptr = t_strsplit_spaces(fields[0], ","); *ptr != NULL; ptr++) {
 		switch(*ptr[0]) {
 		case 'f':
 			auth_request_log_info(request, AUTH_SUBSYS_MECH,
@@ -207,6 +207,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 						      "%s", error);
 				
 			}
+			break;
 		default:
 			auth_request_log_info(request, AUTH_SUBSYS_MECH,
 					      "Invalid gs2-header in request");
