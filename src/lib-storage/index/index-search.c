@@ -774,7 +774,11 @@ static int search_arg_match_text(struct mail_search_arg *args,
 	i_zero(&body_ctx);
 	body_ctx.index_ctx = ctx;
 	body_ctx.input = input;
+	/* Get parts if they already exist in cache. If they don't,
+	   message-search will parse the mail automatically. */
+	ctx->cur_mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
 	(void)mail_get_parts(ctx->cur_mail, &body_ctx.part);
+	ctx->cur_mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
 
 	return mail_search_args_foreach(args, search_body, &body_ctx);
 }
