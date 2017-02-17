@@ -254,7 +254,6 @@ static int sort_node_zero_string_cmp(const struct mail_sort_node *n1,
 
 static void index_sort_zeroes(struct sort_string_context *ctx)
 {
-	struct mail *mail = ctx->program->temp_mail;
 	enum mail_sort_type sort_type = ctx->program->sort_program[0];
 	string_t *str;
 	pool_t pool;
@@ -273,7 +272,7 @@ static void index_sort_zeroes(struct sort_string_context *ctx)
 		i_assert(nodes[i].seq <= ctx->last_seq);
 
 		T_BEGIN {
-			if (index_sort_header_get(mail, nodes[i].seq,
+			if (index_sort_header_get(ctx->program, nodes[i].seq,
 						  sort_type, str) < 0) {
 				nodes[i].no_update = TRUE;
 				ctx->failed = TRUE;
@@ -294,7 +293,6 @@ static bool
 index_sort_get_expunged_string(struct sort_string_context *ctx, uint32_t idx,
 			       string_t *str, const char **result_r)
 {
-	struct mail *mail = ctx->program->temp_mail;
 	enum mail_sort_type sort_type = ctx->program->sort_program[0];
 	const struct mail_sort_node *nodes;
 	const char *result = NULL;
@@ -329,7 +327,7 @@ index_sort_get_expunged_string(struct sort_string_context *ctx, uint32_t idx,
 			result = ctx->sort_strings[nodes[i].seq];
 			break;
 		}
-		if (index_sort_header_get(mail, nodes[i].seq,
+		if (index_sort_header_get(ctx->program, nodes[i].seq,
 					  sort_type, str) > 0) {
 			result = str_len(str) == 0 ? "" :
 				p_strdup(ctx->sort_string_pool, str_c(str));
@@ -353,7 +351,6 @@ static int
 index_sort_get_string(struct sort_string_context *ctx,
 		      uint32_t idx, uint32_t seq, const char **str_r)
 {
-	struct mail *mail = ctx->program->temp_mail;
 	int ret = 1;
 
 	if (ctx->sort_strings[seq] == NULL) T_BEGIN {
@@ -361,7 +358,7 @@ index_sort_get_string(struct sort_string_context *ctx,
 		const char *result;
 
 		str = t_str_new(256);
-		ret = index_sort_header_get(mail, seq,
+		ret = index_sort_header_get(ctx->program, seq,
 					    ctx->program->sort_program[0], str);
 		if (ret < 0)
 			ctx->failed = TRUE;
