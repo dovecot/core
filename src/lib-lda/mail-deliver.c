@@ -43,13 +43,13 @@ static void
 mail_deliver_log_var_expand_table_update_times(struct mail_deliver_context *ctx,
 					       struct var_expand_table *tab)
 {
-#define VAR_EXPAND_SESSION_TIME_IDX 7
+#define VAR_EXPAND_DELIVERY_TIME_IDX 7
 	int delivery_time_msecs;
 
 	io_loop_time_refresh();
 	delivery_time_msecs = timeval_diff_msecs(&ioloop_timeval,
 						 &ctx->delivery_time_started);
-	tab[VAR_EXPAND_SESSION_TIME_IDX].value = dec2str(delivery_time_msecs);
+	tab[VAR_EXPAND_DELIVERY_TIME_IDX].value = dec2str(delivery_time_msecs);
 }
 
 static const struct var_expand_table *
@@ -57,50 +57,54 @@ mail_deliver_get_log_var_expand_table_full(struct mail_deliver_context *ctx,
 					   struct mail *mail,
 					   const char *message)
 {
-	static struct var_expand_table static_tab[] = {
-		{ '$', NULL, NULL },
-		{ 'm', NULL, "msgid" },
-		{ 's', NULL, "subject" },
-		{ 'f', NULL, "from" },
-		{ 'e', NULL, "from_envelope" },
-		{ 'p', NULL, "size" },
-		{ 'w', NULL, "vsize" },
+	const char *message_id, *subject = NULL, *from_envelope = NULL;
+	const char *from, *psize = NULL, *vsize = NULL, *storage_id = NULL;
+	const char *session_time = NULL, *to_envelope = NULL;
+	uoff_t size;
+
+	if (mail_get_first_header(mail, "Message-ID", &message_id) <= 0)
+		message_id = "unspecified";
+	else
+		message_id = str_sanitize(message_id, 200);
+
+	if (mail_get_first_header_utf8(mail, "Subject", &subject) > 0)
+		subject = str_sanitize(subject, 80);
+	from = str_sanitize(mail_deliver_get_address(mail, "From"), 80);
+
+	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE, &from_envelope) > 0)
+		from_envelope = str_sanitize(from_envelope, 80);
+
+	if (mail_get_physical_size(mail, &size) == 0)
+		psize = dec2str(size);
+	if (mail_get_virtual_size(mail, &size) == 0)
+		vsize = dec2str(size);
+	if (ctx != NULL) {
+		session_time = dec2str(ctx->session_time_msecs);
+		to_envelope = ctx->dest_addr;
+	}
+	(void)mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &storage_id);
+
+	const struct var_expand_table stack_tab[] = {
+		{ '$', message, NULL },
+		{ 'm', message_id, "msgid" },
+		{ 's', subject, "subject" },
+		{ 'f', from, "from" },
+		{ 'e', from_envelope, "from_envelope" },
+		{ 'p', psize, "size" },
+		{ 'w', vsize, "vsize" },
+		/* must be VAR_EXPAND_DELIVERY_TIME_IDX */
 		{ '\0', NULL, "delivery_time" },
-		{ '\0', NULL, "session_time" },
-		{ '\0', NULL, "to_envelope" },
-		{ '\0', NULL, "storage_id" },
+		{ '\0', session_time, "session_time" },
+		{ '\0', to_envelope, "to_envelope" },
+		{ '\0', storage_id, "storage_id" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
-	const char *str;
-	uoff_t size;
 
-	tab = t_malloc(sizeof(static_tab));
-	memcpy(tab, static_tab, sizeof(static_tab));
-
-	tab[0].value = message;
-	(void)mail_get_first_header(mail, "Message-ID", &tab[1].value);
-	tab[1].value = tab[1].value == NULL ? "unspecified" :
-		str_sanitize(tab[1].value, 200);
-
-	(void)mail_get_first_header_utf8(mail, "Subject", &tab[2].value);
-	tab[2].value = str_sanitize(tab[2].value, 80);
-	tab[3].value = str_sanitize(mail_deliver_get_address(mail, "From"), 80);
-
-	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE, &str) < 0)
-		str = "";
-	tab[4].value = str_sanitize(str, 80);
-
-	if (mail_get_physical_size(mail, &size) == 0)
-		tab[5].value = dec2str(size);
-	if (mail_get_virtual_size(mail, &size) == 0)
-		tab[6].value = dec2str(size);
-	if (ctx != NULL) {
+	tab = t_malloc(sizeof(stack_tab));
+	memcpy(tab, stack_tab, sizeof(stack_tab));
+	if (ctx != NULL)
 		mail_deliver_log_var_expand_table_update_times(ctx, tab);
-		tab[8].value = dec2str(ctx->session_time_msecs);
-		tab[9].value = ctx->dest_addr;
-	}
-	(void)mail_get_special(mail, MAIL_FETCH_STORAGE_ID, &tab[10].value);
 	return tab;
 }
 
@@ -161,7 +165,7 @@ void mail_deliver_log(struct mail_deliver_context *ctx, const char *fmt, ...)
 	mail_deliver_log_var_expand_table_update_times(ctx, ctx->var_expand_table);
 	var_expand(str, ctx->set->deliver_log_format, ctx->var_expand_table);
 	ctx->var_expand_table[0].value = "";
-	ctx->var_expand_table[VAR_EXPAND_SESSION_TIME_IDX].value = "";
+	ctx->var_expand_table[VAR_EXPAND_DELIVERY_TIME_IDX].value = "";
 
 	i_info("%s", str_c(str));
 	va_end(args);
