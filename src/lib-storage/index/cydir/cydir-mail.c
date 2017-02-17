@@ -25,6 +25,7 @@ static int cydir_mail_stat(struct mail *mail, struct stat *st_r)
 		mail_set_aborted(mail);
 		return -1;
 	}
+	mail->mail_metadata_accessed = TRUE;
 
 	mail->transaction->stats.stat_lookup_count++;
 	path = cydir_mail_get_path(mail);

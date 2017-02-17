@@ -47,6 +47,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 		mail_set_aborted(_mail);
 		return -1;
 	}
+	_mail->mail_stream_opened = TRUE;
 
 	if (mbox->mbox_stream != NULL &&
 	    istream_raw_mbox_is_corrupted(mbox->mbox_stream)) {

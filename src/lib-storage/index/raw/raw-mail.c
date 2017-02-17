@@ -18,6 +18,7 @@ static int raw_mail_stat(struct mail *mail)
 		mail_set_aborted(mail);
 		return -1;
 	}
+	mail->mail_metadata_accessed = TRUE;
 
 	mail->transaction->stats.fstat_lookup_count++;
 	if (i_stream_stat(mail->box->input, TRUE, &st) < 0) {
