@@ -112,6 +112,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 		mail_set_aborted(mail);
 		return -1;
 	}
+	mail->mail_metadata_accessed = TRUE;
 
 	if (imail->data.access_part != 0 &&
 	    imail->data.stream == NULL) {

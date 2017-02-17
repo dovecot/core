@@ -214,6 +214,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 
 	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
 		return -1;
+	_mail->mail_stream_opened = TRUE;
 
 	/* drop any fields that we may already be fetching currently */
 	fields &= ~mail->fetching_fields;
