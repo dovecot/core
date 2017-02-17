@@ -363,7 +363,10 @@ ARRAY_DEFINE_TYPE(mailbox_expunge_rec, struct mailbox_expunge_rec);
 enum mail_lookup_abort {
 	/* Perform everything no matter what it takes */
 	MAIL_LOOKUP_ABORT_NEVER = 0,
-	/* Abort if the operation would require reading message header/body */
+	/* Abort if the operation would require reading message header/body or
+	   otherwise opening the mail file (e.g. with dbox metadata is read by
+	   opening and reading the file). This still allows somewhat fast
+	   operations to be performed, such as stat()ing a file. */
 	MAIL_LOOKUP_ABORT_READ_MAIL,
 	/* Abort if the operation can't be done fully using cache file */
 	MAIL_LOOKUP_ABORT_NOT_IN_CACHE
