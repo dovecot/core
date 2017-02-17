@@ -323,30 +323,30 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 		mails_left = update->box->storage->set->mail_vsize_bg_after_count;
 
 	while (mailbox_search_next(search_ctx, &mail)) {
-		if (mails_left == UINT_MAX) {
-			/* we want to build the full vsize here */
-			ret = mail_get_virtual_size(mail, &vsize);
-		} else {
-			/* if vsize building wants to open too many mails from
-			   storage, return temporary failure and finish up the
-			   calculation in background. */
+		if (mails_left == 0) {
+			/* if there are any more mails whose vsize can't be
+			   looked up from cache, abort and finish on
+			   background. */
 			mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
-			ret = mail_get_virtual_size(mail, &vsize);
-			mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
-			if (ret < 0 &&
-			    mailbox_get_last_mail_error(update->box) == MAIL_ERROR_NOTPOSSIBLE) {
-				/* size isn't in cache. */
-				if (mails_left == 0) {
-					mail_storage_set_error(update->box->storage, MAIL_ERROR_INUSE,
-						"Finishing vsize calculation on background");
-					if (require_result)
-						update->finish_in_background = TRUE;
-					break;
-				}
-				mails_left--;
-				ret = mail_get_virtual_size(mail, &vsize);
-			}
 		}
+		ret = mail_get_virtual_size(mail, &vsize);
+		if (ret < 0 &&
+		    mailbox_get_last_mail_error(update->box) == MAIL_ERROR_NOTPOSSIBLE) {
+			/* abort and finish on background */
+			i_assert(mails_left == 0);
+
+			mail_storage_set_error(update->box->storage, MAIL_ERROR_INUSE,
+				"Finishing vsize calculation on background");
+			if (require_result)
+				update->finish_in_background = TRUE;
+			break;
+		}
+		if (mail->mail_stream_opened || mail->mail_metadata_accessed) {
+			/* slow vsize lookup */
+			i_assert(mails_left > 0);
+			mails_left--;
+		}
+
 		if (ret < 0) {
 			if (mail->expunged)
 				continue;
