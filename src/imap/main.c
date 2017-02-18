@@ -205,7 +205,7 @@ client_add_input(struct client *client, const unsigned char *client_input,
 	o_stream_unref(&output);
 
 	/* we could have already handled LOGOUT, or we might need to continue
-	   pending ambigious commands. */
+	   pending ambiguous commands. */
 	if (client->disconnected)
 		client_destroy(client, NULL);
 	else

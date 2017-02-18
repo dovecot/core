@@ -433,7 +433,7 @@ int mail_cache_map(struct mail_cache *cache, size_t offset, size_t size,
                            messages. The caller will then just have to
                            fallback to generating the value itself.
 
-                           We can't simply reopen the cache flie, because
+                           We can't simply reopen the cache file, because
                            using it requires also having updated file
                            offsets. */
                         if (errno != ESTALE)

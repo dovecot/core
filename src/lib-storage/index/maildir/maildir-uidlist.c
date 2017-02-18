@@ -374,7 +374,7 @@ static void maildir_uidlist_update_hdr(struct maildir_uidlist *uidlist,
 	struct maildir_index_header *mhdr = uidlist->mhdr;
 
 	if (mhdr->uidlist_mtime == 0 && uidlist->version != UIDLIST_VERSION) {
-		/* upgrading from older verson. don't update the
+		/* upgrading from older version. don't update the
 		   uidlist times until it uses the new format */
 		uidlist->recreate = TRUE;
 		return;

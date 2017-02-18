@@ -58,7 +58,7 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 
 	if (list->set.control_dir == NULL && list->set.inbox_path == NULL &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0) {
-		/* put the temp files into tmp/ directory preferrably */
+		/* put the temp files into tmp/ directory preferably */
 		storage->temp_prefix = p_strconcat(_storage->pool, "tmp/",
 						   storage->temp_prefix, NULL);
 		dir = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_DIR);

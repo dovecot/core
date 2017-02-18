@@ -319,7 +319,7 @@ void program_client_net_connect_timeout(struct program_client *pclient)
 	program_client_net_connect_again(pclient);
 }
 
-/* see if connect suceeded or not, if it did, then proceed
+/* see if connect succeeded or not, if it did, then proceed
    normally, otherwise try reconnect to next address */
 static
 void program_client_net_connected(struct program_client *pclient)

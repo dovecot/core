@@ -131,7 +131,7 @@
  *
  *	priv/<GUID>/vendor/vendor.dovecot/pvt/server/foo
  *
- * would be refered to as:
+ * would be referred to as:
  *
  *	vendor/vendor.dovecot/pvt/server/foo
  *
