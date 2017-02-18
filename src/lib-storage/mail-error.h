@@ -49,6 +49,9 @@ enum mail_error {
 	MAIL_ERROR_INVALIDDATA,
 	/* Operation ran against some kind of a limit. */
 	MAIL_ERROR_LIMIT,
+	/* Operation couldn't be finished as efficiently as required by
+	   mail.lookup_abort. */
+	MAIL_ERROR_LOOKUP_ABORTED,
 };
 
 /* Convert errno to mail_error and an error string. Returns TRUE if successful,

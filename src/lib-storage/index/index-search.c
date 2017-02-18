@@ -83,8 +83,8 @@ static void search_cur_mail_failed(struct index_search_context *ctx)
 	case MAIL_ERROR_EXPUNGED:
 		ctx->mail_ctx.seen_lost_data = TRUE;
 		break;
-	case MAIL_ERROR_NOTPOSSIBLE:
-		/* lookup_abort hit */
+	case MAIL_ERROR_LOOKUP_ABORTED:
+		/* expected failure */
 		break;
 	default:
 		search_set_failed(ctx);

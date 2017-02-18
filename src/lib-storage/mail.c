@@ -247,7 +247,7 @@ int mail_get_header_stream(struct mail *mail,
 
 void mail_set_aborted(struct mail *mail)
 {
-	mail_storage_set_error(mail->box->storage, MAIL_ERROR_NOTPOSSIBLE,
+	mail_storage_set_error(mail->box->storage, MAIL_ERROR_LOOKUP_ABORTED,
 			       "Mail field not cached");
 }
 
