@@ -1,6 +1,6 @@
 /* Copyright (c) 2006-2017 Dovecot authors, see the included COPYING file */
 
-/* The idea is that we use 32bit integers for string sort IDs which specifiy
+/* The idea is that we use 32bit integers for string sort IDs which specify
    the sort order for primary sort condition. The whole 32bit integer space is
    used and whenever adding a string, the available space is halved and the new
    ID is added in the middle. For example if we add one mail the first time, it

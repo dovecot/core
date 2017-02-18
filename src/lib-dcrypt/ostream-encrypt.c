@@ -616,7 +616,7 @@ int o_stream_encrypt_init(struct encrypt_ostream *estream, const char *algorithm
 			return -1;
 		}
 
-		/* MAC algoritm is used for PBKDF2 and keydata hashing */
+		/* MAC algorithm is used for PBKDF2 and keydata hashing */
 		return o_stream_encrypt_keydata_create_v2(estream, malg);
 	}
 }

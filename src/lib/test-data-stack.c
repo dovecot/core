@@ -163,7 +163,7 @@ enum fatal_test_state fatal_data_stack(unsigned int stage)
 			return FATAL_TEST_ABORT; /* abort, things are messed up with t_pop */
 		*undo_ptr = undo_data;
 		undo_ptr = NULL;
-		/* t_pop musn't abort, that would cause recursion */
+		/* t_pop mustn't abort, that would cause recursion */
 		things_are_messed_up = TRUE;
 		if (t_id != NONEXISTENT_STACK_FRAME_ID && !t_pop(&t_id))
 			return FATAL_TEST_ABORT; /* abort, things are messed up with us */

@@ -268,7 +268,7 @@ fs_list_dir_read(struct fs_list_iterate_context *ctx,
 	fsdir = opendir(path);
 	if (fsdir == NULL) {
 		if (ENOTFOUND(errno)) {
-			/* root) user gave invalid hiearchy, ignore
+			/* root) user gave invalid hierarchy, ignore
 			   sub) probably just race condition with other client
 			   deleting the mailbox. */
 			return 0;

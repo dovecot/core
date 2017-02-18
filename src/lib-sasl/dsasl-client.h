@@ -32,7 +32,7 @@ int dsasl_client_output(struct dsasl_client *client,
 			const char **error_r);
 
 /* Call for setting extra parameters for authentication, these are mechanism
-   dependant. -1 = error, 0 = not found, 1 = ok
+   dependent. -1 = error, 0 = not found, 1 = ok
    value can be NULL. */
 int dsasl_client_set_parameter(struct dsasl_client *client,
 			       const char *param, const char *value,

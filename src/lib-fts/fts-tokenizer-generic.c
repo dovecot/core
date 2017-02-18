@@ -248,7 +248,7 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 	return 0;
 }
 
-/* TODO: Arrange array searches roughly in order of likelyhood of a match.
+/* TODO: Arrange array searches roughly in order of likelihood of a match.
    TODO: Make some array of the arrays, so this can be a foreach loop.
    TODO: Check for Hangul.
    TODO: Add Hyphens U+002D HYPHEN-MINUS, U+2010 HYPHEN, possibly also

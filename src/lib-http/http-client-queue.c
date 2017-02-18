@@ -696,7 +696,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 		array_append(&failed_requests, &reqs[i], 1);
 	}
 
-	/* update timout */
+	/* update timeout */
 	if (i < count)
 		new_to = reqs[i]->timeout_time;
 
@@ -766,7 +766,7 @@ http_client_queue_request_timeout_cmp(struct http_client_request *const *req1,
 		return ret;
 	}
 
-	/* sort by minumum attempts for fairness */
+	/* sort by minimum attempts for fairness */
 	return ((*req2)->attempts - (*req1)->attempts);
 }
 

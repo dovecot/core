@@ -74,7 +74,7 @@ EOF
   AC_SUBST(RUN_TEST)
 ])
 
-# Substitute every var in the given comma seperated list
+# Substitute every var in the given comma separated list
 AC_DEFUN([AX_SUBST_L],[
 	m4_foreach([__var__], [$@], [AC_SUBST(__var__)])
 ])

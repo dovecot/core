@@ -21,7 +21,7 @@ static int imap_thread_write(struct mail_thread_iterate_context *iter,
 		return 0;
 
 	if (count == 1 && !root) {
-		/* only one child - special case to avoid extra paranthesis */
+		/* only one child - special case to avoid extra parenthesis */
 		node = mail_thread_iterate_next(iter, &child_iter);
 		str_printfa(str, "%u", node->uid);
 		if (child_iter != NULL) {

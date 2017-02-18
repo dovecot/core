@@ -22,7 +22,7 @@
 /* Log a warning after 1 secs when we've been all the time busy writing the
    log connection. */
 #define LOG_WARN_PENDING_COUNT (1000 / MAX_MSECS_PER_CONNECTION)
-/* If we keep beeing busy, log a warning every 60 seconds. */
+/* If we keep being busy, log a warning every 60 seconds. */
 #define LOG_WARN_PENDING_INTERVAL (60 * LOG_WARN_PENDING_COUNT)
 
 struct log_client {
