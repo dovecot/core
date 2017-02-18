@@ -43,7 +43,7 @@ index_sort_program_set_mail_failed(struct mail_search_sort_program *program,
 	switch (mailbox_get_last_mail_error(mail->box)) {
 	case MAIL_ERROR_EXPUNGED:
 		break;
-	case MAIL_ERROR_NOTPOSSIBLE:
+	case MAIL_ERROR_LOOKUP_ABORTED:
 		/* just change the error message */
 		mail_storage_set_error(program->t->box->storage, MAIL_ERROR_LIMIT,
 			"Requested sort would have taken too long.");

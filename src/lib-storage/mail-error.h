@@ -51,6 +51,9 @@ enum mail_error {
 	MAIL_ERROR_INVALIDDATA,
 	/* Operation ran against some kind of a limit. */
 	MAIL_ERROR_LIMIT,
+	/* Operation couldn't be finished as efficiently as required by
+	   mail.lookup_abort. */
+	MAIL_ERROR_LOOKUP_ABORTED,
 
 	/* FIXME: Obsolete - remove in v2.3 */
 	MAIL_ERROR_NOSPACE = MAIL_ERROR_NOQUOTA

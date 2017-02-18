@@ -141,6 +141,7 @@ imap_get_error_string(struct client_command_context *cmd,
 	case MAIL_ERROR_NONE:
 		break;
 	case MAIL_ERROR_TEMP:
+	case MAIL_ERROR_LOOKUP_ABORTED: /* BUG: shouldn't be visible here */
 		resp_code = IMAP_RESP_CODE_SERVERBUG;
 		break;
 	case MAIL_ERROR_NOTPOSSIBLE:

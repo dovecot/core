@@ -331,7 +331,7 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 		}
 		ret = mail_get_virtual_size(mail, &vsize);
 		if (ret < 0 &&
-		    mailbox_get_last_mail_error(update->box) == MAIL_ERROR_NOTPOSSIBLE) {
+		    mailbox_get_last_mail_error(update->box) == MAIL_ERROR_LOOKUP_ABORTED) {
 			/* abort and finish on background */
 			i_assert(mails_left == 0);
 

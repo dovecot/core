@@ -97,7 +97,7 @@ pop3_mail_get_size(struct client *client, struct mail *mail, uoff_t *size_r)
 	if (ret == 0)
 		return 0;
 
-	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_NOTPOSSIBLE)
+	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_LOOKUP_ABORTED)
 		return -1;
 
 	/* virtual size not available with a fast lookup.
@@ -108,7 +108,7 @@ pop3_mail_get_size(struct client *client, struct mail *mail, uoff_t *size_r)
 	if (ret == 0)
 		return 0;
 
-	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_NOTPOSSIBLE)
+	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_LOOKUP_ABORTED)
 		return -1;
 
 	/* no way to quickly get the size. fallback to doing a slow virtual
