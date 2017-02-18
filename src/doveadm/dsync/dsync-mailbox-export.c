@@ -631,6 +631,12 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 			   skip for this sync. */
 			continue;
 		}
+		if (attr_change != NULL && attr_change->exported) {
+			/* duplicate attribute returned.
+			   shouldn't normally happen, but don't crash. */
+			i_warning("Ignoring duplicate attributes '%s'", key);
+			continue;
+		}
 
 		attr = &exporter->attr;
 		i_zero(attr);
@@ -639,7 +645,6 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 		attr->value_stream = value.value_stream;
 		attr->last_change = value.last_change;
 		if (attr_change != NULL) {
-			i_assert(!attr_change->exported);
 			attr_change->exported = TRUE;
 			attr->key = attr_change->key;
 			attr->deleted = attr_change->deleted &&
