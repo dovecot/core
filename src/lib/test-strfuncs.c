@@ -92,6 +92,7 @@ static void test_t_strsplit_tab(void)
 		}
 		strsplit_verify(buf);
 	}
+	test_end();
 }
 
 static void test_t_strsplit_spaces(void)
