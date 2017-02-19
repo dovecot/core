@@ -103,6 +103,11 @@ void mail_storage_hooks_remove(const struct mail_storage_hooks *hooks)
 
 void mail_storage_hooks_add_internal(const struct mail_storage_hooks *hooks)
 {
+	const struct mail_storage_hooks *const *existing_hooksp;
+
+	/* make sure we don't add duplicate hooks */
+	array_foreach(&internal_hooks, existing_hooksp)
+		i_assert(*existing_hooksp != hooks);
 	array_append(&internal_hooks, &hooks, 1);
 }
 
