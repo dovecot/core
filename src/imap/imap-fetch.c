@@ -429,6 +429,19 @@ static int imap_fetch_send_nil_reply(struct imap_fetch_context *ctx)
 	return 0;
 }
 
+static void imap_fetch_fix_empty_reply(struct imap_fetch_context *ctx)
+{
+	if (ctx->state.cur_flushed && ctx->state.cur_first) {
+		/* we've flushed an empty "FETCH (" reply so
+		   far. we can't take it back, but RFC 3501
+		   doesn't allow returning empty "FETCH ()"
+		   either, so just add the current message's
+		   UID there. */
+		str_printfa(ctx->state.cur_str, "UID %u ",
+			    ctx->state.cur_mail->uid);
+	}
+}
+
 static bool imap_fetch_cur_failed(struct imap_fetch_context *ctx)
 {
 	ctx->failures = TRUE;
@@ -497,6 +510,7 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 			str_printfa(state->cur_str, "* %u FETCH (",
 				    state->cur_mail->seq);
 			state->cur_first = TRUE;
+			state->cur_str_prefix_size = str_len(state->cur_str);
 			state->cur_flushed = FALSE;
 			state->line_finished = FALSE;
 		}
@@ -543,15 +557,10 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 				i_stream_unref(&state->cur_input);
 		}
 
-		if (state->cur_first) {
-			/* Writing FETCH () violates IMAP RFC. It's a bit
-			   troublesome to delay flushing of "FETCH (" with
-			   non-buffered data, so we'll just fix this by giving
-			   UID as the response. */
-			str_printfa(state->cur_str, "UID %u",
-				    state->cur_mail->uid);
-		}
-		if (str_len(state->cur_str) > 0) {
+		imap_fetch_fix_empty_reply(ctx);
+		if (str_len(state->cur_str) > 0 &&
+		    (state->cur_flushed ||
+		     str_len(state->cur_str) != state->cur_str_prefix_size)) {
 			/* no non-buffered handlers */
 			if (imap_fetch_flush_buffer(ctx) < 0)
 				return -1;
@@ -559,7 +568,8 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 
 		state->line_finished = TRUE;
 		state->line_partial = FALSE;
-		o_stream_nsend(client->output, ")\r\n", 3);
+		if (state->cur_flushed)
+			o_stream_nsend(client->output, ")\r\n", 3);
 		client->last_output = ioloop_time;
 
 		state->cur_mail = NULL;
@@ -617,15 +627,7 @@ int imap_fetch_end(struct imap_fetch_context *ctx)
 		ctx->state.fetching = FALSE;
 		if (!state->line_finished &&
 		    (!state->cur_first || state->cur_flushed)) {
-			if (state->cur_first) {
-				/* we've flushed an empty "FETCH (" reply so
-				   far. we can't take it back, but RFC 3501
-				   doesn't allow returning empty "FETCH ()"
-				   either, so just add the current message's
-				   UID there. */
-				str_printfa(ctx->state.cur_str, "UID %u ",
-					    state->cur_mail->uid);
-			}
+			imap_fetch_fix_empty_reply(ctx);
 			if (imap_fetch_flush_buffer(ctx) < 0)
 				state->failed = TRUE;
 			if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)
