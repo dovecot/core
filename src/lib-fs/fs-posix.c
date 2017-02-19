@@ -36,6 +36,7 @@ struct posix_fs {
 	mode_t mode;
 	bool mode_auto;
 	bool have_dirs;
+	bool disable_fsync;
 };
 
 struct posix_fs_file {
@@ -103,6 +104,8 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set)
 			fs->mode_auto = TRUE;
 		} else if (strcmp(arg, "dirs") == 0) {
 			fs->have_dirs = TRUE;
+		} else if (strcmp(arg, "no-fsync") == 0) {
+			fs->disable_fsync = TRUE;
 		} else if (strncmp(arg, "mode=", 5) == 0) {
 			unsigned int mode;
 			if (str_to_uint_oct(arg+5, &mode) < 0) {
@@ -458,9 +461,11 @@ static void fs_posix_write_rename_if_needed(struct posix_fs_file *file)
 
 static int fs_posix_write_finish(struct posix_fs_file *file)
 {
+	struct posix_fs *fs = (struct posix_fs *)file->file.fs;
 	int ret, old_errno;
 
-	if ((file->open_flags & FS_OPEN_FLAG_FSYNC) != 0) {
+	if ((file->open_flags & FS_OPEN_FLAG_FSYNC) != 0 &&
+	    !fs->disable_fsync) {
 		if (fdatasync(file->fd) < 0) {
 			fs_set_error(file->file.fs, "fdatasync(%s) failed: %m",
 				     file->full_path);
