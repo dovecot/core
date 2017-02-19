@@ -306,7 +306,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 			return -1;
 		}
 		if (!mstream->seen_eoh && mstream->add_missing_eoh) {
-			bool matched = FALSE;
+			bool matched = TRUE;
 
 			mstream->seen_eoh = TRUE;
 
@@ -326,7 +326,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 				mstream->callbacks_called = TRUE;
 			}
 
-			if (matched) {
+			if (!matched) {
 				mstream->seen_eoh = FALSE;
 			} else {
 				add_eol(mstream, mstream->last_orig_crlf);
