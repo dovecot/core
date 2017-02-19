@@ -56,6 +56,7 @@ struct imap_fetch_state {
 	uoff_t cur_size;
 	enum mail_fetch_field cur_size_field;
 	string_t *cur_str;
+	size_t cur_str_prefix_size;
 	struct istream *cur_input;
 	bool skip_cr;
 	int (*cont_handler)(struct imap_fetch_context *ctx);
@@ -63,7 +64,12 @@ struct imap_fetch_state {
 
 	bool fetching:1;
 	bool seen_flags_changed:1;
+	/* TRUE if the first FETCH parameter result hasn't yet been sent to
+	   the IMAP client. Note that this doesn't affect buffered content in
+	   cur_str until it gets flushed out. */
 	bool cur_first:1;
+	/* TRUE if the cur_str prefix has been flushed. More data may still
+	   be added to it. */
 	bool cur_flushed:1;
 	bool line_partial:1;
 	bool line_finished:1;
