@@ -547,6 +547,7 @@ client_cmd_append_timing_stats(struct client_command_context *cmd,
 
 	if (cmd->stats.start_time.tv_sec == 0)
 		return;
+	command_stats_flush(cmd);
 
 	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
 	msecs_in_cmd = (cmd->stats.running_usecs + 999) / 1000;
