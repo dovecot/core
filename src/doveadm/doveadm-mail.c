@@ -921,11 +921,14 @@ void doveadm_mail_init(void)
 					doveadm_settings->mail_plugin_dir,
 					doveadm_settings->mail_plugins,
 					&mod_set);
+	/* keep mail_storage_init() referenced so that its _deinit() doesn't
+	   try to free doveadm plugins' hooks too early. */
+	mail_storage_init();
 }
 
 void doveadm_mail_deinit(void)
 {
-	mail_storage_hooks_deinit();
+	mail_storage_deinit();
 	array_free(&doveadm_mail_cmds);
 }
 
