@@ -69,6 +69,12 @@ struct client_command_stats {
 	uint64_t bytes_in, bytes_out;
 };
 
+struct client_command_stats_start {
+	struct timeval timeval;
+	uint64_t lock_wait_usecs;
+	uint64_t bytes_in, bytes_out;
+};
+
 struct client_command_context {
 	struct client_command_context *prev, *next;
 	struct client *client;
@@ -94,6 +100,7 @@ struct client_command_context {
 	struct imap_parser *parser;
 	enum client_command_state state;
 	struct client_command_stats stats;
+	struct client_command_stats_start stats_start;
 
 	struct client_sync_context *sync;
 
