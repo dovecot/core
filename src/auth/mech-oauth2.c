@@ -54,7 +54,7 @@ static void oauth2_verify_callback(enum passdb_result result,
 		break;
 	default:
 		/* we could get new token after this */
-		if (request->mech_password)
+		if (request->mech_password != NULL)
 			request->mech_password = NULL;
 		auth_request_handler_reply_continue(request, error, strlen(error));
 		oauth2_req->failed = TRUE;
