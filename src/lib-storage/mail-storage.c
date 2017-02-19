@@ -43,17 +43,26 @@ struct mail_storage_mail_index_module mail_storage_mail_index_module =
 	MODULE_CONTEXT_INIT(&mail_index_module_register);
 ARRAY_TYPE(mail_storage) mail_storage_classes;
 
+static int mail_storage_init_refcount = 0;
+
 void mail_storage_init(void)
 {
+	if (mail_storage_init_refcount++ > 0)
+		return;
 	dsasl_clients_init();
 	mailbox_attributes_init();
 	mailbox_lists_init();
 	mail_storage_hooks_init();
 	i_array_init(&mail_storage_classes, 8);
+	mail_storage_register_all();
+	mailbox_list_register_all();
 }
 
 void mail_storage_deinit(void)
 {
+	i_assert(mail_storage_init_refcount > 0);
+	if (--mail_storage_init_refcount > 0)
+		return;
 	if (mail_search_register_human != NULL)
 		mail_search_register_deinit(&mail_search_register_human);
 	if (mail_search_register_imap != NULL)

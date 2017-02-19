@@ -911,8 +911,6 @@ mail_storage_service_init(struct master_service *service,
 					mail_storage_service_time_moved);
 
         mail_storage_init();
-	mail_storage_register_all();
-	mailbox_list_register_all();
 
 	pool = pool_alloconly_create("mail storage service", 2048);
 	ctx = p_new(pool, struct mail_storage_service_ctx, 1);
