@@ -70,9 +70,7 @@ struct imap_fetch_state {
 	bool cur_first:1;
 	/* TRUE if the cur_str prefix has been flushed. More data may still
 	   be added to it. */
-	bool cur_flushed:1;
 	bool line_partial:1;
-	bool line_finished:1;
 	bool skipped_expunged_msgs:1;
 	bool failed:1;
 };

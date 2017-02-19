@@ -379,7 +379,6 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 				    ctx->fetch_data, wanted_headers);
 	ctx->state.cur_str = str_new(default_pool, 8192);
 	ctx->state.fetching = TRUE;
-	ctx->state.line_finished = TRUE;
 
 	if (wanted_headers != NULL)
 		mailbox_header_lookup_unref(&wanted_headers);
@@ -402,7 +401,7 @@ static int imap_fetch_flush_buffer(struct imap_fetch_context *ctx)
 		len--;
 		ctx->state.cur_first = FALSE;
 	}
-	ctx->state.cur_flushed = TRUE;
+	ctx->state.line_partial = TRUE;
 
 	if (o_stream_send(ctx->client->output, data, len) < 0)
 		return -1;
@@ -431,7 +430,7 @@ static int imap_fetch_send_nil_reply(struct imap_fetch_context *ctx)
 
 static void imap_fetch_fix_empty_reply(struct imap_fetch_context *ctx)
 {
-	if (ctx->state.cur_flushed && ctx->state.cur_first) {
+	if (ctx->state.line_partial && ctx->state.cur_first) {
 		/* we've flushed an empty "FETCH (" reply so
 		   far. we can't take it back, but RFC 3501
 		   doesn't allow returning empty "FETCH ()"
@@ -510,8 +509,7 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 				    state->cur_mail->seq);
 			state->cur_first = TRUE;
 			state->cur_str_prefix_size = str_len(state->cur_str);
-			state->cur_flushed = FALSE;
-			state->line_finished = FALSE;
+			i_assert(!state->line_partial);
 		}
 
 		for (; state->cur_handler < count; state->cur_handler++) {
@@ -519,7 +517,6 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 			    !handlers[state->cur_handler].buffered) {
 				/* first non-buffered handler.
 				   flush the buffer. */
-				state->line_partial = TRUE;
 				if (imap_fetch_flush_buffer(ctx) < 0)
 					return -1;
 			}
@@ -557,21 +554,20 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 
 		imap_fetch_fix_empty_reply(ctx);
 		if (str_len(state->cur_str) > 0 &&
-		    (state->cur_flushed ||
+		    (state->line_partial ||
 		     str_len(state->cur_str) != state->cur_str_prefix_size)) {
 			/* no non-buffered handlers */
 			if (imap_fetch_flush_buffer(ctx) < 0)
 				return -1;
 		}
 
-		state->line_finished = TRUE;
-		state->line_partial = FALSE;
-		if (state->cur_flushed)
+		if (state->line_partial)
 			o_stream_nsend(client->output, ")\r\n", 3);
 		client->last_output = ioloop_time;
 
 		state->cur_mail = NULL;
 		state->cur_handler = 0;
+		state->line_partial = FALSE;
 	}
 
 	return ctx->failures ? -1 : 1;
@@ -609,7 +605,9 @@ int imap_fetch_more_no_lock_update(struct imap_fetch_context *ctx)
 	ret = imap_fetch_more_int(ctx, FALSE);
 	if (ret < 0) {
 		ctx->state.failed = TRUE;
-		if (!ctx->state.line_finished) {
+		if (ctx->state.line_partial) {
+			/* we can't send any more replies to client, because
+			   the FETCH reply wasn't fully sent. */
 			client_disconnect(ctx->client,
 				"NOTIFY failed in the middle of FETCH reply");
 		}
@@ -623,8 +621,7 @@ int imap_fetch_end(struct imap_fetch_context *ctx)
 
 	if (ctx->state.fetching) {
 		ctx->state.fetching = FALSE;
-		if (!state->line_finished &&
-		    (!state->cur_first || state->cur_flushed)) {
+		if (state->line_partial) {
 			imap_fetch_fix_empty_reply(ctx);
 			if (imap_fetch_flush_buffer(ctx) < 0)
 				state->failed = TRUE;
