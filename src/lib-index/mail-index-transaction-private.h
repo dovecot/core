@@ -107,8 +107,10 @@ struct mail_index_transaction {
 	 (array_is_created(&(t)->updates) && array_count(&(t)->updates) > 0) || \
 	 (t)->index_deleted || (t)->index_undeleted)
 
-extern void (*hook_mail_index_transaction_created)
-		(struct mail_index_transaction *t);
+typedef void hook_mail_index_transaction_created_t(struct mail_index_transaction *t);
+
+void mail_index_transaction_hook_register(const hook_mail_index_transaction_created_t *hook);
+void mail_index_transaction_hook_unregister(const hook_mail_index_transaction_created_t *hook);
 
 struct mail_index_record *
 mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq);
