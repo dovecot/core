@@ -26,6 +26,7 @@ struct mail_index_transaction_vfuncs {
 };
 
 union mail_index_transaction_module_context {
+	struct mail_index_transaction_vfuncs super;
 	struct mail_index_module_register *reg;
 };
 
@@ -40,7 +41,7 @@ struct mail_index_transaction {
 	int refcount;
 
 	enum mail_index_transaction_flags flags;
-	struct mail_index_transaction_vfuncs v;
+	struct mail_index_transaction_vfuncs v, *vlast;
 	struct mail_index_view *view;
 	struct mail_index_view *latest_view;
 
