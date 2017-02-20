@@ -330,6 +330,8 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 			mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
 		}
 		ret = mail_get_virtual_size(mail, &vsize);
+		mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
+
 		if (ret < 0 &&
 		    mailbox_get_last_mail_error(update->box) == MAIL_ERROR_LOOKUP_ABORTED) {
 			/* abort and finish on background */
