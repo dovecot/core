@@ -10,24 +10,24 @@
 #include "mail-transaction-log-private.h"
 #include "mail-index-transaction-private.h"
 
-static ARRAY(const hook_mail_index_transaction_created_t *)
+static ARRAY(hook_mail_index_transaction_created_t *)
 	hook_mail_index_transaction_created;
 
-void mail_index_transaction_hook_register(const hook_mail_index_transaction_created_t *hook)
+void mail_index_transaction_hook_register(hook_mail_index_transaction_created_t *hook)
 {
 	if (!array_is_created(&hook_mail_index_transaction_created))
 		i_array_init(&hook_mail_index_transaction_created, 8);
 	array_append(&hook_mail_index_transaction_created, &hook, 1);
 }
 
-void mail_index_transaction_hook_unregister(const hook_mail_index_transaction_created_t *hook)
+void mail_index_transaction_hook_unregister(hook_mail_index_transaction_created_t *hook)
 {
 	unsigned int idx;
 	bool found = FALSE;
 
 	i_assert(array_is_created(&hook_mail_index_transaction_created));
 	for(idx = 0; idx < array_count(&hook_mail_index_transaction_created); idx++) {
-		const hook_mail_index_transaction_created_t *const *hook_ptr =
+		hook_mail_index_transaction_created_t *const *hook_ptr =
 			array_idx(&hook_mail_index_transaction_created, idx);
 		if (*hook_ptr == hook) {
 			array_delete(&hook_mail_index_transaction_created, idx, 1);
@@ -352,7 +352,7 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	if (array_is_created(&hook_mail_index_transaction_created)) {
 	        struct hook_build_context *ctx =
 			hook_build_init((void *)&t->v, sizeof(t->v));
-		const hook_mail_index_transaction_created_t *const *ptr;
+		hook_mail_index_transaction_created_t *const *ptr;
 		array_foreach(&hook_mail_index_transaction_created, ptr) {
 			(*ptr)(t);
 			hook_build_update(ctx, t->vlast);

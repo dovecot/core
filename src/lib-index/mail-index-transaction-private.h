@@ -110,8 +110,8 @@ struct mail_index_transaction {
 
 typedef void hook_mail_index_transaction_created_t(struct mail_index_transaction *t);
 
-void mail_index_transaction_hook_register(const hook_mail_index_transaction_created_t *hook);
-void mail_index_transaction_hook_unregister(const hook_mail_index_transaction_created_t *hook);
+void mail_index_transaction_hook_register(hook_mail_index_transaction_created_t *hook);
+void mail_index_transaction_hook_unregister(hook_mail_index_transaction_created_t *hook);
 
 struct mail_index_record *
 mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq);
