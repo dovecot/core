@@ -144,6 +144,7 @@ struct client {
 	const char *session_id, *listener_name, *postlogin_socket_path;
 	const char *local_name;
 	string_t *client_id;
+	string_t *forward_fields;
 
 	int fd;
 	struct istream *input;
