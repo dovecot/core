@@ -229,14 +229,12 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 		}
 
 		errstr = mailbox_get_last_error(cmd->client->mailbox, &error);
-		if (error == MAIL_ERROR_CONVERSION) {
-			/* BINARY found unsupported Content-Transfer-Encoding */
+		if (error == MAIL_ERROR_CONVERSION ||
+		    error == MAIL_ERROR_INVALIDDATA) {
+			/* a) BINARY found unsupported Content-Transfer-Encoding
+			   b) Content was invalid */
 			tagged_reply = t_strdup_printf(
 				"NO ["IMAP_RESP_CODE_UNKNOWN_CTE"] %s", errstr);
-		} else if (error == MAIL_ERROR_INVALIDDATA) {
-			/* Content was invalid */
-			tagged_reply = t_strdup_printf(
-				"NO ["IMAP_RESP_CODE_PARSE"] %s", errstr);
 		} else if (cmd->client->set->parsed_fetch_failure != IMAP_CLIENT_FETCH_FAILURE_NO_AFTER ||
 			   imap_fetch_is_failed_retry(ctx)) {
 			/* By default we never want to reply NO to FETCH
