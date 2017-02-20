@@ -49,6 +49,7 @@ liblib_la_SOURCES = \
 	hmac.c \
 	hmac-cram-md5.c \
 	home-expand.c \
+	hook-build.c \
 	hostpid.c \
 	imem.c \
 	ipwd.c \
@@ -199,6 +200,7 @@ headers = \
 	hmac.h \
 	hmac-cram-md5.h \
 	home-expand.h \
+	hook-build.h \
 	hostpid.h \
 	imem.h \
 	ipwd.h \
