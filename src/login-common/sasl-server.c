@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
+#include "str.h"
 #include "base64.h"
 #include "buffer.h"
 #include "hex-binary.h"
@@ -370,6 +371,8 @@ void sasl_server_auth_begin(struct client *client,
 	info.real_remote_ip = client->real_remote_ip;
 	info.real_local_port = client->real_local_port;
 	info.real_remote_port = client->real_remote_port;
+	if (client->client_id != NULL)
+		info.client_id = str_c(client->client_id);
 	info.initial_resp_base64 = initial_resp_base64;
 
 	client->auth_request =
