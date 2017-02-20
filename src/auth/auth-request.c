@@ -405,6 +405,9 @@ bool auth_request_import_info(struct auth_request *request,
 		request->debug = TRUE;
 	else if (strcmp(key, "client_id") == 0)
 		request->client_id = p_strdup(request->pool, value);
+	else if (strcmp(key, "forward_fields") == 0)
+		auth_fields_import_prefixed(request->extra_fields,
+					    "forward_", value, 0);
 	else
 		return FALSE;
 	/* NOTE: keep in sync with auth_request_export() */

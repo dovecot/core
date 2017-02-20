@@ -373,6 +373,8 @@ void sasl_server_auth_begin(struct client *client,
 	info.real_remote_port = client->real_remote_port;
 	if (client->client_id != NULL)
 		info.client_id = str_c(client->client_id);
+	if (client->forward_fields != NULL)
+		info.forward_fields = str_c(client->forward_fields);
 	info.initial_resp_base64 = initial_resp_base64;
 
 	client->auth_request =

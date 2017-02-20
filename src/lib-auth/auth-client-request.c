@@ -90,6 +90,11 @@ static void auth_server_send_new_request(struct auth_server_connection *conn,
 		str_append(str, "\tclient_id=");
 		str_append_tabescaped(str, info->client_id);
 	}
+	if (info->forward_fields != NULL &&
+	    *info->forward_fields != '\0') {
+		str_append(str, "\tforward_fields=");
+		str_append_tabescaped(str, info->forward_fields);
+	}
 	if (info->initial_resp_base64 != NULL) {
 		str_append(str, "\tresp=");
 		str_append_tabescaped(str, info->initial_resp_base64);
