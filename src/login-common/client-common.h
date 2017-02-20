@@ -10,6 +10,7 @@ struct module;
 
 #define LOGIN_MAX_SESSION_ID_LEN 64
 #define LOGIN_MAX_MASTER_PREFIX_LEN 128
+#define LOGIN_MAX_CLIENT_ID_LEN 256
 
 /* max. size of input buffer. this means:
 
