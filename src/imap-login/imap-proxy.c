@@ -40,13 +40,30 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 		    "\"x-originating-port\" \"%u\" "
 		    "\"x-connected-ip\" \"%s\" "
 		    "\"x-connected-port\" \"%u\" "
-		    "\"x-proxy-ttl\" \"%u\")\r\n",
+		    "\"x-proxy-ttl\" \"%u\"",
 		    client_get_session_id(&client->common),
 		    net_ip2addr(&client->common.ip),
 		    client->common.remote_port,
 		    net_ip2addr(&client->common.local_ip),
 		    client->common.local_port,
 		    client->common.proxy_ttl - 1);
+
+	/* append any forward_ variables to request */
+	for(const char *const *ptr = client->common.auth_passdb_args; *ptr != NULL; ptr++) {
+		if (strncasecmp(*ptr, "forward_", 8) == 0) {
+			str_append_c(str, ' ');
+			const char *key = t_strconcat("x-forward-",
+						      t_strcut((*ptr)+8, '='),
+						      NULL);
+			const char *val = i_strchr_to_next(*ptr, '=');
+			str_append_c(str, ' ');
+			imap_append_string(str, key);
+			str_append_c(str, ' ');
+			imap_append_nstring(str, val);
+		}
+	}
+
+	str_append(str, ")\r\n");
 }
 
 static void proxy_free_password(struct client *client)

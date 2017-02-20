@@ -186,6 +186,17 @@ client_update_info(struct imap_client *client,
 			client->common.session_id =
 				p_strdup(client->common.pool, value);
 		}
+	} else if (strncasecmp(key, "x-forward-", 10) == 0) {
+		/* handle extra field */
+		if (client->common.forward_fields == NULL)
+			client->common.forward_fields = str_new(client->common.preproxy_pool, 32);
+		else
+			str_append_c(client->common.forward_fields, '\t');
+		/* prefixing is done by auth process */
+		str_append_tabescaped(client->common.forward_fields,
+				      key+10);
+		str_append_c(client->common.forward_fields, '=');
+		str_append_tabescaped(client->common.forward_fields, value);
 	} else {
 		return FALSE;
 	}
@@ -195,7 +206,8 @@ client_update_info(struct imap_client *client,
 static bool client_id_reserved_word(const char *key)
 {
 	i_assert(key != NULL);
-	return str_array_icase_find(imap_login_reserved_id_keys, key);
+	return (strncasecmp(key, "x-forward-", 10) == 0 ||
+		str_array_icase_find(imap_login_reserved_id_keys, key));
 }
 
 static void cmd_id_handle_keyvalue(struct imap_client *client,

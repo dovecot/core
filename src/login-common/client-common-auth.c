@@ -177,6 +177,8 @@ static void client_auth_parse_args(struct client *client, bool success,
 				alt_username_set(&alt_usernames, client->pool,
 						 key, value);
 			}
+		} else if (strncmp(key, "forward_", 8) == 0) {
+			/* these are passed to upstream */
 		} else if (client->set->auth_debug)
 			i_debug("Ignoring unknown passdb extra field: %s", key);
 	}
