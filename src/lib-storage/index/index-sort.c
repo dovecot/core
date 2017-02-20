@@ -45,6 +45,7 @@ index_sort_program_set_mail_failed(struct mail_search_sort_program *program,
 		break;
 	case MAIL_ERROR_LOOKUP_ABORTED:
 		/* just change the error message */
+		i_assert(program->slow_mails_left == 0);
 		mail_storage_set_error(program->t->box->storage, MAIL_ERROR_LIMIT,
 			"Requested sort would have taken too long.");
 		/* fall through */
@@ -169,12 +170,14 @@ index_sort_list_add_relevancy(struct mail_search_sort_program *program,
 void index_sort_list_add(struct mail_search_sort_program *program,
 			 struct mail *mail)
 {
-	enum mail_lookup_abort orig_abort = mail->lookup_abort;
 	enum mail_access_type orig_access_type = mail->access_type;
 	bool prev_slow = mail->mail_stream_opened ||
 		mail->mail_metadata_accessed;
 
 	i_assert(mail->transaction == program->t);
+	/* if lookup_abort isn't NEVER, mail_sort_max_read_count handling
+	   doesn't work right. */
+	i_assert(mail->lookup_abort == MAIL_LOOKUP_ABORT_NEVER);
 
 	if (program->slow_mails_left == 0)
 		mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
@@ -190,7 +193,7 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 		i_assert(program->slow_mails_left > 0);
 		program->slow_mails_left--;
 	}
-	mail->lookup_abort = orig_abort;
+	mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
 }
 
 static int sort_node_date_cmp(const struct mail_sort_node_date *n1,
