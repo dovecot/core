@@ -19,6 +19,7 @@
 #include "auth-client.h"
 #include "ssl-proxy.h"
 #include "imap-proxy.h"
+#include "imap-quote.h"
 #include "imap-login-commands.h"
 #include "imap-login-settings.h"
 
@@ -31,6 +32,17 @@
 
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 3
+
+static const char *const imap_login_reserved_id_keys[] = {
+	"x-originating-ip",
+	"x-originating-port",
+	"x-connected-ip",
+	"x-connected-port",
+	"x-proxy-ttl",
+	"x-session-id",
+	"x-session-ext-id",
+	NULL
+};
 
 /* Skip incoming data until newline is found,
    returns TRUE if newline was found. */
@@ -160,13 +172,16 @@ imap_client_notify_starttls(struct client *client,
 		client_send_reply(client, IMAP_CMD_REPLY_BAD, text);
 }
 
-static void
+static bool
 client_update_info(struct imap_client *client,
 		   const char *key, const char *value)
 {
 	/* do not try to process NIL value */
 	if (value == NULL)
-		return;
+		return FALSE;
+
+	/* SYNC WITH imap_login_reserved_id_keys */
+
 	if (strcasecmp(key, "x-originating-ip") == 0) {
 		(void)net_addr2ip(value, &client->common.ip);
 	} else if (strcasecmp(key, "x-originating-port") == 0) {
@@ -185,14 +200,49 @@ client_update_info(struct imap_client *client,
 			client->common.session_id =
 				p_strdup(client->common.pool, value);
 		}
+	} else {
+		return FALSE;
 	}
+	return TRUE;
+}
+
+static bool client_id_reserved_word(const char *key)
+{
+	i_assert(key != NULL);
+	return str_array_icase_find(imap_login_reserved_id_keys, key);
 }
 
 static void cmd_id_handle_keyvalue(struct imap_client *client,
 				   const char *key, const char *value)
 {
-	if (client->common.trusted && !client->id_logged)
-		client_update_info(client, key, value);
+	bool client_id_str;
+	/* length of key + length of value (NIL for NULL) and two set of
+	   quotes and space */
+	size_t kvlen = strlen(key) + 2 + 1 +
+		       (value == NULL ? 3 : strlen(value)) + 2;
+
+	if (client->common.trusted && !client->id_logged) {
+		client_id_str = !client_update_info(client, key, value);
+		i_assert(client_id_str == !client_id_reserved_word(key));
+	} else {
+		client_id_str = !client_id_reserved_word(key);
+	}
+
+	if (client_id_str &&
+	    (client->common.client_id == NULL ||
+	     str_len(client->common.client_id) + kvlen < LOGIN_MAX_CLIENT_ID_LEN)) {
+		if (client->common.client_id == NULL) {
+			client->common.client_id = str_new(client->common.preproxy_pool, 64);
+		} else {
+			str_append_c(client->common.client_id, ' ');
+		}
+		imap_append_quoted(client->common.client_id, key);
+		str_append_c(client->common.client_id, ' ');
+		if (value == NULL)
+			str_append(client->common.client_id, "NIL");
+		else
+			imap_append_quoted(client->common.client_id, value);
+	}
 
 	if (client->cmd_id->log_reply != NULL &&
 	    (client->cmd_id->log_keys == NULL ||
@@ -283,6 +333,9 @@ static int cmd_id(struct imap_client *client)
 	enum imap_parser_flags parser_flags;
 	const struct imap_arg *args;
 	int ret;
+
+	if (client->common.client_id != NULL)
+		str_truncate(client->common.client_id, 0);
 
 	if (client->cmd_id == NULL) {
 		client->cmd_id = id = i_new(struct imap_client_cmd_id, 1);
