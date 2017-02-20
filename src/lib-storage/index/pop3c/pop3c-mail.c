@@ -4,7 +4,6 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "index-mail.h"
-#include "pop3c-settings.h"
 #include "pop3c-client.h"
 #include "pop3c-sync.h"
 #include "pop3c-storage.h"

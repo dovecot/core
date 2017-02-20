@@ -490,7 +490,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 			pop3c_client_login_finished(client);
 			break;
 		}
-		if (strcasecmp(line, "PIPELINING") == 0)
+		if ((client->set.parsed_features & POP3C_FEATURE_NO_PIPELINING) == 0 &&
+		    strcasecmp(line, "PIPELINING") == 0)
 			client->capabilities |= POP3C_CAPABILITY_PIPELINING;
 		else if (strcasecmp(line, "TOP") == 0)
 			client->capabilities |= POP3C_CAPABILITY_TOP;
