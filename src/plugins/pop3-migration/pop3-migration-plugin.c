@@ -367,6 +367,8 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 			ret = -1;
 			break;
 		}
+		mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
+
 		if (mail_get_special(mail, MAIL_FETCH_UIDL_BACKEND, &uidl) < 0) {
 			i_error("pop3_migration: Failed to get UIDL for msg %u: %s",
 				mail->seq,
