@@ -357,6 +357,8 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_append(dest, "\tsuccessful");
 	if (request->mech_name != NULL)
 		auth_str_add_keyvalue(dest, "mech", request->mech_name);
+	if (request->client_id != NULL)
+		auth_str_add_keyvalue(dest, "client_id", request->client_id);
 	/* export passdb extra fields */
 	auth_request_export_fields(dest, request->extra_fields, "passdb_");
 	/* export any userdb fields */
@@ -403,6 +405,8 @@ bool auth_request_import_info(struct auth_request *request,
 		request->session_id = p_strdup(request->pool, value);
 	else if (strcmp(key, "debug") == 0)
 		request->debug = TRUE;
+	else if (strcmp(key, "client_id") == 0)
+		request->client_id = p_strdup(request->pool, value);
 	else
 		return FALSE;
 	/* NOTE: keep in sync with auth_request_export() */
