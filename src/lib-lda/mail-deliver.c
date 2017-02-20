@@ -602,6 +602,13 @@ static void mail_deliver_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
 	union mailbox_module_context *mbox;
+	struct mail_deliver_user *muser =
+		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
+
+	/* we are doing something other than lda/lmtp delivery
+	   and should not be involved */
+	if (muser->deliver_ctx == NULL)
+		return;
 
 	mbox = p_new(box->pool, union mailbox_module_context, 1);
 	mbox->super = *v;
