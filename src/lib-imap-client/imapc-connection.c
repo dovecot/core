@@ -1538,7 +1538,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	i_zero(&ssl_set);
 	if (conn->client->set.ssl_verify) {
 		ssl_set.verbose_invalid_cert = TRUE;
-		ssl_set.verify_remote_cert = TRUE;
+	} else {
+		ssl_set.allow_invalid_cert = TRUE;
 	}
 
 	if (conn->client->set.debug)

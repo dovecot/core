@@ -1221,7 +1221,6 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 	i_zero(&ssl_set);
 	if (!conn->client->set.ssl->allow_invalid_cert) {
 		ssl_set.verbose_invalid_cert = TRUE;
-		ssl_set.verify_remote_cert = TRUE;
 	}
 
 	if (conn->client->set.debug)

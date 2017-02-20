@@ -123,7 +123,7 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 		i_zero(&ssl_set);
 		ssl_set.ca_dir = set->ssl_ca_dir;
 		ssl_set.ca_file = set->ssl_ca_file;
-		ssl_set.verify_remote_cert = set->ssl_verify;
+		ssl_set.allow_invald_cert = !set->ssl_verify;
 		ssl_set.crypto_device = set->ssl_crypto_device;
 
 		if (ssl_iostream_context_init_client(&ssl_set, &client->ssl_ctx,
@@ -577,7 +577,8 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 	i_zero(&ssl_set);
 	if (client->set.ssl_verify) {
 		ssl_set.verbose_invalid_cert = TRUE;
-		ssl_set.verify_remote_cert = TRUE;
+	} else {
+		ssl_set.allow_invalid_cert = TRUE;
 	}
 
 	if (client->set.debug)
