@@ -1479,6 +1479,8 @@ static int search_match_next(struct index_search_context *ctx)
 		   do a prefetch first and the final search later */
 		n--;
 	}
+
+	i_assert(ctx->cur_mail->lookup_abort == MAIL_LOOKUP_ABORT_NEVER);
 	for (i = 0; i < n && ret < 0; i++) {
 		ctx->cur_mail->lookup_abort = cache_lookups[i];
 		T_BEGIN {
