@@ -499,10 +499,14 @@ int openssl_iostream_context_init_client(const struct ssl_iostream_settings *set
 					 struct ssl_iostream_context **ctx_r,
 					 const char **error_r)
 {
+	struct ssl_iostream_settings set_copy = *set;
 	struct ssl_iostream_context *ctx;
 	SSL_CTX *ssl_ctx;
 
-	if (ssl_iostream_init_global(set, error_r) < 0)
+	/* ensure this is set to TRUE */
+	set_copy.verify_remote_cert = TRUE;
+
+	if (ssl_iostream_init_global(&set_copy, error_r) < 0)
 		return -1;
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_client_method())) == NULL) {
 		*error_r = t_strdup_printf("SSL_CTX_new() failed: %s",
@@ -514,7 +518,7 @@ int openssl_iostream_context_init_client(const struct ssl_iostream_settings *set
 	ctx = i_new(struct ssl_iostream_context, 1);
 	ctx->ssl_ctx = ssl_ctx;
 	ctx->client_ctx = TRUE;
-	if (ssl_iostream_context_init_common(ctx, set, error_r) < 0) {
+	if (ssl_iostream_context_init_common(ctx, &set_copy, error_r) < 0) {
 		ssl_iostream_context_deinit(&ctx);
 		return -1;
 	}
