@@ -19,7 +19,21 @@ void test_utc_mktime(void)
 #endif
 		{ 2007, 11, 7, 1, 7, 20 },
 		{ 1970, 1, 1, 0, 0, 0 },
-		{ 2038, 1, 19, 3, 14, 7 }
+		{ 2038, 1, 19, 3, 14, 7 },
+		{ INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX },
+		{ 2038, 1, 19, 3, 14, 8 },
+		{ 2106, 2, 7, 6, 28, 15 },
+		{ 2106, 2, 7, 6, 28, 16 },
+		/* June leap second */
+		{ 2015, 6, 30, 23, 59, 59 },
+		{ 2015, 6, 30, 23, 59, 60 },
+		{ 2015, 7, 1, 0, 0, 0 },
+		/* Invalid leap second */
+		{ 2017, 1, 24, 16, 40, 60 },
+		/* Dec leap second */
+		{ 2016, 12, 31, 23, 59, 59 },
+		{ 2016, 12, 31, 23, 59, 60 },
+		{ 2017, 1, 1, 0, 0, 0 },
 	};
 	static time_t output[] = {
 #ifdef TIME_T_SIGNED
@@ -31,8 +45,23 @@ void test_utc_mktime(void)
 #endif
 		1194397640,
 		0,
-		2147483647
+		2147483647,
+		-1,
+		2147483648,
+		4294967295,
+		4294967296,
+		/* June leap second */
+		1435708799,
+		1435708799,
+		1435708800,
+		/* Invalid leap second - utc_mktime() doesn't mind */
+		1485276059,
+		/* Dec leap second */
+		1483228799,
+		1483228799,
+		1483228800,
 	};
+	i_assert(N_ELEMENTS(input) == N_ELEMENTS(output));
 	struct tm tm;
 	unsigned int i;
 	time_t t;
