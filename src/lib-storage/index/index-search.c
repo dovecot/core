@@ -1739,6 +1739,7 @@ static bool search_finish_prefetch(struct index_search_context *ctx,
 	i_assert(imail->mail.mail.lookup_abort == MAIL_LOOKUP_ABORT_NEVER);
 
 	ctx->cur_mail = &imail->mail.mail;
+	ctx->cur_mail->access_type = MAIL_ACCESS_TYPE_SEARCH;
 	mail_search_args_result_deserialize(ctx->mail_ctx.args,
 					    imail->data.search_results->data,
 					    imail->data.search_results->used);
@@ -1746,6 +1747,7 @@ static bool search_finish_prefetch(struct index_search_context *ctx,
 		ret = search_match_once(ctx);
 		search_match_finish(ctx, ret);
 	} T_END;
+	ctx->cur_mail->access_type = MAIL_ACCESS_TYPE_DEFAULT;
 	ctx->cur_mail = NULL;
 	return ret > 0;
 }
