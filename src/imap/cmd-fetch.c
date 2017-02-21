@@ -228,7 +228,12 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			return cmd->cancel;
 		}
 
-		errstr = mailbox_get_last_error(cmd->client->mailbox, &error);
+		if (ctx->error == MAIL_ERROR_NONE)
+			errstr = mailbox_get_last_error(cmd->client->mailbox, &error);
+		else {
+			errstr = ctx->errstr;
+			error = ctx->error;
+		}
 		if (error == MAIL_ERROR_CONVERSION ||
 		    error == MAIL_ERROR_INVALIDDATA) {
 			/* a) BINARY found unsupported Content-Transfer-Encoding
