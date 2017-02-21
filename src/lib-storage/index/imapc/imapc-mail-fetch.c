@@ -212,8 +212,10 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	uint32_t seq;
 	unsigned int i;
 
-	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER)
+	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+		mail_set_aborted(_mail);
 		return -1;
+	}
 	_mail->mail_stream_opened = TRUE;
 
 	/* drop any fields that we may already be fetching currently */
@@ -441,8 +443,10 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		!imail->header_list_fetched)) {
 		imapc_mailbox_run_nofetch(mbox);
 	}
-	if (imail->fetch_failed)
+	if (imail->fetch_failed) {
+		mail_storage_set_internal_error(&mbox->storage->storage);
 		return -1;
+	}
 	return 0;
 }
 
