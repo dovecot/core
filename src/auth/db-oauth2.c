@@ -603,7 +603,12 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	input.real_remote_port = req->auth_request->real_remote_port;
 	input.service = req->auth_request->service;
 
-	req->req = oauth2_token_validation_start(&db->oauth2_set, &input,
-						 db_oauth2_lookup_continue, req);
+	if (*db->oauth2_set.tokeninfo_url == '\0') {
+		req->req = oauth2_introspection_start(&req->db->oauth2_set, &input,
+						      db_oauth2_introspect_continue, req);
+	} else {
+		req->req = oauth2_token_validation_start(&db->oauth2_set, &input,
+							 db_oauth2_lookup_continue, req);
+	}
 	DLLIST_PREPEND(&db->head, req);
 }
