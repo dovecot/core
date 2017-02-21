@@ -90,6 +90,9 @@ struct imap_fetch_context {
 	struct imap_fetch_state state;
 	ARRAY_TYPE(seq_range) fetch_failed_uids;
 
+	enum mail_error error;
+	const char *errstr;
+
 	bool initialized:1;
 	bool failures:1;
 	bool flags_have_handler:1;

@@ -451,6 +451,12 @@ static bool imap_fetch_cur_failed(struct imap_fetch_context *ctx)
 	if (!array_is_created(&ctx->fetch_failed_uids))
 		p_array_init(&ctx->fetch_failed_uids, ctx->ctx_pool, 8);
 	seq_range_array_add(&ctx->fetch_failed_uids, ctx->state.cur_mail->uid);
+
+	if (ctx->error == MAIL_ERROR_NONE) {
+		/* preserve the first error, since it may change in storage. */
+		ctx->errstr = p_strdup(ctx->ctx_pool,
+			mailbox_get_last_error(ctx->state.cur_mail->box, &ctx->error));
+	}
 	return TRUE;
 }
 
