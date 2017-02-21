@@ -41,6 +41,10 @@ struct mail_deliver_cache {
 	uoff_t psize, vsize;
 };
 
+struct mail_deliver_mailbox {
+	union mailbox_module_context module_ctx;
+};
+
 static const char *lda_log_wanted_headers[] = {
 	"From", "Message-ID", "Subject",
 	NULL
@@ -508,11 +512,11 @@ deliver_mail_func_t *mail_deliver_hook_set(deliver_mail_func_t *new_hook)
 static int mail_deliver_save_finish(struct mail_save_context *ctx)
 {
 	struct mailbox *box = ctx->transaction->box;
-	union mailbox_module_context *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
 	struct mail_deliver_user *muser =
 		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
 
-	if (mbox->super.save_finish(ctx) < 0)
+	if (mbox->module_ctx.super.save_finish(ctx) < 0)
 		return -1;
 
 	/* initialize most of the fields from dest_mail */
@@ -523,11 +527,11 @@ static int mail_deliver_save_finish(struct mail_save_context *ctx)
 static int mail_deliver_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct mailbox *box = ctx->transaction->box;
-	union mailbox_module_context *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
 	struct mail_deliver_user *muser =
 		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
 
-	if (mbox->super.copy(ctx, mail) < 0)
+	if (mbox->module_ctx.super.copy(ctx, mail) < 0)
 		return -1;
 
 	/* initialize most of the fields from dest_mail */
@@ -598,7 +602,7 @@ static void mail_deliver_mail_user_created(struct mail_user *user)
 static void mail_deliver_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
-	union mailbox_module_context *mbox;
+	struct mail_deliver_mailbox *mbox;
 	struct mail_deliver_user *muser =
 		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
 
@@ -607,14 +611,14 @@ static void mail_deliver_mailbox_allocated(struct mailbox *box)
 	if (muser->deliver_ctx == NULL)
 		return;
 
-	mbox = p_new(box->pool, union mailbox_module_context, 1);
-	mbox->super = *v;
-	box->vlast = &mbox->super;
+	mbox = p_new(box->pool, struct mail_deliver_mailbox, 1);
+	mbox->module_ctx.super = *v;
+	box->vlast = &mbox->module_ctx.super;
 	v->save_finish = mail_deliver_save_finish;
 	v->copy = mail_deliver_copy;
 	v->transaction_commit = mail_deliver_transaction_commit;
 
-	MODULE_CONTEXT_SET_SELF(box, mail_deliver_storage_module, mbox);
+	MODULE_CONTEXT_SET(box, mail_deliver_storage_module, mbox);
  }
 
 static struct mail_storage_hooks mail_deliver_hooks = {
