@@ -112,7 +112,8 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 	str_append(enc, req->set->tokeninfo_url);
 	http_url_escape_param(enc, input->token);
 
-	if (http_url_parse(str_c(enc), NULL, 0, pool, &url, &error) < 0) {
+	if (http_url_parse(str_c(enc), NULL, HTTP_URL_ALLOW_USERINFO_PART, pool,
+			   &url, &error) < 0) {
 		fail.error = t_strdup_printf("http_url_parse(%s) failed: %s",
 					     str_c(enc), error);
 		oauth2_token_validation_callback(req, &fail);
@@ -122,10 +123,14 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 	req->req = http_client_request_url(req->set->client, "GET", url,
 					   oauth2_token_validate_response,
 					   req);
-	http_client_request_add_header(req->req,
-				       "Authorization",
-				       t_strdup_printf("Bearer %s",
-						       input->token));
+
+        if (url->user != NULL)
+                http_client_request_set_auth_simple(req->req, url->user, url->password);
+	else
+		http_client_request_add_header(req->req,
+					       "Authorization",
+					       t_strdup_printf("Bearer %s",
+							       input->token));
 
 	oauth2_request_set_headers(req, input);
 
