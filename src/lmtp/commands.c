@@ -751,9 +751,13 @@ int cmd_rcpt(struct client *client, const char *args)
 		(void)cmd_rcpt_finish(client, rcpt);
 		return 0;
 	} else {
+		/* NOTE: username may change as the result of the userdb
+		   lookup. Look up the new one via service_user. */
+		const struct mail_storage_service_input *input =
+			mail_storage_service_user_get_input(rcpt->service_user);
 		const char *query = t_strconcat("LOOKUP\t",
 			master_service_get_name(master_service),
-			"/", str_tabescape(username), NULL);
+			"/", str_tabescape(input->username), NULL);
 		io_remove(&client->io);
 		rcpt->anvil_query = anvil_client_query(anvil, query,
 					rcpt_anvil_lookup_callback, rcpt);
