@@ -266,9 +266,16 @@ static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 	struct cassandra_callback *cb = context;
 
 	/* this isn't the main thread - communicate with main thread by
-	   writing the callback id to the pipe */
-	if (write_full(cb->db->fd_pipe[1], &cb->id, sizeof(cb->id)) < 0)
-		i_error("cassandra: write(pipe) failed: %m");
+	   writing the callback id to the pipe. note that we must not use
+	   almost any dovecot functions here because most of them are using
+	   data-stack, which isn't thread-safe. especially don't use
+	   i_error() here. */
+	if (write_full(cb->db->fd_pipe[1], &cb->id, sizeof(cb->id)) < 0) {
+		const char *str = t_strdup_printf(
+			"cassandra: write(pipe) failed: %s\n",
+			strerror(errno));
+		(void)write_full(STDERR_FILENO, str, strlen(str));
+	}
 }
 
 static void cassandra_callback_run(struct cassandra_callback *cb)
