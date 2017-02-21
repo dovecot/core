@@ -6,6 +6,7 @@ struct imap_login_settings {
 	const char *imap_id_send;
 	const char *imap_id_log;
 	bool imap_literal_minus;
+	bool imap_id_retain;
 };
 
 extern const struct setting_parser_info *imap_login_setting_roots[];
