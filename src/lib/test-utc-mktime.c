@@ -24,7 +24,9 @@ void test_utc_mktime(void)
 		{ INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, INT_MAX, -1 },
 		{ 2038, 1, 19, 3, 14, 8, 2147483648 },
 		{ 2106, 2, 7, 6, 28, 15, 4294967295 },
+#if TIME_T_MAX_BITS > 32
 		{ 2106, 2, 7, 6, 28, 16, 4294967296 },
+#endif
 		/* June leap second */
 		{ 2015, 6, 30, 23, 59, 59, 1435708799 },
 		{ 2015, 6, 30, 23, 59, 60, 1435708799 },
