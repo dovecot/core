@@ -71,47 +71,44 @@ const char *mail_deliver_get_address(struct mail *mail, const char *header)
 		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
 }
 
-static void update_cache(struct mail_deliver_context *ctx,
-			 const char **old_str, const char *new_str)
+static void update_cache(pool_t pool, const char **old_str, const char *new_str)
 {
 	if (new_str == NULL || new_str[0] == '\0')
 		*old_str = NULL;
 	else if (*old_str == NULL || strcmp(*old_str, new_str) != 0)
-		*old_str = p_strdup(ctx->pool, new_str);
+		*old_str = p_strdup(pool, new_str);
 }
 
 static void
-mail_deliver_log_update_cache(struct mail_deliver_context *ctx,
+mail_deliver_log_update_cache(struct mail_deliver_cache *cache, pool_t pool,
 			      struct mail *mail)
 {
 	const char *message_id = NULL, *subject = NULL, *from_envelope = NULL;
 	const char *from;
 
-	if (ctx->cache == NULL)
-		ctx->cache = p_new(ctx->pool, struct mail_deliver_cache, 1);
-	else if (ctx->cache->filled)
+	if (cache->filled)
 		return;
-	ctx->cache->filled = TRUE;
+	cache->filled = TRUE;
 
 	if (mail_get_first_header(mail, "Message-ID", &message_id) > 0)
 		message_id = str_sanitize(message_id, 200);
-	update_cache(ctx, &ctx->cache->message_id, message_id);
+	update_cache(pool, &cache->message_id, message_id);
 
 	if (mail_get_first_header_utf8(mail, "Subject", &subject) > 0)
 		subject = str_sanitize(subject, 80);
-	update_cache(ctx, &ctx->cache->subject, subject);
+	update_cache(pool, &cache->subject, subject);
 
 	from = str_sanitize(mail_deliver_get_address(mail, "From"), 80);
-	update_cache(ctx, &ctx->cache->from, from);
+	update_cache(pool, &cache->from, from);
 
 	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE, &from_envelope) > 0)
 		from_envelope = str_sanitize(from_envelope, 80);
-	update_cache(ctx, &ctx->cache->from_envelope, from_envelope);
+	update_cache(pool, &cache->from_envelope, from_envelope);
 
-	if (mail_get_physical_size(mail, &ctx->cache->psize) < 0)
-		ctx->cache->psize = 0;
-	if (mail_get_virtual_size(mail, &ctx->cache->vsize) < 0)
-		ctx->cache->vsize = 0;
+	if (mail_get_physical_size(mail, &cache->psize) < 0)
+		cache->psize = 0;
+	if (mail_get_virtual_size(mail, &cache->vsize) < 0)
+		cache->vsize = 0;
 }
 
 const struct var_expand_table *
@@ -122,7 +119,9 @@ mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 
 	/* If a mail was saved/copied, the cache is already filled and the
 	   following call is ignored. Otherwise, only the source mail exists. */
-	mail_deliver_log_update_cache(ctx, ctx->src_mail);
+	if (ctx->cache == NULL)
+		ctx->cache = p_new(ctx->pool, struct mail_deliver_cache, 1);
+	mail_deliver_log_update_cache(ctx->cache, ctx->pool, ctx->src_mail);
 	/* This call finishes a mail delivery. With Sieve there may be multiple
 	   mail deliveries. */
 	ctx->cache->filled = FALSE;
@@ -520,7 +519,8 @@ static int mail_deliver_save_finish(struct mail_save_context *ctx)
 		return -1;
 
 	/* initialize most of the fields from dest_mail */
-	mail_deliver_log_update_cache(muser->deliver_ctx, ctx->dest_mail);
+	mail_deliver_log_update_cache(muser->deliver_ctx->cache,
+				      muser->deliver_ctx->pool, ctx->dest_mail);
 	return 0;
 }
 
@@ -535,7 +535,8 @@ static int mail_deliver_copy(struct mail_save_context *ctx, struct mail *mail)
 		return -1;
 
 	/* initialize most of the fields from dest_mail */
-	mail_deliver_log_update_cache(muser->deliver_ctx, ctx->dest_mail);
+	mail_deliver_log_update_cache(muser->deliver_ctx->cache,
+				      muser->deliver_ctx->pool, ctx->dest_mail);
 	return 0;
 }
 
