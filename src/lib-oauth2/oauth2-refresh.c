@@ -119,11 +119,11 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 	req->re_callback = callback;
 	req->re_context = context;
 
-	const char *_url = req->set->refresh_url;
 
-	if (http_url_parse(_url, NULL, 0, pool, &url, &error) < 0) {
+	if (http_url_parse(req->set->refresh_url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
+			   pool, &url, &error) < 0) {
 		fail.error = t_strdup_printf("http_url_parse(%s) failed: %s",
-					     _url, error);
+					     req->set->refresh_url, error);
 		oauth2_refresh_callback(req, &fail);
 		return req;
 	}
@@ -140,6 +140,9 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 	http_url_escape_param(payload, req->set->client_id);
 
 	struct istream *is = i_stream_create_from_string(payload);
+
+	if (url->user != NULL)
+		http_client_request_set_auth_simple(req->req, url->user, url->password);
 
 	http_client_request_add_header(req->req, "Content-Type",
 				       "application/x-www-form-urlencoded");
