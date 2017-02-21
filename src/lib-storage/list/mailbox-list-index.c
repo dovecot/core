@@ -241,6 +241,8 @@ mailbox_list_index_generate_name(struct mailbox_list_index *ilist,
 	guid_128_t guid;
 	char *name;
 
+	i_assert(node->name_id != 0);
+
 	guid_128_generate(guid);
 	name = p_strdup_printf(ilist->mailbox_pool, "%s%s", prefix,
 			       guid_128_to_string(guid));
@@ -317,6 +319,10 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		irec = data;
 
 		node->name_id = irec->name_id;
+		if (node->name_id == 0) {
+			/* invalid name_id - assign a new one */
+			node->name_id = ++ilist->highest_name_id;
+		}
 		node->name = hash_table_lookup(ilist->mailbox_names,
 					       POINTER_CAST(irec->name_id));
 		if (node->name == NULL) {
