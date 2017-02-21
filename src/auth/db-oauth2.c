@@ -202,6 +202,9 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.dns_client_socket_path = "dns-client";
 	http_set.user_agent = "dovecot-oauth2-passdb/" DOVECOT_VERSION;
 
+	if (*db->set.tokeninfo_url == '\0' && *db->set.introspection_url == '\0')
+		i_fatal("oauth2: Tokeninfo or introspection URL must be given");
+
 	if (*db->set.rawlog_dir != '\0')
 		http_set.rawlog_dir = db->set.rawlog_dir;
 
