@@ -333,9 +333,8 @@ static int read_configuration(struct mail_user *user, const char *path)
 }
 
 static void
-trash_mail_namespaces_created(struct mail_namespace *namespaces)
+trash_mail_user_created(struct mail_user *user)
 {
-	struct mail_user *user = namespaces->user;
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct trash_user *tuser;
 	const char *env;
@@ -359,7 +358,7 @@ trash_mail_namespaces_created(struct mail_namespace *namespaces)
 }
 
 static struct mail_storage_hooks trash_mail_storage_hooks = {
-	.mail_namespaces_created = trash_mail_namespaces_created
+	.mail_user_created = trash_mail_user_created
 };
 
 void trash_plugin_init(struct module *module)
