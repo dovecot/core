@@ -7,9 +7,6 @@ v2.2.28 2016-02-xx  Timo Sirainen <tss@iki.fi>
 	  dovecot.index.cache caching decisions.
 	* Expunging mails writes GUID to dovecot.index.log now only if the
 	  GUID is quickly available from index/cache.
-	* imap: When BINARY FETCH sees invalid content, return NO [PARSE] reply
-	  instead of [UNKNOWNCTE] (which is now used only for actually unknown
-	  Content-Transfer-Encoding headers).
 	* pop3c: Increase timeout for PASS command to 5 minutes.
 	* Mail access errors are no longer ignored when searching or sorting.
 	  With IMAP the untagged SEARCH/SORT reply is still sent the same as
@@ -40,6 +37,8 @@ v2.2.28 2016-02-xx  Timo Sirainen <tss@iki.fi>
 	  wanted fields only if it doesn't require opening the email.
 	+ mail_vsize_bg_after_count setting added (see example-config).
 	+ mail_sort_max_read_count setting added (see example-config).
+	+ pop3c: Added pop3c_features=no-pipelining setting to prevent using
+	  PIPELINING extension even though it's advertised.
 
 	- Index files: day_first_uid wasn't updated correctly since v2.2.26.
 	  This caused dovecot.index.cache to be non-optimal.
@@ -64,12 +63,13 @@ v2.2.28 2016-02-xx  Timo Sirainen <tss@iki.fi>
 	- auth-policy: hashed_password was always sent empty.
 	- dict-sql: Merge multiple UPDATEs to a single statement if possible.
 	- fts-solr: Escape {} chars when sending queries
-	- fts: fts_autoexpunge_exclude = \Special-use caused crashes
+	- fts: fts_autoindex_exclude = \Special-use caused crashes
 	- doveadm-server: Fix leaks and other problems when process is reused
 	  for multiple requests (service_count != 1)
 	- sdbox: Fix assert-crash on mailbox create race
 	- lda/lmtp: deliver_log_format values weren't entirely correct if Sieve
 	  was used. especially %{storage_id} was broken.
+	- lmtp_user_concurrency_limit didn't work if userdb changed username
 
 v2.2.27 2016-12-03  Timo Sirainen <tss@iki.fi>
 
