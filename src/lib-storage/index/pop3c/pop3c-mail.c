@@ -110,22 +110,13 @@ static int pop3c_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 static void pop3c_mail_cache_size(struct index_mail *mail)
 {
-	struct mail *_mail = &mail->mail.mail;
 	uoff_t size;
-	unsigned int cache_idx;
 
 	if (i_stream_get_size(mail->data.stream, TRUE, &size) <= 0)
 		return;
 	mail->data.virtual_size = size;
-
-	cache_idx = mail->ibox->cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx;
-	if (mail_cache_field_exists(_mail->transaction->cache_view,
-				    _mail->seq, cache_idx) == 0) {
-		index_mail_cache_add_idx(mail, cache_idx, &size, sizeof(size));
-		/* make sure it's not cached twice */
-		mail->data.dont_cache_fetch_fields |=
-			MAIL_CACHE_VIRTUAL_FULL_SIZE;
-	}
+	/* it'll be actually added to index when closing the mail in
+	   index_mail_cache_sizes() */
 }
 
 static void
