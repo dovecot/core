@@ -493,8 +493,10 @@ void mail_storage_clear_error(struct mail_storage *storage)
 void mail_storage_set_error(struct mail_storage *storage,
 			    enum mail_error error, const char *string)
 {
-	i_free(storage->error_string);
-	storage->error_string = i_strdup(string);
+	if (storage->error_string != string) {
+		i_free(storage->error_string);
+		storage->error_string = i_strdup(string);
+	}
 	storage->error = error;
 }
 
