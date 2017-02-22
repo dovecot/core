@@ -207,8 +207,13 @@ static int lazy_expunge_mail_is_last_instace(struct mail *_mail)
 		   see the same refcount, so we need to adjust the refcount
 		   by tracking the expunged message GUIDs. */
 		if (mail_get_special(_mail, MAIL_FETCH_GUID, &value) < 0) {
+			errstr = mailbox_get_last_error(_mail->box, &error);
+			if (error == MAIL_ERROR_EXPUNGED) {
+				/* already expunged - just ignore it */
+				return 0;
+			}
 			mail_storage_set_critical(_mail->box->storage,
-				"lazy_expunge: Couldn't lookup message's GUID");
+				"lazy_expunge: Couldn't lookup message's GUID: %s", errstr);
 			return -1;
 		}
 		if (*value == '\0') {
