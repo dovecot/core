@@ -229,7 +229,7 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 				    max_recent_msgs, args[4]);
 		indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
 		mail_user_unref(&user);
-		mail_storage_service_user_free(&service_user);
+		mail_storage_service_user_unref(&service_user);
 	}
 
 	str = ret < 0 ? "-1\n" : "100\n";

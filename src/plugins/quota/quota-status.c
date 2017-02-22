@@ -116,7 +116,7 @@ static void client_handle_request(struct quota_client *client)
 		}
 		value = t_strdup(value); /* user's pool is being freed */
 		mail_user_unref(&user);
-		mail_storage_service_user_free(&service_user);
+		mail_storage_service_user_unref(&service_user);
 	} else {
 		i_error("Failed to lookup user %s: %s", input.username, error);
 		error = "Temporary internal error";

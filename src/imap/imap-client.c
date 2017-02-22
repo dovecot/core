@@ -462,7 +462,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (array_is_created(&client->search_updates))
 		array_free(&client->search_updates);
 	pool_unref(&client->command_pool);
-	mail_storage_service_user_free(&client->service_user);
+	mail_storage_service_user_unref(&client->service_user);
 
 	imap_client_count--;
 	DLLIST_REMOVE(&imap_clients, client);

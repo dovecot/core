@@ -631,7 +631,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	o_stream_destroy(&client->output);
 
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
-	mail_storage_service_user_free(&client->service_user);
+	mail_storage_service_user_unref(&client->service_user);
 
 	pop3_client_count--;
 	DLLIST_REMOVE(&pop3_clients, client);

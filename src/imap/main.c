@@ -242,7 +242,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	if (mail_error != MAIL_ERROR_NONE) {
 		*error_r = t_strdup(errstr);
 		mail_user_unref(&mail_user);
-		mail_storage_service_user_free(&user);
+		mail_storage_service_user_unref(&user);
 		return -1;
 	}
 
@@ -259,7 +259,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 				&errstr) <= 0) {
 		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
 		mail_user_unref(&mail_user);
-		mail_storage_service_user_free(&user);
+		mail_storage_service_user_unref(&user);
 		return -1;
 	}
 

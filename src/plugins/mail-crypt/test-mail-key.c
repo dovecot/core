@@ -188,7 +188,7 @@ void deinit_test_mail_user()
 {
 	const char *error;
 	mail_user_unref(&test_mail_user);
-	mail_storage_service_user_free(&test_service_user);
+	mail_storage_service_user_unref(&test_service_user);
 	mail_storage_service_deinit(&mail_storage_service);
 	if (unlink_directory(mail_home, UNLINK_DIRECTORY_FLAG_RMDIR,
 			     &error) < 0)

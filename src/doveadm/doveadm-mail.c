@@ -391,7 +391,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 
 	if (ctx->v.prerun != NULL) {
 		if (ctx->v.prerun(ctx, ctx->cur_service_user, error_r) < 0) {
-			mail_storage_service_user_free(&ctx->cur_service_user);
+			mail_storage_service_user_unref(&ctx->cur_service_user);
 			return -1;
 		}
 	}
@@ -400,7 +400,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 					ctx->cur_service_user,
 					&ctx->cur_mail_user, error_r);
 	if (ret < 0) {
-		mail_storage_service_user_free(&ctx->cur_service_user);
+		mail_storage_service_user_unref(&ctx->cur_service_user);
 		return ret;
 	}
 
@@ -408,7 +408,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		i_assert(ctx->exit_code != 0);
 	}
 	mail_user_unref(&ctx->cur_mail_user);
-	mail_storage_service_user_free(&ctx->cur_service_user);
+	mail_storage_service_user_unref(&ctx->cur_service_user);
 	return 1;
 }
 

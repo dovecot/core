@@ -614,7 +614,7 @@ static bool cmd_rcpt_finish(struct client *client, struct mail_recipient *rcpt)
 			client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 					 rcpt->address);
 		}
-		mail_storage_service_user_free(&rcpt->service_user);
+		mail_storage_service_user_unref(&rcpt->service_user);
 		return FALSE;
 	}
 	array_append(&client->state.rcpt_to, &rcpt, 1);
@@ -640,7 +640,7 @@ static void rcpt_anvil_lookup_callback(const char *reply, void *context)
 		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL_PREFIX
 				 "Too many concurrent deliveries for user",
 				 rcpt->address);
-		mail_storage_service_user_free(&rcpt->service_user);
+		mail_storage_service_user_unref(&rcpt->service_user);
 	} else if (cmd_rcpt_finish(client, rcpt)) {
 		rcpt->anvil_connect_sent = TRUE;
 		input = mail_storage_service_user_get_input(rcpt->service_user);
@@ -738,7 +738,7 @@ int cmd_rcpt(struct client *client, const char *args)
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
 			address);
-		mail_storage_service_user_free(&rcpt->service_user);
+		mail_storage_service_user_unref(&rcpt->service_user);
 		return 0;
 	}
 
