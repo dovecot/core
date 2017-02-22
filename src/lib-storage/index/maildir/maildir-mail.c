@@ -263,6 +263,12 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 		}
 	}
 
+	if (index_mail_get_vsize_extension(&mail->mail.mail) != NULL) {
+		/* having a vsize extension in index is the same as having
+		   vsize's caching decision YES */
+		vsize_dec = MAIL_CACHE_DECISION_YES;
+	}
+
 	if (!not_pop3_only) {
 		/* either nothing is cached, or only vsize is cached. */
 		mail->pop3_state = 1;
