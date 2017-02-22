@@ -233,10 +233,11 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	}
 
 	*box_r = box = mailbox_alloc(ns->list, name, flags);
-	/* flag that this mailbox is used for delivering the mail. */
+	/* flag that this mailbox is used for delivering the mail.
+	   the context isn't set in pigeonhole testuite. */
 	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
-	i_assert(mbox != NULL);
-	mbox->delivery_box = TRUE;
+	if (mbox != NULL)
+		mbox->delivery_box = TRUE;
 
 	if (mailbox_open(box) == 0)
 		return 0;
