@@ -114,9 +114,6 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     const char **error_r);
 void mail_storage_service_user_ref(struct mail_storage_service_user *user);
 void mail_storage_service_user_unref(struct mail_storage_service_user **user);
-/* FIXME: for backwards compatibility - remove */
-#define mail_storage_service_user_free(user) \
-	mail_storage_service_user_unref(user)
 /* Initialize iterating through all users. */
 void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx);
 /* Initialize iterating through all users with a user mask hint to the
