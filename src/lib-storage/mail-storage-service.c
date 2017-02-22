@@ -70,6 +70,8 @@ struct mail_storage_service_ctx {
 
 struct mail_storage_service_user {
 	pool_t pool;
+	int refcount;
+
 	struct mail_storage_service_ctx *service_ctx;
 	struct mail_storage_service_input input;
 	enum mail_storage_service_flags flags;
@@ -661,6 +663,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user = mail_user_alloc_nodup_set(user->input.username,
 					      user->user_info, user->user_set);
 	mail_user->_service_user = user;
+	mail_storage_service_user_ref(user);
 	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
 	mail_user_set_vars(mail_user, ctx->service->name,
 			   &user->input.local_ip, &user->input.remote_ip);
@@ -1242,6 +1245,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	}
 
 	user = p_new(user_pool, struct mail_storage_service_user, 1);
+	user->refcount = 1;
 	user->service_ctx = ctx;
 	user->pool = user_pool;
 	user->input = *input;
@@ -1487,18 +1491,28 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 
 	ret = mail_storage_service_next(ctx, user, mail_user_r, error_r);
 	if (ret < 0) {
-		mail_storage_service_user_free(&user);
+		mail_storage_service_user_unref(&user);
 		return ret;
 	}
 	*user_r = user;
 	return 1;
 }
 
-void mail_storage_service_user_free(struct mail_storage_service_user **_user)
+void mail_storage_service_user_ref(struct mail_storage_service_user *user)
+{
+	i_assert(user->refcount > 0);
+	user->refcount++;
+}
+
+void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 {
 	struct mail_storage_service_user *user = *_user;
 
 	*_user = NULL;
+
+	i_assert(user->refcount > 0);
+	if (--user->refcount > 0)
+		return;
 
 	if (user->ioloop_ctx != NULL) {
 		if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0) {
