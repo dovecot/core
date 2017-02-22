@@ -185,6 +185,7 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 	enum pop3c_capability capa;
 	const char *name, *cmd, *error;
 	struct istream *input;
+	bool new_stream = FALSE;
 
 	if ((mail->data.access_part & (READ_BODY | PARSE_BODY)) != 0)
 		get_body = TRUE;
@@ -197,6 +198,7 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 	if (pmail->prefetch_stream != NULL && mail->data.stream == NULL) {
 		mail->data.stream = pmail->prefetch_stream;
 		pmail->prefetch_stream = NULL;
+		new_stream = TRUE;
 	}
 
 	if (get_body && mail->data.stream != NULL) {
@@ -228,6 +230,10 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 			return -1;
 		}
 		mail->data.stream = input;
+		i_stream_set_name(mail->data.stream, t_strcut(cmd, '\r'));
+		new_stream = TRUE;
+	}
+	if (new_stream) {
 		if (mail->mail.v.istream_opened != NULL) {
 			if (mail->mail.v.istream_opened(_mail,
 							&mail->data.stream) < 0) {
@@ -235,7 +241,6 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 				return -1;
 			}
 		}
-		i_stream_set_name(mail->data.stream, t_strcut(cmd, '\r'));
 		if (get_body)
 			pop3c_mail_cache_size(mail);
 	}
