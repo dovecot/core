@@ -36,6 +36,8 @@ static void mail_user_deinit_base(struct mail_user *user)
 		dict_deinit(&user->_attr_dict);
 	}
 	mail_namespaces_deinit(&user->namespaces);
+	if (user->_service_user != NULL)
+		mail_storage_service_user_unref(&user->_service_user);
 }
 
 static void mail_user_stats_fill_base(struct mail_user *user ATTR_UNUSED,
@@ -558,7 +560,10 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 
 	user2 = mail_user_alloc(user->username, user->set_info,
 				user->unexpanded_set);
-	user2->_service_user = user->_service_user;
+	if (user2->_service_user != NULL) {
+		user2->_service_user = user->_service_user;
+		mail_storage_service_user_ref(user2->_service_user);
+	}
 	if (user->_home != NULL)
 		mail_user_set_home(user2, user->_home);
 	mail_user_set_vars(user2, user->service,
