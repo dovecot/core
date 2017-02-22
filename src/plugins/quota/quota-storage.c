@@ -238,9 +238,11 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 				       qt->quota->set->quota_exceeded_msg);
 		return -1;
 	} else {
-		mail_storage_set_critical(t->box->storage,
-					  "Internal quota calculation error");
-		/* allow saving anyway */
+		/* allow saving anyway. don't log an error, because at this
+		   point we can't give very informative error without API
+		   changes. the real error should have been logged already
+		   (except if this was due to quota calculation on background,
+		   then we intentionally don't want to log anything) */
 		return 0;
 	}
 }
@@ -298,9 +300,8 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 				qt->quota->set->quota_exceeded_msg);
 			return -1;
 		} else if (ret < 0) {
-			mail_storage_set_critical(t->box->storage,
-				"Internal quota calculation error");
-			/* allow saving anyway */
+			/* allow saving anyway. don't log an error - see
+			   quota_check() for reasons. */
 		}
 	}
 
