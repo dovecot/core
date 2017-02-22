@@ -152,7 +152,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	mail_storage_service_io_activate_user(dest_service_user);
 
 	mail_user_unref(&dest_user);
-	mail_storage_service_user_free(&dest_service_user);
+	mail_storage_service_user_unref(&dest_service_user);
 
 	if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
 		io_loop_context_deactivate(cur_ioloop_ctx);
