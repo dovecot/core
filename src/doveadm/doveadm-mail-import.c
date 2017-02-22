@@ -177,7 +177,7 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 		i_fatal("Import namespace initialization failed: %s", error);
 
 	ctx->src_user = user;
-	mail_storage_service_user_free(&service_user);
+	mail_storage_service_user_unref(&service_user);
 }
 
 static int
