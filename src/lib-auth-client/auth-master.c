@@ -48,13 +48,6 @@ struct auth_master_connection {
 	bool aborted:1;
 };
 
-struct auth_master_user_list_ctx {
-	struct auth_master_connection *conn;
-	string_t *username;
-	bool finished;
-	bool failed;
-};
-
 static void auth_master_connected(struct connection *_conn, bool success);
 static int
 auth_master_input_args(struct connection *_conn, const char *const *args);
@@ -898,6 +891,13 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	*count_r = ctx.count;
 	return ctx.failed ? -1 : 0;
 }
+
+struct auth_master_user_list_ctx {
+	struct auth_master_connection *conn;
+	string_t *username;
+	bool finished;
+	bool failed;
+};
 
 static bool
 auth_user_list_reply_callback(const char *cmd, const char *const *args,
