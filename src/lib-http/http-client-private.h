@@ -516,17 +516,19 @@ void http_client_queue_switch_ioloop(struct http_client_queue *queue);
  * Host
  */
 
-static inline unsigned int
+static inline bool
 http_client_host_get_ip_idx(struct http_client_host *host,
-			    const struct ip_addr *ip)
+			    const struct ip_addr *ip, unsigned int *idx_r)
 {
 	unsigned int i;
 
 	for (i = 0; i < host->ips_count; i++) {
-		if (net_ip_compare(&host->ips[i], ip))
-			return i;
+		if (net_ip_compare(&host->ips[i], ip)) {
+			*idx_r = i;
+			return TRUE;
+		}
 	}
-	i_unreached();
+	return FALSE;
 }
 
 struct http_client_host *
