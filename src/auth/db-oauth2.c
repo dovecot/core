@@ -511,6 +511,7 @@ static void db_oauth2_process_fields(struct db_oauth2_request *req)
 	if (db_oauth2_validate_username(req, &error) &&
 	    db_oauth2_user_is_enabled(req, &error) &&
 	    db_oauth2_token_in_scope(req, &error) &&
+	    db_oauth2_template_export(req, &error) == 0 &&
 	    !req->failed) {
 		req->result = PASSDB_RESULT_OK;
 	} else {
