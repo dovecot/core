@@ -492,6 +492,24 @@ imap_client_get_var_expand_table(struct imap_client *client)
 	return tab;
 }
 
+static const char *
+imap_client_var_expand_func_userdb(const char *data, void *context)
+{
+	const char *const *fields = (const char *const *)context;
+	const char *field_name = t_strdup_printf("%s=",t_strcut(data, ':'));
+	const char *default_value = i_strchr_to_next(data, ':');
+	const char *value = NULL;
+
+	for(;*fields != NULL; fields++) {
+		if (strncmp(*fields, field_name, strlen(field_name)) == 0) {
+			value = *fields+strlen(field_name);
+			break;
+		}
+	}
+
+	return value != NULL ? value : default_value;
+}
+
 static void imap_client_io_activate_user(struct imap_client *client)
 {
 	i_set_failure_prefix("%s", client->log_prefix);
@@ -513,6 +531,10 @@ static const char *imap_client_get_anvil_userip_ident(struct imap_client_state *
 struct imap_client *
 imap_client_create(int fd, const struct imap_client_state *state)
 {
+	const struct var_expand_func_table funcs[] = {
+		{ "userdb", imap_client_var_expand_func_userdb },
+		{ NULL, NULL }
+	};
 	struct imap_client *client;
 	pool_t pool = pool_alloconly_create("imap client", 256);
 	void *statebuf;
@@ -541,10 +563,12 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	}
 	T_BEGIN {
 		string_t *str;
-
+		const char *const *fields =
+			t_strsplit_tabescaped(client->state.userdb_fields);
 		str = t_str_new(256);
-		var_expand(str, state->mail_log_prefix,
-			   imap_client_get_var_expand_table(client));
+		var_expand_with_funcs(str, state->mail_log_prefix,
+				      imap_client_get_var_expand_table(client),
+				      funcs, (void*)fields);
 		client->log_prefix = p_strdup(pool, str_c(str));
 	} T_END;
 
