@@ -430,8 +430,11 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 	if (queue->host->dns_lookup == NULL &&
 		queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX) {
 		/* we achieved at least one connection the the addr->ip */
-		queue->ips_connect_start_idx =
-			http_client_host_get_ip_idx(queue->host, &addr->a.tcp.ip);
+		if (!http_client_host_get_ip_idx(queue->host,
+			&addr->a.tcp.ip, &queue->ips_connect_start_idx)) {
+			/* list of IPs changed during connect */
+			queue->ips_connect_start_idx = 0;
+		}
 	}
 
 	/* reset attempt counter */
