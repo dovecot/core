@@ -14,7 +14,7 @@ struct acl_mask {
 	unsigned char mask[1];
 };
 #define SIZEOF_ACL_MASK(bitmask_size) \
-	(MALLOC_ADD(sizeof(pool_t) + sizeof(unsigned int), (bitmask_size)))
+	(MALLOC_ADD((bitmask_size), sizeof(pool_t) + sizeof(unsigned int)))
 
 struct acl_cache *acl_cache_init(struct acl_backend *backend,
 				 size_t validity_rec_size);
