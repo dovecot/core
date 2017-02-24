@@ -108,12 +108,6 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 			/* xoauth2 does not require unescaping because the data
 			   format does not contain anything to escape */
 			const char *username = (*ptr)+5;
-			if (username == NULL) {
-				auth_request_log_info(request, AUTH_SUBSYS_MECH,
-						      "Invalid username");
-				auth_request_fail(request);
-				return;
-			}
 			if (!auth_request_set_username(request, username, &error)) {
 				auth_request_log_info(request, AUTH_SUBSYS_MECH,
 						      "%s", error);
