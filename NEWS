@@ -1,4 +1,4 @@
-v2.2.28 2016-02-xx  Timo Sirainen <tss@iki.fi>
+v2.2.28 2016-02-24  Timo Sirainen <tss@iki.fi>
 
 	* director: "doveadm director move" to same host now refreshes user's
 	  timeout. This allows keeping user constantly in the same backend by
