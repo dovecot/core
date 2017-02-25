@@ -69,18 +69,21 @@
   2<tab>key algo oid<tab>1<tab>symmetric algo name<tab>salt<tab>hash algo<tab>rounds<tab>E(RSA = i2d_PrivateKey, EC=Private Point)<tab>key id
 **/
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#ifndef HAVE_EVP_PKEY_get0
 #define EVP_PKEY_get0_EC_KEY(x) x->pkey.ec
 #define EVP_PKEY_get0_RSA(x) x->pkey.rsa
+#endif
+
+#ifndef HAVE_OBJ_LENGTH
 #define OBJ_length(o) ((o)->length)
 #endif
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#ifndef HAVE_EVP_MD_CTX_NEW
 #  define EVP_MD_CTX_new() EVP_MD_CTX_create()
 #  define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy(ctx)
 #endif
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#ifndef HAVE_HMAC_CTX_NEW
 #  define HMAC_Init_ex(ctx, key, key_len, md, impl) \
 	HMAC_Init_ex(&(ctx), key, key_len, md, impl)
 #  define HMAC_Update(ctx, data, len) HMAC_Update(&(ctx), data, len)
@@ -108,7 +111,7 @@ struct dcrypt_context_symmetric {
 struct dcrypt_context_hmac {
 	pool_t pool;
 	const EVP_MD *md;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#ifdef HAVE_HMAC_CTX_NEW
 	HMAC_CTX *ctx;
 #else
 	HMAC_CTX ctx;
@@ -484,7 +487,7 @@ bool dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx, const char **
 {
 	int ec;
 	i_assert(ctx->md != NULL);
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#ifdef HAVE_HMAC_CTX_NEW
 	ctx->ctx = HMAC_CTX_new();
 	if (ctx->ctx == NULL) return dcrypt_openssl_error(error_r);
 #endif
