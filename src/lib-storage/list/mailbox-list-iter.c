@@ -973,25 +973,25 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 			info = &ctx->specialuse_info;
 		}
 	}
+
+	if (info != NULL && ctx->autocreate_ctx != NULL) {
+	        ctx->autocreate_ctx->new_info = *info;
+	        return autocreate_iter_existing(ctx);
+	}
+
 	return info;
 }
 
-static const struct mailbox_info *
-autocreate_iter_next(struct mailbox_list_iterate_context *ctx)
+const struct mailbox_info *
+mailbox_list_iter_default_next(struct mailbox_list_iterate_context *ctx)
 {
 	struct mailbox_list_autocreate_iterate_context *actx =
 		ctx->autocreate_ctx;
-	const struct mailbox_info *info;
 	const struct autocreate_box *autoboxes, *autobox;
 	unsigned int count;
 
-	if (actx->idx == 0) {
-		info = mailbox_list_iter_next_call(ctx);
-		if (info != NULL) {
-			actx->new_info = *info;
-			return autocreate_iter_existing(ctx);
-		}
-	}
+	if (actx == NULL)
+		return NULL;
 
 	/* list missing mailboxes */
 	autoboxes = array_get(&actx->boxes, &count);
@@ -1028,10 +1028,7 @@ mailbox_list_iter_next(struct mailbox_list_iterate_context *ctx)
 		return NULL;
 	do {
 		T_BEGIN {
-			if (ctx->autocreate_ctx != NULL)
-				info = autocreate_iter_next(ctx);
-			else
-				info = mailbox_list_iter_next_call(ctx);
+			info = mailbox_list_iter_next_call(ctx);
 		} T_END;
 	} while (info != NULL && !special_use_selection(ctx, info));
 	return info;

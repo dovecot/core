@@ -795,7 +795,9 @@ fs_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		ret = fs_list_next(ctx);
 	} T_END;
 
-	if (ret <= 0)
+	if (ret == 0)
+		return mailbox_list_iter_default_next(_ctx);
+	else if (ret < 0)
 		return NULL;
 
 	if (_ctx->list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&

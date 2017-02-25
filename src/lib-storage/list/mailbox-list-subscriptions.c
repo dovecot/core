@@ -263,7 +263,7 @@ mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 	node = mailbox_tree_iterate_next(ctx->iter, &vname);
 	if (node == NULL)
-		return NULL;
+		return mailbox_list_iter_default_next(_ctx);
 
 	ctx->info.vname = vname;
 	subs_flags = node->flags & (MAILBOX_SUBSCRIBED |

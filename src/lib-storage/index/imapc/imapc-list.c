@@ -725,7 +725,7 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	do {
 		node = mailbox_tree_iterate_next(ctx->iter, &vname);
 		if (node == NULL)
-			return NULL;
+			return mailbox_list_iter_default_next(_ctx);
 	} while ((node->flags & MAILBOX_MATCHED) == 0);
 
 	if (ctx->info.ns->prefix_len > 0 &&
