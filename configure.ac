@@ -1793,6 +1793,18 @@ if test $want_openssl != no && test $have_ssl = no; then
     AC_CHECK_LIB(ssl, ASN1_STRING_get0_data, [
       AC_DEFINE(HAVE_ASN1_STRING_GET0_DATA,, [Build with ASN1_STRING_get0_data() support])
     ],, $SSL_LIBS)
+    AC_CHECK_LIB(ssl, HMAC_CTX_new, [
+      AC_DEFINE(HAVE_HMAC_CTX_NEW,, [Build with HMAC_CTX_new() support])
+    ],, $SSL_LIBS)
+    AC_CHECK_LIB(ssl, EVP_MD_CTX_new, [
+      AC_DEFINE(HAVE_EVP_MD_CTX_NEW,, [Build with EVP_MD_CTX_new() support])
+    ],, $SSL_LIBS)
+    AC_CHECK_LIB(ssl, OBJ_length, [
+      AC_DEFINE(HAVE_OBJ_LENGTH,, [Build with OBJ_length() support])
+    ],, $SSL_LIBS)
+    AC_CHECK_LIB(ssl, EVP_PKEY_get0_RSA, [
+      AC_DEFINE(HAVE_EVP_PKEY_get0,, [Build with EVP_PKEY_get0_*() support])
+    ],, $SSL_LIBS)
     AC_CHECK_LIB(ssl, [EVP_PKEY_CTX_new_id], [have_evp_pkey_ctx_new_id="yes"],, $SSL_LIBS)
     AC_CHECK_LIB(ssl, [EC_KEY_new], [have_ec_key_new="yes"],, $SSL_LIBS)
     if test "$have_evp_pkey_ctx_new_id" = "yes" && test "$have_ec_key_new" = "yes"; then
