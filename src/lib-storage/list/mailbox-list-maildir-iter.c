@@ -499,7 +499,7 @@ maildir_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 	node = mailbox_tree_iterate_next(ctx->tree_iter, &ctx->info.vname);
 	if (node == NULL)
-		return NULL;
+		return mailbox_list_iter_default_next(_ctx);
 
 	ctx->info.flags = node->flags;
 	if ((_ctx->flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0 &&
