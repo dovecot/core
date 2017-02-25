@@ -15,8 +15,7 @@
 #define MAILBOX_FLAG_MATCHED 0x40000000
 
 struct acl_mailbox_list_iterate_context {
-	struct mailbox_list_iterate_context ctx;
-	struct mailbox_list_iterate_context *super_ctx;
+	union mailbox_list_iterate_module_context module_ctx;
 
 	struct mailbox_tree_context *lookup_boxes;
 	struct mailbox_info info;
@@ -39,6 +38,9 @@ static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
 	MAIL_ACL_DELETE,
 	MAIL_ACL_ADMIN
 };
+
+#define ACL_LIST_ITERATE_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, acl_mailbox_list_module)
 
 struct acl_mailbox_list_module acl_mailbox_list_module =
 	MODULE_CONTEXT_INIT(&mailbox_list_module_register);
@@ -83,7 +85,7 @@ static void
 acl_mailbox_try_list_fast(struct mailbox_list_iterate_context *_ctx)
 {
 	struct acl_mailbox_list_iterate_context *ctx =
-		(struct acl_mailbox_list_iterate_context*)_ctx;
+		ACL_LIST_ITERATE_CONTEXT(_ctx);
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(_ctx->list);
 	struct acl_backend *backend = alist->rights.backend;
 	const unsigned int *idxp;
@@ -161,17 +163,14 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 			   enum mailbox_list_iter_flags flags)
 {
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(list);
+	struct mailbox_list_iterate_context *_ctx;
 	struct acl_mailbox_list_iterate_context *ctx;
-	pool_t pool;
 	const char *p;
 	unsigned int i;
-	bool inboxcase;
 
-	pool = pool_alloconly_create("mailbox list acl iter", 1024);
-	ctx = p_new(pool, struct acl_mailbox_list_iterate_context, 1);
-	ctx->ctx.pool = pool;
-	ctx->ctx.list = list;
-	ctx->ctx.flags = flags;
+	_ctx = alist->module_ctx.super.iter_init(list, patterns, flags);
+
+	ctx = p_new(_ctx->pool, struct acl_mailbox_list_iterate_context, 1);
 
 	if (list->ns->type != MAIL_NAMESPACE_TYPE_PRIVATE &&
 	    (list->ns->flags & NAMESPACE_FLAG_SUBSCRIPTIONS) != 0) {
@@ -181,10 +180,7 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 		ctx->hide_nonlistable_subscriptions = TRUE;
 	}
 
-	inboxcase = (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
 	ctx->sep = mail_namespace_get_sep(list->ns);
-	ctx->ctx.glob = imap_match_init_multiple(pool, patterns,
-						 inboxcase, ctx->sep);
 	/* see if all patterns have only a single '*' and it's at the end.
 	   we can use it to do some optimizations. */
 	ctx->simple_star_glob = TRUE;
@@ -196,26 +192,27 @@ acl_mailbox_list_iter_init(struct mailbox_list *list,
 		}
 	}
 
+	MODULE_CONTEXT_SET(_ctx, acl_mailbox_list_module, ctx);
+
 	/* Try to avoid reading ACLs from all mailboxes by getting a smaller
 	   list of mailboxes that have even potential to be visible. If we
 	   couldn't get such a list, we'll go through all mailboxes. */
 	T_BEGIN {
-		acl_mailbox_try_list_fast(&ctx->ctx);
+		acl_mailbox_try_list_fast(_ctx);
 	} T_END;
-	ctx->super_ctx = alist->module_ctx.super.
-		iter_init(list, patterns, flags);
-	return &ctx->ctx;
+
+	return _ctx;
 }
 
 static const struct mailbox_info *
 acl_mailbox_list_iter_next_info(struct mailbox_list_iterate_context *_ctx)
 {
-        struct acl_mailbox_list_iterate_context *ctx =
-                (struct acl_mailbox_list_iterate_context*)_ctx;
+	struct acl_mailbox_list_iterate_context *ctx =
+		ACL_LIST_ITERATE_CONTEXT(_ctx);
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(_ctx->list);
 	const struct mailbox_info *info;
 
-	while ((info = alist->module_ctx.super.iter_next(ctx->super_ctx)) != NULL) {
+	while ((info = alist->module_ctx.super.iter_next(_ctx)) != NULL) {
 		/* if we've a list of mailboxes with LOOKUP rights, skip the
 		   mailboxes not in the list (since we know they can't be
 		   visible to us). */
@@ -252,8 +249,8 @@ acl_mailbox_list_iter_get_name(struct mailbox_list_iterate_context *ctx,
 static bool
 iter_is_listing_all_children(struct mailbox_list_iterate_context *_ctx)
 {
-        struct acl_mailbox_list_iterate_context *ctx = 
-                (struct acl_mailbox_list_iterate_context*)_ctx;
+	struct acl_mailbox_list_iterate_context *ctx =
+		ACL_LIST_ITERATE_CONTEXT(_ctx);
 	const char *child;
 
 	/* If all patterns (with '.' separator) are in "name*", "name.*" or
@@ -268,8 +265,8 @@ static bool
 iter_mailbox_has_visible_children(struct mailbox_list_iterate_context *_ctx,
 				  bool only_nonpatterns, bool subscribed)
 {
-        struct acl_mailbox_list_iterate_context *ctx =
-                (struct acl_mailbox_list_iterate_context*)_ctx;
+	struct acl_mailbox_list_iterate_context *ctx =
+		ACL_LIST_ITERATE_CONTEXT(_ctx);
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
 	string_t *pattern;
@@ -331,8 +328,8 @@ iter_mailbox_has_visible_children(struct mailbox_list_iterate_context *_ctx,
 static int
 acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 {
-        struct acl_mailbox_list_iterate_context *ctx =
-                (struct acl_mailbox_list_iterate_context*)_ctx;
+	struct acl_mailbox_list_iterate_context *ctx =
+		ACL_LIST_ITERATE_CONTEXT(_ctx);
 #define PRESERVE_MAILBOX_FLAGS (MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED)
 	struct mailbox_info *info = &ctx->info;
 	const char *acl_name;
@@ -407,7 +404,7 @@ static const struct mailbox_info *
 acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
 	struct acl_mailbox_list_iterate_context *ctx =
-		(struct acl_mailbox_list_iterate_context *)_ctx;
+		ACL_LIST_ITERATE_CONTEXT(_ctx);
 	const struct mailbox_info *info;
 	int ret;
 
@@ -435,15 +432,14 @@ static int
 acl_mailbox_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 {
 	struct acl_mailbox_list_iterate_context *ctx =
-		(struct acl_mailbox_list_iterate_context *)_ctx;
+		ACL_LIST_ITERATE_CONTEXT(_ctx);
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(_ctx->list);
 	int ret = _ctx->failed ? -1 : 0;
 
-	if (alist->module_ctx.super.iter_deinit(ctx->super_ctx) < 0)
+        if (ctx->lookup_boxes != NULL)
+                mailbox_tree_deinit(&ctx->lookup_boxes);
+	if (alist->module_ctx.super.iter_deinit(_ctx) < 0)
 		ret = -1;
-	if (ctx->lookup_boxes != NULL)
-		mailbox_tree_deinit(&ctx->lookup_boxes);
-	pool_unref(&_ctx->pool);
 	return ret;
 }
 
