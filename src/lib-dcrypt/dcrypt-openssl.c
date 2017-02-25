@@ -75,6 +75,22 @@
 #define OBJ_length(o) ((o)->length)
 #endif
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#  define EVP_MD_CTX_new() EVP_MD_CTX_create()
+#  define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy(ctx)
+#endif
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#  define HMAC_Init_ex(ctx, key, key_len, md, impl) \
+	HMAC_Init_ex(&(ctx), key, key_len, md, impl)
+#  define HMAC_Update(ctx, data, len) HMAC_Update(&(ctx), data, len)
+#  define HMAC_Final(ctx, md, len) HMAC_Final(&(ctx), md, len)
+#  define HMAC_CTX_free(ctx) HMAC_cleanup(&(ctx))
+#else
+#  define HMAC_CTX_free(ctx) \
+	STMT_START { HMAC_CTX_free(ctx); (ctx) = NULL; } STMT_END
+#endif
+
 struct dcrypt_context_symmetric {
 	pool_t pool;
 	const EVP_CIPHER *cipher;
@@ -429,11 +445,7 @@ static
 void dcrypt_openssl_ctx_hmac_destroy(struct dcrypt_context_hmac **ctx)
 {
 	pool_t pool = (*ctx)->pool;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-	if ((*ctx)->ctx) HMAC_CTX_free((*ctx)->ctx);
-#else
-	HMAC_cleanup(&((*ctx)->ctx));
-#endif
+	HMAC_CTX_free((*ctx)->ctx);
 	pool_unref(&pool);
 	*ctx = NULL;
 }
@@ -475,10 +487,8 @@ bool dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx, const char **
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	ctx->ctx = HMAC_CTX_new();
 	if (ctx->ctx == NULL) return dcrypt_openssl_error(error_r);
-	ec = HMAC_Init_ex(ctx->ctx, ctx->key, ctx->klen, ctx->md, NULL);
-#else
-	ec = HMAC_Init_ex(&(ctx->ctx), ctx->key, ctx->klen, ctx->md, NULL);
 #endif
+	ec = HMAC_Init_ex(ctx->ctx, ctx->key, ctx->klen, ctx->md, NULL);
 	if (ec != 1) return dcrypt_openssl_error(error_r);
 	return TRUE;
 }
@@ -486,11 +496,7 @@ static
 bool dcrypt_openssl_ctx_hmac_update(struct dcrypt_context_hmac *ctx, const unsigned char *data, size_t data_len, const char **error_r)
 {
 	int ec;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	ec = HMAC_Update(ctx->ctx, data, data_len);
-#else
-	ec = HMAC_Update(&(ctx->ctx), data, data_len);
-#endif
 	if (ec != 1) return dcrypt_openssl_error(error_r);
 	return TRUE;
 }
@@ -500,14 +506,8 @@ bool dcrypt_openssl_ctx_hmac_final(struct dcrypt_context_hmac *ctx, buffer_t *re
 	int ec;
 	unsigned char buf[HMAC_MAX_MD_CBLOCK];
 	unsigned int outl;
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	ec = HMAC_Final(ctx->ctx, buf, &outl);
 	HMAC_CTX_free(ctx->ctx);
-	ctx->ctx = NULL;
-#else
-	ec = HMAC_Final(&(ctx->ctx), buf, &outl);
-	HMAC_cleanup(&(ctx->ctx));
-#endif
 	if (ec == 1) {
 		buffer_append(result, buf, outl);
 	} else return dcrypt_openssl_error(error_r);
@@ -2135,11 +2135,7 @@ bool dcrypt_openssl_public_key_id_evp(EVP_PKEY *key, const EVP_MD *md, buffer_t 
 	long len = BIO_get_mem_data(b, &ptr);
 	unsigned int hlen = sizeof(buf);
 	/* then hash it */
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-#else
-	EVP_MD_CTX *ctx = EVP_MD_CTX_create();
-#endif
 	if (ctx == NULL ||
 	    EVP_DigestInit_ex(ctx, md, NULL) < 1 ||
 	    EVP_DigestUpdate(ctx, (const unsigned char*)ptr, len) < 1 ||
@@ -2149,11 +2145,7 @@ bool dcrypt_openssl_public_key_id_evp(EVP_PKEY *key, const EVP_MD *md, buffer_t 
 		buffer_append(result, buf, hlen);
 		res = TRUE;
 	}
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_MD_CTX_free(ctx);
-#else
-	EVP_MD_CTX_destroy(ctx);
-#endif
 	BIO_vfree(b);
 
 	return res;
