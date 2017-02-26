@@ -16,7 +16,7 @@ int mail_index_map_parse_extensions(struct mail_index_map *map)
 	   doesn't happen to be 64bit aligned we'll skip some bytes */
 	offset = MAIL_INDEX_HEADER_SIZE_ALIGN(map->hdr.base_header_size);
 	if (offset >= map->hdr.header_size && map->extension_pool == NULL) {
-		/* nothing to do, skip allocatations and all */
+		/* nothing to do, skip allocations and all */
 		return 0;
 	}
 
