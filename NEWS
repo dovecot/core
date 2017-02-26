@@ -67,7 +67,7 @@ v2.2.19 2015-10-02  Timo Sirainen <tss@iki.fi>
 	+ Added a quota "count" backend, which uses the mailbox vsizes to get
 	  the current quota usage. It requires using the new quota_vsizes=yes
 	  setting, which tracks the messages' "virtual sizes" rather than
-	  "physical sizes". Their distiction is minor and mostly irrelevant
+	  "physical sizes". Their distinction is minor and mostly irrelevant
 	  nowadays (if mail sizes should be counted with LF or CRLF newlines).
 	+ "doveadm director up/down" commands added. The monitoring script
 	  should be using these commands instead of changing the vhost count.
