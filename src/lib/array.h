@@ -293,7 +293,7 @@ array_copy(struct array *dest, unsigned int dest_idx,
 
 /* Exchange ownership of two arrays, which should have been allocated
    from the same pool/context. Useful for updating an array with a
-   replacement. Can also do it with uninitialised arrays (which will
+   replacement. Can also do it with uninitialized arrays (which will
    have .element_size == 0). */
 static inline void
 array_swap_i(struct array *array1, struct array *array2)
