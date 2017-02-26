@@ -44,7 +44,7 @@ mail_index_strmap_init(struct mail_index *index, const char *suffix);
 void mail_index_strmap_deinit(struct mail_index_strmap **strmap);
 
 /* Returns strmap records and hash that can be used for read-only access.
-   The records array always teminates with a record containing zeros (but it's
+   The records array always terminates with a record containing zeros (but it's
    not counted in the array count). */
 struct mail_index_strmap_view *
 mail_index_strmap_view_open(struct mail_index_strmap *strmap,
