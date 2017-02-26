@@ -49,7 +49,7 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 	    pass[len-1] == ']' && pass[len-4] == '[') {
 		/* password[type] - we're being libpam-pwdfile compatible
 		   here. it uses 13 = DES and 34 = MD5. For backwards
-		   comaptibility with ourself, we have also 56 = Digest-MD5. */
+		   compatibility with ourself, we have also 56 = Digest-MD5. */
 		int num = (pass[len-3] - '0') * 10 + (pass[len-2] - '0');
 
 		pass = t_strndup(pass, len-4);
