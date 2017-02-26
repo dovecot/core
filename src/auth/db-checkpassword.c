@@ -138,7 +138,7 @@ checkpassword_request_finish_auth(struct chkpw_auth_request *request)
 	/* standard checkpassword exit codes: */
 	case 1:
 		/* (1 is additionally defined in vpopmail for
-		   "pop/smtp/webmal/ imap/access denied") */
+		   "pop/smtp/webmail/ imap/access denied") */
 		auth_request_log_info(request->request, AUTH_SUBSYS_DB,
 				      "Login failed (status=%d)",
 				      request->exit_status);
