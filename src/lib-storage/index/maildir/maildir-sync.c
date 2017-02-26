@@ -195,7 +195,7 @@
    readdir() skips some files. we don't of course wish to lose them, so we
    go and rescan the new/ directory again from beginning until no files are
    left. This value is just an optimization to avoid checking the directory
-   twice unneededly. usually only NFS is the problem case. 1 is the safest
+   twice needlessly. usually only NFS is the problem case. 1 is the safest
    bet here, but I guess 5 will do just fine too. */
 #define MAILDIR_RENAME_RESCAN_COUNT 5
 

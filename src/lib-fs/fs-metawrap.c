@@ -116,7 +116,7 @@ fs_metawrap_file_init(struct fs *_fs, const char *path,
 	if (file->fs->wrap_metadata && mode == FS_OPEN_MODE_READONLY &&
 	    (flags & FS_OPEN_FLAG_ASYNC) == 0) {
 		/* use async stream for parent, so fs_read_stream() won't create
-		   another seekable stream unneededly */
+		   another seekable stream needlessly */
 		file->super_read = fs_file_init(_fs->parent, path, mode | flags |
 						FS_OPEN_FLAG_ASYNC);
 	} else {

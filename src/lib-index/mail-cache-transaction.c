@@ -537,7 +537,7 @@ int mail_cache_transaction_commit(struct mail_cache_transaction_ctx **_ctx)
 		}
 		/* Here would be a good place to do fdatasync() to make sure
 		   everything is written before offsets are updated to index.
-		   However it slows down I/O unneededly and we're pretty good
+		   However it slows down I/O needlessly and we're pretty good
 		   at catching and fixing cache corruption, so we no longer do
 		   it. */
 	}

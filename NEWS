@@ -3151,7 +3151,7 @@ v0.99.4 2002-12-01  Timo Sirainen <tss@iki.fi>
 	  parse the full command in one call, ie. network lags etc. triggered
 	  those bugs sometimes. This was the last "weird bug" I know of.
 	- Mbox indexes got broken when updating cached fields
-	- Fixed a few memory leaks and unneededly high memory usage while
+	- Fixed a few memory leaks and needlessly high memory usage while
 	  caching envelopes
 	- Fixes to searching from message body and header
 	- --with-ssldir didn't do anything and the default was empty
