@@ -2653,7 +2653,7 @@ v1.0.rc2 2006-07-04  Timo Sirainen <tss@iki.fi>
 	  checks. Now we just assume that the connection is secure if the
 	  local IP matches the remote IP address.
 	* SSL code rewrite which hopefully makes it work better than before.
-	  Seems to work correctly, but if you suddently have trouble with SSL
+	  Seems to work correctly, but if you suddenly have trouble with SSL
 	  connections this is likely the reason.
 
 	+ verbose_ssl=yes: Log also SSL alerts and BIO errors
