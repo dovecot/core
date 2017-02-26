@@ -76,7 +76,7 @@ void lmtp_client_close(struct lmtp_client *client);
    use CRLF line feeds and end with CRLF. */
 void lmtp_client_set_data_header(struct lmtp_client *client, const char *str);
 /* Add recipient to the session. rcpt_to_callback is called once LMTP server
-   replies with RCPT TO. If RCPT TO was a succees, data_callback is called
+   replies with RCPT TO. If RCPT TO was a success, data_callback is called
    when DATA replies. */
 void lmtp_client_add_rcpt(struct lmtp_client *client, const char *address,
 			  lmtp_callback_t *rcpt_to_callback,

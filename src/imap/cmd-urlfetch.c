@@ -173,7 +173,7 @@ static bool cmd_urlfetch_continue(struct client_command_context *cmd)
 	return TRUE;
 }
 
-static int cmd_urlfetch_url_sucess(struct client_command_context *cmd,
+static int cmd_urlfetch_url_success(struct client_command_context *cmd,
 				   struct imap_urlauth_fetch_reply *reply)
 {
 	struct cmd_urlfetch_context *ctx = cmd->context;
@@ -267,7 +267,7 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 		ret = -1;
 	} else if (reply->succeeded) {
 		/* URL fetch succeeded */
-		ret = cmd_urlfetch_url_sucess(cmd, reply);
+		ret = cmd_urlfetch_url_success(cmd, reply);
 	} else {
 		/* URL fetch failed */
 		string_t *response = t_str_new(128);
