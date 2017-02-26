@@ -94,7 +94,7 @@ static int seach_arg_mime_child_match(struct search_mimepart_context *mpctx,
 	T_BEGIN {
 		ARRAY(struct search_mimepart_stack) prev_stack;
 
-		/* preserve current stack for any nested CHILD PARENT nastyness */
+		/* preserve current stack for any nested CHILD PARENT nastiness */
 		t_array_init(&prev_stack, 16);
 		array_copy(&prev_stack.arr, 0, &mpctx->stack.arr, 0,
 			array_count(&mpctx->stack));
