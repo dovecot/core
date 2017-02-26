@@ -1554,16 +1554,6 @@ dsync_ibc_stream_recv_mailbox_attribute(struct dsync_ibc *_ibc,
 	value = dsync_deserializer_decode_get(decoder, "key");
 	attr->key = p_strdup(pool, value);
 
-	if (dsync_deserializer_decode_try(decoder, "stream", &value)) {
-		attr->value_stream = dsync_ibc_stream_input_stream(ibc);
-		if (dsync_ibc_stream_read_mail_stream(ibc) <= 0) {
-			ibc->cur_attr = attr;
-			return DSYNC_IBC_RECV_RET_TRYAGAIN;
-		}
-		/* already finished reading the stream */
-		i_assert(ibc->value_input == NULL);
-	} else if (dsync_deserializer_decode_try(decoder, "value", &value))
-		attr->value = p_strdup(pool, value);
 	if (dsync_deserializer_decode_try(decoder, "deleted", &value))
 		attr->deleted = TRUE;
 	if (dsync_deserializer_decode_try(decoder, "last_change", &value) &&
@@ -1576,6 +1566,20 @@ dsync_ibc_stream_recv_mailbox_attribute(struct dsync_ibc *_ibc,
 		dsync_ibc_input_error(ibc, decoder, "Invalid modseq");
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
+
+	/* NOTE: stream reading must be the last here, because reading a large
+	   stream will be finished later by return TRYAGAIN. We need to
+	   deserialize all the other fields before that or they'll get lost. */
+	if (dsync_deserializer_decode_try(decoder, "stream", &value)) {
+		attr->value_stream = dsync_ibc_stream_input_stream(ibc);
+		if (dsync_ibc_stream_read_mail_stream(ibc) <= 0) {
+			ibc->cur_attr = attr;
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+		/* already finished reading the stream */
+		i_assert(ibc->value_input == NULL);
+	} else if (dsync_deserializer_decode_try(decoder, "value", &value))
+		attr->value = p_strdup(pool, value);
 
 	*attr_r = attr;
 	return DSYNC_IBC_RECV_RET_OK;
