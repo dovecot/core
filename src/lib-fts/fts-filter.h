@@ -31,7 +31,7 @@ extern const struct fts_filter *fts_filter_stemmer_snowball;
  */
 extern const struct fts_filter *fts_filter_normalizer_icu;
 
-/* Lowecases the input. Supports UTF8, if libicu is available. */
+/* Lowercases the input. Supports UTF8, if libicu is available. */
 extern const struct fts_filter *fts_filter_lowercase;
 
 /* Removes <'s> suffix from words. */
