@@ -939,7 +939,7 @@ void index_copy_cache_fields(struct mail_save_context *ctx,
 			i_unreached();
 		/* the only reason we're doing the destination lookup is to
 		   make sure that the cache file is opened and the cache
-		   decisinos are up to date */
+		   decisions are up to date */
 		if (mailbox_get_metadata(ctx->transaction->box,
 					 MAILBOX_METADATA_CACHE_FIELDS,
 					 &dest_metadata) < 0)
