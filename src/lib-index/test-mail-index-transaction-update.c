@@ -627,6 +627,10 @@ static void test_mail_index_update_day_first_uid(void)
 
 	test_begin("mail index update day first uid");
 
+	/* daylight savings times were confusing these tests, so we'll now
+	   just assume that TZ=UTC */
+	test_assert(timezone == 0);
+
 	hdr.messages_count = 10;
 	t = mail_index_transaction_new();
 	t->view = t_new(struct mail_index_view, 1);
@@ -671,6 +675,8 @@ int main(void)
 		test_mail_index_update_day_first_uid,
 		NULL
 	};
+	/* daylight saving time confuses things */
+	putenv("TZ=UTC");
 	tzset();
 	return test_run(test_functions);
 }
