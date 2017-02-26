@@ -113,13 +113,13 @@ static void test_strftime_now(void)
 	test_end();
 }
 
-#define RFC2822_FMT "%a, %d %b %Y %T %z"
+#define RFC2822_FMT "%a, %d %b %Y %T"
 static void test_strftime_fixed(void)
 {
 	test_begin("t_strftime and variants fixed timestamp");
 
 	time_t ts = 1481222536;
-	const char *exp = "Thu, 08 Dec 2016 18:42:16 +0000";
+	const char *exp = "Thu, 08 Dec 2016 18:42:16";
 	test_assert(strcmp(t_strftime(RFC2822_FMT, gmtime(&ts)), exp) == 0);
 	test_assert(strcmp(t_strfgmtime(RFC2822_FMT, ts), exp) == 0);
 
