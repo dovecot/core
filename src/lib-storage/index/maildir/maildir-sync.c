@@ -1100,7 +1100,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			 (box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0);
 
 		if (lost_files) {
-			/* lost some files from new/, see if thery're in cur/ */
+			/* lost some files from new/, see if they're in cur/ */
 			ret = maildir_storage_sync_force(mbox, 0);
 		}
 	}
