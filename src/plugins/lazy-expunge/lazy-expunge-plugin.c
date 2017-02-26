@@ -173,7 +173,7 @@ lazy_expunge_count_in_transaction(struct lazy_expunge_transaction *lt,
 	return refcount-1;
 }
 
-static int lazy_expunge_mail_is_last_instace(struct mail *_mail)
+static int lazy_expunge_mail_is_last_instance(struct mail *_mail)
 {
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT(_mail->transaction);
@@ -309,7 +309,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		   immediately. */
 		if (moving)
 			ret = 0;
-		else if ((ret = lazy_expunge_mail_is_last_instace(_mail)) < 0) {
+		else if ((ret = lazy_expunge_mail_is_last_instance(_mail)) < 0) {
 			lazy_expunge_set_error(lt, _mail->box->storage);
 			return;
 		}
