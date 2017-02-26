@@ -88,7 +88,7 @@
 #  error DIRECTOR_CONNECTION_PONG_TIMEOUT_MSECS is too low
 #endif
 
-#define CMD_IS_USER_HANDHAKE(args) \
+#define CMD_IS_USER_HANDSHAKE(args) \
 	(str_array_length(args) > 2)
 
 #define DIRECTOR_OPT_CONSISTENT_HASHING "consistent-hashing"
@@ -671,7 +671,7 @@ director_cmd_user(struct director_connection *conn,
 	bool forced;
 
 	/* NOTE: if more parameters are added, update also
-	   CMD_IS_USER_HANDHAKE() macro */
+	   CMD_IS_USER_HANDSHAKE() macro */
 	if (str_array_length(args) != 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
 	    net_addr2ip(args[1], &ip) < 0) {
@@ -1359,7 +1359,7 @@ director_connection_handle_handshake(struct director_connection *conn,
 		return director_cmd_host_hand_start(conn, args) ? 1 : -1;
 	}
 
-	if (conn->in && strcmp(cmd, "USER") == 0 && CMD_IS_USER_HANDHAKE(args))
+	if (conn->in && strcmp(cmd, "USER") == 0 && CMD_IS_USER_HANDSHAKE(args))
 		return director_handshake_cmd_user(conn, args) ? 1 : -1;
 
 	/* both get DONE */
