@@ -30,6 +30,7 @@
 struct lazy_expunge_mail {
 	union mail_module_context module_ctx;
 	bool moving;
+	bool recursing;
 };
 
 struct lazy_expunge_mail_user {
@@ -288,6 +289,10 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 
 	if (lt->delayed_error != MAIL_ERROR_NONE)
 		return;
+	if (mmail->recursing) {
+		mmail->module_ctx.super.expunge(_mail);
+		return;
+	}
 
 	/* Clear this in case the mail is used for non-move later on. */
 	mmail->moving = FALSE;
@@ -344,9 +349,11 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	save_ctx = mailbox_save_alloc(lt->dest_trans);
 	mailbox_save_copy_flags(save_ctx, _mail);
 	save_ctx->data.flags &= ~MAIL_DELETED;
-	if (mailbox_copy(&save_ctx, _mail) < 0 && !_mail->expunged)
+
+	mmail->recursing = TRUE;
+	if (mailbox_move(&save_ctx, _mail) < 0 && !_mail->expunged)
 		lazy_expunge_set_error(lt, lt->dest_box->storage);
-	mmail->module_ctx.super.expunge(_mail);
+	mmail->recursing = FALSE;
 }
 
 static int lazy_expunge_copy(struct mail_save_context *ctx, struct mail *_mail)
