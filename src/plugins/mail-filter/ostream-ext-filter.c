@@ -97,7 +97,7 @@ static int o_stream_mail_filter_flush(struct ostream_private *stream)
 
 	if (!i_stream_have_bytes_left(mstream->ext_in) &&
 	    mstream->ext_in->v_offset == 0) {
-		/* EOF without any input -> assume the script is repoting
+		/* EOF without any input -> assume the script is reporting
 		   failure. pretty ugly way, but currently there's no error
 		   reporting channel. */
 		io_stream_set_error(&stream->iostream, "EOF without input");
