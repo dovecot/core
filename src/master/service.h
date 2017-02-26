@@ -98,7 +98,7 @@ struct service {
 	struct timeout *to_login_notify;
 
 	/* if a process fails before servicing its first request, assume it's
-	   broken and start throtting new process creations */
+	   broken and start throttling new process creations */
 	struct timeout *to_throttle;
 	/* when process_limit is reached, wait for a while until we actually
 	   start dropping pending connections */
