@@ -336,7 +336,7 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 }
 
 static void
-node_make_squential(struct squat_trie *trie, struct squat_node *node, int level)
+node_make_sequential(struct squat_trie *trie, struct squat_node *node, int level)
 {
 	const unsigned int alloc_size =
 		NODE_CHILDREN_ALLOC_SIZE(SEQUENTIAL_COUNT);
@@ -377,7 +377,7 @@ node_add_child(struct squat_trie *trie, struct squat_node *node,
 	i_assert(node->leaf_string_length == 0);
 
 	if (node->want_sequential) {
-		node_make_squential(trie, node, level);
+		node_make_sequential(trie, node, level);
 
 		if (chr < SEQUENTIAL_COUNT)
 			return chr;
