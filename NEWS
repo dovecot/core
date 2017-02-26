@@ -2162,7 +2162,7 @@ v1.0.rc29 2007-03-28  Timo Sirainen <tss@iki.fi>
 	  delete existing auth sockets and break the running Dovecot
 	- If deliver failed too early it still returned exit code 89 instead
 	  of EX_TEMPFAIL.
-	- deliver: INBOX fallbacking with -n parameter wasn't working.
+	- deliver: INBOX fallback with -n parameter wasn't working.
 	- passdb passwd and shadow couldn't be used as master or deny databases
 	- IDLE: inotify didn't notice changes in mbox file
 	- If index file directory couldn't be created, disable indexes instead
@@ -2496,7 +2496,7 @@ v1.0.rc13 2006-11-08  Timo Sirainen <tss@iki.fi>
 v1.0.rc12 2006-11-05  Timo Sirainen <tss@iki.fi>
 
 	- rc11 didn't compile with some compilers
-	- default_mail_env fallbacking was broken with --exec-mail
+	- default_mail_env fallback was broken with --exec-mail
 
 v1.0.rc11 2006-11-05  Timo Sirainen <tss@iki.fi>
 
