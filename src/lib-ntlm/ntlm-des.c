@@ -165,7 +165,7 @@
  * schedule to speed up the actual encryption. I'll describe those
  * below.
  *
- * The first and most obvious optimisation is the S-boxes. Since
+ * The first and most obvious optimization is the S-boxes. Since
  * each S-box always targets the same four bits in the final 32-bit
  * word, so the output from (for example) S-box 0 must always be
  * shifted left 28 bits, we can store the already-shifted outputs
