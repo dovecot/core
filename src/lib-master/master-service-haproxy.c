@@ -386,7 +386,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	}
 	if (ret != (ssize_t)size) {
 		/* not supposed to happen */
-		i_error("haproxy: Client disconencted: "
+		i_error("haproxy: Client disconnected: "
 			"Failed to read full header (rip=%s)",
 			net_ip2addr(real_remote_ip));
 		return -1;
