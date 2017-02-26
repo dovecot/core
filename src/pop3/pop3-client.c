@@ -205,7 +205,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 		ret = -1;
 
 	if (ret <= 0) {
-		/* commit the transaction instead of rollbacking to make sure
+		/* commit the transaction instead of rolling back to make sure
 		   we don't lose data (virtual sizes) added to cache file */
 		(void)mailbox_transaction_commit(&t);
 		array_free(&message_sizes);

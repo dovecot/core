@@ -632,7 +632,7 @@ static int index_list_update_mailbox(struct mailbox *box)
 		return 0;
 	if (box->deleting) {
 		/* don't update status info while mailbox is being deleted.
-		   especially not a good idea if we're rollbacking a created
+		   especially not a good idea if we're rolling back a created
 		   mailbox that somebody else had just created */
 		return 0;
 	}

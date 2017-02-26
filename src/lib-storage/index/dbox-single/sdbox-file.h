@@ -38,7 +38,7 @@ int sdbox_file_create_fd(struct dbox_file *file, const char *path,
 int sdbox_file_move(struct dbox_file *file, bool alt_path);
 /* Unlink file and all of its referenced attachments. */
 int sdbox_file_unlink_with_attachments(struct sdbox_file *sfile);
-/* Unlink file and its attachments when rollbacking a saved message. */
+/* Unlink file and its attachments when rolling back a saved message. */
 int sdbox_file_unlink_aborted_save(struct sdbox_file *file);
 
 #endif

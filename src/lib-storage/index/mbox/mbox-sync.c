@@ -1887,7 +1887,7 @@ again:
 		/* nothing to do */
 	nothing_to_do:
 		/* index may need to do internal syncing though, so commit
-		   instead of rollbacking. */
+		   instead of rolling back. */
 		index_storage_expunging_deinit(&mbox->box);
 		if (mail_index_sync_commit(&index_sync_ctx) < 0) {
 			mailbox_set_index_error(&mbox->box);

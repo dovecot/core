@@ -523,7 +523,7 @@ void dbox_file_append_rollback(struct dbox_file_append_context **_ctx)
 	if (ctx->first_append_offset == 0) {
 		/* nothing changed */
 	} else if (ctx->first_append_offset == file->file_header_size) {
-		/* rollbacking everything */
+		/* rolling back everything */
 		if (unlink(file->cur_path) < 0)
 			dbox_file_set_syscall_error(file, "unlink()");
 		close_file = TRUE;
