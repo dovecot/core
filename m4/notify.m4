@@ -25,7 +25,7 @@ AC_DEFUN([DOVECOT_NOTIFY], [
       have_notify=kqueue
       notify=kqueue
       AC_MSG_RESULT("yes")
-      AC_DEFINE(IOLOOP_NOTIFY_KQUEUE,, [Use BSD kqueue directory changes notificaton])
+      AC_DEFINE(IOLOOP_NOTIFY_KQUEUE,, [Use BSD kqueue directory changes notification])
     else 
       AC_MSG_RESULT("no")
       if test "$notify" = "kqueue" ; then
