@@ -1191,7 +1191,7 @@ static int imapc_connection_input_plus(struct imapc_connection *conn)
 		/* "+ idling" reply for IDLE command */
 		conn->idle_plus_waiting = FALSE;
 		conn->idling = TRUE;
-		/* no timeouting while IDLEing */
+		/* no timing out while IDLEing */
 		if (conn->to != NULL && !conn->idle_stopping)
 			timeout_remove(&conn->to);
 	} else if (cmds_count > 0 && cmds[0]->wait_for_literal) {
