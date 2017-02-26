@@ -1064,7 +1064,7 @@ int fs_iter_deinit(struct fs_iter **_iter)
 	DLLIST_REMOVE(&iter->fs->iters, iter);
 
 	if (iter->fs->v.iter_deinit == NULL) {
-		fs_set_error(iter->fs, "FS teration not supported");
+		fs_set_error(iter->fs, "FS iteration not supported");
 		i_free(iter);
 		ret = -1;
 	} else T_BEGIN {
