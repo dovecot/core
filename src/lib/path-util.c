@@ -66,7 +66,7 @@ static int path_normalize(const char *path, bool resolve_links,
 		ptrdiff_t seglen;
 		const char *segend;
 
-		/* skip duplicate shashes */
+		/* skip duplicate slashes */
 		while (*p == '/')
 			p++;
 
