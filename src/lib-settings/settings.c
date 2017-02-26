@@ -152,7 +152,7 @@ settings_include(const char *pattern, struct input_stack **inputp,
 		return -1;
 	}
 
-	/* iterate throuth the different files matching the globbing */
+	/* iterate through the different files matching the globbing */
 	for (i = 0; i < globbers.gl_pathc; i++) {
 		if (settings_add_include(globbers.gl_pathv[i], inputp,
 					 ignore_errors, error_r) < 0)

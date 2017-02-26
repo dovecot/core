@@ -110,7 +110,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 				return FALSE;
 			return TRUE;
 		}
-		/* fall thrugh */
+		/* fall through */
 	case SEARCH_ALL:
 	case SEARCH_UIDSET:
 	case SEARCH_FLAGS:
