@@ -1,7 +1,7 @@
 .\" Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-REPLICATOR 1 "2014-10-05" "Dovecot v2.2" "Dovecot"
 .SH NAME
-doveadm\-replicator \- Manage users\(aq mail replicaton
+doveadm\-replicator \- Manage users\(aq mail replication
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv ]
