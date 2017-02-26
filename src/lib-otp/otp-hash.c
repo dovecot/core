@@ -1,5 +1,5 @@
 /*
- * OTP hash generaion.
+ * OTP hash generation.
  *
  * Copyright (c) 2006 Andrey Panin <pazke@donpac.ru>
  *
