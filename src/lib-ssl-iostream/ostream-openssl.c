@@ -48,7 +48,7 @@ o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
 	}
 
 	if (sstream->ostream.max_buffer_size == 0) {
-		/* we're requeted to use whatever space is available in
+		/* we're requested to use whatever space is available in
 		   the buffer */
 		avail = buffer_get_writable_size(sstream->buffer) - sstream->buffer->used;
 	} else {
