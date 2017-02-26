@@ -312,7 +312,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 
 		backend->acllist_mtime = st.st_mtime;
 		backend->acllist_last_check = ioloop_time;
-		/* FIXME: dict reubild is expensive, try to avoid it */
+		/* FIXME: dict rebuild is expensive, try to avoid it */
 		(void)acl_lookup_dict_rebuild(auser->acl_lookup_dict);
 	} else {
 		acllist_clear(backend, 0);
