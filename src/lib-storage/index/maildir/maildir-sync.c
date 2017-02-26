@@ -947,7 +947,7 @@ maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	if (ctx->index_sync_ctx != NULL) {
 		/* NOTE: index syncing here might cause a re-sync due to
 		   files getting lost, so this function might be called
-		   re-entrantly. */
+		   reentrantly. */
 		ret = maildir_sync_index(ctx->index_sync_ctx, ctx->partial);
 		if (ret < 0)
 			maildir_sync_index_rollback(&ctx->index_sync_ctx);
