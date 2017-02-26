@@ -123,6 +123,7 @@ void mail_index_update_day_headers(struct mail_index_transaction *t,
 	struct mail_index_header hdr;
 	const struct mail_index_record *rec;
 	const int max_days = N_ELEMENTS(hdr.day_first_uid);
+	const struct tm *day_tm;
 	struct tm tm;
 	time_t stamp;
 	int i, days;
@@ -131,10 +132,11 @@ void mail_index_update_day_headers(struct mail_index_transaction *t,
 	rec = array_idx(&t->appends, 0);
 
 	/* get beginning of today */
-	tm = *localtime(&day_stamp);
-	tm.tm_hour = 0;
-	tm.tm_min = 0;
-	tm.tm_sec = 0;
+	day_tm = localtime(&day_stamp);
+	i_zero(&tm);
+	tm.tm_year = day_tm->tm_year;
+	tm.tm_mon = day_tm->tm_mon;
+	tm.tm_mday = day_tm->tm_mday;
 	stamp = mktime(&tm);
 	i_assert(stamp != (time_t)-1);
 
