@@ -73,7 +73,7 @@ struct mail_transaction_header {
 
 struct mail_transaction_modseq_update {
 	uint32_t uid;
-	/* don't use uint64_t here. it adds extra 32 bits of paddiong and also
+	/* don't use uint64_t here. it adds extra 32 bits of padding and also
 	   causes problems with CPUs that require alignment */
 	uint32_t modseq_low32;
 	uint32_t modseq_high32;
