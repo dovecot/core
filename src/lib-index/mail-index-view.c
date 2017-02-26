@@ -229,7 +229,7 @@ view_lookup_full(struct mail_index_view *view, uint32_t seq,
 			*expunged_r = FALSE;
 		return head_rec;
 	} else {
-		/* expuned from head. use the old record. */
+		/* expunged from head. use the old record. */
 		*map_r = view->map;
 		if (expunged_r != NULL)
 			*expunged_r = TRUE;
