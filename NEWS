@@ -2623,7 +2623,7 @@ v1.0.rc6 2006-08-07  Timo Sirainen <tss@iki.fi>
 	- Fixes to login process handling, especially with
 	  login_process_per_connection=no. 
 	- Back to the original SSL proxy code but with one small fix, which
-	  hopefully fixes the occational hangs with it
+	  hopefully fixes the occasional hangs with it
 	- Several fixes to handling LIST command more correctly.
 
 v1.0.rc5 2006-08-02  Timo Sirainen <tss@iki.fi>
