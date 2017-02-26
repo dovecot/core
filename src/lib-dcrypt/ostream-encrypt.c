@@ -1,4 +1,4 @@
-/* file truct dcrypt_public_key syntax
+/* file struct dcrypt_public_key syntax
  * magic (14 bytes)
  * version (1 bytes)
  * flags (4 bytes)
