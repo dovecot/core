@@ -468,7 +468,7 @@ ssize_t o_stream_encrypt_sendv(struct ostream_private *stream,
 				}
 			}
 
-			/* hopefully upstream can accomondate */
+			/* hopefully upstream can accommodate */
 			if (o_stream_encrypt_send(estream, buf.data, buf.used) < 0) {
 				return -1;
 			}
