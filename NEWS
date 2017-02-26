@@ -2199,7 +2199,7 @@ v1.0.rc28 2007-03-23  Timo Sirainen <tss@iki.fi>
 	- Index view syncing fixes
 	- rc27 didn't compile with some non-GCC compilers
 	- vpopmail support didn't compile in rc27
-	- NFS check with chrooting broke home direcotry for the first login
+	- NFS check with chrooting broke home directory for the first login
 	- deliver: If user lookup returned "unknown user", it logged
 	  "BUG: Unexpected input"
 	- convert plugin didn't convert INBOX
