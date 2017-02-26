@@ -70,7 +70,7 @@ static void index_list_deinit(struct mailbox_list *_list)
 static char index_list_get_hierarchy_sep(struct mailbox_list *list)
 {
 	return *list->ns->set->separator != '\0' ? *list->ns->set->separator :
-		MAILBOX_LIST_INDEX_HIERARHCY_SEP;
+		MAILBOX_LIST_INDEX_HIERARCHY_SEP;
 }
 
 static int
