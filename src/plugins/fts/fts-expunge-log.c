@@ -353,7 +353,7 @@ fts_expunge_log_write(struct fts_expunge_log_append_ctx *ctx)
 	return ret;
 }
 
-static int fts_expunge_log_append_finalise(struct fts_expunge_log_append_ctx **_ctx,
+static int fts_expunge_log_append_finalize(struct fts_expunge_log_append_ctx **_ctx,
 					   bool commit)
 {
 	struct fts_expunge_log_append_ctx *ctx = *_ctx;
@@ -383,12 +383,12 @@ int fts_expunge_log_uid_count(struct fts_expunge_log *log,
 
 int fts_expunge_log_append_commit(struct fts_expunge_log_append_ctx **_ctx)
 {
-	return fts_expunge_log_append_finalise(_ctx, TRUE);
+	return fts_expunge_log_append_finalize(_ctx, TRUE);
 }
 
 int fts_expunge_log_append_abort(struct fts_expunge_log_append_ctx **_ctx)
 {
-	return fts_expunge_log_append_finalise(_ctx, FALSE);
+	return fts_expunge_log_append_finalize(_ctx, FALSE);
 }
 
 struct fts_expunge_log_read_ctx *
