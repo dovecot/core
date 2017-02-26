@@ -393,7 +393,7 @@ syslog_handler(int level, enum log_type type, const char *format, va_list args)
 		return -1;
 	recursed++;
 
-	/* syslogs don't generatelly bother to log the level in any way,
+	/* syslogs don't generally bother to log the level in any way,
 	   so make sure errors are shown clearly */
 	T_BEGIN {
 		syslog(level, "%s%s%s",
