@@ -368,7 +368,7 @@ void buffer_truncate_rshift_bits(buffer_t *buf, size_t bits)
 	if (bits > 0) {
 		/* truncate it to closest byte boundary */
 		size_t bytes = ((bits + 7) & -8U)/8;
-		/* remainding bits */
+		/* remaining bits */
 		bits = bits % 8;
 		buffer_set_used_size(buf, I_MIN(bytes, buf->used));
 		unsigned char *ptr = buffer_get_modifiable_data(buf, &bytes);
