@@ -306,7 +306,7 @@ master_service_apply_config_overrides(struct master_service *service,
 				settings_parser_get_error(parser));
 			return -1;
 		}
-		settings_parse_set_key_expandeded(parser, service->set_pool,
+		settings_parse_set_key_expanded(parser, service->set_pool,
 						  t_strcut(overrides[i], '='));
 	}
 	return 0;

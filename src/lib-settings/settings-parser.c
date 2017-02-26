@@ -1235,7 +1235,7 @@ void settings_parse_set_expanded(struct setting_parser_context *ctx,
 	ctx->str_vars_are_expanded = is_expanded;
 }
 
-void settings_parse_set_key_expandeded(struct setting_parser_context *ctx,
+void settings_parse_set_key_expanded(struct setting_parser_context *ctx,
 				       pool_t pool, const char *key)
 {
 	const struct setting_define *def;
@@ -1259,11 +1259,11 @@ void settings_parse_set_key_expandeded(struct setting_parser_context *ctx,
 	}
 }
 
-void settings_parse_set_keys_expandeded(struct setting_parser_context *ctx,
+void settings_parse_set_keys_expanded(struct setting_parser_context *ctx,
 					pool_t pool, const char *const *keys)
 {
 	for (; *keys != NULL; keys++)
-		settings_parse_set_key_expandeded(ctx, pool, *keys);
+		settings_parse_set_key_expanded(ctx, pool, *keys);
 }
 
 static int ATTR_NULL(3, 4, 5)
