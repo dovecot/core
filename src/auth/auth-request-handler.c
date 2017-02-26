@@ -841,7 +841,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 	for (i = 0; i < count; i++) {
 		auth_request = auth_requests[aqueue_idx(auth_failures, 0)];
 
-		/* FIXME: assumess that failure_delay is always the same. */
+		/* FIXME: assumes that failure_delay is always the same. */
 		diff = ioloop_time - auth_request->last_access;
 		if (diff < (time_t)auth_request->set->failure_delay &&
 		    !flush_all)
