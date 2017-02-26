@@ -1771,7 +1771,7 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 		/* fully synced */
 		if (mbox->mbox_hdr.dirty_flag != 0 || leave_dirty)
 			return 0;
-		/* flushing dirtyness */
+		/* flushing dirtiness */
 	}
 
 	/* file changed */
