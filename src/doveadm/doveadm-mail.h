@@ -101,9 +101,6 @@ struct doveadm_mail_cmd_context {
 	unsigned int add_username_header:1;
 	/* Running from CLI doveadm (not doveadm-server) */
 	unsigned int cli:1;
-
-	/* Allow empty mailbox name - to allow access to server attributes */
-	unsigned int allow_empty_mailbox_name:1;
 };
 
 struct doveadm_mail_cmd {
