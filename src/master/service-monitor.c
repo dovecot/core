@@ -453,7 +453,8 @@ void services_monitor_start(struct service_list *service_list)
 		return;
 	service_anvil_monitor_start(service_list);
 
-	if (service_list->io_master == NULL) {
+	if (service_list->io_master == NULL &&
+	    service_list->master_fd != -1) {
 		service_list->io_master =
 			io_add(service_list->master_fd, IO_READ,
 			       master_client_connected, service_list);
