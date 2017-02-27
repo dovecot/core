@@ -639,6 +639,9 @@ static void print_build_options(void)
 #else
 	"SQL drivers:"
 #endif
+#ifdef BUILD_CASSANDRA
+		" cassandra"
+#endif
 #ifdef BUILD_MYSQL
 		" mysql"
 #endif
