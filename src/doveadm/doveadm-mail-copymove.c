@@ -29,7 +29,7 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 	struct mailbox_transaction_context *desttrans;
 	struct mail_save_context *save_ctx;
 	struct mail *mail;
-	int ret = 0;
+	int ret = 0, ret2;
 
 	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args, 0,
 				   NULL, FALSE, &iter) < 0)
@@ -44,11 +44,13 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		save_ctx = mailbox_save_alloc(desttrans);
 		mailbox_save_copy_flags(save_ctx, mail);
-		if (mailbox_copy(&save_ctx, mail) == 0) {
-			if (ctx->move)
-				mail_expunge(mail);
-		} else {
-			i_error("Copying message UID %u from '%s' failed: %s",
+		if (ctx->move)
+			ret2 = mailbox_move(&save_ctx, mail);
+		else
+			ret2 = mailbox_copy(&save_ctx, mail);
+		if (ret2 < 0) {
+			i_error("%s message UID %u from '%s' failed: %s",
+				ctx->move ? "Moving" : "Copying",
 				mail->uid, info->vname,
 				mailbox_get_last_error(destbox, NULL));
 			doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
