@@ -59,6 +59,7 @@ void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 	case MAIL_ERROR_NONE:
 		i_unreached();
 	case MAIL_ERROR_TEMP:
+	case MAIL_ERROR_UNAVAILABLE:
 		break;
 	case MAIL_ERROR_NOTPOSSIBLE:
 	case MAIL_ERROR_EXISTS:

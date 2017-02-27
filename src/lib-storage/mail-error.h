@@ -26,6 +26,8 @@ enum mail_error {
 
 	/* Temporary internal error */
 	MAIL_ERROR_TEMP,
+	/* Temporary failure because a subsystem is down */
+	MAIL_ERROR_UNAVAILABLE,
 	/* It's not possible to do the wanted operation */
 	MAIL_ERROR_NOTPOSSIBLE,
 	/* Invalid parameters (eg. mailbox name not valid) */
