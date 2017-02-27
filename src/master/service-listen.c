@@ -349,8 +349,10 @@ static int services_listen_master(struct service_list *service_list)
 	}
 	umask(old_umask);
 
-	if (service_list->master_fd == -1)
+	if (service_list->master_fd == -1) {
+		i_error("net_listen_unix(%s) failed: %m", path);
 		return 0;
+	}
 	fd_close_on_exec(service_list->master_fd, TRUE);
 	return 1;
 }
