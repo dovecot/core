@@ -1051,6 +1051,9 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 		}
 	}
 
+	const char *dashdash = "--";
+	array_append(&full_args, &dashdash, 1);
+
 	array_append_zero(&pargv);
 	/* All the -parameters need to be included in full_args so that
 	   they're sent to doveadm-server. */
