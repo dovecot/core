@@ -367,8 +367,12 @@ int services_listen(struct service_list *service_list)
 		if (ret2 < ret)
 			ret = ret2;
 	}
-	if (ret > 0)
-		ret = services_listen_master(service_list);
+	/* reloading config wants to continue even when we're returning 0. */
+	if (ret >= 0) {
+		ret2 = services_listen_master(service_list);
+		if (ret2 < ret)
+			ret = ret2;
+	}
 
 #ifdef HAVE_SYSTEMD
 	if (ret > 0)
