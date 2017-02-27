@@ -321,6 +321,10 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 	const char * const * cptr;
 	i_assert(array_count(argv) == 0);
 	array_append(argv, &name, 1);
+
+	ARRAY_TYPE(const_string) pargv;
+	t_array_init(&pargv, 8);
+
 	for(i=0;i<pargc;i++) {
 		const char *optarg = NULL;
 		/* istreams are special */
@@ -349,10 +353,19 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 				array_foreach(&params[i].value.v_array, cptr) {
 					if (array_add_opt)
 						array_append(argv, &optarg, 1);
-					array_append(argv, cptr, 1);
+					if ((params[i].flags & CMD_PARAM_FLAG_POSITIONAL) == 0)
+						array_append(argv, cptr, 1);
+					else
+						array_append(&pargv, cptr, 1);
 				}
 			}
 		}
+	}
+
+	if (array_count(&pargv) > 0) {
+		const char *dashdash = "--";
+		array_append(argv, &dashdash, 1);
+		array_append_array(argv, &pargv);
 	}
 	array_append_zero(argv);
 }
