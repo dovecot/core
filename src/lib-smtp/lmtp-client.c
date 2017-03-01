@@ -633,7 +633,7 @@ static void lmtp_client_wait_connect(struct lmtp_client *client)
 				 " (connect)");
 		return;
 	}
-	if (client->to != NULL)
+	if (client->data_input == NULL && client->to != NULL)
 		timeout_remove(&client->to);
 	io_remove(&client->io);
 	client->io = io_add(client->fd, IO_READ, lmtp_client_input, client);
