@@ -152,9 +152,12 @@ fts_parser_tika_try_init(struct mail_user *user, const char *content_type,
 			fts_tika_parser_response, parser);
 	http_client_request_set_port(http_req, http_url->port);
 	http_client_request_set_ssl(http_req, http_url->have_ssl);
-	http_client_request_add_header(http_req, "Content-Type", content_type);
-	http_client_request_add_header(http_req, "Content-Disposition",
-				       content_disposition);
+	if (content_type != NULL)
+		http_client_request_add_header(http_req, "Content-Type",
+					       content_type);
+	if (content_disposition != NULL)
+		http_client_request_add_header(http_req, "Content-Disposition",
+					       content_disposition);
 	http_client_request_add_header(http_req, "Accept", "text/plain");
 
 	parser->http_req = http_req;
