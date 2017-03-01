@@ -348,17 +348,27 @@ trash_mail_user_created(struct mail_user *user)
 	} else {
 		tuser = p_new(user->pool, struct trash_user, 1);
 		MODULE_CONTEXT_SET(user, trash_user_module, tuser);
+	}
+}
 
-		if (read_configuration(user, env) == 0) {
-			trash_next_quota_test_alloc =
-				quser->quota->set->test_alloc;
-			quser->quota->set->test_alloc = trash_quota_test_alloc;
-		}
+static void
+trash_mail_namespaces_created(struct mail_namespace *namespaces)
+{
+	struct mail_user *user = namespaces->user;
+	struct trash_user *tuser = TRASH_USER_CONTEXT(user);
+	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
+	const char *env = mail_user_plugin_getenv(user, "trash");
+
+	if (tuser != NULL && read_configuration(user, env) == 0) {
+		trash_next_quota_test_alloc =
+			quser->quota->set->test_alloc;
+		quser->quota->set->test_alloc = trash_quota_test_alloc;
 	}
 }
 
 static struct mail_storage_hooks trash_mail_storage_hooks = {
-	.mail_user_created = trash_mail_user_created
+	.mail_user_created = trash_mail_user_created,
+	.mail_namespaces_created = trash_mail_namespaces_created,
 };
 
 void trash_plugin_init(struct module *module)
