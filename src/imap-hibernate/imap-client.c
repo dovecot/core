@@ -486,7 +486,7 @@ static int
 imap_client_var_expand_func_userdb(const char *data, void *context,
 				   const char **value_r, const char **error_r ATTR_UNUSED)
 {
-	const char *const *fields = (const char *const *)context;
+	const char *const *fields = context;
 	const char *field_name = t_strdup_printf("%s=",t_strcut(data, ':'));
 	const char *default_value = i_strchr_to_next(data, ':');
 	const char *value = NULL;
@@ -556,12 +556,12 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	}
 	T_BEGIN {
 		string_t *str;
-		const char *const *fields =
-			t_strsplit_tabescaped(client->state.userdb_fields);
+		char **fields = p_strsplit_tabescaped(unsafe_data_stack_pool,
+						      client->state.userdb_fields);
 		str = t_str_new(256);
 		if (var_expand_with_funcs(str, state->mail_log_prefix,
 					  imap_client_get_var_expand_table(client),
-					  funcs, (void*)fields, &error) <= 0) {
+					  funcs, fields, &error) <= 0) {
 			i_error("Failed to expand mail_log_prefix=%s: %s",
 				state->mail_log_prefix, error);
 		}
