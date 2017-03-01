@@ -208,9 +208,11 @@ static void smtp_client_send_finished(void *context)
 }
 
 static void
-smtp_client_error(struct smtp_client *client, const char *error)
+smtp_client_error(struct smtp_client *client,
+		 bool tempfail, const char *error)
 {
 	if (client->error == NULL) {
+		client->tempfail = tempfail;
 		client->error = i_strdup_printf("smtp(%s): %s",
 			client->set->submission_host, error);
 	}
@@ -222,10 +224,8 @@ rcpt_to_callback(enum lmtp_client_result result, const char *reply, void *contex
 	struct smtp_client *client = context;
 
 	if (result != LMTP_CLIENT_RESULT_OK) {
-		if (reply[0] != '5')
-			client->tempfail = TRUE;
-		smtp_client_error(client, t_strdup_printf(
-			"RCPT TO failed: %s", reply));
+		smtp_client_error(client, (reply[0] != '5'),
+			t_strdup_printf("RCPT TO failed: %s", reply));
 		smtp_client_send_finished(client);
 	}
 }
@@ -236,10 +236,8 @@ data_callback(enum lmtp_client_result result, const char *reply, void *context)
 	struct smtp_client *client = context;
 
 	if (result != LMTP_CLIENT_RESULT_OK) {
-		if (reply[0] != '5')
-			client->tempfail = TRUE;
-		smtp_client_error(client, t_strdup_printf(
-			"DATA failed: %s", reply));
+		smtp_client_error(client, (reply[0] != '5'),
+			t_strdup_printf("DATA failed: %s", reply));
 		smtp_client_send_finished(client);
 	} else {
 		client->success = TRUE;
