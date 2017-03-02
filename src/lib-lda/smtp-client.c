@@ -304,6 +304,7 @@ smtp_client_send_flush(struct smtp_client *client,
 
 	if (!client->finished)
 		io_loop_run(ioloop);
+	lmtp_client_deinit(&lmtp_client);
 	io_loop_destroy(&ioloop);
 
 	if (client->success)
