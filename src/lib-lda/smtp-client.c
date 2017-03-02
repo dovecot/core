@@ -85,7 +85,8 @@ smtp_client_error(struct smtp_client *client,
 {
 	if (client->error == NULL) {
 		client->tempfail = tempfail;
-		client->error = i_strdup_printf("smtp(%s): %s",
+		client->error = p_strdup_printf(client->pool,
+			"smtp(%s): %s",
 			client->set->submission_host, error);
 	}
 }
