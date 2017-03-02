@@ -1,6 +1,7 @@
 /* Copyright (c) 2001-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "ioloop.h"
 #include "fd-close-on-exec.h"
 #include "fd-set-nonblock.h"
@@ -27,7 +28,10 @@ struct signal_handler {
 	void *context;
 
 	enum libsig_flags flags;
-        struct signal_handler *next;
+	struct signal_handler *next;
+	struct ioloop *current_ioloop;
+
+	bool shadowed:1;
 };
 
 volatile unsigned int signal_term_counter = 0;
@@ -42,7 +46,10 @@ static bool signals_initialized = FALSE;
 static struct io *io_sig = NULL;
 
 static siginfo_t pending_signals[MAX_SIGNAL_VALUE+1];
+static ARRAY(siginfo_t) pending_shadowed_signals;
 static bool have_pending_signals = FALSE;
+static bool ioloop_attached = FALSE;
+static bool ioloop_switched = FALSE;
 
 const char *lib_signal_code_to_str(int signo, int sicode)
 {
@@ -153,6 +160,72 @@ static void sig_ignore(int signo ATTR_UNUSED)
 	   the system call might be restarted */
 }
 
+static void
+signal_handle_shadowed(void)
+{
+	const	siginfo_t *sis;
+	unsigned int count, i;
+
+	if (!array_is_created(&pending_shadowed_signals) ||
+		array_count(&pending_shadowed_signals) == 0)
+		return;
+
+	sis = array_get(&pending_shadowed_signals, &count);
+	for (i = 0; i < count; i++) {
+		struct signal_handler *h;
+		bool shadowed = FALSE;
+
+		i_assert(sis[i].si_signo > 0);
+		for (h = signal_handlers[sis[i].si_signo]; h != NULL; h = h->next) {
+			if ((h->flags & LIBSIG_FLAG_DELAYED) == 0 ||
+				(h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) == 0)
+				continue;
+			if (h->shadowed && h->current_ioloop != current_ioloop) {
+				shadowed = TRUE;
+				continue;
+			}
+			/* handler can be called now */
+			h->shadowed = FALSE;
+			h->handler(&sis[i], h->context);
+		}
+		if (!shadowed) {
+			/* no handlers are shadowed anymore; delete the signal info */
+			array_delete(&pending_shadowed_signals, i, 1);
+			sis = array_get(&pending_shadowed_signals, &count);
+		}
+	}
+}
+
+static void
+signal_check_shadowed(void)
+{
+	if (!array_is_created(&pending_shadowed_signals) ||
+		array_count(&pending_shadowed_signals) == 0)
+		return;
+
+	if (io_sig != NULL)
+		io_set_pending(io_sig);
+}
+
+static void
+signal_shadow(int signo, const siginfo_t *si)
+{
+	const	siginfo_t *sis;
+	unsigned int count, i;
+
+	/* remember last signal info for handlers that cannot run in
+	   current ioloop */
+	if (!array_is_created(&pending_shadowed_signals))
+		i_array_init(&pending_shadowed_signals, 4);
+	sis = array_get(&pending_shadowed_signals, &count);
+	for (i = 0; i < count; i++) {
+		i_assert(sis[i].si_signo != 0);
+		if (sis[i].si_signo == signo)
+			break;
+	}
+	array_idx_set(&pending_shadowed_signals, i, si);
+}
+
 static void ATTR_NULL(1)
 signal_read(void *context ATTR_UNUSED)
 {
@@ -162,6 +235,12 @@ signal_read(void *context ATTR_UNUSED)
 	char buf[64];
 	int signo;
 	ssize_t ret;
+
+	if (ioloop_switched) {
+		ioloop_switched = FALSE;
+		/* handle any delayed signal handlers that emerged from the shadow */
+		signal_handle_shadowed();
+	}
 
 	if (sigfillset(&fullset) < 0)
 		i_fatal("sigfillset() failed: %m");
@@ -189,14 +268,84 @@ signal_read(void *context ATTR_UNUSED)
 
 	/* call the delayed handlers after signals are copied and unblocked */
 	for (signo = 0; signo < MAX_SIGNAL_VALUE; signo++) {
+		bool shadowed = FALSE;
+
 		if (signals[signo].si_signo == 0)
 			continue;
 
 		for (h = signal_handlers[signo]; h != NULL; h = h->next) {
-			if ((h->flags & LIBSIG_FLAG_DELAYED) != 0)
-				h->handler(&signals[signo], h->context);
+			if ((h->flags & LIBSIG_FLAG_DELAYED) == 0) {
+				/* handler already called immediately in signal context */
+				continue;
+			}
+			if ((h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) != 0 &&
+				h->current_ioloop != current_ioloop) {
+				/* cannot run handler in current ioloop (shadowed) */
+				h->shadowed = TRUE;
+				shadowed = TRUE;
+				continue;
+			}
+			/* handler can be called now */
+			h->handler(&signals[signo], h->context);
+		}
+
+		if (shadowed) {
+			/* remember last signal info for handlers that cannot run in
+			   current ioloop (shadowed) */
+			signal_shadow(signo, &signals[signo]);
 		}
 	}
+}
+
+static void
+lib_signals_enable_delayed_hander(void)
+{
+	if (current_ioloop != NULL) {
+		io_sig = io_add(sig_pipe_fd[0], IO_READ,
+			signal_read, (void *)NULL);
+	}
+}
+
+static void
+lib_signals_disable_delayed_hander(void)
+{
+	if (io_sig != NULL)
+		io_remove(&io_sig);
+}
+
+static void
+lib_signals_ioloop_switched(struct ioloop *prev_ioloop ATTR_UNUSED)
+{
+	ioloop_switched = TRUE;
+
+	lib_signals_disable_delayed_hander();
+	lib_signals_enable_delayed_hander();
+
+	/* check whether we can now handle any shadowed delayed signals */
+	signal_check_shadowed();
+}
+
+void lib_signals_ioloop_detach(void)
+{
+	if (!ioloop_attached) {
+		i_assert(io_sig == NULL);
+		return;
+	}
+	ioloop_attached = FALSE;
+
+	lib_signals_disable_delayed_hander();
+	io_loop_remove_switch_callback(lib_signals_ioloop_switched);
+}
+
+void lib_signals_ioloop_attach(void)
+{
+	if (ioloop_attached)
+		return;
+	ioloop_attached = TRUE;
+
+	lib_signals_disable_delayed_hander();
+	lib_signals_enable_delayed_hander();
+	io_loop_add_switch_callback(lib_signals_ioloop_switched);
 }
 
 static void lib_signals_set(int signo, enum libsig_flags flags)
@@ -233,6 +382,16 @@ void lib_signals_set_handler(int signo, enum libsig_flags flags,
 	if (signal_handlers[signo] == NULL && signals_initialized)
 		lib_signals_set(signo, flags);
 
+	h = i_new(struct signal_handler, 1);
+	h->handler = handler;
+	h->context = context;
+	h->flags = flags;
+	h->current_ioloop = current_ioloop;
+
+	/* atomically set to signal_handlers[] list */
+	h->next = signal_handlers[signo];
+	signal_handlers[signo] = h;
+
 	if ((flags & LIBSIG_FLAG_DELAYED) != 0 && sig_pipe_fd[0] == -1) {
 		/* first delayed handler */
 		if (pipe(sig_pipe_fd) < 0)
@@ -241,20 +400,9 @@ void lib_signals_set_handler(int signo, enum libsig_flags flags,
 		fd_set_nonblock(sig_pipe_fd[1], TRUE);
 		fd_close_on_exec(sig_pipe_fd[0], TRUE);
 		fd_close_on_exec(sig_pipe_fd[1], TRUE);
-		if (signals_initialized) {
-			io_sig = io_add(sig_pipe_fd[0], IO_READ,
-					signal_read, (void *)NULL);
-		}
+		if (signals_initialized)
+			lib_signals_ioloop_attach();
 	}
-
-	h = i_new(struct signal_handler, 1);
-	h->handler = handler;
-	h->context = context;
-	h->flags = flags;
-
-	/* atomically set to signal_handlers[] list */
-	h->next = signal_handlers[signo];
-	signal_handlers[signo] = h;
 }
 
 void lib_signals_ignore(int signo, bool restart_syscalls)
@@ -305,13 +453,24 @@ void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 		signo, (void *)handler, context);
 }
 
-void lib_signals_reset_ioloop(void)
+void lib_signals_switch_ioloop(int signo,
+	signal_handler_t *handler, void *context)
 {
-	if (io_sig != NULL) {
-		io_remove(&io_sig);
-		io_sig = io_add(sig_pipe_fd[0], IO_READ,
-				signal_read, (void *)NULL);
+	struct signal_handler *h;
+
+	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
+		if (h->handler == handler && h->context == context) {
+			i_assert((h->flags & LIBSIG_FLAG_DELAYED) != 0);
+			i_assert((h->flags & LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE) != 0);
+			h->current_ioloop = current_ioloop;
+			/* check whether we can now handle any shadowed delayed signals */
+			signal_check_shadowed();
+			return;
+		}
 	}
+
+	i_panic("lib_signals_switch_ioloop(%d, %p, %p): handler not found",
+		signo, (void *)handler, context);
 }
 
 void lib_signals_syscall_error(const char *prefix)
@@ -346,10 +505,8 @@ void lib_signals_init(void)
 			lib_signals_set(i, signal_handlers[i]->flags);
 	}
 
-	if (sig_pipe_fd[0] != -1) {
-		io_sig = io_add(sig_pipe_fd[0], IO_READ,
-				signal_read, (void *)NULL);
-	}
+	if (sig_pipe_fd[0] != -1)
+		lib_signals_ioloop_attach();
 }
 
 void lib_signals_deinit(void)
@@ -371,12 +528,16 @@ void lib_signals_deinit(void)
 		}
 	}
 
-	if (io_sig != NULL)
-		io_remove(&io_sig);
+	lib_signals_ioloop_detach();
+
 	if (sig_pipe_fd[0] != -1) {
 		if (close(sig_pipe_fd[0]) < 0)
 			i_error("close(sigpipe) failed: %m");
 		if (close(sig_pipe_fd[1]) < 0)
 			i_error("close(sigpipe) failed: %m");
+		sig_pipe_fd[0] = sig_pipe_fd[1] = -1;
 	}
+
+	if (array_is_created(&pending_shadowed_signals))
+		array_free(&pending_shadowed_signals);
 }

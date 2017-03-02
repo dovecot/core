@@ -237,7 +237,6 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	   running one and we can't call the original one recursively, so
 	   create a new ioloop. */
 	ioloop = io_loop_create();
-	lib_signals_reset_ioloop();
 
 	if (cmd_ver2 != NULL)
 		doveadm_cmd_server_run_ver2(conn, argc, argv, cctx);
@@ -247,7 +246,6 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 		doveadm_mail_cmd_server_run(conn, mctx, cctx);
 
 	io_loop_set_current(prev_ioloop);
-	lib_signals_reset_ioloop();
 	o_stream_switch_ioloop(conn->output);
 	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);

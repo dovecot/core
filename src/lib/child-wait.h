@@ -26,6 +26,8 @@ void child_wait_free(struct child_wait **wait);
 void child_wait_add_pid(struct child_wait *wait, pid_t pid);
 void child_wait_remove_pid(struct child_wait *wait, pid_t pid);
 
+void child_wait_switch_ioloop(void);
+
 void child_wait_init(void);
 void child_wait_deinit(void);
 

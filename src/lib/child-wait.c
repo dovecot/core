@@ -90,14 +90,23 @@ sigchld_handler(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 		i_error("waitpid() failed: %m");
 }
 
+void child_wait_switch_ioloop(void)
+{
+	lib_signals_switch_ioloop(SIGCHLD, sigchld_handler, NULL);
+}
+
 void child_wait_init(void)
 {
-	if (child_wait_refcount++ > 0) return;
+	if (child_wait_refcount++ > 0) {
+		child_wait_switch_ioloop();
+		return;
+	}
 
 	hash_table_create_direct(&child_pids, default_pool, 0);
 
-	lib_signals_set_handler(SIGCHLD, LIBSIG_FLAGS_SAFE,
-				sigchld_handler, NULL);
+	lib_signals_set_handler(SIGCHLD,
+		LIBSIG_FLAGS_SAFE | LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE,
+		sigchld_handler, NULL);
 }
 
 void child_wait_deinit(void)
@@ -107,7 +116,10 @@ void child_wait_deinit(void)
 	struct child_wait *value;
 
 	i_assert(child_wait_refcount > 0);
-	if (--child_wait_refcount > 0) return;
+	if (--child_wait_refcount > 0) {
+		child_wait_switch_ioloop();
+		return;
+	}
 
 	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
 

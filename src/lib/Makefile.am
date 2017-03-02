@@ -355,6 +355,7 @@ test_lib_SOURCES = \
 	test-istream-unix.c \
 	test-json-parser.c \
 	test-json-tree.c \
+	test-lib-signals.c \
 	test-llist.c \
 	test-log-throttle.c \
 	test-malloc-overflow.c \

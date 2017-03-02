@@ -360,7 +360,6 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	doveadm_cmd_params_null_terminate_arrays(&conn->pargv);
 	cctx.argv = array_get(&conn->pargv, (unsigned int*)&cctx.argc);
 	ioloop = io_loop_create();
-	lib_signals_reset_ioloop();
 	doveadm_exit_code = 0;
 
 	cctx.cli = FALSE;
@@ -378,7 +377,6 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	client_connection_set_proctitle(&conn->client, "");
 
 	io_loop_set_current(prev_ioloop);
-	lib_signals_reset_ioloop();
 	o_stream_switch_ioloop(conn->client.output);
 	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);

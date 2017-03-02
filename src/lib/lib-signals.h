@@ -8,7 +8,10 @@ enum libsig_flags {
 	   do any kind of work */
 	LIBSIG_FLAG_DELAYED	= 0x01,
 	/* Restart syscalls instead of having them fail with EINTR */
-	LIBSIG_FLAG_RESTART	= 0x02
+	LIBSIG_FLAG_RESTART	= 0x02,
+	/* Don't automatically shift delayed signal handling for this signal
+	   to a newly started ioloop. */
+	LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE = 0x04,
 };
 #define LIBSIG_FLAGS_SAFE (LIBSIG_FLAG_DELAYED | LIBSIG_FLAG_RESTART)
 
@@ -28,6 +31,9 @@ extern volatile unsigned int signal_term_counter;
 /* Convert si_code to string */
 const char *lib_signal_code_to_str(int signo, int sicode);
 
+void lib_signals_ioloop_detach(void);
+void lib_signals_ioloop_attach(void);
+
 /* Set signal handler for specific signal. */
 void lib_signals_set_handler(int signo, enum libsig_flags flags,
 			     signal_handler_t *handler, void *context)
@@ -38,9 +44,10 @@ void lib_signals_unset_handler(int signo,
 			       signal_handler_t *handler, void *context)
 	ATTR_NULL(3);
 
-/* Remove and add the internal I/O handler back. This is necessary to get
-   the delayed signals to work when using multiple I/O loops. */
-void lib_signals_reset_ioloop(void);
+/* Switch ioloop for a specific signal handler created with
+   LIBSIG_FLAG_NO_IOLOOP_AUTOMOVE. */
+void lib_signals_switch_ioloop(int signo,
+	signal_handler_t *handler, void *context);
 
 /* Log a syscall error inside a (non-delayed) signal handler where i_error() is
    unsafe. errno number will be appended to the prefix. */

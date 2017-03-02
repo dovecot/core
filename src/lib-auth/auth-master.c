@@ -348,14 +348,12 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 	conn->io = io_add(conn->fd, IO_READ, auth_input, conn);
 	conn->to = timeout_add(1000*MASTER_AUTH_LOOKUP_TIMEOUT_SECS,
 			       auth_request_timeout, conn);
-	lib_signals_reset_ioloop();
 }
 
 static void auth_master_unset_io(struct auth_master_connection *conn)
 {
 	if (conn->prev_ioloop != NULL) {
 		io_loop_set_current(conn->prev_ioloop);
-		lib_signals_reset_ioloop();
 	}
 	if (conn->ioloop != NULL) {
 		io_loop_set_current(conn->ioloop);
