@@ -51,7 +51,6 @@ void mail_domain_disconnected(struct mail_domain *domain)
 {
 	i_assert(domain->num_connected_sessions > 0);
 	domain->num_connected_sessions--;
-	mail_global_disconnected();
 }
 
 struct mail_domain *mail_domain_lookup(const char *name)

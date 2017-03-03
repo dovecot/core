@@ -46,6 +46,7 @@ static void mail_session_disconnect(struct mail_session *session)
 	i_assert(!session->disconnected);
 
 	mail_user_disconnected(session->user);
+	mail_global_disconnected(session->service);
 	if (session->ip != NULL)
 		mail_ip_disconnected(session->ip);
 
@@ -132,7 +133,7 @@ int mail_session_connect_parse(const char *const *args, const char **error_r)
 	}
 	global_memory_alloc(mail_session_memsize(session));
 
-	mail_global_login();
+	mail_global_login(args[2]);
 	return 0;
 }
 

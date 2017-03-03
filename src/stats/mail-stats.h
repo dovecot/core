@@ -7,6 +7,8 @@
 #include "guid.h"
 #include "stats.h"
 
+#include "hash.h"
+
 struct stats_send_ctx;
 
 struct mail_command {
@@ -105,7 +107,8 @@ struct mail_global {
 	struct stats *stats;
 	unsigned int num_logins;
 	unsigned int num_cmds;
-	unsigned int num_connected_sessions;
+	unsigned int num_connected_sessions_combined;
+	HASH_TABLE(const char *, unsigned int *) num_connected_sessions;
 
 	struct timeout *to_stats_send;
 	struct stats_send_ctx *stats_send_ctx;
@@ -116,8 +119,8 @@ extern struct mail_global mail_global_stats;
 void mail_global_init(void);
 void mail_global_deinit(void);
 
-void mail_global_login(void);
-void mail_global_disconnected(void);
+void mail_global_login(const char *service);
+void mail_global_disconnected(const char *service);
 void mail_global_refresh(const struct stats *diff_stats);
 
 #endif
