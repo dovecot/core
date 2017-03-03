@@ -23,7 +23,7 @@ mail_global_stats_send(void *u0 ATTR_UNUSED)
 	if (*stats_settings->carbon_name != '\0' &&
 	    *stats_settings->carbon_server != '\0') {
 		string_t *str = t_str_new(256);
-		const char *prefix = t_strdup_printf("dovecot.%s.global",
+		const char *prefix = t_strdup_printf("%s.global",
 						     stats_settings->carbon_name);
 		str_printfa(str, "%s.logins %u %lu\r\n", prefix,
 			    mail_global_stats.num_logins, ts);
