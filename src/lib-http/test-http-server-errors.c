@@ -250,7 +250,7 @@ test_server_hanging_request_payload_input(struct _hanging_request_payload *ctx)
 
 	if (ret == 0)
 		return;
-	if (ret < 0) {
+	if (ctx->payload_input->stream_errno != 0) {
 		if (debug) {
 			i_debug("test server: failed to read payload: %s",
 				i_stream_get_error(ctx->payload_input));
@@ -262,6 +262,8 @@ test_server_hanging_request_payload_input(struct _hanging_request_payload *ctx)
 		http_server_request_unref(&req);
 		return;
 	}
+
+	i_assert(i_stream_is_eof(ctx->payload_input));
 		
 	resp = http_server_response_create(req, 200, "OK");
 	http_server_response_submit(resp);
