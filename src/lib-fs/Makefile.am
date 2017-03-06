@@ -43,7 +43,8 @@ pkginc_lib_HEADERS = $(headers)
 noinst_PROGRAMS = $(test_programs)
 
 test_programs = \
-	test-fs-metawrap
+	test-fs-metawrap \
+	test-fs-posix
 
 test_deps = \
 	$(noinst_LTLIBRARIES) \
@@ -58,6 +59,10 @@ test_libs = \
 test_fs_metawrap_SOURCES = test-fs-metawrap.c
 test_fs_metawrap_LDADD = $(test_libs)
 test_fs_metawrap_DEPENDENCIES = $(test_deps)
+
+test_fs_posix_SOURCES = test-fs-posix.c
+test_fs_posix_LDADD = $(test_libs)
+test_fs_posix_DEPENDENCIES = $(test_deps)
 
 check: check-am check-test
 check-test: all-am
