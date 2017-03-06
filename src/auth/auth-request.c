@@ -987,7 +987,21 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 		return;
 	}
 
-	 passdb = request->passdb;
+	passdb = request->passdb;
+
+	while (passdb != NULL && auth_request_want_skip_passdb(request, passdb))
+		passdb = passdb->next;
+
+	request->passdb = passdb;
+
+	if (passdb == NULL) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"All password databases were skipped for mechanism '%s'",
+				request->mech == NULL ? "<empty>"
+						      : request->mech->mech_name);
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		return;
+	}
 
 	request->private_callback.verify_plain = callback;
 
