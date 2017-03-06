@@ -408,7 +408,7 @@ static int db_dict_iter_lookup_key_values(struct db_dict_value_iter *iter)
 			continue;
 
 		str_truncate(path, strlen(DICT_PATH_SHARED));
-		var_expand(path, key->key->key, iter->var_expand_table);
+		str_append(path, key->key->key);
 		ret = dict_lookup(iter->conn->dict, iter->pool,
 				  str_c(path), &key->value);
 		if (ret > 0) {
