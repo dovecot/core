@@ -19,7 +19,6 @@ oauth2_introspection_callback(struct oauth2_request *req,
 	oauth2_introspection_callback_t *callback = req->is_callback;
 	req->is_callback = NULL;
 	callback(res, req->is_context);
-	oauth2_request_free_internal(req);
 }
 
 static void
@@ -122,6 +121,7 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 
 	http_client_request_set_timeout_msecs(req->req,
 					      req->set->timeout_msecs);
+	http_client_request_set_destroy_callback(req->req, oauth2_request_free_internal, req);
 	http_client_request_submit(req->req);
 
 	return req;
