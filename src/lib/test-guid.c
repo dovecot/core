@@ -77,5 +77,17 @@ void test_guid(void)
 	test_assert(guid_128_from_string(guidbuf, guid3) < 0);
 	guidbuf[0] = ' ';
 	test_assert(guid_128_from_string(guidbuf, guid3) < 0);
+
+	test_assert(guid_128_from_uuid_string("fee0ceac-0327-11e7-ad39-52540078f374", guid3) == 0);
+	test_assert(guid_128_from_uuid_string("fee0ceac032711e7ad3952540078f374", guid2) == 0);
+	test_assert(guid_128_cmp(guid3, guid2) == 0);
+	test_assert(guid_128_from_uuid_string("{fee0ceac-0327-11e7-ad39-52540078f374}", guid2) == 0);
+	test_assert(guid_128_cmp(guid3, guid2) == 0);
+	test_assert(strcmp(guid_128_to_uuid_string(guid3, FORMAT_RECORD), "fee0ceac-0327-11e7-ad39-52540078f374")==0);
+	test_assert(strcmp(guid_128_to_uuid_string(guid3, FORMAT_COMPACT), "fee0ceac032711e7ad3952540078f374")==0);
+	test_assert(strcmp(guid_128_to_uuid_string(guid3, FORMAT_MICROSOFT), "{fee0ceac-0327-11e7-ad39-52540078f374}")==0);
+	/* failure test */
+	test_assert(guid_128_from_uuid_string("fe-e0ceac-0327-11e7-ad39-52540078f374", guid3) < 0);
+
 	test_end();
 }
