@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "buffer.h"
+#include "str.h"
 #include "sha1.h"
 #include "hash.h"
 #include "hex-binary.h"
@@ -131,4 +132,43 @@ unsigned int guid_128_hash(const guid_128_t guid)
 int guid_128_cmp(const guid_128_t guid1, const guid_128_t guid2)
 {
 	return memcmp(guid1, guid2, GUID_128_SIZE);
+}
+
+const char *guid_128_to_uuid_string(const guid_128_t guid, enum uuid_format format)
+{
+	switch(format) {
+	case FORMAT_COMPACT:
+		return guid_128_to_string(guid);
+	case FORMAT_RECORD:
+		return t_strdup_printf("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+				guid[0], guid[1], guid[2], guid[3], guid[4],
+				guid[5], guid[6], guid[7], guid[8], guid[9],
+				guid[10], guid[11], guid[12], guid[13], guid[14],
+				guid[15]);
+	case FORMAT_MICROSOFT:
+		return t_strdup_printf("{%s}", guid_128_to_uuid_string(guid, FORMAT_RECORD));
+	}
+	i_unreached();
+}
+
+int guid_128_from_uuid_string(const char *str, guid_128_t guid_r)
+{
+	size_t i,len,m=0;
+	int ret;
+	T_BEGIN {
+		len = strlen(str);
+		string_t *str2 = t_str_new(len);
+		for(i=0; i < len; i++) {
+			/* Microsoft format */
+			if (i==0 && str[i] == '{') { m=1; continue; }
+			else if (i == len-1 && str[i] == '}') continue;
+			/* 8-4-4-4-12 */
+			if (((i==8+m) || (i==13+m) || (i==18+m) || (i==23+m)) &&
+			    str[i] == '-') continue;
+			str_append_c(str2, str[i]);
+		}
+		ret = guid_128_from_string(str_c(str2), guid_r);
+	} T_END;
+
+	return ret;
 }
