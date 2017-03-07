@@ -130,7 +130,7 @@ mech_xoauth2_output(struct dsasl_client *_client,
 
 	str = str_new(_client->pool, 64);
 
-	str_printfa(str, "%s\x01", _client->set.authid);
+	str_printfa(str, "user=%s\x01", _client->set.authid);
 	str_printfa(str, "auth=Bearer %s\x01", _client->password);
 	str_append_c(str, '\x01');
 
