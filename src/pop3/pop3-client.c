@@ -458,6 +458,9 @@ int client_init_mailbox(struct client *client, const char **error_r)
         enum mailbox_flags flags;
 	const char *ident, *errmsg;
 
+	/* refresh proctitle before a potentially long-running init_mailbox() */
+	pop3_refresh_proctitle();
+
 	flags = MAILBOX_FLAG_POP3_SESSION;
 	if (!client->set->pop3_no_flag_updates)
 		flags |= MAILBOX_FLAG_DROP_RECENT;
@@ -484,8 +487,6 @@ int client_init_mailbox(struct client *client, const char **error_r)
 			"CONNECT\t", my_pid, "\tpop3/", ident, "\n", NULL));
 		client->anvil_sent = TRUE;
 	}
-
-	pop3_refresh_proctitle();
 	return 0;
 }
 
