@@ -408,10 +408,10 @@ static void db_oauth2_callback(struct db_oauth2_request *req, bool success,
 
 	i_assert(req->result == PASSDB_RESULT_OK || (!success && error != NULL));
 
-	if (callback != NULL)
+	if (callback != NULL) {
+		DLLIST_REMOVE(&req->db->head, req);
 		callback(req->db, success, req, error, req->context);
-
-	DLLIST_REMOVE(&req->db->head, req);
+	}
 }
 
 static bool
