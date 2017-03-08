@@ -96,6 +96,7 @@ struct client {
 	/* Module-specific contexts. */
 	ARRAY(union pop3_module_context *) module_contexts;
 
+	bool destroyed:1;
 	bool disconnected:1;
 	bool deleted:1;
 	bool waiting_input:1;
