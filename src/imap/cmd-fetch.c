@@ -248,7 +248,8 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			   requests, because many IMAP clients become confused
 			   about what they should on NO. A disconnection causes
 			   less confusion. */
-			client_disconnect_with_error(cmd->client, errstr);
+			client_disconnect_with_error(cmd->client,
+				t_strconcat("FETCH failed: ", errstr, NULL));
 			imap_fetch_free(&ctx);
 			return TRUE;
 		} else {
