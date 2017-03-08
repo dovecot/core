@@ -227,9 +227,12 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 		indexer_worker_refresh_proctitle(user->username, args[1], 0, 0);
 		ret = index_mailbox(conn, user, args[1],
 				    max_recent_msgs, args[4]);
-		indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
+		/* refresh proctitle before a potentially long-running
+		   user unref */
+		indexer_worker_refresh_proctitle(user->username, "(deinit)", 0, 0);
 		mail_user_unref(&user);
 		mail_storage_service_user_unref(&service_user);
+		indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
 	}
 
 	str = ret < 0 ? "-1\n" : "100\n";
