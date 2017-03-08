@@ -583,6 +583,10 @@ void client_destroy(struct client *client, const char *reason)
 
 static void client_default_destroy(struct client *client, const char *reason)
 {
+	i_assert(!client->destroyed);
+
+	client->destroyed = TRUE;
+
 	if (client->seen_change_count > 0)
 		(void)client_update_mails(client);
 
