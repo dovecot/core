@@ -59,6 +59,8 @@ void pop3_refresh_proctitle(void)
 			str_append_c(title, ' ');
 			str_append(title, net_ip2addr(client->user->remote_ip));
 		}
+		if (client->destroyed)
+			str_append(title, " (deinit)");
 		break;
 	default:
 		str_printfa(title, "%u connections", pop3_client_count);

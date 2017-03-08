@@ -88,6 +88,8 @@ void imap_refresh_proctitle(void)
 			if (o_stream_is_corked(client->output))
 				str_append(title, " corked");
 		}
+		if (client->destroyed)
+			str_append(title, " (deinit)");
 		break;
 	default:
 		str_printfa(title, "%u connections", imap_client_count);

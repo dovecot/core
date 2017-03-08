@@ -624,6 +624,9 @@ static void client_default_destroy(struct client *client, const char *reason)
 			mail_user_get_anvil_userip_ident(client->user),
 			"\n", NULL));
 	}
+
+	/* refresh proctitle before a potentially long-running user unref */
+	pop3_refresh_proctitle();
 	mail_user_unref(&client->user);
 
 	if (client->session_dotlock != NULL)
