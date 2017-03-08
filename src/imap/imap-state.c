@@ -698,8 +698,10 @@ import_state_mailbox(struct client *client, const unsigned char *data,
 		i_assert(*error_r != NULL);
 		return ret;
 	}
-	if (import_state_mailbox_open(client, &state, error_r) < 0)
+	if (import_state_mailbox_open(client, &state, error_r) < 0) {
+		*error_r = t_strdup_printf("Mailbox %s: %s", state.vname, *error_r);
 		return -1;
+	}
 	return ret;
 }
 
