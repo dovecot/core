@@ -241,10 +241,7 @@ static void client_proxy_error(struct client *client, const char *text)
 
 const char *client_proxy_get_state(struct client *client)
 {
-	if (client->v.proxy_get_state == NULL)
-		return dec2str(client->proxy_state);
-	else
-		return client->v.proxy_get_state(client);
+	return client->v.proxy_get_state(client);
 }
 
 void client_proxy_log_failure(struct client *client, const char *line)
