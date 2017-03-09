@@ -14,6 +14,30 @@ enum imap_client_id_state {
 	IMAP_CLIENT_ID_STATE_VALUE
 };
 
+/* Multiple commands can be sent pipelined, so the sent_state is a bitmask */
+enum imap_proxy_sent_state {
+	IMAP_PROXY_SENT_STATE_ID		= 0x01,
+	IMAP_PROXY_SENT_STATE_STARTTLS		= 0x02,
+	IMAP_PROXY_SENT_STATE_CAPABILITY	= 0x04,
+	IMAP_PROXY_SENT_STATE_AUTHENTICATE	= 0x08,
+	IMAP_PROXY_SENT_STATE_AUTH_CONTINUE	= 0x10,
+	IMAP_PROXY_SENT_STATE_LOGIN		= 0x20,
+
+	IMAP_PROXY_SENT_STATE_COUNT = 6
+};
+
+enum imap_proxy_rcvd_state {
+	IMAP_PROXY_RCVD_STATE_NONE,
+	IMAP_PROXY_RCVD_STATE_BANNER,
+	IMAP_PROXY_RCVD_STATE_ID,
+	IMAP_PROXY_RCVD_STATE_STARTTLS,
+	IMAP_PROXY_RCVD_STATE_CAPABILITY,
+	IMAP_PROXY_RCVD_STATE_AUTH_CONTINUE,
+	IMAP_PROXY_RCVD_STATE_LOGIN,
+
+	IMAP_PROXY_RCVD_STATE_COUNT
+};
+
 struct imap_client_cmd_id {
 	struct imap_parser *parser;
 
@@ -33,6 +57,9 @@ struct imap_client {
 
 	const char *cmd_tag, *cmd_name;
 	struct imap_client_cmd_id *cmd_id;
+
+	enum imap_proxy_sent_state proxy_sent_state;
+	enum imap_proxy_rcvd_state proxy_rcvd_state;
 
 	bool cmd_finished:1;
 	bool proxy_sasl_ir:1;
