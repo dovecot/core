@@ -65,10 +65,10 @@ static void client_idle_disconnect_timeout(struct client *client)
 		user_reason = "Timeout while finishing login.";
 		destroy_reason = t_strdup_printf(
 			"proxy: Logging in to %s:%u timed out "
-			"(state=%u, duration=%us)",
+			"(state=%s, duration=%us)",
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
-			client->proxy_state, secs);
+			client_proxy_get_state(client), secs);
 		client_log_err(client, destroy_reason);
 	} else {
 		user_reason = "Disconnected for inactivity.";
