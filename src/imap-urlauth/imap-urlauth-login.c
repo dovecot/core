@@ -172,7 +172,8 @@ static struct client_vfuncs imap_urlauth_vfuncs = {
 	imap_urlauth_client_auth_result,
 	NULL,
 	NULL,
-	NULL
+	NULL,
+	NULL,
 };
 
 static const struct login_binary imap_urlauth_login_binary = {

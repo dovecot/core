@@ -282,9 +282,9 @@ proxy_log_connect_error(struct login_proxy *proxy)
 		str_printfa(str, "connect(%s, %u) failed: %m",
 			    proxy->host, proxy->port);
 	} else {
-		str_printfa(str, "Login for %s:%u timed out in state=%u",
+		str_printfa(str, "Login for %s:%u timed out in state=%s",
 			    proxy->host, proxy->port,
-			    proxy->client->proxy_state);
+			    client_proxy_get_state(proxy->client));
 	}
 	str_printfa(str, " (after %u secs",
 		    (unsigned int)(ioloop_time - proxy->created.tv_sec));
