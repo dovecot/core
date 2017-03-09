@@ -174,6 +174,7 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->refcount = 1;
 
 	client->pool = pool;
+	client->preproxy_pool = pool_alloconly_create(MEMPOOL_GROWING"preproxy pool", 256);
 	client->set = set;
 	client->ssl_set = ssl_set;
 	p_array_init(&client->module_contexts, client->pool, 5);
@@ -223,6 +224,9 @@ void client_destroy(struct client *client, const char *reason)
 	if (client->destroyed)
 		return;
 	client->destroyed = TRUE;
+
+	if (client->preproxy_pool != NULL)
+		pool_unref(&client->preproxy_pool);
 
 	if (!client->login_success && reason != NULL) {
 		reason = t_strconcat(reason, " ",
