@@ -124,6 +124,8 @@ struct client_vfuncs {
 struct client {
 	struct client *prev, *next;
 	pool_t pool;
+	/* this pool gets free'd once proxying starts */
+	pool_t preproxy_pool;
 	struct client_vfuncs v;
 	struct client_vfuncs *vlast;
 
