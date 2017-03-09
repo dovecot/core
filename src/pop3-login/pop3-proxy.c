@@ -12,6 +12,10 @@
 #include "client.h"
 #include "pop3-proxy.h"
 
+static const char *pop3_proxy_state_names[POP3_PROXY_STATE_COUNT] = {
+	"banner", "starttls", "xclient", "login1", "login2"
+};
+
 static void proxy_free_password(struct client *client)
 {
 	if (client->proxy_password == NULL)
@@ -216,6 +220,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 
 		client_proxy_finish_destroy_client(client);
 		return 1;
+	case POP3_PROXY_STATE_COUNT:
+		i_unreached();
 	}
 
 	/* Login failed. Pass through the error message to client.
@@ -258,4 +264,9 @@ void pop3_proxy_reset(struct client *client)
 void pop3_proxy_error(struct client *client, const char *text)
 {
 	client_send_reply(client, POP3_CMD_REPLY_ERROR, text);
+}
+
+const char *pop3_proxy_get_state(struct client *client)
+{
+	return pop3_proxy_state_names[client->proxy_state];
 }
