@@ -8,6 +8,7 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "strescape.h"
 #include "dsasl-client.h"
 #include "client.h"
 #include "pop3-proxy.h"
@@ -31,24 +32,39 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	const unsigned char *sasl_output;
 	unsigned int len;
 	const char *mech_name, *error;
-	string_t *str;
+	string_t *str = t_str_new(128);
 
 	i_assert(client->common.proxy_ttl > 1);
 	if (client->proxy_xclient &&
 	    !client->common.proxy_not_trusted) {
+		string_t *fwd = t_str_new(128);
+                for(const char *const *ptr = client->common.auth_passdb_args;*ptr != NULL; ptr++) {
+                        if (strncasecmp(*ptr, "forward_", 8) == 0) {
+                                if (str_len(fwd) > 0)
+                                        str_append_c(fwd, '\t');
+                                str_append_tabescaped(fwd, (*ptr)+8);
+                        }
+		}
+
+		str_printfa(str, "XCLIENT ADDR=%s PORT=%u SESSION=%s TTL=%u",
+			    net_ip2addr(&client->common.ip),
+			    client->common.remote_port,
+			    client_get_session_id(&client->common),
+			    client->common.proxy_ttl - 1);
+		if (str_len(fwd) > 0) {
+			str_append(str, " FORWARD=");
+			base64_encode(str_data(fwd), str_len(fwd), str);
+		}
+		str_append(str, "\r\n");
 		/* remote supports XCLIENT, send it */
-		o_stream_nsend_str(output, t_strdup_printf(
-			"XCLIENT ADDR=%s PORT=%u SESSION=%s TTL=%u\r\n",
-			net_ip2addr(&client->common.ip),
-			client->common.remote_port,
-			client_get_session_id(&client->common),
-			client->common.proxy_ttl - 1));
+		o_stream_nsend(output, str_data(str), str_len(str));
 		client->proxy_state = POP3_PROXY_XCLIENT;
 	} else {
 		client->proxy_state = POP3_PROXY_LOGIN1;
 	}
 
-	str = t_str_new(128);
+	str_truncate(str, 0);
+
 	if (client->common.proxy_mech == NULL) {
 		/* send USER command */
 		str_append(str, "USER ");
