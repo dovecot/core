@@ -65,6 +65,14 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 		} else if (strncasecmp(*tmp, "TTL=", 4) == 0) {
 			if (str_to_uint(*tmp + 4, &client->common.proxy_ttl) < 0)
 				args_ok = FALSE;
+		} else if (strncasecmp(*tmp, "FORWARD=", 8) == 0) {
+			size_t value_len = strlen((*tmp)+8);
+			client->common.forward_fields =
+				str_new(client->common.preproxy_pool,
+					MAX_BASE64_DECODED_SIZE(value_len));
+			if (base64_decode((*tmp)+8, value_len, NULL,
+					  client->common.forward_fields) < 0)
+				args_ok = FALSE;
 		}
 	}
 	if (!args_ok) {
