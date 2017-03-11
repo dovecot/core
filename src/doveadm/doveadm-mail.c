@@ -227,6 +227,11 @@ void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx)
 	if (ctx->cmd_input != NULL)
 		return;
 
+	if (!ctx->cli && ctx->conn == NULL) {
+		ctx->cmd_input = i_stream_create_error_str(EINVAL, "Input stream missing (provide with file parameter)");
+		return;
+	}
+
 	if (ctx->conn != NULL)
 		inputs[0] = i_stream_create_dot(ctx->conn->input, FALSE);
 	else {
