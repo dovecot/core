@@ -130,6 +130,9 @@ struct auth_request {
 	bool in_delayed_failure_queue:1;
 	bool removed_from_handler:1;
 	bool snapshot_have_userdb_prefetch_set:1;
+	/* username was changed by this passdb/userdb lookup. Used by
+	   auth-workers to determine whether to send back a changed username. */
+	bool user_changed_by_lookup:1;
 	/* each passdb lookup can update the current success-status using the
 	   result_* rules. the authentication succeeds only if this is TRUE
 	   at the end. mechanisms that don't require passdb, but do a passdb
