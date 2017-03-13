@@ -98,6 +98,11 @@ worker_auth_request_new(struct auth_worker_client *client, unsigned int id,
 			(void)auth_request_import(auth_request, key, value);
 		}
 	}
+	/* reset changed-fields, so we'll export only the ones that were
+	   changed by this lookup. */
+	auth_fields_snapshot(auth_request->extra_fields);
+	if (auth_request->userdb_reply != NULL)
+		auth_fields_snapshot(auth_request->userdb_reply);
 
 	auth_request_init(auth_request);
 	return auth_request;
@@ -129,7 +134,12 @@ reply_append_extra_fields(string_t *str, struct auth_request *request)
 {
 	if (!auth_fields_is_empty(request->extra_fields)) {
 		str_append_c(str, '\t');
-		auth_fields_append(request->extra_fields, str, 0, 0);
+		/* export only the fields changed by this lookup, so the
+		   changed-flag gets preserved correctly on the master side as
+		   well. */
+		auth_fields_append(request->extra_fields, str,
+				   AUTH_FIELD_FLAG_CHANGED,
+				   AUTH_FIELD_FLAG_CHANGED);
 	}
 	if (request->userdb_reply != NULL &&
 	    auth_fields_is_empty(request->userdb_reply)) {
@@ -381,7 +391,10 @@ lookup_user_callback(enum userdb_result result,
 		str_append(str, "OK\t");
 		str_append_tabescaped(str, auth_request->user);
 		str_append_c(str, '\t');
-		auth_fields_append(auth_request->userdb_reply, str, 0, 0);
+		/* export only the fields changed by this lookup */
+		auth_fields_append(auth_request->userdb_reply, str,
+				   AUTH_FIELD_FLAG_CHANGED,
+				   AUTH_FIELD_FLAG_CHANGED);
 		if (auth_request->userdb_lookup_tempfailed)
 			str_append(str, "\ttempfail");
 		break;
