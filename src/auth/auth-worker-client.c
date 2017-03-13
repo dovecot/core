@@ -170,7 +170,8 @@ static void verify_plain_callback(enum passdb_result result,
 		str_printfa(str, "FAIL\t%d", result);
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
 		str_append_c(str, '\t');
-		str_append_tabescaped(str, request->user);
+		if (request->user_changed_by_lookup)
+			str_append_tabescaped(str, request->user);
 		str_append_c(str, '\t');
 		if (request->passdb_password != NULL)
 			str_append_tabescaped(str, request->passdb_password);
@@ -255,7 +256,8 @@ lookup_credentials_callback(enum passdb_result result,
 			str_append(str, "NEXT\t");
 		else
 			str_append(str, "OK\t");
-		str_append_tabescaped(str, request->user);
+		if (request->user_changed_by_lookup)
+			str_append_tabescaped(str, request->user);
 		str_append_c(str, '\t');
 		if (request->credentials_scheme[0] != '\0') {
 			str_printfa(str, "{%s.b64}", request->credentials_scheme);
@@ -389,7 +391,8 @@ lookup_user_callback(enum userdb_result result,
 		break;
 	case USERDB_RESULT_OK:
 		str_append(str, "OK\t");
-		str_append_tabescaped(str, auth_request->user);
+		if (auth_request->user_changed_by_lookup)
+			str_append_tabescaped(str, auth_request->user);
 		str_append_c(str, '\t');
 		/* export only the fields changed by this lookup */
 		auth_fields_append(auth_request->userdb_reply, str,

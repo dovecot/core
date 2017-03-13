@@ -952,6 +952,7 @@ void auth_request_verify_plain(struct auth_request *request,
 		request->mech_password = p_strdup(request->pool, password);
 	else
 		i_assert(request->mech_password == password);
+	request->user_changed_by_lookup = FALSE;
 
 	if (request->policy_processed) {
 		auth_request_verify_plain_continue(request, callback);
@@ -1131,6 +1132,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	if (request->credentials_scheme == NULL)
 		request->credentials_scheme = p_strdup(request->pool, scheme);
+	request->user_changed_by_lookup = FALSE;
 
 	if (request->policy_processed)
 		auth_request_lookup_credentials_policy_continue(request, callback);
@@ -1359,6 +1361,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 			   it set */
 			auth_fields_rollback(request->userdb_reply);
 		}
+		request->user_changed_by_lookup = FALSE;
 
 		request->userdb = next_userdb;
 		auth_request_lookup_user(request,
@@ -1417,6 +1420,7 @@ void auth_request_lookup_user(struct auth_request *request,
 	const char *cache_key;
 
 	request->private_callback.userdb = callback;
+	request->user_changed_by_lookup = FALSE;
 	request->userdb_lookup = TRUE;
 	request->userdb_result_from_cache = FALSE;
 	if (request->userdb_reply == NULL)
@@ -1541,6 +1545,7 @@ bool auth_request_set_username(struct auth_request *request,
 		/* similar to original_username, but after translations */
 		request->translated_username = request->user;
 	}
+	request->user_changed_by_lookup = TRUE;
 
 	if (login_username != NULL) {
 		if (!auth_request_set_login_username(request,

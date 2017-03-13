@@ -34,7 +34,7 @@ static bool user_callback(const char *reply, void *context)
 			args = "";
 		else
 			username = t_strdup_until(username, args++);
-		if (strcmp(request->user, username) != 0)
+		if (username[0] != '\0' && strcmp(request->user, username) != 0)
 			request->user = p_strdup(request->pool, username);
 	} else {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
