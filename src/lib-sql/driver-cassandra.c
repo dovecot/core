@@ -824,7 +824,11 @@ static void query_callback(CassFuture *future, void *context)
 
 		msecs = timeval_diff_msecs(&ioloop_timeval, &result->start_time);
 		counters_inc_error(db, error);
+		/* Timeouts bring uncertainty whether the query succeeded or
+		   not. Also _SERVER_UNAVAILABLE could have actually written
+		   enough copies of the data for the query to succeed. */
 		result->api.error_type = error == CASS_ERROR_SERVER_WRITE_TIMEOUT ||
+			error == CASS_ERROR_SERVER_UNAVAILABLE ||
 			error == CASS_ERROR_LIB_REQUEST_TIMED_OUT ?
 			SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN :
 			SQL_RESULT_ERROR_TYPE_UNKNOWN;
@@ -832,7 +836,8 @@ static void query_callback(CassFuture *future, void *context)
 			result->query, (int)errsize, errmsg, msecs/1000, msecs%1000);
 
 		/* unavailable = cassandra server knows that there aren't
-		   enough nodes available.
+		   enough nodes available. "All hosts in current policy
+		   attempted and were either unavailable or failed"
 
 		   write timeout = cassandra server couldn't reach all the
 		   needed nodes. this may be because it hasn't yet detected
