@@ -8,6 +8,7 @@
 #include "ostream.h"
 #include "iostream-rawlog.h"
 #include "process-title.h"
+#include "hook-build.h"
 #include "buffer.h"
 #include "str.h"
 #include "base64.h"
@@ -29,19 +30,54 @@ struct client *clients = NULL;
 static struct client *last_client = NULL;
 static unsigned int clients_count = 0;
 
-static void empty_login_client_allocated_hook(struct client *client ATTR_UNUSED)
+struct login_client_module_hooks {
+	struct module *module;
+	const struct login_client_hooks *hooks;
+};
+
+static ARRAY(struct login_client_module_hooks) module_hooks = ARRAY_INIT;
+
+void login_client_hooks_add(struct module *module,
+			    const struct login_client_hooks *hooks)
 {
+	struct login_client_module_hooks *hook;
+
+	hook = array_append_space(&module_hooks);
+	hook->module = module;
+	hook->hooks = hooks;
 }
-static login_client_allocated_func_t *hook_client_allocated =
-	empty_login_client_allocated_hook;
 
-login_client_allocated_func_t *
-login_client_allocated_hook_set(login_client_allocated_func_t *new_hook)
+void login_client_hooks_remove(const struct login_client_hooks *hooks)
 {
-	login_client_allocated_func_t *old_hook = hook_client_allocated;
+	const struct login_client_module_hooks *module_hook;
+	unsigned int idx = UINT_MAX;
 
-	hook_client_allocated = new_hook;
-	return old_hook;
+	array_foreach(&module_hooks, module_hook) {
+		if (module_hook->hooks == hooks) {
+			idx = array_foreach_idx(&module_hooks, module_hook);
+			break;
+		}
+	}
+	i_assert(idx != UINT_MAX);
+
+	array_delete(&module_hooks, idx, 1);
+}
+
+static void hook_login_client_allocated(struct client *client)
+{
+	const struct login_client_module_hooks *module_hook;
+	struct hook_build_context *ctx;
+
+	ctx = hook_build_init((void *)&client->v, sizeof(client->v));
+	client->vlast = &client->v;
+	array_foreach(&module_hooks, module_hook) {
+		if (module_hook->hooks->client_allocated != NULL) T_BEGIN {
+			module_hook->hooks->client_allocated(client);
+			hook_build_update(ctx, client->vlast);
+		} T_END;
+	}
+	client->vlast = NULL;
+	hook_build_deinit(&ctx);
 }
 
 static void client_idle_disconnect_timeout(struct client *client)
@@ -168,7 +204,7 @@ client_create(int fd, bool ssl, pool_t pool,
 			    client_idle_disconnect_timeout, client);
 	client_open_streams(client);
 
-	hook_client_allocated(client);
+	hook_login_client_allocated(client);
 	client->v.create(client, other_sets);
 
 	if (auth_client_is_connected(auth_client))
@@ -868,4 +904,14 @@ bool client_read(struct client *client)
 void client_input(struct client *client)
 {
 	client->v.input(client);
+}
+
+void client_common_init(void)
+{
+	i_array_init(&module_hooks, 32);
+}
+
+void client_common_deinit(void)
+{
+	array_free(&module_hooks);
 }
