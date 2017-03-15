@@ -346,6 +346,7 @@ db_oauth2_value_get_var_expand_table(struct auth_request *auth_request,
 
 static bool
 db_oauth2_template_export(struct db_oauth2_request *req,
+			  enum passdb_result *result_r ATTR_UNUSED,
 			  const char **error_r ATTR_UNUSED)
 {
 	/* var=$ expands into var=${oauth2:var} */
@@ -396,22 +397,24 @@ static void db_oauth2_fields_merge(struct db_oauth2_request *req,
 	}
 }
 
-static void db_oauth2_callback(struct db_oauth2_request *req, bool success,
+static void db_oauth2_callback(struct db_oauth2_request *req,
+			       enum passdb_result result, bool success,
 			       const char *error)
 {
 	db_oauth2_lookup_callback_t *callback = req->callback;
 	req->callback = NULL;
 
-	i_assert(req->result == PASSDB_RESULT_OK || (!success && error != NULL));
+	i_assert(result == PASSDB_RESULT_OK || (!success && error != NULL));
 
 	if (callback != NULL) {
 		DLLIST_REMOVE(&req->db->head, req);
-		callback(req->db, success, req, error, req->context);
+		callback(req->db, result, success, req, error, req->context);
 	}
 }
 
 static bool
-db_oauth2_validate_username(struct db_oauth2_request *req, const char **error_r)
+db_oauth2_validate_username(struct db_oauth2_request *req,
+			    enum passdb_result *result_r, const char **error_r)
 {
 	struct var_expand_table table[] = {
 		{ 'u', NULL, "user" },
@@ -423,7 +426,7 @@ db_oauth2_validate_username(struct db_oauth2_request *req, const char **error_r)
 		auth_fields_find(req->fields, req->db->set.username_attribute);
 
 	if (username_value == NULL) {
-		req->result = PASSDB_RESULT_INTERNAL_FAILURE;
+		*result_r = PASSDB_RESULT_INTERNAL_FAILURE;
 		req->failed = TRUE;
 		*error_r = "No username returned";
 		return FALSE;
@@ -444,7 +447,7 @@ db_oauth2_validate_username(struct db_oauth2_request *req, const char **error_r)
 	if (!str_equals(username_req, username_val)) {
 		*error_r = t_strdup_printf("Username '%s' did not match '%s'",
 					str_c(username_req), str_c(username_val));
-		req->result = PASSDB_RESULT_USER_UNKNOWN;
+		*result_r = PASSDB_RESULT_USER_UNKNOWN;
 		req->failed = TRUE;
 	}
 
@@ -452,7 +455,8 @@ db_oauth2_validate_username(struct db_oauth2_request *req, const char **error_r)
 }
 
 static bool
-db_oauth2_user_is_enabled(struct db_oauth2_request *req, const char **error_r)
+db_oauth2_user_is_enabled(struct db_oauth2_request *req,
+			  enum passdb_result *result_r, const char **error_r)
 {
 	if (*req->db->set.active_attribute != '\0') {
 		const char *active_value = auth_fields_find(req->fields, req->db->set.active_attribute);
@@ -460,7 +464,7 @@ db_oauth2_user_is_enabled(struct db_oauth2_request *req, const char **error_r)
 		    (*req->db->set.active_value != '\0' &&
 		     strcmp(req->db->set.active_value, active_value) != 0)) {
 			*error_r = "User account is not active";
-			req->result = PASSDB_RESULT_USER_DISABLED;
+			*result_r = PASSDB_RESULT_USER_DISABLED;
 			req->failed = TRUE;
 		}
 	}
@@ -468,7 +472,8 @@ db_oauth2_user_is_enabled(struct db_oauth2_request *req, const char **error_r)
 }
 
 static bool
-db_oauth2_token_in_scope(struct db_oauth2_request *req, const char **error_r)
+db_oauth2_token_in_scope(struct db_oauth2_request *req,
+			 enum passdb_result *result_r, const char **error_r)
 {
 	if (*req->db->set.scope != '\0') {
 		bool found = FALSE;
@@ -480,7 +485,7 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req, const char **error_r)
 		if (!found) {
 			*error_r = t_strdup_printf("Token is not valid for scope '%s'",
 						   req->db->set.scope);
-			req->result = PASSDB_RESULT_USER_DISABLED;
+			*result_r = PASSDB_RESULT_USER_DISABLED;
 			req->failed = TRUE;
 		}
 	}
@@ -489,18 +494,19 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req, const char **error_r)
 
 static void db_oauth2_process_fields(struct db_oauth2_request *req)
 {
+	enum passdb_result result;
 	const char *error = NULL;
-	if (db_oauth2_validate_username(req, &error) &&
-	    db_oauth2_user_is_enabled(req, &error) &&
-	    db_oauth2_token_in_scope(req, &error) &&
-	    db_oauth2_template_export(req, &error) &&
+	if (db_oauth2_validate_username(req, &result, &error) &&
+	    db_oauth2_user_is_enabled(req, &result, &error) &&
+	    db_oauth2_token_in_scope(req, &result, &error) &&
+	    db_oauth2_template_export(req, &result, &error) &&
 	    !req->failed) {
-		req->result = PASSDB_RESULT_OK;
+		result = PASSDB_RESULT_OK;
 	} else {
-		i_assert(req->result != PASSDB_RESULT_OK && error != NULL);
+		i_assert(result != PASSDB_RESULT_OK && error != NULL);
 	}
 
-	db_oauth2_callback(req, !req->failed, error);
+	db_oauth2_callback(req, result, !req->failed, error);
 }
 
 static void
@@ -511,9 +517,8 @@ db_oauth2_introspect_continue(struct oauth2_introspection_result *result,
 
 	if (!result->success) {
 		/* fail here */
-		req->result = PASSDB_RESULT_INTERNAL_FAILURE;
 		req->failed = TRUE;
-		db_oauth2_callback(req, FALSE, result->error);
+		db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE, FALSE, result->error);
 		return;
 	}
 	db_oauth2_fields_merge(req, result->fields);
@@ -548,11 +553,11 @@ db_oauth2_lookup_continue(struct oauth2_token_validation_result *result,
 
 	if (!result->success || !result->valid) {
 		/* no point going forward */
-		req->result = result->success ?
+		enum passdb_result passdb_result = result->success ?
 			PASSDB_RESULT_PASSWORD_MISMATCH :
-			PASSDB_RESULT_INTERNAL_FAILURE,
+			PASSDB_RESULT_INTERNAL_FAILURE;
 		req->failed = TRUE;
-		db_oauth2_callback(req, FALSE, result->error == NULL ? "Invalid token" : result->error);
+		db_oauth2_callback(req, passdb_result, FALSE, result->error == NULL ? "Invalid token" : result->error);
 		return;
 	}
 
