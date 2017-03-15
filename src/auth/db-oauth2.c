@@ -506,6 +506,8 @@ static void
 db_oauth2_introspect_continue(struct oauth2_introspection_result *result,
 			      struct db_oauth2_request *req)
 {
+	req->req = NULL;
+
 	if (!result->success) {
 		/* fail here */
 		req->failed = TRUE;
@@ -519,7 +521,6 @@ db_oauth2_introspect_continue(struct oauth2_introspection_result *result,
 static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 {
 	struct oauth2_request_input input;
-	i_assert(req->req != NULL);
 	i_zero(&input);
 
 	input.token = req->token;
@@ -541,6 +542,8 @@ static void
 db_oauth2_lookup_continue(struct oauth2_token_validation_result *result,
 			  struct db_oauth2_request *req)
 {
+	req->req = NULL;
+
 	if (!result->success || !result->valid) {
 		/* no point going forward */
 		req->result = result->success ?
