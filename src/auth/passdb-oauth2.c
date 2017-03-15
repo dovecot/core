@@ -10,9 +10,8 @@ struct oauth2_passdb_module {
 };
 
 static void
-oauth2_verify_plain_continue(struct db_oauth2 *db ATTR_UNUSED,
-			     enum passdb_result result,
-			     struct db_oauth2_request *req, const char *error,
+oauth2_verify_plain_continue(struct db_oauth2_request *req,
+			     enum passdb_result result, const char *error,
 			     struct auth_request *request)
 {
 	if (result == PASSDB_RESULT_INTERNAL_FAILURE)
