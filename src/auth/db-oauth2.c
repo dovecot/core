@@ -408,7 +408,7 @@ static void db_oauth2_callback(struct db_oauth2_request *req,
 
 	if (callback != NULL) {
 		DLLIST_REMOVE(&req->db->head, req);
-		callback(req->db, result, req, error, req->context);
+		callback(req, result, error, req->context);
 	}
 }
 
