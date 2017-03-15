@@ -1,6 +1,8 @@
 #ifndef CLIENT_COMMON_H
 #define CLIENT_COMMON_H
 
+struct module;
+
 #include "net.h"
 #include "login-proxy.h"
 #include "sasl-server.h"
@@ -106,6 +108,7 @@ struct client {
 	struct client *prev, *next;
 	pool_t pool;
 	struct client_vfuncs v;
+	struct client_vfuncs *vlast;
 
 	time_t created;
 	int refcount;
@@ -191,14 +194,17 @@ union login_client_module_context {
 	struct login_module_register *reg;
 };
 
+struct login_client_hooks {
+	void (*client_allocated)(struct client *client);
+};
+
 extern struct client *clients;
 
 typedef void login_client_allocated_func_t(struct client *client);
 
-/* Sets the client allocation hook and returns the previous hook,
-   which the new hook should call. */
-login_client_allocated_func_t *
-login_client_allocated_hook_set(login_client_allocated_func_t *new_hook);
+void login_client_hooks_add(struct module *module,
+			    const struct login_client_hooks *hooks);
+void login_client_hooks_remove(const struct login_client_hooks *hooks);
 
 struct client *
 client_create(int fd, bool ssl, pool_t pool,
@@ -258,5 +264,8 @@ void clients_notify_auth_connected(void);
 void client_destroy_oldest(void);
 void clients_destroy_all(void);
 void clients_destroy_all_reason(const char *reason);
+
+void client_common_init(void);
+void client_common_deinit(void);
 
 #endif

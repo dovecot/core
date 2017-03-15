@@ -336,6 +336,7 @@ static void main_preinit(void)
 	   key file. */
 	ssl_proxy_init();
 	dsasl_clients_init();
+	client_common_init();
 
 	/* set the number of fds we want to use. it may get increased or
 	   decreased. leave a couple of extra fds for auth sockets and such.
@@ -433,6 +434,7 @@ static void main_deinit(void)
 		anvil_client_deinit(&anvil);
 	if (auth_client_to != NULL)
 		timeout_remove(&auth_client_to);
+	client_common_deinit();
 	dsasl_clients_deinit();
 	login_settings_deinit();
 }
