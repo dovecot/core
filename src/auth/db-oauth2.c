@@ -548,12 +548,13 @@ db_oauth2_lookup_continue(struct oauth2_token_validation_result *result,
 {
 	req->req = NULL;
 
-	if (!result->success || !result->valid) {
-		/* no point going forward */
-		enum passdb_result passdb_result = result->success ?
-			PASSDB_RESULT_PASSWORD_MISMATCH :
-			PASSDB_RESULT_INTERNAL_FAILURE;
-		db_oauth2_callback(req, passdb_result, result->error == NULL ? "Invalid token" : result->error);
+	if (!result->success) {
+		db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
+				   result->error);
+		return;
+	} else if (!result->valid) {
+		db_oauth2_callback(req, PASSDB_RESULT_PASSWORD_MISMATCH,
+				   "Invalid token");
 		return;
 	}
 
