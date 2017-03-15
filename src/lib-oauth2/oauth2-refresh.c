@@ -19,6 +19,7 @@ oauth2_refresh_callback(struct oauth2_request *req,
 	oauth2_refresh_callback_t *callback = req->re_callback;
 	req->re_callback = NULL;
 	callback(res, req->re_context);
+	oauth2_request_free_internal(req);
 }
 
 static bool
@@ -102,7 +103,6 @@ static void oauth2_refresh_delayed_error(struct oauth2_request *req)
 		.error = req->delayed_error
 	};
 	oauth2_refresh_callback(req, &fail);
-	oauth2_request_free_internal(req);
 }
 
 #undef oauth2_refresh_start
@@ -161,7 +161,6 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 	i_stream_unref(&is);
 	http_client_request_set_timeout_msecs(req->req,
 					      req->set->timeout_msecs);
-	http_client_request_set_destroy_callback(req->req, oauth2_request_free_internal, req);
 	http_client_request_submit(req->req);
 
 	return req;
