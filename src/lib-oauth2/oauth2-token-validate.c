@@ -83,6 +83,16 @@ oauth2_token_validate_response(const struct http_response *response,
 	}
 }
 
+static void oauth2_token_validation_delayed_error(struct oauth2_request *req)
+{
+	struct oauth2_token_validation_result fail = {
+		.success = FALSE,
+		.error = req->delayed_error
+	};
+	oauth2_token_validation_callback(req, &fail);
+	oauth2_request_free_internal(req);
+}
+
 #undef oauth2_token_validation_start
 struct oauth2_request*
 oauth2_token_validation_start(const struct oauth2_settings *set,
@@ -94,9 +104,6 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 
 	struct http_url *url;
 	const char *error;
-	struct oauth2_token_validation_result fail = {
-		.success = FALSE
-	};
 
 	pool_t pool = pool_alloconly_create_clean("oauth2 token_validation", 1024);
 	struct oauth2_request *req =
@@ -113,9 +120,10 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 
 	if (http_url_parse(str_c(enc), NULL, HTTP_URL_ALLOW_USERINFO_PART, pool,
 			   &url, &error) < 0) {
-		fail.error = t_strdup_printf("http_url_parse(%s) failed: %s",
-					     str_c(enc), error);
-		oauth2_token_validation_callback(req, &fail);
+		req->delayed_error = p_strdup_printf(pool,
+			"http_url_parse(%s) failed: %s", str_c(enc), error);
+		req->to_delayed_error = timeout_add_short(0,
+			oauth2_token_validation_delayed_error, req);
 		return req;
 	}
 

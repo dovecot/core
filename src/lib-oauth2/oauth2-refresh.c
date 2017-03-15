@@ -95,6 +95,16 @@ oauth2_refresh_response(const struct http_response *response,
 	}
 }
 
+static void oauth2_refresh_delayed_error(struct oauth2_request *req)
+{
+	struct oauth2_refresh_result fail = {
+		.success = FALSE,
+		.error = req->delayed_error
+	};
+	oauth2_refresh_callback(req, &fail);
+	oauth2_request_free_internal(req);
+}
+
 #undef oauth2_refresh_start
 struct oauth2_request*
 oauth2_refresh_start(const struct oauth2_settings *set,
@@ -109,9 +119,6 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 		p_new(pool, struct oauth2_request, 1);
 	struct http_url *url;
 	const char *error;
-	struct oauth2_refresh_result fail = {
-		.success = FALSE
-	};
 
 	req->pool = pool;
 	req->set = set;
@@ -121,9 +128,11 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 
 	if (http_url_parse(req->set->refresh_url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
 			   pool, &url, &error) < 0) {
-		fail.error = t_strdup_printf("http_url_parse(%s) failed: %s",
-					     req->set->refresh_url, error);
-		oauth2_refresh_callback(req, &fail);
+		req->delayed_error = p_strdup_printf(pool,
+			"http_url_parse(%s) failed: %s",
+			req->set->refresh_url, error);
+		req->to_delayed_error = timeout_add_short(0,
+			oauth2_refresh_delayed_error, req);
 		return req;
 	}
 
