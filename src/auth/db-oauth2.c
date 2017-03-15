@@ -354,8 +354,9 @@ db_oauth2_value_get_var_expand_table(struct auth_request *auth_request,
 	return table;
 }
 
-int db_oauth2_template_export(struct db_oauth2_request *req,
-			   const char **error_r)
+static int
+db_oauth2_template_export(struct db_oauth2_request *req,
+			  const char **error_r)
 {
 	/* var=$ expands into var=${oauth2:var} */
 	const struct var_expand_func_table funcs_table[] = {

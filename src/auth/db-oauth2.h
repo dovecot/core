@@ -44,6 +44,4 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req, const
 		CALLBACK_TYPECHECK(callback, void(*)(struct db_oauth2*, bool, struct db_oauth2_request *req, const char*, typeof(context))), \
 		request, (db_oauth2_lookup_callback_t*)callback, (void*)context)
 
-int db_oauth2_template_export(struct db_oauth2_request *req, const char **error_r);
-
 #endif
