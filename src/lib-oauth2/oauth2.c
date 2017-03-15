@@ -73,6 +73,8 @@ oauth2_request_abort(struct oauth2_request **_req)
 void
 oauth2_request_free_internal(struct oauth2_request *req)
 {
+	if (req->to_delayed_error != NULL)
+		timeout_remove(&req->to_delayed_error);
 	pool_unref(&req->pool);
 }
 

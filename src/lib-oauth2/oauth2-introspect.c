@@ -55,6 +55,16 @@ oauth2_introspect_response(const struct http_response *response,
 	}
 }
 
+static void oauth2_introspection_delayed_error(struct oauth2_request *req)
+{
+	struct oauth2_introspection_result fail = {
+		.success = FALSE,
+		.error = req->delayed_error
+	};
+	oauth2_introspection_callback(req, &fail);
+	oauth2_request_free_internal(req);
+}
+
 #undef oauth2_introspection_start
 struct oauth2_request*
 oauth2_introspection_start(const struct oauth2_settings *set,
@@ -67,9 +77,6 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 	pool_t pool = pool_alloconly_create_clean("oauth2 introspection", 1024);
 	struct oauth2_request *req =
 		p_new(pool, struct oauth2_request, 1);
-	struct oauth2_introspection_result fail = {
-		.success = FALSE,
-	};
 	struct http_url *url;
 	const char *error;
 
@@ -87,9 +94,10 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 
 	if (http_url_parse(str_c(enc), NULL, HTTP_URL_ALLOW_USERINFO_PART, pool,
 			   &url, &error) < 0) {
-		fail.error = t_strdup_printf("http_url_parse(%s) failed: %s",
-					     str_c(enc), error);
-		oauth2_introspection_callback(req, &fail);
+		req->delayed_error = p_strdup_printf(pool,
+			"http_url_parse(%s) failed: %s", str_c(enc), error);
+		req->to_delayed_error = timeout_add_short(0,
+			oauth2_introspection_delayed_error, req);
 		return req;
 	}
 

@@ -11,6 +11,9 @@ struct oauth2_request {
 	struct istream *is;
 	struct io *io;
 
+	const char *delayed_error;
+	struct timeout *to_delayed_error;
+
 	const char *username;
 
 	void (*json_parsed_cb)(struct oauth2_request*, bool success,
