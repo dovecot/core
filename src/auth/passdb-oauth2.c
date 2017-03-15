@@ -11,15 +11,14 @@ struct oauth2_passdb_module {
 
 static void
 oauth2_verify_plain_continue(struct db_oauth2 *db ATTR_UNUSED,
-			     enum passdb_result result, bool success,
+			     enum passdb_result result,
 			     struct db_oauth2_request *req, const char *error,
 			     struct auth_request *request)
 {
-	i_assert(success || result != PASSDB_RESULT_OK);
-	if (!success && result == PASSDB_RESULT_INTERNAL_FAILURE)
+	if (result == PASSDB_RESULT_INTERNAL_FAILURE)
 		auth_request_log_error(request, AUTH_SUBSYS_DB, "oauth2 failed: %s",
 				       error);
-	else if (!success)
+	else if (result != PASSDB_RESULT_OK)
 		auth_request_log_info(request, AUTH_SUBSYS_DB, "oauth2 failed: %s",
 				      error);
 	req->verify_callback(result, request);
