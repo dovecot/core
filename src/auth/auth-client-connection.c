@@ -34,17 +34,31 @@ static struct auth_client_connection *auth_client_connections;
 
 static const char *reply_line_hide_pass(const char *line)
 {
+	string_t *newline;
 	const char *p, *p2;
 
-	/* hide proxy reply password */
-	p = strstr(line, "\tpass=");
-	if (p == NULL)
+	if (strstr(line, "pass") == NULL)
 		return line;
-	p += 6;
 
-	p2 = strchr(p, '\t');
-	return t_strconcat(t_strdup_until(line, p), PASSWORD_HIDDEN_STR,
-			   p2, NULL);
+	newline = t_str_new(strlen(line));
+
+	const char *const *fields = t_strsplit(line, "\t");
+
+	while(*fields != NULL) {
+		p = strstr(*fields, "pass");
+		p2 = strchr(*fields, '=');
+		if (p == NULL || p2 == NULL || p2 < p) {
+			str_append(newline, *fields);
+		} else {
+			/* include = */
+			str_append_data(newline, *fields, (p2 - *fields)+1);
+			str_append(newline, PASSWORD_HIDDEN_STR);
+		}
+		str_append_c(newline, '\t');
+		fields++;
+	}
+
+	return str_c(newline);
 }
 
 static void auth_client_send(struct auth_client_connection *conn,
