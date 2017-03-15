@@ -344,7 +344,7 @@ db_oauth2_value_get_var_expand_table(struct auth_request *auth_request,
 	return table;
 }
 
-static int
+static bool
 db_oauth2_template_export(struct db_oauth2_request *req,
 			  const char **error_r ATTR_UNUSED)
 {
@@ -359,7 +359,7 @@ db_oauth2_template_export(struct db_oauth2_request *req,
 	unsigned int i, count;
 
 	if (passdb_template_is_empty(tmpl))
-		return 0;
+		return TRUE;
 
 	dest = t_str_new(256);
 	args = passdb_template_get_args(tmpl, &count);
@@ -380,7 +380,7 @@ db_oauth2_template_export(struct db_oauth2_request *req,
 		auth_request_set_field(req->auth_request, args[i], value,
 				       STATIC_PASS_SCHEME);
 	}
-	return 0;
+	return TRUE;
 }
 
 static void db_oauth2_fields_merge(struct db_oauth2_request *req,
@@ -493,7 +493,7 @@ static void db_oauth2_process_fields(struct db_oauth2_request *req)
 	if (db_oauth2_validate_username(req, &error) &&
 	    db_oauth2_user_is_enabled(req, &error) &&
 	    db_oauth2_token_in_scope(req, &error) &&
-	    db_oauth2_template_export(req, &error) == 0 &&
+	    db_oauth2_template_export(req, &error) &&
 	    !req->failed) {
 		req->result = PASSDB_RESULT_OK;
 	} else {
