@@ -20,6 +20,7 @@ oauth2_token_validation_callback(struct oauth2_request *req,
 	oauth2_token_validation_callback_t *callback = req->tv_callback;
 	req->tv_callback = NULL;
 	callback(res, req->tv_context);
+	oauth2_request_free_internal(req);
 }
 
 static void
@@ -90,7 +91,6 @@ static void oauth2_token_validation_delayed_error(struct oauth2_request *req)
 		.error = req->delayed_error
 	};
 	oauth2_token_validation_callback(req, &fail);
-	oauth2_request_free_internal(req);
 }
 
 #undef oauth2_token_validation_start
@@ -143,7 +143,6 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 
 	http_client_request_set_timeout_msecs(req->req,
 					      req->set->timeout_msecs);
-	http_client_request_set_destroy_callback(req->req, oauth2_request_free_internal, req);
 	http_client_request_submit(req->req);
 
 	return req;
