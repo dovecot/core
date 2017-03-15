@@ -491,35 +491,40 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req,
 	return TRUE;
 }
 
-static void db_oauth2_process_fields(struct db_oauth2_request *req)
+static void db_oauth2_process_fields(struct db_oauth2_request *req,
+				     enum passdb_result *result_r,
+				     const char **error_r)
 {
-	enum passdb_result result;
-	const char *error = NULL;
-	if (db_oauth2_validate_username(req, &result, &error) &&
-	    db_oauth2_user_is_enabled(req, &result, &error) &&
-	    db_oauth2_token_in_scope(req, &result, &error) &&
-	    db_oauth2_template_export(req, &result, &error)) {
-		result = PASSDB_RESULT_OK;
-	} else {
-		i_assert(result != PASSDB_RESULT_OK && error != NULL);
-	}
+	*error_r = NULL;
 
-	db_oauth2_callback(req, result, error);
+	if (db_oauth2_validate_username(req, result_r, error_r) &&
+	    db_oauth2_user_is_enabled(req, result_r, error_r) &&
+	    db_oauth2_token_in_scope(req, result_r, error_r) &&
+	    db_oauth2_template_export(req, result_r, error_r)) {
+		*result_r = PASSDB_RESULT_OK;
+	} else {
+		i_assert(*result_r != PASSDB_RESULT_OK && *error_r != NULL);
+	}
 }
 
 static void
 db_oauth2_introspect_continue(struct oauth2_introspection_result *result,
 			      struct db_oauth2_request *req)
 {
+	enum passdb_result passdb_result;
+	const char *error;
+
 	req->req = NULL;
 
 	if (!result->success) {
 		/* fail here */
-		db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE, result->error);
-		return;
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+		error = result->error;
+	} else {
+		db_oauth2_fields_merge(req, result->fields);
+		db_oauth2_process_fields(req, &passdb_result, &error);
 	}
-	db_oauth2_fields_merge(req, result->fields);
-	db_oauth2_process_fields(req);
+	db_oauth2_callback(req, passdb_result, error);
 }
 
 static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
@@ -546,27 +551,28 @@ static void
 db_oauth2_lookup_continue(struct oauth2_token_validation_result *result,
 			  struct db_oauth2_request *req)
 {
+	enum passdb_result passdb_result;
+	const char *error;
+
 	req->req = NULL;
 
 	if (!result->success) {
-		db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
-				   result->error);
-		return;
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+		error = result->error;
 	} else if (!result->valid) {
-		db_oauth2_callback(req, PASSDB_RESULT_PASSWORD_MISMATCH,
-				   "Invalid token");
-		return;
-	}
-
-	db_oauth2_fields_merge(req, result->fields);
-
-	if (*req->db->set.introspection_url != '\0' &&
-	    (req->db->set.force_introspection ||
-	     !db_oauth2_have_all_fields(req))) {
-		db_oauth2_lookup_introspect(req);
+		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+		error = "Invalid token";
 	} else {
-		db_oauth2_process_fields(req);
+		db_oauth2_fields_merge(req, result->fields);
+		if (*req->db->set.introspection_url != '\0' &&
+		    (req->db->set.force_introspection ||
+		     !db_oauth2_have_all_fields(req))) {
+			db_oauth2_lookup_introspect(req);
+			return;
+		}
+		db_oauth2_process_fields(req, &passdb_result, &error);
 	}
+	db_oauth2_callback(req, passdb_result, error);
 }
 
 #undef db_oauth2_lookup
