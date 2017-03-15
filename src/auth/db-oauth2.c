@@ -256,13 +256,8 @@ void db_oauth2_unref(struct db_oauth2 **_db)
 	i_assert(ptr != NULL && ptr == db);
 
 	/* make sure all requests are aborted */
-	struct db_oauth2_request *req = db->head;
-	db->head = NULL;
-
-	for(; req != NULL; req = req->next) {
-		req->callback = NULL;
-		oauth2_request_abort(&req->req);
-	}
+	while (db->head != NULL)
+		oauth2_request_abort(&db->head->req);
 
 	http_client_deinit(&db->client);
 
