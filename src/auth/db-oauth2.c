@@ -510,6 +510,7 @@ db_oauth2_introspect_continue(struct oauth2_introspection_result *result,
 
 	if (!result->success) {
 		/* fail here */
+		req->result = PASSDB_RESULT_INTERNAL_FAILURE;
 		req->failed = TRUE;
 		db_oauth2_callback(req, FALSE, result->error);
 		return;
