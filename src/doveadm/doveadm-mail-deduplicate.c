@@ -51,14 +51,14 @@ static int cmd_deduplicate_uidlist(struct doveadm_mail_cmd_context *_ctx,
 	if (mailbox_search_deinit(&search_ctx) < 0) {
 		i_error("Searching mailbox '%s' failed: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	}
 	if (mailbox_transaction_commit(&trans) < 0) {
 		i_error("Committing mailbox '%s' transaction failed: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	}
@@ -91,7 +91,7 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		if (ctx->by_msgid) {
 			if (mail_get_first_header(mail, "Message-ID", &key) < 0) {
-				errstr = mailbox_get_last_error(mail->box, &error);
+				errstr = mailbox_get_last_internal_error(mail->box, &error);
 				if (error == MAIL_ERROR_NOTFOUND)
 					continue;
 				i_error("Couldn't lookup Message-ID: for UID=%u: %s",
@@ -102,7 +102,7 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 			}
 		} else {
 			if (mail_get_special(mail, MAIL_FETCH_GUID, &key) < 0) {
-				errstr = mailbox_get_last_error(mail->box, &error);
+				errstr = mailbox_get_last_internal_error(mail->box, &error);
 				if (error == MAIL_ERROR_NOTFOUND)
 					continue;
 				i_error("Couldn't lookup GUID: for UID=%u: %s",
@@ -148,7 +148,7 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	if (mailbox_sync(box, 0) < 0) {
 		i_error("Syncing mailbox '%s' failed: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	}

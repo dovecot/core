@@ -148,7 +148,7 @@ cmd_purge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 		storage = mail_namespace_get_default_storage(ns);
 		if (mail_storage_purge(storage) < 0) {
 			i_error("Purging namespace '%s' failed: %s", ns->prefix,
-				mail_storage_get_last_error(storage, NULL));
+				mail_storage_get_last_internal_error(storage, NULL));
 			doveadm_mail_failed_storage(ctx, storage);
 			ret = -1;
 		}
@@ -287,13 +287,13 @@ static int cmd_force_resync_box(struct doveadm_mail_cmd_context *ctx,
 			    MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
 		i_error("Opening mailbox %s failed: %s", info->vname,
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(ctx, box);
 		ret = -1;
 	} else if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
 				MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) < 0) {
 		i_error("Forcing a resync on mailbox %s failed: %s",
-			info->vname, mailbox_get_last_error(box, NULL));
+			info->vname, mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(ctx, box);
 		ret = -1;
 	}

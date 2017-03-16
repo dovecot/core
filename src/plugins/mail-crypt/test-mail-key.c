@@ -75,7 +75,7 @@ int test_mail_attribute_get(struct mailbox *box, bool user_key, bool shared,
 			*error_r = t_strdup_printf("mailbox_attribute_get(%s, %s) failed: %s",
 						   mailbox_get_vname(box),
 						   attr_name,
-						   mailbox_get_last_error(box, NULL));
+						   mailbox_get_last_internal_error(box, NULL));
 		}
 	} else {
 		*value_r = t_strdup(value.value);
@@ -118,7 +118,7 @@ test_mail_attribute_set(struct mailbox_transaction_context *t,
 			*error_r = t_strdup_printf("mailbox_attribute_set(%s, %s) failed: %s",
 						   mailbox_get_vname(mailbox_transaction_get_mailbox(t)),
 						   attr_name,
-						   mailbox_get_last_error(mailbox_transaction_get_mailbox(t), NULL));
+						   mailbox_get_last_internal_error(mailbox_transaction_get_mailbox(t), NULL));
 		}
 	}
 
@@ -249,7 +249,7 @@ static void test_generate_inbox_key(void)
 					    MAILBOX_FLAG_READONLY);
 	if (mailbox_open(box) < 0)
 		i_fatal("mailbox_open(INBOX) failed: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 	if (mail_crypt_box_generate_keypair(box, &pair, user_key, &pubid,
 					    &error) < 0) {
 		i_error("generate_keypair failed: %s", error);
@@ -310,7 +310,7 @@ static void test_verify_keys(void)
 					    MAILBOX_FLAG_READONLY);
 	if (mailbox_open(box) < 0)
 		i_fatal("mailbox_open(INBOX) failed: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 	/* verify links */
 
 	/* user's public key */
@@ -407,7 +407,7 @@ static void test_old_key(void)
 					    MAILBOX_FLAG_READONLY);
 	if (mailbox_open(box) < 0)
 		i_fatal("mailbox_open(INBOX) failed: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 
 	struct mailbox_transaction_context *t = mailbox_transaction_begin(box, 0);
 

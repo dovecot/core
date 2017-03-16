@@ -41,12 +41,14 @@ static int cmd_index_box_precache(struct mailbox *box)
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
 				 &metadata) < 0) {
 		i_error("Mailbox %s: Precache-fields lookup failed: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 	}
 	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
 			       &status) < 0) {
 		i_error("Mailbox %s: Status lookup failed: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 
@@ -82,12 +84,14 @@ static int cmd_index_box_precache(struct mailbox *box)
 		printf("\r%u/%u\n", counter, max);
 	if (mailbox_search_deinit(&ctx) < 0) {
 		i_error("Mailbox %s: Mail search failed: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	if (mailbox_transaction_commit(&trans) < 0) {
 		i_error("Mailbox %s: Transaction commit failed: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	return ret;
@@ -108,7 +112,7 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 		   while with large maildirs. */
 		if (mailbox_open(box) < 0) {
 			i_error("Opening mailbox %s failed: %s", info->vname,
-				mail_storage_get_last_error(mailbox_get_storage(box), NULL));
+				mailbox_get_last_internal_error(box, NULL));
 			doveadm_mail_failed_mailbox(&ctx->ctx, box);
 			mailbox_free(&box);
 			return -1;
@@ -123,7 +127,7 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Syncing mailbox %s failed: %s", info->vname,
-			mail_storage_get_last_error(mailbox_get_storage(box), NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		ret = -1;
 	} else {

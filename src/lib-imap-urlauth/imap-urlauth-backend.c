@@ -134,7 +134,7 @@ static int imap_urlauth_backend_mailbox_reset_key(struct mailbox *box)
 	enum mail_error error;
 
 	if (mailbox_open(box) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_NOTFOUND || error == MAIL_ERROR_PERM)
 			return 0;
 		i_error("urlauth key reset: Couldn't open mailbox %s: %s",

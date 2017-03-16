@@ -247,7 +247,7 @@ static int init_pop3_deleted_flag(struct client *client, const char **error_r)
 		*error_r = t_strdup_printf(
 			"pop3_deleted_flags: Invalid keyword '%s': %s",
 			client->set->pop3_deleted_flag,
-			mailbox_get_last_error(client->mailbox, NULL));
+			mailbox_get_last_internal_error(client->mailbox, NULL));
 		return -1;
 	}
 	return 0;
@@ -277,7 +277,7 @@ static int init_mailbox(struct client *client, const char **error_r)
 	}
 
 	if (ret < 0) {
-		*error_r = mailbox_get_last_error(client->mailbox, NULL);
+		*error_r = mailbox_get_last_internal_error(client->mailbox, NULL);
 		client_send_storage_error(client);
 	} else {
 		if (failed_uid == last_failed_uid && failed_uid != 0) {
@@ -467,7 +467,7 @@ int client_init_mailbox(struct client *client, const char **error_r)
 	client->mailbox = mailbox_alloc(client->inbox_ns->list, "INBOX", flags);
 	if (mailbox_open(client->mailbox) < 0) {
 		*error_r = t_strdup_printf("Couldn't open INBOX: %s",
-			mailbox_get_last_error(client->mailbox, NULL));
+			mailbox_get_last_internal_error(client->mailbox, NULL));
 		client_send_storage_error(client);
 		return -1;
 	}

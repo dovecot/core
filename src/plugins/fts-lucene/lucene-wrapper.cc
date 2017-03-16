@@ -751,7 +751,7 @@ rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
 		enum mail_error error;
 		const char *errstr;
 
-		errstr = mailbox_get_last_error(ctx->box, &error);
+		errstr = mailbox_get_last_internal_error(ctx->box, &error);
 		if (error == MAIL_ERROR_NOTFOUND)
 			ret = 0;
 		else {
@@ -766,7 +766,7 @@ rescan_open_mailbox(struct rescan_context *ctx, Document *doc)
 	if (mailbox_sync(ctx->box, (enum mailbox_sync_flags)0) < 0) {
 		i_error("lucene: Failed to sync mailbox %s: %s",
 			mailbox_get_vname(ctx->box),
-			mailbox_get_last_error(ctx->box, NULL));
+			mailbox_get_last_internal_error(ctx->box, NULL));
 		mailbox_free(&ctx->box);
 		ctx->box_ret = -1;
 		return -1;

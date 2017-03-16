@@ -41,7 +41,7 @@ cmd_acl_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
 		i_error("Can't open mailbox %s: %s", mailbox,
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(ctx, box);
 		mailbox_free(&box);
 		return -1;
@@ -236,7 +236,7 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		i_fatal_status(EX_USAGE, "%s", error);
 	if ((ret = cmd_acl_mailbox_update(box, &update)) < 0) {
 		i_error("Failed to set ACL: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
 	}
 	mailbox_free(&box);
@@ -294,7 +294,7 @@ cmd_acl_delete_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 		i_fatal_status(EX_USAGE, "%s", error);
 	if ((ret = cmd_acl_mailbox_update(box, &update)) < 0) {
 		i_error("Failed to delete ACL: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
 	}
 	mailbox_free(&box);
@@ -362,7 +362,7 @@ cmd_acl_debug_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
-		errstr = mail_storage_get_last_error(box->storage, &error);
+		errstr = mail_storage_get_last_internal_error(box->storage, &error);
 		errstr = t_strdup(errstr);
 		doveadm_mail_failed_error(ctx, error);
 

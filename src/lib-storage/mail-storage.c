@@ -801,7 +801,7 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 		i_error("mailbox_alloc_guid(%s): "
 			"Couldn't verify mailbox GUID: %s",
 			guid_128_to_string(guid),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		vname = NULL;
 		mailbox_free(&box);
 	} else {
@@ -833,7 +833,7 @@ static int mailbox_autocreate(struct mailbox *box)
 	enum mail_error error;
 
 	if (mailbox_create(box, NULL, FALSE) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
 			mail_storage_set_critical(box->storage,
 				"Failed to autocreate mailbox %s: %s",
@@ -846,7 +846,8 @@ static int mailbox_autocreate(struct mailbox *box)
 		if (mailbox_set_subscribed(box, TRUE) < 0) {
 			mail_storage_set_critical(box->storage,
 				"Failed to autosubscribe to mailbox %s: %s",
-				box->vname, mailbox_get_last_error(box, NULL));
+				box->vname,
+				mailbox_get_last_internal_error(box, NULL));
 			return -1;
 		}
 	}
@@ -867,7 +868,7 @@ static int mailbox_autocreate_and_reopen(struct mailbox *box)
 		box->storage->user->inbox_open_error_logged = TRUE;
 		mail_storage_set_critical(box->storage,
 			"Opening INBOX failed: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 	}
 	return ret;
 }
@@ -1843,7 +1844,7 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 	ret = box->v.sync_deinit(ctx, status_r);
 	if (ret < 0 && box->inbox_user &&
 	    !box->storage->user->inbox_open_error_logged) {
-		errormsg = mailbox_get_last_error(box, &error);
+		errormsg = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_NOTPOSSIBLE) {
 			box->storage->user->inbox_open_error_logged = TRUE;
 			i_error("Syncing INBOX failed: %s", errormsg);

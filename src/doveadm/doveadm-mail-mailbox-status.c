@@ -130,7 +130,8 @@ status_mailbox(struct status_cmd_context *ctx, const struct mailbox_info *info)
 	if (mailbox_get_status(box, ctx->status_items, &status) < 0 ||
 	    mailbox_get_metadata(box, ctx->metadata_items, &metadata) < 0) {
 		i_error("Mailbox %s: Failed to lookup mailbox status: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		mailbox_free(&box);
 		return -1;

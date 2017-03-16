@@ -360,7 +360,7 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 			res->name = p_strdup(_ctx->pool, info->vname);
 			res->success = FALSE;
 			res->error = p_strdup(_ctx->pool,
-					   mailbox_get_last_error(box, NULL));
+					mailbox_get_last_internal_error(box, NULL));
 		} else if ((ret = mcp_keypair_generate(ctx, user_key, box,
 							&pair, &pubid,
 							&error)) < 0) {
@@ -456,7 +456,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 			i_error("mailbox_get_attribute(%s, %s) failed: %s",
 				mailbox_get_vname(box),
 				USER_CRYPT_PREFIX ACTIVE_KEY_NAME,
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL));
 		}
 
 		iter = mailbox_attribute_iter_init(box,
@@ -477,7 +477,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 		if (mailbox_attribute_iter_deinit(&iter) < 0)
 			i_error("mailbox_attribute_iter_deinit(%s) failed: %s",
 				mailbox_get_vname(box),
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return;
 	}
@@ -510,7 +510,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 			i_error("mailbox_get_attribute(%s, %s) failed: %s",
 				mailbox_get_vname(box),
 				BOX_CRYPT_PREFIX ACTIVE_KEY_NAME,
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL));
 		} else if ((ret = mail_crypt_box_get_pvt_digests(box, pool_datastack_create(),
 								 MAIL_ATTRIBUTE_TYPE_PRIVATE,
 							   	 &ids, &error)) < 0) {
@@ -688,7 +688,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 	if (mailbox_open(box) < 0) {
 		doveadm_print(t_strdup_printf("mailbox_open(%s) failed: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, NULL)));
+			mailbox_get_last_internal_error(box, NULL)));
 		_ctx->exit_code = EX_TEMPFAIL;
 		return -1;
 	}
@@ -716,7 +716,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 						 attr, &value)) < 0) {
 			doveadm_print(t_strdup_printf("mailbox_attribute_get(%s, %s) failed: %s",
 				mailbox_get_vname(box), attr,
-				mailbox_get_last_error(box, NULL)));
+				mailbox_get_last_internal_error(box, NULL)));
 			_ctx->exit_code = EX_TEMPFAIL;
 			break;
 		} else if (ret > 0) {
@@ -777,7 +777,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 				doveadm_print(t_strdup_printf("mailbox_attribute_set(%s, %s) failed: %s",
 					mailbox_get_vname(box),
 					raw_key->attr,
-					mailbox_get_last_error(box, NULL)));
+					mailbox_get_last_internal_error(box, NULL)));
 				_ctx->exit_code = EX_TEMPFAIL;
 				ret = -1;
 				break;
@@ -791,7 +791,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 			if (mailbox_transaction_commit(&t) < 0) {
 				doveadm_print(t_strdup_printf("mailbox_transaction_commit(%s) failed: %s",
 					mailbox_get_vname(box),
-					mailbox_get_last_error(box, NULL)));
+					mailbox_get_last_internal_error(box, NULL)));
 			} else {
 				doveadm_print(t_strdup_printf("Changed password for %u key(s)",
 							     count));

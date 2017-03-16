@@ -93,7 +93,7 @@ mail_crypt_acl_unset_private_keys(struct mailbox *src_box,
 		*error_r = t_strdup_printf("mail-crypt-acl-plugin: "
 					   "mailbox_open(%s) failed: %s",
 					   mailbox_get_vname(src_box),
-					   mailbox_get_last_error(src_box, NULL));
+					   mailbox_get_last_internal_error(src_box, NULL));
 		return -1;
 	}
 
@@ -131,7 +131,7 @@ mail_crypt_acl_unset_private_keys(struct mailbox *src_box,
 		*error_r = t_strdup_printf("mail-crypt-acl-plugin: "
 					   "mailbox_transaction_commit(%s) failed: %s",
 					   mailbox_get_vname(src_box),
-					   mailbox_get_last_error(src_box, NULL));
+					   mailbox_get_last_internal_error(src_box, NULL));
 		return -1;
 	}
 	return 0;
@@ -228,7 +228,7 @@ mail_crypt_acl_update_private_key(struct mailbox *src_box,
 	}
 
 	if (mailbox_transaction_commit(&t) < 0) {
-		*error_r = mailbox_get_last_error(src_box, NULL);
+		*error_r = mailbox_get_last_internal_error(src_box, NULL);
 		ret = -1;
 	}
 
@@ -297,7 +297,7 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 				i_error("mail-crypt-acl-plugin: "
 					"mailbox_open(%s) failed: %s",
 					mailbox_get_vname(box),
-					mailbox_get_last_error(box, NULL));
+					mailbox_get_last_internal_error(box, NULL));
 			} else if ((ret = mail_crypt_acl_update_private_key(box, dest_user,
 									have_rights,
 									disallow_insecure,
@@ -350,7 +350,7 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 			i_error("mail-crypt-acl-plugin: "
 				"mailbox_open(%s) failed: %s",
 				mailbox_get_vname(box),
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL));
 		} else if ((ret = mail_crypt_acl_update_private_key(box,
 								    NULL,
 								    TRUE,

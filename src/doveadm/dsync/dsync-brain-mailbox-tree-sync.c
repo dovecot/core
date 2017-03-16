@@ -22,7 +22,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	update.uid_validity = uid_validity;
 
 	if (mailbox_create(box, &update, FALSE) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
 			i_error("Can't create mailbox %s: %s",
 				mailbox_get_vname(box), errstr);
@@ -39,7 +39,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Can't sync mailbox %s: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, error_r));
+			mailbox_get_last_internal_error(box, error_r));
 		return -1;
 	}
 
@@ -52,7 +52,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		i_error("Can't get mailbox GUID %s: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, error_r));
+			mailbox_get_last_internal_error(box, error_r));
 		return -1;
 	}
 
@@ -78,7 +78,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 		if (mailbox_update(box, &update) < 0) {
 			i_error("Can't update mailbox GUID %s: %s",
 				mailbox_get_vname(box),
-				mailbox_get_last_error(box, error_r));
+				mailbox_get_last_internal_error(box, error_r));
 			return -1;
 		}
 		/* verify that the update worked */
@@ -86,7 +86,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 					 &metadata) < 0) {
 			i_error("Can't get mailbox GUID %s: %s",
 				mailbox_get_vname(box),
-				mailbox_get_last_error(box, error_r));
+				mailbox_get_last_internal_error(box, error_r));
 			return -1;
 		}
 		if (memcmp(mailbox_guid, metadata.guid,
@@ -209,7 +209,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		break;
 	}
 	if (ret < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_EXISTS ||
 		    error == MAIL_ERROR_NOTFOUND) {
 			/* mailbox was already created or was already deleted.

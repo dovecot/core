@@ -166,7 +166,7 @@ static const char *push_notification_driver_ox_get_metadata
                                     OX_METADATA_KEY, &attr);
     if (ret < 0) {
         i_error(OX_LOG_LABEL "Skipped because unable to get attribute: %s",
-                mailbox_get_last_error(inbox, NULL));
+                mailbox_get_last_internal_error(inbox, NULL));
     } else if (ret == 0) {
         push_notification_driver_debug(OX_LOG_LABEL, dtxn->ptxn->muser,
                                        "Skipped because not active (/private/"OX_METADATA_KEY" METADATA not set)");
@@ -311,7 +311,7 @@ static int push_notification_driver_ox_get_mailbox_status
     /* open and sync new instance of the same mailbox to get most recent status */
     box = mailbox_alloc(mailbox_get_namespace(mbox)->list, mailbox_get_name(mbox), MAILBOX_FLAG_READONLY);
     if (mailbox_sync(box, 0) < 0) {
-        i_error("mailbox_sync(%s) failed: %s", mailbox_get_vname(mbox), mailbox_get_last_error(box, NULL));
+        i_error("mailbox_sync(%s) failed: %s", mailbox_get_vname(mbox), mailbox_get_last_internal_error(box, NULL));
         ret = -1;
     } else {
         /* only 'unseen' is needed at the moment */

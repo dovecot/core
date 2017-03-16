@@ -153,7 +153,7 @@ mailbox_autoexpunge_set(struct mail_namespace *ns, const char *vname,
 	if (mailbox_autoexpunge(box, autoexpunge, autoexpunge_max_mails) < 0) {
 		i_error("Failed to autoexpunge mailbox '%s': %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 	}
 	mailbox_free(&box);
 }
