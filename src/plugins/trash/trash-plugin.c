@@ -35,6 +35,7 @@ struct trash_mailbox {
 struct trash_user {
 	union mail_user_module_context module_ctx;
 
+	const char *config_file;
 	/* ordered by priority, highest first */
 	ARRAY(struct trash_mailbox) trash_boxes;
 };
@@ -347,6 +348,7 @@ trash_mail_user_created(struct mail_user *user)
 		i_error("trash plugin: quota plugin not initialized");
 	} else {
 		tuser = p_new(user->pool, struct trash_user, 1);
+		tuser->config_file = env;
 		MODULE_CONTEXT_SET(user, trash_user_module, tuser);
 	}
 }
@@ -357,9 +359,8 @@ trash_mail_namespaces_created(struct mail_namespace *namespaces)
 	struct mail_user *user = namespaces->user;
 	struct trash_user *tuser = TRASH_USER_CONTEXT(user);
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
-	const char *env = mail_user_plugin_getenv(user, "trash");
 
-	if (tuser != NULL && read_configuration(user, env) == 0) {
+	if (tuser != NULL && read_configuration(user, tuser->config_file) == 0) {
 		trash_next_quota_test_alloc =
 			quser->quota->set->test_alloc;
 		quser->quota->set->test_alloc = trash_quota_test_alloc;
