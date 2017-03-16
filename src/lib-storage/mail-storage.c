@@ -452,6 +452,7 @@ void mail_storage_unref(struct mail_storage **_storage)
 	DLLIST_REMOVE(&storage->user->storages, storage);
 
 	storage->v.destroy(storage);
+	i_free(storage->last_internal_error);
 	i_free(storage->error_string);
 	if (array_is_created(&storage->error_stack)) {
 		i_assert(array_count(&storage->error_stack) == 0);
@@ -487,6 +488,8 @@ void mail_storage_clear_error(struct mail_storage *storage)
 {
 	i_free_and_null(storage->error_string);
 
+	i_free(storage->last_internal_error);
+	storage->last_error_is_internal = FALSE;
 	storage->error = MAIL_ERROR_NONE;
 }
 
@@ -497,6 +500,7 @@ void mail_storage_set_error(struct mail_storage *storage,
 		i_free(storage->error_string);
 		storage->error_string = i_strdup(string);
 	}
+	storage->last_error_is_internal = FALSE;
 	storage->error = error;
 }
 
@@ -516,14 +520,36 @@ void mail_storage_set_critical(struct mail_storage *storage,
 {
 	va_list va;
 
+	i_free(storage->last_internal_error);
 	va_start(va, fmt);
-	i_error("%s", t_strdup_vprintf(fmt, va));
+	storage->last_internal_error = i_strdup_vprintf(fmt, va);
 	va_end(va);
+	storage->last_error_is_internal = TRUE;
+	i_error("%s", storage->last_internal_error);
 
 	/* critical errors may contain sensitive data, so let user
 	   see only "Internal error" with a timestamp to make it
 	   easier to look from log files the actual error message. */
 	mail_storage_set_internal_error(storage);
+}
+
+const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
+						 enum mail_error *error_r)
+{
+	if (error_r != NULL)
+		*error_r = storage->error;
+	if (storage->last_error_is_internal) {
+		i_assert(storage->last_internal_error != NULL);
+		return storage->last_internal_error;
+	}
+	return mail_storage_get_last_error(storage, error_r);
+}
+
+const char *mailbox_get_last_internal_error(struct mailbox *box,
+					    enum mail_error *error_r)
+{
+	return mail_storage_get_last_internal_error(mailbox_get_storage(box),
+						    error_r);
 }
 
 void mail_storage_copy_error(struct mail_storage *dest,

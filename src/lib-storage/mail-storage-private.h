@@ -128,6 +128,9 @@ struct mail_storage {
 	 * uniqueness checking (via strcmp) and never used as a path. */
 	const char *unique_root_dir;
 
+	/* Last error set in mail_storage_set_critical(). */
+	char *last_internal_error;
+
 	char *error_string;
 	enum mail_error error;
 	ARRAY(struct mail_storage_error) error_stack;
@@ -152,6 +155,7 @@ struct mail_storage {
 
 	/* Failed to create shared attribute dict, don't try again */
 	bool shared_attr_dict_failed:1;
+	bool last_error_is_internal:1;
 };
 
 struct mail_attachment_part {
