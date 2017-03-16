@@ -29,8 +29,13 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 {
 	i_assert(client->common.proxy_ttl > 1);
 
-	str_printfa(str, "I ID ("
-		    "\"x-session-id\" \"%s\" "
+	str_append(str, "I ID (");
+	if (client->common.client_id != NULL &&
+	    str_len(client->common.client_id) > 0) {
+		str_append_str(str, client->common.client_id);
+		str_append_c(str, ' ');
+	}
+	str_printfa(str, "\"x-session-id\" \"%s\" "
 		    "\"x-originating-ip\" \"%s\" "
 		    "\"x-originating-port\" \"%u\" "
 		    "\"x-connected-ip\" \"%s\" "
