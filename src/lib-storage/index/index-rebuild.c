@@ -98,7 +98,7 @@ index_rebuild_header(struct index_rebuild_context *ctx,
 	struct mail_index *index = mail_index_view_get_index(ctx->view);
 	struct mail_index_modseq_header modseq_hdr;
 	struct mail_index_view *trans_view;
-	uint32_t uid_validity, next_uid;
+	uint32_t uid_validity, next_uid, first_recent_uid;
 	uint64_t modseq;
 
 	hdr = mail_index_get_header(ctx->view);
@@ -130,6 +130,17 @@ index_rebuild_header(struct index_rebuild_context *ctx,
 			offsetof(struct mail_index_header, next_uid),
 			&next_uid, sizeof(next_uid), FALSE);
 	}
+
+	/* set first_recent_uid */
+	first_recent_uid = hdr->first_recent_uid;
+	if (backup_hdr != NULL &&
+	    backup_hdr->first_recent_uid > first_recent_uid &&
+	    backup_hdr->first_recent_uid <= next_uid)
+		first_recent_uid = backup_hdr->first_recent_uid;
+	first_recent_uid = I_MIN(first_recent_uid, next_uid);
+	mail_index_update_header(ctx->trans,
+		offsetof(struct mail_index_header, first_recent_uid),
+		&first_recent_uid, sizeof(first_recent_uid), FALSE);
 
 	/* set highest-modseq */
 	i_zero(&modseq_hdr);
