@@ -473,7 +473,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			return 0;
 		i_error("Failed to read mailbox %s mail UID=%u stream: %s",
 			mailbox_get_vname(mail->box), mail->uid,
-			mailbox_get_last_error(mail->box, NULL));
+			mailbox_get_last_internal_error(mail->box, NULL));
 		return -1;
 	}
 

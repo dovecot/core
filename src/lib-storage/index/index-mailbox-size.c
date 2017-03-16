@@ -440,7 +440,7 @@ int index_mailbox_get_physical_size(struct mailbox *box,
 			const char *errstr;
 			enum mail_error error;
 
-			errstr = mailbox_get_last_error(box, &error);
+			errstr = mailbox_get_last_internal_error(box, &error);
 			if (error != MAIL_ERROR_EXPUNGED) {
 				i_error("Couldn't get size of mail UID %u in %s: %s",
 					mail->uid, box->vname, errstr);
@@ -451,7 +451,7 @@ int index_mailbox_get_physical_size(struct mailbox *box,
 	}
 	if (mailbox_search_deinit(&ctx) < 0) {
 		i_error("Listing mails in %s failed: %s",
-			box->vname, mailbox_get_last_error(box, NULL));
+			box->vname, mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	(void)mailbox_transaction_commit(&trans);

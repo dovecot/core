@@ -50,7 +50,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 					MAILBOX_METADATA_PHYSICAL_SIZE,
 					&metadata) < 0 ||
 	    mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_TEMP) {
 			i_error("quota: Couldn't get size of mailbox %s: %s",
 				vname, errstr);
@@ -252,7 +252,7 @@ static int quota_count_recalculate_box(struct mailbox *box)
 	enum mail_error error;
 
 	if (mailbox_open(box) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_TEMP) {
 			/* non-temporary error, e.g. ACLs denied access. */
 			return 0;
@@ -273,13 +273,13 @@ static int quota_count_recalculate_box(struct mailbox *box)
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_VIRTUAL_SIZE,
 				 &metadata) < 0) {
 		i_error("Couldn't get mailbox %s vsize: %s", box->vname,
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 	/* call sync to write the change to mailbox list index */
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0) {
 		i_error("Couldn't sync mailbox %s: %s", box->vname,
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 	return 0;

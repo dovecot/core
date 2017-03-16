@@ -33,7 +33,7 @@ cmd_flags_run_box(struct flags_cmd_context *ctx,
 	if (ctx->keywords != NULL) {
 		if (mailbox_keywords_create(box, ctx->keywords, &kw) < 0) {
 			i_error("Invalid keywords: %s",
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL));
 			(void)doveadm_mail_iter_deinit(&iter);
 			ctx->ctx.exit_code = DOVEADM_EX_NOTPOSSIBLE;
 			return -1;

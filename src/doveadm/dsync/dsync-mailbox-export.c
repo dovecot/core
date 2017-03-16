@@ -73,7 +73,7 @@ static int dsync_mail_error(struct dsync_mailbox_exporter *exporter,
 	const char *errstr;
 	enum mail_error error;
 
-	errstr = mailbox_get_last_error(exporter->box, &error);
+	errstr = mailbox_get_last_internal_error(exporter->box, &error);
 	if (error == MAIL_ERROR_EXPUNGED)
 		return 0;
 
@@ -423,8 +423,8 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 	    exporter->error == NULL) {
 		exporter->error = p_strdup_printf(exporter->pool,
 			"Mail search failed: %s",
-			mailbox_get_last_error(exporter->box,
-					       &exporter->mail_error));
+			mailbox_get_last_internal_error(exporter->box,
+							&exporter->mail_error));
 	}
 }
 
@@ -561,8 +561,8 @@ dsync_mailbox_export_iter_next_nonexistent_attr(struct dsync_mailbox_exporter *e
 						 attr->key, &value) < 0) {
 			exporter->error = p_strdup_printf(exporter->pool,
 				"Mailbox attribute %s lookup failed: %s", attr->key,
-				mailbox_get_last_error(exporter->box,
-						       &exporter->mail_error));
+				mailbox_get_last_internal_error(exporter->box,
+								&exporter->mail_error));
 			break;
 		}
 		if ((value.flags & MAIL_ATTRIBUTE_VALUE_FLAG_READONLY) != 0) {
@@ -614,8 +614,8 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 						 &value) < 0) {
 			exporter->error = p_strdup_printf(exporter->pool,
 				"Mailbox attribute %s lookup failed: %s", key,
-				mailbox_get_last_error(exporter->box,
-						       &exporter->mail_error));
+				mailbox_get_last_internal_error(exporter->box,
+								&exporter->mail_error));
 			return -1;
 		}
 		if ((value.flags & MAIL_ATTRIBUTE_VALUE_FLAG_READONLY) != 0) {
@@ -658,8 +658,8 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 	if (mailbox_attribute_iter_deinit(&exporter->attr_iter) < 0) {
 		exporter->error = p_strdup_printf(exporter->pool,
 			"Mailbox attribute iteration failed: %s",
-			mailbox_get_last_error(exporter->box,
-					       &exporter->mail_error));
+			mailbox_get_last_internal_error(exporter->box,
+							&exporter->mail_error));
 		return -1;
 	}
 	if (exporter->attr_type == MAIL_ATTRIBUTE_TYPE_PRIVATE) {
@@ -800,8 +800,8 @@ dsync_mailbox_export_body_search_deinit(struct dsync_mailbox_exporter *exporter)
 	    exporter->error == NULL) {
 		exporter->error = p_strdup_printf(exporter->pool,
 			"Mail search failed: %s",
-			mailbox_get_last_error(exporter->box,
-					       &exporter->mail_error));
+			mailbox_get_last_internal_error(exporter->box,
+							&exporter->mail_error));
 	}
 }
 

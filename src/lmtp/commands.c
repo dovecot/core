@@ -1004,7 +1004,7 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 				     (time_t)-1, client->state.mail_from,
 				     &box) < 0) {
 		i_error("Can't open delivery mail as raw: %s",
-			mailbox_get_last_error(box, &error));
+			mailbox_get_last_internal_error(box, &error));
 		mailbox_free(&box);
 		client_rcpt_fail_all(client);
 		return -1;

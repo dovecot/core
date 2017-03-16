@@ -70,13 +70,15 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
 				 &metadata) < 0) {
 		i_error("Mailbox %s: Precache-fields lookup failed: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
 			       &status) < 0) {
 		i_error("Mailbox %s: Status lookup failed: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 	seq = status.last_cached_seq + 1;
@@ -108,12 +110,14 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	}
 	if (mailbox_search_deinit(&ctx) < 0) {
 		i_error("Mailbox %s: Mail search failed: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	if (mailbox_transaction_commit(&trans) < 0) {
 		i_error("Mailbox %s: Transaction commit failed: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	if (ret == 0) {
@@ -141,7 +145,7 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
 	if (ret < 0) {
 		i_error("Getting path to mailbox %s failed: %s",
-			mailbox, mailbox_get_last_error(box, NULL));
+			mailbox, mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return -1;
 	}
@@ -158,7 +162,7 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		   while with large maildirs. */
 		if (mailbox_open(box) < 0) {
 			i_error("Opening mailbox %s failed: %s", mailbox,
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL));
 			ret = -1;
 		} else {
 			mailbox_get_open_status(box, STATUS_RECENT, &status);
@@ -173,7 +177,7 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		sync_flags |= MAILBOX_SYNC_FLAG_OPTIMIZE;
 
 	if (mailbox_sync(box, sync_flags) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_NOTFOUND) {
 			i_error("Syncing mailbox %s failed: %s",
 				mailbox, errstr);

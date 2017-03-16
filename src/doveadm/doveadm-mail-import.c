@@ -64,7 +64,7 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY);
 	if (mailbox_create(box, NULL, FALSE) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
 			i_error("Couldn't create mailbox %s: %s", name, errstr);
 			doveadm_mail_failed_mailbox(&ctx->ctx, box);
@@ -75,12 +75,12 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 	if (ctx->subscribe) {
 		if (mailbox_set_subscribed(box, TRUE) < 0) {
 			i_error("Couldn't subscribe to mailbox %s: %s",
-				name, mailbox_get_last_error(box, NULL));
+				name, mailbox_get_last_internal_error(box, NULL));
 		}
 	}
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Syncing mailbox %s failed: %s", name,
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		mailbox_free(&box);
 		return -1;
@@ -110,14 +110,14 @@ cmd_import_box_contents(struct doveadm_mail_iter *iter, struct mail *src_mail,
 		if (mailbox_copy(&save_ctx, src_mail) < 0) {
 			i_error("Copying box=%s uid=%u failed: %s",
 				mailbox, src_mail->uid,
-				mailbox_get_last_error(dest_box, NULL));
+				mailbox_get_last_internal_error(dest_box, NULL));
 			ret = -1;
 		}
 	} while (doveadm_mail_iter_next(iter, &src_mail));
 
 	if (mailbox_transaction_commit(&dest_trans) < 0) {
 		i_error("Committing copied mails to %s failed: %s", mailbox,
-			mailbox_get_last_error(dest_box, NULL));
+			mailbox_get_last_internal_error(dest_box, NULL));
 		ret = -1;
 	}
 	return ret;

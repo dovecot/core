@@ -52,7 +52,7 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 			i_error("%s message UID %u from '%s' failed: %s",
 				ctx->move ? "Moving" : "Copying",
 				mail->uid, info->vname,
-				mailbox_get_last_error(destbox, NULL));
+				mailbox_get_last_internal_error(destbox, NULL));
 			doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
 			ret = -1;
 		}
@@ -61,7 +61,7 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 	if (mailbox_transaction_commit(&desttrans) < 0) {
 		i_error("Committing %s mails failed: %s",
 			ctx->move ? "moved" : "copied",
-			mailbox_get_last_error(destbox, NULL));
+			mailbox_get_last_internal_error(destbox, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
 		/* rollback expunges */
 		doveadm_mail_iter_deinit_rollback(&iter);
@@ -110,7 +110,7 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	destbox = mailbox_alloc(ns->list, ctx->destname, MAILBOX_FLAG_SAVEONLY);
 	if (mailbox_open(destbox) < 0) {
 		i_error("Can't open mailbox '%s': %s", ctx->destname,
-			mailbox_get_last_error(destbox, NULL));
+			mailbox_get_last_internal_error(destbox, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
 		mailbox_free(&destbox);
 		return -1;
@@ -128,7 +128,7 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	if (mailbox_sync(destbox, 0) < 0) {
 		i_error("Syncing mailbox '%s' failed: %s", ctx->destname,
-			mailbox_get_last_error(destbox, NULL));
+			mailbox_get_last_internal_error(destbox, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, destbox);
 		ret = -1;
 	}

@@ -244,14 +244,14 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 		box = mailbox_alloc(ns->list, name, 0);
 		if (mailbox_create(box, &ctx->update, directory) < 0) {
 			i_error("Can't create mailbox %s: %s", name,
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL));
 			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
 		}
 		if (ctx->ctx.subscriptions) {
 			if (mailbox_set_subscribed(box, TRUE) < 0) {
 				i_error("Can't subscribe to mailbox %s: %s", name,
-					mailbox_get_last_error(box, NULL));
+					mailbox_get_last_internal_error(box, NULL));
 				doveadm_mail_failed_mailbox(_ctx, box);
 				ret = -1;
 			}
@@ -377,14 +377,14 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 			mailbox_delete(box);
 		if (ret2 < 0) {
 			i_error("Can't delete mailbox %s: %s", name,
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL));
 			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
 		}
 		if (ctx->ctx.subscriptions) {
 			if (mailbox_set_subscribed(box, FALSE) < 0) {
 				i_error("Can't unsubscribe mailbox %s: %s", name,
-					mail_storage_get_last_error(storage, NULL));
+					mail_storage_get_last_internal_error(storage, NULL));
 				doveadm_mail_failed_mailbox(_ctx, box);
 				ret = -1;
 			}
@@ -466,20 +466,20 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 	newbox = mailbox_alloc(newns->list, newname, 0);
 	if (mailbox_rename(oldbox, newbox) < 0) {
 		i_error("Can't rename mailbox %s to %s: %s", oldname, newname,
-			mailbox_get_last_error(oldbox, NULL));
+			mailbox_get_last_internal_error(oldbox, NULL));
 		doveadm_mail_failed_mailbox(_ctx, oldbox);
 		ret = -1;
 	}
 	if (ctx->ctx.subscriptions) {
 		if (mailbox_set_subscribed(oldbox, FALSE) < 0) {
 			i_error("Can't unsubscribe mailbox %s: %s", ctx->oldname,
-				mailbox_get_last_error(oldbox, NULL));
+				mailbox_get_last_internal_error(oldbox, NULL));
 			doveadm_mail_failed_mailbox(_ctx, oldbox);
 			ret = -1;
 		}
 		if (mailbox_set_subscribed(newbox, TRUE) < 0) {
 			i_error("Can't subscribe to mailbox %s: %s", ctx->newname,
-				mailbox_get_last_error(newbox, NULL));
+				mailbox_get_last_internal_error(newbox, NULL));
 			doveadm_mail_failed_mailbox(_ctx, newbox);
 			ret = -1;
 		}
@@ -532,7 +532,7 @@ cmd_mailbox_subscribe_run(struct doveadm_mail_cmd_context *_ctx,
 			i_error("Can't %s mailbox %s: %s", name,
 				ctx->ctx.subscriptions ? "subscribe to" :
 				"unsubscribe",
-				mailbox_get_last_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL));
 			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
 		}
@@ -659,7 +659,7 @@ int cmd_mailbox_update_run(struct doveadm_mail_cmd_context *_ctx,
 	if ((ret = mailbox_update(box, &(ctx->update))) != 0) {
 		i_error("Cannot update %s: %s",
 			ctx->mailbox,
-			mailbox_get_last_error(box, &mail_error));
+			mailbox_get_last_internal_error(box, &mail_error));
 		doveadm_mail_failed_error(_ctx, mail_error);
 	}
 

@@ -611,7 +611,7 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 		if (mail_get_special(mail, MAIL_FETCH_HEADER_MD5,
 				     &tab[2].value) < 0) {
 			i_error("UIDL: Header MD5 lookup failed: %s",
-				mailbox_get_last_error(mail->box, NULL));
+				mailbox_get_last_internal_error(mail->box, NULL));
 			return -1;
 		} else if (*tab[2].value == '\0') {
 			i_error("UIDL: Header MD5 not found "
@@ -623,7 +623,7 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 		if (mail_get_special(mail, MAIL_FETCH_STORAGE_ID,
 				     &tab[3].value) < 0) {
 			i_error("UIDL: File name lookup failed: %s",
-				mailbox_get_last_error(mail->box, NULL));
+				mailbox_get_last_internal_error(mail->box, NULL));
 			return -1;
 		} else if (*tab[3].value == '\0') {
 			i_error("UIDL: File name not found "
@@ -635,7 +635,7 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 		if (mail_get_special(mail, MAIL_FETCH_GUID,
 				     &tab[4].value) < 0) {
 			i_error("UIDL: Message GUID lookup failed: %s",
-				mailbox_get_last_error(mail->box, NULL));
+				mailbox_get_last_internal_error(mail->box, NULL));
 			return -1;
 		} else if (*tab[4].value == '\0') {
 			i_error("UIDL: Message GUID not found "

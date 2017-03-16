@@ -184,7 +184,7 @@ imap_state_export_mailbox_mails(buffer_t *dest, struct mailbox *box,
 			seq_range_array_add(&recent_uids, mail->uid);
 	}
 	if (mailbox_search_deinit(&search_ctx) < 0) {
-		*error_r = mailbox_get_last_error(box, NULL);
+		*error_r = mailbox_get_last_internal_error(box, NULL);
 		ret = -1;
 	}
 	(void)mailbox_transaction_commit(&trans);
@@ -224,7 +224,7 @@ imap_state_export_mailbox(buffer_t *dest, struct client *client,
 	}
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		*error_r = mailbox_get_last_error(box, &mail_error);
+		*error_r = mailbox_get_last_internal_error(box, &mail_error);
 		/* if the selected mailbox can't have a GUID, fail silently */
 		return mail_error == MAIL_ERROR_NOTPOSSIBLE ? 0 : -1;
 	}
@@ -399,7 +399,7 @@ import_send_expunges(struct client *client,
 	}
 
 	if (mailbox_search_deinit(&search_ctx) < 0) {
-		*error_r = mailbox_get_last_error(client->mailbox, NULL);
+		*error_r = mailbox_get_last_internal_error(client->mailbox, NULL);
 		ret = -1;
 	} else if (seq != state->messages) {
 		*error_r = t_strdup_printf("Message count mismatch after "
@@ -575,7 +575,7 @@ import_state_mailbox_open(struct client *client,
 	box = mailbox_alloc(ns->list, state->vname, flags);
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("Couldn't open mailbox: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return -1;
 	}
@@ -584,13 +584,13 @@ import_state_mailbox_open(struct client *client,
 		ret = mailbox_enable(box, client->enabled_features);
 	if (ret < 0 || mailbox_sync(box, 0) < 0) {
 		*error_r = t_strdup_printf("Couldn't sync mailbox: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return -1;
 	}
 	/* verify that this still looks like the same mailbox */
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		*error_r = mailbox_get_last_error(box, NULL);
+		*error_r = mailbox_get_last_internal_error(box, NULL);
 		mailbox_free(&box);
 		return -1;
 	}
