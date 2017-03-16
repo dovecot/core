@@ -28,6 +28,8 @@ bool auth_fields_exists(struct auth_fields *fields, const char *key);
 
 void auth_fields_import(struct auth_fields *fields, const char *str,
 			enum auth_field_flags flags);
+void auth_fields_import_prefixed(struct auth_fields *fields, const char *prefix,
+				 const char *str, enum auth_field_flags flags);
 const ARRAY_TYPE(auth_field) *auth_fields_export(struct auth_fields *fields);
 /* Append fields where (flag & flags_mask) == flags_result. */
 void auth_fields_append(struct auth_fields *fields, string_t *dest,

@@ -114,8 +114,8 @@ void auth_fields_reset(struct auth_fields *fields)
 	}
 }
 
-void auth_fields_import(struct auth_fields *fields, const char *str,
-			enum auth_field_flags flags)
+void auth_fields_import_prefixed(struct auth_fields *fields, const char *prefix,
+				 const char *str, enum auth_field_flags flags)
 {
 	T_BEGIN {
 		const char *const *arg = t_strsplit_tab(str);
@@ -128,10 +128,18 @@ void auth_fields_import(struct auth_fields *fields, const char *str,
 				value = NULL;
 			} else {
 				key = t_strdup_until(*arg, value++);
+				if (*prefix != '\0')
+					key = t_strconcat(prefix, key, NULL);
 			}
 			auth_fields_add(fields, key, value, flags);
 		}
 	} T_END;
+}
+
+void auth_fields_import(struct auth_fields *fields, const char *str,
+			enum auth_field_flags flags)
+{
+	auth_fields_import_prefixed(fields, "", str, flags);
 }
 
 const ARRAY_TYPE(auth_field) *auth_fields_export(struct auth_fields *fields)
