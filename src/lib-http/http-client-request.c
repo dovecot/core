@@ -1217,6 +1217,8 @@ void http_client_request_error(struct http_client_request **_req,
 {
 	struct http_client_request *req = *_req;
 
+	*_req = NULL;
+
 	i_assert(req->state < HTTP_REQUEST_STATE_FINISHED);
 	req->state = HTTP_REQUEST_STATE_ABORTED;
 
@@ -1236,7 +1238,6 @@ void http_client_request_error(struct http_client_request **_req,
 		if (http_client_request_send_error(req, status, error))
 			http_client_request_destroy(&req);
 	}
-	*_req = NULL;
 }
 
 void http_client_request_abort(struct http_client_request **_req)
