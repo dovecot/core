@@ -84,6 +84,74 @@ static void test_run_client_server(
 	ATTR_NULL(3);
 
 /*
+ * Unconfigured SSL
+ */
+
+/* client */
+
+struct _unconfigured_ssl {
+	unsigned int count;
+};
+
+static void
+test_client_unconfigured_ssl_response(
+	const struct http_response *resp,
+	struct _unconfigured_ssl *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static bool
+test_client_unconfigured_ssl(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _unconfigured_ssl *ctx;
+
+	ctx = i_new(struct _unconfigured_ssl, 1);
+	ctx->count = 2;
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", "127.0.0.1", "/unconfigured-ssl.txt",
+		test_client_unconfigured_ssl_response, ctx);
+	http_client_request_set_ssl(hreq, TRUE);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", "127.0.0.1", "/unconfigured-ssl2.txt",
+		test_client_unconfigured_ssl_response, ctx);
+	http_client_request_set_ssl(hreq, TRUE);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_unconfigured_ssl(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+
+	test_begin("unconfigured ssl");
+	test_run_client_server(&http_client_set,
+		test_client_unconfigured_ssl,
+		NULL, 0, NULL);
+	test_end();
+}
+
+/*
  * Host lookup failed
  */
 
@@ -2610,6 +2678,7 @@ static void test_reconnect_failure(void)
  */
 
 static void (*const test_functions[])(void) = {
+	test_unconfigured_ssl,
 	test_host_lookup_failed,
 	test_connection_refused,
 	test_connection_lost_prematurely,
