@@ -2525,7 +2525,7 @@ test_client_reconnect_failure_response2(
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
-	test_assert(resp->status == 9002);
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
 	test_assert(resp->reason != NULL && *resp->reason != '\0');
 
 	io_loop_stop(ioloop);
