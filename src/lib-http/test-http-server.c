@@ -41,7 +41,7 @@ client_handle_request(struct client *client, struct http_request *request)
 	str_append(str, "Content-Type: text/plain\r\n");
 	str_append(str, "\r\n");
 	str_append(str, request->target_raw);
-	o_stream_send(client->conn.output, str_data(str), str_len(str));
+	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 	return 0;
 }
 
