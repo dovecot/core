@@ -131,6 +131,39 @@ http_client_request_url(struct http_client *client,
 	return req;
 }
 
+#undef http_client_request_url_str
+struct http_client_request *
+http_client_request_url_str(struct http_client *client,
+		    const char *method, const char *url_str,
+		    http_client_request_callback_t *callback, void *context)
+{
+	struct http_client_request *req, *tmpreq;
+	struct http_url *target_url;
+	const char *error;
+
+	req = tmpreq = http_client_request_new
+		(client, method, callback, context);
+
+	if (http_url_parse(url_str, NULL, HTTP_URL_ALLOW_USERINFO_PART,
+		req->pool, &target_url, &error) < 0) {
+		req->label = p_strdup_printf(req->pool,
+			"[Req%u: %s %s]", req->id, req->method, url_str);
+		http_client_request_error(&tmpreq,
+			HTTP_CLIENT_REQUEST_ERROR_INVALID_URL,
+			t_strdup_printf("Invalid HTTP URL: %s", error));
+		return req;
+	}
+
+	req->origin_url = *target_url;
+	req->target = p_strdup(req->pool, http_url_create_target(target_url));
+	if (target_url->user != NULL && *target_url->user != '\0' &&
+		target_url->password != NULL) {
+		req->username = p_strdup(req->pool, target_url->user);
+		req->password = p_strdup(req->pool, target_url->password);
+	}
+	return req;
+}
+
 #undef http_client_request_connect
 struct http_client_request *
 http_client_request_connect(struct http_client *client,
@@ -580,6 +613,8 @@ static void http_client_request_do_submit(struct http_client_request *req)
 		(req->host_socket != NULL) || (req->host_url != NULL);
 	const char *authority, *target;
 
+	if (req->state == HTTP_REQUEST_STATE_ABORTED)
+		return;
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
 
 	authority = http_url_create_authority(&req->origin_url);
