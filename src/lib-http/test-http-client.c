@@ -27,7 +27,8 @@ static void payload_input(struct http_test_request *req)
 	while ((ret=i_stream_read_more(req->payload, &data, &size)) > 0) {
 		i_info("DEBUG: got data (size=%d)", (int)size); 
 		if (req->write_output)
-			write_full(1, data, size);
+			if (write_full(1, data, size) < 0)
+				i_error("REQUEST PAYLOAD WRITE ERROR: %m");
 		i_stream_skip(req->payload, size);
 	}
 
