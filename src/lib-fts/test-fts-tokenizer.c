@@ -490,7 +490,7 @@ static void test_fts_tokenizer_random(void)
 		for (unsigned int j = 0; j < sizeof(addr); j++)
 			addr[j] = test_chars[rand() % N_ELEMENTS(test_chars)];
 		str_truncate(str, 0);
-		uni_utf8_get_valid_data(addr, sizeof(addr), str);
+		(void)uni_utf8_get_valid_data(addr, sizeof(addr), str);
 		while (fts_tokenizer_next(tok, str_data(str), str_len(str),
 					  &token, &error) > 0) ;
 		while (fts_tokenizer_final(tok, &token, &error) > 0) ;
