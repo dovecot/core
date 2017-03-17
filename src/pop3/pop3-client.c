@@ -353,7 +353,7 @@ static int pop3_lock_session(struct client *client)
 	}
 	if (mailbox_list_mkdir_root(client->inbox_ns->list, dir, type) < 0) {
 		i_error("pop3_lock_session: Couldn't create root directory %s: %s",
-			dir, mailbox_list_get_last_error(client->inbox_ns->list, NULL));
+			dir, mailbox_list_get_last_internal_error(client->inbox_ns->list, NULL));
 		return -1;
 	}
 	path = t_strdup_printf("%s/"POP3_LOCK_FNAME, dir);

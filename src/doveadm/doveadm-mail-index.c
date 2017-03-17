@@ -206,7 +206,7 @@ cmd_index_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Listing mailboxes failed: %s",
-			mailbox_list_get_last_error(user->namespaces->list, NULL));
+			mailbox_list_get_last_internal_error(user->namespaces->list, NULL));
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
 		ret = -1;
 	}

@@ -148,7 +148,7 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		if (mailbox_list_delete_dir(change->ns->list, storage_name) == 0)
 			return 0;
 
-		errstr = mailbox_list_get_last_error(change->ns->list, &error);
+		errstr = mailbox_list_get_last_internal_error(change->ns->list, &error);
 		if (error == MAIL_ERROR_NOTFOUND ||
 		    error == MAIL_ERROR_EXISTS) {
 			dsync_brain_set_changes_during_sync(brain, t_strdup_printf(

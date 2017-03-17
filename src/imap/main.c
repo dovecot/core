@@ -240,7 +240,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	   imapc. */
 	ns = mail_namespace_find_inbox(mail_user->namespaces);
 	(void)mailbox_list_get_hierarchy_sep(ns->list);
-	errstr = mailbox_list_get_last_error(ns->list, &mail_error);
+	errstr = mailbox_list_get_last_internal_error(ns->list, &mail_error);
 	if (mail_error != MAIL_ERROR_NONE) {
 		*error_r = t_strdup(errstr);
 		mail_user_unref(&mail_user);

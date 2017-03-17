@@ -177,7 +177,7 @@ mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
 	} T_END;
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Failed to iterate autoexpunge mailboxes '%s': %s",
-			iter_name, mailbox_list_get_last_error(ns->list, NULL));
+			iter_name, mailbox_list_get_last_internal_error(ns->list, NULL));
 	}
 }
 

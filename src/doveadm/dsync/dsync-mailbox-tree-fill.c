@@ -361,7 +361,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	} T_END;
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Mailbox listing for namespace '%s' failed: %s",
-			ns->prefix, mailbox_list_get_last_error(ns->list, error_r));
+			ns->prefix, mailbox_list_get_last_internal_error(ns->list, error_r));
 		ret = -1;
 	}
 
@@ -377,7 +377,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Mailbox listing for namespace '%s' failed: %s",
-			ns->prefix, mailbox_list_get_last_error(ns->list, error_r));
+			ns->prefix, mailbox_list_get_last_internal_error(ns->list, error_r));
 		ret = -1;
 	}
 	if (ret < 0)

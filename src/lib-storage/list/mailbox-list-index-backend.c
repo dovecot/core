@@ -54,7 +54,7 @@ static int index_list_init(struct mailbox_list *_list, const char **error_r)
 	if (mailbox_list_get_root_path(_list, MAILBOX_LIST_PATH_TYPE_INDEX, &dir) &&
 	    mailbox_list_mkdir_root(_list, dir, MAILBOX_LIST_PATH_TYPE_INDEX) < 0) {
 		*error_r = t_strdup_printf("Failed to create the index root directory: %s",
-					   mailbox_list_get_last_error(_list, NULL));
+					   mailbox_list_get_last_internal_error(_list, NULL));
 		return -1;
 	}
 	return 0;
