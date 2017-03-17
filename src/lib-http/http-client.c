@@ -316,11 +316,11 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 static void
 http_client_handle_request_errors(struct http_client *client)
 {		
+	struct http_client_request *const *req_idx;
+
 	timeout_remove(&client->to_failing_requests);
 
-	while (array_count(&client->delayed_failing_requests) > 0) {
-		struct http_client_request *const *req_idx =
-			array_idx(&client->delayed_failing_requests, 0);
+	array_foreach(&client->delayed_failing_requests, req_idx) {
 		struct http_client_request *req = *req_idx;
 
 		i_assert(req->refcount == 1);
