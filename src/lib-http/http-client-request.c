@@ -65,8 +65,8 @@ http_client_request_label(struct http_client_request *req)
 {
 	if (req->label == NULL) {
 		req->label = p_strdup_printf(req->pool,
-			"[Req%u: %s %s%s]", req->id,
-			req->method, http_url_create(&req->origin_url), req->target);
+			"[Req%u: %s %s%s]", req->id, req->method,
+			http_url_create_host(&req->origin_url), req->target);
 	}
 	return req->label;
 }
