@@ -588,6 +588,11 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 		if (error == MAIL_ERROR_NOQUOTA) {
 			client_send_line_overquota(client, rcpt, errstr);
 			ret = 1;
+		} else {
+			i_error("mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
+				"failed: %s",
+				mailbox_get_vname(box),
+				mailbox_get_last_internal_error(box, NULL));
 		}
 	}
 	mailbox_free(&box);
