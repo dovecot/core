@@ -133,6 +133,8 @@ struct http_client_settings {
 enum http_client_request_error {
 	/* The request was aborted */
 	HTTP_CLIENT_REQUEST_ERROR_ABORTED = HTTP_RESPONSE_STATUS_INTERNAL,
+	/* Failed to parse HTTP target url */
+	HTTP_CLIENT_REQUEST_ERROR_INVALID_URL,
 	/* Failed to perform DNS lookup for the host */
 	HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED,
 	/* Failed to setup any connection for the host and client settings allowed
@@ -204,6 +206,15 @@ http_client_request_url(struct http_client *client,
 		    http_client_request_callback_t *callback, void *context);
 #define http_client_request_url(client, method, target_url, callback, context) \
 	http_client_request_url(client, method, target_url + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct http_response *response, typeof(context))), \
+		(http_client_request_callback_t *)callback, context)
+struct http_client_request *
+http_client_request_url_str(struct http_client *client,
+		    const char *method, const char *url_str,
+		    http_client_request_callback_t *callback, void *context);
+#define http_client_request_url_str(client, method, url_str, callback, context) \
+	http_client_request_url_str(client, method, url_str + \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct http_response *response, typeof(context))), \
 		(http_client_request_callback_t *)callback, context)

@@ -152,6 +152,72 @@ static void test_unconfigured_ssl(void)
 }
 
 /*
+ * Invalid URL
+ */
+
+/* client */
+
+struct _invalid_url {
+	unsigned int count;
+};
+
+static void
+test_client_invalid_url_response(
+	const struct http_response *resp,
+	struct _invalid_url *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_INVALID_URL);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static bool
+test_client_invalid_url(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _invalid_url *ctx;
+
+	ctx = i_new(struct _invalid_url, 1);
+	ctx->count = 2;
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request_url_str(http_client,
+		"GET", "imap://example.com/INBOX",
+		test_client_invalid_url_response, ctx);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request_url_str(http_client,
+		"GET", "http:/www.example.com",
+		test_client_invalid_url_response, ctx);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_invalid_url(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+
+	test_begin("invalid url");
+	test_run_client_server(&http_client_set,
+		test_client_invalid_url,
+		NULL, 0, NULL);
+	test_end();
+}
+
+/*
  * Host lookup failed
  */
 
@@ -2679,6 +2745,7 @@ static void test_reconnect_failure(void)
 
 static void (*test_functions[])(void) = {
 	test_unconfigured_ssl,
+	test_invalid_url,
 	test_host_lookup_failed,
 	test_connection_refused,
 	test_connection_lost_prematurely,
