@@ -94,7 +94,7 @@ quota_mailbox_iter_deinit(struct quota_mailbox_iter **_iter)
 		if (mailbox_list_iter_deinit(&iter->iter) < 0) {
 			i_error("quota: Listing namespace '%s' failed: %s",
 				iter->ns->prefix,
-				mailbox_list_get_last_error(iter->ns->list, NULL));
+				mailbox_list_get_last_internal_error(iter->ns->list, NULL));
 			ret = -1;
 		}
 	}
@@ -130,7 +130,7 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 	if (mailbox_list_iter_deinit(&iter->iter) < 0) {
 		i_error("quota: Listing namespace '%s' failed: %s",
 			iter->ns->prefix,
-			mailbox_list_get_last_error(iter->ns->list, NULL));
+			mailbox_list_get_last_internal_error(iter->ns->list, NULL));
 		iter->failed = TRUE;
 	}
 	if (iter->ns->prefix_len > 0 &&

@@ -439,7 +439,7 @@ static int virtual_config_expand_wildcards(struct virtual_parse_context *ctx,
 	for (i = 0; i < count; i++)
 		mail_search_args_unref(&wboxes[i]->search_args);
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		*error_r = mailbox_list_get_last_error(user->namespaces->list, NULL);
+		*error_r = mailbox_list_get_last_internal_error(user->namespaces->list, NULL);
 		return -1;
 	}
 	return ret < 0 ? -1 : 0;

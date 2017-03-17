@@ -741,7 +741,7 @@ cmd_mailbox_path_run(struct doveadm_mail_cmd_context *_ctx,
 	if (ret < 0) {
 		i_error("Failed to lookup mailbox %s path: %s",
 			ctx->mailbox,
-			mailbox_list_get_last_error(ns->list, &mail_error));
+			mailbox_list_get_last_internal_error(ns->list, &mail_error));
 		doveadm_mail_failed_error(_ctx, mail_error);
 	} else if (ret > 0) {
 		doveadm_print(path);

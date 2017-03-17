@@ -165,7 +165,7 @@ int imap_urlauth_backend_reset_all_keys(struct mail_user *user)
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("urlauth key reset: Couldn't iterate mailboxes: %s",
-			mailbox_list_get_last_error(user->namespaces->list, NULL));
+			mailbox_list_get_last_internal_error(user->namespaces->list, NULL));
 		ret = -1;
 	}
 	return ret;
