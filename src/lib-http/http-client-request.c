@@ -1192,15 +1192,18 @@ http_client_request_send_error(struct http_client_request *req,
 void http_client_request_error_delayed(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
+	const char *error = req->delayed_error;
+	unsigned int status = req->delayed_error_status;
 	bool destroy;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	*_req = NULL;
+	req->delayed_error = NULL;
+	req->delayed_error_status = 0;
 
-	i_assert(req->delayed_error != NULL && req->delayed_error_status != 0);
-	destroy = http_client_request_send_error(req, req->delayed_error_status,
-				       req->delayed_error);
+	i_assert(error != NULL && status != 0);
+	destroy = http_client_request_send_error(req, status, error);
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
 	if (destroy)
@@ -1214,6 +1217,7 @@ void http_client_request_error(struct http_client_request **_req,
 
 	*_req = NULL;
 
+	i_assert(req->delayed_error_status == 0);
 	i_assert(req->state < HTTP_REQUEST_STATE_FINISHED);
 	req->state = HTTP_REQUEST_STATE_ABORTED;
 
@@ -1225,7 +1229,6 @@ void http_client_request_error(struct http_client_request **_req,
 		/* we're still in http_client_request_submit() or in the callback
 		   during a retry attempt. delay reporting the error, so the caller
 		   doesn't have to handle immediate or nested callbacks. */
-		i_assert(req->delayed_error == NULL);
 		req->delayed_error = p_strdup(req->pool, error);
 		req->delayed_error_status = status;
 		http_client_delay_request_error(req->client, req);
