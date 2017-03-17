@@ -152,6 +152,8 @@ test_mail_index_transaction_finish_check_conflicts(unsigned int n_so_far)
 	t->max_modseq = 6;
 	MAIL_INDEX_TRANSACTION_FINISH(t, n_so_far);
 
+	i_assert(array_is_created(&conflict_seqs));
+
 	conflicts = array_get(&conflict_seqs, &count);
 	test_assert(count == 2);
 	test_assert(conflicts[0].seq1 == 6 && conflicts[0].seq2 == 6);
