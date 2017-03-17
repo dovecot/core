@@ -127,6 +127,9 @@ struct mailbox_list {
 	HASH_TABLE(uint8_t *, struct mailbox_guid_cache_rec *) guid_cache;
 	bool guid_cache_errors;
 
+	/* Last error set in mailbox_list_set_critical(). */
+	char *last_internal_error;
+
 	char *error_string;
 	enum mail_error error;
 	bool temporary_error;
@@ -136,6 +139,7 @@ struct mailbox_list {
 	unsigned int index_root_dir_created:1;
 	unsigned int guid_cache_updated:1;
 	unsigned int guid_cache_invalidated:1;
+	unsigned int last_error_is_internal:1;
 };
 
 union mailbox_list_iterate_module_context {
