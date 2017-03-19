@@ -51,6 +51,10 @@ struct imapc_storage_client {
 
 	ARRAY(struct imapc_storage_event_callback) untagged_callbacks;
 
+	char *auth_error;
+	/* Authentication reply was received (success or failure) */
+	bool auth_returned:1;
+	/* Authentication failed */
 	unsigned int auth_failed:1;
 	unsigned int destroying:1;
 };

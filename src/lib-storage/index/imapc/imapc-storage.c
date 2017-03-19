@@ -216,10 +216,13 @@ imapc_storage_client_untagged_cb(const struct imapc_untagged_reply *reply,
 }
 
 static void
-imapc_storage_client_login(const struct imapc_command_reply *reply,
-			   void *context)
+imapc_storage_client_login_callback(const struct imapc_command_reply *reply,
+				    void *context)
 {
 	struct imapc_storage_client *client = context;
+
+	client->auth_returned = TRUE;
+	imapc_client_stop(client->client);
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK)
 		return;
@@ -231,6 +234,7 @@ imapc_storage_client_login(const struct imapc_command_reply *reply,
 	}
 
 	client->auth_failed = TRUE;
+	client->auth_error = i_strdup(reply->text_full);
 
 	if (client->_storage != NULL) {
 		if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
@@ -246,6 +250,24 @@ imapc_storage_client_login(const struct imapc_command_reply *reply,
 		else {
 			mailbox_list_set_error(&client->_list->list,
 					       MAIL_ERROR_PERM, reply->text_full);
+		}
+	}
+}
+
+static void imapc_storage_client_login(struct imapc_storage_client *client,
+				       struct mail_user *user, const char *host)
+{
+	imapc_client_login(client->client, imapc_storage_client_login_callback, client);
+	if (!user->namespaces_created) {
+		/* we're still initializing the user. wait for the
+		   login to finish, so we can fail the user creation
+		   if it fails. */
+		while (!client->auth_returned)
+			imapc_client_run(client->client);
+		if (client->auth_failed) {
+			user->error = p_strdup_printf(user->pool,
+				"imapc: Login to %s failed: %s",
+				host, client->auth_error);
 		}
 	}
 }
@@ -318,7 +340,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 				       imapc_storage_client_untagged_cb, client);
 	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0) {
 		/* start logging in immediately */
-		imapc_client_login(client->client, imapc_storage_client_login, client);
+		imapc_storage_client_login(client, ns->user, set.host);
 	}
 
 	*client_r = client;
@@ -339,6 +361,7 @@ void imapc_storage_client_unref(struct imapc_storage_client **_client)
 	array_foreach_modifiable(&client->untagged_callbacks, cb)
 		i_free(cb->name);
 	array_free(&client->untagged_callbacks);
+	i_free(client->auth_error);
 	i_free(client);
 }
 
