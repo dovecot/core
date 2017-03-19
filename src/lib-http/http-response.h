@@ -63,6 +63,14 @@ http_response_header_get_fields(const struct http_response *resp)
 	return http_header_get_fields(resp->header);
 }
 
+static inline const char *
+http_response_get_message(const struct http_response *resp)
+{
+	if (resp->status >= HTTP_RESPONSE_STATUS_INTERNAL)
+		return resp->reason;
+	return t_strdup_printf("%u %s", resp->status, resp->reason);
+}
+
 bool http_response_has_connection_option(const struct http_response *resp,
 	const char *option);
 int http_response_get_payload_size(const struct http_response *resp,
