@@ -340,7 +340,8 @@ void auth_policy_process_response(const struct http_response *response,
 
 	if ((response->status / 10) != 20) {
 		auth_request_log_error(context->request, "policy",
-			"Policy server HTTP error: %d %s", response->status, response->reason);
+			"Policy server HTTP error: %s",
+			http_response_get_message(response));
 		if (context->callback != NULL)
 			context->callback(context->result, context->callback_context);
 		return;

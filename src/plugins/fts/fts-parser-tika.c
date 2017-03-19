@@ -97,9 +97,9 @@ fts_tika_parser_response(const struct http_response *response,
 	case 415: /* Unsupported Media Type */
 	case 422: /* Unprocessable Entity */
 		if (parser->user->mail_debug) {
-			i_debug("fts_tika: PUT %s failed: %u %s",
+			i_debug("fts_tika: PUT %s failed: %s",
 				mail_user_plugin_getenv(parser->user, "fts_tika"),
-				response->status, response->reason);
+				http_response_get_message(response));
 		}
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
@@ -114,16 +114,16 @@ fts_tika_parser_response(const struct http_response *response,
 		   isn't available anymore here. So we'd need to indicate
 		   in fts_parser_deinit() that we want to retry.
 		   FIXME: do this in v2.3. For now we'll just ignore it. */
-		i_info("fts_tika: PUT %s failed: %u %s - ignoring",
+		i_info("fts_tika: PUT %s failed: %s - ignoring",
 		       mail_user_plugin_getenv(parser->user, "fts_tika"),
-		       response->status, response->reason);
+		       http_response_get_message(response));
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
 
 	default:
-		i_error("fts_tika: PUT %s failed: %u %s",
+		i_error("fts_tika: PUT %s failed: %s",
 			mail_user_plugin_getenv(parser->user, "fts_tika"),
-			response->status, response->reason);
+			http_response_get_message(response));
 		parser->failed = TRUE;
 		break;
 	}

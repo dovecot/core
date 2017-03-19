@@ -408,8 +408,8 @@ solr_connection_select_response(const struct http_response *response,
 				struct solr_connection *conn)
 {
 	if (response->status / 100 != 2) {
-		i_error("fts_solr: Lookup failed: %u %s",
-			response->status, response->reason);
+		i_error("fts_solr: Lookup failed: %s",
+			http_response_get_message(response));
 		conn->request_status = -1;
 		return;
 	}
@@ -481,8 +481,8 @@ solr_connection_update_response(const struct http_response *response,
 				struct solr_connection *conn)
 {
 	if (response->status / 100 != 2) {
-		i_error("fts_solr: Indexing failed: %u %s",
-			response->status, response->reason);
+		i_error("fts_solr: Indexing failed: %s",
+			http_response_get_message(response));
 		conn->request_status = -1;
 	}
 }
