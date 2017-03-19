@@ -5,6 +5,8 @@
 
 #include "http-header.h"
 
+#define HTTP_RESPONSE_STATUS_INTERNAL 9000
+
 enum http_response_payload_type {
 	HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED,
 	HTTP_RESPONSE_PAYLOAD_TYPE_NOT_PRESENT,
