@@ -279,15 +279,15 @@ static void push_notification_driver_ox_http_callback
         // Success.
 	if (user->mail_debug) {
             push_notification_driver_debug(OX_LOG_LABEL, user,
-                                           "Notification sent successfully: %u %s",
-                                           response->status, response->reason);
+                                           "Notification sent successfully: %s",
+                                           http_response_get_message(response));
 	}
         break;
 
     default:
         // Error.
-        i_error(OX_LOG_LABEL "Error when sending notification: %u %s",
-                response->status, response->reason);
+        i_error(OX_LOG_LABEL "Error when sending notification: %s",
+                http_response_get_message(response));
         break;
     }
 }

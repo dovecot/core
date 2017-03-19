@@ -1385,8 +1385,8 @@ http_client_connection_tunnel_response(const struct http_response *response,
 
 	if (response->status != 200) {
 		http_client_connection_failure(conn, t_strdup_printf(
-			"Tunnel connect(%s) failed: %d %s", name,
-				response->status, response->reason));
+			"Tunnel connect(%s) failed: %s", name,
+				http_response_get_message(response)));
 		return;
 	}
 
