@@ -338,7 +338,8 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	client->client = imapc_client_init(&set);
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
-	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0) {
+	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0 &&
+	    (imapc_set->parsed_features & IMAPC_FEATURE_DELAY_LOGIN) == 0) {
 		/* start logging in immediately */
 		imapc_storage_client_login(client, ns->user, set.host);
 	}
