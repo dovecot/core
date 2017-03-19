@@ -6,6 +6,7 @@
 #include "http-header.h"
 
 #define http_response_header http_header_field /* FIXME: remove in v2.3 */
+#define HTTP_RESPONSE_STATUS_INTERNAL 9000
 
 enum http_response_payload_type {
 	HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED,
