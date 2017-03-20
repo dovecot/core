@@ -84,6 +84,8 @@ int dict_init(const char *uri, const struct dict_settings *set,
 		*error_r = t_strdup_printf("dict %s: %s", name, error);
 		return -1;
 	}
+	i_assert(*dict_r != NULL);
+
 	return 0;
 }
 
