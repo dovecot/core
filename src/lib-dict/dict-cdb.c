@@ -24,9 +24,7 @@ static void cdb_dict_deinit(struct dict *_dict);
 
 static int
 cdb_dict_init(struct dict *driver, const char *uri,
-	      enum dict_data_type value_type ATTR_UNUSED,
-	      const char *username ATTR_UNUSED,
-	      const char *base_dir ATTR_UNUSED,
+	      const struct dict_settings *set ATTR_UNUSED,
 	      struct dict **dict_r, const char **error_r)
 {
 	struct cdb_dict *dict;
@@ -76,8 +74,10 @@ static void cdb_dict_deinit(struct dict *_dict)
 	i_free(dict);
 }
 
-static int cdb_dict_lookup(struct dict *_dict, pool_t pool,
-			   const char *key, const char **value_r)
+static int
+cdb_dict_lookup(struct dict *_dict, pool_t pool,
+	        const char *key, const char **value_r,
+	        const char **error_r)
 {
 	struct cdb_dict *dict = (struct cdb_dict *)_dict;
 	unsigned datalen;
@@ -102,7 +102,7 @@ static int cdb_dict_lookup(struct dict *_dict, pool_t pool,
 		*value_r = NULL;
 		/* something bad with db */
 		if (ret < 0) {
-			i_error("cdb_find(%s) failed: %m", dict->path);
+			*error_r = t_strdup_printf("cdb_find(%s) failed: %m", dict->path);
 			return -1;
 		}
 		/* found nothing */
@@ -112,7 +112,7 @@ static int cdb_dict_lookup(struct dict *_dict, pool_t pool,
 	datalen = cdb_datalen(&dict->cdb);
 	data = p_malloc(pool, datalen + 1);
 	if (cdb_read(&dict->cdb, data, datalen, cdb_datapos(&dict->cdb)) < 0) {
-		i_error("cdb_read(%s) failed: %m", dict->path);
+		*error_r = t_strdup_printf("cdb_read(%s) failed: %m", dict->path);
 		return -1;
 	}
 	*value_r = data;
