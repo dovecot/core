@@ -209,6 +209,8 @@ int mailbox_list_delete_index_control(struct mailbox_list *list,
 void mailbox_list_iter_update(struct mailbox_list_iter_update_context *ctx,
 			      const char *name);
 int mailbox_list_iter_subscriptions_refresh(struct mailbox_list *list);
+void
+mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx);
 
 enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);
 int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,

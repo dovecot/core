@@ -112,7 +112,7 @@ mailbox_settings_add_ns_prefix(pool_t pool, struct mail_namespace *ns,
 	return out_set;
 }
 
-static void
+void
 mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 {
 	struct mail_namespace *ns = ctx->list->ns;
