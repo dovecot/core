@@ -144,6 +144,8 @@ void o_stream_cork(struct ostream *stream)
 		return;
 
 	_stream->cork(_stream, TRUE);
+	if (stream->stream_errno != 0)
+		errno = stream->last_failed_errno = stream->stream_errno;
 }
 
 void o_stream_uncork(struct ostream *stream)
