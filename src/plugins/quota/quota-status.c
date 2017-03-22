@@ -102,6 +102,7 @@ static void client_handle_request(struct quota_client *client)
 			if (value == NULL)
 				value = "OK";
 			break;
+		case QUOTA_ALLOC_RESULT_OVER_MAXSIZE:
 		/* even over maximum quota */
 		case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
 			value = mail_user_plugin_getenv(user,

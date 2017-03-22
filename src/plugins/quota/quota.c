@@ -15,6 +15,7 @@
 #include "quota-fs.h"
 #include "llist.h"
 #include "program-client.h"
+#include "settings-parser.h"
 
 #include <sys/wait.h>
 
@@ -228,6 +229,9 @@ const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 		return "OK";
 	case QUOTA_ALLOC_RESULT_TEMPFAIL:
 		return "Internal quota calculation error";
+	case QUOTA_ALLOC_RESULT_OVER_MAXSIZE:
+		return "Mail size is larger than the maximum size allowed by "
+		       "server configuration";
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA:
 		return qt->quota->set->quota_exceeded_msg;
@@ -256,6 +260,18 @@ int quota_user_read_settings(struct mail_user *user,
 		quota_set->quota_exceeded_msg = DEFAULT_QUOTA_EXCEEDED_MSG;
 	quota_set->vsizes = mail_user_plugin_getenv(user, "quota_vsizes") != NULL;
 
+	const char *max_size = mail_user_plugin_getenv(user,
+						       "quota_max_mail_size");
+	if (max_size != NULL) {
+		const char *error = NULL;
+		if (settings_get_size(max_size, &quota_set->max_mail_size,
+					&error) < 0) {
+			*error_r = t_strdup_printf("quota_max_mail_size: %s",
+					error);
+			return -1;
+		}
+	}
+
 	p_array_init(&quota_set->root_sets, pool, 4);
 	if (i_strocpy(root_name, "quota", sizeof(root_name)) < 0)
 		i_unreached();
@@ -274,7 +290,8 @@ int quota_user_read_settings(struct mail_user *user,
 		if (i_snprintf(root_name, sizeof(root_name), "quota%d", i) < 0)
 			i_unreached();
 	}
-	if (array_count(&quota_set->root_sets) == 0) {
+	if (quota_set->max_mail_size == 0 &&
+	    array_count(&quota_set->root_sets) == 0) {
 		pool_unref(&pool);
 		return 0;
 	}
@@ -1216,6 +1233,11 @@ enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
 
 	if (quota_transaction_set_limits(ctx) < 0)
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
+
+	uoff_t max_size = ctx->quota->set->max_mail_size;
+	if (max_size > 0 && size > max_size)
+		return QUOTA_ALLOC_RESULT_OVER_MAXSIZE;
+
 	if (ctx->no_quota_updates)
 		return QUOTA_ALLOC_RESULT_OK;
 	/* this is a virtual function mainly for trash plugin and similar,

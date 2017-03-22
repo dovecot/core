@@ -33,6 +33,7 @@ enum quota_recalculate {
 enum quota_alloc_result {
 	QUOTA_ALLOC_RESULT_OK,
 	QUOTA_ALLOC_RESULT_TEMPFAIL,
+	QUOTA_ALLOC_RESULT_OVER_MAXSIZE,
 	QUOTA_ALLOC_RESULT_OVER_QUOTA,
 	/* Mail size is larger than even the maximum allowed quota. */
 	QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT,
