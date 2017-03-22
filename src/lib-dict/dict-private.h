@@ -77,5 +77,9 @@ extern struct dict dict_driver_memcached;
 extern struct dict dict_driver_memcached_ascii;
 extern struct dict dict_driver_redis;
 extern struct dict dict_driver_cdb;
+extern struct dict dict_driver_fail;
+
+extern struct dict_iterate_context dict_iter_unsupported;
+extern struct dict_transaction_context dict_transaction_unsupported;
 
 #endif
