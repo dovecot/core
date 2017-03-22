@@ -14,6 +14,7 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "settings-parser.h"
+#include "doveadm.h"
 #include "doveadm-print.h"
 #include "doveadm-util.h"
 #include "doveadm-server.h"
@@ -384,9 +385,9 @@ static bool server_connection_input_one(struct server_connection *conn)
 			server_connection_callback(conn, 0, "");
 		else if (line[0] == '-') {
 			line++;
-			if (strcmp(line, "NOUSER") == 0)
-				exit_code = EX_NOUSER;
-			else if (str_to_int(line, &exit_code) < 0) {
+			exit_code = doveadm_str_to_exit_code(line);
+			if (exit_code == DOVEADM_EX_UNKNOWN &&
+			    str_to_int(line, &exit_code) < 0) {
 				/* old doveadm-server */
 				exit_code = EX_TEMPFAIL;
 			}
