@@ -49,6 +49,7 @@ struct dict {
 
 	struct dict_vfuncs v;
 	unsigned int iter_count;
+	unsigned int transaction_count;
 };
 
 struct dict_iterate_context {
