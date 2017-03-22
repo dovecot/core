@@ -14,6 +14,7 @@ base_sources = \
 	dict-memcached.c \
 	dict-memcached-ascii.c \
 	dict-redis.c \
+	dict-fail.c \
 	dict-transaction-memory.c
 
 libdict_la_SOURCES = \
