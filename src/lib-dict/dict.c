@@ -93,6 +93,10 @@ void dict_deinit(struct dict **_dict)
 	struct dict *dict = *_dict;
 
 	*_dict = NULL;
+
+	i_assert(dict->iter_count == 0);
+	i_assert(dict->transaction_count == 0);
+
 	dict->v.deinit(dict);
 }
 
