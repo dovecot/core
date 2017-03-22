@@ -7,7 +7,6 @@
 #include "dict-private.h"
 
 static ARRAY(struct dict *) dict_drivers;
-static struct dict_iterate_context dict_iter_unsupported;
 
 static struct dict *dict_driver_lookup(const char *name)
 {
@@ -179,8 +178,6 @@ dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 bool dict_iterate(struct dict_iterate_context *ctx,
 		  const char **key_r, const char **value_r)
 {
-	if (ctx == &dict_iter_unsupported)
-		return FALSE;
 	if (ctx->max_rows > 0 && ctx->row_count >= ctx->max_rows) {
 		/* row count was limited */
 		ctx->has_more = FALSE;
@@ -220,15 +217,13 @@ int dict_iterate_deinit(struct dict_iterate_context **_ctx,
 	ctx->dict->iter_count--;
 
 	*_ctx = NULL;
-	if (ctx == &dict_iter_unsupported) {
-		*error_r = "Dict doesn't support iteration";
-		return -1;
-	}
 	return ctx->dict->v.iterate_deinit(ctx, error_r);
 }
 
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict)
 {
+	if (dict->v.transaction_init == NULL)
+		return &dict_transaction_unsupported;
 	return dict->v.transaction_init(dict);
 }
 
