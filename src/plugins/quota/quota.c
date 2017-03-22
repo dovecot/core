@@ -258,7 +258,7 @@ int quota_user_read_settings(struct mail_user *user,
 		mail_user_plugin_getenv(user, "quota_exceeded_message");
 	if (quota_set->quota_exceeded_msg == NULL)
 		quota_set->quota_exceeded_msg = DEFAULT_QUOTA_EXCEEDED_MSG;
-	quota_set->vsizes = mail_user_plugin_getenv(user, "quota_vsizes") != NULL;
+	quota_set->vsizes = mail_user_plugin_getenv_bool(user, "quota_vsizes");
 
 	const char *max_size = mail_user_plugin_getenv(user,
 						       "quota_max_mail_size");
