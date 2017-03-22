@@ -31,9 +31,43 @@ static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
 	&doveadm_cmd_who_ver2
 };
 
+static const struct exit_code_str {
+	int code;
+	const char *str;
+} exit_code_strings[] = {
+	{ DOVEADM_EX_UNKNOWN, "UNKNOWN" },
+	{ EX_TEMPFAIL, "TEMPFAIL" },
+	{ EX_USAGE, "USAGE" },
+	{ EX_NOUSER, "NOUSER" },
+	{ EX_NOPERM, "NOPERM" },
+	{ EX_PROTOCOL, "PROTOCOL" },
+	{ EX_DATAERR, "DATAERR" },
+	{ DOVEADM_EX_NOTFOUND, "NOTFOUND" }
+};
+
 ARRAY_TYPE(doveadm_cmd) doveadm_cmds;
 ARRAY_TYPE(doveadm_cmd_ver2) doveadm_cmds_ver2;
 ARRAY_DEFINE_TYPE(getopt_option_array, struct option);
+
+const char *doveadm_exit_code_to_str(int code)
+{
+	for(size_t i = 0; i < N_ELEMENTS(exit_code_strings); i++) {
+		const struct exit_code_str *ptr = &exit_code_strings[i];
+		if (ptr->code == code)
+			return ptr->str;
+	}
+	return "UNKNOWN";
+}
+
+int doveadm_str_to_exit_code(const char *reason)
+{
+	for(size_t i = 0; i < N_ELEMENTS(exit_code_strings); i++) {
+		const struct exit_code_str *ptr = &exit_code_strings[i];
+		if (strcmp(ptr->str, reason) == 0)
+			return ptr->code;
+	}
+	return DOVEADM_EX_UNKNOWN;
+}
 
 void doveadm_register_cmd(const struct doveadm_cmd *cmd)
 {
