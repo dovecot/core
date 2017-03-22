@@ -169,7 +169,10 @@ dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 	} else {
 		ctx = dict->v.iterate_init(dict, paths, flags);
 	}
-	dict->iter_count++;
+	/* the dict in context can differ from the dict
+	   passed as parameter, e.g. it can be dict-fail when
+	   iteration is not supported. */
+	ctx->dict->iter_count++;
 	return ctx;
 }
 
