@@ -25,6 +25,7 @@ struct quota_settings {
 	enum quota_alloc_result (*test_alloc)(
 		struct quota_transaction_context *ctx, uoff_t size);
 
+	uoff_t max_mail_size;
 	const char *quota_exceeded_msg;
 	unsigned int debug:1;
 	unsigned int initialized:1;

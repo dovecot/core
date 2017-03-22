@@ -52,6 +52,9 @@ static void quota_set_storage_error(struct quota_transaction_context *qt,
 {
 	const char *errstr = quota_alloc_result_errstr(res, qt);
 	switch (res) {
+	case QUOTA_ALLOC_RESULT_OVER_MAXSIZE:
+		mail_storage_set_error(storage, MAIL_ERROR_LIMIT, errstr);
+		break;
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
 	case QUOTA_ALLOC_RESULT_OVER_QUOTA:
 		mail_storage_set_error(storage, MAIL_ERROR_NOQUOTA, errstr);
