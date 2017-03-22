@@ -25,38 +25,20 @@
 
 #define MAX_INBUF_SIZE (1024*1024)
 
-static struct {
-	int code;
-	const char *str;
-} exit_code_strings[] = {
-	{ EX_TEMPFAIL, "TEMPFAIL" },
-	{ EX_USAGE, "USAGE" },
-	{ EX_NOUSER, "NOUSER" },
-	{ EX_NOPERM, "NOPERM" },
-	{ EX_PROTOCOL, "PROTOCOL" },
-	{ EX_DATAERR, "DATAERR" },
-	{ DOVEADM_EX_NOTFOUND, "NOTFOUND" }
-};
-
 static void client_connection_input(struct client_connection *conn);
 
 static void
 doveadm_cmd_server_post(struct client_connection *conn, const char *cmd_name)
 {
 	const char *str = NULL;
-	unsigned int i;
 
 	if (doveadm_exit_code == 0) {
 		o_stream_nsend(conn->output, "\n+\n", 3);
 		return;
 	}
 
-	for (i = 0; i < N_ELEMENTS(exit_code_strings); i++) {
-		if (exit_code_strings[i].code == doveadm_exit_code) {
-			str = exit_code_strings[i].str;
-			break;
-		}
-	}
+	str = doveadm_exit_code_to_str(doveadm_exit_code);
+
 	if (str != NULL) {
 		o_stream_nsend_str(conn->output,
 				   t_strdup_printf("\n-%s\n", str));
