@@ -5,7 +5,7 @@ BUILT_SOURCES = unicodemap.c
 EXTRA_DIST = unicodemap.c unicodemap.pl UnicodeData.txt
 
 UnicodeData.txt:
-	test -f UnicodeData.txt || wget http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
+	test -f UnicodeData.txt || wget https://dovecot.org/res/UnicodeData.txt
 
 $(srcdir)/unicodemap.c: unicodemap.pl UnicodeData.txt
 	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
