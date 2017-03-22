@@ -217,6 +217,7 @@ var_expand_hash(const struct var_expand_table *table,
 	const char *const *args = NULL;
 	const char *algo = key;
 	const char *value;
+	int ret;
 
 	if (p != NULL) {
 		algo = t_strcut(key, ';');
@@ -234,9 +235,9 @@ var_expand_hash(const struct var_expand_table *table,
 	string_t *salt = t_str_new(64);
 	string_t *tmp = t_str_new(method->digest_size);
 
-	if (var_expand_long(table, func_table, field, strlen(field),
-			    context, &value, error_r) < 0)
-		return -1;
+	if ((ret = var_expand_long(table, func_table, field, strlen(field),
+				   context, &value, error_r)) < 1)
+		return ret;
 
 	str_append(field_value, value);
 
