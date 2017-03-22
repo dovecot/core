@@ -222,9 +222,16 @@ int dict_iterate_deinit(struct dict_iterate_context **_ctx,
 
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict)
 {
+	struct dict_transaction_context *ctx;
 	if (dict->v.transaction_init == NULL)
-		return &dict_transaction_unsupported;
-	return dict->v.transaction_init(dict);
+		ctx = &dict_transaction_unsupported;
+	else
+		ctx = dict->v.transaction_init(dict);
+	/* the dict in context can differ from the dict
+	   passed as parameter, e.g. it can be dict-fail when
+	   transactions are not supported. */
+	ctx->dict->transaction_count++;
+	return ctx;
 }
 
 void dict_transaction_no_slowness_warning(struct dict_transaction_context *ctx)
@@ -272,6 +279,8 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx,
 	*_ctx = NULL;
 
 	i_zero(&result);
+	i_assert(ctx->dict->transaction_count > 0);
+	ctx->dict->transaction_count--;
 	ctx->dict->v.transaction_commit(ctx, FALSE,
 		dict_transaction_commit_sync_callback, &result);
 	*error_r = t_strdup(result.error);
@@ -286,6 +295,8 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	i_assert(ctx->dict->transaction_count > 0);
+	ctx->dict->transaction_count--;
 	if (callback == NULL)
 		callback = dict_transaction_commit_async_noop_callback;
 	ctx->dict->v.transaction_commit(ctx, TRUE, callback, context);
@@ -296,6 +307,8 @@ void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	i_assert(ctx->dict->transaction_count > 0);
+	ctx->dict->transaction_count--;
 	ctx->dict->v.transaction_rollback(ctx);
 }
 
