@@ -390,9 +390,10 @@ static void mail_log_mail_expunge(void *txn, struct mail *mail)
 {
 	struct mail_log_mail_txn_context *ctx =
 		(struct mail_log_mail_txn_context *)txn;
-	
+	struct mail_private *p = (struct mail_private*)mail;
+
 	mail_log_append_mail_message(ctx, mail, MAIL_LOG_EVENT_EXPUNGE,
-				     "expunge");
+				     p->autoexpunged ? "autoexpunge" : "expunge");
 }
 
 static void mail_log_mail_update_flags(void *txn, struct mail *mail,
