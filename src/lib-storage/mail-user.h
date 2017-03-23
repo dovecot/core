@@ -95,8 +95,6 @@ struct mail_user {
 	unsigned int admin:1;
 	/* Enable all statistics gathering */
 	unsigned int stats_enabled:1;
-	/* Enable autoexpunging at deinit. */
-	unsigned int autoexpunge_enabled:1;
 	/* This session was restored (e.g. IMAP unhibernation) */
 	unsigned int session_restored:1;
 };

@@ -17,6 +17,7 @@
 #include "master-service.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
+#include "mail-autoexpunge.h"
 #include "pop3-commands.h"
 #include "mail-search-build.h"
 #include "mail-namespace.h"
@@ -648,8 +649,13 @@ static void client_default_destroy(struct client *client, const char *reason)
 
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
 
-	/* refresh proctitle before a potentially long-running user unref */
+	/* Autoexpunging might run for a long time. Disconnect the client
+	   before it starts, and refresh proctitle so it's clear that it's
+	   doing autoexpunging. We've also sent DISCONNECT to anvil already,
+	   because this is background work and shouldn't really be counted
+	   as an active POP3 session for the user. */
 	pop3_refresh_proctitle();
+	mail_user_autoexpunge(client->user);
 	mail_user_unref(&client->user);
 	mail_storage_service_user_unref(&client->service_user);
 

@@ -27,6 +27,7 @@
 #include "index/raw/raw-storage.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
+#include "mail-autoexpunge.h"
 #include "mail-namespace.h"
 #include "mail-deliver.h"
 #include "main.h"
@@ -945,8 +946,10 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail,
 		if (ret == 0)
 			return TRUE;
 		/* failed. try the next one. */
-		if (client->state.dest_user != NULL)
+		if (client->state.dest_user != NULL) {
+			mail_user_autoexpunge(client->state.dest_user);
 			mail_user_unref(&client->state.dest_user);
+		}
 	}
 	return FALSE;
 }
@@ -1034,9 +1037,10 @@ client_input_data_write_local(struct client *client, struct istream *input)
 	src_mail = client->state.raw_mail;
 	while (client_deliver_next(client, src_mail, session)) {
 		if (client->state.first_saved_mail == NULL ||
-		    client->state.first_saved_mail == src_mail)
+		    client->state.first_saved_mail == src_mail) {
+			mail_user_autoexpunge(client->state.dest_user);
 			mail_user_unref(&client->state.dest_user);
-		else {
+		} else {
 			/* use the first saved message to save it elsewhere too.
 			   this might allow hard linking the files. */
 			client->state.dest_user = NULL;
@@ -1065,6 +1069,7 @@ client_input_data_write_local(struct client *client, struct istream *input)
 		mail_free(&mail);
 		mailbox_transaction_rollback(&trans);
 		mailbox_free(&box);
+		mail_user_autoexpunge(user);
 		mail_user_unref(&user);
 	}
 
