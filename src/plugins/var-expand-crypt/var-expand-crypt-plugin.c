@@ -151,6 +151,7 @@ var_expand_encrypt(struct var_expand_context *_ctx,
 	const char *const *args = NULL;
 	const char *value;
 	struct var_expand_crypt_context ctx;
+	string_t *dest;
 	int ret = 0;
 
 	memset(&ctx, 0, sizeof(ctx));
@@ -200,14 +201,14 @@ var_expand_encrypt(struct var_expand_context *_ctx,
 			enciv = binary_to_hex(ctx.iv->data, ctx.iv->used);
 			res = binary_to_hex(tmp->data, tmp->used);
 			break;
-		case FORMAT_BASE64: {
-			string_t *dest = t_str_new(32);
+		case FORMAT_BASE64:
+			dest = t_str_new(32);
 			base64_encode(ctx.iv->data, ctx.iv->used, dest);
 			enciv = str_c(dest);
 			dest = t_str_new(32);
 			base64_encode(tmp->data, tmp->used, dest);
 			res = str_c(dest);
-			}
+			break;
 		default:
 			i_unreached();
 		}
