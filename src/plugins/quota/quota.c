@@ -220,6 +220,21 @@ quota_root_add(struct quota_settings *quota_set, struct mail_user *user,
 	return 0;
 }
 
+const char *quota_alloc_result_errstr(enum quota_alloc_result res,
+		struct quota_transaction_context *qt)
+{
+	switch (res) {
+	case QUOTA_ALLOC_RESULT_OK:
+		return "OK";
+	case QUOTA_ALLOC_RESULT_TEMPFAIL:
+		return "Internal quota calculation error";
+	case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
+	case QUOTA_ALLOC_RESULT_OVER_QUOTA:
+		return qt->quota->set->quota_exceeded_msg;
+	}
+	i_unreached();
+}
+
 int quota_user_read_settings(struct mail_user *user,
 			     struct quota_settings **set_r,
 			     const char **error_r)
@@ -1155,17 +1170,16 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 	i_free(ctx);
 }
 
-int quota_try_alloc(struct quota_transaction_context *ctx,
-		    struct mail *mail, bool *too_large_r)
+enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
+					struct mail *mail)
 {
 	uoff_t size;
-	int ret;
 
 	if (quota_transaction_set_limits(ctx) < 0)
-		return -1;
+		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 
 	if (ctx->no_quota_updates)
-		return 1;
+		return QUOTA_ALLOC_RESULT_OK;
 
 	if (mail_get_physical_size(mail, &size) < 0) {
 		enum mail_error error;
@@ -1174,15 +1188,15 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 		if (error == MAIL_ERROR_EXPUNGED) {
 			/* mail being copied was already expunged. it'll fail,
 			   so just return success for the quota allocated. */
-			return 1;
+			return QUOTA_ALLOC_RESULT_OK;
 		}
 		i_error("quota: Failed to get mail size (box=%s, uid=%u): %s",
 			mail->box->vname, mail->uid, errstr);
-		return -1;
+		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
-	ret = quota_test_alloc(ctx, size, too_large_r);
-	if (ret <= 0)
+	enum quota_alloc_result ret = quota_test_alloc(ctx, size);
+	if (ret != QUOTA_ALLOC_RESULT_OK)
 		return ret;
 	/* with quota_try_alloc() we want to keep track of how many bytes
 	   we've been adding/removing, so disable auto_updating=TRUE
@@ -1191,22 +1205,32 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 	   transaction, but that doesn't normally happen. */
 	ctx->auto_updating = FALSE;
 	quota_alloc(ctx, mail);
-	return 1;
+	return QUOTA_ALLOC_RESULT_OK;
 }
 
-int quota_test_alloc(struct quota_transaction_context *ctx,
-		     uoff_t size, bool *too_large_r)
+enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
+					 uoff_t size)
 {
 	if (ctx->failed)
-		return -1;
+		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 
 	if (quota_transaction_set_limits(ctx) < 0)
-		return -1;
+		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	if (ctx->no_quota_updates)
-		return 1;
+		return QUOTA_ALLOC_RESULT_OK;
 	/* this is a virtual function mainly for trash plugin and similar,
 	   which may automatically delete mails to stay under quota. */
-	return ctx->quota->set->test_alloc(ctx, size, too_large_r);
+	bool too_large = FALSE;
+	int ret = ctx->quota->set->test_alloc(ctx, size, &too_large);
+	if (ret < 0) {
+		return QUOTA_ALLOC_RESULT_TEMPFAIL;
+	} else if (ret == 0 && too_large) {
+		return QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT;
+	} else if (ret == 0 && !too_large) {
+		return QUOTA_ALLOC_RESULT_OVER_QUOTA;
+	} else { /* (ret > 0) */
+		return QUOTA_ALLOC_RESULT_OK;
+	}
 }
 
 static int quota_default_test_alloc(struct quota_transaction_context *ctx,

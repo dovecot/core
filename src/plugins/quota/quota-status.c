@@ -45,34 +45,29 @@ static void client_reset(struct quota_client *client)
 	i_free_and_null(client->recipient);
 }
 
-static int
-quota_check(struct mail_user *user, uoff_t mail_size,
-	    const char **error_r, bool *too_large_r)
+static enum quota_alloc_result
+quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct quota_transaction_context *ctx;
-	int ret;
+	enum quota_alloc_result ret;
 
 	if (quser == NULL) {
 		/* no quota for user */
-		return 1;
+		return QUOTA_ALLOC_RESULT_OK;
 	}
 
 	ns = mail_namespace_find_inbox(user->namespaces);
 	box = mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_POST_SESSION);
 
 	ctx = quota_transaction_begin(box);
-	ret = quota_test_alloc(ctx, I_MAX(1, mail_size), too_large_r);
+	ret = quota_test_alloc(ctx, I_MAX(1, mail_size));
+	*error_r = quota_alloc_result_errstr(ret, ctx);
 	quota_transaction_rollback(&ctx);
 
 	mailbox_free(&box);
-
-	if (ret < 0)
-		*error_r = "Internal quota calculation error";
-	else if (ret == 0)
-		*error_r = quser->quota->set->quota_exceeded_msg;
 	return ret;
 }
 
@@ -82,7 +77,6 @@ static void client_handle_request(struct quota_client *client)
 	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	const char *value = NULL, *error;
-	bool too_large;
 	int ret;
 
 	if (client->recipient == NULL) {
@@ -99,20 +93,30 @@ static void client_handle_request(struct quota_client *client)
 	if (ret == 0) {
 		value = nouser_reply;
 	} else if (ret > 0) {
-		if ((ret = quota_check(user, client->size, &error, &too_large)) > 0) {
-			/* under quota */
-			value = mail_user_plugin_getenv(user, "quota_status_success");
+		enum quota_alloc_result qret = quota_check(user, client->size,
+							   &error);
+		switch (qret) {
+		case QUOTA_ALLOC_RESULT_OK: /* under quota */
+			value = mail_user_plugin_getenv(user,
+						"quota_status_success");
 			if (value == NULL)
 				value = "OK";
-		} else if (ret == 0) {
-			if (too_large) {
-				/* even over maximum quota */
-				value = mail_user_plugin_getenv(user, "quota_status_toolarge");
-			}
+			break;
+		/* even over maximum quota */
+		case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
+			value = mail_user_plugin_getenv(user,
+						"quota_status_toolarge");
+			/* fall through */
+		case QUOTA_ALLOC_RESULT_OVER_QUOTA:
 			if (value == NULL)
-				value = mail_user_plugin_getenv(user, "quota_status_overquota");
+				value = mail_user_plugin_getenv(user,
+						"quota_status_overquota");
 			if (value == NULL)
 				value = t_strdup_printf("554 5.2.2 %s", error);
+			break;
+		case QUOTA_ALLOC_RESULT_TEMPFAIL:
+			ret = -1;
+			break;
 		}
 		value = t_strdup(value); /* user's pool is being freed */
 		mail_user_unref(&user);
