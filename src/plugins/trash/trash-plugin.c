@@ -44,8 +44,8 @@ const char *trash_plugin_version = DOVECOT_ABI_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(trash_user_module,
 				  &mail_user_module_register);
-static int (*trash_next_quota_test_alloc)(struct quota_transaction_context *,
-					  uoff_t, bool *);
+static enum quota_alloc_result (*trash_next_quota_test_alloc)(
+		struct quota_transaction_context *, uoff_t);
 
 static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
@@ -217,21 +217,22 @@ err:
 	return 1;
 }
 
-static int
+static enum quota_alloc_result
 trash_quota_test_alloc(struct quota_transaction_context *ctx,
-		       uoff_t size, bool *too_large_r)
+		       uoff_t size)
 {
-	int ret, i;
+	int i;
 	uint64_t size_needed = 0;
 	unsigned int count_needed = 0;
 
 	for (i = 0; ; i++) {
-		ret = trash_next_quota_test_alloc(ctx, size, too_large_r);
-		if (ret != 0 || *too_large_r) {
-			if (ctx->quota->user->mail_debug && *too_large_r) {
+		enum quota_alloc_result ret;
+		ret = trash_next_quota_test_alloc(ctx, size);
+		if (ret != QUOTA_ALLOC_RESULT_OVER_QUOTA) {
+			if (ret == QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT &&
+			    ctx->quota->user->mail_debug)
 				i_debug("trash plugin: Mail is larger than "
 					"quota, won't even try to handle");
-			}
 			return ret;
 		}
 
@@ -251,11 +252,10 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 			count_needed = 1 + ctx->count_over - ctx->count_ceil;
 
 		/* not enough space. try deleting some from mailbox. */
-		ret = trash_try_clean_mails(ctx, size_needed, count_needed);
-		if (ret <= 0)
-			return 0;
+		if (trash_try_clean_mails(ctx, size_needed, count_needed) <= 0)
+			return QUOTA_ALLOC_RESULT_OVER_QUOTA;
 	}
-	return 0;
+	return QUOTA_ALLOC_RESULT_OVER_QUOTA;
 }
 
 static bool trash_find_storage(struct mail_user *user,
