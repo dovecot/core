@@ -118,7 +118,7 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 			/* max_mails is still being reached -> expunge.
 			   don't even check saved-dates before we're
 			   below max_mails. */
-			mail_expunge(mail);
+			mail_autoexpunge(mail);
 			count++;
 		} else if (interval_time == 0) {
 			/* only max_mails is used. nothing further to do. */
@@ -126,7 +126,7 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 		} else if (mail_get_save_date(mail, &timestamp) == 0) {
 			if (I_MAX(last_rename_stamp, timestamp) > expire_time)
 				break;
-			mail_expunge(mail);
+			mail_autoexpunge(mail);
 			count++;
 		} else if (mailbox_get_last_mail_error(box) == MAIL_ERROR_EXPUNGED) {
 			/* already expunged */
