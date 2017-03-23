@@ -521,6 +521,8 @@ struct mail_private {
 	ARRAY(union mail_module_context *) module_contexts;
 
 	const char *get_stream_reason;
+
+	bool autoexpunged:1;
 };
 
 struct mailbox_list_context {
@@ -720,6 +722,9 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 				  struct mailbox_list *list);
 void mail_storage_copy_error(struct mail_storage *dest,
 			     struct mail_storage *src);
+
+/* Indicate mail being expunged by autoexpunge */
+void mail_autoexpunge(struct mail *mail);
 
 /* Returns TRUE if everything should already be in memory after this call
    or if prefetching is not supported, i.e. the caller shouldn't do more

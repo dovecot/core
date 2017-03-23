@@ -399,6 +399,14 @@ void mail_expunge(struct mail *mail)
 	} T_END;
 }
 
+void mail_autoexpunge(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+	p->autoexpunged = TRUE;
+	mail_expunge(mail);
+	p->autoexpunged = FALSE;
+}
+
 void mail_set_expunged(struct mail *mail)
 {
 	mail_storage_set_error(mail->box->storage, MAIL_ERROR_EXPUNGED,
