@@ -177,8 +177,6 @@ var_expand_encrypt(struct var_expand_context *_ctx,
 	if (var_expand_crypt_settings(&ctx, args, error_r) < 0)
 		return -1;
 
-	ret = 0;
-
 	str_append(field_value, value);
 
 	struct dcrypt_context_symmetric *dctx;
