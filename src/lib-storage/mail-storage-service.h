@@ -34,8 +34,6 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS		= 0x400,
 	/* Don't create namespaces, only the user. */
 	MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES		= 0x800,
-	/* Enable autoexpunging at deinit. */
-	MAIL_STORAGE_SERVICE_FLAG_AUTOEXPUNGE		= 0x1000
 };
 
 struct mail_storage_service_input {

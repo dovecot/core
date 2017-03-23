@@ -689,8 +689,6 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	}
 	mail_user->userdb_fields = user->input.userdb_fields == NULL ? NULL :
 		p_strarray_dup(mail_user->pool, user->input.userdb_fields);
-	mail_user->autoexpunge_enabled =
-		(user->flags & MAIL_STORAGE_SERVICE_FLAG_AUTOEXPUNGE) != 0;
 	
 	mail_set = mail_user_set_get_storage_set(mail_user);
 

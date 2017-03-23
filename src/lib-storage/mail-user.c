@@ -199,9 +199,6 @@ void mail_user_unref(struct mail_user **_user)
 		return;
 	}
 
-	if (user->autoexpunge_enabled && user->namespaces_created)
-		mail_user_autoexpunge(user);
-
 	user->deinitializing = TRUE;
 
 	/* call deinit() with refcount=1, otherwise we may assert-crash in
