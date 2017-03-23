@@ -46,6 +46,24 @@ static MODULE_CONTEXT_DEFINE_INIT(quota_mail_module, &mail_module_register);
 static MODULE_CONTEXT_DEFINE_INIT(quota_mailbox_list_module,
 				  &mailbox_list_module_register);
 
+static void quota_set_storage_error(struct quota_transaction_context *qt,
+				    struct mail_storage *storage,
+				    enum quota_alloc_result res)
+{
+	const char *errstr = quota_alloc_result_errstr(res, qt);
+	switch (res) {
+	case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
+	case QUOTA_ALLOC_RESULT_OVER_QUOTA:
+		mail_storage_set_error(storage, MAIL_ERROR_NOQUOTA, errstr);
+		break;
+	case QUOTA_ALLOC_RESULT_TEMPFAIL:
+		mail_storage_set_internal_error(storage);
+		break;
+	case QUOTA_ALLOC_RESULT_OK:
+		i_unreached();
+	}
+}
+
 static void quota_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
@@ -95,14 +113,13 @@ quota_get_status(struct mailbox *box, enum mailbox_status_items items,
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
 	struct quota_transaction_context *qt;
-	bool too_large;
 	int ret = 0;
 
 	if ((items & STATUS_CHECK_OVER_QUOTA) != 0) {
 		qt = quota_transaction_begin(box);
-		if ((ret = quota_test_alloc(qt, 0, &too_large)) == 0) {
-			mail_storage_set_error(box->storage, MAIL_ERROR_NOQUOTA,
-					       qt->quota->set->quota_exceeded_msg);
+		enum quota_alloc_result qret = quota_test_alloc(qt, 0);
+		if (qret != QUOTA_ALLOC_RESULT_OK) {
+			quota_set_storage_error(qt, box->storage, qret);
 			ret = -1;
 		}
 		quota_transaction_rollback(&qt);
@@ -216,8 +233,7 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 {
 	struct mailbox_transaction_context *t = ctx->transaction;
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
-	int ret;
-	bool too_large;
+	enum quota_alloc_result ret;
 
 	i_assert(!ctx->moving || src_box != NULL);
 
@@ -230,20 +246,20 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 		return 0;
 	}
 
-	ret = quota_try_alloc(qt, ctx->dest_mail, &too_large);
-	if (ret > 0)
+	ret = quota_try_alloc(qt, ctx->dest_mail);
+	switch (ret) {
+	case QUOTA_ALLOC_RESULT_OK:
 		return 0;
-	else if (ret == 0) {
-		mail_storage_set_error(t->box->storage, MAIL_ERROR_NOQUOTA,
-				       qt->quota->set->quota_exceeded_msg);
-		return -1;
-	} else {
+	case QUOTA_ALLOC_RESULT_TEMPFAIL:
 		/* allow saving anyway. don't log an error, because at this
 		   point we can't give very informative error without API
 		   changes. the real error should have been logged already
 		   (except if this was due to quota calculation on background,
 		   then we intentionally don't want to log anything) */
 		return 0;
+	default:
+		quota_set_storage_error(qt, t->box->storage, ret);
+		return -1;
 	}
 }
 
@@ -279,7 +295,6 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	struct quota_transaction_context *qt = QUOTA_CONTEXT(t);
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(t->box);
 	uoff_t size;
-	int ret;
 
 	if (!ctx->moving && i_stream_get_size(input, TRUE, &size) > 0) {
 		/* Input size is known, check for quota immediately. This
@@ -291,17 +306,19 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 		   I think these don't really matter though compared to the
 		   benefit of giving "out of quota" error before sending the
 		   full mail. */
-		bool too_large;
 
-		ret = quota_test_alloc(qt, size, &too_large);
-		if (ret == 0) {
-			mail_storage_set_error(t->box->storage,
-				MAIL_ERROR_NOQUOTA,
-				qt->quota->set->quota_exceeded_msg);
-			return -1;
-		} else if (ret < 0) {
+		enum quota_alloc_result qret = quota_test_alloc(qt, size);
+		switch (qret) {
+		case QUOTA_ALLOC_RESULT_OK:
+			/* Great, there is space. */
+			break;
+		case QUOTA_ALLOC_RESULT_TEMPFAIL:
 			/* allow saving anyway. don't log an error - see
 			   quota_check() for reasons. */
+			break;
+		default:
+			quota_set_storage_error(qt, t->box->storage, qret);
+			return -1;
 		}
 	}
 
