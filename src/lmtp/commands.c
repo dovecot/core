@@ -951,6 +951,11 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	return ret;
 }
 
+static bool client_rcpt_to_is_last(struct client *client)
+{
+	return client->state.rcpt_idx >= array_count(&client->state.rcpt_to);
+}
+
 static bool client_deliver_next(struct client *client, struct mail *src_mail,
 				struct mail_deliver_session *session)
 {
@@ -970,7 +975,8 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail,
 			return TRUE;
 		/* failed. try the next one. */
 		if (client->state.dest_user != NULL) {
-			mail_user_autoexpunge(client->state.dest_user);
+			if (client_rcpt_to_is_last(client))
+				mail_user_autoexpunge(client->state.dest_user);
 			mail_user_unref(&client->state.dest_user);
 		}
 	}
@@ -1060,7 +1066,8 @@ client_input_data_write_local(struct client *client, struct istream *input)
 	while (client_deliver_next(client, src_mail, session)) {
 		if (client->state.first_saved_mail == NULL ||
 		    client->state.first_saved_mail == src_mail) {
-			mail_user_autoexpunge(client->state.dest_user);
+			if (client_rcpt_to_is_last(client))
+				mail_user_autoexpunge(client->state.dest_user);
 			mail_user_unref(&client->state.dest_user);
 		} else {
 			/* use the first saved message to save it elsewhere too.
