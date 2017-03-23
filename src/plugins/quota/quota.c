@@ -52,8 +52,8 @@ static const struct quota_backend *quota_backends[] = {
 	&quota_backend_maildir
 };
 
-static int quota_default_test_alloc(struct quota_transaction_context *ctx,
-				    uoff_t size, bool *too_large_r);
+static enum quota_alloc_result quota_default_test_alloc(
+		struct quota_transaction_context *ctx, uoff_t size);
 static void quota_over_flag_check_root(struct quota_root *root);
 
 static const struct quota_backend *quota_backend_find(const char *name)
@@ -1220,33 +1220,21 @@ enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
 		return QUOTA_ALLOC_RESULT_OK;
 	/* this is a virtual function mainly for trash plugin and similar,
 	   which may automatically delete mails to stay under quota. */
-	bool too_large = FALSE;
-	int ret = ctx->quota->set->test_alloc(ctx, size, &too_large);
-	if (ret < 0) {
-		return QUOTA_ALLOC_RESULT_TEMPFAIL;
-	} else if (ret == 0 && too_large) {
-		return QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT;
-	} else if (ret == 0 && !too_large) {
-		return QUOTA_ALLOC_RESULT_OVER_QUOTA;
-	} else { /* (ret > 0) */
-		return QUOTA_ALLOC_RESULT_OK;
-	}
+	return ctx->quota->set->test_alloc(ctx, size);
 }
 
-static int quota_default_test_alloc(struct quota_transaction_context *ctx,
-				    uoff_t size, bool *too_large_r)
+static enum quota_alloc_result quota_default_test_alloc(
+			struct quota_transaction_context *ctx, uoff_t size)
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;
 	bool ignore;
 	int ret;
 
-	*too_large_r = FALSE;
-
 	if (!quota_transaction_is_over(ctx, size))
-		return 1;
+		return QUOTA_ALLOC_RESULT_OK;
 
-	/* limit reached. only thing left to do now is to set too_large_r. */
+	/* limit reached. */
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		uint64_t bytes_limit, count_limit;
@@ -1259,16 +1247,14 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 						 &bytes_limit, &count_limit,
 						 &ignore);
 		if (ret < 0)
-			return -1;
+			return QUOTA_ALLOC_RESULT_TEMPFAIL;
 
 		/* if size is bigger than any limit, then
 		   it is bigger than the lowest limit */
-		if (bytes_limit > 0 && size > bytes_limit) {
-			*too_large_r = TRUE;
-			break;
-		}
+		if (bytes_limit > 0 && size > bytes_limit)
+			return QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT;
 	}
-	return 0;
+	return QUOTA_ALLOC_RESULT_OVER_QUOTA;
 }
 
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)

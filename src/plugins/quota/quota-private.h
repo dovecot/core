@@ -22,8 +22,8 @@ struct quota_settings {
 	pool_t pool;
 
 	ARRAY(struct quota_root_settings *) root_sets;
-	int (*test_alloc)(struct quota_transaction_context *ctx,
-			  uoff_t size, bool *too_large_r);
+	enum quota_alloc_result (*test_alloc)(
+		struct quota_transaction_context *ctx, uoff_t size);
 
 	const char *quota_exceeded_msg;
 	bool debug:1;
