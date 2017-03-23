@@ -242,6 +242,8 @@ void client_cmd_starttls(struct client *client);
 
 unsigned int clients_get_count(void) ATTR_PURE;
 
+void client_add_forward_field(struct client *client, const char *key,
+			      const char *value);
 void client_set_title(struct client *client);
 void client_log(struct client *client, const char *msg);
 void client_log_err(struct client *client, const char *msg);

@@ -7,7 +7,6 @@
 #include "ostream.h"
 #include "safe-memset.h"
 #include "str.h"
-#include "strescape.h"
 #include "imap-parser.h"
 #include "imap-id.h"
 #include "imap-resp-code.h"
@@ -202,15 +201,7 @@ client_update_info(struct imap_client *client,
 		}
 	} else if (strncasecmp(key, "x-forward-", 10) == 0) {
 		/* handle extra field */
-		if (client->common.forward_fields == NULL)
-			client->common.forward_fields = str_new(client->common.preproxy_pool, 32);
-		else
-			str_append_c(client->common.forward_fields, '\t');
-		/* prefixing is done by auth process */
-		str_append_tabescaped(client->common.forward_fields,
-				      key+10);
-		str_append_c(client->common.forward_fields, '=');
-		str_append_tabescaped(client->common.forward_fields, value);
+		client_add_forward_field(&client->common, key+10, value);
 	} else {
 		return FALSE;
 	}

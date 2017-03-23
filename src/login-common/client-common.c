@@ -11,6 +11,7 @@
 #include "hook-build.h"
 #include "buffer.h"
 #include "str.h"
+#include "strescape.h"
 #include "base64.h"
 #include "str-sanitize.h"
 #include "safe-memset.h"
@@ -484,6 +485,19 @@ void client_cmd_starttls(struct client *client)
 unsigned int clients_get_count(void)
 {
 	return clients_count;
+}
+
+void client_add_forward_field(struct client *client, const char *key,
+			      const char *value)
+{
+	if (client->forward_fields == NULL)
+		client->forward_fields = str_new(client->preproxy_pool, 32);
+	else
+		str_append_c(client->forward_fields, '\t');
+	/* prefixing is done by auth process */
+	str_append_tabescaped(client->forward_fields, key);
+	str_append_c(client->forward_fields, '=');
+	str_append_tabescaped(client->forward_fields, value);
 }
 
 const char *client_get_session_id(struct client *client)
