@@ -613,10 +613,6 @@ static void client_default_destroy(struct client *client, const char *reason)
 			"\n", NULL));
 	}
 
-	/* refresh proctitle before a potentially long-running user unref */
-	pop3_refresh_proctitle();
-	mail_user_unref(&client->user);
-
 	if (client->session_dotlock != NULL)
 		file_dotlock_delete(&client->session_dotlock);
 	if (client->to_session_dotlock_refresh != NULL)
@@ -639,6 +635,10 @@ static void client_default_destroy(struct client *client, const char *reason)
 	o_stream_destroy(&client->output);
 
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
+
+	/* refresh proctitle before a potentially long-running user unref */
+	pop3_refresh_proctitle();
+	mail_user_unref(&client->user);
 	mail_storage_service_user_unref(&client->service_user);
 
 	pop3_client_count--;
