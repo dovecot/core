@@ -50,6 +50,16 @@ static void test_message_header_decode(void)
 	test_end();
 }
 
+static void test_message_header_decode_read_overflow(void)
+{
+	const unsigned char input[] = "=?utf-8?Q?=EF?=";
+	string_t *dest = t_str_new(32);
+
+	test_begin("message header decode read overflow");
+	message_header_decode_utf8(input, sizeof(input)-2, dest, NULL);
+	test_end();
+}
+
 static void test_message_header_decode_encode_random(void)
 {
 	string_t *encoded, *decoded;
@@ -94,6 +104,7 @@ int main(void)
 {
 	static void (*test_functions[])(void) = {
 		test_message_header_decode,
+		test_message_header_decode_read_overflow,
 		test_message_header_decode_encode_random,
 		NULL
 	};
