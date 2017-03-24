@@ -229,7 +229,7 @@ unsigned int mail_user_autoexpunge(struct mail_user *user)
 {
 	struct mailbox_autoexpunge_lock lock = { .fd = -1 };
 	struct mail_namespace *ns;
-	unsigned int expunged_count;
+	unsigned int expunged_count = 0;
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
 		if (ns->alias_for == NULL) {
