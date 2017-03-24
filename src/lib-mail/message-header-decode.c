@@ -24,7 +24,7 @@ message_header_decode_encoded(const unsigned char *data, size_t size,
 				break;
 		}
 	}
-	if (i == size || data[i+1] != '=') {
+	if (i+1 >= size || data[i+1] != '=') {
 		/* invalid block */
 		return 0;
 	}
@@ -128,6 +128,7 @@ void message_header_decode(const unsigned char *data, size_t size,
 	}
 
 	if (size != start_pos) {
+		i_assert(size > start_pos);
 		(void)callback(data + start_pos, size - start_pos,
 			       NULL, context);
 	}
