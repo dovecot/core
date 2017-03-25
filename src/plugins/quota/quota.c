@@ -43,7 +43,7 @@ extern struct quota_backend quota_backend_dirsize;
 extern struct quota_backend quota_backend_fs;
 extern struct quota_backend quota_backend_maildir;
 
-static const struct quota_backend *quota_backends[] = {
+static const struct quota_backend *quota_internal_backends[] = {
 #ifdef HAVE_FS_QUOTA
 	&quota_backend_fs,
 #endif
@@ -53,20 +53,63 @@ static const struct quota_backend *quota_backends[] = {
 	&quota_backend_maildir
 };
 
+static ARRAY(const struct quota_backend*) quota_backends;
+
 static enum quota_alloc_result quota_default_test_alloc(
 		struct quota_transaction_context *ctx, uoff_t size);
 static void quota_over_flag_check_root(struct quota_root *root);
 
 static const struct quota_backend *quota_backend_find(const char *name)
 {
-	unsigned int i;
+	const struct quota_backend *const *backend;
 
-	for (i = 0; i < N_ELEMENTS(quota_backends); i++) {
-		if (strcmp(quota_backends[i]->name, name) == 0)
-			return quota_backends[i];
+	array_foreach(&quota_backends, backend) {
+		if (strcmp((*backend)->name, name) == 0)
+			return *backend;
 	}
 
 	return NULL;
+}
+
+void quota_backend_register(const struct quota_backend *backend)
+{
+	i_assert(quota_backend_find(backend->name) == NULL);
+	array_append(&quota_backends, &backend, 1);
+}
+
+void quota_backend_unregister(const struct quota_backend *backend)
+{
+	for(unsigned int i = 0; i < array_count(&quota_backends); i++) {
+		const struct quota_backend *const *be =
+			array_idx(&quota_backends, i);
+		if (strcmp((*be)->name, backend->name) == 0) {
+			array_delete(&quota_backends, i, 1);
+			return;
+		}
+	}
+
+	i_unreached();
+}
+
+void quota_backends_register(void);
+void quota_backends_unregister(void);
+
+void quota_backends_register(void)
+{
+	i_array_init(&quota_backends, 8);
+	array_append(&quota_backends, quota_internal_backends,
+		     N_ELEMENTS(quota_internal_backends));
+}
+
+void quota_backends_unregister(void)
+{
+	for(size_t i = 0; i < N_ELEMENTS(quota_internal_backends); i++) {
+		quota_backend_unregister(quota_internal_backends[i]);
+	}
+
+	i_assert(array_count(&quota_backends) == 0);
+	array_free(&quota_backends);
+
 }
 
 static int quota_root_add_rules(struct mail_user *user, const char *root_name,
