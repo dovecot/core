@@ -291,6 +291,8 @@ void http_client_request_destroy(struct http_client_request **_req)
 
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
+	if (req->delayed_error != NULL)
+		http_client_remove_request_error(req->client, req);
 
 	if (req->destroy_callback != NULL) {
 		void (*callback)(void *) = req->destroy_callback;
@@ -1280,7 +1282,8 @@ void http_client_request_abort(struct http_client_request **_req)
 
 	*_req = NULL;
 
-	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
+	if (req->state >= HTTP_REQUEST_STATE_FINISHED &&
+		req->delayed_error_status == 0)
 		return;
 
 	req->callback = NULL;

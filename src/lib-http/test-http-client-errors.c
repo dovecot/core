@@ -152,6 +152,84 @@ static void test_unconfigured_ssl(void)
 }
 
 /*
+ * Unconfigured SSL abort
+ */
+
+/* client */
+
+struct _unconfigured_ssl_abort {
+	unsigned int count;
+};
+
+static void
+test_client_unconfigured_ssl_abort_response1(
+	const struct http_response *resp,
+	struct _unconfigured_ssl_abort *ctx ATTR_UNUSED)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_out_quiet("inappropriate callback", FALSE);
+}
+
+static void
+test_client_unconfigured_ssl_abort_response2(
+	const struct http_response *resp,
+	struct _unconfigured_ssl_abort *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+
+	i_free(ctx);
+	io_loop_stop(ioloop);
+}
+
+static bool
+test_client_unconfigured_ssl_abort(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _unconfigured_ssl_abort *ctx;
+
+	ctx = i_new(struct _unconfigured_ssl_abort, 1);
+	ctx->count = 1;
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", "127.0.0.1", "/unconfigured-ssl.txt",
+		test_client_unconfigured_ssl_abort_response1, ctx);
+	http_client_request_set_ssl(hreq, TRUE);
+	http_client_request_submit(hreq);
+	http_client_request_abort(&hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", "127.0.0.1", "/unconfigured-ssl2.txt",
+		test_client_unconfigured_ssl_abort_response2, ctx);
+	http_client_request_set_ssl(hreq, TRUE);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_unconfigured_ssl_abort(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+
+	test_begin("unconfigured ssl abort");
+	test_run_client_server(&http_client_set,
+		test_client_unconfigured_ssl_abort,
+		NULL, 0, NULL);
+	test_end();
+}
+
+/*
  * Invalid URL
  */
 
@@ -2745,6 +2823,7 @@ static void test_reconnect_failure(void)
 
 static void (*const test_functions[])(void) = {
 	test_unconfigured_ssl,
+	test_unconfigured_ssl_abort,
 	test_invalid_url,
 	test_host_lookup_failed,
 	test_connection_refused,
