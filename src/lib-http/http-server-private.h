@@ -156,13 +156,6 @@ struct http_server {
 };
 
 /*
- * Forward declarations
- */
-
-bool http_server_connection_pending_payload(
-	struct http_server_connection *conn);
-
-/*
  * Response
  */
 
@@ -196,14 +189,6 @@ http_server_request_is_new(struct http_server_request *req)
 }
 
 static inline bool
-http_server_request_is_complete(struct http_server_request *req)
-{
-	return (req->failed || req->conn->input_broken ||
-		(req->next != NULL && !http_server_request_is_new(req->next)) ||
-		!http_server_connection_pending_payload(req->conn));
-}
-
-static inline bool
 http_server_request_version_equals(struct http_server_request *req,
 	unsigned int major, unsigned int minor) {
 	return (req->req.version_major == major && req->req.version_minor == minor);
@@ -214,6 +199,8 @@ http_server_request_new(struct http_server_connection *conn);
 void http_server_request_destroy(struct http_server_request **_req);
 void http_server_request_abort(struct http_server_request **_req,
 	const char *reason) ATTR_NULL(2);
+
+bool http_server_request_is_complete(struct http_server_request *req);
 
 void http_server_request_halt_payload(struct http_server_request *req);
 void http_server_request_continue_payload(struct http_server_request *req);
