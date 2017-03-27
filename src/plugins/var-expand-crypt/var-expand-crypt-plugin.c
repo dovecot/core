@@ -28,7 +28,7 @@ struct var_expand_crypt_context {
 	bool enc_result_only:1;
 };
 
-static void var_expand_crypt_initialize(void);
+static bool var_expand_crypt_initialize(const char **error_r);
 
 void var_expand_crypt_init(struct module *module);
 void var_expand_crypt_deinit(void);
@@ -144,8 +144,8 @@ var_expand_encrypt(struct var_expand_context *_ctx,
 		   const char *key, const char *field,
 		   const char **result_r, const char **error_r)
 {
-	if (!has_been_init)
-		var_expand_crypt_initialize();
+	if (!has_been_init && !var_expand_crypt_initialize(error_r))
+		return -1;
 
 	const char *p = strchr(key, ';');
 	const char *const *args = NULL;
@@ -225,8 +225,8 @@ var_expand_decrypt(struct var_expand_context *_ctx,
 		   const char *key, const char *field,
 		   const char **result_r, const char **error_r)
 {
-	if (!has_been_init)
-		var_expand_crypt_initialize();
+	if (!has_been_init && !var_expand_crypt_initialize(error_r))
+		return -1;
 
 	const char *p = strchr(key, ';');
 	const char *const *args = NULL;
@@ -313,9 +313,9 @@ static const struct var_expand_extension_func_table funcs[] = {
 	{ NULL, NULL, }
 };
 
-static void var_expand_crypt_initialize(void)
+static bool var_expand_crypt_initialize(const char **error_r)
 {
-	dcrypt_initialize(NULL, NULL, NULL);
+	return dcrypt_initialize(NULL, NULL, error_r);
 }
 
 void var_expand_crypt_init(struct module *module ATTR_UNUSED)
