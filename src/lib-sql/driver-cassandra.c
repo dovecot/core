@@ -102,7 +102,7 @@ struct cassandra_db {
 	struct timeout *to_metrics;
 	uint64_t counters[CASSANDRA_COUNTER_COUNT];
 
-	struct timeval first_fallback_sent[CASSANDRA_QUERY_TYPE_COUNT];
+	struct timeval primary_query_last_sent[CASSANDRA_QUERY_TYPE_COUNT];
 	time_t last_fallback_warning[CASSANDRA_QUERY_TYPE_COUNT];
 	unsigned int fallback_failures[CASSANDRA_QUERY_TYPE_COUNT];
 
@@ -777,8 +777,7 @@ static void query_resend_with_fallback(struct cassandra_result *result)
 		db->last_fallback_warning[result->query_type] = ioloop_time;
 	}
 	i_free_and_null(result->error);
-	if (db->fallback_failures[result->query_type]++ == 0)
-		db->first_fallback_sent[result->query_type] = ioloop_timeval;
+	db->fallback_failures[result->query_type]++;
 
 	result->consistency = result->fallback_consistency;
 	driver_cassandra_result_send_query(result);
@@ -894,7 +893,7 @@ driver_cassandra_want_fallback_query(struct cassandra_result *result)
 
 	if (failure_count == 0)
 		return FALSE;
-	tv = db->first_fallback_sent[result->query_type];
+	/* double the retries every time. */
 	for (i = 1; i < failure_count; i++) {
 		msecs *= 2;
 		if (msecs >= CASSANDRA_FALLBACK_MAX_RETRY_MSECS) {
@@ -902,6 +901,19 @@ driver_cassandra_want_fallback_query(struct cassandra_result *result)
 			break;
 		}
 	}
+	/* If last primary query sent timestamp + msecs is older than current
+	   time, we need to retry the primary query. Note that this practically
+	   prevents multiple primary queries from being attempted
+	   simultaneously, because the caller updates primary_query_last_sent
+	   immediately when returning.
+
+	   The only time when multiple primary queries can be running in
+	   parallel is when the earlier query is being slow and hasn't finished
+	   early enough. This could even be a wanted feature, since while the
+	   first query might have to wait for a timeout, Cassandra could have
+	   been fixed in the meantime and the second query finishes
+	   successfully. */
+	tv = db->primary_query_last_sent[result->query_type];
 	timeval_add_msecs(&tv, msecs);
 	return timeval_cmp(&ioloop_timeval, &tv) < 0;
 }
@@ -938,6 +950,8 @@ static int driver_cassandra_send_query(struct cassandra_result *result)
 
 	if (driver_cassandra_want_fallback_query(result))
 		result->consistency = result->fallback_consistency;
+	else
+		db->primary_query_last_sent[result->query_type] = ioloop_timeval;
 
 	driver_cassandra_result_send_query(result);
 	result->query_sent = TRUE;
