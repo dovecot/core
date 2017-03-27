@@ -4,7 +4,7 @@
 #include "istream.h"
 #include "hex-binary.h"
 #include "mail-index-private.h"
-#include "mail-transaction-log.h"
+#include "mail-transaction-log-private.h"
 #include "doveadm-dump.h"
 
 #include <stdio.h>
@@ -42,27 +42,6 @@ static void dump_hdr(struct istream *input, uint64_t *modseq_r)
 	       (unsigned long long)hdr.initial_modseq);
 	printf("compat flags = %x\n", hdr.compat_flags);
 	*modseq_r = hdr.initial_modseq;
-}
-
-static bool
-mail_transaction_header_has_modseq(const struct mail_transaction_header *hdr)
-{
-	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
-	case MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT:
-	case MAIL_TRANSACTION_EXPUNGE_GUID | MAIL_TRANSACTION_EXPUNGE_PROT:
-		if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0) {
-			/* ignore expunge requests */
-			break;
-		}
-	case MAIL_TRANSACTION_APPEND:
-	case MAIL_TRANSACTION_FLAG_UPDATE:
-	case MAIL_TRANSACTION_KEYWORD_UPDATE:
-	case MAIL_TRANSACTION_KEYWORD_RESET:
-	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE:
-		/* these changes increase modseq */
-		return TRUE;
-	}
-	return FALSE;
 }
 
 static const char *log_record_type(unsigned int type)
@@ -514,11 +493,6 @@ static int dump_record(struct istream *input, uint64_t *modseq)
 
 	printf("record: offset=%"PRIuUOFF_T", type=%s, size=%u",
 	       input->v_offset, log_record_type(hdr.type), hdr_size);
-	if (*modseq > 0 && mail_transaction_header_has_modseq(&hdr)) {
-		*modseq += 1;
-		printf(", modseq=%llu", (unsigned long long)*modseq);
-	}
-	printf("\n");
 
 	i_stream_skip(input, sizeof(hdr));
 	size_t data_size = hdr_size - sizeof(hdr);
@@ -529,6 +503,13 @@ static int dump_record(struct istream *input, uint64_t *modseq)
 		i_fatal("rec data read() %"PRIuSIZE_T" != %"PRIuSIZE_T,
 			size, data_size);
 	}
+
+	uint64_t prev_modseq = *modseq;
+	mail_transaction_update_modseq(&hdr, data, modseq);
+	if (*modseq > prev_modseq)
+		printf(", modseq=%llu", (unsigned long long)*modseq);
+	printf("\n");
+
 	log_record_print(&hdr, data, data_size, modseq);
 	i_stream_skip(input, data_size);
 	return 1;
