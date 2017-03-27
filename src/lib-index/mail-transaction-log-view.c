@@ -792,7 +792,8 @@ log_view_get_next(struct mail_transaction_log_view *view,
 		ret = log_view_is_record_valid(file, hdr, data) ? 1 : -1;
 	} T_END;
 	if (ret > 0) {
-		mail_transaction_update_modseq(hdr, data, &view->prev_modseq);
+		mail_transaction_update_modseq(hdr, data, &view->prev_modseq,
+			MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr));
 		*hdr_r = hdr;
 		*data_r = data;
 		view->cur_offset += full_size;

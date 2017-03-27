@@ -536,6 +536,32 @@ mail_index_transaction_keywords_count_modseq_incs(struct mail_index_transaction 
 	return count;
 }
 
+static bool
+transaction_flag_updates_have_non_internal(struct mail_index_transaction *t)
+{
+	struct mail_transaction_log_file *file = t->view->index->log->head;
+	const uint8_t internal_flags =
+		MAIL_INDEX_MAIL_FLAG_BACKEND | MAIL_INDEX_MAIL_FLAG_DIRTY;
+	const struct mail_index_flag_update *u;
+	const unsigned int hdr_version =
+		MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr);
+
+	if (!MAIL_TRANSACTION_LOG_VERSION_HAVE(hdr_version, HIDE_INTERNAL_MODSEQS)) {
+		/* this check can be a bit racy if the call isn't done while
+		   transaction log is locked. practically it won't matter
+		   now though. */
+		return array_count(&t->updates) > 0;
+	}
+
+	array_foreach(&t->updates, u) {
+		uint8_t changed_flags = u->add_flags | u->remove_flags;
+
+		if ((changed_flags & ~internal_flags) != 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 uint64_t mail_index_transaction_get_highest_modseq(struct mail_index_transaction *t)
 {
 	struct mail_transaction_log_file *file = t->view->index->log->head;
@@ -565,7 +591,8 @@ uint64_t mail_index_transaction_get_highest_modseq(struct mail_index_transaction
 		/* sorting may change the order of keyword_updates,  */
 		new_highest_modseq++;
 	}
-	if (array_is_created(&t->updates) && array_count(&t->updates) > 0)
+	if (array_is_created(&t->updates) &&
+	    transaction_flag_updates_have_non_internal(t) > 0)
 		new_highest_modseq++;
 	if (array_is_created(&t->keyword_updates)) {
 		new_highest_modseq +=

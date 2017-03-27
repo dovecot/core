@@ -27,7 +27,8 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file ATT
 
 void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 				    const void *data ATTR_UNUSED,
-				    uint64_t *cur_modseq)
+				    uint64_t *cur_modseq,
+				    unsigned int version ATTR_UNUSED)
 {
 	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE) != 0)
 		*cur_modseq += 1;

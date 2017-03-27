@@ -218,6 +218,13 @@ bool mail_transaction_log_want_rotate(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file = log->head;
 
+	if (file->hdr.major_version < MAIL_TRANSACTION_LOG_MAJOR_VERSION ||
+	    (file->hdr.major_version == MAIL_TRANSACTION_LOG_MAJOR_VERSION &&
+	     file->hdr.minor_version < MAIL_TRANSACTION_LOG_MINOR_VERSION)) {
+		/* upgrade immediately to a new log file format */
+		return TRUE;
+	}
+
 	if (file->sync_offset > log->index->log_rotate_max_size) {
 		/* file is too large, definitely rotate */
 		return TRUE;
