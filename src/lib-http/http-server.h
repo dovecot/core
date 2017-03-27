@@ -13,6 +13,10 @@ struct http_server;
 struct http_server_request;
 struct http_server_response;
 
+/*
+ * Server settings
+ */
+
 struct http_server_settings {
 	const char *rawlog_dir;
 
@@ -33,10 +37,9 @@ struct http_server_settings {
 	bool debug;
 };
 
-struct http_server_stats {
-	unsigned int request_count, response_count;
-	uoff_t input, output;
-};
+/*
+ * Response
+ */
 
 struct http_server_tunnel {
 	int fd_in, fd_out;
@@ -44,54 +47,74 @@ struct http_server_tunnel {
 	struct ostream *output;
 };
 
-struct http_server_callbacks {
-	/* Handle the server request. All requests must be sent back a response.
-	   The response is sent either with http_server_request_fail*() or
-	   http_server_response_submit*(). For simple requests you can send the
-	   response back immediately. If you can't do that, you'll need to
-	   reference the request. Then the code flow usually goes like this:
-
-	   - http_server_request_set_destroy_callback(destroy_callback)
-	   - http_server_request_ref()
-	   - <do whatever is needed to handle the request>
-	   - http_server_response_create()
-	   - http_server_response_set_payload() can be used especially with
-	     istream-callback to create a large response without temp files.
-	   - http_server_response_submit() triggers the destroy_callback
-	     after it has finished sending the response and its payload.
-	   - In destroy_callback: http_server_request_unref() and any other
-	     necessary cleanup - the request handling is now fully finished.
-	*/
-	void (*handle_request)(void *context, struct http_server_request *req);
-	void (*handle_connect_request)(void *context,
-		struct http_server_request *req, struct http_url *target);
-
-	void (*connection_destroy)(void *context, const char *reason);
-};
-
 typedef void (*http_server_tunnel_callback_t)(void *context,
 	const struct http_server_tunnel *tunnel);
 
-struct http_server *http_server_init(const struct http_server_settings *set);
-void http_server_deinit(struct http_server **_server);
-/* shut down the server; accept no new requests and drop connections once
-   they become idle */
-void http_server_shut_down(struct http_server *server);
+/* Start creating the response for the request. This function can be called
+   only once for each request. */
+struct http_server_response *
+http_server_response_create(struct http_server_request *req,
+	unsigned int status, const char *reason);
 
-struct http_server_connection *
-http_server_connection_create(struct http_server *server,
-	int fd_in, int fd_out, bool ssl,
-	const struct http_server_callbacks *callbacks, void *context);
-void http_server_connection_ref(struct http_server_connection *conn);
-/* Returns FALSE if unrefing destroyed the connection entirely */
-bool http_server_connection_unref(struct http_server_connection **_conn);
-void http_server_connection_close(struct http_server_connection **_conn,
-	const char *reason);
-const struct http_server_stats *
-http_server_connection_get_stats(struct http_server_connection *conn);
+void http_server_response_add_header(struct http_server_response *resp,
+				    const char *key, const char *value);
+/* Change the response code and text, cannot be used after submission */
+void http_server_response_update_status(struct http_server_response *resp,
+					unsigned int status, const char *reason);
+void http_server_response_set_date(struct http_server_response *resp,
+				    time_t date);
+void http_server_response_set_payload(struct http_server_response *resp,
+				     struct istream *input);
+void http_server_response_set_payload_data(struct http_server_response *resp,
+				     const unsigned char *data, size_t size);
+
+struct ostream *
+http_server_response_get_payload_output(struct http_server_response *resp,
+	bool blocking);
+
+/* get some information about response */
+void http_server_response_get_status(struct http_server_response *resp,
+	int *status_r, const char **reason_r);
+uoff_t http_server_response_get_total_size(struct http_server_response *resp);
+void http_server_response_add_auth(
+	struct http_server_response *resp,
+	const struct http_auth_challenge *chlng);
+void http_server_response_add_auth_basic(
+	struct http_server_response *resp, const char *realm);
+
+void http_server_response_submit(struct http_server_response *resp);
+/* Submit response and close the connection. */
+void http_server_response_submit_close(struct http_server_response *resp);
+void http_server_response_submit_tunnel(struct http_server_response *resp,
+	http_server_tunnel_callback_t callback, void *context);
+
+/* submits response and blocks until provided payload is sent. Multiple calls
+   are allowed; payload transmission is finished with
+   http_server_response_finish_payload(). If the sending fails, returns -1
+   and sets resp=NULL to indicate that the response was freed, otherwise
+   returns 0 and resp is unchanged. */
+int http_server_response_send_payload(struct http_server_response **resp,
+	const unsigned char *data, size_t size);
+/* Finish sending the payload. Always frees resp and sets it to NULL.
+   Returns 0 on success, -1 on error. */
+int http_server_response_finish_payload(struct http_server_response **resp);
+/* abort response payload transmission prematurely. this closes the associated
+   connection */
+void http_server_response_abort_payload(struct http_server_response **resp);
+
+/*
+ * Request
+ */
 
 const struct http_request *
 http_server_request_get(struct http_server_request *req);
+
+/* Reference a server request */
+void http_server_request_ref(struct http_server_request *req);
+/* Unreference a server request. Returns TRUE if there are still more
+   references, FALSE if not. */
+bool http_server_request_unref(struct http_server_request **_req);
+
 pool_t http_server_request_get_pool(struct http_server_request *req);
 /* Returns the response created for the request with
    http_server_response_create(), or NULL if none. */
@@ -152,63 +175,62 @@ void http_server_request_set_destroy_callback(struct http_server_request *req,
 	http_server_request_set_destroy_callback(req, (void(*)(void*))callback, context + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 
-/* Reference a server request */
-void http_server_request_ref(struct http_server_request *req);
-/* Unreference a server request. Returns TRUE if there are still more
-   references, FALSE if not. */
-bool http_server_request_unref(struct http_server_request **_req);
+/*
+ * Connection
+ */
 
-/* Start creating the response for the request. This function can be called
-   only once for each request. */
-struct http_server_response *
-http_server_response_create(struct http_server_request *req,
-	unsigned int status, const char *reason);
-void http_server_response_add_header(struct http_server_response *resp,
-				    const char *key, const char *value);
-/* Change the response code and text, cannot be used after submission */
-void http_server_response_update_status(struct http_server_response *resp,
-					unsigned int status, const char *reason);
-void http_server_response_set_date(struct http_server_response *resp,
-				    time_t date);
-void http_server_response_set_payload(struct http_server_response *resp,
-				     struct istream *input);
-void http_server_response_set_payload_data(struct http_server_response *resp,
-				     const unsigned char *data, size_t size);
+struct http_server_stats {
+	unsigned int request_count, response_count;
+	uoff_t input, output;
+};
 
-struct ostream *
-http_server_response_get_payload_output(struct http_server_response *resp,
-	bool blocking);
+struct http_server_callbacks {
+	/* Handle the server request. All requests must be sent back a response.
+	   The response is sent either with http_server_request_fail*() or
+	   http_server_response_submit*(). For simple requests you can send the
+	   response back immediately. If you can't do that, you'll need to
+	   reference the request. Then the code flow usually goes like this:
 
-/* get some information about response */
-void http_server_response_get_status(struct http_server_response *resp,
-	int *status_r, const char **reason_r);
-uoff_t http_server_response_get_total_size(struct http_server_response *resp);
-void http_server_response_add_auth(
-	struct http_server_response *resp,
-	const struct http_auth_challenge *chlng);
-void http_server_response_add_auth_basic(
-	struct http_server_response *resp, const char *realm);
+	   - http_server_request_set_destroy_callback(destroy_callback)
+	   - http_server_request_ref()
+	   - <do whatever is needed to handle the request>
+	   - http_server_response_create()
+	   - http_server_response_set_payload() can be used especially with
+	     istream-callback to create a large response without temp files.
+	   - http_server_response_submit() triggers the destroy_callback
+	     after it has finished sending the response and its payload.
+	   - In destroy_callback: http_server_request_unref() and any other
+	     necessary cleanup - the request handling is now fully finished.
+	*/
+	void (*handle_request)(void *context, struct http_server_request *req);
+	void (*handle_connect_request)(void *context,
+		struct http_server_request *req, struct http_url *target);
 
-void http_server_response_submit(struct http_server_response *resp);
-/* Submit response and close the connection. */
-void http_server_response_submit_close(struct http_server_response *resp);
-void http_server_response_submit_tunnel(struct http_server_response *resp,
-	http_server_tunnel_callback_t callback, void *context);
+	void (*connection_destroy)(void *context, const char *reason);
+};
+
+struct http_server_connection *
+http_server_connection_create(struct http_server *server,
+	int fd_in, int fd_out, bool ssl,
+	const struct http_server_callbacks *callbacks, void *context);
+void http_server_connection_ref(struct http_server_connection *conn);
+/* Returns FALSE if unrefing destroyed the connection entirely */
+bool http_server_connection_unref(struct http_server_connection **_conn);
+void http_server_connection_close(struct http_server_connection **_conn,
+	const char *reason);
+const struct http_server_stats *
+http_server_connection_get_stats(struct http_server_connection *conn);
+
+/*
+ * Server
+ */
+
+struct http_server *http_server_init(const struct http_server_settings *set);
+void http_server_deinit(struct http_server **_server);
+/* shut down the server; accept no new requests and drop connections once
+   they become idle */
+void http_server_shut_down(struct http_server *server);
 
 void http_server_switch_ioloop(struct http_server *server);
-
-/* submits response and blocks until provided payload is sent. Multiple calls
-   are allowed; payload transmission is finished with
-   http_server_response_finish_payload(). If the sending fails, returns -1
-   and sets resp=NULL to indicate that the response was freed, otherwise
-   returns 0 and resp is unchanged. */
-int http_server_response_send_payload(struct http_server_response **resp,
-	const unsigned char *data, size_t size);
-/* Finish sending the payload. Always frees resp and sets it to NULL.
-   Returns 0 on success, -1 on error. */
-int http_server_response_finish_payload(struct http_server_response **resp);
-/* abort response payload transmission prematurely. this closes the associated
-   connection */
-void http_server_response_abort_payload(struct http_server_response **resp);
 
 #endif
