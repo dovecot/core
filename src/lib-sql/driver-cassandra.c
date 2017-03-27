@@ -38,6 +38,7 @@ enum cassandra_counter_type {
 	CASSANDRA_COUNTER_TYPE_QUERY_RECV_ERR_SERVER_TIMEOUT,
 	CASSANDRA_COUNTER_TYPE_QUERY_RECV_ERR_SERVER_UNAVAILABLE,
 	CASSANDRA_COUNTER_TYPE_QUERY_RECV_ERR_OTHER,
+	CASSANDRA_COUNTER_TYPE_QUERY_SLOW,
 
 	CASSANDRA_COUNTER_COUNT
 };
@@ -50,6 +51,7 @@ static const char *counter_names[CASSANDRA_COUNTER_COUNT] = {
 	"recv_err_server_timeout",
 	"recv_err_server_unavailable",
 	"recv_err_other",
+	"slow",
 };
 
 enum cassandra_query_type {
@@ -717,9 +719,10 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 			timeval_diff_usecs(&now, &result->finish_time),
 			result->error != NULL ? result->error : "success");
 
-		if (reply_usecs/1000000 >= db->warn_timeout_secs)
+		if (reply_usecs/1000000 >= db->warn_timeout_secs) {
+			db->counters[CASSANDRA_COUNTER_TYPE_QUERY_SLOW]++;
 			i_warning("%s", str);
-		else
+		} else
 			i_debug("%s", str);
 	}
 
