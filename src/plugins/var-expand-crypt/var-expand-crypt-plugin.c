@@ -214,8 +214,6 @@ var_expand_encrypt(struct var_expand_context *_ctx,
 		ret = 1;
 	}
 
-	dcrypt_ctx_sym_destroy(&dctx);
-
 	return ret;
 }
 
