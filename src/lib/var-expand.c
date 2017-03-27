@@ -31,10 +31,11 @@ struct var_expand_modifier {
 	const char *(*func)(const char *, struct var_expand_context *);
 };
 
-static const char *
+static int
 var_expand_long(const struct var_expand_table *table,
 		const struct var_expand_func_table *func_table,
-		const void *key_start, size_t key_len, void *context);
+		const void *key_start, size_t key_len, void *context,
+		const char **var_r, const char **error_r);
 
 static const char *
 m_str_lcase(const char *str, struct var_expand_context *ctx ATTR_UNUSED)
@@ -209,6 +210,7 @@ var_expand_hash(const struct var_expand_table *table,
 	const char *const *args = NULL;
 	const char *algo = key;
 	const char *value;
+	int ret;
 
 	if (p != NULL) {
 		algo = t_strcut(key, ';');
@@ -226,7 +228,9 @@ var_expand_hash(const struct var_expand_table *table,
 	string_t *salt = t_str_new(64);
 	string_t *tmp = t_str_new(method->digest_size);
 
-	value = var_expand_long(table, func_table, field, strlen(field), context);
+	if ((ret = var_expand_long(table, func_table, field, strlen(field),
+				   context, &value, error_r)) < 1)
+		return ret;
 
 	str_append(field_value, value);
 
@@ -343,42 +347,49 @@ var_expand_hash(const struct var_expand_table *table,
 	i_unreached();
 }
 
-static const char *
+static int
 var_expand_func(const struct var_expand_func_table *func_table,
-		const char *key, const char *data, void *context)
+		const char *key, const char *data, void *context,
+		const char **var_r, const char **error_r)
 {
 	const char *value;
 
 	if (strcmp(key, "env") == 0) {
 		value = getenv(data);
-		return value != NULL ? value : "";
+		*var_r = value != NULL ? value : "";
+		return 1;
 	}
-	if (func_table == NULL)
-		return NULL;
-
-	for (; func_table->key != NULL; func_table++) {
-		if (strcmp(func_table->key, key) == 0) {
-			value = func_table->func(data, context);
-			return value != NULL ? value : "";
+	if (func_table != NULL) {
+		for (; func_table->key != NULL; func_table++) {
+			if (strcmp(func_table->key, key) == 0) {
+				value = func_table->func(data, context);
+				*var_r = value != NULL ? value : "";
+				return 1;
+			}
 		}
 	}
-	return NULL;
+	*error_r = t_strdup_printf("Unknown variable '%%%s'", key);
+	*var_r = t_strdup_printf("UNSUPPORTED_VARIABLE_%s", key);
+	return 0;
 }
 
-static const char *
+static int
 var_expand_long(const struct var_expand_table *table,
 		const struct var_expand_func_table *func_table,
-		const void *key_start, size_t key_len, void *context)
+		const void *key_start, size_t key_len, void *context,
+		const char **var_r, const char **error_r)
 {
 	const struct var_expand_table *t;
 	const char *error, *key, *value = NULL;
+	int ret = 1;
 
 	if (table != NULL) {
 		for (t = table; !TABLE_LAST(t); t++) {
 			if (t->long_key != NULL &&
 			    strncmp(t->long_key, key_start, key_len) == 0 &&
 			    t->long_key[key_len] == '\0') {
-				return t->value != NULL ? t->value : "";
+				*var_r = t->value != NULL ? t->value : "";
+				return 1;
 			}
 		}
 	}
@@ -402,7 +413,6 @@ var_expand_long(const struct var_expand_table *table,
 
 	if (value == NULL) {
 		const char *data = strchr(key, ':');
-		int ret;
 
 		if (data != NULL)
 			key = t_strdup_until(key, data++);
@@ -415,12 +425,13 @@ var_expand_long(const struct var_expand_table *table,
 			i_error("Failed to expand %s: %s", key, error);
 			value = "";
 		} else if (ret == 0) {
-			value = var_expand_func(func_table, key, data, context);
+			return var_expand_func(func_table, key, data, context,
+					       var_r, error_r);
 		}
 	}
 	if (value == NULL)
-		return t_strdup_printf("UNSUPPORTED_VARIABLE_%s", key);
-	return value;
+		*var_r = t_strdup_printf("UNSUPPORTED_VARIABLE_%s", key);
+	return ret;
 }
 
 void var_expand_with_funcs(string_t *dest, const char *str,
@@ -510,6 +521,7 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 			var = NULL;
 			if (*str == '{' && (end = strchr(str, '}')) != NULL) {
 				/* %{long_key} */
+				const char *error;
 				unsigned int ctr = 1;
 				end = str;
 				while(*++end != '\0' && ctr > 0) {
@@ -522,8 +534,10 @@ void var_expand_with_funcs(string_t *dest, const char *str,
 				/* if there is no } it will consume rest of the
 				   string */
 				len = end - (str + 1);
-				var = var_expand_long(table, func_table,
-						      str+1, len, context);
+				if (var_expand_long(table, func_table, str+1,
+						    len, context, &var, &error) < 0)
+					i_error("var_expand_long(%s) failed: %s",
+						str+1, error);
 				i_assert(var != NULL);
 				str = end;
 			} else {
