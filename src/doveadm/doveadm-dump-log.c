@@ -261,7 +261,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 			     const void *data, size_t data_size,
 			     uint64_t *modseq)
 {
-	unsigned int size = hdr->size - sizeof(*hdr);
+	unsigned int size = mail_index_offset_to_uint32(hdr->size) - sizeof(*hdr);
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_EXPUNGE|MAIL_TRANSACTION_EXPUNGE_PROT: {
@@ -488,7 +488,7 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 static int dump_record(struct istream *input, uint64_t *modseq)
 {
 	struct mail_transaction_header hdr;
-	unsigned int orig_size;
+	unsigned int hdr_size;
 	const unsigned char *data;
 	size_t size;
 	int ret;
@@ -504,17 +504,16 @@ static int dump_record(struct istream *input, uint64_t *modseq)
 	}
 	memcpy(&hdr, data, sizeof(hdr));
 
-	orig_size = hdr.size;
-	hdr.size = mail_index_offset_to_uint32(hdr.size);
-	if (hdr.size < sizeof(hdr)) {
+	hdr_size = mail_index_offset_to_uint32(hdr.size);
+	if (hdr_size < sizeof(hdr)) {
 		printf("record: offset=%"PRIuUOFF_T", "
 		       "type=%s, size=broken (%x)\n",
-		       input->v_offset, log_record_type(hdr.type), orig_size);
+		       input->v_offset, log_record_type(hdr.type), hdr.size);
 		return 0;
 	}
 
 	printf("record: offset=%"PRIuUOFF_T", type=%s, size=%u",
-	       input->v_offset, log_record_type(hdr.type), hdr.size);
+	       input->v_offset, log_record_type(hdr.type), hdr_size);
 	if (*modseq > 0 && mail_transaction_header_has_modseq(&hdr)) {
 		*modseq += 1;
 		printf(", modseq=%llu", (unsigned long long)*modseq);
@@ -522,7 +521,7 @@ static int dump_record(struct istream *input, uint64_t *modseq)
 	printf("\n");
 
 	i_stream_skip(input, sizeof(hdr));
-	size_t data_size = hdr.size - sizeof(hdr);
+	size_t data_size = hdr_size - sizeof(hdr);
 	ret = i_stream_read_bytes(input, &data, &size, data_size);
 	if (ret < 0 && input->stream_errno != 0)
 		i_fatal("read() failed: %s", i_stream_get_error(input));
