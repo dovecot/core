@@ -6,10 +6,18 @@
 #include "http-server.h"
 #include "llist.h"
 
-#define HTTP_SERVER_REQUEST_MAX_TARGET_LENGTH 4096
-
 struct http_server_request;
 struct http_server_connection;
+
+/*
+ * Defaults
+ */
+
+#define HTTP_SERVER_REQUEST_MAX_TARGET_LENGTH 4096
+
+/*
+ * Types
+ */
 
 enum http_server_request_state {
 	/* New request; request header is still being parsed. */
@@ -38,6 +46,10 @@ enum http_server_request_state {
 	/* Request is aborted; still lingering due to references */
 	HTTP_SERVER_REQUEST_STATE_ABORTED
 };
+
+/*
+ * Objects
+ */
 
 struct http_server_response {
 	struct http_server_request *request;
@@ -143,6 +155,27 @@ struct http_server {
 	bool shutting_down:1;    /* shutting down server */
 };
 
+/*
+ * Forward declarations
+ */
+
+bool http_server_connection_pending_payload(
+	struct http_server_connection *conn);
+
+/*
+ * Response
+ */
+
+void http_server_response_free(struct http_server_response *resp);
+int http_server_response_send(struct http_server_response *resp,
+			     const char **error_r);
+int http_server_response_send_more(struct http_server_response *resp,
+				  const char **error_r);
+
+/*
+ * Request
+ */
+
 static inline const char *
 http_server_request_label(struct http_server_request *req)
 {
@@ -155,39 +188,6 @@ http_server_request_label(struct http_server_request *req)
 	return t_strdup_printf("[Req%u: %s %s]", req->id,
 		req->req.method, req->req.target_raw);
 }
-
-static inline const char *
-http_server_connection_label(struct http_server_connection *conn)
-{
-	return conn->conn.name;
-}
-
-bool http_server_connection_pending_payload(struct http_server_connection *conn);
-
-
-/* response */
-
-void http_server_response_free(struct http_server_response *resp);
-int http_server_response_send(struct http_server_response *resp,
-			     const char **error_r);
-int http_server_response_send_more(struct http_server_response *resp,
-				  const char **error_r);
-
-/* request */
-
-struct http_server_request *
-http_server_request_new(struct http_server_connection *conn);
-void http_server_request_destroy(struct http_server_request **_req);
-void http_server_request_abort(struct http_server_request **_req,
-	const char *reason) ATTR_NULL(2);
-
-void http_server_request_halt_payload(struct http_server_request *req);
-void http_server_request_continue_payload(struct http_server_request *req);
-
-void http_server_request_submit_response(struct http_server_request *req);
-
-void http_server_request_ready_to_respond(struct http_server_request *req);
-void http_server_request_finished(struct http_server_request *req);
 
 static inline bool
 http_server_request_is_new(struct http_server_request *req)
@@ -209,7 +209,44 @@ http_server_request_version_equals(struct http_server_request *req,
 	return (req->req.version_major == major && req->req.version_minor == minor);
 }
 
-/* connection */
+struct http_server_request *
+http_server_request_new(struct http_server_connection *conn);
+void http_server_request_destroy(struct http_server_request **_req);
+void http_server_request_abort(struct http_server_request **_req,
+	const char *reason) ATTR_NULL(2);
+
+void http_server_request_halt_payload(struct http_server_request *req);
+void http_server_request_continue_payload(struct http_server_request *req);
+
+void http_server_request_submit_response(struct http_server_request *req);
+
+void http_server_request_ready_to_respond(struct http_server_request *req);
+void http_server_request_finished(struct http_server_request *req);
+
+/*
+ * connection
+ */
+
+static inline const char *
+http_server_connection_label(struct http_server_connection *conn)
+{
+	return conn->conn.name;
+}
+
+static inline void
+http_server_connection_add_request(struct http_server_connection *conn,
+	struct http_server_request *sreq)
+{
+	DLLIST2_APPEND(&conn->request_queue_head, &conn->request_queue_tail, sreq);
+	conn->request_queue_count++;
+}
+static inline void
+http_server_connection_remove_request(struct http_server_connection *conn,
+	struct http_server_request *sreq)
+{
+	DLLIST2_REMOVE(&conn->request_queue_head, &conn->request_queue_tail, sreq);
+	conn->request_queue_count--;
+}
 
 struct connection_list *http_server_connection_list_init(void);
 
@@ -230,19 +267,7 @@ void http_server_connection_tunnel(struct http_server_connection **_conn,
 
 int http_server_connection_discard_payload(
 	struct http_server_connection *conn);
-bool http_server_connection_pending_payload(struct http_server_connection *conn);
-
-static inline void http_server_connection_add_request(struct http_server_connection *conn,
-						      struct http_server_request *sreq)
-{
-	DLLIST2_APPEND(&conn->request_queue_head, &conn->request_queue_tail, sreq);
-	conn->request_queue_count++;
-}
-static inline void http_server_connection_remove_request(struct http_server_connection *conn,
-							 struct http_server_request *sreq)
-{
-	DLLIST2_REMOVE(&conn->request_queue_head, &conn->request_queue_tail, sreq);
-	conn->request_queue_count--;
-}
+bool http_server_connection_pending_payload(
+	struct http_server_connection *conn);
 
 #endif
