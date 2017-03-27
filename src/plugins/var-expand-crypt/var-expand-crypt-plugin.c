@@ -257,18 +257,14 @@ var_expand_decrypt(struct var_expand_context *_ctx,
 	if (var_expand_crypt_settings(&ctx, args, error_r) < 0)
 		return -1;
 
-	str_append(field_value, value);
-
-	const char *encdata = str_c(field_value);
-	const char *enciv = NULL;
+	const char *encdata = value;
+	const char *enciv = "";
 
 	/* make sure IV is correct */
 	if (ctx.iv->used == 0 && (p = strchr(encdata, '$')) != NULL) {
 		/* see if IV can be taken from data */
 		enciv = t_strcut(encdata, '$');
 		encdata = t_strcut(p+1,'$');
-	} else {
-		encdata = t_strdup(str_c(field_value));
 	}
 
 	str_truncate(field_value, 0);
@@ -298,8 +294,10 @@ var_expand_decrypt(struct var_expand_context *_ctx,
 	ret = var_expand_crypt(dctx, ctx.enckey, ctx.iv, field_value, tmp, error_r);
 	dcrypt_ctx_sym_destroy(&dctx);
 
-	if (ret == 0)
+	if (ret == 0) {
 		*result_r = str_c(tmp);
+		ret = 1;
+	}
 
 	return ret;
 }
