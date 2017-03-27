@@ -24,9 +24,18 @@
 #include <unistd.h>
 #include <dirent.h>
 
+enum payload_handling {
+	PAYLOAD_HANDLING_LOW_LEVEL,
+	PAYLOAD_HANDLING_FORWARD,
+	PAYLOAD_HANDLING_HANDLER,
+};
+
 static bool debug = FALSE;
 
 static bool blocking = FALSE;
+static enum payload_handling server_payload_handling =
+	PAYLOAD_HANDLING_LOW_LEVEL;
+
 static bool request_100_continue = FALSE;
 static size_t read_server_partial = 0;
 static size_t read_client_partial = 0;
@@ -268,10 +277,25 @@ client_handle_download_request(
 /* location: /echo */
 
 static void
-client_request_read_echo_more(struct client_request *creq)
+client_request_finish_payload_in(struct client_request *creq)
 {
 	struct http_server_response *resp;
 	struct istream *payload_input;
+
+	payload_input = iostream_temp_finish(&creq->payload_output, 4096);
+
+	resp = http_server_response_create
+		(creq->server_req, 200, "OK");
+	http_server_response_add_header(resp, "Content-Type", "text/plain");
+	http_server_response_set_payload(resp, payload_input);
+	http_server_response_submit(resp);
+
+	i_stream_unref(&payload_input);
+}
+
+static void
+client_request_read_echo(struct client_request *creq)
+{
 	enum ostream_send_istream_result res;
 
 	o_stream_set_max_buffer_size(creq->payload_output, IO_BLOCK_SIZE);
@@ -292,23 +316,24 @@ client_request_read_echo_more(struct client_request *creq)
 			"Failed to write all echo payload [%s]", creq->path);
 	}
 
-	io_remove(&creq->io);
+	client_request_finish_payload_in(creq);
 	i_stream_unref(&creq->payload_input);
+}
+
+static void
+client_request_read_echo_more(struct client_request *creq)
+{
+	client_request_read_echo(creq);
+
+	if (creq->payload_input != NULL)
+		return;
+
+	io_remove(&creq->io);
 
 	if (debug) {
 		i_debug("test server: echo: "
 			"finished receiving payload for %s", creq->path);
 	}
-
-	payload_input = iostream_temp_finish(&creq->payload_output, 4096);
-
-	resp = http_server_response_create
-		(creq->server_req, 200, "OK");
-	http_server_response_add_header(resp, "Content-Type", "text/plain");
-	http_server_response_set_payload(resp, payload_input);
-	http_server_response_submit(resp);
-
-	i_stream_unref(&payload_input);
 }
 
 static void
@@ -390,19 +415,35 @@ client_handle_echo_request(struct client_request *creq,
 
 	} else {
 		creq->payload_output = payload_output;
-		creq->payload_input =
-			http_server_request_get_payload_input(req, FALSE);
 
-		if (read_server_partial > 0) {
-			struct istream *partial =
-				i_stream_create_limit(creq->payload_input, read_server_partial);
-			i_stream_unref(&creq->payload_input);
-			creq->payload_input = partial;
+		switch (server_payload_handling) {
+		case PAYLOAD_HANDLING_LOW_LEVEL:
+			creq->payload_input =
+				http_server_request_get_payload_input(req, FALSE);
+
+			if (read_server_partial > 0) {
+				struct istream *partial =
+					i_stream_create_limit(creq->payload_input, read_server_partial);
+				i_stream_unref(&creq->payload_input);
+				creq->payload_input = partial;
+			}
+
+			creq->io = io_add_istream(creq->payload_input,
+					 client_request_read_echo_more, creq);
+			client_request_read_echo_more(creq);
+			break;
+		case PAYLOAD_HANDLING_FORWARD:
+			http_server_request_forward_payload(req,
+				payload_output, (size_t)-1,
+				client_request_finish_payload_in, creq);
+			break;
+		case PAYLOAD_HANDLING_HANDLER:
+			creq->payload_input =
+				http_server_request_get_payload_input(req, FALSE);
+			http_server_request_handle_payload(req,
+				client_request_read_echo, creq);
+			break;
 		}
-
-		creq->io = io_add_istream(creq->payload_input,
-				 client_request_read_echo_more, creq);
-		client_request_read_echo_more(creq);
 	}
 }
 
@@ -1344,6 +1385,7 @@ static void test_download_server_nonblocking(void)
 	request_100_continue = FALSE;
 	read_server_partial = 0;
 	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
@@ -1370,6 +1412,29 @@ static void test_echo_server_nonblocking(void)
 	request_100_continue = FALSE;
 	read_server_partial = 0;
 	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (server non-blocking; low-level)");
+	blocking = FALSE;
+	request_100_continue = FALSE;
+	read_server_partial = 0;
+	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (server non-blocking; handler)");
+	blocking = FALSE;
+	request_100_continue = FALSE;
+	read_server_partial = 0;
+	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_HANDLER;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1396,6 +1461,29 @@ static void test_echo_server_nonblocking_sync(void)
 	request_100_continue = TRUE;
 	read_server_partial = 0;
 	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (server non-blocking; 100-continue; low-level)");
+	blocking = FALSE;
+	request_100_continue = TRUE;
+	read_server_partial = 0;
+	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (server non-blocking; 100-continue; handler)");
+	blocking = FALSE;
+	request_100_continue = TRUE;
+	read_server_partial = 0;
+	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_HANDLER;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -1422,11 +1510,46 @@ static void test_echo_server_nonblocking_partial(void)
 	request_100_continue = FALSE;
 	read_server_partial = 1024;
 	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
 	test_end();
 	test_begin("http payload echo (server non-blocking; partial long)");
+	read_server_partial = IO_BLOCK_SIZE + 1024;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (server non-blocking; partial short; low-level)");
+	blocking = FALSE;
+	request_100_continue = FALSE;
+	read_server_partial = 1024;
+	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_LOW_LEVEL;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+	test_begin("http payload echo (server non-blocking; partial long; low-level)");
+	read_server_partial = IO_BLOCK_SIZE + 1024;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (server non-blocking; partial short; handler)");
+	blocking = FALSE;
+	request_100_continue = FALSE;
+	read_server_partial = 1024;
+	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_HANDLER;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+	test_begin("http payload echo (server non-blocking; partial long; handler)");
 	read_server_partial = IO_BLOCK_SIZE + 1024;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
@@ -1461,6 +1584,7 @@ static void test_download_client_partial(void)
 	read_server_partial = 0;
 	read_client_partial = 1024;
 	client_ioloop_nesting = 0;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
@@ -1470,6 +1594,7 @@ static void test_download_client_partial(void)
 	request_100_continue = FALSE;
 	read_server_partial = 0;
 	read_client_partial = IO_BLOCK_SIZE + 1024;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
@@ -1484,6 +1609,7 @@ static void test_download_client_nested_ioloop(void)
 	read_server_partial = 0;
 	read_client_partial = 0;
 	client_ioloop_nesting = 10;
+	server_payload_handling = PAYLOAD_HANDLING_FORWARD;
 	test_run_parallel(test_client_echo);
 	test_end();
 }

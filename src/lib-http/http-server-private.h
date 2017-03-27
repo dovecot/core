@@ -3,9 +3,11 @@
 
 #include "connection.h"
 
+#include "iostream-pump.h"
 #include "http-server.h"
 #include "llist.h"
 
+struct http_server_payload_handler;
 struct http_server_request;
 struct http_server_connection;
 
@@ -50,6 +52,15 @@ enum http_server_request_state {
 /*
  * Objects
  */
+
+struct http_server_payload_handler {
+	struct http_server_request *req;
+
+	void (*switch_ioloop)(struct http_server_payload_handler *handler);
+	void (*destroy)(struct http_server_payload_handler *handler);
+
+	bool in_callback:1;
+};
 
 struct http_server_response {
 	struct http_server_request *request;
@@ -128,6 +139,8 @@ struct http_server_connection {
 	unsigned int request_queue_count;
 
 	struct istream *incoming_payload;
+	struct http_server_payload_handler *payload_handler;
+
 	struct io *io_resp_payload;
 
 	char *disconnect_reason;
@@ -210,6 +223,13 @@ void http_server_request_submit_response(struct http_server_request *req);
 
 void http_server_request_ready_to_respond(struct http_server_request *req);
 void http_server_request_finished(struct http_server_request *req);
+
+/* payload handler */
+
+void http_server_payload_handler_destroy(
+	struct http_server_payload_handler **_handler);
+void http_server_payload_handler_switch_ioloop(
+	struct http_server_payload_handler *handler);
 
 /*
  * connection

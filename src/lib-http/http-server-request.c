@@ -31,6 +31,40 @@ http_server_request_debug(struct http_server_request *req,
 	}
 }
 
+static inline void
+http_server_request_error(struct http_server_request *req,
+	const char *format, ...) ATTR_FORMAT(2, 3);
+
+static inline void
+http_server_request_error(struct http_server_request *req,
+	const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	i_error("http-server: request %s: %s",
+		http_server_request_label(req),
+		t_strdup_vprintf(format, args));
+	va_end(args);
+}
+
+static inline void
+http_server_request_client_error(struct http_server_request *req,
+	const char *format, ...) ATTR_FORMAT(2, 3);
+
+static inline void
+http_server_request_client_error(struct http_server_request *req,
+	const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	i_info("http-server: request %s: %s",
+		http_server_request_label(req),
+		t_strdup_vprintf(format, args));
+	va_end(args);
+}
+
 /*
  * Request
  */
@@ -245,6 +279,11 @@ void http_server_request_submit_response(struct http_server_request *req)
 
 	i_assert(conn != NULL && req->response != NULL && req->response->submitted);
 
+	http_server_request_ref(req);
+
+	if (conn->payload_handler != NULL && conn->payload_handler->req == req)
+		http_server_payload_handler_destroy(&conn->payload_handler);
+
 	switch (req->state) {
 	case HTTP_SERVER_REQUEST_STATE_NEW:
 	case HTTP_SERVER_REQUEST_STATE_QUEUED:
@@ -257,11 +296,16 @@ void http_server_request_submit_response(struct http_server_request *req)
 		}
 		http_server_request_ready_to_respond(req);
 		break;
+	case HTTP_SERVER_REQUEST_STATE_READY_TO_RESPOND:
+		http_server_connection_trigger_responses(req->conn);
+		break;
 	case HTTP_SERVER_REQUEST_STATE_ABORTED:
 		break;
 	default:
 		i_unreached();
 	}
+
+	http_server_request_unref(&req);
 }
 
 void http_server_request_finished(struct http_server_request *req)
@@ -519,4 +563,274 @@ http_server_request_get_payload_input(struct http_server_request *req,
 		(&hsristream->istream, payload, i_stream_get_fd(payload));
 	i_stream_unref(&req->req.payload);
 	return req->payload_input;
+}
+
+/*
+ * Payload handling
+ */
+
+static void
+http_server_payload_handler_init(
+	struct http_server_payload_handler *handler	,
+	struct http_server_request *req)
+{
+	struct http_server_connection *conn = req->conn;
+
+	i_assert(conn->payload_handler == NULL);
+	i_assert(conn->in_req_callback);
+
+	conn->payload_handler = handler;
+
+	handler->req = req;
+}
+
+void http_server_payload_handler_destroy(
+	struct http_server_payload_handler **_handler)
+{
+	struct http_server_payload_handler *handler = *_handler;
+	struct http_server_connection *conn = handler->req->conn;
+
+	if (handler->in_callback) {
+		/* don't destroy handler while in callback */
+		return;
+	}
+
+	*_handler = NULL;
+	i_assert(conn->payload_handler == NULL);
+
+	if (handler->destroy != NULL)
+		handler->destroy(handler);
+}
+
+void http_server_payload_handler_switch_ioloop(
+	struct http_server_payload_handler *handler)
+{
+	if (handler->switch_ioloop != NULL)
+		handler->switch_ioloop(handler);
+}
+
+/* pump-based */
+
+struct http_server_payload_handler_pump {
+	struct http_server_payload_handler handler;
+
+	struct iostream_pump *pump;
+
+	void (*callback)(void *);
+	void *context;
+};
+
+static void
+payload_handler_pump_destroy(
+	struct http_server_payload_handler *handler)
+{
+	struct http_server_payload_handler_pump *phandler =
+		(struct http_server_payload_handler_pump *)handler;
+
+	iostream_pump_unref(&phandler->pump);
+}
+
+static void
+payload_handler_pump_switch_ioloop(
+	struct http_server_payload_handler *handler)
+{
+	struct http_server_payload_handler_pump *phandler =
+		(struct http_server_payload_handler_pump *)handler;
+
+	iostream_pump_switch_ioloop(phandler->pump);
+}
+
+static void
+payload_handler_pump_callback(bool success,
+	struct http_server_payload_handler_pump *phandler)
+{
+	struct http_server_payload_handler *handler = &phandler->handler;
+	struct http_server_request *req = handler->req;
+	struct http_server_connection *conn = req->conn;
+	struct istream *input = iostream_pump_get_input(phandler->pump);
+	struct ostream *output = iostream_pump_get_output(phandler->pump);
+
+	if (success) {
+		if (!i_stream_is_eof(conn->incoming_payload)) {
+			http_server_request_fail_close(req,
+				413, "Payload Too Large");
+		} else {
+			unsigned int old_refcount = req->refcount;
+
+			handler->in_callback = TRUE;
+			phandler->callback(phandler->context);
+			req->callback_refcount += req->refcount - old_refcount;
+			handler->in_callback = FALSE;
+
+			i_assert(req->callback_refcount > 0 ||
+				(req->response != NULL && req->response->submitted));
+		}
+	} else if (input->stream_errno != 0) {
+		http_server_request_client_error(req,
+			"iostream_pump: read(%s) failed: %s",
+			i_stream_get_name(input),
+			i_stream_get_error(input));
+		http_server_request_fail_close(req,
+			400, "Bad Request");
+	} else {
+		if (output->stream_errno != 0) {
+			http_server_request_error(req,
+				"iostream_pump: write(%s) failed: %s",
+				o_stream_get_name(output),
+				o_stream_get_error(output));
+		}
+		http_server_request_fail_close(req,
+			500, "Internal Server Error");
+	}
+
+	if (conn->payload_handler != NULL)
+		http_server_payload_handler_destroy(&conn->payload_handler);
+}
+
+#undef http_server_request_forward_payload
+void http_server_request_forward_payload(struct http_server_request *req,
+	struct ostream *output, uoff_t max_size,
+	void (*callback)(void *), void *context)
+{
+	struct http_server_connection *conn = req->conn;
+	struct istream *input = conn->incoming_payload;
+	struct http_server_payload_handler_pump *phandler;
+	uoff_t payload_size;
+	int ret;
+
+	i_assert(req->req.payload != NULL);
+
+	if (max_size == (uoff_t)-1) {
+		i_stream_ref(input);
+	} else {
+		if ((ret = i_stream_get_size(input, TRUE, &payload_size)) != 0) {
+			if (ret < 0) {
+				http_server_request_error(req,
+					"i_stream_get_size(%s) failed: %s",
+					i_stream_get_name(input), i_stream_get_error(input));
+				http_server_request_fail_close(req,
+					500, "Internal Server Error");
+				return;
+			}
+			if (payload_size > max_size) {
+				http_server_request_fail_close(req,
+					413, "Payload Too Large");
+				return;
+			}
+		}
+		input = i_stream_create_limit(input, max_size);
+	}
+
+	phandler = p_new(req->pool, struct http_server_payload_handler_pump, 1);
+	http_server_payload_handler_init(&phandler->handler, req);
+	phandler->handler.switch_ioloop = payload_handler_pump_switch_ioloop;
+	phandler->handler.destroy = payload_handler_pump_destroy;
+	phandler->callback = callback;
+	phandler->context = context;
+
+	phandler->pump = iostream_pump_create(input, output);
+	iostream_pump_set_completion_callback(phandler->pump,
+		payload_handler_pump_callback, phandler);
+	iostream_pump_start(phandler->pump);
+	i_stream_unref(&input);
+}
+
+#undef http_server_request_buffer_payload
+void http_server_request_buffer_payload(struct http_server_request *req,
+	buffer_t *buffer, uoff_t max_size,
+	void (*callback)(void *), void *context)
+{
+	struct ostream *output;
+
+	output = o_stream_create_buffer(buffer);
+	http_server_request_forward_payload(req,
+		output, max_size, callback, context);
+	o_stream_unref(&output);
+}
+
+/* raw */
+
+struct http_server_payload_handler_raw {
+	struct http_server_payload_handler handler;
+
+	struct io *io;
+
+	void (*callback)(void *context);
+	void *context;
+};
+
+static void
+payload_handler_raw_destroy(
+	struct http_server_payload_handler *handler)
+{
+	struct http_server_payload_handler_raw *rhandler =
+		(struct http_server_payload_handler_raw *)handler;
+
+	io_remove(&rhandler->io);
+}
+
+static void
+payload_handler_raw_switch_ioloop(
+	struct http_server_payload_handler *handler)
+{
+	struct http_server_payload_handler_raw *rhandler =
+		(struct http_server_payload_handler_raw *)handler;
+
+	rhandler->io = io_loop_move_io(&rhandler->io);
+}
+
+static void
+payload_handler_raw_input(
+	struct http_server_payload_handler_raw *rhandler)
+{
+	struct http_server_payload_handler *handler = &rhandler->handler;
+	struct http_server_request *req = handler->req;
+	struct http_server_connection *conn = req->conn;
+	struct istream *input = conn->incoming_payload;
+	unsigned int old_refcount = req->refcount;
+
+	handler->in_callback = TRUE;
+	rhandler->callback(rhandler->context);
+	req->callback_refcount += req->refcount - old_refcount;
+	handler->in_callback = FALSE;
+
+	if (input != NULL && input->stream_errno != 0) {
+		if (req->response == NULL) {
+			http_server_request_client_error(req,
+				"read(%s) failed: %s",
+				i_stream_get_name(input),
+				i_stream_get_error(input));
+			http_server_request_fail_close(req,
+				400, "Bad Request");
+		}
+	} else if (input == NULL ||
+		!i_stream_have_bytes_left(input)) {
+		i_assert(req->callback_refcount > 0 ||
+			(req->response != NULL && req->response->submitted));
+	} else {
+		return;
+	}
+
+	if (conn->payload_handler != NULL)
+		http_server_payload_handler_destroy(&conn->payload_handler);
+
+}
+
+#undef http_server_request_handle_payload
+void http_server_request_handle_payload(struct http_server_request *req,
+	void (*callback)(void *context), void *context)
+{
+	struct http_server_payload_handler_raw *rhandler;
+	struct http_server_connection *conn = req->conn;
+
+	rhandler = p_new(req->pool, struct http_server_payload_handler_raw, 1);
+	http_server_payload_handler_init(&rhandler->handler, req);
+	rhandler->handler.switch_ioloop = payload_handler_raw_switch_ioloop;
+	rhandler->handler.destroy = payload_handler_raw_destroy;
+	rhandler->callback = callback;
+	rhandler->context = context;
+
+	rhandler->io = io_add_istream(conn->incoming_payload,
+		payload_handler_raw_input, rhandler);
+	i_stream_set_input_pending(conn->incoming_payload, TRUE);
 }

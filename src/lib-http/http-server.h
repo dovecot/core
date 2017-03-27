@@ -166,6 +166,43 @@ struct istream *
 http_server_request_get_payload_input(struct http_server_request *req,
 	bool blocking);
 
+/* Forward the incoming request payload to the provided output stream in the
+   background. Calls the provided callback once the payload was forwarded
+   successfully. If forwarding fails, the client is presented with an
+   appropriate error. If the payload size exceeds max_size, the client will
+   get a 413 error. Before the callback finishes, the application must either
+   have added a reference to the request or have submitted a response. */
+void http_server_request_forward_payload(struct http_server_request *req,
+	struct ostream *output, uoff_t max_size,
+	void (*callback)(void *), void *context);
+#define http_server_request_forward_payload(req, \
+		output, max_size, callback, context) \
+	http_server_request_forward_payload(req, output, max_size, \
+		(void(*)(void*))callback, context + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
+/* Forward the incoming request payload to the provided buffer in the
+   background. Behaves identical to http_server_request_forward_payload()
+   otherwise. */
+void http_server_request_buffer_payload(struct http_server_request *req,
+	buffer_t *buffer, uoff_t max_size,
+	void (*callback)(void *), void *context);
+#define http_server_request_buffer_payload(req, \
+		buffer, max_size, callback, context) \
+	http_server_request_buffer_payload(req, buffer, max_size, \
+		(void(*)(void*))callback, context + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
+/* Handle the incoming request payload by calling the callback each time
+   more data is available. Payload reading automatically finishes when the
+   request payload is fully read. Before the final callback finishes, the
+   application must either have added a reference to the request or have
+   submitted a response. */
+void http_server_request_handle_payload(struct http_server_request *req,
+	void (*callback)(void *context), void *context);
+#define http_server_request_handle_payload(req, callback, context) \
+	http_server_request_handle_payload(req,\
+		(void(*)(void*))callback, context + \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
+
 /* Get the authentication credentials provided in this request. Returns 0 if
    the Authorization header is absent, returns -1 when that header cannot be
    parsed, and returns 1 otherwise */

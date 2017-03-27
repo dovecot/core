@@ -218,6 +218,9 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 	stream_errno = conn->incoming_payload->stream_errno;
 	conn->incoming_payload = NULL;
 
+	if (conn->payload_handler != NULL)
+		http_server_payload_handler_destroy(&conn->payload_handler);
+
 	/* handle errors in transfer stream */
 	if (req->response == NULL && stream_errno != 0 &&
 		conn->conn.input->stream_errno == 0) {
@@ -774,6 +777,9 @@ int http_server_connection_discard_payload(
 	i_assert(conn->conn.io == NULL);
 	i_assert(server->ioloop == NULL);
 
+	if (conn->payload_handler != NULL)
+		http_server_payload_handler_destroy(&conn->payload_handler);
+
 	/* destroy payload wrapper early to advance state */
 	if (conn->incoming_payload != NULL) {
 		i_stream_unref(&conn->incoming_payload);
@@ -1147,6 +1153,8 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 						 http_server_payload_destroyed);
 		conn->incoming_payload = NULL;
 	}
+	if (conn->payload_handler != NULL)
+		http_server_payload_handler_destroy(&conn->payload_handler);
 
 	/* drop all requests before connection is closed */
 	req = conn->request_queue_head;
@@ -1255,6 +1263,8 @@ void http_server_connection_switch_ioloop(struct http_server_connection *conn)
 		conn->to_idle = io_loop_move_timeout(&conn->to_idle);
 	if (conn->io_resp_payload != NULL)
 		conn->io_resp_payload = io_loop_move_io(&conn->io_resp_payload);
+	if (conn->payload_handler != NULL)
+		http_server_payload_handler_switch_ioloop(conn->payload_handler);
 	if (conn->incoming_payload != NULL)
 		i_stream_switch_ioloop(conn->incoming_payload);
 	connection_switch_ioloop(&conn->conn);
