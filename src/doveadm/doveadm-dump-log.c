@@ -11,7 +11,8 @@
 
 static struct mail_transaction_ext_intro prev_intro;
 
-static void dump_hdr(struct istream *input, uint64_t *modseq_r)
+static void dump_hdr(struct istream *input, uint64_t *modseq_r,
+		     unsigned int *version_r)
 {
 	struct mail_transaction_log_header hdr;
 	const unsigned char *data;
@@ -42,6 +43,7 @@ static void dump_hdr(struct istream *input, uint64_t *modseq_r)
 	       (unsigned long long)hdr.initial_modseq);
 	printf("compat flags = %x\n", hdr.compat_flags);
 	*modseq_r = hdr.initial_modseq;
+	*version_r = MAIL_TRANSACTION_LOG_HDR_VERSION(&hdr);
 }
 
 static const char *log_record_type(unsigned int type)
@@ -464,7 +466,8 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 	}
 }
 
-static int dump_record(struct istream *input, uint64_t *modseq)
+static int dump_record(struct istream *input, uint64_t *modseq,
+		       unsigned int version)
 {
 	struct mail_transaction_header hdr;
 	unsigned int hdr_size;
@@ -505,7 +508,7 @@ static int dump_record(struct istream *input, uint64_t *modseq)
 	}
 
 	uint64_t prev_modseq = *modseq;
-	mail_transaction_update_modseq(&hdr, data, modseq);
+	mail_transaction_update_modseq(&hdr, data, modseq, version);
 	if (*modseq > prev_modseq)
 		printf(", modseq=%llu", (unsigned long long)*modseq);
 	printf("\n");
@@ -519,13 +522,14 @@ static void cmd_dump_log(int argc ATTR_UNUSED, char *argv[])
 {
 	struct istream *input;
 	uint64_t modseq;
+	unsigned int version;
 	int ret;
 
 	input = i_stream_create_file(argv[1], (size_t)-1);
-	dump_hdr(input, &modseq);
+	dump_hdr(input, &modseq, &version);
 	do {
 		T_BEGIN {
-			ret = dump_record(input, &modseq);
+			ret = dump_record(input, &modseq, version);
 		} T_END;
 	} while (ret > 0);
 	i_stream_unref(&input);

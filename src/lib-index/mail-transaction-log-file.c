@@ -1007,8 +1007,31 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 	return 0;
 }
 
+static bool
+flag_updates_have_non_internal(const struct mail_transaction_flag_update *u,
+			       unsigned int count, unsigned int version)
+{
+	const uint8_t internal_flags =
+		MAIL_INDEX_MAIL_FLAG_BACKEND | MAIL_INDEX_MAIL_FLAG_DIRTY;
+
+	/* Hide internal flags from modseqs if the log file's version
+	   is new enough. This allows upgrading without the modseqs suddenly
+	   shrinking. */
+	if (!MAIL_TRANSACTION_LOG_VERSION_HAVE(version, HIDE_INTERNAL_MODSEQS))
+		return TRUE;
+
+	for (unsigned int i = 0; i < count; i++) {
+		uint8_t changed_flags = u->add_flags | u->remove_flags;
+
+		if ((changed_flags & ~internal_flags) != 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
-				    const void *data, uint64_t *cur_modseq)
+				    const void *data, uint64_t *cur_modseq,
+				    unsigned int version)
 {
 	uint32_t trans_size;
 
@@ -1046,13 +1069,21 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 			break;
 		}
 	case MAIL_TRANSACTION_APPEND:
-	case MAIL_TRANSACTION_FLAG_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_RESET:
 	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE:
 		/* these changes increase modseq */
 		*cur_modseq += 1;
 		break;
+	case MAIL_TRANSACTION_FLAG_UPDATE: {
+		const struct mail_transaction_flag_update *rec = data;
+		unsigned int count;
+
+		count = (trans_size - sizeof(*hdr)) / sizeof(*rec);
+		if (flag_updates_have_non_internal(rec, count, version))
+			*cur_modseq += 1;
+		break;
+	}
 	case MAIL_TRANSACTION_MODSEQ_UPDATE: {
 		const struct mail_transaction_modseq_update *rec, *end;
 
@@ -1209,7 +1240,8 @@ int mail_transaction_log_file_get_highest_modseq_at(
 	while (cur_offset < offset) {
 		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
 			return- 1;
-		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq);
+		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq,
+			MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr));
 	}
 
 	/* @UNSAFE: cache the value */
@@ -1280,7 +1312,8 @@ int mail_transaction_log_file_get_modseq_next_offset(
 	while (cur_offset < file->sync_offset) {
 		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
 			return -1;
-		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq);
+		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq,
+			MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr));
 		if (cur_modseq >= modseq)
 			break;
 	}
@@ -1312,8 +1345,8 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 	const void *data = hdr + 1;
 	int ret;
 
-	mail_transaction_update_modseq(hdr, hdr + 1,
-				       &file->sync_highest_modseq);
+	mail_transaction_update_modseq(hdr, hdr + 1, &file->sync_highest_modseq,
+		MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr));
 	if ((hdr->type & MAIL_TRANSACTION_EXTERNAL) == 0)
 		return 1;
 
