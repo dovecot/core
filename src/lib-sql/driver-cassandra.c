@@ -898,7 +898,7 @@ driver_cassandra_want_fallback_query(struct cassandra_result *result)
 	for (i = 1; i < failure_count; i++) {
 		msecs *= 2;
 		if (msecs >= CASSANDRA_FALLBACK_MAX_RETRY_MSECS) {
-			msecs = CASSANDRA_FALLBACK_FIRST_RETRY_MSECS;
+			msecs = CASSANDRA_FALLBACK_MAX_RETRY_MSECS;
 			break;
 		}
 	}
