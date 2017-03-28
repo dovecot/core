@@ -582,6 +582,93 @@ http_client_request_get_state(const struct http_client_request *req)
 	return req->state;
 }
 
+void http_client_request_get_stats(struct http_client_request *req,
+	struct http_client_request_stats *stats_r)
+{
+	struct http_client *client = req->client;
+	int diff_msecs;
+	uint64_t wait_usecs;
+
+	i_zero(stats_r);
+	if (!req->submitted)
+		return;
+
+	/* total elapsed time since message was submitted */
+	diff_msecs = timeval_diff_msecs(&ioloop_timeval, &req->submit_time);
+	stats_r->total_msecs = (unsigned int)I_MAX(diff_msecs, 0);
+
+	/* elapsed time since message was last sent */
+	if (req->sent_time.tv_sec > 0) {
+		diff_msecs = timeval_diff_msecs(&ioloop_timeval, &req->sent_time);
+		stats_r->sent_msecs = (unsigned int)I_MAX(diff_msecs, 0);
+	}
+
+	if (req->conn != NULL) {
+		/* time spent in other ioloops */
+		i_assert(ioloop_global_wait_usecs >= req->sent_global_ioloop_usecs);
+		stats_r->other_ioloop_msecs = (unsigned int)
+			(ioloop_global_wait_usecs - req->sent_global_ioloop_usecs + 999) / 1000;
+
+		/* time spent in the http-client's own ioloop */
+		if (client->ioloop != NULL) {
+			wait_usecs = io_wait_timer_get_usecs(req->conn->io_wait_timer);
+			i_assert(wait_usecs >= req->sent_http_ioloop_usecs);
+			stats_r->http_ioloop_msecs = (unsigned int)
+				(wait_usecs - req->sent_http_ioloop_usecs + 999) / 1000;
+
+			i_assert(stats_r->other_ioloop_msecs >= stats_r->http_ioloop_msecs);
+			stats_r->other_ioloop_msecs -= stats_r->http_ioloop_msecs;
+		}
+	}
+
+	/* total time spent on waiting for file locks */
+	wait_usecs = file_lock_wait_get_total_usecs();
+	i_assert(wait_usecs >= req->sent_lock_usecs);
+	stats_r->lock_msecs = (unsigned int)
+		(wait_usecs - req->sent_lock_usecs + 999) / 1000;
+
+	/* number of attempts for this request */
+	stats_r->attempts = req->attempts;
+
+}
+
+void http_client_request_append_stats_text(struct http_client_request *req,
+	string_t *str)
+{
+	struct http_client_request_stats stats;
+
+	if (!req->submitted) {
+		str_append(str, "not yet submitted");
+		return;
+	}
+
+	http_client_request_get_stats(req, &stats);
+
+	if (stats.sent_msecs > 0) {
+		str_printfa(str, "sent %u.%03u secs ago",
+			    stats.sent_msecs/1000, stats.sent_msecs%1000);
+	} else {
+		str_append(str, "not yet sent");
+	}
+	if (stats.attempts > 0) {
+		str_printfa(str, ", %u attempts in %u.%03u secs",
+			    stats.attempts + 1,
+			    stats.total_msecs/1000, stats.total_msecs%1000);
+	}
+	if (stats.http_ioloop_msecs > 0) {
+		str_printfa(str, ", %u.%03u in http ioloop",
+			    stats.http_ioloop_msecs/1000,
+			    stats.http_ioloop_msecs%1000);
+	}
+	str_printfa(str, ", %u.%03u in other ioloops",
+		    stats.other_ioloop_msecs/1000, stats.other_ioloop_msecs%1000);
+
+	if (stats.lock_msecs > 0) {
+		str_printfa(str, ", %u.%03u in locks",
+			    stats.lock_msecs/1000, stats.lock_msecs%1000);
+	}
+}
+
 enum http_response_payload_type
 http_client_request_get_payload_type(struct http_client_request *req)
 {

@@ -180,6 +180,23 @@ struct http_client_tunnel {
 	struct ostream *output;
 };
 
+struct http_client_request_stats {
+	/* Total elapsed time since message was submitted */
+	unsigned int total_msecs;
+	/* Elapsed time since message was last sent */
+	unsigned int sent_msecs;
+
+	/* Time spent in other ioloops */
+	unsigned int other_ioloop_msecs;
+	/* Time spent in the http-client's own ioloop */
+	unsigned int http_ioloop_msecs;
+	/* Total time spent on waiting for file locks */
+	unsigned int lock_msecs;
+
+	/* Number of attempts for this request */
+	unsigned int attempts;
+};
+
 typedef void
 http_client_request_callback_t(const struct http_response *response,
 			       void *context);
@@ -343,6 +360,13 @@ http_client_request_get_target(const struct http_client_request *req)
 enum http_request_state
 http_client_request_get_state(const struct http_client_request *req)
 	ATTR_PURE;
+
+/* get statistics for the request */
+void http_client_request_get_stats(struct http_client_request *req,
+	struct http_client_request_stats *stats);
+/* append text with request statistics to provided string buffer */
+void http_client_request_append_stats_text(struct http_client_request *req,
+	string_t *str);
 
 /* submit the request. It is queued for transmission to the service */
 void http_client_request_submit(struct http_client_request *req);

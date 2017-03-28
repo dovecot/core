@@ -222,40 +222,14 @@ static const char *
 http_client_connection_get_timing_info(struct http_client_connection *conn)
 {
 	struct http_client_request *const *requestp;
-	unsigned int sent_msecs, total_msecs, connected_msecs;
+	unsigned int connected_msecs;
 	string_t *str = t_str_new(64);
 
 	if (array_count(&conn->request_wait_list) > 0) {
 		requestp = array_idx(&conn->request_wait_list, 0);
-		sent_msecs = timeval_diff_msecs(&ioloop_timeval, &(*requestp)->sent_time);
-		total_msecs = timeval_diff_msecs(&ioloop_timeval, &(*requestp)->submit_time);
 
-		str_printfa(str, "Request sent %u.%03u secs ago",
-			    sent_msecs/1000, sent_msecs%1000);
-		if ((*requestp)->attempts > 0) {
-			str_printfa(str, ", %u attempts in %u.%03u secs",
-				    (*requestp)->attempts + 1,
-				    total_msecs/1000, total_msecs%1000);
-		}
-		int other_ioloop_msecs = (ioloop_global_wait_usecs -
-			(*requestp)->sent_global_ioloop_usecs + 999) / 1000;
-		if (conn->client->ioloop != NULL) {
-			int http_ioloop_msecs =
-				(io_wait_timer_get_usecs(conn->io_wait_timer) -
-				 (*requestp)->sent_http_ioloop_usecs + 999) / 1000;
-			other_ioloop_msecs -= http_ioloop_msecs;
-			str_printfa(str, ", %d.%03d in http ioloop",
-				    http_ioloop_msecs/1000, http_ioloop_msecs%1000);
-		}
-		str_printfa(str, ", %d.%03d in other ioloops",
-			    other_ioloop_msecs/1000, other_ioloop_msecs%1000);
-
-		int lock_msecs = (file_lock_wait_get_total_usecs() -
-				  (*requestp)->sent_lock_usecs + 999) / 1000;
-		if (lock_msecs > 0) {
-			str_printfa(str, ", %d.%03d in locks",
-				    lock_msecs/1000, lock_msecs%1000);
-		}
+		str_append(str, "Request ");
+		http_client_request_append_stats_text(*requestp, str);
 	} else {
 		str_append(str, "No requests");
 		if (conn->conn.last_input != 0) {
