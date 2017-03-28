@@ -55,6 +55,23 @@ long long timeval_diff_usecs(const struct timeval *tv1,
 	return ((long long)secs * 1000000LL) + usecs;
 }
 
+time_t time_to_local_day_start(time_t t)
+{
+	const struct tm *day_tm;
+	struct tm tm;
+	time_t new_start_time;
+
+	day_tm = localtime(&t);
+	i_zero(&tm);
+	tm.tm_year = day_tm->tm_year;
+	tm.tm_mon = day_tm->tm_mon;
+	tm.tm_mday = day_tm->tm_mday;
+	tm.tm_isdst = -1;
+	new_start_time = mktime(&tm);
+	i_assert(new_start_time != (time_t)-1);
+	return new_start_time;
+}
+
 static const char *strftime_real(const char *fmt, const struct tm *tm)
 {
 	size_t bufsize = strlen(fmt) + 32;
