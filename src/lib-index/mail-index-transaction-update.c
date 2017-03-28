@@ -6,10 +6,9 @@
 
 #include "lib.h"
 #include "array.h"
+#include "time-util.h"
 #include "mail-index-private.h"
 #include "mail-index-transaction-private.h"
-
-#include <time.h>
 
 static bool
 mail_index_transaction_has_ext_changes(struct mail_index_transaction *t);
@@ -123,23 +122,13 @@ void mail_index_update_day_headers(struct mail_index_transaction *t,
 	struct mail_index_header hdr;
 	const struct mail_index_record *rec;
 	const int max_days = N_ELEMENTS(hdr.day_first_uid);
-	const struct tm *day_tm;
-	struct tm tm;
 	time_t stamp;
 	int i, days;
 
 	hdr = *mail_index_get_header(t->view);
 	rec = array_idx(&t->appends, 0);
 
-	/* get beginning of today */
-	day_tm = localtime(&day_stamp);
-	i_zero(&tm);
-	tm.tm_year = day_tm->tm_year;
-	tm.tm_mon = day_tm->tm_mon;
-	tm.tm_mday = day_tm->tm_mday;
-	stamp = mktime(&tm);
-	i_assert(stamp != (time_t)-1);
-
+	stamp = time_to_local_day_start(day_stamp);
 	if ((time_t)hdr.day_stamp >= stamp)
 		return;
 
