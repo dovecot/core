@@ -280,8 +280,6 @@ static void http_server_payload_destroyed(struct http_server_request *req)
 static void http_server_connection_request_callback(
 	struct http_server_connection *conn, struct http_server_request *req)
 {
-	unsigned int old_refcount = req->refcount;
-
 	/* CONNECT method */
 	if (strcmp(req->req.method, "CONNECT") == 0) {
 		if (conn->callbacks->handle_connect_request == NULL) {
@@ -303,10 +301,6 @@ static void http_server_connection_request_callback(
 		}
 		conn->callbacks->handle_request(conn->context, req);
 	}
-
-	i_assert((req->response != NULL &&
-		  req->response->submitted) ||
-		 req->refcount > old_refcount);
 }
 
 static bool
@@ -314,7 +308,9 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 	struct http_server_request *req)
 {
 	const struct http_server_settings *set = &conn->server->set;
+	unsigned int old_refcount, new_refcount;
 	struct istream *payload;
+	bool payload_destroyed = FALSE;
 
 	i_assert(!conn->in_req_callback);
 	i_assert(conn->incoming_payload == NULL);
@@ -345,6 +341,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 	   our one before calling it */
 	http_server_connection_input_halt(conn);
 
+	old_refcount = req->refcount;
 	conn->in_req_callback = TRUE;
 	http_server_connection_request_callback(conn, req);
 	if (conn->closed) {
@@ -352,6 +349,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		return FALSE;
 	}
 	conn->in_req_callback = FALSE;
+	new_refcount = req->refcount;
 
 	if (req->req.payload != NULL) {
 		/* send 100 Continue when appropriate */
@@ -369,6 +367,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		if (conn->to_input != NULL) {
 			/* already finished reading the payload */
 			http_server_payload_finished(conn);
+			payload_destroyed = TRUE;
 		}
 	}
 
@@ -380,6 +379,10 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		if (req->response != NULL && req->response->submitted)
 			http_server_request_submit_response(req);
 	}
+
+	i_assert(!payload_destroyed ||
+		new_refcount > old_refcount ||
+		(req->response != NULL && req->response->submitted));
 
 	if (conn->incoming_payload == NULL) {
 		if (conn->conn.io == NULL && conn->to_input == NULL)

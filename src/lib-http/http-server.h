@@ -228,7 +228,8 @@ struct http_server_callbacks {
 	   The response is sent either with http_server_request_fail*() or
 	   http_server_response_submit*(). For simple requests you can send the
 	   response back immediately. If you can't do that, you'll need to
-	   reference the request. Then the code flow usually goes like this:
+	   reference the request (or the request payload input stream). Then the
+	   code flow usually goes like this:
 
 	   - http_server_request_set_destroy_callback(destroy_callback)
 	   - http_server_request_ref()
