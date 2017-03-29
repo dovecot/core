@@ -1243,7 +1243,7 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 		auth_fields_append(request->userdb_reply, str,
 				   AUTH_FIELD_FLAG_CHANGED,
 				   AUTH_FIELD_FLAG_CHANGED);
-		if (strcmp(request->user, request->translated_username) != 0) {
+		if (request->user_changed_by_lookup) {
 			/* username was changed by passdb or userdb */
 			if (str_len(str) > 0)
 				str_append_c(str, '\t');
