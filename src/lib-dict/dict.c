@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "llist.h"
 #include "str.h"
 #include "dict-sql.h"
 #include "dict-private.h"
@@ -102,6 +103,7 @@ void dict_deinit(struct dict **_dict)
 
 	i_assert(dict->iter_count == 0);
 	i_assert(dict->transaction_count == 0);
+	i_assert(dict->transactions == NULL);
 
 	dict->v.deinit(dict);
 }
@@ -242,6 +244,7 @@ struct dict_transaction_context *dict_transaction_begin(struct dict *dict)
 	   passed as parameter, e.g. it can be dict-fail when
 	   transactions are not supported. */
 	ctx->dict->transaction_count++;
+	DLLIST_PREPEND(&ctx->dict->transactions, ctx);
 	return ctx;
 }
 
@@ -273,6 +276,7 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx)
 	*_ctx = NULL;
 	i_assert(ctx->dict->transaction_count > 0);
 	ctx->dict->transaction_count--;
+	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
 	return ctx->dict->v.transaction_commit(ctx, FALSE, NULL, NULL);
 }
 
@@ -285,6 +289,7 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	*_ctx = NULL;
 	i_assert(ctx->dict->transaction_count > 0);
 	ctx->dict->transaction_count--;
+	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
 	ctx->dict->v.transaction_commit(ctx, TRUE, callback, context);
 }
 
@@ -295,6 +300,7 @@ void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 	*_ctx = NULL;
 	i_assert(ctx->dict->transaction_count > 0);
 	ctx->dict->transaction_count--;
+	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
 	ctx->dict->v.transaction_rollback(ctx);
 }
 
