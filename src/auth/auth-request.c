@@ -1780,6 +1780,7 @@ auth_request_try_update_username(struct auth_request *request,
 					"username changed %s -> %s",
 					request->user, new_value);
 		request->user = p_strdup(request->pool, new_value);
+		request->user_changed_by_lookup = TRUE;
 	}
 	return TRUE;
 }
