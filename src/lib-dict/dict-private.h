@@ -51,6 +51,7 @@ struct dict {
 	struct dict_vfuncs v;
 	unsigned int iter_count;
 	unsigned int transaction_count;
+	struct dict_transaction_context *transactions;
 };
 
 struct dict_iterate_context {
@@ -66,6 +67,7 @@ struct dict_iterate_context {
 
 struct dict_transaction_context {
 	struct dict *dict;
+	struct dict_transaction_context *prev, *next;
 
 	struct timespec timestamp;
 
