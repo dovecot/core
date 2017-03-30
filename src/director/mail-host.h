@@ -57,9 +57,10 @@ int mail_hosts_parse_and_add(struct mail_host_list *list,
 			     const char *hosts_string);
 const char *mail_host_get_tag(const struct mail_host *host);
 void mail_host_set_tag(struct mail_host *host, const char *tag_name);
-void mail_host_set_down(struct mail_host *host, bool down, time_t timestamp);
-void mail_host_set_vhost_count(struct mail_host *host,
-			       unsigned int vhost_count);
+void mail_host_set_down(struct mail_host *host, bool down, time_t timestamp,
+			const char *log_prefix);
+void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count,
+			       const char *log_prefix);
 void mail_host_remove(struct mail_host *host);
 
 void mail_hosts_set_synced(struct mail_host_list *list);
