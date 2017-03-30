@@ -1217,7 +1217,7 @@ void quota_over_flag_check_startup(struct quota *quota)
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		name = t_strconcat(roots[i]->set->set_name, "_over_flag_lazy_check", NULL);
-		if (mail_user_plugin_getenv(roots[i]->quota->user, name) == NULL)
+		if (!mail_user_plugin_getenv_bool(roots[i]->quota->user, name))
 			quota_over_flag_check_root(roots[i]);
 	}
 }
