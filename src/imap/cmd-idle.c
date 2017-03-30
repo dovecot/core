@@ -140,6 +140,12 @@ static bool idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
 {
 	i_assert(ctx->sync_ctx == NULL);
 
+	if (ctx->to_hibernate != NULL) {
+		/* hibernation can't happen while sync is running.
+		   the timeout is added back afterwards. */
+		timeout_remove(&ctx->to_hibernate);
+	}
+
 	ctx->sync_pending = FALSE;
 	ctx->sync_ctx = imap_sync_init(ctx->client, box, 0, 0);
 	return cmd_idle_continue(ctx->cmd);
