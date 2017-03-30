@@ -205,6 +205,8 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 	if (!array_is_created(&t->appends))
 		return;
 
+	i_assert(first_uid < (uint32_t)-1);
+
 	/* first find the highest assigned uid */
 	recs = array_get_modifiable(&t->appends, &count);
 	i_assert(count > 0);
@@ -214,12 +216,14 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 		if (next_uid <= recs[i].uid)
 			next_uid = recs[i].uid + 1;
 	}
+	i_assert(next_uid > 0 && next_uid < (uint32_t)-1);
 
 	/* assign missing uids */
 	for (i = 0; i < count; i++) {
-		if (recs[i].uid == 0 || recs[i].uid < first_uid)
+		if (recs[i].uid == 0 || recs[i].uid < first_uid) {
+			i_assert(next_uid < (uint32_t)-1);
 			recs[i].uid = next_uid++;
-		else {
+		} else {
 			if (next_uid != first_uid)
 				t->appends_nonsorted = TRUE;
 		}
