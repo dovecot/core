@@ -193,6 +193,7 @@ const struct dsasl_client_mech dsasl_client_mech_xoauth2 = {
 	.name = "XOAUTH2",
 	.struct_size = sizeof(struct oauthbearer_dsasl_client),
 
+	.input = mech_oauthbearer_input,
 	.output = mech_xoauth2_output,
 	.set_parameter = mech_oauthbearer_set_parameter,
 	.get_result = mech_oauthbearer_get_result,
