@@ -9,6 +9,16 @@
 #define MAIL_TRANSACTION_LOG_MINOR_VERSION 2
 #define MAIL_TRANSACTION_LOG_HEADER_MIN_SIZE 24
 
+#define MAIL_TRANSACTION_LOG_VERSION_FULL(major, minor) \
+	((major) << 8 | (minor))
+#define MAIL_TRANSACTION_LOG_VERSION_HAVE(version, wanted_feature) \
+	((version) >= MAIL_TRANSACTION_LOG_VERSION_##wanted_feature)
+#define MAIL_TRANSACTION_LOG_HDR_VERSION(hdr) \
+	MAIL_TRANSACTION_LOG_VERSION_FULL((hdr)->major_version, (hdr)->minor_version)
+
+#define MAIL_TRANSACTION_LOG_VERSION_COMPAT_FLAGS \
+	MAIL_TRANSACTION_LOG_VERSION_FULL(1, 2)
+
 struct mail_transaction_log_header {
 	uint8_t major_version;
 	uint8_t minor_version;
