@@ -555,7 +555,7 @@ int http_client_request_delay_from_response(struct http_client_request *req,
 	if (retry_after < ioloop_time)
 		return 0;  /* delay already expired */
 	max = (req->client->set.max_auto_retry_delay == 0 ?
-		req->client->set.request_timeout_msecs / 1000 :
+		req->attempt_timeout_msecs / 1000 :
 		req->client->set.max_auto_retry_delay);
 	if ((unsigned int)(retry_after - ioloop_time) > max)
 		return -1; /* delay too long */
