@@ -529,7 +529,9 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 		return 0;
 	}
 
-	if (file->hdr.minor_version >= 2 || file->hdr.major_version > 1) {
+	const unsigned int hdr_version =
+		MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr);
+	if (MAIL_TRANSACTION_LOG_VERSION_HAVE(hdr_version, COMPAT_FLAGS)) {
 		/* we have compatibility flags */
 		enum mail_index_header_compat_flags compat_flags = 0;
 
