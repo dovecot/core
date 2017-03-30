@@ -361,17 +361,29 @@ void mail_host_set_tag(struct mail_host *host, const char *tag_name)
 	host->list->vhosts_unsorted = TRUE;
 }
 
-void mail_host_set_down(struct mail_host *host, bool down, time_t timestamp)
+void mail_host_set_down(struct mail_host *host, bool down,
+			time_t timestamp, const char *log_prefix)
 {
 	if (host->down != down) {
+		const char *updown = down ? "down" : "up";
+		i_info("%sHost %s changed %s "
+		       "(vhost_count=%u last_updown_change=%ld)",
+		       log_prefix, net_ip2addr(&host->ip), updown,
+		       host->vhost_count, (long)host->last_updown_change);
+
 		host->down = down;
 		host->last_updown_change = timestamp;
 		host->list->vhosts_unsorted = TRUE;
 	}
 }
 
-void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count)
+void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count,
+			       const char *log_prefix)
 {
+	i_info("%sHost %s vhost count changed from %u to %u",
+	       log_prefix, net_ip2addr(&host->ip),
+	       host->vhost_count, vhost_count);
+
 	host->vhost_count = vhost_count;
 	host->list->vhosts_unsorted = TRUE;
 }
