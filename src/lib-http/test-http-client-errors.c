@@ -1618,14 +1618,14 @@ static void test_server_request_timed_out(unsigned int index)
 
 /* client */
 
-struct _request_timed_out_ctx {
+struct _request_timed_out1_ctx {
 	unsigned int count;
 };
 
 static void
-test_client_request_timed_out_response(
+test_client_request_timed_out1_response(
 	const struct http_response *resp,
-	struct _request_timed_out_ctx *ctx)
+	struct _request_timed_out1_ctx *ctx)
 {
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -1640,26 +1640,97 @@ test_client_request_timed_out_response(
 }
 
 static bool
-test_client_request_timed_out(const struct http_client_settings *client_set)
+test_client_request_timed_out1(const struct http_client_settings *client_set)
 {
 	struct http_client_request *hreq;
-	struct _request_timed_out_ctx *ctx;
+	struct _request_timed_out1_ctx *ctx;
 
-	ctx = i_new(struct _request_timed_out_ctx, 1);
+	ctx = i_new(struct _request_timed_out1_ctx, 1);
 	ctx->count = 2;
 
 	http_client = http_client_init(client_set);
 
 	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/request-timed-out.txt",
-		test_client_request_timed_out_response, ctx);
+		"GET", net_ip2addr(&bind_ip), "/request-timed-out1-1.txt",
+		test_client_request_timed_out1_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
 	http_client_request_submit(hreq);
 
 	hreq = http_client_request(http_client,
-		"GET", net_ip2addr(&bind_ip), "/request-timed-out2.txt",
-		test_client_request_timed_out_response, ctx);
+		"GET", net_ip2addr(&bind_ip), "/request-timed-out1-2.txt",
+		test_client_request_timed_out1_response, ctx);
 	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+struct _request_timed_out2_ctx {
+	struct timeout *to;
+	unsigned int count;
+	unsigned int max_parallel_connections;
+};
+
+static void
+test_client_request_timed_out2_timeout(
+	struct _request_timed_out2_ctx *ctx)
+{
+	if (ctx->to != NULL)
+		timeout_remove(&ctx->to);
+	i_debug("TIMEOUT");
+}
+
+static void
+test_client_request_timed_out2_response(
+	const struct http_response *resp,
+	struct _request_timed_out2_ctx *ctx)
+{
+	if (debug)
+		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
+
+	test_assert(resp->status == HTTP_CLIENT_REQUEST_ERROR_TIMED_OUT);
+	test_assert(resp->reason != NULL && *resp->reason != '\0');
+	test_assert(ctx->to != NULL);
+
+	if (--ctx->count > 0) {
+		if (ctx->to != NULL && ctx->max_parallel_connections <= 1)
+			timeout_reset(ctx->to);
+	} else {
+		if (ctx->to != NULL)
+			timeout_remove(&ctx->to);
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static bool
+test_client_request_timed_out2(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _request_timed_out2_ctx *ctx;
+
+	ctx = i_new(struct _request_timed_out2_ctx, 1);
+	ctx->count = 2;
+	ctx->max_parallel_connections =
+		client_set->max_parallel_connections;
+
+	ctx->to = timeout_add(2000,
+		test_client_request_timed_out2_timeout, ctx);
+
+	http_client = http_client_init(client_set);
+
+	hreq = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/request-timed-out2-1.txt",
+		test_client_request_timed_out2_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_set_attempt_timeout_msecs(hreq, 1000);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(http_client,
+		"GET", net_ip2addr(&bind_ip), "/request-timed-out2-2.txt",
+		test_client_request_timed_out2_response, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_set_attempt_timeout_msecs(hreq, 1000);
 	http_client_request_submit(hreq);
 
 	return TRUE;
@@ -1677,7 +1748,7 @@ static void test_request_timed_out(void)
 	http_client_set.request_timeout_msecs = 1000;
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out,
+		test_client_request_timed_out1,
 		test_server_request_timed_out, 1,
 		NULL);
 	test_end();
@@ -1686,7 +1757,7 @@ static void test_request_timed_out(void)
 	http_client_set.request_timeout_msecs = 1000;
 	http_client_set.max_attempts = 1;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out,
+		test_client_request_timed_out1,
 		test_server_request_timed_out, 1,
 		NULL);
 	test_end();
@@ -1696,7 +1767,7 @@ static void test_request_timed_out(void)
 	http_client_set.request_absolute_timeout_msecs = 2000;
 	http_client_set.max_attempts = 3;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out,
+		test_client_request_timed_out1,
 		test_server_request_timed_out, 1,
 		NULL);
 	test_end();
@@ -1706,7 +1777,29 @@ static void test_request_timed_out(void)
 	http_client_set.request_absolute_timeout_msecs = 2000;
 	http_client_set.max_attempts = 3;
 	test_run_client_server(&http_client_set,
-		test_client_request_timed_out,
+		test_client_request_timed_out1,
+		test_server_request_timed_out, 1,
+		NULL);
+	test_end();
+
+	test_begin("request timed out: specific timeout");
+	http_client_set.request_timeout_msecs = 3000;
+	http_client_set.request_absolute_timeout_msecs = 0;
+	http_client_set.max_attempts = 1;
+	http_client_set.max_parallel_connections = 1;
+	test_run_client_server(&http_client_set,
+		test_client_request_timed_out2,
+		test_server_request_timed_out, 1,
+		NULL);
+	test_end();
+
+	test_begin("request timed out: specific timeout (parallel)");
+	http_client_set.request_timeout_msecs = 3000;
+	http_client_set.request_absolute_timeout_msecs = 0;
+	http_client_set.max_attempts = 1;
+	http_client_set.max_parallel_connections = 4;
+	test_run_client_server(&http_client_set,
+		test_client_request_timed_out2,
 		test_server_request_timed_out, 1,
 		NULL);
 	test_end();

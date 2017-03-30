@@ -437,9 +437,17 @@ void http_client_connection_start_request_timeout(
 	struct http_client_connection *conn)
 {
 	unsigned int timeout_msecs =
-		conn->pending_request != NULL ?
-		conn->pending_request->attempt_timeout_msecs :
 		conn->client->set.request_timeout_msecs;
+
+	if (conn->pending_request != NULL)
+		return;
+
+	i_assert(array_is_created(&conn->request_wait_list));
+	if (array_count(&conn->request_wait_list) > 0) {
+		struct http_client_request *const *requestp;
+		requestp = array_idx(&conn->request_wait_list, 0);
+		timeout_msecs = (*requestp)->attempt_timeout_msecs;
+	}
 
 	if (timeout_msecs == 0)
 		;
