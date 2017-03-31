@@ -142,6 +142,9 @@ static int imapc_connection_output(struct imapc_connection *conn);
 static int imapc_connection_ssl_init(struct imapc_connection *conn);
 static void imapc_command_free(struct imapc_command *cmd);
 static void imapc_command_send_more(struct imapc_connection *conn);
+static void
+imapc_login_callback(struct imapc_connection *conn,
+		     const struct imapc_command_reply *reply);
 
 static void
 imapc_auth_ok(struct imapc_connection *conn)
@@ -157,10 +160,11 @@ imapc_auth_ok(struct imapc_connection *conn)
 }
 
 static void
-imapc_auth_failed(struct imapc_connection *conn,
+imapc_auth_failed(struct imapc_connection *conn, const struct imapc_command_reply *reply,
 		  const char *error)
 {
 	i_error("imapc(%s): Authentication failed: %s", conn->name, error);
+	imapc_login_callback(conn, reply);
 
 	if (conn->client->state_change_callback == NULL)
 		return;
@@ -818,9 +822,7 @@ imapc_connection_auth_finish(struct imapc_connection *conn,
 			     const struct imapc_command_reply *reply)
 {
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
-		imapc_auth_failed(conn, reply->text_full);
-		if (conn->login_callback != NULL)
-			imapc_login_callback(conn, reply);
+		imapc_auth_failed(conn, reply, reply->text_full);
 		imapc_connection_disconnect(conn);
 		return;
 	}
@@ -882,14 +884,14 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	buf = buffer_create_dynamic(pool_datastack_create(),
 				    MAX_BASE64_DECODED_SIZE(input_len));
 	if (base64_decode(reply->text_full, input_len, NULL, buf) < 0) {
-		imapc_auth_failed(conn,
+		imapc_auth_failed(conn, reply,
 				  t_strdup_printf("Server sent non-base64 input for AUTHENTICATE: %s",
 						  reply->text_full));
 	} else if (dsasl_client_input(conn->sasl_client, buf->data, buf->used, &error) < 0) {
-		imapc_auth_failed(conn, error);
+		imapc_auth_failed(conn, reply, error);
 	} else if (dsasl_client_output(conn->sasl_client, &sasl_output,
 				       &sasl_output_len, &error) < 0) {
-		imapc_auth_failed(conn, error);
+		imapc_auth_failed(conn, reply, error);
 	} else {
 		string_t *imap_output =
 			t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len)+2);
@@ -961,7 +963,11 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 
 	if (set->sasl_mechanisms != NULL && set->sasl_mechanisms[0] != '\0') {
 		if (imapc_connection_get_sasl_mech(conn, &sasl_mech, &error) < 0) {
-			imapc_auth_failed(conn, error);
+			struct imapc_command_reply reply;
+			i_zero(&reply);
+			reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
+			reply.text_full = "";
+			imapc_auth_failed(conn, &reply, error);
 			imapc_connection_disconnect(conn);
 			return;
 		}
