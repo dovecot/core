@@ -263,6 +263,8 @@ static void test_var_expand_extensions(void)
 
 	var_expand_with_funcs(str, "notfound: %{notfound:field}",
 		    	      table, func_table, NULL);
+	/* expect error */
+	test_expect_errors(1);
 	var_expand_with_funcs(str, "notfound: %{badparam:field}",
 			      table, func_table, NULL);
 
