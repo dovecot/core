@@ -751,7 +751,7 @@ var_expand_unregister_func_array(const struct var_expand_extension_func_table *f
 		for(unsigned int i = 0; i < array_count(&var_expand_extensions); i++) {
 			const struct var_expand_extension_func_table *func =
 				array_idx(&var_expand_extensions, i);
-			if (strcasecmp(func->key, ptr->key)) {
+			if (strcasecmp(func->key, ptr->key) == 0) {
 				array_delete(&var_expand_extensions, i, 1);
 			}
 		}
