@@ -50,8 +50,9 @@ static void drop_privileges(void)
 	i_zero(&input);
 	input.module = "lmtp";
 	input.service = "lmtp";
-	(void)master_service_settings_read(master_service,
-					   &input, &output, &error);
+	if (master_service_settings_read(master_service,
+					 &input, &output, &error) < 0)
+		i_fatal("Error reading configuration: %s", error);
 	restrict_access_by_env(NULL, FALSE);
 }
 
