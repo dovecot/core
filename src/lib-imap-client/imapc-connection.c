@@ -98,6 +98,7 @@ struct imapc_connection {
 	unsigned int cur_tag;
 	uint32_t cur_num;
 	time_t last_connect;
+	unsigned int reconnect_count;
 
 	struct imapc_client_mailbox *selecting_box, *selected_box;
 	enum imapc_connection_state state;
@@ -181,7 +182,7 @@ imapc_connection_init(struct imapc_client *client)
 	conn->name = i_strdup_printf("%s:%u", client->set.host,
 				     client->set.port);
 	conn->literal.fd = -1;
-	conn->reconnect_ok = TRUE;
+	conn->reconnect_ok = (client->set.connect_retry_count>0);
 	i_array_init(&conn->cmd_send_queue, 8);
 	i_array_init(&conn->cmd_wait_list, 32);
 	i_array_init(&conn->literal_files, 4);
@@ -452,6 +453,10 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DISCONNECTED);
 	imapc_connection_abort_commands(conn, NULL, reconnecting);
+
+	if (!reconnecting) {
+		imapc_client_try_stop(conn->client);
+	}
 }
 
 void imapc_connection_set_no_reconnect(struct imapc_connection *conn)
@@ -503,16 +508,25 @@ static void
 imapc_connection_try_reconnect(struct imapc_connection *conn,
 			       const char *errstr, unsigned int delay_msecs)
 {
+	if (conn->prev_connect_idx + 1 < conn->ips_count) {
+		conn->reconnect_ok = TRUE;
+		imapc_connection_disconnect_full(conn, TRUE);
+		imapc_connection_connect(conn, NULL, NULL);
+		return;
+	}
+
 	if (!imapc_connection_can_reconnect(conn)) {
 		i_error("imapc(%s): %s - disconnecting", conn->name, errstr);
 		imapc_connection_disconnect(conn);
 	} else {
-		i_warning("imapc(%s): %s - reconnecting", conn->name, errstr);
+		conn->reconnecting = TRUE;
+		i_warning("imapc(%s): %s - reconnecting (delay %u)", conn->name, errstr, delay_msecs);
 		if (delay_msecs == 0)
 			imapc_connection_reconnect(conn);
 		else {
 			imapc_connection_disconnect_full(conn, TRUE);
 			conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
+			conn->reconnect_count++;
 		}
 	}
 }
@@ -1675,13 +1689,13 @@ static void imapc_connection_reset_idle(struct imapc_connection *conn)
 
 static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 {
-	const struct ip_addr *ip;
+	const struct ip_addr *ip = NULL;
 	unsigned int i;
 	int fd;
 
 	i_assert(conn->client->set.max_idle_time > 0);
 
-	for (i = 0;;) {
+	for (i = 0; i<conn->ips_count;) {
 		conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
 		ip = &conn->ips[conn->prev_connect_idx];
 		fd = net_connect_ip(ip, conn->client->set.port, NULL);
@@ -1693,11 +1707,15 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 		   before failing completely. */
 		i_error("net_connect_ip(%s:%u) failed: %m",
 			net_ip2addr(ip), conn->client->set.port);
-		if (++i == conn->ips_count) {
-			imapc_connection_set_disconnected(conn);
+		if (conn->prev_connect_idx+1 == conn->ips_count) {
+			imapc_connection_try_reconnect(conn, "No more IP address(es) to try",
+						       IMAPC_CONNECT_RETRY_WAIT_MSECS);
 			return;
 		}
 	}
+
+	i_assert(ip != NULL);
+
 	conn->fd = fd;
 	conn->input = conn->raw_input =
 		i_stream_create_fd(fd, conn->client->set.max_line_length, FALSE);
@@ -1761,8 +1779,10 @@ void imapc_connection_connect(struct imapc_connection *conn,
 		return;
 	}
 	i_assert(conn->login_callback == NULL || conn->reconnecting);
-	conn->login_callback = login_callback;
-	conn->login_context = login_context;
+	if (!conn->reconnecting) {
+		conn->login_callback = login_callback;
+		conn->login_context = login_context;
+	}
 	conn->reconnecting = FALSE;
 	/* if we get disconnected before we've finished all the pending
 	   commands, don't reconnect */
@@ -1772,8 +1792,15 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	imapc_connection_input_reset(conn);
 
 	if (!conn->reconnect_ok &&
-	    conn->last_connect + IMAPC_RECONNECT_MIN_RETRY_SECS >= ioloop_time) {
+	    conn->last_connect + conn->client->set.connect_retry_interval_secs >= ioloop_time) {
+		if (conn->to != NULL)
+			timeout_remove(&conn->to);
+		conn->reconnecting = TRUE;
 		imapc_connection_set_disconnected(conn);
+		/* don't wait longer than necessary, the +1 is to avoid ending here again */
+		unsigned int delay_msecs =
+			((conn->last_connect + conn->client->set.connect_retry_interval_secs) - ioloop_time + 1) * 1000;
+		conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
 		return;
 	}
 	conn->last_connect = ioloop_time;
