@@ -24,7 +24,6 @@
 
 #define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE 10000
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
-#define IMAPC_RECONNECT_MIN_RETRY_SECS 10
 /* If LOGOUT reply takes longer than this, disconnect. */
 #define IMAPC_LOGOUT_TIMEOUT_MSECS 5000
 
@@ -475,6 +474,11 @@ static bool imapc_connection_can_reconnect(struct imapc_connection *conn)
 {
 	if (conn->client->logging_out)
 		return FALSE;
+	if (conn->client->set.connect_retry_count == 0 ||
+	    (conn->client->set.connect_retry_count < UINT_MAX &&
+	     conn->reconnect_count >= conn->client->set.connect_retry_count))
+		return FALSE;
+
 	if (conn->selected_box != NULL)
 		return imapc_client_mailbox_can_reconnect(conn->selected_box);
 	else {
