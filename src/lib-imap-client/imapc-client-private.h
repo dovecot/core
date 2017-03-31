@@ -50,5 +50,6 @@ void imapc_client_unref(struct imapc_client **client);
 
 void imapc_command_set_mailbox(struct imapc_command *cmd,
 			       struct imapc_client_mailbox *box);
+void imapc_client_try_stop(struct imapc_client *client);
 
 #endif

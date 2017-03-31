@@ -201,6 +201,15 @@ void imapc_client_stop(struct imapc_client *client)
 		io_loop_stop(client->ioloop);
 }
 
+void imapc_client_try_stop(struct imapc_client *client)
+{
+	struct imapc_client_connection *const *connp;
+	array_foreach(&client->conns, connp)
+		if (imapc_connection_get_state((*connp)->conn) != IMAPC_CONNECTION_STATE_DISCONNECTED)
+			return;
+	imapc_client_stop(client);
+}
+
 bool imapc_client_is_running(struct imapc_client *client)
 {
 	return client->ioloop != NULL;
