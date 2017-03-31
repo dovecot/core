@@ -238,6 +238,8 @@ struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags)
 	file->flags = mode_flags & ~FS_OPEN_MODE_MASK;
 	fs->files_open_count++;
 	DLLIST_PREPEND(&fs->files, file);
+
+	fs_set_metadata(file, FS_METADATA_ORIG_PATH, path);
 	return file;
 }
 
