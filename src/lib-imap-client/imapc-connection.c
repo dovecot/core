@@ -160,11 +160,14 @@ imapc_auth_ok(struct imapc_connection *conn)
 }
 
 static void
-imapc_auth_failed(struct imapc_connection *conn, const struct imapc_command_reply *reply,
+imapc_auth_failed(struct imapc_connection *conn, const struct imapc_command_reply *_reply,
 		  const char *error)
 {
-	i_error("imapc(%s): Authentication failed: %s", conn->name, error);
-	imapc_login_callback(conn, reply);
+	struct imapc_command_reply reply = *_reply;
+	reply.text_without_resp = reply.text_full =
+		t_strdup_printf("Authentication failed: %s", error);
+	i_error("imapc(%s): %s", conn->name, reply.text_full);
+	imapc_login_callback(conn, &reply);
 
 	if (conn->client->state_change_callback == NULL)
 		return;
