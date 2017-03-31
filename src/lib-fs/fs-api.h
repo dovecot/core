@@ -17,6 +17,10 @@ struct hash_method;
    This can be useful if you don't know the final filename before writing it
    (e.g. filename contains the file size). */
 #define FS_METADATA_WRITE_FNAME FS_METADATA_INTERNAL_PREFIX"WriteFilename"
+/* Original path of the file. The path that's eventually visible to a fs
+   backend may be something different, e.g. object ID. This allows the backend
+   to still access the original path. */
+#define FS_METADATA_ORIG_PATH FS_METADATA_INTERNAL_PREFIX"OrigPath"
 
 enum fs_properties {
 	FS_PROPERTY_METADATA	= 0x01,
