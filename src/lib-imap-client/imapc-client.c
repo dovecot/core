@@ -306,6 +306,8 @@ void imapc_client_logout(struct imapc_client *client)
 
 	/* send LOGOUT to all connections */
 	array_foreach(&client->conns, connp) {
+		if (imapc_connection_get_state((*connp)->conn) == IMAPC_CONNECTION_STATE_DISCONNECTED)
+			continue;
 		imapc_connection_set_no_reconnect((*connp)->conn);
 		ctx.logout_count++;
 		cmd = imapc_connection_cmd((*connp)->conn,
