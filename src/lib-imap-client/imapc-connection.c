@@ -1603,6 +1603,8 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 {
 	const struct ip_addr *ip = &conn->ips[conn->prev_connect_idx];
 	int err;
+	if (conn->io != NULL)
+		io_remove(&conn->io);
 
 	err = net_geterror(conn->fd);
 	if (err != 0) {
@@ -1612,7 +1614,6 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 			strerror(err)), IMAPC_CONNECT_RETRY_WAIT_MSECS);
 		return;
 	}
-	io_remove(&conn->io);
 	conn->io = io_add(conn->fd, IO_READ, imapc_connection_input, conn);
 
 	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
