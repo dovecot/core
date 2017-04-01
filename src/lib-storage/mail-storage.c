@@ -819,6 +819,13 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 	return box;
 }
 
+void mailbox_set_reason(struct mailbox *box, const char *reason)
+{
+	i_assert(reason != NULL);
+
+	box->reason = p_strdup(box->pool, reason);
+}
+
 static bool mailbox_is_autocreated(struct mailbox *box)
 {
 	if (box->inbox_user)
@@ -1125,6 +1132,12 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 
 	if (box->opened)
 		return 0;
+
+	if (box->storage->set->mail_debug && box->reason != NULL) {
+		i_debug("%s: Mailbox opened because: %s",
+			box->vname, box->reason);
+	}
+
 	switch (box->open_error) {
 	case 0:
 		break;
