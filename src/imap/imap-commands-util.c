@@ -109,6 +109,7 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 		return 0;
 	}
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY);
+	mailbox_set_reason(box, cmd->name);
 	if (mailbox_open(box) < 0) {
 		error_string = mailbox_get_last_error(box, &error);
 		if (error == MAIL_ERROR_NOTFOUND) {

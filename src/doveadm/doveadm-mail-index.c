@@ -106,6 +106,7 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 
 	box = mailbox_alloc(info->ns->list, info->vname,
 			    MAILBOX_FLAG_IGNORE_ACLS);
+	mailbox_set_reason(box, ctx->ctx.cmd->name);
 	if (ctx->max_recent_msgs != 0) {
 		/* index only if there aren't too many recent messages.
 		   don't bother syncing the mailbox, that alone can take a

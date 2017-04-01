@@ -417,6 +417,7 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 		items.status |= STATUS_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
+	mailbox_set_reason(box, "NOTIFY send STATUS");
 	if (ctx->client->enabled_features != 0)
 		(void)mailbox_enable(box, ctx->client->enabled_features);
 

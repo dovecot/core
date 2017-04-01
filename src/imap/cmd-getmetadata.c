@@ -403,6 +403,7 @@ cmd_getmetadata_try_mailbox(struct imap_getmetadata_context *ctx,
 			    struct mail_namespace *ns, const char *mailbox)
 {
 	ctx->box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_READONLY);
+	mailbox_set_reason(ctx->box, "GETMETADATA");
 	if (mailbox_open(ctx->box) < 0)
 		return -1;
 

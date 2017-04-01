@@ -42,6 +42,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	}
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
+	mailbox_set_reason(box, "quota count");
 	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0) {
 		/* quota doesn't exist for this mailbox/storage */
 		ret = 0;
@@ -295,6 +296,7 @@ static int quota_count_recalculate(struct quota_root *root)
 	iter = quota_mailbox_iter_begin(root);
 	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
 		box = mailbox_alloc(info->ns->list, info->vname, 0);
+		mailbox_set_reason(box, "quota recalculate");
 		if (quota_count_recalculate_box(box) < 0)
 			ret = -1;
 		mailbox_free(&box);

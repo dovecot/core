@@ -156,6 +156,7 @@ mailbox_autoexpunge_set(struct mail_namespace *ns, const char *vname,
 	   any ACLs the user might normally have against expunging in
 	   the mailbox. */
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_IGNORE_ACLS);
+	mailbox_set_reason(box, "autoexpunge");
 	if (mailbox_autoexpunge(box, autoexpunge, autoexpunge_max_mails,
 				expunged_count) < 0) {
 		i_error("Failed to autoexpunge mailbox '%s': %s",

@@ -233,6 +233,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	}
 
 	*box_r = box = mailbox_alloc(ns->list, name, flags);
+	mailbox_set_reason(box, "lib-lda delivery");
 	/* flag that this mailbox is used for delivering the mail.
 	   the context isn't set in pigeonhole testuite. */
 	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
@@ -577,6 +578,7 @@ mail_deliver_cache_update_post_commit(struct mailbox *orig_box, uint32_t uid)
 	   synced, so it'll contain the newly written mail. this is racy, so
 	   it's possible another process has already deleted the mail. */
 	box = mailbox_alloc(orig_box->list, orig_box->vname, 0);
+	mailbox_set_reason(box, "lib-lda storage-id");
 
 	mail = mail_deliver_open_mail(box, uid, MAIL_FETCH_STORAGE_ID, &t);
 	if (mail != NULL) {

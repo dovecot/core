@@ -159,6 +159,7 @@ int imap_urlauth_backend_reset_all_keys(struct mail_user *user)
 						 MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		box = mailbox_alloc(info->ns->list, info->vname, 0);
+		mailbox_set_reason(box, "URLAUTH reset all keys");
 		if (imap_urlauth_backend_mailbox_reset_key(box) < 0)
 			ret = -1;
 		mailbox_free(&box);

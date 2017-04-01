@@ -573,6 +573,7 @@ import_state_mailbox_open(struct client *client,
 	else
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	box = mailbox_alloc(ns->list, state->vname, flags);
+	mailbox_set_reason(box, "unhibernate");
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("Couldn't open mailbox: %s",
 			mailbox_get_last_internal_error(box, NULL));

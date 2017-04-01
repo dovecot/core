@@ -551,6 +551,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY |
 			    MAILBOX_FLAG_IGNORE_ACLS);
+	mailbox_set_reason(box, "mdbox rebuild");
 	if (box->storage != &ctx->storage->storage.storage) {
 		/* the namespace has multiple storages. */
 		mailbox_free(&box);
@@ -703,6 +704,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 		box = mailbox_alloc(ctx->default_list, mailbox,
 				    MAILBOX_FLAG_READONLY |
 				    MAILBOX_FLAG_IGNORE_ACLS);
+		mailbox_set_reason(box, "mdbox rebuild restore");
 		i_assert(box->storage == storage);
 		if (mailbox_open(box) == 0)
 			break;

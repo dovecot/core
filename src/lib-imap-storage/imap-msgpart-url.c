@@ -129,8 +129,10 @@ int imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
 	if (mpurl->selected_box != NULL &&
 	    mailbox_equals(mpurl->selected_box, ns, mpurl->mailbox))
 		box = mpurl->selected_box;
-	else
+	else {
 		box = mailbox_alloc(ns->list, mpurl->mailbox, flags);
+		mailbox_set_reason(box, "Read IMAP URL");
+	}
 	if (mailbox_open(box) < 0) {
 		*error_r = mail_storage_get_last_error(mailbox_get_storage(box),
 						       error_code_r);

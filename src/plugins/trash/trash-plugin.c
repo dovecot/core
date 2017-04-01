@@ -52,6 +52,7 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 	struct mail_search_args *search_args;
 
 	trash->box = mailbox_alloc(trash->ns->list, trash->name, 0);
+	mailbox_set_reason(trash->box, "trash plugin");
 	if (mailbox_open(trash->box) < 0) {
 		mailbox_free(&trash->box);
 		return 0;
