@@ -17,6 +17,7 @@ static void index_transaction_free(struct mailbox_transaction_context *t)
 	if (array_is_created(&t->pvt_saves))
 		array_free(&t->pvt_saves);
 	array_free(&t->module_contexts);
+	i_free(t->reason);
 	i_free(t);
 }
 

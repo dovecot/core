@@ -2057,6 +2057,15 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)
 	box->transaction_count--;
 }
 
+void mailbox_transaction_set_reason(struct mailbox_transaction_context *t,
+				    const char *reason)
+{
+	i_assert(reason != NULL);
+
+	i_free(t->reason);
+	t->reason = i_strdup(reason);
+}
+
 unsigned int mailbox_transaction_get_count(const struct mailbox *box)
 {
 	return box->transaction_count;
