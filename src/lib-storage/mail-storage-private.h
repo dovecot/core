@@ -559,6 +559,7 @@ struct mail_save_private_changes {
 struct mailbox_transaction_context {
 	struct mailbox *box;
 	enum mailbox_transaction_flags flags;
+	char *reason;
 
 	union mail_index_transaction_module_context module_ctx;
 	struct mail_index_transaction_vfuncs super;
