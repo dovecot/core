@@ -192,6 +192,8 @@ static int virtual_backend_box_alloc(struct virtual_mailbox *mbox,
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	bbox->box = mailbox_alloc(ns->list, mailbox, flags);
 	MODULE_CONTEXT_SET(bbox->box, virtual_storage_module, bbox);
+	mailbox_set_reason(bbox->box, mbox->box.reason == NULL ? "virtual mailbox" :
+		t_strdup_printf("virtual mailbox: %s", mbox->box.reason));
 
 	if (mailbox_exists(bbox->box, TRUE, &existence) < 0)
 		return virtual_backend_box_open_failed(mbox, bbox);

@@ -142,6 +142,7 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	box = mailbox_alloc(ns->list, mailbox, 0);
+	mailbox_set_reason(box, "indexing");
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
 	if (ret < 0) {
 		i_error("Getting path to mailbox %s failed: %s",

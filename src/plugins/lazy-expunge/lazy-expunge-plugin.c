@@ -119,6 +119,7 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 
 	box = mailbox_alloc(list, name, MAILBOX_FLAG_NO_INDEX_FILES |
 			    MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	mailbox_set_reason(box, "lazy_expunge");
 	if (mailbox_open(box) == 0) {
 		*error_r = NULL;
 		return box;

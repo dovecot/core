@@ -373,6 +373,7 @@ virtual_config_metadata_match(const struct mailbox_info *info,
 		return 1;
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
+	mailbox_set_reason(box, "virtual mailbox metadata match");
 	for (i = 0; i < count; i++) {
 		if ((ret = virtual_config_box_metadata_match(box, boxes[i], error_r)) <= 0)
 			break;

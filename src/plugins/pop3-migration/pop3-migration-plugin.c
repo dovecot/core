@@ -311,12 +311,15 @@ static struct mailbox *pop3_mailbox_alloc(struct mail_storage *storage)
 	struct pop3_migration_mail_storage *mstorage =
 		POP3_MIGRATION_CONTEXT(storage);
 	struct mail_namespace *ns;
+	struct mailbox *box;
 
 	ns = mail_namespace_find(storage->user->namespaces,
 				 mstorage->pop3_box_vname);
 	i_assert(ns != NULL);
-	return mailbox_alloc(ns->list, mstorage->pop3_box_vname,
-			     MAILBOX_FLAG_READONLY | MAILBOX_FLAG_POP3_SESSION);
+	box = mailbox_alloc(ns->list, mstorage->pop3_box_vname,
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_POP3_SESSION);
+	mailbox_set_reason(box, "pop3_migration");
+	return box;
 }
 
 static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)

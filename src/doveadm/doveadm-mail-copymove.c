@@ -108,6 +108,7 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	ns = mail_namespace_find(user->namespaces, ctx->destname);
 	destbox = mailbox_alloc(ns->list, ctx->destname, MAILBOX_FLAG_SAVEONLY);
+	mailbox_set_reason(destbox, _ctx->cmd->name);
 	if (mailbox_open(destbox) < 0) {
 		i_error("Can't open mailbox '%s': %s", ctx->destname,
 			mailbox_get_last_internal_error(destbox, NULL));

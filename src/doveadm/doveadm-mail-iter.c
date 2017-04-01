@@ -37,6 +37,7 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 	iter->ctx = ctx;
 	iter->box = mailbox_alloc(info->ns->list, info->vname,
 				  MAILBOX_FLAG_IGNORE_ACLS | readonly_flag);
+	mailbox_set_reason(iter->box, ctx->cmd->name);
 	iter->search_args = search_args;
 
 	if (mailbox_sync(iter->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {

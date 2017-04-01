@@ -244,6 +244,7 @@ imap_metadata_transaction_begin_server(struct mail_user *user)
 
 	ns = mail_namespace_find_inbox(user->namespaces);
 	box = mailbox_alloc(ns->list, "INBOX", 0);
+	mailbox_set_reason(box, "Server METADATA");
 	imtrans = imap_metadata_transaction_begin(box);
 	imtrans->server = TRUE;
 	return imtrans;

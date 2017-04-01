@@ -90,6 +90,7 @@ cmd_save_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	ns = mail_namespace_find(user->namespaces, ctx->mailbox);
 	box = mailbox_alloc(ns->list, ctx->mailbox, MAILBOX_FLAG_SAVEONLY);
+	mailbox_set_reason(box, _ctx->cmd->name);
 	ret = cmd_save_to_mailbox(ctx, box, _ctx->cmd_input);
 	mailbox_free(&box);
 	return ret;

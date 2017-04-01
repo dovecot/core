@@ -1389,6 +1389,7 @@ static void mailbox_copy_cache_decisions_from_inbox(struct mailbox *box)
 
 	/* this should be NoSelect but since inbox can never be
 	   NoSelect we use EXISTENCE_NONE to avoid creating inbox by accident */
+	mailbox_set_reason(inbox, "copy caching decisions");
 	if (mailbox_exists(inbox, FALSE, &existence) == 0 &&
 	    existence != MAILBOX_EXISTENCE_NONE &&
 	    mailbox_open(inbox) == 0 &&

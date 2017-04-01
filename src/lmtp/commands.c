@@ -583,6 +583,7 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 
 	ns = mail_namespace_find_inbox(user->namespaces);
 	box = mailbox_alloc(ns->list, "INBOX", 0);
+	mailbox_set_reason(box, "over-quota check");
 	ret = mailbox_get_status(box, STATUS_CHECK_OVER_QUOTA, &status);
 	if (ret < 0) {
 		errstr = mailbox_get_last_error(box, &error);

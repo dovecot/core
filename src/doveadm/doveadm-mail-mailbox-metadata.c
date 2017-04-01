@@ -46,6 +46,7 @@ cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
 		*ns_r = mail_namespace_find(user->namespaces, mctx->mailbox);
 		*box_r = mailbox_alloc((*ns_r)->list, mctx->mailbox, 0);
 	}
+	mailbox_set_reason(*box_r, mctx->ctx.cmd->name);
 
 	if (mailbox_open(*box_r) < 0) {
 		i_error("Failed to open mailbox: %s",
