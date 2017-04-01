@@ -187,6 +187,7 @@ static int imap_thread_orderedsubject(struct client_command_context *cmd,
 	pool = pool_alloconly_create("orderedsubject thread", 1024);
 	i_array_init(&threads, 128);
 	trans = mailbox_transaction_begin(cmd->client->mailbox, 0);
+	imap_transaction_set_cmd_reason(trans, cmd);
 	search_ctx = mailbox_search_init(trans, search_args, sort_program,
 					 0, NULL);
 	while (mailbox_search_next(search_ctx, &mail)) {

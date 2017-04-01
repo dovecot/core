@@ -84,6 +84,7 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	seq = status.last_cached_seq + 1;
 
 	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC);
+	mailbox_transaction_set_reason(trans, "indexing");
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq, status.messages);
 	ctx = mailbox_search_init(trans, search_args, NULL,

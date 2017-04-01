@@ -174,6 +174,7 @@ imap_state_export_mailbox_mails(buffer_t *dest, struct mailbox *box,
 	mail_search_build_add_all(search_args);
 
 	trans = mailbox_transaction_begin(box, 0);
+	mailbox_transaction_set_reason(trans, "unhibernate");
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -371,6 +372,7 @@ import_send_expunges(struct client *client,
 	mail_search_build_add_all(search_args);
 
 	trans = mailbox_transaction_begin(client->mailbox, 0);
+	mailbox_transaction_set_reason(trans, "unhibernate");
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -467,7 +469,7 @@ import_send_flag_changes(struct client *client,
 	imap_search_add_changed_since(search_args, state->highest_modseq);
 
 	pool = pool_alloconly_create("imap state flag changes", 1024);
-	fetch_ctx = imap_fetch_alloc(client, pool);
+	fetch_ctx = imap_fetch_alloc(client, pool, "unhibernate");
 	pool_unref(&pool);
 
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_flags_init);

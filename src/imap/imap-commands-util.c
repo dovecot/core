@@ -132,6 +132,13 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 	return 0;
 }
 
+void imap_transaction_set_cmd_reason(struct mailbox_transaction_context *trans,
+				     struct client_command_context *cmd)
+{
+	mailbox_transaction_set_reason(trans, cmd->args[0] == '\0' ? cmd->name :
+		t_strdup_printf("%s %s", cmd->name, cmd->args));
+}
+
 const char *
 imap_get_error_string(struct client_command_context *cmd,
 		      const char *error_string, enum mail_error error)
