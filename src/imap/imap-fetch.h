@@ -78,6 +78,7 @@ struct imap_fetch_state {
 struct imap_fetch_context {
 	struct client *client;
 	pool_t ctx_pool;
+	const char *reason;
 
 	enum mail_fetch_field fetch_data;
 	ARRAY_TYPE(const_string) all_headers;
@@ -121,7 +122,7 @@ int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 			      const char **error_r);
 
 struct imap_fetch_context *
-imap_fetch_alloc(struct client *client, pool_t pool);
+imap_fetch_alloc(struct client *client, pool_t pool, const char *reason);
 void imap_fetch_free(struct imap_fetch_context **ctx);
 bool imap_fetch_init_handler(struct imap_fetch_init_context *init_ctx);
 void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,

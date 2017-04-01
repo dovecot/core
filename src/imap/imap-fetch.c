@@ -87,7 +87,7 @@ int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 	const char *str;
 
 	i_zero(&init_ctx);
-	init_ctx.fetch_ctx = imap_fetch_alloc(client, pool);
+	init_ctx.fetch_ctx = imap_fetch_alloc(client, pool, "NOTIFY");
 	init_ctx.pool = pool;
 	init_ctx.args = list;
 
@@ -111,13 +111,14 @@ int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 }
 
 struct imap_fetch_context *
-imap_fetch_alloc(struct client *client, pool_t pool)
+imap_fetch_alloc(struct client *client, pool_t pool, const char *reason)
 {
 	struct imap_fetch_context *ctx;
 
 	ctx = p_new(pool, struct imap_fetch_context, 1);
 	ctx->client = client;
 	ctx->ctx_pool = pool;
+	ctx->reason = p_strdup(pool, reason);
 	pool_ref(pool);
 
 	p_array_init(&ctx->all_headers, pool, 64);
@@ -231,6 +232,7 @@ get_expunges_fallback(struct mailbox *box,
 	array_append_array(&search_args->args->value.seqset, uid_filter_arr);
 
 	trans = mailbox_transaction_begin(box, 0);
+	mailbox_transaction_set_reason(trans, "FETCH send VANISHED");
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -371,6 +373,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 	ctx->state.trans = mailbox_transaction_begin(box,
 		MAILBOX_TRANSACTION_FLAG_HIDE |
 		MAILBOX_TRANSACTION_FLAG_REFRESH);
+	mailbox_transaction_set_reason(ctx->state.trans, ctx->reason);
 
 	mail_search_args_init(search_args, box, TRUE,
 			      &ctx->client->search_saved_uidset);

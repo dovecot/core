@@ -178,6 +178,7 @@ bool cmd_store(struct client_command_context *cmd)
 	}
 
 	t = mailbox_transaction_begin(client->mailbox, flags);
+	imap_transaction_set_cmd_reason(t, cmd);
 	search_ctx = mailbox_search_init(t, search_args, NULL,
 					 MAIL_FETCH_FLAGS, NULL);
 	mail_search_args_unref(&search_args);
