@@ -347,6 +347,8 @@ struct mailbox {
 	/* Filled lazily when mailbox is opened, use mailbox_get_index_path()
 	   to access it */
 	const char *_index_path;
+	/* Reason for why mailbox is being accessed or NULL if unknown. */
+	const char *reason;
 
 	/* default vfuncs for new struct mails. */
 	const struct mail_vfuncs *mail_vfuncs;
