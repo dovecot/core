@@ -1801,7 +1801,7 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	imapc_connection_input_reset(conn);
 
 	if (!conn->reconnect_ok &&
-	    conn->last_connect + conn->client->set.connect_retry_interval_secs >= ioloop_time) {
+	    (time_t)(conn->last_connect + conn->client->set.connect_retry_interval_secs) >= ioloop_time) {
 		if (conn->to != NULL)
 			timeout_remove(&conn->to);
 		conn->reconnecting = TRUE;
