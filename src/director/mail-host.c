@@ -558,12 +558,14 @@ void mail_hosts_deinit(struct mail_host_list **_list)
 	i_free(list);
 }
 
-static struct mail_host *mail_host_dup(const struct mail_host *src)
+static struct mail_host *
+mail_host_dup(struct mail_host_list *dest_list, const struct mail_host *src)
 {
 	struct mail_host *dest;
 
 	dest = i_new(struct mail_host, 1);
 	*dest = *src;
+	dest->tag = mail_tag_get(dest_list, src->tag->name);
 	dest->hostname = i_strdup(src->hostname);
 	return dest;
 }
@@ -576,7 +578,7 @@ struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src)
 	dest = mail_hosts_init(src->user_expire_secs, src->consistent_hashing,
 			       src->user_free_hook);
 	array_foreach(&src->hosts, hostp) {
-		dest_host = mail_host_dup(*hostp);
+		dest_host = mail_host_dup(dest, *hostp);
 		array_append(&dest->hosts, &dest_host, 1);
 	}
 	mail_hosts_sort(dest);
