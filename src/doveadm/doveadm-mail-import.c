@@ -63,7 +63,7 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 	}
 
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY);
-	mailbox_set_reason(*box_r, ctx->ctx.cmd->name);
+	mailbox_set_reason(box, ctx->ctx.cmd->name);
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
