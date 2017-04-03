@@ -77,7 +77,7 @@ mail_hosts_find_user(struct mail_host_list *list, const char *tag_name,
 		     unsigned int username_hash);
 
 struct mail_host_list *
-mail_hosts_init(unsigned int user_expire_secs, bool consistent_hashing,
+mail_hosts_init(unsigned int user_expire_secs,
 		user_free_hook_t *user_free_hook);
 void mail_hosts_deinit(struct mail_host_list **list);
 

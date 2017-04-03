@@ -1285,8 +1285,10 @@ director_handshake_cmd_options(struct director_connection *conn,
 		if (strcmp(args[i], DIRECTOR_OPT_CONSISTENT_HASHING) == 0)
 			consistent_hashing = TRUE;
 	}
-	if (consistent_hashing != conn->dir->set->director_consistent_hashing) {
-		i_error("director(%s): director_consistent_hashing settings differ between directors",
+	if (!consistent_hashing) {
+		i_error("director(%s): director_consistent_hashing settings "
+			"differ between directors. Set "
+			"director_consistent_hashing=yes on old directors",
 			conn->name);
 		return -1;
 	}
@@ -1860,9 +1862,7 @@ static int director_connection_send_done(struct director_connection *conn)
 {
 	i_assert(conn->version_received);
 
-	if (!conn->dir->set->director_consistent_hashing)
-		;
-	else if (conn->minor_version >= DIRECTOR_VERSION_OPTIONS) {
+	if (conn->minor_version >= DIRECTOR_VERSION_OPTIONS) {
 		director_connection_send(conn,
 			"OPTIONS\t"DIRECTOR_OPT_CONSISTENT_HASHING"\n");
 	} else {
