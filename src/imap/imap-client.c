@@ -663,6 +663,10 @@ bool client_read_args(struct client_command_context *cmd, unsigned int count,
 		imap_write_args(str, *args_r);
 		cmd->args = p_strdup(cmd->pool, str_c(str));
 
+		str_truncate(str, 0);
+		imap_write_args_for_human(str, *args_r);
+		cmd->human_args = p_strdup(cmd->pool, str_c(str));
+
 		cmd->client->input_lock = NULL;
 		return TRUE;
 	} else if (ret == -2) {
