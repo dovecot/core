@@ -382,6 +382,10 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 
 		conn->selecting_box = NULL;
 		conn->selected_box = NULL;
+
+		if (conn->ips != NULL)
+			i_free(conn->ips);
+		conn->ips_count = 0;
 		break;
 	default:
 		break;
