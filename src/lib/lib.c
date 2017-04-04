@@ -7,6 +7,7 @@
 #include "fd-close-on-exec.h"
 #include "ipwd.h"
 #include "process-title.h"
+#include "var-expand-private.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -168,6 +169,7 @@ void lib_init(void)
 	data_stack_init();
 	hostpid_init();
 	lib_open_non_stdio_dev_null();
+	var_expand_extensions_init();
 
 	lib_initialized = TRUE;
 }
@@ -184,6 +186,7 @@ void lib_deinit(void)
 	lib_atexit_run();
 	ipwd_deinit();
 	hostpid_deinit();
+	var_expand_extensions_deinit();
 	i_close_fd(&dev_null_fd);
 	data_stack_deinit();
 	env_deinit();

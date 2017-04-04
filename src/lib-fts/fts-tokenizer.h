@@ -26,7 +26,7 @@ extern const struct fts_tokenizer *fts_tokenizer_email_address;
 
 /* Generic email content tokenizer. Cuts text into tokens. */
 /* Settings: 
-   "maxlen" Maximum length of token, before an arbitary cut off is made.
+   "maxlen" Maximum length of token, before an arbitrary cut off is made.
    Defaults to FTS_DEFAULT_TOKEN_MAX_LENGTH.
 
    "algorithm", accepted values are "simple" or "tr29". Defines the

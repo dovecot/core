@@ -33,6 +33,8 @@ Auth
 - [RFC2831 - Using Digest Authentication as a SASL Mechanism (DIGEST-MD5)](http://www.rfc-base.org/rfc-2831.html)
 - [RFC5802 - Salted Challenge Response Authentication Mechanism (SCRAM)](http://www.rfc-base.org/rfc-5802.html)
 - SASL and GSS-API Mechanisms 
+- [RFC7628 - A Set of Simple Authentication and Security Layer (SASL) Mechanisms for OAuth](https://tools.ietf.org/html/rfc7628)
+- [Google XOAUTH2 protocol](https://developers.google.com/gmail/xoauth2_protocol)
 
 POP3
 ----           

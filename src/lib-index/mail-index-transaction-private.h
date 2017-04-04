@@ -26,6 +26,7 @@ struct mail_index_transaction_vfuncs {
 };
 
 union mail_index_transaction_module_context {
+	struct mail_index_transaction_vfuncs super;
 	struct mail_index_module_register *reg;
 };
 
@@ -40,7 +41,7 @@ struct mail_index_transaction {
 	int refcount;
 
 	enum mail_index_transaction_flags flags;
-	struct mail_index_transaction_vfuncs v;
+	struct mail_index_transaction_vfuncs v, *vlast;
 	struct mail_index_view *view;
 	struct mail_index_view *latest_view;
 
@@ -107,8 +108,10 @@ struct mail_index_transaction {
 	 (array_is_created(&(t)->updates) && array_count(&(t)->updates) > 0) || \
 	 (t)->index_deleted || (t)->index_undeleted)
 
-extern void (*hook_mail_index_transaction_created)
-		(struct mail_index_transaction *t);
+typedef void hook_mail_index_transaction_created_t(struct mail_index_transaction *t);
+
+void mail_index_transaction_hook_register(hook_mail_index_transaction_created_t *hook);
+void mail_index_transaction_hook_unregister(hook_mail_index_transaction_created_t *hook);
 
 struct mail_index_record *
 mail_index_transaction_lookup(struct mail_index_transaction *t, uint32_t seq);
@@ -121,7 +124,7 @@ void mail_index_transaction_sort_appends(struct mail_index_transaction *t);
 void mail_index_transaction_sort_expunges(struct mail_index_transaction *t);
 uint32_t mail_index_transaction_get_next_uid(struct mail_index_transaction *t);
 void mail_index_transaction_set_log_updates(struct mail_index_transaction *t);
-void mail_index_update_day_headers(struct mail_index_transaction *t);
+void mail_index_update_day_headers(struct mail_index_transaction *t, time_t day_stamp);
 
 unsigned int
 mail_index_transaction_get_flag_update_pos(struct mail_index_transaction *t,

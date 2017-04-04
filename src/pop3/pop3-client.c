@@ -17,6 +17,7 @@
 #include "master-service.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
+#include "mail-autoexpunge.h"
 #include "pop3-commands.h"
 #include "mail-search-build.h"
 #include "mail-namespace.h"
@@ -97,7 +98,7 @@ pop3_mail_get_size(struct client *client, struct mail *mail, uoff_t *size_r)
 	if (ret == 0)
 		return 0;
 
-	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_NOTPOSSIBLE)
+	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_LOOKUP_ABORTED)
 		return -1;
 
 	/* virtual size not available with a fast lookup.
@@ -108,7 +109,7 @@ pop3_mail_get_size(struct client *client, struct mail *mail, uoff_t *size_r)
 	if (ret == 0)
 		return 0;
 
-	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_NOTPOSSIBLE)
+	if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_LOOKUP_ABORTED)
 		return -1;
 
 	/* no way to quickly get the size. fallback to doing a slow virtual
@@ -247,7 +248,7 @@ static int init_pop3_deleted_flag(struct client *client, const char **error_r)
 		*error_r = t_strdup_printf(
 			"pop3_deleted_flags: Invalid keyword '%s': %s",
 			client->set->pop3_deleted_flag,
-			mailbox_get_last_error(client->mailbox, NULL));
+			mailbox_get_last_internal_error(client->mailbox, NULL));
 		return -1;
 	}
 	return 0;
@@ -277,7 +278,7 @@ static int init_mailbox(struct client *client, const char **error_r)
 	}
 
 	if (ret < 0) {
-		*error_r = mailbox_get_last_error(client->mailbox, NULL);
+		*error_r = mailbox_get_last_internal_error(client->mailbox, NULL);
 		client_send_storage_error(client);
 	} else {
 		if (failed_uid == last_failed_uid && failed_uid != 0) {
@@ -353,7 +354,7 @@ static int pop3_lock_session(struct client *client)
 	}
 	if (mailbox_list_mkdir_root(client->inbox_ns->list, dir, type) < 0) {
 		i_error("pop3_lock_session: Couldn't create root directory %s: %s",
-			dir, mailbox_list_get_last_error(client->inbox_ns->list, NULL));
+			dir, mailbox_list_get_last_internal_error(client->inbox_ns->list, NULL));
 		return -1;
 	}
 	path = t_strdup_printf("%s/"POP3_LOCK_FNAME, dir);
@@ -458,13 +459,17 @@ int client_init_mailbox(struct client *client, const char **error_r)
         enum mailbox_flags flags;
 	const char *ident, *errmsg;
 
+	/* refresh proctitle before a potentially long-running init_mailbox() */
+	pop3_refresh_proctitle();
+
 	flags = MAILBOX_FLAG_POP3_SESSION;
 	if (!client->set->pop3_no_flag_updates)
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	client->mailbox = mailbox_alloc(client->inbox_ns->list, "INBOX", flags);
+	mailbox_set_reason(client->mailbox, "POP3 INBOX");
 	if (mailbox_open(client->mailbox) < 0) {
 		*error_r = t_strdup_printf("Couldn't open INBOX: %s",
-			mailbox_get_last_error(client->mailbox, NULL));
+			mailbox_get_last_internal_error(client->mailbox, NULL));
 		client_send_storage_error(client);
 		return -1;
 	}
@@ -484,8 +489,6 @@ int client_init_mailbox(struct client *client, const char **error_r)
 			"CONNECT\t", my_pid, "\tpop3/", ident, "\n", NULL));
 		client->anvil_sent = TRUE;
 	}
-
-	pop3_refresh_proctitle();
 	return 0;
 }
 
@@ -570,6 +573,10 @@ void client_destroy(struct client *client, const char *reason)
 
 static void client_default_destroy(struct client *client, const char *reason)
 {
+	i_assert(!client->destroyed);
+
+	client->destroyed = TRUE;
+
 	if (client->seen_change_count > 0)
 		(void)client_update_mails(client);
 
@@ -607,7 +614,6 @@ static void client_default_destroy(struct client *client, const char *reason)
 			mail_user_get_anvil_userip_ident(client->user),
 			"\n", NULL));
 	}
-	mail_user_unref(&client->user);
 
 	if (client->session_dotlock != NULL)
 		file_dotlock_delete(&client->session_dotlock);
@@ -631,7 +637,16 @@ static void client_default_destroy(struct client *client, const char *reason)
 	o_stream_destroy(&client->output);
 
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
-	mail_storage_service_user_free(&client->service_user);
+
+	/* Autoexpunging might run for a long time. Disconnect the client
+	   before it starts, and refresh proctitle so it's clear that it's
+	   doing autoexpunging. We've also sent DISCONNECT to anvil already,
+	   because this is background work and shouldn't really be counted
+	   as an active POP3 session for the user. */
+	pop3_refresh_proctitle();
+	mail_user_autoexpunge(client->user);
+	mail_user_unref(&client->user);
+	mail_storage_service_user_unref(&client->service_user);
 
 	pop3_client_count--;
 	DLLIST_REMOVE(&pop3_clients, client);

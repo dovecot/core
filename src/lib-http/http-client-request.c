@@ -65,8 +65,8 @@ http_client_request_label(struct http_client_request *req)
 {
 	if (req->label == NULL) {
 		req->label = p_strdup_printf(req->pool,
-			"[Req%u: %s %s%s]", req->id,
-			req->method, http_url_create(&req->origin_url), req->target);
+			"[Req%u: %s %s%s]", req->id, req->method,
+			http_url_create_host(&req->origin_url), req->target);
 	}
 	return req->label;
 }
@@ -122,6 +122,39 @@ http_client_request_url(struct http_client *client,
 
 	req = http_client_request_new(client, method, callback, context);
 	http_url_copy_authority(req->pool, &req->origin_url, target_url);
+	req->target = p_strdup(req->pool, http_url_create_target(target_url));
+	if (target_url->user != NULL && *target_url->user != '\0' &&
+		target_url->password != NULL) {
+		req->username = p_strdup(req->pool, target_url->user);
+		req->password = p_strdup(req->pool, target_url->password);
+	}
+	return req;
+}
+
+#undef http_client_request_url_str
+struct http_client_request *
+http_client_request_url_str(struct http_client *client,
+		    const char *method, const char *url_str,
+		    http_client_request_callback_t *callback, void *context)
+{
+	struct http_client_request *req, *tmpreq;
+	struct http_url *target_url;
+	const char *error;
+
+	req = tmpreq = http_client_request_new
+		(client, method, callback, context);
+
+	if (http_url_parse(url_str, NULL, HTTP_URL_ALLOW_USERINFO_PART,
+		req->pool, &target_url, &error) < 0) {
+		req->label = p_strdup_printf(req->pool,
+			"[Req%u: %s %s]", req->id, req->method, url_str);
+		http_client_request_error(&tmpreq,
+			HTTP_CLIENT_REQUEST_ERROR_INVALID_URL,
+			t_strdup_printf("Invalid HTTP URL: %s", error));
+		return req;
+	}
+
+	req->origin_url = *target_url;
 	req->target = p_strdup(req->pool, http_url_create_target(target_url));
 	if (target_url->user != NULL && *target_url->user != '\0' &&
 		target_url->password != NULL) {
@@ -258,6 +291,8 @@ void http_client_request_destroy(struct http_client_request **_req)
 
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
+	if (req->delayed_error != NULL)
+		http_client_remove_request_error(req->client, req);
 
 	if (req->destroy_callback != NULL) {
 		void (*callback)(void *) = req->destroy_callback;
@@ -520,7 +555,7 @@ int http_client_request_delay_from_response(struct http_client_request *req,
 	if (retry_after < ioloop_time)
 		return 0;  /* delay already expired */
 	max = (req->client->set.max_auto_retry_delay == 0 ?
-		req->client->set.request_timeout_msecs / 1000 :
+		req->attempt_timeout_msecs / 1000 :
 		req->client->set.max_auto_retry_delay);
 	if ((unsigned int)(retry_after - ioloop_time) > max)
 		return -1; /* delay too long */
@@ -545,6 +580,93 @@ enum http_request_state
 http_client_request_get_state(const struct http_client_request *req)
 {
 	return req->state;
+}
+
+void http_client_request_get_stats(struct http_client_request *req,
+	struct http_client_request_stats *stats_r)
+{
+	struct http_client *client = req->client;
+	int diff_msecs;
+	uint64_t wait_usecs;
+
+	i_zero(stats_r);
+	if (!req->submitted)
+		return;
+
+	/* total elapsed time since message was submitted */
+	diff_msecs = timeval_diff_msecs(&ioloop_timeval, &req->submit_time);
+	stats_r->total_msecs = (unsigned int)I_MAX(diff_msecs, 0);
+
+	/* elapsed time since message was last sent */
+	if (req->sent_time.tv_sec > 0) {
+		diff_msecs = timeval_diff_msecs(&ioloop_timeval, &req->sent_time);
+		stats_r->sent_msecs = (unsigned int)I_MAX(diff_msecs, 0);
+	}
+
+	if (req->conn != NULL) {
+		/* time spent in other ioloops */
+		i_assert(ioloop_global_wait_usecs >= req->sent_global_ioloop_usecs);
+		stats_r->other_ioloop_msecs = (unsigned int)
+			(ioloop_global_wait_usecs - req->sent_global_ioloop_usecs + 999) / 1000;
+
+		/* time spent in the http-client's own ioloop */
+		if (client->ioloop != NULL) {
+			wait_usecs = io_wait_timer_get_usecs(req->conn->io_wait_timer);
+			i_assert(wait_usecs >= req->sent_http_ioloop_usecs);
+			stats_r->http_ioloop_msecs = (unsigned int)
+				(wait_usecs - req->sent_http_ioloop_usecs + 999) / 1000;
+
+			i_assert(stats_r->other_ioloop_msecs >= stats_r->http_ioloop_msecs);
+			stats_r->other_ioloop_msecs -= stats_r->http_ioloop_msecs;
+		}
+	}
+
+	/* total time spent on waiting for file locks */
+	wait_usecs = file_lock_wait_get_total_usecs();
+	i_assert(wait_usecs >= req->sent_lock_usecs);
+	stats_r->lock_msecs = (unsigned int)
+		(wait_usecs - req->sent_lock_usecs + 999) / 1000;
+
+	/* number of attempts for this request */
+	stats_r->attempts = req->attempts;
+
+}
+
+void http_client_request_append_stats_text(struct http_client_request *req,
+	string_t *str)
+{
+	struct http_client_request_stats stats;
+
+	if (!req->submitted) {
+		str_append(str, "not yet submitted");
+		return;
+	}
+
+	http_client_request_get_stats(req, &stats);
+
+	if (stats.sent_msecs > 0) {
+		str_printfa(str, "sent %u.%03u secs ago",
+			    stats.sent_msecs/1000, stats.sent_msecs%1000);
+	} else {
+		str_append(str, "not yet sent");
+	}
+	if (stats.attempts > 0) {
+		str_printfa(str, ", %u attempts in %u.%03u secs",
+			    stats.attempts + 1,
+			    stats.total_msecs/1000, stats.total_msecs%1000);
+	}
+	if (stats.http_ioloop_msecs > 0) {
+		str_printfa(str, ", %u.%03u in http ioloop",
+			    stats.http_ioloop_msecs/1000,
+			    stats.http_ioloop_msecs%1000);
+	}
+	str_printfa(str, ", %u.%03u in other ioloops",
+		    stats.other_ioloop_msecs/1000, stats.other_ioloop_msecs%1000);
+
+	if (stats.lock_msecs > 0) {
+		str_printfa(str, ", %u.%03u in locks",
+			    stats.lock_msecs/1000, stats.lock_msecs%1000);
+	}
 }
 
 enum http_response_payload_type
@@ -580,6 +702,8 @@ static void http_client_request_do_submit(struct http_client_request *req)
 		(req->host_socket != NULL) || (req->host_url != NULL);
 	const char *authority, *target;
 
+	if (req->state == HTTP_REQUEST_STATE_ABORTED)
+		return;
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
 
 	authority = http_url_create_authority(&req->origin_url);
@@ -1192,15 +1316,18 @@ http_client_request_send_error(struct http_client_request *req,
 void http_client_request_error_delayed(struct http_client_request **_req)
 {
 	struct http_client_request *req = *_req;
+	const char *error = req->delayed_error;
+	unsigned int status = req->delayed_error_status;
 	bool destroy;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	*_req = NULL;
+	req->delayed_error = NULL;
+	req->delayed_error_status = 0;
 
-	i_assert(req->delayed_error != NULL && req->delayed_error_status != 0);
-	destroy = http_client_request_send_error(req, req->delayed_error_status,
-				       req->delayed_error);
+	i_assert(error != NULL && status != 0);
+	destroy = http_client_request_send_error(req, status, error);
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
 	if (destroy)
@@ -1212,6 +1339,9 @@ void http_client_request_error(struct http_client_request **_req,
 {
 	struct http_client_request *req = *_req;
 
+	*_req = NULL;
+
+	i_assert(req->delayed_error_status == 0);
 	i_assert(req->state < HTTP_REQUEST_STATE_FINISHED);
 	req->state = HTTP_REQUEST_STATE_ABORTED;
 
@@ -1223,7 +1353,6 @@ void http_client_request_error(struct http_client_request **_req,
 		/* we're still in http_client_request_submit() or in the callback
 		   during a retry attempt. delay reporting the error, so the caller
 		   doesn't have to handle immediate or nested callbacks. */
-		i_assert(req->delayed_error == NULL);
 		req->delayed_error = p_strdup(req->pool, error);
 		req->delayed_error_status = status;
 		http_client_delay_request_error(req->client, req);
@@ -1231,7 +1360,6 @@ void http_client_request_error(struct http_client_request **_req,
 		if (http_client_request_send_error(req, status, error))
 			http_client_request_destroy(&req);
 	}
-	*_req = NULL;
 }
 
 void http_client_request_abort(struct http_client_request **_req)
@@ -1241,7 +1369,8 @@ void http_client_request_abort(struct http_client_request **_req)
 
 	*_req = NULL;
 
-	if (req->state >= HTTP_REQUEST_STATE_FINISHED)
+	if (req->state >= HTTP_REQUEST_STATE_FINISHED &&
+		req->delayed_error_status == 0)
 		return;
 
 	req->callback = NULL;

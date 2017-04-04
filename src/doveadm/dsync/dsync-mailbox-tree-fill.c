@@ -95,7 +95,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 	/* get GUID and UIDVALIDITY for selectable mailbox */
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
 	if (dsync_mailbox_tree_get_selectable(box, &metadata, &status) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		switch (error) {
 		case MAIL_ERROR_NOTFOUND:
 			/* mailbox was just deleted? */
@@ -266,7 +266,7 @@ dsync_mailbox_tree_fix_guid_duplicate(struct dsync_mailbox_tree *tree,
 	box = mailbox_alloc(change_node->ns->list, change_vname, 0);
 	if (mailbox_update(box, &update) < 0) {
 		i_error("Couldn't update mailbox %s GUID: %s",
-			change_vname, mailbox_get_last_error(box, NULL));
+			change_vname, mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	} else {
 		memcpy(change_node->mailbox_guid, update.mailbox_guid,
@@ -361,7 +361,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	} T_END;
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Mailbox listing for namespace '%s' failed: %s",
-			ns->prefix, mailbox_list_get_last_error(ns->list, error_r));
+			ns->prefix, mailbox_list_get_last_internal_error(ns->list, error_r));
 		ret = -1;
 	}
 
@@ -377,7 +377,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Mailbox listing for namespace '%s' failed: %s",
-			ns->prefix, mailbox_list_get_last_error(ns->list, error_r));
+			ns->prefix, mailbox_list_get_last_internal_error(ns->list, error_r));
 		ret = -1;
 	}
 	if (ret < 0)

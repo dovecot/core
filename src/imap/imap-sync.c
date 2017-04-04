@@ -228,6 +228,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 
 	ctx->sync_ctx = mailbox_sync_init(box, flags);
 	ctx->t = mailbox_transaction_begin(box, 0);
+	mailbox_transaction_set_reason(ctx->t, "Mailbox sync");
 	ctx->mail = mail_alloc(ctx->t, MAIL_FETCH_FLAGS, NULL);
 	ctx->messages_count = client->messages_count;
 	i_array_init(&ctx->tmp_keywords, client->keywords.announce_count + 8);
@@ -769,7 +770,7 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	if (cmd->cancel)
 		return TRUE;
 
-	cmd->last_run_timeval = ioloop_timeval;
+	cmd->stats.last_run_timeval = ioloop_timeval;
 	if (client->mailbox == NULL) {
 		/* no mailbox selected, no point in delaying the sync */
 		if (tagline != NULL)

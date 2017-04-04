@@ -30,6 +30,18 @@ enum quota_recalculate {
 	QUOTA_RECALCULATE_FORCED
 };
 
+enum quota_alloc_result {
+	QUOTA_ALLOC_RESULT_OK,
+	QUOTA_ALLOC_RESULT_TEMPFAIL,
+	QUOTA_ALLOC_RESULT_OVER_MAXSIZE,
+	QUOTA_ALLOC_RESULT_OVER_QUOTA,
+	/* Mail size is larger than even the maximum allowed quota. */
+	QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT,
+};
+
+const char *quota_alloc_result_errstr(enum quota_alloc_result res,
+		struct quota_transaction_context *qt);
+
 int quota_user_read_settings(struct mail_user *user,
 			     struct quota_settings **set_r,
 			     const char **error_r);
@@ -78,14 +90,12 @@ int quota_transaction_commit(struct quota_transaction_context **ctx);
 /* Rollback quota transaction changes. */
 void quota_transaction_rollback(struct quota_transaction_context **ctx);
 
-/* Allocate from quota if there's space. Returns 1 if updated, 0 if not,
-   -1 if error. If mail size is larger than even maximum allowed quota,
-   too_large_r is set to TRUE. */
-int quota_try_alloc(struct quota_transaction_context *ctx,
-		    struct mail *mail, bool *too_large_r);
+/* Allocate from quota if there's space. */
+enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
+					struct mail *mail);
 /* Like quota_try_alloc(), but don't actually allocate anything. */
-int quota_test_alloc(struct quota_transaction_context *ctx,
-		     uoff_t size, bool *too_large_r);
+enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
+					 uoff_t size);
 /* Update quota by allocating/freeing space used by mail. */
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail);
 void quota_free(struct quota_transaction_context *ctx, struct mail *mail);

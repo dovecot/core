@@ -223,6 +223,13 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 	passdb->id = ++auth_passdb_id;
 	passdb->iface = *iface;
 	passdb->args = p_strdup(pool, set->args);
+	if (*set->mechanisms == '\0') {
+		passdb->mechanisms = NULL;
+	} else if (strcasecmp(set->mechanisms, "none") == 0) {
+		passdb->mechanisms = (const char *const[]){NULL};
+	} else {
+		passdb->mechanisms = (const char* const*)p_strsplit_spaces(pool, set->mechanisms, " ,");
+	}
 
 	array_append(&passdb_modules, &passdb, 1);
 	return passdb;
@@ -284,6 +291,7 @@ extern struct passdb_module_interface passdb_ldap;
 extern struct passdb_module_interface passdb_sql;
 extern struct passdb_module_interface passdb_sia;
 extern struct passdb_module_interface passdb_static;
+extern struct passdb_module_interface passdb_oauth2;
 
 void passdbs_init(void)
 {
@@ -301,6 +309,7 @@ void passdbs_init(void)
 	passdb_register_module(&passdb_sql);
 	passdb_register_module(&passdb_sia);
 	passdb_register_module(&passdb_static);
+	passdb_register_module(&passdb_oauth2);
 }
 
 void passdbs_deinit(void)

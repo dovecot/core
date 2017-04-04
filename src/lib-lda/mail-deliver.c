@@ -41,6 +41,17 @@ struct mail_deliver_cache {
 	uoff_t psize, vsize;
 };
 
+struct mail_deliver_mailbox {
+	union mailbox_module_context module_ctx;
+	bool delivery_box;
+};
+
+struct mail_deliver_transaction {
+	union mailbox_transaction_module_context module_ctx;
+
+	struct mail_deliver_cache cache;
+};
+
 static const char *lda_log_wanted_headers[] = {
 	"From", "Message-ID", "Subject",
 	NULL
@@ -67,47 +78,44 @@ const char *mail_deliver_get_address(struct mail *mail, const char *header)
 		NULL : t_strconcat(addr->mailbox, "@", addr->domain, NULL);
 }
 
-static void update_cache(struct mail_deliver_context *ctx,
-			 const char **old_str, const char *new_str)
+static void update_cache(pool_t pool, const char **old_str, const char *new_str)
 {
 	if (new_str == NULL || new_str[0] == '\0')
 		*old_str = NULL;
 	else if (*old_str == NULL || strcmp(*old_str, new_str) != 0)
-		*old_str = p_strdup(ctx->pool, new_str);
+		*old_str = p_strdup(pool, new_str);
 }
 
 static void
-mail_deliver_log_update_cache(struct mail_deliver_context *ctx,
+mail_deliver_log_update_cache(struct mail_deliver_cache *cache, pool_t pool,
 			      struct mail *mail)
 {
 	const char *message_id = NULL, *subject = NULL, *from_envelope = NULL;
 	const char *from;
 
-	if (ctx->cache == NULL)
-		ctx->cache = p_new(ctx->pool, struct mail_deliver_cache, 1);
-	else if (ctx->cache->filled)
+	if (cache->filled)
 		return;
-	ctx->cache->filled = TRUE;
+	cache->filled = TRUE;
 
 	if (mail_get_first_header(mail, "Message-ID", &message_id) > 0)
 		message_id = str_sanitize(message_id, 200);
-	update_cache(ctx, &ctx->cache->message_id, message_id);
+	update_cache(pool, &cache->message_id, message_id);
 
 	if (mail_get_first_header_utf8(mail, "Subject", &subject) > 0)
 		subject = str_sanitize(subject, 80);
-	update_cache(ctx, &ctx->cache->subject, subject);
+	update_cache(pool, &cache->subject, subject);
 
 	from = str_sanitize(mail_deliver_get_address(mail, "From"), 80);
-	update_cache(ctx, &ctx->cache->from, from);
+	update_cache(pool, &cache->from, from);
 
 	if (mail_get_special(mail, MAIL_FETCH_FROM_ENVELOPE, &from_envelope) > 0)
 		from_envelope = str_sanitize(from_envelope, 80);
-	update_cache(ctx, &ctx->cache->from_envelope, from_envelope);
+	update_cache(pool, &cache->from_envelope, from_envelope);
 
-	if (mail_get_physical_size(mail, &ctx->cache->psize) < 0)
-		ctx->cache->psize = 0;
-	if (mail_get_virtual_size(mail, &ctx->cache->vsize) < 0)
-		ctx->cache->vsize = 0;
+	if (mail_get_physical_size(mail, &cache->psize) < 0)
+		cache->psize = 0;
+	if (mail_get_virtual_size(mail, &cache->vsize) < 0)
+		cache->vsize = 0;
 }
 
 const struct var_expand_table *
@@ -118,7 +126,9 @@ mail_deliver_ctx_get_log_var_expand_table(struct mail_deliver_context *ctx,
 
 	/* If a mail was saved/copied, the cache is already filled and the
 	   following call is ignored. Otherwise, only the source mail exists. */
-	mail_deliver_log_update_cache(ctx, ctx->src_mail);
+	if (ctx->cache == NULL)
+		ctx->cache = p_new(ctx->pool, struct mail_deliver_cache, 1);
+	mail_deliver_log_update_cache(ctx->cache, ctx->pool, ctx->src_mail);
 	/* This call finishes a mail delivery. With Sieve there may be multiple
 	   mail deliveries. */
 	ctx->cache->filled = FALSE;
@@ -223,16 +233,23 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	}
 
 	*box_r = box = mailbox_alloc(ns->list, name, flags);
+	mailbox_set_reason(box, "lib-lda delivery");
+	/* flag that this mailbox is used for delivering the mail.
+	   the context isn't set in pigeonhole testuite. */
+	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	if (mbox != NULL)
+		mbox->delivery_box = TRUE;
+
 	if (mailbox_open(box) == 0)
 		return 0;
 
-	*error_str_r = mailbox_get_last_error(box, error_r);
+	*error_str_r = mailbox_get_last_internal_error(box, error_r);
 	if (!ctx->lda_mailbox_autocreate || *error_r != MAIL_ERROR_NOTFOUND)
 		return -1;
 
 	/* try creating it. */
 	if (mailbox_create(box, NULL, FALSE) < 0) {
-		*error_str_r = mailbox_get_last_error(box, error_r);
+		*error_str_r = mailbox_get_last_internal_error(box, error_r);
 		if (*error_r != MAIL_ERROR_EXISTS)
 			return -1;
 		/* someone else just created it */
@@ -244,7 +261,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 
 	/* and try opening again */
 	if (mailbox_open(box) < 0) {
-		*error_str_r = mailbox_get_last_error(box, error_r);
+		*error_str_r = mailbox_get_last_internal_error(box, error_r);
 		return -1;
 	}
 	return 0;
@@ -409,7 +426,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		pool_unref(&changes.pool);
 	} else {
 		mail_deliver_log(ctx, "save failed to %s: %s", mailbox_name,
-			mail_storage_get_last_error(*storage_r, &error));
+			mail_storage_get_last_internal_error(*storage_r, &error));
 	}
 
 	if (ctx->dest_mail == NULL)
@@ -511,30 +528,36 @@ deliver_mail_func_t *mail_deliver_hook_set(deliver_mail_func_t *new_hook)
 static int mail_deliver_save_finish(struct mail_save_context *ctx)
 {
 	struct mailbox *box = ctx->transaction->box;
-	union mailbox_module_context *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
 	struct mail_deliver_user *muser =
 		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
+	struct mail_deliver_transaction *dt =
+		MAIL_DELIVER_STORAGE_CONTEXT(ctx->transaction);
 
-	if (mbox->super.save_finish(ctx) < 0)
+	if (mbox->module_ctx.super.save_finish(ctx) < 0)
 		return -1;
 
 	/* initialize most of the fields from dest_mail */
-	mail_deliver_log_update_cache(muser->deliver_ctx, ctx->dest_mail);
+	mail_deliver_log_update_cache(&dt->cache, muser->deliver_ctx->pool,
+				      ctx->dest_mail);
 	return 0;
 }
 
 static int mail_deliver_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct mailbox *box = ctx->transaction->box;
-	union mailbox_module_context *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
 	struct mail_deliver_user *muser =
 		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
+	struct mail_deliver_transaction *dt =
+		MAIL_DELIVER_STORAGE_CONTEXT(ctx->transaction);
 
-	if (mbox->super.copy(ctx, mail) < 0)
+	if (mbox->module_ctx.super.copy(ctx, mail) < 0)
 		return -1;
 
 	/* initialize most of the fields from dest_mail */
-	mail_deliver_log_update_cache(muser->deliver_ctx, ctx->dest_mail);
+	mail_deliver_log_update_cache(&dt->cache, muser->deliver_ctx->pool,
+				      ctx->dest_mail);
 	return 0;
 }
 
@@ -555,6 +578,7 @@ mail_deliver_cache_update_post_commit(struct mailbox *orig_box, uint32_t uid)
 	   synced, so it'll contain the newly written mail. this is racy, so
 	   it's possible another process has already deleted the mail. */
 	box = mailbox_alloc(orig_box->list, orig_box->vname, 0);
+	mailbox_set_reason(box, "lib-lda storage-id");
 
 	mail = mail_deliver_open_mail(box, uid, MAIL_FETCH_STORAGE_ID, &t);
 	if (mail != NULL) {
@@ -571,14 +595,51 @@ mail_deliver_cache_update_post_commit(struct mailbox *orig_box, uint32_t uid)
 	mailbox_free(&box);
 }
 
+static struct mailbox_transaction_context *
+mail_deliver_transaction_begin(struct mailbox *box,
+			       enum mailbox_transaction_flags flags)
+{
+	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	struct mail_deliver_user *muser =
+		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
+	struct mailbox_transaction_context *t;
+	struct mail_deliver_transaction *dt;
+
+	i_assert(muser != NULL);
+	i_assert(muser->deliver_ctx != NULL);
+
+	t = mbox->module_ctx.super.transaction_begin(box, flags);
+	dt = p_new(muser->deliver_ctx->pool, struct mail_deliver_transaction, 1);
+
+	MODULE_CONTEXT_SET(t, mail_deliver_storage_module, dt);
+	return t;
+}
+
 static int
 mail_deliver_transaction_commit(struct mailbox_transaction_context *ctx,
 				struct mail_transaction_commit_changes *changes_r)
 {
 	struct mailbox *box = ctx->box;
-	union mailbox_module_context *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
+	struct mail_deliver_transaction *dt = MAIL_DELIVER_STORAGE_CONTEXT(ctx);
+	struct mail_deliver_user *muser =
+		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
 
-	if (mbox->super.transaction_commit(ctx, changes_r) < 0)
+	i_assert(dt != NULL);
+	i_assert(muser != NULL);
+	i_assert(muser->deliver_ctx != NULL);
+
+	/* sieve creates multiple transactions, saves the mails and
+	   then commits all of them at the end. we'll need to keep
+	   switching the deliver_ctx->cache for each commit.
+
+	   we also want to do this only for commits generated by sieve.
+	   other plugins or storage backends may be creating transactions as
+	   well, which we need to ignore. */
+	if (mbox->delivery_box)
+		muser->deliver_ctx->cache = &dt->cache;
+
+	if (mbox->module_ctx.super.transaction_commit(ctx, changes_r) < 0)
 		return -1;
 
 	if (array_count(&changes_r->saved_uids) > 0) {
@@ -601,16 +662,24 @@ static void mail_deliver_mail_user_created(struct mail_user *user)
 static void mail_deliver_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
-	union mailbox_module_context *mbox;
+	struct mail_deliver_mailbox *mbox;
+	struct mail_deliver_user *muser =
+		MAIL_DELIVER_USER_CONTEXT(box->storage->user);
 
-	mbox = p_new(box->pool, union mailbox_module_context, 1);
-	mbox->super = *v;
-	box->vlast = &mbox->super;
+	/* we are doing something other than lda/lmtp delivery
+	   and should not be involved */
+	if (muser->deliver_ctx == NULL)
+		return;
+
+	mbox = p_new(box->pool, struct mail_deliver_mailbox, 1);
+	mbox->module_ctx.super = *v;
+	box->vlast = &mbox->module_ctx.super;
 	v->save_finish = mail_deliver_save_finish;
 	v->copy = mail_deliver_copy;
+	v->transaction_begin = mail_deliver_transaction_begin;
 	v->transaction_commit = mail_deliver_transaction_commit;
 
-	MODULE_CONTEXT_SET_SELF(box, mail_deliver_storage_module, mbox);
+	MODULE_CONTEXT_SET(box, mail_deliver_storage_module, mbox);
  }
 
 static struct mail_storage_hooks mail_deliver_hooks = {

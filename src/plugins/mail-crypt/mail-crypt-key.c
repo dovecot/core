@@ -320,7 +320,7 @@ int mail_crypt_get_private_key(struct mailbox *box, const char *pubid,
 						   shared ? "/shared/" :
 							    "/priv/",
 						   attr_name,
-						   mailbox_get_last_error(box, NULL));
+						   mailbox_get_last_internal_error(box, NULL));
 		}
 		return ret;
 	}
@@ -352,7 +352,7 @@ int mail_crypt_user_get_private_key(struct mail_user *user, const char *pubid,
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("mailbox_open(%s) failed: %s",
 					   "INBOX",
-					   mailbox_get_last_error(box, NULL));
+					   mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 
@@ -364,7 +364,7 @@ int mail_crypt_user_get_private_key(struct mail_user *user, const char *pubid,
 				*error_r = t_strdup_printf("mailbox_attribute_get(%s, /shared/%s) failed: %s",
 							   mailbox_get_vname(box),
 							   USER_CRYPT_PREFIX ACTIVE_KEY_NAME,
-							   mailbox_get_last_error(box, NULL));
+							   mailbox_get_last_internal_error(box, NULL));
 			}
 		} else {
 			pubid = value.value;
@@ -394,7 +394,7 @@ int mail_crypt_box_get_private_key(struct mailbox *box,
 			*error_r = t_strdup_printf("mailbox_attribute_get(%s, /shared/%s) failed: %s",
 						   mailbox_get_vname(box),
 						   USER_CRYPT_PREFIX ACTIVE_KEY_NAME,
-						   mailbox_get_last_error(box, NULL));
+						   mailbox_get_last_internal_error(box, NULL));
 		}
 		return ret;
 	}
@@ -453,7 +453,7 @@ int mail_crypt_set_private_key(struct mailbox_transaction_context *t,
 			   mailbox_get_vname(mailbox_transaction_get_mailbox(t)),
 			   shared ? "/shared" : "/priv",
 			   attr_name,
-			   mailbox_get_last_error(
+			   mailbox_get_last_internal_error(
 				mailbox_transaction_get_mailbox(t), NULL));
 	}
 
@@ -494,7 +494,7 @@ int mail_crypt_user_set_private_key(struct mail_user *user, const char *pubid,
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("mailbox_open(%s) failed: %s",
 					   "INBOX",
-					   mailbox_get_last_error(box, NULL));
+					   mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 
@@ -506,7 +506,7 @@ int mail_crypt_user_set_private_key(struct mail_user *user, const char *pubid,
 	} else if ((ret = mailbox_transaction_commit(&t)) < 0) {
 		*error_r = t_strdup_printf("mailbox_transaction_commit(%s) failed: %s",
 					  mailbox_get_vname(box),
-					  mailbox_get_last_error(box, NULL));
+					  mailbox_get_last_internal_error(box, NULL));
 	}
 
 	mailbox_free(&box);
@@ -529,7 +529,7 @@ int mail_crypt_box_set_private_key(struct mailbox *box, const char *pubid,
 	} else if ((ret = mailbox_transaction_commit(&t)) < 0) {
 		*error_r = t_strdup_printf("mailbox_transaction_commit(%s) failed: %s",
 					  mailbox_get_vname(box),
-					  mailbox_get_last_error(box, NULL));
+					  mailbox_get_last_internal_error(box, NULL));
 	}
 
 	return ret;
@@ -562,7 +562,7 @@ int mail_crypt_get_public_key(struct mailbox *box, const char *pubid,
 			*error_r = t_strdup_printf("mailbox_attribute_get(%s, %s) failed: %s",
 						   mailbox_get_vname(box),
 						   attr_name,
-						   mailbox_get_last_error(box, NULL));
+						   mailbox_get_last_internal_error(box, NULL));
 		}
 		return ret;
 	}
@@ -618,7 +618,7 @@ int mail_crypt_user_get_public_key(struct mail_user *user,
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("mailbox_open(%s) failed: %s",
 					   "INBOX",
-					   mailbox_get_last_error(box, NULL));
+					   mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 
@@ -629,7 +629,7 @@ int mail_crypt_user_get_public_key(struct mail_user *user,
 			*error_r = t_strdup_printf("mailbox_attribute_get(%s, /shared/%s) failed: %s",
 						   mailbox_get_vname(box),
 						   USER_CRYPT_PREFIX ACTIVE_KEY_NAME,
-						   mailbox_get_last_error(box, NULL));
+						   mailbox_get_last_internal_error(box, NULL));
 		}
 	} else {
 		ret = mail_crypt_get_public_key(box, value.value, TRUE, key_r, error_r);
@@ -653,7 +653,7 @@ int mail_crypt_box_get_public_key(struct mailbox *box,
 			*error_r = t_strdup_printf("mailbox_attribute_get(%s, /shared/%s) failed: %s",
 						   mailbox_get_vname(box),
 						   BOX_CRYPT_PREFIX ACTIVE_KEY_NAME,
-						   mailbox_get_last_error(box, NULL));
+						   mailbox_get_last_internal_error(box, NULL));
 		}
 		return ret;
 	}
@@ -689,7 +689,7 @@ int mail_crypt_set_public_key(struct mailbox_transaction_context *t,
 			   mailbox_get_vname(mailbox_transaction_get_mailbox(t)),
 			   "/shared",
 			   attr_name,
-			   mailbox_get_last_error(
+			   mailbox_get_last_internal_error(
 				mailbox_transaction_get_mailbox(t), NULL));
 		return -1;
 	}
@@ -712,7 +712,7 @@ int mail_crypt_user_set_public_key(struct mail_user *user, const char *pubid,
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("mailbox_open(%s) failed: %s",
 					   "INBOX",
-					   mailbox_get_last_error(box, NULL));
+					   mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 
@@ -730,7 +730,7 @@ int mail_crypt_user_set_public_key(struct mail_user *user, const char *pubid,
 			*error_r = t_strdup_printf("mailbox_attribute_set(%s, /shared/%s) failed: %s",
 						   mailbox_get_vname(box),
 						   USER_CRYPT_PREFIX ACTIVE_KEY_NAME,
-						   mailbox_get_last_error(box, NULL));
+						   mailbox_get_last_internal_error(box, NULL));
 		}
 	}
 
@@ -739,7 +739,7 @@ int mail_crypt_user_set_public_key(struct mail_user *user, const char *pubid,
 	} else if (mailbox_transaction_commit(&t) < 0) {
 		*error_r = t_strdup_printf("mailbox_transaction_commit(%s) failed: %s",
 					  mailbox_get_vname(box),
-					  mailbox_get_last_error(box, NULL));
+					  mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 
@@ -769,7 +769,7 @@ int mail_crypt_box_set_public_key(struct mailbox *box, const char *pubid,
 			*error_r = t_strdup_printf("mailbox_attribute_set(%s, /shared/%s) failed: %s",
 						   mailbox_get_vname(box),
 						   BOX_CRYPT_PREFIX ACTIVE_KEY_NAME,
-						   mailbox_get_last_error(box, NULL));
+						   mailbox_get_last_internal_error(box, NULL));
 		}
 	}
 
@@ -778,7 +778,7 @@ int mail_crypt_box_set_public_key(struct mailbox *box, const char *pubid,
 	} else if (mailbox_transaction_commit(&t) < 0) {
 		*error_r = t_strdup_printf("mailbox_transaction_commit(%s) failed: %s",
 					  mailbox_get_vname(box),
-					  mailbox_get_last_error(box, NULL));
+					  mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 
@@ -849,7 +849,7 @@ int mail_crypt_box_get_shared_key(struct mailbox *box,
 			*error_r = t_strdup_printf("mailbox_attribute_get(%s, %s) failed: %s",
 						mailbox_get_vname(box),
 						attr_name,
-						mailbox_get_last_error(box, NULL));
+						mailbox_get_last_internal_error(box, NULL));
 			return ret;
 		}
 		return mail_crypt_get_private_key(box, pubid, FALSE, TRUE, key_r,
@@ -914,7 +914,7 @@ int mail_crypt_box_set_shared_key(struct mailbox_transaction_context *t,
 					   mailbox_get_vname(
 						mailbox_transaction_get_mailbox(t)),
 					   attr_name,
-					   mailbox_get_last_error(
+					   mailbox_get_last_internal_error(
 						mailbox_transaction_get_mailbox(t),
 						NULL));
 	}
@@ -948,7 +948,7 @@ int mail_crypt_box_unset_shared_key(struct mailbox_transaction_context *t,
 						    mailbox_get_vname(
 						    mailbox_transaction_get_mailbox(t)),
 						    attr_name,
-						    mailbox_get_last_error(
+						    mailbox_get_last_internal_error(
 						    mailbox_transaction_get_mailbox(t),
 						    NULL));
 		}
@@ -1077,7 +1077,7 @@ int mail_crypt_box_get_pvt_digests(struct mailbox *box, pool_t pool,
 	}
 	ret = mailbox_attribute_iter_deinit(&iter);
 	if (ret < 0)
-		*error_r = mailbox_get_last_error(box, NULL);
+		*error_r = mailbox_get_last_internal_error(box, NULL);
 	return ret;
 }
 
@@ -1103,7 +1103,7 @@ int mail_crypt_box_get_private_keys(struct mailbox *box,
 
 	ret = mailbox_attribute_iter_deinit(&iter);
 	if (ret < 0)
-		*error_r = mailbox_get_last_error(box, NULL);
+		*error_r = mailbox_get_last_internal_error(box, NULL);
 	return ret;
 }
 

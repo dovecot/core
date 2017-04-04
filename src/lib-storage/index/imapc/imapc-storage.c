@@ -45,7 +45,7 @@ static struct imapc_resp_code_map imapc_resp_code_map[] = {
 	{ IMAP_RESP_CODE_SERVERBUG, MAIL_ERROR_TEMP },
 	/* { IMAP_RESP_CODE_CLIENTBUG, 0 }, */
 	{ IMAP_RESP_CODE_CANNOT, MAIL_ERROR_NOTPOSSIBLE },
-	{ IMAP_RESP_CODE_LIMIT, MAIL_ERROR_NOTPOSSIBLE },
+	{ IMAP_RESP_CODE_LIMIT, MAIL_ERROR_LIMIT },
 	{ IMAP_RESP_CODE_OVERQUOTA, MAIL_ERROR_NOQUOTA },
 	{ IMAP_RESP_CODE_ALREADYEXISTS, MAIL_ERROR_EXISTS },
 	{ IMAP_RESP_CODE_NONEXISTENT, MAIL_ERROR_NOTFOUND }
@@ -124,7 +124,7 @@ void imapc_simple_context_init(struct imapc_simple_context *sctx,
 void imapc_simple_run(struct imapc_simple_context *sctx)
 {
 	if (sctx->client->auth_failed) {
-		imapc_client_disconnect(sctx->client->client);
+		imapc_client_logout(sctx->client->client);
 		sctx->ret = -1;
 	}
 	while (sctx->ret == -2)
@@ -216,10 +216,13 @@ imapc_storage_client_untagged_cb(const struct imapc_untagged_reply *reply,
 }
 
 static void
-imapc_storage_client_login(const struct imapc_command_reply *reply,
-			   void *context)
+imapc_storage_client_login_callback(const struct imapc_command_reply *reply,
+				    void *context)
 {
 	struct imapc_storage_client *client = context;
+
+	client->auth_returned = TRUE;
+	imapc_client_stop(client->client);
 
 	if (reply->state == IMAPC_COMMAND_STATE_OK)
 		return;
@@ -231,6 +234,7 @@ imapc_storage_client_login(const struct imapc_command_reply *reply,
 	}
 
 	client->auth_failed = TRUE;
+	client->auth_error = i_strdup(reply->text_full);
 
 	if (client->_storage != NULL) {
 		if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
@@ -246,6 +250,24 @@ imapc_storage_client_login(const struct imapc_command_reply *reply,
 		else {
 			mailbox_list_set_error(&client->_list->list,
 					       MAIL_ERROR_PERM, reply->text_full);
+		}
+	}
+}
+
+static void imapc_storage_client_login(struct imapc_storage_client *client,
+				       struct mail_user *user, const char *host)
+{
+	imapc_client_login(client->client, imapc_storage_client_login_callback, client);
+	if (!user->namespaces_created) {
+		/* we're still initializing the user. wait for the
+		   login to finish, so we can fail the user creation
+		   if it fails. */
+		while (!client->auth_returned)
+			imapc_client_run(client->client);
+		if (client->auth_failed) {
+			user->error = p_strdup_printf(user->pool,
+				"imapc: Login to %s failed: %s",
+				host, client->auth_error);
 		}
 	}
 }
@@ -282,6 +304,8 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	set.sasl_mechanisms = imapc_set->imapc_sasl_mechanisms;
 	set.use_proxyauth = (imapc_set->parsed_features & IMAPC_FEATURE_PROXYAUTH) != 0;
 	set.cmd_timeout_msecs = imapc_set->imapc_cmd_timeout * 1000;
+	set.connect_retry_count = imapc_set->imapc_connection_retry_count;
+	set.connect_retry_interval_secs = imapc_set->imapc_connection_retry_interval_secs;
 	set.max_idle_time = imapc_set->imapc_max_idle_time;
 	set.max_line_length = imapc_set->imapc_max_line_length;
 	set.dns_client_socket_path = *ns->user->set->base_dir == '\0' ? "" :
@@ -316,9 +340,10 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	client->client = imapc_client_init(&set);
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
-	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0) {
+	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0 &&
+	    (imapc_set->parsed_features & IMAPC_FEATURE_DELAY_LOGIN) == 0) {
 		/* start logging in immediately */
-		imapc_client_login(client->client, imapc_storage_client_login, client);
+		imapc_storage_client_login(client, ns->user, set.host);
 	}
 
 	*client_r = client;
@@ -339,6 +364,7 @@ void imapc_storage_client_unref(struct imapc_storage_client **_client)
 	array_foreach_modifiable(&client->untagged_callbacks, cb)
 		i_free(cb->name);
 	array_free(&client->untagged_callbacks);
+	i_free(client->auth_error);
 	i_free(client);
 }
 
@@ -402,7 +428,7 @@ static void imapc_storage_destroy(struct mail_storage *_storage)
 
 	/* make sure all pending commands are aborted before anything is
 	   deinitialized */
-	imapc_client_disconnect(storage->client->client);
+	imapc_client_logout(storage->client->client);
 
 	imapc_storage_client_unref(&storage->client);
 	index_storage_destroy(_storage);

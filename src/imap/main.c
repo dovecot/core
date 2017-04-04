@@ -88,6 +88,8 @@ void imap_refresh_proctitle(void)
 			if (o_stream_is_corked(client->output))
 				str_append(title, " corked");
 		}
+		if (client->destroyed)
+			str_append(title, " (deinit)");
 		break;
 	default:
 		str_printfa(title, "%u connections", imap_client_count);
@@ -205,7 +207,7 @@ client_add_input(struct client *client, const unsigned char *client_input,
 	o_stream_unref(&output);
 
 	/* we could have already handled LOGOUT, or we might need to continue
-	   pending ambigious commands. */
+	   pending ambiguous commands. */
 	if (client->disconnected)
 		client_destroy(client, NULL);
 	else
@@ -218,33 +220,15 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 {
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
-	struct mail_namespace *ns;
 	struct client *client;
 	struct imap_settings *imap_set;
 	struct lda_settings *lda_set;
 	const char *errstr;
-	enum mail_error mail_error;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
 					     &user, &mail_user, error_r) <= 0)
 		return -1;
 	restrict_access_allow_coredumps(TRUE);
-
-	/* this is mainly for imapc: make sure we can do at least minimal
-	   access to the mailbox list or fail immediately. otherwise the IMAP
-	   client could be trying a lot of commands and we'd return failures
-	   for all of them. FIXME: There should be a bit less kludgy way to
-	   check this, but I'm not sure if it's worth the trouble just for
-	   imapc. */
-	ns = mail_namespace_find_inbox(mail_user->namespaces);
-	(void)mailbox_list_get_hierarchy_sep(ns->list);
-	errstr = mailbox_list_get_last_error(ns->list, &mail_error);
-	if (mail_error != MAIL_ERROR_NONE) {
-		*error_r = t_strdup(errstr);
-		mail_user_unref(&mail_user);
-		mail_storage_service_user_free(&user);
-		return -1;
-	}
 
 	imap_set = mail_storage_service_user_get_set(user)[1];
 	if (imap_set->verbose_proctitle)
@@ -259,7 +243,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 				&errstr) <= 0) {
 		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
 		mail_user_unref(&mail_user);
-		mail_storage_service_user_free(&user);
+		mail_storage_service_user_unref(&user);
 		return -1;
 	}
 
@@ -379,8 +363,7 @@ int main(int argc, char *argv[])
 	};
 	struct master_login_settings login_set;
 	enum master_service_flags service_flags = 0;
-	enum mail_storage_service_flags storage_service_flags =
-		MAIL_STORAGE_SERVICE_FLAG_AUTOEXPUNGE;
+	enum mail_storage_service_flags storage_service_flags = 0;
 	const char *username = NULL, *auth_socket_path = "auth-master";
 	int c;
 

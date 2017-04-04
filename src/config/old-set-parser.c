@@ -275,6 +275,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 	if (strcmp(key, "login_dir") == 0 ||
 	    strcmp(key, "dbox_rotate_min_size") == 0 ||
 	    strcmp(key, "dbox_rotate_days") == 0 ||
+	    strcmp(key, "director_consistent_hashing") == 0 ||
 	    strcmp(key, "mail_log_max_lines_per_sec") == 0 ||
 	    strcmp(key, "maildir_copy_preserve_filename") == 0) {
 		obsolete(ctx, "%s has been removed", key);

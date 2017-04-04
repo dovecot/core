@@ -16,7 +16,7 @@ int fdatasync_path(const char *path)
 	if (fd == -1)
 		return -1;
 	if (fdatasync(fd) < 0) {
-		/* Some OSes/FSes don't allow fsyncing directores. Silently
+		/* Some OSes/FSes don't allow fsyncing directories. Silently
 		   ignore the problem. */
 		if (errno == EBADF) {
 			/* e.g. NetBSD */

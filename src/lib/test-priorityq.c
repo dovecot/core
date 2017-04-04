@@ -91,6 +91,7 @@ void test_priorityq(void)
 		prev = 0;
 		while (priorityq_count(pq) > 0) {
 			item = (struct pq_test_item *)priorityq_pop(pq);
+			i_assert(item != NULL);
 			test_assert(item->num >= 0 && prev <= item->num);
 			prev = item->num;
 			item->num = -1;

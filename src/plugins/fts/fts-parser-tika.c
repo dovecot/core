@@ -103,9 +103,9 @@ fts_tika_parser_response(const struct http_response *response,
 	case 415: /* Unsupported Media Type */
 	case 422: /* Unprocessable Entity */
 		if (parser->user->mail_debug) {
-			i_debug("fts_tika: PUT %s failed: %u %s",
+			i_debug("fts_tika: PUT %s failed: %s",
 				mail_user_plugin_getenv(parser->user, "fts_tika"),
-				response->status, response->reason);
+				http_response_get_message(response));
 		}
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
@@ -120,16 +120,16 @@ fts_tika_parser_response(const struct http_response *response,
 		   isn't available anymore here. So we'd need to indicate
 		   in fts_parser_deinit() that we want to retry.
 		   FIXME: do this in v2.3. For now we'll just ignore it. */
-		i_info("fts_tika: PUT %s failed: %u %s - ignoring",
+		i_info("fts_tika: PUT %s failed: %s - ignoring",
 		       mail_user_plugin_getenv(parser->user, "fts_tika"),
-		       response->status, response->reason);
+		       http_response_get_message(response));
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
 
 	default:
-		i_error("fts_tika: PUT %s failed: %u %s",
+		i_error("fts_tika: PUT %s failed: %s",
 			mail_user_plugin_getenv(parser->user, "fts_tika"),
-			response->status, response->reason);
+			http_response_get_message(response));
 		parser->failed = TRUE;
 		break;
 	}
@@ -158,9 +158,12 @@ fts_parser_tika_try_init(struct mail_user *user, const char *content_type,
 			fts_tika_parser_response, parser);
 	http_client_request_set_port(http_req, http_url->port);
 	http_client_request_set_ssl(http_req, http_url->have_ssl);
-	http_client_request_add_header(http_req, "Content-Type", content_type);
-	http_client_request_add_header(http_req, "Content-Disposition",
-				       content_disposition);
+	if (content_type != NULL)
+		http_client_request_add_header(http_req, "Content-Type",
+					       content_type);
+	if (content_disposition != NULL)
+		http_client_request_add_header(http_req, "Content-Disposition",
+					       content_disposition);
 	http_client_request_add_header(http_req, "Accept", "text/plain");
 
 	parser->http_req = http_req;

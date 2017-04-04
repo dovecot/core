@@ -31,7 +31,8 @@ void mail_transaction_log_append_add(struct mail_transaction_log_append_ctx *ctx
 	buffer_append(ctx->output, &hdr, sizeof(hdr));
 	buffer_append(ctx->output, data, size);
 
-	mail_transaction_update_modseq(&hdr, data, &ctx->new_highest_modseq);
+	mail_transaction_update_modseq(&hdr, data, &ctx->new_highest_modseq,
+		MAIL_TRANSACTION_LOG_HDR_VERSION(&ctx->log->head->hdr));
 	ctx->transaction_count++;
 }
 

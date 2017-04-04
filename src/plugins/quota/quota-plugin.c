@@ -5,6 +5,8 @@
 #include "mail-storage-hooks.h"
 #include "quota-plugin.h"
 
+void quota_backends_register(void);
+void quota_backends_unregister(void);
 
 const char *quota_plugin_version = DOVECOT_ABI_VERSION;
 
@@ -19,9 +21,11 @@ static struct mail_storage_hooks quota_mail_storage_hooks = {
 void quota_plugin_init(struct module *module)
 {
 	mail_storage_hooks_add(module, &quota_mail_storage_hooks);
+	quota_backends_register();
 }
 
 void quota_plugin_deinit(void)
 {
 	mail_storage_hooks_remove(&quota_mail_storage_hooks);
+	quota_backends_unregister();
 }

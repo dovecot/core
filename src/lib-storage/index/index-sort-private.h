@@ -7,6 +7,7 @@ struct mail_search_sort_program {
 	struct mailbox_transaction_context *t;
 	enum mail_sort_type sort_program[MAX_SORT_PROGRAM_SIZE];
 	struct mail *temp_mail;
+	unsigned int slow_mails_left;
 
 	void (*sort_list_add)(struct mail_search_sort_program *program,
 			      struct mail *mail);
@@ -15,11 +16,14 @@ struct mail_search_sort_program {
 
 	ARRAY_TYPE(uint32_t) seqs;
 	unsigned int iter_idx;
+
+	bool failed;
 };
 
-int index_sort_header_get(struct mail *mail, uint32_t seq,
+/* Returns 1 on success, 0 if mail is already expunged, -1 on other errors. */
+int index_sort_header_get(struct mail_search_sort_program *program, uint32_t seq,
 			  enum mail_sort_type sort_type, string_t *dest);
-int index_sort_node_cmp_type(struct mail *mail,
+int index_sort_node_cmp_type(struct mail_search_sort_program *program,
 			     const enum mail_sort_type *sort_program,
 			     uint32_t seq1, uint32_t seq2);
 

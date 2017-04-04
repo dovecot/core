@@ -11,7 +11,7 @@
 #include "mail-search-register.h"
 #include "mail-search-parser.h"
 #include "mail-search-build.h"
-
+#include "mail-search-mime-build.h"
 
 struct mail_search_register *mail_search_register_imap;
 
@@ -451,6 +451,17 @@ imap_search_fuzzy(struct mail_search_build_context *ctx)
 }
 
 static struct mail_search_arg *
+imap_search_mimepart(struct mail_search_build_context *ctx)
+{
+	struct mail_search_arg *sarg;
+
+	sarg = mail_search_build_new(ctx, SEARCH_MIMEPART);
+	if (mail_search_mime_build(ctx, &sarg->value.mime_part) < 0)
+		return NULL;
+	return sarg;
+}
+
+static struct mail_search_arg *
 imap_search_inthread(struct mail_search_build_context *ctx)
 {
 	struct mail_search_arg *sarg;
@@ -580,6 +591,9 @@ static const struct mail_search_register_arg imap_register_args[] = {
 
 	/* FUZZY extension: */
 	{ "FUZZY", imap_search_fuzzy },
+
+	/* SEARCH=MIMEPART extension: */
+	{ "MIMEPART", imap_search_mimepart },
 
 	/* Other Dovecot extensions: */
 	{ "INTHREAD", imap_search_inthread },

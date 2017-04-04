@@ -45,7 +45,9 @@ enum imapc_command_flags {
 	IMAPC_COMMAND_FLAG_PRELOGIN	= 0x02,
 	/* Allow command to be automatically retried if disconnected before it
 	   finishes. */
-	IMAPC_COMMAND_FLAG_RETRIABLE	= 0x04
+	IMAPC_COMMAND_FLAG_RETRIABLE	= 0x04,
+	/* This is the LOGOUT command. Use a small timeout for it. */
+	IMAPC_COMMAND_FLAG_LOGOUT	= 0x08
 };
 
 enum imapc_client_ssl_mode {
@@ -90,6 +92,11 @@ struct imapc_client_settings {
 
 	/* Timeout for logging in. 0 = default. */
 	unsigned int connect_timeout_msecs;
+	/* Number of retries, -1 = infinity */
+	unsigned int connect_retry_count;
+	/* Interval between retries, must be > 0 if retries > 0 */
+	unsigned int connect_retry_interval_secs;
+
 	/* Timeout for IMAP commands. Reset every time more data is being
 	   sent or received. 0 = default. */
 	unsigned int cmd_timeout_msecs;
@@ -169,6 +176,8 @@ void imapc_client_deinit(struct imapc_client **client);
 /* Explicitly login to server (also done automatically). */
 void imapc_client_login(struct imapc_client *client,
 			imapc_command_callback_t *callback, void *context);
+/* Send a LOGOUT and wait for disconnection. */
+void imapc_client_logout(struct imapc_client *client);
 
 struct imapc_command *
 imapc_client_cmd(struct imapc_client *client,

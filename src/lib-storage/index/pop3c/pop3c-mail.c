@@ -4,7 +4,6 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "index-mail.h"
-#include "pop3c-settings.h"
 #include "pop3c-client.h"
 #include "pop3c-sync.h"
 #include "pop3c-storage.h"
@@ -111,22 +110,13 @@ static int pop3c_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 static void pop3c_mail_cache_size(struct index_mail *mail)
 {
-	struct mail *_mail = &mail->mail.mail;
 	uoff_t size;
-	unsigned int cache_idx;
 
 	if (i_stream_get_size(mail->data.stream, TRUE, &size) <= 0)
 		return;
 	mail->data.virtual_size = size;
-
-	cache_idx = mail->ibox->cache_fields[MAIL_CACHE_VIRTUAL_FULL_SIZE].idx;
-	if (mail_cache_field_exists(_mail->transaction->cache_view,
-				    _mail->seq, cache_idx) == 0) {
-		index_mail_cache_add_idx(mail, cache_idx, &size, sizeof(size));
-		/* make sure it's not cached twice */
-		mail->data.dont_cache_fetch_fields |=
-			MAIL_CACHE_VIRTUAL_FULL_SIZE;
-	}
+	/* it'll be actually added to index when closing the mail in
+	   index_mail_cache_sizes() */
 }
 
 static void
@@ -186,6 +176,7 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 	enum pop3c_capability capa;
 	const char *name, *cmd, *error;
 	struct istream *input;
+	bool new_stream = FALSE;
 
 	if ((mail->data.access_part & (READ_BODY | PARSE_BODY)) != 0)
 		get_body = TRUE;
@@ -198,6 +189,7 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 	if (pmail->prefetch_stream != NULL && mail->data.stream == NULL) {
 		mail->data.stream = pmail->prefetch_stream;
 		pmail->prefetch_stream = NULL;
+		new_stream = TRUE;
 	}
 
 	if (get_body && mail->data.stream != NULL) {
@@ -229,6 +221,10 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 			return -1;
 		}
 		mail->data.stream = input;
+		i_stream_set_name(mail->data.stream, t_strcut(cmd, '\r'));
+		new_stream = TRUE;
+	}
+	if (new_stream) {
 		if (mail->mail.v.istream_opened != NULL) {
 			if (mail->mail.v.istream_opened(_mail,
 							&mail->data.stream) < 0) {
@@ -236,7 +232,6 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 				return -1;
 			}
 		}
-		i_stream_set_name(mail->data.stream, t_strcut(cmd, '\r'));
 		if (get_body)
 			pop3c_mail_cache_size(mail);
 	}

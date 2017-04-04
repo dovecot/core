@@ -27,6 +27,9 @@ void imap_client_close_mailbox(struct client *client);
 int client_open_save_dest_box(struct client_command_context *cmd,
 			      const char *name, struct mailbox **destbox_r);
 
+/* Set transaction's reason to the IMAP command name and parameters. */
+void imap_transaction_set_cmd_reason(struct mailbox_transaction_context *trans,
+				     struct client_command_context *cmd);
 const char *
 imap_get_error_string(struct client_command_context *cmd,
 		      const char *error_string, enum mail_error error);

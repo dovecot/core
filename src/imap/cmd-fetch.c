@@ -228,7 +228,12 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			return cmd->cancel;
 		}
 
-		errstr = mailbox_get_last_error(cmd->client->mailbox, &error);
+		if (ctx->error == MAIL_ERROR_NONE)
+			errstr = mailbox_get_last_error(cmd->client->mailbox, &error);
+		else {
+			errstr = ctx->errstr;
+			error = ctx->error;
+		}
 		if (error == MAIL_ERROR_CONVERSION) {
 			/* BINARY found unsupported Content-Transfer-Encoding */
 			tagged_reply = t_strdup_printf(
@@ -243,7 +248,8 @@ static bool cmd_fetch_finish(struct imap_fetch_context *ctx,
 			   requests, because many IMAP clients become confused
 			   about what they should on NO. A disconnection causes
 			   less confusion. */
-			client_disconnect_with_error(cmd->client, errstr);
+			client_disconnect_with_error(cmd->client,
+				t_strconcat("FETCH failed: ", errstr, NULL));
 			imap_fetch_free(&ctx);
 			return TRUE;
 		} else {
@@ -305,7 +311,8 @@ bool cmd_fetch(struct client_command_context *cmd)
 	if (ret <= 0)
 		return ret < 0;
 
-	ctx = imap_fetch_alloc(client, cmd->pool);
+	ctx = imap_fetch_alloc(client, cmd->pool,
+			       t_strdup_printf("%s %s", cmd->name, cmd->args));
 
 	if (!fetch_parse_args(ctx, cmd, &args[1], &next_arg) ||
 	    (imap_arg_get_list(next_arg, &list_arg) &&

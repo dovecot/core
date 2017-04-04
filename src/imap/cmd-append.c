@@ -792,7 +792,7 @@ static bool cmd_append_parse_new_msg(struct client_command_context *cmd)
 	}
 	if (ret == 0) {
 		/* CATENATE contained only URLs. Finish it and see if there
-		   are more messsages. */
+		   are more messages. */
 		cmd_append_finish_catenate(cmd);
 		imap_parser_reset(ctx->save_parser);
 		return cmd_append_parse_new_msg(cmd);
@@ -929,6 +929,7 @@ bool cmd_append(struct client_command_context *cmd)
 		ctx->t = mailbox_transaction_begin(ctx->box,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 					MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
+		imap_transaction_set_cmd_reason(ctx->t, cmd);
 	}
 
 	io_remove(&client->io);

@@ -400,9 +400,8 @@ static const char *const *expire_get_patterns(struct mail_user *user)
 	return array_idx(&patterns, 0);
 }
 
-static void expire_mail_namespaces_created(struct mail_namespace *ns)
+static void expire_mail_user_created(struct mail_user *user)
 {
-	struct mail_user *user = ns->user;
 	struct mail_user_vfuncs *v = user->vlast;
 	struct expire_mail_user *euser;
 	struct dict_settings dict_set;
@@ -443,7 +442,7 @@ static void expire_mail_namespaces_created(struct mail_namespace *ns)
 }
 
 static struct mail_storage_hooks expire_mail_storage_hooks = {
-	.mail_namespaces_created = expire_mail_namespaces_created,
+	.mail_user_created = expire_mail_user_created,
 	.mailbox_allocated = expire_mailbox_allocated,
 	.mail_allocated = expire_mail_allocated
 };

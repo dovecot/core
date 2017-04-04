@@ -83,7 +83,6 @@ static void doveadm_cmd_host_list_removed(struct doveadm_connection *conn)
 	int ret;
 
 	orig_hosts_list = mail_hosts_init(conn->dir->set->director_user_expire,
-					  conn->dir->set->director_consistent_hashing,
 					  NULL);
 	(void)mail_hosts_parse_and_add(orig_hosts_list,
 				       conn->dir->set->director_mail_servers);
@@ -305,7 +304,7 @@ doveadm_cmd_host_set_or_update(struct doveadm_connection *conn,
 		return 1;
 	}
 	if (vhost_count != UINT_MAX)
-		mail_host_set_vhost_count(host, vhost_count);
+		mail_host_set_vhost_count(host, vhost_count, "doveadm: ");
 	/* NOTE: we don't support changing a tag for an existing host.
 	   it needs to be removed first. otherwise it would be a bit ugly to
 	   handle. */
@@ -352,7 +351,7 @@ doveadm_cmd_host_updown(struct doveadm_connection *conn, bool down,
 			"host is already being updated - try again later\n");
 		return 1;
 	} else {
-		mail_host_set_down(host, down, ioloop_time);
+		mail_host_set_down(host, down, ioloop_time, "doveadm: ");
 		director_update_host(conn->dir, conn->dir->self_host,
 				     NULL, host);
 	}

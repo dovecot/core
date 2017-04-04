@@ -1,6 +1,6 @@
 /* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
 
-/* Implementated against draft-ietf-imapext-sort-10 and
+/* Implemented against draft-ietf-imapext-sort-10 and
    draft-ietf-imapext-thread-12 */
 
 #include "lib.h"

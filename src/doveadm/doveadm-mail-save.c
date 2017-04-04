@@ -30,7 +30,8 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 
 	if (mailbox_open(box) < 0) {
 		i_error("Failed to open mailbox %s: %s",
-			mailbox_get_vname(box), mailbox_get_last_error(box, NULL));
+			mailbox_get_vname(box),
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
 		return -1;
 	}
@@ -38,7 +39,8 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
 	save_ctx = mailbox_save_alloc(trans);
 	if (mailbox_save_begin(&save_ctx, input) < 0) {
-		i_error("Saving failed: %s", mailbox_get_last_error(box, NULL));
+		i_error("Saving failed: %s",
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
 		mailbox_transaction_rollback(&trans);
 		return -1;
@@ -56,15 +58,16 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 		i_error("read(msg input) failed: %s", i_stream_get_error(input));
 		doveadm_mail_failed_error(&ctx->ctx, MAIL_ERROR_TEMP);
 	} else if (save_failed) {
-		i_error("Saving failed: %s", mailbox_get_last_error(box, NULL));
+		i_error("Saving failed: %s",
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
 	} else if (mailbox_save_finish(&save_ctx) < 0) {
 		i_error("Saving failed: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
 	} else if (mailbox_transaction_commit(&trans) < 0) {
 		i_error("Save transaction commit failed: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
 	} else {
 		ret = 0;
@@ -87,6 +90,7 @@ cmd_save_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	ns = mail_namespace_find(user->namespaces, ctx->mailbox);
 	box = mailbox_alloc(ns->list, ctx->mailbox, MAILBOX_FLAG_SAVEONLY);
+	mailbox_set_reason(box, _ctx->cmd->name);
 	ret = cmd_save_to_mailbox(ctx, box, _ctx->cmd_input);
 	mailbox_free(&box);
 	return ret;

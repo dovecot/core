@@ -127,6 +127,9 @@ struct mailbox_list {
 	HASH_TABLE(uint8_t *, struct mailbox_guid_cache_rec *) guid_cache;
 	bool guid_cache_errors;
 
+	/* Last error set in mailbox_list_set_critical(). */
+	char *last_internal_error;
+
 	char *error_string;
 	enum mail_error error;
 	bool temporary_error;
@@ -136,6 +139,7 @@ struct mailbox_list {
 	bool index_root_dir_created:1;
 	bool guid_cache_updated:1;
 	bool guid_cache_invalidated:1;
+	bool last_error_is_internal:1;
 };
 
 union mailbox_list_iterate_module_context {
@@ -205,6 +209,10 @@ int mailbox_list_delete_index_control(struct mailbox_list *list,
 void mailbox_list_iter_update(struct mailbox_list_iter_update_context *ctx,
 			      const char *name);
 int mailbox_list_iter_subscriptions_refresh(struct mailbox_list *list);
+void
+mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx);
+const struct mailbox_info *
+mailbox_list_iter_default_next(struct mailbox_list_iterate_context *ctx);
 
 enum mailbox_list_file_type mailbox_list_get_file_type(const struct dirent *d);
 int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,

@@ -13,7 +13,6 @@ struct director_settings {
 
 	unsigned int director_user_expire;
 	unsigned int director_user_kick_delay;
-	bool director_consistent_hashing;
 };
 
 extern const struct setting_parser_info director_setting_parser_info;

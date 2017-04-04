@@ -28,6 +28,7 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg,
 	/* Refresh the flags so we'll expunge all messages marked as \Deleted
 	   by any session. */
 	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_REFRESH);
+	mailbox_transaction_set_reason(t, "EXPUNGE");
 	ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 

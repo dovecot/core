@@ -24,6 +24,7 @@
 #include "mail-namespace.h"
 #include "mail-search.h"
 #include "mail-search-register.h"
+#include "mail-search-mime-register.h"
 #include "mailbox-search-result-private.h"
 #include "mailbox-guid-cache.h"
 #include "mail-cache.h"
@@ -43,21 +44,31 @@ struct mail_storage_mail_index_module mail_storage_mail_index_module =
 	MODULE_CONTEXT_INIT(&mail_index_module_register);
 ARRAY_TYPE(mail_storage) mail_storage_classes;
 
+static int mail_storage_init_refcount = 0;
+
 void mail_storage_init(void)
 {
+	if (mail_storage_init_refcount++ > 0)
+		return;
 	dsasl_clients_init();
 	mailbox_attributes_init();
 	mailbox_lists_init();
 	mail_storage_hooks_init();
 	i_array_init(&mail_storage_classes, 8);
+	mail_storage_register_all();
+	mailbox_list_register_all();
 }
 
 void mail_storage_deinit(void)
 {
+	i_assert(mail_storage_init_refcount > 0);
+	if (--mail_storage_init_refcount > 0)
+		return;
 	if (mail_search_register_human != NULL)
 		mail_search_register_deinit(&mail_search_register_human);
 	if (mail_search_register_imap != NULL)
 		mail_search_register_deinit(&mail_search_register_imap);
+	mail_search_mime_register_deinit();
 	if (array_is_created(&mail_storage_classes))
 		array_free(&mail_storage_classes);
 	mail_storage_hooks_deinit();
@@ -441,6 +452,7 @@ void mail_storage_unref(struct mail_storage **_storage)
 	DLLIST_REMOVE(&storage->user->storages, storage);
 
 	storage->v.destroy(storage);
+	i_free(storage->last_internal_error);
 	i_free(storage->error_string);
 	if (array_is_created(&storage->error_stack)) {
 		i_assert(array_count(&storage->error_stack) == 0);
@@ -476,14 +488,19 @@ void mail_storage_clear_error(struct mail_storage *storage)
 {
 	i_free_and_null(storage->error_string);
 
+	i_free(storage->last_internal_error);
+	storage->last_error_is_internal = FALSE;
 	storage->error = MAIL_ERROR_NONE;
 }
 
 void mail_storage_set_error(struct mail_storage *storage,
 			    enum mail_error error, const char *string)
 {
-	i_free(storage->error_string);
-	storage->error_string = i_strdup(string);
+	if (storage->error_string != string) {
+		i_free(storage->error_string);
+		storage->error_string = i_strdup(string);
+	}
+	storage->last_error_is_internal = FALSE;
 	storage->error = error;
 }
 
@@ -503,14 +520,36 @@ void mail_storage_set_critical(struct mail_storage *storage,
 {
 	va_list va;
 
+	i_free(storage->last_internal_error);
 	va_start(va, fmt);
-	i_error("%s", t_strdup_vprintf(fmt, va));
+	storage->last_internal_error = i_strdup_vprintf(fmt, va);
 	va_end(va);
+	storage->last_error_is_internal = TRUE;
+	i_error("%s", storage->last_internal_error);
 
 	/* critical errors may contain sensitive data, so let user
 	   see only "Internal error" with a timestamp to make it
 	   easier to look from log files the actual error message. */
 	mail_storage_set_internal_error(storage);
+}
+
+const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
+						 enum mail_error *error_r)
+{
+	if (error_r != NULL)
+		*error_r = storage->error;
+	if (storage->last_error_is_internal) {
+		i_assert(storage->last_internal_error != NULL);
+		return storage->last_internal_error;
+	}
+	return mail_storage_get_last_error(storage, error_r);
+}
+
+const char *mailbox_get_last_internal_error(struct mailbox *box,
+					    enum mail_error *error_r)
+{
+	return mail_storage_get_last_internal_error(mailbox_get_storage(box),
+						    error_r);
 }
 
 void mail_storage_copy_error(struct mail_storage *dest,
@@ -762,7 +801,7 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 		i_error("mailbox_alloc_guid(%s): "
 			"Couldn't verify mailbox GUID: %s",
 			guid_128_to_string(guid),
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		vname = NULL;
 		mailbox_free(&box);
 	} else {
@@ -780,6 +819,13 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 	return box;
 }
 
+void mailbox_set_reason(struct mailbox *box, const char *reason)
+{
+	i_assert(reason != NULL);
+
+	box->reason = p_strdup(box->pool, reason);
+}
+
 static bool mailbox_is_autocreated(struct mailbox *box)
 {
 	if (box->inbox_user)
@@ -794,7 +840,7 @@ static int mailbox_autocreate(struct mailbox *box)
 	enum mail_error error;
 
 	if (mailbox_create(box, NULL, FALSE) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
 			mail_storage_set_critical(box->storage,
 				"Failed to autocreate mailbox %s: %s",
@@ -807,7 +853,8 @@ static int mailbox_autocreate(struct mailbox *box)
 		if (mailbox_set_subscribed(box, TRUE) < 0) {
 			mail_storage_set_critical(box->storage,
 				"Failed to autosubscribe to mailbox %s: %s",
-				box->vname, mailbox_get_last_error(box, NULL));
+				box->vname,
+				mailbox_get_last_internal_error(box, NULL));
 			return -1;
 		}
 	}
@@ -828,7 +875,7 @@ static int mailbox_autocreate_and_reopen(struct mailbox *box)
 		box->storage->user->inbox_open_error_logged = TRUE;
 		mail_storage_set_critical(box->storage,
 			"Opening INBOX failed: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 	}
 	return ret;
 }
@@ -1085,6 +1132,12 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 
 	if (box->opened)
 		return 0;
+
+	if (box->storage->set->mail_debug && box->reason != NULL) {
+		i_debug("%s: Mailbox opened because: %s",
+			box->vname, box->reason);
+	}
+
 	switch (box->open_error) {
 	case 0:
 		break;
@@ -1136,6 +1189,8 @@ static bool mailbox_try_undelete(struct mailbox *box)
 {
 	time_t mtime;
 
+	i_assert(!box->mailbox_undeleting);
+
 	if ((box->flags & MAILBOX_FLAG_READONLY) != 0) {
 		/* most importantly we don't do this because we want to avoid
 		   a loop: mdbox storage rebuild -> mailbox_open() ->
@@ -1148,7 +1203,10 @@ static bool mailbox_try_undelete(struct mailbox *box)
 	if (mtime + MAILBOX_DELETE_RETRY_SECS > time(NULL))
 		return FALSE;
 
-	if (mailbox_mark_index_deleted(box, FALSE) < 0)
+	box->mailbox_undeleting = TRUE;
+	int ret = mailbox_mark_index_deleted(box, FALSE);
+	box->mailbox_undeleting = FALSE;
+	if (ret < 0)
 		return FALSE;
 	box->mailbox_deleted = FALSE;
 	return TRUE;
@@ -1165,7 +1223,7 @@ int mailbox_open(struct mailbox *box)
 	}
 
 	if (mailbox_open_full(box, NULL) < 0) {
-		if (!box->mailbox_deleted)
+		if (!box->mailbox_deleted || box->mailbox_undeleting)
 			return -1;
 
 		/* mailbox has been marked as deleted. if this deletion
@@ -1174,6 +1232,11 @@ int mailbox_open(struct mailbox *box)
 		   undelete it and reopen. */
 		if(!mailbox_try_undelete(box))
 			return -1;
+
+		/* make sure we close the mailbox in the middle. some backends
+		   may not have fully opened the mailbox while it was being
+		   undeleted. */
+		mailbox_close(box);
 		if (mailbox_open_full(box, NULL) < 0)
 			return -1;
 	}
@@ -1326,6 +1389,7 @@ static void mailbox_copy_cache_decisions_from_inbox(struct mailbox *box)
 
 	/* this should be NoSelect but since inbox can never be
 	   NoSelect we use EXISTENCE_NONE to avoid creating inbox by accident */
+	mailbox_set_reason(inbox, "copy caching decisions");
 	if (mailbox_exists(inbox, FALSE, &existence) == 0 &&
 	    existence != MAILBOX_EXISTENCE_NONE &&
 	    mailbox_open(inbox) == 0 &&
@@ -1415,14 +1479,17 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 		return -1;
 	}
 
-	/* sync the mailbox. this finishes the index deletion and it can
-	   succeed only for a single session. we do it here, so the rest of
-	   the deletion code doesn't have to worry about race conditions. */
-	box->delete_sync_check = TRUE;
-	ret = mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
-	box->delete_sync_check = FALSE;
-	if (ret < 0)
-		return -1;
+	if (del) {
+		/* sync the mailbox. this finishes the index deletion and it
+		   can succeed only for a single session. we do it here, so the
+		   rest of the deletion code doesn't have to worry about race
+		   conditions. */
+		box->delete_sync_check = TRUE;
+		ret = mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
+		box->delete_sync_check = FALSE;
+		if (ret < 0)
+			return -1;
+	}
 
 	box->marked_deleted = del;
 	return 0;
@@ -1791,7 +1858,7 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 	ret = box->v.sync_deinit(ctx, status_r);
 	if (ret < 0 && box->inbox_user &&
 	    !box->storage->user->inbox_open_error_logged) {
-		errormsg = mailbox_get_last_error(box, &error);
+		errormsg = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_NOTPOSSIBLE) {
 			box->storage->user->inbox_open_error_logged = TRUE;
 			i_error("Syncing INBOX failed: %s", errormsg);
@@ -1988,6 +2055,15 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)
 	*_t = NULL;
 	box->v.transaction_rollback(t);
 	box->transaction_count--;
+}
+
+void mailbox_transaction_set_reason(struct mailbox_transaction_context *t,
+				    const char *reason)
+{
+	i_assert(reason != NULL);
+
+	i_free(t->reason);
+	t->reason = i_strdup(reason);
 }
 
 unsigned int mailbox_transaction_get_count(const struct mailbox *box)

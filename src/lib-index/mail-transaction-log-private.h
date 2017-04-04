@@ -148,7 +148,8 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file,
 				      const char *lock_reason);
 
 void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
-				    const void *data, uint64_t *cur_modseq);
+				    const void *data, uint64_t *cur_modseq,
+				    unsigned int version);
 int mail_transaction_log_file_get_highest_modseq_at(
 		struct mail_transaction_log_file *file,
 		uoff_t offset, uint64_t *highest_modseq_r);

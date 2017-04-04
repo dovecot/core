@@ -760,6 +760,7 @@ void mailbox_list_destroy(struct mailbox_list **_list)
 
 	*_list = NULL;
 	i_free_and_null(list->error_string);
+	i_free(list->last_internal_error);
 
 	if (hash_table_is_created(list->guid_cache)) {
 		hash_table_destroy(&list->guid_cache);
@@ -1778,10 +1779,24 @@ const char *mailbox_list_get_last_error(struct mailbox_list *list,
 		"Unknown internal list error";
 }
 
+const char *mailbox_list_get_last_internal_error(struct mailbox_list *list,
+						 enum mail_error *error_r)
+{
+	if (error_r != NULL)
+		*error_r = list->error;
+	if (list->last_error_is_internal) {
+		i_assert(list->last_internal_error != NULL);
+		return list->last_internal_error;
+	}
+	return mailbox_list_get_last_error(list, error_r);
+}
+
 void mailbox_list_clear_error(struct mailbox_list *list)
 {
 	i_free_and_null(list->error_string);
 
+	i_free(list->last_internal_error);
+	list->last_error_is_internal = FALSE;
 	list->error = MAIL_ERROR_NONE;
 }
 
@@ -1791,6 +1806,7 @@ void mailbox_list_set_error(struct mailbox_list *list,
 	i_free(list->error_string);
 	list->error_string = i_strdup(string);
 
+	list->last_error_is_internal = FALSE;
 	list->error = error;
 }
 
@@ -1808,9 +1824,12 @@ void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 {
 	va_list va;
 
+	i_free(list->last_internal_error);
 	va_start(va, fmt);
-	i_error("%s", t_strdup_vprintf(fmt, va));
+	list->last_internal_error = i_strdup_vprintf(fmt, va);
 	va_end(va);
+	list->last_error_is_internal = TRUE;
+	i_error("%s", list->last_internal_error);
 
 	/* critical errors may contain sensitive data, so let user
 	   see only "Internal error" with a timestamp to make it

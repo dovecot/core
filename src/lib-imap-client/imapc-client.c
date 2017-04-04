@@ -45,6 +45,9 @@ imapc_client_init(const struct imapc_client_settings *set)
 	const char *error;
 	pool_t pool;
 
+	i_assert(set->connect_retry_count == 0 ||
+		 set->connect_retry_interval_secs > 0);
+
 	pool = pool_alloconly_create("imapc client", 1024);
 	client = p_new(pool, struct imapc_client, 1);
 	client->pool = pool;
@@ -67,6 +70,8 @@ imapc_client_init(const struct imapc_client_settings *set)
 	client->set.connect_timeout_msecs = set->connect_timeout_msecs != 0 ?
 		set->connect_timeout_msecs :
 		IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS;
+	client->set.connect_retry_count = set->connect_retry_count;
+	client->set.connect_retry_interval_secs = set->connect_retry_interval_secs;
 	client->set.cmd_timeout_msecs = set->cmd_timeout_msecs != 0 ?
 		set->cmd_timeout_msecs : IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS;
 	client->set.max_line_length = set->max_line_length != 0 ?
@@ -89,7 +94,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 		i_zero(&ssl_set);
 		ssl_set.ca_dir = set->ssl_ca_dir;
 		ssl_set.ca_file = set->ssl_ca_file;
-		ssl_set.verify_remote_cert = set->ssl_verify;
+		ssl_set.allow_invalid_cert = !set->ssl_verify;
 		ssl_set.crypto_device = set->ssl_crypto_device;
 
 		if (ssl_iostream_context_init_client(&ssl_set, &client->ssl_ctx,
@@ -201,6 +206,15 @@ void imapc_client_stop(struct imapc_client *client)
 		io_loop_stop(client->ioloop);
 }
 
+void imapc_client_try_stop(struct imapc_client *client)
+{
+	struct imapc_client_connection *const *connp;
+	array_foreach(&client->conns, connp)
+		if (imapc_connection_get_state((*connp)->conn) != IMAPC_CONNECTION_STATE_DISCONNECTED)
+			return;
+	imapc_client_stop(client);
+}
+
 bool imapc_client_is_running(struct imapc_client *client)
 {
 	return client->ioloop != NULL;
@@ -263,6 +277,53 @@ void imapc_client_login(struct imapc_client *client,
 
 	conn = imapc_client_add_connection(client);
 	imapc_connection_connect(conn->conn, callback, context);
+}
+
+struct imapc_logout_ctx {
+	struct imapc_client *client;
+	unsigned int logout_count;
+};
+
+static void
+imapc_client_logout_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
+			     void *context)
+{
+	struct imapc_logout_ctx *ctx = context;
+
+	i_assert(ctx->logout_count > 0);
+
+	if (--ctx->logout_count == 0)
+		imapc_client_stop(ctx->client);
+}
+
+void imapc_client_logout(struct imapc_client *client)
+{
+	struct imapc_logout_ctx ctx = { .client = client };
+	struct imapc_client_connection *const *connp;
+	struct imapc_command *cmd;
+
+	client->logging_out = TRUE;
+
+	/* send LOGOUT to all connections */
+	array_foreach(&client->conns, connp) {
+		if (imapc_connection_get_state((*connp)->conn) == IMAPC_CONNECTION_STATE_DISCONNECTED)
+			continue;
+		imapc_connection_set_no_reconnect((*connp)->conn);
+		ctx.logout_count++;
+		cmd = imapc_connection_cmd((*connp)->conn,
+			imapc_client_logout_callback, &ctx);
+		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN |
+					IMAPC_COMMAND_FLAG_LOGOUT);
+		imapc_command_send(cmd, "LOGOUT");
+	}
+
+	/* wait for LOGOUT to finish */
+	while (ctx.logout_count > 0)
+		imapc_client_run(client);
+
+	/* we should have disconnected all clients already, but if there were
+	   any timeouts there may be some clients left. */
+	imapc_client_disconnect(client);
 }
 
 struct imapc_client_mailbox *

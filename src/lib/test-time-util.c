@@ -70,6 +70,59 @@ static void test_timeval_diff(void)
 	test_end();
 }
 
+static void test_time_to_local_day_start(void)
+{
+	/* Try this around days when DST changes in some of the more popular
+	   timezones. If that works, everything else probably works too. */
+	const struct tm tests[] = {
+		/* Europe winter -> summer */
+		{ .tm_year = 2017-1900, .tm_mon = 2, .tm_mday = 26 },
+		{ .tm_year = 2017-1900, .tm_mon = 2, .tm_mday = 26,
+		  .tm_hour = 23, .tm_min = 59, .tm_sec = 59 },
+		/* Europe summer -> winter */
+		{ .tm_year = 2017-1900, .tm_mon = 9, .tm_mday = 29 },
+		{ .tm_year = 2017-1900, .tm_mon = 9, .tm_mday = 29,
+		  .tm_hour = 23, .tm_min = 59, .tm_sec = 59 },
+		/* USA winter -> summer */
+		{ .tm_year = 2017-1900, .tm_mon = 2, .tm_mday = 12 },
+		{ .tm_year = 2017-1900, .tm_mon = 2, .tm_mday = 12,
+		  .tm_hour = 23, .tm_min = 59, .tm_sec = 59 },
+		/* USA summer -> winter */
+		{ .tm_year = 2017-1900, .tm_mon = 10, .tm_mday = 5 },
+		{ .tm_year = 2017-1900, .tm_mon = 10, .tm_mday = 5,
+		  .tm_hour = 23, .tm_min = 59, .tm_sec = 59 },
+
+		/* (some of) Australia summer -> winter */
+		{ .tm_year = 2017-1900, .tm_mon = 3, .tm_mday = 2 },
+		{ .tm_year = 2017-1900, .tm_mon = 3, .tm_mday = 2,
+		  .tm_hour = 23, .tm_min = 59, .tm_sec = 59 },
+		/* (some of) Australia winter -> summer */
+		{ .tm_year = 2017-1900, .tm_mon = 9, .tm_mday = 1 },
+		{ .tm_year = 2017-1900, .tm_mon = 9, .tm_mday = 1,
+		  .tm_hour = 23, .tm_min = 59, .tm_sec = 59 },
+	};
+	const struct tm *tm;
+	struct tm tm_copy;
+	time_t t;
+
+	test_begin("time_to_local_day_start()");
+	for (unsigned i = 0; i < N_ELEMENTS(tests); i++) {
+		tm_copy = tests[i];
+		tm_copy.tm_isdst = -1;
+		t = mktime(&tm_copy);
+		test_assert_idx(t != (time_t)-1, i);
+
+		t = time_to_local_day_start(t);
+		tm = localtime(&t);
+		test_assert_idx(tm->tm_year == tests[i].tm_year &&
+				tm->tm_mon == tests[i].tm_mon &&
+				tm->tm_mday == tests[i].tm_mday, i);
+		test_assert_idx(tm->tm_hour == 0 && tm->tm_min == 0 &&
+				tm->tm_sec == 0, i);
+	}
+	test_end();
+}
+
 static void test_timestamp(const char *ts, int idx)
 {
 	/* %G:%H:%M:%S */
@@ -113,13 +166,13 @@ static void test_strftime_now(void)
 	test_end();
 }
 
-#define RFC2822_FMT "%a, %d %b %Y %T %z"
+#define RFC2822_FMT "%a, %d %b %Y %T"
 static void test_strftime_fixed(void)
 {
 	test_begin("t_strftime and variants fixed timestamp");
 
 	time_t ts = 1481222536;
-	const char *exp = "Thu, 08 Dec 2016 18:42:16 +0000";
+	const char *exp = "Thu, 08 Dec 2016 18:42:16";
 	test_assert(strcmp(t_strftime(RFC2822_FMT, gmtime(&ts)), exp) == 0);
 	test_assert(strcmp(t_strfgmtime(RFC2822_FMT, ts), exp) == 0);
 
@@ -130,6 +183,7 @@ void test_time_util(void)
 {
 	test_timeval_cmp();
 	test_timeval_diff();
+	test_time_to_local_day_start();
 	test_strftime_now();
 	test_strftime_fixed();
 }

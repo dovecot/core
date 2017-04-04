@@ -56,6 +56,7 @@ struct imap_fetch_state {
 	uoff_t cur_size;
 	enum mail_fetch_field cur_size_field;
 	string_t *cur_str;
+	size_t cur_str_prefix_size;
 	struct istream *cur_input;
 	bool skip_cr;
 	int (*cont_handler)(struct imap_fetch_context *ctx);
@@ -63,10 +64,13 @@ struct imap_fetch_state {
 
 	bool fetching:1;
 	bool seen_flags_changed:1;
+	/* TRUE if the first FETCH parameter result hasn't yet been sent to
+	   the IMAP client. Note that this doesn't affect buffered content in
+	   cur_str until it gets flushed out. */
 	bool cur_first:1;
-	bool cur_flushed:1;
+	/* TRUE if the cur_str prefix has been flushed. More data may still
+	   be added to it. */
 	bool line_partial:1;
-	bool line_finished:1;
 	bool skipped_expunged_msgs:1;
 	bool failed:1;
 };
@@ -74,6 +78,7 @@ struct imap_fetch_state {
 struct imap_fetch_context {
 	struct client *client;
 	pool_t ctx_pool;
+	const char *reason;
 
 	enum mail_fetch_field fetch_data;
 	ARRAY_TYPE(const_string) all_headers;
@@ -85,6 +90,9 @@ struct imap_fetch_context {
 
 	struct imap_fetch_state state;
 	ARRAY_TYPE(seq_range) fetch_failed_uids;
+
+	enum mail_error error;
+	const char *errstr;
 
 	bool initialized:1;
 	bool failures:1;
@@ -114,7 +122,7 @@ int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 			      const char **error_r);
 
 struct imap_fetch_context *
-imap_fetch_alloc(struct client *client, pool_t pool);
+imap_fetch_alloc(struct client *client, pool_t pool, const char *reason);
 void imap_fetch_free(struct imap_fetch_context **ctx);
 bool imap_fetch_init_handler(struct imap_fetch_init_context *init_ctx);
 void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,

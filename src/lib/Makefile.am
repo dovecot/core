@@ -5,7 +5,7 @@ BUILT_SOURCES = unicodemap.c
 EXTRA_DIST = unicodemap.c unicodemap.pl UnicodeData.txt
 
 UnicodeData.txt:
-	test -f UnicodeData.txt || wget http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
+	test -f UnicodeData.txt || wget https://dovecot.org/res/UnicodeData.txt
 
 $(srcdir)/unicodemap.c: unicodemap.pl UnicodeData.txt
 	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
@@ -49,6 +49,7 @@ liblib_la_SOURCES = \
 	hmac.c \
 	hmac-cram-md5.c \
 	home-expand.c \
+	hook-build.c \
 	hostpid.c \
 	imem.c \
 	ipwd.c \
@@ -199,6 +200,7 @@ headers = \
 	hmac.h \
 	hmac-cram-md5.h \
 	home-expand.h \
+	hook-build.h \
 	hostpid.h \
 	imem.h \
 	ipwd.h \
@@ -297,6 +299,7 @@ headers = \
 	utc-offset.h \
 	utc-mktime.h \
 	var-expand.h \
+	var-expand-private.h \
 	wildcard-match.h \
 	write-full.h
 

@@ -8,6 +8,11 @@ typedef uint8_t guid_128_t[GUID_128_SIZE];
 
 ARRAY_DEFINE_TYPE(guid_128_t, guid_128_t);
 
+enum uuid_format {
+	FORMAT_RECORD,
+	FORMAT_COMPACT,
+	FORMAT_MICROSOFT,
+};
 /* Generate a GUID (contains host name) */
 const char *guid_generate(void);
 /* Generate 128 bit GUID */
@@ -30,6 +35,11 @@ static inline void guid_128_copy(guid_128_t dest, const guid_128_t src)
 const char *guid_128_to_string(const guid_128_t guid);
 /* Parse GUID from a string. Returns 0 if ok, -1 if GUID isn't valid. */
 int guid_128_from_string(const char *str, guid_128_t guid_r);
+
+/* Returns GUID as a UUID hex string. */
+const char *guid_128_to_uuid_string(const guid_128_t guid, enum uuid_format format);
+/* Parse GUID from a UUID string. Returns 0 if ok, -1 if UIID isn't valid. */
+int guid_128_from_uuid_string(const char *str, guid_128_t guid_r);
 
 /* guid_128 hash/cmp functions for hash.h */
 unsigned int guid_128_hash(const guid_128_t guid) ATTR_PURE;

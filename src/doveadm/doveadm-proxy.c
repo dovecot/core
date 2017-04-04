@@ -154,7 +154,7 @@ static void cmd_proxy_kick(int argc, char *argv[])
 	}
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
-	doveadm_print_formatted_set_format("%{count} connections kicked");
+	doveadm_print_formatted_set_format("%{count} connections kicked\n");
 	doveadm_print_header_simple("count");
 
 	cmd = t_str_new(128);

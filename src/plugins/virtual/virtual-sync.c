@@ -1496,8 +1496,8 @@ virtual_sync_apply_existing_appends(struct virtual_sync_context *ctx)
 			if (bbox == NULL) {
 				mail_storage_set_critical(
 					ctx->mbox->box.storage,
-					"Mailbox ID %u unexpectedly lost",
-					vrec->mailbox_id);
+					"%s: Mailbox ID %u unexpectedly lost",
+					ctx->mbox->box.vname, vrec->mailbox_id);
 				return -1;
 			}
 		}

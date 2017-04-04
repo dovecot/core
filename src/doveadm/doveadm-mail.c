@@ -53,13 +53,13 @@ int doveadm_killed_signo(void)
 void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 			       enum mail_error error)
 {
-	int exit_code = 0;
+	int exit_code = EX_TEMPFAIL;
 
 	switch (error) {
 	case MAIL_ERROR_NONE:
 		i_unreached();
 	case MAIL_ERROR_TEMP:
-		exit_code = EX_TEMPFAIL;
+	case MAIL_ERROR_UNAVAILABLE:
 		break;
 	case MAIL_ERROR_NOTPOSSIBLE:
 	case MAIL_ERROR_EXISTS:
@@ -81,7 +81,11 @@ void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 		break;
 	case MAIL_ERROR_EXPUNGED:
 	case MAIL_ERROR_INUSE:
-		exit_code = EX_TEMPFAIL;
+		break;
+	case MAIL_ERROR_LIMIT:
+		exit_code = DOVEADM_EX_NOTPOSSIBLE;
+		break;
+	case MAIL_ERROR_LOOKUP_ABORTED:
 		break;
 	}
 	/* tempfail overrides all other exit codes, otherwise use whatever
@@ -144,7 +148,7 @@ cmd_purge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 		storage = mail_namespace_get_default_storage(ns);
 		if (mail_storage_purge(storage) < 0) {
 			i_error("Purging namespace '%s' failed: %s", ns->prefix,
-				mail_storage_get_last_error(storage, NULL));
+				mail_storage_get_last_internal_error(storage, NULL));
 			doveadm_mail_failed_storage(ctx, storage);
 			ret = -1;
 		}
@@ -223,6 +227,11 @@ void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx)
 	if (ctx->cmd_input != NULL)
 		return;
 
+	if (!ctx->cli && ctx->conn == NULL) {
+		ctx->cmd_input = i_stream_create_error_str(EINVAL, "Input stream missing (provide with file parameter)");
+		return;
+	}
+
 	if (ctx->conn != NULL)
 		inputs[0] = i_stream_create_dot(ctx->conn->input, FALSE);
 	else {
@@ -276,15 +285,16 @@ static int cmd_force_resync_box(struct doveadm_mail_cmd_context *ctx,
 
 	box = mailbox_alloc(info->ns->list, info->vname,
 			    MAILBOX_FLAG_IGNORE_ACLS);
+	mailbox_set_reason(box, ctx->cmd->name);
 	if (mailbox_open(box) < 0) {
 		i_error("Opening mailbox %s failed: %s", info->vname,
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(ctx, box);
 		ret = -1;
 	} else if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
 				MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) < 0) {
 		i_error("Forcing a resync on mailbox %s failed: %s",
-			info->vname, mailbox_get_last_error(box, NULL));
+			info->vname, mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(ctx, box);
 		ret = -1;
 	}
@@ -314,7 +324,7 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *ctx,
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Listing mailboxes failed: %s",
-			mailbox_list_get_last_error(user->namespaces->list, NULL));
+			mailbox_list_get_last_internal_error(user->namespaces->list, NULL));
 		doveadm_mail_failed_list(ctx, user->namespaces->list);
 		ret = -1;
 	}
@@ -388,7 +398,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 
 	if (ctx->v.prerun != NULL) {
 		if (ctx->v.prerun(ctx, ctx->cur_service_user, error_r) < 0) {
-			mail_storage_service_user_free(&ctx->cur_service_user);
+			mail_storage_service_user_unref(&ctx->cur_service_user);
 			return -1;
 		}
 	}
@@ -397,7 +407,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 					ctx->cur_service_user,
 					&ctx->cur_mail_user, error_r);
 	if (ret < 0) {
-		mail_storage_service_user_free(&ctx->cur_service_user);
+		mail_storage_service_user_unref(&ctx->cur_service_user);
 		return ret;
 	}
 
@@ -405,7 +415,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		i_assert(ctx->exit_code != 0);
 	}
 	mail_user_unref(&ctx->cur_mail_user);
-	mail_storage_service_user_free(&ctx->cur_service_user);
+	mail_storage_service_user_unref(&ctx->cur_service_user);
 	return 1;
 }
 
@@ -920,11 +930,14 @@ void doveadm_mail_init(void)
 					doveadm_settings->mail_plugin_dir,
 					doveadm_settings->mail_plugins,
 					&mod_set);
+	/* keep mail_storage_init() referenced so that its _deinit() doesn't
+	   try to free doveadm plugins' hooks too early. */
+	mail_storage_init();
 }
 
 void doveadm_mail_deinit(void)
 {
-	mail_storage_hooks_deinit();
+	mail_storage_deinit();
 	array_free(&doveadm_mail_cmds);
 }
 
@@ -1017,10 +1030,6 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			}
 			mctx->cmd_input = arg->value.v_istream;
 			i_stream_ref(mctx->cmd_input);
-		} else if (strcmp(arg->name, "allow-empty-mailbox-name") == 0) {
-			/* allow an empty mailbox name - to access server
-			   attributes */
-			mctx->allow_empty_mailbox_name = arg->value.v_bool;
 
 		/* Keep all named special parameters above this line */
 
@@ -1047,6 +1056,9 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			return;
 		}
 	}
+
+	const char *dashdash = "--";
+	array_append(&full_args, &dashdash, 1);
 
 	array_append_zero(&pargv);
 	/* All the -parameters need to be included in full_args so that

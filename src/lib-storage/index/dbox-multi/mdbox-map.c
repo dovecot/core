@@ -674,7 +674,7 @@ int mdbox_map_update_refcount(struct mdbox_map_transaction_context *ctx,
 		/* we're getting close to the 64k limit. fail early
 		   to make it less likely that two processes increase
 		   the refcount enough times to cross the limit */
-		mail_storage_set_error(MAP_STORAGE(map), MAIL_ERROR_NOTPOSSIBLE,
+		mail_storage_set_error(MAP_STORAGE(map), MAIL_ERROR_LIMIT,
 			t_strdup_printf("Message has been copied too many times (%d + %d)",
 					old_diff, new_diff));
 		return -1;

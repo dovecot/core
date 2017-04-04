@@ -348,7 +348,7 @@ v2.2.11 2014-02-12  Timo Sirainen <tss@iki.fi>
 	+ stats: Track also wall clock time for commands.
 	+ pop3_migration plugin improvements to try harder to match the UIDLs
 	  correctly.
-	- imap: SEARCH/SORT PARTIAL reponses may have been too large.
+	- imap: SEARCH/SORT PARTIAL responses may have been too large.
 	- doveadm backup: Fixed assert-crash when syncing mailbox deletion.
 
 v2.2.10 2013-11-25  Timo Sirainen <tss@iki.fi>
@@ -2220,7 +2220,7 @@ v1.0.rc27 2007-03-13  Timo Sirainen <tss@iki.fi>
 	  quota recalculation ignored the box).
 	- Index file handling fixes
 	- mbox syncing fixes
-	- Wrong endianess index files still weren't silently rebuilt
+	- Wrong endianness index files still weren't silently rebuilt
 	- IMAP quota plugin: GETQUOTAROOT returned the mailbox name wrong the
 	  namespace had a prefix or if its separator was non-default
 	- IMAP: If client was appending multiple messages with MULTIAPPEND
@@ -2242,7 +2242,7 @@ v1.0.rc26 2007-03-07  Timo Sirainen <tss@iki.fi>
 	  X-IMAP header crashed deliver.
 	- deliver: If mail_debug=yes, drop out DEBUG environment before
 	  calling sendmail binary. Postfix's sendmail didn't really like it.
-	- mbox: X-UID brokeness fixes broke rc25 even with valid X-UID headers.
+	- mbox: X-UID brokenness fixes broke rc25 even with valid X-UID headers.
 	  Now the code should finally work right.
 	- Maildir: When syncing a huge maildir, touch dovecot-uidlist.lock file
 	  once in a while to make sure it doesn't get overwritten by another
@@ -2250,7 +2250,7 @@ v1.0.rc26 2007-03-07  Timo Sirainen <tss@iki.fi>
 	- Maildir++ quota: We didn't handle NUL bytes in maildirsize files very
 	  well. Now the file is rebuilt when they're seen (NFS problem).
 	- Index/view handling fix should fix some crashes/errors
-	- If index files were moved to a different endianess machine, Dovecot
+	- If index files were moved to a different endianness machine, Dovecot
 	  logged all sorts of errors instead of silently rebuilding them.
 	- Convert plugin didn't change hierarchy separators in mailbox names.
 	- PostgreSQL authentication could have lost requests once in a while

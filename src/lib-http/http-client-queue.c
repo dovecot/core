@@ -430,8 +430,11 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 	if (queue->host->dns_lookup == NULL &&
 		queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX) {
 		/* we achieved at least one connection the the addr->ip */
-		queue->ips_connect_start_idx =
-			http_client_host_get_ip_idx(queue->host, &addr->a.tcp.ip);
+		if (!http_client_host_get_ip_idx(queue->host,
+			&addr->a.tcp.ip, &queue->ips_connect_start_idx)) {
+			/* list of IPs changed during connect */
+			queue->ips_connect_start_idx = 0;
+		}
 	}
 
 	/* reset attempt counter */
@@ -696,7 +699,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 		array_append(&failed_requests, &reqs[i], 1);
 	}
 
-	/* update timout */
+	/* update timeout */
 	if (i < count)
 		new_to = reqs[i]->timeout_time;
 
@@ -766,7 +769,7 @@ http_client_queue_request_timeout_cmp(struct http_client_request *const *req1,
 		return ret;
 	}
 
-	/* sort by minumum attempts for fairness */
+	/* sort by minimum attempts for fairness */
 	return ((*req2)->attempts - (*req1)->attempts);
 }
 

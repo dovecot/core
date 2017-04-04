@@ -123,7 +123,7 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 		i_zero(&ssl_set);
 		ssl_set.ca_dir = set->ssl_ca_dir;
 		ssl_set.ca_file = set->ssl_ca_file;
-		ssl_set.verify_remote_cert = set->ssl_verify;
+		ssl_set.allow_invalid_cert = !set->ssl_verify;
 		ssl_set.crypto_device = set->ssl_crypto_device;
 
 		if (ssl_iostream_context_init_client(&ssl_set, &client->ssl_ctx,
@@ -490,7 +490,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 			pop3c_client_login_finished(client);
 			break;
 		}
-		if (strcasecmp(line, "PIPELINING") == 0)
+		if ((client->set.parsed_features & POP3C_FEATURE_NO_PIPELINING) == 0 &&
+		    strcasecmp(line, "PIPELINING") == 0)
 			client->capabilities |= POP3C_CAPABILITY_PIPELINING;
 		else if (strcasecmp(line, "TOP") == 0)
 			client->capabilities |= POP3C_CAPABILITY_TOP;
@@ -576,7 +577,8 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 	i_zero(&ssl_set);
 	if (client->set.ssl_verify) {
 		ssl_set.verbose_invalid_cert = TRUE;
-		ssl_set.verify_remote_cert = TRUE;
+	} else {
+		ssl_set.allow_invalid_cert = TRUE;
 	}
 
 	if (client->set.debug)

@@ -91,7 +91,7 @@ static void imapc_list_deinit(struct mailbox_list *_list)
 	   deinitialized */
 	if (list->client != NULL) {
 		list->client->destroying = TRUE;
-		imapc_client_disconnect(list->client->client);
+		imapc_client_logout(list->client->client);
 		imapc_storage_client_unref(&list->client);
 	}
 	if (list->index_list != NULL)
@@ -725,7 +725,7 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	do {
 		node = mailbox_tree_iterate_next(ctx->iter, &vname);
 		if (node == NULL)
-			return NULL;
+			return mailbox_list_iter_default_next(_ctx);
 	} while ((node->flags & MAILBOX_MATCHED) == 0);
 
 	if (ctx->info.ns->prefix_len > 0 &&

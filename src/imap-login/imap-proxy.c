@@ -16,34 +16,54 @@
 #include "imap-quote.h"
 #include "imap-proxy.h"
 
-
-enum imap_proxy_state {
-	IMAP_PROXY_STATE_NONE,
-	IMAP_PROXY_STATE_BANNER,
-	IMAP_PROXY_STATE_ID,
-	IMAP_PROXY_STATE_STARTTLS,
-	IMAP_PROXY_STATE_CAPABILITY,
-	IMAP_PROXY_STATE_AUTH_CONTINUE,
-	IMAP_PROXY_STATE_LOGIN
+static const char *imap_proxy_sent_state_names[IMAP_PROXY_SENT_STATE_COUNT] = {
+	"id", "starttls", "capability",
+	"authenticate", "auth-continue", "login"
+};
+static const char *imap_proxy_rcvd_state_names[IMAP_PROXY_RCVD_STATE_COUNT] = {
+	"none", "banner", "id", "starttls", "capability",
+	"auth-continue", "login"
 };
 
 static void proxy_write_id(struct imap_client *client, string_t *str)
 {
 	i_assert(client->common.proxy_ttl > 1);
 
-	str_printfa(str, "I ID ("
-		    "\"x-session-id\" \"%s\" "
+	str_append(str, "I ID (");
+	if (client->common.client_id != NULL &&
+	    str_len(client->common.client_id) > 0) {
+		str_append_str(str, client->common.client_id);
+		str_append_c(str, ' ');
+	}
+	str_printfa(str, "\"x-session-id\" \"%s\" "
 		    "\"x-originating-ip\" \"%s\" "
 		    "\"x-originating-port\" \"%u\" "
 		    "\"x-connected-ip\" \"%s\" "
 		    "\"x-connected-port\" \"%u\" "
-		    "\"x-proxy-ttl\" \"%u\")\r\n",
+		    "\"x-proxy-ttl\" \"%u\"",
 		    client_get_session_id(&client->common),
 		    net_ip2addr(&client->common.ip),
 		    client->common.remote_port,
 		    net_ip2addr(&client->common.local_ip),
 		    client->common.local_port,
 		    client->common.proxy_ttl - 1);
+
+	/* append any forward_ variables to request */
+	for(const char *const *ptr = client->common.auth_passdb_args; *ptr != NULL; ptr++) {
+		if (strncasecmp(*ptr, "forward_", 8) == 0) {
+			str_append_c(str, ' ');
+			const char *key = t_strconcat("x-forward-",
+						      t_strcut((*ptr)+8, '='),
+						      NULL);
+			const char *val = i_strchr_to_next(*ptr, '=');
+			str_append_c(str, ' ');
+			imap_append_string(str, key);
+			str_append_c(str, ' ');
+			imap_append_nstring(str, val);
+		}
+	}
+
+	str_append(str, ")\r\n");
 }
 
 static void proxy_free_password(struct client *client)
@@ -66,6 +86,7 @@ static int proxy_write_starttls(struct imap_client *client, string_t *str)
 			return -1;
 		}
 		str_append(str, "S STARTTLS\r\n");
+		client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_STARTTLS;
 		return 1;
 	}
 	return 0;
@@ -88,6 +109,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	    (client->proxy_backend_capability == NULL ||
 	     client->client_ignores_capability_resp_code)) {
 		client->proxy_capability_request_sent = TRUE;
+		client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_CAPABILITY;
 		str_append(str, "C CAPABILITY\r\n");
 		if (client->common.proxy_nopipelining) {
 			/* authenticate only after receiving C OK reply. */
@@ -109,6 +131,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 		imap_append_string(str, client->common.proxy_password);
 		str_append(str, "\r\n");
 
+		client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_LOGIN;
 		proxy_free_password(&client->common);
 		return 0;
 	}
@@ -141,6 +164,7 @@ static int proxy_write_login(struct imap_client *client, string_t *str)
 	}
 	str_append(str, "\r\n");
 	proxy_free_password(&client->common);
+	client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_AUTHENTICATE;
 	return 0;
 }
 
@@ -170,6 +194,7 @@ static int proxy_input_banner(struct imap_client *client,
 			i_strdup(t_strcut(line + 5 + 12, ']'));
 		if (str_array_icase_find(capabilities, "ID") &&
 		    !client->common.proxy_not_trusted) {
+			client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_ID;
 			proxy_write_id(client, str);
 			if (client->common.proxy_nopipelining) {
 				/* write login or starttls after I OK */
@@ -240,7 +265,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 	output = login_proxy_get_ostream(client->login_proxy);
 	if (!imap_client->proxy_seen_banner) {
 		/* this is a banner */
-		client->proxy_state = IMAP_PROXY_STATE_BANNER;
+		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_BANNER;
 		imap_client->proxy_seen_banner = TRUE;
 		if (proxy_input_banner(imap_client, output, line) < 0) {
 			client_proxy_failed(client, TRUE);
@@ -253,7 +278,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			/* used literals with LOGIN command, just ignore. */
 			return 0;
 		}
-		client->proxy_state = IMAP_PROXY_STATE_AUTH_CONTINUE;
+		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_AUTHENTICATE;
+		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_AUTH_CONTINUE;
 
 		str = t_str_new(128);
 		if (line[1] != ' ' ||
@@ -282,9 +308,13 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		base64_encode(data, data_len, str);
 		str_append(str, "\r\n");
 
+		imap_client->proxy_sent_state |= IMAP_PROXY_SENT_STATE_AUTH_CONTINUE;
 		o_stream_nsend(output, str_data(str), str_len(str));
 		return 0;
 	} else if (strncmp(line, "S ", 2) == 0) {
+		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_STARTTLS;
+		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_STARTTLS;
+
 		if (strncmp(line, "S OK ", 5) != 0) {
 			/* STARTTLS failed */
 			client_log_err(client, t_strdup_printf(
@@ -294,7 +324,6 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		}
 		/* STARTTLS successful, begin TLS negotiation. */
-		client->proxy_state = IMAP_PROXY_STATE_STARTTLS;
 		if (login_proxy_starttls(client->login_proxy) < 0) {
 			client_proxy_failed(client, TRUE);
 			return -1;
@@ -310,7 +339,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 1;
 	} else if (strncmp(line, "L OK ", 5) == 0) {
 		/* Login successful. Send this line to client. */
-		client->proxy_state = IMAP_PROXY_STATE_LOGIN;
+		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_LOGIN;
+		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_LOGIN;
 		str = t_str_new(128);
 		client_send_login_reply(imap_client, str, line + 5);
 		o_stream_nsend(client->output, str_data(str), str_len(str));
@@ -319,6 +349,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		client_proxy_finish_destroy_client(client);
 		return 1;
 	} else if (strncmp(line, "L ", 2) == 0) {
+		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_LOGIN;
+		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_LOGIN;
+
 		line += 2;
 		if (client->set->auth_verbose) {
 			const char *log_line = line;
@@ -364,7 +397,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	} else if (strncmp(line, "C ", 2) == 0) {
 		/* Reply to CAPABILITY command we sent */
-		client->proxy_state = IMAP_PROXY_STATE_CAPABILITY;
+		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_CAPABILITY;
+		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_CAPABILITY;
 		if (strncmp(line, "C OK ", 5) == 0 &&
 		    client->proxy_password != NULL) {
 			/* pipelining was disabled, send the login now. */
@@ -379,7 +413,8 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		/* Reply to ID command we sent, ignore it unless
 		   pipelining is disabled, in which case send
 		   either STARTTLS or login */
-		client->proxy_state = IMAP_PROXY_STATE_ID;
+		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_ID;
+		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_ID;
 
 		if (client->proxy_nopipelining) {
 			str = t_str_new(128);
@@ -417,11 +452,28 @@ void imap_proxy_reset(struct client *client)
 	imap_client->proxy_logindisabled = FALSE;
 	imap_client->proxy_seen_banner = FALSE;
 	imap_client->proxy_capability_request_sent = FALSE;
-	client->proxy_state = IMAP_PROXY_STATE_NONE;
+	imap_client->proxy_sent_state = 0;
+	imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_NONE;
 }
 
 void imap_proxy_error(struct client *client, const char *text)
 {
 	client_send_reply_code(client, IMAP_CMD_REPLY_NO,
 			       IMAP_RESP_CODE_UNAVAILABLE, text);
+}
+
+const char *imap_proxy_get_state(struct client *client)
+{
+	struct imap_client *imap_client = (struct imap_client *)client;
+	string_t *str = t_str_new(128);
+
+	for (unsigned int i = 0; i < IMAP_PROXY_SENT_STATE_COUNT; i++) {
+		if (str_len(str) > 0)
+			str_append_c(str, '+');
+		if ((imap_client->proxy_sent_state & (1 << i)) != 0)
+			str_append(str, imap_proxy_sent_state_names[i]);
+	}
+	str_append_c(str, '/');
+	str_append(str, imap_proxy_rcvd_state_names[imap_client->proxy_rcvd_state]);
+	return str_c(str);
 }

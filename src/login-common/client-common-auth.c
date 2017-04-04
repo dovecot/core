@@ -213,6 +213,8 @@ static void client_auth_parse_args(struct client *client, bool success,
 				alt_username_set(&alt_usernames, client->pool,
 						 key, value);
 			}
+		} else if (strncmp(key, "forward_", 8) == 0) {
+			/* these are passed to upstream */
 		} else if (client->set->auth_debug)
 			i_debug("Ignoring unknown passdb extra field: %s", key);
 	}
@@ -273,6 +275,11 @@ void client_proxy_finish_destroy_client(struct client *client)
 static void client_proxy_error(struct client *client, const char *text)
 {
 	client->v.proxy_error(client, text);
+}
+
+const char *client_proxy_get_state(struct client *client)
+{
+	return client->v.proxy_get_state(client);
 }
 
 void client_proxy_log_failure(struct client *client, const char *line)
@@ -348,11 +355,11 @@ static void proxy_input(struct client *client)
 		duration = ioloop_time - client->created;
 		client_log_err(client, t_strdup_printf(
 			"proxy: Remote %s:%u disconnected: %s "
-			"(state=%u, duration=%us)%s",
+			"(state=%s, duration=%us)%s",
 			login_proxy_get_host(client->login_proxy),
 			login_proxy_get_port(client->login_proxy),
 			io_stream_get_disconnect_reason(input, NULL),
-			client->proxy_state, duration,
+			client_proxy_get_state(client), duration,
 			line == NULL ? "" : t_strdup_printf(
 				" - BUG: line not read: %s", line)));
 		client_proxy_failed(client, TRUE);

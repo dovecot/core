@@ -182,7 +182,7 @@ void test_program_run(struct test_client *client)
 			} else if (strcmp(args[0], "test_program_io")==0) {
 				os = o_stream_create_dot(client->out, FALSE);
 				o_stream_send_istream(os, client->body);
-				o_stream_flush(os);
+				test_assert(o_stream_flush(os) > 0);
 				o_stream_unref(&os);
 				o_stream_nsend_str(client->out, "+\n");
 			} else if (strcmp(args[0], "test_program_failure")==0) {
@@ -262,7 +262,7 @@ void test_program_setup(void) {
 	/* create listener */
 	struct ip_addr ip;
 	test_globals.port = rand() % 64510 + 1024;
-	net_addr2ip("127.0.0.1", &ip);
+	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
 
 	test_globals.listen_fd = net_listen(&ip, &test_globals.port, 1);
 

@@ -42,6 +42,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	}
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
+	mailbox_set_reason(box, "quota count");
 	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0) {
 		/* quota doesn't exist for this mailbox/storage */
 		ret = 0;
@@ -50,10 +51,13 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 					MAILBOX_METADATA_PHYSICAL_SIZE,
 					&metadata) < 0 ||
 	    mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_TEMP) {
 			i_error("quota: Couldn't get size of mailbox %s: %s",
 				vname, errstr);
+			ret = -1;
+		} else if (error == MAIL_ERROR_INUSE) {
+			/* started on background. don't log an error. */
 			ret = -1;
 		} else {
 			/* non-temporary error, e.g. ACLs denied access. */
@@ -91,7 +95,7 @@ quota_mailbox_iter_deinit(struct quota_mailbox_iter **_iter)
 		if (mailbox_list_iter_deinit(&iter->iter) < 0) {
 			i_error("quota: Listing namespace '%s' failed: %s",
 				iter->ns->prefix,
-				mailbox_list_get_last_error(iter->ns->list, NULL));
+				mailbox_list_get_last_internal_error(iter->ns->list, NULL));
 			ret = -1;
 		}
 	}
@@ -127,7 +131,7 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 	if (mailbox_list_iter_deinit(&iter->iter) < 0) {
 		i_error("quota: Listing namespace '%s' failed: %s",
 			iter->ns->prefix,
-			mailbox_list_get_last_error(iter->ns->list, NULL));
+			mailbox_list_get_last_internal_error(iter->ns->list, NULL));
 		iter->failed = TRUE;
 	}
 	if (iter->ns->prefix_len > 0 &&
@@ -249,7 +253,7 @@ static int quota_count_recalculate_box(struct mailbox *box)
 	enum mail_error error;
 
 	if (mailbox_open(box) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_TEMP) {
 			/* non-temporary error, e.g. ACLs denied access. */
 			return 0;
@@ -270,13 +274,13 @@ static int quota_count_recalculate_box(struct mailbox *box)
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_VIRTUAL_SIZE,
 				 &metadata) < 0) {
 		i_error("Couldn't get mailbox %s vsize: %s", box->vname,
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 	/* call sync to write the change to mailbox list index */
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0) {
 		i_error("Couldn't sync mailbox %s: %s", box->vname,
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 	return 0;
@@ -292,6 +296,7 @@ static int quota_count_recalculate(struct quota_root *root)
 	iter = quota_mailbox_iter_begin(root);
 	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
 		box = mailbox_alloc(info->ns->list, info->vname, 0);
+		mailbox_set_reason(box, "quota recalculate");
 		if (quota_count_recalculate_box(box) < 0)
 			ret = -1;
 		mailbox_free(&box);

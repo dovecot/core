@@ -255,7 +255,8 @@ static int select_qresync(struct imap_select_context *ctx)
 		return -1;
 	}
 
-	fetch_ctx = imap_fetch_alloc(ctx->cmd->client, ctx->cmd->pool);
+	fetch_ctx = imap_fetch_alloc(ctx->cmd->client, ctx->cmd->pool,
+		t_strdup_printf("%s %s", ctx->cmd->name, ctx->cmd->args));
 
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_uid_init);
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_flags_init);
@@ -291,6 +292,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	else
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	ctx->box = mailbox_alloc(ctx->ns->list, mailbox, flags);
+	mailbox_set_reason(ctx->box, readonly ? "EXAMINE" : "SELECT");
 	if (mailbox_open(ctx->box) < 0) {
 		client_send_box_error(ctx->cmd, ctx->box);
 		mailbox_free(&ctx->box);

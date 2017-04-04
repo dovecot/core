@@ -31,7 +31,7 @@ ns_mailbox_try_alloc(struct dsync_brain *brain, struct mail_namespace *ns,
 	box = mailbox_alloc_guid(ns->list, guid, flags);
 	ret = mailbox_exists(box, FALSE, &existence);
 	if (ret < 0) {
-		*errstr_r = mailbox_get_last_error(box, error_r);
+		*errstr_r = mailbox_get_last_internal_error(box, error_r);
 		mailbox_free(&box);
 		return -1;
 	}
@@ -404,7 +404,7 @@ static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r,
 	/* get metadata first, since it may autocreate the mailbox */
 	if (mailbox_get_metadata(box, metadata_items, &metadata) < 0 ||
 	    mailbox_get_status(box, status_items, &status) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_NOTFOUND ||
 		    error == MAIL_ERROR_NOTPOSSIBLE) {
 			/* Mailbox isn't selectable, try the next one. We
@@ -526,7 +526,7 @@ dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 		if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 			i_error("Can't sync mailbox %s: %s",
 				mailbox_get_vname(box),
-				mailbox_get_last_error(box, &brain->mail_error));
+				mailbox_get_last_internal_error(box, &brain->mail_error));
 			brain->failed = TRUE;
 			mailbox_free(&box);
 			return -1;
@@ -713,7 +713,7 @@ bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 	if (mailbox_update(box, &update) < 0) {
 		i_error("Couldn't update mailbox %s metadata: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, &brain->mail_error));
+			mailbox_get_last_internal_error(box, &brain->mail_error));
 		brain->failed = TRUE;
 	}
 	return ret;
@@ -788,7 +788,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
 		i_error("Can't sync mailbox %s: %s",
 			mailbox_get_vname(box),
-			mailbox_get_last_error(box, &brain->mail_error));
+			mailbox_get_last_internal_error(box, &brain->mail_error));
 		mailbox_free(&box);
 		brain->failed = TRUE;
 		return TRUE;

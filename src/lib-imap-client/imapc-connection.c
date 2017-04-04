@@ -24,7 +24,8 @@
 
 #define IMAPC_COMMAND_STATE_AUTHENTICATE_CONTINUE 10000
 #define IMAPC_MAX_INLINE_LITERAL_SIZE (1024*32)
-#define IMAPC_RECONNECT_MIN_RETRY_SECS 10
+/* If LOGOUT reply takes longer than this, disconnect. */
+#define IMAPC_LOGOUT_TIMEOUT_MSECS 5000
 
 enum imapc_input_state {
 	IMAPC_INPUT_STATE_NONE = 0,
@@ -97,6 +98,7 @@ struct imapc_connection {
 	unsigned int cur_tag;
 	uint32_t cur_num;
 	time_t last_connect;
+	unsigned int reconnect_count;
 
 	struct imapc_client_mailbox *selecting_box, *selected_box;
 	enum imapc_connection_state state;
@@ -140,6 +142,9 @@ static int imapc_connection_output(struct imapc_connection *conn);
 static int imapc_connection_ssl_init(struct imapc_connection *conn);
 static void imapc_command_free(struct imapc_command *cmd);
 static void imapc_command_send_more(struct imapc_connection *conn);
+static void
+imapc_login_callback(struct imapc_connection *conn,
+		     const struct imapc_command_reply *reply);
 
 static void
 imapc_auth_ok(struct imapc_connection *conn)
@@ -155,10 +160,14 @@ imapc_auth_ok(struct imapc_connection *conn)
 }
 
 static void
-imapc_auth_failed(struct imapc_connection *conn,
+imapc_auth_failed(struct imapc_connection *conn, const struct imapc_command_reply *_reply,
 		  const char *error)
 {
-	i_error("imapc(%s): Authentication failed: %s", conn->name, error);
+	struct imapc_command_reply reply = *_reply;
+	reply.text_without_resp = reply.text_full =
+		t_strdup_printf("Authentication failed: %s", error);
+	i_error("imapc(%s): %s", conn->name, reply.text_full);
+	imapc_login_callback(conn, &reply);
 
 	if (conn->client->state_change_callback == NULL)
 		return;
@@ -180,7 +189,7 @@ imapc_connection_init(struct imapc_client *client)
 	conn->name = i_strdup_printf("%s:%u", client->set.host,
 				     client->set.port);
 	conn->literal.fd = -1;
-	conn->reconnect_ok = TRUE;
+	conn->reconnect_ok = (client->set.connect_retry_count>0);
 	i_array_init(&conn->cmd_send_queue, 8);
 	i_array_init(&conn->cmd_wait_list, 32);
 	i_array_init(&conn->literal_files, 4);
@@ -451,6 +460,15 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DISCONNECTED);
 	imapc_connection_abort_commands(conn, NULL, reconnecting);
+
+	if (!reconnecting) {
+		imapc_client_try_stop(conn->client);
+	}
+}
+
+void imapc_connection_set_no_reconnect(struct imapc_connection *conn)
+{
+	conn->reconnect_ok = FALSE;
 }
 
 void imapc_connection_disconnect(struct imapc_connection *conn)
@@ -466,6 +484,13 @@ static void imapc_connection_set_disconnected(struct imapc_connection *conn)
 
 static bool imapc_connection_can_reconnect(struct imapc_connection *conn)
 {
+	if (conn->client->logging_out)
+		return FALSE;
+	if (conn->client->set.connect_retry_count == 0 ||
+	    (conn->client->set.connect_retry_count < UINT_MAX &&
+	     conn->reconnect_count >= conn->client->set.connect_retry_count))
+		return FALSE;
+
 	if (conn->selected_box != NULL)
 		return imapc_client_mailbox_can_reconnect(conn->selected_box);
 	else {
@@ -490,16 +515,25 @@ static void
 imapc_connection_try_reconnect(struct imapc_connection *conn,
 			       const char *errstr, unsigned int delay_msecs)
 {
+	if (conn->prev_connect_idx + 1 < conn->ips_count) {
+		conn->reconnect_ok = TRUE;
+		imapc_connection_disconnect_full(conn, TRUE);
+		imapc_connection_connect(conn, NULL, NULL);
+		return;
+	}
+
 	if (!imapc_connection_can_reconnect(conn)) {
 		i_error("imapc(%s): %s - disconnecting", conn->name, errstr);
 		imapc_connection_disconnect(conn);
 	} else {
-		i_warning("imapc(%s): %s - reconnecting", conn->name, errstr);
+		conn->reconnecting = TRUE;
+		i_warning("imapc(%s): %s - reconnecting (delay %u)", conn->name, errstr, delay_msecs);
 		if (delay_msecs == 0)
 			imapc_connection_reconnect(conn);
 		else {
 			imapc_connection_disconnect_full(conn, TRUE);
 			conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
+			conn->reconnect_count++;
 		}
 	}
 }
@@ -790,9 +824,7 @@ imapc_connection_auth_finish(struct imapc_connection *conn,
 			     const struct imapc_command_reply *reply)
 {
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
-		imapc_auth_failed(conn, reply->text_full);
-		if (conn->login_callback != NULL)
-			imapc_login_callback(conn, reply);
+		imapc_auth_failed(conn, reply, reply->text_full);
 		imapc_connection_disconnect(conn);
 		return;
 	}
@@ -853,14 +885,14 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	buf = buffer_create_dynamic(pool_datastack_create(),
 				    MAX_BASE64_DECODED_SIZE(input_len));
 	if (base64_decode(reply->text_full, input_len, NULL, buf) < 0) {
-		imapc_auth_failed(conn,
+		imapc_auth_failed(conn, reply,
 				  t_strdup_printf("Server sent non-base64 input for AUTHENTICATE: %s",
 						  reply->text_full));
 	} else if (dsasl_client_input(conn->sasl_client, buf->data, buf->used, &error) < 0) {
-		imapc_auth_failed(conn, error);
+		imapc_auth_failed(conn, reply, error);
 	} else if (dsasl_client_output(conn->sasl_client, &sasl_output,
 				       &sasl_output_len, &error) < 0) {
-		imapc_auth_failed(conn, error);
+		imapc_auth_failed(conn, reply, error);
 	} else {
 		string_t *imap_output =
 			t_str_new(MAX_BASE64_ENCODED_SIZE(sasl_output_len)+2);
@@ -932,7 +964,11 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 
 	if (set->sasl_mechanisms != NULL && set->sasl_mechanisms[0] != '\0') {
 		if (imapc_connection_get_sasl_mech(conn, &sasl_mech, &error) < 0) {
-			imapc_auth_failed(conn, error);
+			struct imapc_command_reply reply;
+			i_zero(&reply);
+			reply.state = IMAPC_COMMAND_STATE_DISCONNECTED;
+			reply.text_full = "";
+			imapc_auth_failed(conn, &reply, error);
 			imapc_connection_disconnect(conn);
 			return;
 		}
@@ -1471,7 +1507,10 @@ static void imapc_connection_input(struct imapc_connection *conn)
 	while (conn->input != NULL && (ret = i_stream_read(conn->input)) > 0)
 		imapc_connection_input_pending(conn);
 
-	if (ret < 0) {
+	if (ret < 0 && conn->client->logging_out &&
+	    conn->disconnect_reason != NULL) {
+		/* expected disconnection */
+	} else if (ret < 0) {
 		/* disconnected or buffer full */
 		str = t_str_new(128);
 		if (conn->disconnect_reason != NULL) {
@@ -1538,7 +1577,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 	i_zero(&ssl_set);
 	if (conn->client->set.ssl_verify) {
 		ssl_set.verbose_invalid_cert = TRUE;
-		ssl_set.verify_remote_cert = TRUE;
+	} else {
+		ssl_set.allow_invalid_cert = TRUE;
 	}
 
 	if (conn->client->set.debug)
@@ -1584,6 +1624,8 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 {
 	const struct ip_addr *ip = &conn->ips[conn->prev_connect_idx];
 	int err;
+	if (conn->io != NULL)
+		io_remove(&conn->io);
 
 	err = net_geterror(conn->fd);
 	if (err != 0) {
@@ -1593,7 +1635,6 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 			strerror(err)), IMAPC_CONNECT_RETRY_WAIT_MSECS);
 		return;
 	}
-	io_remove(&conn->io);
 	conn->io = io_add(conn->fd, IO_READ, imapc_connection_input, conn);
 
 	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
@@ -1655,13 +1696,13 @@ static void imapc_connection_reset_idle(struct imapc_connection *conn)
 
 static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 {
-	const struct ip_addr *ip;
+	const struct ip_addr *ip = NULL;
 	unsigned int i;
 	int fd;
 
 	i_assert(conn->client->set.max_idle_time > 0);
 
-	for (i = 0;;) {
+	for (i = 0; i<conn->ips_count;) {
 		conn->prev_connect_idx = (conn->prev_connect_idx+1) % conn->ips_count;
 		ip = &conn->ips[conn->prev_connect_idx];
 		fd = net_connect_ip(ip, conn->client->set.port, NULL);
@@ -1673,11 +1714,15 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 		   before failing completely. */
 		i_error("net_connect_ip(%s:%u) failed: %m",
 			net_ip2addr(ip), conn->client->set.port);
-		if (++i == conn->ips_count) {
-			imapc_connection_set_disconnected(conn);
+		if (conn->prev_connect_idx+1 == conn->ips_count) {
+			imapc_connection_try_reconnect(conn, "No more IP address(es) to try",
+						       IMAPC_CONNECT_RETRY_WAIT_MSECS);
 			return;
 		}
 	}
+
+	i_assert(ip != NULL);
+
 	conn->fd = fd;
 	conn->input = conn->raw_input =
 		i_stream_create_fd(fd, conn->client->set.max_line_length);
@@ -1741,8 +1786,10 @@ void imapc_connection_connect(struct imapc_connection *conn,
 		return;
 	}
 	i_assert(conn->login_callback == NULL || conn->reconnecting);
-	conn->login_callback = login_callback;
-	conn->login_context = login_context;
+	if (!conn->reconnecting) {
+		conn->login_callback = login_callback;
+		conn->login_context = login_context;
+	}
 	conn->reconnecting = FALSE;
 	/* if we get disconnected before we've finished all the pending
 	   commands, don't reconnect */
@@ -1752,8 +1799,15 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	imapc_connection_input_reset(conn);
 
 	if (!conn->reconnect_ok &&
-	    conn->last_connect + IMAPC_RECONNECT_MIN_RETRY_SECS >= ioloop_time) {
+	    (time_t)(conn->last_connect + conn->client->set.connect_retry_interval_secs) >= ioloop_time) {
+		if (conn->to != NULL)
+			timeout_remove(&conn->to);
+		conn->reconnecting = TRUE;
 		imapc_connection_set_disconnected(conn);
+		/* don't wait longer than necessary, the +1 is to avoid ending here again */
+		unsigned int delay_msecs =
+			((conn->last_connect + conn->client->set.connect_retry_interval_secs) - ioloop_time + 1) * 1000;
+		conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
 		return;
 	}
 	conn->last_connect = ioloop_time;
@@ -2043,6 +2097,11 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 		/* wait until we're fully connected */
 		return;
 	}
+	if ((cmd->flags & IMAPC_COMMAND_FLAG_LOGOUT) != 0 &&
+	    array_count(&conn->cmd_wait_list) > 0) {
+		/* wait until existing commands have finished */
+		return;
+	}
 	if (cmd->wait_for_literal) {
 		/* wait until we received '+' */
 		return;
@@ -2074,7 +2133,13 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 
 	/* add timeout for commands if there's not one yet
 	   (pre-login has its own timeout) */
-	if (conn->to == NULL) {
+	if ((cmd->flags & IMAPC_COMMAND_FLAG_LOGOUT) != 0) {
+		/* LOGOUT has a shorter timeout */
+		if (conn->to != NULL)
+			timeout_remove(&conn->to);
+		conn->to = timeout_add(IMAPC_LOGOUT_TIMEOUT_MSECS,
+				       imapc_command_timeout, conn);
+	} else if (conn->to == NULL) {
 		conn->to = timeout_add(conn->client->set.cmd_timeout_msecs,
 				       imapc_command_timeout, conn);
 	}

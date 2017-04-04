@@ -464,7 +464,7 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 					break;
 				}
 			}
-			/* skip parameters if error has already occured */
+			/* skip parameters if error has already occurred */
 			if (!found || conn->method_err != 0) {
 				json_parse_skip_next(conn->json_parser);
 				conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;

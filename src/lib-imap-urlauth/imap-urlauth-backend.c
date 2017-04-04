@@ -134,7 +134,7 @@ static int imap_urlauth_backend_mailbox_reset_key(struct mailbox *box)
 	enum mail_error error;
 
 	if (mailbox_open(box) < 0) {
-		errstr = mailbox_get_last_error(box, &error);
+		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_NOTFOUND || error == MAIL_ERROR_PERM)
 			return 0;
 		i_error("urlauth key reset: Couldn't open mailbox %s: %s",
@@ -159,13 +159,14 @@ int imap_urlauth_backend_reset_all_keys(struct mail_user *user)
 						 MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		box = mailbox_alloc(info->ns->list, info->vname, 0);
+		mailbox_set_reason(box, "URLAUTH reset all keys");
 		if (imap_urlauth_backend_mailbox_reset_key(box) < 0)
 			ret = -1;
 		mailbox_free(&box);
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("urlauth key reset: Couldn't iterate mailboxes: %s",
-			mailbox_list_get_last_error(user->namespaces->list, NULL));
+			mailbox_list_get_last_internal_error(user->namespaces->list, NULL));
 		ret = -1;
 	}
 	return ret;

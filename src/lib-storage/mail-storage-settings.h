@@ -28,6 +28,8 @@ struct mail_storage_settings {
 	unsigned int mail_max_keyword_length;
 	unsigned int mail_max_lock_timeout;
 	unsigned int mail_temp_scan_interval;
+	unsigned int mail_vsize_bg_after_count;
+	unsigned int mail_sort_max_read_count;
 	bool mail_save_crlf;
 	const char *mail_fsync;
 	bool mmap_disable;

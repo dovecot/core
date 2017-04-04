@@ -34,8 +34,6 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS		= 0x400,
 	/* Don't create namespaces, only the user. */
 	MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES		= 0x800,
-	/* Enable autoexpunging at deinit. */
-	MAIL_STORAGE_SERVICE_FLAG_AUTOEXPUNGE		= 0x1000
 };
 
 struct mail_storage_service_input {
@@ -112,7 +110,8 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     struct mail_storage_service_user **user_r,
 				     struct mail_user **mail_user_r,
 				     const char **error_r);
-void mail_storage_service_user_free(struct mail_storage_service_user **user);
+void mail_storage_service_user_ref(struct mail_storage_service_user *user);
+void mail_storage_service_user_unref(struct mail_storage_service_user **user);
 /* Initialize iterating through all users. */
 void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx);
 /* Initialize iterating through all users with a user mask hint to the

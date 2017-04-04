@@ -357,6 +357,8 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_append(dest, "\tsuccessful");
 	if (request->mech_name != NULL)
 		auth_str_add_keyvalue(dest, "mech", request->mech_name);
+	if (request->client_id != NULL)
+		auth_str_add_keyvalue(dest, "client_id", request->client_id);
 	/* export passdb extra fields */
 	auth_request_export_fields(dest, request->extra_fields, "passdb_");
 	/* export any userdb fields */
@@ -403,6 +405,11 @@ bool auth_request_import_info(struct auth_request *request,
 		request->session_id = p_strdup(request->pool, value);
 	else if (strcmp(key, "debug") == 0)
 		request->debug = TRUE;
+	else if (strcmp(key, "client_id") == 0)
+		request->client_id = p_strdup(request->pool, value);
+	else if (strcmp(key, "forward_fields") == 0)
+		auth_fields_import_prefixed(request->extra_fields,
+					    "forward_", value, 0);
 	else
 		return FALSE;
 	/* NOTE: keep in sync with auth_request_export() */
@@ -622,6 +629,16 @@ static bool
 auth_request_want_skip_passdb(struct auth_request *request,
 			      struct auth_passdb *passdb)
 {
+	/* if mechanism is not supported, skip */
+	const char *const *mech = passdb->passdb->mechanisms;
+
+	/* if request->mech == NULL it means we are doing
+	   lookup without authentication and should not match this */
+	if (mech != NULL && (request->mech == NULL ||
+	     !str_array_icase_find(mech, request->mech->mech_name))) {
+		return TRUE;
+	}
+
 	/* skip_password_check basically specifies if authentication is
 	   finished */
 	bool authenticated = request->skip_password_check;
@@ -957,6 +974,7 @@ void auth_request_verify_plain(struct auth_request *request,
 		request->mech_password = p_strdup(request->pool, password);
 	else
 		i_assert(request->mech_password == password);
+	request->user_changed_by_lookup = FALSE;
 
 	if (request->policy_processed) {
 		auth_request_verify_plain_continue(request, callback);
@@ -992,7 +1010,21 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 		return;
 	}
 
-	 passdb = request->passdb;
+	passdb = request->passdb;
+
+	while (passdb != NULL && auth_request_want_skip_passdb(request, passdb))
+		passdb = passdb->next;
+
+	request->passdb = passdb;
+
+	if (passdb == NULL) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"All password databases were skipped for mechanism '%s'",
+				request->mech == NULL ? "<empty>"
+						      : request->mech->mech_name);
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
+		return;
+	}
 
 	request->private_callback.verify_plain = callback;
 
@@ -1134,6 +1166,7 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	if (request->credentials_scheme == NULL)
 		request->credentials_scheme = p_strdup(request->pool, scheme);
+	request->user_changed_by_lookup = FALSE;
 
 	if (request->policy_processed)
 		auth_request_lookup_credentials_policy_continue(request, callback);
@@ -1243,7 +1276,7 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 		auth_fields_append(request->userdb_reply, str,
 				   AUTH_FIELD_FLAG_CHANGED,
 				   AUTH_FIELD_FLAG_CHANGED);
-		if (strcmp(request->user, request->translated_username) != 0) {
+		if (request->user_changed_by_lookup) {
 			/* username was changed by passdb or userdb */
 			if (str_len(str) > 0)
 				str_append_c(str, '\t');
@@ -1376,6 +1409,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 			   it set */
 			auth_fields_rollback(request->userdb_reply);
 		}
+		request->user_changed_by_lookup = FALSE;
 
 		request->userdb = next_userdb;
 		auth_request_lookup_user(request,
@@ -1440,6 +1474,7 @@ void auth_request_lookup_user(struct auth_request *request,
 	const char *cache_key, *error;
 
 	request->private_callback.userdb = callback;
+	request->user_changed_by_lookup = FALSE;
 	request->userdb_lookup = TRUE;
 	request->userdb_result_from_cache = FALSE;
 	if (request->userdb_reply == NULL)
@@ -1577,6 +1612,7 @@ bool auth_request_set_username(struct auth_request *request,
 		/* similar to original_username, but after translations */
 		request->translated_username = request->user;
 	}
+	request->user_changed_by_lookup = TRUE;
 
 	if (login_username != NULL) {
 		if (!auth_request_set_login_username(request,
@@ -1744,6 +1780,7 @@ auth_request_try_update_username(struct auth_request *request,
 					"username changed %s -> %s",
 					request->user, new_value);
 		request->user = p_strdup(request->pool, new_value);
+		request->user_changed_by_lookup = TRUE;
 	}
 	return TRUE;
 }

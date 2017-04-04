@@ -35,6 +35,7 @@ struct trash_mailbox {
 struct trash_user {
 	union mail_user_module_context module_ctx;
 
+	const char *config_file;
 	/* ordered by priority, highest first */
 	ARRAY(struct trash_mailbox) trash_boxes;
 };
@@ -43,14 +44,15 @@ const char *trash_plugin_version = DOVECOT_ABI_VERSION;
 
 static MODULE_CONTEXT_DEFINE_INIT(trash_user_module,
 				  &mail_user_module_register);
-static int (*trash_next_quota_test_alloc)(struct quota_transaction_context *,
-					  uoff_t, bool *);
+static enum quota_alloc_result (*trash_next_quota_test_alloc)(
+		struct quota_transaction_context *, uoff_t);
 
 static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 {
 	struct mail_search_args *search_args;
 
 	trash->box = mailbox_alloc(trash->ns->list, trash->name, 0);
+	mailbox_set_reason(trash->box, "trash plugin");
 	if (mailbox_open(trash->box) < 0) {
 		mailbox_free(&trash->box);
 		return 0;
@@ -216,21 +218,22 @@ err:
 	return 1;
 }
 
-static int
+static enum quota_alloc_result
 trash_quota_test_alloc(struct quota_transaction_context *ctx,
-		       uoff_t size, bool *too_large_r)
+		       uoff_t size)
 {
-	int ret, i;
+	int i;
 	uint64_t size_needed = 0;
 	unsigned int count_needed = 0;
 
 	for (i = 0; ; i++) {
-		ret = trash_next_quota_test_alloc(ctx, size, too_large_r);
-		if (ret != 0 || *too_large_r) {
-			if (ctx->quota->user->mail_debug && *too_large_r) {
+		enum quota_alloc_result ret;
+		ret = trash_next_quota_test_alloc(ctx, size);
+		if (ret != QUOTA_ALLOC_RESULT_OVER_QUOTA) {
+			if (ret == QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT &&
+			    ctx->quota->user->mail_debug)
 				i_debug("trash plugin: Mail is larger than "
 					"quota, won't even try to handle");
-			}
 			return ret;
 		}
 
@@ -250,11 +253,10 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 			count_needed = 1 + ctx->count_over - ctx->count_ceil;
 
 		/* not enough space. try deleting some from mailbox. */
-		ret = trash_try_clean_mails(ctx, size_needed, count_needed);
-		if (ret <= 0)
-			return 0;
+		if (trash_try_clean_mails(ctx, size_needed, count_needed) <= 0)
+			return QUOTA_ALLOC_RESULT_OVER_QUOTA;
 	}
-	return 0;
+	return QUOTA_ALLOC_RESULT_OVER_QUOTA;
 }
 
 static bool trash_find_storage(struct mail_user *user,
@@ -333,9 +335,8 @@ static int read_configuration(struct mail_user *user, const char *path)
 }
 
 static void
-trash_mail_namespaces_created(struct mail_namespace *namespaces)
+trash_mail_user_created(struct mail_user *user)
 {
-	struct mail_user *user = namespaces->user;
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
 	struct trash_user *tuser;
 	const char *env;
@@ -348,18 +349,28 @@ trash_mail_namespaces_created(struct mail_namespace *namespaces)
 		i_error("trash plugin: quota plugin not initialized");
 	} else {
 		tuser = p_new(user->pool, struct trash_user, 1);
+		tuser->config_file = env;
 		MODULE_CONTEXT_SET(user, trash_user_module, tuser);
+	}
+}
 
-		if (read_configuration(user, env) == 0) {
-			trash_next_quota_test_alloc =
-				quser->quota->set->test_alloc;
-			quser->quota->set->test_alloc = trash_quota_test_alloc;
-		}
+static void
+trash_mail_namespaces_created(struct mail_namespace *namespaces)
+{
+	struct mail_user *user = namespaces->user;
+	struct trash_user *tuser = TRASH_USER_CONTEXT(user);
+	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
+
+	if (tuser != NULL && read_configuration(user, tuser->config_file) == 0) {
+		trash_next_quota_test_alloc =
+			quser->quota->set->test_alloc;
+		quser->quota->set->test_alloc = trash_quota_test_alloc;
 	}
 }
 
 static struct mail_storage_hooks trash_mail_storage_hooks = {
-	.mail_namespaces_created = trash_mail_namespaces_created
+	.mail_user_created = trash_mail_user_created,
+	.mail_namespaces_created = trash_mail_namespaces_created,
 };
 
 void trash_plugin_init(struct module *module)

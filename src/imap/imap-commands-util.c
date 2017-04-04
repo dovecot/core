@@ -109,6 +109,7 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 		return 0;
 	}
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY);
+	mailbox_set_reason(box, cmd->name);
 	if (mailbox_open(box) < 0) {
 		error_string = mailbox_get_last_error(box, &error);
 		if (error == MAIL_ERROR_NOTFOUND) {
@@ -131,6 +132,13 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 	return 0;
 }
 
+void imap_transaction_set_cmd_reason(struct mailbox_transaction_context *trans,
+				     struct client_command_context *cmd)
+{
+	mailbox_transaction_set_reason(trans, cmd->args[0] == '\0' ? cmd->name :
+		t_strdup_printf("%s %s", cmd->name, cmd->args));
+}
+
 const char *
 imap_get_error_string(struct client_command_context *cmd,
 		      const char *error_string, enum mail_error error)
@@ -141,7 +149,11 @@ imap_get_error_string(struct client_command_context *cmd,
 	case MAIL_ERROR_NONE:
 		break;
 	case MAIL_ERROR_TEMP:
+	case MAIL_ERROR_LOOKUP_ABORTED: /* BUG: shouldn't be visible here */
 		resp_code = IMAP_RESP_CODE_SERVERBUG;
+		break;
+	case MAIL_ERROR_UNAVAILABLE:
+		resp_code = IMAP_RESP_CODE_UNAVAILABLE;
 		break;
 	case MAIL_ERROR_NOTPOSSIBLE:
 	case MAIL_ERROR_PARAMS:
@@ -168,6 +180,9 @@ imap_get_error_string(struct client_command_context *cmd,
 		break;
 	case MAIL_ERROR_CONVERSION:
 	case MAIL_ERROR_INVALIDDATA:
+		break;
+	case MAIL_ERROR_LIMIT:
+		resp_code = IMAP_RESP_CODE_LIMIT;
 		break;
 	}
 	if (resp_code == NULL || *error_string == '[')

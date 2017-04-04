@@ -160,20 +160,39 @@ void command_hook_unregister(command_hook_callback_t *pre,
 	i_panic("command_hook_unregister(): hook not registered");
 }
 
+static void command_stats_start(struct client_command_context *cmd)
+{
+	cmd->stats_start.timeval = ioloop_timeval;
+	cmd->stats_start.lock_wait_usecs = file_lock_wait_get_total_usecs();
+	cmd->stats_start.bytes_in = i_stream_get_absolute_offset(cmd->client->input);
+	cmd->stats_start.bytes_out = cmd->client->output->offset;
+}
+
+void command_stats_flush(struct client_command_context *cmd)
+{
+	io_loop_time_refresh();
+	cmd->stats.running_usecs +=
+		timeval_diff_usecs(&ioloop_timeval, &cmd->stats_start.timeval);
+	cmd->stats.lock_wait_usecs +=
+		file_lock_wait_get_total_usecs() -
+		cmd->stats_start.lock_wait_usecs;
+	cmd->stats.bytes_in += i_stream_get_absolute_offset(cmd->client->input) -
+		cmd->stats_start.bytes_in;
+	cmd->stats.bytes_out += cmd->client->output->offset -
+		cmd->stats_start.bytes_out;
+	/* allow flushing multiple times */
+	command_stats_start(cmd);
+}
+
 bool command_exec(struct client_command_context *cmd)
 {
 	const struct command_hook *hook;
 	bool finished;
-	struct timeval cmd_start_timeval;
-	uint64_t cmd_start_bytes_in, cmd_start_bytes_out, cmd_start_lock_waits;
 
 	i_assert(!cmd->executing);
 
 	io_loop_time_refresh();
-	cmd_start_lock_waits = file_lock_wait_get_total_usecs();
-	cmd_start_timeval = ioloop_timeval;
-	cmd_start_bytes_in = i_stream_get_absolute_offset(cmd->client->input);
-	cmd_start_bytes_out = cmd->client->output->offset;
+	command_stats_start(cmd);
 
 	cmd->executing = TRUE;
 	array_foreach(&command_hooks, hook)
@@ -185,14 +204,7 @@ bool command_exec(struct client_command_context *cmd)
 	if (cmd->state == CLIENT_COMMAND_STATE_DONE)
 		finished = TRUE;
 
-	io_loop_time_refresh();
-	cmd->running_usecs +=
-		timeval_diff_usecs(&ioloop_timeval, &cmd_start_timeval);
-	cmd->lock_wait_usecs +=
-		file_lock_wait_get_total_usecs() - cmd_start_lock_waits;
-	cmd->bytes_in += i_stream_get_absolute_offset(cmd->client->input) -
-		cmd_start_bytes_in;
-	cmd->bytes_out += cmd->client->output->offset - cmd_start_bytes_out;
+	command_stats_flush(cmd);
 	return finished;
 }
 

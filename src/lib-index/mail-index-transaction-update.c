@@ -5,8 +5,8 @@
    UIDs. */
 
 #include "lib.h"
-#include "ioloop.h"
 #include "array.h"
+#include "time-util.h"
 #include "mail-index-private.h"
 #include "mail-index-transaction-private.h"
 
@@ -116,26 +116,19 @@ void mail_index_transaction_set_log_updates(struct mail_index_transaction *t)
 		t->min_highest_modseq != 0;
 }
 
-void mail_index_update_day_headers(struct mail_index_transaction *t)
+void mail_index_update_day_headers(struct mail_index_transaction *t,
+				   time_t day_stamp)
 {
 	struct mail_index_header hdr;
 	const struct mail_index_record *rec;
 	const int max_days = N_ELEMENTS(hdr.day_first_uid);
-	struct tm tm;
 	time_t stamp;
 	int i, days;
 
 	hdr = *mail_index_get_header(t->view);
 	rec = array_idx(&t->appends, 0);
 
-	/* get beginning of today */
-	tm = *localtime(&ioloop_time);
-	tm.tm_hour = 0;
-	tm.tm_min = 0;
-	tm.tm_sec = 0;
-	stamp = mktime(&tm);
-	i_assert(stamp != (time_t)-1);
-
+	stamp = time_to_local_day_start(day_stamp);
 	if ((time_t)hdr.day_stamp >= stamp)
 		return;
 
@@ -146,7 +139,7 @@ void mail_index_update_day_headers(struct mail_index_transaction *t)
 
 	/* @UNSAFE: move days forward and fill the missing days with old
 	   day_first_uid[0]. */
-	if (days > 1 && days < max_days)
+	if (days > 0 && days < max_days)
 		memmove(hdr.day_first_uid + days, hdr.day_first_uid,
 			(max_days - days) * sizeof(hdr.day_first_uid[0]));
 	for (i = 1; i < days; i++)
@@ -212,6 +205,8 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 	if (!array_is_created(&t->appends))
 		return;
 
+	i_assert(first_uid < (uint32_t)-1);
+
 	/* first find the highest assigned uid */
 	recs = array_get_modifiable(&t->appends, &count);
 	i_assert(count > 0);
@@ -221,12 +216,14 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 		if (next_uid <= recs[i].uid)
 			next_uid = recs[i].uid + 1;
 	}
+	i_assert(next_uid > 0 && next_uid < (uint32_t)-1);
 
 	/* assign missing uids */
 	for (i = 0; i < count; i++) {
-		if (recs[i].uid == 0 || recs[i].uid < first_uid)
+		if (recs[i].uid == 0 || recs[i].uid < first_uid) {
+			i_assert(next_uid < (uint32_t)-1);
 			recs[i].uid = next_uid++;
-		else {
+		} else {
 			if (next_uid != first_uid)
 				t->appends_nonsorted = TRUE;
 		}

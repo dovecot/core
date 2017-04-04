@@ -3,15 +3,43 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "array.h"
+#include "hook-build.h"
 #include "bsearch-insert-pos.h"
 #include "llist.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
 #include "mail-index-transaction-private.h"
 
+static ARRAY(hook_mail_index_transaction_created_t *)
+	hook_mail_index_transaction_created;
 
-void (*hook_mail_index_transaction_created)
-		(struct mail_index_transaction *t) = NULL;
+void mail_index_transaction_hook_register(hook_mail_index_transaction_created_t *hook)
+{
+	if (!array_is_created(&hook_mail_index_transaction_created))
+		i_array_init(&hook_mail_index_transaction_created, 8);
+	array_append(&hook_mail_index_transaction_created, &hook, 1);
+}
+
+void mail_index_transaction_hook_unregister(hook_mail_index_transaction_created_t *hook)
+{
+	unsigned int idx;
+	bool found = FALSE;
+
+	i_assert(array_is_created(&hook_mail_index_transaction_created));
+	for(idx = 0; idx < array_count(&hook_mail_index_transaction_created); idx++) {
+		hook_mail_index_transaction_created_t *const *hook_ptr =
+			array_idx(&hook_mail_index_transaction_created, idx);
+		if (*hook_ptr == hook) {
+			array_delete(&hook_mail_index_transaction_created, idx, 1);
+			found = TRUE;
+			break;
+		}
+	}
+	i_assert(found == TRUE);
+	if (array_count(&hook_mail_index_transaction_created) == 0)
+		array_free(&hook_mail_index_transaction_created);
+}
+
 
 struct mail_index_view *
 mail_index_transaction_get_view(struct mail_index_transaction *t)
@@ -321,7 +349,16 @@ mail_index_transaction_begin(struct mail_index_view *view,
 		     I_MIN(5, mail_index_module_register.id));
 	DLLIST_PREPEND(&view->transactions_list, t);
 
-	if (hook_mail_index_transaction_created != NULL)
-		hook_mail_index_transaction_created(t);
+	if (array_is_created(&hook_mail_index_transaction_created)) {
+	        struct hook_build_context *ctx =
+			hook_build_init((void *)&t->v, sizeof(t->v));
+		hook_mail_index_transaction_created_t *const *ptr;
+		array_foreach(&hook_mail_index_transaction_created, ptr) {
+			(*ptr)(t);
+			hook_build_update(ctx, t->vlast);
+		}
+		t->vlast = NULL;
+		hook_build_deinit(&ctx);
+	}
 	return t;
 }

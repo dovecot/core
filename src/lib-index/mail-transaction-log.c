@@ -214,15 +214,28 @@ void mail_transaction_logs_clean(struct mail_transaction_log *log)
 	i_assert(log->head == NULL || log->files != NULL);
 }
 
-#define LOG_WANT_ROTATE(file) \
-	(((file)->sync_offset > (file)->log->index->log_rotate_min_size && \
-	  (file)->hdr.create_stamp < \
-	   ioloop_time - (file)->log->index->log_rotate_min_created_ago_secs) || \
-	 ((file)->sync_offset > (file)->log->index->log_rotate_max_size))
-
 bool mail_transaction_log_want_rotate(struct mail_transaction_log *log)
 {
-	return LOG_WANT_ROTATE(log->head);
+	struct mail_transaction_log_file *file = log->head;
+
+	if (file->hdr.major_version < MAIL_TRANSACTION_LOG_MAJOR_VERSION ||
+	    (file->hdr.major_version == MAIL_TRANSACTION_LOG_MAJOR_VERSION &&
+	     file->hdr.minor_version < MAIL_TRANSACTION_LOG_MINOR_VERSION)) {
+		/* upgrade immediately to a new log file format */
+		return TRUE;
+	}
+
+	if (file->sync_offset > log->index->log_rotate_max_size) {
+		/* file is too large, definitely rotate */
+		return TRUE;
+	}
+	if (file->sync_offset < log->index->log_rotate_min_size) {
+		/* file is still too small */
+		return FALSE;
+	}
+	/* rotate if the timestamp is old enough */
+	return file->hdr.create_stamp <
+		ioloop_time - log->index->log_rotate_min_created_ago_secs;
 }
 
 int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)

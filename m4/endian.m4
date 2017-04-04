@@ -1,5 +1,5 @@
 dnl **
-dnl ** Endianess
+dnl ** Endianness
 dnl **
 
 dnl At least Apple's gcc supports __BIG_ENDIAN__ and __LITTLE_ENDIAN__

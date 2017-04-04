@@ -65,9 +65,10 @@ int istream_attachment_connector_add(struct istream_attachment_connector *conn,
 
 	if (base_prefix_size > 0) {
 		/* add a part of the base message before the attachment */
-		input = i_stream_create_range(conn->base_input,
-					      conn->base_input_offset,
-					      base_prefix_size);
+		input = i_stream_create_min_sized_range(conn->base_input,
+			conn->base_input_offset, base_prefix_size);
+		i_stream_set_name(input, t_strdup_printf("%s middle",
+			i_stream_get_name(conn->base_input)));
 		array_append(&conn->streams, &input, 1);
 		conn->base_input_offset += base_prefix_size;
 		conn->encoded_offset += base_prefix_size;
@@ -118,10 +119,18 @@ istream_attachment_connector_finish(struct istream_attachment_connector **_conn)
 	if (conn->base_input_offset != conn->msg_size) {
 		i_assert(conn->base_input_offset < conn->msg_size);
 
-		trailer_size = conn->msg_size - conn->encoded_offset;
-		input = i_stream_create_range(conn->base_input,
-					      conn->base_input_offset,
-					      trailer_size);
+		if (conn->msg_size != (uoff_t)-1) {
+			trailer_size = conn->msg_size - conn->encoded_offset;
+			input = i_stream_create_sized_range(conn->base_input,
+							    conn->base_input_offset,
+							    trailer_size);
+			i_stream_set_name(input, t_strdup_printf(
+				"%s trailer", i_stream_get_name(conn->base_input)));
+		} else {
+			input = i_stream_create_range(conn->base_input,
+						      conn->base_input_offset,
+						      (uoff_t)-1);
+		}
 		array_append(&conn->streams, &input, 1);
 	}
 	array_append_zero(&conn->streams);

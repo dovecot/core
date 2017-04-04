@@ -8,9 +8,14 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "strescape.h"
 #include "dsasl-client.h"
 #include "client.h"
 #include "pop3-proxy.h"
+
+static const char *pop3_proxy_state_names[POP3_PROXY_STATE_COUNT] = {
+	"banner", "starttls", "xclient", "login1", "login2"
+};
 
 static void proxy_free_password(struct client *client)
 {
@@ -27,24 +32,39 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	const unsigned char *sasl_output;
 	size_t len;
 	const char *mech_name, *error;
-	string_t *str;
+	string_t *str = t_str_new(128);
 
 	i_assert(client->common.proxy_ttl > 1);
 	if (client->proxy_xclient &&
 	    !client->common.proxy_not_trusted) {
+		string_t *fwd = t_str_new(128);
+                for(const char *const *ptr = client->common.auth_passdb_args;*ptr != NULL; ptr++) {
+                        if (strncasecmp(*ptr, "forward_", 8) == 0) {
+                                if (str_len(fwd) > 0)
+                                        str_append_c(fwd, '\t');
+                                str_append_tabescaped(fwd, (*ptr)+8);
+                        }
+		}
+
+		str_printfa(str, "XCLIENT ADDR=%s PORT=%u SESSION=%s TTL=%u",
+			    net_ip2addr(&client->common.ip),
+			    client->common.remote_port,
+			    client_get_session_id(&client->common),
+			    client->common.proxy_ttl - 1);
+		if (str_len(fwd) > 0) {
+			str_append(str, " FORWARD=");
+			base64_encode(str_data(fwd), str_len(fwd), str);
+		}
+		str_append(str, "\r\n");
 		/* remote supports XCLIENT, send it */
-		o_stream_nsend_str(output, t_strdup_printf(
-			"XCLIENT ADDR=%s PORT=%u SESSION=%s TTL=%u\r\n",
-			net_ip2addr(&client->common.ip),
-			client->common.remote_port,
-			client_get_session_id(&client->common),
-			client->common.proxy_ttl - 1));
-		client->common.proxy_state = POP3_PROXY_XCLIENT;
+		o_stream_nsend(output, str_data(str), str_len(str));
+		client->proxy_state = POP3_PROXY_XCLIENT;
 	} else {
-		client->common.proxy_state = POP3_PROXY_LOGIN1;
+		client->proxy_state = POP3_PROXY_LOGIN1;
 	}
 
-	str = t_str_new(128);
+	str_truncate(str, 0);
+
 	if (client->common.proxy_mech == NULL) {
 		/* send USER command */
 		str_append(str, "USER ");
@@ -80,8 +100,8 @@ static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 	o_stream_nsend(output, str_data(str), str_len(str));
 
 	proxy_free_password(&client->common);
-	if (client->common.proxy_state != POP3_PROXY_XCLIENT)
-		client->common.proxy_state = POP3_PROXY_LOGIN2;
+	if (client->proxy_state != POP3_PROXY_XCLIENT)
+		client->proxy_state = POP3_PROXY_LOGIN2;
 	return 0;
 }
 
@@ -131,7 +151,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 	i_assert(!client->destroyed);
 
 	output = login_proxy_get_ostream(client->login_proxy);
-	switch (client->proxy_state) {
+	switch (pop3_client->proxy_state) {
 	case POP3_PROXY_BANNER:
 		/* this is a banner */
 		if (strncmp(line, "+OK", 3) != 0) {
@@ -152,7 +172,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			}
 		} else {
 			o_stream_nsend_str(output, "STLS\r\n");
-			client->proxy_state = POP3_PROXY_STARTTLS;
+			pop3_client->proxy_state = POP3_PROXY_STARTTLS;
 		}
 		return 0;
 	case POP3_PROXY_STARTTLS:
@@ -182,7 +202,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			client_proxy_failed(client, TRUE);
 			return -1;
 		}
-		client->proxy_state = client->proxy_sasl_client == NULL ?
+		pop3_client->proxy_state = client->proxy_sasl_client == NULL ?
 			POP3_PROXY_LOGIN1 : POP3_PROXY_LOGIN2;
 		return 0;
 	case POP3_PROXY_LOGIN1:
@@ -194,7 +214,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		o_stream_nsend_str(output, t_strdup_printf(
 			"PASS %s\r\n", client->proxy_password));
 		proxy_free_password(client);
-		client->proxy_state = POP3_PROXY_LOGIN2;
+		pop3_client->proxy_state = POP3_PROXY_LOGIN2;
 		return 0;
 	case POP3_PROXY_LOGIN2:
 		if (strncmp(line, "+ ", 2) == 0 &&
@@ -216,6 +236,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 
 		client_proxy_finish_destroy_client(client);
 		return 1;
+	case POP3_PROXY_STATE_COUNT:
+		i_unreached();
 	}
 
 	/* Login failed. Pass through the error message to client.
@@ -252,10 +274,19 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 
 void pop3_proxy_reset(struct client *client)
 {
-	client->proxy_state = POP3_PROXY_BANNER;
+	struct pop3_client *pop3_client = (struct pop3_client *)client;
+
+	pop3_client->proxy_state = POP3_PROXY_BANNER;
 }
 
 void pop3_proxy_error(struct client *client, const char *text)
 {
 	client_send_reply(client, POP3_CMD_REPLY_ERROR, text);
+}
+
+const char *pop3_proxy_get_state(struct client *client)
+{
+	struct pop3_client *pop3_client = (struct pop3_client *)client;
+
+	return pop3_proxy_state_names[pop3_client->proxy_state];
 }

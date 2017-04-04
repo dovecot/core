@@ -10,7 +10,9 @@ enum pop3_proxy_state {
 	POP3_PROXY_STARTTLS,
 	POP3_PROXY_XCLIENT,
 	POP3_PROXY_LOGIN1,
-	POP3_PROXY_LOGIN2
+	POP3_PROXY_LOGIN2,
+
+	POP3_PROXY_STATE_COUNT
 };
 
 struct pop3_client {
@@ -19,6 +21,7 @@ struct pop3_client {
 	char *last_user;
 	char *apop_challenge;
 	unsigned int apop_server_pid, apop_connect_uid;
+	enum pop3_proxy_state proxy_state;
 	bool proxy_xclient;
 };
 

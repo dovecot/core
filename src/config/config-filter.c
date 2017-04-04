@@ -35,7 +35,7 @@ static bool
 config_filter_match_local_name(const struct config_filter *mask,
 			       const char *filter_local_name)
 {
-	/* Handle multiple names seperated by spaces in local_name
+	/* Handle multiple names separated by spaces in local_name
 	   * Ex: local_name "mail.domain.tld domain.tld mx.domain.tld" { ... } */
 	const char *const *local_name = t_strsplit_spaces(mask->local_name, " ");
 

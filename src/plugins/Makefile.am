@@ -45,4 +45,5 @@ SUBDIRS = \
 	$(FTS_LUCENE) \
 	$(FTS_SOLR) \
 	$(DICT_LDAP) \
-	fs-compress
+	fs-compress \
+	var-expand-crypt

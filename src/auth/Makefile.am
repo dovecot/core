@@ -34,6 +34,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-ntlm \
 	-I$(top_srcdir)/src/lib-otp \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-oauth2 \
 	-DAUTH_MODULE_DIR=\""$(auth_moduledir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
@@ -87,6 +88,7 @@ auth_SOURCES = \
 	db-checkpassword.c \
 	db-dict.c \
 	db-dict-cache-key.c \
+	db-oauth2.c \
 	db-sql.c \
 	db-passwd-file.c \
 	main.c \
@@ -106,12 +108,14 @@ auth_SOURCES = \
 	mech-apop.c \
 	mech-winbind.c \
 	mech-dovecot-token.c \
+	mech-oauth2.c \
 	passdb.c \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
 	passdb-cache.c \
 	passdb-checkpassword.c \
 	passdb-dict.c \
+	passdb-oauth2.c \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
 	passdb-pam.c \
@@ -161,6 +165,7 @@ headers = \
 	db-sql.h \
 	db-passwd-file.h \
 	db-checkpassword.h \
+	db-oauth2.h \
 	mech.h \
 	mycrypt.h \
 	passdb.h \

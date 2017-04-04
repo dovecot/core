@@ -1219,6 +1219,7 @@ int index_mail_init_stream(struct index_mail *mail,
 			_mail->box->vname, _mail->uid,
 			mail->mail.get_stream_reason);
 	}
+	_mail->mail_stream_opened = TRUE;
 
 	if (!data->initialized_wrapper_stream &&
 	    _mail->transaction->stats_track) {
@@ -1639,6 +1640,8 @@ static void index_mail_reset_data(struct index_mail *mail)
 	mail->mail.mail.has_nuls = FALSE;
 	mail->mail.mail.has_no_nuls = FALSE;
 	mail->mail.mail.saving = FALSE;
+	mail->mail.mail.mail_stream_opened = FALSE;
+	mail->mail.mail.mail_metadata_accessed = FALSE;
 }
 
 void index_mail_close(struct mail *_mail)

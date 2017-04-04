@@ -138,7 +138,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 	}
 
 	clock_end = clock();
-	gettimeofday(&tv_end, NULL);
+	(void)gettimeofday(&tv_end, NULL);
 
 	cputime = (double)(clock_end - clock_start) / CLOCKS_PER_SEC;
 	fprintf(stderr, "\n - Index time: %.2f CPU seconds, "

@@ -112,6 +112,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 		mail_set_aborted(mail);
 		return -1;
 	}
+	mail->mail_metadata_accessed = TRUE;
 
 	if (imail->data.access_part != 0 &&
 	    imail->data.stream == NULL) {
@@ -260,6 +261,12 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 				 fields[i].idx != psize_idx)
 				not_pop3_only = TRUE;
 		}
+	}
+
+	if (index_mail_get_vsize_extension(&mail->mail.mail) != NULL) {
+		/* having a vsize extension in index is the same as having
+		   vsize's caching decision YES */
+		vsize_dec = MAIL_CACHE_DECISION_YES;
 	}
 
 	if (!not_pop3_only) {

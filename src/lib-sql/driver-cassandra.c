@@ -38,6 +38,7 @@ enum cassandra_counter_type {
 	CASSANDRA_COUNTER_TYPE_QUERY_RECV_ERR_SERVER_TIMEOUT,
 	CASSANDRA_COUNTER_TYPE_QUERY_RECV_ERR_SERVER_UNAVAILABLE,
 	CASSANDRA_COUNTER_TYPE_QUERY_RECV_ERR_OTHER,
+	CASSANDRA_COUNTER_TYPE_QUERY_SLOW,
 
 	CASSANDRA_COUNTER_COUNT
 };
@@ -50,6 +51,7 @@ static const char *counter_names[CASSANDRA_COUNTER_COUNT] = {
 	"recv_err_server_timeout",
 	"recv_err_server_unavailable",
 	"recv_err_other",
+	"slow",
 };
 
 enum cassandra_query_type {
@@ -102,7 +104,7 @@ struct cassandra_db {
 	struct timeout *to_metrics;
 	uint64_t counters[CASSANDRA_COUNTER_COUNT];
 
-	struct timeval first_fallback_sent[CASSANDRA_QUERY_TYPE_COUNT];
+	struct timeval primary_query_last_sent[CASSANDRA_QUERY_TYPE_COUNT];
 	time_t last_fallback_warning[CASSANDRA_QUERY_TYPE_COUNT];
 	unsigned int fallback_failures[CASSANDRA_QUERY_TYPE_COUNT];
 
@@ -266,9 +268,16 @@ static void driver_cassandra_future_callback(CassFuture *future ATTR_UNUSED,
 	struct cassandra_callback *cb = context;
 
 	/* this isn't the main thread - communicate with main thread by
-	   writing the callback id to the pipe */
-	if (write_full(cb->db->fd_pipe[1], &cb->id, sizeof(cb->id)) < 0)
-		i_error("cassandra: write(pipe) failed: %m");
+	   writing the callback id to the pipe. note that we must not use
+	   almost any dovecot functions here because most of them are using
+	   data-stack, which isn't thread-safe. especially don't use
+	   i_error() here. */
+	if (write_full(cb->db->fd_pipe[1], &cb->id, sizeof(cb->id)) < 0) {
+		const char *str = t_strdup_printf(
+			"cassandra: write(pipe) failed: %s\n",
+			strerror(errno));
+		(void)write_full(STDERR_FILENO, str, strlen(str));
+	}
 }
 
 static void cassandra_callback_run(struct cassandra_callback *cb)
@@ -715,9 +724,10 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 			timeval_diff_usecs(&now, &result->finish_time),
 			result->error != NULL ? result->error : "success");
 
-		if (reply_usecs/1000 >= db->warn_timeout_msecs)
+		if (reply_usecs/1000 >= db->warn_timeout_msecs) {
+			db->counters[CASSANDRA_COUNTER_TYPE_QUERY_SLOW]++;
 			i_warning("%s", str);
-		else
+		} else
 			i_debug("%s", str);
 	}
 
@@ -775,8 +785,7 @@ static void query_resend_with_fallback(struct cassandra_result *result)
 		db->last_fallback_warning[result->query_type] = ioloop_time;
 	}
 	i_free_and_null(result->error);
-	if (db->fallback_failures[result->query_type]++ == 0)
-		db->first_fallback_sent[result->query_type] = ioloop_timeval;
+	db->fallback_failures[result->query_type]++;
 
 	result->consistency = result->fallback_consistency;
 	driver_cassandra_result_send_query(result);
@@ -822,7 +831,11 @@ static void query_callback(CassFuture *future, void *context)
 
 		msecs = timeval_diff_msecs(&ioloop_timeval, &result->start_time);
 		counters_inc_error(db, error);
+		/* Timeouts bring uncertainty whether the query succeeded or
+		   not. Also _SERVER_UNAVAILABLE could have actually written
+		   enough copies of the data for the query to succeed. */
 		result->api.error_type = error == CASS_ERROR_SERVER_WRITE_TIMEOUT ||
+			error == CASS_ERROR_SERVER_UNAVAILABLE ||
 			error == CASS_ERROR_LIB_REQUEST_TIMED_OUT ?
 			SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN :
 			SQL_RESULT_ERROR_TYPE_UNKNOWN;
@@ -830,7 +843,8 @@ static void query_callback(CassFuture *future, void *context)
 			result->query, (int)errsize, errmsg, msecs/1000, msecs%1000);
 
 		/* unavailable = cassandra server knows that there aren't
-		   enough nodes available.
+		   enough nodes available. "All hosts in current policy
+		   attempted and were either unavailable or failed"
 
 		   write timeout = cassandra server couldn't reach all the
 		   needed nodes. this may be because it hasn't yet detected
@@ -887,14 +901,27 @@ driver_cassandra_want_fallback_query(struct cassandra_result *result)
 
 	if (failure_count == 0)
 		return FALSE;
-	tv = db->first_fallback_sent[result->query_type];
+	/* double the retries every time. */
 	for (i = 1; i < failure_count; i++) {
 		msecs *= 2;
 		if (msecs >= CASSANDRA_FALLBACK_MAX_RETRY_MSECS) {
-			msecs = CASSANDRA_FALLBACK_FIRST_RETRY_MSECS;
+			msecs = CASSANDRA_FALLBACK_MAX_RETRY_MSECS;
 			break;
 		}
 	}
+	/* If last primary query sent timestamp + msecs is older than current
+	   time, we need to retry the primary query. Note that this practically
+	   prevents multiple primary queries from being attempted
+	   simultaneously, because the caller updates primary_query_last_sent
+	   immediately when returning.
+
+	   The only time when multiple primary queries can be running in
+	   parallel is when the earlier query is being slow and hasn't finished
+	   early enough. This could even be a wanted feature, since while the
+	   first query might have to wait for a timeout, Cassandra could have
+	   been fixed in the meantime and the second query finishes
+	   successfully. */
+	tv = db->primary_query_last_sent[result->query_type];
 	timeval_add_msecs(&tv, msecs);
 	return timeval_cmp(&ioloop_timeval, &tv) < 0;
 }
@@ -931,6 +958,8 @@ static int driver_cassandra_send_query(struct cassandra_result *result)
 
 	if (driver_cassandra_want_fallback_query(result))
 		result->consistency = result->fallback_consistency;
+	else
+		db->primary_query_last_sent[result->query_type] = ioloop_timeval;
 
 	driver_cassandra_result_send_query(result);
 	result->query_sent = TRUE;

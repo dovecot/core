@@ -196,7 +196,7 @@ lda_raw_mail_open(struct mail_deliver_context *ctx, const char *path)
 	}
 	if (ret < 0) {
 		i_fatal("Can't open delivery mail as raw: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 	}
 	mail_user_unref(&raw_mail_user);
 
@@ -497,7 +497,7 @@ int main(int argc, char *argv[])
 	mail_user_unref(&ctx.dest_user);
 	mail_deliver_session_deinit(&ctx.session);
 
-	mail_storage_service_user_free(&service_user);
+	mail_storage_service_user_unref(&service_user);
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
         return EX_OK;

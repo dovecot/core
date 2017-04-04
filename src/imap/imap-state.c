@@ -174,6 +174,7 @@ imap_state_export_mailbox_mails(buffer_t *dest, struct mailbox *box,
 	mail_search_build_add_all(search_args);
 
 	trans = mailbox_transaction_begin(box, 0);
+	mailbox_transaction_set_reason(trans, "unhibernate");
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -184,7 +185,7 @@ imap_state_export_mailbox_mails(buffer_t *dest, struct mailbox *box,
 			seq_range_array_add(&recent_uids, mail->uid);
 	}
 	if (mailbox_search_deinit(&search_ctx) < 0) {
-		*error_r = mailbox_get_last_error(box, NULL);
+		*error_r = mailbox_get_last_internal_error(box, NULL);
 		ret = -1;
 	}
 	(void)mailbox_transaction_commit(&trans);
@@ -224,7 +225,7 @@ imap_state_export_mailbox(buffer_t *dest, struct client *client,
 	}
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		*error_r = mailbox_get_last_error(box, &mail_error);
+		*error_r = mailbox_get_last_internal_error(box, &mail_error);
 		/* if the selected mailbox can't have a GUID, fail silently */
 		return mail_error == MAIL_ERROR_NOTPOSSIBLE ? 0 : -1;
 	}
@@ -371,6 +372,7 @@ import_send_expunges(struct client *client,
 	mail_search_build_add_all(search_args);
 
 	trans = mailbox_transaction_begin(client->mailbox, 0);
+	mailbox_transaction_set_reason(trans, "unhibernate");
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -399,7 +401,7 @@ import_send_expunges(struct client *client,
 	}
 
 	if (mailbox_search_deinit(&search_ctx) < 0) {
-		*error_r = mailbox_get_last_error(client->mailbox, NULL);
+		*error_r = mailbox_get_last_internal_error(client->mailbox, NULL);
 		ret = -1;
 	} else if (seq != state->messages) {
 		*error_r = t_strdup_printf("Message count mismatch after "
@@ -467,7 +469,7 @@ import_send_flag_changes(struct client *client,
 	imap_search_add_changed_since(search_args, state->highest_modseq);
 
 	pool = pool_alloconly_create("imap state flag changes", 1024);
-	fetch_ctx = imap_fetch_alloc(client, pool);
+	fetch_ctx = imap_fetch_alloc(client, pool, "unhibernate");
 	pool_unref(&pool);
 
 	imap_fetch_init_nofail_handler(fetch_ctx, imap_fetch_flags_init);
@@ -573,9 +575,10 @@ import_state_mailbox_open(struct client *client,
 	else
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	box = mailbox_alloc(ns->list, state->vname, flags);
+	mailbox_set_reason(box, "unhibernate");
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("Couldn't open mailbox: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return -1;
 	}
@@ -584,13 +587,13 @@ import_state_mailbox_open(struct client *client,
 		ret = mailbox_enable(box, client->enabled_features);
 	if (ret < 0 || mailbox_sync(box, 0) < 0) {
 		*error_r = t_strdup_printf("Couldn't sync mailbox: %s",
-			mailbox_get_last_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return -1;
 	}
 	/* verify that this still looks like the same mailbox */
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		*error_r = mailbox_get_last_error(box, NULL);
+		*error_r = mailbox_get_last_internal_error(box, NULL);
 		mailbox_free(&box);
 		return -1;
 	}
@@ -698,8 +701,10 @@ import_state_mailbox(struct client *client, const unsigned char *data,
 		i_assert(*error_r != NULL);
 		return ret;
 	}
-	if (import_state_mailbox_open(client, &state, error_r) < 0)
+	if (import_state_mailbox_open(client, &state, error_r) < 0) {
+		*error_r = t_strdup_printf("Mailbox %s: %s", state.vname, *error_r);
 		return -1;
+	}
 	return ret;
 }
 

@@ -30,6 +30,7 @@
 struct lazy_expunge_mail {
 	union mail_module_context module_ctx;
 	bool moving;
+	bool recursing;
 };
 
 struct lazy_expunge_mail_user {
@@ -118,12 +119,13 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 
 	box = mailbox_alloc(list, name, MAILBOX_FLAG_NO_INDEX_FILES |
 			    MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	mailbox_set_reason(box, "lazy_expunge");
 	if (mailbox_open(box) == 0) {
 		*error_r = NULL;
 		return box;
 	}
 
-	*error_r = mailbox_get_last_error(box, &error);
+	*error_r = mailbox_get_last_internal_error(box, &error);
 	if (error != MAIL_ERROR_NOTFOUND) {
 		*error_r = t_strdup_printf("Failed to open mailbox %s: %s",
 					   name, *error_r);
@@ -135,13 +137,13 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 	if (mailbox_create(box, NULL, FALSE) < 0 &&
 	    mailbox_get_last_mail_error(box) != MAIL_ERROR_EXISTS) {
 		*error_r = t_strdup_printf("Failed to create mailbox %s: %s", name,
-					   mailbox_get_last_error(box, NULL));
+					   mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
 	}
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("Failed to open created mailbox %s: %s", name,
-					   mailbox_get_last_error(box, NULL));
+					   mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return NULL;
 	}
@@ -182,7 +184,7 @@ static int lazy_expunge_mail_is_last_instace(struct mail *_mail)
 	enum mail_error error;
 
 	if (mail_get_special(_mail, MAIL_FETCH_REFCOUNT, &value) < 0) {
-		errstr = mailbox_get_last_error(_mail->box, &error);
+		errstr = mailbox_get_last_internal_error(_mail->box, &error);
 		if (error == MAIL_ERROR_EXPUNGED) {
 			/* already expunged - just ignore it */
 			return 0;
@@ -207,8 +209,13 @@ static int lazy_expunge_mail_is_last_instace(struct mail *_mail)
 		   see the same refcount, so we need to adjust the refcount
 		   by tracking the expunged message GUIDs. */
 		if (mail_get_special(_mail, MAIL_FETCH_GUID, &value) < 0) {
+			errstr = mailbox_get_last_internal_error(_mail->box, &error);
+			if (error == MAIL_ERROR_EXPUNGED) {
+				/* already expunged - just ignore it */
+				return 0;
+			}
 			mail_storage_set_critical(_mail->box->storage,
-				"lazy_expunge: Couldn't lookup message's GUID");
+				"lazy_expunge: Couldn't lookup message's GUID: %s", errstr);
 			return -1;
 		}
 		if (*value == '\0') {
@@ -283,6 +290,10 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 
 	if (lt->delayed_error != MAIL_ERROR_NONE)
 		return;
+	if (mmail->recursing) {
+		mmail->module_ctx.super.expunge(_mail);
+		return;
+	}
 
 	/* Clear this in case the mail is used for non-move later on. */
 	mmail->moving = FALSE;
@@ -339,9 +350,11 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 	save_ctx = mailbox_save_alloc(lt->dest_trans);
 	mailbox_save_copy_flags(save_ctx, _mail);
 	save_ctx->data.flags &= ~MAIL_DELETED;
-	if (mailbox_copy(&save_ctx, _mail) < 0 && !_mail->expunged)
+
+	mmail->recursing = TRUE;
+	if (mailbox_move(&save_ctx, _mail) < 0 && !_mail->expunged)
 		lazy_expunge_set_error(lt, lt->dest_box->storage);
-	mmail->module_ctx.super.expunge(_mail);
+	mmail->recursing = FALSE;
 }
 
 static int lazy_expunge_copy(struct mail_save_context *ctx, struct mail *_mail)

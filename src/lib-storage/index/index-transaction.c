@@ -17,6 +17,7 @@ static void index_transaction_free(struct mailbox_transaction_context *t)
 	if (array_is_created(&t->pvt_saves))
 		array_free(&t->pvt_saves);
 	array_free(&t->module_contexts);
+	i_free(t->reason);
 	i_free(t);
 }
 
@@ -102,6 +103,11 @@ index_transaction_index_rollback(struct mail_index_transaction *index_trans)
 {
 	struct mailbox_transaction_context *t =
 		MAIL_STORAGE_CONTEXT(index_trans);
+
+	if (t->attr_pvt_trans != NULL)
+		dict_transaction_rollback(&t->attr_pvt_trans);
+	if (t->attr_shared_trans != NULL)
+		dict_transaction_rollback(&t->attr_shared_trans);
 
 	if (t->save_ctx != NULL) {
 		mailbox_save_context_deinit(t->save_ctx);

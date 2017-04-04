@@ -363,10 +363,21 @@ ARRAY_DEFINE_TYPE(mailbox_expunge_rec, struct mailbox_expunge_rec);
 enum mail_lookup_abort {
 	/* Perform everything no matter what it takes */
 	MAIL_LOOKUP_ABORT_NEVER = 0,
-	/* Abort if the operation would require reading message header/body */
+	/* Abort if the operation would require reading message header/body or
+	   otherwise opening the mail file (e.g. with dbox metadata is read by
+	   opening and reading the file). This still allows somewhat fast
+	   operations to be performed, such as stat()ing a file. */
 	MAIL_LOOKUP_ABORT_READ_MAIL,
 	/* Abort if the operation can't be done fully using cache file */
 	MAIL_LOOKUP_ABORT_NOT_IN_CACHE
+};
+
+enum mail_access_type {
+	MAIL_ACCESS_TYPE_DEFAULT = 0,
+	/* Mail is being used for searching */
+	MAIL_ACCESS_TYPE_SEARCH,
+	/* Mail is being used for sorting results */
+	MAIL_ACCESS_TYPE_SORT,
 };
 
 struct mail {
@@ -379,6 +390,18 @@ struct mail {
 	bool saving:1; /* This mail is still being saved */
 	bool has_nuls:1; /* message data is known to contain NULs */
 	bool has_no_nuls:1; /* -''- known to not contain NULs */
+
+	/* Mail's header/body stream was opened within this request.
+	   If lookup_abort!=MAIL_LOOKUP_ABORT_NEVER, this can't become TRUE. */
+	bool mail_stream_opened:1;
+	/* Mail's fast metadata was accessed within this request, e.g. the mail
+	   file was stat()ed. If mail_stream_opened==TRUE, this value isn't
+	   accurate anymore, because some backends may always set this when
+	   stream is opened and some don't. If lookup_abort is
+	   MAIL_LOOKUP_ABORT_NOT_IN_CACHE, this can't become TRUE. */
+	bool mail_metadata_accessed:1;
+
+	enum mail_access_type access_type;
 
 	/* If the lookup is aborted, error is set to MAIL_ERROR_NOTPOSSIBLE */
 	enum mail_lookup_abort lookup_abort;
@@ -457,6 +480,14 @@ mailbox_get_last_error(struct mailbox *box, enum mail_error *error_r)
 /* Wrapper for mail_storage_get_last_error(); */
 enum mail_error mailbox_get_last_mail_error(struct mailbox *box);
 
+const char * ATTR_NOWARN_UNUSED_RESULT
+mail_storage_get_last_internal_error(struct mail_storage *storage,
+				     enum mail_error *error_r) ATTR_NULL(2);
+/* Wrapper for mail_storage_get_last_internal_error(); */
+const char * ATTR_NOWARN_UNUSED_RESULT
+mailbox_get_last_internal_error(struct mailbox *box,
+				enum mail_error *error_r) ATTR_NULL(2);
+
 /* Save the last error until it's popped. This is useful for cases where the
    storage has already failed, but the cleanup code path changes the error to
    something else unwanted. */
@@ -475,6 +506,9 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 				   const guid_128_t guid,
 				   enum mailbox_flags flags);
+/* Set a human-readable reason for why this mailbox is being accessed.
+   This is used for logging purposes. */
+void mailbox_set_reason(struct mailbox *box, const char *reason);
 /* Get mailbox existence state. If auto_boxes=FALSE, return
    MAILBOX_EXISTENCE_NONE for autocreated mailboxes that haven't been
    physically created yet */
@@ -613,6 +647,10 @@ int mailbox_transaction_commit_get_changes(
 	struct mailbox_transaction_context **t,
 	struct mail_transaction_commit_changes *changes_r);
 void mailbox_transaction_rollback(struct mailbox_transaction_context **t);
+/* Set a reason for why the transaction is created. This is used for
+   logging purposes. */
+void mailbox_transaction_set_reason(struct mailbox_transaction_context *t,
+				    const char *reason);
 /* Return the number of active transactions for the mailbox. */
 unsigned int mailbox_transaction_get_count(const struct mailbox *box) ATTR_PURE;
 /* When committing transaction, drop flag/keyword updates for messages whose

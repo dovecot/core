@@ -128,6 +128,9 @@ struct mail_storage {
 	 * uniqueness checking (via strcmp) and never used as a path. */
 	const char *unique_root_dir;
 
+	/* Last error set in mail_storage_set_critical(). */
+	char *last_internal_error;
+
 	char *error_string;
 	enum mail_error error;
 	ARRAY(struct mail_storage_error) error_stack;
@@ -152,6 +155,7 @@ struct mail_storage {
 
 	/* Failed to create shared attribute dict, don't try again */
 	bool shared_attr_dict_failed:1;
+	bool last_error_is_internal:1;
 };
 
 struct mail_attachment_part {
@@ -343,6 +347,8 @@ struct mailbox {
 	/* Filled lazily when mailbox is opened, use mailbox_get_index_path()
 	   to access it */
 	const char *_index_path;
+	/* Reason for why mailbox is being accessed or NULL if unknown. */
+	const char *reason;
 
 	/* default vfuncs for new struct mails. */
 	const struct mail_vfuncs *mail_vfuncs;
@@ -396,6 +402,8 @@ struct mailbox {
 	bool creating:1;
 	/* Mailbox is being deleted */
 	bool deleting:1;
+	/* Mailbox is being undeleted */
+	bool mailbox_undeleting:1;
 	/* Don't use MAIL_INDEX_SYNC_FLAG_DELETING_INDEX for sync flag */
 	bool delete_sync_check:1;
 	/* Delete mailbox only if it's empty */
@@ -515,6 +523,8 @@ struct mail_private {
 	ARRAY(union mail_module_context *) module_contexts;
 
 	const char *get_stream_reason;
+
+	bool autoexpunged:1;
 };
 
 struct mailbox_list_context {
@@ -549,6 +559,7 @@ struct mail_save_private_changes {
 struct mailbox_transaction_context {
 	struct mailbox *box;
 	enum mailbox_transaction_flags flags;
+	char *reason;
 
 	union mail_index_transaction_module_context module_ctx;
 	struct mail_index_transaction_vfuncs super;
@@ -714,6 +725,9 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 				  struct mailbox_list *list);
 void mail_storage_copy_error(struct mail_storage *dest,
 			     struct mail_storage *src);
+
+/* Indicate mail being expunged by autoexpunge */
+void mail_autoexpunge(struct mail *mail);
 
 /* Returns TRUE if everything should already be in memory after this call
    or if prefetching is not supported, i.e. the caller shouldn't do more

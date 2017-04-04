@@ -66,7 +66,7 @@ void test_iostream_proxy_simple(void)
 
 	test_assert(proxy != NULL);
 	test_assert(o_stream_send_str(left_out, "hello, world") > 0);
-	o_stream_flush(left_out);
+	test_assert(o_stream_flush(left_out) > 0);
 	o_stream_unref(&left_out);
 	test_assert(shutdown(sfdl[0], SHUT_WR) == 0);
 
@@ -78,7 +78,7 @@ void test_iostream_proxy_simple(void)
 	i_stream_skip(right_in, bytes);
 
 	test_assert(o_stream_send_str(right_out, "hello, world") > 0);
-	o_stream_flush(right_out);
+	test_assert(o_stream_flush(right_out) > 0);
 	o_stream_unref(&right_out);
 	test_assert(shutdown(sfdr[0], SHUT_WR) == 0);
 

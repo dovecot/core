@@ -260,7 +260,7 @@ static void client_destroy(struct client *client)
 		net_disconnect(client->fd_ctrl);
 
 	if (client->service_user != NULL)
-		mail_storage_service_user_free(&client->service_user);
+		mail_storage_service_user_unref(&client->service_user);
 	i_free(client->access_user);
 	array_foreach_modifiable(&client->access_apps, app)
 		i_free(*app);

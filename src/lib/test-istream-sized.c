@@ -1,8 +1,7 @@
 /* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
-#include "str.h"
-#include "istream-private.h"
+#include "istream.h"
 #include "istream-sized.h"
 
 static const struct {
@@ -54,6 +53,45 @@ run_test(const char *sized_input, uoff_t sized_size, int stream_errno)
 	i_stream_unref(&input_data);
 }
 
+static void test_istream_sized_full(bool exact)
+{
+	const unsigned char test_data[10] = "1234567890";
+	struct istream *test_input, *input;
+	unsigned int i, j;
+	int expected_errno;
+
+	for (i = 1; i < sizeof(test_data)*2; i++) {
+		test_input = test_istream_create_data(test_data, sizeof(test_data));
+		test_istream_set_allow_eof(test_input, FALSE);
+		test_istream_set_size(test_input, 0);
+
+		if (exact)
+			input = i_stream_create_sized(test_input, i);
+		else
+			input = i_stream_create_min_sized(test_input, i);
+		for (j = 1; j <= I_MIN(i, sizeof(test_data)); j++) {
+			test_assert_idx(i_stream_read(input) == 0, j);
+			test_istream_set_size(test_input, j);
+			test_assert_idx(i_stream_read(input) == 1, j);
+		}
+		test_assert_idx(i_stream_read(input) == 0, i);
+		if (j <= sizeof(test_data))
+			test_istream_set_size(test_input, j);
+		else
+			test_istream_set_allow_eof(test_input, TRUE);
+		test_assert_idx(i_stream_read(input) == -1 && input->eof, i);
+		if (i > sizeof(test_data))
+			expected_errno = EPIPE;
+		else if (i < sizeof(test_data) && exact)
+			expected_errno = EINVAL;
+		else
+			expected_errno = 0;
+		test_assert_idx(input->stream_errno == expected_errno, i);
+		i_stream_unref(&input);
+		i_stream_unref(&test_input);
+	}
+}
+
 void test_istream_sized(void)
 {
 	unsigned int i;
@@ -63,4 +101,11 @@ void test_istream_sized(void)
 		run_test(tests[i].input, tests[i].size, tests[i].stream_errno);
 		test_end();
 	}
+	test_begin("istream sized");
+	test_istream_sized_full(TRUE);
+	test_end();
+
+	test_begin("istream sized min");
+	test_istream_sized_full(FALSE);
+	test_end();
 }

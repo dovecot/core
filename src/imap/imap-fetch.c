@@ -87,7 +87,7 @@ int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 	const char *str;
 
 	i_zero(&init_ctx);
-	init_ctx.fetch_ctx = imap_fetch_alloc(client, pool);
+	init_ctx.fetch_ctx = imap_fetch_alloc(client, pool, "NOTIFY");
 	init_ctx.pool = pool;
 	init_ctx.args = list;
 
@@ -111,13 +111,14 @@ int imap_fetch_att_list_parse(struct client *client, pool_t pool,
 }
 
 struct imap_fetch_context *
-imap_fetch_alloc(struct client *client, pool_t pool)
+imap_fetch_alloc(struct client *client, pool_t pool, const char *reason)
 {
 	struct imap_fetch_context *ctx;
 
 	ctx = p_new(pool, struct imap_fetch_context, 1);
 	ctx->client = client;
 	ctx->ctx_pool = pool;
+	ctx->reason = p_strdup(pool, reason);
 	pool_ref(pool);
 
 	p_array_init(&ctx->all_headers, pool, 64);
@@ -231,6 +232,7 @@ get_expunges_fallback(struct mailbox *box,
 	array_append_array(&search_args->args->value.seqset, uid_filter_arr);
 
 	trans = mailbox_transaction_begin(box, 0);
+	mailbox_transaction_set_reason(trans, "FETCH send VANISHED");
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -371,6 +373,7 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 	ctx->state.trans = mailbox_transaction_begin(box,
 		MAILBOX_TRANSACTION_FLAG_HIDE |
 		MAILBOX_TRANSACTION_FLAG_REFRESH);
+	mailbox_transaction_set_reason(ctx->state.trans, ctx->reason);
 
 	mail_search_args_init(search_args, box, TRUE,
 			      &ctx->client->search_saved_uidset);
@@ -379,7 +382,6 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 				    ctx->fetch_data, wanted_headers);
 	ctx->state.cur_str = str_new(default_pool, 8192);
 	ctx->state.fetching = TRUE;
-	ctx->state.line_finished = TRUE;
 
 	if (wanted_headers != NULL)
 		mailbox_header_lookup_unref(&wanted_headers);
@@ -402,7 +404,7 @@ static int imap_fetch_flush_buffer(struct imap_fetch_context *ctx)
 		len--;
 		ctx->state.cur_first = FALSE;
 	}
-	ctx->state.cur_flushed = TRUE;
+	ctx->state.line_partial = TRUE;
 
 	if (o_stream_send(ctx->client->output, data, len) < 0)
 		return -1;
@@ -429,6 +431,19 @@ static int imap_fetch_send_nil_reply(struct imap_fetch_context *ctx)
 	return 0;
 }
 
+static void imap_fetch_fix_empty_reply(struct imap_fetch_context *ctx)
+{
+	if (ctx->state.line_partial && ctx->state.cur_first) {
+		/* we've flushed an empty "FETCH (" reply so
+		   far. we can't take it back, but RFC 3501
+		   doesn't allow returning empty "FETCH ()"
+		   either, so just add the current message's
+		   UID there. */
+		str_printfa(ctx->state.cur_str, "UID %u ",
+			    ctx->state.cur_mail->uid);
+	}
+}
+
 static bool imap_fetch_cur_failed(struct imap_fetch_context *ctx)
 {
 	ctx->failures = TRUE;
@@ -439,6 +454,12 @@ static bool imap_fetch_cur_failed(struct imap_fetch_context *ctx)
 	if (!array_is_created(&ctx->fetch_failed_uids))
 		p_array_init(&ctx->fetch_failed_uids, ctx->ctx_pool, 8);
 	seq_range_array_add(&ctx->fetch_failed_uids, ctx->state.cur_mail->uid);
+
+	if (ctx->error == MAIL_ERROR_NONE) {
+		/* preserve the first error, since it may change in storage. */
+		ctx->errstr = p_strdup(ctx->ctx_pool,
+			mailbox_get_last_error(ctx->state.cur_mail->box, &ctx->error));
+	}
 	return TRUE;
 }
 
@@ -496,8 +517,8 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 			str_printfa(state->cur_str, "* %u FETCH (",
 				    state->cur_mail->seq);
 			state->cur_first = TRUE;
-			state->cur_flushed = FALSE;
-			state->line_finished = FALSE;
+			state->cur_str_prefix_size = str_len(state->cur_str);
+			i_assert(!state->line_partial);
 		}
 
 		for (; state->cur_handler < count; state->cur_handler++) {
@@ -505,7 +526,6 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 			    !handlers[state->cur_handler].buffered) {
 				/* first non-buffered handler.
 				   flush the buffer. */
-				state->line_partial = TRUE;
 				if (imap_fetch_flush_buffer(ctx) < 0)
 					return -1;
 			}
@@ -541,27 +561,22 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 				i_stream_unref(&state->cur_input);
 		}
 
-		if (state->cur_first) {
-			/* Writing FETCH () violates IMAP RFC. It's a bit
-			   troublesome to delay flushing of "FETCH (" with
-			   non-buffered data, so we'll just fix this by giving
-			   UID as the response. */
-			str_printfa(state->cur_str, "UID %u",
-				    state->cur_mail->uid);
-		}
-		if (str_len(state->cur_str) > 0) {
+		imap_fetch_fix_empty_reply(ctx);
+		if (str_len(state->cur_str) > 0 &&
+		    (state->line_partial ||
+		     str_len(state->cur_str) != state->cur_str_prefix_size)) {
 			/* no non-buffered handlers */
 			if (imap_fetch_flush_buffer(ctx) < 0)
 				return -1;
 		}
 
-		state->line_finished = TRUE;
-		state->line_partial = FALSE;
-		o_stream_nsend(client->output, ")\r\n", 3);
+		if (state->line_partial)
+			o_stream_nsend(client->output, ")\r\n", 3);
 		client->last_output = ioloop_time;
 
 		state->cur_mail = NULL;
 		state->cur_handler = 0;
+		state->line_partial = FALSE;
 	}
 
 	return ctx->failures ? -1 : 1;
@@ -599,7 +614,9 @@ int imap_fetch_more_no_lock_update(struct imap_fetch_context *ctx)
 	ret = imap_fetch_more_int(ctx, FALSE);
 	if (ret < 0) {
 		ctx->state.failed = TRUE;
-		if (!ctx->state.line_finished) {
+		if (ctx->state.line_partial) {
+			/* we can't send any more replies to client, because
+			   the FETCH reply wasn't fully sent. */
 			client_disconnect(ctx->client,
 				"NOTIFY failed in the middle of FETCH reply");
 		}
@@ -613,17 +630,8 @@ int imap_fetch_end(struct imap_fetch_context *ctx)
 
 	if (ctx->state.fetching) {
 		ctx->state.fetching = FALSE;
-		if (!state->line_finished &&
-		    (!state->cur_first || state->cur_flushed)) {
-			if (state->cur_first) {
-				/* we've flushed an empty "FETCH (" reply so
-				   far. we can't take it back, but RFC 3501
-				   doesn't allow returning empty "FETCH ()"
-				   either, so just add the current message's
-				   UID there. */
-				str_printfa(ctx->state.cur_str, "UID %u ",
-					    state->cur_mail->uid);
-			}
+		if (state->line_partial) {
+			imap_fetch_fix_empty_reply(ctx);
 			if (imap_fetch_flush_buffer(ctx) < 0)
 				state->failed = TRUE;
 			if (o_stream_send(ctx->client->output, ")\r\n", 3) < 0)

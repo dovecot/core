@@ -30,7 +30,7 @@ The imap-urlauth service thus consists of three separate stages:
   a worker, the imap-urlauth service establishes a control connection to the
   imap-urlauth-worker service. In the handshake phase of the control protocol,
   the connection of the client is passed to the worker. Once the worker
-  finishes, a new worker is started and the client connection is tranfered to
+  finishes, a new worker is started and the client connection is transfered to
   it, unless the client is disconnected.
 
 - imap-urlauth-worker:

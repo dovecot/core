@@ -28,13 +28,14 @@ static void client_send_sendalive_if_needed(struct client *client)
 	}
 }
 
-static int fetch_and_copy(struct client *client, bool move,
+static int fetch_and_copy(struct client_command_context *cmd, bool move,
 			  struct mailbox_transaction_context *t,
 			  struct mailbox_transaction_context **src_trans_r,
 			  struct mail_search_args *search_args,
 			  const char **src_uidset_r,
 			  unsigned int *copy_count_r)
 {
+	struct client *client = cmd->client;
 	struct mail_search_context *search_ctx;
         struct mailbox_transaction_context *src_trans;
 	struct mail_save_context *save_ctx;
@@ -48,6 +49,7 @@ static int fetch_and_copy(struct client *client, bool move,
 	msgset_generator_init(&srcset_ctx, src_uidset);
 
 	src_trans = mailbox_transaction_begin(client->mailbox, 0);
+	imap_transaction_set_cmd_reason(src_trans, cmd);
 	search_ctx = mailbox_search_init(src_trans, search_args, NULL, 0, NULL);
 
 	ret = 1;
@@ -133,7 +135,8 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 	t = mailbox_transaction_begin(destbox,
 				      MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 				      MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
-	ret = fetch_and_copy(client, move, t, &src_trans, search_args,
+	imap_transaction_set_cmd_reason(t, cmd);
+	ret = fetch_and_copy(cmd, move, t, &src_trans, search_args,
 			     &src_uidset, &copy_count);
 	mail_search_args_unref(&search_args);
 

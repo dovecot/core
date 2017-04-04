@@ -53,6 +53,7 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 		/* no indexing */
 		ctx->backend_ctx = ilist->module_ctx.super.
 			iter_init(list, patterns, flags);
+		mailbox_list_iter_init_autocreate(ctx->backend_ctx);
 	} else {
 		/* listing mailboxes from index */
 		ctx->info.ns = list->ns;
@@ -183,7 +184,7 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 		}
 		mailbox_list_index_update_next(ctx, follow_children);
 	}
-	return NULL;
+	return mailbox_list_iter_default_next(_ctx);
 }
 
 int mailbox_list_index_iter_deinit(struct mailbox_list_iterate_context *_ctx)

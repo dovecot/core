@@ -22,9 +22,10 @@ struct quota_settings {
 	pool_t pool;
 
 	ARRAY(struct quota_root_settings *) root_sets;
-	int (*test_alloc)(struct quota_transaction_context *ctx,
-			  uoff_t size, bool *too_large_r);
+	enum quota_alloc_result (*test_alloc)(
+		struct quota_transaction_context *ctx, uoff_t size);
 
+	uoff_t max_mail_size;
 	const char *quota_exceeded_msg;
 	bool debug:1;
 	bool initialized:1;
@@ -206,5 +207,8 @@ bool quota_warning_match(const struct quota_warning_rule *w,
 			 const char **reason_r);
 bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t size);
 int quota_transaction_set_limits(struct quota_transaction_context *ctx);
+
+void quota_backend_register(const struct quota_backend *backend);
+void quota_backend_unregister(const struct quota_backend *backend);
 
 #endif

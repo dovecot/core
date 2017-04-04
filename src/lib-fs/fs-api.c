@@ -238,6 +238,8 @@ struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags)
 	file->flags = mode_flags & ~FS_OPEN_MODE_MASK;
 	fs->files_open_count++;
 	DLLIST_PREPEND(&fs->files, file);
+
+	fs_set_metadata(file, FS_METADATA_ORIG_PATH, path);
 	return file;
 }
 
@@ -321,14 +323,30 @@ void fs_metadata_init_or_clear(struct fs_file *file)
 	} T_END;
 }
 
+static struct fs_metadata *
+fs_metadata_find_md(const ARRAY_TYPE(fs_metadata) *metadata,
+		    const char *key)
+{
+	struct fs_metadata *md;
+
+	array_foreach_modifiable(metadata, md) {
+		if (strcmp(md->key, key) == 0)
+			return md;
+	}
+	return NULL;
+}
+
 void fs_default_set_metadata(struct fs_file *file,
 			     const char *key, const char *value)
 {
 	struct fs_metadata *metadata;
 
 	fs_metadata_init(file);
-	metadata = array_append_space(&file->metadata);
-	metadata->key = p_strdup(file->metadata_pool, key);
+	metadata = fs_metadata_find_md(&file->metadata, key);
+	if (metadata == NULL) {
+		metadata = array_append_space(&file->metadata);
+		metadata->key = p_strdup(file->metadata_pool, key);
+	}
 	metadata->value = p_strdup(file->metadata_pool, value);
 }
 
@@ -340,11 +358,8 @@ const char *fs_metadata_find(const ARRAY_TYPE(fs_metadata) *metadata,
 	if (!array_is_created(metadata))
 		return NULL;
 
-	array_foreach(metadata, md) {
-		if (strcmp(md->key, key) == 0)
-			return md->value;
-	}
-	return NULL;
+	md = fs_metadata_find_md(metadata, key);
+	return md == NULL ? NULL : md->value;
 }
 
 void fs_set_metadata(struct fs_file *file, const char *key, const char *value)

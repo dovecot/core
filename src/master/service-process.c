@@ -314,7 +314,17 @@ struct service_process *service_process_create(struct service *service)
 	}
 
 	if (pid < 0) {
-		service_error(service, "fork() failed: %m");
+		int fork_errno = errno;
+		rlim_t limit;
+		const char *limit_str = "";
+
+		if (fork_errno == EAGAIN &&
+		    restrict_get_process_limit(&limit) == 0) {
+			limit_str = t_strdup_printf(" (ulimit -u %llu reached?)",
+						    (unsigned long long)limit);
+		}
+		errno = fork_errno;
+		service_error(service, "fork() failed: %m%s", limit_str);
 		return NULL;
 	}
 	if (pid == 0) {

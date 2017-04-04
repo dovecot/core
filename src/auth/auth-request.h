@@ -74,7 +74,7 @@ struct auth_request {
 	time_t delay_until;
 	pid_t session_pid;
 
-	const char *service, *mech_name, *session_id, *local_name;
+	const char *service, *mech_name, *session_id, *local_name, *client_id;
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
 	in_port_t local_port, remote_port, real_local_port, real_remote_port;
 
@@ -130,6 +130,9 @@ struct auth_request {
 	bool in_delayed_failure_queue:1;
 	bool removed_from_handler:1;
 	bool snapshot_have_userdb_prefetch_set:1;
+	/* username was changed by this passdb/userdb lookup. Used by
+	   auth-workers to determine whether to send back a changed username. */
+	bool user_changed_by_lookup:1;
 	/* each passdb lookup can update the current success-status using the
 	   result_* rules. the authentication succeeds only if this is TRUE
 	   at the end. mechanisms that don't require passdb, but do a passdb

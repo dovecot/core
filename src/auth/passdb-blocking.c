@@ -31,14 +31,16 @@ auth_worker_reply_parse(struct auth_request *request, const char *reply)
 
 	if (strcmp(*args, "OK") == 0 && args[1] != NULL && args[2] != NULL) {
 		/* OK \t user \t password [\t extra] */
-		auth_request_set_field(request, "user", args[1], NULL);
+		if (args[1][0] != '\0')
+			auth_request_set_field(request, "user", args[1], NULL);
 		auth_worker_reply_parse_args(request, args + 2);
 		return PASSDB_RESULT_OK;
 	}
 
 	if (strcmp(*args, "NEXT") == 0 && args[1] != NULL) {
 		/* NEXT \t user [\t extra] */
-		auth_request_set_field(request, "user", args[1], NULL);
+		if (args[1][0] != '\0')
+			auth_request_set_field(request, "user", args[1], NULL);
 		auth_worker_reply_parse_args(request, args + 1);
 		return PASSDB_RESULT_NEXT;
 	}

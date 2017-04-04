@@ -1,6 +1,10 @@
 /* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
+#include "strescape.h"
+#include "net.h"
+#include "write-full.h"
 #include "file-create-locked.h"
 #include "mail-search-build.h"
 #include "index-storage.h"
@@ -33,6 +37,9 @@
 #define VSIZE_LOCK_SUFFIX ".vsize.lock"
 #define VSIZE_UPDATE_MAX_LOCK_SECS 10
 
+#define INDEXER_SOCKET_NAME "indexer"
+#define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
+
 struct mailbox_vsize_update {
 	struct mailbox *box;
 	struct mail_index_view *view;
@@ -43,6 +50,7 @@ struct mailbox_vsize_update {
 	struct file_lock *lock;
 	bool rebuild;
 	bool written;
+	bool finish_in_background;
 };
 
 static void vsize_header_refresh(struct mailbox_vsize_update *update)
@@ -192,6 +200,36 @@ index_mailbox_vsize_update_write(struct mailbox_vsize_update *update)
 	(void)mail_index_transaction_commit(&trans);
 }
 
+static void index_mailbox_vsize_notify_indexer(struct mailbox *box)
+{
+	string_t *str = t_str_new(256);
+	const char *path;
+	int fd;
+
+	path = t_strconcat(box->storage->user->set->base_dir,
+			   "/"INDEXER_SOCKET_NAME, NULL);
+	fd = net_connect_unix(path);
+	if (fd == -1) {
+		mail_storage_set_critical(box->storage,
+			"Can't start vsize building on background: "
+			"net_connect_unix(%s) failed: %m", path);
+		return;
+	}
+	str_append(str, INDEXER_HANDSHAKE);
+	str_append(str, "APPEND\t0\t");
+	str_append_tabescaped(str, box->storage->user->username);
+	str_append_c(str, '\t');
+	str_append_tabescaped(str, box->vname);
+	str_append_c(str, '\n');
+
+	if (write_full(fd, str_data(str), str_len(str)) < 0) {
+		mail_storage_set_critical(box->storage,
+			"Can't start vsize building on background: "
+			"write(%s) failed: %m", path);
+	}
+	i_close_fd(&fd);
+}
+
 void index_mailbox_vsize_update_deinit(struct mailbox_vsize_update **_update)
 {
 	struct mailbox_vsize_update *update = *_update;
@@ -206,6 +244,9 @@ void index_mailbox_vsize_update_deinit(struct mailbox_vsize_update **_update)
 		file_lock_free(&update->lock);
 		i_close_fd(&update->lock_fd);
 	}
+	if (update->finish_in_background)
+		index_mailbox_vsize_notify_indexer(update->box);
+
 	mail_index_view_close(&update->view);
 	i_free(update->lock_path);
 	i_free(update);
@@ -236,7 +277,7 @@ void index_mailbox_vsize_hdr_expunge(struct mailbox_vsize_update *update,
 
 static int
 index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
-				    bool need_result)
+				    bool require_result)
 {
 	struct mailbox_index_vsize *vsize_hdr = &update->vsize_hdr;
 	struct mailbox_transaction_context *trans;
@@ -244,6 +285,7 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 	struct mail_search_args *search_args;
 	struct mailbox_status status;
 	struct mail *mail;
+	unsigned int mails_left;
 	uint32_t seq1, seq2;
 	uoff_t vsize;
 	int ret = 0;
@@ -271,18 +313,46 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 	mail_search_build_add_seqset(search_args, seq1, seq2);
 
 	trans = mailbox_transaction_begin(update->box, 0);
+	mailbox_transaction_set_reason(trans, "vsize update");
 	search_ctx = mailbox_search_init(trans, search_args, NULL,
 					 MAIL_FETCH_VIRTUAL_SIZE, NULL);
+	if (!require_result)
+		mails_left = 0;
+	else if (update->box->storage->set->mail_vsize_bg_after_count == 0)
+		mails_left = UINT_MAX;
+	else
+		mails_left = update->box->storage->set->mail_vsize_bg_after_count;
+
 	while (mailbox_search_next(search_ctx, &mail)) {
-		if (mail_get_virtual_size(mail, &vsize) < 0) {
-			if (mail->expunged) {
-				if (!need_result) {
-					ret = -1;
-					break;
-				}
-				index_mailbox_vsize_update_write(update);
+		if (mails_left == 0) {
+			/* if there are any more mails whose vsize can't be
+			   looked up from cache, abort and finish on
+			   background. */
+			mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
+		}
+		ret = mail_get_virtual_size(mail, &vsize);
+		mail->lookup_abort = MAIL_LOOKUP_ABORT_NEVER;
+
+		if (ret < 0 &&
+		    mailbox_get_last_mail_error(update->box) == MAIL_ERROR_LOOKUP_ABORTED) {
+			/* abort and finish on background */
+			i_assert(mails_left == 0);
+
+			mail_storage_set_error(update->box->storage, MAIL_ERROR_INUSE,
+				"Finishing vsize calculation on background");
+			if (require_result)
+				update->finish_in_background = TRUE;
+			break;
+		}
+		if (mail->mail_stream_opened || mail->mail_metadata_accessed) {
+			/* slow vsize lookup */
+			i_assert(mails_left > 0);
+			mails_left--;
+		}
+
+		if (ret < 0) {
+			if (mail->expunged)
 				continue;
-			}
 			ret = -1;
 			break;
 		}
@@ -356,6 +426,7 @@ int index_mailbox_get_physical_size(struct mailbox *box,
 		return -1;
 
 	trans = mailbox_transaction_begin(box, 0);
+	mailbox_transaction_set_reason(trans, "mailbox physical size");
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
@@ -371,7 +442,7 @@ int index_mailbox_get_physical_size(struct mailbox *box,
 			const char *errstr;
 			enum mail_error error;
 
-			errstr = mailbox_get_last_error(box, &error);
+			errstr = mailbox_get_last_internal_error(box, &error);
 			if (error != MAIL_ERROR_EXPUNGED) {
 				i_error("Couldn't get size of mail UID %u in %s: %s",
 					mail->uid, box->vname, errstr);
@@ -382,7 +453,7 @@ int index_mailbox_get_physical_size(struct mailbox *box,
 	}
 	if (mailbox_search_deinit(&ctx) < 0) {
 		i_error("Listing mails in %s failed: %s",
-			box->vname, mailbox_get_last_error(box, NULL));
+			box->vname, mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	(void)mailbox_transaction_commit(&trans);

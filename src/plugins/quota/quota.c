@@ -15,6 +15,7 @@
 #include "quota-fs.h"
 #include "llist.h"
 #include "program-client.h"
+#include "settings-parser.h"
 
 #include <sys/wait.h>
 
@@ -42,7 +43,7 @@ extern struct quota_backend quota_backend_dirsize;
 extern struct quota_backend quota_backend_fs;
 extern struct quota_backend quota_backend_maildir;
 
-static const struct quota_backend *quota_backends[] = {
+static const struct quota_backend *quota_internal_backends[] = {
 #ifdef HAVE_FS_QUOTA
 	&quota_backend_fs,
 #endif
@@ -52,20 +53,63 @@ static const struct quota_backend *quota_backends[] = {
 	&quota_backend_maildir
 };
 
-static int quota_default_test_alloc(struct quota_transaction_context *ctx,
-				    uoff_t size, bool *too_large_r);
+static ARRAY(const struct quota_backend*) quota_backends;
+
+static enum quota_alloc_result quota_default_test_alloc(
+		struct quota_transaction_context *ctx, uoff_t size);
 static void quota_over_flag_check_root(struct quota_root *root);
 
 static const struct quota_backend *quota_backend_find(const char *name)
 {
-	unsigned int i;
+	const struct quota_backend *const *backend;
 
-	for (i = 0; i < N_ELEMENTS(quota_backends); i++) {
-		if (strcmp(quota_backends[i]->name, name) == 0)
-			return quota_backends[i];
+	array_foreach(&quota_backends, backend) {
+		if (strcmp((*backend)->name, name) == 0)
+			return *backend;
 	}
 
 	return NULL;
+}
+
+void quota_backend_register(const struct quota_backend *backend)
+{
+	i_assert(quota_backend_find(backend->name) == NULL);
+	array_append(&quota_backends, &backend, 1);
+}
+
+void quota_backend_unregister(const struct quota_backend *backend)
+{
+	for(unsigned int i = 0; i < array_count(&quota_backends); i++) {
+		const struct quota_backend *const *be =
+			array_idx(&quota_backends, i);
+		if (strcmp((*be)->name, backend->name) == 0) {
+			array_delete(&quota_backends, i, 1);
+			return;
+		}
+	}
+
+	i_unreached();
+}
+
+void quota_backends_register(void);
+void quota_backends_unregister(void);
+
+void quota_backends_register(void)
+{
+	i_array_init(&quota_backends, 8);
+	array_append(&quota_backends, quota_internal_backends,
+		     N_ELEMENTS(quota_internal_backends));
+}
+
+void quota_backends_unregister(void)
+{
+	for(size_t i = 0; i < N_ELEMENTS(quota_internal_backends); i++) {
+		quota_backend_unregister(quota_internal_backends[i]);
+	}
+
+	i_assert(array_count(&quota_backends) == 0);
+	array_free(&quota_backends);
+
 }
 
 static int quota_root_add_rules(struct mail_user *user, const char *root_name,
@@ -220,6 +264,24 @@ quota_root_add(struct quota_settings *quota_set, struct mail_user *user,
 	return 0;
 }
 
+const char *quota_alloc_result_errstr(enum quota_alloc_result res,
+		struct quota_transaction_context *qt)
+{
+	switch (res) {
+	case QUOTA_ALLOC_RESULT_OK:
+		return "OK";
+	case QUOTA_ALLOC_RESULT_TEMPFAIL:
+		return "Internal quota calculation error";
+	case QUOTA_ALLOC_RESULT_OVER_MAXSIZE:
+		return "Mail size is larger than the maximum size allowed by "
+		       "server configuration";
+	case QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT:
+	case QUOTA_ALLOC_RESULT_OVER_QUOTA:
+		return qt->quota->set->quota_exceeded_msg;
+	}
+	i_unreached();
+}
+
 int quota_user_read_settings(struct mail_user *user,
 			     struct quota_settings **set_r,
 			     const char **error_r)
@@ -239,7 +301,19 @@ int quota_user_read_settings(struct mail_user *user,
 		mail_user_plugin_getenv(user, "quota_exceeded_message");
 	if (quota_set->quota_exceeded_msg == NULL)
 		quota_set->quota_exceeded_msg = DEFAULT_QUOTA_EXCEEDED_MSG;
-	quota_set->vsizes = mail_user_plugin_getenv(user, "quota_vsizes") != NULL;
+	quota_set->vsizes = mail_user_plugin_getenv_bool(user, "quota_vsizes");
+
+	const char *max_size = mail_user_plugin_getenv(user,
+						       "quota_max_mail_size");
+	if (max_size != NULL) {
+		const char *error = NULL;
+		if (settings_get_size(max_size, &quota_set->max_mail_size,
+					&error) < 0) {
+			*error_r = t_strdup_printf("quota_max_mail_size: %s",
+					error);
+			return -1;
+		}
+	}
 
 	p_array_init(&quota_set->root_sets, pool, 4);
 	if (i_strocpy(root_name, "quota", sizeof(root_name)) < 0)
@@ -259,7 +333,8 @@ int quota_user_read_settings(struct mail_user *user,
 		if (i_snprintf(root_name, sizeof(root_name), "quota%d", i) < 0)
 			i_unreached();
 	}
-	if (array_count(&quota_set->root_sets) == 0) {
+	if (quota_set->max_mail_size == 0 &&
+	    array_count(&quota_set->root_sets) == 0) {
 		pool_unref(&pool);
 		return 0;
 	}
@@ -1142,7 +1217,7 @@ void quota_over_flag_check_startup(struct quota *quota)
 	roots = array_get(&quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		name = t_strconcat(roots[i]->set->set_name, "_over_flag_lazy_check", NULL);
-		if (mail_user_plugin_getenv(roots[i]->quota->user, name) == NULL)
+		if (!mail_user_plugin_getenv_bool(roots[i]->quota->user, name))
 			quota_over_flag_check_root(roots[i]);
 	}
 }
@@ -1155,34 +1230,33 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 	i_free(ctx);
 }
 
-int quota_try_alloc(struct quota_transaction_context *ctx,
-		    struct mail *mail, bool *too_large_r)
+enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
+					struct mail *mail)
 {
 	uoff_t size;
-	int ret;
 
 	if (quota_transaction_set_limits(ctx) < 0)
-		return -1;
+		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 
 	if (ctx->no_quota_updates)
-		return 1;
+		return QUOTA_ALLOC_RESULT_OK;
 
 	if (mail_get_physical_size(mail, &size) < 0) {
 		enum mail_error error;
-		const char *errstr = mailbox_get_last_error(mail->box, &error);
+		const char *errstr = mailbox_get_last_internal_error(mail->box, &error);
 
 		if (error == MAIL_ERROR_EXPUNGED) {
 			/* mail being copied was already expunged. it'll fail,
 			   so just return success for the quota allocated. */
-			return 1;
+			return QUOTA_ALLOC_RESULT_OK;
 		}
 		i_error("quota: Failed to get mail size (box=%s, uid=%u): %s",
 			mail->box->vname, mail->uid, errstr);
-		return -1;
+		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
-	ret = quota_test_alloc(ctx, size, too_large_r);
-	if (ret <= 0)
+	enum quota_alloc_result ret = quota_test_alloc(ctx, size);
+	if (ret != QUOTA_ALLOC_RESULT_OK)
 		return ret;
 	/* with quota_try_alloc() we want to keep track of how many bytes
 	   we've been adding/removing, so disable auto_updating=TRUE
@@ -1191,38 +1265,41 @@ int quota_try_alloc(struct quota_transaction_context *ctx,
 	   transaction, but that doesn't normally happen. */
 	ctx->auto_updating = FALSE;
 	quota_alloc(ctx, mail);
-	return 1;
+	return QUOTA_ALLOC_RESULT_OK;
 }
 
-int quota_test_alloc(struct quota_transaction_context *ctx,
-		     uoff_t size, bool *too_large_r)
+enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
+					 uoff_t size)
 {
 	if (ctx->failed)
-		return -1;
+		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 
 	if (quota_transaction_set_limits(ctx) < 0)
-		return -1;
+		return QUOTA_ALLOC_RESULT_TEMPFAIL;
+
+	uoff_t max_size = ctx->quota->set->max_mail_size;
+	if (max_size > 0 && size > max_size)
+		return QUOTA_ALLOC_RESULT_OVER_MAXSIZE;
+
 	if (ctx->no_quota_updates)
-		return 1;
+		return QUOTA_ALLOC_RESULT_OK;
 	/* this is a virtual function mainly for trash plugin and similar,
 	   which may automatically delete mails to stay under quota. */
-	return ctx->quota->set->test_alloc(ctx, size, too_large_r);
+	return ctx->quota->set->test_alloc(ctx, size);
 }
 
-static int quota_default_test_alloc(struct quota_transaction_context *ctx,
-				    uoff_t size, bool *too_large_r)
+static enum quota_alloc_result quota_default_test_alloc(
+			struct quota_transaction_context *ctx, uoff_t size)
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;
 	bool ignore;
 	int ret;
 
-	*too_large_r = FALSE;
-
 	if (!quota_transaction_is_over(ctx, size))
-		return 1;
+		return QUOTA_ALLOC_RESULT_OK;
 
-	/* limit reached. only thing left to do now is to set too_large_r. */
+	/* limit reached. */
 	roots = array_get(&ctx->quota->roots, &count);
 	for (i = 0; i < count; i++) {
 		uint64_t bytes_limit, count_limit;
@@ -1235,16 +1312,14 @@ static int quota_default_test_alloc(struct quota_transaction_context *ctx,
 						 &bytes_limit, &count_limit,
 						 &ignore);
 		if (ret < 0)
-			return -1;
+			return QUOTA_ALLOC_RESULT_TEMPFAIL;
 
 		/* if size is bigger than any limit, then
 		   it is bigger than the lowest limit */
-		if (bytes_limit > 0 && size > bytes_limit) {
-			*too_large_r = TRUE;
-			break;
-		}
+		if (bytes_limit > 0 && size > bytes_limit)
+			return QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT;
 	}
-	return 0;
+	return QUOTA_ALLOC_RESULT_OVER_QUOTA;
 }
 
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)

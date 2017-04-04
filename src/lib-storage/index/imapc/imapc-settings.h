@@ -15,7 +15,8 @@ enum imapc_features {
 	IMAPC_FEATURE_PROXYAUTH			= 0x80,
 	IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS	= 0x100,
 	IMAPC_FEATURE_FETCH_FIX_BROKEN_MAILS	= 0x200,
-	IMAPC_FEATURE_MODSEQ			= 0x400
+	IMAPC_FEATURE_MODSEQ			= 0x400,
+	IMAPC_FEATURE_DELAY_LOGIN		= 0x800,
 };
 /* </settings checks> */
 
@@ -40,6 +41,8 @@ struct imapc_settings {
 	const char *imapc_list_prefix;
 	unsigned int imapc_cmd_timeout;
 	unsigned int imapc_max_idle_time;
+	unsigned int imapc_connection_retry_count;
+	unsigned int imapc_connection_retry_interval_secs;
 	uoff_t imapc_max_line_length;
 
 	const char *pop3_deleted_flag;

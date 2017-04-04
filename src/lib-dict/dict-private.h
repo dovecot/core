@@ -50,6 +50,8 @@ struct dict {
 
 	struct dict_vfuncs v;
 	unsigned int iter_count;
+	unsigned int transaction_count;
+	struct dict_transaction_context *transactions;
 };
 
 struct dict_iterate_context {
@@ -65,6 +67,7 @@ struct dict_iterate_context {
 
 struct dict_transaction_context {
 	struct dict *dict;
+	struct dict_transaction_context *prev, *next;
 
 	struct timespec timestamp;
 
@@ -82,5 +85,9 @@ extern struct dict dict_driver_memcached;
 extern struct dict dict_driver_memcached_ascii;
 extern struct dict dict_driver_redis;
 extern struct dict dict_driver_cdb;
+extern struct dict dict_driver_fail;
+
+extern struct dict_iterate_context dict_iter_unsupported;
+extern struct dict_transaction_context dict_transaction_unsupported;
 
 #endif

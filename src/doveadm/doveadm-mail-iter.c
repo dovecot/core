@@ -37,10 +37,11 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 	iter->ctx = ctx;
 	iter->box = mailbox_alloc(info->ns->list, info->vname,
 				  MAILBOX_FLAG_IGNORE_ACLS | readonly_flag);
+	mailbox_set_reason(iter->box, ctx->cmd->name);
 	iter->search_args = search_args;
 
 	if (mailbox_sync(iter->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		errstr = mailbox_get_last_error(iter->box, &error);
+		errstr = mailbox_get_last_internal_error(iter->box, &error);
 		if (error == MAIL_ERROR_NOTFOUND) {
 			/* just ignore this mailbox */
 			*iter_r = iter;
@@ -74,7 +75,7 @@ doveadm_mail_iter_deinit_transaction(struct doveadm_mail_iter *iter,
 		if (mailbox_search_deinit(&iter->search_ctx) < 0) {
 			i_error("Searching mailbox %s failed: %s",
 				mailbox_get_vname(iter->box),
-				mailbox_get_last_error(iter->box, NULL));
+				mailbox_get_last_internal_error(iter->box, NULL));
 			ret = -1;
 		}
 	}
@@ -84,7 +85,7 @@ doveadm_mail_iter_deinit_transaction(struct doveadm_mail_iter *iter,
 		if (mailbox_transaction_commit(&iter->t) < 0) {
 			i_error("Committing mailbox %s failed: %s",
 				mailbox_get_vname(iter->box),
-				mailbox_get_last_error(iter->box, NULL));
+				mailbox_get_last_internal_error(iter->box, NULL));
 			ret = -1;
 		}
 	} else {
@@ -109,7 +110,7 @@ doveadm_mail_iter_deinit_full(struct doveadm_mail_iter **_iter,
 		if (ret < 0) {
 			i_error("Mailbox %s: Mailbox sync failed: %s",
 				mailbox_get_vname(iter->box),
-				mailbox_get_last_error(iter->box, NULL));
+				mailbox_get_last_internal_error(iter->box, NULL));
 		}
 	}
 	if (ret < 0)

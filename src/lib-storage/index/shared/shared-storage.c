@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "var-expand.h"
 #include "index-storage.h"
+#include "mail-storage-service.h"
 #include "mailbox-list-private.h"
 #include "fail-mail-storage.h"
 #include "shared-storage.h"
@@ -253,6 +254,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	owner = mail_user_alloc(userdomain, user->set_info,
 				user->unexpanded_set);
 	owner->_service_user = user->_service_user;
+	mail_storage_service_user_ref(owner->_service_user);
 	owner->creator = user;
 	owner->autocreated = TRUE;
 	owner->session_id = p_strdup(owner->pool, user->session_id);

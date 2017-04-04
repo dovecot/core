@@ -2,12 +2,12 @@
 
 #include "lib.h"
 #include "array.h"
+#include "llist.h"
 #include "str.h"
 #include "dict-sql.h"
 #include "dict-private.h"
 
 static ARRAY(struct dict *) dict_drivers;
-static struct dict_iterate_context dict_iter_unsupported;
 
 static struct dict *dict_driver_lookup(const char *name)
 {
@@ -84,6 +84,8 @@ int dict_init(const char *uri, const struct dict_settings *set,
 		*error_r = t_strdup_printf("dict %s: %s", name, error);
 		return -1;
 	}
+	i_assert(*dict_r != NULL);
+
 	return 0;
 }
 
@@ -92,6 +94,11 @@ void dict_deinit(struct dict **_dict)
 	struct dict *dict = *_dict;
 
 	*_dict = NULL;
+
+	i_assert(dict->iter_count == 0);
+	i_assert(dict->transaction_count == 0);
+	i_assert(dict->transactions == NULL);
+
 	dict->v.deinit(dict);
 }
 
@@ -167,15 +174,16 @@ dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 	} else {
 		ctx = dict->v.iterate_init(dict, paths, flags);
 	}
-	dict->iter_count++;
+	/* the dict in context can differ from the dict
+	   passed as parameter, e.g. it can be dict-fail when
+	   iteration is not supported. */
+	ctx->dict->iter_count++;
 	return ctx;
 }
 
 bool dict_iterate(struct dict_iterate_context *ctx,
 		  const char **key_r, const char **value_r)
 {
-	if (ctx == &dict_iter_unsupported)
-		return FALSE;
 	if (ctx->max_rows > 0 && ctx->row_count >= ctx->max_rows) {
 		/* row count was limited */
 		ctx->has_more = FALSE;
@@ -215,16 +223,22 @@ int dict_iterate_deinit(struct dict_iterate_context **_ctx,
 	ctx->dict->iter_count--;
 
 	*_ctx = NULL;
-	if (ctx == &dict_iter_unsupported) {
-		*error_r = "Dict doesn't support iteration";
-		return -1;
-	}
 	return ctx->dict->v.iterate_deinit(ctx, error_r);
 }
 
 struct dict_transaction_context *dict_transaction_begin(struct dict *dict)
 {
-	return dict->v.transaction_init(dict);
+	struct dict_transaction_context *ctx;
+	if (dict->v.transaction_init == NULL)
+		ctx = &dict_transaction_unsupported;
+	else
+		ctx = dict->v.transaction_init(dict);
+	/* the dict in context can differ from the dict
+	   passed as parameter, e.g. it can be dict-fail when
+	   transactions are not supported. */
+	ctx->dict->transaction_count++;
+	DLLIST_PREPEND(&ctx->dict->transactions, ctx);
+	return ctx;
 }
 
 void dict_transaction_no_slowness_warning(struct dict_transaction_context *ctx)
@@ -272,6 +286,9 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx,
 	*_ctx = NULL;
 
 	i_zero(&result);
+	i_assert(ctx->dict->transaction_count > 0);
+	ctx->dict->transaction_count--;
+	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
 	ctx->dict->v.transaction_commit(ctx, FALSE,
 		dict_transaction_commit_sync_callback, &result);
 	*error_r = t_strdup(result.error);
@@ -286,6 +303,9 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	i_assert(ctx->dict->transaction_count > 0);
+	ctx->dict->transaction_count--;
+	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
 	if (callback == NULL)
 		callback = dict_transaction_commit_async_noop_callback;
 	ctx->dict->v.transaction_commit(ctx, TRUE, callback, context);
@@ -296,6 +316,9 @@ void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+	i_assert(ctx->dict->transaction_count > 0);
+	ctx->dict->transaction_count--;
+	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
 	ctx->dict->v.transaction_rollback(ctx);
 }
 

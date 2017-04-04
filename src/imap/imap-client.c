@@ -19,12 +19,17 @@
 #include "mail-error.h"
 #include "mail-namespace.h"
 #include "mail-storage-service.h"
+#include "mail-autoexpunge.h"
 #include "imap-state.h"
 #include "imap-search.h"
 #include "imap-notify.h"
 #include "imap-commands.h"
 
 #include <unistd.h>
+
+/* If the last command took longer than this to run, log statistics on
+   where the time was spent. */
+#define IMAP_CLIENT_DISCONNECT_LOG_STATS_CMD_MIN_RUNNING_MSECS 1000
 
 extern struct mail_storage_callbacks mail_storage_callbacks;
 extern struct imap_client_vfuncs imap_client_vfuncs;
@@ -266,19 +271,77 @@ void client_destroy(struct client *client, const char *reason)
 	client->v.destroy(client, reason);
 }
 
+static void
+client_command_stats_append(string_t *str,
+			    const struct client_command_stats *stats,
+			    const char *wait_condition,
+			    size_t buffered_size)
+{
+	uint64_t ioloop_wait_usecs;
+	unsigned int msecs_in_ioloop;
+
+	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
+	msecs_in_ioloop = (ioloop_wait_usecs -
+		stats->start_ioloop_wait_usecs + 999) / 1000;
+	str_printfa(str, "running for %d.%03d + waiting ",
+		    (int)((stats->running_usecs+999)/1000 / 1000),
+		    (int)((stats->running_usecs+999)/1000 % 1000));
+	if (wait_condition[0] != '\0')
+		str_printfa(str, "%s ", wait_condition);
+	str_printfa(str, "for %d.%03d secs",
+		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
+	if (stats->lock_wait_usecs > 0) {
+		int lock_wait_msecs = (stats->lock_wait_usecs+999)/1000;
+		str_printfa(str, ", %d.%03d in locks",
+			    lock_wait_msecs/1000, lock_wait_msecs%1000);
+	}
+	str_printfa(str, ", %llu B in + %llu",
+		    (unsigned long long)stats->bytes_in,
+		    (unsigned long long)stats->bytes_out);
+	if (buffered_size > 0)
+		str_printfa(str, "+%"PRIuSIZE_T, buffered_size);
+	str_append(str, " B out");
+}
+
+static const char *client_get_last_command_status(struct client *client)
+{
+	if (client->logged_out)
+		return "";
+	if (client->last_cmd_name == NULL)
+		return " (No commands sent)";
+
+	/* client disconnected without sending LOGOUT. if the last command
+	   took over 1 second to run, log it. */
+	const struct client_command_stats *stats = &client->last_cmd_stats;
+
+	string_t *str = t_str_new(128);
+	int last_run_secs = timeval_diff_msecs(&ioloop_timeval,
+					       &stats->last_run_timeval);
+	str_printfa(str, " (%s finished %d.%03d secs ago",
+		    client->last_cmd_name, last_run_secs/1000,
+		    last_run_secs%1000);
+
+	if (timeval_diff_msecs(&stats->last_run_timeval, &stats->start_time) >=
+	    IMAP_CLIENT_DISCONNECT_LOG_STATS_CMD_MIN_RUNNING_MSECS) {
+		str_append(str, " - ");
+		client_command_stats_append(str, stats, "", 0);
+	}
+	str_append_c(str, ')');
+	return str_c(str);
+}
+
 static const char *client_get_commands_status(struct client *client)
 {
 	struct client_command_context *cmd, *last_cmd = NULL;
-	unsigned int msecs_in_ioloop;
-	uint64_t running_usecs = 0, lock_wait_usecs = 0, ioloop_wait_usecs;
-	unsigned long long bytes_in = 0, bytes_out = 0;
+	struct client_command_stats all_stats;
 	string_t *str;
 	enum io_condition cond;
 	const char *cond_str;
 
 	if (client->command_queue == NULL)
-		return "";
+		return client_get_last_command_status(client);
 
+	i_zero(&all_stats);
 	str = t_str_new(128);
 	str_append(str, " (");
 	for (cmd = client->command_queue; cmd != NULL; cmd = cmd->next) {
@@ -290,14 +353,14 @@ static const char *client_get_commands_status(struct client *client)
 		str_append(str, cmd->name);
 		if (cmd->next != NULL)
 			str_append_c(str, ',');
-		running_usecs += cmd->running_usecs;
-		lock_wait_usecs += cmd->lock_wait_usecs;
-		bytes_in += cmd->bytes_in;
-		bytes_out += cmd->bytes_out;
+		all_stats.running_usecs += cmd->stats.running_usecs;
+		all_stats.lock_wait_usecs += cmd->stats.lock_wait_usecs;
+		all_stats.bytes_in += cmd->stats.bytes_in;
+		all_stats.bytes_out += cmd->stats.bytes_out;
 		last_cmd = cmd;
 	}
 	if (last_cmd == NULL)
-		return "";
+		return client_get_last_command_status(client);
 
 	cond = io_loop_find_fd_conditions(current_ioloop, client->fd_out);
 	if ((cond & (IO_READ | IO_WRITE)) == (IO_READ | IO_WRITE))
@@ -309,21 +372,12 @@ static const char *client_get_commands_status(struct client *client)
 	else
 		cond_str = "nothing";
 
-	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
-	msecs_in_ioloop = (ioloop_wait_usecs -
-		last_cmd->start_ioloop_wait_usecs + 999) / 1000;
-	str_printfa(str, " running for %d.%03d + waiting %s for %d.%03d secs",
-		    (int)((running_usecs+999)/1000 / 1000),
-		    (int)((running_usecs+999)/1000 % 1000), cond_str,
-		    msecs_in_ioloop / 1000, msecs_in_ioloop % 1000);
-	if (lock_wait_usecs > 0) {
-		int lock_wait_msecs = (lock_wait_usecs+999)/1000;
-		str_printfa(str, ", %d.%03d in locks",
-			    lock_wait_msecs/1000, lock_wait_msecs%1000);
-	}
-	str_printfa(str, ", %llu B in + %llu+%"PRIuSIZE_T" B out, state=%s)",
-		    bytes_in, bytes_out,
-		    o_stream_get_buffer_used_size(client->output),
+	all_stats.start_ioloop_wait_usecs =
+		last_cmd->stats.start_ioloop_wait_usecs;
+	str_append_c(str, ' ');
+	client_command_stats_append(str, &all_stats, cond_str,
+		o_stream_get_buffer_used_size(client->output));
+	str_printfa(str, ", state=%s)",
 		    client_command_state_names[last_cmd->state]);
 	return str_c(str);
 }
@@ -395,8 +449,13 @@ static void client_default_destroy(struct client *client, const char *reason)
 	/* i/ostreams are already closed at this stage, so fd can be closed */
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
 
-	/* Free the user after client is already disconnected. It may start
-	   some background work like autoexpunging. */
+	/* Autoexpunging might run for a long time. Disconnect the client
+	   before it starts, and refresh proctitle so it's clear that it's
+	   doing autoexpunging. We've also sent DISCONNECT to anvil already,
+	   because this is background work and shouldn't really be counted
+	   as an active IMAP session for the user. */
+	imap_refresh_proctitle();
+	mail_user_autoexpunge(client->user);
 	mail_user_unref(&client->user);
 
 	/* free the i/ostreams after mail_user_unref(), which could trigger
@@ -409,10 +468,12 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (array_is_created(&client->search_updates))
 		array_free(&client->search_updates);
 	pool_unref(&client->command_pool);
-	mail_storage_service_user_free(&client->service_user);
+	mail_storage_service_user_unref(&client->service_user);
 
 	imap_client_count--;
 	DLLIST_REMOVE(&imap_clients, client);
+
+	i_free(client->last_cmd_name);
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
@@ -485,15 +546,16 @@ client_cmd_append_timing_stats(struct client_command_context *cmd,
 	uint64_t ioloop_wait_usecs;
 	unsigned int msecs_since_cmd;
 
-	if (cmd->start_time.tv_sec == 0)
+	if (cmd->stats.start_time.tv_sec == 0)
 		return;
+	command_stats_flush(cmd);
 
 	ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
-	msecs_in_cmd = (cmd->running_usecs + 999) / 1000;
+	msecs_in_cmd = (cmd->stats.running_usecs + 999) / 1000;
 	msecs_in_ioloop = (ioloop_wait_usecs -
-			   cmd->start_ioloop_wait_usecs + 999) / 1000;
+			   cmd->stats.start_ioloop_wait_usecs + 999) / 1000;
 	msecs_since_cmd = timeval_diff_msecs(&ioloop_timeval,
-					     &cmd->last_run_timeval);
+					     &cmd->stats.last_run_timeval);
 
 	if (str_data(str)[str_len(str)-1] == '.')
 		str_truncate(str, str_len(str)-1);
@@ -736,9 +798,10 @@ struct client_command_context *client_command_alloc(struct client *client)
 	cmd = p_new(client->command_pool, struct client_command_context, 1);
 	cmd->client = client;
 	cmd->pool = client->command_pool;
-	cmd->start_time = ioloop_timeval;
-	cmd->last_run_timeval = ioloop_timeval;
-	cmd->start_ioloop_wait_usecs = io_loop_get_wait_usecs(current_ioloop);
+	cmd->stats.start_time = ioloop_timeval;
+	cmd->stats.last_run_timeval = ioloop_timeval;
+	cmd->stats.start_ioloop_wait_usecs =
+		io_loop_get_wait_usecs(current_ioloop);
 	p_array_init(&cmd->module_contexts, cmd->pool, 5);
 
 	DLLIST_PREPEND(&client->command_queue, cmd);
@@ -791,6 +854,10 @@ void client_command_free(struct client_command_context **_cmd)
 		cmd->cancel = FALSE;
 		client_send_tagline(cmd, "NO Command cancelled.");
 	}
+
+	i_free(client->last_cmd_name);
+	client->last_cmd_name = i_strdup(cmd->name);
+	client->last_cmd_stats = cmd->stats;
 
 	if (!cmd->param_error)
 		client->bad_counter = 0;
