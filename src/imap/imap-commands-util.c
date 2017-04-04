@@ -135,7 +135,7 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 const char *imap_client_command_get_reason(struct client_command_context *cmd)
 {
 	return cmd->args[0] == '\0' ? cmd->name :
-		t_strdup_printf("%s %s", cmd->name, cmd->args);
+		t_strdup_printf("%s %s", cmd->name, cmd->human_args);
 }
 
 void imap_transaction_set_cmd_reason(struct mailbox_transaction_context *trans,
