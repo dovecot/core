@@ -171,7 +171,7 @@ static int try_pam_auth(struct auth_request *request, pam_handle_t *pamh,
 			str = t_strdup_printf("%s (%s missing?)", str, path);
 			auth_request_log_error(request, AUTH_SUBSYS_DB, "%s", str);
 		} else if (status == PAM_AUTH_ERR) {
-			str = t_strconcat(str, " (password mismatch?)", NULL);
+			str = t_strconcat(str, " ("AUTH_LOG_MSG_PASSWORD_MISMATCH"?)", NULL);
 			if (request->set->debug_passwords) {
 				str = t_strconcat(str, " (given password: ",
 						  request->mech_password,

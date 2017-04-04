@@ -156,7 +156,7 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 		else if (ret == LDAP_INVALID_CREDENTIALS) {
 		  	auth_request_log_login_failure(auth_request,
 						       AUTH_SUBSYS_DB,
-						       "Password mismatch (for LDAP bind)");
+						       "AUTH_LOG_MSG_PASSWORD_MISMATCH (for LDAP bind)");
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 		} else if (ret == LDAP_NO_SUCH_OBJECT) {
 			passdb_result = PASSDB_RESULT_USER_UNKNOWN;

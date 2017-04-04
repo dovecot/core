@@ -2452,7 +2452,7 @@ auth_request_append_password(struct auth_request *request, string_t *str)
 void auth_request_log_password_mismatch(struct auth_request *request,
 					const char *subsystem)
 {
-	auth_request_log_login_failure(request, subsystem, "Password mismatch");
+	auth_request_log_login_failure(request, subsystem, AUTH_LOG_MSG_PASSWORD_MISMATCH);
 }
 
 void auth_request_log_unknown_user(struct auth_request *request,

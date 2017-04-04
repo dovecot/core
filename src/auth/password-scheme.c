@@ -92,7 +92,7 @@ int password_verify(const char *plaintext,
 	}
 
 	if (ret == 0)
-		*error_r = "Password mismatch";
+		*error_r = AUTH_LOG_MSG_PASSWORD_MISMATCH;
 	return ret;
 }
 

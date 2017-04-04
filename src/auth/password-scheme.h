@@ -1,6 +1,8 @@
 #ifndef PASSWORD_SCHEME_H
 #define PASSWORD_SCHEME_H
 
+#define AUTH_LOG_MSG_PASSWORD_MISMATCH "Password mismatch"
+
 enum password_encoding {
 	PW_ENCODING_NONE,
 	PW_ENCODING_BASE64,
