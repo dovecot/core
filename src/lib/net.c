@@ -46,7 +46,7 @@ union sockaddr_union_unix {
    destination IP+port as well. In this case connect() will fail with
    EADDRNOTAVAIL. We'll need to retry this and hope that the next attempt won't
    conflict. */
-#define MAX_CONNECT_RETRIES 4
+#define MAX_CONNECT_RETRIES 20
 
 bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2)
 {
