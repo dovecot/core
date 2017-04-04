@@ -132,11 +132,16 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 	return 0;
 }
 
+const char *imap_client_command_get_reason(struct client_command_context *cmd)
+{
+	return cmd->args[0] == '\0' ? cmd->name :
+		t_strdup_printf("%s %s", cmd->name, cmd->human_args);
+}
+
 void imap_transaction_set_cmd_reason(struct mailbox_transaction_context *trans,
 				     struct client_command_context *cmd)
 {
-	mailbox_transaction_set_reason(trans, cmd->args[0] == '\0' ? cmd->name :
-		t_strdup_printf("%s %s", cmd->name, cmd->args));
+	mailbox_transaction_set_reason(trans, imap_client_command_get_reason(cmd));
 }
 
 const char *

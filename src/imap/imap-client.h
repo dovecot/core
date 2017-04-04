@@ -88,6 +88,9 @@ struct client_command_context {
 	   arguments, so they may not be exactly the same as how client sent
 	   them. */
 	const char *args;
+	/* Parameters for this command generated with
+	   imap_write_args_for_human(), so it's suitable for logging. */
+	const char *human_args;
 	enum command_flags cmd_flags;
 	const char *tagline_reply;
 

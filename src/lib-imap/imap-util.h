@@ -16,6 +16,10 @@ enum mail_flags imap_parse_system_flag(const char *str);
 void imap_write_seq_range(string_t *dest, const ARRAY_TYPE(seq_range) *array);
 /* Write IMAP args to given string. The string is mainly useful for humans. */
 void imap_write_args(string_t *dest, const struct imap_arg *args);
+/* Write IMAP args in a human-readable format to given string (e.g. for
+   logging). The output is a single valid UTF-8 line without control
+   characters. Multi-line literals are replaced with a generic placeholder. */
+void imap_write_args_for_human(string_t *dest, const struct imap_arg *args);
 /* Like imap_write_args(), but return the string allocated from data stack. */
 const char *imap_args_to_str(const struct imap_arg *args);
 
