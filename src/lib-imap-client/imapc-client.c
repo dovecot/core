@@ -173,7 +173,9 @@ static void imapc_client_run_pre(struct imapc_client *client)
 
 	array_foreach(&client->conns, connp) {
 		imapc_connection_ioloop_changed((*connp)->conn);
-		imapc_connection_connect((*connp)->conn, NULL, NULL);
+		if (imapc_connection_get_state((*connp)->conn) == IMAPC_CONNECTION_STATE_DISCONNECTED)
+			imapc_connection_connect((*connp)->conn, client->login_callback,
+					 client->login_context);
 	}
 
 	if (io_loop_is_running(client->ioloop))
@@ -196,6 +198,7 @@ static void imapc_client_run_post(struct imapc_client *client)
 
 void imapc_client_run(struct imapc_client *client)
 {
+	i_assert(client->login_callback != NULL);
 	imapc_client_run_pre(client);
 	imapc_client_run_post(client);
 }
@@ -268,15 +271,16 @@ imapc_client_get_unboxed_connection(struct imapc_client *client)
 }
 
 
-void imapc_client_login(struct imapc_client *client,
-			imapc_command_callback_t *callback, void *context)
+void imapc_client_login(struct imapc_client *client)
 {
 	struct imapc_client_connection *conn;
 
+	i_assert(client->login_callback);
 	i_assert(array_count(&client->conns) == 0);
 
 	conn = imapc_client_add_connection(client);
-	imapc_connection_connect(conn->conn, callback, context);
+	imapc_connection_connect(conn->conn,
+				 client->login_callback, client->login_context);
 }
 
 struct imapc_logout_ctx {

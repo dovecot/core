@@ -178,8 +178,7 @@ void
 imapc_client_set_login_callback(struct imapc_client *client,
 				imapc_command_callback_t *callback, void *context);
 /* Explicitly login to server (also done automatically). */
-void imapc_client_login(struct imapc_client *client,
-			imapc_command_callback_t *callback, void *context);
+void imapc_client_login(struct imapc_client *client);
 /* Send a LOGOUT and wait for disconnection. */
 void imapc_client_logout(struct imapc_client *client);
 
