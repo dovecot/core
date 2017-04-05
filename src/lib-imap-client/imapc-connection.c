@@ -164,6 +164,7 @@ imapc_auth_failed(struct imapc_connection *conn, const struct imapc_command_repl
 		  const char *error)
 {
 	struct imapc_command_reply reply = *_reply;
+	reply.state = IMAPC_COMMAND_STATE_AUTH_FAILED;
 	reply.text_without_resp = reply.text_full =
 		t_strdup_printf("Authentication failed: %s", error);
 	i_error("imapc(%s): %s", conn->name, reply.text_full);

@@ -45,6 +45,7 @@ static void imapc_mail_set_failure(struct imapc_mail *mail,
 		break;
 	case IMAPC_COMMAND_STATE_BAD:
 	case IMAPC_COMMAND_STATE_DISCONNECTED:
+	case IMAPC_COMMAND_STATE_AUTH_FAILED:
 		mail->fetch_failed = TRUE;
 		break;
 	}
