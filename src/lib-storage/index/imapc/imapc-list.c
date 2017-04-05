@@ -552,6 +552,8 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	struct mailbox_node *node;
 	const char *pattern;
 
+	if (list->client->auth_failed)
+		return -1;
 	if (list->root_sep_lookup_failed) {
 		mailbox_list_set_internal_error(&list->list);
 		return -1;

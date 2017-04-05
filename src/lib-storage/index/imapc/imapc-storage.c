@@ -500,6 +500,12 @@ imapc_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 {
 	enum mailbox_info_flags flags;
 
+	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)box->list;
+
+	if (list->client->auth_failed) {
+		mail_storage_copy_list_error(box->storage, box->list);
+		return -1;
+	}
 	if (imapc_list_get_mailbox_flags(box->list, box->name, &flags) < 0) {
 		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
@@ -623,7 +629,6 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 
 	/* If authentication failed, don't check again. */
 	if (mbox->storage->client->auth_failed) {
-		mail_storage_set_internal_error(&mbox->storage->storage);
 		return -1;
 	}
 
