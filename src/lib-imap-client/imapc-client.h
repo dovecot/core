@@ -173,6 +173,10 @@ imapc_client_init(const struct imapc_client_settings *set);
 void imapc_client_disconnect(struct imapc_client *client);
 void imapc_client_deinit(struct imapc_client **client);
 
+/* Set login callback, must be set before calling other commands */
+void
+imapc_client_set_login_callback(struct imapc_client *client,
+				imapc_command_callback_t *callback, void *context);
 /* Explicitly login to server (also done automatically). */
 void imapc_client_login(struct imapc_client *client,
 			imapc_command_callback_t *callback, void *context);

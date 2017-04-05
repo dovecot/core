@@ -540,3 +540,12 @@ void imapc_client_register_state_change_callback(struct imapc_client *client,
 	client->state_change_callback = cb;
 	client->state_change_context = context;
 }
+
+void
+imapc_client_set_login_callback(struct imapc_client *client,
+				imapc_command_callback_t *callback, void *context)
+{
+	client->login_callback = callback;
+	client->login_context  = context;
+}
+

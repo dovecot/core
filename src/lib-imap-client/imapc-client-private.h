@@ -23,6 +23,9 @@ struct imapc_client {
 	imapc_state_change_callback_t *state_change_callback;
 	void *state_change_context;
 
+	imapc_command_callback_t *login_callback;
+	void *login_context;
+
 	ARRAY(struct imapc_client_connection *) conns;
 	bool logging_out;
 
