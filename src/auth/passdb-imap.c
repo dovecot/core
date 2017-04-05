@@ -119,8 +119,8 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 	request->verify_callback = callback;
 
 	auth_request_ref(auth_request);
-	imapc_client_login(request->client, passdb_imap_login_callback,
-			   request);
+	imapc_client_set_login_callback(request->client, passdb_imap_login_callback, request);
+	imapc_client_login(request->client);
 }
 
 static struct passdb_module *
