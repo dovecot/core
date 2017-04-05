@@ -273,6 +273,16 @@ static bool anvil_reconnect_callback(void)
 	return FALSE;
 }
 
+void login_anvil_init(void)
+{
+	if (anvil != NULL)
+		return;
+
+	anvil = anvil_client_init("anvil", anvil_reconnect_callback, 0);
+	if (anvil_client_connect(anvil, TRUE) < 0)
+		i_fatal("Couldn't connect to anvil");
+}
+
 static const struct ip_addr *
 parse_login_source_ips(const char *ips_str, unsigned int *count_r)
 {
@@ -360,11 +370,8 @@ static void main_preinit(void)
 	i_assert(strcmp(global_ssl_settings->ssl, "no") == 0 ||
 		 ssl_initialized);
 
-	if (global_login_settings->mail_max_userip_connections > 0) {
-		anvil = anvil_client_init("anvil", anvil_reconnect_callback, 0);
-		if (anvil_client_connect(anvil, TRUE) < 0)
-			i_fatal("Couldn't connect to anvil");
-	}
+	if (global_login_settings->mail_max_userip_connections > 0)
+		login_anvil_init();
 
 	/* read the login_source_ips before chrooting so it can access
 	   /etc/hosts */

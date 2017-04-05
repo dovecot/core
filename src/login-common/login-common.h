@@ -64,6 +64,9 @@ extern unsigned int login_source_ips_idx, login_source_ips_count;
 void login_refresh_proctitle(void);
 void login_client_destroyed(void);
 
+/* Call to guarantee that the "anvil" global variable is initialized. */
+void login_anvil_init(void);
+
 int login_binary_run(const struct login_binary *binary,
 		     int argc, char *argv[]);
 
