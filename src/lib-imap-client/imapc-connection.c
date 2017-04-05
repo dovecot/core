@@ -373,18 +373,17 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 			i_free_and_null(conn->disconnect_reason);
 		}
 		reply.text_without_resp = reply.text_full;
-		if (!conn->reconnecting)
+		if (!conn->reconnecting) {
 			imapc_login_callback(conn, &reply);
-
+			i_free(conn->ips);
+			conn->ips_count = 0;
+		}
 		conn->idling = FALSE;
 		conn->idle_plus_waiting = FALSE;
 		conn->idle_stopping = FALSE;
 
 		conn->selecting_box = NULL;
 		conn->selected_box = NULL;
-
-		i_free(conn->ips);
-		conn->ips_count = 0;
 		break;
 	default:
 		break;
@@ -1830,8 +1829,9 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	dns_set.timeout_msecs = conn->client->set.connect_timeout_msecs;
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
-	if (conn->ips_count == 0 &&
-	    net_addr2ip(conn->client->set.host, &ip) == 0) {
+	if (conn->ips_count > 0) {
+		/* do nothing */
+	} else if (net_addr2ip(conn->client->set.host, &ip) == 0) {
 		conn->ips_count = 1;
 		conn->ips = i_new(struct ip_addr, conn->ips_count);
 		conn->ips[0] = ip;
@@ -1848,15 +1848,13 @@ void imapc_connection_connect(struct imapc_connection *conn,
 		conn->ips_count = ips_count;
 		conn->ips = i_new(struct ip_addr, ips_count);
 		memcpy(conn->ips, ips, ips_count * sizeof(*ips));
-	}
-
-	if (conn->ips_count == 0) {
+	} else {
 		(void)dns_lookup(conn->client->set.host, &dns_set,
 				 imapc_connection_dns_callback, conn,
 				 &conn->dns_lookup);
-	} else {
-		imapc_connection_connect_next_ip(conn);
+		return;
 	}
+	imapc_connection_connect_next_ip(conn);
 }
 
 void imapc_connection_input_pending(struct imapc_connection *conn)
