@@ -23,9 +23,28 @@ struct who_user {
 	unsigned int connection_count;
 };
 
+static void who_user_ip(const struct who_user *user, struct ip_addr *ip_r)
+{
+	if (array_count(&user->ips) == 0)
+		i_zero(ip_r);
+	else {
+		const struct ip_addr *ip = array_idx(&user->ips, 0);
+		*ip_r = *ip;
+	}
+}
+
 static unsigned int who_user_hash(const struct who_user *user)
 {
-	return str_hash(user->username) + str_hash(user->service);
+	struct ip_addr ip;
+	unsigned int hash = str_hash(user->service);
+
+	if (user->username[0] != '\0')
+		hash += str_hash(user->username);
+	else {
+		who_user_ip(user, &ip);
+		hash += net_ip_hash(&ip);
+	}
+	return hash;
 }
 
 static int who_user_cmp(const struct who_user *user1,
@@ -35,6 +54,15 @@ static int who_user_cmp(const struct who_user *user1,
 		return 1;
 	if (strcmp(user1->service, user2->service) != 0)
 		return 1;
+
+	if (user1->username[0] == '\0') {
+		/* tracking only IP addresses, not usernames */
+		struct ip_addr ip1, ip2;
+
+		who_user_ip(user1, &ip1);
+		who_user_ip(user2, &ip2);
+		return net_ip_cmp(&ip1, &ip2);
+	}
 	return 0;
 }
 
