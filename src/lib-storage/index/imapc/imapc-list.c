@@ -335,6 +335,7 @@ static char imapc_list_get_hierarchy_sep(struct mailbox_list *_list)
 		/* we can't really return a failure here. just return a common
 		   separator and fail all the future list operations. */
 		list->root_sep_lookup_failed = TRUE;
+		mailbox_list_set_internal_error(_list);
 		return '/';
 	}
 	return sep;
