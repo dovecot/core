@@ -257,7 +257,7 @@ imapc_storage_client_login_callback(const struct imapc_command_reply *reply,
 static void imapc_storage_client_login(struct imapc_storage_client *client,
 				       struct mail_user *user, const char *host)
 {
-	imapc_client_login(client->client, imapc_storage_client_login_callback, client);
+	imapc_client_login(client->client);
 	if (!user->namespaces_created) {
 		/* we're still initializing the user. wait for the
 		   login to finish, so we can fail the user creation
@@ -340,6 +340,9 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	client->client = imapc_client_init(&set);
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
+
+	imapc_client_set_login_callback(client->client, imapc_storage_client_login_callback, client);
+
 	if ((ns->flags & NAMESPACE_FLAG_LIST_PREFIX) != 0 &&
 	    (imapc_set->parsed_features & IMAPC_FEATURE_DELAY_LOGIN) == 0) {
 		/* start logging in immediately */
