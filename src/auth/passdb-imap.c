@@ -55,6 +55,7 @@ passdb_imap_login_callback(const struct imapc_command_reply *reply,
 		auth_request_log_info(request->auth_request, AUTH_SUBSYS_DB,
 				      "%s", reply->text_full);
 		break;
+	case IMAPC_COMMAND_STATE_AUTH_FAILED:
 	case IMAPC_COMMAND_STATE_BAD:
 	case IMAPC_COMMAND_STATE_DISCONNECTED:
 		auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
