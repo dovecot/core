@@ -637,6 +637,8 @@ static void imap_client_notify_auth_ready(struct client *client)
 	str_append(greet, "\r\n");
 
 	client_send_raw(client, str_c(greet));
+
+	client->banner_sent = TRUE;
 }
 
 static void imap_client_starttls(struct client *client)

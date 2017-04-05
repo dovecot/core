@@ -195,6 +195,7 @@ struct client {
 	bool secured:1;
 	bool trusted:1;
 	bool ssl_servername_settings_read:1;
+	bool banner_sent:1;
 	bool authenticating:1;
 	bool auth_try_aborted:1;
 	bool auth_initializing:1;
