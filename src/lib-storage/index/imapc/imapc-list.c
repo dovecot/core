@@ -347,6 +347,11 @@ imapc_list_get_storage_name(struct mailbox_list *_list, const char *vname)
 	const char *prefix = list->set->imapc_list_prefix;
 	const char *storage_name;
 
+	/* check if authentication has failed, if it has, short circuit here
+	   to avoid the error being clobbered by mailbox_list_get_hierarchy_sep */
+	if (list->client->auth_failed)
+		return "";
+
 	storage_name = mailbox_list_default_get_storage_name(_list, vname);
 	if (*prefix != '\0' && strcasecmp(storage_name, "INBOX") != 0) {
 		storage_name = storage_name[0] == '\0' ? prefix :
