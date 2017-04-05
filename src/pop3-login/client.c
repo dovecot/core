@@ -222,6 +222,8 @@ static void pop3_client_notify_auth_ready(struct client *client)
 	if (pop3_client->apop_challenge != NULL)
 		str_printfa(str, " %s", pop3_client->apop_challenge);
 	client_send_reply(client, POP3_CMD_REPLY_OK, str_c(str));
+
+	client->banner_sent = TRUE;
 }
 
 static void

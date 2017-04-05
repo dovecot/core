@@ -230,8 +230,10 @@ void client_destroy(struct client *client, const char *reason)
 		pool_unref(&client->preproxy_pool);
 
 	if (!client->login_success && reason != NULL) {
-		reason = t_strconcat(reason, " ",
-			client_get_extra_disconnect_reason(client), NULL);
+		const char *extra_reason =
+			client_get_extra_disconnect_reason(client);
+		if (extra_reason[0] != '\0')
+			reason = t_strconcat(reason, " ", extra_reason, NULL);
 	}
 	if (reason != NULL)
 		client_log(client, reason);
@@ -781,6 +783,10 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 			(unsigned int)(ioloop_time - client->created));
 
 	if (client->auth_attempts == 0) {
+		if (!client->banner_sent) {
+			/* disconnected by a plugin */
+			return "";
+		}
 		return t_strdup_printf("(no auth attempts in %u secs)",
 			(unsigned int)(ioloop_time - client->created));
 	}
