@@ -42,7 +42,7 @@ struct imapc_settings {
 	unsigned int imapc_cmd_timeout;
 	unsigned int imapc_max_idle_time;
 	unsigned int imapc_connection_retry_count;
-	unsigned int imapc_connection_retry_interval_secs;
+	unsigned int imapc_connection_retry_interval;
 	uoff_t imapc_max_line_length;
 
 	const char *pop3_deleted_flag;
