@@ -19,6 +19,8 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(SET_STR, ssl_ca),
 	DEF(SET_STR, ssl_cert),
 	DEF(SET_STR, ssl_key),
+	DEF(SET_STR, ssl_alt_cert),
+	DEF(SET_STR, ssl_alt_key),
 	DEF(SET_STR, ssl_key_password),
 	DEF(SET_STR, ssl_cipher_list),
 	DEF(SET_STR, ssl_protocols),
@@ -42,6 +44,8 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_ca = "",
 	.ssl_cert = "",
 	.ssl_key = "",
+	.ssl_alt_cert = "",
+	.ssl_alt_key = "",
 	.ssl_key_password = "",
 	.ssl_cipher_list = "ALL:!LOW:!SSLv2:!EXP:!aNULL",
 #ifdef SSL_TXT_SSLV2

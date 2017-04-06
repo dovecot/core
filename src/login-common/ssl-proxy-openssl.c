@@ -91,12 +91,17 @@ struct ssl_parameters {
 	DH *dh_512, *dh_default;
 };
 
+struct ssl_server_cert {
+	const char *cert;
+	const char *key;
+};
+
 struct ssl_server_context {
 	SSL_CTX *ctx;
 	pool_t pool;
 
-	const char *cert;
-	const char *key;
+	struct ssl_server_cert pri, alt;
+
 	const char *ca;
 	const char *cipher_list;
 	const char *protocols;
@@ -141,15 +146,19 @@ static void ssl_proxy_destroy_failed(struct ssl_proxy *proxy)
 
 static unsigned int ssl_server_context_hash(const struct ssl_server_context *ctx)
 {
-	unsigned int i, g, h = 0;
+	unsigned int n, i, g, h = 0;
+	const char *cert[] = { ctx->pri.cert, ctx->alt.cert };
 
 	/* checking for different certs is typically good enough,
 	   and it should be enough to check only the first few bytes. */
-	for (i = 0; i < 16 && ctx->cert[i] != '\0'; i++) {
-		h = (h << 4) + ctx->cert[i];
-		if ((g = h & 0xf0000000UL)) {
-			h = h ^ (g >> 24);
-			h = h ^ g;
+	for(n=0;n<N_ELEMENTS(cert);n++) {
+		if (cert[n] == NULL) continue;
+		for (i = 0; i < 16 && cert[n][i] != '\0'; i++) {
+			h = (h << 4) + cert[n][i];
+			if ((g = h & 0xf0000000UL)) {
+				h = h ^ (g >> 24);
+				h = h ^ g;
+			}
 		}
 	}
 	return h;
@@ -158,9 +167,18 @@ static unsigned int ssl_server_context_hash(const struct ssl_server_context *ctx
 static int ssl_server_context_cmp(const struct ssl_server_context *ctx1,
 				  const struct ssl_server_context *ctx2)
 {
-	if (strcmp(ctx1->cert, ctx2->cert) != 0)
+	if (((ctx1->pri.cert != ctx2->pri.cert) &&
+	     (ctx1->pri.cert == NULL || ctx2->pri.cert == NULL)) ||
+	    ((ctx1->alt.cert != ctx2->alt.cert) &&
+	     (ctx1->alt.cert == NULL || ctx2->alt.cert == NULL)))
 		return 1;
-	if (strcmp(ctx1->key, ctx2->key) != 0)
+	if (ctx1->pri.cert != NULL && strcmp(ctx1->pri.cert, ctx2->pri.cert) != 0)
+		return 1;
+	if (ctx1->pri.key != NULL && strcmp(ctx1->pri.key, ctx2->pri.key) != 0)
+		return 1;
+	if (ctx1->alt.cert != NULL && strcmp(ctx1->alt.cert, ctx2->alt.cert) != 0)
+		return 1;
+	if (ctx1->alt.key != NULL && strcmp(ctx1->alt.key, ctx2->alt.key) != 0)
 		return 1;
 	if (null_strcmp(ctx1->ca, ctx2->ca) != 0)
 		return 1;
@@ -606,8 +624,10 @@ ssl_server_context_get(const struct login_settings *login_set,
 	struct ssl_server_context *ctx, lookup_ctx;
 
 	i_zero(&lookup_ctx);
-	lookup_ctx.cert = set->ssl_cert;
-	lookup_ctx.key = set->ssl_key;
+	lookup_ctx.pri.cert = set->ssl_cert;
+	lookup_ctx.pri.key = set->ssl_key;
+	lookup_ctx.alt.cert = set->ssl_alt_cert;
+	lookup_ctx.alt.key = set->ssl_alt_key;
 	lookup_ctx.ca = set->ssl_ca;
 	lookup_ctx.cipher_list = set->ssl_cipher_list;
 	lookup_ctx.protocols = set->ssl_protocols;
@@ -1123,10 +1143,18 @@ ssl_proxy_ctx_use_key(SSL_CTX *ctx,
 
 	password = *set->ssl_key_password != '\0' ? set->ssl_key_password :
 		getenv(MASTER_SSL_KEY_PASSWORD_ENV);
-	pkey = ssl_proxy_load_key(set->ssl_key, password);
-	if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1)
-		i_fatal("Can't load private ssl_key: %s", openssl_iostream_key_load_error());
-	EVP_PKEY_free(pkey);
+	if (*set->ssl_key != '\0') {
+		pkey = ssl_proxy_load_key(set->ssl_key, password);
+		if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1)
+			i_fatal("Can't load private ssl_key: %s", openssl_iostream_key_load_error());
+		EVP_PKEY_free(pkey);
+	}
+	if (*set->ssl_alt_key != '\0') {
+		pkey = ssl_proxy_load_key(set->ssl_alt_key, password);
+		if (SSL_CTX_use_PrivateKey(ctx, pkey) != 1)
+			i_fatal("Can't load private ssl_alt_key: %s", openssl_iostream_key_load_error());
+		EVP_PKEY_free(pkey);
+	}
 }
 
 #if defined(HAVE_ECDH) && !defined(SSL_CTRL_SET_ECDH_AUTO)
@@ -1248,8 +1276,10 @@ ssl_server_context_init(const struct login_settings *login_set,
 	pool = pool_alloconly_create("ssl server context", 4096);
 	ctx = p_new(pool, struct ssl_server_context, 1);
 	ctx->pool = pool;
-	ctx->cert = p_strdup(pool, ssl_set->ssl_cert);
-	ctx->key = p_strdup(pool, ssl_set->ssl_key);
+	ctx->pri.cert = p_strdup(pool, ssl_set->ssl_cert);
+	ctx->pri.key = p_strdup(pool, ssl_set->ssl_key);
+	ctx->alt.cert = p_strdup(pool, ssl_set->ssl_alt_cert);
+	ctx->alt.key = p_strdup(pool, ssl_set->ssl_alt_key);
 	ctx->ca = p_strdup(pool, ssl_set->ssl_ca);
 	ctx->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
 	ctx->protocols = p_strdup(pool, ssl_set->ssl_protocols);
@@ -1273,9 +1303,15 @@ ssl_server_context_init(const struct login_settings *login_set,
 		SSL_CTX_set_options(ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	SSL_CTX_set_options(ssl_ctx, openssl_get_protocol_options(ctx->protocols));
 
-	if (ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->cert) != 1) {
+	if (ctx->pri.cert != NULL && *ctx->pri.cert != '\0' &&
+	    ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->pri.cert) != 1) {
 		i_fatal("Can't load ssl_cert: %s",
-			openssl_iostream_use_certificate_error(ctx->cert, "ssl_cert"));
+			openssl_iostream_use_certificate_error(ctx->pri.cert, "ssl_cert"));
+	}
+	if (ctx->alt.cert != NULL && *ctx->alt.cert != '\0' &&
+	    ssl_proxy_ctx_use_certificate_chain(ctx->ctx, ctx->alt.cert) != 1) {
+		i_fatal("Can't load ssl_alt_cert: %s",
+			openssl_iostream_use_certificate_error(ctx->alt.cert, "ssl_cert"));
 	}
 
 #ifdef HAVE_SSL_GET_SERVERNAME
