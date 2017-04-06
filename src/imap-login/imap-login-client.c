@@ -231,7 +231,7 @@ static void cmd_id_handle_keyvalue(struct imap_client *client,
 		client_id_str = !client_id_reserved_word(key);
 	}
 
-	if (client_id_str &&
+	if (client->set->imap_id_retain && client_id_str &&
 	    (client->common.client_id == NULL ||
 	     str_len(client->common.client_id) + kvlen < LOGIN_MAX_CLIENT_ID_LEN)) {
 		if (client->common.client_id == NULL) {
