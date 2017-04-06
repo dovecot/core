@@ -1,3 +1,420 @@
+v2.2.29 2017-04-xx  Timo Sirainen <tss@iki.fi>
+
+	* When Dovecot encounters an internal error, it logs the real error and
+	  usually logs another line saying what function failed. Previously the
+	  second log line's error message was a rather uninformative "Internal
+	  error occurred. Refer to server log for more information." Now the
+	  real error message is duplicated in this second log line.
+	* lmtp: If a delivery has multiple recipients, run autoexpunging only
+	  for the last recipient. This avoids a problem where a long
+	  autoexpunge run causes LMTP client to timeout between the DATA
+	  replies, resulting in duplicate mail deliveries.
+	* config: Don't stop the process due to idling. Otherwise the
+	  configuration is reloaded when the process restarts.
+	* mail_log plugin: Differentiate autoexpunges from regular expunges
+	* imapc: Use LOGOUT to cleanly disconnect from server.
+	* lib-http: Internal status codes (>9000) are no longer visible in logs
+	* director: Log vhost count changes and HOST-UP/DOWN
+
+	+ quota: Add plugin { quota_max_mail_size } setting to limit the
+	  maximum individual mail size that can be saved.
+	+ imapc: Add imapc_features=delay-login. If set, connecting to the
+	  remote IMAP server isn't done until it's necessary.
+	+ imapc: Add imapc_connection_retry_count and
+	  imapc_connection_retry_interval settings.
+	+ imap, pop3, indexer-worker: Add (deinit) to process title before
+	  autoexpunging runs.
+	+ Added %{encrypt} and %{decrypt} variables
+	+ imap/pop3 proxy: Log proxy state in errors as human-readable string.
+	+ imap/pop3-login: All forward_* extra fields returned by passdb are
+	  sent to the next hop when proxying using ID/XCLIENT commands. On the
+	  receiving side these fields are imported and sent to auth process
+	  where they're accessible via %{passdb:forward_*}. This is done only
+	  if the sending IP address matches login_trusted_networks.
+	+ imap-login: If imap_id_retain=yes, send the IMAP ID string to
+	  auth process. %{client_id} expands to it in auth process. The ID
+	  string is also sent to the next hop when proxying.
+	- fts-tika: Fixed crash when parsing attachment without
+	  Content-Disposition header. Broken by 2.2.28.
+	- trash plugin was broken in 2.2.28
+	- auth: When passdb/userdb lookups were done via auth-workers, too much
+	  data was added to auth cache. This could have resulted in wrong
+	  replies when using multiple passdbs/userdbs.
+	- auth: passdb { skip & mechanisms } were ignored for the first passdb
+	- oauth2: Various fixes, including fixes to crashes
+	- dsync: Large Sieve scripts (or other large metadata) weren't always
+	  synced.
+	- Index rebuild (e.g. doveadm force-resync) set all mails as \Recent
+	- imap-hibernate: %{userdb:*} wasn't expanded in mail_log_prefix
+	- doveadm: Exit codes weren't preserved when proxying commands via
+	  doveadm-server. Almost all errors used exit code 75 (tempfail).
+	- ACLs weren't applied to not-yet-existing autocreated mailboxes.
+	- Fixed a potential crash when parsing a broken message header.
+	- cassandra: Fallback consistency settings weren't working correctly.
+	- doveadm director status <user>: "Initial config" was always empty
+	- imapc: Various reconnection fixes.
+
+v2.2.28 2017-02-24  Timo Sirainen <tss@iki.fi>
+
+	* director: "doveadm director move" to same host now refreshes user's
+	  timeout. This allows keeping user constantly in the same backend by
+	  just periodically moving the user there.
+	* When new mailbox is created, use initially INBOX's
+	  dovecot.index.cache caching decisions.
+	* Expunging mails writes GUID to dovecot.index.log now only if the
+	  GUID is quickly available from index/cache.
+	* pop3c: Increase timeout for PASS command to 5 minutes.
+	* Mail access errors are no longer ignored when searching or sorting.
+	  With IMAP the untagged SEARCH/SORT reply is still sent the same as
+	  before, but NO reply is returned instead of OK.
+
+	+ Make dovecot.list.index's filename configurable. This is needed when
+	  there are multiple namespaces pointing to the same mail root
+	  (e.g. lazy_expunge namespace for mdbox).
+	+ Add size.virtual to dovecot.index when folder vsizes are accessed
+	  (e.g. quota=count). This is mainly a workaround to avoid slow quota
+	  recalculation performance when message sizes get lost from
+	  dovecot.index.cache due to corruption or some other reason.
+	+ auth: Support OAUTHBEARER and XOAUTH2 mechanisms. Also support them
+	  in lib-dsasl for client side.
+	+ auth: Support filtering by SASL mechanism: passdb { mechanisms }
+	+ Shrink the mail processes' memory usage by not storing settings
+	  duplicated unnecessarily many times.
+	+ imap: Add imap_fetch_failure setting to control what happens when
+	  FETCH fails for some mails (see example-config).
+	+ imap: Include info about last command in disconnection log line.
+	+ imap: Created new SEARCH=X-MIMEPART extension. It's currently not
+	  advertised by default, since it's not fully implemented.
+	+ fts-solr: Add support for basic authentication.
+	+ Cassandra: Support automatically retrying failed queries if
+	  execution_retry_interval and execution_retry_times are set.
+	+ doveadm: Added "mailbox path" command.
+	+ mail_log plugin: If plugin { mail_log_cached_only=yes }, log the
+	  wanted fields only if it doesn't require opening the email.
+	+ mail_vsize_bg_after_count setting added (see example-config).
+	+ mail_sort_max_read_count setting added (see example-config).
+	+ pop3c: Added pop3c_features=no-pipelining setting to prevent using
+	  PIPELINING extension even though it's advertised.
+
+	- Index files: day_first_uid wasn't updated correctly since v2.2.26.
+	  This caused dovecot.index.cache to be non-optimal.
+	- imap: SEARCH/SORT may have assert-crashed in
+	  client_check_command_hangs
+	- imap: FETCH X-MAILBOX may have assert-crashed in virtual mailboxes.
+	- imap: Running time in tagged command reply was often wrongly 0.
+	- search: Using NOT n:* or NOT UID n:* wasn't handled correctly
+	- director: doveadm director kick was broken
+	- director: Fix crash when using director_flush_socket
+	- director: Fix some bugs when moving users between backends
+	- imapc: Various error handling fixes and improvements
+	- master: doveadm process status output had a lot of duplicates.
+	- autoexpunge: If mailbox's rename timestamp is newer than mail's
+	  save-timestamp, use it instead. This is useful when autoexpunging
+	  e.g. Trash/* and an entire mailbox is deleted by renaming it under
+	  Trash to prevent it from being autoexpunged too early.
+	- autoexpunge: Multiple processes may have been trying to expunge the
+	  same mails simultaneously. This was problematic especially with
+	  lazy_expunge plugin.
+	- auth: %{passdb:*} was empty in auth-worker processes
+	- auth-policy: hashed_password was always sent empty.
+	- dict-sql: Merge multiple UPDATEs to a single statement if possible.
+	- fts-solr: Escape {} chars when sending queries
+	- fts: fts_autoindex_exclude = \Special-use caused crashes
+	- doveadm-server: Fix leaks and other problems when process is reused
+	  for multiple requests (service_count != 1)
+	- sdbox: Fix assert-crash on mailbox create race
+	- lda/lmtp: deliver_log_format values weren't entirely correct if Sieve
+	  was used. especially %{storage_id} was broken.
+	- lmtp_user_concurrency_limit didn't work if userdb changed username
+
+v2.2.27 2016-12-03  Timo Sirainen <tss@iki.fi>
+
+	* dovecot.list.index.log rotation sizes/times were changed so that
+	  the .log file stays smaller and .log.2 is deleted sooner.
+
+	+ Added mail_crypt plugin that allows encryption of stored emails.
+	  See http://wiki2.dovecot.org/Plugins/MailCrypt
+	+ stats: Global stats can be sent to Carbon server by setting
+	  stats_carbon_server=ip:port
+	+ imap/pop3 proxy: If passdb returns proxy_not_trusted, don't send
+	  ID/XCLIENT
+	+ Added generic hash modifier for %variables:
+	  %{<hash algorithm>;rounds=<n>,truncate=<bits>,salt=s>:field}
+	  Hash algorithm is any of the supported ones, e.g. md5, sha1, sha256.
+	  Also "pkcs5" is supported using SHA256. For example: %{sha256:user}
+	  or %{md5;truncate=32:user}.
+	+ Added support for SHA3-256 and SHA3-512 hashes.
+	+ config: Support DNS wildcards in local_name, e.g.
+	  local_name *.example.com { .. } matches anything.example.com, but
+	  not multiple.anything.example.com.
+	+ config: Support multiple names in local_name, e.g.
+	  local_name "1.example.com 2.example.com" { .. }
+	- Fixed crash in auth process when auth-policy was configured and
+	  authentication was aborted/failed without a username set.
+	- director: If two users had different tags but the same hash,
+	  the users may have been redirected to the wrong tag's hosts.
+	- Index files may have been thought incorrectly lost, causing
+	  "Missing middle file seq=.." to be logged and index rebuild.
+	  This happened more easily with IMAP hibernation enabled.
+	- Various fixes to restoring state correctly in un-hibernation.
+	- dovecot.index files were commonly 4 bytes per email too large. This
+	  is because 3 bytes per email were being wasted that could have been
+	  used for IMAP keywords.
+	- Various fixes to handle dovecot.list.index corruption better.
+	- lib-fts: Fixed assert-crash in address tokenizer with specific input.
+	- Fixed assert-crash in HTML to text parsing with specific input
+	  (e.g. for FTS indexing or snippet generation)
+	- doveadm sync -1: Fixed handling mailbox GUID conflicts.
+	- sdbox, mdbox: Perform full index rebuild if corruption is detected
+	  inside lib-index, which runs index fsck.
+	- quota: Don't skip quota checks when moving mails between different
+	  quota roots.
+	- search: Multiple sequence sets or UID sets in search parameters
+	  weren't handled correctly. They were incorrectly merged together.
+
+v2.2.26.0 2016-10-28  Timo Sirainen <tss@iki.fi>
+
+	- Fixed some compiling issues.
+	- auth: Fixed assert-crash when using NTLM or SKEY mechanisms and
+	  multiple passdbs.
+	- auth: Fixed crash when exporting to auth-worker passdb extra fields
+	  that had empty values.
+	- dsync: Fixed assert-crash in dsync_brain_sync_mailbox_deinit
+
+v2.2.26 2016-10-27  Timo Sirainen <tss@iki.fi>
+
+	* master: Removed hardcoded 511 backlog limit for listen(). The kernel
+	  should limit this as needed.
+	* doveadm import: Source user is now initialized the same as target
+	  user. Added -U parameter to override the source user.
+	* Mailbox names are no longer limited to 16 hierarchy levels. We'll
+	  check another way to make sure mailbox names can't grow larger than
+	  4096 bytes.
+
+	+ Added a concept of "alternative usernames" by returning user_* extra
+	  field(s) in passdb. doveadm proxy list shows these alt usernames in
+	  "doveadm proxy list" output. "doveadm director&proxy kick" adds
+	  -f <passdb field> parameter. The alt usernames don't have to be
+	  unique, so this allows creation of user groups and kicking them in
+	  one command.
+	+ auth: passdb/userdb dict allows now %variables in key settings.
+	+ auth: If passdb returns noauthenticate=yes extra field, assume that
+	  it only set extra fields and authentication wasn't actually performed.
+	+ auth: passdb static now supports password={scheme} prefix.
+	+ auth, login_log_format_elements: Added %{local_name} variable, which
+	  expands to TLS SNI hostname if given.
+	+ imapc: Added imapc_max_line_length to limit maximum memory usage.
+	+ imap, pop3: Added rawlog_dir setting to store IMAP/POP3 traffic logs.
+	  This replaces at least partially the rawlog plugin.
+	+ dsync: Added dsync_features=empty-header-workaround setting. This
+	  makes incremental dsyncs work better for servers that randomly return
+	  empty headers for mails. When an empty header is seen for an existing
+	  mail, dsync assumes that it matches the local mail.
+	+ doveadm sync/backup: Added -I <max size> parameter to skip too
+	  large mails.
+	+ doveadm sync/backup: Fixed -t parameter and added -e for "end date".
+	+ doveadm mailbox metadata: Added -s parameter to allow accessing
+	  server metadata by using empty mailbox name.
+	+ Added "doveadm service status" and "doveadm process status" commands.
+	+ director: Added director_flush_socket. See
+	  http://wiki2.dovecot.org/Director#Flush_socket
+	+ doveadm director flush: Users are now moved only max 100 at a time to
+	  avoid load spikes. --max-parallel parameter overrides this.
+	+ Added FILE_LOCK_SLOW_WARNING_MSECS environment, which logs a warning
+	  if any lock is waited on or kept for this many milliseconds.
+
+	- master process's listener socket was leaked to all child processes.
+	  This might have allowed untrusted processes to capture and prevent
+	  "doveadm service stop" comands from working.
+	- login proxy: Fixed crash when outgoing SSL connections were hanging.
+	- auth: userdb fields weren't passed to auth-workers, so %{userdb:*}
+	  from previous userdbs didn't work there.
+	- auth: Each userdb lookup from cache reset its TTL.
+	- auth: Fixed auth_bind=yes + sasl_bind=yes to work together
+	- auth: Blocking userdb lookups reset extra fields set by previous
+	  userdbs.
+	- auth: Cache keys didn't include %{passdb:*} and %{userdb:*}
+	- auth-policy: Fixed crash due to using already-freed memory if policy
+	  lookup takes longer than auth request exists.
+	- lib-auth: Unescape passdb/userdb extra fields. Mainly affected
+	  returning extra fields with LFs or TABs.
+	- lmtp_user_concurrency_limit>0 setting was logging unnecessary
+	  anvil errors.
+	- lmtp_user_concurrency_limit is now checked before quota check with
+	  lmtp_rcpt_check_quota=yes to avoid unnecessary quota work.
+	- lmtp: %{userdb:*} variables didn't work in mail_log_prefix
+	- autoexpunge settings for mailboxes with wildcards didn't work when
+	  namespace prefix was non-empty.
+	- Fixed writing >2GB to iostream-temp files (used by fs-compress,
+	  fs-metawrap, doveadm-http)
+	- director: Ignore duplicates in director_servers setting.
+	- director: Many fixes related to connection handshaking, user moving
+	  and error handling.
+	- director: Don't break with shutdown_clients=no
+	- zlib, IMAP BINARY: Fixed internal caching when accessing multiple
+	  newly created mails. They all had UID=0 and the next mail could have
+	  wrongly used the previously cached mail.
+	- doveadm stats reset wasn't reseting all the stats.
+	- auth_stats=yes: Don't update num_logins, since it doubles them when
+	  using with mail stats.
+	- quota count: Fixed deadlocks when updating vsize header.
+	- dict-quota: Fixed crashes happening due to memory corruption.
+	- dict proxy: Fixed various timeout-related bugs.
+	- doveadm proxying: Fixed -A and -u wildcard handling.
+	- doveadm proxying: Fixed hangs and bugs related to printing.
+	- imap: Fixed wrongly triggering assert-crash in
+	  client_check_command_hangs.
+	- imap proxy: Don't send ID command pipelined with nopipelining=yes
+	- imap-hibernate: Don't execute quota_over_script or last_login after
+	  un-hibernation.
+	- imap-hibernate: Don't un-hibernate if client sends DONE+IDLE in one
+	  IP packet.
+	- imap-hibernate: Fixed various failures when un-hibernating.
+	- fts: fts_autoindex=yes was broken in 2.2.25 unless
+	  fts_autoindex_exclude settings existed.
+	- fts-solr: Fixed searching multiple mailboxes (patch by x16a0)
+	- doveadm fetch body.snippet wasn't working in 2.2.25. Also fixed a
+	  crash with certain emails.
+	- pop3-migration + dbox: Various fixes related to POP3 UIDL
+	  optimization in 2.2.25.
+	- pop3-migration: Fixed "truncated email header" workaround.
+
+v2.2.25 2016-07-01  Timo Sirainen <tss@iki.fi>
+
+	* lmtp: Start tracking lmtp_user_concurrency_limit and reject already
+	  at RCPT TO stage. This avoids MTA unnecessarily completing DATA only
+	  to get an error.
+	* doveadm: Previously only mail settings were read from protocol
+	  doveadm { .. } section. Now all settings are.
+
+	+ quota: Added quota_over_flag_lazy_check setting. It avoids checking
+	  quota_over_flag always at startup. Instead it's checked only when
+	  quota is being read for some other purpose.
+	+ auth: Added a new auth policy service:
+	  http://wiki2.dovecot.org/Authentication/Policy
+	+ auth: Added PBKDF2 password scheme
+	+ auth: Added %{auth_user}, %{auth_username} and %{auth_domain}
+	+ auth: Added ":remove" suffix to extra field names to remove them.
+	+ auth: Added "delay_until=<timestamp>[+<max random secs>]" passdb
+	  extra field. The auth will wait until <timestamp> and optionally some
+	  randomness and then return success.
+	+ dict proxy: Added idle_msecs=<n> parameter. Support async operations.
+	+ Performance improvements for handling large mailboxes.
+	+ Added lib-dcrypt API for providing cryptographic functions.
+	+ Added "doveadm mailbox update" command
+	+ imap commands' output now includes timing spent on the "syncing"
+	  stage if it's larger than 0.
+	+ cassandra: Added metrics=<path> to connect setting to output internal
+	  statistics in JSON format every second to <path>.
+	+ doveadm mailbox delete: Added -e parameter to delete only empty
+	  mailboxes. Added --unsafe option to quickly delete a mailbox,
+	  bypassing lazy_expunge and quota plugins.
+	+ doveadm user & auth cache flush are now available via doveadm-server.
+	+ doveadm service stop <services> will stop specified services while
+	  leaving the rest of Dovecot running.
+	+ quota optimization: Avoid reading mail sizes for backends which
+	  don't need them (count, fs, dirsize)
+	+ Added mailbox { autoexpunge_max_mails=<n> } setting.
+	+ Added welcome plugin: http://wiki2.dovecot.org/Plugins/Welcome
+	+ fts: Added fts_autoindex_exclude setting.
+	- v2.2.24's MIME parser was assert-crashing on mails having truncated
+	  MIME headers.
+	- auth: With multiple userdbs the final success/failure result wasn't
+	  always correct. The last userdb's result was always used.
+	- doveadm backup was sometimes deleting entire mailboxes unnecessarily.
+	- doveadm: Command -parameters weren't being sent to doveadm-server.
+	- If dovecot.index read failed e.g. because mmap() reached VSZ limit,
+	  an empty index could have been opened instead, corrupting the
+	  mailbox state.
+	- imapc: Fixed EXPUNGE handling when imapc_features didn't have modseq.
+	- lazy-expunge: Fixed a crash when copying failed. Various other fixes.
+	- fts-lucene: Fixed crash on index rescan.
+	- auth_stats=yes produced broken output
+	- dict-ldap: Various fixes
+	- dict-sql: NULL values crashed. Now they're treated as "not found".
+
+v2.2.24 2016-04-26  Timo Sirainen <tss@iki.fi>
+
+	* doveconf now warns if it sees a global setting being changed when
+	  the same setting was already set inside some filters. (A common
+	  mistake has been adding more plugins to a global mail_plugins
+	  setting after it was already set inside protocol { .. }, which
+	  caused the global setting to be ignored for that protocol.)
+	* LMTP proxy: Increased default timeout 30s -> 125s. This makes it
+	  less likely to reach the timeout and cause duplicate deliveries.
+	* LMTP and indexer now append ":suffix" to session IDs to make it
+	  unique for the specific user's delivery. (Fixes duplicate session
+	  ID warnings in stats process.)
+
+	+ Added dict-ldap for performing read-only LDAP dict lookups.
+	+ lazy-expunge: All mails can be saved to a single specified mailbox.
+	+ mailbox { autoexpunge } supports now wildcards in mailbox names.
+	+ doveadm HTTP API: Added support for proxy commands
+	+ imapc: Reconnect when getting disconnected in non-selected state.
+	+ imapc: Added imapc_features=modseq to access MODSEQs/HIGHESTMODSEQ.
+	  This is especially useful for incremental dsync.
+	+ doveadm auth/user: Auth lookup performs debug logging if
+	  -o auth_debug=yes is given to doveadm.
+	+ Added passdb/userdb { auth_verbose=yes|no } setting.
+	+ Cassandra: Added user, password, num_threads, connect_timeout and
+	  request_timeout settings.
+	+ doveadm user -e <value>: Print <value> with %variables expanded.
+	- Huge header lines could have caused Dovecot to use too much memory
+	  (depending on config and used IMAP commands). (Typically this would
+	  result in only the single user's process dying with out of memory
+	  due to reaching service { vsz_limit } - not a global DoS).
+	- dsync: Detect and handle invalid/stale -s state string better.
+	- dsync: Fixed crash caused by specific mailbox renames
+	- auth: Auth cache is now disabled passwd-file. It was unnecessary and
+	  it broke %variables in extra fields.
+	- fts-tika: Don't crash if it returns 500 error
+	- dict-redis: Fixed timeout handling
+	- SEARCH INTHREAD was crashing
+	- stats: Only a single fifo_listeners was supported, making it
+	  impossible to use both auth_stats=yes and mail stats plugin.
+	- SSL errors were logged in separate "Stacked error" log lines
+	  instead of as part of the disconnection reason.
+	- MIME body parser didn't handle properly when a child MIME part's
+	  --boundary had the same prefix as the parent.
+
+v2.2.23 2016-03-30  Timo Sirainen <tss@iki.fi>
+
+	- Various fixes to doveadm. Especially running commands via
+	  doveadm-server was broken.
+	- director: Fixed user weakness getting stuck in some situations
+	- director: Fixed a situation where directors keep re-sending
+	  different states to each others and never becoming synced.
+	- director: Fixed assert-crash related to a slow "user killed" reply
+	- Fixed assert-crash related to istream-concat, which could have
+	  been triggered at least by a Sieve script.
+
+v2.2.22 2016-03-16  Timo Sirainen <tss@iki.fi>
+
+	+ Added doveadm HTTP API: See
+	  http://wiki2.dovecot.org/Design/DoveadmProtocol/HTTP
+	+ virtual plugin: Mailbox filtering can now be done based on the
+	  mailbox metadata. See http://wiki2.dovecot.org/Plugins/Virtual
+	+ stats: Added doveadm stats reset to reset global stats.
+	+ stats: Added authentication statistics if auth_stats=yes.
+	+ dsync, imapc, pop3c & pop3-migration: Many optimizations,
+	  improvements and error handling fixes.
+	+ doveadm: Most commands now stop soon after SIGINT/SIGTERM.
+	- auth: Auth caching was done too aggressively when %variables were
+	  used in default_fields, override_fields or LDAP pass/user_attrs.
+	  userdb result_* were also ignored when user was found from cache.
+	- imap: Fixed various assert-crashes caused v2.2.20+. Some of them
+	  caught actual hangs or otherwise unwanted behavior towards IMAP
+	  clients.
+	- Expunges were forgotten in some situations, for example when
+	  pipelining multiple IMAP MOVE commands.
+	- quota: Per-namespaces quota were broken for dict and count backends
+	  in v2.2.20+
+	- fts-solr: Search queries were using OR instead of AND as the
+	  separator for multi-token search queries in v2.2.20+.
+	- Single instance storage support wasn't really working in v2.2.16+
+	- dbox: POP3 message ordering wasn't working correctly.
+	- virtual plugin: Fixed crashes related to backend mailbox deletions.
+
 v2.2.21 2015-12-11  Timo Sirainen <tss@iki.fi>
 
 	- doveadm mailbox list (and some others) were broken in v2.2.20
