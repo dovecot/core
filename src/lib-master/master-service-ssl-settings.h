@@ -7,7 +7,9 @@ struct master_service_ssl_settings {
 	const char *ssl;
 	const char *ssl_ca;
 	const char *ssl_cert;
+	const char *ssl_alt_cert;
 	const char *ssl_key;
+	const char *ssl_alt_key;
 	const char *ssl_key_password;
 	const char *ssl_dh;
 	const char *ssl_cipher_list;
