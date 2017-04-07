@@ -605,6 +605,8 @@ void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx)
 
 void openssl_iostream_global_deinit(void)
 {
+	if (!ssl_global_initialized)
+		return;
 	dovecot_openssl_common_global_unref();
 }
 
