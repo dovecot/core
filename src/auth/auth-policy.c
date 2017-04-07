@@ -330,7 +330,7 @@ void auth_policy_parse_response(struct policy_lookup_ctx *context)
 	if (context->callback != NULL) {
 		context->callback(context->result, context->callback_context);
 	}
-};
+}
 
 static
 void auth_policy_process_response(const struct http_response *response,

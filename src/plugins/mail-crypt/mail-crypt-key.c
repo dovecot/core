@@ -982,7 +982,7 @@ int mail_crypt_generate_keypair(const char *curve,
 	*pubid_r = binary_to_hex(key_id->data, key_id->used);
 
 	return 0;
-};
+}
 
 int mail_crypt_user_generate_keypair(struct mail_user *user,
 				     struct dcrypt_keypair *pair,
