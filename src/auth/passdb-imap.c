@@ -86,6 +86,9 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 			    DNS_CLIENT_SOCKET_NAME, NULL);
 	set.password = password;
 	set.max_idle_time = IMAPC_DEFAULT_MAX_IDLE_TIME;
+	if (set.ssl_ca_dir == NULL)
+		set.ssl_ca_dir = auth_request->set->ssl_client_ca_dir;
+	set.ssl_ca_file = auth_request->set->ssl_client_ca_file;
 
 	if (module->set_have_vars) {
 		str = t_str_new(128);
