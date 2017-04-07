@@ -515,7 +515,7 @@ ssl_iostream_context_init_common(struct ssl_iostream_context *ctx,
 				 const struct ssl_iostream_settings *set,
 				 const char **error_r)
 {
-	long ssl_ops = SSL_OP_NO_SSLv2 |
+	unsigned long ssl_ops = SSL_OP_NO_SSLv2 |
 		(SSL_OP_ALL & ~SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS);
 
 	ctx->pool = pool_alloconly_create("ssl iostream context", 4096);
