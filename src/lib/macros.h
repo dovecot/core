@@ -148,7 +148,7 @@
 #endif
 
 /* Macros to provide type safety for callback functions' context parameters */
-#if ((__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3)) && defined(HAVE_TYPEOF))
+#ifdef HAVE_TYPE_CHECKS
 #  define CALLBACK_TYPECHECK(callback, type) \
 	(COMPILE_ERROR_IF_TRUE(!__builtin_types_compatible_p( \
 		typeof(&callback), type)) ? 1 : 0)
@@ -163,7 +163,7 @@
 #  define COMPILE_ERROR_IF_TRUE(condition) 0
 #endif
 
-#if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 0)) && !defined(__cplusplus) && defined(HAVE_TYPEOF)
+#ifdef HAVE_TYPE_CHECKS
 #  define COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(_a, _b) \
 	COMPILE_ERROR_IF_TRUE( \
 		!__builtin_types_compatible_p(typeof(_a), typeof(_b)))
