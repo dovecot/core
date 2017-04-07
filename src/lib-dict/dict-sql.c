@@ -757,7 +757,8 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 		str_append_c(ctx->key, '/');
 
 	count = sql_result_get_fields_count(ctx->result);
-	i = (ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0 ? 0 : 1;
+	i = (ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0 ? 0 :
+		ctx->map->values_count;
 	sql_field_i = ctx->sql_fields_start_idx;
 	for (p = ctx->map->pattern + ctx->pattern_prefix_len; *p != '\0'; p++) {
 		if (*p != '$')
