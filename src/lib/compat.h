@@ -17,8 +17,10 @@
 #endif
 
 /* We really want NULL to be a pointer, since we have various type-checks
-   that may result in compiler warnings/errors if it's not. */
-#ifndef __cplusplus
+   that may result in compiler warnings/errors if it's not. Do this only when
+   type checking is used - it's not otherwise needed and causes compiling
+   problems with e.g. Sun C compiler. */
+#ifdef HAVE_TYPE_CHECKS
 #  undef NULL
 #  define NULL ((void *)0)
 #endif
