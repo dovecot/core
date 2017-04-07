@@ -11,6 +11,11 @@
 #  define LLONG_MAX 9223372036854775807LL
 #endif
 
+#if ((__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3)) && \
+	defined(HAVE_TYPEOF)) && !defined(__cplusplus)
+#  define HAVE_TYPE_CHECKS
+#endif
+
 /* We really want NULL to be a pointer, since we have various type-checks
    that may result in compiler warnings/errors if it's not. */
 #ifndef __cplusplus
