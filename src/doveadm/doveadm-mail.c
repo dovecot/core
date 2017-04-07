@@ -306,6 +306,7 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *ctx,
 				struct mail_user *user)
 {
 	const enum mailbox_list_iter_flags iter_flags =
+		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
 		MAILBOX_LIST_ITER_STAR_WITHIN_NS;
 	const enum mail_namespace_type ns_mask = MAIL_NAMESPACE_TYPE_MASK_ALL;
