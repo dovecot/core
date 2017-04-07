@@ -24,8 +24,6 @@
  * Types
  */
 
-enum http_response_payload_type;
-
 struct http_client_host;
 struct http_client_queue;
 struct http_client_peer;
