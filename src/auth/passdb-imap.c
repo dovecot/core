@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2017 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
+#include "ioloop.h"
 #include "passdb.h"
 #include "str.h"
 #include "imap-resp-code.h"
@@ -20,6 +21,7 @@ struct imap_auth_request {
 	struct imapc_client *client;
 	struct auth_request *auth_request;
 	verify_plain_callback_t *verify_callback;
+	struct timeout *to_free;
 };
 
 static enum passdb_result
@@ -38,12 +40,18 @@ passdb_imap_get_failure_result(const struct imapc_command_reply *reply)
 	return PASSDB_RESULT_INTERNAL_FAILURE;
 }
 
+static void passdb_imap_login_free(struct imap_auth_request *request)
+{
+	timeout_remove(&request->to_free);
+	imapc_client_deinit(&request->client);
+	auth_request_unref(&request->auth_request);
+}
+
 static void
 passdb_imap_login_callback(const struct imapc_command_reply *reply,
 			   void *context)
 {
 	struct imap_auth_request *request = context;
-	struct imapc_client *client = request->client;
 	enum passdb_result result = PASSDB_RESULT_INTERNAL_FAILURE;
 
 	switch (reply->state) {
@@ -63,8 +71,10 @@ passdb_imap_login_callback(const struct imapc_command_reply *reply,
 		break;
 	}
 	request->verify_callback(result, request->auth_request);
-	imapc_client_deinit(&client);
-	auth_request_unref(&request->auth_request);
+	/* imapc_client can't be freed in this callback, so do it in a
+	   separate callback. FIXME: remove this once imapc supports proper
+	   refcounting. */
+	request->to_free = timeout_add_short(0, passdb_imap_login_free, request);
 }
 
 static void
