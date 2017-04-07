@@ -342,7 +342,7 @@ ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 		have_ca = TRUE;
 	}
 
-	if (!have_ca) {
+	if (!have_ca && !set->allow_invalid_cert) {
 		*error_r = !ctx->client_ctx ?
 			"Can't verify remote client certs without CA (ssl_ca setting)" :
 			"Can't verify remote server certs without trusted CAs (ssl_client_ca_* settings)";
