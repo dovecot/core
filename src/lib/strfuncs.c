@@ -15,6 +15,8 @@
 
 const unsigned char uchar_nul = '\0';
 
+volatile int timing_safety_unoptimization;
+
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)
 {
 	va_list args;
@@ -472,6 +474,21 @@ int bsearch_strcasecmp(const char *key, const char *const *member)
 int i_strcasecmp_p(const char *const *p1, const char *const *p2)
 {
 	return strcasecmp(*p1, *p2);
+}
+
+bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size)
+{
+	const unsigned char *s1 = p1, *s2 = p2;
+	size_t i;
+	int ret = 0;
+
+	for (i = 0; i < size; i++)
+		ret |= s1[i] ^ s2[i];
+
+	/* make sure the compiler optimizer doesn't try to break out of the
+	   above loop early. */
+	timing_safety_unoptimization = ret;
+	return ret == 0;
 }
 
 static char **
