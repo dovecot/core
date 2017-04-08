@@ -610,6 +610,18 @@ plain_generate(const char *plaintext, const char *user ATTR_UNUSED,
 }
 
 static int
+plain_verify(const char *plaintext, const char *user ATTR_UNUSED,
+	     const unsigned char *raw_password, size_t size,
+	     const char **error_r ATTR_UNUSED)
+{
+	size_t plaintext_len = strlen(plaintext);
+
+	if (plaintext_len != size)
+		return 0;
+	return mem_equals_timing_safe(plaintext, raw_password, size) ? 1 : 0;
+}
+
+static int
 plain_trunc_verify(const char *plaintext, const char *user ATTR_UNUSED,
 		   const unsigned char *raw_password, size_t size,
 		   const char **error_r)
@@ -633,10 +645,10 @@ plain_trunc_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	if (size-i == trunc_len && plaintext_len >= trunc_len) {
 		/* possibly truncated password. allow the given password as
 		   long as the prefix matches. */
-		return memcmp(raw_password+i, plaintext, trunc_len) == 0 ? 1 : 0;
+		return mem_equals_timing_safe(raw_password+i, plaintext, trunc_len) ? 1 : 0;
 	}
 	return plaintext_len == size-i &&
-		memcmp(raw_password+i, plaintext, plaintext_len) == 0 ? 1 : 0;
+		mem_equals_timing_safe(raw_password+i, plaintext, plaintext_len) ? 1 : 0;
 }
 
 static void
@@ -803,9 +815,9 @@ static const struct password_scheme builtin_schemes[] = {
 	{ "SSHA", PW_ENCODING_BASE64, 0, ssha_verify, ssha_generate },
 	{ "SSHA256", PW_ENCODING_BASE64, 0, ssha256_verify, ssha256_generate },
 	{ "SSHA512", PW_ENCODING_BASE64, 0, ssha512_verify, ssha512_generate },
-	{ "PLAIN", PW_ENCODING_NONE, 0, NULL, plain_generate },
-	{ "CLEAR", PW_ENCODING_NONE, 0, NULL, plain_generate },
-	{ "CLEARTEXT", PW_ENCODING_NONE, 0, NULL, plain_generate },
+	{ "PLAIN", PW_ENCODING_NONE, 0, plain_verify, plain_generate },
+	{ "CLEAR", PW_ENCODING_NONE, 0, plain_verify, plain_generate },
+	{ "CLEARTEXT", PW_ENCODING_NONE, 0, plain_verify, plain_generate },
 	{ "PLAIN-TRUNC", PW_ENCODING_NONE, 0, plain_trunc_verify, plain_generate },
 	{ "CRAM-MD5", PW_ENCODING_HEX, CRAM_MD5_CONTEXTLEN,
 	  NULL, cram_md5_generate },
