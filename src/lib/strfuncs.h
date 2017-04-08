@@ -68,6 +68,9 @@ int null_strcasecmp(const char *s1, const char *s2) ATTR_PURE;
 int i_memcasecmp(const void *p1, const void *p2, size_t size) ATTR_PURE;
 int i_strcmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
 int i_strcasecmp_p(const char *const *p1, const char *const *p2) ATTR_PURE;
+/* Returns TRUE if the two memory areas are equal. This function is safe
+   against timing attacks, so it compares all the bytes every time. */
+bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size);
 
 static inline char *i_strchr_to_next(const char *str, char chr)
 {

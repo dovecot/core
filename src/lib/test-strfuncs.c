@@ -229,6 +229,30 @@ static void test_p_array_const_string_join(void)
 	test_end();
 }
 
+static void test_mem_equals_timing_safe(void)
+{
+	const struct {
+		const char *a, *b;
+	} tests[] = {
+		{ "", "" },
+		{ "a", "a" },
+		{ "b", "a" },
+		{ "ab", "ab" },
+		{ "ab", "ba" },
+		{ "ab", "bc" },
+	};
+	test_begin("mem_equals_timing_safe()");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		size_t len = strlen(tests[i].a);
+		i_assert(len == strlen(tests[i].b));
+		test_assert((memcmp(tests[i].a, tests[i].b, len) == 0) ==
+			    mem_equals_timing_safe(tests[i].a, tests[i].b, len));
+		test_assert((memcmp(tests[i].a, tests[i].b, len) == 0) ==
+			    mem_equals_timing_safe(tests[i].b, tests[i].a, len));
+	}
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strarray_dup();
@@ -240,4 +264,5 @@ void test_strfuncs(void)
 	test_t_str_rtrim();
 	test_t_strarray_join();
 	test_p_array_const_string_join();
+	test_mem_equals_timing_safe();
 }
