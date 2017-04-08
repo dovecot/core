@@ -4,6 +4,7 @@ AM_CPPFLAGS = \
 
 NOPLUGIN_LDFLAGS =
 lib20_var_expand_crypt_la_LDFLAGS = -module -avoid-version
+lib20_auth_var_expand_crypt_la_LDFLAGS = -module -avoid-version
 
 auth_moduledir = $(moduledir)/auth
 
