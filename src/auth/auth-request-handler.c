@@ -827,7 +827,7 @@ void auth_request_handler_cancel_request(struct auth_request_handler *handler,
 void auth_request_handler_flush_failures(bool flush_all)
 {
 	struct auth_request **auth_requests, *auth_request;
-	unsigned int i, count;
+	unsigned int i, j, count;
 	time_t diff;
 
 	count = aqueue_count(auth_failures);
@@ -838,15 +838,34 @@ void auth_request_handler_flush_failures(bool flush_all)
 	}
 
 	auth_requests = array_idx_modifiable(&auth_failures_arr, 0);
+	/* count the number of requests that we need to flush */
 	for (i = 0; i < count; i++) {
-		auth_request = auth_requests[aqueue_idx(auth_failures, 0)];
+		auth_request = auth_requests[aqueue_idx(auth_failures, i)];
 
 		/* FIXME: assumess that failure_delay is always the same. */
 		diff = ioloop_time - auth_request->last_access;
 		if (diff < (time_t)auth_request->set->failure_delay &&
 		    !flush_all)
 			break;
+	}
 
+	/* shuffle these requests to try to prevent any kind of timing attacks
+	   where attacker performs multiple requests in parallel and attempts
+	   to figure out results based on the order of replies. */
+	count = i;
+	for (i = 0; i < count; i++) {
+		j = random() % (count - i) + i;
+		auth_request = auth_requests[aqueue_idx(auth_failures, i)];
+
+		/* swap i & j */
+		auth_requests[aqueue_idx(auth_failures, i)] =
+			auth_requests[aqueue_idx(auth_failures, j)];
+		auth_requests[aqueue_idx(auth_failures, j)] = auth_request;
+	}
+
+	/* flush the requests */
+	for (i = 0; i < count; i++) {
+		auth_request = auth_requests[aqueue_idx(auth_failures, i)];
 		aqueue_delete_tail(auth_failures);
 
 		i_assert(auth_request->state == AUTH_REQUEST_STATE_FINISHED);
