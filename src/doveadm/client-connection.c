@@ -363,7 +363,9 @@ client_connection_authenticate(struct client_connection *conn)
 		return -1;
 	}
 	pass = t_strndup(data + 9, size - 9);
-	if (strcmp(pass, conn->set->doveadm_password) != 0) {
+	if (strlen(pass) != strlen(conn->set->doveadm_password) ||
+	    !mem_equals_timing_safe(pass, conn->set->doveadm_password,
+				    strlen(pass))) {
 		i_error("doveadm client authenticated with wrong password");
 		return -1;
 	}
