@@ -183,8 +183,10 @@ struct http_client_tunnel {
 struct http_client_request_stats {
 	/* Total elapsed time since message was submitted */
 	unsigned int total_msecs;
+	/* Elapsed time since message was first sent */
+	unsigned int first_sent_msecs;
 	/* Elapsed time since message was last sent */
-	unsigned int sent_msecs;
+	unsigned int last_sent_msecs;
 
 	/* Time spent in other ioloops */
 	unsigned int other_ioloop_msecs;
