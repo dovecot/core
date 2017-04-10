@@ -120,6 +120,8 @@ void imapc_client_unref(struct imapc_client **_client)
 {
 	struct imapc_client *client = *_client;
 
+	*_client = NULL;
+
 	i_assert(client->refcount > 0);
 	if (--client->refcount > 0)
 		return;
