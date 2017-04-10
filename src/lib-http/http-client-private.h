@@ -99,6 +99,7 @@ struct http_client_request {
 
 	struct timeval release_time;
 	struct timeval submit_time;
+	struct timeval first_sent_time;
 	struct timeval sent_time;
 	struct timeval response_time;
 	struct timeval timeout_time;
