@@ -96,7 +96,7 @@ struct imapc_client_settings {
 	/* Number of retries, -1 = infinity */
 	unsigned int connect_retry_count;
 	/* Interval between retries, must be > 0 if retries > 0 */
-	unsigned int connect_retry_interval_secs;
+	unsigned int connect_retry_interval_msecs;
 
 	/* Timeout for IMAP commands. Reset every time more data is being
 	   sent or received. 0 = default. */

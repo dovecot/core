@@ -46,7 +46,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 	pool_t pool;
 
 	i_assert(set->connect_retry_count == 0 ||
-		 set->connect_retry_interval_secs > 0);
+		 set->connect_retry_interval_msecs > 0);
 
 	pool = pool_alloconly_create("imapc client", 1024);
 	client = p_new(pool, struct imapc_client, 1);
@@ -71,7 +71,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 		set->connect_timeout_msecs :
 		IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS;
 	client->set.connect_retry_count = set->connect_retry_count;
-	client->set.connect_retry_interval_secs = set->connect_retry_interval_secs;
+	client->set.connect_retry_interval_msecs = set->connect_retry_interval_msecs;
 	client->set.cmd_timeout_msecs = set->cmd_timeout_msecs != 0 ?
 		set->cmd_timeout_msecs : IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS;
 	client->set.max_line_length = set->max_line_length != 0 ?
