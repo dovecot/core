@@ -176,8 +176,7 @@ static void imapc_client_run_pre(struct imapc_client *client)
 	array_foreach(&client->conns, connp) {
 		imapc_connection_ioloop_changed((*connp)->conn);
 		if (imapc_connection_get_state((*connp)->conn) == IMAPC_CONNECTION_STATE_DISCONNECTED)
-			imapc_connection_connect((*connp)->conn, client->login_callback,
-					 client->login_context);
+			imapc_connection_connect((*connp)->conn);
 	}
 
 	if (io_loop_is_running(client->ioloop))
@@ -200,7 +199,6 @@ static void imapc_client_run_post(struct imapc_client *client)
 
 void imapc_client_run(struct imapc_client *client)
 {
-	i_assert(client->login_callback != NULL);
 	imapc_client_run_pre(client);
 	imapc_client_run_post(client);
 }
@@ -225,13 +223,44 @@ bool imapc_client_is_running(struct imapc_client *client)
 	return client->ioloop != NULL;
 }
 
+static void imapc_client_login_callback(const struct imapc_command_reply *reply,
+					void *context)
+{
+	struct imapc_client_connection *conn = context;
+	struct imapc_client *client = conn->client;
+	struct imapc_client_mailbox *box = conn->box;
+
+	if (box != NULL && box->reconnecting) {
+		box->reconnecting = FALSE;
+
+		if (reply->state == IMAPC_COMMAND_STATE_OK) {
+			/* reopen the mailbox */
+			box->reopen_callback(box->reopen_context);
+		} else {
+			imapc_connection_abort_commands(box->conn, NULL, FALSE);
+		}
+	}
+
+	/* call the login callback only once */
+	if (client->login_callback != NULL) {
+		imapc_command_callback_t *callback = client->login_callback;
+		void *context = client->login_context;
+
+		client->login_callback = NULL;
+		client->login_context = NULL;
+		callback(reply, context);
+	}
+}
+
 static struct imapc_client_connection *
 imapc_client_add_connection(struct imapc_client *client)
 {
 	struct imapc_client_connection *conn;
 
 	conn = i_new(struct imapc_client_connection, 1);
-	conn->conn = imapc_connection_init(client);
+	conn->client = client;
+	conn->conn = imapc_connection_init(client, imapc_client_login_callback,
+					   conn);
 	array_append(&client->conns, &conn, 1);
 	return conn;
 }
@@ -281,8 +310,7 @@ void imapc_client_login(struct imapc_client *client)
 	i_assert(array_count(&client->conns) == 0);
 
 	conn = imapc_client_add_connection(client);
-	imapc_connection_connect(conn->conn,
-				 client->login_callback, client->login_context);
+	imapc_connection_connect(conn->conn);
 }
 
 struct imapc_logout_ctx {
@@ -360,23 +388,6 @@ void imapc_client_mailbox_set_reopen_cb(struct imapc_client_mailbox *box,
 	box->reopen_context = context;
 }
 
-static void
-imapc_client_reconnect_cb(const struct imapc_command_reply *reply,
-			  void *context)
-{
-	struct imapc_client_mailbox *box = context;
-
-	i_assert(box->reconnecting);
-	box->reconnecting = FALSE;
-
-	if (reply->state == IMAPC_COMMAND_STATE_OK) {
-		/* reopen the mailbox */
-		box->reopen_callback(box->reopen_context);
-	} else {
-		imapc_connection_abort_commands(box->conn, NULL, FALSE);
-	}
-}
-
 bool imapc_client_mailbox_can_reconnect(struct imapc_client_mailbox *box)
 {
 	/* the reconnect_ok flag attempts to avoid infinite reconnection loops
@@ -396,7 +407,7 @@ void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box)
 	box->reconnect_ok = FALSE;
 
 	imapc_connection_disconnect_full(box->conn, TRUE);
-	imapc_connection_connect(box->conn, imapc_client_reconnect_cb, box);
+	imapc_connection_connect(box->conn);
 }
 
 void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)

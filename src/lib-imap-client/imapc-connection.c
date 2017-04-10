@@ -179,13 +179,17 @@ imapc_auth_failed(struct imapc_connection *conn, const struct imapc_command_repl
 }
 
 struct imapc_connection *
-imapc_connection_init(struct imapc_client *client)
+imapc_connection_init(struct imapc_client *client,
+		      imapc_command_callback_t *login_callback,
+		      void *login_context)
 {
 	struct imapc_connection *conn;
 
 	conn = i_new(struct imapc_connection, 1);
 	conn->refcount = 1;
 	conn->client = client;
+	conn->login_callback = login_callback;
+	conn->login_context = login_context;
 	conn->fd = -1;
 	conn->name = i_strdup_printf("%s:%u", client->set.host,
 				     client->set.port);
@@ -345,15 +349,8 @@ static void
 imapc_login_callback(struct imapc_connection *conn,
 		     const struct imapc_command_reply *reply)
 {
-	imapc_command_callback_t *login_callback = conn->login_callback;
-	void *login_context = conn->login_context;
-
-	if (login_callback == NULL)
-		return;
-
-	conn->login_callback = NULL;
-	conn->login_context = NULL;
-	login_callback(reply, login_context);
+	if (conn->login_callback != NULL)
+		conn->login_callback(reply, conn->login_context);
 }
 
 static void imapc_connection_set_state(struct imapc_connection *conn,
@@ -510,7 +507,7 @@ static void imapc_connection_reconnect(struct imapc_connection *conn)
 		imapc_client_mailbox_reconnect(conn->selected_box);
 	else {
 		imapc_connection_disconnect_full(conn, TRUE);
-		imapc_connection_connect(conn, NULL, NULL);
+		imapc_connection_connect(conn);
 	}
 }
 
@@ -521,7 +518,7 @@ imapc_connection_try_reconnect(struct imapc_connection *conn,
 	if (conn->prev_connect_idx + 1 < conn->ips_count) {
 		conn->reconnect_ok = TRUE;
 		imapc_connection_disconnect_full(conn, TRUE);
-		imapc_connection_connect(conn, NULL, NULL);
+		imapc_connection_connect(conn);
 		return;
 	}
 
@@ -1775,24 +1772,15 @@ imapc_connection_dns_callback(const struct dns_lookup_result *result,
 	imapc_connection_connect_next_ip(conn);
 }
 
-void imapc_connection_connect(struct imapc_connection *conn,
-			      imapc_command_callback_t *login_callback,
-			      void *login_context)
+void imapc_connection_connect(struct imapc_connection *conn)
 {
 	struct dns_lookup_settings dns_set;
 	struct ip_addr ip, *ips;
 	unsigned int ips_count;
 	int ret;
 
-	if (conn->fd != -1 || conn->dns_lookup != NULL) {
-		i_assert(login_callback == NULL);
+	if (conn->fd != -1 || conn->dns_lookup != NULL)
 		return;
-	}
-	i_assert(conn->login_callback == NULL || conn->reconnecting);
-	if (!conn->reconnecting) {
-		conn->login_callback = login_callback;
-		conn->login_context = login_context;
-	}
 	conn->reconnecting = FALSE;
 	/* if we get disconnected before we've finished all the pending
 	   commands, don't reconnect */
