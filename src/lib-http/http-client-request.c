@@ -650,17 +650,22 @@ void http_client_request_append_stats_text(struct http_client_request *req,
 
 	http_client_request_get_stats(req, &stats);
 
-	if (stats.last_sent_msecs > 0) {
-		str_printfa(str, "sent %u.%03u secs ago",
-			    stats.last_sent_msecs/1000, stats.last_sent_msecs%1000);
-	} else {
-		str_append(str, "not yet sent");
-	}
-	if (stats.attempts > 0) {
+	str_printfa(str, "queued %u.%03u secs ago",
+		    stats.total_msecs/1000, stats.total_msecs%1000);
+
+	if (stats.first_sent_msecs == 0)
+		str_append(str, ", not yet sent");
+	else {
 		str_printfa(str, ", %u attempts in %u.%03u secs",
 			    stats.attempts + 1,
-			    stats.total_msecs/1000, stats.total_msecs%1000);
+			    stats.first_sent_msecs/1000, stats.first_sent_msecs%1000);
+		if (stats.attempts > 0) {
+			str_printfa(str, ", %u.%03u in last attempt",
+				    stats.last_sent_msecs/1000,
+				    stats.last_sent_msecs%1000);
+		}
 	}
+
 	if (stats.http_ioloop_msecs > 0) {
 		str_printfa(str, ", %u.%03u in http ioloop",
 			    stats.http_ioloop_msecs/1000,
