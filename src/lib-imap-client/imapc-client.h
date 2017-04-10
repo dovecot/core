@@ -15,6 +15,7 @@ enum imapc_command_state {
 	/* Client was unexpectedly disconnected. */
 	IMAPC_COMMAND_STATE_DISCONNECTED
 };
+extern const char *imapc_command_state_names[];
 
 enum imapc_capability {
 	IMAPC_CAPABILITY_SASL_IR	= 0x01,
