@@ -12,6 +12,11 @@
 
 #include <unistd.h>
 
+const char *imapc_command_state_names[] = {
+	"OK", "NO", "BAD", "(auth failed)", "(disconnected)"
+
+};
+
 const struct imapc_capability_name imapc_capability_names[] = {
 	{ "SASL-IR", IMAPC_CAPABILITY_SASL_IR },
 	{ "LITERAL+", IMAPC_CAPABILITY_LITERALPLUS },
