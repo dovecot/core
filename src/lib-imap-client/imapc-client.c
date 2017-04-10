@@ -31,6 +31,8 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ NULL, 0 }
 };
 
+unsigned int imapc_client_cmd_tag_counter = 0;
+
 static void
 default_untagged_callback(const struct imapc_untagged_reply *reply ATTR_UNUSED,
 			  void *context ATTR_UNUSED)

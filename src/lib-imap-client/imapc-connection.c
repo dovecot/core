@@ -1871,7 +1871,6 @@ void imapc_connection_input_pending(struct imapc_connection *conn)
 static struct imapc_command *
 imapc_command_begin(imapc_command_callback_t *callback, void *context)
 {
-	static unsigned int cmd_tag_counter = 0;
 	struct imapc_command *cmd;
 	pool_t pool;
 
@@ -1883,9 +1882,11 @@ imapc_command_begin(imapc_command_callback_t *callback, void *context)
 	cmd->callback = callback;
 	cmd->context = context;
 
-	if (++cmd_tag_counter == 0)
-		cmd_tag_counter++;
-	cmd->tag = cmd_tag_counter;
+	/* use a globally unique tag counter so looking at rawlogs is
+	   somewhat easier */
+	if (++imapc_client_cmd_tag_counter == 0)
+		imapc_client_cmd_tag_counter++;
+	cmd->tag = imapc_client_cmd_tag_counter;
 	return cmd;
 }
 
