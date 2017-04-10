@@ -1187,6 +1187,8 @@ static int http_client_request_send_real(struct http_client_request *req,
 	iov[2].iov_len = 2;
 
 	req->state = HTTP_REQUEST_STATE_PAYLOAD_OUT;
+	if (req->first_sent_time.tv_sec == 0)
+		req->first_sent_time = ioloop_timeval;
 	req->sent_time = ioloop_timeval;
 	req->sent_lock_usecs = file_lock_wait_get_total_usecs();
 	req->sent_global_ioloop_usecs = ioloop_global_wait_usecs;
