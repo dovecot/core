@@ -143,7 +143,8 @@ static void test_run_client_server(
 			i_debug("server: PID=%s", my_pid);
 		/* child: server */
 		ioloop = io_loop_create();
-		server_test();
+		if (server_test != NULL)
+			server_test();
 		test_server_disconnect(&server);
 		io_loop_destroy(&ioloop);
 		/* wait for it to be killed; this way, valgrind will not
@@ -371,7 +372,7 @@ static void test_imapc_reconnect_server(void)
 	test_assert(test_imapc_server_expect("3 NOOP"));
 	o_stream_nsend_str(server.output, "3 OK \r\n");
 
-	test_assert(test_imapc_server_expect("4 LOGOUT"));
+	test_assert(i_stream_read_next_line(server.input) == NULL);
 }
 
 static void test_imapc_reconnect(void)
@@ -435,7 +436,7 @@ static void test_imapc_reconnect_resend_cmds_server(void)
 	test_assert(test_imapc_server_expect("3 RETRY2"));
 	o_stream_nsend_str(server.output, "3 OK \r\n");
 
-	test_assert(test_imapc_server_expect("4 LOGOUT"));
+	test_assert(i_stream_read_next_line(server.input) == NULL);
 }
 
 static void test_imapc_reconnect_resend_commands(void)
@@ -565,9 +566,8 @@ static void test_imapc_reconnect_mailbox_server(void)
 	o_stream_nsend_str(server.output, "6 OK \r\n");
 	test_assert(test_imapc_server_expect("3 RETRY"));
 	o_stream_nsend_str(server.output, "3 OK \r\n");
-	i_info("retry");
 
-	test_assert(test_imapc_server_expect("4 LOGOUT"));
+	test_assert(i_stream_read_next_line(server.input) == NULL);
 }
 
 static void test_imapc_reconnect_mailbox(void)
