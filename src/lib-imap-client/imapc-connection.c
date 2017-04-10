@@ -97,7 +97,7 @@ struct imapc_connection {
 	enum imapc_input_state input_state;
 	unsigned int cur_tag;
 	uint32_t cur_num;
-	time_t last_connect;
+	struct timeval last_connect;
 	unsigned int reconnect_count;
 
 	struct imapc_client_mailbox *selecting_box, *selected_box;
@@ -1803,25 +1803,28 @@ void imapc_connection_connect(struct imapc_connection *conn,
 
 	imapc_connection_input_reset(conn);
 
+	int msecs_since_last_connect =
+		timeval_diff_msecs(&ioloop_timeval, &conn->last_connect);
 	if (!conn->reconnect_ok &&
-	    (time_t)(conn->last_connect + conn->client->set.connect_retry_interval_secs) >= ioloop_time) {
+	    msecs_since_last_connect < (int)conn->client->set.connect_retry_interval_secs*1000) {
 		if (conn->to != NULL)
 			timeout_remove(&conn->to);
 		conn->reconnecting = TRUE;
 		imapc_connection_set_disconnected(conn);
-		/* don't wait longer than necessary, the +1 is to avoid ending here again */
+		/* don't wait longer than necessary */
 		unsigned int delay_msecs =
-			((conn->last_connect + conn->client->set.connect_retry_interval_secs) - ioloop_time + 1) * 1000;
+			conn->client->set.connect_retry_interval_secs*1000 -
+			msecs_since_last_connect;
 		conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
 		return;
 	}
-	conn->last_connect = ioloop_time;
+	conn->last_connect = ioloop_timeval;
 
 	if (conn->client->set.debug) {
 		i_debug("imapc(%s): Looking up IP address "
 			"(reconnect_ok=%s, last_connect=%ld)", conn->name,
 			(conn->reconnect_ok ? "true" : "false"),
-			(long)conn->last_connect);
+			(long)conn->last_connect.tv_sec);
 	}
 
 	i_zero(&dns_set);
