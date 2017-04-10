@@ -7,6 +7,7 @@
 
 struct imapc_client_connection {
 	struct imapc_connection *conn;
+	struct imapc_client *client;
 	struct imapc_client_mailbox *box;
 };
 

@@ -174,7 +174,9 @@ imapc_client_init(const struct imapc_client_settings *set);
 void imapc_client_disconnect(struct imapc_client *client);
 void imapc_client_deinit(struct imapc_client **client);
 
-/* Set login callback, must be set before calling other commands */
+/* Set login callback, must be set before calling other commands.
+   This is called only for the first login, not for any reconnects or if there
+   are multiple connections created. */
 void
 imapc_client_set_login_callback(struct imapc_client *client,
 				imapc_command_callback_t *callback, void *context);
