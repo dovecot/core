@@ -1634,7 +1634,7 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 		imapc_connection_try_reconnect(conn, t_strdup_printf(
 			"connect(%s, %u) failed: %s",
 			net_ip2addr(ip), conn->client->set.port,
-			strerror(err)), IMAPC_CONNECT_RETRY_WAIT_MSECS);
+			strerror(err)), conn->client->set.connect_retry_interval_msecs);
 		return;
 	}
 	conn->io = io_add(conn->fd, IO_READ, imapc_connection_input, conn);
@@ -1718,7 +1718,7 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 			net_ip2addr(ip), conn->client->set.port);
 		if (conn->prev_connect_idx+1 == conn->ips_count) {
 			imapc_connection_try_reconnect(conn, "No more IP address(es) to try",
-						       IMAPC_CONNECT_RETRY_WAIT_MSECS);
+				conn->client->set.connect_retry_interval_msecs);
 			return;
 		}
 	}

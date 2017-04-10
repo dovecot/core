@@ -8,9 +8,6 @@
 #define IMAPC_THROTTLE_DEFAULT_MAX_MSECS (16*1000)
 #define IMAPC_THROTTLE_DEFAULT_SHRINK_MIN_MSECS 500
 
-/* If connect() fails, how long should we wait before reconnection */
-#define IMAPC_CONNECT_RETRY_WAIT_MSECS 1000
-
 struct imapc_client;
 struct imapc_connection;
 
