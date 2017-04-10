@@ -1806,14 +1806,14 @@ void imapc_connection_connect(struct imapc_connection *conn,
 	int msecs_since_last_connect =
 		timeval_diff_msecs(&ioloop_timeval, &conn->last_connect);
 	if (!conn->reconnect_ok &&
-	    msecs_since_last_connect < (int)conn->client->set.connect_retry_interval_secs*1000) {
+	    msecs_since_last_connect < (int)conn->client->set.connect_retry_interval_msecs) {
 		if (conn->to != NULL)
 			timeout_remove(&conn->to);
 		conn->reconnecting = TRUE;
 		imapc_connection_set_disconnected(conn);
 		/* don't wait longer than necessary */
 		unsigned int delay_msecs =
-			conn->client->set.connect_retry_interval_secs*1000 -
+			conn->client->set.connect_retry_interval_msecs -
 			msecs_since_last_connect;
 		conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
 		return;
