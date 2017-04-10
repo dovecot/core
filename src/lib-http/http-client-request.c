@@ -597,10 +597,16 @@ void http_client_request_get_stats(struct http_client_request *req,
 	diff_msecs = timeval_diff_msecs(&ioloop_timeval, &req->submit_time);
 	stats_r->total_msecs = (unsigned int)I_MAX(diff_msecs, 0);
 
+	/* elapsed time since message was first sent */
+	if (req->first_sent_time.tv_sec > 0) {
+		diff_msecs = timeval_diff_msecs(&ioloop_timeval, &req->first_sent_time);
+		stats_r->first_sent_msecs = (unsigned int)I_MAX(diff_msecs, 0);
+	}
+
 	/* elapsed time since message was last sent */
 	if (req->sent_time.tv_sec > 0) {
 		diff_msecs = timeval_diff_msecs(&ioloop_timeval, &req->sent_time);
-		stats_r->sent_msecs = (unsigned int)I_MAX(diff_msecs, 0);
+		stats_r->last_sent_msecs = (unsigned int)I_MAX(diff_msecs, 0);
 	}
 
 	if (req->conn != NULL) {
@@ -644,9 +650,9 @@ void http_client_request_append_stats_text(struct http_client_request *req,
 
 	http_client_request_get_stats(req, &stats);
 
-	if (stats.sent_msecs > 0) {
+	if (stats.last_sent_msecs > 0) {
 		str_printfa(str, "sent %u.%03u secs ago",
-			    stats.sent_msecs/1000, stats.sent_msecs%1000);
+			    stats.last_sent_msecs/1000, stats.last_sent_msecs%1000);
 	} else {
 		str_append(str, "not yet sent");
 	}
