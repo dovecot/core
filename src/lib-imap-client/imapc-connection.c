@@ -130,6 +130,7 @@ struct imapc_connection {
 	struct timeout *to_throttle, *to_throttle_shrink;
 
 	unsigned int reconnecting:1;
+	unsigned int reconnect_waiting:1;
 	unsigned int reconnect_ok:1;
 	unsigned int idling:1;
 	unsigned int idle_stopping:1;
@@ -504,6 +505,7 @@ static bool imapc_connection_can_reconnect(struct imapc_connection *conn)
 static void imapc_connection_reconnect(struct imapc_connection *conn)
 {
 	conn->reconnect_ok = FALSE;
+	conn->reconnect_waiting = FALSE;
 
 	if (conn->selected_box != NULL)
 		imapc_client_mailbox_reconnect(conn->selected_box);
@@ -536,6 +538,7 @@ imapc_connection_try_reconnect(struct imapc_connection *conn,
 			imapc_connection_disconnect_full(conn, TRUE);
 			conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
 			conn->reconnect_count++;
+			conn->reconnect_waiting = TRUE;
 		}
 	}
 }
@@ -1785,6 +1788,12 @@ void imapc_connection_connect(struct imapc_connection *conn)
 
 	if (conn->fd != -1 || conn->dns_lookup != NULL)
 		return;
+	if (conn->reconnect_waiting) {
+		/* wait for the reconnection delay to finish before
+		   doing anything. */
+		return;
+	}
+
 	conn->reconnecting = FALSE;
 	/* if we get disconnected before we've finished all the pending
 	   commands, don't reconnect */
@@ -1792,22 +1801,6 @@ void imapc_connection_connect(struct imapc_connection *conn)
 		array_count(&conn->cmd_send_queue);
 
 	imapc_connection_input_reset(conn);
-
-	int msecs_since_last_connect =
-		timeval_diff_msecs(&ioloop_timeval, &conn->last_connect);
-	if (!conn->reconnect_ok &&
-	    msecs_since_last_connect < (int)conn->client->set.connect_retry_interval_msecs) {
-		if (conn->to != NULL)
-			timeout_remove(&conn->to);
-		conn->reconnecting = TRUE;
-		imapc_connection_set_disconnected(conn);
-		/* don't wait longer than necessary */
-		unsigned int delay_msecs =
-			conn->client->set.connect_retry_interval_msecs -
-			msecs_since_last_connect;
-		conn->to = timeout_add(delay_msecs, imapc_connection_reconnect, conn);
-		return;
-	}
 	conn->last_connect = ioloop_timeval;
 
 	if (conn->client->set.debug) {
