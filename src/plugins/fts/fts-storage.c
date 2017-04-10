@@ -33,8 +33,11 @@ struct fts_mailbox_list {
 	union mailbox_list_module_context module_ctx;
 	struct fts_backend *backend;
 
+	const char *backend_name;
 	struct fts_backend_update_context *update_ctx;
 	unsigned int update_ctx_refcount;
+
+	bool failed:1;
 };
 
 struct fts_mailbox {
@@ -799,7 +802,7 @@ void fts_mailbox_allocated(struct mailbox *box)
 	struct mailbox_vfuncs *v = box->vlast;
 	struct fts_mailbox *fbox;
 
-	if (flist == NULL)
+	if (flist == NULL || flist->failed)
 		return;
 
 	fbox = p_new(box->pool, struct fts_mailbox, 1);
@@ -831,12 +834,41 @@ static void fts_mailbox_list_deinit(struct mailbox_list *list)
 	flist->module_ctx.super.deinit(list);
 }
 
+static int
+fts_init_namespace(struct fts_mailbox_list *flist, struct mail_namespace *ns,
+		   const char **error_r)
+{
+	struct fts_backend *backend;
+	if (fts_backend_init(flist->backend_name, ns, error_r, &backend) < 0) {
+		flist->failed = TRUE;
+		return -1;
+	}
+	flist->backend = backend;
+	if ((flist->backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
+		ns->user->fuzzy_search = TRUE;
+	return 0;
+}
+
+void fts_mail_namespaces_added(struct mail_namespace *ns)
+{
+	while(ns != NULL) {
+		struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(ns->list);
+		const char *error;
+
+		if (flist != NULL && !flist->failed && flist->backend == NULL &&
+		    fts_init_namespace(flist, ns, &error) < 0) {
+			i_error("fts: Failed to initialize backend '%s': %s",
+				flist->backend_name, error);
+		}
+		ns = ns->next;
+	}
+}
+
 void
 fts_mailbox_list_created(struct mailbox_list *list)
 {
-	struct fts_backend *backend;
-	const char *path, *error;
 	const char *name = mail_user_plugin_getenv(list->ns->user, "fts");
+	const char *path;
 
 	if (name == NULL || name[0] == '\0') {
 		if (list->mail_set->mail_debug)
@@ -852,21 +884,12 @@ fts_mailbox_list_created(struct mailbox_list *list)
 		return;
 	}
 
-	if (fts_backend_init(name, list->ns, &error, &backend) < 0) {
-		i_error("fts: Failed to initialize backend '%s': %s",
-			name, error);
-		return;
-	}
-
 	struct fts_mailbox_list *flist;
 	struct mailbox_list_vfuncs *v = list->vlast;
 
-	if ((backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
-		list->ns->user->fuzzy_search = TRUE;
-
 	flist = p_new(list->pool, struct fts_mailbox_list, 1);
 	flist->module_ctx.super = *v;
-	flist->backend = backend;
+	flist->backend_name = name;
 	list->vlast = &flist->module_ctx.super;
 	v->deinit = fts_mailbox_list_deinit;
 	MODULE_CONTEXT_SET(list, fts_mailbox_list_module, flist);
