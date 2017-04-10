@@ -261,7 +261,7 @@ void test_program_setup(void) {
 
 	/* create listener */
 	struct ip_addr ip;
-	test_globals.port = rand() % 64510 + 1024;
+	test_globals.port = 0;
 	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
 
 	test_globals.listen_fd = net_listen(&ip, &test_globals.port, 1);
