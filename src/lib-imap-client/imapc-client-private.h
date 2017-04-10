@@ -49,6 +49,8 @@ struct imapc_client_mailbox {
 	bool closing;
 };
 
+extern unsigned int imapc_client_cmd_tag_counter;
+
 void imapc_client_ref(struct imapc_client *client);
 void imapc_client_unref(struct imapc_client **client);
 
