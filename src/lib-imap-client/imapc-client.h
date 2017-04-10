@@ -10,7 +10,9 @@ enum imapc_command_state {
 	IMAPC_COMMAND_STATE_OK,
 	IMAPC_COMMAND_STATE_NO,
 	IMAPC_COMMAND_STATE_BAD,
+	/* Authentication to IMAP server failed (NO or BAD) */
 	IMAPC_COMMAND_STATE_AUTH_FAILED,
+	/* Client was unexpectedly disconnected. */
 	IMAPC_COMMAND_STATE_DISCONNECTED
 };
 
