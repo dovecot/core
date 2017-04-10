@@ -1,5 +1,8 @@
-v2.2.29 2017-04-xx  Timo Sirainen <tss@iki.fi>
+v2.2.29 2017-04-10  Timo Sirainen <tss@iki.fi>
 
+	* passdb/userdb dict: Don't double-expand %variables in keys. If dict
+	  was used as the authentication passdb, using specially crafted
+	  %variables in the username could be used to cause DoS (CVE-2017-2669)
 	* When Dovecot encounters an internal error, it logs the real error and
 	  usually logs another line saying what function failed. Previously the
 	  second log line's error message was a rather uninformative "Internal
@@ -34,6 +37,7 @@ v2.2.29 2017-04-xx  Timo Sirainen <tss@iki.fi>
 	+ imap-login: If imap_id_retain=yes, send the IMAP ID string to
 	  auth process. %{client_id} expands to it in auth process. The ID
 	  string is also sent to the next hop when proxying.
+	+ passdb imap: Use ssl_client_ca_* settings for CA validation.
 	- fts-tika: Fixed crash when parsing attachment without
 	  Content-Disposition header. Broken by 2.2.28.
 	- trash plugin was broken in 2.2.28
