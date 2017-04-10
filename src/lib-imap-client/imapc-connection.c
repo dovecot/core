@@ -529,7 +529,7 @@ imapc_connection_try_reconnect(struct imapc_connection *conn,
 		imapc_connection_disconnect(conn);
 	} else {
 		conn->reconnecting = TRUE;
-		i_warning("imapc(%s): %s - reconnecting (delay %u)", conn->name, errstr, delay_msecs);
+		i_warning("imapc(%s): %s - reconnecting (delay %u ms)", conn->name, errstr, delay_msecs);
 		if (delay_msecs == 0)
 			imapc_connection_reconnect(conn);
 		else {
