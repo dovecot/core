@@ -57,7 +57,7 @@ static const struct imapc_settings imapc_default_settings = {
 	.imapc_cmd_timeout = 5*60,
 	.imapc_max_idle_time = 60*29,
 	.imapc_connection_retry_count = 1,
-	.imapc_connection_retry_interval = 10,
+	.imapc_connection_retry_interval = 1,
 	.imapc_max_line_length = 0,
 
 	.pop3_deleted_flag = ""
