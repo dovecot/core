@@ -54,7 +54,7 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 static const char *
 userdb_vpopmail_get_quota(const char *template, const char *vpop_str)
 {
-	const struct var_expand_table *tab;
+	struct var_expand_table *tab;
 	string_t *quota;
 
 	if (template == NULL || *vpop_str == '\0' ||
