@@ -95,5 +95,4 @@ distcheck-hook:
 	  if ! rmdir scan-reports 2>/dev/null; then \
 	    exit 1; \
 	  fi; \
-	  cd ../..; rm -rf $(distdir)/_build/*; \
 	fi
