@@ -125,8 +125,8 @@ int scram_sha1_verify(const char *plaintext, const char *user ATTR_UNUSED,
 
 	/* Calculate StoredKey */
 	sha1_get_digest(client_key, sizeof(client_key), calculated_stored_key);
-	ret = memcmp(stored_key, calculated_stored_key,
-		     sizeof(stored_key)) == 0 ? 1 : 0;
+	ret = mem_equals_timing_safe(stored_key, calculated_stored_key,
+				     sizeof(stored_key)) ? 1 : 0;
 
 	safe_memset(salted_password, 0, sizeof(salted_password));
 	safe_memset(client_key, 0, sizeof(client_key));

@@ -246,7 +246,7 @@ static bool verify_credentials(struct scram_auth_request *request)
 	safe_memset(client_key, 0, sizeof(client_key));
 	safe_memset(client_signature, 0, sizeof(client_signature));
 
-	return memcmp(stored_key, request->stored_key, sizeof(stored_key)) == 0;
+	return mem_equals_timing_safe(stored_key, request->stored_key, sizeof(stored_key));
 }
 
 static void credentials_callback(enum passdb_result result,

@@ -99,7 +99,7 @@ int password_verify(const char *plaintext, const char *user, const char *scheme,
 		s->password_generate(plaintext, user,
 				     &generated, &generated_size);
 		ret = size != generated_size ? 0 :
-			memcmp(generated, raw_password, size) == 0 ? 1 : 0;
+			mem_equals_timing_safe(generated, raw_password, size) ? 1 : 0;
 	}
 
 	if (ret == 0)
@@ -471,7 +471,7 @@ static int ssha_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	sha1_loop(&ctx, plaintext, strlen(plaintext));
 	sha1_loop(&ctx, raw_password + SHA1_RESULTLEN, size - SHA1_RESULTLEN);
 	sha1_result(&ctx, sha1_digest);
-	return memcmp(sha1_digest, raw_password, SHA1_RESULTLEN) == 0 ? 1 : 0;
+	return mem_equals_timing_safe(sha1_digest, raw_password, SHA1_RESULTLEN) ? 1 : 0;
 }
 
 static void
@@ -513,8 +513,8 @@ static int ssha256_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	sha256_loop(&ctx, raw_password + SHA256_RESULTLEN,
 		    size - SHA256_RESULTLEN);
 	sha256_result(&ctx, sha256_digest);
-	return memcmp(sha256_digest, raw_password,
-		      SHA256_RESULTLEN) == 0 ? 1 : 0;
+	return mem_equals_timing_safe(sha256_digest, raw_password,
+				      SHA256_RESULTLEN) ? 1 : 0;
 }
 
 static void
@@ -556,8 +556,8 @@ static int ssha512_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	sha512_loop(&ctx, raw_password + SHA512_RESULTLEN,
 		    size - SHA512_RESULTLEN);
 	sha512_result(&ctx, sha512_digest);
-	return memcmp(sha512_digest, raw_password,
-		      SHA512_RESULTLEN) == 0 ? 1 : 0;
+	return mem_equals_timing_safe(sha512_digest, raw_password,
+				      SHA512_RESULTLEN) ? 1 : 0;
 }
 
 static void
@@ -598,7 +598,7 @@ static int smd5_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	md5_update(&ctx, plaintext, strlen(plaintext));
 	md5_update(&ctx, raw_password + MD5_RESULTLEN, size - MD5_RESULTLEN);
 	md5_final(&ctx, md5_digest);
-	return memcmp(md5_digest, raw_password, MD5_RESULTLEN) == 0 ? 1 : 0;
+	return mem_equals_timing_safe(md5_digest, raw_password, MD5_RESULTLEN) ? 1 : 0;
 }
 
 static void

@@ -274,7 +274,7 @@ static bool mech_gssapi_oid_cmp(const gss_OID_desc *oid1,
 				const gss_OID_desc *oid2)
 {
 	return oid1->length == oid2->length &&
-		memcmp(oid1->elements, oid2->elements, oid1->length) == 0;
+		mem_equals_timing_safe(oid1->elements, oid2->elements, oid1->length);
 }
 
 static int
