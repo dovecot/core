@@ -51,23 +51,29 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 #endif
 
 #ifdef USERDB_VPOPMAIL
-static const char *
-userdb_vpopmail_get_quota(const char *template, const char *vpop_str)
+static int
+userdb_vpopmail_get_quota(const char *template, const char *vpop_str,
+			  const char **quota_r, const char **error_r)
 {
 	struct var_expand_table *tab;
 	string_t *quota;
 
 	if (template == NULL || *vpop_str == '\0' ||
-	    strcmp(vpop_str, "NOQUOTA") == 0)
-		return "";
+	    strcmp(vpop_str, "NOQUOTA") == 0) {
+		*quota_r = "";
+		return 0;
+	}
 
 	tab = t_new(struct var_expand_table, 2);
 	tab[0].key = 'q';
 	tab[0].value = format_maildirquota(vpop_str);
 
 	quota = t_str_new(128);
-	var_expand(quota, template, tab);
-	return str_c(quota);
+	if (var_expand(quota, template, tab, error_r) < 0)
+		return -1;
+
+	*quota_r = str_c(quota);
+	return 0;
 }
 
 static void vpopmail_lookup(struct auth_request *auth_request,
@@ -78,7 +84,7 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 		(struct vpopmail_userdb_module *)_module;
 	char vpop_user[VPOPMAIL_LIMIT], vpop_domain[VPOPMAIL_LIMIT];
 	struct vqpasswd *vpw;
-	const char *quota;
+	const char *quota, *error;
 	uid_t uid;
 	gid_t gid;
 
@@ -124,12 +130,20 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 		}
 	}
 
+	if (userdb_vpopmail_get_quota(module->quota_template_value,
+				      vpw->pw_shell, &quota, &error) < 0) {
+		auth_request_log_error(auth_request, AUTH_SUBSYS_DB,
+				       "userdb_vpopmail_get_quota(%s, %s) failed: %s",
+				       module->quota_template_value,
+				       vpw->pw_shell, error);
+		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		return;
+	}
+
 	auth_request_set_userdb_field(auth_request, "uid", dec2str(uid));
 	auth_request_set_userdb_field(auth_request, "gid", dec2str(gid));
 	auth_request_set_userdb_field(auth_request, "home", vpw->pw_dir);
 
-	quota = userdb_vpopmail_get_quota(module->quota_template_value,
-					  vpw->pw_shell);
 	if (*quota != '\0') {
 		auth_request_set_userdb_field(auth_request,
 					      module->quota_template_key,
