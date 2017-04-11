@@ -855,20 +855,21 @@ fts_mailbox_list_created(struct mailbox_list *list)
 	if (fts_backend_init(name, list->ns, &error, &backend) < 0) {
 		i_error("fts: Failed to initialize backend '%s': %s",
 			name, error);
-	} else {
-		struct fts_mailbox_list *flist;
-		struct mailbox_list_vfuncs *v = list->vlast;
-
-		if ((backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
-			list->ns->user->fuzzy_search = TRUE;
-
-		flist = p_new(list->pool, struct fts_mailbox_list, 1);
-		flist->module_ctx.super = *v;
-		flist->backend = backend;
-		list->vlast = &flist->module_ctx.super;
-		v->deinit = fts_mailbox_list_deinit;
-		MODULE_CONTEXT_SET(list, fts_mailbox_list_module, flist);
+		return;
 	}
+
+	struct fts_mailbox_list *flist;
+	struct mailbox_list_vfuncs *v = list->vlast;
+
+	if ((backend->flags & FTS_BACKEND_FLAG_FUZZY_SEARCH) != 0)
+		list->ns->user->fuzzy_search = TRUE;
+
+	flist = p_new(list->pool, struct fts_mailbox_list, 1);
+	flist->module_ctx.super = *v;
+	flist->backend = backend;
+	list->vlast = &flist->module_ctx.super;
+	v->deinit = fts_mailbox_list_deinit;
+	MODULE_CONTEXT_SET(list, fts_mailbox_list_module, flist);
 }
 
 struct fts_backend *fts_mailbox_backend(struct mailbox *box)
