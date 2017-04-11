@@ -1176,6 +1176,18 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 		return;
 	}
 	passdb = request->passdb;
+	while (passdb != NULL && auth_request_want_skip_passdb(request, passdb))
+		passdb = passdb->next;
+	request->passdb = passdb;
+
+	if (passdb == NULL) {
+		auth_request_log_error(request, AUTH_SUBSYS_DB,
+			"All password databases were skipped for mechanism '%s'",
+				request->mech == NULL ? "<empty>"
+						      : request->mech->mech_name);
+		callback(PASSDB_RESULT_INTERNAL_FAILURE, NULL, 0, request);
+		return;
+	}
 
 	request->private_callback.lookup_credentials = callback;
 
