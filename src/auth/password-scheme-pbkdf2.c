@@ -78,5 +78,5 @@ int pbkdf2_verify(const char *plaintext, const char *user ATTR_UNUSED,
 	}
 
 	pbkdf_run(plaintext, salt, rounds, key2);
-	return memcmp(key1, key2, sizeof(key1)) == 0 ? 1 : 0;
+	return mem_equals_timing_safe(key1, key2, sizeof(key1)) ? 1 : 0;
 }

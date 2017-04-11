@@ -431,7 +431,7 @@ static bool verify_credentials(struct rpa_auth_request *request,
 
 	memcpy(request->pwd_md5, credentials, sizeof(request->pwd_md5));
 	rpa_user_response(request, response);
-	return memcmp(response, request->user_response, sizeof(response)) == 0;
+	return mem_equals_timing_safe(response, request->user_response, sizeof(response));
 }
 
 static void

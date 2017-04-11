@@ -40,7 +40,7 @@ static bool verify_credentials(struct apop_auth_request *request,
 	md5_update(&ctx, credentials, size);
 	md5_final(&ctx, digest);
 
-	return memcmp(digest, request->response_digest, 16) == 0;
+	return mem_equals_timing_safe(digest, request->response_digest, 16);
 }
 
 static void

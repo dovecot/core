@@ -54,7 +54,7 @@ static bool lm_verify_credentials(struct ntlm_auth_request *request,
 	}
 
 	ntlmssp_v1_response(credentials, request->challenge, lm_response);
-	return memcmp(lm_response, client_response, LM_RESPONSE_SIZE) == 0;
+	return mem_equals_timing_safe(lm_response, client_response, LM_RESPONSE_SIZE);
 }
 
 static void
@@ -118,8 +118,8 @@ ntlm_verify_credentials(struct ntlm_auth_request *request,
 				    response_length - NTLMSSP_V2_RESPONSE_SIZE,
 				    ntlm_v2_response);
 
-		return memcmp(ntlm_v2_response, client_response,
-			      NTLMSSP_V2_RESPONSE_SIZE) == 0 ? 1 : -1;
+		return mem_equals_timing_safe(ntlm_v2_response, client_response,
+					      NTLMSSP_V2_RESPONSE_SIZE) ? 1 : -1;
 	} else {
 		unsigned char ntlm_response[NTLMSSP_RESPONSE_SIZE];
 		const unsigned char *client_lm_response =
@@ -133,8 +133,8 @@ ntlm_verify_credentials(struct ntlm_auth_request *request,
 			ntlmssp_v1_response(credentials, request->challenge,
 					    ntlm_response);
 
-		return memcmp(ntlm_response, client_response,
-			      NTLMSSP_RESPONSE_SIZE) == 0 ? 1 : -1;
+		return mem_equals_timing_safe(ntlm_response, client_response,
+					      NTLMSSP_RESPONSE_SIZE) ? 1 : -1;
 	}
 }
 
