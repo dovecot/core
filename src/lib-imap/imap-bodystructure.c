@@ -377,10 +377,25 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 
 	multipart = FALSE;
 	if (!parsing_tree) {
-		child_part = part->children;
-		while (args->type == IMAP_ARG_LIST) {
-			if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
-				  child_part == NULL) {
+		if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0 &&
+			part->children == NULL) {
+			struct message_part_data dummy_part_data = {
+				.content_type = "text",
+				.content_subtype = "plain",
+				.content_transfer_encoding = "7bit"
+			};
+			struct message_part dummy_part = {
+				.parent = part,
+				.data = &dummy_part_data,
+				.flags = MESSAGE_PART_FLAG_TEXT
+			};
+			struct message_part *dummy_partp = &dummy_part;
+
+			/* no parts in multipart message,
+			   that's not allowed. expect a single
+			   0-length text/plain structure */
+			if (args->type != IMAP_ARG_LIST ||
+				(args+1)->type == IMAP_ARG_LIST) {
 				*error_r = "message_part hierarchy "
 					"doesn't match BODYSTRUCTURE";
 				return -1;
@@ -388,14 +403,33 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 
 			list_args = imap_arg_as_list(args);
 			if (imap_bodystructure_parse_args(list_args, pool,
-								&child_part, error_r) < 0)
+								&dummy_partp, error_r) < 0)
 				return -1;
-			child_part = child_part->next;
+			child_part = NULL;
 
 			multipart = TRUE;
 			args++;
-		}
 
+		} else {
+			child_part = part->children;
+			while (args->type == IMAP_ARG_LIST) {
+				if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0 ||
+						child_part == NULL) {
+					*error_r = "message_part hierarchy "
+						"doesn't match BODYSTRUCTURE";
+					return -1;
+				}
+
+				list_args = imap_arg_as_list(args);
+				if (imap_bodystructure_parse_args(list_args, pool,
+									&child_part, error_r) < 0)
+					return -1;
+				child_part = child_part->next;
+
+				multipart = TRUE;
+				args++;
+			}
+		}
 		if (multipart) {
 			if (child_part != NULL) {
 				*error_r = "message_part hierarchy "
