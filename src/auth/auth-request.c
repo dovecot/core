@@ -618,18 +618,27 @@ static void auth_request_master_lookup_finish(struct auth_request *request)
 }
 
 static bool
+auth_request_mechanism_accepted(const char *const *mechs,
+				const struct mech_module *mech)
+{
+	/* no filter specified, anything goes */
+	if (mechs == NULL) return TRUE;
+	/* request has no mechanism, see if none is accepted */
+	if (mech == NULL)
+		return str_array_icase_find(mechs, "none");
+	/* check if request mechanism is accepted */
+	return str_array_icase_find(mechs, mech->mech_name);
+}
+
+static bool
 auth_request_want_skip_passdb(struct auth_request *request,
 			      struct auth_passdb *passdb)
 {
 	/* if mechanism is not supported, skip */
-	const char *const *mech = passdb->passdb->mechanisms;
+	const char *const *mechs = passdb->passdb->mechanisms;
 
-	/* if request->mech == NULL it means we are doing
-	   lookup without authentication and should not match this */
-	if (mech != NULL && (request->mech == NULL ||
-	     !str_array_icase_find(mech, request->mech->mech_name))) {
+	if (!auth_request_mechanism_accepted(mechs, request->mech))
 		return TRUE;
-	}
 
 	/* skip_password_check basically specifies if authentication is
 	   finished */
