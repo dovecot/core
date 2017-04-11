@@ -224,6 +224,15 @@ struct parse_test parse_tests[] = {
 			"(\"text\" \"x-myown\" (\"charset\" \"us-ascii\" \"foo\" \"quoted\\\"string\") \"<foo@example.com>\" \"hellodescription\" \"7bit\" 7 1 \"Q2hlY2sgSW50ZWdyaXR5IQ==\" (\"inline\" (\"foo\" \"bar\")) (\"en\" \"fi\" \"se\") \"http://example.com/test.txt\")(\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 412 (\"Sun, 12 Aug 2012 12:34:56 +0300\" \"submsg\" ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub-to1\" \"domain.org\")(NIL NIL \"sub-to2\" \"domain.org\")) NIL NIL NIL NIL) ((\"text\" \"html\" (\"charset\" \"us-ascii\") NIL NIL \"8bit\" 20 1 NIL NIL NIL NIL)(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 21 1 NIL NIL NIL NIL) \"alternative\" (\"boundary\" \"sub1\") NIL NIL NIL) 21 NIL NIL NIL NIL) \"mixed\" (\"boundary\" \"foo bar\") NIL NIL NIL",
 		.body =
 			"(\"text\" \"x-myown\" (\"charset\" \"us-ascii\" \"foo\" \"quoted\\\"string\") \"<foo@example.com>\" \"hellodescription\" \"7bit\" 7 1)(\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 412 (\"Sun, 12 Aug 2012 12:34:56 +0300\" \"submsg\" ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub\" \"domain.org\")) ((NIL NIL \"sub-to1\" \"domain.org\")(NIL NIL \"sub-to2\" \"domain.org\")) NIL NIL NIL NIL) ((\"text\" \"html\" (\"charset\" \"us-ascii\") NIL NIL \"8bit\" 20 1)(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 21 1) \"alternative\") 21) \"mixed\""
+	},{
+		.message =
+			"Content-Type: multipart/mixed; boundary=\"foo\"\n"
+			"\n",
+		.bodystructure =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL) \"mixed\" (\"boundary\" \"foo\") NIL NIL NIL",
+		.body =
+			"(\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0) \"mixed\""
+
 	}
 };
 
