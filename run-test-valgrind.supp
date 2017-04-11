@@ -7,11 +7,11 @@
 {
    <liblzma>
    Memcheck:Cond
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.0.0
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
+   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
    fun:lzma_stream_encoder
    fun:lzma_easy_encoder
 }
