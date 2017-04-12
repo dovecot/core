@@ -95,4 +95,5 @@ distcheck-hook:
 	  if ! rmdir scan-reports 2>/dev/null; then \
 	    exit 1; \
 	  fi; \
+	  make distclean; \
 	fi
