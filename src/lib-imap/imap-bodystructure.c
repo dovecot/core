@@ -13,8 +13,11 @@
 #include "imap-envelope.h"
 #include "imap-bodystructure.h"
 
-#define EMPTY_BODYSTRUCTURE "(\"text\" \"plain\" " \
+#define EMPTY_BODY "(\"text\" \"plain\" " \
 	"(\"charset\" \""MESSAGE_PART_DEFAULT_CHARSET"\") NIL NIL \"7bit\" 0 0)"
+#define EMPTY_BODYSTRUCTURE "(\"text\" \"plain\" " \
+	"(\"charset\" \""MESSAGE_PART_DEFAULT_CHARSET"\") NIL NIL \"7bit\" 0 0 " \
+		"NIL NIL NIL NIL)"
 
 /*
  * IMAP BODY/BODYSTRUCTURE write
@@ -118,7 +121,10 @@ static void part_write_body_multipart(const struct message_part *part,
 		/* no parts in multipart message,
 		   that's not allowed. write a single
 		   0-length text/plain structure */
-		str_append(str, EMPTY_BODYSTRUCTURE);
+		if (!extended)
+			str_append(str, EMPTY_BODY);
+		else
+			str_append(str, EMPTY_BODYSTRUCTURE);
 	}
 
 	str_append_c(str, ' ');
