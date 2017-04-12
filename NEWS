@@ -1,3 +1,11 @@
+v2.2.29.1 2017-04-12  Timo Sirainen <tss@iki.fi>
+
+	- imapc reconnection fix was forgotten from 2.2.29 release, which also
+	  made "make check" fail in a unit test
+	- dict-sql: Merging multiple UPDATEs to a single statement wasn't
+	  actually working.
+	- Fixed building with vpopmail
+
 v2.2.29 2017-04-10  Timo Sirainen <tss@iki.fi>
 
 	* passdb/userdb dict: Don't double-expand %variables in keys. If dict
