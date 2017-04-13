@@ -51,6 +51,31 @@ mail_search_arg_to_imap_date(string_t *dest, const struct mail_search_arg *arg)
 	return TRUE;
 }
 
+static void
+mail_search_arg_to_imap_flags(string_t *dest, enum mail_flags flags)
+{
+	static const char *flag_names[] = {
+		"ANSWERED", "FLAGGED", "DELETED", "SEEN", "DRAFT", "RECENT"
+	};
+	unsigned int count = 0, start_pos = str_len(dest);
+
+	str_append_c(dest, '(');
+	for (unsigned int i = 0; i < N_ELEMENTS(flag_names); i++) {
+		if ((flags & (1 << i)) != 0) {
+			str_append(dest, flag_names[i]);
+			str_append_c(dest, ' ');
+			count++;
+		}
+	}
+	i_assert(count > 0);
+
+	str_truncate(dest, str_len(dest)-1);
+	if (count == 1)
+		str_delete(dest, start_pos, 1);
+	else
+		str_append_c(dest, ')');
+}
+
 bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			     const char **error_r)
 {
@@ -81,28 +106,14 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		imap_write_seq_range(dest, &arg->value.seqset);
 		break;
 	case SEARCH_FLAGS:
-		i_assert((arg->value.flags & MAIL_FLAGS_MASK) != 0);
-		str_append_c(dest, '(');
-		if ((arg->value.flags & MAIL_ANSWERED) != 0)
-			str_append(dest, "ANSWERED ");
-		if ((arg->value.flags & MAIL_FLAGGED) != 0)
-			str_append(dest, "FLAGGED ");
-		if ((arg->value.flags & MAIL_DELETED) != 0)
-			str_append(dest, "DELETED ");
-		if ((arg->value.flags & MAIL_SEEN) != 0)
-			str_append(dest, "SEEN ");
-		if ((arg->value.flags & MAIL_DRAFT) != 0)
-			str_append(dest, "DRAFT ");
-		if ((arg->value.flags & MAIL_RECENT) != 0)
-			str_append(dest, "RECENT ");
-		str_truncate(dest, str_len(dest)-1);
-		str_append_c(dest, ')');
+		mail_search_arg_to_imap_flags(dest, arg->value.flags);
 		break;
 	case SEARCH_KEYWORDS: {
 		const struct mail_keywords *kw = arg->initialized.keywords;
 		const ARRAY_TYPE(keywords) *names_arr;
 		const char *const *namep;
-		unsigned int i;
+		unsigned int i, count = 0;
+		size_t start_pos = str_len(dest);
 
 		if (kw == NULL) {
 			/* uninitialized */
@@ -118,8 +129,12 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			if (i > 0)
 				str_append_c(dest, ' ');
 			str_printfa(dest, "KEYWORD %s", *namep);
+			count++;
 		}
-		str_append_c(dest, ')');
+		if (count == 1)
+			str_delete(dest, start_pos, 1);
+		else
+			str_append_c(dest, ')');
 		break;
 	}
 
