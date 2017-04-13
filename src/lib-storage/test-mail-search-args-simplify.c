@@ -46,6 +46,17 @@ static const struct {
 	{ "ANSWERED NOT FLAGGED SEEN NOT DRAFT", "(ANSWERED SEEN) NOT (FLAGGED) NOT (DRAFT)" },
 	{ "OR NOT ANSWERED NOT SEEN", "NOT (ANSWERED SEEN)" },
 
+	{ "KEYWORD foo", "KEYWORD foo" },
+	{ "KEYWORD foo KEYWORD bar", "KEYWORD foo KEYWORD bar" },
+	{ "NOT KEYWORD foo", "NOT KEYWORD foo" },
+	{ "NOT KEYWORD foo NOT KEYWORD bar", "NOT KEYWORD foo NOT KEYWORD bar" },
+	{ "OR KEYWORD foo KEYWORD bar", "(OR KEYWORD foo KEYWORD bar)" },
+	{ "OR NOT KEYWORD foo NOT KEYWORD bar", "(OR NOT KEYWORD foo NOT KEYWORD bar)" },
+
+	{ "KEYWORD foo KEYWORD foo", "KEYWORD foo" },
+	{ "OR KEYWORD foo KEYWORD foo", "KEYWORD foo" },
+	{ "NOT KEYWORD foo NOT KEYWORD foo", "NOT KEYWORD foo" },
+
 	{ "1:* 1:*", "ALL" },
 	{ "OR 1:5 6:*", "ALL" },
 

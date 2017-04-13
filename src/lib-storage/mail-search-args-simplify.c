@@ -106,6 +106,25 @@ static bool mail_search_args_merge_flags(struct mail_search_simplify_ctx *ctx,
 	}
 }
 
+static bool
+mail_search_args_merge_keywords(struct mail_search_simplify_ctx *ctx,
+				struct mail_search_arg *args)
+{
+	struct mail_search_simplify_prev_arg mask;
+	struct mail_search_arg **prev_argp;
+
+	mail_search_arg_get_base_mask(args, &mask);
+	mask.str_mask = args->value.str;
+	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
+
+	if (*prev_argp == NULL) {
+		*prev_argp = args;
+		return FALSE;
+	}
+	/* duplicate keyword. */
+	return TRUE;
+}
+
 static void mail_search_args_simplify_set(struct mail_search_arg *args)
 {
 	const struct seq_range *seqset;
@@ -589,6 +608,9 @@ mail_search_args_simplify_sub(struct mailbox *box, pool_t pool,
 		}
 		case SEARCH_FLAGS:
 			merged = mail_search_args_merge_flags(&ctx, args);
+			break;
+		case SEARCH_KEYWORDS:
+			merged = mail_search_args_merge_keywords(&ctx, args);
 			break;
 		case SEARCH_SEQSET:
 		case SEARCH_UIDSET:
