@@ -60,7 +60,6 @@ static void mail_search_arg_get_base_mask(const struct mail_search_arg *arg,
 {
 	i_zero(mask_r);
 	mask_r->bin_mask.type = arg->type;
-	mask_r->bin_mask.match_not = arg->match_not;
 	mask_r->bin_mask.fuzzy = arg->fuzzy;
 	mask_r->bin_mask.search_flags = arg->value.search_flags;
 }
@@ -84,6 +83,27 @@ mail_search_args_simplify_get_prev_argp(struct mail_search_simplify_ctx *ctx,
 	return &prev_arg->prev_arg;
 }
 
+static bool
+mail_search_args_merge_mask(struct mail_search_simplify_ctx *ctx,
+			    struct mail_search_arg *args,
+			    const struct mail_search_simplify_prev_arg *mask)
+{
+	struct mail_search_arg **prev_argp;
+
+	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, mask);
+	if (*prev_argp == NULL) {
+		*prev_argp = args;
+		return FALSE;
+	}
+	if ((*prev_argp)->match_not != args->match_not) {
+		/* a && !a = 0 */
+		(*prev_argp)->type = SEARCH_ALL;
+		(*prev_argp)->match_not = ctx->parent_and;
+	}
+	/* duplicate keyword. */
+	return TRUE;
+}
+
 static bool mail_search_args_merge_flags(struct mail_search_simplify_ctx *ctx,
 					 struct mail_search_arg *args)
 {
@@ -95,6 +115,7 @@ static bool mail_search_args_merge_flags(struct mail_search_simplify_ctx *ctx,
 		return FALSE;
 
 	mail_search_arg_get_base_mask(args, &mask);
+	mask.bin_mask.match_not = args->match_not;
 	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
 
 	if (*prev_argp == NULL) {
@@ -111,18 +132,10 @@ mail_search_args_merge_keywords(struct mail_search_simplify_ctx *ctx,
 				struct mail_search_arg *args)
 {
 	struct mail_search_simplify_prev_arg mask;
-	struct mail_search_arg **prev_argp;
 
 	mail_search_arg_get_base_mask(args, &mask);
 	mask.str_mask = args->value.str;
-	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
-
-	if (*prev_argp == NULL) {
-		*prev_argp = args;
-		return FALSE;
-	}
-	/* duplicate keyword. */
-	return TRUE;
+	return mail_search_args_merge_mask(ctx, args, &mask);
 }
 
 static void mail_search_args_simplify_set(struct mail_search_arg *args)
@@ -164,6 +177,7 @@ static bool mail_search_args_merge_set(struct mail_search_simplify_ctx *ctx,
 	}
 
 	mail_search_arg_get_base_mask(args, &mask);
+	mask.bin_mask.match_not = args->match_not;
 	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
 
 	if (*prev_argp == NULL) {
@@ -187,6 +201,7 @@ static bool mail_search_args_merge_time(struct mail_search_simplify_ctx *ctx,
 	struct mail_search_arg **prev_argp, *prev_arg;
 
 	mail_search_arg_get_base_mask(args, &mask);
+	mask.bin_mask.match_not = args->match_not;
 	mask.bin_mask.date_type = args->value.date_type;
 	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
 
@@ -248,6 +263,7 @@ static bool mail_search_args_merge_size(struct mail_search_simplify_ctx *ctx,
 	struct mail_search_arg **prev_argp, *prev_arg;
 
 	mail_search_arg_get_base_mask(args, &mask);
+	mask.bin_mask.match_not = args->match_not;
 	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
 
 	if (*prev_argp == NULL) {
@@ -301,19 +317,11 @@ static bool mail_search_args_merge_text(struct mail_search_simplify_ctx *ctx,
 					struct mail_search_arg *args)
 {
 	struct mail_search_simplify_prev_arg mask;
-	struct mail_search_arg **prev_argp;
 
 	mail_search_arg_get_base_mask(args, &mask);
 	mask.hdr_field_name_mask = args->hdr_field_name;
 	mask.str_mask = args->value.str;
-	prev_argp = mail_search_args_simplify_get_prev_argp(ctx, &mask);
-
-	if (*prev_argp == NULL) {
-		*prev_argp = args;
-		return FALSE;
-	}
-	/* duplicate search word. */
-	return TRUE;
+	return mail_search_args_merge_mask(ctx, args, &mask);
 }
 
 static bool
