@@ -42,10 +42,12 @@ mail_search_arg_to_cmdline(string_t *dest, const struct mail_search_arg *arg)
 	case SEARCH_KEYWORDS: {
 		size_t pos = str_len(dest);
 
-		if (!mail_search_arg_to_imap(dest, arg, &error))
+		new_arg = *arg;
+		new_arg.match_not = FALSE;
+		if (!mail_search_arg_to_imap(dest, &new_arg, &error))
 			i_unreached();
 		str_insert(dest, pos+1, " ");
-		str_insert(dest, str_len(dest)-2, " ");
+		str_insert(dest, str_len(dest)-1, " ");
 		return;
 	}
 	case SEARCH_INTHREAD:
