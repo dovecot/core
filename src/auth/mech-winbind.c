@@ -187,12 +187,18 @@ do_auth_continue(struct auth_request *auth_request,
 	request->continued = FALSE;
 
 	while ((answer = i_stream_read_next_line(in_pipe)) == NULL) {
-		if (in_pipe->stream_errno != 0)
+		if (in_pipe->stream_errno != 0 || in_pipe->eof)
 			break;
 	}
 	if (answer == NULL) {
-		auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
-				       "read(in_pipe) failed: %m");
+		if (in_pipe->stream_errno != 0) {
+			auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
+					       "read(in_pipe) failed: %m");
+		} else {
+			auth_request_log_error(auth_request, AUTH_SUBSYS_MECH,
+					       "read(in_pipe) failed: "
+					       "unexpected end of file");
+		}
 		return HR_RESTART;
 	}
 
