@@ -429,6 +429,7 @@ static void main_deinit(void)
 	login_proxy_deinit();
 
 	login_binary->deinit();
+	module_dir_unload(&modules);
 	auth_client_deinit(&auth_client);
 	master_auth_deinit(&master_auth);
 
