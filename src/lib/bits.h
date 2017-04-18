@@ -8,6 +8,13 @@
 
 size_t nearest_power(size_t num) ATTR_CONST;
 
+/* Returns TRUE if 2^x=num, i.e. if num has only a single bit set to 1. */
+static inline bool ATTR_CONST
+bits_is_power_of_two(uint64_t num)
+{
+	return num > 0 && (num & (num - 1)) == 0;
+}
+
 #if __GNUC__ > 2
 static inline unsigned int ATTR_CONST
 bits_required32(uint32_t num)
