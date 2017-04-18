@@ -39,6 +39,20 @@ static void test_nearest_power(void)
 	test_end();
 }
 
+static void test_bits_is_power_of_two(void)
+{
+	test_begin("bits_is_power_of_two()");
+	for (unsigned int i = 0; i < 64; i++)
+		test_assert_idx(bits_is_power_of_two(1ULL << i), i);
+	for (unsigned int i = 2; i < 64; i++) {
+		test_assert_idx(!bits_is_power_of_two((1ULL << i) - 1), i);
+		test_assert_idx(!bits_is_power_of_two((1ULL << i) + 1), i);
+	}
+	test_assert(!bits_is_power_of_two(0));
+	test_assert(!bits_is_power_of_two(0xffffffffffffffffULL));
+	test_end();
+}
+
 static void test_bits_requiredXX(void) 
 {
 	/* As ..64 depends on ..32 and tests it twice,
@@ -135,6 +149,7 @@ static void test_bits_fraclog_const(void)
 void test_bits(void)
 {
 	test_nearest_power();
+	test_bits_is_power_of_two();
 	test_bits_requiredXX();
 	test_bits_fraclog();
 	test_bits_fraclog_const();
