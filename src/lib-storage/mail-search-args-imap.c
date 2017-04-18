@@ -57,22 +57,20 @@ mail_search_arg_to_imap_flags(string_t *dest, enum mail_flags flags)
 	static const char *flag_names[] = {
 		"ANSWERED", "FLAGGED", "DELETED", "SEEN", "DRAFT", "RECENT"
 	};
-	unsigned int count = 0, start_pos = str_len(dest);
 
-	str_append_c(dest, '(');
+	i_assert(flags != 0);
+
+	if (!bits_is_power_of_two(flags))
+		str_append_c(dest, '(');
 	for (unsigned int i = 0; i < N_ELEMENTS(flag_names); i++) {
 		if ((flags & (1 << i)) != 0) {
 			str_append(dest, flag_names[i]);
 			str_append_c(dest, ' ');
-			count++;
 		}
 	}
-	i_assert(count > 0);
 
 	str_truncate(dest, str_len(dest)-1);
-	if (count == 1)
-		str_delete(dest, start_pos, 1);
-	else
+	if (!bits_is_power_of_two(flags))
 		str_append_c(dest, ')');
 }
 
