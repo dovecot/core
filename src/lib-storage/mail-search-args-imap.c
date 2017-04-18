@@ -110,28 +110,26 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		const struct mail_keywords *kw = arg->initialized.keywords;
 		const ARRAY_TYPE(keywords) *names_arr;
 		const char *const *namep;
-		unsigned int i, count = 0;
-		size_t start_pos = str_len(dest);
+		unsigned int i;
 
 		if (kw == NULL) {
 			/* uninitialized */
 			str_printfa(dest, "KEYWORD %s", arg->value.str);
 			break;
 		}
+		i_assert(kw->count > 0);
 
 		names_arr = mail_index_get_keywords(kw->index);
 
-		str_append_c(dest, '(');
+		if (kw->count > 1)
+			str_append_c(dest, '(');
 		for (i = 0; i < kw->count; i++) {
 			namep = array_idx(names_arr, kw->idx[i]);
 			if (i > 0)
 				str_append_c(dest, ' ');
 			str_printfa(dest, "KEYWORD %s", *namep);
-			count++;
 		}
-		if (count == 1)
-			str_delete(dest, start_pos, 1);
-		else
+		if (kw->count > 1)
 			str_append_c(dest, ')');
 		break;
 	}
