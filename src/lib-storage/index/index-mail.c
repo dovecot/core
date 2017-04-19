@@ -68,6 +68,7 @@ struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	   just be moved here to the same struct. */
 };
 
+static void index_mail_init_data(struct index_mail *mail);
 static int index_mail_parse_body(struct index_mail *mail,
 				 enum index_cache_field field);
 
@@ -1562,6 +1563,7 @@ void index_mail_init(struct index_mail *mail,
 		mail->mail.wanted_headers = wanted_headers;
 		mailbox_header_lookup_ref(wanted_headers);
 	}
+	index_mail_init_data(mail);
 }
 
 static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
@@ -1610,12 +1612,9 @@ void index_mail_close_streams(struct index_mail *mail)
 	index_mail_close_streams_full(mail, FALSE);
 }
 
-static void index_mail_reset_data(struct index_mail *mail)
+static void index_mail_init_data(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
-
-	i_zero(data);
-	p_clear(mail->mail.data_pool);
 
 	data->virtual_size = (uoff_t)-1;
 	data->physical_size = (uoff_t)-1;
@@ -1629,6 +1628,14 @@ static void index_mail_reset_data(struct index_mail *mail)
 		data->wanted_headers = mail->mail.wanted_headers;
 		mailbox_header_lookup_ref(data->wanted_headers);
 	}
+}
+
+static void index_mail_reset_data(struct index_mail *mail)
+{
+	i_zero(&mail->data);
+	p_clear(mail->mail.data_pool);
+
+	index_mail_init_data(mail);
 
 	mail->mail.mail.seq = 0;
 	mail->mail.mail.uid = 0;
@@ -1644,6 +1651,16 @@ static void index_mail_reset_data(struct index_mail *mail)
 void index_mail_close(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
+
+	if (mail->mail.mail.seq == 0) {
+		/* mail_set_seq*() hasn't been called yet, or is being called
+		   right now. Don't reset anything yet. We especially don't
+		   want to reset wanted_fields or wanted_headers so that
+		   mail_add_temp_wanted_fields() can be called by plugins
+		   before mail_set_seq_saving() for
+		   mail_save_context.dest_mail. */
+		return;
+	}
 
 	/* If uid == 0 but seq != 0, we came here from saving a (non-mbox)
 	   message. If that happens, don't bother checking if anything should
@@ -1698,6 +1715,14 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	struct mail_cache_view *cache_view = _mail->transaction->cache_view;
+
+	if (_mail->seq == 0) {
+		/* mail_add_temp_wanted_fields() called before mail_set_seq*().
+		   We'll allow this, since it can be useful for plugins to
+		   call it for mail_save_context.dest_mail. This function
+		   is called again in mail_set_seq*(). */
+		return;
+	}
 
 	if ((data->wanted_fields & (MAIL_FETCH_NUL_STATE |
 				    MAIL_FETCH_IMAP_BODY |
@@ -1802,6 +1827,11 @@ void index_mail_update_access_parts_post(struct mail *_mail)
 	struct index_mail_data *data = &mail->data;
 	const struct mail_index_header *hdr;
 	struct istream *input;
+
+	if (_mail->seq == 0) {
+		/* see index_mail_update_access_parts_pre() */
+		return;
+	}
 
 	/* when mail_prefetch_count>1, at this point we've started the
 	   prefetching to all the mails and we're now starting to access the
