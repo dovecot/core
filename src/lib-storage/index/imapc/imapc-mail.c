@@ -411,7 +411,8 @@ imapc_mail_add_temp_wanted_fields(struct mail *_mail,
 	struct index_mail *mail = (struct index_mail *)_mail;
 
 	index_mail_add_temp_wanted_fields(_mail, fields, headers);
-	imapc_mail_update_access_parts(mail);
+	if (_mail->seq != 0)
+		imapc_mail_update_access_parts(mail);
 }
 
 static void imapc_mail_close(struct mail *_mail)
