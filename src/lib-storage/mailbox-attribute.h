@@ -256,6 +256,11 @@ void mailbox_attribute_register_internal(
 void mailbox_attribute_register_internals(
 	const struct mailbox_attribute_internal *iattrs, unsigned int count);
 
+void mailbox_attribute_unregister_internal(
+	const struct mailbox_attribute_internal *iattr);
+void mailbox_attribute_unregister_internals(
+	const struct mailbox_attribute_internal *iattrs, unsigned int count);
+
 /*
  * Attribute API
  */

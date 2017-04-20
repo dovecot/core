@@ -64,6 +64,29 @@ void mailbox_attribute_register_internals(
 		mailbox_attribute_register_internal(&iattrs[i]);
 }
 
+void mailbox_attribute_unregister_internal(
+	const struct mailbox_attribute_internal *iattr)
+{
+	unsigned int idx;
+
+	if (!array_bsearch_insert_pos(&mailbox_internal_attributes,
+				      iattr, mailbox_attribute_internal_cmp, &idx)) {
+		i_panic("mailbox_attribute_unregister_internal(%s): "
+			"key not found", iattr->key);
+	}
+
+	array_delete(&mailbox_internal_attributes, idx, 1);
+}
+
+void mailbox_attribute_unregister_internals(
+	const struct mailbox_attribute_internal *iattrs, unsigned int count)
+{
+	unsigned int i;
+
+	for (i = 0; i < count; i++)
+		mailbox_attribute_unregister_internal(&iattrs[i]);
+}
+
 static const struct mailbox_attribute_internal *
 mailbox_internal_attribute_get(enum mail_attribute_type type,
 			       const char *key)
