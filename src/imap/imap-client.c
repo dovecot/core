@@ -576,6 +576,12 @@ client_cmd_append_timing_stats(struct client_command_context *cmd,
 
 void client_send_tagline(struct client_command_context *cmd, const char *data)
 {
+	cmd->client->v.send_tagline(cmd, data);
+}
+
+static void
+client_default_send_tagline(struct client_command_context *cmd, const char *data)
+{
 	struct client *client = cmd->client;
 	const char *tag = cmd->tag;
 
@@ -1409,5 +1415,6 @@ void clients_destroy_all(struct mail_storage_service_ctx *storage_service)
 struct imap_client_vfuncs imap_client_vfuncs = {
 	imap_state_export_base,
 	imap_state_import_base,
-	client_default_destroy
+	client_default_destroy,
+	client_default_send_tagline,
 };
