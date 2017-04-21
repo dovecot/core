@@ -841,12 +841,17 @@ static void query_callback(CassFuture *future, void *context)
 		   enough nodes available. "All hosts in current policy
 		   attempted and were either unavailable or failed"
 
+		   no hosts available = The client library couldn't connect to
+		   enough cassanra nodes. Error message is the same as for
+		   "unavailable".
+
 		   write timeout = cassandra server couldn't reach all the
 		   needed nodes. this may be because it hasn't yet detected
 		   that the servers are down, or because the servers are just
 		   too busy. we'll try the fallback consistency to avoid
 		   unnecessary temporary errors. */
 		if ((error == CASS_ERROR_SERVER_UNAVAILABLE ||
+		     error == CASS_ERROR_LIB_NO_HOSTS_AVAILABLE ||
 		     error == CASS_ERROR_SERVER_WRITE_TIMEOUT) &&
 		    result->fallback_consistency != result->consistency) {
 			/* retry with fallback consistency */
