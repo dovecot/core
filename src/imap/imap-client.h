@@ -130,6 +130,9 @@ struct imap_client_vfuncs {
 				const unsigned char *data, size_t size,
 				const char **error_r);
 	void (*destroy)(struct client *client, const char *reason);
+
+	void (*send_tagline)(struct client_command_context *cmd,
+			     const char *data);
 };
 
 struct client {
