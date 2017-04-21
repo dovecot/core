@@ -323,6 +323,7 @@ static struct client_vfuncs pop3_client_vfuncs = {
 	pop3_proxy_parse_line,
 	pop3_proxy_error,
 	pop3_proxy_get_state,
+	client_common_send_raw_data,
 };
 
 static const struct login_binary pop3_login_binary = {
