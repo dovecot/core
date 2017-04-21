@@ -883,7 +883,8 @@ void client_notify_status(struct client *client, bool bad, const char *text)
 		client->v.notify_status(client, bad, text);
 }
 
-void client_send_raw_data(struct client *client, const void *data, size_t size)
+void client_common_send_raw_data(struct client *client,
+				 const void *data, size_t size)
 {
 	ssize_t ret;
 
@@ -895,6 +896,15 @@ void client_send_raw_data(struct client *client, const void *data, size_t size)
 		   being referenced.. */
 		i_stream_close(client->input);
 	}
+}
+
+void client_send_raw_data(struct client *client, const void *data, size_t size)
+{
+	/* FIXME: NULL check is only for backwards compatibility - remove */
+	if (client->v.send_raw_data != NULL)
+		client->v.send_raw_data(client, data, size);
+	else
+		client_common_send_raw_data(client, data, size);
 }
 
 void client_send_raw(struct client *client, const char *data)
