@@ -78,7 +78,7 @@ static const struct {
 	  	"send_mail_requests backup_send backup_recv lock_timeout "
 	  	"no_mail_sync no_mailbox_renames no_backup_overwrite purge_remote "
 		"no_notify sync_since_timestamp sync_max_size sync_flags sync_until_timestamp"
-	  	"virtual_all_box"
+	  	"virtual_all_box empty_hdr_workaround"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
