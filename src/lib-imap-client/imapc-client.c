@@ -530,8 +530,11 @@ int imapc_client_get_capabilities(struct imapc_client *client,
 	if (imapc_client_get_any_capabilities(client, capabilities_r))
 		return 0;
 
-	/* wait for any of the connections to login (there always exists one) */
-	i_assert(array_count(&client->conns) > 0);
+	/* if there are no connections yet, create one */
+	if (array_count(&client->conns) == 0)
+		(void)imapc_client_add_connection(client);
+
+	/* wait for any of the connections to login */
 	imapc_client_run(client);
 	if (imapc_client_get_any_capabilities(client, capabilities_r))
 		return 0;
