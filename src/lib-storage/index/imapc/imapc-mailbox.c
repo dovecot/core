@@ -546,6 +546,13 @@ imapc_untagged_esearch_gmail_pop3(const struct imap_arg *args,
 	mail_index_keywords_unref(&kw);
 }
 
+static void imapc_untagged_search(const struct imapc_untagged_reply *reply,
+				  struct imapc_mailbox *mbox)
+{
+	if (mbox != NULL)
+		imapc_search_reply_search(reply->args, mbox);
+}
+
 static void imapc_untagged_esearch(const struct imapc_untagged_reply *reply,
 				   struct imapc_mailbox *mbox)
 {
@@ -567,7 +574,7 @@ static void imapc_untagged_esearch(const struct imapc_untagged_reply *reply,
 	    strcmp(mbox->sync_gmail_pop3_search_tag, str) == 0)
 		imapc_untagged_esearch_gmail_pop3(reply->args+1, mbox);
 	else
-		imapc_search_reply(reply->args+1, mbox);
+		imapc_search_reply_esearch(reply->args+1, mbox);
 }
 
 static void
@@ -674,6 +681,8 @@ void imapc_mailbox_register_callbacks(struct imapc_mailbox *mbox)
 					imapc_untagged_fetch);
 	imapc_mailbox_register_untagged(mbox, "EXPUNGE",
 					imapc_untagged_expunge);
+	imapc_mailbox_register_untagged(mbox, "SEARCH",
+					imapc_untagged_search);
 	imapc_mailbox_register_untagged(mbox, "ESEARCH",
 					imapc_untagged_esearch);
 	imapc_mailbox_register_resp_text(mbox, "UIDVALIDITY",
