@@ -506,22 +506,38 @@ bool imapc_client_mailbox_is_opened(struct imapc_client_mailbox *box)
 	return TRUE;
 }
 
-enum imapc_capability
-imapc_client_get_capabilities(struct imapc_client *client)
+static bool
+imapc_client_get_any_capabilities(struct imapc_client *client,
+				  enum imapc_capability *capabilities_r)
 {
 	struct imapc_client_connection *const *connp;
 	struct imapc_connection *conn = NULL;
 
-	/* try to find a connection that is already logged in */
 	array_foreach(&client->conns, connp) {
 		conn = (*connp)->conn;
-		if (imapc_connection_get_state(conn) == IMAPC_CONNECTION_STATE_DONE)
-			return imapc_connection_get_capabilities(conn);
+		if (imapc_connection_get_state(conn) == IMAPC_CONNECTION_STATE_DONE) {
+			*capabilities_r = imapc_connection_get_capabilities(conn);
+			return TRUE;
+		}
 	}
+	return FALSE;
+}
 
-	/* fallback to whatever exists (there always exists one) */
-	i_assert(conn != NULL);
-	return imapc_connection_get_capabilities(conn);
+int imapc_client_get_capabilities(struct imapc_client *client,
+				  enum imapc_capability *capabilities_r)
+{
+	/* try to find a connection that is already logged in */
+	if (imapc_client_get_any_capabilities(client, capabilities_r))
+		return 0;
+
+	/* wait for any of the connections to login (there always exists one) */
+	i_assert(array_count(&client->conns) > 0);
+	imapc_client_run(client);
+	if (imapc_client_get_any_capabilities(client, capabilities_r))
+		return 0;
+
+	/* failed */
+	return -1;
 }
 
 int imapc_client_create_temp_fd(struct imapc_client *client,
