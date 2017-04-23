@@ -77,11 +77,8 @@ bool imap_resp_text_code_parse(const char *str, enum mail_error *error_r)
 
 bool imapc_mailbox_has_modseqs(struct imapc_mailbox *mbox)
 {
-	enum imapc_capability capa =
-		imapc_client_get_capabilities(mbox->storage->client->client);
-
-	return (capa & (IMAPC_CAPABILITY_CONDSTORE |
-			IMAPC_CAPABILITY_QRESYNC)) != 0 &&
+	return (mbox->capabilities & (IMAPC_CAPABILITY_CONDSTORE |
+				      IMAPC_CAPABILITY_QRESYNC)) != 0 &&
 		IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_MODSEQ);
 }
 
@@ -606,14 +603,16 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->mbox->storage->client->client);
 }
 
+static void imapc_mailbox_get_capabilities(struct imapc_mailbox *mbox)
+{
+	mbox->capabilities = imapc_client_get_capabilities(mbox->storage->client->client);
+}
+
 static void imapc_mailbox_get_extensions(struct imapc_mailbox *mbox)
 {
-	enum imapc_capability capa =
-		imapc_client_get_capabilities(mbox->storage->client->client);
-
 	if (mbox->guid_fetch_field_name == NULL) {
 		/* see if we can get message GUIDs somehow */
-		if ((capa & IMAPC_CAPABILITY_X_GM_EXT_1) != 0) {
+		if ((mbox->capabilities & IMAPC_CAPABILITY_X_GM_EXT_1) != 0) {
 			/* GMail */
 			mbox->guid_fetch_field_name = "X-GM-MSGID";
 		}
@@ -631,6 +630,7 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 	if (mbox->storage->client->auth_failed) {
 		return -1;
 	}
+	imapc_mailbox_get_capabilities(mbox);
 
 	if (imapc_mailbox_has_modseqs(mbox)) {
 		if (!array_is_created(&mbox->rseq_modseqs))
@@ -898,6 +898,8 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 	struct imapc_simple_context sctx;
 	string_t *str;
 
+	imapc_mailbox_get_capabilities(mbox);
+
 	str = t_str_new(256);
 	if ((items & STATUS_MESSAGES) != 0)
 		str_append(str, " MESSAGES");
@@ -968,17 +970,17 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	return 0;
 }
 
-static int imapc_mailbox_get_namespaces(struct imapc_storage *storage)
+static int imapc_mailbox_get_namespaces(struct imapc_mailbox *mbox)
 {
-	enum imapc_capability capa;
+	struct imapc_storage *storage = mbox->storage;
 	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
 
 	if (storage->namespaces_requested)
 		return 0;
 
-	capa = imapc_client_get_capabilities(storage->client->client);
-	if ((capa & IMAPC_CAPABILITY_NAMESPACE) == 0) {
+	imapc_mailbox_get_capabilities(mbox);
+	if ((mbox->capabilities & IMAPC_CAPABILITY_NAMESPACE) == 0) {
 		/* NAMESPACE capability not supported */
 		return 0;
 	}
@@ -1028,7 +1030,7 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 		items &= ~MAILBOX_METADATA_GUID;
 	}
 	if ((items & MAILBOX_METADATA_BACKEND_NAMESPACE) != 0) {
-		if (imapc_mailbox_get_namespaces(mbox->storage) < 0)
+		if (imapc_mailbox_get_namespaces(mbox) < 0)
 			return -1;
 
 		ns = imapc_namespace_find_mailbox(mbox->storage, box->name);
@@ -1088,7 +1090,6 @@ static void imapc_notify_changes(struct mailbox *box)
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
 	const struct mail_storage_settings *set = box->storage->set;
 	struct imapc_command *cmd;
-	enum imapc_capability capa;
 
 	if (box->notify_callback == NULL) {
 		if (mbox->to_idle_check != NULL)
@@ -1096,8 +1097,7 @@ static void imapc_notify_changes(struct mailbox *box)
 		return;
 	}
 
-	capa = imapc_client_get_capabilities(mbox->storage->client->client);
-	if ((capa & IMAPC_CAPABILITY_IDLE) != 0) {
+	if ((mbox->capabilities & IMAPC_CAPABILITY_IDLE) != 0) {
 		/* remote server is already in IDLE. but since some servers
 		   don't notice changes immediately, we'll force them to check
 		   here by sending a NOOP. this helps with clients that break

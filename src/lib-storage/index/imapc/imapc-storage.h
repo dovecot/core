@@ -91,6 +91,7 @@ struct imapc_mailbox {
 	struct mailbox box;
 	struct imapc_storage *storage;
 	struct imapc_client_mailbox *client_box;
+	enum imapc_capability capabilities;
 
 	struct mail_index_transaction *delayed_sync_trans;
 	struct mail_index_view *sync_view, *delayed_sync_view;
