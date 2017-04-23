@@ -65,8 +65,6 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 			     const struct mail_search_arg *arg,
 			     string_t *str)
 {
-	enum imapc_capability capa =
-		imapc_client_get_capabilities(mbox->storage->client->client);
 	struct mail_search_arg arg2 = *arg;
 	const char *error;
 
@@ -100,7 +98,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 		return TRUE;
 	case SEARCH_BEFORE:
 	case SEARCH_SINCE:
-		if ((capa & IMAPC_CAPABILITY_WITHIN) == 0) {
+		if ((mbox->capabilities & IMAPC_CAPABILITY_WITHIN) == 0) {
 			/* a bit kludgy way to check this.. */
 			size_t pos = str_len(str);
 			if (!mail_search_arg_to_imap(str, arg, &error))
@@ -126,7 +124,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 		return mail_search_arg_to_imap(str, arg, &error);
 	/* extensions */
 	case SEARCH_MODSEQ:
-		if ((capa & IMAPC_CAPABILITY_CONDSTORE) == 0)
+		if ((mbox->capabilities & IMAPC_CAPABILITY_CONDSTORE) == 0)
 			return FALSE;
 		return mail_search_arg_to_imap(str, arg, &error);
 	case SEARCH_INTHREAD:
@@ -164,15 +162,13 @@ static bool imapc_build_search_query(struct imapc_mailbox *mbox,
 				     const struct mail_search_args *args,
 				     const char **query_r)
 {
-	enum imapc_capability capa =
-		imapc_client_get_capabilities(mbox->storage->client->client);
 	string_t *str = t_str_new(128);
 
 	if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_SEARCH)) {
 		/* SEARCH command passthrough not enabled */
 		return FALSE;
 	}
-	if ((capa & IMAPC_CAPABILITY_ESEARCH) == 0) {
+	if ((mbox->capabilities & IMAPC_CAPABILITY_ESEARCH) == 0) {
 		/* FIXME: not supported for now */
 		return FALSE;
 	}

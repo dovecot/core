@@ -165,13 +165,11 @@ imapc_sync_index_keyword(struct imapc_sync_context *ctx,
 static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
 {
 	string_t *str;
-	enum imapc_capability caps;
 
 	if (array_count(&ctx->expunged_uids) == 0)
 		return;
 
-	caps = imapc_client_get_capabilities(ctx->mbox->storage->client->client);
-	if ((caps & IMAPC_CAPABILITY_UIDPLUS) == 0) {
+	if ((ctx->mbox->capabilities & IMAPC_CAPABILITY_UIDPLUS) == 0) {
 		/* just expunge everything */
 		imapc_sync_cmd(ctx, "EXPUNGE");
 		return;
@@ -547,13 +545,10 @@ static int imapc_sync(struct imapc_mailbox *mbox)
 static void
 imapc_noop_if_needed(struct imapc_mailbox *mbox, enum mailbox_sync_flags flags)
 {
-	enum imapc_capability capabilities;
-
-	capabilities = imapc_client_get_capabilities(mbox->storage->client->client);
 	if (!mbox->initial_sync_done) {
 		/* we just SELECTed/EXAMINEd the mailbox, don't do another
 		   NOOP. */
-	} else if ((capabilities & IMAPC_CAPABILITY_IDLE) == 0 ||
+	} else if ((mbox->capabilities & IMAPC_CAPABILITY_IDLE) == 0 ||
 		   (flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0) {
 		/* do NOOP to make sure we have the latest changes before
 		   starting sync. this is necessary either because se don't
