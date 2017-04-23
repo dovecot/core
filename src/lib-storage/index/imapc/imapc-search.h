@@ -10,7 +10,9 @@ imapc_search_init(struct mailbox_transaction_context *t,
 bool imapc_search_next_update_seq(struct mail_search_context *ctx);
 int imapc_search_deinit(struct mail_search_context *ctx);
 
-void imapc_search_reply(const struct imap_arg *args,
-			struct imapc_mailbox *mbox);
+void imapc_search_reply_search(const struct imap_arg *args,
+			       struct imapc_mailbox *mbox);
+void imapc_search_reply_esearch(const struct imap_arg *args,
+				struct imapc_mailbox *mbox);
 
 #endif

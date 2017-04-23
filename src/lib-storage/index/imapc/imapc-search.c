@@ -168,14 +168,13 @@ static bool imapc_build_search_query(struct imapc_mailbox *mbox,
 		/* SEARCH command passthrough not enabled */
 		return FALSE;
 	}
-	if ((mbox->capabilities & IMAPC_CAPABILITY_ESEARCH) == 0) {
-		/* FIXME: not supported for now */
-		return FALSE;
-	}
 	if (imapc_search_is_fast_local(args->args))
 		return FALSE;
 
-	str_append(str, "SEARCH RETURN (ALL) ");
+	if ((mbox->capabilities & IMAPC_CAPABILITY_ESEARCH) != 0)
+		str_append(str, "SEARCH RETURN (ALL) ");
+	else
+		str_append(str, "SEARCH ");
 	if (!imapc_build_search_query_args(mbox, args->args, FALSE, str))
 		return FALSE;
 	*query_r = str_c(str);
@@ -278,8 +277,29 @@ int imapc_search_deinit(struct mail_search_context *ctx)
 	return index_storage_search_deinit(ctx);
 }
 
-void imapc_search_reply(const struct imap_arg *args,
-			struct imapc_mailbox *mbox)
+void imapc_search_reply_search(const struct imap_arg *args,
+			       struct imapc_mailbox *mbox)
+{
+	const char *atom;
+	uint32_t seq;
+
+	if (mbox->search_ctx == NULL) {
+		i_error("Unexpected SEARCH reply");
+		return;
+	}
+
+	for (unsigned int i = 0; args[i].type != IMAP_ARG_EOL; i++) {
+		if (!imap_arg_get_atom(&args[i], &atom) ||
+		    str_to_uint32(atom, &seq) < 0 || seq == 0) {
+			i_error("Invalid SEARCH reply");
+			break;
+		}
+		seq_range_array_add(&mbox->search_ctx->rseqs, seq);
+	}
+}
+
+void imapc_search_reply_esearch(const struct imap_arg *args,
+				struct imapc_mailbox *mbox)
 {
 	const char *atom;
 
