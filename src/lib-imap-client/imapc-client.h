@@ -228,8 +228,8 @@ imapc_client_mailbox_get_msgmap(struct imapc_client_mailbox *box);
 void imapc_client_mailbox_idle(struct imapc_client_mailbox *box);
 bool imapc_client_mailbox_is_opened(struct imapc_client_mailbox *box);
 
-enum imapc_capability
-imapc_client_get_capabilities(struct imapc_client *client);
+int imapc_client_get_capabilities(struct imapc_client *client,
+				  enum imapc_capability *capabilities_r);
 
 int imapc_client_create_temp_fd(struct imapc_client *client,
 				const char **path_r);

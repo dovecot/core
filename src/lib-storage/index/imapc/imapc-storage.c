@@ -603,9 +603,11 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->mbox->storage->client->client);
 }
 
-static void imapc_mailbox_get_capabilities(struct imapc_mailbox *mbox)
+static int imapc_mailbox_get_capabilities(struct imapc_mailbox *mbox)
 {
-	mbox->capabilities = imapc_client_get_capabilities(mbox->storage->client->client);
+	return imapc_client_get_capabilities(mbox->storage->client->client,
+					     &mbox->capabilities);
+
 }
 
 static void imapc_mailbox_get_extensions(struct imapc_mailbox *mbox)
@@ -630,7 +632,8 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 	if (mbox->storage->client->auth_failed) {
 		return -1;
 	}
-	imapc_mailbox_get_capabilities(mbox);
+	if (imapc_mailbox_get_capabilities(mbox) < 0)
+		return -1;
 
 	if (imapc_mailbox_has_modseqs(mbox)) {
 		if (!array_is_created(&mbox->rseq_modseqs))
@@ -898,7 +901,8 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 	struct imapc_simple_context sctx;
 	string_t *str;
 
-	imapc_mailbox_get_capabilities(mbox);
+	if (imapc_mailbox_get_capabilities(mbox) < 0)
+		return -1;
 
 	str = t_str_new(256);
 	if ((items & STATUS_MESSAGES) != 0)
@@ -979,7 +983,8 @@ static int imapc_mailbox_get_namespaces(struct imapc_mailbox *mbox)
 	if (storage->namespaces_requested)
 		return 0;
 
-	imapc_mailbox_get_capabilities(mbox);
+	if (imapc_mailbox_get_capabilities(mbox) < 0)
+		return -1;
 	if ((mbox->capabilities & IMAPC_CAPABILITY_NAMESPACE) == 0) {
 		/* NAMESPACE capability not supported */
 		return 0;

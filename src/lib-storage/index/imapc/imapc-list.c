@@ -854,7 +854,8 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
 
-	capa = imapc_client_get_capabilities(list->client->client);
+	if (imapc_client_get_capabilities(list->client->client, &capa) < 0)
+		return -1;
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
