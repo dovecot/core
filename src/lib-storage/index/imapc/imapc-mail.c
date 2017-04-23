@@ -105,7 +105,7 @@ static uint64_t imapc_mail_get_modseq(struct mail *_mail)
 	unsigned int count;
 	uint32_t rseq;
 
-	if (!imapc_storage_has_modseqs(mbox->storage))
+	if (!imapc_mailbox_has_modseqs(mbox))
 		return index_mail_get_modseq(_mail);
 
 	msgmap = imapc_client_mailbox_get_msgmap(mbox->client_box);

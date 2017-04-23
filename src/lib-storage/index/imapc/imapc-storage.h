@@ -171,7 +171,7 @@ void imapc_mailbox_run_nofetch(struct imapc_mailbox *mbox);
 void imapc_mail_cache_free(struct imapc_mail_cache *cache);
 int imapc_mailbox_select(struct imapc_mailbox *mbox);
 
-bool imapc_storage_has_modseqs(struct imapc_storage *storage);
+bool imapc_mailbox_has_modseqs(struct imapc_mailbox *mbox);
 bool imap_resp_text_code_parse(const char *str, enum mail_error *error_r);
 void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 enum mail_error default_error,
