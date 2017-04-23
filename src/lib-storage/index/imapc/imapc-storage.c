@@ -75,14 +75,14 @@ bool imap_resp_text_code_parse(const char *str, enum mail_error *error_r)
 	return FALSE;
 }
 
-bool imapc_storage_has_modseqs(struct imapc_storage *storage)
+bool imapc_mailbox_has_modseqs(struct imapc_mailbox *mbox)
 {
 	enum imapc_capability capa =
-		imapc_client_get_capabilities(storage->client->client);
+		imapc_client_get_capabilities(mbox->storage->client->client);
 
 	return (capa & (IMAPC_CAPABILITY_CONDSTORE |
 			IMAPC_CAPABILITY_QRESYNC)) != 0 &&
-		IMAPC_HAS_FEATURE(storage, IMAPC_FEATURE_MODSEQ);
+		IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_MODSEQ);
 }
 
 static struct mail_storage *imapc_storage_alloc(void)
@@ -632,7 +632,7 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 		return -1;
 	}
 
-	if (imapc_storage_has_modseqs(mbox->storage)) {
+	if (imapc_mailbox_has_modseqs(mbox)) {
 		if (!array_is_created(&mbox->rseq_modseqs))
 			i_array_init(&mbox->rseq_modseqs, 32);
 		else
@@ -815,7 +815,7 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 		else if (strcasecmp(key, "UNSEEN") == 0)
 			status->unseen = num;
 		else if (strcasecmp(key, "HIGHESTMODSEQ") == 0 &&
-			 imapc_storage_has_modseqs(storage))
+			 imapc_mailbox_has_modseqs(storage->cur_status_box))
 			status->highest_modseq = num;
 	}
 }
@@ -875,7 +875,7 @@ static int imapc_mailbox_get_selected_status(struct imapc_mailbox *mbox,
 		   STATUS (HIGHESTMODSEQ), which isn't efficient since we get
 		   here constantly (after every IMAP command). */
 	}
-	if (imapc_storage_has_modseqs(mbox->storage)) {
+	if (imapc_mailbox_has_modseqs(mbox)) {
 		/* even if local indexes are only in memory, we still
 		   have modseqs on the IMAP server itself. */
 		status_r->nonpermanent_modseqs = FALSE;
@@ -910,7 +910,7 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 	if ((items & STATUS_UNSEEN) != 0)
 		str_append(str, " UNSEEN");
 	if ((items & STATUS_HIGHESTMODSEQ) != 0 &&
-	    imapc_storage_has_modseqs(mbox->storage))
+	    imapc_mailbox_has_modseqs(mbox))
 		str_append(str, " HIGHESTMODSEQ");
 
 	if (str_len(str) == 0) {

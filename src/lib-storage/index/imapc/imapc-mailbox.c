@@ -325,7 +325,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 				}
 			}
 		} else if (strcasecmp(atom, "MODSEQ") == 0 &&
-			   imapc_storage_has_modseqs(mbox->storage)) {
+			   imapc_mailbox_has_modseqs(mbox)) {
 			/* (modseq-number) */
 			if (!imap_arg_get_list(&list[i+1], &modseq_list))
 				return;
