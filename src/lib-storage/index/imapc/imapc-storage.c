@@ -495,6 +495,14 @@ static int
 imapc_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
 		     enum mailbox_existence *existence_r)
 {
+	if (strcmp(box->list->name, MAILBOX_LIST_NAME_IMAPC) != 0) {
+		if (box->inbox_any)
+			*existence_r = MAILBOX_EXISTENCE_SELECT;
+		else
+			*existence_r = MAILBOX_EXISTENCE_NONE;
+		return 0;
+	}
+
 	enum mailbox_info_flags flags;
 
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)box->list;
