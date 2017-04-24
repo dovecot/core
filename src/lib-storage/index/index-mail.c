@@ -1400,98 +1400,115 @@ index_mail_fetch_body_snippet(struct index_mail *mail, const char **value_r)
 	return 0;
 }
 
+bool index_mail_get_cached_body(struct index_mail *mail, const char **value_r)
+{
+	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
+	const unsigned int body_cache_field =
+		cache_fields[MAIL_CACHE_IMAP_BODY].idx;
+	const unsigned int bodystructure_cache_field =
+		cache_fields[MAIL_CACHE_IMAP_BODYSTRUCTURE].idx;
+	struct index_mail_data *data = &mail->data;
+	string_t *str;
+	const char *error;
+
+	if (data->body != NULL) {
+		*value_r = data->body;
+		return TRUE;
+	}
+
+	str = str_new(mail->mail.data_pool, 128);
+	if ((data->cache_flags & MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII) != 0 &&
+	    get_cached_parts(mail)) {
+		index_mail_get_plain_bodystructure(mail, str, FALSE);
+		*value_r = data->body = str_c(str);
+		return TRUE;
+	}
+
+	/* 2) get BODY if it exists */
+	if (index_mail_cache_lookup_field(mail, str, body_cache_field) > 0) {
+		*value_r = data->body = str_c(str);
+		return TRUE;
+	}
+	/* 3) get it using BODYSTRUCTURE if it exists */
+	if (index_mail_cache_lookup_field(mail, str, bodystructure_cache_field) > 0) {
+		data->bodystructure =
+			p_strdup(mail->mail.data_pool, str_c(str));
+		str_truncate(str, 0);
+
+		if (imap_body_parse_from_bodystructure(data->bodystructure,
+						       str, &error) < 0) {
+			/* broken, continue.. */
+			mail_set_cache_corrupted_reason(&mail->mail.mail,
+				MAIL_FETCH_IMAP_BODYSTRUCTURE, t_strdup_printf(
+				"Invalid BODYSTRUCTURE %s: %s",
+				data->bodystructure, error));
+		} else {
+			*value_r = data->body = str_c(str);
+			return TRUE;
+		}
+	}
+
+	str_free(&str);
+	return FALSE;
+}
+
+bool index_mail_get_cached_bodystructure(struct index_mail *mail,
+					 const char **value_r)
+{
+	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
+	const unsigned int bodystructure_cache_field =
+		cache_fields[MAIL_CACHE_IMAP_BODYSTRUCTURE].idx;
+	struct index_mail_data *data = &mail->data;
+	string_t *str;
+
+	if (data->bodystructure != NULL) {
+		*value_r = data->bodystructure;
+		return TRUE;
+	}
+
+	str = str_new(mail->mail.data_pool, 128);
+	if ((data->cache_flags & MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII) != 0 &&
+	    get_cached_parts(mail)) {
+		index_mail_get_plain_bodystructure(mail, str, TRUE);
+		*value_r = data->bodystructure = str_c(str);
+		return TRUE;
+	}
+	if (index_mail_cache_lookup_field(mail, str, bodystructure_cache_field) > 0) {
+		*value_r = data->bodystructure = str_c(str);
+		return TRUE;
+	}
+
+	str_free(&str);
+	return FALSE;
+}
+
 int index_mail_get_special(struct mail *_mail,
 			   enum mail_fetch_field field, const char **value_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
-	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
-	const char *error;
-	string_t *str;
 
 	switch (field) {
-	case MAIL_FETCH_IMAP_BODY: {
-		const unsigned int body_cache_field =
-                        cache_fields[MAIL_CACHE_IMAP_BODY].idx;
-		const unsigned int bodystructure_cache_field =
-                        cache_fields[MAIL_CACHE_IMAP_BODYSTRUCTURE].idx;
-
-		if (data->body != NULL) {
-			*value_r = data->body;
+	case MAIL_FETCH_IMAP_BODY:
+		if (index_mail_get_cached_body(mail, value_r))
 			return 0;
-		}
 
-		/* 1) use plain-7bit-ascii flag if it exists
-		   2) get BODY if it exists
-		   3) get it using BODYSTRUCTURE if it exists
-		   4) parse body structure, and save BODY/BODYSTRUCTURE
-		      depending on what we want cached */
-
-		str = str_new(mail->mail.data_pool, 128);
-		if ((mail->data.cache_flags &
-		     MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII) != 0 &&
-		    get_cached_parts(mail)) {
-			index_mail_get_plain_bodystructure(mail, str, FALSE);
-			data->body = str_c(str);
-		} else if (index_mail_cache_lookup_field(mail, str,
-							 body_cache_field) > 0)
-			data->body = str_c(str);
-		else if (index_mail_cache_lookup_field(mail, str,
-					bodystructure_cache_field) > 0) {
-			data->bodystructure =
-				p_strdup(mail->mail.data_pool, str_c(str));
-			str_truncate(str, 0);
-
-			if (imap_body_parse_from_bodystructure(
-					data->bodystructure, str, &error) < 0) {
-				/* broken, continue.. */
-				mail_set_cache_corrupted_reason(_mail,
-					MAIL_FETCH_IMAP_BODYSTRUCTURE, t_strdup_printf(
-					"Invalid BODYSTRUCTURE %s: %s",
-					data->bodystructure, error));
-			} else {
-				data->body = str_c(str);
-			}
-		}
-
-		if (data->body == NULL) {
-			str_free(&str);
-			if (index_mail_parse_bodystructure(mail,
-						MAIL_CACHE_IMAP_BODY) < 0)
-				return -1;
-		}
+		/* parse body structure, and save BODY/BODYSTRUCTURE
+		   depending on what we want cached */
+		if (index_mail_parse_bodystructure(mail, MAIL_CACHE_IMAP_BODY) < 0)
+			return -1;
 		i_assert(data->body != NULL);
 		*value_r = data->body;
 		return 0;
-	}
-	case MAIL_FETCH_IMAP_BODYSTRUCTURE: {
-		const unsigned int bodystructure_cache_field =
-                        cache_fields[MAIL_CACHE_IMAP_BODYSTRUCTURE].idx;
-
-		if (data->bodystructure != NULL) {
-			*value_r = data->bodystructure;
+	case MAIL_FETCH_IMAP_BODYSTRUCTURE:
+		if (index_mail_get_cached_bodystructure(mail, value_r))
 			return 0;
-		}
 
-		str = str_new(mail->mail.data_pool, 128);
-		if ((mail->data.cache_flags &
-		     MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII) != 0 &&
-		    get_cached_parts(mail)) {
-			index_mail_get_plain_bodystructure(mail, str, TRUE);
-			data->bodystructure = str_c(str);
-		} else if (index_mail_cache_lookup_field(mail, str,
-					bodystructure_cache_field) > 0) {
-			data->bodystructure = str_c(str);
-		} else {
-			str_free(&str);
-			if (index_mail_parse_bodystructure(mail,
-					MAIL_CACHE_IMAP_BODYSTRUCTURE) < 0)
-				return -1;
-		}
+		if (index_mail_parse_bodystructure(mail, MAIL_CACHE_IMAP_BODYSTRUCTURE) < 0)
+			return -1;
 		i_assert(data->bodystructure != NULL);
 		*value_r = data->bodystructure;
 		return 0;
-	}
 	case MAIL_FETCH_IMAP_ENVELOPE:
 		if (data->envelope == NULL) {
 			if (index_mail_headers_get_envelope(mail) < 0)
