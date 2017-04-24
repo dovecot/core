@@ -31,6 +31,7 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ "UNSELECT", IMAPC_CAPABILITY_UNSELECT },
 	{ "ESEARCH", IMAPC_CAPABILITY_ESEARCH },
 	{ "WITHIN", IMAPC_CAPABILITY_WITHIN },
+	{ "QUOTA", IMAPC_CAPABILITY_QUOTA },
 
 	{ "IMAP4REV1", IMAPC_CAPABILITY_IMAP4REV1 },
 	{ NULL, 0 }
