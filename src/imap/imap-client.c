@@ -509,6 +509,20 @@ void client_disconnect_with_error(struct client *client, const char *msg)
 	client_disconnect(client, msg);
 }
 
+void client_add_capability(struct client *client, const char *capability)
+{
+	/* require a single capability at a time (feels cleaner) */
+	i_assert(strchr(capability, ' ') == NULL);
+
+	if (client->set->imap_capability[0] != '\0' &&
+	    client->set->imap_capability[0] != '+') {
+		/* explicit capability - don't change it */
+		return;
+	}
+	str_append_c(client->capability_string, ' ');
+	str_append(client->capability_string, capability);
+}
+
 void client_send_line(struct client *client, const char *data)
 {
 	(void)client_send_line_next(client, data);
