@@ -1730,6 +1730,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
+	struct mail_storage *storage = _mail->box->storage;
 	const struct mail_cache_field *cache_fields = mail->ibox->cache_fields;
 	struct mail_cache_view *cache_view = _mail->transaction->cache_view;
 
@@ -1760,6 +1761,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 	/* see if wanted_fields can tell us if we need to read/parse
 	   header/body */
 	if ((data->wanted_fields & MAIL_FETCH_MESSAGE_PARTS) != 0 &&
+	    (storage->nonbody_access_fields & MAIL_FETCH_MESSAGE_PARTS) == 0 &&
 	    data->parts == NULL) {
 		const unsigned int cache_field =
 			cache_fields[MAIL_CACHE_MESSAGE_PARTS].idx;
@@ -1772,11 +1774,13 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 	}
 
 	if ((data->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE) != 0 &&
+	    (storage->nonbody_access_fields & MAIL_FETCH_IMAP_ENVELOPE) == 0 &&
 	    data->envelope == NULL)
 		check_envelope(mail);
 
 	if ((data->wanted_fields & MAIL_FETCH_IMAP_BODY) != 0 &&
 	    (data->cache_flags & MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII) == 0 &&
+	    (storage->nonbody_access_fields & MAIL_FETCH_IMAP_BODY) == 0 &&
 	    data->body == NULL) {
 		/* we need either imap.body or imap.bodystructure */
 		const unsigned int cache_field1 =
@@ -1796,6 +1800,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
 	if ((data->wanted_fields & MAIL_FETCH_IMAP_BODYSTRUCTURE) != 0 &&
 	    (data->cache_flags & MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII) == 0 &&
+	    (storage->nonbody_access_fields & MAIL_FETCH_IMAP_BODYSTRUCTURE) == 0 &&
 	    data->bodystructure == NULL) {
 		const unsigned int cache_field =
 			cache_fields[MAIL_CACHE_IMAP_BODYSTRUCTURE].idx;
@@ -1809,6 +1814,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 	}
 
 	if ((data->wanted_fields & MAIL_FETCH_DATE) != 0 &&
+	    (storage->nonbody_access_fields & MAIL_FETCH_DATE) == 0 &&
 	    data->sent_date.time == (uint32_t)-1) {
 		const unsigned int cache_field =
 			cache_fields[MAIL_CACHE_SENT_DATE].idx;
@@ -1819,7 +1825,8 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 			data->save_sent_date = TRUE;
 		}
 	}
-	if ((data->wanted_fields & MAIL_FETCH_BODY_SNIPPET) != 0) {
+	if ((data->wanted_fields & MAIL_FETCH_BODY_SNIPPET) != 0 &&
+	    (storage->nonbody_access_fields & MAIL_FETCH_BODY_SNIPPET) == 0) {
 		const unsigned int cache_field =
 			cache_fields[MAIL_CACHE_BODY_SNIPPET].idx;
 

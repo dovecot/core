@@ -110,6 +110,11 @@ struct mail_storage_error {
 struct mail_storage {
 	const char *name;
 	enum mail_storage_class_flags class_flags;
+	/* Fields that the storage backend can get by other means than parsing
+	   the message header/body. For example the imapc backend can lookup
+	   MAIL_FETCH_IMAP_BODYSTRUCTURE from the remote server. Adding fields
+	   here avoids adding them to index_mail_data.access_part. */
+	enum mail_fetch_field nonbody_access_fields;
 
         struct mail_storage_vfuncs v, *vlast;
 
