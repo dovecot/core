@@ -351,7 +351,7 @@ imap_bodystructure_parse_args_common(struct message_part *part,
 	return 0;
 }
 
-static int
+int
 imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 			      struct message_part **_part,
 			      const char **error_r)
