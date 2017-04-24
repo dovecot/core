@@ -6,7 +6,6 @@
 #include "imap-arg.h"
 #include "imap-resp-code.h"
 #include "mailbox-tree.h"
-#include "imapc-client.h"
 #include "imapc-connection.h"
 #include "imapc-msgmap.h"
 #include "imapc-mail.h"

@@ -6,7 +6,6 @@
 #include "imap-arg.h"
 #include "imap-seqset.h"
 #include "imap-util.h"
-#include "imapc-client.h"
 #include "imapc-mail.h"
 #include "imapc-msgmap.h"
 #include "imapc-search.h"

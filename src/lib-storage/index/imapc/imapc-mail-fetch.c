@@ -12,7 +12,6 @@
 #include "imap-quote.h"
 #include "imap-bodystructure.h"
 #include "imap-resp-code.h"
-#include "imapc-client.h"
 #include "imapc-mail.h"
 #include "imapc-storage.h"
 

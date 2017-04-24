@@ -8,7 +8,6 @@
 #include "imap-utf7.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
-#include "imapc-client.h"
 #include "imapc-storage.h"
 #include "imapc-list.h"
 

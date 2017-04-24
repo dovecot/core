@@ -7,7 +7,6 @@
 #include "mail-cache.h"
 #include "mail-index-modseq.h"
 #include "index-sync-private.h"
-#include "imapc-client.h"
 #include "imapc-msgmap.h"
 #include "imapc-list.h"
 #include "imapc-storage.h"
