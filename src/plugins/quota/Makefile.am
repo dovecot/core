@@ -10,9 +10,12 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-mail \
+	-I$(top_srcdir)/src/lib-imap \
+	-I$(top_srcdir)/src/lib-imap-client \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/lib-storage/index \
+	-I$(top_srcdir)/src/lib-storage/index/imapc \
 	-I$(top_srcdir)/src/lib-storage/index/maildir \
 	-I$(top_srcdir)/src/lib-program-client \
 	-I$(top_srcdir)/src/doveadm
@@ -30,6 +33,7 @@ quota_dist_sources = \
 	quota-fs.c \
 	quota-dict.c \
 	quota-dirsize.c \
+	quota-imapc.c \
 	quota-maildir.c \
         quota-plugin.c \
 	quota-storage.c \
@@ -41,6 +45,7 @@ quota_common_objects = \
 	quota-fs.lo \
 	quota-dict.lo \
 	quota-dirsize.lo \
+	quota-imapc.lo \
 	quota-maildir.lo \
         quota-plugin.lo \
 	quota-storage.lo \
