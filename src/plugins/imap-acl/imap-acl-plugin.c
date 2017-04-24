@@ -683,8 +683,10 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 
 static void imap_acl_client_created(struct client **client)
 {
-	if (mail_user_is_plugin_loaded((*client)->user, imap_acl_module))
-		str_append((*client)->capability_string, " ACL RIGHTS=texk");
+	if (mail_user_is_plugin_loaded((*client)->user, imap_acl_module)) {
+		client_add_capability(*client, "ACL");
+		client_add_capability(*client, "RIGHTS=texk");
+	}
 
 	if (next_hook_client_created != NULL)
 		next_hook_client_created(client);
