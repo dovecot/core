@@ -533,11 +533,19 @@ quota_is_duplicate_namespace(struct quota *quota, struct mail_namespace *ns)
 
 	if (!mailbox_list_get_root_path(ns->list,
 					MAILBOX_LIST_PATH_TYPE_MAILBOX, &path))
-		return TRUE;
+		path = NULL;
 
 	namespaces = array_get(&quota->namespaces, &count);
 	for (i = 0; i < count; i++) {
-		if (mailbox_list_get_root_path(namespaces[i]->list,
+		/* count namespace aliases only once. don't rely only on
+		   alias_for != NULL, because the alias might have been
+		   explicitly added as the wanted quota namespace. */
+		if (ns->alias_for == namespaces[i] ||
+		    namespaces[i]->alias_for == ns)
+			continue;
+
+		if (path != NULL &&
+		    mailbox_list_get_root_path(namespaces[i]->list,
 				MAILBOX_LIST_PATH_TYPE_MAILBOX, &path2) &&
 		    strcmp(path, path2) == 0) {
 			/* duplicate path */
