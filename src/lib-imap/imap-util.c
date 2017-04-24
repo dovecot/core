@@ -74,6 +74,43 @@ void imap_write_seq_range(string_t *dest, const ARRAY_TYPE(seq_range) *array)
 	}
 }
 
+void imap_write_arg(string_t *dest, const struct imap_arg *arg)
+{
+	switch (arg->type) {
+	case IMAP_ARG_NIL:
+		str_append(dest, "NIL");
+		break;
+	case IMAP_ARG_ATOM:
+		str_append(dest, imap_arg_as_astring(arg));
+		break;
+	case IMAP_ARG_STRING:
+		str_append_c(dest, '"');
+		str_append(dest, str_escape(imap_arg_as_astring(arg)));
+		str_append_c(dest, '"');
+		break;
+	case IMAP_ARG_LITERAL: {
+		const char *strarg = imap_arg_as_astring(arg);
+		str_printfa(dest, "{%"PRIuSIZE_T"}\r\n",
+			    strlen(strarg));
+		str_append(dest, strarg);
+		break;
+	}
+	case IMAP_ARG_LIST:
+		str_append_c(dest, '(');
+		imap_write_args(dest, imap_arg_as_list(arg));
+		str_append_c(dest, ')');
+		break;
+	case IMAP_ARG_LITERAL_SIZE:
+	case IMAP_ARG_LITERAL_SIZE_NONSYNC:
+		str_printfa(dest, "{%"PRIuUOFF_T"}\r\n",
+			    imap_arg_as_literal_size(arg));
+		str_append(dest, "<too large>");
+		break;
+	case IMAP_ARG_EOL:
+		i_unreached();
+	}
+}
+
 void imap_write_args(string_t *dest, const struct imap_arg *args)
 {
 	bool first = TRUE;
@@ -83,40 +120,7 @@ void imap_write_args(string_t *dest, const struct imap_arg *args)
 			first = FALSE;
 		else
 			str_append_c(dest, ' ');
-
-		switch (args->type) {
-		case IMAP_ARG_NIL:
-			str_append(dest, "NIL");
-			break;
-		case IMAP_ARG_ATOM:
-			str_append(dest, imap_arg_as_astring(args));
-			break;
-		case IMAP_ARG_STRING:
-			str_append_c(dest, '"');
-			str_append(dest, str_escape(imap_arg_as_astring(args)));
-			str_append_c(dest, '"');
-			break;
-		case IMAP_ARG_LITERAL: {
-			const char *strarg = imap_arg_as_astring(args);
-			str_printfa(dest, "{%"PRIuSIZE_T"}\r\n",
-				    strlen(strarg));
-			str_append(dest, strarg);
-			break;
-		}
-		case IMAP_ARG_LIST:
-			str_append_c(dest, '(');
-			imap_write_args(dest, imap_arg_as_list(args));
-			str_append_c(dest, ')');
-			break;
-		case IMAP_ARG_LITERAL_SIZE:
-		case IMAP_ARG_LITERAL_SIZE_NONSYNC:
-			str_printfa(dest, "{%"PRIuUOFF_T"}\r\n",
-				    imap_arg_as_literal_size(args));
-			str_append(dest, "<too large>");
-			break;
-		case IMAP_ARG_EOL:
-			i_unreached();
-		}
+		imap_write_arg(dest, args);
 	}
 }
 
