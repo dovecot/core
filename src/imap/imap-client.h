@@ -254,6 +254,10 @@ void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 void client_disconnect(struct client *client, const char *reason);
 void client_disconnect_with_error(struct client *client, const char *msg);
 
+/* Add the given capability to the CAPABILITY reply. If imap_capability setting
+   has an explicit capability, nothing is changed. */
+void client_add_capability(struct client *client, const char *capability);
+
 /* Send a line of data to client. */
 void client_send_line(struct client *client, const char *data);
 /* Send a line of data to client. Returns 1 if ok, 0 if buffer is getting full,
