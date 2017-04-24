@@ -101,6 +101,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "fetch-fix-broken-mails", IMAPC_FEATURE_FETCH_FIX_BROKEN_MAILS },
 	{ "modseq", IMAPC_FEATURE_MODSEQ },
 	{ "delay-login", IMAPC_FEATURE_DELAY_LOGIN },
+	{ "fetch-bodystructure", IMAPC_FEATURE_FETCH_BODYSTRUCTURE },
 	{ NULL, 0 }
 };
 
