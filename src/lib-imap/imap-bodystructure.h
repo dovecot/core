@@ -3,6 +3,7 @@
 
 struct message_part;
 struct message_header_line;
+struct imap_arg;
 
 /* Write a BODY/BODYSTRUCTURE from given message_part. The message_part->data
    field must be set. part->body_size.virtual_size and .lines are also used
@@ -15,6 +16,11 @@ void imap_bodystructure_write(const struct message_part *part,
    tree is created from the BODYSTRUCTURE. Otherwise, existing tree is used.
    Returns 0 if ok, -1 if bodystructure wasn't valid. */
 int imap_bodystructure_parse_full(const char *bodystructure, pool_t pool,
+			     struct message_part **parts, const char **error_r);
+
+/* Same as imap_bodystructure_parse_full(), but read the input from imap_args
+   instead of a string. */
+int imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 			     struct message_part **parts, const char **error_r);
 
 /* Parse BODYSTRUCTURE and save the contents to message_part->data for each
