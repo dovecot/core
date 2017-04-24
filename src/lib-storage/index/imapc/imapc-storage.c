@@ -411,6 +411,10 @@ imapc_storage_create(struct mail_storage *_storage,
 	}
 	storage->client->_storage = storage;
 	p_array_init(&storage->remote_namespaces, _storage->pool, 4);
+	if (IMAPC_HAS_FEATURE(storage, IMAPC_FEATURE_FETCH_BODYSTRUCTURE)) {
+		_storage->nonbody_access_fields |=
+			MAIL_FETCH_IMAP_BODY | MAIL_FETCH_IMAP_BODYSTRUCTURE;
+	}
 
 	imapc_storage_client_register_untagged(storage->client, "STATUS",
 					       imapc_untagged_status);
