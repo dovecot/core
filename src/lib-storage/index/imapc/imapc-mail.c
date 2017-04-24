@@ -9,7 +9,6 @@
 #include "imap-envelope.h"
 #include "imapc-msgmap.h"
 #include "imapc-mail.h"
-#include "imapc-client.h"
 #include "imapc-storage.h"
 
 static bool imapc_mail_get_cached_guid(struct mail *_mail);

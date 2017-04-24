@@ -9,7 +9,6 @@
 #include "imap-util.h"
 #include "index-mail.h"
 #include "mail-copy.h"
-#include "imapc-client.h"
 #include "mailbox-list-private.h"
 #include "imapc-storage.h"
 #include "imapc-sync.h"

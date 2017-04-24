@@ -3,6 +3,7 @@
 
 #include "index-storage.h"
 #include "imapc-settings.h"
+#include "imapc-client.h"
 
 #define IMAPC_STORAGE_NAME "imapc"
 #define IMAPC_LIST_ESCAPE_CHAR '%'
