@@ -222,7 +222,7 @@ static bool cmd_setquota(struct client_command_context *cmd)
 static void imap_quota_client_created(struct client **client)
 {
 	if (mail_user_is_plugin_loaded((*client)->user, imap_quota_module))
-		str_append((*client)->capability_string, " QUOTA");
+		client_add_capability(*client, "QUOTA");
 
 	if (next_hook_client_created != NULL)
 		next_hook_client_created(client);
