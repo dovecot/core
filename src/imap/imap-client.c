@@ -92,7 +92,6 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	struct client *client;
 	const char *ident;
 	pool_t pool;
-	bool explicit_capability = FALSE;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
@@ -143,25 +142,24 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	if (*set->imap_capability == '\0')
 		str_append(client->capability_string, CAPABILITY_STRING);
 	else if (*set->imap_capability != '+') {
-		explicit_capability = TRUE;
 		str_append(client->capability_string, set->imap_capability);
 	} else {
 		str_append(client->capability_string, CAPABILITY_STRING);
 		str_append_c(client->capability_string, ' ');
 		str_append(client->capability_string, set->imap_capability + 1);
 	}
-	if (user->fuzzy_search && !explicit_capability) {
+	if (user->fuzzy_search) {
 		/* Enable FUZZY capability only when it actually has
 		   a chance of working */
-		str_append(client->capability_string, " SEARCH=FUZZY");
+		client_add_capability(client, "SEARCH=FUZZY");
 	}
 
 	mail_set = mail_user_set_get_storage_set(user);
-	if (mail_set->mailbox_list_index && !explicit_capability) {
+	if (mail_set->mailbox_list_index) {
 		/* NOTIFY is enabled only when mailbox list indexes are
 		   enabled, although even that doesn't necessarily guarantee
 		   it always */
-		str_append(client->capability_string, " NOTIFY");
+		client_add_capability(client, "NOTIFY");
 	}
 
 	if (*set->imap_urlauth_host != '\0' &&
@@ -169,18 +167,17 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 		/* Enable URLAUTH capability only when dict is
 		   configured correctly */
 		client_init_urlauth(client);
-		if (!explicit_capability)
-			str_append(client->capability_string, " URLAUTH URLAUTH=BINARY");
+		client_add_capability(client, "URLAUTH");
+		client_add_capability(client, "URLAUTH=BINARY");
 	}
 	if (set->imap_metadata && *mail_set->mail_attribute_dict != '\0') {
 		client->imap_metadata_enabled = TRUE;
-		if (!explicit_capability)
-			str_append(client->capability_string, " METADATA");
+		client_add_capability(client, "METADATA");
 	}
-	if (!explicit_capability && user_has_special_use_mailboxes(user)) {
+	if (user_has_special_use_mailboxes(user)) {
 		/* Advertise SPECIAL-USE only if there are actually some
 		   SPECIAL-USE flags in mailbox configuration. */
-		str_append(client->capability_string, " SPECIAL-USE");
+		client_add_capability(client, "SPECIAL-USE");
 	}
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
