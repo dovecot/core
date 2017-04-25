@@ -6,6 +6,7 @@
 #include "imap-seqset.h"
 #include "imap-util.h"
 #include "mail-search.h"
+#include "imapc-msgmap.h"
 #include "imapc-storage.h"
 #include "imapc-search.h"
 
@@ -173,7 +174,7 @@ static bool imapc_build_search_query(struct imapc_mailbox *mbox,
 	if ((mbox->capabilities & IMAPC_CAPABILITY_ESEARCH) != 0)
 		str_append(str, "SEARCH RETURN (ALL) ");
 	else
-		str_append(str, "SEARCH ");
+		str_append(str, "UID SEARCH ");
 	if (!imapc_build_search_query_args(mbox, args->args, FALSE, str))
 		return FALSE;
 	*query_r = str_c(str);
@@ -279,21 +280,25 @@ int imapc_search_deinit(struct mail_search_context *ctx)
 void imapc_search_reply_search(const struct imap_arg *args,
 			       struct imapc_mailbox *mbox)
 {
+	struct imapc_msgmap *msgmap =
+		imapc_client_mailbox_get_msgmap(mbox->client_box);
 	const char *atom;
-	uint32_t seq;
+	uint32_t uid, rseq;
 
 	if (mbox->search_ctx == NULL) {
 		i_error("Unexpected SEARCH reply");
 		return;
 	}
 
+	/* we're doing UID SEARCH, so need to convert UIDs to sequences */
 	for (unsigned int i = 0; args[i].type != IMAP_ARG_EOL; i++) {
 		if (!imap_arg_get_atom(&args[i], &atom) ||
-		    str_to_uint32(atom, &seq) < 0 || seq == 0) {
+		    str_to_uint32(atom, &uid) < 0 || uid == 0) {
 			i_error("Invalid SEARCH reply");
 			break;
 		}
-		seq_range_array_add(&mbox->search_ctx->rseqs, seq);
+		if (imapc_msgmap_uid_to_rseq(msgmap, uid, &rseq))
+			seq_range_array_add(&mbox->search_ctx->rseqs, rseq);
 	}
 }
 
