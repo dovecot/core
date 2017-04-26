@@ -547,8 +547,9 @@ imapc_noop_if_needed(struct imapc_mailbox *mbox, enum mailbox_sync_flags flags)
 	if (!mbox->initial_sync_done) {
 		/* we just SELECTed/EXAMINEd the mailbox, don't do another
 		   NOOP. */
-	} else if ((mbox->capabilities & IMAPC_CAPABILITY_IDLE) == 0 ||
-		   (flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0) {
+	} else if ((flags & MAILBOX_SYNC_FLAG_FAST) == 0 &&
+		   ((mbox->capabilities & IMAPC_CAPABILITY_IDLE) == 0 ||
+		    (flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0)) {
 		/* do NOOP to make sure we have the latest changes before
 		   starting sync. this is necessary either because se don't
 		   support IDLE at all, or because we want to be sure that we
