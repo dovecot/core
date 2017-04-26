@@ -327,11 +327,14 @@ int index_mail_get_parts(struct mail *_mail, struct message_part **parts_r)
 			index_mail_cache_reason(_mail, "mime parts");
 		if (index_mail_parse_headers(mail, NULL, reason) < 0)
 			return -1;
+		/* parts may be set now as a result of some plugin */
 	}
 
-	data->save_message_parts = TRUE;
-	if (index_mail_parse_body(mail, 0) < 0)
-		return -1;
+	if (data->parts == NULL) {
+		data->save_message_parts = TRUE;
+		if (index_mail_parse_body(mail, 0) < 0)
+			return -1;
+	}
 
 	*parts_r = data->parts;
 	return 0;
