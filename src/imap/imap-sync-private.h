@@ -25,6 +25,9 @@ struct imap_sync_context {
 
 	unsigned int messages_count;
 
+	/* Module-specific contexts. */
+	ARRAY(union imap_module_context *) module_contexts;
+
 	bool failed:1;
 	bool finished:1;
 	bool no_newmail:1;

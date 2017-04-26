@@ -192,6 +192,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	ctx->client = client;
 	ctx->box = box;
 	ctx->imap_flags = imap_flags;
+	i_array_init(&ctx->module_contexts, 5);
 
 	/* make sure user can't DoS the system by causing Dovecot to create
 	   tons of useless namespaces. */
@@ -341,6 +342,9 @@ static int imap_sync_notify_more(struct imap_sync_context *ctx)
 	   now it contains added/removed messages. */
 	if ((ret = imap_sync_send_search_updates(ctx, FALSE)) < 0)
 		ctx->failed = TRUE;
+
+	if (ret > 0)
+		ret = ctx->client->v.sync_notify_more(ctx);
 	return ret;
 }
 
@@ -362,6 +366,7 @@ int imap_sync_deinit(struct imap_sync_context *ctx,
 	}
 
 	array_free(&ctx->tmp_keywords);
+	array_free(&ctx->module_contexts);
 	i_free(ctx);
 	return ret;
 }

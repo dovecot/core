@@ -133,6 +133,10 @@ struct imap_client_vfuncs {
 
 	void (*send_tagline)(struct client_command_context *cmd,
 			     const char *data);
+	/* Run "mailbox syncing". This can send any unsolicited untagged
+	   replies. Returns 1 = done, 0 = wait for more space in output buffer,
+	   -1 = failed. */
+	int (*sync_notify_more)(struct imap_sync_context *ctx);
 };
 
 struct client {
