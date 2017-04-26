@@ -68,6 +68,9 @@ static int imapc_quota_init(struct quota_root *_root, const char *args,
 	}
 	if (root->box_name == NULL && root->root_name == NULL)
 		root->box_name = "INBOX";
+	/* we'll never try to enforce the quota - it's just a lot of
+	   unnecessary remote GETQUOTA calls. */
+	_root->no_enforcing = TRUE;
 	return 0;
 }
 
