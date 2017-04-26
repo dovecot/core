@@ -13,10 +13,19 @@ generate_dh_parameters(int bitsize, buffer_t *output, const char **error_r)
 {
         DH *dh;
 	unsigned char *p;
-	int len, len2;
+	int len, len2, success;
 
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L
+	success = DH_generate_parameters_ex(dh, bitsize, DH_GENERATOR, NULL);
+#else
+	success = 1;
 	dh = DH_generate_parameters(bitsize, DH_GENERATOR, NULL, NULL);
 	if (dh == NULL) {
+		success = 0;
+	}
+#endif
+
+	if (success == 0) {
 		*error_r = t_strdup_printf(
 			"DH_generate_parameters(bits=%d, gen=%d) failed: %s",
 			bitsize, DH_GENERATOR, openssl_iostream_error());
