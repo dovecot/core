@@ -27,10 +27,8 @@ generate_dh_parameters(int bitsize, buffer_t *output, const char **error_r)
     *error_r = t_strdup_printf(
       "DH_generate_parameters_ex(bits=%d, gen=%d) failed: %s",
       bitsize, DH_GENERATOR, openssl_iostream_error());
-      DH_free(dh);
+    DH_free(dh);
     return -1;
-  }
-
   }
 #else
 	dh = DH_generate_parameters(bitsize, DH_GENERATOR, NULL, NULL);
