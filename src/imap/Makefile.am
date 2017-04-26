@@ -105,7 +105,8 @@ headers = \
 	imap-settings.h \
 	imap-status.h \
 	imap-state.h \
-	imap-sync.h
+	imap-sync.h \
+	imap-sync-private.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
