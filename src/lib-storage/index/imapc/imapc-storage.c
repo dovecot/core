@@ -724,16 +724,12 @@ void imapc_mail_cache_free(struct imapc_mail_cache *cache)
 static void imapc_mailbox_close(struct mailbox *box)
 {
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	bool changes;
 
+	(void)imapc_mailbox_commit_delayed_trans(mbox, &changes);
 	imapc_mail_fetch_flush(mbox);
 	if (mbox->client_box != NULL)
 		imapc_client_mailbox_close(&mbox->client_box);
-	if (mbox->delayed_sync_view != NULL)
-		mail_index_view_close(&mbox->delayed_sync_view);
-	if (mbox->delayed_sync_trans != NULL) {
-		if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0)
-			mailbox_set_index_error(&mbox->box);
-	}
 	if (array_is_created(&mbox->rseq_modseqs))
 		array_free(&mbox->rseq_modseqs);
 	if (mbox->sync_view != NULL)
