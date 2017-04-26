@@ -617,6 +617,12 @@ client_default_send_tagline(struct client_command_context *cmd, const char *data
 	client->last_output = ioloop_time;
 }
 
+static int
+client_default_sync_notify_more(struct imap_sync_context *ctx ATTR_UNUSED)
+{
+	return 1;
+}
+
 void client_send_command_error(struct client_command_context *cmd,
 			       const char *msg)
 {
@@ -1428,4 +1434,5 @@ struct imap_client_vfuncs imap_client_vfuncs = {
 	imap_state_import_base,
 	client_default_destroy,
 	client_default_send_tagline,
+	client_default_sync_notify_more,
 };
