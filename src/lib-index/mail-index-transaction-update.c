@@ -1156,8 +1156,10 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	i_assert(seq > 0 &&
 		 (seq <= mail_index_view_get_messages_count(t->view) ||
 		  seq <= t->last_new_seq));
-	i_assert(keywords->count > 0 || modify_type == MODIFY_REPLACE);
 	i_assert(keywords->index == t->view->index);
+
+	if (keywords->count == 0 && modify_type != MODIFY_REPLACE)
+		return;
 
 	update_minmax_flagupdate_seq(t, seq, seq);
 
