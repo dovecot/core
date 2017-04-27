@@ -158,6 +158,11 @@ static int search_arg_match_keywords(struct index_search_context *ctx,
 	const unsigned int *keyword_indexes;
 	unsigned int i, j, count;
 
+	if (search_kws->count == 0) {
+		/* invalid keyword - never matches */
+		return 0;
+	}
+
 	t_array_init(&keyword_indexes_arr, 128);
 	mail_index_lookup_keywords(ctx->view, ctx->mail_ctx.seq,
 				   &keyword_indexes_arr);
