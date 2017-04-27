@@ -109,6 +109,8 @@ struct mail_search_arg {
 	/* set by mail_search_args_init(): */
 	struct {
 		struct mail_search_args *search_args;
+		/* Note that initialized keywords may be empty if the keyword
+		   wasn't valid in this mailbox. */
 		struct mail_keywords *keywords;
 		struct imap_match_glob *mailbox_glob;
 	} initialized;
