@@ -112,12 +112,11 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		const char *const *namep;
 		unsigned int i;
 
-		if (kw == NULL) {
-			/* uninitialized */
+		if (kw == NULL || kw->count == 0) {
+			/* uninitialized / invalid keyword */
 			str_printfa(dest, "KEYWORD %s", arg->value.str);
 			break;
 		}
-		i_assert(kw->count > 0);
 
 		names_arr = mail_index_get_keywords(kw->index);
 
