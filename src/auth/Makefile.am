@@ -1,4 +1,5 @@
 noinst_LIBRARIES = libpassword.a
+noinst_LTLIBRARIES = libauth.la
 auth_moduledir = $(moduledir)/auth
 
 # automake seems to force making this unconditional..
@@ -35,6 +36,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-otp \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-oauth2 \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-DAUTH_MODULE_DIR=\""$(auth_moduledir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
@@ -53,6 +55,7 @@ libpassword_a_SOURCES = \
 	password-scheme-pbkdf2.c
 
 auth_libs = \
+	libauth.la \
 	libstats_auth.la \
 	libpassword.a \
 	../lib-ntlm/libntlm.a \
@@ -63,10 +66,12 @@ auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS)
 auth_CPPFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_srcdir)/src/lib-ssl-iostream
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
+auth_SOURCES = main.c
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
 
-auth_SOURCES = \
+libauth_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+libauth_la_SOURCES = \
 	auth.c \
 	auth-cache.c \
 	auth-client-connection.c \
@@ -91,7 +96,6 @@ auth_SOURCES = \
 	db-oauth2.c \
 	db-sql.c \
 	db-passwd-file.c \
-	main.c \
 	mech.c \
 	mech-anonymous.c \
 	mech-plain.c \
@@ -233,13 +237,15 @@ test_libs = \
 test_auth_cache_SOURCES = auth-cache.c test-auth-cache.c
 test_auth_cache_LDADD = $(test_libs)
 test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+# this is needed to force auth-cache.c recompilation
+test_auth_cache_CPPFLAGS = $(AM_CPPFLAGS)
 
-test_auth_request_var_expand_SOURCES = auth-request-var-expand.c auth-fields.c test-auth-request-var-expand.c
-test_auth_request_var_expand_LDADD = $(test_libs)
+test_auth_request_var_expand_SOURCES = test-auth-request-var-expand.c
+test_auth_request_var_expand_LDADD = $(test_libs) libauth.la
 test_auth_request_var_expand_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
-test_db_dict_SOURCES = db-dict-cache-key.c test-db-dict.c
-test_db_dict_LDADD = $(test_libs)
+test_db_dict_SOURCES = test-db-dict.c
+test_db_dict_LDADD = $(test_libs) libauth.la
 test_db_dict_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check: check-am check-test
