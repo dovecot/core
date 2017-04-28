@@ -151,6 +151,7 @@ passdb_imap_preinit(pool_t pool, const char *args)
 	module->set.ssl_mode = IMAPC_CLIENT_SSL_MODE_NONE;
 	module->set.username = "%u";
 	module->set.rawlog_dir = "";
+	module->set.ssl_verify = TRUE;
 
 	for (tmp = p_strsplit(pool, args, " "); *tmp != NULL; tmp++) {
 		key = *tmp;
@@ -182,6 +183,15 @@ passdb_imap_preinit(pool_t pool, const char *args)
 					IMAPC_CLIENT_SSL_MODE_STARTTLS;
 			} else {
 				i_fatal("passdb imap: Invalid ssl mode: %s",
+					value);
+			}
+		} else if (strcmp(key, "allow_invalid_cert") == 0) {
+			if (strcmp(value, "yes") == 0) {
+				module->set.ssl_verify = FALSE;
+			} else if (strcmp(value, "no") == 0) {
+				module->set.ssl_verify = TRUE;
+			} else {
+				i_fatal("passdb imap: Invalid allow_invalid_cert value: %s",
 					value);
 			}
 		} else {
