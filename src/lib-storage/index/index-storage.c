@@ -1118,6 +1118,13 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 
 void index_storage_save_abort_last(struct mail_save_context *ctx, uint32_t seq)
 {
+	struct index_mail *imail = (struct index_mail *)ctx->dest_mail;
+
+	/* Close the mail before it's expunged. This allows it to be
+	   reset cleanly. */
+	imail->data.no_caching = TRUE;
+	imail->mail.v.close(&imail->mail.mail);
+
 	mail_index_expunge(ctx->transaction->itrans, seq);
 	/* currently we can't just drop pending cache updates for this one
 	   specific record, so we'll reset the whole cache transaction. */
