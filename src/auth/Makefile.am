@@ -226,6 +226,7 @@ libstats_auth_la_SOURCES = auth-stats.c
 test_programs = \
 	test-auth-cache \
 	test-auth-request-var-expand \
+	test-username-filter \
 	test-db-dict
 
 noinst_PROGRAMS = $(test_programs)
@@ -243,6 +244,10 @@ test_auth_cache_CPPFLAGS = $(AM_CPPFLAGS)
 test_auth_request_var_expand_SOURCES = test-auth-request-var-expand.c
 test_auth_request_var_expand_LDADD = $(test_libs) libauth.la
 test_auth_request_var_expand_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+
+test_username_filter_SOURCES = test-username-filter.c
+test_username_filter_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LIBDOVECOT)
+test_username_filter_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs) $(LIBDOVECOT_DEPS)
 
 test_db_dict_SOURCES = test-db-dict.c
 test_db_dict_LDADD = $(test_libs) libauth.la
