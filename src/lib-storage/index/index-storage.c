@@ -1115,3 +1115,11 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 	}
 	return 0;
 }
+
+void index_storage_save_abort_last(struct mail_save_context *ctx, uint32_t seq)
+{
+	mail_index_expunge(ctx->transaction->itrans, seq);
+	/* currently we can't just drop pending cache updates for this one
+	   specific record, so we'll reset the whole cache transaction. */
+	mail_cache_transaction_reset(ctx->transaction->cache_trans);
+}

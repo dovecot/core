@@ -688,11 +688,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 	}
 
 	if (ctx->seq != 0 && ctx->failed) {
-		mail_index_expunge(ctx->trans, ctx->seq);
-		/* currently we can't just drop pending cache updates for this
-		   one specific record, so we'll reset the whole cache
-		   transaction. */
-		mail_cache_transaction_reset(ctx->ctx.transaction->cache_trans);
+		index_storage_save_abort_last(&ctx->ctx, ctx->seq);
 	}
 	index_save_context_free(_ctx);
 	return ctx->failed ? -1 : 0;
