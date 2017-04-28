@@ -1072,3 +1072,53 @@ int index_storage_expunged_sync_begin(struct mailbox *box,
 	}
 	return 1;
 }
+
+int index_storage_save_continue(struct mail_save_context *ctx,
+				struct istream *input,
+				struct mail *cache_dest_mail)
+{
+	struct mail_storage *storage = ctx->transaction->box->storage;
+
+	do {
+		switch (o_stream_send_istream(ctx->data.output, input)) {
+		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+			i_unreached();
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+			/* handle below */
+			break;
+		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+			if (!mail_storage_set_error_from_errno(storage)) {
+				mail_storage_set_critical(storage,
+					"save: write(%s) failed: %s",
+					o_stream_get_name(ctx->data.output),
+					o_stream_get_error(ctx->data.output));
+			}
+			return -1;
+		}
+		if (cache_dest_mail != NULL)
+			index_mail_cache_parse_continue(cache_dest_mail);
+
+		/* both tee input readers may consume data from our primary
+		   input stream. we'll have to make sure we don't return with
+		   one of the streams still having data in them. */
+	} while (i_stream_read(input) > 0);
+
+	if (input->stream_errno != 0) {
+		mail_storage_set_critical(storage, "save: read(%s) failed: %s",
+			i_stream_get_name(input), i_stream_get_error(input));
+		return -1;
+	}
+	return 0;
+}
+
+void index_storage_save_abort_last(struct mail_save_context *ctx, uint32_t seq)
+{
+	mail_index_expunge(ctx->transaction->itrans, seq);
+	/* currently we can't just drop pending cache updates for this one
+	   specific record, so we'll reset the whole cache transaction. */
+	mail_cache_transaction_reset(ctx->transaction->cache_trans);
+}

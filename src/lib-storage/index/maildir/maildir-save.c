@@ -512,10 +512,7 @@ static void maildir_save_remove_last_filename(struct maildir_save_context *ctx)
 {
 	struct maildir_filename **fm;
 
-	mail_index_expunge(ctx->trans, ctx->seq);
-	/* currently we can't just drop pending cache updates for this one
-	   specific record, so we'll reset the whole cache transaction. */
-	mail_cache_transaction_reset(ctx->ctx.transaction->cache_trans);
+	index_storage_save_abort_last(&ctx->ctx, ctx->seq);
 	ctx->seq--;
 
 	for (fm = &ctx->files; (*fm)->next != NULL; fm = &(*fm)->next) ;
