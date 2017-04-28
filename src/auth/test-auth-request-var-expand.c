@@ -1,12 +1,11 @@
 /* Copyright (c) 2015-2017 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "test-auth.h"
 #include "str.h"
 #include "auth.h"
 #include "passdb.h"
 #include "userdb.h"
 #include "auth-request.h"
-#include "test-common.h"
 
 static struct passdb_module test_passdb = {
 	.id = 40
@@ -235,22 +234,18 @@ static void test_auth_request_var_expand_funcs(void)
 	test_end();
 }
 
-int main(void)
+void test_auth_request_var_expand(void)
 {
-	static void (*const test_functions[])(void) = {
-		test_auth_request_var_expand_shortlong,
-		test_auth_request_var_expand_flags,
-		test_auth_request_var_expand_long,
-		test_auth_request_var_expand_usernames,
-		test_auth_request_var_expand_funcs,
-		NULL
-	};
-
 	default_test_request.local_ip.u.ip4.s_addr = htonl(123456789);
 	default_test_request.remote_ip.u.ip4.s_addr = htonl(1234567890);
 	default_test_request.real_local_ip.u.ip4.s_addr = htonl(223456788);
 	default_test_request.real_remote_ip.u.ip4.s_addr = htonl(223456789);
 
 	test_request = default_test_request;
-	return test_run(test_functions);
+
+	test_auth_request_var_expand_shortlong();
+	test_auth_request_var_expand_flags();
+	test_auth_request_var_expand_long();
+	test_auth_request_var_expand_usernames();
+	test_auth_request_var_expand_funcs();
 }

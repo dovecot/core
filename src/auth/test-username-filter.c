@@ -1,19 +1,9 @@
 /* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
-#include "test-common.h"
-#include "auth-common.h"
+#include "test-auth.h"
 #include "auth-request.h"
-struct auth_penalty *auth_penalty;
-time_t process_start_time;
-bool worker, worker_restart_request;
-void auth_module_load(const char *names ATTR_UNUSED)
-{
-}
-void auth_refresh_proctitle(void) {
-}
 
-static void test_username_filter(void)
+void test_username_filter(void)
 {
 	const struct {
 		const char *filter;
@@ -55,14 +45,4 @@ static void test_username_filter(void)
 	}
 
 	test_end();
-}
-
-int main(void)
-{
-	static void (*const test_functions[])(void) = {
-		test_username_filter,
-		NULL
-	};
-
-	return test_run(test_functions);
 }

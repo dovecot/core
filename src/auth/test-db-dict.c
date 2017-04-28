@@ -1,11 +1,10 @@
 /* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "test-auth.h"
 #include "array.h"
 #include "db-dict.h"
-#include "test-common.h"
 
-static void test_db_dict_parse_cache_key(void)
+void test_db_dict_parse_cache_key(void)
 {
 	struct db_dict_key keys[] = {
 		{ "key0", "%d and %n", NULL, NULL, 0 },
@@ -39,13 +38,4 @@ static void test_db_dict_parse_cache_key(void)
 	test_assert(strcmp(db_dict_parse_cache_key(&keyarr, &fieldarr, &objectarr),
 			   "\t%d and %n\t%l\t%{foo}%r%{bar}\t%{test1}/path\t%{extra}\tpath2/%{test2}\t%{plop}") == 0);
 	test_end();
-}
-
-int main(void)
-{
-	static void (*const test_functions[])(void) = {
-		test_db_dict_parse_cache_key,
-		NULL
-	};
-	return test_run(test_functions);
 }

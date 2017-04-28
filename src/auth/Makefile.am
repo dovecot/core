@@ -224,15 +224,14 @@ libstats_auth_la_SOURCES = auth-stats.c
 
 test_programs = \
 	test-auth-cache \
-	test-auth-request-var-expand \
-	test-username-filter \
-	test-db-dict
+	test-auth
 
 noinst_PROGRAMS = $(test_programs)
 
+noinst_HEADERS = test-auth.h
+
 test_libs = \
-	../lib-test/libtest.la \
-	../lib/liblib.la
+	../lib-dovecot/libdovecot.la
 
 test_auth_cache_SOURCES = auth-cache.c test-auth-cache.c
 test_auth_cache_LDADD = $(test_libs)
@@ -240,17 +239,14 @@ test_auth_cache_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 # this is needed to force auth-cache.c recompilation
 test_auth_cache_CPPFLAGS = $(AM_CPPFLAGS)
 
-test_auth_request_var_expand_SOURCES = test-auth-request-var-expand.c
-test_auth_request_var_expand_LDADD = $(test_libs) libauth.la
-test_auth_request_var_expand_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
-
-test_username_filter_SOURCES = test-username-filter.c
-test_username_filter_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LIBDOVECOT)
-test_username_filter_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs) $(LIBDOVECOT_DEPS)
-
-test_db_dict_SOURCES = test-db-dict.c
-test_db_dict_LDADD = $(test_libs) libauth.la
-test_db_dict_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+test_auth_SOURCES = \
+	test-auth-request-var-expand.c \
+	test-username-filter.c \
+	test-db-dict.c \
+	test-mock.c \
+	test-main.c
+test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS)
+test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check: check-am check-test
 check-test: all-am
