@@ -27,6 +27,7 @@
 #include "userdb-blocking.h"
 #include "userdb-template.h"
 #include "password-scheme.h"
+#include "wildcard-match.h"
 
 #include <sys/stat.h>
 
@@ -638,14 +639,53 @@ auth_request_mechanism_accepted(const char *const *mechs,
 	return str_array_icase_find(mechs, mech->mech_name);
 }
 
+/**
+
+Check if username is included in the filter. Logic is that if the username
+is not excluded by anything, and is included by something, it will be accepted.
+By default, all usernames are included, unless there is a inclusion item, when
+username will be excluded if there is no inclusion for it.
+
+Exclusions are denoted with a ! in front of the pattern.
+*/
+bool auth_request_username_accepted(const char *const *filter, const char *username)
+{
+	bool have_includes = FALSE;
+	bool matched_inc = FALSE;
+
+	for(;*filter != NULL; filter++) {
+		/* if filter has ! it means the pattern will be refused */
+		bool exclude = (**filter == '!');
+		if (!exclude)
+			have_includes = TRUE;
+		if (wildcard_match(username, (*filter)+(exclude?1:0))) {
+			if (exclude) {
+				return FALSE;
+			} else {
+				matched_inc = TRUE;
+			}
+		}
+	}
+
+	return matched_inc || !have_includes;
+}
+
 static bool
 auth_request_want_skip_passdb(struct auth_request *request,
 			      struct auth_passdb *passdb)
 {
 	/* if mechanism is not supported, skip */
 	const char *const *mechs = passdb->passdb->mechanisms;
+	const char *const *username_filter = passdb->passdb->username_filter;
+	const char *username;
+
+	username = request->user;
 
 	if (!auth_request_mechanism_accepted(mechs, request->mech))
+		return TRUE;
+
+	if (passdb->passdb->username_filter != NULL &&
+	    !auth_request_username_accepted(username_filter, username))
 		return TRUE;
 
 	/* skip_password_check basically specifies if authentication is
