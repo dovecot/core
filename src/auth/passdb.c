@@ -231,6 +231,11 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 		passdb->mechanisms = (const char* const*)p_strsplit_spaces(pool, set->mechanisms, " ,");
 	}
 
+	if (*set->username_filter == '\0') {
+		passdb->username_filter = NULL;
+	} else {
+		passdb->username_filter = (const char* const*)p_strsplit_spaces(pool, set->username_filter, " ,");
+	}
 	array_append(&passdb_modules, &passdb, 1);
 	return passdb;
 }
