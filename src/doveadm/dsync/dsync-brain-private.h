@@ -62,6 +62,7 @@ struct dsync_brain {
 	uoff_t sync_max_size;
 	const char *sync_flag;
 	char alt_char;
+	unsigned int import_commit_msgs_interval;
 
 	unsigned int lock_timeout;
 	int lock_fd;

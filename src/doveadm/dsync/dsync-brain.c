@@ -221,6 +221,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	memcpy(brain->sync_box_guid, set->sync_box_guid,
 	       sizeof(brain->sync_box_guid));
 	brain->lock_timeout = set->lock_timeout_secs;
+	brain->import_commit_msgs_interval = set->import_commit_msgs_interval;
 	brain->master_brain = TRUE;
 	dsync_brain_set_flags(brain, flags);
 
@@ -260,6 +261,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	ibc_set.sync_type = sync_type;
 	ibc_set.hdr_hash_v2 = TRUE;
 	ibc_set.lock_timeout = set->lock_timeout_secs;
+	ibc_set.import_commit_msgs_interval = set->import_commit_msgs_interval;
 	/* reverse the backup direction for the slave */
 	ibc_set.brain_flags = flags & ~(DSYNC_BRAIN_FLAG_BACKUP_SEND |
 					DSYNC_BRAIN_FLAG_BACKUP_RECV);

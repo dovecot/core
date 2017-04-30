@@ -78,7 +78,7 @@ static const struct {
 	  	"send_mail_requests backup_send backup_recv lock_timeout "
 	  	"no_mail_sync no_mailbox_renames no_backup_overwrite purge_remote "
 		"no_notify sync_since_timestamp sync_max_size sync_flags sync_until_timestamp"
-	  	"virtual_all_box empty_hdr_workaround"
+	  	"virtual_all_box empty_hdr_workaround import_commit_msgs_interval"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
@@ -707,6 +707,10 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "lock_timeout",
 			t_strdup_printf("%u", set->lock_timeout));
 	}
+	if (set->import_commit_msgs_interval > 0) {
+		dsync_serializer_encode_add(encoder, "import_commit_msgs_interval",
+			t_strdup_printf("%u", set->import_commit_msgs_interval));
+	}
 	if (set->sync_since_timestamp > 0) {
 		dsync_serializer_encode_add(encoder, "sync_since_timestamp",
 			t_strdup_printf("%ld", (long)set->sync_since_timestamp));
@@ -820,6 +824,14 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		    set->lock_timeout == 0) {
 			dsync_ibc_input_error(ibc, decoder,
 				"Invalid lock_timeout: %s", value);
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+	}
+	if (dsync_deserializer_decode_try(decoder, "import_commit_msgs_interval", &value)) {
+		if (str_to_uint(value, &set->import_commit_msgs_interval) < 0 ||
+		    set->import_commit_msgs_interval == 0) {
+			dsync_ibc_input_error(ibc, decoder,
+				"Invalid import_commit_msgs_interval: %s", value);
 			return DSYNC_IBC_RECV_RET_TRYAGAIN;
 		}
 	}

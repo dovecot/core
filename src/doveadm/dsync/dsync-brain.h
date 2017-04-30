@@ -79,6 +79,9 @@ struct dsync_brain_settings {
 
 	/* If non-zero, use dsync lock file for this user */
 	unsigned int lock_timeout_secs;
+	/* If non-zero, importing will attempt to commit transaction after
+	   saving this many messages. */
+	unsigned int import_commit_msgs_interval;
 	/* Input state for DSYNC_BRAIN_SYNC_TYPE_STATE */
 	const char *state;
 };

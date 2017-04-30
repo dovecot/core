@@ -93,6 +93,7 @@ struct dsync_cmd_context {
 	const char *error;
 
 	unsigned int lock_timeout;
+	unsigned int import_commit_msgs_interval;
 
 	unsigned int lock:1;
 	unsigned int purge_remote:1;
@@ -587,6 +588,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	set.virtual_all_box = ctx->virtual_all_box;
 	memcpy(set.sync_box_guid, ctx->mailbox_guid, sizeof(set.sync_box_guid));
 	set.lock_timeout_secs = ctx->lock_timeout;
+	set.import_commit_msgs_interval = ctx->import_commit_msgs_interval;
 	set.state = ctx->state_input;
 	set.mailbox_alt_char = doveadm_settings->dsync_alt_char[0];
 
@@ -1107,6 +1109,7 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	p_array_init(&ctx->namespace_prefixes, ctx->ctx.pool, 4);
         if ((doveadm_settings->parsed_features & DSYNC_FEATURE_EMPTY_HDR_WORKAROUND) != 0)
                 ctx->empty_hdr_workaround = TRUE;
+	ctx->import_commit_msgs_interval = doveadm_settings->dsync_commit_msgs_interval;
 	return &ctx->ctx;
 }
 

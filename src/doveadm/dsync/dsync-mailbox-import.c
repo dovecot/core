@@ -44,6 +44,7 @@ struct importer_new_mail {
 	unsigned int skip:1;
 	unsigned int expunged:1;
 	unsigned int copy_failed:1;
+	unsigned int saved:1;
 };
 
 /* for quickly testing that two-way sync doesn't actually do any unexpected
@@ -66,6 +67,7 @@ struct dsync_mailbox_importer {
 	uoff_t sync_max_size;
 	enum mailbox_transaction_flags transaction_flags;
 	unsigned int hdr_hash_version;
+	unsigned int commit_msgs_interval;
 
 	enum mail_flags sync_flag;
 	const char *sync_keyword;
@@ -106,6 +108,7 @@ struct dsync_mailbox_importer {
 	uint32_t prev_uid, next_local_seq, local_uid_next;
 	uint64_t local_initial_highestmodseq, local_initial_highestpvtmodseq;
 	unsigned int import_pos, import_count;
+	unsigned int first_unsaved_idx, saves_since_commit;
 
 	enum mail_error mail_error;
 
@@ -222,6 +225,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  time_t sync_until_timestamp,
 			  uoff_t sync_max_size,
 			  const char *sync_flag,
+			  unsigned int commit_msgs_interval,
 			  enum dsync_mailbox_import_flags flags)
 {
 	struct dsync_mailbox_importer *importer;
@@ -257,6 +261,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 		else
 			importer->sync_keyword = p_strdup(pool, sync_flag);
 	}
+	importer->commit_msgs_interval = commit_msgs_interval;
 	importer->transaction_flags = MAILBOX_TRANSACTION_FLAG_SYNC;
 	if ((flags & DSYNC_MAILBOX_IMPORT_FLAG_NO_NOTIFY) != 0)
 		importer->transaction_flags |= MAILBOX_TRANSACTION_FLAG_NO_NOTIFY;
@@ -1819,6 +1824,17 @@ int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 	return importer->failed ? -1 : 0;
 }
 
+static int
+importer_new_mail_final_uid_cmp(struct importer_new_mail *const *newmail1,
+				struct importer_new_mail *const *newmail2)
+{
+	if ((*newmail1)->final_uid < (*newmail2)->final_uid)
+		return -1;
+	if ((*newmail1)->final_uid > (*newmail2)->final_uid)
+		return 1;
+	return 0;
+}
+
 static void
 dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 {
@@ -1831,6 +1847,7 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 		newmail = *newmailp;
 		if (newmail->skip) {
 			/* already assigned */
+			i_assert(newmail->final_uid != 0);
 			continue;
 		}
 
@@ -1858,6 +1875,9 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 	}
 	importer->last_common_uid = common_uid_next-1;
 	importer->new_uids_assigned = TRUE;
+	/* Sort the newmails by their final_uid. This is used for tracking
+	   whether an intermediate commit is allowed. */
+	array_sort(&importer->newmails, importer_new_mail_final_uid_cmp);
 }
 
 static int
@@ -1901,6 +1921,45 @@ dsync_mailbox_import_saved_uid(struct dsync_mailbox_importer *importer,
 	if (importer->highest_wanted_uid < uid)
 		importer->highest_wanted_uid = uid;
 	array_append(&importer->wanted_uids, &uid, 1);
+}
+
+static void
+dsync_mailbox_import_update_first_saved(struct dsync_mailbox_importer *importer)
+{
+	struct importer_new_mail *const *newmails;
+	unsigned int count;
+
+	newmails = array_get(&importer->newmails, &count);
+	while (importer->first_unsaved_idx < count) {
+		if (!newmails[importer->first_unsaved_idx]->saved)
+			break;
+		importer->first_unsaved_idx++;
+	}
+}
+
+static void
+dsync_mailbox_import_saved_newmail(struct dsync_mailbox_importer *importer,
+				   struct importer_new_mail *newmail)
+{
+	dsync_mailbox_import_saved_uid(importer, newmail->final_uid);
+	newmail->saved = TRUE;
+
+	dsync_mailbox_import_update_first_saved(importer);
+	importer->saves_since_commit++;
+	/* we can commit only if all the upcoming mails will have UIDs that
+	   are larger than we're committing.
+
+	   Note that if any existing UIDs have been changed, the new UID is
+	   usually higher than anything that is being saved so we can't do
+	   an intermediate commit. It's too much extra work to try to handle
+	   that situation. So here this never happens, because then
+	   array_count(wanted_uids) is always higher than first_unsaved_idx. */
+	if (importer->saves_since_commit >= importer->commit_msgs_interval &&
+	    importer->first_unsaved_idx == array_count(&importer->wanted_uids)) {
+		if (dsync_mailbox_import_commit(importer, FALSE) < 0)
+			importer->failed = TRUE;
+		importer->saves_since_commit = 0;
+	}
 }
 
 static bool
@@ -2369,7 +2428,7 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 	}
 	if (ret > 0) {
 		i_assert(save_ctx == NULL);
-		dsync_mailbox_import_saved_uid(importer, newmail->final_uid);
+		dsync_mailbox_import_saved_newmail(importer, newmail);
 		return TRUE;
 	}
 	/* fallback to saving from remote stream */
@@ -2449,8 +2508,7 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 								&importer->mail_error));
 			importer->failed = TRUE;
 		} else {
-			dsync_mailbox_import_saved_uid(importer,
-						       newmail->final_uid);
+			dsync_mailbox_import_saved_newmail(importer, newmail);
 		}
 	}
 	return TRUE;
