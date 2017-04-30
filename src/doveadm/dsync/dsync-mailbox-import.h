@@ -36,6 +36,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  time_t sync_until_timestamp,
 			  uoff_t sync_max_size,
 			  const char *sync_flag,
+			  unsigned int commit_msgs_interval,
 			  enum dsync_mailbox_import_flags flags);
 int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 				   const struct dsync_mailbox_attribute *attr);
