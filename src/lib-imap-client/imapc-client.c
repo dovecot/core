@@ -314,7 +314,7 @@ void imapc_client_login(struct imapc_client *client)
 {
 	struct imapc_client_connection *conn;
 
-	i_assert(client->login_callback);
+	i_assert(client->login_callback != NULL);
 	i_assert(array_count(&client->conns) == 0);
 
 	conn = imapc_client_add_connection(client);
