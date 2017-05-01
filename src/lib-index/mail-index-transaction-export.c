@@ -592,7 +592,7 @@ uint64_t mail_index_transaction_get_highest_modseq(struct mail_index_transaction
 		new_highest_modseq++;
 	}
 	if (array_is_created(&t->updates) &&
-	    transaction_flag_updates_have_non_internal(t) > 0)
+	    transaction_flag_updates_have_non_internal(t))
 		new_highest_modseq++;
 	if (array_is_created(&t->keyword_updates)) {
 		new_highest_modseq +=
