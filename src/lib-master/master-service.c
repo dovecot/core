@@ -731,6 +731,26 @@ void master_service_client_connection_created(struct master_service *service)
 	master_status_update(service);
 }
 
+static bool master_service_want_listener(struct master_service *service)
+{
+	if (service->master_status.available_count > 0) {
+		/* more concurrent clients can still be added */
+		return TRUE;
+	}
+	if (service->service_count_left == 1) {
+		/* after handling this client, the whole process will stop. */
+		return FALSE;
+	}
+	if (service->avail_overflow_callback != NULL) {
+		/* overflow callback is set. it's possible that the current
+		   existing client may be replaced by a new client, which needs
+		   the listener to try to accept new connections. */
+		return TRUE;
+	}
+	/* the listener isn't needed until the current client is disconnected */
+	return FALSE;
+}
+
 void master_service_client_connection_handled(struct master_service *service,
 					      struct master_service_connection *conn)
 {
@@ -743,15 +763,17 @@ void master_service_client_connection_handled(struct master_service *service,
 		   as real clients */
 		master_service_client_connection_destroyed(service);
 	}
-	if (service->master_status.available_count == 0 &&
-	    service->service_count_left == 1) {
-		/* we're not going to accept any more connections after this.
-		   go ahead and close the connection early. don't do this
-		   before calling callback, because it may want to access
-		   the listen_fd (e.g. to check socket permissions). */
+	if (!master_service_want_listener(service)) {
 		i_assert(service->listeners != NULL);
 		master_service_io_listeners_remove(service);
-		master_service_io_listeners_close(service);
+		if (service->service_count_left == 1) {
+			/* we're not going to accept any more connections after
+			   this. go ahead and close the connection early. don't
+			   do this before calling callback, because it may want
+			   to access the listen_fd (e.g. to check socket
+			   permissions). */
+			master_service_io_listeners_close(service);
+		}
 	}
 }
 
