@@ -842,7 +842,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 		   advertised that it's going to timeout the connection.
 		   this avoids duplicate deliveries in case the delivery
 		   succeeds after the proxy has already disconnected from us. */
-		line = t_strdup_printf("mail_max_lock_timeout=%u",
+		line = t_strdup_printf("mail_max_lock_timeout=%us",
 				       client->proxy_timeout_secs <= 1 ? 1 :
 				       client->proxy_timeout_secs-1);
 		if (settings_parse_line(set_parser, line) < 0)
