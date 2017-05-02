@@ -4,8 +4,10 @@
 #include "ioloop.h"
 #include "fd-close-on-exec.h"
 #include "fd-set-nonblock.h"
+#include "write-full.h"
 #include "lib-signals.h"
 
+#include <stdio.h>
 #include <signal.h>
 #include <unistd.h>
 
@@ -309,6 +311,26 @@ void lib_signals_reset_ioloop(void)
 		io_remove(&io_sig);
 		io_sig = io_add(sig_pipe_fd[0], IO_READ,
 				signal_read, (void *)NULL);
+	}
+}
+
+void lib_signals_syscall_error(const char *prefix)
+{
+	/* @UNSAFE: We're in a signal handler. It's very limited what is
+	   allowed in here. Especially strerror() isn't at least officially
+	   allowed. */
+	char errno_buf[MAX_INT_STRLEN], *errno_str;
+	errno_str = dec2str_buf(errno_buf, errno);
+
+	size_t prefix_len = strlen(prefix);
+	size_t errno_str_len = strlen(errno_str);
+	char buf[prefix_len + errno_str_len + 1];
+
+	memcpy(buf, prefix, prefix_len);
+	memcpy(buf + prefix_len, errno_str, errno_str_len);
+	buf[prefix_len + errno_str_len] = '\n';
+	if (write_full(STDERR_FILENO, buf, prefix_len + errno_str_len + 1) < 0) {
+		/* can't really do anything */
 	}
 }
 

@@ -42,6 +42,10 @@ void lib_signals_unset_handler(int signo,
    the delayed signals to work when using multiple I/O loops. */
 void lib_signals_reset_ioloop(void);
 
+/* Log a syscall error inside a (non-delayed) signal handler where i_error() is
+   unsafe. errno number will be appended to the prefix. */
+void lib_signals_syscall_error(const char *prefix);
+
 void lib_signals_init(void);
 void lib_signals_deinit(void);
 
