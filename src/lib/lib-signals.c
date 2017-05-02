@@ -134,7 +134,7 @@ static void sig_handler(int signo)
 			pending_signals[signo] = *si;
 			if (!have_pending_signals) {
 				if (write(sig_pipe_fd[1], &c, 1) != 1)
-					i_error("write(sigpipe) failed: %m");
+					lib_signals_syscall_error("signal: write(sigpipe) failed: ");
 				have_pending_signals = TRUE;
 			}
 		}
