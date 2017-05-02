@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "str.h"
 #include "safe-mkstemp.h"
+#include "time-util.h"
 #include "master-client.h"
 #include "service.h"
 #include "service-process.h"
@@ -22,7 +23,7 @@
 
 #define SERVICE_DROP_WARN_INTERVAL_SECS 60
 #define SERVICE_DROP_TIMEOUT_MSECS (10*1000)
-#define MAX_DIE_WAIT_SECS 5
+#define MAX_DIE_WAIT_MSECS 5000
 #define SERVICE_MAX_EXIT_FAILURES_IN_SEC 10
 #define SERVICE_PREFORK_MAX_AT_ONCE 10
 
@@ -573,8 +574,11 @@ void service_monitor_stop_close(struct service *service)
 static void services_monitor_wait(struct service_list *service_list)
 {
 	struct service *const *servicep;
-	time_t max_wait_time = time(NULL) + MAX_DIE_WAIT_SECS;
+	struct timeval tv_start;
 	bool finished;
+
+	io_loop_time_refresh();
+	tv_start = ioloop_timeval;
 
 	for (;;) {
 		finished = TRUE;
@@ -585,7 +589,9 @@ static void services_monitor_wait(struct service_list *service_list)
 			if ((*servicep)->process_avail > 0)
 				finished = FALSE;
 		}
-		if (finished || time(NULL) > max_wait_time)
+		io_loop_time_refresh();
+		if (finished ||
+		    timeval_diff_msecs(&ioloop_timeval, &tv_start) > MAX_DIE_WAIT_MSECS)
 			break;
 		usleep(100000);
 	}
