@@ -202,6 +202,10 @@ typedef void fs_file_async_callback_t(void *context);
 int fs_init(const char *driver, const char *args,
 	    const struct fs_settings *set,
 	    struct fs **fs_r, const char **error_r);
+/* helper for fs_init, accepts a filesystem string
+   that can come directly from config */
+int fs_init_from_string(const char *str, const struct fs_settings *set,
+			struct fs **fs_r, const char **error_r);
 /* same as fs_unref() */
 void fs_deinit(struct fs **fs);
 

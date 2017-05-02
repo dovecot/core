@@ -160,6 +160,17 @@ int fs_init(const char *driver, const char *args,
 	return 0;
 }
 
+int fs_init_from_string(const char *str, const struct fs_settings *set,
+			struct fs **fs_r, const char **error_r)
+{
+	const char *args = strpbrk(str, " :");
+	if (args == NULL)
+		args = "";
+	else
+		str = t_strdup_until(str, args++);
+	return fs_init(str, args, set, fs_r, error_r);
+}
+
 void fs_deinit(struct fs **fs)
 {
 	fs_unref(fs);
