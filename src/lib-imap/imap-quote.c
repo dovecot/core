@@ -131,6 +131,8 @@ void imap_append_string_for_humans(string_t *dest,
 			last_lwsp = FALSE;
 			modify = TRUE;
 			break;
+		case 13:
+		case 10:
 		case '\t':
 			modify = TRUE;
 			/* fall through */
@@ -140,11 +142,6 @@ void imap_append_string_for_humans(string_t *dest,
 				remove_count++;
 			}
 			last_lwsp = TRUE;
-			break;
-		case 13:
-		case 10:
-			remove_count++;
-			modify = TRUE;
 			break;
 		case '"':
 		case '\\':
@@ -188,14 +185,13 @@ void imap_append_string_for_humans(string_t *dest,
 			str_append_c(dest, 128);
 			last_lwsp = FALSE;
 			break;
+		case 13:
+		case 10:
 		case '\t':
 		case ' ':
 			if (!last_lwsp)
 				str_append_c(dest, ' ');
 			last_lwsp = TRUE;
-			break;
-		case 13:
-		case 10:
 			break;
 		default:
 			last_lwsp = FALSE;

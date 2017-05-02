@@ -21,7 +21,14 @@ static void test_imap_append_string_for_humans(void)
 		{ "\t \tfoo", "{3}\r\nfoo" },
 		{ " foo ", "{3}\r\nfoo" },
 		{ " foo  ", "{3}\r\nfoo" },
-		{ " foo  \t  \t", "{3}\r\nfoo" }
+		{ " foo  \t  \t", "{3}\r\nfoo" },
+		{ "hello\"world", "{11}\r\nhello\"world" },
+		{ "hello\\world", "{11}\r\nhello\\world" },
+		{ "hello\rworld", "{11}\r\nhello world" },
+		{ "hello\nworld", "{11}\r\nhello world" },
+		{ "hello\r\nworld", "{11}\r\nhello world" },
+		{ "hello\r\n  world", "{11}\r\nhello world" },
+		{ "hello  \r\n  world", "{11}\r\nhello world" },
 	};
 	string_t *str = t_str_new(128);
 	unsigned int i;
@@ -32,7 +39,7 @@ static void test_imap_append_string_for_humans(void)
 		str_truncate(str, 0);
 		imap_append_string_for_humans(str, (const void *)tests[i].input,
 					      strlen(tests[i].input));
-		test_assert(strcmp(tests[i].output, str_c(str)) == 0);
+		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
 	}
 	test_end();
 }
