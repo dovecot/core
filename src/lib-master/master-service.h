@@ -36,19 +36,31 @@ enum master_service_flags {
 };
 
 struct master_service_connection {
+	/* fd of the new connection. */
 	int fd;
+	/* fd of the socket listener. Same as fd for a FIFO. */
 	int listen_fd;
+	/* listener name as in configuration file, or "" if unnamed. */
 	const char *name;
 
+	/* Original client/server IP/port. Both of these may have been changed
+	   by the haproxy protocol. */
 	struct ip_addr remote_ip, local_ip;
 	in_port_t remote_port, local_port;
 
+	/* The real client/server IP/port, unchanged by haproxy protocol. */
 	struct ip_addr real_remote_ip, real_local_ip;
 	in_port_t real_remote_port, real_local_port;
 
+	/* This is a FIFO fd. Only a single "connection" is ever received from
+	   a FIFO after the first writer sends something to it. */
 	unsigned int fifo:1;
+	/* Perform immediate SSL handshake for this connection. Currently this
+	   needs to be performed explicitly by each service. */
 	unsigned int ssl:1;
 
+	/* Internal: master_service_client_connection_accept() has been
+	   called for this connection. */
 	unsigned int accepted:1;
 };
 
