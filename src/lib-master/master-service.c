@@ -86,6 +86,26 @@ static void sig_die(const siginfo_t *si, void *context)
 	io_loop_stop(service->ioloop);
 }
 
+static void sig_close_listeners(const siginfo_t *si ATTR_UNUSED, void *context)
+{
+	struct master_service *service = context;
+
+	/* We're in a signal handler: Close listeners immediately so master
+	   can successfully restart. We can safely close only those listeners
+	   that don't have an io, but this shouldn't be a big problem. If there
+	   is an active io, the service is unlikely to be unresposive for
+	   longer periods of time, so the listener gets closed soon enough via
+	   master_status_error(). */
+	for (unsigned int i = 0; i < service->socket_count; i++) {
+		if (service->listeners[i].fd != -1 &&
+		    service->listeners[i].io == NULL) {
+			if (close(service->listeners[i].fd) < 0)
+				lib_signals_syscall_error("signal: close(listener) failed: ");
+			service->listeners[i].fd = -1;
+		}
+	}
+}
+
 static void
 sig_state_changed(const siginfo_t *si ATTR_UNUSED, void *context)
 {
@@ -513,6 +533,7 @@ void master_service_init_finish(struct master_service *service)
 		/* start listening errors for status fd, it means master died */
 		service->io_status_error = io_add(MASTER_DEAD_FD, IO_ERROR,
 						  master_status_error, service);
+		lib_signals_set_handler(SIGQUIT, 0, sig_close_listeners, service);
 	}
 	master_service_io_listeners_add(service);
 	if (service->want_ssl_settings &&
