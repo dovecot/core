@@ -597,6 +597,56 @@ static void services_monitor_wait(struct service_list *service_list)
 	}
 }
 
+static bool service_processes_close_listeners(struct service *service)
+{
+	struct service_process *process = service->processes;
+	bool ret = FALSE;
+
+	for (; process != NULL; process = process->next) {
+		if (kill(process->pid, SIGQUIT) == 0)
+			ret = TRUE;
+		else if (errno != ESRCH) {
+			service_error(service, "kill(%s, SIGQUIT) failed: %m",
+				      dec2str(process->pid));
+		}
+	}
+	return ret;
+}
+
+static bool
+service_list_processes_close_listeners(struct service_list *service_list)
+{
+	struct service *const *servicep;
+	bool ret = FALSE;
+
+	array_foreach(&service_list->services, servicep) {
+		if (service_processes_close_listeners(*servicep))
+			ret = TRUE;
+	}
+	return ret;
+}
+
+static void services_monitor_wait_and_kill(struct service_list *service_list)
+{
+	/* we've notified all children that the master is dead.
+	   now wait for the children to either die or to tell that
+	   they're no longer listening for new connections. */
+	services_monitor_wait(service_list);
+
+	/* Even if the waiting stopped early because all the process_avail==0,
+	   it can mean that there are processes that have the listener socket
+	   open (just not actively being listened to). We'll need to make sure
+	   that those sockets are closed before we exit, so that a restart
+	   won't fail. Do this by sending SIGQUIT to all the child processes
+	   that are left, which are handled by lib-master to immediately close
+	   the listener in the signal handler itself. */
+	if (service_list_processes_close_listeners(service_list)) {
+		/* SIGQUITs were sent. wait a little bit to make sure they're
+		   also processed before quitting. */
+		usleep(100000);
+	}
+}
+
 void services_monitor_stop(struct service_list *service_list, bool wait)
 {
 	struct service *const *services;
@@ -604,12 +654,8 @@ void services_monitor_stop(struct service_list *service_list, bool wait)
 	array_foreach(&service_list->services, services)
 		service_monitor_close_dead_pipe(*services);
 
-	if (wait) {
-		/* we've notified all children that the master is dead.
-		   now wait for the children to either die or to tell that
-		   they're no longer listening for new connections */
-		services_monitor_wait(service_list);
-	}
+	if (wait)
+		services_monitor_wait_and_kill(service_list);
 
 	if (service_list->io_master != NULL)
 		io_remove(&service_list->io_master);
