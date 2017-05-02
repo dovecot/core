@@ -733,12 +733,14 @@ const char **p_strarray_dup(pool_t pool, const char *const *arr)
 
 const char *dec2str(uintmax_t number)
 {
-	char *buffer;
+	return dec2str_buf(t_malloc_no0(MAX_INT_STRLEN), number);
+}
+
+char *dec2str_buf(char buffer[STATIC_ARRAY MAX_INT_STRLEN], uintmax_t number)
+{
 	int pos;
 
 	pos = MAX_INT_STRLEN;
-	buffer = t_malloc(pos);
-
 	buffer[--pos] = '\0';
 	do {
 		buffer[--pos] = (number % 10) + '0';
