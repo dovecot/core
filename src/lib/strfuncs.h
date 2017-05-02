@@ -94,6 +94,10 @@ const char **t_strsplit_spaces(const char *data, const char *separators)
 void p_strsplit_free(pool_t pool, char **arr);
 
 const char *dec2str(uintmax_t number);
+/* Use the given buffer to write out the number. Returns pointer to the
+   written number in the buffer. Note that this isn't the same as the beginning
+   of the buffer. */
+char *dec2str_buf(char buffer[STATIC_ARRAY MAX_INT_STRLEN], uintmax_t number);
 
 /* Return length of NULL-terminated list string array */
 unsigned int str_array_length(const char *const *arr) ATTR_PURE;
