@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "test-common.h"
+#include "mail-storage-private.h"
 #include "mail-search-build.h"
 #include "mail-search-parser.h"
 #include "mail-search.h"
@@ -237,13 +238,18 @@ test_build_search_args(const char *args)
 static void test_mail_search_args_simplify(void)
 {
 	struct mail_search_args *args;
+	struct mail_storage_settings set = { .mail_max_keyword_length = 100 };
+	struct mail_storage storage = { .set = &set };
+	struct mailbox box = { .opened = TRUE, .storage = &storage };
 	string_t *str = t_str_new(256);
 	const char *error;
 	unsigned int i;
 
 	test_begin("mail search args simplify");
+	box.index = mail_index_alloc(NULL, "dovecot.index.");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		args = test_build_search_args(tests[i].input);
+		mail_search_args_init(args, &box, FALSE, NULL);
 		mail_search_args_simplify(args);
 
 		str_truncate(str, 0);
@@ -251,6 +257,7 @@ static void test_mail_search_args_simplify(void)
 		test_assert_idx(strcmp(str_c(str), tests[i].output) == 0, i);
 		mail_search_args_unref(&args);
 	}
+	mail_index_free(&box.index);
 	test_end();
 }
 
@@ -270,8 +277,10 @@ static void test_mail_search_args_simplify_empty_lists(void)
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
+		mail_storage_init,
 		test_mail_search_args_simplify,
 		test_mail_search_args_simplify_empty_lists,
+		mail_storage_deinit,
 		NULL
 	};
 
