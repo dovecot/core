@@ -328,6 +328,16 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 	return 0;
 }
 
+static int
+mail_crypt_mailbox_copy(struct mail_save_context *ctx, struct mail *mail)
+{
+	struct mail_crypt_mailbox *mbox = MAIL_CRYPT_CONTEXT(ctx->transaction->box);
+
+	if (ctx->transaction->box != mail->box)
+		return mail_storage_copy(ctx, mail);
+	return mbox->module_ctx.super.copy(ctx, mail);
+}
+
 static void mail_crypt_mailbox_close(struct mailbox *box)
 {
 	struct mail_crypt_mailbox *mbox = MAIL_CRYPT_CONTEXT(box);
@@ -352,6 +362,13 @@ static void mail_crypt_mailbox_allocated(struct mailbox *box)
 	mbox = p_new(box->pool, struct mail_crypt_mailbox, 1);
 	mbox->module_ctx.super = *v;
 	box->vlast = &mbox->module_ctx.super;
+	/* if global keys are used, re-encrypting on copy/move
+	   is not necessary, so do not attempt to do it.
+
+	   with per-folder keys, emails must be re-encrypted
+	   when moving to another folder */
+	if (muser->global_keys.public_key == NULL)
+		v->copy = mail_crypt_mailbox_copy;
 	v->close = mail_crypt_mailbox_close;
 
 	MODULE_CONTEXT_SET(box, mail_crypt_storage_module, mbox);
