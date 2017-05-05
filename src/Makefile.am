@@ -18,10 +18,10 @@ LIBDOVECOT_SUBDIRS = \
 	lib-http \
 	lib-fs \
 	lib-mail \
+	lib-program-client \
 	lib-smtp \
 	lib-imap \
 	lib-imap-storage \
-	lib-program-client \
 	lib-oauth2
 
 SUBDIRS = \

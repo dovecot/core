@@ -15,7 +15,6 @@
 #include "master-service.h"
 #include "istream-dot.h"
 #include "test-common.h"
-#include "lda-settings.h"
 #include "smtp-submit.h"
 
 #include <sys/types.h>
