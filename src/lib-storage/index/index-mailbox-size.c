@@ -467,12 +467,17 @@ void index_mailbox_vsize_update_appends(struct mailbox *box)
 
 	update = index_mailbox_vsize_update_init(box);
 
-	mailbox_get_open_status(update->box, STATUS_UIDNEXT, &status);
 	/* update here only if we don't need to rebuild the whole vsize. */
 	index_mailbox_vsize_check_rebuild(update);
-	if (update->vsize_hdr.highest_uid + 1 != status.uidnext &&
-	    index_mailbox_vsize_want_updates(update) &&
-	    index_mailbox_vsize_update_try_lock(update))
-		(void)index_mailbox_vsize_hdr_add_missing(update, FALSE);
+	if (index_mailbox_vsize_want_updates(update)) {
+		/* Get the UIDNEXT only after checking that vsize updating is
+		   even potentially wanted for this mailbox. We especially
+		   don't want to do this with imapc, because it could trigger
+		   a remote STATUS (UIDNEXT) call. */
+		mailbox_get_open_status(update->box, STATUS_UIDNEXT, &status);
+		if (update->vsize_hdr.highest_uid + 1 != status.uidnext &&
+		    index_mailbox_vsize_update_try_lock(update))
+			(void)index_mailbox_vsize_hdr_add_missing(update, FALSE);
+	}
 	index_mailbox_vsize_update_deinit(&update);
 }
