@@ -46,7 +46,7 @@ struct server_connection {
 
 typedef void (*test_server_init_t)(unsigned int index);
 typedef bool (*test_client_init_t)
-	(const struct lda_settings *client_set);
+	(const struct lda_settings *submit_set);
 
 /*
  * State
@@ -103,7 +103,7 @@ static void
 test_message_delivery(const char *message, const char *file);
 
 static void test_run_client_server(
-	const struct lda_settings *client_set,
+	const struct lda_settings *submit_set,
 	test_client_init_t client_test,
 	test_server_init_t server_test,
 	unsigned int server_tests_count)
@@ -116,12 +116,12 @@ static void test_run_client_server(
 /* client */
 
 static bool
-test_client_host_lookup_failed(const struct lda_settings *client_set)
+test_client_host_lookup_failed(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple(client_set,
+	ret = test_client_smtp_send_simple(submit_set,
 		test_message1, "host.invalid", 5, &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
@@ -132,13 +132,13 @@ test_client_host_lookup_failed(const struct lda_settings *client_set)
 
 static void test_host_lookup_failed(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("host lookup failed");
 	test_expect_errors(1);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_host_lookup_failed,
 		NULL, 0);
 	test_end();
@@ -159,12 +159,12 @@ test_server_connection_refused(unsigned int index ATTR_UNUSED)
 /* client */
 
 static bool
-test_client_connection_refused(const struct lda_settings *client_set)
+test_client_connection_refused(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
@@ -175,13 +175,13 @@ test_client_connection_refused(const struct lda_settings *client_set)
 
 static void test_connection_refused(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("connection refused");
 	test_expect_errors(1);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_connection_refused,
 		test_server_connection_refused, 1);
 	test_end();
@@ -208,7 +208,7 @@ static void test_server_connection_timed_out(unsigned int index)
 /* client */
 
 static bool
-test_client_connection_timed_out(const struct lda_settings *client_set)
+test_client_connection_timed_out(const struct lda_settings *submit_set)
 {
 	time_t time;
 	const char *error = NULL;
@@ -216,7 +216,7 @@ test_client_connection_timed_out(const struct lda_settings *client_set)
 
 	io_loop_time_refresh();
 	time = ioloop_time;
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 1, &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
@@ -230,13 +230,13 @@ test_client_connection_timed_out(const struct lda_settings *client_set)
 
 static void test_connection_timed_out(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("connection timed out");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_connection_timed_out,
 		test_server_connection_timed_out, 1);
 	test_end();
@@ -271,12 +271,12 @@ static void test_server_bad_greeting(unsigned int index)
 /* client */
 
 static bool
-test_client_bad_greeting(const struct lda_settings *client_set)
+test_client_bad_greeting(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
 	//test_out_reason("run", ret == 0, error);
@@ -289,13 +289,13 @@ test_client_bad_greeting(const struct lda_settings *client_set)
 
 static void test_bad_greeting(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("bad greeting");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_bad_greeting,
 		test_server_bad_greeting, 1);
 	test_end();
@@ -341,12 +341,12 @@ static void test_server_denied_helo(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_helo(const struct lda_settings *client_set)
+test_client_denied_helo(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
 	//test_out_reason("run", ret == 0, error);
@@ -359,13 +359,13 @@ test_client_denied_helo(const struct lda_settings *client_set)
 
 static void test_denied_helo(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("denied helo");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_denied_helo,
 		test_server_denied_helo, 1);
 	test_end();
@@ -409,12 +409,12 @@ static void test_server_disconnect_helo(unsigned int index)
 /* client */
 
 static bool
-test_client_disconnect_helo(const struct lda_settings *client_set)
+test_client_disconnect_helo(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
 	//test_out_reason("run", ret == 0, error);
@@ -427,13 +427,13 @@ test_client_disconnect_helo(const struct lda_settings *client_set)
 
 static void test_disconnect_helo(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("disconnect helo");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_disconnect_helo,
 		test_server_disconnect_helo, 1);
 	test_end();
@@ -513,12 +513,12 @@ static void test_server_denied_mail(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_mail(const struct lda_settings *client_set)
+test_client_denied_mail(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
 	//test_out_reason("run", ret == 0, error);
@@ -531,13 +531,13 @@ test_client_denied_mail(const struct lda_settings *client_set)
 
 static void test_denied_mail(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("denied mail");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_denied_mail,
 		test_server_denied_mail, 1);
 	test_end();
@@ -623,12 +623,12 @@ static void test_server_denied_rcpt(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_rcpt(const struct lda_settings *client_set)
+test_client_denied_rcpt(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	test_out_reason("run (ret == 0)", ret == 0, error);
 
@@ -639,13 +639,13 @@ test_client_denied_rcpt(const struct lda_settings *client_set)
 
 static void test_denied_rcpt(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("denied rcpt");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_denied_rcpt,
 		test_server_denied_rcpt, 1);
 	test_end();
@@ -737,26 +737,26 @@ static void test_server_denied_second_rcpt(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_second_rcpt(const struct lda_settings *client_set)
+test_client_denied_second_rcpt(const struct lda_settings *submit_set)
 {
-	struct smtp_client *smtp_client;
-	struct lda_settings smtp_client_set;
+	struct smtp_submit *smtp_submit;
+	struct lda_settings smtp_submit_set;
 	struct ostream *output;
 	const char *error = NULL;
 	int ret;
 
-	smtp_client_set = *client_set;
-	smtp_client_set.submission_host =
+	smtp_submit_set = *submit_set;
+	smtp_submit_set.submission_host =
 		t_strdup_printf("127.0.0.1:%u", bind_ports[0]);
 
-	smtp_client = smtp_client_init(&smtp_client_set, "sender@example.com");
+	smtp_submit = smtp_submit_init(&smtp_submit_set, "sender@example.com");
 
-	smtp_client_add_rcpt(smtp_client, "rcpt@example.com");
-	smtp_client_add_rcpt(smtp_client, "rcpt2@example.com");
-	output = smtp_client_send(smtp_client);
+	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
+	smtp_submit_add_rcpt(smtp_submit, "rcpt2@example.com");
+	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
-	ret = smtp_client_deinit_timeout(smtp_client, 5, &error);
+	ret = smtp_submit_deinit_timeout(smtp_submit, 5, &error);
 	test_out_reason("run (ret == 0)", ret == 0, error);
 
 	return FALSE;
@@ -766,13 +766,13 @@ test_client_denied_second_rcpt(const struct lda_settings *client_set)
 
 static void test_denied_second_rcpt(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("denied second rcpt");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_denied_second_rcpt,
 		test_server_denied_second_rcpt, 1);
 	test_end();
@@ -864,12 +864,12 @@ static void test_server_denied_data(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_data(const struct lda_settings *client_set)
+test_client_denied_data(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	test_out_reason("run (ret == 0)", ret == 0, error);
 
@@ -880,13 +880,13 @@ test_client_denied_data(const struct lda_settings *client_set)
 
 static void test_denied_data(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("denied data");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_denied_data,
 		test_server_denied_data, 1);
 	test_end();
@@ -987,12 +987,12 @@ static void test_server_data_failure(unsigned int index)
 /* client */
 
 static bool
-test_client_data_failure(const struct lda_settings *client_set)
+test_client_data_failure(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	test_out_reason("run (ret == 0)", ret == 0, error);
 
@@ -1003,13 +1003,13 @@ test_client_data_failure(const struct lda_settings *client_set)
 
 static void test_data_failure(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("data failure");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_data_failure,
 		test_server_data_failure, 1);
 	test_end();
@@ -1105,12 +1105,12 @@ static void test_server_data_disconnect(unsigned int index)
 /* client */
 
 static bool
-test_client_data_disconnect(const struct lda_settings *client_set)
+test_client_data_disconnect(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
@@ -1121,13 +1121,13 @@ test_client_data_disconnect(const struct lda_settings *client_set)
 
 static void test_data_disconnect(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("data disconnect");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_data_disconnect,
 		test_server_data_disconnect, 1);
 	test_end();
@@ -1224,7 +1224,7 @@ static void test_server_data_timout(unsigned int index)
 /* client */
 
 static bool
-test_client_data_timout(const struct lda_settings *client_set)
+test_client_data_timout(const struct lda_settings *submit_set)
 {
 	time_t time;
 	const char *error = NULL;
@@ -1232,7 +1232,7 @@ test_client_data_timout(const struct lda_settings *client_set)
 
 	io_loop_time_refresh();
 	time = ioloop_time;
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 2, &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
@@ -1246,13 +1246,13 @@ test_client_data_timout(const struct lda_settings *client_set)
 
 static void test_data_timeout(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("data timeout");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_data_timout,
 		test_server_data_timout, 1);
 	test_end();
@@ -1406,13 +1406,13 @@ static void test_server_successful_delivery(unsigned int index)
 /* client */
 
 static bool
-test_client_successful_delivery(const struct lda_settings *client_set)
+test_client_successful_delivery(const struct lda_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
 
 	/* send the message */
-	ret = test_client_smtp_send_simple_port(client_set,
+	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], 5, &error);
 	test_out_reason("run (ret > 0)", ret > 0, error);
 
@@ -1428,13 +1428,13 @@ test_client_successful_delivery(const struct lda_settings *client_set)
 
 static void test_successful_delivery(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("successful delivery");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_successful_delivery,
 		test_server_successful_delivery, 1);
 	test_end();
@@ -1447,26 +1447,26 @@ static void test_successful_delivery(void)
 /* client */
 
 static bool
-test_client_failed_sendmail(const struct lda_settings *client_set)
+test_client_failed_sendmail(const struct lda_settings *submit_set)
 {
-	struct lda_settings smtp_client_set;
-	struct smtp_client *smtp_client;
+	struct lda_settings smtp_submit_set;
+	struct smtp_submit *smtp_submit;
 	struct ostream *output;
 	const char *sendmail_path, *error = NULL;
 	int ret;
 
 	sendmail_path = TEST_BIN_DIR"/sendmail-exit-1.sh";
 
-	smtp_client_set = *client_set;
-	smtp_client_set.sendmail_path = sendmail_path;
+	smtp_submit_set = *submit_set;
+	smtp_submit_set.sendmail_path = sendmail_path;
 
-	smtp_client = smtp_client_init(&smtp_client_set, "sender@example.com");
+	smtp_submit = smtp_submit_init(&smtp_submit_set, "sender@example.com");
 
-	smtp_client_add_rcpt(smtp_client, "rcpt@example.com");
-	output = smtp_client_send(smtp_client);
+	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
+	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
-	ret = smtp_client_deinit_timeout(smtp_client, 5, &error);
+	ret = smtp_submit_deinit_timeout(smtp_submit, 5, &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
 	return FALSE;
@@ -1476,13 +1476,13 @@ test_client_failed_sendmail(const struct lda_settings *client_set)
 
 static void test_failed_sendmail(void)
 {
-	struct lda_settings smtp_client_set;
+	struct lda_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("failed sendmail");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_failed_sendmail, NULL, 0);
 	test_end();
 }
@@ -1494,10 +1494,10 @@ static void test_failed_sendmail(void)
 /* client */
 
 static bool
-test_client_successful_sendmail(const struct lda_settings *client_set)
+test_client_successful_sendmail(const struct lda_settings *submit_set)
 {
-	struct lda_settings smtp_client_set;
-	struct smtp_client *smtp_client;
+	struct lda_settings smtp_submit_set;
+	struct smtp_submit *smtp_submit;
 	struct ostream *output;
 	const char *sendmail_path, *msg_path, *error = NULL;
 	int ret;
@@ -1507,16 +1507,16 @@ test_client_successful_sendmail(const struct lda_settings *client_set)
 	sendmail_path = t_strdup_printf(
 		TEST_BIN_DIR"/sendmail-success.sh %s", msg_path);
 
-	smtp_client_set = *client_set;
-	smtp_client_set.sendmail_path = sendmail_path;
+	smtp_submit_set = *submit_set;
+	smtp_submit_set.sendmail_path = sendmail_path;
 
-	smtp_client = smtp_client_init(&smtp_client_set, "sender@example.com");
+	smtp_submit = smtp_submit_init(&smtp_submit_set, "sender@example.com");
 
-	smtp_client_add_rcpt(smtp_client, "rcpt@example.com");
-	output = smtp_client_send(smtp_client);
+	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
+	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
-	ret = smtp_client_deinit_timeout(smtp_client, 5, &error);
+	ret = smtp_submit_deinit_timeout(smtp_submit, 5, &error);
 	test_out_reason("run (ret > 0)", ret > 0, error);
 
 	/* verify delivery */
@@ -1586,22 +1586,22 @@ test_client_smtp_send_simple(const struct lda_settings *smtp_set,
 	const char *message, const char *host,
 	unsigned int timeout_secs, const char **error_r)
 {
-	struct lda_settings smtp_client_set;
-	struct smtp_client *smtp_client;
+	struct lda_settings smtp_submit_set;
+	struct smtp_submit *smtp_submit;
 	struct ostream *output;
 
 	/* send the message */
-	smtp_client_set = *smtp_set;
-	smtp_client_set.submission_host = host,
+	smtp_submit_set = *smtp_set;
+	smtp_submit_set.submission_host = host,
 
-	smtp_client = smtp_client_init(&smtp_client_set, "sender@example.com");
+	smtp_submit = smtp_submit_init(&smtp_submit_set, "sender@example.com");
 
-	smtp_client_add_rcpt(smtp_client, "rcpt@example.com");
-	output = smtp_client_send(smtp_client);
+	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
+	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, message);
 
-	return smtp_client_deinit_timeout
-		(smtp_client, timeout_secs, error_r);
+	return smtp_submit_deinit_timeout
+		(smtp_submit, timeout_secs, error_r);
 }
 
 static int
@@ -1815,7 +1815,7 @@ test_message_delivery(const char *message, const char *file)
 }
 
 static void test_run_client_server(
-	const struct lda_settings *client_set,
+	const struct lda_settings *submit_set,
 	test_client_init_t client_test,
 	test_server_init_t server_test,
 	unsigned int server_tests_count)
@@ -1887,7 +1887,7 @@ static void test_run_client_server(
 	server_port = 0;
 
 	ioloop = io_loop_create();
-	if (client_test(client_set))
+	if (client_test(submit_set))
 		io_loop_run(ioloop);
 	test_client_deinit();
 	io_loop_destroy(&ioloop);
@@ -1935,7 +1935,7 @@ int main(int argc, char *argv[])
 	(void)signal(SIGSEGV, test_signal_handler);
 	(void)signal(SIGABRT, test_signal_handler);
 
-	master_service = master_service_init("test-smtp-client",
+	master_service = master_service_init("test-smtp-submit",
 		MASTER_SERVICE_FLAG_STANDALONE,	&argc, &argv, "D");
 
 	while ((c = master_getopt(master_service)) > 0) {

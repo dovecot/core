@@ -47,7 +47,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 {
 	struct mail *mail = ctx->src_mail;
 	struct istream *input;
-	struct smtp_client *smtp_client;
+	struct smtp_submit *smtp_submit;
 	struct ostream *output;
 	const char *return_addr, *hdr;
 	const char *value, *msgid, *orig_msgid, *boundary, *error;
@@ -81,9 +81,9 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 
 	vtable = get_var_expand_table(mail, reason, recipient);
 
-	smtp_client = smtp_client_init(ctx->set, NULL);
-	smtp_client_add_rcpt(smtp_client, return_addr);
-	output = smtp_client_send(smtp_client);
+	smtp_submit = smtp_submit_init(ctx->set, NULL);
+	smtp_submit_add_rcpt(smtp_submit, return_addr);
+	output = smtp_submit_send(smtp_submit);
 
 	msgid = mail_deliver_get_new_message_id(ctx);
 	boundary = t_strdup_printf("%s/%s", my_pid, ctx->set->hostname);
@@ -181,8 +181,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	str_truncate(str, 0);
 	str_printfa(str, "\r\n\r\n--%s--\r\n", boundary);
 	o_stream_nsend(output, str_data(str), str_len(str));
-	if ((ret = smtp_client_deinit_timeout
-		(smtp_client, ctx->timeout_secs, &error)) < 0) {
+	if ((ret = smtp_submit_deinit_timeout
+		(smtp_submit, ctx->timeout_secs, &error)) < 0) {
 		i_error("msgid=%s: Temporarily failed to send rejection: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 			str_sanitize(error, 512));

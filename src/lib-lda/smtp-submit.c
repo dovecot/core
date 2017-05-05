@@ -21,7 +21,7 @@
 
 #define DEFAULT_SUBMISSION_PORT 25
 
-struct smtp_client {
+struct smtp_submit {
 	pool_t pool;
 	struct ostream *output;
 	struct istream *input;
@@ -36,89 +36,89 @@ struct smtp_client {
 	bool tempfail:1;
 };
 
-struct smtp_client *
-smtp_client_init(const struct lda_settings *set, const char *return_path)
+struct smtp_submit *
+smtp_submit_init(const struct lda_settings *set, const char *return_path)
 {
-	struct smtp_client *client;
+	struct smtp_submit *subm;
 	pool_t pool;
 
-	pool = pool_alloconly_create("smtp client", 256);
-	client = p_new(pool, struct smtp_client, 1);
-	client->pool = pool;
-	client->set = set;
-	client->return_path = p_strdup(pool, return_path);
-	p_array_init(&client->destinations, pool, 2);
-	return client;
+	pool = pool_alloconly_create("smtp submit", 256);
+	subm = p_new(pool, struct smtp_submit, 1);
+	subm->pool = pool;
+	subm->set = set;
+	subm->return_path = p_strdup(pool, return_path);
+	p_array_init(&subm->destinations, pool, 2);
+	return subm;
 }
 
-void smtp_client_add_rcpt(struct smtp_client *client, const char *address)
+void smtp_submit_add_rcpt(struct smtp_submit *subm, const char *address)
 {
-	i_assert(client->output == NULL);
+	i_assert(subm->output == NULL);
 
-	address = p_strdup(client->pool, address);
-	array_append(&client->destinations, &address, 1);
+	address = p_strdup(subm->pool, address);
+	array_append(&subm->destinations, &address, 1);
 }
 
-struct ostream *smtp_client_send(struct smtp_client *client)
+struct ostream *smtp_submit_send(struct smtp_submit *subm)
 {
-	i_assert(client->output == NULL);
-	i_assert(array_count(&client->destinations) > 0);
+	i_assert(subm->output == NULL);
+	i_assert(array_count(&subm->destinations) > 0);
 
-	client->output = iostream_temp_create
+	subm->output = iostream_temp_create
 		(t_strconcat("/tmp/dovecot.",
 			master_service_get_name(master_service), NULL), 0);
-	o_stream_set_no_error_handling(client->output, TRUE);
-	return client->output;
+	o_stream_set_no_error_handling(subm->output, TRUE);
+	return subm->output;
 }
 
-static void smtp_client_send_finished(void *context)
+static void smtp_submit_send_finished(void *context)
 {
-	struct smtp_client *smtp_client = context;
+	struct smtp_submit *smtp_submit = context;
 
-	smtp_client->finished = TRUE;
+	smtp_submit->finished = TRUE;
 	io_loop_stop(current_ioloop);
 }
 
 static void
-smtp_client_error(struct smtp_client *client,
+smtp_submit_error(struct smtp_submit *subm,
 		 bool tempfail, const char *error)
 {
-	if (client->error == NULL) {
-		client->tempfail = tempfail;
-		client->error = p_strdup_printf(client->pool,
+	if (subm->error == NULL) {
+		subm->tempfail = tempfail;
+		subm->error = p_strdup_printf(subm->pool,
 			"smtp(%s): %s",
-			client->set->submission_host, error);
+			subm->set->submission_host, error);
 	}
 }
 
 static void
 rcpt_to_callback(enum lmtp_client_result result, const char *reply, void *context)
 {
-	struct smtp_client *client = context;
+	struct smtp_submit *subm = context;
 
 	if (result != LMTP_CLIENT_RESULT_OK) {
-		smtp_client_error(client, (reply[0] != '5'),
+		smtp_submit_error(subm, (reply[0] != '5'),
 			t_strdup_printf("RCPT TO failed: %s", reply));
-		smtp_client_send_finished(client);
+		smtp_submit_send_finished(subm);
 	}
 }
 
 static void
 data_callback(enum lmtp_client_result result, const char *reply, void *context)
 {
-	struct smtp_client *client = context;
+	struct smtp_submit *subm = context;
 
 	if (result != LMTP_CLIENT_RESULT_OK) {
-		smtp_client_error(client, (reply[0] != '5'),
+		smtp_submit_error(subm, (reply[0] != '5'),
 			t_strdup_printf("DATA failed: %s", reply));
-		smtp_client_send_finished(client);
+		smtp_submit_send_finished(subm);
 	} else {
-		client->success = TRUE;
+		subm->success = TRUE;
 	}
 }
 
 static int
-smtp_client_send_host(struct smtp_client *client,
+smtp_submit_send_host(struct smtp_submit *subm,
 		       unsigned int timeout_secs, const char **error_r)
 {
 	struct lmtp_client_settings client_set;
@@ -127,7 +127,7 @@ smtp_client_send_host(struct smtp_client *client,
 	const char *host, *const *destp;
 	in_port_t port;
 
-	if (net_str2hostport(client->set->submission_host,
+	if (net_str2hostport(subm->set->submission_host,
 			     DEFAULT_SUBMISSION_PORT, &host, &port) < 0) {
 		*error_r = t_strdup_printf(
 			"Invalid submission_host: %s", host);
@@ -135,14 +135,14 @@ smtp_client_send_host(struct smtp_client *client,
 	}
 
 	i_zero(&client_set);
-	client_set.mail_from = client->return_path == NULL ? "<>" :
-		t_strconcat("<", client->return_path, ">", NULL);
-	client_set.my_hostname = client->set->hostname;
+	client_set.mail_from = subm->return_path == NULL ? "<>" :
+		t_strconcat("<", subm->return_path, ">", NULL);
+	client_set.my_hostname = subm->set->hostname;
 	client_set.timeout_secs = timeout_secs;
 
 	ioloop = io_loop_create();
-	lmtp_client = lmtp_client_init(&client_set, smtp_client_send_finished,
-				  client);
+	lmtp_client = lmtp_client_init(&client_set, smtp_submit_send_finished,
+				  subm);
 
 	if (lmtp_client_connect_tcp(lmtp_client, LMTP_CLIENT_PROTOCOL_SMTP,
 				    host, port) < 0) {
@@ -153,34 +153,34 @@ smtp_client_send_host(struct smtp_client *client,
 		return -1;
 	}
 
-	array_foreach(&client->destinations, destp) {
+	array_foreach(&subm->destinations, destp) {
 		lmtp_client_add_rcpt(lmtp_client, *destp, rcpt_to_callback,
-				     data_callback, client);
+				     data_callback, subm);
 	}
 
-	lmtp_client_send(lmtp_client, client->input);
-	i_stream_unref(&client->input);
+	lmtp_client_send(lmtp_client, subm->input);
+	i_stream_unref(&subm->input);
 
-	if (!client->finished)
+	if (!subm->finished)
 		io_loop_run(ioloop);
 	lmtp_client_deinit(&lmtp_client);
 	io_loop_destroy(&ioloop);
 
-	if (client->success)
+	if (subm->success)
 		return 1;
-	else if (client->tempfail) {
-		i_assert(client->error != NULL);
-		*error_r = t_strdup(client->error);
+	else if (subm->tempfail) {
+		i_assert(subm->error != NULL);
+		*error_r = t_strdup(subm->error);
 		return -1;
 	} else {
-		i_assert(client->error != NULL);
-		*error_r = t_strdup(client->error);
+		i_assert(subm->error != NULL);
+		*error_r = t_strdup(subm->error);
 		return 0;
 	}
 }
 
 static int
-smtp_client_send_sendmail(struct smtp_client *client,
+smtp_submit_send_sendmail(struct smtp_submit *subm,
 		       unsigned int timeout_secs, const char **error_r)
 {
 	const char *const *sendmail_args, *sendmail_bin, *str;
@@ -190,7 +190,7 @@ smtp_client_send_sendmail(struct smtp_client *client,
 	struct program_client *pc;
 	int ret;
 
-	sendmail_args = t_strsplit(client->set->sendmail_path, " ");
+	sendmail_args = t_strsplit(subm->set->sendmail_path, " ");
 	t_array_init(&args, 16);
 	i_assert(sendmail_args[0] != NULL);
 	sendmail_bin = sendmail_args[0];
@@ -199,13 +199,13 @@ smtp_client_send_sendmail(struct smtp_client *client,
 
 	str = "-i"; array_append(&args, &str, 1); /* ignore dots */
 	str = "-f"; array_append(&args, &str, 1);
-	str = (client->return_path != NULL &&
-		*client->return_path != '\0' ?
-			client->return_path : "<>");
+	str = (subm->return_path != NULL &&
+		*subm->return_path != '\0' ?
+			subm->return_path : "<>");
 	array_append(&args, &str, 1);
 
 	str = "--"; array_append(&args, &str, 1);
-	array_append_array(&args, &client->destinations);
+	array_append_array(&args, &subm->destinations);
 	array_append_zero(&args);
 
 	i_zero(&pc_set);
@@ -216,8 +216,8 @@ smtp_client_send_sendmail(struct smtp_client *client,
 	pc = program_client_local_create
 		(sendmail_bin, array_idx(&args, 0), &pc_set);
 
-	program_client_set_input(pc, client->input);
-	i_stream_unref(&client->input);
+	program_client_set_input(pc, subm->input);
+	i_stream_unref(&subm->input);
 
 	ret = program_client_run(pc);
 
@@ -233,43 +233,43 @@ smtp_client_send_sendmail(struct smtp_client *client,
 	return 1;
 }
 
-void smtp_client_abort(struct smtp_client **_client)
+void smtp_submit_abort(struct smtp_submit **_subm)
 {
-	struct smtp_client *client = *_client;
+	struct smtp_submit *subm = *_subm;
 
-	*_client = NULL;
+	*_subm = NULL;
 
-	if (client->output != NULL) {
-		o_stream_ignore_last_errors(client->output);
-		o_stream_destroy(&client->output);
+	if (subm->output != NULL) {
+		o_stream_ignore_last_errors(subm->output);
+		o_stream_destroy(&subm->output);
 	}
-	if (client->input != NULL)
-		i_stream_destroy(&client->input);
-	pool_unref(&client->pool);
+	if (subm->input != NULL)
+		i_stream_destroy(&subm->input);
+	pool_unref(&subm->pool);
 }
 
-int smtp_client_deinit(struct smtp_client *client, const char **error_r)
+int smtp_submit_deinit(struct smtp_submit *subm, const char **error_r)
 {
-	return smtp_client_deinit_timeout(client, 0, error_r);
+	return smtp_submit_deinit_timeout(subm, 0, error_r);
 }
 
-int smtp_client_deinit_timeout(struct smtp_client *client,
+int smtp_submit_deinit_timeout(struct smtp_submit *subm,
 			       unsigned int timeout_secs, const char **error_r)
 {
 	int ret;
 
 	/* the mail has been written to a file. now actually send it. */
-	client->input = iostream_temp_finish
-		(&client->output, IO_BLOCK_SIZE);
+	subm->input = iostream_temp_finish
+		(&subm->output, IO_BLOCK_SIZE);
 
-	if (*client->set->submission_host != '\0') {
-		ret = smtp_client_send_host
-			(client, timeout_secs, error_r);
+	if (*subm->set->submission_host != '\0') {
+		ret = smtp_submit_send_host
+			(subm, timeout_secs, error_r);
 	} else {
-		ret = smtp_client_send_sendmail
-			(client, timeout_secs, error_r);
+		ret = smtp_submit_send_sendmail
+			(subm, timeout_secs, error_r);
 	}
 
-	smtp_client_abort(&client);
+	smtp_submit_abort(&subm);
 	return ret;
 }

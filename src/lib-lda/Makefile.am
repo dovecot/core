@@ -19,14 +19,16 @@ liblda_la_SOURCES = \
 	lda-settings.c \
 	mail-deliver.c \
 	mail-send.c \
-	smtp-submit.c
+	smtp-submit.c \
+	smtp-client.c
 
 headers = \
 	duplicate.h \
 	lda-settings.h \
 	mail-deliver.h \
 	mail-send.h \
-	smtp-submit.h
+	smtp-submit.h \
+	smtp-client.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
