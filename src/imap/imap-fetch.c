@@ -351,6 +351,8 @@ static void imap_fetch_init(struct imap_fetch_context *ctx)
 void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 		      struct mail_search_args *search_args)
 {
+	enum mailbox_transaction_flags trans_flags =
+		MAILBOX_TRANSACTION_FLAG_REFRESH;
 	struct mailbox_header_lookup_ctx *wanted_headers = NULL;
 	const char *const *headers;
 
@@ -370,9 +372,18 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 			     array_count(&ctx->all_headers)-1, 1);
 	}
 
-	ctx->state.trans = mailbox_transaction_begin(box,
-		MAILBOX_TRANSACTION_FLAG_HIDE |
-		MAILBOX_TRANSACTION_FLAG_REFRESH);
+	if (ctx->flags_update_seen) {
+		/* Hide the implicit \Seen flag addition. Otherwise a separate
+		   untagged FETCH FLAGS (\Seen) would be sent on top of the
+		   one FLAGS (\Seen) already added in the main FETCH reply.
+
+		   We don't set this always, because some plugins might want
+		   to do their own flag changes which we don't want hidden.
+		   (Of course this isn't perfect since if implicit \Seen flags
+		   are added, other flag changes are also hidden.) */
+		trans_flags |= MAILBOX_TRANSACTION_FLAG_HIDE;
+	}
+	ctx->state.trans = mailbox_transaction_begin(box, trans_flags);
 	mailbox_transaction_set_reason(ctx->state.trans, ctx->reason);
 
 	mail_search_args_init(search_args, box, TRUE,
