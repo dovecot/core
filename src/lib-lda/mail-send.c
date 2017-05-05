@@ -15,7 +15,7 @@
 #include "mail-storage-settings.h"
 #include "lda-settings.h"
 #include "mail-deliver.h"
-#include "smtp-client.h"
+#include "smtp-submit.h"
 #include "mail-send.h"
 
 #include <sys/wait.h>

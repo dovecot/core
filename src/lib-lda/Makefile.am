@@ -19,14 +19,14 @@ liblda_la_SOURCES = \
 	lda-settings.c \
 	mail-deliver.c \
 	mail-send.c \
-	smtp-client.c
+	smtp-submit.c
 
 headers = \
 	duplicate.h \
 	lda-settings.h \
 	mail-deliver.h \
 	mail-send.h \
-	smtp-client.h
+	smtp-submit.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
@@ -42,7 +42,7 @@ libdovecot_lda_la_LDFLAGS = -export-dynamic
 test_programs =
 
 test_nocheck_programs = \
-	test-smtp-client
+	test-smtp-submit
 
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
@@ -71,10 +71,10 @@ test_deps = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-test_smtp_client_SOURCES = test-smtp-client.c
-test_smtp_client_LDFLAGS = -export-dynamic
-test_smtp_client_LDADD = $(test_libs)
-test_smtp_client_DEPENDENCIES = $(test_deps)
+test_smtp_submit_SOURCES = test-smtp-submit.c
+test_smtp_submit_LDFLAGS = -export-dynamic
+test_smtp_submit_LDADD = $(test_libs)
+test_smtp_submit_DEPENDENCIES = $(test_deps)
 
 check: check-am check-test
 check-test: all-am

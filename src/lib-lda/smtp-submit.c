@@ -12,7 +12,7 @@
 #include "lda-settings.h"
 #include "mail-deliver.h"
 #include "program-client.h"
-#include "smtp-client.h"
+#include "smtp-submit.h"
 
 #include <unistd.h>
 #include <sys/wait.h>
