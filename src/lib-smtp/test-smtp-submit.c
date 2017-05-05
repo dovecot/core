@@ -30,6 +30,17 @@ static const char *test_message1 =
 	"From: sender@example.com\r\n"
 	"\r\n"
 	"Test message\r\n";
+static const char *test_message2 =
+	"Subject: Test message\r\n"
+	"To: rcpt@example.com\r\n"
+	"From: sender@example.com\r\n"
+	"\r\n"
+	"Test message Test message Test message Test message Test message\r\n"
+	"Test message Test message Test message Test message Test message\r\n"
+	"Test message Test message Test message Test message Test message\r\n"
+	"Test message Test message Test message Test message Test message\r\n"
+	"Test message Test message Test message Test message Test message\r\n"
+	"Test message Test message Test message Test message Test message\r\n";
 
 /*
  * Types
@@ -748,15 +759,17 @@ test_client_denied_second_rcpt(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set.submission_host =
 		t_strdup_printf("127.0.0.1:%u", bind_ports[0]);
 
-	smtp_submit = smtp_submit_init(&smtp_submit_set, "sender@example.com");
+	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
 
 	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
 	smtp_submit_add_rcpt(smtp_submit, "rcpt2@example.com");
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
-	ret = smtp_submit_deinit_timeout(smtp_submit, 5, &error);
+	ret = smtp_submit_run_timeout(smtp_submit, 1000, &error);
 	test_out_reason("run (ret == 0)", ret == 0, error);
+
+	smtp_submit_deinit(&smtp_submit);
 
 	return FALSE;
 }
@@ -1423,6 +1436,80 @@ test_client_successful_delivery(const struct smtp_submit_settings *submit_set)
 	return FALSE;
 }
 
+struct _parallel_delivery_client {
+	unsigned int count;
+};
+
+static void
+test_client_parallel_delivery_callback(const struct smtp_submit_result *result,
+	struct _parallel_delivery_client *ctx)
+{
+	if (result->status <= 0)
+		i_error("Submit failed: %s", result->error);
+
+	if (--ctx->count == 0)
+		io_loop_stop(current_ioloop);
+}
+
+static bool
+test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
+{
+	struct smtp_submit_settings smtp_submit_set;
+	struct _parallel_delivery_client *ctx;
+	struct smtp_submit *smtp_submit1, *smtp_submit2;
+	struct ostream *output;
+	struct ioloop *ioloop;
+
+	ioloop = io_loop_create();
+
+	ctx = i_new(struct _parallel_delivery_client, 1);
+	ctx->count = 2;
+
+	smtp_submit_set = *submit_set;
+
+	/* submit 1 */
+	smtp_submit_set.submission_host =
+		t_strdup_printf("127.0.0.1:%u",  bind_ports[0]);
+	smtp_submit1 = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+
+	smtp_submit_add_rcpt(smtp_submit1, "rcpt@example.com");
+	output = smtp_submit_send(smtp_submit1);
+	o_stream_send_str(output, test_message1);
+
+	smtp_submit_run_async(smtp_submit1, 5,
+		test_client_parallel_delivery_callback, ctx);
+
+	/* submit 2 */
+	smtp_submit_set.submission_host =
+		t_strdup_printf("127.0.0.1:%u",  bind_ports[1]);
+	smtp_submit2 = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+
+	smtp_submit_add_rcpt(smtp_submit2, "rcpt@example.com");
+	output = smtp_submit_send(smtp_submit2);
+	o_stream_send_str(output, test_message2);
+
+	smtp_submit_run_async(smtp_submit2, 5,
+		test_client_parallel_delivery_callback, ctx);
+
+	io_loop_run(ioloop);
+
+	smtp_submit_deinit(&smtp_submit1);
+	smtp_submit_deinit(&smtp_submit2);
+	io_loop_destroy(&ioloop);
+
+	/* verify delivery */
+	test_message_delivery(test_message1,
+		t_strdup_printf("%s/message-%u.eml",
+			test_tmp_dir_get(), bind_ports[0]));
+	test_message_delivery(test_message2,
+		t_strdup_printf("%s/message-%u.eml",
+			test_tmp_dir_get(), bind_ports[1]));
+
+	i_free(ctx);
+
+	return FALSE;
+}
+
 /* test */
 
 static void test_successful_delivery(void)
@@ -1436,6 +1523,13 @@ static void test_successful_delivery(void)
 	test_run_client_server(&smtp_submit_set,
 		test_client_successful_delivery,
 		test_server_successful_delivery, 1);
+	test_end();
+
+	test_begin("parallel delivery");
+	test_expect_errors(0);
+	test_run_client_server(&smtp_submit_set,
+		test_client_parallel_delivery,
+		test_server_successful_delivery, 2);
 	test_end();
 }
 
@@ -1459,14 +1553,16 @@ test_client_failed_sendmail(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set = *submit_set;
 	smtp_submit_set.sendmail_path = sendmail_path;
 
-	smtp_submit = smtp_submit_init(&smtp_submit_set, "sender@example.com");
+	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
 
 	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
-	ret = smtp_submit_deinit_timeout(smtp_submit, 5, &error);
+	ret = smtp_submit_run_timeout(smtp_submit, 5, &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
+
+	smtp_submit_deinit(&smtp_submit);
 
 	return FALSE;
 }
@@ -1509,14 +1605,16 @@ test_client_successful_sendmail(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set = *submit_set;
 	smtp_submit_set.sendmail_path = sendmail_path;
 
-	smtp_submit = smtp_submit_init(&smtp_submit_set, "sender@example.com");
+	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
 
 	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
-	ret = smtp_submit_deinit_timeout(smtp_submit, 5, &error);
+	ret = smtp_submit_run_timeout(smtp_submit, 5, &error);
 	test_out_reason("run (ret > 0)", ret > 0, error);
+
+	smtp_submit_deinit(&smtp_submit);
 
 	/* verify delivery */
 	test_message_delivery(test_message1, msg_path);
@@ -1536,6 +1634,103 @@ static void test_successful_sendmail(void)
 	test_expect_errors(0);
 	test_run_client_server(&smtp_submit_set,
 		test_client_successful_sendmail, NULL, 0);
+	test_end();
+}
+
+/*
+ * Parallel sendmail
+ */
+
+/* client */
+
+struct _parallel_sendmail_client {
+	unsigned int count;
+};
+
+static void
+test_client_parallel_sendmail_callback(const struct smtp_submit_result *result,
+	struct _parallel_sendmail_client *ctx)
+{
+	if (result->status <= 0)
+		i_error("Submit failed: %s", result->error);
+
+	if (--ctx->count == 0)
+		io_loop_stop(current_ioloop);
+}
+
+static bool
+test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
+{
+	struct smtp_submit_settings smtp_submit_set;
+	struct _parallel_sendmail_client *ctx;
+	struct smtp_submit *smtp_submit1, *smtp_submit2;
+	struct ostream *output;
+	const char *sendmail_path1, *sendmail_path2;
+	const char *msg_path1, *msg_path2;
+	struct ioloop *ioloop;
+
+	ctx = i_new(struct _parallel_sendmail_client, 1);
+	ctx->count = 2;
+
+	ioloop = io_loop_create();
+
+	msg_path1 = t_strdup_printf("%s/message1.eml", test_tmp_dir_get());
+	msg_path2 = t_strdup_printf("%s/message2.eml", test_tmp_dir_get());
+
+	sendmail_path1 = t_strdup_printf(
+		TEST_BIN_DIR"/sendmail-success.sh %s", msg_path1);
+	sendmail_path2 = t_strdup_printf(
+		TEST_BIN_DIR"/sendmail-success.sh %s", msg_path2);
+
+	smtp_submit_set = *submit_set;
+
+	/* submit 1 */
+	smtp_submit_set.sendmail_path = sendmail_path1;
+	smtp_submit1 = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+
+	smtp_submit_add_rcpt(smtp_submit1, "rcpt@example.com");
+	output = smtp_submit_send(smtp_submit1);
+	o_stream_send_str(output, test_message1);
+
+	smtp_submit_run_async(smtp_submit1, 5,
+		test_client_parallel_sendmail_callback, ctx);
+
+	/* submit 2 */
+	smtp_submit_set.sendmail_path = sendmail_path2;
+	smtp_submit2 = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
+
+	smtp_submit_add_rcpt(smtp_submit2, "rcpt@example.com");
+	output = smtp_submit_send(smtp_submit2);
+	o_stream_send_str(output, test_message2);
+
+	smtp_submit_run_async(smtp_submit2, 5,
+		test_client_parallel_sendmail_callback, ctx);
+
+	io_loop_run(ioloop);
+
+	smtp_submit_deinit(&smtp_submit1);
+	smtp_submit_deinit(&smtp_submit2);
+	io_loop_destroy(&ioloop);
+
+	/* verify delivery */
+	test_message_delivery(test_message1, msg_path1);
+	test_message_delivery(test_message2, msg_path2);
+
+	return FALSE;
+}
+
+/* test */
+
+static void test_parallel_sendmail(void)
+{
+	struct smtp_submit_settings smtp_submit_set;
+
+	test_client_defaults(&smtp_submit_set);
+
+	test_begin("parallel sendmail");
+	test_expect_errors(0);
+	test_run_client_server(&smtp_submit_set,
+		test_client_parallel_sendmail, NULL, 0);
 	test_end();
 }
 
@@ -1560,6 +1755,7 @@ static void (*const test_functions[])(void) = {
 	test_successful_delivery,
 	test_failed_sendmail,
 	test_successful_sendmail,
+	test_parallel_sendmail,
 	NULL
 };
 
@@ -1588,19 +1784,23 @@ test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 	struct smtp_submit_settings smtp_submit_set;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
+	int ret;
 
 	/* send the message */
 	smtp_submit_set = *smtp_set;
 	smtp_submit_set.submission_host = host,
 
-	smtp_submit = smtp_submit_init(&smtp_submit_set, "sender@example.com");
+	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
 
 	smtp_submit_add_rcpt(smtp_submit, "rcpt@example.com");
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, message);
 
-	return smtp_submit_deinit_timeout
-		(smtp_submit, timeout_secs, error_r);
+	ret = smtp_submit_run_timeout(smtp_submit, timeout_secs, error_r);
+
+	smtp_submit_deinit(&smtp_submit);
+
+	return ret;
 }
 
 static int

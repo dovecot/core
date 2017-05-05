@@ -21,7 +21,7 @@ smtp_client_init(const struct lda_settings *set, const char *return_path)
         smtp_set.sendmail_path = set->sendmail_path;
 
 	client = i_new(struct smtp_client, 1);
-	client->submit = smtp_submit_init(&smtp_set, return_path);
+	client->submit = smtp_submit_init_simple(&smtp_set, return_path);
 	return client;
 }
 
@@ -41,7 +41,7 @@ void smtp_client_abort(struct smtp_client **_client)
 
 	*_client = NULL;
 
-	smtp_submit_abort(&client->submit);
+	smtp_submit_deinit(&client->submit);
 	i_free(client);
 }
 
@@ -53,9 +53,11 @@ int smtp_client_deinit(struct smtp_client *client, const char **error_r)
 int smtp_client_deinit_timeout(struct smtp_client *client,
 			       unsigned int timeout_secs, const char **error_r)
 {
-	int  ret;
+	int ret;
 
-	ret = smtp_submit_deinit_timeout(client->submit, timeout_secs, error_r);
+	ret = smtp_submit_run_timeout(client->submit, timeout_secs, error_r);
+	smtp_submit_deinit(&client->submit);
 	i_free(client);
+
 	return ret;
 }

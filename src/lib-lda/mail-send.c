@@ -87,7 +87,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	smtp_set.submission_host = ctx->set->submission_host;
 	smtp_set.sendmail_path = ctx->set->sendmail_path;
 
-	smtp_submit = smtp_submit_init(&smtp_set, NULL);
+	smtp_submit = smtp_submit_init_simple(&smtp_set, NULL);
 	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);
 
@@ -187,7 +187,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	str_truncate(str, 0);
 	str_printfa(str, "\r\n\r\n--%s--\r\n", boundary);
 	o_stream_nsend(output, str_data(str), str_len(str));
-	if ((ret = smtp_submit_deinit_timeout
+	if ((ret = smtp_submit_run_timeout
 		(smtp_submit, ctx->timeout_secs, &error)) < 0) {
 		i_error("msgid=%s: Temporarily failed to send rejection: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
@@ -197,5 +197,6 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 			str_sanitize(error, 512));
 	}
+	smtp_submit_deinit(&smtp_submit);
 	return ret < 0 ? -1 : 0;
 }
