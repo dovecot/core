@@ -46,7 +46,7 @@ struct server_connection {
 
 typedef void (*test_server_init_t)(unsigned int index);
 typedef bool (*test_client_init_t)
-	(const struct lda_settings *submit_set);
+	(const struct smtp_submit_settings *submit_set);
 
 /*
  * State
@@ -84,15 +84,15 @@ server_connection_deinit(struct server_connection **_conn);
 
 /* client */
 static void
-test_client_defaults(struct lda_settings *smtp_set);
+test_client_defaults(struct smtp_submit_settings *smtp_set);
 static void test_client_deinit(void);
 
 static int
-test_client_smtp_send_simple(const struct lda_settings *smtp_set,
+test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 	const char *message, const char *host,
 	unsigned int timeout_secs, const char **error_r);
 static int
-test_client_smtp_send_simple_port(const struct lda_settings *smtp_set,
+test_client_smtp_send_simple_port(const struct smtp_submit_settings *smtp_set,
 	const char *message, unsigned int port,
 	unsigned int timeout_secs, const char **error_r);
 
@@ -103,7 +103,7 @@ static void
 test_message_delivery(const char *message, const char *file);
 
 static void test_run_client_server(
-	const struct lda_settings *submit_set,
+	const struct smtp_submit_settings *submit_set,
 	test_client_init_t client_test,
 	test_server_init_t server_test,
 	unsigned int server_tests_count)
@@ -116,7 +116,7 @@ static void test_run_client_server(
 /* client */
 
 static bool
-test_client_host_lookup_failed(const struct lda_settings *submit_set)
+test_client_host_lookup_failed(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -132,7 +132,7 @@ test_client_host_lookup_failed(const struct lda_settings *submit_set)
 
 static void test_host_lookup_failed(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -159,7 +159,7 @@ test_server_connection_refused(unsigned int index ATTR_UNUSED)
 /* client */
 
 static bool
-test_client_connection_refused(const struct lda_settings *submit_set)
+test_client_connection_refused(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -175,7 +175,7 @@ test_client_connection_refused(const struct lda_settings *submit_set)
 
 static void test_connection_refused(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -208,7 +208,7 @@ static void test_server_connection_timed_out(unsigned int index)
 /* client */
 
 static bool
-test_client_connection_timed_out(const struct lda_settings *submit_set)
+test_client_connection_timed_out(const struct smtp_submit_settings *submit_set)
 {
 	time_t time;
 	const char *error = NULL;
@@ -230,7 +230,7 @@ test_client_connection_timed_out(const struct lda_settings *submit_set)
 
 static void test_connection_timed_out(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -271,7 +271,7 @@ static void test_server_bad_greeting(unsigned int index)
 /* client */
 
 static bool
-test_client_bad_greeting(const struct lda_settings *submit_set)
+test_client_bad_greeting(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -289,7 +289,7 @@ test_client_bad_greeting(const struct lda_settings *submit_set)
 
 static void test_bad_greeting(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -341,7 +341,7 @@ static void test_server_denied_helo(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_helo(const struct lda_settings *submit_set)
+test_client_denied_helo(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -359,7 +359,7 @@ test_client_denied_helo(const struct lda_settings *submit_set)
 
 static void test_denied_helo(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -409,7 +409,7 @@ static void test_server_disconnect_helo(unsigned int index)
 /* client */
 
 static bool
-test_client_disconnect_helo(const struct lda_settings *submit_set)
+test_client_disconnect_helo(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -427,7 +427,7 @@ test_client_disconnect_helo(const struct lda_settings *submit_set)
 
 static void test_disconnect_helo(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -513,7 +513,7 @@ static void test_server_denied_mail(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_mail(const struct lda_settings *submit_set)
+test_client_denied_mail(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -531,7 +531,7 @@ test_client_denied_mail(const struct lda_settings *submit_set)
 
 static void test_denied_mail(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -623,7 +623,7 @@ static void test_server_denied_rcpt(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_rcpt(const struct lda_settings *submit_set)
+test_client_denied_rcpt(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -639,7 +639,7 @@ test_client_denied_rcpt(const struct lda_settings *submit_set)
 
 static void test_denied_rcpt(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -737,10 +737,10 @@ static void test_server_denied_second_rcpt(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_second_rcpt(const struct lda_settings *submit_set)
+test_client_denied_second_rcpt(const struct smtp_submit_settings *submit_set)
 {
 	struct smtp_submit *smtp_submit;
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 	struct ostream *output;
 	const char *error = NULL;
 	int ret;
@@ -766,7 +766,7 @@ test_client_denied_second_rcpt(const struct lda_settings *submit_set)
 
 static void test_denied_second_rcpt(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -864,7 +864,7 @@ static void test_server_denied_data(unsigned int index)
 /* client */
 
 static bool
-test_client_denied_data(const struct lda_settings *submit_set)
+test_client_denied_data(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -880,7 +880,7 @@ test_client_denied_data(const struct lda_settings *submit_set)
 
 static void test_denied_data(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -987,7 +987,7 @@ static void test_server_data_failure(unsigned int index)
 /* client */
 
 static bool
-test_client_data_failure(const struct lda_settings *submit_set)
+test_client_data_failure(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -1003,7 +1003,7 @@ test_client_data_failure(const struct lda_settings *submit_set)
 
 static void test_data_failure(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -1105,7 +1105,7 @@ static void test_server_data_disconnect(unsigned int index)
 /* client */
 
 static bool
-test_client_data_disconnect(const struct lda_settings *submit_set)
+test_client_data_disconnect(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -1121,7 +1121,7 @@ test_client_data_disconnect(const struct lda_settings *submit_set)
 
 static void test_data_disconnect(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -1224,7 +1224,7 @@ static void test_server_data_timout(unsigned int index)
 /* client */
 
 static bool
-test_client_data_timout(const struct lda_settings *submit_set)
+test_client_data_timout(const struct smtp_submit_settings *submit_set)
 {
 	time_t time;
 	const char *error = NULL;
@@ -1246,7 +1246,7 @@ test_client_data_timout(const struct lda_settings *submit_set)
 
 static void test_data_timeout(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -1406,7 +1406,7 @@ static void test_server_successful_delivery(unsigned int index)
 /* client */
 
 static bool
-test_client_successful_delivery(const struct lda_settings *submit_set)
+test_client_successful_delivery(const struct smtp_submit_settings *submit_set)
 {
 	const char *error = NULL;
 	int ret;
@@ -1428,7 +1428,7 @@ test_client_successful_delivery(const struct lda_settings *submit_set)
 
 static void test_successful_delivery(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -1447,9 +1447,9 @@ static void test_successful_delivery(void)
 /* client */
 
 static bool
-test_client_failed_sendmail(const struct lda_settings *submit_set)
+test_client_failed_sendmail(const struct smtp_submit_settings *submit_set)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
 	const char *sendmail_path, *error = NULL;
@@ -1476,7 +1476,7 @@ test_client_failed_sendmail(const struct lda_settings *submit_set)
 
 static void test_failed_sendmail(void)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
 
@@ -1494,9 +1494,9 @@ static void test_failed_sendmail(void)
 /* client */
 
 static bool
-test_client_successful_sendmail(const struct lda_settings *submit_set)
+test_client_successful_sendmail(const struct smtp_submit_settings *submit_set)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
 	const char *sendmail_path, *msg_path, *error = NULL;
@@ -1529,13 +1529,13 @@ test_client_successful_sendmail(const struct lda_settings *submit_set)
 
 static void test_successful_sendmail(void)
 {
-	struct lda_settings smtp_client_set;
+	struct smtp_submit_settings smtp_submit_set;
 
-	test_client_defaults(&smtp_client_set);
+	test_client_defaults(&smtp_submit_set);
 
 	test_begin("successful sendmail");
 	test_expect_errors(0);
-	test_run_client_server(&smtp_client_set,
+	test_run_client_server(&smtp_submit_set,
 		test_client_successful_sendmail, NULL, 0);
 	test_end();
 }
@@ -1569,7 +1569,7 @@ static void (*const test_functions[])(void) = {
  */
 
 static void
-test_client_defaults(struct lda_settings *smtp_set)
+test_client_defaults(struct smtp_submit_settings *smtp_set)
 {
 	i_zero(smtp_set);
 	smtp_set->hostname = "test";
@@ -1582,11 +1582,11 @@ static void test_client_deinit(void)
 }
 
 static int
-test_client_smtp_send_simple(const struct lda_settings *smtp_set,
+test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 	const char *message, const char *host,
 	unsigned int timeout_secs, const char **error_r)
 {
-	struct lda_settings smtp_submit_set;
+	struct smtp_submit_settings smtp_submit_set;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
 
@@ -1605,7 +1605,7 @@ test_client_smtp_send_simple(const struct lda_settings *smtp_set,
 }
 
 static int
-test_client_smtp_send_simple_port(const struct lda_settings *smtp_set,
+test_client_smtp_send_simple_port(const struct smtp_submit_settings *smtp_set,
 	const char *message, unsigned int port,
 	unsigned int timeout_secs, const char **error_r)
 {
@@ -1815,7 +1815,7 @@ test_message_delivery(const char *message, const char *file)
 }
 
 static void test_run_client_server(
-	const struct lda_settings *submit_set,
+	const struct smtp_submit_settings *submit_set,
 	test_client_init_t client_test,
 	test_server_init_t server_test,
 	unsigned int server_tests_count)

@@ -47,6 +47,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 {
 	struct mail *mail = ctx->src_mail;
 	struct istream *input;
+	struct smtp_submit_settings smtp_set;
 	struct smtp_submit *smtp_submit;
 	struct ostream *output;
 	const char *return_addr, *hdr;
@@ -81,7 +82,12 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 
 	vtable = get_var_expand_table(mail, reason, recipient);
 
-	smtp_submit = smtp_submit_init(ctx->set, NULL);
+	i_zero(&smtp_set);
+	smtp_set.hostname = ctx->set->hostname;
+	smtp_set.submission_host = ctx->set->submission_host;
+	smtp_set.sendmail_path = ctx->set->sendmail_path;
+
+	smtp_submit = smtp_submit_init(&smtp_set, NULL);
 	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);
 

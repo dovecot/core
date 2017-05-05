@@ -12,10 +12,16 @@ struct smtp_client {
 struct smtp_client *
 smtp_client_init(const struct lda_settings *set, const char *return_path)
 {
+	struct smtp_submit_settings smtp_set;
 	struct smtp_client *client;
 
+        i_zero(&smtp_set);
+        smtp_set.hostname = set->hostname;
+        smtp_set.submission_host = set->submission_host;
+        smtp_set.sendmail_path = set->sendmail_path;
+
 	client = i_new(struct smtp_client, 1);
-	client->submit = smtp_submit_init(set, return_path);
+	client->submit = smtp_submit_init(&smtp_set, return_path);
 	return client;
 }
 

@@ -1,8 +1,15 @@
 #ifndef SMTP_SUBMIT_H
 #define SMTP_SUBMIT_H
 
+struct smtp_submit_settings {
+	const char *hostname;
+	const char *submission_host;
+	const char *sendmail_path;
+};
+
 struct smtp_submit * ATTR_NULL(3)
-smtp_submit_init(const struct lda_settings *set, const char *return_path);
+smtp_submit_init(const struct smtp_submit_settings *set,
+	const char *return_path);
 /* Add a new recipient */
 void smtp_submit_add_rcpt(struct smtp_submit *subm, const char *address);
 /* Get an output stream where the message can be written to. The recipients

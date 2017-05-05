@@ -8,10 +8,8 @@
 #include "ostream.h"
 #include "iostream-temp.h"
 #include "master-service.h"
-#include "lmtp-client.h"
-#include "lda-settings.h"
-#include "mail-deliver.h"
 #include "program-client.h"
+#include "lmtp-client.h"
 #include "smtp-submit.h"
 
 #include <unistd.h>
@@ -26,7 +24,7 @@ struct smtp_submit {
 	struct ostream *output;
 	struct istream *input;
 
-	const struct lda_settings *set;
+	struct smtp_submit_settings set;
 	ARRAY_TYPE(const_string) destinations;
 	const char *return_path;
 	const char *error;
@@ -37,7 +35,7 @@ struct smtp_submit {
 };
 
 struct smtp_submit *
-smtp_submit_init(const struct lda_settings *set, const char *return_path)
+smtp_submit_init(const struct smtp_submit_settings *set, const char *return_path)
 {
 	struct smtp_submit *subm;
 	pool_t pool;
@@ -45,7 +43,11 @@ smtp_submit_init(const struct lda_settings *set, const char *return_path)
 	pool = pool_alloconly_create("smtp submit", 256);
 	subm = p_new(pool, struct smtp_submit, 1);
 	subm->pool = pool;
-	subm->set = set;
+
+	subm->set.hostname = p_strdup_empty(pool, set->hostname);
+	subm->set.submission_host = p_strdup_empty(pool, set->submission_host);
+	subm->set.sendmail_path = p_strdup_empty(pool, set->sendmail_path);
+
 	subm->return_path = p_strdup(pool, return_path);
 	p_array_init(&subm->destinations, pool, 2);
 	return subm;
@@ -87,7 +89,7 @@ smtp_submit_error(struct smtp_submit *subm,
 		subm->tempfail = tempfail;
 		subm->error = p_strdup_printf(subm->pool,
 			"smtp(%s): %s",
-			subm->set->submission_host, error);
+			subm->set.submission_host, error);
 	}
 }
 
@@ -127,7 +129,7 @@ smtp_submit_send_host(struct smtp_submit *subm,
 	const char *host, *const *destp;
 	in_port_t port;
 
-	if (net_str2hostport(subm->set->submission_host,
+	if (net_str2hostport(subm->set.submission_host,
 			     DEFAULT_SUBMISSION_PORT, &host, &port) < 0) {
 		*error_r = t_strdup_printf(
 			"Invalid submission_host: %s", host);
@@ -137,7 +139,7 @@ smtp_submit_send_host(struct smtp_submit *subm,
 	i_zero(&client_set);
 	client_set.mail_from = subm->return_path == NULL ? "<>" :
 		t_strconcat("<", subm->return_path, ">", NULL);
-	client_set.my_hostname = subm->set->hostname;
+	client_set.my_hostname = subm->set.hostname;
 	client_set.timeout_secs = timeout_secs;
 
 	ioloop = io_loop_create();
@@ -190,7 +192,7 @@ smtp_submit_send_sendmail(struct smtp_submit *subm,
 	struct program_client *pc;
 	int ret;
 
-	sendmail_args = t_strsplit(subm->set->sendmail_path, " ");
+	sendmail_args = t_strsplit(subm->set.sendmail_path, " ");
 	t_array_init(&args, 16);
 	i_assert(sendmail_args[0] != NULL);
 	sendmail_bin = sendmail_args[0];
@@ -262,7 +264,7 @@ int smtp_submit_deinit_timeout(struct smtp_submit *subm,
 	subm->input = iostream_temp_finish
 		(&subm->output, IO_BLOCK_SIZE);
 
-	if (*subm->set->submission_host != '\0') {
+	if (subm->set.submission_host != NULL) {
 		ret = smtp_submit_send_host
 			(subm, timeout_secs, error_r);
 	} else {
