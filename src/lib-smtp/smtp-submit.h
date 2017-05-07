@@ -3,6 +3,7 @@
 
 #include "smtp-submit-settings.h"
 
+struct ssl_iostream_settings;
 struct smtp_address;
 struct smtp_submit_settings;
 struct smtp_submit_session;
@@ -24,7 +25,8 @@ smtp_submit_callback_t(const struct smtp_submit_result *result,
 /* Use submit session to reuse resources (e.g. SMTP connections) between
    submissions (FIXME: actually implement this) */
 struct smtp_submit_session *
-smtp_submit_session_init(const struct smtp_submit_settings *set);
+smtp_submit_session_init(const struct smtp_submit_settings *set,
+			 const struct ssl_iostream_settings *ssl_set) ATTR_NULL(2);
 void smtp_submit_session_deinit(struct smtp_submit_session **_session);
 
 struct smtp_submit *
@@ -32,7 +34,8 @@ smtp_submit_init(struct smtp_submit_session *session,
 		 const struct smtp_address *mail_from);
 struct smtp_submit *
 smtp_submit_init_simple(const struct smtp_submit_settings *set,
-			const struct smtp_address *mail_from);
+			const struct ssl_iostream_settings *ssl_set,
+			const struct smtp_address *mail_from) ATTR_NULL(2);
 void smtp_submit_deinit(struct smtp_submit **_submit);
 
 /* Add a new recipient */

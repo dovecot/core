@@ -7,6 +7,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-temp.h"
+#include "iostream-ssl.h"
 #include "master-service.h"
 #include "program-client.h"
 #include "smtp-client.h"
@@ -24,6 +25,7 @@
 struct smtp_submit_session {
 	pool_t pool;
 	struct smtp_submit_settings set;
+	struct ssl_iostream_settings ssl_set;
 };
 
 struct smtp_submit {
@@ -52,7 +54,8 @@ struct smtp_submit {
 };
 
 struct smtp_submit_session *
-smtp_submit_session_init(const struct smtp_submit_settings *set)
+smtp_submit_session_init(const struct smtp_submit_settings *set,
+			 const struct ssl_iostream_settings *ssl_set)
 {
 	struct smtp_submit_session *session;
 	pool_t pool;
@@ -62,9 +65,18 @@ smtp_submit_session_init(const struct smtp_submit_settings *set)
 	session->pool = pool;
 
 	session->set = *set;
-	session->set.hostname = p_strdup_empty(pool, set->hostname);
-	session->set.submission_host = p_strdup_empty(pool, set->submission_host);
-	session->set.sendmail_path = p_strdup_empty(pool, set->sendmail_path);
+	session->set.hostname =
+		p_strdup_empty(pool, set->hostname);
+	session->set.submission_host =
+		p_strdup_empty(pool, set->submission_host);
+	session->set.sendmail_path =
+		p_strdup_empty(pool, set->sendmail_path);
+	session->set.submission_ssl =
+		p_strdup_empty(pool, set->submission_ssl);
+
+	if (ssl_set != NULL)
+		ssl_iostream_settings_init_from(pool, &session->ssl_set, ssl_set);
+
 	return session;
 }
 
@@ -96,12 +108,13 @@ smtp_submit_init(struct smtp_submit_session *session,
 
 struct smtp_submit *
 smtp_submit_init_simple(const struct smtp_submit_settings *set,
+			const struct ssl_iostream_settings *ssl_set,
 			const struct smtp_address *mail_from)
 {
 	struct smtp_submit_session *session;
 	struct smtp_submit *subm;
 
-	session = smtp_submit_session_init(set);
+	session = smtp_submit_session_init(set, ssl_set);
 	subm = smtp_submit_init(session, mail_from);
 	subm->simple = TRUE;
 	return subm;
@@ -270,6 +283,7 @@ smtp_submit_send_host(struct smtp_submit *subm)
 	struct smtp_client *smtp_client;
 	struct smtp_client_connection *smtp_conn;
 	struct smtp_client_transaction *smtp_trans;
+	enum smtp_client_connection_ssl_mode ssl_mode;
 	struct smtp_address *const *rcptp;
 	const char *host;
 	in_port_t port;
@@ -286,11 +300,20 @@ smtp_submit_send_host(struct smtp_submit *subm)
 	smtp_set.connect_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.command_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.debug = set->mail_debug;
+	smtp_set.ssl = &subm->session->ssl_set;
+
+	ssl_mode = SMTP_CLIENT_SSL_MODE_NONE;
+	if (set->submission_ssl != NULL) {
+		if (strcasecmp(set->submission_ssl, "smtps") == 0 ||
+			strcasecmp(set->submission_ssl, "submissions") == 0)
+			ssl_mode = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
+		else if (strcasecmp(set->submission_ssl, "starttls") == 0)
+			ssl_mode = SMTP_CLIENT_SSL_MODE_STARTTLS;
+	}
 
 	smtp_client = smtp_client_init(&smtp_set);
 	smtp_conn = smtp_client_connection_create(smtp_client,
-		  SMTP_PROTOCOL_SMTP, host, port,
-		  SMTP_CLIENT_SSL_MODE_NONE, NULL);
+		  SMTP_PROTOCOL_SMTP, host, port, ssl_mode, NULL);
 
 	smtp_trans = smtp_client_transaction_create(smtp_conn,
 		subm->mail_from, NULL, smtp_submit_send_host_finished, subm);

@@ -24,6 +24,8 @@ static const struct setting_define smtp_submit_setting_defines[] = {
 	DEF(SET_STR_VARS, sendmail_path),
 	DEF(SET_TIME, submission_timeout),
 
+	DEF(SET_ENUM, submission_ssl),
+
 	SETTING_DEFINE_LIST_END
 };
 
@@ -34,6 +36,8 @@ static const struct smtp_submit_settings smtp_submit_default_settings = {
 	.submission_host = "",
 	.sendmail_path = "/usr/sbin/sendmail",
 	.submission_timeout = 30,
+
+	.submission_ssl = "no:smtps:submissions:starttls",
 };
 
 const struct setting_parser_info smtp_submit_setting_parser_info = {

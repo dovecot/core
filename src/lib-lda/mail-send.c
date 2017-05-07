@@ -89,7 +89,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 
 	vtable = get_var_expand_table(mail, recipient, reason);
 
-	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, NULL);
+	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, NULL, NULL);
 	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);
 
