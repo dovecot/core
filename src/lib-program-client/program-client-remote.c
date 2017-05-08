@@ -4,6 +4,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "strescape.h"
 #include "net.h"
 #include "write-full.h"
 #include "eacces-error.h"
@@ -236,7 +237,7 @@ void program_client_remote_connected(struct program_client *pclient)
 		str_append(str, "-\n");
 	if (args != NULL) {
 		for(; *args != NULL; args++) {
-			str_append(str, *args);
+			str_append_tabescaped(str, *args);
 			str_append_c(str, '\n');
 		}
 	}
