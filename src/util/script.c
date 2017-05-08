@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "env-util.h"
 #include "execv-const.h"
 #include "write-full.h"
@@ -51,8 +52,10 @@ exec_child(struct master_service_connection *conn, const char *const *args)
 	if (close(conn->fd) < 0)
 		i_error("close(conn->fd) failed: %m");
 
-	for (; *args != NULL; args++)
-		array_append(&exec_args, args, 1);
+	for (; *args != NULL; args++) {
+		const char *arg = t_str_tabunescape(*args);
+		array_append(&exec_args, &arg, 1);
+	}
 	array_append_zero(&exec_args);
 
 	env_clean();
