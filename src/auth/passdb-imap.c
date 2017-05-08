@@ -187,6 +187,11 @@ passdb_imap_preinit(pool_t pool, const char *args)
 		}
 	}
 
+	if (module->set.ssl_verify == TRUE && module->set.ssl_mode != IMAPC_CLIENT_SSL_MODE_NONE ) {
+		if (module->set.ssl_ca_dir == NULL && module->set.ssl_ca_file == NULL)
+			i_fatal("passdb imap: Cannot verify certificate without ssl_ca_dir or ssl_ca_file setting");
+	}
+
 	if (module->set.host == NULL)
 		i_fatal("passdb imap: Missing host parameter");
 
