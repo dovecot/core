@@ -18,7 +18,7 @@
 #include <sys/wait.h>
 #include <sysexits.h>
 
-#define PROGRAM_CLIENT_VERSION_MAJOR "3"
+#define PROGRAM_CLIENT_VERSION_MAJOR "4"
 #define PROGRAM_CLIENT_VERSION_MINOR "0"
 
 #define PROGRAM_CLIENT_VERSION_STRING "VERSION\tscript\t" \

@@ -16,7 +16,7 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 
-#define SCRIPT_MAJOR_VERSION 3
+#define SCRIPT_MAJOR_VERSION 4
 #define SCRIPT_READ_TIMEOUT_SECS 10
 
 static ARRAY_TYPE(const_string) exec_args;
