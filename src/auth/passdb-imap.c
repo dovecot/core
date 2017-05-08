@@ -99,7 +99,8 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 	set.max_idle_time = IMAPC_DEFAULT_MAX_IDLE_TIME;
 	if (set.ssl_ca_dir == NULL)
 		set.ssl_ca_dir = auth_request->set->ssl_client_ca_dir;
-	set.ssl_ca_file = auth_request->set->ssl_client_ca_file;
+	if (set.ssl_ca_file == NULL)
+		set.ssl_ca_file = auth_request->set->ssl_client_ca_file;
 
 	if (module->set_have_vars) {
 		str = t_str_new(128);
@@ -170,6 +171,8 @@ passdb_imap_preinit(pool_t pool, const char *args)
 			module->set.username = value;
 		else if (strcmp(key, "ssl_ca_dir") == 0)
 			module->set.ssl_ca_dir = value;
+		else if (strcmp(key, "ssl_ca_file") == 0)
+			module->set.ssl_ca_file = value;
 		else if (strcmp(key, "rawlog_dir") == 0)
 			module->set.rawlog_dir = value;
 		else if (strcmp(key, "ssl") == 0) {
