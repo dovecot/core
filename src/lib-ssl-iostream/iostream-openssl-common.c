@@ -1,11 +1,13 @@
 /* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "net.h"
 #include "str.h"
 #include "iostream-openssl.h"
 
 #include <openssl/x509v3.h>
 #include <openssl/err.h>
+#include <arpa/inet.h>
 
 enum {
 	DOVECOT_SSL_PROTO_SSLv2		= 0x01,
@@ -101,6 +103,23 @@ static const char *get_general_dns_name(const GENERAL_NAME *name)
 	return asn1_string_to_c(name->d.ia5);
 }
 
+static int get_general_ip_addr(const GENERAL_NAME *name, struct ip_addr *ip_r)
+{
+	if (ASN1_STRING_type(name->d.ip) != V_ASN1_OCTET_STRING)
+		return 0;
+	const unsigned char *data = ASN1_STRING_get0_data(name->d.ip);
+
+	if (name->d.ip->length == sizeof(ip_r->u.ip4.s_addr)) {
+		ip_r->family = AF_INET;
+		memcpy(&ip_r->u.ip4.s_addr, data, sizeof(ip_r->u.ip4.s_addr));
+	} else if (name->d.ip->length == sizeof(ip_r->u.ip6.s6_addr)) {
+		ip_r->family = AF_INET6;
+		memcpy(ip_r->u.ip6.s6_addr, data, sizeof(ip_r->u.ip6.s6_addr));
+	} else
+		return -1;
+	return 0;
+}
+
 static const char *get_cname(X509 *cert)
 {
 	X509_NAME *name;
@@ -140,6 +159,7 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 	X509 *cert;
 	STACK_OF(GENERAL_NAME) *gnames;
 	const GENERAL_NAME *gn;
+	struct ip_addr ip;
 	const char *dnsname;
 	bool dns_names = FALSE;
 	unsigned int i, count;
@@ -151,12 +171,30 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 	/* verify against SubjectAltNames */
 	gnames = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
 	count = gnames == NULL ? 0 : sk_GENERAL_NAME_num(gnames);
+
+	i_zero(&ip);
+	/* try to convert verify_name to IP */
+	if (inet_pton(AF_INET6, verify_name, &ip.u.ip6) == 1)
+		ip.family = AF_INET6;
+	else if (inet_pton(AF_INET, verify_name, &ip.u.ip4) == 1)
+		ip.family = AF_INET;
+	else
+		i_zero(&ip);
+
 	for (i = 0; i < count; i++) {
 		gn = sk_GENERAL_NAME_value(gnames, i);
+
 		if (gn->type == GEN_DNS) {
 			dns_names = TRUE;
 			dnsname = get_general_dns_name(gn);
 			if (openssl_hostname_equals(dnsname, verify_name))
+				break;
+		} else if (gn->type == GEN_IPADD) {
+			struct ip_addr ip_2;
+			i_zero(&ip_2);
+			dns_names = TRUE;
+			if (get_general_ip_addr(gn, &ip_2) == 0 &&
+			    net_ip_compare(&ip, &ip_2))
 				break;
 		}
 	}
