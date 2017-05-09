@@ -808,9 +808,8 @@ int index_mail_get_headers(struct mail *_mail, const char *field,
 		} T_END;
 
 		if (ret < 0 && retry) {
-			mail_cache_set_corrupted(_mail->box->cache,
-				"Broken header %s for mail UID %u",
-				field, _mail->uid);
+			mail_set_mail_cache_corrupted(_mail, "Broken header %s",
+						      field);
 		} else {
 			break;
 		}
@@ -844,9 +843,8 @@ int index_mail_get_first_header(struct mail *_mail, const char *field,
 		} T_END;
 
 		if (ret < 0 && retry) {
-			mail_cache_set_corrupted(_mail->box->cache,
-				"Broken header %s for mail UID %u",
-				field, _mail->uid);
+			mail_set_mail_cache_corrupted(_mail, "Broken header %s",
+						      field);
 			/* retry by parsing the full header */
 		} else {
 			break;

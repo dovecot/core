@@ -738,6 +738,8 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 				  struct mailbox_list *list);
 void mail_storage_copy_error(struct mail_storage *dest,
 			     struct mail_storage *src);
+/* set record in mail cache corrupted */
+void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...);
 
 /* Indicate mail being expunged by autoexpunge */
 void mail_autoexpunge(struct mail *mail);
