@@ -106,7 +106,7 @@ static struct message_part *get_unserialized_parts(struct index_mail *mail)
 	parts = message_part_deserialize(mail->mail.data_pool, part_buf->data,
 					 part_buf->used, &error);
 	if (parts == NULL) {
-		mail_cache_set_corrupted(mail->mail.mail.box->cache,
+		mail_set_mail_cache_corrupted(&mail->mail.mail,
 			"Corrupted cached mime.parts data: %s (parts=%s)",
 			error, binary_to_hex(part_buf->data, part_buf->used));
 	}
@@ -2344,13 +2344,13 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	imail->data.no_caching = TRUE;
 	imail->data.forced_no_caching = TRUE;
 	if (reason[0] == '\0') {
-		mail_cache_set_corrupted(mail->box->cache,
-			"Broken %s for mail UID %u in mailbox %s",
-			field_name, mail->uid, mail->box->vname);
+		mail_set_mail_cache_corrupted(mail,
+			"Broken %s in mailbox %s",
+			field_name, mail->box->vname);
 	} else {
-		mail_cache_set_corrupted(mail->box->cache,
-			"Broken %s for mail UID %u in mailbox %s: %s",
-			field_name, mail->uid, mail->box->vname, reason);
+		mail_set_mail_cache_corrupted(mail,
+			"Broken %s in mailbox %s: %s",
+			field_name, mail->box->vname, reason);
 	}
 	mail_storage_set_internal_error(mail->box->storage);
 }

@@ -346,17 +346,15 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 		   including to the uidlist if it's already in filename.
 		   do some extra checks here to catch potential cache bugs. */
 		if (vsize && mail->data.virtual_size != size) {
-			mail_cache_set_corrupted(box->cache,
-				"Corrupted virtual size for uid=%u: "
+			mail_set_mail_cache_corrupted(&mail->mail.mail,
+				"Corrupted virtual size: "
 				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
-				mail->mail.mail.uid,
 				mail->data.virtual_size, size);
 			mail->data.virtual_size = size;
 		} else if (!vsize && mail->data.physical_size != size) {
-			mail_cache_set_corrupted(box->cache,
-				"Corrupted physical size for uid=%u: "
+			mail_set_mail_cache_corrupted(&mail->mail.mail,
+				"Corrupted physical size: "
 				"%"PRIuUOFF_T" != %"PRIuUOFF_T,
-				mail->mail.mail.uid,
 				mail->data.physical_size, size);
 			mail->data.physical_size = size;
 		}

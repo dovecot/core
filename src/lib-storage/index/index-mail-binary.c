@@ -455,7 +455,7 @@ static bool get_cached_binary_parts(struct index_mail *mail)
 	if (message_binary_part_deserialize(mail->mail.data_pool,
 					    part_buf->data, part_buf->used,
 					    &mail->data.bin_parts) < 0) {
-		mail_cache_set_corrupted(mail->mail.mail.box->cache,
+		mail_set_mail_cache_corrupted(&mail->mail.mail,
 			"Corrupted cached binary.parts data");
 		return FALSE;
 	}

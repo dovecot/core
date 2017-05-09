@@ -2732,3 +2732,23 @@ int mail_parse_human_timestamp(const char *str, time_t *timestamp_r,
 		return -1;
 	}
 }
+
+void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...)
+{
+	struct mail_cache_view *cache_view =
+		mail->transaction->cache_view;
+
+	i_assert(cache_view != NULL);
+
+	va_list va;
+	va_start(va, fmt);
+
+	T_BEGIN {
+		mail_cache_set_seq_corrupted_reason(cache_view, mail->uid,
+			t_strdup_printf("UID %u: %s",
+					mail->uid,
+					t_strdup_vprintf(fmt, va)));
+	} T_END;
+
+	va_end(va);
+}
