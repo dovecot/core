@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "strescape.h"
+#include "array.h"
 #include "net.h"
 #include "write-full.h"
 #include "eacces-error.h"
@@ -215,6 +216,14 @@ void program_client_remote_connected(struct program_client *pclient)
 
 	str = t_str_new(1024);
 	str_append(str, PROGRAM_CLIENT_VERSION_STRING);
+	if (array_is_created(&pclient->envs)) {
+		const char *const *env;
+		array_foreach(&pclient->envs, env) {
+			str_append(str, "env_");
+			str_append_tabescaped(str, *env);
+			str_append_c(str, '\n');
+		}
+	}
 	if (prclient->noreply)
 		str_append(str, "noreply\n");
 	else

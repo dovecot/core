@@ -20,6 +20,7 @@
 #define SCRIPT_READ_TIMEOUT_SECS 10
 
 static ARRAY_TYPE(const_string) exec_args;
+static const char **accepted_envs;
 
 static void script_verify_version(const char *line)
 {
@@ -32,7 +33,8 @@ static void script_verify_version(const char *line)
 
 
 static void
-exec_child(struct master_service_connection *conn, const char *const *args)
+exec_child(struct master_service_connection *conn,
+	const char *const *args, const char *const *envs)
 {
 	unsigned int i, socket_count;
 
@@ -59,17 +61,23 @@ exec_child(struct master_service_connection *conn, const char *const *args)
 	array_append_zero(&exec_args);
 
 	env_clean();
+	if (envs != NULL) {
+		for(; *envs != NULL; envs++)
+			env_put(*envs);
+        }
+
 	args = array_idx(&exec_args, 0);
 	execvp_const(args[0], args);
 }
 
 static bool client_exec_script(struct master_service_connection *conn)
 {
+	ARRAY_TYPE(const_string) envs;
 	const char *const *args;
 	string_t *input;
 	void *buf;
 	size_t prev_size, scanpos;
-	bool header_complete = FALSE;
+	bool header_complete = FALSE, noreply = FALSE;
 	ssize_t ret;
 	int status;
 	pid_t pid;
@@ -144,7 +152,10 @@ static bool client_exec_script(struct master_service_connection *conn)
 
 	args = t_strsplit(str_c(input), "\n");
 	script_verify_version(*args); args++;
+	t_array_init(&envs, 16);
 	if (*args != NULL) {
+		const char *p;
+
 		if (strncmp(*args, "alarm=", 6) == 0) {
 			unsigned int seconds;
 			if (str_to_uint(*args + 6, &seconds) < 0)
@@ -152,14 +163,32 @@ static bool client_exec_script(struct master_service_connection *conn)
 			alarm(seconds);
 			args++;
 		}
+		while (strncmp(*args, "env_", 4) == 0) {
+			const char *envname, *env;
+
+			env = t_str_tabunescape(*args+4);
+			p = strchr(env, '=');
+			if (p == NULL)
+				i_fatal("invalid environment variable");
+			envname = t_strdup_until(*args+4, p);
+
+			if (str_array_find(accepted_envs, envname))
+				array_append(&envs, &env, 1);
+			args++;
+		}
 		if (strcmp(*args, "noreply") == 0) {
-			/* no need to fork and check exit status */
-			exec_child(conn, args + 1);
-			i_unreached();
+			noreply = TRUE;
 		}
 		if (**args == '\0')
 			i_fatal("empty options");
 		args++;
+	}
+	array_append_zero(&envs);
+
+	if (noreply) {
+		/* no need to fork and check exit status */
+		exec_child(conn, args, array_idx(&envs, 0));
+		i_unreached();
 	}
 
 	if ((pid = fork()) == (pid_t)-1) {
@@ -169,7 +198,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 
 	if (pid == 0) {
 		/* child */
-		exec_child(conn, args);
+		exec_child(conn, args, array_idx(&envs, 0));
 		i_unreached();
 	}
 
@@ -210,14 +239,32 @@ static void client_connected(struct master_service_connection *conn)
 
 int main(int argc, char *argv[])
 {
+	ARRAY_TYPE(const_string) aenvs;
 	const char *binary;
-	int i;
+	const char *const *envs;
+	int c, i;
 
-	master_service = master_service_init("script", 0, &argc, &argv, "+");
-	if (master_getopt(master_service) > 0)
-		return FATAL_DEFAULT;
+	master_service = master_service_init("script", 0, &argc, &argv, "+e:");
+
+	t_array_init(&aenvs, 16);
+	while ((c = master_getopt(master_service)) > 0) {
+		switch (c) {
+		case 'e':
+			envs = t_strsplit_spaces(optarg,", \t");
+			while (*envs != NULL) {
+				array_append(&aenvs, envs, 1);
+				envs++;
+			}
+			break;
+		default:
+			return FATAL_DEFAULT;
+		}
+	}
 	argc -= optind;
 	argv += optind;
+
+	array_append_zero(&aenvs);
+	accepted_envs = p_strarray_dup(default_pool, array_idx(&aenvs, 0));
 
 	master_service_init_log(master_service, "script: ");
 	if (argv[0] == NULL)
@@ -242,6 +289,8 @@ int main(int argc, char *argv[])
 	}
 
 	master_service_run(master_service, client_connected);
+	array_free(&exec_args);
+	i_free(accepted_envs);
 	master_service_deinit(&master_service);
 	return 0;
 }
