@@ -43,13 +43,13 @@ EXTRA_DIST = \
 
 $(srcdir)/WordBreakProperty.txt:
 	test -f $@ || wget -O $@ https://dovecot.org/res/WordBreakProperty.txt
-$(srcdir)/word-boundary-data.c: word-properties.pl $(srcdir)/WordBreakProperty.txt
-	perl word-properties.pl boundaries $(srcdir)/WordBreakProperty.txt > $@
+$(srcdir)/word-boundary-data.c: $(srcdir)/word-properties.pl $(srcdir)/WordBreakProperty.txt
+	perl $(srcdir)/word-properties.pl boundaries $(srcdir)/WordBreakProperty.txt > $@
 
 $(srcdir)/PropList.txt:
 	test -f $@ || wget -O $@ https://dovecot.org/res/PropList.txt
-$(srcdir)/word-break-data.c: word-properties.pl $(srcdir)/PropList.txt
-	perl word-properties.pl breaks $(srcdir)/PropList.txt > $@
+$(srcdir)/word-break-data.c: $(srcdir)/word-properties.pl $(srcdir)/PropList.txt
+	perl $(srcdir)/word-properties.pl breaks $(srcdir)/PropList.txt > $@
 
 
 if BUILD_FTS_STEMMER
