@@ -4,11 +4,11 @@ BUILT_SOURCES = unicodemap.c
 
 EXTRA_DIST = unicodemap.c unicodemap.pl UnicodeData.txt
 
-UnicodeData.txt:
-	test -f UnicodeData.txt || wget https://dovecot.org/res/UnicodeData.txt
+$(srcdir)/UnicodeData.txt:
+	test -f $@ || wget -O $@ https://dovecot.org/res/UnicodeData.txt
 
-$(srcdir)/unicodemap.c: unicodemap.pl UnicodeData.txt
-	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
+$(srcdir)/unicodemap.c: unicodemap.pl $(srcdir)/UnicodeData.txt
+	perl $(srcdir)/unicodemap.pl < $(srcdir)/UnicodeData.txt > $@
 
 liblib_la_SOURCES = \
 	array.c \
