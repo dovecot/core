@@ -1,6 +1,6 @@
 noinst_LTLIBRARIES = liblib.la
 
-BUILT_SOURCES = unicodemap.c
+BUILT_SOURCES = $(srcdir)/unicodemap.c
 
 EXTRA_DIST = unicodemap.c unicodemap.pl UnicodeData.txt
 

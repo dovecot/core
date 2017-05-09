@@ -30,7 +30,8 @@ dist_stopwords_DATA = \
 	stopwords/stopwords_ru.txt \
 	stopwords/stopwords_sv.txt
 
-BUILT_SOURCES = word-boundary-data.c word-break-data.c
+BUILT_SOURCES = $(srcdir)/word-boundary-data.c \
+		$(srcdir)/word-break-data.c
 
 EXTRA_DIST = \
 	udhr_fra.txt \
