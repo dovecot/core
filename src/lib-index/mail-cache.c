@@ -52,6 +52,28 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 	va_end(va);
 }
 
+void mail_cache_set_seq_corrupted_reason(struct mail_cache_view *cache_view,
+					 uint32_t seq, const char *reason)
+{
+	uint32_t empty = 0;
+	struct mail_cache *cache = cache_view->cache;
+	struct mail_index_view *view = cache_view->view;
+
+	mail_index_set_error(cache->index,
+			     "Corrupted record in index cache file %s: %s",
+					     cache->filepath, reason);
+
+	/* drop cache pointer */
+	struct mail_index_transaction *t =
+		mail_index_transaction_begin(view, MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_update_ext(t, seq, cache->ext_id, &empty, NULL);
+
+	if (mail_index_transaction_commit(&t) < 0)
+		mail_cache_reset(cache);
+	else
+		mail_cache_expunge_count(cache, 1);
+}
+
 void mail_cache_file_close(struct mail_cache *cache)
 {
 	if (cache->mmap_base != NULL) {
