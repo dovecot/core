@@ -108,7 +108,7 @@ int test_program_input_handle(struct test_client *client, const char *line)
 
 	switch(client->state) {
 	case CLIENT_STATE_INIT:
-		test_assert((cmp = strcmp(line, "VERSION\tscript\t3\t0")) == 0);
+		test_assert((cmp = strncmp(line, "VERSION\tscript\t", 15)) == 0);
 		if (cmp == 0) {
 			client->state = CLIENT_STATE_VERSION;
 		} else
