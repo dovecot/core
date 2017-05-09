@@ -47,7 +47,7 @@ void program_client_local_exited(struct program_client_local *plclient);
 
 static
 void exec_child(const char *bin_path, const char *const *args,
-		const char *const *envs,
+		ARRAY_TYPE(const_string) *envs,
 		int in_fd, int out_fd, int *extra_fds, bool drop_stderr)
 {
 	ARRAY_TYPE(const_string) exec_args;
@@ -113,9 +113,12 @@ void exec_child(const char *bin_path, const char *const *args,
 	/* Setup environment */
 
 	env_clean();
-	if (envs != NULL) {
-		for(; *envs != NULL; envs++)
-			env_put(*envs);
+	if (array_is_created(envs)) {
+		const char *const *env;
+
+		array_foreach(envs, env) {
+			env_put(*env);
+		}
 	}
 
 	/* Execute */
@@ -218,9 +221,6 @@ int program_client_local_connect(struct program_client *pclient)
 	}
 
 	if (plclient->pid == 0) {
-		unsigned int count;
-		const char *const *envs = NULL;
-
 		/* child */
 		if (fd_in[1] >= 0 && close(fd_in[1]) < 0)
 			i_error("close(pipe:in:wr) failed: %m");
@@ -241,10 +241,7 @@ int program_client_local_connect(struct program_client *pclient)
 		restrict_access(&pclient->set.restrict_set, pclient->set.home,
 				!pclient->set.allow_root);
 
-		if (array_is_created(&pclient->envs))
-			envs = array_get(&pclient->envs, &count);
-
-		exec_child(pclient->path, pclient->args, envs,
+		exec_child(pclient->path, pclient->args, &pclient->envs,
 			   fd_in[0], fd_out[1], child_extra_fds,
 			   pclient->set.drop_stderr);
 		i_unreached();
