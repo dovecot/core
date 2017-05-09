@@ -41,15 +41,15 @@ EXTRA_DIST = \
 	word-break-data.c \
 	stopwords/stopwords_malformed.txt
 
-WordBreakProperty.txt:
-	test -f WordBreakProperty.txt || wget https://dovecot.org/res/WordBreakProperty.txt
-$(srcdir)/word-boundary-data.c: word-properties.pl WordBreakProperty.txt
-	perl word-properties.pl boundaries WordBreakProperty.txt > $@
+$(srcdir)/WordBreakProperty.txt:
+	test -f $@ || wget -O $@ https://dovecot.org/res/WordBreakProperty.txt
+$(srcdir)/word-boundary-data.c: word-properties.pl $(srcdir)/WordBreakProperty.txt
+	perl word-properties.pl boundaries $(srcdir)/WordBreakProperty.txt > $@
 
-PropList.txt:
-	test -f PropList.txt || wget https://dovecot.org/res/PropList.txt
-$(srcdir)/word-break-data.c: word-properties.pl PropList.txt
-	perl word-properties.pl breaks PropList.txt > $@
+$(srcdir)/PropList.txt:
+	test -f $@ || wget -O $@ https://dovecot.org/res/PropList.txt
+$(srcdir)/word-break-data.c: word-properties.pl $(srcdir)/PropList.txt
+	perl word-properties.pl breaks $(srcdir)/PropList.txt > $@
 
 
 if BUILD_FTS_STEMMER
