@@ -106,8 +106,8 @@ uid: 81563
 flags: \(rsAnswered \(rsSeen NonJunk
 
 .ft B
-doveadm flags \-u bob remove NonJunk mailbox dovecot uid 81563
-doveadm flags \-u bob add \(aq\(rsFlagged \(DoForwarded\(aq \
+doveadm flags remove \-u bob NonJunk mailbox dovecot uid 81563
+doveadm flags add \-u bob \(aq\(rsFlagged \(DoForwarded\(aq \
 mailbox dovecot uid 81563
 .ft P
 .fi
