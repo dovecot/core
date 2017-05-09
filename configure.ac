@@ -272,21 +272,6 @@ AS_HELP_STRING([--with-gc], [Use Boehm garbage collector]),
   TEST_WITH(gc, $withval),
   want_gc=no)
 
-AC_ARG_WITH(storages,
-AS_HELP_STRING([--with-storages], [Build with specified mail storage formats (mdbox sdbox maildir mbox cydir imapc pop3c)]), [
-	if test "$withval" = "yes" || test "$withval" = "no"; then
-		AC_MSG_ERROR([--with-storages needs storage list as parameter])
-	fi
-	mail_storages="shared `echo "$withval"|sed 's/,/ /g'`" ],
-	mail_storages="shared mdbox sdbox maildir mbox cydir imapc pop3c")
-AC_SUBST(mail_storages)
-mail_storages="$mail_storages raw fail"
-# drop duplicates
-duplicates=`(for i in $mail_storages; do echo $i; done)|sort|uniq -d|xargs echo`
-if test "$duplicates" != ""; then
-  AC_ERROR([Duplicate --with-storages: $duplicates])
-fi
-
 DC_DOVECOT_MODULEDIR
 
 AC_ARG_WITH(docs,
@@ -612,54 +597,11 @@ dnl **
 dnl ** storage classes
 dnl **
 
-maildir_libs='$(top_builddir)/src/lib-storage/index/maildir/libstorage_maildir.la'
-mbox_libs='$(top_builddir)/src/lib-storage/index/mbox/libstorage_mbox.la'
-dbox_common_libs='$(top_builddir)/src/lib-storage/index/dbox-common/libstorage_dbox_common.la'
-sdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-single/libstorage_dbox_single.la'
-mdbox_libs='$(top_builddir)/src/lib-storage/index/dbox-multi/libstorage_dbox_multi.la'
-cydir_libs='$(top_builddir)/src/lib-storage/index/cydir/libstorage_cydir.la'
-imapc_libs='$(top_builddir)/src/lib-storage/index/imapc/libstorage_imapc.la $(top_builddir)/src/lib-imap-client/libimap_client.la'
-pop3c_libs='$(top_builddir)/src/lib-storage/index/pop3c/libstorage_pop3c.la'
-raw_libs='$(top_builddir)/src/lib-storage/index/raw/libstorage_raw.la'
-shared_libs='$(top_builddir)/src/lib-storage/index/shared/libstorage_shared.la'
-
 CORE_LIBS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
 STORAGE_LIB='$(top_builddir)/src/lib-storage/libdovecot-storage.la'
 
-LINKED_STORAGE_LIBS=
-
-mailbox_list_drivers="maildir imapdir fs index none shared"
-have_sdbox=no
-have_mdbox=no
-for storage in $mail_storages; do
-  LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS `eval echo \\$${storage}_libs`"
-  if test $storage = sdbox; then
-    have_sdbox=yes
-  fi
-  if test $storage = mdbox; then
-    have_mdbox=yes
-  fi
-  if test $storage = sdbox || test $storage = mdbox; then
-    LINKED_STORAGE_LIBS="$LINKED_STORAGE_LIBS $dbox_common_libs"
-    dbox_common_libs=""
-  fi
-  if test $storage = imapc; then
-    mailbox_list_drivers="$mailbox_list_drivers imapc"
-  fi
-done
 LINKED_STORAGE_LDADD=
-AC_SUBST(LINKED_STORAGE_LIBS)
 AC_SUBST(LINKED_STORAGE_LDADD)
-AC_SUBST(mailbox_list_drivers)
-AC_DEFINE_UNQUOTED(MAIL_STORAGES, "$mail_storages", [List of compiled in mail storages])
-
-if test $have_sdbox = yes; then
-  # create alias for sdbox
-  mail_storages="$mail_storages dbox"
-fi
-if test $have_mdbox = yes; then
-  mail_storages="$mail_storages mdbox_deleted"
-fi
 
 dnl **
 dnl ** Shared libraries usage
@@ -886,7 +828,6 @@ src/lib-storage/index/dbox-single/Makefile
 src/lib-storage/index/cydir/Makefile
 src/lib-storage/index/raw/Makefile
 src/lib-storage/index/shared/Makefile
-src/lib-storage/register/Makefile
 src/anvil/Makefile
 src/auth/Makefile
 src/config/Makefile

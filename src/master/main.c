@@ -634,7 +634,6 @@ static void print_build_options(void)
 		" openssl"
 #endif
 	        " io_block_size=%u"
-	"\nMail storages: "MAIL_STORAGES"\n"
 #ifdef SQL_DRIVER_PLUGINS
 	"SQL driver plugins:"
 #else

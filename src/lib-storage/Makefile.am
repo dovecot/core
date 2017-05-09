@@ -1,4 +1,4 @@
-SUBDIRS = list index register
+SUBDIRS = list index
 
 noinst_LTLIBRARIES = libstorage.la
 
@@ -44,6 +44,7 @@ libstorage_la_SOURCES = \
 	mail-search-register-imap.c \
 	mail-storage.c \
 	mail-storage-hooks.c \
+	mail-storage-register.c \
 	mail-storage-service.c \
 	mail-storage-settings.c \
 	mail-thread.c \
@@ -56,6 +57,7 @@ libstorage_la_SOURCES = \
 	mailbox-keywords.c \
 	mailbox-list.c \
 	mailbox-list-notify.c \
+	mailbox-list-register.c \
 	mailbox-recent-flags.c \
 	mailbox-search-result.c \
 	mailbox-tree.c \
@@ -98,10 +100,19 @@ headers = \
 	mailbox-watch.h
 
 shlibs = \
-	@LINKED_STORAGE_LIBS@ \
+	index/shared/libstorage_shared.la \
+	index/dbox-multi/libstorage_dbox_multi.la \
+	index/dbox-single/libstorage_dbox_single.la \
+	index/dbox-common/libstorage_dbox_common.la \
+	index/maildir/libstorage_maildir.la \
+	index/mbox/libstorage_mbox.la \
+	index/cydir/libstorage_cydir.la \
+	index/imapc/libstorage_imapc.la \
+	../lib-imap-client/libimap_client.la \
+	index/pop3c/libstorage_pop3c.la \
+	index/raw/libstorage_raw.la \
 	list/libstorage_list.la \
 	index/libstorage_index.la \
-	register/libstorage_register.la \
 	../lib-index/libindex.la \
 	../lib-imap-storage/libimap-storage.la
 

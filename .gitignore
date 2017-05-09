@@ -126,8 +126,6 @@ src/lib-fts/word-boundary-data.c
 src/lib-fts/word-break-data.c
 src/lib-dict/dict-drivers-register.c
 src/lib-sql/sql-drivers-register.c
-src/lib-storage/register/mail-storage-register.c
-src/lib-storage/register/mailbox-list-register.c
 src/log/log
 src/lmtp/lmtp
 src/master/dovecot
