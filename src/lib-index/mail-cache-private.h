@@ -229,6 +229,7 @@ int mail_cache_header_fields_update(struct mail_cache *cache);
 void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest);
 int mail_cache_header_fields_get_next_offset(struct mail_cache *cache,
 					     uint32_t *offset_r);
+void mail_cache_expunge_count(struct mail_cache *cache, unsigned int count);
 
 uint32_t mail_cache_lookup_cur_offset(struct mail_index_view *view,
 				      uint32_t seq, uint32_t *reset_id_r);

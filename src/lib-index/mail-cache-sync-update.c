@@ -8,6 +8,19 @@ struct mail_cache_sync_context {
 	unsigned expunge_count;
 };
 
+void mail_cache_expunge_count(struct mail_cache *cache, unsigned int count)
+{
+	if (mail_cache_lock(cache) > 0) {
+		cache->hdr_copy.deleted_record_count += count;
+		if (cache->hdr_copy.record_count >= count)
+			cache->hdr_copy.record_count -= count;
+		else
+			 cache->hdr_copy.record_count = 0;
+		cache->hdr_modified = TRUE;
+		(void)mail_cache_unlock(cache);
+	}
+}
+
 static struct mail_cache_sync_context *mail_cache_handler_init(void **context)
 {
 	struct mail_cache_sync_context *ctx;
@@ -29,18 +42,8 @@ static void mail_cache_handler_deinit(struct mail_index_sync_map_ctx *sync_ctx,
 	if (ctx == NULL)
 		return;
 
-	if (mail_cache_lock(cache) > 0) {
-		/* update the record counts in the cache file's header. these
-		   are used to figure out when a cache file should be
-		   recreated and the old data dropped. */
-		cache->hdr_copy.deleted_record_count += ctx->expunge_count;
-		if (cache->hdr_copy.record_count >= ctx->expunge_count)
-			cache->hdr_copy.record_count -= ctx->expunge_count;
-		else
-			cache->hdr_copy.record_count = 0;
-		cache->hdr_modified = TRUE;
-		(void)mail_cache_unlock(cache);
-	}
+	mail_cache_expunge_count(cache, ctx->expunge_count);
+
 	i_free(ctx);
 }
 
