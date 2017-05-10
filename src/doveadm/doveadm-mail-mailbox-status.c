@@ -14,7 +14,8 @@
 	 STATUS_UIDNEXT | STATUS_UIDVALIDITY | \
 	 STATUS_UNSEEN | STATUS_HIGHESTMODSEQ)
 #define ALL_METADATA_ITEMS \
-	(MAILBOX_METADATA_VIRTUAL_SIZE | MAILBOX_METADATA_GUID)
+	(MAILBOX_METADATA_VIRTUAL_SIZE | MAILBOX_METADATA_GUID | \
+	 MAILBOX_METADATA_FIRST_SAVE_DATE)
 
 #define TOTAL_STATUS_ITEMS \
 	(STATUS_MESSAGES | STATUS_RECENT | STATUS_UNSEEN)
@@ -66,6 +67,8 @@ static void status_parse_fields(struct status_cmd_context *ctx,
 			ctx->metadata_items |= MAILBOX_METADATA_VIRTUAL_SIZE;
 		else if (strcmp(field, "guid") == 0)
 			ctx->metadata_items |= MAILBOX_METADATA_GUID;
+		else if (strcmp(field, "firstsaved") == 0)
+			ctx->metadata_items |= MAILBOX_METADATA_FIRST_SAVE_DATE;
 		else {
 			i_fatal_status(EX_USAGE,
 				       "Unknown status field: %s", field);
@@ -104,6 +107,8 @@ status_output(struct status_cmd_context *ctx, struct mailbox *box,
 		doveadm_print_num(metadata->virtual_size);
 	if ((ctx->metadata_items & MAILBOX_METADATA_GUID) != 0)
 		doveadm_print(guid_128_to_string(metadata->guid));
+	if ((ctx->metadata_items & MAILBOX_METADATA_FIRST_SAVE_DATE) != 0)
+		doveadm_print_num(metadata->first_save_date);
 }
 
 static void
@@ -210,6 +215,8 @@ static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx,
 		doveadm_print_header_simple("vsize");
 	if ((ctx->metadata_items & MAILBOX_METADATA_GUID) != 0)
 		doveadm_print_header_simple("guid");
+	if ((ctx->metadata_items & MAILBOX_METADATA_FIRST_SAVE_DATE) != 0)
+		doveadm_print_header_simple("firstsaved");
 }
 
 static void cmd_mailbox_status_deinit(struct doveadm_mail_cmd_context *_ctx)
