@@ -148,7 +148,7 @@ static unsigned int ssl_server_context_hash(const struct ssl_server_context *ctx
 		if (cert[n] == NULL) continue;
 		for (i = 0; i < 16 && cert[n][i] != '\0'; i++) {
 			h = (h << 4) + cert[n][i];
-			if ((g = h & 0xf0000000UL)) {
+			if ((g = h & 0xf0000000UL) != 0) {
 				h = h ^ (g >> 24);
 				h = h ^ g;
 			}
