@@ -245,6 +245,9 @@ The message sequence number of the first unseen message in the
 The
 .IR mailbox \(aqs
 virtual size, computed with CRLF line terminators.
+.TP
+.B firstsaved
+Saved time of the first mail in the mailbox.
 .RE
 .PP
 .\"------------------------------------------------------------------------
