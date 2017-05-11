@@ -1,0 +1,66 @@
+.\" Copyright (c) 2017 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-SAVE 1 "2017-05-11" "Dovecot v2.2" "Dovecot"
+.SH NAME
+doveadm\-save \- Save email to a user's mailbox
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv "]
+.BR save " [" \-S
+.IR socket_path "]"
+.BI \-u " user "
+.RI "["\-m
+.IR mailbox "] "
+.RI "[" mail-file "]"
+.br
+.\"------------------------------------------------------------------------
+.BR doveadm " [" \-Dv "]
+.BR save " [" \-S
+.IR socket_path "]"
+.BI \-A
+.RI "["\-m
+.IR mailbox "] "
+.RI "[" mail-file "]"
+.br
+.\"------------------------------------------------------------------------
+.BR doveadm " [" \-Dv "] [" \-f
+.IR formatter ]
+.BR save " [" \-S
+.IR socket_path "]"
+.BI \-F " file "
+.RI "["\-m
+.IR mailbox "] "
+.RI "[" mail-file "]"
+.br
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveadm save
+can be used to save messages. This can be useful for scripts and for debugging.
+Sieve is not invoked for saved messages, but quota is enforced.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options@
+.\" --- command specific options --- "/.
+.PP
+Command specific
+.IR options :
+.\"-------------------------------------
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
+.\"-------------------------------------
+@INCLUDE:option-S-socket@
+.\"-------------------------------------
+@INCLUDE:option-u-user@
+.\"-------------------------------------
+.TP
+.BI \-m\  mailbox
+Store mail to specified mailbox instead of INBOX.
+.\"------------------------------------------------------------------------
+.SH EXAMPLE
+echo "hello, world" | doveadm save -u testuser@testdomain
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1),
+.BR doveadm\-search (1),
+.BR doveadm\-search\-query (7)

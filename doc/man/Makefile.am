@@ -45,6 +45,7 @@ nodist_man1_MANS = \
 	doveadm-pw.1 \
 	doveadm-quota.1 \
 	doveadm-replicator.1 \
+	doveadm-save.1 \
 	doveadm-search.1 \
 	doveadm-stats.1 \
 	doveadm-sync.1 \
@@ -94,6 +95,7 @@ EXTRA_DIST = \
 	doveadm-pw.1.in \
 	doveadm-quota.1.in \
 	doveadm-replicator.1.in \
+	doveadm-save.1.in \
 	doveadm-search.1.in \
 	doveadm-stats.1.in \
 	doveadm-sync.1.in \
