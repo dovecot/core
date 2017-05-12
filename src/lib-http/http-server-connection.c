@@ -839,7 +839,7 @@ http_server_connection_next_response(struct http_server_connection *conn)
 		return FALSE;
 
 	req = conn->request_queue_head;
-	if (req == NULL) {
+	if (req == NULL || req->state == HTTP_SERVER_REQUEST_STATE_NEW) {
 		/* no requests pending */
 		http_server_connection_debug(conn, "No more requests pending");
 		http_server_connection_timeout_start(conn);
