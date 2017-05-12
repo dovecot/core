@@ -739,7 +739,8 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 void mail_storage_copy_error(struct mail_storage *dest,
 			     struct mail_storage *src);
 /* set record in mail cache corrupted */
-void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...);
+void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...)
+	ATTR_FORMAT(2, 3);
 
 /* Indicate mail being expunged by autoexpunge */
 void mail_autoexpunge(struct mail *mail);
