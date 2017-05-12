@@ -12,6 +12,7 @@ struct mail_user;
 
 struct mail_user_vfuncs {
 	void (*deinit)(struct mail_user *user);
+	void (*deinit_pre)(struct mail_user *user);
 	void (*stats_fill)(struct mail_user *user, struct stats *stats);
 };
 
