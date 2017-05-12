@@ -83,6 +83,7 @@ doc/man/doveadm-purge.1
 doc/man/doveadm-pw.1
 doc/man/doveadm-quota.1
 doc/man/doveadm-replicator.1
+doc/man/doveadm-save.1
 doc/man/doveadm-stats.1
 doc/man/doveadm-search.1
 doc/man/doveadm-sync.1
