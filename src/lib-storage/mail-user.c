@@ -40,6 +40,10 @@ static void mail_user_deinit_base(struct mail_user *user)
 		mail_storage_service_user_unref(&user->_service_user);
 }
 
+static void mail_user_deinit_pre_base(struct mail_user *user ATTR_UNUSED)
+{
+}
+
 static void mail_user_stats_fill_base(struct mail_user *user ATTR_UNUSED,
 				      struct stats *stats ATTR_UNUSED)
 {
@@ -73,6 +77,7 @@ mail_user_alloc_int(const char *username,
 		i_panic("Settings check unexpectedly failed: %s", error);
 
 	user->v.deinit = mail_user_deinit_base;
+	user->v.deinit_pre = mail_user_deinit_pre_base;
 	user->v.stats_fill = mail_user_stats_fill_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
 	return user;
@@ -201,8 +206,9 @@ void mail_user_unref(struct mail_user **_user)
 
 	user->deinitializing = TRUE;
 
-	/* call deinit() with refcount=1, otherwise we may assert-crash in
-	   mail_user_ref() that is called by some deinit() handler. */
+	/* call deinit() and deinit_pre() with refcount=1, otherwise we may
+	   assert-crash in mail_user_ref() that is called by some handlers. */
+	user->v.deinit_pre(user);
 	user->v.deinit(user);
 	i_assert(user->refcount == 1);
 	pool_unref(&user->pool);
