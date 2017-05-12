@@ -346,6 +346,7 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root)
 static int imapc_quota_refresh(struct imapc_quota_root *root)
 {
 	enum imapc_capability capa;
+	int ret;
 
 	if (root->imapc_ns == NULL) {
 		/* imapc namespace is missing - disable this quota backend */
@@ -366,11 +367,14 @@ static int imapc_quota_refresh(struct imapc_quota_root *root)
 		return 0;
 	}
 
-	root->last_refresh = ioloop_timeval;
 	if (root->root_name == NULL)
-		return imapc_quota_refresh_mailbox(root);
+		ret = imapc_quota_refresh_mailbox(root);
 	else
-		return imapc_quota_refresh_root(root);
+		ret = imapc_quota_refresh_root(root);
+	/* set the last_refresh only after the refresh, because it changes
+	   ioloop_timeval. */
+	root->last_refresh = ioloop_timeval;
+	return ret;
 }
 
 static int imapc_quota_init_limits(struct quota_root *_root)
