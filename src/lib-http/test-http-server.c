@@ -1,84 +1,139 @@
 /* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "lib-signals.h"
+#include "llist.h"
 #include "str.h"
 #include "ioloop.h"
 #include "ostream.h"
 #include "connection.h"
-#include "http-date.h"
-#include "http-request-parser.h"
+#include "http-url.h"
+#include "http-server.h"
 
-static struct connection_list *clients;
+#include <unistd.h>
+
 static int fd_listen;
+static struct ioloop *ioloop;
 static struct io *io_listen;
+static struct http_server *http_server;
+static bool shut_down = FALSE;
+static struct client *clients_head = NULL, *clients_tail = NULL;
 
 struct client {
-	struct connection conn;
-	struct http_request_parser *parser;
+	struct client *prev, *next;
+
+	struct ip_addr server_ip, ip;
+	in_port_t server_port, port;
+	struct http_server_connection *http_conn;
 };
 
-static void client_destroy(struct connection *conn)
+static void
+client_destroy(struct client **_client, const char *reason)
 {
-	struct client *client = (struct client *)conn;
+	struct client *client = *_client;
 
-	http_request_parser_deinit(&client->parser);
-	connection_deinit(&client->conn);
+	if (client->http_conn != NULL) {
+		/* We're not in the lib-http/server's connection destroy callback.
+		   If at all possible, avoid destroying client objects directly.
+	   */
+		http_server_connection_close(&client->http_conn, reason);
+	}
+	DLLIST2_REMOVE(&clients_head, &clients_tail, client);
 	i_free(client);
+
+	if (clients_head == NULL)
+		io_loop_stop(ioloop);
 }
 
-static int
-client_handle_request(struct client *client, struct http_request *request)
+/* This function just serves as an illustration of what to do when client
+   objects are destroyed by some actor other than lib-http/server. The best way
+   to close all clients is to drop the whole http-server, which will close all
+   connections, which in turn calls the connection_destroy() callbacks. Using a
+   function like this just complicates matters. */
+static void
+clients_destroy_all(void)
 {
-	string_t *str = t_str_new(128);
-
-	if (strcmp(request->method, "GET") != 0) {
-		o_stream_send_str(client->conn.output, "HTTP/1.1 501 Not Implemented\r\nAllow: GET\r\n\r\n");
-		return 0;
+	while (clients_head != NULL) {
+		struct client *client = clients_head;
+		client_destroy(&client, "Shutting down server");
 	}
-	str_append(str, "HTTP/1.1 200 OK\r\n");
-	str_printfa(str, "Date: %s\r\n", http_date_create(ioloop_time));
-	str_printfa(str, "Content-Length: %d\r\n", (int)strlen(request->target_raw));
-	str_append(str, "Content-Type: text/plain\r\n");
-	str_append(str, "\r\n");
-	str_append(str, request->target_raw);
-	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
-	return 0;
 }
 
-static void client_input(struct connection *conn)
+static void
+client_http_handle_request(void *context,
+	struct http_server_request *req)
 {
-	struct client *client = (struct client *)conn;
-	struct http_request request;
-	enum http_request_parse_error error_code;
-	const char *error;
-	int ret;
+	struct client *client = (struct client *)context;
+	const struct http_request *http_req = http_server_request_get(req);
+	struct http_server_response *http_resp;
+	const char *ipport;
+	string_t *content;
 
-	while ((ret = http_request_parse_next
-		(client->parser, NULL, &request, &error_code, &error)) > 0) {
-		if (client_handle_request(client, &request) < 0 ||
-		    request.connection_close) {
-			client_destroy(conn);
-			return;
-		}
+	if (strcmp(http_req->method, "GET") != 0) {
+		/* Unsupported method */
+		http_resp = http_server_response_create(req, 501, "Not Implemented");
+		http_server_response_add_header(http_resp, "Allow", "GET");
+		http_server_response_submit(http_resp);
+		return;
 	}
-	if (ret < 0) {
-		i_error("Client sent invalid request: %s", error);
-		client_destroy(conn);
+
+	/* Compose response payload */
+	content = t_str_new(1024);
+	(void)net_ipport2str(&client->server_ip, client->server_port, &ipport);
+	str_printfa(content, "Server: %s\r\n", ipport);
+	(void)net_ipport2str(&client->ip, client->port, &ipport);
+	str_printfa(content, "Client: %s\r\n", ipport);
+	str_printfa(content, "Host: %s", http_req->target.url->host_name);
+	if (http_req->target.url->port != 0)
+		str_printfa(content, ":%u", http_req->target.url->port);
+	str_append(content, "\r\n");
+	switch (http_req->target.format) {
+	case HTTP_REQUEST_TARGET_FORMAT_ORIGIN:
+	case HTTP_REQUEST_TARGET_FORMAT_ABSOLUTE:
+		str_printfa(content, "Target: %s\r\n",
+			http_url_create(http_req->target.url));
+		break;
+	case HTTP_REQUEST_TARGET_FORMAT_AUTHORITY:
+		str_printfa(content, "Target: %s\r\n",
+			http_url_create_authority(http_req->target.url));
+		break;
+	case HTTP_REQUEST_TARGET_FORMAT_ASTERISK:
+		str_append(content, "Target: *\r\n");
+		break;
 	}
+
+	/* Just respond with the request target */
+	http_resp = http_server_response_create(req, 200, "OK");
+	http_server_response_add_header(http_resp, "Content-Type", "text/plain");
+	http_server_response_set_payload_data(http_resp,
+		str_data(content), str_len(content));
+	http_server_response_submit(http_resp);
 }
 
-static struct connection_settings client_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
-	.client = FALSE
+static void
+client_http_connection_destroy(void *context, const char *reason)
+{
+	struct client *client = (struct client *)context;
+
+	if (client->http_conn == NULL) {
+		/* already destroying client directly */
+		return;
+	}
+
+	/* HTTP connection is destroyed already now */
+	client->http_conn = NULL;
+
+	/* destroy the client itself */
+	client_destroy(&client, reason);
+}
+
+static const struct http_server_callbacks server_callbacks = {
+	.handle_request = client_http_handle_request,
+	.connection_destroy = client_http_connection_destroy
 };
 
-static const struct connection_vfuncs client_vfuncs = {
-	.destroy = client_destroy,
-	.input = client_input
-};
-
-static void client_init(int fd)
+static void
+client_init(int fd, const struct ip_addr *ip, in_port_t port)
 {
 	struct client *client;
 	struct http_request_limits req_limits;
@@ -87,51 +142,104 @@ static void client_init(int fd)
 	req_limits.max_target_length = 4096;
 
 	client = i_new(struct client, 1);
-	connection_init_server(clients, &client->conn,
-			       "(http client)", fd, fd);
-	client->parser = http_request_parser_init(client->conn.input, &req_limits);
+	client->ip = *ip;
+	client->port = port;
+	(void)net_getsockname(fd, &client->server_ip, &client->server_port);
+	client->http_conn = http_server_connection_create(http_server,
+		fd, fd, FALSE, &server_callbacks, client);
+
+	DLLIST2_APPEND(&clients_head, &clients_tail, client);
 }
 
 static void client_accept(void *context ATTR_UNUSED)
 {
+	struct ip_addr client_ip;
+	in_port_t client_port;
 	int fd;
 
-	fd = net_accept(fd_listen, NULL, NULL);
+	fd = net_accept(fd_listen, &client_ip, &client_port);
 	if (fd == -1)
 		return;
 	if (fd == -2)
 		i_fatal("accept() failed: %m");
 
-	client_init(fd);
+	client_init(fd, &client_ip, client_port);
+}
+
+static void
+sig_die(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
+{
+	if (shut_down) {
+		i_info("Received SIGINT again - stopping immediately");
+		io_loop_stop(current_ioloop);
+		return;
+	}
+
+	i_info("Received SIGINT - shutting down gracefully");
+	shut_down = TRUE;
+	http_server_shut_down(http_server);
+	if (clients_head == NULL)
+		io_loop_stop(ioloop);
 }
 
 int main(int argc, char *argv[])
 {
+	struct http_server_settings http_set;
+	bool debug = FALSE;
 	struct ip_addr my_ip;
-	struct ioloop *ioloop;
 	in_port_t port;
+	int c;
 
 	lib_init();
-	if (argc < 2 || net_str2port(argv[1], &port) < 0)
+
+  while ((c = getopt(argc, argv, "D")) > 0) {
+		switch (c) {
+		case 'D':
+			debug = TRUE;
+			break;
+		default:
+			i_fatal("Usage: %s [-D] <port> [<IP>]", argv[0]);
+		}
+  }
+	argc -= optind;
+	argv += optind;
+
+	if (argc < 1 || net_str2port(argv[0], &port) < 0)
 		i_fatal("Port parameter missing");
-	if (argc < 3)
+	if (argc < 2)
 		net_get_ip_any4(&my_ip);
 	else if (net_addr2ip(argv[2], &my_ip) < 0)
 		i_fatal("Invalid IP parameter");
 
+	i_zero(&http_set);
+	http_set.max_client_idle_time_msecs = 20*1000; /* defaults to indefinite! */
+	http_set.max_pipelined_requests = 4;
+	http_set.debug = debug;
+
 	ioloop = io_loop_create();
-	clients = connection_list_init(&client_set, &client_vfuncs);
+
+	http_server = http_server_init(&http_set);
+
+	lib_signals_init();
+	lib_signals_ignore(SIGPIPE, TRUE);
+	lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED, sig_die, NULL);
+	lib_signals_set_handler(SIGINT, LIBSIG_FLAG_DELAYED, sig_die, NULL);
 
 	fd_listen = net_listen(&my_ip, &port, 128);
 	if (fd_listen == -1)
 		i_fatal("listen(port=%u) failed: %m", port);
+
 	io_listen = io_add(fd_listen, IO_READ, client_accept, (void *)NULL);
 
 	io_loop_run(ioloop);
 
 	io_remove(&io_listen);
 	i_close_fd(&fd_listen);
-	connection_list_deinit(&clients);
+
+	clients_destroy_all(); /* just an example; avoid doing this */
+
+	http_server_deinit(&http_server);
+	lib_signals_deinit();
 	io_loop_destroy(&ioloop);
 	lib_deinit();
 }
