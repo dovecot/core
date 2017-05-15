@@ -366,21 +366,22 @@ static void mail_crypt_mailbox_allocated(struct mailbox *box)
 	mbox = p_new(box->pool, struct mail_crypt_mailbox, 1);
 	mbox->module_ctx.super = *v;
 	box->vlast = &mbox->module_ctx.super;
-	/* if global keys are used, re-encrypting on copy/move
-	   is not necessary, so do not attempt to do it.
-
-	   with per-folder keys, emails must be re-encrypted
-	   when moving to another folder */
-	if (muser->global_keys.public_key == NULL)
-		v->copy = mail_crypt_mailbox_copy;
 	v->close = mail_crypt_mailbox_close;
 
 	MODULE_CONTEXT_SET(box, mail_crypt_storage_module, mbox);
 
 	if ((class_flags & MAIL_STORAGE_CLASS_FLAG_BINARY_DATA) != 0) {
 		if (muser != NULL) {
-			if (muser->save_version > 0)
+			if (muser->save_version > 0) {
 				v->save_begin = mail_crypt_mail_save_begin;
+				/* if global keys are used, re-encrypting on copy/move
+				   is not necessary, so do not attempt to do it.
+
+				   with per-folder keys, emails must be re-encrypted
+				   when moving to another folder */
+				if (muser->global_keys.public_key == NULL)
+					v->copy = mail_crypt_mailbox_copy;
+			}
 		} else {
 			v->save_finish = mail_crypt_mail_save_finish;
 		}
