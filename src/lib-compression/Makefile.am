@@ -2,7 +2,8 @@ noinst_LTLIBRARIES = libcompression.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
-	-I$(top_srcdir)/src/lib-test
+	-I$(top_srcdir)/src/lib-test \
+	$(ZSTD_CFLAGS)
 
 libcompression_la_SOURCES = \
 	compression.c \
@@ -10,10 +11,12 @@ libcompression_la_SOURCES = \
 	istream-lz4.c \
 	istream-zlib.c \
 	istream-bzlib.c \
+	istream-zstd.c \
 	ostream-lzma.c \
 	ostream-lz4.c \
 	ostream-zlib.c \
-	ostream-bzlib.c
+	ostream-bzlib.c \
+	ostream-zstd.c
 libcompression_la_LIBADD = \
 	$(COMPRESS_LIBS)
 

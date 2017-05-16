@@ -25,6 +25,10 @@
 #  define i_stream_create_lz4 NULL
 #  define o_stream_create_lz4 NULL
 #endif
+#ifndef HAVE_ZSTD
+#  define i_stream_create_zstd NULL
+#  define o_stream_create_zstd NULL
+#endif
 
 static bool is_compressed_zlib(struct istream *input)
 {
@@ -77,6 +81,19 @@ static bool is_compressed_lz4(struct istream *input)
 		return FALSE;
 	/* there is no standard LZ4 header, so we've created our own */
 	return memcmp(data, IOSTREAM_LZ4_MAGIC, IOSTREAM_LZ4_MAGIC_LEN) == 0;
+}
+
+#define ZSTD_MAGICNUMBER            0xFD2FB528    /* valid since v0.8.0 */
+static bool is_compressed_zstd(struct istream *input)
+{
+	const unsigned char *data;
+	size_t size = 0;
+
+	if (i_stream_read_bytes(input, &data, &size, sizeof(uint32_t)) <= 0)
+	        return FALSE;
+	i_assert(size >= sizeof(uint32_t));
+
+	return le32_to_cpu_unaligned(data) == ZSTD_MAGICNUMBER;
 }
 
 const struct compression_handler *compression_lookup_handler(const char *name)
@@ -132,5 +149,7 @@ const struct compression_handler compression_handlers[] = {
 	  i_stream_create_lzma, o_stream_create_lzma },
 	{ "lz4", ".lz4", is_compressed_lz4,
 	  i_stream_create_lz4, o_stream_create_lz4 },
+	{ "zstd", ".zstd", is_compressed_zstd,
+	  i_stream_create_zstd, o_stream_create_zstd },
 	{ NULL, NULL, NULL, NULL, NULL }
 };

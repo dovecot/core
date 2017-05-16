@@ -202,6 +202,11 @@ AS_HELP_STRING([--with-lz4], [Build with LZ4 compression support (auto)]),
   TEST_WITH(lz4, $withval),
   want_lz4=auto)
 
+AC_ARG_WITH(zstd,
+AS_HELP_STRING([--with-zstd], [Build with ZSTD compression support (auto)]),
+  TEST_WITH(zstd, $withval),
+  want_zstd=auto)
+
 AC_ARG_WITH(libcap,
 AS_HELP_STRING([--with-libcap], [Build with libcap support (Dropping capabilities) (auto)]),
   TEST_WITH(libcap, $withval),
@@ -734,6 +739,7 @@ DOVECOT_WANT_ZLIB
 DOVECOT_WANT_BZLIB
 DOVECOT_WANT_LZMA
 DOVECOT_WANT_LZ4
+DOVECOT_WANT_ZSTD
 
 AC_SUBST(COMPRESS_LIBS)
 
