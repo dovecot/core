@@ -492,7 +492,8 @@ static void passdb_ldap_init(struct passdb_module *_module)
 	struct ldap_passdb_module *module =
 		(struct ldap_passdb_module *)_module;
 
-	db_ldap_connect_delayed(module->conn);
+	if (!module->module.blocking || worker)
+		db_ldap_connect_delayed(module->conn);
 }
 
 static void passdb_ldap_deinit(struct passdb_module *_module)
