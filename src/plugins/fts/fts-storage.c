@@ -830,7 +830,8 @@ static void fts_mailbox_list_deinit(struct mailbox_list *list)
 {
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(list);
 
-	fts_backend_deinit(&flist->backend);
+	if (flist->backend != NULL)
+		fts_backend_deinit(&flist->backend);
 	flist->module_ctx.super.deinit(list);
 }
 
