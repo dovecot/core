@@ -74,8 +74,12 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 						    start_seq, start_offset,
 						    end_seq, end_offset,
 						    reset_r, &reason);
-		if (ret <= 0)
+		if (ret <= 0) {
+			mail_index_set_error(view->index,
+				"Failed to map view for %s: %s",
+				view->index->filepath, reason);
 			return ret;
+		}
 
 		if (!*reset_r || sync_expunges)
 			break;
@@ -508,12 +512,10 @@ static int mail_index_view_sync_init_fix(struct mail_index_view_sync_ctx *ctx)
 
 	ret = mail_transaction_log_view_set(view->log_view, seq, offset,
 					    seq, offset, &reset, &reason);
-	if (ret < 0)
-		return -1;
-	if (ret == 0) {
+	if (ret <= 0) {
 		mail_index_set_error(view->index, "Failed to fix view for %s: %s",
 				     view->index->filepath, reason);
-		return 0;
+		return ret;
 	}
 	view->inconsistent = FALSE;
 	return 0;
