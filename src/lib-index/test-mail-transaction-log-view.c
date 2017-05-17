@@ -49,7 +49,8 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file ATTR_UN
 
 int mail_transaction_log_file_get_highest_modseq_at(
 		struct mail_transaction_log_file *file ATTR_UNUSED,
-		uoff_t offset ATTR_UNUSED, uint64_t *highest_modseq_r)
+		uoff_t offset ATTR_UNUSED, uint64_t *highest_modseq_r,
+		const char **error_r ATTR_UNUSED)
 {
 	*highest_modseq_r = 0;
 	return 0;
