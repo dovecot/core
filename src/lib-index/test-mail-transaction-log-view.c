@@ -9,6 +9,11 @@
 static struct mail_transaction_log *log;
 static struct mail_transaction_log_view *view;
 
+void mail_index_set_error(struct mail_index *index ATTR_UNUSED,
+			  const char *fmt ATTR_UNUSED, ...)
+{
+}
+
 void mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file ATTR_UNUSED,
 					     const char *fmt ATTR_UNUSED, ...)
 {
@@ -36,7 +41,8 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 }
 
 int mail_transaction_log_file_map(struct mail_transaction_log_file *file ATTR_UNUSED,
-				  uoff_t start_offset ATTR_UNUSED, uoff_t end_offset ATTR_UNUSED)
+				  uoff_t start_offset ATTR_UNUSED, uoff_t end_offset ATTR_UNUSED,
+				  const char **reason_r ATTR_UNUSED)
 {
 	return 1;
 }

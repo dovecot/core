@@ -283,12 +283,12 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		end_offset = file->hdr.file_seq == max_file_seq ?
 			max_file_offset : (uoff_t)-1;
 		ret = mail_transaction_log_file_map(file, start_offset,
-						    end_offset);
+						    end_offset, reason_r);
 		if (ret <= 0) {
 			*reason_r = t_strdup_printf(
 				"Failed to map file seq=%u "
-				"offset=%"PRIuUOFF_T"..%"PRIuUOFF_T" (ret=%d)",
-				file->hdr.file_seq, start_offset, end_offset, ret);
+				"offset=%"PRIuUOFF_T"..%"PRIuUOFF_T" (ret=%d): %s",
+				file->hdr.file_seq, start_offset, end_offset, ret, *reason_r);
 			return ret;
 		}
 
@@ -348,7 +348,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 {
 	struct mail_transaction_log_file *file, *first;
-	const char *reason;
+	const char *reason = NULL;
 	int ret;
 
 	/* make sure .log.2 file is opened */
@@ -359,9 +359,11 @@ int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 
 	for (file = view->log->files; file != NULL; file = file->next) {
 		ret = mail_transaction_log_file_map(file, file->hdr.hdr_size,
-						    (uoff_t)-1);
-		if (ret < 0)
-			return -1;
+						    (uoff_t)-1, &reason);
+		if (ret < 0) {
+			first = NULL;
+			break;
+		}
 		if (ret == 0) {
 			/* corrupted */
 			first = NULL;
@@ -372,6 +374,10 @@ int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 	}
 	if (first == NULL) {
 		/* index wasn't reset after corruption was found */
+		i_assert(reason != NULL);
+		mail_index_set_error(file->log->index,
+			"Failed to map transaction log %s for all-view: %s",
+			file->filepath, reason);
 		return -1;
 	}
 
