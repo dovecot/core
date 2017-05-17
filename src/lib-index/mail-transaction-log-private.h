@@ -153,7 +153,8 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 				    unsigned int version);
 int mail_transaction_log_file_get_highest_modseq_at(
 		struct mail_transaction_log_file *file,
-		uoff_t offset, uint64_t *highest_modseq_r);
+		uoff_t offset, uint64_t *highest_modseq_r,
+		const char **error_r);
 int mail_transaction_log_file_get_modseq_next_offset(
 		struct mail_transaction_log_file *file,
 		uint64_t modseq, uoff_t *next_offset_r);

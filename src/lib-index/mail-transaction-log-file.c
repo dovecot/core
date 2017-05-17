@@ -1171,7 +1171,8 @@ modseq_cache_get_modseq(struct mail_transaction_log_file *file, uint64_t modseq)
 
 static int
 log_get_synced_record(struct mail_transaction_log_file *file, uoff_t *offset,
-		      const struct mail_transaction_header **hdr_r)
+		      const struct mail_transaction_header **hdr_r,
+		      const char **error_r)
 {
 	const struct mail_transaction_header *hdr;
 	uint32_t trans_size;
@@ -1184,10 +1185,11 @@ log_get_synced_record(struct mail_transaction_log_file *file, uoff_t *offset,
 	trans_size = mail_index_offset_to_uint32(hdr->size);
 	if (trans_size < sizeof(*hdr) ||
 	    *offset - file->buffer_offset + trans_size > file->buffer->used) {
-		mail_transaction_log_file_set_corrupted(file,
+		*error_r = t_strdup_printf(
 			"Transaction log corrupted unexpectedly at "
 			"%"PRIuUOFF_T": Invalid size %u (type=%x)",
 			*offset, trans_size, hdr->type);
+		mail_transaction_log_file_set_corrupted(file, "%s", *error_r);
 		return -1;
 	}
 	*offset += trans_size;
@@ -1197,7 +1199,8 @@ log_get_synced_record(struct mail_transaction_log_file *file, uoff_t *offset,
 
 int mail_transaction_log_file_get_highest_modseq_at(
 		struct mail_transaction_log_file *file,
-		uoff_t offset, uint64_t *highest_modseq_r)
+		uoff_t offset, uint64_t *highest_modseq_r,
+		const char **error_r)
 {
 	const struct mail_transaction_header *hdr;
 	struct modseq_cache *cache;
@@ -1230,7 +1233,7 @@ int mail_transaction_log_file_get_highest_modseq_at(
 
 	ret = mail_transaction_log_file_map(file, cur_offset, offset, &reason);
 	if (ret <= 0) {
-		mail_index_set_error(file->log->index,
+		*error_r = t_strdup_printf(
 			"Failed to map transaction log %s for getting modseq "
 			"at offset=%"PRIuUOFF_T" with start_offset=%"PRIuUOFF_T": %s",
 			file->filepath, offset, cur_offset, reason);
@@ -1240,7 +1243,7 @@ int mail_transaction_log_file_get_highest_modseq_at(
 	i_assert(cur_offset >= file->buffer_offset);
 	i_assert(cur_offset + file->buffer->used >= offset);
 	while (cur_offset < offset) {
-		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
+		if (log_get_synced_record(file, &cur_offset, &hdr, error_r) < 0)
 			return- 1;
 		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq,
 			MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr));
@@ -1313,8 +1316,11 @@ int mail_transaction_log_file_get_modseq_next_offset(
 
 	i_assert(cur_offset >= file->buffer_offset);
 	while (cur_offset < file->sync_offset) {
-		if (log_get_synced_record(file, &cur_offset, &hdr) < 0)
+		if (log_get_synced_record(file, &cur_offset, &hdr, &reason) < 0) {
+			mail_index_set_error(file->log->index,
+				"%s: %s", file->filepath, reason);
 			return -1;
+		}
 		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq,
 			MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr));
 		if (cur_modseq >= modseq)

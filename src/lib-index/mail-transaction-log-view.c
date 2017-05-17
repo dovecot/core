@@ -336,10 +336,8 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	view->broken = FALSE;
 
 	if (mail_transaction_log_file_get_highest_modseq_at(view->cur,
-				view->cur_offset, &view->prev_modseq) < 0) {
-		*reason_r = "Failed to get modseq";
+				view->cur_offset, &view->prev_modseq, reason_r) < 0)
 		return -1;
-	}
 
 	i_assert(view->cur_offset <= view->cur->sync_offset);
 	return 1;
@@ -401,8 +399,12 @@ int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 	view->broken = FALSE;
 
 	if (mail_transaction_log_file_get_highest_modseq_at(view->cur,
-				view->cur_offset, &view->prev_modseq) < 0)
+			view->cur_offset, &view->prev_modseq, &reason) < 0) {
+		mail_index_set_error(file->log->index,
+			"Failed to get modseq in %s for all-view: %s",
+			file->filepath, reason);
 		return -1;
+	}
 	return 0;
 }
 
