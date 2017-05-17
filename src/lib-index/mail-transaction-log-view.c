@@ -349,6 +349,7 @@ int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 {
 	struct mail_transaction_log_file *file, *first;
 	const char *reason;
+	int ret;
 
 	/* make sure .log.2 file is opened */
 	(void)mail_transaction_log_find_file(view->log, 1, FALSE, &file, &reason);
@@ -357,13 +358,21 @@ int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 	i_assert(first != NULL);
 
 	for (file = view->log->files; file != NULL; file = file->next) {
-		if (mail_transaction_log_file_map(file, file->hdr.hdr_size,
-						  (uoff_t)-1) < 0)
+		ret = mail_transaction_log_file_map(file, file->hdr.hdr_size,
+						    (uoff_t)-1);
+		if (ret < 0)
 			return -1;
-		if (file->hdr.prev_file_seq == 0) {
+		if (ret == 0) {
+			/* corrupted */
+			first = NULL;
+		} else if (file->hdr.prev_file_seq == 0) {
 			/* this file resets the index. skip the old ones. */
 			first = file;
 		}
+	}
+	if (first == NULL) {
+		/* index wasn't reset after corruption was found */
+		return -1;
 	}
 
 	mail_transaction_log_view_unref_all(view);
