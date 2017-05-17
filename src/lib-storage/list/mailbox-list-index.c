@@ -772,6 +772,7 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	v->notify_next = mailbox_list_index_notify_next;
 	v->notify_deinit = mailbox_list_index_notify_deinit;
 	v->notify_wait = mailbox_list_index_notify_wait;
+	v->notify_flush = mailbox_list_index_notify_flush;
 
 	MODULE_CONTEXT_SET(list, mailbox_list_index_module, ilist);
 

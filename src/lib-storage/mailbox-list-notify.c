@@ -33,3 +33,9 @@ void mailbox_list_notify_wait(struct mailbox_list_notify *notify,
 {
 	notify->list->v.notify_wait(notify, callback, context);
 }
+
+void mailbox_list_notify_flush(struct mailbox_list_notify *notify)
+{
+	if (notify->list->v.notify_flush != NULL)
+		notify->list->v.notify_flush(notify);
+}

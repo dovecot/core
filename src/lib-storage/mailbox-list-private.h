@@ -89,6 +89,7 @@ struct mailbox_list_vfuncs {
 	void (*notify_deinit)(struct mailbox_list_notify *notify);
 	void (*notify_wait)(struct mailbox_list_notify *notify,
 			    void (*callback)(void *context), void *context);
+	void (*notify_flush)(struct mailbox_list_notify *notify);
 };
 
 struct mailbox_list_module_register {
