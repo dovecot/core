@@ -56,5 +56,7 @@ int mailbox_list_notify_next(struct mailbox_list_notify *notify,
 /* Call the specified callback when something changes. */
 void mailbox_list_notify_wait(struct mailbox_list_notify *notify,
 			      void (*callback)(void *context), void *context);
+/* Flush any delayed notifications now. */
+void mailbox_list_notify_flush(struct mailbox_list_notify *notify);
 
 #endif
