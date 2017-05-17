@@ -530,6 +530,8 @@ int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 				   const char *lock_reason,
 				   uint32_t *file_seq_r, uoff_t *file_offset_r)
 {
+	const char *reason;
+
 	i_assert(!log->index->log_sync_locked);
 
 	if (mail_transaction_log_lock_head(log, lock_reason) < 0)
@@ -537,7 +539,11 @@ int mail_transaction_log_sync_lock(struct mail_transaction_log *log,
 
 	/* update sync_offset */
 	if (mail_transaction_log_file_map(log->head, log->head->sync_offset,
-					  (uoff_t)-1) <= 0) {
+					  (uoff_t)-1, &reason) <= 0) {
+		mail_index_set_error(log->index,
+			"Failed to map transaction log %s at "
+			"sync_offset=%"PRIuUOFF_T" after locking: %s",
+			log->head->filepath, log->head->sync_offset, reason);
 		mail_transaction_log_file_unlock(log->head, t_strdup_printf(
 			"%s - map failed", lock_reason));
 		return -1;
