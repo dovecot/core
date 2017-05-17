@@ -817,11 +817,15 @@ autocreate_box_match(const ARRAY_TYPE(mailbox_settings) *boxes,
 	return result;
 }
 
-static const struct mailbox_info *
-autocreate_iter_existing(struct mailbox_list_iterate_context *ctx)
+const struct mailbox_info *
+mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
+				    const struct mailbox_info *_info)
 {
 	struct mailbox_list_autocreate_iterate_context *actx =
 		ctx->autocreate_ctx;
+	if (actx == NULL || _info == NULL)
+		return _info;
+	actx->new_info = *_info;
 	struct mailbox_info *info = &actx->new_info;
 	enum autocreate_match_result match, match2;
 	unsigned int idx;
@@ -976,12 +980,7 @@ mailbox_list_iter_next_call(struct mailbox_list_iterate_context *ctx)
 		}
 	}
 
-	if (info != NULL && ctx->autocreate_ctx != NULL) {
-	        ctx->autocreate_ctx->new_info = *info;
-	        return autocreate_iter_existing(ctx);
-	}
-
-	return info;
+	return mailbox_list_iter_autocreate_filter(ctx, info);
 }
 
 const struct mailbox_info *

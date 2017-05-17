@@ -235,4 +235,9 @@ void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 void mailbox_list_set_internal_error(struct mailbox_list *list);
 bool mailbox_list_set_error_from_errno(struct mailbox_list *list);
 
+const struct mailbox_info *
+mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
+				    const struct mailbox_info *_info);
+
+
 #endif
