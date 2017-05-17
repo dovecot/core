@@ -1660,12 +1660,30 @@ log_file_map_check_offsets(struct mail_transaction_log_file *file,
 			   uoff_t start_offset, uoff_t end_offset,
 			   const char **reason_r)
 {
+	struct stat st, st2;
+
 	if (start_offset > file->sync_offset) {
 		/* broken start offset */
+		if (fstat(file->fd, &st) < 0) {
+			log_file_set_syscall_error(file, "fstat()");
+			st.st_size = -1;
+		}
 		*reason_r = t_strdup_printf(
 			"%s: start_offset (%"PRIuUOFF_T") > "
-			"current sync_offset (%"PRIuUOFF_T")",
-			file->filepath, start_offset, file->sync_offset);
+			"current sync_offset (%"PRIuUOFF_T"), file size=%"PRIuUOFF_T,
+			file->filepath, start_offset, file->sync_offset,
+			st.st_size);
+		if (stat(file->filepath, &st2) == 0) {
+			if (st.st_ino != st2.st_ino) {
+				*reason_r = t_strdup_printf(
+					"%s, file unexpectedly replaced", *reason_r);
+			}
+		} else if (errno == ENOENT) {
+			*reason_r = t_strdup_printf(
+				"%s, file unexpectedly deleted", *reason_r);
+		} else {
+			log_file_set_syscall_error(file, "stat()");
+		}
 		return FALSE;
 	}
 	if (end_offset != (uoff_t)-1 && end_offset > file->sync_offset) {
