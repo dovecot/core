@@ -163,7 +163,8 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 	if (ctx->backend_ctx != NULL) {
 		/* index isn't being used */
-		return ilist->module_ctx.super.iter_next(ctx->backend_ctx);
+		return mailbox_list_iter_autocreate_filter(ctx->backend_ctx,
+			ilist->module_ctx.super.iter_next(ctx->backend_ctx));
 	}
 
 	/* listing mailboxes from index */
