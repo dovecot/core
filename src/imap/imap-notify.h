@@ -69,4 +69,6 @@ void imap_client_notify_command_freed(struct client *client);
 int imap_notify_begin(struct imap_notify_context *ctx);
 void imap_notify_deinit(struct imap_notify_context **ctx);
 
+void imap_notify_flush(struct imap_notify_context *ctx);
+
 #endif
