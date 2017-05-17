@@ -522,3 +522,13 @@ void imap_notify_deinit(struct imap_notify_context **_ctx)
 		imap_fetch_free(&ctx->fetch_ctx);
 	pool_unref(&ctx->pool);
 }
+
+void imap_notify_flush(struct imap_notify_context *ctx)
+{
+	struct imap_notify_namespace *notify_ns;
+
+	array_foreach_modifiable(&ctx->namespaces, notify_ns) {
+		if (notify_ns->notify != NULL)
+			mailbox_list_notify_flush(notify_ns->notify);
+	}
+}
