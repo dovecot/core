@@ -11,6 +11,7 @@
 #include "randgen.h"
 #include "restrict-access.h"
 #include "fd-close-on-exec.h"
+#include "write-full.h"
 #include "settings-parser.h"
 #include "master-interface.h"
 #include "master-service.h"
@@ -164,8 +165,8 @@ client_parse_input(const unsigned char *data, size_t len,
 }
 
 static void
-client_add_input(struct client *client, const unsigned char *client_input,
-		 size_t client_input_size)
+client_add_input_capability(struct client *client, const unsigned char *client_input,
+			    size_t client_input_size)
 {
 	struct ostream *output;
 	struct client_input input;
@@ -182,6 +183,7 @@ client_add_input(struct client *client, const unsigned char *client_input,
 		input.tag = getenv("IMAPLOGINTAG");
 	}
 
+	/* cork/uncork around the OK reply to minimize latency */
 	output = client->output;
 	o_stream_ref(output);
 	o_stream_cork(output);
@@ -202,6 +204,19 @@ client_add_input(struct client *client, const unsigned char *client_input,
 			input.tag, " OK [CAPABILITY ",
 			str_c(client->capability_string), "] Logged in", NULL));
 	}
+	o_stream_uncork(output);
+	o_stream_unref(&output);
+}
+
+static void
+client_add_input_finalize(struct client *client)
+{
+	struct ostream *output;
+
+	/* try to condense any responses into as few packets as possible */
+	output = client->output;
+	o_stream_ref(output);
+	o_stream_cork(output);
 	(void)client_handle_input(client);
 	o_stream_uncork(output);
 	o_stream_unref(&output);
@@ -212,6 +227,14 @@ client_add_input(struct client *client, const unsigned char *client_input,
 		client_destroy(client, NULL);
 	else
 		client_continue_pending_input(client);
+}
+
+static void
+client_add_input(struct client *client, const unsigned char *client_input,
+		 size_t client_input_size)
+{
+	client_add_input_capability(client, client_input, client_input_size);
+	client_add_input_finalize(client);
 }
 
 int client_create_from_input(const struct mail_storage_service_input *input,
@@ -276,6 +299,9 @@ static void main_stdio_run(const char *username)
 	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
 				     &client, &error) < 0)
 		i_fatal("%s", error);
+
+	/* TODO: the following could make use of
+	   client_add_input_{capability,finalize} */
 	input_base64 = getenv("CLIENT_INPUT");
 	if (input_base64 == NULL)
 		client_add_input(client, NULL, 0);
@@ -321,8 +347,22 @@ login_client_connected(const struct master_login_client *login_client,
 	flags = login_client->auth_req.flags;
 	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
 		client->tls_compression = TRUE;
-	client_add_input(client, login_client->data,
+	client_add_input_capability(client, login_client->data,
 			 login_client->auth_req.data_size);
+
+	/* finish initializing the user (see comment in main()) */
+	if (mail_namespaces_init(client->user, &error) < 0) {
+		if (write_full(login_client->fd, MSG_BYE_INTERNAL_ERROR,
+			       strlen(MSG_BYE_INTERNAL_ERROR)) < 0)
+			if (errno != EAGAIN && errno != EPIPE)
+				i_error("write_full(client) failed: %m");
+
+		i_error("%s", error);
+		client_destroy(client, error);
+		return;
+	}
+
+	client_add_input_finalize(client);
 	/* client may be destroyed now */
 }
 
@@ -384,7 +424,16 @@ int main(int argc, char *argv[])
 	} else {
 		service_flags |= MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
 		storage_service_flags |=
-			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
+			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT |
+			MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES;
+
+		/*
+		 * We include MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES so
+		 * that the mail_user initialization is fast and we can
+		 * quickly send back the OK response to LOGIN/AUTHENTICATE.
+		 * Otherwise we risk a very slow namespace initialization to
+		 * cause client timeouts on login.
+		 */
 	}
 
 	master_service = master_service_init("imap", service_flags,
