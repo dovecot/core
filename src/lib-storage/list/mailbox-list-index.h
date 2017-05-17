@@ -198,6 +198,7 @@ int mailbox_list_index_notify_next(struct mailbox_list_notify *notify,
 void mailbox_list_index_notify_wait(struct mailbox_list_notify *notify,
 				    void (*callback)(void *context),
 				    void *context);
+void mailbox_list_index_notify_flush(struct mailbox_list_notify *notify);
 
 void mailbox_list_index_status_init_mailbox(struct mailbox_vfuncs *v);
 void mailbox_list_index_backend_init_mailbox(struct mailbox *box,
