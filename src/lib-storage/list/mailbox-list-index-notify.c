@@ -716,10 +716,6 @@ mailbox_list_index_notify_change(struct mailbox_list_notify_index *inotify,
 		rec->events |= MAILBOX_LIST_NOTIFY_SEEN_CHANGES;
 	if (nnode->highest_modseq < status.highest_modseq)
 		rec->events |= MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES;
-	else {
-		/* nothing changed */
-		return FALSE;
-	}
 
 	/* update internal state */
 	nnode->uidvalidity = status.uidvalidity;
@@ -727,7 +723,7 @@ mailbox_list_index_notify_change(struct mailbox_list_notify_index *inotify,
 	nnode->messages = status.messages;
 	nnode->unseen = status.unseen;
 	nnode->highest_modseq = status.highest_modseq;
-	return TRUE;
+	return rec->events != 0;
 }
 
 static bool
