@@ -1,10 +1,6 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
-#if defined (HAVE_INTTYPES_H) && (defined(__osf__) || defined(_HPUX_SOURCE))
-#  include <inttypes.h>
-#endif
-
 /* well, this is obviously wrong since it assumes it's 64bit, but older
    GCCs don't define it and we really want it. */
 #ifndef LLONG_MAX
