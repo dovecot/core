@@ -478,7 +478,6 @@ static bool
 index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 		       struct index_list_changes *changes)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mailbox_status old_status;
 	struct mailbox_index_vsize old_vsize;
 	guid_128_t old_guid;
@@ -504,15 +503,8 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 	/* update highest-modseq only if they're ever been used */
 	if (old_status.highest_modseq == changes->status.highest_modseq) {
 		changes->hmodseq_changed = FALSE;
-	} else if (mail_index_have_modseq_tracking(box->index)) {
-		changes->hmodseq_changed = TRUE;
 	} else {
-		const void *data;
-		bool expunged;
-
-		mail_index_lookup_ext(list_view, changes->seq,
-				      ilist->hmodseq_ext_id, &data, &expunged);
-		changes->hmodseq_changed = data != NULL;
+		changes->hmodseq_changed = TRUE;
 	}
 	if (memcmp(&old_vsize, &changes->vsize, sizeof(old_vsize)) != 0)
 		changes->vsize_changed = TRUE;
