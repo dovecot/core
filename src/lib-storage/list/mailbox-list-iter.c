@@ -31,6 +31,7 @@ struct mailbox_list_autocreate_iterate_context {
 	ARRAY(struct autocreate_box) boxes;
 	ARRAY_TYPE(mailbox_settings) box_sets;
 	ARRAY_TYPE(mailbox_settings) all_ns_box_sets;
+	bool listing_autoboxes:1;
 };
 
 struct ns_list_iterate_context {
@@ -828,7 +829,8 @@ autocreate_iter_existing(struct mailbox_list_iterate_context *ctx)
 	match = autocreate_box_match(&actx->box_sets, ctx->list->ns,
 				     info->vname, FALSE, &idx);
 
-	if ((match & AUTOCREATE_MATCH_RESULT_YES) != 0) {
+	if (!actx->listing_autoboxes &&
+	    (match & AUTOCREATE_MATCH_RESULT_YES) != 0) {
 		/* we have an exact match in the list.
 		   don't list it at the end. */
 		array_delete(&actx->boxes, idx, 1);
@@ -992,6 +994,9 @@ mailbox_list_iter_default_next(struct mailbox_list_iterate_context *ctx)
 
 	if (actx == NULL)
 		return NULL;
+
+	/* do not drop boxes anymore */
+	actx->listing_autoboxes = TRUE;
 
 	/* list missing mailboxes */
 	autoboxes = array_get(&actx->boxes, &count);
