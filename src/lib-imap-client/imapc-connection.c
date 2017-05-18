@@ -508,17 +508,21 @@ static void imapc_connection_reconnect(struct imapc_connection *conn)
 	conn->reconnect_ok = FALSE;
 	conn->reconnect_waiting = FALSE;
 
-	if (conn->selected_box != NULL)
-		imapc_client_mailbox_reconnect(conn->selected_box);
-	else {
-		imapc_connection_disconnect_full(conn, TRUE);
-		imapc_connection_connect(conn);
+	if (conn->selected_box != NULL) {
+		i_assert(!conn->selected_box->reconnecting);
+		conn->selected_box->reconnecting = TRUE;
+		/* if we fail again, avoid reconnecting immediately. if the
+		   server is broken we could just get into an infinitely
+		   failing reconnection loop. */
+		conn->selected_box->reconnect_ok = FALSE;
 	}
+	imapc_connection_disconnect_full(conn, TRUE);
+	imapc_connection_connect(conn);
 }
 
-static void
-imapc_connection_try_reconnect(struct imapc_connection *conn,
-			       const char *errstr, unsigned int delay_msecs)
+void imapc_connection_try_reconnect(struct imapc_connection *conn,
+				    const char *errstr,
+				    unsigned int delay_msecs)
 {
 	if (conn->prev_connect_idx + 1 < conn->ips_count) {
 		conn->reconnect_ok = TRUE;

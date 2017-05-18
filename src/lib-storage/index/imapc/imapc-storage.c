@@ -550,10 +550,10 @@ imapc_mailbox_reopen_callback(const struct imapc_command_reply *reply,
 	mbox->storage->reopen_count--;
 	mbox->selecting = FALSE;
 	if (reply->state != IMAPC_COMMAND_STATE_OK) {
-		mail_storage_set_critical(mbox->box.storage,
-			"imapc: Reopening mailbox '%s' failed: %s",
+		const char *errmsg = t_strdup_printf(
+			"Reopening mailbox '%s' failed: %s",
 			mbox->box.name, reply->text_full);
-		imapc_client_mailbox_reconnect(mbox->client_box);
+		imapc_client_mailbox_reconnect(mbox->client_box, errmsg);
 	}
 	imapc_client_stop(mbox->storage->client->client);
 }

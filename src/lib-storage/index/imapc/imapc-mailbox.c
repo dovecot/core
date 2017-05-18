@@ -17,10 +17,11 @@
 void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 				 const char *reason, ...)
 {
+	const char *errmsg;
 	va_list va;
 
 	va_start(va, reason);
-	i_error("imapc: Mailbox '%s' state corrupted: %s",
+	errmsg = t_strdup_printf("Mailbox '%s' state corrupted: %s",
 		mbox->box.name, t_strdup_vprintf(reason, va));
 	va_end(va);
 
@@ -34,7 +35,7 @@ void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 		/* maybe the remote server is buggy and has become confused.
 		   try reconnecting. */
 	}
-	imapc_client_mailbox_reconnect(mbox->client_box);
+	imapc_client_mailbox_reconnect(mbox->client_box, errmsg);
 }
 
 static struct mail_index_view *

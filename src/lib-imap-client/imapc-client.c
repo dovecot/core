@@ -404,18 +404,12 @@ bool imapc_client_mailbox_can_reconnect(struct imapc_client_mailbox *box)
 	return box->reopen_callback != NULL && box->reconnect_ok;
 }
 
-void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box)
+void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box,
+				    const char *errmsg)
 {
 	i_assert(!box->reconnecting);
 
-	box->reconnecting = TRUE;
-	/* if we fail again, avoid reconnecting immediately. if the server is
-	   broken we could just get into an infinitely failing reconnection
-	   loop. */
-	box->reconnect_ok = FALSE;
-
-	imapc_connection_disconnect_full(box->conn, TRUE);
-	imapc_connection_connect(box->conn);
+	imapc_connection_try_reconnect(box->conn, errmsg, 0);
 }
 
 void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
