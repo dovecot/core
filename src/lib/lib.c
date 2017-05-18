@@ -1,6 +1,7 @@
 /* Copyright (c) 2001-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "dovecot-version.h"
 #include "array.h"
 #include "env-util.h"
 #include "hostpid.h"
@@ -12,6 +13,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/time.h>
+
+/* Mainly for including the full version information in core dumps.
+   NOTE: Don't set this const - otherwise it won't end up in core dumps. */
+char dovecot_build_info[] = DOVECOT_BUILD_INFO;
 
 static bool lib_initialized = FALSE;
 int dev_null_fd = -1;

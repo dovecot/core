@@ -4,6 +4,7 @@ SRCDIR="${1:-`pwd`}"
 BUILDDIR="${2:-`pwd`}"
 VERSION_H="dovecot-version.h"
 VERSION_HT="dovecot-version.h.tmp"
+DOVECOT_BUILD_INFO=${DOVECOT_BUILD_INFO:-DOVECOT_VERSION_FULL}
 
 abspath()
 { #$1 the path
@@ -45,6 +46,7 @@ if true; then
 #define DOVECOT_VERSION_H
 
 #define DOVECOT_VERSION_FULL VERSION" (${GITID})"
+#define DOVECOT_BUILD_INFO ${DOVECOT_BUILD_INFO}
 
 #endif /* DOVECOT_VERSION_H */
 EOF
@@ -54,6 +56,7 @@ else
 #define DOVECOT_VERSION_H
 
 #define DOVECOT_VERSION_FULL VERSION
+#define DOVECOT_BUILD_INFO ${DOVECOT_BUILD_INFO}
 
 #endif /* DOVECOT_VERSION_H */
 EOF
