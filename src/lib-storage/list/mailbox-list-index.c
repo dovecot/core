@@ -318,6 +318,17 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		}
 		irec = data;
 
+		if (!ilist->has_backing_store && guid_128_is_empty(irec->guid) &&
+		    (rec->flags & (MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
+				   MAILBOX_LIST_INDEX_FLAG_NOSELECT)) == 0) {
+			/* no backing store and mailbox has no GUID.
+			   it can't be selectable, but the flag is missing. */
+			node->flags |= MAILBOX_LIST_INDEX_FLAG_NOSELECT;
+			*error_r = "mailbox is missing guid - "
+				"setting it non-selectable";
+			node->corrupted_flags = TRUE;
+		}
+
 		node->name_id = irec->name_id;
 		if (node->name_id == 0) {
 			/* invalid name_id - assign a new one */

@@ -83,6 +83,8 @@ struct mailbox_list_index_node {
 	enum mailbox_list_index_flags flags;
 	/* extension data is corrupted on disk - need to update it */
 	bool corrupted_ext;
+	/* flags are corrupted on disk - need to update it */
+	bool corrupted_flags;
 	const char *name;
 };
 
