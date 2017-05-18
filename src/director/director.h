@@ -76,6 +76,8 @@ struct director_kill_context {
 	struct mail_tag *tag;
 	unsigned int username_hash;
 	struct ip_addr old_host_ip;
+	unsigned int old_host_vhost_count;
+	bool old_host_down;
 	bool kill_is_self_initiated;
 	bool callback_pending;
 
