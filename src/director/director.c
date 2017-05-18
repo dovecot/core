@@ -805,6 +805,8 @@ director_flush_user(struct director *dir, struct user *user)
 		t_strdup_printf("%u", user->username_hash),
 		net_ip2addr(&ctx->old_host_ip),
 		net_ip2addr(&user->host->ip),
+		ctx->old_host_down ? "down" : "up",
+		dec2str(ctx->old_host_vhost_count),
 		NULL
 	};
 
@@ -1005,8 +1007,11 @@ director_kill_user(struct director *dir, struct director_host *src,
 	ctx->tag = tag;
 	ctx->username_hash = user->username_hash;
 	ctx->kill_is_self_initiated = src->self;
-	if (old_host != NULL)
+	if (old_host != NULL) {
 		ctx->old_host_ip = old_host->ip;
+		ctx->old_host_down = old_host->down;
+		ctx->old_host_vhost_count = old_host->vhost_count;
+	}
 
 	dir->users_moving_count++;
 	ctx->to_move = timeout_add(DIRECTOR_USER_MOVE_TIMEOUT_MSECS,
