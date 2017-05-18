@@ -57,6 +57,16 @@ static const struct quota_backend *quota_internal_backends[] = {
 
 static ARRAY(const struct quota_backend*) quota_backends;
 
+static void hidden_param_handler(struct quota_root *_root, const char *param_value);
+static void ignoreunlim_param_handler(struct quota_root *_root, const char *param_value);
+static void noenforcing_param_handler(struct quota_root *_root, const char *param_value);
+static void ns_param_handler(struct quota_root *_root, const char *param_value);
+
+struct quota_param_parser quota_param_hidden = {.param_name = "hidden", .param_handler = hidden_param_handler};
+struct quota_param_parser quota_param_ignoreunlimited = {.param_name = "ignoreunlimited", .param_handler = ignoreunlim_param_handler};
+struct quota_param_parser quota_param_noenforcing = {.param_name = "noenforcing", .param_handler = noenforcing_param_handler};
+struct quota_param_parser quota_param_ns = {.param_name = "ns=", .param_handler = ns_param_handler};
+
 static enum quota_alloc_result quota_default_test_alloc(
 		struct quota_transaction_context *ctx, uoff_t size);
 static void quota_over_flag_check_root(struct quota_root *root);
@@ -1368,4 +1378,74 @@ void quota_recalculate(struct quota_transaction_context *ctx,
 		       enum quota_recalculate recalculate)
 {
 	ctx->recalculate = recalculate;
+}
+
+static void hidden_param_handler(struct quota_root *_root, const char *param_value ATTR_UNUSED)
+{
+	_root->hidden = TRUE;
+}
+
+static void ignoreunlim_param_handler(struct quota_root *_root, const char *param_value ATTR_UNUSED)
+{
+	_root->disable_unlimited_tracking = TRUE;
+}
+
+static void noenforcing_param_handler(struct quota_root *_root, const char *param_value ATTR_UNUSED)
+{
+	_root->no_enforcing = TRUE;
+}
+
+static void ns_param_handler(struct quota_root *_root, const char *param_value)
+{
+	_root->ns_prefix = p_strdup(_root->pool, param_value);
+}
+
+int quota_parse_parameters(struct quota_root *root, const char **args, const char **error_r,
+			   const struct quota_param_parser *valid_params, bool fail_on_unknown)
+{
+	const char *tmp_param_name, *tmp_param_val;
+	size_t tmp_param_len;
+
+	while (*args != NULL && (*args)[0] != '\0') {
+		for (; valid_params->param_name != NULL; ++valid_params) {
+			tmp_param_name = valid_params->param_name;
+			tmp_param_len = strlen(valid_params->param_name);
+			if (strncmp(*args, tmp_param_name, tmp_param_len) == 0) {
+				tmp_param_val = NULL;
+				*args += tmp_param_len;
+				if (tmp_param_name[tmp_param_len - 1] == '=') {
+					const char *next_colon = strchr(*args, ':');
+					tmp_param_val = (next_colon == NULL)?
+						t_strdup(*args):
+						t_strdup_until(*args, next_colon);
+					*args = (next_colon == NULL) ? NULL : next_colon + 1;
+				}
+				else if (*args[0] == '\0' ||
+					 *args[0] == ':') {
+					*args = (*args[0] == ':') ? *args + 1 : NULL;
+					/* in case parameter is a boolean second parameter
+					 * string parameter value will be ignored by param_handler
+					 * we just need some non-NULL value
+					 * to indicate that argument is to be processed */
+					tmp_param_val = "";
+				}
+				if (tmp_param_val != NULL) {
+					valid_params->param_handler(root, tmp_param_val);
+					break;
+				}
+			}
+		}
+		if (valid_params->param_name != NULL) {
+			if (fail_on_unknown) {
+				*error_r = t_strdup_printf(
+					"Unknown parameter for backend %s: %s",
+					root->backend.name, *args);
+				return -1;
+			}
+			else {
+				break;
+			}
+		}
+	}
+	return 0;
 }
