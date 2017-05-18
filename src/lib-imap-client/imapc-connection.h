@@ -35,7 +35,8 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 				      bool reconnecting);
 void imapc_connection_try_reconnect(struct imapc_connection *conn,
 				    const char *errstr,
-				    unsigned int delay_msecs);
+				    unsigned int delay_msecs,
+				    bool connect_error);
 void imapc_connection_abort_commands(struct imapc_connection *conn,
 				     struct imapc_client_mailbox *only_box,
 				     bool keep_retriable) ATTR_NULL(2);

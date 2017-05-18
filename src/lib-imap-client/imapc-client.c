@@ -409,7 +409,7 @@ void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box,
 {
 	i_assert(!box->reconnecting);
 
-	imapc_connection_try_reconnect(box->conn, errmsg, 0);
+	imapc_connection_try_reconnect(box->conn, errmsg, 0, FALSE);
 }
 
 void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
