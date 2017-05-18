@@ -300,6 +300,7 @@ imapc_connection_abort_commands_array(ARRAY_TYPE(imapc_command) *cmd_array,
 			 (cmd->flags & IMAPC_COMMAND_FLAG_RETRIABLE) != 0) {
 			cmd->send_pos = 0;
 			cmd->wait_for_literal = 0;
+			cmd->flags |= IMAPC_COMMAND_FLAG_RECONNECTED;
 			i++;
 		} else {
 			array_delete(cmd_array, i, 1);
@@ -1433,7 +1434,7 @@ static int imapc_connection_input_tagged(struct imapc_connection *conn)
 	}
 
 	if (conn->reconnect_command_count > 0 &&
-	    (cmd->flags & IMAPC_COMMAND_FLAG_PRELOGIN) == 0) {
+	    (cmd->flags & IMAPC_COMMAND_FLAG_RECONNECTED) != 0) {
 		if (--conn->reconnect_command_count == 0) {
 			/* we've received replies for all the commands started
 			   before reconnection. if we get disconnected now, we
