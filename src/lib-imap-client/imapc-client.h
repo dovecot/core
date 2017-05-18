@@ -221,7 +221,8 @@ void imapc_client_mailbox_set_reopen_cb(struct imapc_client_mailbox *box,
 					void *context);
 void imapc_client_mailbox_close(struct imapc_client_mailbox **box);
 bool imapc_client_mailbox_can_reconnect(struct imapc_client_mailbox *box);
-void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box);
+void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box,
+				    const char *errmsg);
 struct imapc_command *
 imapc_client_mailbox_cmd(struct imapc_client_mailbox *box,
 			 imapc_command_callback_t *callback, void *context);
