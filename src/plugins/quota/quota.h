@@ -19,6 +19,16 @@ struct quota_root;
 struct quota_root_iter;
 struct quota_transaction_context;
 
+struct quota_param_parser {
+	char *param_name;
+	void (* param_handler)(struct quota_root *_root, const char *param_value);
+};
+
+extern struct quota_param_parser quota_param_hidden;
+extern struct quota_param_parser quota_param_ignoreunlimited;
+extern struct quota_param_parser quota_param_noenforcing;
+extern struct quota_param_parser quota_param_ns;
+
 enum quota_recalculate {
 	QUOTA_RECALCULATE_DONT = 0,
 	/* We may want to recalculate quota because we weren't able to call
@@ -109,5 +119,9 @@ void quota_recalculate(struct quota_transaction_context *ctx,
 
 /* Execute quota_over_scripts if needed. */
 void quota_over_flag_check_startup(struct quota *quota);
+
+/* Common quota parameters parsing loop */
+int quota_parse_parameters(struct quota_root *root, const char **args, const char **error_r,
+			   const struct quota_param_parser *valid_params, bool fail_on_unknown);
 
 #endif
