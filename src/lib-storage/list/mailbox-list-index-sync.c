@@ -388,7 +388,11 @@ mailbox_list_index_sync_update_corrupted_node(struct mailbox_list_index_sync_con
 				      sync_ctx->ilist->ext_id, &irec, NULL);
 		node->corrupted_ext = FALSE;
 	}
-	if ((node->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) != 0) {
+	if (node->corrupted_flags) {
+		mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE,
+					(enum mail_flags)node->flags);
+		node->corrupted_flags = FALSE;
+	} else if ((node->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) != 0) {
 		/* rely on lib-index to drop unnecessary updates */
 		mail_index_update_flags(sync_ctx->trans, seq, MODIFY_ADD,
 			(enum mail_flags)MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
