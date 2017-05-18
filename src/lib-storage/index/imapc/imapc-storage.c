@@ -540,21 +540,37 @@ static bool imapc_mailbox_want_examine(struct imapc_mailbox *mbox)
 		 (mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0);
 }
 
+static bool
+imapc_mailbox_verify_select(struct imapc_mailbox *mbox, const char **error_r)
+{
+	if (!mbox->exists_received)
+		*error_r = "EXISTS not received";
+	else
+		return TRUE;
+	return FALSE;
+}
+
 static void
 imapc_mailbox_reopen_callback(const struct imapc_command_reply *reply,
 			      void *context)
 {
 	struct imapc_mailbox *mbox = context;
+	const char *errmsg;
 
 	i_assert(mbox->storage->reopen_count > 0);
 	mbox->storage->reopen_count--;
 	mbox->selecting = FALSE;
-	if (reply->state != IMAPC_COMMAND_STATE_OK) {
-		const char *errmsg = t_strdup_printf(
-			"Reopening mailbox '%s' failed: %s",
-			mbox->box.name, reply->text_full);
-		imapc_client_mailbox_reconnect(mbox->client_box, errmsg);
+	if (reply->state != IMAPC_COMMAND_STATE_OK)
+		errmsg = reply->text_full;
+	else if (imapc_mailbox_verify_select(mbox, &errmsg))
+		errmsg = NULL;
+
+	if (errmsg != NULL) {
+		imapc_client_mailbox_reconnect(mbox->client_box,
+			t_strdup_printf("Reopening mailbox '%s' failed: %s",
+					mbox->box.name, errmsg));
 	}
+
 	imapc_client_stop(mbox->storage->client->client);
 }
 
@@ -578,6 +594,7 @@ static void imapc_mailbox_reopen(void *context)
 
 	mbox->initial_sync_done = FALSE;
 	mbox->selecting = TRUE;
+	mbox->exists_received = FALSE;
 
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_mailbox_reopen_callback, mbox);
@@ -600,12 +617,20 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 			    void *context)
 {
 	struct imapc_open_context *ctx = context;
+	const char *error;
 
 	ctx->mbox->selecting = FALSE;
 	ctx->mbox->selected = TRUE;
-	if (reply->state == IMAPC_COMMAND_STATE_OK)
-		ctx->ret = 0;
-	else if (reply->state == IMAPC_COMMAND_STATE_NO) {
+	if (reply->state == IMAPC_COMMAND_STATE_OK) {
+		if (!imapc_mailbox_verify_select(ctx->mbox, &error)) {
+			mail_storage_set_critical(ctx->mbox->box.storage,
+				"imapc: Opening mailbox '%s' failed: %s",
+				ctx->mbox->box.name, error);
+			ctx->ret = -1;
+		} else {
+			ctx->ret = 0;
+		}
+	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(ctx->mbox->storage,
 					    MAIL_ERROR_NOTFOUND, reply);
 		ctx->ret = -1;
@@ -670,6 +695,7 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 	imapc_mailbox_get_extensions(mbox);
 
 	mbox->selecting = TRUE;
+	mbox->exists_received = FALSE;
 	ctx.mbox = mbox;
 	ctx.ret = -2;
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
