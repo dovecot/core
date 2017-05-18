@@ -10,6 +10,7 @@ struct concat_istream {
 
 	struct istream **input, *cur_input;
 	uoff_t *input_size;
+	unsigned int input_count;
 
 	unsigned int cur_idx, unknown_size_idx;
 	size_t prev_stream_left, prev_stream_skip, prev_skip;
@@ -29,7 +30,7 @@ static void i_stream_concat_close(struct iostream_private *stream,
 	}
 
 	if (close_parent) {
-		for (i = 0; cstream->input[i] != NULL; i++)
+		for (i = 0; i < cstream->input_count; i++)
 			i_stream_close(cstream->input[i]);
 	}
 }
@@ -39,7 +40,7 @@ static void i_stream_concat_destroy(struct iostream_private *stream)
 	struct concat_istream *cstream = (struct concat_istream *)stream;
 	unsigned int i;
 
-	for (i = 0; cstream->input[i] != NULL; i++)
+	for (i = 0; i < cstream->input_count; i++)
 		i_stream_unref(&cstream->input[i]);
 	i_free(cstream->input);
 	i_free(cstream->input_size);
@@ -54,7 +55,7 @@ i_stream_concat_set_max_buffer_size(struct iostream_private *stream,
 	unsigned int i;
 
 	cstream->istream.max_buffer_size = max_size;
-	for (i = 0; cstream->input[i] != NULL; i++)
+	for (i = 0; i < cstream->input_count; i++)
 		i_stream_set_max_buffer_size(cstream->input[i], max_size);
 }
 
@@ -167,7 +168,7 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 		}
 
 		/* we either read something or we're at EOF */
-		last_stream = cstream->input[cstream->cur_idx+1] == NULL;
+		last_stream = cstream->cur_idx+1 >= cstream->input_count;
 		if (ret == -1 && !last_stream) {
 			if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
 				return -2;
@@ -228,7 +229,7 @@ find_v_offset(struct concat_istream *cstream, uoff_t *v_offset,
 	const struct stat *st;
 	unsigned int i;
 
-	for (i = 0; cstream->input[i] != NULL; i++) {
+	for (i = 0; i < cstream->input_count; i++) {
 		if (*v_offset == 0) {
 			/* seek to beginning of this stream */
 			break;
@@ -277,8 +278,9 @@ static void i_stream_concat_seek(struct istream_private *stream,
 		stream->istream.stream_errno = EINVAL;
 		return;
 	}
-	cstream->cur_input = cstream->input[cstream->cur_idx];
-	if (cstream->cur_input == NULL) {
+	if (cstream->cur_idx < cstream->input_count)
+		cstream->cur_input = cstream->input[cstream->cur_idx];
+	else {
 		/* we allow seeking to EOF, but not past it. */
 		if (v_offset != 0) {
 			io_stream_set_error(&cstream->istream.iostream,
@@ -333,10 +335,10 @@ struct istream *i_stream_create_concat(struct istream *input[])
 	i_assert(count != 0);
 
 	cstream = i_new(struct concat_istream, 1);
-	cstream->input = i_new(struct istream *, count + 1);
-	cstream->input_size = i_new(uoff_t, count + 1);
+	cstream->input_count = count;
+	cstream->input = p_memdup(default_pool, input, sizeof(*input) * count);
+	cstream->input_size = i_new(uoff_t, count);
 
-	memcpy(cstream->input, input, sizeof(*input) * count);
 	cstream->cur_input = cstream->input[0];
 	i_stream_seek(cstream->cur_input, 0);
 
