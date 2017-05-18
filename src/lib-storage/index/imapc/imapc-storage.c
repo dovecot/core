@@ -545,6 +545,8 @@ imapc_mailbox_verify_select(struct imapc_mailbox *mbox, const char **error_r)
 {
 	if (!mbox->exists_received)
 		*error_r = "EXISTS not received";
+	else if (mbox->sync_uid_validity == 0)
+		*error_r = "UIDVALIDITY not received";
 	else
 		return TRUE;
 	return FALSE;

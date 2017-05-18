@@ -584,7 +584,8 @@ imapc_resp_text_uidvalidity(const struct imapc_untagged_reply *reply,
 	uint32_t uid_validity;
 
 	if (mbox == NULL ||
-	    str_to_uint32(reply->resp_text_value, &uid_validity) < 0)
+	    str_to_uint32(reply->resp_text_value, &uid_validity) < 0 ||
+	    uid_validity == 0)
 		return;
 
 	if (mbox->sync_uid_validity != uid_validity) {
