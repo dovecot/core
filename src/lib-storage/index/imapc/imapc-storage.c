@@ -564,11 +564,20 @@ static void imapc_mailbox_reopen(void *context)
 	struct imapc_command *cmd;
 
 	/* we're reconnecting and need to reopen the mailbox */
-	mbox->initial_sync_done = FALSE;
-	mbox->selecting = TRUE;
 	mbox->prev_skipped_rseq = 0;
 	mbox->prev_skipped_uid = 0;
 	imapc_msgmap_reset(imapc_client_mailbox_get_msgmap(mbox->client_box));
+
+	if (mbox->selecting) {
+		/* We reconnected during the initial SELECT/EXAMINE. It'll be
+		   automatically resent by lib-imap-client, so we don't need to
+		   send it again here. */
+		i_assert(!mbox->initial_sync_done);
+		return;
+	}
+
+	mbox->initial_sync_done = FALSE;
+	mbox->selecting = TRUE;
 
 	cmd = imapc_client_mailbox_cmd(mbox->client_box,
 				       imapc_mailbox_reopen_callback, mbox);
