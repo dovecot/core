@@ -512,6 +512,12 @@ void imapc_sync_mailbox_reopened(struct imapc_mailbox *mbox)
 
 	i_assert(mbox->syncing);
 
+	if (!mbox->initial_sync_done) {
+		/* the same sync commands are automatically already retried by
+		   lib-imap-client. don't duplicate them here. */
+		return;
+	}
+
 	/* we got disconnected while syncing. need to
 	   re-fetch everything */
 	mbox->sync_next_lseq = 1;
