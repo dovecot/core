@@ -322,6 +322,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		if (node->name_id == 0) {
 			/* invalid name_id - assign a new one */
 			node->name_id = ++ilist->highest_name_id;
+			node->corrupted_ext = TRUE;
 		}
 		node->name = hash_table_lookup(ilist->mailbox_names,
 					       POINTER_CAST(irec->name_id));
