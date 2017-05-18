@@ -635,9 +635,9 @@ static void print_build_options(void)
 #endif
 	        " io_block_size=%u"
 #ifdef SQL_DRIVER_PLUGINS
-	"SQL driver plugins:"
+	"\nSQL driver plugins:"
 #else
-	"SQL drivers:"
+	"\nSQL drivers:"
 #endif
 #ifdef BUILD_CASSANDRA
 		" cassandra"
