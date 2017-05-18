@@ -522,9 +522,12 @@ static void imapc_connection_reconnect(struct imapc_connection *conn)
 
 void imapc_connection_try_reconnect(struct imapc_connection *conn,
 				    const char *errstr,
-				    unsigned int delay_msecs)
+				    unsigned int delay_msecs,
+				    bool connect_error)
 {
-	if (conn->prev_connect_idx + 1 < conn->ips_count) {
+	/* Try the next IP address only for connect() problems. */
+	if (conn->prev_connect_idx + 1 < conn->ips_count && connect_error) {
+		i_warning("imapc(%s): %s - trying the next IP", conn->name, errstr);
 		conn->reconnect_ok = TRUE;
 		imapc_connection_disconnect_full(conn, TRUE);
 		imapc_connection_connect(conn);
@@ -1546,7 +1549,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 			str_printfa(str, "Server disconnected unexpectedly: %s",
 				    errstr);
 		}
-		imapc_connection_try_reconnect(conn, str_c(str), 0);
+		imapc_connection_try_reconnect(conn, str_c(str), 0, FALSE);
 	}
 	imapc_connection_unref(&conn);
 }
@@ -1644,7 +1647,7 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 		imapc_connection_try_reconnect(conn, t_strdup_printf(
 			"connect(%s, %u) failed: %s",
 			net_ip2addr(ip), conn->client->set.port,
-			strerror(err)), conn->client->set.connect_retry_interval_msecs);
+			strerror(err)), conn->client->set.connect_retry_interval_msecs, TRUE);
 		return;
 	}
 	conn->io = io_add(conn->fd, IO_READ, imapc_connection_input, conn);
@@ -1659,12 +1662,14 @@ static void imapc_connection_timeout(struct imapc_connection *conn)
 {
 	const struct ip_addr *ip = &conn->ips[conn->prev_connect_idx];
 	const char *errstr;
+	bool connect_error = FALSE;
 
 	switch (conn->state) {
 	case IMAPC_CONNECTION_STATE_CONNECTING:
 		errstr = t_strdup_printf("connect(%s, %u) timed out after %u seconds",
 			net_ip2addr(ip), conn->client->set.port,
 			conn->client->set.connect_timeout_msecs/1000);
+		connect_error = TRUE;
 		break;
 	case IMAPC_CONNECTION_STATE_AUTHENTICATING:
 		errstr = t_strdup_printf("Authentication timed out after %u seconds",
@@ -1673,7 +1678,7 @@ static void imapc_connection_timeout(struct imapc_connection *conn)
 	default:
 		i_unreached();
 	}
-	imapc_connection_try_reconnect(conn, errstr, 0);
+	imapc_connection_try_reconnect(conn, errstr, 0, connect_error);
 }
 
 static void
@@ -1728,7 +1733,7 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 			net_ip2addr(ip), conn->client->set.port);
 		if (conn->prev_connect_idx+1 == conn->ips_count) {
 			imapc_connection_try_reconnect(conn, "No more IP address(es) to try",
-				conn->client->set.connect_retry_interval_msecs);
+				conn->client->set.connect_retry_interval_msecs, TRUE);
 			return;
 		}
 	}
@@ -1925,7 +1930,7 @@ static void imapc_command_timeout(struct imapc_connection *conn)
 	i_assert(count > 0);
 
 	imapc_connection_try_reconnect(conn, t_strdup_printf(
-		"Command '%s' timed out", imapc_command_get_readable(cmds[0])), 0);
+		"Command '%s' timed out", imapc_command_get_readable(cmds[0])), 0, FALSE);
 }
 
 static bool
