@@ -37,10 +37,25 @@ void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 	array_sort(&fetch_handlers, imap_fetch_handler_cmp);
 }
 
+void imap_fetch_handler_unregister(const char *name)
+{
+	const struct imap_fetch_handler *handler, *first_handler;
+
+	first_handler = array_idx(&fetch_handlers, 0);
+	handler = imap_fetch_handler_lookup(name);
+	i_assert(handler != NULL);
+	array_delete(&fetch_handlers, handler - first_handler, 1);
+}
+
 static int
 imap_fetch_handler_bsearch(const char *name, const struct imap_fetch_handler *h)
 {
 	return strcmp(name, h->name);
+}
+
+const struct imap_fetch_handler *imap_fetch_handler_lookup(const char *name)
+{
+	return array_bsearch(&fetch_handlers, name, imap_fetch_handler_bsearch);
 }
 
 bool imap_fetch_init_handler(struct imap_fetch_init_context *init_ctx)
