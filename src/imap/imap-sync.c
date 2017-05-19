@@ -13,15 +13,6 @@
 #include "imap-commands.h"
 #include "imap-sync-private.h"
 
-struct client_sync_context {
-	/* if multiple commands are in progress, we may need to wait for them
-	   to finish before syncing mailbox. */
-	unsigned int counter;
-	enum mailbox_sync_flags flags;
-	enum imap_sync_flags imap_flags;
-	const char *tagline;
-};
-
 static void uids_to_seqs(struct mailbox *box, ARRAY_TYPE(seq_range) *uids)
 {
 	T_BEGIN {
@@ -755,7 +746,7 @@ bool cmd_sync(struct client_command_context *cmd, enum mailbox_sync_flags flags,
 	}
 	cmd->tagline_reply = p_strdup(cmd->pool, tagline);
 
-	cmd->sync = p_new(cmd->pool, struct client_sync_context, 1);
+	cmd->sync = p_new(cmd->pool, struct imap_client_sync_context, 1);
 	cmd->sync->counter = client->sync_counter;
 	cmd->sync->flags = flags;
 	cmd->sync->imap_flags = imap_flags;
