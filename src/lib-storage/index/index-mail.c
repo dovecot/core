@@ -2343,7 +2343,12 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	mail_cache_transaction_reset(mail->transaction->cache_trans);
 	imail->data.no_caching = TRUE;
 	imail->data.forced_no_caching = TRUE;
-	if (reason[0] == '\0') {
+
+	if (mail->saving) {
+		mail_storage_set_critical(mail->box->storage,
+			"BUG: Broken %s found in mailbox %s while saving a new mail: %s",
+			field_name, mail->box->vname, reason);
+	} else if (reason[0] == '\0') {
 		mail_set_mail_cache_corrupted(mail,
 			"Broken %s in mailbox %s",
 			field_name, mail->box->vname);
