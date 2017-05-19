@@ -30,12 +30,23 @@ static struct quota_root *dict_quota_alloc(void)
 	return &root->root;
 }
 
+static void handle_nounset_param(struct quota_root *_root, const char *param_value ATTR_UNUSED)
+{
+	((struct dict_quota_root *)_root)->disable_unset = TRUE;
+}
+
 static int dict_quota_init(struct quota_root *_root, const char *args,
 			   const char **error_r)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 	struct dict_settings set;
 	const char *username, *p, *error;
+
+	const struct quota_param_parser dict_params[] = {
+		{.param_name = "no-unset", .param_handler = handle_nounset_param},
+		quota_param_hidden, quota_param_ignoreunlimited, quota_param_noenforcing, quota_param_ns,
+		{.param_name = NULL}
+	};
 
 	p = args == NULL ? NULL : strchr(args, ':');
 	if (p == NULL) {
@@ -46,33 +57,7 @@ static int dict_quota_init(struct quota_root *_root, const char *args,
 	username = t_strdup_until(args, p);
 	args = p+1;
 
-	for (;;) {
-		/* FIXME: pretty ugly in here. the parameters should have
-		   been designed to be extensible. do it in a future version */
-		if (strncmp(args, "noenforcing:", 12) == 0) {
-			_root->no_enforcing = TRUE;
-			args += 12;
-		} else if (strncmp(args, "hidden:", 7) == 0) {
-			_root->hidden = TRUE;
-			args += 7;
-		} else if (strncmp(args, "ignoreunlimited:", 16) == 0) {
-			_root->disable_unlimited_tracking = TRUE;
-			args += 16;
-		} else if (strncmp(args, "no-unset:", 9) == 0) {
-			root->disable_unset = TRUE;
-			args += 9;
-		} else if (strncmp(args, "ns=", 3) == 0) {
-			p = strchr(args, ':');
-			if (p == NULL)
-				break;
-
-			_root->ns_prefix = p_strdup_until(_root->pool,
-							  args + 3, p);
-			args = p + 1;
-		} else {
-			break;
-		}
-	}
+	quota_parse_parameters(_root, &args, error_r, dict_params, TRUE);
 
 	if (*username == '\0')
 		username = _root->quota->user->username;
