@@ -94,17 +94,14 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 
 static int
 client_create_from_input(const struct mail_storage_service_input *input,
-			 int fd_in, int fd_out, const buffer_t *input_buf,
-			 struct client **client_r, const char **error_r)
+			 int fd_in, int fd_out, struct client **client_r,
+			 const char **error_r)
 {
 	const char *lookup_error_str =
 		"-ERR [SYS/TEMP] "MAIL_ERRSTR_CRITICAL_MSG"\r\n";
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
-	struct client *client;
 	const struct pop3_settings *set;
-	const char *error;
-	int ret;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
 					     &user, &mail_user, error_r) <= 0) {
@@ -119,12 +116,18 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	client = client_create(fd_in, fd_out, input->session_id,
-			       mail_user, user, set);
+	*client_r = client_create(fd_in, fd_out, input->session_id,
+				  mail_user, user, set);
 
-	*client_r = client;
+	return 0;
+}
 
-	if (set->pop3_lock_session && (ret = pop3_lock_session(client)) <= 0) {
+static int lock_session(struct client *client)
+{
+	int ret;
+
+	if (client->set->pop3_lock_session &&
+	    (ret = pop3_lock_session(client)) <= 0) {
 		client_send_line(client, ret < 0 ?
 			"-ERR [SYS/TEMP] Failed to create POP3 session lock." :
 			"-ERR [IN-USE] Mailbox is locked by another POP3 session.");
@@ -132,15 +135,27 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		return -1;
 	}
 
+	return 0;
+}
+
+static void add_input(struct client *client,
+		      const buffer_t *input_buf)
+{
+	const char *error;
+
+	if (lock_session(client) < 0)
+		return; /* no need to propagate an error */
+
 	if (!IS_STANDALONE())
 		client_send_line(client, "+OK Logged in.");
-	if (client_init_mailbox(client, &error) == 0)
-		client_add_input(client, input_buf);
-	else {
+
+	if (client_init_mailbox(client, &error) < 0) {
 		i_error("%s", error);
 		client_destroy(client, error);
+		return;
 	}
-	return 0;
+
+	client_add_input(client, input_buf);
 }
 
 static void main_stdio_run(const char *username)
@@ -167,8 +182,9 @@ static void main_stdio_run(const char *username)
 		t_base64_decode_str(input_base64);
 
 	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
-				     input_buf, &client, &error) < 0)
+				     &client, &error) < 0)
 		i_fatal("%s", error);
+	add_input(client, input_buf);
 	/* client may be destroyed now */
 }
 
@@ -192,13 +208,15 @@ login_client_connected(const struct master_login_client *login_client,
 	buffer_create_from_const_data(&input_buf, login_client->data,
 				      login_client->auth_req.data_size);
 	if (client_create_from_input(&input, login_client->fd, login_client->fd,
-				     &input_buf, &client, &error) < 0) {
+				     &client, &error) < 0) {
 		int fd = login_client->fd;
 
 		i_error("%s", error);
 		i_close_fd(&fd);
 		master_service_client_connection_destroyed(master_service);
+		return;
 	}
+	add_input(client, &input_buf);
 	/* client may be destroyed now */
 }
 
