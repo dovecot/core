@@ -246,7 +246,7 @@ test_auth_request_var_expand_LDADD = $(test_libs) libauth.la
 test_auth_request_var_expand_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 test_username_filter_SOURCES = test-username-filter.c
-test_username_filter_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LIBDOVECOT)
+test_username_filter_LDADD = $(auth_libs) $(AUTH_LIBS) $(LIBDOVECOT)
 test_username_filter_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs) $(LIBDOVECOT_DEPS)
 
 test_db_dict_SOURCES = test-db-dict.c
