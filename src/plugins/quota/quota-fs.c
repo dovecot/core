@@ -94,34 +94,40 @@ static struct quota_root *fs_quota_alloc(void)
 	return &root->root;
 }
 
+static void handle_user_param(struct quota_root *_root, const char *param_value ATTR_UNUSED)
+{
+	((struct fs_quota_root *)_root)->group_disabled = TRUE;
+}
+
+static void handle_group_param(struct quota_root *_root, const char *param_value ATTR_UNUSED)
+{
+	((struct fs_quota_root *)_root)->user_disabled = TRUE;
+}
+
+static void handle_inode_param(struct quota_root *_root, const char *param_value ATTR_UNUSED)
+{
+	((struct fs_quota_root *)_root)->inode_per_mail = TRUE;
+}
+
+static void handle_mount_param(struct quota_root *_root, const char *param_value)
+{
+	((struct fs_quota_root *)_root)->storage_mount_path = i_strdup(param_value);
+}
+
 static int fs_quota_init(struct quota_root *_root, const char *args,
 			 const char **error_r)
 {
-	struct fs_quota_root *root = (struct fs_quota_root *)_root;
-	const char *const *tmp;
+	const struct quota_param_parser fs_params[] = {
+		{.param_name = "user", .param_handler = handle_user_param},
+		{.param_name = "group", .param_handler = handle_group_param},
+		{.param_name = "mount", .param_handler = handle_mount_param},
+		{.param_name = "inode_per_mail", .param_handler = handle_inode_param},
+		quota_param_hidden, quota_param_noenforcing, quota_param_ns,
+		{.param_name = NULL}
+	};
 
-	if (args == NULL)
-		return 0;
-
-	for (tmp = t_strsplit(args, ":"); *tmp != NULL; tmp++) {
-		if (strcmp(*tmp, "user") == 0)
-			root->group_disabled = TRUE;
-		else if (strcmp(*tmp, "group") == 0)
-			root->user_disabled = TRUE;
-		else if (strcmp(*tmp, "inode_per_mail") == 0)
-			root->inode_per_mail = TRUE;
-		else if (strcmp(*tmp, "noenforcing") == 0)
-			_root->no_enforcing = TRUE;
-		else if (strcmp(*tmp, "hidden") == 0)
-			_root->hidden = TRUE;
-		else if (strncmp(*tmp, "mount=", 6) == 0) {
-			i_free(root->storage_mount_path);
-			root->storage_mount_path = i_strdup(*tmp + 6);
-		} else {
-			*error_r = t_strdup_printf("Invalid parameter: %s", *tmp);
-			return -1;
-		}
-	}
+	if (quota_parse_parameters(_root, &args, error_r, fs_params, FALSE) < 0)
+		return -1;
 	_root->auto_updating = TRUE;
 	return 0;
 }
