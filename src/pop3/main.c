@@ -169,7 +169,7 @@ static void main_stdio_run(const char *username)
 }
 
 static void
-login_client_connected(const struct master_login_client *client,
+login_client_connected(const struct master_login_client *login_client,
 		       const char *username, const char *const *extra_fields)
 {
 	struct mail_storage_service_input input;
@@ -178,17 +178,17 @@ login_client_connected(const struct master_login_client *client,
 
 	i_zero(&input);
 	input.module = input.service = "pop3";
-	input.local_ip = client->auth_req.local_ip;
-	input.remote_ip = client->auth_req.remote_ip;
+	input.local_ip = login_client->auth_req.local_ip;
+	input.remote_ip = login_client->auth_req.remote_ip;
 	input.username = username;
 	input.userdb_fields = extra_fields;
-	input.session_id = client->session_id;
+	input.session_id = login_client->session_id;
 
-	buffer_create_from_const_data(&input_buf, client->data,
-				      client->auth_req.data_size);
-	if (client_create_from_input(&input, client->fd, client->fd,
+	buffer_create_from_const_data(&input_buf, login_client->data,
+				      login_client->auth_req.data_size);
+	if (client_create_from_input(&input, login_client->fd, login_client->fd,
 				     &input_buf, &error) < 0) {
-		int fd = client->fd;
+		int fd = login_client->fd;
 
 		i_error("%s", error);
 		i_close_fd(&fd);
