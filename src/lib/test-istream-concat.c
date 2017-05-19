@@ -127,6 +127,9 @@ static void test_istream_concat_seek_end(void)
 		NULL
 	};
 	struct istream *input = i_stream_create_concat(streams);
+	i_stream_unref(&streams[0]);
+	i_stream_unref(&streams[1]);
+
 	i_stream_seek(input, 4);
 	test_assert(i_stream_read(input) == -1);
 	i_stream_unref(&input);
