@@ -332,7 +332,7 @@ static void pop3_lock_session_refresh(struct client *client)
 	}
 }
 
-static int pop3_lock_session(struct client *client)
+int pop3_lock_session(struct client *client)
 {
 	const struct mail_storage_settings *mail_set =
 		mail_storage_service_user_get_mail_set(client->service_user);
@@ -375,14 +375,13 @@ static int pop3_lock_session(struct client *client)
 	return ret;
 }
 
-int client_create(int fd_in, int fd_out, const char *session_id,
-		  struct mail_user *user,
-		  struct mail_storage_service_user *service_user,
-		  const struct pop3_settings *set, struct client **client_r)
+struct client *client_create(int fd_in, int fd_out, const char *session_id,
+			     struct mail_user *user,
+			     struct mail_storage_service_user *service_user,
+			     const struct pop3_settings *set)
 {
 	struct client *client;
 	pool_t pool;
-	int ret;
 
 	/* always use nonblocking I/O */
 	net_set_nonblock(fd_in, TRUE);
@@ -441,17 +440,7 @@ int client_create(int fd_in, int fd_out, const char *session_id,
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
 
-	if (set->pop3_lock_session && (ret = pop3_lock_session(client)) <= 0) {
-		client_send_line(client, ret < 0 ?
-			"-ERR [SYS/TEMP] Failed to create POP3 session lock." :
-			"-ERR [IN-USE] Mailbox is locked by another POP3 session.");
-		client_destroy(client, "Couldn't lock POP3 session");
-		return -1;
-	}
-
-	*client_r = client;
-	return 0;
-
+	return client;
 }
 
 int client_init_mailbox(struct client *client, const char **error_r)
