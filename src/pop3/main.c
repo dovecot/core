@@ -104,6 +104,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	struct client *client;
 	const struct pop3_settings *set;
 	const char *error;
+	int ret;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
 					     &user, &mail_user, error_r) <= 0) {
@@ -118,9 +119,17 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	if (client_create(fd_in, fd_out, input->session_id,
-			  mail_user, user, set, &client) < 0)
-		return 0;
+	client = client_create(fd_in, fd_out, input->session_id,
+			       mail_user, user, set);
+
+	if (set->pop3_lock_session && (ret = pop3_lock_session(client)) <= 0) {
+		client_send_line(client, ret < 0 ?
+			"-ERR [SYS/TEMP] Failed to create POP3 session lock." :
+			"-ERR [IN-USE] Mailbox is locked by another POP3 session.");
+		client_destroy(client, "Couldn't lock POP3 session");
+		return -1;
+	}
+
 	if (!IS_STANDALONE())
 		client_send_line(client, "+OK Logged in.");
 	if (client_init_mailbox(client, &error) == 0)
