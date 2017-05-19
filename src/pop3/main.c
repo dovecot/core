@@ -95,7 +95,7 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 static int
 client_create_from_input(const struct mail_storage_service_input *input,
 			 int fd_in, int fd_out, const buffer_t *input_buf,
-			 const char **error_r)
+			 struct client **client_r, const char **error_r)
 {
 	const char *lookup_error_str =
 		"-ERR [SYS/TEMP] "MAIL_ERRSTR_CRITICAL_MSG"\r\n";
@@ -122,6 +122,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	client = client_create(fd_in, fd_out, input->session_id,
 			       mail_user, user, set);
 
+	*client_r = client;
+
 	if (set->pop3_lock_session && (ret = pop3_lock_session(client)) <= 0) {
 		client_send_line(client, ret < 0 ?
 			"-ERR [SYS/TEMP] Failed to create POP3 session lock." :
@@ -143,6 +145,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 
 static void main_stdio_run(const char *username)
 {
+	struct client *client;
 	struct mail_storage_service_input input;
 	buffer_t *input_buf;
 	const char *value, *error, *input_base64;
@@ -164,14 +167,16 @@ static void main_stdio_run(const char *username)
 		t_base64_decode_str(input_base64);
 
 	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
-				     input_buf, &error) < 0)
+				     input_buf, &client, &error) < 0)
 		i_fatal("%s", error);
+	/* client may be destroyed now */
 }
 
 static void
 login_client_connected(const struct master_login_client *login_client,
 		       const char *username, const char *const *extra_fields)
 {
+	struct client *client;
 	struct mail_storage_service_input input;
 	const char *error;
 	buffer_t input_buf;
@@ -187,13 +192,14 @@ login_client_connected(const struct master_login_client *login_client,
 	buffer_create_from_const_data(&input_buf, login_client->data,
 				      login_client->auth_req.data_size);
 	if (client_create_from_input(&input, login_client->fd, login_client->fd,
-				     &input_buf, &error) < 0) {
+				     &input_buf, &client, &error) < 0) {
 		int fd = login_client->fd;
 
 		i_error("%s", error);
 		i_close_fd(&fd);
 		master_service_client_connection_destroyed(master_service);
 	}
+	/* client may be destroyed now */
 }
 
 static void login_client_failed(const struct master_login_client *client,
