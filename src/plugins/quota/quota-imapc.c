@@ -433,7 +433,7 @@ imapc_quota_get_resource(struct quota_root *_root, const char *name,
 	return 1;
 }
 
-static int 
+static int
 imapc_quota_update(struct quota_root *root ATTR_UNUSED,
 		   struct quota_transaction_context *ctx ATTR_UNUSED)
 {
