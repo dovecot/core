@@ -3,6 +3,15 @@
 
 #include "imap-sync.h"
 
+struct imap_client_sync_context {
+	/* if multiple commands are in progress, we may need to wait for them
+	   to finish before syncing mailbox. */
+	unsigned int counter;
+	enum mailbox_sync_flags flags;
+	enum imap_sync_flags imap_flags;
+	const char *tagline;
+};
+
 struct imap_sync_context {
 	struct client *client;
 	struct mailbox *box;

@@ -105,7 +105,7 @@ struct client_command_context {
 	struct client_command_stats stats;
 	struct client_command_stats_start stats_start;
 
-	struct client_sync_context *sync;
+	struct imap_client_sync_context *sync;
 
 	bool uid:1; /* used UID command */
 	bool cancel:1; /* command is wanted to be cancelled */
