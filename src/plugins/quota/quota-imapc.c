@@ -46,26 +46,30 @@ static struct quota_root *imapc_quota_alloc(void)
 	return &root->root;
 }
 
+static void handle_box_param(struct quota_root *_root, const char *param_value)
+{
+	((struct imapc_quota_root *)_root)->box_name = p_strdup(_root->pool, param_value);
+}
+
+static void handle_root_param(struct quota_root *_root, const char *param_value)
+{
+	((struct imapc_quota_root *)_root)->root_name = p_strdup(_root->pool, param_value);
+}
+
 static int imapc_quota_init(struct quota_root *_root, const char *args,
 			    const char **error_r)
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
-	const char *const *tmp;
+	const struct quota_param_parser imapc_params[] = {
+		{.param_name = "box=", .param_handler = handle_box_param},
+		{.param_name = "root=", .param_handler = handle_root_param},
+		quota_param_ns,
+		{.param_name = NULL}
+	};
 
-	if (args == NULL)
-		args = "";
-	for (tmp = t_strsplit(args, ":"); *tmp != NULL; tmp++) {
-		if (strncmp(*tmp, "ns=", 3) == 0)
-			_root->ns_prefix = p_strdup(_root->pool, *tmp + 3);
-		else if (strncmp(*tmp, "box=", 4) == 0)
-			root->box_name = p_strdup(_root->pool, *tmp + 4);
-		else if (strncmp(*tmp, "root=", 5) == 0)
-			root->root_name = p_strdup(_root->pool, *tmp + 5);
-		else {
-			*error_r = t_strdup_printf("Invalid parameter: %s", *tmp);
-			return -1;
-		}
-	}
+	if (quota_parse_parameters(_root, &args, error_r, imapc_params, FALSE) < 0)
+		return -1;
+
 	if (root->box_name == NULL && root->root_name == NULL)
 		root->box_name = "INBOX";
 	_root->auto_updating = TRUE;
