@@ -214,7 +214,7 @@ quota_root_settings_init(struct quota_settings *quota_set, const char *root_def,
 					   backend_name);
 		return -1;
 	}
-	
+
 	root_set = p_new(quota_set->pool, struct quota_root_settings, 1);
 	root_set->set = quota_set;
 	root_set->backend = backend;

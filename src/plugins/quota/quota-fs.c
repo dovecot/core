@@ -415,7 +415,7 @@ do_rquota_user(struct fs_quota_root *root,
 				(xdrproc_t)xdr_getquota_args, (char *)&args,
 				(xdrproc_t)xdr_getquota_rslt, (char *)&result,
 				timeout);
-	
+
 	/* the result has been deserialized, let the client go */
 	auth_destroy(cl->cl_auth);
 	clnt_destroy(cl);
@@ -711,7 +711,7 @@ fs_quota_get_netbsd(struct fs_quota_root *root, bool group,
 				root->mount->mount_path);
 			ret = -1;
 			break;
-		} 
+		}
 		if (i == 0) {
 			*bytes_value_r = qv.qv_usage * DEV_BSIZE;
 			*bytes_limit_r = qv.qv_softlimit * DEV_BSIZE;
@@ -853,10 +853,10 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 	}
 	match = CMP_DEV_T(mst.st_dev, rst.st_dev);
 	if (_root->quota->set->debug) {
-	 	i_debug("box=%s mount=%s match=%s", mailbox_path,
+		i_debug("box=%s mount=%s match=%s", mailbox_path,
 			root->storage_mount_path, match ? "yes" : "no");
 	}
- 	return match;
+	return match;
 }
 
 static int
@@ -914,7 +914,7 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 	return 1;
 }
 
-static int 
+static int
 fs_quota_update(struct quota_root *root ATTR_UNUSED,
 		struct quota_transaction_context *ctx ATTR_UNUSED)
 {
