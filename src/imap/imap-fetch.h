@@ -103,6 +103,7 @@ struct imap_fetch_context {
 
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
 				  size_t count);
+void imap_fetch_handler_unregister(const char *name);
 
 void imap_fetch_add_handler(struct imap_fetch_init_context *ctx,
 			    enum imap_fetch_handler_flags flags,
@@ -127,6 +128,7 @@ void imap_fetch_free(struct imap_fetch_context **ctx);
 bool imap_fetch_init_handler(struct imap_fetch_init_context *init_ctx);
 void imap_fetch_init_nofail_handler(struct imap_fetch_context *ctx,
 				    bool (*init)(struct imap_fetch_init_context *));
+const struct imap_fetch_handler *imap_fetch_handler_lookup(const char *name);
 
 void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 		      struct mail_search_args *search_args);
