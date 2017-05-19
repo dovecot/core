@@ -764,26 +764,7 @@ static struct quota_root *maildir_quota_alloc(void)
 static int maildir_quota_init(struct quota_root *_root, const char *args,
 			      const char **error_r)
 {
-	const char *const *tmp;
-
-	if (args == NULL)
-		return 0;
-
-	for (tmp = t_strsplit(args, ":"); *tmp != NULL; tmp++) {
-		if (strcmp(*tmp, "noenforcing") == 0)
-			_root->no_enforcing = TRUE;
-		else if (strcmp(*tmp, "hidden") == 0)
-			_root->hidden = TRUE;
-		else if (strcmp(*tmp, "ignoreunlimited") == 0)
-			_root->disable_unlimited_tracking = TRUE;
-		else if (strncmp(*tmp, "ns=", 3) == 0)
-			_root->ns_prefix = p_strdup(_root->pool, *tmp + 3);
-		else {
-			*error_r = t_strdup_printf("Invalid parameter: %s", *tmp);
-			return -1;
-		}
-	}
-	return 0;
+	return quota_root_default_init(_root, args, error_r);
 }
 
 static void maildir_quota_deinit(struct quota_root *_root)
