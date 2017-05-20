@@ -99,6 +99,27 @@ config_parser_is_in_localremote(struct config_section_stack *section)
 		filter->remote_bits > 0;
 }
 
+static void
+section_stack_write(string_t *str, struct config_section_stack *section)
+{
+	if (section == NULL)
+		return;
+
+	section_stack_write(str, section->prev);
+	if (!section->is_filter && section->key != NULL)
+		str_printfa(str, "%s { ", section->key);
+}
+
+static const char *
+get_setting_full_path(struct config_parser_context *ctx, const char *key)
+{
+	string_t *str = t_str_new(128);
+
+	section_stack_write(str, ctx->cur_section);
+	str_append(str, key);
+	return str_c(str);
+}
+
 int config_apply_line(struct config_parser_context *ctx, const char *key,
 		      const char *line, const char *section_name)
 {
@@ -131,7 +152,7 @@ int config_apply_line(struct config_parser_context *ctx, const char *key,
 	}
 	if (!found) {
 		ctx->error = p_strconcat(ctx->pool, "Unknown setting: ",
-					 key, NULL);
+					 get_setting_full_path(ctx, key), NULL);
 		return -1;
 	}
 	return 0;
@@ -332,6 +353,7 @@ config_filter_add_new_filter(struct config_parser_context *ctx,
 		ctx->cur_section->parsers = parser->parsers;
 	else
 		config_add_new_parser(ctx);
+	ctx->cur_section->is_filter = TRUE;
 	return TRUE;
 }
 
@@ -899,6 +921,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
 		ctx->cur_section = config_add_new_section(ctx);
 		ctx->cur_section->pathlen = ctx->pathlen;
+		ctx->cur_section->key = p_strdup(ctx->pool, key);
 
 		if (config_filter_add_new_filter(ctx, key, value)) {
 			/* new filter */

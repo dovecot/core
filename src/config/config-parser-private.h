@@ -19,6 +19,7 @@ enum config_line_type {
 
 struct config_section_stack {
 	struct config_section_stack *prev;
+	const char *key;
 
 	struct config_filter filter;
 	/* root=NULL-terminated list of parsers */
@@ -27,6 +28,7 @@ struct config_section_stack {
 
 	const char *open_path;
 	unsigned int open_linenum;
+	bool is_filter;
 };
 
 struct input_stack {
