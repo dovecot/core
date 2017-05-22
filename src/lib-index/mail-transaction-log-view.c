@@ -373,9 +373,9 @@ int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 	if (first == NULL) {
 		/* index wasn't reset after corruption was found */
 		i_assert(reason != NULL);
-		mail_index_set_error(file->log->index,
+		mail_index_set_error(view->log->index,
 			"Failed to map transaction log %s for all-view: %s",
-			file->filepath, reason);
+			view->log->filepath, reason);
 		return -1;
 	}
 
@@ -400,9 +400,9 @@ int mail_transaction_log_view_set_all(struct mail_transaction_log_view *view)
 
 	if (mail_transaction_log_file_get_highest_modseq_at(view->cur,
 			view->cur_offset, &view->prev_modseq, &reason) < 0) {
-		mail_index_set_error(file->log->index,
+		mail_index_set_error(view->log->index,
 			"Failed to get modseq in %s for all-view: %s",
-			file->filepath, reason);
+			view->log->filepath, reason);
 		return -1;
 	}
 	return 0;
