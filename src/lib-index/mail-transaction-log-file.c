@@ -1664,6 +1664,14 @@ log_file_map_check_offsets(struct mail_transaction_log_file *file,
 
 	if (start_offset > file->sync_offset) {
 		/* broken start offset */
+		if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file)) {
+			*reason_r = t_strdup_printf(
+				"%s: start_offset (%"PRIuUOFF_T") > "
+				"current sync_offset (%"PRIuUOFF_T")",
+				file->filepath, start_offset, file->sync_offset);
+			return FALSE;
+		}
+
 		if (fstat(file->fd, &st) < 0) {
 			log_file_set_syscall_error(file, "fstat()");
 			st.st_size = -1;
