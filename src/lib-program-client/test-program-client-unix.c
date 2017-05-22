@@ -115,7 +115,11 @@ int test_program_input_handle(struct test_client *client, const char *line)
 		client->os_body = iostream_temp_create_named(".dovecot.test.", 0, "test_program_input body");
 		switch(o_stream_send_istream(client->os_body, client->in)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+			i_panic("Cannot write to ostream-temp: %s",
+				o_stream_get_error(client->os_body));
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+			i_warning("Client stream error: %s",
+				i_stream_get_error(client->in));
 			return -1;
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 			i_debug("waiting for input");
@@ -160,30 +164,35 @@ void test_program_input(struct test_client *client)
 
 {
 	const char *line = "";
+	int ret = 0;
 
-	if (client->state == CLIENT_STATE_BODY) {
-		if (test_program_input_handle(client, NULL)==0 && !client->in->eof) return;
-	} else {
-		line = i_stream_read_next_line(client->in);
-
-		if ((line == NULL && !client->in->eof) ||
-		    (line != NULL && test_program_input_handle(client, line) == 0))
-			return;
+	for (;;) {
+		if (client->state == CLIENT_STATE_BODY) {
+			ret = test_program_input_handle(client, NULL);
+			break;
+		} else {
+			while (client->state != CLIENT_STATE_BODY &&
+				(line=i_stream_read_next_line(client->in)) != NULL) {
+				if (test_program_input_handle(client, line) < 0) {
+					i_warning("Client sent invalid line: %s", line);
+					break;
+				}
+			}
+		}
 	}
 
-	if (client->in->eof) {
-		io_remove(&client->io);
-		/* incur slight delay to check if the connection gets
-		   prematurely closed */
-		test_globals.to = timeout_add_short(100, test_program_run, client);
-	}
+	if (ret < 0)
+		return;
+	if (!client->in->eof)
+		return;
 
-	if (client->state != CLIENT_STATE_BODY) {
-		if (client->in->eof)
-			i_warning("Client prematurely disconnected");
-		else
-			i_warning("Client sent invalid line: %s", line);
-	}
+	if (client->state != CLIENT_STATE_BODY)
+		i_warning("Client prematurely disconnected");
+
+	io_remove(&client->io);
+	/* incur slight delay to check if the connection gets
+	   prematurely closed */
+	test_globals.to = timeout_add_short(100, test_program_run, client);
 }
 
 static
