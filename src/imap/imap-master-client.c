@@ -228,6 +228,11 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		i_close_fd(&fd_client);
 		return -1;
 	}
+	if (mail_namespaces_init(imap_client->user, &error) < 0) {
+		i_error("%s", error);
+		client_destroy(imap_client, error);
+		return -1;
+	}
 	/* log prefix is set at this point, so we don't need to add the
 	   username anymore to the log messages */
 	client->imap_client_created = TRUE;
