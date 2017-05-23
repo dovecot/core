@@ -42,5 +42,7 @@ struct mail *index_search_get_mail(struct index_search_context *ctx);
 
 int index_search_mime_arg_match(struct mail_search_arg *args,
 	struct index_search_context *ctx);
+void index_search_mime_arg_deinit(struct mail_search_arg *arg,
+	struct index_search_context *ctx);
 
 #endif

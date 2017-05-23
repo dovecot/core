@@ -21,6 +21,8 @@ struct search_mimepart_context {
 	/* message parts parsed from BODYSTRUCTURE */
 	struct message_part *mime_parts, *mime_part;
 
+	string_t *buf;
+
 	unsigned int depth, index;
 	ARRAY(struct search_mimepart_stack) stack;
 };
@@ -243,18 +245,38 @@ seach_arg_mime_envelope_address_match(
 
 static int
 seach_arg_mime_filename_match(struct search_mimepart_context *mpctx,
-				   enum mail_search_mime_arg_type type, const char *key)
+				   struct mail_search_mime_arg *arg)
 {
+	struct index_search_context *ictx = mpctx->index_ctx;
 	struct message_part *part = mpctx->mime_part;
+	char *key;
 	const char *value;
 	size_t vlen, alen;
 
 	if (!message_part_data_get_filename(part, &value))
 		return 0;
 
-	/* FIXME: Normalization is probably required */
+	if (mpctx->buf == NULL)
+		mpctx->buf = str_new(default_pool, 256);
 
-	switch (type) {
+	if (arg->context == NULL) {
+		str_truncate(mpctx->buf, 0);
+
+		if (ictx->mail_ctx.normalizer(arg->value.str,
+			strlen(arg->value.str), mpctx->buf) < 0)
+			i_panic("search key not utf8: %s", arg->value.str);
+		key = i_strdup(str_c(mpctx->buf));
+		arg->context = (void *)key;
+	} else {
+		key = (char *)arg->context;
+	}
+
+	str_truncate(mpctx->buf, 0);
+	if (ictx->mail_ctx.normalizer(value,
+		strlen(value), mpctx->buf) >= 0)
+		value = str_c(mpctx->buf);
+
+	switch (arg->type) {
 	case SEARCH_MIME_FILENAME_IS:
 		return (strcmp(value, key) == 0 ? 1 : 0);
 	case SEARCH_MIME_FILENAME_CONTAINS:
@@ -269,6 +291,15 @@ seach_arg_mime_filename_match(struct search_mimepart_context *mpctx,
 		break;
 	}
 	i_unreached();
+}
+static void
+search_arg_mime_filename_deinit(
+	struct search_mimepart_context *mpctx ATTR_UNUSED,
+	struct mail_search_mime_arg *arg)
+{
+	char *key = (char *)arg->context;
+
+	i_free(key);
 }
 
 static int
@@ -426,8 +457,7 @@ static int search_mime_arg_match(struct search_mimepart_context *mpctx,
 	case SEARCH_MIME_FILENAME_CONTAINS:
 	case SEARCH_MIME_FILENAME_BEGINS:
 	case SEARCH_MIME_FILENAME_ENDS:
-		return seach_arg_mime_filename_match(mpctx,
-			arg->type, arg->value.str);
+		return seach_arg_mime_filename_match(mpctx, arg);
 
 	case SEARCH_MIME_HEADER:
 	case SEARCH_MIME_BODY:
@@ -558,6 +588,40 @@ int index_search_mime_arg_match(struct mail_search_arg *args,
 
 	if (mpctx.pool != NULL)
 		pool_unref(&mpctx.pool);
+	if (mpctx.buf != NULL)
+		str_free(&mpctx.buf);
 	return ret;
 }
 
+static void
+search_mime_arg_deinit(struct mail_search_mime_arg *arg,
+			      struct search_mimepart_context *mpctx ATTR_UNUSED)
+{
+	switch (arg->type) {
+	case SEARCH_MIME_FILENAME_IS:
+	case SEARCH_MIME_FILENAME_CONTAINS:
+	case SEARCH_MIME_FILENAME_BEGINS:
+	case SEARCH_MIME_FILENAME_ENDS:
+		search_arg_mime_filename_deinit(mpctx, arg);
+		break;
+	default:
+		break;
+	}
+}
+
+void index_search_mime_arg_deinit(struct mail_search_arg *arg,
+	struct index_search_context *ctx)
+{
+	struct search_mimepart_context mpctx;
+	struct mail_search_mime_arg *args;
+
+	i_assert(arg->type == SEARCH_MIMEPART);
+	args = arg->value.mime_part->args;
+
+	i_zero(&mpctx);
+	mpctx.index_ctx = ctx;
+
+	mail_search_mime_args_reset(args, TRUE);
+	(void)mail_search_mime_args_foreach(args,
+		search_mime_arg_deinit, &mpctx);
+}

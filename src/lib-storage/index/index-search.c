@@ -1317,13 +1317,18 @@ index_storage_search_init(struct mailbox_transaction_context *t,
 
 static void ATTR_NULL(2)
 search_arg_deinit(struct mail_search_arg *arg,
-		  struct index_search_context *ctx ATTR_UNUSED)
+		  struct index_search_context *ctx)
 {
-	struct message_search_context *search_ctx = arg->context;
-
-	if (search_ctx != NULL) {
-		message_search_deinit(&search_ctx);
-		arg->context = NULL;
+	switch (arg->type) {
+	case SEARCH_MIMEPART:
+		index_search_mime_arg_deinit(arg, ctx);
+		break;
+	default:
+		if (arg->context != NULL) {
+			struct message_search_context *search_ctx = arg->context;
+			message_search_deinit(&search_ctx);
+			arg->context = NULL;
+		}
 	}
 }
 
