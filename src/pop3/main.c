@@ -16,6 +16,7 @@
 #include "var-expand.h"
 #include "mail-error.h"
 #include "mail-user.h"
+#include "mail-namespace.h"
 #include "mail-storage-service.h"
 
 #include <stdio.h>
@@ -126,6 +127,8 @@ static int lock_session(struct client *client)
 {
 	int ret;
 
+	i_assert(client->user->namespaces != NULL);
+
 	if (client->set->pop3_lock_session &&
 	    (ret = pop3_lock_session(client)) <= 0) {
 		client_send_line(client, ret < 0 ?
@@ -138,10 +141,35 @@ static int lock_session(struct client *client)
 	return 0;
 }
 
+#define MSG_BYE_INTERNAL_ERROR "-ERR "MAIL_ERRSTR_CRITICAL_MSG
+static int init_namespaces(struct client *client, bool already_logged_in)
+{
+	const char *error;
+
+	/* finish initializing the user (see comment in main()) */
+	if (mail_namespaces_init(client->user, &error) < 0) {
+		if (!already_logged_in)
+			client_send_line(client, MSG_BYE_INTERNAL_ERROR);
+
+		i_error("%s", error);
+		client_destroy(client, error);
+		return -1;
+	}
+
+	i_assert(client->inbox_ns == NULL);
+	client->inbox_ns = mail_namespace_find_inbox(client->user->namespaces);
+	i_assert(client->inbox_ns != NULL);
+
+	return 0;
+}
+
 static void add_input(struct client *client,
 		      const buffer_t *input_buf)
 {
 	const char *error;
+
+	if (init_namespaces(client, FALSE) < 0)
+		return; /* no need to propagate an error */
 
 	if (lock_session(client) < 0)
 		return; /* no need to propagate an error */
@@ -270,6 +298,14 @@ int main(int argc, char *argv[])
 		storage_service_flags |=
 			MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT;
 	}
+
+	/*
+	 * We include MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES so that the
+	 * mail_user initialization is fast and we can quickly send back the
+	 * OK response to LOGIN/AUTHENTICATE.  Otherwise we risk a very slow
+	 * namespace initialization to cause client timeouts on login.
+	 */
+	storage_service_flags |= MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES;
 
 	master_service = master_service_init("pop3", service_flags,
 					     &argc, &argv, "a:t:u:");
