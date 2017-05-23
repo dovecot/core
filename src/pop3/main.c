@@ -128,9 +128,9 @@ static int lock_session(struct client *client)
 	int ret;
 
 	i_assert(client->user->namespaces != NULL);
+	i_assert(client->set->pop3_lock_session);
 
-	if (client->set->pop3_lock_session &&
-	    (ret = pop3_lock_session(client)) <= 0) {
+	if ((ret = pop3_lock_session(client)) <= 0) {
 		client_send_line(client, ret < 0 ?
 			"-ERR [SYS/TEMP] Failed to create POP3 session lock." :
 			"-ERR [IN-USE] Mailbox is locked by another POP3 session.");
@@ -168,14 +168,37 @@ static void add_input(struct client *client,
 {
 	const char *error;
 
-	if (init_namespaces(client, FALSE) < 0)
-		return; /* no need to propagate an error */
+	/*
+	 * RFC 1939 requires that the session lock gets acquired before the
+	 * positive response is sent to the client indicating a transition
+	 * to the TRANSACTION state.
+	 *
+	 * Since the session lock is stored under the INBOX's storage
+	 * directory, the locking code requires that the namespaces are
+	 * initialized first.
+	 *
+	 * If the system administrator configured dovecot to not use session
+	 * locks, we can send back the positive response before the
+	 * potentially long-running namespace initialization occurs.  This
+	 * avoids the client possibly timing out during authentication due
+	 * to storage initialization taking too long.
+	 */
+	if (client->set->pop3_lock_session) {
+		if (init_namespaces(client, FALSE) < 0)
+			return; /* no need to propagate an error */
 
-	if (lock_session(client) < 0)
-		return; /* no need to propagate an error */
+		if (lock_session(client) < 0)
+			return; /* no need to propagate an error */
 
-	if (!IS_STANDALONE())
-		client_send_line(client, "+OK Logged in.");
+		if (!IS_STANDALONE())
+			client_send_line(client, "+OK Logged in.");
+	} else {
+		if (!IS_STANDALONE())
+			client_send_line(client, "+OK Logged in.");
+
+		if (init_namespaces(client, TRUE) < 0)
+			return; /* no need to propagate an error */
+	}
 
 	if (client_init_mailbox(client, &error) < 0) {
 		i_error("%s", error);
