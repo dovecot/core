@@ -434,9 +434,6 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	pop3_client_count++;
 	DLLIST_PREPEND(&pop3_clients, client);
 
-	client->inbox_ns = mail_namespace_find_inbox(user->namespaces);
-	i_assert(client->inbox_ns != NULL);
-
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
 
