@@ -53,8 +53,7 @@ http_client_host_lookup_failure(struct http_client_host *host,
 	error = t_strdup_printf("Failed to lookup host %s: %s",
 				host->name, error);
 	array_foreach_modifiable(&host->queues, queue_idx) {
-		http_client_queue_fail(*queue_idx,
-			HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED, error);
+		http_client_queue_host_lookup_failure(*queue_idx, error);
 	}
 
 	http_client_host_check_idle(host);
