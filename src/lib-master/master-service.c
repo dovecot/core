@@ -95,13 +95,17 @@ static void sig_close_listeners(const siginfo_t *si ATTR_UNUSED, void *context)
 	   that don't have an io, but this shouldn't be a big problem. If there
 	   is an active io, the service is unlikely to be unresposive for
 	   longer periods of time, so the listener gets closed soon enough via
-	   master_status_error(). */
+	   master_status_error().
+
+	   For extra safety we don't actually close() the fd, but instead
+	   replace it with /dev/null. This way it won't be replaced with some
+	   other new fd and attempted to be used in unexpected ways. */
 	for (unsigned int i = 0; i < service->socket_count; i++) {
 		if (service->listeners[i].fd != -1 &&
 		    service->listeners[i].io == NULL) {
-			if (close(service->listeners[i].fd) < 0)
-				lib_signals_syscall_error("signal: close(listener) failed: ");
-			service->listeners[i].fd = -1;
+			if (dup2(dev_null_fd, service->listeners[i].fd) < 0)
+				lib_signals_syscall_error("signal: dup2(/dev/null, listener) failed: ");
+			service->listeners[i].closed = TRUE;
 		}
 	}
 }
@@ -1022,7 +1026,7 @@ void master_service_io_listeners_add(struct master_service *service)
 	for (i = 0; i < service->socket_count; i++) {
 		struct master_service_listener *l = &service->listeners[i];
 
-		if (l->io == NULL && l->fd != -1) {
+		if (l->io == NULL && l->fd != -1 && !l->closed) {
 			l->io = io_add(MASTER_LISTEN_FD_FIRST + i, IO_READ,
 				       master_service_listen, l);
 		}

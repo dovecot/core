@@ -15,6 +15,7 @@ struct master_service_listener {
 	bool haproxy;
 
 	/* state */
+	bool closed;
 	int fd;	
 	struct io *io;
 };
