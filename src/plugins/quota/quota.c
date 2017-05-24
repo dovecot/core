@@ -1398,7 +1398,7 @@ int quota_parse_parameters(struct quota_root *root, const char **args, const cha
 				}
 			}
 		}
-		if (valid_params->param_name != NULL) {
+		if (valid_params->param_name == NULL) {
 			if (fail_on_unknown) {
 				*error_r = t_strdup_printf(
 					"Unknown parameter for backend %s: %s",
