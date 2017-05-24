@@ -175,12 +175,15 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 			t_array_init(&keywords, 32);
 		}
 	} else if (hdr_pvt->uid_validity == 0 && hdr_pvt->next_uid <= 1) {
-		/* creating the initial index */
+		/* creating the initial index - no logging */
 		reset = TRUE;
 		initial_index = TRUE;
 	} else {
 		/* mailbox created/recreated */
 		reset = TRUE;
+		i_info("Mailbox %s UIDVALIDITY changed (%u -> %u), reseting private index",
+		       ctx->box->vname, hdr_pvt->uid_validity,
+		       hdr_shared->uid_validity);
 	}
 	/* for public namespaces copy the initial private flags from the shared
 	   index. this allows Sieve scripts to set the initial flags. */
