@@ -102,6 +102,8 @@ static void test_mail_storage_errors(void)
 	test_assert(!storage.last_error_is_internal);
 
 	mail_storage_clear_error(&storage);
+	i_assert(array_count(&storage.error_stack) == 0);
+	array_free(&storage.error_stack);
 	test_end();
 }
 
@@ -169,6 +171,8 @@ static void test_mail_storage_last_error_push_pop(void)
 	test_assert(!storage.last_error_is_internal);
 
 	mail_storage_clear_error(&storage);
+	i_assert(array_count(&storage.error_stack) == 0);
+	array_free(&storage.error_stack);
 	test_end();
 }
 
