@@ -156,6 +156,7 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 	uint32_t seq_shared, seq_pvt, seq_old_pvt, seq2, count_shared, uid;
 	unsigned int pc_idx = 0;
 	bool reset = FALSE, preserve_old_flags = FALSE, copy_shared_flags;
+	bool initial_index = FALSE;
 	int ret;
 
 	if (ctx->sync_ctx == NULL) {
@@ -173,6 +174,10 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 			preserve_old_flags = TRUE;
 			t_array_init(&keywords, 32);
 		}
+	} else if (hdr_pvt->uid_validity == 0 && hdr_pvt->next_uid <= 1) {
+		/* creating the initial index */
+		reset = TRUE;
+		initial_index = TRUE;
 	} else {
 		/* mailbox created/recreated */
 		reset = TRUE;
@@ -192,7 +197,8 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 			seq_shared = count_shared+1;
 		}
 	} else {
-		mail_index_reset(ctx->trans_pvt);
+		if (!initial_index)
+			mail_index_reset(ctx->trans_pvt);
 		mail_index_update_header(ctx->trans_pvt,
 			offsetof(struct mail_index_header, uid_validity),
 			&hdr_shared->uid_validity,
