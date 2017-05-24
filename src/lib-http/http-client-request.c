@@ -300,6 +300,10 @@ void http_client_request_destroy(struct http_client_request **_req)
 		req->destroy_callback = NULL;
 		callback(req->destroy_context);
 	}
+
+	if (req->conn != NULL)
+		http_client_connection_request_destroyed(req->conn, req);
+
 	http_client_request_remove(req);
 	http_client_request_unref(&req);
 }

@@ -643,6 +643,24 @@ static void http_client_payload_destroyed(struct http_client_request *req)
 		http_client_peer_trigger_request_handler(conn->peer);
 }
 
+void http_client_connection_request_destroyed(
+	struct http_client_connection *conn, struct http_client_request *req)
+{
+	struct istream *payload = conn->incoming_payload;
+
+	i_assert(req->conn == conn);
+	if (conn->pending_request != req)
+		return;
+
+	http_client_connection_debug(conn,
+		"Pending request destroyed prematurely");
+
+	if (payload == NULL)
+		return;
+	i_stream_ref(payload);
+	i_stream_destroy(&payload);
+}
+
 static bool
 http_client_connection_return_response(
 	struct http_client_connection *conn,
