@@ -657,6 +657,9 @@ void mail_storage_last_error_push(struct mail_storage *storage)
 	err = array_append_space(&storage->error_stack);
 	err->error_string = i_strdup(storage->error_string);
 	err->error = storage->error;
+	err->last_error_is_internal = storage->last_error_is_internal;
+	if (err->last_error_is_internal)
+		err->last_internal_error = i_strdup(storage->last_internal_error);
 }
 
 void mail_storage_last_error_pop(struct mail_storage *storage)
@@ -666,8 +669,11 @@ void mail_storage_last_error_pop(struct mail_storage *storage)
 		array_idx(&storage->error_stack, count-1);
 
 	i_free(storage->error_string);
+	i_free(storage->last_internal_error);
 	storage->error_string = err->error_string;
 	storage->error = err->error;
+	storage->last_error_is_internal = err->last_error_is_internal;
+	storage->last_internal_error = err->last_internal_error;
 	array_delete(&storage->error_stack, count-1, 1);
 }
 

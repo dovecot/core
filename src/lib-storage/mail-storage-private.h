@@ -105,6 +105,8 @@ struct mail_binary_cache {
 struct mail_storage_error {
 	char *error_string;
 	enum mail_error error;
+	char *last_internal_error;
+	bool last_error_is_internal;
 };
 
 struct mail_storage {
