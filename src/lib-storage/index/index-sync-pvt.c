@@ -173,7 +173,7 @@ index_mailbox_sync_pvt_index(struct index_mailbox_sync_pvt_context *ctx,
 			preserve_old_flags = TRUE;
 			t_array_init(&keywords, 32);
 		}
-	} else if (hdr_pvt->uid_validity == 0 || hdr_pvt->uid_validity != 0) {
+	} else {
 		/* mailbox created/recreated */
 		reset = TRUE;
 	}
