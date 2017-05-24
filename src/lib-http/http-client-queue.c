@@ -19,12 +19,14 @@
 #define TIMEOUT_CMP_MARGIN_USECS 2000
 
 static void
+http_client_queue_fail(struct http_client_queue *queue,
+	unsigned int status, const char *error);
+static void
 http_client_queue_set_delay_timer(struct http_client_queue *queue,
 	struct timeval time);
 static void
 http_client_queue_set_request_timer(struct http_client_queue *queue,
 	const struct timeval *time);
-
 
 /*
  * Logging
@@ -165,26 +167,43 @@ void http_client_queue_free(struct http_client_queue *queue)
  * Error handling
  */
 
-void http_client_queue_fail(struct http_client_queue *queue,
-	unsigned int status, const char *error)
+static void
+http_client_queue_fail_full(struct http_client_queue *queue,
+	unsigned int status, const char *error, bool queued_only)
 {
 	ARRAY_TYPE(http_client_request) *req_arr, treqs;
 	struct http_client_request **req_idx;
+	unsigned int retained = 0;
 
-	/* abort all pending requests */
+	/* abort requests */
 	req_arr = &queue->requests;
 	t_array_init(&treqs, array_count(req_arr));
 	array_copy(&treqs.arr, 0, &req_arr->arr, 0, array_count(req_arr));
 	array_foreach_modifiable(&treqs, req_idx) {
-		http_client_request_error(req_idx, status, error);
+		struct http_client_request *req = *req_idx;
+
+		i_assert(req->state >= HTTP_REQUEST_STATE_QUEUED);
+		if (queued_only &&
+			req->state != HTTP_REQUEST_STATE_QUEUED)
+			retained++;
+		else
+			http_client_request_error(&req, status, error);
 	}
 
-	/* all queues should be empty now... unless new requests were submitted
-	   from the callback. this invariant captures it all: */
-	i_assert((array_count(&queue->delayed_requests) +
+  /* all queues should be empty now... unless new requests were submitted
+     from the callback. this invariant captures it all: */
+	i_assert((retained +
+		array_count(&queue->delayed_requests) +
 		array_count(&queue->queued_requests) +
 		array_count(&queue->queued_urgent_requests)) ==
-		array_count(&queue->requests));
+			array_count(&queue->requests));
+}
+
+static void
+http_client_queue_fail(struct http_client_queue *queue,
+	unsigned int status, const char *error)
+{
+	http_client_queue_fail_full(queue, status, error, FALSE);
 }
 
 /*
@@ -421,6 +440,14 @@ http_client_queue_host_lookup_done(struct http_client_queue *queue)
 	if (reqs_pending > 0)
 		http_client_queue_connection_setup(queue);
 	return reqs_pending;
+}
+
+void http_client_queue_host_lookup_failure(
+	struct http_client_queue *queue, const char *error)
+{
+	http_client_queue_fail_full(queue,
+		HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED,
+		error, TRUE);
 }
 
 void
