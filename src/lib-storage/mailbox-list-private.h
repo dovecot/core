@@ -211,8 +211,6 @@ int mailbox_list_delete_index_control(struct mailbox_list *list,
 void mailbox_list_iter_update(struct mailbox_list_iter_update_context *ctx,
 			      const char *name);
 int mailbox_list_iter_subscriptions_refresh(struct mailbox_list *list);
-void
-mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx);
 const struct mailbox_info *
 mailbox_list_iter_default_next(struct mailbox_list_iterate_context *ctx);
 
