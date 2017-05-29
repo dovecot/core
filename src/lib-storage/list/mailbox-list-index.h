@@ -125,7 +125,6 @@ struct mailbox_list_index {
 
 struct mailbox_list_index_iterate_context {
 	struct mailbox_list_iterate_context ctx;
-	struct mailbox_list_iterate_context *backend_ctx;
 	pool_t mailbox_pool;
 
 	struct mailbox_info info;
