@@ -152,6 +152,7 @@ struct mailbox_list_iterate_context {
 	pool_t pool;
 	enum mailbox_list_iter_flags flags;
 	bool failed;
+	bool index_iteration;
 
 	struct imap_match_glob *glob;
 	struct mailbox_list_autocreate_iterate_context *autocreate_ctx;
