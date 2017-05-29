@@ -7,22 +7,23 @@
 #include "mailbox-list-subscriptions.h"
 #include "mailbox-list-index.h"
 
-static bool iter_use_index(struct mailbox_list_index_iterate_context *ctx)
+static bool iter_use_index(struct mailbox_list *list,
+			   enum mailbox_list_iter_flags flags)
 {
-	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(ctx->ctx.list);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* for now we don't use indexes when listing subscriptions,
 		   because it needs to list also the nonexistent subscribed
 		   mailboxes, which don't exist in the index. */
 		return FALSE;
 	}
-	if ((ctx->ctx.flags & MAILBOX_LIST_ITER_RAW_LIST) != 0 &&
+	if ((flags & MAILBOX_LIST_ITER_RAW_LIST) != 0 &&
 	    ilist->has_backing_store) {
 		/* no indexing wanted with raw lists */
 		return FALSE;
 	}
-	if (mailbox_list_index_refresh(ctx->ctx.list) < 0 &&
+	if (mailbox_list_index_refresh(list) < 0 &&
 	    ilist->has_backing_store) {
 		/* refresh failed */
 		return FALSE;
@@ -49,7 +50,7 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 	array_create(&ctx->ctx.module_contexts, pool, sizeof(void *), 5);
 	ctx->info_pool = pool_alloconly_create("mailbox list index iter info", 128);
 
-	if (!iter_use_index(ctx)) {
+	if (!iter_use_index(list, flags)) {
 		/* no indexing */
 		ctx->backend_ctx = ilist->module_ctx.super.
 			iter_init(list, patterns, flags);
