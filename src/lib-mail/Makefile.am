@@ -13,6 +13,7 @@ libmail_la_SOURCES = \
 	istream-header-filter.c \
 	istream-nonuls.c \
 	istream-qp-decoder.c \
+	istream-qp-encoder.c \
 	mail-html2text.c \
 	mail-user-hash.c \
 	mbox-from.c \
@@ -34,6 +35,7 @@ libmail_la_SOURCES = \
 	message-snippet.c \
 	ostream-dot.c \
 	qp-decoder.c \
+	qp-encoder.c \
 	quoted-printable.c \
 	rfc2231-parser.c \
 	rfc822-parser.c
@@ -71,6 +73,7 @@ headers = \
 	message-snippet.h \
 	ostream-dot.h \
 	qp-decoder.h \
+	qp-encoder.h \
 	quoted-printable.h \
 	rfc2231-parser.h \
 	rfc822-parser.h
@@ -84,6 +87,7 @@ test_programs = \
 	test-istream-binary-converter \
 	test-istream-header-filter \
 	test-istream-qp-decoder \
+	test-istream-qp-encoder \
 	test-mail-html2text \
 	test-mbox-from \
 	test-message-address \
@@ -100,6 +104,7 @@ test_programs = \
 	test-message-snippet \
 	test-ostream-dot \
 	test-qp-decoder \
+	test-qp-encoder \
 	test-quoted-printable \
 	test-rfc2231-parser \
 	test-rfc822-parser
@@ -120,6 +125,10 @@ test_istream_dot_DEPENDENCIES = $(test_deps)
 test_istream_qp_decoder_SOURCES = test-istream-qp-decoder.c
 test_istream_qp_decoder_LDADD = $(test_libs)
 test_istream_qp_decoder_DEPENDENCIES = $(test_deps)
+
+test_istream_qp_encoder_SOURCES = test-istream-qp-encoder.c
+test_istream_qp_encoder_LDADD = $(test_libs)
+test_istream_qp_encoder_DEPENDENCIES = $(test_deps)
 
 test_istream_binary_converter_SOURCES = test-istream-binary-converter.c
 test_istream_binary_converter_LDADD = $(test_libs)
@@ -196,6 +205,10 @@ test_ostream_dot_DEPENDENCIES = $(test_deps)
 test_qp_decoder_SOURCES = test-qp-decoder.c
 test_qp_decoder_LDADD = $(test_libs)
 test_qp_decoder_DEPENDENCIES = $(test_deps)
+
+test_qp_encoder_SOURCES = test-qp-encoder.c
+test_qp_encoder_LDADD = $(test_libs)
+test_qp_encoder_DEPENDENCIES = $(test_deps)
 
 test_quoted_printable_SOURCES = test-quoted-printable.c
 test_quoted_printable_LDADD = $(test_libs)
