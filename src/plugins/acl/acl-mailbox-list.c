@@ -6,7 +6,7 @@
 #include "imap-match.h"
 #include "mailbox-tree.h"
 #include "mail-namespace.h"
-#include "mailbox-list-private.h"
+#include "mailbox-list-iter-private.h"
 #include "acl-api-private.h"
 #include "acl-cache.h"
 #include "acl-shared-storage.h"
@@ -23,6 +23,7 @@ struct acl_mailbox_list_iterate_context {
 	char sep;
 	unsigned int hide_nonlistable_subscriptions:1;
 	unsigned int simple_star_glob:1;
+	unsigned int autocreate_acls_checked:1;
 };
 
 static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
@@ -402,6 +403,46 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 	return 0;
 }
 
+static int
+acl_mailbox_list_iter_check_autocreate_acls(struct mailbox_list_iterate_context *_ctx)
+{
+	struct acl_mailbox_list_iterate_context *ctx =
+		ACL_LIST_ITERATE_CONTEXT(_ctx);
+	struct mailbox_settings *const *box_sets;
+	unsigned int i, count;
+	int ret;
+
+	ctx->autocreate_acls_checked = TRUE;
+	if (_ctx->autocreate_ctx == NULL)
+		return 0;
+	if ((_ctx->flags & MAILBOX_LIST_ITER_RAW_LIST) != 0) {
+		/* skip ACL checks. */
+		return 0;
+	}
+
+	box_sets = array_get(&_ctx->autocreate_ctx->box_sets, &count);
+	i_assert(array_count(&_ctx->autocreate_ctx->boxes) == count);
+
+	for (i = 0; i < count; ) {
+		const char *acl_name =
+			acl_mailbox_list_iter_get_name(_ctx, box_sets[i]->name);
+		ret = acl_mailbox_list_have_right(_ctx->list, acl_name, FALSE,
+						  ACL_STORAGE_RIGHT_LOOKUP,
+						  NULL);
+		if (ret < 0)
+			return -1;
+		if (ret > 0)
+			i++;
+		else {
+			/* no list right - remove the whole autobox */
+			array_delete(&_ctx->autocreate_ctx->box_sets, i, 1);
+			array_delete(&_ctx->autocreate_ctx->boxes, i, 1);
+			box_sets = array_get(&_ctx->autocreate_ctx->box_sets, &count);
+		}
+	}
+	return 0;
+}
+
 static const struct mailbox_info *
 acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
@@ -409,6 +450,13 @@ acl_mailbox_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		ACL_LIST_ITERATE_CONTEXT(_ctx);
 	const struct mailbox_info *info;
 	int ret;
+
+	if (!ctx->autocreate_acls_checked) {
+		if (acl_mailbox_list_iter_check_autocreate_acls(_ctx) < 0) {
+			_ctx->failed = TRUE;
+			return NULL;
+		}
+	}
 
 	while ((info = acl_mailbox_list_iter_next_info(_ctx)) != NULL) {
 		ctx->info = *info;
