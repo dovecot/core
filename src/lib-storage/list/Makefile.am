@@ -33,6 +33,7 @@ headers = \
 	mailbox-list-index.h \
 	mailbox-list-index-storage.h \
 	mailbox-list-index-sync.h \
+	mailbox-list-iter-private.h \
 	mailbox-list-maildir.h \
 	mailbox-list-notify-tree.h \
 	mailbox-list-subscriptions.h \

@@ -7,6 +7,7 @@
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
 #include "mailbox-list-private.h"
+#include "mailbox-list-iter-private.h"
 
 enum autocreate_match_result {
 	/* list contains the mailbox */
@@ -15,23 +16,6 @@ enum autocreate_match_result {
 	AUTOCREATE_MATCH_RESULT_CHILDREN	= 0x02,
 	/* list contains parents of the mailbox */
 	AUTOCREATE_MATCH_RESULT_PARENT		= 0x04
-};
-
-struct autocreate_box {
-	const char *name;
-	const struct mailbox_settings *set;
-	enum mailbox_info_flags flags;
-	bool child_listed;
-};
-
-ARRAY_DEFINE_TYPE(mailbox_settings, struct mailbox_settings *);
-struct mailbox_list_autocreate_iterate_context {
-	unsigned int idx;
-	struct mailbox_info new_info;
-	ARRAY(struct autocreate_box) boxes;
-	ARRAY_TYPE(mailbox_settings) box_sets;
-	ARRAY_TYPE(mailbox_settings) all_ns_box_sets;
-	bool listing_autoboxes:1;
 };
 
 struct ns_list_iterate_context {
