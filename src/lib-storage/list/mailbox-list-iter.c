@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hash.h"
 #include "imap-match.h"
 #include "mail-storage.h"
 #include "mailbox-tree.h"
@@ -114,6 +115,8 @@ mailbox_list_iter_init_autocreate(struct mailbox_list_iterate_context *ctx)
 
 	actx = p_new(ctx->pool, struct mailbox_list_autocreate_iterate_context, 1);
 	ctx->autocreate_ctx = actx;
+	hash_table_create(&actx->duplicate_vnames, ctx->pool, 0,
+			  str_hash, strcmp);
 
 	/* build the list of mailboxes we need to consider as existing */
 	p_array_init(&actx->boxes, ctx->pool, 16);
@@ -817,12 +820,25 @@ mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
 	match = autocreate_box_match(&actx->box_sets, ctx->list->ns,
 				     info->vname, FALSE, &idx);
 
-	if (!actx->listing_autoboxes &&
-	    (match & AUTOCREATE_MATCH_RESULT_YES) != 0) {
-		/* we have an exact match in the list.
-		   don't list it at the end. */
-		array_delete(&actx->boxes, idx, 1);
-		array_delete(&actx->box_sets, idx, 1);
+	if (!actx->listing_autoboxes) {
+		if ((match & AUTOCREATE_MATCH_RESULT_YES) != 0) {
+			/* we have an exact match in the list.
+			   don't list it at the end. */
+			array_delete(&actx->boxes, idx, 1);
+			array_delete(&actx->box_sets, idx, 1);
+		}
+		if ((match & AUTOCREATE_MATCH_RESULT_CHILDREN) != 0 &&
+		    hash_table_lookup(actx->duplicate_vnames, info->vname) == NULL) {
+			/* Prevent autocreate-iteration from adding this
+			   mailbox as a duplicate. For example we're listing %
+			   and we're here because "foo" was found. However,
+			   there's also "foo/bar" with auto=create. We're
+			   telling here to the autocreate iteration code that
+			   "foo" was already found and it doesn't need to add
+			   it again. */
+			char *vname = p_strdup(ctx->pool, info->vname);
+			hash_table_insert(actx->duplicate_vnames, vname, vname);
+		}
 	}
 
 	if ((match & AUTOCREATE_MATCH_RESULT_CHILDREN) != 0) {
@@ -918,6 +934,7 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 		enum mailbox_info_flags old_flags = actx->new_info.flags;
 		char sep = mail_namespace_get_sep(ctx->list->ns);
 		const char *p;
+		char *vname;
 
 		/* e.g. autocreate=foo/bar and we're listing % */
 		actx->new_info.flags = MAILBOX_NONEXISTENT |
@@ -932,12 +949,16 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 		do {
 			p = strrchr(actx->new_info.vname, sep);
 			i_assert(p != NULL);
-			actx->new_info.vname =
+			actx->new_info.vname = vname =
 				p_strdup_until(ctx->pool,
 					       actx->new_info.vname, p);
 			match = imap_match(ctx->glob, actx->new_info.vname);
 		} while (match != IMAP_MATCH_YES);
-		return TRUE;
+
+		if (hash_table_lookup(actx->duplicate_vnames, vname) == NULL) {
+			hash_table_insert(actx->duplicate_vnames, vname, vname);
+			return TRUE;
+		}
 	}
 	return FALSE;
 }
@@ -1030,6 +1051,8 @@ int mailbox_list_iter_deinit(struct mailbox_list_iterate_context **_ctx)
 
 	if (ctx == &mailbox_list_iter_failed)
 		return -1;
+	if (ctx->autocreate_ctx != NULL)
+		hash_table_destroy(&ctx->autocreate_ctx->duplicate_vnames);
 	return ctx->list->v.iter_deinit(ctx);
 }
 
