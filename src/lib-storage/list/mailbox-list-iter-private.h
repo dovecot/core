@@ -17,6 +17,7 @@ struct mailbox_list_autocreate_iterate_context {
 	ARRAY(struct autocreate_box) boxes;
 	ARRAY_TYPE(mailbox_settings) box_sets;
 	ARRAY_TYPE(mailbox_settings) all_ns_box_sets;
+	HASH_TABLE(char *, char *) duplicate_vnames;
 	bool listing_autoboxes:1;
 };
 
