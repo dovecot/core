@@ -920,8 +920,16 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 	if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
 		actx->new_info.flags |= MAILBOX_SUBSCRIBED;
 
-	if ((actx->new_info.flags & MAILBOX_CHILDREN) == 0)
-		actx->new_info.flags |= MAILBOX_NOCHILDREN;
+	if ((actx->new_info.flags & MAILBOX_CHILDREN) == 0) {
+		if ((ctx->list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0 &&
+		    ctx->list->set.maildir_name[0] == '\0') {
+			/* mailbox format using files (e.g. mbox)
+			   without DIRNAME specified */
+			actx->new_info.flags |= MAILBOX_NOINFERIORS;
+		} else {
+			actx->new_info.flags |= MAILBOX_NOCHILDREN;
+		}
+	}
 
 	match = imap_match(ctx->glob, actx->new_info.vname);
 	if (match == IMAP_MATCH_YES) {
