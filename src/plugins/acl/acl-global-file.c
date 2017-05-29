@@ -105,8 +105,11 @@ acl_global_file_parse_line(struct acl_global_file_parse_ctx *ctx,
 
 	pright = array_append_space(&ctx->parse_rights);
 	pright->vpattern = p_strdup(ctx->file->rights_pool, vpattern);
-	return acl_rights_parse_line(line, ctx->file->rights_pool,
-				     &pright->rights, error_r);
+	if (acl_rights_parse_line(line, ctx->file->rights_pool,
+				  &pright->rights, error_r) < 0)
+		return -1;
+	pright->rights.global = TRUE;
+	return 0;
 }
 
 static int acl_global_file_read(struct acl_global_file *file)
