@@ -401,6 +401,11 @@ imapc_sync_send_commands(struct imapc_sync_context *ctx, uint32_t first_uid)
 {
 	string_t *cmd = t_str_new(64);
 
+	if (ctx->mbox->exists_count == 0) {
+		/* empty mailbox - no point in fetching anything */
+		return;
+	}
+
 	str_printfa(cmd, "UID FETCH %u:* (FLAGS", first_uid);
 	if (imapc_mailbox_has_modseqs(ctx->mbox)) {
 		str_append(cmd, " MODSEQ");
