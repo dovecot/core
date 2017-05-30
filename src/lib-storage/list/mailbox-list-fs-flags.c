@@ -210,7 +210,7 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 		   MAILBOX_LIST_FILE_TYPE_UNKNOWN because the filesystem didn't
 		   return the type. Normally this should have already been
 		   handled by the MAILBOX_LIST_FILE_TYPE_DIR check above. */
-		*flags_r |= MAILBOX_NOSELECT | MAILBOX_CHILDREN;
+		*flags_r |= MAILBOX_NOSELECT;
 		return 1;
 	}
 
