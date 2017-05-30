@@ -75,8 +75,12 @@ fs_get_existence_info_flag(struct fs_list_iterate_context *ctx,
 	}
 	switch (existence) {
 	case MAILBOX_EXISTENCE_NONE:
-		*info_flags |= MAILBOX_NONEXISTENT;
-		break;
+		/* We already found out that this mailbox exists. So this is
+		   either a race condition or ACL plugin prevented access to
+		   this. In any case treat this as a \NoSelect mailbox so that
+		   we'll recurse into its potential children. This is
+		   especially important if ACL disabled access to the parent
+		   mailbox, but child mailboxes would be accessible. */
 	case MAILBOX_EXISTENCE_NOSELECT:
 		*info_flags |= MAILBOX_NOSELECT;
 		break;
