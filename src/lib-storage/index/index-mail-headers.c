@@ -872,6 +872,19 @@ int index_mail_get_header_stream(struct mail *_mail,
 	struct istream *input;
 	string_t *dest;
 
+	if (mail->data.filter_stream != NULL) {
+		const unsigned char *data;
+		size_t size;
+
+		/* read through the previous filter_stream. this makes sure
+		   that the fields are added to cache, and most importantly it
+		   resets header_parser_initialized=FALSE so we don't assert
+		   on it. */
+		while (i_stream_read_more(mail->data.filter_stream, &data, &size) > 0)
+			i_stream_skip(mail->data.filter_stream, size);
+		i_stream_destroy(&mail->data.filter_stream);
+	}
+
 	if (mail->data.save_bodystructure_header) {
 		/* we have to parse the header. */
 		const char *reason =
@@ -886,8 +899,6 @@ int index_mail_get_header_stream(struct mail *_mail,
 				      headers->count) > 0) {
 		str_append(dest, "\n");
 		_mail->transaction->stats.cache_hit_count++;
-		if (mail->data.filter_stream != NULL)
-			i_stream_destroy(&mail->data.filter_stream);
 		mail->data.filter_stream =
 			i_stream_create_from_data(str_data(dest),
 						  str_len(dest));
@@ -917,9 +928,6 @@ int index_mail_get_header_stream(struct mail *_mail,
 	}
 	if (mail_get_hdr_stream_because(_mail, NULL, reason, &input) < 0)
 		return -1;
-
-	if (mail->data.filter_stream != NULL)
-		i_stream_destroy(&mail->data.filter_stream);
 
 	index_mail_parse_header_init(mail, headers);
 	mail->data.filter_stream =
