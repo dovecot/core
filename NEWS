@@ -1,4 +1,4 @@
-v2.2.30 2017-05-xx  Timo Sirainen <tss@iki.fi>
+v2.2.30 2017-05-30  Timo Sirainen <tss@iki.fi>
 
 	* auth: Use timing safe comparisons for everything related to
 	  passwords. It's unlikely that these could have been used for
@@ -30,7 +30,12 @@ v2.2.30 2017-05-xx  Timo Sirainen <tss@iki.fi>
 	- More fixes to automatically fix corruption in dovecot.list.index
 	- dsync-server: Fix support for dsync_features=empty-header-workaround
 	- imapc: Various bugfixes, including infinite loops on some errors
+	- IMAP NOTIFY wasn't working for non-INBOX if IMAP client hadn't
+	  enabled modseq tracking via CONDSTORE/QRESYNC.
 	- fts-lucene: Fix it to work again with mbox format
+	- Some internal error messages may have contained garbage in v2.2.29
+	- mail-crypt: Re-encrypt when copying/moving mails and per-mailbox keys
+	  are used. Otherwise the copied mails can't be opened.
 	- vpopmail: Fix compiling
 
 v2.2.29.1 2017-04-12  Timo Sirainen <tss@iki.fi>
