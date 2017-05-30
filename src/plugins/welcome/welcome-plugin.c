@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "net.h"
 #include "str.h"
+#include "strescape.h"
 #include "eacces-error.h"
 #include "write-full.h"
 #include "module-context.h"
@@ -58,8 +59,8 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 	else
 		str_append(str, "-\n");
 	for (; *args != NULL; args++) {
-		str_append(str, *args);
-		str_append_c(str, '\n');
+		str_append_tabescaped(str, *args);
+		str_append_c(str, '\t');
 	}
 	str_append_c(str, '\n');
 
