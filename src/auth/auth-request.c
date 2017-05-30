@@ -1077,7 +1077,8 @@ void auth_request_verify_plain_continue(struct auth_request *request,
 	request->passdb = passdb;
 
 	if (passdb == NULL) {
-		auth_request_log_error(request, AUTH_SUBSYS_MECH,
+		auth_request_log_error(request,
+			request->mech != NULL ? AUTH_SUBSYS_MECH : "none",
 			"All password databases were skipped");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
 		return;
@@ -1256,7 +1257,8 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 	request->passdb = passdb;
 
 	if (passdb == NULL) {
-		auth_request_log_error(request, AUTH_SUBSYS_MECH,
+		auth_request_log_error(request,
+			request->mech != NULL ? AUTH_SUBSYS_MECH : "none",
 			"All password databases were skipped");
 		callback(PASSDB_RESULT_INTERNAL_FAILURE, NULL, 0, request);
 		return;
