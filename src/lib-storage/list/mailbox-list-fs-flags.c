@@ -119,25 +119,39 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 	*flags_r = 0;
 
 	if (*list->set.maildir_name != '\0') {
-		/* maildir_name is set: the code is common for all
-		   storage types */
+		/* maildir_name is set: This is the simple case that works for
+		   all mail storage formats, because the only thing that
+		   matters for existence or child checks is whether the
+		   maildir_name exists or not. For example with Maildir this
+		   doesn't care whether the "cur" directory exists; as long
+		   as the parent maildir_name exists, the Maildir is
+		   selectable. */
 		return list_is_maildir_mailbox(list, dir, fname, type, flags_r);
 	}
+	/* maildir_name is not set: Now we (may) need to use storage-specific
+	   code to determine whether the mailbox is selectable or if it has
+	   children. */
+
 	if (list->v.is_internal_name != NULL &&
 	    list->v.is_internal_name(list, fname)) {
-		/* skip internal dirs */
+		/* skip internal dirs. For example Maildir's cur/new/tmp */
 		*flags_r |= MAILBOX_NOSELECT;
 		return 0;
 	}
 
 	switch (type) {
 	case MAILBOX_LIST_FILE_TYPE_DIR:
+		/* We know that we're looking at a directory. If the storage
+		   uses files, it has to be a \NoSelect directory. */
 		if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
 			*flags_r |= MAILBOX_NOSELECT;
 			return 1;
 		}
 		break;
 	case MAILBOX_LIST_FILE_TYPE_FILE:
+		/* We know that we're looking at a file. If the storage
+		   doesn't use files, it's not a mailbox and we want to skip
+		   it. */
 		if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
 			*flags_r |= MAILBOX_NOSELECT | MAILBOX_NOINFERIORS;
 			return 0;
@@ -190,13 +204,25 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 		return 1;
 	}
 
+	/* This is a directory */
 	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
+		/* We should get here only if type is
+		   MAILBOX_LIST_FILE_TYPE_UNKNOWN because the filesystem didn't
+		   return the type. Normally this should have already been
+		   handled by the MAILBOX_LIST_FILE_TYPE_DIR check above. */
 		*flags_r |= MAILBOX_NOSELECT | MAILBOX_CHILDREN;
 		return 1;
 	}
 
 	if (list->v.is_internal_name == NULL) {
-		/* link count < 2 can happen with filesystems that don't
+		/* This mailbox format doesn't use any special directories
+		   (e.g. Maildir's cur/new/tmp). In that case we can look at
+		   the directory's link count to determine whether there are
+		   children or not. The directory's link count equals the
+		   number of subdirectories it has. The first two links are
+		   for "." and "..".
+
+		   link count < 2 can happen with filesystems that don't
 		   support link counts. we'll just ignore them for now.. */
 		if (st.st_nlink == 2)
 			*flags_r |= MAILBOX_NOCHILDREN;
