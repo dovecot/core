@@ -67,6 +67,8 @@ static int imapc_quota_init(struct quota_root *_root, const char *args,
 		{.param_name = NULL}
 	};
 
+	_root->auto_updating = TRUE;
+
 	if (quota_parse_parameters(_root, &args, error_r, imapc_params, FALSE) < 0)
 		return -1;
 
