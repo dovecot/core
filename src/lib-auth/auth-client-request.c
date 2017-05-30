@@ -16,16 +16,14 @@ struct auth_client_request {
 	unsigned int id;
 	time_t created;
 
-	struct auth_request_info request_info;
-
 	auth_request_callback_t *callback;
 	void *context;
 };
 
 static void auth_server_send_new_request(struct auth_server_connection *conn,
-					 struct auth_client_request *request)
+					 struct auth_client_request *request,
+					 const struct auth_request_info *info)
 {
-	struct auth_request_info *info = &request->request_info;
 	string_t *str;
 
 	str = t_str_new(512);
@@ -118,16 +116,6 @@ auth_client_request_new(struct auth_client *client,
 	request->pool = pool;
 	request->conn = client->conn;
 
-	request->request_info = *request_info;
-	request->request_info.mech = p_strdup(pool, request_info->mech);
-	request->request_info.service = p_strdup(pool, request_info->service);
-	request->request_info.session_id =
-		p_strdup_empty(pool, request_info->session_id);
-	request->request_info.cert_username =
-		p_strdup_empty(pool, request_info->cert_username);
-	request->request_info.initial_resp_base64 =
-		p_strdup_empty(pool, request_info->initial_resp_base64);
-	
 	request->callback = callback;
 	request->context = context;
 
@@ -135,7 +123,7 @@ auth_client_request_new(struct auth_client *client,
 		auth_server_connection_add_request(request->conn, request);
 	request->created = ioloop_time;
 	T_BEGIN {
-		auth_server_send_new_request(request->conn, request);
+		auth_server_send_new_request(request->conn, request, request_info);
 	} T_END;
 	return request;
 }
