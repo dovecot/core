@@ -75,9 +75,7 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 
 	switch (arg->type) {
 	case SEARCH_OR:
-		str_append_c(str, '(');
 		imapc_build_search_query_args(mbox, arg->value.subargs, TRUE, str);
-		str_append_c(str, ')');
 		return TRUE;
 	case SEARCH_SUB:
 		str_append_c(str, '(');
