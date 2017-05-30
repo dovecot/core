@@ -176,7 +176,7 @@ static void test_mail_storage_last_error_push_pop(void)
 
 int main(void)
 {
-	static void (*const test_functions[])(void) = {
+	static void (*test_functions[])(void) = {
 		test_mail_storage_errors,
 		test_mail_storage_last_error_push_pop,
 		NULL
