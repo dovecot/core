@@ -20,7 +20,8 @@ mail_search_subargs_to_imap(string_t *dest, const struct mail_search_arg *args,
 {
 	const struct mail_search_arg *arg;
 
-	str_append_c(dest, '(');
+	if (prefix[0] == '\0')
+		str_append_c(dest, '(');
 	for (arg = args; arg != NULL; arg = arg->next) {
 		if (arg->next != NULL)
 			str_append(dest, prefix);
@@ -29,7 +30,8 @@ mail_search_subargs_to_imap(string_t *dest, const struct mail_search_arg *args,
 		if (arg->next != NULL)
 			str_append_c(dest, ' ');
 	}
-	str_append_c(dest, ')');
+	if (prefix[0] == '\0')
+		str_append_c(dest, ')');
 	return TRUE;
 }
 
