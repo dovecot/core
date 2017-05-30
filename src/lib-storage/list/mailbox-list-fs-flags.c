@@ -200,6 +200,11 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 		} else {
 			*flags_r |= MAILBOX_NOINFERIORS;
 		}
+		/* Return mailbox files as always existing. The current
+		   mailbox_exists() code would do the same stat() anyway
+		   without further checks, so might as well avoid the second
+		   stat(). */
+		*flags_r |= MAILBOX_SELECT;
 		*flags_r |= STAT_GET_MARKED_FILE(st);
 		return 1;
 	}
