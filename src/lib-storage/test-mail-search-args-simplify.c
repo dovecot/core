@@ -27,30 +27,30 @@ static const struct {
 	{ "( ( TEXT foo ) )", "TEXT foo" },
 	{ "( ( TEXT foo ) ( TEXT bar ) )", "TEXT foo TEXT bar" },
 
-	{ "OR ( TEXT foo ) ( TEXT bar )", "(OR TEXT foo TEXT bar)" },
+	{ "OR ( TEXT foo ) ( TEXT bar )", "OR TEXT foo TEXT bar" },
 	{ "OR ( TEXT foo ) OR ( TEXT bar ) ( TEXT baz )",
-	  "(OR TEXT foo OR TEXT bar TEXT baz)" },
+	  "OR TEXT foo OR TEXT bar TEXT baz" },
 	{ "OR ( ( TEXT foo TEXT foo2 ) ) ( ( TEXT bar ( TEXT baz ) ) )",
-	  "(OR (TEXT foo TEXT foo2) (TEXT bar TEXT baz))" },
+	  "OR (TEXT foo TEXT foo2) (TEXT bar TEXT baz)" },
 
 	{ "NOT ( TEXT foo )", "NOT TEXT foo" },
 	{ "NOT ( NOT ( TEXT foo ) )", "TEXT foo" },
 	{ "NOT OR ( TEXT foo ) ( TEXT bar )", "NOT TEXT foo NOT TEXT bar" },
 	{ "NOT ( OR ( TEXT foo ) ( TEXT bar ) )", "NOT TEXT foo NOT TEXT bar" },
-	{ "NOT ( TEXT foo TEXT bar )", "(OR NOT TEXT foo NOT TEXT bar)" },
+	{ "NOT ( TEXT foo TEXT bar )", "OR NOT TEXT foo NOT TEXT bar" },
 
 	{ "ANSWERED FLAGGED SEEN", "(ANSWERED FLAGGED SEEN)" },
-	{ "OR ( ANSWERED FLAGGED SEEN ) DRAFT", "(OR (ANSWERED FLAGGED SEEN) DRAFT)" },
+	{ "OR ( ANSWERED FLAGGED SEEN ) DRAFT", "OR (ANSWERED FLAGGED SEEN) DRAFT" },
 	{ "ANSWERED TEXT foo FLAGGED SEEN", "(ANSWERED FLAGGED SEEN) TEXT foo" },
 	{ "NOT ( ANSWERED FLAGGED SEEN )", "NOT (ANSWERED FLAGGED SEEN)" },
 	{ "OR NOT ANSWERED OR NOT FLAGGED NOT SEEN", "NOT (ANSWERED FLAGGED SEEN)" },
-	{ "OR NOT ANSWERED OR NOT FLAGGED SEEN", "(OR NOT (ANSWERED FLAGGED) SEEN)" },
-	{ "OR NOT ANSWERED OR FLAGGED NOT SEEN", "(OR NOT (ANSWERED SEEN) FLAGGED)" },
-	{ "NOT ANSWERED OR FLAGGED NOT SEEN", "NOT ANSWERED (OR FLAGGED NOT SEEN)" },
+	{ "OR NOT ANSWERED OR NOT FLAGGED SEEN", "OR NOT (ANSWERED FLAGGED) SEEN" },
+	{ "OR NOT ANSWERED OR FLAGGED NOT SEEN", "OR NOT (ANSWERED SEEN) FLAGGED" },
+	{ "NOT ANSWERED OR FLAGGED NOT SEEN", "NOT ANSWERED OR FLAGGED NOT SEEN" },
 	{ "NOT ANSWERED OR NOT FLAGGED NOT SEEN", "NOT ANSWERED NOT (FLAGGED SEEN)" },
 	{ "ANSWERED NOT FLAGGED SEEN NOT DRAFT", "(ANSWERED SEEN) NOT FLAGGED NOT DRAFT" },
 	{ "OR NOT ANSWERED NOT SEEN", "NOT (ANSWERED SEEN)" },
-	{ "OR NOT ANSWERED OR NOT SEEN TEXT foo", "(OR NOT (ANSWERED SEEN) TEXT foo)" },
+	{ "OR NOT ANSWERED OR NOT SEEN TEXT foo", "OR NOT (ANSWERED SEEN) TEXT foo" },
 
 	{ "ANSWERED ANSWERED", "ANSWERED" },
 	{ "ANSWERED NOT ANSWERED", "NOT ALL" },
@@ -64,8 +64,8 @@ static const struct {
 	{ "KEYWORD foo KEYWORD bar", "KEYWORD foo KEYWORD bar" },
 	{ "NOT KEYWORD foo", "NOT KEYWORD foo" },
 	{ "NOT KEYWORD foo NOT KEYWORD bar", "NOT KEYWORD foo NOT KEYWORD bar" },
-	{ "OR KEYWORD foo KEYWORD bar", "(OR KEYWORD foo KEYWORD bar)" },
-	{ "OR NOT KEYWORD foo NOT KEYWORD bar", "(OR NOT KEYWORD foo NOT KEYWORD bar)" },
+	{ "OR KEYWORD foo KEYWORD bar", "OR KEYWORD foo KEYWORD bar" },
+	{ "OR NOT KEYWORD foo NOT KEYWORD bar", "OR NOT KEYWORD foo NOT KEYWORD bar" },
 
 	{ "KEYWORD foo KEYWORD foo", "KEYWORD foo" },
 	{ "KEYWORD foo NOT KEYWORD foo", "NOT ALL" },
@@ -114,7 +114,7 @@ static const struct {
 
 	{ "ON 03-Aug-2014 ON 03-Aug-2014", "ON \"03-Aug-2014\"" },
 	{ "ON 03-Aug-2014 ON 04-Aug-2014", "ON \"03-Aug-2014\" ON \"04-Aug-2014\"" }, /* this could be replaced with e.g. NOT ALL */
-	{ "OR ON 03-Aug-2014 ON 04-Aug-2014", "(OR ON \"03-Aug-2014\" ON \"04-Aug-2014\")" },
+	{ "OR ON 03-Aug-2014 ON 04-Aug-2014", "OR ON \"03-Aug-2014\" ON \"04-Aug-2014\"" },
 
 	{ "SINCE 03-Aug-2014 SINCE 01-Aug-2014 SINCE 02-Aug-2014", "SINCE \"03-Aug-2014\"" },
 	{ "OR SINCE 01-Aug-2014 SINCE 02-Aug-2014", "SINCE \"01-Aug-2014\"" },
@@ -128,7 +128,7 @@ static const struct {
 	{ "OR SMALLER 1 OR SMALLER 3 SMALLER 2", "SMALLER 3" },
 	{ "SMALLER 3 NOT SMALLER 1 SMALLER 2", "SMALLER 2 NOT SMALLER 1" },
 	{ "SMALLER 3 LARGER 5", "SMALLER 3 LARGER 5" }, /* this could be replaced with e.g. NOT ALL */
-	{ "OR SMALLER 3 LARGER 5", "(OR SMALLER 3 LARGER 5)" },
+	{ "OR SMALLER 3 LARGER 5", "OR SMALLER 3 LARGER 5" },
 
 	{ "LARGER 3 LARGER 1 LARGER 2", "LARGER 3" },
 	{ "OR LARGER 1 LARGER 2", "LARGER 1" },
@@ -179,45 +179,45 @@ static const struct {
 	{ "OR TEXT common1 OR ( TEXT unique1 TEXT common1 ) ( TEXT unique3 TEXT common1 )", "TEXT common1" },
 
 	/* OR: extract common AND */
-	{ "OR ( TEXT common1 TEXT unique1 ) ( TEXT common1 TEXT unique2 )", "(OR TEXT unique1 TEXT unique2) TEXT common1" },
-	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT unique2 TEXT common1 )", "(OR TEXT unique1 TEXT unique2) TEXT common1" },
-	{ "OR ( TEXT common1 TEXT unique1 ) ( TEXT unique2 TEXT common1 )", "(OR TEXT unique1 TEXT unique2) TEXT common1" },
-	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT common1 TEXT unique2 )", "(OR TEXT unique1 TEXT unique2) TEXT common1" },
+	{ "OR ( TEXT common1 TEXT unique1 ) ( TEXT common1 TEXT unique2 )", "OR TEXT unique1 TEXT unique2 TEXT common1" },
+	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT unique2 TEXT common1 )", "OR TEXT unique1 TEXT unique2 TEXT common1" },
+	{ "OR ( TEXT common1 TEXT unique1 ) ( TEXT unique2 TEXT common1 )", "OR TEXT unique1 TEXT unique2 TEXT common1" },
+	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT common1 TEXT unique2 )", "OR TEXT unique1 TEXT unique2 TEXT common1" },
 
-	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT common1 TEXT unique2 TEXT unique3 )", "(OR TEXT unique1 (TEXT unique2 TEXT unique3)) TEXT common1" },
-	{ "OR ( TEXT common1 TEXT common2 TEXT unique1 ) ( TEXT common1 TEXT common2 TEXT unique2 )", "(OR TEXT unique1 TEXT unique2) TEXT common2 TEXT common1" },
-	{ "OR ( TEXT common1 TEXT common2 TEXT unique1 TEXT unique2 ) ( TEXT common1 TEXT common2 TEXT unique3 TEXT unique4 )", "(OR (TEXT unique1 TEXT unique2) (TEXT unique3 TEXT unique4)) TEXT common2 TEXT common1" },
+	{ "OR ( TEXT unique1 TEXT common1 ) ( TEXT common1 TEXT unique2 TEXT unique3 )", "OR TEXT unique1 (TEXT unique2 TEXT unique3) TEXT common1" },
+	{ "OR ( TEXT common1 TEXT common2 TEXT unique1 ) ( TEXT common1 TEXT common2 TEXT unique2 )", "OR TEXT unique1 TEXT unique2 TEXT common2 TEXT common1" },
+	{ "OR ( TEXT common1 TEXT common2 TEXT unique1 TEXT unique2 ) ( TEXT common1 TEXT common2 TEXT unique3 TEXT unique4 )", "OR (TEXT unique1 TEXT unique2) (TEXT unique3 TEXT unique4) TEXT common2 TEXT common1" },
 
 	/* non-matching cases */
-	{ "OR ( TEXT unique1 TEXT unique2 ) TEXT unique3", "(OR (TEXT unique1 TEXT unique2) TEXT unique3)" },
-	{ "OR ( TEXT unique1 TEXT unique2 ) ( TEXT unique3 TEXT unique4 )", "(OR (TEXT unique1 TEXT unique2) (TEXT unique3 TEXT unique4))" },
-	{ "OR ( TEXT common1 TEXT unique1 ) OR ( TEXT common1 TEXT unique2 ) TEXT unique3", "(OR (TEXT common1 TEXT unique1) OR (TEXT common1 TEXT unique2) TEXT unique3)" },
-	{ "OR ( TEXT common1 TEXT unique1 ) OR ( TEXT common1 TEXT common2 ) ( TEXT common2 TEXT unique2 )", "(OR (TEXT common1 TEXT unique1) OR (TEXT common1 TEXT common2) (TEXT common2 TEXT unique2))" },
+	{ "OR ( TEXT unique1 TEXT unique2 ) TEXT unique3", "OR (TEXT unique1 TEXT unique2) TEXT unique3" },
+	{ "OR ( TEXT unique1 TEXT unique2 ) ( TEXT unique3 TEXT unique4 )", "OR (TEXT unique1 TEXT unique2) (TEXT unique3 TEXT unique4)" },
+	{ "OR ( TEXT common1 TEXT unique1 ) OR ( TEXT common1 TEXT unique2 ) TEXT unique3", "OR (TEXT common1 TEXT unique1) OR (TEXT common1 TEXT unique2) TEXT unique3" },
+	{ "OR ( TEXT common1 TEXT unique1 ) OR ( TEXT common1 TEXT common2 ) ( TEXT common2 TEXT unique2 )", "OR (TEXT common1 TEXT unique1) OR (TEXT common1 TEXT common2) (TEXT common2 TEXT unique2)" },
 
 	/* SUB: drop redundant args */
 	{ "( OR TEXT common1 TEXT unique1 ) TEXT common1", "TEXT common1" },
 	{ "( OR TEXT unique1 TEXT common1 ) TEXT common1", "TEXT common1" },
 	{ "TEXT common1 ( OR TEXT common1 TEXT unique1 )", "TEXT common1" },
 	{ "TEXT common1 ( OR TEXT unique1 TEXT common1 )", "TEXT common1" },
-	{ "( OR TEXT common1 TEXT common2 ) ( OR TEXT common1 OR TEXT common2 TEXT unique1 )", "(OR TEXT common1 TEXT common2)" },
+	{ "( OR TEXT common1 TEXT common2 ) ( OR TEXT common1 OR TEXT common2 TEXT unique1 )", "OR TEXT common1 TEXT common2" },
 	{ "TEXT common1 ( OR TEXT unique1 TEXT common1 ) ( OR TEXT unique3 TEXT common1 )", "TEXT common1" },
-	{ "OR ( TEXT common1 ( OR TEXT unique1 TEXT common1 ) ) TEXT unique1", "(OR TEXT common1 TEXT unique1)" },
+	{ "OR ( TEXT common1 ( OR TEXT unique1 TEXT common1 ) ) TEXT unique1", "OR TEXT common1 TEXT unique1" },
 
 	/* SUB: extract common OR */
-	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT unique2 )", "(OR (TEXT unique1 TEXT unique2) TEXT common1)" },
-	{ "( OR TEXT unique1 TEXT common1 ) ( OR TEXT unique2 TEXT common1 )", "(OR (TEXT unique1 TEXT unique2) TEXT common1)" },
-	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT unique2 TEXT common1 )", "(OR (TEXT unique1 TEXT unique2) TEXT common1)" },
-	{ "( OR TEXT unique1 TEXT common1 ) ( OR TEXT common1 TEXT unique2 )", "(OR (TEXT unique1 TEXT unique2) TEXT common1)" },
+	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT unique2 )", "OR (TEXT unique1 TEXT unique2) TEXT common1" },
+	{ "( OR TEXT unique1 TEXT common1 ) ( OR TEXT unique2 TEXT common1 )", "OR (TEXT unique1 TEXT unique2) TEXT common1" },
+	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT unique2 TEXT common1 )", "OR (TEXT unique1 TEXT unique2) TEXT common1" },
+	{ "( OR TEXT unique1 TEXT common1 ) ( OR TEXT common1 TEXT unique2 )", "OR (TEXT unique1 TEXT unique2) TEXT common1" },
 
-	{ "( OR TEXT unique1 TEXT common1 ) ( OR TEXT common1 OR TEXT unique2 TEXT unique3 )", "(OR (TEXT unique1 (OR TEXT unique2 TEXT unique3)) TEXT common1)" },
-	{ "( OR TEXT common1 OR TEXT common2 TEXT unique1 ) ( OR TEXT common1 OR TEXT common2 TEXT unique2 )", "(OR (TEXT unique1 TEXT unique2) OR TEXT common2 TEXT common1)" },
-	{ "( OR TEXT common1 OR TEXT common2 OR TEXT unique1 TEXT unique2 ) ( OR TEXT common1 OR TEXT common2 OR TEXT unique3 TEXT unique4 )", "(OR ((OR TEXT unique1 TEXT unique2) (OR TEXT unique3 TEXT unique4)) OR TEXT common2 TEXT common1)" },
+	{ "( OR TEXT unique1 TEXT common1 ) ( OR TEXT common1 OR TEXT unique2 TEXT unique3 )", "OR (TEXT unique1 OR TEXT unique2 TEXT unique3) TEXT common1" },
+	{ "( OR TEXT common1 OR TEXT common2 TEXT unique1 ) ( OR TEXT common1 OR TEXT common2 TEXT unique2 )", "OR (TEXT unique1 TEXT unique2) OR TEXT common2 TEXT common1" },
+	{ "( OR TEXT common1 OR TEXT common2 OR TEXT unique1 TEXT unique2 ) ( OR TEXT common1 OR TEXT common2 OR TEXT unique3 TEXT unique4 )", "OR (OR TEXT unique1 TEXT unique2 OR TEXT unique3 TEXT unique4) OR TEXT common2 TEXT common1" },
 
 	/* non-matching cases */
-	{ "( OR TEXT unique1 TEXT unique2 ) TEXT unique3", "(OR TEXT unique1 TEXT unique2) TEXT unique3" },
-	{ "( OR TEXT unique1 TEXT unique2 ) ( OR TEXT unique3 TEXT unique4 )", "(OR TEXT unique1 TEXT unique2) (OR TEXT unique3 TEXT unique4)" },
-	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT unique2 ) TEXT unique3", "(OR TEXT common1 TEXT unique1) (OR TEXT common1 TEXT unique2) TEXT unique3" },
-	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT common2 ) ( OR TEXT common2 TEXT unique2 )", "(OR TEXT common1 TEXT unique1) (OR TEXT common1 TEXT common2) (OR TEXT common2 TEXT unique2)" },
+	{ "( OR TEXT unique1 TEXT unique2 ) TEXT unique3", "OR TEXT unique1 TEXT unique2 TEXT unique3" },
+	{ "( OR TEXT unique1 TEXT unique2 ) ( OR TEXT unique3 TEXT unique4 )", "OR TEXT unique1 TEXT unique2 OR TEXT unique3 TEXT unique4" },
+	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT unique2 ) TEXT unique3", "OR TEXT common1 TEXT unique1 OR TEXT common1 TEXT unique2 TEXT unique3" },
+	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT common2 ) ( OR TEXT common2 TEXT unique2 )", "OR TEXT common1 TEXT unique1 OR TEXT common1 TEXT common2 OR TEXT common2 TEXT unique2" },
 };
 
 static struct mail_search_args *
