@@ -186,16 +186,16 @@ int fs_list_get_mailbox_flags(struct mailbox_list *list,
 		} else {
 			*flags_r |= MAILBOX_NOINFERIORS;
 		}
-	} else {
-		if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
-			*flags_r |= MAILBOX_NOSELECT | MAILBOX_CHILDREN;
-			return 1;
-		}
+		*flags_r |= STAT_GET_MARKED_FILE(st);
+		return 1;
 	}
 
 	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
-		*flags_r |= STAT_GET_MARKED_FILE(st);
-	} else if (list->v.is_internal_name == NULL) {
+		*flags_r |= MAILBOX_NOSELECT | MAILBOX_CHILDREN;
+		return 1;
+	}
+
+	if (list->v.is_internal_name == NULL) {
 		/* link count < 2 can happen with filesystems that don't
 		   support link counts. we'll just ignore them for now.. */
 		if (st.st_nlink == 2)
