@@ -52,7 +52,7 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 	}
 
 	str = t_str_new(1024);
-	str_append(str, "VERSION\tscript\t3\t0\n");
+	str_append(str, "VERSION\tscript\t4\t0\n");
 	if (!wait)
 		str_append(str, "noreply\n");
 	else
