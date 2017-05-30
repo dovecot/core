@@ -146,7 +146,7 @@ static int filter_connect(struct mail_filter_ostream *mstream,
 	mstream->ext_out = o_stream_create_fd(fd, 0, FALSE);
 
 	str = t_str_new(256);
-	str_append(str, "VERSION\tscript\t3\t0\nnoreply\n");
+	str_append(str, "VERSION\tscript\t4\t0\nnoreply\n");
 	for (; *argv != NULL; argv++) {
 		str_append(str, *argv);
 		str_append_c(str, '\n');
