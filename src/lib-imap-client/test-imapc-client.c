@@ -127,9 +127,10 @@ static void test_run_client_server(
 	i_zero(&server);
 	server.pid = (pid_t)-1;
 	server.fd = -1;
-	server.fd_listen = server_test == NULL ? -1 :
-		test_open_server_fd(&server.port);
+	server.fd_listen = test_open_server_fd(&server.port);
 	client_set_copy.port = server.port;
+	if (server_test == NULL)
+		i_close_fd(&server.fd_listen);
 
 	if (mkdir(client_set->temp_path_prefix, 0700) < 0 && errno != EEXIST)
 		i_fatal("mkdir(%s) failed: %m", client_set->temp_path_prefix);
