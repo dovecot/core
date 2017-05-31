@@ -98,7 +98,7 @@
 struct director_connection {
 	struct director *dir;
 	char *name;
-	time_t created;
+	struct timeval created, connected_time, me_received_time;
 	unsigned int minor_version;
 
 	struct timeval last_input, last_output;
@@ -161,18 +161,22 @@ director_cmd_error(struct director_connection *conn, const char *fmt, ...)
 static void
 director_connection_init_timeout(struct director_connection *conn)
 {
-	unsigned int secs = ioloop_time - conn->created;
+	unsigned int secs;
 
 	if (!conn->connected) {
+		secs = ioloop_time - conn->created.tv_sec;
 		i_error("director(%s): Connect timed out (%u secs)",
 			conn->name, secs);
 	} else if (!conn->me_received) {
+		secs = ioloop_time - conn->connected_time.tv_sec;
 		i_error("director(%s): Handshaking ME timed out (%u secs)",
 			conn->name, secs);
 	} else if (!conn->in) {
+		secs = ioloop_time - conn->me_received_time.tv_sec;
 		i_error("director(%s): Sending handshake timed out (%u secs)",
 			conn->name, secs);
 	} else {
+		secs = ioloop_time - conn->me_received_time.tv_sec;
 		i_error("director(%s): Handshaking DONE timed out (%u secs)",
 			conn->name, secs);
 	}
@@ -412,6 +416,7 @@ static bool director_cmd_me(struct director_connection *conn,
 		return FALSE;
 	}
 	conn->me_received = TRUE;
+	conn->me_received_time = ioloop_timeval;
 
 	if (args[2] != NULL) {
 		time_t remote_time;
@@ -1239,7 +1244,7 @@ director_cmd_user_killed_everywhere(struct director_connection *conn,
 static bool director_handshake_cmd_done(struct director_connection *conn)
 {
 	struct director *dir = conn->dir;
-	unsigned int handshake_secs = time(NULL) - conn->created;
+	int handshake_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->connected_time);
 	string_t *str;
 
 	if (conn->users_unsorted && conn->user_iter == NULL) {
@@ -1249,11 +1254,11 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 	}
 
 	str = t_str_new(128);
-	str_printfa(str, "director(%s): Handshake finished in %u secs "
+	str_printfa(str, "director(%s): Handshake finished in %u.%03u secs "
 		    "(bytes in=%"PRIuUOFF_T" out=%"PRIuUOFF_T")",
-		    conn->name, handshake_secs, conn->input->v_offset,
-		    conn->output->offset);
-	if (handshake_secs >= DIRECTOR_HANDSHAKE_WARN_SECS)
+		    conn->name, handshake_msecs/1000, handshake_msecs%1000,
+		    conn->input->v_offset, conn->output->offset);
+	if (handshake_msecs >= DIRECTOR_HANDSHAKE_WARN_SECS*1000)
 		i_warning("%s", str_c(str));
 	else
 		i_info("%s", str_c(str));
@@ -1724,7 +1729,7 @@ static void
 director_connection_log_disconnect(struct director_connection *conn, int err,
 				   const char *errstr)
 {
-	unsigned int secs = ioloop_time - conn->created;
+	unsigned int secs = ioloop_time - conn->connected_time.tv_sec;
 	string_t *str = t_str_new(128);
 
 	i_assert(conn->connected);
@@ -1950,7 +1955,7 @@ director_connection_init_common(struct director *dir, int fd)
 	struct director_connection *conn;
 
 	conn = i_new(struct director_connection, 1);
-	conn->created = ioloop_time;
+	conn->created = ioloop_timeval;
 	conn->fd = fd;
 	conn->dir = dir;
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
@@ -1979,6 +1984,7 @@ director_connection_init_in(struct director *dir, int fd,
 	conn = director_connection_init_common(dir, fd);
 	conn->in = TRUE;
 	conn->connected = TRUE;
+	conn->connected_time = ioloop_timeval;
 	conn->name = i_strdup_printf("%s/in", net_ip2addr(ip));
 	conn->io = io_add(conn->fd, IO_READ, director_connection_input, conn);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
@@ -1998,6 +2004,7 @@ static void director_connection_connected(struct director_connection *conn)
 		director_connection_disconnected(&conn, strerror(err));
 		return;
 	}
+	conn->connected_time = ioloop_timeval;
 	conn->connected = TRUE;
 	o_stream_set_flush_callback(conn->output,
 				    director_connection_output, conn);
@@ -2130,7 +2137,7 @@ static void director_connection_disconnected(struct director_connection **_conn,
 	struct director_connection *conn = *_conn;
 	struct director *dir = conn->dir;
 
-	if (conn->created + DIRECTOR_SUCCESS_MIN_CONNECT_SECS > ioloop_time &&
+	if (conn->connected_time.tv_sec + DIRECTOR_SUCCESS_MIN_CONNECT_SECS > ioloop_time &&
 	    conn->host != NULL) {
 		/* connection didn't exist for very long, assume it has a
 		   network problem */
