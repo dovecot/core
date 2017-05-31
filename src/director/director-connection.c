@@ -49,6 +49,8 @@
 #define MAX_INBUF_SIZE 1024
 #define MAX_OUTBUF_SIZE (1024*1024*10)
 #define OUTBUF_FLUSH_THRESHOLD (1024*128)
+/* Max time to wait for connect() to finish before aborting */
+#define DIRECTOR_CONNECTION_CONNECT_TIMEOUT_MSECS (10*1000)
 /* Max idling time before "ME" command must have been received,
    or we'll disconnect. */
 #define DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS (10*1000)
@@ -428,8 +430,13 @@ static bool director_cmd_me(struct director_connection *conn,
 	}
 
 	timeout_remove(&conn->to_ping);
-	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS,
-				    director_connection_init_timeout, conn);
+	if (conn->in) {
+		conn->to_ping = timeout_add(DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS,
+					    director_connection_init_timeout, conn);
+	} else {
+		conn->to_ping = timeout_add(DIRECTOR_CONNECTION_SEND_USERS_TIMEOUT_MSECS,
+					    director_connection_init_timeout, conn);
+	}
 
 	if (!conn->in)
 		return TRUE;
@@ -1949,8 +1956,6 @@ director_connection_init_common(struct director *dir, int fd)
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
 	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE);
 	o_stream_set_no_error_handling(conn->output, TRUE);
-	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
-				    director_connection_init_timeout, conn);
 	array_append(&dir->connections, &conn, 1);
 	return conn;
 }
@@ -1976,6 +1981,8 @@ director_connection_init_in(struct director *dir, int fd,
 	conn->connected = TRUE;
 	conn->name = i_strdup_printf("%s/in", net_ip2addr(ip));
 	conn->io = io_add(conn->fd, IO_READ, director_connection_input, conn);
+	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
+				    director_connection_init_timeout, conn);
 
 	director_connection_send_handshake(conn);
 	return conn;
@@ -1999,7 +2006,7 @@ static void director_connection_connected(struct director_connection *conn)
 	conn->io = io_add(conn->fd, IO_READ, director_connection_input, conn);
 
 	timeout_remove(&conn->to_ping);
-	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_SEND_USERS_TIMEOUT_MSECS,
+	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
 				    director_connection_init_timeout, conn);
 
 	o_stream_cork(conn->output);
@@ -2046,6 +2053,8 @@ director_connection_init_out(struct director *dir, int fd,
 	director_host_ref(host);
 	conn->io = io_add(conn->fd, IO_WRITE,
 			  director_connection_connected, conn);
+	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_CONNECT_TIMEOUT_MSECS,
+				    director_connection_init_timeout, conn);
 	return conn;
 }
 
