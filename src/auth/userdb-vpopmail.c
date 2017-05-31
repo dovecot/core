@@ -69,9 +69,7 @@ userdb_vpopmail_get_quota(const char *template, const char *vpop_str,
 	tab[0].value = format_maildirquota(vpop_str);
 
 	quota = t_str_new(128);
-	if (var_expand(quota, template, tab, error_r) < 0)
-		return -1;
-
+	var_expand(quota, template, tab);
 	*quota_r = str_c(quota);
 	return 0;
 }
