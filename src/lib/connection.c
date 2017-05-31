@@ -3,7 +3,9 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "istream-unix.h"
 #include "ostream.h"
+#include "ostream-unix.h"
 #include "iostream.h"
 #include "net.h"
 #include "strescape.h"
@@ -130,16 +132,24 @@ static void connection_init_streams(struct connection *conn)
 	conn->version_received = set->major_version == 0;
 
 	if (set->input_max_size != 0) {
-		conn->input = i_stream_create_fd(conn->fd_in,
-						 set->input_max_size, FALSE);
+		if (conn->unix_socket)
+			conn->input = i_stream_create_unix(conn->fd_in,
+							   set->input_max_size);
+		else
+			conn->input = i_stream_create_fd(conn->fd_in,
+							 set->input_max_size, FALSE);
 		i_stream_set_name(conn->input, conn->name);
 		conn->io = io_add_istream(conn->input, *conn->list->v.input, conn);
 	} else {
 		conn->io = io_add(conn->fd_in, IO_READ, *conn->list->v.input, conn);
 	}
 	if (set->output_max_size != 0) {
-		conn->output = o_stream_create_fd(conn->fd_out,
-						  set->output_max_size, FALSE);
+		if (conn->unix_socket)
+			conn->output = o_stream_create_unix(conn->fd_out,
+							    set->output_max_size);
+		else
+			conn->output = o_stream_create_fd(conn->fd_out,
+							  set->output_max_size, FALSE);
 		o_stream_set_no_error_handling(conn->output, TRUE);
 		o_stream_set_name(conn->output, conn->name);
 	}
@@ -212,6 +222,7 @@ void connection_init_client_unix(struct connection_list *list,
 	conn->fd_in = conn->fd_out = -1;
 	conn->list = list;
 	conn->name = i_strdup(path);
+	conn->unix_socket = TRUE;
 
 	DLLIST_PREPEND(&list->connections, conn);
 	list->connections_count++;
