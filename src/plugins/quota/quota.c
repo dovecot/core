@@ -1373,6 +1373,7 @@ int quota_parse_parameters(struct quota_root *root, const char **args, const cha
 		for (; valid_params->param_name != NULL; ++valid_params) {
 			tmp_param_name = valid_params->param_name;
 			tmp_param_len = strlen(valid_params->param_name);
+			i_assert(*args != NULL);
 			if (strncmp(*args, tmp_param_name, tmp_param_len) == 0) {
 				tmp_param_val = NULL;
 				*args += tmp_param_len;
@@ -1383,9 +1384,9 @@ int quota_parse_parameters(struct quota_root *root, const char **args, const cha
 						t_strdup_until(*args, next_colon);
 					*args = (next_colon == NULL) ? NULL : next_colon + 1;
 				}
-				else if (*args[0] == '\0' ||
-					 *args[0] == ':') {
-					*args = (*args[0] == ':') ? *args + 1 : NULL;
+				else if ((*args)[0] == '\0' ||
+					 (*args)[0] == ':') {
+					*args = ((*args)[0] == ':') ? *args + 1 : NULL;
 					/* in case parameter is a boolean second parameter
 					 * string parameter value will be ignored by param_handler
 					 * we just need some non-NULL value
