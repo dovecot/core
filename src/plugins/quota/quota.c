@@ -997,7 +997,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 	}
 
 	str = t_str_new(1024);
-	str_append(str, "VERSION\tscript\t3\t0\nnoreply\n");
+	str_append(str, "VERSION\tscript\t4\t0\nnoreply\n");
 	for (; *args != NULL; args++) {
 		str_append(str, *args);
 		str_append_c(str, '\n');
