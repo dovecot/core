@@ -59,8 +59,9 @@
    parsing the data. */
 #define DIRECTOR_CONNECTION_SEND_USERS_TIMEOUT_MSECS (30*1000)
 /* Max idling time before "DONE" command must have been received,
-   or we'll disconnect. */
-#define DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS (30*1000)
+   or we'll disconnect. Use a slightly larger value than for _SEND_USERS_ so
+   that we'll get a better error if the sender decides to disconnect. */
+#define DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS (40*1000)
 /* How long to wait for PONG for an idling connection */
 #define DIRECTOR_CONNECTION_PING_IDLE_TIMEOUT_MSECS (10*1000)
 /* Maximum time to wait for PONG reply */
