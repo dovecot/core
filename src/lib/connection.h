@@ -99,6 +99,7 @@ struct connection {
 	enum connection_disconnect_reason disconnect_reason;
 
 	bool version_received:1;
+	bool unix_socket:1;
 };
 
 struct connection_list {
