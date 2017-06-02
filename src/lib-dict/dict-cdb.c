@@ -24,9 +24,7 @@ static void cdb_dict_deinit(struct dict *_dict);
 
 static int
 cdb_dict_init(struct dict *driver, const char *uri,
-	      enum dict_data_type value_type ATTR_UNUSED,
-	      const char *username ATTR_UNUSED,
-	      const char *base_dir ATTR_UNUSED,
+	      const struct dict_settings *set ATTR_UNUSED,
 	      struct dict **dict_r, const char **error_r)
 {
 	struct cdb_dict *dict;
