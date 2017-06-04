@@ -1235,6 +1235,15 @@ void quota_transaction_rollback(struct quota_transaction_context **_ctx)
 	i_free(ctx);
 }
 
+static int quota_get_mail_size(struct quota_transaction_context *ctx,
+			       struct mail *mail, uoff_t *size_r)
+{
+	if (ctx->quota->set->vsizes)
+		return mail_get_virtual_size(mail, size_r);
+	else
+		return mail_get_physical_size(mail, size_r);
+}
+
 enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 					struct mail *mail)
 {
@@ -1246,7 +1255,7 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 	if (ctx->no_quota_updates)
 		return QUOTA_ALLOC_RESULT_OK;
 
-	if (mail_get_physical_size(mail, &size) < 0) {
+	if (quota_get_mail_size(ctx, mail, &size) < 0) {
 		enum mail_error error;
 		const char *errstr = mailbox_get_last_internal_error(mail->box, &error);
 
@@ -1333,7 +1342,7 @@ void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 
 	if (ctx->auto_updating)
 		return;
-	if (mail_get_physical_size(mail, &size) == 0)
+	if (quota_get_mail_size(ctx, mail, &size) == 0)
 		ctx->bytes_used += size;
 
 	ctx->bytes_ceil = ctx->bytes_ceil2;
@@ -1346,7 +1355,7 @@ void quota_free(struct quota_transaction_context *ctx, struct mail *mail)
 
 	if (ctx->auto_updating)
 		return;
-	if (mail_get_physical_size(mail, &size) < 0)
+	if (quota_get_mail_size(ctx, mail, &size) < 0)
 		quota_recalculate(ctx, QUOTA_RECALCULATE_MISSING_FREES);
 	else
 		quota_free_bytes(ctx, size);
