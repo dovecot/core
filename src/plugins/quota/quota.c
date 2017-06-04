@@ -1275,7 +1275,7 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 	/* with quota_try_alloc() we want to keep track of how many bytes
 	   we've been adding/removing, so disable auto_updating=TRUE
 	   optimization. this of course doesn't work perfectly if
-	   quota_alloc() or quota_free*() was already used within the same
+	   quota_alloc() or quota_free_bytes() was already used within the same
 	   transaction, but that doesn't normally happen. */
 	ctx->auto_updating = FALSE;
 	quota_alloc(ctx, mail);
@@ -1347,18 +1347,6 @@ void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 
 	ctx->bytes_ceil = ctx->bytes_ceil2;
 	ctx->count_used++;
-}
-
-void quota_free(struct quota_transaction_context *ctx, struct mail *mail)
-{
-	uoff_t size;
-
-	if (ctx->auto_updating)
-		return;
-	if (quota_get_mail_size(ctx, mail, &size) < 0)
-		quota_recalculate(ctx, QUOTA_RECALCULATE_MISSING_FREES);
-	else
-		quota_free_bytes(ctx, size);
 }
 
 void quota_free_bytes(struct quota_transaction_context *ctx,

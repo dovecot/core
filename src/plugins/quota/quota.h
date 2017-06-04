@@ -108,7 +108,6 @@ enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
 					 uoff_t size);
 /* Update quota by allocating/freeing space used by mail. */
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail);
-void quota_free(struct quota_transaction_context *ctx, struct mail *mail);
 void quota_free_bytes(struct quota_transaction_context *ctx,
 		      uoff_t physical_size);
 /* Mark the quota to be recalculated */
