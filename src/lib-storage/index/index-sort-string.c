@@ -355,6 +355,11 @@ index_sort_get_string(struct sort_string_context *ctx,
 	uint32_t seq = node->seq;
 	int ret = 1;
 
+	if (node->no_update) {
+		/* we've already determined that we can't do this lookup */
+		return FALSE;
+	}
+
 	if (ctx->sort_strings[seq] == NULL) T_BEGIN {
 		string_t *str;
 		const char *result;
