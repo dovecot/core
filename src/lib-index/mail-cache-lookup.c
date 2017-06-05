@@ -616,14 +616,31 @@ static uint32_t
 mail_cache_get_highest_seq_with_cache(struct mail_cache_view *view,
 				      uint32_t below_seq, uint32_t *reset_id_r)
 {
-	uint32_t seq;
+	struct mail_cache_missing_reason_cache *rc = &view->reason_cache;
+	uint32_t seq = below_seq-1, highest_checked_seq = 0;
 
 	/* find the newest mail that has anything in cache */
-	for (seq = below_seq-1; seq > 0; seq--) {
-		if (mail_cache_lookup_cur_offset(view->view, seq, reset_id_r) != 0)
-			return seq;
+	if (rc->log_file_head_offset == view->view->log_file_head_offset &&
+	    rc->log_file_head_seq == view->view->log_file_head_seq) {
+		/* reason_cache matches the current view - we can use it */
+		highest_checked_seq = rc->highest_checked_seq;
+	} else {
+		rc->log_file_head_offset = view->view->log_file_head_offset;
+		rc->log_file_head_seq = view->view->log_file_head_seq;
 	}
-	return 0;
+	rc->highest_checked_seq = below_seq;
+
+	/* first check anything not already in reason_cache */
+	for (; seq > highest_checked_seq; seq--) {
+		if (mail_cache_lookup_cur_offset(view->view, seq, reset_id_r) != 0) {
+			rc->highest_seq_with_cache = seq;
+			return seq;
+		}
+	}
+	if (seq == 0)
+		return 0;
+	/* then return the result from cache */
+	return rc->highest_seq_with_cache;
 }
 
 const char *

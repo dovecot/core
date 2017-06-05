@@ -169,6 +169,14 @@ struct mail_cache_loop_track {
 	uoff_t size_sum;
 };
 
+struct mail_cache_missing_reason_cache {
+	uint32_t highest_checked_seq;
+	uint32_t highest_seq_with_cache;
+
+	uint32_t log_file_head_seq;
+	uoff_t log_file_head_offset;
+};
+
 struct mail_cache_view {
 	struct mail_cache *cache;
 	struct mail_index_view *view, *trans_view;
@@ -177,6 +185,7 @@ struct mail_cache_view {
 	uint32_t trans_seq1, trans_seq2;
 
 	struct mail_cache_loop_track loop_track;
+	struct mail_cache_missing_reason_cache reason_cache;
 
 	/* if cached_exists_buf[field] == cached_exists_value, it's cached.
 	   this allows us to avoid constantly clearing the whole buffer.
