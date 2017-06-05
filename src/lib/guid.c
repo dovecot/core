@@ -69,7 +69,7 @@ void guid_128_generate(guid_128_t guid_r)
 		guid_128_host_hash_get(my_hostdomain(), guid_static+4);
 	} else if (ioloop_timeval.tv_sec > ts.tv_sec ||
 		   (ioloop_timeval.tv_sec == ts.tv_sec &&
-		    ioloop_timeval.tv_usec > ts.tv_nsec*1000)) {
+		    ioloop_timeval.tv_usec * 1000 > ts.tv_nsec)) {
 		/* use ioloop's time since we have it. it doesn't provide any
 		   more uniqueness, but it allows finding out more reliably
 		   when a GUID was created. */
