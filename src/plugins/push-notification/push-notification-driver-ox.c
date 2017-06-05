@@ -406,7 +406,8 @@ static void push_notification_driver_ox_deinit
 
     i_free(dconfig->cached_ox_metadata);
     if (ox_global != NULL) {
-        http_client_wait(ox_global->http_client);
+        if (ox_global->http_client != NULL)
+            http_client_wait(ox_global->http_client);
         i_assert(ox_global->refcount > 0);
         --ox_global->refcount;
     }
