@@ -37,6 +37,10 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 		} else if (strcmp(*tmp, "default_ns=") == 0) {
 			set->default_ns_prefix =
 				p_strdup(user->pool, *tmp + 11);
+		} else if (strcmp(*tmp, "limit_mime_hdr") == 0) {
+			set->limit_mime_hdr = TRUE;
+		} else if (strcmp(*tmp, "skip_mime_hdr_fieldname") == 0) {
+			set->skip_mime_hdr_fieldname = TRUE;
 		} else {
 			i_error("fts_solr: Invalid setting: %s", *tmp);
 			return -1;
