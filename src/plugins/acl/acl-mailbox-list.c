@@ -29,6 +29,7 @@ struct acl_mailbox_list_iterate_context {
 static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
 	MAIL_ACL_LOOKUP,
 	MAIL_ACL_READ,
+	MAIL_ACL_FAKE_EMPTY,
 	MAIL_ACL_WRITE,
 	MAIL_ACL_WRITE_SEEN,
 	MAIL_ACL_WRITE_DELETED,

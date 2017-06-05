@@ -10,6 +10,8 @@ struct acl_object;
 #define MAIL_ACL_LOOKUP		"lookup"
 /* Allow opening mailbox for reading */
 #define MAIL_ACL_READ		"read"
+/* The mailbox is readable but no messages are returned */
+#define MAIL_ACL_FAKE_EMPTY		"fake-empty"
 /* Allow permanent flag changes (except for seen/deleted).
    If not set, doesn't allow save/copy to set any flags either. */
 #define MAIL_ACL_WRITE		"write"
