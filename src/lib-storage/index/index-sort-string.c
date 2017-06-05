@@ -349,8 +349,10 @@ index_sort_get_expunged_string(struct sort_string_context *ctx, uint32_t idx,
 
 static int
 index_sort_get_string(struct sort_string_context *ctx,
-		      uint32_t idx, uint32_t seq, const char **str_r)
+		      uint32_t idx, struct mail_sort_node *node,
+		      const char **str_r)
 {
+	uint32_t seq = node->seq;
 	int ret = 1;
 
 	if (ctx->sort_strings[seq] == NULL) T_BEGIN {
@@ -376,6 +378,8 @@ index_sort_get_string(struct sort_string_context *ctx,
 		}
 	} T_END;
 
+	if (ret <= 0)
+		node->no_update = TRUE;
 	*str_r = ctx->sort_strings[seq];
 	return ret;
 }
@@ -395,19 +399,16 @@ index_sort_bsearch(struct sort_string_context *ctx, const char *key,
 	idx = left_idx = start_idx;
 	while (left_idx < right_idx) {
 		idx = (left_idx + right_idx) / 2;
-		if (index_sort_get_string(ctx, idx, nodes[idx].seq, &str) > 0)
+		if (index_sort_get_string(ctx, idx, &nodes[idx], &str) > 0)
 			ret = strcmp(key, str);
 		else {
 			/* put expunged (and otherwise failed) messages first */
-			nodes[idx].no_update = TRUE;
 			ret = 1;
 			for (prev = idx; prev > 0; ) {
 				prev--;
 				if (index_sort_get_string(ctx, prev,
-							  nodes[prev].seq,
-							  &str2) <= 0)
-					nodes[prev].no_update = TRUE;
-				else {
+							  &nodes[prev],
+							  &str2) > 0) {
 					ret = strcmp(key, str2);
 					if (ret <= 0) {
 						idx = prev;
@@ -437,9 +438,7 @@ index_sort_bsearch(struct sort_string_context *ctx, const char *key,
 		do {
 			prev--;
 			ret = index_sort_get_string(ctx, prev,
-						    nodes[prev].seq, &str2);
-			if (ret <= 0)
-				nodes[prev].no_update = TRUE;
+						    &nodes[prev], &str2);
 		} while (ret <= 0 && prev > 0 &&
 			 nodes[prev-1].sort_id == nodes[prev].sort_id);
 		*prev_str_r = str2;
@@ -464,9 +463,7 @@ static void index_sort_merge(struct sort_string_context *ctx)
 	prev_str = NULL;
 	for (zpos = nzpos = 0; zpos < zcount && nzpos < nzcount; ) {
 		zstr = ctx->sort_strings[znodes[zpos].seq];
-		ret = index_sort_get_string(ctx, nzpos, nznodes[nzpos].seq, &nzstr);
-		if (ret <= 0)
-			nznodes[nzpos].no_update = TRUE;
+		ret = index_sort_get_string(ctx, nzpos, &nznodes[nzpos], &nzstr);
 
 		if (ret > 0)
 			ret = strcmp(zstr, nzstr);
@@ -603,18 +600,16 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 
 	if (nodes[left_idx].sort_id != 0 && !no_left_str) {
 		if (index_sort_get_string(ctx, left_idx,
-					  nodes[left_idx].seq, &left_str) <= 0) {
+					  &nodes[left_idx], &left_str) <= 0) {
 			/* not equivalent with any message */
-			nodes[left_idx].no_update = TRUE;
 			left_str = NULL;
 		}
 		left_idx++;
 	}
 	if (nodes[right_idx].sort_id != 0 && !no_right_str) {
 		if (index_sort_get_string(ctx, right_idx,
-					  nodes[right_idx].seq, &right_str) <= 0) {
+					  &nodes[right_idx], &right_str) <= 0) {
 			/* not equivalent with any message */
-			nodes[right_idx].no_update = TRUE;
 			right_str = NULL;
 		}
 		right_idx--;
@@ -626,12 +621,11 @@ index_sort_add_ids_range(struct sort_string_context *ctx,
 	   share. some messages' sort strings may be equivalent, so give them
 	   the same sort IDs. */
 	for (i = left_idx; i <= right_idx; i++) {
-		if (index_sort_get_string(ctx, i, nodes[i].seq, &str) <= 0) {
+		if (index_sort_get_string(ctx, i, &nodes[i], &str) <= 0) {
 			/* it doesn't really matter what we give to this
 			   message, since it's only temporary and we don't
 			   know its correct position anyway. so let's assume
 			   it's equivalent to previous message. */
-			nodes[i].no_update = TRUE;
 			nodes[i].sort_id = left_sort_id;
 			continue;
 		}
