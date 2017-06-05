@@ -25,6 +25,7 @@ struct auth_server_connection {
 	bool version_received:1;
 	bool handshake_received:1;
 	bool has_plain_mech:1;
+	bool connected:1;
 };
 
 struct auth_server_connection *

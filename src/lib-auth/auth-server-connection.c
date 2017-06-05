@@ -348,6 +348,9 @@ auth_server_connection_remove_requests(struct auth_server_connection *conn,
 void auth_server_connection_disconnect(struct auth_server_connection *conn,
 				       const char *reason)
 {
+	if (!conn->connected)
+		return;
+	conn->connected = FALSE;
 	conn->handshake_received = FALSE;
 	conn->version_received = FALSE;
 	conn->has_plain_mech = FALSE;
@@ -420,6 +423,7 @@ int auth_server_connection_connect(struct auth_server_connection *conn)
 	const char *handshake;
 	int fd;
 
+	i_assert(!conn->connected);
 	i_assert(conn->fd == -1);
 
 	conn->last_connect = ioloop_time;
@@ -443,6 +447,7 @@ int auth_server_connection_connect(struct auth_server_connection *conn)
 	conn->io = io_add(fd, IO_READ, auth_server_connection_input, conn);
 	conn->input = i_stream_create_fd(fd, AUTH_SERVER_CONN_MAX_LINE_LENGTH);
 	conn->output = o_stream_create_fd(fd, (size_t)-1);
+	conn->connected = TRUE;
 
 	handshake = t_strdup_printf("VERSION\t%u\t%u\nCPID\t%u\n",
 				    AUTH_CLIENT_PROTOCOL_MAJOR_VERSION,
