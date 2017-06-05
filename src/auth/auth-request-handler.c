@@ -843,9 +843,10 @@ void auth_request_handler_flush_failures(bool flush_all)
 
 	/* flush the requests */
 	for (i = 0; i < count; i++) {
-		auth_request = auth_requests[aqueue_idx(auth_failures, i)];
+		auth_request = auth_requests[aqueue_idx(auth_failures, 0)];
 		aqueue_delete_tail(auth_failures);
 
+		i_assert(auth_request != NULL);
 		i_assert(auth_request->state == AUTH_REQUEST_STATE_FINISHED);
 		auth_request_handler_reply(auth_request,
 					   AUTH_CLIENT_RESULT_FAILURE,
