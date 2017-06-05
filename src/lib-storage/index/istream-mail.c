@@ -23,11 +23,15 @@ static bool i_stream_mail_try_get_cached_size(struct mail_istream *mstream)
 	if (mstream->expected_size != (uoff_t)-1)
 		return TRUE;
 
+	/* make sure this call doesn't change any existing error message,
+	   just in case there's already something important in it. */
+	mail_storage_last_error_push(mail->box->storage);
 	orig_lookup_abort = mail->lookup_abort;
 	mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
 	if (mail_get_physical_size(mail, &mstream->expected_size) < 0)
 		mstream->expected_size = (uoff_t)-1;
 	mail->lookup_abort = orig_lookup_abort;
+	mail_storage_last_error_pop(mail->box->storage);
 	return mstream->expected_size != (uoff_t)-1;
 }
 
