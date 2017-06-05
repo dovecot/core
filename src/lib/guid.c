@@ -75,7 +75,7 @@ void guid_128_generate(guid_128_t guid_r)
 		   when a GUID was created. */
 		ts.tv_sec = ioloop_timeval.tv_sec;
 		ts.tv_nsec = ioloop_timeval.tv_usec*1000;
-	} else if ((uint32_t)ts.tv_nsec < 1000000000) {
+	} else if (ts.tv_nsec < 999999999L) {
 		ts.tv_nsec++;
 	} else {
 		ts.tv_sec++;
