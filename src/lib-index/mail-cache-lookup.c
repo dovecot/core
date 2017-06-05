@@ -612,6 +612,20 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 	return ret;
 }
 
+static uint32_t
+mail_cache_get_highest_seq_with_cache(struct mail_cache_view *view,
+				      uint32_t below_seq, uint32_t *reset_id_r)
+{
+	uint32_t seq;
+
+	/* find the newest mail that has anything in cache */
+	for (seq = below_seq-1; seq > 0; seq--) {
+		if (mail_cache_lookup_cur_offset(view->view, seq, reset_id_r) != 0)
+			return seq;
+	}
+	return 0;
+}
+
 const char *
 mail_cache_get_missing_reason(struct mail_cache_view *view, uint32_t seq)
 {
@@ -630,13 +644,7 @@ mail_cache_get_missing_reason(struct mail_cache_view *view, uint32_t seq)
 		return t_strdup_printf(
 			"Mail has other cached fields, reset_id=%u", reset_id);
 	}
-
-	/* find the newest mail that has anything in cache */
-	for (; seq > 0; seq--) {
-		offset = mail_cache_lookup_cur_offset(view->view, seq, &reset_id);
-		if (offset != 0)
-			break;
-	}
+	seq = mail_cache_get_highest_seq_with_cache(view, seq, &reset_id);
 	if (seq == 0) {
 		return t_strdup_printf("Cache file is empty, reset_id=%u",
 				       view->cache->hdr->file_seq);
