@@ -173,6 +173,7 @@ struct mail_cache_missing_reason_cache {
 	uint32_t highest_checked_seq;
 	uint32_t highest_seq_with_cache;
 
+	uint32_t reset_id;
 	uint32_t log_file_head_seq;
 	uoff_t log_file_head_offset;
 };
