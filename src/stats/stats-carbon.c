@@ -33,8 +33,7 @@ stats_carbon_destroy(struct stats_send_ctx **_ctx)
 	struct stats_send_ctx *ctx = *_ctx;
 	*_ctx = NULL;
 
-	if (ctx->io != NULL)
-		io_remove(&ctx->io);
+	io_remove(&ctx->io);
 	if (ctx->to != NULL)
 		timeout_remove(&ctx->to);
 	i_close_fd(&ctx->fd);

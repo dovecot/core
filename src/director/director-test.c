@@ -370,14 +370,12 @@ static void director_connection_destroy(struct director_connection **_conn)
 	if (conn->to_delay != NULL)
 		timeout_remove(&conn->to_delay);
 
-	if (conn->in_io != NULL)
-		io_remove(&conn->in_io);
+	io_remove(&conn->in_io);
 	i_stream_unref(&conn->in_input);
 	o_stream_unref(&conn->in_output);
 	net_disconnect(conn->in_fd);
 
-	if (conn->out_io != NULL)
-		io_remove(&conn->out_io);
+	io_remove(&conn->out_io);
 	i_stream_unref(&conn->out_input);
 	o_stream_unref(&conn->out_output);
 	net_disconnect(conn->out_fd);

@@ -291,8 +291,7 @@ void dict_connection_destroy(struct dict_connection *conn)
 
 	if (conn->to_input != NULL)
 		timeout_remove(&conn->to_input);
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);
 	if (close(conn->fd) < 0)

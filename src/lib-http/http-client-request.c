@@ -1008,8 +1008,7 @@ static void http_client_request_payload_input(struct http_client_request *req)
 {	
 	struct http_client_connection *conn = req->conn;
 
-	if (conn->io_req_payload != NULL)
-		io_remove(&conn->io_req_payload);
+	io_remove(&conn->io_req_payload);
 
 	(void)http_client_connection_output(conn);
 }
@@ -1024,8 +1023,7 @@ int http_client_request_send_more(struct http_client_request *req,
 	i_assert(req->payload_input != NULL);
 	i_assert(req->payload_output != NULL);
 
-	if (conn->io_req_payload != NULL)
-		io_remove(&conn->io_req_payload);
+	io_remove(&conn->io_req_payload);
 
 	/* chunked ostream needs to write to the parent stream's buffer */
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);

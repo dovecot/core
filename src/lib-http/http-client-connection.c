@@ -1546,8 +1546,7 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 	if (conn->connect_initialized)
 		connection_disconnect(&conn->conn);
 
-	if (conn->io_req_payload != NULL)
-		io_remove(&conn->io_req_payload);
+	io_remove(&conn->io_req_payload);
 	if (conn->to_requests != NULL)
 		timeout_remove(&conn->to_requests);
 	if (conn->to_connect != NULL)

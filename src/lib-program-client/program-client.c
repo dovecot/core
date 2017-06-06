@@ -111,8 +111,7 @@ void program_client_disconnect_extra_fds(struct program_client *pclient)
 	for(i = 0; i < count; i++) {
 		if (efds[i].input != NULL)
 			i_stream_unref(&efds[i].input);
-		if (efds[i].io != NULL)
-			io_remove(&efds[i].io);
+		io_remove(&efds[i].io);
 		if (efds[i].parent_fd != -1 && close(efds[i].parent_fd) < 0)
 			i_error("close(fd=%d) failed: %m", efds[i].parent_fd);
 	}
@@ -130,8 +129,7 @@ void program_client_disconnected(struct program_client *pclient)
 	if (pclient->program_output != NULL)
 		o_stream_destroy(&pclient->program_output);
 
-	if (pclient->io != NULL)
-		io_remove(&pclient->io);
+	io_remove(&pclient->io);
 
 	if (pclient->fd_in != -1 && close(pclient->fd_in) < 0)
 		i_error("close(%s) failed: %m", pclient->path);
@@ -164,8 +162,7 @@ void program_client_disconnect(struct program_client *pclient, bool force)
 
 	if (pclient->to != NULL)
 		timeout_remove(&pclient->to);
-	if (pclient->io != NULL)
-		io_remove(&pclient->io);
+	io_remove(&pclient->io);
 
 	if ((ret = program_client_close_output(pclient)) < 0)
 		pclient->other_error = TRUE;
@@ -588,8 +585,7 @@ void program_client_destroy(struct program_client **_pclient)
 	if (pclient->seekable_output != NULL)
 		i_stream_unref(&pclient->seekable_output);
 
-	if (pclient->io != NULL)
-		io_remove(&pclient->io);
+	io_remove(&pclient->io);
 	i_free(pclient->temp_prefix);
 
 	if (pclient->destroy != NULL)

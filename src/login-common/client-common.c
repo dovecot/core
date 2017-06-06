@@ -263,8 +263,7 @@ void client_destroy(struct client *client, const char *reason)
 		i_assert(!client->authenticating);
 	}
 
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	if (client->to_disconnect != NULL)
 		timeout_remove(&client->to_disconnect);
 	if (client->to_auth_waiting != NULL)
@@ -473,8 +472,7 @@ void client_cmd_starttls(struct client *client)
 
 	/* remove input handler, SSL proxy gives us a new fd. we also have to
 	   remove it in case we have to wait for buffer to be flushed */
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 
 	client->v.notify_starttls(client, TRUE, "Begin TLS negotiation now.");
 

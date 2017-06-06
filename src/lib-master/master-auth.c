@@ -71,8 +71,7 @@ master_auth_connection_deinit(struct master_auth_connection **_conn)
 
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)
 			i_fatal("close(%s) failed: %m", conn->path);

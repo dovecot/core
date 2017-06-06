@@ -171,8 +171,7 @@ void client_destroy(struct client **_client)
 	*_client = NULL;
 
 	DLLIST_REMOVE(&clients, client);
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 	if (close(client->fd) < 0)

@@ -359,8 +359,7 @@ void auth_server_connection_disconnect(struct auth_server_connection *conn,
 
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	if (conn->fd != -1) {
 		i_stream_destroy(&conn->input);
 		o_stream_destroy(&conn->output);

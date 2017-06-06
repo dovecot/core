@@ -564,8 +564,7 @@ void server_connection_destroy(struct server_connection **_conn)
 		o_stream_destroy(&conn->cmd_output);
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)
 			i_error("close(server) failed: %m");
@@ -618,7 +617,6 @@ void server_connection_extract(struct server_connection *conn,
 	conn->input = NULL;
 	conn->output = NULL;
 	conn->ssl_iostream = NULL;
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	conn->fd = -1;
 }

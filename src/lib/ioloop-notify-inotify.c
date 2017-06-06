@@ -234,8 +234,7 @@ int io_loop_extract_notify_fd(struct ioloop *ioloop)
 	}
 	for (io = ctx->fd_ctx.notifies; io != NULL; io = io->next)
 		io->fd = -1;
-	if (ctx->event_io != NULL)
-		io_remove(&ctx->event_io);
+	io_remove(&ctx->event_io);
 	fd = ctx->inotify_fd;
 	ctx->inotify_fd = new_inotify_fd;
 	return fd;

@@ -61,8 +61,7 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 
 	if (client->to_idle != NULL)
 		timeout_remove(&client->to_idle);
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	if (client->input != NULL)
 		i_stream_destroy(&client->input);
 	if (client->fd != -1) {

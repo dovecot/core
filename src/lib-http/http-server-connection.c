@@ -107,8 +107,7 @@ http_server_connection_get_stats(struct http_server_connection *conn)
 static void
 http_server_connection_input_halt(struct http_server_connection *conn)
 {
-	if (conn->conn.io != NULL)
-		io_remove(&conn->conn.io);
+	io_remove(&conn->conn.io);
 }
 
 static void
@@ -1169,8 +1168,7 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 		timeout_remove(&conn->to_input);
 
 	http_server_connection_timeout_stop(conn);
-	if (conn->io_resp_payload != NULL)
-		io_remove(&conn->io_resp_payload);
+	io_remove(&conn->io_resp_payload);
 	if (conn->conn.output != NULL) {
 		o_stream_nflush(conn->conn.output);
 		o_stream_uncork(conn->conn.output);

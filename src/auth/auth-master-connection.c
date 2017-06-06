@@ -786,8 +786,7 @@ void auth_master_connection_destroy(struct auth_master_connection **_conn)
 		i_stream_close(conn->input);
 	if (conn->output != NULL)
 		o_stream_close(conn->output);
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)
 			i_error("close(%s): %m", conn->path);

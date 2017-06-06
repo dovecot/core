@@ -71,8 +71,7 @@ auth_worker_client_check_throttle(struct auth_worker_client *client)
 	    OUTBUF_THROTTLE_SIZE) {
 		/* stop reading new requests until client has read the pending
 		   replies. */
-		if (client->io != NULL)
-			io_remove(&client->io);
+		io_remove(&client->io);
 	}
 }
 
@@ -790,8 +789,7 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 
 	if (client->to_idle != NULL)
 		timeout_remove(&client->to_idle);
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 
 	net_disconnect(client->fd);
 	client->fd = -1;

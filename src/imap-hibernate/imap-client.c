@@ -586,14 +586,12 @@ static void imap_client_stop(struct imap_client *client)
 
 	if (client->unhibernate_queued)
 		priorityq_remove(unhibernate_queue, &client->item);
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	if (client->to_keepalive != NULL)
 		timeout_remove(&client->to_keepalive);
 
 	array_foreach_modifiable(&client->notifys, notify) {
-		if (notify->io != NULL)
-			io_remove(&notify->io);
+		io_remove(&notify->io);
 		i_close_fd(&notify->fd);
 	}
 }

@@ -126,8 +126,7 @@ static void remote_error_input(struct dsync_cmd_context *ctx)
 		i_stream_skip(ctx->err_stream, size);
 		break;
 	case -1:
-		if (ctx->io_err != NULL)
-			io_remove(&ctx->io_err);
+		io_remove(&ctx->io_err);
 		break;
 	default:
 		while ((line = i_stream_next_line(ctx->err_stream)) != NULL)
@@ -733,8 +732,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	} else {
 		i_assert(ctx->err_stream == NULL);
 	}
-	if (ctx->io_err != NULL)
-		io_remove(&ctx->io_err);
+	io_remove(&ctx->io_err);
 	i_close_fd(&ctx->fd_err);
 
 	if (ctx->child_wait != NULL)

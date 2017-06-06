@@ -470,8 +470,7 @@ http_server_response_payload_input(struct http_server_response *resp)
 {	
 	struct http_server_connection *conn = resp->request->conn;
 
-	if (conn->io_resp_payload != NULL)
-		io_remove(&conn->io_resp_payload);
+	io_remove(&conn->io_resp_payload);
 
 	(void)http_server_connection_output(conn);
 }
@@ -490,8 +489,7 @@ int http_server_response_send_more(struct http_server_response *resp,
 	i_assert(resp->payload_input != NULL);
 	i_assert(resp->payload_output != NULL);
 
-	if (conn->io_resp_payload != NULL)
-		io_remove(&conn->io_resp_payload);
+	io_remove(&conn->io_resp_payload);
 
 	/* chunked ostream needs to write to the parent stream's buffer */
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);

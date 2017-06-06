@@ -647,8 +647,7 @@ test_client_request_new(void)
 static void
 test_client_request_destroy(struct test_client_request *tcreq)
 {
-	if (tcreq->io != NULL)
-		io_remove(&tcreq->io);
+	io_remove(&tcreq->io);
 	if (tcreq->payload != NULL)
 		i_stream_unref(&tcreq->payload);
 	if (tcreq->file != NULL)

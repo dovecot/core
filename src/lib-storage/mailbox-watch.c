@@ -93,8 +93,7 @@ void mailbox_watch_remove_all(struct mailbox *box)
 		file = box->notify_files;
 		box->notify_files = file->next;
 
-		if (file->io_notify != NULL)
-			io_remove(&file->io_notify);
+		io_remove(&file->io_notify);
                 i_free(file->path);
 		i_free(file);
 	}

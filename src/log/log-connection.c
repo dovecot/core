@@ -437,8 +437,7 @@ log_connection_destroy(struct log_connection *log, bool shutting_down)
 	}
 
 	i_stream_unref(&log->input);
-	if (log->io != NULL)
-		io_remove(&log->io);
+	io_remove(&log->io);
 	if (close(log->fd) < 0)
 		i_error("close(log connection fd) failed: %m");
 	i_free(log->default_prefix);

@@ -247,8 +247,7 @@ static int fts_parser_tika_deinit(struct fts_parser *_parser)
 	   timeout to ioloop unnecessarily */
 	if (parser->payload != NULL)
 		i_stream_unref(&parser->payload);
-	if (parser->io != NULL)
-		io_remove(&parser->io);
+	io_remove(&parser->io);
 	if (parser->http_req != NULL)
 		http_client_request_abort(&parser->http_req);
 	if (parser->ioloop != NULL) {

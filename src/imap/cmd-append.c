@@ -134,8 +134,7 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 
 	i_assert(ctx->client->input_lock == ctx->cmd);
 
-	if (ctx->client->io != NULL)
-		io_remove(&ctx->client->io);
+	io_remove(&ctx->client->io);
 	/* we must put back the original flush callback before beginning to
 	   sync (the command is still unfinished at that point) */
 	o_stream_set_flush_callback(ctx->client->output,

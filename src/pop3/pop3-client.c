@@ -613,8 +613,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	i_free(client->seen_bitmask);
 	i_free(client->msgnum_to_seq_map);
 
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	timeout_remove(&client->to_idle);
 	if (client->to_commit != NULL)
 		timeout_remove(&client->to_commit);

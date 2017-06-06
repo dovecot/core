@@ -179,10 +179,8 @@ void mailbox_list_index_notify_deinit(struct mailbox_list_notify *notify)
 		mailbox_free(&inotify->inbox);
 	if (inotify->subscriptions != NULL)
 		mailbox_tree_deinit(&inotify->subscriptions);
-	if (inotify->io_wait != NULL)
-		io_remove(&inotify->io_wait);
-	if (inotify->io_wait_inbox != NULL)
-		io_remove(&inotify->io_wait_inbox);
+	io_remove(&inotify->io_wait);
+	io_remove(&inotify->io_wait_inbox);
 	if (inotify->to_wait != NULL)
 		timeout_remove(&inotify->to_wait);
 	if (inotify->to_notify != NULL)
@@ -927,10 +925,8 @@ void mailbox_list_index_notify_wait(struct mailbox_list_notify *notify,
 	inotify->wait_context = context;
 
 	if (callback == NULL) {
-		if (inotify->io_wait != NULL)
-			io_remove(&inotify->io_wait);
-		if (inotify->io_wait_inbox != NULL)
-			io_remove(&inotify->io_wait_inbox);
+		io_remove(&inotify->io_wait);
+		io_remove(&inotify->io_wait_inbox);
 		if (inotify->to_wait != NULL)
 			timeout_remove(&inotify->to_wait);
 		if (inotify->to_notify != NULL)

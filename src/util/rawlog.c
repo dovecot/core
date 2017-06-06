@@ -61,10 +61,8 @@ static void rawlog_proxy_destroy(struct rawlog_proxy *proxy)
 		}
 		o_stream_destroy(&proxy->out_output);
 	}
-	if (proxy->client_io != NULL)
-		io_remove(&proxy->client_io);
-	if (proxy->server_io != NULL)
-		io_remove(&proxy->server_io);
+	io_remove(&proxy->client_io);
+	io_remove(&proxy->server_io);
 	if (proxy->to_flush != NULL)
 		timeout_remove(&proxy->to_flush);
 

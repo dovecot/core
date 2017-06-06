@@ -479,8 +479,7 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 		proxy->state_rec->num_proxying_connections--;
 	}
 
-	if (proxy->server_io != NULL)
-		io_remove(&proxy->server_io);
+	io_remove(&proxy->server_io);
 	if (proxy->server_input != NULL)
 		i_stream_destroy(&proxy->server_input);
 	if (proxy->server_output != NULL)
@@ -502,8 +501,7 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 		timeout_remove(&proxy->to);
 	}
 
-	if (proxy->client_io != NULL)
-		io_remove(&proxy->client_io);
+	io_remove(&proxy->client_io);
 	if (proxy->client_input != NULL)
 		i_stream_destroy(&proxy->client_input);
 	if (proxy->client_output != NULL)

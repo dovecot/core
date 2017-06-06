@@ -959,10 +959,8 @@ void master_service_deinit(struct master_service **_service)
 		timeout_remove(&service->to_overflow_state);
 	if (service->to_status != NULL)
 		timeout_remove(&service->to_status);
-	if (service->io_status_error != NULL)
-		io_remove(&service->io_status_error);
-	if (service->io_status_write != NULL)
-		io_remove(&service->io_status_write);
+	io_remove(&service->io_status_error);
+	io_remove(&service->io_status_write);
 	if (array_is_created(&service->config_overrides))
 		array_free(&service->config_overrides);
 
@@ -1076,8 +1074,7 @@ void master_service_io_listeners_remove(struct master_service *service)
 	unsigned int i;
 
 	for (i = 0; i < service->socket_count; i++) {
-		if (service->listeners[i].io != NULL)
-			io_remove(&service->listeners[i].io);
+		io_remove(&service->listeners[i].io);
 	}
 }
 
@@ -1130,10 +1127,7 @@ master_status_send(struct master_service *service, bool important_update)
 		    sizeof(service->master_status));
 	if (ret == sizeof(service->master_status)) {
 		/* success */
-		if (service->io_status_write != NULL) {
-			/* delayed important update sent successfully */
-			io_remove(&service->io_status_write);
-		}
+		io_remove(&service->io_status_write);
 		service->last_sent_status_time = ioloop_time;
 		service->last_sent_status_avail_count =
 			service->master_status.available_count;

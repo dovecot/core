@@ -448,8 +448,7 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 		timeout_remove(&conn->to_throttle_shrink);
 	if (conn->parser != NULL)
 		imap_parser_unref(&conn->parser);
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
 	if (conn->fd != -1) {
@@ -1668,8 +1667,7 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 	struct ip_addr local_ip;
 	in_port_t local_port;
 	int err;
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 
 	err = net_geterror(conn->fd);
 	if (err != 0) {

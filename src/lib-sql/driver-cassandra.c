@@ -276,8 +276,7 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 	struct cassandra_sql_prepared_statement *const *prep_stmtp;
 	struct cassandra_result *const *resultp;
 
-	if (db->io_pipe != NULL)
-		io_remove(&db->io_pipe);
+	io_remove(&db->io_pipe);
 	if (db->fd_pipe[0] != -1) {
 		i_close_fd(&db->fd_pipe[0]);
 		i_close_fd(&db->fd_pipe[1]);

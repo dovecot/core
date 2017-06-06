@@ -1287,8 +1287,7 @@ void db_ldap_connect_delayed(struct ldap_connection *conn)
 void db_ldap_enable_input(struct ldap_connection *conn, bool enable)
 {
 	if (!enable) {
-		if (conn->io != NULL)
-			io_remove(&conn->io);
+		io_remove(&conn->io);
 	} else {
 		if (conn->io == NULL && conn->fd != -1) {
 			conn->io = io_add(conn->fd, IO_READ, ldap_input, conn);
@@ -1338,11 +1337,9 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	}
 	conn->fd = -1;
 
-	if (conn->io != NULL) {
-		/* the fd may have already been closed before ldap_unbind(),
-		   so we'll have to use io_remove_closed(). */
-		io_remove_closed(&conn->io);
-	}
+	/* the fd may have already been closed before ldap_unbind(),
+	   so we'll have to use io_remove_closed(). */
+	io_remove_closed(&conn->io);
 
 	if (aqueue_count(conn->request_queue) > 0) {
 		conn->to = timeout_add(DB_LDAP_REQUEST_DISCONNECT_TIMEOUT_SECS *

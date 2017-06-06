@@ -85,8 +85,7 @@ void test_program_client_destroy(struct test_client **_client)
 	if (o_stream_nfinish(client->out) != 0)
 		i_error("output error: %s", o_stream_get_error(client->out));
 
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	o_stream_unref(&client->out);
 	i_stream_unref(&client->in);
 	if (client->os_body != NULL)

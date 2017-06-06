@@ -388,8 +388,7 @@ static void dsync_ibc_stream_deinit(struct dsync_ibc *_ibc)
 	}
 
 	timeout_remove(&ibc->to);
-	if (ibc->io != NULL)
-		io_remove(&ibc->io);
+	io_remove(&ibc->io);
 	i_stream_destroy(&ibc->input);
 	o_stream_destroy(&ibc->output);
 	pool_unref(&ibc->ret_pool);

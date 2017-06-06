@@ -432,8 +432,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 
 	if (client->free_parser != NULL)
 		imap_parser_unref(&client->free_parser);
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	if (client->to_idle_output != NULL)
 		timeout_remove(&client->to_idle_output);
 	if (client->to_delayed_input != NULL)

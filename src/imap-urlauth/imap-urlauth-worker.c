@@ -238,10 +238,8 @@ static void client_destroy(struct client *client)
 	if (client->mail_user != NULL)
 		mail_user_unref(&client->mail_user);
 
-	if (client->io != NULL)
-		io_remove(&client->io);
-	if (client->ctrl_io != NULL)
-		io_remove(&client->ctrl_io);
+	io_remove(&client->io);
+	io_remove(&client->ctrl_io);
 	if (client->to_idle != NULL)
 		timeout_remove(&client->to_idle);
 

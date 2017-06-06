@@ -107,8 +107,7 @@ void master_login_auth_disconnect(struct master_login_auth *auth)
 
 	if (auth->to != NULL)
 		timeout_remove(&auth->to);
-	if (auth->io != NULL)
-		io_remove(&auth->io);
+	io_remove(&auth->io);
 	if (auth->fd != -1) {
 		if (auth->input != NULL)
 			i_stream_destroy(&auth->input);

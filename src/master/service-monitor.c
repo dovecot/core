@@ -403,8 +403,7 @@ void service_monitor_listen_stop(struct service *service)
 	array_foreach(&service->listeners, listeners) {
 		struct service_listener *l = *listeners;
 
-		if (l->io != NULL)
-			io_remove(&l->io);
+		io_remove(&l->io);
 	}
 	service->listening = FALSE;
 	service->listen_pending = FALSE;
@@ -526,8 +525,7 @@ void service_monitor_stop(struct service *service)
 {
 	int i;
 
-	if (service->io_status != NULL)
-		io_remove(&service->io_status);
+	io_remove(&service->io_status);
 
 	if (service->status_fd[0] != -1 &&
 	    service->type != SERVICE_TYPE_ANVIL) {
@@ -656,8 +654,7 @@ void services_monitor_stop(struct service_list *service_list, bool wait)
 	if (wait)
 		services_monitor_wait_and_kill(service_list);
 
-	if (service_list->io_master != NULL)
-		io_remove(&service_list->io_master);
+	io_remove(&service_list->io_master);
 	i_close_fd(&service_list->master_fd);
 
 	array_foreach(&service_list->services, services)

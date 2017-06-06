@@ -2191,8 +2191,7 @@ void director_connection_deinit(struct director_connection **_conn,
 	if (conn->to_pong != NULL)
 		timeout_remove(&conn->to_pong);
 	timeout_remove(&conn->to_ping);
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);
 	if (close(conn->fd) < 0)

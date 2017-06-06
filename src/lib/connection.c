@@ -313,8 +313,7 @@ void connection_disconnect(struct connection *conn)
 	i_zero(&conn->last_input_tv);
 	if (conn->to != NULL)
 		timeout_remove(&conn->to);
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	if (conn->input != NULL) {
 		i_stream_close(conn->input);
 		i_stream_destroy(&conn->input);

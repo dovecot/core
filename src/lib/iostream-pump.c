@@ -168,8 +168,7 @@ void iostream_pump_stop(struct iostream_pump *pump)
 
 	o_stream_unset_flush_callback(pump->output);
 
-	if (pump->io != NULL)
-		io_remove(&pump->io);
+	io_remove(&pump->io);
 }
 
 void iostream_pump_switch_ioloop(struct iostream_pump *pump)

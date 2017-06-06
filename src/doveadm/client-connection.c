@@ -570,9 +570,7 @@ void client_connection_destroy(struct client_connection **_conn)
 	if (conn->output != NULL)
 		o_stream_destroy(&conn->output);
 
-	if (conn->io != NULL) {
-		io_remove(&conn->io);
-	}
+	io_remove(&conn->io);
 
 	if (conn->input != NULL) {
 		i_stream_destroy(&conn->input);

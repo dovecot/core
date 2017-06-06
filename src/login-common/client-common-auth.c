@@ -69,8 +69,7 @@ static void client_auth_failed(struct client *client)
 	if (client->auth_initializing || client->destroyed)
 		return;
 
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 
 	client->io = io_add(client->fd, IO_READ, client_input, client);
 	client_input(client);
@@ -463,8 +462,7 @@ static int proxy_start(struct client *client,
 	client->proxy_not_trusted = reply->proxy_not_trusted;
 
 	/* disable input until authentication is finished */
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	return 0;
 }
 
@@ -781,8 +779,7 @@ int client_auth_begin(struct client *client, const char *mech_name,
 		return 1;
 
 	/* don't handle input until we get the initial auth reply */
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	client_set_auth_waiting(client);
 	return 0;
 }

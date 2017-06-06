@@ -191,8 +191,7 @@ void client_worker_disconnect(struct client *client)
 {
 	client->worker_state = IMAP_URLAUTH_WORKER_STATE_INACTIVE;
 
-	if (client->ctrl_io != NULL)
-		io_remove(&client->ctrl_io);
+	io_remove(&client->ctrl_io);
 	if (client->ctrl_output != NULL)
 		o_stream_destroy(&client->ctrl_output);
 	if (client->ctrl_input != NULL)

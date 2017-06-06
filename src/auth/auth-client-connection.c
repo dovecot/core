@@ -76,8 +76,7 @@ static void auth_client_send(struct auth_client_connection *conn,
 	    OUTBUF_THROTTLE_SIZE) {
 		/* stop reading new requests until client has read the pending
 		   replies. */
-		if (conn->io != NULL)
-			io_remove(&conn->io);
+		io_remove(&conn->io);
 	}
 
 	if (conn->auth->set->debug) {
@@ -371,8 +370,7 @@ void auth_client_connection_destroy(struct auth_client_connection **_conn)
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);
 
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 
 	net_disconnect(conn->fd);
 	conn->fd = -1;

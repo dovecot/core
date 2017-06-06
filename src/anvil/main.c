@@ -80,8 +80,7 @@ int main(int argc, char *argv[])
 
 	master_service_run(master_service, client_connected);
 
-	if (log_fdpass_io != NULL)
-		io_remove(&log_fdpass_io);
+	io_remove(&log_fdpass_io);
 	penalty_deinit(&penalty);
 	connect_limit_deinit(&connect_limit);
 	anvil_connections_destroy_all();

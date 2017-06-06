@@ -34,8 +34,7 @@ static struct ostream * o_stream_create_fd_common(int fd,
 
 static void stream_closed(struct file_ostream *fstream)
 {
-	if (fstream->io != NULL)
-		io_remove(&fstream->io);
+	io_remove(&fstream->io);
 
 	if (fstream->autoclose_fd && fstream->fd != -1) {
 		if (close(fstream->fd) < 0) {
@@ -485,10 +484,7 @@ static void stream_send_io(struct file_ostream *fstream)
 		fstream->flush_pending = TRUE;
 
 	if (!fstream->flush_pending && IS_STREAM_EMPTY(fstream)) {
-		if (fstream->io != NULL) {
-			/* all sent */
-			io_remove(&fstream->io);
-		}
+		io_remove(&fstream->io);
 	} else if (!fstream->ostream.ostream.closed) {
 		/* Add the IO handler if it's not there already. Callback
 		   might have just returned 0 without there being any data

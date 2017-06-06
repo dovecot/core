@@ -222,8 +222,7 @@ static void
 test_server_hanging_request_payload_destroyed(struct _hanging_request_payload *ctx)
 {
 	test_assert(!ctx->serviced);
-	if (ctx->io != NULL)
-		io_remove(&ctx->io);
+	io_remove(&ctx->io);
 	i_free(ctx);
 	io_loop_stop(ioloop);
 }
@@ -358,8 +357,7 @@ static void
 test_server_hanging_response_payload_destroyed(struct _hanging_response_payload *ctx)
 {
 	test_assert(!ctx->serviced);
-	if (ctx->io != NULL)
-		io_remove(&ctx->io);
+	io_remove(&ctx->io);
 	i_free(ctx);
 	io_loop_stop(ioloop);
 }

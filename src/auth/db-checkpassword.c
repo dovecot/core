@@ -63,10 +63,8 @@ env_put_extra_fields(const ARRAY_TYPE(auth_field) *extra_fields)
 
 static void checkpassword_request_close(struct chkpw_auth_request *request)
 {
-	if (request->io_in != NULL)
-		io_remove(&request->io_in);
-	if (request->io_out != NULL)
-		io_remove(&request->io_out);
+	io_remove(&request->io_in);
+	io_remove(&request->io_out);
 
 	if (request->fd_in != -1) {
 		if (close(request->fd_in) < 0)

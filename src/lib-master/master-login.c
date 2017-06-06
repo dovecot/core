@@ -470,8 +470,7 @@ static void master_login_conn_close(struct master_login_connection *conn)
 
 	DLLIST_REMOVE(&conn->login->conns, conn);
 
-	if (conn->io != NULL)
-		io_remove(&conn->io);
+	io_remove(&conn->io);
 	o_stream_close(conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(master login) failed: %m");

@@ -226,8 +226,7 @@ const char *client_remote_id(struct client *client)
 
 void client_io_reset(struct client *client)
 {
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	if (client->to_idle != NULL)
 		timeout_remove(&client->to_idle);
 	client->io = io_add(client->fd_in, IO_READ, client_input, client);
@@ -295,8 +294,7 @@ void client_destroy(struct client *client, const char *prefix,
 		mail_user_unref(&client->raw_mail_user);
 	if (client->proxy != NULL)
 		lmtp_proxy_deinit(&client->proxy);
-	if (client->io != NULL)
-		io_remove(&client->io);
+	io_remove(&client->io);
 	if (client->to_idle != NULL)
 		timeout_remove(&client->to_idle);
 	if (client->ssl_iostream != NULL)
