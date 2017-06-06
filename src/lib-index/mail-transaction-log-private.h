@@ -136,8 +136,7 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 				  uoff_t start_offset, uoff_t end_offset,
 				  const char **reason_r);
-void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
-					      *file);
+int mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file *file);
 
 void mail_transaction_logs_clean(struct mail_transaction_log *log);
 

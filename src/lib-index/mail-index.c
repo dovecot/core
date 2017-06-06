@@ -806,6 +806,14 @@ bool mail_index_is_in_memory(struct mail_index *index)
 	return MAIL_INDEX_IS_IN_MEMORY(index);
 }
 
+static void mail_index_set_as_in_memory(struct mail_index *index)
+{
+	i_free_and_null(index->dir);
+
+	i_free(index->filepath);
+	index->filepath = i_strdup("(in-memory index)");
+}
+
 int mail_index_move_to_memory(struct mail_index *index)
 {
 	struct mail_index_map *map;
@@ -816,16 +824,11 @@ int mail_index_move_to_memory(struct mail_index *index)
 	if ((index->flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0)
 		return -1;
 
-	/* set the index as being into memory */
-	i_free_and_null(index->dir);
-
-	i_free(index->filepath);
-	index->filepath = i_strdup("(in-memory index)");
-
 	if (index->map == NULL) {
 		/* index was never even opened. just mark it as being in
 		   memory and let the caller re-open the index. */
 		i_assert(index->fd == -1);
+		mail_index_set_as_in_memory(index);
 		return -1;
 	}
 
@@ -838,7 +841,8 @@ int mail_index_move_to_memory(struct mail_index *index)
 
 	if (index->log != NULL) {
 		/* move transaction log to memory */
-		mail_transaction_log_move_to_memory(index->log);
+		if (mail_transaction_log_move_to_memory(index->log) < 0)
+			return -1;
 	}
 
 	if (index->fd != -1) {
@@ -846,6 +850,7 @@ int mail_index_move_to_memory(struct mail_index *index)
 			mail_index_set_syscall_error(index, "close()");
 		index->fd = -1;
 	}
+	mail_index_set_as_in_memory(index);
 	return 0;
 }
 

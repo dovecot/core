@@ -144,7 +144,7 @@ void mail_transaction_log_free(struct mail_transaction_log **_log)
 	i_free(log);
 }
 
-void mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
+int mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file;
 
@@ -162,10 +162,11 @@ void mail_transaction_log_move_to_memory(struct mail_transaction_log *log)
 	log->filepath2 = i_strconcat(log->filepath, ".2", NULL);
 
 	if (log->head != NULL)
-		mail_transaction_log_file_move_to_memory(log->head);
+		return mail_transaction_log_file_move_to_memory(log->head);
 	else {
 		file = mail_transaction_log_file_alloc_in_memory(log);
 		mail_transaction_log_set_head(log, file);
+		return 0;
 	}
 }
 

@@ -1890,14 +1890,14 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 					  reason_r) ? 1 : 0;
 }
 
-void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
-					      *file)
+int mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file *file)
 {
 	const char *error;
 	buffer_t *buf;
+	int ret = 0;
 
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
-		return;
+		return 0;
 
 	if (file->mmap_base != NULL) {
 		/* just copy to memory */
@@ -1914,7 +1914,11 @@ void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
 		file->mmap_base = NULL;
 	} else if (file->buffer_offset != 0) {
 		/* we don't have the full log in the memory. read it. */
-		(void)mail_transaction_log_file_read(file, 0, FALSE, &error);
+		ret = mail_transaction_log_file_read(file, 0, FALSE, &error);
+		if (ret <= 0) {
+			mail_index_set_error(file->log->index,
+				"%s: Failed to read into memory: %s", file->filepath, error);
+		}
 	}
 	file->last_size = 0;
 
@@ -1924,4 +1928,5 @@ void mail_transaction_log_file_move_to_memory(struct mail_transaction_log_file
 
 	i_free(file->filepath);
 	file->filepath = i_strdup(file->log->filepath);
+	return ret < 0 ? -1 : 0;
 }
