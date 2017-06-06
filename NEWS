@@ -1,3 +1,9 @@
+v2.2.30.2 2017-06-06  Timo Sirainen <tss@iki.fi>
+
+	- auth: Multiple failed authentications within short time caused
+	  crashes
+	- push-notification: OX driver crashed at deinit
+
 v2.2.30.1 2017-05-31  Timo Sirainen <tss@iki.fi>
 
 	- quota_warning scripts weren't working in v2.2.30
