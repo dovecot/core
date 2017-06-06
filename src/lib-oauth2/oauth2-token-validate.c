@@ -30,6 +30,8 @@ oauth2_token_validate_continue(struct oauth2_request *req, bool success,
 	struct oauth2_token_validation_result res;
 	i_zero(&res);
 
+	i_assert(array_is_created(&req->fields));
+
 	res.success = success;
 	res.error = error;
 	res.valid = req->valid;
@@ -69,9 +71,9 @@ oauth2_token_validate_response(const struct http_response *response,
 			req->valid = TRUE;
 		else
 			req->valid = FALSE;
+		p_array_init(&req->fields, req->pool, 1);
 		/* 2xx is sufficient for token validation */
 		if (response->payload == NULL) {
-			p_array_init(&req->fields, req->pool, 1);
 			oauth2_token_validate_continue(req, TRUE, NULL);
 			return;
 		}
