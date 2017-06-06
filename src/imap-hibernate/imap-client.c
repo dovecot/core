@@ -594,8 +594,7 @@ static void imap_client_stop(struct imap_client *client)
 	array_foreach_modifiable(&client->notifys, notify) {
 		if (notify->io != NULL)
 			io_remove(&notify->io);
-		if (notify->fd != -1)
-			i_close_fd(&notify->fd);
+		i_close_fd(&notify->fd);
 	}
 }
 

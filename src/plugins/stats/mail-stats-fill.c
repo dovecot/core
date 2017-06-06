@@ -144,6 +144,5 @@ void mail_stats_fill(struct stats_user *suser, struct mail_stats *stats_r)
 
 void mail_stats_fill_global_deinit(void)
 {
-	if (proc_io_fd != -1)
-		i_close_fd(&proc_io_fd);
+	i_close_fd(&proc_io_fd);
 }

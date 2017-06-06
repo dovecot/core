@@ -547,7 +547,7 @@ int net_listen_unix_unlink_stale(const char *path, int backlog)
 		/* see if it really exists */
 		fd = net_connect_unix(path);
 		if (fd != -1 || errno != ECONNREFUSED) {
-			if (fd != -1) i_close_fd(&fd);
+			i_close_fd(&fd);
 			errno = EADDRINUSE;
 			return -1;
 		}

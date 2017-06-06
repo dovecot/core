@@ -566,8 +566,7 @@ void service_monitor_stop_close(struct service *service)
 	array_foreach(&service->listeners, listeners) {
 		struct service_listener *l = *listeners;
 
-		if (l->fd != -1)
-			i_close_fd(&l->fd);
+		i_close_fd(&l->fd);
 	}
 }
 
@@ -659,8 +658,7 @@ void services_monitor_stop(struct service_list *service_list, bool wait)
 
 	if (service_list->io_master != NULL)
 		io_remove(&service_list->io_master);
-	if (service_list->master_fd != -1)
-		i_close_fd(&service_list->master_fd);
+	i_close_fd(&service_list->master_fd);
 
 	array_foreach(&service_list->services, services)
 		service_monitor_stop(*services);

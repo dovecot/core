@@ -16,8 +16,7 @@ i_stream_unix_close(struct iostream_private *stream, bool close_parent)
 {
 	struct unix_istream *ustream = (struct unix_istream *)stream;
 
-	if (ustream->read_fd != -1)
-		i_close_fd(&ustream->read_fd);
+	i_close_fd(&ustream->read_fd);
 	i_stream_file_close(stream, close_parent);
 }
 

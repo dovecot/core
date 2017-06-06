@@ -3144,8 +3144,7 @@ static void test_run_client_server(
 				ioloop = io_loop_create();
 				server_test(i);
 				io_loop_destroy(&ioloop);
-				if (fd_listen != -1)
-					i_close_fd(&fd_listen);
+				i_close_fd(&fd_listen);
 				i_free(bind_ports);
 				i_free(server_pids);
 				/* wait for it to be killed; this way, valgrind will not
@@ -3153,8 +3152,7 @@ static void test_run_client_server(
 				sleep(60);
 				exit(1);
 			}
-			if (fd_listen != -1)
-				i_close_fd(&fd_listen);
+			i_close_fd(&fd_listen);
 		}
 		if (debug)
 			i_debug("client: PID=%s", my_pid);
@@ -3181,15 +3179,13 @@ static void test_run_client_server(
 			ioloop = io_loop_create();
 			dns_test();
 			io_loop_destroy(&ioloop);
-			if (fd_listen != -1)
-				i_close_fd(&fd_listen);
+			i_close_fd(&fd_listen);
 			/* wait for it to be killed; this way, valgrind will not
 			   object to this process going away inelegantly. */
 			sleep(60);
 			exit(1);
 		}
-		if (fd_listen != -1)
-			i_close_fd(&fd_listen);
+		i_close_fd(&fd_listen);
 	}
 
 	/* parent: client */

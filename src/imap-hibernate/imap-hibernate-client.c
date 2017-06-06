@@ -232,8 +232,7 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 	if (ret < 0) {
 		if (client->imap_client != NULL)
 			imap_client_destroy(&client->imap_client, NULL);
-		if (fd != -1)
-			i_close_fd(&fd);
+		i_close_fd(&fd);
 		return -1;
 	} else if (ret == 0) {
 		/* still need to read another fd */

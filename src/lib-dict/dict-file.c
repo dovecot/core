@@ -623,8 +623,7 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 		file_lock_free(&lock);
 	}
 
-	if (dict->fd != -1)
-		i_close_fd(&dict->fd);
+	i_close_fd(&dict->fd);
 	dict->fd = fd;
 	return 0;
 }

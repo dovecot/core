@@ -233,8 +233,7 @@ bool imap_client_hibernate(struct client **_client)
 		if (imap_hibernate_process_send(client, state, fd_notify, &fd_hibernate) < 0)
 			ret = -1;
 	}
-	if (fd_notify != -1)
-		i_close_fd(&fd_notify);
+	i_close_fd(&fd_notify);
 	if (ret > 0) {
 		/* hide the disconnect log message, because the client didn't
 		   actually log out */

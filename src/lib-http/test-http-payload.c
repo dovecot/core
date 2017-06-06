@@ -1226,8 +1226,7 @@ static void test_client_deinit(void)
 
 static void test_open_server_fd(void)
 {
-	if (fd_listen != -1)
-		i_close_fd(&fd_listen);
+	i_close_fd(&fd_listen);
 	fd_listen = net_listen(&bind_ip, &bind_port, 128);
 	if (fd_listen == -1) {
 		i_fatal("listen(%s:%u) failed: %m",

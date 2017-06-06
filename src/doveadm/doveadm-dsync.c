@@ -735,8 +735,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	}
 	if (ctx->io_err != NULL)
 		io_remove(&ctx->io_err);
-	if (ctx->fd_err != -1)
-		i_close_fd(&ctx->fd_err);
+	i_close_fd(&ctx->fd_err);
 
 	if (ctx->child_wait != NULL)
 		child_wait_free(&ctx->child_wait);

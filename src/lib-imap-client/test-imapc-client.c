@@ -91,8 +91,7 @@ static void test_server_disconnect(struct test_server *server)
 		i_stream_unref(&server->input);
 	if (server->output != NULL)
 		o_stream_unref(&server->output);
-	if (server->fd != -1)
-		i_close_fd(&server->fd);
+	i_close_fd(&server->fd);
 }
 
 static void test_server_disconnect_and_wait(bool send_banner)
@@ -166,8 +165,7 @@ static void test_run_client_server(
 		imapc_client_deinit(&imapc_client);
 	io_loop_destroy(&ioloop);
 
-	if (server.fd_listen != -1)
-		i_close_fd(&server.fd_listen);
+	i_close_fd(&server.fd_listen);
 	test_server_kill();
 	if (unlink_directory(client_set->temp_path_prefix,
 			     UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
