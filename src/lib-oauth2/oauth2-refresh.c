@@ -87,6 +87,7 @@ oauth2_refresh_response(const struct http_response *response,
 			oauth2_refresh_continue(req, FALSE, "Missing response body");
 			return;
 		}
+		p_array_init(&req->fields, req->pool, 1);
 		req->is = response->payload;
 		i_stream_ref(req->is);
 		req->parser = json_parser_init(req->is);
