@@ -320,7 +320,12 @@ static void timeout_free(struct timeout *timeout)
 void timeout_remove(struct timeout **_timeout)
 {
 	struct timeout *timeout = *_timeout;
-	struct ioloop *ioloop = timeout->ioloop;
+	struct ioloop *ioloop;
+
+	if (timeout == NULL)
+		return;
+
+	ioloop = timeout->ioloop;
 
 	*_timeout = NULL;
 	if (timeout->item.idx != UINT_MAX)
