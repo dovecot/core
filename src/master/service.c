@@ -535,8 +535,7 @@ static void service_login_notify_send(struct service *service)
 	unsigned int uninitialized_count;
 
 	service->last_login_notify_time = ioloop_time;
-	if (service->to_login_notify != NULL)
-		timeout_remove(&service->to_login_notify);
+	timeout_remove(&service->to_login_notify);
 
 	service_signal(service, SIGUSR1, &uninitialized_count);
 }
@@ -660,8 +659,7 @@ void service_list_unref(struct service_list *service_list)
 	if (--service_list->refcount > 0)
 		return;
 
-	if (service_list->to_kill != NULL)
-		timeout_remove(&service_list->to_kill);
+	timeout_remove(&service_list->to_kill);
 	pool_unref(&service_list->set_pool);
 	pool_unref(&service_list->pool);
 }

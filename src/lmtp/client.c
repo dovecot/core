@@ -227,8 +227,7 @@ const char *client_remote_id(struct client *client)
 void client_io_reset(struct client *client)
 {
 	io_remove(&client->io);
-	if (client->to_idle != NULL)
-		timeout_remove(&client->to_idle);
+	timeout_remove(&client->to_idle);
 	client->io = io_add(client->fd_in, IO_READ, client_input, client);
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
@@ -295,8 +294,7 @@ void client_destroy(struct client *client, const char *prefix,
 	if (client->proxy != NULL)
 		lmtp_proxy_deinit(&client->proxy);
 	io_remove(&client->io);
-	if (client->to_idle != NULL)
-		timeout_remove(&client->to_idle);
+	timeout_remove(&client->to_idle);
 	if (client->ssl_iostream != NULL)
 		ssl_iostream_destroy(&client->ssl_iostream);
 	i_stream_destroy(&client->input);

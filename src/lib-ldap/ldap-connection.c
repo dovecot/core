@@ -32,8 +32,7 @@ void ldap_connection_deinit(struct ldap_connection **_conn)
 		struct ldap_op_queue_entry *const *reqp =
 			array_idx(&(conn->request_array),
 				  aqueue_idx(conn->request_queue, i));
-		if ((*reqp)->to_abort != NULL)
-			timeout_remove(&(*reqp)->to_abort);
+		timeout_remove(&(*reqp)->to_abort);
 	}
 	pool_unref(&conn->pool);
 }
@@ -300,8 +299,7 @@ void ldap_connection_request_destroy(struct ldap_op_queue_entry **_req)
 
 	*_req = NULL;
 
-	if (req->to_abort != NULL)
-		timeout_remove(&req->to_abort);
+	timeout_remove(&req->to_abort);
 	pool_unref(&req->pool);
 }
 
@@ -413,8 +411,7 @@ void ldap_connection_abort_request(struct ldap_op_queue_entry *req)
 	struct ldap_result res;
 
 	/* too bad */
-	if (req->to_abort != NULL)
-		timeout_remove(&req->to_abort);
+	timeout_remove(&req->to_abort);
 	if (req->msgid > -1)
 		ldap_abandon_ext(req->conn->conn, req->msgid, NULL, NULL);
 
@@ -451,8 +448,7 @@ void ldap_connection_abort_all_requests(struct ldap_connection *conn)
 		struct ldap_op_queue_entry **reqp =
 			array_idx_modifiable(&(conn->request_array),
 		aqueue_idx(conn->request_queue, i));
-		if ((*reqp)->to_abort != NULL)
-			timeout_remove(&(*reqp)->to_abort);
+		timeout_remove(&(*reqp)->to_abort);
 		if ((*reqp)->result_callback != NULL)
 			(*reqp)->result_callback(&res, (*reqp)->result_callback_ctx);
 		ldap_connection_request_destroy(reqp);

@@ -28,10 +28,8 @@ idle_finish(struct cmd_idle_context *ctx, bool done_ok, bool free_cmd)
 {
 	struct client *client = ctx->client;
 
-	if (ctx->keepalive_to != NULL)
-		timeout_remove(&ctx->keepalive_to);
-	if (ctx->to_hibernate != NULL)
-		timeout_remove(&ctx->to_hibernate);
+	timeout_remove(&ctx->keepalive_to);
+	timeout_remove(&ctx->to_hibernate);
 
 	if (ctx->sync_ctx != NULL) {
 		/* we're here only in connection failure cases */
@@ -139,11 +137,9 @@ static bool idle_sync_now(struct mailbox *box, struct cmd_idle_context *ctx)
 {
 	i_assert(ctx->sync_ctx == NULL);
 
-	if (ctx->to_hibernate != NULL) {
-		/* hibernation can't happen while sync is running.
-		   the timeout is added back afterwards. */
-		timeout_remove(&ctx->to_hibernate);
-	}
+	/* hibernation can't happen while sync is running.
+	   the timeout is added back afterwards. */
+	timeout_remove(&ctx->to_hibernate);
 
 	ctx->sync_pending = FALSE;
 	ctx->sync_ctx = imap_sync_init(ctx->client, box, 0, 0);
@@ -175,8 +171,7 @@ static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx)
 						 ctx->client->user->remote_ip,
 						 interval);
 
-	if (ctx->keepalive_to != NULL)
-		timeout_remove(&ctx->keepalive_to);
+	timeout_remove(&ctx->keepalive_to);
 	ctx->keepalive_to = timeout_add(interval, keepalive_timeout, ctx);
 }
 

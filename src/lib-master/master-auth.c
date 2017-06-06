@@ -69,8 +69,7 @@ master_auth_connection_deinit(struct master_auth_connection **_conn)
 	if (conn->callback != NULL)
 		conn->callback(NULL, conn->context);
 
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 	io_remove(&conn->io);
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)

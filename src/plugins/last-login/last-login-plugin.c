@@ -35,8 +35,7 @@ static void last_login_dict_deinit(struct mail_user *user)
 	}
 	/* remove timeout after dict_wait(), which may trigger
 	   last_login_dict_commit() */
-	if (luser->to != NULL)
-		timeout_remove(&luser->to);
+	timeout_remove(&luser->to);
 }
 
 static void last_login_user_deinit(struct mail_user *user)

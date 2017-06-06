@@ -332,8 +332,7 @@ void client_destroy(struct client *client, const char *reason)
 	imap_urlauth_client_count--;
 	DLLIST_REMOVE(&imap_urlauth_clients, client);
 
-	if (client->to_idle != NULL)
-		timeout_remove(&client->to_idle);
+	timeout_remove(&client->to_idle);
 
 	client_worker_disconnect(client);
 	

@@ -18,8 +18,7 @@ static void o_stream_test_destroy(struct iostream_private *stream)
 {
 	struct test_ostream *tstream = (struct test_ostream *)stream;
 
-	if (tstream->to != NULL)
-		timeout_remove(&tstream->to);
+	timeout_remove(&tstream->to);
 	if (tstream->internal_buf != NULL)
 		buffer_free(&tstream->internal_buf);
 }

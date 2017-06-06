@@ -386,8 +386,7 @@ test_client_connection_refused_response(
 	struct _connection_refused *ctx)
 {
 	test_assert(ctx->to == NULL);
-	if (ctx->to != NULL)
-		timeout_remove(&ctx->to);
+	timeout_remove(&ctx->to);
 
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -497,8 +496,7 @@ test_client_connection_lost_prematurely_response(
 	struct _connection_lost_prematurely *ctx)
 {
 	test_assert(ctx->to == NULL);
-	if (ctx->to != NULL)
-		timeout_remove(&ctx->to);
+	timeout_remove(&ctx->to);
 
 	if (debug)
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
@@ -1675,8 +1673,7 @@ static void
 test_client_request_timed_out2_timeout(
 	struct _request_timed_out2_ctx *ctx)
 {
-	if (ctx->to != NULL)
-		timeout_remove(&ctx->to);
+	timeout_remove(&ctx->to);
 	i_debug("TIMEOUT");
 }
 
@@ -1696,8 +1693,7 @@ test_client_request_timed_out2_response(
 		if (ctx->to != NULL && ctx->max_parallel_connections <= 1)
 			timeout_reset(ctx->to);
 	} else {
-		if (ctx->to != NULL)
-			timeout_remove(&ctx->to);
+		timeout_remove(&ctx->to);
 		i_free(ctx);
 		io_loop_stop(ioloop);
 	}

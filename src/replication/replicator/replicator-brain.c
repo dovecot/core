@@ -62,8 +62,7 @@ void replicator_brain_deinit(struct replicator_brain **_brain)
 	brain->deinitializing = TRUE;
 	array_foreach_modifiable(&brain->dsync_clients, connp)
 		dsync_client_deinit(connp);
-	if (brain->to != NULL)
-		timeout_remove(&brain->to);
+	timeout_remove(&brain->to);
 	pool_unref(&brain->pool);
 }
 
@@ -173,8 +172,7 @@ static bool replicator_brain_fill_next(struct replicator_brain *brain)
 	user = replicator_queue_pop(brain->queue, &next_secs);
 	if (user == NULL) {
 		/* nothing more to do */
-		if (brain->to != NULL)
-			timeout_remove(&brain->to);
+		timeout_remove(&brain->to);
 		brain->to = timeout_add(next_secs * 1000,
 					replicator_brain_timeout, brain);
 		return FALSE;

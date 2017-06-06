@@ -144,8 +144,7 @@ int anvil_client_connect(struct anvil_client *client, bool retry)
 		return -1;
 	}
 
-	if (client->to_reconnect != NULL)
-		timeout_remove(&client->to_reconnect);
+	timeout_remove(&client->to_reconnect);
 
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, ANVIL_INBUF_SIZE);
@@ -173,8 +172,7 @@ static void anvil_client_cancel_queries(struct anvil_client *client)
 		i_free(query);
 		aqueue_delete_tail(client->queries);
 	}
-	if (client->to_query != NULL)
-		timeout_remove(&client->to_query);
+	timeout_remove(&client->to_query);
 }
 
 static void anvil_client_disconnect(struct anvil_client *client)
@@ -187,8 +185,7 @@ static void anvil_client_disconnect(struct anvil_client *client)
 		net_disconnect(client->fd);
 		client->fd = -1;
 	}
-	if (client->to_reconnect != NULL)
-		timeout_remove(&client->to_reconnect);
+	timeout_remove(&client->to_reconnect);
 }
 
 static void anvil_client_timeout(struct anvil_client *client)

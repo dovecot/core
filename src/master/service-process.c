@@ -374,10 +374,8 @@ void service_process_destroy(struct service_process *process)
 	service->process_count--;
 	i_assert(service->process_avail <= service->process_count);
 
-	if (process->to_status != NULL)
-		timeout_remove(&process->to_status);
-	if (process->to_idle != NULL)
-		timeout_remove(&process->to_idle);
+	timeout_remove(&process->to_status);
+	timeout_remove(&process->to_idle);
 	if (service->list->log_byes != NULL)
 		service_process_notify_add(service->list->log_byes, process);
 

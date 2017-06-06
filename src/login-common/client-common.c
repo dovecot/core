@@ -264,10 +264,8 @@ void client_destroy(struct client *client, const char *reason)
 	}
 
 	io_remove(&client->io);
-	if (client->to_disconnect != NULL)
-		timeout_remove(&client->to_disconnect);
-	if (client->to_auth_waiting != NULL)
-		timeout_remove(&client->to_auth_waiting);
+	timeout_remove(&client->to_disconnect);
+	timeout_remove(&client->to_auth_waiting);
 	if (client->auth_response != NULL)
 		str_free(&client->auth_response);
 

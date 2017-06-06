@@ -603,8 +603,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 
 	if (client->session_dotlock != NULL)
 		file_dotlock_delete(&client->session_dotlock);
-	if (client->to_session_dotlock_refresh != NULL)
-		timeout_remove(&client->to_session_dotlock_refresh);
+	timeout_remove(&client->to_session_dotlock_refresh);
 
 	if (client->uidl_pool != NULL)
 		pool_unref(&client->uidl_pool);
@@ -615,8 +614,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 
 	io_remove(&client->io);
 	timeout_remove(&client->to_idle);
-	if (client->to_commit != NULL)
-		timeout_remove(&client->to_commit);
+	timeout_remove(&client->to_commit);
 
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
@@ -659,8 +657,7 @@ void client_disconnect(struct client *client, const char *reason)
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
-	if (client->to_idle != NULL)
-		timeout_remove(&client->to_idle);
+	timeout_remove(&client->to_idle);
 	client->to_idle = timeout_add(0, client_destroy_timeout, client);
 }
 

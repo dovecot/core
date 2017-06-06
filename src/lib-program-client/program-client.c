@@ -160,8 +160,7 @@ void program_client_disconnect(struct program_client *pclient, bool force)
 		return;
 	pclient->disconnected = TRUE;
 
-	if (pclient->to != NULL)
-		timeout_remove(&pclient->to);
+	timeout_remove(&pclient->to);
 	io_remove(&pclient->io);
 
 	if ((ret = program_client_close_output(pclient)) < 0)
@@ -404,8 +403,7 @@ int program_client_connected(struct program_client *pclient)
 	int ret = 1;
 
 	pclient->start_time = ioloop_timeval;
-	if (pclient->to != NULL)
-		timeout_remove(&pclient->to);
+	timeout_remove(&pclient->to);
 	if (pclient->set.input_idle_timeout_msecs != 0) {
 		pclient->to =
 			timeout_add(pclient->set.input_idle_timeout_msecs,

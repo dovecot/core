@@ -120,8 +120,7 @@ static int auth_server_input_done(struct auth_server_connection *conn)
 		return -1;
 	}
 
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 
 	conn->handshake_received = TRUE;
 	if (conn->client->connect_notify_callback != NULL) {
@@ -357,8 +356,7 @@ void auth_server_connection_disconnect(struct auth_server_connection *conn,
 	conn->cookie = NULL;
 	array_clear(&conn->available_auth_mechs);
 
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 	io_remove(&conn->io);
 	if (conn->fd != -1) {
 		i_stream_destroy(&conn->input);
@@ -425,8 +423,7 @@ int auth_server_connection_connect(struct auth_server_connection *conn)
 	i_assert(conn->fd == -1);
 
 	conn->last_connect = ioloop_time;
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 
 	/* max. 1 second wait here. */
 	fd = net_connect_unix_with_retries(conn->client->auth_socket_path,

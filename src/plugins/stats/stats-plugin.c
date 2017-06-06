@@ -138,8 +138,7 @@ static void session_stats_refresh(struct mail_user *user)
 						   suser->session_stats);
 	}
 
-	if (suser->to_stats_timeout != NULL)
-		timeout_remove(&suser->to_stats_timeout);
+	timeout_remove(&suser->to_stats_timeout);
 	suser->to_stats_timeout =
 		timeout_add(to_next_secs*1000,
 			    session_stats_refresh_timeout, user);
@@ -341,8 +340,7 @@ static void stats_user_deinit(struct mail_user *user)
 	if (suser->stats_connected)
 		mail_stats_connection_disconnect(stats_conn, user);
 
-	if (suser->to_stats_timeout != NULL)
-		timeout_remove(&suser->to_stats_timeout);
+	timeout_remove(&suser->to_stats_timeout);
 	suser->module_ctx.super.deinit(user);
 
 	stats_connection_unref(&stats_conn);

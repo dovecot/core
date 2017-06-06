@@ -430,8 +430,7 @@ static void imap_client_add_idle_keepalive_timeout(struct imap_client *client)
 						 &client->state.remote_ip,
 						 interval);
 
-	if (client->to_keepalive!= NULL)
-		timeout_remove(&client->to_keepalive);
+	timeout_remove(&client->to_keepalive);
 	client->to_keepalive = timeout_add(interval, keepalive_timeout, client);
 }
 
@@ -587,8 +586,7 @@ static void imap_client_stop(struct imap_client *client)
 	if (client->unhibernate_queued)
 		priorityq_remove(unhibernate_queue, &client->item);
 	io_remove(&client->io);
-	if (client->to_keepalive != NULL)
-		timeout_remove(&client->to_keepalive);
+	timeout_remove(&client->to_keepalive);
 
 	array_foreach_modifiable(&client->notifys, notify) {
 		io_remove(&notify->io);
@@ -715,7 +713,6 @@ void imap_clients_deinit(void)
 		imap_client_io_activate_user(client);
 		imap_client_destroy(&client, "Shutting down");
 	}
-	if (to_unhibernate != NULL)
-		timeout_remove(&to_unhibernate);
+	timeout_remove(&to_unhibernate);
 	priorityq_deinit(&unhibernate_queue);
 }

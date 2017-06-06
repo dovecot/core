@@ -592,8 +592,7 @@ static void imap_client_input(struct client *client)
 			   don't allow any commands */
 			client_notify_status(client, FALSE,
 					     AUTH_SERVER_WAITING_MSG);
-			if (client->to_auth_waiting != NULL)
-				timeout_remove(&client->to_auth_waiting);
+			timeout_remove(&client->to_auth_waiting);
 
 			client->input_blocked = TRUE;
 			break;

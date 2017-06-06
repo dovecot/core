@@ -103,8 +103,7 @@ static void quota_clone_flush(struct mailbox *box)
 	struct quota_clone_user *quser =
 		QUOTA_CLONE_USER_CONTEXT(box->storage->user);
 
-	if (qbox->to_quota_flush != NULL)
-		timeout_remove(&qbox->to_quota_flush);
+	timeout_remove(&qbox->to_quota_flush);
 
 	if (quser->quota_flushing) {
 		/* recursing back from quota recalculation */

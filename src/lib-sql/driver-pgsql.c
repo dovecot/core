@@ -132,8 +132,7 @@ static void driver_pgsql_close(struct pgsql_db *db)
 	PQfinish(db->pg);
 	db->pg = NULL;
 
-	if (db->to_connect != NULL)
-		timeout_remove(&db->to_connect);
+	timeout_remove(&db->to_connect);
 
 	driver_pgsql_set_state(db, SQL_DB_STATE_DISCONNECTED);
 
@@ -194,8 +193,7 @@ static void connect_callback(struct pgsql_db *db)
 
 	if (io_dir == 0) {
 		db->connect_state = "connected";
-		if (db->to_connect != NULL)
-			timeout_remove(&db->to_connect);
+		timeout_remove(&db->to_connect);
 		driver_pgsql_set_state(db, SQL_DB_STATE_IDLE);
 		if (db->ioloop != NULL) {
 			/* driver_pgsql_sync_init() waiting for connection to

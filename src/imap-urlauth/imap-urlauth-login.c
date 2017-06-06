@@ -115,8 +115,7 @@ static void imap_urlauth_client_input(struct client *client)
 	if (!auth_client_is_connected(auth_client)) {
 		/* we're not currently connected to auth process -
 		   don't allow any commands */
-		if (client->to_auth_waiting != NULL)
-			timeout_remove(&client->to_auth_waiting);
+		timeout_remove(&client->to_auth_waiting);
 		client->input_blocked = TRUE;
 	} else {
 		imap_urlauth_client_handle_input(client);

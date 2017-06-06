@@ -274,8 +274,7 @@ http_client_queue_soft_connect_timeout(struct http_client_queue *queue)
 
 	i_assert(queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX);
 
-	if (queue->to_connect != NULL)
-		timeout_remove(&queue->to_connect);
+	timeout_remove(&queue->to_connect);
 
 	if (http_client_queue_is_last_connect_ip(queue)) {
 		/* no more IPs to try */
@@ -316,8 +315,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 	/* check whether host IPs are still up-to-date */
 	if ((ret=http_client_host_refresh(host)) < 0) {
 		/* performing asynchronous lookup */
-		if (queue->to_connect != NULL)
-			timeout_remove(&queue->to_connect);
+		timeout_remove(&queue->to_connect);
 		return NULL;
 	}
 	if (ret > 0) {
@@ -468,8 +466,7 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 	queue->connect_attempts = 0;
 
 	/* stop soft connect time-out */
-	if (queue->to_connect != NULL)
-		timeout_remove(&queue->to_connect);
+	timeout_remove(&queue->to_connect);
 
 	/* drop all other attempts to the hport. note that we get here whenever
 	   a connection is successfully created, so pending_peers array
@@ -560,8 +557,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 	/* one of the connections failed. if we're not using soft timeouts,
 	   we need to try to connect to the next IP. if we are using soft
 	   timeouts, we've already tried all of the IPs by now. */
-	if (queue->to_connect != NULL)
-		timeout_remove(&queue->to_connect);
+	timeout_remove(&queue->to_connect);
 
 	if (queue->addr.type == HTTP_CLIENT_PEER_ADDR_UNIX) {
 		http_client_queue_fail(queue,
@@ -766,8 +762,7 @@ http_client_queue_set_request_timer(struct http_client_queue *queue,
 	const struct timeval *time)
 {
 	i_assert(time->tv_sec > 0);
-	if (queue->to_request != NULL)
-		timeout_remove(&queue->to_request);	
+	timeout_remove(&queue->to_request);	
 
 	if (queue->client->set.debug) {
 		http_client_queue_debug(queue,
@@ -890,8 +885,7 @@ http_client_queue_set_delay_timer(struct http_client_queue *queue,
 	msecs = (usecs + 999) / 1000;
 
 	/* set timer */
-	if (queue->to_delayed != NULL)
-		timeout_remove(&queue->to_delayed);	
+	timeout_remove(&queue->to_delayed);	
 	queue->to_delayed = timeout_add
 		(msecs, http_client_queue_delay_timeout, queue);
 }

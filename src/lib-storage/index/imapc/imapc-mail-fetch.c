@@ -512,8 +512,7 @@ void imapc_mail_fetch_flush(struct imapc_mailbox *mbox)
 	imapc_command_send(cmd, str_c(mbox->pending_fetch_cmd));
 
 	mbox->pending_fetch_request = NULL;
-	if (mbox->to_pending_fetch_send != NULL)
-		timeout_remove(&mbox->to_pending_fetch_send);
+	timeout_remove(&mbox->to_pending_fetch_send);
 	str_truncate(mbox->pending_fetch_cmd, 0);
 }
 

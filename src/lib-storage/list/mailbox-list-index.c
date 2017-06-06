@@ -630,8 +630,7 @@ static void mailbox_list_index_deinit(struct mailbox_list *list)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 
-	if (ilist->to_refresh != NULL)
-		timeout_remove(&ilist->to_refresh);
+	timeout_remove(&ilist->to_refresh);
 	if (ilist->index != NULL) {
 		hash_table_destroy(&ilist->mailbox_hash);
 		hash_table_destroy(&ilist->mailbox_names);

@@ -87,8 +87,7 @@ void sql_deinit(struct sql_db **_db)
 
 	*_db = NULL;
 
-	if (db->to_reconnect != NULL)
-		timeout_remove(&db->to_reconnect);
+	timeout_remove(&db->to_reconnect);
 	db->v.deinit(db);
 }
 
@@ -121,8 +120,7 @@ int sql_connect(struct sql_db *db)
 
 void sql_disconnect(struct sql_db *db)
 {
-	if (db->to_reconnect != NULL)
-		timeout_remove(&db->to_reconnect);
+	timeout_remove(&db->to_reconnect);
 	db->v.disconnect(db);
 }
 

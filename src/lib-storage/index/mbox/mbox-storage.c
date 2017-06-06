@@ -613,8 +613,7 @@ static void mbox_mailbox_close(struct mailbox *box)
 
 	if (mbox->mbox_global_lock_id != 0)
 		mbox_unlock(mbox, mbox->mbox_global_lock_id);
-	if (mbox->keep_lock_to != NULL)
-		timeout_remove(&mbox->keep_lock_to);
+	timeout_remove(&mbox->keep_lock_to);
 
         mbox_file_close(mbox);
 	if (mbox->mbox_file_stream != NULL)

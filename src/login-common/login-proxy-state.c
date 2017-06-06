@@ -77,8 +77,7 @@ void login_proxy_state_deinit(struct login_proxy_state **_state)
 		i_assert(rec->num_waiting_connections == 0);
 	hash_table_iterate_deinit(&iter);
 
-	if (state->to_reopen != NULL)
-		timeout_remove(&state->to_reopen);
+	timeout_remove(&state->to_reopen);
 	login_proxy_state_close(state);
 	hash_table_destroy(&state->hash);
 	pool_unref(&state->pool);

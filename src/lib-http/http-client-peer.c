@@ -200,8 +200,7 @@ http_client_peer_reset_backoff_timer(struct http_client_peer *peer)
 {
 	peer->backoff_time_msecs = 0;
 
-	if (peer->to_backoff != NULL)
-		timeout_remove(&peer->to_backoff);
+	timeout_remove(&peer->to_backoff);
 }
 
 static void

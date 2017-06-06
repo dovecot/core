@@ -267,8 +267,7 @@ void connection_init_from_streams(struct connection_list *list,
 static void connection_socket_connected(struct connection *conn)
 {
 	io_remove(&conn->io);
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 
 	errno = net_geterror(conn->fd_in);
 	connection_client_connected(conn, errno == 0);
@@ -311,8 +310,7 @@ void connection_disconnect(struct connection *conn)
 {
 	conn->last_input = 0;
 	i_zero(&conn->last_input_tv);
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 	io_remove(&conn->io);
 	if (conn->input != NULL) {
 		i_stream_close(conn->input);

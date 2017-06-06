@@ -196,8 +196,7 @@ void http_client_deinit(struct http_client **_client)
 	hash_table_destroy(&client->hosts);
 
 	array_free(&client->delayed_failing_requests);
-	if (client->to_failing_requests != NULL)
-		timeout_remove(&client->to_failing_requests);
+	timeout_remove(&client->to_failing_requests);
 
 	connection_list_deinit(&client->conn_list);
 

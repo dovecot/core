@@ -40,8 +40,7 @@ void log_throttle_deinit(struct log_throttle **_throttle)
 	struct log_throttle *throttle = *_throttle;
 
 	*_throttle = NULL;
-	if (throttle->to_throttled != NULL)
-		timeout_remove(&throttle->to_throttled);
+	timeout_remove(&throttle->to_throttled);
 	i_free(throttle);
 }
 

@@ -117,8 +117,7 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	if (to_proctitle != NULL)
-		timeout_remove(&to_proctitle);
+	timeout_remove(&to_proctitle);
 
 	dict_connections_destroy_all();
 	dict_drivers_unregister_all();

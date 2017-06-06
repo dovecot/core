@@ -199,8 +199,7 @@ static void pop3c_client_disconnect(struct pop3c_client *client)
 
 	if (client->dns_lookup != NULL)
 		dns_lookup_abort(&client->dns_lookup);
-	if (client->to != NULL)
-		timeout_remove(&client->to);
+	timeout_remove(&client->to);
 	io_remove(&client->io);
 	if (client->input != NULL)
 		i_stream_destroy(&client->input);

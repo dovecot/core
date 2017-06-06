@@ -893,8 +893,7 @@ void master_service_client_connection_destroyed(struct master_service *service)
 static void master_service_set_login_state(struct master_service *service,
 					   enum master_login_state state)
 {
-	if (service->to_overflow_state != NULL)
-		timeout_remove(&service->to_overflow_state);
+	timeout_remove(&service->to_overflow_state);
 
 	switch (state) {
 	case MASTER_LOGIN_STATE_NONFULL:
@@ -953,12 +952,9 @@ void master_service_deinit(struct master_service **_service)
 	master_service_ssl_ctx_deinit(service);
 
 	master_service_close_config_fd(service);
-	if (service->to_die != NULL)
-		timeout_remove(&service->to_die);
-	if (service->to_overflow_state != NULL)
-		timeout_remove(&service->to_overflow_state);
-	if (service->to_status != NULL)
-		timeout_remove(&service->to_status);
+	timeout_remove(&service->to_die);
+	timeout_remove(&service->to_overflow_state);
+	timeout_remove(&service->to_status);
 	io_remove(&service->io_status_error);
 	io_remove(&service->io_status_write);
 	if (array_is_created(&service->config_overrides))
@@ -1120,8 +1116,7 @@ master_status_send(struct master_service *service, bool important_update)
 {
 	ssize_t ret;
 
-	if (service->to_status != NULL)
-		timeout_remove(&service->to_status);
+	timeout_remove(&service->to_status);
 
 	ret = write(MASTER_STATUS_FD, &service->master_status,
 		    sizeof(service->master_status));

@@ -77,8 +77,7 @@ master_service_haproxy_conn_free(struct master_service_haproxy_conn *hpconn)
 	DLLIST_REMOVE(&service->haproxy_conns, hpconn);
 
 	io_remove(&hpconn->io);
-	if (hpconn->to != NULL)
-		timeout_remove(&hpconn->to);
+	timeout_remove(&hpconn->to);
 	i_free(hpconn);
 }
 

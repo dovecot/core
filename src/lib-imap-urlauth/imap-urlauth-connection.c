@@ -145,8 +145,7 @@ void imap_urlauth_connection_deinit(struct imap_urlauth_connection **_conn)
 static void
 imap_urlauth_stop_response_timeout(struct imap_urlauth_connection *conn)
 {
-	if (conn->to_response != NULL)
-		timeout_remove(&conn->to_response);
+	timeout_remove(&conn->to_response);
 }
 
 static void
@@ -218,8 +217,7 @@ imap_urlauth_connection_send_request(struct imap_urlauth_connection *conn)
 	     conn->state == IMAP_URLAUTH_STATE_READY)) {
 		if (conn->user->mail_debug)
 			i_debug("imap-urlauth: No more requests pending; scheduling disconnect");
-		if (conn->to_idle != NULL)
-			timeout_remove(&conn->to_idle);
+		timeout_remove(&conn->to_idle);
 		if (conn->idle_timeout_msecs > 0) {
 			conn->to_idle =	timeout_add(conn->idle_timeout_msecs,
 				imap_urlauth_connection_idle_disconnect, conn);
@@ -295,8 +293,7 @@ imap_urlauth_request_new(struct imap_urlauth_connection *conn,
 
 	DLLIST2_APPEND(&target->requests_head, &target->requests_tail, urlreq);
 
-	if (conn->to_idle != NULL)
-		timeout_remove(&conn->to_idle);
+	timeout_remove(&conn->to_idle);
 	
 	if (conn->user->mail_debug) {
 		i_debug("imap-urlauth: Added request for URL `%s' from user `%s'",
@@ -911,8 +908,7 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 		return -1;
 	}
 
-	if (conn->to_reconnect != NULL)
-		timeout_remove(&conn->to_reconnect);
+	timeout_remove(&conn->to_reconnect);
 
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, (size_t)-1);
@@ -979,10 +975,8 @@ static void imap_urlauth_connection_disconnect
 
 	if (conn->literal_buf != NULL)
 		buffer_free(&conn->literal_buf);
-	if (conn->to_reconnect != NULL)
-		timeout_remove(&conn->to_reconnect);
-	if (conn->to_idle != NULL)
-		timeout_remove(&conn->to_idle);
+	timeout_remove(&conn->to_reconnect);
+	timeout_remove(&conn->to_idle);
 	imap_urlauth_stop_response_timeout(conn);
 }
 
@@ -998,8 +992,7 @@ imap_urlauth_connection_do_reconnect(struct imap_urlauth_connection *conn)
 	if (ioloop_time - conn->last_reconnect < IMAP_URLAUTH_RECONNECT_MIN_SECS) {
 		if (conn->user->mail_debug)
 			i_debug("imap-urlauth: Scheduling reconnect");
-		if (conn->to_reconnect != NULL)
-			timeout_remove(&conn->to_reconnect);
+		timeout_remove(&conn->to_reconnect);
 		conn->to_reconnect =
 			timeout_add(IMAP_URLAUTH_RECONNECT_MIN_SECS*1000,
 				imap_urlauth_connection_do_reconnect, conn);

@@ -97,8 +97,7 @@ static void ipc_server_connect(struct ipc_server *server)
 {
 	i_assert(server->fd == -1);
 
-	if (server->to != NULL)
-		timeout_remove(&server->to);
+	timeout_remove(&server->to);
 
 	server->fd = net_connect_unix(server->path);
 	if (server->fd == -1) {
@@ -154,8 +153,7 @@ void ipc_server_deinit(struct ipc_server **_server)
 	i_assert(server->ipc_cmd_refcount == 0);
 
 	ipc_server_disconnect(server);
-	if (server->to != NULL)
-		timeout_remove(&server->to);
+	timeout_remove(&server->to);
 	i_free(server->name);
 	i_free(server->path);
 	i_free(server);

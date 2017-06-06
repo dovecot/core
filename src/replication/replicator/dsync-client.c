@@ -52,8 +52,7 @@ static void dsync_callback(struct dsync_client *client,
 	dsync_callback_t *callback = client->callback;
 	void *context = client->context;
 
-	if (client->to != NULL)
-		timeout_remove(&client->to);
+	timeout_remove(&client->to);
 
 	client->callback = NULL;
 	client->context = NULL;

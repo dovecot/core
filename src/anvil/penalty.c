@@ -78,8 +78,7 @@ void penalty_deinit(struct penalty **_penalty)
 		penalty_rec_free(penalty, penalty->oldest);
 	hash_table_destroy(&penalty->hash);
 
-	if (penalty->to != NULL)
-		timeout_remove(&penalty->to);
+	timeout_remove(&penalty->to);
 	i_free(penalty);
 }
 

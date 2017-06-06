@@ -68,8 +68,7 @@ static void service_status_more(struct service_process *process,
 		process->available_count - status->available_count;
 	process->idle_start = 0;
 
-	if (process->to_idle != NULL)
-		timeout_remove(&process->to_idle);
+	timeout_remove(&process->to_idle);
 
 	if (status->available_count != 0)
 		return;
@@ -146,10 +145,8 @@ service_status_input_one(struct service *service,
 	}
 	process->last_status_update = ioloop_time;
 
-	if (process->to_status != NULL) {
-		/* first status notification */
-		timeout_remove(&process->to_status);
-	}
+	/* first status notification */
+	timeout_remove(&process->to_status);
 
 	if (process->available_count == status->available_count)
 		return;
@@ -375,8 +372,7 @@ static void service_monitor_listen_start_force(struct service *service)
 
 	service->listening = TRUE;
 	service->listen_pending = FALSE;
-	if (service->to_drop != NULL)
-		timeout_remove(&service->to_drop);
+	timeout_remove(&service->to_drop);
 
 	array_foreach(&service->listeners, listeners) {
 		struct service_listener *l = *listeners;
@@ -407,8 +403,7 @@ void service_monitor_listen_stop(struct service *service)
 	}
 	service->listening = FALSE;
 	service->listen_pending = FALSE;
-	if (service->to_drop != NULL)
-		timeout_remove(&service->to_drop);
+	timeout_remove(&service->to_drop);
 }
 
 static int service_login_create_notify_fd(struct service *service)
@@ -545,14 +540,11 @@ void service_monitor_stop(struct service *service)
 		}
 		service->login_notify_fd = -1;
 	}
-	if (service->to_login_notify != NULL)
-		timeout_remove(&service->to_login_notify);
+	timeout_remove(&service->to_login_notify);
 	service_monitor_listen_stop(service);
 
-	if (service->to_throttle != NULL)
-		timeout_remove(&service->to_throttle);
-	if (service->to_prefork != NULL)
-		timeout_remove(&service->to_prefork);
+	timeout_remove(&service->to_throttle);
+	timeout_remove(&service->to_prefork);
 }
 
 void service_monitor_stop_close(struct service *service)

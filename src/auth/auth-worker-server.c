@@ -243,8 +243,7 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 
 	if (close(conn->fd) < 0)
 		i_error("close(auth worker) failed: %m");
@@ -479,8 +478,7 @@ void auth_worker_server_resume_input(struct auth_worker_connection *conn)
 		conn->io = io_add(conn->fd, IO_READ, worker_input, conn);
 	if (!conn->timeout_pending_resume) {
 		conn->timeout_pending_resume = TRUE;
-		if (conn->to != NULL)
-			timeout_remove(&conn->to);
+		timeout_remove(&conn->to);
 		conn->to = timeout_add_short(0, worker_input_resume, conn);
 	}
 }

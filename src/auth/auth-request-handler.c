@@ -832,8 +832,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 
 	count = aqueue_count(auth_failures);
 	if (count == 0) {
-		if (to_auth_failures != NULL)
-			timeout_remove(&to_auth_failures);
+		timeout_remove(&to_auth_failures);
 		return;
 	}
 
@@ -894,6 +893,5 @@ void auth_request_handler_deinit(void)
 	array_free(&auth_failures_arr);
 	aqueue_deinit(&auth_failures);
 
-	if (to_auth_failures != NULL)
-		timeout_remove(&to_auth_failures);
+	timeout_remove(&to_auth_failures);
 }

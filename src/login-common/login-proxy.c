@@ -465,10 +465,8 @@ int login_proxy_new(struct client *client,
 
 static void login_proxy_disconnect(struct login_proxy *proxy)
 {
-	if (proxy->to != NULL)
-		timeout_remove(&proxy->to);
-	if (proxy->to_notify != NULL)
-		timeout_remove(&proxy->to_notify);
+	timeout_remove(&proxy->to);
+	timeout_remove(&proxy->to_notify);
 
 	if (!proxy->num_waiting_connections_updated) {
 		i_assert(proxy->state_rec->num_waiting_connections > 0);
@@ -705,8 +703,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 	i_assert(proxy->server_input != NULL);
 	i_assert(proxy->server_output != NULL);
 
-	if (proxy->to != NULL)
-		timeout_remove(&proxy->to);
+	timeout_remove(&proxy->to);
 
 	proxy->client_fd = i_stream_get_fd(client->input);
 	proxy->client_input = client->input;

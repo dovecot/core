@@ -108,8 +108,7 @@ void access_lookup_destroy(struct access_lookup **_lookup)
 
 	*_lookup = NULL;
 
-	if (lookup->to != NULL)
-		timeout_remove(&lookup->to);
+	timeout_remove(&lookup->to);
 	io_remove(&lookup->io);
 	if (close(lookup->fd) < 0)
 		i_error("close(%s) failed: %m", lookup->path);

@@ -213,8 +213,7 @@ static bool director_wait_for_others(struct director *dir)
 		(*hostp)->last_network_failure = 0;
 		(*hostp)->last_protocol_failure = 0;
 	}
-	if (dir->to_reconnect != NULL)
-		timeout_remove(&dir->to_reconnect);
+	timeout_remove(&dir->to_reconnect);
 	dir->to_reconnect = timeout_add(DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS,
 					director_quick_reconnect_retry, dir);
 	return TRUE;
@@ -281,8 +280,7 @@ void director_set_ring_handshaked(struct director *dir)
 {
 	i_assert(!dir->ring_handshaked);
 
-	if (dir->to_handshake_warning != NULL)
-		timeout_remove(&dir->to_handshake_warning);
+	timeout_remove(&dir->to_handshake_warning);
 	if (dir->ring_handshake_warning_sent) {
 		i_warning("Directors have been connected, "
 			  "continuing delayed requests");
@@ -321,8 +319,7 @@ void director_set_ring_synced(struct director *dir)
 	i_assert((dir->left != NULL && dir->right != NULL) ||
 		 (dir->left == NULL && dir->right == NULL));
 
-	if (dir->to_handshake_warning != NULL)
-		timeout_remove(&dir->to_handshake_warning);
+	timeout_remove(&dir->to_handshake_warning);
 	if (dir->ring_handshake_warning_sent) {
 		i_warning("Ring is synced, continuing delayed requests "
 			  "(syncing took %d secs, hosts_hash=%u)",
@@ -334,8 +331,7 @@ void director_set_ring_synced(struct director *dir)
 	host = dir->right == NULL ? NULL :
 		director_connection_get_host(dir->right);
 
-	if (dir->to_reconnect != NULL)
-		timeout_remove(&dir->to_reconnect);
+	timeout_remove(&dir->to_reconnect);
 	if (host != director_get_preferred_right_host(dir)) {
 		/* try to reconnect to preferred host later */
 		dir->to_reconnect =
@@ -347,8 +343,7 @@ void director_set_ring_synced(struct director *dir)
 		director_connection_set_synced(dir->left, TRUE);
 	if (dir->right != NULL)
 		director_connection_set_synced(dir->right, TRUE);
-	if (dir->to_sync != NULL)
-		timeout_remove(&dir->to_sync);
+	timeout_remove(&dir->to_sync);
 	dir->ring_synced = TRUE;
 	dir->ring_last_sync_time = ioloop_time;
 	mail_hosts_set_synced(dir->mail_hosts);
@@ -872,8 +867,7 @@ static void director_user_move_free(struct user *user)
 	dir_debug("User %u move finished at state=%s", user->username_hash,
 		  user_kill_state_names[kill_ctx->kill_state]);
 
-	if (kill_ctx->to_move != NULL)
-		timeout_remove(&kill_ctx->to_move);
+	timeout_remove(&kill_ctx->to_move);
 	i_free(kill_ctx->socket_path);
 	i_free(kill_ctx);
 	user->kill_ctx = NULL;
@@ -1354,8 +1348,7 @@ static void director_user_freed(struct user *user)
 		if (user->kill_ctx->callback_pending) {
 			/* kill_ctx is used as a callback parameter.
 			   only remove the timeout and finish the free later. */
-			if (user->kill_ctx->to_move != NULL)
-				timeout_remove(&user->kill_ctx->to_move);
+			timeout_remove(&user->kill_ctx->to_move);
 		} else {
 			director_user_move_free(user);
 		}
@@ -1403,18 +1396,12 @@ void director_deinit(struct director **_dir)
 	mail_hosts_deinit(&dir->orig_config_hosts);
 
 	ipc_client_deinit(&dir->ipc_proxy);
-	if (dir->to_reconnect != NULL)
-		timeout_remove(&dir->to_reconnect);
-	if (dir->to_handshake_warning != NULL)
-		timeout_remove(&dir->to_handshake_warning);
-	if (dir->to_request != NULL)
-		timeout_remove(&dir->to_request);
-	if (dir->to_sync != NULL)
-		timeout_remove(&dir->to_sync);
-	if (dir->to_remove_dirs != NULL)
-		timeout_remove(&dir->to_remove_dirs);
-	if (dir->to_callback != NULL)
-		timeout_remove(&dir->to_callback);
+	timeout_remove(&dir->to_reconnect);
+	timeout_remove(&dir->to_handshake_warning);
+	timeout_remove(&dir->to_request);
+	timeout_remove(&dir->to_sync);
+	timeout_remove(&dir->to_remove_dirs);
+	timeout_remove(&dir->to_callback);
 	while (array_count(&dir->dir_hosts) > 0) {
 		hostp = array_idx(&dir->dir_hosts, 0);
 		host = *hostp;

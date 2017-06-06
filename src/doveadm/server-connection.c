@@ -305,8 +305,7 @@ static void server_connection_input(struct server_connection *conn)
 {
 	const char *line;
 
-	if (conn->to_input != NULL)
-		timeout_remove(&conn->to_input);
+	timeout_remove(&conn->to_input);
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
@@ -551,8 +550,7 @@ void server_connection_destroy(struct server_connection **_conn)
 	if (printing_conn == conn)
 		print_connection_released();
 
-	if (conn->to_input != NULL)
-		timeout_remove(&conn->to_input);
+	timeout_remove(&conn->to_input);
 	if (conn->input != NULL)
 		i_stream_destroy(&conn->input);
 	if (conn->output != NULL)

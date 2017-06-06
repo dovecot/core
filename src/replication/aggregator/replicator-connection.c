@@ -167,8 +167,7 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 		return;
 	}
 
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 	conn->fd = fd;
 	conn->io = io_add(fd, IO_READ, replicator_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
@@ -255,8 +254,7 @@ void replicator_connection_destroy(struct replicator_connection **_conn)
 	for (i = REPLICATION_PRIORITY_LOW; i <= REPLICATION_PRIORITY_SYNC; i++)
 		buffer_free(&conn->queue[i]);
 
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 	hash_table_destroy(&conn->requests);
 	i_free(conn);
 }

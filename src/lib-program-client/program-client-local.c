@@ -296,8 +296,7 @@ int program_client_local_close_output(struct program_client *pclient)
 static
 void program_client_local_exited(struct program_client_local *plclient)
 {
-	if (plclient->to_kill != NULL)
-		timeout_remove(&plclient->to_kill);
+	timeout_remove(&plclient->to_kill);
 	if (plclient->child_wait != NULL)
 		child_wait_free(&plclient->child_wait);
 
@@ -344,8 +343,7 @@ static
 void program_client_local_kill(struct program_client_local *plclient)
 {
 	/* time to die */
-	if (plclient->to_kill != NULL)
-		timeout_remove(&plclient->to_kill);
+	timeout_remove(&plclient->to_kill);
 
 	i_assert(plclient->pid != (pid_t)-1);
 

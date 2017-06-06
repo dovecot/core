@@ -735,8 +735,7 @@ static void driver_cassandra_deinit_v(struct sql_db *_db)
 	cass_session_free(db->session);
 	cass_cluster_free(db->cluster);
 	cass_timestamp_gen_free(db->timestamp_gen);
-	if (db->to_metrics != NULL)
-		timeout_remove(&db->to_metrics);
+	timeout_remove(&db->to_metrics);
 	i_free(db->metrics_path);
 	i_free(db->hosts);
 	i_free(db->error);

@@ -603,8 +603,7 @@ auth_worker_handle_list(struct auth_worker_client *client,
 	}
 
 	io_remove(&ctx->client->io);
-	if (ctx->client->to_idle != NULL)
-		timeout_remove(&ctx->client->to_idle);
+	timeout_remove(&ctx->client->to_idle);
 
 	o_stream_set_flush_callback(ctx->client->output,
 				    auth_worker_list_output, ctx);
@@ -787,8 +786,7 @@ void auth_worker_client_destroy(struct auth_worker_client **_client)
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
-	if (client->to_idle != NULL)
-		timeout_remove(&client->to_idle);
+	timeout_remove(&client->to_idle);
 	io_remove(&client->io);
 
 	net_disconnect(client->fd);

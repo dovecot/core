@@ -674,8 +674,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 	i_zero(&reply);
 	switch (sasl_reply) {
 	case SASL_SERVER_REPLY_SUCCESS:
-		if (client->to_auth_waiting != NULL)
-			timeout_remove(&client->to_auth_waiting);
+		timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
 			client_auth_parse_args(client, TRUE, args, &reply);
 			reply.all_fields = args;
@@ -689,8 +688,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		break;
 	case SASL_SERVER_REPLY_AUTH_FAILED:
 	case SASL_SERVER_REPLY_AUTH_ABORTED:
-		if (client->to_auth_waiting != NULL)
-			timeout_remove(&client->to_auth_waiting);
+		timeout_remove(&client->to_auth_waiting);
 		if (args != NULL) {
 			client_auth_parse_args(client, FALSE, args, &reply);
 			client->last_auth_fail = reply.fail_code;
@@ -738,8 +736,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		i_assert(client->v.auth_send_challenge != NULL);
 		client->v.auth_send_challenge(client, data);
 
-		if (client->to_auth_waiting != NULL)
-			timeout_remove(&client->to_auth_waiting);
+		timeout_remove(&client->to_auth_waiting);
 
 		if (client->auth_response != NULL)
 			str_truncate(client->auth_response, 0);
@@ -821,8 +818,7 @@ void clients_notify_auth_connected(void)
 	for (client = clients; client != NULL; client = next) {
 		next = client->next;
 
-		if (client->to_auth_waiting != NULL)
-			timeout_remove(&client->to_auth_waiting);
+		timeout_remove(&client->to_auth_waiting);
 
 		client_notify_auth_ready(client);
 

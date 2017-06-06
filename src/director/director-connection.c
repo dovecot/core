@@ -2186,10 +2186,8 @@ void director_connection_deinit(struct director_connection **_conn,
 		director_host_unref(conn->connect_request_to);
 	if (conn->user_iter != NULL)
 		director_iterate_users_deinit(&conn->user_iter);
-	if (conn->to_disconnect != NULL)
-		timeout_remove(&conn->to_disconnect);
-	if (conn->to_pong != NULL)
-		timeout_remove(&conn->to_pong);
+	timeout_remove(&conn->to_disconnect);
+	timeout_remove(&conn->to_pong);
 	timeout_remove(&conn->to_ping);
 	io_remove(&conn->io);
 	i_stream_unref(&conn->input);

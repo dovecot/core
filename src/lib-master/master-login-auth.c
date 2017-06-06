@@ -105,8 +105,7 @@ void master_login_auth_disconnect(struct master_login_auth *auth)
 	}
 	hash_table_clear(auth->requests, FALSE);
 
-	if (auth->to != NULL)
-		timeout_remove(&auth->to);
+	timeout_remove(&auth->to);
 	io_remove(&auth->io);
 	if (auth->fd != -1) {
 		if (auth->input != NULL)

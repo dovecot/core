@@ -442,8 +442,7 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 	}
 
 	imapc_msgmap_deinit(&box->msgmap);
-	if (box->to_send_idle != NULL)
-		timeout_remove(&box->to_send_idle);
+	timeout_remove(&box->to_send_idle);
 	i_free(box);
 }
 

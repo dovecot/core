@@ -443,8 +443,7 @@ void http_client_connection_reset_request_timeout(
 void http_client_connection_stop_request_timeout(
 	struct http_client_connection *conn)
 {
-	if (conn->to_requests != NULL)
-		timeout_remove(&conn->to_requests);
+	timeout_remove(&conn->to_requests);
 }
 
 static void
@@ -457,8 +456,7 @@ http_client_connection_continue_timeout(struct http_client_connection *conn)
 
 	i_assert(conn->pending_request == NULL);
 
-	if (conn->to_response != NULL)
-		timeout_remove(&conn->to_response);
+	timeout_remove(&conn->to_response);
 	conn->peer->no_payload_sync = TRUE;
 
 	http_client_connection_debug(conn, 
@@ -499,8 +497,7 @@ int http_client_connection_next_request(struct http_client_connection *conn)
 
 	i_assert(req->state == HTTP_REQUEST_STATE_QUEUED);
 
-	if (conn->to_idle != NULL)
-		timeout_remove(&conn->to_idle);
+	timeout_remove(&conn->to_idle);
 
 	req->payload_sync_continue = FALSE;
 	if (conn->peer->no_payload_sync)
@@ -873,8 +870,7 @@ static void http_client_connection_input(struct connection *_conn)
 		req->response_time = ioloop_timeval;
 
 		/* Got some response; cancel response timeout */
-		if (conn->to_response != NULL)
-			timeout_remove(&conn->to_response);
+		timeout_remove(&conn->to_response);
 
 		/* RFC 7231, Section 6.2:
 
@@ -1164,8 +1160,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 	/* connected */
 	conn->connected = TRUE;
 	conn->last_ioloop = current_ioloop;
-	if (conn->to_connect != NULL)
-		timeout_remove(&conn->to_connect);
+	timeout_remove(&conn->to_connect);
 
 	/* indicate connection success */
 	conn->connect_succeeded = TRUE;
@@ -1547,16 +1542,11 @@ http_client_connection_disconnect(struct http_client_connection *conn)
 		connection_disconnect(&conn->conn);
 
 	io_remove(&conn->io_req_payload);
-	if (conn->to_requests != NULL)
-		timeout_remove(&conn->to_requests);
-	if (conn->to_connect != NULL)
-		timeout_remove(&conn->to_connect);
-	if (conn->to_input != NULL)
-		timeout_remove(&conn->to_input);
-	if (conn->to_idle != NULL)
-		timeout_remove(&conn->to_idle);
-	if (conn->to_response != NULL)
-		timeout_remove(&conn->to_response);
+	timeout_remove(&conn->to_requests);
+	timeout_remove(&conn->to_connect);
+	timeout_remove(&conn->to_input);
+	timeout_remove(&conn->to_idle);
+	timeout_remove(&conn->to_response);
 
 	/* remove this connection from the list */
 	conn_arr = &peer->conns;

@@ -426,8 +426,7 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 				      bool reconnecting)
 {
 	/* timeout may be set also in disconnected state */
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 	conn->reconnecting = reconnecting;
 
 	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED)
@@ -440,12 +439,9 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 		dns_lookup_abort(&conn->dns_lookup);
 	imapc_connection_lfiles_free(conn);
 	imapc_connection_literal_reset(&conn->literal);
-	if (conn->to_output != NULL)
-		timeout_remove(&conn->to_output);
-	if (conn->to_throttle != NULL)
-		timeout_remove(&conn->to_throttle);
-	if (conn->to_throttle_shrink != NULL)
-		timeout_remove(&conn->to_throttle_shrink);
+	timeout_remove(&conn->to_output);
+	timeout_remove(&conn->to_throttle);
+	timeout_remove(&conn->to_throttle_shrink);
 	if (conn->parser != NULL)
 		imap_parser_unref(&conn->parser);
 	io_remove(&conn->io);
@@ -1320,8 +1316,7 @@ static void
 imapc_connection_throttle(struct imapc_connection *conn,
 			  const struct imapc_command_reply *reply)
 {
-	if (conn->to_throttle != NULL)
-		timeout_remove(&conn->to_throttle);
+	timeout_remove(&conn->to_throttle);
 
 	/* If GMail returns [THROTTLED], start slowing down commands.
 	   Unfortunately this isn't a nice resp-text-code, but just
@@ -2084,8 +2079,7 @@ static void imapc_connection_set_selecting(struct imapc_client_mailbox *box)
 
 static bool imapc_connection_is_throttled(struct imapc_connection *conn)
 {
-	if (conn->to_throttle != NULL)
-		timeout_remove(&conn->to_throttle);
+	timeout_remove(&conn->to_throttle);
 
 	if (conn->throttle_msecs == 0) {
 		/* we haven't received [THROTTLED] recently */
@@ -2168,8 +2162,7 @@ static void imapc_command_send_more(struct imapc_connection *conn)
 	   (pre-login has its own timeout) */
 	if ((cmd->flags & IMAPC_COMMAND_FLAG_LOGOUT) != 0) {
 		/* LOGOUT has a shorter timeout */
-		if (conn->to != NULL)
-			timeout_remove(&conn->to);
+		timeout_remove(&conn->to);
 		conn->to = timeout_add(IMAPC_LOGOUT_TIMEOUT_MSECS,
 				       imapc_command_timeout, conn);
 	} else if (conn->to == NULL) {

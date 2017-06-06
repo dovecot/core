@@ -131,8 +131,7 @@ http_server_connection_idle_timeout(struct http_server_connection *conn)
 static void
 http_server_connection_timeout_stop(struct http_server_connection *conn)
 {
-	if (conn->to_idle != NULL)
-		timeout_remove(&conn->to_idle);
+	timeout_remove(&conn->to_idle);
 }
 
 static void
@@ -1164,8 +1163,7 @@ http_server_connection_disconnect(struct http_server_connection *conn,
 		req = req_next;
 	}
 
-	if (conn->to_input != NULL)
-		timeout_remove(&conn->to_input);
+	timeout_remove(&conn->to_input);
 
 	http_server_connection_timeout_stop(conn);
 	io_remove(&conn->io_resp_payload);

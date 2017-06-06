@@ -258,8 +258,7 @@ bool dict_connection_unref(struct dict_connection *conn)
 
 static void dict_connection_unref_safe_callback(struct dict_connection *conn)
 {
-	if (conn->to_unref != NULL)
-		timeout_remove(&conn->to_unref);
+	timeout_remove(&conn->to_unref);
 	(void)dict_connection_unref(conn);
 }
 
@@ -289,8 +288,7 @@ void dict_connection_destroy(struct dict_connection *conn)
 	conn->destroyed = TRUE;
 	DLLIST_REMOVE(&dict_connections, conn);
 
-	if (conn->to_input != NULL)
-		timeout_remove(&conn->to_input);
+	timeout_remove(&conn->to_input);
 	io_remove(&conn->io);
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);

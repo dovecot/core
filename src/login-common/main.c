@@ -146,8 +146,7 @@ client_connected_finish(const struct master_service_connection *conn)
 		ssl_proxy_start(proxy);
 	}
 
-	if (auth_client_to != NULL)
-		timeout_remove(&auth_client_to);
+	timeout_remove(&auth_client_to);
 }
 
 static void login_access_lookup_free(struct login_access_lookup *lookup)
@@ -437,8 +436,7 @@ static void main_deinit(void)
 
 	if (anvil != NULL)
 		anvil_client_deinit(&anvil);
-	if (auth_client_to != NULL)
-		timeout_remove(&auth_client_to);
+	timeout_remove(&auth_client_to);
 	client_common_deinit();
 	dsasl_clients_deinit();
 	login_settings_deinit();

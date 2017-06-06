@@ -34,8 +34,7 @@ stats_carbon_destroy(struct stats_send_ctx **_ctx)
 	*_ctx = NULL;
 
 	io_remove(&ctx->io);
-	if (ctx->to != NULL)
-		timeout_remove(&ctx->to);
+	timeout_remove(&ctx->to);
 	i_close_fd(&ctx->fd);
 	pool_unref(&ctx->pool);
 }

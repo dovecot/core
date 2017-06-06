@@ -118,8 +118,7 @@ void lmtp_client_close(struct lmtp_client *client)
 {
 	if (client->dns_lookup != NULL)
 		dns_lookup_abort(&client->dns_lookup);
-	if (client->to != NULL)
-		timeout_remove(&client->to);
+	timeout_remove(&client->to);
 	io_remove(&client->io);
 	if (client->input != NULL)
 		i_stream_close(client->input);
@@ -867,10 +866,8 @@ void lmtp_client_send(struct lmtp_client *client, struct istream *data_input)
 	/* now we actually want to start doing I/O. start the timeout
 	   handling. */
 	if (client->set.timeout_secs > 0) {
-		if (client->to != NULL) {
-			/* still waiting for connect to finish */
-			timeout_remove(&client->to);
-		}
+		/* possibly still waiting for connect to finish */
+		timeout_remove(&client->to);
 		client->to = timeout_add(client->set.timeout_secs*1000,
 					 lmtp_client_timeout, client);
 	}

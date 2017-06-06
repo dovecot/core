@@ -157,8 +157,7 @@ static void mail_session_free(struct mail_session *session)
 
 	global_memory_free(mail_session_memsize(session));
 
-	if (session->to_idle != NULL)
-		timeout_remove(&session->to_idle);
+	timeout_remove(&session->to_idle);
 	if (!session->disconnected)
 		hash_table_remove(mail_sessions_hash, session->id);
 	DLLIST_REMOVE_FULL(&stable_mail_sessions, session,

@@ -96,8 +96,7 @@ const char *run_pump(struct istream *in, struct ostream *out, int *counter, buff
 	io_loop_run(current_ioloop);
 
 	timeout_remove(&to);
-	if (to2 != NULL)
-		timeout_remove(&to2);
+	timeout_remove(&to2);
 	alarm(0);
 
 	test_assert(*counter == 0);

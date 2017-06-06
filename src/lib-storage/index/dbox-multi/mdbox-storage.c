@@ -71,8 +71,7 @@ void mdbox_storage_destroy(struct mail_storage *_storage)
 
 	mdbox_files_free(storage);
 	mdbox_map_deinit(&storage->map);
-	if (storage->to_close_unused_files != NULL)
-		timeout_remove(&storage->to_close_unused_files);
+	timeout_remove(&storage->to_close_unused_files);
 
 	if (array_is_created(&storage->move_from_alt_map_uids))
 		array_free(&storage->move_from_alt_map_uids);

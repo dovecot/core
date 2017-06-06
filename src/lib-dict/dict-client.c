@@ -314,8 +314,7 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 
 	/* we're no longer idling. even with no_replies=TRUE we're going to
 	   wait for COMMIT/ROLLBACK. */
-	if (dict->to_idle != NULL)
-		timeout_remove(&dict->to_idle);
+	timeout_remove(&dict->to_idle);
 
 	if (client_dict_connect(dict, &error) < 0) {
 		retry = FALSE;
@@ -441,14 +440,12 @@ static void client_dict_add_timeout(struct client_dict *dict)
 	} else if (client_dict_is_finished(dict)) {
 		dict->to_idle = timeout_add(dict->idle_msecs,
 					    client_dict_timeout, dict);
-		if (dict->to_requests != NULL)
-			timeout_remove(&dict->to_requests);
+		timeout_remove(&dict->to_requests);
 	} else if (dict->transactions == NULL &&
 		   !client_dict_have_nonbackground_cmds(dict)) {
 		/* we had non-background commands, but now we're back to
 		   having only background commands. remove timeouts. */
-		if (dict->to_requests != NULL)
-			timeout_remove(&dict->to_requests);
+		timeout_remove(&dict->to_requests);
 	}
 }
 
@@ -633,10 +630,8 @@ static void client_dict_disconnect(struct client_dict *dict, const char *reason)
 			ctx->error = i_strdup(reason);
 	}
 
-	if (dict->to_idle != NULL)
-		timeout_remove(&dict->to_idle);
-	if (dict->to_requests != NULL)
-		timeout_remove(&dict->to_requests);
+	timeout_remove(&dict->to_idle);
+	timeout_remove(&dict->to_requests);
 	connection_disconnect(&dict->conn.conn);
 }
 

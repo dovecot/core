@@ -342,8 +342,7 @@ static void instance_update_now(struct master_instance_list *list)
 		(void)master_instance_list_update(list, services->set->base_dir);
 	}
 	
-	if (to_instance != NULL)
-		timeout_remove(&to_instance);
+	timeout_remove(&to_instance);
 	to_instance = timeout_add((3600 * 12 + i_rand_limit(60 * 30)) * 1000,
 				  instance_update_now, list);
 }

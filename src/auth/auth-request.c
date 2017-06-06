@@ -175,8 +175,7 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 	struct auth_stats *stats;
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (request->to_penalty != NULL)
-		timeout_remove(&request->to_penalty);
+	timeout_remove(&request->to_penalty);
 
 	if (request->failed || !request->passdb_success) {
 		/* password was valid, but some other check failed. */
@@ -256,10 +255,8 @@ void auth_request_unref(struct auth_request **_request)
 
 	if (request->dns_lookup_ctx != NULL)
 		dns_lookup_abort(&request->dns_lookup_ctx->dns_lookup);
-	if (request->to_abort != NULL)
-		timeout_remove(&request->to_abort);
-	if (request->to_penalty != NULL)
-		timeout_remove(&request->to_penalty);
+	timeout_remove(&request->to_abort);
+	timeout_remove(&request->to_penalty);
 
 	if (request->mech != NULL)
 		request->mech->auth_free(request);
@@ -985,8 +982,7 @@ void auth_request_policy_penalty_finish(void *context)
 {
 	struct auth_policy_check_ctx *ctx = context;
 
-	if (ctx->request->to_penalty != NULL)
-		timeout_remove(&ctx->request->to_penalty);
+	timeout_remove(&ctx->request->to_penalty);
 
 	i_assert(ctx->request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 

@@ -22,8 +22,7 @@ static void i_stream_timeout_close(struct iostream_private *stream,
 {
 	struct timeout_istream *tstream = (struct timeout_istream *)stream;
 
-	if (tstream->to != NULL)
-		timeout_remove(&tstream->to);
+	timeout_remove(&tstream->to);
 	if (close_parent)
 		i_stream_close(tstream->istream.parent);
 }

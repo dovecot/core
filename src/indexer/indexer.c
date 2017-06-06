@@ -61,8 +61,7 @@ static void queue_try_send_more(struct indexer_queue *queue)
 	struct worker_connection *conn;
 	struct indexer_request *request;
 
-	if (to_send_more != NULL)
-		timeout_remove(&to_send_more);
+	timeout_remove(&to_send_more);
 
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
 		conn = worker_pool_find_username_connection(worker_pool,
@@ -139,8 +138,7 @@ int main(int argc, char *argv[])
 	indexer_clients_destroy_all();
 	worker_pool_deinit(&worker_pool);
 	indexer_queue_deinit(&queue);
-	if (to_send_more != NULL)
-		timeout_remove(&to_send_more);
+	timeout_remove(&to_send_more);
 
 	master_service_deinit(&master_service);
         return 0;

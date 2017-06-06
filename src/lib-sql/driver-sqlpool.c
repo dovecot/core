@@ -227,8 +227,7 @@ sqlpool_handle_connect_failed(struct sqlpool_db *db, struct sql_db *conndb)
 	conndb->connect_failure_count++;
 
 	/* reconnect after the delay */
-	if (conndb->to_reconnect != NULL)
-		timeout_remove(&conndb->to_reconnect);
+	timeout_remove(&conndb->to_reconnect);
 	conndb->to_reconnect = timeout_add(conndb->connect_delay * 1000,
 					   sqlpool_reconnect, conndb);
 
@@ -493,8 +492,7 @@ static void driver_sqlpool_abort_requests(struct sqlpool_db *db)
 
 		sqlpool_request_abort(&request);
 	}
-	if (db->request_to != NULL)
-		timeout_remove(&db->request_to);
+	timeout_remove(&db->request_to);
 }
 
 static void driver_sqlpool_deinit(struct sql_db *_db)

@@ -240,8 +240,7 @@ static void client_destroy(struct client *client)
 
 	io_remove(&client->io);
 	io_remove(&client->ctrl_io);
-	if (client->to_idle != NULL)
-		timeout_remove(&client->to_idle);
+	timeout_remove(&client->to_idle);
 
 	if (client->input != NULL)
 		i_stream_destroy(&client->input);

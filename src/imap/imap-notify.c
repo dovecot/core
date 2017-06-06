@@ -501,8 +501,7 @@ void imap_notify_deinit(struct imap_notify_context **_ctx)
 		if (notify_ns->notify != NULL)
 			mailbox_list_notify_deinit(&notify_ns->notify);
 	}
-	if (ctx->to_watch != NULL)
-		timeout_remove(&ctx->to_watch);
+	timeout_remove(&ctx->to_watch);
 	if (ctx->fetch_ctx != NULL)
 		imap_fetch_free(&ctx->fetch_ctx);
 	pool_unref(&ctx->pool);

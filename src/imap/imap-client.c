@@ -433,10 +433,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (client->free_parser != NULL)
 		imap_parser_unref(&client->free_parser);
 	io_remove(&client->io);
-	if (client->to_idle_output != NULL)
-		timeout_remove(&client->to_idle_output);
-	if (client->to_delayed_input != NULL)
-		timeout_remove(&client->to_delayed_input);
+	timeout_remove(&client->to_idle_output);
+	timeout_remove(&client->to_delayed_input);
 	timeout_remove(&client->to_idle);
 
 	/* i/ostreams are already closed at this stage, so fd can be closed */
@@ -498,8 +496,7 @@ void client_disconnect(struct client *client, const char *reason)
 	i_stream_close(client->input);
 	o_stream_close(client->output);
 
-	if (client->to_idle != NULL)
-		timeout_remove(&client->to_idle);
+	timeout_remove(&client->to_idle);
 	client->to_idle = timeout_add(0, client_destroy_timeout, client);
 }
 
@@ -915,8 +912,7 @@ void client_command_free(struct client_command_context **_cmd)
 	if (client->command_queue == NULL) {
 		/* no commands left in the queue, we can clear the pool */
 		p_clear(client->command_pool);
-		if (client->to_idle_output != NULL)
-			timeout_remove(&client->to_idle_output);
+		timeout_remove(&client->to_idle_output);
 	}
 	imap_client_notify_command_freed(client);
 	imap_refresh_proctitle();
@@ -1233,8 +1229,7 @@ void client_input(struct client *client)
 	client->last_input = ioloop_time;
 	timeout_reset(client->to_idle);
 
-	if (client->to_delayed_input != NULL)
-		timeout_remove(&client->to_delayed_input);
+	timeout_remove(&client->to_delayed_input);
 
 	bytes = i_stream_read(client->input);
 	if (bytes == -1) {

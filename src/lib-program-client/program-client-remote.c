@@ -282,8 +282,7 @@ int program_client_unix_connect(struct program_client *pclient)
 	if (pclient->set.debug)
 		i_debug("Trying to connect %s", pclient->path);
 
-	if (prclient->to_retry != NULL)
-		timeout_remove(&prclient->to_retry);
+	timeout_remove(&prclient->to_retry);
 
 	if ((fd = net_connect_unix(pclient->path)) < 0) {
 		switch (errno) {
@@ -355,11 +354,9 @@ void program_client_net_connect_real(struct program_client *pclient)
 	struct program_client_remote *prclient =
 		(struct program_client_remote *) pclient;
 
-	if (pclient->to != NULL)
-		timeout_remove(&pclient->to);
+	timeout_remove(&pclient->to);
 
-	if (prclient->to_retry != NULL)
-		timeout_remove(&prclient->to_retry);
+	timeout_remove(&prclient->to_retry);
 
 	i_assert(prclient->ips_count > 0);
 
@@ -545,8 +542,7 @@ void program_client_remote_disconnect(struct program_client *pclient, bool force
 	struct program_client_remote *prclient =
 		(struct program_client_remote *)pclient;
 
-	if (prclient->to_retry != NULL)
-		timeout_remove(&prclient->to_retry);
+	timeout_remove(&prclient->to_retry);
 
 	if (pclient->error == PROGRAM_CLIENT_ERROR_NONE && !prclient->noreply &&
 	    pclient->program_input != NULL && !force) {

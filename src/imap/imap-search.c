@@ -631,8 +631,7 @@ static int imap_search_deinit(struct imap_search_context *ctx)
 
 	(void)mailbox_transaction_commit(&ctx->trans);
 
-	if (ctx->to != NULL)
-		timeout_remove(&ctx->to);
+	timeout_remove(&ctx->to);
 	if (array_is_created(&ctx->relevancy_scores))
 		array_free(&ctx->relevancy_scores);
 	array_free(&ctx->result);

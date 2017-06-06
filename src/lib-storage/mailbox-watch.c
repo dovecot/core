@@ -21,8 +21,7 @@ struct mailbox_notify_file {
 
 static void notify_delay_callback(struct mailbox *box)
 {
-	if (box->to_notify_delay != NULL)
-		timeout_remove(&box->to_notify_delay);
+	timeout_remove(&box->to_notify_delay);
 	box->notify_callback(box, box->notify_context);
 }
 
@@ -98,10 +97,8 @@ void mailbox_watch_remove_all(struct mailbox *box)
 		i_free(file);
 	}
 
-	if (box->to_notify_delay != NULL)
-		timeout_remove(&box->to_notify_delay);
-	if (box->to_notify != NULL)
-		timeout_remove(&box->to_notify);
+	timeout_remove(&box->to_notify_delay);
+	timeout_remove(&box->to_notify);
 }
 
 static void notify_extract_callback(struct mailbox *box ATTR_UNUSED)

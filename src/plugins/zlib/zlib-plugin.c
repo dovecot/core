@@ -68,8 +68,7 @@ static void zlib_mail_cache_close(struct zlib_user *zuser)
 {
 	struct zlib_mail_cache *cache = &zuser->cache;
 
-	if (cache->to != NULL)
-		timeout_remove(&cache->to);
+	timeout_remove(&cache->to);
 	if (cache->input != NULL)
 		i_stream_unref(&cache->input);
 	i_zero(cache);

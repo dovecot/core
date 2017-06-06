@@ -74,8 +74,7 @@ static void client_input(struct client *client)
 	const char *const *args, *error;
 	int ret;
 
-	if (client->to_pending != NULL)
-		timeout_remove(&client->to_pending);
+	timeout_remove(&client->to_pending);
 
 	switch (i_stream_read(client->input)) {
 	case -2:

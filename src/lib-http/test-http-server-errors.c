@@ -119,8 +119,7 @@ static void
 test_server_slow_request_destroyed(struct _slow_request *ctx)
 {
 	test_assert(ctx->serviced);
-	if (ctx->to_delay != NULL)
-		timeout_remove(&ctx->to_delay);
+	timeout_remove(&ctx->to_delay);
 	i_free(ctx);
 	io_loop_stop(ioloop);
 }

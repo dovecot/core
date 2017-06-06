@@ -786,10 +786,8 @@ static void imapc_mailbox_close(struct mailbox *box)
 		array_free(&mbox->rseq_modseqs);
 	if (mbox->sync_view != NULL)
 		mail_index_view_close(&mbox->sync_view);
-	if (mbox->to_idle_delay != NULL)
-		timeout_remove(&mbox->to_idle_delay);
-	if (mbox->to_idle_check != NULL)
-		timeout_remove(&mbox->to_idle_check);
+	timeout_remove(&mbox->to_idle_delay);
+	timeout_remove(&mbox->to_idle_check);
 	imapc_mail_cache_free(&mbox->prev_mail_cache);
 	index_storage_mailbox_close(box);
 }
@@ -1156,8 +1154,7 @@ static void imapc_notify_changes(struct mailbox *box)
 	struct imapc_command *cmd;
 
 	if (box->notify_callback == NULL) {
-		if (mbox->to_idle_check != NULL)
-			timeout_remove(&mbox->to_idle_check);
+		timeout_remove(&mbox->to_idle_check);
 		return;
 	}
 

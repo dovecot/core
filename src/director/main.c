@@ -287,8 +287,7 @@ static void main_preinit(void)
 
 static void main_deinit(void)
 {
-	if (to_proctitle_refresh != NULL)
-		timeout_remove(&to_proctitle_refresh);
+	timeout_remove(&to_proctitle_refresh);
 	if (notify_conn != NULL)
 		notify_connection_deinit(&notify_conn);
 	/* deinit doveadm connections before director, so it can clean up

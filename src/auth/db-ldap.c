@@ -480,8 +480,7 @@ static int db_ldap_connect_finish(struct ldap_connection *conn, int ret)
 		return -1;
 	}
 
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 	conn->conn_state = LDAP_CONN_STATE_BOUND_DEFAULT;
 	while (db_ldap_request_queue_next(conn))
 		;
@@ -1061,8 +1060,7 @@ static int db_ldap_bind_simple(struct ldap_connection *conn)
 	conn->conn_state = LDAP_CONN_STATE_BINDING;
 	conn->default_bind_msgid = msgid;
 
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 	conn->to = timeout_add(DB_LDAP_REQUEST_LOST_TIMEOUT_SECS*1000,
 			       ldap_connection_timeout, conn);
 	return 0;
@@ -1317,8 +1315,7 @@ static void db_ldap_conn_close(struct ldap_connection *conn)
 	conn->delayed_connect = FALSE;
 	conn->default_bind_msgid = -1;
 
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 
 	if (conn->pending_count != 0) {
 		requests = array_idx(&conn->request_array, 0);

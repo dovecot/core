@@ -82,8 +82,7 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 
 static void auth_connection_close(struct auth_master_connection *conn)
 {
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)
 			i_error("close(%s) failed: %m", conn->auth_socket_path);
@@ -338,8 +337,7 @@ static void auth_master_set_io(struct auth_master_connection *conn)
 	if (conn->ioloop != NULL)
 		return;
 
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 
 	conn->prev_ioloop = current_ioloop;
 	conn->ioloop = io_loop_create();

@@ -255,8 +255,7 @@ void http_client_host_submit_request(struct http_client_host *host,
 	http_client_queue_submit_request(queue, req);
 
 	/* cancel host idle timeout */
-	if (host->to_idle != NULL)
-		timeout_remove(&host->to_idle);
+	timeout_remove(&host->to_idle);
 
 	if (host->unix_local) {
 		http_client_queue_connection_setup(queue);

@@ -152,15 +152,13 @@ static void client_username_check(struct imap_client *client)
 	user->last_seen = ioloop_time;
 	user->host->refcount++;
 
-	if (user->to != NULL)
-		timeout_remove(&user->to);
+	timeout_remove(&user->to);
 }
 
 static void user_free(struct user *user)
 {
 	host_unref(&user->host);
-	if (user->to != NULL)
-		timeout_remove(&user->to);
+	timeout_remove(&user->to);
 	hash_table_remove(users, user->username);
 	i_free(user->username);
 	i_free(user);
@@ -367,8 +365,7 @@ static void director_connection_destroy(struct director_connection **_conn)
 
 	DLLIST_REMOVE(&director_connections, conn);
 
-	if (conn->to_delay != NULL)
-		timeout_remove(&conn->to_delay);
+	timeout_remove(&conn->to_delay);
 
 	io_remove(&conn->in_io);
 	i_stream_unref(&conn->in_input);
@@ -477,8 +474,7 @@ static void admin_disconnect(struct admin_connection **_conn)
 	struct admin_connection *conn = *_conn;
 
 	*_conn = NULL;
-	if (conn->to_random != NULL)
-		timeout_remove(&conn->to_random);
+	timeout_remove(&conn->to_random);
 	i_stream_destroy(&conn->input);
 	io_remove(&conn->io);
 	net_disconnect(conn->fd);
