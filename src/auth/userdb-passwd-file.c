@@ -173,8 +173,7 @@ static int passwd_file_iterate_deinit(struct userdb_iterate_context *_ctx)
 		(struct passwd_file_userdb_iterate_context *)_ctx;
 	int ret = _ctx->failed ? -1 : 0;
 
-	if (ctx->input != NULL)
-		i_stream_destroy(&ctx->input);
+	i_stream_destroy(&ctx->input);
 	i_free(ctx->path);
 	i_free(ctx);
 	return ret;

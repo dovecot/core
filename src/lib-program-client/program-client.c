@@ -89,8 +89,7 @@ int program_client_close_output(struct program_client *pclient)
 {
 	int ret;
 
-	if (pclient->program_output != NULL)
-		o_stream_destroy(&pclient->program_output);
+	o_stream_destroy(&pclient->program_output);
 	if ((ret = pclient->close_output(pclient)) < 0)
 		return -1;
 	pclient->program_output = NULL;
@@ -126,8 +125,7 @@ void program_client_disconnected(struct program_client *pclient)
 		else
 			i_stream_destroy(&pclient->program_input);
 	}
-	if (pclient->program_output != NULL)
-		o_stream_destroy(&pclient->program_output);
+	o_stream_destroy(&pclient->program_output);
 
 	io_remove(&pclient->io);
 

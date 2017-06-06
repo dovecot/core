@@ -125,8 +125,7 @@ static void notify_connection_unref(struct notify_connection *conn)
 		return;
 
 	i_stream_destroy(&conn->input);
-	if (conn->output != NULL)
-		o_stream_destroy(&conn->output);
+	o_stream_destroy(&conn->output);
 	i_free(conn);
 }
 

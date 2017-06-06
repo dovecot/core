@@ -61,8 +61,7 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 
 	timeout_remove(&client->to_idle);
 	io_remove(&client->io);
-	if (client->input != NULL)
-		i_stream_destroy(&client->input);
+	i_stream_destroy(&client->input);
 	if (client->fd != -1) {
 		if (close(client->fd) < 0)
 			i_error("close(%s) failed: %m", client->path);

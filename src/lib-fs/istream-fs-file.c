@@ -15,8 +15,7 @@ static void i_stream_fs_file_close(struct iostream_private *stream,
 {
 	struct fs_file_istream *fstream = (struct fs_file_istream *)stream;
 
-	if (fstream->istream.parent != NULL)
-		i_stream_destroy(&fstream->istream.parent);
+	i_stream_destroy(&fstream->istream.parent);
 	fs_file_deinit(&fstream->file);
 }
 

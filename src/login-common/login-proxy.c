@@ -478,10 +478,8 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 	}
 
 	io_remove(&proxy->server_io);
-	if (proxy->server_input != NULL)
-		i_stream_destroy(&proxy->server_input);
-	if (proxy->server_output != NULL)
-		o_stream_destroy(&proxy->server_output);
+	i_stream_destroy(&proxy->server_input);
+	o_stream_destroy(&proxy->server_output);
 	if (proxy->server_fd != -1) {
 		net_disconnect(proxy->server_fd);
 		proxy->server_fd = -1;
@@ -500,10 +498,8 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 	}
 
 	io_remove(&proxy->client_io);
-	if (proxy->client_input != NULL)
-		i_stream_destroy(&proxy->client_input);
-	if (proxy->client_output != NULL)
-		o_stream_destroy(&proxy->client_output);
+	i_stream_destroy(&proxy->client_input);
+	o_stream_destroy(&proxy->client_output);
 	if (proxy->client_fd != -1)
 		net_disconnect(proxy->client_fd);
 	if (proxy->ssl_server_proxy != NULL) {
@@ -783,10 +779,8 @@ int login_proxy_starttls(struct login_proxy *proxy)
 {
 	int fd;
 
-	if (proxy->server_input != NULL)
-		i_stream_destroy(&proxy->server_input);
-	if (proxy->server_output != NULL)
-		o_stream_destroy(&proxy->server_output);
+	i_stream_destroy(&proxy->server_input);
+	o_stream_destroy(&proxy->server_output);
 	io_remove(&proxy->server_io);
 
 	fd = ssl_proxy_client_alloc(proxy->server_fd, &proxy->client->ip,

@@ -551,15 +551,11 @@ void server_connection_destroy(struct server_connection **_conn)
 		print_connection_released();
 
 	timeout_remove(&conn->to_input);
-	if (conn->input != NULL)
-		i_stream_destroy(&conn->input);
-	if (conn->output != NULL)
-		o_stream_destroy(&conn->output);
-	if (conn->cmd_input != NULL)
-		i_stream_destroy(&conn->cmd_input);
+	i_stream_destroy(&conn->input);
+	o_stream_destroy(&conn->output);
+	i_stream_destroy(&conn->cmd_input);
 	/* close cmd_output after its parent, so the "." isn't sent */
-	if (conn->cmd_output != NULL)
-		o_stream_destroy(&conn->cmd_output);
+	o_stream_destroy(&conn->cmd_output);
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
 	io_remove(&conn->io);

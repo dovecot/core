@@ -306,8 +306,7 @@ void login_connection_deinit(struct login_connection **_conn)
 
 	DLLIST_REMOVE(&login_connections, conn);
 	io_remove(&conn->io);
-	if (conn->input != NULL)
-		i_stream_destroy(&conn->input);
+	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(login connection) failed: %m");

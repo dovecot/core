@@ -198,8 +198,7 @@ static int fs_compress_write_stream_finish(struct fs_file *_file, bool success)
 			o_stream_unref(&_file->output);
 	}
 	if (!success) {
-		if (file->temp_output != NULL)
-			o_stream_destroy(&file->temp_output);
+		o_stream_destroy(&file->temp_output);
 		if (file->super_output != NULL)
 			fs_write_stream_abort_parent(_file, &file->super_output);
 		return -1;

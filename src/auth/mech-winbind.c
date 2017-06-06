@@ -54,10 +54,8 @@ static bool sigchld_handler_set = FALSE;
 
 static void winbind_helper_disconnect(struct winbind_helper *winbind)
 {
-	if (winbind->in_pipe != NULL)
-		i_stream_destroy(&winbind->in_pipe);
-	if (winbind->out_pipe != NULL)
-		o_stream_destroy(&winbind->out_pipe);
+	i_stream_destroy(&winbind->in_pipe);
+	o_stream_destroy(&winbind->out_pipe);
 }
 
 static void winbind_wait_pid(struct winbind_helper *winbind)

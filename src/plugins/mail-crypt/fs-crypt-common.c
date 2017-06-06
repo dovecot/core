@@ -337,7 +337,7 @@ static int fs_crypt_write_stream_finish(struct fs_file *_file, bool success)
 						    "write(%s) failed: %s",
 						    o_stream_get_name(file->super_output),
 						    o_stream_get_error(file->super_output));
-		} else if (file->temp_output != NULL) {
+		} else {
 			o_stream_destroy(&file->temp_output);
 		}
 		return -1;

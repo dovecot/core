@@ -168,8 +168,7 @@ static int fs_test_write_stream_finish(struct fs_file *_file, bool success)
 {
 	struct test_fs_file *file = (struct test_fs_file *)_file;
 
-	if (_file->output != NULL)
-		o_stream_destroy(&_file->output);
+	o_stream_destroy(&_file->output);
 	if (file->wait_async) {
 		fs_set_error_async(_file->fs);
 		return 0;

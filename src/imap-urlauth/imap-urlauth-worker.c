@@ -242,15 +242,11 @@ static void client_destroy(struct client *client)
 	io_remove(&client->ctrl_io);
 	timeout_remove(&client->to_idle);
 
-	if (client->input != NULL)
-		i_stream_destroy(&client->input);
-	if (client->output != NULL)
-		o_stream_destroy(&client->output);
+	i_stream_destroy(&client->input);
+	o_stream_destroy(&client->output);
 
-	if (client->ctrl_input != NULL)
-		i_stream_destroy(&client->ctrl_input);
-	if (client->ctrl_output != NULL)
-		o_stream_destroy(&client->ctrl_output);
+	i_stream_destroy(&client->ctrl_input);
+	o_stream_destroy(&client->ctrl_output);
 
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);
 	if (client->fd_ctrl >= 0)

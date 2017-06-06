@@ -705,8 +705,7 @@ void mbox_save_cancel(struct mail_save_context *_ctx)
 
 static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 {
-	if (ctx->output != NULL)
-		o_stream_destroy(&ctx->output);
+	o_stream_destroy(&ctx->output);
 	str_free(&ctx->headers);
 }
 

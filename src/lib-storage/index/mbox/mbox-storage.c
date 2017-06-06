@@ -616,8 +616,7 @@ static void mbox_mailbox_close(struct mailbox *box)
 	timeout_remove(&mbox->keep_lock_to);
 
         mbox_file_close(mbox);
-	if (mbox->mbox_file_stream != NULL)
-		i_stream_destroy(&mbox->mbox_file_stream);
+	i_stream_destroy(&mbox->mbox_file_stream);
 
 	index_storage_mailbox_close(box);
 }

@@ -297,8 +297,7 @@ int subsfile_list_deinit(struct subsfile_list_context **_ctx)
 
 	*_ctx = NULL;
 
-	if (ctx->input != NULL)
-		i_stream_destroy(&ctx->input);
+	i_stream_destroy(&ctx->input);
 	str_free(&ctx->name);
 	i_free(ctx->path);
 	i_free(ctx);

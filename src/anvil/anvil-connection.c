@@ -210,8 +210,7 @@ void anvil_connection_destroy(struct anvil_connection *conn)
 
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
-	if (conn->output != NULL)
-		o_stream_destroy(&conn->output);
+	o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
 		i_error("close(anvil conn) failed: %m");
 	i_free(conn);

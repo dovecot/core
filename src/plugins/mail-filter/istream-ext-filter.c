@@ -27,10 +27,8 @@ i_stream_mail_filter_close(struct iostream_private *stream, bool close_parent)
 	struct mail_filter_istream *mstream =
 		(struct mail_filter_istream *)stream;
 
-	if (mstream->ext_in != NULL)
-		i_stream_destroy(&mstream->ext_in);
-	if (mstream->ext_out != NULL)
-		o_stream_destroy(&mstream->ext_out);
+	i_stream_destroy(&mstream->ext_in);
+	o_stream_destroy(&mstream->ext_out);
 	if (mstream->fd != -1) {
 		if (close(mstream->fd) < 0)
 			i_error("ext-filter: close() failed: %m");

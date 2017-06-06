@@ -125,8 +125,7 @@ void mbox_file_close_stream(struct mbox_mailbox *mbox)
 	/* if we read anything, fix the atime if needed */
 	mbox_file_fix_atime(mbox);
 
-	if (mbox->mbox_stream != NULL)
-		i_stream_destroy(&mbox->mbox_stream);
+	i_stream_destroy(&mbox->mbox_stream);
 
 	if (mbox->mbox_file_stream != NULL) {
 		if (mbox->mbox_fd == -1) {

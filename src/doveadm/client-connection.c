@@ -567,14 +567,11 @@ void client_connection_destroy(struct client_connection **_conn)
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_destroy(&conn->ssl_iostream);
 
-	if (conn->output != NULL)
-		o_stream_destroy(&conn->output);
+	o_stream_destroy(&conn->output);
 
 	io_remove(&conn->io);
 
-	if (conn->input != NULL) {
-		i_stream_destroy(&conn->input);
-	}
+	i_stream_destroy(&conn->input);
 
 	if (conn->fd > 0 && close(conn->fd) < 0)
 		i_error("close(client) failed: %m");
