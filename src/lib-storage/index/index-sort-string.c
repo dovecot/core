@@ -357,6 +357,7 @@ index_sort_get_string(struct sort_string_context *ctx,
 
 	if (node->no_update) {
 		/* we've already determined that we can't do this lookup */
+		*str_r = ctx->sort_strings[seq];
 		return FALSE;
 	}
 
