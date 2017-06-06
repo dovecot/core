@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 
 #ifdef BUILD_CDB
 #include "dict-private.h"
@@ -18,6 +19,16 @@ struct cdb_dict {
 	struct cdb cdb;
 	char *path;
 	int fd, flag;
+};
+
+struct cdb_dict_iterate_context {
+	struct dict_iterate_context ctx;
+
+	enum dict_iterate_flags flags;
+	buffer_t *buffer;
+	const char **paths;
+	unsigned cptr;
+	char *error;
 };
 
 static void cdb_dict_deinit(struct dict *_dict);
@@ -119,12 +130,138 @@ cdb_dict_lookup(struct dict *_dict, pool_t pool,
 	return 1;
 }
 
+static struct dict_iterate_context *
+cdb_dict_iterate_init(struct dict *_dict, const char *const *paths,
+		      enum dict_iterate_flags flags)
+{
+	struct cdb_dict_iterate_context *ctx =
+		i_new(struct cdb_dict_iterate_context, 1);
+	struct cdb_dict *dict = (struct cdb_dict *)_dict;
+
+	ctx->ctx.dict = &dict->dict;
+	ctx->paths = p_strarray_dup(default_pool, paths);
+	ctx->flags = flags;
+	ctx->buffer = buffer_create_dynamic(default_pool, 256);
+
+	cdb_seqinit(&ctx->cptr, &dict->cdb);
+
+	return &ctx->ctx;
+}
+
+static bool
+cdb_dict_next(struct cdb_dict_iterate_context *ctx, const char **key_r)
+{
+	struct cdb_dict *dict = (struct cdb_dict *)ctx->ctx.dict;
+	char *data;
+	unsigned datalen;
+	int ret;
+
+	if ((ret = cdb_seqnext(&ctx->cptr, &dict->cdb)) < 1) {
+		if (ret < 0)
+			ctx->error = i_strdup_printf("cdb_seqnext(%s) failed: %m",
+						     dict->path);
+		return FALSE;
+	}
+
+	buffer_set_used_size(ctx->buffer, 0);
+
+	datalen = cdb_keylen(&dict->cdb);
+	data = buffer_append_space_unsafe(ctx->buffer, datalen + 1);
+
+	if (cdb_read(&dict->cdb, data, datalen, cdb_keypos(&dict->cdb)) < 0) {
+		ctx->error = i_strdup_printf("cdb_read(%s) failed: %m",
+					     dict->path);
+		return FALSE;
+	}
+
+	data[datalen] = '\0';
+	*key_r = data;
+
+	return TRUE;
+}
+
+static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
+			     const char **key_r, const char **value_r)
+{
+	struct cdb_dict_iterate_context *ctx =
+		(struct cdb_dict_iterate_context *)_ctx;
+	struct cdb_dict *dict = (struct cdb_dict *)_ctx->dict;
+	const char *key, **ptr;
+	bool match = FALSE;
+	char *data;
+	unsigned datalen;
+
+	if (ctx->error != NULL)
+		return FALSE;
+
+	while(!match && cdb_dict_next(ctx, &key)) {
+		/* if it matches any of the paths */
+		for(ptr = ctx->paths; *ptr != NULL; ptr++) {
+			if (((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0 &&
+			     strcmp(key, *ptr) == 0) ||
+			    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0 &&
+			     strncmp(key, *ptr, strlen(*ptr)) == 0) ||
+			    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
+			     strncmp(key, *ptr, strlen(*ptr)) == 0 &&
+			     strchr(key + strlen(*ptr), '/') == NULL)) {
+				match = TRUE;
+				break;
+			}
+		}
+	}
+
+	if (!match)
+		return FALSE;
+
+	*key_r = key;
+
+	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0)
+		return TRUE;
+
+	datalen = cdb_datalen(&dict->cdb);
+	data = buffer_append_space_unsafe(ctx->buffer, datalen + 1);
+
+	if (cdb_read(&dict->cdb, data, datalen, cdb_datapos(&dict->cdb)) < 0) {
+		ctx->error = i_strdup_printf("cdb_read(%s) failed: %m",
+					     dict->path);
+		return FALSE;
+	}
+
+	data[datalen] = '\0';
+	*value_r = data;
+
+	return TRUE;
+}
+
+static int cdb_dict_iterate_deinit(struct dict_iterate_context *_ctx,
+				   const char **error_r)
+{
+	int ret = 0;
+	struct cdb_dict_iterate_context *ctx =
+		(struct cdb_dict_iterate_context *)_ctx;
+	if (ctx->error != NULL) {
+		*error_r = t_strdup(ctx->error);
+		ret = -1;
+	}
+
+	buffer_free(&ctx->buffer);
+	i_free(ctx->error);
+	i_free(ctx->paths);
+	i_free(ctx);
+
+	return ret;
+}
+
+
 struct dict dict_driver_cdb = {
 	.name = "cdb",
 	{
 		.init = cdb_dict_init,
 		.deinit = cdb_dict_deinit,
 		.lookup = cdb_dict_lookup,
+		.iterate_init = cdb_dict_iterate_init,
+		.iterate = cdb_dict_iterate,
+		.iterate_deinit = cdb_dict_iterate_deinit,
 	}
 };
 #endif
