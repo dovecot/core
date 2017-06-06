@@ -49,6 +49,12 @@ oauth2_parse_json(struct oauth2_request *req)
 		(void)json_parser_deinit(&req->parser, &error);
 		error = "Invalid response data";
 		success = FALSE;
+	} else if (i_stream_is_eof(req->is) &&
+		   req->is->v_offset == 0 && req->is->stream_errno == 0) {
+		/* discard error, empty response is OK. */
+		(void)json_parser_deinit(&req->parser, &error);
+		error = NULL;
+		success = TRUE;
 	} else {
 		ret = json_parser_deinit(&req->parser, &error);
 		success = (ret == 0);
