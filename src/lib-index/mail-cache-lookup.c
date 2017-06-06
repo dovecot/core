@@ -634,12 +634,14 @@ mail_cache_get_highest_seq_with_cache(struct mail_cache_view *view,
 	for (; seq > highest_checked_seq; seq--) {
 		if (mail_cache_lookup_cur_offset(view->view, seq, reset_id_r) != 0) {
 			rc->highest_seq_with_cache = seq;
+			rc->reset_id = *reset_id_r;
 			return seq;
 		}
 	}
 	if (seq == 0)
 		return 0;
 	/* then return the result from cache */
+	*reset_id_r = rc->reset_id;
 	return rc->highest_seq_with_cache;
 }
 
