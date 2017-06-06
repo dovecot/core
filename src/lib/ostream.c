@@ -61,6 +61,9 @@ static void o_stream_close_full(struct ostream *stream, bool close_parents)
 
 void o_stream_destroy(struct ostream **stream)
 {
+	if (*stream == NULL)
+		return;
+
 	o_stream_close_full(*stream, FALSE);
 	o_stream_unref(stream);
 }

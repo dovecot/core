@@ -35,6 +35,9 @@ static void i_stream_close_full(struct istream *stream, bool close_parents)
 
 void i_stream_destroy(struct istream **stream)
 {
+	if (*stream == NULL)
+		return;
+
 	i_stream_close_full(*stream, FALSE);
 	i_stream_unref(stream);
 }
