@@ -167,11 +167,17 @@ static void io_remove_full(struct io **_io, bool closed)
 
 void io_remove(struct io **io)
 {
+	if (*io == NULL)
+		return;
+
 	io_remove_full(io, FALSE);
 }
 
 void io_remove_closed(struct io **io)
 {
+	if (*io == NULL)
+		return;
+
 	i_assert(((*io)->condition & IO_NOTIFY) == 0);
 
 	io_remove_full(io, TRUE);
