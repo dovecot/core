@@ -133,13 +133,12 @@ void mail_cache_register_fields(struct mail_cache *cache,
 		return;
 
 	/* @UNSAFE */
-	cache->fields = i_realloc(cache->fields,
-				  cache->fields_count * sizeof(*cache->fields),
-				  new_idx * sizeof(*cache->fields));
+	cache->fields = i_realloc_type(cache->fields,
+				       struct mail_cache_field_private,
+				       cache->fields_count, new_idx);
 	cache->field_file_map =
-		i_realloc(cache->field_file_map,
-			  cache->fields_count * sizeof(*cache->field_file_map),
-			  new_idx * sizeof(*cache->field_file_map));
+		i_realloc_type(cache->field_file_map, uint32_t,
+			       cache->fields_count, new_idx);
 
 	registered_count = cache->fields_count;
 	for (i = 0; i < fields_count; i++) {
@@ -349,10 +348,8 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	new_fields_count = field_hdr->fields_count;
 	if (new_fields_count != 0) {
 		cache->file_field_map =
-			i_realloc(cache->file_field_map,
-				  cache->file_fields_count *
-				  sizeof(unsigned int),
-				  new_fields_count * sizeof(unsigned int));
+			i_realloc_type(cache->file_field_map, unsigned int,
+				       cache->file_fields_count, new_fields_count);
 	} else {
 		i_free_and_null(cache->file_field_map);
 	}
