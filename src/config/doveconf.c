@@ -877,6 +877,9 @@ int main(int argc, char *argv[])
 			   Do this only if the environment exists, because
 			   lib-master doesn't set it if it doesn't want the
 			   environment to be cleaned (e.g. -k parameter). */
+			const char *import_environment =
+				config_export_get_import_environment(ctx);
+			master_service_import_environment(import_environment);
 			master_service_env_clean();
 		}
 

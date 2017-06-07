@@ -400,6 +400,24 @@ void config_export_get_output(struct config_export_context *ctx,
 	*output_r = ctx->output;
 }
 
+const char *
+config_export_get_import_environment(struct config_export_context *ctx)
+{
+	enum setting_type stype;
+	unsigned int i;
+
+	for (i = 0; ctx->parsers[i].root != NULL; i++) {
+		if (ctx->parsers[i].root == &master_service_setting_parser_info) {
+			const char *const *value =
+				settings_parse_get_value(ctx->parsers[i].parser,
+					"import_environment", &stype);
+			i_assert(value != NULL);
+			return *value;
+		}
+	}
+	i_unreached();
+}
+
 static void config_export_free(struct config_export_context *ctx)
 {
 	if (ctx->dup_parsers != NULL)
