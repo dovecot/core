@@ -97,11 +97,14 @@ mail_search_args_merge_mask(struct mail_search_simplify_ctx *ctx,
 		*prev_argp = args;
 		return FALSE;
 	}
+
 	if (ctx->initialized)
-		mail_search_arg_one_deinit(*prev_argp);
+		mail_search_arg_one_deinit(args);
 
 	if ((*prev_argp)->match_not != args->match_not) {
 		/* a && !a = 0 */
+		if (ctx->initialized)
+			mail_search_arg_one_deinit(*prev_argp);
 		(*prev_argp)->type = SEARCH_ALL;
 		(*prev_argp)->match_not = ctx->parent_and;
 	}
