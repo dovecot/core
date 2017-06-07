@@ -431,6 +431,11 @@ master_set_import_environment(const struct master_service_settings *set)
 		return;
 
 	t_array_init(&keys, 8);
+	/* preserve existing DOVECOT_PRESERVE_ENVS */
+	value = getenv(DOVECOT_PRESERVE_ENVS_ENV);
+	if (value != NULL)
+		array_append(&keys, &value, 1);
+	/* add new environments */
 	envs = t_strsplit_spaces(set->import_environment, " ");
 	for (; *envs != NULL; envs++) {
 		value = strchr(*envs, '=');
