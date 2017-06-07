@@ -209,10 +209,13 @@ static int parse_name_addr(struct message_address_parser_context *ctx)
 static int parse_addr_spec(struct message_address_parser_context *ctx)
 {
 	/* addr-spec       = local-part "@" domain */
-	int ret, ret2;
+	int ret, ret2 = -2;
+
+	i_assert(ctx->parser.data != ctx->parser.end);
 
 	str_truncate(ctx->parser.last_comment, 0);
 
+	bool quoted_string = *ctx->parser.data == '"';
 	ret = parse_local_part(ctx);
 	if (ret <= 0) {
 		/* end of input or parsing local-part failed */
@@ -226,6 +229,24 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 
 	if (str_len(ctx->parser.last_comment) > 0)
 		ctx->addr.name = p_strdup(ctx->pool, str_c(ctx->parser.last_comment));
+	else if (ret2 == -2) {
+		/* So far we've read user without @domain and without
+		   (Display Name). We'll assume that a single "user" (already
+		   read into addr.mailbox) is a mailbox, but if it's followed
+		   by anything else it's a display-name. */
+		str_append_c(ctx->str, ' ');
+		size_t orig_str_len = str_len(ctx->str);
+		(void)rfc822_parse_phrase(&ctx->parser, ctx->str);
+		if (str_len(ctx->str) != orig_str_len) {
+			ctx->addr.mailbox = NULL;
+			ctx->addr.name = p_strdup(ctx->pool, str_c(ctx->str));
+		} else {
+			if (!quoted_string)
+				ctx->addr.domain = "";
+		}
+		ctx->addr.invalid_syntax = TRUE;
+		ret = -1;
+	}
 	return ret;
 }
 
