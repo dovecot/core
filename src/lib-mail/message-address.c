@@ -338,7 +338,8 @@ static int parse_address_list(struct message_address_parser_context *ctx,
 		max_addresses--;
 		if ((ret = parse_address(ctx)) == 0)
 			break;
-		if (*ctx->parser.data != ',') {
+		if (ctx->parser.data == ctx->parser.end ||
+		    *ctx->parser.data != ',') {
 			ret = -1;
 			break;
 		}

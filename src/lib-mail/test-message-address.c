@@ -15,6 +15,20 @@ static bool cmp_addr(const struct message_address *a1,
 		a1->invalid_syntax == a2->invalid_syntax;
 }
 
+static const struct message_address *test_parse_address(const char *input)
+{
+	/* duplicate the input (without trailing NUL) so valgrind notices
+	   if there's any out-of-bounds access */
+	size_t input_len = strlen(input);
+	unsigned char *input_dup = i_malloc(input_len);
+	memcpy(input_dup, input, input_len);
+	const struct message_address *addr =
+		message_address_parse(pool_datastack_create(),
+				      input_dup, input_len, UINT_MAX, FALSE);
+	i_free(input_dup);
+	return addr;
+}
+
 static void test_message_address(void)
 {
 	static const struct test {
@@ -113,7 +127,7 @@ static void test_message_address(void)
 	static struct message_address group_suffix = {
 		NULL, NULL, NULL, NULL, NULL, FALSE
 	};
-	struct message_address *addr;
+	const struct message_address *addr;
 	string_t *str, *group;
 	const char *wanted_string;
 	unsigned int i;
@@ -126,9 +140,7 @@ static void test_message_address(void)
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		const struct test *test = &tests[i];
 
-		addr = message_address_parse(pool_datastack_create(),
-					     (const unsigned char *)test->input,
-					     strlen(test->input), UINT_MAX, FALSE);
+		addr = test_parse_address(test->input);
 		test_assert_idx(addr != NULL && addr->next == NULL &&
 				cmp_addr(addr, &test->addr), i);
 
@@ -151,8 +163,7 @@ static void test_message_address(void)
 	test_end();
 
 	test_begin("message address parsing with groups");
-	addr = message_address_parse(pool_datastack_create(), str_data(group),
-				     str_len(group), UINT_MAX, FALSE);
+	addr = test_parse_address(str_c(group));
 	test_assert(addr != NULL && cmp_addr(addr, &group_prefix));
 	addr = addr->next;
 	for (i = 0; i < N_ELEMENTS(tests) && addr != NULL; i++) {
@@ -170,8 +181,7 @@ static void test_message_address(void)
 	test_begin("message address parsing with empty group");
 	str_truncate(group, 0);
 	str_append(group, "group:;");
-	addr = message_address_parse(pool_datastack_create(), str_data(group),
-				     str_len(group), UINT_MAX, FALSE);
+	addr = test_parse_address(str_c(group));
 	str_truncate(str, 0);
 	message_address_write(str, addr);
 	test_assert(addr != NULL && cmp_addr(addr, &group_prefix));
