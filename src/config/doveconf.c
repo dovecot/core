@@ -12,6 +12,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "settings-parser.h"
+#include "master-interface.h"
 #include "master-service.h"
 #include "all-settings.h"
 #include "sysinfo-get.h"
@@ -870,11 +871,21 @@ int main(int argc, char *argv[])
 	} else {
 		struct config_export_context *ctx;
 
-		env_put("DOVECONF_ENV=1");
 		ctx = config_export_init(wanted_modules, CONFIG_DUMP_SCOPE_SET,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_putenv, NULL);
 		config_export_by_filter(ctx, &filter);
+
+		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) != NULL) {
+			/* Standalone binary is getting its configuration via
+			   doveconf. Clean the environment before calling it.
+			   Do this only if the environment exists, because
+			   lib-master doesn't set it if it doesn't want the
+			   environment to be cleaned (e.g. -k parameter). */
+			master_service_env_clean();
+		}
+
+		env_put("DOVECONF_ENV=1");
 		if (config_export_finish(&ctx) < 0)
 			i_fatal("Invalid configuration");
 		execvp(exec_args[0], exec_args);
