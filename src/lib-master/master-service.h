@@ -95,6 +95,11 @@ bool master_service_parse_option(struct master_service *service,
    initialization code is finished. */
 void master_service_init_finish(struct master_service *service);
 
+/* import_environment is a space-separated list of environment keys or
+   key=values. The key=values are immediately added to the environment.
+   All the keys are added to DOVECOT_PRESERVE_ENVS environment so they're
+   preserved by master_service_env_clean(). */
+void master_service_import_environment(const char *import_environment);
 /* Clean environment from everything except the ones listed in
    DOVECOT_PRESERVE_ENVS environment. */
 void master_service_env_clean(void);
