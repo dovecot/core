@@ -49,8 +49,22 @@ static void test_message_address(void)
 		  { NULL, NULL, NULL, "user\"name", "domain", FALSE } },
 		{ "\"\"@domain", "<\"\"@domain>",
 		  { NULL, NULL, NULL, "", "domain", FALSE } },
+		{ "user", "<user>",
+		  { NULL, NULL, NULL, "user", "", TRUE } },
 		{ "@domain", "<\"\"@domain>",
 		  { NULL, NULL, NULL, "", "domain", TRUE } },
+
+		/* Display Name -> Display Name */
+		{ "Display Name", "\"Display Name\"",
+		  { NULL, "Display Name", NULL, "", "", TRUE } },
+		{ "\"Display Name\"", "\"Display Name\"",
+		  { NULL, "Display Name", NULL, "", "", TRUE } },
+		{ "Display \"Name\"", "\"Display Name\"",
+		  { NULL, "Display Name", NULL, "", "", TRUE } },
+		{ "\"Display\" \"Name\"", "\"Display Name\"",
+		  { NULL, "Display Name", NULL, "", "", TRUE } },
+		{ "\"\"", "",
+		  { NULL, "", NULL, "", "", TRUE } },
 
 		/* <user@domain> -> <user@domain> */
 		{ "<user@domain>", NULL,
@@ -65,6 +79,8 @@ static void test_message_address(void)
 		  { NULL, NULL, NULL, "user\"name", "domain", FALSE } },
 		{ "<\"\"@domain>", NULL,
 		  { NULL, NULL, NULL, "", "domain", FALSE } },
+		{ "<user>", NULL,
+		  { NULL, NULL, NULL, "user", "", TRUE } },
 		{ "<@route>", "<@route:\"\">",
 		  { NULL, NULL, "@route", "", "", TRUE } },
 
@@ -79,6 +95,8 @@ static void test_message_address(void)
 		  { NULL, "Display Name", NULL, "user", "", TRUE } },
 		{ "@domain (Display Name)", "\"Display Name\" <\"\"@domain>",
 		  { NULL, "Display Name", NULL, "", "domain", TRUE } },
+		{ "user@domain ()", "<user@domain>",
+		  { NULL, NULL, NULL, "user", "domain", FALSE } },
 
 		/* Display Name <user@domain> -> "Display Name" <user@domain> */
 		{ "DisplayName <user@domain>", NULL,
@@ -91,6 +109,8 @@ static void test_message_address(void)
 		  { NULL, "Display\"Name", NULL, "user", "domain", FALSE } },
 		{ "Display Name <user>", "\"Display Name\" <user>",
 		  { NULL, "Display Name", NULL, "user", "", TRUE } },
+		{ "\"\" <user@domain>", "<user@domain>",
+		  { NULL, NULL, NULL, "user", "domain", FALSE } },
 
 		/* <@route:user@domain> -> <@route:user@domain> */
 		{ "<@route:user@domain>", NULL,
