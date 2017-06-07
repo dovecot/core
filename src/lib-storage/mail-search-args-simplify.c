@@ -98,7 +98,7 @@ mail_search_args_merge_mask(struct mail_search_simplify_ctx *ctx,
 		return FALSE;
 	}
 	if (ctx->initialized)
-		mail_search_arg_deinit(*prev_argp);
+		mail_search_arg_one_deinit(*prev_argp);
 
 	if ((*prev_argp)->match_not != args->match_not) {
 		/* a && !a = 0 */
@@ -341,7 +341,7 @@ mail_search_args_remove_equal(struct mail_search_args *all_args,
 	for (argp = argsp; (*argp) != NULL; ) {
 		if (mail_search_arg_one_equals(*argp, wanted_arg)) {
 			if (all_args->init_refcount > 0)
-				mail_search_arg_deinit(*argp);
+				mail_search_arg_one_deinit(*argp);
 			*argp = (*argp)->next;
 			found = TRUE;
 		} else if (check_subs) {
@@ -428,7 +428,7 @@ mail_search_args_simplify_drop_redundant_args(struct mail_search_args *all_args,
 		    (*argp)->value.subargs != lowest_arg &&
 		    mail_search_args_have_all_equal(*argp, lowest_arg)) {
 			if (all_args->init_refcount > 0)
-				mail_search_arg_deinit(*argp);
+				mail_search_arg_one_deinit(*argp);
 			*argp = (*argp)->next;
 			ret = TRUE;
 		} else {
