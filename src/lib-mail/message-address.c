@@ -204,8 +204,7 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 	/* addr-spec       = local-part "@" domain */
 	int ret, ret2;
 
-	if (ctx->parser.last_comment != NULL)
-		str_truncate(ctx->parser.last_comment, 0);
+	str_truncate(ctx->parser.last_comment, 0);
 
 	ret = parse_local_part(ctx);
 	if (ret <= 0) {
@@ -218,12 +217,8 @@ static int parse_addr_spec(struct message_address_parser_context *ctx)
 			ret = ret2;
 	}
 
-	if (ctx->parser.last_comment != NULL) {
-		if (str_len(ctx->parser.last_comment) > 0) {
-			ctx->addr.name =
-				p_strdup(ctx->pool, str_c(ctx->parser.last_comment));
-		}
-	}
+	if (str_len(ctx->parser.last_comment) > 0)
+		ctx->addr.name = p_strdup(ctx->pool, str_c(ctx->parser.last_comment));
 	return ret;
 }
 
