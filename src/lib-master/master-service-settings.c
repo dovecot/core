@@ -134,7 +134,14 @@ master_service_exec_config(struct master_service *service,
 			master_service_import_environment("USER");
 		if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0)
 			master_service_import_environment("LOG_STDERR_TIMESTAMP");
-		master_service_env_clean();
+
+		/* doveconf empties the environment before exec()ing us back
+		   if DOVECOT_PRESERVE_ENVS is set, so make sure it is. */
+		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) == NULL)
+			env_put(DOVECOT_PRESERVE_ENVS_ENV"=");
+	} else {
+		/* make sure doveconf doesn't remove any environment */
+		env_remove(DOVECOT_PRESERVE_ENVS_ENV);
 	}
 	if (input->use_sysexits)
 		env_put("USE_SYSEXITS=1");
