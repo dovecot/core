@@ -38,7 +38,7 @@ static void test_message_address(void)
 		  { NULL, NULL, "@route,@route2", "user", "domain", FALSE } },
 		{ "hello <@route ,@route2:user@domain>", "hello <@route,@route2:user@domain>",
 		  { NULL, "hello", "@route,@route2", "user", "domain", FALSE } },
-		{ "hello", "hello <>",
+		{ "hello", "hello",
 		  { NULL, "hello", NULL, "", "", TRUE } },
 		{ "user (hello)", "hello <user>",
 		  { NULL, "hello", NULL, "user", "", TRUE } },
