@@ -6,6 +6,8 @@
 extern pool_t default_pool;
 
 #define i_new(type, count) p_new(default_pool, type, count)
+#define i_realloc_type(mem, type, old_count, new_count) \
+	p_realloc_type(default_pool, mem, type, old_count, new_count)
 
 void *i_malloc(size_t size) ATTR_MALLOC ATTR_RETURNS_NONNULL;
 void *i_realloc(void *mem, size_t old_size, size_t new_size)

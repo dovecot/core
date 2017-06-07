@@ -20,6 +20,7 @@ int main(void)
 		test_hash_format,
 		test_hash_method,
 		test_hex_binary,
+		test_imem,
 		test_ioloop,
 		test_iso8601_date,
 		test_iostream_temp,

@@ -21,6 +21,7 @@ void test_hash(void);
 void test_hash_format(void);
 void test_hash_method(void);
 void test_hex_binary(void);
+void test_imem(void);
 void test_ioloop(void);
 void test_iso8601_date(void);
 void test_iostream_temp(void);
