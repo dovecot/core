@@ -168,8 +168,10 @@ void mail_search_arg_init(struct mail_search_args *args,
    afterwards again if needed. The args can be reused for other queries after
    calling this. */
 void mail_search_args_deinit(struct mail_search_args *args);
-/* Free arg and its children. */
+/* Free arg and its siblings and children. */
 void mail_search_arg_deinit(struct mail_search_arg *arg);
+/* Free arg and its children, but not its siblings. */
+void mail_search_arg_one_deinit(struct mail_search_arg *arg);
 /* Convert sequence sets in args to UIDs. */
 void mail_search_args_seq2uid(struct mail_search_args *args);
 /* Returns TRUE if the two search arguments are fully compatible.
