@@ -22,9 +22,9 @@ static void test_message_address(void)
 		const char *wanted_output;
 		struct message_address addr;
 	} tests[] = {
-		{ "user@domain", NULL,
+		{ "user@domain", "<user@domain>",
 		  { NULL, NULL, NULL, "user", "domain", FALSE } },
-		{ "<user@domain>", "user@domain",
+		{ "<user@domain>", NULL,
 		  { NULL, NULL, NULL, "user", "domain", FALSE } },
 		{ "foo bar <user@domain>", "\"foo bar\" <user@domain>",
 		  { NULL, "foo bar", NULL, "user", "domain", FALSE } },
@@ -44,7 +44,7 @@ static void test_message_address(void)
 		  { NULL, "hello", NULL, "user", "", TRUE } },
 		{ "hello <user>", "hello <user>",
 		  { NULL, "hello", NULL, "user", "", TRUE } },
-		{ "@domain", NULL,
+		{ "@domain", "<@domain>",
 		  { NULL, NULL, NULL, "", "domain", TRUE } },
 	};
 	static struct message_address group_prefix = {

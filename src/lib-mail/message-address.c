@@ -444,18 +444,8 @@ void message_address_write(string_t *str, const struct message_address *addr)
 			}
 
 			in_group = !in_group;
-		} else if ((addr->name == NULL || *addr->name == '\0') &&
-			   addr->route == NULL) {
-			/* no name and no route. use only mailbox@domain */
-			i_assert(addr->mailbox != NULL);
-
-			str_append_maybe_escape(str, addr->mailbox, FALSE);
-			if (addr->domain[0] != '\0') {
-				str_append_c(str, '@');
-				str_append(str, addr->domain);
-			}
 		} else {
-			/* name and/or route. use full <mailbox@domain> Name */
+			/* "Display Name" <mailbox@domain> */
 			i_assert(addr->mailbox != NULL);
 
 			if (addr->name != NULL) {
