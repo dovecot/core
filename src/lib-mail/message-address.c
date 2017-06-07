@@ -153,18 +153,25 @@ static int parse_angle_addr(struct message_address_parser_context *ctx)
 		if (parse_domain_list(ctx) <= 0 || *ctx->parser.data != ':') {
 			if (ctx->fill_missing)
 				ctx->addr.route = "INVALID_ROUTE";
-			return -1;
+			if (ctx->parser.data == ctx->parser.end)
+				return -1;
+			/* try to continue anyway */
+		} else {
+			ctx->parser.data++;
 		}
-		ctx->parser.data++;
 		if ((ret = rfc822_skip_lwsp(&ctx->parser)) <= 0)
 			return ret;
 	}
 
-	if ((ret = parse_local_part(ctx)) <= 0)
-		return ret;
-	if (*ctx->parser.data == '@') {
-		if ((ret = parse_domain(ctx)) <= 0)
+	if (*ctx->parser.data == '>') {
+		/* <> address isn't valid */
+	} else {
+		if ((ret = parse_local_part(ctx)) <= 0)
 			return ret;
+		if (*ctx->parser.data == '@') {
+			if ((ret = parse_domain(ctx)) <= 0)
+				return ret;
+		}
 	}
 
 	if (*ctx->parser.data != '>')
