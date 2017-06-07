@@ -450,8 +450,10 @@ void message_address_write(string_t *str, const struct message_address *addr)
 			i_assert(addr->mailbox != NULL);
 
 			str_append_maybe_escape(str, addr->mailbox, FALSE);
-			str_append_c(str, '@');
-			str_append(str, addr->domain);
+			if (addr->domain[0] != '\0') {
+				str_append_c(str, '@');
+				str_append(str, addr->domain);
+			}
 		} else {
 			/* name and/or route. use full <mailbox@domain> Name */
 			i_assert(addr->mailbox != NULL);
@@ -473,8 +475,10 @@ void message_address_write(string_t *str, const struct message_address *addr)
 				str_append_c(str, ':');
 			}
 			str_append_maybe_escape(str, addr->mailbox, FALSE);
-			str_append_c(str, '@');
-			str_append(str, addr->domain);
+			if (addr->domain[0] != '\0') {
+				str_append_c(str, '@');
+				str_append(str, addr->domain);
+			}
 			str_append_c(str, '>');
 		}
 
