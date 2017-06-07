@@ -53,13 +53,13 @@ void test_mempool_alloconly(void)
 	test_end();
 }
 
-enum fatal_test_state fatal_mempool(unsigned int stage)
+enum fatal_test_state fatal_mempool_alloconly(unsigned int stage)
 {
 	static pool_t pool;
 
 	switch(stage) {
 	case 0: /* forbidden size */
-		test_begin("fatal_mempool");
+		test_begin("fatal_mempool_alloconly");
 		pool = pool_alloconly_create(MEMPOOL_GROWING"fatal", 1);
 		(void)p_malloc(pool, 0);
 		return FATAL_TEST_FAILURE;
