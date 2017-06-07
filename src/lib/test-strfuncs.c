@@ -3,6 +3,59 @@
 #include "test-lib.h"
 #include "array.h"
 
+static void test_p_strdup(void)
+{
+	test_begin("p_strdup()");
+	test_assert(p_strdup(default_pool, NULL) == NULL);
+
+	const char *src = "foo";
+	char *str = p_strdup(default_pool, src);
+	test_assert(str != src && str != NULL && strcmp(src, str) == 0);
+	p_free(default_pool, str);
+
+	test_end();
+}
+
+static void test_p_strdup_empty(void)
+{
+	test_begin("p_strdup_empty()");
+	test_assert(p_strdup_empty(default_pool, NULL) == NULL);
+	test_assert(p_strdup_empty(default_pool, "") == NULL);
+
+	const char *src = "foo";
+	char *str = p_strdup_empty(default_pool, src);
+	test_assert(str != src && str != NULL && strcmp(src, str) == 0);
+	p_free(default_pool, str);
+
+	test_end();
+}
+
+static void test_p_strdup_until(void)
+{
+	const char src[] = "foo\0bar";
+	char *str;
+
+	test_begin("p_strdup_until()");
+	str = p_strdup_until(default_pool, src, src+2);
+	test_assert(strcmp(str, "fo") == 0);
+	p_free(default_pool, str);
+
+	str = p_strdup_until(default_pool, src, src+3);
+	test_assert(strcmp(str, "foo") == 0);
+	p_free(default_pool, str);
+
+	/* \0 is ignored */
+	str = p_strdup_until(default_pool, src, src+7);
+	test_assert(memcmp(str, src, sizeof(src)) == 0);
+	p_free(default_pool, str);
+
+	str = p_strdup_until(default_pool, src, src+8);
+	test_assert(memcmp(str, src, sizeof(src)) == 0);
+	p_free(default_pool, str);
+
+	test_end();
+}
+
 static void test_p_strarray_dup(void)
 {
 	const char *input[][3] = {
@@ -255,6 +308,9 @@ static void test_mem_equals_timing_safe(void)
 
 void test_strfuncs(void)
 {
+	test_p_strdup();
+	test_p_strdup_empty();
+	test_p_strdup_until();
 	test_p_strarray_dup();
 	test_t_strsplit();
 	test_t_strsplit_spaces();
