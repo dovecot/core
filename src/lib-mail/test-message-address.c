@@ -26,6 +26,8 @@ static void test_message_address(void)
 		  { NULL, NULL, NULL, "user", "domain", FALSE } },
 		{ "<user@domain>", NULL,
 		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		{ "<@route>", "<@route:\"\">",
+		  { NULL, NULL, "@route", "", "", TRUE } },
 		{ "<\"\"@domain>", "<\"\"@domain>",
 		  { NULL, NULL, NULL, "", "domain", FALSE } },
 		{ "foo bar <user@domain>", "\"foo bar\" <user@domain>",
