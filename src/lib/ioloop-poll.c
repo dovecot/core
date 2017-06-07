@@ -55,9 +55,8 @@ void io_loop_handle_add(struct io_file *io)
 
 		ctx->idx_count = nearest_power((unsigned int) fd+1);
 
-		ctx->fd_index = i_realloc(ctx->fd_index,
-					  sizeof(int) * old_count,
-					  sizeof(int) * ctx->idx_count);
+		ctx->fd_index = i_realloc_type(ctx->fd_index, int,
+					       old_count, ctx->idx_count);
 		memset(ctx->fd_index + old_count, 0xff,
 		       sizeof(int) * (ctx->idx_count-old_count));
 	}
@@ -68,9 +67,8 @@ void io_loop_handle_add(struct io_file *io)
 
 		ctx->fds_count = nearest_power(ctx->fds_count+1);
 
-		ctx->fds = i_realloc(ctx->fds,
-				     sizeof(struct pollfd) * old_count,
-				     sizeof(struct pollfd) * ctx->fds_count);
+		ctx->fds = i_realloc_type(ctx->fds, struct pollfd,
+					  old_count, ctx->fds_count);
 	}
 
 	if (ctx->fd_index[fd] != -1) {

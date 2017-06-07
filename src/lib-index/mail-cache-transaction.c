@@ -606,10 +606,10 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	if (MAIL_INDEX_IS_IN_MEMORY(cache->index)) {
 		if (cache->file_fields_count <= field_idx) {
 			cache->file_field_map =
-				i_realloc(cache->file_field_map,
-					  cache->file_fields_count *
-					  sizeof(unsigned int),
-					  (field_idx+1) * sizeof(unsigned int));
+				i_realloc_type(cache->file_field_map,
+					       unsigned int,
+					       cache->file_fields_count,
+					       field_idx+1);
 			cache->file_fields_count = field_idx+1;
 		}
 		cache->file_field_map[field_idx] = field_idx;
