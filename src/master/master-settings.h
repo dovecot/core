@@ -8,7 +8,6 @@ struct master_settings {
 	const char *state_dir;
 	const char *libexec_dir;
 	const char *instance_name;
-	const char *import_environment;
 	const char *protocols;
 	const char *listen;
 	const char *ssl;

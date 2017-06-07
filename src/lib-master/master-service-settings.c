@@ -42,6 +42,7 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, debug_log_path),
 	DEF(SET_STR, log_timestamp),
 	DEF(SET_STR, syslog_facility),
+	DEF(SET_STR, import_environment),
 	DEF(SET_SIZE, config_cache_size),
 	DEF(SET_BOOL, version_ignore),
 	DEF(SET_BOOL, shutdown_clients),
@@ -53,6 +54,19 @@ static const struct setting_define master_service_setting_defines[] = {
 	SETTING_DEFINE_LIST_END
 };
 
+/* <settings checks> */
+#ifdef HAVE_SYSTEMD
+#  define ENV_SYSTEMD " LISTEN_PID LISTEN_FDS"
+#else
+#  define ENV_SYSTEMD ""
+#endif
+#ifdef DEBUG
+#  define ENV_GDB " GDB DEBUG_SILENT"
+#else
+#  define ENV_GDB ""
+#endif
+/* </settings checks> */
+
 static const struct master_service_settings master_service_default_settings = {
 	.base_dir = PKG_RUNDIR,
 	.state_dir = PKG_STATEDIR,
@@ -61,6 +75,7 @@ static const struct master_service_settings master_service_default_settings = {
 	.debug_log_path = "",
 	.log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT,
 	.syslog_facility = "mail",
+	.import_environment = "TZ CORE_OUTOFMEM CORE_ERROR" ENV_SYSTEMD ENV_GDB,
 	.config_cache_size = 1024*1024,
 	.version_ignore = FALSE,
 	.shutdown_clients = TRUE,

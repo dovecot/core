@@ -15,6 +15,7 @@ struct master_service_settings {
 	const char *debug_log_path;
 	const char *log_timestamp;
 	const char *syslog_facility;
+	const char *import_environment;
 	uoff_t config_cache_size;
 	bool version_ignore;
 	bool shutdown_clients;
