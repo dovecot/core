@@ -421,7 +421,8 @@ static struct master_settings *master_settings_read(void)
 	return master_service_settings_get_others(master_service)[0];
 }
 
-static void master_set_import_environment(const struct master_settings *set)
+static void
+master_set_import_environment(const struct master_service_settings *set)
 {
 	const char *const *envs, *key, *value;
 	ARRAY_TYPE(const_string) keys;
@@ -845,7 +846,7 @@ int main(int argc, char *argv[])
 	fatal_log_check(set);
 
 	T_BEGIN {
-		master_set_import_environment(set);
+		master_set_import_environment(master_service_settings_get(master_service));
 	} T_END;
 	master_service_env_clean();
 
