@@ -551,6 +551,37 @@ void master_service_init_finish(struct master_service *service)
 	master_status_update(service);
 }
 
+void master_service_import_environment(const char *import_environment)
+{
+	const char *const *envs, *key, *value;
+	ARRAY_TYPE(const_string) keys;
+
+	if (*import_environment == '\0')
+		return;
+
+	t_array_init(&keys, 8);
+	/* preserve existing DOVECOT_PRESERVE_ENVS */
+	value = getenv(DOVECOT_PRESERVE_ENVS_ENV);
+	if (value != NULL)
+		array_append(&keys, &value, 1);
+	/* add new environments */
+	envs = t_strsplit_spaces(import_environment, " ");
+	for (; *envs != NULL; envs++) {
+		value = strchr(*envs, '=');
+		if (value == NULL)
+			key = *envs;
+		else {
+			key = t_strdup_until(*envs, value);
+			env_put(*envs);
+		}
+		array_append(&keys, &key, 1);
+	}
+	array_append_zero(&keys);
+
+	value = t_strarray_join(array_idx(&keys, 0), " ");
+	env_put(t_strconcat(DOVECOT_PRESERVE_ENVS_ENV"=", value, NULL));
+}
+
 void master_service_env_clean(void)
 {
 	const char *value = getenv(DOVECOT_PRESERVE_ENVS_ENV);
