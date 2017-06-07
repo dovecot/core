@@ -38,11 +38,11 @@ static void test_message_address(void)
 		  { NULL, NULL, "@route,@route2", "user", "domain", FALSE } },
 		{ "hello <@route ,@route2:user@domain>", "hello <@route,@route2:user@domain>",
 		  { NULL, "hello", "@route,@route2", "user", "domain", FALSE } },
-		{ "hello", NULL,
+		{ "hello", "hello <@>",
 		  { NULL, "hello", NULL, "", "", TRUE } },
-		{ "user (hello)", NULL,
+		{ "user (hello)", "hello <user@>",
 		  { NULL, "hello", NULL, "user", "", TRUE } },
-		{ "hello <user>", NULL,
+		{ "hello <user>", "hello <user@>",
 		  { NULL, "hello", NULL, "user", "", TRUE } },
 		{ "@domain", NULL,
 		  { NULL, NULL, NULL, "", "domain", TRUE } },
@@ -72,12 +72,12 @@ static void test_message_address(void)
 		test_assert_idx(addr != NULL && addr->next == NULL &&
 				cmp_addr(addr, &test->addr), i);
 
+		str_truncate(str, 0);
+		message_address_write(str, addr);
+		wanted_string = test->wanted_output != NULL ?
+			test->wanted_output : test->input;
+		test_assert_idx(strcmp(str_c(str), wanted_string) == 0, i);
 		if (!test->addr.invalid_syntax) {
-			str_truncate(str, 0);
-			message_address_write(str, addr);
-			wanted_string = test->wanted_output != NULL ?
-				test->wanted_output : test->input;
-			test_assert_idx(strcmp(str_c(str), wanted_string) == 0, i);
 			if (i != 0) {
 				if ((i % 2) == 0)
 					str_append(group, ",");
