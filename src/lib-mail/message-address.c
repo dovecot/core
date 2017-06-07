@@ -286,10 +286,10 @@ static int parse_group(struct message_address_parser_context *ctx)
 			/* mailbox-list    =
 			   	(mailbox *("," mailbox)) / obs-mbox-list */
 			if (parse_mailbox(ctx) <= 0) {
-				ret = -1;
-				break;
+				/* broken mailbox - try to continue anyway. */
 			}
-			if (*ctx->parser.data != ',')
+			if (ctx->parser.data == ctx->parser.end ||
+			    *ctx->parser.data != ',')
 				break;
 			ctx->parser.data++;
 			if (rfc822_skip_lwsp(&ctx->parser) <= 0) {
@@ -299,7 +299,8 @@ static int parse_group(struct message_address_parser_context *ctx)
 		}
 	}
 	if (ret >= 0) {
-		if (*ctx->parser.data != ';')
+		if (ctx->parser.data == ctx->parser.end ||
+		    *ctx->parser.data != ';')
 			ret = -1;
 		else {
 			ctx->parser.data++;
