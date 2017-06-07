@@ -17,19 +17,35 @@ static bool cmp_addr(const struct message_address *a1,
 
 static void test_message_address(void)
 {
-	static const char *input[] = {
-		"user@domain", NULL,
-		"<user@domain>", "user@domain",
-		"foo bar <user@domain>", "\"foo bar\" <user@domain>",
-		"\"foo bar\" <user@domain>", NULL,
-		"\"foo: <a@b>;,\" <user@domain>", NULL,
-		"<@route:user@domain>", NULL,
-		"<@route@route2:user@domain>", "<@route,@route2:user@domain>",
-		"hello <@route ,@route2:user@domain>", "hello <@route,@route2:user@domain>",
-		"hello", NULL,
-		"user (hello)", NULL,
-		"hello <user>", NULL,
-		"@domain", NULL
+	static const struct test {
+		const char *input;
+		const char *wanted_output;
+		struct message_address addr;
+	} tests[] = {
+		{ "user@domain", NULL,
+		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		{ "<user@domain>", "user@domain",
+		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		{ "foo bar <user@domain>", "\"foo bar\" <user@domain>",
+		  { NULL, "foo bar", NULL, "user", "domain", FALSE } },
+		{ "\"foo bar\" <user@domain>", NULL,
+		  { NULL, "foo bar", NULL, "user", "domain", FALSE } },
+		{ "\"foo: <a@b>;,\" <user@domain>", NULL,
+		  { NULL, "foo: <a@b>;,", NULL, "user", "domain", FALSE } },
+		{ "<@route:user@domain>", NULL,
+		  { NULL, NULL, "@route", "user", "domain", FALSE } },
+		{ "<@route@route2:user@domain>", "<@route,@route2:user@domain>",
+		  { NULL, NULL, "@route,@route2", "user", "domain", FALSE } },
+		{ "hello <@route ,@route2:user@domain>", "hello <@route,@route2:user@domain>",
+		  { NULL, "hello", "@route,@route2", "user", "domain", FALSE } },
+		{ "hello", NULL,
+		  { NULL, "hello", NULL, "", "", TRUE } },
+		{ "user (hello)", NULL,
+		  { NULL, "hello", NULL, "user", "", TRUE } },
+		{ "hello <user>", NULL,
+		  { NULL, "hello", NULL, "user", "", TRUE } },
+		{ "@domain", NULL,
+		  { NULL, NULL, NULL, "", "domain", TRUE } },
 	};
 	static struct message_address group_prefix = {
 		NULL, NULL, NULL, "group", NULL, FALSE
@@ -37,52 +53,38 @@ static void test_message_address(void)
 	static struct message_address group_suffix = {
 		NULL, NULL, NULL, NULL, NULL, FALSE
 	};
-	static struct message_address output[] = {
-		{ NULL, NULL, NULL, "user", "domain", FALSE },
-		{ NULL, NULL, NULL, "user", "domain", FALSE },
-		{ NULL, "foo bar", NULL, "user", "domain", FALSE },
-		{ NULL, "foo bar", NULL, "user", "domain", FALSE },
-		{ NULL, "foo: <a@b>;,", NULL, "user", "domain", FALSE },
-		{ NULL, NULL, "@route", "user", "domain", FALSE },
-		{ NULL, NULL, "@route,@route2", "user", "domain", FALSE },
-		{ NULL, "hello", "@route,@route2", "user", "domain", FALSE },
-		{ NULL, "hello", NULL, "", "", TRUE },
-		{ NULL, "hello", NULL, "user", "", TRUE },
-		{ NULL, "hello", NULL, "user", "", TRUE },
-		{ NULL, NULL, NULL, "", "domain", TRUE }
-	};
 	struct message_address *addr;
 	string_t *str, *group;
 	const char *wanted_string;
 	unsigned int i;
-
-	i_assert(N_ELEMENTS(input) == N_ELEMENTS(output)*2);
 
 	test_begin("message address parsing");
 	str = t_str_new(128);
 	group = t_str_new(256);
 	str_append(group, "group: ");
 
-	for (i = 0; i < N_ELEMENTS(output); i++) {
-		addr = message_address_parse(pool_datastack_create(),
-					     (const unsigned char *)input[i*2],
-					     strlen(input[i*2]), UINT_MAX, FALSE);
-		test_assert(addr != NULL && addr->next == NULL &&
-			    cmp_addr(addr, &output[i]));
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		const struct test *test = &tests[i];
 
-		if (!output[i].invalid_syntax) {
+		addr = message_address_parse(pool_datastack_create(),
+					     (const unsigned char *)test->input,
+					     strlen(test->input), UINT_MAX, FALSE);
+		test_assert_idx(addr != NULL && addr->next == NULL &&
+				cmp_addr(addr, &test->addr), i);
+
+		if (!test->addr.invalid_syntax) {
 			str_truncate(str, 0);
 			message_address_write(str, addr);
-			wanted_string = input[i*2+1] != NULL ?
-				input[i*2+1] : input[i*2];
-			test_assert(strcmp(str_c(str), wanted_string) == 0);
+			wanted_string = test->wanted_output != NULL ?
+				test->wanted_output : test->input;
+			test_assert_idx(strcmp(str_c(str), wanted_string) == 0, i);
 			if (i != 0) {
 				if ((i % 2) == 0)
 					str_append(group, ",");
 				else
 					str_append(group, " , \n ");
 			}
-			str_append(group, input[i*2]);
+			str_append(group, test->input);
 		}
 	}
 	str_append_c(group, ';');
@@ -93,10 +95,12 @@ static void test_message_address(void)
 				     str_len(group), UINT_MAX, FALSE);
 	test_assert(addr != NULL && cmp_addr(addr, &group_prefix));
 	addr = addr->next;
-	for (i = 0; i < N_ELEMENTS(output) && addr != NULL; i++) {
-		if (output[i].invalid_syntax)
+	for (i = 0; i < N_ELEMENTS(tests) && addr != NULL; i++) {
+		const struct test *test = &tests[i];
+
+		if (test->addr.invalid_syntax)
 			continue;
-		test_assert(cmp_addr(addr, &output[i]));
+		test_assert(cmp_addr(addr, &test->addr));
 		addr = addr->next;
 	}
 	test_assert(addr != NULL && addr->next == NULL &&
