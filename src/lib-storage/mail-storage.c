@@ -2485,25 +2485,17 @@ void mailbox_set_deleted(struct mailbox *box)
 	box->mailbox_deleted = TRUE;
 }
 
-int mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
-			const char **path_r)
+static int get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
+		       const char **internal_path, const char **path_r)
 {
 	int ret;
 
-	if (type == MAILBOX_LIST_PATH_TYPE_MAILBOX && box->_path != NULL) {
-		if (box->_path[0] == '\0') {
+	if (internal_path != NULL && *internal_path != NULL) {
+		if ((*internal_path)[0] == '\0') {
 			*path_r = NULL;
 			return 0;
 		}
-		*path_r = box->_path;
-		return 1;
-	}
-	if (type == MAILBOX_LIST_PATH_TYPE_INDEX && box->_index_path != NULL) {
-		if (box->_index_path[0] == '\0') {
-			*path_r = NULL;
-			return 0;
-		}
-		*path_r = box->_index_path;
+		*path_r = *internal_path;
 		return 1;
 	}
 	ret = mailbox_list_get_path(box->list, box->name, type, path_r);
@@ -2511,11 +2503,19 @@ int mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
 		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
 	}
-	if (type == MAILBOX_LIST_PATH_TYPE_MAILBOX && box->_path == NULL)
-		box->_path = ret == 0 ? "" : p_strdup(box->pool, *path_r);
-	if (type == MAILBOX_LIST_PATH_TYPE_INDEX && box->_index_path == NULL)
-		box->_index_path = ret == 0 ? "" : p_strdup(box->pool, *path_r);
+	if (internal_path != NULL && *internal_path == NULL)
+		*internal_path = ret == 0 ? "" : p_strdup(box->pool, *path_r);
 	return ret;
+}
+
+int mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
+			const char **path_r)
+{
+	if (type == MAILBOX_LIST_PATH_TYPE_MAILBOX)
+		return get_path_to(box, type, &box->_path, path_r);
+	if (type == MAILBOX_LIST_PATH_TYPE_INDEX)
+		return get_path_to(box, type, &box->_index_path, path_r);
+	return get_path_to(box, type, NULL, path_r);
 }
 
 const char *mailbox_get_path(struct mailbox *box)
