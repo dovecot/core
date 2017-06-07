@@ -235,6 +235,36 @@ test_build_search_args(const char *args)
 	return sargs;
 }
 
+static bool test_search_args_are_initialized(struct mail_search_arg *arg)
+{
+	for (; arg != NULL; arg = arg->next) {
+		switch (arg->type) {
+		case SEARCH_MODSEQ:
+			if (arg->value.str != NULL &&
+			    arg->initialized.keywords == NULL)
+				return FALSE;
+			break;
+		case SEARCH_KEYWORDS:
+			if (arg->initialized.keywords == NULL)
+				return FALSE;
+			break;
+		case SEARCH_MAILBOX_GLOB:
+			if (arg->initialized.mailbox_glob == NULL)
+				return FALSE;
+			break;
+		case SEARCH_INTHREAD:
+		case SEARCH_SUB:
+		case SEARCH_OR:
+			if (!test_search_args_are_initialized(arg->value.subargs))
+				return FALSE;
+			break;
+		default:
+			break;
+		}
+	}
+	return TRUE;
+}
+
 static void test_mail_search_args_simplify(void)
 {
 	struct mail_search_args *args;
@@ -249,12 +279,18 @@ static void test_mail_search_args_simplify(void)
 	box.index = mail_index_alloc(NULL, "dovecot.index.");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		args = test_build_search_args(tests[i].input);
+		/* delay simplification until after init. that way we can test
+		   that the simplification works correctly when working on
+		   already-initialized args. */
+		args->simplified = TRUE;
 		mail_search_args_init(args, &box, FALSE, NULL);
 		mail_search_args_simplify(args);
 
 		str_truncate(str, 0);
 		test_assert(mail_search_args_to_imap(str, args->args, &error));
 		test_assert_idx(strcmp(str_c(str), tests[i].output) == 0, i);
+
+		test_assert_idx(test_search_args_are_initialized(args->args), i);
 		mail_search_args_unref(&args);
 	}
 	mail_index_free(&box.index);
