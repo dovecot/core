@@ -26,6 +26,8 @@ static void test_message_address(void)
 		  { NULL, NULL, NULL, "user", "domain", FALSE } },
 		{ "<user@domain>", NULL,
 		  { NULL, NULL, NULL, "user", "domain", FALSE } },
+		{ "<\"\"@domain>", "<\"\"@domain>",
+		  { NULL, NULL, NULL, "", "domain", FALSE } },
 		{ "foo bar <user@domain>", "\"foo bar\" <user@domain>",
 		  { NULL, "foo bar", NULL, "user", "domain", FALSE } },
 		{ "\"foo bar\" <user@domain>", NULL,
@@ -44,7 +46,7 @@ static void test_message_address(void)
 		  { NULL, "hello", NULL, "user", "", TRUE } },
 		{ "hello <user>", "hello <user>",
 		  { NULL, "hello", NULL, "user", "", TRUE } },
-		{ "@domain", "<@domain>",
+		{ "@domain", "<\"\"@domain>",
 		  { NULL, NULL, NULL, "", "domain", TRUE } },
 	};
 	static struct message_address group_prefix = {

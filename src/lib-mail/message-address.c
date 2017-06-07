@@ -468,7 +468,10 @@ void message_address_write(string_t *str, const struct message_address *addr)
 					str_append(str, addr->route);
 					str_append_c(str, ':');
 				}
-				str_append_maybe_escape(str, addr->mailbox, FALSE);
+				if (addr->mailbox[0] == '\0')
+					str_append(str, "\"\"");
+				else
+					str_append_maybe_escape(str, addr->mailbox, FALSE);
 				if (addr->domain[0] != '\0') {
 					str_append_c(str, '@');
 					str_append(str, addr->domain);
