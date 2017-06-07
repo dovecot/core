@@ -39,6 +39,7 @@ int main(void)
 		test_llist,
 		test_log_throttle,
 		test_malloc_overflow,
+		test_mempool,
 		test_mempool_alloconly,
 		test_net,
 		test_numpack,
@@ -70,6 +71,7 @@ int main(void)
 		fatal_data_stack,
 		fatal_malloc_overflow,
 		fatal_mempool,
+		fatal_mempool_alloconly,
 		fatal_printf_format_fix,
 		NULL
 	};

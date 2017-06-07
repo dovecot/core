@@ -344,6 +344,7 @@ test_lib_SOURCES = \
 	test-llist.c \
 	test-log-throttle.c \
 	test-malloc-overflow.c \
+	test-mempool.c \
 	test-mempool-alloconly.c \
 	test-pkcs5.c \
 	test-net.c \
