@@ -73,9 +73,18 @@ pool_t pool_datastack_create(void);
    old_size + 1. */
 size_t pool_get_exp_grown_size(pool_t pool, size_t old_size, size_t min_size);
 
+/* We require sizeof(type) to be <= UINT_MAX. This allows compiler to optimize
+   away the entire MALLOC_MULTIPLY() call on 64bit systems. */
 #define p_new(pool, type, count) \
 	((type *) p_malloc(pool, MALLOC_MULTIPLY((unsigned int)sizeof(type), (count))) + \
 	 COMPILE_ERROR_IF_TRUE(sizeof(type) > UINT_MAX))
+
+#define p_realloc_type(pool, mem, type, old_count, new_count) \
+	((type *) p_realloc(pool, mem, \
+	 MALLOC_MULTIPLY((unsigned int)sizeof(type), (old_count)), \
+	 MALLOC_MULTIPLY((unsigned int)sizeof(type), (new_count))) + \
+		COMPILE_ERROR_IF_TRUE(sizeof(type) > UINT_MAX))
+
 static inline void * ATTR_MALLOC ATTR_RETURNS_NONNULL
 p_malloc(pool_t pool, size_t size)
 {
