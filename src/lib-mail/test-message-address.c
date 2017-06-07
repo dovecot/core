@@ -120,6 +120,10 @@ static void test_message_address(void)
 		/* other tests: */
 		{ "\"foo: <a@b>;,\" <user@domain>", NULL,
 		  { NULL, "foo: <a@b>;,", NULL, "user", "domain", FALSE } },
+		{ "<>", "",
+		  { NULL, NULL, NULL, "", "", TRUE } },
+		{ "<@>", "",
+		  { NULL, NULL, NULL, "", "", TRUE } },
 	};
 	static struct message_address group_prefix = {
 		NULL, NULL, NULL, "group", NULL, FALSE
@@ -135,7 +139,6 @@ static void test_message_address(void)
 	test_begin("message address parsing");
 	str = t_str_new(128);
 	group = t_str_new(256);
-	str_append(group, "group: ");
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		const struct test *test = &tests[i];
@@ -144,38 +147,61 @@ static void test_message_address(void)
 		test_assert_idx(addr != NULL && addr->next == NULL &&
 				cmp_addr(addr, &test->addr), i);
 
+		/* test the address alone */
 		str_truncate(str, 0);
 		message_address_write(str, addr);
 		wanted_string = test->wanted_output != NULL ?
 			test->wanted_output : test->input;
 		test_assert_idx(strcmp(str_c(str), wanted_string) == 0, i);
-		if (!test->addr.invalid_syntax) {
-			if (i != 0) {
-				if ((i % 2) == 0)
+
+		/* test the address as a list of itself */
+		for (unsigned int list_length = 2; list_length <= 5; list_length++) {
+			str_truncate(group, 0);
+			str_append(group, test->input);
+			for (unsigned int j = 1; j < list_length; j++) {
+				if ((j % 2) == 0)
 					str_append(group, ",");
 				else
 					str_append(group, " , \n ");
+				str_append(group, test->input);
 			}
-			str_append(group, test->input);
+
+			addr = test_parse_address(str_c(group));
+			for (unsigned int j = 0; j < list_length; j++) {
+				test_assert_idx(addr != NULL &&
+						cmp_addr(addr, &test->addr), i);
+				if (addr != NULL)
+					addr = addr->next;
+			}
+			test_assert_idx(addr == NULL, i);
+		}
+
+		/* test the address as a group of itself */
+		for (unsigned int list_length = 1; list_length <= 5; list_length++) {
+			str_truncate(group, 0);
+			str_printfa(group, "group: %s", test->input);
+			for (unsigned int j = 1; j < list_length; j++) {
+				if ((j % 2) == 0)
+					str_append(group, ",");
+				else
+					str_append(group, " , \n ");
+				str_append(group, test->input);
+			}
+			str_append_c(group, ';');
+
+			addr = test_parse_address(str_c(group));
+			test_assert(addr != NULL && cmp_addr(addr, &group_prefix));
+			addr = addr->next;
+			for (unsigned int j = 0; j < list_length; j++) {
+				test_assert_idx(addr != NULL &&
+						cmp_addr(addr, &test->addr), i);
+				if (addr != NULL)
+					addr = addr->next;
+			}
+			test_assert_idx(addr != NULL && addr->next == NULL &&
+					cmp_addr(addr, &group_suffix), i);
 		}
 	}
-	str_append_c(group, ';');
-	test_end();
-
-	test_begin("message address parsing with groups");
-	addr = test_parse_address(str_c(group));
-	test_assert(addr != NULL && cmp_addr(addr, &group_prefix));
-	addr = addr->next;
-	for (i = 0; i < N_ELEMENTS(tests) && addr != NULL; i++) {
-		const struct test *test = &tests[i];
-
-		if (test->addr.invalid_syntax)
-			continue;
-		test_assert(cmp_addr(addr, &test->addr));
-		addr = addr->next;
-	}
-	test_assert(addr != NULL && addr->next == NULL &&
-		    cmp_addr(addr, &group_suffix));
 	test_end();
 
 	test_begin("message address parsing with empty group");
