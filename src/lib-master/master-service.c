@@ -551,7 +551,7 @@ void master_service_init_finish(struct master_service *service)
 	master_status_update(service);
 }
 
-void master_service_import_environment(const char *import_environment)
+static void master_service_import_environment_real(const char *import_environment)
 {
 	const char *const *envs, *key, *value;
 	ARRAY_TYPE(const_string) keys;
@@ -580,6 +580,13 @@ void master_service_import_environment(const char *import_environment)
 
 	value = t_strarray_join(array_idx(&keys, 0), " ");
 	env_put(t_strconcat(DOVECOT_PRESERVE_ENVS_ENV"=", value, NULL));
+}
+
+void master_service_import_environment(const char *import_environment)
+{
+	T_BEGIN {
+		master_service_import_environment_real(import_environment);
+	} T_END;
 }
 
 void master_service_env_clean(void)
