@@ -146,36 +146,38 @@ void mail_search_args_init(struct mail_search_args *args,
 
 void mail_search_arg_deinit(struct mail_search_arg *arg)
 {
-	for (; arg != NULL; arg = arg->next) {
-		switch (arg->type) {
-		case SEARCH_MODSEQ:
-		case SEARCH_KEYWORDS:
-			if (arg->initialized.keywords == NULL)
-				break;
-			mailbox_keywords_unref(&arg->initialized.keywords);
-			break;
-		case SEARCH_MAILBOX_GLOB:
-			if (arg->initialized.mailbox_glob == NULL)
-				break;
+	for (; arg != NULL; arg = arg->next)
+		mail_search_arg_one_deinit(arg);
+}
 
-			imap_match_deinit(&arg->initialized.mailbox_glob);
+void mail_search_arg_one_deinit(struct mail_search_arg *arg)
+{
+	switch (arg->type) {
+	case SEARCH_MODSEQ:
+	case SEARCH_KEYWORDS:
+		if (arg->initialized.keywords == NULL)
 			break;
-		case SEARCH_INTHREAD:
-			i_assert(arg->initialized.search_args->refcount > 0);
-			if (arg->value.search_result != NULL) {
-				mailbox_search_result_free(
-					&arg->value.search_result);
-			}
-			arg->initialized.search_args->refcount--;
-			arg->initialized.search_args->box = NULL;
-			/* fall through */
-		case SEARCH_SUB:
-		case SEARCH_OR:
-			mail_search_arg_deinit(arg->value.subargs);
+		mailbox_keywords_unref(&arg->initialized.keywords);
+		break;
+	case SEARCH_MAILBOX_GLOB:
+		if (arg->initialized.mailbox_glob == NULL)
 			break;
-		default:
-			break;
-		}
+
+		imap_match_deinit(&arg->initialized.mailbox_glob);
+		break;
+	case SEARCH_INTHREAD:
+		i_assert(arg->initialized.search_args->refcount > 0);
+		if (arg->value.search_result != NULL)
+			mailbox_search_result_free(&arg->value.search_result);
+		arg->initialized.search_args->refcount--;
+		arg->initialized.search_args->box = NULL;
+		/* fall through */
+	case SEARCH_SUB:
+	case SEARCH_OR:
+		mail_search_arg_deinit(arg->value.subargs);
+		break;
+	default:
+		break;
 	}
 }
 
