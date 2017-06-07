@@ -256,7 +256,7 @@ static void add_fixed_address(struct message_address_parser_context *ctx)
 		ctx->addr.mailbox = !ctx->fill_missing ? "" : "MISSING_MAILBOX";
 		ctx->addr.invalid_syntax = TRUE;
 	}
-	if (ctx->addr.domain == NULL) {
+	if (ctx->addr.domain == NULL || ctx->addr.domain[0] == '\0') {
 		ctx->addr.domain = !ctx->fill_missing ? "" : "MISSING_DOMAIN";
 		ctx->addr.invalid_syntax = TRUE;
 	}
