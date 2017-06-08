@@ -47,6 +47,8 @@ static void quota_clone_flush_real(struct mailbox *box)
 	struct quota_root_iter *iter;
 	struct quota_root *root;
 	uint64_t bytes_value, count_value, limit;
+	const char *error;
+	int ret_bytes, ret_count;
 
 	/* we'll clone the first quota root */
 	iter = quota_root_iter_init(box);
@@ -59,23 +61,36 @@ static void quota_clone_flush_real(struct mailbox *box)
 	}
 
 	/* get new values first */
-	if (quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
-			       &bytes_value, &limit) < 0) {
+	ret_bytes = quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
+				       &bytes_value, &limit);
+	if (ret_bytes < 0) {
 		i_error("quota_clone_plugin: Failed to lookup current quota bytes");
 		return;
 	}
-	if (quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
-			       &count_value, &limit) < 0) {
+	ret_count = quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
+				       &count_value, &limit);
+	if (ret_count < 0) {
 		i_error("quota_clone_plugin: Failed to lookup current quota count");
 		return;
 	}
+	if (ret_bytes == 0 && ret_count == 0) {
+		/* quota isn't enabled - no point in updating it */
+		return;
+	}
 
-	/* then update them */
+	/* Then update the resources that exist. The resources can't really
+	   change unless the quota backend is changed, so we don't worry about
+	   the special case of ret_count changing between 1 and 0. Note that
+	   ret_count==1 also when quota is unlimited. */
 	trans = dict_transaction_begin(quser->dict);
-	dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
-		 t_strdup_printf("%llu", (unsigned long long)bytes_value));
-	dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
-		 t_strdup_printf("%llu", (unsigned long long)count_value));
+	if (ret_bytes > 0) {
+		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
+			 t_strdup_printf("%llu", (unsigned long long)bytes_value));
+	}
+	if (ret_count > 0) {
+		dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
+			 t_strdup_printf("%llu", (unsigned long long)count_value));
+	}
 	if (dict_transaction_commit(&trans) < 0)
 		i_error("quota_clone_plugin: Failed to commit dict update");
 	else
