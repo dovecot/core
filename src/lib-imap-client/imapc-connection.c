@@ -386,6 +386,12 @@ static void imapc_connection_set_state(struct imapc_connection *conn,
 
 		conn->selecting_box = NULL;
 		conn->selected_box = NULL;
+		/* fall through */
+	case IMAPC_CONNECTION_STATE_DONE:
+		/* if we came from imapc_client_get_capabilities(), stop so
+		   it can finish up and not just hang indefinitely. */
+		if (conn->client->stop_on_state_finish && !conn->reconnecting)
+			imapc_client_stop(conn->client);
 		break;
 	default:
 		break;

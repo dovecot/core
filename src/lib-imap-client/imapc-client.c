@@ -530,7 +530,9 @@ int imapc_client_get_capabilities(struct imapc_client *client,
 		(void)imapc_client_add_connection(client);
 
 	/* wait for any of the connections to login */
+	client->stop_on_state_finish = TRUE;
 	imapc_client_run(client);
+	client->stop_on_state_finish = FALSE;
 	if (imapc_client_get_any_capabilities(client, capabilities_r))
 		return 0;
 

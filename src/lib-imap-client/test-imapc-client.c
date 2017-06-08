@@ -81,7 +81,7 @@ test_server_wait_connection(struct test_server *server, bool send_banner)
 
 	if (send_banner) {
 		o_stream_nsend_str(server->output,
-			"* OK [CAPABILITY IMAP4rev1] ready\r\n");
+			"* OK [CAPABILITY IMAP4rev1 UNSELECT QUOTA] ready\r\n");
 	}
 }
 
@@ -581,6 +581,101 @@ static void test_imapc_reconnect_mailbox(void)
 	test_end();
 }
 
+static void test_imapc_client_get_capabilities_client(void)
+{
+	enum imapc_capability capabilities;
+
+	test_assert(imapc_client_get_capabilities(imapc_client, &capabilities) == 0);
+	test_assert(capabilities == (IMAPC_CAPABILITY_IMAP4REV1 |
+				     IMAPC_CAPABILITY_UNSELECT |
+				     IMAPC_CAPABILITY_QUOTA));
+}
+
+static void test_imapc_client_get_capabilities_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_assert(test_imapc_server_expect("1 LOGIN \"testuser\" \"testpass\""));
+	o_stream_nsend_str(server.output, "1 OK \r\n");
+
+	test_assert(test_imapc_server_expect("2 LOGOUT"));
+	o_stream_nsend_str(server.output, "2 OK \r\n");
+
+	test_assert(i_stream_read_next_line(server.input) == NULL);
+}
+
+static void test_imapc_client_get_capabilities(void)
+{
+	struct imapc_client_settings set = test_imapc_default_settings;
+
+	test_begin("imapc_client_get_capabilities()");
+	test_run_client_server(&set, test_imapc_client_get_capabilities_client,
+			       test_imapc_client_get_capabilities_server);
+	test_end();
+}
+
+static void test_imapc_client_get_capabilities_reconnected_client(void)
+{
+	enum imapc_capability capabilities;
+
+	test_expect_errors(2);
+	test_assert(imapc_client_get_capabilities(imapc_client, &capabilities) == 0);
+	test_assert(capabilities == (IMAPC_CAPABILITY_IMAP4REV1 |
+				     IMAPC_CAPABILITY_UNSELECT |
+				     IMAPC_CAPABILITY_QUOTA));
+	test_expect_no_more_errors();
+}
+
+static void test_imapc_client_get_capabilities_reconnected_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_server_disconnect_and_wait(TRUE);
+
+	test_assert(test_imapc_server_expect("2 LOGIN \"testuser\" \"testpass\""));
+	o_stream_nsend_str(server.output, "2 OK \r\n");
+
+	test_assert(test_imapc_server_expect("3 LOGOUT"));
+	o_stream_nsend_str(server.output, "3 OK \r\n");
+
+	test_assert(i_stream_read_next_line(server.input) == NULL);
+}
+
+static void test_imapc_client_get_capabilities_reconnected(void)
+{
+	struct imapc_client_settings set = test_imapc_default_settings;
+
+	test_begin("imapc_client_get_capabilities() reconnected");
+
+	test_run_client_server(&set, test_imapc_client_get_capabilities_reconnected_client,
+			       test_imapc_client_get_capabilities_reconnected_server);
+	test_end();
+}
+
+static void test_imapc_client_get_capabilities_disconnected_client(void)
+{
+	enum imapc_capability capabilities;
+
+	test_expect_errors(4);
+	test_assert(imapc_client_get_capabilities(imapc_client, &capabilities) < 0);
+	test_expect_no_more_errors();
+}
+
+static void test_imapc_client_get_capabilities_disconnected_server(void)
+{
+	test_server_wait_connection(&server, TRUE);
+	test_server_disconnect_and_wait(TRUE);
+}
+
+static void test_imapc_client_get_capabilities_disconnected(void)
+{
+	struct imapc_client_settings set = test_imapc_default_settings;
+
+	test_begin("imapc_client_get_capabilities() disconnected");
+
+	test_run_client_server(&set, test_imapc_client_get_capabilities_disconnected_client,
+			       test_imapc_client_get_capabilities_disconnected_server);
+	test_end();
+}
+
 int main(int argc ATTR_UNUSED, char *argv[])
 {
 	static void (*test_functions[])(void) = {
@@ -591,6 +686,9 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		test_imapc_reconnect_resend_commands,
 		test_imapc_reconnect_resend_commands_failed,
 		test_imapc_reconnect_mailbox,
+		test_imapc_client_get_capabilities,
+		test_imapc_client_get_capabilities_reconnected,
+		test_imapc_client_get_capabilities_disconnected,
 		NULL
 	};
 
