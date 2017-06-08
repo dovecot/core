@@ -565,16 +565,10 @@ des_encipher(uint32_t *output, uint32_t L, uint32_t R,
 }
 
 #define GET_32BIT_MSB_FIRST(cp) \
-	(((unsigned long)(unsigned char)(cp)[3]) | \
-	((unsigned long)(unsigned char)(cp)[2] << 8) | \
-	((unsigned long)(unsigned char)(cp)[1] << 16) | \
-	((unsigned long)(unsigned char)(cp)[0] << 24))
+	((unsigned long) be32_to_cpu_unaligned(cp))
 
-#define PUT_32BIT_MSB_FIRST(cp, value) do { \
-	(cp)[3] = (value); \
-	(cp)[2] = (value) >> 8; \
-	(cp)[1] = (value) >> 16; \
-	(cp)[0] = (value) >> 24; } while (0)
+#define PUT_32BIT_MSB_FIRST(cp, value) \
+	cpu32_to_be_unaligned((value), (cp))
 
 static inline void
 des_cbc_encrypt(unsigned char *dest, const unsigned char *src,

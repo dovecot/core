@@ -73,7 +73,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 
 	if (mlen < 2)
 		return 0;
-	keydata_len = (data[0] << 8) | data[1];
+	keydata_len = be16_to_cpu_unaligned(data);
 	if (mlen-2 < keydata_len) {
 		/* try to read more */
 		return 0;
@@ -241,7 +241,7 @@ static bool get_msb32(const unsigned char **_data, const unsigned char *end, uin
 	const unsigned char *data = *_data;
 	if (end-data < 4)
 		return FALSE;
-	*num_r = ((uint32_t)data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+	*num_r = be32_to_cpu_unaligned(data);
 	*_data += 4;
 	return TRUE;
 }

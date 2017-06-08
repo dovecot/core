@@ -103,7 +103,7 @@ static int i_stream_zlib_read_header(struct istream_private *stream)
 		if (pos + 2 < size)
 			return 0;
 
-		fextra_size = data[pos] + (data[pos+1] << 8);
+		fextra_size = le16_to_cpu_unaligned(&data[pos]);
 		pos += 2;
 		if (pos + fextra_size < size)
 			return 0;
@@ -131,12 +131,6 @@ static int i_stream_zlib_read_header(struct istream_private *stream)
 	return 1;
 }
 
-static uint32_t data_get_uint32(const unsigned char *data)
-{
-	return data[0] | (data[1] << 8) | (data[2] << 16) |
-		((uint32_t)data[3] << 24);
-}
-
 static int i_stream_zlib_read_trailer(struct zlib_istream *zstream)
 {
 	struct istream_private *stream = &zstream->istream;
@@ -159,7 +153,7 @@ static int i_stream_zlib_read_trailer(struct zlib_istream *zstream)
 	if (size < GZ_TRAILER_SIZE)
 		return 0;
 
-	if (data_get_uint32(data) != zstream->crc32) {
+	if (le32_to_cpu_unaligned(data) != zstream->crc32) {
 		zlib_read_error(zstream, "gz trailer has wrong CRC value");
 		stream->istream.stream_errno = EINVAL;
 		return -1;
