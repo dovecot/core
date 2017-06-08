@@ -12,6 +12,7 @@ int main(void)
 		test_bits,
 		test_bsearch_insert_pos,
 		test_buffer,
+		test_byteorder,
 		test_crc32,
 		test_data_stack,
 		test_failures,

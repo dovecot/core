@@ -30,6 +30,7 @@
 #include "data-stack.h"
 #include "mempool.h"
 #include "imem.h"
+#include "byteorder.h"
 #include "rand.h"
 
 typedef struct buffer buffer_t;

@@ -167,6 +167,7 @@ headers = \
 	bits.h \
 	bsearch-insert-pos.h \
 	buffer.h \
+	byteorder.h \
 	child-wait.h \
 	compat.h \
 	connection.h \
@@ -317,6 +318,7 @@ test_lib_SOURCES = \
 	test-bits.c \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
+	test-byteorder.c \
 	test-crc32.c \
 	test-data-stack.c \
 	test-failures.c \

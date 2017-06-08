@@ -12,6 +12,7 @@ void test_base64(void);
 void test_bits(void);
 void test_bsearch_insert_pos(void);
 void test_buffer(void);
+void test_byteorder(void);
 void test_crc32(void);
 void test_data_stack(void);
 enum fatal_test_state fatal_data_stack(unsigned int);
