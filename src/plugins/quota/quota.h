@@ -65,12 +65,13 @@ int quota_root_add_rule(struct quota_root_settings *root_set,
 int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 				const char *rule_def, const char **error_r);
 
-/* Initialize quota for the given user. */
+/* Initialize quota for the given user. Returns 0 and quota_r on success,
+   -1 and error_r on failure. */
 int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 	       struct quota **quota_r, const char **error_r);
 void quota_deinit(struct quota **quota);
 
-/* List all quota roots. Returned quota roots are freed by quota_deinit(). */
+/* List all visible quota roots. They don't need to be freed. */
 struct quota_root_iter *quota_root_iter_init(struct mailbox *box);
 struct quota_root *quota_root_iter_next(struct quota_root_iter *iter);
 void quota_root_iter_deinit(struct quota_root_iter **iter);
@@ -86,7 +87,8 @@ const char *const *quota_root_get_resources(struct quota_root *root);
    to users via IMAP GETQUOTAROOT command). */
 bool quota_root_is_hidden(struct quota_root *root);
 
-/* Returns 1 if quota value was found, 0 if not, -1 if error. */
+/* Returns 1 if values were successfully returned, 0 if resource name doesn't
+   exist or isn't enabled, -1 if error. */
 int quota_get_resource(struct quota_root *root, const char *mailbox_name,
 		       const char *name, uint64_t *value_r, uint64_t *limit_r);
 /* Returns 0 if OK, -1 if error (eg. permission denied, invalid name). */
