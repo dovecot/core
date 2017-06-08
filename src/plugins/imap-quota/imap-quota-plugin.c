@@ -38,6 +38,7 @@ quota_reply_write(string_t *str, struct mail_user *user,
         const char *name, *const *list;
 	unsigned int i;
 	uint64_t value, limit;
+	size_t prefix_len, orig_len = str_len(str);
 	int ret = 0;
 
 	str_append(str, "* QUOTA ");
@@ -45,6 +46,7 @@ quota_reply_write(string_t *str, struct mail_user *user,
 	imap_append_astring(str, name);
 
 	str_append(str, " (");
+	prefix_len = str_len(str);
 	list = quota_root_get_resources(root);
 	for (i = 0; *list != NULL; list++) {
 		ret = quota_get_resource(root, "", *list, &value, &limit);
@@ -58,6 +60,11 @@ quota_reply_write(string_t *str, struct mail_user *user,
 				    (unsigned long long)limit);
 			i++;
 		}
+	}
+	if (ret == 0 && str_len(str) == prefix_len) {
+		/* this quota root doesn't have any quota actually enabled. */
+		str_truncate(str, orig_len);
+		return;
 	}
 	str_append(str, ")\r\n");
 
