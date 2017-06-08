@@ -395,7 +395,6 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 	struct quota_root *root;
 
 	root = root_set->backend->v.alloc();
-	root->resource_ret = -1;
 	root->pool = pool_alloconly_create("quota root", 512);
 	root->set = root_set;
 	root->quota = quota;
@@ -680,8 +679,6 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 {
 	struct quota_root *const *roots, *root = NULL;
 	unsigned int count;
-	uint64_t value, limit;
-	int ret;
 
 	if (iter->quota == NULL)
 		return NULL;
@@ -694,22 +691,8 @@ struct quota_root *quota_root_iter_next(struct quota_root_iter *iter)
 		if (!quota_root_is_visible(roots[iter->i], iter->box, FALSE))
 			continue;
 
-		ret = roots[iter->i]->resource_ret;
-		if (ret == -1) {
-			ret = quota_get_resource(roots[iter->i], "",
-						 QUOTA_NAME_STORAGE_KILOBYTES,
-						 &value, &limit);
-		}
-		if (ret == 0) {
-			ret = quota_get_resource(roots[iter->i], "",
-						 QUOTA_NAME_MESSAGES,
-						 &value, &limit);
-		}
-		roots[iter->i]->resource_ret = ret;
-		if (ret > 0) {
-			root = roots[iter->i];
-			break;
-		}
+		root = roots[iter->i];
+		break;
 	}
 
 	iter->i++;
