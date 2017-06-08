@@ -24,7 +24,7 @@ static bool guid_128_has_sane_nsecs(const guid_128_t g)
 {
 	unsigned long nsecs;
 
-	nsecs = (g[3] << 24) | (g[2] << 16) | (g[1] << 8) | g[0];
+	nsecs = le32_to_cpu_unaligned(g);
 
 	return nsecs < 1000000000UL;
 }

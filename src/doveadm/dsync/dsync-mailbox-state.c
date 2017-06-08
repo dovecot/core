@@ -15,16 +15,11 @@
 
 static void put_uint32(buffer_t *output, uint32_t num)
 {
-	buffer_append_c(output, num & 0xff);
-	buffer_append_c(output, (num >> 8) & 0xff);
-	buffer_append_c(output, (num >> 16) & 0xff);
-	buffer_append_c(output, (num >> 24) & 0xff);
-}
+	uint8_t tmp[sizeof(uint32_t)];
 
-static uint32_t get_uint32(const unsigned char *data)
-{
-	return data[0] | (data[1] << 8) | (data[2] << 16) |
-		((unsigned int)data[3] << 24);
+	cpu32_to_le_unaligned(num, tmp);
+
+	buffer_append(output, tmp, sizeof(tmp));
 }
 
 void dsync_mailbox_states_export(const HASH_TABLE_TYPE(dsync_mailbox_state) states,
@@ -72,7 +67,7 @@ static int dsync_mailbox_states_retry_import_v0(const buffer_t *buf)
 	/* v0 had no version header and no last_messages_count */
 
 	if ((buf->used-4) % V0_MAILBOX_SIZE != 0 ||
-	    get_uint32(data + buf->used-4) != crc32_data(data, buf->used-4))
+	    le32_to_cpu_unaligned(data + buf->used-4) != crc32_data(data, buf->used-4))
 		return -1;
 	/* looks like valid v0 format, silently treat it as empty state */
 	return 0;
@@ -97,7 +92,7 @@ int dsync_mailbox_states_import(HASH_TABLE_TYPE(dsync_mailbox_state) states,
 	/* v1: 4 byte header, mailboxes[], CRC32 */
 	data = buf->data;
 
-	if (buf->used == 4 && get_uint32(data) == 0) {
+	if (buf->used == 4 && le32_to_cpu_unaligned(data) == 0) {
 		/* v0: Empty state */
 		return 0;
 	}
@@ -111,7 +106,7 @@ int dsync_mailbox_states_import(HASH_TABLE_TYPE(dsync_mailbox_state) states,
 		return dsync_mailbox_states_retry_import_v0(buf);
 	}
 
-	if (get_uint32(data + buf->used-4) != crc32_data(data, buf->used-4)) {
+	if (le32_to_cpu_unaligned(data + buf->used-4) != crc32_data(data, buf->used-4)) {
 		*error_r = "CRC32 mismatch";
 		return dsync_mailbox_states_retry_import_v0(buf);
 	}
@@ -121,15 +116,11 @@ int dsync_mailbox_states_import(HASH_TABLE_TYPE(dsync_mailbox_state) states,
 	for (i = 0; i < count; i++, data += MAILBOX_SIZE) {
 		state = p_new(pool, struct dsync_mailbox_state, 1);
 		memcpy(state->mailbox_guid, data, GUID_128_SIZE);
-		state->last_uidvalidity = get_uint32(data + GUID_128_SIZE);
-		state->last_common_uid = get_uint32(data + GUID_128_SIZE + 4);
-		state->last_common_modseq =
-			get_uint32(data + GUID_128_SIZE + 8) |
-			(uint64_t)get_uint32(data + GUID_128_SIZE + 12) << 32;
-		state->last_common_pvt_modseq =
-			get_uint32(data + GUID_128_SIZE + 16) |
-			(uint64_t)get_uint32(data + GUID_128_SIZE + 20) << 32;
-		state->last_messages_count = get_uint32(data + GUID_128_SIZE + 24);
+		state->last_uidvalidity = le32_to_cpu_unaligned(data + GUID_128_SIZE);
+		state->last_common_uid = le32_to_cpu_unaligned(data + GUID_128_SIZE + 4);
+		state->last_common_modseq = le64_to_cpu_unaligned(data + GUID_128_SIZE + 8);
+		state->last_common_pvt_modseq = le64_to_cpu_unaligned(data + GUID_128_SIZE + 16);
+		state->last_messages_count = le32_to_cpu_unaligned(data + GUID_128_SIZE + 24);
 		guid_p = state->mailbox_guid;
 		hash_table_insert(states, guid_p, state);
 	}

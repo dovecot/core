@@ -146,18 +146,12 @@ static int mailbox_log_rotate_if_needed(struct mailbox_log *log)
 void mailbox_log_record_set_timestamp(struct mailbox_log_record *rec,
 				      time_t stamp)
 {
-	rec->timestamp[0] = (stamp & 0xff000000) >> 24;
-	rec->timestamp[1] = (stamp & 0x00ff0000) >> 16;
-	rec->timestamp[2] = (stamp & 0x0000ff00) >> 8;
-	rec->timestamp[3] = (stamp & 0x000000ff);
+	cpu32_to_be_unaligned(stamp, rec->timestamp);
 }
 
 time_t mailbox_log_record_get_timestamp(const struct mailbox_log_record *rec)
 {
-	return (time_t)(rec->timestamp[0] << 24) |
-		((time_t)rec->timestamp[1] << 16) |
-		((time_t)rec->timestamp[2] << 8) |
-		(time_t)rec->timestamp[3];
+	return (time_t) be32_to_cpu_unaligned(rec->timestamp);
 }
 
 int mailbox_log_append(struct mailbox_log *log,

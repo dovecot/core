@@ -52,10 +52,7 @@ static int dump_record(int fd)
 	printf(" %s", binary_to_hex(rec.mailbox_guid,
 				    sizeof(rec.mailbox_guid)));
 
-	timestamp = ((uint32_t)rec.timestamp[0] << 24) |
-		((uint32_t)rec.timestamp[1] << 16) |
-		((uint32_t)rec.timestamp[2] << 8) |
-		(uint32_t)rec.timestamp[3];
+	timestamp = be32_to_cpu_unaligned(rec.timestamp);
 	printf(" (%s)\n", unixdate2str(timestamp));
 	return 1;
 }
