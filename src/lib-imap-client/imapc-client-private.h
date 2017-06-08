@@ -31,6 +31,7 @@ struct imapc_client {
 	bool logging_out;
 
 	struct ioloop *ioloop;
+	bool stop_on_state_finish;
 };
 
 struct imapc_client_mailbox {
