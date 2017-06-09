@@ -143,7 +143,7 @@ static void test_qp_encoder_header(void)
 
 int main(void)
 {
-	static void (*const test_functions[])(void) = {
+	static void (*test_functions[])(void) = {
 		test_qp_encoder,
 		test_qp_encoder_binary,
 		test_qp_encoder_header,
