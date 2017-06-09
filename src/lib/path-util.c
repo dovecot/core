@@ -175,9 +175,12 @@ static int path_normalize(const char *path, bool resolve_links,
 						return -1;
 					}
 
-					/* try again with bigger buffer */
+					/* try again with bigger buffer,
+					   we need to allocate more space as well if lsize == ret,
+					   because the returned link may have gotten truncated */
 					espace = ltlen + tlen + 2;
-					if ((npath_pos + espace + lsize) >= (npath + asize)) {
+					if ((npath_pos + espace + lsize) >= (npath + asize) ||
+					     lsize == (size_t)ret) {
 						ptrdiff_t npath_offset = npath_pos - npath;
 						asize = nearest_power((npath_offset + espace + lsize) + 1);
 						lsize = asize - (npath_offset + espace);

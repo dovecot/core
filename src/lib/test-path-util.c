@@ -3,6 +3,7 @@
 #include "test-lib.h"
 #include "path-util.h"
 #include "unlink-directory.h"
+#include "str.h"
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -109,6 +110,49 @@ static void test_abspath_vs_normpath() {
 	test_assert_strcmp(norm, "/bin");
 }
 
+static void test_link_alloc() {
+#define COMPONENT_COMPONENT "/component-component"
+	const char *o_tmpdir;
+
+	/* idea here is to make sure component-component
+	   would optimally hit to the nearest_power value.
+
+	   it has to be big enough to cause requirement for
+	   allocation in t_realpath. */
+	string_t *basedir = t_str_new(256);
+	str_append(basedir, cwd);
+	str_append(basedir, "/"TEMP_DIRNAME);
+	size_t len = nearest_power(I_MAX(127, str_len(basedir))) -
+			strlen(COMPONENT_COMPONENT);
+
+	while(str_len(basedir) < len) {
+		str_append(basedir, COMPONENT_COMPONENT);
+		(void)mkdir(str_c(basedir), 0700);
+	}
+	o_tmpdir = tmpdir;
+	tmpdir = str_c(basedir);
+
+        link1 = t_strconcat(tmpdir, "/link1", NULL);
+        if (symlink(tmpdir, link1) < 0) {
+                i_fatal("symlink(%s, %s) failed: %m", tmpdir, link1);
+        }
+
+        /* link2 and link3 point to each other to create a loop */
+        link2 = t_strconcat(tmpdir, "/link2", NULL);
+        link3 = t_strconcat(tmpdir, "/link3", NULL);
+        if (symlink(link3, link2) < 0) {
+                i_fatal("symlink(%s, %s) failed: %m", link3, link2);
+        }
+        if (symlink(link2, link3) < 0) {
+                i_fatal("symlink(%s, %s) failed: %m", link2, link3);
+        }
+
+	test_link1();
+	test_link_loop();
+
+	tmpdir = o_tmpdir;
+}
+
 static void test_cleanup(void)
 {
 	const char *error;
@@ -145,6 +189,7 @@ static void test_init(void) {
 
 void test_path_util(void) {
 	test_begin("test_path_util");
+	alarm(20);
 	test_init();
 	test_local_path();
 	test_absolute_path_no_change();
@@ -155,6 +200,8 @@ void test_path_util(void) {
 	test_link1();
 	test_link_loop();
 	test_abspath_vs_normpath();
+	test_link_alloc();
 	test_cleanup();
+	alarm(0);
 	test_end();
 }
