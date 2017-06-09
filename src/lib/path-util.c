@@ -161,7 +161,7 @@ static int path_normalize(const char *path, bool resolve_links,
 						return -1;
 					}
 					if ((size_t)ret < lsize) {
-						/* make static analyzers happy */
+						/* POSIX doesn't guarantee the presence of a NIL */
 						npath_link[ret] = '\0';
 						break;
 					}
