@@ -129,8 +129,11 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 
 	if (events_count > 0) {
 		ret = kevent (ctx->kq, NULL, 0, events, events_count, &ts);
-		if (ret < 0 && errno != EINTR)
-			i_panic("kevent() failed: %m");
+		if (ret < 0 && errno != EINTR) {
+			i_panic("kevent(events=%u, ts=%ld.%u) failed: %m",
+				events_count, (long)ts.tv_sec,
+				(unsigned int)ts.tv_nsec);
+		}
 	} else {
 		if (msecs < 0)
 			i_panic("BUG: No IOs or timeouts set. Not waiting for infinity.");
