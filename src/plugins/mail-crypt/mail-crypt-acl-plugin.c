@@ -164,6 +164,7 @@ mail_crypt_acl_user_create(struct mail_user *user, const char *dest_username,
 	input.session_id_prefix = user->session_id;
 	input.flags_override_add = MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS |
 				   MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
+	input.flags_override_remove = MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES;
 
 	ret = mail_storage_service_lookup_next(service_ctx, &input,
 						dest_service_user_r,
