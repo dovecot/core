@@ -166,7 +166,8 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r)
 			break;
 		}
 	}
-	quota_mailbox_iter_deinit(&iter);
+	if (quota_mailbox_iter_deinit(&iter) < 0)
+		ret = -1;
 	root->recounting = FALSE;
 	return ret;
 }
@@ -301,7 +302,8 @@ static int quota_count_recalculate(struct quota_root *root)
 			ret = -1;
 		mailbox_free(&box);
 	}
-	quota_mailbox_iter_deinit(&iter);
+	if (quota_mailbox_iter_deinit(&iter) < 0)
+		ret = -1;
 	return ret;
 }
 
