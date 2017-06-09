@@ -55,6 +55,10 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
 		if (!dsync_brain_want_namespace(brain, ns))
 			continue;
+		if (brain->debug)
+			i_debug("brain %c: Namespace %s has location %s",
+				brain->master_brain ? 'M' : 'S',
+				ns->prefix, ns->set->location);
 		if (dsync_mailbox_tree_fill(brain->local_mailbox_tree, ns,
 					    brain->sync_box,
 					    brain->sync_box_guid,
