@@ -135,7 +135,9 @@ struct quota_root {
 	/* don't enforce quota when saving */
 	bool no_enforcing:1;
 	/* quota is automatically updated. update() should be called but the
-	   bytes/count won't be used. */
+	   bytes won't be changed. count is still changed, because it's cheap
+	   to do and it's internally used to figure out whether there have
+	   been some changes and that quota_warnings should be checked. */
 	bool auto_updating:1;
 	/* If user has unlimited quota, disable quota tracking */
 	bool disable_unlimited_tracking:1;

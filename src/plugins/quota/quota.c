@@ -1340,10 +1340,10 @@ void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 {
 	uoff_t size;
 
-	if (ctx->auto_updating)
-		return;
-	if (quota_get_mail_size(ctx, mail, &size) == 0)
-		ctx->bytes_used += size;
+	if (!ctx->auto_updating) {
+		if (quota_get_mail_size(ctx, mail, &size) == 0)
+			ctx->bytes_used += size;
+	}
 
 	ctx->bytes_ceil = ctx->bytes_ceil2;
 	ctx->count_used++;

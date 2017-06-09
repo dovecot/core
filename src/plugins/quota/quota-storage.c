@@ -398,8 +398,13 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		qbox->expunge_qt->sync_transaction =
 			qbox->sync_transaction_expunge;
 	}
-	if (qbox->expunge_qt->auto_updating)
+	if (qbox->expunge_qt->auto_updating) {
+		/* even though backend doesn't care about size/count changes,
+		   make sure count_used changes so quota_warnings are
+		   executed */
+		quota_free_bytes(qbox->expunge_qt, 0);
 		return;
+	}
 
 	/* we're in the middle of syncing the mailbox, so it's a bad idea to
 	   try and get the message sizes at this point. Rely on sizes that
