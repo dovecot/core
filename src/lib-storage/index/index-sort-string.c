@@ -739,6 +739,7 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 	uint32_t ext_id = ctx->ext_id;
 	const struct mail_sort_node *nodes;
 	unsigned int i, count;
+	uint32_t lowest_failed_seq;
 
 	if (ctx->no_writing) {
 		/* our reset_id is already stale - don't even bother
@@ -749,11 +750,30 @@ static void index_sort_write_changed_sort_ids(struct sort_string_context *ctx)
 	mail_index_ext_reset_inc(itrans, ext_id,
 				 ctx->highest_reset_id, FALSE);
 
-	/* add the missing sort IDs to index */
+	/* We require that there aren't sort_id=0 gaps in the middle of the
+	   mails. At this point they could exist though, because some of the
+	   mail lookups may have failed. Failures due to expunges don't matter,
+	   because on the next lookup those mails will be lost anyway.
+	   Otherwise, make sure we don't write those gaps out
+
+	   First find the lowest non-expunged mail that has no_update set. */
+	nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
+	lowest_failed_seq = (uint32_t)-1;
+	for (i = 0; i < count; i++) {
+		uint32_t seq = nodes[i].seq;
+
+		if (nodes[i].no_update && lowest_failed_seq > seq &&
+		    !mail_index_is_expunged(ctx->program->t->view, seq))
+			lowest_failed_seq = seq;
+	}
+
+	/* add the missing sort IDs to index, but only for those sequences
+	   that are below lowest_failed_seq */
 	nodes = array_get_modifiable(&ctx->sorted_nodes, &count);
 	for (i = 0; i < count; i++) {
 		i_assert(nodes[i].sort_id != 0);
-		if (!nodes[i].sort_id_changed || nodes[i].no_update)
+		if (!nodes[i].sort_id_changed || nodes[i].no_update ||
+		    nodes[i].seq >= lowest_failed_seq)
 			continue;
 
 		mail_index_update_ext(itrans, nodes[i].seq, ext_id,
