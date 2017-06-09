@@ -590,10 +590,10 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group,
 		}
 
 		/* values always returned in 512 byte blocks */
-		*bytes_value_r = xdqblk.d_bcount * 512;
-		*bytes_limit_r = xdqblk.d_blk_softlimit * 512;
+		*bytes_value_r = xdqblk.d_bcount * 512ULL;
+		*bytes_limit_r = xdqblk.d_blk_softlimit * 512ULL;
 		if (*bytes_limit_r == 0) {
-			*bytes_limit_r = xdqblk.d_blk_hardlimit * 512;
+			*bytes_limit_r = xdqblk.d_blk_hardlimit * 512ULL;
 		}
 		*count_value_r = xdqblk.d_icount;
 		*count_limit_r = xdqblk.d_ino_softlimit;
@@ -624,13 +624,13 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group,
 		}
 
 #if _LINUX_QUOTA_VERSION == 1
-		*bytes_value_r = dqblk.dqb_curblocks * 1024;
+		*bytes_value_r = dqblk.dqb_curblocks * 1024ULL;
 #else
 		*bytes_value_r = dqblk.dqb_curblocks;
 #endif
-		*bytes_limit_r = dqblk.dqb_bsoftlimit * 1024;
+		*bytes_limit_r = dqblk.dqb_bsoftlimit * 1024ULL;
 		if (*bytes_limit_r == 0) {
-			*bytes_limit_r = dqblk.dqb_bhardlimit * 1024;
+			*bytes_limit_r = dqblk.dqb_bhardlimit * 1024ULL;
 		}
 		*count_value_r = dqblk.dqb_curinodes;
 		*count_limit_r = dqblk.dqb_isoftlimit;
