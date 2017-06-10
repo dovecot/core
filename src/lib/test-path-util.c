@@ -133,7 +133,7 @@ static void test_link_alloc(void)
 	string_t *basedir = t_str_new(256);
 	str_append(basedir, cwd);
 	str_append(basedir, "/"TEMP_DIRNAME);
-	size_t len = nearest_power(I_MAX(127, str_len(basedir))) -
+	size_t len = nearest_power(I_MAX(127, str_len(basedir) + strlen(COMPONENT_COMPONENT) + 1)) -
 			strlen(COMPONENT_COMPONENT);
 
 	while(str_len(basedir) < len) {
