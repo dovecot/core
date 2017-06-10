@@ -79,7 +79,7 @@ http_client_host_dns_callback(const struct dns_lookup_result *result,
 		"DNS lookup successful; got %d IPs", result->ips_count);
 
 	i_assert(result->ips_count > 0);
-	host->ips = i_realloc_type(host->ips, struct ip,
+	host->ips = i_realloc_type(host->ips, struct ip_addr,
 				   host->ips_count, result->ips_count);
 	host->ips_count = result->ips_count;
 	memcpy(host->ips, result->ips, sizeof(*host->ips) * host->ips_count);
