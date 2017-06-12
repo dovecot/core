@@ -648,7 +648,9 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 		return _ctx;
 	}
 
-	ns_sep = mail_namespace_get_sep(_list->ns);
+	/* if we've already failed, make sure we don't call
+	   mailbox_list_get_hierarchy_sep(), since it clears the error */
+	ns_sep = ret < 0 ? '/' : mail_namespace_get_sep(_list->ns);
 
 	pool = pool_alloconly_create("mailbox list imapc iter", 1024);
 	ctx = p_new(pool, struct imapc_mailbox_list_iterate_context, 1);
@@ -662,7 +664,8 @@ imapc_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 
 	ctx->tree = mailbox_tree_init(ns_sep);
 	mailbox_tree_set_parents_nonexistent(ctx->tree);
-	imapc_list_build_match_tree(ctx);
+	if (ret == 0)
+		imapc_list_build_match_tree(ctx);
 
 	if (list->list.ns->prefix_len > 0) {
 		ns_root_name = t_strndup(_list->ns->prefix,
