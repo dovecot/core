@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "ioloop.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-storage-private.h"
@@ -24,7 +25,7 @@
         MODULE_CONTEXT(obj, push_notification_user_module)
 static MODULE_CONTEXT_DEFINE_INIT(push_notification_user_module,
                                   &mail_user_module_register);
-
+static struct ioloop *main_ioloop;
 
 static void
 push_notification_transaction_init(struct push_notification_txn *ptxn)
@@ -102,7 +103,12 @@ static void push_notification_transaction_commit
 (void *txn, struct mail_transaction_commit_changes *changes)
 {
     struct push_notification_txn *ptxn = (struct push_notification_txn *)txn;
+    struct ioloop *prev_ioloop = current_ioloop;
 
+    /* Make sure we're not in just any random ioloop, which could get
+       destroyed soon. This way the push-notification drivers can do async
+       operations that finish in the main ioloop. */
+    io_loop_set_current(main_ioloop);
     if (changes == NULL) {
         push_notification_txn_mbox_end(ptxn);
     } else {
@@ -110,6 +116,7 @@ static void push_notification_transaction_commit
     }
 
     push_notification_transaction_end(ptxn, TRUE);
+    io_loop_set_current(prev_ioloop);
 }
 
 static void push_notification_mailbox_create(struct mailbox *box)
@@ -337,6 +344,8 @@ void push_notification_plugin_init(struct module *module)
     push_notification_driver_register(&push_notification_driver_ox);
 
     push_notification_event_register_rfc5423_events();
+    main_ioloop = current_ioloop;
+    i_assert(main_ioloop != NULL);
 }
 
 void push_notification_plugin_deinit(void)
