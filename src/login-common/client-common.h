@@ -105,6 +105,7 @@ struct client_vfuncs {
 	const char *(*proxy_get_state)(struct client *client);
 	void (*send_raw_data)(struct client *client,
 			      const void *data, size_t size);
+	bool (*input_next_cmd)(struct client *client);
 };
 
 struct client {
