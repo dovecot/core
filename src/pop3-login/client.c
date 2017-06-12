@@ -22,8 +22,6 @@
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 3
 
-static bool pop3_client_input_next_cmd(struct client *client);
-
 static bool cmd_stls(struct pop3_client *client)
 {
 	client_cmd_starttls(&client->common);	
@@ -132,7 +130,7 @@ static void pop3_client_input(struct client *client)
 	   commands until the authentication is finished. */
 	while (!client->output->closed && !client->authenticating &&
 	       auth_client_is_connected(auth_client)) {
-		if (!pop3_client_input_next_cmd(client))
+		if (!client->v.input_next_cmd(client))
 			break;
 	}
 
@@ -335,6 +333,7 @@ static struct client_vfuncs pop3_client_vfuncs = {
 	pop3_proxy_error,
 	pop3_proxy_get_state,
 	client_common_send_raw_data,
+	pop3_client_input_next_cmd,
 };
 
 static const struct login_binary pop3_login_binary = {
