@@ -177,7 +177,7 @@ static void imapc_save_callback(const struct imapc_command_reply *reply,
 		ctx->ret = -1;
 	} else {
 		mail_storage_set_critical(&ctx->ctx->mbox->storage->storage,
-			"imapc: COPY failed: %s", reply->text_full);
+			"imapc: APPEND failed: %s", reply->text_full);
 		ctx->ret = -1;
 	}
 	imapc_client_stop(ctx->ctx->mbox->storage->client->client);
