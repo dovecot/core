@@ -213,6 +213,9 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	uint32_t seq;
 	unsigned int i;
 
+	i_assert(headers == NULL ||
+		 IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS));
+
 	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
 		mail_set_aborted(_mail);
 		return -1;
@@ -371,6 +374,7 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 	struct index_mail_data *data = &mail->imail.data;
 	enum mail_fetch_field fields;
+	const char *const *headers = NULL;
 
 	if (mbox->prev_mail_cache.uid == _mail->uid)
 		imapc_mail_cache_get(mail, &mbox->prev_mail_cache);
@@ -378,12 +382,17 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	imapc_mail_update_access_parts(&mail->imail);
 
 	fields = imapc_mail_get_wanted_fetch_fields(mail);
-	if (fields != 0 ||
-	    (data->wanted_headers != NULL &&
-	     !imapc_mail_has_headers_in_cache(&mail->imail, data->wanted_headers))) T_BEGIN {
-		if (imapc_mail_send_fetch(_mail, fields,
-					  data->wanted_headers == NULL ? NULL :
-					  data->wanted_headers->name) > 0)
+	if (data->wanted_headers != NULL && data->stream == NULL &&
+	    (fields & MAIL_FETCH_STREAM_HEADER) == 0 &&
+	    !imapc_mail_has_headers_in_cache(&mail->imail, data->wanted_headers)) {
+		/* fetch specific headers */
+		if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS))
+			headers = data->wanted_headers->name;
+		else
+			fields |= MAIL_FETCH_STREAM_HEADER;
+	}
+	if (fields != 0 || headers != NULL) T_BEGIN {
+		if (imapc_mail_send_fetch(_mail, fields, headers) > 0)
 			mail->imail.data.prefetch_sent = TRUE;
 	} T_END;
 	return !mail->imail.data.prefetch_sent;
