@@ -275,6 +275,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 			   full body and sometimes only the headers. */
 			str_append(str, "BODY.PEEK[HEADER] BODY.PEEK[TEXT] ");
 		}
+		fields |= MAIL_FETCH_STREAM_HEADER;
 	} else if ((fields & MAIL_FETCH_STREAM_HEADER) != 0)
 		str_append(str, "BODY.PEEK[HEADER] ");
 	else if (headers != NULL) {
@@ -362,8 +363,7 @@ imapc_mail_get_wanted_fetch_fields(struct imapc_mail *mail)
 	if (data->stream == NULL && data->access_part != 0) {
 		if ((data->access_part & (READ_BODY | PARSE_BODY)) != 0)
 			fields |= MAIL_FETCH_STREAM_BODY;
-		else
-			fields |= MAIL_FETCH_STREAM_HEADER;
+		fields |= MAIL_FETCH_STREAM_HEADER;
 	}
 	return fields;
 }
