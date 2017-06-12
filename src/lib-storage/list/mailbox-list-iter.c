@@ -562,7 +562,7 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 	bool has_children;
 
 	if (ctx->cur_ns == NULL) {
-		if (!ctx->inbox_listed && ctx->inbox_list) {
+		if (!ctx->inbox_listed && ctx->inbox_list && !_ctx->failed) {
 			/* send delayed INBOX reply */
 			ctx->inbox_listed = TRUE;
 			inbox_set_children_flags(ctx);
