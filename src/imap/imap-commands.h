@@ -60,6 +60,8 @@ void command_hook_unregister(command_hook_callback_t *pre,
 			     command_hook_callback_t *post);
 /* Execute command and hooks */
 bool command_exec(struct client_command_context *cmd);
+/* Starts counting command statistics. */
+void command_stats_start(struct client_command_context *cmd);
 /* Finish counting command statistics. This is called automatically when
    command_exec() returns, but it should be called explicitly if the stats are
    needed during command_exec(). */

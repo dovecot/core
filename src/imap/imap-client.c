@@ -1128,6 +1128,8 @@ static bool client_command_input(struct client_command_context *cmd)
 
 	if (cmd->func == NULL) {
 		/* unknown command */
+		io_loop_time_refresh();
+		command_stats_start(cmd);
 		client_send_command_error(cmd, "Unknown command.");
 		cmd->param_error = TRUE;
 		client_command_free(&cmd);

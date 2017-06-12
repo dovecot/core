@@ -160,7 +160,7 @@ void command_hook_unregister(command_hook_callback_t *pre,
 	i_panic("command_hook_unregister(): hook not registered");
 }
 
-static void command_stats_start(struct client_command_context *cmd)
+void command_stats_start(struct client_command_context *cmd)
 {
 	cmd->stats_start.timeval = ioloop_timeval;
 	cmd->stats_start.lock_wait_usecs = file_lock_wait_get_total_usecs();
