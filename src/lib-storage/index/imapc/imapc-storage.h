@@ -52,7 +52,11 @@ struct imapc_storage_client {
 
 	ARRAY(struct imapc_storage_event_callback) untagged_callbacks;
 
+	/* IMAPC_COMMAND_STATE_OK if no auth failure (yet), otherwise result to
+	   the LOGIN/AUTHENTICATE command. */
+	enum imapc_command_state auth_failed_state;
 	char *auth_error;
+
 	/* Authentication reply was received (success or failure) */
 	bool auth_returned:1;
 	/* Authentication failed */
@@ -154,6 +158,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 				struct imapc_storage_client **client_r,
 				const char **error_r);
 void imapc_storage_client_unref(struct imapc_storage_client **client);
+bool imapc_storage_client_handle_auth_failure(struct imapc_storage_client *client);
 
 struct mail_save_context *
 imapc_save_alloc(struct mailbox_transaction_context *_t);
