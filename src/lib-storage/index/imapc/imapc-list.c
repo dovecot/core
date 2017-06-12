@@ -840,6 +840,8 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	struct imapc_command *cmd;
 	struct imapc_simple_context ctx;
 
+	if (imapc_storage_client_handle_auth_failure(list->client))
+		return -1;
 	if (imapc_client_get_capabilities(list->client->client, &capa) < 0)
 		return -1;
 
