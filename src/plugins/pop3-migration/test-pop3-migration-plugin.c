@@ -17,6 +17,9 @@ static void test_pop3_migration_get_hdr_sha1(void)
 		{ "", "da39a3ee5e6b4b0d3255bfef95601890afd80709", FALSE },
 		{ "\n", "adc83b19e793491b1c6ea0fd8b46cd9f32e592fc", TRUE },
 		{ "a: b\r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
+		{ "a: b \r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
+		{ "a: b  \r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
+		{ "a: b     \r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
 		{ "a: b\r\n\r\n", "d14841695e1d9e2de6625d9222abd149ec821b0d", TRUE },
 		{ "a: b\r\n\r\r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
 		{ "a: b\r\n\r\r\nc: d\r\n\r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", TRUE }
