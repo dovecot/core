@@ -60,7 +60,7 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 		str_append(str, "-\n");
 	for (; *args != NULL; args++) {
 		str_append_tabescaped(str, *args);
-		str_append_c(str, '\t');
+		str_append_c(str, '\n');
 	}
 	str_append_c(str, '\n');
 
