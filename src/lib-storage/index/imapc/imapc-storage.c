@@ -230,7 +230,7 @@ imapc_storage_client_login_callback(const struct imapc_command_reply *reply,
 	}
 
 	client->auth_failed_state = reply->state;
-	client->auth_error = i_strdup(reply->text_full);
+	client->auth_failed_reason = i_strdup(reply->text_full);
 
 	if (client->_storage != NULL) {
 		if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
@@ -268,7 +268,7 @@ static void imapc_storage_client_login(struct imapc_storage_client *client,
 		if (imapc_storage_client_handle_auth_failure(client)) {
 			user->error = p_strdup_printf(user->pool,
 				"imapc: Login to %s failed: %s",
-				host, client->auth_error);
+				host, client->auth_failed_reason);
 		}
 	}
 }
@@ -368,7 +368,7 @@ void imapc_storage_client_unref(struct imapc_storage_client **_client)
 	array_foreach_modifiable(&client->untagged_callbacks, cb)
 		i_free(cb->name);
 	array_free(&client->untagged_callbacks);
-	i_free(client->auth_error);
+	i_free(client->auth_failed_reason);
 	i_free(client);
 }
 

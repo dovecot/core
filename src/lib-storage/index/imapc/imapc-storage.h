@@ -55,7 +55,7 @@ struct imapc_storage_client {
 	/* IMAPC_COMMAND_STATE_OK if no auth failure (yet), otherwise result to
 	   the LOGIN/AUTHENTICATE command. */
 	enum imapc_command_state auth_failed_state;
-	char *auth_error;
+	char *auth_failed_reason;
 
 	/* Authentication reply was received (success or failure) */
 	bool auth_returned:1;
