@@ -66,6 +66,9 @@ int imapc_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 	i_assert(ctx->fd == -1);
 
+	if (imapc_storage_client_handle_auth_failure(ctx->mbox->storage->client))
+		return -1;
+
 	ctx->fd = imapc_client_create_temp_fd(ctx->mbox->storage->client->client,
 					      &path);
 	if (ctx->fd == -1) {
@@ -171,6 +174,8 @@ static void imapc_save_callback(const struct imapc_command_reply *reply,
 			imapc_save_appenduid(ctx->ctx, reply, &uid);
 		imapc_save_add_to_index(ctx->ctx, uid);
 		ctx->ret = 0;
+	} else if (imapc_storage_client_handle_auth_failure(ctx->ctx->mbox->storage->client)) {
+		ctx->ret = -1;
 	} else if (reply->state == IMAPC_COMMAND_STATE_NO) {
 		imapc_copy_error_from_reply(ctx->ctx->mbox->storage,
 					    MAIL_ERROR_PARAMS, reply);
