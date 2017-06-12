@@ -231,28 +231,36 @@ imapc_storage_client_login_callback(const struct imapc_command_reply *reply,
 
 	client->auth_failed_state = reply->state;
 	client->auth_failed_reason = i_strdup(reply->text_full);
-
-	if (client->_storage != NULL) {
-		if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
-			mail_storage_set_internal_error(&client->_storage->storage);
-		else {
-			mail_storage_set_error(&client->_storage->storage,
-					       MAIL_ERROR_PERM, reply->text_full);
-		}
-	}
-	if (client->_list != NULL) {
-		if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
-			mailbox_list_set_internal_error(&client->_list->list);
-		else {
-			mailbox_list_set_error(&client->_list->list,
-					       MAIL_ERROR_PERM, reply->text_full);
-		}
-	}
+	if (!imapc_storage_client_handle_auth_failure(client))
+		i_unreached();
 }
 
 bool imapc_storage_client_handle_auth_failure(struct imapc_storage_client *client)
 {
-	return client->auth_failed_state != IMAPC_COMMAND_STATE_OK;
+	if (client->auth_failed_state == IMAPC_COMMAND_STATE_OK)
+		return FALSE;
+
+	/* We need to set the error to either storage or to list, depending on
+	   whether the caller is from mail-storage.h API or mailbox-list.h API.
+	   We don't know here what the caller is though, so just set the error
+	   to both of them. */
+	if (client->_storage != NULL) {
+		if (client->auth_failed_state == IMAPC_COMMAND_STATE_DISCONNECTED)
+			mail_storage_set_internal_error(&client->_storage->storage);
+		else {
+			mail_storage_set_error(&client->_storage->storage,
+				MAIL_ERROR_PERM, client->auth_failed_reason);
+		}
+	}
+	if (client->_list != NULL) {
+		if (client->auth_failed_state == IMAPC_COMMAND_STATE_DISCONNECTED)
+			mailbox_list_set_internal_error(&client->_list->list);
+		else {
+			mailbox_list_set_error(&client->_list->list,
+				MAIL_ERROR_PERM, client->auth_failed_reason);
+		}
+	}
+	return TRUE;
 }
 
 static void imapc_storage_client_login(struct imapc_storage_client *client,
