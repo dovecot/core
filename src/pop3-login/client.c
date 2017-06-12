@@ -22,6 +22,8 @@
 /* Disconnect client when it sends too many bad commands */
 #define CLIENT_MAX_BAD_COMMANDS 3
 
+static bool pop3_client_input_next_cmd(struct client *client);
+
 static bool cmd_stls(struct pop3_client *client)
 {
 	client_cmd_starttls(&client->common);	
@@ -118,9 +120,6 @@ static bool client_command_execute(struct pop3_client *client, const char *cmd,
 
 static void pop3_client_input(struct client *client)
 {
-	struct pop3_client *pop3_client = (struct pop3_client *)client;
-	char *line, *args;
-
 	i_assert(!client->authenticating);
 
 	if (!client_read(client))
@@ -132,22 +131,9 @@ static void pop3_client_input(struct client *client)
 	/* if a command starts an authentication, stop processing further
 	   commands until the authentication is finished. */
 	while (!client->output->closed && !client->authenticating &&
-	       auth_client_is_connected(auth_client) &&
-	       (line = i_stream_next_line(client->input)) != NULL) {
-		args = strchr(line, ' ');
-		if (args != NULL)
-			*args++ = '\0';
-
-		if (client_command_execute(pop3_client, line,
-					   args != NULL ? args : ""))
-			client->bad_counter = 0;
-		else if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
-			client_send_reply(client, POP3_CMD_REPLY_ERROR,
-				"Too many invalid bad commands.");
-			client_destroy(client,
-				       "Disconnected: Too many bad commands");
+	       auth_client_is_connected(auth_client)) {
+		if (!pop3_client_input_next_cmd(client))
 			break;
-		}
 	}
 
 	if (auth_client != NULL && !auth_client_is_connected(auth_client))
@@ -155,6 +141,31 @@ static void pop3_client_input(struct client *client)
 
 	if (client_unref(&client))
 		o_stream_uncork(client->output);
+}
+
+static bool pop3_client_input_next_cmd(struct client *client)
+{
+	struct pop3_client *pop3_client = (struct pop3_client *)client;
+	char *line, *args;
+
+	if ((line = i_stream_next_line(client->input)) == NULL)
+		return FALSE;
+
+	args = strchr(line, ' ');
+	if (args != NULL)
+		*args++ = '\0';
+
+	if (client_command_execute(pop3_client, line,
+				   args != NULL ? args : ""))
+		client->bad_counter = 0;
+	else if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
+		client_send_reply(client, POP3_CMD_REPLY_ERROR,
+				  "Too many invalid bad commands.");
+		client_destroy(client,
+			       "Disconnected: Too many bad commands");
+		return FALSE;
+	}
+	return TRUE;
 }
 
 static struct client *pop3_client_alloc(pool_t pool)
