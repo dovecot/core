@@ -707,17 +707,19 @@ patterns_match_inbox(struct mail_namespace *namespaces,
 	return imap_match(glob, "INBOX") == IMAP_MATCH_YES;
 }
 
-static void inbox_info_init(struct ns_list_iterate_context *ctx,
-			    struct mail_namespace *namespaces)
+static int inbox_info_init(struct ns_list_iterate_context *ctx,
+			   struct mail_namespace *namespaces)
 {
 	enum mailbox_info_flags flags;
+	int ret;
 
 	ctx->inbox_info.vname = "INBOX";
 	ctx->inbox_info.ns = mail_namespace_find_inbox(namespaces);
 	i_assert(ctx->inbox_info.ns != NULL);
 
-	if (mailbox_list_mailbox(ctx->inbox_info.ns->list, "INBOX", &flags) > 0)
+	if ((ret = mailbox_list_mailbox(ctx->inbox_info.ns->list, "INBOX", &flags)) > 0)
 		ctx->inbox_info.flags = flags;
+	return ret;
 }
 
 struct mailbox_list_iterate_context *
@@ -754,7 +756,10 @@ mailbox_list_iter_init_namespaces(struct mail_namespace *namespaces,
 		   else called INBOX (e.g. namespace prefix) we can show it
 		   immediately with the proper flags. */
 		ctx->inbox_list = TRUE;
-		inbox_info_init(ctx, namespaces);
+		if (inbox_info_init(ctx, namespaces) < 0) {
+			pool_unref(&pool);
+			return &mailbox_list_iter_failed;
+		}
 	}
 
 	if ((flags & MAILBOX_LIST_ITER_STAR_WITHIN_NS) != 0) {
