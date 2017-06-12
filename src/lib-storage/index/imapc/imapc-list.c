@@ -128,7 +128,7 @@ static void imapc_list_simple_callback(const struct imapc_command_reply *reply,
 		imapc_list_copy_error_from_reply(ctx->client->_list,
 						 MAIL_ERROR_PARAMS, reply);
 		ctx->ret = -1;
-	} else if (ctx->client->auth_failed) {
+	} else if (imapc_storage_client_handle_auth_failure(ctx->client)) {
 		ctx->ret = -1;
 	} else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED) {
 		mailbox_list_set_internal_error(&ctx->client->_list->list);
@@ -284,7 +284,7 @@ static void imapc_storage_sep_callback(const struct imapc_command_reply *reply,
 		imapc_list_sep_verify(list);
 	else if (reply->state == IMAPC_COMMAND_STATE_NO)
 		imapc_list_copy_error_from_reply(list, MAIL_ERROR_PARAMS, reply);
-	else if (list->client->auth_failed)
+	else if (imapc_storage_client_handle_auth_failure(list->client))
 		;
 	else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED)
 		mailbox_list_set_internal_error(&list->list);
@@ -312,7 +312,7 @@ static void imapc_list_send_hierarcy_sep_lookup(struct imapc_mailbox_list *list)
 int imapc_list_try_get_root_sep(struct imapc_mailbox_list *list, char *sep_r)
 {
 	if (list->root_sep == '\0') {
-		if (list->client->auth_failed)
+		if (imapc_storage_client_handle_auth_failure(list->client))
 			return -1;
 		imapc_list_send_hierarcy_sep_lookup(list);
 		while (list->root_sep_pending)
@@ -552,7 +552,7 @@ static int imapc_list_refresh(struct imapc_mailbox_list *list)
 	struct mailbox_node *node;
 	const char *pattern;
 
-	if (list->client->auth_failed)
+	if (imapc_storage_client_handle_auth_failure(list->client))
 		return -1;
 	if (list->root_sep_lookup_failed) {
 		mailbox_list_set_internal_error(&list->list);
