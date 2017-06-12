@@ -665,6 +665,10 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 
 static int imapc_mailbox_get_capabilities(struct imapc_mailbox *mbox)
 {
+	/* If authentication failed, don't check again. */
+	if (imapc_storage_client_handle_auth_failure(mbox->storage->client))
+		return -1;
+
 	return imapc_client_get_capabilities(mbox->storage->client->client,
 					     &mbox->capabilities);
 
@@ -688,10 +692,6 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 
 	i_assert(mbox->client_box == NULL);
 
-	/* If authentication failed, don't check again. */
-	if (imapc_storage_client_handle_auth_failure(mbox->storage->client)) {
-		return -1;
-	}
 	if (imapc_mailbox_get_capabilities(mbox) < 0)
 		return -1;
 
