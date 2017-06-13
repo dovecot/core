@@ -928,6 +928,8 @@ int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **_exporter,
 
 	*_exporter = NULL;
 
+	if (exporter->attr_iter != NULL)
+		(void)mailbox_attribute_iter_deinit(&exporter->attr_iter);
 	dsync_mailbox_export_body_search_deinit(exporter);
 	(void)mailbox_transaction_commit(&exporter->trans);
 	if (exporter->wanted_headers != NULL)
