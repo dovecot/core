@@ -93,6 +93,10 @@ static void test_imap_append_nstring(void)
 		{ "", "\"\"" },
 		{ NULL, "NIL" },
 		{ "NIL", "\"NIL\"" },
+		{ "\"America N.\"", "\"\\\"America N.\\\"\"" },
+		{ "\"America N.\", \"America S.\"", "\"\\\"America N.\\\", \\\"America S.\\\"\"" },
+		{ "\"America N.\", \"America S.\", \"Africa\"", "{36}\r\n\"America N.\", \"America S.\", \"Africa\"" },
+		{ "Antarctica\n Australia", "{21}\r\nAntarctica\n Australia" },
 		{ "ni", "\"ni\"" }
 	};
 	string_t *str = t_str_new(128);
