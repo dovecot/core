@@ -289,8 +289,9 @@ mail_cache_transaction_lookup_rec(struct mail_cache_transaction_ctx *ctx,
 	const struct mail_cache_transaction_rec *recs;
 	unsigned int i, count;
 
-	if (MAIL_CACHE_IS_UNUSABLE(ctx->cache) ||
-	    ctx->cache_file_seq != ctx->cache->hdr->file_seq) {
+	if (!MAIL_INDEX_IS_IN_MEMORY(ctx->cache->index) &&
+	    (MAIL_CACHE_IS_UNUSABLE(ctx->cache) ||
+	     ctx->cache_file_seq != ctx->cache->hdr->file_seq)) {
 		/* Cache was compressed during this transaction. We can't
 		   safely use the data anymore, since its fields won't match
 		   cache->file_fields_map. */
