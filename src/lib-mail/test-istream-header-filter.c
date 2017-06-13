@@ -498,6 +498,7 @@ static void test_istream_add_missing_eoh(void)
 		const char *output;
 		unsigned int extra;
 	} tests[] = {
+		{ "", "\n", 0 },
 		{ "From: foo", "From: foo\n\n", 1 },
 		{ "From: foo\n", "From: foo\n\n", 1 },
 		{ "From: foo\n\n", "From: foo\n\n", 1 },

@@ -481,6 +481,7 @@ i_stream_header_filter_seek_to_header(struct header_filter_istream *mstream,
 	mstream->prev_matched = FALSE;
 	mstream->header_read = FALSE;
 	mstream->seen_eoh = FALSE;
+	mstream->last_added_newline = TRUE;
 }
 
 static int skip_header(struct header_filter_istream *mstream)
@@ -664,6 +665,7 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->end_body_with_lf =
 		(flags & HEADER_FILTER_END_BODY_WITH_LF) != 0;
 	mstream->last_lf_offset = (uoff_t)-1;
+	mstream->last_added_newline = TRUE;
 
 	mstream->istream.iostream.destroy = i_stream_header_filter_destroy;
 	mstream->istream.read = i_stream_header_filter_read;
