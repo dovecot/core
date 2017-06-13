@@ -229,16 +229,19 @@ anvil_client_query(struct anvil_client *client, const char *query,
 {
 	struct anvil_query *anvil_query;
 
-	if (anvil_client_send(client, query) < 0) {
-		callback(NULL, context);
-		return NULL;
-	}
-
 	anvil_query = i_new(struct anvil_query, 1);
 	anvil_query->callback = callback;
 	anvil_query->context = context;
 	aqueue_append(client->queries, &anvil_query);
-	if (client->to_query == NULL) {
+	if (anvil_client_send(client, query) < 0) {
+		/* connection failure. add a delayed failure callback.
+		   the caller may not expect the callback to be called
+		   immediately. */
+		if (client->to_query != NULL)
+			timeout_remove(&client->to_query);
+		client->to_query =
+			timeout_add_short(0, anvil_client_cancel_queries, client);
+	} else if (client->to_query == NULL) {
 		client->to_query = timeout_add(ANVIL_QUERY_TIMEOUT_MSECS,
 					       anvil_client_timeout, client);
 	}
