@@ -47,7 +47,6 @@ static void quota_clone_flush_real(struct mailbox *box)
 	struct quota_root_iter *iter;
 	struct quota_root *root;
 	uint64_t bytes_value, count_value, limit;
-	const char *error;
 	int ret_bytes, ret_count;
 
 	/* we'll clone the first quota root */
