@@ -30,7 +30,7 @@ oauth2_token_validate_continue(struct oauth2_request *req, bool success,
 	struct oauth2_token_validation_result res;
 	i_zero(&res);
 
-	i_assert(array_is_created(&req->fields));
+	i_assert(array_is_created(&req->fields) || !success);
 
 	res.success = success;
 	res.error = error;
