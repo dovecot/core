@@ -51,7 +51,6 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 	/* append any forward_ variables to request */
 	for(const char *const *ptr = client->common.auth_passdb_args; *ptr != NULL; ptr++) {
 		if (strncasecmp(*ptr, "forward_", 8) == 0) {
-			str_append_c(str, ' ');
 			const char *key = t_strconcat("x-forward-",
 						      t_strcut((*ptr)+8, '='),
 						      NULL);
