@@ -103,8 +103,8 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 	sstream->write_peak = sstream->membuf->used;
 
 	sstream->fd = fd;
-	sstream->fd_input =
-		i_stream_create_fd_autoclose(&fd, sstream->istream.max_buffer_size);
+	sstream->fd_input = i_stream_create_fd_autoclose(&fd,
+		I_MAX(stream->pos, sstream->istream.max_buffer_size));
 	i_stream_set_name(sstream->fd_input, t_strdup_printf(
 		"(seekable temp-istream for: %s)", i_stream_get_name(&stream->istream)));
 
@@ -118,15 +118,20 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 		ssize_t ret;
 		if ((ret = i_stream_read(sstream->fd_input)) <= 0) {
 			i_assert(ret != 0);
+			i_assert(ret != -2);
 			i_error("istream-seekable: Couldn't read back "
 				"in-memory input %s: %s",
 				i_stream_get_name(&stream->istream),
-				ret == -2 ? "buffer full" :
 				i_stream_get_error(sstream->fd_input));
 			i_stream_destroy(&sstream->fd_input);
 			return -1;
 		}
 	}
+	/* Set the max buffer size only after we've already read everything
+	   into memory. For example with istream-data it's possible that
+	   more data exists in buffer than max_buffer_size. */
+	i_stream_set_max_buffer_size(sstream->fd_input,
+				     sstream->istream.max_buffer_size);
 	stream->buffer = buffer;
 	stream->pos = size;
 	buffer_free(&sstream->membuf);
