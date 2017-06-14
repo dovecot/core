@@ -7,57 +7,112 @@
 #include "imap-login-settings.h"
 #include "imap-login-client.h"
 
-static const char *const imap_login_reserved_id_keys[] = {
-	"x-originating-ip",
-	"x-originating-port",
-	"x-connected-ip",
-	"x-connected-port",
-	"x-proxy-ttl",
-	"x-session-id",
-	"x-session-ext-id",
-	NULL
+struct imap_id_param_handler {
+	const char *key;
+	bool key_is_prefix;
+
+	void (*callback)(struct imap_client *client,
+			 const char *key, const char *value);
 };
+
+static void
+cmd_id_x_originating_ip(struct imap_client *client,
+			const char *key ATTR_UNUSED, const char *value)
+{
+	(void)net_addr2ip(value, &client->common.ip);
+}
+
+static void
+cmd_id_x_originating_port(struct imap_client *client,
+			  const char *key ATTR_UNUSED, const char *value)
+{
+	(void)net_str2port(value, &client->common.remote_port);
+}
+
+static void
+cmd_id_x_connected_ip(struct imap_client *client,
+		      const char *key ATTR_UNUSED, const char *value)
+{
+	(void)net_addr2ip(value, &client->common.local_ip);
+}
+
+static void
+cmd_id_x_connected_port(struct imap_client *client,
+			const char *key ATTR_UNUSED, const char *value)
+{
+	(void)net_str2port(value, &client->common.local_port);
+}
+
+static void
+cmd_id_x_proxy_ttl(struct imap_client *client,
+		   const char *key ATTR_UNUSED, const char *value)
+{
+	if (str_to_uint(value, &client->common.proxy_ttl) < 0) {
+		/* nothing */
+	}
+}
+
+static void
+cmd_id_x_session_id(struct imap_client *client,
+		    const char *key ATTR_UNUSED, const char *value)
+{
+	if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {
+		client->common.session_id =
+			p_strdup(client->common.pool, value);
+	}
+}
+
+static void
+cmd_id_x_forward_(struct imap_client *client,
+		  const char *key, const char *value)
+{
+	i_assert(strncasecmp(key, "x-forward-", 10) == 0);
+	client_add_forward_field(&client->common, key+10, value);
+}
+
+static const struct imap_id_param_handler imap_login_id_params[] = {
+	{ "x-originating-ip", FALSE, cmd_id_x_originating_ip },
+	{ "x-originating-port", FALSE, cmd_id_x_originating_port },
+	{ "x-connected-ip", FALSE, cmd_id_x_connected_ip },
+	{ "x-connected-port", FALSE, cmd_id_x_connected_port },
+	{ "x-proxy-ttl", FALSE, cmd_id_x_proxy_ttl },
+	{ "x-session-id", FALSE, cmd_id_x_session_id },
+	{ "x-session-ext-id", FALSE, cmd_id_x_session_id },
+	{ "x-forward-", TRUE, cmd_id_x_forward_ },
+
+	{ NULL, FALSE, NULL }
+};
+
+static const struct imap_id_param_handler *
+imap_id_param_handler_find(const char *key)
+{
+	for (unsigned int i = 0; imap_login_id_params[i].key != NULL; i++) {
+		unsigned int prefix_len = strlen(imap_login_id_params[i].key);
+
+		if (strncasecmp(imap_login_id_params[i].key, key, prefix_len) == 0 &&
+		    (key[prefix_len] == '\0' ||
+		     imap_login_id_params[i].key_is_prefix))
+			return &imap_login_id_params[i];
+	}
+	return NULL;
+}
 
 static bool
 client_update_info(struct imap_client *client,
 		   const char *key, const char *value)
 {
-	i_assert(value != NULL);
+	const struct imap_id_param_handler *handler;
 
-	/* SYNC WITH imap_login_reserved_id_keys */
-
-	if (strcasecmp(key, "x-originating-ip") == 0) {
-		(void)net_addr2ip(value, &client->common.ip);
-	} else if (strcasecmp(key, "x-originating-port") == 0) {
-		(void)net_str2port(value, &client->common.remote_port);
-	} else if (strcasecmp(key, "x-connected-ip") == 0) {
-		(void)net_addr2ip(value, &client->common.local_ip);
-	} else if (strcasecmp(key, "x-connected-port") == 0) {
-		(void)net_str2port(value, &client->common.local_port);
-	}	else if (strcasecmp(key, "x-proxy-ttl") == 0) {
-		if (str_to_uint(value, &client->common.proxy_ttl) < 0) {
-			/* nothing */
-		}
-	} else if (strcasecmp(key, "x-session-id") == 0 ||
-		 strcasecmp(key, "x-session-ext-id") == 0) {
-		if (strlen(value) <= LOGIN_MAX_SESSION_ID_LEN) {
-			client->common.session_id =
-				p_strdup(client->common.pool, value);
-		}
-	} else if (strncasecmp(key, "x-forward-", 10) == 0) {
-		/* handle extra field */
-		client_add_forward_field(&client->common, key+10, value);
-	} else {
+	handler = imap_id_param_handler_find(key);
+	if (handler == NULL)
 		return FALSE;
-	}
+	handler->callback(client, key, value);
 	return TRUE;
 }
 
 static bool client_id_reserved_word(const char *key)
 {
-	i_assert(key != NULL);
-	return (strncasecmp(key, "x-forward-", 10) == 0 ||
-		str_array_icase_find(imap_login_reserved_id_keys, key));
+	return imap_id_param_handler_find(key) != NULL;
 }
 
 static void cmd_id_handle_keyvalue(struct imap_client *client,
