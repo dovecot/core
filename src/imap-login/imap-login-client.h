@@ -8,6 +8,9 @@
 /* Master prefix is: <1|0><imap tag><NUL> */
 #define IMAP_TAG_MAX_LEN (LOGIN_MAX_MASTER_PREFIX_LEN-2)
 
+/* maximum length for IMAP command line. */
+#define IMAP_LOGIN_MAX_LINE_LENGTH 8192
+
 enum imap_client_id_state {
 	IMAP_CLIENT_ID_STATE_LIST = 0,
 	IMAP_CLIENT_ID_STATE_KEY,
@@ -83,9 +86,12 @@ enum imap_cmd_reply {
 
 void client_send_reply(struct client *client,
 		       enum imap_cmd_reply reply, const char *text);
-
 void client_send_reply_code(struct client *client,
 			    enum imap_cmd_reply reply, const char *resp_code,
 			    const char *text) ATTR_NULL(3);
+bool client_handle_parser_error(struct imap_client *client,
+				struct imap_parser *parser);
+
+int cmd_id(struct imap_client *client);
 
 #endif

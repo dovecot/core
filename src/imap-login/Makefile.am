@@ -25,6 +25,7 @@ imap_login_DEPENDENCIES = \
 imap_login_SOURCES = \
 	imap-login-client.c \
 	client-authenticate.c \
+	imap-login-cmd-id.c \
 	imap-login-commands.c \
 	imap-login-settings.c \
 	imap-proxy.c
