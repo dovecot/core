@@ -55,7 +55,7 @@ void imap_envelope_write(struct message_part_envelope *data,
 		return;
 	}
 
-	imap_append_nstring(str, data->date);
+	imap_append_nstring_nolf(str, data->date);
 	str_append_c(str, ' ');
 	if (data->subject == NULL)
 		str_append(str, "NIL");
@@ -79,9 +79,9 @@ void imap_envelope_write(struct message_part_envelope *data,
 	imap_write_address(str, data->bcc);
 
 	str_append_c(str, ' ');
-	imap_append_nstring(str, data->in_reply_to);
+	imap_append_nstring_nolf(str, data->in_reply_to);
 	str_append_c(str, ' ');
-	imap_append_nstring(str, data->message_id);
+	imap_append_nstring_nolf(str, data->message_id);
 }
 
 /*
