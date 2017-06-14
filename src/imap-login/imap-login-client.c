@@ -161,9 +161,7 @@ static bool
 client_update_info(struct imap_client *client,
 		   const char *key, const char *value)
 {
-	/* do not try to process NIL value */
-	if (value == NULL)
-		return FALSE;
+	i_assert(value != NULL);
 
 	/* SYNC WITH imap_login_reserved_id_keys */
 
@@ -210,7 +208,10 @@ static void cmd_id_handle_keyvalue(struct imap_client *client,
 	size_t kvlen = strlen(key) + 2 + 1 +
 		       (value == NULL ? 3 : strlen(value)) + 2;
 
-	if (client->common.trusted && !client->id_logged) {
+	if (value == NULL) {
+		/* do not try to process NIL value */
+		client_id_str = FALSE;
+	} else if (client->common.trusted && !client->id_logged) {
 		client_id_str = !client_update_info(client, key, value);
 		i_assert(client_id_str == !client_id_reserved_word(key));
 	} else {
