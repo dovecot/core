@@ -112,12 +112,51 @@ static void test_imap_append_nstring(void)
 	test_end();
 }
 
+static void test_imap_append_nstring_nolf(void)
+{
+	static const struct {
+		const char *input, *output;
+	} tests[] = {
+		{ "", "\"\"" },
+		{ NULL, "NIL" },
+		{ "NIL", "\"NIL\"" },
+		{ "ni", "\"ni\"" },
+		{ "\"NIL\n foo", "\"\\\"NIL foo\"" },
+		{ "\"America N.\", \"America S.\", \"Africa\"", "{36}\r\n\"America N.\", \"America S.\", \"Africa\"" },
+		{ "foo\nbar", "\"foo bar\"" },
+		{ "foo\r\nbar", "\"foo bar\"" },
+		{ "foo\rbar", "\"foo bar\"" },
+		{ "foo\n  bar", "\"foo  bar\"" },
+		{ "foo\r\n  bar", "\"foo  bar\"" },
+		{ "foo\r  bar", "\"foo  bar\"" },
+		{ "foo\n\tbar", "\"foo\tbar\"" },
+		{ "foo\r\n\tbar", "\"foo\tbar\"" },
+		{ "foo\r\tbar", "\"foo\tbar\"" },
+		{ "foo\n bar", "\"foo bar\"" },
+		{ "foo\r\n bar", "\"foo bar\"" },
+		{ "foo\r bar", "\"foo bar\"" },
+		{ "\nfoo\r bar\r\n", "\" foo bar\"" }
+	};
+	string_t *str = t_str_new(128);
+	unsigned int i;
+
+	test_begin("test_imap_append_nstring_nolf()");
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		str_truncate(str, 0);
+		imap_append_nstring_nolf(str, tests[i].input);
+		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_append_string_for_humans,
 		test_imap_append_astring,
 		test_imap_append_nstring,
+		test_imap_append_nstring_nolf,
 		NULL
 	};
 	return test_run(test_functions);

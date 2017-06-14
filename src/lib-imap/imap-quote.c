@@ -90,6 +90,33 @@ void imap_append_nstring(string_t *dest, const char *src)
 	imap_append_quoted(dest, src);
 }
 
+void imap_append_nstring_nolf(string_t *dest, const char *src)
+{
+	string_t *src_nolf;
+	size_t src_len;
+	if (src == NULL || strpbrk(src, "\r\n") == NULL)
+		imap_append_nstring(dest, src);
+	else {
+		T_BEGIN {
+			src_len = strlen(src);
+			src_nolf = t_str_new(src_len + 1);
+			for (size_t i = 0; i < src_len; ++i) {
+				if (src[i] != '\r' && src[i] != '\n') {
+					str_append_c(src_nolf, src[i]);
+				} else if (src[i+1] != ' ' &&
+					   src[i+1] != '\t' &&
+					   src[i+1] != '\r' &&
+					   src[i+1] != '\n' &&
+					   src[i+1] != '\0') {
+					/* ensure whitespace between lines if new line doesn't start with whitespace */
+					str_append_c(src_nolf, ' ');
+				}
+			}
+			imap_append_nstring(dest, str_c(src_nolf));
+		} T_END;
+	}
+}
+
 void imap_append_quoted(string_t *dest, const char *src)
 {
 	str_append_c(dest, '"');

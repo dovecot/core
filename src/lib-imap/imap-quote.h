@@ -7,6 +7,8 @@ void imap_append_string(string_t *dest, const char *src);
 void imap_append_astring(string_t *dest, const char *src);
 /* Append NIL, "quoted" or literal. */
 void imap_append_nstring(string_t *dest, const char *src);
+/* Append NIL, "quoted" or literal, CRs and LFs skipped. */
+void imap_append_nstring_nolf(string_t *dest, const char *src);
 /* Append "quoted". If src has 8bit chars, skip over them. */
 void imap_append_quoted(string_t *dest, const char *src);
 
