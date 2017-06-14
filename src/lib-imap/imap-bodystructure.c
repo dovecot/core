@@ -105,7 +105,7 @@ part_write_bodystructure_common(const struct message_part_data *data,
 	}
 
 	str_append_c(str, ' ');
-	imap_append_nstring(str, data->content_location);
+	imap_append_nstring_nolf(str, data->content_location);
 }
 
 static void part_write_body_multipart(const struct message_part *part,
@@ -183,9 +183,9 @@ static void part_write_body(const struct message_part *part,
 		data->content_type_params_count, str, text);
 
 	str_append_c(str, ' ');
-	imap_append_nstring(str, data->content_id);
+	imap_append_nstring_nolf(str, data->content_id);
 	str_append_c(str, ' ');
-	imap_append_nstring(str, data->content_description);
+	imap_append_nstring_nolf(str, data->content_description);
 	str_append_c(str, ' ');
 	if (data->content_transfer_encoding != NULL)
 		imap_append_string(str, data->content_transfer_encoding);
@@ -221,7 +221,7 @@ static void part_write_body(const struct message_part *part,
 	/* "md5" ("content disposition" ("disposition" "params"))
 	   ("body" "language" "params") "location" */
 	str_append_c(str, ' ');
-	imap_append_nstring(str, data->content_md5);
+	imap_append_nstring_nolf(str, data->content_md5);
 	part_write_bodystructure_common(data, str);
 }
 
