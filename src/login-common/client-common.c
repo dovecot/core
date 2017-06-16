@@ -337,6 +337,9 @@ bool client_unref(struct client **_client)
 	i_assert(client->destroyed);
 	i_assert(client->login_proxy == NULL);
 
+	if (client->v.free != NULL)
+		client->v.free(client);
+
 	if (client->ssl_proxy != NULL)
 		ssl_proxy_free(&client->ssl_proxy);
 	if (client->input != NULL)
@@ -359,6 +362,10 @@ bool client_unref(struct client **_client)
 	master_service_client_connection_destroyed(master_service);
 	login_refresh_proctitle();
 	return FALSE;
+}
+
+void client_common_default_free(struct client *client ATTR_UNUSED)
+{
 }
 
 void client_destroy_oldest(void)
