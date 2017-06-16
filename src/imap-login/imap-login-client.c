@@ -786,6 +786,7 @@ static struct client_vfuncs imap_client_vfuncs = {
 	imap_proxy_get_state,
 	client_common_send_raw_data,
 	imap_client_input_next_cmd,
+	client_common_default_free,
 };
 
 static const struct login_binary imap_login_binary = {

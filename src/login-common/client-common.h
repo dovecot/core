@@ -123,6 +123,7 @@ struct client_vfuncs {
 	void (*send_raw_data)(struct client *client,
 			      const void *data, size_t size);
 	bool (*input_next_cmd)(struct client *client);
+	void (*free)(struct client *client);
 };
 
 struct client {
@@ -273,6 +274,7 @@ void client_send_raw_data(struct client *client, const void *data, size_t size);
 void client_send_raw(struct client *client, const char *data);
 void client_common_send_raw_data(struct client *client,
 				 const void *data, size_t size);
+void client_common_default_free(struct client *client);
 
 void client_set_auth_waiting(struct client *client);
 void client_auth_send_challenge(struct client *client, const char *data);
