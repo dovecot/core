@@ -319,6 +319,8 @@ cmd_notify_set(struct imap_notify_context *ctx, const struct imap_arg *args)
 
 		if (strcasecmp(filter_mailboxes, "subtree") == 0 ||
 		    strcasecmp(filter_mailboxes, "mailboxes") == 0) {
+			if (event_group->type == IMAP_ARG_EOL)
+				return -1;
 			mailboxes = event_group++;
 		} else {
 			mailboxes = NULL;
