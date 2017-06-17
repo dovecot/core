@@ -308,7 +308,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 	struct http_server_request *req)
 {
 	const struct http_server_settings *set = &conn->server->set;
-	unsigned int old_refcount, new_refcount;
+	unsigned int old_refcount;
 	struct istream *payload;
 	bool payload_destroyed = FALSE;
 
@@ -349,7 +349,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 		return FALSE;
 	}
 	conn->in_req_callback = FALSE;
-	new_refcount = req->refcount;
+	req->callback_refcount = req->refcount - old_refcount;
 
 	if (req->req.payload != NULL) {
 		/* send 100 Continue when appropriate */
@@ -380,8 +380,7 @@ http_server_connection_handle_request(struct http_server_connection *conn,
 			http_server_request_submit_response(req);
 	}
 
-	i_assert(!payload_destroyed ||
-		new_refcount > old_refcount ||
+	i_assert(!payload_destroyed || req->callback_refcount > 0 ||
 		(req->response != NULL && req->response->submitted));
 
 	if (conn->incoming_payload == NULL) {

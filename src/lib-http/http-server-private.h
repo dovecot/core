@@ -87,6 +87,7 @@ struct http_server_request {
 	pool_t pool;
 	unsigned int refcount;
 	unsigned int id;
+	int callback_refcount;
 
 	enum http_server_request_state state;
 
