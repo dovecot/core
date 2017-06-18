@@ -16,8 +16,6 @@
 
 #define IMAP_NOTIFY_WATCH_ADD_DELAY_MSECS 1000
 
-static bool notify_hook_registered;
-
 static int imap_notify_list(struct imap_notify_namespace *notify_ns,
 			    const struct mailbox_list_notify_rec *rec,
 			    enum mailbox_info_flags flags)
@@ -451,16 +449,16 @@ void imap_client_notify_command_freed(struct client *client)
 	}
 }
 
-static void imap_notify_cmd_hook_pre(struct client_command_context *cmd)
+void imap_client_notify_command_allocated(struct client *client)
 {
-	struct imap_notify_context *ctx = cmd->client->notify_ctx;
+	struct imap_notify_context *ctx = client->notify_ctx;
 
 	if (ctx == NULL)
 		return;
 
 	/* remove mailbox watcher before starting any commands */
 	if (ctx->watching_mailbox) {
-		mailbox_notify_changes_stop(cmd->client->mailbox);
+		mailbox_notify_changes_stop(client->mailbox);
 		ctx->watching_mailbox = FALSE;
 	}
 	if (ctx->to_watch != NULL)
@@ -473,11 +471,6 @@ int imap_notify_begin(struct imap_notify_context *ctx)
 	const struct imap_notify_mailboxes *notify_boxes;
 	enum mailbox_list_notify_event notify_events;
 	int ret = -1;
-
-	if (!notify_hook_registered) {
-		notify_hook_registered = TRUE;
-		command_hook_register(imap_notify_cmd_hook_pre, NULL);
-	}
 
 	array_foreach_modifiable(&ctx->namespaces, notify_ns) {
 		notify_events = 0;

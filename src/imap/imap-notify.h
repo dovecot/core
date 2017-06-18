@@ -64,6 +64,7 @@ bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,
 int imap_client_notify_newmails(struct client *client);
 void imap_client_notify_finished(struct client *client);
 
+void imap_client_notify_command_allocated(struct client *client);
 void imap_client_notify_command_freed(struct client *client);
 
 int imap_notify_begin(struct imap_notify_context *ctx);
