@@ -25,6 +25,7 @@ struct client_connection {
 	unsigned int authenticated:1;
 	unsigned int io_setup:1;
 	unsigned int use_multiplex:1;
+	unsigned int http:1;
 };
 
 struct client_connection *
