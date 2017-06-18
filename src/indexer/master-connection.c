@@ -120,8 +120,7 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
-	}
-	if (ret == 0) {
+	} else {
 		i_info("Indexed %u messages in %s",
 		       counter, mailbox_get_vname(box));
 	}
