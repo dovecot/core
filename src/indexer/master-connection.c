@@ -62,7 +62,7 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct mailbox_metadata metadata;
-	uint32_t seq;
+	uint32_t seq, first_uid = 0, last_uid = 0;
 	char percentage_str[2+1+1];
 	unsigned int counter = 0, max, percentage, percentage_sent = 0;
 	int ret = 0;
@@ -93,6 +93,10 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 
 	max = status.messages + 1 - seq;
 	while (mailbox_search_next(ctx, &mail)) {
+		if (first_uid == 0)
+			first_uid = mail->uid;
+		last_uid = mail->uid;
+
 		mail_precache(mail);
 		if (++counter % 100 == 0) {
 			percentage = counter*100 / max;
@@ -115,16 +119,18 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 			mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
+	const char *uids = first_uid == 0 ? "" :
+		t_strdup_printf(" (UIDs %u..%u)", first_uid, last_uid);
 	if (mailbox_transaction_commit(&trans) < 0) {
 		i_error("Mailbox %s: Transaction commit failed: %s"
-			" (attempted to index %u messages)",
+			" (attempted to index %u messages%s)",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL),
-			counter);
+			counter, uids);
 		ret = -1;
 	} else {
-		i_info("Indexed %u messages in %s",
-		       counter, mailbox_get_vname(box));
+		i_info("Indexed %u messages in %s%s",
+		       counter, mailbox_get_vname(box), uids);
 	}
 	return ret;
 }
