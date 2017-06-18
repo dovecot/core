@@ -52,6 +52,7 @@ struct fts_transaction_context {
 	struct fts_scores *scores;
 	uint32_t next_index_seq;
 	uint32_t highest_virtual_uid;
+	unsigned int precache_extra_count;
 
 	bool precached:1;
 	bool mails_saved:1;
@@ -430,7 +431,7 @@ static int fts_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 static int
 fts_mail_precache_range(struct mailbox_transaction_context *trans,
 			struct fts_backend_update_context *update_ctx,
-			uint32_t seq1, uint32_t seq2)
+			uint32_t seq1, uint32_t seq2, unsigned int *extra_count)
 {
 	struct mail_search_args *search_args;
 	struct mail_search_context *ctx;
@@ -451,6 +452,7 @@ fts_mail_precache_range(struct mailbox_transaction_context *trans,
 			break;
 		}
 		mail_precache(mail);
+		*extra_count += 1;
 	}
 	if (mailbox_search_deinit(&ctx) < 0)
 		ret = -1;
@@ -495,7 +497,8 @@ static void fts_mail_index(struct mail *_mail)
 		if (fts_mail_precache_range(_mail->transaction,
 					    flist->update_ctx,
 					    ft->next_index_seq,
-					    _mail->seq-1) < 0) {
+					    _mail->seq-1,
+					    &ft->precache_extra_count) < 0) {
 			ft->failed = TRUE;
 			return;
 		}
@@ -586,6 +589,15 @@ static int fts_transaction_end(struct mailbox_transaction_context *t, const char
 	}
 	if (ft->scores != NULL)
 		fts_scores_unref(&ft->scores);
+	if (ft->precache_extra_count > 0) {
+		if (ret < 0) {
+			i_error("fts: Failed after indexing %u extra mails internally in %s: %s",
+			       ft->precache_extra_count, t->box->vname, *error_r);
+		} else {
+			i_info("fts: Indexed %u extra mails internally in %s",
+			       ft->precache_extra_count, t->box->vname);
+		}
+	}
 	i_free(ft);
 	return ret;
 }
