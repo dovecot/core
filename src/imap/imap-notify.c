@@ -409,10 +409,8 @@ static void imap_notify_callback(struct mailbox *box, struct client *client)
 
 static void imap_notify_watch_selected_mailbox(struct client *client)
 {
-	if (client->command_queue_size > 0) {
-		/* don't add it until all commands are finished */
-		return;
-	}
+	i_assert(client->command_queue_size == 0);
+
 	if (client->mailbox == NULL) {
 		/* mailbox not selected */
 		return;
@@ -439,14 +437,16 @@ void imap_client_notify_command_freed(struct client *client)
 	if (ctx == NULL)
 		return;
 
-	/* add mailbox watched back after a small delay */
-	if (ctx->to_watch != NULL)
-		timeout_reset(ctx->to_watch);
-	else {
-		ctx->to_watch = timeout_add(IMAP_NOTIFY_WATCH_ADD_DELAY_MSECS,
-					    imap_notify_watch_timeout,
-					    client);
+	if (client->command_queue_size > 0) {
+		/* don't add it until all commands are finished */
+		i_assert(ctx->to_watch == NULL);
+		return;
 	}
+
+	/* add mailbox watch back after a small delay. if another command
+	   is started this timeout is aborted. */
+	ctx->to_watch = timeout_add(IMAP_NOTIFY_WATCH_ADD_DELAY_MSECS,
+				    imap_notify_watch_timeout, client);
 }
 
 void imap_client_notify_command_allocated(struct client *client)
