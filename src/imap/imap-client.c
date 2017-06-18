@@ -833,6 +833,8 @@ struct client_command_context *client_command_alloc(struct client *client)
 
 	DLLIST_PREPEND(&client->command_queue, cmd);
 	client->command_queue_size++;
+
+	imap_client_notify_command_allocated(client);
 	return cmd;
 }
 
