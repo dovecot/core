@@ -116,9 +116,11 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 		ret = -1;
 	}
 	if (mailbox_transaction_commit(&trans) < 0) {
-		i_error("Mailbox %s: Transaction commit failed: %s",
+		i_error("Mailbox %s: Transaction commit failed: %s"
+			" (attempted to index %u messages)",
 			mailbox_get_vname(box),
-			mailbox_get_last_internal_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL),
+			counter);
 		ret = -1;
 	} else {
 		i_info("Indexed %u messages in %s",
