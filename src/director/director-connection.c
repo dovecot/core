@@ -1774,7 +1774,7 @@ director_connection_log_disconnect(struct director_connection *conn, int err,
 			str_printfa(str, ": %s", errstr);
 	}
 
-	str_append(str, "( ");
+	str_append(str, " (");
 	director_connection_append_stats(conn, str);
 
 	if (!conn->me_received)
