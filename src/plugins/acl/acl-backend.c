@@ -175,6 +175,8 @@ struct acl_object *acl_backend_get_default_object(struct acl_backend *backend)
 		    ns->type == MAIL_NAMESPACE_TYPE_SHARED)
 			default_name = "INBOX";
 	}
+	backend->globals_only =
+		mail_user_plugin_getenv_bool(user, "acl_globals_only");
 	backend->default_aclobj =
 		acl_object_init_from_name(backend, default_name);
 	return backend->default_aclobj;

@@ -59,6 +59,7 @@ struct acl_backend {
 
 	bool owner:1;
 	bool debug:1;
+	bool globals_only:1;
 };
 
 struct acl_mailbox_list_context {
