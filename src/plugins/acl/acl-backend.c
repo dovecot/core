@@ -60,6 +60,8 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	backend->list = list;
 	backend->username = p_strdup(backend->pool, acl_username);
 	backend->owner = owner;
+	backend->globals_only =
+		mail_user_plugin_getenv(user, "acl_globals_only") != NULL;
 
 	if (group_count > 0) {
 		backend->group_count = group_count;

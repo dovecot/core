@@ -59,6 +59,7 @@ struct acl_backend {
 
 	unsigned int owner:1;
 	unsigned int debug:1;
+	unsigned int globals_only:1;
 };
 
 struct acl_mailbox_list_context {
