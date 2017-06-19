@@ -166,11 +166,16 @@ director_connection_append_stats(struct director_connection *conn, string_t *str
 	int output_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->last_output);
 	int connected_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->connected_time);
 
-	str_printfa(str, "bytes in=%"PRIuUOFF_T", bytes out=%"PRIuUOFF_T", "
-		    "last input %u.%03u s ago, last output %u.%03u s ago",
-		    conn->input->v_offset, conn->output->offset,
-		    input_msecs/1000, input_msecs%1000,
-		    output_msecs/1000, output_msecs%1000);
+	str_printfa(str, "bytes in=%"PRIuUOFF_T", bytes out=%"PRIuUOFF_T,
+		    conn->input->v_offset, conn->output->offset);
+	if (conn->last_input.tv_sec > 0) {
+		str_printfa(str, ", last input %u.%03u s ago",
+			    input_msecs/1000, input_msecs%1000);
+	}
+	if (conn->last_output.tv_sec > 0) {
+		str_printfa(str, ", last output %u.%03u s ago",
+			    output_msecs/1000, output_msecs%1000);
+	}
 	if (conn->connected) {
 		str_printfa(str, ", connected %u.%03u s ago",
 			    connected_msecs/1000, connected_msecs%1000);
