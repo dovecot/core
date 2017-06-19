@@ -1605,6 +1605,7 @@ bool http_client_connection_unref(struct http_client_connection **_conn)
 		connection_deinit(&conn->conn);
 	io_wait_timer_remove(&conn->io_wait_timer);
 	
+	i_free(conn->label);
 	i_free(conn);
 	return FALSE;
 }
