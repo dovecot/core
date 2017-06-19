@@ -162,7 +162,7 @@ struct ostream *smtp_client_send(struct smtp_client *client)
 
 	if ((fd = create_temp_file(&path)) == -1)
 		return o_stream_create_error(errno);
-	client->temp_path = i_strdup(path);
+	client->temp_path = p_strdup(client->pool, path);
 	client->temp_fd = fd;
 	client->output = o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
 	o_stream_set_no_error_handling(client->output, TRUE);
