@@ -137,16 +137,24 @@ static void test_imap_append_nstring_nolf(void)
 		{ "foo\r bar", "\"foo bar\"" },
 		{ "\nfoo\r bar\r\n", "\" foo bar\"" }
 	};
-	string_t *str = t_str_new(128);
 	unsigned int i;
 
 	test_begin("test_imap_append_nstring_nolf()");
 
-	for (i = 0; i < N_ELEMENTS(tests); i++) {
+	for (i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
+		string_t *str = t_str_new(1);
+		string_t *str2 = str_new(default_pool, 1);
+
 		str_truncate(str, 0);
 		imap_append_nstring_nolf(str, tests[i].input);
 		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
-	}
+
+		str_truncate(str2, 0);
+		imap_append_nstring_nolf(str2, tests[i].input);
+		test_assert_idx(strcmp(tests[i].output, str_c(str2)) == 0, i);
+
+		str_free(&str2);
+	} T_END;
 	test_end();
 }
 
