@@ -19,6 +19,7 @@ struct file_lock {
 	int lock_type;
 	enum file_lock_method lock_method;
 	bool unlink_on_free;
+	bool close_on_free;
 };
 
 static struct timeval lock_wait_start;
@@ -346,6 +347,11 @@ void file_lock_set_unlink_on_free(struct file_lock *lock, bool set)
 	lock->unlink_on_free = set;
 }
 
+void file_lock_set_close_on_free(struct file_lock *lock, bool set)
+{
+	lock->close_on_free = set;
+}
+
 void file_unlock(struct file_lock **_lock)
 {
 	struct file_lock *lock = *_lock;
@@ -375,6 +381,8 @@ void file_lock_free(struct file_lock **_lock)
 
 	if (lock->unlink_on_free)
 		i_unlink(lock->path);
+	if (lock->close_on_free)
+		i_close_fd(&lock->fd);
 
 	file_lock_log_warning_if_slow(lock);
 	i_free(lock->path);
