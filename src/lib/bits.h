@@ -15,7 +15,7 @@ bits_is_power_of_two(uint64_t num)
 	return num > 0 && (num & (num - 1)) == 0;
 }
 
-#if __GNUC__ > 2
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
 static inline unsigned int ATTR_CONST
 bits_required32(uint32_t num)
 {
