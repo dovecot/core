@@ -7,6 +7,7 @@
 #include "net.h"
 #include "module-dir.h"
 #include "home-expand.h"
+#include "file-create-locked.h"
 #include "safe-mkstemp.h"
 #include "str.h"
 #include "strescape.h"
@@ -494,6 +495,42 @@ void mail_user_set_get_temp_prefix(string_t *dest,
 	str_append(dest, "/dovecot.");
 	str_append(dest, master_service_get_name(master_service));
 	str_append_c(dest, '.');
+}
+
+int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
+			       unsigned int lock_secs,
+			       struct file_lock **lock_r, const char **error_r)
+{
+	bool created;
+	const char *home, *path, *error;
+	int ret;
+
+	if ((ret = mail_user_get_home(user, &home)) < 0) {
+		/* home lookup failed - shouldn't really happen */
+		*error_r = "Failed to lookup home directory";
+		errno = EINVAL;
+		return -1;
+	}
+	if (ret == 0) {
+		*error_r = "User has no home directory";
+		errno = EINVAL;
+		return -1;
+	}
+
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(user);
+	struct file_create_settings lock_set = {
+		.lock_timeout_secs = lock_secs,
+		.lock_method = mail_set->parsed_lock_method,
+	};
+	path = t_strdup_printf("%s/%s", home, lock_fname);
+	if (file_create_locked(path, &lock_set, lock_r, &created, &error) == -1) {
+		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s", path, error);
+		return errno == EAGAIN ? 0 : -1;
+	}
+	file_lock_set_unlink_on_free(*lock_r, TRUE);
+	file_lock_set_close_on_free(*lock_r, TRUE);
+	return 1;
 }
 
 const char *mail_user_get_anvil_userip_ident(struct mail_user *user)

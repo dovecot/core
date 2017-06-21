@@ -152,6 +152,10 @@ int mail_user_get_home(struct mail_user *user, const char **home_r);
    The file prefix doesn't contain any uniqueness. */
 void mail_user_set_get_temp_prefix(string_t *dest,
 				   const struct mail_user_settings *set);
+/* Returns 1 on success, 0 if lock_secs is reached, -1 on error */
+int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
+			       unsigned int lock_secs,
+			       struct file_lock **lock_r, const char **error_r);
 
 /* Returns TRUE if plugin is loaded for the user. */
 bool mail_user_is_plugin_loaded(struct mail_user *user, struct module *module);
