@@ -238,6 +238,7 @@ static bool fs_random_fail(struct fs *_fs, int divider, enum fs_op op)
 	if (fs->op_probability[op] == 0)
 		return FALSE;
 	if ((unsigned int)(rand() % (100*divider)) <= fs->op_probability[op]) {
+		errno = EIO;
 		fs_set_error(_fs, RANDOMFAIL_ERROR);
 		return TRUE;
 	}
