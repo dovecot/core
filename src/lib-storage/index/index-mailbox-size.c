@@ -45,9 +45,8 @@ struct mailbox_vsize_update {
 	struct mail_index_view *view;
 	struct mailbox_index_vsize vsize_hdr, orig_vsize_hdr;
 
-	char *lock_path;
-	int lock_fd;
 	struct file_lock *lock;
+	bool lock_failed;
 	bool rebuild;
 	bool written;
 	bool finish_in_background;
@@ -116,7 +115,6 @@ index_mailbox_vsize_update_init(struct mailbox *box)
 
 	update = i_new(struct mailbox_vsize_update, 1);
 	update->box = box;
-	update->lock_fd = -1;
 
 	vsize_header_refresh(update);
 	return update;
@@ -128,11 +126,13 @@ static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
 	struct mailbox *box = update->box;
 	const struct mailbox_permissions *perm;
 	struct file_create_settings set;
-	const char *error;
+	const char *lock_path, *error;
 	bool created;
 
-	if (update->lock_path != NULL)
-		return update->lock != NULL;
+	if (update->lock != NULL)
+		return TRUE;
+	if (update->lock_failed)
+		return FALSE;
 	if (MAIL_INDEX_IS_IN_MEMORY(box->index))
 		return FALSE;
 
@@ -145,11 +145,9 @@ static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
 	set.gid = perm->file_create_gid;
 	set.gid_origin = perm->file_create_gid_origin;
 
-	update->lock_path = i_strdup_printf("%s/"VSIZE_LOCK_SUFFIX,
-					    box->index->dir);
-	update->lock_fd = file_create_locked(update->lock_path, &set,
-					     &update->lock, &created, &error);
-	if (update->lock_fd == -1) {
+	lock_path = t_strdup_printf("%s/"VSIZE_LOCK_SUFFIX, box->index->dir);
+	if (file_create_locked(lock_path, &set, &update->lock,
+			       &created, &error) == -1) {
 		/* don't log lock timeouts, because we're somewhat expecting
 		   them. Especially when lock_secs is 0. */
 		if (errno != EAGAIN) {
@@ -157,8 +155,11 @@ static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
 				"file_create_locked(%s) failed: %s",
 				update->lock_path, error);
 		}
+		update->lock_failed = TRUE;
 		return FALSE;
 	}
+	file_lock_set_close_on_free(update->lock, TRUE);
+	file_lock_set_unlink_on_free(update->lock, TRUE);
 	update->rebuild = FALSE;
 	vsize_header_refresh(update);
 	index_mailbox_vsize_check_rebuild(update);
@@ -241,17 +242,12 @@ void index_mailbox_vsize_update_deinit(struct mailbox_vsize_update **_update)
 
 	if (update->lock != NULL || update->rebuild)
 		index_mailbox_vsize_update_write(update);
-	if (update->lock != NULL) {
-		if (unlink(update->lock_path) < 0)
-			i_error("unlink(%s) failed: %m", update->lock_path);
+	if (update->lock != NULL)
 		file_lock_free(&update->lock);
-		i_close_fd(&update->lock_fd);
-	}
 	if (update->finish_in_background)
 		index_mailbox_vsize_notify_indexer(update->box);
 
 	mail_index_view_close(&update->view);
-	i_free(update->lock_path);
 	i_free(update);
 }
 
