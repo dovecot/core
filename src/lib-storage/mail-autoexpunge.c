@@ -11,21 +11,15 @@
 
 #define AUTOEXPUNGE_LOCK_FNAME "dovecot.autoexpunge.lock"
 
-struct mailbox_autoexpunge_lock {
-	const char *path;
-	struct file_lock *lock;
-	int fd;
-};
-
-static bool mailbox_autoexpunge_lock(struct mail_user *user,
-				     struct mailbox_autoexpunge_lock *lock)
+static bool
+mailbox_autoexpunge_lock(struct mail_user *user, struct file_lock **lock)
 {
 	struct file_create_settings lock_set;
 	bool created;
-	const char *home, *error;
+	const char *home, *path, *error;
 	int ret;
 
-	if (lock->fd != -1)
+	if (*lock != NULL)
 		return TRUE;
 
 	/* Try to lock the autoexpunging. If the lock already exists, another
@@ -41,16 +35,17 @@ static bool mailbox_autoexpunge_lock(struct mail_user *user,
 			mail_user_set_get_storage_set(user);
 		i_zero(&lock_set);
 		lock_set.lock_method = mail_set->parsed_lock_method,
-		lock->path = t_strdup_printf("%s/"AUTOEXPUNGE_LOCK_FNAME, home);
-		lock->fd = file_create_locked(lock->path, &lock_set,
-					      &lock->lock, &created, &error);
-		if (lock->fd == -1) {
+		path = t_strdup_printf("%s/"AUTOEXPUNGE_LOCK_FNAME, home);
+		if (file_create_locked(path, &lock_set, lock,
+				       &created, &error) == -1) {
 			if (errno == EAGAIN)
 				return FALSE;
 			if (errno != ENOENT)
-				i_error("autoexpunge: Couldn't lock %s: %s", lock->path, error);
+				i_error("autoexpunge: Couldn't lock %s: %s", path, error);
 			return TRUE;
 		}
+		file_lock_set_unlink_on_free(*lock, TRUE);
+		file_lock_set_close_on_free(*lock, TRUE);
 	} else if (ret == 0) {
 		i_warning("autoexpunge: User has no home directory, can't lock");
 	}
@@ -193,8 +188,7 @@ mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
 }
 
 static bool
-mail_namespace_autoexpunge(struct mail_namespace *ns,
-			   struct mailbox_autoexpunge_lock *lock,
+mail_namespace_autoexpunge(struct mail_namespace *ns, struct file_lock **lock,
 			   unsigned int *expunged_count)
 {
 	struct mailbox_settings *const *box_set;
@@ -229,7 +223,7 @@ mail_namespace_autoexpunge(struct mail_namespace *ns,
 
 unsigned int mail_user_autoexpunge(struct mail_user *user)
 {
-	struct mailbox_autoexpunge_lock lock = { .fd = -1 };
+	struct file_lock *lock = NULL;
 	struct mail_namespace *ns;
 	unsigned int expunged_count = 0;
 
@@ -239,12 +233,7 @@ unsigned int mail_user_autoexpunge(struct mail_user *user)
 				break;
 		}
 	}
-	if (lock.fd != -1) {
-		i_assert(lock.lock != NULL);
-
-		i_unlink(lock.path);
-		i_close_fd(&lock.fd);
-		file_lock_free(&lock.lock);
-	}
+	if (lock != NULL)
+		file_lock_free(&lock);
 	return expunged_count;
 }
