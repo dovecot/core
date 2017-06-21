@@ -150,9 +150,12 @@ static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
 	update->lock_fd = file_create_locked(update->lock_path, &set,
 					     &update->lock, &created, &error);
 	if (update->lock_fd == -1) {
+		/* don't log lock timeouts, because we're somewhat expecting
+		   them. Especially when lock_secs is 0. */
 		if (errno != EAGAIN) {
-			i_error("file_create_locked(%s) failed: %m",
-				update->lock_path);
+			mail_storage_set_critical(box->storage,
+				"file_create_locked(%s) failed: %s",
+				update->lock_path, error);
 		}
 		return FALSE;
 	}
