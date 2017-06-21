@@ -786,6 +786,13 @@ int mailbox_create_missing_dir(struct mailbox *box,
 /* Returns -1 if error, 0 if failed with EEXIST, 1 if ok */
 int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 		      int *fd_r);
+/* Create a lock file to the mailbox with the given filename. If it succeeds,
+   returns 1 and lock_r, which needs to be freed once finished with the lock.
+   If lock_secs is reached, returns 0 and error_r. Returns -1 and sets error_r
+   on other errors. */
+int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
+			     unsigned int lock_secs, struct file_lock **lock_r,
+			     const char **error_r);
 unsigned int mail_storage_get_lock_timeout(struct mail_storage *storage,
 					   unsigned int secs);
 void mail_storage_free_binary_cache(struct mail_storage *storage);
