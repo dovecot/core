@@ -50,8 +50,7 @@ mailbox_autoexpunge_lock(struct mail_user *user, struct file_lock **lock)
 			   need to. */
 			return FALSE;
 		}
-		if (errno == ENOENT)
-			i_error("autoexpunge: Couldn't lock %s: %s", path, error);
+		i_error("autoexpunge: Couldn't lock %s: %s", path, error);
 		/* do autoexpunging anyway */
 		return TRUE;
 	}
