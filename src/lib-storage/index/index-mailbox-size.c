@@ -5,7 +5,6 @@
 #include "strescape.h"
 #include "net.h"
 #include "write-full.h"
-#include "file-create-locked.h"
 #include "mail-search-build.h"
 #include "index-storage.h"
 #include "index-mailbox-size.h"
@@ -120,36 +119,6 @@ index_mailbox_vsize_update_init(struct mailbox *box)
 	return update;
 }
 
-static int
-vsize_lock_create(struct mailbox *box, const char *lock_fname,
-		  unsigned int lock_secs, struct file_lock **lock_r,
-		  const char **error_r)
-{
-	const struct mailbox_permissions *perm;
-	struct file_create_settings set;
-	const char *lock_path;
-	bool created;
-
-	perm = mailbox_get_permissions(box);
-	i_zero(&set);
-	set.lock_timeout_secs =
-		mail_storage_get_lock_timeout(box->storage, lock_secs);
-	set.lock_method = box->storage->set->parsed_lock_method;
-	set.mode = perm->file_create_mode;
-	set.gid = perm->file_create_gid;
-	set.gid_origin = perm->file_create_gid_origin;
-
-	lock_path = t_strdup_printf("%s/%s", box->index->dir, lock_fname);
-	if (file_create_locked(lock_path, &set, lock_r, &created, error_r) == -1) {
-		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s",
-					   lock_path, *error_r);
-		return errno == EAGAIN ? 0 : -1;
-	}
-	file_lock_set_close_on_free(*lock_r, TRUE);
-	file_lock_set_unlink_on_free(*lock_r, TRUE);
-	return 1;
-}
-
 static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
 				   unsigned int lock_secs)
 {
@@ -164,8 +133,8 @@ static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
 	if (MAIL_INDEX_IS_IN_MEMORY(box->index))
 		return FALSE;
 
-	ret = vsize_lock_create(box, VSIZE_LOCK_SUFFIX, lock_secs,
-				&update->lock, &error);
+	ret = mailbox_lock_file_create(box, VSIZE_LOCK_SUFFIX, lock_secs,
+				       &update->lock, &error);
 	if (ret <= 0) {
 		/* don't log lock timeouts, because we're somewhat expecting
 		   them. Especially when lock_secs is 0. */
