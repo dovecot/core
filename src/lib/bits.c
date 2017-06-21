@@ -12,7 +12,7 @@ size_t nearest_power(size_t num)
 	return n;
 }
 
-#if __GNUC__ > 2
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
 /* Lucky you, it's all inline intrinsics */
 #else
 unsigned int bits_required8(uint8_t num)
