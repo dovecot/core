@@ -51,6 +51,9 @@ void file_unlock(struct file_lock **lock);
 /* Free the lock without unlocking it (because you're closing the fd anyway). */
 void file_lock_free(struct file_lock **lock);
 
+/* Returns the path given as parameter to file_*lock*(). */
+const char *file_lock_get_path(struct file_lock *lock);
+
 /* Returns human-readable string containing the process that has the file
    currently locked. Returns "" if unknown, otherwise " (string)". */
 const char *file_lock_find(int lock_fd, enum file_lock_method lock_method,

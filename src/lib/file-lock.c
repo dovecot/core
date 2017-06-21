@@ -367,6 +367,11 @@ void file_lock_free(struct file_lock **_lock)
 	i_free(lock);
 }
 
+const char *file_lock_get_path(struct file_lock *lock)
+{
+	return lock->path;
+}
+
 void file_lock_wait_start(void)
 {
 	i_assert(lock_wait_start.tv_sec == 0);
