@@ -120,21 +120,15 @@ index_mailbox_vsize_update_init(struct mailbox *box)
 	return update;
 }
 
-static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
-				   unsigned int lock_secs)
+static int
+vsize_lock_create(struct mailbox *box, const char *lock_fname,
+		  unsigned int lock_secs, struct file_lock **lock_r,
+		  const char **error_r)
 {
-	struct mailbox *box = update->box;
 	const struct mailbox_permissions *perm;
 	struct file_create_settings set;
-	const char *lock_path, *error;
+	const char *lock_path;
 	bool created;
-
-	if (update->lock != NULL)
-		return TRUE;
-	if (update->lock_failed)
-		return FALSE;
-	if (MAIL_INDEX_IS_IN_MEMORY(box->index))
-		return FALSE;
 
 	perm = mailbox_get_permissions(box);
 	i_zero(&set);
@@ -145,21 +139,41 @@ static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
 	set.gid = perm->file_create_gid;
 	set.gid_origin = perm->file_create_gid_origin;
 
-	lock_path = t_strdup_printf("%s/"VSIZE_LOCK_SUFFIX, box->index->dir);
-	if (file_create_locked(lock_path, &set, &update->lock,
-			       &created, &error) == -1) {
+	lock_path = t_strdup_printf("%s/%s", box->index->dir, lock_fname);
+	if (file_create_locked(lock_path, &set, lock_r, &created, error_r) == -1) {
+		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s",
+					   lock_path, *error_r);
+		return errno == EAGAIN ? 0 : -1;
+	}
+	file_lock_set_close_on_free(*lock_r, TRUE);
+	file_lock_set_unlink_on_free(*lock_r, TRUE);
+	return 1;
+}
+
+static bool vsize_update_lock_full(struct mailbox_vsize_update *update,
+				   unsigned int lock_secs)
+{
+	struct mailbox *box = update->box;
+	const char *error;
+	int ret;
+
+	if (update->lock != NULL)
+		return TRUE;
+	if (update->lock_failed)
+		return FALSE;
+	if (MAIL_INDEX_IS_IN_MEMORY(box->index))
+		return FALSE;
+
+	ret = vsize_lock_create(box, VSIZE_LOCK_SUFFIX, lock_secs,
+				&update->lock, &error);
+	if (ret <= 0) {
 		/* don't log lock timeouts, because we're somewhat expecting
 		   them. Especially when lock_secs is 0. */
-		if (errno != EAGAIN) {
-			mail_storage_set_critical(box->storage,
-				"file_create_locked(%s) failed: %s",
-				update->lock_path, error);
-		}
+		if (ret < 0)
+			mail_storage_set_critical(box->storage, "%s", error);
 		update->lock_failed = TRUE;
 		return FALSE;
 	}
-	file_lock_set_close_on_free(update->lock, TRUE);
-	file_lock_set_unlink_on_free(update->lock, TRUE);
 	update->rebuild = FALSE;
 	vsize_header_refresh(update);
 	index_mailbox_vsize_check_rebuild(update);
