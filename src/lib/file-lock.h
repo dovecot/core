@@ -48,6 +48,9 @@ int file_lock_try_update(struct file_lock *lock, int lock_type);
 /* When the lock is freed, unlink() the file automatically. This can be useful
    for files that are only created to exist as lock files. */
 void file_lock_set_unlink_on_free(struct file_lock *lock, bool set);
+/* When the lock is freed, close the fd automatically. This can
+   be useful for files that are only created to exist as lock files. */
+void file_lock_set_close_on_free(struct file_lock *lock, bool set);
 
 /* Unlock and free the lock. */
 void file_unlock(struct file_lock **lock);
