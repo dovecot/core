@@ -30,25 +30,33 @@ mailbox_autoexpunge_lock(struct mail_user *user, struct file_lock **lock)
 	   so that multiple processes won't do the same work unnecessarily,
 	   and 2) it helps to avoid duplicate mails being added with
 	   lazy_expunge. */
-	if ((ret = mail_user_get_home(user, &home)) > 0) {
-		const struct mail_storage_settings *mail_set =
-			mail_user_set_get_storage_set(user);
-		i_zero(&lock_set);
-		lock_set.lock_method = mail_set->parsed_lock_method,
-		path = t_strdup_printf("%s/"AUTOEXPUNGE_LOCK_FNAME, home);
-		if (file_create_locked(path, &lock_set, lock,
-				       &created, &error) == -1) {
-			if (errno == EAGAIN)
-				return FALSE;
-			if (errno != ENOENT)
-				i_error("autoexpunge: Couldn't lock %s: %s", path, error);
-			return TRUE;
-		}
-		file_lock_set_unlink_on_free(*lock, TRUE);
-		file_lock_set_close_on_free(*lock, TRUE);
-	} else if (ret == 0) {
-		i_warning("autoexpunge: User has no home directory, can't lock");
+	if ((ret = mail_user_get_home(user, &home)) < 0) {
+		/* home lookup failed - shouldn't really happen */
+		return TRUE;
 	}
+	if (ret == 0) {
+		i_warning("autoexpunge: User has no home directory, can't lock");
+		return TRUE;
+	}
+
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(user);
+	i_zero(&lock_set);
+	lock_set.lock_method = mail_set->parsed_lock_method;
+	path = t_strdup_printf("%s/"AUTOEXPUNGE_LOCK_FNAME, home);
+	if (file_create_locked(path, &lock_set, lock, &created, &error) == -1) {
+		if (errno == EAGAIN) {
+			/* another process is autoexpunging, so we don't
+			   need to. */
+			return FALSE;
+		}
+		if (errno == ENOENT)
+			i_error("autoexpunge: Couldn't lock %s: %s", path, error);
+		/* do autoexpunging anyway */
+		return TRUE;
+	}
+	file_lock_set_unlink_on_free(*lock, TRUE);
+	file_lock_set_close_on_free(*lock, TRUE);
 	return TRUE;
 }
 
