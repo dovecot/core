@@ -23,6 +23,7 @@
 #include "mail-storage-service.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
+#include "mailbox-list-private.h"
 #include "mail-autoexpunge.h"
 #include "mail-user.h"
 
@@ -564,7 +565,16 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 		.lock_timeout_secs = lock_secs,
 		.lock_method = mail_set->parsed_lock_method,
 	};
-	path = t_strdup_printf("%s/%s", home, lock_fname);
+	struct mailbox_list *inbox_list =
+		mail_namespace_find_inbox(user->namespaces)->list;
+	if (inbox_list->set.volatile_dir == NULL)
+		path = t_strdup_printf("%s/%s", home, lock_fname);
+	else {
+		path = t_strdup_printf("%s/%s", inbox_list->set.volatile_dir,
+				       lock_fname);
+		lock_set.mkdir_mode = 0700;
+	}
+
 	if (file_create_locked(path, &lock_set, lock_r, &created, &error) == -1) {
 		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s", path, error);
 		return errno == EAGAIN ? 0 : -1;

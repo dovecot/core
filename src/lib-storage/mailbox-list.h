@@ -98,6 +98,11 @@ struct mailbox_list_settings {
 	const char *index_pvt_dir;
 	const char *control_dir;
 	const char *alt_dir; /* FIXME: dbox-specific.. */
+	/* Backend-local directory where volatile data, such as lock files,
+	   can be temporarily created. This setting allows specifying a
+	   separate directory for them to reduce disk I/O on the real storage.
+	   The volatile_dir can point to an in-memory filesystem. */
+	const char *volatile_dir;
 
 	const char *inbox_path;
 	const char *subscription_fname;
