@@ -18,6 +18,7 @@ struct file_lock {
 	struct timeval locked_time;
 	int lock_type;
 	enum file_lock_method lock_method;
+	bool unlink_on_free;
 };
 
 static struct timeval lock_wait_start;
@@ -340,12 +341,22 @@ int file_lock_try_update(struct file_lock *lock, int lock_type)
 	return 1;
 }
 
+void file_lock_set_unlink_on_free(struct file_lock *lock, bool set)
+{
+	lock->unlink_on_free = set;
+}
+
 void file_unlock(struct file_lock **_lock)
 {
 	struct file_lock *lock = *_lock;
 	const char *error;
 
 	*_lock = NULL;
+
+	/* unlocking is unnecessary when the file is unlinked. or alternatively
+	   the unlink() must be done before unlocking, because otherwise it
+	   could be deleting the new lock. */
+	i_assert(!lock->unlink_on_free);
 
 	if (file_lock_do(lock->fd, lock->path, F_UNLCK,
 			 lock->lock_method, 0, &error) == 0) {
@@ -361,6 +372,9 @@ void file_lock_free(struct file_lock **_lock)
 	struct file_lock *lock = *_lock;
 
 	*_lock = NULL;
+
+	if (lock->unlink_on_free)
+		i_unlink(lock->path);
 
 	file_lock_log_warning_if_slow(lock);
 	i_free(lock->path);
