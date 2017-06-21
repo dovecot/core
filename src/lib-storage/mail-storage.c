@@ -6,7 +6,9 @@
 #include "llist.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "sha1.h"
 #include "unichar.h"
+#include "hex-binary.h"
 #include "file-create-locked.h"
 #include "istream.h"
 #include "eacces-error.h"
@@ -2782,7 +2784,26 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 	set.gid = perm->file_create_gid;
 	set.gid_origin = perm->file_create_gid_origin;
 
-	lock_path = t_strdup_printf("%s/%s", box->index->dir, lock_fname);
+	if (box->list->set.volatile_dir == NULL)
+		lock_path = t_strdup_printf("%s/%s", box->index->dir, lock_fname);
+	else {
+		unsigned char box_name_sha1[SHA1_RESULTLEN];
+		string_t *str = t_str_new(128);
+
+		/* Keep this simple: Use the lock_fname with a SHA1 of the
+		   mailbox name as the suffix. The mailbox name itself could
+		   be too large as a filename and creating the full directory
+		   structure would be pretty troublesome. It would also make
+		   it more difficult to perform the automated deletion of empty
+		   lock directories. */
+		str_printfa(str, "%s/%s.", box->list->set.volatile_dir,
+			    lock_fname);
+		sha1_get_digest(box->name, strlen(box->name), box_name_sha1);
+		binary_to_hex_append(str, box_name_sha1, sizeof(box_name_sha1));
+		lock_path = str_c(str);
+		set.mkdir_mode = 0700;
+	}
+
 	if (file_create_locked(lock_path, &set, lock_r, &created, error_r) == -1) {
 		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s",
 					   lock_path, *error_r);

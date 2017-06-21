@@ -4,6 +4,7 @@
 #include "array.h"
 #include "abspath.h"
 #include "ioloop.h"
+#include "file-create-locked.h"
 #include "mkdir-parents.h"
 #include "str.h"
 #include "sha1.h"
@@ -171,6 +172,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		p_strdup(list->pool, set->mailbox_dir_name);
 	list->set.alt_dir = p_strdup(list->pool, set->alt_dir);
 	list->set.alt_dir_nocheck = set->alt_dir_nocheck;
+	list->set.volatile_dir = p_strdup(list->pool, set->volatile_dir);
 	list->set.index_control_use_maildir_name =
 		set->index_control_use_maildir_name;
 
@@ -336,6 +338,8 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->maildir_name;
 		else if (strcmp(key, "MAILBOXDIR") == 0)
 			dest = &set_r->mailbox_dir_name;
+		else if (strcmp(key, "VOLATILEDIR") == 0)
+			dest = &set_r->volatile_dir;
 		else if (strcmp(key, "LISTINDEX") == 0)
 			dest = &set_r->list_index_fname;
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
