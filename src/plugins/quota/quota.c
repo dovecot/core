@@ -383,7 +383,7 @@ int quota_root_default_init(struct quota_root *root, const char *args,
 		quota_param_ns,
 		{.param_name = NULL}
 	};
-	return quota_parse_parameters(root, &args, error_r, default_params, FALSE);
+	return quota_parse_parameters(root, &args, error_r, default_params, TRUE);
 }
 
 static int

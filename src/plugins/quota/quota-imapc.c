@@ -67,7 +67,7 @@ static int imapc_quota_init(struct quota_root *_root, const char *args,
 		{.param_name = NULL}
 	};
 
-	if (quota_parse_parameters(_root, &args, error_r, imapc_params, FALSE) < 0)
+	if (quota_parse_parameters(_root, &args, error_r, imapc_params, TRUE) < 0)
 		return -1;
 
 	if (root->box_name == NULL && root->root_name == NULL)
