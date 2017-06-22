@@ -126,7 +126,7 @@ static int fs_quota_init(struct quota_root *_root, const char *args,
 		{.param_name = NULL}
 	};
 
-	if (quota_parse_parameters(_root, &args, error_r, fs_params, FALSE) < 0)
+	if (quota_parse_parameters(_root, &args, error_r, fs_params, TRUE) < 0)
 		return -1;
 	_root->auto_updating = TRUE;
 	return 0;
