@@ -372,6 +372,14 @@ const char *file_lock_get_path(struct file_lock *lock)
 	return lock->path;
 }
 
+void file_lock_set_path(struct file_lock *lock, const char *path)
+{
+	if (path != lock->path) {
+		i_free(lock->path);
+		lock->path = i_strdup(path);
+	}
+}
+
 void file_lock_wait_start(void)
 {
 	i_assert(lock_wait_start.tv_sec == 0);

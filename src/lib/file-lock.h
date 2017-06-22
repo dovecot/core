@@ -53,6 +53,9 @@ void file_lock_free(struct file_lock **lock);
 
 /* Returns the path given as parameter to file_*lock*(). */
 const char *file_lock_get_path(struct file_lock *lock);
+/* Update lock file's path (after it gets renamed by the caller). This is
+   useful mainly together with file_lock_set_unlink_on_free(). */
+void file_lock_set_path(struct file_lock *lock, const char *path);
 
 /* Returns human-readable string containing the process that has the file
    currently locked. Returns "" if unknown, otherwise " (string)". */
