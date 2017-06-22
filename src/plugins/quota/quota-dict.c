@@ -57,7 +57,8 @@ static int dict_quota_init(struct quota_root *_root, const char *args,
 	username = t_strdup_until(args, p);
 	args = p+1;
 
-	quota_parse_parameters(_root, &args, error_r, dict_params, TRUE);
+	if (quota_parse_parameters(_root, &args, error_r, dict_params, FALSE) < 0)
+		i_unreached();
 
 	if (*username == '\0')
 		username = _root->quota->user->username;
