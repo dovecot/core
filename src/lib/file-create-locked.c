@@ -80,6 +80,7 @@ try_create_new(const char *path, const struct file_create_settings *set,
 		}
 		file_lock_free(lock_r);
 	} else {
+		file_lock_set_path(*lock_r, path);
 		i_unlink_if_exists(str_c(temp_path));
 		*fd_r = fd;
 		return 1;
