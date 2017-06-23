@@ -16,13 +16,14 @@ static void test_pop3_migration_get_hdr_sha1(void)
 	} tests[] = {
 		{ "", "da39a3ee5e6b4b0d3255bfef95601890afd80709", FALSE },
 		{ "\n", "adc83b19e793491b1c6ea0fd8b46cd9f32e592fc", TRUE },
-		{ "a: b\r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
-		{ "a: b \r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
-		{ "a: b  \r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
-		{ "a: b     \r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
-		{ "a: b\r\n\r\n", "d14841695e1d9e2de6625d9222abd149ec821b0d", TRUE },
-		{ "a: b\r\n\r\r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", FALSE },
-		{ "a: b\r\n\r\r\nc: d\r\n\r\n", "3edb5ce145cf1d1e2413e02b8bed70f1ae3ed105", TRUE }
+		{ "a: \r\n", "a3871371f2d468493005286282ae10549dab2c57", FALSE },
+		{ "a: b\r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
+		{ "a: b \r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
+		{ "a: b  \r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
+		{ "a: b     \r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
+		{ "a: b\r\n\r\n", "938b96404495cced816e3a4f6031734eab4e71b3", TRUE },
+		{ "a: b\r\n\r\r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
+		{ "a: b\r\n\r\r\nc: d\r\n\r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", TRUE }
 	};
 	struct istream *input;
 	unsigned char digest[SHA1_RESULTLEN];
