@@ -1,6 +1,8 @@
 #ifndef MESSAGE_HEADER_HASH_H
 #define MESSAGE_HEADER_HASH_H
 
+#define MESSAGE_HEADER_HASH_MAX_VERSION 3
+
 struct hash_method;
 
 struct message_header_hash_context {
