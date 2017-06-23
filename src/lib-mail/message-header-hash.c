@@ -11,7 +11,7 @@ void message_header_hash_more(struct message_header_hash_context *ctx,
 {
 	size_t i, start;
 
-	i_assert(version == 1 || version == 2);
+	i_assert(version >= 1 && version <= MESSAGE_HEADER_HASH_MAX_VERSION);
 
 	if (version == 1) {
 		method->loop(context, data, size);
@@ -28,24 +28,39 @@ void message_header_hash_more(struct message_header_hash_context *ctx,
 
 	   So we'll just replace all control and 8bit chars with '?' and
 	   remove any repeated '?', which hopefully will satisfy everybody.
+
+	   Also:
+	   - Zimbra removes trailing spaces from IMAP BODY[HEADER], but not
+	   IMAP BODY[] or POP3 TOP. Just strip away all spaces with version 3.
+
 	*/
 	for (i = start = 0; i < size; i++) {
+		bool cur_is_questionmark = FALSE;
+
 		switch (data[i]) {
+		case ' ':
+			if (version == 3) {
+				/* strip away spaces */
+				method->loop(context, data + start, i-start);
+				start = i+1;
+			}
+			break;
 		case '\t':
 		case '\n':
 			break;
 		default:
 			if (data[i] < 0x20 || data[i] >= 0x7f || data[i] == '?') {
 				/* remove repeated '?' */
-				if (start < i || (i == 0 && !ctx->prev_was_questionmark)) {
+				if (start < i || !ctx->prev_was_questionmark) {
 					method->loop(context, data + start, i-start);
 					method->loop(context, "?", 1);
 				}
 				start = i+1;
+				cur_is_questionmark = TRUE;
 			}
 			break;
 		}
+		ctx->prev_was_questionmark = cur_is_questionmark;
 	}
-	ctx->prev_was_questionmark = start == i;
 	method->loop(context, data + start, i-start);
 }

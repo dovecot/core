@@ -25,6 +25,18 @@ static const struct {
 	{ "\x01?hi??\x01", 2, "?hi?" },
 	{ "?\t?hi?\t?", 2, "?\t?hi?\t?" },
 	{ "\n\nhi\n\n", 2, "\n\nhi\n\n" },
+	{ "", 2, "" },
+	{ " ", 2, " " },
+	{ "   ", 2, "   " },
+	{ "? ? ? hi \x01\x02   \x03   ", 2, "? ? ? hi ?   ?   " },
+
+	{ test_input_with_nuls, 3, "?\t\n?!?x?yz?-plop?" },
+	{ "\n\nhi\n\n", 2, "\n\nhi\n\n" },
+	{ "", 3, "" },
+	{ " ", 3, "" },
+	{ "   ", 3, "" },
+	{ " ? ", 3, "?" },
+	{ "? ? ? hi \x01\x02   \x03   ", 3, "???hi??" },
 };
 
 static void test_message_header_hash_more(void)
