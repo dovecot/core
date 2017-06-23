@@ -226,7 +226,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  uoff_t sync_max_size,
 			  const char *sync_flag,
 			  unsigned int commit_msgs_interval,
-			  enum dsync_mailbox_import_flags flags)
+			  enum dsync_mailbox_import_flags flags,
+			  unsigned int hdr_hash_version)
 {
 	struct dsync_mailbox_importer *importer;
 	struct mailbox_status status;
@@ -289,8 +290,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS) != 0;
 	importer->mails_use_guid128 =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128) != 0;
-	importer->hdr_hash_version =
-		(flags & DSYNC_MAILBOX_IMPORT_FLAG_HDR_HASH_V2) != 0 ? 2 : 1;
+	importer->hdr_hash_version = hdr_hash_version;
 	importer->empty_hdr_workaround =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND) != 0;
 

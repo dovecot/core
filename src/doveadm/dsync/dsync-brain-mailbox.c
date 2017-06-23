@@ -218,8 +218,6 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128;
 	if (brain->no_notify)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_NO_NOTIFY;
-	if (brain->hdr_hash_v2)
-		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_HDR_HASH_V2;
 	if (brain->empty_hdr_workaround)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND;
 
@@ -237,7 +235,7 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 					  brain->sync_max_size,
 					  brain->sync_flag,
 					  brain->import_commit_msgs_interval,
-					  import_flags);
+					  import_flags, brain->hdr_hash_version);
 }
 
 int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
@@ -329,8 +327,6 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS;
 	if (brain->sync_max_size > 0)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES;
-	if (brain->hdr_hash_v2)
-		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2;
 	if (remote_dsync_box->messages_count == 0) {
 		/* remote mailbox is empty - we don't really need to export
 		   header hashes since they're not going to match anything
@@ -341,7 +337,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 	brain->box_exporter = brain->backup_recv ? NULL :
 		dsync_mailbox_export_init(brain->box, brain->log_scan,
 					  last_common_uid,
-					  exporter_flags);
+					  exporter_flags,
+					  brain->hdr_hash_version);
 	dsync_brain_sync_mailbox_init_remote(brain, remote_dsync_box);
 	return 1;
 }
