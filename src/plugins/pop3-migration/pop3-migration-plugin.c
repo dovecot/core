@@ -171,21 +171,7 @@ pop3_header_filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 			/* Yahoo IMAP drops headers with invalid names, while
 			   Yahoo POP3 preserves them. Drop them all. */
 			*matched = TRUE;
-		} else if (hdr->value_len > 0 &&
-			   hdr->value[hdr->value_len-1] == ' ') T_BEGIN {
-			/* Delete trailing whitespace. Zimbra is stripping it
-			   away with BODY[HEADER]. */
-			struct message_header_line new_hdr = *hdr;
-			while (new_hdr.value_len > 0 &&
-			       new_hdr.value[new_hdr.value_len-1] == ' ')
-				new_hdr.value_len--;
-			new_hdr.crlf_newline = FALSE; /* CRs are stripped */
-			string_t *new_line = t_str_new(128);
-			message_header_line_write(new_line, &new_hdr);
-			i_stream_header_filter_add(input, str_data(new_line),
-						   str_len(new_line));
-			*matched = TRUE;
-		} T_END;
+		}
 	}
 }
 
@@ -208,8 +194,10 @@ int pop3_migration_get_hdr_sha1(uint32_t mail_seq, struct istream *input,
 				pop3_header_filter_callback, &hdr_ctx);
 
 	sha1_init(&sha1_ctx);
+	i_zero(&hash_ctx);
 	while (i_stream_read_data(input, &data, &size, 0) > 0) {
-		message_header_hash_more(&hash_ctx, &hash_method_sha1, &sha1_ctx, 2,
+		message_header_hash_more(&hash_ctx, &hash_method_sha1, &sha1_ctx,
+					 MESSAGE_HEADER_HASH_MAX_VERSION,
 					 data, size);
 		i_stream_skip(input, size);
 	}
