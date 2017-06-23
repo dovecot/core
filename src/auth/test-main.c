@@ -1,3 +1,5 @@
+/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+
 #include "lib.h"
 #include "test-common.h"
 #include "test-auth.h"
