@@ -6,7 +6,6 @@ enum dsync_mailbox_exporter_flags {
 	DSYNC_MAILBOX_EXPORTER_FLAG_MAILS_HAVE_GUIDS	= 0x02,
 	DSYNC_MAILBOX_EXPORTER_FLAG_MINIMAL_DMAIL_FILL	= 0x04,
 	DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS		= 0x08,
-	DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2		= 0x10,
 	DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES	= 0x20,
 	DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES		= 0x40,
 };
@@ -15,7 +14,8 @@ struct dsync_mailbox_exporter *
 dsync_mailbox_export_init(struct mailbox *box,
 			  struct dsync_transaction_log_scan *log_scan,
 			  uint32_t last_common_uid,
-			  enum dsync_mailbox_exporter_flags flags);
+			  enum dsync_mailbox_exporter_flags flags,
+			  unsigned int hdr_hash_version);
 /* Returns 1 if attribute was returned, 0 if no more attributes, -1 on error */
 int dsync_mailbox_export_next_attr(struct dsync_mailbox_exporter *exporter,
 				   const struct dsync_mailbox_attribute **attr_r);
