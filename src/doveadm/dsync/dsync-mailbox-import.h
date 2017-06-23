@@ -11,7 +11,6 @@ enum dsync_mailbox_import_flags {
 	DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS	= 0x10,
 	DSYNC_MAILBOX_IMPORT_FLAG_MAILS_USE_GUID128	= 0x20,
 	DSYNC_MAILBOX_IMPORT_FLAG_NO_NOTIFY		= 0x40,
-	DSYNC_MAILBOX_IMPORT_FLAG_HDR_HASH_V2		= 0x80,
 	DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND	= 0x100
 };
 
@@ -37,7 +36,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  uoff_t sync_max_size,
 			  const char *sync_flag,
 			  unsigned int commit_msgs_interval,
-			  enum dsync_mailbox_import_flags flags);
+			  enum dsync_mailbox_import_flags flags,
+			  unsigned int hdr_hash_version);
 int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 				   const struct dsync_mailbox_attribute *attr);
 int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,

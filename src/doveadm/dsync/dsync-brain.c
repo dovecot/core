@@ -424,6 +424,18 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 	return brain->lock_fd == -1 ? -1 : 0;
 }
 
+static void
+dsync_brain_set_hdr_hash_version(struct dsync_brain *brain,
+				 const struct dsync_ibc_settings *ibc_set)
+{
+	if (ibc_set->hdr_hash_v3)
+		brain->hdr_hash_version = 3;
+	else if (ibc_set->hdr_hash_v2)
+		brain->hdr_hash_version = 3;
+	else
+		brain->hdr_hash_version = 1;
+}
+
 static bool dsync_brain_master_recv_handshake(struct dsync_brain *brain)
 {
 	const struct dsync_ibc_settings *ibc_set;
@@ -439,7 +451,7 @@ static bool dsync_brain_master_recv_handshake(struct dsync_brain *brain)
 			return FALSE;
 		}
 	}
-	brain->hdr_hash_v2 = ibc_set->hdr_hash_v2;
+	dsync_brain_set_hdr_hash_version(brain, ibc_set);
 
 	brain->state = brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_STATE ?
 		DSYNC_STATE_MASTER_SEND_LAST_COMMON :
@@ -457,7 +469,7 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 
 	if (dsync_ibc_recv_handshake(brain->ibc, &ibc_set) == 0)
 		return FALSE;
-	brain->hdr_hash_v2 = ibc_set->hdr_hash_v2;
+	dsync_brain_set_hdr_hash_version(brain, ibc_set);
 
 	if (ibc_set->lock_timeout > 0) {
 		brain->lock_timeout = ibc_set->lock_timeout;

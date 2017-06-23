@@ -498,7 +498,8 @@ struct dsync_mailbox_exporter *
 dsync_mailbox_export_init(struct mailbox *box,
 			  struct dsync_transaction_log_scan *log_scan,
 			  uint32_t last_common_uid,
-			  enum dsync_mailbox_exporter_flags flags)
+			  enum dsync_mailbox_exporter_flags flags,
+			  unsigned int hdr_hash_version)
 {
 	struct dsync_mailbox_exporter *exporter;
 	pool_t pool;
@@ -520,8 +521,7 @@ dsync_mailbox_export_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS) != 0;
 	exporter->export_virtual_sizes =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES) != 0;
-	exporter->hdr_hash_version =
-		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_HDR_HASH_V2) != 0 ? 2 : 1;
+	exporter->hdr_hash_version = hdr_hash_version;
 	exporter->no_hdr_hashes =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES) != 0;
 	p_array_init(&exporter->requested_uids, pool, 16);

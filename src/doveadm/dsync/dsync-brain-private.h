@@ -63,6 +63,7 @@ struct dsync_brain {
 	const char *sync_flag;
 	char alt_char;
 	unsigned int import_commit_msgs_interval;
+	unsigned int hdr_hash_version;
 
 	unsigned int lock_timeout;
 	int lock_fd;
@@ -116,7 +117,6 @@ struct dsync_brain {
 	bool require_full_resync:1;
 	bool verbose_proctitle:1;
 	bool no_notify:1;
-	bool hdr_hash_v2:1;
 	bool failed:1;
 	bool empty_hdr_workaround:1;
 };
