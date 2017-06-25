@@ -2006,7 +2006,16 @@ void index_mail_add_temp_wanted_fields(struct mail *_mail,
 		data->wanted_headers = new_wanted_headers;
 	}
 	index_mail_update_access_parts_pre(_mail);
-	index_mail_update_access_parts_post(_mail);
+	/* Don't call _post(), which would try to open the stream. It should be
+	   enough to delay the opening until it happens anyway.
+
+	   Otherwise there's not really any good place to call this in the
+	   plugins: set_seq() call get_stream() internally, which can already
+	   start parsing the headers, so it's too late. If we use get_stream()
+	   and there's a _post() call here, it gets into infinite loop. The
+	   loop could probably be prevented in some way, but it's probably
+	   better to eventually try to remove the _post() call entirely
+	   everywhere. */
 }
 
 void index_mail_set_uid_cache_updates(struct mail *_mail, bool set)
