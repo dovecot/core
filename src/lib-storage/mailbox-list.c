@@ -960,7 +960,7 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 				      const char *name,
 				      struct mailbox_permissions *permissions_r)
 {
-	const char *path, *parent_name, *p;
+	const char *path = NULL, *parent_name, *p;
 
 	i_zero(permissions_r);
 
@@ -972,18 +972,23 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	permissions_r->file_create_gid = (gid_t)-1;
 	permissions_r->file_create_gid_origin = "defaults";
 
-	if (name != NULL) {
+	if ((list->flags & MAILBOX_LIST_FLAG_NO_MAIL_FILES) != 0) {
+		/* mail files don't exist in storage, but index files might. */
+		(void)mailbox_list_get_path(list, name,
+			MAILBOX_LIST_PATH_TYPE_INDEX, &path);
+	}
+
+	if (name != NULL && path == NULL) {
 		if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR,
 					  &path) < 0)
 			name = NULL;
 	}
-	if (name == NULL) {
+	if (name == NULL && path == NULL) {
 		(void)mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_DIR,
 						 &path);
 	}
 
-	if (path == NULL ||
-	    (list->flags & MAILBOX_LIST_FLAG_NO_MAIL_FILES) != 0) {
+	if (path == NULL) {
 		/* no filesystem support in storage */
 	} else if (mailbox_list_get_permissions_stat(list, path, permissions_r)) {
 		/* got permissions from the given path */
