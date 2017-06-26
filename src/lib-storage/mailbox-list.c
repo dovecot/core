@@ -972,8 +972,13 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	permissions_r->file_create_gid = (gid_t)-1;
 	permissions_r->file_create_gid_origin = "defaults";
 
-	if ((list->flags & MAILBOX_LIST_FLAG_NO_MAIL_FILES) != 0) {
-		/* mail files don't exist in storage, but index files might. */
+	if (list->set.iter_from_index_dir ||
+	    (list->flags & MAILBOX_LIST_FLAG_NO_MAIL_FILES) != 0) {
+		/* a) iterating from index dir. Use the index dir's permissions
+		   as well, since they might be in a faster storage.
+
+		   b) mail files don't exist in storage, but index files
+		   might. */
 		(void)mailbox_list_get_path(list, name,
 			MAILBOX_LIST_PATH_TYPE_INDEX, &path);
 	}
