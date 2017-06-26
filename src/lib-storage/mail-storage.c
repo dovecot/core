@@ -2554,9 +2554,9 @@ static void mailbox_get_permissions_if_not_set(struct mailbox *box)
 		return;
 	}
 
-	mailbox_list_get_permissions(box->list, box->name, &box->_perm);
-	box->_perm.file_create_gid_origin =
-		p_strdup(box->pool, box->_perm.file_create_gid_origin);
+	struct mailbox_permissions perm;
+	mailbox_list_get_permissions(box->list, box->name, &perm);
+	mailbox_permissions_copy(&box->_perm, &perm, box->pool);
 }
 
 const struct mailbox_permissions *mailbox_get_permissions(struct mailbox *box)

@@ -997,10 +997,8 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	}
 
 	if (name == NULL) {
-		list->root_permissions = *permissions_r;
-		list->root_permissions.file_create_gid_origin =
-			p_strdup(list->pool,
-				 permissions_r->file_create_gid_origin);
+		mailbox_permissions_copy(&list->root_permissions, permissions_r,
+					 list->pool);
 	}
 
 	if (list->mail_set->mail_debug && name == NULL) {
