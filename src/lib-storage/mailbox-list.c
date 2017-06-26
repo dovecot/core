@@ -890,13 +890,77 @@ char mailbox_list_get_hierarchy_sep(struct mailbox_list *list)
 	return list->v.get_hierarchy_sep(list);
 }
 
+static bool
+mailbox_list_get_permissions_stat(struct mailbox_list *list, const char *path,
+				  struct mailbox_permissions *permissions_r)
+{
+	struct stat st;
+
+	if (stat(path, &st) < 0) {
+		if (errno == EACCES) {
+			mailbox_list_set_critical(list, "%s",
+				mail_error_eacces_msg("stat", path));
+		} else if (!ENOTFOUND(errno)) {
+			mailbox_list_set_critical(list, "stat(%s) failed: %m",
+						  path);
+		} else if (list->mail_set->mail_debug) {
+			i_debug("Namespace %s: %s doesn't exist yet, "
+				"using default permissions",
+				list->ns->prefix, path);
+		}
+		return FALSE;
+	}
+
+	permissions_r->file_uid = st.st_uid;
+	permissions_r->file_gid = st.st_gid;
+	permissions_r->file_create_mode = (st.st_mode & 0666) | 0600;
+	permissions_r->dir_create_mode = (st.st_mode & 0777) | 0700;
+	permissions_r->file_create_gid_origin = path;
+
+	if (!S_ISDIR(st.st_mode)) {
+		/* we're getting permissions from a file.
+		   apply +x modes as necessary. */
+		permissions_r->dir_create_mode =
+			get_dir_mode(permissions_r->dir_create_mode);
+	}
+
+	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
+		/* directory's GID is used automatically for new files */
+		permissions_r->file_create_gid = (gid_t)-1;
+	} else if ((st.st_mode & 0070) >> 3 == (st.st_mode & 0007)) {
+		/* group has same permissions as world, so don't bother
+		   changing it */
+		permissions_r->file_create_gid = (gid_t)-1;
+	} else if (getegid() == st.st_gid) {
+		/* using our own gid, no need to change it */
+		permissions_r->file_create_gid = (gid_t)-1;
+	} else {
+		permissions_r->file_create_gid = st.st_gid;
+	}
+	if (!S_ISDIR(st.st_mode) &&
+	    permissions_r->file_create_gid != (gid_t)-1) {
+		/* we need to stat() the parent directory to see if
+		   it has setgid-bit set */
+		const char *p = strrchr(path, '/');
+		const char *parent_path = p == NULL ? NULL :
+			t_strdup_until(path, p);
+		if (parent_path != NULL &&
+		    stat(parent_path, &st) == 0 &&
+		    (st.st_mode & S_ISGID) != 0) {
+			/* directory's GID is used automatically for
+			   new files */
+			permissions_r->file_create_gid = (gid_t)-1;
+		}
+	}
+	return TRUE;
+}
+
 static void ATTR_NULL(2)
 mailbox_list_get_permissions_internal(struct mailbox_list *list,
 				      const char *name,
 				      struct mailbox_permissions *permissions_r)
 {
-	const char *path, *parent_name, *parent_path, *p;
-	struct stat st;
+	const char *path, *parent_name, *p;
 
 	i_zero(permissions_r);
 
@@ -921,81 +985,27 @@ mailbox_list_get_permissions_internal(struct mailbox_list *list,
 	if (path == NULL ||
 	    (list->flags & MAILBOX_LIST_FLAG_NO_MAIL_FILES) != 0) {
 		/* no filesystem support in storage */
-	} else if (stat(path, &st) < 0) {
-		if (errno == EACCES) {
-			mailbox_list_set_critical(list, "%s",
-				mail_error_eacces_msg("stat", path));
-		} else if (!ENOTFOUND(errno)) {
-			mailbox_list_set_critical(list, "stat(%s) failed: %m",
-						  path);
-		} else if (list->mail_set->mail_debug) {
-			i_debug("Namespace %s: %s doesn't exist yet, "
-				"using default permissions",
-				list->ns->prefix, path);
+	} else if (mailbox_list_get_permissions_stat(list, path, permissions_r)) {
+		/* got permissions from the given path */
+		permissions_r->gid_origin_is_mailbox_path = name != NULL;
+	} else if (name != NULL) {
+		/* path couldn't be stat()ed, try parent mailbox */
+		p = strrchr(name, mailbox_list_get_hierarchy_sep(list));
+		if (p == NULL) {
+			/* return root defaults */
+			parent_name = NULL;
+		} else {
+			parent_name = t_strdup_until(name, p);
 		}
-		if (name != NULL) {
-			/* return parent mailbox */
-			p = strrchr(name, mailbox_list_get_hierarchy_sep(list));
-			if (p == NULL) {
-				/* return root defaults */
-				parent_name = NULL;
-			} else {
-				parent_name = t_strdup_until(name, p);
-			}
-			mailbox_list_get_permissions(list, parent_name,
-						     permissions_r);
-			return;
-		}
+		mailbox_list_get_permissions(list, parent_name,
+					     permissions_r);
+		return;
+	} else {
 		/* assume current defaults for mailboxes that don't exist or
 		   can't be looked up for some other reason */
 		permissions_r->file_uid = geteuid();
 		permissions_r->file_gid = getegid();
-	} else {
-		permissions_r->file_uid = st.st_uid;
-		permissions_r->file_gid = st.st_gid;
-		permissions_r->file_create_mode = (st.st_mode & 0666) | 0600;
-		permissions_r->dir_create_mode = (st.st_mode & 0777) | 0700;
-		permissions_r->file_create_gid_origin = path;
-		permissions_r->gid_origin_is_mailbox_path = name != NULL;
-
-		if (!S_ISDIR(st.st_mode)) {
-			/* we're getting permissions from a file.
-			   apply +x modes as necessary. */
-			permissions_r->dir_create_mode =
-				get_dir_mode(permissions_r->dir_create_mode);
-		}
-
-		if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
-			/* directory's GID is used automatically for new
-			   files */
-			permissions_r->file_create_gid = (gid_t)-1;
-		} else if ((st.st_mode & 0070) >> 3 == (st.st_mode & 0007)) {
-			/* group has same permissions as world, so don't bother
-			   changing it */
-			permissions_r->file_create_gid = (gid_t)-1;
-		} else if (getegid() == st.st_gid) {
-			/* using our own gid, no need to change it */
-			permissions_r->file_create_gid = (gid_t)-1;
-		} else {
-			permissions_r->file_create_gid = st.st_gid;
-		}
-		if (!S_ISDIR(st.st_mode) &&
-		    permissions_r->file_create_gid != (gid_t)-1) {
-			/* we need to stat() the parent directory to see if
-			   it has setgid-bit set */
-			p = strrchr(path, '/');
-			parent_path = p == NULL ? NULL :
-				t_strdup_until(path, p);
-			if (parent_path != NULL &&
-			    stat(parent_path, &st) == 0 &&
-			    (st.st_mode & S_ISGID) != 0) {
-				/* directory's GID is used automatically for
-				   new files */
-				permissions_r->file_create_gid = (gid_t)-1;
-			}
-		}
 	}
-
 	if (name == NULL) {
 		mailbox_permissions_copy(&list->root_permissions, permissions_r,
 					 list->pool);
