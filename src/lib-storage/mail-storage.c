@@ -231,11 +231,15 @@ mail_storage_verify_root(const char *root_dir, bool autocreate,
 
 	if (stat(root_dir, &st) == 0) {
 		/* exists */
-		return 1;
+		if (S_ISDIR(st.st_mode))
+			return 1;
+		*error_r = t_strdup_printf(
+			"Root mail directory is a file: %s", root_dir);
+		return -1;
 	} else if (errno == EACCES) {
 		*error_r = mail_error_eacces_msg("stat", root_dir);
 		return -1;
-	} else if (errno != ENOENT && errno != ENOTDIR) {
+	} else if (errno != ENOENT) {
 		*error_r = t_strdup_printf("stat(%s) failed: %m", root_dir);
 		return -1;
 	} else if (!autocreate) {
