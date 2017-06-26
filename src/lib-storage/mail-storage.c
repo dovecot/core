@@ -227,8 +227,8 @@ mail_storage_get_class(struct mail_namespace *ns, const char *driver,
 }
 
 static int
-mail_storage_verify_root(const char *root_dir, bool autocreate,
-			 const char **error_r)
+mail_storage_verify_root(const char *root_dir, const char *dir_type,
+			 bool autocreate, const char **error_r)
 {
 	struct stat st;
 
@@ -243,7 +243,7 @@ mail_storage_verify_root(const char *root_dir, bool autocreate,
 		return -1;
 	} else if (!autocreate) {
 		*error_r = t_strdup_printf(
-			"Root mail directory doesn't exist: %s", root_dir);
+			"Root %s directory doesn't exist: %s", dir_type, root_dir);
 		return -1;
 	} else {
 		/* doesn't exist */
@@ -255,12 +255,19 @@ static int
 mail_storage_create_root(struct mailbox_list *list,
 			 enum mail_storage_flags flags, const char **error_r)
 {
-	const char *root_dir, *error;
+	const char *root_dir, *type_name, *error;
+	enum mailbox_list_path_type type;
 	bool autocreate;
 	int ret;
 
-	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					&root_dir)) {
+	if (list->set.iter_from_index_dir) {
+		type = MAILBOX_LIST_PATH_TYPE_INDEX;
+		type_name = "index";
+	} else {
+		type = MAILBOX_LIST_PATH_TYPE_MAILBOX;
+		type_name = "mail";
+	}
+	if (!mailbox_list_get_root_path(list, type, &root_dir)) {
 		/* storage doesn't use directories (e.g. shared root) */
 		return 0;
 	}
@@ -271,7 +278,7 @@ mail_storage_create_root(struct mailbox_list *list,
 
 		/* we don't need to verify, but since debugging is
 		   enabled, check and log if the root doesn't exist */
-		if (mail_storage_verify_root(root_dir, FALSE, &error) < 0) {
+		if (mail_storage_verify_root(root_dir, type_name, FALSE, &error) < 0) {
 			i_debug("Namespace %s: Creating storage despite: %s",
 				list->ns->prefix, error);
 		}
@@ -279,10 +286,22 @@ mail_storage_create_root(struct mailbox_list *list,
 	}
 
 	autocreate = (flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) == 0;
-	ret = mail_storage_verify_root(root_dir, autocreate, error_r);
+	ret = mail_storage_verify_root(root_dir, type_name, autocreate, error_r);
 	if (ret == 0) {
-		ret = mailbox_list_try_mkdir_root(list, root_dir,
+		const char *mail_root_dir;
+
+		if (!list->set.iter_from_index_dir)
+			mail_root_dir = root_dir;
+		else if (!mailbox_list_get_root_path(list,
+				MAILBOX_LIST_PATH_TYPE_MAILBOX, &mail_root_dir))
+			i_unreached();
+		ret = mailbox_list_try_mkdir_root(list, mail_root_dir,
 						  MAILBOX_LIST_PATH_TYPE_MAILBOX,
+						  error_r);
+	}
+	if (ret == 0 && list->set.iter_from_index_dir) {
+		ret = mailbox_list_try_mkdir_root(list, root_dir,
+						  MAILBOX_LIST_PATH_TYPE_INDEX,
 						  error_r);
 	}
 	return ret < 0 ? -1 : 0;
