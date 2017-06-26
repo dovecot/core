@@ -163,39 +163,39 @@ void dbox_notify_changes(struct mailbox *box)
 	}
 }
 
-static bool
-dbox_cleanup_if_exists(struct mailbox_list *list, const char *path)
+static void
+dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
+			time_t last_scan_time, time_t last_change_time)
 {
-	struct stat st;
 	unsigned int interval = list->mail_set->mail_temp_scan_interval;
-
-	if (stat(path, &st) < 0)
-		return FALSE;
 
 	/* check once in a while if there are temp files to clean up */
 	if (interval == 0) {
 		/* disabled */
-	} else if (st.st_atime > st.st_ctime + DBOX_TMP_DELETE_SECS) {
-		/* there haven't been any changes to this directory since we
-		   last checked it. */
-	} else if (st.st_atime < ioloop_time - (time_t)interval) {
-		/* time to scan */
+	} else if (last_scan_time >= ioloop_time - (time_t)interval) {
+		/* not the time to scan it yet */
+	} else {
+		if (last_scan_time > last_change_time + DBOX_TMP_DELETE_SECS) {
+			/* there haven't been any changes to this directory
+			   since we last checked it. */
+			return;
+		}
 		const char *prefix =
 			mailbox_list_get_global_temp_prefix(list);
-
 		(void)unlink_old_files(path, prefix,
 				       ioloop_time - DBOX_TMP_DELETE_SECS);
 	}
-	return TRUE;
 }
 
 int dbox_mailbox_check_existence(struct mailbox *box)
 {
 	const char *box_path = mailbox_get_path(box);
+	struct stat st;
 
-	if (dbox_cleanup_if_exists(box->list, box_path))
-		;
-	else if (errno == ENOENT || errno == ENAMETOOLONG) {
+	if (stat(box_path, &st) == 0) {
+		dbox_cleanup_temp_files(box->list, box_path,
+					st.st_atime, st.st_ctime);
+	} else if (errno == ENOENT || errno == ENAMETOOLONG) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
