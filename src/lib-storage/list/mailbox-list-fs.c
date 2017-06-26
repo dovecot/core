@@ -287,12 +287,32 @@ static int fs_list_delete_dir(struct mailbox_list *list, const char *name)
 {
 	const char *path, *child_name, *child_path, *p;
 	char sep;
+	int ret;
 
 	if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_DIR,
 				  &path) <= 0)
 		i_unreached();
-	if (fs_list_rmdir(list, name, path) == 0)
-		return 0;
+	ret = fs_list_rmdir(list, name, path);
+	if (!list->set.iter_from_index_dir) {
+		/* it should exist only in the mail directory */
+		if (ret == 0)
+			return 0;
+	} else if (ret == 0 || errno == ENOENT) {
+		/* the primary list location is the index directory, but it
+		   exists in both index and mail directories. */
+		if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_INDEX,
+					  &path) <= 0)
+			i_unreached();
+		if (fs_list_rmdir(list, name, path) == 0)
+			return 0;
+		if (ret == 0 && errno == ENOENT) {
+			/* partial existence: exists in _DIR, but not in
+			   _INDEX. return success anyway. */
+			return 0;
+		}
+		/* a) both directories didn't exist
+		   b) index directory couldn't be rmdir()ed for some reason */
+	}
 
 	if (errno == ENOENT || errno == ENOTDIR) {
 		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,

@@ -441,7 +441,10 @@ maildir_list_iter_init(struct mailbox_list *_list, const char *const *patterns,
 	ctx->prefix_char = strcmp(_list->name, MAILBOX_LIST_NAME_IMAPDIR) == 0 ?
 		'\0' : list->sep;
 
-	ctx->dir = _list->set.root_dir;
+	if (_list->set.iter_from_index_dir)
+		ctx->dir = _list->set.index_dir;
+	else
+		ctx->dir = _list->set.root_dir;
 
 	if ((flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* Listing only subscribed mailboxes.
