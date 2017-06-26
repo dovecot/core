@@ -1030,6 +1030,15 @@ void mailbox_list_get_root_permissions(struct mailbox_list *list,
 	}
 }
 
+void mailbox_permissions_copy(struct mailbox_permissions *dest,
+			      const struct mailbox_permissions *src,
+			      pool_t pool)
+{
+	*dest = *src;
+	dest->file_create_gid_origin =
+		p_strdup(pool, src->file_create_gid_origin);
+}
+
 static const char *
 get_expanded_path(const char *unexpanded_start, const char *unexpanded_stop,
 		  const char *expanded_full)
