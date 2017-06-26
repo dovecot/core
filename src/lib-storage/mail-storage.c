@@ -1181,6 +1181,7 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	} T_END;
 
 	if (ret < 0 && box->storage->error == MAIL_ERROR_NOTFOUND &&
+	    !box->deleting &&
 	    box->input == NULL && mailbox_is_autocreated(box)) T_BEGIN {
 		ret = mailbox_autocreate_and_reopen(box);
 	} T_END;
@@ -1527,7 +1528,7 @@ int mailbox_delete(struct mailbox *box)
 		if (mailbox_get_last_mail_error(box) != MAIL_ERROR_NOTFOUND &&
 		    !box->mailbox_deleted)
 			return -1;
-		/* \noselect mailbox */
+		/* might be a \noselect mailbox, so continue deletion */
 	}
 
 	ret = box->v.delete_box(box);

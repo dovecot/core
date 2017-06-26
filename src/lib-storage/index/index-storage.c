@@ -700,7 +700,15 @@ int index_storage_mailbox_delete_pre(struct mailbox *box)
 
 	if (!box->opened) {
 		/* \noselect mailbox, try deleting only the directory */
-		return index_storage_mailbox_delete_dir(box, FALSE);
+		if (index_storage_mailbox_delete_dir(box, FALSE) == 0)
+			return 0;
+		if (mailbox_is_autocreated(box)) {
+			/* Return success when trying to delete autocreated
+			   mailbox. The client sees it as existing, so we
+			   shouldn't be returning an error. */
+			return 0;
+		}
+		return -1;
 	}
 
 	if ((box->list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
