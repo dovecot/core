@@ -220,6 +220,9 @@ int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
 					 const struct dirent *d);
 bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 					const char **name);
+void mailbox_permissions_copy(struct mailbox_permissions *dest,
+			      const struct mailbox_permissions *src,
+			      pool_t pool);
 
 void mailbox_list_add_change(struct mailbox_list *list,
 			     enum mailbox_log_record_type type,
