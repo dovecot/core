@@ -1,4 +1,4 @@
-v2.2.31 2017-06-xx  Timo Sirainen <tss@iki.fi>
+v2.2.31 2017-06-26  Timo Sirainen <tss@iki.fi>
 
 	* LMTP: Removed "(Dovecot)" from added Received headers. Some
 	  installations want to hide it, and there's not really any good reason
@@ -6,9 +6,8 @@ v2.2.31 2017-06-xx  Timo Sirainen <tss@iki.fi>
 
 	+ Add ssl_alt_cert and ssl_alt_key settings to add support for
 	  having both RSA and ECDSA certificates.
-	+ pop3-migration plugin: Strip trailing whitespace from headers
-	  when matching mails between IMAP and POP3. This helps with migrations
-	  from Zimbra.
+	+ dsync/imapc, pop3-migration plugin: Strip trailing whitespace from
+	  headers when matching mails. This helps with migrations from Zimbra.
 	+ acl: Add acl_globals_only setting to disable looking up
 	  per-mailbox dovecot-acl files.
 	+ Parse invalid message addresses better. This mainly affects the
