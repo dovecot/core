@@ -146,6 +146,7 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 	string_t *full_path;
 	size_t dir_len;
 	bool mailbox_dir, unlinked_something = FALSE;
+	int ret = 0;
 
 	if (mailbox_list_check_root_delete(list, name, path) < 0)
 		return -1;
@@ -203,20 +204,30 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 		else if (errno != ENOENT && !UNLINK_EISDIR(errno)) {
 			mailbox_list_set_critical(list,
 				"unlink(%s) failed: %m", str_c(full_path));
+			ret = -1;
 		}
 	}
-	if (errno != 0)
+	if (errno != 0) {
 		mailbox_list_set_critical(list, "readdir(%s) failed: %m", path);
+		ret = -1;
+	}
 	if (closedir(dir) < 0) {
 		mailbox_list_set_critical(list, "closedir(%s) failed: %m",
 					  path);
+		ret = -1;
 	}
+	if (ret < 0)
+		return -1;
 
 	if (rmdir_path) {
 		if (rmdir(path) == 0)
 			unlinked_something = TRUE;
-		else if (errno != ENOENT &&
-			 errno != ENOTEMPTY && errno != EEXIST) {
+		else if (errno == ENOENT) {
+			/* race condition with another process, which finished
+			   deleting it first. */
+			mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+				T_MAILBOX_LIST_ERR_NOT_FOUND(list, name));
+		} else if (errno != ENOTEMPTY && errno != EEXIST) {
 			mailbox_list_set_critical(list, "rmdir(%s) failed: %m",
 						  path);
 			return -1;
