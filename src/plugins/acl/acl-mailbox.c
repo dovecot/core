@@ -112,14 +112,6 @@ static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 	acl_object_deinit(&parent_aclobj);
 }
 
-static bool mailbox_is_autocreated(struct mailbox *box)
-{
-	if (box->inbox_user)
-		return TRUE;
-	return box->set != NULL &&
-		strcmp(box->set->autocreate, MAILBOX_SET_AUTO_NO) != 0;
-}
-
 static int
 acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		   bool directory)

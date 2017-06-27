@@ -836,7 +836,7 @@ void mailbox_set_reason(struct mailbox *box, const char *reason)
 	box->reason = p_strdup(box->pool, reason);
 }
 
-static bool mailbox_is_autocreated(struct mailbox *box)
+bool mailbox_is_autocreated(struct mailbox *box)
 {
 	if (box->inbox_user)
 		return TRUE;
