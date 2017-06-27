@@ -102,6 +102,9 @@ struct virtual_backend_box {
 	/* mailbox metadata matching */
 	const char *metadata_entry, *metadata_value;
 
+	/* notify context */
+	struct mailbox_list_notify *notify;
+
 	bool open_tracked:1;
 	bool open_failed:1;
 	bool sync_seen:1;

@@ -14,6 +14,7 @@
 #include "virtual-plugin.h"
 #include "virtual-transaction.h"
 #include "virtual-storage.h"
+#include "mailbox-list-notify.h"
 
 #include <stdio.h>
 #include <unistd.h>
@@ -286,9 +287,10 @@ void virtual_backend_box_sync_mail_unset(struct virtual_backend_box *bbox)
 static bool virtual_backend_box_can_close(struct virtual_backend_box *bbox)
 {
 	if (bbox->box->notify_callback != NULL) {
-		/* FIXME: IMAP IDLE running - we should support closing this
-		   also if mailbox_list_index=yes */
-		return FALSE;
+		/* we can close it if notify is set
+		   because we have no need to keep it open
+		   for tracking changes */
+		return bbox->notify != NULL;
 	}
 	if (array_count(&bbox->sync_pending_removes) > 0) {
 		/* FIXME: we could probably close this by making
@@ -339,6 +341,9 @@ static void virtual_backend_mailbox_close(struct mailbox *box)
 {
 	struct virtual_backend_box *bbox = VIRTUAL_CONTEXT(box);
 	struct virtual_backend_mailbox *vbox = VIRTUAL_BACKEND_CONTEXT(box);
+
+	if (bbox != NULL && bbox->notify != NULL)
+		mailbox_list_notify_deinit(&bbox->notify);
 
 	if (bbox != NULL && bbox->open_tracked) {
 		/* we could have gotten here from e.g. mailbox_autocreate()
@@ -664,21 +669,45 @@ virtual_notify_callback(struct mailbox *bbox ATTR_UNUSED, struct mailbox *box)
 	box->notify_callback(box, box->notify_context);
 }
 
+static void virtual_backend_box_changed(struct virtual_backend_box *bbox)
+{
+	virtual_notify_callback(bbox->box, &bbox->virtual_mbox->box);
+}
+
+static int virtual_notify_start(struct virtual_backend_box *bbox)
+{
+	i_assert(bbox->notify == NULL);
+	if (mailbox_list_notify_init(bbox->box->list, MAILBOX_LIST_NOTIFY_STATUS,
+				     &bbox->notify) < 0)
+		/* did not support notifications */
+		return -1;
+	mailbox_list_notify_wait(bbox->notify, virtual_backend_box_changed, bbox);
+	return 0;
+}
+
 static void virtual_notify_changes(struct mailbox *box)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
-	struct virtual_backend_box *const *bboxp;
+	struct virtual_backend_box **bboxp;
 
 	if (box->notify_callback == NULL) {
-		array_foreach(&mbox->backend_boxes, bboxp)
+		array_foreach_modifiable(&mbox->backend_boxes, bboxp) {
 			mailbox_notify_changes_stop((*bboxp)->box);
+			if ((*bboxp)->notify != NULL)
+				mailbox_list_notify_deinit(&(*bboxp)->notify);
+		}
 		return;
 	}
 
-	/* FIXME: if mailbox_list_index=yes, use mailbox-list-notify.h API
-	   to wait for changes and avoid opening all mailboxes here. */
-
-	array_foreach(&mbox->backend_boxes, bboxp) {
+	array_foreach_modifiable(&mbox->backend_boxes, bboxp) {
+		/* we are already waiting for notifications */
+	        if ((*bboxp)->notify != NULL)
+			continue;
+		/* wait for notifications */
+		if (virtual_notify_start(*bboxp) == 0)
+			continue;
+		/* it did not work, so open the mailbox and use
+		   alternative method */
 		if (!(*bboxp)->box->opened &&
 		    virtual_backend_box_open(mbox, *bboxp) < 0) {
 			/* we can't report error in here, so do it later */
