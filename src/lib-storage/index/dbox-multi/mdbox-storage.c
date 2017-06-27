@@ -171,6 +171,8 @@ int mdbox_mailbox_open(struct mailbox *box)
 {
 	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
 
+	if (dbox_mailbox_check_existence(box) < 0)
+		return -1;
 	if (dbox_mailbox_open(box) < 0)
 		return -1;
 

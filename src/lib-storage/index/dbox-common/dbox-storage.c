@@ -190,7 +190,7 @@ dbox_cleanup_if_exists(struct mailbox_list *list, const char *path)
 	return TRUE;
 }
 
-int dbox_mailbox_open(struct mailbox *box)
+int dbox_mailbox_check_existence(struct mailbox *box)
 {
 	const char *box_path = mailbox_get_path(box);
 
@@ -209,7 +209,11 @@ int dbox_mailbox_open(struct mailbox *box)
 					  "stat(%s) failed: %m", box_path);
 		return -1;
 	}
+	return 0;
+}
 
+int dbox_mailbox_open(struct mailbox *box)
+{
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
 	mail_index_set_fsync_mode(box->index,
