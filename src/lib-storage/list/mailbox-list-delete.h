@@ -47,8 +47,10 @@ int mailbox_list_delete_mailbox_file(struct mailbox_list *list,
 int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 					     const char *name, const char *path,
 					     bool rmdir_path);
-/* Lookup INDEX, CONTROL and ALT directories for the mailbox and delete them. */
-void mailbox_list_delete_finish(struct mailbox_list *list, const char *name);
+/* Lookup INDEX, CONTROL and ALT directories for the mailbox and delete them.
+   Returns 1 if anything was unlink()ed or rmdir()ed, 0 if not.
+   Returns -1 and sets the list error on any errors. */
+int mailbox_list_delete_finish(struct mailbox_list *list, const char *name);
 
 /* rmdir() path and its parent directories until the root directory is reached.
    The root isn't rmdir()ed. */
