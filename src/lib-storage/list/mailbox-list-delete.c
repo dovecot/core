@@ -332,6 +332,34 @@ int mailbox_list_delete_finish(struct mailbox_list *list, const char *name)
 	return ret;
 }
 
+int mailbox_list_delete_finish_ret(struct mailbox_list *list,
+				   const char *name, bool root_delete_success)
+{
+	int ret2;
+
+	if (!root_delete_success &&
+	    mailbox_list_get_last_mail_error(list) != MAIL_ERROR_NOTFOUND) {
+		/* unexpected error - preserve it */
+		return -1;
+	} else if ((ret2 = mailbox_list_delete_finish(list, name)) < 0) {
+		/* unexpected error */
+		return -1;
+	} else if (ret2 > 0) {
+		/* successfully deleted */
+		return 0;
+	} else if (root_delete_success) {
+		/* nothing deleted by us, but root was successfully deleted */
+		return 0;
+	} else {
+		/* nothing deleted by us and the root didn't exist either.
+		   make sure the list has the correct error set, since it
+		   could have been changed. */
+		mailbox_list_set_error(list, MAIL_ERROR_NOTFOUND,
+			T_MAILBOX_LIST_ERR_NOT_FOUND(list, name));
+		return -1;
+	}
+}
+
 int mailbox_list_delete_trash(const char *path)
 {
 	if (unlink_directory(path, UNLINK_DIRECTORY_FLAG_RMDIR) < 0) {

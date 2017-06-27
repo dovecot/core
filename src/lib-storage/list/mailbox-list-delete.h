@@ -51,6 +51,15 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
    Returns 1 if anything was unlink()ed or rmdir()ed, 0 if not.
    Returns -1 and sets the list error on any errors. */
 int mailbox_list_delete_finish(struct mailbox_list *list, const char *name);
+/* Finish mailbox deletion by calling mailbox_list_delete_finish() if needed.
+   Set root_delete_success to TRUE if the mail root directory was successfully
+   deleted, FALSE if not. The list is expected to have a proper error when
+   root_delete_success==FALSE.
+
+   Returns 0 if mailbox deletion should be treated as success. If not, returns
+   -1 and sets the list error if necessary. */
+int mailbox_list_delete_finish_ret(struct mailbox_list *list,
+				   const char *name, bool root_delete_success);
 
 /* rmdir() path and its parent directories until the root directory is reached.
    The root isn't rmdir()ed. */
