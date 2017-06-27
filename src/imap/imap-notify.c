@@ -348,10 +348,8 @@ void imap_client_notify_finished(struct client *client)
 		client->notify_ctx->notifying = FALSE;
 }
 
-static void notify_callback(void *context)
+static void notify_callback(struct imap_notify_namespace *notify_ns)
 {
-	struct imap_notify_namespace *notify_ns = context;
-
 	o_stream_cork(notify_ns->ctx->client->output);
 	imap_client_notify_ns(notify_ns);
 	o_stream_uncork(notify_ns->ctx->client->output);
