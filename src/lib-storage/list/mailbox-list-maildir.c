@@ -250,9 +250,8 @@ maildir_list_delete_mailbox(struct mailbox_list *list, const char *name)
 		ret = maildir_list_delete_maildir(list, name);
 	}
 
-	if (ret == 0 || (list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) != 0)
-		mailbox_list_delete_finish(list, name);
-	return ret;
+	i_assert(ret <= 0);
+	return mailbox_list_delete_finish_ret(list, name, ret == 0);
 }
 
 static int maildir_list_delete_dir(struct mailbox_list *list, const char *name)
