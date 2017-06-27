@@ -445,7 +445,10 @@ static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
 {
 	struct mailbox *box = &ctx->mbox->box;
 	const struct mail_index_header *hdr;
+	struct mail_index_view *view;
 	uint32_t seq1, seq2;
+
+	view = mail_index_transaction_open_updated_view(ctx->trans);
 
 	hdr = mail_index_get_header(ctx->sync_view);
 	if (hdr->uid_validity != 0)
@@ -454,11 +457,14 @@ static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
 		virtual_sync_set_uidvalidity(ctx);
 
 	/* mark the newly seen messages as recent */
-	if (mail_index_lookup_seq_range(ctx->sync_view, hdr->first_recent_uid,
-					hdr->next_uid, &seq1, &seq2)) {
-		mailbox_recent_flags_set_seqs(&ctx->mbox->box, ctx->sync_view,
+	if (mail_index_lookup_seq_range(view, hdr->first_recent_uid,
+					(uint32_t)-1, &seq1, &seq2)) {
+		mailbox_recent_flags_set_seqs(&ctx->mbox->box, view,
 					      seq1, seq2);
 	}
+
+	mail_index_view_close(&view);
+
 	if (ctx->ext_header_rewrite) {
 		/* entire mailbox list needs to be rewritten */
 		virtual_sync_ext_header_rewrite(ctx);
