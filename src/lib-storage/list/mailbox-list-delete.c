@@ -273,16 +273,17 @@ void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 	}
 }
 
-static void mailbox_list_try_delete(struct mailbox_list *list, const char *name,
-				    enum mailbox_list_path_type type)
+static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
+				   enum mailbox_list_path_type type)
 {
 	const char *mailbox_path, *path, *error;
+	int ret;
 
 	if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX,
 				  &mailbox_path) <= 0 ||
 	    mailbox_list_get_path(list, name, type, &path) <= 0 ||
 	    strcmp(path, mailbox_path) == 0)
-		return;
+		return 0;
 
 	if (*list->set.maildir_name == '\0' &&
 	    (list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
@@ -290,25 +291,46 @@ static void mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 		   we don't want to delete that. */
 		bool rmdir_path = *list->set.maildir_name != '\0';
 		if (mailbox_list_delete_mailbox_nonrecursive(list, name, path,
-							     rmdir_path) < 0)
-			return;
+							     rmdir_path) == 0)
+			ret = 1;
+		else {
+			enum mail_error error =
+				mailbox_list_get_last_mail_error(list);
+			if (error != MAIL_ERROR_NOTFOUND &&
+			    error != MAIL_ERROR_NOTPOSSIBLE)
+				return -1;
+			ret = 0;
+		}
 	} else {
-		if (mailbox_list_delete_trash(path, &error) < 0 &&
-		    errno != ENOENT && errno != ENOTEMPTY) {
+		if (mailbox_list_delete_trash(path, &error) == 0)
+			ret = 1;
+		else if (errno == ENOENT || errno == ENOTEMPTY)
+			ret = 0;
+		else {
 			mailbox_list_set_critical(list,
 				"unlink_directory(%s) failed: %s", path, error);
+			return -1;
 		}
 	}
 
-	/* avoid leaving empty directories lying around */
+	/* Avoid leaving empty parent directories lying around.
+	   They don't affect our return value. */
 	mailbox_list_delete_until_root(list, path, type);
+	return ret;
 }
 
-void mailbox_list_delete_finish(struct mailbox_list *list, const char *name)
+int mailbox_list_delete_finish(struct mailbox_list *list, const char *name)
 {
-	mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
-	mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_CONTROL);
-	mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+	int ret, ret2;
+
+	ret = mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_INDEX);
+	ret2 = mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_CONTROL);
+	if (ret == 0 || ret2 < 0)
+		ret = ret2;
+	ret2 = mailbox_list_try_delete(list, name, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX);
+	if (ret == 0 || ret2 < 0)
+		ret = ret2;
+	return ret;
 }
 
 int mailbox_list_delete_trash(const char *path, const char **error_r)
