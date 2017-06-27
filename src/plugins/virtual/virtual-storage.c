@@ -268,6 +268,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 
 	mbox->storage = storage;
 	mbox->virtual_ext_id = (uint32_t)-1;
+	mbox->virtual_guid_ext_id = (uint32_t)-1;
 	return &mbox->box;
 }
 
@@ -494,11 +495,33 @@ static int virtual_mailbox_open(struct mailbox *box)
 			sizeof(struct virtual_mail_index_record),
 			sizeof(uint32_t));
 
+	mbox->virtual_guid_ext_id =
+		mail_index_ext_register(mbox->box.index, "virtual-guid", GUID_128_SIZE,
+			0, 0);
+
 	if (virtual_mailbox_ext_header_read(mbox, box->view, &broken) < 0) {
 		virtual_mailbox_close_internal(mbox);
 		index_storage_mailbox_close(box);
 		return -1;
 	}
+
+	/* if GUID is missing write it here */
+	if (guid_128_is_empty(mbox->guid)) {
+		guid_128_generate(mbox->guid);
+		struct mail_index_transaction *t =
+			mail_index_transaction_begin(box->view, 0);
+		mail_index_update_header_ext(t, mbox->virtual_guid_ext_id,
+					     0, mbox->guid, GUID_128_SIZE);
+		if (mail_index_transaction_commit(&t) < 0) {
+			mail_storage_set_critical(box->storage,
+						  "Cannot write GUID for virtual mailbox %s to index",
+						  mailbox_get_vname(box));
+			virtual_mailbox_close_internal(mbox);
+			index_storage_mailbox_close(box);
+			return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -620,12 +643,17 @@ virtual_mailbox_get_metadata(struct mailbox *box,
 			     enum mailbox_metadata_items items,
 			     struct mailbox_metadata *metadata_r)
 {
+	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
 	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
 		return -1;
+	i_assert(box->opened);
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
-		mail_storage_set_error(box->storage, MAIL_ERROR_NOTPOSSIBLE,
-				       "Virtual mailboxes have no GUIDs");
-		return -1;
+		if (guid_128_is_empty(mbox->guid)) {
+			mail_storage_set_critical(box->storage, "GUID missing for virtual folder %s",
+						  mailbox_get_vname(box));
+			return -1;
+		}
+		guid_128_copy(metadata_r->guid, mbox->guid);
 	}
 	return 0;
 }
