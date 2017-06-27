@@ -28,6 +28,7 @@ int mailbox_list_notify_next(struct mailbox_list_notify *notify,
 	return notify->list->v.notify_next(notify, rec_r);
 }
 
+#undef mailbox_list_notify_wait
 void mailbox_list_notify_wait(struct mailbox_list_notify *notify,
 			      void (*callback)(void *context), void *context)
 {
