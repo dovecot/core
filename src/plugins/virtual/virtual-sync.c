@@ -179,6 +179,13 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 		ext_name_offset = 0;
 		ext_mailbox_count = 0;
 	} else {
+		const void *guid_data;
+		size_t guid_size;
+		mail_index_get_header_ext(view, mbox->virtual_guid_ext_id,
+					  &guid_data, &guid_size);
+		if (guid_size >= GUID_128_SIZE)
+			guid_128_copy(mbox->guid, guid_data);
+
 		mbox->prev_change_counter = ext_hdr->change_counter;
 		mailboxes = (const void *)(ext_hdr + 1);
 		ext_name_offset = sizeof(*ext_hdr) +

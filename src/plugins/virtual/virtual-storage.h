@@ -119,11 +119,13 @@ struct virtual_mailbox {
 	struct virtual_storage *storage;
 
 	uint32_t virtual_ext_id;
+	uint32_t virtual_guid_ext_id;
 
 	uint32_t prev_uid_validity;
 	uint32_t prev_change_counter;
 	uint32_t highest_mailbox_id;
 	uint32_t search_args_crc32;
+	guid_128_t guid;
 
 	struct virtual_backend_box *lookup_prev_bbox;
 	uint32_t sync_virtual_next_uid;
