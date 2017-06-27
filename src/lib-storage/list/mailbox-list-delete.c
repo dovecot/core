@@ -370,6 +370,7 @@ int mailbox_list_delete_trash(const char *path)
 			errno = ELOOP;
 			return -1;
 		}
+		return -1;
 	}
 	return 0;
 }
