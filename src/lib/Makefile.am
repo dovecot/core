@@ -327,6 +327,7 @@ test_lib_SOURCES = \
 	test-crc32.c \
 	test-data-stack.c \
 	test-failures.c \
+	test-file-create-locked.c \
 	test-guid.c \
 	test-hash.c \
 	test-hash-format.c \
