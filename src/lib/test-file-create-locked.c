@@ -83,6 +83,7 @@ static void test_file_create_locked_basic(void)
 		break;
 	}
 	i_unlink_if_exists(".test-temp-file-create-locked-child");
+	i_unlink_if_exists(path);
 	test_end();
 }
 
@@ -92,7 +93,7 @@ static void test_file_create_locked_mkdir(void)
 		.lock_timeout_secs = 0,
 		.lock_method = FILE_LOCK_METHOD_FCNTL,
 	};
-	const char *path = ".test-file-create-locked";
+	const char *path;
 	struct file_lock *lock;
 	const char *error, *dir;
 	bool created;
