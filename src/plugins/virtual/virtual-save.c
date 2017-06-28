@@ -9,7 +9,6 @@ struct virtual_save_context {
 	struct mail_save_context ctx;
 	struct mail_save_context *backend_save_ctx;
 	struct mailbox *backend_box;
-	struct mail_keywords *backend_keywords;
 	char *open_errstr;
 	enum mail_error open_error;
 };
@@ -80,6 +79,7 @@ int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct virtual_save_context *ctx = (struct virtual_save_context *)_ctx;
 	struct mail_save_data *mdata = &_ctx->data;
+	struct mail_keywords *keywords;
 
 	if (ctx->backend_save_ctx == NULL) {
 		if (ctx->open_errstr != NULL) {
@@ -95,13 +95,14 @@ int virtual_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	}
 
 	ctx->backend_box = ctx->backend_save_ctx->transaction->box;
-	ctx->backend_keywords =
-		virtual_copy_keywords(_ctx->transaction->box, mdata->keywords,
-				      ctx->backend_box);
-
+	keywords = virtual_copy_keywords(_ctx->transaction->box, mdata->keywords,
+				         ctx->backend_box);
 	mailbox_save_set_flags(ctx->backend_save_ctx,
 			       mdata->flags | mdata->pvt_flags,
-			       ctx->backend_keywords);
+			       keywords);
+	if (keywords != NULL)
+		mail_index_keywords_unref(&keywords);
+
 	mailbox_save_set_received_date(ctx->backend_save_ctx,
 				       mdata->received_date,
 				       mdata->received_tz_offset);
@@ -125,11 +126,11 @@ int virtual_save_continue(struct mail_save_context *_ctx)
 int virtual_save_finish(struct mail_save_context *_ctx)
 {
 	struct virtual_save_context *ctx = (struct virtual_save_context *)_ctx;
+	int ret;
+	ret = mailbox_save_finish(&ctx->backend_save_ctx);
+	index_save_context_free(_ctx);
 
-	if (mailbox_save_finish(&ctx->backend_save_ctx) < 0)
-		return -1;
-	_ctx->unfinished = FALSE;
-	return 0;
+	return ret;
 }
 
 void virtual_save_cancel(struct mail_save_context *_ctx)
@@ -146,8 +147,6 @@ void virtual_save_free(struct mail_save_context *_ctx)
 {
 	struct virtual_save_context *ctx = (struct virtual_save_context *)_ctx;
 
-	if (ctx->backend_keywords != NULL)
-		mailbox_keywords_unref(&ctx->backend_keywords);
 	virtual_save_cancel(_ctx);
 	mailbox_save_context_deinit(_ctx);
 	i_free(ctx);
