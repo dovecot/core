@@ -144,6 +144,16 @@ static bool header_name_is_valid(const char *name)
 	return TRUE;
 }
 
+static bool header_value_want_skip(const struct message_header_line *hdr)
+{
+	for (size_t i = 0; i < hdr->value_len; i++) {
+		if (hdr->value[i] != ' ' && hdr->value[i] != '\t')
+			return FALSE;
+	}
+	/* "header: \r\n \r\n" - Zimbra's BODY[HEADER] strips this line away. */
+	return TRUE;
+}
+
 static void
 pop3_header_filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 			    struct message_header_line *hdr,
@@ -161,6 +171,8 @@ pop3_header_filter_callback(struct header_filter_istream *input ATTR_UNUSED,
 			 here while others don't. To make sure they can be
 			 matched correctly we want to stop here entirely. */
 			ctx->stop = TRUE;
+		} else if (hdr->continued && header_value_want_skip(hdr)) {
+			*matched = TRUE;
 		}
 		if (ctx->stop)
 			*matched = TRUE;

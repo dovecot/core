@@ -23,7 +23,10 @@ static void test_pop3_migration_get_hdr_sha1(void)
 		{ "a: b     \r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
 		{ "a: b\r\n\r\n", "938b96404495cced816e3a4f6031734eab4e71b3", TRUE },
 		{ "a: b\r\n\r\r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
-		{ "a: b\r\n\r\r\nc: d\r\n\r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", TRUE }
+		{ "a: b\r\n\r\r\nc: d\r\n\r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", TRUE },
+		{ "a: b\r\n \r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
+		{ "a: b\r\n  \r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
+		{ "a: b\r\n\t\r\n", "44ef6a20971148dd54a161f79814e22e2d098ddb", FALSE },
 	};
 	struct istream *input;
 	unsigned char digest[SHA1_RESULTLEN];
