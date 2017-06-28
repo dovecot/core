@@ -15,6 +15,7 @@ int main(void)
 		test_crc32,
 		test_data_stack,
 		test_failures,
+		test_file_create_locked,
 		test_guid,
 		test_hash,
 		test_hash_format,
