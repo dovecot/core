@@ -332,14 +332,15 @@ static int sdbox_mailbox_open(struct mailbox *box)
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
 	struct sdbox_index_header hdr;
 	bool need_resize;
+	time_t path_ctime;
 
-	if (dbox_mailbox_check_existence(box) < 0)
+	if (dbox_mailbox_check_existence(box, &path_ctime) < 0)
 		return -1;
 
 	if (sdbox_mailbox_alloc_index(mbox) < 0)
 		return -1;
 
-	if (dbox_mailbox_open(box) < 0)
+	if (dbox_mailbox_open(box, path_ctime) < 0)
 		return -1;
 
 	if (box->creating) {
