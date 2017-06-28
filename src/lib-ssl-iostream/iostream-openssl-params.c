@@ -44,9 +44,16 @@ generate_dh_parameters(int bitsize, buffer_t *output, const char **error_r)
 int openssl_iostream_generate_params(buffer_t *output, unsigned int dh_length,
 				     const char **error_r)
 {
-	if (generate_dh_parameters(512, output, error_r) < 0)
+	unsigned int minimal_dh_size = 512;
+	#ifdef OPENSSL_FIPS
+	if (FIPS_mode() > 0) {
+		minimal_dh_size = 2048;
+		i_warning("FIPS mode detected. Setting minimum DH params size from 512 to 2048. Accepting SSL connections after first start might take longer.");
+	};
+	#endif
+	if (generate_dh_parameters(minimal_dh_size, output, error_r) < 0)
 		return -1;
-	if (dh_length != 512) {
+	if (dh_length > minimal_dh_size) {
 		if (generate_dh_parameters(dh_length, output, error_r) < 0)
 			return -1;
 	}
