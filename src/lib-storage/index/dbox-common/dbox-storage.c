@@ -164,7 +164,7 @@ void dbox_notify_changes(struct mailbox *box)
 	}
 }
 
-static void
+static bool
 dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 			time_t last_scan_time, time_t last_change_time)
 {
@@ -173,29 +173,32 @@ dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 	/* check once in a while if there are temp files to clean up */
 	if (interval == 0) {
 		/* disabled */
+		return FALSE;
 	} else if (last_scan_time >= ioloop_time - (time_t)interval) {
 		/* not the time to scan it yet */
+		return FALSE;
 	} else {
 		if (last_scan_time > last_change_time + DBOX_TMP_DELETE_SECS) {
 			/* there haven't been any changes to this directory
 			   since we last checked it. */
-			return;
+			return FALSE;
 		}
 		const char *prefix =
 			mailbox_list_get_global_temp_prefix(list);
 		(void)unlink_old_files(path, prefix,
 				       ioloop_time - DBOX_TMP_DELETE_SECS);
+		return TRUE;
 	}
 }
 
-int dbox_mailbox_check_existence(struct mailbox *box)
+int dbox_mailbox_check_existence(struct mailbox *box, time_t *path_ctime_r)
 {
 	const char *box_path = mailbox_get_path(box);
 	struct stat st;
 
 	if (stat(box_path, &st) == 0) {
-		dbox_cleanup_temp_files(box->list, box_path,
-					st.st_atime, st.st_ctime);
+		*path_ctime_r = st.st_ctime;
+		return 0;
 	} else if (errno == ENOENT || errno == ENAMETOOLONG) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
@@ -209,17 +212,25 @@ int dbox_mailbox_check_existence(struct mailbox *box)
 					  "stat(%s) failed: %m", box_path);
 		return -1;
 	}
-	return 0;
 }
 
-int dbox_mailbox_open(struct mailbox *box)
+int dbox_mailbox_open(struct mailbox *box, time_t path_ctime)
 {
+	const char *box_path = mailbox_get_path(box);
+
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
 	mail_index_set_fsync_mode(box->index,
 				  box->storage->set->parsed_fsync_mode,
 				  MAIL_INDEX_FSYNC_MASK_APPENDS |
 				  MAIL_INDEX_FSYNC_MASK_EXPUNGES);
+
+	const struct mail_index_header *hdr = mail_index_get_header(box->view);
+	if (dbox_cleanup_temp_files(box->list, box_path,
+				    hdr->last_temp_file_scan, path_ctime)) {
+		/* temp files were scanned. update the last scan timestamp. */
+		index_mailbox_update_last_temp_file_scan(box);
+	}
 	return 0;
 }
 
