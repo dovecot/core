@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "safe-mkstemp.h"
+#include "mkdir-parents.h"
 #include "file-lock.h"
 #include "file-create-locked.h"
 
@@ -10,6 +11,10 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+/* Try mkdir() + lock creation multiple times. This allows the lock file
+   creation to work even while the directory is simultaneously being
+   rmdir()ed. */
+#define MAX_MKDIR_COUNT 10
 #define MAX_RETRY_COUNT 1000
 
 static int
@@ -44,24 +49,61 @@ try_lock_existing(int fd, const char *path,
 }
 
 static int
+try_mkdir(const char *path, const struct file_create_settings *set,
+	  const char **error_r)
+{
+	uid_t uid = set->mkdir_uid != 0 ? set->mkdir_uid : (uid_t)-1;
+	gid_t gid = set->mkdir_gid != 0 ? set->mkdir_gid : (gid_t)-1;
+	const char *p = strrchr(path, '/');
+	if (p == NULL)
+		return 0;
+
+	const char *dir = t_strdup_until(path, p);
+	int ret;
+	if (uid != (uid_t)-1)
+		ret = mkdir_parents_chown(dir, set->mkdir_mode, uid, gid);
+	else {
+		ret = mkdir_parents_chgrp(dir, set->mkdir_mode,
+					  gid, set->gid_origin);
+	}
+	if (ret < 0) {
+		*error_r = t_strdup_printf("mkdir_parents(%s) failed: %m", dir);
+		return -1;
+	}
+	return 1;
+}
+
+static int
 try_create_new(const char *path, const struct file_create_settings *set,
 	       int *fd_r, struct file_lock **lock_r,  const char **error_r)
 {
 	string_t *temp_path = t_str_new(128);
-	int fd, orig_errno, ret = -1;
+	int fd, orig_errno, ret = 1;
 	int mode = set->mode != 0 ? set->mode : 0600;
 	uid_t uid = set->uid != 0 ? set->uid : (uid_t)-1;
 	uid_t gid = set->gid != 0 ? set->gid : (gid_t)-1;
 
 	str_append(temp_path, path);
-	if (uid != (uid_t)-1)
-		fd = safe_mkstemp(temp_path, mode, uid, gid);
-	else
-		fd = safe_mkstemp_group(temp_path, mode, gid, set->gid_origin);
+	for (unsigned int i = 0; ret > 0; i++) {
+		if (uid != (uid_t)-1)
+			fd = safe_mkstemp(temp_path, mode, uid, gid);
+		else
+			fd = safe_mkstemp_group(temp_path, mode, gid, set->gid_origin);
+		if (fd != -1 || errno != ENOENT || set->mkdir_mode == 0 ||
+		    i >= MAX_MKDIR_COUNT)
+			break;
+
+		int orig_errno = errno;
+		if ((ret = try_mkdir(path, set, error_r)) < 0)
+			return -1;
+		errno = orig_errno;
+	}
 	if (fd == -1) {
 		*error_r = t_strdup_printf("safe_mkstemp(%s) failed: %m", path);
 		return -1;
 	}
+
+	ret = -1;
 	if (file_try_lock_error(fd, str_c(temp_path), F_WRLCK,
 				set->lock_method, lock_r, error_r) <= 0) {
 	} else if (link(str_c(temp_path), path) < 0) {

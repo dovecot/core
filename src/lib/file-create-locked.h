@@ -15,6 +15,17 @@ struct file_create_settings {
 	/* 0 = default */
 	gid_t gid;
 	const char *gid_origin;
+
+	/* If parent directory doesn't exist, mkdir() it with this mode.
+	   0 = don't mkdir(). The parent directories are assumed to be
+	   potentially rmdir() simultaneously, so the mkdir()+locking may be
+	   attempted multiple times. */
+	int mkdir_mode;
+	/* 0 = default */
+	uid_t mkdir_uid;
+	/* 0 = default */
+	gid_t mkdir_gid;
+	const char *mkdir_gid_origin;
 };
 
 /* Either open an existing file and lock it, or create the file locked.
