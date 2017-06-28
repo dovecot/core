@@ -852,6 +852,22 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 	return 0;
 }
 
+int index_mailbox_update_last_temp_file_scan(struct mailbox *box)
+{
+	uint32_t last_temp_file_scan = ioloop_time;
+	struct mail_index_transaction *trans =
+		mail_index_transaction_begin(box->view,
+			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, last_temp_file_scan),
+		&last_temp_file_scan, sizeof(last_temp_file_scan), TRUE);
+	if (mail_index_transaction_commit(&trans) < 0) {
+		mailbox_set_index_error(box);
+		return -1;
+	}
+	return 0;
+}
+
 bool index_storage_is_readonly(struct mailbox *box)
 {
 	return (box->flags & MAILBOX_FLAG_READONLY) != 0;
