@@ -106,7 +106,7 @@ struct mail_index_header {
 	uint32_t log_file_head_offset;
 
 	uint64_t unused_old_sync_size;
-	uint32_t unused_old_sync_stamp;
+	uint32_t last_temp_file_scan;
 
 	/* daily first UIDs that have been added to index. */
 	uint32_t day_stamp;

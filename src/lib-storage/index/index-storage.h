@@ -80,6 +80,8 @@ int index_storage_mailbox_delete(struct mailbox *box);
 int index_storage_mailbox_delete_dir(struct mailbox *box, bool mailbox_deleted);
 int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest);
 
+int index_mailbox_update_last_temp_file_scan(struct mailbox *box);
+
 bool index_storage_is_readonly(struct mailbox *box);
 bool index_storage_is_inconsistent(struct mailbox *box);
 

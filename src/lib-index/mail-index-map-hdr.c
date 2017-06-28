@@ -293,7 +293,7 @@ int mail_index_map_check_header(struct mail_index_map *map,
 		/* pre-v2.2 (although should have been done in v2.1 already):
 		   make sure the old unused fields are cleared */
 		map->hdr.unused_old_sync_size = 0;
-		map->hdr.unused_old_sync_stamp = 0;
+		map->hdr.last_temp_file_scan = 0;
 	}
 	if (hdr->first_recent_uid == 0) {
 		*error_r = "first_recent_uid=0";
