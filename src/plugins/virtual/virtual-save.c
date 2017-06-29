@@ -149,5 +149,6 @@ void virtual_save_free(struct mail_save_context *_ctx)
 	if (ctx->backend_keywords != NULL)
 		mailbox_keywords_unref(&ctx->backend_keywords);
 	virtual_save_cancel(_ctx);
+	mailbox_save_context_deinit(_ctx);
 	i_free(ctx);
 }
