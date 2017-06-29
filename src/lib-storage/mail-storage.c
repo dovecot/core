@@ -2368,6 +2368,8 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
 	struct mailbox_transaction_context *t = ctx->transaction;
+	/* we need to keep a copy of this because save_finish implementations
+	   will likely zero the data structure during cleanup */
 	struct mail_keywords *keywords = ctx->data.keywords;
 	enum mail_flags pvt_flags = ctx->data.pvt_flags;
 	bool copying_via_save = ctx->copying_via_save;
