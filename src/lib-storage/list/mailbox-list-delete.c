@@ -286,7 +286,7 @@ void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 				   enum mailbox_list_path_type type)
 {
-	const char *mailbox_path, *path;
+	const char *mailbox_path, *index_path, *path;
 	int ret;
 
 	if (mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_MAILBOX,
@@ -294,6 +294,17 @@ static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 	    mailbox_list_get_path(list, name, type, &path) <= 0 ||
 	    strcmp(path, mailbox_path) == 0)
 		return 0;
+
+	if (type == MAILBOX_LIST_PATH_TYPE_CONTROL &&
+	    mailbox_list_get_path(list, name, MAILBOX_LIST_PATH_TYPE_INDEX,
+				  &index_path) > 0 &&
+	    strcmp(index_path, path) == 0) {
+		/* CONTROL dir is the same as INDEX dir, which we already
+		   deleted. We don't want to continue especially with
+		   iter_from_index_dir=yes, because it could be deleting the
+		   index directory. */
+		return 0;
+	}
 
 	/* Note that only ALT currently uses maildir_name in paths.
 	   INDEX and CONTROL don't. */
@@ -325,9 +336,18 @@ static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 		}
 	}
 
-	/* Avoid leaving empty parent directories lying around.
-	   They don't affect our return value. */
-	mailbox_list_delete_until_root(list, path, type);
+	if (!list->set.iter_from_index_dir ||
+	    type != MAILBOX_LIST_PATH_TYPE_INDEX) {
+		/* Avoid leaving empty parent directories lying around.
+		   We don't want to do it though when we're iterating mailboxes
+		   from index directory, since it'll get us into inconsistent
+		   state with a \NoSelect mailbox in the mail directory but not
+		   in index directory.
+
+		   These parent directories' existence or removal doesn't
+		   affect our return value. */
+		mailbox_list_delete_until_root(list, path, type);
+	}
 	return ret;
 }
 
