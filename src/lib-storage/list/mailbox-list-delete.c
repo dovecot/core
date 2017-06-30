@@ -296,8 +296,10 @@ static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 	    strcmp(path, mailbox_path) == 0)
 		return 0;
 
-	if (*list->set.maildir_name == '\0' &&
-	    (list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) == 0) {
+	/* Note that only ALT currently uses maildir_name in paths.
+	   INDEX and CONTROL don't. */
+	if (type != MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX ||
+	    *list->set.maildir_name == '\0') {
 		/* this directory may contain also child mailboxes' data.
 		   we don't want to delete that. */
 		bool rmdir_path = *list->set.maildir_name != '\0';
