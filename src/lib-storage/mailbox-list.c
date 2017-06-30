@@ -351,6 +351,12 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 		else if (strcmp(key, "FULLDIRNAME") == 0) {
 			set_r->index_control_use_maildir_name = TRUE;
 			dest = &set_r->maildir_name;
+		} else if (strcmp(key, "BROKENCHAR") == 0) {
+			if (strlen(value) != 1) {
+				*error_r = "BROKENCHAR value must be a single character";
+				return -1;
+			}
+			set_r->broken_char = value[0];
 		} else if (strcmp(key, "ITERINDEX") == 0) {
 			set_r->iter_from_index_dir = TRUE;
 			continue;
