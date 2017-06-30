@@ -41,6 +41,8 @@ static int
 cmd_notify_parse_fetch(struct imap_notify_context *ctx,
 		       const struct imap_arg *list)
 {
+	if (list->type == IMAP_ARG_EOL)
+		return -1; /* at least one attribute must be set */
 	return imap_fetch_att_list_parse(ctx->client, ctx->pool, list,
 					 &ctx->fetch_ctx, &ctx->error);
 }
@@ -59,11 +61,17 @@ cmd_notify_set_selected(struct imap_notify_context *ctx,
 	    strcasecmp(str, "NONE") == 0) {
 		/* no events for selected mailbox. this is also the default
 		   when NOTIFY command doesn't specify it explicitly */
+		if (events[1].type != IMAP_ARG_EOL)
+			return -1; /* no extra parameters */
 		return 0;
 	}
 
 	if (!imap_arg_get_list(events, &list))
 		return -1;
+	if (events[1].type != IMAP_ARG_EOL)
+		return -1; /* no extra parameters */
+	if (list->type == IMAP_ARG_EOL)
+		return -1; /* at least one event */
 
 	for (; list->type != IMAP_ARG_EOL; list++) {
 		if (cmd_notify_parse_event(list, &event) < 0)
@@ -322,6 +330,15 @@ cmd_notify_set(struct imap_notify_context *ctx, const struct imap_arg *args)
 			if (event_group->type == IMAP_ARG_EOL)
 				return -1;
 			mailboxes = event_group++;
+			/* check that the mailboxes parameter is valid */
+			if (IMAP_ARG_IS_ASTRING(mailboxes))
+				;
+			else if (!imap_arg_get_list(mailboxes, &list))
+				return -1;
+			else if (list->type == IMAP_ARG_EOL) {
+				/* should have at least one mailbox */
+				return -1;
+			}
 		} else {
 			mailboxes = NULL;
 		}
