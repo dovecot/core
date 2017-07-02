@@ -362,6 +362,7 @@ test_lib_SOURCES = \
 	test-pkcs5.c \
 	test-net.c \
 	test-numpack.c \
+	test-ostream-buffer.c \
 	test-ostream-escaped.c \
 	test-ostream-failure-at.c \
 	test-ostream-file.c \
