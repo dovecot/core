@@ -50,6 +50,7 @@ enum fatal_test_state fatal_mempool_alloconly(unsigned int);
 void test_pkcs5_pbkdf2(void);
 void test_net(void);
 void test_numpack(void);
+void test_ostream_buffer(void);
 void test_ostream_escaped(void);
 void test_ostream_failure_at(void);
 void test_ostream_file(void);

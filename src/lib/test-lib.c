@@ -46,6 +46,7 @@ int main(void)
 		test_net,
 		test_numpack,
 		test_pkcs5_pbkdf2,
+		test_ostream_buffer,
 		test_ostream_escaped,
 		test_ostream_failure_at,
 		test_ostream_file,
