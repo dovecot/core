@@ -188,6 +188,7 @@ struct client {
 	unsigned int fetch_hdr_count, fetch_body_count;
 	uint64_t fetch_hdr_bytes, fetch_body_bytes;
 	unsigned int deleted_count, expunged_count, trashed_count;
+	unsigned int autoexpunged_count;
 
 	/* SEARCHRES extension: Last saved SEARCH result */
 	ARRAY_TYPE(seq_range) search_saved_uidset;

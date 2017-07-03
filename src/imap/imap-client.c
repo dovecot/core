@@ -244,6 +244,7 @@ const char *client_stats(struct client *client)
 		{ '\0', NULL, "deleted" },
 		{ '\0', NULL, "expunged" },
 		{ '\0', NULL, "trashed" },
+		{ '\0', NULL, "autoexpunged" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -262,6 +263,7 @@ const char *client_stats(struct client *client)
 	tab[7].value = dec2str(client->deleted_count);
 	tab[8].value = dec2str(client->expunged_count);
 	tab[9].value = dec2str(client->trashed_count);
+	tab[10].value = dec2str(client->autoexpunged_count);
 
 	str = t_str_new(128);
 	var_expand(str, client->set->imap_logout_format, tab);
@@ -459,7 +461,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	   hibernations it could also be doing unnecessarily much work. */
 	imap_refresh_proctitle();
 	if (!client->hibernated) {
-		mail_user_autoexpunge(client->user);
+		client->autoexpunged_count = mail_user_autoexpunge(client->user);
 		client_log_disconnect(client, reason);
 	}
 	mail_user_unref(&client->user);
