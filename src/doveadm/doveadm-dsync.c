@@ -479,7 +479,7 @@ parse_ssh_location(const char *location, const char *username)
 {
 	const char *host, *login;
 
-	host = strchr(location, '@');
+	host = strrchr(location, '@');
 	if (host != NULL)
 		login = t_strdup_until(location, host++);
 	else {
