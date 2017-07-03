@@ -33,4 +33,10 @@ void message_address_write(string_t *str, const struct message_address *addr);
 /* Returns TRUE if header is known to be an address */
 bool message_header_is_address(const char *hdr_name);
 
+/* Parse address+detail@domain into address@domain and detail
+   using given delimiters. Returns used delimiter. */
+void message_detail_address_parse(const char *delimiters, const char *address,
+				  const char **username_r, char *delim_r,
+				  const char **detail_r);
+
 #endif
