@@ -311,6 +311,14 @@ static void virtual_sync_ext_header_rewrite(struct virtual_sync_context *ctx)
 
 		mailbox_pos += sizeof(mailbox);
 		name_pos += mailbox.name_len;
+
+		/* repair the value */
+		if (ctx->mbox->highest_mailbox_id < mailbox.id)
+			ctx->mbox->highest_mailbox_id = mailbox.id;
+	}
+	if (ctx->mbox->highest_mailbox_id != ext_hdr.highest_mailbox_id) {
+		ext_hdr.highest_mailbox_id = ctx->mbox->highest_mailbox_id;
+		buffer_write(buf, 0, &ext_hdr, sizeof(ext_hdr));
 	}
 	i_assert(buf->used == name_pos);
 
