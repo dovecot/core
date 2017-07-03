@@ -368,6 +368,15 @@ imapc_mail_get_wanted_fetch_fields(struct imapc_mail *mail)
 	return fields;
 }
 
+void imapc_mail_try_init_stream_from_cache(struct imapc_mail *mail)
+{
+	struct mail *_mail = &mail->imail.mail.mail;
+	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+
+	if (mbox->prev_mail_cache.uid == _mail->uid)
+		imapc_mail_cache_get(mail, &mbox->prev_mail_cache);
+}
+
 bool imapc_mail_prefetch(struct mail *_mail)
 {
 	struct imapc_mail *mail = (struct imapc_mail *)_mail;
@@ -376,10 +385,13 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	enum mail_fetch_field fields;
 	const char *const *headers = NULL;
 
-	if (mbox->prev_mail_cache.uid == _mail->uid)
-		imapc_mail_cache_get(mail, &mbox->prev_mail_cache);
 	/* try to get as much from cache as possible */
 	imapc_mail_update_access_parts(&mail->imail);
+	/* If mail is already cached we can avoid re-FETCHing the mail.
+	   However, don't initialize the stream if we don't actually want to
+	   access the mail. */
+	if (mail->imail.data.access_part != 0)
+		imapc_mail_try_init_stream_from_cache(mail);
 
 	fields = imapc_mail_get_wanted_fetch_fields(mail);
 	if (data->wanted_headers != NULL && data->stream == NULL &&
