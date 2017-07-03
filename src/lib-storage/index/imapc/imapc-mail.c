@@ -302,6 +302,10 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 		data->hdr_size_set = FALSE;
 	}
 
+	/* See if we can get it from cache. If the wanted_fields/headers are
+	   set properly, this is usually already done by prefetching. */
+	imapc_mail_try_init_stream_from_cache(mail);
+
 	if (data->stream == NULL) {
 		if (!data->initialized) {
 			/* coming here from mail_set_seq() */

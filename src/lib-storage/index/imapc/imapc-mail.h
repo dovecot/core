@@ -33,6 +33,7 @@ imapc_mail_alloc(struct mailbox_transaction_context *t,
 		 struct mailbox_header_lookup_ctx *wanted_headers);
 int imapc_mail_fetch(struct mail *mail, enum mail_fetch_field fields,
 		     const char *const *headers);
+void imapc_mail_try_init_stream_from_cache(struct imapc_mail *mail);
 bool imapc_mail_prefetch(struct mail *mail);
 void imapc_mail_fetch_flush(struct imapc_mailbox *mbox);
 void imapc_mail_init_stream(struct imapc_mail *mail);
