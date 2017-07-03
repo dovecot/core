@@ -527,3 +527,30 @@ bool message_header_is_address(const char *hdr_name)
 	}
 	return FALSE;
 }
+
+void message_detail_address_parse(const char *delimiter_string,
+				  const char *address, const char **username_r,
+				  const char **detail_r)
+{
+	const char *p, *domain;
+
+	*username_r = address;
+	*detail_r = "";
+
+	if (*delimiter_string == '\0')
+		return;
+
+	domain = strchr(address, '@');
+	p = strstr(address, delimiter_string);
+	if (p != NULL && (domain == NULL || p < domain)) {
+		/* user+detail@domain */
+		*username_r = t_strdup_until(*username_r, p);
+		if (domain == NULL)
+			*detail_r = p+strlen(delimiter_string);
+		else {
+			*detail_r = t_strdup_until(p+strlen(delimiter_string), domain);
+			*username_r = t_strconcat(*username_r, domain, NULL);
+		}
+	}
+}
+
