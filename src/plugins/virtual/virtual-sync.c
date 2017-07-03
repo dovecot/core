@@ -256,7 +256,8 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 	}
 	mbox->highest_mailbox_id = ext_hdr == NULL ? 0 :
 		ext_hdr->highest_mailbox_id;
-	mbox->sync_initialized = TRUE;
+	/* do not mark it initialized if it's broken */
+	mbox->sync_initialized = !*broken_r;
 
 	/* assign new mailbox IDs if any are missing */
 	bboxes = array_get_modifiable(&mbox->backend_boxes, &count);
