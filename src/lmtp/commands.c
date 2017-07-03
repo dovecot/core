@@ -30,6 +30,7 @@
 #include "mail-autoexpunge.h"
 #include "mail-namespace.h"
 #include "mail-deliver.h"
+#include "message-address.h"
 #include "main.h"
 #include "client.h"
 #include "commands.h"
@@ -464,37 +465,6 @@ static const char *lmtp_unescape_address(const char *name)
 	return str_c(str);
 }
 
-static void rcpt_address_parse(struct client *client, const char *address,
-			       const char **username_r, char *delim_r,
-			       const char **detail_r)
-{
-	const char *p, *domain;
-	size_t idx;
-
-	*username_r = address;
-	*detail_r = "";
-
-	if (*client->unexpanded_lda_set->recipient_delimiter == '\0')
-		return;
-
-	domain = strchr(address, '@');
-	/* first character that matches the recipient_delimiter */
-	idx = strcspn(address, client->unexpanded_lda_set->recipient_delimiter);
-	p = address[idx] != '\0' ? address + idx : NULL;
-
-	if (p != NULL && (domain == NULL || p < domain)) {
-		*delim_r = *p;
-		/* user+detail@domain */
-		*username_r = t_strdup_until(*username_r, p);
-		if (domain == NULL)
-			*detail_r = p+1;
-		else {
-			*detail_r = t_strdup_until(p+1, domain);
-			*username_r = t_strconcat(*username_r, domain, NULL);
-		}
-	}
-}
-
 static void lmtp_address_translate(struct client *client, const char **address)
 {
 	const char *transpos = client->lmtp_set->lmtp_address_translate;
@@ -694,7 +664,8 @@ int cmd_rcpt(struct client *client, const char *args)
 			return 0;
 		}
 	}
-	rcpt_address_parse(client, address, &username, &delim, &detail);
+	message_detail_address_parse(client->unexpanded_lda_set->recipient_delimiter,
+				     address, &username, &delim, &detail);
 
 	client_state_set(client, "RCPT TO", address);
 
