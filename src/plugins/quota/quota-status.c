@@ -25,6 +25,7 @@ struct quota_client {
 	uoff_t size;
 };
 
+static pool_t quota_status_pool;
 static enum quota_protocol protocol;
 static struct mail_storage_service_ctx *storage_service;
 static struct connection_list *clients;
@@ -208,6 +209,7 @@ static void main_init(void)
 	input.module = "mail";
 	input.username = "";
 
+	quota_status_pool = pool_alloconly_create("quota status settings", 512);
 	pool = pool_alloconly_create("service all settings", 4096);
 	if (mail_storage_service_read_settings(storage_service, &input, pool,
 					       &user_info, &set_parser,
@@ -216,14 +218,14 @@ static void main_init(void)
 	user_set = master_service_settings_parser_get_others(master_service,
 							     set_parser)[0];
 	value = mail_user_set_plugin_getenv(user_set, "quota_status_nouser");
-	nouser_reply = value != NULL ? i_strdup(value) :
-		i_strdup("REJECT Unknown user");
+	nouser_reply = p_strdup(quota_status_pool,
+				value != NULL ? value : "REJECT Unknown user");
 	pool_unref(&pool);
 }
 
 static void main_deinit(void)
 {
-	i_free(nouser_reply);
+	pool_unref(&quota_status_pool);
 	connection_list_deinit(&clients);
 	mail_storage_service_deinit(&storage_service);
 }
