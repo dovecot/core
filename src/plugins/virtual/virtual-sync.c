@@ -178,6 +178,7 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 		mailboxes = NULL;
 		ext_name_offset = 0;
 		ext_mailbox_count = 0;
+		ret = 0;
 	} else {
 		const void *guid_data;
 		size_t guid_size;
