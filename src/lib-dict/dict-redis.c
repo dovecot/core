@@ -275,6 +275,8 @@ redis_conn_input_more(struct redis_connection *conn, const char **error_r)
 		}
 		return 1;
 	}
+	str_truncate(dict->conn.last_reply, 0);
+	str_append(dict->conn.last_reply, line);
 	*error_r = t_strdup_printf("redis: Unexpected input (state=%d): %s", state, line);
 	return -1;
 }
@@ -585,7 +587,8 @@ static int redis_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	if (!dict->conn.value_received) {
 		/* we failed in some way. make sure we disconnect since the
 		   connection state isn't known anymore */
-		*error_r = "redis: Communication failure";
+		*error_r = t_strdup_printf("redis: Communication failure (last reply: %s)",
+					   str_c(dict->conn.last_reply));
 		redis_disconnected(&dict->conn, *error_r);
 		return -1;
 	}
