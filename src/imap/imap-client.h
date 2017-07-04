@@ -157,6 +157,7 @@ struct client {
 	const struct imap_settings *set;
 	const struct lda_settings *lda_set;
 	string_t *capability_string;
+	const char *disconnect_reason;
 
         struct mail_user *user;
 	struct mailbox *mailbox;

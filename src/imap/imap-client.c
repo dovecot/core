@@ -379,14 +379,7 @@ static const char *client_get_commands_status(struct client *client)
 
 static void client_log_disconnect(struct client *client, const char *reason)
 {
-	const char *cmd_status = "";
-
-	if (reason == NULL) {
-		reason = io_stream_get_disconnect_reason(client->input,
-							 client->output);
-		cmd_status = client_get_commands_status(client);
-	}
-	i_info("%s%s %s", reason, cmd_status, client_stats(client));
+	i_info("%s %s", reason, client_stats(client));
 }
 
 static void client_default_destroy(struct client *client, const char *reason)
@@ -395,11 +388,15 @@ static void client_default_destroy(struct client *client, const char *reason)
 
 	i_assert(!client->destroyed);
 	client->destroyed = TRUE;
+	client->disconnected = TRUE;
 
-	if (!client->disconnected) {
-		client->disconnected = TRUE;
-		client_log_disconnect(client, reason);
-	}
+	if (client->disconnect_reason != NULL)
+		reason = client->disconnect_reason;
+	if (reason == NULL)
+		reason = t_strconcat(
+			io_stream_get_disconnect_reason(client->input,
+							client->output),
+			client_get_commands_status(client), NULL);
 
 	i_stream_close(client->input);
 	o_stream_close(client->output);
@@ -454,8 +451,10 @@ static void client_default_destroy(struct client *client, const char *reason)
 	   different from the non-hibernating IDLE case. For frequent
 	   hibernations it could also be doing unnecessarily much work. */
 	imap_refresh_proctitle();
-	if (!client->hibernated)
+	if (!client->hibernated) {
 		mail_user_autoexpunge(client->user);
+		client_log_disconnect(client, reason);
+	}
 	mail_user_unref(&client->user);
 
 	/* free the i/ostreams after mail_user_unref(), which could trigger
@@ -490,8 +489,8 @@ void client_disconnect(struct client *client, const char *reason)
 	if (client->disconnected)
 		return;
 
-	client_log_disconnect(client, reason);
 	client->disconnected = TRUE;
+	client->disconnect_reason = p_strdup(client->pool, reason);
 	o_stream_nflush(client->output);
 	o_stream_uncork(client->output);
 
