@@ -3074,6 +3074,7 @@ src/plugins/mail-filter/Makefile
 src/plugins/mail-log/Makefile
 src/plugins/mailbox-alias/Makefile
 src/plugins/notify/Makefile
+src/plugins/notify-status/Makefile
 src/plugins/push-notification/Makefile
 src/plugins/pop3-migration/Makefile
 src/plugins/quota/Makefile
