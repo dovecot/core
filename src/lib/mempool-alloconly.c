@@ -6,12 +6,6 @@
 #include "mempool.h"
 
 
-#ifdef HAVE_GC_GC_H
-#  include <gc/gc.h>
-#elif defined (HAVE_GC_H)
-#  include <gc.h>
-#endif
-
 #define MAX_ALLOC_SIZE SSIZE_T_MAX
 
 struct alloconly_pool {
@@ -189,9 +183,7 @@ static void pool_alloconly_destroy(struct alloconly_pool *apool)
 	}
 #endif
 
-#ifndef USE_GC
 	free(block);
-#endif
 }
 
 static const char *pool_alloconly_get_name(pool_t pool ATTR_UNUSED)
@@ -250,11 +242,7 @@ static void block_alloc(struct alloconly_pool *apool, size_t size)
 #endif
 	}
 
-#ifndef USE_GC
 	block = calloc(size, 1);
-#else
-	block = GC_malloc(size);
-#endif
 	if (unlikely(block == NULL)) {
 		i_fatal_status(FATAL_OUTOFMEM, "block_alloc(%"PRIuSIZE_T
 			       "): Out of memory", size);
@@ -386,9 +374,7 @@ static void pool_alloconly_clear(pool_t pool)
 				    SIZEOF_POOLBLOCK + block->size);
 		}
 #endif
-#ifndef USE_GC
 		free(block);
-#endif
 	}
 
 	/* clear the first block */

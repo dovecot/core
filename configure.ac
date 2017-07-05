@@ -267,11 +267,6 @@ if test "$systemdsystemunitdir" != ""; then
 fi
 AM_CONDITIONAL(HAVE_SYSTEMD, test "$systemdsystemunitdir" != "")
 
-AC_ARG_WITH(gc,
-AS_HELP_STRING([--with-gc], [Use Boehm garbage collector]),
-  TEST_WITH(gc, $withval),
-  want_gc=no)
-
 DC_DOVECOT_MODULEDIR
 
 AC_ARG_WITH(docs,
@@ -524,8 +519,6 @@ DOVECOT_MODULES
 DOVECOT_MNTCTL
 
 DOVECOT_SSL
-
-DOVECOT_GC
 
 
 dnl **

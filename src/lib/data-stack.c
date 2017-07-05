@@ -6,12 +6,6 @@
 #include "data-stack.h"
 
 
-#ifdef HAVE_GC_GC_H
-#  include <gc/gc.h>
-#elif defined (HAVE_GC_H)
-#  include <gc.h>
-#endif
-
 /* Initial stack size - this should be kept in a size that doesn't exceed
    in a normal use to avoid extra malloc()ing. */
 #ifdef DEBUG
@@ -152,11 +146,7 @@ data_stack_frame_t t_push(const char *marker)
 		frame_pos = 0;
 		if (unused_frame_blocks == NULL) {
 			/* allocate new block */
-#ifndef USE_GC
 			frame_block = calloc(sizeof(*frame_block), 1);
-#else
-			frame_block = GC_malloc(sizeof(*frame_block));
-#endif
 			if (frame_block == NULL) {
 				i_fatal_status(FATAL_OUTOFMEM,
 					       "t_push(): Out of memory");
@@ -220,15 +210,11 @@ static void free_blocks(struct stack_block *block)
 			memset(STACK_BLOCK_DATA(block), CLEAR_CHR, block->size);
 
 		if (unused_block == NULL || block->size > unused_block->size) {
-#ifndef USE_GC
 			free(unused_block);
-#endif
 			unused_block = block;
 		} else {
-#ifndef USE_GC
 			if (block != &outofmem_area.block)
 				free(block);
-#endif
 		}
 
 		block = next;
@@ -348,11 +334,7 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 
 	/* nearest_power() returns 2^n values, so alloc_size can't be
 	   anywhere close to SIZE_MAX */
-#ifndef USE_GC
 	block = malloc(SIZEOF_MEMBLOCK + alloc_size);
-#else
-	block = GC_malloc(SIZEOF_MEMBLOCK + alloc_size);
-#endif
 	if (unlikely(block == NULL)) {
 		if (outofmem) {
 			if (min_size > outofmem_area.block.left)
@@ -622,7 +604,6 @@ void data_stack_deinit(void)
 	    frame_pos != BLOCK_FRAME_COUNT-1)
 		i_panic("Missing t_pop() call");
 
-#ifndef USE_GC
 	while (unused_frame_blocks != NULL) {
 		struct stack_frame_block *frame_block = unused_frame_blocks;
 		unused_frame_blocks = unused_frame_blocks->prev;
@@ -632,7 +613,6 @@ void data_stack_deinit(void)
 
 	free(current_block);
 	free(unused_block);
-#endif
 	unused_frame_blocks = NULL;
 	current_block = NULL;
 	unused_block = NULL;
