@@ -40,7 +40,7 @@ static void flow_next_hdr(void)
 	}
 }
 
-static void doveadm_print_flow_print_heder(const struct doveadm_print_flow_header *hdr)
+static void doveadm_print_flow_print_header(const struct doveadm_print_flow_header *hdr)
 {
 	if ((hdr->flags & DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE) == 0) {
 		o_stream_nsend_str(doveadm_print_ostream, hdr->title);
@@ -53,7 +53,7 @@ static void doveadm_print_flow_print(const char *value)
 	const struct doveadm_print_flow_header *hdr =
 		array_idx(&ctx->headers, ctx->header_idx);
 
-	doveadm_print_flow_print_heder(hdr);
+	doveadm_print_flow_print_header(hdr);
 	o_stream_nsend_str(doveadm_print_ostream, value);
 	flow_next_hdr();
 }
@@ -66,7 +66,7 @@ doveadm_print_flow_print_stream(const unsigned char *value, size_t size)
 
 	if (!ctx->streaming) {
 		ctx->streaming = TRUE;
-		doveadm_print_flow_print_heder(hdr);
+		doveadm_print_flow_print_header(hdr);
 	}
 	o_stream_nsend(doveadm_print_ostream, value, size);
 	if (size == 0) {
