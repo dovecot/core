@@ -428,17 +428,23 @@ virtual_mail_get_stream(struct mail *mail, bool get_body,
 			struct istream **stream_r)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mail_private *vp = (struct mail_private *)mail;
 	struct mail *backend_mail;
+	const char *reason = t_strdup_printf("virtual mailbox %s: Opened mail UID=%u: %s",
+					     mailbox_get_vname(mail->box), mail->uid, vp->get_stream_reason);
 	int ret;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
 		return -1;
+
 	if (get_body) {
-		ret = mail_get_stream(backend_mail, hdr_size, body_size,
-				      stream_r);
+		ret = mail_get_stream_because(backend_mail, hdr_size, body_size,
+					      reason, stream_r);
 	} else {
-		ret = mail_get_hdr_stream(backend_mail, hdr_size, stream_r);
+		ret = mail_get_hdr_stream_because(backend_mail, hdr_size,
+						  reason, stream_r);
 	}
+
 	if (ret < 0) {
 		virtual_box_copy_error(mail->box, backend_mail->box);
 		return -1;
