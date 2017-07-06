@@ -554,8 +554,23 @@ static int virtual_storage_set_have_guid_flags(struct virtual_mailbox *mbox)
 	bboxes = array_get(&mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
 		if (mailbox_get_status(bboxes[i]->box, 0, &status) < 0) {
-			virtual_box_copy_error(&mbox->box, bboxes[i]->box);
-			return -1;
+			const char *errstr;
+			enum mail_error error;
+
+			errstr = mailbox_get_last_error(bboxes[i]->box, &error);
+			if (error == MAIL_ERROR_NOTFOUND) {
+				/* backend mailbox was just lost - skip it */
+				continue;
+			}
+			/* Not expected to happen, but we can't return failure
+			   since this could be called from
+			   mailbox_get_open_status() and it would panic.
+			   So just log the error and skip the mailbox. */
+			mail_storage_set_critical(mbox->box.storage,
+				"Virtual mailbox %s: Failed to get have_guid existence for backend mailbox %s: %s",
+				mailbox_get_vname(&mbox->box),
+				mailbox_get_vname(bboxes[i]->box), errstr);
+			continue;
 		}
 		if (!status.have_guids)
 			mbox->have_guids = FALSE;
