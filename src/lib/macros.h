@@ -235,4 +235,10 @@
 #define i_zero(p) memset(p, 0, sizeof(*(p)))
 #define i_zero_safe(p) safe_memset(p, 0, sizeof(*(p)))
 
+#define ST_CHANGED(st_a, st_b) \
+	((st_a).st_mtime != (st_b).st_mtime || \
+	 ST_MTIME_NSEC(st_a) != ST_MTIME_NSEC(st_b) || \
+	 (st_a).st_size != (st_b).st_size || \
+	 (st_a).st_ino != (st_b).st_ino)
+
 #endif

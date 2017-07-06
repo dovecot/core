@@ -812,19 +812,14 @@ static void notify_now_callback(struct mailbox_list_notify_index *inotify)
 
 static void notify_callback(struct mailbox_list_notify_index *inotify)
 {
-#define INOTIFY_ST_CHANGED(last_st, prev_st) \
-	((last_st).st_mtime != (prev_st).st_mtime || \
-	 ST_MTIME_NSEC(last_st) != ST_MTIME_NSEC(prev_st) || \
-	 (last_st).st_size != (prev_st).st_size || \
-	 (last_st).st_ino != (prev_st).st_ino)
 	struct stat list_prev_st = inotify->list_last_st;
 	struct stat inbox_prev_st = inotify->inbox_last_st;
 			 
 	notify_update_stat(inotify);
-	if (INOTIFY_ST_CHANGED(inotify->inbox_last_st, inbox_prev_st))
+	if (ST_CHANGED(inotify->inbox_last_st, inbox_prev_st))
 		inotify->inbox_event_pending = TRUE;
 	if (inotify->inbox_event_pending ||
-	    INOTIFY_ST_CHANGED(inotify->list_last_st, list_prev_st)) {
+	    ST_CHANGED(inotify->list_last_st, list_prev_st)) {
 		/* log has changed. call the callback with a small delay
 		   to allow bundling multiple changes together */
 		if (inotify->to_notify != NULL) {
