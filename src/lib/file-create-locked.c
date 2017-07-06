@@ -66,7 +66,7 @@ try_mkdir(const char *path, const struct file_create_settings *set,
 		ret = mkdir_parents_chgrp(dir, set->mkdir_mode,
 					  gid, set->gid_origin);
 	}
-	if (ret < 0) {
+	if (ret < 0 && errno != EEXIST) {
 		*error_r = t_strdup_printf("mkdir_parents(%s) failed: %m", dir);
 		return -1;
 	}
