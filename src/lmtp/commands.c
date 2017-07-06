@@ -938,12 +938,16 @@ static bool client_rcpt_to_is_last(struct client *client)
 	return client->state.rcpt_idx >= array_count(&client->state.rcpt_to);
 }
 
-static bool client_deliver_next(struct client *client, struct mail *src_mail,
-				struct mail_deliver_session *session)
+static uid_t client_deliver_to_rcpts(struct client *client,
+				    struct mail_deliver_session *session)
 {
+	uid_t first_uid = (uid_t)-1;
+	struct mail *src_mail;
+
 	struct mail_recipient *const *rcpts;
 	unsigned int count;
 	int ret;
+	src_mail = client->state.raw_mail;
 
 	rcpts = array_get(&client->state.rcpt_to, &count);
 	while (client->state.rcpt_idx < count) {
@@ -953,16 +957,28 @@ static bool client_deliver_next(struct client *client, struct mail *src_mail,
 		i_set_failure_prefix("lmtp(%s): ", my_pid);
 
 		client->state.rcpt_idx++;
-		if (ret == 0)
-			return TRUE;
-		/* failed. try the next one. */
-		if (client->state.dest_user != NULL) {
+
+		/* succeeded and mail_user is not saved in first_saved_mail */
+		if ((ret == 0 &&
+		     (client->state.first_saved_mail == NULL ||
+		      client->state.first_saved_mail == src_mail)) ||
+		    /* failed. try the next one. */
+		    (ret != 0 && client->state.dest_user != NULL)) {
 			if (client_rcpt_to_is_last(client))
 				mail_user_autoexpunge(client->state.dest_user);
 			mail_user_unref(&client->state.dest_user);
+		} else if (ret == 0) {
+			/* use the first saved message to save it elsewhere too.
+			   this might allow hard linking the files.
+			   mail_user is saved in first_saved_mail,
+			   will be unreferenced later on */
+			client->state.dest_user = NULL;
+			src_mail = client->state.first_saved_mail;
+			first_uid = geteuid();
+			i_assert(first_uid != 0);
 		}
 	}
-	return FALSE;
+	return first_uid;
 }
 
 static void client_rcpt_fail_all(struct client *client)
@@ -1036,30 +1052,14 @@ static void
 client_input_data_write_local(struct client *client, struct istream *input)
 {
 	struct mail_deliver_session *session;
-	struct mail *src_mail;
-	uid_t old_uid, first_uid = (uid_t)-1;
+	uid_t old_uid, first_uid;
 
 	if (client_open_raw_mail(client, input) < 0)
 		return;
 
 	session = mail_deliver_session_init();
 	old_uid = geteuid();
-	src_mail = client->state.raw_mail;
-	while (client_deliver_next(client, src_mail, session)) {
-		if (client->state.first_saved_mail == NULL ||
-		    client->state.first_saved_mail == src_mail) {
-			if (client_rcpt_to_is_last(client))
-				mail_user_autoexpunge(client->state.dest_user);
-			mail_user_unref(&client->state.dest_user);
-		} else {
-			/* use the first saved message to save it elsewhere too.
-			   this might allow hard linking the files. */
-			client->state.dest_user = NULL;
-			src_mail = client->state.first_saved_mail;
-			first_uid = geteuid();
-			i_assert(first_uid != 0);
-		}
-	}
+	first_uid = client_deliver_to_rcpts(client, session);
 	mail_deliver_session_deinit(&session);
 
 	if (client->state.first_saved_mail != NULL) {
