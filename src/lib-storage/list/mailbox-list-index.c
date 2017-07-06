@@ -637,6 +637,58 @@ static void mailbox_list_index_deinit(struct mailbox_list *list)
 	ilist->module_ctx.super.deinit(list);
 }
 
+static void
+mailbox_list_index_refresh_if_found(struct mailbox_list *list,
+				    const char *name, bool selectable)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+	struct mailbox_list_index_node *node;
+
+	if (ilist->syncing)
+		return;
+
+	mailbox_list_last_error_push(list);
+	(void)mailbox_list_index_refresh_force(list);
+	node = mailbox_list_index_lookup(list, name);
+	if (node != NULL &&
+	    (!selectable ||
+	     (node->flags & (MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
+			     MAILBOX_LIST_INDEX_FLAG_NOSELECT)) == 0)) {
+		/* index is out of sync - refresh */
+		mailbox_list_index_refresh_later(list);
+	}
+	mailbox_list_last_error_pop(list);
+}
+
+static void mailbox_list_index_refresh_if_not_found(struct mailbox_list *list,
+						    const char *name)
+{
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
+
+	if (ilist->syncing)
+		return;
+
+	mailbox_list_last_error_push(list);
+	(void)mailbox_list_index_refresh_force(list);
+	if (mailbox_list_index_lookup(list, name) == NULL) {
+		/* index is out of sync - refresh */
+		mailbox_list_index_refresh_later(list);
+	}
+	mailbox_list_last_error_pop(list);
+}
+
+static int mailbox_list_index_open_mailbox(struct mailbox *box)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+
+	if (ibox->module_ctx.super.open(box) < 0) {
+		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND)
+			mailbox_list_index_refresh_if_found(box->list, box->name, TRUE);
+		return -1;
+	}
+	return 0;
+}
+
 static int
 mailbox_list_index_create_mailbox(struct mailbox *box,
 				  const struct mailbox_update *update,
@@ -644,8 +696,11 @@ mailbox_list_index_create_mailbox(struct mailbox *box,
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 
-	if (ibox->module_ctx.super.create_box(box, update, directory) < 0)
+	if (ibox->module_ctx.super.create_box(box, update, directory) < 0) {
+		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_EXISTS)
+			mailbox_list_index_refresh_if_not_found(box->list, box->name);
 		return -1;
+	}
 	mailbox_list_index_refresh_later(box->list);
 	return 0;
 }
@@ -656,8 +711,11 @@ mailbox_list_index_update_mailbox(struct mailbox *box,
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 
-	if (ibox->module_ctx.super.update_box(box, update) < 0)
+	if (ibox->module_ctx.super.update_box(box, update) < 0) {
+		if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND)
+			mailbox_list_index_refresh_if_found(box->list, box->name, TRUE);
 		return -1;
+	}
 
 	mailbox_list_index_update_mailbox_index(box, update);
 	return 0;
@@ -668,8 +726,11 @@ mailbox_list_index_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 
-	if (ilist->module_ctx.super.delete_mailbox(list, name) < 0)
+	if (ilist->module_ctx.super.delete_mailbox(list, name) < 0) {
+		if (mailbox_list_get_last_mail_error(list) == MAIL_ERROR_NOTFOUND)
+			mailbox_list_index_refresh_if_found(list, name, FALSE);
 		return -1;
+	}
 	mailbox_list_index_refresh_later(list);
 	return 0;
 }
@@ -679,8 +740,11 @@ mailbox_list_index_delete_dir(struct mailbox_list *list, const char *name)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 
-	if (ilist->module_ctx.super.delete_dir(list, name) < 0)
+	if (ilist->module_ctx.super.delete_dir(list, name) < 0) {
+		if (mailbox_list_get_last_mail_error(list) == MAIL_ERROR_NOTFOUND)
+			mailbox_list_index_refresh_if_found(list, name, FALSE);
 		return -1;
+	}
 	mailbox_list_index_refresh_later(list);
 	return 0;
 }
@@ -694,9 +758,13 @@ mailbox_list_index_rename_mailbox(struct mailbox_list *oldlist,
 	struct mailbox_list_index *oldilist = INDEX_LIST_CONTEXT(oldlist);
 
 	if (oldilist->module_ctx.super.rename_mailbox(oldlist, oldname,
-						      newlist, newname) < 0)
+						      newlist, newname) < 0) {
+		if (mailbox_list_get_last_mail_error(oldlist) == MAIL_ERROR_NOTFOUND)
+			mailbox_list_index_refresh_if_found(oldlist, oldname, FALSE);
+		if (mailbox_list_get_last_mail_error(newlist) == MAIL_ERROR_EXISTS)
+			mailbox_list_index_refresh_if_not_found(newlist, newname);
 		return -1;
-
+	}
 	mailbox_list_index_refresh_later(oldlist);
 	if (oldlist != newlist)
 		mailbox_list_index_refresh_later(newlist);
@@ -849,6 +917,7 @@ static void mailbox_list_index_mailbox_allocated(struct mailbox *box)
 	MODULE_CONTEXT_SET(box, index_list_storage_module, ibox);
 
 	/* for layout=index these get overridden */
+	v->open = mailbox_list_index_open_mailbox;
 	v->create_box = mailbox_list_index_create_mailbox;
 	v->update_box = mailbox_list_index_update_mailbox;
 
