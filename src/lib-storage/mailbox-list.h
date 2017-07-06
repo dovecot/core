@@ -278,6 +278,12 @@ const char * ATTR_NOWARN_UNUSED_RESULT
 mailbox_list_get_last_internal_error(struct mailbox_list *list,
 				     enum mail_error *error_r);
 
+/* Save the last error until it's popped. This is useful for cases where the
+   list operation has already failed, but the cleanup code path changes the
+   error to something else unwanted. */
+void mailbox_list_last_error_push(struct mailbox_list *list);
+void mailbox_list_last_error_pop(struct mailbox_list *list);
+
 /* Create a fs based on the settings in the given mailbox_list. */
 int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
 			 const char *args, const char *root_dir,
