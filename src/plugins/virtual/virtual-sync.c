@@ -566,6 +566,10 @@ virtual_sync_mailbox_box_remove(struct virtual_sync_context *ctx,
 		for (; uid <= uids[i].seq2; uid++, src++) {
 			i_assert(src < rec_count);
 			i_assert(uidmap[src].real_uid == uid);
+			if (uidmap[src].virtual_uid == 0) {
+				/* has not been assigned yet */
+				continue;
+			}
 			if (mail_index_lookup_seq(ctx->sync_view,
 						  uidmap[src].virtual_uid,
 						  &vseq))
@@ -1039,6 +1043,10 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 			uidmap = array_idx(&bbox->uids, 0);
 			for (; idx1 <= idx2; idx1++) {
 				vuid = uidmap[idx1].virtual_uid;
+				if (vuid == 0) {
+					/* has not been even assigned yet */
+					continue;
+				}
 				if (!mail_index_lookup_seq(ctx->sync_view,
 							   vuid, &vseq)) {
 					/* expunged by another session,
