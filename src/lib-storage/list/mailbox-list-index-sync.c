@@ -449,7 +449,7 @@ int mailbox_list_index_sync_end(struct mailbox_list_index_sync_context **_sync_c
 	return ret;
 }
 
-int mailbox_list_index_sync(struct mailbox_list *list)
+int mailbox_list_index_sync(struct mailbox_list *list, bool refresh)
 {
 	struct mailbox_list_index_sync_context *sync_ctx;
 	int ret = 0;
@@ -457,8 +457,15 @@ int mailbox_list_index_sync(struct mailbox_list *list)
 	if (mailbox_list_index_sync_begin(list, &sync_ctx) < 0)
 		return -1;
 
-	if (sync_ctx->ilist->has_backing_store)
+	if (!sync_ctx->ilist->has_backing_store) {
+		/* no backing store - we have nothing to sync to */
+	} else if (refresh ||
+		   sync_ctx->ilist->call_corruption_callback ||
+		   sync_ctx->ilist->corrupted_names_or_parents ||
+		   !sync_ctx->list->mail_set->mailbox_list_index_very_dirty_syncs) {
+		/* sync the index against the backing store */
 		ret = mailbox_list_index_sync_list(sync_ctx);
+	}
 	return mailbox_list_index_sync_end(&sync_ctx, ret == 0);
 }
 

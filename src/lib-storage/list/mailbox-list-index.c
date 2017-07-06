@@ -504,6 +504,7 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 	struct mail_index_view *view;
 	int ret;
+	bool refresh;
 
 	i_assert(!ilist->syncing);
 
@@ -516,10 +517,10 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 	}
 
 	view = mail_index_view_open(ilist->index);
-	if (ilist->mailbox_tree == NULL ||
-	    mailbox_list_index_need_refresh(ilist, view)) {
+	if ((refresh = mailbox_list_index_need_refresh(ilist, view)) ||
+	    ilist->mailbox_tree == NULL) {
 		/* refresh list of mailboxes */
-		ret = mailbox_list_index_sync(list);
+		ret = mailbox_list_index_sync(list, refresh);
 	} else {
 		ret = mailbox_list_index_parse(list, view, FALSE);
 	}
