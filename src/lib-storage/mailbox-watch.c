@@ -15,7 +15,7 @@ struct mailbox_notify_file {
 	struct mailbox_notify_file *next;
 
 	char *path;
-	time_t last_stamp;
+	struct stat last_st;
 	struct io *io_notify;
 };
 
@@ -34,8 +34,8 @@ static void notify_timeout(struct mailbox *box)
 
 	for (file = box->notify_files; file != NULL; file = file->next) {
 		if (stat(file->path, &st) == 0 &&
-		    file->last_stamp != st.st_mtime) {
-			file->last_stamp = st.st_mtime;
+		    ST_CHANGED(file->last_st, st)) {
+			file->last_st = st;
 			notify = TRUE;
 		}
 	}
@@ -68,7 +68,8 @@ void mailbox_watch_add(struct mailbox *box, const char *path)
 
 	file = i_new(struct mailbox_notify_file, 1);
 	file->path = i_strdup(path);
-	file->last_stamp = stat(path, &st) < 0 ? 0 : st.st_mtime;
+	if (stat(path, &st) == 0)
+		file->last_st = st;
 	file->io_notify = io;
 
 	file->next = box->notify_files;
