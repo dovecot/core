@@ -668,8 +668,10 @@ mailbox_list_index_delete_mailbox(struct mailbox_list *list, const char *name)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 
+	if (ilist->module_ctx.super.delete_mailbox(list, name) < 0)
+		return -1;
 	mailbox_list_index_refresh_later(list);
-	return ilist->module_ctx.super.delete_mailbox(list, name);
+	return 0;
 }
 
 static int
@@ -677,8 +679,10 @@ mailbox_list_index_delete_dir(struct mailbox_list *list, const char *name)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(list);
 
+	if (ilist->module_ctx.super.delete_dir(list, name) < 0)
+		return -1;
 	mailbox_list_index_refresh_later(list);
-	return ilist->module_ctx.super.delete_dir(list, name);
+	return 0;
 }
 
 static int
@@ -689,11 +693,14 @@ mailbox_list_index_rename_mailbox(struct mailbox_list *oldlist,
 {
 	struct mailbox_list_index *oldilist = INDEX_LIST_CONTEXT(oldlist);
 
+	if (oldilist->module_ctx.super.rename_mailbox(oldlist, oldname,
+						      newlist, newname) < 0)
+		return -1;
+
 	mailbox_list_index_refresh_later(oldlist);
 	if (oldlist != newlist)
 		mailbox_list_index_refresh_later(newlist);
-	return oldilist->module_ctx.super.
-		rename_mailbox(oldlist, oldname, newlist, newname);
+	return 0;
 }
 
 static int
