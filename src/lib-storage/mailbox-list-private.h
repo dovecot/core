@@ -134,6 +134,7 @@ struct mailbox_list {
 	char *error_string;
 	enum mail_error error;
 	bool temporary_error;
+	ARRAY(struct mail_storage_error) error_stack;
 
 	ARRAY(union mailbox_list_module_context *) module_contexts;
 
