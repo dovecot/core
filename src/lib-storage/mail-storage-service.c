@@ -651,6 +651,7 @@ static int
 mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			       struct mail_storage_service_user *user,
 			       struct mail_storage_service_privileges *priv,
+			       const char *session_id_suffix,
 			       struct mail_user **mail_user_r,
 			       const char **error_r)
 {
@@ -678,15 +679,23 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			user->input.session_create_time;
 		mail_user->session_restored = TRUE;
 	}
-	if (user->session_id_counter++ == 0) {
+
+	if (session_id_suffix == NULL) {
+		if (user->session_id_counter++ == 0) {
+			mail_user->session_id =
+				p_strdup(mail_user->pool, user->input.session_id);
+		} else {
+			mail_user->session_id =
+				p_strdup_printf(mail_user->pool, "%s:%u",
+						user->input.session_id,
+						user->session_id_counter);
+		}
+	} else
 		mail_user->session_id =
-			p_strdup(mail_user->pool, user->input.session_id);
-	} else {
-		mail_user->session_id =
-			p_strdup_printf(mail_user->pool, "%s:%u",
+			p_strdup_printf(mail_user->pool, "%s:%s",
 					user->input.session_id,
-					user->session_id_counter);
-	}
+					session_id_suffix);
+
 	mail_user->userdb_fields = user->input.userdb_fields == NULL ? NULL :
 		p_strarray_dup(mail_user->pool, user->input.userdb_fields);
 	
@@ -1359,6 +1368,7 @@ void mail_storage_service_save_userdb_fields(struct mail_storage_service_ctx *ct
 static int
 mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 			       struct mail_storage_service_user *user,
+			       const char *session_id_suffix,
 			       struct mail_user **mail_user_r,
 			       const char **error_r)
 {
@@ -1438,6 +1448,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 	module_dir_init(mail_storage_service_modules);
 
 	if (mail_storage_service_init_post(ctx, user, &priv,
+					   session_id_suffix,
 					   mail_user_r, error_r) < 0)
 		return -2;
 	return 0;
@@ -1448,13 +1459,28 @@ int mail_storage_service_next(struct mail_storage_service_ctx *ctx,
 			      struct mail_user **mail_user_r,
 			      const char **error_r)
 {
+	return mail_storage_service_next_with_session_suffix(ctx,
+							     user,
+							     NULL,
+							     mail_user_r,
+							     error_r);
+}
+
+int mail_storage_service_next_with_session_suffix(struct mail_storage_service_ctx *ctx,
+						  struct mail_storage_service_user *user,
+						  const char *session_id_suffix,
+						  struct mail_user **mail_user_r,
+						  const char **error_r)
+{
 	char *old_log_prefix = i_strdup(i_get_failure_prefix());
 	int ret;
 
 	mail_storage_service_set_log_prefix(ctx, user->user_set, user,
 					    &user->input, NULL);
 	i_set_failure_prefix("%s", old_log_prefix);
-	ret = mail_storage_service_next_real(ctx, user, mail_user_r, error_r);
+	ret = mail_storage_service_next_real(ctx, user,
+					     session_id_suffix,
+					     mail_user_r, error_r);
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) != 0)
 		i_set_failure_prefix("%s", old_log_prefix);
 	i_free(old_log_prefix);

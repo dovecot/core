@@ -554,8 +554,18 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 	if (!client->lmtp_set->lmtp_rcpt_check_quota)
 		return 0;
 
-	ret = mail_storage_service_next(storage_service,
-					rcpt->service_user, &user, &errstr);
+	/* mail user will be created second time when mail is saved,
+	   so it's session_id needs to be different,
+	   but second time session_id needs to be the same as rcpt session_id and
+	   mail user session id for the first rcpt should not overlap with session id
+	   of the second recipient, so add custom ":quota" suffix to the session_id without
+	   session_id counter increment, so next time mail user will get
+	   the same session id as rcpt */
+	ret = mail_storage_service_next_with_session_suffix(storage_service,
+							    rcpt->service_user,
+							    "quota",
+							    &user, &errstr);
+
 	if (ret < 0) {
 		i_error("Failed to initialize user %s: %s", rcpt->address, errstr);
 		return -1;
