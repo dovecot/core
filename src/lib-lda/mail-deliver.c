@@ -410,14 +410,17 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 		if (ctx->save_dest_mail) {
 			/* copying needs the message body. with maildir we also
 			   need to get the GUID in case the message gets
-			   expunged */
+			   expunged. get these early so the copying won't fail
+			   later on. */
 			i_assert(array_count(&changes.saved_uids) == 1);
 			const struct seq_range *range =
 				array_idx(&changes.saved_uids, 0);
 			i_assert(range->seq1 == range->seq2);
 			ctx->dest_mail = mail_deliver_open_mail(box, range->seq1,
 				MAIL_FETCH_STREAM_BODY | MAIL_FETCH_GUID, &t);
-			if (mail_get_special(ctx->dest_mail, MAIL_FETCH_GUID, &guid) < 0) {
+			if (ctx->dest_mail == NULL) {
+				i_assert(t == NULL);
+			} else if (mail_get_special(ctx->dest_mail, MAIL_FETCH_GUID, &guid) < 0) {
 				mail_free(&ctx->dest_mail);
 				mailbox_transaction_rollback(&t);
 			}
