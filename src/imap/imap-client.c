@@ -448,9 +448,14 @@ static void client_default_destroy(struct client *client, const char *reason)
 	   before it starts, and refresh proctitle so it's clear that it's
 	   doing autoexpunging. We've also sent DISCONNECT to anvil already,
 	   because this is background work and shouldn't really be counted
-	   as an active IMAP session for the user. */
+	   as an active IMAP session for the user.
+
+	   Don't autoexpunge if the client is hibernated - it shouldn't be any
+	   different from the non-hibernating IDLE case. For frequent
+	   hibernations it could also be doing unnecessarily much work. */
 	imap_refresh_proctitle();
-	mail_user_autoexpunge(client->user);
+	if (!client->hibernated)
+		mail_user_autoexpunge(client->user);
 	mail_user_unref(&client->user);
 
 	/* free the i/ostreams after mail_user_unref(), which could trigger

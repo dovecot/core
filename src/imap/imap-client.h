@@ -213,6 +213,7 @@ struct client {
 	bool sync_seen_deletes:1;
 	bool logged_out:1;
 	bool disconnected:1;
+	bool hibernated:1;
 	bool destroyed:1;
 	bool handling_input:1;
 	bool syncing:1;
