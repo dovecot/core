@@ -360,17 +360,10 @@ mdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	enum mdbox_sync_flags mdbox_sync_flags = 0;
 	int ret = 0;
 
-	if (!box->opened) {
-		if (mailbox_open(box) < 0)
-			ret = -1;
-	}
-
-	if (box->opened) {
-		if (mail_index_reset_fscked(box->index))
-			mdbox_storage_set_corrupted(mbox->storage);
-	}
-	if (ret == 0 && (index_mailbox_want_full_sync(&mbox->box, flags) ||
-			 mbox->storage->corrupted)) {
+	if (mail_index_reset_fscked(box->index))
+		mdbox_storage_set_corrupted(mbox->storage);
+	if (index_mailbox_want_full_sync(&mbox->box, flags) ||
+	    mbox->storage->corrupted) {
 		if ((flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0)
 			mdbox_sync_flags |= MDBOX_SYNC_FLAG_FORCE_REBUILD;
 		ret = mdbox_sync(mbox, mdbox_sync_flags);

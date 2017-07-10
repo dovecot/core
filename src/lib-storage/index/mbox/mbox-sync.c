@@ -2046,12 +2046,7 @@ mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	enum mbox_sync_flags mbox_sync_flags = 0;
 	int ret = 0;
 
-	if (!box->opened) {
-		if (mailbox_open(box) < 0)
-			ret = -1;
-	}
-
-	if (index_mailbox_want_full_sync(&mbox->box, flags) && ret == 0) {
+	if (index_mailbox_want_full_sync(&mbox->box, flags)) {
 		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
 		    !mbox->storage->set->mbox_very_dirty_syncs)
 			mbox_sync_flags |= MBOX_SYNC_UNDIRTY;

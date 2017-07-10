@@ -675,13 +675,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			list->refreshed_mailboxes_recently = FALSE;
 	}
 
-	if (!box->opened) {
-		if (mailbox_open(box) < 0)
-			ret = -1;
-	}
-
-	if (ret == 0)
-		imapc_noop_if_needed(mbox, flags);
+	imapc_noop_if_needed(mbox, flags);
 
 	if (imapc_mailbox_commit_delayed_trans(mbox, &changes) < 0)
 		ret = -1;
