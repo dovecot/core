@@ -55,7 +55,11 @@ index_list_open_view(struct mailbox *box, bool status_check,
 	}
 
 	view = mail_index_view_open(ilist->index);
-	if (!mail_index_lookup_seq(view, node->uid, &seq)) {
+	if (mailbox_list_index_need_refresh(ilist, view)) {
+		/* mailbox_list_index_refresh_later() was called.
+		   Can't trust the index's contents. */
+		ret = 1;
+	} else if (!mail_index_lookup_seq(view, node->uid, &seq)) {
 		/* our in-memory tree is out of sync */
 		ret = 1;
 	} else if (!status_check) {
