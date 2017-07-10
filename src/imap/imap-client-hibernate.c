@@ -239,6 +239,7 @@ bool imap_client_hibernate(struct client **_client)
 		/* hide the disconnect log message, because the client didn't
 		   actually log out */
 		client->disconnected = TRUE;
+		client->hibernated = TRUE;
 		client_destroy(client, NULL);
 		*_client = NULL;
 	}

@@ -213,6 +213,7 @@ struct client {
 	unsigned int sync_seen_deletes:1;
 	unsigned int logged_out:1;
 	unsigned int disconnected:1;
+	unsigned int hibernated:1;
 	unsigned int destroyed:1;
 	unsigned int handling_input:1;
 	unsigned int syncing:1;
