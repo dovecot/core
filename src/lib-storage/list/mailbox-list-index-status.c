@@ -34,7 +34,7 @@ struct index_list_storage_module index_list_storage_module =
 	((box)->inbox_any)
 
 static int
-index_list_open_view(struct mailbox *box, bool refresh,
+index_list_open_view(struct mailbox *box, bool status_check,
 		     struct mail_index_view **view_r, uint32_t *seq_r)
 {
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
@@ -43,7 +43,7 @@ index_list_open_view(struct mailbox *box, bool refresh,
 	uint32_t seq;
 	int ret;
 
-	if (MAILBOX_IS_NEVER_IN_INDEX(box))
+	if (MAILBOX_IS_NEVER_IN_INDEX(box) && status_check)
 		return 0;
 	if (mailbox_list_index_refresh(box->list) < 0)
 		return -1;
@@ -58,7 +58,7 @@ index_list_open_view(struct mailbox *box, bool refresh,
 	if (!mail_index_lookup_seq(view, node->uid, &seq)) {
 		/* our in-memory tree is out of sync */
 		ret = 1;
-	} else if (!refresh) {
+	} else if (!status_check) {
 		/* this operation doesn't need the index to be up-to-date */
 		ret = 0;
 	} else T_BEGIN {
@@ -495,6 +495,12 @@ index_list_has_changed(struct mailbox *box, struct mail_index_view *list_view,
 	if (!guid_128_equals(changes->guid, old_guid) &&
 	    !guid_128_is_empty(changes->guid))
 		changes->rec_changed = TRUE;
+
+	if (MAILBOX_IS_NEVER_IN_INDEX(box)) {
+		/* check only UIDVALIDITY and GUID changes for INBOX */
+		return changes->rec_changed;
+	}
+
 	changes->msgs_changed =
 		old_status.messages != changes->status.messages ||
 		old_status.unseen != changes->status.unseen ||
@@ -628,8 +634,6 @@ static int index_list_update_mailbox(struct mailbox *box)
 		   mailbox that somebody else had just created */
 		return 0;
 	}
-	if (MAILBOX_IS_NEVER_IN_INDEX(box))
-		return 0;
 
 	/* refresh the mailbox list index once. we can't do this again after
 	   locking, because it could trigger list syncing. */
