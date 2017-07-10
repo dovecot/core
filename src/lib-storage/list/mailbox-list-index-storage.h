@@ -8,6 +8,9 @@
 
 struct index_list_mailbox {
 	union mailbox_module_context module_ctx;
+
+	uint32_t pre_sync_log_file_seq;
+	uoff_t pre_sync_log_file_head_offset;
 };
 
 extern MODULE_CONTEXT_DEFINE(index_list_storage_module,

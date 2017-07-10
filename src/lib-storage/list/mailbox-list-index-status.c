@@ -738,15 +738,39 @@ void mailbox_list_index_update_mailbox_index(struct mailbox *box,
 	mail_index_view_close(&list_view);
 }
 
+static struct mailbox_sync_context *
+index_list_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
+{
+	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+	const struct mail_index_header *hdr;
+
+	hdr = mail_index_get_header(box->view);
+	ibox->pre_sync_log_file_seq = hdr->log_file_seq;
+	ibox->pre_sync_log_file_head_offset = hdr->log_file_head_offset;
+
+	return ibox->module_ctx.super.sync_init(box, flags);
+}
+
 static int index_list_sync_deinit(struct mailbox_sync_context *ctx,
 				  struct mailbox_sync_status *status_r)
 {
 	struct mailbox *box = ctx->box;
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
+	const struct mail_index_header *hdr;
 
 	if (ibox->module_ctx.super.sync_deinit(ctx, status_r) < 0)
 		return -1;
 	ctx = NULL;
+
+	hdr = mail_index_get_header(box->view);
+	if (!ilist->opened &&
+	    ibox->pre_sync_log_file_head_offset == hdr->log_file_head_offset &&
+	    ibox->pre_sync_log_file_seq == hdr->log_file_seq) {
+		/* List index isn't open and sync changed nothing.
+		   Don't bother opening the list index. */
+		return 0;
+	}
 
 	/* it probably doesn't matter much here if we push/pop the error,
 	   but might as well do it. */
@@ -766,6 +790,9 @@ index_list_transaction_commit(struct mailbox_transaction_context *t,
 	if (ibox->module_ctx.super.transaction_commit(t, changes_r) < 0)
 		return -1;
 	t = NULL;
+
+	if (!changes_r->changed)
+		return 0;
 
 	/* this transaction commit may have been done in error handling path
 	   and the caller still wants to access the current error. make sure
@@ -819,6 +846,7 @@ void mailbox_list_index_status_init_mailbox(struct mailbox_vfuncs *v)
 	v->exists = index_list_exists;
 	v->get_status = index_list_get_status;
 	v->get_metadata = index_list_get_metadata;
+	v->sync_init = index_list_sync_init;
 	v->sync_deinit = index_list_sync_deinit;
 	v->transaction_commit = index_list_transaction_commit;
 }
