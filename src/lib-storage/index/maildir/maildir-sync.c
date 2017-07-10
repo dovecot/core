@@ -1087,11 +1087,6 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	bool lost_files, force_resync;
 	int ret = 0;
 
-	if (!box->opened) {
-		if (mailbox_open(box) < 0)
-			return index_mailbox_sync_init(box, flags, TRUE);
-	}
-
 	force_resync = (flags & MAILBOX_SYNC_FLAG_FORCE_RESYNC) != 0;
 	if (index_mailbox_want_full_sync(&mbox->box, flags)) {
 		ret = maildir_sync_run(mbox, flags, force_resync,

@@ -351,18 +351,11 @@ pop3c_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)box;
 	int ret = 0;
 
-	if (!box->opened) {
-		if (mailbox_open(box) < 0)
-			ret = -1;
-	} else {
-		if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
-		    mbox->msg_uidls == NULL) {
-			/* FIXME: reconnect */
-		}
+	if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
+	    mbox->msg_uidls == NULL) {
+		/* FIXME: reconnect */
 	}
 
-	if (ret == 0)
-		ret = pop3c_sync(mbox);
-
+	ret = pop3c_sync(mbox);
 	return index_mailbox_sync_init(box, flags, ret < 0);
 }
