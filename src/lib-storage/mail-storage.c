@@ -1863,6 +1863,15 @@ mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 		i_panic("Trying to sync mailbox %s with open transactions",
 			box->name);
 	}
+	if (!box->opened) {
+		if (mailbox_open(box) < 0) {
+			ctx = i_new(struct mailbox_sync_context, 1);
+			ctx->box = box;
+			ctx->flags = flags;
+			ctx->open_failed = TRUE;
+			return ctx;
+		}
+	}
 	T_BEGIN {
 		ctx = box->v.sync_init(box, flags);
 	} T_END;
@@ -1872,6 +1881,8 @@ mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 bool mailbox_sync_next(struct mailbox_sync_context *ctx,
 		       struct mailbox_sync_rec *sync_rec_r)
 {
+	if (ctx->open_failed)
+		return FALSE;
 	return ctx->box->v.sync_next(ctx, sync_rec_r);
 }
 
@@ -1887,7 +1898,13 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 	*_ctx = NULL;
 
 	i_zero(status_r);
-	ret = box->v.sync_deinit(ctx, status_r);
+
+	if (!ctx->open_failed)
+		ret = box->v.sync_deinit(ctx, status_r);
+	else {
+		i_free(ctx);
+		ret = -1;
+	}
 	if (ret < 0 && box->inbox_user &&
 	    !box->storage->user->inbox_open_error_logged) {
 		errormsg = mailbox_get_last_internal_error(box, &error);
