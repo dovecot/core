@@ -691,6 +691,7 @@ struct mail_save_context {
 struct mailbox_sync_context {
 	struct mailbox *box;
 	enum mailbox_sync_flags flags;
+	bool open_failed;
 };
 
 struct mailbox_header_lookup_ctx {
