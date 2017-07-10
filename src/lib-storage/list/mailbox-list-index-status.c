@@ -712,7 +712,9 @@ void mailbox_list_index_update_mailbox_index(struct mailbox *box,
 	int ret;
 
 	i_zero(&changes);
-	if ((ret = index_list_open_view(box, TRUE, &list_view, &changes.seq)) <= 0)
+	/* update the mailbox list index even if it has some other pending
+	   changes. */
+	if ((ret = index_list_open_view(box, FALSE, &list_view, &changes.seq)) <= 0)
 		return;
 
 	(void)mailbox_list_index_status(box->list, list_view, changes.seq,
