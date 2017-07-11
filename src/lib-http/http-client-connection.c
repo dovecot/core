@@ -1204,7 +1204,7 @@ http_client_connection_ready(struct http_client_connection *conn)
 
 	/* start protocol I/O */
 	conn->http_parser = http_response_parser_init
-		(conn->conn.input, &conn->client->set.response_hdr_limits);
+		(conn->conn.input, &conn->client->set.response_hdr_limits, 0);
 	o_stream_set_flush_callback(conn->conn.output,
     http_client_connection_output, conn);
 }

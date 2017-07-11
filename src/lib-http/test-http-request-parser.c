@@ -30,6 +30,8 @@ struct http_request_valid_parse_test {
 	const char *payload;
 	bool connection_close;
 	bool expect_100_continue;
+
+	enum http_request_parse_flags flags;
 };
 
 static const struct http_request_valid_parse_test
@@ -182,7 +184,7 @@ static void test_http_request_parse_valid(void)
 		request_text = test->request;
 		request_text_len = strlen(request_text);
 		input = test_istream_create_data(request_text, request_text_len);
-		parser = http_request_parser_init(input, NULL);
+		parser = http_request_parser_init(input, NULL, test->flags);
 
 		test_begin(t_strdup_printf("http request valid [%d]", i));
 
@@ -297,6 +299,8 @@ static void test_http_request_parse_valid(void)
 
 struct http_request_invalid_parse_test {
 	const char *request;
+	enum http_request_parse_flags flags;
+
 	enum http_request_parse_error error_code;
 };
 
@@ -358,12 +362,6 @@ invalid_request_parse_tests[] = {
 	// FIXME: test request limits
 };
 
-static const unsigned char invalid_request_with_nuls[] =
-	"GET / HTTP/1.1\r\n"
-	"Host: example.com\r\n"
-	"Null: text\0server\r\n"
-	"\r\n";
-
 static unsigned int invalid_request_parse_test_count =
 	N_ELEMENTS(invalid_request_parse_tests);
 
@@ -408,7 +406,7 @@ static void test_http_request_parse_invalid(void)
 		test = &invalid_request_parse_tests[i];
 		request_text = test->request;
 		input = i_stream_create_from_data(request_text, strlen(request_text));
-		parser = http_request_parser_init(input, NULL);
+		parser = http_request_parser_init(input, NULL, test->flags);
 		i_stream_unref(&input);
 
 		test_begin(t_strdup_printf("http request invalid [%d]", i));
@@ -424,18 +422,61 @@ static void test_http_request_parse_invalid(void)
 		test_end();
 		http_request_parser_deinit(&parser);
 	} T_END;
+}
+
+/*
+ * Bad request tests
+ */
+
+static const unsigned char bad_request_with_nuls[] =
+	"GET / HTTP/1.1\r\n"
+	"Host: example.com\r\n"
+	"User-Agent: text\0client\r\n"
+	"\r\n";
+
+static void test_http_request_parse_bad(void)
+{
+	struct http_request_parser *parser;
+	struct http_request request;
+	enum http_request_parse_error error_code;
+	const char *header, *error;
+	struct istream *input;
+	int ret;
 
 	/* parse failure guarantees http_request_header.size equals
 	   strlen(http_request_header.value) */
-	test_begin("http request with NULs");
-	input = i_stream_create_from_data(invalid_request_with_nuls,
-					  sizeof(invalid_request_with_nuls)-1);
-	parser = http_request_parser_init(input, NULL);
+	test_begin("http request with NULs (strict)");
+	input = i_stream_create_from_data(bad_request_with_nuls,
+					  sizeof(bad_request_with_nuls)-1);
+	parser = http_request_parser_init(input, NULL,
+		HTTP_REQUEST_PARSE_FLAG_STRICT);
 	i_stream_unref(&input);
 
 	while ((ret=http_request_parse_next
 		(parser, NULL, &request, &error_code, &error)) > 0);
 	test_assert(ret < 0);
+	http_request_parser_deinit(&parser);
+	test_end();
+
+	/* even when lenient, bad characters like NUL must not be returned */
+	test_begin("http request with NULs (lenient)");
+	input = i_stream_create_from_data(bad_request_with_nuls,
+					  sizeof(bad_request_with_nuls)-1);
+	parser = http_request_parser_init(input, NULL, 0);
+	i_stream_unref(&input);
+
+	ret = http_request_parse_next
+		(parser, NULL, &request, &error_code, &error);
+	test_out("parse success", ret > 0);
+	header = http_request_header_get(&request, "user-agent");
+	test_out("header present", header != NULL);
+	if (header != NULL) {
+		test_out(t_strdup_printf("header User-Agent: %s", header),
+			strcmp(header, "textclient") == 0);
+	}
+	ret = http_request_parse_next
+		(parser, NULL, &request, &error_code, &error);
+	test_out("parse end", ret == 0);
 	http_request_parser_deinit(&parser);
 	test_end();
 }
@@ -445,6 +486,7 @@ int main(void)
 	static void (*const test_functions[])(void) = {
 		test_http_request_parse_valid,
 		test_http_request_parse_invalid,
+		test_http_request_parse_bad,
 		NULL
 	};
 	return test_run(test_functions);

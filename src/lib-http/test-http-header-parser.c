@@ -17,6 +17,7 @@ struct http_header_parse_result {
 struct http_header_parse_test {
 	const char *header;
 	struct http_header_limits limits;
+	enum http_header_parse_flags flags;
 	const struct http_header_parse_result *fields;
 };
 
@@ -194,7 +195,8 @@ static void test_http_header_parse_valid(void)
 		header_len = strlen(header);
 		limits = &valid_header_parse_tests[i].limits;
 		input = test_istream_create_data(header, header_len);
-		parser = http_header_parser_init(input, limits, TRUE);
+		parser = http_header_parser_init(input, limits,
+			valid_header_parse_tests[i].flags);
 
 		test_begin(t_strdup_printf("http header valid [%d]", i));
 
@@ -262,12 +264,14 @@ static const struct http_header_parse_test invalid_header_parse_tests[] = {
 			"Host: p5-lrqzb4yavu4l7nagydw-428649-i2-v6exp3-ds.metric.example.com\n"
 			"User-Agent:Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0)\n"
 			"Accept:\t\timage/png,image/*;q=0.8,*/\1;q=0.5\n"
-			"\n"
+			"\n",
+		.flags = HTTP_HEADER_PARSE_FLAG_STRICT
 	},{
 		.header = 
 			"Date: Sat, 06 Oct 2012 17:18:22 GMT\r\n"
 			"Server: Apache/2.2.3\177 (CentOS)\r\n"
-			"\r\n"
+			"\r\n",
+		.flags = HTTP_HEADER_PARSE_FLAG_STRICT
 	},{
 		.header = 
 			"Date: Sat, 06 Oct 2012 17:12:37 GMT\r\n"
@@ -349,7 +353,8 @@ static void test_http_header_parse_invalid(void)
 		header = invalid_header_parse_tests[i].header;
 		limits = &invalid_header_parse_tests[i].limits;
 		input = i_stream_create_from_data(header, strlen(header));
-		parser = http_header_parser_init(input, limits, FALSE);
+		parser = http_header_parser_init(input, limits,
+			invalid_header_parse_tests[i].flags);
 
 		test_begin(t_strdup_printf("http header invalid [%d]", i));
 

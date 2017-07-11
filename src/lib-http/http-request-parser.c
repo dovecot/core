@@ -38,11 +38,13 @@ struct http_request_parser {
 
 struct http_request_parser *
 http_request_parser_init(struct istream *input,
-	const struct http_request_limits *limits)
+	const struct http_request_limits *limits,
+	enum http_request_parse_flags flags)
 {
 	struct http_request_parser *parser;
 	struct http_header_limits hdr_limits;
 	uoff_t max_payload_size;
+	enum http_message_parse_flags msg_flags = 0;
 
 	parser = i_new(struct http_request_parser, 1);
 	if (limits != NULL) {
@@ -65,8 +67,10 @@ http_request_parser_init(struct istream *input,
 	if (max_payload_size == 0)
 		max_payload_size = HTTP_REQUEST_DEFAULT_MAX_PAYLOAD_SIZE;
 
-	http_message_parser_init
-		(&parser->parser, input, &hdr_limits, max_payload_size, FALSE);
+	if ((flags & HTTP_REQUEST_PARSE_FLAG_STRICT) != 0)
+		msg_flags |= HTTP_MESSAGE_PARSE_FLAG_STRICT;
+	http_message_parser_init(&parser->parser, input,
+		&hdr_limits, max_payload_size, msg_flags);
 	return parser;
 }
 
