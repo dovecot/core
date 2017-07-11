@@ -370,8 +370,22 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 	if (namespaces->user->autocreated) {
 		/* e.g. raw user - don't check namespaces' validity */
 	} else if (!namespaces_check(namespaces, error_r)) {
-		*error_r = t_strconcat("namespace configuration error: ",
-				       *error_r, NULL);
+		namespaces->user->error =
+			t_strconcat("namespace configuration error: ",
+				    *error_r, NULL);
+	}
+
+	if (namespaces->user->error == NULL) {
+		mail_user_add_namespace(namespaces->user, &namespaces);
+		T_BEGIN {
+			hook_mail_namespaces_created(namespaces);
+		} T_END;
+	}
+
+	/* allow namespace hooks to return failure via the user error */
+	if (namespaces->user->error != NULL) {
+		namespaces->user->namespaces = NULL;
+		*error_r = t_strdup(namespaces->user->error);
 		while (namespaces != NULL) {
 			ns = namespaces;
 			namespaces = ns->next;
@@ -379,17 +393,7 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 		}
 		return -1;
 	}
-	mail_user_add_namespace(namespaces->user, &namespaces);
 
-	T_BEGIN {
-		hook_mail_namespaces_created(namespaces);
-	} T_END;
-
-	/* allow namespace hooks to return failure via the user error */
-	if (namespaces->user->error != NULL) {
-		*error_r = t_strdup(namespaces->user->error);
-		return -1;
-	}
 	namespaces->user->namespaces_created = TRUE;
 	return 0;
 }
