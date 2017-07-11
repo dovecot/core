@@ -150,6 +150,9 @@ static void dump_hdr(struct mail_index *index)
 		printf("log file tail offset ..... = %u\n", hdr->log_file_tail_offset);
 		printf("log file head offset ..... = %u\n", hdr->log_file_head_offset);
 	}
+	if (hdr->minor_version >= 3) {
+		printf("last temp file scan ...... = %u (%s)\n", hdr->last_temp_file_scan, unixdate2str(hdr->last_temp_file_scan));
+	}
 	printf("day stamp ................ = %u (%s)\n", hdr->day_stamp, unixdate2str(hdr->day_stamp));
 	for (i = 0; i < N_ELEMENTS(hdr->day_first_uid); i++)
 		printf("day first uid[%u] ......... = %u\n", i, hdr->day_first_uid[i]);
