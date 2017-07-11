@@ -107,8 +107,7 @@ static int sdbox_sync_index_rebuild_dir(struct index_rebuild_context *ctx,
 				/* alt directory doesn't exist, ignore */
 				return 0;
 			}
-			mailbox_set_deleted(ctx->box);
-			return -1;
+			return index_mailbox_fix_inconsistent_existence(ctx->box, path);
 		}
 		mail_storage_set_critical(storage,
 			"opendir(%s) failed: %m", path);

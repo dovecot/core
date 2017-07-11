@@ -1134,3 +1134,35 @@ void index_storage_save_abort_last(struct mail_save_context *ctx, uint32_t seq)
 	   specific record, so we'll reset the whole cache transaction. */
 	mail_cache_transaction_reset(ctx->transaction->cache_trans);
 }
+
+int index_mailbox_fix_inconsistent_existence(struct mailbox *box,
+					     const char *path)
+{
+	const char *index_path;
+	struct stat st;
+
+	/* Could be a race condition or could be because ITERINDEX is used
+	   and the index directory exists, but the storage directory doesn't.
+	   Handle the existence inconsistency by creating this directory if
+	   the index directory exists (don't bother checking if ITERINDEX is
+	   set or not - it doesn't matter since either both dirs should exist
+	   or not). */
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
+				&index_path) < 0)
+		return -1;
+
+	if (strcmp(index_path, path) == 0) {
+		/* there's no separate index path - mailbox was just deleted */
+	} else if (stat(index_path, &st) == 0) {
+		/* inconsistency - create also the mail directory */
+		return mailbox_mkdir(box, path, MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	} else if (errno == ENOENT) {
+		/* race condition - mailbox was just deleted */
+	} else {
+		mail_storage_set_critical(box->storage,
+			"stat(%s) failed: %m", index_path);
+		return -1;
+	}
+	mailbox_set_deleted(box);
+	return -1;
+}
