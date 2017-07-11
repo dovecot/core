@@ -674,6 +674,7 @@ static bool cmd_append_finish_parsing(struct client_command_context *cmd)
 		imap_write_seq_range(msg, &changes.saved_uids);
 		str_append(msg, "] Append completed.");
 	}
+	ctx->client->append_count += save_count;
 	pool_unref(&changes.pool);
 
 	if (ctx->box == cmd->client->mailbox) {
