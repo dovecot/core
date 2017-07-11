@@ -53,6 +53,13 @@ static const struct valid_parse_test_response valid_responses3[] = {
 	}
 };
 
+static const struct valid_parse_test_response valid_responses4[] = {
+	{
+		.status = 200,
+		.payload = "Duplicate headers"
+	}
+};
+
 static const struct valid_parse_test
 valid_response_parse_tests[] = {
 	{ .input =
@@ -114,6 +121,20 @@ valid_response_parse_tests[] = {
 			"Frop!",
 		.responses = valid_responses3,
 		.responses_count = N_ELEMENTS(valid_responses3)
+	},{
+		.input =
+			"HTTP/1.1 200 OK\r\n"
+			"Date: Sun, 07 Oct 2012 19:52:03 GMT\r\n"
+			"Server: Apache/2.2.16 (Debian) PHP/5.3.3-7+squeeze14\r\n"
+			"Content-Length: 17\r\n"
+			"Keep-Alive: timeout=15, max=99\r\n"
+			"Connection: Keep-Alive\r\n"
+			"Content-Type: text/html; charset=iso-8859-1\r\n"
+			"Date: Sun, 13 Oct 2013 13:13:13 GMT\r\n"
+			"\r\n"
+			"Duplicate headers",
+		.responses = valid_responses4,
+		.responses_count = N_ELEMENTS(valid_responses4)
 	}
 };
 
@@ -239,6 +260,19 @@ static struct invalid_parse_test invalid_response_parse_tests[] = {
 			"HTTP/1.1 302 Found\n\r"
 			"Location: http://www.example.nl/\n\r"
 			"Cache-Control: private\n\r"
+	},{
+		.input =
+			"HTTP/1.1 200 OK\r\n"
+			"Date: Sun, 07 Oct 2012 19:52:03 GMT\r\n"
+			"Server: Apache/2.2.16 (Debian) PHP/5.3.3-7+squeeze14\r\n"
+			"Content-Length: 17\r\n"
+			"Keep-Alive: timeout=15, max=99\r\n"
+			"Connection: Keep-Alive\r\n"
+			"Content-Type: text/html; charset=iso-8859-1\r\n"
+			"Date: Sun, 13 Oct 2013 13:13:13 GMT\r\n"
+			"\r\n"
+			"Duplicate headers",
+		.flags = HTTP_RESPONSE_PARSE_FLAG_STRICT
 	}
 };
 
