@@ -66,6 +66,8 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 	if (mailbox_list_mkdir_missing_index_root(list) < 0)
 		return -1;
 
+	i_assert(ilist->index != NULL);
+
 	index_flags = mail_storage_settings_to_index_flags(set);
 	if (strcmp(list->name, MAILBOX_LIST_NAME_INDEX) == 0) {
 		/* LAYOUT=index. this is the only location for the mailbox
