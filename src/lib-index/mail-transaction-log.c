@@ -43,8 +43,8 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 	if (MAIL_INDEX_IS_IN_MEMORY(log->index))
 		return;
 
-	if (stat(log->filepath2, &st) < 0) {
-		if (errno != ENOENT && errno != ESTALE) {
+	if (nfs_safe_stat(log->filepath2, &st) < 0) {
+		if (errno != ENOENT) {
 			mail_index_set_error(log->index,
 				"stat(%s) failed: %m", log->filepath2);
 		}
