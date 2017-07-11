@@ -32,13 +32,18 @@ struct http_response_parser {
 
 struct http_response_parser *
 http_response_parser_init(struct istream *input,
-	const struct http_header_limits *hdr_limits)
+	const struct http_header_limits *hdr_limits,
+	enum http_response_parse_flags flags)
 {
 	struct http_response_parser *parser;
+	enum http_message_parse_flags msg_flags = 0;
 
 	/* FIXME: implement status line limit */
+	if ((flags & HTTP_RESPONSE_PARSE_FLAG_STRICT) != 0)
+		msg_flags |= HTTP_MESSAGE_PARSE_FLAG_STRICT;
 	parser = i_new(struct http_response_parser, 1);
-	http_message_parser_init(&parser->parser, input, hdr_limits, 0, TRUE);
+	http_message_parser_init(&parser->parser,
+		input, hdr_limits, 0, msg_flags);
 	return parser;
 }
 

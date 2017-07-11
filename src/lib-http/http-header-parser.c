@@ -26,6 +26,8 @@ struct http_header_parser {
 	struct istream *input;
 
 	struct http_header_limits limits;
+	enum http_header_parse_flags flags;
+
 	uoff_t size, field_size;
 	unsigned int field_count;
 
@@ -36,21 +38,17 @@ struct http_header_parser {
 	buffer_t *value_buf;
 
 	enum http_header_parse_state state;
-
-	unsigned int lenient:1;
 };
 
 struct http_header_parser *
 http_header_parser_init(struct istream *input,
-	const struct http_header_limits *limits, bool lenient)
+	const struct http_header_limits *limits,
+	enum http_header_parse_flags flags)
 {
 	struct http_header_parser *parser;
 
 	parser = i_new(struct http_header_parser, 1);
 	parser->input = input;
-	parser->lenient = lenient;
-	parser->name = str_new(default_pool, 128);
-	parser->value_buf = buffer_create_dynamic(default_pool, 4096);
 
 	if (limits != NULL)
 		parser->limits = *limits;
@@ -61,6 +59,11 @@ http_header_parser_init(struct istream *input,
 		parser->limits.max_field_size = (uoff_t)-1;
 	if (parser->limits.max_fields == 0)
 		parser->limits.max_fields = (unsigned int)-1;
+
+	parser->flags = flags;
+
+	parser->name = str_new(default_pool, 128);
+	parser->value_buf = buffer_create_dynamic(default_pool, 4096);
 
 	return parser;
 }
@@ -131,7 +134,7 @@ static int http_header_parse_content(struct http_header_parser *parser)
 		}
 		buffer_append(parser->value_buf, first, parser->cur-first);
 
-		if (!parser->lenient)
+		if ((parser->flags & HTTP_HEADER_PARSE_FLAG_STRICT) != 0)
 			break;
 
 		/* We'll be lenient here to accommodate for some bad servers. We just

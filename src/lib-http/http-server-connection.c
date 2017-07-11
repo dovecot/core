@@ -173,7 +173,8 @@ static void http_server_connection_ready(struct http_server_connection *conn)
 	}
 
 	conn->http_parser = http_request_parser_init
-		(conn->conn.input, &conn->server->set.request_limits);
+		(conn->conn.input, &conn->server->set.request_limits,
+			HTTP_REQUEST_PARSE_FLAG_STRICT);
 	o_stream_set_flush_callback(conn->conn.output,
     http_server_connection_output, conn);
 }

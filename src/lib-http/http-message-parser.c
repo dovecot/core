@@ -16,7 +16,7 @@
 
 void http_message_parser_init(struct http_message_parser *parser,
 	struct istream *input, const struct http_header_limits *hdr_limits,
-	uoff_t max_payload_size, bool lenient)
+	uoff_t max_payload_size, enum http_message_parse_flags flags)
 {
 	i_zero(parser);
 	parser->input = input;
@@ -24,7 +24,7 @@ void http_message_parser_init(struct http_message_parser *parser,
 	if (hdr_limits != NULL)
 		parser->header_limits = *hdr_limits;
 	parser->max_payload_size = max_payload_size;
-	parser->lenient = lenient;
+	parser->flags = flags;
 }
 
 void http_message_parser_deinit(struct http_message_parser *parser)
@@ -45,8 +45,12 @@ void http_message_parser_restart(struct http_message_parser *parser,
 	i_assert(parser->payload == NULL);
 
 	if (parser->header_parser == NULL) {
+		enum http_header_parse_flags hdr_flags = 0;
+
+		if ((parser->flags & HTTP_MESSAGE_PARSE_FLAG_STRICT) != 0)
+			hdr_flags |= HTTP_HEADER_PARSE_FLAG_STRICT;
 		parser->header_parser = http_header_parser_init
-				(parser->input, &parser->header_limits,	parser->lenient);
+			(parser->input, &parser->header_limits,	hdr_flags);
 	} else {
 		http_header_parser_reset(parser->header_parser);
 	}

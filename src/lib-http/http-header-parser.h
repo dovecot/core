@@ -4,9 +4,15 @@
 struct http_header_limits;
 struct http_header_parser;
 
+enum http_header_parse_flags {
+	/* Strictly adhere to the HTTP protocol specification */
+	HTTP_HEADER_PARSE_FLAG_STRICT = BIT(0)
+};
+
 struct http_header_parser *
 http_header_parser_init(struct istream *input,
-	const struct http_header_limits *limits, bool lenient);
+	const struct http_header_limits *limits,
+	enum http_header_parse_flags flags);
 void http_header_parser_deinit(struct http_header_parser **_parser);
 
 void http_header_parser_reset(struct http_header_parser *parser);

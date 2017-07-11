@@ -21,6 +21,7 @@ struct valid_parse_test_response {
 
 struct valid_parse_test {
 	const char *input;
+	enum http_response_parse_flags flags;
 
 	const struct valid_parse_test_response *responses;
 	unsigned int responses_count;
@@ -140,7 +141,8 @@ static void test_http_response_parse_valid(void)
 		input_text = test->input;
 		input_text_len = strlen(input_text);
 		input = test_istream_create_data(input_text, input_text_len);
-		parser = http_response_parser_init(input, NULL);
+		parser = http_response_parser_init(input, NULL,
+			valid_response_parse_tests[i].flags);
 
 		test_begin(t_strdup_printf("http response valid [%d]", i));
 
@@ -206,22 +208,38 @@ static void test_http_response_parse_valid(void)
  * Invalid response tests
  */
 
-static const char *invalid_response_parse_tests[] = {
-	"XMPP/1.0 302 Found\r\n"
-	"Location: http://www.example.nl/\r\n"
-	"Cache-Control: private\r\n",
-	"HTTP/1.1  302 Found\r\n"
-	"Location: http://www.example.nl/\r\n"
-	"Cache-Control: private\r\n",
-	"HTTP/1.1 ABC Found\r\n"
-	"Location: http://www.example.nl/\r\n"
-	"Cache-Control: private\r\n",
-	"HTTP/1.1 302 \177\r\n"
-	"Location: http://www.example.nl/\r\n"
-	"Cache-Control: private\r\n",
-	"HTTP/1.1 302 Found\n\r"
-	"Location: http://www.example.nl/\n\r"
-	"Cache-Control: private\n\r"
+struct invalid_parse_test {
+	const char *input;
+	enum http_response_parse_flags flags;
+};
+
+static struct invalid_parse_test invalid_response_parse_tests[] = {
+	{
+		.input =
+			"XMPP/1.0 302 Found\r\n"
+			"Location: http://www.example.nl/\r\n"
+			"Cache-Control: private\r\n"
+	},{
+		.input =
+			"HTTP/1.1  302 Found\r\n"
+			"Location: http://www.example.nl/\r\n"
+			"Cache-Control: private\r\n"
+	},{
+		.input =
+			"HTTP/1.1 ABC Found\r\n"
+			"Location: http://www.example.nl/\r\n"
+			"Cache-Control: private\r\n"
+	},{
+		.input =
+			"HTTP/1.1 302 \177\r\n"
+			"Location: http://www.example.nl/\r\n"
+			"Cache-Control: private\r\n"
+	},{
+		.input =
+			"HTTP/1.1 302 Found\n\r"
+			"Location: http://www.example.nl/\n\r"
+			"Cache-Control: private\n\r"
+	}
 };
 
 static const unsigned int invalid_response_parse_test_count =
@@ -239,10 +257,11 @@ static void test_http_response_parse_invalid(void)
 	for (i = 0; i < invalid_response_parse_test_count; i++) T_BEGIN {
 		const char *test;
 
-		test = invalid_response_parse_tests[i];
+		test = invalid_response_parse_tests[i].input;
 		response_text = test;
 		input = i_stream_create_from_data(response_text, strlen(response_text));
-		parser = http_response_parser_init(input, NULL);
+		parser = http_response_parser_init(input, NULL,
+			invalid_response_parse_tests[i].flags);
 		i_stream_unref(&input);
 
 		test_begin(t_strdup_printf("http response invalid [%d]", i));
@@ -274,11 +293,27 @@ static void test_http_response_parse_bad(void)
 
 	/* parse failure guarantees http_response_header.size equals
 	   strlen(http_response_header.value) */
-	test_begin("http response with NULs");
+
+	test_begin("http response with NULs (strict)");
 	input = i_stream_create_from_data(bad_response_with_nuls,
 					  sizeof(bad_response_with_nuls)-1);
-	parser = http_response_parser_init(input, NULL);
+	parser = http_response_parser_init(input, NULL,
+		HTTP_RESPONSE_PARSE_FLAG_STRICT);
 	i_stream_unref(&input);
+
+	while ((ret=http_response_parse_next(parser,
+		HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &response, &error)) > 0);
+	test_assert(ret < 0);
+	http_response_parser_deinit(&parser);
+	test_end();
+
+	/* even when lenient, bad characters like NUL must not be returned */
+	test_begin("http response with NULs (lenient)");
+	input = i_stream_create_from_data(bad_response_with_nuls,
+					  sizeof(bad_response_with_nuls)-1);
+	parser = http_response_parser_init(input, NULL, 0);
+	i_stream_unref(&input);
+
 	ret = http_response_parse_next(parser,
 		HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &response, &error);
 	test_out("parse success", ret > 0);
@@ -291,8 +326,8 @@ static void test_http_response_parse_bad(void)
 	ret = http_response_parse_next(parser,
 		HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &response, &error);
 	test_out("parse end", ret == 0);
-	test_end();
 	http_response_parser_deinit(&parser);
+	test_end();
 }
 
 int main(void)
