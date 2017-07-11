@@ -870,6 +870,14 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 				&next_uid, sizeof(next_uid), FALSE);
 		}
 	}
+	if (index->pending_log2_rotate_time != 0) {
+		uint32_t log2_rotate_time = index->pending_log2_rotate_time;
+
+		mail_index_update_header(ctx->ext_trans,
+			offsetof(struct mail_index_header, log2_rotate_time),
+			&log2_rotate_time, sizeof(log2_rotate_time), TRUE);
+		index->pending_log2_rotate_time = 0;
+	}
 
 	ret2 = mail_index_transaction_commit(&ctx->ext_trans);
 	if (cache_lock != NULL)

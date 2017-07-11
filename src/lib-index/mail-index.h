@@ -105,7 +105,11 @@ struct mail_index_header {
 	uint32_t log_file_tail_offset;
 	uint32_t log_file_head_offset;
 
-	uint64_t unused_old_sync_size;
+	uint32_t unused_old_sync_size_part1;
+	/* Timestamp of when .log was rotated into .log.2. This can be used to
+	   optimize checking when it's time to unlink it without stat()ing it.
+	   0 = unknown, -1 = .log.2 doesn't exists. */
+	uint32_t log2_rotate_time;
 	uint32_t last_temp_file_scan;
 
 	/* daily first UIDs that have been added to index. */

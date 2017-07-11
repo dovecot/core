@@ -151,6 +151,7 @@ static void dump_hdr(struct mail_index *index)
 		printf("log file head offset ..... = %u\n", hdr->log_file_head_offset);
 	}
 	if (hdr->minor_version >= 3) {
+		printf("log2 rotate time ......... = %u (%s)\n", hdr->log2_rotate_time, unixdate2str(hdr->log2_rotate_time));
 		printf("last temp file scan ...... = %u (%s)\n", hdr->last_temp_file_scan, unixdate2str(hdr->last_temp_file_scan));
 	}
 	printf("day stamp ................ = %u (%s)\n", hdr->day_stamp, unixdate2str(hdr->day_stamp));
