@@ -39,21 +39,37 @@ mail_transaction_log_alloc(struct mail_index *index)
 static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 {
 	struct stat st;
+	uint32_t log2_rotate_time = log->index->map->hdr.log2_rotate_time;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(log->index))
 		return;
 
-	if (nfs_safe_stat(log->filepath2, &st) < 0) {
-		if (errno != ENOENT) {
+	if (log2_rotate_time == 0) {
+		if (nfs_safe_stat(log->filepath2, &st) == 0)
+			log2_rotate_time = st.st_mtime;
+		else if (errno == ENOENT)
+			log2_rotate_time = (uint32_t)-1;
+		else {
 			mail_index_set_error(log->index,
 				"stat(%s) failed: %m", log->filepath2);
+			return;
 		}
-		return;
 	}
 
-	if (ioloop_time - st.st_mtime >= (time_t)log->index->log_rotate_log2_stale_secs &&
-	    !log->index->readonly)
+	if (log2_rotate_time != (uint32_t)-1 &&
+	    ioloop_time - log2_rotate_time >= (time_t)log->index->log_rotate_log2_stale_secs &&
+	    !log->index->readonly) {
 		i_unlink_if_exists(log->filepath2);
+		log2_rotate_time = (uint32_t)-1;
+	}
+
+	if (log2_rotate_time != log->index->map->hdr.log2_rotate_time) {
+		/* Write this as part of the next sync's transaction. We're
+		   here because we're already opening a sync lock, so it'll
+		   always happen. It's also required especially with mdbox map
+		   index, which doesn't like changes done outside syncing. */
+		log->index->pending_log2_rotate_time = log2_rotate_time;
+	}
 }
 
 int mail_transaction_log_open(struct mail_transaction_log *log)

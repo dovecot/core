@@ -140,6 +140,10 @@ void mail_index_write(struct mail_index *index, bool want_rotate)
 			hdr->log_file_seq = file->hdr.file_seq;
 			hdr->log_file_head_offset =
 				hdr->log_file_tail_offset = file->hdr.hdr_size;
+			/* Assume .log.2 was created successfully. If it
+			   wasn't, it just causes an extra stat() and gets
+			   fixed later on. */
+			hdr->log2_rotate_time = ioloop_time;
 		}
 	}
 
