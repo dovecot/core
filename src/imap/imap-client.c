@@ -245,6 +245,7 @@ const char *client_stats(struct client *client)
 		{ '\0', NULL, "expunged" },
 		{ '\0', NULL, "trashed" },
 		{ '\0', NULL, "autoexpunged" },
+		{ '\0', NULL, "appended" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -264,6 +265,7 @@ const char *client_stats(struct client *client)
 	tab[8].value = dec2str(client->expunged_count);
 	tab[9].value = dec2str(client->trashed_count);
 	tab[10].value = dec2str(client->autoexpunged_count);
+	tab[11].value = dec2str(client->append_count);
 
 	str = t_str_new(128);
 	var_expand(str, client->set->imap_logout_format, tab);
