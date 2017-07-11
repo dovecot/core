@@ -193,6 +193,8 @@ http_message_parse_header(struct http_message_parser *parser,
 		/* Content-Length: */
 		if (strcasecmp(name, "Content-Length") == 0) {
 			if (parser->msg.have_content_length) {
+				/* There is no acceptable way to allow duplicates for this
+				   header. */
 				parser->error = "Duplicate Content-Length header";
 				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
 				return -1;
@@ -215,9 +217,12 @@ http_message_parse_header(struct http_message_parser *parser,
 		/* Date: */
 		if (strcasecmp(name, "Date") == 0) {
 			if (parser->msg.date != (time_t)-1) {
-				parser->error = "Duplicate Date header";
-				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
-				return -1;
+				if ((parser->flags & HTTP_MESSAGE_PARSE_FLAG_STRICT) != 0) {
+					parser->error = "Duplicate Date header";
+					parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
+					return -1;
+				}
+				/* Allow the duplicate; last instance is used */
 			}
 
 			/* RFC 7231, Section 7.1.1.2: Date
