@@ -2732,6 +2732,15 @@ int mailbox_create_missing_dir(struct mailbox *box,
 	if (stat(dir, &st) == 0)
 		return 0;
 
+	if (null_strcmp(dir, mail_dir) != 0 &&
+	    stat(mail_dir, &st) < 0 && (errno == ENOENT || errno == ENOTDIR)) {
+		/* Race condition - mail root directory doesn't exist
+		   anymore either. We shouldn't create this directory
+		   anymore. */
+		mailbox_set_deleted(box);
+		return -1;
+	}
+
 	return mailbox_mkdir(box, dir, type);
 }
 
