@@ -2708,10 +2708,16 @@ int mailbox_create_missing_dir(struct mailbox *box,
 	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
 				&mail_dir) < 0)
 		return -1;
-	if (null_strcmp(dir, mail_dir) == 0) {
-		if ((box->list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) == 0)
-			return 0;
-		/* the directory might not have been created yet */
+	if (null_strcmp(dir, mail_dir) != 0) {
+		/* Mailbox directory is different - create a missing dir */
+	} else if ((box->list->props & MAILBOX_LIST_PROP_AUTOCREATE_DIRS) != 0) {
+		/* This layout (e.g. imapc) wants to autocreate missing mailbox
+		   directories as well. */
+	} else {
+		/* If the mailbox directory doesn't exist, the mailbox
+		   shouldn't exist at all. So just assume that it's already
+		   created and if there's a race condition just fail later. */
+		return 0;
 	}
 
 	/* we call this function even when the directory exists, so first do a
