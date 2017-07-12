@@ -23,7 +23,9 @@ enum mailbox_list_properties {
 	MAILBOX_LIST_PROP_NO_NOSELECT		= 0x04,
 	/* mail root directory isn't required */
 	MAILBOX_LIST_PROP_NO_ROOT		= 0x08,
-	/* Automatically create mailbox directories when needed */
+	/* Automatically create mailbox directories when needed. Normally it's
+	   assumed that if a mailbox directory doesn't exist, the mailbox
+	   doesn't exist either. */
 	MAILBOX_LIST_PROP_AUTOCREATE_DIRS	= 0x10
 };
 
