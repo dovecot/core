@@ -858,7 +858,13 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 			continue;
 		}
 
-		if (!(*rootp)->auto_updating)
+		/* If there are reverse quota_warnings, we'll need to track
+		   how many bytes were expunged even with auto_updating roots.
+		   (An alternative could be to get the current quota usage
+		   before and after the expunges, but that's more complicated
+		   and probably isn't any better.) */
+		if (!(*rootp)->auto_updating ||
+		    (*rootp)->set->have_reverse_warnings)
 			ctx->auto_updating = FALSE;
 	}
 
