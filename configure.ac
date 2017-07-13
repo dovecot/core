@@ -2923,6 +2923,8 @@ if test "$want_icu" != "no"; then
 fi
 AM_CONDITIONAL(BUILD_LIBICU, test "$have_icu" = "yes")
 
+DOVECOT_WANT_APPARMOR
+
 if test $have_lucene = no; then
   not_fts="$not_fts lucene"
 fi
@@ -3086,6 +3088,7 @@ src/plugins/zlib/Makefile
 src/plugins/imap-zlib/Makefile
 src/plugins/mail-crypt/Makefile
 src/plugins/var-expand-crypt/Makefile
+src/plugins/apparmor/Makefile
 stamp.h
 dovecot-config.in])
 
