@@ -337,27 +337,15 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 			*reason_r = t_strdup_printf("stat(%s) failed: %m", log->filepath);
 			return -1;
 		}
-		/* see if the whole directory got deleted */
-		if (nfs_safe_stat(log->index->dir, &st) < 0 &&
-		    errno == ENOENT) {
-			log->index->index_deleted = TRUE;
-			*reason_r = "Index directory was deleted";
-			return -1;
-		}
-
-		/* the file should always exist at this point. if it doesn't,
-		   someone deleted it manually while the index was open. try to
-		   handle this nicely by creating a new log file. */
-		file = log->head;
-		if (mail_transaction_log_create(log, FALSE) < 0) {
-			*reason_r = "Failed to create log";
-			return -1;
-		}
-		i_assert(file->refcount > 0);
-		file->refcount--;
-		log->index->need_recreate = TRUE;
-		*reason_r = "Log created";
-		return 0;
+		/* We shouldn't lose dovecot.index.log unless the mailbox was
+		   deleted or renamed. Just fail this and let the mailbox
+		   opening code figure out whether to create a new log file
+		   or not. Anything else can cause unwanted behavior (e.g.
+		   mailbox deletion not fully finishing due to .nfs* files and
+		   an IDLEing IMAP process creating the index back here). */
+		log->index->index_deleted = TRUE;
+		*reason_r = "Trasnaction log lost while it was open";
+		return -1;
 	} else if (log->head->st_ino == st.st_ino &&
 		   CMP_DEV_T(log->head->st_dev, st.st_dev)) {
 		/* NFS: log files get rotated to .log.2 files instead
