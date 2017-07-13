@@ -336,6 +336,8 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 	warning->command = p_strdup(root_set->set->pool, p+1);
 	warning->rule = rule;
 	warning->reverse = reverse;
+	if (reverse)
+		root_set->have_reverse_warnings = TRUE;
 
 	quota_root_recalculate_relative_rules(root_set,
 					      root_set->default_rule.bytes_limit,

@@ -102,6 +102,8 @@ struct quota_root_settings {
 
 	/* Limits in default_rule override backend's quota limits */
 	bool force_default_rule:1;
+	/* TRUE if any of the warning_rules have reverse==TRUE */
+	bool have_reverse_warnings:1;
 };
 
 struct quota_root {
