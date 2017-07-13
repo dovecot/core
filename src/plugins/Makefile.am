@@ -14,6 +14,10 @@ if HAVE_LDAP
 DICT_LDAP = dict-ldap
 endif
 
+if HAVE_APPARMOR
+APPARMOR = apparmor
+endif
+
 SUBDIRS = \
 	acl \
 	imap-acl \
@@ -46,5 +50,6 @@ SUBDIRS = \
 	$(FTS_LUCENE) \
 	$(FTS_SOLR) \
 	$(DICT_LDAP) \
+	$(APPARMOR) \
 	fs-compress \
 	var-expand-crypt
