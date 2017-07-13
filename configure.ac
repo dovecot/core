@@ -2925,6 +2925,8 @@ AM_CONDITIONAL(BUILD_LIBICU, test "$have_icu" = "yes")
 
 DOVECOT_WANT_APPARMOR
 
+DOVECOT_WANT_APPARMOR
+
 if test $have_lucene = no; then
   not_fts="$not_fts lucene"
 fi
