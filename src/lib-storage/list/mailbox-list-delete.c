@@ -205,6 +205,9 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 			mailbox_list_set_critical(list,
 				"unlink(%s) failed: %m", str_c(full_path));
 			ret = -1;
+		} else {
+			/* child directories still exist */
+			rmdir_path = FALSE;
 		}
 	}
 	if (errno != 0) {
@@ -220,6 +223,17 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 		return -1;
 
 	if (rmdir_path) {
+		unsigned int try_count = 0;
+		int ret = rmdir(path);
+		while (ret < 0 && errno == ENOTEMPTY && try_count++ < 10) {
+			/* We didn't see any child directories, so this is
+			   either a race condition or .nfs* files were left
+			   lying around. In case it's .nfs* files, retry after
+			   waiting a bit. Hopefully all processes keeping those
+			   files open will have closed them by then. */
+			usleep(100000);
+			ret = rmdir(path);
+		}
 		if (rmdir(path) == 0)
 			unlinked_something = TRUE;
 		else if (errno == ENOENT) {
