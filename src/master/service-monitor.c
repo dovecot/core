@@ -21,7 +21,7 @@
 #include <syslog.h>
 #include <signal.h>
 
-#define SERVICE_DROP_WARN_INTERVAL_SECS 60
+#define SERVICE_DROP_WARN_INTERVAL_SECS 1
 #define SERVICE_DROP_TIMEOUT_MSECS (10*1000)
 #define MAX_DIE_WAIT_MSECS 5000
 #define SERVICE_MAX_EXIT_FAILURES_IN_SEC 10
@@ -244,7 +244,7 @@ static void service_drop_connections(struct service_listener *l)
 	int fd;
 
 	if (service->last_drop_warning +
-	    SERVICE_DROP_WARN_INTERVAL_SECS < ioloop_time) {
+	    SERVICE_DROP_WARN_INTERVAL_SECS <= ioloop_time) {
 		service->last_drop_warning = ioloop_time;
 		if (service->process_limit > 1) {
 			limit_name = "process_limit";
