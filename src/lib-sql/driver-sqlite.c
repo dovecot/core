@@ -441,7 +441,8 @@ const struct sql_result driver_sqlite_result = {
 		driver_sqlite_result_get_field_value_binary,
 		driver_sqlite_result_find_field_value,
 		driver_sqlite_result_get_values,
-		driver_sqlite_result_get_error
+		driver_sqlite_result_get_error,
+		NULL,
 	}
 };
 
@@ -456,7 +457,8 @@ const struct sql_result driver_sqlite_error_result = {
 		driver_sqlite_result_free,
 		driver_sqlite_result_error_next_row,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-		driver_sqlite_result_get_error
+		driver_sqlite_result_get_error,
+		NULL,
 	}
 };
 

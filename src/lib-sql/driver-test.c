@@ -164,7 +164,8 @@ const struct sql_result driver_test_result = {
 		driver_test_result_get_field_value_binary,
 		driver_test_result_find_field_value,
 		driver_test_result_get_values,
-		driver_test_result_get_error
+		driver_test_result_get_error,
+		NULL,
 	}
 };
 

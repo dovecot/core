@@ -31,6 +31,17 @@ enum sql_result_error_type {
 	SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN
 };
 
+enum sql_result_next {
+	/* Row was returned */
+	SQL_RESULT_NEXT_OK = 1,
+	/* There are no more rows */
+	SQL_RESULT_NEXT_LAST = 0,
+	/* Error occurred - see sql_result_get_error*() */
+	SQL_RESULT_NEXT_ERROR = -1,
+	/* There are more results - call sql_result_more() */
+	SQL_RESULT_NEXT_MORE = -99
+};
+
 #define SQL_DEF_STRUCT(name, struct_name, type, c_type) \
 	{ (type) + COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE( \
 		((struct struct_name *)0)->name, c_type), \
@@ -105,9 +116,22 @@ void sql_result_setup_fetch(struct sql_result *result,
 			    const struct sql_field_def *fields,
 			    void *dest, size_t dest_size);
 
-/* Go to next row, returns 1 if ok, 0 if this was the last row or -1 if error
-   occurred. This needs to be the first call for result. */
+/* Go to next row. See enum sql_result_next. */
 int sql_result_next_row(struct sql_result *result);
+
+/* If sql_result_next_row() returned SQL_RESULT_NEXT_MORE, this can be called
+   to continue returning more results. The result is freed with this call, so
+   it must not be accesed anymore until the callback is finished. */
+void sql_result_more(struct sql_result **result,
+		     sql_query_callback_t *callback, void *context);
+#define sql_result_more(result, callback, context) \
+	sql_result_more(result + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			struct sql_result *, typeof(context))), \
+		(sql_query_callback_t *)callback, context)
+/* Synchronous version of sql_result_more(). The result will be replaced with
+   the new result. */
+void sql_result_more_s(struct sql_result **result);
 
 void sql_result_ref(struct sql_result *result);
 /* Needs to be called only with sql_query_s() or when result has been
