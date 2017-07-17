@@ -1511,7 +1511,8 @@ const struct sql_result driver_cassandra_result = {
 		driver_cassandra_result_get_field_value_binary,
 		driver_cassandra_result_find_field_value,
 		driver_cassandra_result_get_values,
-		driver_cassandra_result_get_error
+		driver_cassandra_result_get_error,
+		NULL,
 	}
 };
 

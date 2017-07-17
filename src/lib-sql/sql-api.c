@@ -278,6 +278,30 @@ int sql_result_next_row(struct sql_result *result)
 	return 1;
 }
 
+#undef sql_result_more
+void sql_result_more(struct sql_result **result,
+		     sql_query_callback_t *callback, void *context)
+{
+	i_assert((*result)->v.more != NULL);
+
+	(*result)->v.more(result, TRUE, callback, context);
+}
+
+static void
+sql_result_more_sync_callback(struct sql_result *result, void *context)
+{
+	struct sql_result **dest_result = context;
+
+	*dest_result = result;
+}
+
+void sql_result_more_s(struct sql_result **result)
+{
+	i_assert((*result)->v.more != NULL);
+
+	(*result)->v.more(result, FALSE, sql_result_more_sync_callback, result);
+}
+
 unsigned int sql_result_get_fields_count(struct sql_result *result)
 {
 	return result->v.get_fields_count(result);
@@ -480,7 +504,8 @@ struct sql_result sql_not_connected_result = {
 		sql_result_not_connected_free,
 		sql_result_not_connected_next_row,
 		NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-		sql_result_not_connected_get_error
+		sql_result_not_connected_get_error,
+		NULL,
 	},
 	.failed_try_retry = TRUE
 };

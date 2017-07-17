@@ -126,6 +126,8 @@ struct sql_result_vfuncs {
 	const char *const *(*get_values)(struct sql_result *result);
 
 	const char *(*get_error)(struct sql_result *result);
+	void (*more)(struct sql_result **result, bool async,
+		     sql_query_callback_t *callback, void *context);
 };
 
 struct sql_field_map {
