@@ -126,8 +126,8 @@ struct cassandra_result {
 	char *error;
 	CassConsistency consistency, fallback_consistency;
 	enum cassandra_query_type query_type;
-	struct timeval start_time, finish_time;
-	unsigned int row_count;
+	struct timeval page0_start_time, start_time, finish_time;
+	unsigned int row_count, total_row_count, page_num;
 
 	pool_t row_pool;
 	ARRAY_TYPE(const_string) fields;
@@ -138,6 +138,7 @@ struct cassandra_result {
 
 	unsigned int query_sent:1;
 	unsigned int finished:1;
+	unsigned int paging_continues:1;
 };
 
 struct cassandra_transaction_context {
@@ -700,11 +701,11 @@ static void driver_cassandra_result_unlink(struct cassandra_db *db,
 }
 
 static void driver_cassandra_log_result(struct cassandra_result *result,
-					long long reply_usecs)
+					bool all_pages, long long reply_usecs)
 {
 	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
 	struct timeval now;
-	const char *str;
+	unsigned int row_count;
 
 	if (db->log_level < CASS_LOG_DEBUG && !db->debug_queries &&
 	    reply_usecs/1000000 < db->warn_timeout_secs)
@@ -712,17 +713,26 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 
 	if (gettimeofday(&now, NULL) < 0)
 		i_fatal("gettimeofday() failed: %m");
-	str = t_strdup_printf(
-		"cassandra: Finished query '%s' (%u rows, %lld+%lld us): %s",
-		result->query, result->row_count, reply_usecs,
-		timeval_diff_usecs(&now, &result->finish_time),
-		result->error != NULL ? result->error : "success");
+
+	string_t *str = t_str_new(128);
+	str_printfa(str, "cassandra: Finished query '%s' (", result->query);
+	if (all_pages) {
+		str_printfa(str, "%u pages in total, ", result->page_num);
+		row_count = result->total_row_count;
+	} else {
+		if (result->page_num > 0 || result->paging_continues)
+			str_printfa(str, "page %u, ", result->page_num);
+		row_count = result->row_count;
+	}
+	str_printfa(str, "%u rows, %lld+%lld us): %s", row_count, reply_usecs,
+		    timeval_diff_usecs(&now, &result->finish_time),
+		    result->error != NULL ? result->error : "success");
 
 	if (reply_usecs/1000000 >= db->warn_timeout_secs) {
 		db->counters[CASSANDRA_COUNTER_TYPE_QUERY_SLOW]++;
-		i_warning("%s", str);
+		i_warning("%s", str_c(str));
 	} else {
-		i_debug("%s", str);
+		i_debug("%s", str_c(str));
 	}
 }
 
@@ -739,7 +749,15 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 		db->sync_result = NULL;
 
 	reply_usecs = timeval_diff_usecs(&result->finish_time, &result->start_time);
-	driver_cassandra_log_result(result, reply_usecs);
+	driver_cassandra_log_result(result, FALSE, reply_usecs);
+
+	if (result->page_num > 0 && !result->paging_continues) {
+		/* Multi-page query finishes now. Log a debug/warning summary
+		   message about it separate from the per-page messages. */
+		reply_usecs = timeval_diff_usecs(&result->finish_time,
+						 &result->page0_start_time);
+		driver_cassandra_log_result(result, TRUE, reply_usecs);
+	}
 
 	if (result->result != NULL)
 		cass_result_free(result->result);
@@ -849,8 +867,9 @@ static void query_callback(CassFuture *future, void *context)
 			error == CASS_ERROR_LIB_REQUEST_TIMED_OUT ?
 			SQL_RESULT_ERROR_TYPE_WRITE_UNCERTAIN :
 			SQL_RESULT_ERROR_TYPE_UNKNOWN;
-		result->error = i_strdup_printf("Query '%s' failed: %.*s (in %u.%03u secs)",
-			result->query, (int)errsize, errmsg, msecs/1000, msecs%1000);
+		result->error = i_strdup_printf("Query '%s' failed: %.*s (in %u.%03u secs%s)",
+			result->query, (int)errsize, errmsg, msecs/1000, msecs%1000,
+			result->page_num == 0 ? "" : t_strdup_printf(", page %u", result->page_num));
 
 		/* unavailable = cassandra server knows that there aren't
 		   enough nodes available. "All hosts in current policy
@@ -967,6 +986,8 @@ static int driver_cassandra_send_query(struct cassandra_result *result)
 		}
 	}
 
+	if (result->page0_start_time.tv_sec == 0)
+		result->page0_start_time = ioloop_timeval;
 	result->start_time = ioloop_timeval;
 	result->row_pool = pool_alloconly_create("cassandra result", 512);
 	switch (result->query_type) {
@@ -1236,6 +1257,7 @@ static int driver_cassandra_result_next_row(struct sql_result *_result)
 	if (!cass_iterator_next(result->iterator))
 		return driver_cassandra_result_next_page(result);
 	result->row_count++;
+	result->total_row_count++;
 
 	p_clear(result->row_pool);
 	p_array_init(&result->fields, result->row_pool, 8);
@@ -1272,6 +1294,11 @@ driver_cassandra_result_more(struct sql_result **_result, bool async,
 	old_result->statement = NULL;
 	cass_statement_set_paging_state(new_result->statement,
 					old_result->result);
+	old_result->paging_continues = TRUE;
+
+	new_result->page_num = old_result->page_num + 1;
+	new_result->page0_start_time = old_result->page0_start_time;
+	new_result->total_row_count = old_result->total_row_count;
 
 	sql_result_unref(*_result);
 	*_result = NULL;
