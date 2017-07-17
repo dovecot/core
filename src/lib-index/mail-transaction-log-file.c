@@ -574,7 +574,7 @@ mail_transaction_log_file_read_hdr(struct mail_transaction_log_file *file,
 			/* index file was probably just rebuilt and we don't
 			   know about it yet */
 			mail_transaction_log_file_set_corrupted(file,
-				"indexid changed %u -> %u",
+				"indexid changed: %u -> %u",
 				file->log->index->indexid, file->hdr.indexid);
 			return 0;
 		}
