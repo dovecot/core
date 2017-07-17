@@ -703,6 +703,21 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 
 	ret = sql_result_next_row(ctx->result);
+	while (ret == SQL_RESULT_NEXT_MORE) {
+		if ((ctx->flags & DICT_ITERATE_FLAG_ASYNC) == 0)
+			sql_result_more_s(&ctx->result);
+		else {
+			/* get more results asynchronously */
+			ctx->synchronous_result = TRUE;
+			sql_result_more(&ctx->result, sql_dict_iterate_callback, ctx);
+			ctx->synchronous_result = FALSE;
+			if (ctx->result == NULL) {
+				_ctx->has_more = TRUE;
+				return FALSE;
+			}
+		}
+		ret = sql_result_next_row(ctx->result);
+	}
 	if (ret == 0) {
 		/* see if there are more results in the next map.
 		   don't do it if we're looking for an exact match, since we
