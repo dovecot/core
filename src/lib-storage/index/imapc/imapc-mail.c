@@ -441,7 +441,7 @@ static void imapc_mail_close(struct mail *_mail)
 	if (mail->body_fetched) {
 		imapc_mail_cache_free(cache);
 		cache->uid = _mail->uid;
-		if (cache->fd != -1) {
+		if (mail->fd != -1) {
 			cache->fd = mail->fd;
 			mail->fd = -1;
 		} else {
