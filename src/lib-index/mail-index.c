@@ -931,6 +931,20 @@ void mail_index_file_set_syscall_error(struct mail_index *index,
 	i_assert(filepath != NULL);
 	i_assert(function != NULL);
 
+	if (errno == ENOENT) {
+		struct stat st;
+		int old_errno = errno;
+		i_assert(index->log->filepath != NULL);
+		if (nfs_safe_stat(index->log->filepath, &st) < 0 &&
+		    errno == ENOENT) {
+			/* the index log has gone away */
+			index->index_deleted = TRUE;
+			errno = old_errno;
+			return;
+		}
+		errno = old_errno;
+	}
+
 	if (ENOSPACE(errno)) {
 		index->nodiskspace = TRUE;
 		if ((index->flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
