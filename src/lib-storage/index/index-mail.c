@@ -2109,19 +2109,6 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 	(void)index_mail_parse_body_finish(mail, 0, success);
 }
 
-static void index_mail_drop_recent_flag(struct mail *mail)
-{
-	const struct mail_index_header *hdr;
-	uint32_t first_recent_uid = mail->uid + 1;
-
-	hdr = mail_index_get_header(mail->transaction->view);
-	if (hdr->first_recent_uid < first_recent_uid) {
-		mail_index_update_header(mail->transaction->itrans,
-			offsetof(struct mail_index_header, first_recent_uid),
-			&first_recent_uid, sizeof(first_recent_uid), FALSE);
-	}
-}
-
 static bool
 index_mail_update_pvt_flags(struct mail *_mail, enum modify_type modify_type,
 			    enum mail_flags pvt_flags)
@@ -2157,9 +2144,6 @@ void index_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 	enum mail_flags pvt_flags_mask, pvt_flags = 0;
 	bool update_modseq = FALSE;
 
-	if ((flags & MAIL_RECENT) == 0 &&
-	    mailbox_recent_flags_have_uid(_mail->box, _mail->uid))
-		index_mail_drop_recent_flag(_mail);
 	flags &= MAIL_FLAGS_NONRECENT | MAIL_INDEX_MAIL_FLAG_BACKEND;
 
 	if (_mail->box->view_pvt != NULL) {
