@@ -278,8 +278,17 @@ void index_sync_update_recent_count(struct mailbox *box)
 	uint32_t seq1, seq2;
 
 	hdr = mail_index_get_header(box->view);
+	if (hdr->first_recent_uid < ibox->recent_flags_prev_first_recent_uid) {
+		mail_storage_set_critical(box->storage,
+			"Mailbox %s: first_recent_uid unexpectedly shrank: %u -> %u",
+			box->vname, ibox->recent_flags_prev_first_recent_uid,
+			hdr->first_recent_uid);
+		mailbox_recent_flags_reset(box);
+	}
+
 	if (hdr->first_recent_uid > box->recent_flags_prev_uid ||
 	    hdr->next_uid > ibox->recent_flags_last_check_nextuid) {
+		ibox->recent_flags_prev_first_recent_uid = hdr->first_recent_uid;
 		ibox->recent_flags_last_check_nextuid = hdr->next_uid;
 		if (mail_index_lookup_seq_range(box->view,
 						hdr->first_recent_uid,
