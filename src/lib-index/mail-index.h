@@ -545,7 +545,8 @@ void mail_index_set_undeleted(struct mail_index_transaction *t);
 /* Returns TRUE if index has been set deleted. This gets set only after
    index has been opened/refreshed and the transaction has been seen. */
 bool mail_index_is_deleted(struct mail_index *index);
-/* Returns the last time mailbox was modified. */
+/* Returns the last time the index was modified. This can be called even if the
+   index isn't open. If the index doesn't exist, sets mtime to 0. */
 int mail_index_get_modification_time(struct mail_index *index, time_t *mtime_r);
 
 /* Lookup a keyword, returns TRUE if found, FALSE if not. */

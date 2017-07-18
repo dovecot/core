@@ -870,17 +870,27 @@ bool mail_index_is_deleted(struct mail_index *index)
 int mail_index_get_modification_time(struct mail_index *index, time_t *mtime_r)
 {
 	struct stat st;
+	const char *path;
 
-	if (mail_transaction_log_get_mtime(index->log, mtime_r) < 0)
-		return -1;
-
-	if (*mtime_r == 0) {
-		if (stat(index->filepath, &st) < 0) {
-			mail_index_set_syscall_error(index, "stat()");
-			return -1;
-		}
-		*mtime_r = st.st_mtime;
+	*mtime_r = 0;
+	if (MAIL_INDEX_IS_IN_MEMORY(index)) {
+		/* this function doesn't make sense for in-memory indexes */
+		return 0;
 	}
+
+	/* index may not be open, so index->filepath may be NULL */
+	path = t_strconcat(index->dir, "/", index->prefix,
+			   MAIL_TRANSACTION_LOG_SUFFIX, NULL);
+	if (stat(path, &st) < 0) {
+		if (errno == ENOENT) {
+			/* .log is always supposed to exist - don't bother
+			   trying to stat(dovecot.index) */
+			return 0;
+		}
+		mail_index_file_set_syscall_error(index, path, "stat()");
+		return -1;
+	}
+	*mtime_r = st.st_mtime;
 	return 0;
 }
 
