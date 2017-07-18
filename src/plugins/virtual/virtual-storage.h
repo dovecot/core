@@ -114,6 +114,7 @@ struct virtual_backend_box {
 	bool uids_nonsorted:1;
 	bool search_args_initialized:1;
 	bool deleted:1;
+	bool notify_changes_started:1; /* if the box was opened for notify_changes */
 };
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 
