@@ -39,6 +39,7 @@ struct index_mailbox_context {
 
 	struct mailbox_vsize_update *vsize_update;
 
+	uint32_t recent_flags_prev_first_recent_uid;
 	uint32_t recent_flags_last_check_nextuid;
 
 	time_t sync_last_check;
