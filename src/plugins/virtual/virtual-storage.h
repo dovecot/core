@@ -114,6 +114,7 @@ struct virtual_backend_box {
 	unsigned int uids_nonsorted:1;
 	unsigned int search_args_initialized:1;
 	unsigned int deleted:1;
+	unsigned int notify_changes_started:1; /* if the box was opened for notify_changes */
 };
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 

@@ -426,6 +426,12 @@ void virtual_backend_box_close(struct virtual_mailbox *mbox,
 	DLLIST2_REMOVE_FULL(&mbox->open_backend_boxes_head,
 			    &mbox->open_backend_boxes_tail, bbox,
 			    prev_open, next_open);
+
+	/* stop receiving notifications */
+	if (bbox->notify_changes_started)
+		mailbox_notify_changes_stop(bbox->box);
+	bbox->notify_changes_started = FALSE;
+
 	mailbox_close(bbox->box);
 }
 
@@ -693,7 +699,10 @@ static void virtual_notify_changes(struct mailbox *box)
 
 	if (box->notify_callback == NULL) {
 		array_foreach_modifiable(&mbox->backend_boxes, bboxp) {
-			mailbox_notify_changes_stop((*bboxp)->box);
+			if ((*bboxp)->notify_changes_started) {
+				mailbox_notify_changes_stop((*bboxp)->box);
+				(*bboxp)->notify_changes_started = FALSE;
+			}
 			if ((*bboxp)->notify != NULL)
 				mailbox_list_notify_deinit(&(*bboxp)->notify);
 		}
@@ -717,6 +726,7 @@ static void virtual_notify_changes(struct mailbox *box)
 		}
 		mailbox_notify_changes((*bboxp)->box,
 				       virtual_notify_callback, box);
+		(*bboxp)->notify_changes_started = TRUE;
 	}
 }
 
