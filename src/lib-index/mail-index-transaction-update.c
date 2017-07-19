@@ -223,6 +223,8 @@ void mail_index_append_finish_uids(struct mail_index_transaction *t,
 		if (recs[i].uid == 0 || recs[i].uid < first_uid) {
 			i_assert(next_uid < (uint32_t)-1);
 			recs[i].uid = next_uid++;
+			if (t->highest_append_uid < recs[i].uid)
+				t->highest_append_uid = recs[i].uid;
 		} else {
 			if (next_uid != first_uid)
 				t->appends_nonsorted = TRUE;
