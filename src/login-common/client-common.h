@@ -191,6 +191,9 @@ struct client {
 	   as in global_alt_usernames. If some field doesn't exist, it's "".
 	   Can also be NULL if there are no user_* fields. */
 	const char **alt_usernames;
+	/* director_username_hash cached, if non-zero */
+	unsigned int director_username_hash_cache;
+
 	bool destroyed:1;
 	bool input_blocked:1;
 	bool login_success:1;

@@ -927,13 +927,18 @@ static bool director_username_hash(struct client *client, unsigned int *hash_r)
 {
 	const char *error;
 
-	if (!mail_user_hash(client->virtual_user,
-			    client->set->director_username_hash,
-			    hash_r, &error)) {
+	if (client->director_username_hash_cache != 0) {
+		/* already set */
+	} else if (!mail_user_hash(client->virtual_user,
+				   client->set->director_username_hash,
+				   &client->director_username_hash_cache,
+				   &error)) {
 		i_error("Failed to expand director_username_hash=%s: %s",
 			client->set->director_username_hash, error);
 		return FALSE;
 	}
+
+	*hash_r = client->director_username_hash_cache;
 	return TRUE;
 }
 
