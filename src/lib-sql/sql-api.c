@@ -300,6 +300,8 @@ void sql_result_more_s(struct sql_result **result)
 	i_assert((*result)->v.more != NULL);
 
 	(*result)->v.more(result, FALSE, sql_result_more_sync_callback, result);
+	/* the callback must have been called */
+	i_assert(*result != NULL);
 }
 
 unsigned int sql_result_get_fields_count(struct sql_result *result)
