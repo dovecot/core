@@ -711,14 +711,22 @@ static void virtual_notify_changes(struct mailbox *box)
 	}
 
 	array_foreach_modifiable(&mbox->backend_boxes, bboxp) {
-		/* we are already waiting for notifications */
-	        if ((*bboxp)->notify != NULL)
-			continue;
-		/* wait for notifications */
-		if (virtual_notify_start(*bboxp) == 0)
-			continue;
-		/* it did not work, so open the mailbox and use
-		   alternative method */
+		if (array_count(&mbox->backend_boxes) == 1 &&
+		    (*bboxp)->box->opened) {
+			/* There's only a single backend mailbox and its
+			   indexes are already opened. Might as well use the
+			   backend directly for notifications. */
+		} else {
+			/* we are already waiting for notifications */
+			if ((*bboxp)->notify != NULL)
+				continue;
+			/* wait for notifications */
+			if (virtual_notify_start(*bboxp) == 0)
+				continue;
+			/* it did not work, so open the mailbox and use
+			   alternative method */
+		}
+
 		if (!(*bboxp)->box->opened &&
 		    virtual_backend_box_open(mbox, *bboxp) < 0) {
 			/* we can't report error in here, so do it later */
