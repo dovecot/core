@@ -455,7 +455,8 @@ static void virtual_mailbox_close_internal(struct virtual_mailbox *mbox)
 	for (i = 0; i < count; i++) {
 		if (bboxes[i]->box == NULL)
 			continue;
-
+		if (bboxes[i]->notify != NULL)
+			mailbox_list_notify_deinit(&bboxes[i]->notify);
 		if (bboxes[i]->box->opened)
 			virtual_backend_box_close(mbox, bboxes[i]);
 		mailbox_free(&bboxes[i]->box);
