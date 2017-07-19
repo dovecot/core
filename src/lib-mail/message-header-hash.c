@@ -30,22 +30,28 @@ void message_header_hash_more(struct message_header_hash_context *ctx,
 	   remove any repeated '?', which hopefully will satisfy everybody.
 
 	   Also:
-	   - Zimbra removes trailing spaces from IMAP BODY[HEADER], but not
-	   IMAP BODY[] or POP3 TOP. Just strip away all spaces with version 3.
-
+	   - Zimbra removes trailing spaces and tabs from IMAP BODY[HEADER],
+	   but not IMAP BODY[] or POP3 TOP. Just strip away all spaces with
+	   version 3 and tabs also with version 4.
 	*/
 	for (i = start = 0; i < size; i++) {
 		bool cur_is_questionmark = FALSE;
 
 		switch (data[i]) {
 		case ' ':
-			if (version == 3) {
+			if (version >= 3) {
 				/* strip away spaces */
 				method->loop(context, data + start, i-start);
 				start = i+1;
 			}
 			break;
 		case '\t':
+			if (version >= 4) {
+				/* strip away tabs */
+				method->loop(context, data + start, i-start);
+				start = i+1;
+			}
+			break;
 		case '\n':
 			break;
 		default:
