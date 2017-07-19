@@ -20,7 +20,7 @@ master_client_service_status_output(string_t *str,
 				    const struct service *service)
 {
 	str_append_tabescaped(str, service->set->name);
-	str_printfa(str, "\t%u\t%u\t%u\t%u\t%u\t%ld\t%u\t%ld\t%c\t%c\n",
+	str_printfa(str, "\t%u\t%u\t%u\t%u\t%u\t%ld\t%u\t%ld\t%c\t%c\t%c\n",
 		    service->process_count, service->process_avail,
 		    service->process_limit, service->client_limit,
 		    service->to_throttle == NULL ? 0 : service->throttle_secs,
@@ -28,7 +28,8 @@ master_client_service_status_output(string_t *str,
 		    service->exit_failures_in_sec,
 		    (long)service->last_drop_warning,
 		    service->listen_pending ? 'y' : 'n',
-		    service->listening ? 'y' : 'n');
+		    service->listening ? 'y' : 'n',
+		    service->doveadm_stop ? 'y' : 'n');
 }
 
 static int
@@ -90,8 +91,10 @@ master_client_stop(struct master_client *client, const char *const *args)
 		service = service_lookup(services, args[i]);
 		if (service == NULL)
 			reply = t_strdup_printf("-Unknown service: %s\n", args[i]);
-		else
+		else {
 			service_monitor_stop_close(service);
+			service->doveadm_stop = TRUE;
+		}
 	}
 	o_stream_send_str(client->conn.output, reply);
 	return 1;
