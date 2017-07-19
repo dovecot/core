@@ -207,7 +207,7 @@ int io_loop_extract_notify_fd(struct ioloop *ioloop)
 	struct io_notify *io;
 	int fd, new_kq;
 
-	if (ctx->kq == -1)
+	if (ctx == NULL || ctx->kq == -1)
 		return -1;
 
 	new_kq = kqueue();
