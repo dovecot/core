@@ -41,6 +41,12 @@ bool mail_user_hash(const char *username, const char *format,
 	} T_END;
 	for (i = 0; i < sizeof(hash); i++)
 		hash = (hash << CHAR_BIT) | md5[i];
+	if (hash == 0) {
+		/* Make sure we don't return the hash as 0, since it's often
+		   treated in a special way that won't work well. For example
+		   trying to insert it into a hash table will assert-crash. */
+		hash = 1;
+	}
 	*hash_r = hash;
 	*error_r = t_strdup(error_dup);
 	i_free(error_dup);
