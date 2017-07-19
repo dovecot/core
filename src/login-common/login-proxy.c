@@ -930,8 +930,14 @@ login_proxy_cmd_kick_alt(struct ipc_cmd *cmd, const char *const *args)
 
 static unsigned int director_username_hash(struct client *client)
 {
-	return mail_user_hash(client->virtual_user,
-			      client->set->director_username_hash);
+	if (client->director_username_hash_cache != 0) {
+		/* already set */
+	} else {
+		client->director_username_hash_cache =
+			mail_user_hash(client->virtual_user,
+				       client->set->director_username_hash);
+	}
+	return client->director_username_hash_cache;
 }
 
 static void
