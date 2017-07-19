@@ -221,7 +221,7 @@ int io_loop_extract_notify_fd(struct ioloop *ioloop)
 	struct io_notify *io;
 	int fd, new_inotify_fd;
 
-	if (ctx->inotify_fd == -1)
+	if (ctx == NULL || ctx->inotify_fd == -1)
 		return -1;
 
 	new_inotify_fd = inotify_init();
