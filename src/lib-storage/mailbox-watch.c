@@ -140,7 +140,10 @@ int mailbox_watch_extract_notify_fd(struct mailbox *box, const char **reason_r)
 	}
 	if (failed)
 		ret = -1;
-	else {
+	else if (array_count(&temp_ios) == 0) {
+		*reason_r = "Mailbox has no IO notifications";
+		ret = -1;
+	} else {
 		ret = io_loop_extract_notify_fd(ioloop);
 		if (ret == -1)
 			*reason_r = "Couldn't extra notify fd";
