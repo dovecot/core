@@ -58,12 +58,13 @@ enum cassandra_query_type {
 	CASSANDRA_QUERY_TYPE_READ,
 	CASSANDRA_QUERY_TYPE_READ_MORE,
 	CASSANDRA_QUERY_TYPE_WRITE,
-	CASSANDRA_QUERY_TYPE_DELETE
+	CASSANDRA_QUERY_TYPE_DELETE,
+
+	CASSANDRA_QUERY_TYPE_COUNT
 };
-#define CASSANDRA_QUERY_TYPE_COUNT 3
 
 static const char *cassandra_query_type_names[CASSANDRA_QUERY_TYPE_COUNT] = {
-	"read", "write", "delete"
+	"read", "read-more", "write", "delete"
 };
 
 struct cassandra_callback {
@@ -1013,6 +1014,8 @@ static int driver_cassandra_send_query(struct cassandra_result *result)
 		result->consistency = db->delete_consistency;
 		result->fallback_consistency = db->delete_fallback_consistency;
 		break;
+	case CASSANDRA_QUERY_TYPE_COUNT:
+		i_unreached();
 	}
 
 	if (driver_cassandra_want_fallback_query(result))
