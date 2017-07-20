@@ -321,6 +321,17 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 	mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE,
 				(enum mail_flags)node->flags);
 
+	/* set UIDVALIDITY if was set by the storage */
+	if (box->index != NULL) {
+		struct mail_index_view *view;
+
+		view = mail_index_view_open(box->index);
+		if (mail_index_get_header(view)->uid_validity != 0)
+			rec.uid_validity = mail_index_get_header(view)->uid_validity;
+		mail_index_view_close(&view);
+	}
+
+	/* set GUID */
 	memcpy(rec.guid, mailbox_guid, sizeof(rec.guid));
 	mail_index_update_ext(sync_ctx->trans, seq, ilist->ext_id, &rec, NULL);
 
