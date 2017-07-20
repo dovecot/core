@@ -284,6 +284,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 
 		i_zero(&res);
 		res.openldap_ret = ret;
+		res.error_string = error;
 		if (req->result_callback != NULL)
 			req->result_callback(&res, req->result_callback_ctx);
 
