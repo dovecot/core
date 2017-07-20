@@ -14,6 +14,8 @@
 #include "dict-private.h"
 #include "dict-ldap-settings.h"
 
+static const char *LDAP_ESCAPE_CHARS = "*,\\#+<>;\"()= ";
+
 struct ldap_dict;
 
 struct dict_ldap_op {
@@ -163,6 +165,27 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 	return ldap_client_init(&set, &dict->client, error_r);
 }
 
+#define IS_LDAP_ESCAPED_CHAR(c) \
+	((((unsigned char)(c)) & 0x80) != 0 || strchr(LDAP_ESCAPE_CHARS, (c)) != NULL)
+
+static const char *ldap_escape(const char *str)
+{
+	string_t *ret = NULL;
+
+	for (const char *p = str; *p != '\0'; p++) {
+		if (IS_LDAP_ESCAPED_CHAR(*p)) {
+			if (ret == NULL) {
+				ret = t_str_new((size_t) (p - str) + 64);
+				str_append_n(ret, str, (size_t) (p - str));
+			}
+			str_printfa(ret, "\\%02X", (unsigned char)*p);
+		} else if (ret != NULL)
+			str_append_c(ret, *p);
+	}
+
+	return ret == NULL ? str : str_c(ret);
+}
+
 static void
 ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
                       ARRAY_TYPE(const_string) *values, bool priv,
@@ -174,7 +197,7 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 	t_array_init(&exp, 8);
 	entry.key = '\0';
-	entry.value = dict->username;
+	entry.value = ldap_escape(dict->username);
 	entry.long_key = "username";
 	array_append(&exp, &entry, 1);
 
@@ -189,7 +212,7 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 		const char *const *valuep = array_idx(values, i);
 		const char *const *long_keyp = array_idx(&(map->ldap_attributes), i);
 
-		entry.value = *valuep;
+		entry.value = ldap_escape(*valuep);
 		entry.long_key = *long_keyp;
 		array_append(&exp, &entry, 1);
 	}
