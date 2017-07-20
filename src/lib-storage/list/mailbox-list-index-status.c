@@ -683,7 +683,8 @@ static int index_list_update_mailbox(struct mailbox *box)
 		ilist->updating_status = TRUE;
 		if (index_list_has_changed(box, list_view, &changes))
 			index_list_update(box, list_view, list_trans, &changes);
-		if (box->v.list_index_update_sync != NULL) {
+		if (box->v.list_index_update_sync != NULL &&
+		    !MAILBOX_IS_NEVER_IN_INDEX(box)) {
 			box->v.list_index_update_sync(box, list_trans,
 						      changes.seq);
 		}
