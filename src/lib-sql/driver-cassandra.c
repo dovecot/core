@@ -170,8 +170,6 @@ static struct {
 	{ CASS_CONSISTENCY_THREE, "three" },
 	{ CASS_CONSISTENCY_QUORUM, "" },
 	{ CASS_CONSISTENCY_ALL, "all" },
-	{ CASS_CONSISTENCY_QUORUM, "" },
-	{ CASS_CONSISTENCY_ALL, "all" },
 	{ CASS_CONSISTENCY_LOCAL_QUORUM, "local-quorum" },
 	{ CASS_CONSISTENCY_EACH_QUORUM, "each-quorum" },
 	{ CASS_CONSISTENCY_SERIAL, "serial" },
