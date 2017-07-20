@@ -343,9 +343,6 @@ static void virtual_backend_mailbox_close(struct mailbox *box)
 	struct virtual_backend_box *bbox = VIRTUAL_CONTEXT(box);
 	struct virtual_backend_mailbox *vbox = VIRTUAL_BACKEND_CONTEXT(box);
 
-	if (bbox != NULL && bbox->notify != NULL)
-		mailbox_list_notify_deinit(&bbox->notify);
-
 	if (bbox != NULL && bbox->open_tracked) {
 		/* we could have gotten here from e.g. mailbox_autocreate()
 		   without going through virtual_mailbox_close() */
