@@ -49,6 +49,8 @@
 #  define LDAP_OPT_SUCCESS LDAP_SUCCESS
 #endif
 
+static const char *LDAP_ESCAPE_CHARS = "*,\\#+<>;\"()= ";
+
 struct db_ldap_result {
 	int refcount;
 	LDAPMessage *msg;
@@ -1461,31 +1463,25 @@ db_ldap_value_get_var_expand_table(struct auth_request *auth_request,
 }
 
 #define IS_LDAP_ESCAPED_CHAR(c) \
-	((c) == '*' || (c) == '(' || (c) == ')' || (c) == '\\')
+	((((unsigned char)(c)) & 0x80) != 0 || strchr(LDAP_ESCAPE_CHARS, (c)) != NULL)
 
 const char *ldap_escape(const char *str,
 			const struct auth_request *auth_request ATTR_UNUSED)
 {
-	const char *p;
-	string_t *ret;
+	string_t *ret = NULL;
 
-	for (p = str; *p != '\0'; p++) {
-		if (IS_LDAP_ESCAPED_CHAR(*p))
-			break;
+	for (const char *p = str; *p != '\0'; p++) {
+		if (IS_LDAP_ESCAPED_CHAR(*p)) {
+			if (ret == NULL) {
+				ret = t_str_new((size_t) (p - str) + 64);
+				str_append_n(ret, str, (size_t) (p - str));
+			}
+			str_printfa(ret, "\\%02X", (unsigned char)*p);
+		} else if (ret != NULL)
+			str_append_c(ret, *p);
 	}
 
-	if (*p == '\0')
-		return str;
-
-	ret = t_str_new((size_t) (p - str) + 64);
-	str_append_n(ret, str, (size_t) (p - str));
-
-	for (; *p != '\0'; p++) {
-		if (IS_LDAP_ESCAPED_CHAR(*p))
-			str_append_c(ret, '\\');
-		str_append_c(ret, *p);
-	}
-	return str_c(ret);
+	return ret == NULL ? str : str_c(ret);
 }
 
 static bool
