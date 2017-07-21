@@ -155,6 +155,7 @@ struct virtual_mailbox {
 	unsigned int have_guid_flags_set:1;
 	unsigned int have_guids:1;
 	unsigned int have_save_guids:1;
+	unsigned int ext_header_rewrite:1;
 };
 
 extern MODULE_CONTEXT_DEFINE(virtual_storage_module,
