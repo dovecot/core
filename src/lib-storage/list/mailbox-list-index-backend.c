@@ -137,6 +137,8 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
 		type = MAILBOX_LIST_PATH_TYPE_ALT_DIR;
 		break;
+	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
+		i_unreached();
 	default:
 		break;
 	}

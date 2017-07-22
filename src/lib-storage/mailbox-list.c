@@ -166,6 +166,8 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		p_strdup(list->pool, set->subscription_fname);
 	list->set.list_index_fname =
 		p_strdup(list->pool, set->list_index_fname);
+	list->set.list_index_dir =
+		p_strdup(list->pool, set->list_index_dir);
 	list->set.maildir_name =
 		p_strdup(list->pool, set->maildir_name);
 	list->set.mailbox_dir_name =
@@ -280,7 +282,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 				 struct mailbox_list_settings *set_r,
 				 const char **error_r)
 {
-	const char *const *tmp, *key, *value, **dest, *str, *error;
+	const char *const *tmp, *key, *value, **dest, *str, *fname, *error;
 
 	*error_r = NULL;
 
@@ -372,6 +374,18 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 	    (set_r->index_dir == NULL || set_r->index_dir[0] == '\0')) {
 		*error_r = "ITERINDEX requires INDEX to be explicitly set";
 		return -1;
+	}
+	if (set_r->list_index_fname != NULL &&
+	    (fname = strrchr(set_r->list_index_fname, '/')) != NULL) {
+		/* non-default LISTINDEX directory */
+		set_r->list_index_dir =
+			t_strdup_until(set_r->list_index_fname, fname);
+		set_r->list_index_fname = fname+1;
+		if (set_r->list_index_dir[0] != '/' &&
+		    set_r->index_dir != NULL && set_r->index_dir[0] == '\0') {
+			*error_r = "LISTINDEX directory is relative but INDEX=MEMORY";
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -1416,6 +1430,20 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 		path = set->control_dir != NULL ?
 			set->control_dir : set->root_dir;
 		break;
+	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
+		if (set->list_index_dir != NULL) {
+			if (set->list_index_dir[0] == '/') {
+				path = set->list_index_dir;
+				break;
+			}
+			/* relative path */
+			if (!mailbox_list_set_get_root_path(set,
+					MAILBOX_LIST_PATH_TYPE_INDEX, &path))
+				i_unreached();
+			path = t_strconcat(path, "/", set->list_index_dir, NULL);
+			break;
+		}
+		/* fall through - default to index directory */
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		if (set->index_dir != NULL) {
 			if (set->index_dir[0] == '\0') {
@@ -1627,6 +1655,27 @@ int mailbox_list_mkdir_missing_index_root(struct mailbox_list *list)
 			return -1;
 	}
 	list->index_root_dir_created = TRUE;
+	return 1;
+}
+
+int mailbox_list_mkdir_missing_list_index_root(struct mailbox_list *list)
+{
+	const char *index_dir;
+
+	if (list->set.list_index_dir == NULL)
+		return mailbox_list_mkdir_missing_index_root(list);
+
+	/* LISTINDEX points outside the index root directory */
+	if (list->list_index_root_dir_created)
+		return 1;
+
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
+					&index_dir))
+		return 0;
+	if (mailbox_list_mkdir_root(list, index_dir,
+				    MAILBOX_LIST_PATH_TYPE_LIST_INDEX) < 0)
+		return -1;
+	list->list_index_root_dir_created = TRUE;
 	return 1;
 }
 

@@ -82,7 +82,10 @@ enum mailbox_list_path_type {
 	/* Return index directory ("" for in-memory) */
 	MAILBOX_LIST_PATH_TYPE_INDEX,
 	/* Return the private index directory (NULL if none) */
-	MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE
+	MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE,
+	/* Return mailbox list index directory (usually same as
+	   MAILBOX_LIST_PATH_TYPE_INDEX) */
+	MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
 };
 
 enum mailbox_list_file_type {
@@ -109,6 +112,9 @@ struct mailbox_list_settings {
 	const char *inbox_path;
 	const char *subscription_fname;
 	const char *list_index_fname;
+	/* Mailbox list index directory. NULL defaults to index directory.
+	   The path may be relative to the index directory. */
+	const char *list_index_dir;
 	/* If non-empty, it means that mails exist in a maildir_name
 	   subdirectory. eg. if you have a directory containing directories:
 
@@ -217,6 +223,9 @@ int mailbox_list_try_mkdir_root(struct mailbox_list *list, const char *path,
    same as mailbox root. Returns 1 if ok, 0 if there are no indexes, -1 if
    error. Calling this multiple times does the check only once. */
 int mailbox_list_mkdir_missing_index_root(struct mailbox_list *list);
+/* Like mailbox_list_mkdir_missing_index_root(), but for mailbox list
+   index root. */
+int mailbox_list_mkdir_missing_list_index_root(struct mailbox_list *list);
 
 /* Returns TRUE if name is ok, FALSE if it can't be safely passed to
    mailbox_list_*() functions */

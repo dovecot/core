@@ -98,8 +98,10 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 	if (ret <= 0)
 		return ret;
 
-	if (type == MAILBOX_LIST_PATH_TYPE_CONTROL ||
-	    type == MAILBOX_LIST_PATH_TYPE_INDEX) {
+	switch (type) {
+	case MAILBOX_LIST_PATH_TYPE_CONTROL:
+	case MAILBOX_LIST_PATH_TYPE_INDEX:
+	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		if (name == NULL && type == MAILBOX_LIST_PATH_TYPE_CONTROL &&
 		    list->set.control_dir != NULL) {
 			/* kind of a kludge for backwards compatibility:
@@ -119,8 +121,14 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 
 		*path_r = t_strconcat(t_strdup_until(path, p),
 				      "/"MBOX_INDEX_DIR_NAME"/", p+1, NULL);
-	} else {
+		break;
+	case MAILBOX_LIST_PATH_TYPE_DIR:
+	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
+	case MAILBOX_LIST_PATH_TYPE_MAILBOX:
+	case MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX:
+	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		*path_r = path;
+		break;
 	}
 	return 1;
 }

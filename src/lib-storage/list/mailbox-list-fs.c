@@ -129,6 +129,8 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 			return 0;
 		*path_r = fs_list_get_path_to(set, set->index_pvt_dir, name);
 		return 1;
+	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
+		i_unreached();
 	}
 
 	if (type == MAILBOX_LIST_PATH_TYPE_ALT_DIR ||
