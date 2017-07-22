@@ -139,6 +139,7 @@ struct mailbox_list {
 	ARRAY(union mailbox_list_module_context *) module_contexts;
 
 	unsigned int index_root_dir_created:1;
+	unsigned int list_index_root_dir_created:1;
 	unsigned int guid_cache_updated:1;
 	unsigned int guid_cache_invalidated:1;
 	unsigned int last_error_is_internal:1;

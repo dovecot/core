@@ -63,7 +63,7 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 	if (ilist->opened)
 		return 0;
 
-	if (mailbox_list_mkdir_missing_index_root(list) < 0)
+	if (mailbox_list_mkdir_missing_list_index_root(list) < 0)
 		return -1;
 
 	i_assert(ilist->index != NULL);
@@ -872,7 +872,7 @@ static void mailbox_list_index_init_finish(struct mailbox_list *list)
 
 	/* we've delayed this part of the initialization so that mbox format
 	   can override the index root directory path */
-	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX,
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
 					&dir)) {
 		/* in-memory indexes */
 		dir = NULL;
