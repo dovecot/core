@@ -40,6 +40,7 @@ struct master_login_postlogin {
 	struct timeout *to;
 	string_t *input;
 	char *username;
+	char *socket_path;
 };
 
 struct master_login {
@@ -231,13 +232,13 @@ static void master_login_postlogin_free(struct master_login_postlogin *pl)
 	if (close(pl->fd) < 0)
 		i_error("close(postlogin) failed: %m");
 	str_free(&pl->input);
+	i_free(pl->socket_path);
 	i_free(pl->username);
 	i_free(pl);
 }
 
 static void master_login_postlogin_input(struct master_login_postlogin *pl)
 {
-	struct master_login *login = pl->client->conn->login;
 	char buf[1024];
 	const char *const *auth_args;
 	size_t len;
@@ -263,11 +264,10 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 			if (errno == EAGAIN)
 				return;
 
-			i_error("fd_read(%s) failed: %m",
-				login->postlogin_socket_path);
+			i_error("fd_read(%s) failed: %m", pl->socket_path);
 		} else if (str_len(pl->input) > 0) {
 			i_error("fd_read(%s) failed: disconnected",
-				login->postlogin_socket_path);
+				pl->socket_path);
 		} else {
 			i_info("Post-login script denied access to user %s",
 			       pl->username);
@@ -284,17 +284,16 @@ static void master_login_postlogin_input(struct master_login_postlogin *pl)
 
 static void master_login_postlogin_timeout(struct master_login_postlogin *pl)
 {
-	struct master_login *login = pl->client->conn->login;
-
 	i_error("%s: Timeout waiting for post-login script to finish, aborting",
-		login->postlogin_socket_path);
+		pl->socket_path);
 
 	master_login_client_free(&pl->client);
 	master_login_postlogin_free(pl);
 }
 
 static int master_login_postlogin(struct master_login_client *client,
-				  const char *const *auth_args)
+				  const char *const *auth_args,
+				  const char *socket_path)
 {
 	struct master_login *login = client->conn->login;
 	struct master_login_postlogin *pl;
@@ -303,10 +302,10 @@ static int master_login_postlogin(struct master_login_client *client,
 	int fd;
 	ssize_t ret;
 
-	fd = net_connect_unix_with_retries(login->postlogin_socket_path, 1000);
+	fd = net_connect_unix_with_retries(socket_path, 1000);
 	if (fd == -1) {
 		i_error("net_connect_unix(%s) failed: %m%s",
-			login->postlogin_socket_path, errno != EAGAIN ? "" :
+			socket_path, errno != EAGAIN ? "" :
 			" - http://wiki2.dovecot.org/SocketUnavailable");
 		return -1;
 	}
@@ -323,11 +322,9 @@ static int master_login_postlogin(struct master_login_client *client,
 	ret = fd_send(fd, client->fd, str_data(str), str_len(str));
 	if (ret != (ssize_t)str_len(str)) {
 		if (ret < 0) {
-			i_error("write(%s) failed: %m",
-				login->postlogin_socket_path);
+			i_error("write(%s) failed: %m", socket_path);
 		} else {
-			i_error("write(%s) failed: partial write",
-				login->postlogin_socket_path);
+			i_error("write(%s) failed: partial write", socket_path);
 		}
 		i_close_fd(&fd);
 		return -1;
@@ -337,12 +334,23 @@ static int master_login_postlogin(struct master_login_client *client,
 	pl = i_new(struct master_login_postlogin, 1);
 	pl->client = client;
 	pl->username = i_strdup(auth_args[0]);
+	pl->socket_path = i_strdup(socket_path);
 	pl->fd = fd;
 	pl->io = io_add(fd, IO_READ, master_login_postlogin_input, pl);
 	pl->to = timeout_add(login->postlogin_timeout_secs * 1000,
 			     master_login_postlogin_timeout, pl);
 	pl->input = str_new(default_pool, 512);
 	return 0;
+}
+
+static const char *
+auth_args_find_postlogin_socket(const char *const *auth_args)
+{
+	for (unsigned int i = 0; auth_args[i] != NULL; i++) {
+		if (strncmp(auth_args[i], "postlogin=", 10) == 0)
+			return auth_args[i]+10;
+	}
+	return NULL;
 }
 
 static void
@@ -352,6 +360,7 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 	struct master_login_client *client = context;
 	struct master_login_connection *conn = client->conn;
 	struct master_auth_reply reply;
+	const char *postlogin_socket_path;
 
 	i_zero(&reply);
 	reply.tag = client->auth_req.tag;
@@ -372,7 +381,11 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 	i_set_failure_prefix("%s(%s): ", client->conn->login->service->name,
 			     auth_args[0]);
 
-	if (conn->login->postlogin_socket_path == NULL)
+	postlogin_socket_path = auth_args_find_postlogin_socket(auth_args);
+	if (postlogin_socket_path == NULL)
+		postlogin_socket_path = conn->login->postlogin_socket_path;
+
+	if (postlogin_socket_path == NULL)
 		master_login_auth_finish(client, auth_args);
 	else {
 		/* we've sent the reply. the connection is no longer needed,
@@ -382,7 +395,8 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 		master_login_conn_unref(&conn);
 
 		/* execute post-login scripts before finishing auth */
-		if (master_login_postlogin(client, auth_args) < 0)
+		if (master_login_postlogin(client, auth_args,
+					   postlogin_socket_path) < 0)
 			master_login_client_free(&client);
 	}
 }
