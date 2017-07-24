@@ -711,7 +711,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			if (errno == EACCES) {
 				i_error("%s", eacces_error_get("chdir",
 						t_strconcat(home, "/", NULL)));
-			} if (errno != ENOENT)
+			} else if (errno != ENOENT)
 				i_error("chdir(%s) failed: %m", home);
 			else if (mail_set->mail_debug)
 				i_debug("Home dir not found: %s", home);
