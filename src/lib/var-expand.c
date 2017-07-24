@@ -743,6 +743,11 @@ void var_expand_extensions_init(void)
 		array_append_space(&var_expand_extensions);
 	func->key = "pkcs5";
 	func->func = var_expand_hash;
+
+	/* if */
+	func = array_append_space(&var_expand_extensions);
+	func->key = "if";
+	func->func = var_expand_if;
 }
 
 void
