@@ -318,6 +318,109 @@ static void test_var_expand_extensions(void)
 	test_end();
 }
 
+static void test_var_expand_if(void)
+{
+	static const struct var_expand_table table[] = {
+		{ 'a', "alpha", "alpha" },
+		{ 'b', "beta", "beta" },
+		{ 'o', "1", "one" },
+		{ 't', "2", "two" },
+		{ '\0', ";:", "evil1" },
+		{ '\0', ";test;", "evil2" },
+		{ '\0', NULL, NULL }
+	};
+	const char *error;
+	string_t *dest = t_str_new(64);
+	test_begin("var_expand_if");
+
+	static const struct var_expand_test tests[] = {
+		/* basic numeric operand test */
+		{ "%{if;1;==;1;yes;no}", "yes", 1 },
+		{ "%{if;1;==;2;yes;no}", "no", 1 },
+		{ "%{if;1;<;1;yes;no}", "no", 1 },
+		{ "%{if;1;<;2;yes;no}", "yes", 1 },
+		{ "%{if;1;<=;1;yes;no}", "yes", 1 },
+		{ "%{if;1;<=;2;yes;no}", "yes", 1 },
+		{ "%{if;1;>;1;yes;no}", "no", 1 },
+		{ "%{if;1;>;2;yes;no}", "no", 1 },
+		{ "%{if;1;>=;1;yes;no}", "yes", 1 },
+		{ "%{if;1;>=;2;yes;no}", "no", 1 },
+		{ "%{if;1;!=;1;yes;no}", "no", 1 },
+		{ "%{if;1;!=;2;yes;no}", "yes", 1 },
+		/* basic string operand test */
+		{ "%{if;a;eq;a;yes;no}", "yes", 1 },
+		{ "%{if;a;eq;b;yes;no}", "no", 1 },
+		{ "%{if;a;lt;a;yes;no}", "no", 1 },
+		{ "%{if;a;lt;b;yes;no}", "yes", 1 },
+		{ "%{if;a;le;a;yes;no}", "yes", 1 },
+		{ "%{if;a;le;b;yes;no}", "yes", 1 },
+		{ "%{if;a;gt;a;yes;no}", "no", 1 },
+		{ "%{if;a;gt;b;yes;no}", "no", 1 },
+		{ "%{if;a;ge;a;yes;no}", "yes", 1 },
+		{ "%{if;a;ge;b;yes;no}", "no", 1 },
+		{ "%{if;a;ne;a;yes;no}", "no", 1 },
+		{ "%{if;a;ne;b;yes;no}", "yes", 1 },
+		{ "%{if;a;*;a;yes;no}", "yes", 1 },
+		{ "%{if;a;*;b;yes;no}", "no", 1 },
+		{ "%{if;a;*;*a*;yes;no}", "yes", 1 },
+		{ "%{if;a;*;*b*;yes;no}", "no", 1 },
+		{ "%{if;a;*;*;yes;no}", "yes", 1 },
+		{ "%{if;a;!*;a;yes;no}", "no", 1 },
+		{ "%{if;a;!*;b;yes;no}", "yes", 1 },
+		{ "%{if;a;!*;*a*;yes;no}", "no", 1 },
+		{ "%{if;a;!*;*b*;yes;no}", "yes", 1 },
+		{ "%{if;a;!*;*;yes;no}", "no", 1 },
+		{ "%{if;a;~;a;yes;no}", "yes", 1 },
+		{ "%{if;a;~;b;yes;no}", "no", 1 },
+		{ "%{if;a;~;.*a.*;yes;no}", "yes", 1 },
+		{ "%{if;a;~;.*b.*;yes;no}", "no", 1 },
+		{ "%{if;a;~;.*;yes;no}", "yes", 1 },
+		{ "%{if;a;!~;a;yes;no}", "no", 1 },
+		{ "%{if;a;!~;b;yes;no}", "yes", 1 },
+		{ "%{if;a;!~;.*a.*;yes;no}", "no", 1 },
+		{ "%{if;a;!~;.*b.*;yes;no}", "yes", 1 },
+		{ "%{if;a;!~;.*;yes;no}", "no", 1 },
+		{ "%{if;this is test;~;^test;yes;no}", "no", 1 },
+		{ "%{if;this is test;~;.*test;yes;no}", "yes", 1 },
+		/* variable expansion */
+		{ "%{if;%a;eq;%a;yes;no}", "yes", 1 },
+		{ "%{if;%a;eq;%b;yes;no}", "no", 1 },
+		{ "%{if;%{alpha};eq;%{alpha};yes;no}", "yes", 1 },
+		{ "%{if;%{alpha};eq;%{beta};yes;no}", "no", 1 },
+		{ "%{if;%o;eq;%o;yes;no}", "yes", 1 },
+		{ "%{if;%o;eq;%t;yes;no}", "no", 1 },
+		{ "%{if;%{one};eq;%{one};yes;no}", "yes", 1 },
+		{ "%{if;%{one};eq;%{two};yes;no}", "no", 1 },
+		{ "%{if;%{one};eq;%{one};%{one};%{two}}", "1", 1 },
+		{ "%{if;%{one};gt;%{two};%{one};%{two}}", "2", 1 },
+		{ "%{if;%{evil1};eq;\\;\\:;%{evil2};no}", ";test;", 1 },
+		/* inner if */
+		{ "%{if;%{if;%{one};eq;1;1;0};eq;%{if;%{two};eq;2;2;3};yes;no}", "no", 1 },
+		/* no false */
+		{ "%{if;1;==;1;yes}", "yes", 1 },
+		{ "%{if;1;==;2;yes}", "", 1 },
+		/* invalid input */
+		{ "%{if;}", "", -1 },
+		{ "%{if;1;}", "", -1 },
+		{ "%{if;1;==;}", "", -1 },
+		{ "%{if;1;==;2;}", "", -1 },
+		{ "%{if;1;fu;2;yes;no}", "", -1 },
+		/* missing variables */
+		{ "%{if;%{missing1};==;%{missing2};yes;no}", "", 0 },
+	};
+
+	for(size_t i = 0; i < N_ELEMENTS(tests); i++) {
+		int ret;
+		error = NULL;
+		str_truncate(dest, 0);
+		ret = var_expand(dest, tests[i].in, table, &error);
+		test_assert_idx(tests[i].ret == ret, i);
+		test_assert_idx(strcmp(tests[i].out, str_c(dest)) == 0, i);
+	}
+
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_ranges();
@@ -327,4 +430,5 @@ void test_var_expand(void)
 	test_var_get_key();
 	test_var_has_key();
 	test_var_expand_extensions();
+	test_var_expand_if();
 }
