@@ -40,6 +40,7 @@ var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 			  const char *const *args, const char **error_r)
 {
 	while(args != NULL && *args != NULL) {
+		int ret;
 		const char *k = t_strcut(*args, '=');
 		const char *value = strchr(*args, '=');
 		if (value == NULL) {
@@ -51,10 +52,10 @@ var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 
 		if (strcmp(k, "iv") == 0) {
 			str_truncate(ctx->iv, 0);
-			if (var_expand_with_funcs(ctx->iv, value, ctx->ctx->table,
-						  ctx->ctx->func_table,
-						  ctx->ctx->context, error_r) < 0) {
-				return -1;
+			if ((ret = var_expand_with_funcs(ctx->iv, value, ctx->ctx->table,
+							 ctx->ctx->func_table,
+							 ctx->ctx->context, error_r)) <= 0) {
+				return ret;
 			}
 			const char *hexiv = t_strdup(str_c(ctx->iv));
 			/* try to decode IV */
@@ -66,12 +67,12 @@ var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 			ctx->algo = value;
 		} else if (strcmp(k, "key") == 0) {
 			str_truncate(ctx->enckey, 0);
-			if (var_expand_with_funcs(ctx->enckey, value,
-						  ctx->ctx->table,
-						  ctx->ctx->func_table,
-						  ctx->ctx->context,
-						  error_r) < 0) {
-				return -1;
+			if ((ret = var_expand_with_funcs(ctx->enckey, value,
+							 ctx->ctx->table,
+							 ctx->ctx->func_table,
+							 ctx->ctx->context,
+							 error_r)) <= 0) {
+				return ret;
 			}
 			const char *hexkey = t_strdup(str_c(ctx->enckey));
 			str_truncate(ctx->enckey, 0);
@@ -96,7 +97,7 @@ var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 		ctx->algo = VAR_EXPAND_CRYPT_DEFAULT_ALGO;
 	}
 
-	return 0;
+	return 1;
 }
 
 static int
@@ -172,8 +173,8 @@ var_expand_encrypt(struct var_expand_context *_ctx,
 		return ret;
 	}
 
-	if (var_expand_crypt_settings(&ctx, args, error_r) < 0)
-		return -1;
+	if ((ret = var_expand_crypt_settings(&ctx, args, error_r)) <= 0)
+		return ret;
 
 	str_append(field_value, value);
 
@@ -252,8 +253,8 @@ var_expand_decrypt(struct var_expand_context *_ctx,
 		return ret;
 	}
 
-	if (var_expand_crypt_settings(&ctx, args, error_r) < 0)
-		return -1;
+	if ((ret = var_expand_crypt_settings(&ctx, args, error_r)) <= 0)
+		return ret;
 
 	const char *encdata = value;
 	const char *enciv = "";
