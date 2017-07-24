@@ -72,7 +72,7 @@ struct virtual_backend_box {
 	uint32_t mailbox_id;
 	const char *name;
 
-	unsigned int sync_mailbox_idx;
+	unsigned int sync_mailbox_idx1;
 	uint32_t sync_uid_validity;
 	uint32_t sync_next_uid;
 	uint64_t sync_highest_modseq;

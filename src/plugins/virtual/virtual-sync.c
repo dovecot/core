@@ -247,7 +247,7 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 				bbox->sync_highest_modseq =
 				mailboxes[i].highest_modseq;
 			bbox->sync_next_uid = mailboxes[i].next_uid;
-			bbox->sync_mailbox_idx = i;
+			bbox->sync_mailbox_idx1 = i+1;
 		}
 		ext_name_offset += mailboxes[i].name_len;
 		prev_mailbox_id = mailboxes[i].id;
@@ -306,7 +306,7 @@ static void virtual_sync_ext_header_rewrite(struct virtual_sync_context *ctx)
 		i_assert(i == 0 ||
 			 bboxes[i]->mailbox_id > bboxes[i-1]->mailbox_id);
 
-		bboxes[i]->sync_mailbox_idx = i;
+		bboxes[i]->sync_mailbox_idx1 = i+1;
 		mailbox.id = bboxes[i]->mailbox_id;
 		mailbox.name_len = strlen(bboxes[i]->name);
 		mailbox.uid_validity = bboxes[i]->sync_uid_validity;
@@ -1149,8 +1149,9 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 	mailbox.highest_modseq = bbox->ondisk_highest_modseq;
 	mailbox.next_uid = bbox->sync_next_uid;
 
+	i_assert(bbox->sync_mailbox_idx1 > 0);
 	mailbox_offset = sizeof(struct virtual_mail_index_header) +
-		bbox->sync_mailbox_idx * sizeof(mailbox);
+		(bbox->sync_mailbox_idx1-1) * sizeof(mailbox);
 	mail_index_update_header_ext(ctx->trans, ctx->mbox->virtual_ext_id,
 				     mailbox_offset + uidval_pos,
 				     CONST_PTR_OFFSET(&mailbox, uidval_pos),
