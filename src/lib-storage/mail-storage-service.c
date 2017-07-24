@@ -80,6 +80,7 @@ struct mail_storage_service_user {
 	const char *log_prefix, *auth_token, *auth_user;
 
 	const char *system_groups_user, *uid_source, *gid_source;
+	const char *chdir_path;
 	const struct mail_user_settings *user_set;
 	const struct setting_parser_info *user_info;
 	struct setting_parser_context *set_parser;
@@ -277,6 +278,8 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 		if (strncmp(line, "system_groups_user=", 19) == 0) {
 			user->system_groups_user =
 				p_strdup(user->pool, line + 19);
+		} else if (strncmp(line, "chdir=", 6) == 0) {
+			user->chdir_path = p_strdup(user->pool, line+6);
 		} else if (strncmp(line, "nice=", 5) == 0) {
 #ifdef HAVE_SETPRIORITY
 			int n;
@@ -724,17 +727,20 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		   because the current directory may not be accessible after
 		   dropping privileges, and for example unlink_directory()
 		   requires ability to open the current directory. */
-		if (home[0] == '\0') {
+		const char *chdir_path = user->chdir_path != NULL ?
+			user->chdir_path : home;
+
+		if (chdir_path[0] == '\0') {
 			if (chdir("/") < 0)
 				i_error("chdir(/) failed: %m");
-		} else if (chdir(home) < 0) {
+		} else if (chdir(chdir_path) < 0) {
 			if (errno == EACCES) {
 				i_error("%s", eacces_error_get("chdir",
-						t_strconcat(home, "/", NULL)));
+						t_strconcat(chdir_path, "/", NULL)));
 			} else if (errno != ENOENT)
-				i_error("chdir(%s) failed: %m", home);
+				i_error("chdir(%s) failed: %m", chdir_path);
 			else if (mail_set->mail_debug)
-				i_debug("Home dir not found: %s", home);
+				i_debug("Home dir not found: %s", chdir_path);
 
 			if (chdir("/") < 0)
 				i_error("chdir(/) failed: %m");
