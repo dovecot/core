@@ -252,7 +252,10 @@ static int test_var_expand_bad_func(struct var_expand_context *ctx ATTR_UNUSED,
 				    const char **result_r ATTR_UNUSED,
 				    const char **error_r)
 {
-	if (strcmp(key, "notfound") == 0) return 0;
+	if (strcmp(key, "notfound") == 0) {
+		*error_r = "Invalid field";
+		return 0;
+	}
 	*error_r = "Bad parameters";
 	return -1;
 }

@@ -402,8 +402,11 @@ var_expand_try_extension(struct var_expand_context *ctx,
 	array_foreach(&var_expand_extensions, f) {
 		/* ensure we won't match abbreviations */
 		size_t len = sep-key;
-		if (strncasecmp(key, f->key, len) == 0 && f->key[len] == '\0')
-			return f->func(ctx, key, data, var_r, error_r);
+		if (strncasecmp(key, f->key, len) == 0 && f->key[len] == '\0') {
+			ret = f->func(ctx, key, data, var_r, error_r);
+			i_assert(ret == 1 || *error_r != NULL);
+			return ret;
+		}
 	}
 	if ((ret = var_expand_func(ctx->func_table, key, data,
 				   ctx->context, var_r, error_r)) == 0) {
