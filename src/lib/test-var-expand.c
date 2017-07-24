@@ -273,6 +273,109 @@ static void test_var_expand_extensions(void)
 	test_end();
 }
 
+static void test_var_expand_if(void)
+{
+	static const struct var_expand_table table[] = {
+		{ 'a', "alpha", "alpha" },
+		{ 'b', "beta", "beta" },
+		{ 'o', "1", "one" },
+		{ 't', "2", "two" },
+		{ '\0', ";:", "evil1" },
+		{ '\0', ";test;", "evil2" },
+		{ '\0', NULL, NULL }
+	};
+	string_t *dest = t_str_new(64);
+	test_begin("var_expand_if");
+
+	static const struct var_expand_test tests[] = {
+		/* basic numeric operand test */
+		{ "%{if;1;==;1;yes;no}", "yes"},
+		{ "%{if;1;==;2;yes;no}", "no"},
+		{ "%{if;1;<;1;yes;no}", "no"},
+		{ "%{if;1;<;2;yes;no}", "yes"},
+		{ "%{if;1;<=;1;yes;no}", "yes"},
+		{ "%{if;1;<=;2;yes;no}", "yes"},
+		{ "%{if;1;>;1;yes;no}", "no"},
+		{ "%{if;1;>;2;yes;no}", "no"},
+		{ "%{if;1;>=;1;yes;no}", "yes"},
+		{ "%{if;1;>=;2;yes;no}", "no"},
+		{ "%{if;1;!=;1;yes;no}", "no"},
+		{ "%{if;1;!=;2;yes;no}", "yes"},
+		/* basic string operand test */
+		{ "%{if;a;eq;a;yes;no}", "yes"},
+		{ "%{if;a;eq;b;yes;no}", "no"},
+		{ "%{if;a;lt;a;yes;no}", "no"},
+		{ "%{if;a;lt;b;yes;no}", "yes"},
+		{ "%{if;a;le;a;yes;no}", "yes"},
+		{ "%{if;a;le;b;yes;no}", "yes"},
+		{ "%{if;a;gt;a;yes;no}", "no"},
+		{ "%{if;a;gt;b;yes;no}", "no"},
+		{ "%{if;a;ge;a;yes;no}", "yes"},
+		{ "%{if;a;ge;b;yes;no}", "no"},
+		{ "%{if;a;ne;a;yes;no}", "no"},
+		{ "%{if;a;ne;b;yes;no}", "yes"},
+		{ "%{if;a;*;a;yes;no}", "yes"},
+		{ "%{if;a;*;b;yes;no}", "no"},
+		{ "%{if;a;*;*a*;yes;no}", "yes"},
+		{ "%{if;a;*;*b*;yes;no}", "no"},
+		{ "%{if;a;*;*;yes;no}", "yes"},
+		{ "%{if;a;!*;a;yes;no}", "no"},
+		{ "%{if;a;!*;b;yes;no}", "yes"},
+		{ "%{if;a;!*;*a*;yes;no}", "no"},
+		{ "%{if;a;!*;*b*;yes;no}", "yes"},
+		{ "%{if;a;!*;*;yes;no}", "no"},
+		{ "%{if;a;~;a;yes;no}", "yes"},
+		{ "%{if;a;~;b;yes;no}", "no"},
+		{ "%{if;a;~;.*a.*;yes;no}", "yes"},
+		{ "%{if;a;~;.*b.*;yes;no}", "no"},
+		{ "%{if;a;~;.*;yes;no}", "yes"},
+		{ "%{if;a;!~;a;yes;no}", "no"},
+		{ "%{if;a;!~;b;yes;no}", "yes"},
+		{ "%{if;a;!~;.*a.*;yes;no}", "no"},
+		{ "%{if;a;!~;.*b.*;yes;no}", "yes"},
+		{ "%{if;a;!~;.*;yes;no}", "no"},
+		{ "%{if;this is test;~;^test;yes;no}", "no"},
+		{ "%{if;this is test;~;.*test;yes;no}", "yes"},
+		/* variable expansion */
+		{ "%{if;%a;eq;%a;yes;no}", "yes"},
+		{ "%{if;%a;eq;%b;yes;no}", "no"},
+		{ "%{if;%{alpha};eq;%{alpha};yes;no}", "yes"},
+		{ "%{if;%{alpha};eq;%{beta};yes;no}", "no"},
+		{ "%{if;%o;eq;%o;yes;no}", "yes"},
+		{ "%{if;%o;eq;%t;yes;no}", "no"},
+		{ "%{if;%{one};eq;%{one};yes;no}", "yes"},
+		{ "%{if;%{one};eq;%{two};yes;no}", "no"},
+		{ "%{if;%{one};eq;%{one};%{one};%{two}}", "1"},
+		{ "%{if;%{one};gt;%{two};%{one};%{two}}", "2"},
+		{ "%{if;%{evil1};eq;\\;\\:;%{evil2};no}", ";test;"},
+		/* inner if */
+		{ "%{if;%{if;%{one};eq;1;1;0};eq;%{if;%{two};eq;2;2;3};yes;no}", "no"},
+		/* no false */
+		{ "%{if;1;==;1;yes}", "yes"},
+		{ "%{if;1;==;2;yes}", ""},
+		/* invalid input */
+		{ "%{if;}", ""},
+		{ "%{if;1;}", ""},
+		{ "%{if;1;==;}", ""},
+		{ "%{if;1;==;2;}", ""},
+		{ "%{if;1;fu;2;yes;no}", ""},
+		/* missing variables */
+		{ "%{if;%{missing1};==;%{missing2};yes;no}", ""},
+	};
+
+	test_expect_errors(6);
+
+	for(size_t i = 0; i < N_ELEMENTS(tests); i++) {
+		str_truncate(dest, 0);
+		var_expand(dest, tests[i].in, table);
+		test_assert_idx(strcmp(tests[i].out, str_c(dest)) == 0, i);
+	}
+
+	test_expect_no_more_errors();
+
+	test_end();
+}
+
 void test_var_expand(void)
 {
 	test_var_expand_ranges();
@@ -282,4 +385,5 @@ void test_var_expand(void)
 	test_var_get_key();
 	test_var_has_key();
 	test_var_expand_extensions();
+	test_var_expand_if();
 }
