@@ -286,22 +286,16 @@ mail_storage_create_root(struct mailbox_list *list,
 	}
 
 	autocreate = (flags & MAIL_STORAGE_FLAG_NO_AUTOCREATE) == 0;
+	if (autocreate && list->set.iter_from_index_dir) {
+		/* If the directories don't exist, we'll just autocreate them
+		   later. FIXME: Make this the default in v2.3 even when
+		   ITERINDEX isn't used. */
+		return 0;
+	}
 	ret = mail_storage_verify_root(root_dir, type_name, autocreate, error_r);
 	if (ret == 0) {
-		const char *mail_root_dir;
-
-		if (!list->set.iter_from_index_dir)
-			mail_root_dir = root_dir;
-		else if (!mailbox_list_get_root_path(list,
-				MAILBOX_LIST_PATH_TYPE_MAILBOX, &mail_root_dir))
-			i_unreached();
-		ret = mailbox_list_try_mkdir_root(list, mail_root_dir,
-						  MAILBOX_LIST_PATH_TYPE_MAILBOX,
-						  error_r);
-	}
-	if (ret == 0 && list->set.iter_from_index_dir) {
 		ret = mailbox_list_try_mkdir_root(list, root_dir,
-						  MAILBOX_LIST_PATH_TYPE_INDEX,
+						  MAILBOX_LIST_PATH_TYPE_MAILBOX,
 						  error_r);
 	}
 	return ret < 0 ? -1 : 0;
