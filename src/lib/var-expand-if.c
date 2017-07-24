@@ -174,7 +174,7 @@ int var_expand_if(struct var_expand_context *ctx,
 	   by concatenating the key and field together. */
 	const char *input = t_strconcat(key, ":", field, NULL);
 	const char *p = strchr(input, ';');
-	const char *par_start, *par_end;
+	const char *par_end;
 	string_t *parbuf;
 	const char *const *parms;
 	unsigned int depth = 0;
@@ -187,12 +187,11 @@ int var_expand_if(struct var_expand_context *ctx,
 	}
 	ARRAY_TYPE(const_string) params;
 	t_array_init(&params, 6);
-	par_start = p+1;
 
 	parbuf = t_str_new(64);
 	/* we need to skip any %{} parameters here, so we can split the string
 	   correctly from , without breaking any inner expansions */
-	for(par_end = par_start; *par_end != '\0'; par_end++) {
+	for(par_end = p+1; *par_end != '\0'; par_end++) {
 		if (*par_end == '\\') {
 			escape = TRUE;
 			continue;
@@ -211,7 +210,6 @@ int var_expand_if(struct var_expand_context *ctx,
 		} else if (depth == 0 && *par_end == ';') {
 			const char *par = str_c(parbuf);
 			array_append(&params, &par, 1);
-			par_start = par_end + 1;
 			parbuf = t_str_new(64);
 			continue;
 		/* if there is a unescaped : at top level it means
