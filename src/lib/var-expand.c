@@ -219,9 +219,13 @@ var_expand_hash(struct var_expand_context *ctx,
 	const struct hash_method *method;
 	if (strcmp(algo, "pkcs5") == 0) {
 		method = hash_method_lookup("sha256");
-	} else if ((method = hash_method_lookup(algo)) == NULL) {
-		return 0;
+	} else {
+		method = hash_method_lookup(algo);
 	}
+
+	/* since this can get called only by registered algorithms
+	   it's not really possible for them to be suddenly missing */
+	i_assert(method != NULL);
 
 	string_t *field_value = t_str_new(64);
 	string_t *salt = t_str_new(64);
