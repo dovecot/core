@@ -251,6 +251,10 @@ void mail_index_free(struct mail_index **index);
    can be used to specify which transaction types to fsync. */
 void mail_index_set_fsync_mode(struct mail_index *index, enum fsync_mode mode,
 			       enum mail_index_fsync_mask mask);
+/* Try to set the index's permissions based on its index directory. Returns
+   TRUE if successful (directory existed), FALSE if mail_index_set_permissions()
+   should be called. */
+bool mail_index_use_existing_permissions(struct mail_index *index);
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid, const char *gid_origin);
 /* Set locking method and maximum time to wait for a lock
