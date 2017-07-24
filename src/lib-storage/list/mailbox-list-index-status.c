@@ -27,11 +27,10 @@ struct index_list_changes {
 struct index_list_storage_module index_list_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
-/* Never update the STATUS information for INBOX. INBOX is almost always opened
-   anyway, so this just causes extra writes. (Although this could be useful if
-   somebody has a lot of other users' shared INBOXes.) */
+/* Should the STATUS information for this mailbox not be written to the
+   mailbox list index? */
 #define MAILBOX_IS_NEVER_IN_INDEX(box) \
-	((box)->inbox_any)
+	((box)->inbox_any && !(box)->storage->set->mailbox_list_index_include_inbox)
 
 static int
 index_list_open_view(struct mailbox *box, bool status_check,

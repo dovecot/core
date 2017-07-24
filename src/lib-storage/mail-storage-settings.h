@@ -38,6 +38,7 @@ struct mail_storage_settings {
 	bool mail_nfs_index;
 	bool mailbox_list_index;
 	bool mailbox_list_index_very_dirty_syncs;
+	bool mailbox_list_index_include_inbox;
 	bool mail_debug;
 	bool mail_full_filesystem_access;
 	bool maildir_stat_dirs;
