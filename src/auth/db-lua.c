@@ -42,7 +42,7 @@ auth_request_lua_do_var_expand(struct auth_request *req, const char *tpl,
 			       const char **value_r, const char **error_r)
 {
 	const char *error;
-	if (t_auth_request_var_expand(tpl, req, NULL, value_r, &error) < 0) {
+	if (t_auth_request_var_expand(tpl, req, NULL, value_r, &error) <= 0) {
 		*error_r = t_strdup_printf("var_expand(%s) failed: %s",
 					   tpl, error);
 		return -1;
