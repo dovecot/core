@@ -104,6 +104,34 @@ void mail_index_set_fsync_mode(struct mail_index *index,
 	index->fsync_mask = mask;
 }
 
+bool mail_index_use_existing_permissions(struct mail_index *index)
+{
+	struct stat st;
+
+	if (stat(index->dir, &st) < 0)
+		return FALSE;
+
+	index->mode = st.st_mode & 0666;
+	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
+		/* directory's GID is used automatically for new files */
+		index->gid = (gid_t)-1;
+	} else if ((st.st_mode & 0070) >> 3 == (st.st_mode & 0007)) {
+		/* group has same permissions as world, so don't bother
+		   changing it */
+		index->gid = (gid_t)-1;
+	} else if (getegid() == st.st_gid) {
+		/* using our own gid, no need to change it */
+		index->gid = (gid_t)-1;
+	} else {
+		index->gid = st.st_gid;
+	}
+
+	i_free(index->gid_origin);
+	if (index->gid != (gid_t)-1)
+		index->gid_origin = i_strdup("preserved existing GID");
+	return TRUE;
+}
+
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid, const char *gid_origin)
 {
