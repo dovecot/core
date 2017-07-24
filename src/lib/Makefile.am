@@ -152,6 +152,7 @@ liblib_la_SOURCES = \
 	utc-offset.c \
 	utc-mktime.c \
 	var-expand.c \
+	var-expand-if.c \
 	wildcard-match.c \
 	write-full.c
 

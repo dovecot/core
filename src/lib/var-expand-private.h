@@ -49,4 +49,8 @@ void var_expand_extensions_deinit(void);
 void var_expand_register_func_array(const struct var_expand_extension_func_table *funcs);
 void var_expand_unregister_func_array(const struct var_expand_extension_func_table *funcs);
 
+int var_expand_if(struct var_expand_context *ctx,
+		  const char *key, const char *field,
+		  const char **result_r, const char **error_r);
+
 #endif
