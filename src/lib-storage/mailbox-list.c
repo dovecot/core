@@ -1213,6 +1213,11 @@ int mailbox_list_try_mkdir_root(struct mailbox_list *list, const char *path,
 	if (stat(path, &st) == 0) {
 		/* looks like it already exists, don't bother checking
 		   further. */
+		if (!S_ISDIR(st.st_mode)) {
+			*error_r = t_strdup_printf(
+				"Root directory is a file: %s", path);
+			return -1;
+		}
 		return 0;
 	}
 
