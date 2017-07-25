@@ -9,6 +9,7 @@
 #include "mail-storage.h"
 #include "mailbox-tree.h"
 #include "mailbox-list-subscriptions.h"
+#include "mailbox-list-iter-private.h"
 #include "mailbox-list-fs.h"
 
 #include <stdio.h>
@@ -741,6 +742,8 @@ fs_list_entry(struct fs_list_iterate_context *ctx,
 		   doesn't */
 		return 0;
 	}
+	if (mailbox_list_iter_try_delete_noselect(&ctx->ctx, &ctx->info, storage_name))
+		return 0;
 	return 1;
 }
 
