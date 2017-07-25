@@ -277,7 +277,7 @@ void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 	const char *root_dir, *p;
 	size_t len;
 
-	if (list->set.iter_from_index_dir &&
+	if (list->set.iter_from_index_dir && !list->set.no_noselect &&
 	    mailbox_list_path_is_index(list, type)) {
 		/* Don't auto-rmdir parent index directories with ITERINDEX.
 		   Otherwise it'll get us into inconsistent state with a
