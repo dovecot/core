@@ -133,6 +133,7 @@ static int var_expand_if_comp(const char *lhs, const char *_op, const char *rhs,
 		return 0;
 	case OP_STR_NOT_REGEXP:
 		neg = TRUE;
+		/* fall through */
 	case OP_STR_REGEXP: {
 		int ec;
 		bool res;
@@ -157,7 +158,7 @@ static int var_expand_if_comp(const char *lhs, const char *_op, const char *rhs,
 		   if NOT_REGEXP, neg == TRUE and res should be FALSE
 		   if REGEXP, ned == FALSE, and res should be TRUE
 		 */
-		*result_r = !res == neg;
+		*result_r = res != neg;
 		return 0;
 	}
 	default:
