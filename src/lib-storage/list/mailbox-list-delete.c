@@ -256,11 +256,34 @@ int mailbox_list_delete_mailbox_nonrecursive(struct mailbox_list *list,
 	return 0;
 }
 
+static bool mailbox_list_path_is_index(struct mailbox_list *list,
+				       enum mailbox_list_path_type type)
+{
+	const char *index_root, *type_root;
+
+	if (type == MAILBOX_LIST_PATH_TYPE_INDEX)
+		return TRUE;
+
+	/* e.g. CONTROL dir could point to the same INDEX dir. */
+	type_root = mailbox_list_get_root_forced(list, type);
+	index_root = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_INDEX);
+	return strcmp(type_root, index_root) == 0;
+}
+
 void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 				    enum mailbox_list_path_type type)
 {
 	const char *root_dir, *p;
 	size_t len;
+
+	if (list->set.iter_from_index_dir &&
+	    mailbox_list_path_is_index(list, type)) {
+		/* Don't auto-rmdir parent index directories with ITERINDEX.
+		   Otherwise it'll get us into inconsistent state with a
+		   \NoSelect mailbox in the mail directory but not in index
+		   directory. */
+		return;
+	}
 
 	root_dir = mailbox_list_get_root_forced(list, type);
 	if (strncmp(path, root_dir, strlen(root_dir)) != 0) {
@@ -350,18 +373,10 @@ static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 		}
 	}
 
-	if (!list->set.iter_from_index_dir ||
-	    type != MAILBOX_LIST_PATH_TYPE_INDEX) {
-		/* Avoid leaving empty parent directories lying around.
-		   We don't want to do it though when we're iterating mailboxes
-		   from index directory, since it'll get us into inconsistent
-		   state with a \NoSelect mailbox in the mail directory but not
-		   in index directory.
-
-		   These parent directories' existence or removal doesn't
-		   affect our return value. */
-		mailbox_list_delete_until_root(list, path, type);
-	}
+	/* Avoid leaving empty parent directories lying around.
+	   These parent directories' existence or removal doesn't
+	   affect our return value. */
+	mailbox_list_delete_until_root(list, path, type);
 	return ret;
 }
 
