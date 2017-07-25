@@ -255,17 +255,19 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	const char *path;
 	int ret;
 
+	ret = mailbox_list_get_path(list, name,
+				    MAILBOX_LIST_PATH_TYPE_MAILBOX, &path);
+	if (ret < 0)
+		return -1;
+	i_assert(ret > 0);
+
 	if ((list->flags & MAILBOX_LIST_FLAG_MAILBOX_FILES) != 0) {
-		ret = mailbox_list_get_path(list, name,
-					    MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					    &path);
-		if (ret < 0)
-			return -1;
-		i_assert(ret > 0);
 		ret = mailbox_list_delete_mailbox_file(list, name, path);
 	} else {
 		ret = fs_list_delete_maildir(list, name);
 	}
+	if (ret == 0 && list->set.no_noselect)
+		mailbox_list_delete_until_root(list, path, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 	i_assert(ret <= 0);
 	return mailbox_list_delete_finish_ret(list, name, ret == 0);

@@ -574,6 +574,12 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 	bool create_parent_dir;
 	int ret;
 
+	if ((box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) != 0) {
+		/* Layout doesn't support creating \NoSelect mailboxes.
+		   Switch to creating a selectable mailbox. */
+		directory = FALSE;
+	}
+
 	type = directory ? MAILBOX_LIST_PATH_TYPE_DIR :
 		MAILBOX_LIST_PATH_TYPE_MAILBOX;
 	if ((ret = mailbox_get_path_to(box, type, &path)) < 0)
@@ -630,8 +636,7 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 		return -1;
 	}
 
-	if (directory &&
-	    (box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) == 0) {
+	if (directory) {
 		/* we only wanted to create the directory and it's done now */
 		return 0;
 	}
