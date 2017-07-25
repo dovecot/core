@@ -65,6 +65,9 @@ int mailbox_list_delete_finish_ret(struct mailbox_list *list,
    The root isn't rmdir()ed. */
 void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 				    enum mailbox_list_path_type type);
+/* Call mailbox_list_delete_until_root() for all the paths of the mailbox. */
+void mailbox_list_delete_mailbox_until_root(struct mailbox_list *list,
+					    const char *storage_name);
 /* Wrapper to unlink_directory(UNLINK_DIRECTORY_FLAG_RMDIR). If it fails due
    to ELOOP, try to unlink() the path instead. */
 int mailbox_list_delete_trash(const char *path, const char **error_r);

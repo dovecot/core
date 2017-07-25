@@ -321,6 +321,24 @@ void mailbox_list_delete_until_root(struct mailbox_list *list, const char *path,
 	}
 }
 
+void mailbox_list_delete_mailbox_until_root(struct mailbox_list *list,
+					    const char *storage_name)
+{
+	enum mailbox_list_path_type types[] = {
+		MAILBOX_LIST_PATH_TYPE_DIR,
+		MAILBOX_LIST_PATH_TYPE_ALT_DIR,
+		MAILBOX_LIST_PATH_TYPE_CONTROL,
+		MAILBOX_LIST_PATH_TYPE_INDEX,
+		MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE,
+	};
+	const char *path;
+
+	for (unsigned int i = 0; i < N_ELEMENTS(types); i++) {
+		if (mailbox_list_get_path(list, storage_name, types[i], &path) > 0)
+			mailbox_list_delete_until_root(list, path, types[i]);
+	}
+}
+
 static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 				   enum mailbox_list_path_type type)
 {
@@ -464,4 +482,3 @@ int mailbox_list_delete_symlink_default(struct mailbox_list *list,
 	}
 	return -1;
 }
-

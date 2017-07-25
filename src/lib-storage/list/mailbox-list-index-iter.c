@@ -5,6 +5,7 @@
 #include "imap-match.h"
 #include "mail-storage.h"
 #include "mailbox-list-subscriptions.h"
+#include "mailbox-list-iter-private.h"
 #include "mailbox-list-index.h"
 
 static bool iter_use_index(struct mailbox_list *list,
@@ -174,8 +175,21 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 		follow_children = (match & (IMAP_MATCH_YES |
 					    IMAP_MATCH_CHILDREN)) != 0;
 		if (match == IMAP_MATCH_YES && iter_subscriptions_ok(ctx)) {
-			mailbox_list_index_update_next(ctx, TRUE);
-			return &ctx->info;
+			/* If this is a) \NoSelect leaf, b) not LAYOUT=index
+			   and c) NO-NOSELECT is set, try to rmdir the leaf
+			   directores from filesystem. (With LAYOUT=index the
+			   \NoSelect mailboxes aren't on the filesystem.) */
+			if (ilist->has_backing_store &&
+			    mailbox_list_iter_try_delete_noselect(_ctx, &ctx->info,
+								  str_c(ctx->path))) {
+				/* Deleted \NoSelect leaf. Refresh the index
+				   later on so it gets removed from the index
+				   as well. */
+				mailbox_list_index_refresh_later(_ctx->list);
+			} else {
+				mailbox_list_index_update_next(ctx, TRUE);
+				return &ctx->info;
+			}
 		} else if ((_ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0 &&
 			   (ctx->info.flags & MAILBOX_CHILD_SUBSCRIBED) == 0) {
 			/* listing only subscriptions, but there are no
