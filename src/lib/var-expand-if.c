@@ -66,6 +66,8 @@ static int var_expand_if_comp(const char *lhs, const char *_op, const char *rhs,
 {
 	bool neg = FALSE;
 	enum var_expand_if_op op = var_expand_if_str_to_comp(_op);
+
+	*result_r = FALSE;
 	if (op == OP_UNKNOWN) {
 		*error_r = t_strdup_printf("if: Unsupported comparator '%s'", _op);
 		return -1;
