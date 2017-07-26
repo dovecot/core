@@ -644,6 +644,38 @@ virtual_sync_mailbox_box_add(struct virtual_sync_context *ctx,
 	}
 }
 
+static void
+virtual_sync_mailbox_box_update_flags(struct virtual_sync_context *ctx,
+				      struct virtual_backend_box *bbox,
+				      const ARRAY_TYPE(seq_range) *uids_arr)
+{
+	unsigned int i, uid, vseq;
+	struct virtual_backend_uidmap *vuid;
+	struct seq_range_iter iter;
+
+	i = 0;
+	seq_range_array_iter_init(&iter, uids_arr);
+	while(seq_range_array_iter_nth(&iter, i++, &uid)) {
+		vuid = array_bsearch(&bbox->uids, &uid,
+				     virtual_backend_uidmap_bsearch_cmp);
+		if (vuid == NULL ||
+		    vuid->virtual_uid == 0 ||
+		    !mail_index_lookup_seq(ctx->sync_view,
+					   vuid->virtual_uid, &vseq)) {
+			/* the entry has been already removed either by
+			   us or some other session. doesn't matter,
+			   we don't need to update the flags.
+
+			   it might also have not yet been assigned a uid
+			   so we don't want to update the flags then either.
+			*/
+			continue;
+		}
+		virtual_sync_external_flags(ctx, bbox, vseq,
+					    vuid->real_uid);
+	}
+}
+
 static int virtual_backend_uidmap_cmp(const struct virtual_backend_uidmap *u1,
 				      const struct virtual_backend_uidmap *u2)
 {
@@ -825,6 +857,7 @@ static int virtual_sync_backend_box_continue(struct virtual_sync_context *ctx,
 				      &removed_uids);
 	}
 	virtual_sync_mailbox_box_add(ctx, bbox, &added_uids);
+	virtual_sync_mailbox_box_update_flags(ctx, bbox, &flag_update_uids);
 
 	bbox->search_result = result;
 	return 0;
