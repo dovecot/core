@@ -217,6 +217,7 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	   potentially a long time. imap-hibernate process is waiting for us
 	   to answer. Even if we fail later, we log the error anyway. */
 	o_stream_nsend_str(conn->output, "+\n");
+	(void)o_stream_flush(conn->output);
 
 	/* NOTE: before client_create_from_input() on failures we need to close
 	   fd_client, but afterward it gets closed by client_destroy() */
