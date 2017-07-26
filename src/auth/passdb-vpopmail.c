@@ -50,6 +50,9 @@ static bool vpopmail_is_disabled(struct auth_request *request,
 	if ((vpw->pw_flags & NO_POP) != 0 &&
 	    strcasecmp(request->service, "POP3") == 0)
 		return TRUE;
+	if ((vpw->pw_flags & NO_SMTP) != 0 &&
+	    strcasecmp(request->service, "SMTP") == 0)
+		return TRUE;
 	return FALSE;
 }
 
