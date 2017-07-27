@@ -303,7 +303,7 @@ static void test_http_response_parse_invalid(void)
 
 		while ((ret=http_response_parse_next(parser, HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &response, &error)) > 0);
 
-		test_assert(ret < 0);
+		test_out_reason("parse failure", ret < 0, error);
 		test_end();
 		http_response_parser_deinit(&parser);
 	} T_END;
