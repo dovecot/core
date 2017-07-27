@@ -229,7 +229,12 @@ http_message_parse_header(struct http_message_parser *parser,
 
 			   Date = HTTP-date
 			 */
-			(void)http_date_parse(data, size, &parser->msg.date);
+			if (!http_date_parse(data, size, &parser->msg.date) &&
+				(parser->flags & HTTP_MESSAGE_PARSE_FLAG_STRICT) != 0) {
+				parser->error = "Invalid Date header";
+				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_MESSAGE;
+				return -1;
+			}
 			return 0;
 		}
 		break;
