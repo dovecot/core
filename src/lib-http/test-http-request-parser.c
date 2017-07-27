@@ -139,6 +139,18 @@ valid_request_parse_tests[] = {
 		.expect_100_continue = TRUE
 	},{ .request =
 			"GET / HTTP/1.1\r\n"
+			"Date: Mon, 09 Kul 2018 02:24:29 GMT\r\n"
+			"Host: example.com\r\n"
+			"\r\n",
+		.method = "GET",
+		.target_raw = "/",
+		.target = {
+			.format = HTTP_REQUEST_TARGET_FORMAT_ORIGIN,
+			.url = { .host_name = "example.com" }
+		},
+		.version_major = 1, .version_minor = 1,
+	},{ .request =
+			"GET / HTTP/1.1\r\n"
 			"Date: Sun, 07 Oct 2012 19:52:03 GMT\r\n"
 			"Host: example.com\r\n"
 			"Date: Sun, 13 Oct 2013 13:13:13 GMT\r\n"
@@ -367,6 +379,14 @@ invalid_request_parse_tests[] = {
 			"Transfer-Encoding: cuneiform, chunked\r\n"
 			"\r\n",
 		.error_code = HTTP_REQUEST_PARSE_ERROR_NOT_IMPLEMENTED
+	},{
+		.request =
+			"GET / HTTP/1.1\r\n"
+			"Date: Mon, 09 Kul 2018 02:24:29 GMT\r\n"
+			"Host: example.com\r\n"
+			"\r\n",
+		.flags = HTTP_REQUEST_PARSE_FLAG_STRICT,
+		.error_code = HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST
 	},{
 		.request =
 			"GET / HTTP/1.1\r\n"
