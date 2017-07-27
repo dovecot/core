@@ -140,8 +140,8 @@ http_date_parse_word(struct http_date_parser *parser,
 		str_append_c(word, parser->cur[0]);
 		parser->cur++;
 	}
-	
-	if (i_isalpha(parser->cur[0]))
+
+	if (parser->cur < parser->end && i_isalpha(parser->cur[0]))
 		return -1;
 	*word_r = word;
 	return 1;
