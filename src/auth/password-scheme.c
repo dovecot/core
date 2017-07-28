@@ -262,6 +262,9 @@ bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 {
 	const struct password_scheme *s1 = NULL, *s2 = NULL;
 
+	if (*scheme1 == '\0' || *scheme2 == '\0')
+		return FALSE;
+
 	scheme1 = t_strcut(scheme1, '.');
 	scheme2 = t_strcut(scheme2, '.');
 
