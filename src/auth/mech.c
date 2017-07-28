@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "mech.h"
 #include "str.h"
+#include "strfuncs.h"
 #include "passdb.h"
 
 #include <ctype.h>
@@ -13,6 +14,7 @@ static struct mech_module_list *mech_modules;
 void mech_register_module(const struct mech_module *module)
 {
 	struct mech_module_list *list;
+	i_assert(strcmp(module->mech_name, t_str_ucase(module->mech_name)) == 0);
 
 	list = i_new(struct mech_module_list, 1);
 	list->module = *module;
@@ -38,9 +40,10 @@ void mech_unregister_module(const struct mech_module *module)
 const struct mech_module *mech_module_find(const char *name)
 {
 	struct mech_module_list *list;
+	name = t_str_ucase(name);
 
 	for (list = mech_modules; list != NULL; list = list->next) {
-		if (strcasecmp(list->module.mech_name, name) == 0)
+		if (strcmp(list->module.mech_name, name) == 0)
 			return &list->module;
 	}
 	return NULL;
@@ -144,9 +147,9 @@ mech_register_init(const struct auth_settings *set)
 
 	mechanisms = t_strsplit_spaces(set->mechanisms, " ");
 	for (; *mechanisms != NULL; mechanisms++) {
-		const char *name = *mechanisms;
+		const char *name = t_str_ucase(*mechanisms);
 
-		if (strcasecmp(name, "ANONYMOUS") == 0) {
+		if (strcmp(name, "ANONYMOUS") == 0) {
 			if (*set->anonymous_username == '\0') {
 				i_fatal("ANONYMOUS listed in mechanisms, "
 					"but anonymous_username not set");
@@ -180,9 +183,10 @@ const struct mech_module *
 mech_register_find(const struct mechanisms_register *reg, const char *name)
 {
 	const struct mech_module_list *list;
+	name = t_str_ucase(name);
 
 	for (list = reg->modules; list != NULL; list = list->next) {
-		if (strcasecmp(list->module.mech_name, name) == 0)
+		if (strcmp(list->module.mech_name, name) == 0)
 			return &list->module;
 	}
 	return NULL;
