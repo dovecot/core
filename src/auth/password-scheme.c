@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "hash.h"
 #include "base64.h"
 #include "hex-binary.h"
 #include "md4.h"
@@ -20,20 +21,12 @@
 static const char salt_chars[] =
 	"./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-ARRAY_TYPE(password_scheme_p) password_schemes;
+static HASH_TABLE(const char*, const struct password_scheme *) password_schemes;
 
 static const struct password_scheme *
 password_scheme_lookup_name(const char *name)
 {
-	const struct password_scheme *const *schemes;
-
-	array_foreach(&password_schemes, schemes) {
-		const struct password_scheme *scheme = *schemes;
-
-		if (strcasecmp(scheme->name, name) == 0)
-			return scheme;
-	}
-	return NULL;
+	return hash_table_lookup(password_schemes, name);
 }
 
 /* Lookup scheme and encoding by given name. The encoding is taken from
@@ -272,7 +265,7 @@ const char *password_generate_salt(size_t len)
 
 bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 {
-	const struct password_scheme *const *schemes, *s1 = NULL, *s2 = NULL;
+	const struct password_scheme *s1 = NULL, *s2 = NULL;
 
 	scheme1 = t_strcut(scheme1, '.');
 	scheme2 = t_strcut(scheme2, '.');
@@ -280,14 +273,8 @@ bool password_scheme_is_alias(const char *scheme1, const char *scheme2)
 	if (strcasecmp(scheme1, scheme2) == 0)
 		return TRUE;
 
-	array_foreach(&password_schemes, schemes) {
-		const struct password_scheme *scheme = *schemes;
-
-		if (strcasecmp(scheme->name, scheme1) == 0)
-			s1 = scheme;
-		else if (strcasecmp(scheme->name, scheme2) == 0)
-			s2 = scheme;
-	}
+	s1 = hash_table_lookup(password_schemes, scheme1);
+	s2 = hash_table_lookup(password_schemes, scheme2);
 
 	/* if they've the same generate function, they're equivalent */
 	return s1 != NULL && s2 != NULL &&
@@ -298,25 +285,27 @@ const char *
 password_scheme_detect(const char *plain_password, const char *crypted_password,
 		       const char *user)
 {
-	const struct password_scheme *const *schemes;
-	unsigned int i, count;
+	struct hash_iterate_context *ctx;
+	const char *key;
+	const struct password_scheme *scheme;
 	const unsigned char *raw_password;
 	size_t raw_password_size;
 	const char *error;
 
-	schemes = array_get(&password_schemes, &count);
-	for (i = 0; i < count; i++) {
-		if (password_decode(crypted_password, schemes[i]->name,
+	ctx = hash_table_iterate_init(password_schemes);
+	while (hash_table_iterate(ctx, password_schemes, &key, &scheme)) {
+		if (password_decode(crypted_password, scheme->name,
 				    &raw_password, &raw_password_size,
 				    &error) <= 0)
 			continue;
 
-		if (password_verify(plain_password, user, schemes[i]->name,
+		if (password_verify(plain_password, user, scheme->name,
 				    raw_password, raw_password_size,
 				    &error) > 0)
-			return schemes[i]->name;
+			break;
+		key = NULL;
 	}
-	return NULL;
+	return key;
 }
 
 int crypt_verify(const char *plaintext, const char *user ATTR_UNUSED,
@@ -847,29 +836,34 @@ void password_scheme_register(const struct password_scheme *scheme)
 		i_panic("password_scheme_register(%s): Already registered",
 			scheme->name);
 	}
-	array_append(&password_schemes, &scheme, 1);
+	hash_table_insert(password_schemes, scheme->name, scheme);
 }
 
 void password_scheme_unregister(const struct password_scheme *scheme)
 {
-	const struct password_scheme *const *schemes;
-	unsigned int idx;
+	if (!hash_table_try_remove(password_schemes, scheme->name))
+		i_panic("password_scheme_unregister(%s): Not registered", scheme->name);
+}
 
-	array_foreach(&password_schemes, schemes) {
-		if (strcasecmp((*schemes)->name, scheme->name) == 0) {
-			idx = array_foreach_idx(&password_schemes, schemes);
-			array_delete(&password_schemes, idx, 1);
-			return;
-		}
-	}
-	i_panic("password_scheme_unregister(%s): Not registered", scheme->name);
+void password_schemes_get(ARRAY_TYPE(password_scheme_p) *schemes_r)
+{
+        struct hash_iterate_context *ctx;
+        const char *key;
+        const struct password_scheme *scheme;
+        ctx = hash_table_iterate_init(password_schemes);
+        while(hash_table_iterate(ctx, password_schemes, &key, &scheme)) {
+		array_append(schemes_r, &scheme, 1);
+        }
+	hash_table_iterate_deinit(&ctx);
 }
 
 void password_schemes_init(void)
 {
 	unsigned int i;
 
-	i_array_init(&password_schemes, N_ELEMENTS(builtin_schemes) + 4);
+	hash_table_create(&password_schemes, default_pool,
+			  N_ELEMENTS(builtin_schemes)*2, strfastcase_hash,
+			  strcasecmp);
 	for (i = 0; i < N_ELEMENTS(builtin_schemes); i++)
 		password_scheme_register(&builtin_schemes[i]);
 	password_scheme_register_crypt();
@@ -877,5 +871,5 @@ void password_schemes_init(void)
 
 void password_schemes_deinit(void)
 {
-	array_free(&password_schemes);
+	hash_table_destroy(&password_schemes);
 }

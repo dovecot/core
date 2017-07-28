@@ -23,8 +23,8 @@ struct password_scheme {
 				  size_t *size_r);
 };
 ARRAY_DEFINE_TYPE(password_scheme_p, const struct password_scheme *);
+void password_schemes_get(ARRAY_TYPE(password_scheme_p) *schemes_r);
 
-extern ARRAY_TYPE(password_scheme_p) password_schemes;
 extern unsigned int password_scheme_encryption_rounds;
 
 /* Returns 1 = matched, 0 = didn't match, -1 = unknown scheme or invalid

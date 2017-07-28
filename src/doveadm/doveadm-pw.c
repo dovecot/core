@@ -73,10 +73,12 @@ static void cmd_pw(int argc, char *argv[])
 	}
 
 	if (list_schemes) {
+		ARRAY_TYPE(password_scheme_p) arr;
 		const struct password_scheme *const *schemes;
 		unsigned int i, count;
-
-		schemes = array_get(&password_schemes, &count);
+		t_array_init(&arr, 30);
+		password_schemes_get(&arr);
+		schemes = array_get(&arr, &count);
 		for (i = 0; i < count; i++)
 			printf("%s ", schemes[i]->name);
 		printf("\n");
