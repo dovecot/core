@@ -1296,6 +1296,19 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			ret = -2;
 		}
 	}
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0 &&
+	    user_set->mail_plugins[0] != '\0') {
+		/* mail_storage_service_load_modules() already avoids loading
+		   plugins when the _NO_PLUGINS flag is set. However, it's
+		   possible that the plugins are already loaded, because the
+		   plugin loading is a global state. This is especially true
+		   with doveadm, which loads the mail_plugins immediately at
+		   startup so it can find commands registered by plugins. It's
+		   fine that extra plugins are loaded - we'll just need to
+		   prevent any of their hooks from being called. One easy way
+		   to do this is just to clear out the mail_plugins setting: */
+		(void)settings_parse_line(user->set_parser, "mail_plugins=");
+	}
 
 	*user_r = user;
 	return ret;
