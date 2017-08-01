@@ -1642,6 +1642,8 @@ static int imapc_connection_ssl_init(struct imapc_connection *conn)
 static void imapc_connection_connected(struct imapc_connection *conn)
 {
 	const struct ip_addr *ip = &conn->ips[conn->prev_connect_idx];
+	struct ip_addr local_ip;
+	in_port_t local_port;
 	int err;
 	if (conn->io != NULL)
 		io_remove(&conn->io);
@@ -1654,6 +1656,11 @@ static void imapc_connection_connected(struct imapc_connection *conn)
 			strerror(err)), conn->client->set.connect_retry_interval_msecs, TRUE);
 		return;
 	}
+	if (net_getsockname(conn->fd, &local_ip, &local_port) < 0)
+		local_port = 0;
+	i_info("imapc(%s): Connected to %s:%u (local %s:%u)", conn->name,
+	       net_ip2addr(ip), conn->client->set.port,
+	       net_ip2addr(&local_ip), local_port);
 	conn->io = io_add(conn->fd, IO_READ, imapc_connection_input, conn);
 
 	if (conn->client->set.ssl_mode == IMAPC_CLIENT_SSL_MODE_IMMEDIATE) {
