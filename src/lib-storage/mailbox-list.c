@@ -357,6 +357,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 				return -1;
 			}
 			set_r->broken_char = value[0];
+			continue;
 		} else if (strcmp(key, "ITERINDEX") == 0) {
 			set_r->iter_from_index_dir = TRUE;
 			continue;
