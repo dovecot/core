@@ -323,6 +323,8 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	set.debug = mail_set->mail_debug;
 	set.rawlog_dir = mail_user_home_expand(ns->user,
 					       imapc_set->imapc_rawlog_dir);
+	if ((imapc_set->parsed_features & IMAPC_FEATURE_SEND_ID) != 0)
+		set.session_id_prefix = ns->user->session_id;
 
 	str = t_str_new(128);
 	mail_user_set_get_temp_prefix(str, ns->user->set);

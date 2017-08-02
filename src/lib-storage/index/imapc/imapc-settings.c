@@ -102,6 +102,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "modseq", IMAPC_FEATURE_MODSEQ },
 	{ "delay-login", IMAPC_FEATURE_DELAY_LOGIN },
 	{ "fetch-bodystructure", IMAPC_FEATURE_FETCH_BODYSTRUCTURE },
+	{ "send-id", IMAPC_FEATURE_SEND_ID },
 	{ NULL, 0 }
 };
 
