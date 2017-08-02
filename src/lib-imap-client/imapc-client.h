@@ -32,6 +32,7 @@ enum imapc_capability {
 	IMAPC_CAPABILITY_ESEARCH	= 0x800,
 	IMAPC_CAPABILITY_WITHIN		= 0x1000,
 	IMAPC_CAPABILITY_QUOTA		= 0x2000,
+	IMAPC_CAPABILITY_ID		= 0x4000,
 
 	IMAPC_CAPABILITY_IMAP4REV1	= 0x40000000
 };
@@ -85,6 +86,9 @@ struct imapc_client_settings {
 	const char *sasl_mechanisms;
 	bool use_proxyauth; /* Use Sun/Oracle PROXYAUTH command */
 	unsigned int max_idle_time;
+	/* If ID capability is advertised, send a unique "x-session-ext-id",
+	   which begins with this prefix. */
+	const char *session_id_prefix;
 
 	const char *dns_client_socket_path;
 	const char *temp_path_prefix;

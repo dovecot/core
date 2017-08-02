@@ -32,6 +32,7 @@ const struct imapc_capability_name imapc_capability_names[] = {
 	{ "ESEARCH", IMAPC_CAPABILITY_ESEARCH },
 	{ "WITHIN", IMAPC_CAPABILITY_WITHIN },
 	{ "QUOTA", IMAPC_CAPABILITY_QUOTA },
+	{ "ID", IMAPC_CAPABILITY_ID },
 
 	{ "IMAP4REV1", IMAPC_CAPABILITY_IMAP4REV1 },
 	{ NULL, 0 }
@@ -68,6 +69,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 	client->set.username = p_strdup(pool, set->username);
 	client->set.password = p_strdup(pool, set->password);
 	client->set.sasl_mechanisms = p_strdup(pool, set->sasl_mechanisms);
+	client->set.session_id_prefix = p_strdup(pool, set->session_id_prefix);
 	client->set.use_proxyauth = set->use_proxyauth;
 	client->set.dns_client_socket_path =
 		p_strdup(pool, set->dns_client_socket_path);

@@ -1081,6 +1081,28 @@ imapc_connection_starttls_cb(const struct imapc_command_reply *reply,
 	}
 }
 
+static void
+imapc_connection_id_callback(const struct imapc_command_reply *reply ATTR_UNUSED,
+			     void *context ATTR_UNUSED)
+{
+}
+
+static void imapc_connection_send_id(struct imapc_connection *conn)
+{
+	static unsigned int global_id_counter = 0;
+	struct imapc_command *cmd;
+
+	if ((conn->capabilities & IMAPC_CAPABILITY_ID) == 0 ||
+	    conn->client->set.session_id_prefix == NULL)
+		return;
+
+	cmd = imapc_connection_cmd(conn, imapc_connection_id_callback, conn);
+	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN);
+	imapc_command_send(cmd, t_strdup_printf(
+		"ID (\"name\" \"Dovecot\" \"x-session-ext-id\" \"%s-%u\")",
+		conn->client->set.session_id_prefix, ++global_id_counter));
+}
+
 static void imapc_connection_starttls(struct imapc_connection *conn)
 {
 	struct imapc_command *cmd;
@@ -1100,6 +1122,7 @@ static void imapc_connection_starttls(struct imapc_connection *conn)
 		imapc_command_send(cmd, "STARTTLS");
 		return;
 	}
+	imapc_connection_send_id(conn);
 	imapc_connection_authenticate(conn);
 }
 
