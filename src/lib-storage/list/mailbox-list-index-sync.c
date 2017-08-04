@@ -462,6 +462,7 @@ int mailbox_list_index_sync(struct mailbox_list *list, bool refresh)
 	} else if (refresh ||
 		   sync_ctx->ilist->call_corruption_callback ||
 		   sync_ctx->ilist->corrupted_names_or_parents ||
+		   sync_ctx->ilist->highest_name_id == 0 ||
 		   !sync_ctx->list->mail_set->mailbox_list_index_very_dirty_syncs) {
 		/* sync the index against the backing store */
 		ret = mailbox_list_index_sync_list(sync_ctx);
