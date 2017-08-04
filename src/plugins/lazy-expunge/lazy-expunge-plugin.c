@@ -59,6 +59,7 @@ struct lazy_expunge_transaction {
 	HASH_TABLE(const char *, void *) guids;
 
 	char *delayed_errstr;
+	char *delayed_internal_errstr;
 	enum mail_error delayed_error;
 
 	bool copy_only_last_instance;
@@ -271,6 +272,8 @@ static void lazy_expunge_set_error(struct lazy_expunge_transaction *lt,
 		return;
 	lt->delayed_error = error;
 	lt->delayed_errstr = i_strdup(errstr);
+	lt->delayed_internal_errstr =
+		i_strdup(mail_storage_get_last_internal_error(storage, NULL));
 }
 
 static void lazy_expunge_mail_expunge(struct mail *_mail)
@@ -398,6 +401,7 @@ static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
 	if (lt->pool != NULL)
 		pool_unref(&lt->pool);
 	i_free(lt->delayed_errstr);
+	i_free(lt->delayed_internal_errstr);
 	i_free(lt);
 }
 
@@ -424,7 +428,8 @@ lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
 		ret = -1;
 	} else {
 		mail_storage_set_critical(ctx->box->storage,
-			"Lazy-expunge transaction failed: %s", lt->delayed_errstr);
+			"Lazy-expunge transaction failed: %s",
+			lt->delayed_internal_errstr);
 		mbox->super.transaction_rollback(ctx);
 		ret = -1;
 	}
