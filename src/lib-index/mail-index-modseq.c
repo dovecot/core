@@ -490,15 +490,16 @@ mail_index_modseq_sync_begin(struct mail_index_sync_map_ctx *sync_map_ctx)
 	return ctx;
 }
 
-static void mail_index_modseq_update_header(struct mail_index_view *view,
-					    uint64_t highest_modseq)
+static void mail_index_modseq_update_header(struct mail_index_modseq_sync *ctx)
 {
+	struct mail_index_view *view = ctx->view;
 	struct mail_index_map *map = view->map;
 	const struct mail_index_ext *ext;
 	const struct mail_index_modseq_header *old_modseq_hdr;
 	struct mail_index_modseq_header new_modseq_hdr;
 	uint32_t ext_map_idx, log_seq;
 	uoff_t log_offset;
+	uint64_t highest_modseq;
 
 	if (!mail_index_map_get_ext_idx(map, view->index->modseq_ext_id,
 					&ext_map_idx))
@@ -506,6 +507,7 @@ static void mail_index_modseq_update_header(struct mail_index_view *view,
 
 	mail_transaction_log_view_get_prev_pos(view->log_view,
 					       &log_seq, &log_offset);
+	highest_modseq = mail_transaction_log_view_get_prev_modseq(view->log_view);
 
 	ext = array_idx(&map->extensions, ext_map_idx);
 	old_modseq_hdr = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
@@ -532,7 +534,7 @@ void mail_index_modseq_sync_end(struct mail_index_modseq_sync **_ctx)
 	*_ctx = NULL;
 	if (ctx->mmap != NULL) {
 		i_assert(ctx->mmap == ctx->view->map->rec_map->modseq);
-		mail_index_modseq_update_header(ctx->view, ctx->highest_modseq);
+		mail_index_modseq_update_header(ctx);
 	}
 	i_free(ctx);
 }
