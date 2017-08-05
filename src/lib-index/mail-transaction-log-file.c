@@ -1020,7 +1020,7 @@ flag_updates_have_non_internal(const struct mail_transaction_flag_update *u,
 		return TRUE;
 
 	for (unsigned int i = 0; i < count; i++) {
-		if (!MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(u))
+		if (!MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(&u[i]))
 			return TRUE;
 	}
 	return FALSE;
