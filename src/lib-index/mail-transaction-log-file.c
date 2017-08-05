@@ -1013,9 +1013,6 @@ static bool
 flag_updates_have_non_internal(const struct mail_transaction_flag_update *u,
 			       unsigned int count, unsigned int version)
 {
-	const uint8_t internal_flags =
-		MAIL_INDEX_MAIL_FLAG_BACKEND | MAIL_INDEX_MAIL_FLAG_DIRTY;
-
 	/* Hide internal flags from modseqs if the log file's version
 	   is new enough. This allows upgrading without the modseqs suddenly
 	   shrinking. */
@@ -1023,9 +1020,7 @@ flag_updates_have_non_internal(const struct mail_transaction_flag_update *u,
 		return TRUE;
 
 	for (unsigned int i = 0; i < count; i++) {
-		uint8_t changed_flags = u->add_flags | u->remove_flags;
-
-		if ((changed_flags & ~internal_flags) != 0)
+		if (!MAIL_TRANSACTION_FLAG_UPDATE_IS_INTERNAL(u))
 			return TRUE;
 	}
 	return FALSE;
