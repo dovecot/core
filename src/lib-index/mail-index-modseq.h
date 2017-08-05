@@ -57,8 +57,6 @@ void mail_index_modseq_update_keyword(struct mail_index_modseq_sync *ctx,
 				      uint32_t seq1, uint32_t seq2);
 void mail_index_modseq_reset_keywords(struct mail_index_modseq_sync *ctx,
 				      uint32_t seq1, uint32_t seq2);
-void mail_index_modseq_update_highest(struct mail_index_modseq_sync *ctx,
-				      uint64_t highest_modseq);
 
 struct mail_index_map_modseq *
 mail_index_map_modseq_clone(const struct mail_index_map_modseq *mmap);

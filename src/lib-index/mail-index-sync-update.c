@@ -345,7 +345,7 @@ sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
 	struct mail_index_view *view = ctx->view;
 	const struct mail_transaction_modseq_update *end;
 	uint32_t seq;
-	uint64_t min_modseq, highest_modseq = 0;
+	uint64_t min_modseq;
 	int ret;
 
 	end = CONST_PTR_OFFSET(u, size);
@@ -357,8 +357,6 @@ sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
 
 		min_modseq = ((uint64_t)u->modseq_high32 << 32) |
 			u->modseq_low32;
-		if (highest_modseq < min_modseq)
-			highest_modseq = min_modseq;
 
 		ret = seq == 0 ? 1 :
 			mail_index_modseq_set(view, seq, min_modseq);
@@ -370,8 +368,6 @@ sync_modseq_update(struct mail_index_sync_map_ctx *ctx,
 		if (ret == 0 && sync_update_ignored_change(ctx))
 			view->index->sync_commit_result->ignored_modseq_changes++;
 	}
-
-	mail_index_modseq_update_highest(ctx->modseq_ctx, highest_modseq);
 	return 1;
 }
 
@@ -528,7 +524,6 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 			    const struct mail_transaction_header *hdr,
 			    const void *data)
 {
-	uint64_t modseq;
 	int ret = 0;
 
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
@@ -804,8 +799,6 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 	case MAIL_TRANSACTION_BOUNDARY:
 		break;
 	case MAIL_TRANSACTION_ATTRIBUTE_UPDATE:
-		modseq = mail_transaction_log_view_get_prev_modseq(ctx->view->log_view);
-		mail_index_modseq_update_highest(ctx->modseq_ctx, modseq);
 		break;
 	default:
 		mail_index_sync_set_corrupted(ctx,
