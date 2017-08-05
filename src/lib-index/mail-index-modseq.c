@@ -581,8 +581,13 @@ static void
 modseqs_update(ARRAY_TYPE(modseqs) *array, uint32_t seq1, uint32_t seq2,
 	       uint64_t value)
 {
-	for (; seq1 <= seq2; seq1++)
-		array_idx_set(array, seq1-1, &value);
+	uint64_t *modseqp;
+
+	for (; seq1 <= seq2; seq1++) {
+		modseqp = array_idx_modifiable(array, seq1-1);
+		if (*modseqp < value)
+			*modseqp = value;
+	}
 }
 
 static void
@@ -590,6 +595,7 @@ modseqs_idx_update(struct mail_index_modseq_sync *ctx, unsigned int idx,
 		   uint32_t seq1, uint32_t seq2)
 {
 	struct metadata_modseqs *metadata;
+	uint64_t modseq;
 
 	if (!ctx->view->index->modseqs_enabled) {
 		/* we want to keep permanent modseqs updated, but don't bother
@@ -597,10 +603,11 @@ modseqs_idx_update(struct mail_index_modseq_sync *ctx, unsigned int idx,
 		return;
 	}
 
+	modseq = mail_transaction_log_view_get_prev_modseq(ctx->log_view);
 	metadata = array_idx_modifiable(&ctx->mmap->metadata_modseqs, idx);
 	if (!array_is_created(&metadata->modseqs))
 		i_array_init(&metadata->modseqs, seq2 + 16);
-	modseqs_update(&metadata->modseqs, seq1, seq2, ctx->highest_modseq);
+	modseqs_update(&metadata->modseqs, seq1, seq2, modseq);
 }
 
 void mail_index_modseq_update_flags(struct mail_index_modseq_sync *ctx,
