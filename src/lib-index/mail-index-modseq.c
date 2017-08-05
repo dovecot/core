@@ -428,7 +428,7 @@ static void mail_index_modseq_sync_init(struct mail_index_modseq_sync *ctx)
 	      dovecot.index file. */
 	mail_transaction_log_view_get_prev_pos(ctx->view->log_view,
 					       &end_seq, &end_offset);
-	if (end_seq <= hdr->log_seq ||
+	if (end_seq < hdr->log_seq ||
 	    (end_seq == hdr->log_seq && end_offset <= hdr->log_offset)) {
 		/* modseqs are up to date */
 		return;
