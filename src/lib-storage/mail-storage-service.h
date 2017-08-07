@@ -160,5 +160,10 @@ const char *mail_storage_service_fields_var_expand(const char *data,
 						   const char *const *fields);
 /* Return the settings pointed to by set_root parameter in _init() */
 void *mail_storage_service_get_settings(struct master_service *service);
+/* Updates settings for storage service user, forwards return value of settings_parse_keyvalue() */
+int mail_storage_service_user_set_setting(struct mail_storage_service_user *user,
+					  const char *key,
+					  const char *value,
+					  const char **error_r);
 
 #endif
