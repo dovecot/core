@@ -1676,3 +1676,13 @@ void *mail_storage_service_get_settings(struct master_service *service)
 	} T_END;
 	return set;
 }
+
+int mail_storage_service_user_set_setting(struct mail_storage_service_user *user,
+					  const char *key,
+					  const char *value,
+					  const char **error_r)
+{
+	int ret = settings_parse_keyvalue(user->set_parser, key, value);
+	*error_r = settings_parser_get_error(user->set_parser);
+	return ret;
+}
