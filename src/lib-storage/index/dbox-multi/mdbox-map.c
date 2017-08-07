@@ -491,9 +491,8 @@ mdbox_map_sync_handle(struct mdbox_map *map,
 			  "(%u,%"PRIuUOFF_T" != %u,%"PRIuUOFF_T")",
 			  map->path, seq1, offset1, seq2, offset2);
 		mdbox_storage_set_corrupted(map->storage);
-	} else {
-		while (mail_index_sync_next(sync_ctx, &sync_rec)) ;
 	}
+	while (mail_index_sync_next(sync_ctx, &sync_rec)) ;
 }
 
 int mdbox_map_atomic_lock(struct mdbox_map_atomic_context *atomic,
