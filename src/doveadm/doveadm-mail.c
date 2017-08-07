@@ -302,6 +302,18 @@ static int cmd_force_resync_box(struct doveadm_mail_cmd_context *ctx,
 	return ret;
 }
 
+static int cmd_force_resync_prerun(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
+				   struct mail_storage_service_user *service_user,
+				   const char **error_r)
+{
+	if (mail_storage_service_user_set_setting(service_user,
+						  "mailbox_list_index_very_dirty_syncs",
+						  "no",
+						  error_r) <= 0)
+		i_unreached();
+	return 0;
+}
+
 static int cmd_force_resync_run(struct doveadm_mail_cmd_context *ctx,
 				struct mail_user *user)
 {
@@ -347,6 +359,7 @@ static struct doveadm_mail_cmd_context *cmd_force_resync_alloc(void)
 	ctx = doveadm_mail_cmd_alloc(struct doveadm_mail_cmd_context);
 	ctx->v.init = cmd_force_resync_init;
 	ctx->v.run = cmd_force_resync_run;
+	ctx->v.prerun = cmd_force_resync_prerun;
 	return ctx;
 }
 
