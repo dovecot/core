@@ -527,6 +527,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 						 ioloop_timeval.tv_sec));
 		ioloop->time_moved_callback(ioloop_time,
 					    ioloop_timeval.tv_sec);
+		i_assert(ioloop == current_ioloop);
 		/* the callback may have slept, so check the time again. */
 		if (gettimeofday(&ioloop_timeval, NULL) < 0)
 			i_fatal("gettimeofday(): %m");
@@ -538,6 +539,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 			/* time moved forwards */
 			ioloop->time_moved_callback(ioloop->next_max_time,
 						    ioloop_timeval.tv_sec);
+			i_assert(ioloop == current_ioloop);
 		}
 		ioloop_add_wait_time(ioloop);
 	}
@@ -572,6 +574,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 		}
 		if (ioloop->cur_ctx != NULL)
 			io_loop_context_deactivate(ioloop->cur_ctx);
+		i_assert(ioloop == current_ioloop);
 	}
 }
 
@@ -604,6 +607,7 @@ void io_loop_call_io(struct io *io)
 	}
 	if (ioloop->cur_ctx != NULL)
 		io_loop_context_deactivate(ioloop->cur_ctx);
+	i_assert(ioloop == current_ioloop);
 }
 
 void io_loop_run(struct ioloop *ioloop)
@@ -644,10 +648,14 @@ static void io_loop_call_pending(struct ioloop *ioloop)
 
 void io_loop_handler_run(struct ioloop *ioloop)
 {
+	i_assert(ioloop == current_ioloop);
+
 	io_loop_timeouts_start_new(ioloop);
 	ioloop->wait_started = ioloop_timeval;
 	io_loop_handler_run_internal(ioloop);
 	io_loop_call_pending(ioloop);
+
+	i_assert(ioloop == current_ioloop);
 }
 
 void io_loop_stop(struct ioloop *ioloop)
