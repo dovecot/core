@@ -1257,7 +1257,7 @@ int mail_transaction_log_file_get_highest_modseq_at(
 
 static int
 get_modseq_next_offset_at(struct mail_transaction_log_file *file,
-			  uint64_t modseq,
+			  uint64_t modseq, bool use_highest,
 			  uoff_t *cur_offset, uint64_t *cur_modseq,
 			  uoff_t *next_offset_r)
 {
@@ -1279,7 +1279,7 @@ get_modseq_next_offset_at(struct mail_transaction_log_file *file,
 	}
 
 	/* check sync_highest_modseq again in case sync_offset was updated */
-	if (modseq >= file->sync_highest_modseq) {
+	if (modseq >= file->sync_highest_modseq && use_highest) {
 		*next_offset_r = file->sync_offset;
 		return 0;
 	}
@@ -1332,16 +1332,30 @@ int mail_transaction_log_file_get_modseq_next_offset(
 		cur_modseq = cache->highest_modseq;
 	}
 
-	if ((ret = get_modseq_next_offset_at(file, modseq, &cur_offset,
+	if ((ret = get_modseq_next_offset_at(file, modseq, TRUE, &cur_offset,
 					     &cur_modseq, next_offset_r)) <= 0)
 		return ret;
 	if (cur_offset == file->sync_offset) {
 		/* if we got to sync_offset, cur_modseq should be
 		   sync_highest_modseq */
 		mail_index_set_error(file->log->index,
-			"%s: Transaction log changed unexpectedly, "
-			"can't get modseq", file->filepath);
-		return -1;
+			"%s: Transaction log modseq tracking is corrupted - fixing",
+			file->filepath);
+		/* retry getting the offset by reading from the beginning
+		   of the file */
+		cur_offset = file->hdr.hdr_size;
+		cur_modseq = file->hdr.initial_modseq;
+		ret = get_modseq_next_offset_at(file, modseq, FALSE,
+						&cur_offset, &cur_modseq,
+						next_offset_r);
+		if (ret < 0)
+			return -1;
+		i_assert(ret != 0);
+		/* get it fixed on the next sync */
+		file->log->index->need_recreate = TRUE;
+		file->need_rotate = TRUE;
+		/* clear cache, since it's unreliable */
+		memset(file->modseq_cache, 0, sizeof(file->modseq_cache));
 	}
 
 	/* @UNSAFE: cache the value */

@@ -81,6 +81,7 @@ struct mail_transaction_log_file {
 	unsigned int locked:1;
 	unsigned int locked_sync_offset_updated:1;
 	unsigned int corrupted:1;
+	unsigned int need_rotate:1;
 };
 
 struct mail_transaction_log {
