@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "backtrace-string.h"
 #include "llist.h"
 #include "time-util.h"
 #include "istream-private.h"
@@ -703,6 +704,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	struct ioloop *ioloop = *_ioloop;
 	struct timeout *const *to_idx;
 	struct priorityq_item *item;
+	bool leaks = FALSE;
 
 	*_ioloop = NULL;
 
@@ -722,6 +724,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 			  io->io.source_filename,
 			  io->io.source_linenum, io->fd);
 		io_remove(&_io);
+		leaks = TRUE;
 	}
 	i_assert(ioloop->io_pending_count == 0);
 
@@ -732,6 +735,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 			  to->source_filename,
 			  to->source_linenum);
 		timeout_free(to);
+		leaks = TRUE;
 	}
 	array_free(&ioloop->timeouts_new);
 
@@ -742,6 +746,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 			  to->source_filename,
 			  to->source_linenum);
 		timeout_free(to);
+		leaks = TRUE;
 	}
 	priorityq_deinit(&ioloop->timeouts);
 
@@ -752,6 +757,13 @@ void io_loop_destroy(struct ioloop **_ioloop)
 			  timer->source_filename,
 			  timer->source_linenum);
 		io_wait_timer_remove(&timer);
+		leaks = TRUE;
+	}
+
+	if (leaks) {
+		const char *backtrace;
+		if (backtrace_get(&backtrace) == 0)
+			i_warning("Raw backtrace for leaks: %s", backtrace);
 	}
 
 	if (ioloop->handler_context != NULL)
