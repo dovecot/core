@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "test-common.h"
 #include "mail-index-private.h"
 #include "mail-transaction-log-private.h"
@@ -240,11 +241,141 @@ static void test_mail_transaction_update_modseq(void)
 	test_end();
 }
 
+static struct mail_index *test_mail_index_open(void)
+{
+	struct mail_index *index = mail_index_alloc(NULL, "test.dovecot.index");
+	test_assert(mail_index_open_or_create(index, MAIL_INDEX_OPEN_FLAG_CREATE) == 0);
+	struct mail_index_view *view = mail_index_view_open(index);
+
+	struct mail_index_transaction *trans =
+		mail_index_transaction_begin(view, 0);
+	uint32_t uid_validity = 1234;
+	mail_index_update_header(trans,
+		offsetof(struct mail_index_header, uid_validity),
+		&uid_validity, sizeof(uid_validity), TRUE);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+	return index;
+}
+
+static void test_mail_transaction_log_file_modseq_offsets(void)
+{
+	test_begin("mail_transaction_log_file_get_modseq_next_offset() and _get_highest_modseq_at()");
+
+	struct mail_index *index = test_mail_index_open();
+	struct mail_transaction_log_file *file = index->log->head;
+
+	const unsigned int max_modseq = LOG_FILE_MODSEQ_CACHE_SIZE+2;
+	uoff_t modseq_next_offset[max_modseq+1];
+	uoff_t modseq_alt_next_offset[max_modseq+1];
+
+	/* start with modseq=2, because modseq=1 is the initial state */
+	modseq_next_offset[1] = sizeof(struct mail_transaction_log_header);
+	modseq_alt_next_offset[1] = sizeof(struct mail_transaction_log_header);
+	for (uint64_t modseq = 2; modseq <= max_modseq; modseq++) {
+		uint32_t seq;
+
+		struct mail_index_view *view = mail_index_view_open(index);
+		struct mail_index_transaction *trans =
+			mail_index_transaction_begin(view, 0);
+		mail_index_append(trans, modseq, &seq);
+		test_assert(mail_index_transaction_commit(&trans) == 0);
+		modseq_next_offset[modseq] = file->sync_offset;
+		mail_index_view_close(&view);
+
+		/* add a non-modseq updating change */
+		view = mail_index_view_open(index);
+		trans = mail_index_transaction_begin(view, 0);
+		mail_index_update_flags(trans, seq, MODIFY_ADD,
+			(enum mail_flags)MAIL_INDEX_MAIL_FLAG_DIRTY);
+		test_assert(mail_index_transaction_commit(&trans) == 0);
+		mail_index_view_close(&view);
+		modseq_alt_next_offset[modseq] = file->sync_offset;
+	}
+
+	/* mail_transaction_log_file_get_highest_modseq_at() is simultaneously
+	   tested and it can also add offsets to cache. The difference is that
+	   it adds the highest possible offset, while
+	   mail_transaction_log_file_get_modseq_next_offset() adds the lowest
+	   possible offset. So we'll need to allow both. */
+#define MODSEQ_MATCH(modseq, next_offset) \
+	((next_offset) == modseq_next_offset[modseq] || \
+	 (next_offset) == modseq_alt_next_offset[modseq])
+
+	/* 1) mail_transaction_log_file_get_modseq_next_offset() tests */
+	uint64_t modseq;
+	uoff_t next_offset;
+	/* initial_modseq fast path */
+	test_assert(mail_transaction_log_file_get_modseq_next_offset(file, 1, &next_offset) == 0);
+	test_assert(next_offset == modseq_next_offset[1]);
+	/* sync_highest_modseq fast path - it skips to sync_offset instead of
+	   using exactly the same max_modseq */
+	test_assert(mail_transaction_log_file_get_modseq_next_offset(file, max_modseq, &next_offset) == 0);
+	test_assert(next_offset == file->sync_offset);
+	test_assert(next_offset != modseq_next_offset[max_modseq]);
+	/* update the offset for the random tests */
+	modseq_next_offset[max_modseq] = file->sync_offset;
+	/* add to cache */
+	test_assert(mail_transaction_log_file_get_modseq_next_offset(file, 2, &next_offset) == 0);
+	test_assert(MODSEQ_MATCH(2, next_offset));
+	/* get it from cache */
+	test_assert(mail_transaction_log_file_get_modseq_next_offset(file, 2, &next_offset) == 0);
+	test_assert(MODSEQ_MATCH(2, next_offset));
+	/* get next value from cache */
+	test_assert(mail_transaction_log_file_get_modseq_next_offset(file, 3, &next_offset) == 0);
+	test_assert(MODSEQ_MATCH(3, next_offset));
+	/* get previous value from cache again */
+	test_assert(mail_transaction_log_file_get_modseq_next_offset(file, 2, &next_offset) == 0);
+	test_assert(MODSEQ_MATCH(2, next_offset));
+	/* do some random testing with cache */
+	for (unsigned int i = 0; i < LOG_FILE_MODSEQ_CACHE_SIZE*10; i++) {
+		modseq = (rand() % max_modseq) + 1;
+		test_assert(mail_transaction_log_file_get_modseq_next_offset(file, modseq, &next_offset) == 0);
+		test_assert(MODSEQ_MATCH(modseq, next_offset));
+	}
+	/* go through all modseqs - do this after randomness testing or
+	   modseq_alt_next_offset[] matching isn't triggered */
+	for (modseq = 1; modseq <= max_modseq; modseq++) {
+		test_assert(mail_transaction_log_file_get_modseq_next_offset(file, modseq, &next_offset) == 0);
+		test_assert(MODSEQ_MATCH(modseq, next_offset));
+	}
+
+	/* 2) mail_transaction_log_file_get_highest_modseq_at() tests */
+	uint64_t modseq_at;
+	const char *error;
+	/* initial_offset */
+	test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_next_offset[1], &modseq, &error) == 0);
+	test_assert(modseq == 1);
+	/* sync_offset fast path */
+	test_assert(mail_transaction_log_file_get_highest_modseq_at(file, file->sync_offset, &modseq, &error) == 0);
+	test_assert(modseq == max_modseq);
+	/* do some random testing with cache */
+	for (unsigned int i = 0; i < LOG_FILE_MODSEQ_CACHE_SIZE*10; i++) {
+		modseq = (rand() % max_modseq) + 1;
+		test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_next_offset[modseq], &modseq_at, &error) == 0);
+		test_assert(modseq_at == modseq);
+		test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_alt_next_offset[modseq], &modseq_at, &error) == 0);
+		test_assert(modseq_at == modseq);
+	}
+	/* go through all modseqs - do this after randomness testing or
+	   modseq_alt_next_offset[] matching isn't triggered */
+	for (modseq = 1; modseq <= max_modseq; modseq++) {
+		test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_next_offset[modseq], &modseq_at, &error) == 0);
+		test_assert(modseq_at == modseq);
+	}
+
+	mail_index_close(index);
+	mail_index_free(&index);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_transaction_update_modseq,
+		test_mail_transaction_log_file_modseq_offsets,
 		NULL
 	};
+	ioloop_time = 1;
 	return test_run(test_functions);
 }
