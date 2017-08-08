@@ -67,6 +67,7 @@ test_programs = \
 	test-mail-index-transaction-finish \
 	test-mail-index-transaction-update \
 	test-mail-transaction-log-append \
+	test-mail-transaction-log-file \
 	test-mail-transaction-log-view
 
 noinst_PROGRAMS = $(test_programs)
@@ -101,6 +102,10 @@ test_mail_index_transaction_update_DEPENDENCIES = $(test_deps)
 test_mail_transaction_log_append_SOURCES = test-mail-transaction-log-append.c
 test_mail_transaction_log_append_LDADD = mail-transaction-log-append.lo $(test_libs)
 test_mail_transaction_log_append_DEPENDENCIES = $(test_deps)
+
+test_mail_transaction_log_file_SOURCES = test-mail-transaction-log-file.c
+test_mail_transaction_log_file_LDADD = $(noinst_LTLIBRARIES) $(test_libs)
+test_mail_transaction_log_file_DEPENDENCIES = $(test_deps)
 
 test_mail_transaction_log_view_SOURCES = test-mail-transaction-log-view.c
 test_mail_transaction_log_view_LDADD = mail-transaction-log-view.lo $(test_libs)
