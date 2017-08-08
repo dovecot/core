@@ -369,11 +369,43 @@ static void test_mail_transaction_log_file_modseq_offsets(void)
 	test_end();
 }
 
+static void
+test_mail_transaction_log_file_get_modseq_next_offset_inconsistency(void)
+{
+	test_begin("mail_transaction_log_file_get_modseq_next_offset() inconsistency");
+
+	struct mail_index *index = test_mail_index_open();
+	struct mail_transaction_log_file *file = index->log->head;
+	uint32_t seq;
+
+	/* add modseq=2 */
+	struct mail_index_view *view = mail_index_view_open(index);
+	struct mail_index_transaction *trans =
+		mail_index_transaction_begin(view, 0);
+	mail_index_append(trans, 1, &seq);
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+	mail_index_view_close(&view);
+
+	/* emulate a broken mail_index_modseq_header header */
+	file->sync_highest_modseq = 3;
+
+	uoff_t next_offset;
+	test_expect_error_string("Transaction log modseq tracking is corrupted");
+	test_assert(mail_transaction_log_file_get_modseq_next_offset(file, 2, &next_offset) == 0);
+	test_expect_no_more_errors();
+	test_assert(next_offset == file->sync_offset);
+
+	mail_index_close(index);
+	mail_index_free(&index);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_mail_transaction_update_modseq,
 		test_mail_transaction_log_file_modseq_offsets,
+		test_mail_transaction_log_file_get_modseq_next_offset_inconsistency,
 		NULL
 	};
 	ioloop_time = 1;

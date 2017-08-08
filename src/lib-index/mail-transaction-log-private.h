@@ -81,6 +81,7 @@ struct mail_transaction_log_file {
 	bool locked:1;
 	bool locked_sync_offset_updated:1;
 	bool corrupted:1;
+	bool need_rotate:1;
 };
 
 struct mail_transaction_log {

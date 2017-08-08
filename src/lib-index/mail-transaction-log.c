@@ -235,6 +235,9 @@ bool mail_transaction_log_want_rotate(struct mail_transaction_log *log)
 {
 	struct mail_transaction_log_file *file = log->head;
 
+	if (file->need_rotate)
+		return TRUE;
+
 	if (file->hdr.major_version < MAIL_TRANSACTION_LOG_MAJOR_VERSION ||
 	    (file->hdr.major_version == MAIL_TRANSACTION_LOG_MAJOR_VERSION &&
 	     file->hdr.minor_version < MAIL_TRANSACTION_LOG_MINOR_VERSION)) {

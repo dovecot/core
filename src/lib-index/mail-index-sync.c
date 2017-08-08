@@ -361,7 +361,7 @@ mail_index_sync_begin_init(struct mail_index *index,
 	}
 
 	if (!mail_index_need_sync(index, flags, log_file_seq, log_file_offset) &&
-	    !index->index_deleted) {
+	    !index->index_deleted && !index->need_recreate) {
 		if (locked)
 			mail_transaction_log_sync_unlock(index->log, "syncing determined unnecessary");
 		return 0;
