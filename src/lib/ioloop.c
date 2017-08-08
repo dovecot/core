@@ -20,6 +20,7 @@ struct ioloop *current_ioloop = NULL;
 uint64_t ioloop_global_wait_usecs = 0;
 
 static ARRAY(io_switch_callback_t *) io_switch_callbacks = ARRAY_INIT;
+static bool panic_on_leak = FALSE, panic_on_leak_set = FALSE;
 
 static void io_loop_initialize_handler(struct ioloop *ioloop)
 {
@@ -680,6 +681,11 @@ struct ioloop *io_loop_create(void)
 {
 	struct ioloop *ioloop;
 
+	if (!panic_on_leak_set) {
+		panic_on_leak_set = TRUE;
+		panic_on_leak = getenv("CORE_IO_LEAK") != NULL;
+	}
+
 	/* initialize time */
 	if (gettimeofday(&ioloop_timeval, NULL) < 0)
 		i_fatal("gettimeofday(): %m");
@@ -716,41 +722,61 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	while (ioloop->io_files != NULL) {
 		struct io_file *io = ioloop->io_files;
 		struct io *_io = &io->io;
+		const char *error = t_strdup_printf(
+			"I/O leak: %p (%s:%u, fd %d)",
+			(void *)io->io.callback,
+			io->io.source_filename,
+			io->io.source_linenum, io->fd);
 
-		i_warning("I/O leak: %p (%s:%u, fd %d)",
-			  (void *)io->io.callback,
-			  io->io.source_filename,
-			  io->io.source_linenum, io->fd);
+		if (panic_on_leak)
+			i_panic("%s", error);
+		else
+			i_warning("%s", error);
 		io_remove(&_io);
 	}
 	i_assert(ioloop->io_pending_count == 0);
 
 	array_foreach(&ioloop->timeouts_new, to_idx) {
 		struct timeout *to = *to_idx;
+		const char *error = t_strdup_printf(
+			"Timeout leak: %p (%s:%u)", (void *)to->callback,
+			to->source_filename,
+			to->source_linenum);
 
-		i_warning("Timeout leak: %p (%s:%u)", (void *)to->callback,
-			  to->source_filename,
-			  to->source_linenum);
+		if (panic_on_leak)
+			i_panic("%s", error);
+		else
+			i_warning("%s", error);
 		timeout_free(to);
 	}
 	array_free(&ioloop->timeouts_new);
 
 	while ((item = priorityq_pop(ioloop->timeouts)) != NULL) {
 		struct timeout *to = (struct timeout *)item;
+		const char *error = t_strdup_printf(
+			"Timeout leak: %p (%s:%u)", (void *)to->callback,
+			to->source_filename,
+			to->source_linenum);
 
-		i_warning("Timeout leak: %p (%s:%u)", (void *)to->callback,
-			  to->source_filename,
-			  to->source_linenum);
+		if (panic_on_leak)
+			i_panic("%s", error);
+		else
+			i_warning("%s", error);
 		timeout_free(to);
 	}
 	priorityq_deinit(&ioloop->timeouts);
 
 	while (ioloop->wait_timers != NULL) {
 		struct io_wait_timer *timer = ioloop->wait_timers;
+		const char *error = t_strdup_printf(
+			"IO wait timer leak: %s:%u",
+			timer->source_filename,
+			timer->source_linenum);
 
-		i_warning("IO wait timer leak: %s:%u",
-			  timer->source_filename,
-			  timer->source_linenum);
+		if (panic_on_leak)
+			i_panic("%s", error);
+		else
+			i_warning("%s", error);
 		io_wait_timer_remove(&timer);
 	}
 
