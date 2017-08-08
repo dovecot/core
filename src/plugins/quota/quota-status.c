@@ -84,7 +84,6 @@ static void client_handle_request(struct quota_client *client)
 	struct mail_user *user;
 	const char *value = NULL, *error;
 	const char *detail ATTR_UNUSED;
-	char delim ATTR_UNUSED;
 	int ret;
 
 	if (client->recipient == NULL) {
@@ -94,7 +93,7 @@ static void client_handle_request(struct quota_client *client)
 
 	i_zero(&input);
 	message_detail_address_parse(quota_status_settings->recipient_delimiter,
-				     client->recipient, &input.username, &delim,
+				     client->recipient, &input.username,
 				     &detail);
 	ret = mail_storage_service_lookup_next(storage_service, &input,
 					       &service_user, &user, &error);
