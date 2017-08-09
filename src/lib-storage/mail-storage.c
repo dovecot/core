@@ -1381,6 +1381,11 @@ void mailbox_free(struct mailbox **_box)
 	mailbox_close(box);
 	box->v.free(box);
 
+	if (box->attribute_iter_count != 0) {
+		i_panic("Trying to free mailbox %s with %u open attribute iterators",
+			box->name, box->attribute_iter_count);
+	}
+
 	DLLIST_REMOVE(&box->storage->mailboxes, box);
 	mail_storage_obj_unref(box->storage);
 	if (box->metadata_pool != NULL)

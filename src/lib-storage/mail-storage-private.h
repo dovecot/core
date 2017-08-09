@@ -370,6 +370,7 @@ struct mailbox {
 	const char *index_prefix;
 	enum mailbox_flags flags;
 	unsigned int transaction_count;
+	unsigned int attribute_iter_count;
 	enum mailbox_feature enabled_features;
 	struct mail_msgpart_partial_cache partial_cache;
 	uint32_t vsize_hdr_ext_id;

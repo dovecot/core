@@ -384,6 +384,7 @@ mailbox_attribute_iter_init(struct mailbox *box,
 
 	iter = box->v.attribute_iter_init(box, type, prefix);
 	i_assert(iter->box != NULL);
+	box->attribute_iter_count++;
 
 	/* check which internal attributes may apply */
 	t_array_init(&extra_attrs, 4);
@@ -455,13 +456,20 @@ int mailbox_attribute_iter_deinit(struct mailbox_attribute_iter **_iter)
 	int ret;
 
 	*_iter = NULL;
+
 	if (iter->box != NULL) {
 		/* not wrapped */
+		i_assert(iter->box->attribute_iter_count > 0);
+		iter->box->attribute_iter_count--;
 		return iter->box->v.attribute_iter_deinit(iter);
 	}
 
 	/* wrapped */
 	intiter = (struct mailbox_attribute_internal_iter *)iter;
+
+	i_assert(intiter->real_iter->box->attribute_iter_count > 0);
+	intiter->real_iter->box->attribute_iter_count--;
+
 	ret = intiter->real_iter->box->v.attribute_iter_deinit(intiter->real_iter);
 	array_free(&intiter->extra_attrs);
 	i_free(intiter);
