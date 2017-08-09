@@ -2594,6 +2594,7 @@ reassign_uids_in_seq_range(struct dsync_mailbox_importer *importer,
 {
 	struct mailbox *box = importer->box;
 	const enum mailbox_transaction_flags trans_flags =
+		importer->transaction_flags |
 		MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 		MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS;
 	struct mailbox_transaction_context *trans;
