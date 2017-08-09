@@ -226,7 +226,7 @@ http_client_request_remove(struct http_client_request *req)
 	}
 	req->listed = FALSE;
 
-	if (client->requests_count == 0 && client->ioloop != NULL)
+	if (client->requests_count == 0 && client->waiting)
 		io_loop_stop(client->ioloop);
 }
 
@@ -264,7 +264,7 @@ bool http_client_request_unref(struct http_client_request **_req)
 
 	http_client_request_remove(req);
 
-	if (client->requests_count == 0 && client->ioloop != NULL)
+	if (client->requests_count == 0 && client->waiting)
 		io_loop_stop(client->ioloop);
 
 	if (req->delayed_error != NULL)
@@ -878,7 +878,7 @@ static int
 http_client_request_continue_payload(struct http_client_request **_req,
 	const unsigned char *data, size_t size)
 {
-	struct ioloop *prev_ioloop = current_ioloop;
+	struct ioloop *prev_ioloop, *client_ioloop, *prev_client_ioloop;
 	struct http_client_request *req = *_req;
 	struct http_client_connection *conn = req->conn;
 	struct http_client *client = req->client;
@@ -923,18 +923,20 @@ http_client_request_continue_payload(struct http_client_request **_req,
 	} else {
 		/* Wait for payload data to be written */
 
-		i_assert(client->ioloop == NULL);
-		client->ioloop = io_loop_create();
-		http_client_switch_ioloop(client);
+		prev_ioloop = current_ioloop;
+		client_ioloop = io_loop_create();
+		prev_client_ioloop = http_client_switch_ioloop(client);
 		if (client->set.dns_client != NULL)
 			dns_client_switch_ioloop(client->set.dns_client);
 
+		client->waiting = TRUE;
 		while (req->state < HTTP_REQUEST_STATE_PAYLOAD_IN) {
 			e_debug(req->event, "Waiting for request to finish");
 		
 			if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
 				o_stream_set_flush_pending(req->payload_output, TRUE);
-			io_loop_run(client->ioloop);
+
+			io_loop_run(client_ioloop);
 
 			if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT &&
 				req->payload_input->eof) {
@@ -942,14 +944,18 @@ http_client_request_continue_payload(struct http_client_request **_req,
 				req->payload_input = NULL;
 				break;
 			}
-		}
+		}	
+		client->waiting = FALSE;
 
-		io_loop_set_current(prev_ioloop);
-		http_client_switch_ioloop(client);
+		if (prev_client_ioloop != NULL)
+			io_loop_set_current(prev_client_ioloop);
+		else
+			io_loop_set_current(prev_ioloop);
+		(void)http_client_switch_ioloop(client);
 		if (client->set.dns_client != NULL)
 			dns_client_switch_ioloop(client->set.dns_client);
-		io_loop_set_current(client->ioloop);
-		io_loop_destroy(&client->ioloop);
+		io_loop_set_current(client_ioloop);
+		io_loop_destroy(&client_ioloop);
 	}
 
 	switch (req->state) {
@@ -1059,7 +1065,7 @@ int http_client_request_send_more(struct http_client_request *req,
 			i_assert(!pipelined);
 			conn->output_locked = TRUE;
 			http_client_connection_stop_request_timeout(conn);
-			if (req->client->ioloop != NULL)
+			if (req->client->waiting)
 				io_loop_stop(req->client->ioloop);
 		} else {
 			/* finished sending payload */
@@ -1337,7 +1343,7 @@ http_client_request_send_error(struct http_client_request *req,
 				i_stream_unref(&req->payload_input);
 		}
 	}
-	if (req->payload_wait && req->client->ioloop != NULL)
+	if (req->payload_wait)
 		io_loop_stop(req->client->ioloop);
 	return TRUE;
 }
@@ -1411,8 +1417,10 @@ void http_client_request_abort(struct http_client_request **_req)
 
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
-	if (req->payload_wait && req->client->ioloop != NULL)
+	if (req->payload_wait) {
+		i_assert(req->client->ioloop != NULL);
 		io_loop_stop(req->client->ioloop);
+	}
 	http_client_request_destroy(&req);
 }
 
@@ -1432,8 +1440,10 @@ void http_client_request_finish(struct http_client_request *req)
 
 	if (req->queue != NULL)
 		http_client_queue_drop_request(req->queue, req);
-	if (req->payload_wait && req->client->ioloop != NULL)
+	if (req->payload_wait) {
+		i_assert(req->client->ioloop != NULL);
 		io_loop_stop(req->client->ioloop);
+	}
 	http_client_request_unref(&req);
 }
 

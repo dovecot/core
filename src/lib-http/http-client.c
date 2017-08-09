@@ -250,8 +250,9 @@ void http_client_deinit(struct http_client **_client)
 	pool_unref(&client->pool);
 }
 
-void http_client_switch_ioloop(struct http_client *client)
+struct ioloop *http_client_switch_ioloop(struct http_client *client)
 {
+	struct ioloop *prev_ioloop = client->ioloop;
 	struct http_client_peer *peer;
 	struct http_client_host *host;
 
@@ -272,40 +273,49 @@ void http_client_switch_ioloop(struct http_client *client)
 	}
 
 	http_client_context_switch_ioloop(client->cctx);
+
+	client->ioloop = current_ioloop;
+	return prev_ioloop;
 }
 
 void http_client_wait(struct http_client *client)
 {
-	struct ioloop *prev_ioloop = current_ioloop;
+	struct ioloop *prev_ioloop, *client_ioloop, *prev_client_ioloop;
 
 	i_assert(client->ioloop == NULL);
 
 	if (client->requests_count == 0)
 		return;
 
-	client->ioloop = io_loop_create();
-	http_client_switch_ioloop(client);
+	prev_ioloop = current_ioloop;
+	client_ioloop = io_loop_create();
+	prev_client_ioloop = http_client_switch_ioloop(client);
 	if (client->set.dns_client != NULL)
 		dns_client_switch_ioloop(client->set.dns_client);
 	/* either we're waiting for network I/O or we're getting out of a
 	   callback using timeout_add_short(0) */
-	i_assert(io_loop_have_ios(client->ioloop) ||
-		 io_loop_have_immediate_timeouts(client->ioloop));
+	i_assert(io_loop_have_ios(client_ioloop) ||
+		 io_loop_have_immediate_timeouts(client_ioloop));
 
+	client->waiting = TRUE;
 	do {
 		e_debug(client->event,
 			"Waiting for %d requests to finish", client->requests_count);
-		io_loop_run(client->ioloop);
+		io_loop_run(client_ioloop);
 	} while (client->requests_count > 0);
+	client->waiting = FALSE;
 
 	e_debug(client->event, "All requests finished");
 
-	io_loop_set_current(prev_ioloop);
-	http_client_switch_ioloop(client);
+	if (prev_client_ioloop != NULL)
+		io_loop_set_current(prev_client_ioloop);
+	else
+		io_loop_set_current(prev_ioloop);
+	(void)http_client_switch_ioloop(client);
 	if (client->set.dns_client != NULL)
 		dns_client_switch_ioloop(client->set.dns_client);
-	io_loop_set_current(client->ioloop);
-	io_loop_destroy(&client->ioloop);
+	io_loop_set_current(client_ioloop);
+	io_loop_destroy(&client_ioloop);
 }
 
 unsigned int http_client_get_pending_request_count(struct http_client *client)

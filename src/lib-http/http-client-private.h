@@ -377,6 +377,8 @@ struct http_client {
 
 	struct http_client_request *requests_list;
 	unsigned int requests_count;
+
+	bool waiting:1;
 };
 
 struct http_client_context {

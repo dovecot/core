@@ -430,7 +430,7 @@ http_client_init_shared(struct http_client_context *cctx,
 void http_client_deinit(struct http_client **_client);
 
 /* switch this client to the current ioloop */
-void http_client_switch_ioloop(struct http_client *client);
+struct ioloop *http_client_switch_ioloop(struct http_client *client);
 
 /* blocks until all currently submitted requests are handled */
 void http_client_wait(struct http_client *client);
