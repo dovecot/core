@@ -275,6 +275,11 @@ static void push_notification_user_deinit(struct mail_user *user)
     struct push_notification_user *puser = PUSH_NOTIFICATION_USER_CONTEXT(user);
     struct push_notification_driver_list *dlist = puser->driverlist;
     struct push_notification_driver_user **duser;
+    struct ioloop *prev_ioloop = current_ioloop;
+
+    /* Make sure we're in the main ioloop, so if the deinit/cleanup moves any
+       I/Os or timeouts they won't get moved to some temporary ioloop. */
+    io_loop_set_current(main_ioloop);
 
     array_foreach_modifiable(&dlist->drivers, duser) {
         if ((*duser)->driver->v.deinit != NULL) {
@@ -285,6 +290,8 @@ static void push_notification_user_deinit(struct mail_user *user)
             (*duser)->driver->v.cleanup();
         }
     }
+    io_loop_set_current(prev_ioloop);
+
     puser->module_ctx.super.deinit(user);
 }
 
