@@ -102,6 +102,8 @@ int main(void)
 		test_user_directory_random,
 		NULL
 	};
-	ioloop_time = 1234567890;
-	return test_run(test_functions);
+	struct ioloop *ioloop = io_loop_create();
+	int ret = test_run(test_functions);
+	io_loop_destroy(&ioloop);
+	return ret;
 }

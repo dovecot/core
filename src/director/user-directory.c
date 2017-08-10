@@ -12,6 +12,8 @@
 /* but min/max. of this many secs */
 #define USER_NEAR_EXPIRING_MIN 3
 #define USER_NEAR_EXPIRING_MAX 30
+/* This shouldn't matter what it is exactly, just try it sometimes later. */
+#define USER_BEING_KILLED_EXPIRE_RETRY_SECS 60
 
 struct user_directory_iter {
 	struct user_directory *dir;
@@ -32,6 +34,7 @@ struct user_directory {
 	/* If user's expire time is less than this many seconds away,
 	   don't assume that other directors haven't yet expired it */
 	unsigned int user_near_expiring_secs;
+	struct timeout *to_expire;
 };
 
 static void user_move_iters(struct user_directory *dir, struct user *user)
@@ -62,21 +65,28 @@ static void user_free(struct user_directory *dir, struct user *user)
 }
 
 static bool user_directory_user_has_connections(struct user_directory *dir,
-						struct user *user)
+						struct user *user,
+						unsigned int *retry_secs_r)
 {
 	time_t expire_timestamp = user->timestamp + dir->timeout_secs;
 
-	if (expire_timestamp > ioloop_time)
+	if (expire_timestamp > ioloop_time) {
+		*retry_secs_r = expire_timestamp - ioloop_time;
 		return TRUE;
+	}
 
 	if (USER_IS_BEING_KILLED(user)) {
 		/* don't free this user until the kill is finished */
+		*retry_secs_r = USER_BEING_KILLED_EXPIRE_RETRY_SECS;
 		return TRUE;
 	}
 
 	if (user->weak) {
-		if (expire_timestamp + USER_NEAR_EXPIRING_MAX >= ioloop_time)
+		if (expire_timestamp + USER_NEAR_EXPIRING_MAX >= ioloop_time) {
+			*retry_secs_r = expire_timestamp +
+				USER_NEAR_EXPIRING_MAX - ioloop_time;
 			return TRUE;
+		}
 
 		i_warning("User %u weakness appears to be stuck, removing it",
 			  user->username_hash);
@@ -86,9 +96,17 @@ static bool user_directory_user_has_connections(struct user_directory *dir,
 
 static void user_directory_drop_expired(struct user_directory *dir)
 {
+	unsigned int retry_secs = 0;
+
 	while (dir->head != NULL &&
-	       !user_directory_user_has_connections(dir, dir->head))
+	       !user_directory_user_has_connections(dir, dir->head, &retry_secs))
 		user_free(dir, dir->head);
+	if (dir->to_expire != NULL)
+		timeout_remove(&dir->to_expire);
+	if (retry_secs > 0) {
+		dir->to_expire = timeout_add(retry_secs * 1000,
+					     user_directory_drop_expired, dir);
+	}
 }
 
 unsigned int user_directory_count(struct user_directory *dir)
@@ -100,10 +118,11 @@ struct user *user_directory_lookup(struct user_directory *dir,
 				   unsigned int username_hash)
 {
 	struct user *user;
+	unsigned int retry_secs;
 
 	user_directory_drop_expired(dir);
 	user = hash_table_lookup(dir->hash, POINTER_CAST(username_hash));
-	if (user != NULL && !user_directory_user_has_connections(dir, user)) {
+	if (user != NULL && !user_directory_user_has_connections(dir, user, &retry_secs)) {
 		user_free(dir, user);
 		user = NULL;
 	}
@@ -188,6 +207,10 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 		}
 	}
 
+	if (dir->to_expire == NULL) {
+		dir->to_expire = timeout_add(dir->timeout_secs * 1000,
+					     user_directory_drop_expired, dir);
+	}
 	dir->prev_insert_pos = user;
 	hash_table_insert(dir->hash, POINTER_CAST(user->username_hash), user);
 	return user;
@@ -303,6 +326,8 @@ void user_directory_deinit(struct user_directory **_dir)
 
 	while (dir->head != NULL)
 		user_free(dir, dir->head);
+	if (dir->to_expire != NULL)
+		timeout_remove(&dir->to_expire);
 	hash_table_destroy(&dir->hash);
 	array_free(&dir->iters);
 	i_free(dir);
