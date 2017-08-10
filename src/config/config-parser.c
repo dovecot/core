@@ -679,10 +679,12 @@ config_parse_line(struct config_parser_context *ctx,
 		    ((*line == '"' && line[len-1] == '"') ||
 		     (*line == '\'' && line[len-1] == '\''))) {
 			line[len-1] = '\0';
-			line = str_unescape(line+1);
+			*value_r = str_unescape(line+1);
+			return CONFIG_LINE_TYPE_KEYVALUE_QUOTED;
+		} else {
+			*value_r = line;
+			return CONFIG_LINE_TYPE_KEYVALUE;
 		}
-		*value_r = line;
-		return CONFIG_LINE_TYPE_KEYVALUE;
 	}
 
 	if (strcmp(key, "}") == 0 && *line == '\0')
@@ -807,6 +809,7 @@ static int config_write_value(struct config_parser_context *ctx,
 
 	switch (type) {
 	case CONFIG_LINE_TYPE_KEYVALUE:
+	case CONFIG_LINE_TYPE_KEYVALUE_QUOTED:
 		str_append(str, value);
 		break;
 	case CONFIG_LINE_TYPE_KEYFILE:
@@ -868,9 +871,21 @@ static int config_write_value(struct config_parser_context *ctx,
 }
 
 static void
-config_parser_check_warnings(struct config_parser_context *ctx, const char *key)
+config_parser_check_warnings(struct config_parser_context *ctx,
+			     enum config_line_type type,
+			     const char *key, const char *value)
 {
 	const char *path, *first_pos;
+
+	if (strncmp(str_c(ctx->str), "plugin/", 7) == 0 &&
+	    strcasecmp(value, "no") == 0 &&
+	    type == CONFIG_LINE_TYPE_KEYVALUE) {
+		i_warning("%s line %u: plugin { %s=%s } is most likely handled as 'yes' - "
+			  "remove the setting completely to disable it. "
+			  "If this is intentional, add quotes around the value: %s=\"%s\"",
+			  ctx->cur_input->path, ctx->cur_input->linenum,
+			  key, value, key, value);
+	}
 
 	first_pos = hash_table_lookup(ctx->seen_settings, str_c(ctx->str));
 	if (ctx->cur_section->prev == NULL) {
@@ -908,10 +923,11 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 		ctx->error = p_strdup(ctx->pool, value);
 		break;
 	case CONFIG_LINE_TYPE_KEYVALUE:
+	case CONFIG_LINE_TYPE_KEYVALUE_QUOTED:
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
 		str_append(ctx->str, key);
-		config_parser_check_warnings(ctx, key);
+		config_parser_check_warnings(ctx, type, key, value);
 		str_append_c(ctx->str, '=');
 
 		if (config_write_value(ctx, type, key, value) < 0)

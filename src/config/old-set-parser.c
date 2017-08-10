@@ -587,6 +587,7 @@ bool old_settings_handle(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
 		break;
 	case CONFIG_LINE_TYPE_KEYVALUE:
+	case CONFIG_LINE_TYPE_KEYVALUE_QUOTED:
 		if (ctx->pathlen == 0) {
 			struct config_section_stack *old_section =
 				ctx->cur_section;
