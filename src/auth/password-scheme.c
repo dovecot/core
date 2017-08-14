@@ -37,16 +37,11 @@ password_scheme_lookup(const char *name, enum password_encoding *encoding_r)
 {
 	const struct password_scheme *scheme;
 	const char *encoding = NULL;
-	size_t scheme_len;
 
 	*encoding_r = PW_ENCODING_NONE;
-
-	for (scheme_len = 0; name[scheme_len] != '\0'; scheme_len++) {
-		if (name[scheme_len] == '.') {
-			encoding = name + scheme_len + 1;
-			name = t_strndup(name, scheme_len);
-			break;
-		}
+	if ((encoding = strchr(name, '.')) != NULL) {
+		name = t_strdup_until(name, encoding);
+		encoding++;
 	}
 
 	scheme = password_scheme_lookup_name(name);
