@@ -7,6 +7,6 @@ struct doveadm_connection *
 doveadm_connection_init(struct director *dir, int fd);
 void doveadm_connections_deinit(void);
 
-void doveadm_connections_continue_reset_cmds(void);
+void doveadm_connections_ring_synced(void);
 
 #endif
