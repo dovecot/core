@@ -244,7 +244,7 @@ static void director_state_changed(struct director *dir)
 
 	if (dir->to_request != NULL && array_count(&new_requests) == 0)
 		timeout_remove(&dir->to_request);
-	doveadm_connections_continue_reset_cmds();
+	doveadm_connections_ring_synced();
 }
 
 static void main_preinit(void)
