@@ -26,6 +26,12 @@
 #define MAX_VALID_VHOST_COUNT 1000
 #define DEFAULT_MAX_MOVING_USERS 100
 
+enum doveadm_director_cmd_ret {
+	DOVEADM_DIRECTOR_CMD_RET_FAIL = -1,
+	DOVEADM_DIRECTOR_CMD_RET_UNFINISHED = 0,
+	DOVEADM_DIRECTOR_CMD_RET_OK = 1,
+};
+
 struct director_reset_cmd {
 	struct director_reset_cmd *prev, *next;
 
@@ -56,8 +62,9 @@ static struct director_reset_cmd *reset_cmds = NULL;
 static void doveadm_connection_set_io(struct doveadm_connection *conn);
 static void doveadm_connection_deinit(struct doveadm_connection **_conn);
 
-static int doveadm_cmd_host_list(struct doveadm_connection *conn,
-				 const char *const *args ATTR_UNUSED)
+static enum doveadm_director_cmd_ret
+doveadm_cmd_host_list(struct doveadm_connection *conn,
+		      const char *const *args ATTR_UNUSED)
 {
 	struct mail_host *const *hostp;
 	string_t *str = t_str_new(1024);
@@ -73,11 +80,12 @@ static int doveadm_cmd_host_list(struct doveadm_connection *conn,
 	}
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int doveadm_cmd_host_list_removed(struct doveadm_connection *conn,
-					 const char *const *args ATTR_UNUSED)
+static enum doveadm_director_cmd_ret
+doveadm_cmd_host_list_removed(struct doveadm_connection *conn,
+			      const char *const *args ATTR_UNUSED)
 {
 	struct mail_host_list *orig_hosts_list;
 	struct mail_host *const *orig_hosts, *const *cur_hosts;
@@ -115,7 +123,7 @@ static int doveadm_cmd_host_list_removed(struct doveadm_connection *conn,
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
 
 	mail_hosts_deinit(&orig_hosts_list);
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
 static void doveadm_director_append_status(struct director *dir, string_t *str)
@@ -171,8 +179,9 @@ doveadm_director_host_append_status(struct director *dir,
 		doveadm_director_connection_append_status(conn, str);
 }
 
-static int doveadm_cmd_director_list(struct doveadm_connection *conn,
-				     const char *const *args ATTR_UNUSED)
+static enum doveadm_director_cmd_ret
+doveadm_cmd_director_list(struct doveadm_connection *conn,
+			  const char *const *args ATTR_UNUSED)
 {
 	struct director *dir = conn->dir;
 	struct director_host *const *hostp;
@@ -213,10 +222,10 @@ static int doveadm_cmd_director_list(struct doveadm_connection *conn,
 	}
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_director_add(struct doveadm_connection *conn,
 			 const char *const *args)
 {
@@ -228,7 +237,7 @@ doveadm_cmd_director_add(struct doveadm_connection *conn,
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    (args[1] != NULL && net_str2port(args[1], &port) < 0)) {
 		i_error("doveadm sent invalid DIRECTOR-ADD parameters");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 
 	if (director_host_lookup(conn->dir, &ip, port) == NULL) {
@@ -236,10 +245,10 @@ doveadm_cmd_director_add(struct doveadm_connection *conn,
 		director_notify_ring_added(host, conn->dir->self_host);
 	}
 	o_stream_nsend(conn->output, "OK\n", 3);
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_director_remove(struct doveadm_connection *conn,
 			    const char *const *args)
 {
@@ -251,7 +260,7 @@ doveadm_cmd_director_remove(struct doveadm_connection *conn,
 	    net_addr2ip(args[0], &ip) < 0 ||
 	    (args[1] != NULL && net_str2port(args[1], &port) < 0)) {
 		i_error("doveadm sent invalid DIRECTOR-REMOVE parameters");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 
 	host = port != 0 ?
@@ -263,10 +272,10 @@ doveadm_cmd_director_remove(struct doveadm_connection *conn,
 		director_ring_remove(host, conn->dir->self_host);
 		o_stream_nsend(conn->output, "OK\n", 3);
 	}
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_host_set_or_update(struct doveadm_connection *conn,
 			       const char *const *args, bool update)
 {
@@ -289,26 +298,26 @@ doveadm_cmd_host_set_or_update(struct doveadm_connection *conn,
 	    (args[1] == NULL && update)) {
 		i_error("doveadm sent invalid %s parameters",
 			update ? "HOST-UPDATE" : "HOST-SET");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 	if (vhost_count > MAX_VALID_VHOST_COUNT && vhost_count != UINT_MAX) {
 		o_stream_nsend_str(conn->output, "vhost count too large\n");
-		return 1;
+		return DOVEADM_DIRECTOR_CMD_RET_OK;
 	}
 	host = mail_host_lookup(dir->mail_hosts, &ip);
 	if (host == NULL) {
 		if (update) {
 			o_stream_nsend_str(conn->output, "NOTFOUND\n");
-			return 1;
+			return DOVEADM_DIRECTOR_CMD_RET_OK;
 		}
 		host = mail_host_add_ip(dir->mail_hosts, &ip, tag);
 	} else if (tag[0] != '\0' && strcmp(mail_host_get_tag(host), tag) != 0) {
 		o_stream_nsend_str(conn->output, "host tag can't be changed\n");
-		return 1;
+		return DOVEADM_DIRECTOR_CMD_RET_OK;
 	} else if (host->desynced) {
 		o_stream_nsend_str(conn->output,
 			"host is already being updated - try again later\n");
-		return 1;
+		return DOVEADM_DIRECTOR_CMD_RET_OK;
 	}
 	if (vhost_count != UINT_MAX)
 		mail_host_set_vhost_count(host, vhost_count, "doveadm: ");
@@ -318,22 +327,22 @@ doveadm_cmd_host_set_or_update(struct doveadm_connection *conn,
 	director_update_host(dir, dir->self_host, NULL, host);
 
 	o_stream_nsend(conn->output, "OK\n", 3);
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_host_set(struct doveadm_connection *conn, const char *const *args)
 {
 	return doveadm_cmd_host_set_or_update(conn, args, FALSE);
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_host_update(struct doveadm_connection *conn, const char *const *args)
 {
 	return doveadm_cmd_host_set_or_update(conn, args, TRUE);
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_host_updown(struct doveadm_connection *conn, bool down,
 			const char *const *args)
 {
@@ -344,43 +353,43 @@ doveadm_cmd_host_updown(struct doveadm_connection *conn, bool down,
 		i_error("doveadm sent invalid %s parameters: %s",
 			down ? "HOST-DOWN" : "HOST-UP",
 			args[0] == NULL ? "" : args[0]);
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
 		o_stream_nsend_str(conn->output, "NOTFOUND\n");
-		return 1;
+		return DOVEADM_DIRECTOR_CMD_RET_OK;
 	}
 	if (host->down == down)
 		;
 	else if (host->desynced) {
 		o_stream_nsend_str(conn->output,
 			"host is already being updated - try again later\n");
-		return 1;
+		return DOVEADM_DIRECTOR_CMD_RET_OK;
 	} else {
 		mail_host_set_down(host, down, ioloop_time, "doveadm: ");
 		director_update_host(conn->dir, conn->dir->self_host,
 				     NULL, host);
 	}
 	o_stream_nsend(conn->output, "OK\n", 3);
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_host_up(struct doveadm_connection *conn,
 		    const char *const *args)
 {
 	return doveadm_cmd_host_updown(conn, FALSE, args);
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_host_down(struct doveadm_connection *conn,
 		      const char *const *args)
 {
 	return doveadm_cmd_host_updown(conn, TRUE, args);
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_host_remove(struct doveadm_connection *conn,
 			const char *const *args)
 {
@@ -389,7 +398,7 @@ doveadm_cmd_host_remove(struct doveadm_connection *conn,
 
 	if (args[0] == NULL || net_addr2ip(args[0], &ip) < 0) {
 		i_error("doveadm sent invalid HOST-REMOVE parameters");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL)
@@ -399,7 +408,7 @@ doveadm_cmd_host_remove(struct doveadm_connection *conn,
 				     NULL, host);
 		o_stream_nsend(conn->output, "OK\n", 3);
 	}
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
 static void
@@ -419,7 +428,7 @@ doveadm_cmd_host_flush_all(struct doveadm_connection *conn)
 	o_stream_nsend(conn->output, "OK\n", 3);
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_host_flush(struct doveadm_connection *conn, const char *const *args)
 {
 	struct mail_host *host;
@@ -427,12 +436,12 @@ doveadm_cmd_host_flush(struct doveadm_connection *conn, const char *const *args)
 
 	if (args[0] == NULL || args[0][0] == '\0') {
 		doveadm_cmd_host_flush_all(conn);
-		return 1;
+		return DOVEADM_DIRECTOR_CMD_RET_OK;
 	}
 
 	if (net_addr2ip(args[0], &ip) < 0) {
 		i_error("doveadm sent invalid HOST-FLUSH parameters");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL)
@@ -442,7 +451,7 @@ doveadm_cmd_host_flush(struct doveadm_connection *conn, const char *const *args)
 				    NULL, host);
 		o_stream_nsend(conn->output, "OK\n", 3);
 	}
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
 static void doveadm_reset_cmd_free(struct director_reset_cmd *cmd)
@@ -534,7 +543,7 @@ director_reset_cmd_run(struct director_reset_cmd *cmd)
 	return TRUE;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 			     const char *const *args)
 {
@@ -547,7 +556,7 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 	if (args[0] != NULL && args[1] != NULL &&
 	    str_to_uint(args[1], &max_moving_users) < 0) {
 		i_error("doveadm sent invalid HOST-RESET-USERS parameters");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 
 	hosts = array_get(mail_hosts_get(conn->dir->mail_hosts), &count);
@@ -555,7 +564,7 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 		if (net_addr2ip(args[0], &ip) < 0) {
 			i_error("doveadm sent invalid HOST-RESET-USERS ip: %s",
 				args[0]);
-			return -1;
+			return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 		}
 
 		for (i = 0; i < count; i++) {
@@ -564,7 +573,7 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 		}
 		if (i == count) {
 			o_stream_nsend_str(conn->output, "NOTFOUND\n");
-			return 1;
+			return DOVEADM_DIRECTOR_CMD_RET_OK;
 		}
 		count = i+1;
 	}
@@ -581,12 +590,12 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 		/* we still have work to do. don't handle any more doveadm
 		   input until we're finished. */
 		io_remove(&conn->io);
-		return 0;
+		return DOVEADM_DIRECTOR_CMD_RET_UNFINISHED;
 	}
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 			const char *const *args)
 {
@@ -634,10 +643,10 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 	else
 		str_printfa(str, "\t%s\n", net_ip2addr(&host->ip));
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 {
 	struct director_user_iter *iter;
@@ -647,7 +656,7 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 	if (args[0] != NULL && args[0][0] != '\0') {
 		if (net_addr2ip(args[0], &ip) < 0) {
 			i_error("doveadm sent invalid USER-LIST parameters");
-			return -1;
+			return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 		}
 	} else {
 		ip.family = 0;
@@ -668,10 +677,10 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 	}
 	director_iterate_users_deinit(&iter);
 	o_stream_nsend(conn->output, "\n", 1);
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 {
 	unsigned int username_hash;
@@ -682,20 +691,21 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 	if (args[0] == NULL || args[1] == NULL ||
 	    net_addr2ip(args[1], &ip) < 0) {
 		i_error("doveadm sent invalid USER-MOVE parameters");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
 		o_stream_nsend_str(conn->output, "NOTFOUND\n");
-		return 1;
+		return DOVEADM_DIRECTOR_CMD_RET_OK;
 	}
 
 	if (str_to_uint(args[0], &username_hash) < 0)
 		username_hash = director_get_username_hash(conn->dir, args[0]);
+
 	user = user_directory_lookup(host->tag->users, username_hash);
 	if (user != NULL && USER_IS_BEING_KILLED(user)) {
 		o_stream_nsend_str(conn->output, "TRYAGAIN\n");
-		return 1;
+		return DOVEADM_DIRECTOR_CMD_RET_OK;
 	}
 
 	if (user == NULL || user->host != host) {
@@ -707,39 +717,40 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 		director_update_user(conn->dir, conn->dir->self_host, user);
 	}
 	o_stream_nsend(conn->output, "OK\n", 3);
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_user_kick(struct doveadm_connection *conn, const char *const *args)
 {
 	if (args[0] == NULL) {
 		i_error("doveadm sent invalid USER-KICK parameters");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 
 	director_kick_user(conn->dir, conn->dir->self_host, NULL, args[0]);
 	o_stream_nsend(conn->output, "OK\n", 3);
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_cmd_user_kick_alt(struct doveadm_connection *conn, const char *const *args)
 {
 	if (str_array_length(args) < 2) {
 		i_error("doveadm sent invalid USER-KICK-ALT parameters");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 
 	director_kick_user_alt(conn->dir, conn->dir->self_host, NULL,
 			       args[0], args[1]);
 	o_stream_nsend(conn->output, "OK\n", 3);
-	return 1;
+	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
 struct {
 	const char *name;
-	int (*cmd)(struct doveadm_connection *conn, const char *const *args);
+	enum doveadm_director_cmd_ret (*cmd)
+		(struct doveadm_connection *conn, const char *const *args);
 } doveadm_director_commands[] = {
 	{ "HOST-LIST", doveadm_cmd_host_list },
 	{ "HOST-LIST-REMOVED", doveadm_cmd_host_list_removed },
@@ -760,7 +771,7 @@ struct {
 	{ "USER-KICK-ALT", doveadm_cmd_user_kick_alt },
 };
 
-static int
+static enum doveadm_director_cmd_ret
 doveadm_connection_cmd(struct doveadm_connection *conn, const char *line)
 {
 	const char *cmd, *const *args;
@@ -768,7 +779,7 @@ doveadm_connection_cmd(struct doveadm_connection *conn, const char *line)
 	args = t_strsplit_tabescaped(line);
 	if (args[0] == NULL) {
 		i_error("doveadm sent empty command line");
-		return -1;
+		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 	cmd = args[0];
 	args++;
@@ -778,13 +789,13 @@ doveadm_connection_cmd(struct doveadm_connection *conn, const char *line)
 			return doveadm_director_commands[i].cmd(conn, args);
 	}
 	i_error("doveadm sent unknown command: %s", line);
-	return -1;
+	return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 }
 
 static void doveadm_connection_input(struct doveadm_connection *conn)
 {
 	const char *line;
-	int ret = 1;
+	enum doveadm_director_cmd_ret ret = DOVEADM_DIRECTOR_CMD_RET_OK;
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
@@ -803,12 +814,14 @@ static void doveadm_connection_input(struct doveadm_connection *conn)
 		conn->handshaked = TRUE;
 	}
 
-	while ((line = i_stream_read_next_line(conn->input)) != NULL && ret > 0) {
+	while ((line = i_stream_read_next_line(conn->input)) != NULL &&
+	       ret == DOVEADM_DIRECTOR_CMD_RET_OK) {
 		T_BEGIN {
 			ret = doveadm_connection_cmd(conn, line);
 		} T_END;
 	}
-	if (conn->input->eof || conn->input->stream_errno != 0 || ret < 0)
+	if (conn->input->eof || conn->input->stream_errno != 0 ||
+	    ret == DOVEADM_DIRECTOR_CMD_RET_FAIL)
 		doveadm_connection_deinit(&conn);
 }
 
