@@ -1301,6 +1301,9 @@ driver_cassandra_result_more(struct sql_result **_result, bool async,
 	cass_statement_set_paging_state(new_result->statement,
 					old_result->result);
 	old_result->paging_continues = TRUE;
+	/* The caller did support paging. Clear out the "...not supported by
+	   the caller" error text, so it won't be in the debug log output. */
+	i_free_and_null(old_result->error);
 
 	new_result->page_num = old_result->page_num + 1;
 	new_result->page0_start_time = old_result->page0_start_time;
