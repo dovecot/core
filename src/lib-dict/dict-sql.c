@@ -31,7 +31,6 @@ struct sql_dict {
 	const struct dict_sql_settings *set;
 
 	unsigned int has_on_duplicate_key:1;
-	unsigned int has_using_timestamp:1;
 };
 
 struct sql_dict_iterate_context {
@@ -104,8 +103,6 @@ sql_dict_init(struct dict *driver, const char *uri,
 
 	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
 	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
-	/* only Cassandra CQL supports "USING TIMESTAMP" */
-	dict->has_using_timestamp = strcmp(driver->name, "cassandra") == 0;
 
 	dict->db = sql_db_cache_new(dict_sql_db_cache, driver->name,
 				    dict->set->connect);
@@ -918,19 +915,16 @@ static void sql_dict_transaction_rollback(struct dict_transaction_context *_ctx)
 	sql_dict_transaction_free(ctx);
 }
 
-static void
-sql_dict_transaction_add_timestamp(struct sql_dict_transaction_context *ctx,
-				   string_t *query)
+static struct sql_statement *
+sql_dict_transaction_stmt_init(struct sql_dict_transaction_context *ctx,
+			       const char *query)
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
-	unsigned long long timestamp_usecs;
+	struct sql_statement *stmt = sql_statement_init(dict->db, query);
 
-	if (ctx->ctx.timestamp.tv_sec == 0 || !dict->has_using_timestamp)
-		return;
-
-	timestamp_usecs = ctx->ctx.timestamp.tv_sec * 1000000ULL +
-		ctx->ctx.timestamp.tv_nsec / 1000;
-	str_printfa(query, " USING TIMESTAMP %llu", timestamp_usecs);
+	if (ctx->ctx.timestamp.tv_sec != 0)
+		sql_statement_set_timestamp(stmt, &ctx->ctx.timestamp);
+	return stmt;
 }
 
 struct dict_sql_build_query_field {
@@ -946,8 +940,7 @@ struct dict_sql_build_query {
 	char key1;
 };
 
-static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
-			      const struct dict_sql_build_query *build,
+static int sql_dict_set_query(const struct dict_sql_build_query *build,
 			      const char **query_r, const char **error_r)
 {
 	struct sql_dict *dict = build->dict;
@@ -999,7 +992,6 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 
 	str_append_str(prefix, suffix);
 	str_append_c(prefix, ')');
-	sql_dict_transaction_add_timestamp(ctx, prefix);
 	if (!dict->has_on_duplicate_key) {
 		*query_r = str_c(prefix);
 		return 0;
@@ -1026,8 +1018,7 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 }
 
 static int
-sql_dict_update_query(struct sql_dict_transaction_context *ctx,
-		      const struct dict_sql_build_query *build,
+sql_dict_update_query(const struct dict_sql_build_query *build,
 		      const char **query_r, const char **error_r)
 {
 	struct sql_dict *dict = build->dict;
@@ -1039,9 +1030,7 @@ sql_dict_update_query(struct sql_dict_transaction_context *ctx,
 	i_assert(field_count > 0);
 
 	query = t_str_new(64);
-	str_printfa(query, "UPDATE %s", fields[0].map->table);
-	sql_dict_transaction_add_timestamp(ctx, query);
-	str_append(query, " SET ");
+	str_printfa(query, "UPDATE %s SET ", fields[0].map->table);
 	for (i = 0; i < field_count; i++) {
 		const char *first_value_field =
 			t_strcut(fields[i].map->value_field, ',');
@@ -1090,13 +1079,13 @@ static void sql_dict_set_real(struct dict_transaction_context *_ctx,
 	build.extra_values = &values;
 	build.key1 = key[0];
 
-	if (sql_dict_set_query(ctx, &build, &query, &error) < 0) {
+	if (sql_dict_set_query(&build, &query, &error) < 0) {
 		i_error("dict-sql: Failed to set %s=%s: %s",
 			key, value, error);
 		ctx->failed = TRUE;
 	} else {
 		struct sql_statement *stmt =
-			sql_statement_init(dict->db, query);
+			sql_dict_transaction_stmt_init(ctx, query);
 		sql_update_stmt(ctx->sql_ctx, &stmt);
 	}
 }
@@ -1125,14 +1114,13 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	}
 
 	str_printfa(query, "DELETE FROM %s", map->table);
-	sql_dict_transaction_add_timestamp(ctx, query);
 	if (sql_dict_where_build(dict, map, &values, key[0],
 				 SQL_DICT_RECURSE_NONE, query, &error) < 0) {
 		i_error("dict-sql: Failed to delete %s: %s", key, error);
 		ctx->failed = TRUE;
 	} else {
 		struct sql_statement *stmt =
-			sql_statement_init(dict->db, str_c(query));
+			sql_dict_transaction_stmt_init(ctx, str_c(query));
 		sql_update_stmt(ctx->sql_ctx, &stmt);
 	}
 }
@@ -1187,12 +1175,12 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	build.extra_values = &values;
 	build.key1 = key[0];
 
-	if (sql_dict_update_query(ctx, &build, &query, &error) < 0) {
+	if (sql_dict_update_query(&build, &query, &error) < 0) {
 		i_error("dict-sql: Failed to increase %s: %s", key, error);
 		ctx->failed = TRUE;
 	} else {
 		struct sql_statement *stmt =
-			sql_statement_init(dict->db, query);
+			sql_dict_transaction_stmt_init(ctx, query);
 		sql_update_stmt_get_rows(ctx->sql_ctx, &stmt,
 					 sql_dict_next_inc_row(ctx));
 	}
@@ -1299,12 +1287,12 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		field->map = map;
 		field->value = value;
 
-		if (sql_dict_set_query(ctx, &build, &query, &error) < 0) {
+		if (sql_dict_set_query(&build, &query, &error) < 0) {
 			i_error("dict-sql: Failed to set %s: %s", key, error);
 			ctx->failed = TRUE;
 		} else {
 			struct sql_statement *stmt =
-				sql_statement_init(dict->db, query);
+				sql_dict_transaction_stmt_init(ctx, query);
 			sql_update_stmt(ctx->sql_ctx, &stmt);
 		}
 		i_free_and_null(ctx->prev_set_value);
@@ -1360,12 +1348,12 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		field->map = map;
 		field->value = t_strdup_printf("%lld", diff);
 
-		if (sql_dict_update_query(ctx, &build, &query, &error) < 0) {
+		if (sql_dict_update_query(&build, &query, &error) < 0) {
 			i_error("dict-sql: Failed to increase %s: %s", key, error);
 			ctx->failed = TRUE;
 		} else {
 			struct sql_statement *stmt =
-				sql_statement_init(dict->db, query);
+				sql_dict_transaction_stmt_init(ctx, query);
 			sql_update_stmt_get_rows(ctx->sql_ctx, &stmt,
 						 sql_dict_next_inc_row(ctx));
 		}
