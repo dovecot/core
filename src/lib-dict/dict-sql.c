@@ -219,7 +219,7 @@ sql_dict_value_escape(string_t *str, struct sql_dict *dict,
 		      const char **error_r)
 {
 	buffer_t *buf;
-	unsigned int num;
+	uint64_t num;
 
 	switch (value_type) {
 	case DICT_SQL_TYPE_STRING:
@@ -227,13 +227,13 @@ sql_dict_value_escape(string_t *str, struct sql_dict *dict,
 			    value_suffix);
 		return 0;
 	case DICT_SQL_TYPE_UINT:
-		if (value_suffix[0] != '\0' || str_to_uint(value, &num) < 0) {
+		if (value_suffix[0] != '\0' || str_to_uint64(value, &num) < 0) {
 			*error_r = t_strdup_printf(
-				"%s field's value isn't unsigned integer: %s%s (in pattern: %s)",
+				"%s field's value isn't 64bit unsigned integer: %s%s (in pattern: %s)",
 				field_name, value, value_suffix, map->pattern);
 			return -1;
 		}
-		str_printfa(str, "%u", num);
+		str_printfa(str, "%"PRIu64, num);
 		return 0;
 	case DICT_SQL_TYPE_HEXBLOB:
 		break;
