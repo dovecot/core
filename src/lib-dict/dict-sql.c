@@ -931,7 +931,6 @@ struct dict_sql_build_query {
 	ARRAY(struct dict_sql_build_query_field) fields;
 	const ARRAY_TYPE(const_string) *extra_values;
 	char key1;
-	bool inc;
 };
 
 static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
@@ -959,16 +958,13 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 			str_append_c(suffix, ',');
 		}
 		str_append(prefix, t_strcut(fields[i].map->value_field, ','));
-		if (build->inc)
-			str_append(suffix, fields[i].value);
-		else {
-			enum dict_sql_type value_type =
-				fields[i].map->value_types[0];
-			if (sql_dict_value_escape(suffix, dict, fields[i].map,
-				value_type, "value", fields[i].value,
-				"", error_r) < 0)
-				return -1;
-		}
+
+		enum dict_sql_type value_type =
+			fields[i].map->value_types[0];
+		if (sql_dict_value_escape(suffix, dict, fields[i].map,
+					  value_type, "value", fields[i].value,
+					  "", error_r) < 0)
+			return -1;
 	}
 	if (build->key1 == DICT_PATH_PRIVATE[0]) {
 		str_printfa(prefix, ",%s", fields[0].map->username_field);
@@ -1004,18 +1000,13 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 			str_append_c(prefix, ',');
 		str_append(prefix, first_value_field);
 		str_append_c(prefix, '=');
-		if (build->inc) {
-			str_printfa(prefix, "%s+%s",
-				    first_value_field,
-				    fields[i].value);
-		} else {
-			enum dict_sql_type value_type =
-				fields[i].map->value_types[0];
-			if (sql_dict_value_escape(prefix, dict, fields[i].map,
-				value_type, "value", fields[i].value,
-				"", error_r) < 0)
-				return -1;
-		}
+
+		enum dict_sql_type value_type =
+			fields[i].map->value_types[0];
+		if (sql_dict_value_escape(prefix, dict, fields[i].map,
+					  value_type, "value", fields[i].value,
+					  "", error_r) < 0)
+			return -1;
 	}
 	*query_r = str_c(prefix);
 	return 0;
@@ -1030,8 +1021,6 @@ sql_dict_update_query(struct sql_dict_transaction_context *ctx,
 	const struct dict_sql_build_query_field *fields;
 	unsigned int i, field_count;
 	string_t *query;
-
-	i_assert(build->inc);
 
 	fields = array_get(&build->fields, &field_count);
 	i_assert(field_count > 0);
@@ -1176,7 +1165,6 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	array_append(&build.fields, &field, 1);
 	build.extra_values = &values;
 	build.key1 = key[0];
-	build.inc = TRUE;
 
 	if (sql_dict_update_query(ctx, &build, &query, &error) < 0) {
 		ctx->error = i_strdup_printf(
@@ -1280,7 +1268,6 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		t_array_init(&build.fields, 1);
 		build.extra_values = &values;
 		build.key1 = key[0];
-		build.inc = FALSE;
 
 		field = array_append_space(&build.fields);
 		field->map = ctx->prev_set_map;
@@ -1343,7 +1330,6 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		t_array_init(&build.fields, 1);
 		build.extra_values = &values;
 		build.key1 = key[0];
-		build.inc = TRUE;
 
 		field = array_append_space(&build.fields);
 		field->map = ctx->prev_inc_map;
