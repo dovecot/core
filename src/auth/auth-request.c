@@ -2443,19 +2443,7 @@ auth_request_append_password(struct auth_request *request, string_t *str)
 void auth_request_log_password_mismatch(struct auth_request *request,
 					const char *subsystem)
 {
-	string_t *str;
-
-	if (strcmp(request->set->verbose_passwords, "no") == 0) {
-		auth_request_log_info(request, subsystem, "Password mismatch");
-		return;
-	}
-
-	str = t_str_new(128);
-	get_log_prefix(str, request, subsystem);
-	str_append(str, "Password mismatch ");
-
-	auth_request_append_password(request, str);
-	i_info("%s", str_c(str));
+	auth_request_log_login_failure(request, subsystem, "Password mismatch");
 }
 
 void auth_request_log_unknown_user(struct auth_request *request,
