@@ -138,6 +138,8 @@ dict_sql_value_type_parse(const char *value_type, enum dict_sql_type *type_r)
 		*type_r = DICT_SQL_TYPE_STRING;
 	else if (strcmp(value_type, "hexblob") == 0)
 		*type_r = DICT_SQL_TYPE_HEXBLOB;
+	else if (strcmp(value_type, "int") == 0)
+		*type_r = DICT_SQL_TYPE_INT;
 	else if (strcmp(value_type, "uint") == 0)
 		*type_r = DICT_SQL_TYPE_UINT;
 	else
@@ -226,6 +228,11 @@ parse_setting(const char *key, const char *value,
 			field->variable = p_strndup(ctx->pool, value + 10,
 						    value_len-10-1);
 			field->sql_field.value_type = DICT_SQL_TYPE_HEXBLOB;
+		} else if (strncmp(value, "${int:", 6) == 0 &&
+			   value[value_len-1] == '}') {
+			field->variable = p_strndup(ctx->pool, value + 6,
+						    value_len-6-1);
+			field->sql_field.value_type = DICT_SQL_TYPE_INT;
 		} else if (strncmp(value, "${uint:", 7) == 0 &&
 			   value[value_len-1] == '}') {
 			field->variable = p_strndup(ctx->pool, value + 7,

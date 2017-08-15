@@ -228,12 +228,22 @@ sql_dict_value_escape(string_t *str, struct sql_dict *dict,
 		      const char **error_r)
 {
 	buffer_t *buf;
+	int64_t snum;
 	uint64_t num;
 
 	switch (value_type) {
 	case DICT_SQL_TYPE_STRING:
 		str_printfa(str, "'%s%s'", sql_escape_string(dict->db, value),
 			    value_suffix);
+		return 0;
+	case DICT_SQL_TYPE_INT:
+		if (value_suffix[0] != '\0' || str_to_int64(value, &snum) < 0) {
+			*error_r = t_strdup_printf(
+				"%s field's value isn't 64bit signed integer: %s%s (in pattern: %s)",
+				field_name, value, value_suffix, map->pattern);
+			return -1;
+		}
+		str_printfa(str, "%"PRId64, snum);
 		return 0;
 	case DICT_SQL_TYPE_UINT:
 		if (value_suffix[0] != '\0' || str_to_uint64(value, &num) < 0) {
@@ -382,6 +392,7 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 
 	switch (type) {
 	case DICT_SQL_TYPE_STRING:
+	case DICT_SQL_TYPE_INT:
 	case DICT_SQL_TYPE_UINT:
 		return p_strdup(pool, sql_result_get_field_value(result, result_idx));
 	case DICT_SQL_TYPE_HEXBLOB:

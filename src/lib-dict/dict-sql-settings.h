@@ -3,6 +3,7 @@
 
 enum dict_sql_type {
 	DICT_SQL_TYPE_STRING = 0,
+	DICT_SQL_TYPE_INT,
 	DICT_SQL_TYPE_UINT,
 	DICT_SQL_TYPE_HEXBLOB
 };
