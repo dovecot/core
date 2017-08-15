@@ -10,7 +10,6 @@ struct sql_dict {
 	const struct dict_sql_settings *set;
 
 	bool has_on_duplicate_key:1;
-	bool has_using_timestamp:1;
 };
 
 #endif
