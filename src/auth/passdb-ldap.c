@@ -145,7 +145,6 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 		(struct passdb_ldap_request *)ldap_request;
 	struct auth_request *auth_request = ldap_request->auth_request;
 	enum passdb_result passdb_result;
-	const char *str;
 	int ret;
 
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
@@ -155,14 +154,9 @@ ldap_auth_bind_callback(struct ldap_connection *conn,
 		if (ret == LDAP_SUCCESS)
 			passdb_result = PASSDB_RESULT_OK;
 		else if (ret == LDAP_INVALID_CREDENTIALS) {
-			str = "Password mismatch (for LDAP bind)";
-			if (auth_request->set->debug_passwords) {
-				str = t_strconcat(str, " (given password: ",
-						  auth_request->mech_password,
-						  ")", NULL);
-			}
-			auth_request_log_info(auth_request, AUTH_SUBSYS_DB,
-					      "%s", str);
+		  	auth_request_log_login_failure(auth_request,
+						       AUTH_SUBSYS_DB,
+						       "Password mismatch (for LDAP bind)");
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 		} else if (ret == LDAP_NO_SUCH_OBJECT) {
 			passdb_result = PASSDB_RESULT_USER_UNKNOWN;
