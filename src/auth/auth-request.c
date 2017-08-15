@@ -2449,27 +2449,7 @@ void auth_request_log_password_mismatch(struct auth_request *request,
 void auth_request_log_unknown_user(struct auth_request *request,
 				   const char *subsystem)
 {
-	string_t *str;
-
-	if (strcmp(request->set->verbose_passwords, "no") == 0 ||
-	    !request->set->verbose) {
-		auth_request_log_info(request, subsystem, "unknown user");
-		return;
-	}
-	str = t_str_new(128);
-	get_log_prefix(str, request, subsystem);
-	str_append(str, "unknown user ");
-
-	auth_request_append_password(request, str);
-
-	if (request->userdb_lookup) {
-		if (request->userdb->next != NULL)
-			str_append(str, " - trying the next userdb");
-	} else {
-		if (request->passdb->next != NULL)
-			str_append(str, " - trying the next passdb");
-	}
-	i_info("%s", str_c(str));
+	auth_request_log_login_failure(request, subsystem, "unknown user");
 }
 
 void auth_request_log_login_failure(struct auth_request *request,
