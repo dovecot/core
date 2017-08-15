@@ -1240,7 +1240,7 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	i_assert(map != NULL);
 
 	field.map = map;
-	field.value = t_strdup_printf("%lld", diff);
+	field.value = NULL; /* unused */
 
 	i_zero(&build);
 	build.dict = dict;
@@ -1429,10 +1429,9 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 
 		field = array_append_space(&build.fields);
 		field->map = ctx->prev_inc_map;
-		field->value = t_strdup_printf("%lld", ctx->prev_inc_diff);
 		field = array_append_space(&build.fields);
 		field->map = map;
-		field->value = t_strdup_printf("%lld", diff);
+		/* field->value is unused */
 
 		t_array_init(&params, 4);
 		param = array_append_space(&params);
