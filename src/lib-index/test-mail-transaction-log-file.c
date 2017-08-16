@@ -402,7 +402,7 @@ test_mail_transaction_log_file_get_modseq_next_offset_inconsistency(void)
 
 int main(void)
 {
-	static void (*const test_functions[])(void) = {
+	static void (*test_functions[])(void) = {
 		test_mail_transaction_update_modseq,
 		test_mail_transaction_log_file_modseq_offsets,
 		test_mail_transaction_log_file_get_modseq_next_offset_inconsistency,
