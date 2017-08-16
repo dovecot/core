@@ -389,19 +389,20 @@ static void push_notification_driver_ox_process_msg
     if (messagenew->from != NULL) {
         str_append(str, ",\"from\":\"");
         json_append_escaped(str, messagenew->from);
+        str_append(str, "\"");
     }
     if (messagenew->subject != NULL) {
-        str_append(str, "\",\"subject\":\"");
+        str_append(str, ",\"subject\":\"");
         json_append_escaped(str, messagenew->subject);
+        str_append(str, "\"");
     }
     if (messagenew->snippet != NULL) {
-        str_append(str, "\",\"snippet\":\"");
+        str_append(str, ",\"snippet\":\"");
         json_append_escaped(str, messagenew->snippet);
+        str_append(str, "\"");
     }
     if (status_success) {
-        str_printfa(str, "\",\"unseen\":%u", box_status.unseen);
-    } else {
-        str_append(str, "\"");
+        str_printfa(str, ",\"unseen\":%u", box_status.unseen);
     }
     str_append(str, "}");
 
