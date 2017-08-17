@@ -187,9 +187,9 @@ int password_decode(const char *password, const char *scheme,
 			*error_r = "Input isn't valid HEX encoded data";
 			return -1;
 		}
-		/* fall through, just in case it was base64-encoded after
-		   all. some input lengths produce matching hex and base64
-		   encoded lengths. */
+		/* check if it's base64-encoded after all. some input lengths
+		   produce matching hex and base64 encoded lengths. */
+		/* fall through */
 	case PW_ENCODING_BASE64:
 		buf = buffer_create_dynamic(pool_datastack_create(),
 					    MAX_BASE64_DECODED_SIZE(len));

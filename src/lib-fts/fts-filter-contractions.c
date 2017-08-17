@@ -45,7 +45,7 @@ fts_filter_contractions_filter(struct fts_filter *filter ATTR_UNUSED,
 		pos++;
 		if (token[pos] == '\0' || token[pos] != 'u')
 			break;
-		/* otherwise fall through */
+		/* fall through */
 	case 'c':
 	case 'd':
 	case 'j':

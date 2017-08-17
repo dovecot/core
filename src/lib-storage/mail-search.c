@@ -77,7 +77,7 @@ void mail_search_arg_init(struct mail_search_args *args,
 		case SEARCH_MODSEQ:
 			if (arg->value.str == NULL)
 				break;
-			/* modseq with keyword */
+			/* fall through - modseq with keyword */
 		case SEARCH_KEYWORDS:
 			keywords[0] = arg->value.str;
 			keywords[1] = NULL;

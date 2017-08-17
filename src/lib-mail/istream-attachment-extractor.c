@@ -326,7 +326,7 @@ static void astream_add_body(struct attachment_istream *astream,
 		o_stream_nsend(part->temp_output,
 			       part_buf->data, part_buf->used);
 		buffer_set_used_size(part_buf, 0);
-		/* fall through to write the new data to temp file */
+		/* fall through - write the new data to temp file */
 	case MAIL_ATTACHMENT_STATE_YES:
 		astream_try_base64_decode(part, block->data, block->size);
 		hash_format_loop(astream->set.hash_format,
