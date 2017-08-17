@@ -95,7 +95,7 @@ timeout_add(unsigned int msecs, const char *source_filename,
 	timeout_add(msecs, __FILE__, __LINE__ + \
 		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))) + \
 		COMPILE_ERROR_IF_TRUE(__builtin_constant_p(msecs) && \
-				      (msecs > 0 && msecs < 1000)), \
+				      ((msecs) > 0 && (msecs) < 1000)), \
 		(io_callback_t *)callback, context)
 struct timeout *
 timeout_add_short(unsigned int msecs, const char *source_filename,
