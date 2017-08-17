@@ -19,7 +19,7 @@ static bool input_idx_need_encoding(const unsigned char *input,
 		if (i+1 == len || input[i+1] != '\n')
 			return TRUE;
 		i++;
-		/* fall through and verify the LF as well */
+		/* fall through - verify the LF as well */
 	case '\n':
 		if (i+1 == len) {
 			/* trailing LF - we need to drop it */

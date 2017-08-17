@@ -1065,6 +1065,7 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 			/* ignore expunge requests */
 			break;
 		}
+		/* fall through */
 	case MAIL_TRANSACTION_APPEND:
 	case MAIL_TRANSACTION_KEYWORD_UPDATE:
 	case MAIL_TRANSACTION_KEYWORD_RESET:

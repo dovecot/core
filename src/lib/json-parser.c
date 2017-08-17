@@ -538,6 +538,7 @@ json_try_parse_next(struct json_parser *parser, enum json_type *type_r,
 			/* we skipped over the previous value */
 			parser->skipping = FALSE;
 		}
+		/* fall through */
 	case JSON_STATE_ARRAY_NEXT_SKIP:
 		if (*parser->data == ']')
 			return json_parse_close_array(parser, type_r);

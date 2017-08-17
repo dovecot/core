@@ -208,6 +208,7 @@ fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 				   the header */
 				break;
 			}
+			/* fall through */
 		case SEARCH_BODY:
 		case SEARCH_TEXT:
 			T_BEGIN {

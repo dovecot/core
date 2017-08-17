@@ -481,10 +481,9 @@ ldap_connect_next_message(struct ldap_connection *conn,
 			}
 			conn->state = LDAP_STATE_TLS;
 			break;
-		} else {
-			conn->state = LDAP_STATE_AUTH;
-			/* we let it slide intentionally to next case */
 		}
+		conn->state = LDAP_STATE_AUTH;
+		/* fall through */
 	case LDAP_STATE_AUTH:
 		ret = ldap_sasl_bind(conn->conn,
 			conn->set.bind_dn,
