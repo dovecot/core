@@ -919,6 +919,7 @@ static bool cmd_mcp_keypair_generate_parse_arg(struct doveadm_mail_cmd_context *
 		break;
 	case 'f':
 		ctx->force = TRUE;
+		break;
 	default:
 		return FALSE;
 	}
