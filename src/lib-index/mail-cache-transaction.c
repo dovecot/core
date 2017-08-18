@@ -39,6 +39,7 @@ struct mail_cache_transaction_ctx {
 
 	buffer_t *cache_data;
 	ARRAY(struct mail_cache_transaction_rec) cache_data_seq;
+	ARRAY_TYPE(seq_range) cache_data_wanted_seqs;
 	uint32_t prev_seq, min_seq;
 	size_t last_rec_pos;
 
@@ -159,6 +160,8 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **_ctx)
 		buffer_free(&ctx->cache_data);
 	if (array_is_created(&ctx->cache_data_seq))
 		array_free(&ctx->cache_data_seq);
+	if (array_is_created(&ctx->cache_data_wanted_seqs))
+		array_free(&ctx->cache_data_wanted_seqs);
 	i_free(ctx);
 }
 
@@ -463,7 +466,38 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx)
 	ctx->min_seq = 0;
 
 	array_clear(&ctx->cache_data_seq);
+	array_clear(&ctx->cache_data_wanted_seqs);
 	return ret;
+}
+
+static void
+mail_cache_transaction_drop_unwanted(struct mail_cache_transaction_ctx *ctx,
+				     size_t space_needed)
+{
+	struct mail_cache_transaction_rec *recs;
+	unsigned int i, count;
+
+	recs = array_get_modifiable(&ctx->cache_data_seq, &count);
+	/* find out how many records to delete. delete all unwanted sequences,
+	   and if that's not enough delete some more. */
+	for (i = 0; i < count; i++) {
+		if (seq_range_exists(&ctx->cache_data_wanted_seqs, recs[i].seq)) {
+			if (recs[i].cache_data_pos >= space_needed)
+				break;
+			/* we're going to forcibly delete it - remove it also
+			   from the array since it's no longer useful there */
+			seq_range_array_remove(&ctx->cache_data_wanted_seqs,
+					       recs[i].seq);
+		}
+	}
+	unsigned int deleted_count = i;
+	size_t deleted_space = i < count ?
+		recs[i].cache_data_pos : ctx->last_rec_pos;
+	for (; i < count; i++)
+		recs[i].cache_data_pos -= deleted_space;
+	ctx->last_rec_pos -= deleted_space;
+	array_delete(&ctx->cache_data_seq, 0, deleted_count);
+	buffer_delete(ctx->cache_data, 0, deleted_space);
 }
 
 static size_t
@@ -513,6 +547,7 @@ mail_cache_transaction_switch_seq(struct mail_cache_transaction_ctx *ctx)
 			buffer_create_dynamic(default_pool,
 					      MAIL_CACHE_INIT_WRITE_BUFFER);
 		i_array_init(&ctx->cache_data_seq, 64);
+		i_array_init(&ctx->cache_data_wanted_seqs, 32);
 	}
 
 	i_zero(&new_rec);
@@ -727,6 +762,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	if (ctx->prev_seq != seq) {
 		mail_cache_transaction_switch_seq(ctx);
 		ctx->prev_seq = seq;
+		seq_range_array_add(&ctx->cache_data_wanted_seqs, seq);
 
 		/* remember roughly what we have modified, so cache lookups can
 		   look into transactions to see changes. */
@@ -750,7 +786,12 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 		   cache file had been compressed and was reopened, return
 		   without adding the cached data since cache_data buffer
 		   doesn't contain the cache_rec anymore. */
-		if (mail_cache_transaction_flush(ctx) < 0) {
+		if (MAIL_INDEX_IS_IN_MEMORY(ctx->cache->index)) {
+			/* just drop the old data to free up memory */
+			size_t space_needed = ctx->cache_data->used +
+				full_size - MAIL_CACHE_MAX_WRITE_BUFFER;
+			mail_cache_transaction_drop_unwanted(ctx, space_needed);
+		} else if (mail_cache_transaction_flush(ctx) < 0) {
 			/* make sure the transaction is reset, so we don't
 			   constantly try to flush for each call to this
 			   function */
@@ -811,4 +852,11 @@ bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 		return FALSE;
 
 	return mail_cache_field_exists(ctx->view, seq, field_idx) == 0;
+}
+
+void mail_cache_close_mail(struct mail_cache_transaction_ctx *ctx,
+			   uint32_t seq)
+{
+	if (array_is_created(&ctx->cache_data_wanted_seqs))
+		seq_range_array_remove(&ctx->cache_data_wanted_seqs, seq);
 }
