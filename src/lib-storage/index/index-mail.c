@@ -1693,6 +1693,10 @@ void index_mail_close(struct mail *_mail)
 	}
 
 	index_mail_close_streams_full(mail, TRUE);
+	/* Notify cache that the mail is no longer open. This mainly helps
+	   with INDEX=MEMORY to keep all data added with mail_cache_add() in
+	   memory until this point. */
+	mail_cache_close_mail(_mail->transaction->cache_trans, _mail->seq);
 
 	if (mail->data.wanted_headers != NULL)
 		mailbox_header_lookup_unref(&mail->data.wanted_headers);
