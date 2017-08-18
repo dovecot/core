@@ -115,6 +115,11 @@ bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
    returned only if the decision is a forced no. */
 bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 			      uint32_t seq, unsigned int field_idx);
+/* Notify cache that the mail is now closed. Any records added with
+   mail_cache_add() are unlikely to be required again. This mainly tells
+   INDEX=MEMORY that it can free up the memory used by the mail. */
+void mail_cache_close_mail(struct mail_cache_transaction_ctx *ctx,
+			   uint32_t seq);
 
 /* Returns 1 if field exists, 0 if not, -1 if error. */
 int mail_cache_field_exists(struct mail_cache_view *view, uint32_t seq,
