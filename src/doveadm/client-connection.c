@@ -563,6 +563,8 @@ void client_connection_destroy(struct client_connection **_conn)
 
 	*_conn = NULL;
 
+	doveadm_print_deinit();
+
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_destroy(&conn->ssl_iostream);
 
