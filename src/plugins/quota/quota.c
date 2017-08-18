@@ -483,7 +483,7 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 {
 	struct quota_rule *rule;
 	int64_t bytes_limit, count_limit;
-	bool enabled;
+	int ret;
 
 	*ignored_r = FALSE;
 
@@ -499,11 +499,16 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 
 	/* if default rule limits are 0, user has unlimited quota.
 	   ignore any specific quota rules */
-	enabled = bytes_limit != 0 || count_limit != 0;
+	if (bytes_limit != 0 || count_limit != 0) {
+		(void)mail_namespace_find_unalias(root->quota->user->namespaces,
+						  &mailbox_name);
+		rule = quota_root_rule_find(root->set, mailbox_name);
+		ret = 1;
+	} else {
+		rule = NULL;
+		ret = 0;
+	}
 
-	(void)mail_namespace_find_unalias(root->quota->user->namespaces,
-					  &mailbox_name);
-	rule = enabled ? quota_root_rule_find(root->set, mailbox_name) : NULL;
 	if (rule != NULL) {
 		if (!rule->ignore) {
 			bytes_limit += rule->bytes_limit;
@@ -517,7 +522,7 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 
 	*bytes_limit_r = bytes_limit <= 0 ? 0 : bytes_limit;
 	*count_limit_r = count_limit <= 0 ? 0 : count_limit;
-	return enabled ? 1 : 0;
+	return ret;
 }
 
 static bool
