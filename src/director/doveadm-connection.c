@@ -34,6 +34,10 @@ enum doveadm_director_cmd_ret {
 	DOVEADM_DIRECTOR_CMD_RET_RING_SYNC_OK,
 };
 
+enum doveadm_director_cmd_flag {
+	DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC = 0x01,
+};
+
 typedef void
 doveadm_connection_ring_sync_callback_t(struct doveadm_connection *);
 
@@ -60,6 +64,9 @@ struct doveadm_connection {
 	struct director_reset_cmd *reset_cmd;
 	doveadm_connection_ring_sync_callback_t *ring_sync_callback;
 
+	const char **cmd_pending_args;
+	unsigned int cmd_pending_idx;
+
 	unsigned int handshaked:1;
 };
 
@@ -71,6 +78,7 @@ static void doveadm_connection_set_io(struct doveadm_connection *conn);
 static void doveadm_connection_deinit(struct doveadm_connection **_conn);
 static void
 doveadm_connection_ring_sync_list_move(struct doveadm_connection *conn);
+static void doveadm_connection_cmd_run_synced(struct doveadm_connection *conn);
 
 static enum doveadm_director_cmd_ret
 doveadm_cmd_host_list(struct doveadm_connection *conn,
@@ -760,24 +768,25 @@ struct {
 	const char *name;
 	enum doveadm_director_cmd_ret (*cmd)
 		(struct doveadm_connection *conn, const char *const *args);
+	enum doveadm_director_cmd_flag flags;
 } doveadm_director_commands[] = {
-	{ "HOST-LIST", doveadm_cmd_host_list },
-	{ "HOST-LIST-REMOVED", doveadm_cmd_host_list_removed },
-	{ "DIRECTOR-LIST", doveadm_cmd_director_list },
-	{ "DIRECTOR-ADD", doveadm_cmd_director_add },
-	{ "DIRECTOR-REMOVE", doveadm_cmd_director_remove },
-	{ "HOST-SET", doveadm_cmd_host_set },
-	{ "HOST-UPDATE", doveadm_cmd_host_update },
-	{ "HOST-UP", doveadm_cmd_host_up },
-	{ "HOST-DOWN", doveadm_cmd_host_down },
-	{ "HOST-REMOVE", doveadm_cmd_host_remove },
-	{ "HOST-FLUSH", doveadm_cmd_host_flush },
-	{ "HOST-RESET-USERS", doveadm_cmd_host_reset_users },
-	{ "USER-LOOKUP", doveadm_cmd_user_lookup },
-	{ "USER-LIST", doveadm_cmd_user_list },
-	{ "USER-MOVE", doveadm_cmd_user_move },
-	{ "USER-KICK", doveadm_cmd_user_kick },
-	{ "USER-KICK-ALT", doveadm_cmd_user_kick_alt },
+	{ "HOST-LIST", doveadm_cmd_host_list, 0 },
+	{ "HOST-LIST-REMOVED", doveadm_cmd_host_list_removed, 0 },
+	{ "DIRECTOR-LIST", doveadm_cmd_director_list, 0 },
+	{ "DIRECTOR-ADD", doveadm_cmd_director_add, DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC },
+	{ "DIRECTOR-REMOVE", doveadm_cmd_director_remove, DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC },
+	{ "HOST-SET", doveadm_cmd_host_set, DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC },
+	{ "HOST-UPDATE", doveadm_cmd_host_update, DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC },
+	{ "HOST-UP", doveadm_cmd_host_up, DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC },
+	{ "HOST-DOWN", doveadm_cmd_host_down, DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC },
+	{ "HOST-REMOVE", doveadm_cmd_host_remove, DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC },
+	{ "HOST-FLUSH", doveadm_cmd_host_flush, DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC },
+	{ "HOST-RESET-USERS", doveadm_cmd_host_reset_users, 0 },
+	{ "USER-LOOKUP", doveadm_cmd_user_lookup, 0 },
+	{ "USER-LIST", doveadm_cmd_user_list, 0 },
+	{ "USER-MOVE", doveadm_cmd_user_move, 0 },
+	{ "USER-KICK", doveadm_cmd_user_kick, 0 },
+	{ "USER-KICK-ALT", doveadm_cmd_user_kick_alt, 0 },
 };
 
 static void
@@ -788,6 +797,8 @@ doveadm_connection_ring_sync_timeout(struct doveadm_connection *conn)
 
 	doveadm_connection_set_io(conn);
 	io_set_pending(conn->io);
+
+	i_free_and_null(conn->cmd_pending_args);
 }
 
 static void
@@ -817,6 +828,17 @@ doveadm_connection_cmd_run(struct doveadm_connection *conn,
 {
 	enum doveadm_director_cmd_ret ret;
 
+	if ((doveadm_director_commands[i].flags &
+	     DOVEADM_DIRECTOR_CMD_FLAG_PRE_RING_SYNC) != 0 &&
+	    !conn->dir->ring_synced) {
+		/* wait for ring to be synced before running the command */
+		conn->cmd_pending_args = p_strarray_dup(default_pool, args);
+		conn->cmd_pending_idx = i;
+		doveadm_connection_set_ring_sync_callback(conn,
+			doveadm_connection_cmd_run_synced);
+		return DOVEADM_DIRECTOR_CMD_RET_UNFINISHED;
+	}
+
 	ret = doveadm_director_commands[i].cmd(conn, args);
 	if (ret != DOVEADM_DIRECTOR_CMD_RET_RING_SYNC_OK)
 		return ret;
@@ -830,6 +852,15 @@ doveadm_connection_cmd_run(struct doveadm_connection *conn,
 	}
 	doveadm_connection_set_ring_sync_callback(conn, doveadm_connection_ret_ok);
 	return DOVEADM_DIRECTOR_CMD_RET_RING_SYNC_OK;
+}
+
+static void doveadm_connection_cmd_run_synced(struct doveadm_connection *conn)
+{
+	const char **args = conn->cmd_pending_args;
+
+	conn->cmd_pending_args = NULL;
+	(void)doveadm_connection_cmd_run(conn, args, conn->cmd_pending_idx);
+	i_free(args);
 }
 
 static enum doveadm_director_cmd_ret
