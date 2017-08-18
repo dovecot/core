@@ -716,6 +716,7 @@ static void cmd_director_flush(struct doveadm_cmd_context *cctx)
 
 	cmd = t_str_new(64);
 	for (i = 0; i < ips_count; i++) {
+		ip = ips[i];
 		str_truncate(cmd, 0);
 		if (ctx->force_flush)
 			str_printfa(cmd, "HOST-FLUSH\t%s\n", net_ip2addr(&ip));
