@@ -2354,7 +2354,6 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 			"Broken %s in mailbox %s: %s",
 			field_name, mail->box->vname, reason);
 	}
-	mail_storage_set_internal_error(mail->box->storage);
 }
 
 int index_mail_opened(struct mail *mail ATTR_UNUSED,
