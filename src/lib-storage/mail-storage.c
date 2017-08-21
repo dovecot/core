@@ -602,16 +602,23 @@ void mail_storage_copy_list_error(struct mail_storage *storage,
 
 void mailbox_set_index_error(struct mailbox *box)
 {
-	if (mail_index_is_deleted(box->index))
+	if (mail_index_is_deleted(box->index)) {
 		mailbox_set_deleted(box);
-	else {
-		mail_storage_set_internal_error(box->storage);
-		/* use the lib-index's error as our internal error string */
-		box->storage->last_internal_error =
-			i_strdup(mail_index_get_error_message(box->index));
-		box->storage->last_error_is_internal = TRUE;
+		mail_index_reset_error(box->index);
+	} else {
+		mail_storage_set_index_error(box->storage, box->index);
 	}
-	mail_index_reset_error(box->index);
+}
+
+void mail_storage_set_index_error(struct mail_storage *storage,
+				  struct mail_index *index)
+{
+	mail_storage_set_internal_error(storage);
+	/* use the lib-index's error as our internal error string */
+	storage->last_internal_error =
+		i_strdup(mail_index_get_error_message(index));
+	storage->last_error_is_internal = TRUE;
+	mail_index_reset_error(index);
 }
 
 const struct mail_storage_settings *
