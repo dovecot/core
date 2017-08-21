@@ -911,7 +911,8 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 
 	/* fsck the map just in case its UIDs are broken */
 	if (mail_index_fsck(ctx->storage->map->index) < 0) {
-		mail_storage_set_internal_error(&ctx->storage->storage.storage);
+		mail_storage_set_index_error(&ctx->storage->storage.storage,
+					     ctx->storage->map->index);
 		return -1;
 	}
 
