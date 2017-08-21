@@ -533,6 +533,10 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	i_free(storage->error_string);
 	storage->error_string = i_strdup(str);
 	storage->error = MAIL_ERROR_TEMP;
+
+	/* this function doesn't set last_internal_error, so
+	   last_error_is_internal can't be TRUE. */
+	storage->last_error_is_internal = FALSE;
 }
 
 void mail_storage_set_critical(struct mail_storage *storage,
@@ -540,6 +544,12 @@ void mail_storage_set_critical(struct mail_storage *storage,
 {
 	char *old_error = storage->last_internal_error;
 	va_list va;
+
+	storage->last_internal_error = NULL;
+	/* critical errors may contain sensitive data, so let user
+	   see only "Internal error" with a timestamp to make it
+	   easier to look from log files the actual error message. */
+	mail_storage_set_internal_error(storage);
 
 	va_start(va, fmt);
 	storage->last_internal_error = i_strdup_vprintf(fmt, va);
@@ -550,11 +560,6 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	/* free the old_error only after the new error is generated, because
 	   the old_error may be one of the parameters. */
 	i_free(old_error);
-
-	/* critical errors may contain sensitive data, so let user
-	   see only "Internal error" with a timestamp to make it
-	   easier to look from log files the actual error message. */
-	mail_storage_set_internal_error(storage);
 }
 
 const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
