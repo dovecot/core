@@ -2821,6 +2821,9 @@ void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...)
 					t_strdup_vprintf(fmt, va)));
 	} T_END;
 
+	/* update also the storage's internal error */
+	mailbox_set_index_error(mail->box);
+
 	va_end(va);
 }
 
