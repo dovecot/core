@@ -169,8 +169,7 @@ static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 		ret = mail_index_open(map->index, open_flags);
 	}
 	if (ret < 0) {
-		mail_storage_set_internal_error(MAP_STORAGE(map));
-		mail_index_reset_error(map->index);
+		mail_storage_set_index_error(MAP_STORAGE(map), map->index);
 		return -1;
 	}
 	if (ret == 0) {
@@ -183,10 +182,12 @@ static int mdbox_map_open_internal(struct mdbox_map *map, bool create_missing)
 	mdbox_map_cleanup(map);
 
 	if (mail_index_get_header(map->view)->uid_validity == 0) {
-		if (mdbox_map_generate_uid_validity(map) < 0 ||
-		    mdbox_map_refresh(map) < 0) {
-			mail_storage_set_internal_error(MAP_STORAGE(map));
-			mail_index_reset_error(map->index);
+		if (mdbox_map_generate_uid_validity(map) < 0) {
+			mail_storage_set_index_error(MAP_STORAGE(map), map->index);
+			mail_index_close(map->index);
+			return -1;
+		}
+		if (mdbox_map_refresh(map) < 0) {
 			mail_index_close(map->index);
 			return -1;
 		}
@@ -216,8 +217,7 @@ int mdbox_map_refresh(struct mdbox_map *map)
 	mdbox_files_sync_input(map->storage);
 
 	if (mail_index_refresh(map->view->index) < 0) {
-		mail_storage_set_internal_error(MAP_STORAGE(map));
-		mail_index_reset_error(map->index);
+		mail_storage_set_index_error(MAP_STORAGE(map), map->index);
 		return -1;
 	}
 	if (mail_index_view_get_transaction_count(map->view) > 0) {
@@ -229,8 +229,7 @@ int mdbox_map_refresh(struct mdbox_map *map)
 				MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT);
 	fscked = mail_index_reset_fscked(map->view->index);
 	if (mail_index_view_sync_commit(&ctx, &delayed_expunges) < 0) {
-		mail_storage_set_internal_error(MAP_STORAGE(map));
-		mail_index_reset_error(map->index);
+		mail_storage_set_index_error(MAP_STORAGE(map), map->index);
 		ret = -1;
 	}
 	if (fscked)
@@ -515,8 +514,8 @@ int mdbox_map_atomic_lock(struct mdbox_map_atomic_context *atomic,
 		mdbox_storage_set_corrupted(atomic->map->storage);
 	if (ret <= 0) {
 		i_assert(ret != 0);
-		mail_storage_set_internal_error(MAP_STORAGE(atomic->map));
-		mail_index_reset_error(atomic->map->index);
+		mail_storage_set_index_error(MAP_STORAGE(atomic->map),
+					     atomic->map->index);
 		return -1;
 	}
 	mail_index_sync_set_reason(atomic->sync_ctx, reason);
@@ -562,8 +561,8 @@ int mdbox_map_atomic_finish(struct mdbox_map_atomic_context **_atomic)
 		i_assert(!atomic->locked);
 	} else if (atomic->success) {
 		if (mail_index_sync_commit(&atomic->sync_ctx) < 0) {
-			mail_storage_set_internal_error(MAP_STORAGE(atomic->map));
-			mail_index_reset_error(atomic->map->index);
+			mail_storage_set_index_error(MAP_STORAGE(atomic->map),
+						     atomic->map->index);
 			ret = -1;
 		}
 	} else {
@@ -616,8 +615,8 @@ int mdbox_map_transaction_commit(struct mdbox_map_transaction_context *ctx,
 		return -1;
 
 	if (mail_index_transaction_commit(&ctx->trans) < 0) {
-		mail_storage_set_internal_error(MAP_STORAGE(ctx->atomic->map));
-		mail_index_reset_error(ctx->atomic->map->index);
+		mail_storage_set_index_error(MAP_STORAGE(ctx->atomic->map),
+					     ctx->atomic->map->index);
 		return -1;
 	}
 	mdbox_map_atomic_set_success(ctx->atomic);
@@ -1333,8 +1332,8 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 	}
 
 	if (mail_index_transaction_commit(&ctx->trans) < 0) {
-		mail_storage_set_internal_error(MAP_STORAGE(ctx->map));
-		mail_index_reset_error(ctx->map->index);
+		mail_storage_set_index_error(MAP_STORAGE(ctx->map),
+					     ctx->map->index);
 		return -1;
 	}
 
