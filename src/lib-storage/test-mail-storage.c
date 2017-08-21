@@ -38,7 +38,18 @@ static void test_mail_storage_errors(void)
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(!storage.last_error_is_internal);
 
-	/* internal error without specifying what it is */
+	/* set internal error in preparation for the next test */
+	test_expect_error_string("critical0");
+	mail_storage_set_critical(&storage, "critical0");
+	test_expect_no_more_errors();
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(mail_error == MAIL_ERROR_TEMP);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical0") == 0);
+	test_assert(mail_error == MAIL_ERROR_TEMP);
+	test_assert(storage.last_error_is_internal);
+
+	/* internal error without specifying what it is. this needs to clear
+	   the previous internal error. */
 	mail_storage_set_internal_error(&storage);
 	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
