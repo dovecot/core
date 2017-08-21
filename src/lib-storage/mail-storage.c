@@ -608,8 +608,13 @@ void mailbox_set_index_error(struct mailbox *box)
 {
 	if (mail_index_is_deleted(box->index))
 		mailbox_set_deleted(box);
-	else
+	else {
 		mail_storage_set_internal_error(box->storage);
+		/* use the lib-index's error as our internal error string */
+		box->storage->last_internal_error =
+			i_strdup(mail_index_get_error_message(box->index));
+		box->storage->last_error_is_internal = TRUE;
+	}
 	mail_index_reset_error(box->index);
 }
 
