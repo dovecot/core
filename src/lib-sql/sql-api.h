@@ -8,7 +8,11 @@ enum sql_db_flags {
 	/* Set if queries are not executed asynchronously */
 	SQL_DB_FLAG_BLOCKING		= 0x01,
 	/* Set if database wants to use connection pooling */
-	SQL_DB_FLAG_POOLED		= 0x02
+	SQL_DB_FLAG_POOLED		= 0x02,
+	/* Prepared statements are supported by the database. If they aren't,
+	   the functions can still be used, but they're just internally
+	   convered into regular statements. */
+	SQL_DB_FLAG_PREP_STATEMENTS	= 0x04,
 };
 
 enum sql_field_type {
@@ -112,6 +116,33 @@ void sql_query(struct sql_db *db, const char *query,
 /* Execute blocking SQL query and return result. */
 struct sql_result *sql_query_s(struct sql_db *db, const char *query);
 
+struct sql_prepared_statement *
+sql_prepared_statement_init(struct sql_db *db, const char *query_template);
+void sql_prepared_statement_deinit(struct sql_prepared_statement **prep_stmt);
+
+struct sql_statement *
+sql_statement_init(struct sql_db *db, const char *query_template);
+struct sql_statement *
+sql_statement_init_prepared(struct sql_prepared_statement *prep_stmt);
+void sql_statement_abort(struct sql_statement **stmt);
+void sql_statement_set_timestamp(struct sql_statement *stmt,
+				 const struct timespec *ts);
+void sql_statement_bind_str(struct sql_statement *stmt,
+			    unsigned int column_idx, const char *value);
+void sql_statement_bind_binary(struct sql_statement *stmt,
+			       unsigned int column_idx, const void *value,
+			       size_t value_size);
+void sql_statement_bind_int64(struct sql_statement *stmt,
+			      unsigned int column_idx, int64_t value);
+void sql_statement_query(struct sql_statement **stmt,
+			 sql_query_callback_t *callback, void *context);
+#define sql_statement_query(stmt, callback, context) \
+	sql_statement_query(stmt, \
+		(sql_query_callback_t *)callback, context + \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			struct sql_result *, typeof(context))))
+struct sql_result *sql_statement_query_s(struct sql_statement **stmt);
+
 void sql_result_setup_fetch(struct sql_result *result,
 			    const struct sql_field_def *fields,
 			    void *dest, size_t dest_size);
@@ -179,9 +210,14 @@ void sql_transaction_rollback(struct sql_transaction_context **ctx);
 
 /* Execute query in given transaction. */
 void sql_update(struct sql_transaction_context *ctx, const char *query);
+void sql_update_stmt(struct sql_transaction_context *ctx,
+		     struct sql_statement **stmt);
 /* Save the number of rows updated by this query. The value is set before
    commit callback is called. */
 void sql_update_get_rows(struct sql_transaction_context *ctx, const char *query,
 			 unsigned int *affected_rows);
+void sql_update_stmt_get_rows(struct sql_transaction_context *ctx,
+			      struct sql_statement **stmt,
+			      unsigned int *affected_rows);
 
 #endif
