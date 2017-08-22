@@ -19,9 +19,9 @@
 #define IPC_SERVER_HANDSHAKE "VERSION\tipc-proxy\t1\t0\n"
 
 static unsigned int connection_id_counter;
-static void ipc_connection_cmd_free(struct ipc_connection_cmd **cmd);
 
-static void ipc_connection_cmd_free(struct ipc_connection_cmd **_cmd)
+static void ipc_connection_cmd_free(struct ipc_connection_cmd **_cmd,
+				    const char *reason)
 {
 	struct ipc_connection_cmd *cmd = *_cmd;
 	struct ipc_connection_cmd **cmds;
@@ -37,8 +37,8 @@ static void ipc_connection_cmd_free(struct ipc_connection_cmd **_cmd)
 		}
 	}
 	if (cmd->callback != NULL) {
-		cmd->callback(IPC_CMD_STATUS_ERROR,
-			      "Connection to server died", cmd->context);
+		i_assert(reason != NULL);
+		cmd->callback(IPC_CMD_STATUS_ERROR, reason, cmd->context);
 	}
 	i_free(cmd);
 }
@@ -95,7 +95,7 @@ ipc_connection_input_line(struct ipc_connection *conn, char *line)
 	cmd->callback(status, data, cmd->context);
 	if (status != IPC_CMD_STATUS_REPLY) {
 		cmd->callback = NULL;
-		ipc_connection_cmd_free(&cmd);
+		ipc_connection_cmd_free(&cmd, NULL);
 	}
 	return 0;
 }
@@ -107,7 +107,8 @@ static void ipc_connection_input(struct ipc_connection *conn)
 	int ret;
 
 	if (i_stream_read(conn->input) < 0) {
-		ipc_connection_destroy(&conn);
+		ipc_connection_destroy(&conn, FALSE,
+			i_stream_get_disconnect_reason(conn->input));
 		return;
 	}
 
@@ -117,9 +118,9 @@ static void ipc_connection_input(struct ipc_connection *conn)
 
 		if (!version_string_verify(line, "ipc-server",
 				IPC_SERVER_PROTOCOL_MAJOR_VERSION)) {
-			i_error("IPC server not compatible with this server "
+			ipc_connection_destroy(&conn, TRUE,
+				"IPC server not compatible with this server "
 				"(mixed old and new binaries?)");
-			ipc_connection_destroy(&conn);
 			return;
 		}
 		conn->version_received = TRUE;
@@ -131,20 +132,20 @@ static void ipc_connection_input(struct ipc_connection *conn)
 		args = t_strsplit_tabescaped(line);
 		if (str_array_length(args) < 3 ||
 		    strcmp(args[0], "HANDSHAKE") != 0) {
-			i_error("IPC server sent invalid handshake");
-			ipc_connection_destroy(&conn);
+			ipc_connection_destroy(&conn, TRUE,
+				"IPC server sent invalid handshake");
 			return;
 		}
 		if (ipc_group_update_name(conn->group, args[1]) < 0) {
-			i_error("IPC server named itself unexpectedly: %s "
+			ipc_connection_destroy(&conn, TRUE, t_strdup_printf(
+				"IPC server named itself unexpectedly: %s "
 				"(existing ones were %s)",
-				args[1], conn->group->name);
-			ipc_connection_destroy(&conn);
+				args[1], conn->group->name));
 			return;
 		}
 		if (str_to_pid(args[2], &conn->pid) < 0) {
-			i_error("IPC server gave broken PID: %s", args[2]);
-			ipc_connection_destroy(&conn);
+			ipc_connection_destroy(&conn, TRUE, t_strdup_printf(
+				"IPC server gave broken PID: %s", args[2]));
 			return;
 		}
 		conn->handshake_received = TRUE;
@@ -155,9 +156,9 @@ static void ipc_connection_input(struct ipc_connection *conn)
 			ret = ipc_connection_input_line(conn, line);
 		} T_END;
 		if (ret < 0) {
-			i_error("Invalid input from IPC server '%s': %s",
-				conn->group->name, line);
-			ipc_connection_destroy(&conn);
+			ipc_connection_destroy(&conn, TRUE, t_strdup_printf(
+				"Invalid input from IPC server '%s': %s",
+				conn->group->name, line));
 			break;
 		}
 	}
@@ -186,20 +187,28 @@ struct ipc_connection *ipc_connection_create(int listen_fd, int fd)
 	return conn;
 }
 
-void ipc_connection_destroy(struct ipc_connection **_conn)
+void ipc_connection_destroy(struct ipc_connection **_conn,
+			    bool log_error, const char *error)
 {
 	struct ipc_connection *conn = *_conn;
 	struct ipc_connection_cmd *const *cmdp, *cmd;
+	const char *group_name = conn->group->name != NULL ?
+		conn->group->name :
+		t_strdup_printf("#%d", conn->group->listen_fd);
 
 	*_conn = NULL;
 
+	error = t_strdup_printf("IPC: '%s' PID %d server connection: %s",
+				group_name, conn->pid, error);
+	if (log_error)
+		i_error("%s", error);
 	DLLIST_REMOVE(&conn->group->connections, conn);
 
 	while (array_count(&conn->cmds) > 0) {
 		cmdp = array_idx(&conn->cmds, 0);
 		cmd = *cmdp;
 
-		ipc_connection_cmd_free(&cmd);
+		ipc_connection_cmd_free(&cmd, error);
 	}
 	array_free(&conn->cmds);
 

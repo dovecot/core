@@ -153,7 +153,7 @@ void ipc_groups_deinit(void)
 
 		while ((*groupp)->connections != NULL) {
 			struct ipc_connection *conn = (*groupp)->connections;
-			ipc_connection_destroy(&conn);
+			ipc_connection_destroy(&conn, FALSE, "Shutting down");
 		}
 		ipc_group_free(&group);
 	}
