@@ -51,6 +51,7 @@ v2.2.32 2017-08-xx  Timo Sirainen <tss@iki.fi>
 	+ imap_logout_format supports now %{appended} and %{autoexpunged}
 	+ virtual plugin: Optimize IDLE to use mailbox list index for finding
 	  out when something has changed.
+	+ Added apparmor plugin. See https://wiki2.dovecot.org/Plugins/Apparmor
 	- virtual plugin: A lot of fixes. In many cases it was also working
 	  very inefficiently or even incorrectly.
 	- imap: NOTIFY parameter parsing was incorrectly "fixed" in v2.2.31.
@@ -70,6 +71,8 @@ v2.2.32 2017-08-xx  Timo Sirainen <tss@iki.fi>
 	- mail_location: If INDEX dir is set, mailbox deletion deletes its
 	  childrens' indexes. For example if "box" is deleted, "box/child"
 	  index directory was deleted as well (but mails were preserved).
+	- director: v2.2.31 caused rapid reconnection loops to directors
+	  that were down.
 
 v2.2.31 2017-06-26  Timo Sirainen <tss@iki.fi>
 
