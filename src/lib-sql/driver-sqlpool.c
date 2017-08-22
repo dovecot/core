@@ -816,22 +816,21 @@ struct sql_db driver_sqlpool_db = {
 	"",
 
 	.v = {
-		NULL,
-		driver_sqlpool_deinit,
-		driver_sqlpool_connect,
-		driver_sqlpool_disconnect,
-		driver_sqlpool_escape_string,
-		driver_sqlpool_exec,
-		driver_sqlpool_query,
-		driver_sqlpool_query_s,
+		.deinit = driver_sqlpool_deinit,
+		.connect = driver_sqlpool_connect,
+		.disconnect = driver_sqlpool_disconnect,
+		.escape_string = driver_sqlpool_escape_string,
+		.exec = driver_sqlpool_exec,
+		.query = driver_sqlpool_query,
+		.query_s = driver_sqlpool_query_s,
 
-		driver_sqlpool_transaction_begin,
-		driver_sqlpool_transaction_commit,
-		driver_sqlpool_transaction_commit_s,
-		driver_sqlpool_transaction_rollback,
+		.transaction_begin = driver_sqlpool_transaction_begin,
+		.transaction_commit = driver_sqlpool_transaction_commit,
+		.transaction_commit_s = driver_sqlpool_transaction_commit_s,
+		.transaction_rollback = driver_sqlpool_transaction_rollback,
 
-		driver_sqlpool_update,
+		.update = driver_sqlpool_update,
 
-		driver_sqlpool_escape_blob
+		.escape_blob = driver_sqlpool_escape_blob,
 	}
 };

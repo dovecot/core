@@ -1175,39 +1175,38 @@ const struct sql_db driver_pgsql_db = {
 	.flags = SQL_DB_FLAG_POOLED,
 
 	.v = {
-		driver_pgsql_init_v,
-		driver_pgsql_deinit_v,
-		driver_pgsql_connect,
-		driver_pgsql_disconnect,
-		driver_pgsql_escape_string,
-		driver_pgsql_exec,
-		driver_pgsql_query,
-		driver_pgsql_query_s,
+		.init = driver_pgsql_init_v,
+		.deinit = driver_pgsql_deinit_v,
+		.connect = driver_pgsql_connect,
+		.disconnect = driver_pgsql_disconnect,
+		.escape_string = driver_pgsql_escape_string,
+		.exec = driver_pgsql_exec,
+		.query = driver_pgsql_query,
+		.query_s = driver_pgsql_query_s,
 
-		driver_pgsql_transaction_begin,
-		driver_pgsql_transaction_commit,
-		driver_pgsql_transaction_commit_s,
-		driver_pgsql_transaction_rollback,
+		.transaction_begin = driver_pgsql_transaction_begin,
+		.transaction_commit = driver_pgsql_transaction_commit,
+		.transaction_commit_s = driver_pgsql_transaction_commit_s,
+		.transaction_rollback = driver_pgsql_transaction_rollback,
 
-		driver_pgsql_update,
+		.update = driver_pgsql_update,
 
-		driver_pgsql_escape_blob
+		.escape_blob = driver_pgsql_escape_blob,
 	}
 };
 
 const struct sql_result driver_pgsql_result = {
 	.v = {
-		driver_pgsql_result_free,
-		driver_pgsql_result_next_row,
-		driver_pgsql_result_get_fields_count,
-		driver_pgsql_result_get_field_name,
-		driver_pgsql_result_find_field,
-		driver_pgsql_result_get_field_value,
-		driver_pgsql_result_get_field_value_binary,
-		driver_pgsql_result_find_field_value,
-		driver_pgsql_result_get_values,
-		driver_pgsql_result_get_error,
-		NULL,
+		.free = driver_pgsql_result_free,
+		.next_row = driver_pgsql_result_next_row,
+		.get_fields_count = driver_pgsql_result_get_fields_count,
+		.get_field_name = driver_pgsql_result_get_field_name,
+		.find_field = driver_pgsql_result_find_field,
+		.get_field_value = driver_pgsql_result_get_field_value,
+		.get_field_value_binary = driver_pgsql_result_get_field_value_binary,
+		.find_field_value = driver_pgsql_result_find_field_value,
+		.get_values = driver_pgsql_result_get_values,
+		.get_error = driver_pgsql_result_get_error,
 	}
 };
 

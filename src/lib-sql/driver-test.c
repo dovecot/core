@@ -87,22 +87,22 @@ const struct sql_db driver_test_mysql_db = {
 	.name = "mysql",
 
 	.v = {
-		driver_test_mysql_init,
-		driver_test_deinit,
-		driver_test_connect,
-		driver_test_disconnect,
-		driver_test_mysql_escape_string,
-		driver_test_exec,
-		driver_test_query,
-		driver_test_query_s,
+		.init = driver_test_mysql_init,
+		.deinit = driver_test_deinit,
+		.connect = driver_test_connect,
+		.disconnect = driver_test_disconnect,
+		.escape_string = driver_test_mysql_escape_string,
+		.exec = driver_test_exec,
+		.query = driver_test_query,
+		.query_s = driver_test_query_s,
 
-		driver_test_transaction_begin,
-		driver_test_transaction_commit,
-		driver_test_transaction_commit_s,
-		driver_test_transaction_rollback,
-		driver_test_update,
+		.transaction_begin = driver_test_transaction_begin,
+		.transaction_commit = driver_test_transaction_commit,
+		.transaction_commit_s = driver_test_transaction_commit_s,
+		.transaction_rollback = driver_test_transaction_rollback,
+		.update = driver_test_update,
 
-		driver_test_mysql_escape_blob
+		.escape_blob = driver_test_mysql_escape_blob,
 	}
 };
 
@@ -110,22 +110,22 @@ const struct sql_db driver_test_cassandra_db = {
 	.name = "cassandra",
 
 	.v = {
-		driver_test_cassandra_init,
-		driver_test_deinit,
-		driver_test_connect,
-		driver_test_disconnect,
-		driver_test_escape_string,
-		driver_test_exec,
-		driver_test_query,
-		driver_test_query_s,
+		.init = driver_test_cassandra_init,
+		.deinit = driver_test_deinit,
+		.connect = driver_test_connect,
+		.disconnect = driver_test_disconnect,
+		.escape_string = driver_test_escape_string,
+		.exec = driver_test_exec,
+		.query = driver_test_query,
+		.query_s = driver_test_query_s,
 
-		driver_test_transaction_begin,
-		driver_test_transaction_commit,
-		driver_test_transaction_commit_s,
-		driver_test_transaction_rollback,
-		driver_test_update,
+		.transaction_begin = driver_test_transaction_begin,
+		.transaction_commit = driver_test_transaction_commit,
+		.transaction_commit_s = driver_test_transaction_commit_s,
+		.transaction_rollback = driver_test_transaction_rollback,
+		.update = driver_test_update,
 
-		driver_test_escape_blob
+		.escape_blob = driver_test_escape_blob,
 	}
 };
 
@@ -133,39 +133,38 @@ const struct sql_db driver_test_sqlite_db = {
 	.name = "sqlite",
 
 	.v = {
-		driver_test_sqlite_init,
-		driver_test_deinit,
-		driver_test_connect,
-		driver_test_disconnect,
-		driver_test_escape_string,
-		driver_test_exec,
-		driver_test_query,
-		driver_test_query_s,
+		.init = driver_test_sqlite_init,
+		.deinit = driver_test_deinit,
+		.connect = driver_test_connect,
+		.disconnect = driver_test_disconnect,
+		.escape_string = driver_test_escape_string,
+		.exec = driver_test_exec,
+		.query = driver_test_query,
+		.query_s = driver_test_query_s,
 
-		driver_test_transaction_begin,
-		driver_test_transaction_commit,
-		driver_test_transaction_commit_s,
-		driver_test_transaction_rollback,
-		driver_test_update,
+		.transaction_begin = driver_test_transaction_begin,
+		.transaction_commit = driver_test_transaction_commit,
+		.transaction_commit_s = driver_test_transaction_commit_s,
+		.transaction_rollback = driver_test_transaction_rollback,
+		.update = driver_test_update,
 
-		driver_test_escape_blob
+		.escape_blob = driver_test_escape_blob,
 	}
 };
 
 
 const struct sql_result driver_test_result = {
 	.v = {
-		driver_test_result_free,
-		driver_test_result_next_row,
-		driver_test_result_get_fields_count,
-		driver_test_result_get_field_name,
-		driver_test_result_find_field,
-		driver_test_result_get_field_value,
-		driver_test_result_get_field_value_binary,
-		driver_test_result_find_field_value,
-		driver_test_result_get_values,
-		driver_test_result_get_error,
-		NULL,
+		.free = driver_test_result_free,
+		.next_row = driver_test_result_next_row,
+		.get_fields_count = driver_test_result_get_fields_count,
+		.get_field_name = driver_test_result_get_field_name,
+		.find_field = driver_test_result_find_field,
+		.get_field_value = driver_test_result_get_field_value,
+		.get_field_value_binary = driver_test_result_get_field_value_binary,
+		.find_field_value = driver_test_result_find_field_value,
+		.get_values = driver_test_result_get_values,
+		.get_error = driver_test_result_get_error,
 	}
 };
 

@@ -411,38 +411,38 @@ const struct sql_db driver_sqlite_db = {
 	.flags = SQL_DB_FLAG_BLOCKING,
 
 	.v = {
-		driver_sqlite_init_v,
-		driver_sqlite_deinit_v,
-		driver_sqlite_connect,
-		driver_sqlite_disconnect,
-		driver_sqlite_escape_string,
-		driver_sqlite_exec,
-		driver_sqlite_query,
-		driver_sqlite_query_s,
+		.init = driver_sqlite_init_v,
+		.deinit = driver_sqlite_deinit_v,
+		.connect = driver_sqlite_connect,
+		.disconnect = driver_sqlite_disconnect,
+		.escape_string = driver_sqlite_escape_string,
+		.exec = driver_sqlite_exec,
+		.query = driver_sqlite_query,
+		.query_s = driver_sqlite_query_s,
 
-		driver_sqlite_transaction_begin,
-		driver_sqlite_transaction_commit,
-		driver_sqlite_transaction_commit_s,
-		driver_sqlite_transaction_rollback,
-		driver_sqlite_update,
+		.transaction_begin = driver_sqlite_transaction_begin,
+		.transaction_commit = driver_sqlite_transaction_commit,
+		.transaction_commit_s = driver_sqlite_transaction_commit_s,
+		.transaction_rollback = driver_sqlite_transaction_rollback,
 
-		driver_sqlite_escape_blob
+		.update = driver_sqlite_update,
+
+		.escape_blob = driver_sqlite_escape_blob,
 	}
 };
 
 const struct sql_result driver_sqlite_result = {
 	.v = {
-		driver_sqlite_result_free,
-		driver_sqlite_result_next_row,
-		driver_sqlite_result_get_fields_count,
-		driver_sqlite_result_get_field_name,
-		driver_sqlite_result_find_field,
-		driver_sqlite_result_get_field_value,
-		driver_sqlite_result_get_field_value_binary,
-		driver_sqlite_result_find_field_value,
-		driver_sqlite_result_get_values,
-		driver_sqlite_result_get_error,
-		NULL,
+		.free = driver_sqlite_result_free,
+		.next_row = driver_sqlite_result_next_row,
+		.get_fields_count = driver_sqlite_result_get_fields_count,
+		.get_field_name = driver_sqlite_result_get_field_name,
+		.find_field = driver_sqlite_result_find_field,
+		.get_field_value = driver_sqlite_result_get_field_value,
+		.get_field_value_binary = driver_sqlite_result_get_field_value_binary,
+		.find_field_value = driver_sqlite_result_find_field_value,
+		.get_values = driver_sqlite_result_get_values,
+		.get_error = driver_sqlite_result_get_error,
 	}
 };
 
@@ -454,11 +454,9 @@ driver_sqlite_result_error_next_row(struct sql_result *result ATTR_UNUSED)
 
 const struct sql_result driver_sqlite_error_result = {
 	.v = {
-		driver_sqlite_result_free,
-		driver_sqlite_result_error_next_row,
-		NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-		driver_sqlite_result_get_error,
-		NULL,
+		.free = driver_sqlite_result_free,
+		.next_row = driver_sqlite_result_error_next_row,
+		.get_error = driver_sqlite_result_get_error,
 	}
 };
 
