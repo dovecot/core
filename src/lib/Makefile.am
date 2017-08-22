@@ -73,6 +73,7 @@ liblib_la_SOURCES = \
 	istream-jsonstr.c \
 	istream-limit.c \
 	istream-mmap.c \
+	istream-multiplex.c \
 	istream-rawlog.c \
 	istream-seekable.c \
 	istream-sized.c \
@@ -115,6 +116,7 @@ liblib_la_SOURCES = \
 	ostream-failure-at.c \
 	ostream-file.c \
 	ostream-hash.c \
+	ostream-multiplex.c \
 	ostream-null.c \
 	ostream-rawlog.c \
 	ostream-unix.c \
@@ -224,6 +226,7 @@ headers = \
 	istream-file-private.h \
 	istream-hash.h \
 	istream-jsonstr.h \
+	istream-multiplex.h \
 	istream-private.h \
 	istream-rawlog.h \
 	istream-seekable.h \
@@ -259,6 +262,7 @@ headers = \
 	ostream-failure-at.h \
 	ostream-file-private.h \
 	ostream-hash.h \
+	ostream-multiplex.h \
 	ostream-private.h \
 	ostream-null.h \
 	ostream-rawlog.h \
@@ -348,6 +352,7 @@ test_lib_SOURCES = \
 	test-istream-crlf.c \
 	test-istream-failure-at.c \
 	test-istream-jsonstr.c \
+	test-istream-multiplex.c \
 	test-istream-seekable.c \
 	test-istream-sized.c \
 	test-istream-tee.c \
@@ -367,6 +372,8 @@ test_lib_SOURCES = \
 	test-ostream-escaped.c \
 	test-ostream-failure-at.c \
 	test-ostream-file.c \
+	test-ostream-multiplex.c \
+	test-multiplex.c \
 	test-path-util.c \
 	test-primes.c \
 	test-printf-format-fix.c \
