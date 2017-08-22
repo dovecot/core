@@ -911,11 +911,6 @@ static void driver_cassandra_init_statement(struct cassandra_result *result)
 {
 	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
 
-	if (result->statement != NULL) {
-		/* continuing a paged result */
-		return;
-	}
-	result->statement = cass_statement_new(result->query, 0);
 	cass_statement_set_consistency(result->statement, result->consistency);
 
 #ifdef HAVE_CASSANDRA_SPECULATIVE_POLICY
@@ -1069,6 +1064,7 @@ driver_cassandra_query_full(struct sql_db *_db, const char *query,
 
 	result = driver_cassandra_query_init(db, query, query_type,
 					     callback, context);
+	result->statement = cass_statement_new(query, 0);
 	(void)driver_cassandra_send_query(result);
 }
 
