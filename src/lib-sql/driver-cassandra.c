@@ -1611,24 +1611,23 @@ const struct sql_db driver_cassandra_db = {
 	.flags = 0,
 
 	.v = {
-		driver_cassandra_init_v,
-		driver_cassandra_deinit_v,
-		driver_cassandra_connect,
-		driver_cassandra_disconnect,
-		driver_cassandra_escape_string,
-		driver_cassandra_exec,
-		driver_cassandra_query,
-		driver_cassandra_query_s,
+		.init = driver_cassandra_init_v,
+		.deinit = driver_cassandra_deinit_v,
+		.connect = driver_cassandra_connect,
+		.disconnect = driver_cassandra_disconnect,
+		.escape_string = driver_cassandra_escape_string,
+		.exec = driver_cassandra_exec,
+		.query = driver_cassandra_query,
+		.query_s = driver_cassandra_query_s,
 
-		driver_cassandra_transaction_begin,
-		NULL,
-		driver_cassandra_transaction_commit_s,
-		driver_cassandra_transaction_rollback,
+		.transaction_begin = driver_cassandra_transaction_begin,
+		.transaction_commit2 = driver_cassandra_transaction_commit,
+		.transaction_commit_s = driver_cassandra_transaction_commit_s,
+		.transaction_rollback = driver_cassandra_transaction_rollback,
 
-		driver_cassandra_update,
+		.update = driver_cassandra_update,
 
-		driver_cassandra_escape_blob,
-		driver_cassandra_transaction_commit
+		.escape_blob = driver_cassandra_escape_blob,
 	}
 };
 

@@ -662,40 +662,38 @@ const struct sql_db driver_mysql_db = {
 	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_POOLED,
 
 	.v = {
-		driver_mysql_init_v,
-		driver_mysql_deinit_v,
-		driver_mysql_connect,
-		driver_mysql_disconnect,
-		driver_mysql_escape_string,
-		driver_mysql_exec,
-		driver_mysql_query,
-		driver_mysql_query_s,
+		.init = driver_mysql_init_v,
+		.deinit = driver_mysql_deinit_v,
+		.connect = driver_mysql_connect,
+		.disconnect = driver_mysql_disconnect,
+		.escape_string = driver_mysql_escape_string,
+		.exec = driver_mysql_exec,
+		.query = driver_mysql_query,
+		.query_s = driver_mysql_query_s,
 
-		driver_mysql_transaction_begin,
-		driver_mysql_transaction_commit,
-		driver_mysql_transaction_commit_s,
-		driver_mysql_transaction_rollback,
+		.transaction_begin = driver_mysql_transaction_begin,
+		.transaction_commit = driver_mysql_transaction_commit,
+		.transaction_commit_s = driver_mysql_transaction_commit_s,
+		.transaction_rollback = driver_mysql_transaction_rollback,
 
-		driver_mysql_update,
+		.update = driver_mysql_update,
 
-		driver_mysql_escape_blob,
-		NULL
+		.escape_blob = driver_mysql_escape_blob,
 	}
 };
 
 const struct sql_result driver_mysql_result = {
 	.v = {
-		driver_mysql_result_free,
-		driver_mysql_result_next_row,
-		driver_mysql_result_get_fields_count,
-		driver_mysql_result_get_field_name,
-		driver_mysql_result_find_field,
-		driver_mysql_result_get_field_value,
-		driver_mysql_result_get_field_value_binary,
-		driver_mysql_result_find_field_value,
-		driver_mysql_result_get_values,
-		driver_mysql_result_get_error,
-		NULL,
+		.free = driver_mysql_result_free,
+		.next_row = driver_mysql_result_next_row,
+		.get_fields_count = driver_mysql_result_get_fields_count,
+		.get_field_name = driver_mysql_result_get_field_name,
+		.find_field = driver_mysql_result_find_field,
+		.get_field_value = driver_mysql_result_get_field_value,
+		.get_field_value_binary = driver_mysql_result_get_field_value_binary,
+		.find_field_value = driver_mysql_result_find_field_value,
+		.get_values = driver_mysql_result_get_values,
+		.get_error = driver_mysql_result_get_error,
 	}
 };
 
@@ -707,11 +705,9 @@ driver_mysql_result_error_next_row(struct sql_result *result ATTR_UNUSED)
 
 const struct sql_result driver_mysql_error_result = {
 	.v = {
-		driver_mysql_result_free,
-		driver_mysql_result_error_next_row,
-		NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-		driver_mysql_result_get_error,
-		NULL,
+		.free = driver_mysql_result_free,
+		.next_row = driver_mysql_result_error_next_row,
+		.get_error = driver_mysql_result_get_error,
 	},
 	.failed_try_retry = TRUE
 };
