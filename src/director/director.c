@@ -984,10 +984,9 @@ static void director_user_move_timeout(struct user *user)
 	director_user_move_free(user);
 }
 
-static void
-director_kill_user(struct director *dir, struct director_host *src,
-		   struct user *user, struct mail_tag *tag,
-		   struct mail_host *old_host)
+void director_kill_user(struct director *dir, struct director_host *src,
+			struct user *user, struct mail_tag *tag,
+			struct mail_host *old_host)
 {
 	struct director_kill_context *ctx;
 	const char *cmd;
