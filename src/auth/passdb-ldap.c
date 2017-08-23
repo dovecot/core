@@ -52,13 +52,27 @@ ldap_query_save_result(struct ldap_connection *conn,
 			auth_request_set_null_field(auth_request, name);
 			continue;
 		}
-		if (values[1] != NULL) {
-			auth_request_log_warning(auth_request, AUTH_SUBSYS_DB,
+		if (strcmp(name,"userdb_acl_groups")==0) {
+			int i = 1;
+			while (values[i] != NULL) {
+				strcat(values[0],",");
+				strcat(values[0],values[i]);
+				i++;
+			}
+			auth_request_log_warning(auth_request,AUTH_SUBSYS_DB,
 				"Multiple values found for '%s', "
-				"using value '%s'", name, values[0]);
+				"using combined value '%s'", name, values[0]);
+			auth_request_set_field(auth_request, name, values[0],
+				conn->set.default_pass_scheme);
+		} else {
+			if (values[1] != NULL) {
+				auth_request_log_warning(auth_request, AUTH_SUBSYS_DB,
+					"Multiple values found for '%s', "
+					"using value '%s'", name, values[0]);
+			}
+			auth_request_set_field(auth_request, name, values[0],
+				conn->set.default_pass_scheme);
 		}
-		auth_request_set_field(auth_request, name, values[0],
-				       conn->set.default_pass_scheme);
 	}
 	db_ldap_result_iterate_deinit(&ldap_iter);
 }
