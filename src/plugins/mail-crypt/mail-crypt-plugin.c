@@ -468,7 +468,6 @@ static struct module crypto_post_module = {
 void mail_crypt_plugin_init(struct module *module)
 {
 	const char* error;
-	random_init();
 	if (!dcrypt_initialize("openssl", NULL, &error))
 		i_fatal("dcrypt_initialize(): %s", error);
 	mail_storage_hooks_add(module, &mail_crypt_mail_storage_hooks);
@@ -485,5 +484,4 @@ void mail_crypt_plugin_deinit(void)
 {
 	mail_storage_hooks_remove(&mail_crypt_mail_storage_hooks);
 	mail_storage_hooks_remove(&mail_crypt_mail_storage_hooks_post);
-	random_deinit();
 }

@@ -125,7 +125,6 @@ int main(void)
 		NULL
 	};
 
-	random_init();
 	int ret = test_run(tests);
 	return ret;
 }

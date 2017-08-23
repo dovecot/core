@@ -1003,7 +1003,6 @@ int main(int argc, char *argv[])
 				t_strdup_printf("imap-urlauth[%s]: ", my_pid));
 	master_service_set_die_callback(master_service, imap_urlauth_worker_die);
 
-	random_init();
 	storage_service =
 		mail_storage_service_init(master_service,
 					  set_roots, storage_service_flags);
@@ -1031,7 +1030,6 @@ int main(int argc, char *argv[])
 	clients_destroy_all();
 
 	mail_storage_service_deinit(&storage_service);
-	random_deinit();
 	master_service_deinit(&master_service);
 	return 0;
 }

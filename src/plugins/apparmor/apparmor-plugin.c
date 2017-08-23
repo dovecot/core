@@ -103,12 +103,10 @@ static const struct mail_storage_hooks apparmor_hooks = {
 
 void apparmor_plugin_init(struct module *module)
 {
-	random_init();
 	mail_storage_hooks_add(module, &apparmor_hooks);
 }
 
 void apparmor_plugin_deinit(void)
 {
-	random_deinit();
 	mail_storage_hooks_remove(&apparmor_hooks);
 }

@@ -468,7 +468,6 @@ int main(int argc, char *argv[])
 	imap_fetch_handlers_init();
 	imap_master_clients_init();
 
-	random_init();
 	storage_service =
 		mail_storage_service_init(master_service,
 					  set_roots, storage_service_flags);
@@ -514,7 +513,6 @@ int main(int argc, char *argv[])
 	commands_deinit();
 	imap_master_clients_deinit();
 
-	random_deinit();
 	master_service_deinit(&master_service);
 	return 0;
 }

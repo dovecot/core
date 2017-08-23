@@ -341,7 +341,6 @@ static void main_preinit(void)
 {
 	unsigned int max_fds;
 
-	random_init();
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
 	ssl_proxy_init();

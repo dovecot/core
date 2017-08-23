@@ -29,7 +29,6 @@ static void cmd_pw(int argc, char *argv[])
 	int c;
 	struct module_dir_load_settings mod_set;
 
-	random_init();
 	password_schemes_init();
 
 	i_zero(&mod_set);
@@ -139,7 +138,6 @@ static void cmd_pw(int argc, char *argv[])
 
 	module_dir_unload(&modules);
 	password_schemes_deinit();
-	random_deinit();
 }
 
 struct doveadm_cmd doveadm_cmd_pw = {

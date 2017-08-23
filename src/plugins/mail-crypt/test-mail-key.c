@@ -491,7 +491,6 @@ int main(int argc, char **argv)
 					     MASTER_SERVICE_FLAG_NO_SSL_INIT |
 					     MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
 					     &argc, &argv, "");
-	random_init();
 	int ret = test_run(tests);
 	master_service_deinit(&master_service);
 	return ret;

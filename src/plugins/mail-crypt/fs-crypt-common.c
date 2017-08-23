@@ -62,7 +62,6 @@ fs_crypt_init(struct fs *_fs, const char *args, const
 	const char *p, *arg, *value, *error, *parent_name, *parent_args;
 	const char *public_key_path = "", *private_key_path = "", *password = "";
 
-	random_init();
 	if (!dcrypt_initialize("openssl", NULL, &error))
 		i_fatal("dcrypt_initialize(): %s", error);
 
@@ -131,7 +130,6 @@ static void fs_crypt_deinit(struct fs *_fs)
 	i_free(fs->private_key_path);
 	i_free(fs->password);
 	i_free(fs);
-	random_deinit();
 }
 
 static struct fs_file *

@@ -757,7 +757,6 @@ int main(void) {
 	};
 	const char *error;
 
-	random_init();
 	if (!dcrypt_initialize(NULL, &set, &error)) {
 		i_error("No functional dcrypt backend found - skipping tests: %s", error);
 		return 0;
@@ -786,7 +785,6 @@ int main(void) {
 	int ret = test_run(test_functions);
 
 	dcrypt_deinitialize();
-	random_deinit();
 
 	return ret;
 }

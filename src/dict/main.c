@@ -77,10 +77,6 @@ static void client_connected(struct master_service_connection *conn)
 
 static void main_preinit(void)
 {
-	/* Maybe needed. Have to open /dev/urandom before possible
-	   chrooting. */
-	random_init();
-
 	/* Load built-in SQL drivers (if any) */
 	sql_drivers_init();
 	sql_drivers_register_all();
@@ -131,7 +127,6 @@ static void main_deinit(void)
 	module_dir_unload(&modules);
 
 	sql_drivers_deinit();
-	random_deinit();
 }
 
 int main(int argc, char *argv[])

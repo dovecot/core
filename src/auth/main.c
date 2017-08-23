@@ -173,9 +173,6 @@ static void main_preinit(void)
 	struct module_dir_load_settings mod_set;
 	const char *const *services;
 
-	/* Open /dev/urandom before chrooting */
-	random_init();
-
 	/* Load built-in SQL drivers (if any) */
 	sql_drivers_init();
 	sql_drivers_register_all();
@@ -301,7 +298,6 @@ static void main_deinit(void)
 	auth_request_stats_deinit();
 
 	sql_drivers_deinit();
-	random_deinit();
 	child_wait_deinit();
 
 	array_foreach_modifiable(&listeners, l)

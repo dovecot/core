@@ -43,7 +43,6 @@ static void test_var_expand_crypt(void)
 
 	test_begin("var_expand_crypt");
 	var_expand_crypt_init(NULL);
-	random_init();
 
 	for(i=0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
 		const char *error;
@@ -77,7 +76,6 @@ static void test_var_expand_crypt(void)
 		test_assert_idx(strcmp(str_c(output), table[4].value)==0, i);
 	};
 
-	random_deinit();
 	var_expand_crypt_deinit();
 	test_end();
 }

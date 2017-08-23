@@ -533,7 +533,6 @@ int main(void) {
 		i_error("No functional dcrypt backend found - skipping tests: %s", error);
 		return 0;
 	}
-	random_init();
 
 	test_assert(dcrypt_key_load_private(&test_v1_kp.priv, key_v1_priv, NULL, NULL, NULL));
 	test_assert(dcrypt_key_load_public(&test_v1_kp.pub, key_v1_pub, NULL));
