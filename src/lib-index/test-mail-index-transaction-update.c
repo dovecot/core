@@ -344,12 +344,12 @@ static void test_mail_index_flag_update_random(void)
 
 	flags = t_new(enum mail_flags, hdr.messages_count + 1);
 	for (r = 0; r < 1000; r++) {
-		change = rand() % (MAIL_FLAGS_NONRECENT+1);
-		seq1 = (rand() % hdr.messages_count) + 1;
+		change = i_rand() % (MAIL_FLAGS_NONRECENT+1);
+		seq1 = (i_rand() % hdr.messages_count) + 1;
 		seq2 = seq1 == hdr.messages_count ? seq1 :
-			(rand() % (hdr.messages_count - seq1)) + seq1;
+			(i_rand() % (hdr.messages_count - seq1)) + seq1;
 
-		switch (rand() % 3) {
+		switch (i_rand() % 3) {
 		case 0:
 			modify_type = MODIFY_ADD;
 			for (seq = seq1; seq <= seq2; seq++)

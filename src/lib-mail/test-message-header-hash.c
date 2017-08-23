@@ -89,7 +89,7 @@ static void test_message_header_hash_more(void)
 		for (unsigned int j = 0; j < input_len; ) {
 			const unsigned char *input_part =
 				(const unsigned char *)tests[i].input + j;
-			unsigned int len = rand() % (input_len - j) + 1;
+			unsigned int len = i_rand() % (input_len - j) + 1;
 			message_header_hash_more(&ctx, &hash_method_md5,
 						 &md5_ctx, tests[i].version,
 						 input_part, len);

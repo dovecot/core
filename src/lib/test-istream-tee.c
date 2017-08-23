@@ -34,7 +34,7 @@ static void test_istream_tee_tailing(const char *str)
 			test_assert_idx(i_stream_read(child_input[i]) == 0, len);
 			test_assert_idx(!tee_i_stream_child_is_waiting(child_input[i]), len);
 		}
-		delta = rand() % 32; /* may stand still */
+		delta = i_rand() % 32; /* may stand still */
 		if(delta > TEST_BUF_SIZE - len)
 			delta = 1;
 	}
@@ -48,7 +48,7 @@ static void test_istream_tee_tailing(const char *str)
 
 	delta = 1;
 	while ((len += delta) <= TEST_STR_LEN) {
-		unsigned int lagger = rand() % CHILD_COUNT;
+		unsigned int lagger = i_rand() % CHILD_COUNT;
 		test_istream_set_size(test_input, len);
 		for (i = 0; i < CHILD_COUNT; i++) {
 			test_assert(i_stream_read(child_input[i]) == -2);
@@ -67,7 +67,7 @@ static void test_istream_tee_tailing(const char *str)
 			test_assert(i_stream_read(child_input[i]) == -2);
 			test_assert(!tee_i_stream_child_is_waiting(child_input[i]));
 		}
-		delta = rand() % 31 + 1; /* mustn't stand still */
+		delta = i_rand() % 31 + 1; /* mustn't stand still */
 		if(delta > TEST_STR_LEN - len)
 			delta = 1;
 	}

@@ -21,7 +21,7 @@
 #define DEFAULT_LOCK_SUFFIX ".lock"
 
 /* 0.1 .. 0.2msec */
-#define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)rand() % 100000)
+#define LOCK_RANDOM_USLEEP_TIME (100000 + (unsigned int)i_rand() % 100000)
 /* Maximum 3 second wait between dotlock checks */
 #define LOCK_MAX_WAIT_USECS (1000000 * 3)
 

@@ -55,9 +55,9 @@ int main(int argc, char *argv[])
 		i_fatal("dict_init(%s) failed: %s", argv[1], error);
 
 	for (i = 0;; i++) {
-		i_snprintf(key, sizeof(key), "%s/%02x", prefix, rand() % 0xff);
-		i_snprintf(value, sizeof(value), "%04x", rand() % 0xffff);
-		switch (rand() % 4) {
+		i_snprintf(key, sizeof(key), "%s/%02x", prefix, i_rand() % 0xff);
+		i_snprintf(value, sizeof(value), "%04x", i_rand() % 0xffff);
+		switch (i_rand() % 4) {
 		case 0:
 			pending++;
 			dict_lookup_async(dict, key, lookup_callback, NULL);

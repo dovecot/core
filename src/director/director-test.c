@@ -302,9 +302,9 @@ director_connection_input(struct director_connection *conn,
 	o_stream_nsend(output, data, size);
 	i_stream_skip(input, size);
 
-	if (rand() % 3 == 0 && conn->to_delay == NULL) {
+	if (i_rand() % 3 == 0 && conn->to_delay == NULL) {
 		conn->to_delay =
-			timeout_add(rand() % DIRECTOR_CONN_MAX_DELAY_MSECS,
+			timeout_add(i_rand() % DIRECTOR_CONN_MAX_DELAY_MSECS,
 				    director_connection_timeout, conn);
 		io_remove(&conn->in_io);
 		io_remove(&conn->out_io);
@@ -435,9 +435,9 @@ static void admin_random_action(struct admin_connection *conn)
 		return;
 
 	hosts = array_get(&hosts_array, &count);
-	i = rand() % count;
+	i = i_rand() % count;
 
-	hosts[i]->vhost_count = (rand() % 20) * 10;
+	hosts[i]->vhost_count = (i_rand() % 20) * 10;
 
 	admin_send(conn, t_strdup_printf("HOST-SET\t%s\t%u\n",
 		net_ip2addr(&hosts[i]->ip), hosts[i]->vhost_count));
@@ -525,7 +525,7 @@ director_connection_disconnect_timeout(void *context ATTR_UNUSED)
 		count++;
 
 	if (count != 0) {
-		i = 0; count = rand() % count;
+		i = 0; count = i_rand() % count;
 		for (conn = director_connections; i < count; conn = conn->next) {
 			i_assert(conn != NULL);
 			i++;
@@ -546,7 +546,7 @@ static void main_init(const char *admin_path)
 	admin_read_hosts(admin);
 
 	to_disconnect =
-		timeout_add(1000*(5 + rand()%DIRECTOR_DISCONNECT_TIMEOUT_SECS),
+		timeout_add(1000*(5 + i_rand()%DIRECTOR_DISCONNECT_TIMEOUT_SECS),
 			    director_connection_disconnect_timeout, (void *)NULL);
 }
 

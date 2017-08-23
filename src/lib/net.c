@@ -321,7 +321,7 @@ int net_connect_unix_with_retries(const char *path, unsigned int msecs)
 			break;
 
 		/* busy. wait for a while. */
-		usleep(((rand() % 10) + 1) * 10000);
+		usleep(((i_rand() % 10) + 1) * 10000);
 		if (gettimeofday(&now, NULL) < 0)
 			i_panic("gettimeofday() failed: %m");
 	} while (timeval_diff_msecs(&now, &start) < (int)msecs);

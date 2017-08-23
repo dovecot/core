@@ -14,15 +14,15 @@ static void test_hash_random_pool(pool_t pool)
 	keys = i_new(unsigned int, KEYMAX); keyidx = 0;
 	hash_table_create_direct(&hash, pool, 0);
 	for (i = 0; i < KEYMAX; i++) {
-		key = (rand() % KEYMAX) + 1;
-		if (rand() % 5 > 0) {
+		key = (i_rand() % KEYMAX) + 1;
+		if (i_rand() % 5 > 0) {
 			if (hash_table_lookup(hash, POINTER_CAST(key)) == NULL) {
 				hash_table_insert(hash, POINTER_CAST(key),
 						  POINTER_CAST(1));
 				keys[keyidx++] = key;
 			}
 		} else if (keyidx > 0) {
-			delidx = rand() % keyidx;
+			delidx = i_rand() % keyidx;
 			hash_table_remove(hash, POINTER_CAST(keys[delidx]));
 			memmove(&keys[delidx], &keys[delidx+1],
 				(keyidx-delidx-1) * sizeof(*keys));

@@ -98,7 +98,7 @@ void test_istream_crlf(void)
 		char buf[100];
 		size_t len = 0;
 		while (len < sizeof(buf) - 1) {
-			switch(rand()%16) {
+			switch(i_rand()%16) {
 			case 0: goto outahere;
 			case 1: buf[len] = '\r'; break;
 			case 2: buf[len] = '\n'; break;

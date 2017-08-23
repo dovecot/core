@@ -381,7 +381,7 @@ static void main_preinit(void)
 		/* randomize the initial index in case service_count=1
 		   (although in that case it's unlikely this setting is
 		   even used..) */
-		login_source_ips_idx = rand() % login_source_ips_count;
+		login_source_ips_idx = i_rand() % login_source_ips_count;
 	}
 
 	login_load_modules();

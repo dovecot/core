@@ -113,7 +113,7 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 	/* test input in random chunks */
 	outi = first_outi;
 	for (i = 0; i < input_len; i += char_len) {
-		max = rand() % (input_len - i) + 1;
+		max = i_rand() % (input_len - i) + 1;
 		for (char_len = 0; char_len < max; )
 			char_len += uni_utf8_char_bytes(input[i+char_len]);
 		while (fts_tokenizer_next(tok, input+i, char_len, &token, &error) > 0) {
@@ -488,7 +488,7 @@ static void test_fts_tokenizer_random(void)
 
 	for (i = 0; i < 10000; i++) T_BEGIN {
 		for (unsigned int j = 0; j < sizeof(addr); j++)
-			addr[j] = test_chars[rand() % N_ELEMENTS(test_chars)];
+			addr[j] = test_chars[i_rand() % N_ELEMENTS(test_chars)];
 		str_truncate(str, 0);
 		(void)uni_utf8_get_valid_data(addr, sizeof(addr), str);
 		while (fts_tokenizer_next(tok, str_data(str), str_len(str),

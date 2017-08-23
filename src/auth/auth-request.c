@@ -1924,7 +1924,7 @@ void auth_request_set_field(struct auth_request *request,
 					"Invalid delay_until randomness number '%s'", p);
 				request->failed = TRUE;
 			} else {
-				extra_secs = rand() % extra_secs;
+				extra_secs = i_rand() % extra_secs;
 			}
 		}
 		if (str_to_time(value, &timestamp) < 0) {

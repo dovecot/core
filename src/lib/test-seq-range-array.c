@@ -99,9 +99,9 @@ static void test_seq_range_array_random(void)
 	i_array_init(&range, 1);
 	memset(shadowbuf, 0, sizeof(shadowbuf));
 	for (i = 0; i < SEQ_RANGE_TEST_COUNT; i++) {
-		seq1 = rand() % SEQ_RANGE_TEST_BUFSIZE;
-		seq2 = seq1 + rand() % (SEQ_RANGE_TEST_BUFSIZE - seq1);
-		test = rand() % 4;
+		seq1 = i_rand() % SEQ_RANGE_TEST_BUFSIZE;
+		seq2 = seq1 + i_rand() % (SEQ_RANGE_TEST_BUFSIZE - seq1);
+		test = i_rand() % 4;
 		switch (test) {
 		case 0:
 			ret = seq_range_array_add(&range, seq1) ? 0 : 1; /* FALSE == added */

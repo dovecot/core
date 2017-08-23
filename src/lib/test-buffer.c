@@ -16,25 +16,25 @@ static void test_buffer_random(void)
 
 	buf = buffer_create_dynamic(default_pool, 1);
 	for (i = 0; i < BUF_TEST_SIZE; i++)
-		testdata[i] = rand();
+		testdata[i] = i_rand();
 	memset(shadowbuf, 0, sizeof(shadowbuf));
 
 	shadowbuf_size = 0;
 	for (i = 0; i < BUF_TEST_COUNT; i++) {
 		if (buf->used == BUF_TEST_SIZE) {
-			size = shadowbuf_size = rand() % (buf->used - 1);
+			size = shadowbuf_size = i_rand() % (buf->used - 1);
 			buffer_set_used_size(buf, size);
 			memset(shadowbuf + shadowbuf_size, 0,
 			       BUF_TEST_SIZE - shadowbuf_size);
 			i_assert(buf->used < BUF_TEST_SIZE);
 		}
 
-		test = rand() % 6;
-		zero = rand() % 10 == 0;
+		test = i_rand() % 6;
+		zero = i_rand() % 10 == 0;
 		switch (test) {
 		case 0:
-			pos = rand() % (BUF_TEST_SIZE-1);
-			size = rand() % (BUF_TEST_SIZE - pos);
+			pos = i_rand() % (BUF_TEST_SIZE-1);
+			size = i_rand() % (BUF_TEST_SIZE - pos);
 			if (!zero) {
 				buffer_write(buf, pos, testdata, size);
 				memcpy(shadowbuf + pos, testdata, size);
@@ -46,7 +46,7 @@ static void test_buffer_random(void)
 				shadowbuf_size = pos + size;
 			break;
 		case 1:
-			size = rand() % (BUF_TEST_SIZE - buf->used);
+			size = i_rand() % (BUF_TEST_SIZE - buf->used);
 			if (!zero) {
 				buffer_append(buf, testdata, size);
 				memcpy(shadowbuf + shadowbuf_size,
@@ -58,8 +58,8 @@ static void test_buffer_random(void)
 			shadowbuf_size += size;
 			break;
 		case 2:
-			pos = rand() % (BUF_TEST_SIZE-1);
-			size = rand() % (BUF_TEST_SIZE - I_MAX(buf->used, pos));
+			pos = i_rand() % (BUF_TEST_SIZE-1);
+			size = i_rand() % (BUF_TEST_SIZE - I_MAX(buf->used, pos));
 			if (!zero) {
 				buffer_insert(buf, pos, testdata, size);
 				memmove(shadowbuf + pos + size,
@@ -79,8 +79,8 @@ static void test_buffer_random(void)
 				shadowbuf_size = pos + size;
 			break;
 		case 3:
-			pos = rand() % (BUF_TEST_SIZE-1);
-			size = rand() % (BUF_TEST_SIZE - pos);
+			pos = i_rand() % (BUF_TEST_SIZE-1);
+			size = i_rand() % (BUF_TEST_SIZE - pos);
 			buffer_delete(buf, pos, size);
 			if (pos < shadowbuf_size) {
 				if (pos + size > shadowbuf_size)
@@ -97,9 +97,9 @@ static void test_buffer_random(void)
 		case 4:
 			if (shadowbuf_size <= 1)
 				break;
-			pos = rand() % (shadowbuf_size-1); /* dest */
-			pos2 = rand() % (shadowbuf_size-1); /* source */
-			size = rand() % (shadowbuf_size - I_MAX(pos, pos2));
+			pos = i_rand() % (shadowbuf_size-1); /* dest */
+			pos2 = i_rand() % (shadowbuf_size-1); /* source */
+			size = i_rand() % (shadowbuf_size - I_MAX(pos, pos2));
 			buffer_copy(buf, pos, buf, pos2, size);
 			memmove(shadowbuf + pos,
 				shadowbuf + pos2, size);
@@ -107,8 +107,8 @@ static void test_buffer_random(void)
 				shadowbuf_size = pos + size;
 			break;
 		case 5:
-			pos = rand() % (BUF_TEST_SIZE-1);
-			size = rand() % (BUF_TEST_SIZE - pos);
+			pos = i_rand() % (BUF_TEST_SIZE-1);
+			size = i_rand() % (BUF_TEST_SIZE - pos);
 			p = buffer_get_space_unsafe(buf, pos, size);
 			memcpy(p, testdata, size);
 			memcpy(shadowbuf + pos, testdata, size);

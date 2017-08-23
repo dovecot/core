@@ -76,7 +76,7 @@ master_login_auth_init(const char *auth_socket_path, bool request_auth_token)
 	auth->refcount = 1;
 	auth->fd = -1;
 	hash_table_create_direct(&auth->requests, pool, 0);
-	auth->id_counter = (rand() % 32767) * 131072U;
+	auth->id_counter = (i_rand() % 32767) * 131072U;
 	return auth;
 }
 
