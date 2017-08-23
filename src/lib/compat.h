@@ -21,6 +21,11 @@
 #  define NULL ((void *)0)
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+int rand(void) __attribute__((deprecated("Do not use rand, use i_rand")));
+int rand_r(unsigned int*) __attribute__((deprecated("Do not use rand_r, use i_rand")));
+#endif
+
 #ifndef __cplusplus
 #ifdef HAVE__BOOL
 typedef _Bool bool;
