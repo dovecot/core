@@ -60,22 +60,6 @@ void test_assert_failed_strcmp(const char *code, const char *file, unsigned int 
 	test_success = FALSE;
 }
 
-static void
-test_dump_rand_state(void)
-{
-	static int seen_count = -1;
-	int count = rand_get_seed_count();
-	if (count == seen_count)
-		return;
-	seen_count = count;
-	if (count > 0)
-		printf("test: random seed #%i was %u\n", 
-		       rand_get_seed_count(),
-		       rand_get_last_seed());
-	else
-		printf("test: random seed unknown\n");
-}
-
 void test_end(void)
 {
 	if (!expecting_fatal)
@@ -84,8 +68,6 @@ void test_end(void)
 		test_assert(test_prefix != NULL);
 
 	test_out("", test_success);
-	if (!test_success)
-		test_dump_rand_state();
 	i_free_and_null(test_prefix);
 	test_success = FALSE;
 }
@@ -184,7 +166,6 @@ test_error_handler(const struct failure_context *ctx,
 	}
 
 	if (!suppress) {
-		test_dump_rand_state();
 		default_error_handler(ctx, format, args);
 	}
 }
