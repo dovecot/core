@@ -269,7 +269,6 @@ headers = \
 	printf-format-fix.h \
 	process-title.h \
 	priorityq.h \
-	rand.h \
 	randgen.h \
 	read-full.h \
 	restrict-access.h \

@@ -1,14 +1,22 @@
 /* Copyright (c) 2014-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "randgen.h"
 
 #ifdef HAVE_ARC4RANDOM
 #ifdef HAVE_LIBBSD
 #include <bsd/stdlib.h>
 #endif
 
-/* this returns [0,RAND_MAX), to keep it compatible with rand() */
-int arc4random_rand(void) {
-	return (int)(arc4random() % ((unsigned)RAND_MAX + 1));
+uint32_t i_rand(void)
+{
+	return arc4random();
+}
+#else
+uint32_t i_rand(void)
+{
+	uint32_t value;
+	random_fill(&value, sizeof(value));
+	return value;
 }
 #endif

@@ -32,7 +32,6 @@
 #include "mempool.h"
 #include "imem.h"
 #include "byteorder.h"
-#include "rand.h"
 
 typedef struct buffer buffer_t;
 typedef struct buffer string_t;
@@ -89,5 +88,7 @@ void lib_atexit_run(void);
 void lib_init(void);
 bool lib_is_initialized(void);
 void lib_deinit(void);
+
+uint32_t i_rand(void);
 
 #endif

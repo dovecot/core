@@ -9,6 +9,7 @@
 #include "ipwd.h"
 #include "process-title.h"
 #include "var-expand-private.h"
+#include "randgen.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -163,14 +164,8 @@ static void lib_open_non_stdio_dev_null(void)
 
 void lib_init(void)
 {
-	struct timeval tv;
 	i_assert(!lib_initialized);
-
-	/* standard way to get rand() return different values. */
-	if (gettimeofday(&tv, NULL) < 0)
-		i_fatal("gettimeofday(): %m");
-	srand((unsigned int) (tv.tv_sec ^ tv.tv_usec ^ getpid()));
-
+	random_init();
 	data_stack_init();
 	hostpid_init();
 	lib_open_non_stdio_dev_null();
@@ -197,4 +192,5 @@ void lib_deinit(void)
 	env_deinit();
 	failures_deinit();
 	process_title_deinit();
+	random_deinit();
 }
