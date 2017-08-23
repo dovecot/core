@@ -39,12 +39,7 @@ void timing_add_usecs(struct timing *timing, uint64_t usecs)
 		if (timing->count == 0)
 			timing->min = timing->max = usecs;
 	} else {
-		unsigned int count = timing->count;
-		unsigned int idx;
-		if (count > RAND_MAX >> 6)
-			idx = (i_rand()*((uint64_t)RAND_MAX+1) + i_rand()) % count;
-		else
-			idx = i_rand() % count;
+		unsigned int idx = i_rand() % timing->count;
 		if (idx < TIMING_SUBSAMPLING_BUFFER)
 			timing->samples[idx] = usecs;
 	}
