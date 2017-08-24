@@ -6,6 +6,7 @@
 #include "ioloop.h"
 #include "net.h"
 #include "istream.h"
+#include "istream-multiplex.h"
 #include "ostream.h"
 #include "ostream-dot.h"
 #include "str.h"
@@ -23,6 +24,8 @@
 
 #include <sysexits.h>
 #include <unistd.h>
+
+#define DOVEADM_LOG_CHANNEL_ID 'L'
 
 #define MAX_INBUF_SIZE (1024*32)
 
@@ -42,7 +45,9 @@ struct server_connection {
 	unsigned int minor;
 
 	struct io *io;
+	struct io *io_log;
 	struct istream *input;
+	struct istream *log_input;
 	struct ostream *output;
 	struct ssl_iostream *ssl_iostream;
 	struct timeout *to_input;
@@ -291,6 +296,36 @@ static void server_log_disconnect_error(struct server_connection *conn)
 	i_error("doveadm server disconnected before handshake: %s", error);
 }
 
+static void server_connection_print_log(struct server_connection *conn)
+{
+	const char *line;
+	struct failure_context ctx;
+	i_zero(&ctx);
+
+	while((line = i_stream_read_next_line(conn->log_input))!=NULL) {
+		/* skip empty lines */
+		if (*line == '\0') continue;
+
+		if (!doveadm_log_type_from_char(line[0], &ctx.type))
+			i_warning("Doveadm server sent invalid log type 0x%02x",
+				  line[0]);
+		line++;
+		i_log_type(&ctx, "%s", line);
+	}
+}
+
+static void server_connection_start_multiplex(struct server_connection *conn)
+{
+	struct istream *is = conn->input;
+	conn->input = i_stream_create_multiplex(is, MAX_INBUF_SIZE);
+	i_stream_unref(&is);
+	io_remove(&conn->io);
+	conn->io = io_add_istream(conn->input, server_connection_input, conn);
+	conn->log_input = i_stream_multiplex_add_channel(conn->input, DOVEADM_LOG_CHANNEL_ID);
+	conn->io_log = io_add_istream(conn->log_input, server_connection_print_log, conn);
+	i_stream_set_return_partial_line(conn->log_input, TRUE);
+}
+
 static void server_connection_input(struct server_connection *conn)
 {
 	const char *line;
@@ -311,6 +346,8 @@ static void server_connection_input(struct server_connection *conn)
 				continue;
 			}
 			if (strcmp(line, "+") == 0) {
+				if (conn->minor > 0)
+					server_connection_start_multiplex(conn);
 				server_connection_authenticated(conn);
 				break;
 			} else if (strcmp(line, "-") == 0) {
@@ -362,6 +399,9 @@ static bool server_connection_input_one(struct server_connection *conn)
 	data = i_stream_get_data(conn->input, &size);
 	if (size == 0)
 		return FALSE;
+
+	/* check logs */
+	(void)server_connection_print_log(conn);
 
 	switch (conn->state) {
 	case SERVER_REPLY_STATE_DONE:
@@ -561,12 +601,20 @@ void server_connection_destroy(struct server_connection **_conn)
 		o_stream_destroy(&conn->cmd_output);
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
+        if (conn->io_log != NULL)
+                io_remove(&conn->io_log);
+        /* make sure all logs got consumed */
+        if (conn->log_input != NULL) {
+                server_connection_print_log(conn);
+                i_stream_unref(&conn->log_input);
+	}
 	if (conn->io != NULL)
 		io_remove(&conn->io);
 	if (conn->fd != -1) {
 		if (close(conn->fd) < 0)
 			i_error("close(server) failed: %m");
 	}
+
 	pool_unref(&conn->pool);
 }
 
