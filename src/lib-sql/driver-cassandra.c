@@ -149,7 +149,7 @@ struct cassandra_transaction_context {
 	sql_commit_callback_t *callback;
 	void *context;
 
-	pool_t query_pool;
+	char *query;
 	char *error;
 
 	bool begin_succeeded:1;
@@ -1411,9 +1411,6 @@ driver_cassandra_transaction_begin(struct sql_db *db)
 	ctx = i_new(struct cassandra_transaction_context, 1);
 	ctx->ctx.db = db;
 	ctx->refcount = 1;
-	/* we need to be able to handle multiple open transactions, so at least
-	   for now just keep them in memory until commit time. */
-	ctx->query_pool = pool_alloconly_create("cassandra transaction", 1024);
 	return &ctx->ctx;
 }
 
@@ -1427,7 +1424,7 @@ driver_cassandra_transaction_unref(struct cassandra_transaction_context **_ctx)
 	if (--ctx->refcount > 0)
 		return;
 
-	pool_unref(&ctx->query_pool);
+	i_free(ctx->query);
 	i_free(ctx->error);
 	i_free(ctx);
 }
@@ -1473,24 +1470,20 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 	ctx->callback = callback;
 	ctx->context = context;
 
-	if (ctx->failed || _ctx->head == NULL) {
+	if (ctx->failed || ctx->query == NULL) {
 		if (ctx->failed)
 			result.error = ctx->error;
 
 		callback(&result, context);
 		driver_cassandra_transaction_unref(&ctx);
-	} else if (_ctx->head->next == NULL) {
+	} else {
 		/* just a single query, send it */
-		if (strncasecmp(_ctx->head->query, "DELETE ", 7) == 0)
+		if (strncasecmp(ctx->query, "DELETE ", 7) == 0)
 			query_type = CASSANDRA_QUERY_TYPE_DELETE;
 		else
 			query_type = CASSANDRA_QUERY_TYPE_WRITE;
-		driver_cassandra_query_full(_ctx->db, _ctx->head->query, query_type,
+		driver_cassandra_query_full(_ctx->db, ctx->query, query_type,
 			  transaction_commit_callback, ctx);
-	} else {
-		/* multiple queries - we don't actually have a transaction though */
-		result.error = "Multiple changes in transaction not supported";
-		callback(&result, context);
 	}
 }
 
@@ -1499,31 +1492,21 @@ driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx)
 {
 	struct sql_transaction_context *_ctx = &ctx->ctx;
 	struct cassandra_db *db = (struct cassandra_db *)_ctx->db;
-	struct sql_transaction_query *single_query = NULL;
 	struct sql_result *result = NULL;
 	enum cassandra_query_type query_type;
 
-	if (_ctx->head->next == NULL) {
-		/* just a single query, send it */
-		single_query = _ctx->head;
-		if (strncasecmp(_ctx->head->query, "DELETE ", 7) == 0)
-			query_type = CASSANDRA_QUERY_TYPE_DELETE;
-		else
-			query_type = CASSANDRA_QUERY_TYPE_WRITE;
-		driver_cassandra_sync_init(db);
-		result = driver_cassandra_sync_query(db, single_query->query, query_type);
-		driver_cassandra_sync_deinit(db);
-	} else {
-		/* multiple queries - we don't actually have a transaction though */
-		transaction_set_failed(ctx, "Multiple changes in transaction not supported");
-	}
+	/* just a single query, send it */
+	if (strncasecmp(ctx->query, "DELETE ", 7) == 0)
+		query_type = CASSANDRA_QUERY_TYPE_DELETE;
+	else
+		query_type = CASSANDRA_QUERY_TYPE_WRITE;
+	driver_cassandra_sync_init(db);
+	result = driver_cassandra_sync_query(db, ctx->query, query_type);
+	driver_cassandra_sync_deinit(db);
 
-	if (!ctx->failed) {
-		if (sql_result_next_row(result) < 0)
-			transaction_set_failed(ctx, sql_result_get_error(result));
-	}
-	if (result != NULL)
-		sql_result_unref(result);
+	if (sql_result_next_row(result) < 0)
+		transaction_set_failed(ctx, sql_result_get_error(result));
+	sql_result_unref(result);
 }
 
 static int
@@ -1533,7 +1516,7 @@ driver_cassandra_transaction_commit_s(struct sql_transaction_context *_ctx,
 	struct cassandra_transaction_context *ctx =
 		(struct cassandra_transaction_context *)_ctx;
 
-	if (_ctx->head != NULL)
+	if (ctx->query != NULL && !ctx->failed)
 		driver_cassandra_try_commit_s(ctx);
 	*error_r = t_strdup(ctx->error);
 
@@ -1562,7 +1545,11 @@ driver_cassandra_update(struct sql_transaction_context *_ctx, const char *query,
 
 	i_assert(affected_rows == NULL);
 
-	sql_transaction_add_query(_ctx, ctx->query_pool, query, affected_rows);
+	if (ctx->query != NULL) {
+		transaction_set_failed(ctx, "Multiple changes in transaction not supported");
+		return;
+	}
+	ctx->query = i_strdup(query);
 }
 
 static const char *
