@@ -6,6 +6,7 @@
 #define DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR 1
 #define DOVEADM_SERVER_PROTOCOL_VERSION_MINOR 0
 #define DOVEADM_SERVER_PROTOCOL_VERSION_LINE "VERSION\tdoveadm-server\t1\t0"
+#define DOVEADM_CLIENT_PROTOCOL_VERSION_LINE "VERSION\tdoveadm-client\t1\t0"
 
 extern bool doveadm_verbose, doveadm_debug, doveadm_server;
 

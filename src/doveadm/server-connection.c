@@ -39,6 +39,8 @@ struct server_connection {
 	struct doveadm_settings *set;
 
 	int fd;
+	unsigned int minor;
+
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
@@ -298,6 +300,16 @@ static void server_connection_input(struct server_connection *conn)
 
 	if (!conn->handshaked || !conn->authenticated) {
 		while((line = i_stream_read_next_line(conn->input)) != NULL) {
+			if (strncmp(line, "VERSION\t", 8) == 0) {
+				if (!version_string_verify_full(line, "doveadm-client",
+								DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
+								&conn->minor)) {
+					i_error("doveadm server not compatible with this client"
+						"(mixed old and new binaries?)");
+					server_connection_destroy(&conn);
+				}
+				continue;
+			}
 			if (strcmp(line, "+") == 0) {
 				server_connection_authenticated(conn);
 				break;
@@ -472,7 +484,6 @@ static int server_connection_init_ssl(struct server_connection *conn)
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r)
 {
-#define DOVEADM_SERVER_HANDSHAKE "VERSION\tdoveadm-server\t1\t0\n"
 	struct server_connection *conn;
 	pool_t pool;
 
@@ -501,7 +512,7 @@ int server_connection_create(struct doveadm_server *server,
 
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->state = SERVER_REPLY_STATE_DONE;
-	o_stream_nsend_str(conn->output, DOVEADM_SERVER_HANDSHAKE);
+	o_stream_nsend_str(conn->output, DOVEADM_SERVER_PROTOCOL_VERSION_LINE"\n");
 
 	*conn_r = conn;
 	return 0;
