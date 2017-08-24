@@ -590,9 +590,6 @@ static void services_kill_timeout(struct service_list *service_list)
 		sig = SIGKILL;
 	service_list->sigterm_sent = TRUE;
 
-	i_warning("Processes aren't dying after reload, sending %s.",
-		  sig == SIGTERM ? "SIGTERM" : "SIGKILL");
-
 	log_service = NULL;
 	array_foreach(&service_list->services, services) {
 		struct service *service = *services;
@@ -618,6 +615,17 @@ static void services_kill_timeout(struct service_list *service_list)
 		service_list->sigterm_sent_to_log = TRUE;
 		signal_count += service_signal(log_service, sig, &service_uninitialized);
 		uninitialized_count += service_uninitialized;
+	}
+	if (signal_count > 0) {
+		string_t *str = t_str_new(128);
+		str_printfa(str, "Processes aren't dying after reload, "
+			    "sent %s to %u processes.",
+			    sig == SIGTERM ? "SIGTERM" : "SIGKILL", signal_count);
+		if (uninitialized_count > 0) {
+			str_printfa(str, " (%u processes still uninitialized)",
+				    uninitialized_count);
+		}
+		i_warning("%s", str_c(str));
 	}
 }
 
