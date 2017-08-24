@@ -172,3 +172,50 @@ int i_strccdascmp(const char *a, const char *b)
 	return *a-*b;
 }
 
+char doveadm_log_type_to_char(enum log_type type)
+{
+	switch(type) {
+	case LOG_TYPE_DEBUG:
+		return '\x01';
+	case LOG_TYPE_INFO:
+		return '\x02';
+	case LOG_TYPE_WARNING:
+		return '\x03';
+	case LOG_TYPE_ERROR:
+		return '\x04';
+	case LOG_TYPE_FATAL:
+		return '\x05';
+	case LOG_TYPE_PANIC:
+		return '\x06';
+	default:
+		i_unreached();
+	}
+}
+
+bool doveadm_log_type_from_char(char c, enum log_type *type_r)
+{
+	switch(c) {
+	case '\x01':
+		*type_r = LOG_TYPE_DEBUG;
+		break;
+	case '\x02':
+		*type_r = LOG_TYPE_INFO;
+		break;
+	case '\x03':
+		*type_r = LOG_TYPE_WARNING;
+		break;
+	case '\x04':
+		*type_r = LOG_TYPE_ERROR;
+		break;
+	case '\x05':
+		*type_r = LOG_TYPE_FATAL;
+		break;
+	case '\x06':
+		*type_r = LOG_TYPE_PANIC;
+		break;
+	default:
+		*type_r = LOG_TYPE_WARNING;
+		return FALSE;
+	}
+	return TRUE;
+}

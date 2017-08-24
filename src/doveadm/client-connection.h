@@ -3,6 +3,8 @@
 
 #include "net.h"
 
+#define DOVEADM_LOG_CHANNEL_ID 'L'
+
 struct client_connection {
 	pool_t pool;
 
@@ -11,6 +13,7 @@ struct client_connection {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct ostream *log_out;
 	struct ssl_iostream *ssl_iostream;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
@@ -20,6 +23,7 @@ struct client_connection {
 	bool authenticated:1;
 	bool http:1;
 	bool io_setup:1;
+	bool use_multiplex:1;
 };
 
 struct client_connection *
