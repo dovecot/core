@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "lib-signals.h"
+#include "str.h"
 #include "base64.h"
 #include "ioloop.h"
 #include "istream.h"
@@ -10,6 +11,7 @@
 #include "process-title.h"
 #include "settings-parser.h"
 #include "iostream-ssl.h"
+#include "ostream-multiplex.h"
 #include "master-service.h"
 #include "master-service-ssl.h"
 #include "master-service-settings.h"
@@ -26,6 +28,86 @@
 #define MAX_INBUF_SIZE (1024*1024)
 
 static void client_connection_input(struct client_connection *conn);
+
+static failure_callback_t *orig_error_callback, *orig_fatal_callback;
+static failure_callback_t *orig_info_callback, *orig_debug_callback = NULL;
+
+static bool log_recursing = FALSE;
+
+
+static void ATTR_FORMAT(2, 0)
+doveadm_server_log_handler(const struct failure_context *ctx,
+			   const char *format, va_list args)
+{
+	if (!log_recursing && doveadm_client != NULL &&
+	    doveadm_client->log_out != NULL) T_BEGIN {
+		/* prevent re-entering this code if
+		   any of the following code causes logging */
+		log_recursing = TRUE;
+		char c = doveadm_log_type_to_char(ctx->type);
+		const char *ptr,*start;
+		bool corked = o_stream_is_corked(doveadm_client->log_out);
+		va_list va;
+		va_copy(va, args);
+		string_t *str = t_str_new(128);
+		str_vprintfa(str, format, va);
+		va_end(va);
+		start = str_c(str);
+		if (!corked)
+			o_stream_cork(doveadm_client->log_out);
+		while((ptr = strchr(start, '\n'))!=NULL) {
+			o_stream_nsend(doveadm_client->log_out, &c, 1);
+			o_stream_nsend(doveadm_client->log_out, start, ptr-start+1);
+			str_delete(str, 0, ptr-start+1);
+		}
+		if (str->used > 0) {
+			o_stream_nsend(doveadm_client->log_out, &c, 1);
+			o_stream_nsend(doveadm_client->log_out, str->data, str->used);
+			o_stream_nsend(doveadm_client->log_out, "\n", 1);
+		}
+		o_stream_uncork(doveadm_client->log_out);
+		if (corked)
+			o_stream_cork(doveadm_client->log_out);
+		log_recursing = FALSE;
+	} T_END;
+
+	switch(ctx->type) {
+	case LOG_TYPE_DEBUG:
+		orig_debug_callback(ctx, format, args);
+		break;
+	case LOG_TYPE_INFO:
+		orig_info_callback(ctx, format, args);
+		break;
+	case LOG_TYPE_WARNING:
+	case LOG_TYPE_ERROR:
+		orig_error_callback(ctx, format, args);
+		break;
+	default:
+		i_unreached();
+	}
+}
+
+static void doveadm_server_capture_logs(void)
+{
+	i_assert(orig_debug_callback == NULL);
+	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,
+			       &orig_info_callback, &orig_debug_callback);
+	i_set_error_handler(doveadm_server_log_handler);
+	i_set_info_handler(doveadm_server_log_handler);
+	i_set_debug_handler(doveadm_server_log_handler);
+}
+
+static void doveadm_server_restore_logs(void)
+{
+	i_assert(orig_debug_callback != NULL);
+	i_set_error_handler(orig_error_callback);
+	i_set_info_handler(orig_info_callback);
+	i_set_debug_handler(orig_debug_callback);
+	orig_fatal_callback = NULL;
+	orig_error_callback = NULL;
+	orig_info_callback = NULL;
+	orig_debug_callback = NULL;
+}
 
 static void
 doveadm_cmd_server_post(struct client_connection *conn, const char *cmd_name)
@@ -249,6 +331,8 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	io_loop_set_current(prev_ioloop);
 	lib_signals_reset_ioloop();
 	o_stream_switch_ioloop(conn->output);
+	if (conn->log_out != NULL)
+		o_stream_switch_ioloop(conn->log_out);
 	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);
 
@@ -427,11 +511,25 @@ static void client_connection_input(struct client_connection *conn)
 		}
 		o_stream_nsend(conn->output, "+\n", 2);
 		conn->authenticated = TRUE;
-		doveadm_print_ostream = conn->output;
 	}
 
 	if (!conn->io_setup) {
 		conn->io_setup = TRUE;
+                if (conn->use_multiplex) {
+                        o_stream_flush(conn->output);
+                        struct ostream *os = conn->output;
+                        conn->output = o_stream_create_multiplex(os, (size_t)-1);
+                        o_stream_set_name(conn->output, o_stream_get_name(os));
+                        o_stream_set_no_error_handling(conn->output, TRUE);
+                        o_stream_unref(&os);
+                        conn->log_out =
+                                o_stream_multiplex_add_channel(conn->output,
+                                                               DOVEADM_LOG_CHANNEL_ID);
+                        o_stream_set_no_error_handling(conn->log_out, TRUE);
+                        o_stream_set_name(conn->log_out, t_strdup_printf("%s (log)",
+                                          o_stream_get_name(conn->output)));
+                        doveadm_server_capture_logs();
+                }
 		doveadm_print_ostream = conn->output;
 	}
 
@@ -588,6 +686,10 @@ void client_connection_destroy(struct client_connection **_conn)
 
 	if (conn->input != NULL) {
 		i_stream_destroy(&conn->input);
+	}
+	if (conn->log_out != NULL) {
+		doveadm_server_restore_logs();
+		o_stream_unref(&conn->log_out);
 	}
 
 	if (conn->fd > 0 && close(conn->fd) < 0)
