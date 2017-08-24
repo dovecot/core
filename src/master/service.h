@@ -171,8 +171,13 @@ void service_list_unref(struct service_list *service_list);
 /* Return path to configuration process socket. */
 const char *services_get_config_socket_path(struct service_list *service_list);
 
-/* Send a signal to all processes in a given service */
-void service_signal(struct service *service, int signo);
+/* Send a signal to all processes in a given service. However, if we're sending
+   a SIGTERM and a process hasn't yet sent the initial status notification,
+   that process is skipped. The number of such skipped processes are stored in
+   uninitialized_count_r. Returns the number of processes that a signal was
+   successfully sent to. */
+unsigned int service_signal(struct service *service, int signo,
+			    unsigned int *uninitialized_count_r);
 /* Notify all processes (if necessary) that no more connections can be handled
    by the service without killing existing connections (TRUE) or that they
    can be (FALSE). */
