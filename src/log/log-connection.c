@@ -54,7 +54,8 @@ static ARRAY(struct log_connection *) logs_by_fd;
 static unsigned int global_pending_count;
 static struct log_connection *last_pending_log;
 
-static void log_connection_destroy(struct log_connection *log);
+static void
+log_connection_destroy(struct log_connection *log, bool shutting_down);
 
 static void log_refresh_proctitle(void)
 {
@@ -337,7 +338,7 @@ static void log_connection_input(struct log_connection *log)
 
 	if (!log->handshaked) {
 		if (log_connection_handshake(log) < 0) {
-			log_connection_destroy(log);
+			log_connection_destroy(log, FALSE);
 			return;
 		}
 		/* come back here even if we read something else besides a
@@ -364,7 +365,7 @@ static void log_connection_input(struct log_connection *log)
 	if (log->input->eof) {
 		if (log->input->stream_errno != 0)
 			i_error("read(log %s) failed: %m", log->default_prefix);
-		log_connection_destroy(log);
+		log_connection_destroy(log, FALSE);
 	} else {
 		i_assert(!log->input->closed);
 		if (!too_much) {
@@ -410,21 +411,30 @@ void log_connection_create(struct log_error_buffer *errorbuf,
 	log_connection_input(log);
 }
 
-static void log_connection_destroy(struct log_connection *log)
+static void
+log_connection_destroy(struct log_connection *log, bool shutting_down)
 {
 	struct hash_iterate_context *iter;
 	void *key;
 	struct log_client *client;
+	unsigned int client_count = 0;
 
 	array_idx_clear(&logs_by_fd, log->listen_fd);
 
 	DLLIST_REMOVE(&log_connections, log);
 
 	iter = hash_table_iterate_init(log->clients);
-	while (hash_table_iterate(iter, log->clients, &key, &client))
+	while (hash_table_iterate(iter, log->clients, &key, &client)) {
 		i_free(client);
+		client_count++;
+	}
 	hash_table_iterate_deinit(&iter);
 	hash_table_destroy(&log->clients);
+
+	if (client_count > 0 && shutting_down) {
+		i_warning("Shutting down logging for '%s' with %u clients",
+			  log->default_prefix, client_count);
+	}
 
 	i_stream_unref(&log->input);
 	if (log->io != NULL)
@@ -447,6 +457,6 @@ void log_connections_deinit(void)
 	/* normally we don't exit until all log connections are gone,
 	   but we could get here when we're being killed by a signal */
 	while (log_connections != NULL)
-		log_connection_destroy(log_connections);
+		log_connection_destroy(log_connections, TRUE);
 	array_free(&logs_by_fd);
 }
