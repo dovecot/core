@@ -2124,7 +2124,7 @@ int settings_parser_apply_changes(struct setting_parser_context *dest,
 const char *settings_section_escape(const char *name)
 {
 #define CHAR_NEED_ESCAPE(c) \
-	((c) == '=' || (c) == SETTINGS_SEPARATOR || (c) == '\\' || (c) == ' ')
+	((c) == '=' || (c) == SETTINGS_SEPARATOR || (c) == '\\' || (c) == ' ' || (c) == ',')
 	string_t *str;
 	unsigned int i;
 
@@ -2150,6 +2150,9 @@ const char *settings_section_escape(const char *name)
 			break;
 		case ' ':
 			str_append(str, "\\_");
+			break;
+		case ',':
+			str_append(str, "\\+");
 			break;
 		default:
 			str_append_c(str, name[i]);
