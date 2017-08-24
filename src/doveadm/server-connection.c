@@ -39,6 +39,8 @@ struct server_connection {
 	struct doveadm_settings *set;
 
 	int fd;
+	unsigned int minor;
+
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
@@ -309,6 +311,16 @@ static void server_connection_input(struct server_connection *conn)
 
 	if (!conn->handshaked || !conn->authenticated) {
 		while((line = i_stream_read_next_line(conn->input)) != NULL) {
+			if (strncmp(line, "VERSION\t", 8) == 0) {
+				if (!version_string_verify_full(line, "doveadm-client",
+								DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
+								&conn->minor)) {
+					i_error("doveadm server not compatible with this client"
+						"(mixed old and new binaries?)");
+					server_connection_destroy(&conn);
+				}
+				continue;
+			}
 			if (strcmp(line, "+") == 0) {
 				server_connection_authenticated(conn);
 				break;
@@ -481,7 +493,6 @@ static int server_connection_init_ssl(struct server_connection *conn)
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r)
 {
-#define DOVEADM_SERVER_HANDSHAKE "VERSION\tdoveadm-server\t1\t0\n"
 	struct server_connection *conn;
 	pool_t pool;
 
@@ -492,8 +503,8 @@ int server_connection_create(struct doveadm_server *server,
 	conn->fd = doveadm_connect_with_default_port(server->name,
 						     doveadm_settings->doveadm_port);
 	net_set_nonblock(conn->fd, TRUE);
-	conn->io = io_add(conn->fd, IO_READ, server_connection_input, conn);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
+	conn->io = io_add_istream(conn->input, server_connection_input, conn);
 	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);
 	o_stream_set_flush_callback(conn->output, server_connection_output, conn);
 
@@ -510,7 +521,7 @@ int server_connection_create(struct doveadm_server *server,
 
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->state = SERVER_REPLY_STATE_DONE;
-	o_stream_nsend_str(conn->output, DOVEADM_SERVER_HANDSHAKE);
+	o_stream_nsend_str(conn->output, DOVEADM_SERVER_PROTOCOL_VERSION_LINE"\n");
 
 	*conn_r = conn;
 	return 0;
