@@ -145,7 +145,7 @@ client_log_ctx(struct log_connection *log,
 	}
 	i_set_failure_prefix("%s", prefix);
 	i_log_type(ctx, "%s", text);
-	i_set_failure_prefix("log: ");
+	i_set_failure_prefix("%s", global_log_prefix);
 }
 
 static void

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "lib-signals.h"
+#include "hostpid.h"
 #include "restrict-access.h"
 #include "master-interface.h"
 #include "master-service.h"
@@ -13,12 +14,13 @@
 #include <unistd.h>
 
 bool verbose_proctitle;
+const char *global_log_prefix;
 static struct log_error_buffer *errorbuf;
 
 static void
 sig_reopen_logs(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
-	master_service_init_log(master_service, "log: ");
+	master_service_init_log(master_service, global_log_prefix);
 }
 
 static void main_init(void)
@@ -62,7 +64,8 @@ int main(int argc, char *argv[])
 
 	/* use log prefix and log to stderr until we've configured the real
 	   logging */
-	i_set_failure_file("/dev/stderr", "log: ");
+	global_log_prefix = t_strdup_printf("log(%s): ", my_pid);
+	i_set_failure_file("/dev/stderr", global_log_prefix);
 
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
@@ -70,7 +73,7 @@ int main(int argc, char *argv[])
 	if (master_service_settings_read_simple(master_service,
 						NULL, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
-	master_service_init_log(master_service, "log: ");
+	master_service_init_log(master_service, global_log_prefix);
 
 	verbose_proctitle = master_service_settings_get(master_service)->verbose_proctitle;
 
