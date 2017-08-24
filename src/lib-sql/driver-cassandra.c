@@ -1118,7 +1118,8 @@ static void driver_cassandra_sync_deinit(struct cassandra_db *db)
 }
 
 static struct sql_result *
-driver_cassandra_sync_query(struct cassandra_db *db, const char *query)
+driver_cassandra_sync_query(struct cassandra_db *db, const char *query,
+			    enum cassandra_query_type query_type)
 {
 	struct sql_result *result;
 
@@ -1135,7 +1136,8 @@ driver_cassandra_sync_query(struct cassandra_db *db, const char *query)
 		break;
 	}
 
-	driver_cassandra_query(&db->api, query, cassandra_query_s_callback, db);
+	driver_cassandra_query_full(&db->api, query, query_type,
+				    cassandra_query_s_callback, db);
 	if (db->sync_result == NULL) {
 		db->io_pipe = io_loop_move_io(&db->io_pipe);
 		io_loop_run(db->ioloop);
@@ -1160,7 +1162,8 @@ driver_cassandra_query_s(struct sql_db *_db, const char *query)
 	struct sql_result *result;
 
 	driver_cassandra_sync_init(db);
-	result = driver_cassandra_sync_query(db, query);
+	result = driver_cassandra_sync_query(db, query,
+					     CASSANDRA_QUERY_TYPE_READ);
 	driver_cassandra_sync_deinit(db);
 	return result;
 }
@@ -1490,13 +1493,21 @@ static void
 driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx)
 {
 	struct sql_transaction_context *_ctx = &ctx->ctx;
+	struct cassandra_db *db = (struct cassandra_db *)_ctx->db;
 	struct sql_transaction_query *single_query = NULL;
 	struct sql_result *result = NULL;
+	enum cassandra_query_type query_type;
 
 	if (_ctx->head->next == NULL) {
 		/* just a single query, send it */
 		single_query = _ctx->head;
-		result = sql_query_s(_ctx->db, single_query->query);
+		if (strncasecmp(_ctx->head->query, "DELETE ", 7) == 0)
+			query_type = CASSANDRA_QUERY_TYPE_DELETE;
+		else
+			query_type = CASSANDRA_QUERY_TYPE_WRITE;
+		driver_cassandra_sync_init(db);
+		result = driver_cassandra_sync_query(db, single_query->query, query_type);
+		driver_cassandra_sync_deinit(db);
 	} else {
 		/* multiple queries - we don't actually have a transaction though */
 		transaction_set_failed(ctx, "Multiple changes in transaction not supported");
