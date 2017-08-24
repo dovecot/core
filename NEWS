@@ -1,4 +1,4 @@
-v2.2.32 2017-08-xx  Timo Sirainen <tss@iki.fi>
+v2.2.32 2017-08-24  Timo Sirainen <tss@iki.fi>
 
 	* imapc: Info-level line is logged every time when successfully
 	  connected to the remote server. This includes local/remote IP/port,
