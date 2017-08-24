@@ -392,6 +392,7 @@ static void client_connection_input(struct client_connection *conn)
 	const char *line;
 	bool ok = TRUE;
 	int ret;
+	unsigned int minor;
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
@@ -401,13 +402,18 @@ static void client_connection_input(struct client_connection *conn)
 			}
 			return;
 		}
-
-		if (!version_string_verify(line, "doveadm-server",
-				DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR)) {
+		if (!version_string_verify_full(line, "doveadm-server",
+				DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR, &minor)) {
 			i_error("doveadm client not compatible with this server "
 				"(mixed old and new binaries?)");
 			client_connection_destroy(&conn);
 			return;
+		}
+		if (minor > 0) {
+			/* send version reply */
+			o_stream_nsend_str(conn->output,
+					   DOVEADM_CLIENT_PROTOCOL_VERSION_LINE"\n");
+			conn->use_multiplex = TRUE;
 		}
 		conn->handshaked = TRUE;
 	}
@@ -421,6 +427,7 @@ static void client_connection_input(struct client_connection *conn)
 		}
 		o_stream_nsend(conn->output, "+\n", 2);
 		conn->authenticated = TRUE;
+		doveadm_print_ostream = conn->output;
 	}
 
 	if (!conn->io_setup) {
@@ -558,7 +565,6 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 	client_connection_send_auth_handshake(conn, listen_fd);
 	client_connection_set_proctitle(conn, "");
 
-	doveadm_print_ostream = conn->output;
 	return conn;
 }
 
