@@ -1492,65 +1492,19 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 }
 
 static void
-commit_multi_fail(struct cassandra_transaction_context *ctx,
-		  struct sql_result *result, const char *query)
-{
-	transaction_set_failed(ctx, t_strdup_printf(
-		"%s (query: %s)", sql_result_get_error(result), query));
-	sql_result_unref(result);
-}
-
-static int
-driver_cassandra_transaction_commit_multi(struct cassandra_transaction_context *ctx,
-					  struct sql_result **result_r)
-{
-	struct cassandra_db *db = (struct cassandra_db *)ctx->ctx.db;
-	struct sql_result *result;
-	struct sql_transaction_query *query;
-	int ret = 0;
-
-	result = driver_cassandra_sync_query(db, "BEGIN");
-	if (sql_result_next_row(result) < 0) {
-		commit_multi_fail(ctx, result, "BEGIN");
-		return -1;
-	}
-	sql_result_unref(result);
-
-	/* send queries */
-	for (query = ctx->ctx.head; query != NULL; query = query->next) {
-		result = driver_cassandra_sync_query(db, query->query);
-		if (sql_result_next_row(result) < 0) {
-			commit_multi_fail(ctx, result, query->query);
-			ret = -1;
-			break;
-		}
-		sql_result_unref(result);
-	}
-
-	*result_r = driver_cassandra_sync_query(db, ctx->failed ?
-						"ROLLBACK" : "COMMIT");
-	return ret;
-}
-
-static void
 driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx)
 {
 	struct sql_transaction_context *_ctx = &ctx->ctx;
-	struct cassandra_db *db = (struct cassandra_db *)_ctx->db;
 	struct sql_transaction_query *single_query = NULL;
 	struct sql_result *result = NULL;
-	int ret = 0;
 
 	if (_ctx->head->next == NULL) {
 		/* just a single query, send it */
 		single_query = _ctx->head;
 		result = sql_query_s(_ctx->db, single_query->query);
 	} else {
-		/* multiple queries, use a transaction */
-		driver_cassandra_sync_init(db);
-		ret = driver_cassandra_transaction_commit_multi(ctx, &result);
-		i_assert(ret == 0 || ctx->failed);
-		driver_cassandra_sync_deinit(db);
+		/* multiple queries - we don't actually have a transaction though */
+		transaction_set_failed(ctx, "Multiple changes in transaction not supported");
 	}
 
 	if (!ctx->failed) {
