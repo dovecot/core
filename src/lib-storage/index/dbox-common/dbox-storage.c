@@ -96,7 +96,8 @@ int dbox_storage_create(struct mail_storage *_storage,
 	const struct mail_storage_settings *set = _storage->set;
 	const char *error;
 
-	if (*set->mail_attachment_fs != '\0') {
+	if (*set->mail_attachment_fs != '\0' &&
+	    *set->mail_attachment_dir != '\0') {
 		const char *name, *args, *dir;
 
 		args = strpbrk(set->mail_attachment_fs, ": ");
