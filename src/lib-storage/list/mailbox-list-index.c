@@ -811,6 +811,19 @@ mailbox_list_index_set_subscribed(struct mailbox_list *_list,
 	return 0;
 }
 
+static bool mailbox_list_index_is_enabled(struct mailbox_list *list)
+{
+	if (!list->mail_set->mailbox_list_index)
+		return FALSE;
+	if (strcmp(list->name, MAILBOX_LIST_NAME_NONE) == 0)
+		return FALSE;
+
+	i_assert(list->set.list_index_fname != NULL);
+	if (list->set.list_index_fname[0] == '\0')
+		return FALSE;
+	return TRUE;
+}
+
 static void mailbox_list_index_created(struct mailbox_list *list)
 {
 	struct mailbox_list_vfuncs *v = list->vlast;
@@ -820,8 +833,7 @@ static void mailbox_list_index_created(struct mailbox_list *list)
 	/* layout=index doesn't have any backing store */
 	has_backing_store = strcmp(list->name, MAILBOX_LIST_NAME_INDEX) != 0;
 
-	if (!list->mail_set->mailbox_list_index ||
-	    strcmp(list->name, MAILBOX_LIST_NAME_NONE) == 0) {
+	if (!mailbox_list_index_is_enabled(list)) {
 		/* reserve the module context anyway, so syncing code knows
 		   that the index is disabled */
 		i_assert(has_backing_store);
