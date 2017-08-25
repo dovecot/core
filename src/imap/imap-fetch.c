@@ -542,6 +542,7 @@ static int imap_fetch_more_int(struct imap_fetch_context *ctx, bool cancel)
 
 			str_printfa(state->cur_str, "* %u FETCH (",
 				    state->cur_mail->seq);
+			ctx->fetched_mails_count++;
 			state->cur_first = TRUE;
 			state->cur_str_prefix_size = str_len(state->cur_str);
 			i_assert(!state->line_partial);

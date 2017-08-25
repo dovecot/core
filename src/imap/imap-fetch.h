@@ -90,6 +90,7 @@ struct imap_fetch_context {
 
 	struct imap_fetch_state state;
 	ARRAY_TYPE(seq_range) fetch_failed_uids;
+	unsigned int fetched_mails_count;
 
 	enum mail_error error;
 	const char *errstr;
