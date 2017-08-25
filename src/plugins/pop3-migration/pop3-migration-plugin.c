@@ -70,7 +70,6 @@ struct pop3_migration_mailbox {
 	unsigned int cache_field_registered:1;
 	unsigned int uidl_synced:1;
 	unsigned int uidl_sync_failed:1;
-	unsigned int uidl_ordered:1;
 };
 
 /* NOTE: these headers must be sorted */
@@ -712,12 +711,7 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 static int pop3_migration_uidl_sync(struct mailbox *box)
 {
 	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT(box);
-	struct pop3_migration_mail_storage *mstorage =
-		POP3_MIGRATION_CONTEXT(box->storage);
 	struct mailbox *pop3_box;
-	const struct pop3_uidl_map *pop3_map;
-	unsigned int i, count;
-	uint32_t prev_uid;
 
 	pop3_box = pop3_mailbox_alloc(box->storage);
 	/* the POP3 server isn't connected to yet. handle all IMAP traffic
@@ -736,21 +730,6 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 			mailbox_free(&pop3_box);
 			return -1;
 		}
-	}
-
-	/* see if the POP3 UIDL order is the same as IMAP UID order */
-	mbox->uidl_ordered = TRUE;
-	pop3_map = array_get(&mstorage->pop3_uidl_map, &count);
-	prev_uid = 0;
-	for (i = 0; i < count; i++) {
-		if (pop3_map[i].imap_uid == 0)
-			continue;
-
-		if (prev_uid > pop3_map[i].imap_uid) {
-			mbox->uidl_ordered = FALSE;
-			break;
-		}
-		prev_uid = pop3_map[i].imap_uid;
 	}
 
 	mbox->uidl_synced = TRUE;
