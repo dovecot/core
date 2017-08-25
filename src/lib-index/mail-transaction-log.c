@@ -442,6 +442,13 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 			*file_r = file;
 			return 1;
 		}
+		if (file->hdr.file_seq > file_seq &&
+		    file->hdr.prev_file_seq == 0) {
+			/* Fail here mainly to avoid unnecessarily trying to
+			   open .log.2 that most likely doesn't even exist. */
+			*reason_r = "Log was reset after requested file_seq";
+			return 0;
+		}
 	}
 
 	if (MAIL_INDEX_IS_IN_MEMORY(log->index)) {
