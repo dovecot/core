@@ -30,7 +30,7 @@ dbox_attachment_file_get_stream_from(struct dbox_file *file,
 	const char *path_suffix;
 	uoff_t msg_size;
 
-	if (*file->storage->attachment_dir == '\0') {
+	if (file->storage->attachment_dir == NULL) {
 		mail_storage_set_critical(&file->storage->storage,
 			"%s contains references to external attachments, "
 			"but mail_attachment_dir is unset", file->cur_path);
