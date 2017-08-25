@@ -130,6 +130,11 @@ dict_quota_count(struct dict_quota_root *root,
 		dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
 	} T_END;
 
+	if (root->root.quota->set->debug) {
+		i_debug("dict quota: Quota recalculated: "
+			"count=%"PRIu64" bytes=%"PRIu64, count, bytes);
+	}
+
 	dict_transaction_commit_async(&dt, NULL, NULL);
 	*value_r = want_bytes ? bytes : count;
 	return 1;
