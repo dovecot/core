@@ -542,9 +542,11 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 void mail_storage_set_critical(struct mail_storage *storage,
 			       const char *fmt, ...)
 {
-	char *old_error = storage->last_internal_error;
+	char *old_error = storage->error_string;
+	char *old_internal_error = storage->last_internal_error;
 	va_list va;
 
+	storage->error_string = NULL;
 	storage->last_internal_error = NULL;
 	/* critical errors may contain sensitive data, so let user
 	   see only "Internal error" with a timestamp to make it
@@ -557,9 +559,10 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	storage->last_error_is_internal = TRUE;
 	i_error("%s", storage->last_internal_error);
 
-	/* free the old_error only after the new error is generated, because
-	   the old_error may be one of the parameters. */
+	/* free the old_error and old_internal_error only after the new error
+	   is generated, because they may be one of the parameters. */
 	i_free(old_error);
+	i_free(old_internal_error);
 }
 
 const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
