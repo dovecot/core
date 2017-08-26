@@ -1333,6 +1333,9 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	if (ctx->failed)
 		return;
 
+	if (ctx->prev_inc_map != NULL)
+		sql_dict_prev_inc_flush(ctx);
+
 	map = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
 		ctx->failed = TRUE;
@@ -1392,6 +1395,9 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
+
+	if (ctx->prev_set_map != NULL)
+		sql_dict_prev_set_flush(ctx);
 
 	map = sql_dict_find_map(dict, key, &values);
 	if (map == NULL) {
