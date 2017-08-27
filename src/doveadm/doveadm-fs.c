@@ -19,6 +19,14 @@
 static void fs_cmd_help(doveadm_command_t *cmd);
 static void cmd_fs_delete(int argc, char *argv[]);
 
+static void cmd_fs_getopt(int *argc, char **argv[])
+{
+	 if (getopt(*argc, *argv, "") == '?')
+		i_fatal("fs_init: Add -- if you have - in arguments");
+	*argc -= optind;
+	*argv += optind;
+}
+
 static struct fs *
 cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
 {
@@ -28,10 +36,10 @@ cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
 	const char *error;
 
 	if (own_arg_count > 0) {
-		if (*argc != 3 + own_arg_count)
+		if (*argc != 2 + own_arg_count)
 			fs_cmd_help(cmd);
 	} else {
-		if (*argc <= 3)
+		if (*argc <= 2)
 			fs_cmd_help(cmd);
 	}
 
@@ -46,11 +54,11 @@ cmd_fs_init(int *argc, char **argv[], int own_arg_count, doveadm_command_t *cmd)
 	fs_set.base_dir = doveadm_settings->base_dir;
 	fs_set.debug = doveadm_debug;
 
-	if (fs_init((*argv)[1], (*argv)[2], &fs_set, &fs, &error) < 0)
+	if (fs_init((*argv)[0], (*argv)[1], &fs_set, &fs, &error) < 0)
 		i_fatal("fs_init() failed: %s", error);
 
-	*argc += 3;
-	*argv += 3;
+	*argc += 2;
+	*argv += 2;
 	return fs;
 }
 
@@ -66,6 +74,7 @@ static void cmd_fs_get(int argc, char *argv[])
 	doveadm_print_init(DOVEADM_PRINT_TYPE_PAGER);
 	doveadm_print_header("content", "content", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
 
+	cmd_fs_getopt(&argc, &argv);
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_get);
 
 	file = fs_file_init(fs, argv[0], FS_OPEN_MODE_READONLY);
@@ -112,7 +121,7 @@ static void cmd_fs_put(int argc, char *argv[])
 			fs_cmd_help(cmd_fs_put);
 		}
 	}
-	argc -= optind-1; argv += optind-1;
+	argc -= optind; argv += optind;
 
 	fs = cmd_fs_init(&argc, &argv, 2, cmd_fs_put);
 	src_path = argv[0];
@@ -153,6 +162,7 @@ static void cmd_fs_copy(int argc, char *argv[])
 	struct fs_file *src_file, *dest_file;
 	const char *src_path, *dest_path;
 
+	cmd_fs_getopt(&argc, &argv);
 	fs = cmd_fs_init(&argc, &argv, 2, cmd_fs_copy);
 	src_path = argv[0];
 	dest_path = argv[1];
@@ -180,6 +190,7 @@ static void cmd_fs_stat(int argc, char *argv[])
 	struct fs_file *file;
 	struct stat st;
 
+	cmd_fs_getopt(&argc, &argv);
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_stat);
 
 	file = fs_file_init(fs, argv[0], FS_OPEN_MODE_READONLY);
@@ -212,6 +223,7 @@ static void cmd_fs_metadata(int argc, char *argv[])
 	const struct fs_metadata *m;
 	const ARRAY_TYPE(fs_metadata) *metadata;
 
+	cmd_fs_getopt(&argc, &argv);
 	fs = cmd_fs_init(&argc, &argv, 1, cmd_fs_metadata);
 
 	file = fs_file_init(fs, argv[0], FS_OPEN_MODE_READONLY);
@@ -462,7 +474,7 @@ static void cmd_fs_delete(int argc, char *argv[])
 			fs_cmd_help(cmd_fs_delete);
 		}
 	}
-	argc -= optind-1; argv += optind-1;
+	argc -= optind; argv += optind;
 
 	if (recursive)
 		cmd_fs_delete_recursive(argc, argv, async_count);
@@ -477,6 +489,7 @@ static void cmd_fs_iter_full(int argc, char *argv[], enum fs_iter_flags flags,
 	struct fs_iter *iter;
 	const char *fname;
 
+	cmd_fs_getopt(&argc, &argv);
 	fs = cmd_fs_init(&argc, &argv, 1, cmd);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
