@@ -8,66 +8,48 @@
 #include <stdio.h>
 #include <unistd.h>
 
-static void dict_cmd_help(doveadm_command_t *cmd);
-
 static int
-cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
-		   doveadm_command_t *cmd, enum dict_iterate_flags *iter_flags,
+cmd_dict_init_full(struct doveadm_cmd_context *cctx,
+		   doveadm_command_ver2_t *cmd ATTR_UNUSED, enum dict_iterate_flags *iter_flags,
 		   struct dict **dict_r)
 {
-	const char *getopt_args = iter_flags == NULL ? "u:" : "1Ru:V";
 	struct dict_settings dict_set;
 	struct dict *dict;
-	const char *dict_uri, *error, *username = "";
-	int c;
+	bool set;
+	const char *dict_uri, *error, *key, *username = "";
 
-	while ((c = getopt(*argc, *argv, getopt_args)) > 0) {
-		switch (c) {
-		case '1':
-			i_assert(iter_flags != NULL);
-			*iter_flags |= DICT_ITERATE_FLAG_EXACT_KEY;
-			break;
-		case 'R':
-			i_assert(iter_flags != NULL);
-			*iter_flags |= DICT_ITERATE_FLAG_RECURSE;
-			break;
-		case 'V':
-			i_assert(iter_flags != NULL);
-			*iter_flags |= DICT_ITERATE_FLAG_NO_VALUE;
-			break;
-		case 'u':
-			username = optarg;
-			break;
-		default:
-			dict_cmd_help(cmd);
-		}
+	if (doveadm_cmd_param_bool(cctx, "exact", &set) && set)
+		*iter_flags |= DICT_ITERATE_FLAG_EXACT_KEY;
+	if (doveadm_cmd_param_bool(cctx, "recurse", &set) && set)
+		*iter_flags |= DICT_ITERATE_FLAG_RECURSE;
+	if (doveadm_cmd_param_bool(cctx, "no-value", &set) && set)
+		*iter_flags |= DICT_ITERATE_FLAG_NO_VALUE;
+	(void)doveadm_cmd_param_str(cctx, "user", &username);
+
+	if (!doveadm_cmd_param_str(cctx, "dict-uri", &dict_uri)) {
+		i_error("dictionary URI must be specified");
+		doveadm_exit_code = EX_USAGE;
+		return -1;
 	}
-	*argc -= optind;
-	*argv += optind;
 
-	if (*argc != 1 + own_arg_count)
-		dict_cmd_help(cmd);
+	if (!doveadm_cmd_param_str(cctx, "prefix", &key) &&
+	    !doveadm_cmd_param_str(cctx, "key", &key))
+		key = "";
 
-	dict_uri = (*argv)[0];
-	*argc += 1;
-	*argv += 1;
+	i_debug("key = %s", key);
 
-	if (key_arg_idx >= 0) {
-		const char *key = (*argv)[key_arg_idx];
-
-		if (strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) != 0 &&
-		    strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) != 0) {
-			i_error("Key must begin with '"DICT_PATH_PRIVATE
-				"' or '"DICT_PATH_SHARED"': %s", key);
-			doveadm_exit_code = EX_USAGE;
-			return -1;
-		}
-		if (username[0] == '\0' &&
-		    strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0) {
-			i_error("-u must be specified for "DICT_PATH_PRIVATE" keys");
-			doveadm_exit_code = EX_USAGE;
-			return -1;
-		}
+	if (strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) != 0 &&
+	    strncmp(key, DICT_PATH_SHARED, strlen(DICT_PATH_SHARED)) != 0) {
+		i_error("Key must begin with '"DICT_PATH_PRIVATE
+			"' or '"DICT_PATH_SHARED"': %s", key);
+		doveadm_exit_code = EX_USAGE;
+		return -1;
+	}
+	if (username[0] == '\0' &&
+	    strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE)) == 0) {
+		i_error("-u must be specified for "DICT_PATH_PRIVATE" keys");
+		doveadm_exit_code = EX_USAGE;
+		return -1;
 	}
 
 	dict_drivers_register_builtin();
@@ -84,12 +66,10 @@ cmd_dict_init_full(int *argc, char **argv[], int own_arg_count, int key_arg_idx,
 }
 
 static int
-cmd_dict_init(int *argc, char **argv[],
-	      int own_arg_count, int key_arg_idx,
-	      doveadm_command_t *cmd, struct dict **dict_r)
+cmd_dict_init(struct doveadm_cmd_context *cctx,
+	      doveadm_command_ver2_t *cmd, struct dict **dict_r)
 {
-	return cmd_dict_init_full(argc, argv, own_arg_count,
-				  key_arg_idx, cmd, NULL, dict_r);
+	return cmd_dict_init_full(cctx, cmd, NULL, dict_r);
 }
 
 struct doveadm_dict_ctx {
@@ -110,13 +90,16 @@ static void dict_lookup_callback(const struct dict_lookup_result *result,
 	ctx->error = p_strdup(ctx->pool, result->error);
 }
 
-static void cmd_dict_get(int argc, char *argv[])
+static void cmd_dict_get(struct doveadm_cmd_context *cctx)
 {
 	struct doveadm_dict_ctx ctx;
 	struct dict *dict;
+	const char *key;
 
-	if (cmd_dict_init(&argc, &argv, 1, 0, cmd_dict_get, &dict) < 0)
+	if (cmd_dict_init(cctx, cmd_dict_get, &dict) < 0)
 		return;
+
+	(void)doveadm_cmd_param_str(cctx, "key", &key);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("value", "", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
@@ -124,14 +107,14 @@ static void cmd_dict_get(int argc, char *argv[])
 	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create("doveadm dict lookup", 512);
 	ctx.ret = -2;
-	dict_lookup_async(dict, argv[0], dict_lookup_callback, &ctx);
+	dict_lookup_async(dict, key, dict_lookup_callback, &ctx);
 	while (ctx.ret == -2)
 		dict_wait(dict);
 	if (ctx.ret < 0) {
-		i_error("dict_lookup(%s) failed: %s", argv[0], ctx.error);
+		i_error("dict_lookup(%s) failed: %s", key, ctx.error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (ctx.ret == 0) {
-		i_error("%s doesn't exist", argv[0]);
+		i_error("%s doesn't exist", key);
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else {
 		unsigned int i, values_count = str_array_length(ctx.values);
@@ -145,17 +128,24 @@ static void cmd_dict_get(int argc, char *argv[])
 	dict_deinit(&dict);
 }
 
-static void cmd_dict_set(int argc, char *argv[])
+static void cmd_dict_set(struct doveadm_cmd_context *cctx)
 {
 	struct dict *dict;
 	struct dict_transaction_context *trans;
 	const char *error;
+	const char *key, *value = "";
 
-	if (cmd_dict_init(&argc, &argv, 2, 0, cmd_dict_set, &dict) < 0)
+	if (cmd_dict_init(cctx, cmd_dict_set, &dict) < 0)
 		return;
 
+	(void)doveadm_cmd_param_str(cctx, "key", &key);
+	if (!doveadm_cmd_param_str(cctx, "value", &value)) {
+		i_error("dict set: Missing value");
+		return;
+	}
+
 	trans = dict_transaction_begin(dict);
-	dict_set(trans, argv[0], argv[1]);
+	dict_set(trans, key, value);
 	if (dict_transaction_commit(&trans, &error) <= 0) {
 		i_error("dict_transaction_commit() failed: %s", error);
 		doveadm_exit_code = EX_TEMPFAIL;
@@ -163,17 +153,20 @@ static void cmd_dict_set(int argc, char *argv[])
 	dict_deinit(&dict);
 }
 
-static void cmd_dict_unset(int argc, char *argv[])
+static void cmd_dict_unset(struct doveadm_cmd_context *cctx)
 {
 	struct dict *dict;
 	struct dict_transaction_context *trans;
 	const char *error;
+	const char *key;
 
-	if (cmd_dict_init(&argc, &argv, 1, 0, cmd_dict_unset, &dict) < 0)
+	if (cmd_dict_init(cctx, cmd_dict_unset, &dict) < 0)
 		return;
 
+	(void)doveadm_cmd_param_str(cctx, "key", &key);
+
 	trans = dict_transaction_begin(dict);
-	dict_unset(trans, argv[0]);
+	dict_unset(trans, key);
 	if (dict_transaction_commit(&trans, &error) <= 0) {
 		i_error("dict_transaction_commit() failed: %s", error);
 		doveadm_exit_code = EX_TEMPFAIL;
@@ -181,45 +174,47 @@ static void cmd_dict_unset(int argc, char *argv[])
 	dict_deinit(&dict);
 }
 
-static void cmd_dict_inc(int argc, char *argv[])
+static void cmd_dict_inc(struct doveadm_cmd_context *cctx)
 {
 	struct dict *dict;
 	struct dict_transaction_context *trans;
 	const char *error;
-	long long diff;
+	const char *key;
+	int64_t diff;
 	int ret;
 
-	if (cmd_dict_init(&argc, &argv, 2, 0, cmd_dict_inc, &dict) < 0)
+	if (cmd_dict_init(cctx, cmd_dict_inc, &dict) < 0)
 		return;
 
-	if (str_to_llong(argv[1], &diff) < 0) {
-		i_error("Invalid diff: %s", argv[1]);
+	if (!doveadm_cmd_param_int64(cctx, "difference", &diff)) {
+		i_error("Missing difference");
 		doveadm_exit_code = EX_USAGE;
 		dict_deinit(&dict);
 		return;
 	}
+	(void)doveadm_cmd_param_str(cctx, "key", &key);
 
 	trans = dict_transaction_begin(dict);
-	dict_atomic_inc(trans, argv[0], diff);
+	dict_atomic_inc(trans, key, diff);
 	ret = dict_transaction_commit(&trans, &error);
 	if (ret < 0) {
 		i_error("dict_transaction_commit() failed: %s", error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (ret == 0) {
-		i_error("%s doesn't exist", argv[0]);
+		i_error("%s doesn't exist", key);
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	}
 	dict_deinit(&dict);
 }
 
-static void cmd_dict_iter(int argc, char *argv[])
+static void cmd_dict_iter(struct doveadm_cmd_context *cctx)
 {
 	struct dict *dict;
 	struct dict_iterate_context *iter;
 	enum dict_iterate_flags iter_flags = 0;
-	const char *key, *value, *error;
+	const char *prefix, *key, *value, *error;
 
-	if (cmd_dict_init_full(&argc, &argv, 1, 0, cmd_dict_iter, &iter_flags, &dict) < 0)
+	if (cmd_dict_init_full(cctx, cmd_dict_iter, &iter_flags, &dict) < 0)
 		return;
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
@@ -227,14 +222,16 @@ static void cmd_dict_iter(int argc, char *argv[])
 	if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
 		doveadm_print_header_simple("value");
 
-	iter = dict_iterate_init(dict, argv[0], iter_flags);
+	(void)doveadm_cmd_param_str(cctx, "prefix", &prefix);
+
+	iter = dict_iterate_init(dict, prefix, iter_flags);
 	while (dict_iterate(iter, &key, &value)) {
 		doveadm_print(key);
 		if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
 			doveadm_print(value);
 	}
 	if (dict_iterate_deinit(&iter, &error) < 0) {
-		i_error("dict_iterate_deinit(%s) failed: %s", argv[0], error);
+		i_error("dict_iterate_deinit(%s) failed: %s", prefix, error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	dict_deinit(&dict);
@@ -243,7 +240,7 @@ static void cmd_dict_iter(int argc, char *argv[])
 static struct doveadm_cmd_ver2 doveadm_cmd_dict[] = {
 {
 	.name = "dict get",
-	.old_cmd = cmd_dict_get,
+	.cmd = cmd_dict_get,
 	.usage = "[-u <user>] <dict uri> <key>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
@@ -253,7 +250,7 @@ DOVEADM_CMD_PARAMS_END
 },
 {
 	.name = "dict set",
-	.old_cmd = cmd_dict_set,
+	.cmd = cmd_dict_set,
 	.usage = "[-u <user>] <dict uri> <key> <value>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
@@ -264,7 +261,7 @@ DOVEADM_CMD_PARAMS_END
 },
 {
 	.name = "dict unset",
-	.old_cmd = cmd_dict_unset,
+	.cmd = cmd_dict_unset,
 	.usage = "[-u <user>] <dict uri> <key>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
@@ -274,7 +271,7 @@ DOVEADM_CMD_PARAMS_END
 },
 {
 	.name = "dict inc",
-	.old_cmd = cmd_dict_inc,
+	.cmd = cmd_dict_inc,
 	.usage = "[-u <user>] <dict uri> <key> <diff>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
@@ -285,7 +282,7 @@ DOVEADM_CMD_PARAMS_END
 },
 {
 	.name = "dict iter",
-	.old_cmd = cmd_dict_iter,
+	.cmd = cmd_dict_iter,
 	.usage = "[-u <user>] [-1RV] <dict uri> <prefix>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
@@ -297,17 +294,6 @@ DOVEADM_CMD_PARAM('\0', "prefix", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 }
 };
-
-static void dict_cmd_help(doveadm_command_t *cmd)
-{
-	unsigned int i;
-
-	for (i = 0; i < N_ELEMENTS(doveadm_cmd_dict); i++) {
-		if (doveadm_cmd_dict[i].old_cmd == cmd)
-			help_ver2(&doveadm_cmd_dict[i]);
-	}
-	i_unreached();
-}
 
 void doveadm_register_dict_commands(void)
 {
