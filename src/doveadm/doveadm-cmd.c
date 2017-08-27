@@ -360,6 +360,9 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 
 	for(i=0;i<pargc;i++) {
 		const char *optarg = NULL;
+		ARRAY_TYPE(const_string) *target = argv;
+		if ((params[i].flags & CMD_PARAM_FLAG_POSITIONAL) != 0)
+			target = &pargv;
 		/* istreams are special */
 		i_assert(params[i].type != CMD_PARAM_ISTREAM);
 		if (params[i].value_set) {
@@ -374,22 +377,19 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 			}
 			/* CMD_PARAM_BOOL is implicitly handled above */
 			if (params[i].type == CMD_PARAM_STR) {
-				array_append(argv, &params[i].value.v_string,1);
+				array_append(target, &params[i].value.v_string,1);
 			} else if (params[i].type == CMD_PARAM_INT64) {
 				const char *tmp = t_strdup_printf("%lld",
 					(long long)params[i].value.v_int64);
-				array_append(argv, &tmp, 1);
+				array_append(target, &tmp, 1);
 			} else if (params[i].type == CMD_PARAM_IP) {
 				const char *tmp = net_ip2addr(&params[i].value.v_ip);
-				array_append(argv, &tmp, 1);
+				array_append(target, &tmp, 1);
 			} else if (params[i].type == CMD_PARAM_ARRAY) {
 				array_foreach(&params[i].value.v_array, cptr) {
 					if (array_add_opt)
 						array_append(argv, &optarg, 1);
-					if ((params[i].flags & CMD_PARAM_FLAG_POSITIONAL) == 0)
-						array_append(argv, cptr, 1);
-					else
-						array_append(&pargv, cptr, 1);
+					array_append(target, cptr, 1);
 				}
 			}
 		}
