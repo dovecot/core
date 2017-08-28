@@ -11,7 +11,7 @@
 
 static int raw_mail_stat(struct mail *mail)
 {
-	struct raw_mailbox *mbox = (struct raw_mailbox *)mail->box;
+	struct raw_mailbox *mbox = RAW_MAILBOX(mail->box);
 	const struct stat *st;
 
 	if (mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
@@ -39,7 +39,7 @@ static int raw_mail_stat(struct mail *mail)
 static int raw_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct raw_mailbox *mbox = (struct raw_mailbox *)_mail->box;
+	struct raw_mailbox *mbox = RAW_MAILBOX(_mail->box);
 
 	if (mbox->mtime == (time_t)-1) {
 		if (raw_mail_stat(_mail) < 0)
@@ -53,7 +53,7 @@ static int raw_mail_get_received_date(struct mail *_mail, time_t *date_r)
 static int raw_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct raw_mailbox *mbox = (struct raw_mailbox *)_mail->box;
+	struct raw_mailbox *mbox = RAW_MAILBOX(_mail->box);
 
 	if (mbox->ctime == (time_t)-1) {
 		if (raw_mail_stat(_mail) < 0)
@@ -67,7 +67,7 @@ static int raw_mail_get_save_date(struct mail *_mail, time_t *date_r)
 static int raw_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct raw_mailbox *mbox = (struct raw_mailbox *)_mail->box;
+	struct raw_mailbox *mbox = RAW_MAILBOX(_mail->box);
 
 	if (mbox->size == (uoff_t)-1) {
 		if (raw_mail_stat(_mail) < 0)
@@ -99,7 +99,7 @@ static int
 raw_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		     const char **value_r)
 {
-	struct raw_mailbox *mbox = (struct raw_mailbox *)_mail->box;
+	struct raw_mailbox *mbox = RAW_MAILBOX(_mail->box);
 
 	switch (field) {
 	case MAIL_FETCH_FROM_ENVELOPE:

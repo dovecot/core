@@ -57,7 +57,7 @@ static int raw_sync(struct raw_mailbox *mbox)
 struct mailbox_sync_context *
 raw_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct raw_mailbox *mbox = (struct raw_mailbox *)box;
+	struct raw_mailbox *mbox = RAW_MAILBOX(box);
 	int ret = 0;
 
 	if (!mbox->synced)

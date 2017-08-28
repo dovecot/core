@@ -140,14 +140,14 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	index_storage_mailbox_alloc(&mbox->box, vname, flags, "dovecot.index");
 
 	mbox->mtime = mbox->ctime = (time_t)-1;
-	mbox->storage = (struct raw_storage *)storage;
+	mbox->storage = RAW_STORAGE(storage);
 	mbox->size = (uoff_t)-1;
 	return &mbox->box;
 }
 
 static int raw_mailbox_open(struct mailbox *box)
 {
-	struct raw_mailbox *mbox = (struct raw_mailbox *)box;
+	struct raw_mailbox *mbox = RAW_MAILBOX(box);
 	const char *path;
 	int fd;
 

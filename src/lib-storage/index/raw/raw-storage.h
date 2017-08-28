@@ -22,6 +22,9 @@ struct raw_mailbox {
 	bool have_filename:1;
 };
 
+#define RAW_STORAGE(s)		container_of(s, struct raw_storage, storage)
+#define RAW_MAILBOX(s)		container_of(s, struct raw_mailbox, box)
+
 extern struct mail_vfuncs raw_mail_vfuncs;
 
 struct mail_user *
