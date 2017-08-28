@@ -705,7 +705,7 @@ int maildir_list_index_has_changed(struct mailbox *box,
 				   struct mail_index_view *list_view,
 				   uint32_t seq, bool quick)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 	const struct maildir_list_index_record *rec;
 	const void *data;
 	const char *root_dir, *new_dir, *cur_dir;
@@ -764,7 +764,7 @@ void maildir_list_index_update_sync(struct mailbox *box,
 				    struct mail_index_transaction *trans,
 				    uint32_t seq)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 	struct mail_index_view *list_view;
 	const struct maildir_index_header *mhdr = &mbox->maildir_hdr;
 	const struct maildir_list_index_record *old_rec;

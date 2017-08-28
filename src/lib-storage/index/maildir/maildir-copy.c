@@ -58,8 +58,7 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 static int
 maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 {
-	struct maildir_mailbox *dest_mbox =
-		(struct maildir_mailbox *)ctx->transaction->box;
+	struct maildir_mailbox *dest_mbox = MAILDIR_MAILBOX(ctx->transaction->box);
 	struct maildir_mailbox *src_mbox;
 	struct maildir_filename *mf;
 	struct hardlink_ctx do_ctx;
@@ -68,7 +67,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 	enum mail_lookup_abort old_abort;
 
 	if (strcmp(mail->box->storage->name, MAILDIR_STORAGE_NAME) == 0)
-		src_mbox = (struct maildir_mailbox *)mail->box;
+		src_mbox = MAILDIR_MAILBOX(mail->box);
 	else if (strcmp(mail->box->storage->name, "raw") == 0) {
 		/* lda uses raw format */
 		src_mbox = NULL;
@@ -125,7 +124,7 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 int maildir_copy(struct mail_save_context *ctx, struct mail *mail)
 {
 	struct mailbox_transaction_context *_t = ctx->transaction;
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_t->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_t->box);
 	int ret;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);

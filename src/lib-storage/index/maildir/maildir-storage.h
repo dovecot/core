@@ -92,6 +92,9 @@ struct maildir_mailbox {
 	bool sync_uidlist_refreshed:1;
 };
 
+#define MAILDIR_STORAGE(s)	container_of(s, struct maildir_storage, storage)
+#define MAILDIR_MAILBOX(s)	container_of(s, struct maildir_mailbox, box)
+
 extern struct mail_vfuncs maildir_mail_vfuncs;
 
 /* Return -1 = error, 0 = file not found, 1 = ok */

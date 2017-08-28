@@ -1083,7 +1083,7 @@ int maildir_sync_refresh_flags_view(struct maildir_mailbox *mbox)
 struct mailbox_sync_context *
 maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 	bool lost_files, force_resync;
 	int ret = 0;
 

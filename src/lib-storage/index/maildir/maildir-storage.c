@@ -47,7 +47,7 @@ static int
 maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		       const char **error_r ATTR_UNUSED)
 {
-	struct maildir_storage *storage = (struct maildir_storage *)_storage;
+	struct maildir_storage *storage = MAILDIR_STORAGE(_storage);
 	struct mailbox_list *list = ns->list;
 	const char *dir;
 
@@ -283,13 +283,13 @@ maildir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 
-	mbox->storage = (struct maildir_storage *)storage;
+	mbox->storage = MAILDIR_STORAGE(storage);
 	return &mbox->box;
 }
 
 static int maildir_mailbox_open_existing(struct mailbox *box)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 
 	mbox->uidlist = maildir_uidlist_init(mbox);
 	mbox->keywords = maildir_keywords_init(mbox);
@@ -313,7 +313,7 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 
 static bool maildir_storage_is_readonly(struct mailbox *box)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 
 	if (index_storage_is_readonly(box))
 		return TRUE;
@@ -425,7 +425,7 @@ static int maildir_create_shared(struct mailbox *box)
 static int
 maildir_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 	struct maildir_uidlist *uidlist;
 	bool locked = FALSE;
 	int ret = 0;
@@ -543,7 +543,7 @@ maildir_mailbox_get_metadata(struct mailbox *box,
 			     enum mailbox_metadata_items items,
 			     struct mailbox_metadata *metadata_r)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 
 	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
 		return -1;
@@ -558,7 +558,7 @@ maildir_mailbox_get_metadata(struct mailbox *box,
 
 static void maildir_mailbox_close(struct mailbox *box)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 
 	if (mbox->keep_lock_to != NULL) {
 		maildir_uidlist_unlock(mbox->uidlist);
@@ -575,7 +575,7 @@ static void maildir_mailbox_close(struct mailbox *box)
 
 static void maildir_notify_changes(struct mailbox *box)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 	const char *box_path = mailbox_get_path(box);
 
 	if (box->notify_callback == NULL)
@@ -621,7 +621,7 @@ uint32_t maildir_get_uidvalidity_next(struct mailbox_list *list)
 
 static enum mail_flags maildir_get_private_flags_mask(struct mailbox *box)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 	const char *path, *path2;
 	struct stat st;
 

@@ -70,6 +70,8 @@ struct maildir_save_context {
 	bool locked_uidlist_refresh:1;
 };
 
+#define MAILDIR_SAVECTX(s)	container_of(s, struct maildir_save_context, ctx)
+
 static int maildir_file_move(struct maildir_save_context *ctx,
 			     struct maildir_filename *mf, const char *destname,
 			     bool newdir)
@@ -116,7 +118,7 @@ static int maildir_file_move(struct maildir_save_context *ctx,
 static struct mail_save_context *
 maildir_save_transaction_init(struct mailbox_transaction_context *t)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)t->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(t->box);
 	struct maildir_save_context *ctx;
 	const char *path;
 	pool_t pool;
@@ -146,7 +148,7 @@ struct maildir_filename *
 maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 		 struct mail *src_mail)
 {
-	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_save_context *ctx = MAILDIR_SAVECTX(_ctx);
 	struct mail_save_data *mdata = &_ctx->data;
 	struct maildir_filename *mf;
 	struct istream *input;
@@ -230,7 +232,7 @@ void maildir_save_set_dest_basename(struct mail_save_context *_ctx,
 				    struct maildir_filename *mf,
 				    const char *basename)
 {
-	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_save_context *ctx = MAILDIR_SAVECTX(_ctx);
 
 	mf->preserve_filename = TRUE;
 	mf->dest_basename = p_strdup(ctx->pool, basename);
@@ -303,8 +305,7 @@ static const char *maildir_mf_get_path(struct maildir_save_context *ctx,
 static struct maildir_filename *
 maildir_save_get_mf(struct mailbox_transaction_context *t, uint32_t seq)
 {
-	struct maildir_save_context *save_ctx =
-		(struct maildir_save_context *)t->save_ctx;
+	struct maildir_save_context *save_ctx = MAILDIR_SAVECTX(t->save_ctx);
 	struct maildir_filename *mf;
 
 	i_assert(seq >= save_ctx->first_seq);
@@ -331,8 +332,7 @@ int maildir_save_file_get_size(struct mailbox_transaction_context *t,
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
 				       uint32_t seq)
 {
-	struct maildir_save_context *save_ctx =
-		(struct maildir_save_context *)t->save_ctx;
+	struct maildir_save_context *save_ctx = MAILDIR_SAVECTX(t->save_ctx);
 	struct maildir_filename *mf = maildir_save_get_mf(t, seq);
 
 	return maildir_mf_get_path(save_ctx, mf);
@@ -446,7 +446,7 @@ int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 int maildir_save_continue(struct mail_save_context *_ctx)
 {
-	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_save_context *ctx = MAILDIR_SAVECTX(_ctx);
 
 	if (ctx->failed)
 		return -1;
@@ -515,7 +515,7 @@ static void maildir_save_remove_last_filename(struct maildir_save_context *ctx)
 
 static int maildir_save_finish_real(struct mail_save_context *_ctx)
 {
-	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_save_context *ctx = MAILDIR_SAVECTX(_ctx);
 	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *path, *output_errstr;
 	off_t real_size;
@@ -637,7 +637,7 @@ int maildir_save_finish(struct mail_save_context *ctx)
 
 void maildir_save_cancel(struct mail_save_context *_ctx)
 {
-	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_save_context *ctx = MAILDIR_SAVECTX(_ctx);
 
 	ctx->failed = TRUE;
 	(void)maildir_save_finish(_ctx);
@@ -1051,7 +1051,7 @@ int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 void maildir_transaction_save_commit_post(struct mail_save_context *_ctx,
 					  struct mail_index_transaction_commit_result *result ATTR_UNUSED)
 {
-	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_save_context *ctx = MAILDIR_SAVECTX(_ctx);
 
 	_ctx->transaction = NULL; /* transaction is already freed */
 
@@ -1062,7 +1062,7 @@ void maildir_transaction_save_commit_post(struct mail_save_context *_ctx,
 
 void maildir_transaction_save_rollback(struct mail_save_context *_ctx)
 {
-	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_save_context *ctx = MAILDIR_SAVECTX(_ctx);
 
 	i_assert(_ctx->data.output == NULL);
 

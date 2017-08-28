@@ -103,7 +103,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 
 static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(mail->box);
 	struct index_mail *imail = (struct index_mail *)mail;
 	const char *path;
 	int fd, ret;
@@ -289,7 +289,7 @@ static int maildir_quick_size_lookup(struct index_mail *mail, bool vsize,
 				     uoff_t *size_r)
 {
 	struct mail *_mail = &mail->mail.mail;
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
 	enum maildir_uidlist_rec_ext_key key;
 	const char *path, *fname, *value;
 
@@ -332,7 +332,7 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 			    bool vsize)
 {
 	struct mailbox *box = mail->mail.mail.box;
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(box);
 	enum mail_fetch_field field;
 	uoff_t size;
 	int pop3_state;
@@ -379,7 +379,7 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 
 static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
 	struct message_size hdr_size, body_size;
@@ -425,7 +425,7 @@ static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 	struct message_size hdr_size, body_size;
@@ -493,7 +493,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			 const char **value_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
 	const char *path, *fname = NULL, *end, *guid, *uidl, *order;
 	struct stat st;
 
@@ -598,7 +598,7 @@ maildir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 			struct istream **stream_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
 	struct index_mail_data *data = &mail->data;
 	bool deleted;
 
@@ -623,7 +623,7 @@ maildir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 
 static void maildir_update_pop3_uidl(struct mail *_mail, const char *uidl)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)_mail->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
 	const char *fname;
 
 	if (maildir_mail_get_special(_mail, MAIL_FETCH_STORAGE_ID,
@@ -641,7 +641,7 @@ static void maildir_update_pop3_uidl(struct mail *_mail, const char *uidl)
 
 static void maildir_mail_remove_sizes_from_uidlist(struct mail *mail)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(mail->box);
 
 	if (maildir_uidlist_lookup_ext(mbox->uidlist, mail->uid,
 				       MAILDIR_UIDLIST_REC_EXT_VSIZE) != NULL) {
@@ -710,7 +710,7 @@ static void
 maildir_mail_remove_sizes_from_filename(struct mail *mail,
 					enum mail_fetch_field field)
 {
-	struct maildir_mailbox *mbox = (struct maildir_mailbox *)mail->box;
+	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(mail->box);
 	struct mail_private *pmail = (struct mail_private *)mail;
 	enum maildir_uidlist_rec_flag flags;
 	const char *fname;
