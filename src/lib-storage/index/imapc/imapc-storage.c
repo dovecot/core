@@ -387,7 +387,7 @@ imapc_storage_create(struct mail_storage *_storage,
 		     struct mail_namespace *ns,
 		     const char **error_r)
 {
-	struct imapc_storage *storage = (struct imapc_storage *)_storage;
+	struct imapc_storage *storage = IMAPC_STORAGE(_storage);
 	struct imapc_mailbox_list *imapc_list = NULL;
 
 	storage->set = mail_namespace_get_driver_settings(ns, _storage);
@@ -440,7 +440,7 @@ imapc_storage_create(struct mail_storage *_storage,
 
 static void imapc_storage_destroy(struct mail_storage *_storage)
 {
-	struct imapc_storage *storage = (struct imapc_storage *)_storage;
+	struct imapc_storage *storage = IMAPC_STORAGE(_storage);
 
 	storage->client->destroying = TRUE;
 
@@ -489,7 +489,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 
-	mbox->storage = (struct imapc_storage *)storage;
+	mbox->storage = IMAPC_STORAGE(storage);
 
 	p_array_init(&mbox->untagged_callbacks, pool, 16);
 	p_array_init(&mbox->resp_text_callbacks, pool, 16);
@@ -734,7 +734,7 @@ int imapc_mailbox_select(struct imapc_mailbox *mbox)
 
 static int imapc_mailbox_open(struct mailbox *box)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 
 	if (index_storage_mailbox_open(box, FALSE) < 0)
 		return -1;
@@ -775,7 +775,7 @@ void imapc_mail_cache_free(struct imapc_mail_cache *cache)
 
 static void imapc_mailbox_close(struct mailbox *box)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 	bool changes;
 
 	(void)imapc_mailbox_commit_delayed_trans(mbox, &changes);
@@ -799,7 +799,7 @@ imapc_mailbox_create(struct mailbox *box,
 		     const struct mailbox_update *update ATTR_UNUSED,
 		     bool directory)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
 	const char *name = imapc_mailbox_get_remote_name(mbox);
@@ -955,7 +955,7 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
 	string_t *str;
@@ -1001,7 +1001,7 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 
 	if (mbox->guid_fetch_field_name != NULL ||
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GUID_FORCED))
@@ -1084,7 +1084,7 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 				      enum mailbox_metadata_items items,
 				      struct mailbox_metadata *metadata_r)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 	const struct imapc_namespace *ns;
 
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
@@ -1151,7 +1151,7 @@ static void imapc_idle_noop_callback(const struct imapc_command_reply *reply,
 
 static void imapc_notify_changes(struct mailbox *box)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 	const struct mail_storage_settings *set = box->storage->set;
 	struct imapc_command *cmd;
 
@@ -1181,7 +1181,7 @@ static void imapc_notify_changes(struct mailbox *box)
 
 static bool imapc_is_inconsistent(struct mailbox *box)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 
 	if (box->view != NULL &&
 	    mail_index_view_is_inconsistent(box->view))

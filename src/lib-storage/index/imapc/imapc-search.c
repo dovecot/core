@@ -183,8 +183,7 @@ static void imapc_search_callback(const struct imapc_command_reply *reply,
 				  void *context)
 {
 	struct mail_search_context *ctx = context;
-	struct imapc_mailbox *mbox =
-		(struct imapc_mailbox *)ctx->transaction->box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(ctx->transaction->box);
 	struct imapc_search_context *ictx = IMAPC_SEARCHCTX(ctx);
 
 	ictx->finished = TRUE;
@@ -207,7 +206,7 @@ imapc_search_init(struct mailbox_transaction_context *t,
 		  enum mail_fetch_field wanted_fields,
 		  struct mailbox_header_lookup_ctx *wanted_headers)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)t->box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(t->box);
 	struct mail_search_context *ctx;
 	struct imapc_search_context *ictx;
 	struct imapc_command *cmd;

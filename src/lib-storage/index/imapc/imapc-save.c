@@ -37,12 +37,14 @@ struct imapc_save_cmd_context {
 	int ret;
 };
 
+#define IMAPC_SAVECTX(s)	container_of(s, struct imapc_save_context, ctx)
+
 void imapc_transaction_save_rollback(struct mail_save_context *_ctx);
 
 struct mail_save_context *
 imapc_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)t->box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(t->box);
 	struct imapc_save_context *ctx;
 
 	i_assert((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -60,7 +62,7 @@ imapc_save_alloc(struct mailbox_transaction_context *t)
 
 int imapc_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
-	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
+	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
 	struct mail_storage *storage = _ctx->transaction->box->storage;
 	const char *path;
 
@@ -90,7 +92,7 @@ int imapc_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 int imapc_save_continue(struct mail_save_context *_ctx)
 {
-	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
+	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
 
 	if (ctx->failed)
 		return -1;
@@ -266,7 +268,7 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 
 int imapc_save_finish(struct mail_save_context *_ctx)
 {
-	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
+	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
 	struct mail_storage *storage = _ctx->transaction->box->storage;
 
 	ctx->finished = TRUE;
@@ -303,7 +305,7 @@ int imapc_save_finish(struct mail_save_context *_ctx)
 
 void imapc_save_cancel(struct mail_save_context *_ctx)
 {
-	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
+	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
 
 	ctx->failed = TRUE;
 	(void)imapc_save_finish(_ctx);
@@ -311,7 +313,7 @@ void imapc_save_cancel(struct mail_save_context *_ctx)
 
 int imapc_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
-	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
+	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
 	struct mail_transaction_commit_changes *changes =
 		_ctx->transaction->changes;
 	uint32_t i, last_seq;
@@ -338,7 +340,7 @@ void imapc_transaction_save_commit_post(struct mail_save_context *_ctx,
 
 void imapc_transaction_save_rollback(struct mail_save_context *_ctx)
 {
-	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
+	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
 
 	/* FIXME: if we really want to rollback, we should expunge messages
 	   we already saved */
@@ -405,9 +407,9 @@ static void imapc_copy_callback(const struct imapc_command_reply *reply,
 
 int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 {
-	struct imapc_save_context *ctx = (struct imapc_save_context *)_ctx;
+	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
 	struct mailbox_transaction_context *_t = _ctx->transaction;
-	struct imapc_mailbox *src_mbox = (struct imapc_mailbox *)mail->box;
+	struct imapc_mailbox *src_mbox = IMAPC_MAILBOX(mail->box);
 	struct imapc_command *cmd;
 	struct imapc_save_cmd_context sctx;
 

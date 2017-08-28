@@ -18,8 +18,7 @@
 static void imapc_mail_set_failure(struct imapc_mail *mail,
 				   const struct imapc_command_reply *reply)
 {
-	struct imapc_mailbox *mbox =
-		(struct imapc_mailbox *)mail->imail.mail.mail.box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(mail->imail.mail.mail.box);
 
 	mail->last_fetch_reply = p_strdup(mail->imail.mail.pool, reply->text_full);
 
@@ -68,7 +67,7 @@ imapc_mail_fetch_callback(const struct imapc_command_reply *reply,
 		imapc_mail_set_failure(mail, reply);
 		if (--mail->fetch_count == 0)
 			mail->fetching_fields = 0;
-		mbox = (struct imapc_mailbox *)mail->imail.mail.mail.box;
+		mbox = IMAPC_MAILBOX(mail->imail.mail.mail.box);
 	}
 	i_assert(mbox != NULL);
 
@@ -167,8 +166,7 @@ imapc_mail_try_merge_fetch(struct imapc_mailbox *mbox, string_t *str)
 static void
 imapc_mail_delayed_send_or_merge(struct imapc_mail *mail, string_t *str)
 {
-	struct imapc_mailbox *mbox =
-		(struct imapc_mailbox *)mail->imail.mail.mail.box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(mail->imail.mail.mail.box);
 
 	if (mbox->pending_fetch_request != NULL &&
 	    !imapc_mail_try_merge_fetch(mbox, str)) {
@@ -207,7 +205,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		      const char *const *headers)
 {
 	struct imapc_mail *mail = (struct imapc_mail *)_mail;
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	struct mail_index_view *view;
 	string_t *str;
 	uint32_t seq;
@@ -332,8 +330,7 @@ static void imapc_mail_cache_get(struct imapc_mail *mail,
 static enum mail_fetch_field
 imapc_mail_get_wanted_fetch_fields(struct imapc_mail *mail)
 {
-	struct imapc_mailbox *mbox =
-		(struct imapc_mailbox *)mail->imail.mail.mail.box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(mail->imail.mail.mail.box);
 	struct index_mail_data *data = &mail->imail.data;
 	enum mail_fetch_field fields = 0;
 
@@ -371,7 +368,7 @@ imapc_mail_get_wanted_fetch_fields(struct imapc_mail *mail)
 void imapc_mail_try_init_stream_from_cache(struct imapc_mail *mail)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 
 	if (mbox->prev_mail_cache.uid == _mail->uid)
 		imapc_mail_cache_get(mail, &mbox->prev_mail_cache);
@@ -561,7 +558,7 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 {
 	struct index_mail *imail = &mail->imail;
 	struct mail *_mail = &imail->mail.mail;
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	struct istream *input;
 	uoff_t size;
 	int ret;
@@ -797,8 +794,7 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 			     const struct imapc_untagged_reply *reply,
 			     const struct imap_arg *args)
 {
-	struct imapc_mailbox *mbox =
-		(struct imapc_mailbox *)mail->imail.mail.mail.box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(mail->imail.mail.mail.box);
 	const char *key, *value;
 	unsigned int i;
 	uoff_t size;

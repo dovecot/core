@@ -150,6 +150,9 @@ struct imapc_simple_context {
 	int ret;
 };
 
+#define IMAPC_STORAGE(s)	container_of(s, struct imapc_storage, storage)
+#define IMAPC_MAILBOX(s)	container_of(s, struct imapc_mailbox, box)
+
 int imapc_storage_client_create(struct mail_namespace *ns,
 				const struct imapc_settings *imapc_set,
 				const struct mail_storage_settings *mail_set,

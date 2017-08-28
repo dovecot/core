@@ -664,7 +664,7 @@ imapc_noop_if_needed(struct imapc_mailbox *mbox, enum mailbox_sync_flags flags)
 struct mailbox_sync_context *
 imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 	struct imapc_mailbox_list *list = mbox->storage->client->_list;
 	bool changes;
 	int ret = 0;
@@ -690,7 +690,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 int imapc_mailbox_sync_deinit(struct mailbox_sync_context *ctx,
 			      struct mailbox_sync_status *status_r)
 {
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)ctx->box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(ctx->box);
 	int ret;
 
 	ret = index_mailbox_sync_deinit(ctx, status_r);
