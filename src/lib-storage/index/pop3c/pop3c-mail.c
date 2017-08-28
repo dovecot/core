@@ -27,7 +27,7 @@ pop3c_mail_alloc(struct mailbox_transaction_context *t,
 static void pop3c_mail_close(struct mail *_mail)
 {
 	struct pop3c_mail *pmail = (struct pop3c_mail *)_mail;
-	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
+	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 
 	/* wait for any prefetch to finish before closing the mail */
 	while (pmail->prefetching)
@@ -39,7 +39,7 @@ static void pop3c_mail_close(struct mail *_mail)
 
 static int pop3c_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
-	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
+	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 	int tz;
 
 	if (mbox->storage->set->pop3c_quick_received_date) {
@@ -70,7 +70,7 @@ static int pop3c_mail_get_save_date(struct mail *_mail, time_t *date_r)
 static int pop3c_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
+	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 	struct message_size hdr_size, body_size;
 	struct istream *input;
 
@@ -141,7 +141,7 @@ pop3c_mail_prefetch_done(enum pop3c_command_state state,
 static bool pop3c_mail_prefetch(struct mail *_mail)
 {
 	struct pop3c_mail *pmail = (struct pop3c_mail *)_mail;
-	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
+	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 	enum pop3c_capability capa;
 	const char *cmd;
 
@@ -172,7 +172,7 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 {
 	struct pop3c_mail *pmail = (struct pop3c_mail *)_mail;
 	struct index_mail *mail = &pmail->imail;
-	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
+	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 	enum pop3c_capability capa;
 	const char *name, *cmd, *error;
 	struct istream *input;
@@ -245,7 +245,7 @@ static int
 pop3c_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		       const char **value_r)
 {
-	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)_mail->box;
+	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 
 	switch (field) {
 	case MAIL_FETCH_UIDL_BACKEND:

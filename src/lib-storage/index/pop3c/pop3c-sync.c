@@ -350,7 +350,7 @@ int pop3c_sync(struct pop3c_mailbox *mbox)
 struct mailbox_sync_context *
 pop3c_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct pop3c_mailbox *mbox = (struct pop3c_mailbox *)box;
+	struct pop3c_mailbox *mbox = POP3C_MAILBOX(box);
 	int ret = 0;
 
 	if ((flags & MAILBOX_SYNC_FLAG_FULL_READ) != 0 &&
