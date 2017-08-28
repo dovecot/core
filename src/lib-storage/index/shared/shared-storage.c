@@ -31,7 +31,7 @@ static int
 shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		      const char **error_r)
 {
-	struct shared_storage *storage = (struct shared_storage *)_storage;
+	struct shared_storage *storage = SHARED_STORAGE(_storage);
 	struct mail_storage *storage_class;
 	const char *driver, *p;
 	char *wildcardp, key;
@@ -138,7 +138,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 {
 	struct mail_storage *_storage = (*_ns)->storage;
 	struct mailbox_list *list = (*_ns)->list;
-	struct shared_storage *storage = (struct shared_storage *)_storage;
+	struct shared_storage *storage = SHARED_STORAGE(_storage);
 	struct mail_user *user = _storage->user;
 	struct mail_namespace *new_ns, *ns = *_ns;
 	struct mail_namespace_settings *ns_set, *unexpanded_ns_set;

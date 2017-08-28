@@ -11,6 +11,8 @@ struct shared_storage {
 	const char *storage_class_name;
 };
 
+#define SHARED_STORAGE(s)	container_of(s, struct shared_storage, storage)
+
 struct mailbox_list *shared_mailbox_list_alloc(void);
 
 /* Returns -1 = error, 0 = user doesn't exist, 1 = ok */
