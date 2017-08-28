@@ -56,6 +56,8 @@ struct mbox_save_context {
 	bool finished:1;
 };
 
+#define MBOX_SAVECTX(s)		container_of(s, struct mbox_save_context, ctx)
+
 static void write_error(struct mbox_save_context *ctx)
 {
 	mbox_set_syscall_error(ctx->mbox, "write()");
@@ -194,8 +196,8 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 
 static void mbox_save_init_sync(struct mailbox_transaction_context *t)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->box;
-	struct mbox_save_context *ctx = (struct mbox_save_context *)t->save_ctx;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(t->box);
+	struct mbox_save_context *ctx = MBOX_SAVECTX(t->save_ctx);
 	const struct mail_index_header *hdr;
 	struct mail_index_view *view;
 
@@ -414,7 +416,7 @@ mbox_save_get_input_stream(struct mbox_save_context *ctx, struct istream *input)
 struct mail_save_context *
 mbox_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)t->box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(t->box);
 	struct mbox_save_context *ctx;
 
 	i_assert((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -434,10 +436,9 @@ mbox_save_alloc(struct mailbox_transaction_context *t)
 
 int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
-	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
 	struct mail_save_data *mdata = &_ctx->data;
-	struct mbox_transaction_context *t =
-		(struct mbox_transaction_context *)_ctx->transaction;
+	struct mbox_transaction_context *t = MBOX_TRANSCTX(_ctx->transaction);
 	enum mail_flags save_flags;
 	uint64_t offset;
 
@@ -562,7 +563,7 @@ static int mbox_save_finish_headers(struct mbox_save_context *ctx)
 
 int mbox_save_continue(struct mail_save_context *_ctx)
 {
-	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
 	const unsigned char *data;
 	size_t i, size;
 	ssize_t ret;
@@ -696,7 +697,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 void mbox_save_cancel(struct mail_save_context *_ctx)
 {
-	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
 
 	ctx->failed = TRUE;
 	(void)mbox_save_finish(_ctx);
@@ -727,7 +728,7 @@ static void mbox_save_truncate(struct mbox_save_context *ctx)
 
 int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
-	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	struct mbox_mailbox *mbox = ctx->mbox;
 	struct stat st;
@@ -796,7 +797,7 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 void mbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 				       struct mail_index_transaction_commit_result *result ATTR_UNUSED)
 {
-	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
 
 	i_assert(ctx->mbox->mbox_lock_type == F_WRLCK);
 
@@ -811,7 +812,7 @@ void mbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 
 void mbox_transaction_save_rollback(struct mail_save_context *_ctx)
 {
-	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
 
 	if (!ctx->finished)
 		mbox_save_cancel(&ctx->ctx);

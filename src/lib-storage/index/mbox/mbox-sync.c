@@ -2042,7 +2042,7 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 struct mailbox_sync_context *
 mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	enum mbox_sync_flags mbox_sync_flags = 0;
 	int ret = 0;
 

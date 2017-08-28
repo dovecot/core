@@ -18,9 +18,8 @@
 
 static void mbox_prepare_resync(struct mail *mail)
 {
-	struct mbox_transaction_context *t =
-		(struct mbox_transaction_context *)mail->transaction;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->box;
+	struct mbox_transaction_context *t = MBOX_TRANSCTX(mail->transaction);
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(mail->box);
 
 	if (mbox->mbox_lock_type == F_RDLCK) {
 		if (mbox->mbox_lock_id == t->read_lock_id)
@@ -32,10 +31,9 @@ static void mbox_prepare_resync(struct mail *mail)
 
 static int mbox_mail_seek(struct index_mail *mail)
 {
-	struct mbox_transaction_context *t =
-		(struct mbox_transaction_context *)mail->mail.mail.transaction;
 	struct mail *_mail = &mail->mail.mail;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
+	struct mbox_transaction_context *t = MBOX_TRANSCTX(_mail->transaction);
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(_mail->box);
 	enum mbox_sync_flags sync_flags = 0;
 	int ret, try;
 	bool deleted;
@@ -115,7 +113,7 @@ static int mbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(_mail->box);
 
 	if (index_mail_get_received_date(_mail, date_r) == 0)
 		return 0;
@@ -156,7 +154,7 @@ mbox_mail_get_md5_header(struct index_mail *mail, const char **value_r)
 	struct mail *_mail = &mail->mail.mail;
 	static uint8_t empty_md5[16] =
 		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(_mail->box);
 	const void *ext_data;
 
 	if (mail->data.guid != NULL) {
@@ -184,7 +182,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		      const char **value_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(_mail->box);
 	uoff_t offset;
 	bool move_offset;
 	int ret;
@@ -241,7 +239,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 static int
 mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->mail.mail.box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(mail->mail.mail.box);
 	struct mail_index_view *view;
 	const struct mail_index_header *hdr;
 	uint32_t seq;
@@ -291,7 +289,7 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct index_mail *mail = (struct index_mail *)_mail;
 	struct index_mail_data *data = &mail->data;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)_mail->box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(_mail->box);
 	struct istream *input;
 	struct message_size hdr_size;
 	uoff_t old_offset, body_offset, body_size, next_offset;
@@ -337,7 +335,7 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 static int mbox_mail_init_stream(struct index_mail *mail)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)mail->mail.mail.box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(mail->mail.mail.box);
 	struct istream *raw_stream;
 	uoff_t hdr_offset, next_offset;
 	int ret;

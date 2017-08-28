@@ -79,6 +79,10 @@ struct mbox_transaction_context {
 	unsigned int write_lock_id;
 };
 
+#define MBOX_STORAGE(s)		container_of(s, struct mbox_storage, storage)
+#define MBOX_MAILBOX(s)		container_of(s, struct mbox_mailbox, box)
+#define MBOX_TRANSCTX(s)	container_of(s, struct mbox_transaction_context, t)
+
 extern struct mail_vfuncs mbox_mail_vfuncs;
 extern const char *mbox_hide_headers[], *mbox_save_drop_headers[];
 extern unsigned int mbox_hide_headers_count, mbox_save_drop_headers_count;

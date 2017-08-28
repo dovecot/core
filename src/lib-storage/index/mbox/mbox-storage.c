@@ -149,7 +149,7 @@ static int
 mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		    const char **error_r)
 {
-	struct mbox_storage *storage = (struct mbox_storage *)_storage;
+	struct mbox_storage *storage = MBOX_STORAGE(_storage);
 	struct stat st;
 	const char *dir;
 
@@ -384,7 +384,7 @@ mbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 
-	mbox->storage = (struct mbox_storage *)storage;
+	mbox->storage = MBOX_STORAGE(storage);
 	mbox->mbox_fd = -1;
 	mbox->mbox_lock_type = F_UNLCK;
 	mbox->mbox_list_index_ext_id = (uint32_t)-1;
@@ -455,7 +455,7 @@ static int mbox_mailbox_open_existing(struct mbox_mailbox *mbox)
 
 static bool mbox_storage_is_readonly(struct mailbox *box)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 
 	if (index_storage_is_readonly(box))
 		return TRUE;
@@ -471,7 +471,7 @@ static bool mbox_storage_is_readonly(struct mailbox *box)
 
 static int mbox_mailbox_open(struct mailbox *box)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	struct stat st;
 	int ret;
 
@@ -507,7 +507,7 @@ static int mbox_mailbox_open(struct mailbox *box)
 static int
 mbox_mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	int ret = 0;
 
 	if (!box->opened) {
@@ -589,7 +589,7 @@ mbox_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 
 static void mbox_mailbox_close(struct mailbox *box)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	const struct mail_index_header *hdr;
 	enum mbox_sync_flags sync_flags = 0;
 
@@ -658,7 +658,7 @@ mbox_mailbox_get_guid(struct mbox_mailbox *mbox, guid_128_t guid_r)
 		i_assert(mbox->mbox_lock_type == F_UNLCK);
 		box2 = mailbox_alloc(mbox->box.list, mbox->box.vname, 0);
 		ret = mailbox_sync(box2, 0);
-		mbox2 = (struct mbox_mailbox *)box2;
+		mbox2 = MBOX_MAILBOX(box2);
 		memcpy(guid_r, mbox2->mbox_hdr.mailbox_guid, GUID_128_SIZE);
 		mailbox_free(&box2);
 		return ret;
@@ -672,7 +672,7 @@ mbox_mailbox_get_metadata(struct mailbox *box,
 			  enum mailbox_metadata_items items,
 			  struct mailbox_metadata *metadata_r)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 
 	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
 		return -1;
@@ -685,7 +685,7 @@ mbox_mailbox_get_metadata(struct mailbox *box,
 
 static void mbox_notify_changes(struct mailbox *box)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 
 	if (box->notify_callback == NULL)
 		mailbox_watch_remove_all(box);
@@ -730,7 +730,7 @@ static struct mailbox_transaction_context *
 mbox_transaction_begin(struct mailbox *box,
 		       enum mailbox_transaction_flags flags)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	struct mbox_transaction_context *mt;
 
 	if ((flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0)
@@ -745,7 +745,7 @@ static void
 mbox_transaction_unlock(struct mailbox *box, unsigned int lock_id1,
 			unsigned int lock_id2)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 
 	if (lock_id1 != 0)
 		mbox_unlock(mbox, lock_id1);
@@ -766,10 +766,9 @@ static int
 mbox_transaction_commit(struct mailbox_transaction_context *t,
 			struct mail_transaction_commit_changes *changes_r)
 {
-	struct mbox_transaction_context *mt =
-		(struct mbox_transaction_context *)t;
+	struct mbox_transaction_context *mt = MBOX_TRANSCTX(t);
 	struct mailbox *box = t->box;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	unsigned int read_lock_id = mt->read_lock_id;
 	unsigned int write_lock_id = mt->write_lock_id;
 	int ret;
@@ -787,10 +786,9 @@ mbox_transaction_commit(struct mailbox_transaction_context *t,
 static void
 mbox_transaction_rollback(struct mailbox_transaction_context *t)
 {
-	struct mbox_transaction_context *mt =
-		(struct mbox_transaction_context *)t;
+	struct mbox_transaction_context *mt = MBOX_TRANSCTX(t);
 	struct mailbox *box = t->box;
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	unsigned int read_lock_id = mt->read_lock_id;
 	unsigned int write_lock_id = mt->write_lock_id;
 

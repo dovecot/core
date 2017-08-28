@@ -22,7 +22,7 @@ int mbox_list_index_has_changed(struct mailbox *box,
 				struct mail_index_view *list_view,
 				uint32_t seq, bool quick)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	const struct mbox_list_index_record *rec;
 	const void *data;
 	const char *path;
@@ -64,7 +64,7 @@ void mbox_list_index_update_sync(struct mailbox *box,
 				 struct mail_index_transaction *trans,
 				 uint32_t seq)
 {
-	struct mbox_mailbox *mbox = (struct mbox_mailbox *)box;
+	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	struct mail_index_view *list_view;
 	const struct mbox_index_header *mhdr = &mbox->mbox_hdr;
 	const struct mbox_list_index_record *old_rec;
