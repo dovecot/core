@@ -15,6 +15,9 @@ struct cydir_mailbox {
 	struct cydir_storage *storage;
 };
 
+#define CYDIR_STORAGE(s)	container_of(s, struct cydir_storage, storage)
+#define CYDIR_MAILBOX(s)	container_of(s, struct cydir_mailbox, box)
+
 extern struct mail_vfuncs cydir_mail_vfuncs;
 
 struct mail_save_context *

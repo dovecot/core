@@ -34,6 +34,8 @@ struct cydir_save_context {
 	bool finished:1;
 };
 
+#define CYDIR_SAVECTX(s)	container_of(s, struct cydir_save_context, ctx)
+
 static char *cydir_generate_tmp_filename(void)
 {
 	static unsigned int create_count = 0;
@@ -56,7 +58,7 @@ cydir_get_save_path(struct cydir_save_context *ctx, unsigned int num)
 struct mail_save_context *
 cydir_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct cydir_mailbox *mbox = (struct cydir_mailbox *)t->box;
+	struct cydir_mailbox *mbox = CYDIR_MAILBOX(t->box);
 	struct cydir_save_context *ctx;
 
 	i_assert((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
@@ -125,7 +127,7 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 int cydir_save_continue(struct mail_save_context *_ctx)
 {
-	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct cydir_save_context *ctx = CYDIR_SAVECTX(_ctx);
 
 	if (ctx->failed)
 		return -1;
@@ -190,7 +192,7 @@ static int cydir_save_flush(struct cydir_save_context *ctx, const char *path)
 
 int cydir_save_finish(struct mail_save_context *_ctx)
 {
-	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct cydir_save_context *ctx = CYDIR_SAVECTX(_ctx);
 	const char *path = cydir_get_save_path(ctx, ctx->mail_count);
 
 	ctx->finished = TRUE;
@@ -216,7 +218,7 @@ int cydir_save_finish(struct mail_save_context *_ctx)
 
 void cydir_save_cancel(struct mail_save_context *_ctx)
 {
-	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct cydir_save_context *ctx = CYDIR_SAVECTX(_ctx);
 
 	ctx->failed = TRUE;
 	(void)cydir_save_finish(_ctx);
@@ -224,7 +226,7 @@ void cydir_save_cancel(struct mail_save_context *_ctx)
 
 int cydir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
-	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct cydir_save_context *ctx = CYDIR_SAVECTX(_ctx);
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	const struct mail_index_header *hdr;
 	struct seq_range_iter iter;
@@ -280,7 +282,7 @@ int cydir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 void cydir_transaction_save_commit_post(struct mail_save_context *_ctx,
 					struct mail_index_transaction_commit_result *result)
 {
-	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct cydir_save_context *ctx = CYDIR_SAVECTX(_ctx);
 
 	_ctx->transaction = NULL; /* transaction is already freed */
 
@@ -293,7 +295,7 @@ void cydir_transaction_save_commit_post(struct mail_save_context *_ctx,
 
 void cydir_transaction_save_rollback(struct mail_save_context *_ctx)
 {
-	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct cydir_save_context *ctx = CYDIR_SAVECTX(_ctx);
 
 	if (!ctx->finished)
 		cydir_save_cancel(&ctx->ctx);

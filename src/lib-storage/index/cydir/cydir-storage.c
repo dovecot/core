@@ -54,7 +54,7 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 
-	mbox->storage = (struct cydir_storage *)storage;
+	mbox->storage = CYDIR_STORAGE(storage);
 	return &mbox->box;
 }
 
