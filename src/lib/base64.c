@@ -46,35 +46,36 @@ static const unsigned char b64dec[256] = {
 void base64_encode(const void *src, size_t src_size, buffer_t *dest)
 {
 	const unsigned char *src_c = src;
-	unsigned char tmp[4];
-	size_t src_pos;
-
-	for (src_pos = 0; src_pos < src_size; ) {
-		tmp[0] = b64enc[src_c[src_pos] >> 2];
-		switch (src_size - src_pos) {
-		case 1:
-			tmp[1] = b64enc[(src_c[src_pos] & 0x03) << 4];
-			tmp[2] = '=';
-			tmp[3] = '=';
-			src_pos++;
-			break;
-		case 2:
-			tmp[1] = b64enc[((src_c[src_pos] & 0x03) << 4) |
-					(src_c[src_pos+1] >> 4)];
-			tmp[2] = b64enc[((src_c[src_pos+1] & 0x0f) << 2)];
-			tmp[3] = '=';
-			src_pos += 2;
-			break;
-		default:
-			tmp[1] = b64enc[((src_c[src_pos] & 0x03) << 4) |
-					(src_c[src_pos+1] >> 4)];
-			tmp[2] = b64enc[((src_c[src_pos+1] & 0x0f) << 2) |
-					((src_c[src_pos+2] & 0xc0) >> 6)];
-			tmp[3] = b64enc[src_c[src_pos+2] & 0x3f];
-			src_pos += 3;
-			break;
-		}
-		buffer_append(dest, tmp, 4);
+	const size_t res_size = (src_size / 3 + (src_size % 3 > 0)) * 4;
+	unsigned char *ptr = buffer_append_space_unsafe(dest, res_size);
+	
+	size_t src_pos = 0;
+	for (; src_size - src_pos > 2; src_pos += 3) {
+		*ptr++ = b64enc[src_c[src_pos] >> 2];
+		*ptr++ = b64enc[((src_c[src_pos] & 0x03) << 4) | 
+				(src_c[src_pos+1] >> 4)];
+		*ptr++ = b64enc[((src_c[src_pos+1] & 0x0f) << 2) |
+				((src_c[src_pos+2] & 0xc0) >> 6)];
+		*ptr++ = b64enc[src_c[src_pos+2] & 0x3f];
+	}
+	
+	switch (src_size - src_pos) {
+	case 1:
+		*ptr++ = b64enc[src_c[src_pos] >> 2];
+		*ptr++ = b64enc[(src_c[src_pos] & 0x03) << 4];
+		*ptr++ = '=';
+		*ptr++ = '=';
+		break;
+	case 2:
+		*ptr++ = b64enc[src_c[src_pos] >> 2];
+		*ptr++ = b64enc[((src_c[src_pos] & 0x03) << 4) |
+				(src_c[src_pos+1] >> 4)];
+		*ptr++ = b64enc[((src_c[src_pos+1] & 0x0f) << 2)];
+		*ptr++ = '=';
+		break;
+	default:
+		// nothing to do
+		break;
 	}
 }
 
