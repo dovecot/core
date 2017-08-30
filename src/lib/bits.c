@@ -2,14 +2,24 @@
 
 #include "lib.h"
 
+/*
+ * We could use bits_required64() unconditionally, but that's unnecessary
+ * and way more heavy weight on 32-bit systems.
+ */
+#ifdef _LP64
+#define BITS_REQUIRED(x)	bits_required64(x)
+#else
+#define BITS_REQUIRED(x)	bits_required32(x)
+#endif
+
 size_t nearest_power(size_t num)
 {
-	size_t n = 1;
-
 	i_assert(num <= ((size_t)1 << (CHAR_BIT*sizeof(size_t) - 1)));
 
-	while (n < num) n <<= 1;
-	return n;
+	if (num == 0)
+		return 1;
+
+	return 1UL << BITS_REQUIRED(num - 1);
 }
 
 #if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)

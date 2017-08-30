@@ -6,6 +6,7 @@
 
 #define BIT(n) (1u << (n))
 
+/* Returns x, such that x is the smallest power of 2 >= num. */
 size_t nearest_power(size_t num) ATTR_CONST;
 
 /* Returns TRUE if 2^x=num, i.e. if num has only a single bit set to 1. */
