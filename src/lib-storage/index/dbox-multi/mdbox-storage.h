@@ -63,6 +63,10 @@ struct mdbox_mailbox {
 	bool creating:1;
 };
 
+#define MDBOX_DBOX_STORAGE(s)	container_of(s, struct mdbox_storage, storage)
+#define MDBOX_STORAGE(s)	MDBOX_DBOX_STORAGE(DBOX_STORAGE(s))
+#define MDBOX_MAILBOX(s)	container_of(s, struct mdbox_mailbox, box)
+
 extern struct dbox_storage_vfuncs mdbox_dbox_storage_vfuncs;
 extern struct mail_vfuncs mdbox_mail_vfuncs;
 

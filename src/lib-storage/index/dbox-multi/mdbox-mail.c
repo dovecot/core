@@ -57,7 +57,7 @@ int mdbox_mail_lookup(struct mdbox_mailbox *mbox, struct mail_index_view *view,
 static void dbox_mail_set_expunged(struct dbox_mail *mail, uint32_t map_uid)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)_mail->box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(_mail->box);
 
 	mail_index_refresh(_mail->box->index);
 	if (mail_index_is_expunged(_mail->transaction->view, _mail->seq)) {
@@ -73,8 +73,7 @@ static void dbox_mail_set_expunged(struct dbox_mail *mail, uint32_t map_uid)
 
 static int dbox_mail_open_init(struct dbox_mail *mail, uint32_t map_uid)
 {
-	struct mdbox_mailbox *mbox =
-		(struct mdbox_mailbox *)mail->imail.mail.mail.box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(mail->imail.mail.mail.box);
 	uint32_t file_id;
 	int ret;
 
@@ -98,7 +97,7 @@ int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		    struct dbox_file **file_r)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)_mail->box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(_mail->box);
 	uint32_t prev_file_id = 0, map_uid = 0;
 	bool deleted;
 
@@ -152,8 +151,7 @@ int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 
 static int mdbox_mail_get_save_date(struct mail *mail, time_t *date_r)
 {
-	struct mdbox_mailbox *mbox =
-		(struct mdbox_mailbox *)mail->transaction->box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(mail->transaction->box);
 	const struct mdbox_mail_index_record *dbox_rec;
 	const void *data;
 
@@ -174,8 +172,7 @@ mdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		       const char **value_r)
 {
 	struct dbox_mail *mail = DBOX_MAIL(_mail);
-	struct mdbox_mailbox *mbox =
-		(struct mdbox_mailbox *)_mail->transaction->box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(_mail->transaction->box);
 	struct mdbox_map_mail_index_record rec;
 	uint32_t map_uid;
 	uint16_t refcount;

@@ -356,7 +356,7 @@ int mdbox_sync(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags)
 struct mailbox_sync_context *
 mdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(box);
 	enum mdbox_sync_flags mdbox_sync_flags = 0;
 	int ret = 0;
 

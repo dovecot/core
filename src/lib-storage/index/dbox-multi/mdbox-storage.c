@@ -37,7 +37,7 @@ static struct mail_storage *mdbox_storage_alloc(void)
 int mdbox_storage_create(struct mail_storage *_storage,
 			 struct mail_namespace *ns, const char **error_r)
 {
-	struct mdbox_storage *storage = (struct mdbox_storage *)_storage;
+	struct mdbox_storage *storage = MDBOX_STORAGE(_storage);
 	const char *dir;
 
 	storage->set = mail_namespace_get_driver_settings(ns, _storage);
@@ -67,7 +67,7 @@ int mdbox_storage_create(struct mail_storage *_storage,
 
 void mdbox_storage_destroy(struct mail_storage *_storage)
 {
-	struct mdbox_storage *storage = (struct mdbox_storage *)_storage;
+	struct mdbox_storage *storage = MDBOX_STORAGE(_storage);
 
 	mdbox_files_free(storage);
 	mdbox_map_deinit(&storage->map);
@@ -163,13 +163,13 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	ibox->index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS |
 		MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 
-	mbox->storage = (struct mdbox_storage *)storage;
+	mbox->storage = MDBOX_STORAGE(storage);
 	return &mbox->box;
 }
 
 int mdbox_mailbox_open(struct mailbox *box)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(box);
 	time_t path_ctime;
 
 	if (dbox_mailbox_check_existence(box, &path_ctime) < 0)
@@ -192,7 +192,7 @@ int mdbox_mailbox_open(struct mailbox *box)
 
 static void mdbox_mailbox_close(struct mailbox *box)
 {
-	struct mdbox_storage *mstorage = (struct mdbox_storage *)box->storage;
+	struct mdbox_storage *mstorage = MDBOX_STORAGE(box->storage);
 
 	if (mstorage->corrupted && !mstorage->rebuilding_storage)
 		(void)mdbox_storage_rebuild(mstorage);
@@ -334,7 +334,7 @@ int mdbox_mailbox_create_indexes(struct mailbox *box,
 				 const struct mailbox_update *update,
 				 struct mail_index_transaction *trans)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(box);
 	int ret;
 
 	mbox->creating = TRUE;
@@ -368,14 +368,14 @@ mdbox_get_attachment_path_suffix(struct dbox_file *file ATTR_UNUSED)
 
 void mdbox_set_mailbox_corrupted(struct mailbox *box)
 {
-	struct mdbox_storage *mstorage = (struct mdbox_storage *)box->storage;
+	struct mdbox_storage *mstorage = MDBOX_STORAGE(box->storage);
 
 	mdbox_storage_set_corrupted(mstorage);
 }
 
 void mdbox_set_file_corrupted(struct dbox_file *file)
 {
-	struct mdbox_storage *mstorage = (struct mdbox_storage *)file->storage;
+	struct mdbox_storage *mstorage = MDBOX_DBOX_STORAGE(file->storage);
 
 	mdbox_storage_set_corrupted(mstorage);
 }
@@ -420,7 +420,7 @@ mdbox_mailbox_get_metadata(struct mailbox *box,
 			   enum mailbox_metadata_items items,
 			   struct mailbox_metadata *metadata_r)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(box);
 
 	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
 		return -1;

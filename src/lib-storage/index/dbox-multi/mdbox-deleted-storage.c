@@ -55,7 +55,7 @@ mdbox_deleted_mailbox_alloc(struct mail_storage *storage,
 
 	index_storage_mailbox_alloc(&mbox->box, vname, flags, MAIL_INDEX_PREFIX);
 
-	mbox->storage = (struct mdbox_storage *)storage;
+	mbox->storage = MDBOX_STORAGE(storage);
 	return &mbox->box;
 }
 
@@ -64,7 +64,7 @@ mdbox_deleted_mailbox_create_indexes(struct mailbox *box,
 				     const struct mailbox_update *update,
 				     struct mail_index_transaction *trans)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(box);
 	struct mail_index_transaction *new_trans = NULL;
 	uint32_t uid_validity = ioloop_time;
 	uint32_t uid_next = 1;
@@ -226,7 +226,7 @@ static struct mailbox_sync_context *
 mdbox_deleted_storage_sync_init(struct mailbox *box,
 				enum mailbox_sync_flags flags)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(box);
 	enum mdbox_sync_flags mdbox_sync_flags = 0;
 	int ret = 0;
 

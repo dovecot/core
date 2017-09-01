@@ -439,7 +439,7 @@ mdbox_file_purge(struct mdbox_purge_context *ctx, struct dbox_file *file,
 
 void mdbox_purge_alt_flag_change(struct mail *mail, bool move_to_alt)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)mail->box;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(mail->box);
 	ARRAY_TYPE(uint32_t) *dest;
 	uint32_t map_uid;
 

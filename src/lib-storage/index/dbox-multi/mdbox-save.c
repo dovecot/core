@@ -44,12 +44,13 @@ struct mdbox_save_context {
 	ARRAY(struct dbox_save_mail) mails;
 };
 
+#define MDBOX_SAVECTX(s)	container_of(DBOX_SAVECTX(s), struct mdbox_save_context, ctx)
+
 static struct dbox_file *
 mdbox_copy_file_get_file(struct mailbox_transaction_context *t,
 			 uint32_t seq, uoff_t *offset_r)
 {
-	struct mdbox_save_context *ctx =
-		(struct mdbox_save_context *)t->save_ctx;
+	struct mdbox_save_context *ctx = MDBOX_SAVECTX(t->save_ctx);
 	const struct mdbox_mail_index_record *rec;
 	const void *data;
 	uint32_t file_id;
@@ -68,8 +69,7 @@ struct dbox_file *
 mdbox_save_file_get_file(struct mailbox_transaction_context *t,
 			 uint32_t seq, uoff_t *offset_r)
 {
-	struct mdbox_save_context *ctx =
-		(struct mdbox_save_context *)t->save_ctx;
+	struct mdbox_save_context *ctx = MDBOX_SAVECTX(t->save_ctx);
 	const struct dbox_save_mail *mails, *mail;
 	unsigned int count;
 
@@ -98,9 +98,8 @@ mdbox_save_file_get_file(struct mailbox_transaction_context *t,
 struct mail_save_context *
 mdbox_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct mdbox_mailbox *mbox = (struct mdbox_mailbox *)t->box;
-	struct mdbox_save_context *ctx =
-		(struct mdbox_save_context *)t->save_ctx;
+	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(t->box);
+	struct mdbox_save_context *ctx = MDBOX_SAVECTX(t->save_ctx);
 
 	i_assert((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
@@ -127,7 +126,7 @@ mdbox_save_alloc(struct mailbox_transaction_context *t)
 
 int mdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
-	struct mdbox_save_context *ctx = (struct mdbox_save_context *)_ctx;
+	struct mdbox_save_context *ctx = MDBOX_SAVECTX(_ctx);
 	struct dbox_save_mail *save_mail;
 	uoff_t mail_size, append_offset;
 
@@ -277,7 +276,7 @@ mdbox_save_set_map_uids(struct mdbox_save_context *ctx,
 
 int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
-	struct mdbox_save_context *ctx = (struct mdbox_save_context *)_ctx;
+	struct mdbox_save_context *ctx = MDBOX_SAVECTX(_ctx);
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	const struct mail_index_header *hdr;
 	uint32_t first_map_uid, last_map_uid;
@@ -367,7 +366,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 					struct mail_index_transaction_commit_result *result)
 {
-	struct mdbox_save_context *ctx = (struct mdbox_save_context *)_ctx;
+	struct mdbox_save_context *ctx = MDBOX_SAVECTX(_ctx);
 	struct mail_storage *storage = _ctx->transaction->box->storage;
 
 	_ctx->transaction = NULL; /* transaction is already freed */
@@ -404,7 +403,7 @@ void mdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 
 void mdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 {
-	struct mdbox_save_context *ctx = (struct mdbox_save_context *)_ctx;
+	struct mdbox_save_context *ctx = MDBOX_SAVECTX(_ctx);
 
 	if (!ctx->ctx.finished)
 		mdbox_save_cancel(&ctx->ctx.ctx);
@@ -426,7 +425,7 @@ void mdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 
 int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 {
-	struct mdbox_save_context *ctx = (struct mdbox_save_context *)_ctx;
+	struct mdbox_save_context *ctx = MDBOX_SAVECTX(_ctx);
 	struct dbox_save_mail *save_mail;
 	struct mdbox_mailbox *src_mbox;
 	struct mdbox_mail_index_record rec;
@@ -438,7 +437,7 @@ int mdbox_copy(struct mail_save_context *_ctx, struct mail *mail)
 	if (mail->box->storage != _ctx->transaction->box->storage ||
 	    _ctx->transaction->box->disable_reflink_copy_to)
 		return mail_storage_copy(_ctx, mail);
-	src_mbox = (struct mdbox_mailbox *)mail->box;
+	src_mbox = MDBOX_MAILBOX(mail->box);
 
 	i_zero(&rec);
 	rec.save_date = ioloop_time;

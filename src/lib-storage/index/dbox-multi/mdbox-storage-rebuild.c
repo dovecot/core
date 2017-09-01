@@ -567,7 +567,7 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 		/* non-temporary error, ignore */
 		return 0;
 	}
-	mbox = (struct mdbox_mailbox *)box;
+	mbox = MDBOX_MAILBOX(box);
 
 	ret = mail_index_sync_begin(box->index, &sync_ctx, &view, &trans,
 				    MAIL_INDEX_SYNC_FLAG_AVOID_FLAG_UPDATES);
@@ -731,7 +731,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 			return -1;
 		}
 	}
-	mbox = (struct mdbox_mailbox *)box;
+	mbox = MDBOX_MAILBOX(box);
 
 	/* switch the mailbox cache if necessary */
 	if (box != ctx->prev_msg.box && ctx->prev_msg.box != NULL) {
