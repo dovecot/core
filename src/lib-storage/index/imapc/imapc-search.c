@@ -10,7 +10,7 @@
 #include "imapc-storage.h"
 #include "imapc-search.h"
 
-#define IMAPC_CONTEXT(obj) \
+#define IMAPC_SEARCHCTX(obj) \
 	MODULE_CONTEXT(obj, imapc_storage_module)
 
 struct imapc_search_context {
@@ -185,7 +185,7 @@ static void imapc_search_callback(const struct imapc_command_reply *reply,
 	struct mail_search_context *ctx = context;
 	struct imapc_mailbox *mbox =
 		(struct imapc_mailbox *)ctx->transaction->box;
-	struct imapc_search_context *ictx = IMAPC_CONTEXT(ctx);
+	struct imapc_search_context *ictx = IMAPC_SEARCHCTX(ctx);
 
 	ictx->finished = TRUE;
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
@@ -251,7 +251,7 @@ static void imapc_search_set_matches(struct mail_search_arg *args)
 
 bool imapc_search_next_update_seq(struct mail_search_context *ctx)
 {
-	struct imapc_search_context *ictx = IMAPC_CONTEXT(ctx);
+	struct imapc_search_context *ictx = IMAPC_SEARCHCTX(ctx);
 
 	if (ictx == NULL || !ictx->success)
 		return index_storage_search_next_update_seq(ctx);
@@ -266,7 +266,7 @@ bool imapc_search_next_update_seq(struct mail_search_context *ctx)
 
 int imapc_search_deinit(struct mail_search_context *ctx)
 {
-	struct imapc_search_context *ictx = IMAPC_CONTEXT(ctx);
+	struct imapc_search_context *ictx = IMAPC_SEARCHCTX(ctx);
 
 	if (ictx != NULL) {
 		array_free(&ictx->rseqs);
