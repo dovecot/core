@@ -34,7 +34,7 @@ static int sdbox_storage_create(struct mail_storage *_storage,
 				struct mail_namespace *ns,
 				const char **error_r)
 {
-	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	struct dbox_storage *storage = DBOX_STORAGE(_storage);
 	enum fs_properties props;
 
 	if (dbox_storage_create(_storage, ns, error_r) < 0)

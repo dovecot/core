@@ -65,7 +65,7 @@ sdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		       const char **value_r)
 {
 	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)_mail->box;
-	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	struct stat st;
 
 	switch (field) {

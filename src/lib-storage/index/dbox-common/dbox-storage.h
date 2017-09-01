@@ -62,6 +62,8 @@ struct dbox_storage {
 	const char *attachment_dir;
 };
 
+#define DBOX_STORAGE(s)		container_of(s, struct dbox_storage, storage)
+
 void dbox_storage_get_list_settings(const struct mail_namespace *ns,
 				    struct mailbox_list_settings *set);
 int dbox_storage_create(struct mail_storage *storage,

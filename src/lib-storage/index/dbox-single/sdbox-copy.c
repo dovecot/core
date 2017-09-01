@@ -92,7 +92,7 @@ sdbox_file_copy_attachments(struct sdbox_file *src_file,
 static int
 sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 {
-	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
+	struct dbox_save_context *ctx = DBOX_SAVECTX(_ctx);
 	struct sdbox_mailbox *dest_mbox =
 		(struct sdbox_mailbox *)_ctx->transaction->box;
 	struct sdbox_mailbox *src_mbox;

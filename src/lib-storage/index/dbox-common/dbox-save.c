@@ -39,7 +39,7 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 {
 	struct mail_save_context *_ctx = &ctx->ctx;
 	struct mail_storage *_storage = _ctx->transaction->box->storage;
-	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	struct dbox_storage *storage = DBOX_STORAGE(_storage);
 	struct dbox_message_header dbox_msg_hdr;
 	struct istream *crlf_input;
 
@@ -70,7 +70,7 @@ void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input)
 
 int dbox_save_continue(struct mail_save_context *_ctx)
 {
-	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
+	struct dbox_save_context *ctx = DBOX_SAVECTX(_ctx);
 
 	if (ctx->failed)
 		return -1;
@@ -120,7 +120,7 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 			      const char *orig_mailbox_name,
 			      guid_128_t guid_128)
 {
-	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
+	struct dbox_save_context *ctx = DBOX_SAVECTX(_ctx);
 	struct mail_save_data *mdata = &ctx->ctx.data;
 	struct dbox_metadata_header metadata_hdr;
 	const char *guid;

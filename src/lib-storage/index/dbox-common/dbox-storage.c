@@ -91,7 +91,7 @@ int dbox_storage_create(struct mail_storage *_storage,
 			struct mail_namespace *ns,
 			const char **error_r)
 {
-	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	struct dbox_storage *storage = DBOX_STORAGE(_storage);
 	const struct mail_storage_settings *set = _storage->set;
 	const char *error;
 
@@ -134,7 +134,7 @@ int dbox_storage_create(struct mail_storage *_storage,
 
 void dbox_storage_destroy(struct mail_storage *_storage)
 {
-	struct dbox_storage *storage = (struct dbox_storage *)_storage;
+	struct dbox_storage *storage = DBOX_STORAGE(_storage);
 
 	if (storage->attachment_fs != NULL)
 		fs_deinit(&storage->attachment_fs);
@@ -310,7 +310,7 @@ static int dir_is_empty(struct mail_storage *storage, const char *path)
 int dbox_mailbox_create(struct mailbox *box,
 			const struct mailbox_update *update, bool directory)
 {
-	struct dbox_storage *storage = (struct dbox_storage *)box->storage;
+	struct dbox_storage *storage = DBOX_STORAGE(box->storage);
 	const char *alt_path;
 	struct stat st;
 	int ret;
@@ -349,7 +349,7 @@ int dbox_mailbox_create(struct mailbox *box,
 int dbox_mailbox_create_indexes(struct mailbox *box,
 				const struct mailbox_update *update)
 {
-	struct dbox_storage *storage = (struct dbox_storage *)box->storage;
+	struct dbox_storage *storage = DBOX_STORAGE(box->storage);
 	struct mail_index_sync_ctx *sync_ctx;
 	struct mail_index_view *view;
 	struct mail_index_transaction *trans;

@@ -224,7 +224,7 @@ int sdbox_save_finish(struct mail_save_context *ctx)
 
 void sdbox_save_cancel(struct mail_save_context *_ctx)
 {
-	struct dbox_save_context *ctx = (struct dbox_save_context *)_ctx;
+	struct dbox_save_context *ctx = DBOX_SAVECTX(_ctx);
 
 	ctx->failed = TRUE;
 	(void)sdbox_save_finish(_ctx);

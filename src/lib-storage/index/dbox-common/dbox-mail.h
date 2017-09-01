@@ -10,6 +10,8 @@ struct dbox_mail {
 	uoff_t offset;
 };
 
+#define DBOX_MAIL(s)	container_of(s, struct dbox_mail, imail.mail.mail)
+
 struct mail *
 dbox_mail_alloc(struct mailbox_transaction_context *t,
 		enum mail_fetch_field wanted_fields,

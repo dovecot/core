@@ -30,7 +30,7 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 
 void dbox_mail_close(struct mail *_mail)
 {
-	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct dbox_mail *mail = DBOX_MAIL(_mail);
 
 	index_mail_close(_mail);
 	/* close the dbox file only after index is closed, since it may still
@@ -42,7 +42,7 @@ void dbox_mail_close(struct mail *_mail)
 int dbox_mail_metadata_read(struct dbox_mail *mail, struct dbox_file **file_r)
 {
 	struct dbox_storage *storage =
-		(struct dbox_storage *)mail->imail.mail.mail.box->storage;
+		DBOX_STORAGE(mail->imail.mail.mail.box->storage);
 	uoff_t offset;
 
 	if (storage->v.mail_open(mail, &offset, file_r) < 0)
@@ -76,7 +76,7 @@ dbox_mail_metadata_get(struct dbox_mail *mail, enum dbox_metadata_key key,
 
 int dbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	struct index_mail_data *data = &mail->imail.data;
 	struct dbox_file *file;
 
@@ -93,7 +93,7 @@ int dbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 int dbox_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	struct index_mail_data *data = &mail->imail.data;
 	const char *value;
 	uintmax_t size;
@@ -116,7 +116,7 @@ int dbox_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 
 int dbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
-	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	struct index_mail_data *data = &mail->imail.data;
 	const char *value;
 	uintmax_t time;
@@ -139,9 +139,8 @@ int dbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 
 int dbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
-	struct dbox_storage *storage =
-		(struct dbox_storage *)_mail->box->storage;
-	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct dbox_storage *storage = DBOX_STORAGE(_mail->box->storage);
+	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	struct index_mail_data *data = &mail->imail.data;
 	struct dbox_file *file;
 	struct stat st;
@@ -223,7 +222,7 @@ dbox_get_cached_metadata(struct dbox_mail *mail, enum dbox_metadata_key key,
 int dbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			  const char **value_r)
 {
-	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	int ret;
 
 	/* keep the UIDL in cache file, otherwise POP3 would open all
@@ -290,9 +289,8 @@ int dbox_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 			 struct message_size *body_size,
 			 struct istream **stream_r)
 {
-	struct dbox_storage *storage =
-		(struct dbox_storage *)_mail->box->storage;
-	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct dbox_storage *storage = DBOX_STORAGE(_mail->box->storage);
+	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	struct index_mail_data *data = &mail->imail.data;
 	struct istream *input;
 	uoff_t offset;

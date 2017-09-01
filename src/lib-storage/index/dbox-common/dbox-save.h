@@ -20,6 +20,8 @@ struct dbox_save_context {
 	bool have_pop3_orders:1;
 };
 
+#define DBOX_SAVECTX(s)		container_of(s, struct dbox_save_context, ctx)
+
 void dbox_save_begin(struct dbox_save_context *ctx, struct istream *input);
 int dbox_save_continue(struct mail_save_context *_ctx);
 void dbox_save_end(struct dbox_save_context *ctx);

@@ -173,7 +173,7 @@ static int
 mdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		       const char **value_r)
 {
-	struct dbox_mail *mail = (struct dbox_mail *)_mail;
+	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	struct mdbox_mailbox *mbox =
 		(struct mdbox_mailbox *)_mail->transaction->box;
 	struct mdbox_map_mail_index_record rec;
