@@ -30,7 +30,7 @@ static void sdbox_mail_set_expunged(struct dbox_mail *mail)
 static int sdbox_mail_file_set(struct dbox_mail *mail)
 {
 	struct mail *_mail = &mail->imail.mail.mail;
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)_mail->box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(_mail->box);
 	bool deleted;
 	int ret;
 
@@ -64,7 +64,7 @@ static int
 sdbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		       const char **value_r)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)_mail->box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(_mail->box);
 	struct dbox_mail *mail = DBOX_MAIL(_mail);
 	struct stat st;
 

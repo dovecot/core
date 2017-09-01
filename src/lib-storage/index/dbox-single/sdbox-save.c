@@ -33,11 +33,12 @@ struct sdbox_save_context {
 	ARRAY(struct dbox_file *) files;
 };
 
+#define SDBOX_SAVECTX(s)	container_of(DBOX_SAVECTX(s), struct sdbox_save_context, ctx)
+
 struct dbox_file *
 sdbox_save_file_get_file(struct mailbox_transaction_context *t, uint32_t seq)
 {
-	struct sdbox_save_context *ctx =
-		(struct sdbox_save_context *)t->save_ctx;
+	struct sdbox_save_context *ctx = SDBOX_SAVECTX(t->save_ctx);
 	struct dbox_file *const *files, *file;
 	unsigned int count;
 
@@ -55,9 +56,8 @@ sdbox_save_file_get_file(struct mailbox_transaction_context *t, uint32_t seq)
 struct mail_save_context *
 sdbox_save_alloc(struct mailbox_transaction_context *t)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)t->box;
-	struct sdbox_save_context *ctx =
-		(struct sdbox_save_context *)t->save_ctx;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(t->box);
+	struct sdbox_save_context *ctx = SDBOX_SAVECTX(t->save_ctx);
 
 	i_assert((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
@@ -81,7 +81,7 @@ sdbox_save_alloc(struct mailbox_transaction_context *t)
 
 void sdbox_save_add_file(struct mail_save_context *_ctx, struct dbox_file *file)
 {
-	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
+	struct sdbox_save_context *ctx = SDBOX_SAVECTX(_ctx);
 	struct dbox_file *const *files;
 	unsigned int count;
 
@@ -99,7 +99,7 @@ void sdbox_save_add_file(struct mail_save_context *_ctx, struct dbox_file *file)
 
 int sdbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
-	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
+	struct sdbox_save_context *ctx = SDBOX_SAVECTX(_ctx);
 	struct dbox_file *file;
 	int ret;
 
@@ -298,7 +298,7 @@ static void dbox_save_unref_files(struct sdbox_save_context *ctx)
 
 int sdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
-	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
+	struct sdbox_save_context *ctx = SDBOX_SAVECTX(_ctx);
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	const struct mail_index_header *hdr;
 
@@ -344,7 +344,7 @@ int sdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 					struct mail_index_transaction_commit_result *result)
 {
-	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
+	struct sdbox_save_context *ctx = SDBOX_SAVECTX(_ctx);
 	struct mail_storage *storage = _ctx->transaction->box->storage;
 
 	_ctx->transaction = NULL; /* transaction is already freed */
@@ -373,7 +373,7 @@ void sdbox_transaction_save_commit_post(struct mail_save_context *_ctx,
 
 void sdbox_transaction_save_rollback(struct mail_save_context *_ctx)
 {
-	struct sdbox_save_context *ctx = (struct sdbox_save_context *)_ctx;
+	struct sdbox_save_context *ctx = SDBOX_SAVECTX(_ctx);
 
 	if (!ctx->ctx.finished)
 		sdbox_save_cancel(_ctx);

@@ -309,7 +309,7 @@ int sdbox_sync(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags)
 struct mailbox_sync_context *
 sdbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(box);
 	enum sdbox_sync_flags sdbox_sync_flags = 0;
 	int ret = 0;
 

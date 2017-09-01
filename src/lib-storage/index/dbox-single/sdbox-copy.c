@@ -93,15 +93,14 @@ static int
 sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 {
 	struct dbox_save_context *ctx = DBOX_SAVECTX(_ctx);
-	struct sdbox_mailbox *dest_mbox =
-		(struct sdbox_mailbox *)_ctx->transaction->box;
+	struct sdbox_mailbox *dest_mbox = SDBOX_MAILBOX(_ctx->transaction->box);
 	struct sdbox_mailbox *src_mbox;
 	struct dbox_file *src_file, *dest_file;
 	const char *src_path, *dest_path;
 	int ret;
 
 	if (strcmp(mail->box->storage->name, SDBOX_STORAGE_NAME) == 0)
-		src_mbox = (struct sdbox_mailbox *)mail->box;
+		src_mbox = SDBOX_MAILBOX(mail->box);
 	else {
 		/* Source storage isn't sdbox, can't hard link */
 		return 0;

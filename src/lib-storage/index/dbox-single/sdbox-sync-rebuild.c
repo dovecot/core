@@ -68,7 +68,7 @@ static int
 sdbox_sync_add_file(struct index_rebuild_context *ctx,
 		    const char *fname, bool primary)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(ctx->box);
 	struct dbox_file *file;
 	uint32_t uid;
 	int ret;
@@ -136,7 +136,7 @@ static int sdbox_sync_index_rebuild_dir(struct index_rebuild_context *ctx,
 
 static void sdbox_sync_update_header(struct index_rebuild_context *ctx)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)ctx->box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(ctx->box);
 	struct sdbox_index_header hdr;
 	bool need_resize;
 

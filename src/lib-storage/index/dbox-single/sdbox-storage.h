@@ -33,6 +33,9 @@ struct sdbox_mailbox {
 	guid_128_t mailbox_guid;
 };
 
+#define SDBOX_STORAGE(s)	container_of(DBOX_STORAGE(s), struct sdbox_storage, storage)
+#define SDBOX_MAILBOX(s)	container_of(s, struct sdbox_mailbox, box)
+
 extern struct mail_vfuncs sdbox_mail_vfuncs;
 
 int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,

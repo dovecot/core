@@ -134,7 +134,7 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	ibox->index_flags |= MAIL_INDEX_OPEN_FLAG_KEEP_BACKUPS |
 		MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY;
 
-	mbox->storage = (struct sdbox_storage *)storage;
+	mbox->storage = SDBOX_STORAGE(storage);
 	return &mbox->box;
 }
 
@@ -216,7 +216,7 @@ int sdbox_mailbox_create_indexes(struct mailbox *box,
 				 const struct mailbox_update *update,
 				 struct mail_index_transaction *trans)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(box);
 	struct mail_index_transaction *new_trans = NULL;
 	const struct mail_index_header *hdr;
 	uint32_t uid_validity, uid_next;
@@ -291,7 +291,7 @@ sdbox_get_attachment_path_suffix(struct dbox_file *_file)
 
 void sdbox_set_mailbox_corrupted(struct mailbox *box)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(box);
 	struct sdbox_index_header hdr;
 	bool need_resize;
 
@@ -329,7 +329,7 @@ static int sdbox_mailbox_alloc_index(struct sdbox_mailbox *mbox)
 
 static int sdbox_mailbox_open(struct mailbox *box)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(box);
 	struct sdbox_index_header hdr;
 	bool need_resize;
 	time_t path_ctime;
@@ -369,7 +369,7 @@ static int sdbox_mailbox_open(struct mailbox *box)
 
 static void sdbox_mailbox_close(struct mailbox *box)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(box);
 
 	if (mbox->corrupted_rebuild_count != 0)
 		(void)sdbox_sync(mbox, 0);
@@ -380,7 +380,7 @@ static int
 sdbox_mailbox_create(struct mailbox *box,
 		     const struct mailbox_update *update, bool directory)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(box);
 	struct sdbox_index_header hdr;
 	bool need_resize;
 
@@ -407,7 +407,7 @@ sdbox_mailbox_get_metadata(struct mailbox *box,
 			   enum mailbox_metadata_items items,
 			   struct mailbox_metadata *metadata_r)
 {
-	struct sdbox_mailbox *mbox = (struct sdbox_mailbox *)box;
+	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(box);
 
 	if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
 		return -1;
