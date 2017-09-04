@@ -101,9 +101,14 @@ int mailbox_list_index_notify_init(struct mailbox_list *list,
 		inotify->subscriptions = mailbox_tree_dup(list->subscriptions);
 	}
 	inotify->list_log_path = i_strdup(ilist->index->log->filepath);
-	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
-	    mailbox_list_get_path(list, "INBOX", MAILBOX_LIST_PATH_TYPE_INDEX,
-				  &index_dir) > 0) {
+	if (list->mail_set->mailbox_list_index_include_inbox) {
+		/* INBOX can be handled also using mailbox list index */
+	} else if ((list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) == 0) {
+		/* no INBOX in this namespace */
+	} else if (mailbox_list_get_path(list, "INBOX", MAILBOX_LIST_PATH_TYPE_INDEX,
+					 &index_dir) <= 0) {
+		/* no indexes for INBOX? can't handle it */
+	} else {
 		/* FIXME: annoyingly hardcoded filename. */
 		inotify->inbox_log_path = i_strdup_printf(
 			"%s/"MAIL_INDEX_PREFIX".log", index_dir);
