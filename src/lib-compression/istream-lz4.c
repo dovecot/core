@@ -50,8 +50,10 @@ static int i_stream_lz4_read_header(struct lz4_istream *zstream)
 	size_t size;
 	int ret;
 
-	ret = i_stream_read_bytes(zstream->istream.parent, &data, &size,
-				  sizeof(*hdr));
+	ret = i_stream_read_more(zstream->istream.parent, &data, &size);
+	size = I_MIN(size, sizeof(*hdr));
+	buffer_append(zstream->chunk_buf, data, size);
+	i_stream_skip(zstream->istream.parent, size);
 	if (ret < 0) {
 		zstream->istream.istream.stream_errno =
 			zstream->istream.parent->stream_errno;
@@ -59,7 +61,10 @@ static int i_stream_lz4_read_header(struct lz4_istream *zstream)
 	}
 	if (ret == 0 && !zstream->istream.istream.eof)
 		return 0;
-	hdr = (const void *)data;
+	if (zstream->chunk_buf->used < sizeof(*hdr))
+		return 0;
+
+	hdr = zstream->chunk_buf->data;
 	if (ret == 0 || memcmp(hdr->magic, IOSTREAM_LZ4_MAGIC,
 			       IOSTREAM_LZ4_MAGIC_LEN) != 0) {
 		lz4_read_error(zstream, "wrong magic in header (not lz4 file?)");
@@ -68,6 +73,7 @@ static int i_stream_lz4_read_header(struct lz4_istream *zstream)
 	}
 	zstream->max_uncompressed_chunk_size =
 		be32_to_cpu_unaligned(hdr->max_uncompressed_chunk_size);
+	buffer_set_used_size(zstream->chunk_buf, 0);
 	if (zstream->max_uncompressed_chunk_size > ISTREAM_LZ4_CHUNK_SIZE) {
 		lz4_read_error(zstream, t_strdup_printf(
 			"lz4 max chunk size too large (%u > %u)",
@@ -76,7 +82,6 @@ static int i_stream_lz4_read_header(struct lz4_istream *zstream)
 		zstream->istream.istream.stream_errno = EINVAL;
 		return -1;
 	}
-	i_stream_skip(zstream->istream.parent, sizeof(*hdr));
 	return 1;
 }
 
@@ -88,14 +93,20 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 	int ret;
 
 	if (!zstream->header_read) {
-		if ((ret = i_stream_lz4_read_header(zstream)) <= 0)
+		if ((ret = i_stream_lz4_read_header(zstream)) <= 0) {
+			stream->istream.eof = TRUE;
 			return ret;
+		}
 		zstream->header_read = TRUE;
 	}
 
 	if (zstream->chunk_left == 0) {
-		ret = i_stream_read_bytes(stream->parent, &data, &size,
-					  IOSTREAM_LZ4_CHUNK_PREFIX_LEN);
+		i_assert(zstream->chunk_buf->used <= IOSTREAM_LZ4_CHUNK_PREFIX_LEN);
+		ret = i_stream_read_more(stream->parent, &data, &size);
+		if (size > IOSTREAM_LZ4_CHUNK_PREFIX_LEN - zstream->chunk_buf->used)
+			size = IOSTREAM_LZ4_CHUNK_PREFIX_LEN - zstream->chunk_buf->used;
+		buffer_append(zstream->chunk_buf, data, size);
+		i_stream_skip(stream->parent, size);
 		if (ret < 0) {
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;
@@ -109,8 +120,11 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 		}
 		if (ret == 0 && !stream->istream.eof)
 			return 0;
+		if (zstream->chunk_buf->used < IOSTREAM_LZ4_CHUNK_PREFIX_LEN)
+			return 0;
 		zstream->chunk_size = zstream->chunk_left =
-			be32_to_cpu_unaligned(data);
+			be32_to_cpu_unaligned(zstream->chunk_buf->data);
+		buffer_set_used_size(zstream->chunk_buf, 0);
 		if (zstream->chunk_size == 0 ||
 		    zstream->chunk_size > ISTREAM_LZ4_CHUNK_SIZE) {
 			lz4_read_error(zstream, t_strdup_printf(
@@ -118,7 +132,6 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 			stream->istream.stream_errno = EINVAL;
 			return -1;
 		}
-		i_stream_skip(stream->parent, IOSTREAM_LZ4_CHUNK_PREFIX_LEN);
 		buffer_set_used_size(zstream->chunk_buf, 0);
 	}
 
@@ -160,6 +173,12 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 	i_assert(ret > 0);
 	stream->pos += ret;
 	i_assert(stream->pos <= stream->buffer_size);
+
+	/* we are going to get next chunk after this, so reset here
+	   so we can reuse the chunk buf for reading next buffer prefix */
+	if (zstream->chunk_left == 0)
+		buffer_set_used_size(zstream->chunk_buf, 0);
+
 	return ret;
 }
 
@@ -174,6 +193,7 @@ static void i_stream_lz4_reset(struct lz4_istream *zstream)
 	stream->parent_expected_offset = stream->parent_start_offset;
 	stream->skip = stream->pos = 0;
 	stream->istream.v_offset = 0;
+	buffer_set_used_size(zstream->chunk_buf, 0);
 }
 
 static void
