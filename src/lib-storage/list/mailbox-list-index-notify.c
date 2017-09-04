@@ -66,6 +66,41 @@ struct mailbox_list_notify_index {
 	bool inbox_event_pending:1;
 };
 
+static enum mailbox_list_notify_event
+mailbox_list_index_get_changed_events(const struct mailbox_notify_node *nnode,
+				      const struct mailbox_status *status)
+{
+	enum mailbox_list_notify_event events = 0;
+
+	if (nnode->uidvalidity != status->uidvalidity)
+		events |= MAILBOX_LIST_NOTIFY_UIDVALIDITY;
+	if (nnode->uidnext != status->uidnext)
+		events |= MAILBOX_LIST_NOTIFY_APPENDS;
+	if (nnode->messages > status->messages) {
+		/* NOTE: not entirely reliable, since there could be both
+		   expunges and appends.. but it shouldn't make any difference
+		   in practise, since anybody interested in expunges is most
+		   likely also interested in appends. */
+		events |= MAILBOX_LIST_NOTIFY_EXPUNGES;
+	}
+	if (nnode->unseen != status->unseen)
+		events |= MAILBOX_LIST_NOTIFY_SEEN_CHANGES;
+	if (nnode->highest_modseq < status->highest_modseq)
+		events |= MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES;
+	return events;
+}
+
+static void
+mailbox_notify_node_update_status(struct mailbox_notify_node *nnode,
+				  struct mailbox_status *status)
+{
+	nnode->uidvalidity = status->uidvalidity;
+	nnode->uidnext = status->uidnext;
+	nnode->messages = status->messages;
+	nnode->unseen = status->unseen;
+	nnode->highest_modseq = status->highest_modseq;
+}
+
 int mailbox_list_index_notify_init(struct mailbox_list *list,
 				   enum mailbox_list_notify_event mask,
 				   struct mailbox_list_notify **notify_r)
@@ -708,28 +743,9 @@ mailbox_list_index_notify_change(struct mailbox_list_notify_index *inotify,
 		i_zero(&empty_node);
 		nnode = &empty_node;
 	}
-	if (nnode->uidvalidity != status.uidvalidity)
-		rec->events |= MAILBOX_LIST_NOTIFY_UIDVALIDITY;
-	if (nnode->uidnext != status.uidnext)
-		rec->events |= MAILBOX_LIST_NOTIFY_APPENDS;
-	if (nnode->messages > status.messages) {
-		/* NOTE: not entirely reliable, since there could be both
-		   expunges and appends.. but it shouldn't make any difference
-		   in practise, since anybody interested in expunges is most
-		   likely also interested in appends. */
-		rec->events |= MAILBOX_LIST_NOTIFY_EXPUNGES;
-	}
-	if (nnode->unseen != status.unseen)
-		rec->events |= MAILBOX_LIST_NOTIFY_SEEN_CHANGES;
-	if (nnode->highest_modseq < status.highest_modseq)
-		rec->events |= MAILBOX_LIST_NOTIFY_MODSEQ_CHANGES;
-
+	rec->events |= mailbox_list_index_get_changed_events(nnode, &status);
 	/* update internal state */
-	nnode->uidvalidity = status.uidvalidity;
-	nnode->uidnext = status.uidnext;
-	nnode->messages = status.messages;
-	nnode->unseen = status.unseen;
-	nnode->highest_modseq = status.highest_modseq;
+	mailbox_notify_node_update_status(nnode, &status);
 	return rec->events != 0;
 }
 
