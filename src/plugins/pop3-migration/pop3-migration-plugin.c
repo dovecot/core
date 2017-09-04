@@ -56,6 +56,7 @@ struct pop3_migration_mail_storage {
 	unsigned int all_mailboxes:1;
 	unsigned int pop3_all_hdr_sha1_set:1;
 	unsigned int ignore_missing_uidls:1;
+	unsigned int ignore_extra_uidls:1;
 	unsigned int skip_size_check:1;
 	unsigned int skip_uidl_cache:1;
 };
@@ -765,6 +766,7 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 	}
 	if (missing_uids_count > 0 && !mstorage->all_mailboxes) {
 		string_t *str = t_str_new(128);
+		bool all_imap_mails_found = FALSE;
 
 		str_printfa(str, "pop3_migration: %u POP3 messages have no "
 			    "matching IMAP messages (first POP3 msg %u UIDL %s)",
@@ -773,10 +775,16 @@ pop3_uidl_assign_by_hdr_hash(struct mailbox *box, struct mailbox *pop3_box)
 		if (imap_count + missing_uids_count == pop3_count) {
 			str_append(str, " - all IMAP messages were found "
 				"(POP3 contains more than IMAP INBOX - you may want to set pop3_migration_all_mailboxes=yes)");
+			all_imap_mails_found = TRUE;
 		}
-		if (!mstorage->ignore_missing_uidls) {
-			i_error("%s - set pop3_migration_ignore_missing_uidls=yes to continue anyway",
-				str_c(str));
+		if (all_imap_mails_found && mstorage->ignore_extra_uidls) {
+			/* pop3 had more mails than imap. maybe it was just
+			   that a new mail was just delivered. */
+		} else if (!mstorage->ignore_missing_uidls) {
+			str_append(str, " - set pop3_migration_ignore_missing_uidls=yes");
+			if (all_imap_mails_found)
+				str_append(str, " or pop3_migration_ignore_extra_uidls=yes");
+			i_error("%s to continue anyway", str_c(str));
 			return -1;
 		}
 		i_warning("%s", str_c(str));
@@ -1017,6 +1025,9 @@ static void pop3_migration_mail_storage_created(struct mail_storage *storage)
 	mstorage->ignore_missing_uidls =
 		mail_user_plugin_getenv(storage->user,
 			"pop3_migration_ignore_missing_uidls") != NULL;
+	mstorage->ignore_extra_uidls =
+		mail_user_plugin_getenv(storage->user,
+			"pop3_migration_ignore_extra_uidls") != NULL;
 	mstorage->skip_size_check =
 		mail_user_plugin_getenv(storage->user,
 			"pop3_migration_skip_size_check") != NULL;
