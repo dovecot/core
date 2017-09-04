@@ -105,6 +105,8 @@ int mailbox_list_index_notify_init(struct mailbox_list *list,
 		/* INBOX can be handled also using mailbox list index */
 	} else if ((list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) == 0) {
 		/* no INBOX in this namespace */
+	} else if ((mask & MAILBOX_LIST_NOTIFY_STATUS) == 0) {
+		/* not interested in mailbox changes */
 	} else if (mailbox_list_get_path(list, "INBOX", MAILBOX_LIST_PATH_TYPE_INDEX,
 					 &index_dir) <= 0) {
 		/* no indexes for INBOX? can't handle it */
