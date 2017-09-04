@@ -2484,6 +2484,16 @@ int auth_request_password_verify(struct auth_request *request,
 				 const char *crypted_password,
 				 const char *scheme, const char *subsystem)
 {
+	return auth_request_password_verify_log(request, plain_password,
+			crypted_password, scheme, subsystem, TRUE);
+}
+
+int auth_request_password_verify_log(struct auth_request *request,
+				 const char *plain_password,
+				 const char *crypted_password,
+				 const char *scheme, const char *subsystem,
+				 bool log_password_mismatch)
+{
 	const unsigned char *raw_password;
 	size_t raw_password_size;
 	const char *error;
@@ -2531,7 +2541,8 @@ int auth_request_password_verify(struct auth_request *request,
 					"Invalid password%s in passdb: %s",
 					password_str, error);
 	} else if (ret == 0) {
-		auth_request_log_password_mismatch(request, subsystem);
+		if (log_password_mismatch)
+			auth_request_log_password_mismatch(request, subsystem);
 	}
 	if (ret <= 0 && request->set->debug_passwords) T_BEGIN {
 		log_password_failure(request, plain_password,
