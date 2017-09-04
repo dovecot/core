@@ -695,7 +695,7 @@ static bool pop3_uidl_assign_by_size(struct mailbox *box)
 		i_debug("pop3_migration: cached uidls=%u, size matches=%u, total=%u",
 			uidl_match, size_match, count);
 	}
-	return i == count;
+	return i == count && imap_count == pop3_count;
 }
 
 static int
