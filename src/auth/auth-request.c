@@ -305,7 +305,7 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		auth_str_add_keyvalue(dest, "master-user",
 				      request->master_user);
 	}
-	auth_str_add_keyvalue(dest, "original_username",
+	auth_str_add_keyvalue(dest, "original-username",
 			      request->original_username);
 	if (request->requested_login_user != NULL) {
 		auth_str_add_keyvalue(dest, "requested-login-user",
