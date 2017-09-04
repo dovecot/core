@@ -169,7 +169,7 @@ void lib_init(void)
 	/* standard way to get rand() return different values. */
 	if (gettimeofday(&tv, NULL) < 0)
 		i_fatal("gettimeofday(): %m");
-	rand_set_seed((unsigned int) (tv.tv_sec ^ tv.tv_usec ^ getpid()));
+	srand((unsigned int) (tv.tv_sec ^ tv.tv_usec ^ getpid()));
 
 	data_stack_init();
 	hostpid_init();

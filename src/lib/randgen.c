@@ -48,7 +48,7 @@ void random_init(void)
 	}
 
 	random_fill(&seed, sizeof(seed));
-	rand_set_seed(seed);
+	srand(seed);
 
 	fd_close_on_exec(urandom_fd, TRUE);
 }
