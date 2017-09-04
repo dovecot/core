@@ -112,6 +112,11 @@ static void notify_update_callback(int ret,
 	i_error("notify-status: dict_transaction_commit failed");
 }
 
+#define MAILBOX_STATUS_NOTIFY (STATUS_MESSAGES|STATUS_UNSEEN|\
+			       STATUS_RECENT|STATUS_UIDNEXT|\
+			       STATUS_UIDVALIDITY|STATUS_FIRST_UNSEEN_SEQ|\
+			       STATUS_HIGHESTMODSEQ|STATUS_FIRST_RECENT_UID|\
+			       STATUS_HIGHESTPVTMODSEQ)
 static void notify_update_mailbox_status(struct mailbox *box)
 {
 	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
@@ -135,7 +140,7 @@ static void notify_update_mailbox_status(struct mailbox *box)
 		i_error("notify-status: mailbox_sync(%s) failed: %s",
 			  mailbox_get_vname(box),
 			  mailbox_get_last_error(box, NULL));
-	} else if (mailbox_get_status(box, STATUS_MESSAGES|STATUS_UNSEEN,
+	} else if (mailbox_get_status(box, MAILBOX_STATUS_NOTIFY,
 				      &status) < 0) {
 		i_error("notify-status: mailbox_get_status(%s) failed: %s",
 			  mailbox_get_vname(box),
@@ -152,6 +157,13 @@ static void notify_update_mailbox_status(struct mailbox *box)
 			{ '\0', str_c(mboxname), "mailbox" },
 			{ '\0', dec2str(status.messages), "messages" },
 			{ '\0', dec2str(status.unseen), "unseen" },
+			{ '\0', dec2str(status.recent), "recent" },
+			{ '\0', dec2str(status.uidvalidity), "uidvalidity" },
+			{ '\0', dec2str(status.uidnext), "uidnext" },
+			{ '\0', dec2str(status.first_unseen_seq), "first_unseen_seq" },
+			{ '\0', dec2str(status.first_recent_uid), "first_recent_uid" },
+			{ '\0', dec2str(status.highest_modseq), "highest_modseq" },
+			{ '\0', dec2str(status.highest_pvt_modseq), "highest_pvt_modseq" },
 			{ '\0', NULL, NULL }
 		};
 		const char *key =
