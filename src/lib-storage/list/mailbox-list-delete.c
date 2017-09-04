@@ -38,7 +38,7 @@ static const char *unique_fname(void)
 {
 	unsigned char randbuf[8];
 
-	random_fill_weak(randbuf, sizeof(randbuf));
+	random_fill(randbuf, sizeof(randbuf));
 	return t_strdup_printf("%s.%s.%s", my_hostname, my_pid,
 			       binary_to_hex(randbuf, sizeof(randbuf)));
 

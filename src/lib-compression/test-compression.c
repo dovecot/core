@@ -45,7 +45,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 
 	/* 2) write uncompressible data */
 	for (i = 0; i < 1024*128 / sizeof(buf); i++) {
-		random_fill_weak(buf, sizeof(buf));
+		random_fill(buf, sizeof(buf));
 		sha1_loop(&sha1, buf, sizeof(buf));
 		test_assert(o_stream_send(output, buf, sizeof(buf)) == sizeof(buf));
 	}

@@ -3,7 +3,6 @@
 
 /* Fill given buffer with semi-strong randomness */
 void random_fill(void *buf, size_t size);
-#define random_fill_weak(buf,size) random_fill((buf), (size))
 
 /* may be called multiple times,
    and are called by default in lib_init */

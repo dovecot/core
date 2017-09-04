@@ -25,7 +25,7 @@ safe_mkstemp_full(string_t *prefix, mode_t mode, uid_t uid, gid_t gid,
 	prefix_len = str_len(prefix);
 	for (;;) {
 		do {
-			random_fill_weak(randbuf, sizeof(randbuf));
+			random_fill(randbuf, sizeof(randbuf));
 			str_truncate(prefix, prefix_len);
 			str_append(prefix,
 				   binary_to_hex(randbuf, sizeof(randbuf)));

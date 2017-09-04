@@ -184,7 +184,7 @@ void test_write_read_v1(void)
 	unsigned char payload[IO_BLOCK_SIZE];
 	const unsigned char *ptr;
 	size_t pos = 0, siz;
-	random_fill_weak(payload, IO_BLOCK_SIZE);
+	random_fill(payload, IO_BLOCK_SIZE);
 
 	buffer_t *buf = buffer_create_dynamic(default_pool, sizeof(payload));
 	struct ostream *os = o_stream_create_buffer(buf);
@@ -235,7 +235,7 @@ void test_write_read_v1_short(void)
 	unsigned char payload[1];
 	const unsigned char *ptr;
 	size_t pos = 0, siz;
-	random_fill_weak(payload, 1);
+	random_fill(payload, 1);
 
 	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
 	struct ostream *os = o_stream_create_buffer(buf);
@@ -328,7 +328,7 @@ void test_write_read_v2(void)
 	unsigned char payload[IO_BLOCK_SIZE*10];
 	const unsigned char *ptr;
 	size_t pos = 0, siz;
-	random_fill_weak(payload, IO_BLOCK_SIZE*10);
+	random_fill(payload, IO_BLOCK_SIZE*10);
 
 	buffer_t *buf = buffer_create_dynamic(default_pool, sizeof(payload));
 	struct ostream *os = o_stream_create_buffer(buf);
@@ -381,7 +381,7 @@ void test_write_read_v2_short(void)
 	unsigned char payload[1];
 	const unsigned char *ptr;
 	size_t pos = 0, siz;
-	random_fill_weak(payload, 1);
+	random_fill(payload, 1);
 
 	buffer_t *buf = buffer_create_dynamic(default_pool, 64);
 	struct ostream *os = o_stream_create_buffer(buf);

@@ -31,14 +31,14 @@ static void test_ostream_file_random_once(void)
 	o_stream_cork(output);
 
 	size = (i_rand() % MAX_BUFSIZE) + 1;
-	random_fill_weak(randbuf, size);
+	random_fill(randbuf, size);
 	memcpy(buf, randbuf, size);
 	test_assert(o_stream_send(output, buf, size) > 0);
 
 	for (i = 0; i < 10; i++) {
 		offset = i_rand() % (MAX_BUFSIZE*3);
 		size = (i_rand() % MAX_BUFSIZE) + 1;
-		random_fill_weak(randbuf, size);
+		random_fill(randbuf, size);
 		memcpy(buf + offset, randbuf, size);
 		test_assert(o_stream_pwrite(output, randbuf, size, offset) == 0);
 		if (i_rand() % 10 == 0)

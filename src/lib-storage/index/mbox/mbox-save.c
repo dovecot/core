@@ -354,7 +354,7 @@ static void mbox_save_x_delivery_id(struct mbox_save_context *ctx)
 		      sizeof(ioloop_timeval.tv_usec));
 
 	randbuf = buffer_append_space_unsafe(buf, MBOX_DELIVERY_ID_RAND_BYTES);
-	random_fill_weak(randbuf, MBOX_DELIVERY_ID_RAND_BYTES);
+	random_fill(randbuf, MBOX_DELIVERY_ID_RAND_BYTES);
 
 	md5_get_digest(buf->data, buf->used, md5_result);
 
