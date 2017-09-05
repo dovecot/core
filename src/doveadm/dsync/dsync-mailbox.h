@@ -8,6 +8,7 @@
 struct dsync_mailbox {
 	guid_128_t mailbox_guid;
 	bool mailbox_lost;
+	bool mailbox_ignore;
 	bool have_guids, have_save_guids, have_only_guid128;
 
 	uint32_t uid_validity, uid_next, messages_count, first_recent_uid;

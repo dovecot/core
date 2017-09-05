@@ -719,7 +719,8 @@ bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 
 static void
 dsync_brain_slave_send_mailbox_lost(struct dsync_brain *brain,
-				    const struct dsync_mailbox *dsync_box)
+				    const struct dsync_mailbox *dsync_box,
+				    bool ignore)
 {
 	struct dsync_mailbox delete_box;
 
@@ -732,7 +733,10 @@ dsync_brain_slave_send_mailbox_lost(struct dsync_brain *brain,
 	memcpy(delete_box.mailbox_guid, dsync_box->mailbox_guid,
 	       sizeof(delete_box.mailbox_guid));
 	t_array_init(&delete_box.cache_fields, 0);
-	delete_box.mailbox_lost = TRUE;
+	if (ignore)
+		delete_box.mailbox_ignore = TRUE;
+	else
+		delete_box.mailbox_lost = TRUE;
 	dsync_ibc_send_mailbox(brain->ibc, &delete_box);
 }
 
@@ -773,14 +777,14 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 					brain->master_brain ? 'M' : 'S',
 					guid_128_to_string(dsync_box->mailbox_guid));
 			}
-			dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
+			dsync_brain_slave_send_mailbox_lost(brain, dsync_box, TRUE);
 			return TRUE;
 		}
 		//FIXME: verify this from log, and if not log an error.
 		dsync_brain_set_changes_during_sync(brain, t_strdup_printf(
 			"Mailbox GUID %s was lost",
 			guid_128_to_string(dsync_box->mailbox_guid)));
-		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
+		dsync_brain_slave_send_mailbox_lost(brain, dsync_box, FALSE);
 		return TRUE;
 	}
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
@@ -805,7 +809,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 				brain->master_brain ? 'M' : 'S',
 				guid_128_to_string(dsync_box->mailbox_guid));
 		}
-		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
+		dsync_brain_slave_send_mailbox_lost(brain, dsync_box, FALSE);
 		return TRUE;
 	}
 	i_assert(local_dsync_box.uid_validity != 0);
@@ -836,7 +840,7 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 	if (ret == 0 || resync) {
 		brain->require_full_resync = TRUE;
 		dsync_brain_sync_mailbox_deinit(brain);
-		dsync_brain_slave_send_mailbox_lost(brain, dsync_box);
+		dsync_brain_slave_send_mailbox_lost(brain, dsync_box, FALSE);
 		return TRUE;
 	}
 

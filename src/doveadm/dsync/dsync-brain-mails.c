@@ -41,6 +41,15 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 		return TRUE;
 	}
 
+	if (dsync_box->mailbox_ignore) {
+		/* ignore this box */
+		if (brain->debug)
+			i_debug("brain %c: Ignoring missing remote box GUID %s",
+				brain->master_brain ? 'M' : 'S',
+			        guid_128_to_string(dsync_box->mailbox_guid));
+		dsync_brain_sync_mailbox_deinit(brain);
+		return TRUE;
+	}
 	if (dsync_box->mailbox_lost) {
 		/* remote lost the mailbox. it's probably already deleted, but
 		   verify it on next sync just to be sure */
