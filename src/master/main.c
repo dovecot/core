@@ -39,6 +39,11 @@
 #define MASTER_PID_FILE_NAME "master.pid"
 #define SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS (60*3)
 
+struct master_delayed_error {
+	enum log_type type;
+	const char *line;
+};
+
 uid_t master_uid;
 gid_t master_gid;
 bool core_dumps_disabled;
@@ -50,6 +55,9 @@ bool startup_finished = FALSE;
 static char *pidfile_path;
 static struct master_instance_list *instances;
 static struct timeout *to_instance;
+
+static ARRAY(struct master_delayed_error) delayed_errors;
+static pool_t delayed_errors_pool;
 static failure_callback_t *orig_fatal_callback;
 static failure_callback_t *orig_error_callback;
 
@@ -180,6 +188,44 @@ startup_error_handler(const struct failure_context *ctx,
 		t_strdup_vprintf(fmt, args2));
 	va_end(args2);
 	orig_error_callback(ctx, fmt, args);
+}
+
+static void ATTR_FORMAT(2, 0)
+startup_early_error_handler(const struct failure_context *ctx,
+			    const char *fmt, va_list args)
+{
+	struct master_delayed_error *err;
+	va_list args2;
+
+	VA_COPY(args2, args);
+	if (delayed_errors_pool == NULL) {
+		delayed_errors_pool =
+			pool_alloconly_create("delayed errors", 512);
+		i_array_init(&delayed_errors, 8);
+	}
+	err = array_append_space(&delayed_errors);
+	err->type = ctx->type;
+	err->line = p_strdup_vprintf(delayed_errors_pool, fmt, args2);
+	va_end(args2);
+
+	orig_error_callback(ctx, fmt, args);
+}
+
+static void startup_early_errors_flush(void)
+{
+	struct failure_context ctx;
+	const struct master_delayed_error *err;
+
+	if (delayed_errors_pool == NULL)
+		return;
+
+	i_zero(&ctx);
+	array_foreach(&delayed_errors, err) {
+		ctx.type = err->type;
+		i_log_type(&ctx, "%s", err->line);
+	}
+	array_free(&delayed_errors);
+	pool_unref(&delayed_errors_pool);
 }
 
 static void fatal_log_check(const struct master_settings *set)
@@ -720,6 +766,10 @@ int main(int argc, char *argv[])
 				&argc, &argv, "+Fanp");
 	i_unset_failure_prefix();
 
+	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,
+			       &orig_info_callback, &orig_debug_callback);
+	i_set_error_handler(startup_early_error_handler);
+
 	io_loop_set_time_moved_callback(current_ioloop, master_time_moved);
 
 	master_uid = geteuid();
@@ -811,6 +861,7 @@ int main(int argc, char *argv[])
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
 
 	master_service_init_log(master_service, "master: ");
+	startup_early_errors_flush();
 	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,
 			       &orig_info_callback, &orig_debug_callback);
 	i_set_fatal_handler(startup_fatal_handler);
