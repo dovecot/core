@@ -238,6 +238,11 @@ int auth_request_password_verify(struct auth_request *request,
 				 const char *plain_password,
 				 const char *crypted_password,
 				 const char *scheme, const char *subsystem);
+int auth_request_password_verify_log(struct auth_request *request,
+				 const char *plain_password,
+				 const char *crypted_password,
+				 const char *scheme, const char *subsystem,
+				 bool log_password_mismatch);
 
 void auth_request_log_debug(struct auth_request *auth_request,
 			    const char *subsystem,

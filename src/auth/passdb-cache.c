@@ -85,8 +85,9 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		scheme = password_get_scheme(&cached_pw);
 		i_assert(scheme != NULL);
 
-		ret = auth_request_password_verify(request, password, cached_pw,
-						   scheme, AUTH_SUBSYS_DB);
+		ret = auth_request_password_verify_log(request, password, cached_pw,
+						   scheme, AUTH_SUBSYS_DB,
+						   !(node->last_success || neg_expired));
 
 		if (ret == 0 && (node->last_success || neg_expired)) {
 			/* a) the last authentication was successful. assume
