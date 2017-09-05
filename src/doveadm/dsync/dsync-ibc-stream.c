@@ -102,7 +102,8 @@ static const struct {
 	  .chr = 'B',
 	  .required_keys = "mailbox_guid uid_validity uid_next messages_count "
 		"first_recent_uid highest_modseq highest_pvt_modseq",
-	  .optional_keys = "mailbox_lost cache_fields have_guids have_save_guids have_only_guid128"
+	  .optional_keys = "mailbox_lost mailbox_ignore "
+			   "cache_fields have_guids have_save_guids have_only_guid128"
 	},
 	{ .name = "mailbox_attribute",
 	  .chr = 'A',
@@ -1313,6 +1314,8 @@ dsync_ibc_stream_send_mailbox(struct dsync_ibc *_ibc,
 
 	if (dsync_box->mailbox_lost)
 		dsync_serializer_encode_add(encoder, "mailbox_lost", "");
+	if (dsync_box->mailbox_ignore)
+		dsync_serializer_encode_add(encoder, "mailbox_ignore", "");
 	if (dsync_box->have_guids)
 		dsync_serializer_encode_add(encoder, "have_guids", "");
 	if (dsync_box->have_save_guids)
@@ -1417,6 +1420,8 @@ dsync_ibc_stream_recv_mailbox(struct dsync_ibc *_ibc,
 
 	if (dsync_deserializer_decode_try(decoder, "mailbox_lost", &value))
 		box->mailbox_lost = TRUE;
+	if (dsync_deserializer_decode_try(decoder, "mailbox_ignore", &value))
+		box->mailbox_ignore = TRUE;
 	if (dsync_deserializer_decode_try(decoder, "have_guids", &value))
 		box->have_guids = TRUE;
 	if (dsync_deserializer_decode_try(decoder, "have_save_guids", &value) ||
