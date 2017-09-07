@@ -373,7 +373,7 @@ index_mail_parse_header_cb(struct message_header_line *hdr,
 struct istream *
 index_mail_cache_parse_init(struct mail *_mail, struct istream *input)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct istream *input2;
 
 	i_assert(mail->data.tee_stream == NULL);
@@ -788,7 +788,7 @@ index_mail_headers_decode(struct index_mail *mail, const char *const **_list,
 int index_mail_get_headers(struct mail *_mail, const char *field,
 			   bool decode_to_utf8, const char *const **value_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	bool retry = TRUE;
 	int ret;
 
@@ -822,7 +822,7 @@ int index_mail_get_headers(struct mail *_mail, const char *field,
 int index_mail_get_first_header(struct mail *_mail, const char *field,
 				bool decode_to_utf8, const char **value_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	const char *const *list;
 	bool retry = TRUE;
 	int ret;
@@ -868,7 +868,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 				 struct mailbox_header_lookup_ctx *headers,
 				 struct istream **stream_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct istream *input;
 	string_t *dest;
 

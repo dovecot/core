@@ -56,7 +56,7 @@ static int pop3c_mail_get_received_date(struct mail *_mail, time_t *date_r)
 
 static int pop3c_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 
 	if (data->save_date == (time_t)-1) {
@@ -69,7 +69,7 @@ static int pop3c_mail_get_save_date(struct mail *_mail, time_t *date_r)
 
 static int pop3c_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 	struct message_size hdr_size, body_size;
 	struct istream *input;

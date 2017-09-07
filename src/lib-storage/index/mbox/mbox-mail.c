@@ -111,7 +111,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 
 static int mbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct mbox_mailbox *mbox = MBOX_MAILBOX(_mail->box);
 
@@ -134,7 +134,7 @@ static int mbox_mail_get_received_date(struct mail *_mail, time_t *date_r)
 
 static int mbox_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 
 	if (index_mail_get_save_date(_mail, date_r) == 0)
@@ -181,7 +181,7 @@ static int
 mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		      const char **value_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct mbox_mailbox *mbox = MBOX_MAILBOX(_mail->box);
 	uoff_t offset;
 	bool move_offset;
@@ -287,7 +287,7 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 
 static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct mbox_mailbox *mbox = MBOX_MAILBOX(_mail->box);
 	struct istream *input;
@@ -382,7 +382,7 @@ static int mbox_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 				struct message_size *body_size,
 				struct istream **stream_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 
 	if (mail->data.stream == NULL) {
 		if (mbox_mail_init_stream(mail) < 0)
@@ -394,7 +394,7 @@ static int mbox_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 
 static void mbox_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 
 	index_mail_set_seq(_mail, seq, saving);
 	mail->data.dont_cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
@@ -402,7 +402,7 @@ static void mbox_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 
 static bool mbox_mail_set_uid(struct mail *_mail, uint32_t uid)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	bool ret;
 
 	ret = index_mail_set_uid(_mail, uid);

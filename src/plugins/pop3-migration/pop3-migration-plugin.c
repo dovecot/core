@@ -805,7 +805,7 @@ static void imap_uidls_add_to_cache(struct mailbox *box)
 
 	t = mailbox_transaction_begin(box, 0);
 	mail = mail_alloc(t, 0, NULL);
-	imail = (struct index_mail *)mail;
+	imail = INDEX_MAIL(mail);
 	field_idx = imail->ibox->cache_fields[MAIL_CACHE_POP3_UIDL].idx;
 
 	imap_map = array_get_modifiable(&mbox->imap_msg_map, &count);

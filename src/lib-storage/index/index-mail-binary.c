@@ -240,7 +240,7 @@ static void
 binary_parts_update(struct binary_ctx *ctx, const struct message_part *part,
 		    struct message_binary_part **msg_bin_parts)
 {
-	struct index_mail *mail = (struct index_mail *)ctx->mail;
+	struct index_mail *mail = INDEX_MAIL(ctx->mail);
 	struct binary_block *blocks;
 	struct message_binary_part bin_part;
 	unsigned int i, count;
@@ -279,7 +279,7 @@ binary_parts_update(struct binary_ctx *ctx, const struct message_part *part,
 
 static void binary_parts_cache(struct binary_ctx *ctx)
 {
-	struct index_mail *mail = (struct index_mail *)ctx->mail;
+	struct index_mail *mail = INDEX_MAIL(ctx->mail);
 	buffer_t *buf;
 
 	buf = buffer_create_dynamic(pool_datastack_create(), 128);
@@ -364,7 +364,7 @@ index_mail_read_binary_to_cache(struct mail *_mail,
 				bool include_hdr, const char *reason,
 				bool *binary_r, bool *converted_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct mail_binary_cache *cache = &_mail->box->storage->binary_cache;
 	struct binary_ctx ctx;
 	struct istream *is;
@@ -482,7 +482,7 @@ index_mail_get_binary_size(struct mail *_mail,
 			   const struct message_part *part, bool include_hdr,
 			   uoff_t *size_r, unsigned int *lines_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct message_part *all_parts, *msg_part;
 	const struct message_binary_part *bin_part, *root_bin_part;
 	uoff_t size, end_offset;
@@ -549,7 +549,7 @@ int index_mail_get_binary_stream(struct mail *_mail,
 				 unsigned int *lines_r, bool *binary_r,
 				 struct istream **stream_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct mail_binary_cache *cache = &_mail->box->storage->binary_cache;
 	struct istream *input;
 	bool binary, converted;

@@ -945,7 +945,7 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 			   cached data from buffer, we'll do this optimization
 			   to make quota plugin's work faster */
 			struct index_mail *imail =
-				(struct index_mail *)ctx->dest_mail;
+				INDEX_MAIL(ctx->dest_mail);
 			uoff_t size;
 
 			i_assert(buf->used == sizeof(size));
@@ -966,7 +966,7 @@ static void
 index_copy_vsize_extension(struct mail_save_context *ctx,
 			   struct mail *src_mail, uint32_t dest_seq)
 {
-	struct index_mail *src_imail = (struct index_mail *)src_mail;
+	struct index_mail *src_imail = INDEX_MAIL(src_mail);
 	unsigned int idx;
 	bool expunged ATTR_UNUSED;
 
@@ -1178,7 +1178,7 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 
 void index_storage_save_abort_last(struct mail_save_context *ctx, uint32_t seq)
 {
-	struct index_mail *imail = (struct index_mail *)ctx->dest_mail;
+	struct index_mail *imail = INDEX_MAIL(ctx->dest_mail);
 
 	/* Close the mail before it's expunged. This allows it to be
 	   reset cleanly. */

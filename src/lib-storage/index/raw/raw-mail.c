@@ -38,7 +38,7 @@ static int raw_mail_stat(struct mail *mail)
 
 static int raw_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct raw_mailbox *mbox = RAW_MAILBOX(_mail->box);
 
 	if (mbox->mtime == (time_t)-1) {
@@ -52,7 +52,7 @@ static int raw_mail_get_received_date(struct mail *_mail, time_t *date_r)
 
 static int raw_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct raw_mailbox *mbox = RAW_MAILBOX(_mail->box);
 
 	if (mbox->ctime == (time_t)-1) {
@@ -66,7 +66,7 @@ static int raw_mail_get_save_date(struct mail *_mail, time_t *date_r)
 
 static int raw_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct raw_mailbox *mbox = RAW_MAILBOX(_mail->box);
 
 	if (mbox->size == (uoff_t)-1) {
@@ -83,7 +83,7 @@ raw_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 		    struct message_size *hdr_size,
 		    struct message_size *body_size, struct istream **stream_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 
 	if (mail->data.stream == NULL) {
 		/* we can't just reference mbox->input, because

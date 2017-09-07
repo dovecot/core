@@ -104,7 +104,7 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 {
 	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(mail->box);
-	struct index_mail *imail = (struct index_mail *)mail;
+	struct index_mail *imail = INDEX_MAIL(mail);
 	const char *path;
 	int fd, ret;
 
@@ -153,7 +153,7 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 
 static int maildir_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 
@@ -169,7 +169,7 @@ static int maildir_mail_get_received_date(struct mail *_mail, time_t *date_r)
 
 static int maildir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 
@@ -380,7 +380,7 @@ maildir_handle_size_caching(struct index_mail *mail, bool quick_check,
 static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct message_size hdr_size, body_size;
 	struct istream *input;
@@ -424,7 +424,7 @@ static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 
 static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
@@ -492,7 +492,7 @@ static int
 maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			 const char **value_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
 	const char *path, *fname = NULL, *end, *guid, *uidl, *order;
 	struct stat st;
@@ -597,7 +597,7 @@ maildir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 			struct message_size *body_size,
 			struct istream **stream_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct maildir_mailbox *mbox = MAILDIR_MAILBOX(_mail->box);
 	struct index_mail_data *data = &mail->data;
 	bool deleted;

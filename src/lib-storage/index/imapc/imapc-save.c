@@ -136,7 +136,7 @@ static void
 imapc_save_add_to_index(struct imapc_save_context *ctx, uint32_t uid)
 {
 	struct mail *_mail = ctx->ctx.dest_mail;
-	struct index_mail *imail = (struct index_mail *)_mail;
+	struct index_mail *imail = INDEX_MAIL(_mail);
 	uint32_t seq;
 
 	/* we'll temporarily append messages and at commit time expunge

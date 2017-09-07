@@ -118,7 +118,7 @@ static uint64_t imapc_mail_get_modseq(struct mail *_mail)
 
 static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 
 	if (index_mail_get_received_date(_mail, date_r) == 0)
@@ -141,7 +141,7 @@ static int imapc_mail_get_received_date(struct mail *_mail, time_t *date_r)
 
 static int imapc_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 
 	if (data->save_date == (time_t)-1) {
@@ -155,7 +155,7 @@ static int imapc_mail_get_save_date(struct mail *_mail, time_t *date_r)
 static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct istream *input;
 	uoff_t old_offset;
@@ -205,7 +205,7 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 static int imapc_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 
 	if (imapc_mail_get_physical_size(_mail, size_r) < 0)
@@ -416,7 +416,7 @@ imapc_mail_add_temp_wanted_fields(struct mail *_mail,
 				  enum mail_fetch_field fields,
 				  struct mailbox_header_lookup_ctx *headers)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 
 	index_mail_add_temp_wanted_fields(_mail, fields, headers);
 	if (_mail->seq != 0)
@@ -492,7 +492,7 @@ static int imapc_mail_get_hdr_hash(struct index_mail *imail)
 
 static bool imapc_mail_get_cached_guid(struct mail *_mail)
 {
-	struct index_mail *imail = (struct index_mail *)_mail;
+	struct index_mail *imail = INDEX_MAIL(_mail);
 	const enum index_cache_field cache_idx =
 		imail->ibox->cache_fields[MAIL_CACHE_GUID].idx;
 	string_t *str;
@@ -518,7 +518,7 @@ static bool imapc_mail_get_cached_guid(struct mail *_mail)
 
 static int imapc_mail_get_guid(struct mail *_mail, const char **value_r)
 {
-	struct index_mail *imail = (struct index_mail *)_mail;
+	struct index_mail *imail = INDEX_MAIL(_mail);
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	const enum index_cache_field cache_idx =
 		imail->ibox->cache_fields[MAIL_CACHE_GUID].idx;
@@ -553,7 +553,7 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		       const char **value_r)
 {
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
-	struct index_mail *imail = (struct index_mail *)_mail;
+	struct index_mail *imail = INDEX_MAIL(_mail);
 	uint64_t num;
 
 	switch (field) {

@@ -43,7 +43,7 @@ static int cydir_mail_stat(struct mail *mail, struct stat *st_r)
 
 static int cydir_mail_get_received_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 
@@ -60,7 +60,7 @@ static int cydir_mail_get_received_date(struct mail *_mail, time_t *date_r)
 
 static int cydir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 
@@ -77,7 +77,7 @@ static int cydir_mail_get_save_date(struct mail *_mail, time_t *date_r)
 
 static int cydir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct index_mail_data *data = &mail->data;
 	struct stat st;
 
@@ -98,7 +98,7 @@ cydir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 		      struct message_size *body_size,
 		      struct istream **stream_r)
 {
-	struct index_mail *mail = (struct index_mail *)_mail;
+	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct istream *input;
 	const char *path;
 	int fd;

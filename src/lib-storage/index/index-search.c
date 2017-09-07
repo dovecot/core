@@ -716,7 +716,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 {
 	const enum message_header_parser_flags hdr_parser_flags =
 		MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
-	struct index_mail *imail = (struct index_mail *)ctx->cur_mail;
+	struct index_mail *imail = INDEX_MAIL(ctx->cur_mail);
 	struct mail *real_mail;
 	struct istream *input = NULL;
 	struct mailbox_header_lookup_ctx *headers_ctx;
@@ -739,7 +739,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		search_cur_mail_failed(ctx);
 		return -1;
 	}
-	hdr_ctx.imail = (struct index_mail *)real_mail;
+	hdr_ctx.imail = INDEX_MAIL(real_mail);
 	hdr_ctx.custom_header = TRUE;
 	hdr_ctx.args = args;
 
@@ -1357,7 +1357,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	array_free(&ctx->mail_ctx.module_contexts);
 
 	array_foreach_modifiable(&ctx->mails, mailp) {
-		struct index_mail *imail = (struct index_mail *)*mailp;
+		struct index_mail *imail = INDEX_MAIL(*mailp);
 
 		imail->search_mail = FALSE;
 		mail_free(mailp);
@@ -1585,7 +1585,7 @@ static int search_more_with_mail(struct index_search_context *ctx,
 {
 	struct mail_search_context *_ctx = &ctx->mail_ctx;
 	struct mailbox *box = _ctx->transaction->box;
-	struct index_mail *imail = (struct index_mail *)mail;
+	struct index_mail *imail = INDEX_MAIL(mail);
 	unsigned long long cost1, cost2;
 	int match, ret;
 
@@ -1677,7 +1677,7 @@ struct mail *index_search_get_mail(struct index_search_context *ctx)
 	mail = mail_alloc(ctx->mail_ctx.transaction,
 			  ctx->mail_ctx.wanted_fields,
 			  ctx->mail_ctx.wanted_headers);
-	imail = (struct index_mail *)mail;
+	imail = INDEX_MAIL(mail);
 	imail->search_mail = TRUE;
 	ctx->mail_ctx.transaction->stats_track = TRUE;
 
@@ -1769,7 +1769,7 @@ static int search_more(struct index_search_context *ctx,
 	int ret;
 
 	while ((ret = search_more_with_prefetching(ctx, mail_r)) > 0) {
-		imail = (struct index_mail *)*mail_r;
+		imail = INDEX_MAIL(*mail_r);
 		if (imail->data.search_results == NULL)
 			break;
 

@@ -157,6 +157,8 @@ struct index_mail {
 	bool freeing:1;
 };
 
+#define INDEX_MAIL(s)	container_of(s, struct index_mail, mail.mail)
+
 struct mail *
 index_mail_alloc(struct mailbox_transaction_context *t,
 		 enum mail_fetch_field wanted_fields,
