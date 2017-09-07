@@ -839,7 +839,7 @@ void io_loop_add_switch_callback(io_switch_callback_t *callback)
 {
 	if (!array_is_created(&io_switch_callbacks)) {
 		i_array_init(&io_switch_callbacks, 4);
-		lib_atexit(io_switch_callbacks_free);
+		lib_atexit_priority(io_switch_callbacks_free, LIB_ATEXIT_PRIORITY_LOW);
 	}
 	array_append(&io_switch_callbacks, &callback, 1);
 }
