@@ -4,6 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "hex-binary.h"
+#include "hash.h"
 #include "str.h"
 #include "sql-api-private.h"
 #include "sql-db-cache.h"
@@ -29,6 +30,9 @@ struct sql_dict {
 	struct sql_db *db;
 	const char *username;
 	const struct dict_sql_settings *set;
+
+	/* query template => prepared statement */
+	HASH_TABLE(const char *, struct sql_prepared_statement *) prep_stmt_hash;
 
 	unsigned int has_on_duplicate_key:1;
 };
@@ -116,14 +120,36 @@ sql_dict_init(struct dict *driver, const char *uri,
 
 	dict->db = sql_db_cache_new(dict_sql_db_cache, driver->name,
 				    dict->set->connect);
+	if ((sql_get_flags(dict->db) & SQL_DB_FLAG_PREP_STATEMENTS) != 0) {
+		hash_table_create(&dict->prep_stmt_hash, dict->pool,
+				  0, str_hash, strcmp);
+	}
 	*dict_r = &dict->dict;
 	return 0;
+}
+
+static void sql_dict_prep_stmt_hash_free(struct sql_dict *dict)
+{
+	struct hash_iterate_context *iter;
+	struct sql_prepared_statement *prep_stmt;
+	const char *query;
+
+	if (!hash_table_is_created(dict->prep_stmt_hash))
+		return;
+
+	iter = hash_table_iterate_init(dict->prep_stmt_hash);
+	while (hash_table_iterate(iter, dict->prep_stmt_hash, &query, &prep_stmt))
+		sql_prepared_statement_deinit(&prep_stmt);
+	hash_table_iterate_deinit(&iter);
+
+	hash_table_destroy(&dict->prep_stmt_hash);
 }
 
 static void sql_dict_deinit(struct dict *_dict)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 
+	sql_dict_prep_stmt_hash_free(dict);
 	sql_deinit(&dict->db);
 	pool_unref(&dict->pool);
 }
@@ -250,11 +276,26 @@ sql_dict_statement_bind(struct sql_statement *stmt, unsigned int column_idx,
 }
 
 static struct sql_statement *
-sql_dict_statement_init(struct sql_db *db, const char *query,
+sql_dict_statement_init(struct sql_dict *dict, const char *query,
 			const ARRAY_TYPE(sql_dict_param) *params)
 {
-	struct sql_statement *stmt = sql_statement_init(db, query);
+	struct sql_statement *stmt;
+	struct sql_prepared_statement *prep_stmt;
 	const struct sql_dict_param *param;
+
+	if (hash_table_is_created(dict->prep_stmt_hash)) {
+		prep_stmt = hash_table_lookup(dict->prep_stmt_hash, query);
+		if (prep_stmt == NULL) {
+			const char *query_dup = p_strdup(dict->pool, query);
+			prep_stmt = sql_prepared_statement_init(dict->db, query);
+			hash_table_insert(dict->prep_stmt_hash, query_dup, prep_stmt);
+		}
+		stmt = sql_statement_init_prepared(prep_stmt);
+	} else {
+		/* Prepared statements not supported by the backend.
+		   Just use regular statements to avoid wasting memory. */
+		stmt = sql_statement_init(dict->db, query);
+	}
 
 	array_foreach(params, param) {
 		sql_dict_statement_bind(stmt, array_foreach_idx(params, param),
@@ -435,7 +476,7 @@ sql_lookup_get_query(struct sql_dict *dict, const char *key,
 			"sql dict lookup: Failed to lookup key %s: %s", key, error);
 		return -1;
 	}
-	*stmt_r = sql_dict_statement_init(dict->db, str_c(query), &params);
+	*stmt_r = sql_dict_statement_init(dict, str_c(query), &params);
 	return 0;
 }
 
@@ -699,7 +740,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 			(unsigned long long)(ctx->ctx.max_rows - ctx->ctx.row_count));
 	}
 
-	*stmt_r = sql_dict_statement_init(dict->db, str_c(query), &params);
+	*stmt_r = sql_dict_statement_init(dict, str_c(query), &params);
 	ctx->map = map;
 	return 1;
 }
@@ -989,7 +1030,7 @@ sql_dict_transaction_stmt_init(struct sql_dict_transaction_context *ctx,
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	struct sql_statement *stmt =
-		sql_dict_statement_init(dict->db, query, params);
+		sql_dict_statement_init(dict, query, params);
 
 	if (ctx->ctx.timestamp.tv_sec != 0)
 		sql_statement_set_timestamp(stmt, &ctx->ctx.timestamp);
