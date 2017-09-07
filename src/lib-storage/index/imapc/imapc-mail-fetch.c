@@ -377,7 +377,7 @@ void imapc_mail_try_init_stream_from_cache(struct imapc_mail *mail)
 bool imapc_mail_prefetch(struct mail *_mail)
 {
 	struct imapc_mail *mail = (struct imapc_mail *)_mail;
-	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	struct index_mail_data *data = &mail->imail.data;
 	enum mail_fetch_field fields;
 	const char *const *headers = NULL;
@@ -449,8 +449,7 @@ int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		     const char *const *headers)
 {
 	struct imapc_mail *imail = (struct imapc_mail *)_mail;
-	struct imapc_mailbox *mbox =
-		(struct imapc_mailbox *)_mail->box;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	int ret;
 
 	if ((fields & MAIL_FETCH_GUID) != 0 &&
