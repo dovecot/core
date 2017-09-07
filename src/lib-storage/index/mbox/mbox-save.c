@@ -652,7 +652,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 
 int mbox_save_finish(struct mail_save_context *_ctx)
 {
-	struct mbox_save_context *ctx = (struct mbox_save_context *)_ctx;
+	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
 
 	if (!ctx->failed && ctx->eoh_offset == (uoff_t)-1)
 		(void)mbox_save_finish_headers(ctx);
