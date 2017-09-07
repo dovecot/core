@@ -21,7 +21,12 @@
 #  define NULL ((void *)0)
 #endif
 
-#if defined(__GNUC__) || defined(__clang__)
+#ifndef __has_extension
+  #define __has_extension(x) 0  // Compatibility with non-clang compilers.
+#endif
+
+#if (defined(__GNUC__) && __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)) || \
+    (defined(__clang__) && (__has_extension(attribute_deprecated_with_message)))
 int rand(void) __attribute__((deprecated("Do not use rand, use i_rand")));
 int rand_r(unsigned int*) __attribute__((deprecated("Do not use rand_r, use i_rand")));
 #endif
