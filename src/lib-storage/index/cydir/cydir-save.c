@@ -77,7 +77,7 @@ cydir_save_alloc(struct mailbox_transaction_context *t)
 
 int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
-	struct cydir_save_context *ctx = (struct cydir_save_context *)_ctx;
+	struct cydir_save_context *ctx = CYDIR_SAVECTX(_ctx);
 	struct mailbox_transaction_context *trans = _ctx->transaction;
 	enum mail_flags save_flags;
 	struct istream *crlf_input;
