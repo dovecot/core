@@ -408,7 +408,7 @@ maildir_save_alloc(struct mailbox_transaction_context *t)
 
 int maildir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
-	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_save_context *ctx = MAILDIR_SAVECTX(_ctx);
 	struct maildir_filename *mf;
 
 	/* new mail, new failure state */
@@ -954,7 +954,7 @@ static void maildir_save_sync_uidlist(struct maildir_save_context *ctx)
 
 int maildir_transaction_save_commit_pre(struct mail_save_context *_ctx)
 {
-	struct maildir_save_context *ctx = (struct maildir_save_context *)_ctx;
+	struct maildir_save_context *ctx = MAILDIR_SAVECTX(_ctx);
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	enum maildir_uidlist_sync_flags sync_flags;
 	int ret;
