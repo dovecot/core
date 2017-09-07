@@ -39,6 +39,7 @@ struct pop3c_mail {
 
 #define POP3C_STORAGE(s)	container_of(s, struct pop3c_storage, storage)
 #define POP3C_MAILBOX(s)	container_of(s, struct pop3c_mailbox, box)
+#define POP3C_MAIL(s)		container_of(s, struct pop3c_mail, imail.mail.mail)
 
 struct mail *
 pop3c_mail_alloc(struct mailbox_transaction_context *t,

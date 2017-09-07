@@ -26,7 +26,7 @@ pop3c_mail_alloc(struct mailbox_transaction_context *t,
 
 static void pop3c_mail_close(struct mail *_mail)
 {
-	struct pop3c_mail *pmail = (struct pop3c_mail *)_mail;
+	struct pop3c_mail *pmail = POP3C_MAIL(_mail);
 	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 
 	/* wait for any prefetch to finish before closing the mail */
@@ -140,7 +140,7 @@ pop3c_mail_prefetch_done(enum pop3c_command_state state,
 
 static bool pop3c_mail_prefetch(struct mail *_mail)
 {
-	struct pop3c_mail *pmail = (struct pop3c_mail *)_mail;
+	struct pop3c_mail *pmail = POP3C_MAIL(_mail);
 	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 	enum pop3c_capability capa;
 	const char *cmd;
@@ -170,7 +170,7 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 		      struct message_size *hdr_size,
 		      struct message_size *body_size, struct istream **stream_r)
 {
-	struct pop3c_mail *pmail = (struct pop3c_mail *)_mail;
+	struct pop3c_mail *pmail = POP3C_MAIL(_mail);
 	struct index_mail *mail = &pmail->imail;
 	struct pop3c_mailbox *mbox = POP3C_MAILBOX(_mail->box);
 	enum pop3c_capability capa;
