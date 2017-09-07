@@ -24,7 +24,7 @@ void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs)
 	ssl_module_loaded = TRUE;
 }
 
-static int ssl_module_load(const char **error_r)
+int ssl_module_load(const char **error_r)
 {
 #ifdef HAVE_SSL
 	const char *plugin_name = "ssl_iostream_openssl";

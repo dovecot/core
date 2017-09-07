@@ -32,6 +32,9 @@ struct ssl_iostream_settings {
 	bool tickets;
 };
 
+/* Load SSL module */
+int ssl_module_load(const char **error_r);
+
 /* Returns 0 if ok, -1 and sets error_r if failed. The returned error string
    becomes available via ssl_iostream_get_last_error() */
 typedef int
