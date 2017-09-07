@@ -25,6 +25,8 @@ struct imapc_mail {
 	bool fetch_failed;
 };
 
+#define IMAPC_MAIL(s)	container_of(s, struct imapc_mail, imail.mail.mail)
+
 extern struct mail_vfuncs imapc_mail_vfuncs;
 
 struct mail *

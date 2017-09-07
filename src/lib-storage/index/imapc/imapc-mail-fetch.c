@@ -204,7 +204,7 @@ static int
 imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		      const char *const *headers)
 {
-	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mail *mail = IMAPC_MAIL(_mail);
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	struct mail_index_view *view;
 	string_t *str;
@@ -376,7 +376,7 @@ void imapc_mail_try_init_stream_from_cache(struct imapc_mail *mail)
 
 bool imapc_mail_prefetch(struct mail *_mail)
 {
-	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mail *mail = IMAPC_MAIL(_mail);
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	struct index_mail_data *data = &mail->imail.data;
 	enum mail_fetch_field fields;
@@ -448,7 +448,7 @@ imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
 int imapc_mail_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		     const char *const *headers)
 {
-	struct imapc_mail *imail = (struct imapc_mail *)_mail;
+	struct imapc_mail *imail = IMAPC_MAIL(_mail);
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	int ret;
 

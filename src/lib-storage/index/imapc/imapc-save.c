@@ -148,7 +148,7 @@ imapc_save_add_to_index(struct imapc_save_context *ctx, uint32_t uid)
 	imail->data.forced_no_caching = TRUE;
 
 	if (ctx->fd != -1) {
-		struct imapc_mail *imapc_mail = (struct imapc_mail *)imail;
+		struct imapc_mail *imapc_mail = IMAPC_MAIL(_mail);
 		imail->data.stream = i_stream_create_fd_autoclose(&ctx->fd, 0);
 		imapc_mail->header_fetched = TRUE;
 		imapc_mail->body_fetched = TRUE;

@@ -65,7 +65,7 @@ static bool imapc_mail_is_expunged(struct mail *_mail)
 
 static int imapc_mail_failed(struct mail *mail, const char *field)
 {
-	struct imapc_mail *imail = (struct imapc_mail *)mail;
+	struct imapc_mail *imail = IMAPC_MAIL(mail);
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(mail->box);
 	bool fix_broken_mail = FALSE;
 
@@ -219,7 +219,7 @@ imapc_mail_get_header_stream(struct mail *_mail,
 			     struct mailbox_header_lookup_ctx *headers,
 			     struct istream **stream_r)
 {
-	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mail *mail = IMAPC_MAIL(_mail);
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	enum mail_lookup_abort old_abort = _mail->lookup_abort;
 	int ret;
@@ -288,7 +288,7 @@ imapc_mail_get_stream(struct mail *_mail, bool get_body,
 		      struct message_size *hdr_size,
 		      struct message_size *body_size, struct istream **stream_r)
 {
-	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mail *mail = IMAPC_MAIL(_mail);
 	struct index_mail_data *data = &mail->imail.data;
 	enum mail_fetch_field fetch_field;
 
@@ -400,7 +400,7 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 
 static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
-	struct imapc_mail *imail = (struct imapc_mail *)_mail;
+	struct imapc_mail *imail = IMAPC_MAIL(_mail);
 	struct index_mail *mail = &imail->imail;
 
 	index_mail_set_seq(_mail, seq, saving);
@@ -425,7 +425,7 @@ imapc_mail_add_temp_wanted_fields(struct mail *_mail,
 
 static void imapc_mail_close(struct mail *_mail)
 {
-	struct imapc_mail *mail = (struct imapc_mail *)_mail;
+	struct imapc_mail *mail = IMAPC_MAIL(_mail);
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(_mail->box);
 	struct imapc_mail_cache *cache = &mbox->prev_mail_cache;
 
