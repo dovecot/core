@@ -2335,7 +2335,7 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 int auth_request_proxy_finish(struct auth_request *request,
 			      auth_request_proxy_cb_t *callback)
 {
-	const char *host;
+	const char *host, *hostip;
 	struct ip_addr ip;
 	bool proxy_host_is_self;
 
@@ -2362,8 +2362,18 @@ int auth_request_proxy_finish(struct auth_request *request,
 		proxy_host_is_self =
 			auth_request_proxy_ip_is_self(request, &ip);
 	} else {
-		/* asynchronous host lookup */
-		return auth_request_proxy_host_lookup(request, host, callback);
+		hostip = auth_fields_find(request->extra_fields, "hostip");
+		if (hostip != NULL && net_addr2ip(hostip, &ip) < 0) {
+			auth_request_log_error(request, AUTH_SUBSYS_PROXY,
+				"Invalid hostip in passdb: %s", hostip);
+			return -1;
+		}
+		if (hostip == NULL) {
+			/* asynchronous host lookup */
+			return auth_request_proxy_host_lookup(request, host, callback);
+		}
+		proxy_host_is_self =
+			auth_request_proxy_ip_is_self(request, &ip);
 	}
 
 	auth_request_proxy_finish_ip(request, proxy_host_is_self);
