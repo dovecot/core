@@ -146,7 +146,10 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	conn = p_new(proxy->pool, struct lmtp_proxy_connection, 1);
 	conn->proxy = proxy;
-	conn->set.host = p_strdup(proxy->pool, set->host);
+	if (set->hostip.family == 0)
+		conn->set.host = p_strdup(proxy->pool, set->host);
+	else
+		conn->set.host = p_strdup(proxy->pool, net_ip2addr(&set->hostip));
 	conn->set.port = set->port;
 	conn->set.timeout_msecs = set->timeout_msecs;
 	array_append(&proxy->connections, &conn, 1);
