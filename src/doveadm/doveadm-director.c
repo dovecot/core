@@ -998,7 +998,7 @@ DOVEADM_CMD_PARAMS_END
 	.usage = "[-a <director socket path>] [-f <passdb field>] <user>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('\0', "passdb-field", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('f', "passdb-field", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 },
