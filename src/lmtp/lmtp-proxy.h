@@ -19,6 +19,7 @@ struct lmtp_proxy_settings {
 
 struct lmtp_proxy_rcpt_settings {
 	const char *host;
+	struct ip_addr hostip;
 	in_port_t port;
 	unsigned int timeout_msecs;
 	enum lmtp_client_protocol protocol;

@@ -250,7 +250,12 @@ client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 			proxying = TRUE;
 		else if (strcmp(key, "host") == 0)
 			set->host = value;
-		else if (strcmp(key, "port") == 0) {
+		else if (strcmp(key, "hostip") == 0) {
+			if (net_addr2ip(value, &set->hostip) < 0) {
+				i_error("proxy: Invalid hostip %s", value);
+				return FALSE;
+			}
+		} else if (strcmp(key, "port") == 0) {
 			if (net_str2port(value, &set->port) < 0) {
 				i_error("proxy: Invalid port number %s", value);
 				return FALSE;
@@ -297,8 +302,12 @@ client_proxy_is_ourself(const struct client *client,
 	if (set->port != client->local_port)
 		return FALSE;
 
-	if (net_addr2ip(set->host, &ip) < 0)
-		return FALSE;
+	if (set->hostip.family != 0)
+		ip = set->hostip;
+	else {
+		if (net_addr2ip(set->host, &ip) < 0)
+			return FALSE;
+	}
 	if (!net_ip_compare(&ip, &client->local_ip))
 		return FALSE;
 	return TRUE;
