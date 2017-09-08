@@ -43,6 +43,7 @@ struct istream_private {
 	   always seeks parent stream to here before calling read(). */
 	uoff_t parent_expected_offset;
 
+	struct memarea *memarea;
 	/* increased every time the stream is changed (e.g. seek, read).
 	   this way streams can check if their parent streams have been
 	   accessed behind them. */

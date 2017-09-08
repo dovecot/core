@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "memarea.h"
 #include "istream-private.h"
 
 static bool i_stream_is_buffer_invalid(const struct istream_private *stream);
@@ -276,7 +277,10 @@ ssize_t i_stream_read_copy_from_parent(struct istream *istream)
 
 void i_stream_free_buffer(struct istream_private *stream)
 {
-	if (stream->w_buffer != NULL) {
+	if (stream->memarea != NULL) {
+		memarea_unref(&stream->memarea);
+		stream->w_buffer = NULL;
+	} else if (stream->w_buffer != NULL) {
 		i_free_and_null(stream->w_buffer);
 	} else {
 		/* don't know how to free it */
@@ -643,6 +647,37 @@ void i_stream_compress(struct istream_private *stream)
 	stream->skip = 0;
 }
 
+static void i_stream_w_buffer_free(void *buf)
+{
+	i_free(buf);
+}
+
+static void
+i_stream_w_buffer_realloc(struct istream_private *stream, size_t old_size)
+{
+	void *new_buffer;
+
+	if (stream->memarea != NULL &&
+	    memarea_get_refcount(stream->memarea) == 1) {
+		/* Nobody else is referencing the memarea.
+		   We can just reallocate it. */
+		memarea_free_without_callback(&stream->memarea);
+		new_buffer = i_realloc(stream->w_buffer, old_size,
+				       stream->buffer_size);
+	} else {
+		new_buffer = i_malloc(stream->buffer_size);
+		memcpy(new_buffer, stream->w_buffer, old_size);
+		if (stream->memarea != NULL)
+			memarea_unref(&stream->memarea);
+	}
+
+	stream->w_buffer = new_buffer;
+	stream->buffer = new_buffer;
+
+	stream->memarea = memarea_init(stream->w_buffer, stream->buffer_size,
+				       i_stream_w_buffer_free, new_buffer);
+}
+
 void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 {
 	size_t old_size, max_size;
@@ -662,11 +697,8 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes)
 
 	if (stream->buffer_size <= old_size)
 		stream->buffer_size = old_size;
-	else {
-		stream->w_buffer = i_realloc(stream->w_buffer, old_size,
-					     stream->buffer_size);
-		stream->buffer = stream->w_buffer;
-	}
+	else
+		i_stream_w_buffer_realloc(stream, old_size);
 }
 
 bool i_stream_try_alloc(struct istream_private *stream,
@@ -677,7 +709,14 @@ bool i_stream_try_alloc(struct istream_private *stream,
 	if (wanted_size > stream->buffer_size - stream->pos) {
 		if (stream->skip > 0) {
 			/* remove the unused bytes from beginning of buffer */
-                        i_stream_compress(stream);
+			if (stream->memarea != NULL &&
+			    memarea_get_refcount(stream->memarea) > 1) {
+				/* The memarea is still referenced. We can't
+				   overwrite data until extra references are
+				   gone. */
+				i_stream_w_buffer_realloc(stream, stream->buffer_size);
+			}
+			i_stream_compress(stream);
 		} else if (stream->buffer_size < i_stream_get_max_buffer_size(&stream->istream)) {
 			/* buffer is full - grow it */
 			i_stream_grow_buffer(stream, I_STREAM_MIN_SIZE);
@@ -699,9 +738,8 @@ void *i_stream_alloc(struct istream_private *stream, size_t size)
 	if (avail_size < size) {
 		old_size = stream->buffer_size;
 		stream->buffer_size = nearest_power(stream->pos + size);
-		stream->w_buffer = i_realloc(stream->w_buffer, old_size,
-					     stream->buffer_size);
-		stream->buffer = stream->w_buffer;
+		i_stream_w_buffer_realloc(stream, old_size);
+
 		i_stream_try_alloc(stream, size, &avail_size);
 		i_assert(avail_size >= size);
 	}
