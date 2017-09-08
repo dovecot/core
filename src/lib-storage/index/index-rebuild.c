@@ -10,6 +10,22 @@
 #include "index-rebuild.h"
 
 static void
+index_index_copy_vsize(struct index_rebuild_context *ctx,
+		       struct mail_index_view *view,
+		       uint32_t old_seq, uint32_t new_seq)
+{
+	const void *data;
+	bool expunged;
+
+	mail_index_lookup_ext(view, old_seq, ctx->box->mail_vsize_ext_id,
+			      &data, &expunged);
+	if (data != NULL && !expunged) {
+		mail_index_update_ext(ctx->trans, new_seq,
+				      ctx->box->mail_vsize_ext_id, data, NULL);
+	}
+}
+
+static void
 index_index_copy_cache(struct index_rebuild_context *ctx,
 		       struct mail_index_view *view,
 		       uint32_t old_seq, uint32_t new_seq)
@@ -71,6 +87,7 @@ index_index_copy_from_old(struct index_rebuild_context *ctx,
 	modseq = mail_index_modseq_lookup(view, old_seq);
 	mail_index_update_modseq(ctx->trans, new_seq, modseq);
 
+	index_index_copy_vsize(ctx, view, old_seq, new_seq);
 	index_index_copy_cache(ctx, view, old_seq, new_seq);
 }
 
