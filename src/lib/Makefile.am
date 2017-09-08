@@ -97,6 +97,7 @@ liblib_la_SOURCES = \
 	log-throttle.c \
 	md4.c \
 	md5.c \
+	memarea.c \
 	mempool.c \
 	mempool-alloconly.c \
 	mempool-datastack.c \
@@ -248,6 +249,7 @@ headers = \
 	md4.h \
 	md5.h \
 	malloc-overflow.h \
+	memarea.h \
 	mempool.h \
 	mkdir-parents.h \
 	mmap-util.h \
@@ -364,6 +366,7 @@ test_lib_SOURCES = \
 	test-llist.c \
 	test-log-throttle.c \
 	test-malloc-overflow.c \
+	test-memarea.c \
 	test-mempool.c \
 	test-mempool-alloconly.c \
 	test-pkcs5.c \
