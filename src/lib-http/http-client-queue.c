@@ -705,6 +705,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 	ARRAY_TYPE(http_client_request) failed_requests;
 	struct timeval new_to = { 0, 0 };
 	string_t *str;
+	size_t prefix_size;
 	unsigned int count, i;
 
 	http_client_queue_debug(queue, "Timeout (now: %s.%03lu)",
@@ -733,6 +734,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 
 	str = t_str_new(64);
 	str_append(str, "Request ");
+	prefix_size = str_len(str);
 
 	/* abort all failed request */
 	reqs = array_get(&failed_requests, &count);
@@ -740,7 +742,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 	for (i = 0; i < count; i++) {
 		struct http_client_request *req = reqs[i];
 
-		str_truncate(str, 8);
+		str_truncate(str, prefix_size);
 		http_client_request_append_stats_text(req, str);
 
 		http_client_queue_debug(queue,
