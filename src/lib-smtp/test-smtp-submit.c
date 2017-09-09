@@ -1992,20 +1992,18 @@ test_message_delivery(const char *message, const char *file)
 	input = i_stream_create_file(file, (size_t)-1);
 	while ((ret=i_stream_read_more(input, &data, &size)) > 0) {
 		const unsigned char *mdata;
-		if (input->v_offset >= (uoff_t)msize ||
-			(input->v_offset + (uoff_t)size) > (uoff_t)msize) {
-			ret = -1;
+		test_assert(input->v_offset < (uoff_t)msize &&
+			(input->v_offset + (uoff_t)size) <= (uoff_t)msize);
+		if (test_has_failed())
 			break;
-		}
 		mdata = (const unsigned char *)message + input->v_offset;
-		if (memcmp(data, mdata, size) != 0) {
-			ret = -1;
+		test_assert(memcmp(data, mdata, size) == 0);
+		if (test_has_failed())
 			break;
-		}
 		i_stream_skip(input, size);
 	}
 
-	test_out_reason("delivery",
+	test_out_reason("delivery", ret < 0 &&
 		input->stream_errno == 0 &&
 		i_stream_is_eof(input) &&
 		input->v_offset == (uoff_t)msize,
