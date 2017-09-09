@@ -1716,6 +1716,8 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 	test_message_delivery(test_message1, msg_path1);
 	test_message_delivery(test_message2, msg_path2);
 
+	i_free(ctx);
+
 	return FALSE;
 }
 
