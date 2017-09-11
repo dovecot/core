@@ -108,8 +108,11 @@ bool mail_index_use_existing_permissions(struct mail_index *index)
 {
 	struct stat st;
 
-	if (stat(index->dir, &st) < 0)
+	if (stat(index->dir, &st) < 0) {
+		if (errno != ENOENT)
+			i_error("stat(%s) failed: %m", index->dir);
 		return FALSE;
+	}
 
 	index->mode = st.st_mode & 0666;
 	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
