@@ -32,6 +32,7 @@ test_libs = \
 	../lib-program-client/libprogram_client.la \
 	../lib-dns/libdns.la \
 	../lib-mail/libmail.la \
+	../lib-charset/libcharset.la \
 	../lib-master/libmaster.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
@@ -44,6 +45,7 @@ test_deps = \
 	../lib-program-client/libprogram_client.la \
 	../lib-dns/libdns.la \
 	../lib-mail/libmail.la \
+	../lib-charset/libcharset.la \
 	../lib-master/libmaster.la \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
