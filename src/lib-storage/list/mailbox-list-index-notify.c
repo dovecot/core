@@ -928,6 +928,11 @@ void mailbox_list_index_notify_flush(struct mailbox_list_notify *notify)
 	struct mailbox_list_notify_index *inotify =
 		(struct mailbox_list_notify_index *)notify;
 
+	if (inotify->to_notify == NULL &&
+	    notify->list->mail_set->mailbox_idle_check_interval > 0) {
+		/* no pending notification - check if anything had changed */
+		notify_callback(inotify);
+	}
 	if (inotify->to_notify != NULL)
 		notify_now_callback(inotify);
 }
