@@ -108,6 +108,9 @@ bool mail_index_use_existing_permissions(struct mail_index *index)
 {
 	struct stat st;
 
+	if (MAIL_INDEX_IS_IN_MEMORY(index))
+		return FALSE;
+
 	if (stat(index->dir, &st) < 0) {
 		if (errno != ENOENT)
 			i_error("stat(%s) failed: %m", index->dir);
