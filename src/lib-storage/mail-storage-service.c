@@ -1652,6 +1652,11 @@ void mail_storage_service_deinit(struct mail_storage_service_ctx **_ctx)
 	}
 	if (ctx->set_cache != NULL)
 		master_service_settings_cache_deinit(&ctx->set_cache);
+	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
+	    geteuid() != 0) {
+		/* we previously dropped privileges. switch back to root again */
+		mail_storage_service_seteuid_root();
+	}
 	pool_unref(&ctx->pool);
 
 	module_dir_unload(&mail_storage_service_modules);
