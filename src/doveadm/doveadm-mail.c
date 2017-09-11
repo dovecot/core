@@ -983,6 +983,15 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	p_array_init(&full_args, mctx->pool, 8);
 	p_array_init(&pargv, mctx->pool, 8);
 
+	/* search for socket parameter so we can determine if we run
+	   or forward the command */
+	bool is_net_client = (cli && doveadm_settings->doveadm_worker_count != 0);
+	for(i=0;!is_net_client && i<cctx->argc;i++) {
+		const struct doveadm_cmd_param *arg = &cctx->argv[i];
+		if (arg->value_set && strcmp(arg->name, "socket-path") == 0)
+			is_net_client = TRUE;
+	}
+
 	for(i=0;i<cctx->argc;i++) {
 		const struct doveadm_cmd_param *arg = &cctx->argv[i];
 
@@ -990,9 +999,8 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			continue;
 
 		if (strcmp(arg->name, "all-users") == 0) {
-			if (tcp_server)
-				mctx->add_username_header = TRUE;
-			else
+			mctx->add_username_header = TRUE;
+			if (!is_net_client)
 				mctx->iterate_all_users = arg->value.v_bool;
 			fieldstr = "-A";
 			array_append(&full_args, &fieldstr, 1);
@@ -1010,9 +1018,8 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			array_append(&full_args, &arg->value.v_string, 1);
 			if (strchr(arg->value.v_string, '*') != NULL ||
 			    strchr(arg->value.v_string, '?') != NULL) {
-				if (tcp_server)
-					mctx->add_username_header = TRUE;
-				else {
+				mctx->add_username_header = TRUE;
+				if (!is_net_client) {
 					wildcard_user = arg->value.v_string;
 					cctx->username = NULL;
 				}
