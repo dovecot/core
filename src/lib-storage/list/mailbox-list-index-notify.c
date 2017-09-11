@@ -748,8 +748,12 @@ mailbox_list_index_notify_change(struct mailbox_list_notify_index *inotify,
 
 	if (!mailbox_list_index_notify_lookup(inotify, inotify->view,
 					      uid, notify_status_items,
-					      &status, &rec))
-		i_unreached();
+					      &status, &rec)) {
+		/* Mailbox is already deleted. We won't get here if we're
+		   tracking MAILBOX_LIST_NOTIFY_DELETE or _RENAME
+		   (which update expunged_uids). */
+		return FALSE;
+	}
 
 	/* get the old status */
 	nnode = mailbox_list_notify_tree_lookup(inotify->tree,
