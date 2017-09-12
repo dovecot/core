@@ -18,6 +18,7 @@ struct client_connection {
 
 	unsigned int handshaked:1;
 	unsigned int authenticated:1;
+	unsigned int io_setup:1;
 };
 
 struct client_connection *

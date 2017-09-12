@@ -423,6 +423,11 @@ static void client_connection_input(struct client_connection *conn)
 		conn->authenticated = TRUE;
 	}
 
+	if (!conn->io_setup) {
+		conn->io_setup = TRUE;
+		doveadm_print_ostream = conn->output;
+	}
+
 	while (ok && !conn->input->closed &&
 	       (line = i_stream_read_next_line(conn->input)) != NULL) {
 		T_BEGIN {
