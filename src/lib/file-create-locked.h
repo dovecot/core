@@ -33,7 +33,12 @@ struct file_create_settings {
    If link() fails, opening is retried again. Returns fd on success,
    -1 on error. errno is preserved for the last failed syscall, so most
    importantly ENOENT could mean that the directory doesn't exist and EAGAIN
-   means locking timed out. */
+   means locking timed out.
+
+   If this function is used to create lock files, file_lock_set_unlink_on_free()
+   should be used for the resulting lock. It attempts to avoid unlinking the
+   file if there are already other processes using the lock. That can help to
+   avoid "Creating a locked file ... keeps failing" errors */
 int file_create_locked(const char *path, const struct file_create_settings *set,
 		       struct file_lock **lock_r, bool *created_r,
 		       const char **error_r);
