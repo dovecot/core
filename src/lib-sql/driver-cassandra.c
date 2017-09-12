@@ -675,6 +675,13 @@ static struct sql_db *driver_cassandra_init_v(const char *connect_string)
 	} T_END;
 	cass_log_set_level(db->log_level);
 
+	if (db->protocol_version > 0 && db->protocol_version < 4) {
+		/* binding with column indexes requires v4 */
+		db->api.v.prepared_statement_init = NULL;
+		db->api.v.prepared_statement_deinit = NULL;
+		db->api.v.statement_init_prepared = NULL;
+	}
+
 	db->timestamp_gen = cass_timestamp_gen_monotonic_new();
 	db->cluster = cass_cluster_new();
 	cass_cluster_set_timestamp_gen(db->cluster, db->timestamp_gen);
