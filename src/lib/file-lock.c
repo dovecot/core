@@ -352,10 +352,20 @@ void file_lock_set_close_on_free(struct file_lock *lock, bool set)
 	lock->close_on_free = set;
 }
 
+static void file_unlock_real(struct file_lock *lock)
+{
+	const char *error;
+
+	if (file_lock_do(lock->fd, lock->path, F_UNLCK,
+			 lock->lock_method, 0, &error) == 0) {
+		/* this shouldn't happen */
+		i_error("file_unlock(%s) failed: %m", lock->path);
+	}
+}
+
 void file_unlock(struct file_lock **_lock)
 {
 	struct file_lock *lock = *_lock;
-	const char *error;
 
 	*_lock = NULL;
 
@@ -364,13 +374,40 @@ void file_unlock(struct file_lock **_lock)
 	   could be deleting the new lock. */
 	i_assert(!lock->unlink_on_free);
 
-	if (file_lock_do(lock->fd, lock->path, F_UNLCK,
-			 lock->lock_method, 0, &error) == 0) {
-		/* this shouldn't happen */
-		i_error("file_unlock(%s) failed: %m", lock->path);
-	}
-
+	file_unlock_real(lock);
 	file_lock_free(&lock);
+}
+
+static void file_try_unlink_locked(struct file_lock *lock)
+{
+	struct file_lock *temp_lock = NULL;
+	struct stat st1, st2;
+	const char *error;
+	int ret;
+
+	file_unlock_real(lock);
+	ret = file_try_lock_error(lock->fd, lock->path, F_WRLCK,
+				  lock->lock_method, &temp_lock, &error);
+	if (ret < 0) {
+		i_error("file_lock_free(): Unexpectedly failed to retry locking %s: %s",
+			lock->path, error);
+	} else if (ret == 0) {
+		/* already locked by someone else */
+	} else if (fstat(lock->fd, &st1) < 0) {
+		/* not expected to happen */
+		i_error("file_lock_free(): fstat(%s) failed: %m", lock->path);
+	} else if (stat(lock->path, &st2) < 0) {
+		if (errno != ENOENT)
+			i_error("file_lock_free(): stat(%s) failed: %m", lock->path);
+	} else if (st1.st_ino != st2.st_ino ||
+		   !CMP_DEV_T(st1.st_dev, st2.st_dev)) {
+		/* lock file was recreated already - don't delete it */
+	} else {
+		/* nobody was waiting on the lock - unlink it */
+		i_unlink(lock->path);
+	}
+	if (temp_lock != NULL)
+		file_lock_free(&temp_lock);
 }
 
 void file_lock_free(struct file_lock **_lock)
@@ -380,7 +417,7 @@ void file_lock_free(struct file_lock **_lock)
 	*_lock = NULL;
 
 	if (lock->unlink_on_free)
-		i_unlink(lock->path);
+		file_try_unlink_locked(lock);
 	if (lock->close_on_free)
 		i_close_fd(&lock->fd);
 
