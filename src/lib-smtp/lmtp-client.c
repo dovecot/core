@@ -250,7 +250,7 @@ void lmtp_client_fail(struct lmtp_client *client, const char *line)
 	lmtp_client_fail_full(client, line, FALSE);
 }
 
-static void
+static int
 lmtp_client_rcpt_next(struct lmtp_client *client, const char *line)
 {
 	struct lmtp_rcpt *rcpt;
@@ -261,12 +261,20 @@ lmtp_client_rcpt_next(struct lmtp_client *client, const char *line)
 	if (result == LMTP_CLIENT_RESULT_OK)
 		client->rcpt_to_successes = TRUE;
 
+	if (client->rcpt_next_receive_idx >=
+		array_count(&client->recipients)) {
+		lmtp_client_fail(client, t_strdup_printf(
+			"451 4.5.0 Received unexpected reply: %s", line));
+		return -1;
+	}
+
 	rcpt = array_idx_modifiable(&client->recipients,
 				    client->rcpt_next_receive_idx);
 	client->rcpt_next_receive_idx++;
 
 	rcpt->failed = result != LMTP_CLIENT_RESULT_OK;
 	rcpt->rcpt_to_callback(result, line, rcpt->context);
+	return 0;
 }
 
 static int lmtp_client_send_data_cmd(struct lmtp_client *client)
@@ -556,7 +564,8 @@ static int lmtp_client_input_line(struct lmtp_client *client, const char *line)
 		lmtp_client_send_rcpts(client);
 		break;
 	case LMTP_INPUT_STATE_RCPT_TO:
-		lmtp_client_rcpt_next(client, line);
+		if (lmtp_client_rcpt_next(client, line) < 0)
+			return -1;
 		if (client->data_input == NULL)
 			break;
 		if (lmtp_client_send_data_cmd(client) < 0)
