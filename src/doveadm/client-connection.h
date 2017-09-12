@@ -19,6 +19,7 @@ struct client_connection {
 	bool handshaked:1;
 	bool authenticated:1;
 	bool http:1;
+	bool io_setup:1;
 };
 
 struct client_connection *

@@ -307,30 +307,38 @@ static void server_connection_input(struct server_connection *conn)
 
 	timeout_remove(&conn->to_input);
 
-	if (!conn->handshaked) {
-		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
+	if (!conn->handshaked || !conn->authenticated) {
+		while((line = i_stream_read_next_line(conn->input)) != NULL) {
+			if (strcmp(line, "+") == 0) {
+				server_connection_authenticated(conn);
+				break;
+			} else if (strcmp(line, "-") == 0) {
+				if (!conn->handshaked &&
+				    server_connection_authenticate(conn) < 0) {
+					server_connection_destroy(&conn);
+					return;
+				} else if (conn->handshaked) {
+					i_error("doveadm authentication failed (%s)",
+						line+1);
+					server_connection_destroy(&conn);
+					return;
+				}
+			} else {
+				i_error("doveadm server sent invalid handshake: %s",
+					line);
+				server_connection_destroy(&conn);
+				return;
+			}
+			conn->handshaked = TRUE;
+		}
+
+		if (line == NULL) {
 			if (conn->input->eof || conn->input->stream_errno != 0) {
 				server_log_disconnect_error(conn);
 				server_connection_destroy(&conn);
 			}
-			return;
 		}
-
-		conn->handshaked = TRUE;
-		if (strcmp(line, "+") == 0)
-			server_connection_authenticated(conn);
-		else if (strcmp(line, "-") == 0) {
-			if (server_connection_authenticate(conn) < 0) {
-				server_connection_destroy(&conn);
-				return;
-			}
-			return;
-		} else {
-			i_error("doveadm server sent invalid handshake: %s",
-				line);
-			server_connection_destroy(&conn);
-			return;
-		}
+		return;
 	}
 
 	if (i_stream_read(conn->input) < 0) {
@@ -338,18 +346,6 @@ static void server_connection_input(struct server_connection *conn)
 		server_log_disconnect_error(conn);
 		server_connection_destroy(&conn);
 		return;
-	}
-
-	if (!conn->authenticated) {
-		if ((line = i_stream_next_line(conn->input)) == NULL)
-			return;
-		if (strcmp(line, "+") == 0)
-			server_connection_authenticated(conn);
-		else {
-			i_error("doveadm authentication failed (%s)", line+1);
-			server_connection_destroy(&conn);
-			return;
-		}
 	}
 
 	while (server_connection_input_one(conn)) ;
