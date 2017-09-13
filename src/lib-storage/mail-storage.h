@@ -510,6 +510,10 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 				   const guid_128_t guid,
 				   enum mailbox_flags flags);
+/* Initialize mailbox for delivery without actually opening any files or
+   verifying that it exists. */
+struct mailbox *mailbox_alloc_delivery(struct mail_user *user,
+	const char *name, enum mailbox_flags flags);
 /* Set a human-readable reason for why this mailbox is being accessed.
    This is used for logging purposes. */
 void mailbox_set_reason(struct mailbox *box, const char *reason);
