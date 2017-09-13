@@ -194,9 +194,11 @@ void message_header_encode_data(const unsigned char *input, unsigned int len,
 	   recursively. */
 	next_line_input = memchr(input, '\n', len);
 	if (next_line_input != NULL) {
-		if (next_line_input != input && next_line_input[-1] == '\r')
-			next_line_input--;
 		cur_line_len = next_line_input - input;
+		if (cur_line_len > 0 && input[cur_line_len-1] == '\r') {
+			cur_line_len--;
+			next_line_input = input + cur_line_len;
+		}
 		next_line_len = len - cur_line_len;
 		len = cur_line_len;
 	}
