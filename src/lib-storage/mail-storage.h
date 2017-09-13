@@ -63,6 +63,8 @@ enum mailbox_flags {
 	MAILBOX_FLAG_USE_STUBS		= 0x800,
 	/* Mailbox is created implicitly if it does not exist. */
 	MAILBOX_FLAG_AUTO_CREATE	= 0x1000,
+	/* Mailbox is subscribed to implicitly when it is created automatically */
+	MAILBOX_FLAG_AUTO_SUBSCRIBE	= 0x2000
 };
 
 enum mailbox_feature {

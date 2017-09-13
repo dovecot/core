@@ -888,6 +888,8 @@ bool mailbox_is_autocreated(struct mailbox *box)
 
 bool mailbox_is_autosubscribed(struct mailbox *box)
 {
+	if ((box->flags & MAILBOX_FLAG_AUTO_SUBSCRIBE) != 0)
+		return TRUE;
 	return box->set != NULL &&
 		strcmp(box->set->autocreate, MAILBOX_SET_AUTO_SUBSCRIBE) == 0;
 }
