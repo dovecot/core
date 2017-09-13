@@ -717,16 +717,17 @@ void mailbox_list_index_update_mailbox_index(struct mailbox *box,
 	if ((ret = index_list_open_view(box, FALSE, &list_view, &changes.seq)) <= 0)
 		return;
 
+	guid_128_empty(mailbox_guid);
 	(void)mailbox_list_index_status(box->list, list_view, changes.seq,
 					CACHED_STATUS_ITEMS, &status,
 					mailbox_guid, NULL);
+
 	if (update->uid_validity != 0) {
 		changes.rec_changed = TRUE;
 		changes.status.uidvalidity = update->uid_validity;
 	}
 	if (!guid_128_equals(update->mailbox_guid, mailbox_guid) &&
-	    !guid_128_is_empty(update->mailbox_guid) &&
-	    !guid_128_is_empty(mailbox_guid)) {
+	    !guid_128_is_empty(update->mailbox_guid)) {
 		changes.rec_changed = TRUE;
 		memcpy(changes.guid, update->mailbox_guid, sizeof(changes.guid));
 		guid_changed = TRUE;
