@@ -129,7 +129,7 @@ struct mail_keywords {
 	int refcount;
 
         /* variable sized list of keyword indexes */
-	unsigned int idx[1];
+	unsigned int idx[FLEXIBLE_ARRAY_MEMBER];
 };
 
 enum mail_index_transaction_flags {

@@ -382,7 +382,7 @@ mail_index_keywords_create(struct mail_index *index,
 
 	/* @UNSAFE */
 	k = i_malloc(MALLOC_ADD(sizeof(struct mail_keywords),
-				MALLOC_MULTIPLY(sizeof(k->idx), (count-1))));
+				MALLOC_MULTIPLY(sizeof(k->idx[0]), count)));
 	k->index = index;
 	k->refcount = 1;
 
@@ -422,7 +422,7 @@ mail_index_keywords_create_from_indexes(struct mail_index *index,
 
 	/* @UNSAFE */
 	k = i_malloc(MALLOC_ADD(sizeof(struct mail_keywords),
-				MALLOC_MULTIPLY(sizeof(k->idx), (count-1))));
+				MALLOC_MULTIPLY(sizeof(k->idx[0]), count)));
 	k->index = index;
 	k->refcount = 1;
 
