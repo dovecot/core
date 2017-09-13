@@ -29,6 +29,8 @@ static void str_sanitize_truncate_char(string_t *dest, unsigned int initial_pos)
 
 	if (len == initial_pos)
 		return;
+
+	i_assert(len > 0);
 	if ((data[len-1] & 0x80) == 0) {
 		str_truncate(dest, len-1);
 		return;
