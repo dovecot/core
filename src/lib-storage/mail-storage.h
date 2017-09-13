@@ -61,6 +61,8 @@ enum mailbox_flags {
 	   The backend shouldn't treat it as corruption if a mail body isn't
 	   found. */
 	MAILBOX_FLAG_USE_STUBS		= 0x800,
+	/* Mailbox is created implicitly if it does not exist. */
+	MAILBOX_FLAG_AUTO_CREATE	= 0x1000,
 };
 
 enum mailbox_feature {
