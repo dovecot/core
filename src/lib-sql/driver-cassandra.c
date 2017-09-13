@@ -1245,6 +1245,7 @@ driver_cassandra_get_value(struct cassandra_result *result,
 
 	if (cass_value_is_null(value) != 0) {
 		*str_r = NULL;
+		*len_r = 0;
 		return 0;
 	}
 
