@@ -693,6 +693,12 @@ void mail_index_close_file(struct mail_index *index)
 static void mail_index_close_nonopened(struct mail_index *index)
 {
 	i_assert(!index->syncing);
+
+	if (index->views != NULL) {
+		i_panic("Leaked view for index %s: Opened in %s:%u",
+			index->filepath, index->views->source_filename,
+			index->views->source_linenum);
+	}
 	i_assert(index->views == NULL);
 
 	if (index->map != NULL)

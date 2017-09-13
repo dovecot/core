@@ -301,7 +301,11 @@ mail_index_refresh(struct mail_index *index);
 /* View can be used to look into index. Sequence numbers inside view change
    only when you synchronize it. The view acquires required locks
    automatically, but you'll have to drop them manually. */
-struct mail_index_view *mail_index_view_open(struct mail_index *index);
+struct mail_index_view *
+mail_index_view_open(struct mail_index *index,
+		     const char *source_filename, unsigned int source_linenum);
+#define mail_index_view_open(index) \
+	mail_index_view_open(index, __FILE__, __LINE__)
 void mail_index_view_close(struct mail_index_view **view);
 
 /* Returns the index for given view. */

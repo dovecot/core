@@ -51,6 +51,9 @@ struct mail_index_view {
 	struct mail_index *index;
         struct mail_transaction_log_view *log_view;
 
+	const char *source_filename;
+	unsigned int source_linenum;
+
 	uint32_t indexid;
 	unsigned int inconsistency_id;
 	uint64_t highest_modseq;
