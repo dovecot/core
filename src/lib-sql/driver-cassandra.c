@@ -993,7 +993,8 @@ static void driver_cassandra_result_send_query(struct cassandra_result *result)
 	i_assert(result->statement != NULL);
 
 	db->counters[CASSANDRA_COUNTER_TYPE_QUERY_SENT]++;
-	driver_cassandra_init_statement(result);
+	if (result->query_type != CASSANDRA_QUERY_TYPE_READ_MORE)
+		driver_cassandra_init_statement(result);
 
 	future = cass_session_execute(db->session, result->statement);
 	driver_cassandra_set_callback(future, db, query_callback, result);
@@ -1366,6 +1367,7 @@ driver_cassandra_result_more(struct sql_result **_result, bool async,
 	   the caller" error text, so it won't be in the debug log output. */
 	i_free_and_null(old_result->error);
 
+	new_result->consistency = old_result->consistency;
 	new_result->page_num = old_result->page_num + 1;
 	new_result->page0_start_time = old_result->page0_start_time;
 	new_result->total_row_count = old_result->total_row_count;
