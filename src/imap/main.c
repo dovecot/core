@@ -18,7 +18,7 @@
 #include "master-login.h"
 #include "mail-user.h"
 #include "mail-storage-service.h"
-#include "lda-settings.h"
+#include "smtp-submit-settings.h"
 #include "imap-master-client.h"
 #include "imap-resp-code.h"
 #include "imap-commands.h"
@@ -245,7 +245,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	struct mail_user *mail_user;
 	struct client *client;
 	struct imap_settings *imap_set;
-	struct lda_settings *lda_set;
+	struct smtp_submit_settings *smtp_set;
 	const char *errstr;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
@@ -253,15 +253,15 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		return -1;
 	restrict_access_allow_coredumps(TRUE);
 
-	imap_set = mail_storage_service_user_get_set(user)[1];
+	smtp_set = mail_storage_service_user_get_set(user)[1];
+	imap_set = mail_storage_service_user_get_set(user)[2];
 	if (imap_set->verbose_proctitle)
 		verbose_proctitle = TRUE;
-	lda_set = mail_storage_service_user_get_set(user)[2];
 
-	if (settings_var_expand(&imap_setting_parser_info, imap_set,
+	if (settings_var_expand(&smtp_submit_setting_parser_info, smtp_set,
 				mail_user->pool, mail_user_var_expand_table(mail_user),
 				&errstr) <= 0 ||
-	    settings_var_expand(&lda_setting_parser_info, lda_set,
+			settings_var_expand(&imap_setting_parser_info, imap_set,
 				mail_user->pool, mail_user_var_expand_table(mail_user),
 				&errstr) <= 0) {
 		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
@@ -271,7 +271,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	}
 
 	client = client_create(fd_in, fd_out, input->session_id,
-			       mail_user, user, imap_set, lda_set);
+			       mail_user, user, imap_set, smtp_set);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
 	*client_r = client;
@@ -397,8 +397,8 @@ static void client_connected(struct master_service_connection *conn)
 int main(int argc, char *argv[])
 {
 	static const struct setting_parser_info *set_roots[] = {
+		&smtp_submit_setting_parser_info,
 		&imap_setting_parser_info,
-		&lda_setting_parser_info,
 		NULL
 	};
 	struct master_login_settings login_set;

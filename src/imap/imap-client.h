@@ -155,7 +155,7 @@ struct client {
 	pool_t pool;
 	struct mail_storage_service_user *service_user;
 	const struct imap_settings *set;
-	const struct lda_settings *lda_set;
+	const struct smtp_submit_settings *smtp_set;
 	string_t *capability_string;
 	const char *disconnect_reason;
 
@@ -254,7 +254,7 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
-			     const struct lda_settings *lda_set);
+			     const struct smtp_submit_settings *smtp_set);
 void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */
