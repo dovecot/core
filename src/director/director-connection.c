@@ -761,8 +761,12 @@ static bool director_cmd_director(struct director_connection *conn,
 		}
 
 		/* already have this. just reset its last_network_failure
-		   timestamp, since it might be up now. */
-		host->last_network_failure = 0;
+		   timestamp, since it might be up now, but only if this
+		   isn't part of the handshake. (if it was, reseting the
+		   timestamp could cause us to rapidly keep trying to connect
+		   to it) */
+		if (conn->handshake_received)
+			host->last_network_failure = 0;
 		/* it also may have been restarted, reset its state */
 		director_host_restarted(host);
 	} else {
