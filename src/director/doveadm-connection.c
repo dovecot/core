@@ -287,10 +287,8 @@ doveadm_cmd_director_remove(struct doveadm_connection *conn,
 		director_host_lookup_ip(conn->dir, &ip);
 	if (host == NULL)
 		o_stream_nsend_str(conn->output, "NOTFOUND\n");
-	else {
+	else
 		director_ring_remove(host, conn->dir->self_host);
-		o_stream_nsend(conn->output, "OK\n", 3);
-	}
 	return DOVEADM_DIRECTOR_CMD_RET_RING_SYNC_OK;
 }
 
