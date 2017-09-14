@@ -4,10 +4,7 @@
 struct mail_user_settings;
 
 struct lda_settings {
-	const char *postmaster_address;
 	const char *hostname;
-	const char *submission_host;
-	const char *sendmail_path;
 	const char *rejection_subject;
 	const char *rejection_reason;
 	const char *deliver_log_format;
