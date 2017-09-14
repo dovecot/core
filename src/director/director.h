@@ -169,7 +169,7 @@ void director_deinit(struct director **dir);
 void director_find_self(struct director *dir);
 
 /* Start connecting to other directors */
-void director_connect(struct director *dir);
+void director_connect(struct director *dir, const char *reason);
 
 void director_set_ring_handshaked(struct director *dir);
 void director_set_ring_synced(struct director *dir);
@@ -238,7 +238,8 @@ void director_update_send_version(struct director *dir,
 				  struct director_host *src,
 				  unsigned int min_version, const char *cmd);
 
-int director_connect_host(struct director *dir, struct director_host *host);
+int director_connect_host(struct director *dir, struct director_host *host,
+			  const char *reason);
 
 unsigned int
 director_get_username_hash(struct director *dir, const char *username);
