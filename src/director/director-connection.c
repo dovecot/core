@@ -1647,6 +1647,12 @@ static bool director_cmd_connect(struct director_connection *conn,
 		director_reconnect_after_wrong_connect(conn);
 		return TRUE;
 	}
+	if (host->removed) {
+		dir_debug("Ignoring CONNECT request to %s (director is removed)",
+			  host->name);
+		director_reconnect_after_wrong_connect(conn);
+		return TRUE;
+	}
 
 	/* reset failure timestamp so we'll actually try to connect there. */
 	host->last_network_failure = 0;
