@@ -129,7 +129,8 @@ director_has_outgoing_connection(struct director *dir,
 }
 
 static void
-director_log_connect(struct director *dir, struct director_host *host)
+director_log_connect(struct director *dir, struct director_host *host,
+		     const char *reason)
 {
 	string_t *str = t_str_new(128);
 
@@ -141,12 +142,13 @@ director_log_connect(struct director *dir, struct director_host *host)
 		str_printfa(str, ", last protocol failure %ds ago",
 			    (int)(ioloop_time - host->last_protocol_failure));
 	}
-	dir_debug("Connecting to %s:%u (as %s%s)",
-		  net_ip2addr(&host->ip), host->port,
-		  net_ip2addr(&dir->self_ip), str_c(str));
+	i_info("Connecting to %s:%u (as %s%s): %s",
+	       net_ip2addr(&host->ip), host->port,
+	       net_ip2addr(&dir->self_ip), str_c(str), reason);
 }
 
-int director_connect_host(struct director *dir, struct director_host *host)
+int director_connect_host(struct director *dir, struct director_host *host,
+			  const char *reason)
 {
 	in_port_t port;
 	int fd;
@@ -154,8 +156,7 @@ int director_connect_host(struct director *dir, struct director_host *host)
 	if (director_has_outgoing_connection(dir, host))
 		return 0;
 
-	if (director_debug)
-		director_log_connect(dir, host);
+	director_log_connect(dir, host, reason);
 	port = dir->test_port != 0 ? dir->test_port : host->port;
 	fd = net_connect_ip(&host->ip, port, &dir->self_ip);
 	if (fd == -1) {
@@ -193,6 +194,11 @@ director_get_preferred_right_host(struct director *dir)
 	return NULL;
 }
 
+static void director_quick_reconnect_retry(struct director *dir)
+{
+	director_connect(dir, "Alone in director ring - trying to connect to others");
+}
+
 static bool director_wait_for_others(struct director *dir)
 {
 	struct director_host *const *hostp;
@@ -213,11 +219,11 @@ static bool director_wait_for_others(struct director *dir)
 	if (dir->to_reconnect != NULL)
 		timeout_remove(&dir->to_reconnect);
 	dir->to_reconnect = timeout_add(DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS,
-					director_connect, dir);
+					director_quick_reconnect_retry, dir);
 	return TRUE;
 }
 
-void director_connect(struct director *dir)
+void director_connect(struct director *dir, const char *reason)
 {
 	struct director_host *const *hosts;
 	unsigned int i, count, self_idx;
@@ -245,7 +251,7 @@ void director_connect(struct director *dir)
 			continue;
 		}
 
-		if (director_connect_host(dir, hosts[idx]) == 0) {
+		if (director_connect_host(dir, hosts[idx], reason) == 0) {
 			/* success */
 			return;
 		}
@@ -301,9 +307,10 @@ static void director_reconnect_timeout(struct director *dir)
 
 	if (preferred_host == NULL) {
 		/* all directors have been removed, try again later */
-	} else if (cur_host != preferred_host)
-		(void)director_connect_host(dir, preferred_host);
-	else {
+	} else if (cur_host != preferred_host) {
+		(void)director_connect_host(dir, preferred_host,
+			"Reconnect attempt to preferred director");
+	} else {
 		/* the connection hasn't finished sync yet.
 		   keep this timeout for now. */
 	}
@@ -555,7 +562,7 @@ void director_ring_remove(struct director_host *removed_host,
 		}
 	}
 	if (dir->right == NULL)
-		director_connect(dir);
+		director_connect(dir, "Reconnecting after director was removed");
 
 	cmd = t_strdup_printf("DIRECTOR-REMOVE\t%s\t%u\n",
 			      net_ip2addr(&removed_host->ip),
