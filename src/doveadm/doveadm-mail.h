@@ -74,7 +74,7 @@ struct doveadm_mail_cmd_context {
 	struct mail_storage_service_input storage_service_input;
 	/* search args aren't set for all mail commands */
 	struct mail_search_args *search_args;
-	struct istream *users_list_input;
+	const char *const *users_list;
 
 	struct mail_storage_service_user *cur_service_user;
 	struct mail_user *cur_mail_user;

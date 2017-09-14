@@ -8,6 +8,7 @@
 #include "istream-dot.h"
 #include "istream-seekable.h"
 #include "str.h"
+#include "strescape.h"
 #include "unichar.h"
 #include "module-dir.h"
 #include "wildcard-match.h"
@@ -481,7 +482,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 
 	ctx->v.init(ctx, ctx->args);
 
-	if (ctx->users_list_input == NULL)
+	if (ctx->users_list == NULL)
 		mail_storage_service_all_init_mask(ctx->storage_service,
 			wildcard_user != NULL ? wildcard_user : "");
 
@@ -537,18 +538,42 @@ doveadm_mail_cmd_init_noop(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 }
 
 static int
+doveadm_mail_read_users_list(struct doveadm_mail_cmd_context *mctx,
+			     struct istream *input)
+{
+	ARRAY_TYPE(const_string) users_list;
+	const char *user;
+
+	p_array_init(&users_list, mctx->pool, 8);
+	while ((user = i_stream_read_next_line(input)) != NULL &&
+	       strlen(user) > 0)
+		array_append(&users_list, &user, 1);
+	if (input->stream_errno != 0) {
+		i_error("read(%s) failed: %s",
+			i_stream_get_name(input),
+			i_stream_get_error(input));
+	}
+	/* append empty entry so doveadm will always print username header.
+	   empty entries will be skipped in get_next_user. */
+	user = "";
+	array_append(&users_list, &user, 1);
+	mctx->users_list = array_idx(&users_list, 0);
+	return array_count(&users_list) - 1;
+}
+
+static int
 doveadm_mail_cmd_get_next_user(struct doveadm_mail_cmd_context *ctx,
 			       const char **username_r)
 {
-	if (ctx->users_list_input == NULL)
+	if (ctx->users_list == NULL)
 		return mail_storage_service_all_next(ctx->storage_service, username_r);
 
-	*username_r = i_stream_read_next_line(ctx->users_list_input);
-	if (ctx->users_list_input->stream_errno != 0) {
-		i_error("read(%s) failed: %s",
-			i_stream_get_name(ctx->users_list_input),
-			i_stream_get_error(ctx->users_list_input));
-		return -1;
+	*username_r = *ctx->users_list;
+	while (*ctx->users_list != NULL && ctx->users_list++) {
+		/* skip empty entries */
+		if (*ctx->users_list && *ctx->users_list[0] == '\0')
+			continue;
+		break;
 	}
 	return *username_r != NULL ? 1 : 0;
 }
@@ -649,7 +674,6 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 
 static void doveadm_mail_cmd_free(struct doveadm_mail_cmd_context *ctx)
 {
-	i_stream_unref(&ctx->users_list_input);
 	i_stream_unref(&ctx->cmd_input);
 	pool_unref(&ctx->pool);
 }
@@ -701,8 +725,12 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 			ctx->service_flags |=
 				MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 			wildcard_user = "*";
-			ctx->users_list_input =
-				i_stream_create_file(optarg, 1024);
+			if (doveadm_mail_read_users_list(ctx,
+				i_stream_create_file(optarg, 1024)) == 0) {
+				i_fatal_status(EX_USAGE, "doveadm %s: Empty users list",
+					       cmd->name);
+				return;
+			}
 			break;
 		default:
 			if (ctx->v.parse_arg == NULL ||
@@ -966,7 +994,6 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	ARRAY_TYPE(const_string) pargv, full_args;
 	int i;
 	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
-	bool tcp_server = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_TCP);
 	struct doveadm_mail_cmd mail_cmd = {
 		cctx->cmd->mail_cmd, cctx->cmd->name, cctx->cmd->usage
 	};
@@ -1011,29 +1038,63 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 				doveadm_settings->doveadm_worker_count = 1;
 		} else if (strcmp(arg->name, "user") == 0) {
 			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-			if (!tcp_server)
-				cctx->username = arg->value.v_string;
 
 			fieldstr = "-u";
 			array_append(&full_args, &fieldstr, 1);
 			array_append(&full_args, &arg->value.v_string, 1);
-			if (strchr(arg->value.v_string, '*') != NULL ||
-			    strchr(arg->value.v_string, '?') != NULL) {
+
+			mctx->users_list = (const char **)p_strsplit_tabescaped(
+				mctx->pool, arg->value.v_string);
+			if (str_array_length(mctx->users_list) == 0) {
+				i_error("Empty users list: %s", arg->name);
+				doveadm_mail_cmd_free(mctx);
+				return;
+			} else if (str_array_length(mctx->users_list) > 1) {
+				mctx->add_username_header = TRUE;
+				cctx->username = NULL;
+				wildcard_user = "*";
+			} else if (strchr(mctx->users_list[0], '*') != NULL ||
+				   strchr(mctx->users_list[0], '?') != NULL) {
 				mctx->add_username_header = TRUE;
 				if (!is_net_client) {
-					wildcard_user = arg->value.v_string;
+					wildcard_user = mctx->users_list[0];
 					cctx->username = NULL;
+					mctx->users_list = NULL;
 				}
+			} else {
+				cctx->username = mctx->users_list[0];
 			}
 		} else if (strcmp(arg->name, "user-file") == 0) {
+			if (doveadm_mail_read_users_list(mctx,
+					arg->value.v_istream) == 0) {
+				i_error("Empty users list: %s", arg->name);
+				doveadm_mail_cmd_free(mctx);
+				return;
+			}
 			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-			wildcard_user = "*";
-			mctx->users_list_input = arg->value.v_istream;
-			fieldstr = "-F";
-			array_append(&full_args, &fieldstr, 1);
-			fieldstr = ""; /* value doesn't really matter */
-			array_append(&full_args, &fieldstr, 1);
-			i_stream_ref(mctx->users_list_input);
+			if (!is_net_client) {
+				fieldstr = "-F";
+				array_append(&full_args, &fieldstr, 1);
+				fieldstr = ""; /* value doesn't really matter */
+				array_append(&full_args, &fieldstr, 1);
+				wildcard_user = "*";
+			} else {
+				/* convert parameter to "-u escape(<users_list>)" */
+				string_t *escaped = t_str_new(64);
+				unsigned int i;
+				for (i = 0; mctx->users_list[i] != NULL; i++) {
+					if (i != 0)
+						str_append_c(escaped, '\t');
+					str_append_tabescaped(escaped, mctx->users_list[i]);
+				}
+
+				fieldstr = "-u";
+				array_append(&full_args, &fieldstr, 1);
+				fieldstr = str_c(escaped);
+				array_append(&full_args, &fieldstr, 1);
+				mctx->add_username_header = TRUE;
+				cctx->username = mctx->users_list[0];
+			}
 		} else if (strcmp(arg->name, "field") == 0 ||
 			   strcmp(arg->name, "flag") == 0) {
 			/* mailbox status, fetch, flags: convert an array into a
