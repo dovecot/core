@@ -11,6 +11,7 @@
 #include "master-service.h"
 #include "director.h"
 #include "director-request.h"
+#include "auth-client-interface.h"
 #include "auth-connection.h"
 #include "login-connection.h"
 
@@ -151,7 +152,7 @@ login_host_callback(const struct ip_addr *ip, const char *hostname,
 		i_error("director: User %s host lookup failed: %s",
 			request->username, errormsg);
 		line = t_strconcat("FAIL\t", t_strcut(line_params, '\t'),
-				   "\ttemp", NULL);
+				   "\tcode="AUTH_CLIENT_FAIL_CODE_TEMPFAIL, NULL);
 	} else if (request->director_proxy_maybe &&
 		   login_host_request_is_self(request, ip)) {
 		line = request->line;
