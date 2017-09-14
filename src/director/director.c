@@ -550,6 +550,14 @@ void director_ring_remove(struct director_host *removed_host,
 				    director_delayed_dir_remove_timeout, dir);
 	}
 
+	/* if our left or ride side gets removed, notify them first
+	   before disconnecting. */
+	cmd = t_strdup_printf("DIRECTOR-REMOVE\t%s\t%u\n",
+			      net_ip2addr(&removed_host->ip),
+			      removed_host->port);
+	director_update_send_version(dir, src,
+				     DIRECTOR_VERSION_RING_REMOVE, cmd);
+
 	/* disconnect any connections to the host */
 	conns = array_get(&dir->connections, &count);
 	for (i = 0; i < count; ) {
@@ -563,12 +571,6 @@ void director_ring_remove(struct director_host *removed_host,
 	}
 	if (dir->right == NULL)
 		director_connect(dir, "Reconnecting after director was removed");
-
-	cmd = t_strdup_printf("DIRECTOR-REMOVE\t%s\t%u\n",
-			      net_ip2addr(&removed_host->ip),
-			      removed_host->port);
-	director_update_send_version(dir, src,
-				     DIRECTOR_VERSION_RING_REMOVE, cmd);
 	director_sync(dir);
 }
 
