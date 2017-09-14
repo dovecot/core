@@ -26,6 +26,7 @@
 #include "mail-deliver.h"
 #include "mail-send.h"
 #include "mbox-from.h"
+#include "smtp-submit-settings.h"
 #include "lda-settings.h"
 
 #include <stdio.h>
@@ -268,6 +269,7 @@ static void print_help(void)
 int main(int argc, char *argv[])
 {
 	const struct setting_parser_info *set_roots[] = {
+		&smtp_submit_setting_parser_info,
 		&lda_setting_parser_info,
 		NULL
 	};
@@ -275,6 +277,7 @@ int main(int argc, char *argv[])
 	enum mail_storage_service_flags service_flags = 0;
 	const char *user, *errstr, *path;
 	struct lda_settings *lda_set;
+	struct smtp_submit_settings *smtp_set;
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input service_input;
@@ -430,12 +433,22 @@ int main(int argc, char *argv[])
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
 	var_table = mail_user_var_expand_table(ctx.dest_user);
-	lda_set = mail_storage_service_user_get_set(service_user)[1];
-	if (settings_var_expand(&lda_setting_parser_info, lda_set,
-				ctx.dest_user->pool, var_table,
-				&errstr) <= 0)
+	smtp_set = mail_storage_service_user_get_set(service_user)[1];
+	lda_set = mail_storage_service_user_get_set(service_user)[2];
+	ret = settings_var_expand(
+		&lda_setting_parser_info,
+		lda_set, ctx.dest_user->pool, var_table,
+		&errstr);
+	if (ret > 0) {
+		ret = settings_var_expand(
+			&smtp_submit_setting_parser_info,
+			smtp_set, ctx.dest_user->pool, var_table,
+			&errstr);
+	}
+	if (ret <= 0)
 		i_fatal("Failed to expand settings: %s", errstr);
 	ctx.set = lda_set;
+	ctx.smtp_set = smtp_set;
 
 	if (ctx.dest_user->mail_debug && *user_source != '\0') {
 		i_debug("userdb lookup skipped, username taken from %s",

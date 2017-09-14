@@ -4,6 +4,7 @@
 #include "hostpid.h"
 #include "settings-parser.h"
 #include "mail-storage-settings.h"
+#include "smtp-submit-settings.h"
 #include "lda-settings.h"
 
 #include <stddef.h>
@@ -52,6 +53,7 @@ static const struct lda_settings lda_default_settings = {
 
 static const struct setting_parser_info *lda_setting_dependencies[] = {
 	&mail_user_setting_parser_info,
+	&smtp_submit_setting_parser_info,
 	NULL
 };
 

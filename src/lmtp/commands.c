@@ -25,6 +25,7 @@
 #include "auth-master.h"
 #include "mail-storage-service.h"
 #include "index/raw/raw-storage.h"
+#include "smtp-submit-settings.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
 #include "mail-autoexpunge.h"
@@ -542,7 +543,7 @@ client_send_line_overquota(struct client *client,
 			   const struct mail_recipient *rcpt, const char *error)
 {
 	struct lda_settings *lda_set =
-		mail_storage_service_user_get_set(rcpt->service_user)[1];
+		mail_storage_service_user_get_set(rcpt->service_user)[2];
 
 	client_send_line(client, "%s <%s> %s", lda_set->quota_full_tempfail ?
 			 "452 4.2.2" : "552 5.2.2", rcpt->address, error);
@@ -811,6 +812,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
 	const struct mail_storage_settings *mail_set;
+	struct smtp_submit_settings *smtp_set;
 	struct lda_settings *lda_set;
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
@@ -858,9 +860,19 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
 	var_table = mail_user_var_expand_table(dest_user);
-	lda_set = sets[1];
-	if (settings_var_expand(&lda_setting_parser_info, lda_set, client->pool,
-			var_table, &error) <= 0) {
+	smtp_set = sets[1];
+	lda_set = sets[2];
+	ret = settings_var_expand(
+		&smtp_submit_setting_parser_info,
+		smtp_set, client->pool, var_table,
+		&error);
+	if (ret > 0) {
+		ret = settings_var_expand(
+			&lda_setting_parser_info,
+			lda_set, client->pool, var_table,
+			&error);
+	}
+	if (ret <= 0) {
 		i_error("Failed to expand settings: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpt->address);
@@ -1138,7 +1150,7 @@ static const char *client_get_added_headers(struct client *client)
 			array_idx(&client->state.rcpt_to, 0);
 
 		sets = mail_storage_service_user_get_set((*rcptp)->service_user);
-		lmtp_set = sets[2];
+		lmtp_set = sets[3];
 
 		switch (lmtp_set->parsed_lmtp_hdr_delivery_address) {
 		case LMTP_HDR_DELIVERY_ADDRESS_NONE:

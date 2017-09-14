@@ -134,6 +134,6 @@ void lmtp_settings_dup(const struct setting_parser_context *set_parser,
 
 	sets = master_service_settings_parser_get_others(master_service,
 							 set_parser);
-	*lda_set_r = settings_dup(&lda_setting_parser_info, sets[1], pool);
-	*lmtp_set_r = settings_dup(&lmtp_setting_parser_info, sets[2], pool);
+	*lda_set_r = settings_dup(&lda_setting_parser_info, sets[2], pool);
+	*lmtp_set_r = settings_dup(&lmtp_setting_parser_info, sets[3], pool);
 }

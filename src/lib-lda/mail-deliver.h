@@ -25,6 +25,7 @@ struct mail_deliver_session {
 struct mail_deliver_context {
 	pool_t pool;
 	const struct lda_settings *set;
+	const struct smtp_submit_settings *smtp_set;
 	struct mail_deliver_session *session;
 	unsigned int timeout_secs;
 

@@ -13,6 +13,7 @@
 #include "master-interface.h"
 #include "mail-deliver.h"
 #include "mail-storage-service.h"
+#include "smtp-submit-settings.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
 #include "client.h"
@@ -85,6 +86,7 @@ static void main_deinit(void)
 int main(int argc, char *argv[])
 {
 	const struct setting_parser_info *set_roots[] = {
+		&smtp_submit_setting_parser_info,
 		&lda_setting_parser_info,
 		&lmtp_setting_parser_info,
 		NULL
