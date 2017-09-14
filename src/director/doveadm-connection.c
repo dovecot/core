@@ -259,7 +259,7 @@ doveadm_cmd_director_add(struct doveadm_connection *conn,
 
 	if (director_host_lookup(conn->dir, &ip, port) == NULL) {
 		host = director_host_add(conn->dir, &ip, port);
-		director_notify_ring_added(host, conn->dir->self_host);
+		director_notify_ring_added(host, conn->dir->self_host, TRUE);
 	}
 	o_stream_nsend(conn->output, "OK\n", 3);
 	return DOVEADM_DIRECTOR_CMD_RET_OK;

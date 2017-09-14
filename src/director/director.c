@@ -476,9 +476,14 @@ void director_sync_thaw(struct director *dir)
 }
 
 void director_notify_ring_added(struct director_host *added_host,
-				struct director_host *src)
+				struct director_host *src, bool log)
 {
 	const char *cmd;
+
+	if (log) {
+		i_info("Adding director %s to ring (requested by %s)",
+		       added_host->name, src->name);
+	}
 
 	added_host->dir->ring_change_counter++;
 	cmd = t_strdup_printf("DIRECTOR\t%s\t%u\n",
@@ -512,6 +517,9 @@ void director_ring_remove(struct director_host *removed_host,
 	struct director_connection *const *conns, *conn;
 	unsigned int i, count;
 	const char *cmd;
+
+	i_info("Removing director %s from ring (requested by %s)",
+	       removed_host->name, src->name);
 
 	if (removed_host->self) {
 		/* others will just disconnect us */
