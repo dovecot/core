@@ -428,6 +428,8 @@ static void director_sync(struct director *dir)
 	if (dir->right == NULL) {
 		i_assert(!dir->ring_synced ||
 			 (dir->left == NULL && dir->right == NULL));
+		dir_debug("Ring is desynced (seq=%u, no right connection)",
+			  dir->sync_seq);
 		return;
 	}
 
