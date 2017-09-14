@@ -73,6 +73,7 @@
 /* If outgoing director connection exists for less than this many seconds,
    mark the host as failed so we won't try to reconnect to it immediately */
 #define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 40
+#define DIRECTOR_RECONNECT_AFTER_WRONG_CONNECT_MSECS 1000
 #define DIRECTOR_WAIT_DISCONNECT_SECS 10
 #define DIRECTOR_HANDSHAKE_WARN_SECS 29
 #define DIRECTOR_HANDSHAKE_BYTES_LOG_MIN_SECS (60*30)
@@ -1592,6 +1593,31 @@ static bool director_connection_sync(struct director_connection *conn,
 	return TRUE;
 }
 
+static void director_disconnect_timeout(struct director_connection *conn)
+{
+	director_connection_deinit(&conn, "CONNECT requested");
+}
+
+static void
+director_reconnect_after_wrong_connect_timeout(struct director_connection *conn)
+{
+	struct director *dir = conn->dir;
+
+	director_connection_deinit(&conn, "Wrong CONNECT requested");
+	if (dir->right == NULL)
+		director_connect(dir, "Reconnecting after wrong CONNECT request");
+}
+
+static void
+director_reconnect_after_wrong_connect(struct director_connection *conn)
+{
+	if (conn->to_disconnect != NULL)
+		return;
+	conn->to_disconnect =
+		timeout_add_short(DIRECTOR_RECONNECT_AFTER_WRONG_CONNECT_MSECS,
+				  director_reconnect_after_wrong_connect_timeout, conn);
+}
+
 static bool director_cmd_connect(struct director_connection *conn,
 				 const char *const *args)
 {
@@ -1616,6 +1642,7 @@ static bool director_cmd_connect(struct director_connection *conn,
 		/* the old connection is the correct one */
 		dir_debug("Ignoring CONNECT request to %s (current right is %s)",
 			  host->name, dir->right->name);
+		director_reconnect_after_wrong_connect(conn);
 		return TRUE;
 	}
 
@@ -1629,6 +1656,14 @@ static bool director_cmd_connect(struct director_connection *conn,
 	} else {
 		right_state = t_strdup_printf("replacing current right %s",
 					      dir->right->name);
+		/* disconnect from right side immediately - it's not accepting
+		   any further commands from us. */
+		if (conn->dir->right != conn)
+			director_connection_deinit(&conn->dir->right, "CONNECT requested");
+		else if (conn->to_disconnect == NULL) {
+			conn->to_disconnect =
+				timeout_add_short(0, director_disconnect_timeout, conn);
+		}
 	}
 
 	/* connect here */
