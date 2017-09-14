@@ -548,6 +548,7 @@ void director_ring_remove(struct director_host *removed_host,
 			      removed_host->port);
 	director_update_send_version(dir, src,
 				     DIRECTOR_VERSION_RING_REMOVE, cmd);
+	director_sync(dir);
 }
 
 static void
