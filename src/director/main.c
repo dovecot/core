@@ -338,7 +338,7 @@ int main(int argc, char *argv[])
 	main_preinit();
 	director->test_port = test_port;
 	director_debug = debug;
-	director_connect(director);
+	director_connect(director, "Initial connection");
 
 	if (director->test_port != 0) {
 		/* we're testing, possibly writing to same log file.

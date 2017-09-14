@@ -515,7 +515,7 @@ static bool director_cmd_me(struct director_connection *conn,
 		   its failed state, so we can connect to it */
 		conn->host->last_network_failure = 0;
 		if (!director_has_outgoing_connections(dir))
-			director_connect(dir);
+			director_connect(dir, "Connecting to left");
 	} else if (dir->left->host == conn->host) {
 		/* b) */
 		i_assert(dir->left != conn);
@@ -1597,6 +1597,7 @@ static bool director_cmd_connect(struct director_connection *conn,
 	struct director_host *host;
 	struct ip_addr ip;
 	in_port_t port;
+	const char *right_state;
 
 	if (str_array_length(args) != 2 ||
 	    !director_args_parse_ip_port(conn, args, &ip, &port)) {
@@ -1622,16 +1623,16 @@ static bool director_cmd_connect(struct director_connection *conn,
 	host->removed = FALSE;
 
 	if (dir->right == NULL) {
-		dir_debug("Received CONNECT request to %s, "
-			  "initializing right", host->name);
+		right_state = "initializing right";
 	} else {
-		dir_debug("Received CONNECT request to %s, "
-			  "replacing current right %s",
-			  host->name, dir->right->name);
+		right_state = t_strdup_printf("replacing current right %s",
+					      dir->right->name);
 	}
 
 	/* connect here */
-	(void)director_connect_host(dir, host);
+	(void)director_connect_host(dir, host, t_strdup_printf(
+		"Received CONNECT request from %s - %s",
+		conn->name, right_state));
 	return TRUE;
 }
 
@@ -2022,6 +2023,7 @@ director_connection_init_in(struct director *dir, int fd,
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
 				    director_connection_init_timeout, conn);
 
+	i_info("Incoming connection from director %s", conn->name);
 	director_connection_send_handshake(conn);
 	return conn;
 }
@@ -2179,7 +2181,7 @@ static void director_connection_disconnected(struct director_connection **_conn,
 
 	director_connection_deinit(_conn, reason);
 	if (dir->right == NULL)
-		director_connect(dir);
+		director_connect(dir, "Reconnecting after disconnection");
 }
 
 static void director_connection_reconnect(struct director_connection **_conn,
@@ -2190,7 +2192,7 @@ static void director_connection_reconnect(struct director_connection **_conn,
 
 	director_connection_deinit(_conn, reason);
 	if (dir->right == NULL)
-		director_connect(dir);
+		director_connect(dir, "Reconnecting after error");
 }
 
 void director_connection_send(struct director_connection *conn,
