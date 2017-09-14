@@ -136,6 +136,17 @@ cmd_director_init(struct doveadm_cmd_context *cctx)
 	return ctx;
 }
 
+static void director_disconnected(struct director_context *ctx)
+{
+	i_assert(ctx->input->eof);
+	if (ctx->input->stream_errno != 0) {
+		i_error("read(%s) failed: %s", ctx->socket_path,
+			i_stream_get_error(ctx->input));
+	} else {
+		i_error("%s unexpectedly disconnected", ctx->socket_path);
+	}
+	doveadm_exit_code = EX_TEMPFAIL;
+}
 
 static void
 cmd_director_status_user(struct director_context *ctx)
@@ -147,8 +158,7 @@ cmd_director_status_user(struct director_context *ctx)
 					   ctx->tag != NULL ? ctx->tag : ""));
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
-		i_error("Lookup failed");
-		doveadm_exit_code = EX_TEMPFAIL;
+		director_disconnected(ctx);
 		return;
 	}
 
@@ -228,10 +238,8 @@ static void cmd_director_status(struct doveadm_cmd_context *cctx)
 			}
 		} T_END;
 	}
-	if (line == NULL) {
-		i_error("Director disconnected unexpectedly");
-		doveadm_exit_code = EX_TEMPFAIL;
-	}
+	if (line == NULL)
+		director_disconnected(ctx);
 	director_disconnect(ctx);
 }
 
@@ -417,10 +425,8 @@ static void cmd_director_map(struct doveadm_cmd_context *cctx)
 			}
 		} T_END;
 	}
-	if (line == NULL) {
-		i_error("Director disconnected unexpectedly");
-		doveadm_exit_code = EX_TEMPFAIL;
-	}
+	if (line == NULL)
+		director_disconnected(ctx);
 deinit:
 	director_disconnect(ctx);
 	hash_table_destroy(&users);
@@ -484,9 +490,10 @@ cmd_director_add_or_update(struct doveadm_cmd_context *cctx, bool update)
 	}
 	for (i = 0; i < ips_count; i++) {
 		line = i_stream_read_next_line(ctx->input);
-		if (line == NULL || strcmp(line, "OK") != 0) {
+		if (line == NULL)
+			director_disconnected(ctx);
+		else if (strcmp(line, "OK") != 0) {
 			i_error("%s: %s\n", net_ip2addr(&ips[i]),
-				line == NULL ? "failed" :
 				strcmp(line, "NOTFOUND") == 0 ?
 				"doesn't exist" : line);
 			doveadm_exit_code = EX_TEMPFAIL;
@@ -538,9 +545,10 @@ cmd_director_ipcmd(const char *cmd_name, const char *success_result,
 				net_ip2addr(&ips[i]));
 			if (doveadm_exit_code == 0)
 				doveadm_exit_code = DOVEADM_EX_NOTFOUND;
-		} else if (line == NULL || strcmp(line, "OK") != 0) {
-			i_error("%s: %s\n", net_ip2addr(&ips[i]),
-				line == NULL ? "failed" : line);
+		} else if (line == NULL) {
+			director_disconnected(ctx);
+		} else if (strcmp(line, "OK") != 0) {
+			i_error("%s: %s\n", net_ip2addr(&ips[i]), line);
 			doveadm_exit_code = EX_TEMPFAIL;
 		} else if (doveadm_verbose) {
 			i_info("%s: %s\n", net_ip2addr(&ips[i]), success_result);
@@ -588,8 +596,7 @@ static void cmd_director_move(struct doveadm_cmd_context *cctx)
 		"USER-MOVE\t%u\t%s\n", user_hash, ip_str));
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
-		i_error("failed");
-		doveadm_exit_code = EX_TEMPFAIL;
+		director_disconnected(ctx);
 	} else if (strcmp(line, "OK") == 0) {
 		if (doveadm_verbose)
 			i_info("User hash %u moved to %s\n", user_hash, ip_str);
@@ -634,8 +641,7 @@ static void cmd_director_kick(struct doveadm_cmd_context *cctx)
 
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
-		i_error("failed");
-		doveadm_exit_code = EX_TEMPFAIL;
+		director_disconnected(ctx);
 	} else if (strcmp(line, "OK") == 0) {
 		if (doveadm_verbose)
 			i_info("User %s kicked", ctx->user);
@@ -662,8 +668,7 @@ static void cmd_director_flush_all(struct director_context *ctx)
 
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
-		i_error("failed");
-		doveadm_exit_code = EX_TEMPFAIL;
+		director_disconnected(ctx);
 	} else if (strcmp(line, "OK") != 0) {
 		i_error("failed: %s", line);
 		doveadm_exit_code = EX_TEMPFAIL;
@@ -722,9 +727,10 @@ static void cmd_director_flush(struct doveadm_cmd_context *cctx)
 				net_ip2addr(&ips[i]));
 			if (doveadm_exit_code == 0)
 				doveadm_exit_code = DOVEADM_EX_NOTFOUND;
-		} else if (line == NULL || strcmp(line, "OK") != 0) {
-			i_warning("%s: %s", net_ip2addr(&ips[i]),
-				line == NULL ? "failed" : line);
+		} else if (line == NULL) {
+			director_disconnected(ctx);
+		} else if (strcmp(line, "OK") != 0) {
+			i_warning("%s: %s", net_ip2addr(&ips[i]), line);
 			doveadm_exit_code = EX_TEMPFAIL;
 		} else if (doveadm_verbose) {
 			i_info("%s: flushed", net_ip2addr(&ips[i]));
@@ -782,10 +788,8 @@ static void cmd_director_dump(struct doveadm_cmd_context *cctx)
 		doveadm_print(line);
 		doveadm_print("");
 	}
-	if (line == NULL) {
-		i_error("Director disconnected unexpectedly");
-		doveadm_exit_code = EX_TEMPFAIL;
-	}
+	if (line == NULL)
+		director_disconnected(ctx);
 	director_disconnect(ctx);
 }
 
@@ -796,8 +800,7 @@ static void director_read_ok_reply(struct director_context *ctx)
 
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
-		i_error("Director disconnected unexpectedly");
-		doveadm_exit_code = EX_TEMPFAIL;
+		director_disconnected(ctx);
 	} else if (strcmp(line, "NOTFOUND") == 0) {
 		i_error("Not found");
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
@@ -889,10 +892,8 @@ static void cmd_director_ring_status(struct doveadm_cmd_context *cctx)
 			}
 		} T_END;
 	}
-	if (line == NULL) {
-		i_error("Director disconnected unexpectedly");
-		doveadm_exit_code = EX_TEMPFAIL;
-	}
+	if (line == NULL)
+		director_disconnected(ctx);
 	director_disconnect(ctx);
 }
 
