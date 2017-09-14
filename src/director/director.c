@@ -854,7 +854,7 @@ static void director_user_move_free(struct user *user)
 	i_assert(dir->users_moving_count > 0);
 	dir->users_moving_count--;
 
-	dir->state_change_callback(dir);
+	director_set_state_changed(dir);
 }
 
 static void
