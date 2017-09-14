@@ -289,7 +289,7 @@ doveadm_cmd_director_remove(struct doveadm_connection *conn,
 		director_ring_remove(host, conn->dir->self_host);
 		o_stream_nsend(conn->output, "OK\n", 3);
 	}
-	return DOVEADM_DIRECTOR_CMD_RET_OK;
+	return DOVEADM_DIRECTOR_CMD_RET_RING_SYNC_OK;
 }
 
 static enum doveadm_director_cmd_ret
