@@ -3,6 +3,7 @@ noinst_LTLIBRARIES = libsmtp.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-program-client \
@@ -11,10 +12,12 @@ AM_CPPFLAGS = \
 
 libsmtp_la_SOURCES = \
 	lmtp-client.c \
+	smtp-submit-settings.c \
 	smtp-submit.c
 
 headers = \
 	lmtp-client.h \
+	smtp-submit-settings.h \
 	smtp-submit.h
 
 pkginc_libdir=$(pkgincludedir)

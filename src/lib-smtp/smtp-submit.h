@@ -1,14 +1,11 @@
 #ifndef SMTP_SUBMIT_H
 #define SMTP_SUBMIT_H
 
+#include "smtp-submit-settings.h"
+
+struct smtp_submit_settings;
 struct smtp_submit_session;
 struct smtp_submit;
-
-struct smtp_submit_settings {
-	const char *hostname;
-	const char *submission_host;
-	const char *sendmail_path;
-};
 
 struct smtp_submit_result {
 	/* 1 on success,
