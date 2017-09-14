@@ -325,17 +325,16 @@ void restrict_access(const struct restrict_access_settings *set,
 
 		if (chroot(set->chroot_dir) != 0)
 			i_fatal("chroot(%s) failed: %m", set->chroot_dir);
+		/* makes static analyzers happy, and is more secure */
+		if (chdir("/") != 0)
+			i_fatal("chdir(/) failed: %m");
+
 		chroot_dir = i_strdup(set->chroot_dir);
 
 		if (home != NULL) {
 			if (chdir(home) < 0) {
 				i_error("chdir(%s) failed: %m", home);
-				home = NULL;
 			}
-		}
-		if (home == NULL) {
-			if (chdir("/") != 0)
-				i_fatal("chdir(/) failed: %m");
 		}
 	}
 
