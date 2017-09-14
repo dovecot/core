@@ -181,7 +181,7 @@ void director_sync_send(struct director *dir, struct director_host *host,
 bool director_resend_sync(struct director *dir);
 
 void director_notify_ring_added(struct director_host *added_host,
-				struct director_host *src);
+				struct director_host *src, bool log);
 void director_ring_remove(struct director_host *removed_host,
 			  struct director_host *src);
 

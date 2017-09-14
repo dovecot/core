@@ -744,6 +744,7 @@ static bool director_cmd_director(struct director_connection *conn,
 	struct director_host *host;
 	struct ip_addr ip;
 	in_port_t port;
+	bool log_add = FALSE;
 
 	if (!director_args_parse_ip_port(conn, args, &ip, &port))
 		return FALSE;
@@ -767,6 +768,7 @@ static bool director_cmd_director(struct director_connection *conn,
 	} else {
 		/* save the director and forward it */
 		host = director_host_add(conn->dir, &ip, port);
+		log_add = TRUE;
 	}
 	/* just forward this to the entire ring until it reaches back to
 	   itself. some hosts may see this twice, but that's the only way to
@@ -782,7 +784,7 @@ static bool director_cmd_director(struct director_connection *conn,
 			  "Not forwarding it since it's probably crashed.");
 	} else {
 		director_notify_ring_added(host,
-			director_connection_get_host(conn));
+			director_connection_get_host(conn), log_add);
 	}
 	return TRUE;
 }
