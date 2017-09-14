@@ -392,7 +392,7 @@ static void director_sync_timeout(struct director *dir)
 	i_assert(!dir->ring_synced);
 
 	if (director_resend_sync(dir))
-		i_error("Ring SYNC appears to have got lost, resending");
+		i_error("Ring SYNC seq=%u appears to have got lost, resending", dir->sync_seq);
 }
 
 void director_set_ring_unsynced(struct director *dir)
