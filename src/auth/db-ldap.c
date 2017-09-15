@@ -76,6 +76,8 @@ struct db_ldap_result_iterate_context {
 
 	bool skip_null_values;
 	bool iter_dn_values;
+	LDAPMessage *ldap_msg;
+	LDAP *ld;
 };
 
 struct db_ldap_sasl_bind_context {
@@ -1594,6 +1596,8 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	ctx->var = str_new(ctx->pool, 256);
 	if (ctx->auth_request->debug)
 		ctx->debug = t_str_new(256);
+	ctx->ldap_msg = res;
+	ctx->ld = conn->ld;
 
 	get_ldap_fields(ctx, conn, res, "");
 	if (array_is_created(&ldap_request->named_results)) {
@@ -1681,9 +1685,19 @@ db_ldap_field_ptr_expand(const char *data, void *context,
 	return db_ldap_field_expand(field_name, ctx, value_r, error_r);
 }
 
+static int
+db_ldap_field_dn_expand(const char *data ATTR_UNUSED, void *context ATTR_UNUSED,
+			 const char **value_r, const char **error_r ATTR_UNUSED)
+{
+	struct db_ldap_result_iterate_context *ctx = context;
+	*value_r = ldap_get_dn(ctx->ld, ctx->ldap_msg);
+	return 1;
+}
+
 static struct var_expand_func_table ldap_var_funcs_table[] = {
 	{ "ldap", db_ldap_field_expand },
 	{ "ldap_ptr", db_ldap_field_ptr_expand },
+	{ "ldap_dn", db_ldap_field_dn_expand },
 	{ NULL, NULL }
 };
 
