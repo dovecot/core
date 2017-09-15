@@ -1051,12 +1051,10 @@ int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 void uri_parser_init_data(struct uri_parser *parser,
 	pool_t pool, const unsigned char *data, size_t size)
 {
+	i_zero(parser);
 	parser->pool = pool;
 	parser->begin = parser->cur = data;
 	parser->end = data + size;
-	parser->error = NULL;
-	parser->tmpbuf = NULL;
-
 }
 
 void uri_parser_init(struct uri_parser *parser,
