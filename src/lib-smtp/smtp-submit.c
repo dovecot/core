@@ -285,6 +285,7 @@ smtp_submit_send_host(struct smtp_submit *subm)
 	smtp_set.my_hostname = set->hostname;
 	smtp_set.connect_timeout_msecs = set->submission_timeout*1000;
 	smtp_set.command_timeout_msecs = set->submission_timeout*1000;
+	smtp_set.debug = set->mail_debug;
 
 	smtp_client = smtp_client_init(&smtp_set);
 	smtp_conn = smtp_client_connection_create(smtp_client,
@@ -359,6 +360,7 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	i_zero(&pc_set);
 	pc_set.client_connect_timeout_msecs = set->submission_timeout * 1000;
 	pc_set.input_idle_timeout_msecs = set->submission_timeout * 1000;
+	pc_set.debug = set->mail_debug;
 	restrict_access_init(&pc_set.restrict_set);
 
 	pc = program_client_local_create

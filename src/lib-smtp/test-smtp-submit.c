@@ -1787,6 +1787,7 @@ test_client_defaults(struct smtp_submit_settings *smtp_set)
 	smtp_set->hostname = "test";
 	smtp_set->submission_host = "";
 	smtp_set->sendmail_path = "/bin/false";
+	smtp_set->mail_debug = debug;
 }
 
 static void test_client_deinit(void)

@@ -3,6 +3,7 @@
 
 struct smtp_submit_settings {
 	const char *hostname;
+	bool mail_debug;
 
 	const char *submission_host;
 	const char *sendmail_path;
