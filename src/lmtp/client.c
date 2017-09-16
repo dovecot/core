@@ -24,6 +24,7 @@
 #include "main.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
+#include "lmtp-local.h"
 #include "lmtp-proxy.h"
 #include "commands.h"
 #include "client.h"
@@ -345,19 +346,6 @@ void client_disconnect(struct client *client, const char *prefix,
 	       reason, client->state.name);
 
 	client->disconnected = TRUE;
-}
-
-void client_rcpt_anvil_disconnect(const struct mail_recipient *rcpt)
-{
-	const struct mail_storage_service_input *input;
-
-	if (!rcpt->anvil_connect_sent)
-		return;
-
-	input = mail_storage_service_user_get_input(rcpt->service_user);
-	master_service_anvil_send(master_service, t_strconcat(
-		"DISCONNECT\t", my_pid, "\t", master_service_get_name(master_service),
-		"/", input->username, "\n", NULL));
 }
 
 void client_state_reset(struct client *client, const char *state_name)
