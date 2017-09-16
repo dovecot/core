@@ -100,11 +100,11 @@ static void test_client_deinit(void);
 static int
 test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 	const char *message, const char *host,
-	unsigned int timeout_secs, const char **error_r);
+	const char **error_r);
 static int
 test_client_smtp_send_simple_port(const struct smtp_submit_settings *smtp_set,
 	const char *message, unsigned int port,
-	unsigned int timeout_secs, const char **error_r);
+	const char **error_r);
 
 /* test*/
 static const char *test_tmp_dir_get(void);
@@ -132,7 +132,7 @@ test_client_host_lookup_failed(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple(submit_set,
-		test_message1, "host.invalid", 5, &error);
+		test_message1, "host.invalid", &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
 	return FALSE;
@@ -145,6 +145,7 @@ static void test_host_lookup_failed(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("host lookup failed");
 	test_expect_errors(1);
@@ -175,7 +176,7 @@ test_client_connection_refused(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
 	return FALSE;
@@ -188,6 +189,7 @@ static void test_connection_refused(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("connection refused");
 	test_expect_errors(1);
@@ -227,7 +229,7 @@ test_client_connection_timed_out(const struct smtp_submit_settings *submit_set)
 	io_loop_time_refresh();
 	time = ioloop_time;
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 1, &error);
+		test_message1, bind_ports[0], &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
 	io_loop_time_refresh();
@@ -243,6 +245,7 @@ static void test_connection_timed_out(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 1;
 
 	test_begin("connection timed out");
 	test_expect_errors(0);
@@ -287,7 +290,7 @@ test_client_bad_greeting(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
 	//test_out_reason("run", ret == 0, error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
@@ -302,6 +305,7 @@ static void test_bad_greeting(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("bad greeting");
 	test_expect_errors(0);
@@ -357,7 +361,7 @@ test_client_denied_helo(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
 	//test_out_reason("run", ret == 0, error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
@@ -372,6 +376,7 @@ static void test_denied_helo(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("denied helo");
 	test_expect_errors(0);
@@ -425,7 +430,7 @@ test_client_disconnect_helo(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
 	//test_out_reason("run", ret == 0, error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
@@ -440,6 +445,7 @@ static void test_disconnect_helo(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("disconnect helo");
 	test_expect_errors(0);
@@ -529,7 +535,7 @@ test_client_denied_mail(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
 	//test_out_reason("run", ret == 0, error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
@@ -544,6 +550,7 @@ static void test_denied_mail(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("denied mail");
 	test_expect_errors(0);
@@ -639,7 +646,7 @@ test_client_denied_rcpt(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	test_out_reason("run (ret == 0)", ret == 0, error);
 
 	return FALSE;
@@ -652,6 +659,7 @@ static void test_denied_rcpt(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("denied rcpt");
 	test_expect_errors(0);
@@ -758,6 +766,7 @@ test_client_denied_second_rcpt(const struct smtp_submit_settings *submit_set)
 	smtp_submit_set = *submit_set;
 	smtp_submit_set.submission_host =
 		t_strdup_printf("127.0.0.1:%u", bind_ports[0]);
+	smtp_submit_set.submission_timeout = 1000;
 
 	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
 
@@ -766,7 +775,7 @@ test_client_denied_second_rcpt(const struct smtp_submit_settings *submit_set)
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
-	ret = smtp_submit_run_timeout(smtp_submit, 1000, &error);
+	ret = smtp_submit_run(smtp_submit, &error);
 	test_out_reason("run (ret == 0)", ret == 0, error);
 
 	smtp_submit_deinit(&smtp_submit);
@@ -882,7 +891,7 @@ test_client_denied_data(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	test_out_reason("run (ret == 0)", ret == 0, error);
 
 	return FALSE;
@@ -895,6 +904,7 @@ static void test_denied_data(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("denied data");
 	test_expect_errors(0);
@@ -1005,7 +1015,7 @@ test_client_data_failure(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	test_out_reason("run (ret == 0)", ret == 0, error);
 
 	return FALSE;
@@ -1018,6 +1028,7 @@ static void test_data_failure(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("data failure");
 	test_expect_errors(0);
@@ -1123,7 +1134,7 @@ test_client_data_disconnect(const struct smtp_submit_settings *submit_set)
 	int ret;
 
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
 	return FALSE;
@@ -1136,6 +1147,7 @@ static void test_data_disconnect(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 5;
 
 	test_begin("data disconnect");
 	test_expect_errors(0);
@@ -1245,7 +1257,7 @@ test_client_data_timout(const struct smtp_submit_settings *submit_set)
 	io_loop_time_refresh();
 	time = ioloop_time;
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 2, &error);
+		test_message1, bind_ports[0], &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
 	io_loop_time_refresh();
@@ -1261,6 +1273,7 @@ static void test_data_timeout(void)
 	struct smtp_submit_settings smtp_submit_set;
 
 	test_client_defaults(&smtp_submit_set);
+	smtp_submit_set.submission_timeout = 2;
 
 	test_begin("data timeout");
 	test_expect_errors(0);
@@ -1423,7 +1436,7 @@ test_client_successful_delivery(const struct smtp_submit_settings *submit_set)
 
 	/* send the message */
 	ret = test_client_smtp_send_simple_port(submit_set,
-		test_message1, bind_ports[0], 5, &error);
+		test_message1, bind_ports[0], &error);
 	test_out_reason("run (ret > 0)", ret > 0, error);
 
 	/* verify delivery */
@@ -1464,6 +1477,7 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	ctx->count = 2;
 
 	smtp_submit_set = *submit_set;
+	smtp_submit_set.submission_timeout = 5;
 
 	/* submit 1 */
 	smtp_submit_set.submission_host =
@@ -1474,7 +1488,7 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	output = smtp_submit_send(smtp_submit1);
 	o_stream_send_str(output, test_message1);
 
-	smtp_submit_run_async(smtp_submit1, 5,
+	smtp_submit_run_async(smtp_submit1,
 		test_client_parallel_delivery_callback, ctx);
 
 	/* submit 2 */
@@ -1486,7 +1500,7 @@ test_client_parallel_delivery(const struct smtp_submit_settings *submit_set)
 	output = smtp_submit_send(smtp_submit2);
 	o_stream_send_str(output, test_message2);
 
-	smtp_submit_run_async(smtp_submit2, 5,
+	smtp_submit_run_async(smtp_submit2,
 		test_client_parallel_delivery_callback, ctx);
 
 	io_loop_run(ioloop);
@@ -1550,6 +1564,7 @@ test_client_failed_sendmail(const struct smtp_submit_settings *submit_set)
 
 	smtp_submit_set = *submit_set;
 	smtp_submit_set.sendmail_path = sendmail_path;
+	smtp_submit_set.submission_timeout = 5;
 
 	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
 
@@ -1557,7 +1572,7 @@ test_client_failed_sendmail(const struct smtp_submit_settings *submit_set)
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
-	ret = smtp_submit_run_timeout(smtp_submit, 5, &error);
+	ret = smtp_submit_run(smtp_submit, &error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
 	smtp_submit_deinit(&smtp_submit);
@@ -1602,6 +1617,7 @@ test_client_successful_sendmail(const struct smtp_submit_settings *submit_set)
 
 	smtp_submit_set = *submit_set;
 	smtp_submit_set.sendmail_path = sendmail_path;
+	smtp_submit_set.submission_timeout = 5;
 
 	smtp_submit = smtp_submit_init_simple(&smtp_submit_set, "sender@example.com");
 
@@ -1609,7 +1625,7 @@ test_client_successful_sendmail(const struct smtp_submit_settings *submit_set)
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, test_message1);
 
-	ret = smtp_submit_run_timeout(smtp_submit, 5, &error);
+	ret = smtp_submit_run(smtp_submit, &error);
 	test_out_reason("run (ret > 0)", ret > 0, error);
 
 	smtp_submit_deinit(&smtp_submit);
@@ -1681,6 +1697,7 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 		TEST_BIN_DIR"/sendmail-success.sh %s", msg_path2);
 
 	smtp_submit_set = *submit_set;
+	smtp_submit_set.submission_timeout = 5;
 
 	/* submit 1 */
 	smtp_submit_set.sendmail_path = sendmail_path1;
@@ -1690,7 +1707,7 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 	output = smtp_submit_send(smtp_submit1);
 	o_stream_send_str(output, test_message1);
 
-	smtp_submit_run_async(smtp_submit1, 5,
+	smtp_submit_run_async(smtp_submit1,
 		test_client_parallel_sendmail_callback, ctx);
 
 	/* submit 2 */
@@ -1701,7 +1718,7 @@ test_client_parallel_sendmail(const struct smtp_submit_settings *submit_set)
 	output = smtp_submit_send(smtp_submit2);
 	o_stream_send_str(output, test_message2);
 
-	smtp_submit_run_async(smtp_submit2, 5,
+	smtp_submit_run_async(smtp_submit2,
 		test_client_parallel_sendmail_callback, ctx);
 
 	io_loop_run(ioloop);
@@ -1779,7 +1796,7 @@ static void test_client_deinit(void)
 static int
 test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 	const char *message, const char *host,
-	unsigned int timeout_secs, const char **error_r)
+	const char **error_r)
 {
 	struct smtp_submit_settings smtp_submit_set;
 	struct smtp_submit *smtp_submit;
@@ -1796,7 +1813,7 @@ test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 	output = smtp_submit_send(smtp_submit);
 	o_stream_send_str(output, message);
 
-	ret = smtp_submit_run_timeout(smtp_submit, timeout_secs, error_r);
+	ret = smtp_submit_run(smtp_submit, error_r);
 
 	smtp_submit_deinit(&smtp_submit);
 
@@ -1804,14 +1821,15 @@ test_client_smtp_send_simple(const struct smtp_submit_settings *smtp_set,
 }
 
 static int
-test_client_smtp_send_simple_port(const struct smtp_submit_settings *smtp_set,
+test_client_smtp_send_simple_port(
+	const struct smtp_submit_settings *smtp_set,
 	const char *message, unsigned int port,
-	unsigned int timeout_secs, const char **error_r)
+	const char **error_r)
 {
 	const char *host = t_strdup_printf("127.0.0.1:%u", port);
 
 	return test_client_smtp_send_simple(smtp_set,
-		message, host, timeout_secs, error_r);
+		message, host, error_r);
 }
 
 /*

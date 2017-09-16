@@ -7,10 +7,6 @@
 
 #include <sys/time.h>
 
-/* How many seconds to wait for replies from SMTP before failing. Used for
-   sending rejects, forward, etc. */
-#define LDA_SUBMISSION_TIMEOUT_SECS 30
-
 struct mail_storage;
 struct mail_save_context;
 struct mailbox;
@@ -27,7 +23,6 @@ struct mail_deliver_context {
 	const struct lda_settings *set;
 	const struct smtp_submit_settings *smtp_set;
 	struct mail_deliver_session *session;
-	unsigned int timeout_secs;
 
 	unsigned int session_time_msecs;
 	struct timeval delivery_time_started;

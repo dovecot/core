@@ -43,10 +43,9 @@ struct ostream *smtp_submit_send(struct smtp_submit *subm);
 /* Submit the message. Callback is called once the message submission
    finishes. */
 void smtp_submit_run_async(struct smtp_submit *subm,
-			       unsigned int timeout_secs,
 			       smtp_submit_callback_t *callback, void *context);
-#define smtp_submit_run_async(subm, timeout_secs, callback, context) \
-	smtp_submit_run_async(subm, timeout_secs, \
+#define smtp_submit_run_async(subm, callback, context) \
+	smtp_submit_run_async(subm, \
 		(smtp_submit_callback_t*)callback, \
 		(char*)context + CALLBACK_TYPECHECK(callback, \
 			void (*)(const struct smtp_submit_result *result, typeof(context))))
@@ -54,7 +53,5 @@ void smtp_submit_run_async(struct smtp_submit *subm,
 /* Returns 1 on success, 0 on permanent failure (e.g. invalid destination),
    -1 on temporary failure. */
 int smtp_submit_run(struct smtp_submit *subm, const char **error_r);
-/* Same as smtp_submit_run(), but timeout after given number of seconds. */
-int smtp_submit_run_timeout(struct smtp_submit *subm,
-			       unsigned int timeout_secs, const char **error_r);
+
 #endif

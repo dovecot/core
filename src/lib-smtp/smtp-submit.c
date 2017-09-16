@@ -58,6 +58,7 @@ smtp_submit_session_init(const struct smtp_submit_settings *set)
 	session = p_new(pool, struct smtp_submit_session, 1);
 	session->pool = pool;
 
+	session->set = *set;
 	session->set.hostname = p_strdup_empty(pool, set->hostname);
 	session->set.submission_host = p_strdup_empty(pool, set->submission_host);
 	session->set.sendmail_path = p_strdup_empty(pool, set->sendmail_path);
@@ -243,8 +244,7 @@ data_callback(enum lmtp_client_result result, const char *reply, void *context)
 }
 
 static void
-smtp_submit_send_host(struct smtp_submit *subm,
-		       unsigned int timeout_secs)
+smtp_submit_send_host(struct smtp_submit *subm)
 {
 	const struct smtp_submit_settings *set = &subm->session->set;
 	struct lmtp_client_settings client_set;
@@ -263,7 +263,7 @@ smtp_submit_send_host(struct smtp_submit *subm,
 	client_set.mail_from = subm->return_path == NULL ? "<>" :
 		t_strconcat("<", subm->return_path, ">", NULL);
 	client_set.my_hostname = set->hostname;
-	client_set.timeout_secs = timeout_secs;
+	client_set.timeout_secs = set->submission_timeout;
 
 	lmtp_client = lmtp_client_init(&client_set,
 		smtp_submit_send_host_finished, subm);
@@ -305,8 +305,7 @@ smtp_submit_sendmail_callback(int status, struct smtp_submit *subm)
 }
 
 static void
-smtp_submit_send_sendmail(struct smtp_submit *subm,
-		       unsigned int timeout_secs)
+smtp_submit_send_sendmail(struct smtp_submit *subm)
 {
 	const struct smtp_submit_settings *set = &subm->session->set;
 	const char *const *sendmail_args, *sendmail_bin, *str;
@@ -334,8 +333,8 @@ smtp_submit_send_sendmail(struct smtp_submit *subm,
 	array_append_zero(&args);
 
 	i_zero(&pc_set);
-	pc_set.client_connect_timeout_msecs = timeout_secs * 1000;
-	pc_set.input_idle_timeout_msecs = timeout_secs * 1000;
+	pc_set.client_connect_timeout_msecs = set->submission_timeout * 1000;
+	pc_set.input_idle_timeout_msecs = set->submission_timeout * 1000;
 	restrict_access_init(&pc_set.restrict_set);
 
 	pc = program_client_local_create
@@ -363,8 +362,8 @@ smtp_submit_run_callback(const struct smtp_submit_result *result,
 	io_loop_stop(current_ioloop);
 }
 
-int smtp_submit_run_timeout(struct smtp_submit *subm,
-			       unsigned int timeout_secs, const char **error_r)
+int smtp_submit_run(struct smtp_submit *subm,
+			       const char **error_r)
 {
 	struct smtp_submit_run_context rctx;
 	struct ioloop *ioloop;
@@ -373,7 +372,7 @@ int smtp_submit_run_timeout(struct smtp_submit *subm,
 	io_loop_set_running(ioloop);
 
 	i_zero(&rctx);
-	smtp_submit_run_async(subm, timeout_secs,
+	smtp_submit_run_async(subm,
 		smtp_submit_run_callback, &rctx);
 
 	if (io_loop_is_running(ioloop))
@@ -391,14 +390,8 @@ int smtp_submit_run_timeout(struct smtp_submit *subm,
 	return rctx.status;
 }
 
-int smtp_submit_run(struct smtp_submit *submit, const char **error_r)
-{
-	return smtp_submit_run_timeout(submit, 0, error_r);
-}
-
 #undef smtp_submit_run_async
 void smtp_submit_run_async(struct smtp_submit *subm,
-			       unsigned int timeout_secs,
 			       smtp_submit_callback_t *callback, void *context)
 {
 	const struct smtp_submit_settings *set = &subm->session->set;
@@ -411,8 +404,8 @@ void smtp_submit_run_async(struct smtp_submit *subm,
 		(&subm->output, IO_BLOCK_SIZE);
 
 	if (set->submission_host != NULL) {
-		smtp_submit_send_host(subm, timeout_secs);
+		smtp_submit_send_host(subm);
 	} else {
-		smtp_submit_send_sendmail(subm, timeout_secs);
+		smtp_submit_send_sendmail(subm);
 	}
 }

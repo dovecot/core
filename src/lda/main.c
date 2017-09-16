@@ -319,7 +319,6 @@ int main(int argc, char *argv[])
 	ctx.session = mail_deliver_session_init();
 	ctx.pool = ctx.session->pool;
 	ctx.dest_mailbox_name = "INBOX";
-	ctx.timeout_secs = LDA_SUBMISSION_TIMEOUT_SECS;
 	path = NULL;
 
 	user = getenv("USER");
