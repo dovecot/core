@@ -10,13 +10,11 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage
 
 liblda_la_SOURCES = \
-	duplicate.c \
 	lda-settings.c \
 	mail-deliver.c \
 	mail-send.c
 
 headers = \
-	duplicate.h \
 	lda-settings.h \
 	mail-deliver.h \
 	mail-send.h

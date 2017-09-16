@@ -20,6 +20,7 @@ AM_CPPFLAGS = \
 	-DMODULEDIR=\""$(moduledir)"\"
 
 libstorage_la_SOURCES = \
+	duplicate.c \
 	fail-mail-storage.c \
 	fail-mailbox.c \
 	fail-mail.c \
@@ -65,6 +66,7 @@ libstorage_la_SOURCES = \
 	mailbox-watch.c
 
 headers = \
+	duplicate.h \
 	fail-mail-storage.h \
 	mail-autoexpunge.h \
 	mail-copy.h \
