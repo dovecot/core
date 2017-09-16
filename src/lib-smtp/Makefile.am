@@ -24,7 +24,6 @@ libsmtp_la_SOURCES = \
 	smtp-client-transaction.c \
 	smtp-client-connection.c \
 	smtp-client.c \
-	lmtp-client.c \
 	smtp-submit-settings.c \
 	smtp-submit.c
 
@@ -41,7 +40,6 @@ headers = \
 	smtp-client-connection.h \
 	smtp-client-private.h \
 	smtp-client.h \
-	lmtp-client.h \
 	smtp-submit-settings.h \
 	smtp-submit.h
 
