@@ -1,12 +1,20 @@
 /* Copyright (c) 2009-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
 #include "array.h"
+#include "time-util.h"
 #include "hostpid.h"
+#include "var-expand.h"
+#include "ioloop.h"
+#include "settings-parser.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
+#include "mail-namespace.h"
+#include "mail-deliver.h"
 #include "master-service.h"
 #include "smtp-address.h"
+#include "smtp-submit-settings.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
 #include "client.h"
@@ -29,7 +37,8 @@ void client_rcpt_anvil_disconnect(const struct mail_recipient *rcpt)
 		"/", input->username, "\n", NULL));
 }
 
-void client_send_line_overquota(struct client *client,
+static void
+client_send_line_overquota(struct client *client,
 			   const struct mail_recipient *rcpt, const char *error)
 {
 	struct lda_settings *lda_set =
@@ -140,4 +149,165 @@ void rcpt_anvil_lookup_callback(const char *reply, void *context)
 
 	client_io_reset(client);
 	client_input_handle(client);
+}
+
+int client_deliver(struct client *client, const struct mail_recipient *rcpt,
+	       struct mail *src_mail, struct mail_deliver_session *session)
+{
+	struct mail_deliver_context dctx;
+	struct mail_user *dest_user;
+	struct mail_storage *storage;
+	const struct mail_storage_service_input *input;
+	const struct mail_storage_settings *mail_set;
+	struct smtp_submit_settings *smtp_set;
+	struct lda_settings *lda_set;
+	struct mail_namespace *ns;
+	struct setting_parser_context *set_parser;
+	const struct var_expand_table *var_table;
+	struct timeval delivery_time_started;
+	void **sets;
+	const char *line, *error, *username;
+	string_t *str;
+	enum mail_error mail_error;
+	int ret;
+
+	input = mail_storage_service_user_get_input(rcpt->service_user);
+	username = t_strdup(input->username);
+
+	mail_set = mail_storage_service_user_get_mail_set(rcpt->service_user);
+	set_parser = mail_storage_service_user_get_settings_parser(rcpt->service_user);
+	if (client->proxy_timeout_secs > 0 &&
+	    (mail_set->mail_max_lock_timeout == 0 ||
+	     mail_set->mail_max_lock_timeout > client->proxy_timeout_secs)) {
+		/* set lock timeout waits to be less than when proxy has
+		   advertised that it's going to timeout the connection.
+		   this avoids duplicate deliveries in case the delivery
+		   succeeds after the proxy has already disconnected from us. */
+		line = t_strdup_printf("mail_max_lock_timeout=%us",
+				       client->proxy_timeout_secs <= 1 ? 1 :
+				       client->proxy_timeout_secs-1);
+		if (settings_parse_line(set_parser, line) < 0)
+			i_unreached();
+	}
+
+	/* get the timestamp before user is created, since it starts the I/O */
+	io_loop_time_refresh();
+	delivery_time_started = ioloop_timeval;
+
+	client_state_set(client, "DATA", username);
+	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
+	if (mail_storage_service_next(storage_service, rcpt->service_user,
+				      &dest_user, &error) < 0) {
+		i_error("Failed to initialize user: %s", error);
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 smtp_address_encode(rcpt->address));
+		return -1;
+	}
+	client->state.dest_user = dest_user;
+
+	sets = mail_storage_service_user_get_set(rcpt->service_user);
+	var_table = mail_user_var_expand_table(dest_user);
+	smtp_set = sets[1];
+	lda_set = sets[2];
+	ret = settings_var_expand(
+		&smtp_submit_setting_parser_info,
+		smtp_set, client->pool, var_table,
+		&error);
+	if (ret > 0) {
+		ret = settings_var_expand(
+			&lda_setting_parser_info,
+			lda_set, client->pool, var_table,
+			&error);
+	}
+	if (ret <= 0) {
+		i_error("Failed to expand settings: %s", error);
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 smtp_address_encode(rcpt->address));
+		return -1;
+	}
+
+	str = t_str_new(256);
+	if (var_expand_with_funcs(str, dest_user->set->mail_log_prefix,
+				  var_table, mail_user_var_expand_func_table,
+				  dest_user, &error) <= 0) {
+		i_error("Failed to expand mail_log_prefix=%s: %s",
+			dest_user->set->mail_log_prefix, error);
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 smtp_address_encode(rcpt->address));
+		return -1;
+	}
+	i_set_failure_prefix("%s", str_c(str));
+
+	i_zero(&dctx);
+	dctx.session = session;
+	dctx.pool = session->pool;
+	dctx.set = lda_set;
+	dctx.smtp_set = smtp_set;
+	dctx.session_id = rcpt->session_id;
+	dctx.src_mail = src_mail;
+
+	/* MAIL FROM */
+	dctx.mail_from = client->state.mail_from;
+	dctx.mail_params = client->state.mail_params;
+
+	/* RCPT TO */
+	dctx.rcpt_user = dest_user;
+	dctx.rcpt_params = rcpt->params;
+	if (dctx.rcpt_params.orcpt.addr != NULL) {
+		/* used ORCPT */
+	} else if (*dctx.set->lda_original_recipient_header != '\0') {
+		dctx.rcpt_params.orcpt.addr = mail_deliver_get_address(src_mail,
+				dctx.set->lda_original_recipient_header);
+	}
+	if (dctx.rcpt_params.orcpt.addr == NULL)
+		dctx.rcpt_params.orcpt.addr = rcpt->address;
+	dctx.rcpt_to = rcpt->address;
+	if (*rcpt->detail == '\0' ||
+	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
+		dctx.rcpt_default_mailbox = "INBOX";
+	else {
+		ns = mail_namespace_find_inbox(dest_user->namespaces);
+		dctx.rcpt_default_mailbox =
+			t_strconcat(ns->prefix, rcpt->detail, NULL);
+	}
+
+	dctx.save_dest_mail = array_count(&client->state.rcpt_to) > 1 &&
+		client->state.first_saved_mail == NULL;
+
+	dctx.session_time_msecs =
+		timeval_diff_msecs(&client->state.data_end_timeval,
+				   &client->state.mail_from_timeval);
+	dctx.delivery_time_started = delivery_time_started;
+
+	if (mail_deliver(&dctx, &storage) == 0) {
+		if (dctx.dest_mail != NULL) {
+			i_assert(client->state.first_saved_mail == NULL);
+			client->state.first_saved_mail = dctx.dest_mail;
+		}
+		client_send_line(client, "250 2.0.0 <%s> %s Saved",
+				 smtp_address_encode(rcpt->address),
+				 rcpt->session_id);
+		ret = 0;
+	} else if (dctx.tempfail_error != NULL) {
+		client_send_line(client, "451 4.2.0 <%s> %s",
+				 smtp_address_encode(rcpt->address),
+				 dctx.tempfail_error);
+		ret = -1;
+	} else if (storage != NULL) {
+		error = mail_storage_get_last_error(storage, &mail_error);
+		if (mail_error == MAIL_ERROR_NOQUOTA) {
+			client_send_line_overquota(client, rcpt, error);
+		} else {
+			client_send_line(client, "451 4.2.0 <%s> %s",
+					 smtp_address_encode(rcpt->address), error);
+		}
+		ret = -1;
+	} else {
+		/* This shouldn't happen */
+		i_error("BUG: Saving failed to unknown storage");
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 smtp_address_encode(rcpt->address));
+		ret = -1;
+	}
+	return ret;
 }
