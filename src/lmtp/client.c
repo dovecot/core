@@ -286,6 +286,44 @@ struct client *client_create(int fd_in, int fd_out,
 	return client;
 }
 
+void client_state_reset(struct client *client, const char *state_name)
+{
+	struct mail_recipient *const *rcptp;
+
+	if (client->proxy != NULL)
+		lmtp_proxy_deinit(&client->proxy);
+
+	if (array_is_created(&client->state.rcpt_to)) {
+		array_foreach_modifiable(&client->state.rcpt_to, rcptp) {
+			if ((*rcptp)->anvil_query != NULL)
+				anvil_client_query_abort(anvil, &(*rcptp)->anvil_query);
+			client_rcpt_anvil_disconnect(*rcptp);
+			mail_storage_service_user_unref(&(*rcptp)->service_user);
+		}
+	}
+
+	if (client->state.raw_mail != NULL) {
+		struct mailbox_transaction_context *raw_trans =
+			client->state.raw_mail->transaction;
+		struct mailbox *raw_box = client->state.raw_mail->box;
+
+		mail_free(&client->state.raw_mail);
+		mailbox_transaction_rollback(&raw_trans);
+		mailbox_free(&raw_box);
+	}
+
+	buffer_free(&client->state.mail_data);
+	o_stream_unref(&client->state.mail_data_output);
+	i_close_fd(&client->state.mail_data_fd);
+
+	i_zero(&client->state);
+	p_clear(client->state_pool);
+	client->state.mail_data_fd = -1;
+
+	client_generate_session_id(client);
+	client_state_set(client, state_name, "");
+}
+
 void client_destroy(struct client *client, const char *prefix,
 		    const char *reason)
 {
@@ -346,44 +384,6 @@ void client_disconnect(struct client *client, const char *prefix,
 	       reason, client->state.name);
 
 	client->disconnected = TRUE;
-}
-
-void client_state_reset(struct client *client, const char *state_name)
-{
-	struct mail_recipient *const *rcptp;
-
-	if (client->proxy != NULL)
-		lmtp_proxy_deinit(&client->proxy);
-
-	if (array_is_created(&client->state.rcpt_to)) {
-		array_foreach_modifiable(&client->state.rcpt_to, rcptp) {
-			if ((*rcptp)->anvil_query != NULL)
-				anvil_client_query_abort(anvil, &(*rcptp)->anvil_query);
-			client_rcpt_anvil_disconnect(*rcptp);
-			mail_storage_service_user_unref(&(*rcptp)->service_user);
-		}
-	}
-
-	if (client->state.raw_mail != NULL) {
-		struct mailbox_transaction_context *raw_trans =
-			client->state.raw_mail->transaction;
-		struct mailbox *raw_box = client->state.raw_mail->box;
-
-		mail_free(&client->state.raw_mail);
-		mailbox_transaction_rollback(&raw_trans);
-		mailbox_free(&raw_box);
-	}
-
-	buffer_free(&client->state.mail_data);
-	o_stream_unref(&client->state.mail_data_output);
-	i_close_fd(&client->state.mail_data_fd);
-
-	i_zero(&client->state);
-	p_clear(client->state_pool);
-	client->state.mail_data_fd = -1;
-
-	client_generate_session_id(client);
-	client_state_set(client, state_name, "");
 }
 
 void client_send_line(struct client *client, const char *fmt, ...)
