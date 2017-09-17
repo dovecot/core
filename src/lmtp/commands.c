@@ -30,6 +30,10 @@
 
 #define ERRSTR_TEMP_MAILBOX_FAIL "451 4.3.0 <%s> Temporary internal error"
 
+/*
+ * EHLO command
+ */
+
 int cmd_lhlo(struct client *client, const char *args)
 {
 	struct rfc822_parser_context parser;
@@ -77,6 +81,10 @@ int cmd_lhlo(struct client *client, const char *args)
 	return 0;
 }
 
+/*
+ * STARTTLS command
+ */
+
 int cmd_starttls(struct client *client)
 {
 	struct ostream *plain_output = client->output;
@@ -104,6 +112,10 @@ int cmd_starttls(struct client *client)
 	}
 	return 0;
 }
+
+/*
+ * MAIL command
+ */
 
 int cmd_mail(struct client *client, const char *args)
 {
@@ -166,6 +178,10 @@ int cmd_mail(struct client *client, const char *args)
 	client->state.mail_from_timeval = ioloop_timeval;
 	return 0;
 }
+
+/*
+ * RCPT command
+ */
 
 int cmd_rcpt(struct client *client, const char *args)
 {
@@ -303,6 +319,10 @@ int cmd_rcpt(struct client *client, const char *args)
 	}
 }
 
+/*
+ * QUIT command
+ */
+
 int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 {
 	client_send_line(client, "221 2.0.0 OK");
@@ -313,11 +333,19 @@ int cmd_quit(struct client *client, const char *args ATTR_UNUSED)
 	return -1;
 }
 
+/*
+ * VRFY command
+ */
+
 int cmd_vrfy(struct client *client, const char *args ATTR_UNUSED)
 {
 	client_send_line(client, "252 2.3.3 Try RCPT instead");
 	return 0;
 }
+
+/*
+ * RSET command
+ */
 
 int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 {
@@ -326,11 +354,19 @@ int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 	return 0;
 }
 
+/*
+ * NOOP command
+ */
+
 int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 {
 	client_send_line(client, "250 2.0.0 OK");
 	return 0;
 }
+
+/*
+ * DATA command
+ */
 
 static struct istream *client_get_input(struct client *client)
 {
@@ -582,6 +618,10 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 	client_input_data_handle(client);
 	return -1;
 }
+
+/*
+ * XCLIENT command
+ */
 
 int cmd_xclient(struct client *client, const char *args)
 {
