@@ -13,6 +13,7 @@
 #include "mail-namespace.h"
 #include "mail-deliver.h"
 #include "mail-autoexpunge.h"
+#include "index/raw/raw-storage.h"
 #include "master-service.h"
 #include "smtp-address.h"
 #include "smtp-submit-settings.h"
@@ -50,7 +51,8 @@ client_send_line_overquota(struct client *client,
 		smtp_address_encode(rcpt->address), error);
 }
 
-void client_rcpt_fail_all(struct client *client)
+static void
+client_rcpt_fail_all(struct client *client)
 {
 	struct mail_recipient *const *rcptp;
 
@@ -370,4 +372,34 @@ uid_t client_deliver_to_rcpts(struct client *client,
 		}
 	}
 	return first_uid;
+}
+
+int client_open_raw_mail(struct client *client, struct istream *input)
+{
+	static const char *wanted_headers[] = {
+		"From", "To", "Message-ID", "Subject", "Return-Path",
+		NULL
+	};
+	struct mailbox *box;
+	struct mailbox_transaction_context *trans;
+	struct mailbox_header_lookup_ctx *headers_ctx;
+	enum mail_error error;
+
+	if (raw_mailbox_alloc_stream(client->raw_mail_user, input,
+				     (time_t)-1, smtp_address_encode(client->state.mail_from),
+				     &box) < 0) {
+		i_error("Can't open delivery mail as raw: %s",
+			mailbox_get_last_internal_error(box, &error));
+		mailbox_free(&box);
+		client_rcpt_fail_all(client);
+		return -1;
+	}
+
+	trans = mailbox_transaction_begin(box, 0, __func__);
+
+	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
+	client->state.raw_mail = mail_alloc(trans, 0, headers_ctx);
+	mailbox_header_lookup_unref(&headers_ctx);
+	mail_set_seq(client->state.raw_mail, 1);
+	return 0;
 }
