@@ -86,97 +86,6 @@ static void client_idle_timeout(struct client *client)
 		       "Disconnected client for inactivity");
 }
 
-static int client_input_line(struct client *client, const char *line)
-{
-	const char *cmd, *args;
-
-	args = strchr(line, ' ');
-	if (args == NULL) {
-		cmd = line;
-		args = "";
-	} else {
-		cmd = t_strdup_until(line, args);
-		args++;
-	}
-	cmd = t_str_ucase(cmd);
-
-	if (strcmp(cmd, "LHLO") == 0)
-		return cmd_lhlo(client, args);
-	if (strcmp(cmd, "STARTTLS") == 0 &&
-	    master_service_ssl_is_enabled(master_service))
-		return cmd_starttls(client);
-	if (strcmp(cmd, "MAIL") == 0)
-		return cmd_mail(client, args);
-	if (strcmp(cmd, "RCPT") == 0)
-		return cmd_rcpt(client, args);
-	if (strcmp(cmd, "DATA") == 0)
-		return cmd_data(client, args);
-	if (strcmp(cmd, "QUIT") == 0)
-		return cmd_quit(client, args);
-	if (strcmp(cmd, "VRFY") == 0)
-		return cmd_vrfy(client, args);
-	if (strcmp(cmd, "RSET") == 0)
-		return cmd_rset(client, args);
-	if (strcmp(cmd, "NOOP") == 0)
-		return cmd_noop(client, args);
-	if (strcmp(cmd, "XCLIENT") == 0)
-		return cmd_xclient(client, args);
-
-	client_send_line(client, "502 5.5.2 Unknown command");
-	return 0;
-}
-
-int client_input_read(struct client *client)
-{
-	client->last_input = ioloop_time;
-	timeout_reset(client->to_idle);
-
-	switch (i_stream_read(client->input)) {
-	case -2:
-		/* buffer full */
-		client_destroy(client, "502 5.5.2",
-			       "Disconnected: Input buffer full");
-		return -1;
-	case -1:
-		/* disconnected */
-		client_destroy(client, NULL, NULL);
-		return -1;
-	case 0:
-		/* nothing new read */
-		return 0;
-	default:
-		/* something was read */
-		return 0;
-	}
-}
-
-void client_input_handle(struct client *client)
-{
-	struct ostream *output;
-	const char *line;
-	int ret;
-
-	output = client->output;
-	o_stream_ref(output);
-	while ((line = i_stream_next_line(client->input)) != NULL) {
-		T_BEGIN {
-			o_stream_cork(output);
-			ret = client_input_line(client, line);
-			o_stream_uncork(output);
-		} T_END;
-		if (ret < 0)
-			break;
-	}
-	o_stream_unref(&output);
-}
-
-static void client_input(struct client *client)
-{
-	if (client_input_read(client) < 0)
-		return;
-	client_input_handle(client);
-}
-
 static void client_raw_user_create(struct client *client)
 {
 	void **sets;
@@ -227,16 +136,6 @@ static void client_generate_session_id(struct client *client)
 	i_assert(str_c(id)[str_len(id)-2] == '=');
 	str_truncate(id, str_len(id)-2); /* drop trailing "==" */
 	client->state.session_id = p_strdup(client->state_pool, str_c(id));
-}
-
-void client_io_reset(struct client *client)
-{
-	io_remove(&client->io);
-	timeout_remove(&client->to_idle);
-	client->io = io_add(client->fd_in, IO_READ, client_input, client);
-        client->last_input = ioloop_time;
-	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
-				      client_idle_timeout, client);
 }
 
 struct client *client_create(int fd_in, int fd_out,
@@ -432,4 +331,109 @@ void clients_destroy(void)
 			t_strdup_printf("421 4.3.2 %s", clients->my_domain),
 			"Shutting down");
 	}
+}
+
+/*
+ * Input handling
+ */
+
+static int client_input_line(struct client *client, const char *line)
+{
+	const char *cmd, *args;
+
+	args = strchr(line, ' ');
+	if (args == NULL) {
+		cmd = line;
+		args = "";
+	} else {
+		cmd = t_strdup_until(line, args);
+		args++;
+	}
+	cmd = t_str_ucase(cmd);
+
+	if (strcmp(cmd, "LHLO") == 0)
+		return cmd_lhlo(client, args);
+	if (strcmp(cmd, "STARTTLS") == 0 &&
+	    master_service_ssl_is_enabled(master_service))
+		return cmd_starttls(client);
+	if (strcmp(cmd, "MAIL") == 0)
+		return cmd_mail(client, args);
+	if (strcmp(cmd, "RCPT") == 0)
+		return cmd_rcpt(client, args);
+	if (strcmp(cmd, "DATA") == 0)
+		return cmd_data(client, args);
+	if (strcmp(cmd, "QUIT") == 0)
+		return cmd_quit(client, args);
+	if (strcmp(cmd, "VRFY") == 0)
+		return cmd_vrfy(client, args);
+	if (strcmp(cmd, "RSET") == 0)
+		return cmd_rset(client, args);
+	if (strcmp(cmd, "NOOP") == 0)
+		return cmd_noop(client, args);
+	if (strcmp(cmd, "XCLIENT") == 0)
+		return cmd_xclient(client, args);
+
+	client_send_line(client, "502 5.5.2 Unknown command");
+	return 0;
+}
+
+int client_input_read(struct client *client)
+{
+	client->last_input = ioloop_time;
+	timeout_reset(client->to_idle);
+
+	switch (i_stream_read(client->input)) {
+	case -2:
+		/* buffer full */
+		client_destroy(client, "502 5.5.2",
+			       "Disconnected: Input buffer full");
+		return -1;
+	case -1:
+		/* disconnected */
+		client_destroy(client, NULL, NULL);
+		return -1;
+	case 0:
+		/* nothing new read */
+		return 0;
+	default:
+		/* something was read */
+		return 0;
+	}
+}
+
+void client_input_handle(struct client *client)
+{
+	struct ostream *output;
+	const char *line;
+	int ret;
+
+	output = client->output;
+	o_stream_ref(output);
+	while ((line = i_stream_next_line(client->input)) != NULL) {
+		T_BEGIN {
+			o_stream_cork(output);
+			ret = client_input_line(client, line);
+			o_stream_uncork(output);
+		} T_END;
+		if (ret < 0)
+			break;
+	}
+	o_stream_unref(&output);
+}
+
+static void client_input(struct client *client)
+{
+	if (client_input_read(client) < 0)
+		return;
+	client_input_handle(client);
+}
+
+void client_io_reset(struct client *client)
+{
+	io_remove(&client->io);
+	timeout_remove(&client->to_idle);
+	client->io = io_add(client->fd_in, IO_READ, client_input, client);
+        client->last_input = ioloop_time;
+	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
+				      client_idle_timeout, client);
 }
