@@ -14,6 +14,7 @@
 #include "lmtp-local.h"
 
 #define ERRSTR_TEMP_MAILBOX_FAIL "451 4.3.0 <%s> Temporary internal error"
+#define ERRSTR_TEMP_USERDB_FAIL_PREFIX "451 4.3.0 <%s> "
 
 void client_rcpt_anvil_disconnect(const struct mail_recipient *rcpt)
 {
@@ -108,4 +109,35 @@ bool cmd_rcpt_finish(struct client *client, struct mail_recipient *rcpt)
 	array_append(&client->state.rcpt_to, &rcpt, 1);
 	client_send_line(client, "250 2.1.5 OK");
 	return TRUE;
+}
+
+void rcpt_anvil_lookup_callback(const char *reply, void *context)
+{
+	struct mail_recipient *rcpt = context;
+	struct client *client = rcpt->client;
+	const struct mail_storage_service_input *input;
+	unsigned int parallel_count = 0;
+
+	rcpt->anvil_query = NULL;
+	if (reply == NULL) {
+		/* lookup failed */
+	} else if (str_to_uint(reply, &parallel_count) < 0) {
+		i_error("Invalid reply from anvil: %s", reply);
+	}
+
+	if (parallel_count >= client->lmtp_set->lmtp_user_concurrency_limit) {
+		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL_PREFIX
+				 "Too many concurrent deliveries for user",
+				 smtp_address_encode(rcpt->address));
+		mail_storage_service_user_unref(&rcpt->service_user);
+	} else if (cmd_rcpt_finish(client, rcpt)) {
+		rcpt->anvil_connect_sent = TRUE;
+		input = mail_storage_service_user_get_input(rcpt->service_user);
+		master_service_anvil_send(master_service, t_strconcat(
+			"CONNECT\t", my_pid, "\t", master_service_get_name(master_service),
+			"/", input->username, "\n", NULL));
+	}
+
+	client_io_reset(client);
+	client_input_handle(client);
 }

@@ -11,4 +11,6 @@ void client_send_line_overquota(struct client *client,
 
 bool cmd_rcpt_finish(struct client *client, struct mail_recipient *rcpt);
 
+void rcpt_anvil_lookup_callback(const char *reply, void *context);
+
 #endif
