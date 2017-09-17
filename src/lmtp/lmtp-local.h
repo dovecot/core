@@ -11,7 +11,7 @@ bool cmd_rcpt_finish(struct client *client, struct mail_recipient *rcpt);
 
 void rcpt_anvil_lookup_callback(const char *reply, void *context);
 
-int client_deliver(struct client *client, const struct mail_recipient *rcpt,
-	       struct mail *src_mail, struct mail_deliver_session *session);
+uid_t client_deliver_to_rcpts(struct client *client,
+				    struct mail_deliver_session *session);
 
 #endif

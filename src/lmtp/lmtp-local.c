@@ -12,6 +12,7 @@
 #include "mail-storage-service.h"
 #include "mail-namespace.h"
 #include "mail-deliver.h"
+#include "mail-autoexpunge.h"
 #include "master-service.h"
 #include "smtp-address.h"
 #include "smtp-submit-settings.h"
@@ -151,7 +152,8 @@ void rcpt_anvil_lookup_callback(const char *reply, void *context)
 	client_input_handle(client);
 }
 
-int client_deliver(struct client *client, const struct mail_recipient *rcpt,
+static int
+client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	       struct mail *src_mail, struct mail_deliver_session *session)
 {
 	struct mail_deliver_context dctx;
@@ -310,4 +312,52 @@ int client_deliver(struct client *client, const struct mail_recipient *rcpt,
 		ret = -1;
 	}
 	return ret;
+}
+
+static bool client_rcpt_to_is_last(struct client *client)
+{
+	return client->state.rcpt_idx >= array_count(&client->state.rcpt_to);
+}
+
+uid_t client_deliver_to_rcpts(struct client *client,
+			      struct mail_deliver_session *session)
+{
+	uid_t first_uid = (uid_t)-1;
+	struct mail *src_mail;
+
+	struct mail_recipient *const *rcpts;
+	unsigned int count;
+	int ret;
+	src_mail = client->state.raw_mail;
+
+	rcpts = array_get(&client->state.rcpt_to, &count);
+	while (client->state.rcpt_idx < count) {
+		ret = client_deliver(client, rcpts[client->state.rcpt_idx],
+				     src_mail, session);
+		client_state_set(client, "DATA", "");
+		i_set_failure_prefix("lmtp(%s): ", my_pid);
+
+		client->state.rcpt_idx++;
+
+		/* succeeded and mail_user is not saved in first_saved_mail */
+		if ((ret == 0 &&
+		     (client->state.first_saved_mail == NULL ||
+		      client->state.first_saved_mail == src_mail)) ||
+		    /* failed. try the next one. */
+		    (ret != 0 && client->state.dest_user != NULL)) {
+			if (client_rcpt_to_is_last(client))
+				mail_user_autoexpunge(client->state.dest_user);
+			mail_user_unref(&client->state.dest_user);
+		} else if (ret == 0) {
+			/* use the first saved message to save it elsewhere too.
+			   this might allow hard linking the files.
+			   mail_user is saved in first_saved_mail,
+			   will be unreferenced later on */
+			client->state.dest_user = NULL;
+			src_mail = client->state.first_saved_mail;
+			first_uid = geteuid();
+			i_assert(first_uid != 0);
+		}
+	}
+	return first_uid;
 }

@@ -5,13 +5,11 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
-#include "hostpid.h"
 #include "istream.h"
 #include "istream-concat.h"
 #include "ostream.h"
 #include "istream-dot.h"
 #include "safe-mkstemp.h"
-#include "hex-dec.h"
 #include "restrict-access.h"
 #include "anvil-client.h"
 #include "master-service.h"
@@ -19,7 +17,6 @@
 #include "iostream-ssl.h"
 #include "rfc822-parser.h"
 #include "message-date.h"
-#include "message-address.h"
 #include "auth-master.h"
 #include "mail-storage-service.h"
 #include "index/raw/raw-storage.h"
@@ -546,54 +543,6 @@ int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 {
 	client_send_line(client, "250 2.0.0 OK");
 	return 0;
-}
-
-static bool client_rcpt_to_is_last(struct client *client)
-{
-	return client->state.rcpt_idx >= array_count(&client->state.rcpt_to);
-}
-
-static uid_t client_deliver_to_rcpts(struct client *client,
-				    struct mail_deliver_session *session)
-{
-	uid_t first_uid = (uid_t)-1;
-	struct mail *src_mail;
-
-	struct mail_recipient *const *rcpts;
-	unsigned int count;
-	int ret;
-	src_mail = client->state.raw_mail;
-
-	rcpts = array_get(&client->state.rcpt_to, &count);
-	while (client->state.rcpt_idx < count) {
-		ret = client_deliver(client, rcpts[client->state.rcpt_idx],
-				     src_mail, session);
-		client_state_set(client, "DATA", "");
-		i_set_failure_prefix("lmtp(%s): ", my_pid);
-
-		client->state.rcpt_idx++;
-
-		/* succeeded and mail_user is not saved in first_saved_mail */
-		if ((ret == 0 &&
-		     (client->state.first_saved_mail == NULL ||
-		      client->state.first_saved_mail == src_mail)) ||
-		    /* failed. try the next one. */
-		    (ret != 0 && client->state.dest_user != NULL)) {
-			if (client_rcpt_to_is_last(client))
-				mail_user_autoexpunge(client->state.dest_user);
-			mail_user_unref(&client->state.dest_user);
-		} else if (ret == 0) {
-			/* use the first saved message to save it elsewhere too.
-			   this might allow hard linking the files.
-			   mail_user is saved in first_saved_mail,
-			   will be unreferenced later on */
-			client->state.dest_user = NULL;
-			src_mail = client->state.first_saved_mail;
-			first_uid = geteuid();
-			i_assert(first_uid != 0);
-		}
-	}
-	return first_uid;
 }
 
 static void client_rcpt_fail_all(struct client *client)
