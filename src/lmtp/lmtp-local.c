@@ -7,6 +7,7 @@
 #include "hostpid.h"
 #include "var-expand.h"
 #include "ioloop.h"
+#include "restrict-access.h"
 #include "settings-parser.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
@@ -331,8 +332,8 @@ static bool client_rcpt_to_is_last(struct client *client)
 	return client->state.rcpt_idx >= array_count(&client->state.rcpt_to);
 }
 
-uid_t client_deliver_to_rcpts(struct client *client,
-			      struct mail_deliver_session *session)
+static uid_t client_deliver_to_rcpts(struct client *client,
+				     struct mail_deliver_session *session)
 {
 	uid_t first_uid = (uid_t)-1;
 	struct mail *src_mail;
@@ -374,7 +375,7 @@ uid_t client_deliver_to_rcpts(struct client *client,
 	return first_uid;
 }
 
-int client_open_raw_mail(struct client *client, struct istream *input)
+static int client_open_raw_mail(struct client *client, struct istream *input)
 {
 	static const char *wanted_headers[] = {
 		"From", "To", "Message-ID", "Subject", "Return-Path",
@@ -402,4 +403,53 @@ int client_open_raw_mail(struct client *client, struct istream *input)
 	mailbox_header_lookup_unref(&headers_ctx);
 	mail_set_seq(client->state.raw_mail, 1);
 	return 0;
+}
+
+void client_input_data_write_local(struct client *client, struct istream *input)
+{
+	struct mail_deliver_session *session;
+	uid_t old_uid, first_uid;
+
+	if (client_open_raw_mail(client, input) < 0)
+		return;
+
+	session = mail_deliver_session_init();
+	old_uid = geteuid();
+	first_uid = client_deliver_to_rcpts(client, session);
+	mail_deliver_session_deinit(&session);
+
+	if (client->state.first_saved_mail != NULL) {
+		struct mail *mail = client->state.first_saved_mail;
+		struct mailbox_transaction_context *trans = mail->transaction;
+		struct mailbox *box = trans->box;
+		struct mail_user *user = box->storage->user;
+
+		/* just in case these functions are going to write anything,
+		   change uid back to user's own one */
+		if (first_uid != old_uid) {
+			if (seteuid(0) < 0)
+				i_fatal("seteuid(0) failed: %m");
+			if (seteuid(first_uid) < 0)
+				i_fatal("seteuid() failed: %m");
+		}
+
+		mail_free(&mail);
+		mailbox_transaction_rollback(&trans);
+		mailbox_free(&box);
+		mail_user_autoexpunge(user);
+		mail_user_unref(&user);
+	}
+
+	if (old_uid == 0) {
+		/* switch back to running as root, since that's what we're
+		   practically doing anyway. it's also important in case we
+		   lose e.g. config connection and need to reconnect to it. */
+		if (seteuid(0) < 0)
+			i_fatal("seteuid(0) failed: %m");
+		/* enable core dumping again. we need to chdir also to
+		   root-owned directory to get core dumps. */
+		restrict_access_allow_coredumps(TRUE);
+		if (chdir(base_dir) < 0)
+			i_error("chdir(%s) failed: %m", base_dir);
+	}
 }

@@ -10,7 +10,6 @@
 #include "ostream.h"
 #include "istream-dot.h"
 #include "safe-mkstemp.h"
-#include "restrict-access.h"
 #include "anvil-client.h"
 #include "master-service.h"
 #include "master-service-ssl.h"
@@ -22,7 +21,6 @@
 #include "index/raw/raw-storage.h"
 #include "lda-settings.h"
 #include "lmtp-settings.h"
-#include "mail-autoexpunge.h"
 #include "lmtp-local.h"
 #include "mail-deliver.h"
 #include "message-address.h"
@@ -570,56 +568,6 @@ static struct istream *client_get_input(struct client *client)
 	i_stream_unref(&inputs[0]);
 	i_stream_unref(&inputs[1]);
 	return cinput;
-}
-
-static void
-client_input_data_write_local(struct client *client, struct istream *input)
-{
-	struct mail_deliver_session *session;
-	uid_t old_uid, first_uid;
-
-	if (client_open_raw_mail(client, input) < 0)
-		return;
-
-	session = mail_deliver_session_init();
-	old_uid = geteuid();
-	first_uid = client_deliver_to_rcpts(client, session);
-	mail_deliver_session_deinit(&session);
-
-	if (client->state.first_saved_mail != NULL) {
-		struct mail *mail = client->state.first_saved_mail;
-		struct mailbox_transaction_context *trans = mail->transaction;
-		struct mailbox *box = trans->box;
-		struct mail_user *user = box->storage->user;
-
-		/* just in case these functions are going to write anything,
-		   change uid back to user's own one */
-		if (first_uid != old_uid) {
-			if (seteuid(0) < 0)
-				i_fatal("seteuid(0) failed: %m");
-			if (seteuid(first_uid) < 0)
-				i_fatal("seteuid() failed: %m");
-		}
-
-		mail_free(&mail);
-		mailbox_transaction_rollback(&trans);
-		mailbox_free(&box);
-		mail_user_autoexpunge(user);
-		mail_user_unref(&user);
-	}
-
-	if (old_uid == 0) {
-		/* switch back to running as root, since that's what we're
-		   practically doing anyway. it's also important in case we
-		   lose e.g. config connection and need to reconnect to it. */
-		if (seteuid(0) < 0)
-			i_fatal("seteuid(0) failed: %m");
-		/* enable core dumping again. we need to chdir also to
-		   root-owned directory to get core dumps. */
-		restrict_access_allow_coredumps(TRUE);
-		if (chdir(base_dir) < 0)
-			i_error("chdir(%s) failed: %m", base_dir);
-	}
 }
 
 static void client_input_data_finish(struct client *client)
