@@ -190,10 +190,16 @@ client_create(int fd, bool ssl, pool_t pool,
 	client->real_remote_ip = conn->real_remote_ip;
 	client->real_remote_port = conn->real_remote_port;
 	client->listener_name = p_strdup(client->pool, conn->name);
-
 	client->trusted = client_is_trusted(client);
-	client->secured = ssl || client->trusted ||
-		net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
+
+	if (conn->proxied) {
+		client->secured = conn->proxy.ssl || client->trusted;
+		client->local_name = conn->proxy.hostname;
+		client->client_cert_common_name = conn->proxy.cert_common_name;
+	} else {
+		client->secured = ssl || client->trusted ||
+			net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
+	}
 	client->proxy_ttl = LOGIN_PROXY_TTL;
 
 	if (last_client == NULL)
