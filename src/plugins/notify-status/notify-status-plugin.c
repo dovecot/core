@@ -119,7 +119,7 @@ static void notify_update_callback(const struct dict_commit_result *result,
 
 #define MAILBOX_STATUS_NOTIFY (STATUS_MESSAGES|STATUS_UNSEEN|\
 			       STATUS_RECENT|STATUS_UIDNEXT|\
-			       STATUS_UIDVALIDITY|STATUS_FIRST_UNSEEN_SEQ|\
+			       STATUS_UIDVALIDITY|\
 			       STATUS_HIGHESTMODSEQ|STATUS_FIRST_RECENT_UID|\
 			       STATUS_HIGHESTPVTMODSEQ)
 static void notify_update_mailbox_status(struct mailbox *box)
@@ -165,7 +165,6 @@ static void notify_update_mailbox_status(struct mailbox *box)
 			{ '\0', dec2str(status.recent), "recent" },
 			{ '\0', dec2str(status.uidvalidity), "uidvalidity" },
 			{ '\0', dec2str(status.uidnext), "uidnext" },
-			{ '\0', dec2str(status.first_unseen_seq), "first_unseen_seq" },
 			{ '\0', dec2str(status.first_recent_uid), "first_recent_uid" },
 			{ '\0', dec2str(status.highest_modseq), "highest_modseq" },
 			{ '\0', dec2str(status.highest_pvt_modseq), "highest_pvt_modseq" },
