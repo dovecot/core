@@ -347,7 +347,7 @@ static void test_mail_index_flag_update_random(void)
 		change = i_rand() % (MAIL_FLAGS_NONRECENT+1);
 		seq1 = (i_rand() % hdr.messages_count) + 1;
 		seq2 = seq1 == hdr.messages_count ? seq1 :
-			(i_rand() % (hdr.messages_count - seq1)) + seq1;
+			(i_rand() % (hdr.messages_count - seq1 + 1)) + seq1;
 
 		switch (i_rand() % 3) {
 		case 0:
