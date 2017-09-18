@@ -9,6 +9,11 @@
 
 #define HAPROXY_V1_MAX_HEADER_SIZE (108)
 
+enum haproxy_version_t {
+	HAPROXY_VERSION_1,
+	HAPROXY_VERSION_2,
+};
+
 enum {
 	HAPROXY_CMD_LOCAL = 0x00,
 	HAPROXY_CMD_PROXY = 0x01
@@ -109,9 +114,31 @@ master_service_haproxy_timeout(struct master_service_haproxy_conn *hpconn)
 	master_service_haproxy_conn_failure(hpconn);
 }
 
+static ssize_t
+master_service_haproxy_recv(int fd, void *buf, size_t len, int flags)
+{
+	ssize_t ret;
+
+	do {
+		ret = recv(fd, buf, len, flags);
+	} while (ret < 0 && errno == EINTR);
+
+	if (ret < 0 && errno == EAGAIN)
+		return 0;
+	if (ret <= 0) {
+		if (ret == 0)
+			errno = ECONNRESET;
+		return -1;
+	}
+
+	return ret;
+}
+
 static int
 master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 {
+	/* reasonable max size for haproxy data */
+	unsigned char rbuf[1500];
 	static union {
 		unsigned char v1_data[HAPROXY_V1_MAX_HEADER_SIZE];
 		struct {
@@ -123,23 +150,55 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	int fd = hpconn->conn.fd;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
-	size_t size;
+	size_t size,want;
 	ssize_t ret;
+	enum haproxy_version_t version;
 
 	/* the protocol specification explicitly states that the protocol header
 	   must be sent as one TCP frame, meaning that we will get it in full
 	   with the first recv() call.
-	   FIXME: still, it would be cleaner to allow reading it incrementally.
 	 */
-	do {
-		ret = recv(fd, &buf, sizeof(buf), MSG_PEEK);
-	} while (ret < 0 && errno == EINTR);
+	i_zero(&buf);
+	i_zero(rbuf);
 
-	if (ret < 0 && errno == EAGAIN)
-		return 0;
-	if (ret <= 0) {
-		i_info("haproxy: Client disconnected (rip=%s)",
-		       net_ip2addr(real_remote_ip));
+	/* see if there is a HAPROXY protocol command waiting */
+	if ((ret = master_service_haproxy_recv(fd, &buf, sizeof(buf), MSG_PEEK))<=0) {
+		if (ret < 0)
+			i_info("haproxy: Client disconnected (rip=%s): %m",
+			       net_ip2addr(real_remote_ip));
+		return ret;
+	/* see if there is a haproxy command, 8 is used later on as well */
+	} else if (ret >= 8 && memcmp(buf.v1_data, "PROXY", 5) == 0) {
+		/* fine */
+		version = HAPROXY_VERSION_1;
+	} else if ((size_t)ret >= sizeof(buf.v2.hdr) &&
+		   memcmp(buf.v2.hdr.sig, haproxy_v2sig, sizeof(haproxy_v2sig)) == 0) {
+		want = ntohs(buf.v2.hdr.len) + sizeof(buf.v2.hdr);
+		if (want > sizeof(rbuf)) {
+			i_error("haproxy: Client disconnected: Too long header (rip=%s)",
+				net_ip2addr(real_remote_ip));
+			return -1;
+		}
+
+		if ((ret = master_service_haproxy_recv(fd, rbuf, want, MSG_WAITALL))<=0) {
+			if (ret < 0)
+				i_info("haproxy: Client disconnected (rip=%s): %m",
+				       net_ip2addr(real_remote_ip));
+			return ret;
+		}
+
+		if (ret != (ssize_t)want) {
+			i_info("haproxy: Client disconnected: Failed to read full header (rip=%s)",
+				net_ip2addr(real_remote_ip));
+			return -1;
+		}
+		memcpy(&buf, rbuf, sizeof(buf));
+		version = HAPROXY_VERSION_2;
+	} else {
+		/* it wasn't haproxy data */
+		i_error("haproxy: Client disconnected: "
+			"Failed to read valid HAproxy data (rip=%s)",
+			net_ip2addr(real_remote_ip));
 		return -1;
 	}
 
@@ -150,12 +209,12 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	remote_port = hpconn->conn.remote_port;
 
 	/* protocol version 2 */
-	if (ret >= (ssize_t)sizeof(buf.v2.hdr) &&
-	    memcmp(buf.v2.hdr.sig, haproxy_v2sig,
-		   sizeof(buf.v2.hdr.sig)) == 0) {
+	if (version == HAPROXY_VERSION_2) {
 		const struct haproxy_header_v2 *hdr = &buf.v2.hdr;
 		const struct haproxy_data_v2 *data = &buf.v2.data;
 		size_t hdr_len;
+
+		i_assert(ret >= (ssize_t)sizeof(buf.v2.hdr));
 
 		if ((hdr->ver_cmd & 0xf0) != 0x20) {
 			i_error("haproxy: Client disconnected: "
@@ -167,6 +226,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 
 		hdr_len = ntohs(hdr->len);
 		size = sizeof(*hdr) + hdr_len;
+
 		if (ret < (ssize_t)size) {
 			i_error("haproxy(v2): Client disconnected: "
 				"Protocol payload length does not match header "
@@ -248,10 +308,12 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 		//         (useful to see whether proxied client is using SSL)
 
 	/* protocol version 1 (soon obsolete) */
-	} else if (ret >= 8 && memcmp(buf.v1_data, "PROXY", 5) == 0) {
+	} else if (version == HAPROXY_VERSION_1) {
 		unsigned char *data = buf.v1_data, *end;
 		const char *const *fields;
 		unsigned int family = 0;
+
+		i_assert(ret >= 8);
 
 		/* find end of header line */
 		end = memchr(data, '\r', ret - 1);
@@ -362,32 +424,22 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 				return -1;
 			}
 		}
+		i_assert(size <= sizeof(buf));
 
+		if ((ret = master_service_haproxy_recv(fd, &buf, size, 0))<=0) {
+			if (ret < 0)
+				i_info("haproxy: Client disconnected (rip=%s): %m",
+				       net_ip2addr(real_remote_ip));
+			return ret;
+		} else if (ret != (ssize_t)size) {
+			i_error("haproxy: Client disconnected: "
+				"Failed to read full header (rip=%s)",
+				net_ip2addr(real_remote_ip));
+			return -1;
+		}
 	/* invalid protocol */
 	} else {
-		i_error("haproxy: Client disconnected: "
-			"No valid proxy header found (rip=%s)",
-			net_ip2addr(real_remote_ip));
-		return -1;
-	}
-
-	/* remove proxy protocol header from socket buffer */
-	i_assert(size <= sizeof(buf));
-	do {
-		  ret = recv(fd, &buf, size, 0);
-	} while (ret == -1 && errno == EINTR);
-
-	if (ret <= 0) {
-		i_info("haproxy: Client disconnected (rip=%s)",
-		       net_ip2addr(real_remote_ip));
-		return -1;
-	}
-	if (ret != (ssize_t)size) {
-		/* not supposed to happen */
-		i_error("haproxy: Client disconencted: "
-			"Failed to read full header (rip=%s)",
-			net_ip2addr(real_remote_ip));
-		return -1;
+		i_unreached();
 	}
 
 	/* assign data from proxy */
