@@ -1,15 +1,17 @@
 #ifndef LMTP_LOCAL_H
 #define LMTP_LOCAL_H
 
+struct smtp_address;
 struct client;
 struct lmtp_recipient;
 struct mail_deliver_session;
 
 void lmtp_local_rcpt_deinit(struct lmtp_recipient *rcpt);
 
-bool cmd_rcpt_finish(struct client *client, struct lmtp_recipient *rcpt);
-
-void rcpt_anvil_lookup_callback(const char *reply, void *context);
+int lmtp_local_rcpt(struct client *client,
+	struct lmtp_recipient *rcpt,
+	struct smtp_address *address,
+	const char *username, const char *detail);
 
 void lmtp_local_data(struct client *client, struct istream *input);
 

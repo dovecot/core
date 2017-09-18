@@ -4,7 +4,6 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
-#include "strescape.h"
 #include "istream.h"
 #include "istream-concat.h"
 #include "ostream.h"
@@ -186,13 +185,11 @@ int cmd_mail(struct client *client, const char *args)
 int cmd_rcpt(struct client *client, const char *args)
 {
 	struct lmtp_recipient *rcpt;
-	struct mail_storage_service_input input;
 	struct smtp_address *address;
 	const char *username, *detail;
 	enum smtp_param_parse_error pperror;
 	const char *error = NULL;
 	char delim = '\0';
-	int ret = 0;
 
 	if (client->state.mail_from == NULL) {
 		client_send_line(client, "503 5.5.1 MAIL needed first");
@@ -250,73 +247,7 @@ int cmd_rcpt(struct client *client, const char *args)
 			return 0;
 	}
 
-	/* Use a unique session_id for each mail delivery. This is especially
-	   important for stats process to not see duplicate sessions. */
-	if (array_count(&client->state.rcpt_to) == 0)
-		rcpt->session_id = client->state.session_id;
-	else {
-		rcpt->session_id =
-			p_strdup_printf(client->state_pool, "%s:%u",
-					client->state.session_id,
-					array_count(&client->state.rcpt_to)+1);
-	}
-
-	i_zero(&input);
-	input.module = input.service = "lmtp";
-	input.username = username;
-	input.local_ip = client->local_ip;
-	input.remote_ip = client->remote_ip;
-	input.local_port = client->local_port;
-	input.remote_port = client->remote_port;
-	input.session_id = rcpt->session_id;
-
-	ret = mail_storage_service_lookup(storage_service, &input,
-					  &rcpt->service_user, &error);
-
-	if (ret < 0) {
-		i_error("Failed to lookup user %s: %s", username, error);
-		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-			smtp_address_encode(address));
-		return 0;
-	}
-	if (ret == 0) {
-		client_send_line(client,
-				 "550 5.1.1 <%s> User doesn't exist: %s",
-				 smtp_address_encode(address), username);
-		return 0;
-	}
-	if (client->proxy != NULL) {
-		/* NOTE: if this restriction is ever removed, we'll also need
-		   to send different message bodies to local and proxy
-		   (with and without Return-Path: header) */
-		client_send_line(client, "451 4.3.0 <%s> "
-			"Can't handle mixed proxy/non-proxy destinations",
-			smtp_address_encode(address));
-		mail_storage_service_user_unref(&rcpt->service_user);
-		return 0;
-	}
-
-	rcpt->address = smtp_address_clone(client->state_pool, address);
-	rcpt->detail = p_strdup(client->state_pool, detail);
-
-	if (client->lmtp_set->lmtp_user_concurrency_limit == 0) {
-		(void)cmd_rcpt_finish(client, rcpt);
-		return 0;
-	} else {
-		/* NOTE: username may change as the result of the userdb
-		   lookup. Look up the new one via service_user. */
-		const struct mail_storage_service_input *input =
-			mail_storage_service_user_get_input(rcpt->service_user);
-		const char *query = t_strconcat("LOOKUP\t",
-			master_service_get_name(master_service),
-			"/", str_tabescape(input->username), NULL);
-		io_remove(&client->io);
-		rcpt->anvil_query = anvil_client_query(anvil, query,
-					rcpt_anvil_lookup_callback, rcpt);
-		/* stop processing further commands while anvil query is
-		   pending */
-		return rcpt->anvil_query == NULL ? 0 : -1;
-	}
+	return lmtp_local_rcpt(client, rcpt, address, username, detail);
 }
 
 /*
