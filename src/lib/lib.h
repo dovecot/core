@@ -90,5 +90,14 @@ bool lib_is_initialized(void);
 void lib_deinit(void);
 
 uint32_t i_rand(void);
+/* Returns a random integer < upper_bound. */
+uint32_t i_rand_limit(uint32_t upper_bound);
+
+/* Returns a random integer >= min_val, and <= max_val. */
+static inline uint32_t i_rand_minmax(uint32_t min_val, uint32_t max_val)
+{
+	i_assert(min_val <= max_val);
+	return min_val + i_rand_limit(max_val - min_val + 1);
+}
 
 #endif
