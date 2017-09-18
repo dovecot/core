@@ -182,8 +182,10 @@ void rcpt_anvil_lookup_callback(const char *reply, void *context)
  */
 
 static int
-client_deliver(struct client *client, const struct lmtp_recipient *rcpt,
-	       struct mail *src_mail, struct mail_deliver_session *session)
+lmtp_local_deliver(struct client *client,
+	       const struct lmtp_recipient *rcpt,
+	       struct mail *src_mail,
+	       struct mail_deliver_session *session)
 {
 	struct mail_deliver_context dctx;
 	struct mail_user *dest_user;
@@ -361,7 +363,7 @@ static uid_t client_deliver_to_rcpts(struct client *client,
 
 	rcpts = array_get(&client->state.rcpt_to, &count);
 	while (client->state.rcpt_idx < count) {
-		ret = client_deliver(client, rcpts[client->state.rcpt_idx],
+		ret = lmtp_local_deliver(client, rcpts[client->state.rcpt_idx],
 				     src_mail, session);
 		client_state_set(client, "DATA", "");
 		i_set_failure_prefix("lmtp(%s): ", my_pid);
