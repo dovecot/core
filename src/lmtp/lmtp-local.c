@@ -393,7 +393,9 @@ static uid_t client_deliver_to_rcpts(struct client *client,
 	return first_uid;
 }
 
-static int client_open_raw_mail(struct client *client, struct istream *input)
+static int
+lmtp_local_open_raw_mail(struct client *client,
+			 struct istream *input)
 {
 	static const char *wanted_headers[] = {
 		"From", "To", "Message-ID", "Subject", "Return-Path",
@@ -428,7 +430,7 @@ void client_input_data_write_local(struct client *client, struct istream *input)
 	struct mail_deliver_session *session;
 	uid_t old_uid, first_uid;
 
-	if (client_open_raw_mail(client, input) < 0)
+	if (lmtp_local_open_raw_mail(client, input) < 0)
 		return;
 
 	session = mail_deliver_session_init();
