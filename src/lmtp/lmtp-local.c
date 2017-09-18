@@ -50,6 +50,16 @@ client_send_line_overquota(struct client *client,
 		smtp_address_encode(rcpt->address), error);
 }
 
+void client_rcpt_fail_all(struct client *client)
+{
+	struct mail_recipient *const *rcptp;
+
+	array_foreach(&client->state.rcpt_to, rcptp) {
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 smtp_address_encode((*rcptp)->address));
+	}
+}
+
 static int
 lmtp_rcpt_to_is_over_quota(struct client *client,
 			   const struct mail_recipient *rcpt)

@@ -545,16 +545,6 @@ int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
 	return 0;
 }
 
-static void client_rcpt_fail_all(struct client *client)
-{
-	struct mail_recipient *const *rcptp;
-
-	array_foreach(&client->state.rcpt_to, rcptp) {
-		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 smtp_address_encode((*rcptp)->address));
-	}
-}
-
 static struct istream *client_get_input(struct client *client)
 {
 	struct client_state *state = &client->state;
