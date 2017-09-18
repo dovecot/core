@@ -371,8 +371,8 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 }
 
 static bool
-client_proxy_is_ourself(const struct client *client,
-			const struct lmtp_proxy_rcpt_settings *set)
+lmtp_proxy_is_ourself(const struct client *client,
+		      const struct lmtp_proxy_rcpt_settings *set)
 {
 	struct ip_addr ip;
 
@@ -499,7 +499,7 @@ bool client_proxy_rcpt(struct client *client,
 		} else {
 			address = smtp_address_add_detail_temp(user, detail, delim);
 		}
-	} else if (client_proxy_is_ourself(client, &set)) {
+	} else if (lmtp_proxy_is_ourself(client, &set)) {
 		i_error("Proxying to <%s> loops to itself", username);
 		client_send_line(client, "554 5.4.6 <%s> "
 				 "Proxying loops to itself",
