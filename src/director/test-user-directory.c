@@ -78,15 +78,15 @@ static void test_user_directory_random(void)
 	struct user_directory *dir;
 	struct mail_host *host = t_new(struct mail_host, 1);
 	time_t timestamp;
-	unsigned int i, count = 10000 + i_rand()%10000;
+	unsigned int i, count = i_rand_minmax(10000, 19999);
 
 	test_begin("user directory random");
 	dir = user_directory_init(USER_DIR_TIMEOUT, NULL);
 	for (i = 0; i < count; i++) {
-		if (i_rand() % 10 == 0)
+		if (i_rand_limit(10) == 0)
 			timestamp = ioloop_time;
 		else
-			timestamp = ioloop_time-i_rand()%100;
+			timestamp = ioloop_time-i_rand_limit(100);
 		(void)user_directory_add(dir, i+1, host, timestamp);
 	}
 	verify_user_directory(dir, count);

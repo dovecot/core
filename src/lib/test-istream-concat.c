@@ -63,10 +63,10 @@ static bool test_istream_concat_random(void)
 	size_t size = 0;
 	unsigned int i, j, offset, stream_count, data_len, simult;
 
-	stream_count = (i_rand() % TEST_MAX_ISTREAM_COUNT) + 2;
+	stream_count = i_rand_minmax(2, TEST_MAX_ISTREAM_COUNT + 2 - 1);
 	streams = t_new(struct istream *, stream_count + 1);
 	for (i = 0, offset = 0; i < stream_count; i++) {
-		data_len = i_rand() % TEST_MAX_ISTREAM_SIZE + 1;
+		data_len = i_rand_minmax(1, TEST_MAX_ISTREAM_SIZE);
 		w_data = t_malloc_no0(data_len);
 		for (j = 0; j < data_len; j++)
 			w_data[j] = offset++;
@@ -79,7 +79,7 @@ static bool test_istream_concat_random(void)
 	concat = i_stream_create_concat(streams);
 	i_stream_set_max_buffer_size(concat, TEST_MAX_BUFFER_SIZE);
 
-	simult = i_rand() % TEST_MAX_ISTREAM_COUNT;
+	simult = i_rand_limit(TEST_MAX_ISTREAM_COUNT);
 	if (simult > 0) {
 		limits = t_new(struct istream *, simult);
 		for (i = 0; i < simult; i++)
@@ -87,9 +87,9 @@ static bool test_istream_concat_random(void)
 	}
 
 	for (i = 0; i < 1000; i++) {
-		struct istream *input = (simult == 0) ? concat : limits[i_rand() % simult];
-		if (i_rand() % 3 == 0) {
-			i_stream_seek(input, i_rand() % offset);
+		struct istream *input = (simult == 0) ? concat : limits[i_rand_limit(simult)];
+		if (i_rand_limit(3) == 0) {
+			i_stream_seek(input, i_rand_limit(offset));
 		} else {
 			ssize_t ret = i_stream_read(input);
 			size = i_stream_get_data_size(input);
@@ -98,7 +98,7 @@ static bool test_istream_concat_random(void)
 			} else if (input->v_offset + size != offset) {
 				test_assert(ret > 0);
 				test_assert(input->v_offset + ret <= offset);
-				i_stream_skip(input, i_rand() % ret);
+				i_stream_skip(input, i_rand_limit(ret));
 
 				data = i_stream_get_data(input, &size);
 				for (j = 0; j < size; j++) {

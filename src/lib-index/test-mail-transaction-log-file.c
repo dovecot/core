@@ -329,7 +329,7 @@ static void test_mail_transaction_log_file_modseq_offsets(void)
 	test_assert(MODSEQ_MATCH(2, next_offset));
 	/* do some random testing with cache */
 	for (unsigned int i = 0; i < LOG_FILE_MODSEQ_CACHE_SIZE*10; i++) {
-		modseq = (i_rand() % max_modseq) + 1;
+		modseq = i_rand_minmax(1, max_modseq);
 		test_assert(mail_transaction_log_file_get_modseq_next_offset(file, modseq, &next_offset) == 0);
 		test_assert(MODSEQ_MATCH(modseq, next_offset));
 	}
@@ -351,7 +351,7 @@ static void test_mail_transaction_log_file_modseq_offsets(void)
 	test_assert(modseq == max_modseq);
 	/* do some random testing with cache */
 	for (unsigned int i = 0; i < LOG_FILE_MODSEQ_CACHE_SIZE*10; i++) {
-		modseq = (i_rand() % max_modseq) + 1;
+		modseq = i_rand_minmax(1, max_modseq);
 		test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_next_offset[modseq], &modseq_at, &error) == 0);
 		test_assert(modseq_at == modseq);
 		test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_alt_next_offset[modseq], &modseq_at, &error) == 0);

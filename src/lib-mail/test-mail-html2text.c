@@ -87,9 +87,9 @@ static void test_mail_html2text_random(void)
 
 		ht = mail_html2text_init(0);
 		for (unsigned int i = 0; i < 100; i++) {
-			s[0] = valid_chars[i_rand() % N_ELEMENTS(valid_chars)];
-			s[1] = valid_chars[i_rand() % N_ELEMENTS(valid_chars)];
-			mail_html2text_more(ht, s, i_rand()%2+1, str);
+			s[0] = valid_chars[i_rand_limit(N_ELEMENTS(valid_chars))];
+			s[1] = valid_chars[i_rand_limit(N_ELEMENTS(valid_chars))];
+			mail_html2text_more(ht, s, i_rand_minmax(1, 2), str);
 		}
 		mail_html2text_deinit(&ht);
 		str_truncate(str, 0);

@@ -87,7 +87,7 @@ static void test_base64_random(void)
 
 	test_begin("base64 encode/decode with random input");
 	for (i = 0; i < 1000; i++) {
-		max = i_rand() % sizeof(buf);
+		max = i_rand_limit(sizeof(buf));
 		for (j = 0; j < max; j++)
 			buf[j] = i_rand();
 

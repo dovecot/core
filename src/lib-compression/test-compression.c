@@ -52,8 +52,8 @@ static void test_compression_handler(const struct compression_handler *handler)
 
 	/* 3) write semi-compressible data */
 	for (i = 0; i < sizeof(buf); i++) {
-		if (i_rand() % 3 == 0)
-			buf[i] = i_rand() % 4;
+		if (i_rand_limit(3) == 0)
+			buf[i] = i_rand_limit(4);
 		else
 			buf[i] = i;
 	}

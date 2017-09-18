@@ -23,18 +23,18 @@ static void test_ostream_buffer_random_once(void)
 	output = o_stream_create_buffer(buffer);
 	o_stream_cork(output);
 
-	size = (i_rand() % MAX_BUFSIZE) + 1;
+	size = i_rand_minmax(1, MAX_BUFSIZE);
 	random_fill(randbuf, size);
 	memcpy(buf, randbuf, size);
 	test_assert(o_stream_send(output, buf, size) > 0);
 
 	for (i = 0; i < 10; i++) {
-		offset = i_rand() % (MAX_BUFSIZE*3);
-		size = (i_rand() % MAX_BUFSIZE) + 1;
+		offset = i_rand_limit(MAX_BUFSIZE * 3);
+		size = i_rand_minmax(1, MAX_BUFSIZE);
 		random_fill(randbuf, size);
 		memcpy(buf + offset, randbuf, size);
 		test_assert(o_stream_pwrite(output, randbuf, size, offset) == 0);
-		if (i_rand() % 10 == 0)
+		if (i_rand_limit(10) == 0)
 			test_assert(o_stream_flush(output) > 0);
 	}
 

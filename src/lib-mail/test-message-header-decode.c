@@ -74,8 +74,8 @@ static void test_message_header_decode_encode_random(void)
 		/* fill only with 7bit data so we don't have to worry about
 		   the data being valid UTF-8 */
 		for (j = 0; j < sizeof(buf); j++)
-			buf[j] = i_rand() % 128;
-		buflen = i_rand() % sizeof(buf);
+			buf[j] = i_rand_limit(128);
+		buflen = i_rand_limit(sizeof(buf));
 
 		str_truncate(encoded, 0);
 		str_truncate(decoded, 0);

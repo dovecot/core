@@ -26,7 +26,7 @@ static int crappy_uintmax_to_str(char *into, uintmax_t val)
 static void test_str_to_uintmax(void)
 {
 	unsigned int i=0;
-	int randrange = i_rand()%15+1; /* when 1, will max out on 1s */
+	int randrange = i_rand_minmax(1, 15); /* when 1, will max out on 1s */
 	uintmax_t value = 0, valbase = i_rand() * 1000ull;
 	int len, ret;
 	char buff[50]; /* totally assumes < 159 bits */
@@ -38,7 +38,7 @@ static void test_str_to_uintmax(void)
 
 		value = (value << 1) + 1;
 		if (value >= 64)
-			value -= i_rand()%randrange; /* don't always test the same numbers */
+			value -= i_rand_limit(randrange); /* don't always test the same numbers */
 		len = crappy_uintmax_to_str(buff, value);
 		ret = str_to_uintmax(buff, &value_back);
 		test_assert_idx(ret == 0, i);
@@ -99,7 +99,7 @@ static int crappy_uintmax_to_str_hex(char *into, uintmax_t val)
 static void test_str_to_uintmax_hex(void)
 {
 	unsigned int i=0;
-	int randrange = i_rand()%15+1; /* when 1, will max out on 1s */
+	int randrange = i_rand_minmax(1, 15); /* when 1, will max out on 1s */
 	uintmax_t value = 0, valbase = i_rand() * 1000ull;
 	int len, ret;
 	char buff[52]; /* totally assumes < 200 bits */
@@ -111,7 +111,7 @@ static void test_str_to_uintmax_hex(void)
 
 		value = (value << 1) + 1;
 		if (value >= 64)
-			value -= i_rand()%randrange; /* don't always test the same numbers */
+			value -= i_rand_limit(randrange); /* don't always test the same numbers */
 		len = crappy_uintmax_to_str_hex(buff, value);
 		ret = str_to_uintmax_hex(buff, &value_back);
 		test_assert_idx(ret == 0, i);
@@ -175,7 +175,7 @@ static int crappy_uintmax_to_str_oct(char *into, uintmax_t val)
 static void test_str_to_uintmax_oct(void)
 {
 	unsigned int i=0;
-	int randrange = i_rand()%15+1; /* when 1, will max out on 1s */
+	int randrange = i_rand_minmax(1, 15); /* when 1, will max out on 1s */
 	uintmax_t value = 0, valbase = i_rand() * 1000ull;
 	int len, ret;
 	char buff[69]; /* totally assumes < 200 bits */
@@ -187,7 +187,7 @@ static void test_str_to_uintmax_oct(void)
 
 		value = (value << 1) + 1;
 		if (value >= 64)
-			value -= i_rand()%randrange; /* don't always test the same numbers */
+			value -= i_rand_limit(randrange); /* don't always test the same numbers */
 		len = crappy_uintmax_to_str_oct(buff, value);
 		ret = str_to_uintmax_oct(buff, &value_back);
 		test_assert_idx(ret == 0, i);

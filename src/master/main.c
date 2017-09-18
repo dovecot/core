@@ -344,7 +344,7 @@ static void instance_update_now(struct master_instance_list *list)
 	
 	if (to_instance != NULL)
 		timeout_remove(&to_instance);
-	to_instance = timeout_add((3600*12 + i_rand()%(60*30)) * 1000,
+	to_instance = timeout_add((3600 * 12 + i_rand_limit(60 * 30)) * 1000,
 				  instance_update_now, list);
 }
 

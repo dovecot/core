@@ -48,7 +48,7 @@ static struct dsync_mailbox_node *
 random_node_create(struct dsync_mailbox_tree *tree, unsigned int counter,
 		   const char *name)
 {
-	return node_create(tree, counter, name, i_rand() % 10);
+	return node_create(tree, counter, name, i_rand_limit(10));
 }
 
 static void nodes_create(struct dsync_mailbox_tree *tree, unsigned int *counter,
@@ -76,7 +76,7 @@ static void
 create_random_nodes(struct dsync_mailbox_tree *tree, const char *parent_name,
 		    unsigned int depth, unsigned int *counter)
 {
-	unsigned int parent_len, i, nodes_count = 1 + i_rand() % 3;
+	unsigned int parent_len, i, nodes_count = i_rand_minmax(1, 3);
 	string_t *str;
 
 	if (depth == MAX_DEPTH)

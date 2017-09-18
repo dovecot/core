@@ -188,7 +188,7 @@ static void add_random_text(string_t *dest, unsigned int count)
 	unsigned int i;
 
 	for (i = 0; i < count; i++)
-		str_append_c(dest, i_rand() % ('z'-'a'+1) + 'a');
+		str_append_c(dest, i_rand_minmax('a', 'z'));
 }
 
 static void ATTR_NULL(3)

@@ -79,11 +79,11 @@ void test_priorityq(void)
 	for (i = 0; i < 100; i++) {
 		pq = priorityq_init(cmp_int, 1);
 		for (j = 0; j < PQ_MAX_ITEMS; j++) {
-			items[j].num = i_rand() % INT_MAX;
+			items[j].num = i_rand_limit(INT_MAX);
 			priorityq_add(pq, &items[j].item);
 		}
 		for (j = 0; j < PQ_MAX_ITEMS; j++) {
-			if (i_rand() % 3 == 0) {
+			if (i_rand_limit(3) == 0) {
 				priorityq_remove(pq, &items[j].item);
 				items[j].num = -1;
 			}

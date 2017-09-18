@@ -50,7 +50,7 @@ void test_unichar(void)
 		/* The bottom 6 bits should be irrelevant to code coverage,
 		   only test 000000, 111111, and something in between. */
 		if ((chr & 63) == 1)
-			chr += i_rand() % 62; /* After 0, somewhere between 1 and 62 */
+			chr += i_rand_limit(62); /* After 0, somewhere between 1 and 62 */
 		else if ((chr & 63) > 0 && (chr & 63) < 63)
 			chr |= 63; /* After random, straight to 63 */
 

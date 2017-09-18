@@ -113,7 +113,7 @@ test_tokenizer_inputoutput(struct fts_tokenizer *tok, const char *_input,
 	/* test input in random chunks */
 	outi = first_outi;
 	for (i = 0; i < input_len; i += char_len) {
-		max = i_rand() % (input_len - i) + 1;
+		max = i_rand_minmax(1, input_len - i);
 		for (char_len = 0; char_len < max; )
 			char_len += uni_utf8_char_bytes(input[i+char_len]);
 		while (fts_tokenizer_next(tok, input+i, char_len, &token, &error) > 0) {

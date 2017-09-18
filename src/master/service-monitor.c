@@ -109,7 +109,7 @@ static void service_status_less(struct service_process *process,
 			   signal to all of them at once */
 			process->to_idle =
 				timeout_add((service->idle_kill * 1000) +
-					    (i_rand() % 100)*10,
+					    i_rand_limit(100) * 10,
 					    service_process_kill_idle,
 					    process);
 		}

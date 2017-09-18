@@ -32,7 +32,7 @@ static ssize_t test_read(struct istream_private *stream)
 	} else {
 		/* copy data to a buffer in somewhat random place. this could
 		   help catch bugs. */
-		new_skip_diff = i_rand() % 128;
+		new_skip_diff = i_rand_limit(128);
 		stream->skip = (stream->skip - tstream->skip_diff) +
 			new_skip_diff;
 		stream->pos = (stream->pos - tstream->skip_diff) +

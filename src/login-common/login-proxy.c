@@ -533,7 +533,7 @@ static unsigned int login_proxy_delay_disconnect(struct login_proxy *proxy)
 		   processes will disconnect at slightly different times to
 		   spread the load. */
 		timeval_add_msecs(&rec->disconnect_timestamp,
-				  i_rand() % PROXY_DISCONNECT_INTERVAL_MSECS);
+				  i_rand_limit(PROXY_DISCONNECT_INTERVAL_MSECS));
 	}
 	rec->num_disconnects_since_ts++;
 	if (proxy->to != NULL) {
