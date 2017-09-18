@@ -187,7 +187,7 @@ struct client *client_create(int fd_in, int fd_out,
 
 void client_state_reset(struct client *client, const char *state_name)
 {
-	struct mail_recipient *const *rcptp;
+	struct lmtp_recipient *const *rcptp;
 
 	if (client->proxy != NULL)
 		lmtp_proxy_deinit(&client->proxy);

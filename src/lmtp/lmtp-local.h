@@ -2,12 +2,12 @@
 #define LMTP_LOCAL_H
 
 struct client;
-struct mail_recipient;
+struct lmtp_recipient;
 struct mail_deliver_session;
 
-void client_rcpt_anvil_disconnect(const struct mail_recipient *rcpt);
+void client_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt);
 
-bool cmd_rcpt_finish(struct client *client, struct mail_recipient *rcpt);
+bool cmd_rcpt_finish(struct client *client, struct lmtp_recipient *rcpt);
 
 void rcpt_anvil_lookup_callback(const char *reply, void *context);
 

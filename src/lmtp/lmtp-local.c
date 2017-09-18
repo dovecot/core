@@ -35,7 +35,7 @@
  * Recipient
  */
 
-void client_rcpt_anvil_disconnect(const struct mail_recipient *rcpt)
+void client_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt)
 {
 	const struct mail_storage_service_input *input;
 
@@ -50,7 +50,7 @@ void client_rcpt_anvil_disconnect(const struct mail_recipient *rcpt)
 
 static void
 client_send_line_overquota(struct client *client,
-			   const struct mail_recipient *rcpt, const char *error)
+			   const struct lmtp_recipient *rcpt, const char *error)
 {
 	struct lda_settings *lda_set =
 		mail_storage_service_user_get_set(rcpt->service_user)[2];
@@ -63,7 +63,7 @@ client_send_line_overquota(struct client *client,
 static void
 client_rcpt_fail_all(struct client *client)
 {
-	struct mail_recipient *const *rcptp;
+	struct lmtp_recipient *const *rcptp;
 
 	array_foreach(&client->state.rcpt_to, rcptp) {
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
@@ -77,7 +77,7 @@ client_rcpt_fail_all(struct client *client)
 
 static int
 lmtp_rcpt_to_is_over_quota(struct client *client,
-			   const struct mail_recipient *rcpt)
+			   const struct lmtp_recipient *rcpt)
 {
 	struct mail_user *user;
 	struct mail_namespace *ns;
@@ -129,7 +129,7 @@ lmtp_rcpt_to_is_over_quota(struct client *client,
 	return ret;
 }
 
-bool cmd_rcpt_finish(struct client *client, struct mail_recipient *rcpt)
+bool cmd_rcpt_finish(struct client *client, struct lmtp_recipient *rcpt)
 {
 	int ret;
 
@@ -148,7 +148,7 @@ bool cmd_rcpt_finish(struct client *client, struct mail_recipient *rcpt)
 
 void rcpt_anvil_lookup_callback(const char *reply, void *context)
 {
-	struct mail_recipient *rcpt = context;
+	struct lmtp_recipient *rcpt = context;
 	struct client *client = rcpt->client;
 	const struct mail_storage_service_input *input;
 	unsigned int parallel_count = 0;
@@ -182,7 +182,7 @@ void rcpt_anvil_lookup_callback(const char *reply, void *context)
  */
 
 static int
-client_deliver(struct client *client, const struct mail_recipient *rcpt,
+client_deliver(struct client *client, const struct lmtp_recipient *rcpt,
 	       struct mail *src_mail, struct mail_deliver_session *session)
 {
 	struct mail_deliver_context dctx;
@@ -354,7 +354,7 @@ static uid_t client_deliver_to_rcpts(struct client *client,
 	uid_t first_uid = (uid_t)-1;
 	struct mail *src_mail;
 
-	struct mail_recipient *const *rcpts;
+	struct lmtp_recipient *const *rcpts;
 	unsigned int count;
 	int ret;
 	src_mail = client->state.raw_mail;

@@ -185,7 +185,7 @@ int cmd_mail(struct client *client, const char *args)
 
 int cmd_rcpt(struct client *client, const char *args)
 {
-	struct mail_recipient *rcpt;
+	struct lmtp_recipient *rcpt;
 	struct mail_storage_service_input input;
 	struct smtp_address *address;
 	const char *username, *detail;
@@ -217,7 +217,7 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 
-	rcpt = p_new(client->state_pool, struct mail_recipient, 1);
+	rcpt = p_new(client->state_pool, struct lmtp_recipient, 1);
 	rcpt->client = client;
 
 	/* [SP Rcpt-parameters] */
@@ -420,7 +420,7 @@ static const char *client_get_added_headers(struct client *client)
 	const char *host;
 
 	if (array_count(&client->state.rcpt_to) == 1) {
-		struct mail_recipient *const *rcptp =
+		struct lmtp_recipient *const *rcptp =
 			array_idx(&client->state.rcpt_to, 0);
 
 		sets = mail_storage_service_user_get_set((*rcptp)->service_user);
