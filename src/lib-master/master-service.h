@@ -39,6 +39,17 @@ enum master_service_flags {
 	MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME = 0x800
 };
 
+struct master_service_connection_proxy {
+        /* only set if ssl is TRUE */
+        const char *hostname;
+        const char *cert_common_name;
+        const unsigned char *alpn;
+        unsigned int alpn_size;
+
+	bool ssl:1;
+	bool ssl_client_cert:1;
+};
+
 struct master_service_connection {
 	/* fd of the new connection. */
 	int fd;
@@ -55,6 +66,12 @@ struct master_service_connection {
 	/* The real client/server IP/port, unchanged by haproxy protocol. */
 	struct ip_addr real_remote_ip, real_local_ip;
 	in_port_t real_remote_port, real_local_port;
+
+	/* filled if connection is proxied */
+	struct master_service_connection_proxy proxy;
+
+	/* This is a connection proxied wit HAproxy (or similar) */
+	bool proxied:1;
 
 	/* This is a FIFO fd. Only a single "connection" is ever received from
 	   a FIFO after the first writer sends something to it. */
