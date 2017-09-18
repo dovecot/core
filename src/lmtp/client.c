@@ -196,7 +196,7 @@ void client_state_reset(struct client *client, const char *state_name)
 		array_foreach_modifiable(&client->state.rcpt_to, rcptp) {
 			if ((*rcptp)->anvil_query != NULL)
 				anvil_client_query_abort(anvil, &(*rcptp)->anvil_query);
-			client_rcpt_anvil_disconnect(*rcptp);
+			lmtp_local_rcpt_anvil_disconnect(*rcptp);
 			mail_storage_service_user_unref(&(*rcptp)->service_user);
 		}
 	}

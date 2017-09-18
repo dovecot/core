@@ -35,7 +35,7 @@
  * Recipient
  */
 
-void client_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt)
+void lmtp_local_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt)
 {
 	const struct mail_storage_service_input *input;
 
