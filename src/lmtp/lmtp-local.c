@@ -425,7 +425,7 @@ lmtp_local_open_raw_mail(struct client *client,
 	return 0;
 }
 
-void client_input_data_write_local(struct client *client, struct istream *input)
+void lmtp_local_data(struct client *client, struct istream *input)
 {
 	struct mail_deliver_session *session;
 	uid_t old_uid, first_uid;

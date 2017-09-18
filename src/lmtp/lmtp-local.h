@@ -11,6 +11,6 @@ bool cmd_rcpt_finish(struct client *client, struct lmtp_recipient *rcpt);
 
 void rcpt_anvil_lookup_callback(const char *reply, void *context);
 
-void client_input_data_write_local(struct client *client, struct istream *input);
+void lmtp_local_data(struct client *client, struct istream *input);
 
 #endif
