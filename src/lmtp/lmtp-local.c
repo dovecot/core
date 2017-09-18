@@ -90,6 +90,7 @@ static int
 lmtp_local_rcpt_check_quota(struct client *client,
 			   const struct lmtp_recipient *rcpt)
 {
+	struct smtp_address *address = rcpt->address;
 	struct mail_user *user;
 	struct mail_namespace *ns;
 	struct mailbox *box;
@@ -115,28 +116,33 @@ lmtp_local_rcpt_check_quota(struct client *client,
 
 	if (ret < 0) {
 		i_error("Failed to initialize user %s: %s",
-			smtp_address_encode(rcpt->address), errstr);
-		return -1;
+			smtp_address_encode(address), errstr);
+		ret = -1;
+	} else {
+		ns = mail_namespace_find_inbox(user->namespaces);
+		box = mailbox_alloc(ns->list, "INBOX", 0);
+		mailbox_set_reason(box, "over-quota check");
+		ret = mailbox_get_status(box, STATUS_CHECK_OVER_QUOTA, &status);
+		if (ret < 0) {
+			errstr = mailbox_get_last_error(box, &error);
+			if (error == MAIL_ERROR_NOQUOTA) {
+				client_send_line_overquota(client, rcpt, errstr);
+				ret = 0;
+			} else {
+				i_error("mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
+					"failed: %s",
+					mailbox_get_vname(box),
+					mailbox_get_last_internal_error(box, NULL));
+			}
+		}
+		mailbox_free(&box);
+		mail_user_unref(&user);
 	}
 
-	ns = mail_namespace_find_inbox(user->namespaces);
-	box = mailbox_alloc(ns->list, "INBOX", 0);
-	mailbox_set_reason(box, "over-quota check");
-	ret = mailbox_get_status(box, STATUS_CHECK_OVER_QUOTA, &status);
 	if (ret < 0) {
-		errstr = mailbox_get_last_error(box, &error);
-		if (error == MAIL_ERROR_NOQUOTA) {
-			client_send_line_overquota(client, rcpt, errstr);
-			ret = 1;
-		} else {
-			i_error("mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
-				"failed: %s",
-				mailbox_get_vname(box),
-				mailbox_get_last_internal_error(box, NULL));
-		}
+		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 smtp_address_encode(address));
 	}
-	mailbox_free(&box);
-	mail_user_unref(&user);
 	return ret;
 }
 
@@ -146,11 +152,7 @@ lmtp_local_rcpt_anvil_finish(struct client *client,
 {
 	int ret;
 
-	if ((ret = lmtp_local_rcpt_check_quota(client, rcpt)) != 0) {
-		if (ret < 0) {
-			client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-					 smtp_address_encode(rcpt->address));
-		}
+	if ((ret = lmtp_local_rcpt_check_quota(client, rcpt)) < 0) {
 		mail_storage_service_user_unref(&rcpt->service_user);
 		return FALSE;
 	}
