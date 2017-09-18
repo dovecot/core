@@ -27,6 +27,14 @@
 #define ERRSTR_TEMP_MAILBOX_FAIL "451 4.3.0 <%s> Temporary internal error"
 #define ERRSTR_TEMP_USERDB_FAIL_PREFIX "451 4.3.0 <%s> "
 
+/*
+ * LMTP local
+ */
+
+/*
+ * Recipient
+ */
+
 void client_rcpt_anvil_disconnect(const struct mail_recipient *rcpt)
 {
 	const struct mail_storage_service_input *input;
@@ -62,6 +70,10 @@ client_rcpt_fail_all(struct client *client)
 				 smtp_address_encode((*rcptp)->address));
 	}
 }
+
+/*
+ * RCPT command
+ */
 
 static int
 lmtp_rcpt_to_is_over_quota(struct client *client,
@@ -164,6 +176,10 @@ void rcpt_anvil_lookup_callback(const char *reply, void *context)
 	client_io_reset(client);
 	client_input_handle(client);
 }
+
+/*
+ * DATA command
+ */
 
 static int
 client_deliver(struct client *client, const struct mail_recipient *rcpt,
