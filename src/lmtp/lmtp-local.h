@@ -5,7 +5,7 @@ struct client;
 struct lmtp_recipient;
 struct mail_deliver_session;
 
-void lmtp_local_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt);
+void lmtp_local_rcpt_deinit(struct lmtp_recipient *rcpt);
 
 bool cmd_rcpt_finish(struct client *client, struct lmtp_recipient *rcpt);
 

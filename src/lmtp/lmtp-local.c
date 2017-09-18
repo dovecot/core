@@ -8,6 +8,7 @@
 #include "var-expand.h"
 #include "ioloop.h"
 #include "restrict-access.h"
+#include "anvil-client.h"
 #include "settings-parser.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
@@ -35,7 +36,8 @@
  * Recipient
  */
 
-void lmtp_local_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt)
+static void
+lmtp_local_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt)
 {
 	const struct mail_storage_service_input *input;
 
@@ -46,6 +48,14 @@ void lmtp_local_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt)
 	master_service_anvil_send(master_service, t_strconcat(
 		"DISCONNECT\t", my_pid, "\t", master_service_get_name(master_service),
 		"/", input->username, "\n", NULL));
+}
+
+void lmtp_local_rcpt_deinit(struct lmtp_recipient *rcpt)
+{
+	if (rcpt->anvil_query != NULL)
+		anvil_client_query_abort(anvil, &rcpt->anvil_query);
+	lmtp_local_rcpt_anvil_disconnect(rcpt);
+	mail_storage_service_user_unref(&rcpt->service_user);
 }
 
 static void
