@@ -108,20 +108,20 @@ int o_stream_encrypt_send_header_v2(struct encrypt_ostream *stream)
 	buffer_append(values, IOSTREAM_CRYPT_MAGIC, sizeof(IOSTREAM_CRYPT_MAGIC));
 	c = 2;
 	buffer_append(values, &c, 1);
-	i = htonl(stream->flags);
+	i = cpu32_to_be(stream->flags);
 	buffer_append(values, &i, 4);
 	/* store total length of header
 	   9 = version + flags + length
 	   8 = rounds + key data length
 	   */
-	i = htonl(sizeof(IOSTREAM_CRYPT_MAGIC) + 9 + stream->cipher_oid->used + stream->mac_oid->used + 8 + stream->key_data_len);
+	i = cpu32_to_be(sizeof(IOSTREAM_CRYPT_MAGIC) + 9 + stream->cipher_oid->used + stream->mac_oid->used + 8 + stream->key_data_len);
 	buffer_append(values, &i, 4);
 
 	buffer_append_buf(values, stream->cipher_oid, 0, (size_t)-1);
 	buffer_append_buf(values, stream->mac_oid, 0, (size_t)-1);
-	i = htonl(IO_STREAM_ENCRYPT_ROUNDS);
+	i = cpu32_to_be(IO_STREAM_ENCRYPT_ROUNDS);
 	buffer_append(values, &i, 4);
-	i = htonl(stream->key_data_len);
+	i = cpu32_to_be(stream->key_data_len);
 	buffer_append(values, &i, 4);
 	buffer_append(values, stream->key_data, stream->key_data_len);
 	i_free_and_null(stream->key_data);
@@ -313,11 +313,11 @@ int o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream, const cha
 	/* store hash of public key as ID */
 	dcrypt_key_id_public(stream->pub, "sha256", res, NULL);
 	/* store ephemeral key (if present) */
-	unsigned int val = htonl(ephemeral_key->used);
+	unsigned int val = cpu32_to_be(ephemeral_key->used);
 	buffer_append(res, &val, 4);
 	buffer_append_buf(res, ephemeral_key, 0, (size_t)-1);
 	/* store encrypted key */
-	val = htonl(encrypted_key->used);
+	val = cpu32_to_be(encrypted_key->used);
 	buffer_append(res, &val, 4);
 	buffer_append_buf(res, encrypted_key, 0, (size_t)-1);
 
@@ -378,7 +378,7 @@ int o_stream_encrypt_keydata_create_v2(struct encrypt_ostream *stream, const cha
 	hash->result(hctx, hres);
 
 	for(int i = 1; i < 2049; i++) {
-		uint32_t i_msb = htonl(i);
+		uint32_t i_msb = cpu32_to_be(i);
 
 		hash->init(hctx);
 		hash->loop(hctx, hres, sizeof(hres));
@@ -387,7 +387,7 @@ int o_stream_encrypt_keydata_create_v2(struct encrypt_ostream *stream, const cha
 	}
 
 	/* store key data hash */
-	val = htonl(sizeof(hres));
+	val = cpu32_to_be(sizeof(hres));
 	buffer_append(res, &val, 4);
 	buffer_append(res, hres, sizeof(hres));
 

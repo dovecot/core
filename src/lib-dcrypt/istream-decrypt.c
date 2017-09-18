@@ -449,7 +449,7 @@ ssize_t i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg, u
 	hash->result(hctx, hres);
 
 	for(int i = 1; i < 2049; i++) {
-		uint32_t i_msb = htonl(i);
+		uint32_t i_msb = cpu32_to_be(i);
 
 		hash->init(hctx);
 		hash->loop(hctx, hres, sizeof(hres));
