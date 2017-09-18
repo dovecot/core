@@ -305,8 +305,8 @@ lmtp_proxy_write_reply(string_t *reply, const struct smtp_reply *proxy_reply)
  */
 
 static bool
-client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
-			       const char *const *args, const char **address)
+lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
+			     const char *const *args, const char **address)
 {
 	const char *p, *key, *value;
 	bool proxying = FALSE, port_set = FALSE;
@@ -477,7 +477,7 @@ bool client_proxy_rcpt(struct client *client,
 	set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
 	set.params = *params;
 
-	if (!client_proxy_rcpt_parse_fields(&set, fields, &username)) {
+	if (!lmtp_proxy_rcpt_parse_fields(&set, fields, &username)) {
 		/* not proxying this user */
 		pool_unref(&pool);
 		return FALSE;
