@@ -245,7 +245,7 @@ int cmd_rcpt(struct client *client, const char *args)
 		smtp_address_encode(address));
 
 	if (client->lmtp_set->lmtp_proxy) {
-		if (client_proxy_rcpt(client, address, username, detail, delim,
+		if (lmtp_proxy_rcpt(client, address, username, detail, delim,
 				      &rcpt->params))
 			return 0;
 	}

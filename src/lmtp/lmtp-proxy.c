@@ -428,10 +428,10 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
 	return 0;
 }
 
-bool client_proxy_rcpt(struct client *client,
-		       struct smtp_address *address,
-		       const char *username, const char *detail, char delim,
-		       struct smtp_params_rcpt *params)
+bool lmtp_proxy_rcpt(struct client *client,
+		     struct smtp_address *address,
+		     const char *username, const char *detail, char delim,
+		     struct smtp_params_rcpt *params)
 {
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
