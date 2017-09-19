@@ -439,30 +439,24 @@ lmtp_local_deliver(struct client *client,
 	return ret;
 }
 
-static bool client_rcpt_to_is_last(struct client *client)
-{
-	return client->state.rcpt_idx >= array_count(&client->state.rcpt_to);
-}
-
 static uid_t client_deliver_to_rcpts(struct client *client,
 				     struct mail_deliver_session *session)
 {
 	uid_t first_uid = (uid_t)-1;
 	struct mail *src_mail;
-
 	struct lmtp_recipient *const *rcpts;
-	unsigned int count;
+	unsigned int count, i;
 	int ret;
 	src_mail = client->state.raw_mail;
 
 	rcpts = array_get(&client->state.rcpt_to, &count);
-	while (client->state.rcpt_idx < count) {
-		ret = lmtp_local_deliver(client, rcpts[client->state.rcpt_idx],
+	for (i = 0; i < count; i++) {
+		struct lmtp_recipient *rcpt = rcpts[i];
+
+		ret = lmtp_local_deliver(client, rcpt,
 				     src_mail, session);
 		client_state_set(client, "DATA", "");
 		i_set_failure_prefix("lmtp(%s): ", my_pid);
-
-		client->state.rcpt_idx++;
 
 		/* succeeded and mail_user is not saved in first_saved_mail */
 		if ((ret == 0 &&
@@ -470,7 +464,7 @@ static uid_t client_deliver_to_rcpts(struct client *client,
 		      client->state.first_saved_mail == src_mail)) ||
 		    /* failed. try the next one. */
 		    (ret != 0 && client->state.dest_user != NULL)) {
-			if (client_rcpt_to_is_last(client))
+			if (i == (count - 1))
 				mail_user_autoexpunge(client->state.dest_user);
 			mail_user_unref(&client->state.dest_user);
 		} else if (ret == 0) {

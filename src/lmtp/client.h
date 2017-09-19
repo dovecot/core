@@ -25,7 +25,6 @@ struct client_state {
 	struct smtp_address *mail_from;
 	struct smtp_params_mail mail_params;
 	ARRAY(struct lmtp_recipient *) rcpt_to;
-	unsigned int rcpt_idx;
 
 	unsigned int data_end_idx;
 
