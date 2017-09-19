@@ -491,7 +491,7 @@ lmtp_local_open_raw_mail(struct client *client,
 		NULL
 	};
 	struct mailbox *box;
-	struct mailbox_transaction_context *trans;
+	struct mailbox_transaction_context *mtrans;
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	enum mail_error error;
 
@@ -505,10 +505,10 @@ lmtp_local_open_raw_mail(struct client *client,
 		return -1;
 	}
 
-	trans = mailbox_transaction_begin(box, 0, __func__);
+	mtrans = mailbox_transaction_begin(box, 0, __func__);
 
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
-	client->state.raw_mail = mail_alloc(trans, 0, headers_ctx);
+	client->state.raw_mail = mail_alloc(mtrans, 0, headers_ctx);
 	mailbox_header_lookup_unref(&headers_ctx);
 	mail_set_seq(client->state.raw_mail, 1);
 	return 0;
