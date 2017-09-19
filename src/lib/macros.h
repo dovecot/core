@@ -212,8 +212,8 @@
 /* Close the fd and set it to -1. This assert-crashes if fd == 0, and is a
    no-op if fd == -1. Normally fd == 0 would happen only if an uninitialized
    fd is attempted to be closed, which is a bug. */
-void i_close_fd_real(int *fd, const char *file, int line);
-#define i_close_fd(fd) i_close_fd_real((fd), __FILE__, __LINE__)
+void i_close_fd_real(int *fd, const char *arg, const char *func, const char *file, int line);
+#define i_close_fd(fd) i_close_fd_real((fd), #fd, __func__, __FILE__, __LINE__)
 
 #ifndef STATIC_CHECKER
 #  define i_unreached() \

@@ -41,7 +41,8 @@ int close_keep_errno(int *fd)
 	return ret;
 }
 
-void i_close_fd_real(int *fd, const char *file, int line)
+void i_close_fd_real(int *fd, const char *arg, const char *func,
+		     const char *file, int line)
 {
 	int saved_errno;
 
@@ -52,7 +53,8 @@ void i_close_fd_real(int *fd, const char *file, int line)
 
 	saved_errno = errno;
 	if (unlikely(close(*fd) < 0))
-		i_error("close(%d[%s:%d]) failed: %m", *fd, file, line);
+		i_error("%s: close(%s) @ %s:%d failed (fd=%d): %m",
+			func, arg, file, line, *fd);
 	errno = saved_errno;
 
 	*fd = -1;
