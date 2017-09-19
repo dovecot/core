@@ -11,6 +11,7 @@
 #endif
 
 static char *process_name = NULL;
+static char *current_process_title;
 
 #ifdef HAVE_SETPROCTITLE
 #  undef PROCTITLE_HACK
@@ -135,10 +136,12 @@ void process_title_init(int argc ATTR_UNUSED, char **argv[])
 	process_name = (*argv)[0];
 }
 
-void process_title_set(const char *title ATTR_UNUSED)
+void process_title_set(const char *title)
 {
 	i_assert(process_name != NULL);
 
+	i_free(current_process_title);
+	current_process_title = i_strdup(title);
 #ifdef HAVE_SETPROCTITLE
 	if (title == NULL)
 		setproctitle(NULL);
@@ -149,6 +152,11 @@ void process_title_set(const char *title ATTR_UNUSED)
 		proctitle_hack_set(t_strconcat(process_name, " ", title, NULL));
 	} T_END;
 #endif
+}
+
+const char *process_title_get(void)
+{
+	return current_process_title;
 }
 
 void process_title_deinit(void)
@@ -169,4 +177,5 @@ void process_title_deinit(void)
 	   the environ_p to its original state, but that's a bit complicated. */
 	*environ_p = NULL;
 #endif
+	i_free(current_process_title);
 }
