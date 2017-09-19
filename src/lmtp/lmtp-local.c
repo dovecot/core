@@ -439,8 +439,9 @@ lmtp_local_deliver(struct client *client,
 	return ret;
 }
 
-static uid_t client_deliver_to_rcpts(struct client *client,
-				     struct mail_deliver_session *session)
+static uid_t
+lmtp_local_deliver_to_rcpts(struct client *client,
+			    struct mail_deliver_session *session)
 {
 	uid_t first_uid = (uid_t)-1;
 	struct mail *src_mail;
@@ -523,7 +524,7 @@ void lmtp_local_data(struct client *client, struct istream *input)
 
 	session = mail_deliver_session_init();
 	old_uid = geteuid();
-	first_uid = client_deliver_to_rcpts(client, session);
+	first_uid = lmtp_local_deliver_to_rcpts(client, session);
 	mail_deliver_session_deinit(&session);
 
 	if (client->state.first_saved_mail != NULL) {
