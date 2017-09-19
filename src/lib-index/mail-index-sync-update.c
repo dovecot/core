@@ -839,8 +839,7 @@ void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx)
 {
 	i_assert(sync_map_ctx->modseq_ctx == NULL);
 
-	if (sync_map_ctx->unknown_extensions != NULL)
-		buffer_free(&sync_map_ctx->unknown_extensions);
+	buffer_free(&sync_map_ctx->unknown_extensions);
 	if (sync_map_ctx->expunge_handlers_used)
 		mail_index_sync_deinit_expunge_handlers(sync_map_ctx);
 	mail_index_sync_deinit_handlers(sync_map_ctx);

@@ -54,8 +54,7 @@ static void i_stream_seekable_destroy(struct iostream_private *stream)
 {
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 
-	if (sstream->membuf != NULL)
-		buffer_free(&sstream->membuf);
+	buffer_free(&sstream->membuf);
 	i_stream_unref(&sstream->fd_input);
 	unref_streams(sstream);
 

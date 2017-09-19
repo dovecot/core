@@ -136,8 +136,7 @@ void iostream_rawlog_write(struct rawlog_iostream *rstream,
 void iostream_rawlog_close(struct rawlog_iostream *rstream)
 {
 	o_stream_unref(&rstream->rawlog_output);
-	if (rstream->buffer != NULL)
-		buffer_free(&rstream->buffer);
+	buffer_free(&rstream->buffer);
 }
 
 static void

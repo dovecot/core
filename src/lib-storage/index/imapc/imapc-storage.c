@@ -768,8 +768,7 @@ void imapc_mail_cache_free(struct imapc_mail_cache *cache)
 			i_error("close(imapc cached mail) failed: %m");
 		cache->fd = -1;
 	}
-	if (cache->buf != NULL)
-		buffer_free(&cache->buf);
+	buffer_free(&cache->buf);
 	cache->uid = 0;
 }
 

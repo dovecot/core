@@ -578,10 +578,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	message_decoder_deinit(&decoder);
 	i_free(ctx.content_type);
 	i_free(ctx.content_disposition);
-	if (ctx.word_buf != NULL)
-		buffer_free(&ctx.word_buf);
-	if (ctx.pending_input != NULL)
-		buffer_free(&ctx.pending_input);
+	buffer_free(&ctx.word_buf);
+	buffer_free(&ctx.pending_input);
 	return ret < 0 ? -1 : 1;
 }
 

@@ -132,8 +132,7 @@ void message_header_decode(const unsigned char *data, size_t size,
 		(void)callback(data + start_pos, size - start_pos,
 			       NULL, context);
 	}
-	if (decodebuf != NULL)
-		buffer_free(&decodebuf);
+	buffer_free(&decodebuf);
 }
 
 struct decode_utf8_context {

@@ -313,8 +313,7 @@ static int test_input_stream(struct istream *file_input)
 	}
 
 	buffer_free(&base_buf);
-	if (attachment_data != NULL)
-		buffer_free(&attachment_data);
+	buffer_free(&attachment_data);
 	if (array_is_created(&attachments))
 		array_free(&attachments);
 	return ret;
@@ -357,8 +356,7 @@ static void test_istream_attachment(void)
 	i_stream_unref(&input);
 	i_stream_unref(&datainput);
 
-	if (attachment_data != NULL)
-		buffer_free(&attachment_data);
+	buffer_free(&attachment_data);
 	if (array_is_created(&attachments))
 		array_free(&attachments);
 	test_end();
@@ -406,8 +404,7 @@ static bool test_istream_attachment_extractor_one(const char *body, int err_type
 		memcmp(data, body + attachment_data->used, size) == 0;
 
 cleanup:
-	if (attachment_data != NULL)
-		buffer_free(&attachment_data);
+	buffer_free(&attachment_data);
 	if (array_is_created(&attachments))
 		array_free(&attachments);
 

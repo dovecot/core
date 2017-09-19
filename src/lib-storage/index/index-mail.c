@@ -2047,8 +2047,7 @@ void index_mail_free(struct mail *_mail)
 	i_assert(_mail->transaction->mail_ref_count > 0);
 	_mail->transaction->mail_ref_count--;
 
-	if (mail->header_data != NULL)
-		buffer_free(&mail->header_data);
+	buffer_free(&mail->header_data);
 	if (array_is_created(&mail->header_lines))
 		array_free(&mail->header_lines);
 	if (array_is_created(&mail->header_match))

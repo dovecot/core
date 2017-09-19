@@ -40,8 +40,7 @@ o_stream_temp_close(struct iostream_private *stream,
 	struct temp_ostream *tstream = (struct temp_ostream *)stream;
 
 	i_close_fd(&tstream->fd);
-	if (tstream->buf != NULL)
-		buffer_free(&tstream->buf);
+	buffer_free(&tstream->buf);
 	i_free(tstream->temp_path_prefix);
 	i_free(tstream->name);
 }

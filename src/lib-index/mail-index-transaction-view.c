@@ -35,8 +35,7 @@ static void tview_close(struct mail_index_view *view)
 
 	if (tview->lookup_map != NULL)
 		mail_index_unmap(&tview->lookup_map);
-	if (tview->lookup_return_data != NULL)
-		buffer_free(&tview->lookup_return_data);
+	buffer_free(&tview->lookup_return_data);
 
 	if (array_is_created(&tview->all_recs)) {
 		recs = array_get_modifiable(&tview->all_recs, &count);

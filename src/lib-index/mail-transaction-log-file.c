@@ -114,8 +114,7 @@ void mail_transaction_log_file_free(struct mail_transaction_log_file **_file)
 	if (file == file->log->head)
 		file->log->head = NULL;
 
-	if (file->buffer != NULL) 
-		buffer_free(&file->buffer);
+	buffer_free(&file->buffer);
 
 	if (file->mmap_base != NULL) {
 		if (munmap(file->mmap_base, file->mmap_size) < 0)
@@ -957,8 +956,7 @@ int mail_transaction_log_file_open(struct mail_transaction_log_file *file,
 		}
 
 		/* ESTALE - try again */
-		if (file->buffer != NULL)
-			buffer_free(&file->buffer);
+		buffer_free(&file->buffer);
         }
 
 	mail_transaction_log_file_add_to_list(file);
@@ -1733,10 +1731,9 @@ static int
 mail_transaction_log_file_mmap(struct mail_transaction_log_file *file,
 			       const char **reason_r)
 {
-	if (file->buffer != NULL) {
-		/* in case we just switched to mmaping */
-		buffer_free(&file->buffer);
-	}
+	/* we may have switched to mmaping */
+	buffer_free(&file->buffer);
+
 	file->mmap_size = file->last_size;
 	file->mmap_base = mmap(NULL, file->mmap_size, PROT_READ, MAP_SHARED,
 			       file->fd, 0);

@@ -973,8 +973,7 @@ static void imap_urlauth_connection_disconnect
 		conn->literal_fd = -1;
 	}
 
-	if (conn->literal_buf != NULL)
-		buffer_free(&conn->literal_buf);
+	buffer_free(&conn->literal_buf);
 	timeout_remove(&conn->to_reconnect);
 	timeout_remove(&conn->to_idle);
 	imap_urlauth_stop_response_timeout(conn);

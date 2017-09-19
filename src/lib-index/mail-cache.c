@@ -587,8 +587,7 @@ void mail_cache_free(struct mail_cache **_cache)
 	mail_index_unregister_expunge_handler(cache->index, cache->ext_id);
 	mail_cache_file_close(cache);
 
-	if (cache->read_buf != NULL)
-		buffer_free(&cache->read_buf);
+	buffer_free(&cache->read_buf);
 	hash_table_destroy(&cache->field_name_hash);
 	pool_unref(&cache->field_pool);
 	i_free(cache->field_file_map);

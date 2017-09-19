@@ -836,8 +836,7 @@ void i_stream_decrypt_destroy(struct iostream_private *stream)
 	struct decrypt_istream *dstream =
 		(struct decrypt_istream *)stream;
 
-	if (dstream->buf != NULL)
-		buffer_free(&dstream->buf);
+	buffer_free(&dstream->buf);
 	if (dstream->iv != NULL)
 		i_free_and_null(dstream->iv);
 	if (dstream->ctx_sym != NULL)

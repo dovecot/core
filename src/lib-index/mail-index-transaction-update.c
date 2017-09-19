@@ -76,10 +76,8 @@ void mail_index_transaction_reset_v(struct mail_index_transaction *t)
 		array_free(&t->ext_reset_ids);
 	if (array_is_created(&t->ext_reset_atomic))
 		array_free(&t->ext_reset_atomic);
-	if (t->attribute_updates != NULL)
-		buffer_free(&t->attribute_updates);
-	if (t->attribute_updates_suffix != NULL)
-		buffer_free(&t->attribute_updates_suffix);
+	buffer_free(&t->attribute_updates);
+	buffer_free(&t->attribute_updates_suffix);
 
 	t->first_new_seq = mail_index_view_get_messages_count(t->view)+1;
 	t->last_new_seq = 0;

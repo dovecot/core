@@ -121,8 +121,7 @@ void fts_tokenizer_unref(struct fts_tokenizer **_tok)
 	if (--tok->refcount > 0)
 		return;
 
-	if (tok->parent_input != NULL)
-		buffer_free(&tok->parent_input);
+	buffer_free(&tok->parent_input);
 	if (tok->parent != NULL)
 		fts_tokenizer_unref(&tok->parent);
 	tok->v->destroy(tok);

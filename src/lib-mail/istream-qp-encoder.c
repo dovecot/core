@@ -21,8 +21,7 @@ static void i_stream_qp_encoder_close(struct iostream_private *stream,
 
 	if (bstream->qp != NULL)
 		qp_encoder_deinit(&bstream->qp);
-	if (bstream->buf != NULL)
-		buffer_free(&bstream->buf);
+	buffer_free(&bstream->buf);
 	if (close_parent)
 		i_stream_close(bstream->istream.parent);
 }

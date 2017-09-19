@@ -156,8 +156,7 @@ void mail_cache_transaction_rollback(struct mail_cache_transaction_ctx **_ctx)
 	ctx->view->trans_seq1 = ctx->view->trans_seq2 = 0;
 
 	mail_index_view_close(&ctx->view->trans_view);
-	if (ctx->cache_data != NULL)
-		buffer_free(&ctx->cache_data);
+	buffer_free(&ctx->cache_data);
 	if (array_is_created(&ctx->cache_data_seq))
 		array_free(&ctx->cache_data_seq);
 	if (array_is_created(&ctx->cache_data_wanted_seqs))

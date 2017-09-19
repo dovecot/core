@@ -29,8 +29,7 @@ static void i_stream_lz4_close(struct iostream_private *stream,
 {
 	struct lz4_istream *zstream = (struct lz4_istream *)stream;
 
-	if (zstream->chunk_buf != NULL)
-		buffer_free(&zstream->chunk_buf);
+	buffer_free(&zstream->chunk_buf);
 	if (close_parent)
 		i_stream_close(zstream->istream.parent);
 }

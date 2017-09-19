@@ -98,8 +98,7 @@ int fts_parser_deinit(struct fts_parser **_parser)
 
 	*_parser = NULL;
 
-	if (parser->utf8_output != NULL)
-		buffer_free(&parser->utf8_output);
+	buffer_free(&parser->utf8_output);
 	if (parser->v.deinit != NULL)
 		ret = parser->v.deinit(parser);
 	else

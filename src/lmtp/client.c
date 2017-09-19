@@ -379,8 +379,7 @@ void client_state_reset(struct client *client, const char *state_name)
 		mailbox_free(&raw_box);
 	}
 
-	if (client->state.mail_data != NULL)
-		buffer_free(&client->state.mail_data);
+	buffer_free(&client->state.mail_data);
 	o_stream_unref(&client->state.mail_data_output);
 	if (client->state.mail_data_fd != -1) {
 		if (close(client->state.mail_data_fd) < 0)

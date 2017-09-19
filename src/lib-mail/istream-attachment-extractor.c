@@ -538,8 +538,7 @@ static void astream_part_reset(struct attachment_istream *astream)
 
 	i_free_and_null(part->content_type);
 	i_free_and_null(part->content_disposition);
-	if (part->part_buf != NULL)
-		buffer_free(&part->part_buf);
+	buffer_free(&part->part_buf);
 
 	i_zero(part);
 	part->temp_fd = -1;

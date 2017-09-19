@@ -454,8 +454,7 @@ static void imapc_mail_close(struct mail *_mail)
 			i_error("close(imapc mail) failed: %m");
 		mail->fd = -1;
 	}
-	if (mail->body != NULL)
-		buffer_free(&mail->body);
+	buffer_free(&mail->body);
 	mail->header_fetched = FALSE;
 	mail->body_fetched = FALSE;
 
