@@ -1013,7 +1013,7 @@ static void director_user_move_timeout(struct user *user)
 
 void director_kill_user(struct director *dir, struct director_host *src,
 			struct user *user, struct mail_tag *tag,
-			struct mail_host *old_host)
+			struct mail_host *old_host, bool forced_kick)
 {
 	struct director_kill_context *ctx;
 	const char *cmd;
@@ -1044,7 +1044,7 @@ void director_kill_user(struct director *dir, struct director_host *src,
 				   director_user_move_timeout, user);
 	ctx->kill_state = USER_KILL_STATE_KILLING;
 
-	if (old_host != NULL && old_host != user->host) {
+	if ((old_host != NULL && old_host != user->host) || forced_kick) {
 		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
 				      user->username_hash);
 		ctx->callback_pending = TRUE;
@@ -1124,7 +1124,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->username_hash, net_ip2addr(&user->host->ip)));
 	/* kill the user only after sending the USER-MOVE, because the kill
 	   may finish instantly. */
-	director_kill_user(dir, src, user, host->tag, old_host);
+	director_kill_user(dir, src, user, host->tag, old_host, FALSE);
 }
 
 static void

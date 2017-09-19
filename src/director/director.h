@@ -203,7 +203,7 @@ void director_update_user_weak(struct director *dir, struct director_host *src,
 			       struct user *user) ATTR_NULL(3);
 void director_kill_user(struct director *dir, struct director_host *src,
 			struct user *user, struct mail_tag *tag,
-			struct mail_host *old_host);
+			struct mail_host *old_host, bool forced_kick);
 void director_move_user(struct director *dir, struct director_host *src,
 			struct director_host *orig_src,
 			unsigned int username_hash, struct mail_host *host)
