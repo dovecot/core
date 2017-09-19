@@ -76,7 +76,7 @@ client_rcpt_fail_all(struct client *client)
  */
 
 static int
-lmtp_rcpt_to_is_over_quota(struct client *client,
+lmtp_local_rcpt_check_quota(struct client *client,
 			   const struct lmtp_recipient *rcpt)
 {
 	struct mail_user *user;
@@ -133,7 +133,7 @@ bool cmd_rcpt_finish(struct client *client, struct lmtp_recipient *rcpt)
 {
 	int ret;
 
-	if ((ret = lmtp_rcpt_to_is_over_quota(client, rcpt)) != 0) {
+	if ((ret = lmtp_local_rcpt_check_quota(client, rcpt)) != 0) {
 		if (ret < 0) {
 			client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 					 smtp_address_encode(rcpt->address));
