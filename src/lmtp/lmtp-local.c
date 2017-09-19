@@ -141,7 +141,8 @@ lmtp_local_rcpt_check_quota(struct client *client,
 }
 
 static bool
-cmd_rcpt_finish(struct client *client, struct lmtp_recipient *rcpt)
+lmtp_local_rcpt_anvil_finish(struct client *client,
+	struct lmtp_recipient *rcpt)
 {
 	int ret;
 
@@ -178,7 +179,7 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 				 "Too many concurrent deliveries for user",
 				 smtp_address_encode(rcpt->address));
 		mail_storage_service_user_unref(&rcpt->service_user);
-	} else if (cmd_rcpt_finish(client, rcpt)) {
+	} else if (lmtp_local_rcpt_anvil_finish(client, rcpt)) {
 		rcpt->anvil_connect_sent = TRUE;
 		input = mail_storage_service_user_get_input(rcpt->service_user);
 		master_service_anvil_send(master_service, t_strconcat(
@@ -249,7 +250,7 @@ int lmtp_local_rcpt(struct client *client,
 	rcpt->detail = p_strdup(client->state_pool, detail);
 
 	if (client->lmtp_set->lmtp_user_concurrency_limit == 0) {
-		(void)cmd_rcpt_finish(client, rcpt);
+		(void)lmtp_local_rcpt_anvil_finish(client, rcpt);
 		return 0;
 	} else {
 		/* NOTE: username may change as the result of the userdb
