@@ -258,6 +258,56 @@ namespace_set_alias_for(struct mail_namespace *ns,
 	return 0;
 }
 
+static bool get_listindex_path(struct mail_namespace *ns, const char **path_r)
+{
+	const char *root;
+
+	if (ns->list->set.list_index_fname[0] == '\0' ||
+	    !mailbox_list_get_root_path(ns->list,
+					MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
+					&root))
+		return FALSE;
+
+	*path_r = t_strconcat(root, "/", ns->list->set.list_index_fname, NULL);
+	return TRUE;
+}
+
+static bool
+namespace_has_duplicate_listindex(struct mail_namespace *ns,
+				  const char **error_r)
+{
+	struct mail_namespace *ns2;
+	const char *ns_list_index_path, *ns_mailboxes_root;
+	const char *ns2_list_index_path, *ns2_mailboxes_root;
+
+	if (!ns->mail_set->mailbox_list_index) {
+		/* mailbox list indexes not in use */
+		return FALSE;
+	}
+
+	if (!get_listindex_path(ns, &ns_list_index_path) ||
+	    !mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					&ns_mailboxes_root))
+		return FALSE;
+
+	for (ns2 = ns->next; ns2 != NULL; ns2 = ns2->next) {
+		if (!get_listindex_path(ns2, &ns2_list_index_path) ||
+		    !mailbox_list_get_root_path(ns2->list, MAILBOX_LIST_PATH_TYPE_MAILBOX,
+						&ns2_mailboxes_root))
+			continue;
+
+		if (strcmp(ns_list_index_path, ns2_list_index_path) == 0 &&
+		    strcmp(ns_mailboxes_root, ns2_mailboxes_root) != 0) {
+			*error_r = t_strdup_printf(
+				"Namespaces '%s' and '%s' have different mailboxes paths, but duplicate LISTINDEX path. "
+				"Add a unique LISTINDEX=<fname>",
+				ns->prefix, ns2->prefix);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static bool
 namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 {
@@ -286,6 +336,8 @@ namespaces_check(struct mail_namespace *namespaces, const char **error_r)
 			inbox_ns = ns;
 		}
 		if (namespace_set_alias_for(ns, namespaces, error_r) < 0)
+			return FALSE;
+		if (namespace_has_duplicate_listindex(ns, error_r))
 			return FALSE;
 
 		if (*ns->prefix != '\0' &&
