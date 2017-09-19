@@ -55,9 +55,8 @@ quota_reply_write(string_t *str, struct mail_user *user,
 		if (ret == QUOTA_GET_RESULT_LIMITED) {
 			if (i > 0)
 				str_append_c(str, ' ');
-			str_printfa(str, "%s %llu %llu", *list,
-				    (unsigned long long)value,
-				    (unsigned long long)limit);
+			str_printfa(str, "%s %"PRIu64" %"PRIu64, *list,
+				    value, limit);
 			i++;
 		}
 	}

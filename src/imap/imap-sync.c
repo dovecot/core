@@ -241,14 +241,13 @@ imap_sync_send_highestmodseq(struct imap_sync_context *ctx,
 		   sync_cmd->sync->tagline[3] != '[') {
 		/* modify the tagged reply directly */
 		sync_cmd->sync->tagline = p_strdup_printf(sync_cmd->pool,
-			"OK [HIGHESTMODSEQ %llu] %s",
-			(unsigned long long)send_modseq,
-			sync_cmd->sync->tagline + 3);
+			"OK [HIGHESTMODSEQ %"PRIu64"] %s",
+			send_modseq, sync_cmd->sync->tagline + 3);
 	} else {
 		/* send an untagged OK reply */
 		client_send_line(client, t_strdup_printf(
-			"* OK [HIGHESTMODSEQ %llu] Highest",
-			(unsigned long long)send_modseq));
+			"* OK [HIGHESTMODSEQ %"PRIu64"] Highest",
+			send_modseq));
 	}
 
 	if (!ctx->sync_status.sync_delayed_expunges) {
@@ -368,7 +367,7 @@ static void imap_sync_add_modseq(struct imap_sync_context *ctx, string_t *str)
 	modseq = mail_get_modseq(ctx->mail);
 	if (ctx->client->highest_fetch_modseq < modseq)
 		ctx->client->highest_fetch_modseq = modseq;
-	str_printfa(str, "MODSEQ (%llu)", (unsigned long long)modseq);
+	str_printfa(str, "MODSEQ (%"PRIu64")", modseq);
 }
 
 static int imap_sync_send_flags(struct imap_sync_context *ctx, string_t *str)

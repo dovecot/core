@@ -210,10 +210,10 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		}
 		break;
 	case SEARCH_SMALLER:
-		str_printfa(dest, "SMALLER %llu", (unsigned long long)arg->value.size);
+		str_printfa(dest, "SMALLER %"PRIuUOFF_T, arg->value.size);
 		break;
 	case SEARCH_LARGER:
-		str_printfa(dest, "LARGER %llu", (unsigned long long)arg->value.size);
+		str_printfa(dest, "LARGER %"PRIuUOFF_T, arg->value.size);
 		break;
 	case SEARCH_HEADER:
 	case SEARCH_HEADER_ADDRESS:
@@ -269,7 +269,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			}
 			str_append_c(dest, ' ');
 		}
-		str_printfa(dest, "%llu", (unsigned long long)arg->value.modseq->modseq);
+		str_printfa(dest, "%"PRIu64, arg->value.modseq->modseq);
 		break;
 	}
 	case SEARCH_INTHREAD:

@@ -27,12 +27,10 @@ static bool proctitle_updated;
 static void
 add_timing_string(string_t *str, struct timing *timing, const char *name)
 {
-	str_printfa(str, ", %u %s:%llu/%llu/%llu/%llu",
+	str_printfa(str, ", %u %s:%"PRIu64"/%"PRIu64"/%"PRIu64"/%"PRIu64,
 		    timing_get_count(timing), name,
-		    (unsigned long long)timing_get_min(timing)/1000,
-		    (unsigned long long)timing_get_avg(timing)/1000,
-		    (unsigned long long)timing_get_95th(timing)/1000,
-		    (unsigned long long)timing_get_max(timing)/1000);
+		    timing_get_min(timing)/1000, timing_get_avg(timing)/1000,
+		    timing_get_95th(timing)/1000, timing_get_max(timing)/1000);
 	timing_reset(timing);
 }
 

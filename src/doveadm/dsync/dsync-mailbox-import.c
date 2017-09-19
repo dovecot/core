@@ -317,14 +317,14 @@ dsync_mailbox_import_init(struct mailbox *box,
 			importer->local_uid_next, last_common_uid));
 	} else if (importer->local_initial_highestmodseq < last_common_modseq) {
 		dsync_import_unexpected_state(importer, t_strdup_printf(
-			"local HIGHESTMODSEQ %llu < last common HIGHESTMODSEQ %llu",
-			(unsigned long long)importer->local_initial_highestmodseq,
-			(unsigned long long)last_common_modseq));
+			"local HIGHESTMODSEQ %"PRIu64" < last common HIGHESTMODSEQ %"PRIu64,
+			importer->local_initial_highestmodseq,
+			last_common_modseq));
 	} else if (importer->local_initial_highestpvtmodseq < last_common_pvt_modseq) {
 		dsync_import_unexpected_state(importer, t_strdup_printf(
-			"local HIGHESTMODSEQ %llu < last common HIGHESTMODSEQ %llu",
-			(unsigned long long)importer->local_initial_highestpvtmodseq,
-			(unsigned long long)last_common_pvt_modseq));
+			"local HIGHESTMODSEQ %"PRIu64" < last common HIGHESTMODSEQ %"PRIu64,
+			importer->local_initial_highestpvtmodseq,
+			last_common_pvt_modseq));
 	}
 
 	importer->local_changes = dsync_transaction_log_scan_get_hash(log_scan);
@@ -2789,11 +2789,11 @@ static int dsync_mailbox_import_finish(struct dsync_mailbox_importer *importer,
 		update.min_highest_pvt_modseq = importer->remote_highest_pvt_modseq;
 
 		imp_debug(importer, "Finish update: min_next_uid=%u "
-			  "min_first_recent_uid=%u min_highest_modseq=%llu "
-			  "min_highest_pvt_modseq=%llu",
+			  "min_first_recent_uid=%u min_highest_modseq=%"PRIu64" "
+			  "min_highest_pvt_modseq=%"PRIu64,
 			  update.min_next_uid, update.min_first_recent_uid,
-			  (unsigned long long)update.min_highest_modseq,
-			  (unsigned long long)update.min_highest_pvt_modseq);
+			  update.min_highest_modseq,
+			  update.min_highest_pvt_modseq);
 
 		if (mailbox_update(importer->box, &update) < 0) {
 			i_error("Mailbox %s: Update failed: %s",

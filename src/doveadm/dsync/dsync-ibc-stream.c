@@ -719,7 +719,7 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 	}
 	if (set->sync_max_size > 0) {
 		dsync_serializer_encode_add(encoder, "sync_max_size",
-			t_strdup_printf("%llu", (unsigned long long)set->sync_max_size));
+			t_strdup_printf("%"PRIu64, set->sync_max_size));
 	}
 	if (set->sync_flags != NULL) {
 		dsync_serializer_encode_add(encoder, "sync_flags",

@@ -631,8 +631,8 @@ driver_cassandra_get_metrics_json(struct cassandra_db *db, string_t *dest)
 
 	str_append(dest, "}, \"queries\": {");
 	for (unsigned int i = 0; i < CASSANDRA_COUNTER_COUNT; i++) {
-		str_printfa(dest, "\"%s\": %llu,", counter_names[i],
-			    (unsigned long long)db->counters[i]);
+		str_printfa(dest, "\"%s\": %"PRIu64",", counter_names[i],
+			    db->counters[i]);
 	}
 	str_truncate(dest, str_len(dest)-1);
 	str_append(dest, "}}");

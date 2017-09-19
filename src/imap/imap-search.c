@@ -217,8 +217,8 @@ static void imap_search_send_result_standard(struct imap_search_context *ctx)
 	}
 
 	if (ctx->highest_seen_modseq != 0) {
-		str_printfa(str, " (MODSEQ %llu)",
-			    (unsigned long long)ctx->highest_seen_modseq);
+		str_printfa(str, " (MODSEQ %"PRIu64")",
+			    ctx->highest_seen_modseq);
 	}
 	str_append(str, "\r\n");
 	o_stream_nsend(ctx->cmd->client->output, str_data(str), str_len(str));
@@ -354,8 +354,8 @@ static void imap_search_send_result(struct imap_search_context *ctx)
 	if ((ctx->return_options & SEARCH_RETURN_COUNT) != 0)
 		str_printfa(str, " COUNT %u", ctx->result_count);
 	if (ctx->highest_seen_modseq != 0) {
-		str_printfa(str, " MODSEQ %llu",
-			    (unsigned long long)ctx->highest_seen_modseq);
+		str_printfa(str, " MODSEQ %"PRIu64,
+			    ctx->highest_seen_modseq);
 	}
 	str_append(str, "\r\n");
 	o_stream_nsend(client->output, str_data(str), str_len(str));

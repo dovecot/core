@@ -123,12 +123,12 @@ int imap_status_send(struct client *client, const char *mailbox_mutf7,
 	if ((items->status & STATUS_UNSEEN) != 0)
 		str_printfa(str, "UNSEEN %u ", status->unseen);
 	if ((items->status & STATUS_HIGHESTMODSEQ) != 0) {
-		str_printfa(str, "HIGHESTMODSEQ %llu ",
-			    (unsigned long long)status->highest_modseq);
+		str_printfa(str, "HIGHESTMODSEQ %"PRIu64" ",
+			    status->highest_modseq);
 	}
 	if ((items->metadata & MAILBOX_METADATA_VIRTUAL_SIZE) != 0) {
-		str_printfa(str, "X-SIZE %llu ",
-			    (unsigned long long)result->metadata.virtual_size);
+		str_printfa(str, "X-SIZE %"PRIu64" ",
+			    result->metadata.virtual_size);
 	}
 	if ((items->metadata & MAILBOX_METADATA_GUID) != 0) {
 		str_printfa(str, "X-GUID %s ",

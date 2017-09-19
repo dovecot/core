@@ -39,8 +39,7 @@ static void dump_hdr(struct istream *input, uint64_t *modseq_r,
 	printf("file seq = %u\n", hdr.file_seq);
 	printf("prev file = %u/%u\n", hdr.prev_file_seq, hdr.prev_file_offset);
 	printf("create stamp = %u\n", hdr.create_stamp);
-	printf("initial modseq = %llu\n",
-	       (unsigned long long)hdr.initial_modseq);
+	printf("initial modseq = %"PRIu64"\n", hdr.initial_modseq);
 	printf("compat flags = %x\n", hdr.compat_flags);
 	*modseq_r = hdr.initial_modseq;
 	*version_r = MAIL_TRANSACTION_LOG_HDR_VERSION(&hdr);
@@ -161,7 +160,7 @@ static void print_try_uint(const void *data, size_t size)
 		uint64_t n64;
 
 		memcpy(&n64, n, sizeof(n64));
-		printf("%llu", (unsigned long long)n64);
+		printf("%"PRIu64, n64);
 		break;
 	}
 	default:
@@ -411,8 +410,8 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 
 		end = CONST_PTR_OFFSET(data, size);
 		for (rec = data; rec < end; rec++) {
-			printf(" - uid=%u modseq=%llu\n", rec->uid,
-			       ((unsigned long long)rec->modseq_high32 << 32) |
+			printf(" - uid=%u modseq=%"PRIu64"\n", rec->uid,
+			       ((uint64_t)rec->modseq_high32 << 32) |
 			       rec->modseq_low32);
 		}
 		break;
@@ -510,7 +509,7 @@ static int dump_record(struct istream *input, uint64_t *modseq,
 	uint64_t prev_modseq = *modseq;
 	mail_transaction_update_modseq(&hdr, data, modseq, version);
 	if (*modseq > prev_modseq)
-		printf(", modseq=%llu", (unsigned long long)*modseq);
+		printf(", modseq=%"PRIu64, *modseq);
 	printf("\n");
 
 	log_record_print(&hdr, data, data_size, modseq);

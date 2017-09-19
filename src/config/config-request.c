@@ -45,7 +45,7 @@ static void config_export_size(string_t *str, uoff_t size)
 		suffix = suffixes[i];
 		size /= 1024;
 	}
-	str_printfa(str, "%llu %c", (unsigned long long)size, suffix);
+	str_printfa(str, "%"PRIuUOFF_T" %c", size, suffix);
 }
 
 static void config_export_time(string_t *str, unsigned int stamp)

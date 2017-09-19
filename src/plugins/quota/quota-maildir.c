@@ -288,18 +288,15 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	str = t_str_new(128);
 	/* if we have no limits, write 0S instead of an empty line */
 	if (_root->bytes_limit != 0 || _root->count_limit == 0) {
-		str_printfa(str, "%lluS",
-			    (unsigned long long)_root->bytes_limit);
+		str_printfa(str, "%"PRId64"S", _root->bytes_limit);
 	}
 	if (_root->count_limit != 0) {
 		if (str_len(str) > 0)
 			str_append_c(str, ',');
-		str_printfa(str, "%lluC",
-			    (unsigned long long)_root->count_limit);
+		str_printfa(str, "%"PRIu64"C", _root->count_limit);
 	}
-	str_printfa(str, "\n%llu %llu\n",
-		    (unsigned long long)root->total_bytes,
-		    (unsigned long long)root->total_count);
+	str_printfa(str, "\n%"PRIu64" %"PRIu64"\n",
+		    root->total_bytes, root->total_count);
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
 		i_error("write_full(%s) failed: %m", str_c(temp_path));
 		i_close_fd(&fd);

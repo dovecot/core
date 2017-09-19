@@ -791,14 +791,14 @@ mail_index_sync_ext_atomic_inc(struct mail_index_sync_map_ctx *ctx,
 	if (orig_num < min_value) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension record inc drops number below zero "
-			"(uid=%u, diff=%d, orig=%llu)",
-			u->uid, u->diff, (unsigned long long)orig_num);
+			"(uid=%u, diff=%d, orig=%"PRIu64")",
+			u->uid, u->diff, orig_num);
 		return -1;
 	} else if (orig_num > max_value) {
 		mail_index_sync_set_corrupted(ctx,
 			"Extension record inc overflows number "
-			"(uid=%u, diff=%d, orig=%llu)",
-			u->uid, u->diff, (unsigned long long)orig_num);
+			"(uid=%u, diff=%d, orig=%"PRIu64")",
+			u->uid, u->diff, orig_num);
 		return -1;
 	}
 	return 1;

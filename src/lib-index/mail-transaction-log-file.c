@@ -1271,9 +1271,8 @@ get_modseq_next_offset_at(struct mail_transaction_log_file *file,
 	if (ret <= 0) {
 		mail_index_set_error(file->log->index,
 			"Failed to map transaction log %s for getting offset "
-			"for modseq=%llu with start_offset=%"PRIuUOFF_T": %s",
-			file->filepath, (unsigned long long)modseq,
-			*cur_offset, reason);
+			"for modseq=%"PRIu64" with start_offset=%"PRIuUOFF_T": %s",
+			file->filepath, modseq, *cur_offset, reason);
 		return -1;
 	}
 

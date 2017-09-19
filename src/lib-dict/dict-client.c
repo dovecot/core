@@ -1176,8 +1176,8 @@ client_dict_iterate_cmd_send(struct client_dict_iterate_context *ctx)
 
 	/* we can't do this query in _iterate_init(), because
 	   _set_limit() hasn't been called yet at that point. */
-	str_printfa(query, "%c%d\t%llu", DICT_PROTOCOL_CMD_ITERATE, ctx->flags,
-		    (unsigned long long)ctx->ctx.max_rows);
+	str_printfa(query, "%c%d\t%"PRIu64, DICT_PROTOCOL_CMD_ITERATE,
+		    ctx->flags, ctx->ctx.max_rows);
 	for (i = 0; ctx->paths[i] != NULL; i++) {
 		str_append_c(query, '\t');
 		str_append(query, str_tabescape(ctx->paths[i]));

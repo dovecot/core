@@ -362,8 +362,8 @@ import_send_expunges(struct client *client,
 				       &uids_filter, &expunged_uids)) {
 		*error_r = t_strdup_printf(
 			"Couldn't get recently expunged UIDs "
-			"(uidnext=%u highest_modseq=%llu)", state->uidnext,
-			(unsigned long long)state->highest_modseq);
+			"(uidnext=%u highest_modseq=%"PRIu64")",
+			state->uidnext, state->highest_modseq);
 		return -1;
 	}
 	seq_range_array_iter_init(&iter, &expunged_uids);
@@ -623,9 +623,9 @@ import_state_mailbox_open(struct client *client,
 		return -1;
 	}
 	if (status.highest_modseq < state->highest_modseq) {
-		*error_r = t_strdup_printf("Mailbox HIGHESTMODSEQ shrank %llu -> %llu",
-					   (unsigned long long)state->highest_modseq,
-					   (unsigned long long)status.highest_modseq);
+		*error_r = t_strdup_printf("Mailbox HIGHESTMODSEQ shrank %"PRIu64" -> %"PRIu64,
+					   state->highest_modseq,
+					   status.highest_modseq);
 		mailbox_free(&box);
 		return -1;
 	}
@@ -682,8 +682,8 @@ import_state_mailbox_open(struct client *client,
 	    !client->nonpermanent_modseqs &&
 	    status.highest_modseq != state->highest_modseq) {
 		client_send_line(client, t_strdup_printf(
-			"* OK [HIGHESTMODSEQ %llu] Highest",
-			(unsigned long long)status.highest_modseq));
+			"* OK [HIGHESTMODSEQ %"PRIu64"] Highest",
+			status.highest_modseq));
 		client->sync_last_full_modseq = status.highest_modseq;
 	}
 	i_debug("Unhibernation sync: %u expunges, %u new messages, %u flag changes, %"PRIu64" modseq changes",

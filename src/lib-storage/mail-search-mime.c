@@ -404,16 +404,13 @@ bool mail_search_mime_arg_to_imap(string_t *dest,
 			return FALSE;
 		break;
 	case SEARCH_MIME_SIZE_EQUAL:
-		str_printfa(dest, "SIZE %llu",
-			(unsigned long long)arg->value.size);
+		str_printfa(dest, "SIZE %"PRIuUOFF_T, arg->value.size);
 		break;
 	case SEARCH_MIME_SIZE_LARGER:
-		str_printfa(dest, "SIZE LARGER %llu",
-			(unsigned long long)arg->value.size);
+		str_printfa(dest, "SIZE LARGER %"PRIuUOFF_T, arg->value.size);
 		break;
 	case SEARCH_MIME_SIZE_SMALLER:
-		str_printfa(dest, "SIZE SMALLER %llu",
-			(unsigned long long)arg->value.size);
+		str_printfa(dest, "SIZE SMALLER %"PRIuUOFF_T, arg->value.size);
 		break;
 	case SEARCH_MIME_DESCRIPTION:
 		str_append(dest, "DESCRIPTION ");

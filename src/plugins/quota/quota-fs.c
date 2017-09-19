@@ -431,12 +431,11 @@ do_rquota_user(struct fs_quota_root *root,
 				  bytes_value_r, bytes_limit_r,
 				  count_value_r, count_limit_r);
 		if (root->root.quota->set->debug) {
-			i_debug("quota-fs: uid=%s, bytes=%llu/%llu files=%llu/%llu",
+			i_debug("quota-fs: uid=%s, bytes=%"PRIu64"/%"PRIu64" "
+				"files=%"PRIu64"/%"PRIu64,
 				dec2str(root->uid),
-				(unsigned long long)*bytes_value_r,
-				(unsigned long long)*bytes_limit_r,
-				(unsigned long long)*count_value_r,
-				(unsigned long long)*count_limit_r);
+				*bytes_value_r, *bytes_limit_r,
+				*count_value_r, *count_limit_r);
 		}
 		return 1;
 	}
@@ -527,12 +526,11 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 				  bytes_value_r, bytes_limit_r,
 				  count_value_r, count_limit_r);
 		if (root->root.quota->set->debug) {
-			i_debug("quota-fs: gid=%s, bytes=%llu/%llu files=%llu/%llu",
+			i_debug("quota-fs: gid=%s, bytes=%"PRIu64"/%"PRIu64" "
+				"files=%"PRIu64"/%"PRIu64,
 				dec2str(root->gid),
-				(unsigned long long)*bytes_value_r,
-				(unsigned long long)*bytes_limit_r,
-				(unsigned long long)*count_value_r,
-				(unsigned long long)*count_limit_r);
+				*bytes_value_r, *bytes_limit_r,
+				*count_value_r, *count_limit_r);
 		}
 		return 1;
 	}

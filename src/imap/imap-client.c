@@ -292,9 +292,8 @@ client_command_stats_append(string_t *str,
 		str_printfa(str, ", %d.%03d in locks",
 			    lock_wait_msecs/1000, lock_wait_msecs%1000);
 	}
-	str_printfa(str, ", %llu B in + %llu",
-		    (unsigned long long)stats->bytes_in,
-		    (unsigned long long)stats->bytes_out);
+	str_printfa(str, ", %"PRIu64" B in + %"PRIu64,
+		    stats->bytes_in, stats->bytes_out);
 	if (buffered_size > 0)
 		str_printfa(str, "+%"PRIuSIZE_T, buffered_size);
 	str_append(str, " B out");
@@ -1384,8 +1383,8 @@ int client_enable(struct client *client, enum mailbox_feature features)
 					 STATUS_HIGHESTMODSEQ, &status);
 		if (ret == 0) {
 			client_send_line(client, t_strdup_printf(
-				"* OK [HIGHESTMODSEQ %llu] Highest",
-				(unsigned long long)status.highest_modseq));
+				"* OK [HIGHESTMODSEQ %"PRIu64"] Highest",
+				status.highest_modseq));
 		}
 	}
 	if (ret < 0) {

@@ -177,9 +177,8 @@ err:
 	if (size_expunged < size_needed) {
 		if (ctx->quota->user->mail_debug) {
 			i_debug("trash plugin: Failed to remove enough messages "
-				"(needed %llu bytes, expunged only %llu bytes)",
-				(unsigned long long)size_needed,
-				(unsigned long long)size_expunged);
+				"(needed %"PRIu64" bytes, expunged only %"PRIu64" bytes)",
+				size_needed, size_expunged);
 		}
 		return 0;
 	}

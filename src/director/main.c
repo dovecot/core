@@ -59,11 +59,11 @@ static void director_refresh_proctitle_timeout(void *context ATTR_UNUSED)
 	str_printfa(str, "[%u users", director_total_users_count());
 	if (director->users_moving_count > 0)
 		str_printfa(str, ", %u moving", director->users_moving_count);
-	str_printfa(str, ", %lu req/s",
-		    (unsigned long)(director->num_requests - prev_requests));
-	str_printfa(str, ", %llu+%llu kB/s",
-		    (unsigned long long)(director->ring_traffic_input - prev_input)/1024,
-		    (unsigned long long)(director->ring_traffic_output - prev_output)/1024);
+	str_printfa(str, ", %"PRIu64" req/s",
+		    director->num_requests - prev_requests);
+	str_printfa(str, ", %"PRIu64"+%"PRIu64" kB/s",
+		    (director->ring_traffic_input - prev_input)/1024,
+		    (director->ring_traffic_output - prev_output)/1024);
 	str_append_c(str, ']');
 
 	prev_requests = director->num_requests;

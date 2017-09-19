@@ -87,12 +87,12 @@ static void quota_clone_flush_real(struct mailbox *box)
 	if (ret_bytes == QUOTA_GET_RESULT_LIMITED ||
 	    ret_bytes == QUOTA_GET_RESULT_UNLIMITED) {
 		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
-			 t_strdup_printf("%llu", (unsigned long long)bytes_value));
+			 t_strdup_printf("%"PRIu64, bytes_value));
 	}
 	if (ret_count == QUOTA_GET_RESULT_LIMITED ||
 	    ret_count == QUOTA_GET_RESULT_UNLIMITED) {
 		dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
-			 t_strdup_printf("%llu", (unsigned long long)count_value));
+			 t_strdup_printf("%"PRIu64, count_value));
 	}
 	if (dict_transaction_commit(&trans, &error) < 0)
 		i_error("quota_clone_plugin: Failed to commit dict update: %s", error);

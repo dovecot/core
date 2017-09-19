@@ -384,8 +384,8 @@ stats_top_output_diff(struct top_context *ctx,
 
 	if (str_to_uint64(line->prev_values[i], &prev_num) == 0 &&
 	    str_to_uint64(line->cur_values[i], &cur_num) == 0) {
-		if (i_snprintf(numstr, sizeof(numstr), "%llu",
-			       (unsigned long long)(cur_num - prev_num)) < 0)
+		if (i_snprintf(numstr, sizeof(numstr), "%"PRIu64,
+			       (cur_num - prev_num)) < 0)
 			i_unreached();
 		doveadm_print(numstr);
 	} else if (get_double(line->prev_values[i], &prev_double) == 0 &&

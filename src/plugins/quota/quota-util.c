@@ -132,9 +132,9 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 
 	if (root_set->set->debug && root_set->set->initialized) {
 		i_debug("Quota root %s: Recalculated relative rules with "
-			"bytes=%lld count=%lld. Now grace=%llu", root_set->name,
+			"bytes=%lld count=%lld. Now grace=%"PRIu64, root_set->name,
 			(long long)bytes_limit, (long long)count_limit,
-			(unsigned long long)root_set->last_mail_max_extra_bytes);
+			root_set->last_mail_max_extra_bytes);
 	}
 }
 
@@ -343,12 +343,12 @@ int quota_root_add_warning_rule(struct quota_root_settings *root_set,
 					      root_set->default_rule.bytes_limit,
 					      root_set->default_rule.count_limit);
 	if (root_set->set->debug) {
-		i_debug("Quota warning: bytes=%llu%s "
-			"messages=%llu%s reverse=%s command=%s",
-			(unsigned long long)warning->rule.bytes_limit,
+		i_debug("Quota warning: bytes=%"PRId64"%s "
+			"messages=%"PRId64"%s reverse=%s command=%s",
+			warning->rule.bytes_limit,
 			warning->rule.bytes_percent == 0 ? "" :
 			t_strdup_printf(" (%u%%)", warning->rule.bytes_percent),
-			(unsigned long long)warning->rule.count_limit,
+			warning->rule.count_limit,
 			warning->rule.count_percent == 0 ? "" :
 			t_strdup_printf(" (%u%%)", warning->rule.count_percent),
 			warning->reverse ? "yes" : "no",
@@ -394,32 +394,24 @@ bool quota_warning_match(const struct quota_warning_rule *w,
 	if (!w->reverse) {
 		/* over quota (default) */
 		if (QUOTA_EXCEEDED(bytes_before, bytes_current, w->rule.bytes_limit)) {
-			*reason_r = t_strdup_printf("bytes=%llu -> %llu over limit %llu",
-				(unsigned long long)bytes_before,
-				(unsigned long long)bytes_current,
-				(unsigned long long)w->rule.bytes_limit);
+			*reason_r = t_strdup_printf("bytes=%"PRIu64" -> %"PRIu64" over limit %"PRId64,
+				bytes_before, bytes_current, w->rule.bytes_limit);
 			return TRUE;
 		}
 		if (QUOTA_EXCEEDED(count_before, count_current, w->rule.count_limit)) {
-			*reason_r = t_strdup_printf("count=%llu -> %llu over limit %llu",
-				(unsigned long long)count_before,
-				(unsigned long long)count_current,
-				(unsigned long long)w->rule.count_limit);
+			*reason_r = t_strdup_printf("count=%"PRIu64" -> %"PRIu64" over limit %"PRId64,
+				count_before, count_current, w->rule.count_limit);
 			return TRUE;
 		}
 	} else {
 		if (QUOTA_EXCEEDED(bytes_current, bytes_before, w->rule.bytes_limit)) {
-			*reason_r = t_strdup_printf("bytes=%llu -> %llu below limit %llu",
-				(unsigned long long)bytes_before,
-				(unsigned long long)bytes_current,
-				(unsigned long long)w->rule.bytes_limit);
+			*reason_r = t_strdup_printf("bytes=%"PRIu64" -> %"PRIu64" below limit %"PRId64,
+				bytes_before, bytes_current, w->rule.bytes_limit);
 			return TRUE;
 		}
 		if (QUOTA_EXCEEDED(count_current, count_before, w->rule.count_limit)) {
-			*reason_r = t_strdup_printf("count=%llu -> %llu below limit %llu",
-				(unsigned long long)count_before,
-				(unsigned long long)count_current,
-				(unsigned long long)w->rule.count_limit);
+			*reason_r = t_strdup_printf("count=%"PRIu64" -> %"PRIu64" below limit %"PRId64,
+				count_before, count_current, w->rule.count_limit);
 			return TRUE;
 		}
 	}

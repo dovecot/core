@@ -422,10 +422,10 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 		str = t_str_new(128);
 		str_append(str, "Out of memory");
 		if (service->vsz_limit != 0) {
-			str_printfa(str, " (service %s { vsz_limit=%u MB }, "
+			str_printfa(str, " (service %s { vsz_limit=%"PRIuUOFF_T" MB }, "
 				    "you may need to increase it)",
 				    service->set->name,
-				    (unsigned int)(service->vsz_limit/1024/1024));
+				    service->vsz_limit/1024/1024);
 		}
 		if (getenv("CORE_OUTOFMEM") == NULL)
 			str_append(str, " - set CORE_OUTOFMEM=1 environment to get core dump");

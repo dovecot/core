@@ -862,8 +862,7 @@ static int fetch_modseq(struct imap_fetch_context *ctx, struct mail *mail,
 	modseq = mail_get_modseq(mail);
 	if (ctx->client->highest_fetch_modseq < modseq)
 		ctx->client->highest_fetch_modseq = modseq;
-	str_printfa(ctx->state.cur_str, "MODSEQ (%llu) ",
-		    (unsigned long long)modseq);
+	str_printfa(ctx->state.cur_str, "MODSEQ (%"PRIu64") ", modseq);
 	return 1;
 }
 

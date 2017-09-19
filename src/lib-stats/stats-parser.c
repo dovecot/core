@@ -68,10 +68,8 @@ bool stats_parser_diff(const struct stats_parser_field *fields,
 				if (!stats_diff_uint64(dest, src1, src2)) {
 					const uint64_t *n1 = src1, *n2 = src2;
 
-					*error_r = t_strdup_printf("%s %llu < %llu",
-						fields[i].name,
-						(unsigned long long)*n2,
-						(unsigned long long)*n1);
+					*error_r = t_strdup_printf("%s %"PRIu64" < %"PRIu64,
+						fields[i].name, *n2, *n1);
 					return FALSE;
 				}
 				break;
@@ -162,7 +160,7 @@ void stats_parser_value(string_t *str,
 		case sizeof(uint64_t): {
 			const uint64_t *n = ptr;
 
-			str_printfa(str, "%llu", (unsigned long long)*n);
+			str_printfa(str, "%"PRIu64, *n);
 			break;
 		}
 		default:

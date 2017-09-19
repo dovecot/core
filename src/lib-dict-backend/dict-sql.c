@@ -716,8 +716,8 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 
 	if (ctx->ctx.max_rows > 0) {
 		i_assert(ctx->ctx.row_count < ctx->ctx.max_rows);
-		str_printfa(query, " LIMIT %llu",
-			(unsigned long long)(ctx->ctx.max_rows - ctx->ctx.row_count));
+		str_printfa(query, " LIMIT %"PRIu64,
+			    ctx->ctx.max_rows - ctx->ctx.row_count);
 	}
 
 	*stmt_r = sql_dict_statement_init(dict, str_c(query), &params);

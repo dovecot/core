@@ -1207,10 +1207,8 @@ static void quota_over_flag_check_root(struct quota_root *root)
 			return;
 		}
 		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: %s ret=%d value=%llu limit=%llu",
-				resources[i], ret,
-				(unsigned long long)value,
-				(unsigned long long)limit);
+			i_debug("quota: quota_over_flag check: %s ret=%d value=%"PRIu64" limit=%"PRIu64,
+				resources[i], ret, value, limit);
 		}
 		if (ret == QUOTA_GET_RESULT_LIMITED && value >= limit)
 			cur_overquota = TRUE;

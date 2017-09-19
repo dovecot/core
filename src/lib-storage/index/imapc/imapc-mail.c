@@ -571,8 +571,8 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 			return -1;
 		}
 
-		*value_r = p_strdup_printf(imail->mail.data_pool, "GmailId%llx",
-					   (unsigned long long)num);
+		*value_r = p_strdup_printf(imail->mail.data_pool,
+					   "GmailId%"PRIx64, num);
 		return 0;
 	case MAIL_FETCH_IMAP_BODY:
 		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_BODYSTRUCTURE))
