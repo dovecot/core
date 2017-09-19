@@ -807,6 +807,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	       struct mail *src_mail, struct mail_deliver_session *session)
 {
 	struct mail_deliver_context dctx;
+	struct mail_user *dest_user;
 	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
 	const struct mail_storage_settings *mail_set;
@@ -847,15 +848,16 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	client_state_set(client, "DATA", username);
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, rcpt->service_user,
-				      &client->state.dest_user, &error) < 0) {
+				      &dest_user, &error) < 0) {
 		i_error("Failed to initialize user: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpt->address);
 		return -1;
 	}
+	client->state.dest_user = dest_user;
 
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
-	var_table = mail_user_var_expand_table(client->state.dest_user);
+	var_table = mail_user_var_expand_table(dest_user);
 	lda_set = sets[1];
 	if (settings_var_expand(&lda_setting_parser_info, lda_set, client->pool,
 			var_table, &error) <= 0) {
@@ -866,11 +868,11 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	}
 
 	str = t_str_new(256);
-	if (var_expand_with_funcs(str, client->state.dest_user->set->mail_log_prefix,
+	if (var_expand_with_funcs(str, dest_user->set->mail_log_prefix,
 				  var_table, mail_user_var_expand_func_table,
-				  client->state.dest_user, &error) <= 0) {
+				  dest_user, &error) <= 0) {
 		i_error("Failed to expand mail_log_prefix=%s: %s",
-			client->state.dest_user->set->mail_log_prefix, error);
+			dest_user->set->mail_log_prefix, error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpt->address);
 		return -1;
@@ -885,7 +887,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.session_id = rcpt->session_id;
 	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;
-	dctx.dest_user = client->state.dest_user;
+	dctx.dest_user = dest_user;
 	dctx.session_time_msecs =
 		timeval_diff_msecs(&client->state.data_end_timeval,
 				   &client->state.mail_from_timeval);
@@ -904,7 +906,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
 		dctx.dest_mailbox_name = "INBOX";
 	else {
-		ns = mail_namespace_find_inbox(dctx.dest_user->namespaces);
+		ns = mail_namespace_find_inbox(dest_user->namespaces);
 		dctx.dest_mailbox_name =
 			t_strconcat(ns->prefix, rcpt->detail, NULL);
 	}
