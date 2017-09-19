@@ -1889,14 +1889,14 @@ driver_cassandra_statement_set_timestamp(struct sql_statement *_stmt,
 {
 	struct cassandra_sql_statement *stmt =
 		(struct cassandra_sql_statement *)_stmt;
-	cass_int64_t ts_msecs =
-		(cass_int64_t)ts->tv_sec * 1000 +
-		ts->tv_nsec / 1000000;
+	cass_int64_t ts_usecs =
+		(cass_int64_t)ts->tv_sec * 1000000ULL +
+		ts->tv_nsec / 1000;
 
 	if (stmt->cass_stmt != NULL)
-		cass_statement_set_timestamp(stmt->cass_stmt, ts_msecs);
+		cass_statement_set_timestamp(stmt->cass_stmt, ts_usecs);
 	else
-		stmt->pending_timestamp = ts_msecs;
+		stmt->pending_timestamp = ts_usecs;
 }
 
 static struct cassandra_sql_arg *
