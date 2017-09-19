@@ -41,6 +41,23 @@ int close_keep_errno(int *fd)
 	return ret;
 }
 
+void i_close_fd_real(int *fd, const char *file, int line)
+{
+	int saved_errno;
+
+	if (*fd == -1)
+		return;
+
+	i_assert(*fd > 0);
+
+	saved_errno = errno;
+	if (unlikely(close(*fd) < 0))
+		i_error("close(%d[%s:%d]) failed: %m", *fd, file, line);
+	errno = saved_errno;
+
+	*fd = -1;
+}
+
 void fd_close_maybe_stdio(int *fd_in, int *fd_out)
 {
 	int *fdp[2] = { fd_in, fd_out };

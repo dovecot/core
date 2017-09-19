@@ -212,14 +212,8 @@
 /* Close the fd and set it to -1. This assert-crashes if fd == 0, and is a
    no-op if fd == -1. Normally fd == 0 would happen only if an uninitialized
    fd is attempted to be closed, which is a bug. */
-#define i_close_fd(fd) STMT_START {  \
-	if (*fd != -1) { \
-		i_assert(*fd > 0); \
-		if (unlikely(close_keep_errno(fd) < 0)) \
-			i_error("close(%d[%s:%d]) failed: %m", \
-				*(fd), __FILE__, __LINE__); \
-	} \
-	} STMT_END
+void i_close_fd_real(int *fd, const char *file, int line);
+#define i_close_fd(fd) i_close_fd_real((fd), __FILE__, __LINE__)
 
 #ifndef STATIC_CHECKER
 #  define i_unreached() \
