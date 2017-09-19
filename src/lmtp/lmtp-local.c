@@ -159,7 +159,7 @@ cmd_rcpt_finish(struct client *client, struct lmtp_recipient *rcpt)
 }
 
 static void
-rcpt_anvil_lookup_callback(const char *reply, void *context)
+lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 {
 	struct lmtp_recipient *rcpt = context;
 	struct client *client = rcpt->client;
@@ -261,7 +261,7 @@ int lmtp_local_rcpt(struct client *client,
 			"/", str_tabescape(input->username), NULL);
 		io_remove(&client->io);
 		rcpt->anvil_query = anvil_client_query(anvil, query,
-					rcpt_anvil_lookup_callback, rcpt);
+			lmtp_local_rcpt_anvil_cb, rcpt);
 		/* stop processing further commands while anvil query is
 		   pending */
 		return rcpt->anvil_query == NULL ? 0 : -1;
