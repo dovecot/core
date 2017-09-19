@@ -469,7 +469,8 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 				/* there are no more available backends.
 				   kick the user instead. */
 				director_kill_user(dir, dir->self_host, user,
-						   user->host->tag, user->host);
+						   user->host->tag, user->host,
+						   TRUE);
 				users_killed = TRUE;
 			}
 		} T_END;
