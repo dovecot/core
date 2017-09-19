@@ -148,6 +148,9 @@ void buffer_free(buffer_t **_buf)
 {
 	struct real_buffer *buf = (struct real_buffer *)*_buf;
 
+	if (buf == NULL)
+		return;
+
 	*_buf = NULL;
 	if (buf->alloced)
 		p_free(buf->pool, buf->w_buffer);
