@@ -278,6 +278,7 @@ int main(int argc, char *argv[])
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input service_input;
+	const struct var_expand_table *var_table;
 	struct mail_storage *storage;
 	const char *user_source = "", *destaddr_source = "";
 	uid_t process_euid;
@@ -428,10 +429,10 @@ int main(int argc, char *argv[])
 #ifdef SIGXFSZ
         lib_signals_ignore(SIGXFSZ, TRUE);
 #endif
+	var_table = mail_user_var_expand_table(ctx.dest_user);
 	lda_set = mail_storage_service_user_get_set(service_user)[1];
 	if (settings_var_expand(&lda_setting_parser_info, lda_set,
-				ctx.dest_user->pool,
-				mail_user_var_expand_table(ctx.dest_user),
+				ctx.dest_user->pool, var_table,
 				&errstr) <= 0)
 		i_fatal("Failed to expand settings: %s", errstr);
 	ctx.set = lda_set;
