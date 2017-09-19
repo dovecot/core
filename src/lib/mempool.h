@@ -133,7 +133,8 @@ static inline void pool_ref(pool_t pool)
 
 static inline void pool_unref(pool_t *pool)
 {
-	(*pool)->v->unref(pool);
+	if (*pool != NULL)
+		(*pool)->v->unref(pool);
 }
 
 /* These functions are only for pools created with pool_alloconly_create(): */
