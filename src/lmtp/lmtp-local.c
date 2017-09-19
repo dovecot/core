@@ -281,6 +281,7 @@ lmtp_local_deliver(struct client *client,
 	       struct mail *src_mail,
 	       struct mail_deliver_session *session)
 {
+	struct mail_storage_service_user *service_user = rcpt->service_user;
 	struct mail_deliver_context dctx;
 	struct mail_user *dest_user;
 	struct mail_storage *storage;
@@ -298,11 +299,11 @@ lmtp_local_deliver(struct client *client,
 	enum mail_error mail_error;
 	int ret;
 
-	input = mail_storage_service_user_get_input(rcpt->service_user);
+	input = mail_storage_service_user_get_input(service_user);
 	username = t_strdup(input->username);
 
-	mail_set = mail_storage_service_user_get_mail_set(rcpt->service_user);
-	set_parser = mail_storage_service_user_get_settings_parser(rcpt->service_user);
+	mail_set = mail_storage_service_user_get_mail_set(service_user);
+	set_parser = mail_storage_service_user_get_settings_parser(service_user);
 	if (client->proxy_timeout_secs > 0 &&
 	    (mail_set->mail_max_lock_timeout == 0 ||
 	     mail_set->mail_max_lock_timeout > client->proxy_timeout_secs)) {
@@ -323,7 +324,7 @@ lmtp_local_deliver(struct client *client,
 
 	client_state_set(client, "DATA", username);
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
-	if (mail_storage_service_next(storage_service, rcpt->service_user,
+	if (mail_storage_service_next(storage_service, service_user,
 				      &dest_user, &error) < 0) {
 		i_error("Failed to initialize user: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
@@ -332,7 +333,7 @@ lmtp_local_deliver(struct client *client,
 	}
 	client->state.dest_user = dest_user;
 
-	sets = mail_storage_service_user_get_set(rcpt->service_user);
+	sets = mail_storage_service_user_get_set(service_user);
 	var_table = mail_user_var_expand_table(dest_user);
 	smtp_set = sets[1];
 	lda_set = sets[2];
