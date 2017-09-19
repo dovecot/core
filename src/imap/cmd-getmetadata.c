@@ -190,8 +190,7 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 		   skip this entry */
 		if (ctx->largest_seen_size < value_len)
 			ctx->largest_seen_size = value_len;
-		if (value.value_stream != NULL)
-			i_stream_unref(&value.value_stream);
+		i_stream_unref(&value.value_stream);
 		return;
 	}
 

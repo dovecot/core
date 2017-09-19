@@ -77,10 +77,8 @@ void http_server_response_free(struct http_server_response *resp)
 
 	i_assert(!resp->payload_blocking);
 
-	if (resp->payload_input != NULL)
-		i_stream_unref(&resp->payload_input);
-	if (resp->payload_output != NULL)
-		o_stream_unref(&resp->payload_output);
+	i_stream_unref(&resp->payload_input);
+	o_stream_unref(&resp->payload_output);
 	str_free(&resp->headers);
 }
 

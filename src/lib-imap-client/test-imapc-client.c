@@ -87,10 +87,8 @@ test_server_wait_connection(struct test_server *server, bool send_banner)
 
 static void test_server_disconnect(struct test_server *server)
 {
-	if (server->input != NULL)
-		i_stream_unref(&server->input);
-	if (server->output != NULL)
-		o_stream_unref(&server->output);
+	i_stream_unref(&server->input);
+	o_stream_unref(&server->output);
 	i_close_fd(&server->fd);
 }
 

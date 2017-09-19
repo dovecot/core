@@ -566,8 +566,7 @@ dsync_mailbox_export_iter_next_nonexistent_attr(struct dsync_mailbox_exporter *e
 			break;
 		}
 		if ((value.flags & MAIL_ATTRIBUTE_VALUE_FLAG_READONLY) != 0) {
-			if (value.value_stream != NULL)
-				i_stream_unref(&value.value_stream);
+			i_stream_unref(&value.value_stream);
 			continue;
 		}
 
@@ -680,8 +679,7 @@ int dsync_mailbox_export_next_attr(struct dsync_mailbox_exporter *exporter,
 	if (exporter->error != NULL)
 		return -1;
 
-	if (exporter->attr.value_stream != NULL)
-		i_stream_unref(&exporter->attr.value_stream);
+	i_stream_unref(&exporter->attr.value_stream);
 
 	if (exporter->attr_iter != NULL) {
 		ret = dsync_mailbox_export_iter_next_attr(exporter);
@@ -935,8 +933,7 @@ int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **_exporter,
 	if (exporter->wanted_headers != NULL)
 		mailbox_header_lookup_unref(&exporter->wanted_headers);
 
-	if (exporter->attr.value_stream != NULL)
-		i_stream_unref(&exporter->attr.value_stream);
+	i_stream_unref(&exporter->attr.value_stream);
 	hash_table_destroy(&exporter->export_guids);
 	hash_table_destroy(&exporter->changes);
 

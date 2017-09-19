@@ -1401,10 +1401,8 @@ test_successful_delivery_deinit(struct server_connection *conn)
 {
 	struct _successful_delivery_server *ctx =
 		(struct _successful_delivery_server *)conn->context;
-	if (ctx->dot_input != NULL)
-		i_stream_unref(&ctx->dot_input);
-	if (ctx->file != NULL)
-		o_stream_unref(&ctx->file);
+	i_stream_unref(&ctx->dot_input);
+	o_stream_unref(&ctx->file);
 }
 
 static void test_server_successful_delivery(unsigned int index)

@@ -33,10 +33,8 @@ void http_message_parser_deinit(struct http_message_parser *parser)
 		http_header_parser_deinit(&parser->header_parser);
 	if (parser->msg.pool != NULL)
 		pool_unref(&parser->msg.pool);
-	if (parser->payload != NULL)
-		i_stream_unref(&parser->payload);
-	if (parser->input != NULL)
-		i_stream_unref(&parser->input);
+	i_stream_unref(&parser->payload);
+	i_stream_unref(&parser->input);
 }
 
 void http_message_parser_restart(struct http_message_parser *parser,

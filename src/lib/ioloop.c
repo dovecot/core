@@ -160,8 +160,7 @@ static void io_remove_full(struct io **_io, bool closed)
 		/* remove io from the ioloop before unreferencing the istream,
 		   because a destroyed istream may automatically close the
 		   fd. */
-		if (istream != NULL)
-			i_stream_unref(&istream);
+		i_stream_unref(&istream);
 	}
 }
 

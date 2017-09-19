@@ -274,8 +274,7 @@ void imap_msgpart_url_free(struct imap_msgpart_url **_mpurl)
 
 	*_mpurl = NULL;
 
-	if (mpurl->result.input != NULL)
-		i_stream_unref(&mpurl->result.input);
+	i_stream_unref(&mpurl->result.input);
 	if (mpurl->part != NULL)
 		imap_msgpart_free(&mpurl->part);
 	if (mpurl->mail != NULL)

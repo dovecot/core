@@ -148,8 +148,7 @@ static void mail_index_strmap_close(struct mail_index_strmap *strmap)
 			mail_index_strmap_set_syscall_error(strmap, "close()");
 		strmap->fd = -1;
 	}
-	if (strmap->input != NULL)
-		i_stream_unref(&strmap->input);
+	i_stream_unref(&strmap->input);
 }
 
 void mail_index_strmap_deinit(struct mail_index_strmap **_strmap)

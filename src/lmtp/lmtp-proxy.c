@@ -102,10 +102,8 @@ void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 	*_proxy = NULL;
 
 	lmtp_proxy_connections_deinit(proxy);
-	if (proxy->data_input != NULL)
-		i_stream_unref(&proxy->data_input);
-	if (proxy->client_output != NULL)
-		o_stream_unref(&proxy->client_output);
+	i_stream_unref(&proxy->data_input);
+	o_stream_unref(&proxy->client_output);
 	timeout_remove(&proxy->to_finish);
 	array_free(&proxy->rcpt_to);
 	array_free(&proxy->connections);
@@ -218,8 +216,7 @@ static void lmtp_conn_finish(void *context)
 
 	conn->finished = TRUE;
 	timeout_remove(&conn->to);
-	if (conn->data_input != NULL)
-		i_stream_unref(&conn->data_input);
+	i_stream_unref(&conn->data_input);
 	lmtp_proxy_try_finish(conn->proxy);
 }
 

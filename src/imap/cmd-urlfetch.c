@@ -40,8 +40,7 @@ static void cmd_urlfetch_finish(struct client_command_context *cmd)
 		return;
 	ctx->finished = TRUE;
 
-	if (ctx->input != NULL)
-		i_stream_unref(&ctx->input);
+	i_stream_unref(&ctx->input);
 	if (ctx->ufetch != NULL)
 		imap_urlauth_fetch_deinit(&ctx->ufetch);
 

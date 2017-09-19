@@ -386,8 +386,7 @@ void index_storage_mailbox_close(struct mailbox *box)
 	struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(box);
 
 	mailbox_watch_remove_all(box);
-	if (box->input != NULL)
-		i_stream_unref(&box->input);
+	i_stream_unref(&box->input);
 
 	if (box->view_pvt != NULL)
 		mail_index_view_close(&box->view_pvt);

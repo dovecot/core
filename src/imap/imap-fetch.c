@@ -670,8 +670,7 @@ int imap_fetch_end(struct imap_fetch_context *ctx)
 	if (state->cur_str != NULL)
 		str_free(&state->cur_str);
 
-	if (state->cur_input != NULL)
-		i_stream_unref(&state->cur_input);
+	i_stream_unref(&state->cur_input);
 
 	if (state->search_ctx != NULL) {
 		if (mailbox_search_deinit(&state->search_ctx) < 0)

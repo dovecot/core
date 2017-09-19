@@ -381,8 +381,7 @@ void client_state_reset(struct client *client, const char *state_name)
 
 	if (client->state.mail_data != NULL)
 		buffer_free(&client->state.mail_data);
-	if (client->state.mail_data_output != NULL)
-		o_stream_unref(&client->state.mail_data_output);
+	o_stream_unref(&client->state.mail_data_output);
 	if (client->state.mail_data_fd != -1) {
 		if (close(client->state.mail_data_fd) < 0)
 			i_error("close(mail data fd) failed: %m");

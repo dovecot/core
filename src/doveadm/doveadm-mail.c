@@ -645,10 +645,8 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 
 static void doveadm_mail_cmd_free(struct doveadm_mail_cmd_context *ctx)
 {
-	if (ctx->users_list_input != NULL)
-		i_stream_unref(&ctx->users_list_input);
-	if (ctx->cmd_input != NULL)
-		i_stream_unref(&ctx->cmd_input);
+	i_stream_unref(&ctx->users_list_input);
+	i_stream_unref(&ctx->cmd_input);
 	pool_unref(&ctx->pool);
 }
 

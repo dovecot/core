@@ -640,14 +640,12 @@ imapc_fetch_stream(struct imapc_mail *mail,
 
 	if (arg->type == IMAP_ARG_LITERAL_SIZE) {
 		if (!imapc_find_lfile_arg(reply, arg, &fd)) {
-			if (hdr_stream != NULL)
-				i_stream_unref(&hdr_stream);
+			i_stream_unref(&hdr_stream);
 			return;
 		}
 		if ((fd = dup(fd)) == -1) {
 			i_error("dup() failed: %m");
-			if (hdr_stream != NULL)
-				i_stream_unref(&hdr_stream);
+			i_stream_unref(&hdr_stream);
 			return;
 		}
 		mail->fd = fd;
@@ -657,8 +655,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 			value = NULL;
 		if (value == NULL) {
 			mail_set_expunged(&imail->mail.mail);
-			if (hdr_stream != NULL)
-				i_stream_unref(&hdr_stream);
+			i_stream_unref(&hdr_stream);
 			return;
 		}
 		if (mail->body == NULL) {

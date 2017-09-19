@@ -1602,8 +1602,7 @@ static void index_mail_close_streams_full(struct index_mail *mail, bool closing)
 		if (mail->data.save_bodystructure_body)
 			mail->data.save_bodystructure_header = TRUE;
 	}
-	if (data->filter_stream != NULL)
-		i_stream_unref(&data->filter_stream);
+	i_stream_unref(&data->filter_stream);
 	if (data->stream != NULL) {
 		struct istream *orig_stream = data->stream;
 

@@ -176,8 +176,7 @@ static void fs_crypt_file_close(struct fs_file *_file)
 {
 	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
 
-	if (file->input != NULL)
-		i_stream_unref(&file->input);
+	i_stream_unref(&file->input);
 	if (file->super_read != NULL)
 		fs_file_close(file->super_read);
 	if (_file->parent != NULL)

@@ -100,8 +100,7 @@ istream_attachment_connector_free(struct istream_attachment_connector *conn)
 
 	array_foreach(&conn->streams, streamp) {
 		stream = *streamp;
-		if (stream != NULL)
-			i_stream_unref(&stream);
+		i_stream_unref(&stream);
 	}
 	i_stream_unref(&conn->base_input);
 	pool_unref(&conn->pool);

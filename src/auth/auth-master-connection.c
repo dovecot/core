@@ -814,10 +814,8 @@ void auth_master_connection_unref(struct auth_master_connection **_conn)
 	if (--conn->refcount > 0)
 		return;
 
-	if (conn->input != NULL)
-		i_stream_unref(&conn->input);
-	if (conn->output != NULL)
-		o_stream_unref(&conn->output);
+	i_stream_unref(&conn->input);
+	o_stream_unref(&conn->output);
 
 	i_free(conn->path);
 	i_free(conn);

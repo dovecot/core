@@ -245,8 +245,7 @@ static int fts_parser_tika_deinit(struct fts_parser *_parser)
 
 	/* remove io before unrefing payload - otherwise lib-http adds another
 	   timeout to ioloop unnecessarily */
-	if (parser->payload != NULL)
-		i_stream_unref(&parser->payload);
+	i_stream_unref(&parser->payload);
 	io_remove(&parser->io);
 	if (parser->http_req != NULL)
 		http_client_request_abort(&parser->http_req);

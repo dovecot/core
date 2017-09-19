@@ -337,10 +337,8 @@ bool client_unref(struct client **_client)
 
 	if (client->ssl_proxy != NULL)
 		ssl_proxy_free(&client->ssl_proxy);
-	if (client->input != NULL)
-		i_stream_unref(&client->input);
-	if (client->output != NULL)
-		o_stream_unref(&client->output);
+	i_stream_unref(&client->input);
+	o_stream_unref(&client->output);
 
 	i_free(client->proxy_user);
 	i_free(client->proxy_master_user);

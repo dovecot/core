@@ -71,10 +71,8 @@ void test_program_client_destroy(struct test_client **_client)
 	io_remove(&client->io);
 	o_stream_unref(&client->out);
 	i_stream_unref(&client->in);
-	if (client->os_body != NULL)
-		o_stream_unref(&client->os_body);
-	if (client->body != NULL)
-		i_stream_unref(&client->body);
+	o_stream_unref(&client->os_body);
+	i_stream_unref(&client->body);
 	i_close_fd(&client->fd);
 	pool_unref(&client->pool);
 	test_globals.client = NULL;

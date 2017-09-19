@@ -128,8 +128,7 @@ void lmtp_client_close(struct lmtp_client *client)
 		net_disconnect(client->fd);
 		client->fd = -1;
 	}
-	if (client->data_input != NULL)
-		i_stream_unref(&client->data_input);
+	i_stream_unref(&client->data_input);
 	client->output_finished = TRUE;
 
 	if (!client->finish_called) {
@@ -154,10 +153,8 @@ static void lmtp_client_unref(struct lmtp_client **_client)
 		return;
 
 	i_assert(client->finish_called);
-	if (client->input != NULL)
-		i_stream_unref(&client->input);
-	if (client->output != NULL)
-		o_stream_unref(&client->output);
+	i_stream_unref(&client->input);
+	o_stream_unref(&client->output);
 	str_free(&client->input_multiline);
 	pool_unref(&client->pool);
 }

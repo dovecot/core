@@ -142,8 +142,7 @@ static void fs_compress_file_close(struct fs_file *_file)
 {
 	struct compress_fs_file *file = (struct compress_fs_file *)_file;
 
-	if (file->input != NULL)
-		i_stream_unref(&file->input);
+	i_stream_unref(&file->input);
 	if (file->super_read != NULL)
 		fs_file_close(file->super_read);
 	if (_file->parent != NULL)

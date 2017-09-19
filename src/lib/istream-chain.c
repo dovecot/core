@@ -103,8 +103,7 @@ static void i_stream_chain_destroy(struct iostream_private *stream)
 	while (link != NULL) {
 		struct istream_chain_link *next = link->next;
 
-		if (link->stream != NULL)
-			i_stream_unref(&link->stream);
+		i_stream_unref(&link->stream);
 		i_free(link);
 		link = next;
 	}

@@ -520,8 +520,7 @@ int fts_expunge_log_read_end(struct fts_expunge_log_read_ctx **_ctx)
 			i_unlink_if_exists(ctx->log->path);
 	}
 
-	if (ctx->input != NULL)
-		i_stream_unref(&ctx->input);
+	i_stream_unref(&ctx->input);
 	i_free(ctx);
 	return ret;
 }

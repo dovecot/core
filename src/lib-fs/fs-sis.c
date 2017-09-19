@@ -135,8 +135,7 @@ static void fs_sis_file_close(struct fs_file *_file)
 {
 	struct sis_fs_file *file = (struct sis_fs_file *)_file;
 
-	if (file->hash_input != NULL)
-		i_stream_unref(&file->hash_input);
+	i_stream_unref(&file->hash_input);
 	fs_file_close(file->hash_file);
 	fs_file_close(_file->parent);
 }

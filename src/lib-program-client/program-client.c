@@ -108,8 +108,7 @@ void program_client_disconnect_extra_fds(struct program_client *pclient)
 
 	efds = array_get_modifiable(&pclient->extra_fds, &count);
 	for(i = 0; i < count; i++) {
-		if (efds[i].input != NULL)
-			i_stream_unref(&efds[i].input);
+		i_stream_unref(&efds[i].input);
 		io_remove(&efds[i].io);
 		if (efds[i].parent_fd != -1 && close(efds[i].parent_fd) < 0)
 			i_error("close(fd=%d) failed: %m", efds[i].parent_fd);
@@ -438,8 +437,7 @@ void program_client_init(struct program_client *pclient, pool_t pool,
 void program_client_set_input(struct program_client *pclient,
 			      struct istream *input)
 {
-	if (pclient->input != NULL)
-		i_stream_unref(&pclient->input);
+	i_stream_unref(&pclient->input);
 	if (input != NULL)
 		i_stream_ref(input);
 	pclient->input = input;
@@ -448,8 +446,7 @@ void program_client_set_input(struct program_client *pclient,
 void program_client_set_output(struct program_client *pclient,
 			       struct ostream *output)
 {
-	if (pclient->output != NULL)
-		o_stream_unref(&pclient->output);
+	o_stream_unref(&pclient->output);
 	if (output != NULL)
 		o_stream_ref(output);
 	pclient->output = output;
@@ -460,8 +457,7 @@ void program_client_set_output(struct program_client *pclient,
 void program_client_set_output_seekable(struct program_client *pclient,
 					const char *temp_prefix)
 {
-	if (pclient->output != NULL)
-		o_stream_unref(&pclient->output);
+	o_stream_unref(&pclient->output);
 	pclient->temp_prefix = i_strdup(temp_prefix);
 	pclient->output_seekable = TRUE;
 }
@@ -568,18 +564,12 @@ void program_client_destroy(struct program_client **_pclient)
 
 	i_assert(pclient->callback == NULL);
 
-	if (pclient->input != NULL)
-		i_stream_unref(&pclient->input);
-	if (pclient->dot_input != NULL)
-		i_stream_unref(&pclient->dot_input);
-	if (pclient->program_input != NULL)
-		i_stream_unref(&pclient->program_input);
-	if (pclient->program_output != NULL)
-		o_stream_unref(&pclient->program_output);
-	if (pclient->output != NULL)
-		o_stream_unref(&pclient->output);
-	if (pclient->seekable_output != NULL)
-		i_stream_unref(&pclient->seekable_output);
+	i_stream_unref(&pclient->input);
+	i_stream_unref(&pclient->dot_input);
+	i_stream_unref(&pclient->program_input);
+	o_stream_unref(&pclient->program_output);
+	o_stream_unref(&pclient->output);
+	i_stream_unref(&pclient->seekable_output);
 
 	io_remove(&pclient->io);
 	i_free(pclient->temp_prefix);

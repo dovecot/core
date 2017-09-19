@@ -481,8 +481,7 @@ static void o_stream_default_destroy(struct iostream_private *stream)
 {
 	struct ostream_private *_stream = (struct ostream_private *)stream;
 
-	if (_stream->parent != NULL)
-		o_stream_unref(&_stream->parent);
+	o_stream_unref(&_stream->parent);
 }
 
 static void

@@ -98,8 +98,7 @@ static bool dsync_brain_recv_mailbox_attribute(struct dsync_brain *brain)
 	if (dsync_mailbox_import_attribute(brain->box_importer, attr) < 0)
 		brain->failed = TRUE;
 	input = attr->value_stream;
-	if (input != NULL)
-		i_stream_unref(&input);
+	i_stream_unref(&input);
 	return TRUE;
 }
 
@@ -309,8 +308,7 @@ static bool dsync_brain_recv_mail(struct dsync_brain *brain)
 	}
 	if (dsync_mailbox_import_mail(brain->box_importer, mail) < 0)
 		brain->failed = TRUE;
-	if (mail->input != NULL)
-		i_stream_unref(&mail->input);
+	i_stream_unref(&mail->input);
 	return TRUE;
 }
 

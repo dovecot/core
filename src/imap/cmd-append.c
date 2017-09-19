@@ -140,10 +140,8 @@ static void cmd_append_finish(struct cmd_append_context *ctx)
 	o_stream_set_flush_callback(ctx->client->output,
 				    client_output, ctx->client);
 
-	if (ctx->litinput != NULL)
-		i_stream_unref(&ctx->litinput);
-	if (ctx->input != NULL)
-		i_stream_unref(&ctx->input);
+	i_stream_unref(&ctx->litinput);
+	i_stream_unref(&ctx->input);
 	if (ctx->save_ctx != NULL)
 		mailbox_save_cancel(&ctx->save_ctx);
 	if (ctx->t != NULL)

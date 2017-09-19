@@ -648,10 +648,8 @@ static void
 test_client_request_destroy(struct test_client_request *tcreq)
 {
 	io_remove(&tcreq->io);
-	if (tcreq->payload != NULL)
-		i_stream_unref(&tcreq->payload);
-	if (tcreq->file != NULL)
-		i_stream_unref(&tcreq->file);
+	i_stream_unref(&tcreq->payload);
+	i_stream_unref(&tcreq->file);
 
 	DLLIST_REMOVE(&client_requests, tcreq);
 	i_free(tcreq);

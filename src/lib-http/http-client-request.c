@@ -265,10 +265,8 @@ bool http_client_request_unref(struct http_client_request **_req)
 
 	if (req->delayed_error != NULL)
 		http_client_remove_request_error(req->client, req);
-	if (req->payload_input != NULL)
-		i_stream_unref(&req->payload_input);
-	if (req->payload_output != NULL)
-		o_stream_unref(&req->payload_output);
+	i_stream_unref(&req->payload_input);
+	o_stream_unref(&req->payload_output);
 	if (req->headers != NULL)
 		str_free(&req->headers);
 	pool_unref(&req->pool);
@@ -1287,8 +1285,7 @@ bool http_client_request_callback(struct http_client_request *req,
 			return FALSE;
 		} else {
 			/* release payload early (prevents server/client deadlock in proxy) */
-			if (req->payload_input != NULL)
-				i_stream_unref(&req->payload_input);
+			i_stream_unref(&req->payload_input);
 		}
 	}
 	return TRUE;
@@ -1465,8 +1462,7 @@ void http_client_request_redirect(struct http_client_request *req,
 	}
 
 	/* drop payload output stream from previous attempt */
-	if (req->payload_output != NULL)
-		o_stream_unref(&req->payload_output);
+	o_stream_unref(&req->payload_output);
 
 	target = http_url_create_target(url);
 
@@ -1496,8 +1492,7 @@ void http_client_request_redirect(struct http_client_request *req,
 		req->method = p_strdup(req->pool, "GET");
 
 		/* drop payload */
-		if (req->payload_input != NULL)
-			i_stream_unref(&req->payload_input);
+		i_stream_unref(&req->payload_input);
 		req->payload_size = 0;
 		req->payload_offset = 0;
 	}
@@ -1527,8 +1522,7 @@ void http_client_request_resubmit(struct http_client_request *req)
 	}
 
 	/* drop payload output stream from previous attempt */
-	if (req->payload_output != NULL)
-		o_stream_unref(&req->payload_output);
+	o_stream_unref(&req->payload_output);
 
 	req->peer = NULL;
 	req->state = HTTP_REQUEST_STATE_QUEUED;

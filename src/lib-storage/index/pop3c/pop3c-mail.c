@@ -32,8 +32,7 @@ static void pop3c_mail_close(struct mail *_mail)
 	/* wait for any prefetch to finish before closing the mail */
 	while (pmail->prefetching)
 		pop3c_client_wait_one(mbox->client);
-	if (pmail->prefetch_stream != NULL)
-		i_stream_unref(&pmail->prefetch_stream);
+	i_stream_unref(&pmail->prefetch_stream);
 	index_mail_close(_mail);
 }
 

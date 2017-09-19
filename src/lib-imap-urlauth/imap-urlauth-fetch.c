@@ -65,8 +65,7 @@ static void imap_urlauth_fetch_abort_local(struct imap_urlauth_fetch *ufetch)
 	i_free_and_null(ufetch->pending_reply.url);
 	i_free_and_null(ufetch->pending_reply.bodypartstruct);
 	i_free_and_null(ufetch->pending_reply.error);
-	if (ufetch->pending_reply.input != NULL)
-		i_stream_unref(&ufetch->pending_reply.input);
+	i_stream_unref(&ufetch->pending_reply.input);
 
 	url = ufetch->local_urls_head;
 	for (; url != NULL; url = url_next) {

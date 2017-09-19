@@ -61,8 +61,7 @@ void i_stream_unref(struct istream **stream)
 			str_free(&_stream->line_str);
 	}
 	if (!io_stream_unref(&(*stream)->real_stream->iostream)) {
-		if ((*stream)->real_stream->parent != NULL)
-			i_stream_unref(&(*stream)->real_stream->parent);
+		i_stream_unref(&(*stream)->real_stream->parent);
 		io_stream_free(&(*stream)->real_stream->iostream);
 	}
 	*stream = NULL;
@@ -768,8 +767,7 @@ static void i_stream_default_destroy(struct iostream_private *stream)
 	struct istream_private *_stream = (struct istream_private *)stream;
 
 	i_free(_stream->w_buffer);
-	if (_stream->parent != NULL)
-		i_stream_unref(&_stream->parent);
+	i_stream_unref(&_stream->parent);
 }
 
 static void
