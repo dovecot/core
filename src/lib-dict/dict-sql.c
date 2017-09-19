@@ -909,8 +909,7 @@ sql_dict_transaction_init(struct dict *_dict)
 
 static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 {
-	if (ctx->inc_row_pool != NULL)
-		pool_unref(&ctx->inc_row_pool);
+	pool_unref(&ctx->inc_row_pool);
 	i_free(ctx->prev_inc_key);
 	i_free(ctx->error);
 	i_free(ctx);

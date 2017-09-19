@@ -277,8 +277,7 @@ static void i_stream_binary_converter_close(struct iostream_private *stream,
 	if (bstream->parser != NULL) {
 		message_parser_deinit(&bstream->parser, &parts);
 	}
-	if (bstream->pool != NULL)
-		pool_unref(&bstream->pool);
+	pool_unref(&bstream->pool);
 	if (close_parent)
 		i_stream_close(bstream->istream.parent);
 }

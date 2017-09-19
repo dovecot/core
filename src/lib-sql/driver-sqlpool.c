@@ -709,8 +709,7 @@ driver_sqlpool_transaction_free(struct sqlpool_transaction_context *ctx)
 {
 	if (ctx->commit_request != NULL)
 		sqlpool_request_abort(&ctx->commit_request);
-	if (ctx->query_pool != NULL)
-		pool_unref(&ctx->query_pool);
+	pool_unref(&ctx->query_pool);
 	i_free(ctx);
 }
 

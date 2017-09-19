@@ -676,8 +676,7 @@ static void i_stream_attachment_extractor_close(struct iostream_private *stream,
 		message_parser_deinit(&astream->parser, &parts);
 	}
 	hash_format_deinit_free(&astream->set.hash_format);
-	if (astream->pool != NULL)
-		pool_unref(&astream->pool);
+	pool_unref(&astream->pool);
 	if (close_parent)
 		i_stream_close(astream->istream.parent);
 }

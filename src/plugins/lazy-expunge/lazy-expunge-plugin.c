@@ -398,8 +398,7 @@ static void lazy_expunge_transaction_free(struct lazy_expunge_transaction *lt)
 		mailbox_free(&lt->dest_box);
 	if (hash_table_is_created(lt->guids))
 		hash_table_destroy(&lt->guids);
-	if (lt->pool != NULL)
-		pool_unref(&lt->pool);
+	pool_unref(&lt->pool);
 	i_free(lt->delayed_errstr);
 	i_free(lt->delayed_internal_errstr);
 	i_free(lt);

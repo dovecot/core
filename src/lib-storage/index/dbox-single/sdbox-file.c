@@ -66,8 +66,7 @@ void sdbox_file_free(struct dbox_file *file)
 {
 	struct sdbox_file *sfile = (struct sdbox_file *)file;
 
-	if (sfile->attachment_pool != NULL)
-		pool_unref(&sfile->attachment_pool);
+	pool_unref(&sfile->attachment_pool);
 	dbox_file_free(file);
 }
 

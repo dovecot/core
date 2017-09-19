@@ -605,8 +605,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 		file_dotlock_delete(&client->session_dotlock);
 	timeout_remove(&client->to_session_dotlock_refresh);
 
-	if (client->uidl_pool != NULL)
-		pool_unref(&client->uidl_pool);
+	pool_unref(&client->uidl_pool);
 	i_free(client->message_sizes);
 	i_free(client->deleted_bitmask);
 	i_free(client->seen_bitmask);

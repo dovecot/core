@@ -224,8 +224,7 @@ void client_destroy(struct client *client, const char *reason)
 		return;
 	client->destroyed = TRUE;
 
-	if (client->preproxy_pool != NULL)
-		pool_unref(&client->preproxy_pool);
+	pool_unref(&client->preproxy_pool);
 
 	if (!client->login_success && reason != NULL) {
 		const char *extra_reason =

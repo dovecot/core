@@ -156,6 +156,5 @@ char ***env_get_environ_p(void)
 
 void env_deinit(void)
 {
-	if (env_pool != NULL)
-		pool_unref(&env_pool);
+	pool_unref(&env_pool);
 }

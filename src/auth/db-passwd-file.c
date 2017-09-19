@@ -242,8 +242,7 @@ static void passwd_file_close(struct passwd_file *pw)
 
 	if (hash_table_is_created(pw->users))
 		hash_table_destroy(&pw->users);
-	if (pw->pool != NULL)
-		pool_unref(&pw->pool);
+	pool_unref(&pw->pool);
 }
 
 static void passwd_file_free(struct passwd_file *pw)

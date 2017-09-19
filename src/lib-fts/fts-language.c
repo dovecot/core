@@ -70,8 +70,7 @@ void fts_languages_init(void)
 
 void fts_languages_deinit(void)
 {
-	if (fts_languages_pool != NULL)
-		pool_unref(&fts_languages_pool);
+	pool_unref(&fts_languages_pool);
 }
 
 void fts_language_register(const char *name)

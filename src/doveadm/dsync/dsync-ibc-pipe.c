@@ -117,8 +117,7 @@ dsync_ibc_pipe_pop_item(struct dsync_ibc_pipe *pipe, enum item_type type)
 	array_delete(&pipe->item_queue, 0, 1);
 	item = NULL;
 
-	if (pipe->pop_pool != NULL)
-		pool_unref(&pipe->pop_pool);
+	pool_unref(&pipe->pop_pool);
 	pipe->pop_pool = pipe->pop_item.pool;
 	return &pipe->pop_item;
 }
@@ -149,11 +148,9 @@ static void dsync_ibc_pipe_deinit(struct dsync_ibc *ibc)
 		pipe->remote->remote = NULL;
 	}
 
-	if (pipe->pop_pool != NULL)
-		pool_unref(&pipe->pop_pool);
+	pool_unref(&pipe->pop_pool);
 	array_foreach_modifiable(&pipe->item_queue, item) {
-		if (item->pool != NULL)
-			pool_unref(&item->pool);
+		pool_unref(&item->pool);
 	}
 	array_foreach_modifiable(&pipe->pools, poolp)
 		pool_unref(poolp);

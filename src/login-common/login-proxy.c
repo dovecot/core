@@ -692,8 +692,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 	const unsigned char *data;
 	size_t size;
 
-	if (proxy->client->preproxy_pool != NULL)
-		pool_unref(&proxy->client->preproxy_pool);
+	pool_unref(&proxy->client->preproxy_pool);
 
 	i_assert(proxy->client_fd == -1);
 	i_assert(proxy->server_input != NULL);

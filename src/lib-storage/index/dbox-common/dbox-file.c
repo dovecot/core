@@ -74,8 +74,7 @@ void dbox_file_free(struct dbox_file *file)
 {
 	i_assert(file->refcount == 0);
 
-	if (file->metadata_pool != NULL)
-		pool_unref(&file->metadata_pool);
+	pool_unref(&file->metadata_pool);
 	dbox_file_close(file);
 	i_free(file->primary_path);
 	i_free(file->alt_path);

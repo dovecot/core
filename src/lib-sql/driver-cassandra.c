@@ -827,8 +827,7 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 		cass_iterator_free(result->iterator);
 	if (result->statement != NULL)
 		cass_statement_free(result->statement);
-	if (result->row_pool != NULL)
-		pool_unref(&result->row_pool);
+	pool_unref(&result->row_pool);
 	i_free(result->query);
 	i_free(result->error);
 	i_free(result);

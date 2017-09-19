@@ -553,8 +553,7 @@ int fs_list_iter_deinit(struct mailbox_list_iterate_context *_ctx)
 		pool_unref(&dir->pool);
 	}
 
-	if (ctx->info_pool != NULL)
-		pool_unref(&ctx->info_pool);
+	pool_unref(&ctx->info_pool);
 	pool_unref(&_ctx->pool);
 	return ret;
 }

@@ -304,8 +304,7 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 
 	if (array_is_created(&aclobj->aclobj.rights))
 		array_free(&aclobj->aclobj.rights);
-	if (aclobj->aclobj.rights_pool != NULL)
-		pool_unref(&aclobj->aclobj.rights_pool);
+	pool_unref(&aclobj->aclobj.rights_pool);
 	i_free(aclobj->aclobj.name);
 	i_free(aclobj);
 }

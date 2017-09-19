@@ -1408,8 +1408,7 @@ void mailbox_free(struct mailbox **_box)
 
 	DLLIST_REMOVE(&box->storage->mailboxes, box);
 	mail_storage_obj_unref(box->storage);
-	if (box->metadata_pool != NULL)
-		pool_unref(&box->metadata_pool);
+	pool_unref(&box->metadata_pool);
 	pool_unref(&box->pool);
 }
 
@@ -2084,8 +2083,7 @@ int mailbox_transaction_commit(struct mailbox_transaction_context **t)
 	/* Store changes temporarily so that plugins overriding
 	   transaction_commit() can look at them. */
 	ret = mailbox_transaction_commit_get_changes(t, &changes);
-	if (changes.pool != NULL)
-		pool_unref(&changes.pool);
+	pool_unref(&changes.pool);
 	return ret;
 }
 
