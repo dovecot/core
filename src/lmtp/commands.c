@@ -813,6 +813,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	struct lda_settings *lda_set;
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
+	const struct var_expand_table *var_table;
 	struct timeval delivery_time_started;
 	void **sets;
 	const char *line, *error, *username;
@@ -854,9 +855,10 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	}
 
 	sets = mail_storage_service_user_get_set(rcpt->service_user);
+	var_table = mail_user_var_expand_table(client->state.dest_user);
 	lda_set = sets[1];
 	if (settings_var_expand(&lda_setting_parser_info, lda_set, client->pool,
-			mail_user_var_expand_table(client->state.dest_user), &error) <= 0) {
+			var_table, &error) <= 0) {
 		i_error("Failed to expand settings: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 rcpt->address);
@@ -865,8 +867,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 
 	str = t_str_new(256);
 	if (var_expand_with_funcs(str, client->state.dest_user->set->mail_log_prefix,
-				  mail_user_var_expand_table(client->state.dest_user),
-				  mail_user_var_expand_func_table,
+				  var_table, mail_user_var_expand_func_table,
 				  client->state.dest_user, &error) <= 0) {
 		i_error("Failed to expand mail_log_prefix=%s: %s",
 			client->state.dest_user->set->mail_log_prefix, error);
