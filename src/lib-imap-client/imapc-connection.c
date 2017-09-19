@@ -412,10 +412,7 @@ static void imapc_connection_lfiles_free(struct imapc_connection *conn)
 static void
 imapc_connection_literal_reset(struct imapc_connection_literal *literal)
 {
-	if (literal->fd != -1) {
-		if (close(literal->fd) < 0)
-			i_error("close(%s) failed: %m", literal->temp_path);
-	}
+	i_close_fd_path(&literal->fd, literal->temp_path);
 	i_free_and_null(literal->temp_path);
 
 	i_zero(literal);

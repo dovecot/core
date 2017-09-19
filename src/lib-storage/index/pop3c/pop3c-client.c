@@ -205,11 +205,7 @@ static void pop3c_client_disconnect(struct pop3c_client *client)
 	o_stream_destroy(&client->output);
 	if (client->ssl_iostream != NULL)
 		ssl_iostream_unref(&client->ssl_iostream);
-	if (client->fd != -1) {
-		if (close(client->fd) < 0)
-			i_error("close(pop3c) failed: %m");
-		client->fd = -1;
-	}
+	i_close_fd(&client->fd);
 	while (array_count(&client->commands) > 0)
 		pop3c_client_async_callback_disconnected(client);
 	client_login_callback(client, POP3C_COMMAND_STATE_DISCONNECTED,

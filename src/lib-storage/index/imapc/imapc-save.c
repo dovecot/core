@@ -291,11 +291,7 @@ int imapc_save_finish(struct mail_save_context *_ctx)
 
 	o_stream_unref(&_ctx->data.output);
 	i_stream_unref(&ctx->input);
-	if (ctx->fd != -1) {
-		if (close(ctx->fd) < 0)
-			i_error("close(%s) failed: %m", ctx->temp_path);
-		ctx->fd = -1;
-	}
+	i_close_fd_path(&ctx->fd, ctx->temp_path);
 	i_free(ctx->temp_path);
 	index_save_context_free(_ctx);
 	return ctx->failed ? -1 : 0;

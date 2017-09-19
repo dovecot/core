@@ -557,11 +557,7 @@ static void squat_uidlist_close(struct squat_uidlist *uidlist)
 		file_lock_free(&uidlist->file_lock);
 	if (uidlist->dotlock != NULL)
 		file_dotlock_delete(&uidlist->dotlock);
-	if (uidlist->fd != -1) {
-		if (close(uidlist->fd) < 0)
-			i_error("close(%s) failed: %m", uidlist->path);
-		uidlist->fd = -1;
-	}
+	i_close_fd_path(&uidlist->fd, uidlist->path);
 	uidlist->corrupted = FALSE;
 }
 

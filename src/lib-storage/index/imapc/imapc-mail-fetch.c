@@ -625,11 +625,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 			hdr_stream = i_stream_create_fd_autoclose(&mail->fd, 0);
 		}
 		index_mail_close_streams(imail);
-		if (mail->fd != -1) {
-			if (close(mail->fd) < 0)
-				i_error("close(imapc mail) failed: %m");
-			mail->fd = -1;
-		}
+		i_close_fd(&mail->fd);
 	} else {
 		if (!have_header) {
 			/* BODY.PEEK[TEXT] received - we can't currently handle

@@ -234,11 +234,7 @@ static int passwd_file_open(struct passwd_file *pw, bool startup,
 
 static void passwd_file_close(struct passwd_file *pw)
 {
-	if (pw->fd != -1) {
-		if (close(pw->fd) < 0)
-			i_error("passwd-file %s: close() failed: %m", pw->path);
-		pw->fd = -1;
-	}
+	i_close_fd_path(&pw->fd, pw->path);
 
 	if (hash_table_is_created(pw->users))
 		hash_table_destroy(&pw->users);

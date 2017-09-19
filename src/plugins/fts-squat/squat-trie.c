@@ -163,11 +163,7 @@ static void squat_trie_close_fd(struct squat_trie *trie)
 		trie->mmap_base = NULL;
 		trie->mmap_size = 0;
 	}
-	if (trie->fd != -1) {
-		if (close(trie->fd) < 0)
-			i_error("close(%s) failed: %m", trie->path);
-		trie->fd = -1;
-	}
+	i_close_fd_path(&trie->fd, trie->path);
 }
 
 static void squat_trie_close(struct squat_trie *trie)

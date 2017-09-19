@@ -61,10 +61,7 @@ void stats_connection_unref(struct stats_connection **_conn)
 		return;
 
 	*_conn = NULL;
-	if (conn->fd != -1) {
-		if (close(conn->fd) < 0)
-			i_error("close(%s) failed: %m", conn->path);
-	}
+	i_close_fd_path(&conn->fd, conn->path);
 	i_free(conn->path);
 	i_free(conn);
 }

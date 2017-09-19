@@ -206,11 +206,7 @@ void io_loop_notify_handler_deinit(struct ioloop *ioloop)
 		io_remove(&_io);
 	}
 
-	if (ctx->inotify_fd != -1) {
-		if (close(ctx->inotify_fd) < 0)
-			i_error("close(inotify) failed: %m");
-		ctx->inotify_fd = -1;
-	}
+	i_close_fd(&ctx->inotify_fd);
 	i_free(ctx);
 }
 

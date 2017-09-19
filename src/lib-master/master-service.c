@@ -932,11 +932,7 @@ static void master_service_refresh_login_state(struct master_service *service)
 
 void master_service_close_config_fd(struct master_service *service)
 {
-	if (service->config_fd != -1) {
-		if (close(service->config_fd) < 0)
-			i_error("close(master config fd) failed: %m");
-		service->config_fd = -1;
-	}
+	i_close_fd(&service->config_fd);
 }
 
 void master_service_deinit(struct master_service **_service)

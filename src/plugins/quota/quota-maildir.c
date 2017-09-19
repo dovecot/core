@@ -526,10 +526,7 @@ static int maildirsize_parse(struct maildir_quota_root *root,
 
 static int maildirsize_open(struct maildir_quota_root *root)
 {
-	if (root->fd != -1) {
-		if (close(root->fd) < 0)
-			i_error("close(%s) failed: %m", root->maildirsize_path);
-	}
+	i_close_fd_path(&root->fd, root->maildirsize_path);
 
 	root->fd = nfs_safe_open(root->maildirsize_path, O_RDWR | O_APPEND);
 	if (root->fd == -1) {

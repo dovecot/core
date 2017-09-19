@@ -201,11 +201,7 @@ auth_postfix_connection_destroy(struct auth_postfix_connection **_conn)
 	if (conn->output != NULL)
 		o_stream_close(conn->output);
 	io_remove(&conn->io);
-	if (conn->fd != -1) {
-		if (close(conn->fd) < 0)
-			i_error("close(%s): %m", conn->path);
-		conn->fd = -1;
-	}
+	i_close_fd_path(&conn->fd, conn->path);
 
 	master_service_client_connection_destroyed(master_service);
 	auth_postfix_connection_unref(&conn);

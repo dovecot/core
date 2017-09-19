@@ -559,10 +559,7 @@ void server_connection_destroy(struct server_connection **_conn)
 	if (conn->ssl_iostream != NULL)
 		ssl_iostream_unref(&conn->ssl_iostream);
 	io_remove(&conn->io);
-	if (conn->fd != -1) {
-		if (close(conn->fd) < 0)
-			i_error("close(server) failed: %m");
-	}
+	i_close_fd(&conn->fd);
 	pool_unref(&conn->pool);
 }
 

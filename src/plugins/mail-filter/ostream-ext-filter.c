@@ -28,11 +28,7 @@ o_stream_mail_filter_close(struct iostream_private *stream, bool close_parent)
 
 	i_stream_destroy(&mstream->ext_in);
 	o_stream_destroy(&mstream->ext_out);
-	if (mstream->fd != -1) {
-		if (close(mstream->fd) < 0)
-			i_error("ext-filter: close() failed: %m");
-		mstream->fd = -1;
-	}
+	i_close_fd(&mstream->fd);
 	if (close_parent)
 		o_stream_close(mstream->ostream.parent);
 }

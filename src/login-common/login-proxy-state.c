@@ -56,11 +56,7 @@ struct login_proxy_state *login_proxy_state_init(const char *notify_path)
 
 static void login_proxy_state_close(struct login_proxy_state *state)
 {
-	if (state->notify_fd != -1) {
-		if (close(state->notify_fd) < 0)
-			i_error("close(%s) failed: %m", state->notify_path);
-		state->notify_fd = -1;
-	}
+	i_close_fd_path(&state->notify_fd, state->notify_path);
 }
 
 void login_proxy_state_deinit(struct login_proxy_state **_state)

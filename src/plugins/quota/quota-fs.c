@@ -138,10 +138,7 @@ static void fs_quota_mountpoint_free(struct fs_quota_mountpoint *mount)
 		return;
 
 #ifdef FS_QUOTA_SOLARIS
-	if (mount->fd != -1) {
-		if (close(mount->fd) < 0)
-			i_error("close(%s) failed: %m", mount->path);
-	}
+	i_close_fd_path(&mount->fd, mount->path);
 	i_free(mount->path);
 #endif
 

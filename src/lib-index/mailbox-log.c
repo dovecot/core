@@ -72,11 +72,7 @@ void mailbox_log_free(struct mailbox_log **_log)
 
 static void mailbox_log_close(struct mailbox_log *log)
 {
-	if (log->fd != -1) {
-		if (close(log->fd) < 0)
-			i_error("close(%s) failed: %m", log->filepath);
-		log->fd = -1;
-	}
+	i_close_fd_path(&log->fd, log->filepath);
 }
 
 void mailbox_log_set_permissions(struct mailbox_log *log, mode_t mode,
@@ -199,11 +195,7 @@ int mailbox_log_append(struct mailbox_log *log,
 
 static bool mailbox_log_iter_open_next(struct mailbox_log_iter *iter)
 {
-	if (iter->fd != -1) {
-		if (close(iter->fd) < 0)
-			i_error("close(%s) failed: %m", iter->filepath);
-		iter->fd = -1;
-	}
+	i_close_fd_path(&iter->fd, iter->filepath);
 	if (iter->filepath == NULL)
 		iter->filepath = iter->log->filepath2;
 	else if (iter->filepath == iter->log->filepath2)
@@ -284,10 +276,7 @@ int mailbox_log_iter_deinit(struct mailbox_log_iter **_iter)
 
 	*_iter = NULL;
 
-	if (iter->fd != -1) {
-		if (close(iter->fd) < 0)
-			i_error("close(%s) failed: %m", iter->filepath);
-	}
+	i_close_fd_path(&iter->fd, iter->filepath);
 	i_free(iter);
 	return ret;
 }

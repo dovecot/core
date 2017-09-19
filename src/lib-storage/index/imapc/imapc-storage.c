@@ -763,11 +763,7 @@ static int imapc_mailbox_open(struct mailbox *box)
 
 void imapc_mail_cache_free(struct imapc_mail_cache *cache)
 {
-	if (cache->fd != -1) {
-		if (close(cache->fd) < 0)
-			i_error("close(imapc cached mail) failed: %m");
-		cache->fd = -1;
-	}
+	i_close_fd(&cache->fd);
 	buffer_free(&cache->buf);
 	cache->uid = 0;
 }

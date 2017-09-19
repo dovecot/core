@@ -83,11 +83,7 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 static void auth_connection_close(struct auth_master_connection *conn)
 {
 	timeout_remove(&conn->to);
-	if (conn->fd != -1) {
-		if (close(conn->fd) < 0)
-			i_error("close(%s) failed: %m", conn->auth_socket_path);
-		conn->fd = -1;
-	}
+	i_close_fd_path(&conn->fd, conn->auth_socket_path);
 
 	conn->sent_handshake = FALSE;
 	conn->handshaked = FALSE;

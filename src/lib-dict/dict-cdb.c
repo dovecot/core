@@ -76,10 +76,7 @@ static void cdb_dict_deinit(struct dict *_dict)
 	/* we can safely deinit unallocated cdb */
 	cdb_free(&dict->cdb);
 
-	if (dict->fd != -1) {
-		if (close(dict->fd) < 0)
-			i_error("close(%s) failed: %m", dict->path);
-	}
+	i_close_fd_path(&dict->fd, dict->path);
 
 	i_free(dict->path);
 	i_free(dict);
