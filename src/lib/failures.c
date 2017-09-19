@@ -5,6 +5,8 @@
 #include "str.h"
 #include "hostpid.h"
 #include "net.h"
+#include "fd-set-nonblock.h"
+#include "process-title.h"
 #include "lib-signals.h"
 #include "backtrace-string.h"
 #include "printf-format-fix.h"
@@ -123,16 +125,31 @@ static int log_fd_write(int fd, const unsigned char *data, size_t len)
 			return -1;
 		}
 		switch (errno) {
-		case EAGAIN:
+		case EAGAIN: {
 			/* wait until we can write more. this can happen at
 			   least when writing to terminal, even if fd is
-			   blocking. */
+			   blocking. Internal logging fd is also now
+			   non-blocking, so we can show warnings about blocking
+			   on a log write. */
+			const char *title, *old_title =
+				t_strdup(process_title_get());
+
+			if (old_title == NULL)
+				title = "[blocking on log write]";
+			else
+				title = t_strdup_printf("%s - [blocking on log write]",
+							old_title);
+			process_title_set(title);
+
 			ioloop = io_loop_create();
 			io = io_add(fd, IO_WRITE, log_fd_flush_stop, ioloop);
 			io_loop_run(ioloop);
 			io_remove(&io);
 			io_loop_destroy(&ioloop);
+
+			process_title_set(old_title);
 			break;
+		}
 		case EINTR:
 			if (prev_signal_term_counter == signal_term_counter) {
 				/* non-terminal signal. ignore. */
@@ -680,6 +697,7 @@ i_internal_error_handler(const struct failure_context *ctx,
 
 void i_set_failure_internal(void)
 {
+	fd_set_nonblock(STDERR_FILENO, TRUE);
 	i_set_fatal_handler(i_internal_fatal_handler);
 	i_set_error_handler(i_internal_error_handler);
 	i_set_info_handler(i_internal_error_handler);
