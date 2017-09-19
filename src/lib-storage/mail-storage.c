@@ -884,6 +884,12 @@ bool mailbox_is_autocreated(struct mailbox *box)
 		strcmp(box->set->autocreate, MAILBOX_SET_AUTO_NO) != 0;
 }
 
+bool mailbox_is_autosubscribed(struct mailbox *box)
+{
+	return box->set != NULL &&
+		strcmp(box->set->autocreate, MAILBOX_SET_AUTO_SUBSCRIBE) == 0;
+}
+
 static int mailbox_autocreate(struct mailbox *box)
 {
 	const char *errstr;
@@ -897,9 +903,7 @@ static int mailbox_autocreate(struct mailbox *box)
 				box->vname, errstr);
 			return -1;
 		}
-	} else if (box->set != NULL &&
-		   strcmp(box->set->autocreate,
-			  MAILBOX_SET_AUTO_SUBSCRIBE) == 0) {
+	} else if (mailbox_is_autosubscribed(box)) {
 		if (mailbox_set_subscribed(box, TRUE) < 0) {
 			mail_storage_set_critical(box->storage,
 				"Failed to autosubscribe to mailbox %s: %s",

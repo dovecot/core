@@ -779,6 +779,8 @@ int mailbox_create_missing_dir(struct mailbox *box,
 			       enum mailbox_list_path_type type);
 /* Returns TRUE if mailbox is autocreated. */
 bool mailbox_is_autocreated(struct mailbox *box);
+/* Returns TRUE if mailbox is autosubscribed. */
+bool mailbox_is_autosubscribed(struct mailbox *box);
 
 /* Returns -1 if error, 0 if failed with EEXIST, 1 if ok */
 int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
