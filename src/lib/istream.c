@@ -49,7 +49,12 @@ void i_stream_ref(struct istream *stream)
 
 void i_stream_unref(struct istream **stream)
 {
-	struct istream_private *_stream = (*stream)->real_stream;
+	struct istream_private *_stream;
+
+	if (*stream == NULL)
+		return;
+
+	_stream = (*stream)->real_stream;
 
 	if (_stream->iostream.refcount == 1) {
 		if (_stream->line_str != NULL)

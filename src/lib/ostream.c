@@ -75,7 +75,12 @@ void o_stream_ref(struct ostream *stream)
 
 void o_stream_unref(struct ostream **_stream)
 {
-	struct ostream *stream = *_stream;
+	struct ostream *stream;
+
+	if (*_stream == NULL)
+		return;
+
+	stream = *_stream;
 
 	if (stream->real_stream->last_errors_not_checked &&
 	    !stream->real_stream->error_handling_disabled &&
