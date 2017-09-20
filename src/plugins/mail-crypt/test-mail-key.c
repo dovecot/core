@@ -409,7 +409,8 @@ static void test_old_key(void)
 		i_fatal("mailbox_open(INBOX) failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 
-	struct mailbox_transaction_context *t = mailbox_transaction_begin(box, 0);
+	struct mailbox_transaction_context *t =
+		mailbox_transaction_begin(box, 0, __func__);
 
 	test_mail_attribute_set(t, TRUE, FALSE, mcp_old_user_key_id,
 				mcp_old_user_key, &error);

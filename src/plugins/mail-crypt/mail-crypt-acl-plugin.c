@@ -108,7 +108,7 @@ mail_crypt_acl_unset_private_keys(struct mailbox *src_box,
 	}
 
 	struct mailbox_transaction_context *t;
-	t = mailbox_transaction_begin(src_box, 0);
+	t = mailbox_transaction_begin(src_box, 0, __func__);
 
 	const char *const *hash;
 	array_foreach(&digests, hash) {
@@ -212,7 +212,7 @@ mail_crypt_acl_update_private_key(struct mailbox *src_box,
 	t_array_init(&keys, 8);
 
 	struct mailbox_transaction_context *t =
-		mailbox_transaction_begin(src_box, 0);
+		mailbox_transaction_begin(src_box, 0, __func__);
 
 	/* get private keys from box */
 	if (mail_crypt_box_get_private_keys(src_box, &keys, error_r) < 0 ||

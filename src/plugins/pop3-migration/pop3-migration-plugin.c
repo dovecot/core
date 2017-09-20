@@ -377,7 +377,7 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 		return -1;
 	}
 
-	t = mailbox_transaction_begin(pop3_box, 0);
+	t = mailbox_transaction_begin(pop3_box, 0, __func__);
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 	ctx = mailbox_search_init(t, search_args, NULL,
@@ -479,7 +479,7 @@ map_read_hdr_hashes(struct mailbox *box, struct array *msg_map, uint32_t seq1)
 	struct msg_map_common *map;
 	int ret = 0;
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 	/* get all the cached hashes */
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq1, array_count_i(msg_map));
@@ -560,7 +560,7 @@ static int imap_map_read(struct mailbox *box)
 	i_assert(!array_is_created(&mbox->imap_msg_map));
 	p_array_init(&mbox->imap_msg_map, box->pool, status.messages);
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 	ctx = mailbox_search_init(t, search_args, NULL,
@@ -803,7 +803,7 @@ static void imap_uidls_add_to_cache(struct mailbox *box)
 	unsigned int i, count;
 	unsigned int field_idx;
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 	mail = mail_alloc(t, 0, NULL);
 	imail = INDEX_MAIL(mail);
 	field_idx = imail->ibox->cache_fields[MAIL_CACHE_POP3_UIDL].idx;

@@ -545,7 +545,8 @@ cmd_acl_mailbox_update(struct mailbox *box,
 		return -1;
 	}
 
-	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL,
+				      __func__);
 	ret = acl_mailbox_update_acl(t, update);
 	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;

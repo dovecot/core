@@ -541,7 +541,7 @@ index_list_update_first_saved(struct mailbox *box,
 	first_saved.timestamp = (uint32_t)-1;
 
 	if (changes->first_uid != 0) {
-		t = mailbox_transaction_begin(box, 0);
+		t = mailbox_transaction_begin(box, 0, __func__);
 		mail = mail_alloc(t, MAIL_FETCH_SAVE_DATE, NULL);
 		messages_count = mail_index_view_get_messages_count(box->view);
 		for (seq = 1; seq <= messages_count; seq++) {

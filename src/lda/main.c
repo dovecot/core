@@ -200,7 +200,7 @@ lda_raw_mail_open(struct mail_deliver_context *ctx, const char *path)
 	}
 	mail_user_unref(&raw_mail_user);
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
 	mail = mail_alloc(t, 0, headers_ctx);
 	mailbox_header_lookup_unref(&headers_ctx);

@@ -176,7 +176,7 @@ int imap_msgpart_url_open_mail(struct imap_msgpart_url *mpurl,
 		return ret;
 
 	/* start transaction */
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 	mail = mail_alloc(t, MAIL_FETCH_MESSAGE_PARTS |
 			  MAIL_FETCH_IMAP_BODYSTRUCTURE, NULL);
 

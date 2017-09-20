@@ -100,7 +100,8 @@ cmd_import_box_contents(struct doveadm_mail_iter *iter, struct mail *src_mail,
 	int ret = 0;
 
 	dest_trans = mailbox_transaction_begin(dest_box,
-				MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+					MAILBOX_TRANSACTION_FLAG_EXTERNAL,
+					__func__);
 	do {
 		if (doveadm_debug) {
 			i_debug("import: box=%s uid=%u",

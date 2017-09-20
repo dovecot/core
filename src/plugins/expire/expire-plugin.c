@@ -80,7 +80,7 @@ static void first_save_timestamp(struct mailbox *box, time_t *stamp_r)
 
 	*stamp_r = ioloop_time;
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 	mail = mail_alloc(t, 0, NULL);
 
 	/* find the first non-expunged mail. we're here because the first

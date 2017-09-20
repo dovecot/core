@@ -46,9 +46,10 @@ static int snarf(struct mailbox *srcbox, struct mailbox *destbox)
 	if (mailbox_sync(srcbox, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 		return -1;
 
-	src_trans = mailbox_transaction_begin(srcbox, 0);
+	src_trans = mailbox_transaction_begin(srcbox, 0, "snarf src_trans");
 	dest_trans = mailbox_transaction_begin(destbox,
-					MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+					MAILBOX_TRANSACTION_FLAG_EXTERNAL,
+					"snarf dest_trans");
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);

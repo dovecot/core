@@ -641,16 +641,13 @@ void mailbox_notify_changes_stop(struct mailbox *box);
 
 struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box,
-			  enum mailbox_transaction_flags flags);
+			  enum mailbox_transaction_flags flags,
+			  const char *reason);
 int mailbox_transaction_commit(struct mailbox_transaction_context **t);
 int mailbox_transaction_commit_get_changes(
 	struct mailbox_transaction_context **t,
 	struct mail_transaction_commit_changes *changes_r);
 void mailbox_transaction_rollback(struct mailbox_transaction_context **t);
-/* Set a reason for why the transaction is created. This is used for
-   logging purposes. */
-void mailbox_transaction_set_reason(struct mailbox_transaction_context *t,
-				    const char *reason);
 /* Return the number of active transactions for the mailbox. */
 unsigned int mailbox_transaction_get_count(const struct mailbox *box) ATTR_PURE;
 /* When committing transaction, drop flag/keyword updates for messages whose

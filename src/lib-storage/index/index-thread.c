@@ -558,7 +558,7 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 	ctx = i_new(struct mail_thread_context, 1);
 	ctx->box = box;
 	ctx->search_args = args;
-	ctx->t = mailbox_transaction_begin(ctx->box, 0);
+	ctx->t = mailbox_transaction_begin(ctx->box, 0, __func__);
 	/* perform search first, so we don't break if there are INTHREAD keys */
 	search_ctx = mailbox_search_init(ctx->t, args, NULL, 0, NULL);
 

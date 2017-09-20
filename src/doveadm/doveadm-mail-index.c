@@ -65,7 +65,8 @@ static int cmd_index_box_precache(struct mailbox *box)
 		       mailbox_get_vname(box), seq, status.messages);
 	}
 
-	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC);
+	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_NO_CACHE_DEC,
+					  __func__);
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq, status.messages);
 	ctx = mailbox_search_init(trans, search_args, NULL,

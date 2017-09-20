@@ -324,7 +324,7 @@ mail_deliver_open_mail(struct mailbox *box, uint32_t uid,
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FAST) < 0)
 		return NULL;
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 	mail = mail_alloc(t, wanted_fields, NULL);
 
 	if (!mail_set_uid(mail, uid)) {
@@ -380,7 +380,7 @@ int mail_deliver_save(struct mail_deliver_context *ctx, const char *mailbox,
 	trans_flags = MAILBOX_TRANSACTION_FLAG_EXTERNAL;
 	if (ctx->save_dest_mail)
 		trans_flags |= MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS;
-	t = mailbox_transaction_begin(box, trans_flags);
+	t = mailbox_transaction_begin(box, trans_flags, __func__);
 
 	kw = str_array_length(keywords) == 0 ? NULL :
 		mailbox_keywords_create_valid(box, keywords);

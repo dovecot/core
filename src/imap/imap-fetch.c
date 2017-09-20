@@ -246,8 +246,7 @@ get_expunges_fallback(struct mailbox *box,
 	i_array_init(&search_args->args->value.seqset, count);
 	array_append_array(&search_args->args->value.seqset, uid_filter_arr);
 
-	trans = mailbox_transaction_begin(box, 0);
-	mailbox_transaction_set_reason(trans, "FETCH send VANISHED");
+	trans = mailbox_transaction_begin(box, 0, "FETCH send VANISHED");
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -398,8 +397,8 @@ void imap_fetch_begin(struct imap_fetch_context *ctx, struct mailbox *box,
 		   are added, other flag changes are also hidden.) */
 		trans_flags |= MAILBOX_TRANSACTION_FLAG_HIDE;
 	}
-	ctx->state.trans = mailbox_transaction_begin(box, trans_flags);
-	mailbox_transaction_set_reason(ctx->state.trans, ctx->reason);
+	ctx->state.trans = mailbox_transaction_begin(box, trans_flags,
+						     ctx->reason);
 
 	mail_search_args_init(search_args, box, TRUE,
 			      &ctx->client->search_saved_uidset);

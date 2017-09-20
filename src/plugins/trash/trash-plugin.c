@@ -61,7 +61,7 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 	if (mailbox_sync(trash->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 		return -1;
 
-	trash->trans = mailbox_transaction_begin(trash->box, 0);
+	trash->trans = mailbox_transaction_begin(trash->box, 0, __func__);
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);

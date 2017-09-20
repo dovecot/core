@@ -703,7 +703,7 @@ static int mailbox_expunge_all_data(struct mailbox *box)
 
 	(void)mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);

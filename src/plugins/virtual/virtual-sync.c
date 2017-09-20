@@ -113,7 +113,7 @@ virtual_backend_box_sync_mail_set(struct virtual_backend_box *bbox)
 	struct mailbox_transaction_context *trans;
 
 	if (bbox->sync_mail == NULL) {
-		trans = mailbox_transaction_begin(bbox->box, 0);
+		trans = mailbox_transaction_begin(bbox->box, 0, __func__);
 		bbox->sync_mail = mail_alloc(trans, 0, NULL);
 	}
 }
@@ -500,7 +500,7 @@ static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)
 	enum mailbox_search_result_flags result_flags;
 	int ret;
 
-	trans = mailbox_transaction_begin(bbox->box, 0);
+	trans = mailbox_transaction_begin(bbox->box, 0, __func__);
 
 	if (!bbox->search_args_initialized) {
 		mail_search_args_init(bbox->search_args, bbox->box, FALSE, NULL);

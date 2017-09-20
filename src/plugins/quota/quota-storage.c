@@ -451,8 +451,7 @@ static void quota_mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 		struct mail_index_view *box_view = box->view;
 		if (box->tmp_sync_view != NULL)
 			box->view = box->tmp_sync_view;
-		qbox->expunge_trans = mailbox_transaction_begin(box, 0);
-		mailbox_transaction_set_reason(qbox->expunge_trans, "quota");
+		qbox->expunge_trans = mailbox_transaction_begin(box, 0, "quota");
 		box->view = box_view;
 		qbox->expunge_qt->tmp_mail =
 			mail_alloc(qbox->expunge_trans,

@@ -75,7 +75,8 @@ cmd_mailbox_metadata_set_run(struct doveadm_mail_cmd_context *_ctx,
 		return ret;
 
 	trans = mailbox_transaction_begin(box, ctx->empty_mailbox_name ?
-					  MAILBOX_TRANSACTION_FLAG_EXTERNAL : 0);
+					  MAILBOX_TRANSACTION_FLAG_EXTERNAL : 0,
+					  __func__);
 
 	ret = ctx->value.value == NULL ?
 		mailbox_attribute_unset(trans, ctx->key_type, ctx->key) :

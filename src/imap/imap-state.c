@@ -173,8 +173,8 @@ imap_state_export_mailbox_mails(buffer_t *dest, struct mailbox *box,
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 
-	trans = mailbox_transaction_begin(box, 0);
-	mailbox_transaction_set_reason(trans, "unhibernate");
+	trans = mailbox_transaction_begin(box, 0,
+				"unhibernate imap_state_export_mailbox_mails");
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
@@ -371,8 +371,8 @@ import_send_expunges(struct client *client,
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
 
-	trans = mailbox_transaction_begin(client->mailbox, 0);
-	mailbox_transaction_set_reason(trans, "unhibernate");
+	trans = mailbox_transaction_begin(client->mailbox, 0,
+					  "unhibernate import_send_expunges");
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 

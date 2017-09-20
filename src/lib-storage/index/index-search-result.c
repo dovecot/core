@@ -68,7 +68,7 @@ search_result_update_search(struct mail_search_result *result,
 
 	mail_search_args_init(result->search_args, result->box, FALSE, NULL);
 
-	t = mailbox_transaction_begin(result->box, 0);
+	t = mailbox_transaction_begin(result->box, 0, __func__);
 	search_ctx = mailbox_search_init(t, result->search_args, NULL, 0, NULL);
 	/* tell search that we're updating an existing search result,
 	   so it can do some optimizations based on it */
@@ -161,7 +161,7 @@ int index_search_result_update_appends(struct mail_search_result *result,
 	result->search_args->args = &search_arg;
 
 	/* add all messages matching the search to search result */
-	t = mailbox_transaction_begin(result->box, 0);
+	t = mailbox_transaction_begin(result->box, 0, __func__);
 	search_ctx = mailbox_search_init(t, result->search_args, NULL, 0, NULL);
 
 	while (mailbox_search_next(search_ctx, &mail))

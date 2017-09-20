@@ -400,7 +400,8 @@ dsync_mailbox_export_search(struct dsync_mailbox_exporter *exporter)
 	}
 
 	exporter->trans = mailbox_transaction_begin(exporter->box,
-						MAILBOX_TRANSACTION_FLAG_SYNC);
+						MAILBOX_TRANSACTION_FLAG_SYNC,
+						__func__);
 	search_ctx = mailbox_search_init(exporter->trans, search_args, NULL,
 					 wanted_fields, wanted_headers);
 	mail_search_args_unref(&search_args);

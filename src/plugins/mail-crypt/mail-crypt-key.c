@@ -498,7 +498,7 @@ int mail_crypt_user_set_private_key(struct mail_user *user, const char *pubid,
 		return -1;
 	}
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 
 	if ((ret = mail_crypt_set_private_key(t, TRUE, FALSE, pubid, enc_key, key,
 					      error_r)) < 0) {
@@ -522,7 +522,7 @@ int mail_crypt_box_set_private_key(struct mailbox *box, const char *pubid,
 	int ret;
 	struct mailbox_transaction_context *t;
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 	if ((ret = mail_crypt_set_private_key(t, FALSE, FALSE, pubid, user_key,
 					      key, error_r)) < 0) {
 		mailbox_transaction_rollback(&t);
@@ -716,7 +716,7 @@ int mail_crypt_user_set_public_key(struct mail_user *user, const char *pubid,
 		return -1;
 	}
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 
 	if ((ret = mail_crypt_set_public_key(t, TRUE, pubid, key,
 					     error_r)) == 0) {
@@ -756,7 +756,7 @@ int mail_crypt_box_set_public_key(struct mailbox *box, const char *pubid,
 	struct mailbox_transaction_context *t;
 	struct mail_attribute_value value;
 
-	t = mailbox_transaction_begin(box, 0);
+	t = mailbox_transaction_begin(box, 0, __func__);
 	if ((ret = mail_crypt_set_public_key(t, FALSE, pubid, key,
 					     error_r)) == 0) {
 		value.value_stream = NULL;

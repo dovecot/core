@@ -93,8 +93,7 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 	if (size >= sizeof(uint32_t))
 		last_rename_stamp = *(const uint32_t*)data;
 
-	t = mailbox_transaction_begin(box, 0);
-	mailbox_transaction_set_reason(t, "autoexpunge");
+	t = mailbox_transaction_begin(box, 0, "autoexpunge");
 	mail = mail_alloc(t, 0, NULL);
 
 	hdr = mail_index_get_header(box->view);

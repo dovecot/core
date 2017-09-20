@@ -186,7 +186,7 @@ static int mcp_update_shared_keys(struct mailbox *box, struct mail_user *user,
 	string_t *uid = t_str_new(64);
 
 	struct mailbox_transaction_context *t =
-		mailbox_transaction_begin(box, 0);
+		mailbox_transaction_begin(box, 0, __func__);
 	
 	ret = 0;
 
@@ -729,7 +729,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 
 	if (ret == 1) {
 		struct mailbox_transaction_context *t =
-			mailbox_transaction_begin(box, 0);
+			mailbox_transaction_begin(box, 0, __func__);
 		struct dcrypt_private_key *key;
 		const struct raw_key *raw_key;
 		const char *algo = ctx->new_password != NULL ?

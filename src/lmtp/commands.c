@@ -1048,7 +1048,7 @@ static int client_open_raw_mail(struct client *client, struct istream *input)
 		return -1;
 	}
 
-	trans = mailbox_transaction_begin(box, 0);
+	trans = mailbox_transaction_begin(box, 0, __func__);
 
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
 	client->state.raw_mail = mail_alloc(trans, 0, headers_ctx);

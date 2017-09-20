@@ -190,8 +190,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 	mail_user_drop_useless_namespaces(client->user);
 
 	ctx->sync_ctx = mailbox_sync_init(box, flags);
-	ctx->t = mailbox_transaction_begin(box, 0);
-	mailbox_transaction_set_reason(ctx->t, "Mailbox sync");
+	ctx->t = mailbox_transaction_begin(box, 0, "Mailbox sync");
 	ctx->mail = mail_alloc(ctx->t, MAIL_FETCH_FLAGS, NULL);
 	ctx->messages_count = client->messages_count;
 	i_array_init(&ctx->tmp_keywords, client->keywords.announce_count + 8);

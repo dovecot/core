@@ -2060,7 +2060,8 @@ int mailbox_search_result_build(struct mailbox_transaction_context *t,
 
 struct mailbox_transaction_context *
 mailbox_transaction_begin(struct mailbox *box,
-			  enum mailbox_transaction_flags flags)
+			  enum mailbox_transaction_flags flags,
+			  const char *reason)
 {
 	struct mailbox_transaction_context *trans;
 
@@ -2068,9 +2069,11 @@ mailbox_transaction_begin(struct mailbox *box,
 		 (box->flags & MAILBOX_FLAG_USE_STUBS) != 0);
 
 	i_assert(box->opened);
+	i_assert(reason != NULL);
 
 	box->transaction_count++;
 	trans = box->v.transaction_begin(box, flags);
+	trans->reason = i_strdup(reason);
 	trans->flags = flags;
 	return trans;
 }
@@ -2126,15 +2129,6 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)
 	*_t = NULL;
 	box->v.transaction_rollback(t);
 	box->transaction_count--;
-}
-
-void mailbox_transaction_set_reason(struct mailbox_transaction_context *t,
-				    const char *reason)
-{
-	i_assert(reason != NULL);
-
-	i_free(t->reason);
-	t->reason = i_strdup(reason);
 }
 
 unsigned int mailbox_transaction_get_count(const struct mailbox *box)

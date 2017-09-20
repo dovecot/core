@@ -69,7 +69,7 @@ static void client_commit_timeout(struct client *client)
 	}
 
 	(void)mailbox_transaction_commit(&client->trans);
-	client->trans = mailbox_transaction_begin(client->mailbox, 0);
+	client->trans = mailbox_transaction_begin(client->mailbox, 0, __func__);
 }
 
 static void client_idle_timeout(struct client *client)
@@ -158,7 +158,7 @@ static int read_mailbox(struct client *client, uint32_t *failed_uid_r)
 	client->uid_validity = status.uidvalidity;
 	client->messages_count = status.messages;
 
-	t = mailbox_transaction_begin(client->mailbox, 0);
+	t = mailbox_transaction_begin(client->mailbox, 0, __func__);
 
 	search_args = mail_search_build_init();
 	if (client->deleted_kw != NULL) {

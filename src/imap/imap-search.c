@@ -580,8 +580,8 @@ bool imap_search_start(struct imap_search_context *ctx,
 	}
 
 	ctx->box = cmd->client->mailbox;
-	ctx->trans = mailbox_transaction_begin(ctx->box, 0);
-	imap_transaction_set_cmd_reason(ctx->trans, cmd);
+	ctx->trans = mailbox_transaction_begin(ctx->box, 0,
+					       imap_client_command_get_reason(cmd));
 	ctx->sargs = sargs;
 	ctx->search_ctx =
 		mailbox_search_init(ctx->trans, sargs, sort_program, 0, NULL);

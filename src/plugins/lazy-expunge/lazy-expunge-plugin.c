@@ -347,7 +347,8 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		}
 
 		lt->dest_trans = mailbox_transaction_begin(lt->dest_box,
-					  MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+					  MAILBOX_TRANSACTION_FLAG_EXTERNAL,
+					  __func__);
 	}
 
 	save_ctx = mailbox_save_alloc(lt->dest_trans);

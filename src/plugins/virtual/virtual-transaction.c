@@ -20,7 +20,7 @@ virtual_transaction_get(struct mailbox_transaction_context *trans,
 			return bt[i];
 	}
 
-	new_bt = mailbox_transaction_begin(backend_box, trans->flags);
+	new_bt = mailbox_transaction_begin(backend_box, trans->flags, __func__);
 	array_append(&vt->backend_transactions, &new_bt, 1);
 	return new_bt;
 }

@@ -529,7 +529,8 @@ static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)
 		(void)mailbox_search_deinit(&search_ctx);
 
 		(void)mailbox_transaction_commit(&client->trans);
-		client->trans = mailbox_transaction_begin(client->mailbox, 0);
+		client->trans = mailbox_transaction_begin(client->mailbox, 0,
+							  __func__);
 	}
 
 	client_send_line(client, "+OK");

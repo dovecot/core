@@ -294,8 +294,7 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 	}
 	mail_search_build_add_seqset(search_args, seq1, seq2);
 
-	trans = mailbox_transaction_begin(update->box, 0);
-	mailbox_transaction_set_reason(trans, "vsize update");
+	trans = mailbox_transaction_begin(update->box, 0, "vsize update");
 	search_ctx = mailbox_search_init(trans, search_args, NULL,
 					 MAIL_FETCH_VIRTUAL_SIZE, NULL);
 	if (!require_result)
@@ -407,8 +406,7 @@ int index_mailbox_get_physical_size(struct mailbox *box,
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
 		return -1;
 
-	trans = mailbox_transaction_begin(box, 0);
-	mailbox_transaction_set_reason(trans, "mailbox physical size");
+	trans = mailbox_transaction_begin(box, 0, "mailbox physical size");
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);

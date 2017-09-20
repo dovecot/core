@@ -207,7 +207,8 @@ cmd_acl_mailbox_update(struct mailbox *box,
 	struct mailbox_transaction_context *t;
 	int ret;
 
-	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL,
+				      __func__);
 	ret = acl_mailbox_update_acl(t, update);
 	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;

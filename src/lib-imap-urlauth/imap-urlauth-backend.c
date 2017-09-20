@@ -28,7 +28,9 @@ imap_urlauth_backend_trans_set_mailbox_key(struct mailbox *box,
 	}
 
 	struct mailbox_transaction_context *t =
-		mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+		mailbox_transaction_begin(box,
+				MAILBOX_TRANSACTION_FLAG_EXTERNAL,
+				__func__);
 
 	/* create new key */
 	random_fill(mailbox_key_r, IMAP_URLAUTH_KEY_LEN);
@@ -120,7 +122,8 @@ int imap_urlauth_backend_reset_mailbox_key(struct mailbox *box)
 	struct mailbox_transaction_context *t;
 	int ret;
 
-	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL);
+	t = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL,
+				      __func__);
 	ret = mailbox_attribute_unset(t, MAIL_ATTRIBUTE_TYPE_PRIVATE,
 				      IMAP_URLAUTH_KEY);
 	if (mailbox_transaction_commit(&t) < 0)

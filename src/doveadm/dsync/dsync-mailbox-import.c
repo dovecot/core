@@ -203,9 +203,11 @@ dsync_mailbox_import_transaction_begin(struct dsync_mailbox_importer *importer)
 		MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS;
 
 	importer->trans = mailbox_transaction_begin(importer->box,
-						    importer->transaction_flags);
+						    importer->transaction_flags,
+						    "dsync import");
 	importer->ext_trans = mailbox_transaction_begin(importer->box,
-							ext_trans_flags);
+							ext_trans_flags,
+							"dsync ext import");
 	importer->mail = mail_alloc(importer->trans, 0, NULL);
 	importer->ext_mail = mail_alloc(importer->ext_trans, 0, NULL);
 }
@@ -2188,7 +2190,8 @@ dsync_mailbox_import_find_virtual_uids(struct dsync_mailbox_importer *importer)
 
 	importer->virtual_trans =
 		mailbox_transaction_begin(importer->virtual_all_box,
-					  importer->transaction_flags);
+					  importer->transaction_flags,
+					  __func__);
 	search_ctx = mailbox_search_init(importer->virtual_trans, search_args,
 					 NULL, MAIL_FETCH_GUID, NULL);
 	mail_search_args_unref(&search_args);
@@ -2612,7 +2615,7 @@ reassign_uids_in_seq_range(struct dsync_mailbox_importer *importer,
 		     array_count(unwanted_uids));
 	array_append_array(&arg->value.seqset, unwanted_uids);
 
-	trans = mailbox_transaction_begin(box, trans_flags);
+	trans = mailbox_transaction_begin(box, trans_flags, __func__);
 	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 

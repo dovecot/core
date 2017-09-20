@@ -926,8 +926,8 @@ bool cmd_append(struct client_command_context *cmd)
 	else {
 		ctx->t = mailbox_transaction_begin(ctx->box,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
-					MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS);
-		imap_transaction_set_cmd_reason(ctx->t, cmd);
+					MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS,
+					imap_client_command_get_reason(cmd));
 	}
 
 	io_remove(&client->io);
