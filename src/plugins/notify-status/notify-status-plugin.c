@@ -18,7 +18,7 @@
 #define NOTIFY_STATUS_SETTING_MAILBOX_PREFIX "notify_status_mailbox"
 #define NOTIFY_STATUS_SETTING_VALUE_TEMPLATE "notify_status_value"
 #define NOTIFY_STATUS_SETTING_VALUE_TEMPLATE_DEFAULT "{\"messages\":%{messages},\"unseen\":%{unseen}}"
-#define NOTIFY_STATUS_KEY "priv/%s/status"
+#define NOTIFY_STATUS_KEY "priv/status/%s"
 
 #define NOTIFY_STATUS_USER_CONTEXT(obj) \
 	(struct notify_status_user*)MODULE_CONTEXT(obj, notify_status_user_module)
