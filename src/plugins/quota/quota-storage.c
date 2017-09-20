@@ -48,7 +48,8 @@ static MODULE_CONTEXT_DEFINE_INIT(quota_mailbox_list_module,
 
 static void quota_set_storage_error(struct quota_transaction_context *qt,
 				    struct mail_storage *storage,
-				    enum quota_alloc_result res)
+				    enum quota_alloc_result res,
+				    const char *internal_err)
 {
 	const char *errstr = quota_alloc_result_errstr(res, qt);
 	switch (res) {
@@ -60,7 +61,7 @@ static void quota_set_storage_error(struct quota_transaction_context *qt,
 		mail_storage_set_error(storage, MAIL_ERROR_NOQUOTA, errstr);
 		break;
 	case QUOTA_ALLOC_RESULT_TEMPFAIL:
-		mail_storage_set_internal_error(storage);
+		mail_storage_set_critical(storage, "quota: %s", internal_err);
 		break;
 	case QUOTA_ALLOC_RESULT_OK:
 		i_unreached();
@@ -123,9 +124,7 @@ quota_get_status(struct mailbox *box, enum mailbox_status_items items,
 		const char *error;
 		enum quota_alloc_result qret = quota_test_alloc(qt, 0, &error);
 		if (qret != QUOTA_ALLOC_RESULT_OK) {
-			if (qret == QUOTA_ALLOC_RESULT_TEMPFAIL)
-				i_error("quota check failed: %s", error);
-			quota_set_storage_error(qt, box->storage, qret);
+			quota_set_storage_error(qt, box->storage, qret, error);
 			ret = -1;
 		}
 		quota_transaction_rollback(&qt);
@@ -263,7 +262,7 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 		i_error("quota check failed: %s", error);
 		return 0;
 	default:
-		quota_set_storage_error(qt, t->box->storage, ret);
+		quota_set_storage_error(qt, t->box->storage, ret, error);
 		return -1;
 	}
 }
@@ -323,7 +322,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 			i_error("quota allocation failed: %s", error);
 			break;
 		default:
-			quota_set_storage_error(qt, t->box->storage, qret);
+			quota_set_storage_error(qt, t->box->storage, qret, error);
 			return -1;
 		}
 	}
