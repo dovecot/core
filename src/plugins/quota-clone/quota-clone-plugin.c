@@ -48,7 +48,7 @@ static void quota_clone_flush_real(struct mailbox *box)
 	struct quota_root *root;
 	uint64_t bytes_value, count_value, limit;
 	const char *error;
-	enum quota_get_result ret_bytes, ret_count;
+	enum quota_get_result bytes_res, count_res;
 
 	/* we'll clone the first quota root */
 	iter = quota_root_iter_init(box);
@@ -61,40 +61,41 @@ static void quota_clone_flush_real(struct mailbox *box)
 	}
 
 	/* get new values first */
-	ret_bytes = quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
+	bytes_res = quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
 				       &bytes_value, &limit, &error);
-	if (ret_bytes == QUOTA_GET_RESULT_INTERNAL_ERROR) {
+	if (bytes_res == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 		i_error("quota_clone_plugin: "
 			"Failed to get quota resource "QUOTA_NAME_STORAGE_BYTES": %s",
 			error);
 		return;
 	}
-	ret_count = quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
+	count_res = quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
 				       &count_value, &limit, &error);
-	if (ret_count == QUOTA_GET_RESULT_INTERNAL_ERROR) {
+	if (count_res == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 		i_error("quota_clone_plugin: "
 			"Failed to get quota resource "QUOTA_NAME_MESSAGES": %s",
 			error);
 		return;
 	}
-	if (ret_bytes == QUOTA_GET_RESULT_UNKNOWN_RESOURCE &&
-	    ret_count == QUOTA_GET_RESULT_UNKNOWN_RESOURCE) {
+	if (bytes_res == QUOTA_GET_RESULT_UNKNOWN_RESOURCE &&
+	    count_res == QUOTA_GET_RESULT_UNKNOWN_RESOURCE) {
 		/* quota resources don't exist - no point in updating it */
 		return;
 	}
 
-	/* Then update the resources that exist. The resources can't really
+	/* Then update the resources that exist. The resources' existence can't
 	   change unless the quota backend is changed, so we don't worry about
-	   the special case of ret_count changing between 1 and 0. Note that
-	   ret_count==1 also when quota is unlimited. */
+	   the special case of lookup changing from
+	   RESULT_LIMITED/RESULT_UNLIMITED to RESULT_UNKNOWN_RESOURCE, which
+	   leaves the old value unchanged. */
 	trans = dict_transaction_begin(quser->dict);
-	if (ret_bytes == QUOTA_GET_RESULT_LIMITED ||
-	    ret_bytes == QUOTA_GET_RESULT_UNLIMITED) {
+	if (bytes_res == QUOTA_GET_RESULT_LIMITED ||
+	    bytes_res == QUOTA_GET_RESULT_UNLIMITED) {
 		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
 			 t_strdup_printf("%"PRIu64, bytes_value));
 	}
-	if (ret_count == QUOTA_GET_RESULT_LIMITED ||
-	    ret_count == QUOTA_GET_RESULT_UNLIMITED) {
+	if (count_res == QUOTA_GET_RESULT_LIMITED ||
+	    count_res == QUOTA_GET_RESULT_UNLIMITED) {
 		dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
 			 t_strdup_printf("%"PRIu64, count_value));
 	}
