@@ -143,10 +143,12 @@ bool index_storage_search_next_update_seq(struct mail_search_context *ctx);
 
 struct mailbox_transaction_context *
 index_transaction_begin(struct mailbox *box,
-			enum mailbox_transaction_flags flags);
+			enum mailbox_transaction_flags flags,
+			const char *reason);
 void index_transaction_init(struct mailbox_transaction_context *t,
 			    struct mailbox *box,
-			    enum mailbox_transaction_flags flags);
+			    enum mailbox_transaction_flags flags,
+			    const char *reason);
 void index_transaction_init_pvt(struct mailbox_transaction_context *t);
 int index_transaction_commit(struct mailbox_transaction_context *t,
 			     struct mail_transaction_commit_changes *changes_r);

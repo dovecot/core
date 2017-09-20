@@ -146,14 +146,15 @@ static void session_stats_refresh(struct mail_user *user)
 
 static struct mailbox_transaction_context *
 stats_transaction_begin(struct mailbox *box,
-			enum mailbox_transaction_flags flags)
+			enum mailbox_transaction_flags flags,
+			const char *reason)
 {
 	struct stats_user *suser = STATS_USER_CONTEXT(box->storage->user);
 	struct stats_mailbox *sbox = STATS_CONTEXT(box);
 	struct mailbox_transaction_context *trans;
 	struct stats_transaction_context *strans;
 
-	trans = sbox->module_ctx.super.transaction_begin(box, flags);
+	trans = sbox->module_ctx.super.transaction_begin(box, flags, reason);
 	trans->stats_track = TRUE;
 
 	strans = i_new(struct stats_transaction_context, 1);

@@ -254,7 +254,8 @@ struct mailbox_vfuncs {
 
 	struct mailbox_transaction_context *
 		(*transaction_begin)(struct mailbox *box,
-				     enum mailbox_transaction_flags flags);
+				     enum mailbox_transaction_flags flags,
+				     const char *reason);
 	int (*transaction_commit)(struct mailbox_transaction_context *t,
 				  struct mail_transaction_commit_changes *changes_r);
 	void (*transaction_rollback)(struct mailbox_transaction_context *t);

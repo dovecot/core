@@ -375,7 +375,8 @@ static int lazy_expunge_copy(struct mail_save_context *ctx, struct mail *_mail)
 
 static struct mailbox_transaction_context *
 lazy_expunge_transaction_begin(struct mailbox *box,
-			       enum mailbox_transaction_flags flags)
+			       enum mailbox_transaction_flags flags,
+			       const char *reason)
 {
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT(box->list->ns->user);
@@ -383,7 +384,7 @@ lazy_expunge_transaction_begin(struct mailbox *box,
 	struct mailbox_transaction_context *t;
 	struct lazy_expunge_transaction *lt;
 
-	t = mbox->super.transaction_begin(box, flags);
+	t = mbox->super.transaction_begin(box, flags, reason);
 	lt = i_new(struct lazy_expunge_transaction, 1);
 	lt->copy_only_last_instance = luser->copy_only_last_instance;
 

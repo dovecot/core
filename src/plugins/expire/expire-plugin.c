@@ -59,13 +59,14 @@ static MODULE_CONTEXT_DEFINE_INIT(expire_mail_user_module,
 
 static struct mailbox_transaction_context *
 expire_mailbox_transaction_begin(struct mailbox *box,
-				 enum mailbox_transaction_flags flags)
+				 enum mailbox_transaction_flags flags,
+				 const char *reason)
 {
 	struct expire_mailbox *xpr_box = EXPIRE_CONTEXT(box);
 	struct mailbox_transaction_context *t;
 	struct expire_transaction_context *xt;
 
-	t = xpr_box->module_ctx.super.transaction_begin(box, flags);
+	t = xpr_box->module_ctx.super.transaction_begin(box, flags, reason);
 	xt = i_new(struct expire_transaction_context, 1);
 
 	MODULE_CONTEXT_SET(t, expire_storage_module, xt);

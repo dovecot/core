@@ -600,7 +600,8 @@ mail_deliver_cache_update_post_commit(struct mailbox *orig_box, uint32_t uid)
 
 static struct mailbox_transaction_context *
 mail_deliver_transaction_begin(struct mailbox *box,
-			       enum mailbox_transaction_flags flags)
+			       enum mailbox_transaction_flags flags,
+			       const char *reason)
 {
 	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
 	struct mail_deliver_user *muser =
@@ -611,7 +612,7 @@ mail_deliver_transaction_begin(struct mailbox *box,
 	i_assert(muser != NULL);
 	i_assert(muser->deliver_ctx != NULL);
 
-	t = mbox->module_ctx.super.transaction_begin(box, flags);
+	t = mbox->module_ctx.super.transaction_begin(box, flags, reason);
 	dt = p_new(muser->deliver_ctx->pool, struct mail_deliver_transaction, 1);
 
 	MODULE_CONTEXT_SET(t, mail_deliver_storage_module, dt);

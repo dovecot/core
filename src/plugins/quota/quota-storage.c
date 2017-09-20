@@ -141,13 +141,14 @@ quota_get_status(struct mailbox *box, enum mailbox_status_items items,
 
 static struct mailbox_transaction_context *
 quota_mailbox_transaction_begin(struct mailbox *box,
-				enum mailbox_transaction_flags flags)
+				enum mailbox_transaction_flags flags,
+				const char *reason)
 {
 	struct quota_mailbox *qbox = QUOTA_CONTEXT(box);
 	struct mailbox_transaction_context *t;
 	struct quota_transaction_context *qt;
 
-	t = qbox->module_ctx.super.transaction_begin(box, flags);
+	t = qbox->module_ctx.super.transaction_begin(box, flags, reason);
 	qt = quota_transaction_begin(box);
 	qt->sync_transaction = (flags & MAILBOX_TRANSACTION_FLAG_SYNC) != 0;
 

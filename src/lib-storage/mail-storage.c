@@ -2069,11 +2069,10 @@ mailbox_transaction_begin(struct mailbox *box,
 		 (box->flags & MAILBOX_FLAG_USE_STUBS) != 0);
 
 	i_assert(box->opened);
-	i_assert(reason != NULL);
 
 	box->transaction_count++;
-	trans = box->v.transaction_begin(box, flags);
-	trans->reason = i_strdup(reason);
+	trans = box->v.transaction_begin(box, flags, reason);
+	i_assert(trans->reason != NULL);
 	trans->flags = flags;
 	return trans;
 }

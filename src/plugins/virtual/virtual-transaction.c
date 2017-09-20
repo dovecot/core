@@ -27,7 +27,8 @@ virtual_transaction_get(struct mailbox_transaction_context *trans,
 
 struct mailbox_transaction_context *
 virtual_transaction_begin(struct mailbox *box,
-			  enum mailbox_transaction_flags flags)
+			  enum mailbox_transaction_flags flags,
+			  const char *reason)
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)box;
 	struct virtual_transaction_context *vt;
@@ -35,7 +36,7 @@ virtual_transaction_begin(struct mailbox *box,
 	vt = i_new(struct virtual_transaction_context, 1);
 	i_array_init(&vt->backend_transactions,
 		     array_count(&mbox->backend_boxes));
-	index_transaction_init(&vt->t, box, flags);
+	index_transaction_init(&vt->t, box, flags, reason);
 	return &vt->t;
 }
 

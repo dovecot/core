@@ -125,12 +125,13 @@ notify_save_finish(struct mail_save_context *ctx)
 
 static struct mailbox_transaction_context *
 notify_transaction_begin(struct mailbox *box,
-			 enum mailbox_transaction_flags flags)
+			 enum mailbox_transaction_flags flags,
+			 const char *reason)
 {
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(box);
 	struct mailbox_transaction_context *t;
 	
-	t = lbox->super.transaction_begin(box, flags);
+	t = lbox->super.transaction_begin(box, flags, reason);
 
 	if ((t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0)
 		notify_contexts_mail_transaction_begin(t);

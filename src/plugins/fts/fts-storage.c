@@ -551,7 +551,8 @@ void fts_mail_allocated(struct mail *_mail)
 
 static struct mailbox_transaction_context *
 fts_transaction_begin(struct mailbox *box,
-		      enum mailbox_transaction_flags flags)
+		      enum mailbox_transaction_flags flags,
+		      const char *reason)
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT(box);
 	struct mailbox_transaction_context *t;
@@ -559,7 +560,7 @@ fts_transaction_begin(struct mailbox *box,
 
 	ft = i_new(struct fts_transaction_context, 1);
 
-	t = fbox->module_ctx.super.transaction_begin(box, flags);
+	t = fbox->module_ctx.super.transaction_begin(box, flags, reason);
 	MODULE_CONTEXT_SET(t, fts_storage_module, ft);
 	return t;
 }

@@ -726,7 +726,8 @@ static void mbox_storage_add_list(struct mail_storage *storage,
 
 static struct mailbox_transaction_context *
 mbox_transaction_begin(struct mailbox *box,
-		       enum mailbox_transaction_flags flags)
+		       enum mailbox_transaction_flags flags,
+		       const char *reason)
 {
 	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	struct mbox_transaction_context *mt;
@@ -735,7 +736,7 @@ mbox_transaction_begin(struct mailbox *box,
 		mbox->external_transactions++;
 
 	mt = i_new(struct mbox_transaction_context, 1);
-	index_transaction_init(&mt->t, box, flags);
+	index_transaction_init(&mt->t, box, flags, reason);
 	return &mt->t;
 }
 

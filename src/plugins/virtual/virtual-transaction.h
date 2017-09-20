@@ -15,7 +15,8 @@ virtual_transaction_get(struct mailbox_transaction_context *trans,
 
 struct mailbox_transaction_context *
 virtual_transaction_begin(struct mailbox *box,
-			  enum mailbox_transaction_flags flags);
+			  enum mailbox_transaction_flags flags,
+			  const char *reason);
 int virtual_transaction_commit(struct mailbox_transaction_context *t,
 			       struct mail_transaction_commit_changes *changes_r);
 void virtual_transaction_rollback(struct mailbox_transaction_context *t);
