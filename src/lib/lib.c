@@ -29,18 +29,6 @@ struct atexit_callback {
 
 static ARRAY(struct atexit_callback) atexit_callbacks = ARRAY_INIT;
 
-int close_keep_errno(int *fd)
-{
-	int ret, old_errno = errno;
-
-	i_assert(*fd != -1);
-
-	ret = close(*fd);
-	*fd = -1;
-	errno = old_errno;
-	return ret;
-}
-
 void i_close_fd_real(int *fd, const char *arg, const char *func,
 		     const char *file, int line)
 {

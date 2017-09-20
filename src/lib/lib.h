@@ -55,7 +55,6 @@ typedef void lib_atexit_callback_t(void);
    also inside chroots. */
 extern int dev_null_fd;
 
-int close_keep_errno(int *fd);
 /* Close fd_in and fd_out, unless they're already -1. They can point to the
    same fd, in which case they're closed only once. If they point to stdin
    or stdout, they're replaced with /dev/null. */
