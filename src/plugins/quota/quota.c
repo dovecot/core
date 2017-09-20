@@ -753,7 +753,8 @@ bool quota_root_is_hidden(struct quota_root *root)
 
 enum quota_get_result
 quota_get_resource(struct quota_root *root, const char *mailbox_name,
-		   const char *name, uint64_t *value_r, uint64_t *limit_r)
+		   const char *name, uint64_t *value_r, uint64_t *limit_r,
+		   const char **error_r)
 {
 	uint64_t bytes_limit, count_limit;
 	bool ignored, kilobytes = FALSE;
@@ -769,16 +770,24 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	/* Get the value first. This call may also update quota limits if
 	   they're defined externally. */
 	ret = root->backend.v.get_resource(root, name, value_r);
-	if (ret < 0)
+	if (ret < 0) {
+		*error_r = t_strdup_printf(
+			"Could not get %s from quota backend for mailbox %s",
+			name, mailbox_name);
 		return QUOTA_GET_RESULT_INTERNAL_ERROR;
-	if (ret == 0)
+	} else if (ret == 0) {
+		*error_r = t_strdup_printf(
+			"Requested resource %s for mailbox %s is unkown",
+			name, mailbox_name);
 		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
 
 	const char *error;
 	if (quota_root_get_rule_limits(root, mailbox_name,
 				       &bytes_limit, &count_limit,
 				       &ignored, &error) < 0) {
-		i_error("Failed to get quota root rule limits: %s", error);
+		*error_r = t_strdup_printf(
+			"Failed to get quota root rule limits: %s", error);
 		return QUOTA_GET_RESULT_INTERNAL_ERROR;
 	}
 
@@ -932,7 +941,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 		if (bytes_limit > 0) {
 			ret = quota_get_resource(roots[i], mailbox_name,
 						 QUOTA_NAME_STORAGE_BYTES,
-						 &current, &limit);
+						 &current, &limit, &error);
 			if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
@@ -952,7 +961,10 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				}
 			} else if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 				ctx->failed = TRUE;
-				*error_r = "Failed to get quota resource";
+				*error_r = t_strdup_printf(
+					"Failed to get quota resource "
+					QUOTA_NAME_STORAGE_BYTES": %s",
+					error);
 				return -1;
 			}
 		}
@@ -960,7 +972,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 		if (count_limit > 0) {
 			ret = quota_get_resource(roots[i], mailbox_name,
 						 QUOTA_NAME_MESSAGES,
-						 &current, &limit);
+						 &current, &limit, &error);
 			if (ret == QUOTA_GET_RESULT_LIMITED) {
 				if (limit <= current) {
 					/* over quota */
@@ -975,7 +987,10 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				}
 			} else if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 				ctx->failed = TRUE;
-				*error_r = "Failed to get quota resource";
+				*error_r = t_strdup_printf(
+					"Failed to get quota resource "
+					QUOTA_NAME_MESSAGES" : %s",
+					error);
 				return -1;
 			}
 		}
@@ -1045,18 +1060,24 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 	unsigned int i, count;
 	uint64_t bytes_current, bytes_before, bytes_limit;
 	uint64_t count_current, count_before, count_limit;
-	const char *reason;
+	const char *reason, *error;
 
 	warnings = array_get_modifiable(&root->set->warning_rules, &count);
 	if (count == 0)
 		return;
 
 	if (quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
-			       &bytes_current, &bytes_limit) == QUOTA_GET_RESULT_INTERNAL_ERROR)
+			       &bytes_current, &bytes_limit, &error) == QUOTA_GET_RESULT_INTERNAL_ERROR) {
+		i_error("Failed to get quota resource "QUOTA_NAME_STORAGE_BYTES
+			": %s", error);
 		return;
+	}
 	if (quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
-			       &count_current, &count_limit) == QUOTA_GET_RESULT_INTERNAL_ERROR)
+			       &count_current, &count_limit, &error) == QUOTA_GET_RESULT_INTERNAL_ERROR) {
+		i_error("Failed to get quota resource "QUOTA_NAME_MESSAGES
+			": %s", error);
 		return;
+	}
 
 	if (ctx->bytes_used > 0 && bytes_current < (uint64_t)ctx->bytes_used)
 		bytes_before = 0;
@@ -1174,7 +1195,7 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 
 static void quota_over_flag_check_root(struct quota_root *root)
 {
-	const char *quota_over_script, *quota_over_flag;
+	const char *quota_over_script, *quota_over_flag, *error;
 	const char *const *resources;
 	unsigned int i;
 	uint64_t value, limit;
@@ -1210,13 +1231,12 @@ static void quota_over_flag_check_root(struct quota_root *root)
 
 	resources = quota_root_get_resources(root);
 	for (i = 0; resources[i] != NULL; i++) {
-		ret = quota_get_resource(root, "", resources[i], &value, &limit);
+		ret = quota_get_resource(root, "", resources[i], &value,
+					 &limit, &error);
 		if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 			/* can't reliably verify this */
-			if (root->quota->set->debug) {
-				i_debug("quota: Quota %s lookup failed - can't verify quota_over_flag",
-					resources[i]);
-			}
+			i_error("quota: Quota %s lookup failed - can't verify quota_over_flag: %s",
+				resources[i], error);
 			return;
 		}
 		if (root->quota->set->debug) {

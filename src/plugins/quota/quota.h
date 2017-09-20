@@ -102,7 +102,8 @@ bool quota_root_is_hidden(struct quota_root *root);
    exist or isn't enabled, -1 if error. */
 enum quota_get_result
 quota_get_resource(struct quota_root *root, const char *mailbox_name,
-		   const char *name, uint64_t *value_r, uint64_t *limit_r);
+		   const char *name, uint64_t *value_r, uint64_t *limit_r,
+		   const char **error_r);
 /* Returns 0 if OK, -1 if error (eg. permission denied, invalid name). */
 int quota_set_resource(struct quota_root *root, const char *name,
 		       uint64_t value, const char **error_r);

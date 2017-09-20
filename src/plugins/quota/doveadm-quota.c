@@ -15,12 +15,13 @@ void doveadm_quota_plugin_deinit(void);
 static void cmd_quota_get_root(struct quota_root *root)
 {
 	const char *const *res;
+	const char *error;
 	uint64_t value, limit;
 	enum quota_get_result ret;
 
 	res = quota_root_get_resources(root);
 	for (; *res != NULL; res++) {
-		ret = quota_get_resource(root, "", *res, &value, &limit);
+		ret = quota_get_resource(root, "", *res, &value, &limit, &error);
 		doveadm_print(root->set->name);
 		doveadm_print(*res);
 		if (ret == QUOTA_GET_RESULT_LIMITED) {
@@ -35,6 +36,8 @@ static void cmd_quota_get_root(struct quota_root *root)
 			doveadm_print("-");
 			doveadm_print("0");
 		} else {
+			i_error("Failed to get quota resource %s: %s",
+				*res, error);
 			doveadm_print("error");
 			doveadm_print("error");
 			doveadm_print("error");

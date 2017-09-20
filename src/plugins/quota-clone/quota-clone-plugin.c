@@ -62,15 +62,19 @@ static void quota_clone_flush_real(struct mailbox *box)
 
 	/* get new values first */
 	ret_bytes = quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
-				       &bytes_value, &limit);
+				       &bytes_value, &limit, &error);
 	if (ret_bytes == QUOTA_GET_RESULT_INTERNAL_ERROR) {
-		i_error("quota_clone_plugin: Failed to lookup current quota bytes");
+		i_error("quota_clone_plugin: "
+			"Failed to get quota resource "QUOTA_NAME_STORAGE_BYTES": %s",
+			error);
 		return;
 	}
 	ret_count = quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
-				       &count_value, &limit);
+				       &count_value, &limit, &error);
 	if (ret_count == QUOTA_GET_RESULT_INTERNAL_ERROR) {
-		i_error("quota_clone_plugin: Failed to lookup current quota count");
+		i_error("quota_clone_plugin: "
+			"Failed to get quota resource "QUOTA_NAME_MESSAGES": %s",
+			error);
 		return;
 	}
 	if (ret_bytes == QUOTA_GET_RESULT_UNKNOWN_RESOURCE &&
