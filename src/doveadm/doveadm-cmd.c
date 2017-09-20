@@ -558,7 +558,8 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 			}
 		}
 		if (!found) {
-			i_error("Extraneous arguments found");
+			i_error("Extraneous arguments found: %s",
+				t_strarray_join(argv+optind, " "));
 			doveadm_cmd_params_clean(&pargv);
 			return -1;
 		}
