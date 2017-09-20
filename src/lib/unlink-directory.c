@@ -256,8 +256,6 @@ int unlink_directory(const char *dir, enum unlink_directory_flags flags,
 	   because of recursion */
 	*error_r = NULL;
 	ret = unlink_directory_r(dir, flags, error_r);
-	if (ret < 0 && errno == ENOENT)
-		ret = 0;
 	old_errno = errno;
 
 	if (fchdir(fd) < 0) {
@@ -268,7 +266,7 @@ int unlink_directory(const char *dir, enum unlink_directory_flags flags,
 
 	if (ret < 0) {
 		errno = old_errno;
-		return -1;
+		return errno == ENOENT ? 0 : 1;
 	}
 
 	if ((flags & UNLINK_DIRECTORY_FLAG_RMDIR) != 0) {
@@ -278,8 +276,8 @@ int unlink_directory(const char *dir, enum unlink_directory_flags flags,
 				/* standardize errno */
 				errno = ENOTEMPTY;
 			}
-			return -1;
+			return errno == ENOENT ? 0 : 1;
 		}
 	}
-	return 0;
+	return 1;
 }
