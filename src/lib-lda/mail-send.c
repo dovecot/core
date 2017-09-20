@@ -45,6 +45,9 @@ get_var_expand_table(struct mail *mail, const char *reason,
 int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			const char *reason)
 {
+	struct mail_user *user = ctx->dest_user;
+	const struct mail_storage_settings *mail_set =
+		mail_user_set_get_storage_set(user);
 	struct mail *mail = ctx->src_mail;
 	struct istream *input;
 	struct smtp_submit *smtp_submit;
@@ -86,13 +89,13 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	output = smtp_submit_send(smtp_submit);
 
 	msgid = mail_deliver_get_new_message_id(ctx);
-	boundary = t_strdup_printf("%s/%s", my_pid, ctx->set->hostname);
+	boundary = t_strdup_printf("%s/%s", my_pid, mail_set->hostname);
 
 	str = t_str_new(512);
 	str_printfa(str, "Message-ID: %s\r\n", msgid);
 	str_printfa(str, "Date: %s\r\n", message_date_create(ioloop_time));
 	str_printfa(str, "From: Mail Delivery Subsystem <%s>\r\n",
-		ctx->set->postmaster_address);
+		mail_set->postmaster_address);
 	str_printfa(str, "To: <%s>\r\n", return_addr);
 	str_append(str, "MIME-Version: 1.0\r\n");
 	str_printfa(str, "Content-Type: "
@@ -131,7 +134,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 		str_printfa(str, "--%s\r\n"
 			"Content-Type: message/delivery-status\r\n\r\n",
 			boundary);
-		str_printfa(str, "Reporting-MTA: dns; %s\r\n", ctx->set->hostname);
+		str_printfa(str, "Reporting-MTA: dns; %s\r\n", mail_set->hostname);
 		if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 			str_printfa(str, "Original-Recipient: rfc822; %s\r\n", hdr);
 		str_printfa(str, "Final-Recipient: rfc822; %s\r\n", recipient);
@@ -143,7 +146,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 			"Content-Type: message/disposition-notification\r\n\r\n",
 			boundary);
 		str_printfa(str, "Reporting-UA: %s; Dovecot Mail Delivery Agent\r\n",
-			ctx->set->hostname);
+			mail_set->hostname);
 		if (mail_get_first_header(mail, "Original-Recipient", &hdr) > 0)
 			str_printfa(str, "Original-Recipient: rfc822; %s\r\n", hdr);
 		str_printfa(str, "Final-Recipient: rfc822; %s\r\n", recipient);
