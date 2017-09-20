@@ -284,7 +284,7 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.mail_plugins = "",
 	.mail_plugin_dir = MODULEDIR,
 
-	.mail_log_prefix = "%s(%u)<%{session}>: ",
+	.mail_log_prefix = "%s(%u)<%{pid}><%{session}>: ",
 
 	.namespaces = ARRAY_INIT,
 	.plugin_envs = ARRAY_INIT
