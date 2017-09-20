@@ -134,6 +134,7 @@ struct http_client_request {
 	unsigned int payload_sync_continue:1;
 	unsigned int payload_chunked:1;
 	unsigned int payload_wait:1;
+	unsigned int payload_empty:1;
 	unsigned int urgent:1;
 	unsigned int submitted:1;
 	unsigned int listed:1;

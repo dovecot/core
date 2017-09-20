@@ -311,6 +311,11 @@ void http_client_request_set_payload(struct http_client_request *req,
  */
 void http_client_request_set_payload_data(struct http_client_request *req,
 				     const unsigned char *data, size_t size);
+/* send an empty payload for this request. This means that a Content-Length 
+   header is generated with zero size. Calling this function is not necessary
+   for the standard POST and PUT methods, for which this is done implicitly if
+   there is no payload set. */
+void http_client_request_set_payload_empty(struct http_client_request *req);
 
 /* set an absolute timeout for this request specifically, overriding the
    default client-wide absolute request timeout */
