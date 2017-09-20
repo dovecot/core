@@ -606,7 +606,7 @@ index_list_try_delete(struct mailbox_list *_list, const char *name,
 			return;
 	} else {
 		if (mailbox_list_delete_trash(path, &error) < 0 &&
-		    errno != ENOENT && errno != ENOTEMPTY) {
+		    errno != ENOTEMPTY) {
 			mailbox_list_set_critical(_list,
 				"unlink_directory(%s) failed: %s", path, error);
 		}

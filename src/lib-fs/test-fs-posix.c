@@ -15,8 +15,7 @@ static void test_fs_posix(void)
 	const char testdir[] = ".test-fs-posix";
 	const char *unlink_err;
 
-	if (unlink_directory(testdir, UNLINK_DIRECTORY_FLAG_RMDIR, &unlink_err) < 0 &&
-	    errno != ENOENT) {
+	if (unlink_directory(testdir, UNLINK_DIRECTORY_FLAG_RMDIR, &unlink_err) < 0) {
 		i_error("Couldn't prepare test directory (%s): %s", testdir, unlink_err);
 		goto error_no_testdir;
 	}

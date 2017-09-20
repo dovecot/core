@@ -275,8 +275,7 @@ static void lucene_handle_error(struct lucene_index *index, CLuceneError &err,
 	     err.number() == CL_ERR_IO)) {
 		/* delete corrupted index. most IO errors are also about
 		   missing files and other such corruption.. */
-		if (unlink_directory(index->path, (enum unlink_directory_flags)0, &error) < 0 &&
-		    errno != ENOENT)
+		if (unlink_directory(index->path, (enum unlink_directory_flags)0, &error) < 0)
 			i_error("unlink_directory(%s) failed: %s", index->path, error);
 		rescan_clear_unseen_mailboxes(index, NULL);
 	}

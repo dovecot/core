@@ -1971,7 +1971,7 @@ static void test_tmp_dir_deinit(void)
 	const char *error;
 
 	if (unlink_directory(tmp_dir,
-		UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0 && errno != ENOENT) {
+		UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0) {
 		i_warning("failed to remove temporary directory `%s': %s.",
 			tmp_dir, error);
 	}

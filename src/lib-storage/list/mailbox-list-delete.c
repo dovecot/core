@@ -383,7 +383,7 @@ static int mailbox_list_try_delete(struct mailbox_list *list, const char *name,
 	} else {
 		if (mailbox_list_delete_trash(path, &error) == 0)
 			ret = 1;
-		else if (errno == ENOENT || errno == ENOTEMPTY)
+		else if (errno == ENOTEMPTY)
 			ret = 0;
 		else {
 			mailbox_list_set_critical(list,
