@@ -46,6 +46,10 @@ struct mail_storage_settings {
 	const char *lock_method;
 	const char *pop3_uidl_format;
 
+	const char *postmaster_address;
+	const char *hostname;
+	const char *recipient_delimiter;
+
 	const char *ssl_client_ca_dir;
 	const char *ssl_client_ca_file;
 	const char *ssl_crypto_device;

@@ -5,6 +5,7 @@
 #include "hash-format.h"
 #include "var-expand.h"
 #include "unichar.h"
+#include "hostpid.h"
 #include "settings-parser.h"
 #include "mail-index.h"
 #include "mail-user.h"
@@ -60,6 +61,10 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_ENUM, lock_method),
 	DEF(SET_STR, pop3_uidl_format),
 
+	DEF(SET_STR_VARS, postmaster_address),
+	DEF(SET_STR, hostname),
+	DEF(SET_STR, recipient_delimiter),
+
 	DEF(SET_STR, ssl_client_ca_dir),
 	DEF(SET_STR, ssl_client_ca_file),
 	DEF(SET_STR, ssl_crypto_device),
@@ -102,6 +107,10 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_shared_explicit_inbox = FALSE,
 	.lock_method = "fcntl:flock:dotlock",
 	.pop3_uidl_format = "%08Xu%08Xv",
+
+	.postmaster_address = "postmaster@%d",
+	.hostname = "",
+	.recipient_delimiter = "+",
 
 	.ssl_client_ca_dir = "",
 	.ssl_client_ca_file = "",
@@ -462,6 +471,22 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 #endif
 
 	// FIXME: check set->mail_server_admin syntax (RFC 5464, Section 6.2.2)
+
+#ifndef CONFIG_BINARY
+	if (*set->hostname == '\0')
+		set->hostname = p_strdup(pool, my_hostdomain());
+	if (set->postmaster_address[0] == SETTING_STRVAR_UNEXPANDED[0] &&
+	    set->postmaster_address[1] == '\0') {
+		/* check for valid looking fqdn in hostname */
+		if (strchr(set->hostname, '.') == NULL) {
+			*error_r = "postmaster_address setting not given";
+			return FALSE;
+		}
+		set->postmaster_address =
+			p_strconcat(pool, SETTING_STRVAR_UNEXPANDED,
+				    "postmaster@", set->hostname, NULL);
+	}
+#endif
 
 	return TRUE;
 }
