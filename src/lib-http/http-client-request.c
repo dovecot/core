@@ -461,6 +461,11 @@ void http_client_request_set_payload_data(struct http_client_request *req,
 	i_stream_unref(&input);
 }
 
+void http_client_request_set_payload_empty(struct http_client_request *req)
+{
+	req->payload_empty = TRUE;
+}
+
 void http_client_request_set_timeout_msecs(struct http_client_request *req,
 	unsigned int msecs)
 {
@@ -1152,20 +1157,25 @@ static int http_client_request_send_real(struct http_client_request *req,
 	if (!req->have_hdr_expect && req->payload_sync) {
 		str_append(rtext, "Expect: 100-continue\r\n");
 	}
-	if (req->payload_input != NULL) {
-		if (req->payload_chunked) {
-			// FIXME: can't do this for a HTTP/1.0 server
-			if (!req->have_hdr_body_spec)
-				str_append(rtext, "Transfer-Encoding: chunked\r\n");
-			req->payload_output =
-				http_transfer_chunked_ostream_create(output);
-		} else {
-			/* send Content-Length if we have specified a payload,
-				 even if it's 0 bytes. */
-			if (!req->have_hdr_body_spec) {
-				str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
-					req->payload_size);
-			}
+	if (req->payload_input != NULL && req->payload_chunked) {
+		// FIXME: can't do this for a HTTP/1.0 server
+		if (!req->have_hdr_body_spec)
+			str_append(rtext, "Transfer-Encoding: chunked\r\n");
+		req->payload_output =
+			http_transfer_chunked_ostream_create(output);
+	} else if (req->payload_input != NULL ||
+		req->payload_empty ||
+		strcasecmp(req->method, "POST") == 0 ||
+		strcasecmp(req->method, "PUT") == 0) {
+
+		/* send Content-Length if we have specified a payload
+		   or when one is normally expected, even if it's 0 bytes. */
+		i_assert(req->payload_input != NULL || req->payload_size == 0);
+		if (!req->have_hdr_body_spec) {
+			str_printfa(rtext, "Content-Length: %"PRIuUOFF_T"\r\n",
+				req->payload_size);
+		}
+		if (req->payload_input != NULL) {
 			req->payload_output = output;
 			o_stream_ref(output);
 		}
