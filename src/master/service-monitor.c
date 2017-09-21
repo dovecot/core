@@ -192,7 +192,7 @@ static void service_status_input(struct service *service)
 
 static void service_monitor_throttle(struct service *service)
 {
-	if (service->to_throttle != NULL)
+	if (service->to_throttle != NULL || service->list->destroying)
 		return;
 
 	i_assert(service->throttle_secs > 0);
