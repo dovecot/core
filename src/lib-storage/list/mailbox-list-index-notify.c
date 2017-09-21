@@ -113,8 +113,10 @@ mailbox_list_index_notify_init_inbox(struct mailbox_list_notify_index *inotify)
 				       MAILBOX_FLAG_READONLY);
 	if (mailbox_open(inotify->inbox) < 0)
 		mailbox_free(&inotify->inbox);
-	inotify->inbox_log_path =
-		i_strconcat(inotify->inbox->index->filepath, ".log", NULL);
+	else
+		inotify->inbox_log_path =
+			i_strconcat(inotify->inbox->index->filepath,
+				    ".log", NULL);
 }
 
 int mailbox_list_index_notify_init(struct mailbox_list *list,
