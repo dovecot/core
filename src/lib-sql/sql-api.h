@@ -1,6 +1,8 @@
 #ifndef SQL_API_H
 #define SQL_API_H
 
+struct timespec;
+
 /* This SQL API is designed to work asynchronously. The underlying drivers
    however may not. */
 
