@@ -221,8 +221,12 @@
 	} \
 	} STMT_END
 
-#define i_unreached() \
+#ifndef STATIC_CHECKER
+#  define i_unreached() \
 	i_panic("file %s: line %d: unreached", __FILE__, __LINE__)
+#else
+#  define i_unreached() __builtin_unreachable()
+#endif
 
 /* Convenience macros to test the versions of dovecot. */
 #if defined DOVECOT_VERSION_MAJOR && defined DOVECOT_VERSION_MINOR
