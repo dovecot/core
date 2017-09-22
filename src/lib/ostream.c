@@ -119,7 +119,8 @@ void o_stream_remove_destroy_callback(struct ostream *stream,
 
 void o_stream_close(struct ostream *stream)
 {
-	o_stream_close_full(stream, TRUE);
+	if (stream != NULL)
+		o_stream_close_full(stream, TRUE);
 }
 
 #undef o_stream_set_flush_callback

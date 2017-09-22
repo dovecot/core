@@ -117,7 +117,8 @@ const char *i_stream_get_disconnect_reason(struct istream *stream)
 
 void i_stream_close(struct istream *stream)
 {
-	i_stream_close_full(stream, TRUE);
+	if (stream != NULL)
+		i_stream_close_full(stream, TRUE);
 }
 
 void i_stream_set_init_buffer_size(struct istream *stream, size_t size)
