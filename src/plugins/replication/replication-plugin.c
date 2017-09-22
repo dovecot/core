@@ -37,6 +37,7 @@ struct replication_user {
 struct replication_mail_txn_context {
 	struct mail_namespace *ns;
 	bool new_messages;
+	char *reason;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(replication_user_module,
@@ -215,6 +216,7 @@ replication_mail_transaction_begin(struct mailbox_transaction_context *t)
 
 	ctx = i_new(struct replication_mail_txn_context, 1);
 	ctx->ns = mailbox_get_namespace(t->box);
+	ctx->reason = i_strdup(t->reason);
 	return ctx;
 }
 
@@ -256,8 +258,9 @@ replication_mail_transaction_commit(void *txn,
 		priority = !ctx->new_messages ? REPLICATION_PRIORITY_LOW :
 			ruser->sync_secs == 0 ? REPLICATION_PRIORITY_HIGH :
 			REPLICATION_PRIORITY_SYNC;
-		replication_notify(ctx->ns, priority, "transaction commit");
+		replication_notify(ctx->ns, priority, ctx->reason);
 	}
+	i_free(ctx->reason);
 	i_free(ctx);
 }
 
