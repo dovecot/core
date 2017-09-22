@@ -39,8 +39,7 @@ static void i_stream_seekable_close(struct iostream_private *stream,
 	struct seekable_istream *sstream = (struct seekable_istream *)stream;
 
 	sstream->fd = -1;
-	if (sstream->fd_input != NULL)
-		i_stream_close(sstream->fd_input);
+	i_stream_close(sstream->fd_input);
 }
 
 static void unref_streams(struct seekable_istream *sstream)

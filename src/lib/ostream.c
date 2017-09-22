@@ -490,7 +490,7 @@ static void o_stream_default_close(struct iostream_private *stream,
 	struct ostream_private *_stream = (struct ostream_private *)stream;
 
 	(void)o_stream_flush(&_stream->ostream);
-	if (close_parent && _stream->parent != NULL)
+	if (close_parent)
 		o_stream_close(_stream->parent);
 }
 

@@ -249,10 +249,8 @@ void client_destroy(struct client *client, const char *reason)
 		o_stream_uncork(client->output);
 	if (!client->login_success && client->ssl_proxy != NULL)
 		ssl_proxy_destroy(client->ssl_proxy);
-	if (client->input != NULL)
-		i_stream_close(client->input);
-	if (client->output != NULL)
-		o_stream_close(client->output);
+	i_stream_close(client->input);
+	o_stream_close(client->output);
 
 	if (client->master_tag != 0) {
 		i_assert(client->auth_request == NULL);

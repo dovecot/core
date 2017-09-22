@@ -120,10 +120,8 @@ void lmtp_client_close(struct lmtp_client *client)
 		dns_lookup_abort(&client->dns_lookup);
 	timeout_remove(&client->to);
 	io_remove(&client->io);
-	if (client->input != NULL)
-		i_stream_close(client->input);
-	if (client->output != NULL)
-		o_stream_close(client->output);
+	i_stream_close(client->input);
+	o_stream_close(client->output);
 	if (client->fd != -1) {
 		net_disconnect(client->fd);
 		client->fd = -1;

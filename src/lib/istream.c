@@ -953,7 +953,7 @@ static void i_stream_default_close(struct iostream_private *stream,
 {
 	struct istream_private *_stream = (struct istream_private *)stream;
 
-	if (close_parent && _stream->parent != NULL)
+	if (close_parent)
 		i_stream_close(_stream->parent);
 }
 
