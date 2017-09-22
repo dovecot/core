@@ -69,6 +69,8 @@ struct dsync_mailbox_importer {
 	unsigned int hdr_hash_version;
 	unsigned int commit_msgs_interval;
 
+	const char *const *hashed_headers;
+
 	enum mail_flags sync_flag;
 	const char *sync_keyword;
 	bool sync_flag_dontwant;
@@ -227,7 +229,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  const char *sync_flag,
 			  unsigned int commit_msgs_interval,
 			  enum dsync_mailbox_import_flags flags,
-			  unsigned int hdr_hash_version)
+			  unsigned int hdr_hash_version,
+			  const char *const *hashed_headers)
 {
 	struct dsync_mailbox_importer *importer;
 	struct mailbox_status status;
@@ -252,6 +255,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->sync_until_timestamp = sync_until_timestamp;
 	importer->sync_max_size = sync_max_size;
 	importer->stateful_import = importer->last_common_uid_found;
+	importer->hashed_headers = hashed_headers;
+
 	if (sync_flag != NULL) {
 		if (sync_flag[0] == '-') {
 			importer->sync_flag_dontwant = TRUE;
@@ -659,6 +664,7 @@ importer_try_next_mail(struct dsync_mailbox_importer *importer,
 	} else {
 		if (dsync_mail_get_hdr_hash(importer->cur_mail,
 					    importer->hdr_hash_version,
+					    importer->hashed_headers,
 					    &hdr_hash) < 0) {
 			dsync_mail_error(importer, importer->cur_mail,
 					 "header hash");
@@ -1575,7 +1581,8 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 	}
 
 	if (dsync_mail_get_hdr_hash(importer->cur_mail,
-				    importer->hdr_hash_version, &hdr_hash) < 0) {
+				    importer->hdr_hash_version,
+				    importer->hashed_headers, &hdr_hash) < 0) {
 		dsync_mail_error(importer, importer->cur_mail, "hdr-stream");
 		*result_r = "Error fetching header stream";
 		return -1;

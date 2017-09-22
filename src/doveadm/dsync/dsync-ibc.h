@@ -64,6 +64,8 @@ struct dsync_ibc_settings {
 	uoff_t sync_max_size;
 	/* Sync only mails with specified flags. */
 	const char *sync_flags;
+	/* Hashed headers */
+	const char *const *hashed_headers;
 
 	enum dsync_brain_sync_type sync_type;
 	enum dsync_brain_flags brain_flags;

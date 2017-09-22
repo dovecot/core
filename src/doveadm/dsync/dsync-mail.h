@@ -87,10 +87,10 @@ struct dsync_mail_change {
 };
 
 struct mailbox_header_lookup_ctx *
-dsync_mail_get_hash_headers(struct mailbox *box);
+dsync_mail_get_hash_headers(struct mailbox *box, const char *const *hashed_headers);
 
 int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
-			    const char **hdr_hash_r);
+			    const char *const *hashed_headers, const char **hdr_hash_r);
 static inline bool dsync_mail_hdr_hash_is_empty(const char *hdr_hash)
 {
 	/* md5(\n) */

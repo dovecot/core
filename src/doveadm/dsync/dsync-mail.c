@@ -11,22 +11,14 @@
 #include "mail-storage.h"
 #include "dsync-mail.h"
 
-/* These should be good enough to identify all normal mails. Received: header
-   would make it even better, but those can be somewhat large. Also these
-   fields can be looked up using IMAP ENVELOPE, which is more efficient in
-   some IMAP servers. */
-static const char *hashed_headers[] = {
-	"Date", "Message-ID", NULL
-};
-
 struct mailbox_header_lookup_ctx *
-dsync_mail_get_hash_headers(struct mailbox *box)
+dsync_mail_get_hash_headers(struct mailbox *box, const char *const *hashed_headers)
 {
 	return mailbox_header_lookup_init(box, hashed_headers);
 }
 
 int dsync_mail_get_hdr_hash(struct mail *mail, unsigned int version,
-			    const char **hdr_hash_r)
+			    const char *const *hashed_headers, const char **hdr_hash_r)
 {
 	struct istream *hdr_input, *input;
 	struct mailbox_header_lookup_ctx *hdr_ctx;

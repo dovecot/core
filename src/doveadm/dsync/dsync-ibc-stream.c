@@ -79,7 +79,8 @@ static const struct {
 	  	"send_mail_requests backup_send backup_recv lock_timeout "
 	  	"no_mail_sync no_mailbox_renames no_backup_overwrite purge_remote "
 		"no_notify sync_since_timestamp sync_max_size sync_flags sync_until_timestamp "
-	  	"virtual_all_box empty_hdr_workaround import_commit_msgs_interval"
+		"virtual_all_box empty_hdr_workaround import_commit_msgs_interval "
+		"hashed_headers"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
@@ -751,7 +752,15 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "no_notify", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_EMPTY_HDR_WORKAROUND) != 0)
 		dsync_serializer_encode_add(encoder, "empty_hdr_workaround", "");
-
+	/* this can be NULL in slave */
+	string_t *str2 = t_str_new(32);
+	if (set->hashed_headers != NULL) {
+		for(const char *const *ptr = set->hashed_headers; *ptr != NULL; ptr++) {
+			str_append_tabescaped(str2, *ptr);
+			str_append_c(str2, '\t');
+		}
+	}
+	dsync_serializer_encode_add(encoder, "hashed_headers", str_c(str2));
 	dsync_serializer_encode_finish(&encoder, str);
 	dsync_ibc_stream_send_string(ibc, str);
 }
@@ -885,6 +894,8 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		set->brain_flags |= DSYNC_BRAIN_FLAG_NO_NOTIFY;
 	if (dsync_deserializer_decode_try(decoder, "empty_hdr_workaround", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_EMPTY_HDR_WORKAROUND;
+	if (dsync_deserializer_decode_try(decoder, "hashed_headers", &value))
+		set->hashed_headers = (const char*const*)p_strsplit_tabescaped(pool, value);
 	set->hdr_hash_v2 = ibc->minor_version >= DSYNC_PROTOCOL_MINOR_HAVE_HDR_HASH_V2;
 	set->hdr_hash_v3 = ibc->minor_version >= DSYNC_PROTOCOL_MINOR_HAVE_HDR_HASH_V3;
 

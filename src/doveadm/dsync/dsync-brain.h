@@ -76,6 +76,8 @@ struct dsync_brain_settings {
 	/* Sync only mails which contains / doesn't contain this flag.
 	   '-' at the beginning means this flag must not exist. */
 	const char *sync_flag;
+	/* Headers to hash (defaults to Date, Message-ID) */
+	const char *const *hashed_headers;
 
 	/* If non-zero, use dsync lock file for this user */
 	unsigned int lock_timeout_secs;
