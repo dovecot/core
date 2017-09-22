@@ -29,6 +29,7 @@ struct doveadm_settings {
 	const char *director_username_hash;
 	const char *doveadm_api_key;
 	const char *dsync_features;
+	const char *dsync_hashed_headers;
 	unsigned int dsync_commit_msgs_interval;
 	const char *doveadm_http_rawlog_dir;
 	enum dsync_features parsed_features;

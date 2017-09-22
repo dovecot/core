@@ -235,7 +235,8 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 					  brain->sync_max_size,
 					  brain->sync_flag,
 					  brain->import_commit_msgs_interval,
-					  import_flags, brain->hdr_hash_version);
+					  import_flags, brain->hdr_hash_version,
+					  brain->hashed_headers);
 }
 
 int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
@@ -345,7 +346,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		dsync_mailbox_export_init(brain->box, brain->log_scan,
 					  last_common_uid,
 					  exporter_flags,
-					  brain->hdr_hash_version);
+					  brain->hdr_hash_version,
+					  brain->hashed_headers);
 	dsync_brain_sync_mailbox_init_remote(brain, remote_dsync_box);
 	return 1;
 }

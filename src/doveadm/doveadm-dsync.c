@@ -595,7 +595,13 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	set.import_commit_msgs_interval = ctx->import_commit_msgs_interval;
 	set.state = ctx->state_input;
 	set.mailbox_alt_char = doveadm_settings->dsync_alt_char[0];
-
+	if (*doveadm_settings->dsync_hashed_headers == '\0') {
+		i_error("dsync_hashed_headers must not be empty");
+		ctx->ctx.exit_code = EX_USAGE;
+		return -1;
+	}
+	set.hashed_headers =
+		t_strsplit_spaces(doveadm_settings->dsync_hashed_headers, " ,");
 	if (array_count(&ctx->exclude_mailboxes) > 0) {
 		/* array is NULL-terminated in init() */
 		set.exclude_mailboxes = array_idx(&ctx->exclude_mailboxes, 0);

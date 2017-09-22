@@ -223,6 +223,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	brain->lock_timeout = set->lock_timeout_secs;
 	brain->import_commit_msgs_interval = set->import_commit_msgs_interval;
 	brain->master_brain = TRUE;
+	brain->hashed_headers =
+		(const char*const*)p_strarray_dup(brain->pool, set->hashed_headers);
 	dsync_brain_set_flags(brain, flags);
 
 	if (set->virtual_all_box != NULL)
@@ -262,6 +264,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	ibc_set.hdr_hash_v2 = TRUE;
 	ibc_set.lock_timeout = set->lock_timeout_secs;
 	ibc_set.import_commit_msgs_interval = set->import_commit_msgs_interval;
+	ibc_set.hashed_headers = set->hashed_headers;
 	/* reverse the backup direction for the slave */
 	ibc_set.brain_flags = flags & ~(DSYNC_BRAIN_FLAG_BACKUP_SEND |
 					DSYNC_BRAIN_FLAG_BACKUP_RECV);
@@ -511,6 +514,9 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 	brain->sync_type = ibc_set->sync_type;
 
 	dsync_brain_set_flags(brain, ibc_set->brain_flags);
+	if (ibc_set->hashed_headers != NULL)
+		brain->hashed_headers =
+			p_strarray_dup(brain->pool, (const char*const*)ibc_set->hashed_headers);
 	/* this flag is only set on the remote slave brain */
 	brain->purge = (ibc_set->brain_flags &
 			DSYNC_BRAIN_FLAG_PURGE_REMOTE) != 0;

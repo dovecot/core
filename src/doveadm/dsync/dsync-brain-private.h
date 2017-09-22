@@ -102,6 +102,8 @@ struct dsync_brain {
 	const char *changes_during_sync;
 	enum mail_error mail_error;
 
+	const char *const *hashed_headers;
+
 	bool master_brain:1;
 	bool mail_requests:1;
 	bool backup_send:1;
