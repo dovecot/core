@@ -94,7 +94,7 @@ test_mail_key_SOURCES = \
 	mail-crypt-global-key.c \
 	mail-crypt-userenv.c
 
-test_mail_key_LDADD = $(LIBDOVECOT) $(LIBDOVECOT_STORAGE)
+test_mail_key_LDADD = $(LIBDOVECOT_STORAGE) $(LIBDOVECOT)
 test_mail_key_DEPENDENCIES = $(LIBDOVECOT_DEPS)  $(LIBDOVECOT_STORAGE_DEPS)
 test_mail_key_LDFLAGS = $(DOVECOT_BINARY_LDFLAGS)
 test_mail_key_CFLAGS = $(AM_CPPFLAGS) $(DOVECOT_BINARY_CFLAGS) -Dtop_builddir=\"$(top_builddir)\"
