@@ -29,8 +29,8 @@ struct atexit_callback {
 
 static ARRAY(struct atexit_callback) atexit_callbacks = ARRAY_INIT;
 
-void i_close_fd_real(int *fd, const char *arg, const char *func,
-		     const char *file, int line)
+void i_close_fd_path_real(int *fd, const char *path, const char *arg,
+			  const char *func, const char *file, int line)
 {
 	int saved_errno;
 
@@ -41,8 +41,11 @@ void i_close_fd_real(int *fd, const char *arg, const char *func,
 
 	saved_errno = errno;
 	if (unlikely(close(*fd) < 0))
-		i_error("%s: close(%s) @ %s:%d failed (fd=%d): %m",
-			func, arg, file, line, *fd);
+		i_error("%s: close(%s%s%s) @ %s:%d failed (fd=%d): %m",
+			func, arg,
+			(path == NULL) ? "" : " = ",
+			(path == NULL) ? "" : path,
+			file, line, *fd);
 	errno = saved_errno;
 
 	*fd = -1;
