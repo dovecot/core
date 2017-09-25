@@ -8,11 +8,11 @@
 Description=Dovecot IMAP/POP3 email server
 Documentation=man:dovecot(1)
 Documentation=http://wiki2.dovecot.org/
-After=local-fs.target network.target
+After=local-fs.target network-online.target
 
 [Service]
-Type=forking
-ExecStart=@sbindir@/dovecot
+Type=simple
+ExecStart=@sbindir@/dovecot -F
 PIDFile=@rundir@/master.pid
 ExecReload=@bindir@/doveadm reload
 ExecStop=@bindir@/doveadm stop
@@ -20,6 +20,7 @@ PrivateTmp=true
 NonBlocking=yes
 ProtectSystem=full
 PrivateDevices=true
+# disable this if you want to use apparmor plugin
 NoNewPrivileges=true
 CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_IPC_LOCK CAP_KILL CAP_NET_BIND_SERVICE CAP_SETGID CAP_SETUID CAP_SYS_CHROOT CAP_SYS_RESOURCE
 
