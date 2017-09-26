@@ -269,22 +269,29 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		brain->failed = TRUE;
 		return -1;
 	}
+
+	mailbox_get_open_status(brain->box, STATUS_UIDNEXT |
+				STATUS_HIGHESTMODSEQ |
+				STATUS_HIGHESTPVTMODSEQ, &status);
 	if (ret == 0) {
 		if (pvt_too_old) {
 			desync_reason = t_strdup_printf(
-				"Private modseq %llu no longer in transaction log",
-				(unsigned long long)last_common_pvt_modseq);
+				"Private modseq %llu no longer in transaction log "
+				"(highest=%"PRIu64", last_common_uid=%u, nextuid=%u)",
+				(unsigned long long)last_common_pvt_modseq,
+				status.highest_pvt_modseq, last_common_uid,
+				status.uidnext);
 		} else {
 			desync_reason = t_strdup_printf(
-				"Modseq %llu no longer in transaction log",
-				(unsigned long long)last_common_modseq);
+				"Modseq %llu no longer in transaction log "
+				"(highest=%"PRIu64", last_common_uid=%u, nextuid=%u)",
+				(unsigned long long)last_common_modseq,
+				status.highest_modseq, last_common_uid,
+				status.uidnext);
 		}
 	}
 
 	if (last_common_uid != 0) {
-		mailbox_get_open_status(brain->box, STATUS_UIDNEXT |
-					STATUS_HIGHESTMODSEQ |
-					STATUS_HIGHESTPVTMODSEQ, &status);
 		/* if last_common_* is higher than our current ones it means
 		   that the incremental sync state is stale and we need to do
 		   a full resync */
