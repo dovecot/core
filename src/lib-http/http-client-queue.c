@@ -44,6 +44,7 @@ http_client_queue_debug(struct http_client_queue *queue,
 
 	if (queue->client->set.debug) {
 
+		// FIXME: find some other method of distinguishing clients
 		va_start(args, format);	
 		i_debug("http-client: queue %s: %s", 
 			queue->name, t_strdup_vprintf(format, args));
@@ -140,6 +141,9 @@ void http_client_queue_free(struct http_client_queue *queue)
 	ARRAY_TYPE(http_client_peer) peers;
 
 	http_client_queue_debug(queue, "Destroy");
+
+	/* currently only called when peer is freed, so there is no need to
+	   unlink from the peer */
 
 	/* unlink all peers */
 	if (queue->cur_peer != NULL) {
@@ -260,7 +264,7 @@ http_client_queue_recover_from_lookup(struct http_client_queue *queue)
 	}
 
 	if (http_client_host_get_ip_idx(host,
-		&queue->cur_peer->addr.a.tcp.ip, &ip_idx)) {
+		&queue->cur_peer->shared->addr.a.tcp.ip, &ip_idx)) {
 		/* continue with current peer */
 		queue->ips_connect_idx = queue->ips_connect_start_idx = ip_idx;
 	} else {
@@ -305,6 +309,7 @@ http_client_queue_soft_connect_timeout(struct http_client_queue *queue)
 static struct http_client_peer *
 http_client_queue_connection_attempt(struct http_client_queue *queue)
 {
+	struct http_client *client = queue->client;
 	struct http_client_host *host = queue->host;
 	struct http_client_peer *peer;
 	struct http_client_peer_addr *addr = &queue->addr;
@@ -343,7 +348,8 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 		i_assert(array_count(&queue->pending_peers) == 0);
 
 		/* is it still the one we want? */
-		if (http_client_peer_addr_cmp(addr, &queue->cur_peer->addr) == 0) {
+		if (http_client_peer_addr_cmp
+			(addr, &queue->cur_peer->shared->addr) == 0) {
 			/* is it still connected? */
 			if (http_client_peer_is_connected(queue->cur_peer)) {
 				/* yes */
@@ -385,12 +391,15 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 			struct http_client_peer *const *peer_idx;
 
 			array_foreach(&queue->pending_peers, peer_idx) {
-				i_assert(http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) != 0);
+				i_assert(http_client_peer_addr_cmp
+					(&(*peer_idx)->shared->addr, addr) != 0);
 				http_client_peer_unlink_queue(*peer_idx, queue);
 			}
 			array_clear(&queue->pending_peers);
 		}
 		queue->cur_peer = peer;
+
+		http_client_peer_trigger_request_handler(queue->cur_peer);
 
 	} else {
 		struct http_client_peer *const *peer_idx;
@@ -401,7 +410,8 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 
 		/* we may be waiting for this peer already */
 		array_foreach(&queue->pending_peers, peer_idx) {
-			if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
+			if (http_client_peer_addr_cmp
+				(&(*peer_idx)->shared->addr, addr) == 0) {
 				i_assert(*peer_idx == peer);
 				new_peer = FALSE;
 				break;
@@ -418,7 +428,7 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 
 		/* start soft connect time-out (but only if we have another IP left) */
 		if (queue->addr.type != HTTP_CLIENT_PEER_ADDR_UNIX) {
-			msecs = host->client->set.soft_connect_timeout_msecs;
+			msecs = client->set.soft_connect_timeout_msecs;
 			if (!http_client_queue_is_last_connect_ip(queue) && msecs > 0 &&
 			   	queue->to_connect == NULL) {
 				queue->to_connect =
@@ -456,8 +466,9 @@ void http_client_queue_host_lookup_failure(
 
 void
 http_client_queue_connection_success(struct http_client_queue *queue,
-					 const struct http_client_peer_addr *addr)
+					 struct http_client_peer *peer)
 {
+	const struct http_client_peer_addr *addr = &peer->shared->addr;
 	struct http_client_host *host = queue->host;
 
 	if (http_client_host_ready(host) &&
@@ -483,7 +494,7 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 		struct http_client_peer *const *peer_idx;
 
 		array_foreach(&queue->pending_peers, peer_idx) {
-			if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
+			if (*peer_idx == peer) {
 				/* don't drop any connections to the successfully
 				   connected peer, even if some of the connections
 				   are pending. they may be intended for urgent
@@ -497,6 +508,7 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 			 */
 			http_client_peer_unlink_queue(*peer_idx, queue);
 		}
+
 		array_clear(&queue->pending_peers);
 		i_assert(queue->cur_peer != NULL);
 	}
@@ -504,14 +516,14 @@ http_client_queue_connection_success(struct http_client_queue *queue,
 
 void
 http_client_queue_connection_failure(struct http_client_queue *queue,
-	const struct http_client_peer_addr *addr, const char *reason)
+	struct http_client_peer *peer, const char *reason)
 {
 	const struct http_client_settings *set =
 		&queue->client->set;
+	const struct http_client_peer_addr *addr = &peer->shared->addr;
 	const char *https_name = http_client_peer_addr_get_https_name(addr);
 	struct http_client_host *host = queue->host;
 	unsigned int ips_count = http_client_host_get_ips_count(host);
-	struct http_client_peer *failed_peer;
 	struct http_client_peer *const *peer_idx;
 
 	http_client_queue_debug(queue,
@@ -523,55 +535,44 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		reason, array_count(&queue->pending_peers),
 		array_count(&queue->requests));
 
-	if (queue->cur_peer != NULL) {
-		if (http_client_peer_is_connected(queue->cur_peer)) {
-			/* The peer still has some working connections, which means that
-				 pending requests wait until they're picked up by those connections
-				 or the remaining connections fail as well. In the latter case,
-				 connecting to different peer can resolve the situation, but only
-				 if there is more than one IP. In any other case, the requests will
-				 eventually fail. In the future we could start connections to the next
-				 IP at this point already, but that is no small change. */
-			i_assert(array_count(&queue->pending_peers) == 0);
-			return;
-		}
-
-		failed_peer = queue->cur_peer;
-		http_client_peer_unlink_queue(queue->cur_peer, queue);
-		queue->cur_peer = NULL;
-
+	if (array_count(&queue->pending_peers) == 0) {
+		i_assert(queue->cur_peer == peer);
 	} else {
+		bool found = FALSE;
+
+		i_assert(queue->cur_peer == NULL);
+
 		/* we're still doing the initial connections to this hport. if
 			 we're also doing parallel connections with soft timeouts
 			 (pending_peer_count>1), wait for them to finish
 			 first. */
-		failed_peer = NULL;
 		array_foreach(&queue->pending_peers, peer_idx) {
-			if (http_client_peer_addr_cmp(&(*peer_idx)->addr, addr) == 0) {
-				failed_peer = *peer_idx;
+			if (*peer_idx == peer) {
 				array_delete(&queue->pending_peers,
 					array_foreach_idx(&queue->pending_peers, peer_idx), 1);
+				found = TRUE;
 				break;
 			}
 		}
-		i_assert(failed_peer != NULL);
+		i_assert(found);
 		if (array_count(&queue->pending_peers) > 0) {
 			http_client_queue_debug(queue,
 				"Waiting for remaining pending peers.");
-			http_client_peer_unlink_queue(failed_peer, queue);
+			http_client_peer_unlink_queue(peer, queue);
 			return;
 		}
-	}
 
-	/* one of the connections failed. if we're not using soft timeouts,
-	   we need to try to connect to the next IP. if we are using soft
-	   timeouts, we've already tried all of the IPs by now. */
-	timeout_remove(&queue->to_connect);
+		/* one of the connections failed. if we're not using soft timeouts,
+		   we need to try to connect to the next IP. if we are using soft
+		   timeouts, we've already tried all of the IPs by now. */
+		timeout_remove(&queue->to_connect);
 
-	if (queue->addr.type == HTTP_CLIENT_PEER_ADDR_UNIX) {
-		http_client_queue_fail(queue,
-			HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
-		return;
+		if (queue->addr.type == HTTP_CLIENT_PEER_ADDR_UNIX) {
+			http_client_peer_unlink_queue(peer, queue);
+			http_client_queue_fail(queue,
+				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
+			return;
+		}
 	}
 
 	if (http_client_queue_is_last_connect_ip(queue)) {
@@ -580,8 +581,8 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		queue->ips_connect_idx = queue->ips_connect_start_idx =
 			(queue->ips_connect_idx + 1) % ips_count;
 
-		if (set->max_connect_attempts == 0 ||
-			queue->connect_attempts >= set->max_connect_attempts) {
+		if (queue->cur_peer == NULL && (set->max_connect_attempts == 0 ||
+			queue->connect_attempts >= set->max_connect_attempts)) {
 			http_client_queue_debug(queue,
 				"Failed to set up any connection; failing all queued requests");
 			if (queue->connect_attempts > 1) {
@@ -592,7 +593,7 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 					total_msecs/1000, total_msecs%1000);
 			}
 			queue->connect_attempts = 0;
-			http_client_peer_unlink_queue(failed_peer, queue);
+			http_client_peer_unlink_queue(peer, queue);
 			http_client_queue_fail(queue,
 				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, reason);
 			return;
@@ -601,8 +602,10 @@ http_client_queue_connection_failure(struct http_client_queue *queue,
 		queue->ips_connect_idx = (queue->ips_connect_idx + 1) % ips_count;
 	}
 	
-	if (http_client_queue_connection_attempt(queue) != failed_peer)
-		http_client_peer_unlink_queue(failed_peer, queue);
+	if (http_client_queue_connection_attempt(queue) != peer) {
+		http_client_peer_unlink_queue(peer, queue);
+		queue->cur_peer = NULL;
+	}
 	return;
 }
 

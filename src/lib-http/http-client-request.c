@@ -798,10 +798,12 @@ void http_client_request_submit(struct http_client_request *req)
 	req->submit_time = ioloop_timeval;
 
 	http_client_request_do_submit(req);
-	http_client_request_debug(req, "Submitted");
 
 	req->submitted = TRUE;
 	http_client_request_add(req);
+
+	http_client_request_debug(req, "Submitted (requests left=%d)",
+		req->client->requests_count);
 }
 
 void

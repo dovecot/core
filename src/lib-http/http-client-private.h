@@ -25,6 +25,8 @@
  */
 
 struct http_client_connection;
+struct http_client_peer_pool;
+struct http_client_peer_shared;
 struct http_client_peer;
 struct http_client_queue;
 struct http_client_host_shared;
@@ -36,14 +38,18 @@ ARRAY_DEFINE_TYPE(http_client_connection,
 	struct http_client_connection *);
 ARRAY_DEFINE_TYPE(http_client_peer,
 	struct http_client_peer *);
+ARRAY_DEFINE_TYPE(http_client_peer_shared,
+	struct http_client_peer_shared *);
+ARRAY_DEFINE_TYPE(http_client_peer_pool,
+	struct http_client_peer_pool *);
 ARRAY_DEFINE_TYPE(http_client_queue,
 	struct http_client_queue *);
 ARRAY_DEFINE_TYPE(http_client_host,
-	struct http_client_host *);
+	struct http_client_host_shared *);
 
-HASH_TABLE_DEFINE_TYPE(http_client_peer,
+HASH_TABLE_DEFINE_TYPE(http_client_peer_shared,
 	const struct http_client_peer_addr *,
-	struct http_client_peer *);
+	struct http_client_peer_shared *);
 HASH_TABLE_DEFINE_TYPE(http_client_host_shared,
 	const char *, struct http_client_host_shared *);
 
@@ -157,7 +163,6 @@ struct http_client_connection {
 
 	struct http_client_peer_pool *ppool;
 	struct http_client_peer *peer;
-	struct http_client *client;
 
 	char *label;
 	unsigned int id; // DEBUG: identify parallel connections
@@ -194,31 +199,66 @@ struct http_client_connection {
 	bool output_locked:1;       /* output is locked; no pipelining */
 	bool output_broken:1;       /* output is broken; no more requests */
 	bool in_req_callback:1;     /* performing request callback (busy) */
+	bool debug:1;
 };
 
-struct http_client_peer_pool {
-	unsigned int refcount;
-	struct http_client_peer *peer;
-	struct http_client_peer_pool *prev, *next;
-
-	/* all connections to this peer */
-	ARRAY_TYPE(http_client_connection) conns;
-
-	/* available connections to this peer */
-	ARRAY_TYPE(http_client_connection) idle_conns;
-
-	bool destroyed:1;        /* peer pool is being destroyed */
-};
-
-struct http_client_peer {
+struct http_client_peer_shared {
 	unsigned int refcount;
 	struct http_client_peer_addr addr;
 	char *addr_name;
 
 	char *label;
 
+	struct http_client_context *cctx;
+	struct http_client_peer_shared *prev, *next;
+
+	struct http_client_peer_pool *pools_list;
+
+	struct http_client_peer *peers_list;
+	unsigned int peers_count;
+
+	/* connection retry */
+	struct timeval last_failure;
+	struct timeout *to_backoff;
+	unsigned int backoff_initial_time_msecs;
+	unsigned int backoff_current_time_msecs;
+	unsigned int backoff_max_time_msecs;
+
+	bool no_payload_sync:1;  /* expect: 100-continue failed before */
+	bool seen_100_response:1;/* expect: 100-continue succeeded before */
+	bool allows_pipelining:1;/* peer is known to allow persistent
+	                            connections */
+};
+
+struct http_client_peer_pool {
+	unsigned int refcount;
+	struct http_client_peer_shared *peer;
+	struct http_client_peer_pool *prev, *next;
+
+	/* all connections to this peer */
+	ARRAY_TYPE(http_client_connection) conns;
+
+	/* pending connections (not ready connecting) */
+	ARRAY_TYPE(http_client_connection) pending_conns;
+
+	/* available connections to this peer */
+	ARRAY_TYPE(http_client_connection) idle_conns;
+
+	/* distinguishing settings for these connections */
+	struct ssl_iostream_context *ssl_ctx;
+	char *rawlog_dir;
+	struct pcap_output *pcap_output;
+
+	bool destroyed:1;        /* peer pool is being destroyed */
+};
+
+struct http_client_peer {
+	unsigned int refcount;
+	struct http_client_peer_shared *shared;
+	struct http_client_peer *shared_prev, *shared_next;
+
 	struct http_client *client;
-	struct http_client_peer *prev, *next;
+	struct http_client_peer *client_prev, *client_next;
 
 	struct http_client_peer_pool *ppool;
 
@@ -231,21 +271,16 @@ struct http_client_peer {
 	/* zero time-out for consolidating request handling */
 	struct timeout *to_req_handling;
 
-	/* connection retry */
-	struct timeval last_failure;
-	struct timeout *to_backoff;
-	unsigned int backoff_time_msecs;
-
+	bool connecting:1;       /* peer is waiting to be connected */
+	bool connect_backoff:1;  /* peer is waiting for backoff timout*/
 	bool disconnected:1;     /* peer is already disconnected */
-	bool no_payload_sync:1;  /* expect: 100-continue failed before */
-	bool seen_100_response:1;/* expect: 100-continue succeeded before */
-	bool allows_pipelining:1;/* peer is known to allow persistent
-	                            connections */
 	bool handling_requests:1;/* currently running request handler */
 };
 
 struct http_client_queue {
 	struct http_client *client;
+	struct http_client_queue *prev, *next;
+
 	struct http_client_host *host;
 	char *name;
 
@@ -330,8 +365,8 @@ struct http_client {
 	struct timeout *to_failing_requests;
 
 	struct http_client_host *hosts_list;
-	HASH_TABLE_TYPE(http_client_peer) peers;
 	struct http_client_peer *peers_list;
+
 	struct http_client_request *requests_list;
 	unsigned int requests_count;
 };
@@ -344,6 +379,8 @@ struct http_client_context {
 
 	struct connection_list *conn_list;
 
+	HASH_TABLE_TYPE(http_client_peer_shared) peers;
+	struct http_client_peer_shared *peers_list;
 	HASH_TABLE_TYPE(http_client_host_shared) hosts;
 	struct http_client_host_shared *unix_host;
 	struct http_client_host_shared *hosts_list;
@@ -479,7 +516,8 @@ void http_client_connection_check_idle(struct http_client_connection *conn);
 void http_client_connection_switch_ioloop(struct http_client_connection *conn);
 void http_client_connection_start_tunnel(struct http_client_connection **_conn,
 	struct http_client_tunnel *tunnel);
-void http_client_connection_use_idle(struct http_client_connection *conn,
+void http_client_connection_lost_peer(struct http_client_connection *conn);
+void http_client_connection_claim_idle(struct http_client_connection *conn,
 	struct http_client_peer *peer);
 
 /*
@@ -501,10 +539,21 @@ void http_client_peer_pool_unref(struct http_client_peer_pool **_ppool);
 
 void http_client_peer_pool_close(struct http_client_peer_pool **_ppool);
 
-/* peer */
+/* peer (shared) */
 
 const char *
-http_client_peer_label(struct http_client_peer *peer);
+http_client_peer_shared_label(struct http_client_peer_shared *pshared);
+
+void http_client_peer_shared_ref(struct http_client_peer_shared *pshared);
+void http_client_peer_shared_unref(struct http_client_peer_shared **_pshared);
+void http_client_peer_shared_close(struct http_client_peer_shared **_pshared);
+
+void http_client_peer_shared_switch_ioloop(struct http_client_peer_shared *pshared);
+
+unsigned int
+http_client_peer_shared_max_connections(struct http_client_peer_shared *pshared);
+
+/* peer */
 
 struct http_client_peer *
 http_client_peer_get(struct http_client *client,
@@ -563,9 +612,9 @@ http_client_queue_requests_pending(struct http_client_queue *queue,
 unsigned int
 http_client_queue_requests_active(struct http_client_queue *queue);
 void http_client_queue_connection_success(struct http_client_queue *queue,
-					 const struct http_client_peer_addr *addr);
+					 struct http_client_peer *peer);
 void http_client_queue_connection_failure(struct http_client_queue *queue,
- 	const struct http_client_peer_addr *addr, const char *reason);
+		struct http_client_peer *peer, const char *reason);
 void http_client_queue_peer_disconnected(struct http_client_queue *queue,
 	struct http_client_peer *peer);
 void http_client_queue_switch_ioloop(struct http_client_queue *queue);

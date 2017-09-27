@@ -133,8 +133,6 @@ http_client_init_shared(struct http_client_context *cctx,
 				p_strdup(pool, set->proxy_url->password);
 		}
 
-		if (set->max_idle_time_msecs > 0)
-			client->set.max_idle_time_msecs = set->max_idle_time_msecs;
 		if (set->max_parallel_connections > 0)
 			client->set.max_parallel_connections = set->max_parallel_connections;
 		if (set->max_pipelined_requests > 0)
@@ -159,7 +157,6 @@ http_client_init_shared(struct http_client_context *cctx,
 			client->set.no_ssl_tunnel || set->no_ssl_tunnel;
 		if (set->max_redirects > 0)
 			client->set.max_redirects = set->max_redirects;
-		client->set.response_hdr_limits = set->response_hdr_limits;
 		if (set->request_absolute_timeout_msecs > 0) {
 			client->set.request_absolute_timeout_msecs =
 				set->request_absolute_timeout_msecs;
@@ -172,15 +169,10 @@ http_client_init_shared(struct http_client_context *cctx,
 			client->set.soft_connect_timeout_msecs = set->soft_connect_timeout_msecs;
 		if (set->max_auto_retry_delay > 0)
 			client->set.max_auto_retry_delay = set->max_auto_retry_delay;
-		client->set.socket_send_buffer_size = set->socket_send_buffer_size;
-		client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 		client->set.debug = client->set.debug || set->debug;
 	}
 
 	i_array_init(&client->delayed_failing_requests, 1);
-
-	hash_table_create(&client->peers, default_pool, 0,
-		http_client_peer_addr_hash, http_client_peer_addr_cmp);
 
 	return client;
 }
@@ -214,7 +206,6 @@ void http_client_deinit(struct http_client **_client)
 		peer = client->peers_list;
 		http_client_peer_close(&peer);
 	}
-	hash_table_destroy(&client->peers);
 
 	/* free hosts */
 	while (client->hosts_list != NULL) {
@@ -233,11 +224,12 @@ void http_client_deinit(struct http_client **_client)
 
 void http_client_switch_ioloop(struct http_client *client)
 {
-	struct http_client_host *host;
 	struct http_client_peer *peer;
+	struct http_client_host *host;
 
 	/* move peers */
-	for (peer = client->peers_list; peer != NULL; peer = peer->next)
+	for (peer = client->peers_list; peer != NULL;
+		peer = peer->client_next)
 		http_client_peer_switch_ioloop(peer);
 
 	/* move hosts/queues */
@@ -435,6 +427,9 @@ http_client_context_create(const struct http_client_settings *set)
 
 	hash_table_create(&cctx->hosts, default_pool, 0, str_hash, strcmp);
 
+	hash_table_create(&cctx->peers, default_pool, 0,
+		http_client_peer_addr_hash, http_client_peer_addr_cmp);
+
 	return cctx;
 }
 
@@ -446,6 +441,7 @@ void http_client_context_ref(struct http_client_context *cctx)
 void http_client_context_unref(struct http_client_context **_cctx)
 {
 	struct http_client_context *cctx = *_cctx;
+	struct http_client_peer_shared *peer;
 	struct http_client_host_shared *hshared;
 
 	*_cctx = NULL;
@@ -460,6 +456,14 @@ void http_client_context_unref(struct http_client_context **_cctx)
 		http_client_host_shared_free(&hshared);
 	}
 	hash_table_destroy(&cctx->hosts);
+
+	/* close all idle connections */
+	while (cctx->peers_list != NULL) {
+		peer = cctx->peers_list;
+		http_client_peer_shared_close(&peer);
+		i_assert(peer == NULL);
+	}
+	hash_table_destroy(&cctx->peers);
 
 	connection_list_deinit(&cctx->conn_list);
 
