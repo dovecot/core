@@ -160,6 +160,9 @@ test_error_handler(const struct failure_context *ctx,
 			i_free_and_null(expected_error_str);
 			va_end(args2);
 		} T_END;
+		else {
+			suppress = TRUE;
+		}
 		expected_errors--;
 	} else {
 		test_success = FALSE;
