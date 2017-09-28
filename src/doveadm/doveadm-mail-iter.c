@@ -58,7 +58,7 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 		NULL : mailbox_header_lookup_init(iter->box, wanted_headers);
 
 	mail_search_args_init(search_args, iter->box, FALSE, NULL);
-	iter->t = mailbox_transaction_begin(iter->box, 0, __func__);
+	iter->t = mailbox_transaction_begin(iter->box, 0, ctx->cmd->name);
 	iter->search_ctx = mailbox_search_init(iter->t, search_args, NULL,
 					       wanted_fields, headers_ctx);
 	*iter_r = iter;
