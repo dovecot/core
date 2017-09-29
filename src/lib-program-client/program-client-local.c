@@ -235,8 +235,9 @@ int program_client_local_connect(struct program_client *pclient)
 
 		/* if we want to allow root, then we will not drop
 		   root privileges */
-		restrict_access(&pclient->set.restrict_set, pclient->set.home,
-				!pclient->set.allow_root);
+		restrict_access(&pclient->set.restrict_set,
+				pclient->set.allow_root ? RESTRICT_ACCESS_FLAG_ALLOW_ROOT : 0,
+				pclient->set.home);
 
 		exec_child(pclient->path, pclient->args, &pclient->envs,
 			   fd_in[0], fd_out[1], child_extra_fds,

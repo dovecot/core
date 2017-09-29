@@ -640,8 +640,8 @@ service_drop_privileges(struct mail_storage_service_user *user,
 		disallow_root = FALSE;
 	}
 	if (!setenv_only) {
-		restrict_access(&rset, *priv->home == '\0' ? NULL : priv->home,
-				disallow_root);
+		restrict_access(&rset, disallow_root ? 0 : RESTRICT_ACCESS_FLAG_ALLOW_ROOT,
+				*priv->home == '\0' ? NULL : priv->home);
 	} else {
 		restrict_access_set_env(&rset);
 	}

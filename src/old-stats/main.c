@@ -38,7 +38,7 @@ static void main_preinit(void)
 	modules = module_dir_load(STATS_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 }
 

@@ -40,7 +40,7 @@ static void drop_privileges(void)
 		(void)master_service_settings_read(master_service,
 						   &input, &output, &error);
 	}
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 }
 
 int main(int argc, char *argv[])

@@ -204,7 +204,7 @@ static const struct connection_vfuncs client_vfuncs = {
 
 static void main_preinit(void)
 {
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 }
 
