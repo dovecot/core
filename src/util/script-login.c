@@ -121,7 +121,7 @@ static void client_connected(struct master_service_connection *conn)
 		mail_storage_service_restrict_setenv(service_ctx, user);
 		/* we can't exec anything in a chroot */
 		env_remove("RESTRICT_CHROOT");
-		restrict_access_by_env(getenv("HOME"), TRUE);
+		restrict_access_by_env(0, getenv("HOME"));
 	}
 
 	if (dup2(fd, STDIN_FILENO) < 0)
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 	if (!drop_to_userdb_privileges &&
 	    (flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		/* drop to privileges defined by service settings */
-		restrict_access_by_env(NULL, FALSE);
+		restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	}
 
 	master_service_init_finish(master_service);

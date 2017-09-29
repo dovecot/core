@@ -193,7 +193,9 @@ drop_privileges(struct service *service)
 	restrict_access_set_env(&rset);
 	if (service->set->drop_priv_before_exec) {
 		disallow_root = service->type == SERVICE_TYPE_LOGIN;
-		restrict_access(&rset, NULL, disallow_root);
+		restrict_access(&rset,
+				disallow_root ? 0 : RESTRICT_ACCESS_FLAG_ALLOW_ROOT,
+				NULL);
 	}
 }
 

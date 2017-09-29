@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
 
 	verbose_proctitle = master_service_settings_get(master_service)->verbose_proctitle;
 
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 
 	/* logging should never die if there are some clients */

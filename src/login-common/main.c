@@ -428,7 +428,7 @@ static void main_preinit(void)
 
 	login_load_modules();
 
-	restrict_access_by_env(NULL, TRUE);
+	restrict_access_by_env(0, NULL);
 	if (login_debug)
 		restrict_access_allow_coredumps(TRUE);
 	initial_service_count = master_service_get_service_count(master_service);

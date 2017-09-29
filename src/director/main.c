@@ -291,7 +291,7 @@ static void main_preinit(void)
 		i_fatal("Invalid value for director_mail_servers setting");
 	director->orig_config_hosts = mail_hosts_dup(director->mail_hosts);
 
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 }
 

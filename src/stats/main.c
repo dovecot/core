@@ -42,7 +42,7 @@ static void client_connected(struct master_service_connection *conn)
 
 static void main_preinit(void)
 {
-	restrict_access_by_env(NULL, FALSE);
+	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 }
 
