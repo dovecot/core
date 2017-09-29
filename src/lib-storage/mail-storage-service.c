@@ -557,7 +557,7 @@ static void mail_storage_service_seteuid_root(void)
 static int
 service_drop_privileges(struct mail_storage_service_user *user,
 			struct mail_storage_service_privileges *priv,
-			bool disallow_root, bool keep_setuid_root,
+			bool allow_root, bool keep_setuid_root,
 			bool setenv_only, const char **error_r)
 {
 	const struct mail_user_settings *set = user->user_set;
@@ -573,14 +573,14 @@ service_drop_privileges(struct mail_storage_service_user *user,
 		rset.uid = priv->uid;
 		rset.uid_source = priv->uid_source;
 	} else if (rset.uid == (uid_t)-1 &&
-		 disallow_root && current_euid == 0) {
+		   !allow_root && current_euid == 0) {
 		*error_r = "User is missing UID (see mail_uid setting)";
 		return -1;
 	}
 	if (priv->gid != (gid_t)-1) {
 		rset.gid = priv->gid;
 		rset.gid_source = priv->gid_source;
-	} else if (rset.gid == (gid_t)-1 && disallow_root &&
+	} else if (rset.gid == (gid_t)-1 && !allow_root &&
 		   set->first_valid_gid > 0 && getegid() == 0) {
 		*error_r = "User is missing GID (see mail_gid setting)";
 		return -1;
@@ -621,7 +621,7 @@ service_drop_privileges(struct mail_storage_service_user *user,
 		rset.chroot_dir = NULL;
 	}
 
-	if (disallow_root &&
+	if (!allow_root &&
 	    (rset.uid == 0 || (rset.uid == (uid_t)-1 && current_euid == 0))) {
 		*error_r = "Mail access not allowed for root";
 		return -1;
@@ -637,10 +637,10 @@ service_drop_privileges(struct mail_storage_service_user *user,
 			setuid_uid = rset.uid;
 		}
 		rset.uid = (uid_t)-1;
-		disallow_root = FALSE;
+		allow_root = TRUE;
 	}
 	if (!setenv_only) {
-		restrict_access(&rset, disallow_root ? 0 : RESTRICT_ACCESS_FLAG_ALLOW_ROOT,
+		restrict_access(&rset, allow_root ? RESTRICT_ACCESS_FLAG_ALLOW_ROOT : 0,
 				*priv->home == '\0' ? NULL : priv->home);
 	} else {
 		restrict_access_set_env(&rset);
@@ -1466,8 +1466,8 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 	struct mail_storage_service_privileges priv;
 	const char *error;
 	size_t len;
-	bool disallow_root =
-		(user->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) != 0;
+	bool allow_root =
+		(user->flags & MAIL_STORAGE_SERVICE_FLAG_DISALLOW_ROOT) == 0;
 	bool temp_priv_drop =
 		(user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0;
 	bool use_chroot;
@@ -1527,7 +1527,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
 		if (service_drop_privileges(user, &priv,
-					    disallow_root, temp_priv_drop,
+					    allow_root, temp_priv_drop,
 					    FALSE, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Couldn't drop privileges: %s", error);
@@ -1591,7 +1591,7 @@ void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
 	if (service_parse_privileges(ctx, user, &priv, &error) < 0)
 		i_fatal("user %s: %s", user->input.username, error);
 	if (service_drop_privileges(user, &priv,
-				    FALSE, FALSE, TRUE, &error) < 0)
+				    TRUE, FALSE, TRUE, &error) < 0)
 		i_fatal("user %s: %s", user->input.username, error);
 }
 
