@@ -2183,10 +2183,7 @@ void mailbox_save_context_deinit(struct mail_save_context *ctx)
 {
 	i_assert(ctx->dest_mail != NULL);
 
-	if (!ctx->dest_mail_external)
-		mail_free(&ctx->dest_mail);
-	else
-		ctx->dest_mail = NULL;
+	mail_free(&ctx->dest_mail);
 }
 
 void mailbox_save_set_flags(struct mail_save_context *ctx,
@@ -2278,17 +2275,6 @@ void mailbox_save_set_pop3_order(struct mail_save_context *ctx,
 	i_assert(order > 0);
 
 	ctx->data.pop3_order = order;
-}
-
-void mailbox_save_set_dest_mail(struct mail_save_context *ctx,
-				struct mail *mail)
-{
-	i_assert(mail != NULL);
-
-	if (!ctx->dest_mail_external)
-		mail_free(&ctx->dest_mail);
-	ctx->dest_mail = mail;
-	ctx->dest_mail_external = TRUE;
 }
 
 struct mail *mailbox_save_get_dest_mail(struct mail_save_context *ctx)

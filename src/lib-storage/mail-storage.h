@@ -790,9 +790,6 @@ void mailbox_save_set_pop3_uidl(struct mail_save_context *ctx,
    of the mailbox. Not all backends support this. */
 void mailbox_save_set_pop3_order(struct mail_save_context *ctx,
 				 unsigned int order);
-/* FIXME: Remove in v2.3. Obsolete - use mailbox_save_get_dest_mail() instead */
-void mailbox_save_set_dest_mail(struct mail_save_context *ctx,
-				struct mail *mail);
 /* Returns the destination mail */
 struct mail *mailbox_save_get_dest_mail(struct mail_save_context *ctx);
 /* Begin saving the message. All mail_save_set_*() calls must have been called
