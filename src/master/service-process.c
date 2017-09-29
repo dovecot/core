@@ -170,7 +170,7 @@ static void
 drop_privileges(struct service *service)
 {
 	struct restrict_access_settings rset;
-	bool disallow_root;
+	bool allow_root;
 	size_t len;
 
 	if (service->vsz_limit != 0)
@@ -192,9 +192,9 @@ drop_privileges(struct service *service)
 
 	restrict_access_set_env(&rset);
 	if (service->set->drop_priv_before_exec) {
-		disallow_root = service->type == SERVICE_TYPE_LOGIN;
+		allow_root = service->type != SERVICE_TYPE_LOGIN;
 		restrict_access(&rset,
-				disallow_root ? 0 : RESTRICT_ACCESS_FLAG_ALLOW_ROOT,
+				allow_root ? RESTRICT_ACCESS_FLAG_ALLOW_ROOT : 0,
 				NULL);
 	}
 }
