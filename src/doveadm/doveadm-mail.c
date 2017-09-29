@@ -1050,7 +1050,12 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 				mctx->pool, "-%c", arg->short_opt);
 
 			optarg = (char*)arg->value.v_string;
-			mctx->v.parse_arg(mctx, arg->short_opt);
+			if (!mctx->v.parse_arg(mctx, arg->short_opt)) {
+				i_error("Invalid parameter %c", arg->short_opt);
+				doveadm_mail_cmd_free(mctx);
+				doveadm_exit_code = EX_USAGE;
+				return;
+			}
 
 			array_append(&full_args, &short_opt_str, 1);
 			if (arg->type == CMD_PARAM_STR)
