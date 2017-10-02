@@ -12,6 +12,16 @@ enum auth_master_flags {
 	AUTH_MASTER_FLAG_NO_INNER_IOLOOP	= 0x04,
 };
 
+struct auth_master_connection *
+auth_master_init(const char *auth_socket_path, enum auth_master_flags flags);
+void auth_master_deinit(struct auth_master_connection **conn);
+
+/* Set timeout for lookups. */
+void auth_master_set_timeout(struct auth_master_connection *conn,
+			     unsigned int msecs);
+/* Returns the auth_socket_path */
+const char *auth_master_get_socket_path(struct auth_master_connection *conn);
+
 struct auth_user_info {
 	const char *protocol;
 	const char *session_id;
@@ -30,17 +40,6 @@ struct auth_user_reply {
 	ARRAY_TYPE(const_string) extra_fields;
 	bool anonymous:1;
 };
-
-struct auth_master_connection *
-auth_master_init(const char *auth_socket_path, enum auth_master_flags flags);
-void auth_master_deinit(struct auth_master_connection **conn);
-
-/* Set timeout for lookups. */
-void auth_master_set_timeout(struct auth_master_connection *conn,
-			     unsigned int msecs);
-
-/* Returns the auth_socket_path */
-const char *auth_master_get_socket_path(struct auth_master_connection *conn);
 
 /* Do a USER lookup. Returns -2 = user-specific error, -1 = internal error,
    0 = user not found, 1 = ok. When returning -1 and fields[0] isn't NULL, it
