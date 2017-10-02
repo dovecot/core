@@ -164,6 +164,20 @@ static void auth_master_destroy(struct connection *_conn)
 	auth_request_lookup_abort(conn);
 }
 
+static void auth_request_timeout(struct auth_master_connection *conn)
+{
+	if (!connection_handshake_received(&conn->conn))
+		e_error(conn->event, "Connecting timed out");
+	else
+		e_error(conn->event, "Request timed out");
+	auth_request_lookup_abort(conn);
+}
+
+static void auth_idle_timeout(struct auth_master_connection *conn)
+{
+	auth_connection_close(conn);
+}
+
 static int
 auth_master_handshake_line(struct connection *_conn, const char *line)
 {
@@ -276,20 +290,6 @@ static int auth_master_connect(struct auth_master_connection *conn)
 
 	connection_input_halt(&conn->conn);
 	return 0;
-}
-
-static void auth_request_timeout(struct auth_master_connection *conn)
-{
-	if (!connection_handshake_received(&conn->conn))
-		e_error(conn->event, "Connecting timed out");
-	else
-		e_error(conn->event, "Request timed out");
-	auth_request_lookup_abort(conn);
-}
-
-static void auth_idle_timeout(struct auth_master_connection *conn)
-{
-	auth_connection_close(conn);
 }
 
 static void auth_master_set_io(struct auth_master_connection *conn)
