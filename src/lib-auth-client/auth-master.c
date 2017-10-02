@@ -177,10 +177,9 @@ auth_master_handshake_line(struct connection *_conn, const char *line)
 }
 
 static int
-auth_master_input_args(struct connection *_conn, const char *const *args)
+auth_master_handle_input(struct auth_master_connection *conn,
+			 const char *const *args)
 {
-	struct auth_master_connection *conn =
-		container_of(_conn, struct auth_master_connection, conn);
 	const char *const *in_args = args;
 	const char *cmd, *id, *wanted_id;
 
@@ -208,8 +207,20 @@ auth_master_input_args(struct connection *_conn, const char *const *args)
 		e_error(conn->event, "BUG: Unexpected input: %s",
 			t_strarray_join(in_args, "\t"));
 	}
-	auth_request_lookup_abort(conn);
 	return -1;
+}
+
+static int
+auth_master_input_args(struct connection *_conn, const char *const *args)
+{
+	struct auth_master_connection *conn =
+		container_of(_conn, struct auth_master_connection, conn);
+	int ret;
+
+	ret = auth_master_handle_input(conn, args);
+	if (ret < 0)
+		auth_request_lookup_abort(conn);
+	return ret;
 }
 
 static int auth_master_input_line(struct connection *_conn, const char *line)
