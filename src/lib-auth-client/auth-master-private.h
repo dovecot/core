@@ -15,9 +15,10 @@
 struct auth_master_connection {
 	struct connection conn;
 	struct connection_list *clist;
+	pool_t pool;
 	struct event *event_parent, *event;
 
-	char *auth_socket_path;
+	const char *auth_socket_path;
 	enum auth_master_flags flags;
 
 	struct ioloop *ioloop, *prev_ioloop;

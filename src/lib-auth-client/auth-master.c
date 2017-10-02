@@ -53,9 +53,12 @@ struct auth_master_connection *
 auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 {
 	struct auth_master_connection *conn;
+	pool_t pool;
 
-	conn = i_new(struct auth_master_connection, 1);
-	conn->auth_socket_path = i_strdup(auth_socket_path);
+	pool = pool_alloconly_create("auth_master_connection", 1024);
+	conn = p_new(pool, struct auth_master_connection, 1);
+	conn->pool = pool;
+	conn->auth_socket_path = p_strdup(pool, auth_socket_path);
 	conn->flags = flags;
 	conn->timeout_msecs = 1000*MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
 	conn->clist = connection_list_init(&auth_master_set,
@@ -97,8 +100,7 @@ void auth_master_deinit(struct auth_master_connection **_conn)
 	connection_deinit(&conn->conn);
 	connection_list_deinit(&clist);
 	event_unref(&conn->event_parent);
-	i_free(conn->auth_socket_path);
-	i_free(conn);
+	pool_unref(&conn->pool);
 }
 
 void auth_master_set_timeout(struct auth_master_connection *conn,
