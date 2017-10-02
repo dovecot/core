@@ -58,6 +58,7 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 	pool = pool_alloconly_create("auth_master_connection", 1024);
 	conn = p_new(pool, struct auth_master_connection, 1);
 	conn->pool = pool;
+	conn->refcount = 1;
 	conn->auth_socket_path = p_strdup(pool, auth_socket_path);
 	conn->flags = flags;
 	conn->timeout_msecs = 1000*MASTER_AUTH_LOOKUP_TIMEOUT_SECS;
@@ -89,18 +90,39 @@ void auth_master_disconnect(struct auth_master_connection *conn)
 	conn->sent_handshake = FALSE;
 }
 
-void auth_master_deinit(struct auth_master_connection **_conn)
+static void
+auth_master_ref(struct auth_master_connection *conn)
+{
+	conn->refcount++;
+}
+
+static void
+auth_master_unref(struct auth_master_connection **_conn)
 {
 	struct auth_master_connection *conn = *_conn;
 	struct connection_list *clist = conn->clist;
 
 	*_conn = NULL;
 
+	i_assert(conn->refcount > 0);
+	if (--conn->refcount > 0)
+		return;
+
 	auth_master_disconnect(conn);
 	connection_deinit(&conn->conn);
 	connection_list_deinit(&clist);
 	event_unref(&conn->event_parent);
 	pool_unref(&conn->pool);
+}
+
+void auth_master_deinit(struct auth_master_connection **_conn)
+{
+	struct auth_master_connection *conn = *_conn;
+
+	*_conn = NULL;
+
+	auth_master_disconnect(conn);
+	auth_master_unref(&conn);
 }
 
 void auth_master_set_timeout(struct auth_master_connection *conn,
@@ -233,9 +255,14 @@ static int auth_master_input_line(struct connection *_conn, const char *line)
 	struct ioloop *cur_ioloop = conn->ioloop;
 	int ret;
 
+	auth_master_ref(conn);
+
 	ret = connection_input_line_default(_conn, line);
 	if (ret > 0 && !io_loop_is_running(cur_ioloop))
-		return 0;
+		ret = 0;
+
+	auth_master_unref(&conn);
+
 	return ret;
 }
 

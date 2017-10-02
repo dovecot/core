@@ -15,6 +15,7 @@
 struct auth_master_connection {
 	struct connection conn;
 	struct connection_list *clist;
+	int refcount;
 	pool_t pool;
 	struct event *event_parent, *event;
 
