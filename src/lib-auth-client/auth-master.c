@@ -229,9 +229,11 @@ auth_master_handle_input(struct auth_master_connection *conn,
 	e_debug(conn->conn.event, "auth input: %s",
 		t_strarray_join(args, "\t"));
 
-	/* Returns 1 upon full completion, 0 upon successful partial
-	   completion (will be called again) and -1 upon error. */
-	return conn->reply_callback(args[0], args + 2, conn->reply_context);
+	struct auth_master_reply mreply = {
+		.reply = args[0],
+		.args = args + 2,
+	};
+	return conn->reply_callback(&mreply, conn->reply_context);
 }
 
 static int
@@ -552,16 +554,16 @@ parse_reply(struct auth_master_lookup *lookup, const char *reply,
 }
 
 static int
-auth_lookup_reply_callback(const char *cmd, const char *const *args,
-			   void *context)
+auth_lookup_reply_callback(const struct auth_master_reply *reply, void *context)
 {
 	struct auth_master_lookup *lookup = context;
 	const char *value;
+	const char *const *args = reply->args;
 	unsigned int i, len;
 
 	io_loop_stop(lookup->conn->ioloop);
 
-	lookup->return_value = parse_reply(lookup, cmd, args);
+	lookup->return_value = parse_reply(lookup, reply->reply, args);
 
 	len = str_array_length(args);
 	i_assert(*args != NULL || len == 0); /* for static analyzer */
@@ -792,16 +794,17 @@ struct auth_master_user_list_ctx {
 };
 
 static int
-auth_user_list_reply_callback(const char *cmd, const char *const *args,
+auth_user_list_reply_callback(const struct auth_master_reply *reply,
 			      void *context)
 {
 	struct auth_master_user_list_ctx *ctx = context;
 	struct auth_master_connection *conn = ctx->conn;
+	const char *const *args = reply->args;
 
 	timeout_reset(ctx->conn->to);
 	io_loop_stop(ctx->conn->ioloop);
 
-	if (strcmp(cmd, "DONE") == 0) {
+	if (strcmp(reply->reply, "DONE") == 0) {
 		if (args[0] != NULL && strcmp(args[0], "fail") == 0) {
 			e_error(conn->event, "User listing returned failure");
 			ctx->failed = TRUE;
@@ -809,7 +812,7 @@ auth_user_list_reply_callback(const char *cmd, const char *const *args,
 		ctx->finished = TRUE;
 		return 1;
 	}
-	if (strcmp(cmd, "LIST") != 0 || args[0] == NULL) {
+	if (strcmp(reply->reply, "LIST") != 0 || args[0] == NULL) {
 		e_error(conn->event, "User listing returned invalid input");
 		ctx->failed = TRUE;
 		return -1;
@@ -955,12 +958,13 @@ struct auth_master_cache_ctx {
 };
 
 static int
-auth_cache_flush_reply_callback(const char *cmd, const char *const *args,
+auth_cache_flush_reply_callback(const struct auth_master_reply *reply,
 				void *context)
 {
 	struct auth_master_cache_ctx *ctx = context;
+	const char *const *args = reply->args;
 
-	if (strcmp(cmd, "OK") != 0)
+	if (strcmp(reply->reply, "OK") != 0)
 		ctx->failed = TRUE;
 	else if (args[0] == NULL || str_to_uint(args[0], &ctx->count) < 0)
 		ctx->failed = TRUE;

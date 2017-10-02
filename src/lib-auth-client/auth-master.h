@@ -13,6 +13,21 @@ enum auth_master_flags {
 };
 
 /*
+ * Request
+ */
+
+struct auth_master_reply {
+	const char *reply;
+	const char *const *args;
+};
+
+/* Returns 1 upon full completion, 0 upon successful partial completion (will
+   be called again) and -1 upon error. */
+typedef int
+auth_master_request_callback_t(const struct auth_master_reply *reply,
+			       void *context);
+
+/*
  * Connection
  */
 
