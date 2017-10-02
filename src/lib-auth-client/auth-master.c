@@ -244,39 +244,6 @@ static const char *const *args_hide_passwords(const char *const *args)
 	return array_front(&new_args);
 }
 
-static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
-				       void *context)
-{
-	struct auth_master_lookup_ctx *ctx = context;
-	const char *value;
-	unsigned int i, len;
-
-	io_loop_stop(ctx->conn->ioloop);
-
-	ctx->return_value = parse_reply(ctx, cmd, args);
-
-	len = str_array_length(args);
-	i_assert(*args != NULL || len == 0); /* for static analyzer */
-	if (ctx->return_value >= 0) {
-		ctx->fields = p_new(ctx->pool, const char *, len + 1);
-		for (i = 0; i < len; i++)
-			ctx->fields[i] = p_strdup(ctx->pool, args[i]);
-	} else {
-		/* put the reason string into first field */
-		ctx->fields = p_new(ctx->pool, const char *, 2);
-		for (i = 0; i < len; i++) {
-			if (str_begins(args[i], "reason=", &value)) {
-				ctx->fields[0] = p_strdup(ctx->pool, value);
-				break;
-			}
-		}
-	}
-	args = args_hide_passwords(args);
-	e_debug(ctx->conn->event, "auth %s input: %s",
-		ctx->expected_reply, t_strarray_join(args, " "));
-	return TRUE;
-}
-
 static int
 auth_master_handshake_line(struct connection *_conn, const char *line)
 {
@@ -652,6 +619,39 @@ auth_master_event_finish(struct auth_master_connection *conn)
 	i_assert(conn->event != conn->event_parent);
 	event_unref(&conn->event);
 	conn->event = conn->event_parent;
+}
+
+static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
+				       void *context)
+{
+	struct auth_master_lookup_ctx *ctx = context;
+	const char *value;
+	unsigned int i, len;
+
+	io_loop_stop(ctx->conn->ioloop);
+
+	ctx->return_value = parse_reply(ctx, cmd, args);
+
+	len = str_array_length(args);
+	i_assert(*args != NULL || len == 0); /* for static analyzer */
+	if (ctx->return_value >= 0) {
+		ctx->fields = p_new(ctx->pool, const char *, len + 1);
+		for (i = 0; i < len; i++)
+			ctx->fields[i] = p_strdup(ctx->pool, args[i]);
+	} else {
+		/* put the reason string into first field */
+		ctx->fields = p_new(ctx->pool, const char *, 2);
+		for (i = 0; i < len; i++) {
+			if (str_begins(args[i], "reason=", &value)) {
+				ctx->fields[0] = p_strdup(ctx->pool, value);
+				break;
+			}
+		}
+	}
+	args = args_hide_passwords(args);
+	e_debug(ctx->conn->event, "auth %s input: %s",
+		ctx->expected_reply, t_strarray_join(args, " "));
+	return TRUE;
 }
 
 int auth_master_user_lookup(struct auth_master_connection *conn,
