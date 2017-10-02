@@ -70,7 +70,7 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 	return conn;
 }
 
-static void auth_connection_close(struct auth_master_connection *conn)
+void auth_master_disconnect(struct auth_master_connection *conn)
 {
 	conn->connected = FALSE;
 	connection_disconnect(&conn->conn);
@@ -87,7 +87,7 @@ void auth_master_deinit(struct auth_master_connection **_conn)
 
 	*_conn = NULL;
 
-	auth_connection_close(conn);
+	auth_master_disconnect(conn);
 	connection_deinit(&conn->conn);
 	connection_list_deinit(&clist);
 	event_unref(&conn->event_parent);
@@ -141,7 +141,7 @@ static void auth_request_timeout(struct auth_master_connection *conn)
 
 static void auth_idle_timeout(struct auth_master_connection *conn)
 {
-	auth_connection_close(conn);
+	auth_master_disconnect(conn);
 }
 
 static int
@@ -302,7 +302,7 @@ static void auth_master_unset_io(struct auth_master_connection *conn)
 
 	if ((conn->flags & AUTH_MASTER_FLAG_NO_IDLE_TIMEOUT) == 0) {
 		if (conn->prev_ioloop == NULL)
-			auth_connection_close(conn);
+			auth_master_disconnect(conn);
 		else if (conn->to == NULL) {
 			conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
 					       auth_idle_timeout, conn);
@@ -348,7 +348,7 @@ static int auth_master_run_cmd_pre(struct auth_master_connection *conn,
 		e_error(conn->event, "write(auth socket) failed: %s",
 			o_stream_get_error(conn->conn.output));
 		auth_master_unset_io(conn);
-		auth_connection_close(conn);
+		auth_master_disconnect(conn);
 		return -1;
 	}
 	return 0;
@@ -359,7 +359,7 @@ static int auth_master_run_cmd_post(struct auth_master_connection *conn)
 	auth_master_unset_io(conn);
 	if (conn->aborted) {
 		conn->aborted = FALSE;
-		auth_connection_close(conn);
+		auth_master_disconnect(conn);
 		return -1;
 	}
 	return 0;
