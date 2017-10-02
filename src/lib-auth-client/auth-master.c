@@ -48,16 +48,6 @@ struct auth_master_connection {
 	bool aborted:1;
 };
 
-struct auth_master_lookup_ctx {
-	struct auth_master_connection *conn;
-	const char *user;
-	const char *expected_reply;
-	int return_value;
-
-	pool_t pool;
-	const char **fields;
-};
-
 struct auth_master_user_list_ctx {
 	struct auth_master_connection *conn;
 	string_t *username;
@@ -434,6 +424,16 @@ auth_master_next_request_id(struct auth_master_connection *conn)
 	}
 	return conn->request_counter;
 }
+
+struct auth_master_lookup_ctx {
+	struct auth_master_connection *conn;
+	const char *user;
+	const char *expected_reply;
+	int return_value;
+
+	pool_t pool;
+	const char **fields;
+};
 
 static bool is_valid_string(const char *str)
 {
