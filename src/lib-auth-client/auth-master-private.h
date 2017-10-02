@@ -27,8 +27,10 @@ struct auth_master_connection {
 
 	unsigned int id_counter;
 
-	bool (*reply_callback)(const char *cmd, const char *const *args,
-			       void *context);
+	/* Returns 1 upon full completion, 0 upon successful partial
+	   completion (will be called again) and -1 upon error. */
+	int (*reply_callback)(const char *cmd, const char *const *args,
+			      void *context);
 	void *reply_context;
 
 	unsigned int timeout_msecs;

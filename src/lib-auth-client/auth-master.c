@@ -220,8 +220,9 @@ auth_master_handle_input(struct auth_master_connection *conn,
 	if (strcmp(id, wanted_id) == 0) {
 		e_debug(conn->conn.event, "auth input: %s",
 			t_strarray_join(args, "\t"));
-		return (conn->reply_callback(cmd, args, conn->reply_context) ?
-			0 : 1);
+		/* Returns 1 upon full completion, 0 upon successful partial
+		   completion (will be called again) and -1 upon error. */
+		return conn->reply_callback(cmd, args, conn->reply_context);
 	}
 
 	if (strcmp(cmd, "CUID") == 0) {
@@ -243,9 +244,14 @@ auth_master_input_args(struct connection *_conn, const char *const *args)
 	int ret;
 
 	ret = auth_master_handle_input(conn, args);
-	if (ret < 0)
+	if (ret < 0) {
 		auth_request_lookup_abort(conn);
-	return ret;
+		return -1;
+	}
+	/* The continue/stop return 0/1 semantics for auth_master_handle_input()
+	   (and the reply callback) are inverted when compared to the connection
+	   API, so we need to return 0 for ret > 0 and 1 for ret == 0. */
+	return (ret > 0 ? 0 : 1);
 }
 
 static int auth_master_input_line(struct connection *_conn, const char *line)
@@ -547,8 +553,9 @@ parse_reply(struct auth_master_lookup *lookup, const char *reply,
 	return -1;
 }
 
-static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
-				       void *context)
+static int
+auth_lookup_reply_callback(const char *cmd, const char *const *args,
+			   void *context)
 {
 	struct auth_master_lookup *lookup = context;
 	const char *value;
@@ -578,7 +585,7 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 	args = args_hide_passwords(args);
 	e_debug(lookup->conn->event, "auth %s input: %s",
 		lookup->expected_reply, t_strarray_join(args, " "));
-	return TRUE;
+	return 1;
 }
 
 /*
@@ -786,7 +793,7 @@ struct auth_master_user_list_ctx {
 	bool failed;
 };
 
-static bool
+static int
 auth_user_list_reply_callback(const char *cmd, const char *const *args,
 			      void *context)
 {
@@ -802,12 +809,12 @@ auth_user_list_reply_callback(const char *cmd, const char *const *args,
 			ctx->failed = TRUE;
 		}
 		ctx->finished = TRUE;
-		return FALSE;
+		return 1;
 	}
 	if (strcmp(cmd, "LIST") != 0 || args[0] == NULL) {
 		e_error(conn->event, "User listing returned invalid input");
 		ctx->failed = TRUE;
-		return FALSE;
+		return -1;
 	}
 
 	/* We'll just read all the users into memory. otherwise we'd have to use
@@ -815,7 +822,7 @@ auth_user_list_reply_callback(const char *cmd, const char *const *args,
 	   failure since the connection could be open to dovecot-auth for a long
 	   time. */
 	str_append(ctx->username, args[0]);
-	return FALSE;
+	return 0;
 }
 
 struct auth_master_user_list_ctx *
@@ -949,7 +956,7 @@ struct auth_master_cache_ctx {
 	bool failed;
 };
 
-static bool
+static int
 auth_cache_flush_reply_callback(const char *cmd, const char *const *args,
 				void *context)
 {
@@ -961,7 +968,7 @@ auth_cache_flush_reply_callback(const char *cmd, const char *const *args,
 		ctx->failed = TRUE;
 
 	io_loop_stop(ctx->conn->ioloop);
-	return TRUE;
+	return 1;
 }
 
 int auth_master_cache_flush(struct auth_master_connection *conn,
