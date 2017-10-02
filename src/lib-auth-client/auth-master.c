@@ -187,38 +187,6 @@ static void auth_master_destroy(struct connection *_conn)
 }
 
 static int
-auth_master_handshake_line(struct connection *_conn, const char *line)
-{
-	struct auth_master_connection *conn =
-		container_of(_conn, struct auth_master_connection, conn);
-	const char *const *tmp;
-	unsigned int major_version, minor_version;
-
-	tmp = t_strsplit_tabescaped(line);
-	if (strcmp(tmp[0], "VERSION") == 0 &&
-	    tmp[1] != NULL && tmp[2] != NULL) {
-		if (str_to_uint(tmp[1], &major_version) < 0 ||
-		    str_to_uint(tmp[2], &minor_version) < 0) {
-			e_error(conn->event,
-				"Auth server sent invalid version line: %s",
-				line);
-			auth_request_lookup_abort(conn);
-			return -1;
-		}
-
-		if (connection_verify_version(_conn, "auth-master",
-					      major_version,
-					      minor_version) < 0) {
-			auth_request_lookup_abort(conn);
-			return -1;
-		}
-	} else if (strcmp(tmp[0], "SPID") == 0) {
-		return 1;
-	}
-	return 0;
-}
-
-static int
 parse_reply(struct auth_master_lookup_ctx *ctx, const char *cmd,
 	    const char *const *args)
 {
@@ -307,6 +275,38 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 	e_debug(ctx->conn->event, "auth %s input: %s",
 		ctx->expected_reply, t_strarray_join(args, " "));
 	return TRUE;
+}
+
+static int
+auth_master_handshake_line(struct connection *_conn, const char *line)
+{
+	struct auth_master_connection *conn =
+		container_of(_conn, struct auth_master_connection, conn);
+	const char *const *tmp;
+	unsigned int major_version, minor_version;
+
+	tmp = t_strsplit_tabescaped(line);
+	if (strcmp(tmp[0], "VERSION") == 0 &&
+	    tmp[1] != NULL && tmp[2] != NULL) {
+		if (str_to_uint(tmp[1], &major_version) < 0 ||
+		    str_to_uint(tmp[2], &minor_version) < 0) {
+			e_error(conn->event,
+				"Auth server sent invalid version line: %s",
+				line);
+			auth_request_lookup_abort(conn);
+			return -1;
+		}
+
+		if (connection_verify_version(_conn, "auth-master",
+					      major_version,
+					      minor_version) < 0) {
+			auth_request_lookup_abort(conn);
+			return -1;
+		}
+	} else if (strcmp(tmp[0], "SPID") == 0) {
+		return 1;
+	}
+	return 0;
 }
 
 static int
