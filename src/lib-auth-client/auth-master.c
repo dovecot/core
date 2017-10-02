@@ -355,19 +355,6 @@ static void auth_master_unset_io(struct auth_master_connection *conn)
 	}
 }
 
-static bool is_valid_string(const char *str)
-{
-	const char *p;
-
-	/* make sure we're not sending any characters that have a special
-	   meaning. */
-	for (p = str; *p != '\0'; p++) {
-		if (*p == '\t' || *p == '\n' || *p == '\r')
-			return FALSE;
-	}
-	return TRUE;
-}
-
 static int auth_master_run_cmd_pre(struct auth_master_connection *conn,
 				   const char *cmd)
 {
@@ -445,6 +432,19 @@ auth_master_next_request_id(struct auth_master_connection *conn)
 		conn->request_counter++;
 	}
 	return conn->request_counter;
+}
+
+static bool is_valid_string(const char *str)
+{
+	const char *p;
+
+	/* make sure we're not sending any characters that have a special
+	   meaning. */
+	for (p = str; *p != '\0'; p++) {
+		if (*p == '\t' || *p == '\n' || *p == '\r')
+			return FALSE;
+	}
+	return TRUE;
 }
 
 static const char *const *args_hide_passwords(const char *const *args)
