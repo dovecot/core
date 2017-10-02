@@ -13,6 +13,10 @@
 
 #include "auth-master-private.h"
 
+/*
+ * Forward declarations
+ */
+
 static void auth_master_connected(struct connection *_conn, bool success);
 static int
 auth_master_input_args(struct connection *_conn, const char *const *args);
@@ -20,6 +24,10 @@ static int
 auth_master_handshake_line(struct connection *_conn, const char *line);
 static int auth_master_input_line(struct connection *_conn, const char *line);
 static void auth_master_destroy(struct connection *_conn);
+
+/*
+ * Connection
+ */
 
 static const struct connection_vfuncs auth_master_vfuncs = {
 	.destroy = auth_master_destroy,
@@ -309,6 +317,10 @@ void auth_master_unset_io(struct auth_master_connection *conn)
 	}
 }
 
+/*
+ * Lookup common
+ */
+
 struct auth_master_lookup {
 	struct auth_master_connection *conn;
 	const char *user;
@@ -540,6 +552,12 @@ static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
 	return TRUE;
 }
 
+/*
+ * PassDB
+ */
+
+/* PASS */
+
 int auth_master_pass_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char *const **fields_r)
@@ -607,6 +625,12 @@ int auth_master_pass_lookup(struct auth_master_connection *conn,
 	conn->reply_context = NULL;
 	return lookup.return_value;
 }
+
+/*
+ * UserDB
+ */
+
+/* USER */
 
 int auth_master_user_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
@@ -723,6 +747,8 @@ int auth_user_fields_parse(const char *const *fields, pool_t pool,
 	}
 	return 0;
 }
+
+/* LIST */
 
 struct auth_master_user_list_ctx {
 	struct auth_master_connection *conn;
@@ -878,6 +904,12 @@ int auth_master_user_list_deinit(struct auth_master_user_list_ctx **_ctx)
 	i_free(ctx);
 	return ret;
 }
+
+/*
+ * Auth cache
+ */
+
+/* CACHE-FLUSH */
 
 struct auth_master_cache_ctx {
 	struct auth_master_connection *conn;

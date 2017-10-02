@@ -12,6 +12,10 @@ enum auth_master_flags {
 	AUTH_MASTER_FLAG_NO_INNER_IOLOOP	= 0x04,
 };
 
+/*
+ * Connection
+ */
+
 struct auth_master_connection *
 auth_master_init(const char *auth_socket_path, enum auth_master_flags flags);
 void auth_master_deinit(struct auth_master_connection **conn);
@@ -25,6 +29,10 @@ void auth_master_set_timeout(struct auth_master_connection *conn,
 /* Returns the auth_socket_path */
 const char *auth_master_get_socket_path(struct auth_master_connection *conn);
 
+/*
+ * Lookup common
+ */
+
 struct auth_user_info {
 	const char *protocol;
 	const char *session_id;
@@ -36,10 +44,18 @@ struct auth_user_info {
 	bool debug;
 };
 
+/*
+ * PassDB
+ */
+
 /* Do a PASS lookup (the actual password isn't returned). */
 int auth_master_pass_lookup(struct auth_master_connection *conn,
 			    const char *user, const struct auth_user_info *info,
 			    pool_t pool, const char *const **fields_r);
+
+/*
+ * UserDB
+ */
 
 struct auth_user_reply {
 	uid_t uid;
@@ -74,6 +90,10 @@ int auth_master_user_list_deinit(struct auth_master_user_list_ctx **ctx);
 
 /* INTERNAL: */
 void auth_user_info_export(string_t *str, const struct auth_user_info *info);
+
+/*
+ * Auth cache
+ */
 
 /* Flush authentication cache for everyone (users=NULL) or only for specified
    users. Returns number of users flushed from cache. */
