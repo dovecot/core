@@ -535,6 +535,8 @@ static void auth_request_save_cache(struct auth_request *request,
 	struct auth_passdb *passdb = request->passdb;
 	const char *encoded_password;
 	string_t *str;
+	struct password_generate_params gen_params = {.user = request->user,
+						      .rounds = 0 };
 
 	switch (result) {
 	case PASSDB_RESULT_USER_UNKNOWN:
@@ -576,9 +578,9 @@ static void auth_request_save_cache(struct auth_request *request,
 		   strdup() it so that mech_password doesn't get
 		   cleared too early. */
 		if (!password_generate_encoded(request->mech_password,
-						request->user,
-						CACHED_PASSWORD_SCHEME,
-						&encoded_password))
+					       &gen_params,
+					       CACHED_PASSWORD_SCHEME,
+					       &encoded_password))
 			i_unreached();
 		request->passdb_password =
 			p_strconcat(request->pool, "{"CACHED_PASSWORD_SCHEME"}",
@@ -2390,7 +2392,8 @@ void auth_request_proxy_finish_failure(struct auth_request *request)
 static void log_password_failure(struct auth_request *request,
 				 const char *plain_password,
 				 const char *crypted_password,
-				 const char *scheme, const char *user,
+				 const char *scheme,
+				 const struct password_generate_params *params,
 				 const char *subsystem)
 {
 	static bool scheme_ok = FALSE;
@@ -2404,7 +2407,7 @@ static void log_password_failure(struct auth_request *request,
 		/* perhaps the scheme is wrong - see if we can find
 		   a working one */
 		working_scheme = password_scheme_detect(plain_password,
-							crypted_password, user);
+							crypted_password, params);
 		if (working_scheme != NULL) {
 			str_printfa(str, ", try %s scheme instead",
 				    working_scheme);
@@ -2504,6 +2507,8 @@ int auth_request_password_verify_log(struct auth_request *request,
 	size_t raw_password_size;
 	const char *error;
 	int ret;
+	struct password_generate_params gen_params = {.user = request->original_username,
+						      .rounds = 0};
 
 	if (request->skip_password_check) {
 		/* passdb continue* rule after a successful authentication */
@@ -2538,7 +2543,7 @@ int auth_request_password_verify_log(struct auth_request *request,
 	/* Use original_username since it may be important for some
 	   password schemes (eg. digest-md5). Otherwise the username is used
 	   only for logging purposes. */
-	ret = password_verify(plain_password, request->original_username,
+	ret = password_verify(plain_password, &gen_params,
 			      scheme, raw_password, raw_password_size, &error);
 	if (ret < 0) {
 		const char *password_str = request->set->debug_passwords ?
@@ -2553,7 +2558,7 @@ int auth_request_password_verify_log(struct auth_request *request,
 	if (ret <= 0 && request->set->debug_passwords) T_BEGIN {
 		log_password_failure(request, plain_password,
 				     crypted_password, scheme,
-				     request->original_username,
+				     &gen_params,
 				     subsystem);
 	} T_END;
 	return ret;

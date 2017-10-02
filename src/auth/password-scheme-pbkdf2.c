@@ -27,13 +27,13 @@ pbkdf_run(const char *plaintext, const char *salt,
 		rounds, PBKDF2_KEY_SIZE_SHA1, &buf);
 }
 
-void pbkdf2_generate(const char *plaintext, const char *user ATTR_UNUSED,
+void pbkdf2_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
 		const unsigned char **raw_password_r, size_t *size_r)
 {
 	unsigned char key[PBKDF2_KEY_SIZE_SHA1];
 	const char *salt;
 	string_t *str = t_str_new(64);
-	unsigned int rounds = password_scheme_encryption_rounds;
+	unsigned int rounds = params->rounds;
 
 	if (rounds == 0)
 		rounds = PBKDF2_ROUNDS_DEFAULT;
@@ -47,7 +47,7 @@ void pbkdf2_generate(const char *plaintext, const char *user ATTR_UNUSED,
 	*size_r = str_len(str);
 }
 
-int pbkdf2_verify(const char *plaintext, const char *user ATTR_UNUSED,
+int pbkdf2_verify(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
 	      const unsigned char *raw_password, size_t size,
 	      const char **error_r)
 {

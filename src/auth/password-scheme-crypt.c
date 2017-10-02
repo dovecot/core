@@ -14,17 +14,8 @@
 #define CRYPT_SHA2_ROUNDS_MAX 999999999
 #define CRYPT_SHA2_SALT_LEN 16
 
-unsigned int password_scheme_encryption_rounds = 0;
-
-void password_set_encryption_rounds(unsigned int rounds)
-{
-	/* just take the new value. crypt_generate_*() will enforce their
-	   limits. */
-	password_scheme_encryption_rounds = rounds;
-}
-
 static void
-crypt_generate_des(const char *plaintext, const char *user ATTR_UNUSED,
+crypt_generate_des(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
 		   const unsigned char **raw_password_r, size_t *size_r)
 {
 #define CRYPT_SALT_LEN 2
@@ -37,11 +28,11 @@ crypt_generate_des(const char *plaintext, const char *user ATTR_UNUSED,
 }
 
 static void
-crypt_generate_blowfisch(const char *plaintext, const char *user ATTR_UNUSED,
+crypt_generate_blowfisch(const char *plaintext, const struct password_generate_params *params,
 			 const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password, *salt, *magic_salt;
-	unsigned int rounds = password_scheme_encryption_rounds;
+	unsigned int rounds = params->rounds;
 
 	if (rounds == 0)
 		rounds = CRYPT_BLF_ROUNDS_DEFAULT;
@@ -58,11 +49,11 @@ crypt_generate_blowfisch(const char *plaintext, const char *user ATTR_UNUSED,
 }
 
 static void
-crypt_generate_sha256(const char *plaintext, const char *user ATTR_UNUSED,
+crypt_generate_sha256(const char *plaintext, const struct password_generate_params *params,
 		      const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password, *salt, *magic_salt;
-	unsigned int rounds = password_scheme_encryption_rounds;
+	unsigned int rounds = params->rounds;
 
 	if (rounds == 0)
 		rounds = CRYPT_SHA2_ROUNDS_DEFAULT;
@@ -82,11 +73,11 @@ crypt_generate_sha256(const char *plaintext, const char *user ATTR_UNUSED,
 }
 
 static void
-crypt_generate_sha512(const char *plaintext, const char *user ATTR_UNUSED,
+crypt_generate_sha512(const char *plaintext, const struct password_generate_params *params,
 		      const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password, *salt, *magic_salt;
-	unsigned int rounds = password_scheme_encryption_rounds;
+	unsigned int rounds = params->rounds;
 
 	if (rounds == 0)
 		rounds = CRYPT_SHA2_ROUNDS_DEFAULT;
