@@ -205,35 +205,33 @@ static int
 auth_master_handle_input(struct auth_master_connection *conn,
 			 const char *const *args)
 {
-	const char *const *in_args = args;
-	const char *cmd, *id, *wanted_id;
+	unsigned int id;
 
-	cmd = *args; args++;
-	if (*args == NULL)
-		id = "";
-	else {
-		id = *args;
-		args++;
-	}
-
-	wanted_id = dec2str(conn->id_counter);
-	if (strcmp(id, wanted_id) == 0) {
-		e_debug(conn->conn.event, "auth input: %s",
-			t_strarray_join(args, "\t"));
-		/* Returns 1 upon full completion, 0 upon successful partial
-		   completion (will be called again) and -1 upon error. */
-		return conn->reply_callback(cmd, args, conn->reply_context);
-	}
-
-	if (strcmp(cmd, "CUID") == 0) {
+	if (strcmp(args[0], "CUID") == 0) {
 		e_error(conn->event, "%s is an auth client socket. "
 			"It should be a master socket.",
 			conn->auth_socket_path);
-	} else {
-		e_error(conn->event, "BUG: Unexpected input: %s",
-			t_strarray_join(in_args, "\t"));
+		return -1;
 	}
-	return -1;
+
+	if (args[1] == NULL || str_to_uint(args[1], &id) < 0) {
+		e_error(conn->event, "BUG: Unexpected input: %s",
+			t_strarray_join(args, "\t"));
+		return -1;
+	}
+
+	if (id != conn->id_counter) {
+		e_error(conn->event,
+			"Auth server sent reply with unknown ID %u", id);
+		return -1;
+	}
+
+	e_debug(conn->conn.event, "auth input: %s",
+		t_strarray_join(args, "\t"));
+
+	/* Returns 1 upon full completion, 0 upon successful partial
+	   completion (will be called again) and -1 upon error. */
+	return conn->reply_callback(args[0], args + 2, conn->reply_context);
 }
 
 static int
