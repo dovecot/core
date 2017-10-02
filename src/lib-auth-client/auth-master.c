@@ -72,6 +72,7 @@ static int
 auth_master_handshake_line(struct connection *_conn, const char *line);
 static int auth_master_input_line(struct connection *_conn, const char *line);
 static void auth_master_destroy(struct connection *_conn);
+static void auth_request_lookup_abort(struct auth_master_connection *conn);
 
 static const struct connection_vfuncs auth_master_vfuncs = {
 	.destroy = auth_master_destroy,
@@ -154,12 +155,6 @@ void auth_master_set_timeout(struct auth_master_connection *conn,
 const char *auth_master_get_socket_path(struct auth_master_connection *conn)
 {
 	return conn->auth_socket_path;
-}
-
-static void auth_request_lookup_abort(struct auth_master_connection *conn)
-{
-	io_loop_stop(conn->ioloop);
-	conn->aborted = TRUE;
 }
 
 static void auth_master_destroy(struct connection *_conn)
@@ -353,6 +348,12 @@ static void auth_master_unset_io(struct auth_master_connection *conn)
 					       auth_idle_timeout, conn);
 		}
 	}
+}
+
+static void auth_request_lookup_abort(struct auth_master_connection *conn)
+{
+	io_loop_stop(conn->ioloop);
+	conn->aborted = TRUE;
 }
 
 static int auth_master_run_cmd_pre(struct auth_master_connection *conn,
