@@ -186,39 +186,6 @@ static void auth_master_destroy(struct connection *_conn)
 	auth_request_lookup_abort(conn);
 }
 
-static const char *const *args_hide_passwords(const char *const *args)
-{
-	ARRAY_TYPE(const_string) new_args;
-	const char *p, *p2;
-	unsigned int i;
-
-	/* if there are any keys that contain "pass" string */
-	for (i = 0; args[i] != NULL; i++) {
-		p = strstr(args[i], "pass");
-		if (p != NULL && p < strchr(args[i], '='))
-			break;
-	}
-	if (args[i] == NULL)
-		return args;
-
-	/* there are. replace their values with <hidden> */
-	t_array_init(&new_args, i + 16);
-	array_append(&new_args, args, i);
-	for (; args[i] != NULL; i++) {
-		p = strstr(args[i], "pass");
-		p2 = strchr(args[i], '=');
-		if (p != NULL && p < p2) {
-			p = t_strconcat(t_strdup_until(args[i], p2),
-					"=<hidden>", NULL);
-			array_push_back(&new_args, &p);
-		} else {
-			array_push_back(&new_args, &args[i]);
-		}
-	}
-	array_append_zero(&new_args);
-	return array_front(&new_args);
-}
-
 static int
 auth_master_handshake_line(struct connection *_conn, const char *line)
 {
@@ -478,6 +445,39 @@ auth_master_next_request_id(struct auth_master_connection *conn)
 		conn->request_counter++;
 	}
 	return conn->request_counter;
+}
+
+static const char *const *args_hide_passwords(const char *const *args)
+{
+	ARRAY_TYPE(const_string) new_args;
+	const char *p, *p2;
+	unsigned int i;
+
+	/* if there are any keys that contain "pass" string */
+	for (i = 0; args[i] != NULL; i++) {
+		p = strstr(args[i], "pass");
+		if (p != NULL && p < strchr(args[i], '='))
+			break;
+	}
+	if (args[i] == NULL)
+		return args;
+
+	/* there are. replace their values with <hidden> */
+	t_array_init(&new_args, i + 16);
+	array_append(&new_args, args, i);
+	for (; args[i] != NULL; i++) {
+		p = strstr(args[i], "pass");
+		p2 = strchr(args[i], '=');
+		if (p != NULL && p < p2) {
+			p = t_strconcat(t_strdup_until(args[i], p2),
+					"=<hidden>", NULL);
+			array_push_back(&new_args, &p);
+		} else {
+			array_push_back(&new_args, &args[i]);
+		}
+	}
+	array_append_zero(&new_args);
+	return array_front(&new_args);
 }
 
 void auth_user_info_export(string_t *str, const struct auth_user_info *info)
