@@ -186,31 +186,6 @@ static void auth_master_destroy(struct connection *_conn)
 	auth_request_lookup_abort(conn);
 }
 
-static int
-parse_reply(struct auth_master_lookup_ctx *ctx, const char *cmd,
-	    const char *const *args)
-{
-	struct auth_master_connection *conn = ctx->conn;
-
-	if (strcmp(cmd, ctx->expected_reply) == 0)
-		return 1;
-	if (strcmp(cmd, "NOTFOUND") == 0)
-		return 0;
-	if (strcmp(cmd, "FAIL") == 0) {
-		if (*args == NULL) {
-			e_error(conn->event, "Auth %s lookup failed",
-				ctx->expected_reply);
-		} else {
-			e_debug(conn->event,
-				"Auth %s lookup returned temporary failure: %s",
-				ctx->expected_reply, *args);
-		}
-		return -2;
-	}
-	e_error(conn->event, "Unknown reply: %s", cmd);
-	return -1;
-}
-
 static const char *const *args_hide_passwords(const char *const *args)
 {
 	ARRAY_TYPE(const_string) new_args;
@@ -619,6 +594,31 @@ auth_master_event_finish(struct auth_master_connection *conn)
 	i_assert(conn->event != conn->event_parent);
 	event_unref(&conn->event);
 	conn->event = conn->event_parent;
+}
+
+static int
+parse_reply(struct auth_master_lookup_ctx *ctx, const char *cmd,
+	    const char *const *args)
+{
+	struct auth_master_connection *conn = ctx->conn;
+
+	if (strcmp(cmd, ctx->expected_reply) == 0)
+		return 1;
+	if (strcmp(cmd, "NOTFOUND") == 0)
+		return 0;
+	if (strcmp(cmd, "FAIL") == 0) {
+		if (*args == NULL) {
+			e_error(conn->event, "Auth %s lookup failed",
+				ctx->expected_reply);
+		} else {
+			e_debug(conn->event,
+				"Auth %s lookup returned temporary failure: %s",
+				ctx->expected_reply, *args);
+		}
+		return -2;
+	}
+	e_error(conn->event, "Unknown reply: %s", cmd);
+	return -1;
 }
 
 static bool auth_lookup_reply_callback(const char *cmd, const char *const *args,
