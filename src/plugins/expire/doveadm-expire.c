@@ -139,8 +139,9 @@ doveadm_expire_mail_cmd_get_next_user(struct doveadm_mail_cmd_context *ctx,
 		if ((time_t)oldest_savedate > ectx->oldest_before_time) {
 			if (doveadm_debug) {
 				i_debug("expire: Stopping iteration on key %s "
-					"(%lu > %ld)", key, oldest_savedate,
-					(long)ectx->oldest_before_time);
+					"(%lu > %"PRIdTIME_T")",
+					key, oldest_savedate,
+					ectx->oldest_before_time);
 			}
 			break;
 		}

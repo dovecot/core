@@ -141,8 +141,8 @@ void dbox_save_write_metadata(struct mail_save_context *_ctx,
 		str_printfa(str, "%c%llx\n", DBOX_METADATA_PHYSICAL_SIZE,
 			    (unsigned long long)ctx->input->v_offset);
 	}
-	str_printfa(str, "%c%lx\n", DBOX_METADATA_RECEIVED_TIME,
-		    (unsigned long)mdata->received_date);
+	str_printfa(str, "%c%"PRIxTIME_T"\n", DBOX_METADATA_RECEIVED_TIME,
+		    mdata->received_date);
 	if (mail_get_virtual_size(_ctx->dest_mail, &vsize) < 0)
 		i_unreached();
 	str_printfa(str, "%c%llx\n", DBOX_METADATA_VIRTUAL_SIZE,

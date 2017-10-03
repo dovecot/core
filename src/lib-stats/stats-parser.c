@@ -170,8 +170,8 @@ void stats_parser_value(string_t *str,
 	case STATS_PARSER_TYPE_TIMEVAL: {
 		const struct timeval *tv = ptr;
 
-		str_printfa(str, "%lu.%u", (unsigned long)tv->tv_sec,
-			    (unsigned int)tv->tv_usec);
+		str_printfa(str, "%"PRIdTIME_T".%u",
+			    tv->tv_sec, (unsigned int)tv->tv_usec);
 		break;
 	}
 	}

@@ -1686,7 +1686,7 @@ dsync_ibc_stream_send_change(struct dsync_ibc *_ibc,
 	}
 	if (change->received_timestamp > 0) {
 		dsync_serializer_encode_add(encoder, "received_timestamp",
-			t_strdup_printf("%lx", (unsigned long)change->received_timestamp));
+			t_strdup_printf("%"PRIxTIME_T, change->received_timestamp));
 	}
 	if (change->virtual_size > 0) {
 		dsync_serializer_encode_add(encoder, "virtual_size",

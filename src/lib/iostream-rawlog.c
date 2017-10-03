@@ -31,8 +31,8 @@ rawlog_write_timestamp(struct rawlog_iostream *rstream, bool line_ends)
 		return;
 
 	buffer_create_from_data(&buf, data, sizeof(data));
-	str_printfa(&buf, "%lu.%06u ",
-		    (unsigned long)ioloop_timeval.tv_sec,
+	str_printfa(&buf, "%"PRIdTIME_T".%06u ",
+		    ioloop_timeval.tv_sec,
 		    (unsigned int)ioloop_timeval.tv_usec);
 	if ((rstream->flags & IOSTREAM_RAWLOG_FLAG_BUFFERED) != 0) {
 		str_append_c(&buf, rstream->input ? 'I' : 'O');

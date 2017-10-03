@@ -229,9 +229,9 @@ doveadm_cmd_director_list(struct doveadm_connection *conn,
 
 		last_failed = I_MAX(host->last_network_failure,
 				    host->last_protocol_failure);
-		str_printfa(str, "%s\t%u\t%s\t%lu\t",
+		str_printfa(str, "%s\t%u\t%s\t%"PRIdTIME_T"\t",
 			    net_ip2addr(&host->ip), host->port, type,
-			    (unsigned long)last_failed);
+			    last_failed);
 		if (dir->self_host == host)
 			doveadm_director_append_status(dir, str);
 		else

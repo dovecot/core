@@ -507,7 +507,7 @@ bool mail_search_mime_arg_to_imap(string_t *dest,
 		if (!mail_search_mime_arg_to_imap_date(dest, arg)) {
 			*error_r = t_strdup_printf(
 				"SENTBEFORE can't be written as IMAP MIMEPART key "
-				"for timestamp %ld", (long)arg->value.time);
+				"for timestamp %"PRIdTIME_T, arg->value.time);
 			return FALSE;
 		}
 		break;
@@ -516,7 +516,7 @@ bool mail_search_mime_arg_to_imap(string_t *dest,
 		if (!mail_search_mime_arg_to_imap_date(dest, arg)) {
 			*error_r = t_strdup_printf(
 				"SENTON can't be written as IMAP MIMEPART key "
-				"for timestamp %ld", (long)arg->value.time);
+				"for timestamp %"PRIdTIME_T, arg->value.time);
 			return FALSE;
 		}
 		break;
@@ -525,7 +525,7 @@ bool mail_search_mime_arg_to_imap(string_t *dest,
 		if (!mail_search_mime_arg_to_imap_date(dest, arg)) {
 			*error_r = t_strdup_printf(
 				"SENTSINCE can't be written as IMAP MIMEPART key "
-				"for timestamp %ld", (long)arg->value.time);
+				"for timestamp %"PRIdTIME_T, arg->value.time);
 			return FALSE;
 		}
 		break;
