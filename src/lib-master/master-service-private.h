@@ -83,6 +83,7 @@ struct master_service {
 	bool want_ssl_settings:1;
 	bool ssl_ctx_initialized:1;
 	bool config_path_from_master:1;
+	bool log_initialized:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);
