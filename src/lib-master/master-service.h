@@ -100,7 +100,8 @@ void master_service_import_environment(const char *import_environment);
    DOVECOT_PRESERVE_ENVS environment. */
 void master_service_env_clean(void);
 
-/* Initialize logging. */
+/* Initialize logging. Only the first call changes the actual logging
+   functions. The following calls change the log prefix. */
 void master_service_init_log(struct master_service *service,
 			     const char *prefix);
 

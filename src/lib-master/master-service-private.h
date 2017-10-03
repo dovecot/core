@@ -82,6 +82,7 @@ struct master_service {
 	unsigned int want_ssl_settings:1;
 	unsigned int ssl_ctx_initialized:1;
 	unsigned int config_path_from_master:1;
+	unsigned int log_initialized:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);
