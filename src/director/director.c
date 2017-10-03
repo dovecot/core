@@ -505,7 +505,7 @@ void director_notify_ring_added(struct director_host *added_host,
 	director_update_send(added_host->dir, src, cmd);
 }
 
-static void director_delayed_dir_remove_timeout(struct director *dir)
+static void director_hosts_purge_removed(struct director *dir)
 {
 	struct director_host *const *hosts, *host;
 	unsigned int i, count;
@@ -549,7 +549,7 @@ void director_ring_remove(struct director_host *removed_host,
 		if (dir->to_remove_dirs == NULL) {
 			dir->to_remove_dirs =
 				timeout_add(DIRECTOR_DELAYED_DIR_REMOVE_MSECS,
-					    director_delayed_dir_remove_timeout, dir);
+					    director_hosts_purge_removed, dir);
 		}
 	}
 
