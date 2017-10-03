@@ -66,6 +66,8 @@ struct haproxy_data_v2 {
 struct master_service_haproxy_conn {
 	struct master_service_connection conn;
 
+	pool_t pool;
+
 	struct master_service_haproxy_conn *prev, *next;
 	
 	struct master_service *service;
@@ -83,7 +85,7 @@ master_service_haproxy_conn_free(struct master_service_haproxy_conn *hpconn)
 
 	io_remove(&hpconn->io);
 	timeout_remove(&hpconn->to);
-	i_free(hpconn);
+	pool_unref(&hpconn->pool);
 }
 
 static void
@@ -492,6 +494,7 @@ void master_service_haproxy_new(struct master_service *service,
 				struct master_service_connection *conn)
 {
 	struct master_service_haproxy_conn *hpconn;
+	pool_t pool;
 
 	if (!master_service_haproxy_conn_is_trusted(service, conn)) {
 		i_warning("haproxy: Client not trusted (rip=%s)",
@@ -500,7 +503,9 @@ void master_service_haproxy_new(struct master_service *service,
 		return;
 	}
 
-	hpconn = i_new(struct master_service_haproxy_conn, 1);
+	pool = pool_alloconly_create("haproxy connection", 128);
+	hpconn = p_new(pool, struct master_service_haproxy_conn, 1);
+	hpconn->pool = pool;
 	hpconn->conn = *conn;
 	hpconn->service = service;
 	DLLIST_PREPEND(&service->haproxy_conns, hpconn);
