@@ -131,8 +131,9 @@ void fd_close_maybe_stdio(int *fd_in, int *fd_out)
 	}
 }
 
-void i_close_fd_path_real(int *fd, const char *path, const char *arg,
-			  const char *func, const char *file, int line)
+#undef i_close_fd_path
+void i_close_fd_path(int *fd, const char *path, const char *arg,
+		     const char *func, const char *file, int line)
 {
 	int saved_errno;
 
