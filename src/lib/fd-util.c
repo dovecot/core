@@ -1,4 +1,4 @@
-/* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
+/* Copyright (c) 1999-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
 #include "net.h"
@@ -93,4 +93,21 @@ void fd_debug_verify_leaks(int first_fd, int last_fd)
 	}
 	if (leaks)
 		i_fatal("fd leak found");
+}
+
+void fd_set_nonblock(int fd, bool nonblock)
+{
+	int flags;
+
+	flags = fcntl(fd, F_GETFL, 0);
+	if (flags < 0)
+		i_fatal("fcntl(%d, F_GETFL) failed: %m", fd);
+
+	if (nonblock)
+		flags |= O_NONBLOCK;
+	else
+		flags &= ~O_NONBLOCK;
+
+	if (fcntl(fd, F_SETFL, flags) < 0)
+		i_fatal("fcntl(%d, F_SETFL) failed: %m", fd);
 }
