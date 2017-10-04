@@ -13,8 +13,10 @@
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
-#include "duplicate.h"
+#include "mail-duplicate.h"
 #include "mail-deliver.h"
+
+#define DUPLICATE_DB_NAME "lda-dupes"
 
 #define MAIL_DELIVER_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_deliver_user_module)
@@ -445,7 +447,8 @@ int mail_deliver(struct mail_deliver_context *ctx,
 	if (deliver_mail == NULL)
 		ret = -1;
 	else {
-		ctx->dup_ctx = duplicate_init(ctx->dest_user);
+		ctx->dup_db = mail_duplicate_db_init(ctx->dest_user,
+						     DUPLICATE_DB_NAME);
 		if (deliver_mail(ctx, storage_r) <= 0) {
 			/* if message was saved, don't bounce it even though
 			   the script failed later. */
@@ -454,7 +457,7 @@ int mail_deliver(struct mail_deliver_context *ctx,
 			/* success. message may or may not have been saved. */
 			ret = 0;
 		}
-		duplicate_deinit(&ctx->dup_ctx);
+		mail_duplicate_db_deinit(&ctx->dup_db);
 		if (ret < 0 && mail_deliver_is_tempfailed(ctx, *storage_r)) {
 			muser->deliver_ctx = NULL;
 			return -1;

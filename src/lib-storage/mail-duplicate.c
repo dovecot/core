@@ -9,17 +9,16 @@
 #include "hash.h"
 #include "mail-user.h"
 #include "mail-storage-settings.h"
-#include "duplicate.h"
+#include "mail-duplicate.h"
 
 #include <fcntl.h>
 #include <unistd.h>
 
-#define DUPLICATE_FNAME ".dovecot.lda-dupes"
 #define COMPRESS_PERCENTAGE 10
 #define DUPLICATE_BUFSIZE 4096
 #define DUPLICATE_VERSION 2
 
-struct duplicate {
+struct mail_duplicate {
 	const void *id;
 	unsigned int id_size;
 
@@ -27,19 +26,19 @@ struct duplicate {
 	time_t time;
 };
 
-struct duplicate_file_header {
+struct mail_duplicate_file_header {
 	uint32_t version;
 };
 
-struct duplicate_record_header {
+struct mail_duplicate_record_header {
 	uint32_t stamp;
 	uint32_t id_size;
 	uint32_t user_size;
 };
 
-struct duplicate_file {
+struct mail_duplicate_file {
 	pool_t pool;
-	HASH_TABLE(struct duplicate *, struct duplicate *) hash;
+	HASH_TABLE(struct mail_duplicate *, struct mail_duplicate *) hash;
 	const char *path;
 
 	int new_fd;
@@ -47,25 +46,27 @@ struct duplicate_file {
 	bool changed:1;
 };
 
-struct duplicate_context {
+struct mail_duplicate_db {
 	char *path;
 	struct dotlock_settings dotlock_set;
-	struct duplicate_file *file;
+	struct mail_duplicate_file *file;
 };
 
-static const struct dotlock_settings default_duplicate_dotlock_set = {
+static const struct dotlock_settings default_mail_duplicate_dotlock_set = {
 	.timeout = 20,
 	.stale_timeout = 10,
 };
 
-static int duplicate_cmp(const struct duplicate *d1, const struct duplicate *d2)
+static int
+mail_duplicate_cmp(const struct mail_duplicate *d1,
+		   const struct mail_duplicate *d2)
 {
 	return (d1->id_size == d2->id_size &&
 		memcmp(d1->id, d2->id, d1->id_size) == 0 &&
 		strcasecmp(d1->user, d2->user) == 0) ? 0 : 1;
 }
 
-static unsigned int duplicate_hash(const struct duplicate *d)
+static unsigned int mail_duplicate_hash(const struct mail_duplicate *d)
 {
 	/* a char* hash function from ASU -- from glib */
         const unsigned char *s = d->id, *end = s + d->id_size;
@@ -84,11 +85,12 @@ static unsigned int duplicate_hash(const struct duplicate *d)
 }
 
 static int
-duplicate_read_records(struct duplicate_file *file, struct istream *input,
-		       unsigned int record_size)
+mail_duplicate_read_records(struct mail_duplicate_file *file,
+			    struct istream *input,
+			    unsigned int record_size)
 {
 	const unsigned char *data;
-	struct duplicate_record_header hdr;
+	struct mail_duplicate_record_header hdr;
 	size_t size;
 	unsigned int change_count;
 
@@ -115,24 +117,25 @@ duplicate_read_records(struct duplicate_file *file, struct istream *input,
 		if (hdr.id_size == 0 || hdr.user_size == 0 ||
 		    hdr.id_size > DUPLICATE_BUFSIZE ||
 		    hdr.user_size > DUPLICATE_BUFSIZE) {
-			i_error("broken duplicate file %s", file->path);
+			i_error("broken mail_duplicate file %s", file->path);
 			return -1;
 		}
 
-		if (i_stream_read_bytes(input, &data, &size, hdr.id_size + hdr.user_size) <= 0) {
+		if (i_stream_read_bytes(input, &data, &size,
+					hdr.id_size + hdr.user_size) <= 0) {
 			i_error("unexpected end of file in %s", file->path);
 			return -1;
 		}
 
 		if ((time_t)hdr.stamp >= ioloop_time) {
 			/* still valid, save it */
-			struct duplicate *d;
+			struct mail_duplicate *d;
 			void *new_id;
 
 			new_id = p_malloc(file->pool, hdr.id_size);
 			memcpy(new_id, data, hdr.id_size);
 
-			d = p_new(file->pool, struct duplicate, 1);
+			d = p_new(file->pool, struct mail_duplicate, 1);
 			d->id = new_id;
 			d->id_size = hdr.id_size;
 			d->user = p_strndup(file->pool,
@@ -151,10 +154,10 @@ duplicate_read_records(struct duplicate_file *file, struct istream *input,
 	return 0;
 }
 
-static int duplicate_read(struct duplicate_file *file)
+static int mail_duplicate_read(struct mail_duplicate_file *file)
 {
 	struct istream *input;
-	struct duplicate_file_header hdr;
+	struct mail_duplicate_file_header hdr;
 	const unsigned char *data;
 	size_t size;
 	int fd;
@@ -176,13 +179,13 @@ static int duplicate_read(struct duplicate_file *file)
 			/* FIXME: backwards compatibility with v1.0 */
 			record_size = sizeof(time_t) + sizeof(uint32_t)*2;
 		} else if (hdr.version == DUPLICATE_VERSION) {
-			record_size = sizeof(struct duplicate_record_header);
+			record_size = sizeof(struct mail_duplicate_record_header);
 			i_stream_skip(input, sizeof(hdr));
 		}
 	}
 
 	if (record_size == 0 ||
-	    duplicate_read_records(file, input, record_size) < 0)
+	    mail_duplicate_read_records(file, input, record_size) < 0)
 		i_unlink_if_exists(file->path);
 
 	i_stream_unref(&input);
@@ -191,19 +194,20 @@ static int duplicate_read(struct duplicate_file *file)
 	return 0;
 }
 
-static struct duplicate_file *duplicate_file_new(struct duplicate_context *ctx)
+static struct mail_duplicate_file *
+mail_duplicate_file_new(struct mail_duplicate_db *db)
 {
-	struct duplicate_file *file;
+	struct mail_duplicate_file *file;
 	pool_t pool;
 
-	i_assert(ctx->path != NULL);
+	i_assert(db->path != NULL);
 
-	pool = pool_alloconly_create("duplicates", 10240);
+	pool = pool_alloconly_create("mail_duplicates", 10240);
 
-	file = p_new(pool, struct duplicate_file, 1);
+	file = p_new(pool, struct mail_duplicate_file, 1);
 	file->pool = pool;
-	file->path = p_strdup(pool, ctx->path);
-	file->new_fd = file_dotlock_open(&ctx->dotlock_set, file->path, 0,
+	file->path = p_strdup(pool, db->path);
+	file->new_fd = file_dotlock_open(&db->dotlock_set, file->path, 0,
 					 &file->dotlock);
 	if (file->new_fd != -1)
 		;
@@ -211,17 +215,17 @@ static struct duplicate_file *duplicate_file_new(struct duplicate_context *ctx)
 		i_error("file_dotlock_open(%s) failed: %m", file->path);
 	else {
 		i_error("Creating lock file for %s timed out in %u secs",
-			file->path, ctx->dotlock_set.timeout);
+			file->path, db->dotlock_set.timeout);
 	}
-	hash_table_create(&file->hash, pool, 0, duplicate_hash, duplicate_cmp);
+	hash_table_create(&file->hash, pool, 0, mail_duplicate_hash, mail_duplicate_cmp);
 
-	(void)duplicate_read(file);
+	(void)mail_duplicate_read(file);
 	return file;
 }
 
-static void duplicate_file_free(struct duplicate_file **_file)
+static void mail_duplicate_file_free(struct mail_duplicate_file **_file)
 {
-	struct duplicate_file *file = *_file;
+	struct mail_duplicate_file *file = *_file;
 
 	*_file = NULL;
 	if (file->dotlock != NULL)
@@ -231,68 +235,68 @@ static void duplicate_file_free(struct duplicate_file **_file)
 	pool_unref(&file->pool);
 }
 
-bool duplicate_check(struct duplicate_context *ctx,
-		     const void *id, size_t id_size, const char *user)
+bool mail_duplicate_check(struct mail_duplicate_db *db,
+			  const void *id, size_t id_size, const char *user)
 {
-	struct duplicate d;
+	struct mail_duplicate d;
 
-	if (ctx->file == NULL) {
-		if (ctx->path == NULL) {
-			/* duplicate database disabled */
+	if (db->file == NULL) {
+		if (db->path == NULL) {
+			/* mail_duplicate database disabled */
 			return FALSE;
 		}
-		ctx->file = duplicate_file_new(ctx);
+		db->file = mail_duplicate_file_new(db);
 	}
 
 	d.id = id;
 	d.id_size = id_size;
 	d.user = user;
 
-	return hash_table_lookup(ctx->file->hash, &d) != NULL;
+	return hash_table_lookup(db->file->hash, &d) != NULL;
 }
 
-void duplicate_mark(struct duplicate_context *ctx,
-		    const void *id, size_t id_size,
-                    const char *user, time_t timestamp)
+void mail_duplicate_mark(struct mail_duplicate_db *db,
+			 const void *id, size_t id_size,
+			 const char *user, time_t timestamp)
 {
-	struct duplicate *d;
+	struct mail_duplicate *d;
 	void *new_id;
 
-	if (ctx->file == NULL) {
-		if (ctx->path == NULL) {
-			/* duplicate database disabled */
+	if (db->file == NULL) {
+		if (db->path == NULL) {
+			/* mail_duplicate database disabled */
 			return;
 		}
-		ctx->file = duplicate_file_new(ctx);
+		db->file = mail_duplicate_file_new(db);
 	}
 
-	new_id = p_malloc(ctx->file->pool, id_size);
+	new_id = p_malloc(db->file->pool, id_size);
 	memcpy(new_id, id, id_size);
 
-	d = p_new(ctx->file->pool, struct duplicate, 1);
+	d = p_new(db->file->pool, struct mail_duplicate, 1);
 	d->id = new_id;
 	d->id_size = id_size;
-	d->user = p_strdup(ctx->file->pool, user);
+	d->user = p_strdup(db->file->pool, user);
 	d->time = timestamp;
 
-	ctx->file->changed = TRUE;
-	hash_table_update(ctx->file->hash, d, d);
+	db->file->changed = TRUE;
+	hash_table_update(db->file->hash, d, d);
 }
 
-void duplicate_flush(struct duplicate_context *ctx)
+void mail_duplicate_db_flush(struct mail_duplicate_db *db)
 {
-	struct duplicate_file *file = ctx->file;
-	struct duplicate_file_header hdr;
-	struct duplicate_record_header rec;
+	struct mail_duplicate_file *file = db->file;
+	struct mail_duplicate_file_header hdr;
+	struct mail_duplicate_record_header rec;
 	struct ostream *output;
         struct hash_iterate_context *iter;
-	struct duplicate *d;
+	struct mail_duplicate *d;
 
 	if (file == NULL)
 		return;
 	if (!file->changed || file->new_fd == -1) {
-		/* unlock the duplicate database */
-		duplicate_file_free(&ctx->file);
+		/* unlock the mail_duplicate database */
+		mail_duplicate_file_free(&db->file);
 		return;
 	}
 
@@ -320,19 +324,20 @@ void duplicate_flush(struct duplicate_context *ctx)
 		i_error("write(%s) failed: %s", file->path,
 			o_stream_get_error(output));
 		o_stream_unref(&output);
-		duplicate_file_free(&ctx->file);
+		mail_duplicate_file_free(&db->file);
 		return;
 	}
 	o_stream_unref(&output);
 
 	if (file_dotlock_replace(&file->dotlock, 0) < 0)
 		i_error("file_dotlock_replace(%s) failed: %m", file->path);
-	duplicate_file_free(&ctx->file);
+	mail_duplicate_file_free(&db->file);
 }
 
-struct duplicate_context *duplicate_init(struct mail_user *user)
+struct mail_duplicate_db *
+mail_duplicate_db_init(struct mail_user *user, const char *name)
 {
-	struct duplicate_context *ctx;
+	struct mail_duplicate_db *db;
 	const struct mail_storage_settings *mail_set;
 	const char *home = NULL;
 
@@ -341,26 +346,26 @@ struct duplicate_context *duplicate_init(struct mail_user *user)
 			"disabling duplicate database", user->username);
 	}
 
-	ctx = i_new(struct duplicate_context, 1);
-	ctx->path = home == NULL ? NULL :
-		i_strconcat(home, "/"DUPLICATE_FNAME, NULL);
-	ctx->dotlock_set = default_duplicate_dotlock_set;
+	db = i_new(struct mail_duplicate_db, 1);
+	db->path = home == NULL ? NULL :
+		i_strconcat(home, "/.dovecot.", name, NULL);
+	db->dotlock_set = default_mail_duplicate_dotlock_set;
 
 	mail_set = mail_user_set_get_storage_set(user);
-	ctx->dotlock_set.use_excl_lock = mail_set->dotlock_use_excl;
-	ctx->dotlock_set.nfs_flush = mail_set->mail_nfs_storage;
-	return ctx;
+	db->dotlock_set.use_excl_lock = mail_set->dotlock_use_excl;
+	db->dotlock_set.nfs_flush = mail_set->mail_nfs_storage;
+	return db;
 }
 
-void duplicate_deinit(struct duplicate_context **_ctx)
+void mail_duplicate_db_deinit(struct mail_duplicate_db **_db)
 {
-	struct duplicate_context *ctx = *_ctx;
+	struct mail_duplicate_db *db = *_db;
 
-	*_ctx = NULL;
-	if (ctx->file != NULL) {
-		duplicate_flush(ctx);
-		i_assert(ctx->file == NULL);
+	*_db = NULL;
+	if (db->file != NULL) {
+		mail_duplicate_db_flush(db);
+		i_assert(db->file == NULL);
 	}
-	i_free(ctx->path);
-	i_free(ctx);
+	i_free(db->path);
+	i_free(db);
 }

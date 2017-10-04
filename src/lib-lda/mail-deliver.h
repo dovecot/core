@@ -32,7 +32,7 @@ struct mail_deliver_context {
 	unsigned int session_time_msecs;
 	struct timeval delivery_time_started;
 
-	struct duplicate_context *dup_ctx;
+	struct mail_duplicate_db *dup_db;
 
 	/* Session ID, used as log line prefix if non-NULL. */
 	const char *session_id;
