@@ -687,8 +687,7 @@ void client_connection_destroy(struct client_connection **_conn)
 
 	i_stream_destroy(&conn->input);
 
-	if (conn->fd > 0 && close(conn->fd) < 0)
-		i_error("close(client) failed: %m");
+	i_close_fd(&conn->fd);
 	pool_unref(&conn->pool);
 
 	doveadm_print_ostream = NULL;
