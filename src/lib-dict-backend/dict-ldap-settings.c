@@ -1,6 +1,9 @@
 /* Copyright (c) 2008-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+
+#if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
+
 #include "array.h"
 #include "str.h"
 #include "settings.h"
@@ -306,3 +309,5 @@ dict_ldap_settings_read(pool_t pool, const char *path, const char **error_r)
 
 	return ctx.set;
 }
+
+#endif

@@ -1,6 +1,9 @@
 /* Copyright (c) 2016-2017 Dovecot authors, see the included COPYING memcached */
 
 #include "lib.h"
+
+#if defined(BUILTIN_LDAP) || defined(PLUGIN_BUILD)
+
 #include "array.h"
 #include "module-dir.h"
 #include "str.h"
@@ -465,6 +468,8 @@ struct dict dict_driver_ldap = {
 	}
 };
 
+#ifndef BUILTIN_LDAP
+/* Building a plugin */
 void dict_ldap_init(struct module *module ATTR_UNUSED);
 void dict_ldap_deinit(void);
 
@@ -480,3 +485,6 @@ void dict_ldap_deinit(void)
 }
 
 const char *dict_ldap_plugin_dependencies[] = { NULL };
+#endif
+
+#endif

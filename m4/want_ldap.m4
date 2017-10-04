@@ -21,6 +21,7 @@ AC_DEFUN([DOVECOT_WANT_LDAP], [
                           AC_SUBST(LDAP_LIBS)
                           if test $want_ldap != plugin; then
                                   AUTH_LIBS="$AUTH_LIBS $LDAP_LIBS"
+                                  DICT_LIBS="$DICT_LIBS $LDAP_LIBS"
                                   AC_DEFINE(BUILTIN_LDAP,, [LDAP support is built in])
                           fi
   
