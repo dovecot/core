@@ -130,3 +130,25 @@ void fd_close_maybe_stdio(int *fd_in, int *fd_out)
 			i_fatal("dup2(/dev/null, %d) failed: %m", *fdp[i]);
 	}
 }
+
+void i_close_fd_path_real(int *fd, const char *path, const char *arg,
+			  const char *func, const char *file, int line)
+{
+	int saved_errno;
+
+	if (*fd == -1)
+		return;
+
+	i_assert(*fd > 0);
+
+	saved_errno = errno;
+	if (unlikely(close(*fd) < 0))
+		i_error("%s: close(%s%s%s) @ %s:%d failed (fd=%d): %m",
+			func, arg,
+			(path == NULL) ? "" : " = ",
+			(path == NULL) ? "" : path,
+			file, line, *fd);
+	errno = saved_errno;
+
+	*fd = -1;
+}

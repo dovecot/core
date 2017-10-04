@@ -28,28 +28,6 @@ struct atexit_callback {
 
 static ARRAY(struct atexit_callback) atexit_callbacks = ARRAY_INIT;
 
-void i_close_fd_path_real(int *fd, const char *path, const char *arg,
-			  const char *func, const char *file, int line)
-{
-	int saved_errno;
-
-	if (*fd == -1)
-		return;
-
-	i_assert(*fd > 0);
-
-	saved_errno = errno;
-	if (unlikely(close(*fd) < 0))
-		i_error("%s: close(%s%s%s) @ %s:%d failed (fd=%d): %m",
-			func, arg,
-			(path == NULL) ? "" : " = ",
-			(path == NULL) ? "" : path,
-			file, line, *fd);
-	errno = saved_errno;
-
-	*fd = -1;
-}
-
 #undef i_unlink
 int i_unlink(const char *path, const char *source_fname,
 	     unsigned int source_linenum)
