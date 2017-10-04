@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "fd-set-nonblock.h"
 #include "istream-private.h"
 
 static bool i_stream_is_buffer_invalid(const struct istream_private *stream);
@@ -149,6 +150,21 @@ void i_stream_set_persistent_buffers(struct istream *stream, bool set)
 {
 	do {
 		stream->real_stream->nonpersistent_buffers = !set;
+		stream = stream->real_stream->parent;
+	} while (stream != NULL);
+}
+
+void i_stream_set_blocking(struct istream *stream, bool blocking)
+{
+	int prev_fd = -1;
+
+	do {
+		stream->blocking = blocking;
+		if (stream->real_stream->fd != -1 &&
+		    stream->real_stream->fd != prev_fd) {
+			fd_set_nonblock(stream->real_stream->fd, !blocking);
+			prev_fd = stream->real_stream->fd;
+		}
 		stream = stream->real_stream->parent;
 	} while (stream != NULL);
 }

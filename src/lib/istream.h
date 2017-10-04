@@ -130,6 +130,9 @@ void i_stream_set_return_partial_line(struct istream *stream, bool set);
    the memory usage is minimized by freeing the stream's buffers whenever they
    become empty. */
 void i_stream_set_persistent_buffers(struct istream *stream, bool set);
+/* Set the istream blocking or nonblocking, including its parent streams.
+   If any of the istreams have an fd, its O_NONBLOCK flag is changed. */
+void i_stream_set_blocking(struct istream *stream, bool blocking);
 
 /* Returns number of bytes read if read was ok, -1 if EOF or error, -2 if the
    input buffer is full. */
