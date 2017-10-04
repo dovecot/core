@@ -434,7 +434,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 	int ret;
 
 	/* we need to use the mailbox attribute API here, as we
-	   are not necessarely able to decrypt any of these keys
+	   are not necessarily able to decrypt any of these keys
 	*/
 
 	ARRAY_TYPE(const_string) ids;

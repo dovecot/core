@@ -188,7 +188,7 @@
   ^ appears to work now though, probably because of the added syncing stuff..
 
  - use backup index in mail_index_fsck()
- - proxying: support fallbacking to local (or other?) server if the first
+ - proxying: support fallback to local (or other?) server if the first
    one is down
  - virtual: If last message matching INTHREAD rule gets expunged, the rest of
    the thread doesn't go away

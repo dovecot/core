@@ -6,7 +6,7 @@ user A has an URLAUTH that references a mail from user B, it makes a connection
 to the imap-urlauth service to access user B's mail store to retrieve the
 mail.
 
-The authentication and authorization of the URLAUTH is performed whithin
+The authentication and authorization of the URLAUTH is performed within
 this service. Because access to the mailbox and the associated mailbox keys is
 necessary to retrieve the message and for verification of the URLAUTH, the
 urlauth services need root privileges. To mitigate security concerns, the

@@ -63,7 +63,7 @@ struct mail_transaction_log_file {
 	   log. max_tail_offset is what should be written to the log the next
 	   time a transaction is written. transaction log handling may update
 	   max_tail_offset automatically by making it skip external transactions
-	   after the last saved offset (to avoid re-reading them unneededly). */
+	   after the last saved offset (to avoid re-reading them needlessly). */
 	uoff_t saved_tail_offset, max_tail_offset;
 	/* don't give warnings about saved_tail_offset shrinking if
 	   sync_offset is less than this. */

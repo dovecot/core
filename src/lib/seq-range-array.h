@@ -31,7 +31,7 @@ unsigned int seq_range_array_add_range_count(ARRAY_TYPE(seq_range) *array,
 					     uint32_t seq1, uint32_t seq2);
 void seq_range_array_merge(ARRAY_TYPE(seq_range) *dest,
 			   const ARRAY_TYPE(seq_range) *src);
-/* Remove the given sequrence from range. Returns TRUE if it was found. */
+/* Remove the given sequence from range. Returns TRUE if it was found. */
 bool ATTR_NOWARN_UNUSED_RESULT
 seq_range_array_remove(ARRAY_TYPE(seq_range) *array, uint32_t seq);
 /* Remove a sequence range. Returns number of sequences actually removed. */

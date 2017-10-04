@@ -1814,7 +1814,7 @@ test_request_aborted_early_input(struct server_connection *conn ATTR_UNUSED)
 		"HTTP/1.1 404 Not Found\r\n"
 		"\r\n";
 
-	/* wait one second to respon */
+	/* wait one second to respond */
 	sleep(1);
 
 	/* respond */
@@ -2017,7 +2017,7 @@ test_client_deinit_early_input(struct server_connection *conn ATTR_UNUSED)
 		"HTTP/1.1 404 Not Found\r\n"
 		"\r\n";
 
-	/* wait one second to respon */
+	/* wait one second to respond */
 	sleep(1);
 
 	/* respond */

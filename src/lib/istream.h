@@ -119,7 +119,7 @@ void i_stream_set_init_buffer_size(struct istream *stream, size_t size);
    parent streams' max buffer size. */
 void i_stream_set_max_buffer_size(struct istream *stream, size_t max_size);
 /* Returns the current max. buffer size for the stream. This function also
-   goesthrough all of the parent streams and returns the highest seen max
+   goes through all of the parent streams and returns the highest seen max
    buffer size. This is needed because some streams (e.g. istream-chain) change
    their max buffer size dynamically. */
 size_t i_stream_get_max_buffer_size(struct istream *stream);

@@ -29,7 +29,7 @@
 
 #include <sys/time.h>
 
-#define MAILBOX_LIST_INDEX_HIERARHCY_SEP '~'
+#define MAILBOX_LIST_INDEX_HIERARCHY_SEP '~'
 
 #define INDEX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_index_module)

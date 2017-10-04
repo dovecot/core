@@ -92,7 +92,7 @@ mail_transaction_drop_range(struct mail_index_transaction *t,
 	if (keep_count == 1 &&
 	    update.uid1 == keep_range[0].seq1 &&
 	    update.uid2 == keep_range[0].seq2) {
-		/* evereything is kept */
+		/* everything is kept */
 		return update_idx + 1;
 	}
 

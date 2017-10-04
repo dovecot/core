@@ -18,7 +18,7 @@
 
 ssize_t safe_sendfile(int out_fd, int in_fd, uoff_t *offset, size_t count)
 {
-	/* REMEBER: uoff_t and off_t may not be of same size. */
+	/* REMEMBER: uoff_t and off_t may not be of same size. */
 	off_t safe_offset;
 	ssize_t ret;
 

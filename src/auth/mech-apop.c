@@ -83,7 +83,7 @@ mech_apop_auth_initial(struct auth_request *auth_request,
 	if (data_size == 0) {
 		/* Should never happen */
 		auth_request_log_info(auth_request, AUTH_SUBSYS_MECH,
-				      "no initial respone");
+				      "no initial response");
 		auth_request_fail(auth_request);
 		return;
 	}

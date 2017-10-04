@@ -70,7 +70,7 @@ static void index_list_deinit(struct mailbox_list *_list)
 static char index_list_get_hierarchy_sep(struct mailbox_list *list)
 {
 	return *list->ns->set->separator != '\0' ? *list->ns->set->separator :
-		MAILBOX_LIST_INDEX_HIERARHCY_SEP;
+		MAILBOX_LIST_INDEX_HIERARCHY_SEP;
 }
 
 static int
@@ -633,7 +633,7 @@ index_list_delete_entry(struct index_mailbox_list *list, const char *name,
 
 	if (list->create_mailbox_name != NULL &&
 	    strcmp(name, list->create_mailbox_name) == 0) {
-		/* we're rollbacking a failed create. if the name exists in the
+		/* we're rolling back a failed create. if the name exists in the
 		   list, it was done by somebody else so we don't want to
 		   remove it. */
 		return 0;

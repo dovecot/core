@@ -171,7 +171,7 @@ array_count_i(const struct array *array)
 }
 #define array_count(array) \
 	array_count_i(&(array)->arr)
-/* No need for the real count if all we're doing is comparing againts 0 */
+/* No need for the real count if all we're doing is comparing against 0 */
 #define array_is_empty(array) \
 	((array)->arr.buffer->used == 0)
 #define array_not_empty(array) \
@@ -293,7 +293,7 @@ array_copy(struct array *dest, unsigned int dest_idx,
 
 /* Exchange ownership of two arrays, which should have been allocated
    from the same pool/context. Useful for updating an array with a
-   replacement. Can also do it with uninitialised arrays (which will
+   replacement. Can also do it with uninitialized arrays (which will
    have .element_size == 0). */
 static inline void
 array_swap_i(struct array *array1, struct array *array2)

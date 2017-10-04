@@ -35,7 +35,7 @@ struct net_unix_cred {
 	pid_t pid;
 };
 
-/* maxmimum string length of IP address */
+/* maximum string length of IP address */
 #define MAX_IP_LEN INET6_ADDRSTRLEN
 
 #define IPADDR_IS_V4(ip) ((ip)->family == AF_INET)

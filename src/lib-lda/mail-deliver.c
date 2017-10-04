@@ -235,7 +235,7 @@ int mail_deliver_save_open(struct mail_deliver_save_open_context *ctx,
 	*box_r = box = mailbox_alloc(ns->list, name, flags);
 	mailbox_set_reason(box, "lib-lda delivery");
 	/* flag that this mailbox is used for delivering the mail.
-	   the context isn't set in pigeonhole testuite. */
+	   the context isn't set in pigeonhole testsuite. */
 	struct mail_deliver_mailbox *mbox = MAIL_DELIVER_STORAGE_CONTEXT(box);
 	if (mbox != NULL)
 		mbox->delivery_box = TRUE;

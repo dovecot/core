@@ -38,7 +38,7 @@ get_sort_program(struct client_command_context *cmd,
 	bool reverse, last_reverse;
 
 	if (IMAP_ARG_IS_EOL(args)) {
-		/* empyty list */
+		/* empty list */
 		client_send_command_error(cmd, "Empty sort program.");
 		return -1;
 	}

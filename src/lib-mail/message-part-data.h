@@ -45,7 +45,7 @@ extern const char *message_part_envelope_headers[];
  */
 
 /* Returns TRUE if this message part has content-type "text/plain",
-   chaset "us-ascii" and content-transfer-encoding "7bit" */
+   charset "us-ascii" and content-transfer-encoding "7bit" */
 bool message_part_data_is_plain_7bit(const struct message_part *part)
 	ATTR_PURE;
 
