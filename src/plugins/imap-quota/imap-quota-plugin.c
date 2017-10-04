@@ -61,13 +61,13 @@ quota_reply_write(string_t *str, struct mail_user *user,
 			i++;
 		}
 	}
-	if (ret <= 0 && str_len(str) == prefix_len) {
+	if (str_len(str) == prefix_len) {
 		/* this quota root doesn't have any quota actually enabled. */
 		str_truncate(str, orig_len);
-		return ret;
+	} else {
+		str_append(str, ")\r\n");
 	}
-	str_append(str, ")\r\n");
-	return 1;
+	return ret < 0 ? -1 : 0;
 }
 
 static bool cmd_getquotaroot(struct client_command_context *cmd)
