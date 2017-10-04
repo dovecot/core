@@ -186,6 +186,7 @@ i_stream_create_file_common(struct file_istream *fstream,
 	struct istream *input;
 	struct stat st;
 	bool is_file;
+	int flags;
 
 	fstream->autoclose_fd = autoclose_fd;
 
@@ -197,9 +198,10 @@ i_stream_create_file_common(struct file_istream *fstream,
 	fstream->istream.stat = i_stream_file_stat;
 
 	/* if it's a file, set the flags properly */
-	if (fd == -1)
+	if (fd == -1) {
+		/* only the path is known for now - the fd is opened later */
 		is_file = TRUE;
-	else if (fstat(fd, &st) < 0)
+	} else if (fstat(fd, &st) < 0)
 		is_file = FALSE;
 	else if (S_ISREG(st.st_mode))
 		is_file = TRUE;
@@ -218,6 +220,14 @@ i_stream_create_file_common(struct file_istream *fstream,
 		fstream->file = TRUE;
 		fstream->istream.istream.blocking = TRUE;
 		fstream->istream.istream.seekable = TRUE;
+	} else if ((flags = fcntl(fd, F_GETFL, 0)) < 0) {
+		/* shouldn't happen */
+		fstream->istream.istream.stream_errno = errno;
+		io_stream_set_error(&fstream->istream.iostream,
+			"fcntl(%d, F_GETFL) failed: %m", fd);
+	} else if ((flags & O_NONBLOCK) == 0) {
+		/* blocking socket/fifo */
+		fstream->istream.istream.blocking = TRUE;
 	}
 	fstream->istream.istream.readable_fd = TRUE;
 
