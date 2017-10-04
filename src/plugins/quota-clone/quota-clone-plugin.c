@@ -72,24 +72,14 @@ static void quota_clone_flush_real(struct mailbox *box)
 		i_error("quota_clone_plugin: Failed to lookup current quota count");
 		return;
 	}
-	if (ret_bytes == 0 && ret_count == 0) {
-		/* quota isn't enabled - no point in updating it */
-		return;
-	}
 
-	/* Then update the resources that exist. The resources can't really
-	   change unless the quota backend is changed, so we don't worry about
-	   the special case of ret_count changing between 1 and 0. Note that
-	   ret_count==1 also when quota is unlimited. */
+	/* update resources always regardless of existence,
+	   FIXME: This should be fixed in v2.3 */
 	trans = dict_transaction_begin(quser->dict);
-	if (ret_bytes > 0) {
-		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
-			 t_strdup_printf("%llu", (unsigned long long)bytes_value));
-	}
-	if (ret_count > 0) {
-		dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
-			 t_strdup_printf("%llu", (unsigned long long)count_value));
-	}
+	dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
+		 t_strdup_printf("%llu", (unsigned long long)bytes_value));
+	dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
+		 t_strdup_printf("%llu", (unsigned long long)count_value));
 	if (dict_transaction_commit(&trans) < 0)
 		i_error("quota_clone_plugin: Failed to commit dict update");
 	else
