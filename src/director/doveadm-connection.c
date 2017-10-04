@@ -49,6 +49,7 @@ struct director_reset_cmd {
 	struct director_user_iter *iter;
 	unsigned int host_idx, hosts_count;
 	unsigned int max_moving_users;
+	bool users_killed;
 };
 
 struct doveadm_connection {
@@ -489,7 +490,6 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 	struct director *dir = cmd->dir;
 	struct user *user;
 	struct mail_host *new_host;
-	bool users_killed = FALSE;
 
 	if (dir->users_moving_count >= cmd->max_moving_users)
 		return FALSE;
@@ -497,8 +497,10 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 	if (dir->right != NULL)
 		director_connection_cork(dir->right);
 
-	if (cmd->iter == NULL)
+	if (cmd->iter == NULL) {
 		cmd->iter = director_iterate_users_init(dir);
+		cmd->users_killed = FALSE;
+	}
 
 	while ((user = director_iterate_users_next(cmd->iter)) != NULL) {
 		if (user->host != host)
@@ -517,18 +519,19 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 				director_kill_user(dir, dir->self_host, user,
 						   user->host->tag, user->host,
 						   TRUE);
-				users_killed = TRUE;
+				cmd->users_killed = TRUE;
 			}
 		} T_END;
 		if (dir->users_moving_count >= cmd->max_moving_users)
 			break;
 	}
-	if (user == NULL)
+	if (user == NULL) {
 		director_iterate_users_deinit(&cmd->iter);
-	if (users_killed) {
-		/* no more backends. we already sent kills. now remove the
-		   users entirely from the host. */
-		director_flush_host(dir, dir->self_host, NULL, host);
+		if (cmd->users_killed) {
+			/* no more backends. we already sent kills. now remove
+			   the users entirely from the host. */
+			director_flush_host(dir, dir->self_host, NULL, host);
+		}
 	}
 	if (dir->right != NULL)
 		director_connection_uncork(dir->right);
