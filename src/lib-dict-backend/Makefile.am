@@ -61,10 +61,10 @@ dict-drivers-register.c: Makefile $(top_builddir)/config.h
 distclean-generic:
 	rm -f Makefile dict-drivers-register.c
 
-# test-dict-sql must be compiled after the whole core
-# has been compiled, because it depends on things that
-# are build after lib-dict.
-check_PROGRAMS = test-dict-sql
+test_programs = \
+	test-dict-sql
+
+noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	../lib-dict/libdict.la \
