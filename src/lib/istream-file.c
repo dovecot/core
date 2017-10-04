@@ -58,20 +58,18 @@ ssize_t i_stream_file_read(struct istream_private *stream)
 	}
 
 	offset = stream->istream.v_offset + (stream->pos - stream->skip);
-	do {
-		if (fstream->file) {
-			ret = pread(stream->fd, stream->w_buffer + stream->pos,
-				    size, offset);
-		} else if (fstream->seen_eof) {
-			/* don't try to read() again. EOF from keyboard (^D)
-			   requires this to work right. */
-			ret = 0;
-		} else {
-			ret = read(stream->fd, stream->w_buffer + stream->pos,
-				   size);
-		}
-	} while (unlikely(ret < 0 && errno == EINTR &&
-			  stream->istream.blocking));
+
+	if (fstream->file) {
+		ret = pread(stream->fd, stream->w_buffer + stream->pos,
+			    size, offset);
+	} else if (fstream->seen_eof) {
+		/* don't try to read() again. EOF from keyboard (^D)
+		   requires this to work right. */
+		ret = 0;
+	} else {
+		ret = read(stream->fd, stream->w_buffer + stream->pos,
+			   size);
+	}
 
 	if (ret == 0) {
 		/* EOF */
@@ -81,8 +79,8 @@ ssize_t i_stream_file_read(struct istream_private *stream)
 	}
 
 	if (unlikely(ret < 0)) {
-		if (errno == EINTR || errno == EAGAIN) {
-			i_assert(!stream->istream.blocking);
+		if ((errno == EINTR || errno == EAGAIN) &&
+		    !stream->istream.blocking) {
 			ret = 0;
 		} else {
 			i_assert(errno != 0);
