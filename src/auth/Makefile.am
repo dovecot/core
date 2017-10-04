@@ -248,8 +248,7 @@ test_auth_SOURCES = \
 test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS)
 test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

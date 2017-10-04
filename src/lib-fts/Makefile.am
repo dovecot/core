@@ -149,8 +149,7 @@ test_fts_tokenizer_SOURCES = test-fts-tokenizer.c
 test_fts_tokenizer_LDADD = fts-tokenizer.lo fts-tokenizer-generic.lo fts-tokenizer-address.lo fts-tokenizer-common.lo ../lib-mail/libmail.la $(test_libs)
 test_fts_tokenizer_DEPENDENCIES = ../lib-mail/libmail.la $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

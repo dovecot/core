@@ -117,8 +117,7 @@ test_dict_sql_DEPENDENCIES = \
 	../lib-settings/libsettings.la \
 	$(test_libs)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs) $(check_PROGRAMS); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

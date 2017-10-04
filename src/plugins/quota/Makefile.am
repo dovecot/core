@@ -135,8 +135,7 @@ test_quota_util_SOURCES = test-quota-util.c
 test_quota_util_LDADD = quota-util.lo $(test_libs)
 test_quota_util_DEPENDENCIES = quota-util.lo $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

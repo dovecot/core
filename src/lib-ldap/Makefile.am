@@ -36,8 +36,7 @@ test_libs = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib/liblib.la
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

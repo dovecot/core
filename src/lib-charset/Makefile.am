@@ -29,8 +29,7 @@ test_charset_SOURCES = test-charset.c
 test_charset_LDADD = libcharset.la $(test_libs)
 test_charset_DEPENDENCIES = libcharset.la $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

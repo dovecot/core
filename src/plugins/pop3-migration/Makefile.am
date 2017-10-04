@@ -35,8 +35,7 @@ test_pop3_migration_plugin_SOURCES = test-pop3-migration-plugin.c
 test_pop3_migration_plugin_LDADD = pop3-migration-plugin.lo $(test_libs)
 test_pop3_migration_plugin_DEPENDENCIES = $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

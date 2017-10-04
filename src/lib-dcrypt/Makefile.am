@@ -45,9 +45,7 @@ EXTRA_DIST = \
 test_programs = test-crypto test-stream
 noinst_PROGRAMS = $(test_programs)
 
-check: check-am check-test
-
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

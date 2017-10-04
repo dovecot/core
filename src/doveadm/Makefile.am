@@ -188,8 +188,7 @@ test_doveadm_util_SOURCES = doveadm-util.c test-doveadm-util.c
 test_doveadm_util_LDADD = $(test_libs) $(MODULE_LIBS)
 test_doveadm_util_DEPENDENCIES = $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

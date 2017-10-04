@@ -60,8 +60,7 @@ test_smtp_submit_LDFLAGS = -export-dynamic
 test_smtp_submit_LDADD = $(test_libs)
 test_smtp_submit_DEPENDENCIES = $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

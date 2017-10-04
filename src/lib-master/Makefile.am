@@ -64,8 +64,7 @@ test_master_service_settings_cache_SOURCES = test-master-service-settings-cache.
 test_master_service_settings_cache_LDADD = master-service-settings-cache.lo ../lib-settings/libsettings.la $(test_libs)
 test_master_service_settings_cache_DEPENDENCIES = $(test_deps) ../lib-settings/libsettings.la
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

@@ -399,8 +399,7 @@ test_headers = \
 test_lib_LDADD = $(test_libs)
 test_lib_DEPENDENCIES = $(test_libs)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

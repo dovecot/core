@@ -31,8 +31,7 @@ test_var_expand_crypt_LDADD = \
 	../../lib-dovecot/libdovecot.la \
 	lib20_auth_var_expand_crypt.la
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! env $(test_options) $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

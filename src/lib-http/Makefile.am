@@ -184,8 +184,7 @@ test_http_server_errors_LDADD = \
 test_http_server_errors_DEPENDENCIES = \
 	$(test_http_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

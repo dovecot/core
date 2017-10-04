@@ -108,8 +108,7 @@ noinst_HEADERS = \
 	mail-crypt-key.h \
 	fs-crypt-settings.h
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! env $(test_options) $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done

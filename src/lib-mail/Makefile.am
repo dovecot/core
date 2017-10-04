@@ -222,8 +222,7 @@ test_rfc822_parser_SOURCES = test-rfc822-parser.c
 test_rfc822_parser_LDADD = $(test_libs)
 test_rfc822_parser_DEPENDENCIES = $(test_deps)
 
-check: check-am check-test
-check-test: all-am
+check-local:
 	for bin in $(test_programs); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
