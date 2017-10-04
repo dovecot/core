@@ -125,7 +125,7 @@ src/lib-fts/PropList.txt
 src/lib-fts/WordBreakProperty.txt
 src/lib-fts/word-boundary-data.c
 src/lib-fts/word-break-data.c
-src/lib-dict/dict-drivers-register.c
+src/lib-dict-backend/dict-drivers-register.c
 src/lib-sql/sql-drivers-register.c
 src/log/log
 src/lmtp/lmtp

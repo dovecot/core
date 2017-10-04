@@ -16,7 +16,7 @@ dict_LDFLAGS = -export-dynamic \
 	$(BINARY_LDFLAGS)
 
 libs = \
-	../lib-dict/libdict_backend.la \
+	../lib-dict-backend/libdict_backend.la \
 	$(LIBDOVECOT_SQL)
 
 dict_LDADD = \

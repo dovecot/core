@@ -39,6 +39,7 @@ SUBDIRS = \
 	lib-ntlm \
 	lib-otp \
 	lib-lda \
+	lib-dict-backend \
 	anvil \
 	auth \
 	dict \

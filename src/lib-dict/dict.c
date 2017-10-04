@@ -4,7 +4,6 @@
 #include "array.h"
 #include "llist.h"
 #include "str.h"
-#include "dict-sql.h"
 #include "dict-private.h"
 
 static ARRAY(struct dict *) dict_drivers;

@@ -809,6 +809,7 @@ src/lib-charset/Makefile
 src/lib-compression/Makefile
 src/lib-dcrypt/Makefile
 src/lib-dict/Makefile
+src/lib-dict-backend/Makefile
 src/lib-dict-extra/Makefile
 src/lib-dns/Makefile
 src/lib-fs/Makefile
