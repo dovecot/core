@@ -48,7 +48,7 @@ static void quota_clone_flush_real(struct mailbox *box)
 	struct quota_root *root;
 	uint64_t bytes_value, count_value, limit;
 	const char *error;
-	int ret_bytes, ret_count;
+	enum quota_get_result ret_bytes, ret_count;
 
 	/* we'll clone the first quota root */
 	iter = quota_root_iter_init(box);
@@ -63,18 +63,19 @@ static void quota_clone_flush_real(struct mailbox *box)
 	/* get new values first */
 	ret_bytes = quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
 				       &bytes_value, &limit);
-	if (ret_bytes < 0) {
+	if (ret_bytes == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 		i_error("quota_clone_plugin: Failed to lookup current quota bytes");
 		return;
 	}
 	ret_count = quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
 				       &count_value, &limit);
-	if (ret_count < 0) {
+	if (ret_count == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 		i_error("quota_clone_plugin: Failed to lookup current quota count");
 		return;
 	}
-	if (ret_bytes == 0 && ret_count == 0) {
-		/* quota isn't enabled - no point in updating it */
+	if (ret_bytes == QUOTA_GET_RESULT_UNKNOWN_RESOURCE &&
+	    ret_count == QUOTA_GET_RESULT_UNKNOWN_RESOURCE) {
+		/* quota resources don't exist - no point in updating it */
 		return;
 	}
 
@@ -83,11 +84,13 @@ static void quota_clone_flush_real(struct mailbox *box)
 	   the special case of ret_count changing between 1 and 0. Note that
 	   ret_count==1 also when quota is unlimited. */
 	trans = dict_transaction_begin(quser->dict);
-	if (ret_bytes > 0) {
+	if (ret_bytes == QUOTA_GET_RESULT_LIMITED ||
+	    ret_bytes == QUOTA_GET_RESULT_UNLIMITED) {
 		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
 			 t_strdup_printf("%llu", (unsigned long long)bytes_value));
 	}
-	if (ret_count > 0) {
+	if (ret_count == QUOTA_GET_RESULT_LIMITED ||
+	    ret_count == QUOTA_GET_RESULT_UNLIMITED) {
 		dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
 			 t_strdup_printf("%llu", (unsigned long long)count_value));
 	}

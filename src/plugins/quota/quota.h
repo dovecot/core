@@ -49,6 +49,17 @@ enum quota_alloc_result {
 	QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT,
 };
 
+enum quota_get_result {
+	/* Quota limit exists and was returned successfully */
+	QUOTA_GET_RESULT_LIMITED,
+	/* Quota is unlimited, but its value was returned */
+	QUOTA_GET_RESULT_UNLIMITED,
+	/* Quota resource name doesn't exist */
+	QUOTA_GET_RESULT_UNKNOWN_RESOURCE,
+	/* Internal error */
+	QUOTA_GET_RESULT_INTERNAL_ERROR = -1,
+};
+
 const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 		struct quota_transaction_context *qt);
 
@@ -89,8 +100,9 @@ bool quota_root_is_hidden(struct quota_root *root);
 
 /* Returns 1 if values were successfully returned, 0 if resource name doesn't
    exist or isn't enabled, -1 if error. */
-int quota_get_resource(struct quota_root *root, const char *mailbox_name,
-		       const char *name, uint64_t *value_r, uint64_t *limit_r);
+enum quota_get_result
+quota_get_resource(struct quota_root *root, const char *mailbox_name,
+		   const char *name, uint64_t *value_r, uint64_t *limit_r);
 /* Returns 0 if OK, -1 if error (eg. permission denied, invalid name). */
 int quota_set_resource(struct quota_root *root, const char *name,
 		       uint64_t value, const char **error_r);

@@ -39,7 +39,7 @@ quota_reply_write(string_t *str, struct mail_user *user,
 	unsigned int i;
 	uint64_t value, limit;
 	size_t prefix_len, orig_len = str_len(str);
-	int ret = 0;
+	enum quota_get_result ret = QUOTA_GET_RESULT_UNLIMITED;
 
 	str_append(str, "* QUOTA ");
 	name = imap_quota_root_get_name(user, owner, root);
@@ -50,9 +50,9 @@ quota_reply_write(string_t *str, struct mail_user *user,
 	list = quota_root_get_resources(root);
 	for (i = 0; *list != NULL; list++) {
 		ret = quota_get_resource(root, "", *list, &value, &limit);
-		if (ret < 0)
+		if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR)
 			break;
-		if (ret > 0) {
+		if (ret == QUOTA_GET_RESULT_LIMITED) {
 			if (i > 0)
 				str_append_c(str, ' ');
 			str_printfa(str, "%s %llu %llu", *list,
@@ -67,7 +67,7 @@ quota_reply_write(string_t *str, struct mail_user *user,
 	} else {
 		str_append(str, ")\r\n");
 	}
-	return ret < 0 ? -1 : 0;
+	return ret == QUOTA_GET_RESULT_INTERNAL_ERROR ? -1 : 0;
 }
 
 static bool cmd_getquotaroot(struct client_command_context *cmd)

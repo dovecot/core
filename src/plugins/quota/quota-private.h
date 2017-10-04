@@ -65,6 +65,8 @@ struct quota_backend_vfuncs {
 				struct mail_namespace *ns);
 
 	const char *const *(*get_resources)(struct quota_root *root);
+	/* Returns 1 if value was returned, 0 if resource name doesn't exist,
+	   -1 if internal error. */
 	int (*get_resource)(struct quota_root *root,
 			    const char *name, uint64_t *value_r);
 

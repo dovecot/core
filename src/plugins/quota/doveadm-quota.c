@@ -16,21 +16,21 @@ static void cmd_quota_get_root(struct quota_root *root)
 {
 	const char *const *res;
 	uint64_t value, limit;
-	int ret;
+	enum quota_get_result ret;
 
 	res = quota_root_get_resources(root);
 	for (; *res != NULL; res++) {
 		ret = quota_get_resource(root, "", *res, &value, &limit);
 		doveadm_print(root->set->name);
 		doveadm_print(*res);
-		if (ret > 0) {
+		if (ret == QUOTA_GET_RESULT_LIMITED) {
 			doveadm_print_num(value);
 			doveadm_print_num(limit);
 			if (limit > 0)
 				doveadm_print_num(value*100 / limit);
 			else
 				doveadm_print("0");
-		} else if (ret == 0) {
+		} else if (ret == QUOTA_GET_RESULT_UNLIMITED) {
 			doveadm_print_num(value);
 			doveadm_print("-");
 			doveadm_print("0");
