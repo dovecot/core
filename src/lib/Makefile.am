@@ -29,8 +29,8 @@ liblib_la_SOURCES = \
 	env-util.c \
 	execv-const.c \
 	failures.c \
-	fd-close-on-exec.c \
 	fd-set-nonblock.c \
+	fd-util.c \
 	fdatasync-path.c \
 	fdpass.c \
 	file-cache.c \
@@ -182,7 +182,6 @@ headers = \
 	env-util.h \
 	execv-const.h \
 	failures.h \
-	fd-close-on-exec.h \
 	fd-set-nonblock.h \
 	fd-util.h \
 	fdatasync-path.h \
