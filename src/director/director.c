@@ -857,6 +857,14 @@ director_flush_user(struct director *dir, struct user *user)
 	program_client_run_async(ctx->pclient, director_flush_user_continue, ctx);
 }
 
+static void director_user_move_finished(struct director *dir)
+{
+	i_assert(dir->users_moving_count > 0);
+	dir->users_moving_count--;
+
+	director_set_state_changed(dir);
+}
+
 static void director_user_move_free(struct user *user)
 {
 	struct director *dir = user->kill_ctx->dir;
@@ -872,10 +880,7 @@ static void director_user_move_free(struct user *user)
 	i_free(kill_ctx);
 	user->kill_ctx = NULL;
 
-	i_assert(dir->users_moving_count > 0);
-	dir->users_moving_count--;
-
-	director_set_state_changed(dir);
+	director_user_move_finished(dir);
 }
 
 static void
@@ -971,6 +976,7 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	if (!DIRECTOR_KILL_CONTEXT_IS_VALID(user, ctx)) {
 		/* user was already freed - ignore */
 		i_assert(ctx->to_move == NULL);
+		director_user_move_finished(ctx->dir);
 		i_free(ctx);
 	} else {
 		i_assert(ctx->kill_state == USER_KILL_STATE_KILLING ||
