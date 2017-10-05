@@ -425,8 +425,8 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 	}
 }
 
-static bool
-db_ldap_check_limits(struct ldap_connection *conn, struct ldap_request *request)
+static void
+db_ldap_check_hanging(struct ldap_connection *conn, struct ldap_request *request)
 {
 	struct ldap_request *const *first_requestp;
 	unsigned int count;
@@ -434,7 +434,7 @@ db_ldap_check_limits(struct ldap_connection *conn, struct ldap_request *request)
 
 	count = aqueue_count(conn->request_queue);
 	if (count == 0)
-		return TRUE;
+		return;
 
 	first_requestp = array_idx(&conn->request_array,
 				   aqueue_idx(conn->request_queue, 0));
@@ -443,9 +443,7 @@ db_ldap_check_limits(struct ldap_connection *conn, struct ldap_request *request)
 		auth_request_log_error(request->auth_request, AUTH_SUBSYS_DB,
 			"Connection appears to be hanging, reconnecting");
 		ldap_conn_reconnect(conn);
-		return TRUE;
 	}
-	return TRUE;
 }
 
 void db_ldap_request(struct ldap_connection *conn,
@@ -456,10 +454,7 @@ void db_ldap_request(struct ldap_connection *conn,
 	request->msgid = -1;
 	request->create_time = ioloop_time;
 
-	if (!db_ldap_check_limits(conn, request)) {
-		request->callback(conn, request, NULL);
-		return;
-	}
+	db_ldap_check_hanging(conn, request);
 
 	aqueue_append(conn->request_queue, &request);
 	(void)db_ldap_request_queue_next(conn);
