@@ -322,9 +322,11 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 		if (mail_crypt_user_generate_keypair(user, &pair, &pubid,
 						     &error) < 0) {
 			res->success = FALSE;
-			res->id = p_strdup(_ctx->pool, error);
+			res->error = p_strdup(_ctx->pool, error);
 			return -1;
 		}
+		res->success = TRUE;
+		res->id = p_strdup(_ctx->pool, pubid);
 		user_key = pair.pub;
 		dcrypt_key_unref_private(&pair.priv);
 	}
@@ -412,6 +414,7 @@ static int cmd_mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 		if (res->success)
 			doveadm_print("\xE2\x9C\x93");
 		else {
+			_ctx->exit_code = EX_DATAERR;
 			ret = -1;
 			doveadm_print("x");
 		}
