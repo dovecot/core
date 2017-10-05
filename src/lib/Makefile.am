@@ -184,6 +184,7 @@ headers = \
 	failures.h \
 	fd-close-on-exec.h \
 	fd-set-nonblock.h \
+	fd-util.h \
 	fdatasync-path.h \
 	fdpass.h \
 	file-cache.h \

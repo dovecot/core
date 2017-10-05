@@ -32,6 +32,7 @@
 #include "mempool.h"
 #include "imem.h"
 #include "byteorder.h"
+#include "fd-util.h"
 
 typedef struct buffer buffer_t;
 typedef struct buffer string_t;
