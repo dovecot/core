@@ -43,6 +43,8 @@ const char *user_kill_state_names[USER_KILL_STATE_DELAY+1] = {
 static struct log_throttle *user_move_throttle;
 static struct log_throttle *user_kill_fail_throttle;
 
+static void director_hosts_purge_removed(struct director *dir);
+
 static const struct log_throttle_settings director_log_throttle_settings = {
 	.throttle_at_max_per_interval = 100,
 	.unthrottle_at_max_per_interval = 2,
@@ -354,6 +356,10 @@ void director_set_ring_synced(struct director *dir)
 		timeout_remove(&dir->to_sync);
 	dir->ring_synced = TRUE;
 	dir->ring_last_sync_time = ioloop_time;
+	/* If there are any director hosts still marked as "removed", we can
+	   safely remove those now. The entire director cluster knows about the
+	   removal now. */
+	director_hosts_purge_removed(dir);
 	mail_hosts_set_synced(dir->mail_hosts);
 	director_set_state_changed(dir);
 }
@@ -510,7 +516,8 @@ static void director_hosts_purge_removed(struct director *dir)
 	struct director_host *const *hosts, *host;
 	unsigned int i, count;
 
-	timeout_remove(&dir->to_remove_dirs);
+	if (dir->to_remove_dirs != NULL)
+		timeout_remove(&dir->to_remove_dirs);
 
 	hosts = array_get(&dir->dir_hosts, &count);
 	for (i = 0; i < count; ) {
