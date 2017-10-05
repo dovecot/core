@@ -911,13 +911,131 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 	return box;
 }
 
+static bool
+str_contains_special_use(const char *str, const char *special_use)
+{
+	const char *const *uses;
+
+	i_assert(special_use != NULL);
+	if (*special_use != '\\')
+		return FALSE;
+
+	uses = t_strsplit_spaces(str, " ");
+	return str_array_icase_find(uses, special_use);
+}
+
+static int
+namespace_find_special_use(struct mail_namespace *ns, const char *special_use,
+		           const char **vname_r, enum mail_error *error_code_r)
+{
+	struct mailbox_list *list = ns->list;
+	struct mailbox_list_iterate_context *ctx;
+	const struct mailbox_info *info;
+	int ret = 0;
+
+	*vname_r = NULL;
+	*error_code_r = MAIL_ERROR_NONE;
+
+	if (!ns->special_use_mailboxes)
+		return 0;
+	if (!HAS_ALL_BITS(ns->type, MAIL_NAMESPACE_TYPE_PRIVATE))
+		return 0;
+
+	ctx = mailbox_list_iter_init(list, "*",
+		MAILBOX_LIST_ITER_SELECT_SPECIALUSE |
+		MAILBOX_LIST_ITER_RETURN_SPECIALUSE);
+	while ((info = mailbox_list_iter_next(ctx)) != NULL) {
+		if ((info->flags &
+		     (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
+			continue;
+		/* iter can only return mailboxes that have non-empty
+		   special-use */
+		i_assert(info->special_use != NULL &&
+			 *info->special_use != '\0');
+
+		if (str_contains_special_use(info->special_use, special_use)) {
+			*vname_r = t_strdup(info->vname);
+			ret = 1;
+			break;
+		}
+	}
+	if (mailbox_list_iter_deinit(&ctx) < 0) {
+		const char *error;
+
+		error = mailbox_list_get_last_error(ns->list, error_code_r);
+		e_error(ns->user->event,
+			"Failed to find mailbox with SPECIAL-USE flag '%s' "
+			"in namespace '%s': %s",
+			special_use, ns->prefix, error);
+		return -1;
+	}
+	return ret;
+}
+
+static int
+namespaces_find_special_use(struct mail_namespace *namespaces,
+			    const char *special_use,
+			    struct mail_namespace **ns_r,
+			    const char **vname_r, enum mail_error *error_code_r)
+{
+	struct mail_namespace *ns_inbox;
+	int ret;
+
+	*error_code_r = MAIL_ERROR_NONE;
+	*vname_r = NULL;
+
+	/* check user's INBOX namespace first */
+	*ns_r = ns_inbox = mail_namespace_find_inbox(namespaces);
+	ret = namespace_find_special_use(*ns_r, special_use,
+					 vname_r, error_code_r);
+	if (ret != 0)
+		return ret;
+
+	/* check other namespaces */
+	for (*ns_r = namespaces; *ns_r != NULL; *ns_r = (*ns_r)->next) {
+		if (*ns_r == ns_inbox) {
+			/* already checked */
+			continue;
+		}
+		ret = namespace_find_special_use(*ns_r, special_use,
+						 vname_r, error_code_r);
+		if (ret != 0)
+			return ret;
+	}
+
+	*ns_r = ns_inbox;
+	return 0;
+}
+
 struct mailbox *
-mailbox_alloc_for_user(struct mail_user *user, const char *vname,
+mailbox_alloc_for_user(struct mail_user *user, const char *mname,
 		       enum mailbox_flags flags)
 {
 	struct mail_namespace *ns;
+	struct mailbox *box;
+	const char *vname;
+	enum mail_error open_error = MAIL_ERROR_NONE;
+	int ret;
 
-	ns = mail_namespace_find(user->namespaces, vname);
+	if (HAS_ALL_BITS(flags, MAILBOX_FLAG_SPECIAL_USE)) {
+		ret = namespaces_find_special_use(user->namespaces, mname,
+						  &ns, &vname, &open_error);
+		if (ret < 0) {
+			i_assert(open_error != MAIL_ERROR_NONE);
+			vname = t_strdup_printf(
+				"(error finding mailbox with SPECIAL-USE=%s)",
+				mname);
+		} else if (ret == 0) {
+			i_assert(open_error == MAIL_ERROR_NONE);
+			vname = t_strdup_printf(
+				"(nonexistent mailbox with SPECIAL-USE=%s)",
+				mname);
+			open_error = MAIL_ERROR_NOTFOUND;
+		}
+	} else {
+		vname = mname;
+		ns = mail_namespace_find(user->namespaces, mname);
+	}
 
 	if (HAS_ALL_BITS(flags, MAILBOX_FLAG_POST_SESSION)) {
 		flags |= MAILBOX_FLAG_SAVEONLY;
@@ -937,7 +1055,11 @@ mailbox_alloc_for_user(struct mail_user *user, const char *vname,
 		}
 	}
 
-	return mailbox_alloc(ns->list, vname, flags);
+	i_assert(ns != NULL);
+	box = mailbox_alloc(ns->list, vname, flags);
+	if (open_error != MAIL_ERROR_NONE)
+		box->open_error = open_error;
+	return box;
 }
 
 void mailbox_set_reason(struct mailbox *box, const char *reason)

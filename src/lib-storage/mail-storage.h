@@ -73,6 +73,9 @@ enum mailbox_flags {
 	   useful in fixing index corruption errors that aren't otherwise
 	   detected and that are causing the full mailbox opening to fail. */
 	MAILBOX_FLAG_FSCK		= 0x4000,
+	/* Interpret name argument for mailbox_alloc_for_user() as a SPECIAL-USE
+	   flag. */
+	MAILBOX_FLAG_SPECIAL_USE	= 0x8000,
 };
 
 enum mailbox_feature {
@@ -523,9 +526,11 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 				   const guid_128_t guid,
 				   enum mailbox_flags flags);
 /* Initialize mailbox for a particular user without actually opening any files
-   or verifying that it exists. */
+   or verifying that it exists. The mname parameter is normally equal to the
+   mailbox vname, except when the MAILBOX_FLAG_SPECIAL_USE flag is set, in which
+   case it is the special-use flag. */
 struct mailbox *
-mailbox_alloc_for_user(struct mail_user *user, const char *vname,
+mailbox_alloc_for_user(struct mail_user *user, const char *mname,
 		       enum mailbox_flags flags);
 
 /* Set a human-readable reason for why this mailbox is being accessed.
