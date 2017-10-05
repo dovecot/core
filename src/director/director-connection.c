@@ -98,6 +98,7 @@
 #define DIRECTOR_OPT_CONSISTENT_HASHING "consistent-hashing"
 
 struct director_connection {
+	int refcount;
 	struct director *dir;
 	char *name;
 	struct timeval created, connected_time, me_received_time;
@@ -136,6 +137,7 @@ struct director_connection {
 	unsigned int users_unsorted:1;
 };
 
+static bool director_connection_unref(struct director_connection *conn);
 static void director_finish_sending_handshake(struct director_connection *conn);
 static void director_connection_disconnected(struct director_connection **conn,
 					     const char *reason);
@@ -1870,6 +1872,7 @@ static void director_connection_input(struct director_connection *conn)
 		return;
 	}
 	conn->last_input = ioloop_timeval;
+	conn->refcount++;
 
 	director_sync_freeze(dir);
 	prev_offset = conn->input->v_offset;
@@ -1882,14 +1885,18 @@ static void director_connection_input(struct director_connection *conn)
 		} T_END;
 
 		if (!ret) {
+			if (!director_connection_unref(conn))
+				break;
 			director_connection_reconnect(&conn, t_strdup_printf(
 				"Invalid input: %s", line));
 			break;
 		}
 	}
 	director_sync_thaw(dir);
-	if (conn != NULL)
-		timeout_reset(conn->to_ping);
+	if (conn != NULL) {
+		if (director_connection_unref(conn))
+			timeout_reset(conn->to_ping);
+	}
 }
 
 static void director_connection_send_directors(struct director_connection *conn)
@@ -2033,6 +2040,7 @@ director_connection_init_common(struct director *dir, int fd)
 	struct director_connection *conn;
 
 	conn = i_new(struct director_connection, 1);
+	conn->refcount = 1;
 	conn->created = ioloop_timeval;
 	conn->fd = fd;
 	conn->dir = dir;
@@ -2153,6 +2161,8 @@ void director_connection_deinit(struct director_connection **_conn,
 
 	*_conn = NULL;
 
+	i_assert(conn->fd != -1);
+
 	if (conn->host != NULL) {
 		dir_debug("Disconnecting from %s: %s",
 			  conn->host->name, remote_reason);
@@ -2179,11 +2189,11 @@ void director_connection_deinit(struct director_connection **_conn,
 	}
 	if (dir->right == conn)
 		dir->right = NULL;
-	if (conn->host != NULL)
-		director_host_unref(conn->host);
 
-	if (conn->connect_request_to != NULL)
+	if (conn->connect_request_to != NULL) {
 		director_host_unref(conn->connect_request_to);
+		conn->connect_request_to = NULL;
+	}
 	if (conn->user_iter != NULL)
 		director_iterate_users_deinit(&conn->user_iter);
 	if (conn->to_disconnect != NULL)
@@ -2193,21 +2203,34 @@ void director_connection_deinit(struct director_connection **_conn,
 	timeout_remove(&conn->to_ping);
 	if (conn->io != NULL)
 		io_remove(&conn->io);
-	i_stream_unref(&conn->input);
-	o_stream_unref(&conn->output);
-	if (close(conn->fd) < 0)
-		i_error("close(director connection) failed: %m");
+	i_stream_close(conn->input);
+	o_stream_close(conn->output);
+	i_close_fd(&conn->fd);
 
 	if (conn->in)
 		master_service_client_connection_destroyed(master_service);
-	i_free(conn->name);
-	i_free(conn);
+	director_connection_unref(conn);
 
 	if (dir->left == NULL || dir->right == NULL) {
 		/* we aren't synced until we're again connected to a ring */
 		dir->sync_seq++;
 		director_set_ring_unsynced(dir);
 	}
+}
+
+static bool director_connection_unref(struct director_connection *conn)
+{
+	i_assert(conn->refcount > 0);
+	if (--conn->refcount > 0)
+		return TRUE;
+
+	if (conn->host != NULL)
+		director_host_unref(conn->host);
+	i_stream_unref(&conn->input);
+	o_stream_unref(&conn->output);
+	i_free(conn->name);
+	i_free(conn);
+	return FALSE;
 }
 
 static void director_connection_disconnected(struct director_connection **_conn,
