@@ -527,19 +527,22 @@ void director_ring_remove(struct director_host *removed_host,
 	i_info("Removing director %s from ring (requested by %s)",
 	       removed_host->name, src->name);
 
-	if (removed_host->self) {
+	if (removed_host->self && !src->self) {
 		/* others will just disconnect us */
 		return;
 	}
 
-	/* mark the host as removed and fully remove it later. this delay is
-	   needed, because the removal may trigger director reconnections,
-	   which may send the director back and we don't want to re-add it */
-	removed_host->removed = TRUE;
-	if (dir->to_remove_dirs == NULL) {
-		dir->to_remove_dirs =
-			timeout_add(DIRECTOR_DELAYED_DIR_REMOVE_MSECS,
-				    director_delayed_dir_remove_timeout, dir);
+	if (!removed_host->self) {
+		/* mark the host as removed and fully remove it later. this
+		   delay is needed, because the removal may trigger director
+		   reconnections, which may send the director back and we don't
+		   want to re-add it */
+		removed_host->removed = TRUE;
+		if (dir->to_remove_dirs == NULL) {
+			dir->to_remove_dirs =
+				timeout_add(DIRECTOR_DELAYED_DIR_REMOVE_MSECS,
+					    director_delayed_dir_remove_timeout, dir);
+		}
 	}
 
 	/* if our left or ride side gets removed, notify them first
@@ -554,7 +557,8 @@ void director_ring_remove(struct director_host *removed_host,
 	conns = array_get(&dir->connections, &count);
 	for (i = 0; i < count; ) {
 		conn = conns[i];
-		if (director_connection_get_host(conn) != removed_host)
+		if (director_connection_get_host(conn) != removed_host ||
+		    removed_host->self)
 			i++;
 		else {
 			director_connection_deinit(&conn, "Removing from ring");
