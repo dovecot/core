@@ -28,7 +28,7 @@ enum memcached_response {
 	MEMCACHED_RESPONSE_NOTFOUND	= 0x0001,
 	MEMCACHED_RESPONSE_INTERNALERROR= 0x0084,
 	MEMCACHED_RESPONSE_BUSY		= 0x0085,
-	MEMCACHED_RESPONSE_TEMPFAILURE	= 0x0086
+	MEMCACHED_RESPONSE_TEMPFAILURE	= 0x0086,
 };
 
 struct memcached_connection {
@@ -39,7 +39,7 @@ struct memcached_connection {
 	struct {
 		const unsigned char *value;
 		size_t value_len;
-		enum memcached_response status;
+		uint16_t status; /* enum memcached_response */
 		bool reply_received;
 	} reply;
 };
