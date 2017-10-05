@@ -285,11 +285,13 @@ doveadm_cmd_director_remove(struct doveadm_connection *conn,
 	host = port != 0 ?
 		director_host_lookup(conn->dir, &ip, port) :
 		director_host_lookup_ip(conn->dir, &ip);
-	if (host == NULL)
+	if (host == NULL) {
 		o_stream_nsend_str(conn->output, "NOTFOUND\n");
-	else
+		return DOVEADM_DIRECTOR_CMD_RET_OK;
+	} else {
 		director_ring_remove(host, conn->dir->self_host);
-	return DOVEADM_DIRECTOR_CMD_RET_RING_SYNC_OK;
+		return DOVEADM_DIRECTOR_CMD_RET_RING_SYNC_OK;
+	}
 }
 
 static enum doveadm_director_cmd_ret
