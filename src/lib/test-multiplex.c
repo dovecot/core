@@ -3,6 +3,7 @@
 #include "test-lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "fd-set-nonblock.h"
 #include "istream.h"
 #include "istream-multiplex.h"
 #include "ostream.h"
@@ -83,6 +84,8 @@ static void setup_channel(struct test_channel *channel,
 	channel->io = io_add_istream(is, test_istream_multiplex_stream_read,
 				     channel);
 	test_assert(pipe(channel->fds) == 0);
+	fd_set_nonblock(channel->fds[0], TRUE);
+	fd_set_nonblock(channel->fds[1], TRUE);
 	channel->in_alt = i_stream_create_fd(channel->fds[0], (size_t)-1, FALSE);
 	channel->out_alt = o_stream_create_fd(channel->fds[1], IO_BLOCK_SIZE, FALSE);
 	channel->io_alt = io_add_istream(channel->in_alt, test_istream_read_alt,
@@ -119,6 +122,8 @@ static void test_multiplex_stream(void) {
 
 	int fds[2];
 	test_assert(pipe(fds) == 0);
+	fd_set_nonblock(fds[0], TRUE);
+	fd_set_nonblock(fds[1], TRUE);
 	struct ostream *os = o_stream_create_fd(fds[1], (size_t)-1, FALSE);
 	struct istream *is = i_stream_create_fd(fds[0], (size_t)-1, FALSE);
 
