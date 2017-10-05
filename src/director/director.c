@@ -276,7 +276,7 @@ void director_connect(struct director *dir, const char *reason)
 	dir->ring_min_version = DIRECTOR_VERSION_MINOR;
 	if (!dir->ring_handshaked)
 		director_set_ring_handshaked(dir);
-	else
+	else if (!dir->ring_synced)
 		director_set_ring_synced(dir);
 }
 
