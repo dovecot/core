@@ -94,8 +94,11 @@ i_stream_multiplex_read(struct multiplex_istream *mstream, uint8_t cid)
 	for(;;) {
 		data = i_stream_get_data(mstream->parent, &len);
 		if (len == 0) {
-			if (got == 0 && mstream->blocking)
-				got += i_stream_multiplex_read(mstream, cid);
+			if (got == 0 && mstream->blocking) {
+				/* can't return 0 with blocking istreams,
+				   so try again from the beginning. */
+				return i_stream_multiplex_read(mstream, cid);
+			}
 			break;
 		}
 
