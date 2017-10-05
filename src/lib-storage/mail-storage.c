@@ -1667,6 +1667,13 @@ bool mailbox_is_any_inbox(struct mailbox *box)
 	return box->inbox_any;
 }
 
+bool mailbox_has_special_use(struct mailbox *box, const char *special_use)
+{
+	if (box->set == NULL)
+		return FALSE;
+	return str_contains_special_use(box->set->special_use, special_use);
+}
+
 static void mailbox_copy_cache_decisions_from_inbox(struct mailbox *box)
 {
 	struct mail_namespace *ns =

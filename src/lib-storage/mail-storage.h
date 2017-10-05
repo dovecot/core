@@ -558,6 +558,9 @@ bool mailbox_equals(const struct mailbox *box1,
 /* Returns TRUE if the mailbox is user's INBOX or another user's shared INBOX */
 bool mailbox_is_any_inbox(struct mailbox *box);
 
+/* Returns TRUE if the mailbox has the specified special use flag assigned. */
+bool mailbox_has_special_use(struct mailbox *box, const char *special_use);
+
 /* Change mailbox_verify_create_name() to not verify new mailbox name
    restrictions (but still check that it's a valid existing name). This is
    mainly used by dsync to make sure the sync works even though the original
