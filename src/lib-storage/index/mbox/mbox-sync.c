@@ -673,8 +673,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 		if (ret > 0) {
 			/* rewrite successful, write From-line to
 			   new location */
-			i_assert(move_diff > 0 ||
-				 (off_t)mail_ctx->mail.from_offset >=
+			i_assert((off_t)mail_ctx->mail.from_offset >=
 				 -move_diff);
 			mail_ctx->mail.from_offset += move_diff;
 			mail_ctx->mail.offset += move_diff;
