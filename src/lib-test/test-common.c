@@ -174,16 +174,15 @@ test_error_handler(const struct failure_context *ctx,
 }
 
 static void ATTR_FORMAT(2, 0) ATTR_NORETURN
-test_fatal_handler(const struct failure_context *ctx,
-		   const char *format, va_list args)
+test_fatal_handler(const struct failure_context *ctx ATTR_UNUSED,
+		   const char *format ATTR_UNUSED, va_list args ATTR_UNUSED)
 {
 	/* Prevent recursion, we can't handle our own errors */
 	i_set_fatal_handler(default_fatal_handler);
 	i_assert(expecting_fatal); /* if not at the right time, bail */
 	i_set_fatal_handler(test_fatal_handler);
 	longjmp(fatal_jmpbuf, 1);
-	/* we simply can't get here - will the compiler complain? */
-	default_fatal_handler(ctx, format, args);
+	i_unreached(); /* we simply can't get here */
 }
 
 static void test_init(void)
