@@ -2,6 +2,7 @@
 
 #include "test-lib.h"
 #include "ioloop.h"
+#include "fd-set-nonblock.h"
 #include "str.h"
 #include "crc32.h"
 #include "randgen.h"
@@ -284,6 +285,8 @@ static void test_istream_multiplex_stream(void)
 
 	int fds[2];
 	test_assert(pipe(fds) == 0);
+	fd_set_nonblock(fds[0], TRUE);
+	fd_set_nonblock(fds[1], TRUE);
 	struct ostream *os = o_stream_create_fd(fds[1], (size_t)-1, FALSE);
 	struct istream *is = i_stream_create_fd(fds[0], 10 + rand() % 10, FALSE);
 
