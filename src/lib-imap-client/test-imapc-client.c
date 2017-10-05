@@ -4,7 +4,6 @@
 #include "array.h"
 #include "hostpid.h"
 #include "net.h"
-#include "fd-set-nonblock.h"
 #include "istream.h"
 #include "ostream.h"
 #include "ioloop.h"

@@ -2,8 +2,6 @@
 
 #include "common.h"
 #include "ioloop.h"
-#include "fd-close-on-exec.h"
-#include "fd-set-nonblock.h"
 #include "fdpass.h"
 #include "service.h"
 #include "service-process.h"

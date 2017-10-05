@@ -4,7 +4,6 @@
 #include "ioloop.h"
 #include "ostream.h"
 #include "fdpass.h"
-#include "fd-close-on-exec.h"
 #include "llist.h"
 #include "str.h"
 #include "strescape.h"

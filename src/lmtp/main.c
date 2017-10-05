@@ -6,7 +6,6 @@
 #include "hostpid.h"
 #include "path-util.h"
 #include "restrict-access.h"
-#include "fd-close-on-exec.h"
 #include "anvil-client.h"
 #include "master-service.h"
 #include "master-service-settings.h"

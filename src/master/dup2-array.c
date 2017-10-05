@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "fd-close-on-exec.h"
 #include "dup2-array.h"
 
 #include <unistd.h>

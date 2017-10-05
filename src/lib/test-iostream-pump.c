@@ -7,7 +7,6 @@
 #include "str.h"
 #include "ioloop.h"
 #include "iostream-pump.h"
-#include "fd-set-nonblock.h"
 #include "istream-failure-at.h"
 #include "ostream-failure-at.h"
 

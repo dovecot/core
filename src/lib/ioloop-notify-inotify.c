@@ -5,8 +5,6 @@
 
 #ifdef IOLOOP_NOTIFY_INOTIFY
 
-#include "fd-close-on-exec.h"
-#include "fd-set-nonblock.h"
 #include "ioloop-private.h"
 #include "ioloop-notify-fd.h"
 #include "buffer.h"

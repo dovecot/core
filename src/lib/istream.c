@@ -4,7 +4,6 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
-#include "fd-set-nonblock.h"
 #include "istream-private.h"
 
 static bool i_stream_is_buffer_invalid(const struct istream_private *stream);

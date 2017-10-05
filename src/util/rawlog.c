@@ -3,7 +3,6 @@
 #include "lib.h"
 
 #include "ioloop.h"
-#include "fd-set-nonblock.h"
 #include "net.h"
 #include "str.h"
 #include "write-full.h"

@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "net.h"
-#include "fd-close-on-exec.h"
 
 #include <unistd.h>
 #include <fcntl.h>

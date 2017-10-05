@@ -14,7 +14,6 @@
 #include "llist.h"
 #include "hostpid.h"
 #include "env-util.h"
-#include "fd-close-on-exec.h"
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "eacces-error.h"

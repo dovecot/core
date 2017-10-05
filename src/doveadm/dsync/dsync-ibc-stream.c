@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "fd-set-nonblock.h"
 #include "safe-mkstemp.h"
 #include "ioloop.h"
 #include "istream.h"

@@ -5,7 +5,6 @@
 #include "array.h"
 #include "env-util.h"
 #include "hostpid.h"
-#include "fd-close-on-exec.h"
 #include "ipwd.h"
 #include "process-title.h"
 #include "var-expand-private.h"

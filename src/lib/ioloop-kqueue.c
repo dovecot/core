@@ -9,7 +9,6 @@
 #ifdef IOLOOP_KQUEUE
 
 #include "array.h"
-#include "fd-close-on-exec.h"
 #include "ioloop-private.h"
 
 #include <unistd.h>

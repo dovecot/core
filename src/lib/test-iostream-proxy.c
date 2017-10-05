@@ -6,7 +6,6 @@
 #include "buffer.h"
 #include "ioloop.h"
 #include "iostream-proxy.h"
-#include "fd-set-nonblock.h"
 
 #include <unistd.h>
 #include <sys/types.h>

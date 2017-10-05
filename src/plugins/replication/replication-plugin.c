@@ -4,7 +4,6 @@
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
-#include "fd-set-nonblock.h"
 #include "ioloop.h"
 #include "net.h"
 #include "write-full.h"

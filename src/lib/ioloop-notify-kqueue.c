@@ -11,7 +11,6 @@
 
 #include "ioloop-private.h"
 #include "llist.h"
-#include "fd-close-on-exec.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>

@@ -5,8 +5,6 @@
 #include "aqueue.h"
 #include "hash.h"
 #include "ioloop.h"
-#include "fd-close-on-exec.h"
-#include "fd-set-nonblock.h"
 #include "service.h"
 #include "service-process.h"
 #include "service-process-notify.h"

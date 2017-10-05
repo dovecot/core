@@ -1,7 +1,6 @@
 /* Copyright (c) 1999-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "fd-set-nonblock.h"
 
 #include <fcntl.h>
 

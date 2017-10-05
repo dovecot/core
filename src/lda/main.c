@@ -4,7 +4,6 @@
 #include "lib-signals.h"
 #include "ioloop.h"
 #include "env-util.h"
-#include "fd-set-nonblock.h"
 #include "istream.h"
 #include "istream-seekable.h"
 #include "path-util.h"

@@ -2,7 +2,6 @@
 
 #include "test-lib.h"
 #include "net.h"
-#include "fd-set-nonblock.h"
 #include "fdpass.h"
 #include "istream.h"
 #include "istream-unix.h"

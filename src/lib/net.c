@@ -2,7 +2,6 @@
 
 #define _GNU_SOURCE /* For Linux's struct ucred */
 #include "lib.h"
-#include "fd-set-nonblock.h"
 #include "time-util.h"
 #include "net.h"
 

@@ -3,7 +3,6 @@
 #include "test-lib.h"
 #include "ioloop.h"
 #include "str.h"
-#include "fd-set-nonblock.h"
 #include "istream.h"
 #include "istream-multiplex.h"
 #include "ostream.h"

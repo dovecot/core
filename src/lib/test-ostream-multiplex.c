@@ -2,7 +2,6 @@
 
 #include "test-lib.h"
 #include "ioloop.h"
-#include "fd-set-nonblock.h"
 #include "str.h"
 #include "istream.h"
 #include "ostream-private.h"

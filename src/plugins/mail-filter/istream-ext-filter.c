@@ -5,7 +5,6 @@
 #include "strescape.h"
 #include "net.h"
 #include "eacces-error.h"
-#include "fd-set-nonblock.h"
 #include "ostream.h"
 #include "istream-private.h"
 #include "istream-ext-filter.h"

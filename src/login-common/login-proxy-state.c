@@ -5,7 +5,6 @@
 #include "ioloop.h"
 #include "hash.h"
 #include "strescape.h"
-#include "fd-set-nonblock.h"
 #include "login-proxy-state.h"
 
 #include <unistd.h>

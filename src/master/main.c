@@ -3,7 +3,6 @@
 #include "common.h"
 #include "ioloop.h"
 #include "lib-signals.h"
-#include "fd-close-on-exec.h"
 #include "array.h"
 #include "write-full.h"
 #include "env-util.h"

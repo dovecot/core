@@ -10,7 +10,6 @@
 #include "process-title.h"
 #include "randgen.h"
 #include "restrict-access.h"
-#include "fd-close-on-exec.h"
 #include "write-full.h"
 #include "settings-parser.h"
 #include "master-interface.h"

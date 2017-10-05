@@ -4,7 +4,6 @@
 #include "lib-signals.h"
 #include "array.h"
 #include "execv-const.h"
-#include "fd-set-nonblock.h"
 #include "child-wait.h"
 #include "istream.h"
 #include "ostream.h"

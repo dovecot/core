@@ -3,7 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
-#include "fd-set-nonblock.h"
 #include "fdpass.h"
 #include "hostpid.h"
 #include "connection.h"

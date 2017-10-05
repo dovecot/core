@@ -17,8 +17,6 @@
 
 #ifndef HAVE_LINUX_MREMAP
 
-#include "fd-close-on-exec.h"
-
 #include <sys/mman.h>
 
 #define MMAP_SIGNATURE 0xdeadbeef

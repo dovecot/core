@@ -3,8 +3,6 @@
 #include "lib.h"
 #include "array.h"
 #include "ioloop.h"
-#include "fd-close-on-exec.h"
-#include "fd-set-nonblock.h"
 #include "write-full.h"
 #include "lib-signals.h"
 

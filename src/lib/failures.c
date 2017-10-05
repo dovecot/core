@@ -5,13 +5,11 @@
 #include "str.h"
 #include "hostpid.h"
 #include "net.h"
-#include "fd-set-nonblock.h"
 #include "process-title.h"
 #include "lib-signals.h"
 #include "backtrace-string.h"
 #include "printf-format-fix.h"
 #include "write-full.h"
-#include "fd-close-on-exec.h"
 
 #include <unistd.h>
 #include <fcntl.h>

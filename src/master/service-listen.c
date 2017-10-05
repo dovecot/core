@@ -2,8 +2,6 @@
 
 #include "common.h"
 #include "array.h"
-#include "fd-set-nonblock.h"
-#include "fd-close-on-exec.h"
 #include "ioloop.h"
 #include "net.h"
 #ifdef HAVE_SYSTEMD
