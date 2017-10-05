@@ -19,6 +19,10 @@
 #include "doveadm-print.h"
 #include "hex-binary.h"
 
+#define DOVEADM_MCP_SUCCESS "\xE2\x9C\x93" /* emits a utf-8 CHECK MARK (U+2713) */
+#define DOVEADM_MCP_FAIL "x"
+#define DOVEADM_MCP_USERKEY "<userkey>"
+
 struct generated_key {
 	const char *name;
 	const char *id;
@@ -35,6 +39,8 @@ struct mcp_cmd_context {
 
 	const char *old_password;
 	const char *new_password;
+
+	unsigned int matched_keys;
 
 	bool userkey_only:1;
 	bool recrypt_box_keys:1;
@@ -307,7 +313,7 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 			res->success = FALSE;
 		} else {
 			res = array_append_space(result);
-			res->name = "";
+			res->name = DOVEADM_MCP_USERKEY;
 			res->id = p_strdup(_ctx->pool, pubid);
 			res->success = TRUE;
 			/* don't do it again later on */
@@ -317,6 +323,7 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 			dcrypt_key_unref_private(&pair.priv);
 		}
 		if (ret < 0) return ret;
+		ctx->matched_keys++;
 	}
 
 	if (ret == 1 && ctx->force &&
@@ -325,7 +332,7 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 		dcrypt_key_unref_public(&user_key);
 		/* regen user key */
 		res = array_append_space(result);
-		res->name = "";
+		res->name = DOVEADM_MCP_USERKEY;
 		if (mail_crypt_user_generate_keypair(user, &pair, &pubid,
 						     &error) < 0) {
 			res->success = FALSE;
@@ -336,6 +343,7 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 		res->id = p_strdup(_ctx->pool, pubid);
 		user_key = pair.pub;
 		dcrypt_key_unref_private(&pair.priv);
+		ctx->matched_keys++;
 	}
 
 	if (ctx->userkey_only)
@@ -389,6 +397,7 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 				mcp_update_shared_keys(box, user, pubid, pair.priv);
 			} T_END;
 			dcrypt_keypair_unref(&pair);
+			ctx->matched_keys++;
 		}
 		mailbox_free(&box);
 	}
@@ -402,6 +411,9 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 static int cmd_mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 					struct mail_user *user)
 {
+	struct mcp_cmd_context *ctx =
+		(struct mcp_cmd_context *)_ctx;
+
 	int ret = 0;
 
 	ARRAY_TYPE(generated_keys) result;
@@ -419,11 +431,11 @@ static int cmd_mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 
 	array_foreach(&result, res) {
 		if (res->success)
-			doveadm_print("\xE2\x9C\x93");
+			doveadm_print(DOVEADM_MCP_SUCCESS);
 		else {
 			_ctx->exit_code = EX_DATAERR;
 			ret = -1;
-			doveadm_print("x");
+			doveadm_print(DOVEADM_MCP_FAIL);
 		}
 		doveadm_print(res->name);
 		if (!res->success)
@@ -432,6 +444,9 @@ static int cmd_mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 			doveadm_print(res->id);
 	}
 
+	if (ctx->matched_keys == 0)
+		i_warning("mailbox cryptokey generate: Nothing was matched. "
+			  "Use -U or specify mask?");
 	return ret;
 }
 
@@ -492,6 +507,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 			key.name = "";
 			key.box = box;
 			callback(&key, context);
+			ctx->matched_keys++;
 		}
 
 		if (mailbox_attribute_iter_deinit(&iter) < 0)
@@ -566,6 +582,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 					key.active = FALSE;
 				key.box = box;
 				callback(&key, context);
+				ctx->matched_keys++;
 			}
 		}
 
@@ -608,6 +625,11 @@ static int cmd_mcp_key_list_run(struct doveadm_mail_cmd_context *_ctx,
 		doveadm_print(key->active ? "yes" : "no");
 		doveadm_print(key->id);
 	}
+
+	if (ctx->matched_keys == 0)
+		i_warning("mailbox cryptokey list: Nothing was matched. "
+			  "Use -U or specify mask?");
+
 	return 0;
 }
 
