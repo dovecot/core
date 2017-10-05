@@ -290,7 +290,8 @@ void i_panic(const char *format, ...)
 
 	va_start(args, format);
 	fatal_handler(&ctx, format, args);
-	va_end(args);
+	i_unreached();
+	/*va_end(args);*/
 }
 
 void i_fatal(const char *format, ...)
@@ -304,7 +305,8 @@ void i_fatal(const char *format, ...)
 
 	va_start(args, format);
 	fatal_handler(&ctx, format, args);
-	va_end(args);
+	i_unreached();
+	/*va_end(args);*/
 }
 
 void i_fatal_status(int status, const char *format, ...)
@@ -318,7 +320,8 @@ void i_fatal_status(int status, const char *format, ...)
 
 	va_start(args, format);
 	fatal_handler(&ctx, format, args);
-	va_end(args);
+	i_unreached();
+	/*va_end(args);*/
 }
 
 void i_error(const char *format, ...)

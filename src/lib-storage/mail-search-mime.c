@@ -307,10 +307,8 @@ bool mail_search_mime_arg_one_equals(const struct mail_search_mime_arg *arg1,
 	case SEARCH_MIME_DEPTH_MAX:
 	case SEARCH_MIME_INDEX:
 		return arg1->value.number == arg2->value.number;
-		break;
 	}
 	i_unreached();
-	return FALSE;
 }
 
 bool mail_search_mime_arg_equals(const struct mail_search_mime_arg *arg1,

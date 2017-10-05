@@ -306,7 +306,7 @@ enum fatal_test_state fatal_array(unsigned int stage)
 		/* allocation big enough, but memory not initialised */
 		useless_ptr = array_idx(&ad, 0);
 		return FATAL_TEST_FAILURE;
-	} break;
+	}
 
 	case 1: {
 		ARRAY(double) ad;
@@ -315,7 +315,7 @@ enum fatal_test_state fatal_array(unsigned int stage)
 		/* actual out of range address requested */
 		useless_ptr = array_idx(&ad, 2);
 		return FATAL_TEST_FAILURE;
-	} break;
+	}
 
 	case 2: {
 		ARRAY(double) ad;
@@ -325,7 +325,7 @@ enum fatal_test_state fatal_array(unsigned int stage)
 		array_append(&as, tmps, 2);
 		array_copy(&ad.arr, 1, &as.arr, 0, 4);
 		return FATAL_TEST_FAILURE;
-	} break;
+	}
 	}
 	test_end();
 	/* Forces the compiler to check the value of useless_ptr, so that it

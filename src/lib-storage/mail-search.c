@@ -665,7 +665,6 @@ bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 
 	}
 	i_unreached();
-	return FALSE;
 }
 
 bool mail_search_arg_equals(const struct mail_search_arg *arg1,

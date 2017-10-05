@@ -97,7 +97,6 @@ int http_client_peer_addr_cmp
 		return null_strcmp(peer1->a.un.path, peer2->a.un.path);
 	}
 	i_unreached();
-	return 0;
 }
 
 /*

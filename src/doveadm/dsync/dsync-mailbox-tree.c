@@ -522,5 +522,5 @@ dsync_mailbox_delete_type_to_string(enum dsync_mailbox_delete_type type)
 	case DSYNC_MAILBOX_DELETE_TYPE_UNSUBSCRIBE:
 		return "unsubscribe";
 	}
-	return t_strdup_printf("unknown #%u", type);
+	i_unreached();
 }

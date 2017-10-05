@@ -475,7 +475,6 @@ imapc_list_get_temp_prefix(struct mailbox_list *_list, bool global)
 	} else {
 		i_panic("imapc: Can't return a temp prefix for '%s'",
 			_list->ns->prefix);
-		return NULL;
 	}
 }
 

@@ -82,7 +82,6 @@ shared_list_get_temp_prefix(struct mailbox_list *list, bool global ATTR_UNUSED)
 {
 	i_panic("shared mailbox list: Can't return a temp prefix for '%s'",
 		list->ns->prefix);
-	return NULL;
 }
 
 static const char *

@@ -176,7 +176,7 @@ static const char *parse_setting(const char *key, const char *value,
 		field->value = p_strdup(ctx->conn->pool, value);
 		return NULL;
 	}
-	return t_strconcat("Unknown setting: ", key, NULL);
+	i_unreached();
 }
 
 static bool parse_section(const char *type, const char *name,

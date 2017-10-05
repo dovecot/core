@@ -402,7 +402,7 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 	default:
 		i_unreached();
 	}
-	return LDAP_SUCCESS;
+	i_unreached();
 }
 
 static

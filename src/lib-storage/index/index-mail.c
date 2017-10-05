@@ -1540,7 +1540,6 @@ int index_mail_get_special(struct mail *_mail,
 		return 0;
 	default:
 		i_unreached();
-		return -1;
 	}
 }
 

@@ -726,7 +726,6 @@ static void
 test_server_timeout(void *context ATTR_UNUSED)
 {
 	i_fatal("Server timed out");
-	io_loop_stop(ioloop);
 }
 
 static void
