@@ -472,13 +472,15 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 {
 	const unsigned char *data;
 	size_t size;
+	const char *value;
 	string_t *str;
 
 	switch (type) {
 	case DICT_SQL_TYPE_STRING:
 	case DICT_SQL_TYPE_INT:
 	case DICT_SQL_TYPE_UINT:
-		return p_strdup(pool, sql_result_get_field_value(result, result_idx));
+		value = sql_result_get_field_value(result, result_idx);
+		return value == NULL ? "" : p_strdup(pool, value);
 	case DICT_SQL_TYPE_HEXBLOB:
 		break;
 	}
