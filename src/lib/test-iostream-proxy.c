@@ -96,10 +96,10 @@ void test_iostream_proxy_simple(void)
 	i_stream_unref(&right_in);
 
 	/* close fd */
-	close(sfdl[0]);
-	close(sfdl[1]);
-	close(sfdr[0]);
-	close(sfdr[1]);
+	i_close_fd(&sfdl[0]);
+	i_close_fd(&sfdl[1]);
+	i_close_fd(&sfdr[0]);
+	i_close_fd(&sfdr[1]);
 
 	test_end();
 }

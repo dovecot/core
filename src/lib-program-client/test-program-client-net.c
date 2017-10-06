@@ -90,7 +90,7 @@ void test_program_client_destroy(struct test_client **_client)
 	i_stream_unref(&client->in);
 	o_stream_unref(&client->os_body);
 	i_stream_unref(&client->body);
-	close(client->fd);
+	i_close_fd(&client->fd);
 	pool_unref(&client->pool);
 	test_globals.client = NULL;
 	test_program_io_loop_stop();

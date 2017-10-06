@@ -169,7 +169,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		(float)input->v_offset * 100.0);
 
 	i_stream_unref(&input);
-	close(fd);
+	i_close_fd(&fd);
 
 	i_array_init(&definite_uids, 128);
 	i_array_init(&maybe_uids, 128);

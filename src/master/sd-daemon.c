@@ -387,7 +387,7 @@ finish:
                 unsetenv("NOTIFY_SOCKET");
 
         if (fd >= 0)
-                close(fd);
+		(void)close(fd);
 
         return r;
 #endif
