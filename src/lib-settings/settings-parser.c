@@ -119,6 +119,7 @@ copy_unique_defaults(struct setting_parser_context *ctx,
 		array_append(arr, &new_set, 1);
 
 		if (link->change_struct != NULL) {
+			i_assert(carr != NULL);
 			new_changes = p_malloc(ctx->set_pool, info.struct_size);
 			array_append(carr, &new_changes, 1);
 		}
