@@ -318,9 +318,26 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 		if (ret < 0) return ret;
 		ctx->matched_keys++;
 	}
-
-	if (ret == 1 && ctx->force &&
-	    ctx->userkey_only && !user_key_generated) {
+	if (ret == 1 && ctx->userkey_only && !user_key_generated) {
+		if (!ctx->force) {
+			i_info("userkey exists. Use -f to generate a new one");
+			buffer_t *key_id = t_str_new(MAIL_CRYPT_HASH_BUF_SIZE);
+			if (!dcrypt_key_id_public(user_key,
+						MAIL_CRYPT_KEY_ID_ALGORITHM,
+						key_id, &error)) {
+				i_error("dcrypt_key_id_public() failed: %s",
+					error);
+				return -1;
+			}
+			const char *hash = binary_to_hex(key_id->data,
+							 key_id->used);
+			res = array_append_space(result);
+			res->name = DOVEADM_MCP_USERKEY;
+			res->id = p_strdup(_ctx->pool, hash);
+			res->success = TRUE;
+			ctx->matched_keys++;
+			return 1;
+		}
 		struct dcrypt_keypair pair;
 		dcrypt_key_unref_public(&user_key);
 		/* regen user key */
