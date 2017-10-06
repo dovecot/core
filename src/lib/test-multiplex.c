@@ -37,8 +37,8 @@ static void test_multiplex_channel_write(struct test_channel *channel)
 	unsigned char buf[128];
 	size_t len = i_rand() % sizeof(buf);
 	random_fill(buf, len);
-	o_stream_send(channel->out, buf, len);
-	o_stream_send(channel->out_alt, buf, len);
+	o_stream_nsend(channel->out, buf, len);
+	o_stream_nsend(channel->out_alt, buf, len);
 }
 
 static void test_multiplex_stream_write(struct ostream *channel ATTR_UNUSED)
@@ -106,8 +106,10 @@ static void teardown_channel(struct test_channel *channel)
 	io_remove(&channel->io);
 	io_remove(&channel->io_alt);
 	i_stream_unref(&channel->in);
+	test_assert(o_stream_nfinish(channel->out) == 0);
 	o_stream_unref(&channel->out);
 	i_stream_unref(&channel->in_alt);
+	test_assert(o_stream_nfinish(channel->out_alt) == 0);
 	o_stream_unref(&channel->out_alt);
 	i_close_fd(&channel->fds[0]);
 	i_close_fd(&channel->fds[1]);
