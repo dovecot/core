@@ -353,6 +353,7 @@ static void server_connection_input(struct server_connection *conn)
 					i_error("doveadm server not compatible with this client"
 						"(mixed old and new binaries?)");
 					server_connection_destroy(&conn);
+					return;
 				}
 				continue;
 			}
