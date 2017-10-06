@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "array.h"
 #include "istream.h"
+#include "istream-tee.h"
+#include "istream-try.h"
 #include "ostream.h"
 #include "iostream-temp.h"
 #include "compression.h"
@@ -12,6 +14,7 @@ struct compress_fs {
 	struct fs fs;
 	const struct compression_handler *handler;
 	unsigned int compress_level;
+	bool try_plain;
 };
 
 struct compress_fs_file {
@@ -45,6 +48,11 @@ fs_compress_init(struct fs *_fs, const char *args, const
 	const char *parent_name, *parent_args;
 
 	/* get compression handler name */
+	if (strncmp(args, "maybe-", 6) == 0) {
+		fs->try_plain = TRUE;
+		args += 6;
+	}
+
 	p = strchr(args, ':');
 	if (p == NULL) {
 		fs_set_error(_fs, "Compression method not given as parameter");
@@ -151,6 +159,29 @@ static void fs_compress_file_close(struct fs_file *_file)
 }
 
 static struct istream *
+fs_compress_try_create_stream(struct compress_fs_file *file,
+			      struct istream *plain_input)
+{
+	struct tee_istream *tee_input;
+	struct istream *child_input, *ret_input, *try_inputs[3];
+
+	if (!file->fs->try_plain)
+		return file->fs->handler->create_istream(plain_input, FALSE);
+
+	tee_input = tee_i_stream_create(plain_input);
+	child_input = tee_i_stream_create_child(tee_input);
+	try_inputs[0] = file->fs->handler->create_istream(child_input, FALSE);
+	try_inputs[1] = tee_i_stream_create_child(tee_input);
+	try_inputs[2] = NULL;
+	i_stream_unref(&child_input);
+
+	ret_input = istream_try_create(try_inputs);
+	i_stream_unref(&try_inputs[0]);
+	i_stream_unref(&try_inputs[1]);
+	return ret_input;
+}
+
+static struct istream *
 fs_compress_read_stream(struct fs_file *_file, size_t max_buffer_size)
 {
 	struct compress_fs_file *file = (struct compress_fs_file *)_file;
@@ -163,7 +194,8 @@ fs_compress_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	}
 
 	input = fs_read_stream(file->super_read, max_buffer_size);
-	file->input = file->fs->handler->create_istream(input, FALSE);
+	file->input = fs_compress_try_create_stream(file, input);
+
 	i_stream_unref(&input);
 	i_stream_ref(file->input);
 	return file->input;
