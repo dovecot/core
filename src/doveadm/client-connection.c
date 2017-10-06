@@ -512,7 +512,6 @@ static void client_connection_input(struct client_connection *conn)
 	if (!conn->io_setup) {
 		conn->io_setup = TRUE;
                 if (conn->use_multiplex) {
-                        o_stream_flush(conn->output);
                         struct ostream *os = conn->output;
                         conn->output = o_stream_create_multiplex(os, (size_t)-1);
                         o_stream_set_name(conn->output, o_stream_get_name(os));
