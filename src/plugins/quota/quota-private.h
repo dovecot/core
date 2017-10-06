@@ -23,7 +23,8 @@ struct quota_settings {
 
 	ARRAY(struct quota_root_settings *) root_sets;
 	enum quota_alloc_result (*test_alloc)(
-		struct quota_transaction_context *ctx, uoff_t size);
+		struct quota_transaction_context *ctx, uoff_t size,
+		const char **error_r);
 
 	uoff_t max_mail_size;
 	const char *quota_exceeded_msg;

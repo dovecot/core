@@ -114,12 +114,13 @@ int quota_transaction_commit(struct quota_transaction_context **ctx);
 /* Rollback quota transaction changes. */
 void quota_transaction_rollback(struct quota_transaction_context **ctx);
 
-/* Allocate from quota if there's space. */
+/* Allocate from quota if there's space. error_r is set when result is not
+ * QUOTA_ALLOC_RESULT_OK. */
 enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
-					struct mail *mail);
+					struct mail *mail, const char **error_r);
 /* Like quota_try_alloc(), but don't actually allocate anything. */
 enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
-					 uoff_t size);
+					 uoff_t size, const char **error_r);
 /* Update quota by allocating/freeing space used by mail. */
 void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail);
 void quota_free_bytes(struct quota_transaction_context *ctx,

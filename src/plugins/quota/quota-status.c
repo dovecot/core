@@ -69,7 +69,10 @@ quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 	mailbox_set_reason(box, "quota status");
 
 	ctx = quota_transaction_begin(box);
-	ret = quota_test_alloc(ctx, I_MAX(1, mail_size));
+	const char *internal_error;
+	ret = quota_test_alloc(ctx, I_MAX(1, mail_size), &internal_error);
+	if (ret == QUOTA_ALLOC_RESULT_TEMPFAIL)
+		i_error("quota check failed: %s", internal_error);
 	*error_r = quota_alloc_result_errstr(ret, ctx);
 	quota_transaction_rollback(&ctx);
 

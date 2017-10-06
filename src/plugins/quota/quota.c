@@ -68,7 +68,8 @@ struct quota_param_parser quota_param_noenforcing = {.param_name = "noenforcing"
 struct quota_param_parser quota_param_ns = {.param_name = "ns=", .param_handler = ns_param_handler};
 
 static enum quota_alloc_result quota_default_test_alloc(
-		struct quota_transaction_context *ctx, uoff_t size);
+		struct quota_transaction_context *ctx, uoff_t size,
+		const char **error_r);
 static void quota_over_flag_check_root(struct quota_root *root);
 
 static const struct quota_backend *quota_backend_find(const char *name)
@@ -1257,12 +1258,14 @@ static int quota_get_mail_size(struct quota_transaction_context *ctx,
 }
 
 enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
-					struct mail *mail)
+					struct mail *mail, const char **error_r)
 {
 	uoff_t size;
 
-	if (quota_transaction_set_limits(ctx) < 0)
+	if (quota_transaction_set_limits(ctx) < 0) {
+		*error_r = "Failed to set quota transaction limits";
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
+	}
 
 	if (ctx->no_quota_updates)
 		return QUOTA_ALLOC_RESULT_OK;
@@ -1276,12 +1279,13 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 			   so just return success for the quota allocated. */
 			return QUOTA_ALLOC_RESULT_OK;
 		}
-		i_error("quota: Failed to get mail size (box=%s, uid=%u): %s",
+		*error_r = t_strdup_printf(
+			"Failed to get mail size (box=%s, uid=%u): %s",
 			mail->box->vname, mail->uid, errstr);
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
-	enum quota_alloc_result ret = quota_test_alloc(ctx, size);
+	enum quota_alloc_result ret = quota_test_alloc(ctx, size, error_r);
 	if (ret != QUOTA_ALLOC_RESULT_OK)
 		return ret;
 	/* with quota_try_alloc() we want to keep track of how many bytes
@@ -1295,27 +1299,36 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 }
 
 enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
-					 uoff_t size)
+					 uoff_t size, const char **error_r)
 {
-	if (ctx->failed)
+	if (ctx->failed) {
+		*error_r = "Quota transaction has failed earlier";
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
+	}
 
-	if (quota_transaction_set_limits(ctx) < 0)
+	if (quota_transaction_set_limits(ctx) < 0) {
+		*error_r = "Failed to set quota transaction limits";
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
+	}
 
 	uoff_t max_size = ctx->quota->set->max_mail_size;
-	if (max_size > 0 && size > max_size)
+	if (max_size > 0 && size > max_size) {
+		*error_r = t_strdup_printf(
+			"Requested allocation size %"PRIuUOFF_T" exceeds max "
+			"mail size %"PRIuUOFF_T, size, max_size);
 		return QUOTA_ALLOC_RESULT_OVER_MAXSIZE;
+	}
 
 	if (ctx->no_quota_updates)
 		return QUOTA_ALLOC_RESULT_OK;
 	/* this is a virtual function mainly for trash plugin and similar,
 	   which may automatically delete mails to stay under quota. */
-	return ctx->quota->set->test_alloc(ctx, size);
+	return ctx->quota->set->test_alloc(ctx, size, error_r);
 }
 
 static enum quota_alloc_result quota_default_test_alloc(
-			struct quota_transaction_context *ctx, uoff_t size)
+			struct quota_transaction_context *ctx, uoff_t size,
+			const char **error_r)
 {
 	struct quota_root *const *roots;
 	unsigned int i, count;
@@ -1337,14 +1350,22 @@ static enum quota_alloc_result quota_default_test_alloc(
 						 mailbox_get_vname(ctx->box),
 						 &bytes_limit, &count_limit,
 						 &ignore);
-		if (ret < 0)
+		if (ret < 0) {
+			*error_r = "Failed to get quota root rule limits";
 			return QUOTA_ALLOC_RESULT_TEMPFAIL;
+		}
 
 		/* if size is bigger than any limit, then
 		   it is bigger than the lowest limit */
-		if (bytes_limit > 0 && size > bytes_limit)
+		if (bytes_limit > 0 && size > bytes_limit) {
+			*error_r = t_strdup_printf(
+				"Allocating %"PRIuUOFF_T" bytes would exceed quota limit",
+				size);
 			return QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT;
+		}
 	}
+	*error_r = t_strdup_printf(
+		"Allocating %"PRIuUOFF_T" bytes would exceed quota", size);
 	return QUOTA_ALLOC_RESULT_OVER_QUOTA;
 }
 
