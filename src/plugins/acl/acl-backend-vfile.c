@@ -456,6 +456,28 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
 }
 
 static int
+acl_vfile_validity_has_changed(struct acl_backend_vfile *backend,
+			       const struct acl_vfile_validity *validity,
+			       const struct stat *st)
+{
+	if (st->st_mtime == validity->last_mtime &&
+	    st->st_size == validity->last_size) {
+		/* same timestamp, but if it was modified within the
+		   same second we want to refresh it again later (but
+		   do it only after a couple of seconds so we don't
+		   keep re-reading it all the time within those
+		   seconds) */
+		time_t cache_secs = backend->cache_secs;
+
+		if (validity->last_read_time != 0 &&
+		    (st->st_mtime < validity->last_read_time - cache_secs ||
+		     ioloop_time - validity->last_read_time <= cache_secs))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static int
 acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 			  struct acl_vfile_validity *validity)
 {
@@ -488,23 +510,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 		i_error("stat(%s) failed: %m", path);
 		return -1;
 	}
-
-	if (st.st_mtime == validity->last_mtime &&
-	    st.st_size == validity->last_size) {
-		/* same timestamp, but if it was modified within the
-		   same second we want to refresh it again later (but
-		   do it only after a couple of seconds so we don't
-		   keep re-reading it all the time within those
-		   seconds) */
-		time_t cache_secs = backend->cache_secs;
-
-		if (validity->last_read_time != 0 &&
-		    (st.st_mtime < validity->last_read_time - cache_secs ||
-		     ioloop_time - validity->last_read_time <= cache_secs))
-			return 0;
-	}
-
-	return 1;
+	return acl_vfile_validity_has_changed(backend, validity, &st) ? 1 : 0;
 }
 
 int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
