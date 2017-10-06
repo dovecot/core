@@ -75,7 +75,7 @@ i_stream_multiplex_read(struct multiplex_istream *mstream, uint8_t cid)
 		return -1;
 	}
 
-	data = i_stream_get_data(mstream->parent, &len);
+	(void)i_stream_get_data(mstream->parent, &len);
 
 	if (len == 0 && mstream->parent->closed) {
 		req_channel->istream.istream.eof = TRUE;
