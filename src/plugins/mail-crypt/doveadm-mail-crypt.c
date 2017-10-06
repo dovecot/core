@@ -251,7 +251,22 @@ static int mcp_keypair_generate(struct mcp_cmd_context *ctx,
 
 	if ((ret = mail_crypt_box_get_public_key(t, &pair.pub, error_r)) < 0) {
 		ret = -1;
-	} else if (ret == 1 && (!ctx->force || ctx->recrypt_box_keys)) {
+	} else if (ret == 1 && !ctx->force) {
+		i_info("Folder key exists. Use -f to generate a new one");
+		buffer_t *key_id = t_str_new(MAIL_CRYPT_HASH_BUF_SIZE);
+		const char *error;
+		if (!dcrypt_key_id_public(pair.pub,
+					MAIL_CRYPT_KEY_ID_ALGORITHM,
+					key_id, &error)) {
+			i_error("dcrypt_key_id_public() failed: %s",
+				error);
+			return -1;
+		}
+		*pubid_r = p_strdup(ctx->ctx.pool, binary_to_hex(key_id->data,
+								 key_id->used));
+		*pair_r = pair;
+		return 1;
+	} else if (ret == 1 && ctx->recrypt_box_keys) {
 		/* do nothing, because force isn't being used *OR*
 		   we are recrypting box keys and force refers to
 		   user keypair.
@@ -413,7 +428,10 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 			T_BEGIN {
 				mcp_update_shared_keys(box, user, pubid, pair.priv);
 			} T_END;
-			dcrypt_keypair_unref(&pair);
+			if (pair.pub != NULL)
+				dcrypt_key_unref_public(&pair.pub);
+			if (pair.priv != NULL)
+				dcrypt_key_unref_private(&pair.priv);
 			ctx->matched_keys++;
 		}
 		mailbox_free(&box);
