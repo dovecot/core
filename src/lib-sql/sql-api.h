@@ -178,15 +178,22 @@ const char *sql_result_get_field_name(struct sql_result *result,
 /* Return field index for given name, or -1 if not found. */
 int sql_result_find_field(struct sql_result *result, const char *field_name);
 
-/* Returns value of given field as string. */
+/* Returns value of given field as string. Note that it can be NULL. */
 const char *sql_result_get_field_value(struct sql_result *result,
 				       unsigned int idx);
+/* Returns a binary value. Note that a NULL is returned as NULL with size=0,
+   while empty string returns non-NULL with size=0. */
 const unsigned char *
 sql_result_get_field_value_binary(struct sql_result *result,
 				  unsigned int idx, size_t *size_r);
+/* Find the field and return its value. NULL return value can mean that either
+   the field didn't exist or that its value is NULL. */
 const char *sql_result_find_field_value(struct sql_result *result,
 					const char *field_name);
-/* Return all values of current row. */
+/* Return all values of current row. Note that this array is not
+   NULL-terminated - you must use sql_result_get_fields_count() to find out
+   the array's length. It's also possible that some of the values inside the
+   array are NULL. */
 const char *const *sql_result_get_values(struct sql_result *result);
 
 /* Return last error message in result. */
