@@ -584,7 +584,7 @@ static const char *get_full_config_path(struct service_list *list)
 
 static void master_time_moved(time_t old_time, time_t new_time)
 {
-	unsigned long secs;
+	time_t secs;
 
 	if (new_time >= old_time)
 		return;
@@ -595,9 +595,9 @@ static void master_time_moved(time_t old_time, time_t new_time)
 	if (secs > SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS)
 		secs = SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_SECS;
 	services_throttle_time_sensitives(services, secs);
-	i_warning("Time moved backwards by %lu seconds, "
-		  "waiting for %lu secs until new services are launched again.",
-		  (unsigned long)(old_time - new_time), secs);
+	i_warning("Time moved backwards by %"PRIdTIME_T" seconds, waiting for "
+		  "%"PRIdTIME_T" secs until new services are launched again.",
+		  old_time - new_time, secs);
 }
 
 static void daemonize(void)

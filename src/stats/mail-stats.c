@@ -19,27 +19,27 @@ mail_global_stats_sent(void *ctx)
 static void
 mail_global_stats_send(void *u0 ATTR_UNUSED)
 {
-	unsigned long ts = (unsigned long)ioloop_time;
+	time_t ts = ioloop_time;
 	if (*stats_settings->carbon_name != '\0' &&
 	    *stats_settings->carbon_server != '\0') {
 		string_t *str = t_str_new(256);
 		const char *prefix = t_strdup_printf("dovecot.%s.global",
 						     stats_settings->carbon_name);
-		str_printfa(str, "%s.logins %u %lu\r\n", prefix,
+		str_printfa(str, "%s.logins %u %"PRIdTIME_T"\r\n", prefix,
 			    mail_global_stats.num_logins, ts);
-		str_printfa(str, "%s.cmds %u %lu\r\n", prefix,
+		str_printfa(str, "%s.cmds %u %"PRIdTIME_T"\r\n", prefix,
 			    mail_global_stats.num_cmds, ts);
-		str_printfa(str, "%s.connected_sessions %u %lu\r\n", prefix,
-			    mail_global_stats.num_connected_sessions,
+		str_printfa(str, "%s.connected_sessions %u %"PRIdTIME_T"\r\n",
+			    prefix, mail_global_stats.num_connected_sessions,
 			    ts);
-		str_printfa(str, "%s.last_reset %lu %lu\r\n", prefix,
-			    mail_global_stats.reset_timestamp, ts);
+		str_printfa(str, "%s.last_reset %"PRIdTIME_T" %"PRIdTIME_T"\r\n",
+			    prefix, mail_global_stats.reset_timestamp, ts);
 		/* then export rest of the stats */
 		for(size_t i = 0; i < stats_field_count(); i++) {
 			str_printfa(str, "%s.%s ", prefix,
 				    stats_field_name(i));
 			stats_field_value(str, mail_global_stats.stats, i);
-			str_printfa(str, " %lu\r\n", ts);
+			str_printfa(str, " %"PRIdTIME_T"\r\n", ts);
 		}
 
 		/* and send them along */
