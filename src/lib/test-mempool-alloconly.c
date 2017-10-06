@@ -57,6 +57,9 @@ enum fatal_test_state fatal_mempool_alloconly(unsigned int stage)
 {
 	static pool_t pool;
 
+	if (pool == NULL && stage != 0)
+		return FATAL_TEST_FAILURE;
+
 	switch(stage) {
 	case 0: /* forbidden size */
 		test_begin("fatal_mempool_alloconly");
