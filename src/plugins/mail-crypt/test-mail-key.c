@@ -294,7 +294,7 @@ static void test_cache_reset(void)
 
 static void test_verify_keys(void)
 {
-	const char *value, *error = NULL;
+	const char *value = "", *error = NULL;
 
 	const char *enc_id;
 	enum dcrypt_key_encryption_type enc_type;
