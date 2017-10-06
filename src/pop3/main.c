@@ -10,6 +10,7 @@
 #include "str.h"
 #include "process-title.h"
 #include "restrict-access.h"
+#include "settings-parser.h"
 #include "master-service.h"
 #include "master-login.h"
 #include "master-interface.h"
@@ -102,7 +103,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		"-ERR [SYS/TEMP] "MAIL_ERRSTR_CRITICAL_MSG"\r\n";
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
-	const struct pop3_settings *set;
+	struct pop3_settings *set;
+	const char *errstr;
 
 	if (mail_storage_service_lookup_next(storage_service, input,
 					     &user, &mail_user, error_r) <= 0) {
@@ -116,6 +118,15 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	set = mail_storage_service_user_get_set(user)[1];
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
+
+	if (settings_var_expand(&pop3_setting_parser_info, set,
+				mail_user->pool, mail_user_var_expand_table(mail_user),
+				&errstr) <= 0) {
+		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
+		mail_user_unref(&mail_user);
+		mail_storage_service_user_unref(&user);
+		return -1;
+	}
 
 	*client_r = client_create(fd_in, fd_out, input->session_id,
 				  mail_user, user, set);
