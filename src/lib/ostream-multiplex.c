@@ -68,7 +68,7 @@ static ssize_t
 o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 {
 	struct multiplex_ochannel *channel;
-	ssize_t ret = 0;
+	ssize_t ret = 0, ret2;
 	if (mstream->bufsize <= mstream->wbuf->used + 5)
 		return -2;
 
@@ -93,7 +93,10 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 			propagate_error(mstream, mstream->parent->stream_errno);
 			return ret;
 		}
-		o_stream_flush(mstream->parent);
+		if ((ret2 = o_stream_flush(mstream->parent)) < 0) {
+			propagate_error(mstream, mstream->parent->stream_errno);
+			return ret2;
+		}
 		buffer_delete(mstream->wbuf, 0, ret);
 	}
 	return ret;
