@@ -149,6 +149,15 @@ static int acl_global_file_read(struct acl_global_file *file)
 			file->path, i_stream_get_error(input));
 		ret = -1;
 	}
+	if (ret == 0) {
+		const struct stat *st;
+
+		if (i_stream_stat(input, TRUE, &st) < 0) {
+			i_error("Couldn't stat global ACL file %s: %s",
+				file->path, i_stream_get_error(input));
+		}
+		file->prev_st = *st;
+	}
 	i_stream_destroy(&input);
 
 	/* sort all parsed rights */
