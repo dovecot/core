@@ -72,7 +72,7 @@ static void test_ostream_escaped_hex(void)
 
 	test_begin("test_ostream_escaped_hex()");
 	test_assert(o_stream_send_str(os_encode, "hello, world") == 12);
-	o_stream_flush(os_encode);
+	test_assert(o_stream_flush(os_encode) == 1);
 
 	test_assert(strcmp(str_c(str), "68656c6c6f2c20776f726c64") == 0);
 
