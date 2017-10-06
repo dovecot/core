@@ -10,6 +10,8 @@ void acl_global_file_deinit(struct acl_global_file **file);
 
 /* Read the global ACLs into memory. */
 int acl_global_file_refresh(struct acl_global_file *file);
+/* Return stat data for the last refresh. */
+void acl_global_file_last_stat(struct acl_global_file *file, struct stat *st_r);
 
 /* Return global ACL rights matching the mailbox name. The file must already
    have been refreshed at least once. */
