@@ -77,6 +77,7 @@ liblib_la_SOURCES = \
 	istream-seekable.c \
 	istream-sized.c \
 	istream-tee.c \
+	istream-try.c \
 	istream-timeout.c \
 	istream-unix.c \
 	ioloop.c \
@@ -230,6 +231,7 @@ headers = \
 	istream-seekable.h \
 	istream-sized.h \
 	istream-tee.h \
+	istream-try.h \
 	istream-timeout.h \
 	istream-unix.h \
 	ioloop.h \
@@ -354,6 +356,7 @@ test_lib_SOURCES = \
 	test-istream-seekable.c \
 	test-istream-sized.c \
 	test-istream-tee.c \
+	test-istream-try.c \
 	test-istream-unix.c \
 	test-json-parser.c \
 	test-json-tree.c \
