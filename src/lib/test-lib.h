@@ -37,6 +37,7 @@ void test_istream_failure_at(void);
 void test_istream_multiplex(void);
 void test_istream_seekable(void);
 void test_istream_tee(void);
+void test_istream_try(void);
 void test_istream_unix(void);
 void test_json_parser(void);
 void test_json_tree(void);
