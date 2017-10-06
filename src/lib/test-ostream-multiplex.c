@@ -94,9 +94,9 @@ static void test_ostream_multiplex_stream_write(struct ostream *channel ATTR_UNU
 	size_t rounds = 1 + rand() % 10;
 	for(size_t i = 0; i < rounds; i++) {
 		if ((rand() % 2) != 0)
-			o_stream_send_str(chan1, msgs[rand() % N_ELEMENTS(msgs)]);
+			o_stream_nsend_str(chan1, msgs[rand() % N_ELEMENTS(msgs)]);
 		else
-			o_stream_send_str(chan0, msgs[rand() % N_ELEMENTS(msgs)]);
+			o_stream_nsend_str(chan0, msgs[rand() % N_ELEMENTS(msgs)]);
 	}
 }
 
@@ -127,7 +127,9 @@ static void test_ostream_multiplex_stream(void)
 	io_remove(&io0);
 	io_remove(&io1);
 
+	test_assert(o_stream_nfinish(chan1) == 0);
 	o_stream_unref(&chan1);
+	test_assert(o_stream_nfinish(chan0) == 0);
 	o_stream_unref(&chan0);
 
 	i_stream_unref(&is);

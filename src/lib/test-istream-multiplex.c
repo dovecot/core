@@ -265,7 +265,7 @@ static void test_send_msg(struct ostream *os, uint8_t cid, const char *msg)
 		{ msg, strlen(msg) },
 		{ "\n", 1 } /* newline added for i_stream_next_line */
 	};
-	o_stream_sendv(os, iov, N_ELEMENTS(iov));
+	o_stream_nsendv(os, iov, N_ELEMENTS(iov));
 }
 
 static void test_istream_multiplex_stream_write(struct ostream *channel)
@@ -310,6 +310,7 @@ static void test_istream_multiplex_stream(void)
 	i_stream_unref(&chan0);
 	i_stream_unref(&is);
 
+	test_assert(o_stream_nfinish(os) == 0);
 	o_stream_unref(&os);
 
 	io_loop_destroy(&ioloop);
