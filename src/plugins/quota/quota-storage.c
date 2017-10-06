@@ -279,7 +279,9 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 
 	/* get quota before copying any mails. this avoids .vsize.lock
 	   deadlocks with backends that lock mails for expunging/copying. */
-	(void)quota_transaction_set_limits(qt);
+	const char *error;
+	if (quota_transaction_set_limits(qt, &error) < 0)
+		i_error("Failed to set quota transaction limits: %s", error);
 
 	if (qbox->module_ctx.super.copy(ctx, mail) < 0)
 		return -1;
@@ -332,7 +334,8 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 
 	/* get quota before copying any mails. this avoids .vsize.lock
 	   deadlocks with backends that lock mails for expunging/copying. */
-	(void)quota_transaction_set_limits(qt);
+	if (quota_transaction_set_limits(qt, &error) < 0)
+		i_error("Failed to set quota transaction limits: %s", error);
 
 	return qbox->module_ctx.super.save_begin(ctx, input);
 }

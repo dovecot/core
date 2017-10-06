@@ -480,7 +480,8 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 				      const char *mailbox_name,
 				      uint64_t *bytes_limit_r,
 				      uint64_t *count_limit_r,
-				      bool *ignored_r)
+				      bool *ignored_r,
+				      const char **error_r)
 {
 	struct quota_rule *rule;
 	int64_t bytes_limit, count_limit;
@@ -490,8 +491,10 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 
 	if (!root->set->force_default_rule) {
 		if (root->backend.v.init_limits != NULL) {
-			if (root->backend.v.init_limits(root) < 0)
+			if (root->backend.v.init_limits(root) < 0) {
+				*error_r = "Initializing limits failed for quota backend";
 				return -1;
+			}
 		}
 	}
 
@@ -771,10 +774,13 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	if (ret == 0)
 		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
 
+	const char *error;
 	if (quota_root_get_rule_limits(root, mailbox_name,
 				       &bytes_limit, &count_limit,
-				       &ignored) < 0)
+				       &ignored, &error) < 0) {
+		i_error("Failed to get quota root rule limits: %s", error);
 		return QUOTA_GET_RESULT_INTERNAL_ERROR;
+	}
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*limit_r = bytes_limit;
@@ -887,10 +893,11 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 	return ctx;
 }
 
-int quota_transaction_set_limits(struct quota_transaction_context *ctx)
+int quota_transaction_set_limits(struct quota_transaction_context *ctx,
+				 const char **error_r)
 {
 	struct quota_root *const *roots;
-	const char *mailbox_name;
+	const char *mailbox_name, *error;
 	unsigned int i, count;
 	uint64_t bytes_limit, count_limit, current, limit, diff;
 	bool use_grace, ignored;
@@ -912,8 +919,11 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 
 		if (quota_root_get_rule_limits(roots[i], mailbox_name,
 					       &bytes_limit, &count_limit,
-					       &ignored) < 0) {
+					       &ignored, &error) < 0) {
 			ctx->failed = TRUE;
+			*error_r = t_strdup_printf(
+				"Failed to get quota root rule limits: %s",
+				error);
 			return -1;
 		}
 		if (!ignored)
@@ -942,6 +952,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 				}
 			} else if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 				ctx->failed = TRUE;
+				*error_r = "Failed to get quota resource";
 				return -1;
 			}
 		}
@@ -964,6 +975,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx)
 				}
 			} else if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 				ctx->failed = TRUE;
+				*error_r = "Failed to get quota resource";
 				return -1;
 			}
 		}
@@ -1261,9 +1273,11 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 					struct mail *mail, const char **error_r)
 {
 	uoff_t size;
+	const char *error;
 
-	if (quota_transaction_set_limits(ctx) < 0) {
-		*error_r = "Failed to set quota transaction limits";
+	if (quota_transaction_set_limits(ctx, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to set quota transaction limits: %s", error);
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
@@ -1271,17 +1285,17 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 		return QUOTA_ALLOC_RESULT_OK;
 
 	if (quota_get_mail_size(ctx, mail, &size) < 0) {
-		enum mail_error error;
-		const char *errstr = mailbox_get_last_internal_error(mail->box, &error);
+		enum mail_error err;
+		error = mailbox_get_last_internal_error(mail->box, &err);
 
-		if (error == MAIL_ERROR_EXPUNGED) {
+		if (err == MAIL_ERROR_EXPUNGED) {
 			/* mail being copied was already expunged. it'll fail,
 			   so just return success for the quota allocated. */
 			return QUOTA_ALLOC_RESULT_OK;
 		}
 		*error_r = t_strdup_printf(
 			"Failed to get mail size (box=%s, uid=%u): %s",
-			mail->box->vname, mail->uid, errstr);
+			mail->box->vname, mail->uid, error);
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
@@ -1306,8 +1320,10 @@ enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
-	if (quota_transaction_set_limits(ctx) < 0) {
-		*error_r = "Failed to set quota transaction limits";
+	const char *error;
+	if (quota_transaction_set_limits(ctx, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to set quota transaction limits: %s", error);
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
 	}
 
@@ -1346,12 +1362,15 @@ static enum quota_alloc_result quota_default_test_alloc(
 		if (!quota_root_is_visible(roots[i], ctx->box, TRUE))
 			continue;
 
+		const char *error;
 		ret = quota_root_get_rule_limits(roots[i],
 						 mailbox_get_vname(ctx->box),
 						 &bytes_limit, &count_limit,
-						 &ignore);
+						 &ignore, &error);
 		if (ret < 0) {
-			*error_r = "Failed to get quota root rule limits";
+			*error_r = t_strdup_printf(
+				"Failed to get quota root rule limits: %s",
+				error);
 			return QUOTA_ALLOC_RESULT_TEMPFAIL;
 		}
 

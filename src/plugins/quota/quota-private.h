@@ -210,7 +210,8 @@ bool quota_warning_match(const struct quota_warning_rule *w,
 			 uint64_t count_before, uint64_t count_current,
 			 const char **reason_r);
 bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t size);
-int quota_transaction_set_limits(struct quota_transaction_context *ctx);
+int quota_transaction_set_limits(struct quota_transaction_context *ctx,
+				 const char **error_r);
 
 void quota_backend_register(const struct quota_backend *backend);
 void quota_backend_unregister(const struct quota_backend *backend);
