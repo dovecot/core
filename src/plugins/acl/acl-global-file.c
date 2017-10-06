@@ -203,6 +203,11 @@ int acl_global_file_refresh(struct acl_global_file *file)
 	return 0;
 }
 
+void acl_global_file_last_stat(struct acl_global_file *file, struct stat *st_r)
+{
+	*st_r = file->prev_st;
+}
+
 void acl_global_file_get(struct acl_global_file *file, const char *vname,
 			 pool_t pool, ARRAY_TYPE(acl_rights) *rights_r)
 {
