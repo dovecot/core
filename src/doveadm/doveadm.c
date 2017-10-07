@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
 	int c;
 
 	i_zero(&cctx);
-	cctx.cli = TRUE;
+	cctx.conn_type = CLIENT_CONNECTION_TYPE_CLI;
 
 	i_set_failure_exit_callback(failure_exit_callback);
 	doveadm_dsync_main(&argc, &argv);

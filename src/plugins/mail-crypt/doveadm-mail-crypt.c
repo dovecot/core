@@ -692,6 +692,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct mcp_cmd_context *ctx =
 		(struct mcp_cmd_context *)_ctx;
+	bool cli = (_ctx->cctx->conn_type == CLIENT_CONNECTION_TYPE_CLI);
 
 	struct raw_key {
 		const char *attr;
@@ -711,7 +712,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 			_ctx->exit_code = EX_USAGE;
 			return -1;
 		}
-		if (!_ctx->cli) {
+		if (!cli) {
 			doveadm_print("No cli - cannot ask for password");
 			_ctx->exit_code = EX_USAGE;
 			return -1;
@@ -726,7 +727,7 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 			_ctx->exit_code = EX_USAGE;
 			return -1;
 		}
-		if (!_ctx->cli) {
+		if (!cli) {
 			doveadm_print("No cli - cannot ask for password");
 			_ctx->exit_code = EX_USAGE;
 			return -1;

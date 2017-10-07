@@ -559,6 +559,7 @@ static int
 cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	struct dsync_ibc *ibc, *ibc2 = NULL;
 	struct dsync_brain *brain;
 	struct dsync_brain_settings set;
@@ -684,7 +685,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (changes_during_sync != NULL || changes_during_sync2 != NULL) {
 		/* don't log a warning when running via doveadm server
 		   (e.g. called by replicator) */
-		if (ctx->ctx.conn == NULL) {
+		if (cctx->conn_type == CLIENT_CONNECTION_TYPE_CLI) {
 			i_warning("Mailbox changes caused a desync. "
 				  "You may want to run dsync again: %s",
 				  changes_during_sync == NULL ||
@@ -1135,6 +1136,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		     struct mail_user *user)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	bool cli = (cctx->conn_type == CLIENT_CONNECTION_TYPE_CLI);
 	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
 	string_t *temp_prefix, *state_str = NULL;
@@ -1142,12 +1145,12 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	const char *name, *process_title_prefix = "";
 	enum mail_error mail_error;
 
-	if (_ctx->conn != NULL) {
+	if (!cli) {
 		/* doveadm-server connection. start with a success reply.
 		   after that follows the regular dsync protocol. */
 		ctx->fd_in = ctx->fd_out = -1;
-		ctx->input = _ctx->conn->input;
-		ctx->output = _ctx->conn->output;
+		ctx->input = cctx->input;
+		ctx->output = cctx->output;
 		o_stream_nsend(ctx->output, "\n+\n", 3);
 		i_set_failure_prefix("dsync-server(%s): ", user->username);
 		name = i_stream_get_name(ctx->input);
@@ -1184,10 +1187,10 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		doveadm_mail_failed_error(_ctx, mail_error);
 	dsync_ibc_deinit(&ibc);
 
-	if (_ctx->conn != NULL) {
+	if (!cli) {
 		/* make sure nothing more is written by the generic doveadm
 		   connection code */
-		o_stream_close(_ctx->conn->output);
+		o_stream_close(cctx->output);
 	}
 
 	if (ctx->replicator_notify && _ctx->exit_code == 0)

@@ -165,6 +165,7 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 	int c;
 
 	mctx = doveadm_mail_cmd_init(cmd, set);
+	mctx->cctx = cctx;
 	mctx->full_args = argv+1;
 	mctx->proxying = TRUE;
 	mctx->cur_username = cctx->username;
@@ -237,7 +238,6 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 	const char *error;
 	int ret;
 
-	mctx->conn = conn;
 	o_stream_cork(conn->output);
 
 	if (mctx->v.preinit != NULL)
@@ -352,14 +352,13 @@ static bool client_handle_command(struct client_connection *conn,
 		return FALSE;
 	}
 	i_zero(&cctx);
-	cctx.cli = FALSE;
-	cctx.tcp_server = TRUE;
-
+	cctx.conn_type = conn->type;
+	cctx.input = conn->input;
+	cctx.output = conn->output;
 	cctx.local_ip = conn->local_ip;
 	cctx.remote_ip = conn->remote_ip;
 	cctx.local_port = conn->local_port;
 	cctx.remote_port = conn->remote_port;
-	cctx.conn = conn;
 	doveadm_exit_code = 0;
 
 	flags = args[0];
@@ -606,11 +605,15 @@ client_connection_send_auth_handshake(struct client_connection *
 	}
 }
 
-int client_connection_init(struct client_connection *conn, int fd)
+int client_connection_init(struct client_connection *conn,
+	enum client_connection_type type, int fd)
 {
 	const char *ip;
 
+	i_assert(type != CLIENT_CONNECTION_TYPE_CLI);
+
 	conn->fd = fd;
+	conn->type = type;
 
 	(void)net_getsockname(fd, &conn->local_ip, &conn->local_port);
 	(void)net_getpeername(fd, &conn->remote_ip, &conn->remote_port);
@@ -636,7 +639,8 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 	conn = p_new(pool, struct client_connection, 1);
 	conn->pool = pool;
 
-	if (client_connection_init(conn, fd) < 0)
+	if (client_connection_init(conn,
+		CLIENT_CONNECTION_TYPE_TCP, fd) < 0)
 		return NULL;
         doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
 

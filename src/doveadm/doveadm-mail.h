@@ -61,12 +61,11 @@ union doveadm_mail_cmd_module_context {
 
 struct doveadm_mail_cmd_context {
 	pool_t pool;
+	struct doveadm_cmd_context *cctx;
 	const struct doveadm_mail_cmd *cmd;
 	const char *const *args;
 	/* args including -options */
 	const char *const *full_args;
-	/* connection via doveadm-server */
-	struct client_connection *conn;
 
 	const char *getopt_args;
 	const struct doveadm_settings *set;
@@ -99,8 +98,6 @@ struct doveadm_mail_cmd_context {
 	bool iterate_all_users:1;
 	/* Add username header to all replies */
 	bool add_username_header:1;
-	/* Running from CLI doveadm (not doveadm-server) */
-	bool cli:1;
 };
 
 struct doveadm_mail_cmd {

@@ -28,7 +28,7 @@ struct kick_pid {
 struct kick_context {
 	struct who_context who;
 	HASH_TABLE(void *, struct kick_pid *) pids;
-	bool cli;
+	enum client_connection_type conn_type;
 	bool force_kick;
 	ARRAY(const char *) kicked_users;
 };
@@ -101,15 +101,16 @@ kick_print_kicked(struct kick_context *ctx, const bool show_warning)
 {
 	unsigned int i, count;
 	const char *const *users;
+	bool cli = (ctx->conn_type == CLIENT_CONNECTION_TYPE_CLI);
 
 	if (array_count(&ctx->kicked_users) == 0) {
-		if (ctx->cli)
+		if (cli)
 			printf("no users kicked\n");
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 		return;
 	}
 
-	if (ctx->cli) {
+	if (cli) {
 		if (show_warning) {
 			printf("warning: other connections would also be "
 			       "kicked from following users:\n");
@@ -125,7 +126,7 @@ kick_print_kicked(struct kick_context *ctx, const bool show_warning)
 		if (strcmp(users[i-1], users[i]) != 0)
 			doveadm_print(users[i]);
 	}
-	if (ctx->cli)
+	if (cli)
 		printf("\n");
 
 	if (show_warning)
@@ -188,8 +189,8 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 		i_error("user and/or ip[/bits] must be specified.");
 		return;
 	}
-	ctx.cli = cctx->cli;
-	if (!ctx.cli) {
+	ctx.conn_type = cctx->conn_type;
+	if (ctx.conn_type != CLIENT_CONNECTION_TYPE_CLI) {
 		/* force-kick is a pretty ugly option. its output can't be
 		   nicely translated to an API reply. it also wouldn't be very
 		   useful in scripts, only for preventing a new admin from

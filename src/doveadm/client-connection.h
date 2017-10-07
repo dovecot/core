@@ -5,8 +5,15 @@
 
 #define DOVEADM_LOG_CHANNEL_ID 'L'
 
+enum client_connection_type {
+	CLIENT_CONNECTION_TYPE_CLI = 0,
+	CLIENT_CONNECTION_TYPE_TCP,
+	CLIENT_CONNECTION_TYPE_HTTP,
+};
+
 struct client_connection {
 	pool_t pool;
+	enum client_connection_type type;
 
 	int fd;
 	const char *name;

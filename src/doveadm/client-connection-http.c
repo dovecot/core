@@ -107,7 +107,8 @@ client_connection_create_http(int fd, bool ssl)
 	conn->client.pool = pool;
 	conn->client.http = TRUE;
 
-	if (client_connection_init(&conn->client, fd) < 0)
+	if (client_connection_init(&conn->client,
+		CLIENT_CONNECTION_TYPE_HTTP, fd) < 0)
 		return NULL;
 
 	conn->http_client = http_server_connection_create(doveadm_http_server,
@@ -346,7 +347,11 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	struct istream *is;
 	const char *user;
 	struct ioloop *ioloop,*prev_ioloop = current_ioloop;
+
 	i_zero(&cctx);
+	cctx.conn_type = conn->client.type;
+	cctx.input = conn->client.input;
+	cctx.output = conn->client.output;
 
 	// create iostream
 	doveadm_print_ostream = iostream_temp_create("/tmp/doveadm.", 0);
@@ -361,7 +366,6 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	ioloop = io_loop_create();
 	doveadm_exit_code = 0;
 
-	cctx.cli = FALSE;
 	cctx.local_ip = conn->client.local_ip;
 	cctx.local_port = conn->client.local_port;
 	cctx.remote_ip = conn->client.remote_ip;
