@@ -558,6 +558,39 @@ client_connection_send_auth_handshake(struct client_connection *
 	}
 }
 
+void client_connection_destroy(struct client_connection **_conn)
+{
+	struct client_connection *conn = *_conn;
+
+	*_conn = NULL;
+
+	doveadm_print_deinit();
+
+	if (conn->http)
+		client_connection_destroy_http(conn);
+
+	if (conn->ssl_iostream != NULL)
+		ssl_iostream_destroy(&conn->ssl_iostream);
+
+	o_stream_destroy(&conn->output);
+
+	io_remove(&conn->io);
+
+	if (conn->log_out != NULL) {
+		doveadm_server_restore_logs();
+		o_stream_unref(&conn->log_out);
+	}
+
+	i_stream_destroy(&conn->input);
+
+	i_close_fd(&conn->fd);
+	pool_unref(&conn->pool);
+
+	doveadm_print_ostream = NULL;
+
+	client_connection_deinit(conn);
+}
+
 struct client_connection *
 client_connection_create(int fd, int listen_fd, bool ssl)
 {
@@ -592,37 +625,4 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 	client_connection_set_proctitle(conn, "");
 
 	return conn;
-}
-
-void client_connection_destroy(struct client_connection **_conn)
-{
-	struct client_connection *conn = *_conn;
-
-	*_conn = NULL;
-
-	doveadm_print_deinit();
-
-	if (conn->http)
-		client_connection_destroy_http(conn);
-
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_destroy(&conn->ssl_iostream);
-
-	o_stream_destroy(&conn->output);
-
-	io_remove(&conn->io);
-
-	if (conn->log_out != NULL) {
-		doveadm_server_restore_logs();
-		o_stream_unref(&conn->log_out);
-	}
-
-	i_stream_destroy(&conn->input);
-
-	i_close_fd(&conn->fd);
-	pool_unref(&conn->pool);
-
-	doveadm_print_ostream = NULL;
-
-	client_connection_deinit(conn);
 }
