@@ -81,14 +81,6 @@ struct doveadm_http_server_mount {
 
 static struct http_server *doveadm_http_server;
 
-static void doveadm_http_server_handle_request(void *context, struct http_server_request *req);
-static void doveadm_http_server_connection_destroy(void *context, const char *reason);
-
-static const struct http_server_callbacks doveadm_http_callbacks = {
-        .connection_destroy = doveadm_http_server_connection_destroy,
-        .handle_request = doveadm_http_server_handle_request
-};
-
 static void doveadm_http_server_options_handler(struct client_connection_http *);
 static void doveadm_http_server_print_mounts(struct client_connection_http *);
 static void doveadm_http_server_send_api_v1(struct client_connection_http *);
@@ -119,64 +111,6 @@ static struct doveadm_http_server_mount doveadm_http_server_mounts[] = {
 };
 
 static void doveadm_http_server_send_response(void *context);
-
-static void
-client_connection_http_free(struct client_connection *_conn)
-{
-	struct client_connection_http *conn =
-		(struct client_connection_http *)_conn;
-
-	io_remove(&conn->io);
-	o_stream_destroy(&conn->output);
-	i_stream_destroy(&conn->input);
-
-	if (conn->http_conn != NULL) {
-		/* We're not in the lib-http/server's connection destroy callback. */
-		http_server_connection_close(&conn->http_conn,
-			"Server shutting down");
-	}
-}
-
-struct client_connection *
-client_connection_http_create(int fd, bool ssl)
-{
-	struct client_connection_http *conn;
-	pool_t pool;
-
-	pool = pool_alloconly_create("doveadm client", 1024*16);
-	conn = p_new(pool, struct client_connection_http, 1);
-
-	if (client_connection_init(&conn->conn,
-		CLIENT_CONNECTION_TYPE_HTTP, pool, fd) < 0) {
-		pool_unref(&conn->conn.pool);
-		return NULL;
-	}
-	conn->conn.free = client_connection_http_free;
-
-	conn->http_conn = http_server_connection_create(doveadm_http_server,
-			fd, fd, ssl, &doveadm_http_callbacks, conn);
-	return &conn->conn;
-}
-
-static void
-doveadm_http_server_connection_destroy(void *context,
-	const char *reason ATTR_UNUSED)
-{
-	struct client_connection_http *conn =
-		(struct client_connection_http *)context;
-	struct client_connection *bconn = &conn->conn;
-
-	if (conn->http_conn == NULL) {
-		/* already destroying client directly */
-		return;
-	}
-
-	/* HTTP connection is destroyed already now */
-	conn->http_conn = NULL;
-
-	/* destroy the connection itself */
-	client_connection_destroy(&bconn);
-}
 
 static void
 doveadm_http_server_request_destroy(struct client_connection_http *conn)
@@ -941,6 +875,71 @@ static void doveadm_http_server_send_response(void *context)
 	}
 
 	http_server_response_submit_close(http_resp);
+}
+
+static void doveadm_http_server_connection_destroy(void *context, const char *reason);
+
+static const struct http_server_callbacks doveadm_http_callbacks = {
+        .connection_destroy = doveadm_http_server_connection_destroy,
+        .handle_request = doveadm_http_server_handle_request
+};
+
+static void
+client_connection_http_free(struct client_connection *_conn)
+{
+	struct client_connection_http *conn =
+		(struct client_connection_http *)_conn;
+
+	io_remove(&conn->io);
+	o_stream_destroy(&conn->output);
+	i_stream_destroy(&conn->input);
+
+	if (conn->http_conn != NULL) {
+		/* We're not in the lib-http/server's connection destroy callback. */
+		http_server_connection_close(&conn->http_conn,
+			"Server shutting down");
+	}
+}
+
+struct client_connection *
+client_connection_http_create(int fd, bool ssl)
+{
+	struct client_connection_http *conn;
+	pool_t pool;
+
+	pool = pool_alloconly_create("doveadm client", 1024*16);
+	conn = p_new(pool, struct client_connection_http, 1);
+
+	if (client_connection_init(&conn->conn,
+		CLIENT_CONNECTION_TYPE_HTTP, pool, fd) < 0) {
+		pool_unref(&conn->conn.pool);
+		return NULL;
+	}
+	conn->conn.free = client_connection_http_free;
+
+	conn->http_conn = http_server_connection_create(doveadm_http_server,
+			fd, fd, ssl, &doveadm_http_callbacks, conn);
+	return &conn->conn;
+}
+
+static void
+doveadm_http_server_connection_destroy(void *context,
+	const char *reason ATTR_UNUSED)
+{
+	struct client_connection_http *conn =
+		(struct client_connection_http *)context;
+	struct client_connection *bconn = &conn->conn;
+
+	if (conn->http_conn == NULL) {
+		/* already destroying client directly */
+		return;
+	}
+
+	/* HTTP connection is destroyed already now */
+	conn->http_conn = NULL;
+
+	/* destroy the connection itself */
+	client_connection_destroy(&bconn);
 }
 
 void doveadm_http_server_init(void)
