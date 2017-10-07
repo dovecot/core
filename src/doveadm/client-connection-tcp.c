@@ -8,19 +8,15 @@
 #include "istream.h"
 #include "ostream.h"
 #include "strescape.h"
-#include "process-title.h"
-#include "settings-parser.h"
 #include "iostream-ssl.h"
 #include "ostream-multiplex.h"
 #include "master-service.h"
 #include "master-service-ssl.h"
-#include "master-service-settings.h"
 #include "mail-storage-service.h"
 #include "doveadm-util.h"
 #include "doveadm-server.h"
 #include "doveadm-mail.h"
 #include "doveadm-print.h"
-#include "doveadm-settings.h"
 #include "client-connection-private.h"
 
 #include <unistd.h>
@@ -261,27 +257,6 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 	}
 	o_stream_uncork(conn->output);
 	pool_unref(&mctx->pool);
-}
-
-bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,
-				       const char *cmd_name)
-{
-	bool ret = FALSE;
-
-	if (*set->doveadm_allowed_commands == '\0')
-		return TRUE;
-
-	T_BEGIN {
-		const char *const *cmds =
-			t_strsplit(set->doveadm_allowed_commands, ",");
-		for (; *cmds != NULL; cmds++) {
-			if (strcmp(*cmds, cmd_name) == 0) {
-				ret = TRUE;
-				break;
-			}
-		}
-	} T_END;
-	return ret;
 }
 
 static int doveadm_cmd_handle(struct client_connection *conn,
@@ -538,33 +513,6 @@ static void client_connection_input(struct client_connection *conn)
 		client_connection_destroy(&conn);
 }
 
-static int client_connection_read_settings(struct client_connection *conn)
-{
-	const struct setting_parser_info *set_roots[] = {
-		&doveadm_setting_parser_info,
-		NULL
-	};
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
-	const char *error;
-	void *set;
-
-	i_zero(&input);
-	input.roots = set_roots;
-	input.service = "doveadm";
-	input.local_ip = conn->local_ip;
-	input.remote_ip = conn->remote_ip;
-
-	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0) {
-		i_error("Error reading configuration: %s", error);
-		return -1;
-	}
-	set = master_service_settings_get_others(master_service)[0];
-	conn->set = settings_dup(&doveadm_setting_parser_info, set, conn->pool);
-	return 0;
-}
-
 static int client_connection_init_ssl(struct client_connection *conn)
 {
 	const char *error;
@@ -601,30 +549,6 @@ client_connection_send_auth_handshake(struct client_connection *
 	} else {
 		o_stream_nsend(conn->output, "-\n", 2);
 	}
-}
-
-int client_connection_init(struct client_connection *conn,
-	enum client_connection_type type, int fd)
-{
-	const char *ip;
-
-	i_assert(type != CLIENT_CONNECTION_TYPE_CLI);
-
-	conn->fd = fd;
-	conn->type = type;
-
-	(void)net_getsockname(fd, &conn->local_ip, &conn->local_port);
-	(void)net_getpeername(fd, &conn->remote_ip, &conn->remote_port);
-
-	ip = net_ip2addr(&conn->remote_ip);
-	if (ip[0] != '\0')
-		i_set_failure_prefix("doveadm(%s): ", ip);
-
-	if (client_connection_read_settings(conn) < 0) {
-		client_connection_destroy(&conn);
-		return -1;
-	}
-	return 0;
 }
 
 struct client_connection *
@@ -692,24 +616,6 @@ void client_connection_destroy(struct client_connection **_conn)
 	pool_unref(&conn->pool);
 
 	doveadm_print_ostream = NULL;
-	doveadm_client = NULL;
-	master_service_client_connection_destroyed(master_service);
 
-	if (doveadm_verbose_proctitle)
-		process_title_set("[idling]");
-}
-
-void client_connection_set_proctitle(struct client_connection *conn,
-				     const char *text)
-{
-	const char *str;
-
-	if (!doveadm_verbose_proctitle)
-		return;
-
-	if (text[0] == '\0')
-		str = t_strdup_printf("[%s]", conn->name);
-	else
-		str = t_strdup_printf("[%s %s]", conn->name, text);
-	process_title_set(str);
+	client_connection_deinit(conn);
 }

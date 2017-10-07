@@ -8,6 +8,7 @@ bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,
 
 int client_connection_init(struct client_connection *conn,
 	enum client_connection_type type, int fd);
+void client_connection_deinit(struct client_connection *conn ATTR_UNUSED);
 
 void client_connection_set_proctitle(struct client_connection *conn,
 				     const char *text);
