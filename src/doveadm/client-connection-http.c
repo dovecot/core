@@ -37,7 +37,7 @@ struct client_connection_http {
 
 	struct http_server_connection *http_conn;
 
-	struct http_server_request *http_server_request;
+	struct http_server_request *http_request;
 	struct http_server_response *http_response;
 
 	struct io *io;
@@ -181,7 +181,7 @@ doveadm_http_server_connection_destroy(void *context,
 static void
 doveadm_http_server_request_destroy(struct client_connection_http *conn)
 {
-	struct http_server_request *http_sreq = conn->http_server_request;
+	struct http_server_request *http_sreq = conn->http_request;
 	const struct http_request *http_req =
 		http_server_request_get(http_sreq);
 	struct http_server_response *http_resp =
@@ -213,7 +213,7 @@ doveadm_http_server_request_destroy(struct client_connection_http *conn)
 	if (conn->output != NULL)
 		o_stream_set_no_error_handling(conn->output, TRUE);
 
-	http_server_request_unref(&(conn->http_server_request));
+	http_server_request_unref(&(conn->http_request));
 	http_server_switch_ioloop(doveadm_http_server);
 }
 
@@ -589,7 +589,7 @@ doveadm_http_handle_json_v1(struct client_connection_http *conn,
 static void
 doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 {
-	struct http_server_request *http_sreq = conn->http_server_request;
+	struct http_server_request *http_sreq = conn->http_request;
 	enum json_type type;
 	const char *value, *error;
 	int ret;
@@ -764,7 +764,7 @@ doveadm_http_server_print_mounts(struct client_connection_http *conn)
 static bool
 doveadm_http_server_authorize_request(struct client_connection_http *conn)
 {
-	struct http_server_request *http_sreq = conn->http_server_request;
+	struct http_server_request *http_sreq = conn->http_request;
 	bool auth = FALSE;
 	struct http_auth_credentials creds;
 
@@ -824,10 +824,10 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 	struct doveadm_http_server_mount *ep = NULL;
 	unsigned int i;
 
-	conn->http_server_request = http_sreq;
+	conn->http_request = http_sreq;
 
 	http_server_request_set_destroy_callback(http_sreq, doveadm_http_server_request_destroy, conn);
-	http_server_request_ref(conn->http_server_request);
+	http_server_request_ref(http_sreq);
 
 	for (i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
 		if (doveadm_http_server_mounts[i].verb == NULL ||
