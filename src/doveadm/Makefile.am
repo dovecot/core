@@ -145,7 +145,7 @@ doveadm_SOURCES = \
 doveadm_server_SOURCES = \
 	$(common) \
 	doveadm-auth-server.c \
-	client-connection.c \
+	client-connection-tcp.c \
 	client-connection-http.c \
 	doveadm-print-server.c \
 	doveadm-print-json.c \
