@@ -592,7 +592,7 @@ void client_connection_destroy(struct client_connection **_conn)
 }
 
 struct client_connection *
-client_connection_create(int fd, int listen_fd, bool ssl)
+client_connection_tcp_create(int fd, int listen_fd, bool ssl)
 {
 	struct client_connection *conn;
 	pool_t pool;

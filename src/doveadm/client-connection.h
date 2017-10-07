@@ -34,7 +34,7 @@ struct client_connection {
 };
 
 struct client_connection *
-client_connection_create(int fd, int listen_fd, bool ssl);
+client_connection_tcp_create(int fd, int listen_fd, bool ssl);
 struct client_connection *
 client_connection_http_create(int fd, bool ssl);
 void client_connection_destroy(struct client_connection **conn);

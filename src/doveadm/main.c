@@ -44,7 +44,7 @@ static void client_connected(struct master_service_connection *conn)
 	if (strcmp(conn->name, "http") == 0) {
 		doveadm_client = client_connection_http_create(conn->fd, conn->ssl);
 	} else {
-		doveadm_client = client_connection_create(conn->fd, conn->listen_fd,
+		doveadm_client = client_connection_tcp_create(conn->fd, conn->listen_fd,
 							  conn->ssl);
 	}
 }
