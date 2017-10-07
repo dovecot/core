@@ -35,7 +35,7 @@
 struct client_connection_http {
 	struct client_connection conn;
 
-	struct http_server_connection *http_client;
+	struct http_server_connection *http_conn;
 
 	struct http_server_request *http_server_request;
 	const struct http_request *http_request;
@@ -131,9 +131,9 @@ client_connection_http_free(struct client_connection *_conn)
 	o_stream_destroy(&conn->output);
 	i_stream_destroy(&conn->input);
 
-	if (conn->http_client != NULL) {
+	if (conn->http_conn != NULL) {
 		/* We're not in the lib-http/server's connection destroy callback. */
-		http_server_connection_close(&conn->http_client,
+		http_server_connection_close(&conn->http_conn,
 			"Server shutting down");
 	}
 }
@@ -154,7 +154,7 @@ client_connection_http_create(int fd, bool ssl)
 	}
 	conn->conn.free = client_connection_http_free;
 
-	conn->http_client = http_server_connection_create(doveadm_http_server,
+	conn->http_conn = http_server_connection_create(doveadm_http_server,
 			fd, fd, ssl, &doveadm_http_callbacks, conn);
 	return &conn->conn;
 }
@@ -167,13 +167,13 @@ doveadm_http_server_connection_destroy(void *context,
 		(struct client_connection_http *)context;
 	struct client_connection *bconn = &conn->conn;
 
-	if (conn->http_client == NULL) {
+	if (conn->http_conn == NULL) {
 		/* already destroying client directly */
 		return;
 	}
 
 	/* HTTP connection is destroyed already now */
-	conn->http_client = NULL;
+	conn->http_conn = NULL;
 
 	/* destroy the connection itself */
 	client_connection_destroy(&bconn);
