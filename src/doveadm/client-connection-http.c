@@ -116,6 +116,18 @@ static struct doveadm_http_server_mount doveadm_http_server_mounts[] = {
 
 static void doveadm_http_server_send_response(void *context);
 
+void client_connection_destroy_http(struct client_connection *conn)
+{
+	struct client_connection_http *hconn =
+		(struct client_connection_http *)conn;
+
+	if (hconn->http_client != NULL) {
+		/* We're not in the lib-http/server's connection destroy callback. */
+		http_server_connection_close(&hconn->http_client,
+			"Server shutting down");
+	}
+}
+
 struct client_connection *
 client_connection_http_create(int fd, bool ssl)
 {
@@ -135,18 +147,6 @@ client_connection_http_create(int fd, bool ssl)
 			fd, fd, ssl, &doveadm_http_callbacks, conn);
 	conn->conn.fd = -1;
 	return &conn->conn;
-}
-
-void client_connection_destroy_http(struct client_connection *conn)
-{
-	struct client_connection_http *hconn =
-		(struct client_connection_http *)conn;
-
-	if (hconn->http_client != NULL) {
-		/* We're not in the lib-http/server's connection destroy callback. */
-		http_server_connection_close(&hconn->http_client,
-			"Server shutting down");
-	}
 }
 
 static void
