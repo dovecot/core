@@ -39,7 +39,6 @@ struct client_connection_http {
 	struct http_server_connection *http_conn;
 
 	struct http_server_request *http_request;
-	struct http_server_response *http_response;
 
 	struct io *io;
 	struct istream *input;
@@ -721,8 +720,10 @@ doveadm_http_server_send_api_v1(struct client_connection_http *conn)
 static void
 doveadm_http_server_options_handler(struct client_connection_http *conn)
 {
-	struct http_server_response *http_resp = conn->http_response;
+	struct http_server_request *http_sreq = conn->http_request;
+	struct http_server_response *http_resp;
 
+	http_resp = http_server_response_create(http_sreq, 200, "OK");
 	http_server_response_add_header(http_resp,
 		"Access-Control-Allow-Origin", "*");
 	http_server_response_add_header(http_resp,
@@ -733,7 +734,7 @@ doveadm_http_server_options_handler(struct client_connection_http *conn)
 	http_server_response_add_header(http_resp,
 		"Access-Control-Allow-Headers",
 		"Content-Type, WWW-Authenticate");
-	doveadm_http_server_send_response(conn);
+	http_server_response_submit_close(http_resp);
 }
 
 static void
@@ -835,24 +836,27 @@ doveadm_http_server_authorize_request(struct client_connection_http *conn)
 	/* no authentication specified */
 	if (doveadm_settings->doveadm_api_key[0] == '\0' &&
 		*conn->conn.set->doveadm_password == '\0') {
-		conn->http_response = http_server_response_create(http_sreq, 500, "Internal Server Error");
+		http_server_request_fail_close(http_sreq, 500, "Internal Server Error");
 		i_error("No authentication defined in configuration. Add API key or password");
 		return FALSE;
 	}
 	if (http_server_request_get_auth(http_sreq, &creds) > 0)
 		auth = doveadm_http_server_auth_verify(conn, &creds);
 	if (!auth) {
-		conn->http_response = http_server_response_create(http_sreq, 401, "Authentication required");
+		struct http_server_response *http_resp;
+
+		http_resp = http_server_response_create(http_sreq, 401, "Authentication required");
 		if (doveadm_settings->doveadm_api_key[0] != '\0') {
-			http_server_response_add_header(conn->http_response,
+			http_server_response_add_header(http_resp,
 				"WWW-Authenticate", "X-Dovecot-API"
 			);
 		}
 		if (*conn->conn.set->doveadm_password != '\0') {
-			http_server_response_add_header(conn->http_response,
+			http_server_response_add_header(http_resp,
 				"WWW-Authenticate", "Basic Realm=\"doveadm\""
 			);
 		}
+		http_server_response_submit_close(http_resp);
 	}
 	return auth;
 }
@@ -887,14 +891,8 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 		return;
 	}
 
- 	if (ep->auth == TRUE && !doveadm_http_server_authorize_request(conn)) {
-		doveadm_http_server_send_response(conn);
+ 	if (ep->auth == TRUE && !doveadm_http_server_authorize_request(conn))
 		return;
-	}
-
-	conn->http_response = http_server_response_create(http_sreq, 200, "OK");
-	http_server_response_add_header(conn->http_response, "Content-Type",
-		"application/json; charset=utf-8");
 
 	if (strcmp(http_req->method, "POST") == 0) {
 		/* handle request */
@@ -916,24 +914,32 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 static void doveadm_http_server_send_response(void *context)
 {
 	struct client_connection_http *conn = context;
-	struct http_server_response *http_resp = conn->http_response;
+	struct http_server_request *http_sreq = conn->http_request;
+	struct http_server_response *http_resp;
+	struct istream *payload = NULL;
 
 	if (conn->output != NULL) {
 		if (o_stream_nfinish(conn->output) == -1) {
 			i_info("error writing output: %s",
 			       o_stream_get_error(conn->output));
 			o_stream_destroy(&conn->output);
-			http_server_response_update_status(http_resp, 500, "Internal server error");
-		} else {
-			// send the payload response
-			struct istream *is;
-
-			is = iostream_temp_finish(&conn->output, IO_BLOCK_SIZE);
-			http_server_response_set_payload(http_resp, is);
-			i_stream_unref(&is);
+			http_server_request_fail_close(http_sreq, 500, "Internal server error");
+			return;
 		}
+
+		payload = iostream_temp_finish(&conn->output,
+					       IO_BLOCK_SIZE);
 	}
-	// submit response
+	
+	http_resp = http_server_response_create(http_sreq, 200, "OK");
+	http_server_response_add_header(http_resp, "Content-Type",
+		"application/json; charset=utf-8");
+
+	if (payload != NULL) {
+		http_server_response_set_payload(http_resp, payload);
+		i_stream_unref(&payload);
+	}
+
 	http_server_response_submit_close(http_resp);
 }
 
