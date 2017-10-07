@@ -697,6 +697,38 @@ doveadm_http_server_print_mounts(struct client_connection_http *conn)
 	doveadm_http_server_send_response(conn);
 }
 
+static void doveadm_http_server_send_response(void *context)
+{
+	struct client_connection_http *conn = context;
+	struct http_server_request *http_sreq = conn->http_request;
+	struct http_server_response *http_resp;
+	struct istream *payload = NULL;
+
+	if (conn->output != NULL) {
+		if (o_stream_nfinish(conn->output) == -1) {
+			i_info("error writing output: %s",
+			       o_stream_get_error(conn->output));
+			o_stream_destroy(&conn->output);
+			http_server_request_fail_close(http_sreq, 500, "Internal server error");
+			return;
+		}
+
+		payload = iostream_temp_finish(&conn->output,
+					       IO_BLOCK_SIZE);
+	}
+	
+	http_resp = http_server_response_create(http_sreq, 200, "OK");
+	http_server_response_add_header(http_resp, "Content-Type",
+		"application/json; charset=utf-8");
+
+	if (payload != NULL) {
+		http_server_response_set_payload(http_resp, payload);
+		i_stream_unref(&payload);
+	}
+
+	http_server_response_submit_close(http_resp);
+}
+
 static bool
 doveadm_http_server_auth_basic(struct client_connection_http *conn,
 			       const struct http_auth_credentials *creds)
@@ -843,38 +875,6 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 			("/tmp/doveadm.", 0, net_ip2addr(&conn->conn.remote_ip));
 		ep->handler(conn);
 	}
-}
-
-static void doveadm_http_server_send_response(void *context)
-{
-	struct client_connection_http *conn = context;
-	struct http_server_request *http_sreq = conn->http_request;
-	struct http_server_response *http_resp;
-	struct istream *payload = NULL;
-
-	if (conn->output != NULL) {
-		if (o_stream_nfinish(conn->output) == -1) {
-			i_info("error writing output: %s",
-			       o_stream_get_error(conn->output));
-			o_stream_destroy(&conn->output);
-			http_server_request_fail_close(http_sreq, 500, "Internal server error");
-			return;
-		}
-
-		payload = iostream_temp_finish(&conn->output,
-					       IO_BLOCK_SIZE);
-	}
-	
-	http_resp = http_server_response_create(http_sreq, 200, "OK");
-	http_server_response_add_header(http_resp, "Content-Type",
-		"application/json; charset=utf-8");
-
-	if (payload != NULL) {
-		http_server_response_set_payload(http_resp, payload);
-		i_stream_unref(&payload);
-	}
-
-	http_server_response_submit_close(http_resp);
 }
 
 static void doveadm_http_server_connection_destroy(void *context, const char *reason);
