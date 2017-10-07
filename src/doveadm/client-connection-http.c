@@ -38,7 +38,6 @@ struct client_connection_http {
 	struct http_server_connection *http_conn;
 
 	struct http_server_request *http_server_request;
-	const struct http_request *http_request;
 	struct http_server_response *http_response;
 
 	struct io *io;
@@ -183,7 +182,8 @@ static void
 doveadm_http_server_request_destroy(struct client_connection_http *conn)
 {
 	struct http_server_request *http_sreq = conn->http_server_request;
-	const struct http_request *http_req = conn->http_request;
+	const struct http_request *http_req =
+		http_server_request_get(http_sreq);
 	struct http_server_response *http_resp =
 		http_server_request_get_response(http_sreq);
 
@@ -825,7 +825,6 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 	unsigned int i;
 
 	conn->http_server_request = http_sreq;
-	conn->http_request = http_req;
 
 	http_server_request_set_destroy_callback(http_sreq, doveadm_http_server_request_destroy, conn);
 	http_server_request_ref(conn->http_server_request);
