@@ -6,6 +6,7 @@
 #include "base64.h"
 #include "ioloop.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "istream.h"
 #include "ostream.h"
 #include "strescape.h"
@@ -762,6 +763,69 @@ doveadm_http_server_print_mounts(struct client_connection_http *conn)
 }
 
 static bool
+doveadm_http_server_auth_basic(struct client_connection_http *conn,
+			       const struct http_auth_credentials *creds)
+{
+	const struct doveadm_settings *set = conn->conn.set;
+	string_t *b64_value;
+	char *value;
+
+	if (*set->doveadm_password == '\0') {
+		i_error("Invalid authentication attempt to HTTP API: "
+			"Basic authentication scheme not enabled");
+		return FALSE;
+	}
+
+	b64_value = str_new(conn->conn.pool, 32);
+	value = p_strdup_printf(conn->conn.pool, "doveadm:%s", set->doveadm_password);
+	base64_encode(value, strlen(value), b64_value);
+	if (creds->data != NULL && strcmp(creds->data, str_c(b64_value)) == 0)
+		return TRUE;
+
+	i_error("Invalid authentication attempt to HTTP API "
+		"(using Basic authentication scheme)");
+	return FALSE;
+}
+
+static bool
+doveadm_http_server_auth_api_key(struct client_connection_http *conn,
+				 const struct http_auth_credentials *creds)
+{
+	const struct doveadm_settings *set = doveadm_settings;
+	string_t *b64_value;
+
+	if (*set->doveadm_api_key == '\0') {
+		i_error("Invalid authentication attempt to HTTP API: "
+			"X-Dovecot-API authentication scheme not enabled");
+		return FALSE;
+	}
+
+	b64_value = str_new(conn->conn.pool, 32);
+	base64_encode(set->doveadm_api_key, strlen(set->doveadm_api_key), b64_value);
+	if (creds->data != NULL && strcmp(creds->data, str_c(b64_value)) == 0)
+		return TRUE;
+
+	i_error("Invalid authentication attempt to HTTP API "
+		"(using X-Dovecot-API authentication scheme)");
+	return FALSE;
+}
+
+static bool
+doveadm_http_server_auth_verify(struct client_connection_http *conn,
+				const struct http_auth_credentials *creds)
+{
+	/* see if the mech is supported */
+	if (strcasecmp(creds->scheme, "Basic") == 0)
+		return doveadm_http_server_auth_basic(conn, creds);
+	if (strcasecmp(creds->scheme, "X-Dovecot-API") == 0)
+		return doveadm_http_server_auth_api_key(conn, creds);
+
+	i_error("Unsupported authentication scheme to HTTP API: %s",
+		str_sanitize(creds->scheme, 128));
+	return FALSE;
+}
+
+static bool
 doveadm_http_server_authorize_request(struct client_connection_http *conn)
 {
 	struct http_server_request *http_sreq = conn->http_request;
@@ -775,31 +839,9 @@ doveadm_http_server_authorize_request(struct client_connection_http *conn)
 		i_error("No authentication defined in configuration. Add API key or password");
 		return FALSE;
 	}
-	if (http_server_request_get_auth(http_sreq, &creds) == 1) {
-		/* see if the mech is supported */
-		if (strcasecmp(creds.scheme, "Basic") == 0 && *conn->conn.set->doveadm_password != '\0') {
-			string_t *b64_value = str_new(conn->conn.pool, 32);
-			char *value;
-
-			value = p_strdup_printf(conn->conn.pool, "doveadm:%s", conn->conn.set->doveadm_password);
-			base64_encode(value, strlen(value), b64_value);
-			if (creds.data != NULL && strcmp(creds.data, str_c(b64_value)) == 0)
-				auth = TRUE;
-			else
-				i_error("Invalid authentication attempt to HTTP API");
-		} else if (strcasecmp(creds.scheme, "X-Dovecot-API") == 0 && doveadm_settings->doveadm_api_key[0] != '\0') {
-			string_t *b64_value = str_new(conn->conn.pool, 32);
-
-			base64_encode(doveadm_settings->doveadm_api_key, strlen(doveadm_settings->doveadm_api_key), b64_value);
-			if (creds.data != NULL && strcmp(creds.data, str_c(b64_value)) == 0)
-				auth = TRUE;
-			else
-				i_error("Invalid authentication attempt to HTTP API");
-		} else {
-			i_error("Unsupported authentication scheme to HTTP API");
-		}
-	}
-	if (auth == FALSE) {
+	if (http_server_request_get_auth(http_sreq, &creds) > 0)
+		auth = doveadm_http_server_auth_verify(conn, &creds);
+	if (!auth) {
 		conn->http_response = http_server_response_create(http_sreq, 401, "Authentication required");
 		if (doveadm_settings->doveadm_api_key[0] != '\0') {
 			http_server_response_add_header(conn->http_response,
