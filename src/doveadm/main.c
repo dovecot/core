@@ -79,26 +79,24 @@ static void main_init(void)
 	if (doveadm_verbose_proctitle)
 		process_title_set("[idling]");
 
-	doveadm_http_server_init();
 	doveadm_cmds_init();
 	doveadm_register_auth_server_commands();
 	doveadm_dump_init();
 	doveadm_mail_init();
+	doveadm_server_init();
 	dict_drivers_register_builtin();
 	doveadm_load_modules();
 }
 
 static void main_deinit(void)
 {
-	if (doveadm_client != NULL)
-		client_connection_destroy(&doveadm_client);
+	doveadm_server_deinit();
 	doveadm_mail_deinit();
 	doveadm_dump_deinit();
 	doveadm_unload_modules();
 	dict_drivers_unregister_builtin();
 	doveadm_print_deinit();
 	doveadm_cmds_deinit();
-	doveadm_http_server_deinit();
 	pool_unref(&doveadm_settings_pool);
 }
 

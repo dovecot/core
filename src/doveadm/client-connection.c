@@ -59,14 +59,14 @@ static int client_connection_read_settings(struct client_connection *conn)
 }
 
 int client_connection_init(struct client_connection *conn,
-	enum client_connection_type type, int fd)
+	enum client_connection_type type, pool_t pool, int fd)
 {
 	const char *ip;
 
 	i_assert(type != CLIENT_CONNECTION_TYPE_CLI);
 
-	conn->fd = fd;
 	conn->type = type;
+	conn->pool = pool;
 
 	(void)net_getsockname(fd, &conn->local_ip, &conn->local_port);
 	(void)net_getpeername(fd, &conn->remote_ip, &conn->remote_port);
@@ -75,20 +75,28 @@ int client_connection_init(struct client_connection *conn,
 	if (ip[0] != '\0')
 		i_set_failure_prefix("doveadm(%s): ", ip);
 
-	if (client_connection_read_settings(conn) < 0) {
-		client_connection_destroy(&conn);
-		return -1;
-	}
-	return 0;
+	conn->name = conn->remote_ip.family == 0 ? "<local>" :
+		p_strdup(pool, net_ip2addr(&conn->remote_ip));
+
+	return client_connection_read_settings(conn);
 }
 
-void client_connection_deinit(struct client_connection *conn ATTR_UNUSED)
+void client_connection_destroy(struct client_connection **_conn)
 {
+	struct client_connection *conn = *_conn;
+
+	*_conn = NULL;
+
+	if (conn->free != NULL)
+		conn->free(conn);
+
 	doveadm_client = NULL;
 	master_service_client_connection_destroyed(master_service);
 
 	if (doveadm_verbose_proctitle)
 		process_title_set("[idling]");
+	
+	pool_unref(&conn->pool);
 }
 
 void client_connection_set_proctitle(struct client_connection *conn,
@@ -106,4 +114,14 @@ void client_connection_set_proctitle(struct client_connection *conn,
 	process_title_set(str);
 }
 
+void doveadm_server_init(void)
+{
+	doveadm_http_server_init();
+}
 
+void doveadm_server_deinit(void)
+{
+	if (doveadm_client != NULL)
+		client_connection_destroy(&doveadm_client);
+	doveadm_http_server_deinit();
+}

@@ -34,11 +34,16 @@
 
 struct client_connection_http {
 	struct client_connection conn;
+
 	struct http_server_connection *http_client;
 
 	struct http_server_request *http_server_request;
 	const struct http_request *http_request;
 	struct http_server_response *http_response;
+
+	struct io *io;
+	struct istream *input;
+	struct ostream *output;
 
 	struct json_parser *json_parser;
 
@@ -116,14 +121,19 @@ static struct doveadm_http_server_mount doveadm_http_server_mounts[] = {
 
 static void doveadm_http_server_send_response(void *context);
 
-void client_connection_destroy_http(struct client_connection *conn)
+static void
+client_connection_http_free(struct client_connection *_conn)
 {
-	struct client_connection_http *hconn =
-		(struct client_connection_http *)conn;
+	struct client_connection_http *conn =
+		(struct client_connection_http *)_conn;
 
-	if (hconn->http_client != NULL) {
+	io_remove(&conn->io);
+	o_stream_destroy(&conn->output);
+	i_stream_destroy(&conn->input);
+
+	if (conn->http_client != NULL) {
 		/* We're not in the lib-http/server's connection destroy callback. */
-		http_server_connection_close(&hconn->http_client,
+		http_server_connection_close(&conn->http_client,
 			"Server shutting down");
 	}
 }
@@ -136,16 +146,16 @@ client_connection_http_create(int fd, bool ssl)
 
 	pool = pool_alloconly_create("doveadm client", 1024*16);
 	conn = p_new(pool, struct client_connection_http, 1);
-	conn->conn.pool = pool;
-	conn->conn.http = TRUE;
 
 	if (client_connection_init(&conn->conn,
-		CLIENT_CONNECTION_TYPE_HTTP, fd) < 0)
+		CLIENT_CONNECTION_TYPE_HTTP, pool, fd) < 0) {
+		pool_unref(&conn->conn.pool);
 		return NULL;
+	}
+	conn->conn.free = client_connection_http_free;
 
 	conn->http_client = http_server_connection_create(doveadm_http_server,
 			fd, fd, ssl, &doveadm_http_callbacks, conn);
-	conn->conn.fd = -1;
 	return &conn->conn;
 }
 
@@ -153,20 +163,20 @@ static void
 doveadm_http_server_connection_destroy(void *context,
 	const char *reason ATTR_UNUSED)
 {
-	struct client_connection_http *hconn =
+	struct client_connection_http *conn =
 		(struct client_connection_http *)context;
-	struct client_connection *conn = &hconn->conn;
+	struct client_connection *bconn = &conn->conn;
 
-	if (hconn->http_client == NULL) {
+	if (conn->http_client == NULL) {
 		/* already destroying client directly */
 		return;
 	}
 
 	/* HTTP connection is destroyed already now */
-	hconn->http_client = NULL;
+	conn->http_client = NULL;
 
 	/* destroy the connection itself */
-	client_connection_destroy(&conn);
+	client_connection_destroy(&bconn);
 }
 
 static void
@@ -200,8 +210,8 @@ doveadm_http_server_request_destroy(struct client_connection_http *conn)
 		(void)json_parser_deinit(&conn->json_parser, &error);
 		// we've already failed, ignore error
 	}
-	if (conn->conn.output != NULL)
-		o_stream_set_no_error_handling(conn->conn.output, TRUE);
+	if (conn->output != NULL)
+		o_stream_set_no_error_handling(conn->output, TRUE);
 
 	http_server_request_unref(&(conn->http_server_request));
 	http_server_switch_ioloop(doveadm_http_server);
@@ -210,7 +220,7 @@ doveadm_http_server_request_destroy(struct client_connection_http *conn)
 static void doveadm_http_server_json_error(void *context, const char *error)
 {
 	struct client_connection_http *conn = context;
-	struct ostream *output = conn->conn.output;
+	struct ostream *output = conn->output;
 	string_t *escaped;
 
 	escaped = str_new(conn->conn.pool, 10);
@@ -234,7 +244,7 @@ static void doveadm_http_server_json_error(void *context, const char *error)
 static void doveadm_http_server_json_success(void *context, struct istream *result)
 {
 	struct client_connection_http *conn = context;
-	struct ostream *output = conn->conn.output;
+	struct ostream *output = conn->output;
 	string_t *escaped;
 
 	escaped = str_new(conn->conn.pool, 10);
@@ -390,8 +400,8 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	prev_ioloop = current_ioloop;
 	i_zero(&cctx);
 	cctx.conn_type = conn->conn.type;
-	cctx.input = conn->conn.input;
-	cctx.output = conn->conn.output;
+	cctx.input = conn->input;
+	cctx.output = conn->output;
 
 	// create iostream
 	doveadm_print_ostream = iostream_temp_create("/tmp/doveadm.", 0);
@@ -420,7 +430,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	client_connection_set_proctitle(&conn->conn, "");
 
 	io_loop_set_current(prev_ioloop);
-	o_stream_switch_ioloop(conn->conn.output);
+	o_stream_switch_ioloop(conn->output);
 	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);
 
@@ -429,7 +439,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	if (o_stream_nfinish(doveadm_print_ostream) < 0) {
 		i_info("Error writing output in command %s: %s",
 		       conn->cmd->name,
-		       o_stream_get_error(conn->conn.output));
+		       o_stream_get_error(conn->output));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 
@@ -438,7 +448,7 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	if (conn->first_row == TRUE)
 		conn->first_row = FALSE;
 	else
-		o_stream_nsend_str(conn->conn.output,",");
+		o_stream_nsend_str(conn->output,",");
 
 	if (doveadm_exit_code != 0) {
 		if (doveadm_exit_code == 0 || doveadm_exit_code == EX_TEMPFAIL)
@@ -464,7 +474,7 @@ doveadm_http_handle_json_v1(struct client_connection_http *conn,
 			return FALSE;
 		conn->json_state = JSON_STATE_COMMAND;
 		conn->first_row = TRUE;
-		o_stream_nsend_str(conn->conn.output,"[");
+		o_stream_nsend_str(conn->output,"[");
 		return TRUE;
 	case JSON_STATE_COMMAND:
 		if (type == JSON_TYPE_ARRAY_END) {
@@ -585,7 +595,7 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 	int ret;
 
 	if (conn->json_parser == NULL) {
-		conn->json_parser = json_parser_init_flags(conn->conn.input, JSON_PARSER_NO_ROOT_OBJECT);
+		conn->json_parser = json_parser_init_flags(conn->input, JSON_PARSER_NO_ROOT_OBJECT);
 	}
 
 	while ((ret = doveadm_http_server_json_parse_next(conn, &type, &value)) == 1) {
@@ -593,9 +603,9 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 			break;
 	}
 
-	if (!conn->conn.input->eof && ret == 0)
+	if (!conn->input->eof && ret == 0)
 		return;
-	io_remove(&conn->conn.io);
+	io_remove(&conn->io);
 
 	doveadm_cmd_params_clean(&conn->pargv);
 
@@ -607,10 +617,10 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 		return;
 	}
 
-	if (conn->conn.input->stream_errno != 0) {
+	if (conn->input->stream_errno != 0) {
 		http_server_request_fail_close(http_sreq, 400, "Client disconnected");
 		i_info("read(client) failed: %s",
-		       i_stream_get_error(conn->conn.input));
+		       i_stream_get_error(conn->input));
 		return;
 	}
 
@@ -621,7 +631,7 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 		i_info("JSON parse error: %s", error);
 		return;
 	}
-	o_stream_nsend_str(conn->conn.output,"]");
+	o_stream_nsend_str(conn->output,"]");
 
 	doveadm_http_server_send_response(conn);
 }
@@ -645,7 +655,7 @@ static void doveadm_http_server_camelcase_value(string_t *value)
 static void
 doveadm_http_server_send_api_v1(struct client_connection_http *conn)
 {
-	struct ostream *output = conn->conn.output;
+	struct ostream *output = conn->output;
 	const struct doveadm_cmd_ver2 *cmd;
 	const struct doveadm_cmd_param *par;
 	unsigned int i, k;
@@ -728,7 +738,7 @@ doveadm_http_server_options_handler(struct client_connection_http *conn)
 static void
 doveadm_http_server_print_mounts(struct client_connection_http *conn)
 {
-	struct ostream *output = conn->conn.output;
+	struct ostream *output = conn->output;
 	unsigned int i;
 
 	o_stream_nsend_str(output, "[\n");
@@ -847,16 +857,16 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 
 	if (strcmp(http_req->method, "POST") == 0) {
 		/* handle request */
-		conn->conn.input = http_req->payload;
-		i_stream_set_name(conn->conn.input, net_ip2addr(&conn->conn.remote_ip));
-		i_stream_ref(conn->conn.input);
-		conn->conn.io = io_add_istream(conn->conn.input, *ep->handler, conn);
-		conn->conn.output = iostream_temp_create_named
+		conn->input = http_req->payload;
+		i_stream_set_name(conn->input, net_ip2addr(&conn->conn.remote_ip));
+		i_stream_ref(conn->input);
+		conn->io = io_add_istream(conn->input, *ep->handler, conn);
+		conn->output = iostream_temp_create_named
 			("/tmp/doveadm.", 0, net_ip2addr(&conn->conn.remote_ip));
 		p_array_init(&conn->pargv, conn->conn.pool, 5);
 		ep->handler(conn);
 	} else {
-		conn->conn.output = iostream_temp_create_named
+		conn->output = iostream_temp_create_named
 			("/tmp/doveadm.", 0, net_ip2addr(&conn->conn.remote_ip));
 		ep->handler(conn);
 	}
@@ -867,17 +877,17 @@ static void doveadm_http_server_send_response(void *context)
 	struct client_connection_http *conn = context;
 	struct http_server_response *http_resp = conn->http_response;
 
-	if (conn->conn.output != NULL) {
-		if (o_stream_nfinish(conn->conn.output) == -1) {
+	if (conn->output != NULL) {
+		if (o_stream_nfinish(conn->output) == -1) {
 			i_info("error writing output: %s",
-			       o_stream_get_error(conn->conn.output));
-			o_stream_destroy(&conn->conn.output);
+			       o_stream_get_error(conn->output));
+			o_stream_destroy(&conn->output);
 			http_server_response_update_status(http_resp, 500, "Internal server error");
 		} else {
 			// send the payload response
 			struct istream *is;
 
-			is = iostream_temp_finish(&conn->conn.output, IO_BLOCK_SIZE);
+			is = iostream_temp_finish(&conn->output, IO_BLOCK_SIZE);
 			http_server_response_set_payload(http_resp, is);
 			i_stream_unref(&is);
 		}
