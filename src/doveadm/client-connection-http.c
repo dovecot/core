@@ -117,7 +117,7 @@ static struct doveadm_http_server_mount doveadm_http_server_mounts[] = {
 static void doveadm_http_server_send_response(void *context);
 
 struct client_connection *
-client_connection_create_http(int fd, bool ssl)
+client_connection_http_create(int fd, bool ssl)
 {
 	struct client_connection_http *conn;
 	pool_t pool;
