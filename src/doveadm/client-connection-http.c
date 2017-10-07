@@ -411,115 +411,140 @@ doveadm_http_server_command_execute(struct client_connection_http *conn)
 	i_stream_unref(&is);
 }
 
+static bool
+doveadm_http_handle_json_v1(struct client_connection_http *conn,
+			    enum json_type type, const char *value)
+{
+	const struct doveadm_cmd_ver2 *ccmd;
+	struct doveadm_cmd_param *par;
+	bool found;
+
+	if (conn->json_state == JSON_STATE_INIT) {
+		if (type != JSON_TYPE_ARRAY)
+			return FALSE;
+		conn->json_state = JSON_STATE_COMMAND;
+		conn->first_row = TRUE;
+		o_stream_nsend_str(conn->client.output,"[");
+		return TRUE;
+	} else if (conn->json_state == JSON_STATE_COMMAND) {
+		if (type == JSON_TYPE_ARRAY_END) {
+			conn->json_state = JSON_STATE_DONE;
+			return TRUE;
+		}
+		if (type != JSON_TYPE_ARRAY)
+			return FALSE;
+		conn->method_err = 0;
+		p_free_and_null(conn->client.pool, conn->method_id);
+		conn->cmd = NULL;
+		doveadm_cmd_params_clean(&conn->pargv);
+		conn->json_state = JSON_STATE_COMMAND_NAME;
+		return TRUE;
+	} else if (conn->json_state == JSON_STATE_COMMAND_NAME) {
+		if (type != JSON_TYPE_STRING)
+			return FALSE;
+		/* see if we can find it */
+		found = FALSE;
+		array_foreach(&doveadm_cmds_ver2, ccmd) {
+			if (i_strccdascmp(ccmd->name, value) == 0) {
+				conn->cmd = ccmd;
+				found = TRUE;
+				break;
+			}
+		}
+		if (!found) {
+			json_parse_skip_next(conn->json_parser);
+			conn->json_state = JSON_STATE_COMMAND_ID;
+			conn->method_err = 404;
+		} else {
+			struct doveadm_cmd_param *param;
+			/* initialize pargv */
+			for(int pargc=0;conn->cmd->parameters[pargc].name != NULL;pargc++) {
+				param = array_append_space(&conn->pargv);
+				memcpy(param, &(conn->cmd->parameters[pargc]), sizeof(struct doveadm_cmd_param));
+				param->value_set = FALSE;
+			}
+			conn->json_state = JSON_STATE_COMMAND_PARAMETERS;
+		}
+		return TRUE;
+	} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETERS) {
+		if (type == JSON_TYPE_OBJECT_END) {
+			conn->json_state = JSON_STATE_COMMAND_ID;
+			return TRUE;
+		}
+		if (type != JSON_TYPE_OBJECT)
+			return FALSE;
+		conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+		return TRUE;
+	} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETER_KEY) {
+		if (type == JSON_TYPE_OBJECT_END) {
+			conn->json_state = JSON_STATE_COMMAND_ID;
+			return TRUE;
+		}
+		// can happen...
+		if (type != JSON_TYPE_OBJECT_KEY && type != JSON_TYPE_STRING)
+			return FALSE;
+		/* go hunting */
+		found = FALSE;
+		array_foreach_modifiable(&conn->pargv, par) {
+			if (i_strccdascmp(par->name, value) == 0) {
+				/* it's already set, cannot have same key twice in json */
+				if (par->value_set)
+					return FALSE;
+				conn->cmd_param = par;
+				found = TRUE;
+				break;
+			}
+		}
+		/* skip parameters if error has already occurred */
+		if (!found || conn->method_err != 0) {
+			json_parse_skip_next(conn->json_parser);
+			conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+			conn->method_err = 400;
+		} else {
+			if (conn->cmd_param->value_set) {
+				// FIXME: should be returned as error to client, not logged
+				i_info("Parameter %s already set",
+				       conn->cmd_param->name);
+				return FALSE;
+			}
+			conn->value_is_array = FALSE;
+			conn->json_state = JSON_STATE_COMMAND_PARAMETER_VALUE;
+		}
+		return TRUE;
+	} else if (conn->json_state == JSON_STATE_COMMAND_ID) {
+		if (type != JSON_TYPE_STRING)
+			return FALSE;
+		conn->method_id = p_strdup(conn->client.pool, value);
+		conn->json_state = JSON_STATE_COMMAND_DONE;
+		return TRUE;
+	} else if (conn->json_state == JSON_STATE_COMMAND_DONE) {
+		/* should be end of array */
+		if (type != JSON_TYPE_ARRAY_END)
+			return FALSE;
+		doveadm_http_server_command_execute(conn);
+		conn->json_state = JSON_STATE_COMMAND;
+		return TRUE;
+	} else if (conn->json_state == JSON_STATE_DONE) {
+		// FIXME: should be returned as error to client, not logged
+		i_info("Got unexpected elements in JSON data");
+		return TRUE;
+	}
+	i_unreached();
+}
+
 static void
 doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 {
 	enum json_type type;
 	const char *value, *error;
-	const struct doveadm_cmd_ver2 *ccmd;
-	struct doveadm_cmd_param *par;
 	int rc;
-	bool found;
 
 	if (conn->json_parser == NULL)
 		conn->json_parser = json_parser_init_flags(conn->client.input, JSON_PARSER_NO_ROOT_OBJECT);
 
 	while((rc = doveadm_http_server_json_parse_next(conn, &type, &value)) == 1) {
-		if (conn->json_state == JSON_STATE_INIT) {
-			if (type != JSON_TYPE_ARRAY) break;
-			conn->json_state = JSON_STATE_COMMAND;
-			conn->first_row = TRUE;
-			o_stream_nsend_str(conn->client.output,"[");
-		} else if (conn->json_state == JSON_STATE_COMMAND) {
-			if (type == JSON_TYPE_ARRAY_END) {
-				conn->json_state = JSON_STATE_DONE;
-				continue;
-			}
-			if (type != JSON_TYPE_ARRAY) break;
-			conn->method_err = 0;
-			p_free_and_null(conn->client.pool, conn->method_id);
-			conn->cmd = NULL;
-			doveadm_cmd_params_clean(&conn->pargv);
-			conn->json_state = JSON_STATE_COMMAND_NAME;
-		} else if (conn->json_state == JSON_STATE_COMMAND_NAME) {
-			if (type != JSON_TYPE_STRING) break;
-			/* see if we can find it */
-			found = FALSE;
-			array_foreach(&doveadm_cmds_ver2, ccmd) {
-				if (i_strccdascmp(ccmd->name, value) == 0) {
-					conn->cmd = ccmd;
-					found = TRUE;
-					break;
-				}
-			}
-			if (!found) {
-				json_parse_skip_next(conn->json_parser);
-				conn->json_state = JSON_STATE_COMMAND_ID;
-				conn->method_err = 404;
-			} else {
-			        struct doveadm_cmd_param *param;
-				/* initialize pargv */
-				for(int pargc=0;conn->cmd->parameters[pargc].name != NULL;pargc++) {
-					param = array_append_space(&conn->pargv);
-					memcpy(param, &(conn->cmd->parameters[pargc]), sizeof(struct doveadm_cmd_param));
-					param->value_set = FALSE;
-				}
-				conn->json_state = JSON_STATE_COMMAND_PARAMETERS;
-			}
-		} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETERS) {
-			if (type == JSON_TYPE_OBJECT_END) {
-				conn->json_state = JSON_STATE_COMMAND_ID;
-				continue;
-			}
-			if (type != JSON_TYPE_OBJECT) break;
-			conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
-		} else if (conn->json_state == JSON_STATE_COMMAND_PARAMETER_KEY) {
-                        if (type == JSON_TYPE_OBJECT_END) {
-				conn->json_state = JSON_STATE_COMMAND_ID;
-				continue;
-			}
-			// can happen...
-			if (type != JSON_TYPE_OBJECT_KEY && type != JSON_TYPE_STRING) break;
-			/* go hunting */
-			found = FALSE;
-			array_foreach_modifiable(&conn->pargv, par) {
-				if (i_strccdascmp(par->name, value) == 0) {
-					/* it's already set, cannot have same key twice in json */
-					if (par->value_set) break;
-					conn->cmd_param = par;
-					found = TRUE;
-					break;
-				}
-			}
-			/* skip parameters if error has already occurred */
-			if (!found || conn->method_err != 0) {
-				json_parse_skip_next(conn->json_parser);
-				conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
-				conn->method_err = 400;
-			} else {
-				if (conn->cmd_param->value_set) {
-					// FIXME: should be returned as error to client, not logged
-					i_info("Parameter %s already set",
-					       conn->cmd_param->name);
-					break;
-				}
-				conn->value_is_array = FALSE;
-				conn->json_state = JSON_STATE_COMMAND_PARAMETER_VALUE;
-			}
-		} else if (conn->json_state == JSON_STATE_COMMAND_ID) {
-			if (type != JSON_TYPE_STRING) break;
-			conn->method_id = p_strdup(conn->client.pool, value);
-			conn->json_state = JSON_STATE_COMMAND_DONE;
-		} else if (conn->json_state == JSON_STATE_COMMAND_DONE) {
-			/* should be end of array */
-			if (type != JSON_TYPE_ARRAY_END) break;
-			doveadm_http_server_command_execute(conn);
-			conn->json_state = JSON_STATE_COMMAND;
-		} else if (conn->json_state == JSON_STATE_DONE) {
-			// FIXME: should be returned as error to client, not logged
-			i_info("Got unexpected elements in JSON data");
-			continue;
-		}
+		if (!doveadm_http_handle_json_v1(conn, type, value))
+			break;
 	}
 
 	if (!conn->client.input->eof && rc == 0)
