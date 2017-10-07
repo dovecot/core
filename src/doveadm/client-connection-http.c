@@ -33,6 +33,20 @@
 #include <unistd.h>
 #include <ctype.h>
 
+enum client_request_parse_state {
+	CLIENT_REQUEST_PARSE_INIT,
+	CLIENT_REQUEST_PARSE_CMD,
+	CLIENT_REQUEST_PARSE_CMD_NAME,
+	CLIENT_REQUEST_PARSE_CMD_PARAMS,
+	CLIENT_REQUEST_PARSE_CMD_PARAM_KEY,
+	CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE,
+	CLIENT_REQUEST_PARSE_CMD_PARAM_ARRAY,
+	CLIENT_REQUEST_PARSE_CMD_PARAM_ISTREAM,
+	CLIENT_REQUEST_PARSE_CMD_ID,
+	CLIENT_REQUEST_PARSE_CMD_DONE,
+	CLIENT_REQUEST_PARSE_DONE
+};
+
 struct client_request_http {
 	pool_t pool;
 	struct client_connection_http *conn;
@@ -54,19 +68,7 @@ struct client_request_http {
 	bool first_row;
 	bool value_is_array;
 
-	enum {
-		JSON_STATE_INIT,
-		JSON_STATE_COMMAND,
-		JSON_STATE_COMMAND_NAME,
-		JSON_STATE_COMMAND_PARAMETERS,
-		JSON_STATE_COMMAND_PARAMETER_KEY,
-		JSON_STATE_COMMAND_PARAMETER_VALUE,
-		JSON_STATE_COMMAND_PARAMETER_VALUE_ARRAY,
-		JSON_STATE_COMMAND_PARAMETER_VALUE_ISTREAM_CONSUME,
-		JSON_STATE_COMMAND_ID,
-		JSON_STATE_COMMAND_DONE,
-		JSON_STATE_DONE
-	} json_state;
+	enum client_request_parse_state parse_state;
 };
 
 struct client_connection_http {
@@ -194,14 +196,14 @@ static int doveadm_http_server_json_parse_next(struct client_request_http *req, 
 	int ret;
 	const char *tmp;
 
-	switch (req->json_state) {
-	case JSON_STATE_COMMAND_PARAMETER_VALUE_ISTREAM_CONSUME:
+	switch (req->parse_state) {
+	case CLIENT_REQUEST_PARSE_CMD_PARAM_ISTREAM:
 		ret = doveadm_http_server_istream_read(req);
 		if (ret != 1)
 			return ret;
-		req->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 		break;
-	case JSON_STATE_COMMAND_PARAMETER_VALUE_ARRAY:
+	case CLIENT_REQUEST_PARSE_CMD_PARAM_ARRAY:
 		/* reading through parameters in an array */
 		while ((ret = json_parse_next(req->json_parser,
 					     type, value)) > 0) {
@@ -214,9 +216,9 @@ static int doveadm_http_server_json_parse_next(struct client_request_http *req, 
 		}
 		if (ret <= 0)
 			return ret;
-		req->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 		break;
-	case JSON_STATE_COMMAND_PARAMETER_VALUE:
+	case CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE:
 		if (req->cmd_param->type == CMD_PARAM_ISTREAM) {
 			struct istream* is[2] = {0};
 
@@ -226,7 +228,7 @@ static int doveadm_http_server_json_parse_next(struct client_request_http *req, 
 			req->cmd_param->value.v_istream = i_stream_create_seekable_path(is, IO_BLOCK_SIZE, "/tmp/doveadm.");
 			i_stream_unref(&is[0]);
 			req->cmd_param->value_set = TRUE;
-			req->json_state = JSON_STATE_COMMAND_PARAMETER_VALUE_ISTREAM_CONSUME;
+			req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_ISTREAM;
 			return doveadm_http_server_json_parse_next(req, type, value);
 		}
 		ret = json_parse_next(req->json_parser, type, value);
@@ -238,7 +240,7 @@ static int doveadm_http_server_json_parse_next(struct client_request_http *req, 
 			if (*type == JSON_TYPE_ARRAY) {
 				/* start of array */
 				req->value_is_array = TRUE;
-				req->json_state = JSON_STATE_COMMAND_PARAMETER_VALUE_ARRAY;
+				req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_ARRAY;
 				return doveadm_http_server_json_parse_next(req, type, value);
 			}
 			if (*type != JSON_TYPE_STRING) {
@@ -270,7 +272,7 @@ static int doveadm_http_server_json_parse_next(struct client_request_http *req, 
 				break;
 			}
 		}
-		req->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 		break;
 	default:
 		break;
@@ -375,17 +377,17 @@ doveadm_http_handle_json_v1(struct client_request_http *req,
 	struct doveadm_cmd_param *par;
 	bool found;
 
-	switch (req->json_state) {
-	case JSON_STATE_INIT:
+	switch (req->parse_state) {
+	case CLIENT_REQUEST_PARSE_INIT:
 		if (type != JSON_TYPE_ARRAY)
 			return FALSE;
-		req->json_state = JSON_STATE_COMMAND;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD;
 		req->first_row = TRUE;
 		o_stream_nsend_str(req->output,"[");
 		return TRUE;
-	case JSON_STATE_COMMAND:
+	case CLIENT_REQUEST_PARSE_CMD:
 		if (type == JSON_TYPE_ARRAY_END) {
-			req->json_state = JSON_STATE_DONE;
+			req->parse_state = CLIENT_REQUEST_PARSE_DONE;
 			return TRUE;
 		}
 		if (type != JSON_TYPE_ARRAY)
@@ -394,9 +396,9 @@ doveadm_http_handle_json_v1(struct client_request_http *req,
 		p_free_and_null(req->pool, req->method_id);
 		req->cmd = NULL;
 		doveadm_cmd_params_clean(&req->pargv);
-		req->json_state = JSON_STATE_COMMAND_NAME;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_NAME;
 		return TRUE;
-	case JSON_STATE_COMMAND_NAME:
+	case CLIENT_REQUEST_PARSE_CMD_NAME:
 		if (type != JSON_TYPE_STRING)
 			return FALSE;
 		/* see if we can find it */
@@ -410,7 +412,7 @@ doveadm_http_handle_json_v1(struct client_request_http *req,
 		}
 		if (!found) {
 			json_parse_skip_next(req->json_parser);
-			req->json_state = JSON_STATE_COMMAND_ID;
+			req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
 			req->method_err = 404;
 		} else {
 			struct doveadm_cmd_param *param;
@@ -422,21 +424,21 @@ doveadm_http_handle_json_v1(struct client_request_http *req,
 				*param = req->cmd->parameters[pargc];
 				param->value_set = FALSE;
 			}
-			req->json_state = JSON_STATE_COMMAND_PARAMETERS;
+			req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAMS;
 		}
 		return TRUE;
-	case JSON_STATE_COMMAND_PARAMETERS:
+	case CLIENT_REQUEST_PARSE_CMD_PARAMS:
 		if (type == JSON_TYPE_OBJECT_END) {
-			req->json_state = JSON_STATE_COMMAND_ID;
+			req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
 			return TRUE;
 		}
 		if (type != JSON_TYPE_OBJECT)
 			return FALSE;
-		req->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 		return TRUE;
-	case JSON_STATE_COMMAND_PARAMETER_KEY:
+	case CLIENT_REQUEST_PARSE_CMD_PARAM_KEY:
 		if (type == JSON_TYPE_OBJECT_END) {
-			req->json_state = JSON_STATE_COMMAND_ID;
+			req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
 			return TRUE;
 		}
 		// can happen...
@@ -457,7 +459,7 @@ doveadm_http_handle_json_v1(struct client_request_http *req,
 		/* skip parameters if error has already occurred */
 		if (!found || req->method_err != 0) {
 			json_parse_skip_next(req->json_parser);
-			req->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
+			req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 			req->method_err = 400;
 		} else {
 			if (req->cmd_param->value_set) {
@@ -467,23 +469,23 @@ doveadm_http_handle_json_v1(struct client_request_http *req,
 				return FALSE;
 			}
 			req->value_is_array = FALSE;
-			req->json_state = JSON_STATE_COMMAND_PARAMETER_VALUE;
+			req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE;
 		}
 		return TRUE;
-	case JSON_STATE_COMMAND_ID:
+	case CLIENT_REQUEST_PARSE_CMD_ID:
 		if (type != JSON_TYPE_STRING)
 			return FALSE;
 		req->method_id = p_strdup(req->pool, value);
-		req->json_state = JSON_STATE_COMMAND_DONE;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_DONE;
 		return TRUE;
-	case JSON_STATE_COMMAND_DONE:
+	case CLIENT_REQUEST_PARSE_CMD_DONE:
 		/* should be end of array */
 		if (type != JSON_TYPE_ARRAY_END)
 			return FALSE;
 		doveadm_http_server_command_execute(req);
-		req->json_state = JSON_STATE_COMMAND;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD;
 		return TRUE;
-	case JSON_STATE_DONE:
+	case CLIENT_REQUEST_PARSE_DONE:
 		// FIXME: should be returned as error to client, not logged
 		i_info("Got unexpected elements in JSON data");
 		return TRUE;
@@ -516,7 +518,7 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 
 	doveadm_cmd_params_clean(&req->pargv);
 
-	if (ret == -2 || (ret == 1 && req->json_state != JSON_STATE_DONE)) {
+	if (ret == -2 || (ret == 1 && req->parse_state != CLIENT_REQUEST_PARSE_DONE)) {
 		/* this will happen if the parser above runs into unexpected element, but JSON is OK */
 		http_server_request_fail_close(http_sreq, 400, "Unexpected element in input");
 		// FIXME: should be returned as error to client, not logged
