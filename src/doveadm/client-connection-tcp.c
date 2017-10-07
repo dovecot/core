@@ -30,40 +30,47 @@ static failure_callback_t *orig_info_callback, *orig_debug_callback = NULL;
 
 static bool log_recursing = FALSE;
 
-
 static void ATTR_FORMAT(2, 0)
 doveadm_server_log_handler(const struct failure_context *ctx,
 			   const char *format, va_list args)
 {
 	if (!log_recursing && doveadm_client != NULL &&
 	    doveadm_client->log_out != NULL) T_BEGIN {
+		struct ostream *log_out = doveadm_client->log_out;
+		char c;
+		const char *ptr, *start;
+		bool corked;
+		va_list va;
+
 		/* prevent re-entering this code if
 		   any of the following code causes logging */
 		log_recursing = TRUE;
-		char c = doveadm_log_type_to_char(ctx->type);
-		const char *ptr,*start;
-		bool corked = o_stream_is_corked(doveadm_client->log_out);
-		va_list va;
+
+		c = doveadm_log_type_to_char(ctx->type);
+		corked = o_stream_is_corked(log_out);
+
 		va_copy(va, args);
 		string_t *str = t_str_new(128);
 		str_vprintfa(str, format, va);
 		va_end(va);
+
 		start = str_c(str);
 		if (!corked)
-			o_stream_cork(doveadm_client->log_out);
+			o_stream_cork(log_out);
 		while((ptr = strchr(start, '\n'))!=NULL) {
-			o_stream_nsend(doveadm_client->log_out, &c, 1);
-			o_stream_nsend(doveadm_client->log_out, start, ptr-start+1);
+			o_stream_nsend(log_out, &c, 1);
+			o_stream_nsend(log_out, start, ptr-start+1);
 			str_delete(str, 0, ptr-start+1);
 		}
 		if (str->used > 0) {
-			o_stream_nsend(doveadm_client->log_out, &c, 1);
-			o_stream_nsend(doveadm_client->log_out, str->data, str->used);
-			o_stream_nsend(doveadm_client->log_out, "\n", 1);
+			o_stream_nsend(log_out, &c, 1);
+			o_stream_nsend(log_out, str->data, str->used);
+			o_stream_nsend(log_out, "\n", 1);
 		}
-		o_stream_uncork(doveadm_client->log_out);
+		o_stream_uncork(log_out);
 		if (corked)
-			o_stream_cork(doveadm_client->log_out);
+			o_stream_cork(log_out);
+
 		log_recursing = FALSE;
 	} T_END;
 
