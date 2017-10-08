@@ -275,19 +275,19 @@ static int doveadm_http_server_istream_read(struct client_connection_http *conn)
  */
 static int doveadm_http_server_json_parse_next(struct client_connection_http *conn, enum json_type *type, const char **value)
 {
-	int rc;
 	const char *tmp;
+	int ret;
 
 	switch (conn->json_state) {
 	case JSON_STATE_COMMAND_PARAMETER_VALUE_ISTREAM_CONSUME:
-		rc = doveadm_http_server_istream_read(conn);
-		if (rc != 1)
-			return rc;
+		ret = doveadm_http_server_istream_read(conn);
+		if (ret != 1)
+			return ret;
 		conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
 		break;
 	case JSON_STATE_COMMAND_PARAMETER_VALUE_ARRAY:
 		/* reading through parameters in an array */
-		while ((rc = json_parse_next(conn->json_parser,
+		while ((ret = json_parse_next(conn->json_parser,
 					     type, value)) > 0) {
 			if (*type == JSON_TYPE_ARRAY_END)
 				break;
@@ -296,26 +296,26 @@ static int doveadm_http_server_json_parse_next(struct client_connection_http *co
 			tmp = p_strdup(conn->client.pool,*value);
 			array_append(&conn->cmd_param->value.v_array, &tmp, 1);
 		}
-		if (rc <= 0)
-			return rc;
+		if (ret <= 0)
+			return ret;
 		conn->json_state = JSON_STATE_COMMAND_PARAMETER_KEY;
 		break;
 	case JSON_STATE_COMMAND_PARAMETER_VALUE:
 		if (conn->cmd_param->type == CMD_PARAM_ISTREAM) {
 			struct istream* is[2] = {0};
 
-			rc = json_parse_next_stream(conn->json_parser, &is[0]);
-			if (rc != 1)
-				return rc;
+			ret = json_parse_next_stream(conn->json_parser, &is[0]);
+			if (ret != 1)
+				return ret;
 			conn->cmd_param->value.v_istream = i_stream_create_seekable_path(is, IO_BLOCK_SIZE, "/tmp/doveadm.");
 			i_stream_unref(&is[0]);
 			conn->cmd_param->value_set = TRUE;
 			conn->json_state = JSON_STATE_COMMAND_PARAMETER_VALUE_ISTREAM_CONSUME;
 			return doveadm_http_server_json_parse_next(conn, type, value);
 		}
-		rc = json_parse_next(conn->json_parser, type, value);
-		if (rc != 1)
-			return rc;
+		ret = json_parse_next(conn->json_parser, type, value);
+		if (ret != 1)
+			return ret;
 		if (conn->cmd_param->type == CMD_PARAM_ARRAY) {
 			p_array_init(&conn->cmd_param->value.v_array, conn->client.pool, 1);
 			conn->cmd_param->value_set = TRUE;
@@ -582,24 +582,24 @@ doveadm_http_server_read_request_v1(struct client_connection_http *conn)
 	struct http_server_request *http_sreq = conn->http_server_request;
 	enum json_type type;
 	const char *value, *error;
-	int rc;
+	int ret;
 
 	if (conn->json_parser == NULL) {
 		conn->json_parser = json_parser_init_flags(conn->client.input, JSON_PARSER_NO_ROOT_OBJECT);
 	}
 
-	while ((rc = doveadm_http_server_json_parse_next(conn, &type, &value)) == 1) {
+	while ((ret = doveadm_http_server_json_parse_next(conn, &type, &value)) == 1) {
 		if (!doveadm_http_handle_json_v1(conn, type, value))
 			break;
 	}
 
-	if (!conn->client.input->eof && rc == 0)
+	if (!conn->client.input->eof && ret == 0)
 		return;
 	io_remove(&conn->client.io);
 
 	doveadm_cmd_params_clean(&conn->pargv);
 
-	if (rc == -2 || (rc == 1 && conn->json_state != JSON_STATE_DONE)) {
+	if (ret == -2 || (ret == 1 && conn->json_state != JSON_STATE_DONE)) {
 		/* this will happen if the parser above runs into unexpected element, but JSON is OK */
 		http_server_request_fail_close(http_sreq, 400, "Unexpected element in input");
 		// FIXME: should be returned as error to client, not logged
