@@ -455,7 +455,7 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
 	return ret <= 0 ? -1 : 0;
 }
 
-static int
+static bool
 acl_vfile_validity_has_changed(struct acl_backend_vfile *backend,
 			       const struct acl_vfile_validity *validity,
 			       const struct stat *st)
