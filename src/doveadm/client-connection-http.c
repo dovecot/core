@@ -81,6 +81,12 @@ struct doveadm_http_server_mount {
 
 static struct http_server *doveadm_http_server;
 
+static void doveadm_http_server_send_response(void *context);
+
+/*
+ * API
+ */
+
 static void doveadm_http_server_options_handler(struct client_connection_http *);
 static void doveadm_http_server_print_mounts(struct client_connection_http *);
 static void doveadm_http_server_send_api_v1(struct client_connection_http *);
@@ -109,8 +115,6 @@ static struct doveadm_http_server_mount doveadm_http_server_mounts[] = {
 	.auth = TRUE
 }
 };
-
-static void doveadm_http_server_send_response(void *context);
 
 static void doveadm_http_server_json_error(void *context, const char *error)
 {
@@ -658,6 +662,10 @@ doveadm_http_server_print_mounts(struct client_connection_http *conn)
 	doveadm_http_server_send_response(conn);
 }
 
+/*
+ * Request
+ */
+
 static void doveadm_http_server_send_response(void *context)
 {
 	struct client_connection_http *conn = context;
@@ -877,6 +885,10 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 	}
 }
 
+/*
+ * Connection
+ */
+
 static void doveadm_http_server_connection_destroy(void *context, const char *reason);
 
 static const struct http_server_callbacks doveadm_http_callbacks = {
@@ -941,6 +953,10 @@ doveadm_http_server_connection_destroy(void *context,
 	/* destroy the connection itself */
 	client_connection_destroy(&bconn);
 }
+
+/*
+ * Server
+ */
 
 void doveadm_http_server_init(void)
 {
