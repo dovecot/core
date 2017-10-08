@@ -646,9 +646,9 @@ static void
 doveadm_http_server_send_api_v1(struct client_connection_http *conn)
 {
 	struct ostream *output = conn->client.output;
-	size_t i, k;
 	const struct doveadm_cmd_ver2 *cmd;
 	const struct doveadm_cmd_param *par;
+	unsigned int i, k;
 	string_t *tmp;
 	bool sent;
 
@@ -729,7 +729,7 @@ static void
 doveadm_http_server_print_mounts(struct client_connection_http *conn)
 {
 	struct ostream *output = conn->client.output;
-	size_t i;
+	unsigned int i;
 
 	o_stream_nsend_str(output, "[\n");
 	for (i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
@@ -812,7 +812,7 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 	const struct http_request *http_req =
 		http_server_request_get(http_sreq);
 	struct doveadm_http_server_mount *ep = NULL;
-	size_t i;
+	unsigned int i;
 
 	conn->http_server_request = http_sreq;
 	conn->http_request = http_req;
