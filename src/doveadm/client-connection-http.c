@@ -255,7 +255,115 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	i_stream_unref(&is);
 }
 
-static int doveadm_http_server_istream_read(struct client_request_http *req)
+static int
+request_json_parse_param_value(struct client_request_http *req)
+{
+	enum json_type type;
+	const char *value;
+	int ret;
+
+	if (req->cmd_param->type == CMD_PARAM_ISTREAM) {
+		struct istream* is[2] = {0};
+
+		/* read the value as a stream */
+		ret = json_parse_next_stream(req->json_parser, &is[0]);
+		if (ret != 1)
+			return ret;
+
+		req->cmd_param->value.v_istream = i_stream_create_seekable_path(is, IO_BLOCK_SIZE, "/tmp/doveadm.");
+		i_stream_unref(&is[0]);
+		req->cmd_param->value_set = TRUE;
+
+		/* read the seekable stream to its end so that the underlying
+		   json istream is read to its conclusion. */
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_ISTREAM;
+		return 1;
+	}
+
+	/* read the value */
+	ret = json_parse_next(req->json_parser, &type, &value);
+	if (ret != 1)
+		return ret;
+
+	if (req->cmd_param->type == CMD_PARAM_ARRAY) {
+		const char *tmp;
+
+		/* an (optional) array of values is expected */
+		p_array_init(&req->cmd_param->value.v_array, req->pool, 1);
+		req->cmd_param->value_set = TRUE;
+		if (type == JSON_TYPE_ARRAY) {
+			/* start of array */
+			req->value_is_array = TRUE;
+			req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_ARRAY;
+			return 1;
+		}
+		/* singular value */
+		if (type != JSON_TYPE_STRING) {
+			/* FIXME: should handle other than string too */
+			return -2;
+		}
+		tmp = p_strdup(req->pool, value);
+		array_append(&req->cmd_param->value.v_array, &tmp, 1);
+
+		/* continue with next parameter */
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
+		return 1;
+	}
+
+	req->cmd_param->value_set = TRUE;
+	switch(req->cmd_param->type) {
+	case CMD_PARAM_BOOL:
+		req->cmd_param->value.v_bool = (strcmp(value, "true") == 0);
+		break;
+	case CMD_PARAM_INT64:
+		if (str_to_int64(value, &req->cmd_param->value.v_int64) != 0) {
+			req->method_err = 400;
+		}
+		break;
+	case CMD_PARAM_IP:
+		if (net_addr2ip(value, &req->cmd_param->value.v_ip) != 0) {
+			req->method_err = 400;
+		}
+		break;
+	case CMD_PARAM_STR:
+		req->cmd_param->value.v_string = p_strdup(req->pool, value);
+		break;
+	default:
+		break;
+	}
+
+	/* continue with next parameter */
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
+	return 1;
+}
+
+static int
+request_json_parse_param_array(struct client_request_http *req)
+{
+	enum json_type type;
+	const char *value;
+	int ret;
+
+	/* reading through parameters in an array */
+	while ((ret = json_parse_next(req->json_parser,
+				      &type, &value)) > 0) {
+		const char *tmp;
+
+		if (type == JSON_TYPE_ARRAY_END)
+			break;
+		if (type != JSON_TYPE_STRING)
+			return -2;
+		tmp = p_strdup(req->pool, value);
+		array_append(&req->cmd_param->value.v_array, &tmp, 1);
+	}
+	if (ret <= 0)
+		return ret;
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
+	return 1;
+}
+
+static int
+request_json_parse_param_istream(struct client_request_http *req)
 {
 	struct istream *v_input = req->cmd_param->value.v_istream;
 	const unsigned char *data;
@@ -273,100 +381,41 @@ static int doveadm_http_server_istream_read(struct client_request_http *req)
 		req->method_err = 400;
 		return -1;
 	}
+
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 	return 1;
 }
 
-/**
- * this is to ensure we can handle arrays and other special parameter types
- */
 static int doveadm_http_server_json_parse_next(struct client_request_http *req, enum json_type *type, const char **value)
 {
 	int ret;
-	const char *tmp;
 
-	switch (req->parse_state) {
-	case CLIENT_REQUEST_PARSE_CMD_PARAM_ISTREAM:
-		ret = doveadm_http_server_istream_read(req);
-		if (ret != 1)
-			return ret;
-		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
-		break;
-	case CLIENT_REQUEST_PARSE_CMD_PARAM_ARRAY:
-		/* reading through parameters in an array */
-		while ((ret = json_parse_next(req->json_parser,
-					     type, value)) > 0) {
-			if (*type == JSON_TYPE_ARRAY_END)
-				break;
-			if (*type != JSON_TYPE_STRING)
-				return -2;
-			tmp = p_strdup(req->pool,*value);
-			array_append(&req->cmd_param->value.v_array, &tmp, 1);
-		}
-		if (ret <= 0)
-			return ret;
-		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
-		break;
-	case CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE:
-		if (req->cmd_param->type == CMD_PARAM_ISTREAM) {
-			struct istream* is[2] = {0};
-
-			ret = json_parse_next_stream(req->json_parser, &is[0]);
-			if (ret != 1)
+	/* complete previous syntactic structure */
+	for (;;) {
+		switch (req->parse_state) {
+		case CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE:
+			ret = request_json_parse_param_value(req);
+			if (ret <= 0)
 				return ret;
-			req->cmd_param->value.v_istream = i_stream_create_seekable_path(is, IO_BLOCK_SIZE, "/tmp/doveadm.");
-			i_stream_unref(&is[0]);
-			req->cmd_param->value_set = TRUE;
-			req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_ISTREAM;
-			return doveadm_http_server_json_parse_next(req, type, value);
+			continue;
+		case CLIENT_REQUEST_PARSE_CMD_PARAM_ARRAY:
+			ret = request_json_parse_param_array(req);
+			if (ret <= 0)
+				return ret;
+			continue;
+		case CLIENT_REQUEST_PARSE_CMD_PARAM_ISTREAM:
+			ret = request_json_parse_param_istream(req);
+			if (ret <= 0)
+				return ret;
+			continue;
+		default:
+			break;
 		}
-		ret = json_parse_next(req->json_parser, type, value);
-		if (ret != 1)
-			return ret;
-		if (req->cmd_param->type == CMD_PARAM_ARRAY) {
-			p_array_init(&req->cmd_param->value.v_array, req->pool, 1);
-			req->cmd_param->value_set = TRUE;
-			if (*type == JSON_TYPE_ARRAY) {
-				/* start of array */
-				req->value_is_array = TRUE;
-				req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_ARRAY;
-				return doveadm_http_server_json_parse_next(req, type, value);
-			}
-			if (*type != JSON_TYPE_STRING) {
-				/* FIXME: should handle other than string too */
-				return -2;
-			}
-			tmp = p_strdup(req->pool, *value);
-			array_append(&req->cmd_param->value.v_array, &tmp, 1);
-		} else {
-			req->cmd_param->value_set = TRUE;
-			switch(req->cmd_param->type) {
-			case CMD_PARAM_BOOL:
-				req->cmd_param->value.v_bool = (strcmp(*value,"true") == 0);
-				break;
-			case CMD_PARAM_INT64:
-				if (str_to_int64(*value, &req->cmd_param->value.v_int64) != 0) {
-					req->method_err = 400;
-				}
-				break;
-			case CMD_PARAM_IP:
-				if (net_addr2ip(*value, &req->cmd_param->value.v_ip) != 0) {
-					req->method_err = 400;
-				}
-				break;
-			case CMD_PARAM_STR:
-				req->cmd_param->value.v_string = p_strdup(req->pool, *value);
-				break;
-			default:
-				break;
-			}
-		}
-		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
-		break;
-	default:
 		break;
 	}
 
-	return json_parse_next(req->json_parser, type, value); /* just get next */
+	/* just get next json node */
+	return json_parse_next(req->json_parser, type, value); 
 }
 
 static bool
