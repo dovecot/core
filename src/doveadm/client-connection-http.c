@@ -112,45 +112,6 @@ static struct doveadm_http_server_mount doveadm_http_server_mounts[] = {
 
 static void doveadm_http_server_send_response(void *context);
 
-static void
-doveadm_http_server_request_destroy(struct client_connection_http *conn)
-{
-	struct http_server_request *http_sreq = conn->http_request;
-	const struct http_request *http_req =
-		http_server_request_get(http_sreq);
-	struct http_server_response *http_resp =
-		http_server_request_get_response(http_sreq);
-
-	if (http_resp != NULL) {
-		const char *agent, *url, *reason;
-		uoff_t size;
-		int status;
-
-		http_server_response_get_status(http_resp, &status, &reason);
-		size = http_server_response_get_total_size(http_resp);
-		agent = http_request_header_get(http_req, "User-Agent");
-		if (agent == NULL) agent = "";
-
-		url = http_url_create(http_req->target.url);
-		i_info("doveadm: %s %s %s \"%s %s "
-		       "HTTP/%d.%d\" %d %"PRIuUOFF_T" \"%s\" \"%s\"",
-		       net_ip2addr(&conn->conn.remote_ip), "-", "-",
-		       http_req->method, http_req->target.url->path,
-		       http_req->version_major, http_req->version_minor,
-		       status, size, url, agent);
-	}
-	if (conn->json_parser != NULL) {
-		const char *error ATTR_UNUSED;
-		(void)json_parser_deinit(&conn->json_parser, &error);
-		// we've already failed, ignore error
-	}
-	if (conn->output != NULL)
-		o_stream_set_no_error_handling(conn->output, TRUE);
-
-	http_server_request_unref(&(conn->http_request));
-	http_server_switch_ioloop(doveadm_http_server);
-}
-
 static void doveadm_http_server_json_error(void *context, const char *error)
 {
 	struct client_connection_http *conn = context;
@@ -727,6 +688,45 @@ static void doveadm_http_server_send_response(void *context)
 	}
 
 	http_server_response_submit_close(http_resp);
+}
+
+static void
+doveadm_http_server_request_destroy(struct client_connection_http *conn)
+{
+	struct http_server_request *http_sreq = conn->http_request;
+	const struct http_request *http_req =
+		http_server_request_get(http_sreq);
+	struct http_server_response *http_resp =
+		http_server_request_get_response(http_sreq);
+
+	if (http_resp != NULL) {
+		const char *agent, *url, *reason;
+		uoff_t size;
+		int status;
+
+		http_server_response_get_status(http_resp, &status, &reason);
+		size = http_server_response_get_total_size(http_resp);
+		agent = http_request_header_get(http_req, "User-Agent");
+		if (agent == NULL) agent = "";
+
+		url = http_url_create(http_req->target.url);
+		i_info("doveadm: %s %s %s \"%s %s "
+		       "HTTP/%d.%d\" %d %"PRIuUOFF_T" \"%s\" \"%s\"",
+		       net_ip2addr(&conn->conn.remote_ip), "-", "-",
+		       http_req->method, http_req->target.url->path,
+		       http_req->version_major, http_req->version_minor,
+		       status, size, url, agent);
+	}
+	if (conn->json_parser != NULL) {
+		const char *error ATTR_UNUSED;
+		(void)json_parser_deinit(&conn->json_parser, &error);
+		// we've already failed, ignore error
+	}
+	if (conn->output != NULL)
+		o_stream_set_no_error_handling(conn->output, TRUE);
+
+	http_server_request_unref(&(conn->http_request));
+	http_server_switch_ioloop(doveadm_http_server);
 }
 
 static bool
