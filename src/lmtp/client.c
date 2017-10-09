@@ -38,6 +38,16 @@ unsigned int clients_count = 0;
 
 static bool verbose_proctitle = FALSE;
 
+const char *client_remote_id(struct client *client)
+{
+	const char *addr;
+
+	addr = net_ip2addr(&client->remote_ip);
+	if (addr[0] == '\0')
+		addr = "local";
+	return addr;
+}
+
 void client_state_set(struct client *client, const char *name, const char *args)
 {
 	string_t *title;
@@ -216,16 +226,6 @@ static void client_generate_session_id(struct client *client)
 	i_assert(str_c(id)[str_len(id)-2] == '=');
 	str_truncate(id, str_len(id)-2); /* drop trailing "==" */
 	client->state.session_id = p_strdup(client->state_pool, str_c(id));
-}
-
-const char *client_remote_id(struct client *client)
-{
-	const char *addr;
-
-	addr = net_ip2addr(&client->remote_ip);
-	if (addr[0] == '\0')
-		addr = "local";
-	return addr;
 }
 
 void client_io_reset(struct client *client)
