@@ -285,22 +285,6 @@ void client_disconnect(struct client *client, const char *prefix,
 	client->disconnected = TRUE;
 }
 
-void client_send_line(struct client *client, const char *fmt, ...)
-{
-	va_list args;
-
-	va_start(args, fmt);
-	T_BEGIN {
-		string_t *str;
-
-		str = t_str_new(256);
-		str_vprintfa(str, fmt, args);
-		str_append(str, "\r\n");
-		o_stream_nsend(client->output, str_data(str), str_len(str));
-	} T_END;
-	va_end(args);
-}
-
 bool client_is_trusted(struct client *client)
 {
 	const char *const *net;
@@ -436,4 +420,24 @@ void client_io_reset(struct client *client)
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
+}
+
+/*
+ * Output handling
+ */
+
+void client_send_line(struct client *client, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	T_BEGIN {
+		string_t *str;
+
+		str = t_str_new(256);
+		str_vprintfa(str, fmt, args);
+		str_append(str, "\r\n");
+		o_stream_nsend(client->output, str_data(str), str_len(str));
+	} T_END;
+	va_end(args);
 }
