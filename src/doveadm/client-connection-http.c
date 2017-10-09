@@ -191,37 +191,39 @@ doveadm_http_server_request_destroy(struct client_connection_http *conn)
 static void doveadm_http_server_json_error(void *context, const char *error)
 {
 	struct client_connection_http *conn = context;
+	struct ostream *output = conn->client.output;
 	string_t *escaped;
-	o_stream_nsend_str(conn->client.output,"[\"error\",{\"type\":\"");
+	o_stream_nsend_str(output,"[\"error\",{\"type\":\"");
 	escaped = str_new(conn->client.pool, 10);
 	json_append_escaped(escaped, error);
-	o_stream_nsend_str(conn->client.output,str_c(escaped));
-	o_stream_nsend_str(conn->client.output,"\", \"exitCode\":");
+	o_stream_nsend_str(output,str_c(escaped));
+	o_stream_nsend_str(output,"\", \"exitCode\":");
         str_truncate(escaped,0);
 	str_printfa(escaped,"%d", doveadm_exit_code);
-	o_stream_nsend_str(conn->client.output, str_c(escaped));
-	o_stream_nsend_str(conn->client.output,"},\"");
+	o_stream_nsend_str(output, str_c(escaped));
+	o_stream_nsend_str(output,"},\"");
 	str_truncate(escaped,0);
 	if (conn->method_id != NULL) {
 	        json_append_escaped(escaped, conn->method_id);
-		o_stream_nsend_str(conn->client.output, str_c(escaped));
+		o_stream_nsend_str(output, str_c(escaped));
 	}
-	o_stream_nsend_str(conn->client.output,"\"]");
+	o_stream_nsend_str(output,"\"]");
 }
 
 static void doveadm_http_server_json_success(void *context, struct istream *result)
 {
 	struct client_connection_http *conn = context;
+	struct ostream *output = conn->client.output;
 	string_t *escaped;
 	escaped = str_new(conn->client.pool, 10);
-	o_stream_nsend_str(conn->client.output,"[\"doveadmResponse\",");
-	o_stream_nsend_istream(conn->client.output, result);
-	o_stream_nsend_str(conn->client.output,",\"");
+	o_stream_nsend_str(output,"[\"doveadmResponse\",");
+	o_stream_nsend_istream(output, result);
+	o_stream_nsend_str(output,",\"");
 	if (conn->method_id != NULL) {
 		json_append_escaped(escaped, conn->method_id);
-		o_stream_nsend_str(conn->client.output, str_c(escaped));
+		o_stream_nsend_str(output, str_c(escaped));
 	}
-	o_stream_nsend_str(conn->client.output,"\"]");
+	o_stream_nsend_str(output,"\"]");
 }
 
 static int doveadm_http_server_istream_read(struct client_connection_http *conn)
@@ -598,20 +600,21 @@ static void doveadm_http_server_camelcase_value(string_t *value)
 static void
 doveadm_http_server_send_api_v1(struct client_connection_http *conn)
 {
+	struct ostream *output = conn->client.output;
 	string_t *tmp = str_new(conn->client.pool, 8);
 	size_t i,k;
 	const struct doveadm_cmd_ver2 *cmd;
 	const struct doveadm_cmd_param *par;
 	bool sent;
-	o_stream_nsend_str(conn->client.output,"[\n");
+	o_stream_nsend_str(output,"[\n");
 	for(i = 0; i < array_count(&doveadm_cmds_ver2); i++) {
 		cmd = array_idx(&doveadm_cmds_ver2, i);
-		if (i>0) o_stream_nsend_str(conn->client.output, ",\n");
-		o_stream_nsend_str(conn->client.output, "\t{\"command\":\"");
+		if (i>0) o_stream_nsend_str(output, ",\n");
+		o_stream_nsend_str(output, "\t{\"command\":\"");
 		json_append_escaped(tmp, cmd->name);
 		doveadm_http_server_camelcase_value(tmp);
-		o_stream_nsend_str(conn->client.output, str_c(tmp));
-		o_stream_nsend_str(conn->client.output, "\", \"parameters\":[");
+		o_stream_nsend_str(output, str_c(tmp));
+		o_stream_nsend_str(output, "\", \"parameters\":[");
 		sent = FALSE;
 		for(k=0;cmd->parameters[k].name != NULL; k++) {
 			str_truncate(tmp, 0);
@@ -619,37 +622,37 @@ doveadm_http_server_send_api_v1(struct client_connection_http *conn)
 			if ((par->flags & CMD_PARAM_FLAG_DO_NOT_EXPOSE) != 0)
 				continue;
 			if (sent)
-				o_stream_nsend_str(conn->client.output, ",\n");
+				o_stream_nsend_str(output, ",\n");
 			else
-				o_stream_nsend_str(conn->client.output, "\n");
+				o_stream_nsend_str(output, "\n");
 			sent = TRUE;
-			o_stream_nsend_str(conn->client.output, "\t\t{\"name\":\"");
+			o_stream_nsend_str(output, "\t\t{\"name\":\"");
 	                json_append_escaped(tmp, par->name);
 			doveadm_http_server_camelcase_value(tmp);
-			o_stream_nsend_str(conn->client.output, str_c(tmp));
-			o_stream_nsend_str(conn->client.output, "\",\"type\":\"");
+			o_stream_nsend_str(output, str_c(tmp));
+			o_stream_nsend_str(output, "\",\"type\":\"");
 			switch(par->type) {
 			case CMD_PARAM_BOOL:
-				o_stream_nsend_str(conn->client.output, "boolean");
+				o_stream_nsend_str(output, "boolean");
 				break;
 			case CMD_PARAM_INT64:
-				o_stream_nsend_str(conn->client.output, "integer");
+				o_stream_nsend_str(output, "integer");
 				break;
 			case CMD_PARAM_ARRAY:
-				o_stream_nsend_str(conn->client.output, "array");
+				o_stream_nsend_str(output, "array");
 				break;
 			case CMD_PARAM_IP:
 			case CMD_PARAM_ISTREAM:
 			case CMD_PARAM_STR:
-				o_stream_nsend_str(conn->client.output, "string");
+				o_stream_nsend_str(output, "string");
 			}
-			o_stream_nsend_str(conn->client.output, "\"}");
+			o_stream_nsend_str(output, "\"}");
 		}
-		if (k>0) o_stream_nsend_str(conn->client.output,"\n\t");
-		o_stream_nsend_str(conn->client.output,"]}");
+		if (k>0) o_stream_nsend_str(output,"\n\t");
+		o_stream_nsend_str(output,"]}");
 		str_truncate(tmp, 0);
 	}
-	o_stream_nsend_str(conn->client.output,"\n]");
+	o_stream_nsend_str(output,"\n]");
 	doveadm_http_server_send_response(conn);
 }
 
@@ -674,23 +677,25 @@ doveadm_http_server_options_handler(struct client_connection_http *conn)
 static void
 doveadm_http_server_print_mounts(struct client_connection_http *conn)
 {
-	o_stream_nsend_str(conn->client.output,"[\n");
+	struct ostream *output = conn->client.output;
+
+	o_stream_nsend_str(output,"[\n");
 	for(size_t i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
 		if (i>0)
-			o_stream_nsend_str(conn->client.output,",\n");
-		o_stream_nsend_str(conn->client.output,"{\"method\":\"");
+			o_stream_nsend_str(output,",\n");
+		o_stream_nsend_str(output,"{\"method\":\"");
 		if (doveadm_http_server_mounts[i].verb == NULL)
-			o_stream_nsend_str(conn->client.output,"*");
+			o_stream_nsend_str(output,"*");
 		else
-			o_stream_nsend_str(conn->client.output,doveadm_http_server_mounts[i].verb);
-		o_stream_nsend_str(conn->client.output,"\",\"path\":\"");
+			o_stream_nsend_str(output,doveadm_http_server_mounts[i].verb);
+		o_stream_nsend_str(output,"\",\"path\":\"");
 		if (doveadm_http_server_mounts[i].path == NULL)
-			 o_stream_nsend_str(conn->client.output,"*");
+			 o_stream_nsend_str(output,"*");
 		else
-			o_stream_nsend_str(conn->client.output,doveadm_http_server_mounts[i].path);
-		o_stream_nsend_str(conn->client.output,"\"}");
+			o_stream_nsend_str(output,doveadm_http_server_mounts[i].path);
+		o_stream_nsend_str(output,"\"}");
 	}
-	o_stream_nsend_str(conn->client.output,"\n]");
+	o_stream_nsend_str(output,"\n]");
 	doveadm_http_server_send_response(conn);
 }
 
