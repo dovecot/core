@@ -334,12 +334,3 @@ static const struct smtp_server_callbacks lmtp_callbacks = {
 
 	.conn_is_trusted = client_connection_is_trusted
 };
-
-/*
- * Input handling
- */
-
-/*
- * Output handling
- */
-

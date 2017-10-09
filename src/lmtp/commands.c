@@ -23,14 +23,6 @@
 #include "commands.h"
 
 /*
- * EHLO command
- */
-
-/*
- * STARTTLS command
- */
-
-/*
  * MAIL command
  */
 
@@ -73,22 +65,6 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	/* local delivery */
 	return lmtp_local_rcpt(client, cmd, data, username, detail);
 }
-
-/*
- * QUIT command
- */
-
-/*
- * VRFY command
- */
-
-/*
- * RSET command
- */
-
-/*
- * NOOP command
- */
 
 /*
  * DATA command
@@ -303,7 +279,3 @@ int cmd_data_begin(void *conn_ctx,
 	trans->context = (void*)data_input;
 	return 0;
 }
-
-/*
- * XCLIENT command
- */
