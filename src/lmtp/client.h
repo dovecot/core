@@ -65,7 +65,6 @@ void client_destroy(struct client *client, const char *enh_code,
 		    const char *reason) ATTR_NULL(2, 3);
 void client_disconnect(struct client *client, const char *enh_code,
 		       const char *reason) ATTR_NULL(2, 3);
-const char *client_remote_id(struct client *client);
 
 const char *client_state_get_name(struct client *client);
 void client_state_reset(struct client *client);

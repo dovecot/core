@@ -40,7 +40,7 @@ static bool verbose_proctitle = FALSE;
 
 static const struct smtp_server_callbacks lmtp_callbacks;
 
-const char *client_remote_id(struct client *client)
+static const char *client_remote_id(struct client *client)
 {
 	const char *addr;
 
