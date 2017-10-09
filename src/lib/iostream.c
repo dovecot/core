@@ -105,8 +105,11 @@ void io_stream_set_error(struct iostream_private *stream,
 void io_stream_set_verror(struct iostream_private *stream,
 			  const char *fmt, va_list args)
 {
+	/* one of the parameters may be the old stream->error, so don't free
+	   it before the new error is created. */
+	char *error = i_strdup_vprintf(fmt, args);
 	i_free(stream->error);
-	stream->error = i_strdup_vprintf(fmt, args);
+	stream->error = error;
 }
 
 const char *io_stream_get_disconnect_reason(struct istream *input,
