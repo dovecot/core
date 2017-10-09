@@ -322,7 +322,7 @@ static void server_connection_print_log(struct server_connection *conn)
 			i_warning("Doveadm server sent invalid log type 0x%02x",
 				  line[0]);
 		line++;
-		i_log_type(&ctx, "%s", line);
+		i_log_type(&ctx, "remote(%s): %s", conn->server->name, line);
 	}
 }
 
