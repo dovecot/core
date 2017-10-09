@@ -91,7 +91,7 @@ void fts_parser_more(struct fts_parser *parser, struct message_block *block)
 	}
 }
 
-int fts_parser_deinit(struct fts_parser **_parser)
+int fts_parser_deinit(struct fts_parser **_parser, const char **retriable_err_msg_r)
 {
 	struct fts_parser *parser = *_parser;
 	int ret = 0;
@@ -100,7 +100,7 @@ int fts_parser_deinit(struct fts_parser **_parser)
 
 	buffer_free(&parser->utf8_output);
 	if (parser->v.deinit != NULL)
-		ret = parser->v.deinit(parser);
+		ret = parser->v.deinit(parser, retriable_err_msg_r);
 	else
 		i_free(parser);
 	return ret;

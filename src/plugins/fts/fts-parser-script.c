@@ -252,10 +252,12 @@ static void fts_parser_script_more(struct fts_parser *_parser,
 	}
 }
 
-static int fts_parser_script_deinit(struct fts_parser *_parser)
+static int fts_parser_script_deinit(struct fts_parser *_parser, const char **retriable_err_msg_r)
 {
 	struct script_fts_parser *parser = (struct script_fts_parser *)_parser;
 	int ret = parser->failed ? -1 : 0;
+	if (retriable_err_msg_r != NULL)
+		*retriable_err_msg_r = NULL;
 
 	if (close(parser->fd) < 0)
 		i_error("close(%s) failed: %m", parser->path);

@@ -260,7 +260,7 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	ctx->cur_user_lang = NULL;
 	if (!fts_backend_update_set_build_key(ctx->update_ctx, &key)) {
 		if (ctx->body_parser != NULL)
-			(void)fts_parser_deinit(&ctx->body_parser);
+			(void)fts_parser_deinit(&ctx->body_parser, NULL);
 		return FALSE;
 	}
 	return TRUE;
@@ -449,7 +449,7 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx)
 		}
 	} while (block.size > 0);
 
-	if (fts_parser_deinit(&ctx->body_parser) < 0)
+	if (fts_parser_deinit(&ctx->body_parser, &ctx->update_ctx->error_msg) < 0)
 		ret = -1;
 	return ret;
 }
@@ -567,7 +567,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		if (ret == 0)
 			ret = fts_body_parser_finish(&ctx);
 		else
-			(void)fts_parser_deinit(&ctx.body_parser);
+			(void)fts_parser_deinit(&ctx.body_parser, NULL);
 	}
 	if (ret == 0 && body_part && !skip_body && !body_added) {
 		/* make sure body is added even when it doesn't exist */

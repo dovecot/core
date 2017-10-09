@@ -237,10 +237,12 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 	}
 }
 
-static int fts_parser_tika_deinit(struct fts_parser *_parser)
+static int fts_parser_tika_deinit(struct fts_parser *_parser, const char **retriable_err_msg_r)
 {
 	struct tika_fts_parser *parser = (struct tika_fts_parser *)_parser;
 	int ret = parser->failed ? -1 : 0;
+	if (retriable_err_msg_r != NULL)
+		*retriable_err_msg_r = NULL;
 
 	/* remove io before unrefing payload - otherwise lib-http adds another
 	   timeout to ioloop unnecessarily */

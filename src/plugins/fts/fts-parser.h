@@ -15,7 +15,7 @@ struct fts_parser_context {
 struct fts_parser_vfuncs {
 	struct fts_parser *(*try_init)(struct fts_parser_context *parser_context);
 	void (*more)(struct fts_parser *parser, struct message_block *block);
-	int (*deinit)(struct fts_parser *parser);
+	int (*deinit)(struct fts_parser *parser, const char **retriable_err_msg_r);
 	void (*unload)(void);
 };
 
@@ -36,7 +36,7 @@ struct fts_parser *fts_parser_text_init(void);
    finished, it's still called with incoming size=0 while the parser increases
    it to non-zero. */
 void fts_parser_more(struct fts_parser *parser, struct message_block *block);
-int fts_parser_deinit(struct fts_parser **parser);
+int fts_parser_deinit(struct fts_parser **parser, const char **retriable_err_msg_r);
 
 void fts_parsers_unload(void);
 
