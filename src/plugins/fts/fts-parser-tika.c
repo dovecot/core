@@ -110,19 +110,12 @@ fts_tika_parser_response(const struct http_response *response,
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
 	case 500:
-		/* Server Error - the problem could be anything (in Tika or
-		   HTTP server or proxy) and might be retriable, but Tika has
-		   trouble processing some documents and throws up this error
-		   every time for those documents.
-
-		   Unfortunately we can't easily re-send the request here,
-		   because we would have to re-send the entire payload, which
-		   isn't available anymore here. So we'd need to indicate
-		   in fts_parser_deinit() that we want to retry.
-		   FIXME: do this in v2.3. For now we'll just ignore it. */
-		i_info("fts_tika: PUT %s failed: %s - ignoring",
-		       mail_user_plugin_getenv(parser->user, "fts_tika"),
-		       http_response_get_message(response));
+		parser->parser.may_need_retry = TRUE;
+		i_free(parser->parser.retriable_error_msg);
+		parser->parser.retriable_error_msg =
+			i_strdup_printf("fts_tika: PUT %s failed: %s",
+					mail_user_plugin_getenv(parser->user, "fts_tika"),
+					http_response_get_message(response));
 		parser->payload = i_stream_create_from_data("", 0);
 		break;
 
@@ -240,9 +233,10 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 static int fts_parser_tika_deinit(struct fts_parser *_parser, const char **retriable_err_msg_r)
 {
 	struct tika_fts_parser *parser = (struct tika_fts_parser *)_parser;
-	int ret = parser->failed ? -1 : 0;
+	int ret = _parser->may_need_retry ? 0: (parser->failed ? -1 : 1);
 	if (retriable_err_msg_r != NULL)
-		*retriable_err_msg_r = NULL;
+		*retriable_err_msg_r = t_strdup(_parser->retriable_error_msg);
+	i_free(_parser->retriable_error_msg);
 
 	/* remove io before unrefing payload - otherwise lib-http adds another
 	   timeout to ioloop unnecessarily */

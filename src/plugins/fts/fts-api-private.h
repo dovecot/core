@@ -84,7 +84,6 @@ struct fts_backend_update_context {
 	normalizer_func_t *normalizer;
 
 	struct mailbox *cur_box, *backend_box;
-	const char *error_msg;
 
 	bool build_key_open:1;
 	bool failed:1;

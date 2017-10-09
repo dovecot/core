@@ -22,6 +22,8 @@ struct fts_parser_vfuncs {
 struct fts_parser {
 	struct fts_parser_vfuncs v;
 	buffer_t *utf8_output;
+	bool may_need_retry;
+	char *retriable_error_msg;
 };
 
 extern struct fts_parser_vfuncs fts_parser_html;
