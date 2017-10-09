@@ -184,13 +184,11 @@ o_stream_add_channel_real(struct multiplex_ostream *mstream, uint8_t cid)
 	channel->ostream.sendv = o_stream_multiplex_ochannel_sendv;
 	channel->ostream.iostream.close = o_stream_multiplex_ochannel_close;
 	channel->ostream.iostream.destroy = o_stream_multiplex_ochannel_destroy;
-	if (cid == 0)
-		channel->ostream.fd = o_stream_get_fd(mstream->parent);
-	else
-		channel->ostream.fd = -1;
+	channel->ostream.fd = o_stream_get_fd(mstream->parent);
 	array_append(&channel->mstream->channels, &channel, 1);
 
-	return o_stream_create(&channel->ostream, NULL, mstream->bufsize);
+	return o_stream_create(&channel->ostream, mstream->parent,
+			       mstream->bufsize);
 }
 
 struct ostream *o_stream_multiplex_add_channel(struct ostream *stream, uint8_t cid)
