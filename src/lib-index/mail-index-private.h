@@ -23,11 +23,6 @@ struct mail_index_sync_map_ctx;
    try to catch them by limiting the header size. */
 #define MAIL_INDEX_EXT_HEADER_MAX_SIZE (1024*1024*16-1)
 
-/* Write to main index file when bytes-to-be-read-from-log is between these
-   values. */
-#define MAIL_INDEX_MIN_WRITE_BYTES (1024*8)
-#define MAIL_INDEX_MAX_WRITE_BYTES (1024*128)
-
 #define MAIL_INDEX_IS_IN_MEMORY(index) \
 	((index)->dir == NULL)
 

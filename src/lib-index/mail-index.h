@@ -237,6 +237,13 @@ struct mail_index_transaction_commit_result {
 	unsigned int ignored_modseq_changes;
 };
 
+struct mail_index_base_optimization_settings {
+	/* Rewrite the index when the number of bytes that needs to be read
+	   from the .log on refresh is between these min/max values. */
+	uoff_t rewrite_min_log_bytes;
+	uoff_t rewrite_max_log_bytes;
+};
+
 struct mail_index_log_optimization_settings {
 	/* Rotate transaction log after it's a) min_size or larger and it was
 	   created at least min_age_secs or b) larger than max_size. */
@@ -250,6 +257,7 @@ struct mail_index_log_optimization_settings {
 };
 
 struct mail_index_optimization_settings {
+	struct mail_index_base_optimization_settings index;
 	struct mail_index_log_optimization_settings log;
 };
 
