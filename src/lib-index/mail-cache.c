@@ -245,6 +245,8 @@ int mail_cache_reopen(struct mail_cache *cache)
 
 static void mail_cache_update_need_compress(struct mail_cache *cache)
 {
+	const struct mail_index_cache_optimization_settings *set =
+		&cache->index->optimization_set.cache;
 	const struct mail_cache_header *hdr = cache->hdr;
 	struct stat st;
 	unsigned int msg_count;
@@ -274,14 +276,14 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 	}
 
 	cont_percentage = hdr->continued_record_count * 100 / records_count;
-	if (cont_percentage >= MAIL_CACHE_COMPRESS_CONTINUED_PERCENTAGE) {
+	if (cont_percentage >= set->compress_continued_percentage) {
 		/* too many continued rows, compress */
 		want_compress = TRUE;
 	}
 
 	delete_percentage = hdr->deleted_record_count * 100 /
 		(records_count + hdr->deleted_record_count);
-	if (delete_percentage >= MAIL_CACHE_COMPRESS_DELETE_PERCENTAGE) {
+	if (delete_percentage >= set->compress_delete_percentage) {
 		/* too many deleted records, compress */
 		want_compress = TRUE;
 	}
@@ -292,7 +294,7 @@ static void mail_cache_update_need_compress(struct mail_cache *cache)
 				mail_cache_set_syscall_error(cache, "fstat()");
 			return;
 		}
-		if (st.st_size >= MAIL_CACHE_COMPRESS_MIN_SIZE)
+		if ((uoff_t)st.st_size >= set->compress_min_size)
 			cache->need_compress_file_seq = hdr->file_seq;
 	}
 

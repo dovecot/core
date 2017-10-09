@@ -40,6 +40,14 @@ static const struct mail_index_optimization_settings default_optimization_set = 
 		.min_age_secs = 5 * 60,
 		.log2_max_age_secs = 3600 * 24 * 2,
 	},
+	.cache = {
+		.unaccessed_field_drop_secs = 3600 * 24 * 30,
+		.record_max_size = 64 * 1024,
+		.compress_min_size = 32 * 1024,
+		.compress_delete_percentage = 20,
+		.compress_continued_percentage = 200,
+		.compress_header_continue_count = 4,
+	},
 };
 
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
@@ -182,6 +190,24 @@ void mail_index_set_optimization_settings(struct mail_index *index,
 		dest->log.min_age_secs = set->log.min_age_secs;
 	if (set->log.log2_max_age_secs != 0)
 		dest->log.log2_max_age_secs = set->log.log2_max_age_secs;
+
+	/* cache */
+	if (set->cache.unaccessed_field_drop_secs != 0)
+		dest->cache.unaccessed_field_drop_secs =
+			set->cache.unaccessed_field_drop_secs;
+	if (set->cache.compress_min_size != 0)
+		dest->cache.compress_min_size = set->cache.compress_min_size;
+	if (set->cache.compress_delete_percentage != 0)
+		dest->cache.compress_delete_percentage =
+			set->cache.compress_delete_percentage;
+	if (set->cache.compress_continued_percentage != 0)
+		dest->cache.compress_continued_percentage =
+			set->cache.compress_continued_percentage;
+	if (set->cache.compress_header_continue_count != 0)
+		dest->cache.compress_header_continue_count =
+			set->cache.compress_header_continue_count;
+	if (set->cache.record_max_size != 0)
+		dest->cache.record_max_size = set->cache.record_max_size;
 }
 
 void mail_index_set_ext_init_data(struct mail_index *index, uint32_t ext_id,
