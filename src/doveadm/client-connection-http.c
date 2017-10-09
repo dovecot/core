@@ -153,17 +153,17 @@ static void
 doveadm_http_server_request_destroy(struct client_connection_http *conn)
 {
 	struct http_server_request *http_sreq = conn->http_server_request;
-	struct http_server_response *resp = 
+	struct http_server_response *http_resp = 
 		http_server_request_get_response(http_sreq);
 
-	if (resp != NULL) {
+	if (http_resp != NULL) {
 		const char *agent;
 		const char *url;
 		int status;
 		const char *reason;
 		uoff_t size;
-		http_server_response_get_status(resp, &status, &reason);
-		size = http_server_response_get_total_size(resp);
+		http_server_response_get_status(http_resp, &status, &reason);
+		size = http_server_response_get_total_size(http_resp);
 		agent = http_request_header_get(conn->http_request, "User-Agent");
 		if (agent == NULL) agent = "";
 		url = http_url_create(conn->http_request->target.url);
@@ -656,14 +656,16 @@ doveadm_http_server_send_api_v1(struct client_connection_http *conn)
 static void
 doveadm_http_server_options_handler(struct client_connection_http *conn)
 {
-	http_server_response_add_header(conn->http_response,
+	struct http_server_response *http_resp = conn->http_response;
+
+	http_server_response_add_header(http_resp,
 		"Access-Control-Allow-Origin", "*");
-	http_server_response_add_header(conn->http_response,
+	http_server_response_add_header(http_resp,
 		"Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-	http_server_response_add_header(conn->http_response,
+	http_server_response_add_header(http_resp,
 		"Access-Control-Allow-Request-Headers",
 		"Content-Type, X-API-Key, Authorization");
-	http_server_response_add_header(conn->http_response,
+	http_server_response_add_header(http_resp,
 		"Access-Control-Allow-Headers",
 		"Content-Type, WWW-Authenticate");
 	doveadm_http_server_send_response(conn);
@@ -793,24 +795,25 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 static void doveadm_http_server_send_response(void *context)
 {
 	struct client_connection_http *conn = context;
+	struct http_server_response *http_resp = conn->http_response;
 
 	if (conn->client.output != NULL) {
 		if (o_stream_nfinish(conn->client.output) == -1) {
 			i_info("error writing output: %s",
 			       o_stream_get_error(conn->client.output));
 			o_stream_destroy(&conn->client.output);
-			http_server_response_update_status(conn->http_response, 500, "Internal server error");
+			http_server_response_update_status(http_resp, 500, "Internal server error");
 		} else {
 			// send the payload response
 			struct istream *is;
 
 			is = iostream_temp_finish(&conn->client.output, IO_BLOCK_SIZE);
-			http_server_response_set_payload(conn->http_response, is);
+			http_server_response_set_payload(http_resp, is);
 			i_stream_unref(&is);
 		}
 	}
 	// submit response
-	http_server_response_submit_close(conn->http_response);
+	http_server_response_submit_close(http_resp);
 }
 
 static struct http_server_settings http_server_set = {
