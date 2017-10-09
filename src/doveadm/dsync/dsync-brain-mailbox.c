@@ -599,6 +599,7 @@ mailbox_cache_field_name_cmp(const struct mailbox_cache_field *f1,
 static void
 dsync_cache_fields_update(const struct dsync_mailbox *local_box,
 			  const struct dsync_mailbox *remote_box,
+			  struct mailbox *box,
 			  struct mailbox_update *update)
 {
 	ARRAY_TYPE(mailbox_cache_field) local_sorted, remote_sorted, changes;
@@ -630,7 +631,8 @@ dsync_cache_fields_update(const struct dsync_mailbox *local_box,
 	local_fields = array_get(&local_sorted, &local_count);
 	remote_fields = array_get(&remote_sorted, &remote_count);
 	t_array_init(&changes, local_count + remote_count);
-	drop_older_timestamp = ioloop_time - MAIL_CACHE_FIELD_DROP_SECS;
+	drop_older_timestamp = ioloop_time -
+		box->index->optimization_set.cache.unaccessed_field_drop_secs;
 
 	for (li = ri = 0; li < local_count || ri < remote_count; ) {
 		ret = li == local_count ? 1 :
@@ -702,7 +704,7 @@ bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 		}
 	}
 
-	dsync_cache_fields_update(local_box, remote_box, &update);
+	dsync_cache_fields_update(local_box, remote_box, box, &update);
 
 	if (update.uid_validity == 0 &&
 	    update.cache_updates == NULL) {

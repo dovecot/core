@@ -256,9 +256,29 @@ struct mail_index_log_optimization_settings {
 	unsigned int log2_max_age_secs;
 };
 
+struct mail_index_cache_optimization_settings {
+	/* Drop fields that haven't been accessed for n seconds */
+	unsigned int unaccessed_field_drop_secs;
+	/* If cache record becomes larger than this, don't add it. */
+	unsigned int record_max_size;
+
+	/* Never compress the file if it's smaller than this */
+	uoff_t compress_min_size;
+	/* Compress the file when n% of records are deleted */
+	unsigned int compress_delete_percentage;
+	/* Compress the file when n% of rows contain continued rows.
+	   For example 200% means that the record has 2 continued rows, i.e.
+	   it exists in 3 separate segments in the cache file. */
+	unsigned int compress_continued_percentage;
+	/* Compress the file when we need to follow more than n next_offsets to
+	   find the latest cache header. */
+	unsigned int compress_header_continue_count;
+};
+
 struct mail_index_optimization_settings {
 	struct mail_index_base_optimization_settings index;
 	struct mail_index_log_optimization_settings log;
+	struct mail_index_cache_optimization_settings cache;
 };
 
 struct mail_index;

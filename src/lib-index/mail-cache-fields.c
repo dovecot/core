@@ -287,7 +287,7 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 	}
 	cache->last_field_header_offset = offset;
 
-	if (next_count > MAIL_CACHE_HEADER_FIELD_CONTINUE_COUNT)
+	if (next_count > cache->index->optimization_set.cache.compress_header_continue_count)
 		cache->need_compress_file_seq = cache->hdr->file_seq;
 
 	if (field_hdr_r != NULL) {
@@ -372,7 +372,8 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		cache->field_file_map[i] = (uint32_t)-1;
 
 	max_drop_time = cache->index->map->hdr.day_stamp == 0 ? 0 :
-		cache->index->map->hdr.day_stamp - MAIL_CACHE_FIELD_DROP_SECS;
+		cache->index->map->hdr.day_stamp -
+		cache->index->optimization_set.cache.unaccessed_field_drop_secs;
 
 	i_zero(&field);
 	for (i = 0; i < field_hdr->fields_count; i++) {
