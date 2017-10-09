@@ -30,6 +30,10 @@ struct mail_index_module_register mail_index_module_register = { 0 };
 static void mail_index_close_nonopened(struct mail_index *index);
 
 static const struct mail_index_optimization_settings default_optimization_set = {
+	.index = {
+		.rewrite_min_log_bytes = 8 * 1024,
+		.rewrite_max_log_bytes = 128 * 1024,
+	},
 	.log = {
 		.min_size = 32 * 1024,
 		.max_size = 1024 * 1024,
@@ -163,6 +167,13 @@ void mail_index_set_optimization_settings(struct mail_index *index,
 	struct mail_index_optimization_settings *dest =
 		&index->optimization_set;
 
+	/* index */
+	if (set->index.rewrite_min_log_bytes != 0)
+		dest->index.rewrite_min_log_bytes = set->index.rewrite_min_log_bytes;
+	if (set->index.rewrite_max_log_bytes != 0)
+		dest->index.rewrite_max_log_bytes = set->index.rewrite_max_log_bytes;
+
+	/* log */
 	if (set->log.min_size != 0)
 		dest->log.min_size = set->log.min_size;
 	if (set->log.max_size != 0)

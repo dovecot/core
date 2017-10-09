@@ -820,8 +820,9 @@ static bool mail_index_sync_want_index_write(struct mail_index *index)
 
 	log_diff = index->map->hdr.log_file_tail_offset -
 		index->last_read_log_file_tail_offset;
-	if (log_diff > MAIL_INDEX_MAX_WRITE_BYTES ||
-	    (index->index_min_write && log_diff > MAIL_INDEX_MIN_WRITE_BYTES))
+	if (log_diff > index->optimization_set.index.rewrite_max_log_bytes ||
+	    (index->index_min_write &&
+	     log_diff > index->optimization_set.index.rewrite_min_log_bytes))
 		return TRUE;
 
 	if (index->need_recreate)
