@@ -24,6 +24,18 @@ struct mail_storage_settings {
 	const char *mail_server_comment;
 	const char *mail_server_admin;
 	unsigned int mail_cache_min_mail_count;
+	unsigned int mail_cache_unaccessed_field_drop;
+	uoff_t mail_cache_record_max_size;
+	uoff_t mail_cache_compress_min_size;
+	unsigned int mail_cache_compress_delete_percentage;
+	unsigned int mail_cache_compress_continued_percentage;
+	unsigned int mail_cache_compress_header_continue_count;
+	uoff_t mail_index_rewrite_min_log_bytes;
+	uoff_t mail_index_rewrite_max_log_bytes;
+	uoff_t mail_index_log_rotate_min_size;
+	uoff_t mail_index_log_rotate_max_size;
+	unsigned int mail_index_log_rotate_min_age;
+	unsigned int mail_index_log2_max_age;
 	unsigned int mailbox_idle_check_interval;
 	unsigned int mail_max_keyword_length;
 	unsigned int mail_max_lock_timeout;

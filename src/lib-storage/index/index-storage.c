@@ -248,6 +248,29 @@ int index_storage_mailbox_alloc_index(struct mailbox *box)
 	mail_index_set_lock_method(box->index,
 		box->storage->set->parsed_lock_method,
 		mail_storage_get_lock_timeout(box->storage, UINT_MAX));
+
+	const struct mail_storage_settings *set = box->storage->set;
+	struct mail_index_optimization_settings optimization_set = {
+		.index = {
+			.rewrite_min_log_bytes = set->mail_index_rewrite_min_log_bytes,
+			.rewrite_max_log_bytes = set->mail_index_rewrite_max_log_bytes,
+		},
+		.log = {
+			.min_size = set->mail_index_log_rotate_min_size,
+			.max_size = set->mail_index_log_rotate_max_size,
+			.min_age_secs = set->mail_index_log_rotate_min_age,
+			.log2_max_age_secs = set->mail_index_log2_max_age,
+		},
+		.cache = {
+			.unaccessed_field_drop_secs = set->mail_cache_unaccessed_field_drop,
+			.record_max_size = set->mail_cache_record_max_size,
+			.compress_min_size = set->mail_cache_compress_min_size,
+			.compress_delete_percentage = set->mail_cache_compress_delete_percentage,
+			.compress_continued_percentage = set->mail_cache_compress_continued_percentage,
+			.compress_header_continue_count = set->mail_cache_compress_header_continue_count,
+		},
+	};
+	mail_index_set_optimization_settings(box->index, &optimization_set);
 	return 0;
 }
 
