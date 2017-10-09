@@ -153,7 +153,8 @@ static void
 doveadm_http_server_request_destroy(struct client_connection_http *conn)
 {
 	struct http_server_request *http_sreq = conn->http_server_request;
-	struct http_server_response *http_resp = 
+	const struct http_request *http_req = conn->http_request;
+	struct http_server_response *http_resp =
 		http_server_request_get_response(http_sreq);
 
 	if (http_resp != NULL) {
@@ -164,14 +165,13 @@ doveadm_http_server_request_destroy(struct client_connection_http *conn)
 		uoff_t size;
 		http_server_response_get_status(http_resp, &status, &reason);
 		size = http_server_response_get_total_size(http_resp);
-		agent = http_request_header_get(conn->http_request, "User-Agent");
+		agent = http_request_header_get(http_req, "User-Agent");
 		if (agent == NULL) agent = "";
-		url = http_url_create(conn->http_request->target.url);
+		url = http_url_create(http_req->target.url);
 		i_info("doveadm: %s %s %s \"%s %s HTTP/%d.%d\" %d %"PRIuUOFF_T" \"%s\" \"%s\"",
 			net_ip2addr(&conn->client.remote_ip), "-", "-",
-			conn->http_request->method,
-			conn->http_request->target.url->path,
-			conn->http_request->version_major, conn->http_request->version_minor,
+			http_req->method, http_req->target.url->path,
+			http_req->version_major, http_req->version_minor,
 			status, size,
 			url,
 			agent);
@@ -743,8 +743,10 @@ static void
 doveadm_http_server_handle_request(void *context, struct http_server_request *http_sreq)
 {
 	struct client_connection_http *conn = context;
+	const struct http_request *http_req =
+		http_server_request_get(http_sreq);
 	conn->http_server_request = http_sreq;
-	conn->http_request = http_server_request_get(http_sreq);
+	conn->http_request = http_req;
 	struct doveadm_http_server_mount *ep = NULL;
 
 	http_server_request_set_destroy_callback(http_sreq, doveadm_http_server_request_destroy, conn);
@@ -752,9 +754,9 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 
 	for(size_t i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
 		if (doveadm_http_server_mounts[i].verb == NULL ||
-		    strcmp(conn->http_request->method, doveadm_http_server_mounts[i].verb) == 0) {
+		    strcmp(http_req->method, doveadm_http_server_mounts[i].verb) == 0) {
 			if (doveadm_http_server_mounts[i].path == NULL ||
-                            strcmp(conn->http_request->target.url->path, doveadm_http_server_mounts[i].path) == 0) {
+                            strcmp(http_req->target.url->path, doveadm_http_server_mounts[i].path) == 0) {
 				ep = &doveadm_http_server_mounts[i];
 				break;
 			}
@@ -775,9 +777,9 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 	http_server_response_add_header(conn->http_response, "Content-Type",
 		"application/json; charset=utf-8");
 
-        if (strcmp(conn->http_request->method, "POST") == 0) {
+        if (strcmp(http_req->method, "POST") == 0) {
 		/* handle request */
-		conn->client.input = conn->http_request->payload;
+		conn->client.input = http_req->payload;
 		i_stream_set_name(conn->client.input, net_ip2addr(&conn->client.remote_ip));
 		i_stream_ref(conn->client.input);
 		conn->client.io = io_add_istream(conn->client.input, *ep->handler, conn);
