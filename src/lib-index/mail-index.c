@@ -29,6 +29,15 @@ struct mail_index_module_register mail_index_module_register = { 0 };
 
 static void mail_index_close_nonopened(struct mail_index *index);
 
+static const struct mail_index_optimization_settings default_optimization_set = {
+	.log = {
+		.min_size = 32 * 1024,
+		.max_size = 1024 * 1024,
+		.min_age_secs = 5 * 60,
+		.log2_max_age_secs = 3600 * 24 * 2,
+	},
+};
+
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 {
 	struct mail_index *index;
@@ -49,15 +58,7 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->gid = (gid_t)-1;
 	index->lock_method = FILE_LOCK_METHOD_FCNTL;
 	index->max_lock_timeout_secs = UINT_MAX;
-
-	index->log_rotate_min_size =
-		MAIL_TRANSACTION_LOG_ROTATE_DEFAULT_MIN_SIZE;
-	index->log_rotate_max_size =
-		MAIL_TRANSACTION_LOG_ROTATE_DEFAULT_MAX_SIZE;
-	index->log_rotate_min_created_ago_secs =
-		MAIL_TRANSACTION_LOG_ROTATE_DEFAULT_TIME;
-	index->log_rotate_log2_stale_secs =
-		MAIL_TRANSACTION_LOG2_DEFAULT_STALE_SECS;
+	index->optimization_set = default_optimization_set;
 
 	index->keywords_ext_id =
 		mail_index_ext_register(index, MAIL_INDEX_EXT_KEYWORDS,
@@ -156,15 +157,20 @@ void mail_index_set_lock_method(struct mail_index *index,
 	index->max_lock_timeout_secs = max_timeout_secs;
 }
 
-void mail_index_set_log_rotation(struct mail_index *index,
-				 uoff_t min_size, uoff_t max_size,
-				 unsigned int min_created_ago_secs,
-				 unsigned int log2_stale_secs)
+void mail_index_set_optimization_settings(struct mail_index *index,
+	const struct mail_index_optimization_settings *set)
 {
-	index->log_rotate_min_size = min_size;
-	index->log_rotate_max_size = max_size;
-	index->log_rotate_min_created_ago_secs = min_created_ago_secs;
-	index->log_rotate_log2_stale_secs = log2_stale_secs;
+	struct mail_index_optimization_settings *dest =
+		&index->optimization_set;
+
+	if (set->log.min_size != 0)
+		dest->log.min_size = set->log.min_size;
+	if (set->log.max_size != 0)
+		dest->log.max_size = set->log.max_size;
+	if (set->log.min_age_secs != 0)
+		dest->log.min_age_secs = set->log.min_age_secs;
+	if (set->log.log2_max_age_secs != 0)
+		dest->log.log2_max_age_secs = set->log.log2_max_age_secs;
 }
 
 void mail_index_set_ext_init_data(struct mail_index *index, uint32_t ext_id,

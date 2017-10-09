@@ -57,7 +57,7 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 	}
 
 	if (log2_rotate_time != (uint32_t)-1 &&
-	    ioloop_time - (time_t)log2_rotate_time >= (time_t)log->index->log_rotate_log2_stale_secs &&
+	    ioloop_time - (time_t)log2_rotate_time >= (time_t)log->index->optimization_set.log.log2_max_age_secs &&
 	    !log->index->readonly) {
 		i_unlink_if_exists(log->filepath2);
 		log2_rotate_time = (uint32_t)-1;
@@ -244,17 +244,17 @@ bool mail_transaction_log_want_rotate(struct mail_transaction_log *log)
 		return TRUE;
 	}
 
-	if (file->sync_offset > log->index->log_rotate_max_size) {
+	if (file->sync_offset > log->index->optimization_set.log.max_size) {
 		/* file is too large, definitely rotate */
 		return TRUE;
 	}
-	if (file->sync_offset < log->index->log_rotate_min_size) {
+	if (file->sync_offset < log->index->optimization_set.log.min_size) {
 		/* file is still too small */
 		return FALSE;
 	}
 	/* rotate if the timestamp is old enough */
 	return file->hdr.create_stamp <
-		ioloop_time - log->index->log_rotate_min_created_ago_secs;
+		ioloop_time - log->index->optimization_set.log.min_age_secs;
 }
 
 int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)

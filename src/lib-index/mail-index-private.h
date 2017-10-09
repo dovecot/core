@@ -171,9 +171,7 @@ struct mail_index {
 	gid_t gid;
 	char *gid_origin;
 
-	uoff_t log_rotate_min_size, log_rotate_max_size;
-	unsigned int log_rotate_min_created_ago_secs;
-	unsigned int log_rotate_log2_stale_secs;
+	struct mail_index_optimization_settings optimization_set;
 	uint32_t pending_log2_rotate_time;
 
 	pool_t extension_pool;

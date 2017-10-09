@@ -15,8 +15,8 @@
 /* dovecot.list.index.log doesn't have to be kept for that long. */
 #define MAILBOX_LIST_INDEX_LOG_ROTATE_MIN_SIZE (8*1024)
 #define MAILBOX_LIST_INDEX_LOG_ROTATE_MAX_SIZE (64*1024)
-#define MAILBOX_LIST_INDEX_LOG_ROTATE_SECS_AGO (5*60)
-#define MAILBOX_LIST_INDEX_LOG2_STALE_SECS (10*60)
+#define MAILBOX_LIST_INDEX_LOG_ROTATE_MIN_AGE_SECS (5*60)
+#define MAILBOX_LIST_INDEX_LOG2_MAX_AGE_SECS (10*60)
 
 static void mailbox_list_index_init_finish(struct mailbox_list *list);
 
@@ -84,11 +84,15 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 					   perm.file_create_gid,
 					   perm.file_create_gid_origin);
 	}
-	mail_index_set_log_rotation(ilist->index,
-				    MAILBOX_LIST_INDEX_LOG_ROTATE_MIN_SIZE,
-				    MAILBOX_LIST_INDEX_LOG_ROTATE_MAX_SIZE,
-				    MAILBOX_LIST_INDEX_LOG_ROTATE_SECS_AGO,
-				    MAILBOX_LIST_INDEX_LOG2_STALE_SECS);
+	const struct mail_index_optimization_settings optimize_set = {
+		.log = {
+			.min_size = MAILBOX_LIST_INDEX_LOG_ROTATE_MIN_SIZE,
+			.max_size = MAILBOX_LIST_INDEX_LOG_ROTATE_MAX_SIZE,
+			.min_age_secs = MAILBOX_LIST_INDEX_LOG_ROTATE_MIN_AGE_SECS,
+			.log2_max_age_secs = MAILBOX_LIST_INDEX_LOG2_MAX_AGE_SECS,
+		},
+	};
+	mail_index_set_optimization_settings(ilist->index, &optimize_set);
 
 	mail_index_set_fsync_mode(ilist->index, set->parsed_fsync_mode, 0);
 	mail_index_set_lock_method(ilist->index, set->parsed_lock_method,
