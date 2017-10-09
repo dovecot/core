@@ -139,6 +139,8 @@ fts_parser_tika_try_init(struct fts_parser_context *parser_context)
 
 	if (tika_get_http_client_url(parser_context->user, &http_url) < 0)
 		return NULL;
+	if (http_url->path == NULL)
+		http_url->path = "/";
 
 	parser = i_new(struct tika_fts_parser, 1);
 	parser->parser.v = fts_parser_tika;
