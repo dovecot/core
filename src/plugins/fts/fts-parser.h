@@ -4,10 +4,16 @@
 struct message_block;
 struct mail_user;
 
+struct fts_parser_context {
+	/* Can't be NULL */
+	struct mail_user *user;
+	/* Can't be NULL */
+	const char *content_type;
+	const char *content_disposition;
+};
+
 struct fts_parser_vfuncs {
-	struct fts_parser *(*try_init)(struct mail_user *user,
-				       const char *content_type,
-				       const char *content_disposition);
+	struct fts_parser *(*try_init)(struct fts_parser_context *parser_context);
 	void (*more)(struct fts_parser *parser, struct message_block *block);
 	int (*deinit)(struct fts_parser *parser);
 	void (*unload)(void);
@@ -22,8 +28,7 @@ extern struct fts_parser_vfuncs fts_parser_html;
 extern struct fts_parser_vfuncs fts_parser_script;
 extern struct fts_parser_vfuncs fts_parser_tika;
 
-bool fts_parser_init(struct mail_user *user,
-		     const char *content_type, const char *content_disposition,
+bool fts_parser_init(struct fts_parser_context *parser_context,
 		     struct fts_parser **parser_r);
 struct fts_parser *fts_parser_text_init(void);
 

@@ -194,22 +194,20 @@ static void parse_content_disposition(const char *content_disposition,
 }
 
 static struct fts_parser *
-fts_parser_script_try_init(struct mail_user *user,
-			   const char *content_type,
-			   const char *content_disposition)
+fts_parser_script_try_init(struct fts_parser_context *parser_context)
 {
 	struct script_fts_parser *parser;
 	const char *filename, *path, *cmd;
 	int fd;
 
-	parse_content_disposition(content_disposition, &filename);
-	if (!script_support_content(user, &content_type, filename))
+	parse_content_disposition(parser_context->content_disposition, &filename);
+	if (!script_support_content(parser_context->user, &parser_context->content_type, filename))
 		return NULL;
 
-	fd = script_connect(user, &path);
+	fd = script_connect(parser_context->user, &path);
 	if (fd == -1)
 		return NULL;
-	cmd = t_strdup_printf(SCRIPT_HANDSHAKE"%s\n\n", content_type);
+	cmd = t_strdup_printf(SCRIPT_HANDSHAKE"%s\n\n", parser_context->content_type);
 	if (write_full(fd, cmd, strlen(cmd)) < 0) {
 		i_error("write(%s) failed: %m", path);
 		i_close_fd(&fd);

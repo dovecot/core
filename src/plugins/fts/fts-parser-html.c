@@ -13,13 +13,11 @@ struct html_fts_parser {
 };
 
 static struct fts_parser *
-fts_parser_html_try_init(struct mail_user *user ATTR_UNUSED,
-			 const char *content_type,
-			 const char *content_disposition ATTR_UNUSED)
+fts_parser_html_try_init(struct fts_parser_context *parser_context)
 {
 	struct html_fts_parser *parser;
 
-	if (!mail_html2text_content_type_match(content_type))
+	if (!mail_html2text_content_type_match(parser_context->content_type))
 		return NULL;
 
 	parser = i_new(struct html_fts_parser, 1);

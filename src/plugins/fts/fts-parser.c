@@ -20,21 +20,21 @@ static const char *plaintext_content_types[] = {
 	NULL
 };
 
-bool fts_parser_init(struct mail_user *user,
-		     const char *content_type, const char *content_disposition,
+bool fts_parser_init(struct fts_parser_context *parser_context,
 		     struct fts_parser **parser_r)
 {
 	unsigned int i;
+	i_assert(parser_context->user != NULL);
+	i_assert(parser_context->content_type != NULL);
 
-	if (str_array_find(plaintext_content_types, content_type)) {
+	if (str_array_find(plaintext_content_types, parser_context->content_type)) {
 		/* we probably don't want/need to allow parsers to handle
 		   plaintext? */
 		return FALSE;
 	}
 
 	for (i = 0; i < N_ELEMENTS(parsers); i++) {
-		*parser_r = parsers[i]->try_init(user, content_type,
-						 content_disposition);
+		*parser_r = parsers[i]->try_init(parser_context);
 		if (*parser_r != NULL)
 			return TRUE;
 	}

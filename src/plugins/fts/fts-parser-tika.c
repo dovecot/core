@@ -138,19 +138,18 @@ fts_tika_parser_response(const struct http_response *response,
 }
 
 static struct fts_parser *
-fts_parser_tika_try_init(struct mail_user *user, const char *content_type,
-			 const char *content_disposition)
+fts_parser_tika_try_init(struct fts_parser_context *parser_context)
 {
 	struct tika_fts_parser *parser;
 	struct http_url *http_url;
 	struct http_client_request *http_req;
 
-	if (tika_get_http_client_url(user, &http_url) < 0)
+	if (tika_get_http_client_url(parser_context->user, &http_url) < 0)
 		return NULL;
 
 	parser = i_new(struct tika_fts_parser, 1);
 	parser->parser.v = fts_parser_tika;
-	parser->user = user;
+	parser->user = parser_context->user;
 
 	http_req = http_client_request(tika_http_client, "PUT",
 			http_url->host.name,
@@ -158,12 +157,12 @@ fts_parser_tika_try_init(struct mail_user *user, const char *content_type,
 			fts_tika_parser_response, parser);
 	http_client_request_set_port(http_req, http_url->port);
 	http_client_request_set_ssl(http_req, http_url->have_ssl);
-	if (content_type != NULL)
+	if (parser_context->content_type != NULL)
 		http_client_request_add_header(http_req, "Content-Type",
-					       content_type);
-	if (content_disposition != NULL)
+					       parser_context->content_type);
+	if (parser_context->content_disposition != NULL)
 		http_client_request_add_header(http_req, "Content-Disposition",
-					       content_disposition);
+					       parser_context->content_disposition);
 	http_client_request_add_header(http_req, "Accept", "text/plain");
 
 	parser->http_req = http_req;

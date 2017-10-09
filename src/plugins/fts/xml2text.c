@@ -12,10 +12,11 @@ int main(void)
 	unsigned char buf[IO_BLOCK_SIZE];
 	struct message_block block;
 	ssize_t ret;
+	struct fts_parser_context parser_context = {.content_type = "text/html"};
 
 	lib_init();
 
-	parser = fts_parser_html.try_init(NULL, "text/html", NULL);
+	parser = fts_parser_html.try_init(&parser_context);
 	i_assert(parser != NULL);
 
 	i_zero(&block);
