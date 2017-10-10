@@ -40,30 +40,32 @@ static bool verbose_proctitle = FALSE;
 
 void client_state_set(struct client *client, const char *name, const char *args)
 {
-	string_t *str;
+	string_t *title;
 
 	client->state.name = name;
 
 	if (!verbose_proctitle)
 		return;
 
-	if (clients_count == 0) {
-		process_title_set("[idling]");
-		return;
+	title = t_str_new(128);
+	str_append_c(title, '[');
+	switch (clients_count) {
+	case 0:
+		str_append(title, "idling");
+		break;
+	case 1:
+		str_append(title, client->state.name);
+		if (client->remote_ip.family != 0)
+			str_printfa(title, " %s", net_ip2addr(&client->remote_ip));
+		if (args[0] != '\0')
+			str_printfa(title, " %s", args);
+		break;
+	default:
+		str_printfa(title, "%u connections", clients_count);
+		break;
 	}
-	if (clients_count > 1) {
-		process_title_set(t_strdup_printf("[%u clients]", clients_count));
-		return;
-	}
-
-	str = t_str_new(128);
-	str_printfa(str, "[%s", client->state.name);
-	if (client->remote_ip.family != 0)
-		str_printfa(str, " %s", net_ip2addr(&client->remote_ip));
-	if (args[0] != '\0')
-		str_printfa(str, " %s", args);
-	str_append_c(str, ']');
-	process_title_set(str_c(str));
+	str_append_c(title, ']');
+	process_title_set(str_c(title));
 }
 
 static void client_idle_timeout(struct client *client)
