@@ -167,6 +167,94 @@ static void doveadm_http_server_json_success(void *context, struct istream *resu
 	o_stream_nsend_str(output, "\"]");
 }
 
+static void
+doveadm_http_server_command_execute(struct client_request_http *req)
+{
+	struct client_connection_http *conn = req->conn;
+	struct doveadm_cmd_context cctx;
+	struct istream *is;
+	const char *user;
+	struct ioloop *ioloop, *prev_ioloop;
+
+	/* final preflight check */
+	if (req->method_err == 0 && !doveadm_client_is_allowed_command(conn->conn.set, req->cmd->name))
+		req->method_err = 403;
+	if (req->method_err != 0) {
+		if (req->method_err == 404) {
+			doveadm_http_server_json_error(req, "unknownMethod");
+		} else if (req->method_err == 403) {
+			doveadm_http_server_json_error(req, "unAuthorized");
+		} else if (req->method_err == 400) {
+			doveadm_http_server_json_error(req, "invalidRequest");
+		} else {
+			doveadm_http_server_json_error(req, "internalError");
+		}
+		return;
+	}
+
+	prev_ioloop = current_ioloop;
+	i_zero(&cctx);
+	cctx.conn_type = conn->conn.type;
+	cctx.input = req->input;
+	cctx.output = req->output;
+
+	// create iostream
+	doveadm_print_ostream = iostream_temp_create("/tmp/doveadm.", 0);
+	cctx.cmd = req->cmd;
+
+	if ((cctx.cmd->flags & CMD_FLAG_NO_PRINT) == 0)
+		doveadm_print_init(DOVEADM_PRINT_TYPE_JSON);
+
+	/* then call it */
+	doveadm_cmd_params_null_terminate_arrays(&req->pargv);
+	cctx.argv = array_get(&req->pargv, (unsigned int*)&cctx.argc);
+	ioloop = io_loop_create();
+	doveadm_exit_code = 0;
+
+	cctx.local_ip = conn->conn.local_ip;
+	cctx.local_port = conn->conn.local_port;
+	cctx.remote_ip = conn->conn.remote_ip;
+	cctx.remote_port = conn->conn.remote_port;
+
+	if (doveadm_cmd_param_str(&cctx, "user", &user))
+		i_info("Executing command '%s' as '%s'", cctx.cmd->name, user);
+	else
+		i_info("Executing command '%s'", cctx.cmd->name);
+	client_connection_set_proctitle(&conn->conn, cctx.cmd->name);
+	cctx.cmd->cmd(&cctx);
+	client_connection_set_proctitle(&conn->conn, "");
+
+	io_loop_set_current(prev_ioloop);
+	o_stream_switch_ioloop(req->output);
+	io_loop_set_current(ioloop);
+	io_loop_destroy(&ioloop);
+
+	if ((cctx.cmd->flags & CMD_FLAG_NO_PRINT) == 0)
+		doveadm_print_deinit();
+	if (o_stream_nfinish(doveadm_print_ostream) < 0) {
+		i_info("Error writing output in command %s: %s",
+		       req->cmd->name,
+		       o_stream_get_error(req->output));
+		doveadm_exit_code = EX_TEMPFAIL;
+	}
+
+	is = iostream_temp_finish(&doveadm_print_ostream, 4096);
+
+	if (req->first_row == TRUE)
+		req->first_row = FALSE;
+	else
+		o_stream_nsend_str(req->output,",");
+
+	if (doveadm_exit_code != 0) {
+		if (doveadm_exit_code == 0 || doveadm_exit_code == EX_TEMPFAIL)
+			i_error("Command %s failed", req->cmd->name);
+		doveadm_http_server_json_error(req, "exitCode");
+	} else {
+		doveadm_http_server_json_success(req, is);
+	}
+	i_stream_unref(&is);
+}
+
 static int doveadm_http_server_istream_read(struct client_request_http *req)
 {
 	struct istream *v_input = req->cmd_param->value.v_istream;
@@ -279,94 +367,6 @@ static int doveadm_http_server_json_parse_next(struct client_request_http *req, 
 	}
 
 	return json_parse_next(req->json_parser, type, value); /* just get next */
-}
-
-static void
-doveadm_http_server_command_execute(struct client_request_http *req)
-{
-	struct client_connection_http *conn = req->conn;
-	struct doveadm_cmd_context cctx;
-	struct istream *is;
-	const char *user;
-	struct ioloop *ioloop, *prev_ioloop;
-
-	/* final preflight check */
-	if (req->method_err == 0 && !doveadm_client_is_allowed_command(conn->conn.set, req->cmd->name))
-		req->method_err = 403;
-	if (req->method_err != 0) {
-		if (req->method_err == 404) {
-			doveadm_http_server_json_error(req, "unknownMethod");
-		} else if (req->method_err == 403) {
-			doveadm_http_server_json_error(req, "unAuthorized");
-		} else if (req->method_err == 400) {
-			doveadm_http_server_json_error(req, "invalidRequest");
-		} else {
-			doveadm_http_server_json_error(req, "internalError");
-		}
-		return;
-	}
-
-	prev_ioloop = current_ioloop;
-	i_zero(&cctx);
-	cctx.conn_type = conn->conn.type;
-	cctx.input = req->input;
-	cctx.output = req->output;
-
-	// create iostream
-	doveadm_print_ostream = iostream_temp_create("/tmp/doveadm.", 0);
-	cctx.cmd = req->cmd;
-
-	if ((cctx.cmd->flags & CMD_FLAG_NO_PRINT) == 0)
-		doveadm_print_init(DOVEADM_PRINT_TYPE_JSON);
-
-	/* then call it */
-	doveadm_cmd_params_null_terminate_arrays(&req->pargv);
-	cctx.argv = array_get(&req->pargv, (unsigned int*)&cctx.argc);
-	ioloop = io_loop_create();
-	doveadm_exit_code = 0;
-
-	cctx.local_ip = conn->conn.local_ip;
-	cctx.local_port = conn->conn.local_port;
-	cctx.remote_ip = conn->conn.remote_ip;
-	cctx.remote_port = conn->conn.remote_port;
-
-	if (doveadm_cmd_param_str(&cctx, "user", &user))
-		i_info("Executing command '%s' as '%s'", cctx.cmd->name, user);
-	else
-		i_info("Executing command '%s'", cctx.cmd->name);
-	client_connection_set_proctitle(&conn->conn, cctx.cmd->name);
-	cctx.cmd->cmd(&cctx);
-	client_connection_set_proctitle(&conn->conn, "");
-
-	io_loop_set_current(prev_ioloop);
-	o_stream_switch_ioloop(req->output);
-	io_loop_set_current(ioloop);
-	io_loop_destroy(&ioloop);
-
-	if ((cctx.cmd->flags & CMD_FLAG_NO_PRINT) == 0)
-		doveadm_print_deinit();
-	if (o_stream_nfinish(doveadm_print_ostream) < 0) {
-		i_info("Error writing output in command %s: %s",
-		       req->cmd->name,
-		       o_stream_get_error(req->output));
-		doveadm_exit_code = EX_TEMPFAIL;
-	}
-
-	is = iostream_temp_finish(&doveadm_print_ostream, 4096);
-
-	if (req->first_row == TRUE)
-		req->first_row = FALSE;
-	else
-		o_stream_nsend_str(req->output,",");
-
-	if (doveadm_exit_code != 0) {
-		if (doveadm_exit_code == 0 || doveadm_exit_code == EX_TEMPFAIL)
-			i_error("Command %s failed", req->cmd->name);
-		doveadm_http_server_json_error(req, "exitCode");
-	} else {
-		doveadm_http_server_json_success(req, is);
-	}
-	i_stream_unref(&is);
 }
 
 static bool
