@@ -260,12 +260,13 @@ static int mcp_keypair_generate(struct mcp_cmd_context *ctx,
 					key_id, &error)) {
 			i_error("dcrypt_key_id_public() failed: %s",
 				error);
-			return -1;
+			ret = -1;
+		} else {
+			*pubid_r = p_strdup(ctx->ctx.pool, binary_to_hex(key_id->data,
+									 key_id->used));
+			*pair_r = pair;
+			ret = 1;
 		}
-		*pubid_r = p_strdup(ctx->ctx.pool, binary_to_hex(key_id->data,
-								 key_id->used));
-		*pair_r = pair;
-		return 1;
 	} else if (ret == 1 && ctx->recrypt_box_keys) {
 		/* do nothing, because force isn't being used *OR*
 		   we are recrypting box keys and force refers to
