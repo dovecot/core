@@ -91,14 +91,14 @@ static inline uint8_t cpu8_to_le(uint8_t in);
  */
 static inline uint64_t bswap_64(uint64_t in)
 {
-	return ((in & 0xff00000000000000LL) >> 56) |
-	       ((in & 0x00ff000000000000LL) >> 40) |
-	       ((in & 0x0000ff0000000000LL) >> 24) |
-	       ((in & 0x000000ff00000000LL) >> 8) |
-	       ((in & 0x00000000ff000000LL) << 8) |
-	       ((in & 0x0000000000ff0000LL) << 24) |
-	       ((in & 0x000000000000ff00LL) << 40) |
-	       ((in & 0x00000000000000ffLL) << 56);
+	return ((in & 0xff00000000000000ULL) >> 56) |
+	       ((in & 0x00ff000000000000ULL) >> 40) |
+	       ((in & 0x0000ff0000000000ULL) >> 24) |
+	       ((in & 0x000000ff00000000ULL) >> 8) |
+	       ((in & 0x00000000ff000000ULL) << 8) |
+	       ((in & 0x0000000000ff0000ULL) << 24) |
+	       ((in & 0x000000000000ff00ULL) << 40) |
+	       ((in & 0x00000000000000ffULL) << 56);
 }
 
 static inline uint32_t bswap_32(uint32_t in)
