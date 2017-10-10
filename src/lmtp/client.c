@@ -36,13 +36,15 @@
 static struct client *clients = NULL;
 unsigned int clients_count = 0;
 
+static bool verbose_proctitle = FALSE;
+
 void client_state_set(struct client *client, const char *name, const char *args)
 {
 	string_t *str;
 
 	client->state.name = name;
 
-	if (!client->service_set->verbose_proctitle)
+	if (!verbose_proctitle)
 		return;
 
 	if (clients_count == 0) {
@@ -267,6 +269,9 @@ struct client *client_create(int fd_in, int fd_out,
 	client->my_domain = client->unexpanded_lda_set->hostname;
 	client->lhlo = i_strdup("missing");
 	client->proxy_ttl = LMTP_PROXY_DEFAULT_TTL;
+
+	if (client->service_set->verbose_proctitle)
+		verbose_proctitle = TRUE;
 
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
