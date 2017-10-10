@@ -1,4 +1,4 @@
-v2.2.33 2017-10-xx  Timo Sirainen <tss@iki.fi>
+v2.2.33 2017-10-10  Timo Sirainen <tss@iki.fi>
 
 	* doveadm director commands wait for the changes to be visible in the
 	  whole ring before they return. This is especially useful in testing.
@@ -22,6 +22,9 @@ v2.2.33 2017-10-xx  Timo Sirainen <tss@iki.fi>
 	+ pop3-migration: Cache POP3 UIDLs in imapc's dovecot.index.cache
 	  if indexes are enabled. These are used to optimize incremental syncs.
 	+ cassandra, dict-sql: Use prepared statements if protocol version>3.
+	+ auth: Added %{ldap_dn} variable for passdb/userdb ldap
+	- acl: The "create" (k) permission in global acl-file was sometimes
+	  ignored, allowing users to create mailboxes when they shouldn't have.
 	- sdbox: Mails were always opened when expunging, unless
 	  mail_attachment_fs was explicitly set to empty.
 	- lmtp/doveadm proxy: hostip passdb field was ignored, which caused
@@ -43,6 +46,7 @@ v2.2.33 2017-10-xx  Timo Sirainen <tss@iki.fi>
 	- doveadm sync -1 fails when local mailboxes exist that do not exist
 	  remotely. This commonly happened when lazy_expunge mailbox was
 	  autocreated when incremental sync expunged mails.
+	- pop3: rawlog_dir setting didn't work
 
 
 v2.2.32 2017-08-24  Timo Sirainen <tss@iki.fi>
