@@ -180,6 +180,11 @@ AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   TEST_WITH(solr, $withval),
   want_solr=no)
 
+AC_ARG_WITH(sodium,
+AS_HELP_STRING([--with-sodium], [Build with libsodium support (enables argon2 and scrypt, default: auto)]),
+  TEST_WITH(sodium, $withval),
+  want_sodium=auto)
+
 AC_ARG_WITH(zlib,
 AS_HELP_STRING([--with-zlib], [Build with zlib compression support (auto)]),
   TEST_WITH(zlib, $withval),
@@ -549,6 +554,7 @@ DOVECOT_WANT_DB
 DOVECOT_WANT_CDB
 DOVECOT_WANT_PGSQL
 DOVECOT_WANT_MYSQL
+DOVECOT_WANT_SODIUM
 DOVECOT_WANT_SQLITE
 DOVECOT_WANT_CASSANDRA
 DOVECOT_WANT_VPOPMAIL
