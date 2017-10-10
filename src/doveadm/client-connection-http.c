@@ -535,8 +535,10 @@ request_json_parse_cmd_done(struct client_request_http *req,
 	return 1;
 }
 
-static int doveadm_http_server_json_parse_next(struct client_request_http *req, enum json_type *type, const char **value)
+static int doveadm_http_server_json_parse_v1(struct client_request_http *req)
 {
+	enum json_type type;
+	const char *value;
 	int ret;
 
 	/* complete previous syntactic structure */
@@ -564,13 +566,9 @@ static int doveadm_http_server_json_parse_next(struct client_request_http *req, 
 	}
 
 	/* just get next json node */
-	return json_parse_next(req->json_parser, type, value); 
-}
-
-static int
-doveadm_http_handle_json_v1(struct client_request_http *req,
-			    enum json_type type, const char *value)
-{
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+		return ret;
+		
 	switch (req->parse_state) {
 	case CLIENT_REQUEST_PARSE_INIT:
 		return request_json_parse_init(req, type);
@@ -600,18 +598,14 @@ static void
 doveadm_http_server_read_request_v1(struct client_request_http *req)
 {
 	struct http_server_request *http_sreq = req->http_request;
-	enum json_type type;
-	const char *value, *error;
+	const char *error;
 	int ret;
 
 	if (req->json_parser == NULL) {
 		req->json_parser = json_parser_init_flags(req->input, JSON_PARSER_NO_ROOT_OBJECT);
 	}
 
-	while ((ret = doveadm_http_server_json_parse_next(req, &type, &value)) == 1) {
-		if ((ret=doveadm_http_handle_json_v1(req, type, value)) <= 0)
-			break;
-	}
+	while ((ret=doveadm_http_server_json_parse_v1(req)) > 0);
 
 	if (!req->input->eof && ret == 0)
 		return;
