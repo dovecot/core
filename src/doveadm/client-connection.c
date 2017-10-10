@@ -232,8 +232,7 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 
 static void
 doveadm_mail_cmd_server_run(struct client_connection *conn,
-			    struct doveadm_mail_cmd_context *mctx,
-			    struct doveadm_cmd_context *cctx)
+			    struct doveadm_mail_cmd_context *mctx)
 {
 	const char *error;
 	int ret;
@@ -243,7 +242,7 @@ doveadm_mail_cmd_server_run(struct client_connection *conn,
 	if (mctx->v.preinit != NULL)
 		mctx->v.preinit(mctx);
 
-	ret = doveadm_mail_single_user(mctx, cctx, &error);
+	ret = doveadm_mail_single_user(mctx, &error);
 	doveadm_mail_server_flush();
 	mctx->v.deinit(mctx);
 	doveadm_print_flush();
@@ -325,7 +324,7 @@ static int doveadm_cmd_handle(struct client_connection *conn,
 	else if (cmd != NULL)
 		doveadm_cmd_server_run(conn, argc, argv, cmd);
 	else
-		doveadm_mail_cmd_server_run(conn, mctx, cctx);
+		doveadm_mail_cmd_server_run(conn, mctx);
 
 	io_loop_set_current(prev_ioloop);
 	o_stream_switch_ioloop(conn->output);

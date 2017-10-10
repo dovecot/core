@@ -380,12 +380,14 @@ doveadm_cctx_to_storage_service_input(const struct doveadm_cmd_context *cctx,
 
 static int
 doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
-		       const struct doveadm_cmd_context *cctx,
 		       const char **error_r)
 {
+	const struct doveadm_cmd_context *cctx = ctx->cctx;
 	struct mail_storage_service_input input;
 	const char *error, *ip;
 	int ret;
+
+	i_assert(cctx != NULL);
 
 	ip = net_ip2addr(&cctx->remote_ip);
 	if (ip[0] == '\0')
@@ -441,9 +443,10 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 }
 
 int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
-			     const struct doveadm_cmd_context *cctx,
 			     const char **error_r)
 {
+	const struct doveadm_cmd_context *cctx = ctx->cctx;
+
 	i_assert(cctx->username != NULL);
 
 	doveadm_cctx_to_storage_service_input(cctx, &ctx->storage_service_input);
@@ -458,14 +461,14 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
 	lib_signals_set_handler(SIGTERM, 0, sig_die, NULL);
 
-	return doveadm_mail_next_user(ctx, cctx, error_r);
+	return doveadm_mail_next_user(ctx, error_r);
 }
 
 static void
 doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
-		       struct doveadm_cmd_context *cctx,
 		       const char *wildcard_user)
 {
+	struct doveadm_cmd_context *cctx = ctx->cctx;
 	unsigned int user_idx;
 	const char *ip, *user, *error;
 	int ret;
@@ -496,7 +499,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 		ctx->cur_username = user;
 		doveadm_print_sticky("username", user);
 		T_BEGIN {
-			ret = doveadm_mail_next_user(ctx, cctx, &error);
+			ret = doveadm_mail_next_user(ctx, &error);
 			if (ret < 0)
 				i_error("%s", error);
 			else if (ret == 0)
@@ -591,9 +594,9 @@ doveadm_mail_cmdline_init(const struct doveadm_mail_cmd *cmd)
 
 static void
 doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
-		      struct doveadm_cmd_context *cctx,
 		      const char *wildcard_user)
 {
+	const struct doveadm_cmd_context *cctx = ctx->cctx;
 	bool cli = (cctx->conn_type == CLIENT_CONNECTION_TYPE_CLI);
 	int ret;
 	const char *error;
@@ -620,7 +623,7 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 
 		if (ctx->add_username_header)
 			doveadm_print_sticky("username", cctx->username);
-		ret = doveadm_mail_single_user(ctx, cctx, &error);
+		ret = doveadm_mail_single_user(ctx, &error);
 		if (ret < 0) {
 			/* user lookup/init failed somehow */
 			doveadm_exit_code = EX_TEMPFAIL;
@@ -631,7 +634,7 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 		}
 	} else {
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
-		doveadm_mail_all_users(ctx, cctx, wildcard_user);
+		doveadm_mail_all_users(ctx, wildcard_user);
 	}
 	if (ctx->search_args != NULL)
 		mail_search_args_unref(&ctx->search_args);
@@ -716,7 +719,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	}
 	ctx->args = (const void *)argv;
 	cctx.username = ctx->cur_username;
-	doveadm_mail_cmd_exec(ctx, &cctx, wildcard_user);
+	doveadm_mail_cmd_exec(ctx, wildcard_user);
 	doveadm_mail_cmd_free(ctx);
 }
 
@@ -1093,6 +1096,6 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	mctx->args = array_idx(&full_args, args_pos);
 	mctx->full_args = array_idx(&full_args, 0);
 
-	doveadm_mail_cmd_exec(mctx, cctx, wildcard_user);
+	doveadm_mail_cmd_exec(mctx, wildcard_user);
 	doveadm_mail_cmd_free(mctx);
 }
