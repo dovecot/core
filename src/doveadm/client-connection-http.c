@@ -258,46 +258,71 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 }
 
 static int
-request_json_parse_init(struct client_request_http *req,
-			enum json_type type)
+request_json_parse_init(struct client_request_http *req)
 {
-	if (type != JSON_TYPE_ARRAY)
+	enum json_type type;
+	const char *value;
+	int ret;
+
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+		return ret;
+	if (type != JSON_TYPE_ARRAY) {
+		/* command list must be an array */
 		return -2;
+	}
 	req->first_row = TRUE;
 	o_stream_nsend_str(req->output,"[");
+
+	/* next: parse the next command */
 	req->parse_state = CLIENT_REQUEST_PARSE_CMD;
 	return 1;
 }
 
 static int
-request_json_parse_cmd(struct client_request_http *req,
-		       enum json_type type)
+request_json_parse_cmd(struct client_request_http *req)
 {
+	enum json_type type;
+	const char *value;
+	int ret;
+
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+		return ret;
 	if (type == JSON_TYPE_ARRAY_END) {
+		/* end of command list */
 		req->parse_state = CLIENT_REQUEST_PARSE_DONE;
 		return 1;
 	}
-	if (type != JSON_TYPE_ARRAY)
+	if (type != JSON_TYPE_ARRAY) {
+		/* command must be an array */
 		return -2;
+	}
 	req->method_err = 0;
 	p_free_and_null(req->pool, req->method_id);
 	req->cmd = NULL;
 	doveadm_cmd_params_clean(&req->pargv);
+
+	/* next: parse the command name */
 	req->parse_state = CLIENT_REQUEST_PARSE_CMD_NAME;
 	return 1;
 }
 
 static int
-request_json_parse_cmd_name(struct client_request_http *req,
-			    enum json_type type, const char *value)
+request_json_parse_cmd_name(struct client_request_http *req)
 {
+	enum json_type type;
+	const char *value;
 	const struct doveadm_cmd_ver2 *ccmd;
 	struct doveadm_cmd_param *param;
 	bool found;
-	int pargc;
+	int pargc, ret;
 
-	if (type != JSON_TYPE_STRING)
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+		return ret;
+	if (type != JSON_TYPE_STRING) {
+		/* command name must be a string */
 		return -2;
+	}
+
 	/* see if we can find it */
 	found = FALSE;
 	array_foreach(&doveadm_cmds_ver2, ccmd) {
@@ -308,6 +333,7 @@ request_json_parse_cmd_name(struct client_request_http *req,
 		}
 	}
 	if (!found) {
+		/* command not found; skip to the command ID */
 		json_parse_skip_next(req->json_parser);
 		req->method_err = 404;
 		req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
@@ -320,37 +346,54 @@ request_json_parse_cmd_name(struct client_request_http *req,
 		*param = req->cmd->parameters[pargc];
 		param->value_set = FALSE;
 	}
+
+	/* next: parse the command parameters */
 	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAMS;
 	return 1;
 }
 
 static int
-request_json_parse_cmd_params(struct client_request_http *req,
-			      enum json_type type)
+request_json_parse_cmd_params(struct client_request_http *req)
 {
+	enum json_type type;
+	const char *value;
+	int ret;
+
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+		return ret;
 	if (type == JSON_TYPE_OBJECT_END) {
+		/* empty command parameters object; parse command ID next */
 		req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
 		return 1;
 	}
-	if (type != JSON_TYPE_OBJECT)
+	if (type != JSON_TYPE_OBJECT) {
+		/* parameters must be contained in an object */
 		return -2;
+	}
+
+	/* next: parse parameter key */
 	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 	return 1;
 }
 
 static int
-request_json_parse_cmd_param_key(struct client_request_http *req,
-				 enum json_type type, const char *value)
+request_json_parse_cmd_param_key(struct client_request_http *req)
 {
+	enum json_type type;
+	const char *value;
 	struct doveadm_cmd_param *par;
 	bool found;
+	int ret;
 
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+		return ret;
 	if (type == JSON_TYPE_OBJECT_END) {
+		/* end of parameters; parse command ID next */
 		req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
 		return 1;
 	}
 	i_assert(type == JSON_TYPE_OBJECT_KEY);
-	/* go hunting */
+	/* find the parameter */
 	found = FALSE;
 	array_foreach_modifiable(&req->pargv, par) {
 		if (i_strccdascmp(par->name, value) == 0) {
@@ -363,7 +406,7 @@ request_json_parse_cmd_param_key(struct client_request_http *req,
 			break;
 		}
 	}
-	/* skip parameters if error has already occurred */
+	/* skip remaining parameters if error has already occurred */
 	if (!found || req->method_err != 0) {
 		json_parse_skip_next(req->json_parser);
 		req->method_err = 400;
@@ -378,6 +421,8 @@ request_json_parse_cmd_param_key(struct client_request_http *req,
 		       req->cmd_param->name);
 		return -2;
 	}
+
+	/* next: parse parameter value */
 	req->value_is_array = FALSE;
 	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE;
 	return 1;
@@ -395,7 +440,7 @@ request_json_parse_param_value(struct client_request_http *req)
 
 		/* read the value as a stream */
 		ret = json_parse_next_stream(req->json_parser, &is[0]);
-		if (ret != 1)
+		if (ret <= 0)
 			return ret;
 
 		req->cmd_param->value.v_istream =
@@ -410,15 +455,12 @@ request_json_parse_param_value(struct client_request_http *req)
 		return 1;
 	}
 
-	/* read the value */
-	ret = json_parse_next(req->json_parser, &type, &value);
-	if (ret != 1)
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
 		return ret;
-
 	if (req->cmd_param->type == CMD_PARAM_ARRAY) {
 		const char *tmp;
 
-		/* an (optional) array of values is expected */
+		/* expects either a singular value or an array of values */
 		p_array_init(&req->cmd_param->value.v_array, req->pool, 1);
 		req->cmd_param->value_set = TRUE;
 		if (type == JSON_TYPE_ARRAY) {
@@ -435,11 +477,12 @@ request_json_parse_param_value(struct client_request_http *req)
 		tmp = p_strdup(req->pool, value);
 		array_append(&req->cmd_param->value.v_array, &tmp, 1);
 
-		/* continue with next parameter */
+		/* next: continue with the next parameter */
 		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 		return 1;
 	}
 
+	/* expects just a value */
 	req->cmd_param->value_set = TRUE;
 	switch(req->cmd_param->type) {
 	case CMD_PARAM_BOOL:
@@ -462,7 +505,7 @@ request_json_parse_param_value(struct client_request_http *req)
 		break;
 	}
 
-	/* continue with next parameter */
+	/* next: continue with the next parameter */
 	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 	return 1;
 }
@@ -474,21 +517,23 @@ request_json_parse_param_array(struct client_request_http *req)
 	const char *value;
 	int ret;
 
-	/* reading through parameters in an array */
-	while ((ret = json_parse_next(req->json_parser,
-				      &type, &value)) > 0) {
-		const char *tmp;
-
-		if (type == JSON_TYPE_ARRAY_END)
-			break;
-		if (type != JSON_TYPE_STRING)
-			return -2;
-		tmp = p_strdup(req->pool, value);
-		array_append(&req->cmd_param->value.v_array, &tmp, 1);
-	}
-	if (ret <= 0)
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
 		return ret;
-	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
+	if (type == JSON_TYPE_ARRAY_END) {
+		/* end of array: continue with next parameter */
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
+		return 1;
+	}
+	if (type != JSON_TYPE_STRING) {
+		/* array items must be string */
+		return -2;
+	}
+
+	/* record entry */
+	value = p_strdup(req->pool, value);
+	array_append(&req->cmd_param->value.v_array, &value, 1);
+
+	/* next: continue with the next array item */
 	return 1;
 }
 
@@ -501,8 +546,10 @@ request_json_parse_param_istream(struct client_request_http *req)
 
 	while (i_stream_read_more(v_input, &data, &size) > 0)
 		i_stream_skip(v_input, size);
-	if (!v_input->eof)
+	if (!v_input->eof) {
+		/* more to read */
 		return 0;
+	}
 
 	if (v_input->stream_errno != 0) {
 		i_error("read(%s) failed: %s",
@@ -512,86 +559,106 @@ request_json_parse_param_istream(struct client_request_http *req)
 		return -2;
 	}
 
+	/* next: continue with the next parameter */
 	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 	return 1;
 }
 
 static int
-request_json_parse_cmd_id(struct client_request_http *req,
-			  enum json_type type, const char *value)
+request_json_parse_cmd_id(struct client_request_http *req)
 {
-	if (type != JSON_TYPE_STRING)
+	enum json_type type;
+	const char *value;
+	int ret;
+
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+		return ret;
+	if (type != JSON_TYPE_STRING) {
+		/* command ID must be a string */
 		return -2;
+	}
+
+	/* next: parse end of command */
 	req->method_id = p_strdup(req->pool, value);
 	req->parse_state = CLIENT_REQUEST_PARSE_CMD_DONE;
 	return 1;
 }
 
 static int
-request_json_parse_cmd_done(struct client_request_http *req,
-			    enum json_type type)
-{
-	/* should be end of array */
-	if (type != JSON_TYPE_ARRAY_END)
-		return -2;
-	doveadm_http_server_command_execute(req);
-	req->parse_state = CLIENT_REQUEST_PARSE_CMD;
-	return 1;
-}
-
-static int doveadm_http_server_json_parse_v1(struct client_request_http *req)
+request_json_parse_cmd_done(struct client_request_http *req)
 {
 	enum json_type type;
 	const char *value;
 	int ret;
 
-	/* complete previous syntactic structure */
-	for (;;) {
-		switch (req->parse_state) {
-		case CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE:
-			ret = request_json_parse_param_value(req);
-			if (ret <= 0)
-				return ret;
-			continue;
-		case CLIENT_REQUEST_PARSE_CMD_PARAM_ARRAY:
-			ret = request_json_parse_param_array(req);
-			if (ret <= 0)
-				return ret;
-			continue;
-		case CLIENT_REQUEST_PARSE_CMD_PARAM_ISTREAM:
-			ret = request_json_parse_param_istream(req);
-			if (ret <= 0)
-				return ret;
-			continue;
-		default:
-			break;
-		}
-		break;
-	}
-
-	/* just get next json node */
 	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
 		return ret;
-		
+	if (type != JSON_TYPE_ARRAY_END) {
+		/* command array must end here */
+		return -1;
+	}
+
+	/* execute command */
+	doveadm_http_server_command_execute(req);
+
+	/* next: parse next command */
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD;
+	return 1;
+}
+
+static int
+request_json_parse_done(struct client_request_http *req)
+{
+	enum json_type type;
+	const char *value;
+	int ret;
+
+	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
+		return ret;
+	/* only gets here when there is spurious additional JSON */
+	// FIXME: should be returned as error to client, not logged
+	i_info("Got unexpected elements in JSON data");
+	return -2;
+}
+
+static int
+doveadm_http_server_json_parse_v1(struct client_request_http *req)
+{
+	/* parser state machine */
 	switch (req->parse_state) {
+	/* command list: '[' */
 	case CLIENT_REQUEST_PARSE_INIT:
-		return request_json_parse_init(req, type);
+		return request_json_parse_init(req);
+	/* command begin: '[' */
 	case CLIENT_REQUEST_PARSE_CMD:
-		return request_json_parse_cmd(req, type);
+		return request_json_parse_cmd(req);
+	/* command name: string */
 	case CLIENT_REQUEST_PARSE_CMD_NAME:
-		return request_json_parse_cmd_name(req, type, value);
+		return request_json_parse_cmd_name(req);
+	/* command parameters: '{' */
 	case CLIENT_REQUEST_PARSE_CMD_PARAMS:
-		return request_json_parse_cmd_params(req, type);
+		return request_json_parse_cmd_params(req);
+	/* parameter key: string */
 	case CLIENT_REQUEST_PARSE_CMD_PARAM_KEY:
-		return request_json_parse_cmd_param_key(req, type, value);
+		return request_json_parse_cmd_param_key(req);
+	/* parameter value */
+	case CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE:
+		return request_json_parse_param_value(req);
+	/* parameter array value */
+	case CLIENT_REQUEST_PARSE_CMD_PARAM_ARRAY:
+		return request_json_parse_param_array(req);
+	/* parameter istream value */
+	case CLIENT_REQUEST_PARSE_CMD_PARAM_ISTREAM:
+		return request_json_parse_param_istream(req);
+	/* command ID: string */
 	case CLIENT_REQUEST_PARSE_CMD_ID:
-		return request_json_parse_cmd_id(req, type, value);
+		return request_json_parse_cmd_id(req);
+	/* command end: ']' */
 	case CLIENT_REQUEST_PARSE_CMD_DONE:
-		return request_json_parse_cmd_done(req, type);
+		return request_json_parse_cmd_done(req);
+	/* finished parsing request (seen final ']') */
 	case CLIENT_REQUEST_PARSE_DONE:
-		// FIXME: should be returned as error to client, not logged
-		i_info("Got unexpected elements in JSON data");
-		return -2;
+		return request_json_parse_done(req);
 	default:
 		break;
 	}
