@@ -313,6 +313,11 @@ int crypt_verify(const char *plaintext, const struct password_generate_params *p
 {
 	const char *password, *crypted;
 
+	if (size > 4 && raw_password[0] == '$' && raw_password[1] == '2' &&
+	    raw_password[3] == '$')
+		return password_verify(plaintext, params, "BLF-CRYPT",
+				       raw_password, size, error_r);
+
 	if (size == 0) {
 		/* the default mycrypt() handler would return match */
 		return 0;

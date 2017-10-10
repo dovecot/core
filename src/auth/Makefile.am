@@ -44,6 +44,7 @@ AM_CPPFLAGS = \
 auth_LDFLAGS = -export-dynamic
 
 libpassword_la_SOURCES = \
+	crypt-blowfish.c \
 	mycrypt.c \
 	password-scheme.c \
 	password-scheme-crypt.c \
@@ -231,7 +232,7 @@ test_programs = \
 
 noinst_PROGRAMS = $(test_programs)
 
-noinst_HEADERS = test-auth.h
+noinst_HEADERS = test-auth.h crypt-blowfish.h
 
 test_libs = \
 	../lib-dovecot/libdovecot.la
