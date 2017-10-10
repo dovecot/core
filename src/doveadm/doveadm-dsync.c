@@ -137,6 +137,7 @@ static void remote_error_input(struct dsync_cmd_context *ctx)
 static void
 run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 {
+	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
 	int fd_in[2], fd_out[2], fd_err[2];
 
 	ctx->remote_cmd_args = p_strarray_dup(ctx->ctx.pool, args);
@@ -178,7 +179,7 @@ run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 
 	if (ctx->remote_user_prefix) {
 		const char *prefix =
-			t_strdup_printf("%s\n", ctx->ctx.cur_username);
+			t_strdup_printf("%s\n", cctx->username);
 		if (write_full(ctx->fd_out, prefix, strlen(prefix)) < 0)
 			i_fatal("write(remote out) failed: %m");
 	}
@@ -798,6 +799,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		  const struct mail_storage_settings *mail_set,
 		  const char *target, bool ssl, const char **error_r)
 {
+	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
 	struct doveadm_server *server;
 	struct server_connection *conn;
 	struct ioloop *ioloop;
@@ -833,9 +835,9 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	if (doveadm_debug)
 		str_append_c(cmd, 'D');
 	str_append_c(cmd, '\t');
-	str_append_tabescaped(cmd, ctx->ctx.cur_username);
+	str_append_tabescaped(cmd, cctx->username);
 	str_append(cmd, "\tdsync-server\t-u");
-	str_append_tabescaped(cmd, ctx->ctx.cur_username);
+	str_append_tabescaped(cmd, cctx->username);
 	if (ctx->replicator_notify)
 		str_append(cmd, "\t-U");
 	str_append_c(cmd, '\n');
@@ -870,6 +872,8 @@ parse_location(struct dsync_cmd_context *ctx,
 	       const char *location,
 	       const char *const **remote_cmd_args_r, const char **error_r)
 {
+	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
+
 	if (strncmp(location, "tcp:", 4) == 0) {
 		/* TCP connection to remote dsync */
 		ctx->remote_name = location+4;
@@ -897,7 +901,7 @@ parse_location(struct dsync_cmd_context *ctx,
 		return 0;
 	}
 	*remote_cmd_args_r =
-		parse_ssh_location(ctx->remote_name, ctx->ctx.cur_username);
+		parse_ssh_location(ctx->remote_name, cctx->username);
 	return 0;
 }
 
@@ -906,6 +910,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    const char **error_r)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	const char *const *remote_cmd_args = NULL;
 	const struct mail_user_settings *user_set;
 	const struct mail_storage_settings *mail_set;
@@ -933,7 +938,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 		/* if we're executing remotely, give -u parameter if we also
 		   did a userdb lookup. */
 		if ((_ctx->service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0)
-			username = _ctx->cur_username;
+			username = cctx->username;
 
 		if (!mirror_get_remote_cmd(ctx, username, &remote_cmd_args)) {
 			/* it's a mail_location */

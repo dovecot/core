@@ -168,7 +168,6 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 	mctx->cctx = cctx;
 	mctx->full_args = argv+1;
 	mctx->proxying = TRUE;
-	mctx->cur_username = cctx->username;
 	mctx->service_flags |=
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
@@ -213,9 +212,9 @@ doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 	}
 	mctx->args = argv+optind;
 
-	if (mctx->cur_username != NULL) {
-		if (strchr(mctx->cur_username, '*') != NULL ||
-		    strchr(mctx->cur_username, '?') != NULL) {
+	if (cctx->username != NULL) {
+		if (strchr(cctx->username, '*') != NULL ||
+		    strchr(cctx->username, '?') != NULL) {
 			add_username_header = TRUE;
 		}
 	}
