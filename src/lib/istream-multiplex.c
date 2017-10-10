@@ -63,9 +63,9 @@ static void propagate_eof(struct multiplex_istream *mstream)
 }
 
 static ssize_t
-i_stream_multiplex_read(struct multiplex_istream *mstream, uint8_t cid)
+i_stream_multiplex_read(struct multiplex_istream *mstream,
+			struct multiplex_ichannel *req_channel)
 {
-	struct multiplex_ichannel *req_channel = get_channel(mstream, cid);
 	const unsigned char *data;
 	size_t len = 0, used, wanted, avail;
 	ssize_t ret, got = 0;
@@ -97,7 +97,7 @@ i_stream_multiplex_read(struct multiplex_istream *mstream, uint8_t cid)
 			if (got == 0 && mstream->blocking) {
 				/* can't return 0 with blocking istreams,
 				   so try again from the beginning. */
-				return i_stream_multiplex_read(mstream, cid);
+				return i_stream_multiplex_read(mstream, req_channel);
 			}
 			break;
 		}
@@ -114,7 +114,7 @@ i_stream_multiplex_read(struct multiplex_istream *mstream, uint8_t cid)
 				stream->pos -= channel->pending_pos;
 				if (!alloc_ret) {
 					i_stream_set_input_pending(&stream->istream, TRUE);
-					if (channel->cid != cid)
+					if (channel->cid != req_channel->cid)
 						return 0;
 					if (got > 0)
 						break;
@@ -124,7 +124,7 @@ i_stream_multiplex_read(struct multiplex_istream *mstream, uint8_t cid)
 				used = I_MIN(wanted, avail);
 
 				/* dump into buffer */
-				if (channel->cid != cid) {
+				if (channel->cid != req_channel->cid) {
 					i_assert(stream->pos + channel->pending_pos + used <= stream->buffer_size);
 					memcpy(stream->w_buffer + stream->pos + channel->pending_pos,
 					       data, used);
@@ -178,7 +178,7 @@ static ssize_t i_stream_multiplex_ichannel_read(struct istream_private *stream)
 		channel->pending_pos = 0;
 		return ret;
 	}
-	return i_stream_multiplex_read(channel->mstream, channel->cid);
+	return i_stream_multiplex_read(channel->mstream, channel);
 }
 
 static void
