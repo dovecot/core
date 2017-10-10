@@ -28,7 +28,7 @@ crypt_generate_des(const char *plaintext, const struct password_generate_params 
 }
 
 static void
-crypt_generate_blowfisch(const char *plaintext, const struct password_generate_params *params,
+crypt_generate_blowfish(const char *plaintext, const struct password_generate_params *params,
 			 const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password, *salt, *magic_salt;
@@ -118,7 +118,7 @@ static const struct password_scheme crypt_schemes[] = {
 	{ "CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
 	  crypt_generate_des },
 	{ "BLF-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
-	  crypt_generate_blowfisch },
+	  crypt_generate_blowfish },
 	{ "SHA256-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
 	  crypt_generate_sha256 },
 	{ "SHA512-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,

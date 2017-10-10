@@ -106,7 +106,7 @@ int pbkdf2_verify(const char *plaintext, const struct password_generate_params *
 		  const unsigned char *raw_password, size_t size,
 		  const char **error_r);
 
-/* check which of the algorithms Blowfisch, SHA-256 and SHA-512 are
+/* check which of the algorithms Blowfish, SHA-256 and SHA-512 are
    supported by the used libc's/glibc's crypt() */
 void password_scheme_register_crypt(void);
 
