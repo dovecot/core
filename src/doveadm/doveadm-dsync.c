@@ -573,10 +573,10 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	int ret = 0;
 
 	i_zero(&set);
-	if (_ctx->cur_client_ip.family != 0) {
+	if (cctx->remote_ip.family != 0) {
 		/* include the doveadm client's IP address in the ps output */
 		set.process_title_prefix = t_strdup_printf(
-			"%s ", net_ip2addr(&_ctx->cur_client_ip));
+			"%s ", net_ip2addr(&cctx->remote_ip));
 	}
 	set.sync_since_timestamp = ctx->sync_since_timestamp;
 	set.sync_until_timestamp = ctx->sync_until_timestamp;
@@ -1155,10 +1155,10 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		i_set_failure_prefix("dsync-server(%s): ", user->username);
 		name = i_stream_get_name(ctx->input);
 
-		if (_ctx->cur_client_ip.family != 0) {
+		if (cctx->remote_ip.family != 0) {
 			/* include the doveadm client's IP address in the ps output */
 			process_title_prefix = t_strdup_printf(
-				"%s ", net_ip2addr(&_ctx->cur_client_ip));
+				"%s ", net_ip2addr(&cctx->remote_ip));
 		}
 	} else {
 		/* the log messages go via stderr to the remote dsync,

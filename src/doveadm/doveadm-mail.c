@@ -450,7 +450,6 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	i_assert(cctx->username != NULL);
 
 	doveadm_cctx_to_storage_service_input(cctx, &ctx->storage_service_input);
-	ctx->cur_client_ip = cctx->remote_ip;
 	ctx->cur_username = cctx->username;
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
@@ -521,7 +520,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	}
 	if (doveadm_verbose)
 		printf("\n");
-	ip = net_ip2addr(&ctx->cur_client_ip);
+	ip = net_ip2addr(&cctx->remote_ip);
 	if (ip[0] == '\0')
 		i_set_failure_prefix("doveadm: ");
 	else
