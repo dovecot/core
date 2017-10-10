@@ -256,6 +256,132 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 }
 
 static int
+request_json_parse_init(struct client_request_http *req,
+			enum json_type type)
+{
+	if (type != JSON_TYPE_ARRAY)
+		return -2;
+	req->first_row = TRUE;
+	o_stream_nsend_str(req->output,"[");
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD;
+	return 1;
+}
+
+static int
+request_json_parse_cmd(struct client_request_http *req,
+		       enum json_type type)
+{
+	if (type == JSON_TYPE_ARRAY_END) {
+		req->parse_state = CLIENT_REQUEST_PARSE_DONE;
+		return 1;
+	}
+	if (type != JSON_TYPE_ARRAY)
+		return -2;
+	req->method_err = 0;
+	p_free_and_null(req->pool, req->method_id);
+	req->cmd = NULL;
+	doveadm_cmd_params_clean(&req->pargv);
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD_NAME;
+	return 1;
+}
+
+static int
+request_json_parse_cmd_name(struct client_request_http *req,
+			    enum json_type type, const char *value)
+{
+	const struct doveadm_cmd_ver2 *ccmd;
+	struct doveadm_cmd_param *param;
+	bool found;
+	int pargc;
+
+	if (type != JSON_TYPE_STRING)
+		return -2;
+	/* see if we can find it */
+	found = FALSE;
+	array_foreach(&doveadm_cmds_ver2, ccmd) {
+		if (i_strccdascmp(ccmd->name, value) == 0) {
+			req->cmd = ccmd;
+			found = TRUE;
+			break;
+		}
+	}
+	if (!found) {
+		json_parse_skip_next(req->json_parser);
+		req->method_err = 404;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
+		return 1;
+	}
+
+	/* initialize pargv */
+	for (pargc = 0; req->cmd->parameters[pargc].name != NULL; pargc++) {
+		param = array_append_space(&req->pargv);
+		*param = req->cmd->parameters[pargc];
+		param->value_set = FALSE;
+	}
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAMS;
+	return 1;
+}
+
+static int
+request_json_parse_cmd_params(struct client_request_http *req,
+			      enum json_type type)
+{
+	if (type == JSON_TYPE_OBJECT_END) {
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
+		return 1;
+	}
+	if (type != JSON_TYPE_OBJECT)
+		return -2;
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
+	return 1;
+}
+
+static int
+request_json_parse_cmd_param_key(struct client_request_http *req,
+				 enum json_type type, const char *value)
+{
+	struct doveadm_cmd_param *par;
+	bool found;
+
+	if (type == JSON_TYPE_OBJECT_END) {
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
+		return 1;
+	}
+	i_assert(type == JSON_TYPE_OBJECT_KEY);
+	/* go hunting */
+	found = FALSE;
+	array_foreach_modifiable(&req->pargv, par) {
+		if (i_strccdascmp(par->name, value) == 0) {
+			/* it's already set, cannot have same key
+			   twice in json */
+			if (par->value_set)
+				return -2;
+			req->cmd_param = par;
+			found = TRUE;
+			break;
+		}
+	}
+	/* skip parameters if error has already occurred */
+	if (!found || req->method_err != 0) {
+		json_parse_skip_next(req->json_parser);
+		req->method_err = 400;
+		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
+		return 1;
+	}
+
+	if (req->cmd_param->value_set) {
+		// FIXME: should be returned as error to client,
+		// not logged
+		i_info("Parameter %s already set",
+		       req->cmd_param->name);
+		return -2;
+	}
+	req->value_is_array = FALSE;
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE;
+	return 1;
+}
+
+static int
 request_json_parse_param_value(struct client_request_http *req)
 {
 	enum json_type type;
@@ -379,10 +505,33 @@ request_json_parse_param_istream(struct client_request_http *req)
 			i_stream_get_name(v_input),
 			i_stream_get_error(v_input));
 		req->method_err = 400;
-		return -1;
+		return -2;
 	}
 
 	req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
+	return 1;
+}
+
+static int
+request_json_parse_cmd_id(struct client_request_http *req,
+			  enum json_type type, const char *value)
+{
+	if (type != JSON_TYPE_STRING)
+		return -2;
+	req->method_id = p_strdup(req->pool, value);
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD_DONE;
+	return 1;
+}
+
+static int
+request_json_parse_cmd_done(struct client_request_http *req,
+			    enum json_type type)
+{
+	/* should be end of array */
+	if (type != JSON_TYPE_ARRAY_END)
+		return -2;
+	doveadm_http_server_command_execute(req);
+	req->parse_state = CLIENT_REQUEST_PARSE_CMD;
 	return 1;
 }
 
@@ -418,124 +567,29 @@ static int doveadm_http_server_json_parse_next(struct client_request_http *req, 
 	return json_parse_next(req->json_parser, type, value); 
 }
 
-static bool
+static int
 doveadm_http_handle_json_v1(struct client_request_http *req,
 			    enum json_type type, const char *value)
 {
-	const struct doveadm_cmd_ver2 *ccmd;
-	struct doveadm_cmd_param *par;
-	bool found;
-
 	switch (req->parse_state) {
 	case CLIENT_REQUEST_PARSE_INIT:
-		if (type != JSON_TYPE_ARRAY)
-			return FALSE;
-		req->parse_state = CLIENT_REQUEST_PARSE_CMD;
-		req->first_row = TRUE;
-		o_stream_nsend_str(req->output,"[");
-		return TRUE;
+		return request_json_parse_init(req, type);
 	case CLIENT_REQUEST_PARSE_CMD:
-		if (type == JSON_TYPE_ARRAY_END) {
-			req->parse_state = CLIENT_REQUEST_PARSE_DONE;
-			return TRUE;
-		}
-		if (type != JSON_TYPE_ARRAY)
-			return FALSE;
-		req->method_err = 0;
-		p_free_and_null(req->pool, req->method_id);
-		req->cmd = NULL;
-		doveadm_cmd_params_clean(&req->pargv);
-		req->parse_state = CLIENT_REQUEST_PARSE_CMD_NAME;
-		return TRUE;
+		return request_json_parse_cmd(req, type);
 	case CLIENT_REQUEST_PARSE_CMD_NAME:
-		if (type != JSON_TYPE_STRING)
-			return FALSE;
-		/* see if we can find it */
-		found = FALSE;
-		array_foreach(&doveadm_cmds_ver2, ccmd) {
-			if (i_strccdascmp(ccmd->name, value) == 0) {
-				req->cmd = ccmd;
-				found = TRUE;
-				break;
-			}
-		}
-		if (!found) {
-			json_parse_skip_next(req->json_parser);
-			req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
-			req->method_err = 404;
-		} else {
-			struct doveadm_cmd_param *param;
-			int pargc;
-
-			/* initialize pargv */
-			for (pargc = 0; req->cmd->parameters[pargc].name != NULL; pargc++) {
-				param = array_append_space(&req->pargv);
-				*param = req->cmd->parameters[pargc];
-				param->value_set = FALSE;
-			}
-			req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAMS;
-		}
-		return TRUE;
+		return request_json_parse_cmd_name(req, type, value);
 	case CLIENT_REQUEST_PARSE_CMD_PARAMS:
-		if (type == JSON_TYPE_OBJECT_END) {
-			req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
-			return TRUE;
-		}
-		if (type != JSON_TYPE_OBJECT)
-			return FALSE;
-		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
-		return TRUE;
+		return request_json_parse_cmd_params(req, type);
 	case CLIENT_REQUEST_PARSE_CMD_PARAM_KEY:
-		if (type == JSON_TYPE_OBJECT_END) {
-			req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
-			return TRUE;
-		}
-		i_assert(type == JSON_TYPE_OBJECT_KEY);
-		/* go hunting */
-		found = FALSE;
-		array_foreach_modifiable(&req->pargv, par) {
-			if (i_strccdascmp(par->name, value) == 0) {
-				/* it's already set, cannot have same key twice in json */
-				if (par->value_set)
-					return FALSE;
-				req->cmd_param = par;
-				found = TRUE;
-				break;
-			}
-		}
-		/* skip parameters if error has already occurred */
-		if (!found || req->method_err != 0) {
-			json_parse_skip_next(req->json_parser);
-			req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
-			req->method_err = 400;
-		} else {
-			if (req->cmd_param->value_set) {
-				// FIXME: should be returned as error to client, not logged
-				i_info("Parameter %s already set",
-				       req->cmd_param->name);
-				return FALSE;
-			}
-			req->value_is_array = FALSE;
-			req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_VALUE;
-		}
-		return TRUE;
+		return request_json_parse_cmd_param_key(req, type, value);
 	case CLIENT_REQUEST_PARSE_CMD_ID:
-		if (type != JSON_TYPE_STRING)
-			return FALSE;
-		req->method_id = p_strdup(req->pool, value);
-		req->parse_state = CLIENT_REQUEST_PARSE_CMD_DONE;
-		return TRUE;
+		return request_json_parse_cmd_id(req, type, value);
 	case CLIENT_REQUEST_PARSE_CMD_DONE:
-		/* should be end of array */
-		if (type != JSON_TYPE_ARRAY_END)
-			return FALSE;
-		doveadm_http_server_command_execute(req);
-		req->parse_state = CLIENT_REQUEST_PARSE_CMD;
-		return TRUE;
+		return request_json_parse_cmd_done(req, type);
 	case CLIENT_REQUEST_PARSE_DONE:
 		// FIXME: should be returned as error to client, not logged
 		i_info("Got unexpected elements in JSON data");
-		return TRUE;
+		return -2;
 	default:
 		break;
 	}
@@ -555,7 +609,7 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 	}
 
 	while ((ret = doveadm_http_server_json_parse_next(req, &type, &value)) == 1) {
-		if (!doveadm_http_handle_json_v1(req, type, value))
+		if ((ret=doveadm_http_handle_json_v1(req, type, value)) <= 0)
 			break;
 	}
 
