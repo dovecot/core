@@ -868,6 +868,9 @@ void password_schemes_init(void)
 	for (i = 0; i < N_ELEMENTS(builtin_schemes); i++)
 		password_scheme_register(&builtin_schemes[i]);
 	password_scheme_register_crypt();
+#ifdef HAVE_LIBSODIUM
+	password_scheme_register_sodium();
+#endif
 }
 
 void password_schemes_deinit(void)

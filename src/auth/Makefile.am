@@ -51,7 +51,9 @@ libpassword_la_SOURCES = \
 	password-scheme-scram.c \
 	password-scheme-otp.c \
 	password-scheme-rpa.c \
-	password-scheme-pbkdf2.c
+	password-scheme-pbkdf2.c \
+	password-scheme-sodium.c
+libpassword_la_CFLAGS = $(AM_CPPFLAGS) $(LIBSODIUM_CFLAGS)
 
 auth_libs = \
 	libauth.la \
@@ -59,7 +61,8 @@ auth_libs = \
 	libpassword.la \
 	../lib-ntlm/libntlm.la \
 	../lib-otp/libotp.la \
-	$(LIBDOVECOT_SQL)
+	$(LIBDOVECOT_SQL) \
+	$(LIBSODIUM_LIBS)
 
 auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS)

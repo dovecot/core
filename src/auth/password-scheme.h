@@ -110,4 +110,8 @@ int pbkdf2_verify(const char *plaintext, const struct password_generate_params *
    supported by the used libc's/glibc's crypt() */
 void password_scheme_register_crypt(void);
 
+#ifdef HAVE_LIBSODIUM
+void password_scheme_register_sodium(void);
+#endif
+
 #endif
