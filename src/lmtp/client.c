@@ -64,9 +64,9 @@ void client_state_set(struct client *client, const char *name, const char *args)
 		str_append(title, "idling");
 		break;
 	case 1:
+		str_append(title, client_remote_id(client));
+		str_append_c(title, ' ');
 		str_append(title, client->state.name);
-		if (client->remote_ip.family != 0)
-			str_printfa(title, " %s", net_ip2addr(&client->remote_ip));
 		if (args[0] != '\0')
 			str_printfa(title, " %s", args);
 		break;
