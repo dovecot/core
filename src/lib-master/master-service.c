@@ -348,40 +348,32 @@ bool master_getopt_str_is_valid(const char *str)
 	return TRUE;
 }
 
-void master_service_init_log(struct master_service *service,
-			     const char *prefix)
+static bool
+master_service_try_init_log(struct master_service *service,
+			    const char *prefix)
 {
 	const char *path, *timestamp;
-	bool log_already_initialized = service->log_initialized;
 
-	service->log_initialized = TRUE;
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0 &&
 	    (service->flags & MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR) == 0) {
-		if (log_already_initialized)
-			return;
 		timestamp = getenv("LOG_STDERR_TIMESTAMP");
 		if (timestamp != NULL)
 			i_set_failure_timestamp_format(timestamp);
 		i_set_failure_file("/dev/stderr", "");
-		return;
-	}
-
-	if (log_already_initialized) {
-		/* change only the prefix */
-		i_set_failure_prefix("%s", prefix);
-		return;
+		return TRUE;
 	}
 
 	if (getenv("LOG_SERVICE") != NULL && !service->log_directly) {
 		/* logging via log service */
 		i_set_failure_internal();
 		i_set_failure_prefix("%s", prefix);
-		return;
+		return TRUE;
 	}
 
 	if (service->set == NULL) {
 		i_set_failure_file("/dev/stderr", prefix);
-		return;
+		/* may be called again after we have settings */
+		return FALSE;
 	}
 
 	if (strcmp(service->set->log_path, "syslog") != 0) {
@@ -423,6 +415,19 @@ void master_service_init_log(struct master_service *service,
 			i_set_debug_file(path);
 	}
 	i_set_failure_timestamp_format(service->set->log_timestamp);
+	return TRUE;
+}
+
+void master_service_init_log(struct master_service *service,
+			     const char *prefix)
+{
+	if (service->log_initialized) {
+		/* change only the prefix */
+		i_set_failure_prefix("%s", prefix);
+		return;
+	}
+	if (master_service_try_init_log(service, prefix))
+		service->log_initialized = TRUE;
 }
 
 void master_service_set_die_with_master(struct master_service *service,
