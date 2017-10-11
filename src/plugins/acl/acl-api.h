@@ -1,6 +1,8 @@
 #ifndef ACL_API_H
 #define ACL_API_H
 
+#include <sys/stat.h>
+
 struct mailbox_list;
 struct mail_storage;
 struct mailbox;
