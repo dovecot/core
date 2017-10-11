@@ -44,22 +44,6 @@ test_dict_client_SOURCES = test-dict-client.c
 test_dict_client_LDADD = $(noinst_LTLIBRARIES) ../lib/liblib.la
 test_dict_client_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
 
-test_dict_sql_CFLAGS = $(AM_CPPFLAGS) -DDICT_SRC_DIR=\"$(top_srcdir)/src/lib-dict\"
-test_dict_sql_SOURCES = \
-	test-dict-sql.c
-test_dict_sql_LDADD = \
-	$(noinst_LTLIBRARIES) \
-	../lib-sql/libdriver_test.la \
-	../lib-sql/libsql.la \
-	../lib-settings/libsettings.la \
-	$(test_libs)
-test_dict_sql_DEPENDENCIES = \
-	$(noinst_LTLIBRARIES) \
-	../lib-sql/libdriver_test.la \
-	../lib-sql/libsql.la \
-	../lib-settings/libsettings.la \
-	$(test_libs)
-
 check-local:
 	for bin in $(test_programs) $(check_PROGRAMS); do \
 	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
