@@ -1,3 +1,7 @@
+v2.2.33.1 2017-10-10  Timo Sirainen <tss@iki.fi>
+
+	- dovecot-lda was logging to stderr instead of to the log file.
+
 v2.2.33 2017-10-10  Timo Sirainen <tss@iki.fi>
 
 	* doveadm director commands wait for the changes to be visible in the
