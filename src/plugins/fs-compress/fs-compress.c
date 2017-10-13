@@ -70,7 +70,7 @@ fs_compress_init(struct fs *_fs, const char *args, const
 
 	level_str = t_strdup_until(args, p++);
 	if (str_to_uint(level_str, &fs->compress_level) < 0 ||
-	    fs->compress_level < 1 || fs->compress_level > 9) {
+	    fs->compress_level > 9) {
 		fs_set_error(_fs, "Invalid compression level parameter '%s'", level_str);
 		return -1;
 	}
@@ -205,6 +205,11 @@ static void fs_compress_write_stream(struct fs_file *_file)
 {
 	struct compress_fs_file *file = (struct compress_fs_file *)_file;
 
+	if (file->fs->compress_level == 0) {
+		fs_wrapper_write_stream(_file);
+		return;
+	}
+
 	i_assert(_file->output == NULL);
 
 	file->temp_output =
@@ -220,6 +225,9 @@ static int fs_compress_write_stream_finish(struct fs_file *_file, bool success)
 	struct compress_fs_file *file = (struct compress_fs_file *)_file;
 	struct istream *input;
 	int ret;
+
+	if (file->fs->compress_level == 0)
+		return fs_wrapper_write_stream_finish(_file, success);
 
 	if (_file->output != NULL) {
 		if (_file->output->closed)
