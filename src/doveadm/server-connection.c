@@ -402,7 +402,8 @@ static bool server_connection_input_one(struct server_connection *conn)
 		return FALSE;
 
 	/* check logs */
-	(void)server_connection_print_log(conn);
+	if (conn->log_input != NULL)
+		(void)server_connection_print_log(conn);
 
 	switch (conn->state) {
 	case SERVER_REPLY_STATE_DONE:
