@@ -49,30 +49,31 @@ void i_stream_ref(struct istream *stream)
 	io_stream_ref(&stream->real_stream->iostream);
 }
 
-void i_stream_unref(struct istream **stream)
+void i_stream_unref(struct istream **_stream)
 {
-	struct istream_private *_stream;
+	struct istream *stream = *_stream;
+	struct istream_private *rstream;
 
-	if (*stream == NULL)
+	if (stream == NULL)
 		return;
 
-	_stream = (*stream)->real_stream;
+	*_stream = NULL;
+	rstream = stream->real_stream;
 
-	if (_stream->iostream.refcount > 1) {
-		if (!io_stream_unref(&_stream->iostream))
+	if (rstream->iostream.refcount > 1) {
+		if (!io_stream_unref(&rstream->iostream))
 			i_unreached();
 	} else {
 		/* The snapshot may contain pointers to the parent istreams.
 		   Free it before io_stream_unref() frees the parents. */
-		i_stream_snapshot_free(&_stream->prev_snapshot);
+		i_stream_snapshot_free(&rstream->prev_snapshot);
 
-		if (io_stream_unref(&_stream->iostream))
+		if (io_stream_unref(&rstream->iostream))
 			i_unreached();
-		str_free(&_stream->line_str);
-		i_stream_unref(&_stream->parent);
-		io_stream_free(&_stream->iostream);
+		str_free(&rstream->line_str);
+		i_stream_unref(&rstream->parent);
+		io_stream_free(&rstream->iostream);
 	}
-	*stream = NULL;
 }
 
 #undef i_stream_add_destroy_callback
