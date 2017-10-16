@@ -2,6 +2,7 @@
 #define MASTER_SERVICE_SSL_SETTINGS_H
 
 struct master_service;
+struct ssl_iostream_settings;
 
 struct master_service_ssl_settings {
 	const char *ssl;
@@ -35,5 +36,11 @@ extern const struct setting_parser_info master_service_ssl_setting_parser_info;
 
 const struct master_service_ssl_settings *
 master_service_ssl_settings_get(struct master_service *service);
+
+/* Provides master service ssl settings to iostream settings */
+void
+master_service_ssl_settings_to_iostream_set(struct master_service *service, pool_t pool,
+					    struct ssl_iostream_settings *set_r);
+
 
 #endif

@@ -4,6 +4,7 @@
 #include "settings-parser.h"
 #include "master-service-private.h"
 #include "master-service-ssl-settings.h"
+#include "iostream-ssl.h"
 
 #include <stddef.h>
 
@@ -162,4 +163,36 @@ master_service_ssl_settings_get(struct master_service *service)
 
 	sets = settings_parser_get_list(service->set_parser);
 	return sets[1];
+}
+
+void
+master_service_ssl_settings_to_iostream_set(struct master_service *service, pool_t pool,
+					    struct ssl_iostream_settings *set_r)
+{
+	const struct master_service_ssl_settings *ssl_set =
+		master_service_ssl_settings_get(service);
+	i_assert(ssl_set != NULL);
+
+	i_zero(set_r);
+	set_r->protocols = p_strdup(pool, ssl_set->ssl_protocols);
+	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
+	set_r->ca = p_strdup(pool, ssl_set->ssl_ca);
+	set_r->dh = p_strdup(pool, ssl_set->ssl_dh);
+	set_r->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
+	set_r->verbose = ssl_set->verbose_ssl;
+	set_r->verbose_invalid_cert = ssl_set->verbose_ssl;
+	set_r->verify_remote_cert = ssl_set->ssl_verify_client_cert;
+	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
+	set_r->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
+	set_r->compression = ssl_set->parsed_opts.compression;
+	set_r->tickets = ssl_set->parsed_opts.tickets;
+	set_r->cert.cert = p_strdup(pool, ssl_set->ssl_cert);
+	set_r->cert.key = p_strdup(pool, ssl_set->ssl_key);
+	set_r->cert.key_password = p_strdup(pool, ssl_set->ssl_key_password);
+	if (ssl_set->ssl_alt_cert != NULL && *ssl_set->ssl_alt_cert != '\0') {
+		set_r->alt_cert.cert = p_strdup(pool, ssl_set->ssl_alt_cert);
+		set_r->alt_cert.key = p_strdup(pool, ssl_set->ssl_alt_key);
+		set_r->alt_cert.key_password = p_strdup(pool, ssl_set->ssl_key_password);
+	}
+	set_r->cert_username_field = p_strdup(pool, ssl_set->ssl_cert_username_field);
 }
