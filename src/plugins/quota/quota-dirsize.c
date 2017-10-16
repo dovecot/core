@@ -199,9 +199,7 @@ dirsize_quota_get_resource(struct quota_root *_root, const char *name,
 	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0)
 		return 0;
 
-	T_BEGIN {
-		ret = get_quota_root_usage(_root, value_r);
-	} T_END;
+	ret = get_quota_root_usage(_root, value_r);
 
 	return ret < 0 ? -1 : 1;
 }
