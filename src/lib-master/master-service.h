@@ -221,4 +221,7 @@ bool version_string_verify_full(const char *line, const char *service_name,
 				unsigned major_version,
 				unsigned int *minor_version_r);
 
+/* Returns TRUE if ssl module has been loaded */
+bool master_service_is_ssl_module_loaded(struct master_service *service);
+
 #endif

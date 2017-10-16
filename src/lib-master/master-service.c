@@ -17,6 +17,7 @@
 #include "master-service-ssl.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
+#include "iostream-ssl.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -178,6 +179,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	data_stack_frame_t datastack_frame_id = 0;
 	unsigned int count;
 	const char *value;
+	const char *error;
 
 	i_assert(name != NULL);
 
@@ -256,6 +258,10 @@ master_service_init(const char *name, enum master_service_flags flags,
 	T_BEGIN {
 		master_service_init_socket_listeners(service);
 	} T_END;
+
+	/* load SSL module if necessary */
+	if (service->want_ssl_settings && ssl_module_load(&error) < 0)
+		i_fatal("Cannot load SSL module: %s", error);
 
 	/* set up some kind of logging until we know exactly how and where
 	   we want to log */
@@ -1236,4 +1242,10 @@ bool version_string_verify_full(const char *line, const char *service_name,
 		}
 	} T_END;
 	return ret;
+}
+
+bool master_service_is_ssl_module_loaded(struct master_service *service)
+{
+	/* if this is TRUE, then ssl module is loaded by init */
+	return service->want_ssl_settings;
 }
