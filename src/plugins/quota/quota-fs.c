@@ -360,7 +360,8 @@ rquota_get_result(const rquota *rq,
 static int
 do_rquota_user(struct fs_quota_root *root,
 	       uint64_t *bytes_value_r, uint64_t *bytes_limit_r,
-	       uint64_t *count_value_r, uint64_t *count_limit_r)
+	       uint64_t *count_value_r, uint64_t *count_limit_r,
+	       const char **error_r)
 {
 	struct getquota_rslt result;
 	struct getquota_args args;
@@ -393,8 +394,8 @@ do_rquota_user(struct fs_quota_root *root,
 	/* clnt_create() polls for a while to establish a connection */
 	cl = clnt_create(host, RQUOTAPROG, RQUOTAVERS, "udp");
 	if (cl == NULL) {
-		i_error("quota-fs: could not contact RPC service on %s",
-			host);
+		*error_r = t_strdup_printf(
+			"quota-fs: could not contact RPC service on %s", host);
 		return -1;
 	}
 
@@ -420,7 +421,8 @@ do_rquota_user(struct fs_quota_root *root,
 	if (call_status != RPC_SUCCESS) {
 		const char *rpc_error_msg = clnt_sperrno(call_status);
 
-		i_error("quota-fs: remote rquota call failed: %s",
+		*error_r = t_strdup_printf(
+			"quota-fs: remote rquota call failed: %s",
 			rpc_error_msg);
 		return -1;
 	}
@@ -447,10 +449,11 @@ do_rquota_user(struct fs_quota_root *root,
 		fs_quota_root_disable(root, FALSE);
 		return 0;
 	case Q_EPERM:
-		i_error("quota-fs: permission denied to rquota service");
+		*error_r = "quota-fs: permission denied to rquota service";
 		return -1;
 	default:
-		i_error("quota-fs: unrecognized status code (%d) "
+		*error_r = t_strdup_printf(
+			"quota-fs: unrecognized status code (%d) "
 			"from rquota service", result.status);
 		return -1;
 	}
@@ -461,7 +464,8 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 		uint64_t *bytes_value_r ATTR_UNUSED,
 		uint64_t *bytes_limit_r ATTR_UNUSED,
 		uint64_t *count_value_r ATTR_UNUSED,
-		uint64_t *count_limit_r ATTR_UNUSED)
+		uint64_t *count_limit_r ATTR_UNUSED,
+		const char **error_r)
 {
 #if defined(EXT_RQUOTAVERS) && defined(GRPQUOTA)
 	struct getquota_rslt result;
@@ -487,7 +491,8 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 	/* clnt_create() polls for a while to establish a connection */
 	cl = clnt_create(host, RQUOTAPROG, EXT_RQUOTAVERS, "udp");
 	if (cl == NULL) {
-		i_error("quota-fs: could not contact RPC service on %s (group)",
+		*error_r = t_strdup_printf(
+			"quota-fs: could not contact RPC service on %s (group)",
 			host);
 		return -1;
 	}
@@ -515,7 +520,8 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 	if (call_status != RPC_SUCCESS) {
 		const char *rpc_error_msg = clnt_sperrno(call_status);
 
-		i_error("quota-fs: remote ext rquota call failed: %s",
+		*error_r = t_strdup_printf(
+			"quota-fs: remote ext rquota call failed: %s",
 			rpc_error_msg);
 		return -1;
 	}
@@ -542,15 +548,16 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 		fs_quota_root_disable(root, TRUE);
 		return 0;
 	case Q_EPERM:
-		i_error("quota-fs: permission denied to ext rquota service");
+		*error_r = "quota-fs: permission denied to ext rquota service";
 		return -1;
 	default:
-		i_error("quota-fs: unrecognized status code (%d) "
+		*error_r = t_strdup_printf(
+			"quota-fs: unrecognized status code (%d) "
 			"from ext rquota service", result.status);
 		return -1;
 	}
 #else
-	i_error("quota-fs: rquota not compiled with group support");
+	*error_r = "quota-fs: rquota not compiled with group support";
 	return -1;
 #endif
 }
@@ -560,7 +567,8 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 static int
 fs_quota_get_linux(struct fs_quota_root *root, bool group,
 		   uint64_t *bytes_value_r, uint64_t *bytes_limit_r,
-		   uint64_t *count_value_r, uint64_t *count_limit_r)
+		   uint64_t *count_value_r, uint64_t *count_limit_r,
+		   const char **error_r)
 {
 	struct dqblk dqblk;
 	int type, id;
@@ -579,7 +587,8 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group,
 				fs_quota_root_disable(root, group);
 				return 0;
 			}
-			i_error("%d quotactl(Q_XGETQUOTA, %s) failed: %m",
+			*error_r = t_strdup_printf(
+				"quota-fs: %d quotactl(Q_XGETQUOTA, %s) failed: %m",
 				errno, root->mount->device_path);
 			return -1;
 		}
@@ -606,12 +615,15 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group,
 				fs_quota_root_disable(root, group);
 				return 0;
 			}
-			i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
+			*error_r = t_strdup_printf(
+				"quota-fs: quotactl(Q_GETQUOTA, %s) failed: %m",
 				root->mount->device_path);
 			if (errno == EINVAL) {
-				i_error("Dovecot was compiled with Linux quota "
+				*error_r = t_strdup_printf("%s, "
+					"Dovecot was compiled with Linux quota "
 					"v%d support, try changing it "
 					"(CPPFLAGS=-D_LINUX_QUOTA_VERSION=%d configure)",
+					*error_r,
 					_LINUX_QUOTA_VERSION,
 					_LINUX_QUOTA_VERSION == 1 ? 2 : 1);
 			}
@@ -641,7 +653,8 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group,
 static int
 fs_quota_get_bsdaix(struct fs_quota_root *root, bool group,
 		    uint64_t *bytes_value_r, uint64_t *bytes_limit_r,
-		    uint64_t *count_value_r, uint64_t *count_limit_r)
+		    uint64_t *count_value_r, uint64_t *count_limit_r,
+		    const char **error_r)
 {
 	struct dqblk dqblk;
 	int type, id;
@@ -655,7 +668,8 @@ fs_quota_get_bsdaix(struct fs_quota_root *root, bool group,
 			fs_quota_root_disable(root, group);
 			return 0;
 		}
-		i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
+		*error_r = t_strdup_printf(
+			"quota-fs: quotactl(Q_GETQUOTA, %s) failed: %m",
 			root->mount->mount_path);
 		return -1;
 	}
@@ -677,7 +691,8 @@ fs_quota_get_bsdaix(struct fs_quota_root *root, bool group,
 static int
 fs_quota_get_netbsd(struct fs_quota_root *root, bool group,
 		    uint64_t *bytes_value_r, uint64_t *bytes_limit_r,
-		    uint64_t *count_value_r, uint64_t *count_limit_r)
+		    uint64_t *count_value_r, uint64_t *count_limit_r,
+		    const char **error_r)
 {
 	struct quotakey qk;
 	struct quotaval qv;
@@ -685,7 +700,8 @@ fs_quota_get_netbsd(struct fs_quota_root *root, bool group,
 	int ret;
 
 	if ((qh = quota_open(root->mount->mount_path)) == NULL) {
-		i_error("cannot open quota for %s: %m",
+		*error_r = t_strdup_printf(
+			"quota-fs: cannot open quota for %s: %m",
 			root->mount->mount_path);
 		fs_quota_root_disable(root, group);
 		return 0;
@@ -702,7 +718,8 @@ fs_quota_get_netbsd(struct fs_quota_root *root, bool group,
 				fs_quota_root_disable(root, group);
 				return 0;
 			}
-			i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
+			*error_r = t_strdup_printf(
+				"quota-fs: quotactl(Q_GETQUOTA, %s) failed: %m",
 				root->mount->mount_path);
 			ret = -1;
 			break;
@@ -725,7 +742,8 @@ fs_quota_get_netbsd(struct fs_quota_root *root, bool group,
 static int
 fs_quota_get_hpux(struct fs_quota_root *root,
 		  uint64_t *bytes_value_r, uint64_t *bytes_limit_r,
-		  uint64_t *count_value_r, uint64_t *count_limit_r)
+		  uint64_t *count_value_r, uint64_t *count_limit_r,
+		  const char **error_r)
 {
 	struct dqblk dqblk;
 
@@ -735,7 +753,8 @@ fs_quota_get_hpux(struct fs_quota_root *root,
 			root->user_disabled = TRUE;
 			return 0;
 		}
-		i_error("quotactl(Q_GETQUOTA, %s) failed: %m",
+		*error_r = t_strdup_printf(
+			"quota-fs: quotactl(Q_GETQUOTA, %s) failed: %m",
 			root->mount->device_path);
 		return -1;
 	}
@@ -761,7 +780,8 @@ fs_quota_get_hpux(struct fs_quota_root *root,
 static int
 fs_quota_get_solaris(struct fs_quota_root *root,
 		     uint64_t *bytes_value_r, uint64_t *bytes_limit_r,
-		     uint64_t *count_value_r, uint64_t *count_limit_r)
+		     uint64_t *count_value_r, uint64_t *count_limit_r,
+		     const char **error_r)
 {
 	struct dqblk dqblk;
 	struct quotctl ctl;
@@ -773,7 +793,9 @@ fs_quota_get_solaris(struct fs_quota_root *root,
 	ctl.uid = root->uid;
 	ctl.addr = (caddr_t)&dqblk;
 	if (ioctl(root->mount->fd, Q_QUOTACTL, &ctl) < 0) {
-		i_error("ioctl(%s, Q_QUOTACTL) failed: %m", root->mount->path);
+		*error_r = t_strdup_printf(
+			"quota-fs: ioctl(%s, Q_QUOTACTL) failed: %m",
+			root->mount->path);
 		return -1;
 	}
 	*bytes_value_r = (uint64_t)dqblk.dqb_curblocks * DEV_BSIZE;
@@ -793,7 +815,8 @@ fs_quota_get_solaris(struct fs_quota_root *root,
 static int
 fs_quota_get_resources(struct fs_quota_root *root, bool group,
 		       uint64_t *bytes_value_r, uint64_t *bytes_limit_r,
-		       uint64_t *count_value_r, uint64_t *count_limit_r)
+		       uint64_t *count_value_r, uint64_t *count_limit_r,
+		       const char **error_r)
 {
 	if (group) {
 		if (root->group_disabled)
@@ -803,20 +826,25 @@ fs_quota_get_resources(struct fs_quota_root *root, bool group,
 			return 0;
 	}
 #ifdef FS_QUOTA_LINUX
-	return fs_quota_get_linux(root, group, bytes_value_r, bytes_limit_r, count_value_r, count_limit_r);
+	return fs_quota_get_linux(root, group, bytes_value_r, bytes_limit_r,
+				  count_value_r, count_limit_r, error_r);
 #elif defined (FS_QUOTA_NETBSD)
-	return fs_quota_get_netbsd(root, group, bytes_value_r, bytes_limit_r, count_value_r, count_limit_r);
+	return fs_quota_get_netbsd(root, group, bytes_value_r, bytes_limit_r,
+				   count_value_r, count_limit_r, error_r);
 #elif defined (FS_QUOTA_BSDAIX)
-	return fs_quota_get_bsdaix(root, group, bytes_value_r, bytes_limit_r, count_value_r, count_limit_r);
+	return fs_quota_get_bsdaix(root, group, bytes_value_r, bytes_limit_r,
+				   count_value_r, count_limit_r, error_r);
 #else
 	if (group) {
 		/* not supported */
 		return 0;
 	}
 #ifdef FS_QUOTA_HPUX
-	return fs_quota_get_hpux(root, bytes_value_r, bytes_limit_r, count_value_r, count_limit_r);
+	return fs_quota_get_hpux(root, bytes_value_r, bytes_limit_r,
+				 count_value_r, count_limit_r, error_r);
 #else
-	return fs_quota_get_solaris(root, bytes_value_r, bytes_limit_r, count_value_r, count_limit_r);
+	return fs_quota_get_solaris(root, bytes_value_r, bytes_limit_r,
+				    count_value_r, count_limit_r, error_r);
 #endif
 #endif
 }
@@ -873,22 +901,25 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 #ifdef HAVE_RQUOTA
 	if (mount_type_is_nfs(root->mount)) {
 		ret = root->user_disabled ? 0 :
-			do_rquota_user(root, &bytes_value, &bytes_limit, &count_value, &count_limit);
+			do_rquota_user(root, &bytes_value, &bytes_limit,
+				       &count_value, &count_limit, error_r);
 		if (ret == 0 && !root->group_disabled)
-			ret = do_rquota_group(root, &bytes_value, &bytes_limit, &count_value, &count_limit);
+			ret = do_rquota_group(root, &bytes_value,
+					      &bytes_limit, &count_value,
+					      &count_limit, error_r);
 	} else
 #endif
 	{
-		ret = fs_quota_get_resources(root, FALSE, &bytes_value, &bytes_limit,
-					     &count_value, &count_limit);
+		ret = fs_quota_get_resources(root, FALSE, &bytes_value,
+					     &bytes_limit, &count_value,
+					     &count_limit, error_r);
 		if (ret == 0) {
 			/* fallback to group quota */
-			ret = fs_quota_get_resources(root, TRUE, &bytes_value, &bytes_limit,
-						     &count_value, &count_limit);
+			ret = fs_quota_get_resources(root, TRUE, &bytes_value,
+						     &bytes_limit, &count_value,
+						     &count_limit, error_r);
 		}
 	}
-	if (ret < 0)
-		*error_r = "quota-fs failed";
 	if (ret <= 0)
 		return ret;
 
