@@ -1263,6 +1263,7 @@ driver_cassandra_get_value(struct cassandra_result *result,
 		type = "int32";
 		break;
 	}
+	case CASS_VALUE_TYPE_TIMESTAMP:
 	case CASS_VALUE_TYPE_BIGINT: {
 		cass_int64_t num;
 
@@ -1667,6 +1668,7 @@ driver_cassandra_bind_int(struct cassandra_sql_statement *stmt,
 		if (value < -2147483648 || value > 2147483647)
 			return CASS_ERROR_LIB_INVALID_VALUE_TYPE;
 		return cass_statement_bind_int32(stmt->cass_stmt, column_idx, value);
+	case CASS_VALUE_TYPE_TIMESTAMP:
 	case CASS_VALUE_TYPE_BIGINT:
 		return cass_statement_bind_int64(stmt->cass_stmt, column_idx, value);
 	case CASS_VALUE_TYPE_SMALL_INT:
