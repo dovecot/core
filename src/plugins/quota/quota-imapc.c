@@ -383,11 +383,15 @@ static int imapc_quota_refresh(struct imapc_quota_root *root)
 	return ret;
 }
 
-static int imapc_quota_init_limits(struct quota_root *_root)
+static int imapc_quota_init_limits(struct quota_root *_root,
+				   const char **error_r)
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
 
-	return imapc_quota_refresh(root);
+	int ret = imapc_quota_refresh(root);
+	if (ret < 0)
+		*error_r = "Failed to get quota data from remote imap server";
+	return ret;
 }
 
 static void

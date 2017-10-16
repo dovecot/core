@@ -491,8 +491,11 @@ static int quota_root_get_rule_limits(struct quota_root *root,
 
 	if (!root->set->force_default_rule) {
 		if (root->backend.v.init_limits != NULL) {
-			if (root->backend.v.init_limits(root) < 0) {
-				*error_r = "Initializing limits failed for quota backend";
+			const char *error;
+			if (root->backend.v.init_limits(root, &error) < 0) {
+				*error_r = t_strdup_printf(
+					"Initializing limits failed for quota backend: %s",
+					error);
 				return -1;
 			}
 		}

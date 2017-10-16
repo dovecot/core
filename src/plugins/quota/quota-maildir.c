@@ -784,11 +784,16 @@ maildir_quota_parse_rule(struct quota_root_settings *root_set ATTR_UNUSED,
 	return TRUE;
 }
 
-static int maildir_quota_init_limits(struct quota_root *_root)
+static int maildir_quota_init_limits(struct quota_root *_root,
+				     const char **error_r)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 
-	return maildirquota_read_limits(root) < 0 ? -1 : 0;
+	if (maildirquota_read_limits(root) < 0) {
+		*error_r = "Failed to read maildir quota limits";
+		return -1;
+	}
+	return 0;
 }
 
 static void
