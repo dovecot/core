@@ -177,7 +177,9 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	struct ioloop *ioloop, *prev_ioloop;
 
 	/* final preflight check */
-	if (req->method_err == 0 && !doveadm_client_is_allowed_command(conn->conn.set, req->cmd->name))
+	if (req->method_err == 0 &&
+		!doveadm_client_is_allowed_command(conn->conn.set,
+						   req->cmd->name))
 		req->method_err = 403;
 	if (req->method_err != 0) {
 		if (req->method_err == 404) {
@@ -396,7 +398,9 @@ request_json_parse_param_value(struct client_request_http *req)
 		if (ret != 1)
 			return ret;
 
-		req->cmd_param->value.v_istream = i_stream_create_seekable_path(is, IO_BLOCK_SIZE, "/tmp/doveadm.");
+		req->cmd_param->value.v_istream =
+			i_stream_create_seekable_path(is,
+				IO_BLOCK_SIZE, "/tmp/doveadm.");
 		i_stream_unref(&is[0]);
 		req->cmd_param->value_set = TRUE;
 
@@ -602,7 +606,8 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 	int ret;
 
 	if (req->json_parser == NULL) {
-		req->json_parser = json_parser_init_flags(req->input, JSON_PARSER_NO_ROOT_OBJECT);
+		req->json_parser = json_parser_init_flags(
+			req->input, JSON_PARSER_NO_ROOT_OBJECT);
 	}
 
 	while ((ret=doveadm_http_server_json_parse_v1(req)) > 0);
@@ -613,16 +618,20 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 
 	doveadm_cmd_params_clean(&req->pargv);
 
-	if (ret == -2 || (ret == 1 && req->parse_state != CLIENT_REQUEST_PARSE_DONE)) {
-		/* this will happen if the parser above runs into unexpected element, but JSON is OK */
-		http_server_request_fail_close(http_sreq, 400, "Unexpected element in input");
+	if (ret == -2 || (ret == 1 &&
+		req->parse_state != CLIENT_REQUEST_PARSE_DONE)) {
+		/* this will happen if the parser above runs into 
+		   unexpected element, but JSON is OK */
+		http_server_request_fail_close(http_sreq,
+			400, "Unexpected element in input");
 		// FIXME: should be returned as error to client, not logged
 		i_info("unexpected element");
 		return;
 	}
 
 	if (req->input->stream_errno != 0) {
-		http_server_request_fail_close(http_sreq, 400, "Client disconnected");
+		http_server_request_fail_close(http_sreq,
+			400, "Client disconnected");
 		i_info("read(client) failed: %s",
 		       i_stream_get_error(req->input));
 		return;
@@ -630,7 +639,8 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 
 	if (json_parser_deinit(&req->json_parser, &error) != 0) {
 		// istream JSON parsing failures do not count as errors
-		http_server_request_fail_close(http_sreq, 400, "Invalid JSON input");
+		http_server_request_fail_close(http_sreq,
+			400, "Invalid JSON input");
 		// FIXME: should be returned as error to client, not logged
 		i_info("JSON parse error: %s", error);
 		return;
@@ -756,13 +766,17 @@ doveadm_http_server_print_mounts(struct client_request_http *req)
 		o_stream_nsend_str(output, "{\"method\":\"");
 		if (doveadm_http_server_mounts[i].verb == NULL)
 			o_stream_nsend_str(output, "*");
-		else
-			o_stream_nsend_str(output, doveadm_http_server_mounts[i].verb);
+		else {
+			o_stream_nsend_str(output,
+				doveadm_http_server_mounts[i].verb);
+		}
 		o_stream_nsend_str(output, "\",\"path\":\"");
 		if (doveadm_http_server_mounts[i].path == NULL)
 			o_stream_nsend_str(output, "*");
-		else
-			o_stream_nsend_str(output, doveadm_http_server_mounts[i].path);
+		else {
+			o_stream_nsend_str(output,
+				doveadm_http_server_mounts[i].path);
+		}
 		o_stream_nsend_str(output, "\"}");
 	}
 	o_stream_nsend_str(output, "\n]");
@@ -784,7 +798,8 @@ static void doveadm_http_server_send_response(struct client_request_http *req)
 			i_info("error writing output: %s",
 			       o_stream_get_error(req->output));
 			o_stream_destroy(&req->output);
-			http_server_request_fail_close(http_sreq, 500, "Internal server error");
+			http_server_request_fail_close(http_sreq,
+				500, "Internal server error");
 			return;
 		}
 
@@ -868,7 +883,8 @@ doveadm_http_server_auth_basic(struct client_request_http *req,
 	}
 
 	b64_value = str_new(conn->conn.pool, 32);
-	value = p_strdup_printf(conn->conn.pool, "doveadm:%s", set->doveadm_password);
+	value = p_strdup_printf(conn->conn.pool,
+				"doveadm:%s", set->doveadm_password);
 	base64_encode(value, strlen(value), b64_value);
 	if (creds->data != NULL && strcmp(creds->data, str_c(b64_value)) == 0)
 		return TRUE;
@@ -893,7 +909,8 @@ doveadm_http_server_auth_api_key(struct client_request_http *req,
 	}
 
 	b64_value = str_new(conn->conn.pool, 32);
-	base64_encode(set->doveadm_api_key, strlen(set->doveadm_api_key), b64_value);
+	base64_encode(set->doveadm_api_key,
+		      strlen(set->doveadm_api_key), b64_value);
 	if (creds->data != NULL && strcmp(creds->data, str_c(b64_value)) == 0)
 		return TRUE;
 
@@ -929,8 +946,10 @@ doveadm_http_server_authorize_request(struct client_request_http *req)
 	/* no authentication specified */
 	if (doveadm_settings->doveadm_api_key[0] == '\0' &&
 		*conn->conn.set->doveadm_password == '\0') {
-		http_server_request_fail_close(http_sreq, 500, "Internal Server Error");
-		i_error("No authentication defined in configuration. Add API key or password");
+		http_server_request_fail_close(http_sreq,
+			500, "Internal Server Error");
+		i_error("No authentication defined in configuration. "
+			"Add API key or password");
 		return FALSE;
 	}
 	if (http_server_request_get_auth(http_sreq, &creds) > 0)
@@ -938,7 +957,8 @@ doveadm_http_server_authorize_request(struct client_request_http *req)
 	if (!auth) {
 		struct http_server_response *http_resp;
 
-		http_resp = http_server_response_create(http_sreq, 401, "Authentication required");
+		http_resp = http_server_response_create(http_sreq,
+			401, "Authentication required");
 		if (doveadm_settings->doveadm_api_key[0] != '\0') {
 			http_server_response_add_header(http_resp,
 				"WWW-Authenticate", "X-Dovecot-API"
@@ -955,7 +975,8 @@ doveadm_http_server_authorize_request(struct client_request_http *req)
 }
 
 static void
-doveadm_http_server_handle_request(void *context, struct http_server_request *http_sreq)
+doveadm_http_server_handle_request(void *context,
+				   struct http_server_request *http_sreq)
 {
 	struct client_connection_http *conn = context;
 	struct client_request_http *req;
@@ -976,15 +997,18 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 	req->http_request = http_sreq;
 	http_server_request_ref(req->http_request);
 
-	http_server_request_set_destroy_callback(http_sreq, doveadm_http_server_request_destroy, req);
+	http_server_request_set_destroy_callback(http_sreq,
+		doveadm_http_server_request_destroy, req);
 
 	conn->request = req;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_http_server_mounts); i++) {
 		if (doveadm_http_server_mounts[i].verb == NULL ||
-		    strcmp(http_req->method, doveadm_http_server_mounts[i].verb) == 0) {
+		    strcmp(http_req->method,
+			   doveadm_http_server_mounts[i].verb) == 0) {
 			if (doveadm_http_server_mounts[i].path == NULL ||
-                            strcmp(http_req->target.url->path, doveadm_http_server_mounts[i].path) == 0) {
+                            strcmp(http_req->target.url->path,
+				   doveadm_http_server_mounts[i].path) == 0) {
 				ep = &doveadm_http_server_mounts[i];
 				break;
 			}
@@ -992,7 +1016,8 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 	}
 
 	if (ep == NULL) {
-		http_server_request_fail_close(http_sreq, 404, "Path Not Found");
+		http_server_request_fail_close(http_sreq,
+			404, "Path Not Found");
 		return;
 	}
 
@@ -1002,16 +1027,17 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
 	if (strcmp(http_req->method, "POST") == 0) {
 		/* handle request */
 		req->input = http_req->payload;
-		i_stream_set_name(req->input, net_ip2addr(&conn->conn.remote_ip));
+		i_stream_set_name(req->input,
+				  net_ip2addr(&conn->conn.remote_ip));
 		i_stream_ref(req->input);
 		req->io = io_add_istream(req->input, *ep->handler, req);
-		req->output = iostream_temp_create_named
-			("/tmp/doveadm.", 0, net_ip2addr(&conn->conn.remote_ip));
+		req->output = iostream_temp_create_named(
+			"/tmp/doveadm.", 0, net_ip2addr(&conn->conn.remote_ip));
 		p_array_init(&req->pargv, req->pool, 5);
 		ep->handler(req);
 	} else {
-		req->output = iostream_temp_create_named
-			("/tmp/doveadm.", 0, net_ip2addr(&conn->conn.remote_ip));
+		req->output = iostream_temp_create_named(
+			"/tmp/doveadm.", 0, net_ip2addr(&conn->conn.remote_ip));
 		ep->handler(req);
 	}
 }
@@ -1020,7 +1046,8 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *ht
  * Connection
  */
 
-static void doveadm_http_server_connection_destroy(void *context, const char *reason);
+static void doveadm_http_server_connection_destroy(void *context,
+						   const char *reason);
 
 static const struct http_server_callbacks doveadm_http_callbacks = {
         .connection_destroy = doveadm_http_server_connection_destroy,
@@ -1034,7 +1061,8 @@ client_connection_http_free(struct client_connection *_conn)
 		(struct client_connection_http *)_conn;
 
 	if (conn->http_conn != NULL) {
-		/* We're not in the lib-http/server's connection destroy callback. */
+		/* We're not in the lib-http/server's connection destroy
+		   callback. */
 		http_server_connection_close(&conn->http_conn,
 			"Server shutting down");
 	}
