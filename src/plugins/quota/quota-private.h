@@ -73,7 +73,8 @@ struct quota_backend_vfuncs {
 			    const char **error_r);
 
 	int (*update)(struct quota_root *root, 
-		      struct quota_transaction_context *ctx);
+		      struct quota_transaction_context *ctx,
+		      const char **error_r);
 	bool (*match_box)(struct quota_root *root, struct mailbox *box);
 	void (*flush)(struct quota_root *root);
 };

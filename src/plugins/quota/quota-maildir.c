@@ -857,7 +857,8 @@ maildir_quota_get_resource(struct quota_root *_root, const char *name,
 
 static int
 maildir_quota_update(struct quota_root *_root,
-		     struct quota_transaction_context *ctx)
+		     struct quota_transaction_context *ctx,
+		     const char **error_r)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 	bool recalculated;
@@ -871,8 +872,10 @@ maildir_quota_update(struct quota_root *_root,
 	   we do want to make sure the header gets updated if the limits have
 	   changed. also this makes sure the maildirsize file is created if
 	   it doesn't exist. */
-	if (maildirquota_refresh(root, &recalculated) < 0)
+	if (maildirquota_refresh(root, &recalculated) < 0) {
+		*error_r = "Failed to refresh maildir quota";
 		return -1;
+	}
 
 	if (recalculated) {
 		/* quota was just recalculated and it already contains the changes

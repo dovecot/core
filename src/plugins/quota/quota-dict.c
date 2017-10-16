@@ -207,15 +207,18 @@ static void dict_quota_update_callback(const struct dict_commit_result *result,
 
 static int
 dict_quota_update(struct quota_root *_root, 
-		  struct quota_transaction_context *ctx)
+		  struct quota_transaction_context *ctx,
+		  const char **error_r)
 {
 	struct dict_quota_root *root = (struct dict_quota_root *) _root;
 	struct dict_transaction_context *dt;
 	uint64_t value;
 
 	if (ctx->recalculate != QUOTA_RECALCULATE_DONT) {
-		if (dict_quota_count(root, TRUE, &value) < 0)
+		if (dict_quota_count(root, TRUE, &value) < 0) {
+			*error_r = "Dict quota count failed";
 			return -1;
+		}
 	} else {
 		dt = dict_transaction_begin(root->dict);
 		if (ctx->bytes_used != 0) {

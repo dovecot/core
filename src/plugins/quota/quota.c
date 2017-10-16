@@ -1137,8 +1137,12 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 				continue;
 			}
 
-			if (roots[i]->backend.v.update(roots[i], ctx) < 0)
+			const char *error;
+			if (roots[i]->backend.v.update(roots[i], ctx, &error) < 0) {
+				i_error("Failed to update quota for %s: %s",
+					mailbox_name, error);
 				ret = -1;
+			}
 			else if (!ctx->sync_transaction)
 				array_append(&warn_roots, &roots[i], 1);
 		}

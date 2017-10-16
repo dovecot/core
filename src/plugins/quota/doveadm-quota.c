@@ -107,7 +107,9 @@ cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 	trans.recalculate = QUOTA_RECALCULATE_FORCED;
 
 	array_foreach(&quser->quota->roots, root) {
-		(void)(*root)->backend.v.update(*root, &trans);
+		const char *error;
+		if ((*root)->backend.v.update(*root, &trans, &error) < 0)
+			i_error("Recalculating quota failed: %s", error);
 		if ((*root)->backend.v.flush != NULL)
 			(*root)->backend.v.flush(*root);
 	}

@@ -911,7 +911,8 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 
 static int
 fs_quota_update(struct quota_root *root ATTR_UNUSED,
-		struct quota_transaction_context *ctx ATTR_UNUSED)
+		struct quota_transaction_context *ctx ATTR_UNUSED,
+		const char **error_r ATTR_UNUSED)
 {
 	return 0;
 }
