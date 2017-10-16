@@ -96,11 +96,6 @@ test_programs = \
 
 noinst_PROGRAMS = $(test_programs)
 
-test_libs = \
-	../lib-dict/libdict.la \
-	../lib-test/libtest.la \
-	../lib/liblib.la
-
 test_dict_sql_CFLAGS = $(AM_CPPFLAGS) -DDICT_SRC_DIR=\"$(top_srcdir)/src/lib-dict-backend\"
 test_dict_sql_SOURCES = \
 	test-dict-sql.c
@@ -108,14 +103,12 @@ test_dict_sql_LDADD = \
 	$(noinst_LTLIBRARIES) \
 	../lib-sql/libdriver_test.la \
 	../lib-sql/libsql.la \
-	../lib-settings/libsettings.la \
-	$(test_libs)
+	../lib-dovecot/libdovecot.la
 test_dict_sql_DEPENDENCIES = \
 	$(noinst_LTLIBRARIES) \
 	../lib-sql/libdriver_test.la \
 	../lib-sql/libsql.la \
-	../lib-settings/libsettings.la \
-	$(test_libs)
+	../lib-dovecot/libdovecot.la
 
 check-local:
 	for bin in $(test_programs) $(check_PROGRAMS); do \
