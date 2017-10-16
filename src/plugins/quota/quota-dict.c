@@ -107,14 +107,16 @@ dict_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 
 static int
 dict_quota_count(struct dict_quota_root *root,
-		 bool want_bytes, uint64_t *value_r)
+		 bool want_bytes, uint64_t *value_r,
+		 const char **error_r)
 {
 	struct dict_transaction_context *dt;
 	uint64_t bytes, count;
 	const char *error;
 
 	if (quota_count(&root->root, &bytes, &count, &error) < 0) {
-		i_error("quota-dict failed: %s", error);
+		*error_r = t_strdup_printf(
+			"quota-dict count failed: %s", error);
 		return -1;
 	}
 
@@ -164,7 +166,8 @@ dict_quota_get_resource(struct quota_root *_root,
 	ret = dict_lookup(root->dict, unsafe_data_stack_pool,
 			  key, &value, &error);
 	if (ret < 0) {
-		i_error("dict quota: dict_lookup(%s) failed: %s", key, error);
+		*error_r = t_strdup_printf(
+			"quota-dict: dict_lookup(%s) failed: %s", key, error);
 		*value_r = 0;
 	} else {
 		intmax_t tmp;
@@ -177,20 +180,20 @@ dict_quota_get_resource(struct quota_root *_root,
 			*value_r = tmp;
 		else {
 			ret = dict_quota_count(root, want_bytes,
-					       value_r);
+					       value_r, error_r);
 		}
 	}
-	if (ret < 0)
-		*error_r = "quota-dict failed";
 	return ret;
 }
 
 static void dict_quota_recalc_timeout(struct dict_quota_root *root)
 {
 	uint64_t value;
+	const char *error;
 
 	timeout_remove(&root->to_update);
-	(void)dict_quota_count(root, TRUE, &value);
+	if (dict_quota_count(root, TRUE, &value, &error) < 0)
+		i_error("%s", error);
 }
 
 static void dict_quota_update_callback(const struct dict_commit_result *result,
@@ -218,10 +221,8 @@ dict_quota_update(struct quota_root *_root,
 	uint64_t value;
 
 	if (ctx->recalculate != QUOTA_RECALCULATE_DONT) {
-		if (dict_quota_count(root, TRUE, &value) < 0) {
-			*error_r = "Dict quota count failed";
+		if (dict_quota_count(root, TRUE, &value, error_r) < 0)
 			return -1;
-		}
 	} else {
 		dt = dict_transaction_begin(root->dict);
 		if (ctx->bytes_used != 0) {
