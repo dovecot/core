@@ -137,21 +137,20 @@ maildir_list_init(struct maildir_quota_root *root, struct mailbox_list *list)
 
 static bool maildir_set_next_path(struct maildir_list_context *ctx)
 {
-	T_BEGIN {
-		const char *path, *storage_name;
+	const char *path, *storage_name;
 
-		str_truncate(ctx->path, 0);
+	str_truncate(ctx->path, 0);
 
-		storage_name = mailbox_list_get_storage_name(
-					ctx->info->ns->list, ctx->info->vname);
-		if (mailbox_list_get_path(ctx->list, storage_name,
-					  MAILBOX_LIST_PATH_TYPE_MAILBOX,
-					  &path) > 0) {
-			str_append(ctx->path, path);
-			str_append(ctx->path, ctx->state == 0 ?
-				   "/new" : "/cur");
-		}
-	} T_END;
+	storage_name = mailbox_list_get_storage_name(
+				ctx->info->ns->list, ctx->info->vname);
+	if (mailbox_list_get_path(ctx->list, storage_name,
+					MAILBOX_LIST_PATH_TYPE_MAILBOX,
+					&path) > 0) {
+		str_append(ctx->path, path);
+		str_append(ctx->path, ctx->state == 0 ?
+				"/new" : "/cur");
+	}
+
 	return str_len(ctx->path) > 0;
 }
 
@@ -332,11 +331,9 @@ static int maildirsize_recalculate_namespace(struct maildir_quota_root *root,
 		if (mtime > root->recalc_last_stamp)
 			root->recalc_last_stamp = mtime;
 
-		T_BEGIN {
-			if (maildir_sum_dir(dir, &root->total_bytes,
-					    &root->total_count) < 0)
-				ret = -1;
-		} T_END;
+		if (maildir_sum_dir(dir, &root->total_bytes,
+				    &root->total_count) < 0)
+			ret = -1;
 	}
 	if (maildir_list_deinit(ctx) < 0)
 		ret = -1;
@@ -674,9 +671,7 @@ static int maildirquota_read_limits(struct maildir_quota_root *root)
 	do {
 		if (n == NFS_ESTALE_RETRY_COUNT)
 			retry = FALSE;
-		T_BEGIN {
-			ret = maildirsize_read(root, &retry);
-		} T_END;
+		ret = maildirsize_read(root, &retry);
 		n++;
 	} while (ret == -1 && retry);
 	return ret;
