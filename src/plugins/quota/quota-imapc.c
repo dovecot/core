@@ -294,7 +294,8 @@ imapc_quota_refresh_root_order_cmp(const struct imapc_quota_refresh_root *root1,
 		return 0;
 }
 
-static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root)
+static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root,
+				       const char **error_r)
 {
 	struct imapc_simple_context sctx;
 	struct imapc_command *cmd;
@@ -316,10 +317,18 @@ static int imapc_quota_refresh_mailbox(struct imapc_quota_root *root)
 	array_sort(&root->refresh.roots, imapc_quota_refresh_root_order_cmp);
 	imapc_quota_refresh_deinit(root->root.quota, &root->refresh,
 				   sctx.ret == 0);
+	if (sctx.ret < 0)
+		*error_r = t_strdup_printf(
+			"GETQUOTAROOT %s failed: %s",
+			root->box_name,
+			mail_storage_get_last_internal_error(
+				&root->client->_storage->storage, NULL));
+
 	return sctx.ret;
 }
 
-static int imapc_quota_refresh_root(struct imapc_quota_root *root)
+static int imapc_quota_refresh_root(struct imapc_quota_root *root,
+				    const char **error_r)
 {
 	struct imapc_simple_context sctx;
 	struct imapc_command *cmd;
@@ -346,12 +355,20 @@ static int imapc_quota_refresh_root(struct imapc_quota_root *root)
 	}
 	imapc_quota_refresh_deinit(root->root.quota, &root->refresh,
 				   sctx.ret == 0);
+	if (sctx.ret < 0)
+		*error_r = t_strdup_printf(
+			"GETQUOTA %s failed: %s",
+			root->root_name,
+			mail_storage_get_last_internal_error(
+				&root->client->_storage->storage, NULL));
 	return sctx.ret;
 }
 
-static int imapc_quota_refresh(struct imapc_quota_root *root)
+static int imapc_quota_refresh(struct imapc_quota_root *root,
+			       const char **error_r)
 {
 	enum imapc_capability capa;
+	const char *error = ""; /* Initialize this to avoid a gcc warning. */
 	int ret;
 
 	if (root->imapc_ns == NULL) {
@@ -364,8 +381,10 @@ static int imapc_quota_refresh(struct imapc_quota_root *root)
 	if (!imapc_quota_client_init(root))
 		return 0;
 
-	if (imapc_client_get_capabilities(root->client->client, &capa) < 0)
+	if (imapc_client_get_capabilities(root->client->client, &capa) < 0) {
+		*error_r = "quota-imapc: Failed to get server capabilities";
 		return -1;
+	}
 	if ((capa & IMAPC_CAPABILITY_QUOTA) == 0) {
 		/* no QUOTA capability - disable quota */
 		i_warning("quota: Remote IMAP server doesn't support QUOTA - disabling");
@@ -374,9 +393,12 @@ static int imapc_quota_refresh(struct imapc_quota_root *root)
 	}
 
 	if (root->root_name == NULL)
-		ret = imapc_quota_refresh_mailbox(root);
+		ret = imapc_quota_refresh_mailbox(root, &error);
 	else
-		ret = imapc_quota_refresh_root(root);
+		ret = imapc_quota_refresh_root(root, &error);
+	if (ret < 0)
+		*error_r = t_strdup_printf("quota-imapc: %s", error);
+
 	/* set the last_refresh only after the refresh, because it changes
 	   ioloop_timeval. */
 	root->last_refresh = ioloop_timeval;
@@ -388,10 +410,7 @@ static int imapc_quota_init_limits(struct quota_root *_root,
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
 
-	int ret = imapc_quota_refresh(root);
-	if (ret < 0)
-		*error_r = "Failed to get quota data from remote imap server";
-	return ret;
+	return imapc_quota_refresh(root, error_r);
 }
 
 static void
@@ -427,10 +446,8 @@ imapc_quota_get_resource(struct quota_root *_root, const char *name,
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
 
-	if (imapc_quota_refresh(root) < 0) {
-		*error_r = "quota-imapc failed";
+	if (imapc_quota_refresh(root, error_r) < 0)
 		return -1;
-	}
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*value_r = root->bytes_last;
