@@ -304,6 +304,7 @@ password_scheme_detect(const char *plain_password, const char *crypted_password,
 			break;
 		key = NULL;
 	}
+	hash_table_iterate_deinit(&ctx);
 	return key;
 }
 
