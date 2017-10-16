@@ -770,20 +770,33 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 	doveadm_http_server_send_response(req);
 }
 
-static void doveadm_http_server_camelcase_value(string_t *value)
+static const char *
+doveadm_http_server_camelcase_value(string_t *tmp, const char *value)
 {
-	size_t i, k;
-	char *ptr = str_c_modifiable(value);
+	const char *p, *poffset;
 
-	for (i = 0, k = 0; i < strlen(ptr);) {
-		if (ptr[i] == ' ' || ptr[i] == '-') {
-			i++;
-			ptr[k++] = i_toupper(ptr[i++]);
+	str_truncate(tmp, 0);
+
+	poffset = p = value;
+	while (*p != '\0') {
+		if (*p == ' ' || *p == '-') {
+			if (p > poffset)
+				str_append_data(tmp, poffset, p - poffset);
+			do {
+				p++;
+			} while (*p == ' ' || *p == '-');
+			if (*p == '\0')
+				break;
+			str_append_c(tmp, i_toupper(*p));
+			p++;
+			poffset = p;
 		} else {
-			ptr[k++] = ptr[i++];
+			p++;
 		}
 	}
-	str_truncate(value, k);
+	if (p > poffset)
+		str_append_data(tmp, poffset, p - poffset);
+	return str_c(tmp);
 }
 
 static void doveadm_http_server_send_api_v1(struct client_request_http *req)
@@ -792,10 +805,11 @@ static void doveadm_http_server_send_api_v1(struct client_request_http *req)
 	const struct doveadm_cmd_ver2 *cmd;
 	const struct doveadm_cmd_param *par;
 	unsigned int i, k;
-	string_t *tmp;
+	string_t *tmp, *cctmp;
 	bool sent, first_cmd = TRUE;
 
 	tmp = str_new(req->pool, 8);
+	cctmp = t_str_new(64);
 
 	o_stream_nsend_str(output,"[\n");
 	for (i = 0; i < array_count(&doveadm_cmds_ver2); i++) {
@@ -807,8 +821,8 @@ static void doveadm_http_server_send_api_v1(struct client_request_http *req)
 		else
 			o_stream_nsend_str(output, ",\n");
 		o_stream_nsend_str(output, "\t{\"command\":\"");
-		json_append_escaped(tmp, cmd->name);
-		doveadm_http_server_camelcase_value(tmp);
+		json_append_escaped(tmp,
+			doveadm_http_server_camelcase_value(cctmp, cmd->name));
 		o_stream_nsend_str(output, str_c(tmp));
 		o_stream_nsend_str(output, "\", \"parameters\":[");
 
@@ -824,8 +838,9 @@ static void doveadm_http_server_send_api_v1(struct client_request_http *req)
 				o_stream_nsend_str(output, "\n");
 			sent = TRUE;
 			o_stream_nsend_str(output, "\t\t{\"name\":\"");
-			json_append_escaped(tmp, par->name);
-			doveadm_http_server_camelcase_value(tmp);
+			json_append_escaped(tmp,
+				doveadm_http_server_camelcase_value(cctmp,
+								    par->name));
 			o_stream_nsend_str(output, str_c(tmp));
 			o_stream_nsend_str(output, "\",\"type\":\"");
 			switch(par->type) {
