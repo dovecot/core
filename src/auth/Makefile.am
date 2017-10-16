@@ -227,6 +227,7 @@ libstats_auth_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 libstats_auth_la_SOURCES = auth-stats.c
 
 test_programs = \
+	test-libpassword \
 	test-auth-cache \
 	test-auth
 
@@ -236,6 +237,20 @@ noinst_HEADERS = test-auth.h crypt-blowfish.h
 
 test_libs = \
 	../lib-dovecot/libdovecot.la
+
+test_libpassword_SOURCES = test-libpassword.c
+test_libpassword_LDADD = \
+	libpassword.la \
+	../lib-ntlm/libntlm.la \
+        ../lib-otp/libotp.la \
+	$(CRYPT_LIBS) \
+	$(LIBDOVECOT_SQL) \
+	$(LIBSODIUM_LIBS) \
+	$(test_libs) \
+	$(BINARY_LDFLAGS)
+
+test_libpassword_DEPENDENCIES = libpassword.la
+test_libpassword_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 
 test_auth_cache_SOURCES = auth-cache.c test-auth-cache.c
 test_auth_cache_LDADD = $(test_libs)
