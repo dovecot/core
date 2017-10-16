@@ -872,12 +872,10 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 
 #ifdef HAVE_RQUOTA
 	if (mount_type_is_nfs(root->mount)) {
-		T_BEGIN {
-			ret = root->user_disabled ? 0 :
-				do_rquota_user(root, &bytes_value, &bytes_limit, &count_value, &count_limit);
-			if (ret == 0 && !root->group_disabled)
-				ret = do_rquota_group(root, &bytes_value, &bytes_limit, &count_value, &count_limit);
-		} T_END;
+		ret = root->user_disabled ? 0 :
+			do_rquota_user(root, &bytes_value, &bytes_limit, &count_value, &count_limit);
+		if (ret == 0 && !root->group_disabled)
+			ret = do_rquota_group(root, &bytes_value, &bytes_limit, &count_value, &count_limit);
 	} else
 #endif
 	{
