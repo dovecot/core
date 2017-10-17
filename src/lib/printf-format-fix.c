@@ -35,23 +35,108 @@ fix_format_real(const char *fmt, const char *p, size_t *len_r)
 static const char *
 printf_format_fix_noalloc(const char *format, size_t *len_r)
 {
-	static const char *printf_skip_chars = "# -+'I.*0123456789hlLjzt";
-	/* as a tiny optimization keep the most commonly used conversion
-	   modifiers first, so strchr() stops early. */
-	static const char *printf_allowed_conversions = "sudcioxXp%eEfFgGaA";
+	/* NOTE: This function is overly strict in what it accepts. Some
+	   format strings that are valid (and safe) in C99 will cause a panic
+	   here. This is because we don't really need to support the weirdest
+	   special cases, and we're also being extra careful not to pass
+	   anything to the underlying libc printf, which might treat the string
+	   differently than us and unexpectedly handling it as %n. For example
+	   "%**%n" with glibc. */
+
+	/* Allow only the standard C99 flags. There are also <'> and <I> flags,
+	   but we don't really need them. And at worst if they're not supported
+	   by the underlying printf, they could potentially be used to work
+	   around our restrictions. */
+	const char printf_flags[] = "#0- +";
+	/* As a tiny optimization keep the most commonly used conversion
+	   specifiers first, so strchr() stops early. */
+	static const char *printf_specifiers = "sudcixXpoeEfFgGaA";
 	const char *ret, *p, *p2;
+	char *flag;
 
 	p = ret = format;
 	while ((p2 = strchr(p, '%')) != NULL) {
-		p = p2+1;
-		while (*p != '\0' && strchr(printf_skip_chars, *p) != NULL)
-			p++;
+		const unsigned int start_pos = p2 - format;
 
-		if (*p == '\0') {
-			i_panic("%% modifier missing in '%s'", format);
-		} else if (strchr(printf_allowed_conversions, *p) != NULL) {
-			/* allow & ignore */
-		} else {
+		p = p2+1;
+		if (*p == '%') {
+			/* we'll be strict and allow %% only when there are no
+			   optinal flags or modifiers. */
+			p++;
+			continue;
+		}
+		/* 1) zero or more flags. We'll add a further restriction that
+		   each flag can be used only once, since there's no need to
+		   use them more than once, and some implementations might
+		   add their own limits. */
+		bool printf_flags_seen[N_ELEMENTS(printf_flags)] = { FALSE, };
+		while (*p != '\0' &&
+		       (flag = strchr(printf_flags, *p)) != NULL) {
+			unsigned int flag_idx = flag - printf_flags;
+
+			if (printf_flags_seen[flag_idx]) {
+				i_panic("Duplicate %% flag '%c' starting at #%u in '%s'",
+					*p, start_pos, format);
+			}
+			printf_flags_seen[flag_idx] = TRUE;
+			p++;
+		}
+
+		/* 2) Optional minimum field width */
+		if (*p == '*') {
+			/* We don't bother supporting "*m$" - it's not used
+			   anywhere and seems a bit dangerous. */
+			p++;
+		} else if (*p >= '1' && *p <= '9') {
+			/* Limit to 4 digits - we'll never want more than that.
+			   Some implementations might not handle long digits
+			   correctly, or maybe even could be used for DoS due
+			   to using too much CPU. */
+			unsigned int i = 0;
+			do {
+				p++;
+				if (++i > 4) {
+					i_panic("Too large minimum field width starting at #%u in '%s'",
+						start_pos, format);
+				}
+			} while (*p >= '0' && *p <= '9');
+		}
+
+		/* 3) Optional precision */
+		if (*p == '.') {
+			/* We don't bother supporting anything but numbers
+			   here. 999 should be long enough precision. */
+			unsigned int i = 0;
+			p++;
+			while (*p >= '0' && *p <= '9') {
+				if (++i > 3) {
+					i_panic("Too large precision starting at #%u in '%s'",
+						start_pos, format);
+				}
+				p++;
+			}
+		}
+
+		/* 4) Optional length modifier */
+		switch (*p) {
+		case 'h':
+			if (*++p == 'h')
+				p++;
+			break;
+		case 'l':
+			if (*++p == 'l')
+				p++;
+			break;
+		case 'L':
+		case 'j':
+		case 'z':
+		case 't':
+			p++;
+			break;
+		}
+
+		/* 5) conversion specifier */
+		if (*p == '\0' || strchr(printf_specifiers, *p) == NULL) {
 			switch (*p) {
 			case 'n':
 				i_panic("%%n modifier used");
@@ -60,8 +145,12 @@ printf_format_fix_noalloc(const char *format, size_t *len_r)
 					i_panic("%%m used twice");
 				ret = fix_format_real(format, p-1, len_r);
 				break;
+			case '\0':
+				i_panic("Missing %% specifier starting at #%u in '%s'",
+					start_pos, format);
 			default:
-				i_panic("Unsupported %%%c modifier", *p);
+				i_panic("Unsupported 0x%02x specifier starting at #%u in '%s'",
+					*p, start_pos, format);
 			}
 		}
 		p++;
