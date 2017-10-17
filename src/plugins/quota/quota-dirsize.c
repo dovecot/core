@@ -192,7 +192,7 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 
 static int
 dirsize_quota_get_resource(struct quota_root *_root, const char *name,
-			   uint64_t *value_r)
+			   uint64_t *value_r, const char **error_r)
 {
 	int ret;
 
@@ -200,6 +200,9 @@ dirsize_quota_get_resource(struct quota_root *_root, const char *name,
 		return 0;
 
 	ret = get_quota_root_usage(_root, value_r);
+
+	if (ret < 0)
+		*error_r = "quota-dirsize failed";
 
 	return ret < 0 ? -1 : 1;
 }

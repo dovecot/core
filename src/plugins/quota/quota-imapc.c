@@ -423,12 +423,14 @@ imapc_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 
 static int
 imapc_quota_get_resource(struct quota_root *_root, const char *name,
-			 uint64_t *value_r)
+			 uint64_t *value_r, const char **error_r)
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
 
-	if (imapc_quota_refresh(root) < 0)
+	if (imapc_quota_refresh(root) < 0) {
+		*error_r = "quota-imapc failed";
 		return -1;
+	}
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*value_r = root->bytes_last;

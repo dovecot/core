@@ -228,13 +228,16 @@ count_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 
 static int
 count_quota_get_resource(struct quota_root *_root,
-			 const char *name, uint64_t *value_r)
+			 const char *name, uint64_t *value_r,
+			 const char **error_r)
 {
 	struct count_quota_root *root = (struct count_quota_root *)_root;
 	uint64_t bytes, count;
 
-	if (quota_count_cached(root, &bytes, &count) < 0)
+	if (quota_count_cached(root, &bytes, &count) < 0) {
+		*error_r = "quota-count failed";
 		return -1;
+	}
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*value_r = bytes;

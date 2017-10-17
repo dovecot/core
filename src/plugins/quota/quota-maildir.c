@@ -836,13 +836,15 @@ maildir_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 
 static int
 maildir_quota_get_resource(struct quota_root *_root, const char *name,
-			   uint64_t *value_r)
+			   uint64_t *value_r, const char **error_r)
 {
 	struct maildir_quota_root *root = (struct maildir_quota_root *)_root;
 	bool recalculated;
 
-	if (maildirquota_refresh(root, &recalculated) < 0)
+	if (maildirquota_refresh(root, &recalculated) < 0) {
+		*error_r = "quota-maildir failed";
 		return -1;
+	}
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0) {
 		*value_r = root->total_bytes;

@@ -856,7 +856,7 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 
 static int
 fs_quota_get_resource(struct quota_root *_root, const char *name,
-		      uint64_t *value_r)
+		      uint64_t *value_r, const char **error_r)
 {
 	struct fs_quota_root *root = (struct fs_quota_root *)_root;
 	uint64_t bytes_value, count_value;
@@ -887,6 +887,8 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 						     &count_value, &count_limit);
 		}
 	}
+	if (ret < 0)
+		*error_r = "quota-fs failed";
 	if (ret <= 0)
 		return ret;
 
