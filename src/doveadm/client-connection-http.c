@@ -185,7 +185,6 @@ doveadm_http_server_request_destroy(void *context)
 
 	http_server_request_unref(&(conn->http_server_request));
 	http_server_switch_ioloop(doveadm_http_server);
-        http_server_connection_unref(&(conn->http_client));
 }
 
 static void doveadm_http_server_json_error(void *context, const char *error)
@@ -723,7 +722,6 @@ doveadm_http_server_handle_request(void *context, struct http_server_request *re
 	conn->http_request = http_server_request_get(req);
 	struct doveadm_http_server_mount *ep = NULL;
 
-	http_server_connection_ref(conn->http_client);
 	http_server_request_set_destroy_callback(req, doveadm_http_server_request_destroy, conn);
 	http_server_request_ref(conn->http_server_request);
 
