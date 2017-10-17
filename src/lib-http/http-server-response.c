@@ -638,7 +638,8 @@ static int http_server_response_send_real(struct http_server_response *resp,
 			str_append(rtext, "Content-Length: 0\r\n");
 	}
 	if (!resp->have_hdr_connection) {
-		if (resp->close && resp->tunnel_callback == NULL)
+		bool close = resp->close || req->conn->input_broken;
+		if (close && resp->tunnel_callback == NULL)
 			str_append(rtext, "Connection: close\r\n");
 		else if (http_server_request_version_equals(req, 1, 0))
 			str_append(rtext, "Connection: Keep-Alive\r\n");

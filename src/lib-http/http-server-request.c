@@ -323,18 +323,24 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_connection_remove_request(conn, req);
 	conn->stats.response_count++;
 
-	if (tunnel_callback == NULL && (req->req.connection_close || resp->close)) {
+	if (tunnel_callback == NULL) {
 		if (resp->close) {
 			http_server_connection_close(&conn,
 				t_strdup_printf("Server closed connection: %u %s",
 					resp->status, resp->reason));
-			
-		} else {
+			http_server_request_destroy(&req);
+			return;
+		} else if (req->conn->input_broken) {
+			http_server_connection_close(&conn,
+				"Connection input is broken");
+			http_server_request_destroy(&req);
+			return;
+		} else if (req->req.connection_close) {
 			http_server_connection_close(&conn,
 				"Client requested connection close");
+			http_server_request_destroy(&req);
+			return;
 		}
-		http_server_request_destroy(&req);
-		return;
 	}
 
 	http_server_request_destroy(&req);
@@ -385,8 +391,7 @@ http_server_request_fail_full(struct http_server_request *req,
 void http_server_request_fail(struct http_server_request *req,
 	unsigned int status, const char *reason)
 {
-	http_server_request_fail_full(req, status, reason,
-				      req->conn->input_broken);
+	http_server_request_fail_full(req, status, reason, FALSE);
 }
 
 void http_server_request_fail_close(struct http_server_request *req,
