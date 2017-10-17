@@ -17,7 +17,14 @@ static void test_unchanged()
 {
 	static const char *tests[] = {
 		"Hello world",
-		"Embedded %%, %u, %f, etc. are OK",
+		"Embedded %%, %u, %f, %s, etc. are OK",
+		"Allow %#0- +s flags",
+		"duplicate flags in different args %0-123s %0-123s",
+		"Minimum length %9999s",
+		"Precision %.999s",
+		"Precision %1.999s",
+		"Length modifiers %hd %hhd %ld %lld %Lg %jd %zd %td",
+		"Specifiers %s %u %d %c %i %x %X %p %o %e %E %f %F %g %G %a %A",
 		"%%doesn't cause confusion in %%m and %%n",
 	};
 	unsigned int i;
@@ -103,6 +110,16 @@ enum fatal_test_state fatal_printf_format_fix(unsigned int stage)
 		"%m allowed once, but not twice: %m",
 		"%m must not obscure a later %n",
 		"definitely can't have a tailing %",
+		"Evil %**%n",
+		"Evil %*#%99999$s",
+		"No weird %% with %0%",
+		"No duplicate modifiers %00s",
+		"Minimum length can't be too long %10000s",
+		"Minimum length doesn't support %*1$s",
+		"Precision can't be too long %.1000s",
+		"Precision can't be too long %1.1000s",
+		"Precision doesn't support %1.-1s",
+		"Precision doesn't support %1.*s",
 	};
 
 	if(stage >= N_ELEMENTS(fatals)) {
