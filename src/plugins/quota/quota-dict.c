@@ -111,9 +111,12 @@ dict_quota_count(struct dict_quota_root *root,
 {
 	struct dict_transaction_context *dt;
 	uint64_t bytes, count;
+	const char *error;
 
-	if (quota_count(&root->root, &bytes, &count) < 0)
+	if (quota_count(&root->root, &bytes, &count, &error) < 0) {
+		i_error("quota-dict failed: %s", error);
 		return -1;
+	}
 
 	dt = dict_transaction_begin(root->dict);
 	/* these unsets are mainly necessary for pgsql, because its

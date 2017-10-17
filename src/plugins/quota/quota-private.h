@@ -203,7 +203,8 @@ void quota_root_recalculate_relative_rules(struct quota_root_settings *root_set,
 					   int64_t count_limit);
 /* Returns 1 if values were returned successfully, 0 if we're recursing into
    the same function, -1 if error. */
-int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r);
+int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
+		const char **error_r);
 
 int quota_root_parse_grace(struct quota_root_settings *root_set,
 			   const char *value, const char **error_r);
