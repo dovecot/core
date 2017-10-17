@@ -45,7 +45,8 @@ dirsize_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 	return resources;
 }
 
-static int get_dir_usage(const char *dir, uint64_t *value)
+static int get_dir_usage(const char *dir, uint64_t *value,
+			 const char **error_r)
 {
 	DIR *dirp;
 	string_t *path;
@@ -59,7 +60,7 @@ static int get_dir_usage(const char *dir, uint64_t *value)
 		if (errno == ENOENT)
 			return 0;
 
-		i_error("opendir(%s) failed: %m", dir);
+		*error_r = t_strdup_printf("opendir(%s) failed: %m", dir);
 		return -1;
 	}
 
@@ -84,11 +85,11 @@ static int get_dir_usage(const char *dir, uint64_t *value)
 			if (errno == ENOENT)
 				continue;
 
-			i_error("lstat(%s) failed: %m", dir);
+			*error_r = t_strdup_printf("lstat(%s) failed: %m", dir);
 			ret = -1;
 			break;
 		} else if (S_ISDIR(st.st_mode)) {
-			if (get_dir_usage(str_c(path), value) < 0) {
+			if (get_dir_usage(str_c(path), value, error_r) < 0) {
 				ret = -1;
 				break;
 			}
@@ -101,7 +102,8 @@ static int get_dir_usage(const char *dir, uint64_t *value)
 	return ret;
 }
 
-static int get_usage(const char *path, bool is_file, uint64_t *value_r)
+static int get_usage(const char *path, bool is_file, uint64_t *value_r,
+		     const char **error_r)
 {
 	struct stat st;
 
@@ -110,12 +112,12 @@ static int get_usage(const char *path, bool is_file, uint64_t *value_r)
 			if (errno == ENOENT)
 				return 0;
 
-			i_error("lstat(%s) failed: %m", path);
+			*error_r = t_strdup_printf("lstat(%s) failed: %m", path);
 			return -1;
 		}
 		*value_r += st.st_size;
 	} else {
-		if (get_dir_usage(path, value_r) < 0)
+		if (get_dir_usage(path, value_r, error_r) < 0)
 			return -1;
 	}
 	return 0;
@@ -153,7 +155,8 @@ static void quota_count_path_add(ARRAY_TYPE(quota_count_path) *paths,
 }
 
 static int
-get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
+get_quota_root_usage(struct quota_root *root, uint64_t *value_r,
+		     const char **error_r)
 {
 	struct mail_namespace *const *namespaces;
 	ARRAY_TYPE(quota_count_path) paths;
@@ -184,7 +187,7 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r)
 	count_paths = array_get(&paths, &count);
 	for (i = 0; i < count; i++) {
 		if (get_usage(count_paths[i].path, count_paths[i].is_file,
-			      value_r) < 0)
+			      value_r, error_r) < 0)
 			return -1;
 	}
 	return 0;
@@ -199,10 +202,12 @@ dirsize_quota_get_resource(struct quota_root *_root, const char *name,
 	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0)
 		return 0;
 
-	ret = get_quota_root_usage(_root, value_r);
-
+	const char *error;
+	ret = get_quota_root_usage(_root, value_r, &error);
 	if (ret < 0)
-		*error_r = "quota-dirsize failed";
+		*error_r = t_strdup_printf(
+			"quota-dirsize: failed to get resource %s: %s",
+			name, error);
 
 	return ret < 0 ? -1 : 1;
 }
