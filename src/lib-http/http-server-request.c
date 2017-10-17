@@ -359,9 +359,10 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_connection_trigger_responses(conn);
 }
 
-static 	struct http_server_response *
+static struct http_server_response *
 http_server_request_create_fail_response(struct http_server_request *req,
-	unsigned int status, const char *reason)
+	unsigned int status, const char *reason, const char *text)
+	ATTR_NULL(4)
 {
 	struct http_server_response *resp;
 
@@ -373,9 +374,11 @@ http_server_request_create_fail_response(struct http_server_request *req,
 	if (!http_request_method_is(&req->req, "HEAD")) {
 		http_server_response_add_header
 			(resp, "Content-Type", "text/plain; charset=utf-8");
-		reason = t_strconcat(reason, "\r\n", NULL);
+		if (text == NULL)
+			text = reason;
+		text = t_strconcat(text, "\r\n", NULL);
 		http_server_response_set_payload_data
-			(resp, (const unsigned char *)reason, strlen(reason));
+			(resp, (const unsigned char *)text, strlen(text));
 	}
 
 	return resp;
@@ -383,12 +386,14 @@ http_server_request_create_fail_response(struct http_server_request *req,
 
 static void
 http_server_request_fail_full(struct http_server_request *req,
-	unsigned int status, const char *reason)
+	unsigned int status, const char *reason, const char *text)
+	ATTR_NULL(4)
 {
 	struct http_server_response *resp;
 
 	req->failed = TRUE;
-	resp = http_server_request_create_fail_response(req, status, reason);
+	resp = http_server_request_create_fail_response(req,
+		status, reason, text);
 	http_server_response_submit(resp);
 	if (req->conn->input_broken)
 		req->connection_close = TRUE;
@@ -397,14 +402,25 @@ http_server_request_fail_full(struct http_server_request *req,
 void http_server_request_fail(struct http_server_request *req,
 	unsigned int status, const char *reason)
 {
-	http_server_request_fail_full(req, status, reason);
+	http_server_request_fail_full(req, status, reason, NULL);
 }
 
 void http_server_request_fail_close(struct http_server_request *req,
 	unsigned int status, const char *reason)
 {
 	http_server_request_connection_close(req, TRUE);
-	http_server_request_fail_full(req, status, reason);
+	http_server_request_fail_full(req, status, reason, NULL);
+}
+
+void http_server_request_fail_text(struct http_server_request *req,
+	unsigned int status, const char *reason, const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	http_server_request_fail_full(req, status, reason,
+		t_strdup_vprintf(format, args));
+	va_end(args);
 }
 
 void http_server_request_fail_auth(struct http_server_request *req,
@@ -417,7 +433,8 @@ void http_server_request_fail_auth(struct http_server_request *req,
 	if (reason == NULL)
 		reason = "Unauthenticated";
 
-	resp = http_server_request_create_fail_response(req, 401, reason);
+	resp = http_server_request_create_fail_response(req,
+		401, reason, reason);
 	http_server_response_add_auth(resp, chlng);
 	http_server_response_submit(resp);
 }
