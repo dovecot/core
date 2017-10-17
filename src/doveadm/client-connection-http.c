@@ -689,7 +689,7 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 		req->parse_state != CLIENT_REQUEST_PARSE_DONE)) {
 		/* this will happen if the parser above runs into 
 		   unexpected element, but JSON is OK */
-		http_server_request_fail_close(http_sreq,
+		http_server_request_fail(http_sreq,
 			400, "Unexpected element in input");
 		// FIXME: should be returned as error to client, not logged
 		i_info("unexpected element");
@@ -706,7 +706,7 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 
 	if (json_parser_deinit(&req->json_parser, &error) != 0) {
 		// istream JSON parsing failures do not count as errors
-		http_server_request_fail_close(http_sreq,
+		http_server_request_fail(http_sreq,
 			400, "Invalid JSON input");
 		// FIXME: should be returned as error to client, not logged
 		i_info("JSON parse error: %s", error);
@@ -817,7 +817,7 @@ doveadm_http_server_options_handler(struct client_request_http *req)
 	http_server_response_add_header(http_resp,
 		"Access-Control-Allow-Headers",
 		"Content-Type, WWW-Authenticate");
-	http_server_response_submit_close(http_resp);
+	http_server_response_submit(http_resp);
 }
 
 static void
@@ -865,7 +865,7 @@ static void doveadm_http_server_send_response(struct client_request_http *req)
 			i_info("error writing output: %s",
 			       o_stream_get_error(req->output));
 			o_stream_destroy(&req->output);
-			http_server_request_fail_close(http_sreq,
+			http_server_request_fail(http_sreq,
 				500, "Internal server error");
 			return;
 		}
@@ -883,7 +883,7 @@ static void doveadm_http_server_send_response(struct client_request_http *req)
 		i_stream_unref(&payload);
 	}
 
-	http_server_response_submit_close(http_resp);
+	http_server_response_submit(http_resp);
 }
 
 static void
@@ -1013,7 +1013,7 @@ doveadm_http_server_authorize_request(struct client_request_http *req)
 	/* no authentication specified */
 	if (doveadm_settings->doveadm_api_key[0] == '\0' &&
 		*conn->conn.set->doveadm_password == '\0') {
-		http_server_request_fail_close(http_sreq,
+		http_server_request_fail(http_sreq,
 			500, "Internal Server Error");
 		i_error("No authentication defined in configuration. "
 			"Add API key or password");
@@ -1036,7 +1036,7 @@ doveadm_http_server_authorize_request(struct client_request_http *req)
 				"WWW-Authenticate", "Basic Realm=\"doveadm\""
 			);
 		}
-		http_server_response_submit_close(http_resp);
+		http_server_response_submit(http_resp);
 	}
 	return auth;
 }
@@ -1064,6 +1064,7 @@ doveadm_http_server_handle_request(void *context,
 	req->http_request = http_sreq;
 	http_server_request_ref(req->http_request);
 
+	http_server_request_connection_close(http_sreq, TRUE);
 	http_server_request_set_destroy_callback(http_sreq,
 		doveadm_http_server_request_destroy, req);
 
@@ -1083,7 +1084,7 @@ doveadm_http_server_handle_request(void *context,
 	}
 
 	if (ep == NULL) {
-		http_server_request_fail_close(http_sreq,
+		http_server_request_fail(http_sreq,
 			404, "Path Not Found");
 		return;
 	}
