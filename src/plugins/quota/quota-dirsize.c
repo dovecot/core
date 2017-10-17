@@ -214,19 +214,14 @@ dirsize_quota_update(struct quota_root *root ATTR_UNUSED,
 }
 
 struct quota_backend quota_backend_dirsize = {
-	"dirsize",
+	.name = "dirsize",
 
-	{
-		dirsize_quota_alloc,
-		dirsize_quota_init,
-		dirsize_quota_deinit,
-		NULL,
-		NULL,
-		NULL,
-		dirsize_quota_root_get_resources,
-		dirsize_quota_get_resource,
-		dirsize_quota_update,
-		NULL,
-		NULL
+	.v = {
+		.alloc = dirsize_quota_alloc,
+		.init = dirsize_quota_init,
+		.deinit = dirsize_quota_deinit,
+		.get_resources = dirsize_quota_root_get_resources,
+		.get_resource = dirsize_quota_get_resource,
+		.update = dirsize_quota_update,
 	}
 };

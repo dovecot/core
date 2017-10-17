@@ -443,19 +443,16 @@ imapc_quota_update(struct quota_root *root ATTR_UNUSED,
 }
 
 struct quota_backend quota_backend_imapc = {
-	"imapc",
+	.name = "imapc",
 
-	{
-		imapc_quota_alloc,
-		imapc_quota_init,
-		imapc_quota_deinit,
-		NULL,
-		imapc_quota_init_limits,
-		imapc_quota_namespace_added,
-		imapc_quota_root_get_resources,
-		imapc_quota_get_resource,
-		imapc_quota_update,
-		NULL,
-		NULL
+	.v = {
+		.alloc = imapc_quota_alloc,
+		.init = imapc_quota_init,
+		.deinit = imapc_quota_deinit,
+		.init_limits = imapc_quota_init_limits,
+		.namespace_added = imapc_quota_namespace_added,
+		.get_resources = imapc_quota_root_get_resources,
+		.get_resource = imapc_quota_get_resource,
+		.update = imapc_quota_update,
 	}
 };

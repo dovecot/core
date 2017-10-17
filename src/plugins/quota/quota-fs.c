@@ -917,23 +917,20 @@ fs_quota_update(struct quota_root *root ATTR_UNUSED,
 }
 
 struct quota_backend quota_backend_fs = {
-	"fs",
+	.name = "fs",
 
-	{
-		fs_quota_alloc,
-		fs_quota_init,
-		fs_quota_deinit,
-		NULL,
-		NULL,
+	.v = {
+		.alloc = fs_quota_alloc,
+		.init = fs_quota_init,
+		.deinit = fs_quota_deinit,
 
-		fs_quota_namespace_added,
+		.namespace_added = fs_quota_namespace_added,
 
-		fs_quota_root_get_resources,
-		fs_quota_get_resource,
-		fs_quota_update,
+		.get_resources = fs_quota_root_get_resources,
+		.get_resource = fs_quota_get_resource,
+		.update = fs_quota_update,
 
-		fs_quota_match_box,
-		NULL
+		.match_box = fs_quota_match_box,
 	}
 };
 

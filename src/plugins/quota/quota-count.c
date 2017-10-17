@@ -322,19 +322,14 @@ count_quota_update(struct quota_root *root,
 }
 
 struct quota_backend quota_backend_count = {
-	"count",
+	.name = "count",
 
-	{
-		count_quota_alloc,
-		count_quota_init,
-		count_quota_deinit,
-		NULL,
-		NULL,
-		NULL,
-		count_quota_root_get_resources,
-		count_quota_get_resource,
-		count_quota_update,
-		NULL,
-		NULL
+	.v = {
+		.alloc = count_quota_alloc,
+		.init = count_quota_init,
+		.deinit = count_quota_deinit,
+		.get_resources = count_quota_root_get_resources,
+		.get_resource = count_quota_get_resource,
+		.update = count_quota_update,
 	}
 };

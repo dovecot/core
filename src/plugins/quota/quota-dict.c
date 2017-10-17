@@ -246,19 +246,15 @@ static void dict_quota_flush(struct quota_root *_root)
 }
 
 struct quota_backend quota_backend_dict = {
-	"dict",
+	.name = "dict",
 
-	{
-		dict_quota_alloc,
-		dict_quota_init,
-		dict_quota_deinit,
-		NULL,
-		NULL,
-		NULL,
-		dict_quota_root_get_resources,
-		dict_quota_get_resource,
-		dict_quota_update,
-		NULL,
-		dict_quota_flush
+	.v = {
+		.alloc = dict_quota_alloc,
+		.init = dict_quota_init,
+		.deinit = dict_quota_deinit,
+		.get_resources = dict_quota_root_get_resources,
+		.get_resource = dict_quota_get_resource,
+		.update = dict_quota_update,
+		.flush = dict_quota_flush,
 	}
 };

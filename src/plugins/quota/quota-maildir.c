@@ -889,19 +889,17 @@ maildir_quota_update(struct quota_root *_root,
 }
 
 struct quota_backend quota_backend_maildir = {
-	"maildir",
+	.name = "maildir",
 
-	{
-		maildir_quota_alloc,
-		maildir_quota_init,
-		maildir_quota_deinit,
-		maildir_quota_parse_rule,
-		maildir_quota_init_limits,
-		maildir_quota_namespace_added,
-		maildir_quota_root_get_resources,
-		maildir_quota_get_resource,
-		maildir_quota_update,
-		NULL,
-		NULL
+	.v = {
+		.alloc = maildir_quota_alloc,
+		.init = maildir_quota_init,
+		.deinit = maildir_quota_deinit,
+		.parse_rule = maildir_quota_parse_rule,
+		.init_limits = maildir_quota_init_limits,
+		.namespace_added = maildir_quota_namespace_added,
+		.get_resources = maildir_quota_root_get_resources,
+		.get_resource = maildir_quota_get_resource,
+		.update = maildir_quota_update,
 	}
 };
