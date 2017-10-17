@@ -148,6 +148,11 @@ void http_server_request_ref(struct http_server_request *req);
    references, FALSE if not. */
 bool http_server_request_unref(struct http_server_request **_req);
 
+/* Set flag that determines whether the connection is closed after the
+   request is handled. */
+void http_server_request_connection_close(struct http_server_request *req,
+	bool close);
+
 /* Get the pool for this request. */
 pool_t http_server_request_get_pool(struct http_server_request *req);
 /* Returns the response created for the request with

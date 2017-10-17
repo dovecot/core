@@ -189,41 +189,38 @@ void http_server_response_add_auth_basic(
 	http_server_response_add_auth(resp, &chlng);
 }
 
-static void http_server_response_do_submit(struct http_server_response *resp,
-	bool close)
+static void
+http_server_response_do_submit(struct http_server_response *resp)
 {
+	i_assert(!resp->submitted);
 	if (resp->date == (time_t)-1)
 		resp->date = ioloop_time;
-	resp->close = close;
 	resp->submitted = TRUE;
 	http_server_request_submit_response(resp->request);	
 }
 
 void http_server_response_submit(struct http_server_response *resp)
 {
-	i_assert(!resp->submitted);
 	http_server_response_debug(resp, "Submitted");
 
-	http_server_response_do_submit(resp, FALSE);
+	http_server_response_do_submit(resp);
 }
 
 void http_server_response_submit_close(struct http_server_response *resp)
 {
-	i_assert(!resp->submitted);
-	http_server_response_debug(resp, "Submitted");
-
-	http_server_response_do_submit(resp, TRUE);
+	http_server_request_connection_close(resp->request, TRUE);
+	http_server_response_submit(resp);
 }
 
 void http_server_response_submit_tunnel(struct http_server_response *resp,
 	http_server_tunnel_callback_t callback, void *context)
 {
-	i_assert(!resp->submitted);
 	http_server_response_debug(resp, "Started tunnelling");
 
 	resp->tunnel_callback = callback;
 	resp->tunnel_context = context;
-	http_server_response_do_submit(resp, TRUE);
+	http_server_request_connection_close(resp->request, TRUE);
+	http_server_response_do_submit(resp);
 }
 
 static void
@@ -556,6 +553,7 @@ static int http_server_response_send_real(struct http_server_response *resp,
 	string_t *rtext = t_str_new(256);
 	struct const_iovec iov[3];
 	bool is_head = http_request_method_is(&req->req, "HEAD");
+	bool close = FALSE;
 	int ret = 0;
 
 	*error_r = NULL;
@@ -590,7 +588,7 @@ static int http_server_response_send_real(struct http_server_response *resp,
 					resp->payload_output = output;
 					o_stream_ref(output);
 					/* connection close marks end of payload */
-					resp->close = TRUE;
+					close = TRUE;
 				}
 			} else {
 				if (!resp->have_hdr_body_spec)
@@ -638,8 +636,8 @@ static int http_server_response_send_real(struct http_server_response *resp,
 			str_append(rtext, "Content-Length: 0\r\n");
 	}
 	if (!resp->have_hdr_connection) {
-		bool close = resp->close || req->req.connection_close ||
-			req->conn->input_broken;
+		close = close || req->req.connection_close ||
+			req->connection_close || req->conn->input_broken;
 		if (close && resp->tunnel_callback == NULL)
 			str_append(rtext, "Connection: close\r\n");
 		else if (http_server_request_version_equals(req, 1, 0))

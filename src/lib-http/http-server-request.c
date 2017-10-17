@@ -123,6 +123,13 @@ bool http_server_request_unref(struct http_server_request **_req)
 	return FALSE;
 }
 
+void http_server_request_connection_close(struct http_server_request *req,
+	bool close)
+{
+	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_SENT_RESPONSE);
+	req->connection_close = close;
+}
+
 void http_server_request_destroy(struct http_server_request **_req)
 {
 	struct http_server_request *req = *_req;
@@ -324,7 +331,7 @@ void http_server_request_finished(struct http_server_request *req)
 	conn->stats.response_count++;
 
 	if (tunnel_callback == NULL) {
-		if (resp->close) {
+		if (req->connection_close) {
 			http_server_connection_close(&conn,
 				t_strdup_printf("Server closed connection: %u %s",
 					resp->status, resp->reason));
@@ -376,28 +383,28 @@ http_server_request_create_fail_response(struct http_server_request *req,
 
 static void
 http_server_request_fail_full(struct http_server_request *req,
-	unsigned int status, const char *reason, bool close)
+	unsigned int status, const char *reason)
 {
 	struct http_server_response *resp;
 
 	req->failed = TRUE;
 	resp = http_server_request_create_fail_response(req, status, reason);
-	if (close)
-		http_server_response_submit_close(resp);
-	else
-		http_server_response_submit(resp);
+	http_server_response_submit(resp);
+	if (req->conn->input_broken)
+		req->connection_close = TRUE;
 }
 
 void http_server_request_fail(struct http_server_request *req,
 	unsigned int status, const char *reason)
 {
-	http_server_request_fail_full(req, status, reason, FALSE);
+	http_server_request_fail_full(req, status, reason);
 }
 
 void http_server_request_fail_close(struct http_server_request *req,
 	unsigned int status, const char *reason)
 {
-	http_server_request_fail_full(req, status, reason, TRUE);
+	http_server_request_connection_close(req, TRUE);
+	http_server_request_fail_full(req, status, reason);
 }
 
 void http_server_request_fail_auth(struct http_server_request *req,

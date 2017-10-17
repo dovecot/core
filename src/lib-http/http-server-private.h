@@ -89,7 +89,6 @@ struct http_server_response {
 	bool payload_blocking:1;
 	bool payload_direct:1;
 	bool payload_corked:1;
-	bool close:1;
 	bool submitted:1;
 };
 
@@ -119,6 +118,7 @@ struct http_server_request {
 	bool delay_destroy:1;
 	bool destroy_pending:1;
 	bool failed:1;
+	bool connection_close:1;
 };
 
 struct http_server_connection {
