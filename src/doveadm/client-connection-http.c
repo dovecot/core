@@ -260,6 +260,7 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 static int
 request_json_parse_init(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
@@ -267,8 +268,11 @@ request_json_parse_init(struct client_request_http *req)
 	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
 		return ret;
 	if (type != JSON_TYPE_ARRAY) {
-		/* command list must be an array */
-		return -2;
+		/* request must be a JSON array */
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"Request must be a JSON array");
+		return -1;
 	}
 	req->first_row = TRUE;
 	o_stream_nsend_str(req->output,"[");
@@ -281,6 +285,7 @@ request_json_parse_init(struct client_request_http *req)
 static int
 request_json_parse_cmd(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
@@ -294,7 +299,10 @@ request_json_parse_cmd(struct client_request_http *req)
 	}
 	if (type != JSON_TYPE_ARRAY) {
 		/* command must be an array */
-		return -2;
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"Command must be a JSON array");
+		return -1;
 	}
 	req->method_err = 0;
 	p_free_and_null(req->pool, req->method_id);
@@ -309,6 +317,7 @@ request_json_parse_cmd(struct client_request_http *req)
 static int
 request_json_parse_cmd_name(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	const struct doveadm_cmd_ver2 *ccmd;
@@ -320,7 +329,10 @@ request_json_parse_cmd_name(struct client_request_http *req)
 		return ret;
 	if (type != JSON_TYPE_STRING) {
 		/* command name must be a string */
-		return -2;
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"Command name must be a string");
+		return -1;
 	}
 
 	/* see if we can find it */
@@ -355,6 +367,7 @@ request_json_parse_cmd_name(struct client_request_http *req)
 static int
 request_json_parse_cmd_params(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
@@ -368,7 +381,10 @@ request_json_parse_cmd_params(struct client_request_http *req)
 	}
 	if (type != JSON_TYPE_OBJECT) {
 		/* parameters must be contained in an object */
-		return -2;
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"Parameters must be contained in a JSON object");
+		return -1;
 	}
 
 	/* next: parse parameter key */
@@ -379,6 +395,7 @@ request_json_parse_cmd_params(struct client_request_http *req)
 static int
 request_json_parse_cmd_param_key(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	struct doveadm_cmd_param *par;
@@ -397,14 +414,18 @@ request_json_parse_cmd_param_key(struct client_request_http *req)
 	found = FALSE;
 	array_foreach_modifiable(&req->pargv, par) {
 		if (i_strccdascmp(par->name, value) == 0) {
-			/* it's already set, cannot have same key
-			   twice in json */
-			if (par->value_set)
-				return -2;
 			req->cmd_param = par;
 			found = TRUE;
 			break;
 		}
+	}
+	if (found && req->cmd_param->value_set) {
+		/* it's already set, cannot have same key twice in json */
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"Parameter `%s' is duplicated",
+			req->cmd_param->name);
+		return -1;
 	}
 	/* skip remaining parameters if error has already occurred */
 	if (!found || req->method_err != 0) {
@@ -412,14 +433,6 @@ request_json_parse_cmd_param_key(struct client_request_http *req)
 		req->method_err = 400;
 		req->parse_state = CLIENT_REQUEST_PARSE_CMD_PARAM_KEY;
 		return 1;
-	}
-
-	if (req->cmd_param->value_set) {
-		// FIXME: should be returned as error to client,
-		// not logged
-		i_info("Parameter %s already set",
-		       req->cmd_param->name);
-		return -2;
 	}
 
 	/* next: parse parameter value */
@@ -431,6 +444,7 @@ request_json_parse_cmd_param_key(struct client_request_http *req)
 static int
 request_json_parse_param_value(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
@@ -472,7 +486,11 @@ request_json_parse_param_value(struct client_request_http *req)
 		/* singular value */
 		if (type != JSON_TYPE_STRING) {
 			/* FIXME: should handle other than string too */
-			return -2;
+			http_server_request_fail_text(http_sreq,
+				400, "Bad Request",
+				"Parameter `%s' must be string or array",
+				req->cmd_param->name);
+			return -1;
 		}
 		tmp = p_strdup(req->pool, value);
 		array_append(&req->cmd_param->value.v_array, &tmp, 1);
@@ -513,6 +531,7 @@ request_json_parse_param_value(struct client_request_http *req)
 static int
 request_json_parse_param_array(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
@@ -526,7 +545,11 @@ request_json_parse_param_array(struct client_request_http *req)
 	}
 	if (type != JSON_TYPE_STRING) {
 		/* array items must be string */
-		return -2;
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"Command parameter array can only contain"
+			"string values");
+		return -1;
 	}
 
 	/* record entry */
@@ -540,6 +563,7 @@ request_json_parse_param_array(struct client_request_http *req)
 static int
 request_json_parse_param_istream(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	struct istream *v_input = req->cmd_param->value.v_istream;
 	const unsigned char *data;
 	size_t size;
@@ -556,7 +580,12 @@ request_json_parse_param_istream(struct client_request_http *req)
 			i_stream_get_name(v_input),
 			i_stream_get_error(v_input));
 		req->method_err = 400;
-		return -2;
+		if (req->input->stream_errno == 0) {
+			http_server_request_fail_text(http_sreq,
+				400, "Bad Request",
+				"Failed to read command parameter data");
+		}
+		return -1;
 	}
 
 	/* next: continue with the next parameter */
@@ -567,6 +596,7 @@ request_json_parse_param_istream(struct client_request_http *req)
 static int
 request_json_parse_cmd_id(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
@@ -575,7 +605,10 @@ request_json_parse_cmd_id(struct client_request_http *req)
 		return ret;
 	if (type != JSON_TYPE_STRING) {
 		/* command ID must be a string */
-		return -2;
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"Command ID must be a string");
+		return -1;
 	}
 
 	/* next: parse end of command */
@@ -587,6 +620,7 @@ request_json_parse_cmd_id(struct client_request_http *req)
 static int
 request_json_parse_cmd_done(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
@@ -595,6 +629,9 @@ request_json_parse_cmd_done(struct client_request_http *req)
 		return ret;
 	if (type != JSON_TYPE_ARRAY_END) {
 		/* command array must end here */
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"Unexpected JSON element at end of command");
 		return -1;
 	}
 
@@ -609,6 +646,7 @@ request_json_parse_cmd_done(struct client_request_http *req)
 static int
 request_json_parse_done(struct client_request_http *req)
 {
+	struct http_server_request *http_sreq = req->http_request;
 	enum json_type type;
 	const char *value;
 	int ret;
@@ -616,9 +654,10 @@ request_json_parse_done(struct client_request_http *req)
 	if ((ret=json_parse_next(req->json_parser, &type, &value)) <= 0)
 		return ret;
 	/* only gets here when there is spurious additional JSON */
-	// FIXME: should be returned as error to client, not logged
-	i_info("Got unexpected elements in JSON data");
-	return -2;
+	http_server_request_fail_text(http_sreq,
+		400, "Bad Request",
+		"Unexpected JSON element in input");
+	return -1;
 }
 
 static int
@@ -679,37 +718,40 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 
 	while ((ret=doveadm_http_server_json_parse_v1(req)) > 0);
 
+	if (http_server_request_get_response(http_sreq) != NULL) {
+		/* already responded */
+		io_remove(&req->io);
+		i_stream_destroy(&req->input);
+		return;
+	}
 	if (!req->input->eof && ret == 0)
 		return;
 	io_remove(&req->io);
 
 	doveadm_cmd_params_clean(&req->pargv);
 
-	if (ret == -2 || (ret == 1 &&
-		req->parse_state != CLIENT_REQUEST_PARSE_DONE)) {
-		/* this will happen if the parser above runs into 
+	if (ret > 0 && req->parse_state != CLIENT_REQUEST_PARSE_DONE) {
+		/* this may happen if the parser above runs into
 		   unexpected element, but JSON is OK */
-		http_server_request_fail(http_sreq,
-			400, "Unexpected element in input");
-		// FIXME: should be returned as error to client, not logged
-		i_info("unexpected element");
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"Unexpected JSON element in input");
 		return;
 	}
 
 	if (req->input->stream_errno != 0) {
 		http_server_request_fail_close(http_sreq,
 			400, "Client disconnected");
-		i_info("read(client) failed: %s",
+		i_info("read(%s) failed: %s",
+		       i_stream_get_name(req->input),
 		       i_stream_get_error(req->input));
 		return;
 	}
 
 	if (json_parser_deinit(&req->json_parser, &error) != 0) {
-		// istream JSON parsing failures do not count as errors
-		http_server_request_fail(http_sreq,
-			400, "Invalid JSON input");
-		// FIXME: should be returned as error to client, not logged
-		i_info("JSON parse error: %s", error);
+		http_server_request_fail_text(http_sreq,
+			400, "Bad Request",
+			"JSON parse error: %s", error);
 		return;
 	}
 
