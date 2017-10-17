@@ -790,14 +790,13 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.smtp_set = smtp_set;
 	dctx.session_id = rcpt->session_id;
 	dctx.src_mail = src_mail;
+
+	/* MAIL FROM */
 	dctx.mail_from = client->state.mail_from;
 	dctx.mail_params = client->state.mail_params;
-	dctx.rcpt_user = dest_user;
-	dctx.session_time_msecs =
-		timeval_diff_msecs(&client->state.data_end_timeval,
-				   &client->state.mail_from_timeval);
-	dctx.delivery_time_started = delivery_time_started;
 
+	/* RCPT TO */
+	dctx.rcpt_user = dest_user;
 	dctx.rcpt_params = rcpt->params;
 	if (dctx.rcpt_params.orcpt.addr != NULL) {
 		/* used ORCPT */
@@ -819,6 +818,11 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 
 	dctx.save_dest_mail = array_count(&client->state.rcpt_to) > 1 &&
 		client->state.first_saved_mail == NULL;
+
+	dctx.session_time_msecs =
+		timeval_diff_msecs(&client->state.data_end_timeval,
+				   &client->state.mail_from_timeval);
+	dctx.delivery_time_started = delivery_time_started;
 
 	if (mail_deliver(&dctx, &storage) == 0) {
 		if (dctx.dest_mail != NULL) {
