@@ -41,10 +41,13 @@
 #  define dqb_curblocks dqb_curspace
 #endif
 
-/* Older sys/quota.h doesn't define _LINUX_QUOTA_VERSION at all, which means
-   it supports only v1 quota */
+/* Very old sys/quota.h doesn't define _LINUX_QUOTA_VERSION at all, which means
+   it supports only v1 quota. However, new sys/quota.h (glibc 2.25) removes
+   support for v1 entirely and again it doesn't define it. I guess we can just
+   assume v2 now, and if someone still wants v1 support they can add
+   -D_LINUX_QUOTA_VERSION=1 to CFLAGS. */
 #ifndef _LINUX_QUOTA_VERSION
-#  define _LINUX_QUOTA_VERSION 1
+#  define _LINUX_QUOTA_VERSION 2
 #endif
 
 #define mount_type_is_nfs(mount) \
