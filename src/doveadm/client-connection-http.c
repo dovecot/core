@@ -502,7 +502,7 @@ doveadm_http_handle_json_v1(struct client_connection_http *conn,
 			/* initialize pargv */
 			for (pargc = 0; conn->cmd->parameters[pargc].name != NULL; pargc++) {
 				param = array_append_space(&conn->pargv);
-				memcpy(param, &(conn->cmd->parameters[pargc]), sizeof(struct doveadm_cmd_param));
+				*param = conn->cmd->parameters[pargc];
 				param->value_set = FALSE;
 			}
 			conn->json_state = JSON_STATE_COMMAND_PARAMETERS;
