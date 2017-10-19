@@ -111,16 +111,10 @@ printf_format_fix_noalloc(const char *format, size_t *len_r)
 
 		/* 3) Optional precision */
 		if (*p == '.') {
-			/* We don't bother supporting anything but numbers
-			   here. 9999 should be long enough precision. */
-			unsigned int i = 0;
 			p++;
-			while (*p >= '0' && *p <= '9') {
-				if (++i > 4) {
-					i_panic("Too large precision starting at #%u in '%s'",
-						start_pos, format);
-				}
-				p++;
+			if (!verify_length(&p)) {
+				i_panic("Too large precision starting at #%u in '%s'",
+					start_pos, format);
 			}
 		}
 
