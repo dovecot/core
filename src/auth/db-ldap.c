@@ -1660,7 +1660,10 @@ static const char *
 db_ldap_field_dn_expand(const char *data ATTR_UNUSED, void *context ATTR_UNUSED)
 {
 	struct db_ldap_result_iterate_context *ctx = context;
-	return ldap_get_dn(ctx->ld, ctx->ldap_msg);
+	char *dn = ldap_get_dn(ctx->ld, ctx->ldap_msg);
+	const char *dn_dup = t_strdup(dn);
+	ldap_memfree(dn);
+	return dn_dup;
 }
 
 static struct var_expand_func_table ldap_var_funcs_table[] = {
