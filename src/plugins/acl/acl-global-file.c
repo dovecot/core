@@ -155,8 +155,10 @@ static int acl_global_file_read(struct acl_global_file *file)
 		if (i_stream_stat(input, TRUE, &st) < 0) {
 			i_error("Couldn't stat global ACL file %s: %s",
 				file->path, i_stream_get_error(input));
+			ret = -1;
+		} else {
+			file->prev_st = *st;
 		}
-		file->prev_st = *st;
 	}
 	i_stream_destroy(&input);
 
