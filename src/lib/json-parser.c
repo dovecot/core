@@ -244,7 +244,7 @@ static int json_parse_unicode_escape(struct json_parser *parser)
 			chr = hex2dec(&parser->data[2], 4);
 		}
 		if (parser->data[0] != '\\' || parser->data[1] != 'u' ||
-		    UTF16_VALID_LOW_SURROGATE(chr)) {
+		    !UTF16_VALID_LOW_SURROGATE(chr)) {
 			parser->error =
 				t_strdup_printf("High surrogate 0x%04x seen, "
 						"but not followed by low surrogate",

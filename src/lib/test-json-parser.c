@@ -26,10 +26,11 @@ static const char json_input[] =
 	"  \"sub3\":12.456e9,\n"
 	"  \"sub4\":0.456e-789"
 	"},"
-	"\"key9\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\uffff\","
-	"\"key10\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\uffff\","
+	"\"key9\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\u10ff\","
+	"\"key10\": \"foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\u10ff\","
 	"\"key11\": [],"
-	"\"key12\": [ \"foo\" , 5.24,[true],{\"aobj\":[]}]"
+	"\"key12\": [ \"foo\" , 5.24,[true],{\"aobj\":[]}],"
+	"\"key13\": \"\\ud801\\udc37\""
 	"}\n";
 
 static const struct {
@@ -68,9 +69,9 @@ static const struct {
 	{ JSON_TYPE_NUMBER, "0.456e-789" },
 	{ JSON_TYPE_OBJECT_END, NULL },
 	{ JSON_TYPE_OBJECT_KEY, "key9" },
-	{ JSON_TYPE_STRING, "foo\\\"\b\f\n\r\t\001\xef\xbf\xbf" },
+	{ JSON_TYPE_STRING, "foo\\\"\b\f\n\r\t\001\xe1\x83\xbf" },
 	{ JSON_TYPE_OBJECT_KEY, "key10" },
-	{ TYPE_STREAM, "foo\\\"\b\f\n\r\t\001\xef\xbf\xbf" },
+	{ TYPE_STREAM, "foo\\\"\b\f\n\r\t\001\xe1\x83\xbf" },
 	{ JSON_TYPE_OBJECT_KEY, "key11" },
 	{ JSON_TYPE_ARRAY, NULL },
 	{ JSON_TYPE_ARRAY_END, NULL },
@@ -86,7 +87,9 @@ static const struct {
 	{ JSON_TYPE_ARRAY, NULL },
 	{ JSON_TYPE_ARRAY_END, NULL },
 	{ JSON_TYPE_OBJECT_END, NULL },
-	{ JSON_TYPE_ARRAY_END, NULL }
+	{ JSON_TYPE_ARRAY_END, NULL },
+	{ JSON_TYPE_OBJECT_KEY, "key13" },
+	{ JSON_TYPE_STRING, "\xf0\x90\x90\xb7" }
 };
 
 static int
@@ -150,6 +153,7 @@ static void test_json_parser_success(bool full_size)
 			i_assert(pos < N_ELEMENTS(json_output));
 			test_assert(json_output[pos].type == type);
 			test_assert(null_strcmp(json_output[pos].value, value) == 0);
+
 			pos++;
 		}
 		test_assert(ret == 0);
@@ -245,7 +249,9 @@ static void test_json_parser_errors(void)
 		"{\"foo\": [1,]}",
 		"{\"foo\": 1,}",
 		"{\"foo\": 1.}}",
-		"{\"foo\": 1},{}"
+		"{\"foo\": 1},{}",
+		"{\"foo\": \"\\ud808\"}",
+		"{\"foo\": \"\\udfff\"}",
 	};
 	unsigned int i;
 
