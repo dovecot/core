@@ -95,6 +95,10 @@ int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
 		chr <<= 6;
 		chr |= input[i] & 0x3f;
 	}
+	/* these are specified as invalid encodings by standards
+	   see RFC3629 */
+	if (!uni_is_valid_ucs4(chr))
+		return -1;
 	if (chr < lowest_valid_chr) {
 		/* overlong encoding */
 		return -1;
@@ -153,7 +157,7 @@ void uni_ucs4_to_utf8_c(unichar_t chr, buffer_t *output)
 		return;
 	}
 
-	i_assert(chr < 0x80000000); /* 1 << (5*6 + 1) */
+	i_assert(uni_is_valid_ucs4(chr));
 
 	if (chr < (1 << (6 + 5))) {
 		/* 110xxxxx */
