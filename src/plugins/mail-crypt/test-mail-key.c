@@ -145,7 +145,7 @@ int init_test_mail_user(void)
 			t_strdup_printf("mail_crypt_curve=prime256v1"),
 			NULL
 		},
-		.username = "mcp_test",
+		.username = "mcp_test@example.com",
 		.no_userdb_lookup = TRUE,
 		.debug = TRUE,
 	};

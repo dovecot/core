@@ -10,6 +10,7 @@
 #include "var-expand.h"
 #include "message-date.h"
 #include "message-size.h"
+#include "message-address.h"
 #include "istream-header-filter.h"
 #include "mail-storage.h"
 #include "mail-storage-settings.h"
@@ -94,8 +95,9 @@ int mail_send_rejection(struct mail_deliver_context *ctx, const char *recipient,
 	str = t_str_new(512);
 	str_printfa(str, "Message-ID: %s\r\n", msgid);
 	str_printfa(str, "Date: %s\r\n", message_date_create(ioloop_time));
-	str_printfa(str, "From: Mail Delivery Subsystem <%s>\r\n",
-		mail_set->postmaster_address);
+	str_append(str, "From: ");
+	message_address_write(str, mail_set->parsed_postmaster_address);
+	str_append(str, "\r\n");
 	str_printfa(str, "To: <%s>\r\n", return_addr);
 	str_append(str, "MIME-Version: 1.0\r\n");
 	str_printfa(str, "Content-Type: "

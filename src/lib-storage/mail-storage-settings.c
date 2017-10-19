@@ -7,6 +7,7 @@
 #include "unichar.h"
 #include "hostpid.h"
 #include "settings-parser.h"
+#include "message-address.h"
 #include "mail-index.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -16,6 +17,7 @@
 #include <stddef.h>
 
 static bool mail_storage_settings_check(void *_set, pool_t pool, const char **error_r);
+static bool mail_storage_settings_expand_check(void *_set, pool_t pool ATTR_UNUSED, const char **error_r);
 static bool namespace_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mailbox_settings_check(void *_set, pool_t pool, const char **error_r);
 static bool mail_user_settings_check(void *_set, pool_t pool, const char **error_r);
@@ -152,7 +154,10 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 	.parent_offset = (size_t)-1,
 	.parent = &mail_user_setting_parser_info,
 
-	.check_func = mail_storage_settings_check
+	.check_func = mail_storage_settings_check,
+#ifndef CONFIG_BINARY
+	.expand_check_func = mail_storage_settings_expand_check,
+#endif
 };
 
 #undef DEF
@@ -519,6 +524,36 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 
 	return TRUE;
 }
+
+#ifndef CONFIG_BINARY
+static bool mail_storage_settings_expand_check(void *_set,
+	pool_t pool ATTR_UNUSED, const char **error_r)
+{
+	struct mail_storage_settings *set = _set;
+	const char *address = set->postmaster_address;
+	struct message_address *addr;
+
+	addr = message_address_parse(pool,
+		(const unsigned char *)address,
+		strlen(address), 2, FALSE);
+	if (addr == NULL || addr->domain == NULL || addr->invalid_syntax) {
+		*error_r = t_strdup_printf(
+			"invalid address `%s' specified for the "
+			"postmaster_address setting", address);
+		return FALSE;
+	}
+	if (addr->next != NULL) {
+		*error_r = "more than one address specified for the "
+			"postmaster_address setting";
+		return FALSE;
+	}
+	if (addr->name == NULL || *addr->name == '\0')
+		addr->name = "Postmaster";
+	set->parsed_postmaster_address = addr;
+
+	return TRUE;
+}
+#endif
 
 static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				     const char **error_r)

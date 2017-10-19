@@ -9,6 +9,7 @@
 struct mail_user;
 struct mail_namespace;
 struct mail_storage;
+struct message_address;
 
 struct mail_storage_settings {
 	const char *mail_location;
@@ -59,6 +60,8 @@ struct mail_storage_settings {
 	const char *pop3_uidl_format;
 
 	const char *postmaster_address;
+	const struct message_address *parsed_postmaster_address;
+
 	const char *hostname;
 	const char *recipient_delimiter;
 
