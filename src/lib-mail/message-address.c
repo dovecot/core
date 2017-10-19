@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "strescape.h"
+#include "smtp-address.h"
 #include "message-parser.h"
 #include "message-address.h"
 #include "rfc822-parser.h"
@@ -509,6 +510,24 @@ void message_address_write(string_t *str, const struct message_address *addr)
 
 		addr = addr->next;
 	}
+}
+
+void message_address_init(struct message_address *addr,
+	const char *name, const char *mailbox, const char *domain)
+{
+	i_zero(addr);
+	addr->name = name;
+	addr->mailbox = mailbox;
+	addr->domain = domain;
+}
+
+void message_address_init_from_smtp(struct message_address *addr,
+	const char *name, const struct smtp_address *smtp_addr)
+{
+	i_zero(addr);
+	addr->name = name;
+	addr->mailbox = smtp_addr->localpart;
+	addr->domain = smtp_addr->domain;
 }
 
 static const char *address_headers[] = {

@@ -3,7 +3,8 @@ noinst_LTLIBRARIES = libmail.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
-	-I$(top_srcdir)/src/lib-charset
+	-I$(top_srcdir)/src/lib-charset \
+	-I$(top_srcdir)/src/lib-smtp
 
 libmail_la_SOURCES = \
 	istream-attachment-connector.c \
