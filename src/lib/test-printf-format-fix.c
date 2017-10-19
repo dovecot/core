@@ -21,8 +21,10 @@ static void test_unchanged()
 		"Allow %#0- +s flags",
 		"duplicate flags in different args %0-123s %0-123s",
 		"Minimum length %9999s",
+		"Minimum length parameter %*s",
 		"Precision %.9999s",
 		"Precision %1.9999s",
+		"Precision parameter %1.*s %.*s",
 		"Length modifiers %hd %hhd %ld %lld %Lg %jd %zd %td",
 		"Specifiers %s %u %d %c %i %x %X %p %o %e %E %f %F %g %G %a %A",
 		"%%doesn't cause confusion in %%m and %%n",
@@ -119,7 +121,6 @@ enum fatal_test_state fatal_printf_format_fix(unsigned int stage)
 		"Precision can't be too long %.10000s",
 		"Precision can't be too long %1.10000s",
 		"Precision doesn't support %1.-1s",
-		"Precision doesn't support %1.*s",
 	};
 
 	if(stage >= N_ELEMENTS(fatals)) {
