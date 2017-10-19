@@ -32,6 +32,27 @@ fix_format_real(const char *fmt, const char *p, size_t *len_r)
 	return buf;
 }
 
+static bool verify_length(const char **p)
+{
+	if (**p == '*') {
+		/* We don't bother supporting "*m$" - it's not used
+		   anywhere and seems a bit dangerous. */
+		*p += 1;
+	} else if (**p >= '1' && **p <= '9') {
+		/* Limit to 4 digits - we'll never want more than that.
+		   Some implementations might not handle long digits
+		   correctly, or maybe even could be used for DoS due
+		   to using too much CPU. */
+		unsigned int i = 0;
+		do {
+			*p += 1;
+			if (++i > 4)
+				return FALSE;
+		} while (**p >= '0' && **p <= '9');
+	}
+	return TRUE;
+}
+
 static const char *
 printf_format_fix_noalloc(const char *format, size_t *len_r)
 {
@@ -83,23 +104,9 @@ printf_format_fix_noalloc(const char *format, size_t *len_r)
 		}
 
 		/* 2) Optional minimum field width */
-		if (*p == '*') {
-			/* We don't bother supporting "*m$" - it's not used
-			   anywhere and seems a bit dangerous. */
-			p++;
-		} else if (*p >= '1' && *p <= '9') {
-			/* Limit to 4 digits - we'll never want more than that.
-			   Some implementations might not handle long digits
-			   correctly, or maybe even could be used for DoS due
-			   to using too much CPU. */
-			unsigned int i = 0;
-			do {
-				p++;
-				if (++i > 4) {
-					i_panic("Too large minimum field width starting at #%u in '%s'",
-						start_pos, format);
-				}
-			} while (*p >= '0' && *p <= '9');
+		if (!verify_length(&p)) {
+			i_panic("Too large minimum field width starting at #%u in '%s'",
+				start_pos, format);
 		}
 
 		/* 3) Optional precision */
