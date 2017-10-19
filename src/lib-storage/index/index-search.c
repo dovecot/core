@@ -769,7 +769,17 @@ static int search_arg_match_text(struct mail_search_arg *args,
 			search_cur_mail_failed(ctx);
 			failed = TRUE;
 		} else {
+			/* FIXME: The header parsing here is an optimization to
+			   avoid parsing the header twice: First when checking
+			   whether the search matches, and secondly when
+			   generating wanted fields. However, if we already
+			   know that we want to generate a BODYSTRUCTURE reply,
+			   index_mail_parse_header() must have a non-NULL part
+			   parameter. That's not easily possible at this point
+			   without larger code changes, so for now we'll just
+			   disable this optimization for that case. */
 			hdr_ctx.parse_headers =
+				!hdr_ctx.imail->data.save_bodystructure_header &&
 				index_mail_want_parse_headers(hdr_ctx.imail);
 			if (hdr_ctx.parse_headers) {
 				index_mail_parse_header_init(hdr_ctx.imail,
