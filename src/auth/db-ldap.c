@@ -1679,7 +1679,9 @@ db_ldap_field_dn_expand(const char *data ATTR_UNUSED, void *context ATTR_UNUSED,
 			 const char **value_r, const char **error_r ATTR_UNUSED)
 {
 	struct db_ldap_result_iterate_context *ctx = context;
-	*value_r = ldap_get_dn(ctx->ld, ctx->ldap_msg);
+	char *dn = ldap_get_dn(ctx->ld, ctx->ldap_msg);
+	*value_r = t_strdup(dn);
+	ldap_memfree(dn);
 	return 1;
 }
 
