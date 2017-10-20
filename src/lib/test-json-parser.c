@@ -151,12 +151,12 @@ static void test_json_parser_success(bool full_size)
 				break;
 
 			i_assert(pos < N_ELEMENTS(json_output));
-			test_assert(json_output[pos].type == type);
-			test_assert(null_strcmp(json_output[pos].value, value) == 0);
+			test_assert_idx(json_output[pos].type == type, pos);
+			test_assert_idx(null_strcmp(json_output[pos].value, value) == 0, pos);
 
 			pos++;
 		}
-		test_assert(ret == 0);
+		test_assert_idx(ret == 0, pos);
 	}
 	test_assert(pos == N_ELEMENTS(json_output));
 	test_istream_set_allow_eof(input, TRUE);
