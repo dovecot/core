@@ -202,9 +202,9 @@ static int maildir_list_deinit(struct maildir_list_context *ctx,
 {
 	int ret = mailbox_list_iter_deinit(&ctx->iter);
 	if (ret < 0)
-		*error_r = t_strdup(
-			mailbox_list_get_last_internal_error(ctx->iter->list,
-							     NULL));
+		*error_r = t_strdup_printf(
+			"Listing mailboxes failed: %s",
+			mailbox_list_get_last_internal_error(ctx->list, NULL));
 
 	str_free(&ctx->path);
 	i_free(ctx);
