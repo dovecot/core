@@ -30,6 +30,8 @@
 
 #define UTF8_REPLACEMENT_CHAR_LEN 3
 
+#define UNICHAR_T_MAX 0x10ffff
+
 typedef uint32_t unichar_t;
 ARRAY_DEFINE_TYPE(unichars, unichar_t);
 
@@ -41,6 +43,12 @@ typedef int normalizer_func_t(const void *input, size_t size,
 
 extern const unsigned char utf8_replacement_char[UTF8_REPLACEMENT_CHAR_LEN];
 extern const uint8_t *const uni_utf8_non1_bytes;
+
+static inline bool ATTR_PURE uni_is_valid_ucs4(unichar_t chr)
+{
+	return (chr & 0xfff800) != UTF16_SURROGATE_HIGH_FIRST &&
+		chr <= UNICHAR_T_MAX;
+};
 
 /* Returns number of characters in a NUL-terminated unicode string */
 unsigned int uni_strlen(const unichar_t *str) ATTR_PURE;
