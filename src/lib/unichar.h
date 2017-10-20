@@ -32,6 +32,9 @@
 
 #define UNICHAR_T_MAX 0x10ffff
 
+#define UTF16_VALID_HIGH_SURROGATE(chr) (((chr) & 0xfffc00) == UTF16_SURROGATE_HIGH_FIRST)
+#define UTF16_VALID_LOW_SURROGATE(chr) (((chr) & 0xfffc00) == UTF16_SURROGATE_LOW_FIRST)
+
 typedef uint32_t unichar_t;
 ARRAY_DEFINE_TYPE(unichars, unichar_t);
 
@@ -108,4 +111,22 @@ bool uni_utf8_str_is_valid(const char *str);
 /* Returns TRUE if data contains only valid UTF-8 input. */
 bool uni_utf8_data_is_valid(const unsigned char *data, size_t size);
 
+/* surrogate handling */
+static inline unichar_t uni_join_surrogate(unichar_t high, unichar_t low)
+{
+	i_assert(UTF16_VALID_HIGH_SURROGATE(high) &&
+		 UTF16_VALID_LOW_SURROGATE(low));
+
+	return ((high - UTF16_SURROGATE_HIGH_FIRST)<<10) +
+		(low - UTF16_SURROGATE_LOW_FIRST) +
+		UTF16_SURROGATE_BASE;
+}
+
+static inline void uni_split_surrogate(unichar_t chr, unichar_t *high_r, unichar_t *low_r)
+{
+	i_assert(chr >= UTF16_SURROGATE_BASE && chr <= UNICHAR_T_MAX);
+	i_assert(high_r != NULL && low_r != NULL);
+	*high_r = UTF16_SURROGATE_HIGH(chr);
+	*low_r = UTF16_SURROGATE_LOW(chr);
+}
 #endif
