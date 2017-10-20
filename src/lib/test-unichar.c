@@ -107,6 +107,20 @@ static void test_unichar_valid_unicode(void)
 	test_end();
 }
 
+static void test_unichar_surrogates(void)
+{
+	unichar_t orig, high, low;
+	test_begin("unichar surrogates");
+
+	orig = 0x10437;
+	uni_split_surrogate(orig, &high, &low);
+	test_assert(high == 0xD801);
+	test_assert(low == 0xDC37);
+	test_assert(uni_join_surrogate(high, low) == orig);
+
+	test_end();
+}
+
 void test_unichar(void)
 {
 	static const char overlong_utf8[] = "\xf8\x80\x95\x81\xa1";
@@ -167,4 +181,5 @@ void test_unichar(void)
 	test_unichar_uni_utf8_strlen();
 	test_unichar_uni_utf8_partial_strlen_n();
 	test_unichar_valid_unicode();
+	test_unichar_surrogates();
 }
