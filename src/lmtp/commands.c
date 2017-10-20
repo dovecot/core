@@ -895,6 +895,7 @@ client_deliver(struct client *client, const struct mail_recipient *rcpt,
 	dctx.session = session;
 	dctx.pool = session->pool;
 	dctx.set = lda_set;
+	dctx.smtp_set = smtp_set;
 	dctx.session_id = rcpt->session_id;
 	dctx.src_mail = src_mail;
 	dctx.src_envelope_sender = client->state.mail_from;
