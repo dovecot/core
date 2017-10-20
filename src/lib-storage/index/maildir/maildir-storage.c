@@ -31,6 +31,8 @@ static MODULE_CONTEXT_DEFINE_INIT(maildir_mailbox_list_module,
 				  &mailbox_list_module_register);
 static const char *maildir_subdirs[] = { "cur", "new", "tmp" };
 
+static void maildir_mailbox_close(struct mailbox *box);
+
 static struct mail_storage *maildir_storage_alloc(void)
 {
 	struct maildir_storage *storage;
@@ -295,15 +297,19 @@ static int maildir_mailbox_open_existing(struct mailbox *box)
 	mbox->keywords = maildir_keywords_init(mbox);
 
 	if ((box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0) {
-		if (maildir_uidlist_lock(mbox->uidlist) <= 0)
+		if (maildir_uidlist_lock(mbox->uidlist) <= 0) {
+			maildir_mailbox_close(box);
 			return -1;
+		}
 		mbox->keep_lock_to = timeout_add(MAILDIR_LOCK_TOUCH_SECS * 1000,
 						 maildir_lock_touch_timeout,
 						 mbox);
 	}
 
-	if (index_storage_mailbox_open(box, FALSE) < 0)
+	if (index_storage_mailbox_open(box, FALSE) < 0) {
+		maildir_mailbox_close(box);
 		return -1;
+	}
 
 	mbox->maildir_ext_id =
 		mail_index_ext_register(mbox->box.index, "maildir",
