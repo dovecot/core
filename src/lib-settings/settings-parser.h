@@ -87,6 +87,7 @@ struct setting_parser_info {
 	const struct setting_parser_info *parent;
 
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
+	bool (*expand_check_func)(void *set, pool_t pool, const char **error_r);
 	const struct setting_parser_info *const *dependencies;
 	struct dynamic_settings_parser *dynamic_parsers;
 

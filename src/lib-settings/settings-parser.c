@@ -1344,6 +1344,27 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 		}
 		}
 	}
+
+	if (final_ret <= 0)
+		return final_ret;
+
+	if (info->expand_check_func != NULL) {
+		if (!info->expand_check_func(set, pool, error_r))
+			return -1;
+	}
+	if (info->dynamic_parsers != NULL) {
+		for (i = 0; info->dynamic_parsers[i].name != NULL; i++) {
+			struct dynamic_settings_parser *dyn = &info->dynamic_parsers[i];
+			const struct setting_parser_info *dinfo = dyn->info;
+			void *dset = PTR_OFFSET(set, dyn->struct_offset);
+
+			if (dinfo->expand_check_func != NULL) {
+				if (!dinfo->expand_check_func(dset, pool, error_r))
+					return -1;
+			}
+		}
+	}
+
 	return final_ret;
 }
 
