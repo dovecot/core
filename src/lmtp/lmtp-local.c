@@ -169,8 +169,8 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mailbox_status status;
-	const char *errstr;
-	enum mail_error error;
+	enum mail_error mail_error;
+	const char *error;
 	int ret;
 
 	if (!client->lmtp_set->lmtp_rcpt_check_quota)
@@ -186,11 +186,11 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 	ret = mail_storage_service_next_with_session_suffix(storage_service,
 							    rcpt->service_user,
 							    "quota",
-							    &user, &errstr);
+							    &user, &error);
 
 	if (ret < 0) {
 		i_error("Failed to initialize user %s: %s",
-			smtp_address_encode(address), errstr);
+			smtp_address_encode(address), error);
 		ret = -1;
 	} else {
 		ns = mail_namespace_find_inbox(user->namespaces);
@@ -198,9 +198,9 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 		mailbox_set_reason(box, "over-quota check");
 		ret = mailbox_get_status(box, STATUS_CHECK_OVER_QUOTA, &status);
 		if (ret < 0) {
-			errstr = mailbox_get_last_error(box, &error);
-			if (error == MAIL_ERROR_NOQUOTA) {
-				lmtp_local_rcpt_reply_overquota(rcpt, errstr);
+			error = mailbox_get_last_error(box, &mail_error);
+			if (mail_error == MAIL_ERROR_NOQUOTA) {
+				lmtp_local_rcpt_reply_overquota(rcpt, error);
 				ret = 0;
 			} else {
 				i_error("mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
