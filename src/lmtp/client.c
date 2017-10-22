@@ -125,6 +125,11 @@ static void client_read_settings(struct client *client)
 	client->unexpanded_lda_set = lda_set;
 }
 
+unsigned int client_get_rcpt_count(struct client *client)
+{
+	return lmtp_local_rcpt_count(client) + lmtp_proxy_rcpt_count(client);
+}
+
 static void client_generate_session_id(struct client *client)
 {
 	guid_128_t guid;
@@ -186,26 +191,10 @@ struct client *client_create(int fd_in, int fd_out,
 
 void client_state_reset(struct client *client, const char *state_name)
 {
-	struct lmtp_recipient *const *rcptp;
-
+	if (client->local != NULL)
+		lmtp_local_deinit(&client->local);
 	if (client->proxy != NULL)
 		lmtp_proxy_deinit(&client->proxy);
-
-	if (array_is_created(&client->state.rcpt_to)) {
-		array_foreach_modifiable(&client->state.rcpt_to, rcptp) {
-			lmtp_local_rcpt_deinit(*rcptp);
-		}
-	}
-
-	if (client->state.raw_mail != NULL) {
-		struct mailbox_transaction_context *raw_trans =
-			client->state.raw_mail->transaction;
-		struct mailbox *raw_box = client->state.raw_mail->box;
-
-		mail_free(&client->state.raw_mail);
-		mailbox_transaction_rollback(&raw_trans);
-		mailbox_free(&raw_box);
-	}
 
 	buffer_free(&client->state.mail_data);
 	o_stream_unref(&client->state.mail_data_output);
@@ -232,6 +221,8 @@ void client_destroy(struct client *client, const char *prefix,
 
 	if (client->raw_mail_user != NULL)
 		mail_user_unref(&client->raw_mail_user);
+	if (client->local != NULL)
+		lmtp_local_deinit(&client->local);
 	if (client->proxy != NULL)
 		lmtp_proxy_deinit(&client->proxy);
 	io_remove(&client->io);

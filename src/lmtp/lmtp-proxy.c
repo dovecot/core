@@ -304,6 +304,13 @@ lmtp_proxy_write_reply(string_t *reply, const struct smtp_reply *proxy_reply)
  * RCPT command
  */
 
+unsigned int lmtp_proxy_rcpt_count(struct client *client)
+{
+	if (client->proxy == NULL)
+		return 0;
+	return array_count(&client->proxy->rcpt_to);
+}
+
 static bool
 lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 			     const char *const *args, const char **address)
@@ -517,7 +524,8 @@ int lmtp_proxy_rcpt(struct client *client,
 		pool_unref(&pool);
 		return -1;
 	}
-	if (array_count(&client->state.rcpt_to) != 0) {
+	if (client_get_rcpt_count(client) >
+		lmtp_proxy_rcpt_count(client)) {
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
 			smtp_address_encode(address));

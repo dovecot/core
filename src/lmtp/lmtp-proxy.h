@@ -37,6 +37,8 @@ lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 		struct ostream *client_output);
 void lmtp_proxy_deinit(struct lmtp_proxy **proxy);
 
+unsigned int lmtp_proxy_rcpt_count(struct client *client);
+
 /* Set the "MAIL FROM:" parameters */
 void lmtp_proxy_mail_from(struct lmtp_proxy *proxy,
 			  const struct smtp_address *address,

@@ -29,16 +29,85 @@
 #define ERRSTR_TEMP_MAILBOX_FAIL "451 4.3.0 <%s> Temporary internal error"
 #define ERRSTR_TEMP_USERDB_FAIL_PREFIX "451 4.3.0 <%s> "
 
+struct lmtp_local_recipient {
+	struct lmtp_recipient rcpt;
+	const char *session_id;
+
+	const char *detail;
+
+	struct mail_storage_service_user *service_user;
+	struct anvil_query *anvil_query;
+
+	bool anvil_connect_sent:1;
+};
+
+struct lmtp_local {
+	struct client *client;
+
+	ARRAY(struct lmtp_local_recipient *) rcpt_to;
+
+	struct mail *raw_mail, *first_saved_mail;
+	struct mail_user *rcpt_user;
+};
+
+static void
+lmtp_local_rcpt_deinit(struct lmtp_local_recipient *rcpt);
+
 /*
  * LMTP local
  */
+
+static struct lmtp_local *
+lmtp_local_init(struct client *client)
+{
+	struct lmtp_local *local;
+
+	local = i_new(struct lmtp_local, 1);
+	local->client = client;
+	i_array_init(&local->rcpt_to, 8);
+
+	return local;
+}
+
+void lmtp_local_deinit(struct lmtp_local **_local)
+{
+	struct lmtp_local *local = *_local;
+	struct lmtp_local_recipient *const *rcptp;
+
+	*_local = NULL;
+
+	if (array_is_created(&local->rcpt_to)) {
+		array_foreach_modifiable(&local->rcpt_to, rcptp)
+			lmtp_local_rcpt_deinit(*rcptp);
+		array_free(&local->rcpt_to);
+	}
+
+	if (local->raw_mail != NULL) {
+		struct mailbox_transaction_context *raw_trans =
+			local->raw_mail->transaction;
+		struct mailbox *raw_box = local->raw_mail->box;
+
+		mail_free(&local->raw_mail);
+		mailbox_transaction_rollback(&raw_trans);
+		mailbox_free(&raw_box);
+	}
+
+	i_free(local);
+}
 
 /*
  * Recipient
  */
 
+unsigned int lmtp_local_rcpt_count(struct client *client)
+{
+	if (client->local == NULL)
+		return 0;
+	return array_count(&client->local->rcpt_to);
+}
+
 static void
-lmtp_local_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt)
+lmtp_local_rcpt_anvil_disconnect(struct lmtp_local_recipient *rcpt)
 {
 	const struct mail_storage_service_input *input;
 
@@ -51,7 +120,7 @@ lmtp_local_rcpt_anvil_disconnect(const struct lmtp_recipient *rcpt)
 		"/", input->username, "\n", NULL));
 }
 
-void lmtp_local_rcpt_deinit(struct lmtp_recipient *rcpt)
+void lmtp_local_rcpt_deinit(struct lmtp_local_recipient *rcpt)
 {
 	if (rcpt->anvil_query != NULL)
 		anvil_client_query_abort(anvil, &rcpt->anvil_query);
@@ -60,25 +129,26 @@ void lmtp_local_rcpt_deinit(struct lmtp_recipient *rcpt)
 }
 
 static void
-client_send_line_overquota(struct client *client,
-			   const struct lmtp_recipient *rcpt, const char *error)
+lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *rcpt,
+				const char *error)
 {
+	struct client *client = rcpt->rcpt.client;
 	struct lda_settings *lda_set =
 		mail_storage_service_user_get_set(rcpt->service_user)[2];
 
 	client_send_line(client, "%s <%s> %s",
 		lda_set->quota_full_tempfail ? "452 4.2.2" : "552 5.2.2",
-		smtp_address_encode(rcpt->address), error);
+		smtp_address_encode(rcpt->rcpt.address), error);
 }
 
 static void
-client_rcpt_fail_all(struct client *client)
+lmtp_local_rcpt_fail_all(struct lmtp_local *local)
 {
-	struct lmtp_recipient *const *rcptp;
+	struct lmtp_local_recipient *const *rcptp;
 
-	array_foreach(&client->state.rcpt_to, rcptp) {
-		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 smtp_address_encode((*rcptp)->address));
+	array_foreach(&local->rcpt_to, rcptp) {
+		client_send_line(local->client, ERRSTR_TEMP_MAILBOX_FAIL,
+				 smtp_address_encode((*rcptp)->rcpt.address));
 	}
 }
 
@@ -87,10 +157,10 @@ client_rcpt_fail_all(struct client *client)
  */
 
 static int
-lmtp_local_rcpt_check_quota(struct client *client,
-			   const struct lmtp_recipient *rcpt)
+lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *rcpt)
 {
-	struct smtp_address *address = rcpt->address;
+	struct client *client = rcpt->rcpt.client;
+	struct smtp_address *address = rcpt->rcpt.address;
 	struct mail_user *user;
 	struct mail_namespace *ns;
 	struct mailbox *box;
@@ -126,7 +196,7 @@ lmtp_local_rcpt_check_quota(struct client *client,
 		if (ret < 0) {
 			errstr = mailbox_get_last_error(box, &error);
 			if (error == MAIL_ERROR_NOQUOTA) {
-				client_send_line_overquota(client, rcpt, errstr);
+				lmtp_local_rcpt_reply_overquota(rcpt, errstr);
 				ret = 0;
 			} else {
 				i_error("mailbox_get_status(%s, STATUS_CHECK_OVER_QUOTA) "
@@ -147,16 +217,16 @@ lmtp_local_rcpt_check_quota(struct client *client,
 }
 
 static bool
-lmtp_local_rcpt_anvil_finish(struct client *client,
-	struct lmtp_recipient *rcpt)
+lmtp_local_rcpt_anvil_finish(struct lmtp_local_recipient *rcpt)
 {
+	struct client *client = rcpt->rcpt.client;
 	int ret;
 
-	if ((ret = lmtp_local_rcpt_check_quota(client, rcpt)) < 0) {
+	if ((ret = lmtp_local_rcpt_check_quota(rcpt)) < 0) {
 		mail_storage_service_user_unref(&rcpt->service_user);
 		return FALSE;
 	}
-	array_append(&client->state.rcpt_to, &rcpt, 1);
+	array_append(&client->local->rcpt_to, &rcpt, 1);
 	client_send_line(client, "250 2.1.5 OK");
 	return TRUE;
 }
@@ -164,8 +234,8 @@ lmtp_local_rcpt_anvil_finish(struct client *client,
 static void
 lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 {
-	struct lmtp_recipient *rcpt = context;
-	struct client *client = rcpt->client;
+	struct lmtp_local_recipient *rcpt = context;
+	struct client *client = rcpt->rcpt.client;
 	const struct mail_storage_service_input *input;
 	unsigned int parallel_count = 0;
 
@@ -179,9 +249,9 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 	if (parallel_count >= client->lmtp_set->lmtp_user_concurrency_limit) {
 		client_send_line(client, ERRSTR_TEMP_USERDB_FAIL_PREFIX
 				 "Too many concurrent deliveries for user",
-				 smtp_address_encode(rcpt->address));
+				 smtp_address_encode(rcpt->rcpt.address));
 		mail_storage_service_user_unref(&rcpt->service_user);
-	} else if (lmtp_local_rcpt_anvil_finish(client, rcpt)) {
+	} else if (lmtp_local_rcpt_anvil_finish(rcpt)) {
 		rcpt->anvil_connect_sent = TRUE;
 		input = mail_storage_service_user_get_input(rcpt->service_user);
 		master_service_anvil_send(master_service, t_strconcat(
@@ -194,23 +264,24 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 }
 
 int lmtp_local_rcpt(struct client *client,
-	struct lmtp_recipient *rcpt,
 	struct smtp_address *address,
-	const char *username, const char *detail)
+	const char *username, const char *detail,
+	const struct smtp_params_rcpt *params)
 {
+	struct lmtp_local_recipient *rcpt;
 	struct mail_storage_service_input input;
-	const char *error = NULL;
+	struct mail_storage_service_user *service_user;
+	const char *session_id, *error = NULL;
 	int ret;
 
 	/* Use a unique session_id for each mail delivery. This is especially
 	   important for stats process to not see duplicate sessions. */
-	if (array_count(&client->state.rcpt_to) == 0)
-		rcpt->session_id = client->state.session_id;
+	if (client_get_rcpt_count(client) == 0)
+		session_id = client->state.session_id;
 	else {
-		rcpt->session_id =
-			p_strdup_printf(client->state_pool, "%s:%u",
-					client->state.session_id,
-					array_count(&client->state.rcpt_to)+1);
+		session_id =
+			t_strdup_printf("%s:%u", client->state.session_id,
+					client_get_rcpt_count(client)+1);
 	}
 
 	i_zero(&input);
@@ -220,10 +291,10 @@ int lmtp_local_rcpt(struct client *client,
 	input.remote_ip = client->remote_ip;
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
-	input.session_id = rcpt->session_id;
+	input.session_id = session_id;
 
 	ret = mail_storage_service_lookup(storage_service, &input,
-					  &rcpt->service_user, &error);
+					  &service_user, &error);
 
 	if (ret < 0) {
 		i_error("Failed to lookup user %s: %s", username, error);
@@ -244,15 +315,23 @@ int lmtp_local_rcpt(struct client *client,
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
 			smtp_address_encode(address));
-		mail_storage_service_user_unref(&rcpt->service_user);
+		mail_storage_service_user_unref(&service_user);
 		return 0;
 	}
 
-	rcpt->address = smtp_address_clone(client->state_pool, address);
+	if (client->local == NULL)
+		client->local = lmtp_local_init(client);
+
+	rcpt = p_new(client->state_pool, struct lmtp_local_recipient, 1);
+	rcpt->rcpt.client = client;
+	rcpt->rcpt.address = smtp_address_clone(client->state_pool, address); 
+	smtp_params_rcpt_copy(client->state_pool, &rcpt->rcpt.params, params);
 	rcpt->detail = p_strdup(client->state_pool, detail);
+	rcpt->service_user = service_user;
+	rcpt->session_id = p_strdup(client->state_pool, session_id);
 
 	if (client->lmtp_set->lmtp_user_concurrency_limit == 0) {
-		(void)lmtp_local_rcpt_anvil_finish(client, rcpt);
+		(void)lmtp_local_rcpt_anvil_finish(rcpt);
 		return 0;
 	} else {
 		/* NOTE: username may change as the result of the userdb
@@ -275,12 +354,48 @@ int lmtp_local_rcpt(struct client *client,
  * DATA command
  */
 
-static int
-lmtp_local_deliver(struct client *client,
-	       const struct lmtp_recipient *rcpt,
-	       struct mail *src_mail,
-	       struct mail_deliver_session *session)
+void lmtp_local_add_headers(struct lmtp_local *local,
+			    string_t *headers)
 {
+	struct client *client = local->client;
+	struct lmtp_local_recipient *const *rcpts;
+	const struct lmtp_settings *lmtp_set;
+	const struct smtp_address *rcpt_to = NULL;
+	unsigned int count;
+	void **sets;
+
+	str_printfa(headers, "Return-Path: <%s>\r\n",
+		    smtp_address_encode(client->state.mail_from));
+
+	rcpts = array_get(&local->rcpt_to, &count);
+	if (count == 1) {
+		sets = mail_storage_service_user_get_set(rcpts[0]->service_user);
+		lmtp_set = sets[3];
+
+		switch (lmtp_set->parsed_lmtp_hdr_delivery_address) {
+		case LMTP_HDR_DELIVERY_ADDRESS_NONE:
+			break;
+		case LMTP_HDR_DELIVERY_ADDRESS_FINAL:
+			rcpt_to = rcpts[0]->rcpt.address;
+			break;
+		case LMTP_HDR_DELIVERY_ADDRESS_ORIGINAL:
+			rcpt_to = rcpts[0]->rcpt.params.orcpt.addr;
+			break;
+		}
+	}
+	if (rcpt_to != NULL) {
+		str_printfa(headers, "Delivered-To: %s\r\n",
+			smtp_address_encode(rcpt_to));
+	}
+}
+
+static int
+lmtp_local_deliver(struct lmtp_local *local,
+		   struct lmtp_local_recipient *rcpt,
+		   struct mail *src_mail,
+		   struct mail_deliver_session *session)
+{
+	struct client *client = local->client;
 	struct mail_storage_service_user *service_user = rcpt->service_user;
 	struct mail_deliver_context dctx;
 	struct mail_user *rcpt_user;
@@ -328,10 +443,10 @@ lmtp_local_deliver(struct client *client,
 				      &rcpt_user, &error) < 0) {
 		i_error("Failed to initialize user: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 smtp_address_encode(rcpt->address));
+				 smtp_address_encode(rcpt->rcpt.address));
 		return -1;
 	}
-	client->state.dest_user = rcpt_user;
+	local->rcpt_user = rcpt_user;
 
 	sets = mail_storage_service_user_get_set(service_user);
 	var_table = mail_user_var_expand_table(rcpt_user);
@@ -350,7 +465,7 @@ lmtp_local_deliver(struct client *client,
 	if (ret <= 0) {
 		i_error("Failed to expand settings: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 smtp_address_encode(rcpt->address));
+				 smtp_address_encode(rcpt->rcpt.address));
 		return -1;
 	}
 
@@ -361,7 +476,7 @@ lmtp_local_deliver(struct client *client,
 		i_error("Failed to expand mail_log_prefix=%s: %s",
 			rcpt_user->set->mail_log_prefix, error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 smtp_address_encode(rcpt->address));
+				 smtp_address_encode(rcpt->rcpt.address));
 		return -1;
 	}
 	i_set_failure_prefix("%s", str_c(str));
@@ -380,7 +495,7 @@ lmtp_local_deliver(struct client *client,
 
 	/* RCPT TO */
 	dctx.rcpt_user = rcpt_user;
-	dctx.rcpt_params = rcpt->params;
+	dctx.rcpt_params = rcpt->rcpt.params;
 	if (dctx.rcpt_params.orcpt.addr != NULL) {
 		/* used ORCPT */
 	} else if (*dctx.set->lda_original_recipient_header != '\0') {
@@ -388,8 +503,8 @@ lmtp_local_deliver(struct client *client,
 				dctx.set->lda_original_recipient_header);
 	}
 	if (dctx.rcpt_params.orcpt.addr == NULL)
-		dctx.rcpt_params.orcpt.addr = rcpt->address;
-	dctx.rcpt_to = rcpt->address;
+		dctx.rcpt_params.orcpt.addr = rcpt->rcpt.address;
+	dctx.rcpt_to = rcpt->rcpt.address;
 	if (*rcpt->detail == '\0' ||
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
 		dctx.rcpt_default_mailbox = "INBOX";
@@ -399,8 +514,8 @@ lmtp_local_deliver(struct client *client,
 			t_strconcat(ns->prefix, rcpt->detail, NULL);
 	}
 
-	dctx.save_dest_mail = array_count(&client->state.rcpt_to) > 1 &&
-		client->state.first_saved_mail == NULL;
+	dctx.save_dest_mail = array_count(&local->rcpt_to) > 1 &&
+		local->first_saved_mail == NULL;
 
 	dctx.session_time_msecs =
 		timeval_diff_msecs(&client->state.data_end_timeval,
@@ -409,73 +524,75 @@ lmtp_local_deliver(struct client *client,
 
 	if (mail_deliver(&dctx, &storage) == 0) {
 		if (dctx.dest_mail != NULL) {
-			i_assert(client->state.first_saved_mail == NULL);
-			client->state.first_saved_mail = dctx.dest_mail;
+			i_assert(local->first_saved_mail == NULL);
+			local->first_saved_mail = dctx.dest_mail;
 		}
 		client_send_line(client, "250 2.0.0 <%s> %s Saved",
-				 smtp_address_encode(rcpt->address),
+				 smtp_address_encode(rcpt->rcpt.address),
 				 rcpt->session_id);
 		ret = 0;
 	} else if (dctx.tempfail_error != NULL) {
 		client_send_line(client, "451 4.2.0 <%s> %s",
-				 smtp_address_encode(rcpt->address),
+				 smtp_address_encode(rcpt->rcpt.address),
 				 dctx.tempfail_error);
 		ret = -1;
 	} else if (storage != NULL) {
 		error = mail_storage_get_last_error(storage, &mail_error);
 		if (mail_error == MAIL_ERROR_NOQUOTA) {
-			client_send_line_overquota(client, rcpt, error);
+			lmtp_local_rcpt_reply_overquota(rcpt, error);
 		} else {
 			client_send_line(client, "451 4.2.0 <%s> %s",
-					 smtp_address_encode(rcpt->address), error);
+					 smtp_address_encode(rcpt->rcpt.address), error);
 		}
 		ret = -1;
 	} else {
 		/* This shouldn't happen */
 		i_error("BUG: Saving failed to unknown storage");
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
-				 smtp_address_encode(rcpt->address));
+				 smtp_address_encode(rcpt->rcpt.address));
 		ret = -1;
 	}
 	return ret;
 }
 
 static uid_t
-lmtp_local_deliver_to_rcpts(struct client *client,
+lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 			    struct mail_deliver_session *session)
 {
+	struct client *client = local->client;
 	uid_t first_uid = (uid_t)-1;
 	struct mail *src_mail;
-	struct lmtp_recipient *const *rcpts;
+	struct lmtp_local_recipient *const *rcpts;
 	unsigned int count, i;
 	int ret;
-	src_mail = client->state.raw_mail;
 
-	rcpts = array_get(&client->state.rcpt_to, &count);
+	src_mail = local->raw_mail;
+
+	rcpts = array_get(&local->rcpt_to, &count);
 	for (i = 0; i < count; i++) {
-		struct lmtp_recipient *rcpt = rcpts[i];
+		struct lmtp_local_recipient *rcpt = rcpts[i];
 
-		ret = lmtp_local_deliver(client, rcpt,
+		ret = lmtp_local_deliver(local, rcpt,
 				     src_mail, session);
 		client_state_set(client, "DATA", "");
 		i_set_failure_prefix("lmtp(%s): ", my_pid);
 
 		/* succeeded and mail_user is not saved in first_saved_mail */
 		if ((ret == 0 &&
-		     (client->state.first_saved_mail == NULL ||
-		      client->state.first_saved_mail == src_mail)) ||
+		     (local->first_saved_mail == NULL ||
+		      local->first_saved_mail == src_mail)) ||
 		    /* failed. try the next one. */
-		    (ret != 0 && client->state.dest_user != NULL)) {
+		    (ret != 0 && local->rcpt_user != NULL)) {
 			if (i == (count - 1))
-				mail_user_autoexpunge(client->state.dest_user);
-			mail_user_unref(&client->state.dest_user);
+				mail_user_autoexpunge(local->rcpt_user);
+			mail_user_unref(&local->rcpt_user);
 		} else if (ret == 0) {
 			/* use the first saved message to save it elsewhere too.
 			   this might allow hard linking the files.
 			   mail_user is saved in first_saved_mail,
 			   will be unreferenced later on */
-			client->state.dest_user = NULL;
-			src_mail = client->state.first_saved_mail;
+			local->rcpt_user = NULL;
+			src_mail = local->first_saved_mail;
 			first_uid = geteuid();
 			i_assert(first_uid != 0);
 		}
@@ -484,13 +601,14 @@ lmtp_local_deliver_to_rcpts(struct client *client,
 }
 
 static int
-lmtp_local_open_raw_mail(struct client *client,
+lmtp_local_open_raw_mail(struct lmtp_local *local,
 			 struct istream *input)
 {
 	static const char *wanted_headers[] = {
 		"From", "To", "Message-ID", "Subject", "Return-Path",
 		NULL
 	};
+	struct client *client = local->client;
 	struct mailbox *box;
 	struct mailbox_transaction_context *mtrans;
 	struct mailbox_header_lookup_ctx *headers_ctx;
@@ -502,34 +620,35 @@ lmtp_local_open_raw_mail(struct client *client,
 		i_error("Can't open delivery mail as raw: %s",
 			mailbox_get_last_internal_error(box, &error));
 		mailbox_free(&box);
-		client_rcpt_fail_all(client);
+		lmtp_local_rcpt_fail_all(local);
 		return -1;
 	}
 
 	mtrans = mailbox_transaction_begin(box, 0, __func__);
 
 	headers_ctx = mailbox_header_lookup_init(box, wanted_headers);
-	client->state.raw_mail = mail_alloc(mtrans, 0, headers_ctx);
+	local->raw_mail = mail_alloc(mtrans, 0, headers_ctx);
 	mailbox_header_lookup_unref(&headers_ctx);
-	mail_set_seq(client->state.raw_mail, 1);
+	mail_set_seq(local->raw_mail, 1);
 	return 0;
 }
 
 void lmtp_local_data(struct client *client, struct istream *input)
 {
+	struct lmtp_local *local = client->local;
 	struct mail_deliver_session *session;
 	uid_t old_uid, first_uid;
 
-	if (lmtp_local_open_raw_mail(client, input) < 0)
+	if (lmtp_local_open_raw_mail(local, input) < 0)
 		return;
 
 	session = mail_deliver_session_init();
 	old_uid = geteuid();
-	first_uid = lmtp_local_deliver_to_rcpts(client, session);
+	first_uid = lmtp_local_deliver_to_rcpts(local, session);
 	mail_deliver_session_deinit(&session);
 
-	if (client->state.first_saved_mail != NULL) {
-		struct mail *mail = client->state.first_saved_mail;
+	if (local->first_saved_mail != NULL) {
+		struct mail *mail = local->first_saved_mail;
 		struct mailbox_transaction_context *trans = mail->transaction;
 		struct mailbox *box = trans->box;
 		struct mail_user *user = box->storage->user;

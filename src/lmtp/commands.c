@@ -164,7 +164,6 @@ int cmd_mail(struct client *client, const char *args)
 
 	client->state.mail_from =
 		smtp_address_clone(client->state_pool, address);
-	p_array_init(&client->state.rcpt_to, client->state_pool, 64);
 	client_send_line(client, "250 2.1.0 OK");
 	client_state_set(client, "MAIL FROM",
 		smtp_address_encode(address));
@@ -184,9 +183,9 @@ int cmd_mail(struct client *client, const char *args)
 
 int cmd_rcpt(struct client *client, const char *args)
 {
-	struct lmtp_recipient *rcpt;
 	struct smtp_address *address;
 	const char *username, *detail;
+	struct smtp_params_rcpt params;
 	enum smtp_param_parse_error pperror;
 	const char *error = NULL;
 	char delim = '\0';
@@ -214,13 +213,10 @@ int cmd_rcpt(struct client *client, const char *args)
 		return 0;
 	}
 
-	rcpt = p_new(client->state_pool, struct lmtp_recipient, 1);
-	rcpt->client = client;
-
 	/* [SP Rcpt-parameters] */
 	if (smtp_params_rcpt_parse(client->state_pool, args,
 		SMTP_CAPABILITY_DSN, FALSE,
-		&rcpt->params, &pperror, &error) < 0) {
+		&params, &pperror, &error) < 0) {
 		switch (pperror) {
 		case SMTP_PARAM_PARSE_ERROR_BAD_SYNTAX:
 			client_send_line(client, "501 5.5.4 %s", error);
@@ -243,11 +239,12 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	if (client->lmtp_set->lmtp_proxy) {
 		if (lmtp_proxy_rcpt(client, address, username, detail, delim,
-				      &rcpt->params) != 0)
+				      &params) != 0)
 			return 0;
 	}
 
-	return lmtp_local_rcpt(client, rcpt, address, username, detail);
+	return lmtp_local_rcpt(client, address, username, detail,
+			       &params);
 }
 
 /*
@@ -345,41 +342,11 @@ static void client_proxy_finish(void *context)
 static const char *client_get_added_headers(struct client *client)
 {
 	string_t *str = t_str_new(200);
-	void **sets;
-	const struct lmtp_settings *lmtp_set;
-	const struct smtp_address *rcpt_to = NULL;
-	const char *host;
+	const char *host, *rcpt_to = NULL;
 
-	if (array_count(&client->state.rcpt_to) == 1) {
-		struct lmtp_recipient *const *rcptp =
-			array_idx(&client->state.rcpt_to, 0);
-
-		sets = mail_storage_service_user_get_set((*rcptp)->service_user);
-		lmtp_set = sets[3];
-
-		switch (lmtp_set->parsed_lmtp_hdr_delivery_address) {
-		case LMTP_HDR_DELIVERY_ADDRESS_NONE:
-			break;
-		case LMTP_HDR_DELIVERY_ADDRESS_FINAL:
-			rcpt_to = (*rcptp)->address;
-			break;
-		case LMTP_HDR_DELIVERY_ADDRESS_ORIGINAL:
-			rcpt_to = (*rcptp)->params.orcpt.addr;
-			if (rcpt_to == NULL)
-				rcpt_to = (*rcptp)->address;
-			break;
-		}
-	}
-
-	/* don't set Return-Path when proxying so it won't get added twice */
-	if (array_count(&client->state.rcpt_to) > 0) {
-		str_printfa(str, "Return-Path: <%s>\r\n",
-			    smtp_address_encode(client->state.mail_from));
-		if (rcpt_to != NULL) {
-			str_printfa(str, "Delivered-To: %s\r\n",
-				smtp_address_encode(rcpt_to));
-		}
-	}
+	/* headers for local deliveries only */
+	if (client->local != NULL)
+		lmtp_local_add_headers(client->local, str);
 
 	str_printfa(str, "Received: from %s", client->lhlo);
 	host = net_ip2addr(&client->remote_ip);
@@ -395,7 +362,7 @@ static const char *client_get_added_headers(struct client *client)
 
 	str_append(str, "\r\n\t");
 	if (rcpt_to != NULL)
-		str_printfa(str, "for <%s>", smtp_address_encode(rcpt_to));
+		str_printfa(str, "for <%s>", rcpt_to);
 	str_printfa(str, "; %s\r\n", message_date_create(ioloop_time));
 	return str_c(str);
 }
@@ -412,7 +379,7 @@ static void client_input_data_write(struct client *client)
 	client->state.data_end_timeval = ioloop_timeval;
 
 	input = client_get_input(client);
-	if (array_count(&client->state.rcpt_to) != 0)
+	if (lmtp_local_rcpt_count(client) != 0)
 		lmtp_local_data(client, input);
 	if (client->proxy != NULL) {
 		client_state_set(client, "DATA", "proxying");
@@ -526,7 +493,8 @@ int cmd_data(struct client *client, const char *args ATTR_UNUSED)
 		client_send_line(client, "503 5.5.1 MAIL needed first");
 		return 0;
 	}
-	if (array_count(&client->state.rcpt_to) == 0 && client->proxy == NULL) {
+	if ((lmtp_local_rcpt_count(client) +
+	     lmtp_proxy_rcpt_count(client)) == 0) {
 		client_send_line(client, "554 5.5.1 No valid recipients");
 		return 0;
 	}

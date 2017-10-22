@@ -13,10 +13,6 @@ struct lmtp_recipient {
 	struct smtp_address *address;
 	const char *detail; /* +detail part is also in address */
 	struct smtp_params_rcpt params;
-
-	struct anvil_query *anvil_query;
-	bool anvil_connect_sent;
-	struct mail_storage_service_user *service_user;
 };
 
 struct client_state {
@@ -24,7 +20,6 @@ struct client_state {
 	const char *session_id;
 	struct smtp_address *mail_from;
 	struct smtp_params_mail mail_params;
-	ARRAY(struct lmtp_recipient *) rcpt_to;
 
 	unsigned int data_end_idx;
 
@@ -36,11 +31,6 @@ struct client_state {
 	const char *added_headers;
 
 	struct timeval mail_from_timeval, data_end_timeval;
-
-	struct mail *raw_mail;
-
-	struct mail_user *dest_user;
-	struct mail *first_saved_mail;
 };
 
 struct client {
@@ -70,6 +60,7 @@ struct client {
 	pool_t state_pool;
 	struct client_state state;
 	struct istream *dot_input;
+	struct lmtp_local *local;
 	struct lmtp_proxy *proxy;
 	unsigned int proxy_ttl;
 	unsigned int proxy_timeout_secs;
@@ -85,6 +76,7 @@ void client_destroy(struct client *client, const char *prefix,
 		    const char *reason) ATTR_NULL(2, 3);
 void client_disconnect(struct client *client, const char *prefix,
 		       const char *reason);
+unsigned int client_get_rcpt_count(struct client *client);
 void client_state_reset(struct client *client, const char *state_name);
 void client_state_set(struct client *client, const char *name, const char *args);
 const char *client_remote_id(struct client *client);
