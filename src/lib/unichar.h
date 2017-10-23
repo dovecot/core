@@ -49,8 +49,9 @@ extern const uint8_t *const uni_utf8_non1_bytes;
 
 static inline bool ATTR_PURE uni_is_valid_ucs4(unichar_t chr)
 {
-	return (chr & 0xfff800) != UTF16_SURROGATE_HIGH_FIRST &&
-		chr <= UNICHAR_T_MAX;
+	return (!UTF16_VALID_HIGH_SURROGATE(chr) &&
+		!UTF16_VALID_LOW_SURROGATE(chr) &&
+		chr <= UNICHAR_T_MAX);
 };
 
 /* Returns number of characters in a NUL-terminated unicode string */
