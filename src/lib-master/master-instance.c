@@ -29,8 +29,9 @@ struct master_instance_list_iter {
 };
 
 static const struct dotlock_settings dotlock_set = {
-	.timeout = 2,
-	.stale_timeout = 60
+	.timeout = 10,
+	.stale_timeout = 60,
+	.use_io_notify = TRUE,
 };
 
 struct master_instance_list *master_instance_list_init(const char *path)
