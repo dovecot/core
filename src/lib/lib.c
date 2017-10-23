@@ -137,6 +137,7 @@ void lib_init(void)
 	data_stack_init();
 	hostpid_init();
 	lib_open_non_stdio_dev_null();
+	lib_event_init();
 	var_expand_extensions_init();
 
 	lib_initialized = TRUE;
@@ -155,6 +156,7 @@ void lib_deinit(void)
 	ipwd_deinit();
 	hostpid_deinit();
 	var_expand_extensions_deinit();
+	lib_event_deinit();
 	i_close_fd(&dev_null_fd);
 	data_stack_deinit();
 	env_deinit();

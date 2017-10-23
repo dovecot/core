@@ -28,6 +28,7 @@ liblib_la_SOURCES = \
 	data-stack.c \
 	eacces-error.c \
 	env-util.c \
+	event-log.c \
 	execv-const.c \
 	failures.c \
 	fd-util.c \
@@ -94,6 +95,7 @@ liblib_la_SOURCES = \
 	json-parser.c \
 	json-tree.c \
 	lib.c \
+	lib-event.c \
 	lib-signals.c \
 	log-throttle.c \
 	md4.c \
@@ -185,6 +187,7 @@ headers = \
 	data-stack.h \
 	eacces-error.h \
 	env-util.h \
+	event-log.h \
 	execv-const.h \
 	failures.h \
 	fd-util.h \
@@ -246,6 +249,8 @@ headers = \
 	json-parser.h \
 	json-tree.h \
 	lib.h \
+	lib-event.h \
+	lib-event-private.h \
 	lib-signals.h \
 	llist.h \
 	log-throttle.h \
