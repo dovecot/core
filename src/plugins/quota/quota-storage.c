@@ -259,7 +259,7 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 		return 0;
 	case QUOTA_ALLOC_RESULT_TEMPFAIL:
 		/* Log the error, but allow saving anyway. */
-		i_error("quota check failed: %s", error);
+		i_error("quota: Failed to check if user is under quota: %s - saving mail anyway", error);
 		return 0;
 	default:
 		quota_set_storage_error(qt, t->box->storage, ret, error);
@@ -321,7 +321,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 			break;
 		case QUOTA_ALLOC_RESULT_TEMPFAIL:
 			/* Log the error, but allow saving anyway. */
-			i_error("quota allocation failed: %s", error);
+			i_error("quota: Failed to check if user is under quota: %s - saving mail anyway", error);
 			break;
 		default:
 			quota_set_storage_error(qt, t->box->storage, qret, error);
