@@ -31,7 +31,7 @@
 #ifdef LDAP_OPT_X_TLS
 #  define OPENLDAP_TLS_OPTIONS
 #endif
-#if SASL_VERSION_MAJOR < 2
+#if !defined(SASL_VERSION_MAJOR) || SASL_VERSION_MAJOR < 2
 #  undef HAVE_LDAP_SASL
 #endif
 
