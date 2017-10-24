@@ -5,6 +5,7 @@
 #include "ostream-private.h"
 #include "iostream-openssl.h"
 
+#include <openssl/rand.h>
 #include <openssl/err.h>
 
 static void openssl_iostream_free(struct ssl_iostream *ssl_io);
@@ -777,6 +778,9 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 
 void ssl_iostream_openssl_init(void)
 {
+	unsigned char buf;
+	if (RAND_bytes(&buf, 1) < 1)
+		i_fatal("OpenSSL RNG failed to initialize");
 	iostream_ssl_module_init(&ssl_vfuncs);
 }
 
