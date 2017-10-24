@@ -441,7 +441,7 @@ void mail_generate_guid_128_hash(const char *guid, guid_128_t guid_128_r)
 		buffer_create_from_data(&buf, guid_128_r, GUID_128_SIZE);
 		buffer_set_used_size(&buf, 0);
 		sha1_get_digest(guid, strlen(guid), sha1_sum);
-#if SHA1_RESULTLEN < DBOX_GUID_BIN_LEN
+#if SHA1_RESULTLEN < GUID_128_SIZE
 #  error not possible
 #endif
 		buffer_append(&buf,
