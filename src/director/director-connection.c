@@ -2255,6 +2255,11 @@ static void director_connection_reconnect(struct director_connection **_conn,
 		director_connect(dir, "Reconnecting after error");
 }
 
+static void director_disconnect_write_error(struct director_connection *conn)
+{
+	director_connection_deinit(&conn, "write failure");
+}
+
 void director_connection_send(struct director_connection *conn,
 			      const char *data)
 {
@@ -2279,6 +2284,11 @@ void director_connection_send(struct director_connection *conn,
 				"disconnecting", conn->name);
 		}
 		o_stream_close(conn->output);
+		/* closing the stream when output buffer is full doesn't cause
+		   disconnection itself. */
+		timeout_remove(&conn->to_disconnect);
+		conn->to_disconnect =
+			timeout_add_short(0, director_disconnect_write_error, conn);
 	} else {
 		conn->dir->ring_traffic_output += len;
 	}
