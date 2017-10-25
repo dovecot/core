@@ -47,7 +47,6 @@
 #include <unistd.h>
 
 #define MAX_INBUF_SIZE 1024
-#define MAX_OUTBUF_SIZE (1024*1024*10)
 #define OUTBUF_FLUSH_THRESHOLD (1024*128)
 /* Max time to wait for connect() to finish before aborting */
 #define DIRECTOR_CONNECTION_CONNECT_TIMEOUT_MSECS (10*1000)
@@ -2041,7 +2040,7 @@ director_connection_init_common(struct director *dir, int fd)
 	conn->fd = fd;
 	conn->dir = dir;
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
-	conn->output = o_stream_create_fd(conn->fd, MAX_OUTBUF_SIZE);
+	conn->output = o_stream_create_fd(conn->fd, dir->set->director_output_buffer_size);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	array_append(&dir->connections, &conn, 1);
 	return conn;

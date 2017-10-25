@@ -13,6 +13,7 @@ struct director_settings {
 
 	unsigned int director_user_expire;
 	unsigned int director_user_kick_delay;
+	uoff_t director_output_buffer_size;
 };
 
 extern const struct setting_parser_info director_setting_parser_info;
