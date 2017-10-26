@@ -144,6 +144,17 @@ doveadm_cmd_host_list_removed(struct doveadm_connection *conn,
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
+static void
+doveadm_director_host_append_status(const struct director_host *host,
+				    const char *type, string_t *str)
+{
+	time_t last_failed = I_MAX(host->last_network_failure,
+				   host->last_protocol_failure);
+	str_printfa(str, "%s\t%u\t%s\t%"PRIdTIME_T"\t",
+		    net_ip2addr(&host->ip), host->port, type,
+		    last_failed);
+}
+
 static void doveadm_director_append_status(struct director *dir, string_t *str)
 {
 	if (!dir->ring_handshaked)
@@ -178,35 +189,6 @@ doveadm_director_connection_append_status(struct director_connection *conn,
 		    status.last_input.tv_sec, status.last_output.tv_sec);
 }
 
-static void
-doveadm_director_host_append_status(struct director *dir,
-				    const struct director_host *host,
-				    string_t *str)
-{
-	struct director_connection *conn = NULL;
-
-	if (dir->left != NULL &&
-	    director_connection_get_host(dir->left) == host)
-		conn = dir->left;
-	else if (dir->right != NULL &&
-		 director_connection_get_host(dir->right) == host)
-		conn = dir->right;
-	else {
-		/* we might have a connection that is being connected */
-		struct director_connection *const *connp;
-
-		array_foreach(&dir->connections, connp) {
-			if (director_connection_get_host(*connp) == host) {
-				conn = *connp;
-				break;
-			}
-		}
-	}
-
-	if (conn != NULL)
-		doveadm_director_connection_append_status(conn, str);
-}
-
 static enum doveadm_director_cmd_ret
 doveadm_cmd_director_list(struct doveadm_connection *conn,
 			  const char *const *args ATTR_UNUSED)
@@ -215,37 +197,54 @@ doveadm_cmd_director_list(struct doveadm_connection *conn,
 	struct director_host *const *hostp;
 	string_t *str = t_str_new(1024);
 	const char *type;
-	bool left, right;
-	time_t last_failed;
+	struct director_connection *const *connp;
+	ARRAY(struct director_host *) hosts;
 
-	array_foreach(&dir->dir_hosts, hostp) {
+	t_array_init(&hosts, array_count(&dir->dir_hosts));
+	array_append_array(&hosts, &dir->dir_hosts);
+
+	/* show each individual connection */
+	array_foreach(&dir->connections, connp) {
+		const struct director_host *host =
+			director_connection_get_host(*connp);
+		/* NOTE: for incoming connections host is initially NULL */
+
+		array_foreach(&hosts, hostp) {
+			if (*hostp == host) {
+				array_delete(&hosts,
+					array_foreach_idx(&hosts, hostp), 1);
+				break;
+			}
+		}
+		if (*connp == dir->left)
+			type = "left";
+		else if (*connp == dir->right)
+			type = "right";
+		else if (director_connection_is_incoming(*connp))
+			type = "in";
+		else
+			type = "out";
+
+		if (host != NULL)
+			doveadm_director_host_append_status(host, type, str);
+		doveadm_director_connection_append_status(*connp, str);
+		str_append_c(str, '\n');
+	}
+
+	/* show the rest of the hosts that don't have any connections */
+	array_foreach(&hosts, hostp) {
 		const struct director_host *host = *hostp;
-
-		left = dir->left != NULL &&
-			director_connection_get_host(dir->left) == host;
-		right = dir->right != NULL &&
-			 director_connection_get_host(dir->right) == host;
 
 		if (host->removed)
 			type = "removed";
 		else if (dir->self_host == host)
 			type = "self";
-		else if (left)
-			type = right ? "l+r" : "left";
-		else if (right)
-			type = "right";
 		else
 			type = "";
 
-		last_failed = I_MAX(host->last_network_failure,
-				    host->last_protocol_failure);
-		str_printfa(str, "%s\t%u\t%s\t%"PRIdTIME_T"\t",
-			    net_ip2addr(&host->ip), host->port, type,
-			    last_failed);
+		doveadm_director_host_append_status(host, type, str);
 		if (dir->self_host == host)
 			doveadm_director_append_status(dir, str);
-		else
-			doveadm_director_host_append_status(dir, host, str);
 		str_append_c(str, '\n');
 	}
 	str_append_c(str, '\n');
