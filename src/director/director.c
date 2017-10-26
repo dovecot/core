@@ -370,8 +370,10 @@ void director_sync_send(struct director *dir, struct director_host *host,
 {
 	string_t *str;
 
-	if (host == dir->self_host)
+	if (host == dir->self_host) {
 		dir->last_sync_sent_ring_change_counter = dir->ring_change_counter;
+		dir->last_sync_start_time = ioloop_timeval;
+	}
 
 	str = t_str_new(128);
 	str_printfa(str, "SYNC\t%s\t%u\t%u",

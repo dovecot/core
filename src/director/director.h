@@ -137,9 +137,15 @@ struct director {
 	unsigned int sync_seq;
 	unsigned int ring_change_counter;
 	unsigned int last_sync_sent_ring_change_counter;
+	/* Timestamp when the last SYNC was initiated by us */
+	struct timeval last_sync_start_time;
 	/* the lowest minor version supported by the ring */
 	unsigned int ring_min_version;
+	/* Timestamp when ring became synced or unsynced the last time */
 	time_t ring_last_sync_time;
+	/* How many milliseconds it took for the last SYNC to travel through
+	   the ring. */
+	unsigned int last_sync_msecs;
 
 	time_t ring_first_alone;
 
