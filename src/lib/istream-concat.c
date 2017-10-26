@@ -46,7 +46,7 @@ static void i_stream_concat_destroy(struct iostream_private *stream)
 		i_stream_unref(&cstream->input[i]);
 	i_free(cstream->input);
 	i_free(cstream->input_size);
-	i_free(cstream->istream.w_buffer);
+	i_stream_free_buffer(&cstream->istream);
 }
 
 static void

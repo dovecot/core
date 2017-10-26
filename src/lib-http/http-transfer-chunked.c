@@ -495,7 +495,7 @@ http_transfer_chunked_istream_destroy(struct iostream_private *stream)
 		http_header_parser_deinit(&tcstream->header_parser);
 
 	// FIXME: copied from istream.c; there's got to be a better way.
-	i_free(tcstream->istream.w_buffer);
+	i_stream_free_buffer(&tcstream->istream);
 }
 
 struct istream *

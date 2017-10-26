@@ -298,8 +298,7 @@ void i_stream_skip(struct istream *stream, uoff_t count)
 		if (_stream->nonpersistent_buffers &&
 		    _stream->skip == _stream->pos) {
 			_stream->skip = _stream->pos = 0;
-			_stream->buffer_size = 0;
-			i_free_and_null(_stream->w_buffer);
+			i_stream_free_buffer(_stream);
 		}
 		return;
 	}
@@ -792,7 +791,7 @@ static void i_stream_default_destroy(struct iostream_private *stream)
 {
 	struct istream_private *_stream = (struct istream_private *)stream;
 
-	i_free(_stream->w_buffer);
+	i_stream_free_buffer(_stream);
 	i_stream_unref(&_stream->parent);
 }
 

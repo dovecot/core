@@ -220,7 +220,7 @@ static void i_stream_multiplex_ichannel_destroy(struct iostream_private *stream)
 	struct multiplex_ichannel **channelp;
 	struct multiplex_ichannel *channel = (struct multiplex_ichannel*)stream;
 	i_stream_multiplex_ichannel_close(stream, TRUE);
-	i_free(channel->istream.w_buffer);
+	i_stream_free_buffer(&channel->istream);
 	array_foreach_modifiable(&channel->mstream->channels, channelp) {
 		if (*channelp == channel) {
 			*channelp = NULL;

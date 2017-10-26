@@ -107,7 +107,7 @@ static void i_stream_chain_destroy(struct iostream_private *stream)
 		i_free(link);
 		link = next;
 	}
-	i_free(cstream->istream.w_buffer);
+	i_stream_free_buffer(&cstream->istream);
 }
 
 static void i_stream_chain_read_next(struct chain_istream *cstream)
