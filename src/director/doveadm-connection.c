@@ -155,18 +155,29 @@ static void doveadm_director_append_status(struct director *dir, string_t *str)
 		str_printfa(str, "syncing - last sync %d secs ago",
 			    (int)(ioloop_time - dir->ring_last_sync_time));
 	}
+	str_printfa(str, "\t%u", dir->last_sync_msecs);
 }
 
 static void
 doveadm_director_connection_append_status(struct director_connection *conn,
 					  string_t *str)
 {
+	struct director_connection_status status;
+
 	if (!director_connection_is_handshaked(conn))
 		str_append(str, "handshaking");
 	else if (director_connection_is_synced(conn))
 		str_append(str, "synced");
 	else
 		str_append(str, "syncing");
+
+	director_connection_get_status(conn, &status);
+	str_printfa(str, "\t%u\t%"PRIuUOFF_T"\t%"PRIuUOFF_T"\t%zu\t%zu\t"
+		    "%ld\t%ld", status.last_ping_msecs,
+		    status.bytes_read, status.bytes_sent,
+		    status.bytes_buffered, status.peak_bytes_buffered,
+		    (long)status.last_input.tv_sec,
+		    (long)status.last_output.tv_sec);
 }
 
 static void
