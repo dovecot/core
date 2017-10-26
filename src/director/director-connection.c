@@ -1466,6 +1466,10 @@ director_connection_sync_host(struct director_connection *conn,
 			dir_debug("Ring is synced (%s sent seq=%u, hosts_hash=%u)",
 				  conn->name, seq,
 				  mail_hosts_hash(dir->mail_hosts));
+			int sync_msecs =
+				timeval_diff_msecs(&ioloop_timeval, &dir->last_sync_start_time);
+			if (sync_msecs >= 0)
+				dir->last_sync_msecs = sync_msecs;
 			director_set_ring_synced(dir);
 		}
 	} else {
