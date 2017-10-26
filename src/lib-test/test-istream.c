@@ -1,6 +1,7 @@
 /* Copyright (c) 2007-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "memarea.h"
 #include "istream-private.h"
 #include "test-common.h"
 
@@ -11,6 +12,11 @@ struct test_istream {
 	size_t max_pos;
 	bool allow_eof;
 };
+
+static void test_buffer_free(unsigned char *buf)
+{
+	i_free(buf);
+}
 
 static ssize_t test_read(struct istream_private *stream)
 {
@@ -49,11 +55,19 @@ static ssize_t test_read(struct istream_private *stream)
 		/* use exactly correct buffer size so valgrind can catch
 		   read overflows */
 		if (stream->buffer_size != cur_max && cur_max > 0) {
-			stream->w_buffer = i_realloc(stream->w_buffer,
-						     stream->buffer_size,
-						     cur_max);
+			void *old_w_buffer = stream->w_buffer;
+			stream->w_buffer = i_malloc(cur_max);
+			memcpy(stream->w_buffer, old_w_buffer,
+			       I_MIN(stream->buffer_size, cur_max));
 			stream->buffer = stream->w_buffer;
 			stream->buffer_size = cur_max;
+
+			if (stream->memarea != NULL)
+				memarea_unref(&stream->memarea);
+			stream->memarea = memarea_init(stream->w_buffer,
+						       stream->buffer_size,
+						       test_buffer_free,
+						       stream->w_buffer);
 		}
 		ssize_t size = cur_max - new_skip_diff;
 		if (size > 0)
