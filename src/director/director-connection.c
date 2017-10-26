@@ -102,6 +102,9 @@ struct director_connection {
 	struct timeval last_input, last_output;
 	size_t peak_bytes_buffered;
 
+	struct timeval ping_sent_time;
+	unsigned int last_ping_msecs;
+
 	/* for incoming connections the director host isn't known until
 	   ME-line is received */
 	struct director_host *host;
@@ -1701,6 +1704,10 @@ static bool director_cmd_pong(struct director_connection *conn)
 	conn->ping_waiting = FALSE;
 	timeout_remove(&conn->to_pong);
 
+	int ping_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->ping_sent_time);
+	if (ping_msecs >= 0)
+		conn->last_ping_msecs = ping_msecs;
+
 	if (conn->verifying_left) {
 		conn->verifying_left = FALSE;
 		if (conn == conn->dir->left) {
@@ -2335,6 +2342,7 @@ void director_connection_ping(struct director_connection *conn)
 				    director_connection_pong_timeout, conn);
 	director_connection_send(conn, "PING\n");
 	conn->ping_waiting = TRUE;
+	conn->ping_sent_time = ioloop_timeval;
 }
 
 const char *director_connection_get_name(struct director_connection *conn)
@@ -2403,4 +2411,5 @@ void director_connection_get_status(struct director_connection *conn,
 	status_r->peak_bytes_buffered = conn->peak_bytes_buffered;
 	status_r->last_input = conn->last_input;
 	status_r->last_output = conn->last_output;
+	status_r->last_ping_msecs = conn->last_ping_msecs;
 }
