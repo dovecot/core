@@ -2299,6 +2299,7 @@ void director_connection_send(struct director_connection *conn,
 			timeout_add_short(0, director_disconnect_write_error, conn);
 	} else {
 		conn->dir->ring_traffic_output += len;
+		conn->last_output = ioloop_timeval;
 	}
 }
 
