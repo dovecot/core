@@ -100,6 +100,7 @@ struct director_connection {
 	unsigned int minor_version;
 
 	struct timeval last_input, last_output;
+	size_t peak_bytes_buffered;
 
 	/* for incoming connections the director host isn't known until
 	   ME-line is received */
@@ -2292,6 +2293,9 @@ void director_connection_send(struct director_connection *conn,
 	} else {
 		conn->dir->ring_traffic_output += len;
 		conn->last_output = ioloop_timeval;
+		conn->peak_bytes_buffered =
+			I_MAX(conn->peak_bytes_buffered,
+			      o_stream_get_buffer_used_size(conn->output));
 	}
 }
 
@@ -2387,4 +2391,16 @@ void director_connection_set_synced(struct director_connection *conn,
 		return;
 
 	director_connection_set_ping_timeout(conn);
+}
+
+void director_connection_get_status(struct director_connection *conn,
+				    struct director_connection_status *status_r)
+{
+	i_zero(status_r);
+	status_r->bytes_read = conn->input->v_offset;
+	status_r->bytes_sent = conn->output->offset;
+	status_r->bytes_buffered = o_stream_get_buffer_used_size(conn->output);
+	status_r->peak_bytes_buffered = conn->peak_bytes_buffered;
+	status_r->last_input = conn->last_input;
+	status_r->last_output = conn->last_output;
 }

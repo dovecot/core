@@ -1,6 +1,12 @@
 #ifndef DIRECTOR_CONNECTION_H
 #define DIRECTOR_CONNECTION_H
 
+struct director_connection_status {
+	uoff_t bytes_read, bytes_sent;
+	size_t bytes_buffered, peak_bytes_buffered;
+	struct timeval last_input, last_output;
+};
+
 struct director_host;
 struct director;
 
@@ -30,5 +36,8 @@ director_connection_get_minor_version(struct director_connection *conn);
 
 void director_connection_cork(struct director_connection *conn);
 void director_connection_uncork(struct director_connection *conn);
+
+void director_connection_get_status(struct director_connection *conn,
+				    struct director_connection_status *status_r);
 
 #endif
