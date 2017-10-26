@@ -243,17 +243,17 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 		data = i_stream_get_data(link->stream, &data_size);
 	}
 
+	if (data_size == cur_data_pos) {
+		/* nothing new read - preserve the buffer as it was */
+		i_assert(ret == 0 || ret == -1);
+		return ret;
+	}
 	if (cstream->prev_stream_left == 0) {
 		/* we can point directly to the current stream's buffers */
 		stream->buffer = data;
 		stream->pos -= stream->skip;
 		stream->skip = 0;
 		new_pos = data_size;
-	} else if (data_size == cur_data_pos) {
-		/* nothing new read */
-		i_assert(ret == 0 || ret == -1);
-		stream->buffer = stream->w_buffer;
-		new_pos = stream->pos;
 	} else {
 		/* we still have some of the previous stream left. merge the
 		   new data with it. */
@@ -265,8 +265,8 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 		new_pos = stream->pos + new_bytes_count;
 	}
 
-	ret = new_pos > stream->pos ? (ssize_t)(new_pos - stream->pos) :
-		(ret == 0 ? 0 : -1);
+	i_assert(new_pos > stream->pos);
+	ret = (ssize_t)(new_pos - stream->pos);
 	stream->pos = new_pos;
 	cstream->prev_skip = stream->skip;
 	return ret;
