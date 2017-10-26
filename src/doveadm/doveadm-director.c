@@ -887,26 +887,36 @@ static void cmd_director_ring_status(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("type");
 	doveadm_print_header_simple("last failed");
 	doveadm_print_header_simple("status");
+	doveadm_print_header_simple("ping ms");
+	doveadm_print_header_simple("input");
+	doveadm_print_header_simple("output");
+	doveadm_print_header_simple("buffered");
+	doveadm_print_header_simple("buffered peak");
+	doveadm_print_header_simple("last read");
+	doveadm_print_header_simple("last write");
 
 	director_send(ctx, "DIRECTOR-LIST\n");
 	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
 		if (*line == '\0')
 			break;
 		T_BEGIN {
+			unsigned int i;
 			time_t ts;
 
 			args = t_strsplit_tabescaped(line);
-			if (str_array_length(args) >= 5 &&
-			    str_to_time(args[3], &ts) == 0) {
-				doveadm_print(args[0]);
-				doveadm_print(args[1]);
-				doveadm_print(args[2]);
-				if (ts == 0)
-					doveadm_print("never");
-				else
-					doveadm_print(unixdate2str(ts));
-				doveadm_print(args[4]);
+			for (i = 0; i < 12 && args[i] != NULL; i++) {
+				if ((i == 3 || i == 10 || i == 11) &&
+				    str_to_time(args[i], &ts) == 0) {
+					if (ts == 0)
+						doveadm_print("never");
+					else
+						doveadm_print(unixdate2str(ts));
+				} else {
+					doveadm_print(args[i]);
+				}
 			}
+			for (; i < 12; i++)
+				doveadm_print("-");
 		} T_END;
 	}
 	if (line == NULL)
