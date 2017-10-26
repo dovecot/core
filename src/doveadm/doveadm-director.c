@@ -152,7 +152,7 @@ static void
 cmd_director_status_user(struct director_context *ctx)
 {
 	const char *line, *const *args;
-	unsigned int expires;
+	time_t expires;
 
 	director_send(ctx, t_strdup_printf("USER-LOOKUP\t%s\t%s\n", ctx->user,
 					   ctx->tag != NULL ? ctx->tag : ""));
@@ -164,7 +164,7 @@ cmd_director_status_user(struct director_context *ctx)
 
 	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) != 4 ||
-	    str_to_uint(args[1], &expires) < 0) {
+	    str_to_time(args[1], &expires) < 0) {
 		i_error("Invalid reply from director");
 		doveadm_exit_code = EX_PROTOCOL;
 		return;
@@ -337,7 +337,8 @@ static void cmd_director_map(struct doveadm_cmd_context *cctx)
 	pool_t pool;
 	HASH_TABLE_TYPE(user_list) users;
 	struct user_list *user;
-	unsigned int ips_count, user_hash, expires;
+	unsigned int ips_count, user_hash;
+	time_t expires;
 
 	ctx = cmd_director_init(cctx);
 
@@ -402,7 +403,7 @@ static void cmd_director_map(struct doveadm_cmd_context *cctx)
 			args = t_strsplit_tabescaped(line);
 			if (str_array_length(args) < 3 ||
 			    str_to_uint(args[0], &user_hash) < 0 ||
-			    str_to_uint(args[1], &expires) < 0 ||
+			    str_to_time(args[1], &expires) < 0 ||
 			    net_addr2ip(args[2], &user_ip) < 0) {
 				i_error("Invalid USER-LIST reply: %s", line);
 				doveadm_exit_code = EX_PROTOCOL;
@@ -862,7 +863,6 @@ static void cmd_director_ring_status(struct doveadm_cmd_context *cctx)
 {
 	struct director_context *ctx;
 	const char *line, *const *args;
-	unsigned long l;
 
 	ctx = cmd_director_init(cctx);
 
@@ -878,16 +878,18 @@ static void cmd_director_ring_status(struct doveadm_cmd_context *cctx)
 		if (*line == '\0')
 			break;
 		T_BEGIN {
+			time_t ts;
+
 			args = t_strsplit_tabescaped(line);
 			if (str_array_length(args) >= 5 &&
-			    str_to_ulong(args[3], &l) == 0) {
+			    str_to_time(args[3], &ts) == 0) {
 				doveadm_print(args[0]);
 				doveadm_print(args[1]);
 				doveadm_print(args[2]);
-				if (l == 0)
+				if (ts == 0)
 					doveadm_print("never");
 				else
-					doveadm_print(unixdate2str(l));
+					doveadm_print(unixdate2str(ts));
 				doveadm_print(args[4]);
 			}
 		} T_END;
