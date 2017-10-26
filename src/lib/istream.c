@@ -60,6 +60,7 @@ void i_stream_unref(struct istream **stream)
 	if (_stream->iostream.refcount == 1) {
 		if (_stream->line_str != NULL)
 			str_free(&_stream->line_str);
+		i_stream_snapshot_free(&_stream->prev_snapshot);
 	}
 	if (!io_stream_unref(&(*stream)->real_stream->iostream)) {
 		i_stream_unref(&(*stream)->real_stream->parent);
@@ -178,6 +179,58 @@ static void i_stream_update(struct istream_private *stream)
 			stream->parent->real_stream->access_counter;
 		stream->parent_expected_offset = stream->parent->v_offset;
 	}
+}
+
+static bool snapshot_has_memarea(struct istream_snapshot *snapshot,
+				 struct memarea *memarea)
+{
+	if (snapshot->old_memarea == memarea)
+		return TRUE;
+	if (snapshot->prev_snapshot != NULL)
+		return snapshot_has_memarea(snapshot->prev_snapshot, memarea);
+	return FALSE;
+}
+
+struct istream_snapshot *
+i_stream_default_snapshot(struct istream_private *stream,
+			  struct istream_snapshot *prev_snapshot)
+{
+	struct istream_snapshot *snapshot;
+
+	if (stream->memarea != NULL) {
+		if (prev_snapshot != NULL) {
+			if (snapshot_has_memarea(prev_snapshot, stream->memarea))
+				return prev_snapshot;
+		}
+		/* This stream has a memarea. Reference it, so we can later on
+		   rollback if needed. */
+		snapshot = i_new(struct istream_snapshot, 1);
+		snapshot->old_memarea = stream->memarea;
+		snapshot->prev_snapshot = prev_snapshot;
+		memarea_ref(snapshot->old_memarea);
+		return snapshot;
+	}
+	if (stream->parent == NULL) {
+		i_panic("%s is missing istream.snapshot() implementation",
+			i_stream_get_name(&stream->istream));
+	}
+	struct istream_private *_parent_stream =
+		stream->parent->real_stream;
+	return _parent_stream->snapshot(_parent_stream, prev_snapshot);
+}
+
+void i_stream_snapshot_free(struct istream_snapshot **_snapshot)
+{
+	struct istream_snapshot *snapshot = *_snapshot;
+
+	if (*_snapshot == NULL)
+		return;
+	*_snapshot = NULL;
+
+	i_stream_snapshot_free(&snapshot->prev_snapshot);
+	if (snapshot->old_memarea != NULL)
+		memarea_unref(&snapshot->old_memarea);
+	i_free(snapshot);
 }
 
 ssize_t i_stream_read(struct istream *stream)
@@ -929,6 +982,11 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 	_stream->fd = fd;
 	if (parent != NULL)
 		i_stream_init_parent(_stream, parent);
+	else if (_stream->memarea == NULL) {
+		/* The stream has no parent and no memarea yet. We'll assume
+		   that it wants to be using memareas for the reads. */
+		_stream->memarea = memarea_init_empty();
+	}
 	_stream->istream.real_stream = _stream;
 
 	if (_stream->iostream.close == NULL)
@@ -944,6 +1002,8 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
 		_stream->stat = i_stream_default_stat;
 	if (_stream->get_size == NULL)
 		_stream->get_size = i_stream_default_get_size;
+	if (_stream->snapshot == NULL)
+		_stream->snapshot = i_stream_default_snapshot;
 	if (_stream->iostream.set_max_buffer_size == NULL) {
 		_stream->iostream.set_max_buffer_size =
 			i_stream_default_set_max_buffer_size;

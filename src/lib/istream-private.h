@@ -20,6 +20,9 @@ struct istream_private {
 	int (*stat)(struct istream_private *stream, bool exact);
 	int (*get_size)(struct istream_private *stream, bool exact, uoff_t *size_r);
 	void (*switch_ioloop)(struct istream_private *stream);
+	struct istream_snapshot *
+		(*snapshot)(struct istream_private *stream,
+			    struct istream_snapshot *prev_snapshot);
 
 /* data: */
 	struct istream istream;
@@ -44,6 +47,7 @@ struct istream_private {
 	uoff_t parent_expected_offset;
 
 	struct memarea *memarea;
+	struct istream_snapshot *prev_snapshot;
 	/* increased every time the stream is changed (e.g. seek, read).
 	   this way streams can check if their parent streams have been
 	   accessed behind them. */
@@ -54,6 +58,11 @@ struct istream_private {
 	bool return_nolf_line:1;
 	bool stream_size_passthrough:1; /* stream is parent's size */
 	bool nonpersistent_buffers:1;
+};
+
+struct istream_snapshot {
+	struct istream_snapshot *prev_snapshot;
+	struct memarea *old_memarea;
 };
 
 struct istream * ATTR_NOWARN_UNUSED_RESULT
@@ -74,6 +83,13 @@ void i_stream_free_buffer(struct istream_private *stream);
 ssize_t i_stream_read_copy_from_parent(struct istream *istream);
 void i_stream_default_seek_nonseekable(struct istream_private *stream,
 				       uoff_t v_offset, bool mark);
+
+/* Default snapshot handling: use memarea if it exists, otherwise snapshot
+   parent stream. */
+struct istream_snapshot *
+i_stream_default_snapshot(struct istream_private *stream,
+			  struct istream_snapshot *prev_snapshot);
+void i_stream_snapshot_free(struct istream_snapshot **snapshot);
 
 void i_stream_set_io(struct istream *stream, struct io *io);
 void i_stream_unset_io(struct istream *stream, struct io *io);
