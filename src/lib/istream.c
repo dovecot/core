@@ -274,6 +274,17 @@ ssize_t i_stream_read_copy_from_parent(struct istream *istream)
 	return ret;
 }
 
+void i_stream_free_buffer(struct istream_private *stream)
+{
+	if (stream->w_buffer != NULL) {
+		i_free_and_null(stream->w_buffer);
+	} else {
+		/* don't know how to free it */
+		return;
+	}
+	stream->buffer_size = 0;
+}
+
 void i_stream_skip(struct istream *stream, uoff_t count)
 {
 	struct istream_private *_stream = stream->real_stream;
