@@ -5,6 +5,7 @@ struct director_connection_status {
 	uoff_t bytes_read, bytes_sent;
 	size_t bytes_buffered, peak_bytes_buffered;
 	struct timeval last_input, last_output;
+	unsigned int last_ping_msecs;
 };
 
 struct director_host;
