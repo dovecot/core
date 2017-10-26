@@ -386,6 +386,24 @@ static void i_stream_seekable_seek(struct istream_private *stream,
 	}
 }
 
+static struct istream_snapshot *
+i_stream_seekable_snapshot(struct istream_private *stream,
+			   struct istream_snapshot *prev_snapshot)
+{
+	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+
+	if (sstream->fd == -1) {
+		/* still in memory */
+		if (stream->memarea == NULL)
+			return prev_snapshot;
+		return i_stream_default_snapshot(stream, prev_snapshot);
+	} else {
+		/* using the fd_input stream */
+		return sstream->fd_input->real_stream->
+			snapshot(sstream->fd_input->real_stream, prev_snapshot);
+	}
+}
+
 struct istream *
 i_streams_merge(struct istream *input[], size_t max_buffer_size,
 		int (*fd_callback)(const char **path_r, void *context),
@@ -426,6 +444,7 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 	sstream->istream.read = i_stream_seekable_read;
 	sstream->istream.stat = i_stream_seekable_stat;
 	sstream->istream.seek = i_stream_seekable_seek;
+	sstream->istream.snapshot = i_stream_seekable_snapshot;
 
 	sstream->istream.istream.readable_fd = FALSE;
 	sstream->istream.istream.blocking = blocking;
