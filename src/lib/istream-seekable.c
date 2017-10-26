@@ -122,6 +122,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 				i_stream_get_name(&stream->istream),
 				i_stream_get_error(sstream->fd_input));
 			i_stream_destroy(&sstream->fd_input);
+			i_close_fd(&sstream->fd);
 			return -1;
 		}
 	}
