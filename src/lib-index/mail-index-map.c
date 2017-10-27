@@ -239,7 +239,7 @@ static void mail_index_header_init(struct mail_index *index,
 	hdr->header_size = sizeof(*hdr);
 	hdr->record_size = sizeof(struct mail_index_record);
 
-#if !WORDS_BIGENDIAN
+#ifndef WORDS_BIGENDIAN
 	hdr->compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
 

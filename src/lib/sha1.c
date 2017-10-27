@@ -235,7 +235,7 @@ sha1_result(struct sha1_ctxt *ctxt, void *digest0)
 
 	digest = (uint8_t *)digest0;
 	sha1_pad(ctxt);
-#if WORDS_BIGENDIAN
+#ifdef WORDS_BIGENDIAN
 	memmove(digest, &ctxt->h.b8[0], 20);
 #else
 	digest[0] = ctxt->h.b8[3]; digest[1] = ctxt->h.b8[2];

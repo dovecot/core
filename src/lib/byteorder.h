@@ -244,7 +244,7 @@ static inline uint##size##_t from##size##_to_##to(uint##size##_t x)	\
 	return bswap;							\
 }
 
-#if WORDS_BIGENDIAN
+#ifdef WORDS_BIGENDIAN
 #define __GEN(from, size, to, be, le) ___GEN(from, size, to, be)
 #else
 #define __GEN(from, size, to, be, le) ___GEN(from, size, to, le)

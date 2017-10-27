@@ -103,7 +103,7 @@ struct unaligned_run {
 	uint32_t le32;
 	uint64_t le64;
 
-#if WORDS_BIGENDIAN
+#ifdef WORDS_BIGENDIAN
 #define cpu8 be8
 #define cpu16 be16
 #define cpu32 be32
