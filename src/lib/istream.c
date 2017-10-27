@@ -750,6 +750,9 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 
 void i_stream_compress(struct istream_private *stream)
 {
+	i_assert(stream->memarea == NULL ||
+		 memarea_get_refcount(stream->memarea) == 1);
+
 	if (stream->skip != stream->pos) {
 		memmove(stream->w_buffer, stream->w_buffer + stream->skip,
 			stream->pos - stream->skip);
