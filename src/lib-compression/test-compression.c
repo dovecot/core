@@ -62,6 +62,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 		test_assert(o_stream_send(output, buf, sizeof(buf)) == sizeof(buf));
 	}
 
+	test_assert(o_stream_finish(output) > 0);
 	o_stream_destroy(&output);
 	o_stream_destroy(&file_output);
 	sha1_result(&sha1, output_sha1);
