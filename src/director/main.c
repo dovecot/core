@@ -32,7 +32,8 @@ enum director_socket_type {
 	DIRECTOR_SOCKET_TYPE_USERDB,
 	DIRECTOR_SOCKET_TYPE_AUTHREPLY,
 	DIRECTOR_SOCKET_TYPE_RING,
-	DIRECTOR_SOCKET_TYPE_DOVEADM
+	DIRECTOR_SOCKET_TYPE_DOVEADM,
+	DIRECTOR_SOCKET_TYPE_PROXY_NOTIFY,
 };
 
 static struct director *director;
@@ -104,6 +105,8 @@ director_socket_type_get_from_name(const char *path)
 	else if (strcmp(suffix, "admin") == 0 ||
 		 strcmp(suffix, "doveadm") == 0)
 		return DIRECTOR_SOCKET_TYPE_DOVEADM;
+	else if (strcmp(suffix, "notify") == 0)
+		return DIRECTOR_SOCKET_TYPE_PROXY_NOTIFY;
 	else
 		return DIRECTOR_SOCKET_TYPE_UNKNOWN;
 }
@@ -176,7 +179,7 @@ static void client_connected(struct master_service_connection *conn)
 
 	if (conn->fifo) {
 		master_service_client_connection_accept(conn);
-		notify_connection_init(director, conn->fd);
+		notify_connection_init(director, conn->fd, TRUE);
 		return;
 	}
 
@@ -215,6 +218,10 @@ static void client_connected(struct master_service_connection *conn)
 	case DIRECTOR_SOCKET_TYPE_DOVEADM:
 		master_service_client_connection_accept(conn);
 		(void)doveadm_connection_init(director, conn->fd);
+		break;
+	case DIRECTOR_SOCKET_TYPE_PROXY_NOTIFY:
+		master_service_client_connection_accept(conn);
+		notify_connection_init(director, conn->fd, FALSE);
 		break;
 	}
 }

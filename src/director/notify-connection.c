@@ -19,6 +19,8 @@ struct notify_connection {
 	struct io *io;
 	struct istream *input;
 	struct director *dir;
+
+	bool fifo:1;
 };
 
 static struct notify_connection *notify_connections = NULL;
@@ -57,7 +59,8 @@ static void notify_connection_input(struct notify_connection *conn)
 			notify_update_user(conn->dir, *tagp, line, hash);
 	}
 	if (conn->input->eof) {
-		i_error("notify: read() unexpectedly returned EOF");
+		if (conn->fifo)
+			i_error("notify: read() unexpectedly returned EOF");
 		notify_connection_deinit(&conn);
 	} else if (conn->input->stream_errno != 0) {
 		i_error("notify: read() failed: %s",
@@ -66,12 +69,13 @@ static void notify_connection_input(struct notify_connection *conn)
 	}
 }
 
-void notify_connection_init(struct director *dir, int fd)
+void notify_connection_init(struct director *dir, int fd, bool fifo)
 {
 	struct notify_connection *conn;
 
 	conn = i_new(struct notify_connection, 1);
 	conn->fd = fd;
+	conn->fifo = fifo;
 	conn->dir = dir;
 	conn->input = i_stream_create_fd(conn->fd, 1024);
 	conn->io = io_add(conn->fd, IO_READ, notify_connection_input, conn);
@@ -89,6 +93,8 @@ static void notify_connection_deinit(struct notify_connection **_conn)
 	i_stream_unref(&conn->input);
 	if (close(conn->fd) < 0)
 		i_error("close(notify connection) failed: %m");
+	if (!conn->fifo)
+		master_service_client_connection_destroyed(master_service);
 	i_free(conn);
 }
 
