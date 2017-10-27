@@ -159,7 +159,6 @@ static void o_stream_multiplex_ochannel_destroy(struct iostream_private *stream)
 {
 	struct multiplex_ochannel **channelp;
 	struct multiplex_ochannel *channel = (struct multiplex_ochannel*)stream;
-	o_stream_multiplex_ochannel_close(stream, TRUE);
 	o_stream_unref(&channel->ostream.parent);
 	if (channel->buf != NULL)
 		buffer_free(&channel->buf);
