@@ -171,7 +171,7 @@ bool mail_index_check_header_compat(struct mail_index *index,
 {
         enum mail_index_header_compat_flags compat_flags = 0;
 
-#if !WORDS_BIGENDIAN
+#ifndef WORDS_BIGENDIAN
 	compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
 #endif
 
