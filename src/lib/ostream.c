@@ -173,8 +173,18 @@ int o_stream_flush(struct ostream *stream)
 	struct ostream_private *_stream = stream->real_stream;
 	int ret = 1;
 
+	o_stream_ignore_last_errors(stream);
+
 	if (unlikely(stream->closed || stream->stream_errno != 0)) {
 		errno = stream->stream_errno;
+		return -1;
+	}
+
+	if (unlikely(_stream->noverflow)) {
+		io_stream_set_error(&_stream->iostream,
+			"Output stream buffer was full (%"PRIuSIZE_T" bytes)",
+			o_stream_get_max_buffer_size(stream));
+		errno = stream->stream_errno = ENOBUFS;
 		return -1;
 	}
 
@@ -313,19 +323,6 @@ void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
 void o_stream_nsend_str(struct ostream *stream, const char *str)
 {
 	o_stream_nsend(stream, str, strlen(str));
-}
-
-int o_stream_nfinish(struct ostream *stream)
-{
-	(void)o_stream_flush(stream);
-	o_stream_ignore_last_errors(stream);
-	if (stream->stream_errno == 0 && stream->real_stream->noverflow) {
-		io_stream_set_error(&stream->real_stream->iostream,
-			"Output stream buffer was full (%"PRIuSIZE_T" bytes)",
-			o_stream_get_max_buffer_size(stream));
-		stream->stream_errno = ENOBUFS;
-	}
-	return stream->stream_errno != 0 ? -1 : 0;
 }
 
 void o_stream_ignore_last_errors(struct ostream *stream)

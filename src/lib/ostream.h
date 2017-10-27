@@ -122,12 +122,13 @@ size_t o_stream_get_max_buffer_size(struct ostream *stream);
    TCP_CORK on if supported. */
 void o_stream_cork(struct ostream *stream);
 /* Try to flush the buffer by calling o_stream_flush() and remove TCP_CORK.
-   Note that after this o_stream_nfinish() must be called, unless the stream
+   Note that after this o_stream_flush() must be called, unless the stream
    ignores errors. */
 void o_stream_uncork(struct ostream *stream);
 bool o_stream_is_corked(struct ostream *stream);
-/* Try to flush the output stream. Returns 1 if all sent, 0 if not,
-   -1 if error. */
+/* Try to flush the output stream. If o_stream_nsend*() had been used and
+   the stream had overflown, return error. Returns 1 if all data is sent,
+   0 there's still buffered data, -1 if error. */
 int o_stream_flush(struct ostream *stream);
 /* Set "flush pending" state of stream. If set, the flush callback is called
    when more data is allowed to be sent, even if the buffer itself is empty. */
@@ -145,19 +146,19 @@ ssize_t o_stream_send(struct ostream *stream, const void *data, size_t size);
 ssize_t o_stream_sendv(struct ostream *stream, const struct const_iovec *iov,
 		       unsigned int iov_count);
 ssize_t o_stream_send_str(struct ostream *stream, const char *str);
-/* Send with delayed error handling. o_stream_nfinish() or
+/* Send with delayed error handling. o_stream_flush() or
    o_stream_ignore_last_errors() must be called after these functions before
    the stream is destroyed. If any of the data can't be sent due to stream's
-   buffer getting full, all further nsends are ignores and o_stream_nfinish()
+   buffer getting full, all further nsends are ignores and o_stream_flush()
    will fail. */
 void o_stream_nsend(struct ostream *stream, const void *data, size_t size);
 void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
 		     unsigned int iov_count);
 void o_stream_nsend_str(struct ostream *stream, const char *str);
-/* Marks the stream's error handling as completed. Flushes the stream and
-   returns -1 if stream->stream_errno is non-zero. Returns failure if any of
-   the o_stream_nsend*() didn't write all data. */
-int o_stream_nfinish(struct ostream *stream);
+static inline int o_stream_nfinish(struct ostream *stream)
+{
+	return o_stream_flush(stream) < 0 ? -1 : 0;
+}
 /* Marks the stream's error handling as completed to avoid i_panic() on
    destroy. */
 void o_stream_ignore_last_errors(struct ostream *stream);
@@ -178,7 +179,7 @@ void o_stream_set_no_error_handling(struct ostream *stream, bool set);
 enum ostream_send_istream_result
 o_stream_send_istream(struct ostream *outstream, struct istream *instream);
 /* Same as o_stream_send_istream(), but assume that reads and writes will
-   succeed. If not, o_stream_nfinish() will fail with the correct error
+   succeed. If not, o_stream_flush() will fail with the correct error
    message (even istream's). */
 void o_stream_nsend_istream(struct ostream *outstream, struct istream *instream);
 
