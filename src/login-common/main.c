@@ -420,7 +420,8 @@ static void main_init(const char *login_socket)
 	master_auth = master_auth_init(master_service, post_login_socket);
 
 	login_binary->init();
-	login_proxy_init("proxy-notify");
+
+	login_proxy_init(global_login_settings->login_proxy_notify_path);
 }
 
 static void main_deinit(void)
