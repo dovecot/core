@@ -100,7 +100,13 @@ void o_stream_remove_destroy_callback(struct ostream *stream,
 				      void (*callback)());
 
 /* Mark the stream and all of its parent streams closed. Nothing will be
-   sent after this call. */
+   sent after this call. When using ostreams that require writing a trailer,
+   o_stream_finish() must be used before the stream is closed. When ostream
+   is destroyed, it's also closed but its parents aren't.
+
+   Closing the ostream (also via destroy) will first flush the ostream, and
+   afterwards requires one of: a) stream has failed, b) there is no more
+   buffered data, c) o_stream_set_no_error_handling() has been called. */
 void o_stream_close(struct ostream *stream);
 
 /* Set IO_WRITE callback. Default will just try to flush the output and

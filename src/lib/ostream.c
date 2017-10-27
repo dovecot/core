@@ -45,6 +45,14 @@ const char *o_stream_get_error(struct ostream *stream)
 
 static void o_stream_close_full(struct ostream *stream, bool close_parents)
 {
+	/* Ideally o_stream_finish() would be called for all non-failed
+	   ostreams, but strictly requiring it would cause unnecessary
+	   complexity for many callers. Just require that at this point
+	   after flushing there isn't anything in the output buffer or that
+	   we're ignoring all errors. */
+	if (o_stream_flush(stream) == 0)
+		i_assert(stream->real_stream->error_handling_disabled);
+
 	if (!stream->closed && !stream->real_stream->closing) {
 		/* first mark the stream as being closed so the
 		   o_stream_copy_error_from_parent() won't recurse us back
