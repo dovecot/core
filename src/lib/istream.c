@@ -233,6 +233,13 @@ void i_stream_snapshot_free(struct istream_snapshot **_snapshot)
 	i_free(snapshot);
 }
 
+static struct istream_snapshot *
+i_stream_noop_snapshot(struct istream_private *stream ATTR_UNUSED,
+		       struct istream_snapshot *prev_snapshot)
+{
+	return prev_snapshot;
+}
+
 ssize_t i_stream_read(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
@@ -996,10 +1003,12 @@ struct istream *
 i_stream_create(struct istream_private *_stream, struct istream *parent, int fd,
 		enum istream_create_flag flags)
 {
+	bool noop_snapshot = (flags & ISTREAM_CREATE_FLAG_NOOP_SNAPSHOT) != 0;
+
 	_stream->fd = fd;
 	if (parent != NULL)
 		i_stream_init_parent(_stream, parent);
-	else if (_stream->memarea == NULL) {
+	else if (_stream->memarea == NULL && !noop_snapshot) {
 		/* The stream has no parent and no memarea yet. We'll assume
 		   that it wants to be using memareas for the reads. */
 		_stream->memarea = memarea_init_empty();
@@ -1019,8 +1028,11 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd,
 		_stream->stat = i_stream_default_stat;
 	if (_stream->get_size == NULL)
 		_stream->get_size = i_stream_default_get_size;
-	if (_stream->snapshot == NULL)
-		_stream->snapshot = i_stream_default_snapshot;
+	if (_stream->snapshot == NULL) {
+		_stream->snapshot = noop_snapshot ?
+			i_stream_noop_snapshot :
+			i_stream_default_snapshot;
+	}
 	if (_stream->iostream.set_max_buffer_size == NULL) {
 		_stream->iostream.set_max_buffer_size =
 			i_stream_default_set_max_buffer_size;

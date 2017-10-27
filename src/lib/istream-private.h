@@ -66,7 +66,9 @@ struct istream_snapshot {
 };
 
 enum istream_create_flag {
-	ISTREAM_CREATE_FLAG_NOOP_DUMMY = 0,
+	/* The stream guarantees that the buffer pointer stays valid when it
+	   returns <= 0. */
+	ISTREAM_CREATE_FLAG_NOOP_SNAPSHOT	= 0x01,
 };
 
 struct istream * ATTR_NOWARN_UNUSED_RESULT
