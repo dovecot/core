@@ -36,7 +36,6 @@ enum director_socket_type {
 };
 
 static struct director *director;
-static struct notify_connection *notify_conn;
 static struct timeout *to_proctitle_refresh;
 static ARRAY(enum director_socket_type) listener_socket_types;
 
@@ -181,12 +180,8 @@ static void client_connected(struct master_service_connection *conn)
 	bool userdb;
 
 	if (conn->fifo) {
-		if (notify_conn != NULL) {
-			i_error("Received another proxy-notify connection");
-			return;
-		}
 		master_service_client_connection_accept(conn);
-		notify_conn = notify_connection_init(director, conn->fd);
+		notify_connection_init(director, conn->fd);
 		return;
 	}
 
@@ -298,8 +293,7 @@ static void main_deinit(void)
 {
 	if (to_proctitle_refresh != NULL)
 		timeout_remove(&to_proctitle_refresh);
-	if (notify_conn != NULL)
-		notify_connection_deinit(&notify_conn);
+	notify_connections_deinit();
 	/* deinit doveadm connections before director, so it can clean up
 	   its pending work, such as abort user moves. */
 	doveadm_connections_deinit();
