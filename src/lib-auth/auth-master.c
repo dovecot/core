@@ -406,7 +406,7 @@ static int auth_master_run_cmd_pre(struct auth_master_connection *conn,
 	o_stream_nsend_str(conn->output, cmd);
 	o_stream_uncork(conn->output);
 
-	if (o_stream_nfinish(conn->output) < 0) {
+	if (o_stream_flush(conn->output) < 0) {
 		i_error("write(auth socket) failed: %s",
 			o_stream_get_error(conn->output));
 		auth_master_unset_io(conn);

@@ -659,7 +659,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	if (ctx->output != NULL) {
 		/* make sure everything is written */
-		if (o_stream_nfinish(ctx->output) < 0)
+		if (o_stream_flush(ctx->output) < 0)
 			write_error(ctx);
 	}
 
@@ -681,7 +681,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	if (ctx->failed && ctx->mail_offset != (uoff_t)-1) {
 		/* saving this mail failed - truncate back to beginning of it */
-		(void)o_stream_nfinish(ctx->output);
+		(void)o_stream_flush(ctx->output);
 		if (ftruncate(ctx->mbox->mbox_fd, (off_t)ctx->mail_offset) < 0)
 			mbox_set_syscall_error(ctx->mbox, "ftruncate()");
 		(void)o_stream_seek(ctx->output, ctx->mail_offset);
@@ -775,7 +775,7 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 
 	if (ctx->output != NULL) {
 		/* flush the final LF */
-		if (o_stream_nfinish(ctx->output) < 0)
+		if (o_stream_flush(ctx->output) < 0)
 			write_error(ctx);
 	}
 	if (mbox->mbox_fd != -1 && !mbox->mbox_writeonly &&

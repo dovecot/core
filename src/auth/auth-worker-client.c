@@ -117,7 +117,7 @@ static void auth_worker_send_reply(struct auth_worker_client *client,
 	if (worker_restart_request)
 		o_stream_nsend_str(client->output, "RESTART\n");
 	o_stream_nsend(client->output, str_data(str), str_len(str));
-	if (o_stream_nfinish(client->output) < 0 && request != NULL &&
+	if (o_stream_flush(client->output) < 0 && request != NULL &&
 	    cmd_duration > AUTH_WORKER_WARN_DISCONNECTED_LONG_CMD_SECS) {
 		p = i_strchr_to_next(str_c(str), '\t');
 		p = p == NULL ? "BUG" : t_strcut(p, '\t');

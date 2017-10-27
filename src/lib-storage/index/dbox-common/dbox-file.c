@@ -551,7 +551,7 @@ int dbox_file_append_flush(struct dbox_file_append_context *ctx)
 	    ctx->last_checkpoint_offset == ctx->output->offset)
 		return 0;
 
-	if (o_stream_nfinish(ctx->output) < 0) {
+	if (o_stream_flush(ctx->output) < 0) {
 		dbox_file_set_syscall_error(ctx->file, "write()");
 		return -1;
 	}

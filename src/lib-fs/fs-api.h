@@ -274,7 +274,7 @@ int fs_write(struct fs_file *file, const void *data, size_t size);
    fs_write_stream_finish/abort. The returned ostream is already corked and
    it doesn't need to be uncorked. */
 struct ostream *fs_write_stream(struct fs_file *file);
-/* Finish writing via stream, calling also o_stream_nfinish() on the stream and
+/* Finish writing via stream, calling also o_stream_flush() on the stream and
    handling any pending errors. The file will be created/replaced/appended only
    after this call, same as with fs_write(). Anything written to the stream
    won't be visible earlier. Returns 1 if ok, 0 if async write isn't finished

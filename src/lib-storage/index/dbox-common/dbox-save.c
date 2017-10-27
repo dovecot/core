@@ -104,7 +104,7 @@ void dbox_save_end(struct dbox_save_context *ctx)
 		ret = o_stream_finish(mdata->output);
 	} else {
 		/* no plugins - flush the output so far */
-		ret = o_stream_nfinish(mdata->output);
+		ret = o_stream_flush(mdata->output);
 	}
 	if (ret < 0) {
 		mail_storage_set_critical(ctx->ctx.transaction->box->storage,

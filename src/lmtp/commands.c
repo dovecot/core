@@ -1256,7 +1256,7 @@ static int client_input_add_file(struct client *client,
 	o_stream_nsend(state->mail_data_output,
 		       state->mail_data->data, state->mail_data->used);
 	o_stream_nsend(client->state.mail_data_output, data, size);
-	if (o_stream_nfinish(client->state.mail_data_output) < 0) {
+	if (o_stream_flush(client->state.mail_data_output) < 0) {
 		i_error("write(%s) failed: %s", str_c(path),
 			o_stream_get_error(client->state.mail_data_output));
 		return -1;
