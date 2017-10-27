@@ -244,12 +244,39 @@ ssize_t i_stream_read(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
 	ssize_t ret;
+#ifdef DEBUG
+	unsigned char prev_buf[4];
+	const unsigned char *prev_data = _stream->buffer;
+	size_t prev_skip = _stream->skip, prev_pos = _stream->pos;
+	bool invalid = i_stream_is_buffer_invalid(_stream);
+
+	i_assert(prev_skip <= prev_pos);
+	if (invalid)
+		;
+	else if (prev_pos - prev_skip <= 4)
+		memcpy(prev_buf, prev_data + prev_skip, prev_pos - prev_skip);
+	else {
+		memcpy(prev_buf, prev_data + prev_skip, 2);
+		memcpy(prev_buf+2, prev_data + prev_pos - 2, 2);
+	}
+#endif
 
 	_stream->prev_snapshot =
 		_stream->snapshot(_stream, _stream->prev_snapshot);
 	ret = i_stream_read_memarea(stream);
 	if (ret > 0)
 		i_stream_snapshot_free(&_stream->prev_snapshot);
+#ifdef DEBUG
+	else if (!invalid) {
+		i_assert((_stream->pos - _stream->skip) == (prev_pos - prev_skip));
+		if (prev_pos - prev_skip <= 4)
+			i_assert(memcmp(prev_buf, prev_data + prev_skip, prev_pos - prev_skip) == 0);
+		else {
+			i_assert(memcmp(prev_buf, prev_data + prev_skip, 2) == 0);
+			i_assert(memcmp(prev_buf+2, prev_data + prev_pos - 2, 2) == 0);
+		}
+	}
+#endif
 	return ret;
 }
 
