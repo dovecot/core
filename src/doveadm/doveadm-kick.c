@@ -28,7 +28,7 @@ struct kick_pid {
 struct kick_context {
 	struct who_context who;
 	HASH_TABLE(void *, struct kick_pid *) pids;
-	enum client_connection_type conn_type;
+	enum doveadm_client_connection_type conn_type;
 	bool force_kick;
 	ARRAY(const char *) kicked_users;
 };

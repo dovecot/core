@@ -2,7 +2,6 @@
 #define DOVEADM_CMD_H
 
 #include "net.h"
-#include "client-connection.h"
 
 #define DOVEADM_CMD_PARAMS_START .parameters = (const struct doveadm_cmd_param[]){
 #define DOVEADM_CMD_PARAM(optP, nameP, typeP, flagP ) { .short_opt = optP, .name = nameP, .type = typeP, .flags = flagP },
@@ -80,7 +79,7 @@ struct doveadm_cmd_context {
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 
-	enum client_connection_type conn_type;
+	enum doveadm_client_connection_type conn_type;
 	struct istream *input;
 	struct ostream *output;
 };

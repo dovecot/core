@@ -3,7 +3,6 @@
 
 #include <sysexits.h>
 #include "doveadm-util.h"
-#include "doveadm-cmd.h"
 #include "doveadm-settings.h"
 
 #define USAGE_CMDNAME_FMT "  %-12s"
@@ -11,6 +10,14 @@
 #define DOVEADM_EX_NOTFOUND EX_NOHOST
 #define DOVEADM_EX_NOTPOSSIBLE EX_DATAERR
 #define DOVEADM_EX_UNKNOWN -1
+
+enum doveadm_client_connection_type {
+	CLIENT_CONNECTION_TYPE_CLI = 0,
+	CLIENT_CONNECTION_TYPE_TCP,
+	CLIENT_CONNECTION_TYPE_HTTP,
+};
+
+#include "doveadm-cmd.h"
 
 extern bool doveadm_verbose_proctitle;
 extern int doveadm_exit_code;

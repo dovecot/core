@@ -59,7 +59,7 @@ static int client_connection_read_settings(struct client_connection *conn)
 }
 
 int client_connection_init(struct client_connection *conn,
-	enum client_connection_type type, pool_t pool, int fd)
+	enum doveadm_client_connection_type type, pool_t pool, int fd)
 {
 	const char *ip;
 
