@@ -143,7 +143,7 @@ static int server_connection_send_cmd_input_more(struct server_connection *conn)
 		break;
 	}
 	if (res == OSTREAM_SEND_ISTREAM_RESULT_FINISHED) {
-		if ((ret = o_stream_flush(conn->cmd_output)) == 0)
+		if ((ret = o_stream_finish(conn->cmd_output)) == 0)
 			return 0;
 		else if (ret < 0) {
 			i_error("write(%s) failed: %s",

@@ -261,7 +261,7 @@ int program_client_program_output(struct program_client *pclient)
 	if (input == NULL &&
 	    output != NULL &&
 	    pclient->dot_output != NULL) {
-		if ((ret = o_stream_flush(pclient->dot_output)) <= 0) {
+		if ((ret = o_stream_finish(pclient->dot_output)) <= 0) {
 			if (ret < 0) {
 				i_error("write(%s) failed: %s",
 					o_stream_get_name(output),

@@ -20,11 +20,13 @@ struct dot_ostream {
 	bool force_extra_crlf;
 };
 
-static int
-o_stream_dot_flush(struct ostream_private *stream)
+static int o_stream_dot_finish(struct ostream_private *stream)
 {
 	struct dot_ostream *dstream = (struct dot_ostream *)stream;
 	int ret;
+
+	if (dstream->state == STREAM_STATE_DONE)
+		return 1;
 
 	if (o_stream_get_buffer_avail_size(stream->parent) < 5) {
 		/* make space for the dot line */
@@ -35,10 +37,8 @@ o_stream_dot_flush(struct ostream_private *stream)
 		}
 	}
 
-	if (dstream->state == STREAM_STATE_DONE)
-		;
-	else if (dstream->state == STREAM_STATE_CRLF &&
-		 !dstream->force_extra_crlf) {
+	if (dstream->state == STREAM_STATE_CRLF &&
+	    !dstream->force_extra_crlf) {
 		ret = o_stream_send(stream->parent, ".\r\n", 3);
 		i_assert(ret == 3);
 	} else {
@@ -46,6 +46,18 @@ o_stream_dot_flush(struct ostream_private *stream)
 		i_assert(ret == 5);
 	}
 	dstream->state = STREAM_STATE_DONE;
+	return 1;
+}
+
+static int
+o_stream_dot_flush(struct ostream_private *stream)
+{
+	int ret;
+
+	if (stream->finished) {
+		if ((ret = o_stream_dot_finish(stream)) <= 0)
+			return ret;
+	}
 
 	if ((ret = o_stream_flush(stream->parent)) < 0)
 		o_stream_copy_error_from_parent(stream);
