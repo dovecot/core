@@ -309,7 +309,7 @@ static void test_istream_multiplex_stream(void)
 	i_stream_unref(&chan0);
 	i_stream_unref(&is);
 
-	test_assert(o_stream_nfinish(os) == 0);
+	test_assert(o_stream_finish(os) > 0);
 	o_stream_unref(&os);
 
 	io_loop_destroy(&ioloop);

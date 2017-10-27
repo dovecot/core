@@ -427,7 +427,7 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 			break;
 	}
 	replicator_queue_iter_deinit(&iter);
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", path, o_stream_get_error(output));
 		ret = -1;
 	}

@@ -1310,7 +1310,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 	}
 	maildir_uidlist_iter_deinit(&iter);
 
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		mail_storage_set_critical(storage, "write(%s) failed: %s", path,
 					  o_stream_get_error(output));
 		o_stream_unref(&output);

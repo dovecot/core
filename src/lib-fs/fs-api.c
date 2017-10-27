@@ -736,6 +736,7 @@ static int fs_write_stream_finish_int(struct fs_file *file, bool success)
 int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 {
 	bool success = TRUE;
+	int ret;
 
 	i_assert(*output == file->output || *output == NULL);
 	i_assert(output != &file->output);
@@ -743,7 +744,8 @@ int fs_write_stream_finish(struct fs_file *file, struct ostream **output)
 	*output = NULL;
 	if (file->output != NULL) {
 		o_stream_uncork(file->output);
-		if (o_stream_nfinish(file->output) < 0) {
+		if ((ret = o_stream_finish(file->output)) <= 0) {
+			i_assert(ret < 0);
 			fs_set_error(file->fs, "write(%s) failed: %s",
 				     o_stream_get_name(file->output),
 				     o_stream_get_error(file->output));

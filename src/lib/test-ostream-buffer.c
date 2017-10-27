@@ -39,7 +39,7 @@ static void test_ostream_buffer_random_once(void)
 	}
 
 	o_stream_uncork(output);
-	test_assert(o_stream_nfinish(output) == 0);
+	test_assert(o_stream_finish(output) > 0);
 
 	i_assert(buffer->used <= MAX_BUFSIZE*4);
 	test_assert(memcmp(buf, buffer->data, buffer->used) == 0);

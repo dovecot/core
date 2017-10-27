@@ -111,13 +111,13 @@ static void test_gz(const char *str1, const char *str2)
 
 	output = gz->create_ostream(buf_output, 6);
 	o_stream_nsend_str(output, str1);
-	test_assert(o_stream_nfinish(output) == 0);
+	test_assert(o_stream_finish(output) > 0);
 	o_stream_destroy(&output);
 
 	if (str2[0] != '\0') {
 		output = gz->create_ostream(buf_output, 6);
 		o_stream_nsend_str(output, "world");
-		test_assert(o_stream_nfinish(output) == 0);
+		test_assert(o_stream_finish(output) > 0);
 		o_stream_destroy(&output);
 	}
 
@@ -260,7 +260,7 @@ static void test_compress_file(const char *in_path, const char *out_path)
 		o_stream_nsend(output, data, size);
 		i_stream_skip(input, size);
 	}
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_fatal("write(%s) failed: %s",
 			out_path, o_stream_get_error(output));
 	}

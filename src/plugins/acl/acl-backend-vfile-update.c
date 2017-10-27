@@ -158,7 +158,7 @@ acl_backend_vfile_update_write(struct acl_object *aclobj,
 		}
 	}
 	str_free(&str);
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", path,
 			o_stream_get_error(output));
 		ret = -1;

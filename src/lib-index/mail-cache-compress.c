@@ -304,7 +304,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 
 	mail_cache_view_close(&cache_view);
 
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		mail_cache_set_syscall_error(cache, "write()");
 		o_stream_destroy(&output);
 		array_free(ext_offsets);

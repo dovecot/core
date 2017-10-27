@@ -1678,7 +1678,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 		(void)o_stream_seek(output, 0);
 		o_stream_nsend(output, &trie->hdr, sizeof(trie->hdr));
 	}
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", path,
 			o_stream_get_error(output));
 		ret = -1;

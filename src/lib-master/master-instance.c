@@ -151,7 +151,7 @@ master_instance_list_write(struct master_instance_list *list,
 		str_append_c(str, '\n');
 		o_stream_nsend(output, str_data(str), str_len(str));
 	}
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", path, o_stream_get_error(output));
 		ret = -1;
 	}

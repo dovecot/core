@@ -860,7 +860,7 @@ int squat_uidlist_build_finish(struct squat_uidlist_build_context *ctx)
 		(void)o_stream_seek(ctx->output, ctx->build_hdr.used_file_size);
 	}
 
-	if (o_stream_nfinish(ctx->output) < 0) {
+	if (o_stream_finish(ctx->output) < 0) {
 		i_error("write() to %s failed: %s", ctx->uidlist->path,
 			o_stream_get_error(ctx->output));
 		return -1;
@@ -1064,7 +1064,7 @@ int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 
 		if (ctx->uidlist->corrupted)
 			ret = -1;
-		else if (o_stream_nfinish(ctx->output) < 0) {
+		else if (o_stream_finish(ctx->output) < 0) {
 			i_error("write(%s) failed: %s", temp_path,
 				o_stream_get_error(ctx->output));
 			ret = -1;

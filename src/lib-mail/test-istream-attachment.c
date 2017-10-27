@@ -181,7 +181,7 @@ static int test_close_attachment_ostream(struct ostream *output, bool success,
 	a = array_idx_modifiable(&attachments, array_count(&attachments)-1);
 	a->decoded_size = output->offset - a->buffer_offset;
 
-	if (o_stream_nfinish(output) < 0)
+	if (o_stream_finish(output) < 0)
 		i_unreached();
 	o_stream_destroy(&output);
 	return 0;

@@ -320,7 +320,7 @@ void mail_duplicate_db_flush(struct mail_duplicate_db *db)
 	}
 	hash_table_iterate_deinit(&iter);
 
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", file->path,
 			o_stream_get_error(output));
 		o_stream_unref(&output);

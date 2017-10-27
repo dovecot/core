@@ -231,7 +231,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 	}
 
 	if (changed && !failed) {
-		if (o_stream_nfinish(output) < 0) {
+		if (o_stream_finish(output) < 0) {
 			subswrite_set_syscall_error(list, "write()", path);
 			failed = TRUE;
 		} else if (mail_set->parsed_fsync_mode != FSYNC_MODE_NEVER) {

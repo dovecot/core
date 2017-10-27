@@ -398,7 +398,7 @@ static int astream_decode_base64(struct attachment_istream *astream)
 			i_stream_get_error(base64_input));
 		failed = TRUE;
 	}
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("istream-attachment: write(%s) failed: %s",
 			o_stream_get_name(output), o_stream_get_error(output));
 		failed = TRUE;
@@ -454,7 +454,7 @@ astream_part_finish(struct attachment_istream *astream, const char **error_r)
 	size_t size;
 	int ret = 0;
 
-	if (o_stream_nfinish(part->temp_output) < 0) {
+	if (o_stream_finish(part->temp_output) < 0) {
 		*error_r = t_strdup_printf("write(%s) failed: %s",
 					   o_stream_get_name(part->temp_output),
 					   o_stream_get_error(part->temp_output));

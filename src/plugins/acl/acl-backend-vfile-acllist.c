@@ -281,7 +281,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 		}
 	}
 
-	if (o_stream_nfinish(output) < 0) {
+	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", str_c(path),
 			o_stream_get_error(output));
 		ret = -1;

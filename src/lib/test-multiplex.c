@@ -106,10 +106,10 @@ static void teardown_channel(struct test_channel *channel)
 	io_remove(&channel->io);
 	io_remove(&channel->io_alt);
 	i_stream_unref(&channel->in);
-	test_assert(o_stream_nfinish(channel->out) == 0);
+	test_assert(o_stream_finish(channel->out) > 0);
 	o_stream_unref(&channel->out);
 	i_stream_unref(&channel->in_alt);
-	test_assert(o_stream_nfinish(channel->out_alt) == 0);
+	test_assert(o_stream_finish(channel->out_alt) > 0);
 	o_stream_unref(&channel->out_alt);
 	i_close_fd(&channel->fds[0]);
 	i_close_fd(&channel->fds[1]);

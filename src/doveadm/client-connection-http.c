@@ -233,7 +233,7 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 
 	if ((cctx.cmd->flags & CMD_FLAG_NO_PRINT) == 0)
 		doveadm_print_deinit();
-	if (o_stream_nfinish(doveadm_print_ostream) < 0) {
+	if (o_stream_finish(doveadm_print_ostream) < 0) {
 		i_info("Error writing output in command %s: %s",
 		       req->cmd->name,
 		       o_stream_get_error(req->output));
@@ -903,7 +903,7 @@ static void doveadm_http_server_send_response(struct client_request_http *req)
 	struct istream *payload = NULL;
 
 	if (req->output != NULL) {
-		if (o_stream_nfinish(req->output) == -1) {
+		if (o_stream_finish(req->output) == -1) {
 			i_info("error writing output: %s",
 			       o_stream_get_error(req->output));
 			o_stream_destroy(&req->output);

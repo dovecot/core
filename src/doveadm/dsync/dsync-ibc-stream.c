@@ -384,7 +384,7 @@ static void dsync_ibc_stream_deinit(struct dsync_ibc *_ibc)
 			o_stream_nsend_str(ibc->output,
 				t_strdup_printf("%c\n", items[ITEM_DONE].chr));
 		}
-		(void)o_stream_nfinish(ibc->output);
+		(void)o_stream_finish(ibc->output);
 	}
 
 	timeout_remove(&ibc->to);
