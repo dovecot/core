@@ -489,15 +489,14 @@ int o_stream_encrypt_finalize(struct ostream_private *stream)
 	const char *error;
 	struct encrypt_ostream *estream = (struct encrypt_ostream *)stream;
 
-	/* if nothing was written, we are done */
-	if (!estream->prefix_written) return o_stream_flush(stream->parent);
-
 	if (estream->finalized) {
-		/* we've already flushed the encrypted output.
-		   just flush the parent. */
-		return o_stream_flush(stream->parent);
+		/* we've already flushed the encrypted output. */
+		return 0;
 	}
 	estream->finalized = TRUE;
+
+	/* if nothing was written, we are done */
+	if (!estream->prefix_written) return 0;
 
 	/* acquire last block */
 	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), dcrypt_ctx_sym_get_block_size(estream->ctx_sym));
@@ -534,8 +533,24 @@ int o_stream_encrypt_finalize(struct ostream_private *stream)
 		return -1;
 	}
 
-	/* flush parent */
-	return o_stream_flush(stream->parent);
+	return 0;
+}
+
+static
+int o_stream_encrypt_flush(struct ostream_private *stream)
+{
+	struct encrypt_ostream *estream = (struct encrypt_ostream *)stream;
+	int ret;
+
+	if (stream->finished && estream->ctx_sym != NULL &&
+	    !estream->finalized) {
+		if (o_stream_encrypt_finalize(&estream->ostream) < 0)
+			return -1;
+	}
+
+	if ((ret = o_stream_flush(stream->parent)) < 0)
+		o_stream_copy_error_from_parent(stream);
+	return ret;
 }
 
 static
@@ -543,9 +558,9 @@ void o_stream_encrypt_close(struct iostream_private *stream,
 			    bool close_parent)
 {
 	struct encrypt_ostream *estream = (struct encrypt_ostream *)stream;
-	if (estream->ctx_sym != NULL && !estream->finalized &&
-	    estream->ostream.ostream.stream_errno == 0)
-		o_stream_encrypt_finalize(&estream->ostream);
+
+	i_assert(estream->finalized || estream->ctx_sym == NULL ||
+		 estream->ostream.ostream.stream_errno != 0);
 	if (close_parent) {
 		o_stream_close(estream->ostream.parent);
 	}
@@ -629,6 +644,7 @@ o_stream_create_encrypt_common(enum io_stream_encrypt_flags flags)
 
 	estream = i_new(struct encrypt_ostream, 1);
 	estream->ostream.sendv = o_stream_encrypt_sendv;
+	estream->ostream.flush = o_stream_encrypt_flush;
 	estream->ostream.iostream.close = o_stream_encrypt_close;
 	estream->ostream.iostream.destroy = o_stream_encrypt_destroy;
 
