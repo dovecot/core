@@ -3,7 +3,7 @@
 
 struct director;
 
-void notify_connection_init(struct director *dir, int fd);
+void notify_connection_init(struct director *dir, int fd, bool fifo);
 void notify_connections_deinit(void);
 
 #endif
