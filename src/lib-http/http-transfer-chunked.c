@@ -376,7 +376,7 @@ http_transfer_chunked_istream_read_data(
 	/* read from parent if necessary */
 	data = i_stream_get_data(stream->parent, &size);
 	if (size == 0) {
-		ret = i_stream_read(stream->parent);
+		ret = i_stream_read_memarea(stream->parent);
 		if (ret <= 0 && (ret != -2 || stream->skip == 0)) {
 			if ( stream->parent->eof && stream->parent->stream_errno == 0 ) {
 				/* unexpected EOF */

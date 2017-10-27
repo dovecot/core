@@ -27,7 +27,7 @@ static int i_stream_read_parent(struct istream_private *stream)
 
 	/* we have less than one base64 block.
 	   see if there is more data available. */
-	ret = i_stream_read(stream->parent);
+	ret = i_stream_read_memarea(stream->parent);
 	if (ret <= 0) {
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		stream->istream.eof = stream->parent->eof;

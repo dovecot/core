@@ -155,7 +155,9 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	if (data_size > cur_data_pos)
 		ret = 0;
 	else {
-		/* need to read more */
+		/* need to read more - NOTE: Can't use i_stream_read_memarea()
+		   here, because our stream->buffer may point to the parent
+		   istream. */
 		i_assert(cur_data_pos == data_size);
 		ret = i_stream_read(cstream->cur_input);
 		if (ret == -2 || ret == 0)

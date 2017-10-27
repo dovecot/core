@@ -47,7 +47,7 @@ i_stream_read_copy_from(struct istream *istream, struct istream *source)
 	if (pos > stream->pos)
 		ret = 0;
 	else do {
-		if ((ret = i_stream_read(source)) == -2)
+		if ((ret = i_stream_read_memarea(source)) == -2)
 			return -2;
 
 		stream->istream.stream_errno = source->stream_errno;

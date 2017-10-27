@@ -76,7 +76,7 @@ program_client_istream_read(struct istream_private *stream)
 		ret = -1;
 	} else
 		do {
-			if ((ret = i_stream_read(stream->parent)) == -2) {
+			if ((ret = i_stream_read_memarea(stream->parent)) == -2) {
 				return -2;	/* input buffer full */
 			}
 

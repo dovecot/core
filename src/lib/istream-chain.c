@@ -218,7 +218,10 @@ static ssize_t i_stream_chain_read(struct istream_private *stream)
 	if (data_size > cur_data_pos)
 		ret = 0;
 	else {
-		/* need to read more */
+		/* need to read more - NOTE: Can't use i_stream_read_memarea()
+		   here, because our stream->buffer may point to the parent
+		   istream. This could be avoided if we implemented
+		   snapshotting ourself. */
 		i_assert(cur_data_pos == data_size);
 		ret = i_stream_read(link->stream);
 		if (ret == -2 || ret == 0)

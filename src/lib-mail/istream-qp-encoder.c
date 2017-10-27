@@ -71,7 +71,7 @@ static ssize_t i_stream_qp_encoder_read(struct istream_private *stream)
 		}
 
 		/* need to read more input */
-		ret = i_stream_read_more(stream->parent, &data, &size);
+		ret = i_stream_read_more_memarea(stream->parent, &data, &size);
 		if (ret == 0)
 			return ret;
 		if (size == 0 && ret == -1) {

@@ -51,7 +51,7 @@ static ssize_t i_stream_rawlog_read(struct istream_private *stream)
 	if (pos > stream->pos)
 		ret = 0;
 	else do {
-		if ((ret = i_stream_read(stream->parent)) == -2)
+		if ((ret = i_stream_read_memarea(stream->parent)) == -2)
 			return -2;
 
 		stream->istream.stream_errno = stream->parent->stream_errno;

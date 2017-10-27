@@ -80,7 +80,7 @@ read_mixed(struct header_filter_istream *mstream, size_t body_highwater_size)
 			 (mstream->end_body_with_lf &&
 			  pos+1 == body_highwater_size));
 
-		ret = i_stream_read(mstream->istream.parent);
+		ret = i_stream_read_memarea(mstream->istream.parent);
 		mstream->istream.istream.stream_errno =
 			mstream->istream.parent->stream_errno;
 		mstream->istream.istream.eof = mstream->istream.parent->eof;
@@ -496,7 +496,7 @@ static int skip_header(struct header_filter_istream *mstream)
 	}
 
 	while (!mstream->header_read &&
-	       i_stream_read(&mstream->istream.istream) != -1) {
+	       i_stream_read_memarea(&mstream->istream.istream) != -1) {
 		pos = i_stream_get_data_size(&mstream->istream.istream);
 		i_stream_skip(&mstream->istream.istream, pos);
 	}
@@ -596,7 +596,7 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 	} else {
 		/* check if we need to add LF */
 		i_stream_seek(stream->parent, st->st_size - 1);
-		(void)i_stream_read(stream->parent);
+		(void)i_stream_read_memarea(stream->parent);
 		if (stream->parent->stream_errno != 0) {
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;

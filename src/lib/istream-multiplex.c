@@ -84,7 +84,7 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 
 	if (((mstream->remain > 0 && len == 0) ||
 	     (mstream->remain == 0 && len < 5)) &&
-	    (ret = i_stream_read(mstream->parent)) <= 0) {
+	    (ret = i_stream_read_memarea(mstream->parent)) <= 0) {
 		propagate_error(mstream, mstream->parent->stream_errno);
 		if (mstream->parent->eof)
 			propagate_eof(mstream);

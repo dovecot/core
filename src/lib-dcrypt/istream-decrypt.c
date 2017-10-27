@@ -682,7 +682,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 		}
 
 		/* need to read more input */
-		ret = i_stream_read(stream->parent);
+		ret = i_stream_read_memarea(stream->parent);
 		if (ret == 0)
 			return ret;
 

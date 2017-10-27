@@ -115,7 +115,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 			break;
 
 		ssize_t ret;
-		if ((ret = i_stream_read(sstream->fd_input)) <= 0) {
+		if ((ret = i_stream_read_memarea(sstream->fd_input)) <= 0) {
 			i_assert(ret != 0);
 			i_assert(ret != -2);
 			i_error("istream-seekable: Couldn't read back "
@@ -147,7 +147,7 @@ static ssize_t read_more(struct seekable_istream *sstream)
 		return -1;
 	}
 
-	while ((ret = i_stream_read(sstream->cur_input)) == -1) {
+	while ((ret = i_stream_read_memarea(sstream->cur_input)) == -1) {
 		if (sstream->cur_input->stream_errno != 0) {
 			io_stream_set_error(&sstream->istream.iostream,
 				"read(%s) failed: %s",
@@ -305,7 +305,7 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 	}
 
 	i_stream_seek(sstream->fd_input, stream->istream.v_offset);
-	ret = i_stream_read(sstream->fd_input);
+	ret = i_stream_read_memarea(sstream->fd_input);
 	if (ret <= 0) {
 		stream->istream.eof = sstream->fd_input->eof;
 		stream->istream.stream_errno =

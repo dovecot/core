@@ -365,7 +365,7 @@ ssize_t i_stream_read_copy_from_parent(struct istream *istream)
 	if (pos > stream->pos)
 		ret = 0;
 	else do {
-		if ((ret = i_stream_read(stream->parent)) == -2) {
+		if ((ret = i_stream_read_memarea(stream->parent)) == -2) {
 			i_stream_update(stream);
 			return -2;
 		}
