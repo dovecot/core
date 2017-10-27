@@ -111,7 +111,7 @@ struct istream *test_istream_create_data(const void *data, size_t size)
 
 	tstream->istream.istream.blocking = FALSE;
 	tstream->istream.istream.seekable = TRUE;
-	i_stream_create(&tstream->istream, NULL, -1);
+	i_stream_create(&tstream->istream, NULL, -1, 0);
 	tstream->istream.statbuf.st_size = tstream->max_pos = size;
 	tstream->allow_eof = TRUE;
 	tstream->istream.max_buffer_size = (size_t)-1;

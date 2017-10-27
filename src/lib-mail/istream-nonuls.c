@@ -75,5 +75,5 @@ struct istream *i_stream_create_nonuls(struct istream *input, char replace_chr)
 	nstream->istream.istream.seekable = FALSE;
 	nstream->replace_chr = replace_chr;
 	return i_stream_create(&nstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

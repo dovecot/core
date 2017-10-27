@@ -993,7 +993,8 @@ void i_stream_init_parent(struct istream_private *_stream,
 }
 
 struct istream *
-i_stream_create(struct istream_private *_stream, struct istream *parent, int fd)
+i_stream_create(struct istream_private *_stream, struct istream *parent, int fd,
+		enum istream_create_flag flags)
 {
 	_stream->fd = fd;
 	if (parent != NULL)
@@ -1052,7 +1053,7 @@ struct istream *i_stream_create_error(int stream_errno)
 	stream->istream.seekable = TRUE;
 	stream->istream.eof = TRUE;
 	stream->istream.stream_errno = stream_errno;
-	i_stream_create(stream, NULL, -1);
+	i_stream_create(stream, NULL, -1, 0);
 	i_stream_set_name(&stream->istream, "(error)");
 	return &stream->istream;
 }

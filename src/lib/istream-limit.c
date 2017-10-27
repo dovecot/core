@@ -124,7 +124,7 @@ struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size)
 	lstream->istream.istream.blocking = input->blocking;
 	lstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&lstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }
 
 struct istream *i_stream_create_range(struct istream *input,

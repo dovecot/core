@@ -183,5 +183,5 @@ struct istream *i_stream_create_jsonstr(struct istream *input)
 	dstream->istream.istream.blocking = input->blocking;
 	dstream->istream.istream.seekable = FALSE;
 	return i_stream_create(&dstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

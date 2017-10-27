@@ -212,5 +212,5 @@ i_stream_create_ext_filter(struct istream *input, const char *socket_path,
 	mstream->fd = -1;
 	(void)filter_connect(mstream, socket_path, args);
 
-	return i_stream_create(&mstream->istream, input, mstream->fd);
+	return i_stream_create(&mstream->istream, input, mstream->fd, 0);
 }

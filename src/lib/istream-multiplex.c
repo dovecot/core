@@ -248,7 +248,7 @@ i_stream_add_channel_real(struct multiplex_istream *mstream, uint8_t cid)
 		channel->istream.fd = -1;
 	array_append(&channel->mstream->channels, &channel, 1);
 
-	return i_stream_create(&channel->istream, NULL, channel->istream.fd);
+	return i_stream_create(&channel->istream, NULL, channel->istream.fd, 0);
 }
 
 struct istream *i_stream_multiplex_add_channel(struct istream *stream, uint8_t cid)

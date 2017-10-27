@@ -168,7 +168,7 @@ i_stream_create_sized_common(struct istream *input, uoff_t size)
 	sstream->istream.istream.blocking = input->blocking;
 	sstream->istream.istream.seekable = input->seekable;
 	(void)i_stream_create(&sstream->istream, input,
-			      i_stream_get_fd(input));
+			      i_stream_get_fd(input), 0);
 	return sstream;
 }
 

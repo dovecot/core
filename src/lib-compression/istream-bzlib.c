@@ -326,6 +326,6 @@ struct istream *i_stream_create_bz2(struct istream *input, bool log_errors)
 	zstream->istream.istream.seekable = input->seekable;
 
 	return i_stream_create(&zstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }
 #endif

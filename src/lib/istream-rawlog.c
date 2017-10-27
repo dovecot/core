@@ -112,5 +112,5 @@ i_stream_create_rawlog_from_stream(struct istream *input,
 	rstream->istream.istream.blocking = input->blocking;
 	rstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&rstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

@@ -500,7 +500,7 @@ i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
 	zstream->istream.istream.seekable = input->seekable;
 
 	return i_stream_create(&zstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }
 
 struct istream *i_stream_create_gz(struct istream *input, bool log_errors)

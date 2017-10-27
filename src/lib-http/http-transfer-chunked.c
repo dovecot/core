@@ -515,7 +515,7 @@ http_transfer_chunked_istream_create(struct istream *input, uoff_t max_size)
 	tcstream->istream.istream.readable_fd = FALSE;
 	tcstream->istream.istream.blocking = input->blocking;
 	tcstream->istream.istream.seekable = FALSE;
-	return i_stream_create(&tcstream->istream, input, i_stream_get_fd(input));
+	return i_stream_create(&tcstream->istream, input, i_stream_get_fd(input), 0);
 }
 
 /*

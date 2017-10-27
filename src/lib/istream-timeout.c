@@ -138,5 +138,5 @@ i_stream_create_timeout(struct istream *input, unsigned int timeout_msecs)
 	tstream->istream.istream.blocking = input->blocking;
 	tstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&tstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

@@ -148,5 +148,5 @@ i_stream_create_metawrap(struct istream *input,
 	mstream->callback = callback;
 	mstream->context = context;
 	return i_stream_create(&mstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

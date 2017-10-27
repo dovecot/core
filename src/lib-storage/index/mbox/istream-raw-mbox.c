@@ -452,7 +452,7 @@ struct istream *i_stream_create_raw_mbox(struct istream *input)
 	rstream->istream.istream.blocking = input->blocking;
 	rstream->istream.istream.seekable = input->seekable;
 
-	return i_stream_create(&rstream->istream, input, -1);
+	return i_stream_create(&rstream->istream, input, -1, 0);
 }
 
 static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)

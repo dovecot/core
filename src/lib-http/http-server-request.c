@@ -589,7 +589,7 @@ http_server_request_get_payload_input(struct http_server_request *req,
 	hsristream->istream.istream.seekable = FALSE;
 
 	req->payload_input = i_stream_create
-		(&hsristream->istream, payload, i_stream_get_fd(payload));
+		(&hsristream->istream, payload, i_stream_get_fd(payload), 0);
 	i_stream_unref(&req->req.payload);
 	return req->payload_input;
 }

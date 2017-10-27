@@ -449,7 +449,7 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 	sstream->istream.istream.readable_fd = FALSE;
 	sstream->istream.istream.blocking = blocking;
 	sstream->istream.istream.seekable = TRUE;
-	(void)i_stream_create(&sstream->istream, NULL, -1);
+	(void)i_stream_create(&sstream->istream, NULL, -1, 0);
 
 	/* initialize our buffer from first stream's pending data */
 	data = i_stream_get_data(sstream->cur_input, &size);

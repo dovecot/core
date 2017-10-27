@@ -301,5 +301,5 @@ struct istream *i_stream_create_binary_converter(struct istream *input)
 				MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
 				MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES);
 	return i_stream_create(&bstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

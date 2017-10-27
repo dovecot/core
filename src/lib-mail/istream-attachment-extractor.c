@@ -718,7 +718,7 @@ i_stream_create_attachment_extractor(struct istream *input,
 				MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
 				MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES);
 	return i_stream_create(&astream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }
 
 bool i_stream_attachment_extractor_can_retry(struct istream *input)

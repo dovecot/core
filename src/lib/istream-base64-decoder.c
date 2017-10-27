@@ -154,5 +154,5 @@ i_stream_create_base64_decoder(struct istream *input)
 	bstream->istream.istream.blocking = input->blocking;
 	bstream->istream.istream.seekable = input->seekable;
 	return i_stream_create(&bstream->istream, input,
-			       i_stream_get_fd(input));
+			       i_stream_get_fd(input), 0);
 }

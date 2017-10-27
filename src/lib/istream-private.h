@@ -65,9 +65,13 @@ struct istream_snapshot {
 	struct memarea *old_memarea;
 };
 
+enum istream_create_flag {
+	ISTREAM_CREATE_FLAG_NOOP_DUMMY = 0,
+};
+
 struct istream * ATTR_NOWARN_UNUSED_RESULT
-i_stream_create(struct istream_private *stream, struct istream *parent, int fd)
-	ATTR_NULL(2);
+i_stream_create(struct istream_private *stream, struct istream *parent, int fd,
+		enum istream_create_flag flags) ATTR_NULL(2);
 /* Initialize parent lazily after i_stream_create() has already been called. */
 void i_stream_init_parent(struct istream_private *_stream,
 			  struct istream *parent);

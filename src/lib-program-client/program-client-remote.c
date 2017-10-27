@@ -186,7 +186,7 @@ struct istream *program_client_istream_create(struct program_client *program_cli
 
 	i_stream_seek(input, 0);
 
-	return i_stream_create(&scstream->istream, input, -1);
+	return i_stream_create(&scstream->istream, input, -1, 0);
 }
 
 /*
