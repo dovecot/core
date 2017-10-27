@@ -45,8 +45,8 @@ static void test_ostream_file_random_once(void)
 			test_assert(o_stream_flush(output) > 0);
 	}
 
-	test_assert(o_stream_flush(output) > 0);
 	o_stream_uncork(output);
+	test_assert(o_stream_nfinish(output) == 0);
 	ret = pread(fd, buf2, sizeof(buf2), 0);
 	if (ret < 0)
 		i_fatal("pread() failed: %m");
