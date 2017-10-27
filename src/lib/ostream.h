@@ -155,10 +155,6 @@ void o_stream_nsend(struct ostream *stream, const void *data, size_t size);
 void o_stream_nsendv(struct ostream *stream, const struct const_iovec *iov,
 		     unsigned int iov_count);
 void o_stream_nsend_str(struct ostream *stream, const char *str);
-static inline int o_stream_nfinish(struct ostream *stream)
-{
-	return o_stream_flush(stream) < 0 ? -1 : 0;
-}
 /* Mark the ostream as finished and flush it. If the ostream has a footer,
    it's written here. Any further write attempts to the ostream will
    assert-crash. Returns the same as o_stream_flush(). Afterwards any calls to
