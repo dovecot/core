@@ -181,6 +181,22 @@ static void connection_client_connected(struct connection *conn, bool success)
 	}
 }
 
+void connection_init(struct connection_list *list,
+		     struct connection *conn)
+{
+	conn->fd_in = -1;
+	conn->fd_out = -1;
+	conn->name = NULL;
+
+	if (conn->list != NULL) {
+		i_assert(conn->list == list);
+	} else {
+		conn->list = list;
+		DLLIST_PREPEND(&list->connections, conn);
+		list->connections_count++;
+	}
+}
+
 void connection_init_server(struct connection_list *list,
 			    struct connection *conn, const char *name,
 			    int fd_in, int fd_out)
@@ -188,14 +204,12 @@ void connection_init_server(struct connection_list *list,
 	i_assert(name != NULL);
 	i_assert(!list->set.client);
 
-	conn->list = list;
+	connection_init(list, conn);
+
 	conn->name = i_strdup(name);
 	conn->fd_in = fd_in;
 	conn->fd_out = fd_out;
 	connection_init_streams(conn);
-
-	DLLIST_PREPEND(&list->connections, conn);
-	list->connections_count++;
 }
 
 void connection_init_client_ip(struct connection_list *list,
@@ -204,15 +218,13 @@ void connection_init_client_ip(struct connection_list *list,
 {
 	i_assert(list->set.client);
 
+	connection_init(list, conn);
+
 	conn->fd_in = conn->fd_out = -1;
-	conn->list = list;
 	conn->name = i_strdup_printf("%s:%u", net_ip2addr(ip), port);
 
 	conn->ip = *ip;
 	conn->port = port;
-
-	DLLIST_PREPEND(&list->connections, conn);
-	list->connections_count++;
 }
 
 void connection_init_client_unix(struct connection_list *list,
@@ -220,13 +232,11 @@ void connection_init_client_unix(struct connection_list *list,
 {
 	i_assert(list->set.client);
 
+	connection_init(list, conn);
+
 	conn->fd_in = conn->fd_out = -1;
-	conn->list = list;
 	conn->name = i_strdup(path);
 	conn->unix_socket = TRUE;
-
-	DLLIST_PREPEND(&list->connections, conn);
-	list->connections_count++;
 }
 
 void connection_init_from_streams(struct connection_list *list,
@@ -235,7 +245,8 @@ void connection_init_from_streams(struct connection_list *list,
 {
 	i_assert(name != NULL);
 
-	conn->list = list;
+	connection_init(list, conn);
+
 	conn->name = i_strdup(name);
 	conn->fd_in = i_stream_get_fd(input);
 	conn->fd_out = o_stream_get_fd(output);
@@ -257,9 +268,6 @@ void connection_init_from_streams(struct connection_list *list,
 	o_stream_set_name(conn->output, conn->name);
 
 	conn->io = io_add_istream(conn->input, *list->v.input, conn);
-	
-	DLLIST_PREPEND(&list->connections, conn);
-	list->connections_count++;
 
 	if (list->v.client_connected != NULL)
 		list->v.client_connected(conn, TRUE);
