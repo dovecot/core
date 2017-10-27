@@ -231,7 +231,8 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 	tstream->next = tee->children;
 	tee->children = tstream;
 
-	ret = i_stream_create(&tstream->istream, input, i_stream_get_fd(input), 0);
+	ret = i_stream_create(&tstream->istream, input, i_stream_get_fd(input),
+			      ISTREAM_CREATE_FLAG_NOOP_SNAPSHOT);
 	i_stream_set_name(&tstream->istream.istream, i_stream_get_name(input));
 	/* we keep the reference in tee stream, no need for extra references */
 	i_stream_unref(&input);

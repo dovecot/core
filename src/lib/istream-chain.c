@@ -309,5 +309,6 @@ struct istream *i_stream_create_chain(struct istream_chain **chain_r)
 	cstream->istream.istream.seekable = FALSE;
 
 	*chain_r = &cstream->chain;
-	return i_stream_create(&cstream->istream, NULL, -1, 0);
+	return i_stream_create(&cstream->istream, NULL, -1,
+			       ISTREAM_CREATE_FLAG_NOOP_SNAPSHOT);
 }
