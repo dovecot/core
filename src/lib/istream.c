@@ -243,6 +243,19 @@ i_stream_noop_snapshot(struct istream_private *stream ATTR_UNUSED,
 ssize_t i_stream_read(struct istream *stream)
 {
 	struct istream_private *_stream = stream->real_stream;
+	ssize_t ret;
+
+	_stream->prev_snapshot =
+		_stream->snapshot(_stream, _stream->prev_snapshot);
+	ret = i_stream_read_memarea(stream);
+	if (ret > 0)
+		i_stream_snapshot_free(&_stream->prev_snapshot);
+	return ret;
+}
+
+ssize_t i_stream_read_memarea(struct istream *stream)
+{
+	struct istream_private *_stream = stream->real_stream;
 	size_t old_size;
 	ssize_t ret;
 
@@ -297,6 +310,18 @@ ssize_t i_stream_read(struct istream *stream)
 	/* verify that parents' access_counters are valid. the parent's
 	   i_stream_read() should guarantee this. */
 	i_assert(!i_stream_is_buffer_invalid(_stream));
+	return ret;
+}
+
+int i_stream_read_more_memarea(struct istream *stream,
+			       const unsigned char **data_r, size_t *size_r)
+{
+	*data_r = i_stream_get_data(stream, size_r);
+	if (*size_r > 0)
+		return 1;
+
+	int ret = i_stream_read_memarea(stream);
+	*data_r = i_stream_get_data(stream, size_r);
 	return ret;
 }
 

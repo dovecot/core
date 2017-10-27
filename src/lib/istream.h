@@ -137,8 +137,12 @@ void i_stream_set_persistent_buffers(struct istream *stream, bool set);
    If any of the istreams have an fd, its O_NONBLOCK flag is changed. */
 void i_stream_set_blocking(struct istream *stream, bool blocking);
 
-/* Returns number of bytes read if read was ok, -1 if EOF or error, -2 if the
-   input buffer is full. */
+/* Returns number of bytes read if read was ok, 0 if stream is non-blocking and
+   no more data is available, -1 if EOF or error, -2 if the input buffer is
+   full. If <=0 is returned, pointers to existing data returned by the previous
+   i_stream_get_data() will stay valid, although calling it again may return
+   a different pointer. The pointers to old data are invalidated again when
+   return value is >0. */
 ssize_t i_stream_read(struct istream *stream);
 /* Skip forward a number of bytes. Never fails, the next read tells if it
    was successful. */

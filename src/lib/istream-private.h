@@ -106,4 +106,12 @@ void i_stream_snapshot_free(struct istream_snapshot **snapshot);
 void i_stream_set_io(struct istream *stream, struct io *io);
 void i_stream_unset_io(struct istream *stream, struct io *io);
 
+/* Filter istreams should be calling this instead of i_stream_read() to avoid
+   unnecessarily referencing memareas. After this call any pointers to the
+   parent istream's content must be considered as potentially invalid and have
+   to be updated, even if the return value is <=0. */
+ssize_t i_stream_read_memarea(struct istream *stream);
+int i_stream_read_more_memarea(struct istream *stream,
+			       const unsigned char **data_r, size_t *size_r);
+
 #endif
