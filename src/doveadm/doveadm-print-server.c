@@ -5,8 +5,9 @@
 #include "str.h"
 #include "strescape.h"
 #include "ostream.h"
-#include "client-connection.h"
+#include "doveadm.h"
 #include "doveadm-print-private.h"
+#include "client-connection.h"
 
 struct doveadm_print_server_context {
 	unsigned int header_idx, header_count;

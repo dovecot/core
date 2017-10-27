@@ -7,6 +7,7 @@
 #include "master-service-settings.h"
 #include "settings-parser.h"
 #include "dict.h"
+#include "doveadm.h"
 #include "client-connection.h"
 #include "client-connection-private.h"
 #include "doveadm-settings.h"

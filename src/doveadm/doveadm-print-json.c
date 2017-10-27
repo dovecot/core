@@ -6,10 +6,11 @@
 #include "strescape.h"
 #include "ostream.h"
 #include "json-parser.h"
-#include "client-connection.h"
+#include "doveadm.h"
 #include "doveadm-server.h"
 #include "doveadm-print.h"
 #include "doveadm-print-private.h"
+#include "client-connection.h"
 
 struct doveadm_print_json_context {
 	unsigned int header_idx, header_count;

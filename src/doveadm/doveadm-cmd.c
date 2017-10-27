@@ -5,8 +5,8 @@
 #include "istream.h"
 #include "str.h"
 #include "net.h"
-#include "doveadm-cmd.h"
 #include "doveadm.h"
+#include "doveadm-cmd.h"
 
 #include <stdio.h>
 #include <unistd.h>
