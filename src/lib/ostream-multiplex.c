@@ -131,7 +131,6 @@ o_stream_multiplex_ochannel_close(struct iostream_private *stream, bool close_pa
 {
 	struct multiplex_ochannel *const *channelp;
 	struct multiplex_ochannel *channel = (struct multiplex_ochannel*)stream;
-	(void)o_stream_flush(&channel->ostream.ostream);
 
 	channel->closed = TRUE;
 	if (close_parent) {

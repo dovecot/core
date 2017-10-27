@@ -21,7 +21,6 @@ static void o_stream_cmp_close(struct iostream_private *stream,
 		return;
 
 	i_stream_unref(&cstream->input);
-	(void)o_stream_flush(&cstream->ostream.ostream);
 	if (close_parent)
 		o_stream_close(cstream->ostream.parent);
 }

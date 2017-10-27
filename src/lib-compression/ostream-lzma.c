@@ -25,7 +25,6 @@ static void o_stream_lzma_close(struct iostream_private *stream,
 {
 	struct lzma_ostream *zstream = (struct lzma_ostream *)stream;
 
-	(void)o_stream_flush(&zstream->ostream.ostream);
 	lzma_end(&zstream->strm);
 	if (close_parent)
 		o_stream_close(zstream->ostream.parent);

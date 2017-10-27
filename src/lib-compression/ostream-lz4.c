@@ -28,7 +28,6 @@ static void o_stream_lz4_close(struct iostream_private *stream,
 {
 	struct lz4_ostream *zstream = (struct lz4_ostream *)stream;
 
-	(void)o_stream_flush(&zstream->ostream.ostream);
 	if (close_parent)
 		o_stream_close(zstream->ostream.parent);
 }
