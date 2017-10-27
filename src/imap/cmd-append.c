@@ -158,7 +158,6 @@ static bool cmd_append_send_literal_continue(struct cmd_append_context *ctx)
 	}
 
 	o_stream_nsend(ctx->client->output, "+ OK\r\n", 6);
-	o_stream_nflush(ctx->client->output);
 	o_stream_uncork(ctx->client->output);
 	o_stream_cork(ctx->client->output);
 	return TRUE;

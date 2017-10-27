@@ -184,7 +184,6 @@ cmd_setmetadata_entry(struct imap_setmetadata_context *ctx,
 		return 1;
 	case IMAP_ARG_LITERAL_SIZE:
 		o_stream_nsend(ctx->cmd->client->output, "+ OK\r\n", 6);
-		o_stream_nflush(ctx->cmd->client->output);
 		o_stream_uncork(ctx->cmd->client->output);
 		o_stream_cork(ctx->cmd->client->output);
 		/* fall through */

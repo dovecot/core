@@ -489,7 +489,6 @@ void client_disconnect(struct client *client, const char *reason)
 
 	client->disconnected = TRUE;
 	client->disconnect_reason = p_strdup(client->pool, reason);
-	o_stream_nflush(client->output);
 	o_stream_uncork(client->output);
 
 	i_stream_close(client->input);
