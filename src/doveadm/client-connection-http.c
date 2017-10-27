@@ -441,9 +441,7 @@ doveadm_http_handle_json_v1(struct client_request_http *req,
 			req->parse_state = CLIENT_REQUEST_PARSE_CMD_ID;
 			return TRUE;
 		}
-		// can happen...
-		if (type != JSON_TYPE_OBJECT_KEY && type != JSON_TYPE_STRING)
-			return FALSE;
+		i_assert(type == JSON_TYPE_OBJECT_KEY);
 		/* go hunting */
 		found = FALSE;
 		array_foreach_modifiable(&req->pargv, par) {
