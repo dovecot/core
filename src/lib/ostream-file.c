@@ -344,6 +344,7 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 		else if (!set) {
 			/* buffer flushing might close the stream */
 			ret = buffer_flush(fstream);
+			stream->last_errors_not_checked = TRUE;
 			if (fstream->io == NULL &&
 			    (ret == 0 || fstream->flush_pending) &&
 			    !stream->ostream.closed) {

@@ -502,7 +502,7 @@ static void o_stream_default_cork(struct ostream_private *_stream, bool set)
 		if (_stream->parent != NULL)
 			o_stream_cork(_stream->parent);
 	} else {
-		(void)o_stream_flush(&_stream->ostream);
+		o_stream_nflush(&_stream->ostream);
 		if (_stream->parent != NULL)
 			o_stream_uncork(_stream->parent);
 	}

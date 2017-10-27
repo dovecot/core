@@ -121,6 +121,9 @@ size_t o_stream_get_max_buffer_size(struct ostream *stream);
 /* Delays sending as far as possible, writing only full buffers. Also sets
    TCP_CORK on if supported. */
 void o_stream_cork(struct ostream *stream);
+/* Try to flush the buffer by calling o_stream_nflush() and remove TCP_CORK.
+   Note that after this o_stream_nfinish() must be called, unless the stream
+   ignores errors. */
 void o_stream_uncork(struct ostream *stream);
 bool o_stream_is_corked(struct ostream *stream);
 /* Try to flush the output stream. Returns 1 if all sent, 0 if not,
