@@ -61,6 +61,11 @@ typedef unsigned long uint_fast32_t;
 typedef int socklen_t;
 #endif
 
+/* WORDS_BIGENDIAN needs to be undefined if not enabled */
+#if defined(WORDS_BIGENDIAN) && WORDS_BIGENDIAN == 0
+#  undef WORDS_BIGENDIAN
+#endif
+
 #ifdef HAVE_SYS_SYSMACROS_H
 #  include <sys/sysmacros.h>
 #  ifdef HAVE_SYS_MKDEV_H
