@@ -85,7 +85,7 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 {
 	struct lz4_istream *zstream = (struct lz4_istream *)stream;
 	const unsigned char *data;
-	size_t size, max_size;
+	size_t size;
 	int ret;
 
 	if (!zstream->header_read) {
@@ -142,23 +142,15 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 		return ret;
 	}
 	/* if we already have max_buffer_size amount of data, fail here */
-	i_stream_compress(stream);
-	if (stream->pos >= i_stream_get_max_buffer_size(&stream->istream))
+	if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
 		return -2;
 	/* allocate enough space for the old data and the new
 	   decompressed chunk. we don't know the original compressed size,
 	   so just allocate the max amount of memory. */
-	max_size = stream->pos + zstream->max_uncompressed_chunk_size;
-	if (stream->buffer_size < max_size) {
-		stream->w_buffer = i_realloc(stream->w_buffer,
-					     stream->buffer_size, max_size);
-		stream->buffer_size = max_size;
-		stream->buffer = stream->w_buffer;
-	}
-	ret = LZ4_decompress_safe(zstream->chunk_buf->data,
-				  (void *)(stream->w_buffer + stream->pos),
+	void *dest = i_stream_alloc(stream, zstream->max_uncompressed_chunk_size);
+	ret = LZ4_decompress_safe(zstream->chunk_buf->data, dest,
 				  zstream->chunk_buf->used,
-				  stream->buffer_size - stream->pos);
+				  zstream->max_uncompressed_chunk_size);
 	i_assert(ret <= (int)zstream->max_uncompressed_chunk_size);
 	if (ret < 0) {
 		lz4_read_error(zstream, "corrupted lz4 chunk");
