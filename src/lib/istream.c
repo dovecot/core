@@ -783,6 +783,22 @@ bool i_stream_try_alloc(struct istream_private *stream,
 	return *size_r > 0;
 }
 
+bool ATTR_NOWARN_UNUSED_RESULT
+i_stream_try_alloc_avoid_compress(struct istream_private *stream,
+				  size_t wanted_size, size_t *size_r)
+{
+	size_t old_skip = stream->skip;
+
+	/* try first with skip=0, so no compression is done */
+	stream->skip = 0;
+	bool ret = i_stream_try_alloc(stream, wanted_size, size_r);
+	stream->skip = old_skip;
+	if (ret || old_skip == 0)
+		return ret;
+	/* it's full. try with compression. */
+	return i_stream_try_alloc(stream, wanted_size, size_r);
+}
+
 void *i_stream_alloc(struct istream_private *stream, size_t size)
 {
 	size_t old_size, avail_size;

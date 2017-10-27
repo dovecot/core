@@ -77,6 +77,12 @@ void i_stream_grow_buffer(struct istream_private *stream, size_t bytes);
 bool ATTR_NOWARN_UNUSED_RESULT
 i_stream_try_alloc(struct istream_private *stream,
 		   size_t wanted_size, size_t *size_r);
+/* Like i_stream_try_alloc(), but compress only if it's the only way to get
+   more space. This can be useful when stream is marked with
+   i_stream_seek_mark() */
+bool ATTR_NOWARN_UNUSED_RESULT
+i_stream_try_alloc_avoid_compress(struct istream_private *stream,
+				  size_t wanted_size, size_t *size_r);
 void *i_stream_alloc(struct istream_private *stream, size_t size);
 /* Free memory allocated by i_stream_*alloc() */
 void i_stream_free_buffer(struct istream_private *stream);
