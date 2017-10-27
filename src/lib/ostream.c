@@ -315,17 +315,9 @@ void o_stream_nsend_str(struct ostream *stream, const char *str)
 	o_stream_nsend(stream, str, strlen(str));
 }
 
-void o_stream_nflush(struct ostream *stream)
-{
-	if (unlikely(stream->closed || stream->stream_errno != 0))
-		return;
-	(void)o_stream_flush(stream);
-	stream->real_stream->last_errors_not_checked = TRUE;
-}
-
 int o_stream_nfinish(struct ostream *stream)
 {
-	o_stream_nflush(stream);
+	(void)o_stream_flush(stream);
 	o_stream_ignore_last_errors(stream);
 	if (stream->stream_errno == 0 && stream->real_stream->noverflow) {
 		io_stream_set_error(&stream->real_stream->iostream,
@@ -502,7 +494,9 @@ static void o_stream_default_cork(struct ostream_private *_stream, bool set)
 		if (_stream->parent != NULL)
 			o_stream_cork(_stream->parent);
 	} else {
-		o_stream_nflush(&_stream->ostream);
+		(void)o_stream_flush(&_stream->ostream);
+		_stream->last_errors_not_checked = TRUE;
+
 		if (_stream->parent != NULL)
 			o_stream_uncork(_stream->parent);
 	}
