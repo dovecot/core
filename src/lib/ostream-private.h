@@ -38,6 +38,7 @@ struct ostream_private {
 	void *context;
 
 	bool corked:1;
+	bool finished:1;
 	bool closing:1;
 	bool last_errors_not_checked:1;
 	bool error_handling_disabled:1;

@@ -159,6 +159,11 @@ static inline int o_stream_nfinish(struct ostream *stream)
 {
 	return o_stream_flush(stream) < 0 ? -1 : 0;
 }
+/* Mark the ostream as finished and flush it. If the ostream has a footer,
+   it's written here. Any further write attempts to the ostream will
+   assert-crash. Returns the same as o_stream_flush(). Afterwards any calls to
+   this function are identical to o_stream_flush(). */
+int o_stream_finish(struct ostream *stream);
 /* Marks the stream's error handling as completed to avoid i_panic() on
    destroy. */
 void o_stream_ignore_last_errors(struct ostream *stream);

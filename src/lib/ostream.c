@@ -264,6 +264,7 @@ o_stream_sendv_int(struct ostream *stream, const struct const_iovec *iov,
 	if (total_size == 0)
 		return 0;
 
+	i_assert(!_stream->finished);
 	ret = _stream->sendv(_stream, iov, iov_count);
 	if (unlikely(ret != (ssize_t)total_size)) {
 		if (ret < 0) {
@@ -325,6 +326,12 @@ void o_stream_nsend_str(struct ostream *stream, const char *str)
 	o_stream_nsend(stream, str, strlen(str));
 }
 
+int o_stream_finish(struct ostream *stream)
+{
+	stream->real_stream->finished = TRUE;
+	return o_stream_flush(stream);
+}
+
 void o_stream_ignore_last_errors(struct ostream *stream)
 {
 	while (stream != NULL) {
@@ -355,6 +362,7 @@ o_stream_send_istream(struct ostream *outstream, struct istream *instream)
 		return OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT;
 	}
 
+	i_assert(!_outstream->finished);
 	res = _outstream->send_istream(_outstream, instream);
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
@@ -417,6 +425,7 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 		return -1;
 	}
 
+	i_assert(!stream->real_stream->finished);
 	ret = stream->real_stream->write_at(stream->real_stream,
 					    data, size, offset);
 	if (unlikely(ret < 0)) {
