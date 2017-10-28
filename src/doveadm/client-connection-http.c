@@ -1188,7 +1188,7 @@ client_connection_http_create(int fd, bool ssl)
 	conn = p_new(pool, struct client_connection_http, 1);
 
 	if (client_connection_init(&conn->conn,
-		CLIENT_CONNECTION_TYPE_HTTP, pool, fd) < 0) {
+		DOVEADM_CONNECTION_TYPE_HTTP, pool, fd) < 0) {
 		pool_unref(&conn->conn.pool);
 		return NULL;
 	}

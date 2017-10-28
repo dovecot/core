@@ -7,7 +7,7 @@
 
 struct client_connection {
 	pool_t pool;
-	enum doveadm_client_connection_type type;
+	enum doveadm_client_type type;
 	const char *name;
 
 	struct ip_addr local_ip, remote_ip;

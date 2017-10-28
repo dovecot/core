@@ -56,7 +56,7 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 	struct client_connection_tcp *conn = NULL;
 
 	if (doveadm_client != NULL &&
-		doveadm_client->type == CLIENT_CONNECTION_TYPE_TCP)
+		doveadm_client->type == DOVEADM_CONNECTION_TYPE_TCP)
 		conn = (struct client_connection_tcp *)doveadm_client;
 
 	if (!log_recursing && conn != NULL &&
@@ -592,7 +592,7 @@ client_connection_tcp_free(struct client_connection *_conn)
 	struct client_connection_tcp *conn =
 		(struct client_connection_tcp *)_conn;
 
-	i_assert(_conn->type == CLIENT_CONNECTION_TYPE_TCP);
+	i_assert(_conn->type == DOVEADM_CONNECTION_TYPE_TCP);
 
 	doveadm_print_deinit();
 	doveadm_print_ostream = NULL;
@@ -622,7 +622,7 @@ client_connection_tcp_create(int fd, int listen_fd, bool ssl)
 	conn->fd = fd;
 
 	if (client_connection_init(&conn->conn,
-		CLIENT_CONNECTION_TYPE_TCP, pool, fd) < 0) {
+		DOVEADM_CONNECTION_TYPE_TCP, pool, fd) < 0) {
 		client_connection_tcp_destroy(&conn);
 		return NULL;
 	}

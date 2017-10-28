@@ -28,7 +28,7 @@ struct kick_pid {
 struct kick_context {
 	struct who_context who;
 	HASH_TABLE(void *, struct kick_pid *) pids;
-	enum doveadm_client_connection_type conn_type;
+	enum doveadm_client_type conn_type;
 	bool force_kick;
 	ARRAY(const char *) kicked_users;
 };
@@ -101,7 +101,7 @@ kick_print_kicked(struct kick_context *ctx, const bool show_warning)
 {
 	unsigned int i, count;
 	const char *const *users;
-	bool cli = (ctx->conn_type == CLIENT_CONNECTION_TYPE_CLI);
+	bool cli = (ctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 
 	if (array_count(&ctx->kicked_users) == 0) {
 		if (cli)
@@ -190,7 +190,7 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 		return;
 	}
 	ctx.conn_type = cctx->conn_type;
-	if (ctx.conn_type != CLIENT_CONNECTION_TYPE_CLI) {
+	if (ctx.conn_type != DOVEADM_CONNECTION_TYPE_CLI) {
 		/* force-kick is a pretty ugly option. its output can't be
 		   nicely translated to an API reply. it also wouldn't be very
 		   useful in scripts, only for preventing a new admin from

@@ -223,7 +223,7 @@ static void doveadm_mail_cmd_input_read(struct doveadm_mail_cmd_context *ctx)
 void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx)
 {
 	const struct doveadm_cmd_context *cctx = ctx->cctx;
-	bool cli = (cctx->conn_type == CLIENT_CONNECTION_TYPE_CLI);
+	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	struct istream *inputs[2];
 
 	if (ctx->cmd_input != NULL)
@@ -594,7 +594,7 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 		      const char *wildcard_user)
 {
 	const struct doveadm_cmd_context *cctx = ctx->cctx;
-	bool cli = (cctx->conn_type == CLIENT_CONNECTION_TYPE_CLI);
+	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	int ret;
 	const char *error;
 
@@ -662,7 +662,7 @@ doveadm_mail_cmd(const struct doveadm_mail_cmd *cmd, int argc, char *argv[])
 	int c;
 
 	i_zero(&cctx);
-	cctx.conn_type = CLIENT_CONNECTION_TYPE_CLI;
+	cctx.conn_type = DOVEADM_CONNECTION_TYPE_CLI;
 	cctx.username = getenv("USER");
 
 	ctx = doveadm_mail_cmdline_init(cmd);
@@ -964,8 +964,8 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	const char *fieldstr;
 	ARRAY_TYPE(const_string) pargv, full_args;
 	int i;
-	bool cli = (cctx->conn_type == CLIENT_CONNECTION_TYPE_CLI);
-	bool tcp_server = (cctx->conn_type == CLIENT_CONNECTION_TYPE_TCP);
+	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
+	bool tcp_server = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_TCP);
 	struct doveadm_mail_cmd mail_cmd = {
 		cctx->cmd->mail_cmd, cctx->cmd->name, cctx->cmd->usage
 	};

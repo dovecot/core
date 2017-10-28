@@ -79,7 +79,7 @@ struct doveadm_cmd_context {
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 
-	enum doveadm_client_connection_type conn_type;
+	enum doveadm_client_type conn_type;
 	struct istream *input;
 	struct ostream *output;
 };

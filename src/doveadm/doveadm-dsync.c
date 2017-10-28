@@ -686,7 +686,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (changes_during_sync != NULL || changes_during_sync2 != NULL) {
 		/* don't log a warning when running via doveadm server
 		   (e.g. called by replicator) */
-		if (cctx->conn_type == CLIENT_CONNECTION_TYPE_CLI) {
+		if (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI) {
 			i_warning("Mailbox changes caused a desync. "
 				  "You may want to run dsync again: %s",
 				  changes_during_sync == NULL ||
@@ -1142,7 +1142,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
-	bool cli = (cctx->conn_type == CLIENT_CONNECTION_TYPE_CLI);
+	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
 	string_t *temp_prefix, *state_str = NULL;
