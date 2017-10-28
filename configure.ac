@@ -181,7 +181,7 @@ AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   want_solr=no)
 
 AC_ARG_WITH(sodium,
-AS_HELP_STRING([--with-sodium], [Build with libsodium support (enables argon2 and scrypt, default: auto)]),
+AS_HELP_STRING([--with-sodium], [Build with libsodium support (enables argon2, default: auto)]),
   TEST_WITH(sodium, $withval),
   want_sodium=auto)
 
