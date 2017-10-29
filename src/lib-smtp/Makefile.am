@@ -52,7 +52,8 @@ test_programs = \
 	test-smtp-reply-parser
 
 test_nocheck_programs = \
-	test-smtp-submit
+	test-smtp-submit \
+	test-smtp-client-errors
 
 noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
 
@@ -102,6 +103,11 @@ test_smtp_submit_SOURCES = test-smtp-submit.c
 test_smtp_submit_LDFLAGS = -export-dynamic
 test_smtp_submit_LDADD = $(test_libs)
 test_smtp_submit_DEPENDENCIES = $(test_deps)
+
+test_smtp_client_errors_SOURCES = test-smtp-client-errors.c
+test_smtp_client_errors_LDFLAGS = -export-dynamic
+test_smtp_client_errors_LDADD = $(test_libs)
+test_smtp_client_errors_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
