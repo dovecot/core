@@ -328,6 +328,7 @@ ssize_t i_stream_read_memarea(struct istream *stream)
 		i_assert(ret > 0);
 		i_assert(_stream->skip < _stream->pos);
 		i_assert((size_t)ret+old_size == _stream->pos - _stream->skip);
+		_stream->last_read_timeval = ioloop_timeval;
 		break;
 	}
 
@@ -356,6 +357,11 @@ int i_stream_read_more_memarea(struct istream *stream,
 	int ret = i_stream_read_memarea(stream);
 	*data_r = i_stream_get_data(stream, size_r);
 	return ret;
+}
+
+void i_stream_get_last_read_time(struct istream *stream, struct timeval *tv_r)
+{
+	*tv_r = stream->real_stream->last_read_timeval;
 }
 
 ssize_t i_stream_read_copy_from_parent(struct istream *istream)

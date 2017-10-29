@@ -221,6 +221,9 @@ i_stream_read_more(struct istream *stream, const unsigned char **data_r,
 {
 	return i_stream_read_bytes(stream, data_r, size_r, 1);
 }
+/* Return the timestamp when istream last successfully read something.
+   The timestamp is 0 if nothing has ever been read. */
+void i_stream_get_last_read_time(struct istream *stream, struct timeval *tv_r);
 
 /* Append external data to input stream. Returns TRUE if successful, FALSE if
    there is not enough space in the stream. */

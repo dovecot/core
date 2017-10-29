@@ -52,6 +52,8 @@ struct istream_private {
 	   this way streams can check if their parent streams have been
 	   accessed behind them. */
 	unsigned int access_counter;
+	/* Timestamp when read() last returned >0 */
+	struct timeval last_read_timeval;
 
 	string_t *line_str; /* for i_stream_next_line() if w_buffer == NULL */
 	bool line_crlf:1;
