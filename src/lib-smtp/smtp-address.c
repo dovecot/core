@@ -309,6 +309,9 @@ int smtp_address_parse_mailbox(pool_t pool,
 	if (error_r != NULL)
 		*error_r = NULL;
 
+	if (error_r != NULL)
+		*error_r = NULL;
+
 	if ((mailbox == NULL || *mailbox == '\0')) {
 		if ((flags & SMTP_ADDRESS_PARSE_FLAG_ALLOW_EMPTY) == 0) {
 			if (error_r != NULL)
@@ -436,6 +439,55 @@ int smtp_address_parse_username(pool_t pool, const char *username,
 	if (address_r != NULL)
 		*address_r = smtp_address_clone(pool, &aparser.address);
 	return 1;
+}
+
+void smtp_address_detail_parse(pool_t pool, const char *delimiters,
+	struct smtp_address *address, const char **username_r,
+	char *delim_r, const char **detail_r)
+{
+	const char *localpart = address->localpart;
+	const char *user, *p;
+	size_t idx;
+
+	user = localpart;
+	*detail_r = "";
+	*delim_r = '\0';
+
+	/* first character that matches the recipient_delimiter */
+	idx = strcspn(localpart, delimiters);
+	p = (localpart[idx] != '\0' ? &localpart[idx] : NULL);
+
+	if (p != NULL) {
+		*delim_r = *p;
+		/* user+detail */
+		user = p_strdup_until(pool, localpart, p);
+		*detail_r = p+1;
+	}
+
+	if (address->domain == NULL)
+		*username_r = user;
+	else if (strchr(user, '@') == NULL ) {
+		/* username is just glued to the domain... no SMTP escaping */
+		*username_r = p_strconcat(pool,
+			user, "@", address->domain, NULL);
+	} else {
+		struct smtp_address uaddr;
+
+		/* username contains '@'; apply escaping */
+		smtp_address_init(&uaddr, user, address->domain);
+		if (pool->datastack_pool)
+			*username_r = smtp_address_encode(&uaddr);
+		else
+			*username_r = p_strdup(pool, smtp_address_encode(&uaddr));
+	}
+}
+
+void smtp_address_detail_parse_temp(const char *delimiters,
+	struct smtp_address *address, const char **username_r,
+	char *delim_r, const char **detail_r)
+{
+	smtp_address_detail_parse(pool_datastack_create(), delimiters,
+				  address, username_r, delim_r, detail_r);
 }
 
 /*

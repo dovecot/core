@@ -733,6 +733,76 @@ static void test_smtp_username_parse_invalid(void)
 }
 
 /*
+ * Address detail parsing
+ */
+
+struct address_detail_parse_test {
+		const char *delimiters;
+		const char *address;
+		const char *username;
+		const char *detail;
+		char delim;
+};
+
+static const struct address_detail_parse_test
+address_detail_parse_tests[] = {
+	{ "", "test", "test", "", '\0' },
+	{ "", "test+address", "test+address", "", '\0' },
+	{ "", "\"test:address\"", "test:address", "", '\0' },
+	{ "", "\"test-address:another+delim\"", "test-address:another+delim", "", '\0' },
+	{ "", "test@domain", "test@domain", "", '\0' },
+	{ "", "test+address@domain", "test+address@domain", "", '\0' },
+	{ "", "\"test:address\"@domain", "test:address@domain", "", '\0' },
+	{ "", "\"test-address:another+delim\"@domain", "test-address:another+delim@domain", "", '\0' },
+
+	{ "+-:", "test", "test", "", '\0' },
+	{ "+-:", "test+address", "test", "address", '+' },
+	{ "+-:", "\"test:address\"", "test", "address", ':' },
+	{ "+-:", "\"test-address:another+delim\"", "test", "address:another+delim", '-' },
+	{ "+-:", "test@domain", "test@domain", "", '\0' },
+	{ "+-:", "test+address@domain", "test@domain", "address", '+' },
+	{ "+-:", "\"test:address\"@domain", "test@domain", "address", ':' },
+	{ "+-:", "\"test-address:another+delim\"@domain", "test@domain", "address:another+delim", '-' }
+};
+
+unsigned int addresss_detail_parse_test_count =
+	N_ELEMENTS(address_detail_parse_tests);
+
+static void test_smtp_address_detail_parse(void)
+{
+	unsigned int i;
+
+
+	for (i = 0; i < N_ELEMENTS(address_detail_parse_tests); i++) T_BEGIN {
+		const struct address_detail_parse_test *test =
+			&address_detail_parse_tests[i];
+		struct smtp_address *address;
+		const char *username, *detail, *error;
+		char delim;
+		int ret;
+
+		test_begin(t_strdup_printf(
+			"smtp address detail parsing [%d]", i));
+
+		ret = smtp_address_parse_path(pool_datastack_create(), test->address,
+			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
+			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
+			&address, &error);
+		test_out_reason("address parse", ret > 0, error);
+
+		if (!test_has_failed()) {
+			smtp_address_detail_parse_temp(test->delimiters, address,
+						  &username, &delim, &detail);
+			test_assert(strcmp(username, test->username) == 0);
+			test_assert(strcmp(detail, test->detail) == 0);
+			test_assert(delim == test->delim);
+		}
+
+		test_end();
+	} T_END;
+}
+
+/*
  * Tests
  */
 
@@ -745,6 +815,7 @@ int main(void)
 		test_smtp_mailbox_parse_invalid,
 		test_smtp_path_parse_invalid,
 		test_smtp_username_parse_invalid,
+		test_smtp_address_detail_parse,
 		NULL
 	};
 	return test_run(test_functions);
