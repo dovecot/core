@@ -23,7 +23,20 @@ struct istream;
 struct ostream;
 struct iostream_pump;
 
-typedef void iostream_pump_callback_t(bool success, void *context);
+enum iostream_pump_status {
+	/* pump succeeded - EOF received from istream and all output was
+	   written successfully to ostream. */
+	IOSTREAM_PUMP_STATUS_INPUT_EOF,
+	/* pump failed - istream returned an error */
+	IOSTREAM_PUMP_STATUS_INPUT_ERROR,
+	/* pump failed - ostream returned an error */
+	IOSTREAM_PUMP_STATUS_OUTPUT_ERROR,
+};
+
+/* The callback is called once when the pump succeeds or fails due to
+   iostreams. (It's not called if pump is destroyed.) */
+typedef void iostream_pump_callback_t(enum iostream_pump_status status,
+				      void *context);
 
 struct iostream_pump *
 iostream_pump_create(struct istream *input, struct ostream *output);
@@ -41,7 +54,7 @@ void iostream_pump_set_completion_callback(struct iostream_pump *pump,
 					   iostream_pump_callback_t *callback, void *context);
 #define iostream_pump_set_completion_callback(pump, callback, context) \
 	iostream_pump_set_completion_callback(pump, (iostream_pump_callback_t *)callback, context + \
-		CALLBACK_TYPECHECK(callback, void (*)(bool, typeof(context))))
+		CALLBACK_TYPECHECK(callback, void (*)(enum iostream_pump_status, typeof(context))))
 
 /* Returns TRUE if the pump is currently only writing to the ostream. The input
    listener has been removed either because the ostream buffer is full or

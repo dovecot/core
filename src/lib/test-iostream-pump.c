@@ -18,10 +18,10 @@ static
 unsigned char data[] = "hello, world";
 
 static
-void completed(bool success, int *u0)
+void completed(enum iostream_pump_status status, int *u0)
 {
 	/* to somehow discern between error and success .. */
-	(*u0) -= (success ? 1 : 2);
+	(*u0) -= (status == IOSTREAM_PUMP_STATUS_INPUT_EOF ? 1 : 2);
 	io_loop_stop(current_ioloop);
 }
 

@@ -41,9 +41,12 @@ void iostream_pump_copy(struct iostream_pump *pump)
 
 	switch(res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+		io_remove(&pump->io);
+		pump->callback(IOSTREAM_PUMP_STATUS_INPUT_ERROR, pump->context);
+		return;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 		io_remove(&pump->io);
-		pump->callback(FALSE, pump->context);
+		pump->callback(IOSTREAM_PUMP_STATUS_OUTPUT_ERROR, pump->context);
 		return;
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		pump->waiting_output = TRUE;
@@ -55,14 +58,14 @@ void iostream_pump_copy(struct iostream_pump *pump)
 		/* flush it */
 		switch (o_stream_flush(pump->output)) {
 		case -1:
-			pump->callback(FALSE, pump->context);
+			pump->callback(IOSTREAM_PUMP_STATUS_OUTPUT_ERROR, pump->context);
 			break;
 		case 0:
 			pump->waiting_output = TRUE;
 			pump->completed = TRUE;
 			break;
 		default:
-			pump->callback(TRUE, pump->context);
+			pump->callback(IOSTREAM_PUMP_STATUS_INPUT_EOF, pump->context);
 			break;
 		}
 		return;
@@ -79,12 +82,12 @@ int iostream_pump_flush(struct iostream_pump *pump)
 	int ret;
 	if ((ret = o_stream_flush(pump->output)) <= 0) {
 		if (ret < 0)
-			pump->callback(FALSE, pump->context);
+			pump->callback(IOSTREAM_PUMP_STATUS_OUTPUT_ERROR, pump->context);
 		return ret;
 	}
 	pump->waiting_output = FALSE;
 	if (pump->completed) {
-		pump->callback(TRUE, pump->context);
+		pump->callback(IOSTREAM_PUMP_STATUS_INPUT_EOF, pump->context);
 		return 1;
 	}
 

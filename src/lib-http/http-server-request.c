@@ -670,7 +670,7 @@ payload_handler_pump_switch_ioloop(
 }
 
 static void
-payload_handler_pump_callback(bool success,
+payload_handler_pump_callback(enum iostream_pump_status status,
 	struct http_server_payload_handler_pump *phandler)
 {
 	struct http_server_payload_handler *handler = &phandler->handler;
@@ -679,7 +679,8 @@ payload_handler_pump_callback(bool success,
 	struct istream *input = iostream_pump_get_input(phandler->pump);
 	struct ostream *output = iostream_pump_get_output(phandler->pump);
 
-	if (success) {
+	switch (status) {
+	case IOSTREAM_PUMP_STATUS_INPUT_EOF:
 		if (!i_stream_read_eof(conn->incoming_payload)) {
 			http_server_request_fail_close(req,
 				413, "Payload Too Large");
@@ -694,14 +695,16 @@ payload_handler_pump_callback(bool success,
 			i_assert(req->callback_refcount > 0 ||
 				(req->response != NULL && req->response->submitted));
 		}
-	} else if (input->stream_errno != 0) {
+		break;
+	case IOSTREAM_PUMP_STATUS_INPUT_ERROR:
 		http_server_request_client_error(req,
 			"iostream_pump: read(%s) failed: %s",
 			i_stream_get_name(input),
 			i_stream_get_error(input));
 		http_server_request_fail_close(req,
 			400, "Bad Request");
-	} else {
+		break;
+	case IOSTREAM_PUMP_STATUS_OUTPUT_ERROR:
 		if (output->stream_errno != 0) {
 			http_server_request_error(req,
 				"iostream_pump: write(%s) failed: %s",
@@ -710,6 +713,7 @@ payload_handler_pump_callback(bool success,
 		}
 		http_server_request_fail_close(req,
 			500, "Internal Server Error");
+		break;
 	}
 
 	if (conn->payload_handler != NULL)

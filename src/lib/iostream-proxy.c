@@ -20,14 +20,18 @@ struct iostream_proxy {
 };
 
 static
-void iostream_proxy_rtl_completion(bool success, struct iostream_proxy *proxy)
+void iostream_proxy_rtl_completion(enum iostream_pump_status status,
+				   struct iostream_proxy *proxy)
 {
+	bool success = (status == IOSTREAM_PUMP_STATUS_INPUT_EOF);
 	proxy->callback(IOSTREAM_PROXY_SIDE_RIGHT, success, proxy->context);
 }
 
 static
-void iostream_proxy_ltr_completion(bool success, struct iostream_proxy *proxy)
+void iostream_proxy_ltr_completion(enum iostream_pump_status status,
+				   struct iostream_proxy *proxy)
 {
+	bool success = (status == IOSTREAM_PUMP_STATUS_INPUT_EOF);
 	proxy->callback(IOSTREAM_PROXY_SIDE_LEFT, success, proxy->context);
 }
 
