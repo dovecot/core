@@ -295,56 +295,10 @@ static void test_message_address(void)
 	test_end();
 }
 
-static void test_message_delim(void) {
-	test_begin("message address detail parsing");
-
-	struct {
-		const char *delimiters;
-		const char *address;
-		const char *username;
-		const char *detail;
-		char delim;
-	} tests[] = {
-		{ "", "", "", "", '\0' },
-		{ "", "test", "test", "", '\0' },
-		{ "", "test+address", "test+address", "", '\0' },
-		{ "", "test:address", "test:address", "", '\0' },
-		{ "", "test-address:another+delim", "test-address:another+delim", "", '\0' },
-		{ "", "test@domain", "test@domain", "", '\0' },
-		{ "", "test+address@domain", "test+address@domain", "", '\0' },
-		{ "", "test:address@domain", "test:address@domain", "", '\0' },
-		{ "", "test-address:another+delim@domain", "test-address:another+delim@domain", "", '\0' },
-
-		{ "+-:", "", "", "", '\0' },
-		{ "+-:", "test", "test", "", '\0' },
-		{ "+-:", "test+address", "test", "address", '+' },
-		{ "+-:", "test:address", "test", "address", ':' },
-		{ "+-:", "test-address:another+delim", "test", "address:another+delim", '-' },
-		{ "+-:", "test@domain", "test@domain", "", '\0' },
-		{ "+-:", "test+address@domain", "test@domain", "address", '+' },
-		{ "+-:", "test:address@domain", "test@domain", "address", ':' },
-		{ "+-:", "test-address:another+delim@domain", "test@domain", "address:another+delim", '-' }
-	};
-
-	for(size_t i = 0; i < N_ELEMENTS(tests); i++) {
-		const char *username, *detail;
-		char delim;
-
-		message_detail_address_parse(tests[i].delimiters, tests[i].address,
-					     &username, &delim, &detail);
-		test_assert_idx(strcmp(username, tests[i].username) == 0, i);
-		test_assert_idx(strcmp(detail, tests[i].detail) == 0, i);
-		test_assert_idx(delim == tests[i].delim, i);
-	}
-
-	test_end();
-}
-
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_message_address,
-		test_message_delim,
 		NULL
 	};
 	return test_run(test_functions);
