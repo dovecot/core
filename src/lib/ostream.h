@@ -200,6 +200,11 @@ void o_stream_nsend_istream(struct ostream *outstream, struct istream *instream)
 int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 		    uoff_t offset);
 
+/* Return the last timestamp when something was successfully sent to the
+   ostream's internal buffers (no guarantees that anything was sent further).
+   The timestamp is 0 if nothing has ever been written. */
+void o_stream_get_last_write_time(struct ostream *stream, struct timeval *tv_r);
+
 /* If there are any I/O loop items associated with the stream, move all of
    them to current_ioloop. */
 void o_stream_switch_ioloop(struct ostream *stream);

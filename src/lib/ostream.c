@@ -275,6 +275,8 @@ o_stream_sendv_int(struct ostream *stream, const struct const_iovec *iov,
 
 	i_assert(!_stream->finished);
 	ret = _stream->sendv(_stream, iov, iov_count);
+	if (ret > 0)
+		stream->real_stream->last_write_timeval = ioloop_timeval;
 	if (unlikely(ret != (ssize_t)total_size)) {
 		if (ret < 0) {
 			i_assert(stream->stream_errno != 0);
@@ -406,6 +408,9 @@ o_stream_send_istream(struct ostream *outstream, struct istream *instream)
 	/* non-failure - make sure stream offsets match */
 	i_assert((outstream->offset - old_outstream_offset) ==
 		 (instream->v_offset - old_instream_offset));
+
+	if (outstream->offset != old_outstream_offset)
+		outstream->real_stream->last_write_timeval = ioloop_timeval;
 	return res;
 }
 
@@ -447,11 +452,19 @@ int o_stream_pwrite(struct ostream *stream, const void *data, size_t size,
 	i_assert(!stream->real_stream->finished);
 	ret = stream->real_stream->write_at(stream->real_stream,
 					    data, size, offset);
-	if (unlikely(ret < 0)) {
+	if (ret > 0)
+		stream->real_stream->last_write_timeval = ioloop_timeval;
+	else if (unlikely(ret < 0)) {
 		i_assert(stream->stream_errno != 0);
 		errno = stream->stream_errno;
 	}
+
 	return ret;
+}
+
+void o_stream_get_last_write_time(struct ostream *stream, struct timeval *tv_r)
+{
+	*tv_r = stream->real_stream->last_write_timeval;
 }
 
 enum ostream_send_istream_result

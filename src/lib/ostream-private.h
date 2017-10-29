@@ -34,6 +34,8 @@ struct ostream_private {
 	struct ostream *parent; /* for filter streams */
 
 	int fd;
+	struct timeval last_write_timeval;
+
 	stream_flush_callback_t *callback;
 	void *context;
 
