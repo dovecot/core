@@ -11,7 +11,7 @@
 #include "mail-storage.h"
 #include "mail-storage-settings.h"
 #include "mail-storage-service.h"
-#include "message-address.h"
+#include "smtp-address.h"
 #include "quota-private.h"
 #include "quota-plugin.h"
 #include "quota-status-settings.h"
@@ -24,7 +24,7 @@ enum quota_protocol {
 struct quota_client {
 	struct connection conn;
 
-	char *recipient;
+	struct smtp_address *recipient;
 	uoff_t size;
 };
 
@@ -96,9 +96,9 @@ static void client_handle_request(struct quota_client *client)
 	}
 
 	i_zero(&input);
-	message_detail_address_parse(quota_status_settings->recipient_delimiter,
-				     client->recipient, &input.username, &delim,
-				     &detail);
+	smtp_address_detail_parse_temp(quota_status_settings->recipient_delimiter,
+				       client->recipient, &input.username, &delim,
+				       &detail);
 	ret = mail_storage_service_lookup_next(storage_service, &input,
 					       &service_user, &user, &error);
 	restrict_access_allow_coredumps(TRUE);
@@ -153,6 +153,7 @@ static void client_handle_request(struct quota_client *client)
 static int client_input_line(struct connection *conn, const char *line)
 {
 	struct quota_client *client = (struct quota_client *)conn;
+	const char *error;
 
 	if (*line == '\0') {
 		o_stream_cork(conn->output);
@@ -162,9 +163,17 @@ static int client_input_line(struct connection *conn, const char *line)
 		return 1;
 	}
 	if (client->recipient == NULL &&
-	    strncmp(line, "recipient=", 10) == 0)
-		client->recipient = i_strdup(line + 10);
-	else if (strncmp(line, "size=", 5) == 0) {
+	    strncmp(line, "recipient=", 10) == 0) {
+		if (smtp_address_parse_path(default_pool, line + 10,
+			SMTP_ADDRESS_PARSE_FLAG_ALLOW_LOCALPART |
+			SMTP_ADDRESS_PARSE_FLAG_BRACKETS_OPTIONAL,
+			&client->recipient, &error) < 0) {
+			i_error("quota-status: "
+				"Client sent invalid recipient address: %s",
+				error);
+			return 0;
+		}
+	} else if (strncmp(line, "size=", 5) == 0) {
 		if (str_to_uoff(line+5, &client->size) < 0)
 			client->size = 0;
 	}
