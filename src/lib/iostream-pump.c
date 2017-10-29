@@ -176,7 +176,8 @@ void iostream_pump_stop(struct iostream_pump *pump)
 void iostream_pump_switch_ioloop(struct iostream_pump *pump)
 {
 	i_assert(pump != NULL);
-	pump->io = io_loop_move_io(&pump->io);
+	if (pump->io != NULL)
+		pump->io = io_loop_move_io(&pump->io);
 	o_stream_switch_ioloop(pump->output);
 	i_stream_switch_ioloop(pump->input);
 }
