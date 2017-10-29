@@ -12,7 +12,8 @@
 #include <sys/socket.h>
 
 static
-void completed(enum iostream_proxy_side side ATTR_UNUSED, bool success ATTR_UNUSED, int *u0)
+void completed(enum iostream_proxy_side side ATTR_UNUSED,
+	       enum iostream_proxy_status status ATTR_UNUSED, int *u0)
 {
 	i_assert(*u0 > 0);
 	if (--*u0 == 0)

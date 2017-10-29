@@ -19,20 +19,41 @@ struct iostream_proxy {
 	void *context;
 };
 
+static void
+iostream_proxy_completion(struct iostream_proxy *proxy,
+			  enum iostream_proxy_side side,
+			  enum iostream_pump_status pump_status)
+{
+	enum iostream_proxy_status status;
+
+	switch (pump_status) {
+	case IOSTREAM_PUMP_STATUS_INPUT_EOF:
+		status = IOSTREAM_PROXY_STATUS_INPUT_EOF;
+		break;
+	case IOSTREAM_PUMP_STATUS_INPUT_ERROR:
+		status = IOSTREAM_PROXY_STATUS_INPUT_ERROR;
+		break;
+	case IOSTREAM_PUMP_STATUS_OUTPUT_ERROR:
+		status = IOSTREAM_PROXY_STATUS_OTHER_SIDE_OUTPUT_ERROR;
+		break;
+	default:
+		i_unreached();
+	}
+	proxy->callback(side, status, proxy->context);
+}
+
 static
 void iostream_proxy_rtl_completion(enum iostream_pump_status status,
 				   struct iostream_proxy *proxy)
 {
-	bool success = (status == IOSTREAM_PUMP_STATUS_INPUT_EOF);
-	proxy->callback(IOSTREAM_PROXY_SIDE_RIGHT, success, proxy->context);
+	iostream_proxy_completion(proxy, IOSTREAM_PROXY_SIDE_RIGHT, status);
 }
 
 static
 void iostream_proxy_ltr_completion(enum iostream_pump_status status,
 				   struct iostream_proxy *proxy)
 {
-	bool success = (status == IOSTREAM_PUMP_STATUS_INPUT_EOF);
-	proxy->callback(IOSTREAM_PROXY_SIDE_LEFT, success, proxy->context);
+	iostream_proxy_completion(proxy, IOSTREAM_PROXY_SIDE_LEFT, status);
 }
 
 struct iostream_proxy *
