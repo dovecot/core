@@ -124,6 +124,18 @@ void iostream_proxy_stop(struct iostream_proxy *proxy)
 	iostream_pump_stop(proxy->rtl);
 }
 
+bool iostream_proxy_is_waiting_output(struct iostream_proxy *proxy,
+				      enum iostream_proxy_side side)
+{
+	switch (side) {
+	case IOSTREAM_PROXY_SIDE_LEFT:
+		return iostream_pump_is_waiting_output(proxy->ltr);
+	case IOSTREAM_PROXY_SIDE_RIGHT:
+		return iostream_pump_is_waiting_output(proxy->rtl);
+	}
+	i_unreached();
+}
+
 void iostream_proxy_switch_ioloop(struct iostream_proxy *proxy)
 {
 	i_assert(proxy != NULL);

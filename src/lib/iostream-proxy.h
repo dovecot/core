@@ -44,6 +44,10 @@ struct ostream *iostream_proxy_get_ostream(struct iostream_proxy *proxy, enum io
 void iostream_proxy_start(struct iostream_proxy *proxy);
 void iostream_proxy_stop(struct iostream_proxy *proxy);
 
+/* See iostream_pump_is_waiting_output() */
+bool iostream_proxy_is_waiting_output(struct iostream_proxy *proxy,
+				      enum iostream_proxy_side side);
+
 void iostream_proxy_set_completion_callback(struct iostream_proxy *proxy,
 				       iostream_proxy_callback_t *callback, void *context);
 #define iostream_proxy_set_completion_callback(proxy, callback, context) \
