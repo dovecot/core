@@ -105,6 +105,8 @@ const char *run_pump(struct istream *in, struct ostream *out, int *counter, buff
 		/* input failed, finish flushing output */
 		test_ostream_set_max_output_size(ctx.out, (size_t)-1);
 		test_assert(o_stream_flush(ctx.out) > 0);
+	} else {
+		test_assert(o_stream_flush(ctx.out) != 0);
 	}
 
 	const char *ret = t_strdup(str_c(out_buffer));

@@ -28,12 +28,14 @@ void iostream_pump_copy(struct iostream_pump *pump)
 {
 	enum ostream_send_istream_result res;
 
+	o_stream_cork(pump->output);
 	size_t old_size = o_stream_get_max_buffer_size(pump->output);
 	o_stream_set_max_buffer_size(pump->output,
 				     I_MIN(IO_BLOCK_SIZE,
 					   o_stream_get_max_buffer_size(pump->output)));
 	res = o_stream_send_istream(pump->output, pump->input);
 	o_stream_set_max_buffer_size(pump->output, old_size);
+	o_stream_uncork(pump->output);
 
 	switch(res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
