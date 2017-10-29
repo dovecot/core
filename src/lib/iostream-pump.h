@@ -43,6 +43,12 @@ void iostream_pump_set_completion_callback(struct iostream_pump *pump,
 	iostream_pump_set_completion_callback(pump, (iostream_pump_callback_t *)callback, context + \
 		CALLBACK_TYPECHECK(callback, void (*)(bool, typeof(context))))
 
+/* Returns TRUE if the pump is currently only writing to the ostream. The input
+   listener has been removed either because the ostream buffer is full or
+   because the istream already returned EOF. This function can also be called
+   from the completion callback in error conditions. */
+bool iostream_pump_is_waiting_output(struct iostream_pump *pump);
+
 void iostream_pump_switch_ioloop(struct iostream_pump *pump);
 
 #endif
