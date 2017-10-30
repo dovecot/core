@@ -436,7 +436,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	struct mail_storage_service_input input;
 	const char *const *fields, *errstr, *orig_username = username;
 	struct smtp_address *user;
-	pool_t pool;
+	pool_t auth_pool;
 	int ret;
 
 	i_zero(&input);
@@ -450,15 +450,15 @@ int lmtp_proxy_rcpt(struct client *client,
 	info.local_port = client->local_port;
 	info.remote_port = client->remote_port;
 
-	pool = pool_alloconly_create("auth lookup", 1024);
+	auth_pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(storage_service);
 	ret = auth_master_pass_lookup(auth_conn, username, &info,
-				      pool, &fields);
+				      auth_pool, &fields);
 	if (ret <= 0) {
 		errstr = ret < 0 && fields[0] != NULL ? t_strdup(fields[0]) :
 			t_strdup_printf(ERRSTR_TEMP_USERDB_FAIL,
 				smtp_address_encode(address));
-		pool_unref(&pool);
+		pool_unref(&auth_pool);
 		if (ret < 0) {
 			client_send_line(client, "%s", errstr);
 			return -1;
@@ -476,7 +476,7 @@ int lmtp_proxy_rcpt(struct client *client,
 
 	if (!lmtp_proxy_rcpt_parse_fields(&set, fields, &username)) {
 		/* not proxying this user */
-		pool_unref(&pool);
+		pool_unref(&auth_pool);
 		return 0;
 	}
 	if (strcmp(username, orig_username) != 0) {
@@ -487,7 +487,7 @@ int lmtp_proxy_rcpt(struct client *client,
 			client_send_line(client, "550 5.3.5 <%s> "
 				"Internal user lookup failure",
 				smtp_address_encode(address));
-			pool_unref(&pool);
+			pool_unref(&auth_pool);
 			return -1;
 		}
 		/* username changed. change the address as well */
@@ -501,7 +501,7 @@ int lmtp_proxy_rcpt(struct client *client,
 		client_send_line(client, "554 5.4.6 <%s> "
 				 "Proxying loops to itself",
 				 smtp_address_encode(address));
-		pool_unref(&pool);
+		pool_unref(&auth_pool);
 		return -1;
 	}
 
@@ -511,7 +511,7 @@ int lmtp_proxy_rcpt(struct client *client,
 		client_send_line(client, "554 5.4.6 <%s> "
 				 "Proxying appears to be looping (TTL=0)",
 				 username);
-		pool_unref(&pool);
+		pool_unref(&auth_pool);
 		return -1;
 	}
 	if (client_get_rcpt_count(client) >
@@ -519,7 +519,7 @@ int lmtp_proxy_rcpt(struct client *client,
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
 			smtp_address_encode(address));
-		pool_unref(&pool);
+		pool_unref(&auth_pool);
 		return -1;
 	}
 	if (client->proxy == NULL) {
@@ -541,7 +541,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	if (conn->failed) {
 		client_send_line(client,
 			"451 4.4.0 Remote server not answering");
-		pool_unref(&pool);
+		pool_unref(&auth_pool);
 		return -1;
 	}
 
@@ -556,7 +556,7 @@ int lmtp_proxy_rcpt(struct client *client,
 		lmtp_proxy_rcpt_cb, lmtp_proxy_data_cb, rcpt);
 
 	client_send_line(client, "250 2.1.5 OK");
-	pool_unref(&pool);
+	pool_unref(&auth_pool);
 	return 1;
 }
 
