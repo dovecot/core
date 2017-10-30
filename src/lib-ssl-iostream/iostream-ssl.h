@@ -11,25 +11,25 @@ struct ssl_iostream_cert {
 };
 
 struct ssl_iostream_settings {
-	const char *protocols;
-	const char *cipher_list;
-	const char *curve_list;
+	const char *protocols; /* both */
+	const char *cipher_list; /* both */
+	const char *curve_list; /* both */
 	const char *ca, *ca_file, *ca_dir; /* context-only */
 	/* alternative cert is for providing certificate using
 	   different key algorithm */
 	struct ssl_iostream_cert cert; /* both */
-	struct ssl_iostream_cert alt_cert;
-	const char *dh;
-	const char *cert_username_field;
+	struct ssl_iostream_cert alt_cert; /* both */
+	const char *dh; /* context-only */
+	const char *cert_username_field; /* both */
 	const char *crypto_device; /* context-only */
 
 	bool verbose, verbose_invalid_cert; /* stream-only */
-	bool skip_crl_check;
+	bool skip_crl_check; /* context-only */
 	bool verify_remote_cert; /* neither/both */
 	bool allow_invalid_cert; /* stream-only */
-	bool prefer_server_ciphers;
-	bool compression;
-	bool tickets;
+	bool prefer_server_ciphers; /* both */
+	bool compression; /* context-only */
+	bool tickets; /* context-only */
 };
 
 /* Load SSL module */
