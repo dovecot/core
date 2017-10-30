@@ -440,7 +440,8 @@ cmd_data_input_add_file(struct client *client,
 }
 
 static int
-client_input_add(struct client *client, const unsigned char *data, size_t size)
+cmd_data_input_add(struct client *client,
+		   const unsigned char *data, size_t size)
 {
 	if (client->state.mail_data->used + size <=
 	    CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE &&
@@ -460,7 +461,7 @@ static void client_input_data_handle(struct client *client)
 
 	while ((ret = i_stream_read(client->dot_input)) > 0 || ret == -2) {
 		data = i_stream_get_data(client->dot_input, &size);
-		if (client_input_add(client, data, size) < 0) {
+		if (cmd_data_input_add(client, data, size) < 0) {
 			client_destroy(client, "451 4.3.0",
 				       "Temporary internal failure");
 			return;
