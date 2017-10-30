@@ -455,23 +455,24 @@ cmd_data_input_add(struct client *client,
 
 static void client_input_data_handle(struct client *client)
 {
+	struct istream *data_input = client->dot_input;
 	const unsigned char *data;
 	size_t size;
 	ssize_t ret;
 
-	while ((ret = i_stream_read(client->dot_input)) > 0 || ret == -2) {
-		data = i_stream_get_data(client->dot_input, &size);
+	while ((ret = i_stream_read(data_input)) > 0 || ret == -2) {
+		data = i_stream_get_data(data_input, &size);
 		if (cmd_data_input_add(client, data, size) < 0) {
 			client_destroy(client, "451 4.3.0",
 				       "Temporary internal failure");
 			return;
 		}
-		i_stream_skip(client->dot_input, size);
+		i_stream_skip(data_input, size);
 	}
 	if (ret == 0)
 		return;
 
-	if (client->dot_input->stream_errno != 0) {
+	if (data_input->stream_errno != 0) {
 		/* client probably disconnected */
 		client_destroy(client, NULL, NULL);
 		return;
