@@ -391,8 +391,9 @@ static void client_input_data_write(struct client *client)
 	i_stream_unref(&input);
 }
 
-static int client_input_add_file(struct client *client,
-				 const unsigned char *data, size_t size)
+static int
+cmd_data_input_add_file(struct client *client,
+			const unsigned char *data, size_t size)
 {
 	struct client_state *state = &client->state;
 	string_t *path;
@@ -447,7 +448,7 @@ client_input_add(struct client *client, const unsigned char *data, size_t size)
 		buffer_append(client->state.mail_data, data, size);
 		return 0;
 	} else {
-		return client_input_add_file(client, data, size);
+		return cmd_data_input_add_file(client, data, size);
 	}
 }
 
