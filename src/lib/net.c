@@ -39,6 +39,8 @@ union sockaddr_union_unix {
 
 #if !defined(HAVE_GETPEEREID) && !defined(SO_PEERCRED) && !defined(HAVE_GETPEERUCRED) && defined(MSG_WAITALL) && defined(LOCAL_CREDS)
 #  define NEEDS_LOCAL_CREDS 1
+#else
+#  undef NEEDS_LOCAL_CREDS
 #endif
 
 /* If connect() fails with EADDRNOTAVAIL (or some others on FreeBSD), retry it
@@ -883,7 +885,7 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 		return -1;
 	}
 	return 0;
-#elif NEEDS_LOCAL_CREDS
+#elif defined(NEEDS_LOCAL_CREDS)
 	/* NetBSD < 5 */
 	int i, n, on;
 	struct iovec iov;
