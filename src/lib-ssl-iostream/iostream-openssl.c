@@ -189,6 +189,14 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 		if (openssl_iostream_use_key(ssl_io, &set->cert, error_r) < 0)
 			return -1;
 	}
+	if (set->alt_cert.cert != NULL && strcmp(ctx_set->alt_cert.cert, set->alt_cert.cert) != 0) {
+		if (openssl_iostream_use_certificate(ssl_io, set->alt_cert.cert, error_r) < 0)
+			return -1;
+	}
+	if (set->alt_cert.key != NULL && strcmp(ctx_set->alt_cert.key, set->alt_cert.key) != 0) {
+		if (openssl_iostream_use_key(ssl_io, &set->alt_cert, error_r) < 0)
+			return -1;
+	}
 	if (set->verify_remote_cert) {
 		if (ssl_io->ctx->client_ctx)
 			verify_flags = SSL_VERIFY_NONE;

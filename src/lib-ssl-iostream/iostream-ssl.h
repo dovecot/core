@@ -15,7 +15,10 @@ struct ssl_iostream_settings {
 	const char *cipher_list;
 	const char *curve_list;
 	const char *ca, *ca_file, *ca_dir; /* context-only */
+	/* alternative cert is for providing certificate using
+	   different key algorithm */
 	struct ssl_iostream_cert cert; /* both */
+	struct ssl_iostream_cert alt_cert;
 	const char *dh;
 	const char *cert_username_field;
 	const char *crypto_device; /* context-only */
