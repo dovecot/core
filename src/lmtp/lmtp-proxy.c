@@ -428,10 +428,10 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
 	return 0;
 }
 
-bool lmtp_proxy_rcpt(struct client *client,
-		     struct smtp_address *address,
-		     const char *username, const char *detail, char delim,
-		     struct smtp_params_rcpt *params)
+int lmtp_proxy_rcpt(struct client *client,
+		    struct smtp_address *address,
+		    const char *username, const char *detail, char delim,
+		    struct smtp_params_rcpt *params)
 {
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
@@ -464,10 +464,10 @@ bool lmtp_proxy_rcpt(struct client *client,
 		pool_unref(&pool);
 		if (ret < 0) {
 			client_send_line(client, "%s", errstr);
-			return TRUE;
+			return -1;
 		} else {
 			/* user not found from passdb. try userdb also. */
-			return FALSE;
+			return 0;
 		}
 	}
 
@@ -480,7 +480,7 @@ bool lmtp_proxy_rcpt(struct client *client,
 	if (!lmtp_proxy_rcpt_parse_fields(&set, fields, &username)) {
 		/* not proxying this user */
 		pool_unref(&pool);
-		return FALSE;
+		return 0;
 	}
 	if (strcmp(username, orig_username) != 0) {
 		if (smtp_address_parse_username(pool_datastack_create(),
@@ -491,7 +491,7 @@ bool lmtp_proxy_rcpt(struct client *client,
 				"Internal user lookup failure",
 				smtp_address_encode(address));
 			pool_unref(&pool);
-			return FALSE;
+			return -1;
 		}
 		/* username changed. change the address as well */
 		if (*detail == '\0') {
@@ -505,7 +505,7 @@ bool lmtp_proxy_rcpt(struct client *client,
 				 "Proxying loops to itself",
 				 smtp_address_encode(address));
 		pool_unref(&pool);
-		return TRUE;
+		return -1;
 	}
 
 	if (client->proxy_ttl <= 1) {
@@ -515,14 +515,14 @@ bool lmtp_proxy_rcpt(struct client *client,
 				 "Proxying appears to be looping (TTL=0)",
 				 username);
 		pool_unref(&pool);
-		return TRUE;
+		return -1;
 	}
 	if (array_count(&client->state.rcpt_to) != 0) {
 		client_send_line(client, "451 4.3.0 <%s> "
 			"Can't handle mixed proxy/non-proxy destinations",
 			smtp_address_encode(address));
 		pool_unref(&pool);
-		return TRUE;
+		return -1;
 	}
 	if (client->proxy == NULL) {
 		struct lmtp_proxy_settings proxy_set;
@@ -543,7 +543,7 @@ bool lmtp_proxy_rcpt(struct client *client,
 	else
 		client_send_line(client, "250 2.1.5 OK");
 	pool_unref(&pool);
-	return TRUE;
+	return 1;
 }
 
 /*

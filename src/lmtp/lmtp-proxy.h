@@ -47,10 +47,10 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
 			const struct smtp_address *address,
 			const struct lmtp_proxy_rcpt_settings *set);
 
-bool lmtp_proxy_rcpt(struct client *client,
-		     struct smtp_address *address,
-		     const char *username, const char *detail, char delim,
-		     struct smtp_params_rcpt *params);
+int lmtp_proxy_rcpt(struct client *client,
+		    struct smtp_address *address,
+		    const char *username, const char *detail, char delim,
+		    struct smtp_params_rcpt *params);
 
 /* Start proxying */
 void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,

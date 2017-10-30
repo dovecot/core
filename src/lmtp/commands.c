@@ -246,7 +246,7 @@ int cmd_rcpt(struct client *client, const char *args)
 
 	if (client->lmtp_set->lmtp_proxy) {
 		if (lmtp_proxy_rcpt(client, address, username, detail, delim,
-				      &rcpt->params))
+				      &rcpt->params) != 0)
 			return 0;
 	}
 
