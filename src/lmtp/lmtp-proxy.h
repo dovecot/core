@@ -37,12 +37,6 @@ void lmtp_proxy_deinit(struct lmtp_proxy **proxy);
 
 unsigned int lmtp_proxy_rcpt_count(struct client *client);
 
-/* Add a new recipient. Returns -1 if we already know that the destination
-   host can't be reached. */
-int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
-			const struct smtp_address *address,
-			const struct lmtp_proxy_rcpt_settings *set);
-
 int lmtp_proxy_rcpt(struct client *client,
 		    struct smtp_address *address,
 		    const char *username, const char *detail, char delim,

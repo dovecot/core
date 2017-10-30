@@ -414,28 +414,6 @@ lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 	rcpt->rcpt_to_failed = !smtp_reply_is_success(proxy_reply);
 }
 
-int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
-			const struct smtp_address *address,
-			const struct lmtp_proxy_rcpt_settings *set)
-{
-	struct lmtp_proxy_connection *conn;
-	struct lmtp_proxy_recipient *rcpt;
-
-	conn = lmtp_proxy_get_connection(proxy, set);
-	if (conn->failed)
-		return -1;
-
-	rcpt = p_new(proxy->pool, struct lmtp_proxy_recipient, 1);
-	rcpt->idx = array_count(&proxy->rcpt_to);
-	rcpt->conn = conn;
-	rcpt->address = smtp_address_clone(proxy->pool, address);
-	array_append(&proxy->rcpt_to, &rcpt, 1);
-
-	smtp_client_transaction_add_rcpt(conn->lmtp_trans, address,
-		&set->params, lmtp_proxy_rcpt_cb, lmtp_proxy_data_cb, rcpt);
-	return 0;
-}
-
 int lmtp_proxy_rcpt(struct client *client,
 		    struct smtp_address *address,
 		    const char *username, const char *detail, char delim,
@@ -443,6 +421,8 @@ int lmtp_proxy_rcpt(struct client *client,
 {
 	struct auth_master_connection *auth_conn;
 	struct lmtp_proxy_rcpt_settings set;
+	struct lmtp_proxy_connection *conn;
+	struct lmtp_proxy_recipient *rcpt;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
 	const char *const *fields, *errstr, *orig_username = username;
@@ -547,10 +527,26 @@ int lmtp_proxy_rcpt(struct client *client,
 		lmtp_proxy_mail_from(client->proxy, client->state.mail_from,
 			&client->state.mail_params);
 	}
-	if (lmtp_proxy_add_rcpt(client->proxy, address, &set) < 0)
-		client_send_line(client, "451 4.4.0 Remote server not answering");
-	else
-		client_send_line(client, "250 2.1.5 OK");
+
+	conn = lmtp_proxy_get_connection(client->proxy, &set);
+	if (conn->failed) {
+		client_send_line(client,
+			"451 4.4.0 Remote server not answering");
+		pool_unref(&pool);
+		return -1;
+	}
+
+	rcpt = p_new(client->proxy->pool, struct lmtp_proxy_recipient, 1);
+	rcpt->idx = array_count(&client->proxy->rcpt_to);
+	rcpt->conn = conn;
+	rcpt->address = smtp_address_clone(client->proxy->pool, address);
+	array_append(&client->proxy->rcpt_to, &rcpt, 1);
+
+	smtp_client_transaction_add_rcpt(conn->lmtp_trans,
+		address, &set.params,
+		lmtp_proxy_rcpt_cb, lmtp_proxy_data_cb, rcpt);
+
+	client_send_line(client, "250 2.1.5 OK");
 	pool_unref(&pool);
 	return 1;
 }
