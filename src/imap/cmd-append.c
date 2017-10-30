@@ -563,6 +563,7 @@ cmd_append_handle_args(struct client_command_context *cmd,
 	if (cat_list != NULL) {
 		ctx->cat_msg_size = 0;
 		ctx->input = i_stream_create_chain(&ctx->catchain);
+		i_stream_set_max_buffer_size(ctx->input, IO_BLOCK_SIZE);
 	} else {
 		if (ctx->literal_size == 0) {
 			/* no message data, abort */
