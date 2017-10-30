@@ -360,7 +360,8 @@ int http_header_parse_next_field(struct http_header_parser *parser,
 		if (parser->input->stream_errno == 0)
 			*error_r = "Premature end of input";
 		else
-			*error_r = "Stream error";
+			*error_r = t_strdup_printf("Stream error: %s",
+				i_stream_get_error(parser->input));
 	}
 	return ret;
 }

@@ -119,7 +119,8 @@ int http_message_parse_finish_payload(struct http_message_parser *parser)
 				parser->error = "Invalid payload";
 			} else {
 				parser->error_code = HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
-				parser->error = "Stream error while skipping payload";
+				parser->error = t_strdup_printf("Stream error while skipping payload: %s",
+								i_stream_get_error(parser->payload));
 			}
 		}
 		return ret;
