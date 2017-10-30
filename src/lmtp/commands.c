@@ -296,7 +296,7 @@ int cmd_noop(struct client *client, const char *args ATTR_UNUSED)
  * DATA command
  */
 
-static struct istream *client_get_input(struct client *client)
+static struct istream *cmd_data_get_input(struct client *client)
 {
 	struct client_state *state = &client->state;
 	struct istream *cinput, *inputs[3];
@@ -378,7 +378,7 @@ static void client_input_data_write(struct client *client)
 
 	client->state.data_end_timeval = ioloop_timeval;
 
-	input = client_get_input(client);
+	input = cmd_data_get_input(client);
 	if (lmtp_local_rcpt_count(client) != 0)
 		lmtp_local_data(client, input);
 	if (client->proxy != NULL) {
