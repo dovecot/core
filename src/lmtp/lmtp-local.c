@@ -31,9 +31,9 @@
 
 struct lmtp_local_recipient {
 	struct lmtp_recipient rcpt;
-	const char *session_id;
+	char *session_id;
 
-	const char *detail;
+	char *detail;
 
 	struct mail_storage_service_user *service_user;
 	struct anvil_query *anvil_query;
@@ -126,6 +126,10 @@ void lmtp_local_rcpt_deinit(struct lmtp_local_recipient *rcpt)
 		anvil_client_query_abort(anvil, &rcpt->anvil_query);
 	lmtp_local_rcpt_anvil_disconnect(rcpt);
 	mail_storage_service_user_unref(&rcpt->service_user);
+
+	i_free(rcpt->session_id);
+	i_free(rcpt->detail);
+	i_free(rcpt);
 }
 
 static void
@@ -322,13 +326,13 @@ int lmtp_local_rcpt(struct client *client,
 	if (client->local == NULL)
 		client->local = lmtp_local_init(client);
 
-	rcpt = p_new(client->state_pool, struct lmtp_local_recipient, 1);
+	rcpt = i_new(struct lmtp_local_recipient, 1);
 	rcpt->rcpt.client = client;
 	rcpt->rcpt.address = smtp_address_clone(client->state_pool, address); 
 	smtp_params_rcpt_copy(client->state_pool, &rcpt->rcpt.params, params);
-	rcpt->detail = p_strdup(client->state_pool, detail);
+	rcpt->detail = i_strdup(detail);
 	rcpt->service_user = service_user;
-	rcpt->session_id = p_strdup(client->state_pool, session_id);
+	rcpt->session_id = i_strdup(session_id);
 
 	if (client->lmtp_set->lmtp_user_concurrency_limit == 0) {
 		(void)lmtp_local_rcpt_anvil_finish(rcpt);
