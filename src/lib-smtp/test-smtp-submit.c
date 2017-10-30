@@ -328,8 +328,7 @@ test_denied_helo_input(struct server_connection *conn)
 
 	line = i_stream_read_next_line(conn->conn.input);
 	if (line == NULL) {
-		if (i_stream_is_eof(conn->conn.input) ||
-			conn->conn.input->stream_errno != 0)
+		if (conn->conn.input->eof)
 			server_connection_deinit(&conn);
 		return;
 	}
@@ -399,8 +398,7 @@ test_disconnect_helo_input(struct server_connection *conn)
 
 	line = i_stream_read_next_line(conn->conn.input);
 	if (line == NULL) {
-		if (i_stream_is_eof(conn->conn.input) ||
-			conn->conn.input->stream_errno != 0)
+		if (conn->conn.input->eof)
 			server_connection_deinit(&conn);
 		return;
 	}
@@ -486,8 +484,7 @@ test_denied_mail_input(struct server_connection *conn)
 	for (;;) {
 		line = i_stream_read_next_line(conn->conn.input);
 		if (line == NULL) {
-			if (i_stream_is_eof(conn->conn.input) ||
-				conn->conn.input->stream_errno != 0)
+			if (conn->conn.input->eof)
 				server_connection_deinit(&conn);
 			return;
 		}
@@ -592,8 +589,7 @@ test_denied_rcpt_input(struct server_connection *conn)
 	for (;;) {
 		line = i_stream_read_next_line(conn->conn.input);
 		if (line == NULL) {
-			if (i_stream_is_eof(conn->conn.input) ||
-				conn->conn.input->stream_errno != 0)
+			if (conn->conn.input->eof)
 				server_connection_deinit(&conn);
 			return;
 		}
@@ -702,8 +698,7 @@ test_denied_second_rcpt_input(struct server_connection *conn)
 	for (;;) {
 		line = i_stream_read_next_line(conn->conn.input);
 		if (line == NULL) {
-			if (i_stream_is_eof(conn->conn.input) ||
-				conn->conn.input->stream_errno != 0)
+			if (conn->conn.input->eof)
 				server_connection_deinit(&conn);
 			return;
 		}
@@ -832,8 +827,7 @@ test_denied_data_input(struct server_connection *conn)
 	for (;;) {
 		line = i_stream_read_next_line(conn->conn.input);
 		if (line == NULL) {
-			if (i_stream_is_eof(conn->conn.input) ||
-				conn->conn.input->stream_errno != 0)
+			if (conn->conn.input->eof)
 				server_connection_deinit(&conn);
 			return;
 		}
@@ -948,8 +942,7 @@ test_data_failure_input(struct server_connection *conn)
 	for (;;) {
 		line = i_stream_read_next_line(conn->conn.input);
 		if (line == NULL) {
-			if (i_stream_is_eof(conn->conn.input) ||
-				conn->conn.input->stream_errno != 0)
+			if (conn->conn.input->eof)
 				server_connection_deinit(&conn);
 			return;
 		}
@@ -1072,8 +1065,7 @@ test_data_disconnect_input(struct server_connection *conn)
 	for (;;) {
 		line = i_stream_read_next_line(conn->conn.input);
 		if (line == NULL) {
-			if (i_stream_is_eof(conn->conn.input) ||
-				conn->conn.input->stream_errno != 0)
+			if (conn->conn.input->eof)
 				server_connection_deinit(&conn);
 			return;
 		}
@@ -1191,8 +1183,7 @@ test_data_timout_input(struct server_connection *conn)
 	for (;;) {
 		line = i_stream_read_next_line(conn->conn.input);
 		if (line == NULL) {
-			if (i_stream_is_eof(conn->conn.input) ||
-				conn->conn.input->stream_errno != 0)
+			if (conn->conn.input->eof)
 				server_connection_deinit(&conn);
 			return;
 		}
@@ -1364,8 +1355,7 @@ test_successful_delivery_input(struct server_connection *conn)
 
 		line = i_stream_read_next_line(conn->conn.input);
 		if (line == NULL) {
-			if (i_stream_is_eof(conn->conn.input) ||
-				conn->conn.input->stream_errno != 0)
+			if (conn->conn.input->eof)
 				server_connection_deinit(&conn);
 			return;
 		}
@@ -2023,7 +2013,7 @@ test_message_delivery(const char *message, const char *file)
 
 	test_out_reason("delivery", ret < 0 &&
 		input->stream_errno == 0 &&
-		i_stream_is_eof(input) &&
+		input->eof &&
 		input->v_offset == (uoff_t)msize,
 		(input->stream_errno == 0 ? NULL : i_stream_get_error(input)));
 	i_stream_unref(&input);

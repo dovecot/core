@@ -50,7 +50,7 @@ static void test_istream_concat_one(unsigned int buffer_size)
 	i_stream_unref(&input);
 
 	for (i = 0; i < STREAM_COUNT; i++) {
-		test_assert(i_stream_is_eof(streams[i]));
+		test_assert(streams[i]->eof && streams[i]->stream_errno == 0);
 		i_stream_unref(&streams[i]);
 	}
 }

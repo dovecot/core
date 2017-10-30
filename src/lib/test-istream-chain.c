@@ -44,8 +44,8 @@ static void test_istream_chain_basic(void)
 
 	i_stream_unref(&input);
 
-	test_assert(i_stream_is_eof(test_input));
-	test_assert(i_stream_is_eof(test_input2));
+	test_assert(test_input->eof && test_input->stream_errno == 0);
+	test_assert(test_input2->eof && test_input2->stream_errno == 0);
 
 	i_stream_unref(&test_input);
 	i_stream_unref(&test_input2);

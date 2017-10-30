@@ -258,7 +258,7 @@ test_server_hanging_request_payload_input(struct _hanging_request_payload *ctx)
 		return;
 	}
 
-	i_assert(i_stream_is_eof(ctx->payload_input));
+	i_assert(ctx->payload_input->eof);
 		
 	resp = http_server_response_create(req, 200, "OK");
 	http_server_response_submit(resp);
