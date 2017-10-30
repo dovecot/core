@@ -19,7 +19,7 @@ struct ssl_iostream_context {
 	SSL_CTX *ssl_ctx;
 
 	pool_t pool;
-	const struct ssl_iostream_settings *set;
+	struct ssl_iostream_settings set;
 
 	DH *dh_512, *dh_default;
 	int username_nid;

@@ -279,7 +279,7 @@ ssl_iostream_ctx_verify_remote_cert(struct ssl_iostream_context *ctx,
 				    STACK_OF(X509_NAME) *ca_names)
 {
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
-	if (!ctx->set->skip_crl_check) {
+	if (!ctx->set.skip_crl_check) {
 		X509_STORE *store;
 
 		store = SSL_CTX_get_cert_store(ctx->ssl_ctx);
@@ -358,7 +358,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			 const struct ssl_iostream_settings *set,
 			 const char **error_r)
 {
-	ctx->set = ssl_iostream_settings_dup(ctx->pool, set);
+	ssl_iostream_settings_init_from(ctx->pool, &ctx->set, set);
 	if (set->cipher_list != NULL &&
 	    SSL_CTX_set_cipher_list(ctx->ssl_ctx, set->cipher_list) == 0) {
 		*error_r = t_strdup_printf("Can't set cipher list to '%s': %s",
@@ -377,9 +377,9 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		SSL_CTX_set_options(ctx->ssl_ctx,
 				    SSL_OP_CIPHER_SERVER_PREFERENCE);
 	}
-	if (ctx->set->protocols != NULL) {
+	if (ctx->set.protocols != NULL) {
 		SSL_CTX_set_options(ctx->ssl_ctx,
-			    openssl_get_protocol_options(ctx->set->protocols));
+			    openssl_get_protocol_options(ctx->set.protocols));
 	}
 
 	if (set->cert.cert != NULL &&

@@ -146,7 +146,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 		     const struct ssl_iostream_settings *set,
 		     const char **error_r)
 {
-	const struct ssl_iostream_settings *ctx_set = ssl_io->ctx->set;
+	const struct ssl_iostream_settings *ctx_set = &ssl_io->ctx->set;
 	int verify_flags;
 
 	if (set->verbose)
