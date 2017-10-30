@@ -70,7 +70,7 @@ int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set
 void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx);
 void openssl_iostream_global_deinit(void);
 
-int openssl_iostream_load_key(const struct ssl_iostream_settings *set,
+int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 			      EVP_PKEY **pkey_r, const char **error_r);
 int openssl_cert_match_name(SSL *ssl, const char *verify_name);
 int openssl_get_protocol_options(const char *protocols);

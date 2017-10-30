@@ -189,8 +189,8 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	ssl_set.ca_file = db->set.tls_ca_cert_file;
 	ssl_set.ca_dir = db->set.tls_ca_cert_dir;
 	if (db->set.tls_cert_file != NULL && *db->set.tls_cert_file != '\0') {
-		ssl_set.cert = db->set.tls_cert_file;
-		ssl_set.key = db->set.tls_key_file;
+		ssl_set.cert.cert = db->set.tls_cert_file;
+		ssl_set.cert.key = db->set.tls_key_file;
 	}
 	ssl_set.prefer_server_ciphers = TRUE;
 	ssl_set.allow_invalid_cert = db->set.tls_allow_invalid_cert;

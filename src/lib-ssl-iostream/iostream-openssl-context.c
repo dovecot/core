@@ -82,7 +82,7 @@ pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
 	return strlen(buf);
 }
 
-int openssl_iostream_load_key(const struct ssl_iostream_settings *set,
+int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 			      EVP_PKEY **pkey_r, const char **error_r)
 {
 	struct ssl_iostream_password_context ctx;
@@ -146,7 +146,7 @@ int openssl_iostream_load_dh(const struct ssl_iostream_settings *set,
 
 static int
 ssl_iostream_ctx_use_key(struct ssl_iostream_context *ctx,
-			 const struct ssl_iostream_settings *set,
+			 const struct ssl_iostream_cert *set,
 			 const char **error_r)
 {
 	EVP_PKEY *pkey;
@@ -380,14 +380,14 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			    openssl_get_protocol_options(ctx->set->protocols));
 	}
 
-	if (set->cert != NULL &&
-	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert) == 0) {
+	if (set->cert.cert != NULL &&
+	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->cert.cert) == 0) {
 		*error_r = t_strdup_printf("Can't load SSL certificate: %s",
-			openssl_iostream_use_certificate_error(set->cert, NULL));
+			openssl_iostream_use_certificate_error(set->cert.cert, NULL));
 		return -1;
 	}
-	if (set->key != NULL) {
-		if (ssl_iostream_ctx_use_key(ctx, set, error_r) < 0)
+	if (set->cert.key != NULL) {
+		if (ssl_iostream_ctx_use_key(ctx, &set->cert, error_r) < 0)
 			return -1;
 	}
 
@@ -433,8 +433,8 @@ ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
 	EC_KEY *eckey;
 	const EC_GROUP *ecgrp;
 
-	if (set->key != NULL) {
-		if (openssl_iostream_load_key(set, &pkey, error_r) < 0)
+	if (set->cert.key != NULL) {
+		if (openssl_iostream_load_key(&set->cert, &pkey, error_r) < 0)
 			return -1;
 
 		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) != NULL &&

@@ -225,9 +225,9 @@ ssl_iostream_settings_dup(pool_t pool,
 	new_set->ca = p_strdup(pool, old_set->ca);
 	new_set->ca_file = p_strdup(pool, old_set->ca_file);
 	new_set->ca_dir = p_strdup(pool, old_set->ca_dir);
-	new_set->cert = p_strdup(pool, old_set->cert);
-	new_set->key = p_strdup(pool, old_set->key);
-	new_set->key_password = p_strdup(pool, old_set->key_password);
+	new_set->cert.cert = p_strdup(pool, old_set->cert.cert);
+	new_set->cert.key = p_strdup(pool, old_set->cert.key);
+	new_set->cert.key_password = p_strdup(pool, old_set->cert.key_password);
 	new_set->cert_username_field = p_strdup(pool, old_set->cert_username_field);
 	new_set->crypto_device = p_strdup(pool, old_set->crypto_device);
 

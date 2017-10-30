@@ -4,14 +4,18 @@
 struct ssl_iostream;
 struct ssl_iostream_context;
 
+struct ssl_iostream_cert {
+	const char *cert;
+	const char *key;
+	const char *key_password;
+};
+
 struct ssl_iostream_settings {
 	const char *protocols;
 	const char *cipher_list;
 	const char *curve_list;
 	const char *ca, *ca_file, *ca_dir; /* context-only */
-	const char *cert;
-	const char *key;
-	const char *key_password;
+	struct ssl_iostream_cert cert; /* both */
 	const char *dh;
 	const char *cert_username_field;
 	const char *crypto_device; /* context-only */

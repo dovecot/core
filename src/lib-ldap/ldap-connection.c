@@ -74,10 +74,10 @@ int ldap_connection_setup(struct ldap_connection *conn, const char **error_r)
 	if (conn->ssl_set.ca_dir != NULL)
 		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CACERTDIR, conn->ssl_set.ca_dir);
 
-	if (conn->ssl_set.cert != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERTFILE, conn->ssl_set.cert);
-	if (conn->ssl_set.key != NULL)
-		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_set.key);
+	if (conn->ssl_set.cert.cert != NULL)
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_CERTFILE, conn->ssl_set.cert.cert);
+	if (conn->ssl_set.cert.key != NULL)
+		ldap_set_option(conn->conn, LDAP_OPT_X_TLS_KEYFILE, conn->ssl_set.cert.key);
 
 	opt = conn->set.debug;
 	ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, &opt);
@@ -123,9 +123,9 @@ bool ldap_connection_have_settings(struct ldap_connection *conn,
 		return FALSE;
 	if (null_strcmp(conn->ssl_set.ca_file, set->ssl_set->ca_file) != 0)
 		return FALSE;
-	if (null_strcmp(conn->ssl_set.cert, set->ssl_set->cert) != 0)
+	if (null_strcmp(conn->ssl_set.cert.cert, set->ssl_set->cert.cert) != 0)
 		return FALSE;
-	if (null_strcmp(conn->ssl_set.key, set->ssl_set->key) != 0)
+	if (null_strcmp(conn->ssl_set.cert.key, set->ssl_set->cert.key) != 0)
 		return FALSE;
 	return TRUE;
 }
@@ -159,7 +159,7 @@ int ldap_connection_init(struct ldap_client *client,
 	}
 	/* cannot use these */
 	conn->ssl_set.ca = NULL;
-	conn->ssl_set.key_password = NULL;
+	conn->ssl_set.cert.key_password = NULL;
 	conn->ssl_set.cert_username_field = NULL;
 	conn->ssl_set.crypto_device = NULL;
 
@@ -169,8 +169,8 @@ int ldap_connection_init(struct ldap_client *client,
 		conn->ssl_set.protocols = p_strdup(pool, set->ssl_set->protocols);
 		conn->ssl_set.cipher_list = p_strdup(pool, set->ssl_set->cipher_list);
 		conn->ssl_set.ca_file = p_strdup(pool, set->ssl_set->ca_file);
-		conn->ssl_set.cert = p_strdup(pool, set->ssl_set->cert);
-		conn->ssl_set.key = p_strdup(pool, set->ssl_set->key);
+		conn->ssl_set.cert.cert = p_strdup(pool, set->ssl_set->cert.cert);
+		conn->ssl_set.cert.key = p_strdup(pool, set->ssl_set->cert.key);
 	}
 	i_assert(ldap_connection_have_settings(conn, set));
 

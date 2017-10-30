@@ -85,7 +85,7 @@ openssl_iostream_use_certificate(struct ssl_iostream *ssl_io, const char *cert,
 
 static int
 openssl_iostream_use_key(struct ssl_iostream *ssl_io,
-			 const struct ssl_iostream_settings *set,
+			 const struct ssl_iostream_cert *set,
 			 const char **error_r)
 {
 	EVP_PKEY *pkey;
@@ -181,12 +181,12 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 				openssl_get_protocol_options(set->protocols));
 	}
 
-	if (set->cert != NULL && strcmp(ctx_set->cert, set->cert) != 0) {
-		if (openssl_iostream_use_certificate(ssl_io, set->cert, error_r) < 0)
+	if (set->cert.cert != NULL && strcmp(ctx_set->cert.cert, set->cert.cert) != 0) {
+		if (openssl_iostream_use_certificate(ssl_io, set->cert.cert, error_r) < 0)
 			return -1;
 	}
-	if (set->key != NULL && strcmp(ctx_set->key, set->key) != 0) {
-		if (openssl_iostream_use_key(ssl_io, set, error_r) < 0)
+	if (set->cert.key != NULL && strcmp(ctx_set->cert.key, set->cert.key) != 0) {
+		if (openssl_iostream_use_key(ssl_io, &set->cert, error_r) < 0)
 			return -1;
 	}
 	if (set->verify_remote_cert) {
