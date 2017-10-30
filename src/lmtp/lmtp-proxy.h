@@ -9,6 +9,7 @@
 #define LMTP_PROXY_DEFAULT_TTL 5
 
 struct smtp_address;
+struct lmtp_proxy;
 struct client;
 
 struct lmtp_proxy_settings {
@@ -32,9 +33,6 @@ struct lmtp_proxy_rcpt_settings {
 
 typedef void lmtp_proxy_finish_callback_t(void *context);
 
-struct lmtp_proxy *
-lmtp_proxy_init(const struct lmtp_proxy_settings *set,
-		struct ostream *client_output);
 void lmtp_proxy_deinit(struct lmtp_proxy **proxy);
 
 unsigned int lmtp_proxy_rcpt_count(struct client *client);

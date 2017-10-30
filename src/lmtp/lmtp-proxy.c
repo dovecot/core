@@ -82,7 +82,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *reply,
  * LMTP proxy
  */
 
-struct lmtp_proxy *
+static struct lmtp_proxy *
 lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 		struct ostream *client_output)
 {
