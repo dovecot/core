@@ -1023,7 +1023,8 @@ test_connection_lost_input(struct server_connection *conn)
 		return;
 	}
 	if (ret < 0) {
-		if (i_stream_is_eof(conn->conn.input))
+		i_assert(conn->conn.input->eof);
+		if (conn->conn.input->stream_errno == 0)
 			i_fatal("server: Client stream ended prematurely");
 		else
 			i_fatal("server: Streem error: %s",

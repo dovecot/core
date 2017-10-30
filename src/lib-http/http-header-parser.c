@@ -356,7 +356,8 @@ int http_header_parse_next_field(struct http_header_parser *parser,
 
 	i_assert(ret != -2);
 	if (ret < 0) {
-		if (i_stream_is_eof(parser->input))
+		i_assert(parser->input->eof);
+		if (parser->input->stream_errno == 0)
 			*error_r = "Premature end of input";
 		else
 			*error_r = "Stream error";
