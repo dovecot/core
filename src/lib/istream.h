@@ -16,6 +16,8 @@ struct istream {
 	   EIO     - Internal error. Retrying may work, but it may also be
 	             because of a misconfiguration.
 	   EINVAL  - Stream is corrupted.
+
+	   If stream_errno != 0, eof==TRUE as well.
 	*/
 	int stream_errno;
 
@@ -25,8 +27,9 @@ struct istream {
 	bool readable_fd:1; /* fd can be read directly if necessary
 	                               (for sendfile()) */
 	bool seekable:1; /* we can seek() backwards */
-	bool eof:1; /* read() has reached to end of file
-	                       (but may still be data available in buffer) */
+	/* read() has reached to end of file (but there may still be data
+	   available in buffer) or stream_errno != 0 */
+	bool eof:1;
 
 	struct istream_private *real_stream;
 };
