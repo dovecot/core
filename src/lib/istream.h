@@ -169,7 +169,7 @@ bool i_stream_have_bytes_left(struct istream *stream);
    returns EOF/error. Usually it's enough to check for stream->eof instead of
    calling this function. Note that if the stream isn't at EOF, this function
    has now read data into the stream buffer. */
-bool i_stream_is_eof(struct istream *stream);
+bool i_stream_read_eof(struct istream *stream);
 /* Returns the absolute offset of the stream. This is the stream's current
    v_offset + the parent's absolute offset when the stream was created. */
 uoff_t i_stream_get_absolute_offset(struct istream *stream);

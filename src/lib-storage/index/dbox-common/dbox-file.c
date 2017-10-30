@@ -454,7 +454,7 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 			*offset_r = file->cur_offset;
 			return ret;
 		}
-		if (i_stream_is_eof(file->input)) {
+		if (i_stream_read_eof(file->input)) {
 			*last_r = TRUE;
 			return 0;
 		}

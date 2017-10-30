@@ -393,7 +393,7 @@ bool i_stream_have_bytes_left(struct istream *stream)
 	return i_stream_get_data_size(stream) > 0 || !stream->eof;
 }
 
-bool i_stream_is_eof(struct istream *stream)
+bool i_stream_read_eof(struct istream *stream)
 {
 	if (i_stream_get_data_size(stream) == 0)
 		(void)i_stream_read(stream);

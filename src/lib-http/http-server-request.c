@@ -680,7 +680,7 @@ payload_handler_pump_callback(bool success,
 	struct ostream *output = iostream_pump_get_output(phandler->pump);
 
 	if (success) {
-		if (!i_stream_is_eof(conn->incoming_payload)) {
+		if (!i_stream_read_eof(conn->incoming_payload)) {
 			http_server_request_fail_close(req,
 				413, "Payload Too Large");
 		} else {

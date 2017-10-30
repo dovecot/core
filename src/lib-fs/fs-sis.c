@@ -243,7 +243,7 @@ static int fs_sis_write(struct fs_file *_file, const void *data, size_t size)
 
 	if (file->hash_input != NULL &&
 	    stream_cmp_block(file->hash_input, data, size) &&
-	    i_stream_is_eof(file->hash_input)) {
+	    i_stream_read_eof(file->hash_input)) {
 		/* try to use existing file */
 		if (fs_sis_try_link(file))
 			return 0;
@@ -293,7 +293,7 @@ static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 
 	if (file->hash_input != NULL &&
 	    o_stream_cmp_equals(_file->output) &&
-	    i_stream_is_eof(file->hash_input)) {
+	    i_stream_read_eof(file->hash_input)) {
 		o_stream_unref(&_file->output);
 		if (fs_sis_try_link(file)) {
 			fs_write_stream_abort_parent(_file, &file->fs_output);

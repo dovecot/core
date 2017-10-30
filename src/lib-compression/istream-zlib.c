@@ -183,7 +183,7 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 			if (ret <= 0)
 				return ret;
 		}
-		if (!zstream->gz || i_stream_is_eof(stream->parent)) {
+		if (!zstream->gz || i_stream_read_eof(stream->parent)) {
 			stream->istream.eof = TRUE;
 			return -1;
 		}

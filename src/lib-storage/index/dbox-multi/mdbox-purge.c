@@ -215,7 +215,7 @@ mdbox_purge_save_msg(struct mdbox_purge_context *ctx, struct dbox_file *file,
 		ret = -1;
 	} else if (input->v_offset != msg_size) {
 		i_assert(input->v_offset < msg_size);
-		i_assert(i_stream_is_eof(file->input));
+		i_assert(i_stream_read_eof(file->input));
 
 		dbox_file_set_corrupted(file, "truncated message at EOF");
 		ret = 0;
