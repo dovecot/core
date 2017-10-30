@@ -37,10 +37,6 @@ void lmtp_proxy_deinit(struct lmtp_proxy **proxy);
 
 unsigned int lmtp_proxy_rcpt_count(struct client *client);
 
-/* Set the "MAIL FROM:" parameters */
-void lmtp_proxy_mail_from(struct lmtp_proxy *proxy,
-			  const struct smtp_address *address,
-			  const struct smtp_params_mail *params);
 /* Add a new recipient. Returns -1 if we already know that the destination
    host can't be reached. */
 int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,

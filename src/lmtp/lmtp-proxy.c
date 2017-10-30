@@ -149,9 +149,10 @@ void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 	pool_unref(&proxy->pool);
 }
 
-void lmtp_proxy_mail_from(struct lmtp_proxy *proxy,
-			  const struct smtp_address *address,
-			  const struct smtp_params_mail *params)
+static void
+lmtp_proxy_mail_from(struct lmtp_proxy *proxy,
+		     const struct smtp_address *address,
+		     const struct smtp_params_mail *params)
 {
 	proxy->mail_from = smtp_address_clone(proxy->pool, address);
 	smtp_params_mail_copy(proxy->pool, &proxy->mail_params, params);
