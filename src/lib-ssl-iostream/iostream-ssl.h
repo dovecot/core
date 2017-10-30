@@ -91,7 +91,11 @@ int ssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
 				     struct ssl_iostream_context **ctx_r,
 				     const char **error_r);
 void ssl_iostream_context_deinit(struct ssl_iostream_context **ctx);
+
 struct ssl_iostream_settings *ssl_iostream_settings_dup(pool_t pool,
 			const struct ssl_iostream_settings *old_set);
+void ssl_iostream_settings_init_from(pool_t pool,
+				     struct ssl_iostream_settings *new_set,
+				     const struct ssl_iostream_settings *old_set);
 
 #endif
