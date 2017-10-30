@@ -22,15 +22,6 @@ struct lmtp_proxy_settings {
 	unsigned int proxy_ttl;
 };
 
-struct lmtp_proxy_rcpt_settings {
-	enum smtp_protocol protocol;
-	const char *host;
-	struct ip_addr hostip;
-	in_port_t port;
-	unsigned int timeout_msecs;
-	struct smtp_params_rcpt params;
-};
-
 typedef void lmtp_proxy_finish_callback_t(void *context);
 
 void lmtp_proxy_deinit(struct lmtp_proxy **proxy);

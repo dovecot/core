@@ -26,6 +26,15 @@
 #define ERRSTR_TEMP_USERDB_FAIL \
 	ERRSTR_TEMP_USERDB_FAIL_PREFIX "Temporary user lookup failure"
 
+struct lmtp_proxy_rcpt_settings {
+	enum smtp_protocol protocol;
+	const char *host;
+	struct ip_addr hostip;
+	in_port_t port;
+	unsigned int timeout_msecs;
+	struct smtp_params_rcpt params;
+};
+
 struct lmtp_proxy_recipient {
 	struct lmtp_proxy_connection *conn;
 	const struct smtp_address *address;
