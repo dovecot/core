@@ -103,6 +103,7 @@ static const struct imapc_feature_list imapc_feature_list[] = {
 	{ "delay-login", IMAPC_FEATURE_DELAY_LOGIN },
 	{ "fetch-bodystructure", IMAPC_FEATURE_FETCH_BODYSTRUCTURE },
 	{ "send-id", IMAPC_FEATURE_SEND_ID },
+	{ "fetch-empty-is-expunged", IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED },
 	{ NULL, 0 }
 };
 

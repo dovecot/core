@@ -601,6 +601,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 		   bool have_header, bool have_body)
 {
 	struct index_mail *imail = &mail->imail;
+	struct imapc_mailbox *mbox = IMAPC_MAILBOX(imail->mail.mail.box);
 	struct istream *hdr_stream = NULL;
 	const char *value;
 	int fd;
@@ -649,7 +650,9 @@ imapc_fetch_stream(struct imapc_mail *mail,
 	} else {
 		if (!imap_arg_get_nstring(arg, &value))
 			value = NULL;
-		if (value == NULL) {
+		if (value == NULL ||
+		    (value[0] == '\0' &&
+		     IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED))) {
 			mail_set_expunged(&imail->mail.mail);
 			i_stream_unref(&hdr_stream);
 			return;
