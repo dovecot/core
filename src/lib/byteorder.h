@@ -221,7 +221,7 @@ static inline uint##size##_t cpu##size##_to_cpu_unaligned(const void *in)\
 	return bswap;							\
 }
 
-#if WORDS_BIGENDIAN
+#ifdef WORDS_BIGENDIAN
 #define GEN(size)	__GEN(size, x)
 #else
 #define GEN(size)	__GEN(size, i_bswap_##size(x))
