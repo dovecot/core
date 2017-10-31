@@ -409,14 +409,30 @@ void clients_destroy_all(void)
 	clients_destroy_all_reason("Disconnected: Shutting down");
 }
 
-static void client_start_tls(struct client *client)
+int client_init_ssl(struct client *client)
 {
 	int fd_ssl;
+
+	i_assert(client->fd != -1);
 
 	fd_ssl = ssl_proxy_alloc(client->fd, &client->ip, client->pool,
 				 client->set, client->ssl_set,
 				 &client->ssl_proxy);
-	if (fd_ssl == -1) {
+	if (fd_ssl == -1)
+		return -1;
+
+	ssl_proxy_set_client(client->ssl_proxy, client);
+	ssl_proxy_start(client->ssl_proxy);
+
+	client->tls = TRUE;
+	client->secured = TRUE;
+	client->fd = fd_ssl;
+	return 0;
+}
+
+static void client_start_tls(struct client *client)
+{
+	if (client_init_ssl(client) < 0) {
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_INTERNAL_ERROR,
 			"TLS initialization failed.");
@@ -424,15 +440,10 @@ static void client_start_tls(struct client *client)
 			"Disconnected: TLS initialization failed.");
 		return;
 	}
-	ssl_proxy_set_client(client->ssl_proxy, client);
-	ssl_proxy_start(client->ssl_proxy);
 
 	client->starttls = TRUE;
-	client->tls = TRUE;
-	client->secured = TRUE;
 	login_refresh_proctitle();
 
-	client->fd = fd_ssl;
 	client->io = io_add(client->fd, IO_READ, client_input, client);
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);

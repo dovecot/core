@@ -249,6 +249,7 @@ void client_destroy_success(struct client *client, const char *reason);
 void client_ref(struct client *client);
 bool client_unref(struct client **client) ATTR_NOWARN_UNUSED_RESULT;
 
+int client_init_ssl(struct client *client);
 void client_cmd_starttls(struct client *client);
 
 unsigned int clients_get_count(void) ATTR_PURE;
