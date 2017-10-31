@@ -70,6 +70,11 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.dh = set->ssl_dh;
 	ssl_set.cert.key_password = set->ssl_key_password;
 	ssl_set.cert_username_field = set->ssl_cert_username_field;
+	if (set->ssl_alt_cert != NULL && *set->ssl_alt_cert != '\0') {
+		ssl_set.alt_cert.cert = set->ssl_alt_cert;
+		ssl_set.alt_cert.key = set->ssl_alt_key;
+		ssl_set.alt_cert.key_password = set->ssl_key_password;
+	}
 	ssl_set.crypto_device = set->ssl_crypto_device;
 
 	ssl_set.verbose = set->verbose_ssl;
