@@ -73,8 +73,7 @@ struct lmtp_proxy {
 	bool finished:1;
 };
 
-static void
-lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn);
+static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy);
 static void
 lmtp_proxy_data_cb(const struct smtp_reply *reply,
 		   struct lmtp_proxy_recipient *rcpt);
@@ -161,6 +160,16 @@ lmtp_proxy_mail_cb(const struct smtp_reply *proxy_reply ATTR_UNUSED,
 		   struct lmtp_proxy_connection *conn ATTR_UNUSED)
 {
 	/* nothing */
+}
+
+static void
+lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn)
+{
+	conn->finished = TRUE;
+	conn->lmtp_trans = NULL;
+	timeout_remove(&conn->to);
+	i_stream_unref(&conn->data_input);
+	lmtp_proxy_try_finish(conn->proxy);
 }
 
 static struct lmtp_proxy_connection *
@@ -257,16 +266,6 @@ static void lmtp_proxy_try_finish(struct lmtp_proxy *proxy)
 		proxy->to_finish = timeout_add(0, lmtp_proxy_finish_timeout,
 					       proxy);
 	}
-}
-
-static void
-lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn)
-{
-	conn->finished = TRUE;
-	conn->lmtp_trans = NULL;
-	timeout_remove(&conn->to);
-	i_stream_unref(&conn->data_input);
-	lmtp_proxy_try_finish(conn->proxy);
 }
 
 static void
