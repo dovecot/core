@@ -158,6 +158,8 @@ i_stream_base64_encoder_stat(struct istream_private *stream,
 	}
 
 	stream->statbuf = *st;
+	if (st->st_size == 0)
+		return 0;
 	
 	/* calculate size of encoded data */
 	size = (st->st_size / 3) * 4 +
