@@ -544,6 +544,21 @@ int o_stream_flush_parent_if_needed(struct ostream_private *_stream)
 	return 1;
 }
 
+int o_stream_flush_parent(struct ostream_private *_stream)
+{
+	int ret;
+
+	i_assert(_stream->parent != NULL);
+
+	if (!_stream->finished)
+		ret = o_stream_flush(_stream->parent);
+	else
+		ret = o_stream_finish(_stream->parent);
+	if (ret < 0)
+		o_stream_copy_error_from_parent(_stream);
+	return ret;
+}
+
 static int o_stream_default_flush(struct ostream_private *_stream)
 {
 	int ret;

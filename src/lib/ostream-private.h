@@ -58,4 +58,10 @@ void o_stream_copy_error_from_parent(struct ostream_private *_stream);
    Returns 1 if more data can be safely added, 0 if not, -1 if error. */
 int o_stream_flush_parent_if_needed(struct ostream_private *_stream);
 
+/* Call this in flush() handler to flush the parent stream. It will call
+   either o_stream_flush() or o_stream_finish() depending on whether this
+   stream is already finished. If the parent fails, its error will be also
+   copied to this stream. */
+int o_stream_flush_parent(struct ostream_private *_stream);
+
 #endif
