@@ -153,15 +153,11 @@ static int o_stream_lzma_send_flush(struct lzma_ostream *zstream)
 static int o_stream_lzma_flush(struct ostream_private *stream)
 {
 	struct lzma_ostream *zstream = (struct lzma_ostream *)stream;
-	int ret;
 
 	if (o_stream_lzma_send_flush(zstream) < 0)
 		return -1;
 
-	ret = o_stream_flush(stream->parent);
-	if (ret < 0)
-		o_stream_copy_error_from_parent(stream);
-	return ret;
+	return o_stream_flush_parent(stream);
 }
 
 static ssize_t

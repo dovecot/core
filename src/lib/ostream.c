@@ -561,14 +561,10 @@ int o_stream_flush_parent(struct ostream_private *_stream)
 
 static int o_stream_default_flush(struct ostream_private *_stream)
 {
-	int ret;
-
 	if (_stream->parent == NULL)
 		return 1;
 
-	if ((ret = o_stream_flush(_stream->parent)) < 0)
-		o_stream_copy_error_from_parent(_stream);
-	return ret;
+	return o_stream_flush_parent(_stream);
 }
 
 static void

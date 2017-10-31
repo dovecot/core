@@ -229,15 +229,11 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 static int o_stream_zlib_flush(struct ostream_private *stream)
 {
 	struct zlib_ostream *zstream = (struct zlib_ostream *)stream;
-	int ret;
 
 	if (o_stream_zlib_send_flush(zstream, stream->finished) < 0)
 		return -1;
 
-	ret = o_stream_flush(stream->parent);
-	if (ret < 0)
-		o_stream_copy_error_from_parent(stream);
-	return ret;
+	return o_stream_flush_parent(stream);
 }
 
 static ssize_t

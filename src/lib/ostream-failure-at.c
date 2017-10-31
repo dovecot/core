@@ -88,7 +88,7 @@ o_stream_failure_at_flush(struct ostream_private *stream)
 		stream->ostream.stream_errno = errno = EIO;
 		return -1;
 	}
-	return o_stream_flush(stream->parent);
+	return o_stream_flush_parent(stream);
 }
 
 struct ostream *

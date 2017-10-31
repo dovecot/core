@@ -540,7 +540,6 @@ static
 int o_stream_encrypt_flush(struct ostream_private *stream)
 {
 	struct encrypt_ostream *estream = (struct encrypt_ostream *)stream;
-	int ret;
 
 	if (stream->finished && estream->ctx_sym != NULL &&
 	    !estream->finalized) {
@@ -548,9 +547,7 @@ int o_stream_encrypt_flush(struct ostream_private *stream)
 			return -1;
 	}
 
-	if ((ret = o_stream_flush(stream->parent)) < 0)
-		o_stream_copy_error_from_parent(stream);
-	return ret;
+	return o_stream_flush_parent(stream);
 }
 
 static

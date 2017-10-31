@@ -118,9 +118,7 @@ static int o_stream_mail_filter_flush(struct ostream_private *stream)
 		if ((ret = o_stream_mail_filter_finish(stream)) <= 0)
 			return ret;
 	}
-	if ((ret = o_stream_flush(stream->parent)) < 0)
-		o_stream_copy_error_from_parent(stream);
-	return ret;
+	return o_stream_flush_parent(stream);
 }
 
 static int filter_connect(struct mail_filter_ostream *mstream,

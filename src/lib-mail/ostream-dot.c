@@ -59,9 +59,7 @@ o_stream_dot_flush(struct ostream_private *stream)
 			return ret;
 	}
 
-	if ((ret = o_stream_flush(stream->parent)) < 0)
-		o_stream_copy_error_from_parent(stream);
-	return ret;
+	return o_stream_flush_parent(stream);
 }
 
 static void
