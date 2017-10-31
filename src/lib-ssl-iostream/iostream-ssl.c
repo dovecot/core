@@ -4,6 +4,24 @@
 #include "module-dir.h"
 #include "iostream-ssl-private.h"
 
+#define OFFSET(name) offsetof(struct ssl_iostream_settings, name)
+static const size_t ssl_iostream_settings_string_offsets[] = {
+	OFFSET(protocols),
+	OFFSET(cipher_list),
+	OFFSET(curve_list),
+	OFFSET(ca),
+	OFFSET(ca_file),
+	OFFSET(ca_dir),
+	OFFSET(cert.cert),
+	OFFSET(cert.key),
+	OFFSET(cert.key_password),
+	OFFSET(alt_cert.cert),
+	OFFSET(alt_cert.key),
+	OFFSET(alt_cert.key_password),
+	OFFSET(dh),
+	OFFSET(cert_username_field),
+	OFFSET(crypto_device),
+};
 
 static bool ssl_module_loaded = FALSE;
 #ifdef HAVE_SSL
@@ -226,23 +244,16 @@ struct ssl_iostream_settings *ssl_iostream_settings_dup(pool_t pool,
 }
 
 void ssl_iostream_settings_init_from(pool_t pool,
-				     struct ssl_iostream_settings *new_set,
-				     const struct ssl_iostream_settings *old_set)
+				     struct ssl_iostream_settings *dest,
+				     const struct ssl_iostream_settings *src)
 {
-	memcpy(new_set, old_set, sizeof(*new_set));
-	new_set->protocols = p_strdup(pool, old_set->protocols);
-	new_set->cipher_list = p_strdup(pool, old_set->cipher_list);
-	new_set->curve_list = p_strdup(pool, old_set->curve_list);
-	new_set->ca = p_strdup(pool, old_set->ca);
-	new_set->ca_file = p_strdup(pool, old_set->ca_file);
-	new_set->ca_dir = p_strdup(pool, old_set->ca_dir);
-	new_set->cert.cert = p_strdup(pool, old_set->cert.cert);
-	new_set->cert.key = p_strdup(pool, old_set->cert.key);
-	new_set->cert.key_password = p_strdup(pool, old_set->cert.key_password);
-	new_set->alt_cert.cert = p_strdup(pool, old_set->alt_cert.cert);
-	new_set->alt_cert.key = p_strdup(pool, old_set->alt_cert.key);
-	new_set->alt_cert.key_password = p_strdup(pool, old_set->alt_cert.key_password);
-	new_set->dh = p_strdup(pool, old_set->dh);
-	new_set->cert_username_field = p_strdup(pool, old_set->cert_username_field);
-	new_set->crypto_device = p_strdup(pool, old_set->crypto_device);
+	unsigned int i;
+
+	*dest = *src;
+	for (i = 0; i < N_ELEMENTS(ssl_iostream_settings_string_offsets); i++) {
+		const size_t offset = ssl_iostream_settings_string_offsets[i];
+		const char *const *src_str = CONST_PTR_OFFSET(src, offset);
+		const char **dest_str = PTR_OFFSET(dest, offset);
+		*dest_str = p_strdup(pool, *src_str);
+	}
 }
