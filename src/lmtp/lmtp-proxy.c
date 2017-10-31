@@ -78,6 +78,10 @@ static void
 lmtp_proxy_data_cb(const struct smtp_reply *reply,
 		   struct lmtp_proxy_recipient *rcpt);
 
+/*
+ * LMTP proxy
+ */
+
 struct lmtp_proxy *
 lmtp_proxy_init(const struct lmtp_proxy_settings *set,
 		struct ostream *client_output)
@@ -295,6 +299,10 @@ lmtp_proxy_write_reply(string_t *reply, const struct smtp_reply *proxy_reply)
 		}
 	}
 }
+
+/*
+ * RCPT command
+ */
 
 static bool
 client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
@@ -537,6 +545,10 @@ bool client_proxy_rcpt(struct client *client,
 	pool_unref(&pool);
 	return TRUE;
 }
+
+/*
+ * DATA command
+ */
 
 static void
 lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
