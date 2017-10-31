@@ -182,6 +182,7 @@ master_service_ssl_settings_to_iostream_set(const struct master_service_ssl_sett
 	set_r->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
 	set_r->verbose = ssl_set->verbose_ssl;
 	set_r->verbose_invalid_cert = ssl_set->verbose_ssl;
+	set_r->skip_crl_check = !ssl_set->ssl_require_crl;
 	set_r->verify_remote_cert = ssl_set->ssl_verify_client_cert;
 	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
 	set_r->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
