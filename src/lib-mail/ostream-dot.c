@@ -222,5 +222,10 @@ o_stream_create_dot(struct ostream *output, bool force_extra_crlf)
 	dstream->ostream.flush = o_stream_dot_flush;
 	dstream->ostream.max_buffer_size = output->real_stream->max_buffer_size;
 	dstream->force_extra_crlf = force_extra_crlf;
-	return o_stream_create(&dstream->ostream, output, o_stream_get_fd(output));
+	(void)o_stream_create(&dstream->ostream, output, o_stream_get_fd(output));
+	/* ostream-dot is always used inside another ostream that shouldn't
+	   get finished when the "." line is written. Disable it here so all
+	   of the callers don't have to set this. */
+	o_stream_set_finish_also_parent(&dstream->ostream.ostream, FALSE);
+	return &dstream->ostream.ostream;
 }
