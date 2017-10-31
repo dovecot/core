@@ -315,52 +315,6 @@ lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 	rcpt->rcpt_to_failed = !smtp_reply_is_success(proxy_reply);
 }
 
-static void
-lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
-		   struct lmtp_proxy_recipient *rcpt)
-{
-	struct lmtp_proxy_connection *conn = rcpt->conn;
-	const struct smtp_client_transaction_times *times =
-		smtp_client_transaction_get_times(conn->lmtp_trans);
-	string_t *reply;
-	string_t *msg;
-
-	i_assert(!rcpt->rcpt_to_failed);
-	i_assert(rcpt->reply != NULL);
-
-	/* reset timeout in case there are a lot of RCPT TOs */
-	if (conn->to != NULL)
-		timeout_reset(conn->to);
-
-	reply = t_str_new(128);
-	lmtp_proxy_write_reply(reply, proxy_reply);
-
-	rcpt->reply = p_strdup(conn->proxy->pool, str_c(reply));
-	rcpt->data_reply_received = TRUE;
-
-	msg = t_str_new(128);
-	str_printfa(msg, "%s: ", conn->proxy->set.session_id);
-	if (smtp_reply_is_success(proxy_reply))
-		str_append(msg, "Sent message to");
-	else
-		str_append(msg, "Failed to send message to");
-	str_printfa(msg, " <%s> at %s:%u: %s (%u/%u at %u ms)",
-		    smtp_address_encode(rcpt->address), conn->set.host,
-		    conn->set.port, str_c(reply),
-		    rcpt->idx + 1, array_count(&conn->proxy->rcpt_to),
-		    timeval_diff_msecs(&ioloop_timeval, &times->started));
-	if (smtp_reply_is_success(proxy_reply) ||
-		smtp_reply_is_remote(proxy_reply)) {
-		/* the problem isn't with the proxy, it's with the remote side.
-		   so the remote side will log an error, while for us this is
-		   just an info event */
-		i_info("%s", str_c(msg));
-	} else {
-		i_error("%s", str_c(msg));
-	}
-	lmtp_proxy_try_finish(conn->proxy);
-}
-
 int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
 			const struct smtp_address *address,
 			const struct lmtp_proxy_rcpt_settings *set)
@@ -586,6 +540,52 @@ bool client_proxy_rcpt(struct client *client,
 		client_send_line(client, "250 2.1.5 OK");
 	pool_unref(&pool);
 	return TRUE;
+}
+
+static void
+lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
+		   struct lmtp_proxy_recipient *rcpt)
+{
+	struct lmtp_proxy_connection *conn = rcpt->conn;
+	const struct smtp_client_transaction_times *times =
+		smtp_client_transaction_get_times(conn->lmtp_trans);
+	string_t *reply;
+	string_t *msg;
+
+	i_assert(!rcpt->rcpt_to_failed);
+	i_assert(rcpt->reply != NULL);
+
+	/* reset timeout in case there are a lot of RCPT TOs */
+	if (conn->to != NULL)
+		timeout_reset(conn->to);
+
+	reply = t_str_new(128);
+	lmtp_proxy_write_reply(reply, proxy_reply);
+
+	rcpt->reply = p_strdup(conn->proxy->pool, str_c(reply));
+	rcpt->data_reply_received = TRUE;
+
+	msg = t_str_new(128);
+	str_printfa(msg, "%s: ", conn->proxy->set.session_id);
+	if (smtp_reply_is_success(proxy_reply))
+		str_append(msg, "Sent message to");
+	else
+		str_append(msg, "Failed to send message to");
+	str_printfa(msg, " <%s> at %s:%u: %s (%u/%u at %u ms)",
+		    smtp_address_encode(rcpt->address), conn->set.host,
+		    conn->set.port, str_c(reply),
+		    rcpt->idx + 1, array_count(&conn->proxy->rcpt_to),
+		    timeval_diff_msecs(&ioloop_timeval, &times->started));
+	if (smtp_reply_is_success(proxy_reply) ||
+		smtp_reply_is_remote(proxy_reply)) {
+		/* the problem isn't with the proxy, it's with the remote side.
+		   so the remote side will log an error, while for us this is
+		   just an info event */
+		i_info("%s", str_c(msg));
+	} else {
+		i_error("%s", str_c(msg));
+	}
+	lmtp_proxy_try_finish(conn->proxy);
 }
 
 static void
