@@ -152,11 +152,10 @@ static bool client_is_trusted(struct client *client)
 }
 
 struct client *
-client_create(int fd, bool ssl, pool_t pool,
-	      const struct master_service_connection *conn,
-	      const struct login_settings *set,
-	      const struct master_service_ssl_settings *ssl_set,
-	      void **other_sets)
+client_alloc(int fd, bool ssl, pool_t pool,
+	     const struct master_service_connection *conn,
+	     const struct login_settings *set,
+	     const struct master_service_ssl_settings *ssl_set)
 {
 	struct client *client;
 
@@ -201,7 +200,11 @@ client_create(int fd, bool ssl, pool_t pool,
 			net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
 	}
 	client->proxy_ttl = LOGIN_PROXY_TTL;
+	return client;
+}
 
+void client_init(struct client *client, void **other_sets)
+{
 	if (last_client == NULL)
 		last_client = client;
 	DLLIST_PREPEND(&clients, client);
@@ -214,6 +217,7 @@ client_create(int fd, bool ssl, pool_t pool,
 
 	hook_login_client_allocated(client);
 	client->v.create(client, other_sets);
+	client->create_finished = TRUE;
 
 	if (auth_client_is_connected(auth_client))
 		client_notify_auth_ready(client);
@@ -221,11 +225,12 @@ client_create(int fd, bool ssl, pool_t pool,
 		client_set_auth_waiting(client);
 
 	login_refresh_proctitle();
-	return client;
 }
 
 void client_destroy(struct client *client, const char *reason)
 {
+	i_assert(client->create_finished);
+
 	if (client->destroyed)
 		return;
 	client->destroyed = TRUE;
@@ -323,6 +328,12 @@ bool client_unref(struct client **_client)
 	i_assert(client->refcount > 0);
 	if (--client->refcount > 0)
 		return TRUE;
+
+	if (!client->create_finished) {
+		pool_unref(&client->preproxy_pool);
+		pool_unref(&client->pool);
+		return FALSE;
+	}
 
 	i_assert(client->destroyed);
 	i_assert(client->login_proxy == NULL);
