@@ -76,6 +76,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 		ssl_set.alt_cert.key_password = set->ssl_key_password;
 	}
 	ssl_set.crypto_device = set->ssl_crypto_device;
+	ssl_set.skip_crl_check = !set->ssl_require_crl;
 
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
