@@ -43,6 +43,8 @@ struct ostream_private {
 	bool last_errors_not_checked:1;
 	bool error_handling_disabled:1;
 	bool noverflow:1;
+	bool finish_also_parent:1;
+	bool finish_via_child:1;
 };
 
 struct ostream *

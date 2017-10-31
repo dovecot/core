@@ -340,6 +340,16 @@ int o_stream_finish(struct ostream *stream)
 	return o_stream_flush(stream);
 }
 
+void o_stream_set_finish_also_parent(struct ostream *stream, bool set)
+{
+	stream->real_stream->finish_also_parent = set;
+}
+
+void o_stream_set_finish_via_child(struct ostream *stream, bool set)
+{
+	stream->real_stream->finish_via_child = set;
+}
+
 void o_stream_ignore_last_errors(struct ostream *stream)
 {
 	while (stream != NULL) {
@@ -550,7 +560,8 @@ int o_stream_flush_parent(struct ostream_private *_stream)
 
 	i_assert(_stream->parent != NULL);
 
-	if (!_stream->finished)
+	if (!_stream->finished || !_stream->finish_also_parent ||
+	    !_stream->parent->real_stream->finish_via_child)
 		ret = o_stream_flush(_stream->parent);
 	else
 		ret = o_stream_finish(_stream->parent);
@@ -642,6 +653,8 @@ static void o_stream_default_switch_ioloop(struct ostream_private *_stream)
 struct ostream *
 o_stream_create(struct ostream_private *_stream, struct ostream *parent, int fd)
 {
+	_stream->finish_also_parent = TRUE;
+	_stream->finish_via_child = TRUE;
 	_stream->fd = fd;
 	_stream->ostream.real_stream = _stream;
 	if (parent != NULL) {

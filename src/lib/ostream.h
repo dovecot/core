@@ -166,6 +166,12 @@ void o_stream_nsend_str(struct ostream *stream, const char *str);
    assert-crash. Returns the same as o_stream_flush(). Afterwards any calls to
    this function are identical to o_stream_flush(). */
 int o_stream_finish(struct ostream *stream);
+/* Specify whether calling o_stream_finish() will cause the parent stream to
+   be finished as well. The default is yes. */
+void o_stream_set_finish_also_parent(struct ostream *stream, bool set);
+/* Specify whether calling o_stream_finish() on a child stream will cause
+   this stream to be finished as well. The default is yes. */
+void o_stream_set_finish_via_child(struct ostream *stream, bool set);
 /* Marks the stream's error handling as completed to avoid i_panic() on
    destroy. */
 void o_stream_ignore_last_errors(struct ostream *stream);
