@@ -80,11 +80,16 @@ int ssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
 				     struct ssl_iostream_context **ctx_r,
 				     const char **error_r)
 {
+	struct ssl_iostream_settings set_copy = *set;
+
+	/* ensure this is set to TRUE */
+	set_copy.verify_remote_cert = TRUE;
+
 	if (!ssl_module_loaded) {
 		if (ssl_module_load(error_r) < 0)
 			return -1;
 	}
-	return ssl_vfuncs->context_init_client(set, ctx_r, error_r);
+	return ssl_vfuncs->context_init_client(&set_copy, ctx_r, error_r);
 }
 
 int ssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
