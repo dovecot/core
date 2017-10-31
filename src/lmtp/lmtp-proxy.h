@@ -12,16 +12,6 @@ struct smtp_address;
 struct lmtp_proxy;
 struct client;
 
-struct lmtp_proxy_settings {
-	const char *my_hostname;
-	const char *session_id;
-
-	/* the original client's IP/port that connected to the proxy */
-	struct ip_addr source_ip;
-	in_port_t source_port;
-	unsigned int proxy_ttl;
-};
-
 typedef void lmtp_proxy_finish_callback_t(void *context);
 
 void lmtp_proxy_deinit(struct lmtp_proxy **proxy);
