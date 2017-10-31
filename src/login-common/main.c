@@ -116,38 +116,26 @@ static void
 client_connected_finish(const struct master_service_connection *conn)
 {
 	struct client *client;
-	struct ssl_proxy *proxy;
 	const struct login_settings *set;
 	const struct master_service_ssl_settings *ssl_set;
 	pool_t pool;
-	int fd_ssl;
 	void **other_sets;
 
 	pool = pool_alloconly_create("login client", 8*1024);
 	set = login_settings_read(pool, &conn->local_ip,
 				  &conn->remote_ip, NULL, &ssl_set, &other_sets);
 
-	if (!ssl_connections && !conn->ssl) {
-		client = client_alloc(conn->fd, FALSE, pool, conn,
-				      set, ssl_set);
-		client_init(client, other_sets);
-	} else {
-		fd_ssl = ssl_proxy_alloc(conn->fd, &conn->remote_ip, pool,
-					 set, ssl_set, &proxy);
-		if (fd_ssl == -1) {
+	client = client_alloc(conn->fd, FALSE, pool, conn,
+			      set, ssl_set);
+	if (ssl_connections || conn->ssl) {
+		if (client_init_ssl(client) < 0) {
+			client_unref(&client);
 			net_disconnect(conn->fd);
-			pool_unref(&pool);
 			master_service_client_connection_destroyed(master_service);
 			return;
 		}
-
-		client = client_alloc(fd_ssl, TRUE, pool, conn,
-				      set, ssl_set);
-		client_init(client, other_sets);
-		client->ssl_proxy = proxy;
-		ssl_proxy_set_client(proxy, client);
-		ssl_proxy_start(proxy);
 	}
+	client_init(client, other_sets);
 
 	timeout_remove(&auth_client_to);
 }
