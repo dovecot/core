@@ -6,6 +6,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream-ssl.h"
 #include "iostream-proxy.h"
 #include "iostream-rawlog.h"
 #include "process-title.h"
@@ -202,6 +203,7 @@ client_alloc(int fd, pool_t pool,
 			net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
 	}
 	client->proxy_ttl = LOGIN_PROXY_TTL;
+	client_open_streams(client);
 	return client;
 }
 
@@ -215,7 +217,6 @@ void client_init(struct client *client, void **other_sets)
 	client->to_disconnect =
 		timeout_add(CLIENT_LOGIN_TIMEOUT_MSECS,
 			    client_idle_disconnect_timeout, client);
-	client_open_streams(client);
 
 	hook_login_client_allocated(client);
 	client->v.create(client, other_sets);
@@ -257,8 +258,8 @@ void client_destroy(struct client *client, const char *reason)
 		o_stream_uncork(client->output);
 	if (!client->login_success) {
 		io_remove(&client->io);
-		if (client->ssl_proxy != NULL)
-			ssl_proxy_destroy(client->ssl_proxy);
+		if (client->ssl_iostream != NULL)
+			ssl_iostream_destroy(&client->ssl_iostream);
 		if (client->iostream_fd_proxy != NULL)
 			iostream_proxy_unref(&client->iostream_fd_proxy);
 		i_stream_close(client->input);
@@ -339,6 +340,8 @@ bool client_unref(struct client **_client)
 		return TRUE;
 
 	if (!client->create_finished) {
+		i_stream_unref(&client->input);
+		o_stream_unref(&client->output);
 		pool_unref(&client->preproxy_pool);
 		pool_unref(&client->pool);
 		return FALSE;
@@ -350,8 +353,8 @@ bool client_unref(struct client **_client)
 	if (client->v.free != NULL)
 		client->v.free(client);
 
-	if (client->ssl_proxy != NULL)
-		ssl_proxy_free(&client->ssl_proxy);
+	if (client->ssl_iostream != NULL)
+		ssl_iostream_unref(&client->ssl_iostream);
 	if (client->iostream_fd_proxy != NULL)
 		iostream_proxy_unref(&client->iostream_fd_proxy);
 	if (client->fd_proxying) {
@@ -425,29 +428,81 @@ void clients_destroy_all(void)
 	clients_destroy_all_reason("Disconnected: Shutting down");
 }
 
+static int client_sni_callback(const char *name, const char **error_r,
+			       void *context)
+{
+	struct client *client = context;
+	struct ssl_iostream_context *ssl_ctx;
+	struct ssl_iostream_settings ssl_set;
+	void **other_sets;
+	const char *error;
+
+	if (client->ssl_servername_settings_read)
+		return 0;
+	client->ssl_servername_settings_read = TRUE;
+
+	client->local_name = p_strdup(client->pool, name);
+	client->set = login_settings_read(client->pool, &client->local_ip,
+					  &client->ip, name,
+					  &client->ssl_set, &other_sets);
+
+	master_service_ssl_settings_to_iostream_set(client->ssl_set,
+		pool_datastack_create(),
+		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to initialize SSL server context: %s", error);
+		return -1;
+	}
+	ssl_iostream_change_context(client->ssl_iostream, ssl_ctx);
+	ssl_iostream_context_unref(&ssl_ctx);
+	return 0;
+}
+
 int client_init_ssl(struct client *client)
 {
-	int fd_ssl;
+	struct ssl_iostream_context *ssl_ctx;
+	struct ssl_iostream_settings ssl_set;
+	const char *error;
 
 	i_assert(client->fd != -1);
 
-	fd_ssl = ssl_proxy_alloc(client->fd, &client->ip, client->pool,
-				 client->set, client->ssl_set,
-				 &client->ssl_proxy);
-	if (fd_ssl == -1)
+	master_service_ssl_settings_to_iostream_set(client->ssl_set,
+		pool_datastack_create(),
+		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	/* If the client cert is invalid, we'll reply NO to the login
+	   command. */
+	ssl_set.allow_invalid_cert = TRUE;
+	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
+		client_log_err(client, t_strdup_printf(
+			"Failed to initialize SSL server context: %s", error));
 		return -1;
-
-	ssl_proxy_set_client(client->ssl_proxy, client);
-	ssl_proxy_start(client->ssl_proxy);
+	}
+	if (io_stream_create_ssl_server(ssl_ctx, &ssl_set,
+					&client->input, &client->output,
+					&client->ssl_iostream, &error) < 0) {
+		client_log_err(client, t_strdup_printf(
+			"Failed to initialize SSL connection: %s", error));
+		ssl_iostream_context_unref(&ssl_ctx);
+		return -1;
+	}
+	ssl_iostream_context_unref(&ssl_ctx);
+	ssl_iostream_set_sni_callback(client->ssl_iostream,
+				      client_sni_callback, client);
 
 	client->tls = TRUE;
 	client->secured = TRUE;
-	client->fd = fd_ssl;
+
+	if (client->starttls) {
+		io_remove(&client->io);
+		client->io = io_add_istream(client->input, client_input, client);
+	}
 	return 0;
 }
 
 static void client_start_tls(struct client *client)
 {
+	client->starttls = TRUE;
 	if (client_init_ssl(client) < 0) {
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_INTERNAL_ERROR,
@@ -456,14 +511,7 @@ static void client_start_tls(struct client *client)
 			"Disconnected: TLS initialization failed.");
 		return;
 	}
-
-	client->starttls = TRUE;
 	login_refresh_proctitle();
-
-	client->io = io_add(client->fd, IO_READ, client_input, client);
-	i_stream_unref(&client->input);
-	o_stream_unref(&client->output);
-	client_open_streams(client);
 
 	client->v.starttls(client);
 }
@@ -704,15 +752,15 @@ get_var_expand_table(struct client *client)
 		tab[12].value = "";
 	} else {
 		const char *ssl_state =
-			ssl_proxy_is_handshaked(client->ssl_proxy) ?
+			ssl_iostream_is_handshaked(client->ssl_iostream) ?
 			"TLS" : "TLS handshaking";
 		const char *ssl_error =
-			ssl_proxy_get_last_error(client->ssl_proxy);
+			ssl_iostream_get_last_error(client->ssl_iostream);
 
 		tab[11].value = ssl_error == NULL ? ssl_state :
 			t_strdup_printf("%s: %s", ssl_state, ssl_error);
 		tab[12].value =
-			ssl_proxy_get_security_string(client->ssl_proxy);
+			ssl_iostream_get_security_string(client->ssl_iostream);
 	}
 	tab[13].value = client->mail_pid == 0 ? "" :
 		dec2str(client->mail_pid);
@@ -879,10 +927,10 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		ioloop_time - client->auth_first_started;
 
 	if (client->set->auth_ssl_require_client_cert &&
-	    client->ssl_proxy != NULL) {
-		if (ssl_proxy_has_broken_client_cert(client->ssl_proxy))
+	    client->ssl_iostream != NULL) {
+		if (ssl_iostream_has_broken_client_cert(client->ssl_iostream))
 			return "(client sent an invalid cert)";
-		if (!ssl_proxy_has_valid_client_cert(client->ssl_proxy))
+		if (!ssl_iostream_has_valid_client_cert(client->ssl_iostream))
 			return "(client didn't send a cert)";
 	}
 
@@ -902,7 +950,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 
 	/* some auth attempts without SSL/TLS */
 	if (client->set->auth_ssl_require_client_cert &&
-	    client->ssl_proxy == NULL)
+	    client->ssl_iostream == NULL)
 		return "(cert required, client didn't start TLS)";
 
 	if (client->auth_waiting && client->auth_attempts == 1) {

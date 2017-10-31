@@ -12,7 +12,7 @@
 #include "str-sanitize.h"
 #include "anvil-client.h"
 #include "auth-client.h"
-#include "ssl-proxy.h"
+#include "iostream-ssl.h"
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
 #include "master-interface.h"
@@ -65,8 +65,8 @@ client_get_auth_flags(struct client *client)
 {
         enum auth_request_flags auth_flags = 0;
 
-	if (client->ssl_proxy != NULL &&
-	    ssl_proxy_has_valid_client_cert(client->ssl_proxy))
+	if (client->ssl_iostream != NULL &&
+	    ssl_iostream_has_valid_client_cert(client->ssl_iostream))
 		auth_flags |= AUTH_REQUEST_FLAG_VALID_CLIENT_CERT;
 	if (client->secured)
 		auth_flags |= AUTH_REQUEST_FLAG_SECURED;
@@ -136,8 +136,8 @@ static int master_send_request(struct anvil_request *anvil_request)
 	req.local_ip = client->local_ip;
 	req.remote_ip = client->ip;
 	req.client_pid = getpid();
-	if (client->ssl_proxy != NULL &&
-	    ssl_proxy_get_compression(client->ssl_proxy) != NULL)
+	if (client->ssl_iostream != NULL &&
+	    ssl_iostream_get_compression(client->ssl_iostream) != NULL)
 		req.flags |= MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION;
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
@@ -370,8 +370,8 @@ void sasl_server_auth_begin(struct client *client,
 	info.session_id = client_get_session_id(client);
 	if (client->client_cert_common_name != NULL)
 		info.cert_username = client->client_cert_common_name;
-	else if (client->ssl_proxy != NULL)
-		info.cert_username = ssl_proxy_get_peer_name(client->ssl_proxy);
+	else if (client->ssl_iostream != NULL)
+		info.cert_username = ssl_iostream_get_peer_name(client->ssl_iostream);
 	info.flags = client_get_auth_flags(client);
 	info.local_ip = client->local_ip;
 	info.remote_ip = client->ip;

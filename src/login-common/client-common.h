@@ -147,7 +147,7 @@ struct client {
 	struct ip_addr real_remote_ip, real_local_ip;
 	in_port_t local_port, remote_port;
 	in_port_t real_local_port, real_remote_port;
-	struct ssl_proxy *ssl_proxy;
+	struct ssl_iostream *ssl_iostream;
 	const struct login_settings *set;
 	const struct master_service_ssl_settings *ssl_set;
 	const char *session_id, *listener_name, *postlogin_socket_path;
