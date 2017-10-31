@@ -178,16 +178,7 @@ master_service_ssl_settings_to_iostream_set(const struct master_service_ssl_sett
 	set_r->protocols = p_strdup(pool, ssl_set->ssl_protocols);
 	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
 	set_r->ca = p_strdup(pool, ssl_set->ssl_ca);
-	set_r->dh = p_strdup(pool, ssl_set->ssl_dh);
-	set_r->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
-	set_r->verbose = ssl_set->verbose_ssl;
-	set_r->verbose_invalid_cert = ssl_set->verbose_ssl;
-	set_r->skip_crl_check = !ssl_set->ssl_require_crl;
-	set_r->verify_remote_cert = ssl_set->ssl_verify_client_cert;
-	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
-	set_r->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
-	set_r->compression = ssl_set->parsed_opts.compression;
-	set_r->tickets = ssl_set->parsed_opts.tickets;
+
 	set_r->cert.cert = p_strdup(pool, ssl_set->ssl_cert);
 	set_r->cert.key = p_strdup(pool, ssl_set->ssl_key);
 	set_r->cert.key_password = p_strdup(pool, ssl_set->ssl_key_password);
@@ -196,5 +187,17 @@ master_service_ssl_settings_to_iostream_set(const struct master_service_ssl_sett
 		set_r->alt_cert.key = p_strdup(pool, ssl_set->ssl_alt_key);
 		set_r->alt_cert.key_password = p_strdup(pool, ssl_set->ssl_key_password);
 	}
+
+	set_r->dh = p_strdup(pool, ssl_set->ssl_dh);
+	set_r->crypto_device = p_strdup(pool, ssl_set->ssl_crypto_device);
 	set_r->cert_username_field = p_strdup(pool, ssl_set->ssl_cert_username_field);
+
+	set_r->verbose = ssl_set->verbose_ssl;
+	set_r->verbose_invalid_cert = ssl_set->verbose_ssl;
+	set_r->skip_crl_check = !ssl_set->ssl_require_crl;
+	set_r->verify_remote_cert = ssl_set->ssl_verify_client_cert;
+	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
+	set_r->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
+	set_r->compression = ssl_set->parsed_opts.compression;
+	set_r->tickets = ssl_set->parsed_opts.tickets;
 }
