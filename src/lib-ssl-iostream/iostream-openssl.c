@@ -587,12 +587,12 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 	return -1;
 }
 
-static int
+static bool
 openssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
 				 const char *verify_name)
 {
 	if (!ssl_iostream_has_valid_client_cert(ssl_io))
-		return -1;
+		return FALSE;
 
 	return openssl_cert_match_name(ssl_io->ssl, verify_name);
 }
@@ -629,7 +629,7 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			ssl_io->handshake_failed = TRUE;
 		}
 	} else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed) {
-		if (ssl_iostream_cert_match_name(ssl_io, ssl_io->connected_host) < 0) {
+		if (!ssl_iostream_cert_match_name(ssl_io, ssl_io->connected_host)) {
 			openssl_iostream_set_error(ssl_io, t_strdup_printf(
 				"SSL certificate doesn't match expected host name %s",
 				ssl_io->connected_host));

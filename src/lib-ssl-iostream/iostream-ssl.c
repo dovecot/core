@@ -187,7 +187,7 @@ bool ssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io)
 	return ssl_vfuncs->has_broken_client_cert(ssl_io);
 }
 
-int ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name)
+bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name)
 {
 	return ssl_vfuncs->cert_match_name(ssl_io, name);
 }
@@ -204,7 +204,7 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
 				*error_r = "Received invalid SSL certificate";
 		}
 		return -1;
-	} else if (ssl_iostream_cert_match_name(ssl_io, host) < 0) {
+	} else if (!ssl_iostream_cert_match_name(ssl_io, host)) {
 		*error_r = t_strdup_printf(
 			"SSL certificate doesn't match expected host name %s",
 			host);

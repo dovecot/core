@@ -30,7 +30,7 @@ struct iostream_ssl_vfuncs {
 	bool (*has_handshake_failed)(const struct ssl_iostream *ssl_io);
 	bool (*has_valid_client_cert)(const struct ssl_iostream *ssl_io);
 	bool (*has_broken_client_cert)(struct ssl_iostream *ssl_io);
-	int (*cert_match_name)(struct ssl_iostream *ssl_io, const char *name);
+	bool (*cert_match_name)(struct ssl_iostream *ssl_io, const char *name);
 	const char *(*get_peer_name)(struct ssl_iostream *ssl_io);
 	const char *(*get_server_name)(struct ssl_iostream *ssl_io);
 	const char *(*get_compression)(struct ssl_iostream *ssl_io);

@@ -603,7 +603,7 @@ bool ssl_proxy_has_broken_client_cert(struct ssl_proxy *proxy)
 
 int ssl_proxy_cert_match_name(struct ssl_proxy *proxy, const char *verify_name)
 {
-	return openssl_cert_match_name(proxy->ssl, verify_name);
+	return openssl_cert_match_name(proxy->ssl, verify_name) ? 0 : -1;
 }
 
 const char *ssl_proxy_get_peer_name(struct ssl_proxy *proxy)

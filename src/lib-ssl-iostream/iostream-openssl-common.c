@@ -154,7 +154,7 @@ static bool openssl_hostname_equals(const char *ssl_name, const char *host)
 	return p != NULL && strcmp(ssl_name+2, p+1) == 0;
 }
 
-int openssl_cert_match_name(SSL *ssl, const char *verify_name)
+bool openssl_cert_match_name(SSL *ssl, const char *verify_name)
 {
 	X509 *cert;
 	STACK_OF(GENERAL_NAME) *gnames;
@@ -163,7 +163,7 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 	const char *dnsname;
 	bool dns_names = FALSE;
 	unsigned int i, count;
-	int ret;
+	bool ret;
 
 	cert = SSL_get_peer_certificate(ssl);
 	i_assert(cert != NULL);
@@ -203,11 +203,11 @@ int openssl_cert_match_name(SSL *ssl, const char *verify_name)
 	/* verify against CommonName only when there wasn't any DNS
 	   SubjectAltNames */
 	if (dns_names)
-		ret = i < count ? 0 : -1;
+		ret = i < count;
 	else if (openssl_hostname_equals(get_cname(cert), verify_name))
-		ret = 0;
+		ret = TRUE;
 	else
-		ret = -1;
+		ret = FALSE;
 	X509_free(cert);
 	return ret;
 }
