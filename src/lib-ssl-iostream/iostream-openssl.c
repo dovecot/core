@@ -258,6 +258,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 	ssl_io = i_new(struct ssl_iostream, 1);
 	ssl_io->refcount = 1;
 	ssl_io->ctx = ctx;
+	ssl_iostream_context_ref(ssl_io->ctx);
 	ssl_io->ssl = ssl;
 	ssl_io->bio_ext = bio_ext;
 	ssl_io->plain_input = *input;
@@ -297,6 +298,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 
 static void openssl_iostream_free(struct ssl_iostream *ssl_io)
 {
+	ssl_iostream_context_unref(&ssl_io->ctx);
 	o_stream_unref(&ssl_io->plain_output);
 	i_stream_unref(&ssl_io->plain_input);
 	BIO_free(ssl_io->bio_ext);
