@@ -19,7 +19,6 @@
 #include "auth-client.h"
 #include "dsasl-client.h"
 #include "master-service-ssl-settings.h"
-#include "ssl-proxy.h"
 #include "login-proxy.h"
 
 #include <unistd.h>
@@ -388,7 +387,6 @@ static void main_preinit(void)
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
 	login_ssl_init();
-	ssl_proxy_init();
 	dsasl_clients_init();
 	client_common_init();
 
@@ -469,7 +467,6 @@ static void main_init(const char *login_socket)
 
 static void main_deinit(void)
 {
-	ssl_proxy_deinit();
 	client_destroy_fd_proxies();
 	ssl_iostream_context_cache_free();
 	login_proxy_deinit();

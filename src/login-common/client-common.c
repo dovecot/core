@@ -25,9 +25,7 @@
 #include "auth-client.h"
 #include "dsasl-client.h"
 #include "login-proxy.h"
-#include "ssl-proxy.h"
 #include "client-common.h"
-
 
 struct client *clients = NULL;
 static struct client *last_client = NULL;
@@ -918,7 +916,7 @@ void client_log_warn(struct client *client, const char *msg)
 
 bool client_is_tls_enabled(struct client *client)
 {
-	return ssl_initialized && strcmp(client->ssl_set->ssl, "no") != 0;
+	return login_ssl_initialized && strcmp(client->ssl_set->ssl, "no") != 0;
 }
 
 const char *client_get_extra_disconnect_reason(struct client *client)
