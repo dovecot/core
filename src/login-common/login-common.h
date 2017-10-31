@@ -53,6 +53,7 @@ extern unsigned int initial_service_count;
 /* NULL-terminated array of all alt_usernames seen so far. Existing fields are
    never removed. */
 extern ARRAY_TYPE(string) global_alt_usernames;
+extern bool login_ssl_initialized;
 
 extern const struct login_settings *global_login_settings;
 extern const struct master_service_ssl_settings *global_ssl_settings;

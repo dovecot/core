@@ -44,6 +44,7 @@ const char *login_rawlog_dir = NULL;
 unsigned int initial_service_count;
 struct login_module_register login_module_register;
 ARRAY_TYPE(string) global_alt_usernames;
+bool login_ssl_initialized;
 
 const struct login_settings *global_login_settings;
 const struct master_service_ssl_settings *global_ssl_settings;
@@ -364,12 +365,29 @@ static void login_load_modules(void)
 	module_dir_init(modules);
 }
 
+static void login_ssl_init(void)
+{
+	struct ssl_iostream_settings ssl_set;
+	const char *error;
+
+	if (strcmp(global_ssl_settings->ssl, "no") == 0)
+		return;
+
+	master_service_ssl_settings_to_iostream_set(global_ssl_settings,
+		pool_datastack_create(),
+		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	if (io_stream_ssl_global_init(&ssl_set, &error) < 0)
+		i_fatal("Failed to initialize SSL library: %s", error);
+	login_ssl_initialized = TRUE;
+}
+
 static void main_preinit(void)
 {
 	unsigned int max_fds;
 
 	/* Initialize SSL proxy so it can read certificate and private
 	   key file. */
+	login_ssl_init();
 	ssl_proxy_init();
 	dsasl_clients_init();
 	client_common_init();
@@ -394,7 +412,7 @@ static void main_preinit(void)
 	io_loop_set_max_fd_count(current_ioloop, max_fds);
 
 	i_assert(strcmp(global_ssl_settings->ssl, "no") == 0 ||
-		 ssl_initialized);
+		 login_ssl_initialized);
 
 	if (global_login_settings->mail_max_userip_connections > 0)
 		login_anvil_init();
