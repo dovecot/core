@@ -10,7 +10,8 @@ struct iostream_ssl_vfuncs {
 	int (*context_init_server)(const struct ssl_iostream_settings *set,
 				   struct ssl_iostream_context **ctx_r,
 				   const char **error_r);
-	void (*context_deinit)(struct ssl_iostream_context *ctx);
+	void (*context_ref)(struct ssl_iostream_context *ctx);
+	void (*context_unref)(struct ssl_iostream_context *ctx);
 
 	int (*create)(struct ssl_iostream_context *ctx, const char *host,
 		      const struct ssl_iostream_settings *set,

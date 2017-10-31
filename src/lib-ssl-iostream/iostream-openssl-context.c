@@ -586,6 +586,7 @@ int openssl_iostream_context_init_client(const struct ssl_iostream_settings *set
 	SSL_CTX_set_mode(ssl_ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
 
 	ctx = i_new(struct ssl_iostream_context, 1);
+	ctx->refcount = 1;
 	ctx->ssl_ctx = ssl_ctx;
 	ctx->client_ctx = TRUE;
 	if (ssl_iostream_context_init_common(ctx, &set_copy, error_r) < 0) {
@@ -612,6 +613,7 @@ int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set
 	}
 
 	ctx = i_new(struct ssl_iostream_context, 1);
+	ctx->refcount = 1;
 	ctx->ssl_ctx = ssl_ctx;
 	if (ssl_iostream_context_init_common(ctx, set, error_r) < 0) {
 		ssl_iostream_context_unref(&ctx);
@@ -621,8 +623,18 @@ int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set
 	return 0;
 }
 
-void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx)
+void openssl_iostream_context_ref(struct ssl_iostream_context *ctx)
 {
+	i_assert(ctx->refcount > 0);
+	ctx->refcount++;
+}
+
+void openssl_iostream_context_unref(struct ssl_iostream_context *ctx)
+{
+	i_assert(ctx->refcount > 0);
+	if (--ctx->refcount > 0)
+		return;
+
 	SSL_CTX_free(ctx->ssl_ctx);
 	pool_unref(&ctx->pool);
 	i_free(ctx);

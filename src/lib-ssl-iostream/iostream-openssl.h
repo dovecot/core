@@ -16,6 +16,7 @@ enum openssl_iostream_sync_type {
 };
 
 struct ssl_iostream_context {
+	int refcount;
 	SSL_CTX *ssl_ctx;
 
 	pool_t pool;
@@ -75,7 +76,8 @@ int openssl_iostream_context_init_client(const struct ssl_iostream_settings *set
 int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
 					 struct ssl_iostream_context **ctx_r,
 					 const char **error_r);
-void openssl_iostream_context_deinit(struct ssl_iostream_context *ctx);
+void openssl_iostream_context_ref(struct ssl_iostream_context *ctx);
+void openssl_iostream_context_unref(struct ssl_iostream_context *ctx);
 void openssl_iostream_global_deinit(void);
 
 int openssl_iostream_load_key(const struct ssl_iostream_cert *set,

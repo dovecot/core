@@ -98,12 +98,17 @@ int ssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
 	return ssl_vfuncs->context_init_server(set, ctx_r, error_r);
 }
 
+void ssl_iostream_context_ref(struct ssl_iostream_context *ctx)
+{
+	ssl_vfuncs->context_ref(ctx);
+}
+
 void ssl_iostream_context_unref(struct ssl_iostream_context **_ctx)
 {
 	struct ssl_iostream_context *ctx = *_ctx;
 
 	*_ctx = NULL;
-	ssl_vfuncs->context_deinit(ctx);
+	ssl_vfuncs->context_unref(ctx);
 }
 
 int io_stream_create_ssl_client(struct ssl_iostream_context *ctx, const char *host,
