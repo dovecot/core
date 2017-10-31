@@ -109,6 +109,7 @@ static void test_gz(const char *str1, const char *str2)
 
 	/* write concated output */
 	buf_output = o_stream_create_buffer(buf);
+	o_stream_set_finish_via_child(buf_output, FALSE);
 
 	output = gz->create_ostream(buf_output, 6);
 	o_stream_nsend_str(output, str1);
