@@ -804,10 +804,13 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	struct server_connection *conn;
 	struct ioloop *ioloop;
 	string_t *cmd;
-	const char *error;
+	const char *p, *error;
 
 	server = p_new(ctx->ctx.pool, struct doveadm_server, 1);
 	server->name = p_strdup(ctx->ctx.pool, target);
+	p = strrchr(server->name, ':');
+	server->hostname = p == NULL ? server->name :
+		p_strdup_until(ctx->ctx.pool, server->name, p);
 	if (ssl) {
 		if (dsync_init_ssl_ctx(ctx, mail_set, &error) < 0) {
 			*error_r = t_strdup_printf(

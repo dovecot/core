@@ -489,14 +489,10 @@ static int server_connection_read_settings(struct server_connection *conn)
 static int server_connection_ssl_handshaked(const char **error_r, void *context)
 {
 	struct server_connection *conn = context;
-	const char *host, *p;
 
-	host = conn->server->name;
-	p = strrchr(host, ':');
-	if (p != NULL)
-		host = t_strdup_until(host, p);
-
-	if (ssl_iostream_check_cert_validity(conn->ssl_iostream, host, error_r) < 0)
+	if (ssl_iostream_check_cert_validity(conn->ssl_iostream,
+					     conn->server->hostname,
+					     error_r) < 0)
 		return -1;
 	if (doveadm_debug)
 		i_debug("%s: SSL handshake successful", conn->server->name);
@@ -515,7 +511,7 @@ static int server_connection_init_ssl(struct server_connection *conn)
 	ssl_set.verbose_invalid_cert = TRUE;
 
 	if (io_stream_create_ssl_client(conn->server->ssl_ctx,
-					conn->server->name, &ssl_set,
+					conn->server->hostname, &ssl_set,
 					&conn->input, &conn->output,
 					&conn->ssl_iostream, &error) < 0) {
 		i_error("Couldn't initialize SSL client: %s", error);

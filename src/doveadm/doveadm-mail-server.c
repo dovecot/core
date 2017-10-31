@@ -39,6 +39,7 @@ static struct doveadm_server *
 doveadm_server_get(struct doveadm_mail_cmd_context *ctx, const char *name)
 {
 	struct doveadm_server *server;
+	const char *p;
 	char *dup_name;
 
 	if (!hash_table_is_created(servers)) {
@@ -49,6 +50,10 @@ doveadm_server_get(struct doveadm_mail_cmd_context *ctx, const char *name)
 	if (server == NULL) {
 		server = p_new(server_pool, struct doveadm_server, 1);
 		server->name = dup_name = p_strdup(server_pool, name);
+		p = strrchr(server->name, ':');
+		server->hostname = p == NULL ? server->name :
+			p_strdup_until(server_pool, server->name, p);
+
 		p_array_init(&server->connections, server_pool,
 			     ctx->set->doveadm_worker_count);
 		p_array_init(&server->queue, server_pool,
