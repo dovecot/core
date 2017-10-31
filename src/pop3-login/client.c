@@ -218,7 +218,7 @@ static void pop3_client_notify_auth_ready(struct client *client)
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
 	string_t *str;
 
-	client->io = io_add(client->fd, IO_READ, client_input, client);
+	client->io = io_add_istream(client->input, client_input, client);
 
 	str = t_str_new(128);
 	if (client->trusted) {

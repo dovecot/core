@@ -623,7 +623,7 @@ static void imap_client_create(struct client *client, void **other_sets)
 				   imap_client->common.output, MAX_IMAP_LINE);
 	if (imap_client->set->imap_literal_minus)
 		imap_parser_enable_literal_minus(imap_client->parser);
-	client->io = io_add(client->fd, IO_READ, client_input, client);
+	client->io = io_add_istream(client->input, client_input, client);
 }
 
 static void imap_client_destroy(struct client *client)

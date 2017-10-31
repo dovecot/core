@@ -139,7 +139,7 @@ static void imap_urlauth_client_create
 		(struct imap_urlauth_client *)client;
 
 	uauth_client->set = other_sets[0];
-	client->io = io_add(client->fd, IO_READ, client_input, client);
+	client->io = io_add_istream(client->input, client_input, client);
 }
 
 static void imap_urlauth_login_preinit(void)
