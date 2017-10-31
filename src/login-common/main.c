@@ -11,6 +11,7 @@
 #include "master-auth.h"
 #include "master-service.h"
 #include "master-interface.h"
+#include "iostream-ssl.h"
 #include "client-common.h"
 #include "access-lookup.h"
 #include "anvil-client.h"
@@ -422,6 +423,7 @@ static void main_init(const char *login_socket)
 static void main_deinit(void)
 {
 	ssl_proxy_deinit();
+	ssl_iostream_context_cache_free();
 	login_proxy_deinit();
 
 	login_binary->deinit();

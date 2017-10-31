@@ -6,16 +6,17 @@
 #include "ostream.h"
 #include "iostream.h"
 #include "iostream-proxy.h"
+#include "iostream-ssl.h"
 #include "llist.h"
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
 #include "time-util.h"
 #include "master-service.h"
+#include "master-service-ssl-settings.h"
 #include "ipc-server.h"
 #include "mail-user-hash.h"
 #include "client-common.h"
-#include "ssl-proxy.h"
 #include "login-proxy-state.h"
 #include "login-proxy.h"
 
@@ -45,7 +46,7 @@ struct login_proxy {
 	struct istream *client_input, *server_input;
 	struct ostream *client_output, *server_output;
 	struct iostream_proxy *iostream_proxy;
-	struct ssl_proxy *ssl_server_proxy;
+	struct ssl_iostream *server_ssl_iostream;
 
 	struct timeval created;
 	struct timeout *to, *to_notify;
@@ -251,15 +252,15 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 	proxy->state_rec->num_proxying_connections++;
 	proxy->state_rec->num_disconnects_since_ts = 0;
 
+	io_remove(&proxy->server_io);
+	proxy_plain_connected(proxy);
+
 	if ((proxy->ssl_flags & PROXY_SSL_FLAG_YES) != 0 &&
 	    (proxy->ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
 		if (login_proxy_starttls(proxy) < 0) {
 			login_proxy_free(&proxy);
 			return;
 		}
-	} else {
-		io_remove(&proxy->server_io);
-		proxy_plain_connected(proxy);
 	}
 }
 
@@ -385,6 +386,9 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 
 	if (proxy->iostream_proxy != NULL)
 		iostream_proxy_unref(&proxy->iostream_proxy);
+	if (proxy->server_ssl_iostream != NULL)
+		ssl_iostream_destroy(&proxy->server_ssl_iostream);
+
 	io_remove(&proxy->server_io);
 	i_stream_destroy(&proxy->server_input);
 	o_stream_destroy(&proxy->server_output);
@@ -396,6 +400,8 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 
 static void login_proxy_free_final(struct login_proxy *proxy)
 {
+	i_assert(proxy->server_ssl_iostream == NULL);
+
 	if (proxy->delayed_disconnect) {
 		DLLIST_REMOVE(&login_proxies_disconnecting, proxy);
 
@@ -408,10 +414,6 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 	io_remove(&proxy->client_wait_io);
 	i_stream_destroy(&proxy->client_input);
 	o_stream_destroy(&proxy->client_output);
-	if (proxy->ssl_server_proxy != NULL) {
-		ssl_proxy_destroy(proxy->ssl_server_proxy);
-		ssl_proxy_free(&proxy->ssl_server_proxy);
-	}
 	i_free(proxy->host);
 	i_free(proxy);
 }
@@ -671,58 +673,47 @@ void login_proxy_detach(struct login_proxy *proxy)
 	client->login_proxy = NULL;
 }
 
-static int login_proxy_ssl_handshaked(void *context)
-{
-	struct login_proxy *proxy = context;
-
-	if ((proxy->ssl_flags & PROXY_SSL_FLAG_ANY_CERT) != 0)
-		return 0;
-
-	if (ssl_proxy_has_broken_client_cert(proxy->ssl_server_proxy)) {
-		client_log_err(proxy->client, t_strdup_printf(
-			"proxy: Received invalid SSL certificate from %s:%u: %s",
-			proxy->host, proxy->port,
-			ssl_proxy_get_cert_error(proxy->ssl_server_proxy)));
-	} else if (!ssl_proxy_has_valid_client_cert(proxy->ssl_server_proxy)) {
-		client_log_err(proxy->client, t_strdup_printf(
-			"proxy: SSL certificate not received from %s:%u",
-			proxy->host, proxy->port));
-	} else if (ssl_proxy_cert_match_name(proxy->ssl_server_proxy,
-					     proxy->host) < 0) {
-		client_log_err(proxy->client, t_strdup_printf(
-			"proxy: hostname doesn't match SSL certificate at %s:%u",
-			proxy->host, proxy->port));
-	} else {
-		return 0;
-	}
-	proxy->disconnecting = TRUE;
-	return -1;
-}
-
 int login_proxy_starttls(struct login_proxy *proxy)
 {
-	int fd;
+	struct ssl_iostream_context *ssl_ctx;
+	struct ssl_iostream_settings ssl_set;
+	const char *error;
 
-	i_stream_destroy(&proxy->server_input);
-	o_stream_destroy(&proxy->server_output);
+	master_service_ssl_settings_to_iostream_set(proxy->client->ssl_set,
+						    pool_datastack_create(),
+						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
+						    &ssl_set);
+	if ((proxy->ssl_flags & PROXY_SSL_FLAG_ANY_CERT) != 0)
+		ssl_set.allow_invalid_cert = TRUE;
+	/* NOTE: We're explicitly disabling ssl_client_ca_* settings for now
+	   at least. The main problem is that we're chrooted, so we can't read
+	   them at this point anyway. The second problem is that especially
+	   ssl_client_ca_dir does blocking disk I/O, which could cause
+	   unexpected hangs when login process handles multiple clients. */
+	ssl_set.ca_file = ssl_set.ca_dir = NULL;
+
 	io_remove(&proxy->server_io);
-
-	fd = ssl_proxy_client_alloc(proxy->server_fd, &proxy->client->ip,
-				    proxy->client->pool, proxy->client->set,
-				    proxy->client->ssl_set,
-				    login_proxy_ssl_handshaked, proxy,
-				    &proxy->ssl_server_proxy);
-	if (fd < 0) {
+	if (ssl_iostream_client_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
 		client_log_err(proxy->client, t_strdup_printf(
-			"proxy: SSL handshake failed to %s:%u",
-			proxy->host, proxy->port));
+			"proxy: Failed to create SSL client context: %s", error));
 		return -1;
 	}
-	ssl_proxy_set_client(proxy->ssl_server_proxy, proxy->client);
-	ssl_proxy_start(proxy->ssl_server_proxy);
 
-	proxy->server_fd = fd;
-	proxy_plain_connected(proxy);
+	if (io_stream_create_ssl_client(ssl_ctx, proxy->host, &ssl_set,
+					&proxy->server_input,
+					&proxy->server_output,
+					&proxy->server_ssl_iostream,
+					&error) < 0) {
+		client_log_err(proxy->client, t_strdup_printf(
+			"proxy: Failed to create SSL client to %s:%u: %s",
+			proxy->host, proxy->port, error));
+		ssl_iostream_context_unref(&ssl_ctx);
+		return -1;
+	}
+	ssl_iostream_context_unref(&ssl_ctx);
+
+	proxy->server_io = io_add_istream(proxy->server_input,
+					  proxy_prelogin_input, proxy);
 	return 0;
 }
 
