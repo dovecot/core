@@ -589,19 +589,19 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 
 static bool
 openssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
-				 const char *verify_name)
+				 const char *verify_name, const char **reason_r)
 {
-	const char *reason;
-
-	if (!ssl_iostream_has_valid_client_cert(ssl_io))
+	if (!ssl_iostream_has_valid_client_cert(ssl_io)) {
+		*reason_r = "Invalid certificate";
 		return FALSE;
+	}
 
-	return openssl_cert_match_name(ssl_io->ssl, verify_name, &reason);
+	return openssl_cert_match_name(ssl_io->ssl, verify_name, reason_r);
 }
 
 static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 {
-	const char *error = NULL;
+	const char *reason, *error = NULL;
 	int ret;
 
 	i_assert(!ssl_io->handshaked);
@@ -631,10 +631,10 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			ssl_io->handshake_failed = TRUE;
 		}
 	} else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed) {
-		if (!ssl_iostream_cert_match_name(ssl_io, ssl_io->connected_host)) {
+		if (!ssl_iostream_cert_match_name(ssl_io, ssl_io->connected_host, &reason)) {
 			openssl_iostream_set_error(ssl_io, t_strdup_printf(
-				"SSL certificate doesn't match expected host name %s",
-				ssl_io->connected_host));
+				"SSL certificate doesn't match expected host name %s: %s",
+				ssl_io->connected_host, reason));
 			ssl_io->handshake_failed = TRUE;
 		}
 	}

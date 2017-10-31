@@ -80,8 +80,13 @@ bool ssl_iostream_has_valid_client_cert(const struct ssl_iostream *ssl_io);
 bool ssl_iostream_has_broken_client_cert(struct ssl_iostream *ssl_io);
 int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
 				     const char *host, const char **error_r);
-/* Returns TRUE if the given name matches the SSL stream's certificate. */
-bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name);
+/* Returns TRUE if the given name matches the SSL stream's certificate.
+   The returned reason is a human-readable string explaining what exactly
+   matched the name, or why nothing matched. Note that this function works
+   only if the certificate was valid - using it when certificate is invalid
+   will always return FALSE before even checking the hostname. */
+bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name,
+				  const char **reason_r);
 const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io);
