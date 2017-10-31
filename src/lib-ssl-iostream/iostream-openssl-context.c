@@ -23,9 +23,6 @@ struct ssl_iostream_password_context {
 static bool ssl_global_initialized = FALSE;
 int dovecot_ssl_extdata_index;
 
-static int ssl_iostream_init_global(const struct ssl_iostream_settings *set,
-				    const char **error_r);
-
 static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 			    int is_export ATTR_UNUSED, int keylength)
 {
@@ -580,8 +577,6 @@ int openssl_iostream_context_init_client(const struct ssl_iostream_settings *set
 	struct ssl_iostream_context *ctx;
 	SSL_CTX *ssl_ctx;
 
-	if (ssl_iostream_init_global(set, error_r) < 0)
-		return -1;
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_client_method())) == NULL) {
 		*error_r = t_strdup_printf("SSL_CTX_new() failed: %s",
 					   openssl_iostream_error());
@@ -608,8 +603,6 @@ int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set
 	struct ssl_iostream_context *ctx;
 	SSL_CTX *ssl_ctx;
 
-	if (ssl_iostream_init_global(set, error_r) < 0)
-		return -1;
 	if ((ssl_ctx = SSL_CTX_new(SSLv23_server_method())) == NULL) {
 		*error_r = t_strdup_printf("SSL_CTX_new() failed: %s",
 					   openssl_iostream_error());
@@ -651,8 +644,8 @@ void openssl_iostream_global_deinit(void)
 	dovecot_openssl_common_global_unref();
 }
 
-static int ssl_iostream_init_global(const struct ssl_iostream_settings *set,
-				    const char **error_r)
+int openssl_iostream_global_init(const struct ssl_iostream_settings *set,
+				 const char **error_r)
 {
 	static char dovecot[] = "dovecot";
 	const char *error;

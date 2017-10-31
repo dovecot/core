@@ -47,6 +47,13 @@ ssl_iostream_handshake_callback_t(const char **error_r, void *context);
 typedef int ssl_iostream_sni_callback_t(const char *name, const char **error_r,
 					void *context);
 
+/* Explicitly initialize SSL library globally. This is also done automatically
+   when the first SSL connection is created, but it may be useful to call it
+   earlier in case of chrooting. After the initialization is successful, any
+   further calls will just be ignored. Returns 0 on success, -1 on error. */
+int io_stream_ssl_global_init(const struct ssl_iostream_settings *set,
+			      const char **error_r);
+
 int io_stream_create_ssl_client(struct ssl_iostream_context *ctx, const char *host,
 				const struct ssl_iostream_settings *set,
 				struct istream **input, struct ostream **output,

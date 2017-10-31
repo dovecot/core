@@ -73,6 +73,9 @@ extern int dovecot_ssl_extdata_index;
 struct istream *openssl_i_stream_create_ssl(struct ssl_iostream *ssl_io);
 struct ostream *openssl_o_stream_create_ssl(struct ssl_iostream *ssl_io);
 
+int openssl_iostream_global_init(const struct ssl_iostream_settings *set,
+				 const char **error_r);
+
 int openssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
 					 struct ssl_iostream_context **ctx_r,
 					 const char **error_r);

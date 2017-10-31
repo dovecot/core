@@ -76,6 +76,12 @@ int ssl_module_load(const char **error_r)
 #endif
 }
 
+int io_stream_ssl_global_init(const struct ssl_iostream_settings *set,
+			      const char **error_r)
+{
+	return ssl_vfuncs->global_init(set, error_r);
+}
+
 int ssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
 				     struct ssl_iostream_context **ctx_r,
 				     const char **error_r)
@@ -89,6 +95,8 @@ int ssl_iostream_context_init_client(const struct ssl_iostream_settings *set,
 		if (ssl_module_load(error_r) < 0)
 			return -1;
 	}
+	if (io_stream_ssl_global_init(&set_copy, error_r) < 0)
+		return -1;
 	return ssl_vfuncs->context_init_client(&set_copy, ctx_r, error_r);
 }
 
@@ -100,6 +108,8 @@ int ssl_iostream_context_init_server(const struct ssl_iostream_settings *set,
 		if (ssl_module_load(error_r) < 0)
 			return -1;
 	}
+	if (io_stream_ssl_global_init(set, error_r) < 0)
+		return -1;
 	return ssl_vfuncs->context_init_server(set, ctx_r, error_r);
 }
 

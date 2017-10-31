@@ -798,6 +798,7 @@ openssl_iostream_get_last_error(struct ssl_iostream *ssl_io)
 }
 
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
+	.global_init = openssl_iostream_global_init,
 	.context_init_client = openssl_iostream_context_init_client,
 	.context_init_server = openssl_iostream_context_init_server,
 	.context_ref = openssl_iostream_context_ref,
