@@ -169,23 +169,33 @@ master_service_ssl_settings_get(struct master_service *service)
 	return sets[1];
 }
 
-void
-master_service_ssl_settings_to_iostream_set(const struct master_service_ssl_settings *ssl_set,
-					    pool_t pool,
-					    struct ssl_iostream_settings *set_r)
+void master_service_ssl_settings_to_iostream_set(
+	const struct master_service_ssl_settings *ssl_set, pool_t pool,
+	enum master_service_ssl_settings_type type,
+	struct ssl_iostream_settings *set_r)
 {
 	i_zero(set_r);
 	set_r->protocols = p_strdup(pool, ssl_set->ssl_protocols);
 	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
+	/* NOTE: It's a bit questionable whether ssl_ca should be used for
+	   clients. But at least for now it's needed for login-proxy. */
 	set_r->ca = p_strdup(pool, ssl_set->ssl_ca);
 
-	set_r->cert.cert = p_strdup(pool, ssl_set->ssl_cert);
-	set_r->cert.key = p_strdup(pool, ssl_set->ssl_key);
-	set_r->cert.key_password = p_strdup(pool, ssl_set->ssl_key_password);
-	if (ssl_set->ssl_alt_cert != NULL && *ssl_set->ssl_alt_cert != '\0') {
-		set_r->alt_cert.cert = p_strdup(pool, ssl_set->ssl_alt_cert);
-		set_r->alt_cert.key = p_strdup(pool, ssl_set->ssl_alt_key);
-		set_r->alt_cert.key_password = p_strdup(pool, ssl_set->ssl_key_password);
+	switch (type) {
+	case MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER:
+		set_r->cert.cert = p_strdup(pool, ssl_set->ssl_cert);
+		set_r->cert.key = p_strdup(pool, ssl_set->ssl_key);
+		set_r->cert.key_password = p_strdup(pool, ssl_set->ssl_key_password);
+		if (ssl_set->ssl_alt_cert != NULL && *ssl_set->ssl_alt_cert != '\0') {
+			set_r->alt_cert.cert = p_strdup(pool, ssl_set->ssl_alt_cert);
+			set_r->alt_cert.key = p_strdup(pool, ssl_set->ssl_alt_key);
+			set_r->alt_cert.key_password = p_strdup(pool, ssl_set->ssl_key_password);
+		}
+		break;
+	case MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT:
+		set_r->ca_file = p_strdup(pool, ssl_set->ssl_client_ca_file);
+		set_r->ca_dir = p_strdup(pool, ssl_set->ssl_client_ca_dir);
+		break;
 	}
 
 	set_r->dh = p_strdup(pool, ssl_set->ssl_dh);

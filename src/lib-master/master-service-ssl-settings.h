@@ -34,16 +34,20 @@ struct master_service_ssl_settings {
 	} parsed_opts;
 };
 
+enum master_service_ssl_settings_type {
+	MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER,
+	MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
+};
+
 extern const struct setting_parser_info master_service_ssl_setting_parser_info;
 
 const struct master_service_ssl_settings *
 master_service_ssl_settings_get(struct master_service *service);
 
 /* Provides master service ssl settings to iostream settings */
-void
-master_service_ssl_settings_to_iostream_set(const struct master_service_ssl_settings *ssl_set,
-					    pool_t pool,
-					    struct ssl_iostream_settings *set_r);
-
+void master_service_ssl_settings_to_iostream_set(
+	const struct master_service_ssl_settings *ssl_set, pool_t pool,
+	enum master_service_ssl_settings_type type,
+	struct ssl_iostream_settings *set_r);
 
 #endif
