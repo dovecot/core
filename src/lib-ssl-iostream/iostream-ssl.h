@@ -23,7 +23,8 @@ struct ssl_iostream_settings {
 };
 
 /* Returns 0 if ok, -1 and sets error_r if failed. The returned error string
-   becomes available via ssl_iostream_get_last_error() */
+   becomes available via ssl_iostream_get_last_error(). The callback most
+   likely should be calling ssl_iostream_check_cert_validity(). */
 typedef int
 ssl_iostream_handshake_callback_t(const char **error_r, void *context);
 
@@ -47,6 +48,10 @@ void ssl_iostream_set_log_prefix(struct ssl_iostream *ssl_io,
 				 const char *prefix);
 
 int ssl_iostream_handshake(struct ssl_iostream *ssl_io);
+/* Call the given callback when SSL handshake finishes. The callback must
+   verify whether the certificate and its hostname is valid. If there is no
+   callback, the default is to use ssl_iostream_check_cert_validity() with the
+   same host as given to io_stream_create_ssl_client() */
 void ssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
 					 ssl_iostream_handshake_callback_t *callback,
 					 void *context);
