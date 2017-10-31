@@ -201,7 +201,7 @@ void http_client_deinit(struct http_client **_client)
 	connection_list_deinit(&client->conn_list);
 
 	if (client->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&client->ssl_ctx);
+		ssl_iostream_context_unref(&client->ssl_ctx);
 	pool_unref(&client->pool);
 }
 

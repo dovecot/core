@@ -95,6 +95,6 @@ void master_service_ssl_ctx_init(struct master_service *service)
 void master_service_ssl_ctx_deinit(struct master_service *service)
 {
 	if (service->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&service->ssl_ctx);
+		ssl_iostream_context_unref(&service->ssl_ctx);
 	service->ssl_ctx_initialized = FALSE;
 }

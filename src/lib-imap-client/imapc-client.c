@@ -137,7 +137,7 @@ void imapc_client_unref(struct imapc_client **_client)
 		return;
 
 	if (client->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&client->ssl_ctx);
+		ssl_iostream_context_unref(&client->ssl_ctx);
 	pool_unref(&client->pool);
 }
 

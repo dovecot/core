@@ -218,7 +218,7 @@ void pop3c_client_deinit(struct pop3c_client **_client)
 
 	pop3c_client_disconnect(client);
 	if (client->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&client->ssl_ctx);
+		ssl_iostream_context_unref(&client->ssl_ctx);
 	pool_unref(&client->pool);
 }
 

@@ -589,7 +589,7 @@ int openssl_iostream_context_init_client(const struct ssl_iostream_settings *set
 	ctx->ssl_ctx = ssl_ctx;
 	ctx->client_ctx = TRUE;
 	if (ssl_iostream_context_init_common(ctx, &set_copy, error_r) < 0) {
-		ssl_iostream_context_deinit(&ctx);
+		ssl_iostream_context_unref(&ctx);
 		return -1;
 	}
 	*ctx_r = ctx;
@@ -614,7 +614,7 @@ int openssl_iostream_context_init_server(const struct ssl_iostream_settings *set
 	ctx = i_new(struct ssl_iostream_context, 1);
 	ctx->ssl_ctx = ssl_ctx;
 	if (ssl_iostream_context_init_common(ctx, set, error_r) < 0) {
-		ssl_iostream_context_deinit(&ctx);
+		ssl_iostream_context_unref(&ctx);
 		return -1;
 	}
 	*ctx_r = ctx;

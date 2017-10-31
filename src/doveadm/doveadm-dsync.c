@@ -711,7 +711,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (ctx->ssl_iostream != NULL)
 		ssl_iostream_destroy(&ctx->ssl_iostream);
 	if (ctx->ssl_ctx != NULL)
-		ssl_iostream_context_deinit(&ctx->ssl_ctx);
+		ssl_iostream_context_unref(&ctx->ssl_ctx);
 	if (ctx->input != NULL) {
 		i_stream_set_max_buffer_size(ctx->input, ctx->input_orig_bufsize);
 		i_stream_unref(&ctx->input);
