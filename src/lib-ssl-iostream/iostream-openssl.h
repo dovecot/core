@@ -82,7 +82,8 @@ void openssl_iostream_global_deinit(void);
 
 int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 			      EVP_PKEY **pkey_r, const char **error_r);
-bool openssl_cert_match_name(SSL *ssl, const char *verify_name);
+bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
+			     const char **reason_r);
 int openssl_get_protocol_options(const char *protocols);
 #define OPENSSL_ALL_PROTOCOL_OPTIONS \
 	(SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1)

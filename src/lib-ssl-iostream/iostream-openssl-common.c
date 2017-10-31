@@ -154,7 +154,8 @@ static bool openssl_hostname_equals(const char *ssl_name, const char *host)
 	return p != NULL && strcmp(ssl_name+2, p+1) == 0;
 }
 
-bool openssl_cert_match_name(SSL *ssl, const char *verify_name)
+bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
+			     const char **reason_r)
 {
 	X509 *cert;
 	STACK_OF(GENERAL_NAME) *gnames;
@@ -164,6 +165,8 @@ bool openssl_cert_match_name(SSL *ssl, const char *verify_name)
 	bool dns_names = FALSE;
 	unsigned int i, count;
 	bool ret;
+
+	*reason_r = NULL;
 
 	cert = SSL_get_peer_certificate(ssl);
 	i_assert(cert != NULL);
@@ -187,27 +190,44 @@ bool openssl_cert_match_name(SSL *ssl, const char *verify_name)
 		if (gn->type == GEN_DNS) {
 			dns_names = TRUE;
 			dnsname = get_general_dns_name(gn);
-			if (openssl_hostname_equals(dnsname, verify_name))
+			if (openssl_hostname_equals(dnsname, verify_name)) {
+				*reason_r = t_strdup_printf(
+					"Matches DNS name in SubjectAltNames: %s", dnsname);
 				break;
+			}
 		} else if (gn->type == GEN_IPADD) {
 			struct ip_addr ip_2;
 			i_zero(&ip_2);
 			dns_names = TRUE;
 			if (get_general_ip_addr(gn, &ip_2) == 0 &&
-			    net_ip_compare(&ip, &ip_2))
+			    net_ip_compare(&ip, &ip_2)) {
+				*reason_r = t_strdup_printf(
+					"Matches IP in SubjectAltNames: %s", net_ip2addr(&ip_2));
 				break;
+			}
 		}
 	}
 	sk_GENERAL_NAME_pop_free(gnames, GENERAL_NAME_free);
 
 	/* verify against CommonName only when there wasn't any DNS
 	   SubjectAltNames */
-	if (dns_names)
+	if (dns_names) {
+		i_assert(*reason_r != NULL);
 		ret = i < count;
-	else if (openssl_hostname_equals(get_cname(cert), verify_name))
-		ret = TRUE;
-	else
-		ret = FALSE;
+	} else {
+		const char *cname = get_cname(cert);
+
+		if (openssl_hostname_equals(cname, verify_name)) {
+			ret = TRUE;
+			*reason_r = t_strdup_printf(
+				"Matches to CommonName: %s", cname);
+		} else {
+			*reason_r = t_strdup_printf(
+				"No match to CommonName=%s or %u SubjectAltNames",
+				cname, count);
+			ret = FALSE;
+		}
+	}
 	X509_free(cert);
 	return ret;
 }

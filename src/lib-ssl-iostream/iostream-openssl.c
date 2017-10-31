@@ -591,10 +591,12 @@ static bool
 openssl_iostream_cert_match_name(struct ssl_iostream *ssl_io,
 				 const char *verify_name)
 {
+	const char *reason;
+
 	if (!ssl_iostream_has_valid_client_cert(ssl_io))
 		return FALSE;
 
-	return openssl_cert_match_name(ssl_io->ssl, verify_name);
+	return openssl_cert_match_name(ssl_io->ssl, verify_name, &reason);
 }
 
 static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
