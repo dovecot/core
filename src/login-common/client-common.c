@@ -152,7 +152,7 @@ static bool client_is_trusted(struct client *client)
 }
 
 struct client *
-client_alloc(int fd, bool ssl, pool_t pool,
+client_alloc(int fd, pool_t pool,
 	     const struct master_service_connection *conn,
 	     const struct login_settings *set,
 	     const struct master_service_ssl_settings *ssl_set)
@@ -178,8 +178,6 @@ client_alloc(int fd, bool ssl, pool_t pool,
 	p_array_init(&client->module_contexts, client->pool, 5);
 
 	client->fd = fd;
-	client->tls = ssl;
-
 	client->local_ip = conn->local_ip;
 	client->local_port = conn->local_port;
 	client->ip = conn->remote_ip;
@@ -196,7 +194,7 @@ client_alloc(int fd, bool ssl, pool_t pool,
 		client->local_name = conn->proxy.hostname;
 		client->client_cert_common_name = conn->proxy.cert_common_name;
 	} else {
-		client->secured = ssl || client->trusted ||
+		client->secured = client->trusted ||
 			net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
 	}
 	client->proxy_ttl = LOGIN_PROXY_TTL;

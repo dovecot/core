@@ -238,7 +238,7 @@ void login_client_hooks_add(struct module *module,
 void login_client_hooks_remove(const struct login_client_hooks *hooks);
 
 struct client *
-client_alloc(int fd, bool ssl, pool_t pool,
+client_alloc(int fd, pool_t pool,
 	     const struct master_service_connection *conn,
 	     const struct login_settings *set,
 	     const struct master_service_ssl_settings *ssl_set);

@@ -125,8 +125,7 @@ client_connected_finish(const struct master_service_connection *conn)
 	set = login_settings_read(pool, &conn->local_ip,
 				  &conn->remote_ip, NULL, &ssl_set, &other_sets);
 
-	client = client_alloc(conn->fd, FALSE, pool, conn,
-			      set, ssl_set);
+	client = client_alloc(conn->fd, pool, conn, set, ssl_set);
 	if (ssl_connections || conn->ssl) {
 		if (client_init_ssl(client) < 0) {
 			client_unref(&client);
