@@ -12,6 +12,8 @@ struct master_service_ssl_settings {
 	const char *ssl_key;
 	const char *ssl_alt_key;
 	const char *ssl_key_password;
+	const char *ssl_client_ca_file;
+	const char *ssl_client_ca_dir;
 	const char *ssl_dh;
 	const char *ssl_cipher_list;
 	const char *ssl_curve_list;
