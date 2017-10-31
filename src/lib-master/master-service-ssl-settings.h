@@ -41,7 +41,8 @@ master_service_ssl_settings_get(struct master_service *service);
 
 /* Provides master service ssl settings to iostream settings */
 void
-master_service_ssl_settings_to_iostream_set(struct master_service *service, pool_t pool,
+master_service_ssl_settings_to_iostream_set(const struct master_service_ssl_settings *ssl_set,
+					    pool_t pool,
 					    struct ssl_iostream_settings *set_r);
 
 

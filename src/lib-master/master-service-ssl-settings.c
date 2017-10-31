@@ -170,13 +170,10 @@ master_service_ssl_settings_get(struct master_service *service)
 }
 
 void
-master_service_ssl_settings_to_iostream_set(struct master_service *service, pool_t pool,
+master_service_ssl_settings_to_iostream_set(const struct master_service_ssl_settings *ssl_set,
+					    pool_t pool,
 					    struct ssl_iostream_settings *set_r)
 {
-	const struct master_service_ssl_settings *ssl_set =
-		master_service_ssl_settings_get(service);
-	i_assert(ssl_set != NULL);
-
 	i_zero(set_r);
 	set_r->protocols = p_strdup(pool, ssl_set->ssl_protocols);
 	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
