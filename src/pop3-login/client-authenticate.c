@@ -12,7 +12,6 @@
 #include "str-sanitize.h"
 #include "auth-client.h"
 #include "../pop3/pop3-capability.h"
-#include "ssl-proxy.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "pop3-proxy.h"

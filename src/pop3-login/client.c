@@ -15,7 +15,6 @@
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
-#include "ssl-proxy.h"
 #include "pop3-proxy.h"
 #include "pop3-login-settings.h"
 

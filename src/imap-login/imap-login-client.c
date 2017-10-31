@@ -16,7 +16,6 @@
 #include "imap-login-client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
-#include "ssl-proxy.h"
 #include "imap-proxy.h"
 #include "imap-quote.h"
 #include "imap-login-commands.h"
