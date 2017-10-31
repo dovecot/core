@@ -383,13 +383,6 @@ int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
 	return 0;
 }
 
-static void
-lmtp_proxy_data_dummy_cb(const struct smtp_reply *proxy_reply ATTR_UNUSED,
-			 struct lmtp_proxy_connection *conn ATTR_UNUSED)
-{
-	/* nothing */
-}
-
 static bool
 client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 			       const char *const *args, const char **address)
@@ -593,6 +586,13 @@ bool client_proxy_rcpt(struct client *client,
 		client_send_line(client, "250 2.1.5 OK");
 	pool_unref(&pool);
 	return TRUE;
+}
+
+static void
+lmtp_proxy_data_dummy_cb(const struct smtp_reply *proxy_reply ATTR_UNUSED,
+			 struct lmtp_proxy_connection *conn ATTR_UNUSED)
+{
+	/* nothing */
 }
 
 void lmtp_proxy_start(struct lmtp_proxy *proxy, struct istream *data_input,
