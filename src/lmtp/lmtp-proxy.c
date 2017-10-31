@@ -315,28 +315,6 @@ lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 	rcpt->rcpt_to_failed = !smtp_reply_is_success(proxy_reply);
 }
 
-int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
-			const struct smtp_address *address,
-			const struct lmtp_proxy_rcpt_settings *set)
-{
-	struct lmtp_proxy_connection *conn;
-	struct lmtp_proxy_recipient *rcpt;
-
-	conn = lmtp_proxy_get_connection(proxy, set);
-	if (conn->failed)
-		return -1;
-
-	rcpt = p_new(proxy->pool, struct lmtp_proxy_recipient, 1);
-	rcpt->idx = array_count(&proxy->rcpt_to);
-	rcpt->conn = conn;
-	rcpt->address = smtp_address_clone(proxy->pool, address);
-	array_append(&proxy->rcpt_to, &rcpt, 1);
-
-	smtp_client_transaction_add_rcpt(conn->lmtp_trans, address,
-		&set->params, lmtp_proxy_rcpt_cb, lmtp_proxy_data_cb, rcpt);
-	return 0;
-}
-
 static bool
 client_proxy_rcpt_parse_fields(struct lmtp_proxy_rcpt_settings *set,
 			       const char *const *args, const char **address)
@@ -421,6 +399,28 @@ client_proxy_is_ourself(const struct client *client,
 	if (!net_ip_compare(&ip, &client->local_ip))
 		return FALSE;
 	return TRUE;
+}
+
+int lmtp_proxy_add_rcpt(struct lmtp_proxy *proxy,
+			const struct smtp_address *address,
+			const struct lmtp_proxy_rcpt_settings *set)
+{
+	struct lmtp_proxy_connection *conn;
+	struct lmtp_proxy_recipient *rcpt;
+
+	conn = lmtp_proxy_get_connection(proxy, set);
+	if (conn->failed)
+		return -1;
+
+	rcpt = p_new(proxy->pool, struct lmtp_proxy_recipient, 1);
+	rcpt->idx = array_count(&proxy->rcpt_to);
+	rcpt->conn = conn;
+	rcpt->address = smtp_address_clone(proxy->pool, address);
+	array_append(&proxy->rcpt_to, &rcpt, 1);
+
+	smtp_client_transaction_add_rcpt(conn->lmtp_trans, address,
+		&set->params, lmtp_proxy_rcpt_cb, lmtp_proxy_data_cb, rcpt);
+	return 0;
 }
 
 bool client_proxy_rcpt(struct client *client,
