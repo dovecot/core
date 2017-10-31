@@ -151,6 +151,7 @@ static void connection_init_streams(struct connection *conn)
 			conn->output = o_stream_create_fd(conn->fd_out,
 							  set->output_max_size);
 		o_stream_set_no_error_handling(conn->output, TRUE);
+		o_stream_set_finish_via_child(conn->output, FALSE);
 		o_stream_set_name(conn->output, conn->name);
 	}
 	if (set->input_idle_timeout_secs != 0) {
