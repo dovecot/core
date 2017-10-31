@@ -611,13 +611,15 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	if (ssl_io->handshake_callback != NULL) {
 		if (ssl_io->handshake_callback(&error, ssl_io->handshake_context) < 0) {
 			i_assert(error != NULL);
-			i_stream_close(ssl_io->plain_input);
-			o_stream_close(ssl_io->plain_output);
 			openssl_iostream_set_error(ssl_io, error);
 			ssl_io->handshake_failed = TRUE;
-			errno = EINVAL;
-			return -1;
 		}
+	}
+	if (ssl_io->handshake_failed) {
+		i_stream_close(ssl_io->plain_input);
+		o_stream_close(ssl_io->plain_output);
+		errno = EINVAL;
+		return -1;
 	}
 	i_free_and_null(ssl_io->last_error);
 	ssl_io->handshaked = TRUE;
