@@ -482,6 +482,7 @@ struct dbox_file_append_context *dbox_file_append_init(struct dbox_file *file)
 	if (file->fd != -1) {
 		ctx->output = o_stream_create_fd_file(file->fd, 0, FALSE);
 		o_stream_set_name(ctx->output, file->cur_path);
+		o_stream_set_finish_via_child(ctx->output, FALSE);
 		o_stream_cork(ctx->output);
 	}
 	return ctx;
