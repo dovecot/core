@@ -614,6 +614,13 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 			openssl_iostream_set_error(ssl_io, error);
 			ssl_io->handshake_failed = TRUE;
 		}
+	} else if (ssl_io->connected_host != NULL && !ssl_io->handshake_failed) {
+		if (ssl_iostream_cert_match_name(ssl_io, ssl_io->connected_host) < 0) {
+			openssl_iostream_set_error(ssl_io, t_strdup_printf(
+				"SSL certificate doesn't match expected host name %s",
+				ssl_io->connected_host));
+			ssl_io->handshake_failed = TRUE;
+		}
 	}
 	if (ssl_io->handshake_failed) {
 		i_stream_close(ssl_io->plain_input);
