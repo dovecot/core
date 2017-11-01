@@ -32,6 +32,8 @@ struct client *clients = NULL;
 static struct client *last_client = NULL;
 static unsigned int clients_count = 0;
 
+static struct client *client_fd_proxies = NULL;
+
 struct login_client_module_hooks {
 	struct module *module;
 	const struct login_client_hooks *hooks;
@@ -264,6 +266,10 @@ void client_destroy(struct client *client, const char *reason)
 	} else {
 		/* Login was successful. We may now be proxying the connection,
 		   so don't disconnect the client until client_unref(). */
+		if (client->iostream_fd_proxy != NULL) {
+			client->fd_proxying = TRUE;
+			DLLIST_PREPEND(&client_fd_proxies, client);
+		}
 	}
 
 	if (client->master_tag != 0) {
@@ -346,6 +352,9 @@ bool client_unref(struct client **_client)
 		ssl_proxy_free(&client->ssl_proxy);
 	if (client->iostream_fd_proxy != NULL)
 		iostream_proxy_unref(&client->iostream_fd_proxy);
+	if (client->fd_proxying) {
+		DLLIST_REMOVE(&client_fd_proxies, client);
+	}
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
 	i_close_fd(&client->fd);
@@ -1015,6 +1024,14 @@ void client_input(struct client *client)
 void client_common_init(void)
 {
 	i_array_init(&module_hooks, 32);
+}
+
+void client_destroy_fd_proxies(void)
+{
+	while (client_fd_proxies != NULL) {
+		struct client *client = client_fd_proxies;
+		client_unref(&client);
+	}
 }
 
 void client_common_deinit(void)

@@ -127,7 +127,12 @@ struct client_vfuncs {
 };
 
 struct client {
+	/* If disconnected=FALSE, the client is in "clients" list.
+	   If fd_proxying=TRUE, the client is in "client_fd_proxies" list.
+	   Otherwise, either the client will soon be freed or it's only
+	   referenced via "login_proxies" which doesn't use these pointers. */
 	struct client *prev, *next;
+
 	pool_t pool;
 	/* this pool gets free'd once proxying starts */
 	pool_t preproxy_pool;
@@ -218,6 +223,7 @@ struct client {
 	bool auth_waiting:1;
 	bool notified_auth_ready:1;
 	bool notified_disconnect:1;
+	bool fd_proxying:1;
 	/* ... */
 };
 
@@ -306,6 +312,7 @@ void client_destroy_oldest(void);
 void clients_destroy_all(void);
 void clients_destroy_all_reason(const char *reason);
 
+void client_destroy_fd_proxies(void);
 void client_common_init(void);
 void client_common_deinit(void);
 

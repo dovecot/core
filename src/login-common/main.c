@@ -412,6 +412,7 @@ static void main_init(const char *login_socket)
 static void main_deinit(void)
 {
 	ssl_proxy_deinit();
+	client_destroy_fd_proxies();
 	ssl_iostream_context_cache_free();
 	login_proxy_deinit();
 
