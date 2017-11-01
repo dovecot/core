@@ -782,7 +782,10 @@ i_stream_w_buffer_realloc(struct istream_private *stream, size_t old_size)
 				       stream->buffer_size);
 	} else {
 		new_buffer = i_malloc(stream->buffer_size);
-		memcpy(new_buffer, stream->w_buffer, old_size);
+		if (old_size > 0) {
+			i_assert(stream->w_buffer != NULL);
+			memcpy(new_buffer, stream->w_buffer, old_size);
+		}
 		if (stream->memarea != NULL)
 			memarea_unref(&stream->memarea);
 	}
