@@ -729,8 +729,11 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 		if (data == NULL)
 			client_destroy_internal_failure(client);
-		else
-			client_destroy_success(client, data);
+		else {
+			/* e.g. mail_max_userip_connections is reached */
+			client->no_extra_disconnect_reason = TRUE;
+			client_destroy(client, data);
+		}
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
 		i_assert(client->v.auth_send_challenge != NULL);

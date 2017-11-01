@@ -232,7 +232,8 @@ void client_destroy(struct client *client, const char *reason)
 
 	pool_unref(&client->preproxy_pool);
 
-	if (!client->login_success && reason != NULL) {
+	if (!client->login_success &&
+	    !client->no_extra_disconnect_reason && reason != NULL) {
 		const char *extra_reason =
 			client_get_extra_disconnect_reason(client);
 		if (extra_reason[0] != '\0')

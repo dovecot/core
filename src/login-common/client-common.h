@@ -199,6 +199,7 @@ struct client {
 	bool destroyed:1;
 	bool input_blocked:1;
 	bool login_success:1;
+	bool no_extra_disconnect_reason:1;
 	bool starttls:1;
 	bool tls:1;
 	bool secured:1;
