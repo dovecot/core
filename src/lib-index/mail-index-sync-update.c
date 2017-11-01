@@ -879,11 +879,11 @@ void mail_index_map_check(struct mail_index_map *map)
 		i_assert(rec->uid > prev_uid);
 		prev_uid = rec->uid;
 
-		if (rec->flags & MAIL_DELETED) {
+		if ((rec->flags & MAIL_DELETED) != 0) {
 			i_assert(rec->uid >= hdr->first_deleted_uid_lowwater);
 			del++;
 		}
-		if (rec->flags & MAIL_SEEN)
+		if ((rec->flags & MAIL_SEEN) != 0)
 			seen++;
 		else
 			i_assert(rec->uid >= hdr->first_unseen_uid_lowwater);
