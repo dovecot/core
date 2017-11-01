@@ -263,6 +263,7 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 	if (ctx->expunge_ctx != NULL) {
 		if (fts_expunge_log_append_commit(&ctx->expunge_ctx) < 0) {
 			struct stat st;
+			ret = -1;
 
 			if (stat(backend->dir_path, &st) < 0 && errno == ENOENT) {
 				/* lucene-indexes directory doesn't even exist,
@@ -271,7 +272,6 @@ fts_backend_lucene_update_deinit(struct fts_backend_update_context *_ctx)
 				(void)lucene_index_rescan(backend->index);
 				ret = 0;
 			}
-			ret = -1;
 		}
 	}
 
