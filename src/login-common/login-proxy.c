@@ -35,7 +35,7 @@ struct login_proxy {
 	struct login_proxy *prev, *next;
 
 	struct client *client;
-	int client_fd, server_fd;
+	int server_fd;
 	struct io *client_io, *server_io;
 	struct istream *client_input, *server_input;
 	struct ostream *client_output, *server_output;
@@ -57,6 +57,7 @@ struct login_proxy {
 	proxy_callback_t *callback;
 
 	bool connected:1;
+	bool detached:1;
 	bool destroying:1;
 	bool disconnecting:1;
 	bool delayed_disconnect:1;
@@ -437,7 +438,6 @@ int login_proxy_new(struct client *client,
 
 	proxy = i_new(struct login_proxy, 1);
 	proxy->client = client;
-	proxy->client_fd = -1;
 	proxy->server_fd = -1;
 	proxy->created = ioloop_timeval;
 	proxy->ip = set->ip;
@@ -500,8 +500,6 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 	io_remove(&proxy->client_io);
 	i_stream_destroy(&proxy->client_input);
 	o_stream_destroy(&proxy->client_output);
-	if (proxy->client_fd != -1)
-		net_disconnect(proxy->client_fd);
 	if (proxy->ssl_server_proxy != NULL) {
 		ssl_proxy_destroy(proxy->ssl_server_proxy);
 		ssl_proxy_free(&proxy->ssl_server_proxy);
@@ -583,7 +581,7 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 	/* we'll disconnect server side in any case. */
 	login_proxy_disconnect(proxy);
 
-	if (proxy->client_fd != -1) {
+	if (proxy->detached) {
 		/* detached proxy */
 		DLLIST_REMOVE(&login_proxies, proxy);
 
@@ -604,7 +602,6 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 		i_assert(proxy->client_io == NULL);
 		i_assert(proxy->client_input == NULL);
 		i_assert(proxy->client_output == NULL);
-		i_assert(proxy->client_fd == -1);
 
 		DLLIST_REMOVE(&login_proxies_pending, proxy);
 
@@ -694,13 +691,13 @@ void login_proxy_detach(struct login_proxy *proxy)
 
 	pool_unref(&proxy->client->preproxy_pool);
 
-	i_assert(proxy->client_fd == -1);
+	i_assert(!proxy->detached);
 	i_assert(proxy->server_input != NULL);
 	i_assert(proxy->server_output != NULL);
 
 	timeout_remove(&proxy->to);
 
-	proxy->client_fd = i_stream_get_fd(client->input);
+	proxy->detached = TRUE;
 	proxy->client_input = client->input;
 	proxy->client_output = client->output;
 
@@ -742,7 +739,6 @@ void login_proxy_detach(struct login_proxy *proxy)
 	DLLIST_REMOVE(&login_proxies_pending, proxy);
 	DLLIST_PREPEND(&login_proxies, proxy);
 
-	client->fd = -1;
 	client->login_proxy = NULL;
 }
 

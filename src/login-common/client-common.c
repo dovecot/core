@@ -248,10 +248,16 @@ void client_destroy(struct client *client, const char *reason)
 
 	if (client->output != NULL)
 		o_stream_uncork(client->output);
-	if (!client->login_success && client->ssl_proxy != NULL)
-		ssl_proxy_destroy(client->ssl_proxy);
-	i_stream_close(client->input);
-	o_stream_close(client->output);
+	if (!client->login_success) {
+		if (client->ssl_proxy != NULL)
+			ssl_proxy_destroy(client->ssl_proxy);
+		i_stream_close(client->input);
+		o_stream_close(client->output);
+		i_close_fd(&client->fd);
+	} else {
+		/* Login was successful. We may now be proxying the connection,
+		   so don't disconnect the client until client_unref(). */
+	}
 
 	if (client->master_tag != 0) {
 		i_assert(client->auth_request == NULL);
@@ -272,11 +278,6 @@ void client_destroy(struct client *client, const char *reason)
 	timeout_remove(&client->to_auth_waiting);
 	if (client->auth_response != NULL)
 		str_free(&client->auth_response);
-
-	if (client->fd != -1) {
-		net_disconnect(client->fd);
-		client->fd = -1;
-	}
 
 	if (client->proxy_password != NULL) {
 		safe_memset(client->proxy_password, 0,
@@ -333,6 +334,7 @@ bool client_unref(struct client **_client)
 		ssl_proxy_free(&client->ssl_proxy);
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
+	i_close_fd(&client->fd);
 
 	i_free(client->proxy_user);
 	i_free(client->proxy_master_user);
