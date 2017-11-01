@@ -409,10 +409,6 @@ static void client_start_tls(struct client *client)
 {
 	int fd_ssl;
 
-	client_ref(client);
-	if (!client_unref(&client) || client->destroyed)
-		return;
-
 	fd_ssl = ssl_proxy_alloc(client->fd, &client->ip, client->pool,
 				 client->set, client->ssl_set,
 				 &client->ssl_proxy);
