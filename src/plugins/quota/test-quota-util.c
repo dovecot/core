@@ -51,7 +51,7 @@ static void test_quota_transaction_is_over(void)
 	struct quota_transaction_context ctx;
 	unsigned int i;
 
-	test_begin("quota transcation is over (count)");
+	test_begin("quota transaction is over (count)");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		if (tests[i].new_size != 1)
 			continue;
@@ -69,7 +69,7 @@ static void test_quota_transaction_is_over(void)
 	}
 	test_end();
 
-	test_begin("quota transcation is over (bytes)");
+	test_begin("quota transaction is over (bytes)");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
 		i_zero(&ctx);
 		ctx.count_ceil = 1;
