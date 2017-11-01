@@ -326,11 +326,11 @@ bool client_unref(struct client **_client)
 {
 	struct client *client = *_client;
 
+	*_client = NULL;
+
 	i_assert(client->refcount > 0);
 	if (--client->refcount > 0)
 		return TRUE;
-
-	*_client = NULL;
 
 	i_assert(client->destroyed);
 	i_assert(client->login_proxy == NULL);
