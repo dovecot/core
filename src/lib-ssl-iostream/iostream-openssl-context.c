@@ -267,8 +267,8 @@ static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
 	if (SSL_get_servername_type(ssl) != -1) {
-		i_free(ssl_io->host);
-		ssl_io->host = i_strdup(host);
+		i_free(ssl_io->sni_host);
+		ssl_io->sni_host = i_strdup(host);
 	} else if (ssl_io->verbose) {
 		i_debug("SSL_get_servername() failed");
 	}
