@@ -778,7 +778,7 @@ static bool director_cmd_director(struct director_connection *conn,
 	}
 	/* just forward this to the entire ring until it reaches back to
 	   itself. some hosts may see this twice, but that's the only way to
-	   guarantee that it gets seen by everyone. reseting the host multiple
+	   guarantee that it gets seen by everyone. resetting the host multiple
 	   times may cause us to handle its commands multiple times, but the
 	   commands can handle that. however, we need to also handle a
 	   situation where the added director never comes back - we don't want

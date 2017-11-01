@@ -86,8 +86,8 @@ struct ntlmssp_challenge {
 struct ntlmssp_response {
 	uint64_t magic;			/* NTLMSSP\0 */
 	uint32_t type;			/* Should be 3 */
-	ntlmssp_buffer_t lm_response;	/* LM/LMv2 recponse */
-	ntlmssp_buffer_t ntlm_response;	/* NTLM/NTLMv2 recponse */
+	ntlmssp_buffer_t lm_response;	/* LM/LMv2 response */
+	ntlmssp_buffer_t ntlm_response;	/* NTLM/NTLMv2 response */
 	ntlmssp_buffer_t domain;	/* Domain name */
 	ntlmssp_buffer_t user;		/* User name */
 	ntlmssp_buffer_t workstation;	/* Workstation name */

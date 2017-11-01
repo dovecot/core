@@ -18,7 +18,7 @@
 #include <ctype.h>
 
 #define WILDS '*'  /* matches 0 or more characters (including spaces) */
-#define WILDQ '?'  /* matches ecactly one character */
+#define WILDQ '?'  /* matches exactly one character */
 
 #define NOMATCH 0
 #define MATCH (match+sofar)

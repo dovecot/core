@@ -28,7 +28,7 @@ void mail_index_map_init_extbufs(struct mail_index_map *map,
 		p_clear(map->extension_pool);
 
 		/* try to use the existing pool's size for initial_count so
-		   we don't grow it unneededly */
+		   we don't grow it needlessly */
 		size = p_get_max_easy_alloc_size(map->extension_pool);
 		if (size > EXT_GLOBAL_ALLOC_SIZE + EXT_PER_ALLOC_SIZE) {
 			initial_count = (size - EXT_GLOBAL_ALLOC_SIZE) /

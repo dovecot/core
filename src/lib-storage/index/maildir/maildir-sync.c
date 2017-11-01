@@ -195,7 +195,7 @@
    readdir() skips some files. we don't of course wish to lose them, so we
    go and rescan the new/ directory again from beginning until no files are
    left. This value is just an optimization to avoid checking the directory
-   twice unneededly. usually only NFS is the problem case. 1 is the safest
+   twice needlessly. usually only NFS is the problem case. 1 is the safest
    bet here, but I guess 5 will do just fine too. */
 #define MAILDIR_RENAME_RESCAN_COUNT 5
 
@@ -947,7 +947,7 @@ maildir_sync_context(struct maildir_sync_context *ctx, bool forced,
 	if (ctx->index_sync_ctx != NULL) {
 		/* NOTE: index syncing here might cause a re-sync due to
 		   files getting lost, so this function might be called
-		   re-entrantly. */
+		   reentrantly. */
 		ret = maildir_sync_index(ctx->index_sync_ctx, ctx->partial);
 		if (ret < 0)
 			maildir_sync_index_rollback(&ctx->index_sync_ctx);
@@ -1095,7 +1095,7 @@ maildir_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 			 (box->flags & MAILBOX_FLAG_KEEP_LOCKED) != 0);
 
 		if (lost_files) {
-			/* lost some files from new/, see if thery're in cur/ */
+			/* lost some files from new/, see if they're in cur/ */
 			ret = maildir_storage_sync_force(mbox, 0);
 		}
 	}

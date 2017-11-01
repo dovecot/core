@@ -206,7 +206,7 @@ int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t 
                   fork off the process itself. Example: "MAINPID=4711"
 
   Daemons can choose to send additional variables. However, it is
-  recommened to prefix variable names not listed above with X_.
+  recommended to prefix variable names not listed above with X_.
 
   Returns a negative errno-style error code on failure. Returns > 0
   if systemd could be notified, 0 if it couldn't possibly because
