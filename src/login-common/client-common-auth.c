@@ -727,13 +727,19 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 		if (shutdown(client->fd, SHUT_RDWR) < 0 && errno != ENOTCONN)
 			i_error("shutdown() failed: %m");
 
-		if (data == NULL)
-			client_destroy_internal_failure(client);
-		else {
+		if (data != NULL) {
 			/* e.g. mail_max_userip_connections is reached */
-			client->no_extra_disconnect_reason = TRUE;
-			client_destroy(client, data);
+		} else {
+			/* The error should have been logged already.
+			   The client will only see a generic internal error. */
+			client_notify_disconnect(client, CLIENT_DISCONNECT_INTERNAL_ERROR,
+				"Internal login failure. "
+				"Refer to server log for more information.");
+			data = t_strdup_printf("Internal login failure (pid=%s id=%u)",
+					       my_pid, client->master_auth_id);
 		}
+		client->no_extra_disconnect_reason = TRUE;
+		client_destroy(client, data);
 		break;
 	case SASL_SERVER_REPLY_CONTINUE:
 		i_assert(client->v.auth_send_challenge != NULL);
