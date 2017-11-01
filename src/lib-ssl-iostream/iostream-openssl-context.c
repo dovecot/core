@@ -296,7 +296,7 @@ static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 				   void *context ATTR_UNUSED)
 {
 	struct ssl_iostream *ssl_io;
-	const char *host;
+	const char *host, *error;
 
 	ssl_io = SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
 	host = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
@@ -305,6 +305,14 @@ static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 		ssl_io->sni_host = i_strdup(host);
 	} else if (ssl_io->verbose) {
 		i_debug("SSL_get_servername() failed");
+	}
+
+	if (ssl_io->sni_callback != NULL) {
+		if (ssl_io->sni_callback(ssl_io->sni_host, &error,
+					 ssl_io->sni_context) < 0) {
+			openssl_iostream_set_error(ssl_io, error);
+			return SSL_TLSEXT_ERR_ALERT_FATAL;
+		}
 	}
 	return SSL_TLSEXT_ERR_OK;
 }

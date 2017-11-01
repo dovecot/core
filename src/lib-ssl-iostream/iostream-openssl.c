@@ -10,8 +10,7 @@
 
 static void openssl_iostream_free(struct ssl_iostream *ssl_io);
 
-static void
-openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
+void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
 {
 	if (ssl_io->verbose) {
 		/* This error should normally be logged by lib-ssl-iostream's
@@ -661,6 +660,27 @@ openssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
 	ssl_io->handshake_context = context;
 }
 
+static void
+openssl_iostream_set_sni_callback(struct ssl_iostream *ssl_io,
+				  ssl_iostream_sni_callback_t *callback,
+				  void *context)
+{
+	ssl_io->sni_callback = callback;
+	ssl_io->sni_context = context;
+}
+
+static void
+openssl_iostream_change_context(struct ssl_iostream *ssl_io,
+				struct ssl_iostream_context *ctx)
+{
+	if (ctx != ssl_io->ctx) {
+		SSL_set_SSL_CTX(ssl_io->ssl, ctx->ssl_ctx);
+		ssl_iostream_context_ref(ctx);
+		ssl_iostream_context_unref(&ssl_io->ctx);
+		ssl_io->ctx = ctx;
+	}
+}
+
 static void openssl_iostream_set_log_prefix(struct ssl_iostream *ssl_io,
 					    const char *prefix)
 {
@@ -789,6 +809,8 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 
 	.handshake = openssl_iostream_handshake,
 	.set_handshake_callback = openssl_iostream_set_handshake_callback,
+	.set_sni_callback = openssl_iostream_set_sni_callback,
+	.change_context = openssl_iostream_change_context,
 
 	.set_log_prefix = openssl_iostream_set_log_prefix,
 	.is_handshaked = openssl_iostream_is_handshaked,

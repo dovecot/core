@@ -56,6 +56,9 @@ struct ssl_iostream {
 	ssl_iostream_handshake_callback_t *handshake_callback;
 	void *handshake_context;
 
+	ssl_iostream_sni_callback_t *sni_callback;
+	void *sni_context;
+
 	bool handshaked:1;
 	bool handshake_failed:1;
 	bool cert_received:1;
@@ -105,6 +108,7 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 				  enum openssl_iostream_sync_type type,
 				  const char *func_name);
 
+void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str);
 const char *openssl_iostream_error(void);
 const char *openssl_iostream_key_load_error(void);
 const char *

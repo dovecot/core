@@ -43,6 +43,9 @@ int ssl_module_load(const char **error_r);
    likely should be calling ssl_iostream_check_cert_validity(). */
 typedef int
 ssl_iostream_handshake_callback_t(const char **error_r, void *context);
+/* Called when TLS SNI becomes available. */
+typedef int ssl_iostream_sni_callback_t(const char *name, const char **error_r,
+					void *context);
 
 int io_stream_create_ssl_client(struct ssl_iostream_context *ctx, const char *host,
 				const struct ssl_iostream_settings *set,
@@ -71,6 +74,14 @@ int ssl_iostream_handshake(struct ssl_iostream *ssl_io);
 void ssl_iostream_set_handshake_callback(struct ssl_iostream *ssl_io,
 					 ssl_iostream_handshake_callback_t *callback,
 					 void *context);
+/* Call the given callback when client sends SNI. The callback can change the
+   ssl_iostream's context (with different certificates) by using
+   ssl_iostream_change_context(). */
+void ssl_iostream_set_sni_callback(struct ssl_iostream *ssl_io,
+				   ssl_iostream_sni_callback_t *callback,
+				   void *context);
+void ssl_iostream_change_context(struct ssl_iostream *ssl_io,
+				 struct ssl_iostream_context *ctx);
 
 bool ssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io);
 /* Returns TRUE if the remote cert is invalid, or handshake callback returned

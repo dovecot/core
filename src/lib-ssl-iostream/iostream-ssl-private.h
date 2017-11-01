@@ -24,6 +24,11 @@ struct iostream_ssl_vfuncs {
 	void (*set_handshake_callback)(struct ssl_iostream *ssl_io,
 				       ssl_iostream_handshake_callback_t *callback,
 				       void *context);
+	void (*set_sni_callback)(struct ssl_iostream *ssl_io,
+				 ssl_iostream_sni_callback_t *callback,
+				 void *context);
+	void (*change_context)(struct ssl_iostream *ssl_io,
+			       struct ssl_iostream_context *ctx);
 
 	void (*set_log_prefix)(struct ssl_iostream *ssl_io, const char *prefix);
 	bool (*is_handshaked)(const struct ssl_iostream *ssl_io);
