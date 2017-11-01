@@ -66,6 +66,9 @@ login_proxy_get_ssl_flags(const struct login_proxy *proxy) ATTR_PURE;
 
 void login_proxy_kill_idle(void);
 
+unsigned int login_proxies_get_detached_count(void);
+struct client *login_proxies_get_first_detached_client(void);
+
 void login_proxy_init(const char *proxy_notify_pipe_path);
 void login_proxy_deinit(void);
 

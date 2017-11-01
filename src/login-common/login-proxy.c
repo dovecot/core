@@ -75,6 +75,7 @@ static struct login_proxy *login_proxies = NULL;
 static struct login_proxy *login_proxies_pending = NULL;
 static struct login_proxy *login_proxies_disconnecting = NULL;
 static struct ipc_server *login_proxy_ipc_server;
+static unsigned int detached_login_proxies_count = 0;
 
 static int login_proxy_connect(struct login_proxy *proxy);
 static void login_proxy_disconnect(struct login_proxy *proxy);
@@ -505,6 +506,9 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 			ipstr != NULL ? ipstr : "",
 			reason == NULL ? "" : t_strdup_printf(" (%s)", reason),
 			delay_ms == 0 ? "" : t_strdup_printf(" - disconnecting client in %ums", delay_ms)));
+
+		i_assert(detached_login_proxies_count > 0);
+		detached_login_proxies_count--;
 	} else {
 		i_assert(proxy->client_input == NULL);
 		i_assert(proxy->client_output == NULL);
@@ -669,6 +673,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 
 	DLLIST_REMOVE(&login_proxies_pending, proxy);
 	DLLIST_PREPEND(&login_proxies, proxy);
+	detached_login_proxies_count++;
 
 	client->login_proxy = NULL;
 }
@@ -957,6 +962,16 @@ static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line)
 		ipc_cmd_fail(&cmd, "Unknown command");
 }
 
+unsigned int login_proxies_get_detached_count(void)
+{
+	return detached_login_proxies_count;
+}
+
+struct client *login_proxies_get_first_detached_client(void)
+{
+	return login_proxies == NULL ? NULL : login_proxies->client;
+}
+
 void login_proxy_init(const char *proxy_notify_pipe_path)
 {
 	proxy_state = login_proxy_state_init(proxy_notify_pipe_path);
@@ -970,6 +985,8 @@ void login_proxy_deinit(void)
 		proxy = login_proxies;
 		login_proxy_free_reason(&proxy, KILLED_BY_SHUTDOWN_REASON);
 	}
+	i_assert(detached_login_proxies_count == 0);
+
 	while (login_proxies_disconnecting != NULL)
 		login_proxy_free_final(login_proxies_disconnecting);
 	if (login_proxy_ipc_server != NULL)

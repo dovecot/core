@@ -33,6 +33,7 @@ static struct client *last_client = NULL;
 static unsigned int clients_count = 0;
 
 static struct client *client_fd_proxies = NULL;
+static unsigned int client_fd_proxies_count = 0;
 
 struct login_client_module_hooks {
 	struct module *module;
@@ -269,6 +270,7 @@ void client_destroy(struct client *client, const char *reason)
 		if (client->iostream_fd_proxy != NULL) {
 			client->fd_proxying = TRUE;
 			DLLIST_PREPEND(&client_fd_proxies, client);
+			client_fd_proxies_count++;
 		}
 	}
 
@@ -354,6 +356,8 @@ bool client_unref(struct client **_client)
 		iostream_proxy_unref(&client->iostream_fd_proxy);
 	if (client->fd_proxying) {
 		DLLIST_REMOVE(&client_fd_proxies, client);
+		i_assert(client_fd_proxies_count > 0);
+		client_fd_proxies_count--;
 	}
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
@@ -572,6 +576,16 @@ int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
 unsigned int clients_get_count(void)
 {
 	return clients_count;
+}
+
+unsigned int clients_get_fd_proxies_count(void)
+{
+	return client_fd_proxies_count;
+}
+
+struct client *clients_get_first_fd_proxy(void)
+{
+	return client_fd_proxies;
 }
 
 void client_add_forward_field(struct client *client, const char *key,
@@ -1032,6 +1046,7 @@ void client_destroy_fd_proxies(void)
 		struct client *client = client_fd_proxies;
 		client_unref(&client);
 	}
+	i_assert(client_fd_proxies_count == 0);
 }
 
 void client_common_deinit(void)

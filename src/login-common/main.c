@@ -3,6 +3,7 @@
 #include "login-common.h"
 #include "ioloop.h"
 #include "array.h"
+#include "str.h"
 #include "randgen.h"
 #include "module-dir.h"
 #include "process-title.h"
@@ -60,28 +61,67 @@ static bool auth_connected_once = FALSE;
 
 static void login_access_lookup_next(struct login_access_lookup *lookup);
 
-void login_refresh_proctitle(void)
+static bool get_first_client(struct client **client_r)
 {
 	struct client *client = clients;
+
+	if (client == NULL)
+		client = login_proxies_get_first_detached_client();
+	if (client == NULL)
+		client = clients_get_first_fd_proxy();
+	*client_r = client;
+	return client != NULL;
+}
+
+void login_refresh_proctitle(void)
+{
+	struct client *client;
 	const char *addr;
 
 	if (!global_login_settings->verbose_proctitle)
 		return;
 
+	/* clients_get_count() includes all the clients being served.
+	   Inside that there are 3 groups:
+	   1. pre-login clients
+	   2. post-login clients being proxied to remote hosts
+	   3. post-login clients being proxied to post-login processes
+	   Currently the post-login proxying is done only for SSL/TLS
+	   connections, so we're assuming that they're the same. */
+	string_t *str = t_str_new(64);
 	if (clients_get_count() == 0) {
-		process_title_set("");
-	} else if (clients_get_count() > 1 || client == NULL) {
-		process_title_set(t_strdup_printf("[%u connections (%u TLS)]",
-			clients_get_count(), ssl_proxy_get_count()));
-	} else {
-		addr = net_ip2addr(&client->ip);
-		if (addr[0] != '\0') {
-			process_title_set(t_strdup_printf(client->tls ?
-				"[%s TLS]" : "[%s]", addr));
-		} else {
-			process_title_set(client->tls ? "[TLS]" : "");
+		/* no clients */
+	} else if (clients_get_count() > 1 || !get_first_client(&client)) {
+		str_printfa(str, "[%u pre-login", clients_get_count() -
+			    login_proxies_get_detached_count() -
+			    clients_get_fd_proxies_count());
+		if (login_proxies_get_detached_count() > 0) {
+			/* show detached proxies only if they exist, so
+			   non-proxy servers don't unnecessarily show them. */
+			str_printfa(str, " + %u proxies",
+				    login_proxies_get_detached_count());
 		}
+		if (clients_get_fd_proxies_count() > 0) {
+			/* show post-login proxies only if they exist, so
+			   proxy-only servers don't unnecessarily show them. */
+			str_printfa(str, " + %u TLS proxies",
+				    clients_get_fd_proxies_count());
+		}
+		str_append_c(str, ']');
+	} else {
+		str_append_c(str, '[');
+		addr = net_ip2addr(&client->ip);
+		if (addr[0] != '\0')
+			str_printfa(str, "%s ", addr);
+		if (client->fd_proxying)
+			str_append(str, "TLS proxy");
+		else if (client->destroyed)
+			str_append(str, "proxy");
+		else
+			str_append(str, "pre-login");
+		str_append_c(str, ']');
 	}
+	process_title_set(str_c(str));
 }
 
 static void auth_client_idle_timeout(struct auth_client *auth_client)

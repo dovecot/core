@@ -264,6 +264,8 @@ void client_cmd_starttls(struct client *client);
 int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r);
 
 unsigned int clients_get_count(void) ATTR_PURE;
+unsigned int clients_get_fd_proxies_count(void);
+struct client *clients_get_first_fd_proxy(void);
 
 void client_add_forward_field(struct client *client, const char *key,
 			      const char *value);
