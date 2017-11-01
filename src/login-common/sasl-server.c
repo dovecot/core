@@ -115,7 +115,7 @@ master_auth_callback(const struct master_auth_reply *reply, void *context)
 	call_client_callback(client, sasl_reply, data, NULL);
 }
 
-static void master_send_request(struct anvil_request *anvil_request)
+static int master_send_request(struct anvil_request *anvil_request)
 {
 	struct client *client = anvil_request->client;
 	struct master_auth_request_params params;
@@ -124,6 +124,11 @@ static void master_send_request(struct anvil_request *anvil_request)
 	size_t size;
 	buffer_t *buf;
 	const char *session_id = client_get_session_id(client);
+	int fd;
+	bool close_fd;
+
+	if (client_get_plaintext_fd(client, &fd, &close_fd) < 0)
+		return -1;
 
 	i_zero(&req);
 	req.auth_pid = anvil_request->auth_pid;
@@ -151,12 +156,15 @@ static void master_send_request(struct anvil_request *anvil_request)
 	client->master_auth_id = req.auth_id;
 
 	i_zero(&params);
-	params.client_fd = client->fd;
+	params.client_fd = fd;
 	params.socket_path = client->postlogin_socket_path;
 	params.request = req;
 	params.data = buf->data;
 	master_auth_request_full(master_auth, &params, master_auth_callback,
 				 client, &client->master_tag);
+	if (close_fd)
+		i_close_fd(&fd);
+	return 0;
 }
 
 static void ATTR_NULL(1)
@@ -167,6 +175,7 @@ anvil_lookup_callback(const char *reply, void *context)
 	const struct login_settings *set = client->set;
 	const char *errmsg;
 	unsigned int conn_count;
+	int ret;
 
 	conn_count = 0;
 	if (reply != NULL && str_to_uint(reply, &conn_count) < 0)
@@ -174,13 +183,17 @@ anvil_lookup_callback(const char *reply, void *context)
 
 	/* reply=NULL if we didn't need to do anvil lookup,
 	   or if the anvil lookup failed. allow failed anvil lookups in. */
-	if (reply == NULL || conn_count < set->mail_max_userip_connections)
-		master_send_request(req);
-	else {
-		client->authenticating = FALSE;
-		auth_client_send_cancel(auth_client, req->auth_id);
+	if (reply == NULL || conn_count < set->mail_max_userip_connections) {
+		ret = master_send_request(req);
+		errmsg = NULL; /* client will see internal error */
+	} else {
+		ret = -1;
 		errmsg = t_strdup_printf(ERR_TOO_MANY_USERIP_CONNECTIONS,
 					 set->mail_max_userip_connections);
+	}
+	if (ret < 0) {
+		client->authenticating = FALSE;
+		auth_client_send_cancel(auth_client, req->auth_id);
 		call_client_callback(client, SASL_SERVER_REPLY_MASTER_FAILED,
 				     errmsg, NULL);
 	}

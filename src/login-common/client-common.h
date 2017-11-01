@@ -156,6 +156,7 @@ struct client {
 	struct istream *input;
 	struct ostream *output;
 	struct io *io;
+	struct iostream_proxy *iostream_fd_proxy;
 	struct timeout *to_auth_waiting;
 	struct timeout *to_disconnect;
 
@@ -244,6 +245,8 @@ client_alloc(int fd, pool_t pool,
 	     const struct master_service_ssl_settings *ssl_set);
 void client_init(struct client *client, void **other_sets);
 void client_destroy(struct client *client, const char *reason);
+/* Destroy the client after a successful login. Either the client fd was
+   sent to the post-login process, or the connection will be proxied. */
 void client_destroy_success(struct client *client, const char *reason);
 
 void client_ref(struct client *client);
@@ -251,6 +254,8 @@ bool client_unref(struct client **client) ATTR_NOWARN_UNUSED_RESULT;
 
 int client_init_ssl(struct client *client);
 void client_cmd_starttls(struct client *client);
+
+int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r);
 
 unsigned int clients_get_count(void) ATTR_PURE;
 

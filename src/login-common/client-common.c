@@ -6,6 +6,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream-proxy.h"
 #include "iostream-rawlog.h"
 #include "process-title.h"
 #include "hook-build.h"
@@ -252,8 +253,11 @@ void client_destroy(struct client *client, const char *reason)
 	if (client->output != NULL)
 		o_stream_uncork(client->output);
 	if (!client->login_success) {
+		io_remove(&client->io);
 		if (client->ssl_proxy != NULL)
 			ssl_proxy_destroy(client->ssl_proxy);
+		if (client->iostream_fd_proxy != NULL)
+			iostream_proxy_unref(&client->iostream_fd_proxy);
 		i_stream_close(client->input);
 		o_stream_close(client->output);
 		i_close_fd(&client->fd);
@@ -276,7 +280,6 @@ void client_destroy(struct client *client, const char *reason)
 		i_assert(!client->authenticating);
 	}
 
-	io_remove(&client->io);
 	timeout_remove(&client->to_disconnect);
 	timeout_remove(&client->to_auth_waiting);
 	if (client->auth_response != NULL)
@@ -341,6 +344,8 @@ bool client_unref(struct client **_client)
 
 	if (client->ssl_proxy != NULL)
 		ssl_proxy_free(&client->ssl_proxy);
+	if (client->iostream_fd_proxy != NULL)
+		iostream_proxy_unref(&client->iostream_fd_proxy);
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
 	i_close_fd(&client->fd);
@@ -495,6 +500,64 @@ void client_cmd_starttls(struct client *client)
 	} else {
 		client_start_tls(client);
 	}
+}
+
+static void
+iostream_fd_proxy_finished(enum iostream_proxy_side side ATTR_UNUSED,
+			   enum iostream_proxy_status status ATTR_UNUSED,
+			   struct client *client)
+{
+	/* Destroy the proxy now. The other side of the proxy is still
+	   unfinished and we don't want to get back here and unreference
+	   the client twice. */
+	iostream_proxy_unref(&client->iostream_fd_proxy);
+	client_unref(&client);
+}
+
+int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
+{
+	int fds[2];
+
+	if (!client->tls) {
+		/* Plaintext connection - We can send the fd directly to
+		   the post-login process without any proxying. */
+		*fd_r = client->fd;
+		*close_fd_r = FALSE;
+		return 0;
+	}
+
+	/* We'll have to start proxying from now on until either side
+	   disconnects. Create a socketpair where login process is proxying on
+	   one side and the other side is sent to the post-login process. */
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) < 0) {
+		client_log_err(client, t_strdup_printf("socketpair() failed: %m"));
+		return -1;
+	}
+	fd_set_nonblock(fds[0], TRUE);
+	fd_set_nonblock(fds[1], TRUE);
+
+	struct ostream *output = o_stream_create_fd(fds[0], IO_BLOCK_SIZE);
+	struct istream *input =
+		i_stream_create_fd_autoclose(&fds[0], IO_BLOCK_SIZE);
+	o_stream_set_no_error_handling(output, TRUE);
+
+	i_assert(client->io == NULL);
+
+	client_ref(client);
+	client->iostream_fd_proxy =
+		iostream_proxy_create(input, output,
+				      client->input, client->output);
+	i_stream_unref(&input);
+	o_stream_unref(&output);
+
+	iostream_proxy_set_completion_callback(client->iostream_fd_proxy,
+					       iostream_fd_proxy_finished,
+					       client);
+	iostream_proxy_start(client->iostream_fd_proxy);
+
+	*fd_r = fds[1];
+	*close_fd_r = TRUE;
+	return 0;
 }
 
 unsigned int clients_get_count(void)
