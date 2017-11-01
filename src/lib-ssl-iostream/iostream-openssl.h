@@ -33,7 +33,10 @@ struct ssl_iostream {
 	struct istream *ssl_input;
 	struct ostream *ssl_output;
 
-	char *host;
+	/* SSL clients: host where we connected to */
+	char *connected_host;
+	/* SSL servers: host requested by the client via SNI */
+	char *sni_host;
 	char *last_error;
 	char *log_prefix;
 	char *plain_stream_errstr;

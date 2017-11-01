@@ -262,7 +262,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 	ssl_io->bio_ext = bio_ext;
 	ssl_io->plain_input = *input;
 	ssl_io->plain_output = *output;
-	ssl_io->host = i_strdup(host);
+	ssl_io->connected_host = i_strdup(host);
 	ssl_io->log_prefix = host == NULL ? i_strdup("") :
 		i_strdup_printf("%s: ", host);
 	/* bio_int will be freed by SSL_free() */
@@ -303,7 +303,8 @@ static void openssl_iostream_free(struct ssl_iostream *ssl_io)
 	SSL_free(ssl_io->ssl);
 	i_free(ssl_io->plain_stream_errstr);
 	i_free(ssl_io->last_error);
-	i_free(ssl_io->host);
+	i_free(ssl_io->connected_host);
+	i_free(ssl_io->sni_host);
 	i_free(ssl_io->log_prefix);
 	i_free(ssl_io);
 }
@@ -701,7 +702,7 @@ openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 
 static const char *openssl_iostream_get_server_name(struct ssl_iostream *ssl_io)
 {
-	return ssl_io->host;
+	return ssl_io->sni_host;
 }
 
 static const char *
