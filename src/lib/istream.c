@@ -210,6 +210,13 @@ i_stream_default_snapshot(struct istream_private *stream,
 		return snapshot;
 	}
 	if (stream->parent == NULL) {
+		if (stream->nonpersistent_buffers) {
+			/* Assume that memarea would be used normally, but
+			   now it's NULL because the buffer is empty and
+			   empty buffers are freed. */
+			i_assert(stream->skip == stream->pos);
+			return prev_snapshot;
+		}
 		i_panic("%s is missing istream.snapshot() implementation",
 			i_stream_get_name(&stream->istream));
 	}
