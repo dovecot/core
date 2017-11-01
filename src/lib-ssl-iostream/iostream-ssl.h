@@ -12,7 +12,8 @@ struct ssl_iostream_cert {
 
 struct ssl_iostream_settings {
 	/* NOTE: when updating, remember to update:
-	   ssl_iostream_settings_string_offsets[] */
+	   ssl_iostream_settings_string_offsets[],
+	   ssl_iostream_settings_drop_stream_only() */
 	const char *protocols; /* both */
 	const char *cipher_list; /* both */
 	const char *curve_list; /* both */
@@ -102,5 +103,16 @@ struct ssl_iostream_settings *ssl_iostream_settings_dup(pool_t pool,
 void ssl_iostream_settings_init_from(pool_t pool,
 				     struct ssl_iostream_settings *dest,
 				     const struct ssl_iostream_settings *src);
+
+/* Persistent cache of ssl_iostream_contexts. The context is permanently stored
+   until ssl_iostream_context_cache_free() is called. The returned context
+   must be unreferenced by the caller. */
+int ssl_iostream_client_context_cache_get(const struct ssl_iostream_settings *set,
+					  struct ssl_iostream_context **ctx_r,
+					  const char **error_r);
+int ssl_iostream_server_context_cache_get(const struct ssl_iostream_settings *set,
+					  struct ssl_iostream_context **ctx_r,
+					  const char **error_r);
+void ssl_iostream_context_cache_free(void);
 
 #endif
