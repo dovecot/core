@@ -189,7 +189,7 @@ Initialize/recalculate or show current quota usage.
 .TP
 .B doveadm replicator
 .BR doveadm\-replicator (1),
-Manage users\(aq mail replicaton.
+Manage users\(aq mail replication.
 .\"-------------------------------------
 .TP
 .B doveadm stats
