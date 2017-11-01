@@ -137,8 +137,8 @@ static void pop3_client_input(struct client *client)
 	if (auth_client != NULL && !auth_client_is_connected(auth_client))
 		client->input_blocked = TRUE;
 
-	if (client_unref(&client))
-		o_stream_uncork(client->output);
+	o_stream_uncork(client->output);
+	client_unref(&client);
 }
 
 static bool pop3_client_input_next_cmd(struct client *client)
