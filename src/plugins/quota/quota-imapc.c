@@ -440,22 +440,24 @@ imapc_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 	return resources_both;
 }
 
-static int
+static enum quota_get_result
 imapc_quota_get_resource(struct quota_root *_root, const char *name,
 			 uint64_t *value_r, const char **error_r)
 {
 	struct imapc_quota_root *root = (struct imapc_quota_root *)_root;
 
 	if (imapc_quota_refresh(root, error_r) < 0)
-		return -1;
+		return QUOTA_GET_RESULT_INTERNAL_ERROR;
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*value_r = root->bytes_last;
 	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
 		*value_r = root->count_last;
-	else
-		return 0;
-	return 1;
+	else {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static int

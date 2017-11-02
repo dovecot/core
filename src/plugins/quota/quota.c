@@ -762,7 +762,7 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	const char *error;
 	uint64_t bytes_limit, count_limit;
 	bool ignored, kilobytes = FALSE;
-	int ret;
+	enum quota_get_result ret;
 
 	*value_r = *limit_r = 0;
 
@@ -774,14 +774,12 @@ quota_get_resource(struct quota_root *root, const char *mailbox_name,
 	/* Get the value first. This call may also update quota limits if
 	   they're defined externally. */
 	ret = root->backend.v.get_resource(root, name, value_r, error_r);
-	if (ret < 0) {
-		return QUOTA_GET_RESULT_INTERNAL_ERROR;
-	} else if (ret == 0) {
-		*error_r = t_strdup_printf(
-			"Quota backend %s doesn't support requested resource %s",
-			root->backend.name, name);
-		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
-	}
+	if (ret == QUOTA_GET_RESULT_UNLIMITED)
+		i_panic("Quota backend %s returned QUOTA_GET_RESULT_UNLIMITED "
+			"while getting resource %s from box %s",
+			root->backend.name, name, mailbox_name);
+	else if (ret != QUOTA_GET_RESULT_LIMITED)
+		return ret;
 
 	if (quota_root_get_rule_limits(root, mailbox_name,
 				       &bytes_limit, &count_limit,

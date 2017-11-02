@@ -854,7 +854,7 @@ maildir_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 	return resources_both;
 }
 
-static int
+static enum quota_get_result
 maildir_quota_get_resource(struct quota_root *_root, const char *name,
 			   uint64_t *value_r, const char **error_r)
 {
@@ -865,16 +865,18 @@ maildir_quota_get_resource(struct quota_root *_root, const char *name,
 	if (maildirquota_refresh(root, &recalculated, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"quota-maildir: Failed to get %s: %s", name, error);
-		return -1;
+		return QUOTA_GET_RESULT_INTERNAL_ERROR;
 	}
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0) {
 		*value_r = root->total_bytes;
 	} else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0) {
 		*value_r = root->total_count;
-	} else
-		return 0;
-	return 1;
+	} else {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static int

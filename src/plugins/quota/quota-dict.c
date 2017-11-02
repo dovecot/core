@@ -143,7 +143,7 @@ dict_quota_count(struct dict_quota_root *root,
 	return 1;
 }
 
-static int
+static enum quota_get_result
 dict_quota_get_resource(struct quota_root *_root,
 			const char *name, uint64_t *value_r,
 			const char **error_r)
@@ -156,8 +156,10 @@ dict_quota_get_resource(struct quota_root *_root,
 		want_bytes = TRUE;
 	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
 		want_bytes = FALSE;
-	else
-		return 0;
+	else {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
 
 	const char *key, *value, *error;
 	key = want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
@@ -168,7 +170,7 @@ dict_quota_get_resource(struct quota_root *_root,
 		*error_r = t_strdup_printf(
 			"quota-dict: dict_lookup(%s) failed: %s", key, error);
 		*value_r = 0;
-		return ret;
+		return QUOTA_GET_RESULT_INTERNAL_ERROR;
 	}
 
 	intmax_t tmp;
@@ -177,10 +179,9 @@ dict_quota_get_resource(struct quota_root *_root,
 		tmp = -1;
 	if (tmp >= 0)
 		*value_r = tmp;
-	else
-		ret = dict_quota_count(root, want_bytes, value_r, error_r);
-
-	return ret;
+	else if (dict_quota_count(root, want_bytes, value_r, error_r) < 0)
+		return QUOTA_GET_RESULT_INTERNAL_ERROR;
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static void dict_quota_recalc_timeout(struct dict_quota_root *root)

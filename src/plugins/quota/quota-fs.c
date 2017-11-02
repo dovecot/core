@@ -887,7 +887,7 @@ static bool fs_quota_match_box(struct quota_root *_root, struct mailbox *box)
 	return match;
 }
 
-static int
+static enum quota_get_result
 fs_quota_get_resource(struct quota_root *_root, const char *name,
 		      uint64_t *value_r, const char **error_r)
 {
@@ -898,10 +898,20 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 
 	*value_r = 0;
 
-	if (root->mount == NULL ||
-	    (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0 &&
-	     strcasecmp(name, QUOTA_NAME_MESSAGES) != 0))
-		return 0;
+	if (root->mount == NULL) {
+		if (root->storage_mount_path != NULL)
+			*error_r = t_strdup_printf(
+				"Mount point unknown for path %s",
+				root->storage_mount_path);
+		else
+			*error_r = "Mount point unknown";
+		return QUOTA_GET_RESULT_INTERNAL_ERROR;
+	}
+	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0 &&
+	    strcasecmp(name, QUOTA_NAME_MESSAGES) != 0) {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
 
 #ifdef HAVE_RQUOTA
 	if (mount_type_is_nfs(root->mount)) {
@@ -925,8 +935,10 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 						     &count_limit, error_r);
 		}
 	}
-	if (ret <= 0)
-		return ret;
+	if (ret < 0)
+		return QUOTA_GET_RESULT_INTERNAL_ERROR;
+	else if (ret == 0)
+		return QUOTA_GET_RESULT_LIMITED;
 
 	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*value_r = bytes_value;
@@ -942,7 +954,7 @@ fs_quota_get_resource(struct quota_root *_root, const char *name,
 		   relative quota rules */
 		quota_root_recalculate_relative_rules(_root->set, bytes_limit, count_limit);
 	}
-	return 1;
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static int

@@ -253,7 +253,7 @@ count_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 	return resources;
 }
 
-static int
+static enum quota_get_result
 count_quota_get_resource(struct quota_root *_root,
 			 const char *name, uint64_t *value_r,
 			 const char **error_r)
@@ -265,16 +265,18 @@ count_quota_get_resource(struct quota_root *_root,
 	if (quota_count_cached(root, &bytes, &count, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"quota-count: Failed to get %s: %s", name, error);
-		return -1;
+		return QUOTA_GET_RESULT_INTERNAL_ERROR;
 	}
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*value_r = bytes;
 	else if (strcmp(name, QUOTA_NAME_MESSAGES) == 0)
 		*value_r = count;
-	else
-		return 0;
-	return 1;
+	else {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static int quota_count_recalculate_box(struct mailbox *box,

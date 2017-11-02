@@ -193,14 +193,16 @@ get_quota_root_usage(struct quota_root *root, uint64_t *value_r,
 	return 0;
 }
 
-static int
+static enum quota_get_result
 dirsize_quota_get_resource(struct quota_root *_root, const char *name,
 			   uint64_t *value_r, const char **error_r)
 {
 	int ret;
 
-	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0)
-		return 0;
+	if (strcasecmp(name, QUOTA_NAME_STORAGE_BYTES) != 0) {
+		*error_r = QUOTA_UNKNOWN_RESOURCE_ERROR_STRING;
+		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
+	}
 
 	const char *error;
 	ret = get_quota_root_usage(_root, value_r, &error);
@@ -209,7 +211,7 @@ dirsize_quota_get_resource(struct quota_root *_root, const char *name,
 			"quota-dirsize: failed to get resource %s: %s",
 			name, error);
 
-	return ret < 0 ? -1 : 1;
+	return ret < 0 ? QUOTA_GET_RESULT_INTERNAL_ERROR : QUOTA_GET_RESULT_LIMITED;
 }
 
 static int 

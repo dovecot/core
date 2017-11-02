@@ -66,11 +66,13 @@ struct quota_backend_vfuncs {
 				struct mail_namespace *ns);
 
 	const char *const *(*get_resources)(struct quota_root *root);
-	/* Returns 1 if value was returned, 0 if resource name doesn't exist,
-	   -1 if internal error. */
-	int (*get_resource)(struct quota_root *root,
-			    const char *name, uint64_t *value_r,
-			    const char **error_r);
+	/* Backends return success as QUOTA_GET_RESULT_LIMITED, and returning
+	   QUOTA_GET_RESULT_UNLIMITED is prohibited by quota_get_resource(),
+	   which is the only caller of this vfunc. */
+	enum quota_get_result (*get_resource)(struct quota_root *root,
+					      const char *name,
+					      uint64_t *value_r,
+					      const char **error_r);
 
 	int (*update)(struct quota_root *root, 
 		      struct quota_transaction_context *ctx,
@@ -219,5 +221,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 
 void quota_backend_register(const struct quota_backend *backend);
 void quota_backend_unregister(const struct quota_backend *backend);
+
+#define QUOTA_UNKNOWN_RESOURCE_ERROR_STRING "Unknown quota resource"
 
 #endif
