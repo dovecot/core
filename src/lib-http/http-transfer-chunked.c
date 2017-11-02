@@ -377,7 +377,8 @@ http_transfer_chunked_istream_read_data(
 	data = i_stream_get_data(stream->parent, &size);
 	if (size == 0) {
 		ret = i_stream_read_memarea(stream->parent);
-		if (ret <= 0 && (ret != -2 || stream->skip == 0)) {
+		if (ret <= 0) {
+			i_assert(ret != -2); /* 0 sized buffer can't be full */
 			if ( stream->parent->eof && stream->parent->stream_errno == 0 ) {
 				/* unexpected EOF */
 				io_stream_set_error(&tcstream->istream.iostream,

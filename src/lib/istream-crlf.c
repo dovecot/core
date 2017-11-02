@@ -20,7 +20,8 @@ static int i_stream_crlf_read_common(struct crlf_istream *cstream)
 	size = i_stream_get_data_size(stream->parent);
 	if (size == 0) {
 		ret = i_stream_read_memarea(stream->parent);
-		if (ret <= 0 && (ret != -2 || stream->skip == 0)) {
+		if (ret <= 0) {
+			i_assert(ret != -2); /* 0 sized buffer can't be full */
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;
 			stream->istream.eof = stream->parent->eof;

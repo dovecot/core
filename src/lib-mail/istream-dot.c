@@ -30,7 +30,8 @@ static int i_stream_dot_read_some(struct dot_istream *dstream)
 	size = i_stream_get_data_size(stream->parent);
 	if (size == 0) {
 		ret = i_stream_read_memarea(stream->parent);
-		if (ret <= 0 && (ret != -2 || stream->skip == 0)) {
+		if (ret <= 0) {
+			i_assert(ret != -2); /* 0 sized buffer can't be full */
 			if (stream->parent->stream_errno != 0) {
 				stream->istream.stream_errno =
 					stream->parent->stream_errno;
