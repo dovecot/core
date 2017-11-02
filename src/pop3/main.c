@@ -374,6 +374,8 @@ int main(int argc, char *argv[])
 	}
 	login_set.callback = login_client_connected;
 	login_set.failure_callback = login_client_failed;
+	if (!IS_STANDALONE())
+		master_login = master_login_init(master_service, &login_set);
 
 	master_service_set_die_callback(master_service, pop3_die);
 
@@ -381,6 +383,8 @@ int main(int argc, char *argv[])
 		mail_storage_service_init(master_service,
 					  set_roots, storage_service_flags);
 	master_service_init_finish(master_service);
+	/* NOTE: login_set.*_socket_path are now invalid due to data stack
+	   having been freed */
 
 	/* fake that we're running, so we know if client was destroyed
 	   while handling its initial input */
@@ -391,7 +395,6 @@ int main(int argc, char *argv[])
 			main_stdio_run(username);
 		} T_END;
 	} else {
-		master_login = master_login_init(master_service, &login_set);
 		io_loop_set_running(current_ioloop);
 	}
 

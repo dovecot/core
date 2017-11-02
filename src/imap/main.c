@@ -467,10 +467,26 @@ int main(int argc, char *argv[])
 	imap_fetch_handlers_init();
 	imap_master_clients_init();
 
+	const char *error;
+	if (t_abspath(auth_socket_path, &login_set.auth_socket_path, &error) < 0)
+		i_fatal("t_abspath(%s) failed: %s", auth_socket_path, error);
+
+	if (argv[optind] != NULL) {
+		if (t_abspath(argv[optind], &login_set.postlogin_socket_path, &error) < 0)
+			i_fatal("t_abspath(%s) failed: %s", argv[optind], error);
+	}
+	login_set.callback = login_client_connected;
+	login_set.failure_callback = login_client_failed;
+
+	if (!IS_STANDALONE())
+		master_login = master_login_init(master_service, &login_set);
+
 	storage_service =
 		mail_storage_service_init(master_service,
 					  set_roots, storage_service_flags);
 	master_service_init_finish(master_service);
+	/* NOTE: login_set.*_socket_path are now invalid due to data stack
+	   having been freed */
 
 	/* fake that we're running, so we know if client was destroyed
 	   while handling its initial input */
@@ -480,25 +496,9 @@ int main(int argc, char *argv[])
 		T_BEGIN {
 			main_stdio_run(username);
 		} T_END;
-	} else T_BEGIN {
-		const char *error;
-		if (t_abspath(auth_socket_path, &login_set.auth_socket_path,
-			      &error) < 0) {
-			i_fatal("t_abspath(%s) failed: %s", auth_socket_path,
-				error);
-		}
-
-		if (argv[optind] != NULL) {
-			if (t_abspath(argv[optind], &login_set.postlogin_socket_path, &error) < 0) {
-				i_fatal("t_abspath(%s) failed: %s", argv[optind], error);
-			}
-		}
-		login_set.callback = login_client_connected;
-		login_set.failure_callback = login_client_failed;
-
-		master_login = master_login_init(master_service, &login_set);
+	} else {
 		io_loop_set_running(current_ioloop);
-	} T_END;
+	}
 
 	if (io_loop_is_running(current_ioloop))
 		master_service_run(master_service, client_connected);
