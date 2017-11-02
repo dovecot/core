@@ -160,7 +160,6 @@ dict_quota_get_resource(struct quota_root *_root,
 		return 0;
 
 	const char *key, *value, *error;
-
 	key = want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
 		DICT_QUOTA_CURRENT_COUNT_PATH;
 	ret = dict_lookup(root->dict, unsafe_data_stack_pool,
@@ -169,20 +168,18 @@ dict_quota_get_resource(struct quota_root *_root,
 		*error_r = t_strdup_printf(
 			"quota-dict: dict_lookup(%s) failed: %s", key, error);
 		*value_r = 0;
-	} else {
-		intmax_t tmp;
-
-		/* recalculate quota if it's negative or if it
-			wasn't found */
-		if (ret == 0 || str_to_intmax(value, &tmp) < 0)
-			tmp = -1;
-		if (tmp >= 0)
-			*value_r = tmp;
-		else {
-			ret = dict_quota_count(root, want_bytes,
-					       value_r, error_r);
-		}
+		return ret;
 	}
+
+	intmax_t tmp;
+	/* recalculate quota if it's negative or if it wasn't found */
+	if (ret == 0 || str_to_intmax(value, &tmp) < 0)
+		tmp = -1;
+	if (tmp >= 0)
+		*value_r = tmp;
+	else
+		ret = dict_quota_count(root, want_bytes, value_r, error_r);
+
 	return ret;
 }
 
