@@ -26,6 +26,7 @@ extern struct quota_backend quota_backend_count;
 static int
 quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		    const char *vname, uint64_t *bytes, uint64_t *count,
+		    enum quota_get_result *error_result_r,
 		    const char **error_r)
 {
 	struct quota_rule *rule;
@@ -57,14 +58,14 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 			*error_r = t_strdup_printf(
 				"Couldn't get size of mailbox %s: %s",
 				vname, errstr);
+			*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 			ret = -1;
 		} else if (error == MAIL_ERROR_INUSE) {
 			/* started on background. don't log an error. */
-			/* FIXME: Should not log an error, will be fixed with
-			 *        upcoming enum addition. */
 			*error_r = t_strdup_printf(
-				"%s busy with background quota calculation",
-				vname);
+				"Ongoing quota calculation blocked getting size of %s: %s",
+				vname, errstr);
+			*error_result_r = QUOTA_GET_RESULT_BACKGROUND_CALC;
 			ret = -1;
 		} else {
 			/* non-temporary error, e.g. ACLs denied access. */
@@ -165,7 +166,7 @@ quota_mailbox_iter_next(struct quota_mailbox_iter *iter)
 }
 
 int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
-		const char **error_r)
+		enum quota_get_result *error_result_r, const char **error_r)
 {
 	struct quota_mailbox_iter *iter;
 	const struct mailbox_info *info;
@@ -180,13 +181,16 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
 	iter = quota_mailbox_iter_begin(root);
 	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
 		if (quota_count_mailbox(root, info->ns, info->vname,
-					bytes_r, count_r, &error1) < 0) {
+					bytes_r, count_r, error_result_r,
+					&error1) < 0) {
 			ret = -1;
 			break;
 		}
 	}
-	if (quota_mailbox_iter_deinit(&iter, &error2) < 0)
+	if (quota_mailbox_iter_deinit(&iter, &error2) < 0) {
+		*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 		ret = -1;
+	}
 	if (ret < 0) {
 		const char *separator =
 			*error1 != '\0' && *error2 != '\0' ? " and " : "";
@@ -198,9 +202,10 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
 	return ret;
 }
 
-static int quota_count_cached(struct count_quota_root *root,
-			      uint64_t *bytes_r, uint64_t *count_r,
-			      const char **error_r)
+static enum quota_get_result
+quota_count_cached(struct count_quota_root *root,
+		   uint64_t *bytes_r, uint64_t *count_r,
+		   const char **error_r)
 {
 	int ret;
 
@@ -209,15 +214,19 @@ static int quota_count_cached(struct count_quota_root *root,
 	    ioloop_timeval.tv_sec != 0) {
 		*bytes_r = root->cached_bytes;
 		*count_r = root->cached_count;
-		return 1;
+		return QUOTA_GET_RESULT_LIMITED;
 	}
-	ret = quota_count(&root->root, bytes_r, count_r, error_r);
-	if (ret > 0) {
+
+	enum quota_get_result error_res;
+	ret = quota_count(&root->root, bytes_r, count_r, &error_res, error_r);
+	if (ret < 0) {
+		return error_res;
+	} else if (ret > 0) {
 		root->cache_timeval = ioloop_timeval;
 		root->cached_bytes = *bytes_r;
 		root->cached_count = *count_r;
 	}
-	return ret < 0 ? -1 : 0;
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static struct quota_root *count_quota_alloc(void)
@@ -261,11 +270,13 @@ count_quota_get_resource(struct quota_root *_root,
 	struct count_quota_root *root = (struct count_quota_root *)_root;
 	uint64_t bytes, count;
 	const char *error;
+	enum quota_get_result ret;
 
-	if (quota_count_cached(root, &bytes, &count, &error) < 0) {
+	ret = quota_count_cached(root, &bytes, &count, &error);
+	if (ret <= QUOTA_GET_RESULT_INTERNAL_ERROR) {
 		*error_r = t_strdup_printf(
 			"quota-count: Failed to get %s: %s", name, error);
-		return QUOTA_GET_RESULT_INTERNAL_ERROR;
+		return ret;
 	}
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)

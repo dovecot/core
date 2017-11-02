@@ -105,7 +105,7 @@ dict_quota_root_get_resources(struct quota_root *root ATTR_UNUSED)
 	return resources;
 }
 
-static int
+static enum quota_get_result
 dict_quota_count(struct dict_quota_root *root,
 		 bool want_bytes, uint64_t *value_r,
 		 const char **error_r)
@@ -113,11 +113,12 @@ dict_quota_count(struct dict_quota_root *root,
 	struct dict_transaction_context *dt;
 	uint64_t bytes, count;
 	const char *error;
+	enum quota_get_result error_res;
 
-	if (quota_count(&root->root, &bytes, &count, &error) < 0) {
+	if (quota_count(&root->root, &bytes, &count, &error_res, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"quota-dict count failed: %s", error);
-		return -1;
+		return error_res;
 	}
 
 	dt = dict_transaction_begin(root->dict);
@@ -140,7 +141,7 @@ dict_quota_count(struct dict_quota_root *root,
 
 	dict_transaction_commit_async(&dt, NULL, NULL);
 	*value_r = want_bytes ? bytes : count;
-	return 1;
+	return QUOTA_GET_RESULT_LIMITED;
 }
 
 static enum quota_get_result
@@ -179,8 +180,8 @@ dict_quota_get_resource(struct quota_root *_root,
 		tmp = -1;
 	if (tmp >= 0)
 		*value_r = tmp;
-	else if (dict_quota_count(root, want_bytes, value_r, error_r) < 0)
-		return QUOTA_GET_RESULT_INTERNAL_ERROR;
+	else
+		return dict_quota_count(root, want_bytes, value_r, error_r);
 	return QUOTA_GET_RESULT_LIMITED;
 }
 
@@ -190,7 +191,8 @@ static void dict_quota_recalc_timeout(struct dict_quota_root *root)
 	const char *error;
 
 	timeout_remove(&root->to_update);
-	if (dict_quota_count(root, TRUE, &value, &error) < 0)
+	if (dict_quota_count(root, TRUE, &value, &error)
+	    <= QUOTA_GET_RESULT_INTERNAL_ERROR)
 		i_error("%s", error);
 }
 
@@ -219,7 +221,8 @@ dict_quota_update(struct quota_root *_root,
 	uint64_t value;
 
 	if (ctx->recalculate != QUOTA_RECALCULATE_DONT) {
-		if (dict_quota_count(root, TRUE, &value, error_r) < 0)
+		if (dict_quota_count(root, TRUE, &value, error_r)
+		    <= QUOTA_GET_RESULT_INTERNAL_ERROR)
 			return -1;
 	} else {
 		dt = dict_transaction_begin(root->dict);
