@@ -617,23 +617,6 @@ ssize_t net_receive(int fd, void *buf, size_t len)
 	return ret;
 }
 
-ssize_t net_transmit(int fd, const void *data, size_t len)
-{
-        ssize_t ret;
-
-	i_assert(fd >= 0);
-	i_assert(len <= SSIZE_T_MAX);
-
-	ret = send(fd, data, len, 0);
-	if (ret == -1) {
-		if (errno == EINTR || errno == EAGAIN)
-			return 0;
-		if (errno == EPIPE)
-			return -2;
-	}
-        return ret;
-}
-
 int net_gethostbyname(const char *addr, struct ip_addr **ips,
 		      unsigned int *ips_count)
 {
