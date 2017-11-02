@@ -53,6 +53,8 @@ enum quota_alloc_result {
 
 /* Anything <= QUOTA_GET_RESULT_INTERNAL_ERROR is an error. */
 enum quota_get_result {
+	/* Ongoing background quota calculation */
+	QUOTA_GET_RESULT_BACKGROUND_CALC,
 	/* Quota resource name doesn't exist */
 	QUOTA_GET_RESULT_UNKNOWN_RESOURCE,
 	/* Internal error */

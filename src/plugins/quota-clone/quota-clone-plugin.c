@@ -82,6 +82,11 @@ static void quota_clone_flush_real(struct mailbox *box)
 		/* quota resources don't exist - no point in updating it */
 		return;
 	}
+	if (bytes_res == QUOTA_GET_RESULT_BACKGROUND_CALC &&
+	    count_res == QUOTA_GET_RESULT_BACKGROUND_CALC) {
+		/* Blocked by an ongoing quota calculation - try again later */
+		return;
+	}
 
 	/* Then update the resources that exist. The resources' existence can't
 	   change unless the quota backend is changed, so we don't worry about
