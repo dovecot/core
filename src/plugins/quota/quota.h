@@ -47,6 +47,8 @@ enum quota_alloc_result {
 	QUOTA_ALLOC_RESULT_OVER_QUOTA,
 	/* Mail size is larger than even the maximum allowed quota. */
 	QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT,
+	/* Blocked by ongoing background quota calculation. */
+	QUOTA_ALLOC_RESULT_BACKGROUND_CALC,
 };
 
 /* Anything <= QUOTA_GET_RESULT_INTERNAL_ERROR is an error. */

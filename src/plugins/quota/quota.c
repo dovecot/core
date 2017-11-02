@@ -283,6 +283,8 @@ const char *quota_alloc_result_errstr(enum quota_alloc_result res,
 	switch (res) {
 	case QUOTA_ALLOC_RESULT_OK:
 		return "OK";
+	case QUOTA_ALLOC_RESULT_BACKGROUND_CALC:
+		return "Blocked by an ongoing background quota calculation";
 	case QUOTA_ALLOC_RESULT_TEMPFAIL:
 		return "Internal quota calculation error";
 	case QUOTA_ALLOC_RESULT_OVER_MAXSIZE:

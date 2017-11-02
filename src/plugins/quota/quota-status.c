@@ -128,6 +128,7 @@ static void client_handle_request(struct quota_client *client)
 				value = t_strdup_printf("554 5.2.2 %s", error);
 			break;
 		case QUOTA_ALLOC_RESULT_TEMPFAIL:
+		case QUOTA_ALLOC_RESULT_BACKGROUND_CALC:
 			ret = -1;
 			break;
 		}
