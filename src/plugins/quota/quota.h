@@ -49,15 +49,17 @@ enum quota_alloc_result {
 	QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT,
 };
 
+/* Anything <= QUOTA_GET_RESULT_INTERNAL_ERROR is an error. */
 enum quota_get_result {
+	/* Quota resource name doesn't exist */
+	QUOTA_GET_RESULT_UNKNOWN_RESOURCE,
+	/* Internal error */
+	QUOTA_GET_RESULT_INTERNAL_ERROR,
+
 	/* Quota limit exists and was returned successfully */
 	QUOTA_GET_RESULT_LIMITED,
 	/* Quota is unlimited, but its value was returned */
 	QUOTA_GET_RESULT_UNLIMITED,
-	/* Quota resource name doesn't exist */
-	QUOTA_GET_RESULT_UNKNOWN_RESOURCE,
-	/* Internal error */
-	QUOTA_GET_RESULT_INTERNAL_ERROR = -1,
 };
 
 const char *quota_alloc_result_errstr(enum quota_alloc_result res,
