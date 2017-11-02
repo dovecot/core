@@ -904,6 +904,7 @@ struct quota_transaction_context *quota_transaction_begin(struct mailbox *box)
 }
 
 int quota_transaction_set_limits(struct quota_transaction_context *ctx,
+				 enum quota_get_result *error_result_r,
 				 const char **error_r)
 {
 	struct quota_root *const *roots;
@@ -931,6 +932,7 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 					       &bytes_limit, &count_limit,
 					       &ignored, &error) < 0) {
 			ctx->failed = TRUE;
+			*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 			*error_r = t_strdup_printf(
 				"Failed to get quota root rule limits: %s",
 				error);
@@ -960,8 +962,9 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 					if (ctx->bytes_ceil > diff)
 						ctx->bytes_ceil = diff;
 				}
-			} else if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
+			} else if (ret <= QUOTA_GET_RESULT_INTERNAL_ERROR) {
 				ctx->failed = TRUE;
+				*error_result_r = ret;
 				*error_r = t_strdup_printf(
 					"Failed to get quota resource "
 					QUOTA_NAME_STORAGE_BYTES": %s",
@@ -986,8 +989,9 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 					if (ctx->count_ceil > diff)
 						ctx->count_ceil = diff;
 				}
-			} else if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
+			} else if (ret <= QUOTA_GET_RESULT_INTERNAL_ERROR) {
 				ctx->failed = TRUE;
+				*error_result_r = ret;
 				*error_r = t_strdup_printf(
 					"Failed to get quota resource "
 					QUOTA_NAME_MESSAGES" : %s",
@@ -1299,8 +1303,9 @@ enum quota_alloc_result quota_try_alloc(struct quota_transaction_context *ctx,
 {
 	uoff_t size;
 	const char *error;
+	enum quota_get_result error_res;
 
-	if (quota_transaction_set_limits(ctx, &error) < 0) {
+	if (quota_transaction_set_limits(ctx, &error_res, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to set quota transaction limits: %s", error);
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;
@@ -1346,7 +1351,8 @@ enum quota_alloc_result quota_test_alloc(struct quota_transaction_context *ctx,
 	}
 
 	const char *error;
-	if (quota_transaction_set_limits(ctx, &error) < 0) {
+	enum quota_get_result error_res;
+	if (quota_transaction_set_limits(ctx, &error_res, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to set quota transaction limits: %s", error);
 		return QUOTA_ALLOC_RESULT_TEMPFAIL;

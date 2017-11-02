@@ -214,6 +214,7 @@ bool quota_warning_match(const struct quota_warning_rule *w,
 			 const char **reason_r);
 bool quota_transaction_is_over(struct quota_transaction_context *ctx, uoff_t size);
 int quota_transaction_set_limits(struct quota_transaction_context *ctx,
+				 enum quota_get_result *error_result_r,
 				 const char **error_r);
 
 void quota_backend_register(const struct quota_backend *backend);
