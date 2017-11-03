@@ -201,10 +201,10 @@ char *str_tabunescape(char *str)
 	/* @UNSAFE */
 	char *dest, *start = str;
 
-	while (*str != '\001') {
-		if (*str == '\0')
-			return start;
-		str++;
+	str = strchr(str, '\001');
+	if (str == NULL) {
+		/* no unescaping needed */
+		return start;
 	}
 
 	for (dest = str; *str != '\0'; str++) {
