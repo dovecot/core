@@ -755,11 +755,24 @@ static void json_append_escaped_char(string_t *dest, unsigned char src)
 		str_append(dest, "\\\\");
 		break;
 	default:
-		if (src < 32)
+		if (src < 0x20 || src >= 0x80)
 			str_printfa(dest, "\\u%04x", src);
 		else
 			str_append_c(dest, src);
 		break;
+	}
+}
+
+void json_append_escaped_ucs4(string_t *dest, unichar_t chr)
+{
+	unichar_t high,low;
+	if (chr < 0x80)
+		json_append_escaped_char(dest, (unsigned char)chr);
+	else if (chr >= UTF16_SURROGATE_BASE) {
+		uni_split_surrogate(chr, &high, &low);
+		str_printfa(dest, "\\u%04x\\u%04x", high, low);
+	} else {
+		str_printfa(dest, "\\u%04x", chr);
 	}
 }
 
@@ -770,14 +783,24 @@ void ostream_escaped_json_format(string_t *dest, unsigned char src)
 
 void json_append_escaped(string_t *dest, const char *src)
 {
-	for (; *src != '\0'; src++)
-		json_append_escaped_char(dest, *src);
+	json_append_escaped_data(dest, (const unsigned char*)src, strlen(src));
 }
 
 void json_append_escaped_data(string_t *dest, const unsigned char *src, size_t size)
 {
 	size_t i;
+	int bytes = 0;
+	unichar_t chr;
 
-	for (i = 0; i < size; i++)
-		json_append_escaped_char(dest, src[i]);
+	for (i = 0; i < size;) {
+		bytes = uni_utf8_get_char_n(src+i, size-i, &chr);
+		/* if it was valid unichar, encode + move forward by bytes */
+		if (bytes > 0) {
+			json_append_escaped_ucs4(dest, chr);
+			i += bytes;
+		/* encode as byte data */
+		} else {
+			json_append_escaped_char(dest, src[i++]);
+		}
+	}
 }

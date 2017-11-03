@@ -1,6 +1,8 @@
 #ifndef JSON_PARSER_H
 #define JSON_PARSER_H
 
+#include "unichar.h"
+
 enum json_type {
 	/* { key: */
 	JSON_TYPE_OBJECT_KEY,
@@ -46,6 +48,8 @@ void json_parse_skip_next(struct json_parser *parser);
 int json_parse_next_stream(struct json_parser *parser,
 			   struct istream **input_r);
 
+/* Append UCS4 to already opened JSON string. */
+void json_append_escaped_ucs4(string_t *dest, unichar_t chr);
 /* Append data to already opened JSON string. src should be valid UTF-8 data. */
 void json_append_escaped(string_t *dest, const char *src);
 /* Same as json_append_escaped(), but append non-\0 terminated input. */
