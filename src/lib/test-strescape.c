@@ -155,6 +155,20 @@ static void test_strsplit_tabescaped(void)
 	test_end();
 }
 
+static void test_strsplit_tabescaped_inplace(void)
+{
+	const char *const *args;
+
+	test_begin("*_strsplit_tabescaped_inplace()");
+	for (unsigned int i = 0; i < N_ELEMENTS(strsplit_tests); i++) {
+		char *input = t_strdup_noconst(strsplit_tests[i].input);
+		args = t_strsplit_tabescaped_inplace(input);
+		for (unsigned int j = 0; strsplit_tests[i].output[j] != NULL; j++)
+			test_assert_idx(null_strcmp(strsplit_tests[i].output[j], args[j]) == 0, i);
+	}
+	test_end();
+}
+
 void test_strescape(void)
 {
 	strsplit_tests[0].input = t_strdup_printf("%s\t%s\t%s\t",
@@ -162,4 +176,5 @@ void test_strescape(void)
 	test_str_escape();
 	test_tabescape();
 	test_strsplit_tabescaped();
+	test_strsplit_tabescaped_inplace();
 }
