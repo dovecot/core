@@ -65,12 +65,22 @@ static void test_net_ip2addr(void)
 	test_assert(net_addr2ip("127.0.0.1", &ip) == 0 &&
 		    ip.family == AF_INET &&
 		    ntohl(ip.u.ip4.s_addr) == (0x7f000001));
+	test_assert(net_addr2ip("2130706433", &ip) == 0 &&
+		    ip.family == AF_INET &&
+		    ntohl(ip.u.ip4.s_addr) == (0x7f000001));
+	test_assert(strcmp(net_ip2addr(&ip), "127.0.0.1") == 0);
+	test_assert(net_addr2ip("255.254.253.252", &ip) == 0 &&
+		    ip.family == AF_INET &&
+		    ntohl(ip.u.ip4.s_addr) == (0xfffefdfc));
+	test_assert(strcmp(net_ip2addr(&ip), "255.254.253.252") == 0);
 	test_assert(net_addr2ip("::5", &ip) == 0 &&
 		    ip.family == AF_INET6 &&
 		    ip.u.ip6.s6_addr[15] == 5);
+	test_assert(strcmp(net_ip2addr(&ip), "::5") == 0);
 	test_assert(net_addr2ip("[::5]", &ip) == 0 &&
 		    ip.family == AF_INET6 &&
 		    ip.u.ip6.s6_addr[15] == 5);
+	test_assert(strcmp(net_ip2addr(&ip), "::5") == 0);
 	ip.family = 123;
 	test_assert(net_addr2ip("abc", &ip) < 0 &&
 		    ip.family == 123);

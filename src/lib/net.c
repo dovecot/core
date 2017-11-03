@@ -892,9 +892,47 @@ const char *net_ip2addr(const struct ip_addr *ip)
 	return addr;
 }
 
+static bool net_addr2ip_inet4_fast(const char *addr, struct ip_addr *ip)
+{
+	uint8_t *s_addr = (void *)&ip->u.ip4.s_addr;
+	unsigned int i, num;
+
+	if (str_parse_uint(addr, &num, &addr) < 0)
+		return FALSE;
+	if (*addr == '\0' && num <= 0xffffffff) {
+		/* single-number IPv4 address */
+		ip->u.ip4.s_addr = htonl(num);
+		ip->family = AF_INET;
+		return TRUE;
+	}
+
+	/* try to parse as a.b.c.d */
+	i = 0;
+	for (;;) {
+		if (num >= 256)
+			return FALSE;
+		s_addr[i] = num;
+		if (i == 3)
+			break;
+		i++;
+		if (*addr != '.')
+			return FALSE;
+		addr++;
+		if (str_parse_uint(addr, &num, &addr) < 0)
+			return FALSE;
+	}
+	if (*addr != '\0')
+		return FALSE;
+	ip->family = AF_INET;
+	return TRUE;
+}
+
 int net_addr2ip(const char *addr, struct ip_addr *ip)
 {
 	int ret;
+
+	if (net_addr2ip_inet4_fast(addr, ip))
+		return 0;
 
 	if (strchr(addr, ':') != NULL) {
 		/* IPv6 */
