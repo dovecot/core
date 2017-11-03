@@ -10,6 +10,7 @@ struct director_host {
 	int refcount;
 
 	struct ip_addr ip;
+	char *ip_str;
 	in_port_t port;
 
 	/* name contains "ip:port" */

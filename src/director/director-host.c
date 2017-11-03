@@ -34,6 +34,7 @@ director_host_add(struct director *dir,
 	host->dir = dir;
 	host->refcount = 1;
 	host->ip = *ip;
+	host->ip_str = i_strdup(net_ip2addr(&host->ip));
 	host->port = port;
 	host->name = i_strdup_printf("%s:%u", net_ip2addr(ip), port);
 
@@ -79,6 +80,7 @@ void director_host_unref(struct director_host *host)
 		}
 	}
 	i_free(host->name);
+	i_free(host->ip_str);
 	i_free(host);
 }
 
