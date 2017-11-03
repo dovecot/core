@@ -368,7 +368,6 @@ static int imapc_quota_refresh(struct imapc_quota_root *root,
 			       const char **error_r)
 {
 	enum imapc_capability capa;
-	const char *error = ""; /* Initialize this to avoid a gcc warning. */
 	int ret;
 
 	if (root->imapc_ns == NULL) {
@@ -382,7 +381,7 @@ static int imapc_quota_refresh(struct imapc_quota_root *root,
 		return 0;
 
 	if (imapc_client_get_capabilities(root->client->client, &capa) < 0) {
-		*error_r = "quota-imapc: Failed to get server capabilities";
+		*error_r = "Failed to get server capabilities";
 		return -1;
 	}
 	if ((capa & IMAPC_CAPABILITY_QUOTA) == 0) {
@@ -393,11 +392,9 @@ static int imapc_quota_refresh(struct imapc_quota_root *root,
 	}
 
 	if (root->root_name == NULL)
-		ret = imapc_quota_refresh_mailbox(root, &error);
+		ret = imapc_quota_refresh_mailbox(root, error_r);
 	else
-		ret = imapc_quota_refresh_root(root, &error);
-	if (ret < 0)
-		*error_r = t_strdup_printf("quota-imapc: %s", error);
+		ret = imapc_quota_refresh_root(root, error_r);
 
 	/* set the last_refresh only after the refresh, because it changes
 	   ioloop_timeval. */

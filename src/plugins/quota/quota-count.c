@@ -269,15 +269,11 @@ count_quota_get_resource(struct quota_root *_root,
 {
 	struct count_quota_root *root = (struct count_quota_root *)_root;
 	uint64_t bytes, count;
-	const char *error;
 	enum quota_get_result ret;
 
-	ret = quota_count_cached(root, &bytes, &count, &error);
-	if (ret <= QUOTA_GET_RESULT_INTERNAL_ERROR) {
-		*error_r = t_strdup_printf(
-			"quota-count: Failed to get %s: %s", name, error);
+	ret = quota_count_cached(root, &bytes, &count, error_r);
+	if (ret <= QUOTA_GET_RESULT_INTERNAL_ERROR)
 		return ret;
-	}
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		*value_r = bytes;

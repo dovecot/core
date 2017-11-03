@@ -863,8 +863,7 @@ maildir_quota_get_resource(struct quota_root *_root, const char *name,
 	const char *error;
 
 	if (maildirquota_refresh(root, &recalculated, &error) < 0) {
-		*error_r = t_strdup_printf(
-			"quota-maildir: Failed to get %s: %s", name, error);
+		*error_r = t_strdup_printf("Failed to get %s: %s", name, error);
 		return QUOTA_GET_RESULT_INTERNAL_ERROR;
 	}
 

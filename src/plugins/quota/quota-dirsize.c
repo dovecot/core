@@ -204,12 +204,7 @@ dirsize_quota_get_resource(struct quota_root *_root, const char *name,
 		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
 	}
 
-	const char *error;
-	ret = get_quota_root_usage(_root, value_r, &error);
-	if (ret < 0)
-		*error_r = t_strdup_printf(
-			"quota-dirsize: failed to get resource %s: %s",
-			name, error);
+	ret = get_quota_root_usage(_root, value_r, error_r);
 
 	return ret < 0 ? QUOTA_GET_RESULT_INTERNAL_ERROR : QUOTA_GET_RESULT_LIMITED;
 }

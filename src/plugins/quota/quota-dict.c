@@ -112,14 +112,10 @@ dict_quota_count(struct dict_quota_root *root,
 {
 	struct dict_transaction_context *dt;
 	uint64_t bytes, count;
-	const char *error;
 	enum quota_get_result error_res;
 
-	if (quota_count(&root->root, &bytes, &count, &error_res, &error) < 0) {
-		*error_r = t_strdup_printf(
-			"quota-dict count failed: %s", error);
+	if (quota_count(&root->root, &bytes, &count, &error_res, error_r) < 0)
 		return error_res;
-	}
 
 	dt = dict_transaction_begin(root->dict);
 	/* these unsets are mainly necessary for pgsql, because its
@@ -169,7 +165,7 @@ dict_quota_get_resource(struct quota_root *_root,
 			  key, &value, &error);
 	if (ret < 0) {
 		*error_r = t_strdup_printf(
-			"quota-dict: dict_lookup(%s) failed: %s", key, error);
+			"dict_lookup(%s) failed: %s", key, error);
 		*value_r = 0;
 		return QUOTA_GET_RESULT_INTERNAL_ERROR;
 	}
@@ -193,7 +189,7 @@ static void dict_quota_recalc_timeout(struct dict_quota_root *root)
 	timeout_remove(&root->to_update);
 	if (dict_quota_count(root, TRUE, &value, &error)
 	    <= QUOTA_GET_RESULT_INTERNAL_ERROR)
-		i_error("%s", error);
+		i_error("quota-dict: Recalculation failed: %s", error);
 }
 
 static void dict_quota_update_callback(const struct dict_commit_result *result,

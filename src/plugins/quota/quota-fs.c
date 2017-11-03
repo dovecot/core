@@ -400,7 +400,7 @@ do_rquota_user(struct fs_quota_root *root,
 	cl = clnt_create(host, RQUOTAPROG, RQUOTAVERS, "udp");
 	if (cl == NULL) {
 		*error_r = t_strdup_printf(
-			"quota-fs: could not contact RPC service on %s", host);
+			"could not contact RPC service on %s", host);
 		return -1;
 	}
 
@@ -427,7 +427,7 @@ do_rquota_user(struct fs_quota_root *root,
 		const char *rpc_error_msg = clnt_sperrno(call_status);
 
 		*error_r = t_strdup_printf(
-			"quota-fs: remote rquota call failed: %s",
+			"remote rquota call failed: %s",
 			rpc_error_msg);
 		return -1;
 	}
@@ -454,12 +454,12 @@ do_rquota_user(struct fs_quota_root *root,
 		fs_quota_root_disable(root, FALSE);
 		return 0;
 	case Q_EPERM:
-		*error_r = "quota-fs: permission denied to rquota service";
+		*error_r = "permission denied to rquota service";
 		return -1;
 	default:
 		*error_r = t_strdup_printf(
-			"quota-fs: unrecognized status code (%d) "
-			"from rquota service", result.status);
+			"unrecognized status code (%d) from rquota service",
+			result.status);
 		return -1;
 	}
 }
@@ -497,8 +497,7 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 	cl = clnt_create(host, RQUOTAPROG, EXT_RQUOTAVERS, "udp");
 	if (cl == NULL) {
 		*error_r = t_strdup_printf(
-			"quota-fs: could not contact RPC service on %s (group)",
-			host);
+			"could not contact RPC service on %s (group)", host);
 		return -1;
 	}
 
@@ -526,8 +525,7 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 		const char *rpc_error_msg = clnt_sperrno(call_status);
 
 		*error_r = t_strdup_printf(
-			"quota-fs: remote ext rquota call failed: %s",
-			rpc_error_msg);
+			"remote ext rquota call failed: %s", rpc_error_msg);
 		return -1;
 	}
 
@@ -553,16 +551,16 @@ do_rquota_group(struct fs_quota_root *root ATTR_UNUSED,
 		fs_quota_root_disable(root, TRUE);
 		return 0;
 	case Q_EPERM:
-		*error_r = "quota-fs: permission denied to ext rquota service";
+		*error_r = "permission denied to ext rquota service";
 		return -1;
 	default:
 		*error_r = t_strdup_printf(
-			"quota-fs: unrecognized status code (%d) "
-			"from ext rquota service", result.status);
+			"unrecognized status code (%d) from ext rquota service",
+			result.status);
 		return -1;
 	}
 #else
-	*error_r = "quota-fs: rquota not compiled with group support";
+	*error_r = "rquota not compiled with group support";
 	return -1;
 #endif
 }
@@ -593,7 +591,7 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group,
 				return 0;
 			}
 			*error_r = t_strdup_printf(
-				"quota-fs: %d quotactl(Q_XGETQUOTA, %s) failed: %m",
+				"errno=%d, quotactl(Q_XGETQUOTA, %s) failed: %m",
 				errno, root->mount->device_path);
 			return -1;
 		}
@@ -621,7 +619,7 @@ fs_quota_get_linux(struct fs_quota_root *root, bool group,
 				return 0;
 			}
 			*error_r = t_strdup_printf(
-				"quota-fs: quotactl(Q_GETQUOTA, %s) failed: %m",
+				"quotactl(Q_GETQUOTA, %s) failed: %m",
 				root->mount->device_path);
 			if (errno == EINVAL) {
 				*error_r = t_strdup_printf("%s, "
@@ -674,7 +672,7 @@ fs_quota_get_bsdaix(struct fs_quota_root *root, bool group,
 			return 0;
 		}
 		*error_r = t_strdup_printf(
-			"quota-fs: quotactl(Q_GETQUOTA, %s) failed: %m",
+			"quotactl(Q_GETQUOTA, %s) failed: %m",
 			root->mount->mount_path);
 		return -1;
 	}
@@ -705,9 +703,8 @@ fs_quota_get_netbsd(struct fs_quota_root *root, bool group,
 	int ret;
 
 	if ((qh = quota_open(root->mount->mount_path)) == NULL) {
-		*error_r = t_strdup_printf(
-			"quota-fs: cannot open quota for %s: %m",
-			root->mount->mount_path);
+		*error_r = t_strdup_printf("cannot open quota for %s: %m",
+					   root->mount->mount_path);
 		fs_quota_root_disable(root, group);
 		return 0;
 	}
@@ -724,7 +721,7 @@ fs_quota_get_netbsd(struct fs_quota_root *root, bool group,
 				return 0;
 			}
 			*error_r = t_strdup_printf(
-				"quota-fs: quotactl(Q_GETQUOTA, %s) failed: %m",
+				"quotactl(Q_GETQUOTA, %s) failed: %m",
 				root->mount->mount_path);
 			ret = -1;
 			break;
@@ -759,7 +756,7 @@ fs_quota_get_hpux(struct fs_quota_root *root,
 			return 0;
 		}
 		*error_r = t_strdup_printf(
-			"quota-fs: quotactl(Q_GETQUOTA, %s) failed: %m",
+			"quotactl(Q_GETQUOTA, %s) failed: %m",
 			root->mount->device_path);
 		return -1;
 	}
@@ -799,7 +796,7 @@ fs_quota_get_solaris(struct fs_quota_root *root,
 	ctl.addr = (caddr_t)&dqblk;
 	if (ioctl(root->mount->fd, Q_QUOTACTL, &ctl) < 0) {
 		*error_r = t_strdup_printf(
-			"quota-fs: ioctl(%s, Q_QUOTACTL) failed: %m",
+			"ioctl(%s, Q_QUOTACTL) failed: %m",
 			root->mount->path);
 		return -1;
 	}
