@@ -492,13 +492,11 @@ bool mem_equals_timing_safe(const void *p1, const void *p2, size_t size)
 }
 
 static char **
-split_str(pool_t pool, const char *data, const char *separators, int spaces)
+split_str_slow(pool_t pool, const char *data, const char *separators, bool spaces)
 {
         char **array;
 	char *str;
         unsigned int count, alloc_count, new_alloc_count;
-
-	i_assert(*separators != '\0');
 
 	if (spaces) {
 		/* skip leading separators */
@@ -547,6 +545,51 @@ split_str(pool_t pool, const char *data, const char *separators, int spaces)
         array[count] = NULL;
 
         return array;
+}
+
+static char **
+split_str_fast(pool_t pool, const char *data, char sep)
+{
+	char **array, *str;
+	unsigned int count, alloc_count, new_alloc_count;
+
+	if (*data == '\0')
+		return p_new(pool, char *, 1);
+
+	str = p_strdup(pool, data);
+
+	alloc_count = 32;
+	array = p_new(pool, char *, alloc_count);
+
+	array[0] = str; count = 1;
+	while ((str = strchr(str, sep)) != NULL) {
+		/* separator found */
+		if (count+1 >= alloc_count) {
+			new_alloc_count = nearest_power(alloc_count+1);
+			array = p_realloc(pool, array,
+					  sizeof(char *) * alloc_count,
+					  sizeof(char *) *
+					  new_alloc_count);
+			alloc_count = new_alloc_count;
+		}
+		*str++ = '\0';
+		array[count++] = str;
+	}
+	i_assert(count < alloc_count);
+	i_assert(array[count] == NULL);
+
+	return array;
+}
+
+static char **
+split_str(pool_t pool, const char *data, const char *separators, bool spaces)
+{
+	i_assert(*separators != '\0');
+
+	if (separators[1] == '\0' && !spaces)
+		return split_str_fast(pool, data, separators[0]);
+	else
+		return split_str_slow(pool, data, separators, spaces);
 }
 
 const char **t_strsplit(const char *data, const char *separators)
