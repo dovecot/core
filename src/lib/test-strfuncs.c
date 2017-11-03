@@ -104,8 +104,9 @@ static void test_t_strsplit(void)
 	test_begin("t_strsplit");
 
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		/* split_str_fast() with single separator */
 		args = t_strsplit(tests[i].input, "\n");
-		/* test also with a secondary nonexistent separator */
+		/* split_str_slow() with a secondary separator */
 		args2 = t_strsplit(tests[i].input, "\r\n");
 		/* also as suffix */
 		args3 = t_strsplit(tests[i].input, "\n\r");
