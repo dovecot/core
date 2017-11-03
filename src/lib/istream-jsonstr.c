@@ -51,7 +51,8 @@ i_stream_jsonstr_read_parent(struct jsonstr_istream *jstream,
 }
 
 static int
-i_stream_json_unescape(const unsigned char *src, unsigned char *dest,
+i_stream_json_unescape(const unsigned char *src, size_t len,
+		       unsigned char *dest,
 		       unsigned int *src_size_r, unsigned int *dest_size_r)
 {
 	switch (*src) {
@@ -77,7 +78,8 @@ i_stream_json_unescape(const unsigned char *src, unsigned char *dest,
 		break;
 	case 'u': {
 		buffer_t buf;
-
+		if (len < 5)
+			return 5;
 		buffer_create_from_data(&buf, dest, MAX_UTF8_LEN);
 		uni_ucs4_to_utf8_c(hex2dec(src+1, 4), &buf);
 		*src_size_r = 5;
@@ -98,7 +100,7 @@ static ssize_t i_stream_jsonstr_read(struct istream_private *stream)
 	const unsigned char *data;
 	unsigned int srcskip, destskip, extra;
 	size_t i, dest, size;
-	ssize_t ret;
+	ssize_t ret, ret2;
 
 	if (jstream->str_end) {
 		stream->istream.eof = TRUE;
@@ -128,11 +130,6 @@ static ssize_t i_stream_jsonstr_read(struct istream_private *stream)
 				extra = 1;
 				break;
 			}
-			if ((data[i+1] == 'u' && i+1+4 >= size)) {
-				/* not enough input for \u0000 */
-				extra = 5;
-				break;
-			}
 			if (data[i+1] == 'u' && stream->buffer_size - dest < MAX_UTF8_LEN) {
 				/* UTF8 output is max. 6 chars */
 				if (dest == stream->pos)
@@ -140,14 +137,19 @@ static ssize_t i_stream_jsonstr_read(struct istream_private *stream)
 				break;
 			}
 			i++;
-			if (i_stream_json_unescape(data + i,
-						   stream->w_buffer + dest,
-						   &srcskip, &destskip) < 0) {
+			if ((ret2 = i_stream_json_unescape(data + i, size - i,
+							   stream->w_buffer + dest,
+							   &srcskip, &destskip)) < 0) {
 				/* invalid string */
 				io_stream_set_error(&stream->iostream,
 						    "Invalid JSON string");
 				stream->istream.stream_errno = EINVAL;
 				return -1;
+			} else if (ret2 > 0) {
+				/* we need to get more bytes */
+				i = 0;
+				extra = ret2;
+				break;
 			}
 			i += srcskip;
 			i_assert(i <= size);
