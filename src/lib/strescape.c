@@ -249,6 +249,50 @@ const char *t_str_tabunescape(const char *str)
 		return str_tabunescape(t_strdup_noconst(str));
 }
 
+const char *const *t_strsplit_tabescaped_inplace(char *data)
+{
+	/* @UNSAFE */
+	char **array;
+	unsigned int count, new_alloc_count, alloc_count;
+
+	if (*data == '\0')
+		return t_new(const char *, 1);
+
+	alloc_count = 32;
+	array = t_malloc(sizeof(char *) * alloc_count);
+
+	array[0] = data; count = 1;
+	bool need_unescape = FALSE;
+	while ((data = strpbrk(data, "\t\001")) != NULL) {
+		/* separator or escape char found */
+		if (*data == '\001') {
+			need_unescape = TRUE;
+			data++;
+			continue;
+		}
+		if (count+1 >= alloc_count) {
+			new_alloc_count = nearest_power(alloc_count+1);
+			array = p_realloc(unsafe_data_stack_pool, array,
+					  sizeof(char *) * alloc_count,
+					  sizeof(char *) *
+					  new_alloc_count);
+			alloc_count = new_alloc_count;
+		}
+		*data++ = '\0';
+		if (need_unescape) {
+			str_tabunescape(array[count-1]);
+			need_unescape = FALSE;
+		}
+		array[count++] = data;
+	}
+	if (need_unescape)
+		str_tabunescape(array[count-1]);
+	i_assert(count < alloc_count);
+	array[count] = NULL;
+
+	return (const char *const *)array;
+}
+
 char **p_strsplit_tabescaped(pool_t pool, const char *str)
 {
 	char **args;

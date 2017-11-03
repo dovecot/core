@@ -28,5 +28,8 @@ const char *t_str_tabunescape(const char *str);
 
 char **p_strsplit_tabescaped(pool_t pool, const char *str);
 const char *const *t_strsplit_tabescaped(const char *str);
+/* Same as t_strsplit_tabescaped(), but the input string is modified and the
+   returned pointers inside the array point to the original string. */
+const char *const *t_strsplit_tabescaped_inplace(char *str);
 
 #endif
