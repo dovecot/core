@@ -884,13 +884,12 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 
 const char *net_ip2addr(const struct ip_addr *ip)
 {
-	char addr[MAX_IP_LEN+1];
+	char *addr = t_malloc_no0(MAX_IP_LEN+1);
 
-	addr[MAX_IP_LEN] = '\0';
 	if (inet_ntop(ip->family, &ip->u.ip6, addr, MAX_IP_LEN) == NULL)
 		return "";
 
-	return t_strdup(addr);
+	return addr;
 }
 
 int net_addr2ip(const char *addr, struct ip_addr *ip)
