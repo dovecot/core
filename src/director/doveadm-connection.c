@@ -90,7 +90,7 @@ doveadm_cmd_host_list(struct doveadm_connection *conn,
 
 	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
 		str_printfa(str, "%s\t%u\t%u\t",
-			    net_ip2addr(&(*hostp)->ip), (*hostp)->vhost_count,
+			    (*hostp)->ip_str, (*hostp)->vhost_count,
 			    (*hostp)->user_count);
 		str_append_tabescaped(str, mail_host_get_tag(*hostp));
 		str_printfa(str, "\t%c\t%ld", (*hostp)->down ? 'D' : 'U',
@@ -131,13 +131,12 @@ doveadm_cmd_host_list_removed(struct doveadm_connection *conn,
 		else if (ret > 0)
 			j++;
 		else {
-			str_printfa(str, "%s\n",
-				    net_ip2addr(&orig_hosts[i]->ip));
+			str_printfa(str, "%s\n", orig_hosts[i]->ip_str);
 			i++;
 		}
 	}
 	for (; i < orig_hosts_count; i++)
-		str_printfa(str, "%s\n", net_ip2addr(&orig_hosts[i]->ip));
+		str_printfa(str, "%s\n", orig_hosts[i]->ip_str);
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
 
@@ -152,7 +151,7 @@ doveadm_director_host_append_status(const struct director_host *host,
 	time_t last_failed = I_MAX(host->last_network_failure,
 				   host->last_protocol_failure);
 	str_printfa(str, "%s\t%u\t%s\t%ld\t",
-		    net_ip2addr(&host->ip), host->port, type,
+		    host->ip_str, host->port, type,
 		    (long)last_failed);
 }
 
@@ -653,7 +652,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 	if (user == NULL)
 		str_append(str, "\t0");
 	else {
-		str_printfa(str, "%s\t%u", net_ip2addr(&user->host->ip),
+		str_printfa(str, "%s\t%u", user->host->ip_str,
 			    user->timestamp +
 			    conn->dir->set->director_user_expire);
 	}
@@ -663,7 +662,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 	if (host == NULL)
 		str_append(str, "\t");
 	else
-		str_printfa(str, "\t%s", net_ip2addr(&host->ip));
+		str_printfa(str, "\t%s", host->ip_str);
 
 	/* get host with default configuration */
 	host = mail_host_get_by_hash(conn->dir->orig_config_hosts,
@@ -671,7 +670,7 @@ doveadm_cmd_user_lookup(struct doveadm_connection *conn,
 	if (host == NULL)
 		str_append(str, "\t\n");
 	else
-		str_printfa(str, "\t%s\n", net_ip2addr(&host->ip));
+		str_printfa(str, "\t%s\n", host->ip_str);
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
@@ -702,7 +701,7 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 			o_stream_nsend_str(conn->output, t_strdup_printf(
 				"%u\t%u\t%s\n",
 				user->username_hash, expire_time,
-				net_ip2addr(&user->host->ip)));
+				user->host->ip_str));
 		} T_END;
 	}
 	director_iterate_users_deinit(&iter);

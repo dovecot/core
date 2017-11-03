@@ -36,7 +36,7 @@ director_host_add(struct director *dir,
 	host->ip = *ip;
 	host->ip_str = i_strdup(net_ip2addr(&host->ip));
 	host->port = port;
-	host->name = i_strdup_printf("%s:%u", net_ip2addr(ip), port);
+	host->name = i_strdup_printf("%s:%u", host->ip_str, port);
 
 	array_append(&dir->dir_hosts, &host, 1);
 

@@ -250,7 +250,7 @@ static void director_connection_send_connect(struct director_connection *conn,
 		return;
 
 	connect_str = t_strdup_printf("CONNECT\t%s\t%u\n",
-				      net_ip2addr(&host->ip), host->port);
+				      host->ip_str, host->port);
 	director_connection_send(conn, connect_str);
 	o_stream_uncork(conn->output);
 
@@ -449,7 +449,7 @@ static bool director_cmd_me(struct director_connection *conn,
 			  conn->host->port != port)) {
 		i_error("Remote director thinks it's someone else "
 			"(connected to %s:%u, remote says it's %s:%u)",
-			net_ip2addr(&conn->host->ip), conn->host->port,
+			conn->host->ip_str, conn->host->port,
 			net_ip2addr(&ip), port);
 		return FALSE;
 	}
@@ -532,7 +532,7 @@ static bool director_cmd_me(struct director_connection *conn,
 					     dir->self_host) < 0) {
 		/* c) */
 		connect_str = t_strdup_printf("CONNECT\t%s\t%u\n",
-					      net_ip2addr(&conn->host->ip),
+					      conn->host->ip_str,
 					      conn->host->port);
 		director_connection_send(dir->left, connect_str);
 	} else {
@@ -585,8 +585,8 @@ director_user_refresh(struct director_connection *conn,
 	} else if (weak) {
 		dir_debug("user refresh: %u weak update to %s ignored, "
 			  "we recently changed it to %s",
-			  username_hash, net_ip2addr(&host->ip),
-			  net_ip2addr(&user->host->ip));
+			  username_hash, host->ip_str,
+			  user->host->ip_str);
 		host = user->host;
 		ret = TRUE;
 	} else if (user->host == host) {
@@ -597,15 +597,14 @@ director_user_refresh(struct director_connection *conn,
 		   and we should have as well. use the new host. */
 		dir_debug("user refresh: %u is nearly expired, "
 			  "replacing host %s with %s", username_hash,
-			  net_ip2addr(&user->host->ip), net_ip2addr(&host->ip));
+			  user->host->ip_str, host->ip_str);
 		ret = TRUE;
 	} else if (USER_IS_BEING_KILLED(user)) {
 		/* user is still being moved - ignore conflicting host updates
 		   from other directors who don't yet know about the move. */
 		dir_debug("user refresh: %u is being moved, "
 			  "preserve its host %s instead of replacing with %s",
-			  username_hash, net_ip2addr(&user->host->ip),
-			  net_ip2addr(&host->ip));
+			  username_hash, user->host->ip_str, host->ip_str);
 		host = user->host;
 	} else {
 		/* non-weak user received a non-weak update with
@@ -614,8 +613,7 @@ director_user_refresh(struct director_connection *conn,
 
 		str_printfa(str, "User hash %u "
 			    "is being redirected to two hosts: %s and %s",
-			    username_hash, net_ip2addr(&user->host->ip),
-			    net_ip2addr(&host->ip));
+			    username_hash, user->host->ip_str, host->ip_str);
 		str_printfa(str, " (old_ts=%ld", (long)user->timestamp);
 
 		if (!conn->handshake_received) {
@@ -952,7 +950,7 @@ director_cmd_user_weak(struct director_connection *conn,
 		   this around the ring to the origin so it also knows it has
 		   travelled through the ring. */
 		dir_debug("user refresh: %u Remote USER-WEAK from %s seen by the entire ring, ignoring",
-			  username_hash, net_ip2addr(&dir_host->ip));
+			  username_hash, dir_host->ip_str);
 		weak_forward = TRUE;
 	}
 
@@ -1025,7 +1023,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		host_tag = mail_host_get_tag(host);
 		if (strcmp(tag, host_tag) != 0) {
 			i_error("director(%s): Host %s changed tag from '%s' to '%s'",
-				conn->name, net_ip2addr(&host->ip),
+				conn->name, host->ip_str,
 				host_tag, tag);
 			mail_host_set_tag(host, tag);
 			update = TRUE;
@@ -1034,7 +1032,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			string_t *str = t_str_new(128);
 
 			str_printfa(str, "director(%s): Host %s is being updated before previous update had finished (",
-				  conn->name, net_ip2addr(&host->ip));
+				  conn->name, host->ip_str);
 			if (host->down != down &&
 			    host->last_updown_change > last_updown_change) {
 				/* our host has a newer change. preserve it. */
@@ -1320,7 +1318,7 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 		/* tell the "right" director about the "left" one */
 		director_update_send(dir, director_connection_get_host(conn),
 			t_strdup_printf("DIRECTOR\t%s\t%u\n",
-					net_ip2addr(&conn->host->ip),
+					conn->host->ip_str,
 					conn->host->port));
 		/* this is our "left" side. */
 		return director_connection_assign_left(conn);
@@ -1517,7 +1515,7 @@ director_connection_sync_host(struct director_connection *conn,
 			if (host->desynced_hosts_hash != hosts_hash) {
 				dir_debug("Ignore director %s stale SYNC request whose hosts don't match us "
 					  "(seq=%u, remote hosts_hash=%u, my hosts_hash=%u)",
-					  net_ip2addr(&host->ip), seq, hosts_hash,
+					  host->ip_str, seq, hosts_hash,
 					  mail_hosts_hash(dir->mail_hosts));
 				host->desynced_hosts_hash = hosts_hash;
 				return FALSE;
@@ -1528,7 +1526,7 @@ director_connection_sync_host(struct director_connection *conn,
 			   changing rapidly. */
 			i_error("director(%s): Director %s SYNC request hosts don't match us - resending hosts "
 				"(seq=%u, remote hosts_hash=%u, my hosts_hash=%u)",
-				conn->name, net_ip2addr(&host->ip), seq,
+				conn->name, host->ip_str, seq,
 				hosts_hash, mail_hosts_hash(dir->mail_hosts));
 			director_resend_hosts(dir);
 			return FALSE;
@@ -1922,7 +1920,7 @@ static void director_connection_send_directors(struct director_connection *conn)
 
 		str_truncate(str, 0);
 		str_printfa(str, "DIRECTOR\t%s\t%u\n",
-			    net_ip2addr(&(*hostp)->ip), (*hostp)->port);
+			    (*hostp)->ip_str, (*hostp)->port);
 		director_connection_send(conn, str_c(str));
 	}
 }
@@ -1944,7 +1942,7 @@ director_connection_send_hosts(struct director_connection *conn)
 		const char *host_tag = mail_host_get_tag(host);
 
 		str_printfa(str, "HOST\t%s\t%u",
-			    net_ip2addr(&host->ip), host->vhost_count);
+			    host->ip_str, host->vhost_count);
 		if (host_tag[0] != '\0' || send_updowns) {
 			str_append_c(str, '\t');
 			str_append_tabescaped(str, host_tag);
@@ -1994,7 +1992,7 @@ static int director_connection_send_users(struct director_connection *conn)
 
 			str_printfa(str, "USER\t%u\t%s\t%u",
 				    user->username_hash,
-				    net_ip2addr(&user->host->ip),
+				    user->host->ip_str,
 				    user->timestamp);
 			if (user->weak)
 				str_append(str, "\tw");
