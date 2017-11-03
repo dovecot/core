@@ -937,8 +937,8 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 			ctx->failed = TRUE;
 			*error_result_r = QUOTA_GET_RESULT_INTERNAL_ERROR;
 			*error_r = t_strdup_printf(
-				"Failed to get quota root rule limits: %s",
-				error);
+				"Failed to get quota root rule limits for %s: %s",
+				mailbox_name, error);
 			return -1;
 		}
 		if (!ignored)
@@ -970,8 +970,8 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				*error_result_r = ret;
 				*error_r = t_strdup_printf(
 					"Failed to get quota resource "
-					QUOTA_NAME_STORAGE_BYTES": %s",
-					error);
+					QUOTA_NAME_STORAGE_BYTES" for %s: %s",
+					mailbox_name, error);
 				return -1;
 			}
 		}
@@ -997,8 +997,8 @@ int quota_transaction_set_limits(struct quota_transaction_context *ctx,
 				*error_result_r = ret;
 				*error_r = t_strdup_printf(
 					"Failed to get quota resource "
-					QUOTA_NAME_MESSAGES" : %s",
-					error);
+					QUOTA_NAME_MESSAGES" for %s: %s",
+					mailbox_name, error);
 				return -1;
 			}
 		}
