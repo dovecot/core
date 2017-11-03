@@ -35,6 +35,7 @@ struct user_directory {
 	   don't assume that other directors haven't yet expired it */
 	unsigned int user_near_expiring_secs;
 	struct timeout *to_expire;
+	time_t to_expire_timestamp;
 };
 
 static void user_move_iters(struct user_directory *dir, struct user *user)
@@ -66,25 +67,26 @@ static void user_free(struct user_directory *dir, struct user *user)
 
 static bool user_directory_user_has_connections(struct user_directory *dir,
 						struct user *user,
-						unsigned int *retry_secs_r)
+						time_t *expire_timestamp_r)
 {
 	time_t expire_timestamp = user->timestamp + dir->timeout_secs;
 
 	if (expire_timestamp > ioloop_time) {
-		*retry_secs_r = expire_timestamp - ioloop_time;
+		*expire_timestamp_r = expire_timestamp;
 		return TRUE;
 	}
 
 	if (USER_IS_BEING_KILLED(user)) {
 		/* don't free this user until the kill is finished */
-		*retry_secs_r = USER_BEING_KILLED_EXPIRE_RETRY_SECS;
+		*expire_timestamp_r = ioloop_time +
+			USER_BEING_KILLED_EXPIRE_RETRY_SECS;
 		return TRUE;
 	}
 
 	if (user->weak) {
 		if (expire_timestamp + USER_NEAR_EXPIRING_MAX > ioloop_time) {
-			*retry_secs_r = expire_timestamp +
-				USER_NEAR_EXPIRING_MAX - ioloop_time;
+			*expire_timestamp_r = expire_timestamp +
+				USER_NEAR_EXPIRING_MAX;
 			return TRUE;
 		}
 
@@ -96,16 +98,24 @@ static bool user_directory_user_has_connections(struct user_directory *dir,
 
 static void user_directory_drop_expired(struct user_directory *dir)
 {
-	unsigned int retry_secs = 0;
+	time_t expire_timestamp = 0;
 
 	while (dir->head != NULL &&
-	       !user_directory_user_has_connections(dir, dir->head, &retry_secs))
+	       !user_directory_user_has_connections(dir, dir->head, &expire_timestamp)) {
 		user_free(dir, dir->head);
-	if (dir->to_expire != NULL)
-		timeout_remove(&dir->to_expire);
-	if (retry_secs > 0) {
-		dir->to_expire = timeout_add(retry_secs * 1000,
-					     user_directory_drop_expired, dir);
+		expire_timestamp = 0;
+	}
+	i_assert(expire_timestamp > ioloop_time || expire_timestamp == 0);
+
+	if (expire_timestamp != dir->to_expire_timestamp) {
+		if (dir->to_expire != NULL)
+			timeout_remove(&dir->to_expire);
+		if (expire_timestamp != 0) {
+			struct timeval tv = { .tv_sec = expire_timestamp };
+			dir->to_expire_timestamp = tv.tv_sec;
+			dir->to_expire = timeout_add_absolute(&tv,
+				user_directory_drop_expired, dir);
+		}
 	}
 }
 
@@ -118,11 +128,11 @@ struct user *user_directory_lookup(struct user_directory *dir,
 				   unsigned int username_hash)
 {
 	struct user *user;
-	unsigned int retry_secs;
+	time_t expire_timestamp;
 
 	user_directory_drop_expired(dir);
 	user = hash_table_lookup(dir->hash, POINTER_CAST(username_hash));
-	if (user != NULL && !user_directory_user_has_connections(dir, user, &retry_secs)) {
+	if (user != NULL && !user_directory_user_has_connections(dir, user, &expire_timestamp)) {
 		user_free(dir, user);
 		user = NULL;
 	}
@@ -208,8 +218,9 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 	}
 
 	if (dir->to_expire == NULL) {
-		dir->to_expire = timeout_add(dir->timeout_secs * 1000,
-					     user_directory_drop_expired, dir);
+		struct timeval tv = { .tv_sec = ioloop_time + dir->timeout_secs };
+		dir->to_expire_timestamp = tv.tv_sec;
+		dir->to_expire = timeout_add_absolute(&tv, user_directory_drop_expired, dir);
 	}
 	dir->prev_insert_pos = user;
 	hash_table_insert(dir->hash, POINTER_CAST(user->username_hash), user);
