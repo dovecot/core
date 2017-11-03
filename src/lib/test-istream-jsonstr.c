@@ -12,12 +12,19 @@ static const struct {
 } tests[] = {
 	{ "foo\\\\\\\"\\b\\f\\n\\r\\t\\u0001\\uffff\"",
 	  "foo\\\"\b\f\n\r\t\001\xEF\xBF\xBF", 0 },
+	{ "\\ud801\\udc37\"", "\xf0\x90\x90\xb7", 0 }, /* valid codepoint */
 	{ "\"", "", 0 },
 	{ "foo\\?\"", "foo", EINVAL },
 	{ "foo\\?\"", "foo", EINVAL },
 	{ "", "", EPIPE },
 	{ "\\\"", "\"", EPIPE },
 	{ "foo", "foo", EPIPE },
+	{ "\\ud801", "", EPIPE }, /* high surrogate alone */
+	{ "\\udced\\udc37\"", "", EINVAL }, /* low surrogate before high */
+	{ "\\ud8011\\udc37\"", "", EINVAL }, /* has extra 1 in middle */
+	{ "hello \\udc37\"", "hello ", EINVAL }, /* low surrogate before high with valid prefix*/
+	{ "hello \\ud801", "hello ", EPIPE }, /* high surrogate alone with valid prefix */
+	{ "\\uabcg", "", EINVAL }, /* invalid hex value */
 };
 
 static void
@@ -77,6 +84,33 @@ static void test_istream_jsonstr_autoretry(void)
 	test_end();
 }
 
+static void test_istream_jsonstr_partial(void)
+{
+	size_t len = 0;
+	const char *json_input = "hello\\u0060x\"";
+	const char *output = "hello`x";
+	const size_t json_input_len = strlen(json_input);
+	struct istream *input_data, *input;
+
+	test_begin("istream-jsonstr partial");
+
+	input_data = test_istream_create_data(json_input, json_input_len);
+	input = i_stream_create_jsonstr(input_data);
+	test_istream_set_size(input_data, 9);
+	test_assert(i_stream_read(input) == 5);
+	test_istream_set_size(input_data, json_input_len);
+	test_assert(i_stream_read(input) == 2);
+	test_assert(i_stream_read(input) == -1);
+
+	test_assert(memcmp(i_stream_get_data(input, &len), output, I_MIN(len, strlen(output))) == 0 &&
+		    len == strlen(output));
+
+	i_stream_unref(&input);
+	i_stream_unref(&input_data);
+
+	test_end();
+}
+
 void test_istream_jsonstr(void)
 {
 	unsigned int i;
@@ -87,4 +121,5 @@ void test_istream_jsonstr(void)
 		test_end();
 	}
 	test_istream_jsonstr_autoretry();
+	test_istream_jsonstr_partial();
 }

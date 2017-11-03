@@ -803,13 +803,9 @@ void json_append_escaped_data(string_t *dest, const unsigned char *src, size_t s
 
 	for (i = 0; i < size;) {
 		bytes = uni_utf8_get_char_n(src+i, size-i, &chr);
-		/* if it was valid unichar, encode + move forward by bytes */
-		if (bytes > 0) {
-			json_append_escaped_ucs4(dest, chr);
-			i += bytes;
-		/* encode as byte data */
-		} else {
-			json_append_escaped_char(dest, src[i++]);
-		}
+		/* refuse to add invalid data */
+		i_assert(bytes > 0 && uni_is_valid_ucs4(chr));
+		json_append_escaped_ucs4(dest, chr);
+		i += bytes;
 	}
 }

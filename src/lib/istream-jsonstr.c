@@ -77,12 +77,34 @@ i_stream_json_unescape(const unsigned char *src, size_t len,
 		*dest = '\t';
 		break;
 	case 'u': {
+		char chbuf[5] = {0};
+		unichar_t chr,chr2 = 0;
 		buffer_t buf;
 		if (len < 5)
 			return 5;
 		buffer_create_from_data(&buf, dest, MAX_UTF8_LEN);
-		uni_ucs4_to_utf8_c(hex2dec(src+1, 4), &buf);
-		*src_size_r = 5;
+		memcpy(chbuf, src+1, 4);
+		if (str_to_uint32_hex(chbuf, &chr)<0)
+			return -1;
+		if (UTF16_VALID_LOW_SURROGATE(chr))
+			return -1;
+		/* if we encounter surrogate, we need another \\uxxxx */
+		if (UTF16_VALID_HIGH_SURROGATE(chr)) {
+			if (len < 5+2+4)
+				return 5+2+4;
+			if (src[5] != '\\' && src[6] != 'u')
+				return -1;
+			memcpy(chbuf, src+7, 4);
+			if (str_to_uint32_hex(chbuf, &chr2)<0)
+				return -1;
+			if (!UTF16_VALID_LOW_SURROGATE(chr2))
+				return -1;
+			chr = uni_join_surrogate(chr, chr2);
+		}
+		if (!uni_is_valid_ucs4(chr))
+			return -1;
+		uni_ucs4_to_utf8_c(chr, &buf);
+		*src_size_r = 5 + (chr2>0?6:0);
 		*dest_size_r = buf.used;
 		return 0;
 	}
@@ -146,8 +168,9 @@ static ssize_t i_stream_jsonstr_read(struct istream_private *stream)
 				stream->istream.stream_errno = EINVAL;
 				return -1;
 			} else if (ret2 > 0) {
-				/* we need to get more bytes */
-				i = 0;
+				/* we need to get more bytes, do not consume
+				   escape slash */
+				i--;
 				extra = ret2;
 				break;
 			}
