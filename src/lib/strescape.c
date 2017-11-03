@@ -262,5 +262,5 @@ char **p_strsplit_tabescaped(pool_t pool, const char *str)
 
 const char *const *t_strsplit_tabescaped(const char *str)
 {
-	return (void *)p_strsplit_tabescaped(pool_datastack_create(), str);
+	return (void *)p_strsplit_tabescaped(unsafe_data_stack_pool, str);
 }
