@@ -124,7 +124,7 @@ struct director_connection {
 	struct director_user_iter *user_iter;
 
 	/* set during command execution */
-	const char *cur_cmd, *cur_line;
+	const char *cur_cmd, *const *cur_args;
 
 	unsigned int in:1;
 	unsigned int connected:1;
@@ -158,7 +158,8 @@ director_cmd_error(struct director_connection *conn, const char *fmt, ...)
 
 	va_start(args, fmt);
 	i_error("director(%s): Command %s: %s (input: %s)", conn->name,
-		conn->cur_cmd, t_strdup_vprintf(fmt, args), conn->cur_line);
+		conn->cur_cmd, t_strdup_vprintf(fmt, args),
+		t_strarray_join(conn->cur_args, "\t"));
 	va_end(args);
 
 	if (conn->host != NULL)
@@ -1793,25 +1794,25 @@ director_connection_handle_cmd(struct director_connection *conn,
 
 static bool
 director_connection_handle_line(struct director_connection *conn,
-				const char *line)
+				char *line)
 {
 	const char *cmd, *const *args;
 	bool ret;
 
 	dir_debug("input: %s: %s", conn->name, line);
 
-	args = t_strsplit_tabescaped(line);
-	cmd = args[0]; args++;
+	args = t_strsplit_tabescaped_inplace(line);
+	cmd = args[0];
 	if (cmd == NULL) {
 		director_cmd_error(conn, "Received empty line");
 		return FALSE;
 	}
 
 	conn->cur_cmd = cmd;
-	conn->cur_line = line;
-	ret = director_connection_handle_cmd(conn, cmd, args);
+	conn->cur_args = args;
+	ret = director_connection_handle_cmd(conn, cmd, args+1);
 	conn->cur_cmd = NULL;
-	conn->cur_line = NULL;
+	conn->cur_args = NULL;
 	return ret;
 }
 
