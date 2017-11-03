@@ -392,6 +392,16 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 		if (ssl_iostream_ctx_use_key(ctx, &set->cert, error_r) < 0)
 			return -1;
 	}
+	if (set->alt_cert.cert != NULL &&
+	    ssl_ctx_use_certificate_chain(ctx->ssl_ctx, set->alt_cert.cert) == 0) {
+		*error_r = t_strdup_printf("Can't load alternative SSL certificate: %s",
+			openssl_iostream_use_certificate_error(set->alt_cert.cert, NULL));
+		return -1;
+	}
+	if (set->alt_cert.key != NULL) {
+		if (ssl_iostream_ctx_use_key(ctx, &set->alt_cert, error_r) < 0)
+			return -1;
+	}
 
 	if (set->dh != NULL) {
 		if (ssl_iostream_ctx_use_dh(ctx, set, error_r) < 0)
