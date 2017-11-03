@@ -171,6 +171,7 @@ mail_host_add_ip(struct mail_host_list *list, const struct ip_addr *ip,
 	host->list = list;
 	host->vhost_count = VHOST_MULTIPLIER;
 	host->ip = *ip;
+	host->ip_str = i_strdup(net_ip2addr(ip));
 	host->tag = mail_tag_get(list, tag_name);
 	array_append(&list->hosts, &host, 1);
 
@@ -363,6 +364,7 @@ void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count,
 static void mail_host_free(struct mail_host *host)
 {
 	i_free(host->hostname);
+	i_free(host->ip_str);
 	i_free(host);
 }
 
@@ -522,6 +524,7 @@ mail_host_dup(struct mail_host_list *dest_list, const struct mail_host *src)
 	dest = i_new(struct mail_host, 1);
 	*dest = *src;
 	dest->tag = mail_tag_get(dest_list, src->tag->name);
+	dest->ip_str = i_strdup(src->ip_str);
 	dest->hostname = i_strdup(src->hostname);
 	return dest;
 }
