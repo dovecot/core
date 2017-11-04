@@ -429,8 +429,6 @@ test_client_disconnect_helo(const struct smtp_submit_settings *submit_set)
 
 	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], &error);
-	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
-	//test_out_reason("run", ret == 0, error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
 	return FALSE;
@@ -533,8 +531,6 @@ test_client_denied_mail(const struct smtp_submit_settings *submit_set)
 
 	ret = test_client_smtp_send_simple_port(submit_set,
 		test_message1, bind_ports[0], &error);
-	// FIXME: lmtp client handles this wrong, the greeting is not "bad"
-	//test_out_reason("run", ret == 0, error);
 	test_out_reason("run (ret < 0)", ret < 0, error);
 
 	return FALSE;
