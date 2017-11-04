@@ -130,6 +130,7 @@ struct cassandra_result {
 	enum cassandra_query_type query_type;
 	struct timeval page0_start_time, start_time, finish_time;
 	unsigned int row_count, total_row_count, page_num;
+	cass_int64_t timestamp;
 
 	pool_t row_pool;
 	ARRAY_TYPE(const_string) fields;
@@ -777,6 +778,8 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 	string_t *str = t_str_new(128);
 	str_printfa(str, "cassandra: Finished %squery '%s' (",
 		    result->is_prepared ? "prepared " : "", result->query);
+	if (result->timestamp != 0)
+		str_printfa(str, "timestamp=%"PRId64", ", result->timestamp);
 	if (all_pages) {
 		str_printfa(str, "%u pages in total, ", result->page_num);
 		row_count = result->total_row_count;
@@ -1728,6 +1731,7 @@ static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
 	}
 	if (stmt->result != NULL) {
 		stmt->result->statement = stmt->cass_stmt;
+		stmt->result->timestamp = stmt->timestamp;
 		(void)driver_cassandra_send_query(stmt->result);
 		pool_unref(&stmt->stmt.pool);
 	}
@@ -1883,10 +1887,11 @@ driver_cassandra_statement_set_timestamp(struct sql_statement *_stmt,
 		(cass_int64_t)ts->tv_sec * 1000000ULL +
 		ts->tv_nsec / 1000;
 
+	i_assert(stmt->result == NULL);
+
 	if (stmt->cass_stmt != NULL)
 		cass_statement_set_timestamp(stmt->cass_stmt, ts_usecs);
-	else
-		stmt->timestamp = ts_usecs;
+	stmt->timestamp = ts_usecs;
 }
 
 static struct cassandra_sql_arg *
@@ -1974,6 +1979,7 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 		return;
 	} else {
 		stmt->result->statement = cass_statement_new(query, 0);
+		stmt->result->timestamp = stmt->timestamp;
 		if (stmt->timestamp != 0) {
 			cass_statement_set_timestamp(stmt->result->statement,
 						     stmt->timestamp);
