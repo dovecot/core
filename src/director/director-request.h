@@ -5,7 +5,7 @@ struct director;
 struct director_request;
 
 typedef void
-director_request_callback(const struct ip_addr *ip, const char *hostname,
+director_request_callback(const struct mail_host *host, const char *hostname,
 			  const char *errormsg, void *context);
 
 void director_request(struct director *dir, const char *username,

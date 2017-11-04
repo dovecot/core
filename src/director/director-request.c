@@ -330,7 +330,7 @@ bool director_request_continue(struct director_request *request)
 	i_assert(!user->weak);
 	director_update_user(dir, dir->self_host, user);
 	T_BEGIN {
-		request->callback(&user->host->ip, user->host->hostname,
+		request->callback(user->host, user->host->hostname,
 				  NULL, request->context);
 	} T_END;
 	director_request_free(request);

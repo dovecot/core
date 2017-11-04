@@ -11,6 +11,7 @@
 #include "master-service.h"
 #include "director.h"
 #include "director-request.h"
+#include "mail-host.h"
 #include "auth-client-interface.h"
 #include "auth-connection.h"
 #include "login-connection.h"
@@ -133,7 +134,7 @@ static bool login_host_request_is_self(struct login_host_request *request,
 }
 
 static void
-login_host_callback(const struct ip_addr *ip, const char *hostname,
+login_host_callback(const struct mail_host *host, const char *hostname,
 		    const char *errormsg, void *context)
 {
 	struct login_host_request *request = context;
@@ -141,7 +142,7 @@ login_host_callback(const struct ip_addr *ip, const char *hostname,
 	const char *line, *line_params;
 	unsigned int secs;
 
-	if (ip == NULL) {
+	if (host == NULL) {
 		if (strncmp(request->line, "OK\t", 3) == 0)
 			line_params = request->line + 3;
 		else if (strncmp(request->line, "PASS\t", 5) == 0)
@@ -154,7 +155,7 @@ login_host_callback(const struct ip_addr *ip, const char *hostname,
 		line = t_strconcat("FAIL\t", t_strcut(line_params, '\t'),
 				   "\tcode="AUTH_CLIENT_FAIL_CODE_TEMPFAIL, NULL);
 	} else if (request->director_proxy_maybe &&
-		   login_host_request_is_self(request, ip)) {
+		   login_host_request_is_self(request, &host->ip)) {
 		line = request->line;
 	} else {
 		string_t *str = t_str_new(64);
@@ -162,10 +163,10 @@ login_host_callback(const struct ip_addr *ip, const char *hostname,
 		secs = dir->set->director_user_expire / 2;
 		str_printfa(str, "%s\tproxy_refresh=%u\t", request->line, secs);
 		if (hostname == NULL || hostname[0] == '\0')
-			str_printfa(str, "host=%s", net_ip2addr(ip));
+			str_printfa(str, "host=%s", host->ip_str);
 		else {
 			str_printfa(str, "host=%s\thostip=%s",
-				    hostname, net_ip2addr(ip));
+				    hostname, host->ip_str);
 		}
 		line = str_c(str);
 	}
