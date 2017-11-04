@@ -158,14 +158,19 @@ login_host_callback(const struct mail_host *host, const char *hostname,
 		line = request->line;
 	} else {
 		string_t *str = t_str_new(64);
+		char secs_buf[MAX_INT_STRLEN];
 
 		secs = dir->set->director_user_expire / 2;
-		str_printfa(str, "%s\tproxy_refresh=%u\t", request->line, secs);
+		str_append(str, request->line);
+		str_append(str, "\tproxy_refresh=");
+		str_append(str, dec2str_buf(secs_buf, secs));
+		str_append(str, "\thost=");
 		if (hostname == NULL || hostname[0] == '\0')
-			str_printfa(str, "host=%s", host->ip_str);
+			str_append(str, host->ip_str);
 		else {
-			str_printfa(str, "host=%s\thostip=%s",
-				    hostname, host->ip_str);
+			str_append(str, hostname);
+			str_append(str, "\thostip=");
+			str_append(str, host->ip_str);
 		}
 		line = str_c(str);
 	}
