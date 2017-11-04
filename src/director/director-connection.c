@@ -1982,23 +1982,24 @@ static int director_connection_send_done(struct director_connection *conn)
 static int director_connection_send_users(struct director_connection *conn)
 {
 	struct user *user;
+	string_t *str = t_str_new(128);
+	char dec_buf[MAX_INT_STRLEN];
 	int ret;
 
 	i_assert(conn->version_received);
 
 	while ((user = director_iterate_users_next(conn->user_iter)) != NULL) {
-		T_BEGIN {
-			string_t *str = t_str_new(128);
-
-			str_printfa(str, "USER\t%u\t%s\t%u",
-				    user->username_hash,
-				    user->host->ip_str,
-				    user->timestamp);
-			if (user->weak)
-				str_append(str, "\tw");
-			str_append_c(str, '\n');
-			director_connection_send(conn, str_c(str));
-		} T_END;
+		str_truncate(str, 0);
+		str_append(str, "USER\t");
+		str_append(str, dec2str_buf(dec_buf, user->username_hash));
+		str_append_c(str, '\t');
+		str_append(str, user->host->ip_str);
+		str_append_c(str, '\t');
+		str_append(str, dec2str_buf(dec_buf, user->timestamp));
+		if (user->weak)
+			str_append(str, "\tw");
+		str_append_c(str, '\n');
+		director_connection_send(conn, str_c(str));
 
 		if (o_stream_get_buffer_used_size(conn->output) >= OUTBUF_FLUSH_THRESHOLD) {
 			if ((ret = o_stream_flush(conn->output)) <= 0) {
