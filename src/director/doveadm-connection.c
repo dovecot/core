@@ -9,6 +9,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "llist.h"
+#include "time-util.h"
 #include "master-service.h"
 #include "user-directory.h"
 #include "mail-host.h"
@@ -46,9 +47,12 @@ struct director_reset_cmd {
 
 	struct director *dir;
 	struct doveadm_connection *_conn;
+	struct timeval start_time;
+
 	struct director_user_iter *iter;
-	unsigned int host_idx, hosts_count;
+	unsigned int host_start_idx, host_idx, hosts_count;
 	unsigned int max_moving_users;
+	unsigned int reset_count;
 	bool users_killed;
 };
 
@@ -528,11 +532,16 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 						   TRUE);
 				cmd->users_killed = TRUE;
 			}
+			cmd->reset_count++;
 		} T_END;
 		if (dir->users_moving_count >= cmd->max_moving_users)
 			break;
 	}
 	if (user == NULL) {
+		int msecs = timeval_diff_msecs(&ioloop_timeval, &cmd->start_time);
+		i_info("Moved %u users in %u hosts in %u.%03u secs (max parallel=%u)",
+		       cmd->reset_count, cmd->hosts_count - cmd->host_start_idx,
+		       msecs / 1000, msecs % 1000, cmd->max_moving_users);
 		director_iterate_users_deinit(&cmd->iter);
 		if (cmd->users_killed) {
 			/* no more backends. we already sent kills. now remove
@@ -609,8 +618,10 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 	cmd->dir = conn->dir;
 	cmd->_conn = conn;
 	cmd->max_moving_users = max_moving_users;
+	cmd->host_start_idx = i;
 	cmd->host_idx = i;
 	cmd->hosts_count = count;
+	cmd->start_time = ioloop_timeval;
 	DLLIST_PREPEND(&reset_cmds, cmd);
 
 	if (!director_reset_cmd_run(cmd)) {
