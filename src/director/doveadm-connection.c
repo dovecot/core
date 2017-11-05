@@ -592,7 +592,8 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 	unsigned int max_moving_users = DEFAULT_MAX_MOVING_USERS;
 
 	if (args[0] != NULL && args[1] != NULL &&
-	    str_to_uint(args[1], &max_moving_users) < 0) {
+	    (str_to_uint(args[1], &max_moving_users) < 0 ||
+	     max_moving_users == 0)) {
 		i_error("doveadm sent invalid HOST-RESET-USERS parameters");
 		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
