@@ -287,7 +287,7 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 		*error_r = "Requested https connection, but no SSL settings given";
 		return -1;
 	}
-	if (ssl_iostream_context_init_client(client->set.ssl, &client->ssl_ctx, &error) < 0) {
+	if (ssl_iostream_client_context_cache_get(client->set.ssl, &client->ssl_ctx, &error) < 0) {
 		*error_r = t_strdup_printf("Couldn't initialize SSL context: %s",
 					   error);
 		return -1;

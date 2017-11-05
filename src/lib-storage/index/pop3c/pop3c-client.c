@@ -126,8 +126,9 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 		ssl_set.allow_invalid_cert = !set->ssl_verify;
 		ssl_set.crypto_device = set->ssl_crypto_device;
 
-		if (ssl_iostream_context_init_client(&ssl_set, &client->ssl_ctx,
-						     &error) < 0) {
+		if (ssl_iostream_client_context_cache_get(&ssl_set,
+							  &client->ssl_ctx,
+							  &error) < 0) {
 			i_error("pop3c(%s:%u): Couldn't initialize SSL context: %s",
 				set->host, set->port, error);
 		}
