@@ -267,7 +267,7 @@ director_request_existing(struct director_request *request, struct user *user)
 	}
 }
 
-bool director_request_continue(struct director_request *request)
+static bool director_request_continue_real(struct director_request *request)
 {
 	struct director *dir = request->dir;
 	struct mail_host *host;
@@ -329,5 +329,19 @@ bool director_request_continue(struct director_request *request)
 				  NULL, request->context);
 	} T_END;
 	director_request_free(request);
+	return TRUE;
+}
+
+bool director_request_continue(struct director_request *request)
+{
+	if (request->delay_reason != REQUEST_DELAY_NONE) {
+		i_assert(request->dir->requests_delayed_count > 0);
+		request->dir->requests_delayed_count--;
+	}
+	if (!director_request_continue_real(request)) {
+		i_assert(request->delay_reason != REQUEST_DELAY_NONE);
+		request->dir->requests_delayed_count++;
+		return FALSE;
+	}
 	return TRUE;
 }
