@@ -32,6 +32,7 @@ static const struct iostream_ssl_vfuncs *ssl_vfuncs = NULL;
 #ifdef HAVE_SSL
 static void ssl_module_unload(void)
 {
+	ssl_iostream_context_cache_free();
 	module_dir_unload(&ssl_module);
 }
 #endif
