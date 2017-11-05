@@ -83,33 +83,74 @@ static void test_p_strarray_dup(void)
 
 static void test_t_strsplit(void)
 {
-	const char *const *args;
+	struct {
+		const char *input;
+		const char *const *output;
+	} tests[] = {
+		/* empty string -> empty array. was this perhaps a mistake for
+		   the API to do this originally?.. can't really change now
+		   anyway. */
+		{ "", (const char *const []) { NULL } },
+		{ "\n", (const char *const []) { "", "", NULL } },
+		{ "\n\n", (const char *const []) { "", "", "", NULL } },
+		{ "foo", (const char *const []) { "foo", NULL } },
+		{ "foo\n", (const char *const []) { "foo", "", NULL } },
+		{ "foo\nbar", (const char *const []) { "foo", "bar", NULL } },
+		{ "foo\nbar\n", (const char *const []) { "foo", "bar", "", NULL } },
+		{ "\nfoo\n\nbar\n\n", (const char *const []) { "", "foo", "", "bar", "", "", NULL } },
+	};
+	const char *const *args, *const *args2, *const *args3;
 
 	test_begin("t_strsplit");
-	/* empty string -> empty array. was this perhaps a mistake for the
-	   API to do this originally?.. can't really change now anyway. */
-	args = t_strsplit("", "\n");
-	test_assert(args[0] == NULL);
-	/* two empty strings */
-	args = t_strsplit("\n", "\n");
-	test_assert(args[0][0] == '\0');
-	test_assert(args[1][0] == '\0');
-	test_assert(args[2] == NULL);
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		args = t_strsplit(tests[i].input, "\n");
+		/* test also with a secondary nonexistent separator */
+		args2 = t_strsplit(tests[i].input, "\r\n");
+		/* also as suffix */
+		args3 = t_strsplit(tests[i].input, "\n\r");
+		for (unsigned int j = 0; tests[i].output[j] != NULL; j++) {
+			test_assert_idx(null_strcmp(tests[i].output[j], args[j]) == 0, i);
+			test_assert_idx(null_strcmp(args[j], args2[j]) == 0, i);
+			test_assert_idx(null_strcmp(args[j], args3[j]) == 0, i);
+		}
+	}
 	test_end();
 }
 
 static void test_t_strsplit_spaces(void)
 {
-	const char *const *args;
+	struct {
+		const char *input;
+		const char *const *output;
+	} tests[] = {
+		/* empty strings */
+		{ "", (const char *const []) { NULL } },
+		{ "\n", (const char *const []) { NULL } },
+		{ "\n\n", (const char *const []) { NULL } },
+		/* normal */
+		{ "foo", (const char *const []) { "foo", NULL } },
+		{ "foo\n", (const char *const []) { "foo", NULL } },
+		{ "foo\nbar", (const char *const []) { "foo", "bar", NULL } },
+		{ "foo\nbar\n", (const char *const []) { "foo", "bar", NULL } },
+		{ "\nfoo\n\nbar\n\n", (const char *const []) { "foo", "bar", NULL } },
+	};
+	const char *const *args, *const *args2, *const *args3;
 
 	test_begin("t_strsplit_spaces");
-	/* empty strings */
-	args = t_strsplit_spaces("", "\n");
-	test_assert(args[0] == NULL);
-	args = t_strsplit_spaces("\n", "\n");
-	test_assert(args[0] == NULL);
-	args = t_strsplit_spaces("\n\n", "\n");
-	test_assert(args[0] == NULL);
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		args = t_strsplit_spaces(tests[i].input, "\n");
+		/* test also with a secondary nonexistent separator */
+		args2 = t_strsplit_spaces(tests[i].input, "\r\n");
+		/* also as suffix */
+		args3 = t_strsplit_spaces(tests[i].input, "\n\r");
+		for (unsigned int j = 0; tests[i].output[j] != NULL; j++) {
+			test_assert_idx(null_strcmp(tests[i].output[j], args[j]) == 0, i);
+			test_assert_idx(null_strcmp(args[j], args2[j]) == 0, i);
+			test_assert_idx(null_strcmp(args[j], args3[j]) == 0, i);
+		}
+	}
 
 	/* multiple separators */
 	args = t_strsplit_spaces(" , ,   ,str1  ,  ,,, , str2   , ", " ,");
