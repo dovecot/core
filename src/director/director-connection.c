@@ -190,6 +190,8 @@ director_connection_append_stats(struct director_connection *conn, string_t *str
 		str_printfa(str, ", %"PRIuSIZE_T" bytes in output buffer",
 			    o_stream_get_buffer_used_size(conn->output));
 	}
+	str_printfa(str, ", %zu peak output buffer size",
+		    conn->peak_bytes_buffered);
 }
 
 static void
