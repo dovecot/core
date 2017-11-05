@@ -25,6 +25,7 @@ static char *expected_error_str;
 void test_begin(const char *name)
 {
 	test_success = TRUE;
+	expected_errors = 0;
 	if (!expecting_fatal)
 		i_assert(test_prefix == NULL);
 	else
