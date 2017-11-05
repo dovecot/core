@@ -82,6 +82,9 @@
    notification and reset the last_sync_seq */
 #define DIRECTOR_SYNC_STALE_TIMESTAMP_RESET_SECS (60*2)
 #define DIRECTOR_MAX_CLOCK_DIFF_WARN_SECS 1
+/* How many USER entries to send during handshake before going back to ioloop
+   to see if there's other work to be done as well. */
+#define DIRECTOR_HANDSHAKE_MAX_USERS_SENT_PER_FLUSH 10000
 
 #if DIRECTOR_CONNECTION_PONG_TIMEOUT_MSECS <= DIRECTOR_CONNECTION_PING_IDLE_TIMEOUT_MSECS
 #  error DIRECTOR_CONNECTION_PONG_TIMEOUT_MSECS is too low
@@ -1982,6 +1985,7 @@ static int director_connection_send_users(struct director_connection *conn)
 	struct user *user;
 	string_t *str = t_str_new(128);
 	char dec_buf[MAX_INT_STRLEN];
+	unsigned int sent_count = 0;
 	int ret;
 
 	i_assert(conn->version_received);
@@ -1998,6 +2002,11 @@ static int director_connection_send_users(struct director_connection *conn)
 			str_append(str, "\tw");
 		str_append_c(str, '\n');
 		director_connection_send(conn, str_c(str));
+		if (++sent_count >= DIRECTOR_HANDSHAKE_MAX_USERS_SENT_PER_FLUSH) {
+			/* Don't send too much at once to avoid hangs */
+			timeout_reset(conn->to_ping);
+			return 0;
+		}
 
 		if (o_stream_get_buffer_used_size(conn->output) >= OUTBUF_FLUSH_THRESHOLD) {
 			if ((ret = o_stream_flush(conn->output)) <= 0) {
