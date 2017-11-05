@@ -681,6 +681,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 
 	if (ctx->failed && ctx->mail_offset != (uoff_t)-1) {
 		/* saving this mail failed - truncate back to beginning of it */
+		i_assert(ctx->output != NULL);
 		(void)o_stream_flush(ctx->output);
 		if (ftruncate(ctx->mbox->mbox_fd, (off_t)ctx->mail_offset) < 0)
 			mbox_set_syscall_error(ctx->mbox, "ftruncate()");
