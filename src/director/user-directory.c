@@ -82,7 +82,7 @@ static bool user_directory_user_has_connections(struct user_directory *dir,
 	}
 
 	if (user->weak) {
-		if (expire_timestamp + USER_NEAR_EXPIRING_MAX >= ioloop_time) {
+		if (expire_timestamp + USER_NEAR_EXPIRING_MAX > ioloop_time) {
 			*retry_secs_r = expire_timestamp +
 				USER_NEAR_EXPIRING_MAX - ioloop_time;
 			return TRUE;
