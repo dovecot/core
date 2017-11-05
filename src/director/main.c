@@ -61,6 +61,8 @@ static void director_refresh_proctitle_timeout(void *context ATTR_UNUSED)
 		str_printfa(str, ", %u delayed", director->requests_delayed_count);
 	if (director->users_moving_count > 0)
 		str_printfa(str, ", %u moving", director->users_moving_count);
+	if (director->users_kicking_count > 0)
+		str_printfa(str, ", %u kicking", director->users_kicking_count);
 	str_printfa(str, ", %"PRIu64" req/s",
 		    director->num_requests - prev_requests);
 	str_printfa(str, ", %"PRIu64"+%"PRIu64" kB/s",
