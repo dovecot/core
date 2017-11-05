@@ -548,7 +548,12 @@ openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 	case SSL_ERROR_ZERO_RETURN:
 		/* clean connection closing */
 		errno = EPIPE;
-		i_free_and_null(ssl_io->last_error);
+		if (ssl_io->handshaked)
+			i_free_and_null(ssl_io->last_error);
+		else if (ssl_io->last_error == NULL) {
+			errstr = "SSL connection closed during handshake";
+			break;
+		}
 		return -1;
 	case SSL_ERROR_SSL:
 		errstr = t_strdup_printf("%s failed: %s",
