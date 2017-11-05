@@ -2079,6 +2079,12 @@ static void director_connection_send_handshake(struct director_connection *conn)
 		(long long)time(NULL)));
 }
 
+static void director_connection_set_connected(struct director_connection *conn)
+{
+	conn->connected = TRUE;
+	conn->connected_time = ioloop_timeval;
+}
+
 struct director_connection *
 director_connection_init_in(struct director *dir, int fd,
 			    const struct ip_addr *ip)
@@ -2087,8 +2093,7 @@ director_connection_init_in(struct director *dir, int fd,
 
 	conn = director_connection_init_common(dir, fd);
 	conn->in = TRUE;
-	conn->connected = TRUE;
-	conn->connected_time = ioloop_timeval;
+	director_connection_set_connected(conn);
 	conn->name = i_strdup_printf("%s/in", net_ip2addr(ip));
 	conn->io = io_add(conn->fd, IO_READ, director_connection_input, conn);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
@@ -2109,8 +2114,7 @@ static void director_connection_connected(struct director_connection *conn)
 		director_connection_disconnected(&conn, strerror(err));
 		return;
 	}
-	conn->connected_time = ioloop_timeval;
-	conn->connected = TRUE;
+	director_connection_set_connected(conn);
 	o_stream_set_flush_callback(conn->output,
 				    director_connection_output, conn);
 
