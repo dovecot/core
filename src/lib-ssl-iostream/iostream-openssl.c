@@ -488,6 +488,18 @@ int openssl_iostream_more(struct ssl_iostream *ssl_io)
 	return 1;
 }
 
+static void openssl_iostream_closed(struct ssl_iostream *ssl_io)
+{
+	if (ssl_io->plain_stream_errno != 0) {
+		i_assert(ssl_io->plain_stream_errstr != NULL);
+		openssl_iostream_set_error(ssl_io, ssl_io->plain_stream_errstr);
+		errno = ssl_io->plain_stream_errno;
+	} else {
+		openssl_iostream_set_error(ssl_io, "Connection closed");
+		errno = EPIPE;
+	}
+}
+
 static int
 openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 				   const char *func_name, bool write_error)
@@ -504,10 +516,7 @@ openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 			return 0;
 		}
 		if (ssl_io->closed) {
-			if (ssl_io->plain_stream_errstr != NULL)
-				openssl_iostream_set_error(ssl_io, ssl_io->plain_stream_errstr);
-			errno = ssl_io->plain_stream_errno != 0 ?
-				ssl_io->plain_stream_errno : EPIPE;
+			openssl_iostream_closed(ssl_io);
 			return -1;
 		}
 		return 1;
@@ -515,10 +524,7 @@ openssl_iostream_handle_error_full(struct ssl_iostream *ssl_io, int ret,
 		ssl_io->want_read = TRUE;
 		(void)openssl_iostream_bio_sync(ssl_io);
 		if (ssl_io->closed) {
-			if (ssl_io->plain_stream_errstr != NULL)
-				openssl_iostream_set_error(ssl_io, ssl_io->plain_stream_errstr);
-			errno = ssl_io->plain_stream_errno != 0 ?
-				ssl_io->plain_stream_errno : EPIPE;
+			openssl_iostream_closed(ssl_io);
 			return -1;
 		}
 		return ssl_io->want_read ? 0 : 1;
