@@ -411,11 +411,6 @@ http_transfer_chunked_istream_read_data(
 	if (tcstream->chunk_pos >= tcstream->chunk_size)
 		tcstream->state = HTTP_CHUNKED_PARSE_STATE_DATA_READY;
 
-	if ( ret < 0 ) {
-		stream->pos = stream->pos+size;
-		return ret;
-	}
-
 	ret = size;
 	stream->pos = stream->pos+size;
 	return ret;
