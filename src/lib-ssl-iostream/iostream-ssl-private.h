@@ -40,4 +40,9 @@ struct iostream_ssl_vfuncs {
 
 void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs);
 
+/* Returns TRUE if both settings are equal. Note that NULL and "" aren't
+   treated equal. */
+bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
+				  const struct ssl_iostream_settings *set2);
+
 #endif

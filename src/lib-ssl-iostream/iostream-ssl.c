@@ -262,3 +262,28 @@ void ssl_iostream_settings_init_from(pool_t pool,
 		*dest_str = p_strdup(pool, *src_str);
 	}
 }
+
+bool ssl_iostream_settings_equals(const struct ssl_iostream_settings *set1,
+				  const struct ssl_iostream_settings *set2)
+{
+	struct ssl_iostream_settings set1_nonstr, set2_nonstr;
+	unsigned int i;
+
+	set1_nonstr = *set1;
+	set2_nonstr = *set2;
+	for (i = 0; i < N_ELEMENTS(ssl_iostream_settings_string_offsets); i++) {
+		const size_t offset = ssl_iostream_settings_string_offsets[i];
+		const char *const *str1 = CONST_PTR_OFFSET(set1, offset);
+		const char *const *str2 = CONST_PTR_OFFSET(set2, offset);
+
+		if (null_strcmp(*str1, *str2) != 0)
+			return FALSE;
+
+		/* clear away the string pointer from the settings struct */
+		memset(PTR_OFFSET(&set1_nonstr, offset), 0, sizeof(*str1));
+		memset(PTR_OFFSET(&set2_nonstr, offset), 0, sizeof(*str2));
+	}
+	/* The set*_nonstr no longer have any pointers, so we can compare them
+	   directly. */
+	return memcmp(&set1_nonstr, &set2_nonstr, sizeof(set1_nonstr)) == 0;
+}
