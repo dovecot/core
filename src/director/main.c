@@ -57,6 +57,8 @@ static void director_refresh_proctitle_timeout(void *context ATTR_UNUSED)
 
 	str = t_str_new(64);
 	str_printfa(str, "[%u users", director_total_users_count());
+	if (director->requests_delayed_count > 0)
+		str_printfa(str, ", %u delayed", director->requests_delayed_count);
 	if (director->users_moving_count > 0)
 		str_printfa(str, ", %u moving", director->users_moving_count);
 	str_printfa(str, ", %"PRIu64" req/s",
