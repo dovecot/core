@@ -512,6 +512,23 @@ void message_address_write(string_t *str, const struct message_address *addr)
 	}
 }
 
+const char *message_address_to_string(const struct message_address *addr)
+{
+	string_t *str = t_str_new(256);
+	message_address_write(str, addr);
+	return str_c(str);
+}
+
+const char *message_address_first_to_string(const struct message_address *addr)
+{
+	struct message_address first_addr;
+
+	first_addr = *addr;
+	first_addr.next = NULL;
+	first_addr.route = NULL;
+	return message_address_to_string(&first_addr);
+}
+
 void message_address_init(struct message_address *addr,
 	const char *name, const char *mailbox, const char *domain)
 {
