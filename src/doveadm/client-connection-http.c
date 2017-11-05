@@ -730,15 +730,6 @@ doveadm_http_server_read_request_v1(struct client_request_http *req)
 
 	doveadm_cmd_params_clean(&req->pargv);
 
-	if (ret > 0 && req->parse_state != CLIENT_REQUEST_PARSE_DONE) {
-		/* this may happen if the parser above runs into
-		   unexpected element, but JSON is OK */
-		http_server_request_fail_text(http_sreq,
-			400, "Bad Request",
-			"Unexpected JSON element in input");
-		return;
-	}
-
 	if (req->input->stream_errno != 0) {
 		http_server_request_fail_close(http_sreq,
 			400, "Client disconnected");
