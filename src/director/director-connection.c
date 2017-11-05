@@ -45,6 +45,8 @@
 #include "director-connection.h"
 
 #include <unistd.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #define MAX_INBUF_SIZE 1024
 #define OUTBUF_FLUSH_THRESHOLD (1024*128)
@@ -100,6 +102,7 @@ struct director_connection {
 	struct director *dir;
 	char *name;
 	struct timeval created, connected_time, me_received_time;
+	struct timeval connected_user_cpu;
 	unsigned int minor_version;
 
 	struct timeval last_input, last_output;
@@ -137,6 +140,7 @@ struct director_connection {
 	bool wrong_host:1;
 	bool verifying_left:1;
 	bool users_unsorted:1;
+	bool connected_user_cpu_set:1;
 };
 
 static bool director_connection_unref(struct director_connection *conn);
@@ -171,6 +175,7 @@ director_connection_append_stats(struct director_connection *conn, string_t *str
 	int input_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->last_input);
 	int output_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->last_output);
 	int connected_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->connected_time);
+	struct rusage usage;
 
 	str_printfa(str, "bytes in=%"PRIuUOFF_T", bytes out=%"PRIuUOFF_T,
 		    conn->input->v_offset, conn->output->offset);
@@ -192,6 +197,15 @@ director_connection_append_stats(struct director_connection *conn, string_t *str
 	}
 	str_printfa(str, ", %zu peak output buffer size",
 		    conn->peak_bytes_buffered);
+	if (conn->connected_user_cpu_set &&
+	    getrusage(RUSAGE_SELF, &usage) == 0) {
+		/* this isn't measuring the CPU usage used by the connection
+		   itself, but it can still be a useful measurement */
+		int diff = timeval_diff_msecs(&usage.ru_utime,
+					      &conn->connected_user_cpu);
+		str_printfa(str, ", %d.%03d CPU secs since connected",
+			    diff / 1000, diff % 1000);
+	}
 }
 
 static void
@@ -2081,8 +2095,15 @@ static void director_connection_send_handshake(struct director_connection *conn)
 
 static void director_connection_set_connected(struct director_connection *conn)
 {
+	struct rusage usage;
+
 	conn->connected = TRUE;
 	conn->connected_time = ioloop_timeval;
+
+	if (getrusage(RUSAGE_SELF, &usage) == 0) {
+		conn->connected_user_cpu_set = TRUE;
+		conn->connected_user_cpu = usage.ru_utime;
+	}
 }
 
 struct director_connection *
