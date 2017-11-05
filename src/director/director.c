@@ -984,6 +984,9 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 		break;
 	}
 
+	i_assert(ctx->dir->users_kicking_count > 0);
+	ctx->dir->users_kicking_count--;
+
 	ctx->callback_pending = FALSE;
 
 	user = user_directory_lookup(ctx->tag->users, ctx->username_hash);
@@ -1062,6 +1065,7 @@ void director_kill_user(struct director *dir, struct director_host *src,
 		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
 				      user->username_hash);
 		ctx->callback_pending = TRUE;
+		dir->users_kicking_count++;
 		ipc_client_cmd(dir->ipc_proxy, cmd,
 			       director_kill_user_callback, ctx);
 	} else {
@@ -1143,13 +1147,18 @@ void director_move_user(struct director *dir, struct director_host *src,
 
 static void
 director_kick_user_callback(enum ipc_client_cmd_state state,
-			    const char *data, void *context ATTR_UNUSED)
+			    const char *data, void *context)
 {
+	struct director *dir = context;
+
 	if (state == IPC_CLIENT_CMD_STATE_REPLY) {
 		/* shouldn't get here. the command reply isn't finished yet. */
 		i_error("login process sent unexpected reply to kick: %s", data);
+		return;
 	}
 
+	i_assert(dir->users_kicking_count > 0);
+	dir->users_kicking_count--;
 }
 
 void director_kick_user(struct director *dir, struct director_host *src,
@@ -1159,8 +1168,9 @@ void director_kick_user(struct director *dir, struct director_host *src,
 
 	str_append(cmd, "proxy\t*\tKICK\t");
 	str_append_tabescaped(cmd, username);
+	dir->users_kicking_count++;
 	ipc_client_cmd(dir->ipc_proxy, str_c(cmd),
-		       director_kick_user_callback, (void *)NULL);
+		       director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -1184,8 +1194,9 @@ void director_kick_user_alt(struct director *dir, struct director_host *src,
 	str_append_tabescaped(cmd, field);
 	str_append_c(cmd, '\t');
 	str_append_tabescaped(cmd, value);
+	dir->users_kicking_count++;
 	ipc_client_cmd(dir->ipc_proxy, str_c(cmd),
-		       director_kick_user_callback, (void *)NULL);
+		       director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -1210,8 +1221,9 @@ void director_kick_user_hash(struct director *dir, struct director_host *src,
 
 	cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u\t%s",
 			      username_hash, net_ip2addr(except_ip));
+	dir->users_kicking_count++;
 	ipc_client_cmd(dir->ipc_proxy, cmd,
-		       director_kick_user_callback, (void *)NULL);
+		       director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;

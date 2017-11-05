@@ -121,6 +121,8 @@ struct director {
 	struct mail_host_list *orig_config_hosts;
 	/* Number of users currently being moved */
 	unsigned int users_moving_count;
+	/* Number of users currently being kicked */
+	unsigned int users_kicking_count;
 	/* Number of requests currently delayed */
 	unsigned int requests_delayed_count;
 
