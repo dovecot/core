@@ -134,7 +134,6 @@ struct client *client_create(int fd_in, int fd_out, bool ssl_start,
 	client->local_port = conn->local_port;
 
 	client->state_pool = pool_alloconly_create("client state", 4096);
-	client->state.mail_data_fd = -1;
 
 	client_read_settings(client);
 	client_raw_user_create(client);
@@ -176,13 +175,10 @@ void client_state_reset(struct client *client)
 	if (client->proxy != NULL)
 		lmtp_proxy_deinit(&client->proxy);
 
-	buffer_free(&client->state.mail_data);
 	o_stream_unref(&client->state.mail_data_output);
-	i_close_fd(&client->state.mail_data_fd);
 
 	i_zero(&client->state);
 	p_clear(client->state_pool);
-	client->state.mail_data_fd = -1;
 }
 
 void client_destroy(struct client *client, const char *enh_code,

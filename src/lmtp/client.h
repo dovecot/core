@@ -21,10 +21,6 @@ struct client_state {
 
 	struct timeval data_end_timeval;
 
-	/* Initially we start writing to mail_data. If it grows too large,
-	   start using mail_data_fd. */
-	buffer_t *mail_data;
-	int mail_data_fd;
 	struct ostream *mail_data_output;
 
 	const char *added_headers_local;
