@@ -935,6 +935,7 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 	const struct mail_cache_field *dest_field;
 	unsigned int src_field_idx, dest_field_idx;
 	uint32_t t;
+	bool add = FALSE;
 
 	src_field_idx = mail_cache_register_lookup(src_mail->box->cache, name);
 	i_assert(src_field_idx != UINT_MAX);
@@ -957,12 +958,14 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 		/* save date must update when mail is copied */
 		t = ioloop_time;
 		buffer_append(buf, &t, sizeof(t));
+		add = TRUE;
+	} else if (mail_cache_lookup_field(src_mail->transaction->cache_view, buf,
+					   src_mail->seq, src_field_idx) <= 0) {
+		/* error / not found */
+		buffer_set_used_size(buf, 0);
 	} else {
-		if (mail_cache_lookup_field(src_mail->transaction->cache_view, buf,
-					    src_mail->seq, src_field_idx) <= 0)
-			buffer_set_used_size(buf, 0);
-		else if (strcmp(name, "size.physical") == 0 ||
-			 strcmp(name, "size.virtual") == 0) {
+		if (strcmp(name, "size.physical") == 0 ||
+		    strcmp(name, "size.virtual") == 0) {
 			/* FIXME: until mail_cache_lookup() can read unwritten
 			   cached data from buffer, we'll do this optimization
 			   to make quota plugin's work faster */
@@ -977,8 +980,11 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 			else
 				imail->data.virtual_size = size;
 		}
+		/* NOTE: we'll want to add also nonexistent headers, which
+		   will keep the buf empty */
+		add = TRUE;
 	}
-	if (buf->used > 0) {
+	if (add) {
 		mail_cache_add(dest_trans->cache_trans, dest_seq,
 			       dest_field_idx, buf->data, buf->used);
 	}
