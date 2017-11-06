@@ -205,6 +205,7 @@ static int json_skip_string(struct json_parser *parser)
 
 static int json_parse_unicode_escape(struct json_parser *parser)
 {
+	char chbuf[5] = {0};
 	unichar_t chr, hi_surg;
 
 	parser->data++;
@@ -213,7 +214,11 @@ static int json_parse_unicode_escape(struct json_parser *parser)
 		parser->data = parser->end;
 		return 0;
 	}
-	chr = hex2dec(parser->data, 4);
+	memcpy(chbuf, parser->data, 4);
+	if (str_to_uint32_hex(chbuf, &chr) < 0) {
+		parser->error = "Invalid unicode escape seen";
+		return -1;
+	}
 	if (UTF16_VALID_HIGH_SURROGATE(chr)) {
 		/* possible surrogate pair */
 		hi_surg = chr;
@@ -241,7 +246,11 @@ static int json_parse_unicode_escape(struct json_parser *parser)
 			}
 			/* error */
 		} else {
-			chr = hex2dec(&parser->data[2], 4);
+			memcpy(chbuf, &parser->data[2], 4);
+			if (str_to_uint32_hex(chbuf, &chr) < 0) {
+				parser->error = "Invalid unicode escape seen";
+				return -1;
+			}
 		}
 		if (parser->data[0] != '\\' || parser->data[1] != 'u' ||
 		    !UTF16_VALID_LOW_SURROGATE(chr)) {
