@@ -26,6 +26,8 @@
 
 #define MAX_VALID_VHOST_COUNT 1000
 #define DEFAULT_MAX_MOVING_USERS 100
+#define DEFAULT_MAX_KICKING_USERS 100
+
 #define DOVEADM_CONNECTION_RING_SYNC_TIMEOUT_MSECS (30*1000)
 
 enum doveadm_director_cmd_ret {
@@ -56,6 +58,15 @@ struct director_reset_cmd {
 	bool users_killed;
 };
 
+struct director_kick_cmd {
+	struct director_kick_cmd *prev, *next;
+
+	struct doveadm_connection *_conn;
+	struct director *dir;
+	char *mask, *field, *value;
+	bool alt:1;
+};
+
 struct doveadm_connection {
 	struct doveadm_connection *prev, *next;
 
@@ -67,6 +78,7 @@ struct doveadm_connection {
 
 	struct timeout *to_ring_sync_abort;
 	struct director_reset_cmd *reset_cmd;
+	struct director_kick_cmd *kick_cmd;
 	doveadm_connection_ring_sync_callback_t *ring_sync_callback;
 
 	const char **cmd_pending_args;
@@ -78,6 +90,7 @@ struct doveadm_connection {
 static struct doveadm_connection *doveadm_connections;
 static struct doveadm_connection *doveadm_ring_sync_pending_connections;
 static struct director_reset_cmd *reset_cmds = NULL;
+static struct director_kick_cmd *kick_cmds = NULL;
 
 static void doveadm_connection_set_io(struct doveadm_connection *conn);
 static void doveadm_connection_deinit(struct doveadm_connection **_conn);
@@ -769,30 +782,116 @@ doveadm_cmd_user_move(struct doveadm_connection *conn, const char *const *args)
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
+static void doveadm_kick_cmd_free(struct director_kick_cmd **_cmd)
+{
+	struct director_kick_cmd *cmd = *_cmd;
+	*_cmd = NULL;
+
+	if (cmd->_conn != NULL)
+		cmd->_conn->kick_cmd = NULL;
+
+	i_free(cmd->field);
+	i_free(cmd->value);
+	i_free(cmd->mask);
+	i_free(cmd);
+}
+
+static bool doveadm_cmd_user_kick_run(struct director_kick_cmd *cmd)
+{
+	if (cmd->dir->users_kicking_count >= DEFAULT_MAX_KICKING_USERS)
+		return FALSE;
+
+	if (cmd->alt)
+		director_kick_user_alt(cmd->dir, cmd->dir->self_host,
+				       NULL, cmd->field, cmd->value);
+	else
+		director_kick_user(cmd->dir, cmd->dir->self_host,
+				       NULL, cmd->mask);
+	if (cmd->_conn != NULL) {
+		struct doveadm_connection *conn = cmd->_conn;
+
+		o_stream_nsend(conn->output, "OK\n", 3);
+		if (conn->io == NULL)
+			doveadm_connection_set_io(conn);
+	}
+	DLLIST_REMOVE(&kick_cmds, cmd);
+	doveadm_kick_cmd_free(&cmd);
+	return TRUE;
+}
+
 static enum doveadm_director_cmd_ret
 doveadm_cmd_user_kick(struct doveadm_connection *conn, const char *const *args)
 {
+	struct director_kick_cmd *cmd;
+	bool wait = TRUE;
+
 	if (args[0] == NULL) {
 		i_error("doveadm sent invalid USER-KICK parameters");
 		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 
-	director_kick_user(conn->dir, conn->dir->self_host, NULL, args[0]);
-	o_stream_nsend(conn->output, "OK\n", 3);
+	if (null_strcmp(args[1], "nowait") == 0)
+		wait = FALSE;
+
+	cmd = conn->kick_cmd = i_new(struct director_kick_cmd, 1);
+	cmd->alt = FALSE;
+	cmd->mask = i_strdup(args[0]);
+	cmd->dir = conn->dir;
+	cmd->_conn = conn;
+
+	DLLIST_PREPEND(&kick_cmds, cmd);
+
+	if (!doveadm_cmd_user_kick_run(cmd)) {
+		if (wait) {
+			/* we have work to do, wait until it finishes */
+			io_remove(&conn->io);
+			return DOVEADM_DIRECTOR_CMD_RET_UNFINISHED;
+		} else {
+			o_stream_nsend_str(conn->output, "TRYAGAIN\n");
+			/* need to remove it here */
+			DLLIST_REMOVE(&kick_cmds, cmd);
+			doveadm_kick_cmd_free(&cmd);
+		}
+	}
+
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
 static enum doveadm_director_cmd_ret
 doveadm_cmd_user_kick_alt(struct doveadm_connection *conn, const char *const *args)
 {
+	bool wait = TRUE;
+	struct director_kick_cmd *cmd;
+
 	if (str_array_length(args) < 2) {
 		i_error("doveadm sent invalid USER-KICK-ALT parameters");
 		return DOVEADM_DIRECTOR_CMD_RET_FAIL;
 	}
 
-	director_kick_user_alt(conn->dir, conn->dir->self_host, NULL,
-			       args[0], args[1]);
-	o_stream_nsend(conn->output, "OK\n", 3);
+	if (null_strcmp(args[2], "nowait") == 0)
+		wait = FALSE;
+
+	conn->kick_cmd = cmd = i_new(struct director_kick_cmd, 1);
+	cmd->alt = TRUE;
+	cmd->field = i_strdup(args[0]);
+	cmd->value = i_strdup(args[1]);
+	cmd->dir = conn->dir;
+	cmd->_conn = conn;
+
+	DLLIST_PREPEND(&kick_cmds, cmd);
+
+	if (!doveadm_cmd_user_kick_run(cmd)) {
+		if (wait) {
+			/* we have work to do, wait until it finishes */
+			io_remove(&conn->io);
+			return DOVEADM_DIRECTOR_CMD_RET_UNFINISHED;
+		} else {
+			o_stream_nsend_str(conn->output, "TRYAGAIN\n");
+			DLLIST_REMOVE(&kick_cmds, cmd);
+			doveadm_kick_cmd_free(&cmd);
+		}
+	}
+
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
 }
 
@@ -984,6 +1083,10 @@ static void doveadm_connection_deinit(struct doveadm_connection **_conn)
 		/* finish the move even if doveadm disconnected */
 		conn->reset_cmd->_conn = NULL;
 	}
+	if (conn->kick_cmd != NULL) {
+		/* finish the kick even if doveadm disconnected */
+		conn->kick_cmd->_conn = NULL;
+	}
 
 	DLLIST_REMOVE(&doveadm_connections, conn);
 	io_remove(&conn->io);
@@ -1021,6 +1124,13 @@ void doveadm_connections_deinit(void)
 
 		doveadm_connection_deinit(&conn);
 	}
+}
+
+void doveadm_connections_kick_callback(struct director *dir ATTR_UNUSED)
+{
+	while(kick_cmds != NULL)
+		if (!doveadm_cmd_user_kick_run(kick_cmds))
+			break;
 }
 
 static void doveadm_connections_continue_reset_cmds(void)

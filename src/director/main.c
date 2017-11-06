@@ -279,7 +279,8 @@ static void main_preinit(void)
 
 	directors_init();
 	director = director_init(set, &listen_ip, listen_port,
-				 director_state_changed, NULL);
+				 director_state_changed,
+				 doveadm_connections_kick_callback);
 	director_host_add_from_string(director, set->director_servers);
 	director_find_self(director);
 	if (mail_hosts_parse_and_add(director->mail_hosts,
