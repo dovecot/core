@@ -28,7 +28,8 @@ static const struct {
 };
 
 static void
-run_test(const char *json_input, const char *output, int stream_errno)
+run_test_buffer(const char *json_input, const char *output, int stream_errno,
+		unsigned int skip_count)
 {
 	size_t json_input_len = strlen(json_input);
 	struct istream *input_data, *input;
@@ -40,12 +41,16 @@ run_test(const char *json_input, const char *output, int stream_errno)
 	test_istream_set_allow_eof(input_data, FALSE);
 	input = i_stream_create_jsonstr(input_data);
 
-	for (i = 1; i < json_input_len; i++) {
+	for (i = 1; i < json_input_len;) {
 		test_istream_set_size(input_data, i);
 		while ((ret = i_stream_read(input)) > 0) ;
 		if (ret == -1 && stream_errno != 0)
 			break;
 		test_assert_idx(ret == 0, i);
+		if (i + skip_count < json_input_len)
+			i += skip_count;
+		else
+			i++;
 	}
 	test_istream_set_allow_eof(input_data, TRUE);
 	test_istream_set_size(input_data, json_input_len);
@@ -55,12 +60,21 @@ run_test(const char *json_input, const char *output, int stream_errno)
 	test_assert(ret == -1);
 	test_assert(input->stream_errno == stream_errno);
 
-	data = i_stream_get_data(input, &size);
-	test_assert(size == strlen(output));
-	if (size > 0)
-		test_assert(memcmp(data, output, size) == 0);
+	if (stream_errno == 0) {
+		data = i_stream_get_data(input, &size);
+		test_assert(size == strlen(output));
+		if (size > 0)
+			test_assert(memcmp(data, output, size) == 0);
+	}
 	i_stream_unref(&input);
 	i_stream_unref(&input_data);
+}
+
+static void
+run_test(const char *json_input, const char *output, int stream_errno)
+{
+	for (unsigned int i = 1; i <= 5; i++)
+		run_test_buffer(json_input, output, stream_errno, i);
 }
 
 static void test_istream_jsonstr_autoretry(void)
