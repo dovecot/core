@@ -176,7 +176,7 @@ struct cassandra_sql_statement {
 	CassStatement *cass_stmt;
 
 	ARRAY(struct cassandra_sql_arg) pending_args;
-	cass_int64_t pending_timestamp;
+	cass_int64_t timestamp;
 
 	struct cassandra_result *result;
 };
@@ -1722,10 +1722,8 @@ static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
 	}
 	stmt->cass_stmt = cass_prepared_bind(stmt->prep->prepared);
 
-	if (stmt->pending_timestamp != 0) {
-		cass_statement_set_timestamp(stmt->cass_stmt,
-					     stmt->pending_timestamp);
-	}
+	if (stmt->timestamp != 0)
+		cass_statement_set_timestamp(stmt->cass_stmt, stmt->timestamp);
 
 	if (array_is_created(&stmt->pending_args)) {
 		array_foreach(&stmt->pending_args, arg)
@@ -1891,7 +1889,7 @@ driver_cassandra_statement_set_timestamp(struct sql_statement *_stmt,
 	if (stmt->cass_stmt != NULL)
 		cass_statement_set_timestamp(stmt->cass_stmt, ts_usecs);
 	else
-		stmt->pending_timestamp = ts_usecs;
+		stmt->timestamp = ts_usecs;
 }
 
 static struct cassandra_sql_arg *
@@ -1979,9 +1977,9 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 		return;
 	} else {
 		stmt->result->statement = cass_statement_new(query, 0);
-		if (stmt->pending_timestamp != 0) {
+		if (stmt->timestamp != 0) {
 			cass_statement_set_timestamp(stmt->result->statement,
-						     stmt->pending_timestamp);
+						     stmt->timestamp);
 		}
 	}
 	(void)driver_cassandra_send_query(stmt->result);
