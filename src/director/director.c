@@ -971,6 +971,7 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 	switch (state) {
 	case IPC_CLIENT_CMD_STATE_REPLY:
 		/* shouldn't get here. the command reply isn't finished yet. */
+		i_error("login process sent unexpected reply to kick: %s", data);
 		return;
 	case IPC_CLIENT_CMD_STATE_OK:
 		break;
@@ -1141,10 +1142,14 @@ void director_move_user(struct director *dir, struct director_host *src,
 }
 
 static void
-director_kick_user_callback(enum ipc_client_cmd_state state ATTR_UNUSED,
-			    const char *data ATTR_UNUSED,
-			    void *context ATTR_UNUSED)
+director_kick_user_callback(enum ipc_client_cmd_state state,
+			    const char *data, void *context ATTR_UNUSED)
 {
+	if (state == IPC_CLIENT_CMD_STATE_REPLY) {
+		/* shouldn't get here. the command reply isn't finished yet. */
+		i_error("login process sent unexpected reply to kick: %s", data);
+	}
+
 }
 
 void director_kick_user(struct director *dir, struct director_host *src,
