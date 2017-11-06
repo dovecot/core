@@ -4,7 +4,7 @@
 #include "lib-signals.h"
 #include "restrict-access.h"
 #include "master-interface.h"
-#include "master-service.h"
+#include "master-service-private.h"
 #include "master-service-settings.h"
 #include "log-error-buffer.h"
 #include "log-connection.h"
@@ -18,6 +18,7 @@ static struct log_error_buffer *errorbuf;
 static void
 sig_reopen_logs(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 {
+	master_service->log_initialized = FALSE;
 	master_service_init_log(master_service, "log: ");
 }
 
