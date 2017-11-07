@@ -15,6 +15,8 @@ struct director_settings {
 	unsigned int director_user_kick_delay;
 	in_port_t director_doveadm_port;
 	bool director_consistent_hashing;
+	unsigned int director_max_parallel_moves;
+	unsigned int director_max_parallel_kicks;
 	uoff_t director_output_buffer_size;
 };
 
