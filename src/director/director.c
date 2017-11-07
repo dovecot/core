@@ -986,6 +986,9 @@ static void director_kill_user_callback(enum ipc_client_cmd_state state,
 
 	i_assert(ctx->dir->users_kicking_count > 0);
 	ctx->dir->users_kicking_count--;
+	if (ctx->dir->kick_callback != NULL)
+		ctx->dir->kick_callback(ctx->dir);
+
 
 	ctx->callback_pending = FALSE;
 
@@ -1159,6 +1162,8 @@ director_kick_user_callback(enum ipc_client_cmd_state state,
 
 	i_assert(dir->users_kicking_count > 0);
 	dir->users_kicking_count--;
+	if (dir->kick_callback != NULL)
+		dir->kick_callback(dir);
 }
 
 void director_kick_user(struct director *dir, struct director_host *src,
@@ -1395,7 +1400,8 @@ static void director_user_freed(struct user *user)
 struct director *
 director_init(const struct director_settings *set,
 	      const struct ip_addr *listen_ip, in_port_t listen_port,
-	      director_state_change_callback_t *callback)
+	      director_state_change_callback_t *callback,
+	      director_kick_callback_t *kick_callback)
 {
 	struct director *dir;
 
@@ -1404,6 +1410,7 @@ director_init(const struct director_settings *set,
 	dir->self_port = listen_port;
 	dir->self_ip = *listen_ip;
 	dir->state_change_callback = callback;
+	dir->kick_callback = kick_callback;
 	i_array_init(&dir->dir_hosts, 16);
 	i_array_init(&dir->pending_requests, 16);
 	i_array_init(&dir->connections, 8);
