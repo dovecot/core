@@ -63,6 +63,7 @@ enum user_kill_state {
 extern const char *user_kill_state_names[USER_KILL_STATE_DELAY+1];
 
 typedef void director_state_change_callback_t(struct director *dir);
+typedef director_state_change_callback_t director_kick_callback_t;
 
 /* When a user gets freed, the kill_ctx may still be left alive. It's also
    possible for the user to come back, in which case the kill_ctx is usually
@@ -132,6 +133,7 @@ struct director {
 	struct timeout *to_handshake_warning;
 
 	director_state_change_callback_t *state_change_callback;
+	director_kick_callback_t *kick_callback;
 
 	/* director hosts are sorted by IP (and port) */
 	ARRAY(struct director_host *) dir_hosts;
@@ -174,7 +176,8 @@ extern bool director_debug;
 struct director *
 director_init(const struct director_settings *set,
 	      const struct ip_addr *listen_ip, in_port_t listen_port,
-	      director_state_change_callback_t *callback);
+	      director_state_change_callback_t *callback,
+	      director_kick_callback_t *kick_callback);
 void director_deinit(struct director **dir);
 void director_find_self(struct director *dir);
 
