@@ -361,7 +361,6 @@ static void server_connection_input(struct server_connection *conn)
 				if (conn->minor > 0)
 					server_connection_start_multiplex(conn);
 				server_connection_authenticated(conn);
-				break;
 			} else if (strcmp(line, "-") == 0) {
 				if (!conn->handshaked &&
 				    server_connection_authenticate(conn) < 0) {

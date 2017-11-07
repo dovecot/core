@@ -27,6 +27,7 @@ struct client_connection_tcp {
 	struct client_connection conn;
 
 	int fd;
+	int listen_fd;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
@@ -41,6 +42,8 @@ struct client_connection_tcp {
 
 static void
 client_connection_tcp_input(struct client_connection_tcp *conn);
+static void
+client_connection_tcp_send_auth_handshake(struct client_connection_tcp *conn);
 static void
 client_connection_tcp_destroy(struct client_connection_tcp **_conn);
 
@@ -502,6 +505,7 @@ client_connection_tcp_input(struct client_connection_tcp *conn)
 			conn->use_multiplex = TRUE;
 		}
 		conn->handshaked = TRUE;
+		client_connection_tcp_send_auth_handshake(conn);
 	}
 	if (!conn->authenticated) {
 		if ((ret = client_connection_tcp_authenticate(conn)) <= 0) {
@@ -567,15 +571,14 @@ client_connection_tcp_init_ssl(struct client_connection_tcp *conn)
 }
 
 static void
-client_connection_tcp_send_auth_handshake(struct client_connection_tcp *
-				      conn, int listen_fd)
+client_connection_tcp_send_auth_handshake(struct client_connection_tcp *conn)
 {
 	const char *listen_path;
 	struct stat st;
 
 	/* we'll have to do this with stat(), because at least in Linux
 	   fstat() always returns mode as 0777 */
-	if (net_getunixname(listen_fd, &listen_path) == 0 &&
+	if (net_getunixname(conn->listen_fd, &listen_path) == 0 &&
 	    stat(listen_path, &st) == 0 && S_ISSOCK(st.st_mode) &&
 	    (st.st_mode & 0777) == 0600) {
 		/* no need for client to authenticate */
@@ -619,6 +622,7 @@ client_connection_tcp_create(int fd, int listen_fd, bool ssl)
 	pool = pool_alloconly_create("doveadm client", 1024*16);
 	conn = p_new(pool, struct client_connection_tcp, 1);
 	conn->fd = fd;
+	conn->listen_fd = listen_fd;
 
 	if (client_connection_init(&conn->conn,
 		DOVEADM_CONNECTION_TYPE_TCP, pool, fd) < 0) {
@@ -642,7 +646,6 @@ client_connection_tcp_create(int fd, int listen_fd, bool ssl)
 			return NULL;
 		}
 	}
-	client_connection_tcp_send_auth_handshake(conn, listen_fd);
 	client_connection_set_proctitle(&conn->conn, "");
 
 	return &conn->conn;
