@@ -13,6 +13,8 @@ struct director_settings {
 
 	unsigned int director_user_expire;
 	unsigned int director_user_kick_delay;
+	unsigned int director_max_parallel_moves;
+	unsigned int director_max_parallel_kicks;
 	uoff_t director_output_buffer_size;
 };
 

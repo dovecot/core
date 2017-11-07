@@ -25,8 +25,6 @@
 #define DOVEADM_HANDSHAKE "VERSION\tdirector-doveadm\t1\t0\n"
 
 #define MAX_VALID_VHOST_COUNT 1000
-#define DEFAULT_MAX_MOVING_USERS 100
-#define DEFAULT_MAX_KICKING_USERS 100
 
 #define DOVEADM_CONNECTION_RING_SYNC_TIMEOUT_MSECS (30*1000)
 
@@ -600,7 +598,8 @@ doveadm_cmd_host_reset_users(struct doveadm_connection *conn,
 	struct ip_addr ip;
 	struct mail_host *const *hosts;
 	unsigned int i = 0, count;
-	unsigned int max_moving_users = DEFAULT_MAX_MOVING_USERS;
+	unsigned int max_moving_users =
+		conn->dir->set->director_max_parallel_moves;
 
 	if (args[0] != NULL && args[1] != NULL &&
 	    (str_to_uint(args[1], &max_moving_users) < 0 ||
@@ -798,7 +797,8 @@ static void doveadm_kick_cmd_free(struct director_kick_cmd **_cmd)
 
 static bool doveadm_cmd_user_kick_run(struct director_kick_cmd *cmd)
 {
-	if (cmd->dir->users_kicking_count >= DEFAULT_MAX_KICKING_USERS)
+	if (cmd->dir->users_kicking_count >=
+	    cmd->dir->set->director_max_parallel_kicks)
 		return FALSE;
 
 	if (cmd->alt)
