@@ -631,6 +631,10 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-dcrypt/libdcrypt.la \
 	$(top_builddir)/src/lib-test/libtest.la \
 	$(top_builddir)/src/lib/liblib.la'
+# This is used in dovecot-config, which is grepped in dovecot.m4,
+# so it needs to be in a single line.
+LIBDOVECOT_LA_LIBS=`echo "$LIBDOVECOT_LA_LIBS" | tr -d '\t\n\\\\'`
+
 if test "$want_shared_libs" = "yes"; then
   LIBDOVECOT_DEPS='$(top_builddir)/src/lib-dovecot/libdovecot.la'
   LIBDOVECOT="$LIBDOVECOT_DEPS \$(MODULE_LIBS)"
