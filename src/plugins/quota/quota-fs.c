@@ -114,7 +114,9 @@ static void handle_inode_param(struct quota_root *_root, const char *param_value
 
 static void handle_mount_param(struct quota_root *_root, const char *param_value)
 {
-	((struct fs_quota_root *)_root)->storage_mount_path = i_strdup(param_value);
+	struct fs_quota_root *root = (struct fs_quota_root *)_root;
+	i_free(root->storage_mount_path);
+	root->storage_mount_path = i_strdup(param_value);
 }
 
 static int fs_quota_init(struct quota_root *_root, const char *args,
@@ -123,7 +125,7 @@ static int fs_quota_init(struct quota_root *_root, const char *args,
 	const struct quota_param_parser fs_params[] = {
 		{.param_name = "user", .param_handler = handle_user_param},
 		{.param_name = "group", .param_handler = handle_group_param},
-		{.param_name = "mount", .param_handler = handle_mount_param},
+		{.param_name = "mount=", .param_handler = handle_mount_param},
 		{.param_name = "inode_per_mail", .param_handler = handle_inode_param},
 		quota_param_hidden, quota_param_noenforcing, quota_param_ns,
 		{.param_name = NULL}
