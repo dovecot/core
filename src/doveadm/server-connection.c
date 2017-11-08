@@ -333,7 +333,7 @@ static void server_connection_input(struct server_connection *conn)
 	if (conn->to_input != NULL)
 		timeout_remove(&conn->to_input);
 
-	if (!conn->authenticate_sent || !conn->authenticated) {
+	if (!conn->authenticated) {
 		while((line = i_stream_read_next_line(conn->input)) != NULL) {
 			if (strncmp(line, "VERSION\t", 8) == 0) {
 				if (!version_string_verify_full(line, "doveadm-client",
