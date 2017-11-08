@@ -43,6 +43,8 @@ struct client_connection_tcp {
 static void
 client_connection_tcp_input(struct client_connection_tcp *conn);
 static void
+client_connection_tcp_send_auth_handshake(struct client_connection_tcp *conn);
+static void
 client_connection_tcp_destroy(struct client_connection_tcp **_conn);
 
 static failure_callback_t *orig_error_callback, *orig_fatal_callback;
@@ -502,6 +504,7 @@ client_connection_tcp_input(struct client_connection_tcp *conn)
 					   DOVEADM_CLIENT_PROTOCOL_VERSION_LINE"\n");
 			conn->use_multiplex = TRUE;
 		}
+		client_connection_tcp_send_auth_handshake(conn);
 		conn->handshaked = TRUE;
 	}
 	if (!conn->authenticated) {
@@ -650,7 +653,6 @@ client_connection_tcp_create(int fd, int listen_fd, bool ssl)
 	}
 	conn->preauthenticated =
 		client_connection_is_preauthenticated(listen_fd);
-	client_connection_tcp_send_auth_handshake(conn);
 	client_connection_set_proctitle(&conn->conn, "");
 
 	return &conn->conn;
