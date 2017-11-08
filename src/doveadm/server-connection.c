@@ -60,7 +60,7 @@ struct server_connection {
 
 	enum server_reply_state state;
 
-	unsigned int handshaked:1;
+	unsigned int authenticate_sent:1;
 	unsigned int authenticated:1;
 	unsigned int streaming:1;
 };
@@ -333,7 +333,7 @@ static void server_connection_input(struct server_connection *conn)
 	if (conn->to_input != NULL)
 		timeout_remove(&conn->to_input);
 
-	if (!conn->handshaked || !conn->authenticated) {
+	if (!conn->authenticate_sent || !conn->authenticated) {
 		while((line = i_stream_read_next_line(conn->input)) != NULL) {
 			if (strncmp(line, "VERSION\t", 8) == 0) {
 				if (!version_string_verify_full(line, "doveadm-client",
@@ -352,11 +352,11 @@ static void server_connection_input(struct server_connection *conn)
 				server_connection_authenticated(conn);
 				break;
 			} else if (strcmp(line, "-") == 0) {
-				if (!conn->handshaked &&
+				if (!conn->authenticate_sent &&
 				    server_connection_authenticate(conn) < 0) {
 					server_connection_destroy(&conn);
 					return;
-				} else if (conn->handshaked) {
+				} else if (conn->authenticate_sent) {
 					i_error("doveadm authentication failed (%s)",
 						line+1);
 					server_connection_destroy(&conn);
@@ -368,7 +368,7 @@ static void server_connection_input(struct server_connection *conn)
 				server_connection_destroy(&conn);
 				return;
 			}
-			conn->handshaked = TRUE;
+			conn->authenticate_sent = TRUE;
 		}
 
 		if (line == NULL) {
