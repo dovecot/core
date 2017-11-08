@@ -28,6 +28,8 @@
 #define MAX_INBUF_SIZE (1024*1024)
 
 static void client_connection_input(struct client_connection *conn);
+static void
+client_connection_send_auth_handshake(struct client_connection *conn);
 
 static failure_callback_t *orig_error_callback, *orig_fatal_callback;
 static failure_callback_t *orig_info_callback, *orig_debug_callback = NULL;
@@ -505,6 +507,7 @@ static void client_connection_input(struct client_connection *conn)
 					   DOVEADM_CLIENT_PROTOCOL_VERSION_LINE"\n");
 			conn->use_multiplex = TRUE;
 		}
+		client_connection_send_auth_handshake(conn);
 		conn->handshaked = TRUE;
 	}
 	if (!conn->authenticated) {
@@ -672,7 +675,6 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 	}
 	conn->preauthenticated =
 		client_connection_is_preauthenticated(listen_fd);
-	client_connection_send_auth_handshake(conn);
 
 	client_connection_set_proctitle(conn, "");
 
