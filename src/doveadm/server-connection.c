@@ -355,7 +355,8 @@ static void server_connection_input(struct server_connection *conn)
 
 	while (!conn->authenticated) {
 		if ((line = i_stream_next_line(conn->input)) == NULL) {
-			if (conn->input->eof || conn->input->stream_errno != 0) {
+			if (conn->input->eof) {
+				/* we'll also get here if the line is too long */
 				server_log_disconnect_error(conn);
 				server_connection_destroy(&conn);
 			}
