@@ -99,6 +99,7 @@ liblib_la_SOURCES = \
 	md5.c \
 	memarea.c \
 	mempool.c \
+	mempool-allocfree.c \
 	mempool-alloconly.c \
 	mempool-datastack.c \
 	mempool-system.c \
@@ -368,6 +369,7 @@ test_lib_SOURCES = \
 	test-malloc-overflow.c \
 	test-memarea.c \
 	test-mempool.c \
+	test-mempool-allocfree.c \
 	test-mempool-alloconly.c \
 	test-pkcs5.c \
 	test-net.c \
