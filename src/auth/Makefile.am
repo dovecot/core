@@ -12,9 +12,14 @@ if LDAP_PLUGIN
 LDAP_LIB = libauthdb_ldap.la
 endif
 
+if AUTH_LUA_PLUGIN
+LUA_LIB = libauthdb_lua.la
+endif
+
 auth_module_LTLIBRARIES = \
 	$(GSSAPI_LIB) \
 	$(LDAP_LIB) \
+	$(LUA_LIB) \
 	libauthdb_imap.la
 
 pkglibexecdir = $(libexecdir)/dovecot
@@ -36,9 +41,11 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-oauth2 \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
+	-I$(top_srcdir)/src/lib-lua \
 	-DAUTH_MODULE_DIR=\""$(auth_moduledir)"\" \
 	-DPKG_LIBEXECDIR=\""$(pkglibexecdir)"\" \
 	-DPKG_RUNDIR=\""$(rundir)"\" \
+	$(LUA_CFLAGS) \
 	$(AUTH_CFLAGS)
 
 auth_LDFLAGS = -export-dynamic
@@ -65,12 +72,17 @@ auth_libs = \
 	$(LIBDOVECOT_SQL) \
 	$(LIBSODIUM_LIBS)
 
+if !AUTH_LUA_PLUGIN
+auth_libs += ../lib-lua/libdovecot-lua.la
+endif
+
 auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS)
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
 auth_SOURCES = main.c
 
 ldap_sources = db-ldap.c passdb-ldap.c userdb-ldap.c
+lua_sources = db-lua.c passdb-lua.c userdb-lua.c
 
 libauth_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 libauth_la_SOURCES = \
@@ -142,7 +154,8 @@ libauth_la_SOURCES = \
 	userdb-vpopmail.c \
 	userdb-sql.c \
 	userdb-template.c \
-	$(ldap_sources)
+	$(ldap_sources) \
+	$(lua_sources)
 
 headers = \
 	auth.h \
@@ -197,6 +210,13 @@ libauthdb_ldap_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_ldap_la_SOURCES = $(ldap_sources)
 endif
 
+if AUTH_LUA_PLUGIN
+libauthdb_lua_la_LDFLAGS = -module -avoid-version
+libauthdb_lua_la_LIBADD = ../lib-lua/libdovecot-lua.la $(LUA_LIBS)
+libauthdb_lua_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
+libauthdb_lua_la_SOURCES = $(lua_sources)
+endif
+
 libauthdb_imap_la_LDFLAGS = -module -avoid-version
 libauthdb_imap_la_LIBADD = \
 	../lib-imap-client/libimap_client.la \
@@ -232,7 +252,7 @@ test_programs = \
 
 noinst_PROGRAMS = $(test_programs)
 
-noinst_HEADERS = test-auth.h crypt-blowfish.h
+noinst_HEADERS = test-auth.h crypt-blowfish.h db-lua.h
 
 test_libs = \
 	../lib-dovecot/libdovecot.la
@@ -263,6 +283,10 @@ test_auth_SOURCES = \
 	test-db-dict.c \
 	test-mock.c \
 	test-main.c
+if !AUTH_LUA_PLUGIN
+test_auth_SOURCES += test-lua.c
+endif
+
 test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS)
 test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 

@@ -1,0 +1,692 @@
+/* Copyright (c) 2017 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#if defined(BUILTIN_LUA) || defined(PLUGIN_BUILD)
+
+#include "llist.h"
+#include "istream.h"
+#include "array.h"
+#include "sha1.h"
+#include "hex-binary.h"
+#include "auth.h"
+#include "passdb.h"
+#include "userdb.h"
+#include "auth-request.h"
+#include "userdb-template.h"
+#include "passdb-template.h"
+#include "password-scheme.h"
+#include "auth-request-var-expand.h"
+
+#define AUTH_LUA_PASSDB_LOOKUP "auth_passdb_lookup"
+#define AUTH_LUA_USERDB_LOOKUP "auth_userdb_lookup"
+#define AUTH_LUA_USERDB_ITERATE "auth_userdb_iterate"
+
+#define AUTH_LUA_DOVECOT_AUTH "dovecot_auth"
+#define AUTH_LUA_AUTH_REQUEST "auth_request*"
+
+#include "db-lua.h"
+#include "dlua-script-private.h"
+
+struct auth_lua_userdb_iterate_context {
+	struct userdb_iterate_context ctx;
+	pool_t pool;
+	unsigned int idx;
+	ARRAY_TYPE(const_string) users;
+};
+
+static struct auth_request *
+auth_lua_check_auth_request(struct dlua_script *script, int arg);
+
+static int
+auth_request_lua_do_var_expand(struct auth_request *req, const char *tpl,
+			       const char **value_r, const char **error_r)
+{
+	const char *error;
+	if (t_auth_request_var_expand(tpl, req, NULL, value_r, &error) < 0) {
+		*error_r = t_strdup_printf("var_expand(%s) failed: %s",
+					   tpl, error);
+		return -1;
+	}
+	return 0;
+}
+
+static int auth_request_lua_var_expand(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *req = auth_lua_check_auth_request(script, 1);
+	const char *tpl = luaL_checkstring(L, 2);
+	const char *value, *error;
+
+	if (auth_request_lua_do_var_expand(req, tpl, &value, &error) < 0) {
+		luaL_error(L, error);
+	} else {
+		lua_pushstring(L, value);
+	}
+	return 1;
+}
+
+static const char *const *
+auth_request_template_build(struct auth_request *req, const char *str,
+			    unsigned int *count_r)
+{
+	if (req->userdb_lookup) {
+		struct userdb_template *tpl =
+			userdb_template_build(pool_datastack_create(), "lua", str);
+		if (userdb_template_is_empty(tpl))
+			return NULL;
+		return userdb_template_get_args(tpl, count_r);
+	} else {
+		struct passdb_template *tpl =
+			passdb_template_build(pool_datastack_create(), str);
+		if (passdb_template_is_empty(tpl))
+			return NULL;
+		return passdb_template_get_args(tpl, count_r);
+	}
+}
+
+static int auth_request_lua_response_from_template(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *req = auth_lua_check_auth_request(script, 1);
+	const char *tplstr = luaL_checkstring(L, 2);
+	const char *error,*expanded;
+	unsigned int count,i;
+
+	const char *const *fields = auth_request_template_build(req, tplstr, &count);
+
+	/* push new table to stack */
+	lua_newtable(L);
+
+	if (fields == NULL)
+		return 1;
+
+	i_assert((count % 2) == 0);
+
+	for(i = 0; i < count; i+=2) {
+		const char *key = fields[i];
+		const char *value = fields[i+1];
+
+		if (value == NULL) {
+			lua_pushnil(L);
+		} else if (auth_request_lua_do_var_expand(req, value, &expanded, &error) < 0) {
+			luaL_error(L, error);
+			break;
+		} else {
+			lua_pushstring(L, expanded);
+		}
+		lua_setfield(L, -2, key);
+	}
+
+	/* stack should be left with table */
+	return 1;
+}
+
+static int auth_request_lua_log_debug(lua_State *L)
+{
+	if (global_auth_settings->debug) {
+		struct dlua_script *script = dlua_script_from_state(L);
+		struct auth_request *request = auth_lua_check_auth_request(script, 1);
+		const char *msg = luaL_checkstring(L, 2);
+		auth_request_log_debug(request, AUTH_SUBSYS_DB, "db-lua: %s", msg);
+	}
+	return 0;
+}
+
+static int auth_request_lua_log_info(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	const char *msg = luaL_checkstring(L, 2);
+	auth_request_log_info(request, AUTH_SUBSYS_DB, "db-lua: %s", msg);
+	return 0;
+}
+
+static int auth_request_lua_log_warning(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	const char *msg = luaL_checkstring(L, 2);
+	auth_request_log_warning(request, AUTH_SUBSYS_DB, "db-lua: %s", msg);
+	return 0;
+}
+
+static int auth_request_lua_log_error(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	const char *msg = luaL_checkstring(L, 2);
+	auth_request_log_error(request, AUTH_SUBSYS_DB, "db-lua: %s", msg);
+	return 0;
+}
+
+static int auth_request_lua_var_expand_func(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	const char *key = luaL_checkstring(L, 2);
+	const char *param = luaL_checkstring(L, 3);
+	const char *value, *error;
+	/* allows setting parameters for the call */
+	const char *tpl =
+		 t_strdup_printf("%%{%s%s%s}",
+				 key,
+				 (*param == ';' ? "" : ":"),
+				 param);
+
+	if (auth_request_lua_do_var_expand(request, tpl, &value, &error) < 0) {
+		luaL_error(L, error);
+		return 1;
+	}
+	lua_pushstring(L, value);
+
+	return 1;
+}
+
+/* put all methods here */
+static const luaL_Reg auth_request_methods[] ={
+	{ "var_expand", auth_request_lua_var_expand },
+	{ "response_from_template", auth_request_lua_response_from_template },
+	{ "log_debug", auth_request_lua_log_debug },
+	{ "log_info", auth_request_lua_log_info },
+	{ "log_warning", auth_request_lua_log_warning },
+	{" log_error", auth_request_lua_log_error },
+	{ NULL, NULL }
+};
+
+static int auth_request_lua_index(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	struct auth_request *req = auth_lua_check_auth_request(script, 1);
+	const char *key = luaL_checkstring(L, 2);
+	lua_pop(L, 1);
+
+	const struct var_expand_table *table =
+		auth_request_get_var_expand_table(req, NULL);
+
+	/* check if it's variable */
+	for(unsigned int i = 0; i < AUTH_REQUEST_VAR_TAB_COUNT; i++) {
+		if (null_strcmp(table[i].long_key, key) == 0) {
+			if (table[i].value != NULL)
+				lua_pushstring(L, table[i].value);
+			else
+				lua_pushnil(L);
+			return 1;
+		}
+	}
+
+	/* check if it's a variable function */
+	const struct var_expand_func_table *ftable = auth_request_var_funcs_table;
+	while(ftable->func != NULL) {
+		if (null_strcmp(key, ftable->key) == 0) {
+			lua_pushcfunction(L, auth_request_lua_var_expand_func);
+			return 1;
+		}
+		ftable++;
+	}
+
+	/* check if it's function, then */
+	const luaL_Reg *ptr = auth_request_methods;
+	while(ptr->name != NULL) {
+		if (null_strcmp(key, ptr->name) == 0) {
+			lua_pushcfunction(L, ptr->func);
+			return 1;
+		}
+		ptr++;
+	}
+
+	luaL_error(L, "no such method");
+	return 1;
+}
+
+static void auth_lua_push_auth_request(struct dlua_script *script, struct auth_request *req)
+{
+	/* we want to store a pointer, not the actual request */
+	struct auth_request **bp =
+		(struct auth_request**)lua_newuserdata(script->L, sizeof(req));
+	*bp = req;
+	/* associate metatable */
+	luaL_setmetatable(script->L, AUTH_LUA_AUTH_REQUEST);
+}
+
+static struct auth_request *
+auth_lua_check_auth_request(struct dlua_script *script, int arg)
+{
+	struct auth_request **bp =
+		(struct auth_request**)luaL_checkudata(script->L, arg, AUTH_LUA_AUTH_REQUEST);
+	return *bp;
+}
+
+static void auth_lua_auth_request_register(struct dlua_script *script)
+{
+	luaL_newmetatable(script->L, AUTH_LUA_AUTH_REQUEST);
+	lua_pushcfunction(script->L, auth_request_lua_index);
+	lua_setfield(script->L, -2, "__index");
+	lua_pop(script->L, 1);
+}
+
+static struct dlua_table_values auth_lua_dovecot_auth_values[] = {
+	DLUA_TABLE_ENUM(PASSDB_RESULT_INTERNAL_FAILURE),
+	DLUA_TABLE_ENUM(PASSDB_RESULT_SCHEME_NOT_AVAILABLE),
+	DLUA_TABLE_ENUM(PASSDB_RESULT_USER_UNKNOWN),
+	DLUA_TABLE_ENUM(PASSDB_RESULT_USER_DISABLED),
+	DLUA_TABLE_ENUM(PASSDB_RESULT_PASS_EXPIRED),
+	DLUA_TABLE_ENUM(PASSDB_RESULT_NEXT),
+	DLUA_TABLE_ENUM(PASSDB_RESULT_PASSWORD_MISMATCH),
+	DLUA_TABLE_ENUM(PASSDB_RESULT_OK),
+
+	DLUA_TABLE_ENUM(USERDB_RESULT_INTERNAL_FAILURE),
+	DLUA_TABLE_ENUM(USERDB_RESULT_USER_UNKNOWN),
+	DLUA_TABLE_ENUM(USERDB_RESULT_OK),
+
+	DLUA_TABLE_END
+};
+static luaL_Reg auth_lua_dovecot_auth_methods[] = {
+	{ NULL, NULL }
+};
+
+static void auth_lua_dovecot_auth_register(struct dlua_script *script)
+{
+	dlua_getdovecot(script);
+	/* Create new table for holding values */
+	lua_newtable(script->L);
+
+	/* register constants */
+	dlua_setmembers(script, auth_lua_dovecot_auth_values, -1);
+
+	/* push new metatable to stack */
+	luaL_newmetatable(script->L, AUTH_LUA_DOVECOT_AUTH);
+	/* this will register functions to the metatable itself */
+	luaL_setfuncs(script->L, auth_lua_dovecot_auth_methods, 0);
+	/* point __index to self */
+	lua_pushvalue(script->L, -1);
+	lua_setfield(script->L, -1, "__index");
+	/* set table's metatable, pops stack */
+	lua_setmetatable(script->L, -2);
+
+	/* put this as "dovecot.auth" */
+	lua_setfield(script->L, -2, "auth");
+}
+
+int auth_lua_script_init(struct dlua_script *script, const char **error_r)
+{
+	dlua_dovecot_register(script);
+	auth_lua_dovecot_auth_register(script);
+	auth_lua_auth_request_register(script);
+	return dlua_script_init(script, error_r);
+}
+
+static int auth_lua_call_lookup(struct dlua_script *script, const char *fn,
+				struct auth_request *req, const char **error_r)
+{
+	int err = 0;
+
+	i_assert(script != NULL);
+
+	/* call lua function passdb_lookup, it is expected to return fields */
+	lua_getglobal(script->L, fn);
+	if (!lua_isfunction(script->L, -1)) {
+		lua_pop(script->L, 1);
+		*error_r = t_strdup_printf("%s is not a function", fn);
+		return -1;
+	}
+
+	if (req->debug)
+		auth_request_log_debug(req, AUTH_SUBSYS_DB, "Calling %s", fn);
+
+	/* call with auth request as parameter */
+	auth_lua_push_auth_request(script, req);
+	if (lua_pcall(script->L, 1, 2, 0) != 0) {
+		*error_r = t_strdup_printf("db-lua: %s(req) failed: %s",
+					   fn, lua_tostring(script->L, -1));
+		lua_pop(script->L, 1);
+		return -1;
+	} else if (!lua_isnumber(script->L, -2)) {
+		*error_r = t_strdup_printf("db-lua: %s(req) invalid return value "
+					   "(expected number got %s)",
+					   fn, luaL_typename(script->L, -2));
+		err = -1;
+	} else if (!lua_isstring(script->L, -1) && !lua_istable(script->L, -1)) {
+		*error_r = t_strdup_printf("db-lua: %s(req) invalid return value "
+					   "(expected string or table, got %s)",
+					   fn, luaL_typename(script->L, -1));
+		err = -1;
+	}
+
+	if (err != 0) {
+		lua_pop(script->L, 2);
+		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		return PASSDB_RESULT_INTERNAL_FAILURE;
+	}
+
+	return 0;
+}
+
+static void
+auth_lua_export_fields(struct auth_request *req,
+		       const char *str,
+		       const char **scheme_r, const char **password_r)
+{
+	const char *const *fields = t_strsplit_spaces(str, " ");
+	while(*fields != NULL) {
+		const char *value = strchr(*fields, '=');
+		const char *key;
+
+		if (value == NULL) {
+			key = *fields;
+			value = "";
+		} else {
+			key = t_strdup_until(*fields, value++);
+		}
+
+		if (password_r != NULL && strcmp(key, "password") == 0 &&
+		    req->userdb_lookup) {
+			*scheme_r = password_get_scheme(&value);
+			*password_r = value;
+		} else if (req->userdb_lookup) {
+			auth_request_set_userdb_field(req, key, value);
+		} else {
+			auth_request_set_field(req, key, value, STATIC_PASS_SCHEME);
+		}
+		fields++;
+	}
+}
+
+static void auth_lua_export_table(struct dlua_script *script, struct auth_request *req,
+				 const char **scheme_r, const char **password_r)
+{
+	lua_pushvalue(script->L, -1);
+	lua_pushnil(script->L);
+	while (lua_next(script->L, -2) != 0) {
+		const char *key = t_strdup(lua_tostring(script->L, -2));
+		const char *value;
+		if (lua_isnumber(script->L, -1)) {
+			value = dec2str(lua_tointeger(script->L, -1));
+		} else if (lua_isboolean(script->L, -1)) {
+			value = lua_toboolean(script->L, -1) ? "yes" : "no";
+		} else if (lua_isstring(script->L, -1)) {
+			value = t_strdup(lua_tostring(script->L, -1));
+		} else if (lua_isnil(script->L, -1)) {
+			value = "";
+		} else {
+			auth_request_log_warning(req, AUTH_SUBSYS_DB,
+						 "db-lua: '%s' has invalid value - ignoring",
+						 key);
+			value = "";
+		}
+
+		if (password_r != NULL && strcmp(key, "password") == 0 &&
+		    !req->userdb_lookup) {
+			*scheme_r = password_get_scheme(&value);
+			*password_r = value;
+		} else if (req->userdb_lookup) {
+			auth_request_set_userdb_field(req, key, value);
+		} else {
+			auth_request_set_field(req, key, value, STATIC_PASS_SCHEME);
+		}
+		lua_pop(script->L, 1);
+	}
+
+	lua_pop(script->L, 2);
+	lua_gc(script->L, LUA_GCCOLLECT, 0);
+}
+
+static enum userdb_result
+auth_lua_export_userdb_table(struct dlua_script *script, struct auth_request *req,
+			     const char **error_r)
+{
+	enum userdb_result ret = lua_tointeger(script->L, -2);
+
+	if (ret != USERDB_RESULT_OK) {
+		lua_pop(script->L, 2);
+		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		*error_r = "userdb failed";
+		return ret;
+	}
+
+	auth_lua_export_table(script, req, NULL, NULL);
+	return USERDB_RESULT_OK;
+}
+
+static enum passdb_result
+auth_lua_export_passdb_table(struct dlua_script *script, struct auth_request *req,
+			     const char **scheme_r, const char **password_r,
+			     const char **error_r)
+{
+	enum passdb_result ret = lua_tointeger(script->L, -2);
+
+	if (ret != PASSDB_RESULT_OK) {
+		lua_pop(script->L, 2);
+		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		*error_r = "passb failed";
+		return ret;
+	}
+
+	auth_lua_export_table(script, req, scheme_r, password_r);
+	return PASSDB_RESULT_OK;
+}
+
+static enum passdb_result
+auth_lua_call_lookup_finish(struct dlua_script *script, struct auth_request *req,
+			    const char **username_r, const char **password_r,
+			    const char **error_r)
+{
+	if (lua_istable(script->L, -1)) {
+		return auth_lua_export_passdb_table(script, req, NULL, NULL, error_r);
+	}
+
+	enum passdb_result ret = lua_tointeger(script->L, -2);
+	const char *str = t_strdup(lua_tostring(script->L, -1));
+	lua_pop(script->L, 2);
+	lua_gc(script->L, LUA_GCCOLLECT, 0);
+
+	if (ret != PASSDB_RESULT_OK && ret != PASSDB_RESULT_NEXT) {
+		*error_r = str;
+	} else {
+		auth_lua_export_fields(req, str, username_r, password_r);
+	}
+
+	return ret;
+}
+
+enum passdb_result
+auth_lua_call_password_verify(struct dlua_script *script,
+			      struct auth_request *req, const char *password, const char **error_r)
+{
+	int err = 0;
+	i_assert(script != NULL);
+
+	lua_getglobal(script->L, AUTH_LUA_PASSWORD_VERIFY);
+	if (!lua_isfunction(script->L, -1)) {
+		lua_pop(script->L, 1);
+		*error_r = t_strdup_printf("%s is not a function", AUTH_LUA_PASSWORD_VERIFY);
+		return PASSDB_RESULT_INTERNAL_FAILURE;
+	}
+
+	if (req->debug)
+		auth_request_log_debug(req, AUTH_SUBSYS_DB, "Calling %s", AUTH_LUA_PASSWORD_VERIFY);
+
+	/* call with auth request, password as parameters */
+	auth_lua_push_auth_request(script, req);
+	lua_pushstring(script->L, password);
+	if (lua_pcall(script->L, 2, 2, 0) != 0) {
+		*error_r = t_strdup_printf("db-lua: %s(req, password) failed: %s",
+					   AUTH_LUA_PASSWORD_VERIFY,
+					   lua_tostring(script->L, -1));
+		lua_pop(script->L, 1);
+		return PASSDB_RESULT_INTERNAL_FAILURE;
+	} else if (!lua_isnumber(script->L, -2)) {
+		*error_r = t_strdup_printf("db-lua: %s invalid return value "
+					   "(expected number got %s)",
+					   AUTH_LUA_PASSWORD_VERIFY,
+					   luaL_typename(script->L, -2));
+		err = -1;
+	} else if (!lua_isstring(script->L, -1) && !lua_istable(script->L, -1)) {
+		*error_r = t_strdup_printf("db-lua: %s invalid return value "
+					   "(expected string or table, got %s)",
+					   AUTH_LUA_PASSWORD_VERIFY,
+					   luaL_typename(script->L, -1));
+		err = -1;
+	}
+
+	if (err != 0) {
+		lua_pop(script->L, 2);
+		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		return PASSDB_RESULT_INTERNAL_FAILURE;
+	}
+
+
+	return auth_lua_call_lookup_finish(script, req, NULL, NULL, error_r);
+}
+
+
+enum passdb_result
+auth_lua_call_passdb_lookup(struct dlua_script *script,
+			    struct auth_request *req, const char **scheme_r,
+			    const char **password_r, const char **error_r)
+{
+	*scheme_r = *password_r = NULL;
+	if (auth_lua_call_lookup(script, AUTH_LUA_PASSDB_LOOKUP, req, error_r) < 0) {
+		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		return PASSDB_RESULT_INTERNAL_FAILURE;
+	}
+
+	return auth_lua_call_lookup_finish(script, req, scheme_r, password_r, error_r);
+}
+
+
+enum userdb_result
+auth_lua_call_userdb_lookup(struct dlua_script *script,
+			    struct auth_request *req, const char **error_r)
+{
+	if (auth_lua_call_lookup(script, AUTH_LUA_USERDB_LOOKUP, req, error_r) < 0) {
+		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		return USERDB_RESULT_INTERNAL_FAILURE;
+	}
+
+	if (lua_istable(script->L, -1)) {
+		return auth_lua_export_userdb_table(script, req, error_r);
+	}
+
+	enum userdb_result ret = lua_tointeger(script->L, -2);
+	const char *str = t_strdup(lua_tostring(script->L, -1));
+	lua_pop(script->L, 2);
+	lua_gc(script->L, LUA_GCCOLLECT, 0);
+
+	if (ret != USERDB_RESULT_OK) {
+		*error_r = str;
+		return ret;
+	}
+	auth_lua_export_fields(req, str, NULL, NULL);
+
+	return USERDB_RESULT_OK;
+}
+
+struct userdb_iterate_context *
+auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_request *req,
+				  userdb_iter_callback_t *callback, void *context)
+{
+	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"lua userdb iterate", 128);
+	struct auth_lua_userdb_iterate_context *actx =
+		p_new(pool, struct auth_lua_userdb_iterate_context, 1);
+	int ret;
+
+	actx->pool = pool;
+
+	lua_getglobal(script->L, AUTH_LUA_USERDB_ITERATE);
+	if (!lua_isfunction(script->L, -1)) {
+		actx->ctx.failed = TRUE;
+		return &actx->ctx;
+	}
+
+	if (req->debug)
+		auth_request_log_debug(req, AUTH_SUBSYS_DB, "Calling %s", AUTH_LUA_USERDB_ITERATE);
+
+	if ((ret = lua_pcall(script->L, 0, 1, 0)) != 0) {
+		auth_request_log_error(req, AUTH_SUBSYS_DB, "db-lua: " AUTH_LUA_USERDB_ITERATE " failed: %s",
+				       lua_tostring(script->L, -1));
+		actx->ctx.failed = TRUE;
+		lua_pop(script->L, 1);
+		return &actx->ctx;
+	}
+
+	if (!lua_istable(script->L, -1)) {
+		auth_request_log_error(req, AUTH_SUBSYS_DB, "db-lua: Cannot iterate, return value is not table");
+		actx->ctx.failed = TRUE;
+		lua_pop(script->L, 1);
+		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		return &actx->ctx;
+	}
+
+	p_array_init(&actx->users, pool, 8);
+
+	lua_pushvalue(script->L, -1);
+	lua_pushnil(script->L);
+	while (lua_next(script->L, -2) != 0) {
+		lua_pushvalue(script->L, -2);
+		if (!lua_isstring(script->L, -1)) {
+			auth_request_log_error(req, AUTH_SUBSYS_DB, "db-lua: Value is not string");
+			actx->ctx.failed = TRUE;
+			lua_pop(script->L, 1);
+			lua_gc(script->L, LUA_GCCOLLECT, 0);
+			return &actx->ctx;
+		}
+		const char *str = p_strdup(pool, lua_tostring(script->L, -2));
+		array_append(&actx->users, &str, 1);
+		lua_pop(script->L, 2);
+	}
+
+	lua_gc(script->L, LUA_GCCOLLECT, 0);
+
+	actx->ctx.auth_request = req;
+	actx->ctx.callback = callback;
+	actx->ctx.context = context;
+
+	return &actx->ctx;
+}
+
+void auth_lua_userdb_iterate_next(struct userdb_iterate_context *ctx)
+{
+	struct auth_lua_userdb_iterate_context *actx =
+		container_of(ctx, struct auth_lua_userdb_iterate_context, ctx);
+
+	if (ctx->failed || actx->idx >= array_count(&actx->users)) {
+		ctx->callback(NULL, ctx->context);
+		return;
+	}
+
+	const char *const *user = array_idx(&actx->users, actx->idx++);
+	ctx->callback(*user, ctx->context);
+}
+
+int auth_lua_userdb_iterate_deinit(struct userdb_iterate_context *ctx)
+{
+	struct auth_lua_userdb_iterate_context *actx =
+		container_of(ctx, struct auth_lua_userdb_iterate_context, ctx);
+
+	int ret = ctx->failed ? -1 : 0;
+	pool_unref(&actx->pool);
+	return ret;
+}
+
+#ifndef BUILTIN_LUA
+/* Building a plugin */
+extern struct passdb_module_interface passdb_lua_plugin;
+extern struct userdb_module_interface userdb_lua_plugin;
+
+void authdb_lua_init(void);
+void authdb_lua_deinit(void);
+
+void authdb_lua_init(void)
+{
+	passdb_register_module(&passdb_lua_plugin);
+	userdb_register_module(&userdb_lua_plugin);
+
+}
+void authdb_lua_deinit(void)
+{
+	passdb_unregister_module(&passdb_lua_plugin);
+	userdb_unregister_module(&userdb_lua_plugin);
+}
+#endif
+
+#endif

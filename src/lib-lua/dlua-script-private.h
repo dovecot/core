@@ -44,7 +44,7 @@ struct dlua_script {
 	struct istream *in;
 	ssize_t last_read;
 
-	unsigned int ref;
+	int ref;
 	bool init:1;
 };
 
