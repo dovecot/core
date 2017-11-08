@@ -60,6 +60,7 @@ struct server_connection {
 
 	enum server_reply_state state;
 
+	bool version_received:1;
 	bool authenticate_sent:1;
 	bool authenticated:1;
 	bool streaming:1;
@@ -346,7 +347,11 @@ static void server_connection_input(struct server_connection *conn)
 
 	if (!conn->authenticated) {
 		while((line = i_stream_read_next_line(conn->input)) != NULL) {
-			if (strncmp(line, "VERSION\t", 8) == 0) {
+			/* Allow VERSION before or after the "+" or "-" line,
+			   because v2.2.33 sent the version after and newer
+			   versions send before. */
+			if (!conn->version_received &&
+			    strncmp(line, "VERSION\t", 8) == 0) {
 				if (!version_string_verify_full(line, "doveadm-client",
 								DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
 								&conn->minor)) {
@@ -355,6 +360,7 @@ static void server_connection_input(struct server_connection *conn)
 					server_connection_destroy(&conn);
 					return;
 				}
+				conn->version_received = TRUE;
 				continue;
 			}
 			if (strcmp(line, "+") == 0) {
