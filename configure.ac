@@ -541,6 +541,9 @@ userdb="$userdb static"
 dict_drivers=""
 
 dnl *** auth/userdb/dict things
+DOVECOT_WANT_LUA_PLUGIN
+DOVECOT_WANT_LUA
+DOVECOT_WANT_LUAJIT
 DOVECOT_WANT_PREFETCH
 DOVECOT_WANT_PASSWD
 DOVECOT_WANT_SHADOW
@@ -560,6 +563,14 @@ DOVECOT_WANT_CASSANDRA
 DOVECOT_WANT_VPOPMAIL
 
 DOVECOT_SQL
+
+AM_CONDITIONAL([HAVE_LUA], [test "x$with_luajit" = "xyes" || test "x$with_lua" = "xyes"])
+
+AS_IF([test "x$with_luajit" = "xyes" || test "x$with_lua" = "xyes"],
+  AS_IF([test "x$with_lua_plugin" = "xyes"],
+      [userdb="$userdb lua (plugin)"; passdb="$passdb lua (plugin)"],
+      [userdb="$userdb lua"; passdb="$passdb lua"],
+  ), [])
 
 if test $have_modules = yes; then
   AC_DEFINE(HAVE_MODULES,, [Define if you have dynamic module support])
