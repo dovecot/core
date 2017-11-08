@@ -8,7 +8,8 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-smtp \
 	-I$(top_srcdir)/src/lib-mail \
-	-I$(top_srcdir)/src/lib-storage
+	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-ssl-iostream
 
 liblda_la_SOURCES = \
 	lda-settings.c \

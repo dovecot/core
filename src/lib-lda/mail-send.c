@@ -14,6 +14,7 @@
 #include "istream-header-filter.h"
 #include "mail-storage.h"
 #include "mail-storage-settings.h"
+#include "iostream-ssl.h"
 #include "lda-settings.h"
 #include "mail-deliver.h"
 #include "smtp-address.h"
@@ -52,6 +53,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	struct mail_user *user = ctx->rcpt_user;
 	const struct mail_storage_settings *mail_set =
 		mail_user_set_get_storage_set(user);
+	struct ssl_iostream_settings ssl_set;
 	struct mail *mail = ctx->src_mail;
 	struct istream *input;
 	struct smtp_submit *smtp_submit;
@@ -89,7 +91,10 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 
 	vtable = get_var_expand_table(mail, recipient, reason);
 
-	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, NULL, NULL);
+	i_zero(&ssl_set);
+	mail_user_init_ssl_client_settings(user, &ssl_set);
+
+	smtp_submit = smtp_submit_init_simple(ctx->smtp_set, &ssl_set, NULL);
 	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);
 
