@@ -376,13 +376,10 @@ static void server_connection_input(struct server_connection *conn)
 				return;
 			}
 			conn->version_received = TRUE;
-			continue;
-		}
-		if (strcmp(line, "+") == 0) {
+		} else if (strcmp(line, "+") == 0) {
 			if (conn->minor > 0)
 				server_connection_start_multiplex(conn);
 			server_connection_authenticated(conn);
-			break;
 		} else if (strcmp(line, "-") == 0) {
 			if (conn->authenticate_sent) {
 				i_error("doveadm authentication failed (%s)",
