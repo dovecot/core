@@ -345,8 +345,15 @@ static void server_connection_input(struct server_connection *conn)
 
 	timeout_remove(&conn->to_input);
 
+	if (i_stream_read(conn->input) < 0) {
+		/* disconnected */
+		server_log_disconnect_error(conn);
+		server_connection_destroy(&conn);
+		return;
+	}
+
 	if (!conn->authenticated) {
-		while((line = i_stream_read_next_line(conn->input)) != NULL) {
+		while((line = i_stream_next_line(conn->input)) != NULL) {
 			/* Allow VERSION before or after the "+" or "-" line,
 			   because v2.2.33 sent the version after and newer
 			   versions send before. */
@@ -394,13 +401,6 @@ static void server_connection_input(struct server_connection *conn)
 				server_connection_destroy(&conn);
 			}
 		}
-		return;
-	}
-
-	if (i_stream_read(conn->input) < 0) {
-		/* disconnected */
-		server_log_disconnect_error(conn);
-		server_connection_destroy(&conn);
 		return;
 	}
 
