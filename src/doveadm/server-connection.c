@@ -376,13 +376,13 @@ static void server_connection_input(struct server_connection *conn)
 				server_connection_authenticated(conn);
 				break;
 			} else if (strcmp(line, "-") == 0) {
-				if (!conn->authenticate_sent &&
-				    server_connection_authenticate(conn) < 0) {
-					server_connection_destroy(&conn);
-					return;
-				} else if (conn->authenticate_sent) {
+				if (conn->authenticate_sent) {
 					i_error("doveadm authentication failed (%s)",
 						line+1);
+					server_connection_destroy(&conn);
+					return;
+				}
+				if (server_connection_authenticate(conn) < 0) {
 					server_connection_destroy(&conn);
 					return;
 				}
