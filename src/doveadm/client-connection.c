@@ -596,18 +596,23 @@ static int client_connection_init_ssl(struct client_connection *conn)
 	return 0;
 }
 
-static void
-client_connection_send_auth_handshake(struct client_connection *
-				      conn, int listen_fd)
+static bool
+client_connection_is_preauthenticated(int listen_fd)
 {
 	const char *listen_path;
 	struct stat st;
 
 	/* we'll have to do this with stat(), because at least in Linux
 	   fstat() always returns mode as 0777 */
-	if (net_getunixname(listen_fd, &listen_path) == 0 &&
-	    stat(listen_path, &st) == 0 && S_ISSOCK(st.st_mode) &&
-	    (st.st_mode & 0777) == 0600) {
+	return net_getunixname(listen_fd, &listen_path) == 0 &&
+		stat(listen_path, &st) == 0 && S_ISSOCK(st.st_mode) &&
+		(st.st_mode & 0777) == 0600;
+}
+
+static void
+client_connection_send_auth_handshake(struct client_connection *conn)
+{
+	if (conn->preauthenticated) {
 		/* no need for client to authenticate */
 		conn->authenticated = TRUE;
 		o_stream_nsend(conn->output, "+\n", 2);
@@ -665,7 +670,10 @@ client_connection_create(int fd, int listen_fd, bool ssl)
 			return NULL;
 		}
 	}
-	client_connection_send_auth_handshake(conn, listen_fd);
+	conn->preauthenticated =
+		client_connection_is_preauthenticated(listen_fd);
+	client_connection_send_auth_handshake(conn);
+
 	client_connection_set_proctitle(conn, "");
 
 	return conn;

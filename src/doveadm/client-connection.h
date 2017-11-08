@@ -21,6 +21,7 @@ struct client_connection {
 	const struct doveadm_settings *set;
 
 	unsigned int handshaked:1;
+	unsigned int preauthenticated:1;
 	unsigned int authenticated:1;
 	unsigned int io_setup:1;
 	unsigned int use_multiplex:1;
