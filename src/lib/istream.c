@@ -58,8 +58,7 @@ void i_stream_unref(struct istream **stream)
 	_stream = (*stream)->real_stream;
 
 	if (!io_stream_unref(&_stream->iostream)) {
-		if (_stream->line_str != NULL)
-			str_free(&_stream->line_str);
+		str_free(&_stream->line_str);
 		i_stream_snapshot_free(&_stream->prev_snapshot);
 		i_stream_unref(&_stream->parent);
 		io_stream_free(&_stream->iostream);

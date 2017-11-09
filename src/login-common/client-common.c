@@ -302,8 +302,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	timeout_remove(&client->to_disconnect);
 	timeout_remove(&client->to_auth_waiting);
-	if (client->auth_response != NULL)
-		str_free(&client->auth_response);
+	str_free(&client->auth_response);
 
 	if (client->proxy_password != NULL) {
 		safe_memset(client->proxy_password, 0,

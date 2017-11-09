@@ -316,8 +316,7 @@ bool http_client_request_unref(struct http_client_request **_req)
 	}
 	i_stream_unref(&req->payload_input);
 	o_stream_unref(&req->payload_output);
-	if (req->headers != NULL)
-		str_free(&req->headers);
+	str_free(&req->headers);
 	event_unref(&req->event);
 	pool_unref(&req->pool);
 	return FALSE;

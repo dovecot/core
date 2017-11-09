@@ -143,8 +143,7 @@ int cydir_sync_finish(struct cydir_sync_context **_ctx, bool success)
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
-	if (ctx->path != NULL)
-		str_free(&ctx->path);
+	str_free(&ctx->path);
 	i_free(ctx);
 	return ret;
 }

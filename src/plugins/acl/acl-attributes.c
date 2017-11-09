@@ -241,8 +241,7 @@ int acl_attribute_iter_deinit(struct mailbox_attribute_iter *iter)
 		mail_storage_set_internal_error(aiter->iter.box->storage);
 		ret = -1;
 	}
-	if (aiter->acl_name != NULL)
-		str_free(&aiter->acl_name);
+	str_free(&aiter->acl_name);
 	i_free(aiter);
 	return ret;
 }

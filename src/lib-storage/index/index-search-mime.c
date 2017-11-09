@@ -587,8 +587,7 @@ int index_search_mime_arg_match(struct mail_search_arg *args,
 				       search_mimepart_arg, &mpctx);
 
 	pool_unref(&mpctx.pool);
-	if (mpctx.buf != NULL)
-		str_free(&mpctx.buf);
+	str_free(&mpctx.buf);
 	return ret;
 }
 

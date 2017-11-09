@@ -666,8 +666,7 @@ int imap_fetch_end(struct imap_fetch_context *ctx)
 	}
 	ctx->client->output_cmd_lock = NULL;
 
-	if (state->cur_str != NULL)
-		str_free(&state->cur_str);
+	str_free(&state->cur_str);
 
 	i_stream_unref(&state->cur_input);
 
