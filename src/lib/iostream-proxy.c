@@ -128,8 +128,12 @@ void iostream_proxy_ref(struct iostream_proxy *proxy)
 
 void iostream_proxy_unref(struct iostream_proxy **proxy_r)
 {
-	i_assert(proxy_r != NULL && *proxy_r != NULL);
-	struct iostream_proxy *proxy = *proxy_r;
+	struct iostream_proxy *proxy;
+
+	if (proxy_r == NULL || *proxy_r == NULL)
+		return;
+
+	proxy = *proxy_r;
 	*proxy_r = NULL;
 
 	i_assert(proxy->ref > 0);
