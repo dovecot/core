@@ -3,10 +3,15 @@
 #include "lib.h"
 #include "buffer.h"
 #include "str.h"
-#include "unichar.h"
-#include "charset-utf8.h"
+#include "charset-utf8-private.h"
 
 #include <ctype.h>
+
+#ifdef HAVE_ICONV
+const struct charset_utf8_vfuncs *charset_utf8_vfuncs = &charset_iconv;
+#else
+const struct charset_utf8_vfuncs *charset_utf8_vfuncs = &charset_utf8only;
+#endif
 
 bool charset_is_utf8(const char *charset)
 {
@@ -65,4 +70,30 @@ charset_utf8_to_utf8(normalizer_func_t *normalizer,
 		buffer_append(dest, src, *src_size);
 	}
 	return res;
+}
+
+int charset_to_utf8_begin(const char *charset, normalizer_func_t *normalizer,
+			  struct charset_translation **t_r)
+{
+	return charset_utf8_vfuncs->to_utf8_begin(charset, normalizer, t_r);
+}
+
+void charset_to_utf8_end(struct charset_translation **_t)
+{
+	struct charset_translation *t = *_t;
+
+	*_t = NULL;
+	charset_utf8_vfuncs->to_utf8_end(t);
+}
+
+void charset_to_utf8_reset(struct charset_translation *t)
+{
+	charset_utf8_vfuncs->to_utf8_reset(t);
+}
+
+enum charset_result
+charset_to_utf8(struct charset_translation *t,
+		const unsigned char *src, size_t *src_size, buffer_t *dest)
+{
+	return charset_utf8_vfuncs->to_utf8(t, src, src_size, dest);
 }
