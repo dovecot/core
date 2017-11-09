@@ -387,8 +387,7 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 	}
 
 	iostream_proxy_unref(&proxy->iostream_proxy);
-	if (proxy->server_ssl_iostream != NULL)
-		ssl_iostream_destroy(&proxy->server_ssl_iostream);
+	ssl_iostream_destroy(&proxy->server_ssl_iostream);
 
 	io_remove(&proxy->server_io);
 	i_stream_destroy(&proxy->server_input);

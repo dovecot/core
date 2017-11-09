@@ -1025,8 +1025,7 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 		o_stream_uncork(conn->conn.output);
 	if (conn->smtp_parser != NULL)
 		smtp_command_parser_deinit(&conn->smtp_parser);
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_destroy(&conn->ssl_iostream);
+	ssl_iostream_destroy(&conn->ssl_iostream);
 
 	if (conn->callbacks != NULL &&
 		conn->callbacks->conn_disconnect != NULL) {

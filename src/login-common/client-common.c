@@ -249,8 +249,7 @@ void client_disconnect(struct client *client, const char *reason)
 		o_stream_uncork(client->output);
 	if (!client->login_success) {
 		io_remove(&client->io);
-		if (client->ssl_iostream != NULL)
-			ssl_iostream_destroy(&client->ssl_iostream);
+		ssl_iostream_destroy(&client->ssl_iostream);
 		iostream_proxy_unref(&client->iostream_fd_proxy);
 		i_stream_close(client->input);
 		o_stream_close(client->output);
@@ -362,8 +361,7 @@ bool client_unref(struct client **_client)
 	if (client->v.free != NULL)
 		client->v.free(client);
 
-	if (client->ssl_iostream != NULL)
-		ssl_iostream_destroy(&client->ssl_iostream);
+	ssl_iostream_destroy(&client->ssl_iostream);
 	iostream_proxy_unref(&client->iostream_fd_proxy);
 	if (client->fd_proxying) {
 		DLLIST_REMOVE(&client_fd_proxies, client);
