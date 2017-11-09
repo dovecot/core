@@ -161,6 +161,10 @@ void ssl_iostream_destroy(struct ssl_iostream **_ssl_io)
 {
 	struct ssl_iostream *ssl_io = *_ssl_io;
 
+	if (_ssl_io == NULL || *_ssl_io == NULL)
+		return;
+
+	ssl_io = *_ssl_io;
 	*_ssl_io = NULL;
 	ssl_vfuncs->destroy(ssl_io);
 }
