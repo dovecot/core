@@ -877,7 +877,7 @@ const char *net_ip2addr(const struct ip_addr *ip)
 
 static bool net_addr2ip_inet4_fast(const char *addr, struct ip_addr *ip)
 {
-	uint8_t *s_addr = (void *)&ip->u.ip4.s_addr;
+	uint8_t *saddr = (void *)&ip->u.ip4.s_addr;
 	unsigned int i, num;
 
 	if (str_parse_uint(addr, &num, &addr) < 0)
@@ -894,7 +894,7 @@ static bool net_addr2ip_inet4_fast(const char *addr, struct ip_addr *ip)
 	for (;;) {
 		if (num >= 256)
 			return FALSE;
-		s_addr[i] = num;
+		saddr[i] = num;
 		if (i == 3)
 			break;
 		i++;
