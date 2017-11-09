@@ -717,8 +717,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	dsync_ibc_deinit(&ibc);
 	if (ibc2 != NULL)
 		dsync_ibc_deinit(&ibc2);
-	if (ctx->ssl_iostream != NULL)
-		ssl_iostream_destroy(&ctx->ssl_iostream);
+	ssl_iostream_destroy(&ctx->ssl_iostream);
 	if (ctx->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&ctx->ssl_ctx);
 	if (ctx->input != NULL) {

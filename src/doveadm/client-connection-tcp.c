@@ -623,8 +623,7 @@ client_connection_tcp_free(struct client_connection *_conn)
 		doveadm_server_restore_logs();
 		o_stream_unref(&conn->log_out);
 	}
-	if (conn->ssl_iostream != NULL)
-		ssl_iostream_destroy(&conn->ssl_iostream);
+	ssl_iostream_destroy(&conn->ssl_iostream);
 
 	io_remove(&conn->io);
 	o_stream_destroy(&conn->output);
