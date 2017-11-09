@@ -39,6 +39,9 @@ string_t *t_str_new_const(const char *str, size_t len)
 
 void str_free(string_t **str)
 {
+	if (str == NULL || *str == NULL)
+		return;
+
 	buffer_free(str);
 }
 
