@@ -74,8 +74,8 @@ static const struct setting_define director_setting_defines[] = {
 	DEF(SET_STR, director_flush_socket),
 	DEF(SET_TIME, director_user_expire),
 	DEF(SET_TIME, director_user_kick_delay),
-	DEF(SET_TIME, director_max_parallel_moves),
-	DEF(SET_TIME, director_max_parallel_kicks),
+	DEF(SET_UINT, director_max_parallel_moves),
+	DEF(SET_UINT, director_max_parallel_kicks),
 	DEF(SET_SIZE, director_output_buffer_size),
 
 	SETTING_DEFINE_LIST_END
