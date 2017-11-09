@@ -1,7 +1,7 @@
 /* Copyright (c) 2002-2017 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "charset-utf8.h"
+#include "charset-utf8-private.h"
 
 #ifndef HAVE_ICONV
 
@@ -9,8 +9,10 @@ struct charset_translation {
 	normalizer_func_t *normalizer;
 };
 
-int charset_to_utf8_begin(const char *charset, normalizer_func_t *normalizer,
-			  struct charset_translation **t_r)
+static int
+utf8only_charset_to_utf8_begin(const char *charset,
+			       normalizer_func_t *normalizer,
+			       struct charset_translation **t_r)
 {
 	struct charset_translation *t;
 
@@ -25,23 +27,29 @@ int charset_to_utf8_begin(const char *charset, normalizer_func_t *normalizer,
 	return 0;
 }
 
-void charset_to_utf8_end(struct charset_translation **_t)
+static void utf8only_charset_to_utf8_end(struct charset_translation *t)
 {
-	struct charset_translation *t = *_t;
-
-	*_t = NULL;
 	i_free(t);
 }
 
-void charset_to_utf8_reset(struct charset_translation *t ATTR_UNUSED)
+static void
+utf8only_charset_to_utf8_reset(struct charset_translation *t ATTR_UNUSED)
 {
 }
 
-enum charset_result
-charset_to_utf8(struct charset_translation *t,
-		const unsigned char *src, size_t *src_size, buffer_t *dest)
+static enum charset_result
+utf8only_charset_to_utf8(struct charset_translation *t,
+			 const unsigned char *src, size_t *src_size,
+			 buffer_t *dest)
 {
 	return charset_utf8_to_utf8(t->normalizer, src, src_size, dest);
 }
+
+const struct charset_utf8_vfuncs charset_utf8only = {
+	.to_utf8_begin = utf8only_charset_to_utf8_begin,
+	.to_utf8_end = utf8only_charset_to_utf8_end,
+	.to_utf8_reset = utf8only_charset_to_utf8_reset,
+	.to_utf8 = utf8only_charset_to_utf8,
+};
 
 #endif
