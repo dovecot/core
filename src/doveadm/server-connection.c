@@ -293,6 +293,7 @@ server_connection_authenticate(struct server_connection *conn)
 	str_append_c(cmd, '\n');
 
 	o_stream_nsend(conn->output, cmd->data, cmd->used);
+	conn->authenticate_sent = TRUE;
 	return 0;
 }
 
@@ -392,7 +393,6 @@ static void server_connection_input(struct server_connection *conn)
 				server_connection_destroy(&conn);
 				return;
 			}
-			conn->authenticate_sent = TRUE;
 		} else {
 			if (conn->input->eof || conn->input->stream_errno != 0) {
 				server_log_disconnect_error(conn);
