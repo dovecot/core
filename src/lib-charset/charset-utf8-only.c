@@ -3,8 +3,6 @@
 #include "lib.h"
 #include "charset-utf8-private.h"
 
-#ifndef HAVE_ICONV
-
 struct charset_translation {
 	normalizer_func_t *normalizer;
 };
@@ -51,5 +49,3 @@ const struct charset_utf8_vfuncs charset_utf8only = {
 	.to_utf8_reset = utf8only_charset_to_utf8_reset,
 	.to_utf8 = utf8only_charset_to_utf8,
 };
-
-#endif
