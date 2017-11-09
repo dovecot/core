@@ -360,45 +360,44 @@ static void server_connection_input(struct server_connection *conn)
 				server_connection_destroy(&conn);
 			}
 			return;
-		} else {
-			/* Allow VERSION before or after the "+" or "-" line,
-			   because v2.2.33 sent the version after and newer
-			   versions send before. */
-			if (!conn->version_received &&
-			    strncmp(line, "VERSION\t", 8) == 0) {
-				if (!version_string_verify_full(line, "doveadm-client",
-								DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
-								&conn->minor)) {
-					i_error("doveadm server not compatible with this client"
-						"(mixed old and new binaries?)");
-					server_connection_destroy(&conn);
-					return;
-				}
-				conn->version_received = TRUE;
-				continue;
-			}
-			if (strcmp(line, "+") == 0) {
-				if (conn->minor > 0)
-					server_connection_start_multiplex(conn);
-				server_connection_authenticated(conn);
-				break;
-			} else if (strcmp(line, "-") == 0) {
-				if (conn->authenticate_sent) {
-					i_error("doveadm authentication failed (%s)",
-						line+1);
-					server_connection_destroy(&conn);
-					return;
-				}
-				if (server_connection_authenticate(conn) < 0) {
-					server_connection_destroy(&conn);
-					return;
-				}
-			} else {
-				i_error("doveadm server sent invalid handshake: %s",
-					line);
+		}
+		/* Allow VERSION before or after the "+" or "-" line,
+		   because v2.2.33 sent the version after and newer
+		   versions send before. */
+		if (!conn->version_received &&
+		    strncmp(line, "VERSION\t", 8) == 0) {
+			if (!version_string_verify_full(line, "doveadm-client",
+							DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
+							&conn->minor)) {
+				i_error("doveadm server not compatible with this client"
+					"(mixed old and new binaries?)");
 				server_connection_destroy(&conn);
 				return;
 			}
+			conn->version_received = TRUE;
+			continue;
+		}
+		if (strcmp(line, "+") == 0) {
+			if (conn->minor > 0)
+				server_connection_start_multiplex(conn);
+			server_connection_authenticated(conn);
+			break;
+		} else if (strcmp(line, "-") == 0) {
+			if (conn->authenticate_sent) {
+				i_error("doveadm authentication failed (%s)",
+					line+1);
+				server_connection_destroy(&conn);
+				return;
+			}
+			if (server_connection_authenticate(conn) < 0) {
+				server_connection_destroy(&conn);
+				return;
+			}
+		} else {
+			i_error("doveadm server sent invalid handshake: %s",
+				line);
+			server_connection_destroy(&conn);
+			return;
 		}
 	}
 
