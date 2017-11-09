@@ -110,8 +110,7 @@ void fts_filter_unref(struct fts_filter **_fpp)
 		fp->v.destroy(fp);
 	else {
 		/* default destroy implementation */
-		if (fp->token != NULL)
-			str_free(&fp->token);
+		str_free(&fp->token);
 		i_free(fp);
 	}
 }

@@ -410,10 +410,8 @@ fts_backend_solr_update_deinit(struct fts_backend_update_context *_ctx)
 			ret = -1;
 	}
 
-	if (ctx->cmd != NULL)
-		str_free(&ctx->cmd);
-	if (ctx->cmd_expunge != NULL)
-		str_free(&ctx->cmd_expunge);
+	str_free(&ctx->cmd);
+	str_free(&ctx->cmd_expunge);
 	array_foreach_modifiable(&ctx->fields, field) {
 		str_free(&field->value);
 		i_free(field->key);

@@ -214,8 +214,7 @@ static void cmd_id_free(struct imap_client *client)
 {
 	struct imap_client_cmd_id *id = client->cmd_id;
 
-	if (id->log_reply != NULL)
-		str_free(&id->log_reply);
+	str_free(&id->log_reply);
 	if (id->log_keys != NULL)
 		p_strsplit_free(default_pool, id->log_keys);
 	imap_parser_unref(&id->parser);
