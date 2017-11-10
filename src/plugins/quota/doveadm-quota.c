@@ -12,26 +12,27 @@ const char *doveadm_quota_plugin_version = DOVECOT_ABI_VERSION;
 void doveadm_quota_plugin_init(struct module *module);
 void doveadm_quota_plugin_deinit(void);
 
-static void cmd_quota_get_root(struct quota_root *root)
+static int cmd_quota_get_root(struct quota_root *root)
 {
 	const char *const *res;
 	const char *error;
 	uint64_t value, limit;
-	enum quota_get_result ret;
+	enum quota_get_result qret;
+	int ret = 0;
 
 	res = quota_root_get_resources(root);
 	for (; *res != NULL; res++) {
-		ret = quota_get_resource(root, "", *res, &value, &limit, &error);
+		qret = quota_get_resource(root, "", *res, &value, &limit, &error);
 		doveadm_print(root->set->name);
 		doveadm_print(*res);
-		if (ret == QUOTA_GET_RESULT_LIMITED) {
+		if (qret == QUOTA_GET_RESULT_LIMITED) {
 			doveadm_print_num(value);
 			doveadm_print_num(limit);
 			if (limit > 0)
 				doveadm_print_num(value*100 / limit);
 			else
 				doveadm_print("0");
-		} else if (ret == QUOTA_GET_RESULT_UNLIMITED) {
+		} else if (qret == QUOTA_GET_RESULT_UNLIMITED) {
 			doveadm_print_num(value);
 			doveadm_print("-");
 			doveadm_print("0");
@@ -41,12 +42,14 @@ static void cmd_quota_get_root(struct quota_root *root)
 			doveadm_print("error");
 			doveadm_print("error");
 			doveadm_print("error");
+			ret = -1;
 		}
 	}
+	return ret;
 }
 
 static int
-cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
+cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx,
 		  struct mail_user *user)
 {
 	struct quota_user *quser = QUOTA_USER_CONTEXT(user);
@@ -58,9 +61,13 @@ cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 		return -1;
 	}
 
+	int ret = 0;
 	array_foreach(&quser->quota->roots, root)
-		cmd_quota_get_root(*root);
-	return 0;
+		if (cmd_quota_get_root(*root) < 0)
+			ret = -1;
+	if (ret < 0)
+		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
+	return ret;
 }
 
 static void cmd_quota_get_init(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
