@@ -38,6 +38,25 @@ struct message_part_data {
 	struct message_part_envelope *envelope;
 };
 
+struct message_part_attachment_settings {
+	/* By default, all attachments with content-disposition=attachment
+	   or content-disposition=inline;filename=... are consired as an
+	   attachment.
+
+	   If content_type_filter is set to an array of masks, then
+	   anything starting with ! is excluded, and anything without
+	   is considered negating exclusion. Setting foo/bar alone will */
+//	   not do anything, but setting !foo/*, foo/bar, will exclude
+	/* all attachments with foo/anything content type, but will
+	   accept foo/bar.
+
+	   Setting exclude_inlined, will exclude **any** inlined attachment
+	   regardless of what content_type_filter is.
+	*/
+	const char *const *content_type_filter;
+	bool exclude_inlined;
+};
+
 extern const char *message_part_envelope_headers[];
 
 /*
@@ -54,6 +73,17 @@ bool message_part_data_is_plain_7bit(const struct message_part *part)
 bool message_part_data_get_filename(const struct message_part *part,
 	const char **filename_r);
 
+/* See message_part_attachment_settings */
+bool message_part_has_content_types(struct message_part *part, const char *const *types);
+
+/* Returns TRUE if message part has given parameter, and has non-empty
+   value if has_value is TRUE. */
+bool message_part_has_parameter(struct message_part *part, const char *parameter,
+				bool has_value);
+
+/* Check if part is attachment according to given settings */
+bool message_part_is_attachment(struct message_part *part,
+				const struct message_part_attachment_settings *set);
 /*
  * Header parsing
  */
