@@ -203,6 +203,7 @@ struct client {
 	unsigned int director_username_hash_cache;
 
 	bool create_finished:1;
+	bool disconnected:1;
 	bool destroyed:1;
 	bool input_blocked:1;
 	bool login_success:1;
@@ -250,6 +251,7 @@ client_alloc(int fd, pool_t pool,
 	     const struct login_settings *set,
 	     const struct master_service_ssl_settings *ssl_set);
 void client_init(struct client *client, void **other_sets);
+void client_disconnect(struct client *client, const char *reason);
 void client_destroy(struct client *client, const char *reason);
 /* Destroy the client after a successful login. Either the client fd was
    sent to the post-login process, or the connection will be proxied. */

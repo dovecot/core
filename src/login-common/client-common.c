@@ -228,15 +228,11 @@ void client_init(struct client *client, void **other_sets)
 	login_refresh_proctitle();
 }
 
-void client_destroy(struct client *client, const char *reason)
+void client_disconnect(struct client *client, const char *reason)
 {
-	i_assert(client->create_finished);
-
-	if (client->destroyed)
+	if (client->disconnected)
 		return;
-	client->destroyed = TRUE;
-
-	pool_unref(&client->preproxy_pool);
+	client->disconnected = TRUE;
 
 	if (!client->login_success &&
 	    !client->no_extra_disconnect_reason && reason != NULL) {
@@ -247,10 +243,6 @@ void client_destroy(struct client *client, const char *reason)
 	}
 	if (reason != NULL)
 		client_log(client, reason);
-
-	if (last_client == client)
-		last_client = client->prev;
-	DLLIST_REMOVE(&clients, client);
 
 	if (client->output != NULL)
 		o_stream_uncork(client->output);
@@ -272,6 +264,23 @@ void client_destroy(struct client *client, const char *reason)
 			client_fd_proxies_count++;
 		}
 	}
+}
+
+void client_destroy(struct client *client, const char *reason)
+{
+	i_assert(client->create_finished);
+
+	if (client->destroyed)
+		return;
+	client->destroyed = TRUE;
+
+	client_disconnect(client, reason);
+
+	pool_unref(&client->preproxy_pool);
+
+	if (last_client == client)
+		last_client = client->prev;
+	DLLIST_REMOVE(&clients, client);
 
 	if (client->master_tag != 0) {
 		i_assert(client->auth_request == NULL);
