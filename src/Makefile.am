@@ -1,6 +1,9 @@
 if HAVE_LDAP
 LIB_LDAP=lib-ldap
 endif
+if HAVE_LUA
+LIB_LUA=lib-lua
+endif
 
 LIBDOVECOT_SUBDIRS = \
 	lib-test \
@@ -29,6 +32,7 @@ SUBDIRS = \
 	lib-dict-extra \
 	lib-dovecot \
 	$(LIB_LDAP) \
+	$(LIB_LUA) \
 	lib-fts \
 	lib-imap-client \
 	lib-imap-urlauth \

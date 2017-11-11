@@ -844,6 +844,7 @@ src/lib-imap-urlauth/Makefile
 src/lib-index/Makefile
 src/lib-lda/Makefile
 src/lib-ldap/Makefile
+src/lib-lua/Makefile
 src/lib-mail/Makefile
 src/lib-master/Makefile
 src/lib-ntlm/Makefile
