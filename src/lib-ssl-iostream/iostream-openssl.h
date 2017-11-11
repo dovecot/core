@@ -80,6 +80,18 @@ int openssl_get_protocol_options(const char *protocols);
 #define OPENSSL_ALL_PROTOCOL_OPTIONS \
 	(SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1)
 
+#ifdef HAVE_SSL_CTX_SET_MIN_PROTO_VERSION
+/* min_protocol_r is the version int for SSL_CTX_set_min_proto_version().
+   Return 0 on success, and -1 on failure.
+
+   If ssl_protocols only disables protocols like "!SSLv3 !TLSv1", then all the
+   remaining protocols are considered enabled. If it enables some protocols
+   like "TLSv1.1 TLSv1.2", then only the explicitly enabled protocols are
+   considered enabled. */
+int ssl_protocols_to_min_protocol(const char *ssl_protocols,
+				  int *min_protocol_r, const char **error_r);
+#endif
+
 /* Sync plain_input/plain_output streams with BIOs. Returns TRUE if at least
    one byte was read/written. */
 bool openssl_iostream_bio_sync(struct ssl_iostream *ssl_io);
