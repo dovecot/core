@@ -77,6 +77,7 @@ test_programs = \
 	test-smtp-command-parser
 
 test_nocheck_programs = \
+	test-smtp-payload \
 	test-smtp-submit \
 	test-smtp-client-errors
 
@@ -128,6 +129,11 @@ test_smtp_command_parser_SOURCES = test-smtp-command-parser.c
 test_smtp_command_parser_LDFLAGS = -export-dynamic
 test_smtp_command_parser_LDADD = $(test_libs)
 test_smtp_command_parser_DEPENDENCIES = $(test_deps)
+
+test_smtp_payload_SOURCES = test-smtp-payload.c
+test_smtp_payload_LDFLAGS = -export-dynamic
+test_smtp_payload_LDADD = $(test_libs)
+test_smtp_payload_DEPENDENCIES = $(test_deps)
 
 test_smtp_submit_SOURCES = test-smtp-submit.c
 test_smtp_submit_LDFLAGS = -export-dynamic
