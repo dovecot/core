@@ -58,6 +58,8 @@ SUBDIRS = \
 	imap-urlauth \
 	pop3-login \
 	pop3 \
+	submission-login \
+	submission \
 	lda \
 	lmtp \
 	log \

@@ -346,3 +346,25 @@
     - Fully support DSN extension (especially ORCPT)
     - Calculate incoming mail's hash, forward it via proxying, have the
       final delivery code verify that it's correct
+
+ - submission
+    - Implement support for Postfix XFORWARD (analogous to XCLIENT)
+    - Implement a re-connect attempt to the relay server if the connection is
+      lost at some point. We now terminate the whole client with a 421, which
+      is a waste of resources.
+    - Implement running submission service without access to mail storage.
+    - Implement auto-save-to-sent feature.
+    - Implement proxy support for various (sometimes bizarre) SMTP extensions.
+      We only announce the support if available on the relay and forward
+      commands and command options. We likely don't need to implement much
+      ourselves:
+       -> RFC 2852: Deliver By
+       -> RFC 3885: Message Tracking
+       -> RFC 4865: Future Message Release
+       -> RFC 6710: Message Transfer Priorities
+    - Implement Internationalized Email (RFC 6531) support
+    - Low priority:
+       - Investigate relevance of RFC 4405 (Responsible Submitter)
+       - Add RFC5451 Authentication-Results header
+       - Implement downgrading to always support BINARYMIME
+       - Implement downgrading to always support 8BITMIME

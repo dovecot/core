@@ -890,6 +890,8 @@ src/login-common/Makefile
 src/master/Makefile
 src/pop3/Makefile
 src/pop3-login/Makefile
+src/submission/Makefile
+src/submission-login/Makefile
 src/replication/Makefile
 src/replication/aggregator/Makefile
 src/replication/replicator/Makefile
