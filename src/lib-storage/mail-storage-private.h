@@ -778,6 +778,12 @@ bool mail_prefetch(struct mail *mail);
 void mail_set_aborted(struct mail *mail);
 void mail_set_expunged(struct mail *mail);
 void mail_set_seq_saving(struct mail *mail, uint32_t seq);
+/* Returns true IF and only IF the mail has EITHER one of the
+   attachment keywords set. If it has both, or none, it will return FALSE. */
+bool mail_has_attachment_keywords(struct mail *mail);
+/* Sets attachment keywords. */
+void mail_set_attachment_keywords(struct mail *mail);
+
 void mailbox_set_deleted(struct mailbox *box);
 int mailbox_mark_index_deleted(struct mailbox *box, bool del);
 /* Easy wrapper for getting mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX.

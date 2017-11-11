@@ -2163,7 +2163,8 @@ struct mail_save_context *
 mailbox_save_alloc(struct mailbox_transaction_context *t)
 {
 	struct mail_save_context *ctx;
-
+	const struct mail_storage_settings *mail_set =
+		mailbox_get_settings(t->box);
 	T_BEGIN {
 		ctx = t->box->v.save_alloc(t);
 	} T_END;
@@ -2180,6 +2181,12 @@ mailbox_save_alloc(struct mailbox_transaction_context *t)
 		/* make sure the mail isn't used before mail_set_seq_saving() */
 		mailbox_save_dest_mail_close(ctx);
 	}
+
+	/* make sure parts get parsed early on */
+	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save)
+		mail_add_temp_wanted_fields(ctx->dest_mail,
+					    MAIL_FETCH_MESSAGE_PARTS, NULL);
+
 	return ctx;
 }
 
@@ -2387,6 +2394,8 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 {
 	struct mail_save_context *ctx = *_ctx;
 	struct mailbox_transaction_context *t = ctx->transaction;
+	const struct mail_storage_settings *mail_set =
+		mailbox_get_settings(t->box);
 	/* we need to keep a copy of this because save_finish implementations
 	   will likely zero the data structure during cleanup */
 	struct mail_keywords *keywords = ctx->data.keywords;
@@ -2416,6 +2425,11 @@ int mailbox_save_finish(struct mail_save_context **_ctx)
 			mailbox_save_add_pvt_flags(t, pvt_flags);
 		t->save_count++;
 	}
+
+	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
+	    !mail_has_attachment_keywords(ctx->dest_mail))
+		mail_set_attachment_keywords(ctx->dest_mail);
+
 	if (keywords != NULL)
 		mailbox_keywords_unref(&keywords);
 	mailbox_save_context_reset(ctx, TRUE);
