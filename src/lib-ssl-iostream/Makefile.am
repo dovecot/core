@@ -20,6 +20,28 @@ libssl_iostream_openssl_la_SOURCES = \
 	iostream-openssl-params.c \
 	istream-openssl.c \
 	ostream-openssl.c
+
+test_programs = test-ssl-iostream
+noinst_PROGRAMS = $(test_programs)
+
+check-local:
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
+
+LIBDOVECOT_TEST_DEPS = \
+	libssl_iostream_openssl.la \
+	libssl_iostream.la \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+LIBDOVECOT_TEST = \
+	$(LIBDOVECOT_TEST_DEPS) \
+	$(MODULE_LIBS)
+
+test_ssl_iostream_LDADD = $(LIBDOVECOT_TEST)
+test_ssl_iostream_DEPENDENCIES = $(LIBDOVECOT_TEST_DEPS)
+test_ssl_iostream_CFLAGS = $(AM_CPPFLAGS)
+test_ssl_iostream_SOURCES = test-ssl-iostream.c
 endif
 
 libssl_iostream_la_SOURCES = \

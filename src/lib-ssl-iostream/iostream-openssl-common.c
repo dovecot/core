@@ -18,6 +18,67 @@ enum {
 	DOVECOT_SSL_PROTO_ALL		= 0x1f
 };
 
+#ifdef HAVE_SSL_CTX_SET_MIN_PROTO_VERSION
+static const struct {
+	const char *name;
+	int version;
+} protocol_versions[] = {
+	{ SSL_TXT_SSLV3, SSL3_VERSION },
+	{ SSL_TXT_TLSV1, TLS1_VERSION },
+	{ SSL_TXT_TLSV1_1, TLS1_1_VERSION },
+	{ SSL_TXT_TLSV1_2, TLS1_2_VERSION },
+};
+int ssl_protocols_to_min_protocol(const char *ssl_protocols,
+				  int *min_protocol_r, const char **error_r)
+{
+	/* Array where -1 = disable, 0 = not found, 1 = enable */
+	int protos[N_ELEMENTS(protocol_versions)];
+	memset(protos, 0, sizeof(protos));
+	bool explicit_enable = FALSE;
+
+	const char *const *tmp = t_strsplit_spaces(ssl_protocols, ", ");
+	for (; *tmp != NULL; tmp++) {
+		const char *p = *tmp;
+		bool enable = TRUE;
+		if (p[0] == '!') {
+			enable = FALSE;
+			++p;
+		}
+		for (unsigned i = 0; i < N_ELEMENTS(protocol_versions); i++) {
+			if (strcmp(p, protocol_versions[i].name) == 0) {
+				if (enable) {
+					protos[i] = 1;
+					explicit_enable = TRUE;
+				} else {
+					protos[i] = -1;
+				}
+				goto found;
+			}
+		}
+		*error_r = t_strdup_printf("Unrecognized protocol '%s'", p);
+		return -1;
+
+		found:;
+	}
+
+	unsigned min = N_ELEMENTS(protocol_versions);
+	for (unsigned i = 0; i < N_ELEMENTS(protocol_versions); i++) {
+		if (explicit_enable) {
+			if (protos[i] > 0)
+				min = I_MIN(min, i);
+		} else if (protos[i] == 0)
+			min = I_MIN(min, i);
+	}
+	if (min == N_ELEMENTS(protocol_versions)) {
+		*error_r = "All protocols disabled";
+		return -1;
+	}
+
+	*min_protocol_r = protocol_versions[min].version;
+	return 0;
+}
+#endif /* HAVE_SSL_CTX_SET_MIN_PROTO_VERSION */
+
 int openssl_get_protocol_options(const char *protocols)
 {
 	const char *const *tmp;
