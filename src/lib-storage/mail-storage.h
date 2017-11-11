@@ -15,6 +15,9 @@ struct message_size;
 /* If some operation is taking long, call notify_ok every n seconds. */
 #define MAIL_STORAGE_STAYALIVE_SECS 15
 
+#define MAIL_KEYWORD_HAS_ATTACHMENT "$HasAttachment"
+#define MAIL_KEYWORD_HAS_NO_ATTACHMENT "$HasNoAttachment"
+
 enum mail_storage_flags {
 	/* Remember message headers' MD5 sum */
 	MAIL_STORAGE_FLAG_KEEP_HEADER_MD5	= 0x01,
