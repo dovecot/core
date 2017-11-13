@@ -49,6 +49,8 @@ extern const char *failure_log_type_names[];
 
 void i_log_type(const struct failure_context *ctx, const char *format, ...)
 	ATTR_FORMAT(2, 3);
+void i_log_typev(const struct failure_context *ctx, const char *format,
+		 va_list args) ATTR_FORMAT(2, 0);
 
 void i_panic(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
 void i_fatal(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;

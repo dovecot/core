@@ -271,7 +271,13 @@ void i_log_type(const struct failure_context *ctx, const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
+	i_log_typev(ctx, format, args);
+	va_end(args);
+}
 
+void i_log_typev(const struct failure_context *ctx, const char *format,
+		 va_list args)
+{
 	switch (ctx->type) {
 	case LOG_TYPE_DEBUG:
 		debug_handler(ctx, format, args);
@@ -282,8 +288,6 @@ void i_log_type(const struct failure_context *ctx, const char *format, ...)
 	default:
 		error_handler(ctx, format, args);
 	}
-
-	va_end(args);
 }
 
 void i_panic(const char *format, ...)
