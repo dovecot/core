@@ -26,7 +26,9 @@ enum mailbox_list_properties {
 	/* Automatically create mailbox directories when needed. Normally it's
 	   assumed that if a mailbox directory doesn't exist, the mailbox
 	   doesn't exist either. */
-	MAILBOX_LIST_PROP_AUTOCREATE_DIRS	= 0x10
+	MAILBOX_LIST_PROP_AUTOCREATE_DIRS	= 0x10,
+	/* Explicitly disable mailbox list index */
+	MAILBOX_LIST_PROP_NO_LIST_INDEX		= 0x20,
 };
 
 enum mailbox_list_flags {
