@@ -135,7 +135,6 @@ libauth_la_SOURCES = \
 	userdb-blocking.c \
 	userdb-checkpassword.c \
 	userdb-dict.c \
-	userdb-nss.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
 	userdb-prefetch.c \
