@@ -348,6 +348,26 @@ static void test_mem_equals_timing_safe(void)
 	test_end();
 }
 
+static void test_dec2str_buf(void)
+{
+	const uintmax_t test_input[] = {
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		99, 999, 9999, 65535, 65536, 99999, 999999, 9999999,
+		99999999, 999999999, 4294967295, 4294967296ULL,
+		9999999999999999999ULL,
+		18446744073709551615ULL
+	};
+	char buf[MAX_INT_STRLEN], buf2[MAX_INT_STRLEN];
+
+	test_begin("dec2str_buf()");
+	for (unsigned int i = 0; i < N_ELEMENTS(test_input); i++) {
+		i_snprintf(buf2, sizeof(buf2), "%ju", test_input[i]);
+		test_assert_idx(strcmp(dec2str_buf(buf, test_input[i]),
+				       buf2) == 0, i);
+	}
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strdup();
@@ -363,4 +383,5 @@ void test_strfuncs(void)
 	test_t_strarray_join();
 	test_p_array_const_string_join();
 	test_mem_equals_timing_safe();
+	test_dec2str_buf();
 }
