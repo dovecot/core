@@ -352,7 +352,7 @@ bool client_unref(struct client **_client)
 		client->v.free(client);
 
 	if (client->ssl_iostream != NULL)
-		ssl_iostream_unref(&client->ssl_iostream);
+		ssl_iostream_destroy(&client->ssl_iostream);
 	if (client->iostream_fd_proxy != NULL)
 		iostream_proxy_unref(&client->iostream_fd_proxy);
 	if (client->fd_proxying) {
