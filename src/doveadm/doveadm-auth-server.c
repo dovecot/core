@@ -224,11 +224,16 @@ static void cmd_auth_cache_flush(int argc, char *argv[])
 }
 
 static void cmd_user_mail_input_field(const char *key, const char *value,
-				      const char *show_field)
+				      const char *show_field, bool *first)
 {
 	string_t *jvalue = t_str_new(128);
 	if (show_field != NULL && strcmp(show_field, key) != 0) return;
-	o_stream_nsend_str(doveadm_print_ostream, ",");
+	/* do not emit comma on first field. we need to keep track
+	   of when the first field actually gets printed as it
+	   might change due to show_field */
+	if (!*first)
+		o_stream_nsend_str(doveadm_print_ostream, ",");
+	*first = FALSE;
 	json_append_escaped(jvalue, key);
 	o_stream_nsend_str(doveadm_print_ostream, "\"");
 	o_stream_nsend_str(doveadm_print_ostream, str_c(jvalue));
@@ -248,17 +253,16 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 	const struct mail_storage_settings *mail_set;
 	const char *key, *value;
 	unsigned int i;
+	bool first = TRUE;
 
-	if (strcmp(input->username, user->username) != 0) {
-		cmd_user_mail_input_field("user", user->username, show_field);
-		o_stream_nsend_str(doveadm_print_ostream, ",");
-	}
-	cmd_user_mail_input_field("uid", user->set->mail_uid, show_field);
-	cmd_user_mail_input_field("gid", user->set->mail_gid, show_field);
-	cmd_user_mail_input_field("home", user->set->mail_home, show_field);
+	if (strcmp(input->username, user->username) != 0)
+		cmd_user_mail_input_field("user", user->username, show_field, &first);
+	cmd_user_mail_input_field("uid", user->set->mail_uid, show_field, &first);
+	cmd_user_mail_input_field("gid", user->set->mail_gid, show_field, &first);
+	cmd_user_mail_input_field("home", user->set->mail_home, show_field, &first);
 
 	mail_set = mail_user_set_get_storage_set(user);
-	cmd_user_mail_input_field("mail", mail_set->mail_location, show_field);
+	cmd_user_mail_input_field("mail", mail_set->mail_location, show_field, &first);
 
 	if (userdb_fields != NULL) {
 		for (i = 0; userdb_fields[i] != NULL; i++) {
@@ -274,7 +278,7 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 			    strcmp(key, "home") != 0 &&
 			    strcmp(key, "mail") != 0 &&
 			    *key != '\0') {
-				cmd_user_mail_input_field(key, value, show_field);
+				cmd_user_mail_input_field(key, value, show_field, &first);
 			}
 		}
 	}
