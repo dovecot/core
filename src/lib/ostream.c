@@ -361,6 +361,15 @@ void o_stream_ignore_last_errors(struct ostream *stream)
 	}
 }
 
+void o_stream_abort(struct ostream *stream)
+{
+	o_stream_ignore_last_errors(stream);
+	if (stream->stream_errno != 0)
+		return;
+	io_stream_set_error(&stream->real_stream->iostream, "aborted writing");
+	stream->stream_errno = EPIPE;
+}
+
 void o_stream_set_no_error_handling(struct ostream *stream, bool set)
 {
 	stream->real_stream->error_handling_disabled = set;

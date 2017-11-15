@@ -175,6 +175,10 @@ void o_stream_set_finish_via_child(struct ostream *stream, bool set);
 /* Marks the stream's error handling as completed to avoid i_panic() on
    destroy. */
 void o_stream_ignore_last_errors(struct ostream *stream);
+/* Abort writing to the ostream, also marking any previous error handling as
+   completed. If the stream hasn't already failed, sets the stream_errno=EPIPE.
+   This is necessary when aborting write to streams that require finishing. */
+void o_stream_abort(struct ostream *stream);
 /* If error handling is disabled, the i_panic() on destroy is never called.
    This function can be called immediately after the stream is created.
    When creating wrapper streams, they copy this behavior from the parent
