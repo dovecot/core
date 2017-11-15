@@ -28,7 +28,19 @@ AC_DEFUN([DOVECOT_SSL], [
     if test "$have_openssl" = "yes"; then
       AC_DEFINE(HAVE_OPENSSL,, [Build with OpenSSL support])
       have_ssl="yes (OpenSSL)"
-  
+
+      AC_MSG_CHECKING([if OpenSSL version is 1.0.1 or newer])
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+	#include <openssl/opensslv.h>
+	#if OPENSSL_VERSION_NUMBER < 0x10001000L
+	#error "fail-compile"
+	#endif]], [[ return 0; ]])],
+	[ssl_version_ge_101=true], [ssl_version_ge_101=false])
+      AC_MSG_RESULT([$ssl_version_ge_101])
+      if test $ssl_version_ge_101 = false; then
+        AC_MSG_ERROR([Found deprecated OpenSSL version, use 1.0.1 or newer])
+      fi
+
       AC_MSG_CHECKING([if OpenSSL version is 1.0.2 or better])
 
       AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
