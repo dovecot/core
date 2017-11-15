@@ -394,9 +394,34 @@ void director_sync_send(struct director *dir, struct director_host *host,
 	director_connection_ping(dir->right);
 }
 
+static bool
+director_has_any_outgoing_connections(struct director *dir)
+{
+	struct director_connection *const *connp;
+
+	array_foreach(&dir->connections, connp) {
+		if (!director_connection_is_incoming(*connp))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 bool director_resend_sync(struct director *dir)
 {
-	if (!dir->ring_synced && dir->left != NULL && dir->right != NULL) {
+	if (dir->ring_synced) {
+		/* everything ok, no need to do anything */
+		return FALSE;
+	}
+
+	if (dir->right == NULL) {
+		/* right side connection is missing. make sure we're not
+		   hanging due to some bug. */
+		if (dir->to_reconnect == NULL &&
+		    !director_has_any_outgoing_connections(dir)) {
+			i_warning("Right side connection is unexpectedly lost, reconnecting");
+			director_connect(dir, "Right side connection lost");
+		}
+	} else if (dir->left != NULL) {
 		/* send a new SYNC in case the previous one got dropped */
 		dir->self_host->last_sync_timestamp = ioloop_time;
 		director_sync_send(dir, dir->self_host, dir->sync_seq,
