@@ -228,6 +228,7 @@ static void cmd_user_mail_input_field(const char *key, const char *value,
 {
 	string_t *jvalue = t_str_new(128);
 	if (show_field != NULL && strcmp(show_field, key) != 0) return;
+	o_stream_nsend_str(doveadm_print_ostream, ",");
 	json_append_escaped(jvalue, key);
 	o_stream_nsend_str(doveadm_print_ostream, "\"");
 	o_stream_nsend_str(doveadm_print_ostream, str_c(jvalue));
@@ -253,13 +254,10 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 		o_stream_nsend_str(doveadm_print_ostream, ",");
 	}
 	cmd_user_mail_input_field("uid", user->set->mail_uid, show_field);
-	o_stream_nsend_str(doveadm_print_ostream, ",");
 	cmd_user_mail_input_field("gid", user->set->mail_gid, show_field);
-	o_stream_nsend_str(doveadm_print_ostream, ",");
 	cmd_user_mail_input_field("home", user->set->mail_home, show_field);
 
 	mail_set = mail_user_set_get_storage_set(user);
-	o_stream_nsend_str(doveadm_print_ostream, ",");
 	cmd_user_mail_input_field("mail", mail_set->mail_location, show_field);
 
 	if (userdb_fields != NULL) {
@@ -276,7 +274,6 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 			    strcmp(key, "home") != 0 &&
 			    strcmp(key, "mail") != 0 &&
 			    *key != '\0') {
-				o_stream_nsend_str(doveadm_print_ostream, ",");
 				cmd_user_mail_input_field(key, value, show_field);
 			}
 		}
