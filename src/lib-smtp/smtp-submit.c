@@ -109,10 +109,8 @@ void smtp_submit_deinit(struct smtp_submit **_subm)
 
 	*_subm = NULL;
 
-	if (subm->output != NULL) {
-		o_stream_ignore_last_errors(subm->output);
+	if (subm->output != NULL)
 		o_stream_destroy(&subm->output);
-	}
 	if (subm->input != NULL)
 		i_stream_destroy(&subm->input);
 
