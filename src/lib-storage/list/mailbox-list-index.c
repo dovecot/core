@@ -819,9 +819,8 @@ mailbox_list_index_set_subscribed(struct mailbox_list *_list,
 
 static bool mailbox_list_index_is_enabled(struct mailbox_list *list)
 {
-	if (!list->mail_set->mailbox_list_index)
-		return FALSE;
-	if (strcmp(list->name, MAILBOX_LIST_NAME_NONE) == 0)
+	if (!list->mail_set->mailbox_list_index ||
+	    (list->props & MAILBOX_LIST_PROP_NO_LIST_INDEX) != 0)
 		return FALSE;
 
 	i_assert(list->set.list_index_fname != NULL);
