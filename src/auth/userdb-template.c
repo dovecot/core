@@ -117,3 +117,8 @@ bool userdb_template_is_empty(struct userdb_template *tmpl)
 {
 	return array_count(&tmpl->args) == 0;
 }
+
+const char *const *userdb_template_get_args(struct userdb_template *tmpl, unsigned int *count_r)
+{
+	return array_get(&tmpl->args, count_r);
+}
