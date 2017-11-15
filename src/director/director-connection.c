@@ -2312,7 +2312,11 @@ static void director_connection_reconnect(struct director_connection **_conn,
 
 static void director_disconnect_write_error(struct director_connection *conn)
 {
+	struct director *dir = conn->dir;
+
 	director_connection_deinit(&conn, "write failure");
+	if (dir->right == NULL)
+		director_connect(dir, "Reconnecting after write failure");
 }
 
 void director_connection_send(struct director_connection *conn,
