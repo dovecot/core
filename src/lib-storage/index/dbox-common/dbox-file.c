@@ -534,7 +534,7 @@ void dbox_file_append_rollback(struct dbox_file_append_context **_ctx)
 			dbox_file_set_syscall_error(file, "ftruncate()");
 	}
 	if (ctx->output != NULL) {
-		o_stream_ignore_last_errors(ctx->output);
+		o_stream_abort(ctx->output);
 		o_stream_unref(&ctx->output);
 	}
 	i_free(ctx);

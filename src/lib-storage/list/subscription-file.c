@@ -242,7 +242,7 @@ int subsfile_set_subscribed(struct mailbox_list *list, const char *path,
 			}
 		}
 	} else {
-		o_stream_ignore_last_errors(output);
+		o_stream_abort(output);
 	}
 	o_stream_destroy(&output);
 

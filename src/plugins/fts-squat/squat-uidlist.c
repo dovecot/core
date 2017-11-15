@@ -1074,13 +1074,14 @@ int squat_uidlist_rebuild_finish(struct squat_uidlist_rebuild_context *ctx,
 			ret = -1;
 		}
 		ctx->build_ctx->need_reopen = TRUE;
+	} else {
+		o_stream_abort(ctx->output);
 	}
 
 	/* we no longer require the entire uidlist to be in memory,
 	   let it be used for something more useful. */
 	squat_uidlist_free_from_memory(ctx->uidlist);
 
-	o_stream_ignore_last_errors(ctx->output);
 	o_stream_unref(&ctx->output);
 	if (close(ctx->fd) < 0)
 		i_error("close(%s) failed: %m", temp_path);

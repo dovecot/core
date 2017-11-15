@@ -770,7 +770,7 @@ static void fs_write_stream_abort(struct fs_file *file, struct ostream **output)
 	i_assert(output != &file->output);
 
 	*output = NULL;
-	o_stream_ignore_last_errors(file->output);
+	o_stream_abort(file->output);
 	/* make sure we don't have an old error lying around */
 	ret = fs_write_stream_finish_int(file, FALSE);
 	i_assert(ret != 0);

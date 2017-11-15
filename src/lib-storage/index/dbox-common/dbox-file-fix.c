@@ -466,7 +466,7 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 	o_stream_cork(output);
 	ret = dbox_file_fix_write_stream(file, start_offset, temp_path, output);
 	if (ret < 0)
-		o_stream_ignore_last_errors(output);
+		o_stream_abort(output);
 	have_messages = output->offset > file->file_header_size;
 	o_stream_unref(&output);
 	if (close(fd) < 0) {

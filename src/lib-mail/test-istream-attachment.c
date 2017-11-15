@@ -194,7 +194,7 @@ test_close_attachment_ostream_error(struct ostream *output,
 {
 	if (success)
 		*error = "test output error";
-	o_stream_ignore_last_errors(output);
+	o_stream_abort(output);
 	o_stream_destroy(&output);
 	return -1;
 }
