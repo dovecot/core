@@ -97,7 +97,9 @@ static void log_prefix_add(const struct failure_context *ctx, string_t *str)
 			     get_log_stamp_format("unused", now.tv_usec), tm) > 0)
 			str_append(str, buf);
 	}
-	if (log_prefix != NULL)
+	if (ctx->log_prefix != NULL)
+		str_append(str, ctx->log_prefix);
+	else if (log_prefix != NULL)
 		str_append(str, log_prefix);
 }
 
@@ -414,8 +416,9 @@ void i_get_failure_handlers(failure_callback_t **fatal_callback_r,
 	*debug_callback_r = debug_handler;
 }
 
-static int ATTR_FORMAT(3, 0)
-syslog_handler(int level, enum log_type type, const char *format, va_list args)
+static int ATTR_FORMAT(4, 0)
+syslog_handler(const struct failure_context *ctx,
+	       int level, enum log_type type, const char *format, va_list args)
 {
 	static int recursed = 0;
 
@@ -426,8 +429,10 @@ syslog_handler(int level, enum log_type type, const char *format, va_list args)
 	/* syslogs don't generally bother to log the level in any way,
 	   so make sure errors are shown clearly */
 	T_BEGIN {
+		const char *cur_log_prefix = ctx->log_prefix != NULL ?
+			ctx->log_prefix : log_prefix;
 		syslog(level, "%s%s%s",
-		       log_prefix == NULL ? "" : log_prefix,
+		       cur_log_prefix == NULL ? "" : cur_log_prefix,
 		       type != LOG_TYPE_INFO ?
 		       failure_log_type_prefixes[type] : "",
 		       t_strdup_vprintf(format, args));
@@ -441,7 +446,7 @@ void i_syslog_fatal_handler(const struct failure_context *ctx,
 {
 	int status = ctx->exit_status;
 
-	if (syslog_handler(LOG_CRIT, ctx->type, format, args) < 0 &&
+	if (syslog_handler(ctx, LOG_CRIT, ctx->type, format, args) < 0 &&
 	    status == FATAL_DEFAULT)
 		status = FATAL_LOGERROR;
 
@@ -475,7 +480,7 @@ void i_syslog_error_handler(const struct failure_context *ctx,
 		i_unreached();
 	}
 
-	if (syslog_handler(level, ctx->type, format, args) < 0)
+	if (syslog_handler(ctx, level, ctx->type, format, args) < 0)
 		failure_exit(FATAL_LOGERROR);
 }
 
