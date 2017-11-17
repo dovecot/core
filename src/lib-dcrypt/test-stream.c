@@ -265,7 +265,7 @@ void test_write_read_v1_short(void)
 			test_istream_set_size(is, ++offset);
 
 		test_assert_idx(pos + siz <= sizeof(payload), pos);
-		if (pos + siz > sizeof(payload)) break;
+		if (siz > sizeof(payload) || pos + siz > sizeof(payload)) break;
 		test_assert_idx(siz == 0 || memcmp(ptr, payload + pos, siz) == 0, pos);
 		i_stream_skip(is_2, siz); pos += siz;
 	}
@@ -406,7 +406,7 @@ void test_write_read_v2_short(void)
 		test_istream_set_size(is, ++offset);
 
 		test_assert_idx(pos + siz <= sizeof(payload), pos);
-		if (pos + siz > sizeof(payload)) break;
+		if (siz > sizeof(payload) || pos + siz > sizeof(payload)) break;
 		test_assert_idx(siz == 0 || memcmp(ptr, payload + pos, siz) == 0, pos);
 		i_stream_skip(is_2, siz); pos += siz;
 	}
