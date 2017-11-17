@@ -2237,6 +2237,12 @@ void director_connection_deinit(struct director_connection **_conn,
 	if (dir->right == conn)
 		dir->right = NULL;
 
+	if (conn->users_unsorted) {
+		/* Users were received, but handshake didn't finish.
+		   Finish sorting so the users won't stay in wrong order. */
+		mail_hosts_sort_users(conn->dir->mail_hosts);
+	}
+
 	if (conn->connect_request_to != NULL) {
 		director_host_unref(conn->connect_request_to);
 		conn->connect_request_to = NULL;
