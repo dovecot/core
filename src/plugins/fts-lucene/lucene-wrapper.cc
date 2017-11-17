@@ -1210,13 +1210,13 @@ lucene_add_definite_query(struct lucene_index *index,
 
 	switch (arg->type) {
 	case SEARCH_TEXT: {
-		BooleanQuery *bq = _CLNEW BooleanQuery();
 		Query *q1 = lucene_get_query(index, _T("hdr"), arg);
 		Query *q2 = lucene_get_query(index, _T("body"), arg);
 
 		if (q1 == NULL && q2 == NULL)
 			q = NULL;
 		else {
+			BooleanQuery *bq = _CLNEW BooleanQuery();
 			if (q1 != NULL)
 				bq->add(q1, true, BooleanClause::SHOULD);
 			if (q2 != NULL)
