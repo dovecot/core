@@ -197,8 +197,15 @@ static int virtual_backend_box_alloc(struct virtual_mailbox *mbox,
 		t_strdup_printf("virtual mailbox %s", mailbox_get_vname(&mbox->box)) :
 		t_strdup_printf("virtual mailbox %s: %s", mailbox_get_vname(&mbox->box), mbox->box.reason));
 
-	if (mailbox_exists(bbox->box, TRUE, &existence) < 0)
-		return virtual_backend_box_open_failed(mbox, bbox);
+	if (bbox == mbox->save_bbox) {
+		/* Assume that the save_bbox exists, whether or not it truly
+		   does. This at least gives a better error message than crash
+		   later on. */
+		existence = MAILBOX_EXISTENCE_SELECT;
+	} else {
+		if (mailbox_exists(bbox->box, TRUE, &existence) < 0)
+			return virtual_backend_box_open_failed(mbox, bbox);
+	}
 	if (existence != MAILBOX_EXISTENCE_SELECT) {
 		/* ignore this. it could be intentional. */
 		if (mbox->storage->storage.user->mail_debug) {
