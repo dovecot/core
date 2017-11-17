@@ -27,10 +27,10 @@
  * These prototypes exist to catch bugs in the code generating macros below.
  */
 /* return byte swapped input */
-static inline uint64_t bswap_64(uint64_t in);
-static inline uint32_t bswap_32(uint32_t in);
-static inline uint16_t bswap_16(uint16_t in);
-static inline uint8_t bswap_8(uint8_t in);
+static inline uint64_t i_bswap_64(uint64_t in);
+static inline uint32_t i_bswap_32(uint32_t in);
+static inline uint16_t i_bswap_16(uint16_t in);
+static inline uint8_t i_bswap_8(uint8_t in);
 
 /* load an unaligned cpu native endian number from memory */
 static inline uint64_t cpu64_to_cpu_unaligned(const void *in);
@@ -89,7 +89,7 @@ static inline uint8_t cpu8_to_le(uint8_t in);
 /*
  * byte swapping
  */
-static inline uint64_t bswap_64(uint64_t in)
+static inline uint64_t i_bswap_64(uint64_t in)
 {
 	return ((in & 0xff00000000000000ULL) >> 56) |
 	       ((in & 0x00ff000000000000ULL) >> 40) |
@@ -101,7 +101,7 @@ static inline uint64_t bswap_64(uint64_t in)
 	       ((in & 0x00000000000000ffULL) << 56);
 }
 
-static inline uint32_t bswap_32(uint32_t in)
+static inline uint32_t i_bswap_32(uint32_t in)
 {
 	return ((in & 0xff000000) >> 24) |
 	       ((in & 0x00ff0000) >> 8) |
@@ -109,13 +109,13 @@ static inline uint32_t bswap_32(uint32_t in)
 	       ((in & 0x000000ff) << 24);
 }
 
-static inline uint16_t bswap_16(uint16_t in)
+static inline uint16_t i_bswap_16(uint16_t in)
 {
 	return ((in & 0xff00) >> 8) |
 	       ((in & 0x00ff) << 8);
 }
 
-static inline uint8_t bswap_8(uint8_t in)
+static inline uint8_t i_bswap_8(uint8_t in)
 {
 	return (in & 0xff);
 }
@@ -207,13 +207,13 @@ static inline uint##size##_t le##size##_to_cpu_unaligned(const void *in)\
 {									\
 	uint##size##_t x = be##size##_to_cpu_unaligned(in);		\
 	/* we read a LE int as BE, so we always have to byte swap */	\
-	return bswap_##size(x);						\
+	return i_bswap_##size(x);						\
 }									\
 static inline void cpu##size##_to_le_unaligned(uint##size##_t in,	\
 					       void *out)		\
 {									\
 	/* we'll be writing in BE, so we always have to byte swap */	\
-	cpu##size##_to_be_unaligned(bswap_##size(in), out);		\
+	cpu##size##_to_be_unaligned(i_bswap_##size(in), out);		\
 }									\
 static inline uint##size##_t cpu##size##_to_cpu_unaligned(const void *in)\
 {									\
@@ -224,7 +224,7 @@ static inline uint##size##_t cpu##size##_to_cpu_unaligned(const void *in)\
 #if WORDS_BIGENDIAN
 #define GEN(size)	__GEN(size, x)
 #else
-#define GEN(size)	__GEN(size, bswap_##size(x))
+#define GEN(size)	__GEN(size, i_bswap_##size(x))
 #endif
 
 GEN(64)
@@ -251,10 +251,10 @@ static inline uint##size##_t from##size##_to_##to(uint##size##_t x)	\
 #endif
 
 #define GEN(size)							\
-	__GEN(be,  size, cpu, x, bswap_##size(x))			\
-	__GEN(cpu, size, be,  x, bswap_##size(x))			\
-	__GEN(le,  size, cpu, bswap_##size(x), x)			\
-	__GEN(cpu, size, le,  bswap_##size(x), x)
+	__GEN(be,  size, cpu, x, i_bswap_##size(x))			\
+	__GEN(cpu, size, be,  x, i_bswap_##size(x))			\
+	__GEN(le,  size, cpu, i_bswap_##size(x), x)			\
+	__GEN(cpu, size, le,  i_bswap_##size(x), x)
 
 GEN(64)
 GEN(32)

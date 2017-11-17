@@ -64,7 +64,7 @@ static const struct bswap_run runs[] = {
 
 #define CHECK(iter, size, in, exp)					\
 	do {								\
-		uint##size##_t got = bswap_##size(in);			\
+		uint##size##_t got = i_bswap_##size(in);			\
 									\
 		test_begin(t_strdup_printf("byteorder - bswap "		\
 					   "(size:%-2u iter:%u)",	\
