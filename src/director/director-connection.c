@@ -714,6 +714,10 @@ director_handshake_cmd_user(struct director_connection *conn,
 		return FALSE;
 	}
 
+	if (timestamp > ioloop_time) {
+		/* make sure we don't set user's timestamp to future */
+		timestamp = ioloop_time;
+	}
 	(void)director_user_refresh(conn, username_hash, host,
 				    timestamp, weak, &forced, &user);
 	if (user->timestamp < timestamp) {
