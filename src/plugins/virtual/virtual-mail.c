@@ -453,6 +453,28 @@ virtual_mail_get_stream(struct mail *mail, bool get_body,
 }
 
 static int
+virtual_mail_get_binary_stream(struct mail *mail,
+			       const struct message_part *part,
+			       bool include_hdr, uoff_t *size_r,
+			       unsigned int *lines_r, bool *binary_r,
+			       struct istream **stream_r)
+{
+	struct virtual_mail *vmail = (struct virtual_mail *)mail;
+	struct mail *backend_mail;
+
+	if (backend_mail_get(vmail, &backend_mail) < 0)
+		return -1;
+
+	struct mail_private *p = (struct mail_private *)backend_mail;
+	if (p->v.get_binary_stream(backend_mail, part, include_hdr,
+				   size_r, lines_r, binary_r, stream_r) < 0) {
+		virtual_box_copy_error(mail->box, backend_mail->box);
+		return -1;
+	}
+	return 0;
+}
+
+static int
 virtual_mail_get_special(struct mail *mail, enum mail_fetch_field field,
 			 const char **value_r)
 {
@@ -540,7 +562,7 @@ struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_get_headers,
 	virtual_mail_get_header_stream,
 	virtual_mail_get_stream,
-	index_mail_get_binary_stream,
+	virtual_mail_get_binary_stream,
 	virtual_mail_get_special,
 	virtual_mail_get_backend_mail,
 	index_mail_update_flags,
