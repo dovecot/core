@@ -362,11 +362,12 @@ static void maildirsize_rebuild_later(struct maildir_quota_root *root)
 }
 
 static int maildirsize_recalculate_finish(struct maildir_quota_root *root,
-					  int ret)
+					  int ret, const char **error_r)
 {
 	if (ret == 0) {
 		/* maildir didn't change, we can write the maildirsize file */
-		ret = maildirsize_write(root, root->maildirsize_path);
+		if ((ret = maildirsize_write(root, root->maildirsize_path)) < 0)
+			*error_r = "failed to write maildirsize";
 	}
 	if (ret != 0)
 		maildirsize_rebuild_later(root);
@@ -410,7 +411,7 @@ static int maildirsize_recalculate(struct maildir_quota_root *root,
 		}
 	}
 
-	return maildirsize_recalculate_finish(root, ret);
+	return maildirsize_recalculate_finish(root, ret, error_r);
 }
 
 static bool
