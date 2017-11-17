@@ -715,15 +715,33 @@ director_handshake_cmd_user(struct director_connection *conn,
 	}
 
 	if (timestamp > ioloop_time) {
-		/* make sure we don't set user's timestamp to future */
+		/* The other director's clock seems to be into the future
+		   compared to us. Don't set any of our users' timestamps into
+		   future though. It's most likely only 1 second difference. */
 		timestamp = ioloop_time;
 	}
 	(void)director_user_refresh(conn, username_hash, host,
 				    timestamp, weak, &forced, &user);
-	if (user->timestamp < timestamp) {
-		conn->users_unsorted = TRUE;
+	/* Possibilities:
+
+	   a) The user didn't exist yet, and it was added with the given
+	   timestamp.
+
+	   b) The user existed, but with an older timestamp. The timestamp
+	   wasn't yet updated, so do it here below.
+
+	   c) The user existed with a newer timestamp. This is either because
+	   we already received a non-handshake USER update for this user, or
+	   our director saw a login for this user. Ignore this update.
+
+	   (We never want to change the user's timestamp to be older, because
+	   that could result in directors going to a loop fighting each others
+	   over a flipping timestamp.) */
+	if (user->timestamp < timestamp)
 		user->timestamp = timestamp;
-	}
+	/* always sort users after handshaking to make sure the order
+	   is correct */
+	conn->users_unsorted = TRUE;
 	return TRUE;
 }
 
