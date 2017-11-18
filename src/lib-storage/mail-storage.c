@@ -2770,7 +2770,8 @@ int mailbox_create_missing_dir(struct mailbox *box,
 	if (stat(dir, &st) == 0)
 		return 0;
 
-	if (null_strcmp(dir, mail_dir) != 0 && mail_dir != NULL &&
+	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) == 0 &&
+	    null_strcmp(dir, mail_dir) != 0 && mail_dir != NULL &&
 	    stat(mail_dir, &st) < 0 && (errno == ENOENT || errno == ENOTDIR)) {
 		/* Race condition - mail root directory doesn't exist
 		   anymore either. We shouldn't create this directory
