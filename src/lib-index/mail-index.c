@@ -101,12 +101,19 @@ void mail_index_free(struct mail_index **_index)
 	array_free(&index->keywords);
 	array_free(&index->module_contexts);
 
+	i_free(index->cache_dir);
 	i_free(index->ext_hdr_init_data);
 	i_free(index->gid_origin);
 	i_free(index->error);
 	i_free(index->dir);
 	i_free(index->prefix);
 	i_free(index);
+}
+
+void mail_index_set_cache_dir(struct mail_index *index, const char *dir)
+{
+	i_free(index->cache_dir);
+	index->cache_dir = i_strdup(dir);
 }
 
 void mail_index_set_fsync_mode(struct mail_index *index,
@@ -581,6 +588,20 @@ int mail_index_create_tmp_file(struct mail_index *index,
 	return fd;
 }
 
+static const char *mail_index_get_cache_path(struct mail_index *index)
+{
+	const char *dir;
+
+	if (index->cache_dir != NULL)
+		dir = index->cache_dir;
+	else if (index->dir != NULL)
+		dir = index->dir;
+	else
+		return NULL;
+	return t_strconcat(dir, "/", index->prefix,
+			   MAIL_CACHE_FILE_SUFFIX, NULL);
+}
+
 static int mail_index_open_files(struct mail_index *index,
 				 enum mail_index_open_flags flags)
 {
@@ -634,8 +655,10 @@ static int mail_index_open_files(struct mail_index *index,
 			return -1;
 	}
 
-	if (index->cache == NULL)
-		index->cache = mail_cache_open_or_create(index);
+	if (index->cache == NULL) {
+		const char *path = mail_index_get_cache_path(index);
+		index->cache = mail_cache_open_or_create_path(index, path);
+	}
 	return 1;
 }
 

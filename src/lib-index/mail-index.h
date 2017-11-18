@@ -291,6 +291,8 @@ struct mail_index_view_sync_ctx;
 struct mail_index *mail_index_alloc(const char *dir, const char *prefix);
 void mail_index_free(struct mail_index **index);
 
+/* Change .cache file's directory. */
+void mail_index_set_cache_dir(struct mail_index *index, const char *dir);
 /* Specify how often to do fsyncs. If mode is FSYNC_MODE_OPTIMIZED, the mask
    can be used to specify which transaction types to fsync. */
 void mail_index_set_fsync_mode(struct mail_index *index, enum fsync_mode mode,

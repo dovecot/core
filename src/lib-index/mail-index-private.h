@@ -154,6 +154,7 @@ union mail_index_module_context {
 
 struct mail_index {
 	char *dir, *prefix;
+	char *cache_dir;
 
 	struct mail_cache *cache;
 	struct mail_transaction_log *log;
