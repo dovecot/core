@@ -158,6 +158,9 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		list->set.index_pvt_dir = set->index_pvt_dir == NULL ||
 			strcmp(set->index_pvt_dir, set->root_dir) == 0 ? NULL :
 			p_strdup(list->pool, set->index_pvt_dir);
+		list->set.index_cache_dir = set->index_cache_dir == NULL ||
+			strcmp(set->index_cache_dir, set->root_dir) == 0 ? NULL :
+			p_strdup(list->pool, set->index_cache_dir);
 		list->set.control_dir = set->control_dir == NULL ||
 			strcmp(set->control_dir, set->root_dir) == 0 ? NULL :
 			p_strdup(list->pool, set->control_dir);
@@ -329,6 +332,8 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->index_dir;
 		else if (strcmp(key, "INDEXPVT") == 0)
 			dest = &set_r->index_pvt_dir;
+		else if (strcmp(key, "INDEXCACHE") == 0)
+			dest = &set_r->index_cache_dir;
 		else if (strcmp(key, "CONTROL") == 0)
 			dest = &set_r->control_dir;
 		else if (strcmp(key, "ALT") == 0)
@@ -1455,6 +1460,12 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 			break;
 		}
 		/* fall through - default to index directory */
+	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
+		if (set->index_cache_dir != NULL &&
+		    type == MAILBOX_LIST_PATH_TYPE_INDEX_CACHE) {
+			path = set->index_cache_dir;
+			break;
+		}
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		if (set->index_dir != NULL) {
 			if (set->index_dir[0] == '\0') {

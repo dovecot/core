@@ -1681,6 +1681,11 @@ mailbox_lists_rename_compatible(struct mailbox_list *list1,
 					   list1->ns->prefix, list2->ns->prefix);
 		return FALSE;
 	}
+	if (!nullequals(list1->set.index_cache_dir, list2->set.index_cache_dir)) {
+		*error_r = t_strdup_printf("Namespace %s has index cache dir, %s doesn't",
+					   list1->ns->prefix, list2->ns->prefix);
+		return FALSE;
+	}
 	if (!nullequals(list1->set.control_dir, list2->set.control_dir)) {
 		*error_r = t_strdup_printf("Namespace %s has control dir, %s doesn't",
 					   list1->ns->prefix, list2->ns->prefix);

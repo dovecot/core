@@ -85,6 +85,9 @@ enum mailbox_list_path_type {
 	MAILBOX_LIST_PATH_TYPE_INDEX,
 	/* Return the private index directory (NULL if none) */
 	MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE,
+	/* Return the index cache directory (usually same as
+	   MAILBOX_LIST_PATH_TYPE_INDEX) */
+	MAILBOX_LIST_PATH_TYPE_INDEX_CACHE,
 	/* Return mailbox list index directory (usually same as
 	   MAILBOX_LIST_PATH_TYPE_INDEX) */
 	MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
@@ -103,6 +106,7 @@ struct mailbox_list_settings {
 	const char *root_dir;
 	const char *index_dir;
 	const char *index_pvt_dir;
+	const char *index_cache_dir;
 	const char *control_dir;
 	const char *alt_dir; /* FIXME: dbox-specific.. */
 	/* Backend-local directory where volatile data, such as lock files,

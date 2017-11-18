@@ -101,6 +101,7 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 	switch (type) {
 	case MAILBOX_LIST_PATH_TYPE_CONTROL:
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
+	case MAILBOX_LIST_PATH_TYPE_INDEX_CACHE:
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
 		if (name == NULL && type == MAILBOX_LIST_PATH_TYPE_CONTROL &&
 		    list->set.control_dir != NULL) {

@@ -235,16 +235,22 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 
 int index_storage_mailbox_alloc_index(struct mailbox *box)
 {
+	const char *cache_dir;
+
 	if (box->index != NULL)
 		return 0;
 
 	if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX) < 0)
 		return -1;
-
 	if (index_mailbox_alloc_index(box, &box->index) < 0)
 		return -1;
-	mail_index_set_fsync_mode(box->index,
-				  box->storage->set->parsed_fsync_mode, 0);
+
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX_CACHE,
+				&cache_dir) > 0) {
+		if (mailbox_create_missing_dir(box, MAILBOX_LIST_PATH_TYPE_INDEX_CACHE) < 0)
+			return -1;
+		mail_index_set_cache_dir(box->index, cache_dir);
+	}
 	mail_index_set_lock_method(box->index,
 		box->storage->set->parsed_lock_method,
 		mail_storage_get_lock_timeout(box->storage, UINT_MAX));
