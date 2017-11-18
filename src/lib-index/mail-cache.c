@@ -535,15 +535,15 @@ int mail_cache_open_and_verify(struct mail_cache *cache)
 	return ret;
 }
 
-static struct mail_cache *mail_cache_alloc(struct mail_index *index)
+struct mail_cache *
+mail_cache_open_or_create_path(struct mail_index *index, const char *path)
 {
 	struct mail_cache *cache;
 
 	cache = i_new(struct mail_cache, 1);
 	cache->index = index;
 	cache->fd = -1;
-	cache->filepath =
-		i_strconcat(index->filepath, MAIL_CACHE_FILE_SUFFIX, NULL);
+	cache->filepath = i_strdup(path);
 	cache->field_pool = pool_alloconly_create("Cache fields", 2048);
 	hash_table_create(&cache->field_name_hash, cache->field_pool, 0,
 			  strcase_hash, strcasecmp);
@@ -572,10 +572,9 @@ static struct mail_cache *mail_cache_alloc(struct mail_index *index)
 
 struct mail_cache *mail_cache_open_or_create(struct mail_index *index)
 {
-	struct mail_cache *cache;
-
-	cache = mail_cache_alloc(index);
-	return cache;
+	const char *path = t_strconcat(index->filepath,
+				       MAIL_CACHE_FILE_SUFFIX, NULL);
+	return mail_cache_open_or_create_path(index, path);
 }
 
 void mail_cache_free(struct mail_cache **_cache)
