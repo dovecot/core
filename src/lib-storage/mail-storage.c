@@ -1255,7 +1255,7 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	} T_END;
 
 	if (ret < 0 && box->storage->error == MAIL_ERROR_NOTFOUND &&
-	    !box->deleting &&
+	    !box->deleting && !box->creating &&
 	    box->input == NULL && mailbox_is_autocreated(box)) T_BEGIN {
 		ret = mailbox_autocreate_and_reopen(box);
 	} T_END;
