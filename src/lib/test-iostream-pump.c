@@ -161,7 +161,7 @@ void test_iostream_pump_failure_start_read(bool block)
 	buffer_t *buffer;
 
 	test_iostream_setup(block, &in_2, &out, &buffer);
-	struct istream *in = i_stream_create_failure_at(in_2, 0, "test pump fail");
+	struct istream *in = i_stream_create_failure_at(in_2, 0, EIO, "test pump fail");
 	i_stream_unref(&in_2);
 	counter = 2;
 	test_assert(strcmp(run_pump(in, out, &counter, buffer), "") == 0);
@@ -180,7 +180,7 @@ void test_iostream_pump_failure_mid_read(bool block)
 	buffer_t *buffer;
 
 	test_iostream_setup(block, &in_2, &out, &buffer);
-	struct istream *in = i_stream_create_failure_at(in_2, 4, "test pump fail");
+	struct istream *in = i_stream_create_failure_at(in_2, 4, EIO, "test pump fail");
 	i_stream_unref(&in_2);
 	counter = 2;
 	test_assert(strcmp(run_pump(in, out, &counter, buffer), "hell") == 0);
@@ -199,7 +199,7 @@ void test_iostream_pump_failure_end_read(bool block)
 	buffer_t *buffer;
 
 	test_iostream_setup(block, &in_2, &out, &buffer);
-	struct istream *in = i_stream_create_failure_at_eof(in_2, "test pump fail");
+	struct istream *in = i_stream_create_failure_at_eof(in_2, EIO, "test pump fail");
 	i_stream_unref(&in_2);
 	counter = 2;
 	test_assert(strcmp(run_pump(in, out, &counter, buffer), "hello, world") == 0);

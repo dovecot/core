@@ -6,6 +6,7 @@
 
 struct failure_at_istream {
 	struct istream_private istream;
+	int error_code;
 	char *error_string;
 	uoff_t failure_offset;
 };
@@ -35,7 +36,8 @@ i_stream_failure_at_read(struct istream_private *stream)
 			/* we already passed the wanted failure offset,
 			   return error immediately. */
 			stream->pos = stream->skip;
-			stream->istream.stream_errno = errno = EIO;
+			stream->istream.stream_errno = errno =
+				fstream->error_code;
 			io_stream_set_error(&stream->iostream, "%s",
 					    fstream->error_string);
 			ret = -1;
@@ -52,7 +54,8 @@ i_stream_failure_at_read(struct istream_private *stream)
 	} else if (ret < 0 && stream->istream.stream_errno == 0 &&
 		   fstream->failure_offset == (uoff_t)-1) {
 		/* failure at EOF */
-		stream->istream.stream_errno = errno = EIO;
+		stream->istream.stream_errno = errno =
+			fstream->error_code;
 		io_stream_set_error(&stream->iostream, "%s",
 				    fstream->error_string);
 	}
@@ -61,7 +64,7 @@ i_stream_failure_at_read(struct istream_private *stream)
 
 struct istream *
 i_stream_create_failure_at(struct istream *input, uoff_t failure_offset,
-			   const char *error_string)
+			   int stream_errno, const char *error_string)
 {
 	struct failure_at_istream *fstream;
 
@@ -76,6 +79,7 @@ i_stream_create_failure_at(struct istream *input, uoff_t failure_offset,
 	fstream->istream.istream.blocking = input->blocking;
 	fstream->istream.istream.seekable = input->seekable;
 
+	fstream->error_code = stream_errno;
 	fstream->error_string = i_strdup(error_string);
 	fstream->failure_offset = failure_offset;
 	return i_stream_create(&fstream->istream, input,
@@ -83,7 +87,9 @@ i_stream_create_failure_at(struct istream *input, uoff_t failure_offset,
 }
 
 struct istream *
-i_stream_create_failure_at_eof(struct istream *input, const char *error_string)
+i_stream_create_failure_at_eof(struct istream *input, int stream_errno,
+			       const char *error_string)
 {
-	return i_stream_create_failure_at(input, (uoff_t)-1, error_string);
+	return i_stream_create_failure_at(input, (uoff_t)-1, stream_errno,
+					  error_string);
 }

@@ -787,7 +787,8 @@ test_client_broken_payload_later(
 	test_expect_errors(1);
 
 	msg_input = i_stream_create_from_data(message, strlen(message));
-	input = i_stream_create_failure_at(msg_input, 666, "Moehahahaha!!");
+	input = i_stream_create_failure_at(msg_input, 666,
+					   EIO, "Moehahahaha!!");
 	i_stream_unref(&msg_input);
 	i_stream_set_name(input, "PURE EVIL");
 

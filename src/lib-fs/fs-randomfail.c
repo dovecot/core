@@ -321,7 +321,7 @@ fs_randomfail_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	input = fs_read_stream(_file->parent, max_buffer_size);
 	if (!fs_random_fail_range(_file->fs, FS_OP_READ, &offset))
 		return input;
-	input2 = i_stream_create_failure_at(input, offset, RANDOMFAIL_ERROR);
+	input2 = i_stream_create_failure_at(input, offset, EIO, RANDOMFAIL_ERROR);
 	i_stream_unref(&input);
 	return input2;
 }
