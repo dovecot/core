@@ -1317,7 +1317,7 @@ test_successful_delivery_input(struct server_connection *conn)
 				ctx->file_path = p_strdup_printf(conn->pool,
 					"%s/message-%u.eml", test_tmp_dir_get(), server_port);
 
-				if ( (fd=open(ctx->file_path, O_WRONLY | O_CREAT, 0600)) < 0 ) {
+				if ((fd=open(ctx->file_path, O_WRONLY | O_CREAT, 0600)) < 0) {
 					i_fatal("failed create tmp file for message: "
 						"open(%s) failed: %m", ctx->file_path);
 				}
