@@ -87,19 +87,19 @@ static int path_normalize(const char *path, bool resolve_links,
 				for (; *(npath_pos-1) != '/'; npath_pos--);
 			}
 		} else {
-			/* make sure npath now ends in slash */
-			if (*(npath_pos-1) != '/') {
-				i_assert(npath_pos >= npath);
-				i_assert((size_t)((npath_pos - npath) + 1) < asize);
-				*(npath_pos++) = '/';
-			}
-
 			/* allocate space if necessary */
 			if ((npath_pos + seglen + 1) >= (npath + asize)) {
 				ptrdiff_t npath_offset = npath_pos - npath;
 				asize = nearest_power(npath_offset + seglen + 2);
 				npath = t_buffer_reget(npath, asize);
 				npath_pos = npath + npath_offset;
+			}
+
+			/* make sure npath now ends in slash */
+			if (*(npath_pos-1) != '/') {
+				i_assert(npath_pos >= npath);
+				i_assert((size_t)((npath_pos - npath) + 1) < asize);
+				*(npath_pos++) = '/';
 			}
 
 			/* copy segment to normalized path */
