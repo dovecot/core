@@ -675,7 +675,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 	/* NOTE: if more user initialization is added, add it also to
 	   mail_user_dup() */
-	mail_user = mail_user_alloc_nodup_set(user->input.username,
+	mail_user = mail_user_alloc_nodup_set(user->event, user->input.username,
 					      user->user_info, user->user_set);
 	mail_user->_service_user = user;
 	mail_storage_service_user_ref(user);
@@ -708,6 +708,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 			p_strdup_printf(mail_user->pool, "%s:%s",
 					user->input.session_id,
 					session_id_suffix);
+	event_add_str(user->event, "session", mail_user->session_id);
 
 	mail_user->userdb_fields = user->input.userdb_fields == NULL ? NULL :
 		p_strarray_dup(mail_user->pool, user->input.userdb_fields);

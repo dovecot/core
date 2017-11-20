@@ -52,7 +52,8 @@ static void mail_user_stats_fill_base(struct mail_user *user ATTR_UNUSED,
 }
 
 static struct mail_user *
-mail_user_alloc_int(const char *username,
+mail_user_alloc_int(struct event *parent_event,
+		    const char *username,
 		    const struct setting_parser_info *set_info,
 		    const struct mail_user_settings *set, pool_t pool)
 {
@@ -72,6 +73,9 @@ mail_user_alloc_int(const char *username,
 	user->service = master_service_get_name(master_service);
 	user->default_normalizer = uni_utf8_to_decomposed_titlecase;
 	user->session_create_time = ioloop_time;
+	user->event = event_create(parent_event);
+	event_add_category(user->event, &event_category_storage);
+	event_add_str(user->event, "user", username);
 
 	/* check settings so that the duplicated structure will again
 	   contain the parsed fields */
@@ -86,24 +90,26 @@ mail_user_alloc_int(const char *username,
 }
 
 struct mail_user *
-mail_user_alloc_nodup_set(const char *username,
+mail_user_alloc_nodup_set(struct event *parent_event,
+			  const char *username,
 			  const struct setting_parser_info *set_info,
 			  const struct mail_user_settings *set)
 {
 	pool_t pool;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
-	return mail_user_alloc_int(username, set_info, set, pool);
+	return mail_user_alloc_int(parent_event, username, set_info, set, pool);
 }
 
-struct mail_user *mail_user_alloc(const char *username,
+struct mail_user *mail_user_alloc(struct event *parent_event,
+				  const char *username,
 				  const struct setting_parser_info *set_info,
 				  const struct mail_user_settings *set)
 {
 	pool_t pool;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
-	return mail_user_alloc_int(username, set_info,
+	return mail_user_alloc_int(parent_event, username, set_info,
 				   settings_dup(set_info, set, pool), pool);
 }
 
@@ -212,6 +218,7 @@ void mail_user_unref(struct mail_user **_user)
 	   assert-crash in mail_user_ref() that is called by some handlers. */
 	user->v.deinit_pre(user);
 	user->v.deinit(user);
+	event_unref(&user->event);
 	i_assert(user->refcount == 1);
 	pool_unref(&user->pool);
 }
@@ -249,7 +256,15 @@ void mail_user_set_vars(struct mail_user *user, const char *service,
 	i_assert(service != NULL);
 
 	user->service = p_strdup(user->pool, service);
+	event_add_str(user->event, "service", service);
+
 	mail_user_connection_init_from(&user->conn, user->pool, conn);
+	if (user->conn.local_ip != NULL)
+		event_add_str(user->event, "local_ip",
+			      net_ip2addr(user->conn.local_ip));
+	if (user->conn.remote_ip != NULL)
+		event_add_str(user->event, "remote_ip",
+			      net_ip2addr(user->conn.remote_ip));
 }
 
 const struct var_expand_table *
@@ -657,8 +672,8 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 {
 	struct mail_user *user2;
 
-	user2 = mail_user_alloc(user->username, user->set_info,
-				user->unexpanded_set);
+	user2 = mail_user_alloc(event_get_parent(user->event), user->username,
+				user->set_info, user->unexpanded_set);
 	if (user2->_service_user != NULL) {
 		user2->_service_user = user->_service_user;
 		mail_storage_service_user_ref(user2->_service_user);

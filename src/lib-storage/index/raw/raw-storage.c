@@ -22,7 +22,7 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 	struct mail_storage_settings *mail_set;
 	const char *error;
 
-	user = mail_user_alloc("raw mail user", set_info, set);
+	user = mail_user_alloc(NULL, "raw mail user", set_info, set);
 	user->autocreated = TRUE;
 	mail_user_set_home(user, "/");
 	if (mail_user_init(user, &error) < 0)

@@ -251,8 +251,8 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		return 0;
 	}
 
-	owner = mail_user_alloc(userdomain, user->set_info,
-				user->unexpanded_set);
+	owner = mail_user_alloc(event_get_parent(user->event), userdomain,
+				user->set_info, user->unexpanded_set);
 	owner->_service_user = user->_service_user;
 	mail_storage_service_user_ref(owner->_service_user);
 	owner->creator = user;

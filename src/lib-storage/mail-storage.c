@@ -40,6 +40,10 @@
 extern struct mail_search_register *mail_search_register_imap;
 extern struct mail_search_register *mail_search_register_human;
 
+struct event_category event_category_storage = {
+	.name = "storage",
+};
+
 struct mail_storage_module_register mail_storage_module_register = { 0 };
 struct mail_module_register mail_module_register = { 0 };
 

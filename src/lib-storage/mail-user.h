@@ -30,6 +30,7 @@ struct mail_user {
 	struct mail_user_vfuncs v, *vlast;
 	int refcount;
 
+	struct event *event;
 	/* User's creator if such exists. For example for autocreated shared
 	   mailbox users their creator is the logged in user. */
 	struct mail_user *creator;
@@ -121,11 +122,13 @@ extern struct mail_user_module_register mail_user_module_register;
 extern struct auth_master_connection *mail_user_auth_master_conn;
 extern const struct var_expand_func_table *mail_user_var_expand_func_table;
 
-struct mail_user *mail_user_alloc(const char *username,
+struct mail_user *mail_user_alloc(struct event *parent_event,
+				  const char *username,
 				  const struct setting_parser_info *set_info,
 				  const struct mail_user_settings *set);
 struct mail_user *
-mail_user_alloc_nodup_set(const char *username,
+mail_user_alloc_nodup_set(struct event *parent_event,
+			  const char *username,
 			  const struct setting_parser_info *set_info,
 			  const struct mail_user_settings *set);
 /* Returns -1 if settings were invalid. */
