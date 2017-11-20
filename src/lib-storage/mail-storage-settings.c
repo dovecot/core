@@ -33,6 +33,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(SET_STR_VARS, mail_attachment_dir),
 	DEF(SET_STR, mail_attachment_hash),
 	DEF(SET_SIZE, mail_attachment_min_size),
+	DEF(SET_STR, mail_attachment_detection_options),
 	DEF(SET_STR_VARS, mail_attribute_dict),
 	DEF(SET_UINT, mail_prefetch_count),
 	DEF(SET_STR, mail_cache_fields),
@@ -92,6 +93,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mail_attachment_dir = "",
 	.mail_attachment_hash = "%{sha1}",
 	.mail_attachment_min_size = 1024*128,
+	.mail_attachment_detection_options = "",
 	.mail_attribute_dict = "",
 	.mail_prefetch_count = 0,
 	.mail_cache_fields = "flags",
@@ -402,7 +404,7 @@ fix_base_path(struct mail_user_settings *set, pool_t pool, const char **str)
 }
 
 /* <settings checks> */
-static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
+static bool mail_storage_settings_check(void *_set, pool_t pool,
 					const char **error_r)
 {
 	struct mail_storage_settings *set = _set;
@@ -521,6 +523,34 @@ static bool mail_storage_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				    "postmaster@", set->hostname, NULL);
 	}
 #endif
+
+	/* parse mail_attachment_indicator_options */
+	if (*set->mail_attachment_detection_options != '\0') {
+		ARRAY_TYPE(const_string) content_types;
+		p_array_init(&content_types, pool, 2);
+
+		const char *const *options =
+			t_strsplit_spaces(set->mail_attachment_detection_options, " ");
+
+		while(*options != NULL) {
+			const char *opt = *options;
+
+			if (strcmp(opt, "add-flags-on-save") == 0) {
+				set->parsed_mail_attachment_detection_add_flags_on_save = TRUE;
+			} else if (strcmp(opt, "add-flags-on-fetch") == 0) {
+				set->parsed_mail_attachment_detection_add_flags_on_fetch = TRUE;
+			} else if (strcmp(opt, "exclude-inlined") == 0) {
+				set->parsed_mail_attachment_exclude_inlined = TRUE;
+			} else if (strncmp(opt, "content-type=", 13) == 0) {
+				const char *value = p_strdup(pool, opt+13);
+				array_append(&content_types, &value, 1);
+			}
+			options++;
+		}
+
+		array_append_zero(&content_types);
+		set->parsed_mail_attachment_content_type_filter = array_idx(&content_types, 0);
+	}
 
 	return TRUE;
 }

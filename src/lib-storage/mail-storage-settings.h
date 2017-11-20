@@ -67,12 +67,18 @@ struct mail_storage_settings {
 	const char *ssl_client_ca_dir;
 	const char *ssl_client_ca_file;
 	const char *ssl_crypto_device;
+	const char *mail_attachment_detection_options;
 
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
 	/* May be NULL - use mail_storage_get_postmaster_address() instead of
 	   directly accessing this. */
 	const struct message_address *_parsed_postmaster_address;
+
+	const char *const *parsed_mail_attachment_content_type_filter;
+	bool parsed_mail_attachment_exclude_inlined;
+	bool parsed_mail_attachment_detection_add_flags_on_save;
+	bool parsed_mail_attachment_detection_add_flags_on_fetch;
 };
 
 struct mail_namespace_settings {
