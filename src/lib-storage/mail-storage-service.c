@@ -76,6 +76,8 @@ struct mail_storage_service_user {
 	struct mail_storage_service_input input;
 	enum mail_storage_service_flags flags;
 
+	struct event *event;
+	ARRAY(struct event *) event_stack;
 	struct ioloop_context *ioloop_ctx;
 	const char *log_prefix, *auth_token, *auth_user;
 
@@ -783,6 +785,17 @@ void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *u
 static void
 mail_storage_service_io_activate_user_cb(struct mail_storage_service_user *user)
 {
+	event_push_global(user->event);
+	if (array_is_created(&user->event_stack)) {
+		struct event *const *events;
+		unsigned int i, count;
+
+		/* push the global events from stack in reverse order */
+		events = array_get(&user->event_stack, &count);
+		for (i = count; i > 0; i--)
+			event_push_global(events[i-1]);
+		array_clear(&user->event_stack);
+	}
 	if (user->log_prefix != NULL)
 		i_set_failure_prefix("%s", user->log_prefix);
 }
@@ -790,6 +803,22 @@ mail_storage_service_io_activate_user_cb(struct mail_storage_service_user *user)
 static void
 mail_storage_service_io_deactivate_user_cb(struct mail_storage_service_user *user)
 {
+	struct event *event;
+
+	/* ioloop context is always global, so we can't push one ioloop context
+	   on top of another one. We'll need to rewind the global event stack
+	   until we've reached the event that started this context. We'll push
+	   these global events back when the user's context is activated
+	   again. (We'll assert-crash if the user is freed before these
+	   global events have been popped.) */
+	while ((event = event_get_global()) != user->event) {
+		i_assert(event != NULL);
+		if (!array_is_created(&user->event_stack))
+			i_array_init(&user->event_stack, 4);
+		array_append(&user->event_stack, &event, 1);
+		event_pop_global(event);
+	}
+	event_pop_global(user->event);
 	if (user->log_prefix != NULL)
 		i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
 }
@@ -874,6 +903,8 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 	} T_END;
 
 	master_service_init_log(ctx->service, user->log_prefix);
+	/* replace the whole log prefix with mail_log_prefix */
+	event_replace_log_prefix(user->event, user->log_prefix);
 
 	if (master_service_get_client_limit(master_service) == 1)
 		i_set_failure_send_prefix(user->log_prefix);
@@ -1295,6 +1326,32 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->user_set = sets[0];
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
+	/* Create an event that will be used as the default event for logging.
+	   This event won't be a parent to any other events - mail_user.event
+	   will be used for that. */
+	user->event = event_create(input->parent_event);
+	event_add_fields(user->event, (const struct event_add_field []){
+		{ .key = "user", .value = user->input.username },
+		{ .key = "service", .value = ctx->service->name },
+		{ .key = "session", .value = user->input.session_id },
+		{ .key = NULL }
+	});
+	if (user->input.local_ip.family != 0) {
+		event_add_str(user->event, "local_ip",
+			      net_ip2addr(&user->input.local_ip));
+	}
+	if (user->input.local_port != 0) {
+		event_add_int(user->event, "local_port",
+			      user->input.local_port);
+	}
+	if (user->input.remote_ip.family != 0) {
+		event_add_str(user->event, "remote_ip",
+			      net_ip2addr(&user->input.remote_ip));
+	}
+	if (user->input.remote_port != 0) {
+		event_add_int(user->event, "remote_port",
+			      user->input.remote_port);
+	}
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		(void)settings_parse_line(user->set_parser, "mail_debug=yes");
@@ -1582,7 +1639,13 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 			mail_storage_service_io_deactivate_user_cb, user);
 		io_loop_context_unref(&user->ioloop_ctx);
 	}
+
+	if (array_is_created(&user->event_stack)) {
+		i_assert(array_count(&user->event_stack) == 0);
+		array_free(&user->event_stack);
+	}
 	settings_parser_deinit(&user->set_parser);
+	event_unref(&user->event);
 	pool_unref(&user->pool);
 }
 
