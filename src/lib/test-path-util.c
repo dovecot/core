@@ -149,30 +149,27 @@ static void test_abspath_vs_normpath(void)
 static void create_links(const char *tmpdir)
 {
 	link1 = t_strconcat(tmpdir, "/link1", NULL);
-        if (symlink(tmpdir, link1) < 0) {
-                i_fatal("symlink(%s, %s) failed: %m", tmpdir, link1);
-        }
+	if (symlink(tmpdir, link1) < 0)
+		i_fatal("symlink(%s, %s) failed: %m", tmpdir, link1);
+
 	const char *link1_child = t_strconcat(link1, "/child", NULL);
 	int fd = creat(link1_child, 0600);
 	if (fd == -1)
 		i_fatal("creat(%s) failed: %m", link1_child);
 	i_close_fd(&fd);
 
-        /* link2 and link3 point to each other to create a loop */
-        link2 = t_strconcat(tmpdir, "/link2", NULL);
-        link3 = t_strconcat(tmpdir, "/link3", NULL);
-        if (symlink(link3, link2) < 0) {
-                i_fatal("symlink(%s, %s) failed: %m", link3, link2);
-        }
-        if (symlink(link2, link3) < 0) {
-                i_fatal("symlink(%s, %s) failed: %m", link2, link3);
-	}
+	/* link2 and link3 point to each other to create a loop */
+	link2 = t_strconcat(tmpdir, "/link2", NULL);
+	link3 = t_strconcat(tmpdir, "/link3", NULL);
+	if (symlink(link3, link2) < 0)
+		i_fatal("symlink(%s, %s) failed: %m", link3, link2);
+	if (symlink(link2, link3) < 0)
+		i_fatal("symlink(%s, %s) failed: %m", link2, link3);
 
 	/* link4 points to link1 */
 	link4 = t_strconcat(tmpdir, "/link4", NULL);
-        if (symlink("link1", link4) < 0) {
-                i_fatal("symlink(link1, %s) failed: %m", link4);
-        }
+	if (symlink("link1", link4) < 0)
+		i_fatal("symlink(link1, %s) failed: %m", link4);
 }
 
 static void test_link_alloc(void)
