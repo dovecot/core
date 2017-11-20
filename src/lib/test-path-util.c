@@ -206,6 +206,36 @@ static void test_link_alloc(void)
 	tmpdir = o_tmpdir;
 }
 
+static void test_link_alloc2(void)
+{
+	const char *o_tmpdir;
+
+	/* try enough different sized base directory lengths so the code
+	   hits the different reallocations and tests for off-by-one errors */
+	string_t *basedir = t_str_new(256);
+	str_append(basedir, cwd);
+	str_append(basedir, "/"TEMP_DIRNAME);
+	str_append_c(basedir, '/');
+	size_t base_len = str_len(basedir);
+
+	o_tmpdir = tmpdir;
+	/* path_normalize() initially allocates 128 bytes, so we'll test paths
+	   up to that length+1. */
+	unsigned char buf[128+1];
+	memset(buf, 'x', sizeof(buf));
+	for (size_t i = 1; i <= sizeof(buf); i++) {
+		str_truncate(basedir, base_len);
+		str_append_n(basedir, buf, i);
+		tmpdir = str_c(basedir);
+		(void)mkdir(str_c(basedir), 0700);
+
+		create_links(tmpdir);
+		test_link1();
+		test_link_loop();
+	}
+	tmpdir = o_tmpdir;
+}
+
 static void test_cleanup(void)
 {
 	const char *error;
@@ -244,6 +274,7 @@ void test_path_util(void)
 	test_link_loop();
 	test_abspath_vs_normpath();
 	test_link_alloc();
+	test_link_alloc2();
 	test_cleanup();
 	alarm(0);
 	test_end();
