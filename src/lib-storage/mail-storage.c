@@ -1672,15 +1672,18 @@ mailbox_lists_rename_compatible(struct mailbox_list *list1,
 				const char **error_r)
 {
 	if (!nullequals(list1->set.alt_dir, list2->set.alt_dir)) {
-		*error_r = "one namespace has alt dir and another doesn't";
+		*error_r = t_strdup_printf("Namespace %s has alt dir, %s doesn't",
+					   list1->ns->prefix, list2->ns->prefix);
 		return FALSE;
 	}
 	if (!nullequals(list1->set.index_dir, list2->set.index_dir)) {
-		*error_r = "one namespace has index dir and another doesn't";
+		*error_r = t_strdup_printf("Namespace %s has index dir, %s doesn't",
+					   list1->ns->prefix, list2->ns->prefix);
 		return FALSE;
 	}
 	if (!nullequals(list1->set.control_dir, list2->set.control_dir)) {
-		*error_r = "one namespace has control dir and another doesn't";
+		*error_r = t_strdup_printf("Namespace %s has control dir, %s doesn't",
+					   list1->ns->prefix, list2->ns->prefix);
 		return FALSE;
 	}
 	return TRUE;
