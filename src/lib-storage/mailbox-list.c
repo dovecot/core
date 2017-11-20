@@ -1466,6 +1466,7 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 			path = set->index_cache_dir;
 			break;
 		}
+		/* fall through */
 	case MAILBOX_LIST_PATH_TYPE_INDEX:
 		if (set->index_dir != NULL) {
 			if (set->index_dir[0] == '\0') {
