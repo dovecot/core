@@ -37,6 +37,7 @@ struct ns_list_iterate_context {
 	bool inbox_listed:1;
 };
 
+static void mailbox_list_ns_iter_failed(struct ns_list_iterate_context *ctx);
 static bool ns_match_next(struct ns_list_iterate_context *ctx, 
 			  struct mail_namespace *ns, const char *pattern);
 static int mailbox_list_match_anything(struct ns_list_iterate_context *ctx,
@@ -470,6 +471,13 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 
 	if ((ctx->ctx.flags & (MAILBOX_LIST_ITER_RETURN_SUBSCRIBED |
 			       MAILBOX_LIST_ITER_SELECT_SUBSCRIBED)) != 0) {
+		/* Refresh subscriptions first, this won't cause a duplicate
+		   call later on as this is only called when the namespace's
+		   children definitely don't match */
+		if (mailbox_list_iter_subscriptions_refresh(ns->list) < 0) {
+			mailbox_list_ns_iter_failed(ctx);
+			return FALSE;
+		}
 		mailbox_list_set_subscription_flags(ns->list,
 						    ctx->ns_info.vname,
 						    &ctx->ns_info.flags);
