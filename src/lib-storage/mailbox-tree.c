@@ -164,6 +164,8 @@ mailbox_tree_lookup(struct mailbox_tree_context *tree, const char *path)
 	struct mailbox_node *node;
 	bool created;
 
+	i_assert(tree != NULL);
+
 	T_BEGIN {
 		node = mailbox_tree_traverse(tree, path, FALSE, &created);
 	} T_END;
