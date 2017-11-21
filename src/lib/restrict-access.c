@@ -479,8 +479,10 @@ const char *restrict_access_get_current_chroot(void)
 void restrict_access_allow_coredumps(bool allow ATTR_UNUSED)
 {
 #ifdef HAVE_PR_SET_DUMPABLE
-	if (prctl(PR_SET_DUMPABLE, allow ? 1 : 0, 0, 0, 0) < 0)
-		i_error("prctl(PR_SET_DUMPABLE) failed: %m");
+	if (getenv("PR_SET_DUMPABLE") != NULL) {
+		if (prctl(PR_SET_DUMPABLE, allow ? 1 : 0, 0, 0, 0) < 0)
+			i_error("prctl(PR_SET_DUMPABLE) failed: %m");
+	}
 #endif
 }
 
