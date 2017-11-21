@@ -850,7 +850,7 @@ struct client_command_context *client_command_alloc(struct client *client)
 void client_command_init_finished(struct client_command_context *cmd)
 {
 	event_add_str(cmd->event, "tag", cmd->tag);
-	event_add_str(cmd->event, "name", cmd->name);
+	event_add_str(cmd->event, "name", t_str_ucase(cmd->name));
 	if (cmd->args != NULL)
 		event_add_str(cmd->event, "args", cmd->args);
 	if (cmd->human_args != NULL)
@@ -914,6 +914,22 @@ void client_command_free(struct client_command_context **_cmd)
 		client->input_lock = NULL;
 	if (client->mailbox_change_lock == cmd)
 		client->mailbox_change_lock = NULL;
+
+	event_set_name(cmd->event, "imap_command_finished");
+	if (cmd->tagline_reply != NULL) {
+		event_add_str(cmd->event, "tagged_reply_state",
+			      t_strcut(cmd->tagline_reply, ' '));
+		event_add_str(cmd->event, "tagged_reply", cmd->tagline_reply);
+	}
+	event_add_timeval(cmd->event, "last_run_time",
+			  &cmd->stats.last_run_timeval);
+	event_add_int(cmd->event, "running_usecs", cmd->stats.running_usecs);
+	event_add_int(cmd->event, "lock_wait_usecs", cmd->stats.lock_wait_usecs);
+	event_add_int(cmd->event, "bytes_in", cmd->stats.bytes_in);
+	event_add_int(cmd->event, "bytes_out", cmd->stats.bytes_out);
+
+	e_debug(cmd->event, "Command finished: %s %s", cmd->name,
+		cmd->human_args != NULL ? cmd->human_args : "");
 	event_unref(&cmd->event);
 
 	if (cmd->parser != NULL) {
