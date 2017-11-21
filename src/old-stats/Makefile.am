@@ -1,22 +1,22 @@
-stats_moduledir = $(moduledir)/stats
+old_stats_moduledir = $(moduledir)/old-stats
 pkglibexecdir = $(libexecdir)/dovecot
 
-pkglibexec_PROGRAMS = stats
+pkglibexec_PROGRAMS = old-stats
 
 AM_CPPFLAGS = \
-	-DSTATS_MODULE_DIR=\""$(stats_moduledir)"\" \
+	-DSTATS_MODULE_DIR=\""$(old_stats_moduledir)"\" \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
-	-I$(top_srcdir)/src/lib-stats \
+	-I$(top_srcdir)/src/lib-old-stats \
 	$(BINARY_CFLAGS)
 
-stats_LDADD = $(LIBDOVECOT) \
+old_stats_LDADD = $(LIBDOVECOT) \
 	$(BINARY_LDFLAGS)
 
-stats_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+old_stats_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
-stats_SOURCES = \
+old_stats_SOURCES = \
 	client.c \
 	client-export.c \
 	client-reset.c \

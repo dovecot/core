@@ -45,7 +45,7 @@ static void main_preinit(void)
 int main(int argc, char *argv[])
 {
 	const struct setting_parser_info *set_roots[] = {
-		&stats_setting_parser_info,
+		&old_stats_setting_parser_info,
 		NULL
 	};
 	const enum master_service_flags service_flags =

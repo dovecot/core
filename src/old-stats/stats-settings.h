@@ -1,7 +1,7 @@
 #ifndef STATS_SETTINGS_H
 #define STATS_SETTINGS_H
 
-struct stats_settings {
+struct old_stats_settings {
 	uoff_t memory_limit;
 
 	unsigned int command_min_time;
@@ -15,8 +15,8 @@ struct stats_settings {
 	const char *carbon_name;
 };
 
-extern const struct setting_parser_info stats_setting_parser_info;
-extern const struct stats_settings *stats_settings;
+extern const struct setting_parser_info old_stats_setting_parser_info;
+extern const struct old_stats_settings *stats_settings;
 
 #endif
 

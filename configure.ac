@@ -627,7 +627,7 @@ LIBDOVECOT_LA_LIBS='\
 	$(top_builddir)/src/lib-program-client/libprogram_client.la \
 	$(top_builddir)/src/lib-master/libmaster.la \
 	$(top_builddir)/src/lib-settings/libsettings.la \
-	$(top_builddir)/src/lib-stats/libstats.la \
+	$(top_builddir)/src/lib-old-stats/libold_stats.la \
 	$(top_builddir)/src/lib-http/libhttp.la \
 	$(top_builddir)/src/lib-fs/libfs.la \
 	$(top_builddir)/src/lib-dict/libdict.la \
@@ -854,7 +854,7 @@ src/lib-sasl/Makefile
 src/lib-settings/Makefile
 src/lib-smtp/Makefile
 src/lib-ssl-iostream/Makefile
-src/lib-stats/Makefile
+src/lib-old-stats/Makefile
 src/lib-test/Makefile
 src/lib-storage/Makefile
 src/lib-storage/list/Makefile
@@ -895,7 +895,7 @@ src/submission-login/Makefile
 src/replication/Makefile
 src/replication/aggregator/Makefile
 src/replication/replicator/Makefile
-src/stats/Makefile
+src/old-stats/Makefile
 src/util/Makefile
 src/plugins/Makefile
 src/plugins/acl/Makefile
@@ -922,8 +922,8 @@ src/plugins/quota-clone/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/replication/Makefile
 src/plugins/snarf/Makefile
-src/plugins/stats/Makefile
-src/plugins/imap-stats/Makefile
+src/plugins/old-stats/Makefile
+src/plugins/imap-old-stats/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
 src/plugins/welcome/Makefile

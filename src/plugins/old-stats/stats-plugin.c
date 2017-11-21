@@ -18,7 +18,7 @@
    Must be smaller than MAIL_SESSION_IDLE_TIMEOUT_MSECS in stats server */
 #define SESSION_STATS_FORCE_REFRESH_SECS (5*60)
 #define REFRESH_CHECK_INTERVAL 100
-#define MAIL_STATS_FIFO_NAME "stats-mail"
+#define MAIL_STATS_FIFO_NAME "old-stats-mail"
 
 struct stats_storage {
 	union mail_storage_module_context module_ctx;

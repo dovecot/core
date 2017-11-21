@@ -36,8 +36,8 @@ SUBDIRS = \
 	pop3-migration \
 	replication \
 	snarf \
-	stats \
-	imap-stats \
+	old-stats \
+	imap-old-stats \
 	mail-crypt \
 	trash \
 	virtual \

@@ -17,7 +17,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-dns \
 	lib-dict \
 	lib-sasl \
-	lib-stats \
+	lib-old-stats \
 	lib-http \
 	lib-fs \
 	lib-mail \
@@ -68,5 +68,5 @@ SUBDIRS = \
 	replication \
 	util \
 	doveadm \
-	stats \
+	old-stats \
 	plugins

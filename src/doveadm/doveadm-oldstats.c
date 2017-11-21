@@ -118,7 +118,7 @@ doveadm_cmd_stats_dump(struct doveadm_cmd_context* cctx)
 	const char *args[3] = {0};
 
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &path))
-		path = t_strconcat(doveadm_settings->base_dir, "/stats", NULL);
+		path = t_strconcat(doveadm_settings->base_dir, "/old-stats", NULL);
 
 	if (!doveadm_cmd_param_str(cctx, "type", &args[0])) {
 		i_error("Missing type parameter");
@@ -544,7 +544,7 @@ static void cmd_stats_top(int argc, char *argv[])
 	const char *path, *sort_type;
 	int c;
 
-	path = t_strconcat(doveadm_settings->base_dir, "/stats", NULL);
+	path = t_strconcat(doveadm_settings->base_dir, "/old-stats", NULL);
 
 	while ((c = getopt(argc, argv, "bs:")) > 0) {
 		switch (c) {
@@ -556,14 +556,14 @@ static void cmd_stats_top(int argc, char *argv[])
 			path = optarg;
 			break;
 		default:
-			help_ver2(&doveadm_cmd_stats_top_ver2);
+			help_ver2(&doveadm_cmd_oldstats_top_ver2);
 		}
 	}
 	argv += optind - 1;
 	if (argv[1] == NULL)
 		sort_type = "disk";
 	else if (argv[2] != NULL)
-		help_ver2(&doveadm_cmd_stats_top_ver2);
+		help_ver2(&doveadm_cmd_oldstats_top_ver2);
 	else
 		sort_type = argv[1];
 
@@ -576,14 +576,14 @@ static void cmd_stats_reset(int argc, char *argv[])
 	const char *path;
 	int c;
 
-	path = t_strconcat(doveadm_settings->base_dir, "/stats", NULL);
+	path = t_strconcat(doveadm_settings->base_dir, "/old-stats", NULL);
 	while((c = getopt(argc, argv, "s:")) > 0) {
 		switch (c) {
 		case 's':
 			path = optarg;
 			break;
 		default:
-			help_ver2(&doveadm_cmd_stats_reset_ver2);
+			help_ver2(&doveadm_cmd_oldstats_reset_ver2);
 		}
 	}
 	argv += optind - 1;
@@ -595,9 +595,9 @@ static void cmd_stats_reset(int argc, char *argv[])
 	stats_reset(path, (const char**)argv);
 }
 
-struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2 = {
+struct doveadm_cmd_ver2 doveadm_cmd_oldstats_dump_ver2 = {
 	.cmd = doveadm_cmd_stats_dump,
-	.name = "stats dump",
+	.name = "oldstats dump",
 	.usage = "[-s <stats socket path>] <type> [<filter>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
@@ -606,9 +606,9 @@ DOVEADM_CMD_PARAM('\0', "filter", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
 
-struct doveadm_cmd_ver2 doveadm_cmd_stats_top_ver2 = {
+struct doveadm_cmd_ver2 doveadm_cmd_oldstats_top_ver2 = {
 	.old_cmd = cmd_stats_top,
-	.name = "stats top",
+	.name = "oldstats top",
 	.usage = "[-s <stats socket path>] [-b] [<sort field>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
@@ -618,9 +618,9 @@ DOVEADM_CMD_PARAMS_END
 };
 
 
-struct doveadm_cmd_ver2 doveadm_cmd_stats_reset_ver2 = {
+struct doveadm_cmd_ver2 doveadm_cmd_oldstats_reset_ver2 = {
 	.old_cmd = cmd_stats_reset,
-	.name = "stats reset",
+	.name = "oldstats reset",
 	.usage = "[-s <stats socket path>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)

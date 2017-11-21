@@ -11,7 +11,7 @@
 #include "auth-request.h"
 #include "auth-request-stats.h"
 
-#define USER_STATS_SOCKET_NAME "stats-user"
+#define USER_STATS_SOCKET_NAME "old-stats-user"
 
 static struct stats_connection *auth_stats_conn = NULL;
 static struct stats_item *auth_stats_item;
