@@ -121,7 +121,7 @@ static
 void test_iostream_setup(bool block, struct istream **in_r,
 			 struct ostream **out_r, buffer_t **out_buffer_r)
 {
-	*out_buffer_r = buffer_create_dynamic(pool_datastack_create(), 128);
+	*out_buffer_r = t_buffer_create(128);
 
 	*in_r = test_istream_create_data(data, sizeof(data));
 	(*in_r)->blocking = block;

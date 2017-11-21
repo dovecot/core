@@ -414,7 +414,7 @@ maildir_uidlist_read_extended(struct maildir_uidlist *uidlist,
 	const char *start, *line = *line_p;
 	buffer_t *buf;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	buf = t_buffer_create(128);
 	while (*line != '\0' && *line != ':') {
 		/* skip over an extension field */
 		start = line;
@@ -1151,7 +1151,7 @@ maildir_uidlist_rec_set_ext(struct maildir_uidlist_rec *rec, pool_t pool,
 	size_t len;
 
 	/* copy existing extensions, except for the one we're updating */
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	buf = t_buffer_create(128);
 	if (rec->extensions != NULL) {
 		p = rec->extensions;
 		while (*p != '\0') {

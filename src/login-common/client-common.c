@@ -657,8 +657,8 @@ const char *client_get_session_id(struct client *client)
 	if (client->session_id != NULL)
 		return client->session_id;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 24);
-	base64_buf = buffer_create_dynamic(pool_datastack_create(), 24*2);
+	buf = t_buffer_create(24);
+	base64_buf = t_buffer_create(24*2);
 
 	if (gettimeofday(&tv, NULL) < 0)
 		i_fatal("gettimeofday(): %m");

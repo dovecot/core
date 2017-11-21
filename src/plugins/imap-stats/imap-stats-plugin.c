@@ -93,7 +93,7 @@ static void stats_command_post(struct client_command_context *cmd)
 		scmd->continued = TRUE;
 	}
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	buf = t_buffer_create(128);
 	stats_export(buf, scmd->stats);
 	str_append_c(str, '\t');
 	base64_encode(buf->data, buf->used, str);

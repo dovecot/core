@@ -165,8 +165,7 @@ int password_decode(const char *password, const char *scheme,
 		*size_r = len;
 		break;
 	case PW_ENCODING_HEX:
-		buf = buffer_create_dynamic(pool_datastack_create(),
-					    len / 2 + 1);
+		buf = t_buffer_create(len / 2 + 1);
 		if (hex_to_binary(password, buf) == 0) {
 			*raw_password_r = buf->data;
 			*size_r = buf->used;
@@ -180,8 +179,7 @@ int password_decode(const char *password, const char *scheme,
 		   produce matching hex and base64 encoded lengths. */
 		/* fall through */
 	case PW_ENCODING_BASE64:
-		buf = buffer_create_dynamic(pool_datastack_create(),
-					    MAX_BASE64_DECODED_SIZE(len));
+		buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
 		if (base64_decode(password, len, NULL, buf) < 0) {
 			*error_r = "Input isn't valid base64 encoded data";
 			return -1;

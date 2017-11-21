@@ -28,7 +28,7 @@ void dsync_mailbox_states_export(const HASH_TABLE_TYPE(dsync_mailbox_state) stat
 	struct hash_iterate_context *iter;
 	struct dsync_mailbox_state *state;
 	uint8_t *guid;
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	buffer_t *buf = t_buffer_create(128);
 	uint32_t crc = 0;
 
 	buffer_append_c(buf, DSYNC_STATE_MAJOR_VERSION);
@@ -84,7 +84,7 @@ int dsync_mailbox_states_import(HASH_TABLE_TYPE(dsync_mailbox_state) states,
 	size_t pos;
 	unsigned int i, count;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), strlen(input));
+	buf = t_buffer_create(strlen(input));
 	if (base64_decode(input, strlen(input), &pos, buf) < 0) {
 		*error_r = "Invalid base64 data";
 		return -1;

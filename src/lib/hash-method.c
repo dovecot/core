@@ -54,8 +54,7 @@ buffer_t *t_hash_data(const struct hash_method *meth,
 	i_assert(meth != NULL);
 	i_assert(data_len == 0 || data != NULL);
 	unsigned char ctx[meth->context_size];
-	buffer_t *result = buffer_create_dynamic(pool_datastack_create(),
-						 meth->digest_size);
+	buffer_t *result = t_buffer_create(meth->digest_size);
 	unsigned char *resptr = buffer_append_space_unsafe(result,
 							   meth->digest_size);
 	meth->init(ctx);

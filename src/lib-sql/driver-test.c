@@ -460,7 +460,7 @@ static const unsigned char *
 driver_test_result_get_field_value_binary(struct sql_result *result,
 					   unsigned int idx, size_t *size_r)
 {
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 64);
+	buffer_t *buf = t_buffer_create(64);
 	const char *value = driver_test_result_get_field_value(result, idx);
 	/* expect it hex encoded */
 	if (hex_to_binary(value, buf) < 0) {

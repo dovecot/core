@@ -49,7 +49,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	lines = array_get(&mail->header_lines, &count);
 	match = array_get(&mail->header_match, &match_count);
 	header = mail->header_data->data;
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 
 	/* go through all the header lines we found */
 	for (i = match_idx = 0; i < count; i = j) {

@@ -439,7 +439,7 @@ client_connection_tcp_authenticate(struct client_connection_tcp *conn)
 		return -1;
 	}
 
-	plain = buffer_create_dynamic(pool_datastack_create(), 128);
+	plain = t_buffer_create(128);
 	if (base64_decode(line + 6, strlen(line + 6), NULL, plain) < 0) {
 		i_error("doveadm client sent invalid base64 auth PLAIN data");
 		return -1;

@@ -20,7 +20,7 @@ static void test_quoted_printable_q_decode(void)
 	unsigned int i;
 
 	test_begin("quoted printable q decode");
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	buf = t_buffer_create(128);
 	for (i = 0; i < N_ELEMENTS(data); i += 2) {
 		quoted_printable_q_decode((const void *)data[i], strlen(data[i]),
 					  buf);

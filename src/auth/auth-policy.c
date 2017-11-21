@@ -448,7 +448,7 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	i_assert(digest != NULL);
 
 	void *ctx = t_malloc_no0(digest->context_size);
-	buffer_t *buffer = buffer_create_dynamic(pool_datastack_create(), 64);
+	buffer_t *buffer = t_buffer_create(64);
 
 	digest->init(ctx);
 	digest->loop(ctx,

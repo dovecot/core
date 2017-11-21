@@ -74,7 +74,7 @@ bool old_settings_ssl_dh_load(const char **value, const char **error_r)
 	if (ssl_dh_parameters != NULL) *value = ssl_dh_parameters;
 
 	const char *fn = t_strconcat(PKG_STATEDIR, "/ssl-parameters.dat", NULL);
-	buffer_t *data = buffer_create_dynamic(pool_datastack_create(), 300);
+	buffer_t *data = t_buffer_create(300);
 	string_t *b64_data = t_str_new(500);
 	size_t siz;
 	unsigned short keysize;

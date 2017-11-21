@@ -330,7 +330,7 @@ sql_dict_value_get(const struct dict_sql_map *map,
 		break;
 	}
 
-	buf = buffer_create_dynamic(pool_datastack_create(), strlen(value)/2);
+	buf = t_buffer_create(strlen(value)/2);
 	if (hex_to_binary(value, buf) < 0) {
 		/* we shouldn't get untrusted input here. it's also a bit
 		   annoying to handle this error. */

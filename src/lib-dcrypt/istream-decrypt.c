@@ -68,8 +68,8 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 	size_t key_digest_size = 0;
 
 	buffer_t ephemeral_key;
-	buffer_t *secret = buffer_create_dynamic(pool_datastack_create(), 256);
-	buffer_t *key = buffer_create_dynamic(pool_datastack_create(), 256);
+	buffer_t *secret = t_buffer_create(256);
+	buffer_t *key = t_buffer_create(256);
 
 	if (mlen < 2)
 		return 0;
@@ -145,7 +145,7 @@ ssize_t i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 		}
 	}
 
-	buffer_t *check = buffer_create_dynamic(pool_datastack_create(), 32);
+	buffer_t *check = t_buffer_create(32);
 
 	if (!dcrypt_key_id_private_old(stream->priv_key, check, &error)) {
 		io_stream_set_error(&stream->istream.iostream, "Cannot get public key hash: %s", error);
@@ -379,8 +379,8 @@ ssize_t i_stream_decrypt_key(struct decrypt_istream *stream, const char *malg, u
 		}
 	} else if (ktype == DCRYPT_KEY_EC) {
 		/* perform ECDHE */
-		buffer_t *temp_key = buffer_create_dynamic(pool_datastack_create(), 256);
-		buffer_t *secret = buffer_create_dynamic(pool_datastack_create(), 256);
+		buffer_t *temp_key = t_buffer_create(256);
+		buffer_t *secret = t_buffer_create(256);
 		buffer_t peer_key;
 		buffer_create_from_const_data(&peer_key, ephemeral_key, ep_key_len);
 		if (!dcrypt_ecdh_derive_secret_local(stream->priv_key, &peer_key, secret, &error)) {
@@ -512,7 +512,7 @@ int i_stream_decrypt_header_contents(struct decrypt_istream *stream,
 
 	/* how much key data we should be getting */
 	size_t kl = dcrypt_ctx_sym_get_key_length(stream->ctx_sym) + dcrypt_ctx_sym_get_iv_length(stream->ctx_sym) + tagsize;
-	buffer_t *keydata = buffer_create_dynamic(pool_datastack_create(), kl);
+	buffer_t *keydata = t_buffer_create(kl);
 
 	/* try to decrypt the keydata with a private key */
 	int ret;

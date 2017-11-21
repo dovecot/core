@@ -348,7 +348,7 @@ static void mbox_save_x_delivery_id(struct mbox_save_context *ctx)
 	string_t *str;
 	void *randbuf;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 	buffer_append(buf, &ioloop_time, sizeof(ioloop_time));
 	buffer_append(buf, &ioloop_timeval.tv_usec,
 		      sizeof(ioloop_timeval.tv_usec));

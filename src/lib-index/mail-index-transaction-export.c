@@ -62,7 +62,7 @@ log_get_hdr_update_buffer(struct mail_index_transaction *t, bool prepend)
 	data = prepend ? t->pre_hdr_change : t->post_hdr_change;
 	mask = prepend ? t->pre_hdr_mask : t->post_hdr_mask;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 	for (offset = 0; offset <= sizeof(t->pre_hdr_change); offset++) {
 		if (offset < sizeof(t->pre_hdr_change) && mask[offset] != 0) {
 			if (state == 0) {
@@ -121,7 +121,7 @@ static void log_append_ext_intro(struct mail_index_export_context *ctx,
 		resizes = array_get_modifiable(&t->ext_resizes, &count);
 	}
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	buf = t_buffer_create(128);
 	if (ext_id < count && resizes[ext_id].name_size != 0) {
 		/* we're resizing the extension. use the resize struct. */
 		intro = &resizes[ext_id];
@@ -206,7 +206,7 @@ log_append_ext_hdr_update(struct mail_index_export_context *ctx,
 	data = hdr->data;
 	mask = hdr->mask;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 	for (offset = 0; offset <= hdr->alloc_size; offset++) {
 		if (offset < hdr->alloc_size && mask[offset] != 0) {
 			if (!started) {
@@ -384,7 +384,7 @@ log_append_keyword_updates(struct mail_index_export_context *ctx)
 	enum mail_index_fsync_mask change_mask = 0;
 	unsigned int i, count, keywords_count;
 
-	tmp_buf = buffer_create_dynamic(pool_datastack_create(), 64);
+	tmp_buf = t_buffer_create(64);
 
 	keywords = array_get_modifiable(&ctx->trans->view->index->keywords,
 					&keywords_count);

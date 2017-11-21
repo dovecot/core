@@ -298,8 +298,7 @@ buffer_t *t_base32_decode_str(const char *str)
 	buffer_t *buf;
 	size_t len = strlen(str);
 
-	buf = buffer_create_dynamic(pool_datastack_create(),
-				    MAX_BASE32_DECODED_SIZE(len));
+	buf = t_buffer_create(MAX_BASE32_DECODED_SIZE(len));
 	(void)base32_decode(str, len, NULL, buf);
 	return buf;
 }
@@ -309,8 +308,7 @@ buffer_t *t_base32hex_decode_str(const char *str)
 	buffer_t *buf;
 	size_t len = strlen(str);
 
-	buf = buffer_create_dynamic(pool_datastack_create(),
-				    MAX_BASE32_DECODED_SIZE(len));
+	buf = t_buffer_create(MAX_BASE32_DECODED_SIZE(len));
 	(void)base32hex_decode(str, len, NULL, buf);
 	return buf;
 }

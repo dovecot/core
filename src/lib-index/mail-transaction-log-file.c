@@ -766,7 +766,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 		file->hdr.prev_file_offset = 0;
 	}
 
-	writebuf = buffer_create_dynamic(pool_datastack_create(), 128);
+	writebuf = t_buffer_create(128);
 	buffer_append(writebuf, &file->hdr, sizeof(file->hdr));
 
 	if (index->ext_hdr_init_data != NULL && reset)

@@ -49,7 +49,7 @@ static void test_try_load_keys(void)
 {
 	const char *pubid1 = "c79e262924842de291a8bcd413f4122a570abd033adeff7c1cdfdc9d05998c75";
 	const char *pubid2 = "aaf927444bff8b63425e852c6b3f769e8221b952b42cf886fae7d326c5be098e";
-	buffer_t *key_id = buffer_create_dynamic(pool_datastack_create(), 128);
+	buffer_t *key_id = t_buffer_create(128);
 
 	const char *error = NULL;
 	test_begin("try_load_keys");

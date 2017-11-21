@@ -36,13 +36,13 @@ void test_cipher_test_vectors(void)
 
 	buffer_t *key,*iv,*pt,*ct,*res_enc,*res_dec;
 
-	key = buffer_create_dynamic(pool_datastack_create(), 16);
-	iv = buffer_create_dynamic(pool_datastack_create(), 16);
-	pt = buffer_create_dynamic(pool_datastack_create(), 16);
-	ct = buffer_create_dynamic(pool_datastack_create(), 16);
+	key = t_buffer_create(16);
+	iv = t_buffer_create(16);
+	pt = t_buffer_create(16);
+	ct = t_buffer_create(16);
 
-	res_enc = buffer_create_dynamic(pool_datastack_create(), 32);
-	res_dec = buffer_create_dynamic(pool_datastack_create(), 32);
+	res_enc = t_buffer_create(32);
+	res_dec = t_buffer_create(32);
 
 	for(size_t i = 0; i < N_ELEMENTS(vectors); i++) {
 		struct dcrypt_context_symmetric *ctx;
@@ -115,14 +115,14 @@ void test_cipher_aead_test_vectors(void)
 
 	buffer_t *key, *iv, *aad, *pt, *ct, *tag, *tag_res, *res;
 
-	key = buffer_create_dynamic(pool_datastack_create(), 16);
-	iv = buffer_create_dynamic(pool_datastack_create(), 16);
-	aad = buffer_create_dynamic(pool_datastack_create(), 16);
-	pt = buffer_create_dynamic(pool_datastack_create(), 16);
-	ct = buffer_create_dynamic(pool_datastack_create(), 16);
-	tag = buffer_create_dynamic(pool_datastack_create(), 16);
-	res = buffer_create_dynamic(pool_datastack_create(), 16);
-	tag_res = buffer_create_dynamic(pool_datastack_create(), 16);
+	key = t_buffer_create(16);
+	iv = t_buffer_create(16);
+	aad = t_buffer_create(16);
+	pt = t_buffer_create(16);
+	ct = t_buffer_create(16);
+	tag = t_buffer_create(16);
+	res = t_buffer_create(16);
+	tag_res = t_buffer_create(16);
 
 	hex_to_binary("feffe9928665731c6d6a8f9467308308", key);
 	hex_to_binary("cafebabefacedbaddecaf888", iv);
@@ -171,10 +171,10 @@ void test_hmac_test_vectors(void)
 	test_begin("test_hmac_test_vectors");
 
 	buffer_t *pt, *ct, *key, *res;
-	pt = buffer_create_dynamic(pool_datastack_create(), 50);
-	key = buffer_create_dynamic(pool_datastack_create(), 20);
-	ct = buffer_create_dynamic(pool_datastack_create(), 32);
-	res = buffer_create_dynamic(pool_datastack_create(), 32);
+	pt = t_buffer_create(50);
+	key = t_buffer_create(20);
+	ct = t_buffer_create(32);
+	res = t_buffer_create(32);
 
 	hex_to_binary("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", key);
 	hex_to_binary("dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", pt);
@@ -286,7 +286,7 @@ void test_load_v1_key(void)
 {
 	test_begin("test_load_v1_key");
 
-	buffer_t *key_1 = buffer_create_dynamic(pool_datastack_create(), 128);
+	buffer_t *key_1 = t_buffer_create(128);
 
 	struct dcrypt_private_key *pkey = NULL, *pkey2 = NULL;
 	const char *error = NULL;

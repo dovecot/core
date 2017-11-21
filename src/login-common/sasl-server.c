@@ -141,7 +141,7 @@ static int master_send_request(struct anvil_request *anvil_request)
 		req.flags |= MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION;
 	memcpy(req.cookie, anvil_request->cookie, sizeof(req.cookie));
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 	/* session ID */
 	buffer_append(buf, session_id, strlen(session_id)+1);
 	/* protocol specific data (e.g. IMAP tag) */

@@ -22,7 +22,7 @@ enum pkcs5_pbkdf_mode {
 
  Sample code:
 
- buffer_t *result = buffer_create_dynamic(pool_datastack_create(), 256);
+ buffer_t *result = t_buffer_create(256);
  if (pkcs5_pbkdf(PKCS5_PBKDF2, hash_method_lookup("sha256"), "password", 8, "salt", 4, 4096, 256, result) != 0) { // error }
 
 */

@@ -161,7 +161,7 @@ mailbox_list_index_sync_names(struct mailbox_list_index_sync_context *ctx)
 	get_existing_name_ids(&existing_name_ids, ilist->mailbox_tree);
 	array_sort(&existing_name_ids, uint32_cmp);
 
-	hdr_buf = buffer_create_dynamic(pool_datastack_create(), 1024);
+	hdr_buf = t_buffer_create(1024);
 	buffer_append_zero(hdr_buf, sizeof(struct mailbox_list_index_header));
 
 	/* add existing names to header (with deduplication) */

@@ -335,8 +335,7 @@ static void checkpassword_child_output(struct chkpw_auth_request *request)
 	size_t size;
 	ssize_t ret;
 
-	buf = buffer_create_dynamic(pool_datastack_create(),
-				    CHECKPASSWORD_MAX_REQUEST_LEN);
+	buf = t_buffer_create(CHECKPASSWORD_MAX_REQUEST_LEN);
 	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
 	if (request->auth_password != NULL) {
 		buffer_append(buf, request->auth_password,

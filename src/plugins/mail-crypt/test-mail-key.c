@@ -433,7 +433,7 @@ static void test_old_key(void)
 	test_assert(privkey != NULL);
 
 	if (privkey != NULL) {
-		buffer_t *key_id = buffer_create_dynamic(pool_datastack_create(), 32);
+		buffer_t *key_id = t_buffer_create(32);
 		test_assert(dcrypt_key_id_private_old(privkey, key_id, &error));
 		test_assert(strcmp(binary_to_hex(key_id->data, key_id->used), mcp_old_box_key_id) == 0);
 		dcrypt_key_unref_private(&privkey);

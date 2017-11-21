@@ -23,7 +23,7 @@ static void test_ostream_dot_one(const struct dot_test *test)
 	ssize_t ret;
 
 	test_input = test_istream_create(test->input);
-	output_data = buffer_create_dynamic(pool_datastack_create(), 1024);
+	output_data = t_buffer_create(1024);
 	test_output = o_stream_create_buffer(output_data);
 
 	output = o_stream_create_dot(test_output, FALSE);

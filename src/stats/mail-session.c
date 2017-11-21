@@ -272,7 +272,7 @@ int mail_session_update_parse(const char *const *args, const char **error_r)
 	if (mail_session_get(args[0], &session, error_r) < 0)
 		return -1;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 	if (args[1] == NULL ||
 	    base64_decode(args[1], strlen(args[1]), NULL, buf) < 0) {
 		*error_r = t_strdup_printf("UPDATE-SESSION %s %s %s: Invalid base64 input",

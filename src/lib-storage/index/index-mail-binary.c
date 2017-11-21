@@ -282,7 +282,7 @@ static void binary_parts_cache(struct binary_ctx *ctx)
 	struct index_mail *mail = INDEX_MAIL(ctx->mail);
 	buffer_t *buf;
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	buf = t_buffer_create(128);
 	message_binary_part_serialize(mail->data.bin_parts, buf);
 	index_mail_cache_add(mail, MAIL_CACHE_BINARY_PARTS,
 			     buf->data, buf->used);
@@ -447,7 +447,7 @@ static bool get_cached_binary_parts(struct index_mail *mail)
 	if (mail->data.bin_parts != NULL)
 		return TRUE;
 
-	part_buf = buffer_create_dynamic(pool_datastack_create(), 128);
+	part_buf = t_buffer_create(128);
 	ret = index_mail_cache_lookup_field(mail, part_buf, field_idx);
 	if (ret <= 0)
 		return FALSE;

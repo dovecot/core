@@ -683,7 +683,7 @@ static int mail_cache_header_add_field(struct mail_cache_transaction_ctx *ctx,
 	T_BEGIN {
 		buffer_t *buffer;
 
-		buffer = buffer_create_dynamic(pool_datastack_create(), 256);
+		buffer = t_buffer_create(256);
 		mail_cache_header_fields_get(cache, buffer);
 		ret = mail_cache_header_fields_write(ctx, buffer);
 	} T_END;

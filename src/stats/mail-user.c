@@ -130,7 +130,7 @@ int mail_user_add_parse(const char *const *args, const char **error_r)
 	user = mail_user_login(args[0]);
 	service = args[1];
 
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 	if (base64_decode(args[2], strlen(args[2]), NULL, buf) < 0) {
 		*error_r = t_strdup_printf("ADD-USER %s %s: Invalid base64 input",
 					   user->name, service);

@@ -771,7 +771,7 @@ static
 bool dcrypt_openssl_decrypt_point_v1(buffer_t *data, buffer_t *key, BIGNUM **point_r, const char **error_r)
 {
 	struct dcrypt_context_symmetric *dctx;
-	buffer_t *tmp = buffer_create_dynamic(pool_datastack_create(), 64);
+	buffer_t *tmp = t_buffer_create(64);
 
 	if (!dcrypt_openssl_ctx_sym_create("aes-256-ctr", DCRYPT_MODE_DECRYPT, &dctx, error_r)) {
 		return FALSE;
@@ -807,13 +807,13 @@ bool dcrypt_openssl_decrypt_point_ec_v1(struct dcrypt_private_key *dec_key,
 	buffer_t *peer_key, *data, key, *secret;
 	bool res;
 
-	data = buffer_create_dynamic(pool_datastack_create(), 128);
-	peer_key = buffer_create_dynamic(pool_datastack_create(), 64);
+	data = t_buffer_create(128);
+	peer_key = t_buffer_create(64);
 
 	hex_to_binary(data_hex, data);
 	hex_to_binary(peer_key_hex, peer_key);
 
-	secret = buffer_create_dynamic(pool_datastack_create(), 64);
+	secret = t_buffer_create(64);
 
 	if (!dcrypt_openssl_ecdh_derive_secret_local(dec_key, peer_key, secret, error_r))
 		return FALSE;
@@ -840,10 +840,10 @@ bool dcrypt_openssl_decrypt_point_password_v1(const char *data_hex, const char *
 	buffer_t *salt, *data, *password, *key;
 	struct dcrypt_context_symmetric *dctx;
 
-	data = buffer_create_dynamic(pool_datastack_create(), 128);
-	salt = buffer_create_dynamic(pool_datastack_create(), 16);
-	password = buffer_create_dynamic(pool_datastack_create(), 32);
-	key = buffer_create_dynamic(pool_datastack_create(), 32);
+	data = t_buffer_create(128);
+	salt = t_buffer_create(16);
+	password = t_buffer_create(32);
+	key = t_buffer_create(32);
 
 	hex_to_binary(data_hex, data);
 	hex_to_binary(salt_hex, salt);
@@ -990,7 +990,7 @@ bool dcrypt_openssl_cipher_key_dovecot_v2(const char *cipher, enum dcrypt_sym_mo
 	}
 
 	/* generate encryption key/iv based on secret/salt */
-	buffer_t *key_data = buffer_create_dynamic(pool_datastack_create(), 128);
+	buffer_t *key_data = t_buffer_create(128);
 	res = dcrypt_openssl_pbkdf2(secret->data, secret->used, salt->data, salt->used,
 		digalgo, rounds, key_data,
 		dcrypt_openssl_ctx_sym_get_key_length(dctx)+dcrypt_openssl_ctx_sym_get_iv_length(dctx), error_r);
@@ -1000,7 +1000,7 @@ bool dcrypt_openssl_cipher_key_dovecot_v2(const char *cipher, enum dcrypt_sym_mo
 		return FALSE;
 	}
 
-	buffer_t *tmp = buffer_create_dynamic(pool_datastack_create(), 128);
+	buffer_t *tmp = t_buffer_create(128);
 	const unsigned char *kd = buffer_free_without_data(&key_data);
 
 	/* perform ciphering */
@@ -1029,7 +1029,7 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 	const char **error_r)
 {
 	int enctype;
-	buffer_t *key_data = buffer_create_dynamic(pool_datastack_create(), 256);
+	buffer_t *key_data = t_buffer_create(256);
 
 	/* check for encryption type */
 	if (str_to_int(input[2], &enctype) != 0) {
@@ -1078,7 +1078,7 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 			return FALSE;
 		}
 
-		buffer_t *data = buffer_create_dynamic(pool_datastack_create(), 128);
+		buffer_t *data = t_buffer_create(128);
 
 		/* check that we have correct decryption key */
 		dcrypt_openssl_private_to_public_key(dec_key, &pubkey);
@@ -1097,9 +1097,9 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 
 
 		buffer_t *salt, *peer_key, *secret;
-		salt = buffer_create_dynamic(pool_datastack_create(), strlen(input[4])/2);
-		peer_key = buffer_create_dynamic(pool_datastack_create(), strlen(input[8])/2);
-		secret = buffer_create_dynamic(pool_datastack_create(), 128);
+		salt = t_buffer_create(strlen(input[4])/2);
+		peer_key = t_buffer_create(strlen(input[8])/2);
+		secret = t_buffer_create(128);
 
 		buffer_set_used_size(data, 0);
 		hex_to_binary(input[4], salt);
@@ -1133,9 +1133,9 @@ bool dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_
 		}
 
 		buffer_t *salt, secret, *data;
-		salt = buffer_create_dynamic(pool_datastack_create(), strlen(input[4])/2);
+		salt = t_buffer_create(strlen(input[4])/2);
 		buffer_create_from_const_data(&secret, password, strlen(password));
-		data = buffer_create_dynamic(pool_datastack_create(), strlen(input[7])/2);
+		data = t_buffer_create(strlen(input[7])/2);
 		if (hex_to_binary(input[4], salt) != 0 ||
 		    hex_to_binary(input[7], data) != 0) {
 			if (error_r != NULL)
@@ -1298,7 +1298,7 @@ bool dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 		EVP_PKEY_set1_EC_KEY(key, eckey);
 		EC_KEY_free(eckey);
 		/* make sure digest matches */
-		buffer_t *dgst = buffer_create_dynamic(pool_datastack_create(), 32);
+		buffer_t *dgst = t_buffer_create(32);
 		struct dcrypt_public_key tmp = { key, 0 };
 		dcrypt_openssl_public_key_id_old(&tmp, dgst, NULL);
 		if (strcmp(binary_to_hex(dgst->data, dgst->used), input[len-1]) != 0) {
@@ -1337,7 +1337,7 @@ bool dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 	}
 
 	/* make sure digest matches */
-	buffer_t *dgst = buffer_create_dynamic(pool_datastack_create(), 32);
+	buffer_t *dgst = t_buffer_create(32);
 	struct dcrypt_public_key tmpkey = {pkey, 0};
 	dcrypt_openssl_public_key_id(&tmpkey, "sha256", dgst, NULL);
 	if (strcmp(binary_to_hex(dgst->data, dgst->used), input[len-1]) != 0) {
@@ -1384,8 +1384,8 @@ bool dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype, cons
 	unsigned char *ptr;
 
 	unsigned char salt[8];
-	buffer_t *peer_key = buffer_create_dynamic(pool_datastack_create(), 128);
-	buffer_t *secret = buffer_create_dynamic(pool_datastack_create(), 128);
+	buffer_t *peer_key = t_buffer_create(128);
+	buffer_t *secret = t_buffer_create(128);
 	cipher = t_str_lcase(cipher);
 
 	str_append(destination, cipher);
@@ -1425,7 +1425,7 @@ bool dcrypt_openssl_encrypt_private_key_dovecot(buffer_t *key, int enctype, cons
 	}
 
 	/* encrypt key using secret and salt */
-	buffer_t *tmp = buffer_create_dynamic(pool_datastack_create(), 128);
+	buffer_t *tmp = t_buffer_create(128);
 	res = dcrypt_openssl_cipher_key_dovecot_v2(cipher, DCRYPT_MODE_ENCRYPT, key, secret, &saltbuf,
 		DCRYPT_DOVECOT_KEY_ENCRYPT_HASH, DCRYPT_DOVECOT_KEY_ENCRYPT_ROUNDS, tmp, error_r);
 	safe_memset(buffer_get_modifiable_data(secret, NULL), 0, secret->used);
@@ -1474,7 +1474,7 @@ bool dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key, co
 		return FALSE;
 	}
 
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buffer_t *buf = t_buffer_create(256);
 
 	/* convert key to private key value */
 	if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
@@ -1561,7 +1561,7 @@ bool dcrypt_openssl_store_public_key_dovecot(struct dcrypt_public_key *key, buff
 	/* append public key ID */
 	str_append_c(destination, ':');
 
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 32);
+	buffer_t *buf = t_buffer_create(32);
 	bool res = dcrypt_openssl_public_key_id(key, "sha256", buf, error_r);
 
 	if (!res) {

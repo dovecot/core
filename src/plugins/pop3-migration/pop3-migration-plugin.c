@@ -439,7 +439,7 @@ pop3_map_read_cached_hdr_hashes(struct mailbox_transaction_context *t,
 	buffer_t *cache_buf;
 
 	ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
-	cache_buf = buffer_create_dynamic(pool_datastack_create(), SHA1_RESULTLEN);
+	cache_buf = t_buffer_create(SHA1_RESULTLEN);
 
 	while (mailbox_search_next(ctx, &mail)) {
 		map = array_idx_modifiable_i(msg_map, mail->seq-1);

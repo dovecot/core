@@ -83,7 +83,7 @@ static bool client_exec_script(struct master_service_connection *conn)
 	pid_t pid;
 
 	net_set_nonblock(conn->fd, FALSE);
-	input = buffer_create_dynamic(pool_datastack_create(), IO_BLOCK_SIZE);
+	input = t_buffer_create(IO_BLOCK_SIZE);
 
 	/* Input contains:
 

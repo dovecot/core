@@ -166,7 +166,7 @@ int mail_command_update_parse(const char *const *args, const char **error_r)
 		args += 3;
 		cmd->last_update = ioloop_timeval;
 	}
-	buf = buffer_create_dynamic(pool_datastack_create(), 256);
+	buf = t_buffer_create(256);
 	if (args[0] == NULL ||
 	    base64_decode(args[0], strlen(args[0]), NULL, buf) < 0) {
 		*error_r = t_strdup_printf("UPDATE-CMD: Invalid base64 input");

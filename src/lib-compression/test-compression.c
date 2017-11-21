@@ -102,7 +102,7 @@ static void test_gz(const char *str1, const char *str2)
 	const struct compression_handler *gz = compression_lookup_handler("gz");
 	struct ostream *buf_output, *output;
 	struct istream *test_input, *input;
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), 512);
+	buffer_t *buf = t_buffer_create(512);
 
 	if (gz == NULL || gz->create_ostream == NULL)
 		return; /* not compiled in */

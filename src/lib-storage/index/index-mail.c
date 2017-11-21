@@ -90,7 +90,7 @@ static int get_serialized_parts(struct index_mail *mail, buffer_t **part_buf_r)
 	const unsigned int field_idx =
 		mail->ibox->cache_fields[MAIL_CACHE_MESSAGE_PARTS].idx;
 
-	*part_buf_r = buffer_create_dynamic(pool_datastack_create(), 128);
+	*part_buf_r = t_buffer_create(128);
 	return index_mail_cache_lookup_field(mail, *part_buf_r, field_idx);
 }
 
@@ -717,7 +717,7 @@ static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
 	}
 
 	T_BEGIN {
-		buffer = buffer_create_dynamic(pool_datastack_create(), 1024);
+		buffer = t_buffer_create(1024);
 		message_part_serialize(mail->data.parts, buffer);
 		index_mail_cache_add_idx(mail, cache_field,
 					 buffer->data, buffer->used);

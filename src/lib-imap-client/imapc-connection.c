@@ -893,8 +893,7 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 	}
 
 	input_len = strlen(reply->text_full);
-	buf = buffer_create_dynamic(pool_datastack_create(),
-				    MAX_BASE64_DECODED_SIZE(input_len));
+	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(input_len));
 	if (base64_decode(reply->text_full, input_len, NULL, buf) < 0) {
 		imapc_auth_failed(conn, reply,
 				  t_strdup_printf("Server sent non-base64 input for AUTHENTICATE: %s",

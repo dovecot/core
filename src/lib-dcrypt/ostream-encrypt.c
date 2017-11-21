@@ -79,7 +79,7 @@ int o_stream_encrypt_send_header_v1(struct encrypt_ostream *stream)
 	i_assert(!stream->prefix_written);
 	stream->prefix_written = TRUE;
 
-	buffer_t *values = buffer_create_dynamic(pool_datastack_create(), 256);
+	buffer_t *values = t_buffer_create(256);
 	buffer_append(values, IOSTREAM_CRYPT_MAGIC, sizeof(IOSTREAM_CRYPT_MAGIC));
 	/* version */
 	c = 1;
@@ -104,7 +104,7 @@ int o_stream_encrypt_send_header_v2(struct encrypt_ostream *stream)
 	i_assert(!stream->prefix_written);
 	stream->prefix_written = TRUE;
 
-	buffer_t *values = buffer_create_dynamic(pool_datastack_create(), 256);
+	buffer_t *values = t_buffer_create(256);
 	buffer_append(values, IOSTREAM_CRYPT_MAGIC, sizeof(IOSTREAM_CRYPT_MAGIC));
 	c = 2;
 	buffer_append(values, &c, 1);
@@ -156,9 +156,9 @@ int o_stream_encrypt_keydata_create_v1(struct encrypt_ostream *stream)
 	hash->loop(hctx, seed, sizeof(seed));
 	hash->result(hctx, ekhash);
 
-	ephemeral_key = buffer_create_dynamic(pool_datastack_create(), 256);
-	encrypted_key = buffer_create_dynamic(pool_datastack_create(), 256);
-	secret = buffer_create_dynamic(pool_datastack_create(), 256);
+	ephemeral_key = t_buffer_create(256);
+	encrypted_key = t_buffer_create(256);
+	secret = t_buffer_create(256);
 
 	if (!dcrypt_ecdh_derive_secret_peer(stream->pub, ephemeral_key, secret, &error)) {
 		io_stream_set_error(&stream->ostream.iostream, "Cannot perform ECDH: %s", error);
@@ -247,9 +247,9 @@ int o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream, const cha
 	const char *error;
 	buffer_t *encrypted_key, *ephemeral_key, *temp_key;
 
-	ephemeral_key = buffer_create_dynamic(pool_datastack_create(), 256);
-	encrypted_key = buffer_create_dynamic(pool_datastack_create(), 256);
-	temp_key = buffer_create_dynamic(pool_datastack_create(), 48);
+	ephemeral_key = t_buffer_create(256);
+	encrypted_key = t_buffer_create(256);
+	temp_key = t_buffer_create(48);
 
 	ktype = dcrypt_key_type_public(pubkey);
 
@@ -261,7 +261,7 @@ int o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream, const cha
 		}
 	} else if (ktype == DCRYPT_KEY_EC) {
 		/* R = our ephemeral public key */
-		buffer_t *secret = buffer_create_dynamic(pool_datastack_create(), 256);
+		buffer_t *secret = t_buffer_create(256);
 
 		/* derive ephemeral key and shared secret */
 		if (!dcrypt_ecdh_derive_secret_peer(pubkey, ephemeral_key, secret, &error)) {
@@ -354,7 +354,7 @@ int o_stream_encrypt_keydata_create_v2(struct encrypt_ostream *stream, const cha
 
 	/* generate keydata length of random data for key/iv/mac */
 	kl = dcrypt_ctx_sym_get_key_length(stream->ctx_sym) + dcrypt_ctx_sym_get_iv_length(stream->ctx_sym) + tagsize;
-	keydata = buffer_create_dynamic(pool_datastack_create(), kl);
+	keydata = t_buffer_create(kl);
 	random_fill(buffer_append_space_unsafe(keydata, kl), kl);
 	buffer_set_used_size(keydata, kl);
 	ptr = keydata->data;
@@ -499,7 +499,7 @@ int o_stream_encrypt_finalize(struct ostream_private *stream)
 	if (!estream->prefix_written) return 0;
 
 	/* acquire last block */
-	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(), dcrypt_ctx_sym_get_block_size(estream->ctx_sym));
+	buffer_t *buf = t_buffer_create(dcrypt_ctx_sym_get_block_size(estream->ctx_sym));
 	if (!dcrypt_ctx_sym_final(estream->ctx_sym, buf, &error)) {
 		io_stream_set_error(&estream->ostream.iostream, "Encryption failure: %s", error);
 		return -1;

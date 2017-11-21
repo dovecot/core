@@ -70,7 +70,7 @@ buffer_t *t_hmac_data(const struct hash_method *meth,
 	i_assert(key != NULL && key_len > 0);
 	i_assert(data != NULL || data_len == 0);
 
-	buffer_t *res = buffer_create_dynamic(pool_datastack_create(), meth->digest_size);
+	buffer_t *res = t_buffer_create(meth->digest_size);
 	hmac_init(&ctx, key, key_len, meth);
 	if (data_len > 0)
 		hmac_update(&ctx, data, data_len);

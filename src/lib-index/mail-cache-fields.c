@@ -503,7 +503,7 @@ static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 	    mail_cache_header_fields_get_offset(cache, &offset, NULL) < 0)
 		return -1;
 
-	buffer = buffer_create_dynamic(pool_datastack_create(), 256);
+	buffer = t_buffer_create(256);
 
 	copy_to_buf(cache, buffer, FALSE,
 		    offsetof(struct mail_cache_field, last_used),
