@@ -29,6 +29,10 @@ void buffer_create_from_const_data(buffer_t *buffer,
 /* Creates a dynamically growing buffer. Whenever write would exceed the
    current size it's grown. */
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);
+
+#define t_buffer_create(init_size) \
+	buffer_create_dynamic(pool_datastack_create(), (init_size))
+
 /* Free the memory used by buffer. Not needed if the memory is free'd
    directly from the memory pool. */
 void buffer_free(buffer_t **buf);
