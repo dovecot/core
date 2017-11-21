@@ -184,10 +184,10 @@ proxy_log_connect_error(struct login_proxy *proxy)
 	str_printfa(str, "proxy(%s): ", proxy->client->virtual_user);
 	if (!proxy->connected) {
 		str_printfa(str, "connect(%s, %u) failed: %m",
-			    proxy->host, proxy->port);
+			    net_ip2addr(&proxy->ip), proxy->port);
 	} else {
 		str_printfa(str, "Login for %s:%u timed out in state=%s",
-			    proxy->host, proxy->port,
+			    net_ip2addr(&proxy->ip), proxy->port,
 			    client_proxy_get_state(proxy->client));
 	}
 	str_printfa(str, " (after %u secs",
@@ -303,7 +303,8 @@ static int login_proxy_connect(struct login_proxy *proxy)
 		/* the server is down. fail immediately */
 		client_log_err(proxy->client, t_strdup_printf(
 			"proxy(%s): Host %s:%u is down",
-			proxy->client->virtual_user, proxy->host, proxy->port));
+			proxy->client->virtual_user,
+			net_ip2addr(&proxy->ip), proxy->port));
 		return -1;
 	}
 
@@ -711,7 +712,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 					&error) < 0) {
 		client_log_err(proxy->client, t_strdup_printf(
 			"proxy: Failed to create SSL client to %s:%u: %s",
-			proxy->host, proxy->port, error));
+			net_ip2addr(&proxy->ip), proxy->port, error));
 		ssl_iostream_context_unref(&ssl_ctx);
 		return -1;
 	}
