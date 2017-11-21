@@ -288,7 +288,8 @@ struct mail_index_transaction;
 struct mail_index_sync_ctx;
 struct mail_index_view_sync_ctx;
 
-struct mail_index *mail_index_alloc(const char *dir, const char *prefix);
+struct mail_index *mail_index_alloc(struct event *parent_event,
+				    const char *dir, const char *prefix);
 void mail_index_free(struct mail_index **index);
 
 /* Change .cache file's directory. */

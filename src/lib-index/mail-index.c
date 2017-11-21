@@ -27,6 +27,10 @@
 
 struct mail_index_module_register mail_index_module_register = { 0 };
 
+struct event_category event_category_index = {
+	.name = "index",
+};
+
 static void mail_index_close_nonopened(struct mail_index *index);
 
 static const struct mail_index_optimization_settings default_optimization_set = {
@@ -50,7 +54,8 @@ static const struct mail_index_optimization_settings default_optimization_set = 
 	},
 };
 
-struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
+struct mail_index *mail_index_alloc(struct event *parent_event,
+				    const char *dir, const char *prefix)
 {
 	struct mail_index *index;
 
@@ -58,6 +63,8 @@ struct mail_index *mail_index_alloc(const char *dir, const char *prefix)
 	index->dir = i_strdup(dir);
 	index->prefix = i_strdup(prefix);
 	index->fd = -1;
+	index->event = event_create(parent_event);
+	event_add_category(index->event, &event_category_index);
 
 	index->extension_pool =
 		pool_alloconly_create(MEMPOOL_GROWING"index extension", 1024);
@@ -101,6 +108,7 @@ void mail_index_free(struct mail_index **_index)
 	array_free(&index->keywords);
 	array_free(&index->module_contexts);
 
+	event_unref(&index->event);
 	i_free(index->cache_dir);
 	i_free(index->ext_hdr_init_data);
 	i_free(index->gid_origin);

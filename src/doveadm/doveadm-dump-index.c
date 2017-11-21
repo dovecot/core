@@ -727,15 +727,15 @@ static struct mail_index *path_open_index(const char *path)
 
 	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
 		if (dir_has_index(path, "dovecot.index"))
-			return mail_index_alloc(path, "dovecot.index");
+			return mail_index_alloc(NULL, path, "dovecot.index");
 		else if (dir_has_index(path, "dovecot.map.index"))
-			return mail_index_alloc(path, "dovecot.map.index");
+			return mail_index_alloc(NULL, path, "dovecot.map.index");
 		else
 			return NULL;
 	} else if ((p = strrchr(path, '/')) != NULL)
-		return mail_index_alloc(t_strdup_until(path, p), p + 1);
+		return mail_index_alloc(NULL, t_strdup_until(path, p), p + 1);
 	else
-		return mail_index_alloc(".", path);
+		return mail_index_alloc(NULL, ".", path);
 }
 
 static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])

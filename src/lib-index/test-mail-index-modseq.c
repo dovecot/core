@@ -38,7 +38,7 @@ static void test_mail_index_modseq_get_next_log_offset(void)
 	ioloop_time = 1;
 
 	test_begin("mail_transaction_log_file_get_modseq_next_offset()");
-	index = mail_index_alloc(TESTDIR_NAME, "test.dovecot.index");
+	index = mail_index_alloc(NULL, TESTDIR_NAME, "test.dovecot.index");
 	test_assert(mail_index_open_or_create(index, MAIL_INDEX_OPEN_FLAG_CREATE) == 0);
 	view = mail_index_view_open(index);
 	mail_index_modseq_enable(index);

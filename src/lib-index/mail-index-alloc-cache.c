@@ -134,7 +134,7 @@ mail_index_alloc_cache_find(const char *mailbox_path, const char *index_dir,
 }
 
 struct mail_index *
-mail_index_alloc_cache_get(const char *mailbox_path,
+mail_index_alloc_cache_get(struct event *parent_event, const char *mailbox_path,
 			   const char *index_dir, const char *prefix)
 {
 	struct mail_index_alloc_cache_list *match;
@@ -158,7 +158,8 @@ mail_index_alloc_cache_get(const char *mailbox_path,
 
 	match = mail_index_alloc_cache_find(mailbox_path, index_dir, &st);
 	if (match == NULL) {
-		struct mail_index *index = mail_index_alloc(index_dir, prefix);
+		struct mail_index *index =
+			mail_index_alloc(parent_event, index_dir, prefix);
 		match = mail_index_alloc_cache_add(index, mailbox_path, &st);
 	} else {
 		match->refcount++;

@@ -161,7 +161,8 @@ index_mailbox_alloc_index(struct mailbox *box, struct mail_index **index_r)
 	    mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX,
 				&index_dir) <= 0)
 		index_dir = NULL;
-	*index_r = mail_index_alloc_cache_get(mailbox_path, index_dir,
+	*index_r = mail_index_alloc_cache_get(box->storage->user->event,
+					      mailbox_path, index_dir,
 					      box->index_prefix);
 	return 0;
 }

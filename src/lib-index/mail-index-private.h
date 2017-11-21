@@ -155,6 +155,7 @@ union mail_index_module_context {
 struct mail_index {
 	char *dir, *prefix;
 	char *cache_dir;
+	struct event *event;
 
 	struct mail_cache *cache;
 	struct mail_transaction_log *log;
@@ -235,6 +236,7 @@ struct mail_index {
 };
 
 extern struct mail_index_module_register mail_index_module_register;
+extern struct event_category event_category_index;
 
 /* Add/replace sync handler for specified extra record. */
 void mail_index_register_expunge_handler(struct mail_index *index,
