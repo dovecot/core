@@ -569,7 +569,7 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	storage->last_internal_error = i_strdup_vprintf(fmt, va);
 	va_end(va);
 	storage->last_error_is_internal = TRUE;
-	i_error("%s", storage->last_internal_error);
+	e_error(storage->user->event, "%s", storage->last_internal_error);
 
 	/* free the old_error and old_internal_error only after the new error
 	   is generated, because they may be one of the parameters. */

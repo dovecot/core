@@ -4,6 +4,24 @@
 #include "test-common.h"
 #include "mail-storage-private.h"
 
+static void test_init_storage(struct mail_storage *storage_r)
+{
+	i_zero(storage_r);
+	storage_r->user = t_new(struct mail_user, 1);
+	storage_r->user->event = event_create(NULL);
+}
+
+static void test_deinit_storage(struct mail_storage *storage)
+{
+	mail_storage_clear_error(storage);
+	if (array_is_created(&storage->error_stack)) {
+		mail_storage_clear_error(storage);
+		i_assert(array_count(&storage->error_stack) == 0);
+		array_free(&storage->error_stack);
+	}
+	event_unref(&storage->user->event);
+}
+
 static void test_mail_storage_errors(void)
 {
 	struct mail_storage storage;
@@ -11,7 +29,7 @@ static void test_mail_storage_errors(void)
 	const char *errstr;
 
 	test_begin("mail storage errors");
-	i_zero(&storage);
+	test_init_storage(&storage);
 
 	/* try a regular error */
 	mail_storage_set_error(&storage, MAIL_ERROR_PERM, "error1");
@@ -112,7 +130,7 @@ static void test_mail_storage_errors(void)
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
 	test_assert(!storage.last_error_is_internal);
 
-	mail_storage_clear_error(&storage);
+	test_deinit_storage(&storage);
 	test_end();
 }
 
@@ -122,7 +140,7 @@ static void test_mail_storage_last_error_push_pop(void)
 	enum mail_error mail_error;
 
 	test_begin("mail_storage_last_error_push/pop()");
-	i_zero(&storage);
+	test_init_storage(&storage);
 
 	/* regular error 1 */
 	mail_storage_set_error(&storage, MAIL_ERROR_PERM, "regular error 1");
@@ -179,9 +197,7 @@ static void test_mail_storage_last_error_push_pop(void)
 	test_assert(mail_error == MAIL_ERROR_PERM);
 	test_assert(!storage.last_error_is_internal);
 
-	mail_storage_clear_error(&storage);
-	i_assert(array_count(&storage.error_stack) == 0);
-	array_free(&storage.error_stack);
+	test_deinit_storage(&storage);
 	test_end();
 }
 
