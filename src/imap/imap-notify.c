@@ -397,6 +397,7 @@ static void imap_notify_callback(struct mailbox *box, struct client *client)
 	cmd = client_command_alloc(client);
 	cmd->tag = "*";
 	cmd->name = "NOTIFY-CALLBACK";
+	client_command_init_finished(cmd);
 
 	if (!client->notify_ctx->selected_immediate_expunges)
 		sync_flags |= MAILBOX_SYNC_FLAG_NO_EXPUNGES;

@@ -78,6 +78,7 @@ struct client_command_stats_start {
 struct client_command_context {
 	struct client_command_context *prev, *next;
 	struct client *client;
+	struct event *event;
 
 	pool_t pool;
 	/* IMAP command tag */
@@ -310,6 +311,7 @@ client_search_update_lookup(struct client *client, const char *tag,
 void client_search_updates_free(struct client *client);
 
 struct client_command_context *client_command_alloc(struct client *client);
+void client_command_init_finished(struct client_command_context *cmd);
 void client_command_cancel(struct client_command_context **cmd);
 void client_command_free(struct client_command_context **cmd);
 

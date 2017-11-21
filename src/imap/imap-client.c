@@ -833,6 +833,7 @@ struct client_command_context *client_command_alloc(struct client *client)
 	cmd = p_new(client->command_pool, struct client_command_context, 1);
 	cmd->client = client;
 	cmd->pool = client->command_pool;
+	cmd->event = event_create(client->event);
 	cmd->stats.start_time = ioloop_timeval;
 	cmd->stats.last_run_timeval = ioloop_timeval;
 	cmd->stats.start_ioloop_wait_usecs =
@@ -844,6 +845,16 @@ struct client_command_context *client_command_alloc(struct client *client)
 
 	imap_client_notify_command_allocated(client);
 	return cmd;
+}
+
+void client_command_init_finished(struct client_command_context *cmd)
+{
+	event_add_str(cmd->event, "tag", cmd->tag);
+	event_add_str(cmd->event, "name", cmd->name);
+	if (cmd->args != NULL)
+		event_add_str(cmd->event, "args", cmd->args);
+	if (cmd->human_args != NULL)
+		event_add_str(cmd->event, "human_args", cmd->human_args);
 }
 
 static struct client_command_context *
@@ -903,6 +914,7 @@ void client_command_free(struct client_command_context **_cmd)
 		client->input_lock = NULL;
 	if (client->mailbox_change_lock == cmd)
 		client->mailbox_change_lock = NULL;
+	event_unref(&cmd->event);
 
 	if (cmd->parser != NULL) {
 		if (client->free_parser == NULL) {
@@ -1125,6 +1137,7 @@ static bool client_command_input(struct client_command_context *cmd)
 		}
 		cmd->name = !cmd->uid ? p_strdup(cmd->pool, cmd->name) :
 			p_strconcat(cmd->pool, "UID ", cmd->name, NULL);
+		client_command_init_finished(cmd);
 		imap_refresh_proctitle();
 	}
 
