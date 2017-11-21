@@ -47,6 +47,10 @@ struct event_category event_category_mailbox = {
 	.parent = &event_category_storage,
 	.name = "mailbox",
 };
+struct event_category event_category_mail = {
+	.parent = &event_category_mailbox,
+	.name = "mail",
+};
 
 struct mail_storage_module_register mail_storage_module_register = { 0 };
 struct mail_module_register mail_module_register = { 0 };

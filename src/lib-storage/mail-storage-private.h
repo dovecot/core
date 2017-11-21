@@ -730,6 +730,7 @@ extern struct mail_module_register mail_module_register;
 
 extern struct event_category event_category_storage;
 extern struct event_category event_category_mailbox;
+extern struct event_category event_category_mail;
 
 #define MAIL_STORAGE_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_storage_mail_index_module)

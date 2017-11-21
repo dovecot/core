@@ -1565,6 +1565,12 @@ index_mail_alloc(struct mailbox_transaction_context *t,
 	return &mail->mail.mail;
 }
 
+static void index_mail_init_event(struct mail *mail)
+{
+	mail->event = event_create(mail->box->event);
+	event_add_category(mail->event, &event_category_mail);
+}
+
 void index_mail_init(struct index_mail *mail,
 		     struct mailbox_transaction_context *t,
 		     enum mail_fetch_field wanted_fields,
@@ -1576,6 +1582,7 @@ void index_mail_init(struct index_mail *mail,
 	mail->mail.v = *t->box->mail_vfuncs;
 	mail->mail.mail.box = t->box;
 	mail->mail.mail.transaction = t;
+	index_mail_init_event(&mail->mail.mail);
 	t->mail_ref_count++;
 	mail->mail.data_pool = pool_alloconly_create("index_mail", 16384);
 	mail->ibox = INDEX_STORAGE_CONTEXT(t->box);
@@ -1681,6 +1688,11 @@ void index_mail_close(struct mail *_mail)
 		   mail_save_context.dest_mail. */
 		return;
 	}
+
+	/* make sure old mail isn't visible in the event anymore even if it's
+	   attempted to be used. */
+	event_unref(&_mail->event);
+	index_mail_init_event(&mail->mail.mail);
 
 	/* If uid == 0 but seq != 0, we came here from saving a (non-mbox)
 	   message. If that happens, don't bother checking if anything should
@@ -1904,6 +1916,11 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	mail_index_lookup_uid(_mail->transaction->view, seq,
 			      &mail->mail.mail.uid);
 
+	event_add_int(_mail->event, "seq", _mail->seq);
+	event_add_int(_mail->event, "uid", _mail->uid);
+	event_set_append_log_prefix(_mail->event, t_strdup_printf(
+		"%sUID %u: ", saving ? "saving " : "", _mail->uid));
+
 	if (mail_index_view_is_inconsistent(_mail->transaction->view)) {
 		mail_set_expunged(&mail->mail.mail);
 		return;
@@ -2055,6 +2072,7 @@ void index_mail_free(struct mail *_mail)
 
 	if (headers_ctx != NULL)
 		mailbox_header_lookup_unref(&headers_ctx);
+	event_unref(&_mail->event);
 	pool_unref(&mail->mail.data_pool);
 	pool_unref(&mail->mail.pool);
 }
