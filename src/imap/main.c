@@ -38,6 +38,10 @@ static struct master_login *master_login = NULL;
 imap_client_created_func_t *hook_client_created = NULL;
 bool imap_debug = FALSE;
 
+struct event_category event_category_imap = {
+	.name = "imap",
+};
+
 imap_client_created_func_t *
 imap_client_created_hook_set(imap_client_created_func_t *new_hook)
 {
@@ -240,16 +244,30 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 			     int fd_in, int fd_out,
 			     struct client **client_r, const char **error_r)
 {
+	struct mail_storage_service_input service_input;
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct client *client;
 	struct imap_settings *imap_set;
 	struct smtp_submit_settings *smtp_set;
+	struct event *event;
 	const char *errstr;
 
-	if (mail_storage_service_lookup_next(storage_service, input,
-					     &user, &mail_user, error_r) <= 0)
+	event = event_create(NULL);
+	event_add_category(event, &event_category_imap);
+	event_add_fields(event, (const struct event_add_field []){
+		{ .key = "user", .value = input->username },
+		{ .key = "session", .value = input->session_id },
+		{ .key = NULL }
+	});
+
+	service_input = *input;
+	service_input.parent_event = event;
+	if (mail_storage_service_lookup_next(storage_service, &service_input,
+					     &user, &mail_user, error_r) <= 0) {
+		event_unref(&event);
 		return -1;
+	}
 	restrict_access_allow_coredumps(TRUE);
 
 	smtp_set = mail_storage_service_user_get_set(user)[1];
@@ -266,13 +284,15 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
 		mail_user_unref(&mail_user);
 		mail_storage_service_user_unref(&user);
+		event_unref(&event);
 		return -1;
 	}
 
 	client = client_create(fd_in, fd_out, input->session_id,
-			       mail_user, user, imap_set, smtp_set);
+			       event, mail_user, user, imap_set, smtp_set);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
+	event_unref(&event);
 	*client_r = client;
 	return 0;
 }

@@ -84,7 +84,7 @@ static bool user_has_special_use_mailboxes(struct mail_user *user)
 }
 
 struct client *client_create(int fd_in, int fd_out, const char *session_id,
-			     struct mail_user *user,
+			     struct event *event, struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set)
@@ -102,6 +102,8 @@ struct client *client_create(int fd_in, int fd_out, const char *session_id,
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
 	client->v = imap_client_vfuncs;
+	client->event = event;
+	event_ref(client->event);
 	client->set = set;
 	client->smtp_set = smtp_set;
 	client->service_user = service_user;
@@ -477,6 +479,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	imap_client_count--;
 	DLLIST_REMOVE(&imap_clients, client);
 
+	event_unref(&client->event);
 	i_free(client->last_cmd_name);
 	pool_unref(&client->pool);
 

@@ -143,6 +143,7 @@ struct client {
 	struct client *prev, *next;
 
 	struct imap_client_vfuncs v;
+	struct event *event;
 	const char *session_id;
 	const char *const *userdb_fields; /* for internal session saving/restoring */
 
@@ -251,7 +252,7 @@ extern unsigned int imap_client_count;
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out, const char *session_id,
-			     struct mail_user *user,
+			     struct event *event, struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set);

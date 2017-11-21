@@ -23,6 +23,7 @@ typedef void imap_client_created_func_t(struct client **client);
 
 extern imap_client_created_func_t *hook_client_created;
 extern bool imap_debug;
+extern struct event_category event_category_imap;
 
 /* Sets the hook_client_created and returns the previous hook,
    which the new_hook should call if it's non-NULL. */
