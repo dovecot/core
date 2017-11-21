@@ -376,6 +376,11 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 			     mailbox_list_get_storage_name(box->list, vname));
 	box->flags = flags;
 	box->index_prefix = p_strdup(box->pool, index_prefix);
+	box->event = event_create(box->storage->user->event);
+	event_add_category(box->event, &event_category_mailbox);
+	event_add_str(box->event, "name", box->vname);
+	event_set_append_log_prefix(box->event,
+		t_strdup_printf("Mailbox %s: ", box->vname));
 
 	p_array_init(&box->search_results, box->pool, 16);
 	array_create(&box->module_contexts,
@@ -443,6 +448,7 @@ static void index_storage_mailbox_unref_indexes(struct mailbox *box)
 void index_storage_mailbox_free(struct mailbox *box)
 {
 	index_storage_mailbox_unref_indexes(box);
+	event_unref(&box->event);
 }
 
 static void

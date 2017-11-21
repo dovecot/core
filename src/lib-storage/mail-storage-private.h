@@ -345,6 +345,7 @@ struct mailbox {
 	const char *vname;
 	struct mail_storage *storage;
 	struct mailbox_list *list;
+	struct event *event;
 
 	struct mailbox_vfuncs v, *vlast;
 	/* virtual mailboxes: */
@@ -728,6 +729,7 @@ extern struct mail_storage_module_register mail_storage_module_register;
 extern struct mail_module_register mail_module_register;
 
 extern struct event_category event_category_storage;
+extern struct event_category event_category_mailbox;
 
 #define MAIL_STORAGE_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mail_storage_mail_index_module)
