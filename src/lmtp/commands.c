@@ -1358,7 +1358,15 @@ int cmd_xclient(struct client *client, const char *args)
 	remote_ip.family = 0;
 	for (tmp = t_strsplit(args, " "); *tmp != NULL; tmp++) {
 		if (strncasecmp(*tmp, "ADDR=", 5) == 0) {
-			if (net_addr2ip(*tmp + 5, &remote_ip) < 0)
+			const char *addr = *tmp + 5;
+			bool ipv6 = FALSE;
+
+			if (strncasecmp(addr, "IPV6:", 5) == 0) {
+				addr += 5;
+				ipv6 = TRUE;
+			}
+			if (net_addr2ip(addr, &remote_ip) < 0 ||
+			    (ipv6 && remote_ip.family != AF_INET6))
 				args_ok = FALSE;
 		} else if (strncasecmp(*tmp, "PORT=", 5) == 0) {
 			if (net_str2port(*tmp + 5, &remote_port) < 0)
