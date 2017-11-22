@@ -15,9 +15,9 @@ enum event_code {
 	EVENT_CODE_SENDING_NAME		= 'n',
 	EVENT_CODE_SOURCE		= 's',
 
-	EVENT_CODE_FIELD_INT		= 'I',
+	EVENT_CODE_FIELD_INTMAX		= 'I',
 	EVENT_CODE_FIELD_STR		= 'S',
-	EVENT_CODE_FIELD_TV		= 'T',
+	EVENT_CODE_FIELD_TIMEVAL	= 'T',
 };
 
 extern const struct event_passthrough event_passthrough_vfuncs;
@@ -485,21 +485,25 @@ void event_send_abort(struct event *event)
 static void
 event_export_field_value(string_t *dest, const struct event_field *field)
 {
-	if (field->value != NULL) {
+	switch (field->value_type) {
+	case EVENT_FIELD_VALUE_TYPE_STR:
 		str_append_c(dest, EVENT_CODE_FIELD_STR);
 		str_append_tabescaped(dest, field->key);
 		str_append_c(dest, '\t');
-		str_append_tabescaped(dest, field->value);
-	} else if (field->value_tv.tv_sec != 0) {
-		str_append_c(dest, EVENT_CODE_FIELD_TV);
+		str_append_tabescaped(dest, field->value.str);
+		break;
+	case EVENT_FIELD_VALUE_TYPE_INTMAX:
+		str_append_c(dest, EVENT_CODE_FIELD_INTMAX);
+		str_append_tabescaped(dest, field->key);
+		str_printfa(dest, "\t%jd", field->value.intmax);
+		break;
+	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+		str_append_c(dest, EVENT_CODE_FIELD_TIMEVAL);
 		str_append_tabescaped(dest, field->key);
 		str_printfa(dest, "\t%"PRIdTIME_T"\t%u",
-			    field->value_tv.tv_sec,
-			    (unsigned int)field->value_tv.tv_usec);
-	} else {
-		str_append_c(dest, EVENT_CODE_FIELD_INT);
-		str_append_tabescaped(dest, field->key);
-		str_printfa(dest, "\t%jd", field->value_int);
+			    field->value.timeval.tv_sec,
+			    (unsigned int)field->value.timeval.tv_usec);
+		break;
 	}
 }
 
@@ -640,9 +644,9 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 			args++;
 			break;
 
-		case EVENT_CODE_FIELD_INT:
+		case EVENT_CODE_FIELD_INTMAX:
 		case EVENT_CODE_FIELD_STR:
-		case EVENT_CODE_FIELD_TV: {
+		case EVENT_CODE_FIELD_TIMEVAL: {
 			struct event_field *field =
 				event_get_field(event, arg);
 			if (args[1] == NULL) {
@@ -650,9 +654,11 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 				return FALSE;
 			}
 			args++;
+			i_zero(&field->value);
 			switch (code) {
-			case EVENT_CODE_FIELD_INT:
-				if (str_to_intmax(*args, &field->value_int) < 0) {
+			case EVENT_CODE_FIELD_INTMAX:
+				field->value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
+				if (str_to_intmax(*args, &field->value.intmax) < 0) {
 					*error_r = t_strdup_printf(
 						"Invalid field value '%s' number for '%s'",
 						*args, field->key);
@@ -660,10 +666,13 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 				}
 				break;
 			case EVENT_CODE_FIELD_STR:
-				field->value = p_strdup(event->pool, *args);
+				field->value_type = EVENT_FIELD_VALUE_TYPE_STR;
+				field->value.str = p_strdup(event->pool, *args);
 				break;
-			case EVENT_CODE_FIELD_TV:
-				if (!event_import_tv(args[0], args[1], &field->value_tv, &error)) {
+			case EVENT_CODE_FIELD_TIMEVAL:
+				field->value_type = EVENT_FIELD_VALUE_TYPE_TIMEVAL;
+				if (!event_import_tv(args[0], args[1],
+						     &field->value.timeval, &error)) {
 					*error_r = t_strdup_printf(
 						"Field '%s' value '%s': %s",
 						field->key, args[1], error);

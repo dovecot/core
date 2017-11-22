@@ -28,6 +28,7 @@ liblib_la_SOURCES = \
 	data-stack.c \
 	eacces-error.c \
 	env-util.c \
+	event-filter.c \
 	event-log.c \
 	execv-const.c \
 	failures.c \
@@ -187,6 +188,7 @@ headers = \
 	data-stack.h \
 	eacces-error.h \
 	env-util.h \
+	event-filter.h \
 	event-log.h \
 	execv-const.h \
 	failures.h \
