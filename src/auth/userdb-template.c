@@ -30,6 +30,11 @@ userdb_template_build(pool_t pool, const char *userdb_name, const char *args)
 		else
 			key = t_strdup_until(*tmp, value++);
 
+
+		if (*key == '\0')
+			i_fatal("Invalid userdb template %s - key must not be empty",
+				args);
+
 		nonull_value = value == NULL ? "" : value;
 		if (strcasecmp(key, "uid") == 0) {
 			uid = userdb_parse_uid(NULL, nonull_value);

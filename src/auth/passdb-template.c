@@ -27,6 +27,10 @@ struct passdb_template *passdb_template_build(pool_t pool, const char *args)
 		else
 			key = t_strdup_until(*tmp, value++);
 
+		if (*key == '\0')
+			i_fatal("Invalid passdb template %s - key must not be empty",
+				args);
+
 		key = p_strdup(pool, key);
 		value = p_strdup(pool, value);
 		array_append(&tmpl->args, &key, 1);
