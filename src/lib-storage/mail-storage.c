@@ -565,6 +565,35 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	i_free(old_internal_error);
 }
 
+void mailbox_set_critical(struct mailbox *box, const char *fmt, ...)
+{
+	va_list va;
+
+	va_start(va, fmt);
+	T_BEGIN {
+		mail_storage_set_critical(box->storage, "Mailbox %s: %s",
+			box->vname, t_strdup_vprintf(fmt, va));
+	} T_END;
+	va_end(va);
+}
+
+void mail_set_critical(struct mail *mail, const char *fmt, ...)
+{
+	va_list va;
+
+	va_start(va, fmt);
+	T_BEGIN {
+		if (mail->saving) {
+			mailbox_set_critical(mail->box, "Saving mail: %s",
+				t_strdup_vprintf(fmt, va));
+		} else {
+			mailbox_set_critical(mail->box, "UID=%u: %s",
+				mail->uid, t_strdup_vprintf(fmt, va));
+		}
+	} T_END;
+	va_end(va);
+}
+
 const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
 						 enum mail_error *error_r)
 {

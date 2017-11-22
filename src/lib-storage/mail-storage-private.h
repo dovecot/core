@@ -726,6 +726,10 @@ void mail_storage_set_error(struct mail_storage *storage,
 			    enum mail_error error, const char *string);
 void mail_storage_set_critical(struct mail_storage *storage,
 			       const char *fmt, ...) ATTR_FORMAT(2, 3);
+void mailbox_set_critical(struct mailbox *box,
+			  const char *fmt, ...) ATTR_FORMAT(2, 3);
+void mail_set_critical(struct mail *mail,
+		       const char *fmt, ...) ATTR_FORMAT(2, 3);
 void mail_storage_set_internal_error(struct mail_storage *storage);
 void mailbox_set_index_error(struct mailbox *box);
 void mail_storage_set_index_error(struct mail_storage *storage,
