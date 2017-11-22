@@ -14,6 +14,7 @@ struct master_service_settings {
 	const char *info_log_path;
 	const char *debug_log_path;
 	const char *log_timestamp;
+	const char *log_debug;
 	const char *syslog_facility;
 	const char *import_environment;
 	uoff_t config_cache_size;
@@ -93,5 +94,9 @@ int master_service_set(struct master_service *service, const char *line);
    and parameter are unaliased before comparing. */
 bool master_service_set_has_config_override(struct master_service *service,
 					    const char *key);
+
+/* Parse log_debug setting into an event filter. */
+int master_service_log_debug_parse(struct event_filter *filter, const char *str,
+				   const char **error_r);
 
 #endif

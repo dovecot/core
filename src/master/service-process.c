@@ -262,6 +262,8 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 	if (service->type == SERVICE_TYPE_ANVIL &&
 	    service_anvil_global->restarted)
 		env_put("ANVIL_RESTARTED=1");
+	env_put(t_strconcat(DOVECOT_LOG_DEBUG_ENV"=",
+			    service->list->service_set->log_debug, NULL));
 }
 
 static void service_process_status_timeout(struct service_process *process)

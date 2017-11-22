@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "event-filter.h"
 #include "path-util.h"
 #include "istream.h"
 #include "write-full.h"
@@ -41,6 +42,7 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, info_log_path),
 	DEF(SET_STR, debug_log_path),
 	DEF(SET_STR, log_timestamp),
+	DEF(SET_STR, log_debug),
 	DEF(SET_STR, syslog_facility),
 	DEF(SET_STR, import_environment),
 	DEF(SET_SIZE, config_cache_size),
@@ -74,6 +76,7 @@ static const struct master_service_settings master_service_default_settings = {
 	.info_log_path = "",
 	.debug_log_path = "",
 	.log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT,
+	.log_debug = "",
 	.syslog_facility = "mail",
 	.import_environment = "TZ CORE_OUTOFMEM CORE_ERROR" ENV_SYSTEMD ENV_GDB,
 	.config_cache_size = 1024*1024,
@@ -98,6 +101,24 @@ const struct setting_parser_info master_service_setting_parser_info = {
 };
 
 /* <settings checks> */
+int master_service_log_debug_parse(struct event_filter *filter, const char *str,
+				   const char **error_r)
+{
+	const char *categories[2] = { NULL, NULL };
+	struct event_filter_query query = {
+		.categories = categories
+	};
+
+	/* FIXME: we should support more complicated filters */
+	const char *const *args = t_strsplit_spaces(str, " ");
+	for (unsigned int i = 0; args[i] != NULL; i++) {
+		categories[0] = args[i];
+		event_filter_add(filter, &query);
+	}
+	*error_r = NULL;
+	return 0;
+}
+
 static bool
 master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			      const char **error_r)
@@ -114,6 +135,17 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 					   set->syslog_facility);
 		return FALSE;
 	}
+	struct event_filter *filter = event_filter_create();
+	const char *error;
+	if (master_service_log_debug_parse(filter, set->log_debug, &error) < 0) {
+		*error_r = t_strdup_printf("Invalid log_debug: %s", error);
+		event_filter_unref(&filter);
+		return FALSE;
+	}
+#ifndef CONFIG_BINARY
+	event_set_global_debug_log_filter(filter);
+#endif
+	event_filter_unref(&filter);
 	return TRUE;
 }
 /* </settings checks> */

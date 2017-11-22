@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "lib-signals.h"
+#include "event-filter.h"
 #include "ioloop.h"
 #include "path-util.h"
 #include "array.h"
@@ -271,6 +272,19 @@ master_service_init(const char *name, enum master_service_flags flags,
 		i_set_failure_prefix("%s(%s): ", name, getenv("USER"));
 	else
 		i_set_failure_prefix("%s: ", name);
+
+	/* Initialize debug logging */
+	value = getenv(DOVECOT_LOG_DEBUG_ENV);
+	if (value != NULL) {
+		struct event_filter *filter = event_filter_create();
+		const char *error;
+		if (master_service_log_debug_parse(filter, value, &error) < 0) {
+			i_error("Invalid "DOVECOT_LOG_DEBUG_ENV" - ignoring: %s",
+				error);
+		}
+		event_set_global_debug_filter(filter);
+		event_filter_unref(&filter);
+	}
 
 	if ((flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
 		/* initialize master_status structure */
