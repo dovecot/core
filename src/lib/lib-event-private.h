@@ -17,6 +17,7 @@ struct event {
 	bool passthrough:1;
 	bool forced_debug:1;
 	bool always_log_source:1;
+	bool sending_debug_log:1;
 	/* Call callbacks with EVENT_CALLBACK_TYPE_FREE for this event. */
 	bool call_free:1;
 

@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "lib-event-private.h"
+#include "event-filter.h"
 #include "array.h"
 #include "llist.h"
 #include "str.h"
@@ -469,8 +470,11 @@ void event_send(struct event *event, struct failure_context *ctx,
 {
 	event->tv_last_sent = ioloop_timeval;
 	if (event_send_callbacks(event, EVENT_CALLBACK_TYPE_EVENT,
-				 ctx, fmt, args))
-		i_log_typev(ctx, fmt, args);
+				 ctx, fmt, args)) {
+		if (ctx->type != LOG_TYPE_DEBUG ||
+		    event->sending_debug_log)
+			i_log_typev(ctx, fmt, args);
+	}
 	event_send_abort(event);
 }
 
@@ -870,6 +874,8 @@ void lib_event_init(void)
 
 void lib_event_deinit(void)
 {
+	event_unset_global_debug_log_filter();
+	event_unset_global_debug_send_filter();
 	for (struct event *event = events; event != NULL; event = event->next) {
 		i_warning("Event %p leaked (parent=%p): %s:%u",
 			  event, event->parent,

@@ -1,6 +1,8 @@
 #ifndef EVENT_LOG_H
 #define EVENT_LOG_H
 
+struct event_filter;
+
 #include "lib-event.h"
 
 struct event_log_params {
@@ -27,8 +29,17 @@ void e_info(struct event *event,
 void e_debug(struct event *event,
 	     const char *source_filename, unsigned int source_linenum,
 	     const char *fmt, ...) ATTR_FORMAT(4, 5);
-#define e_debug(event, ...) \
-	e_debug(event, __FILE__, __LINE__, __VA_ARGS__)
+#define e_debug(_event, ...) STMT_START { \
+	struct event *_tmp_event = (_event); \
+	if (event_want_debug(_tmp_event, __FILE__, __LINE__)) \
+		e_debug(_tmp_event, __FILE__, __LINE__, __VA_ARGS__); \
+	else \
+		event_send_abort(_tmp_event); \
+	} STMT_END
+/* Returns TRUE if debug event should be sent (either logged or sent to
+   stats). */
+bool event_want_debug(struct event *event, const char *source_filename,
+		      unsigned int source_linenum);
 
 void event_log(struct event *event, const struct event_log_params *params,
 	       const char *fmt, ...)
@@ -49,5 +60,19 @@ void event_logv(struct event *event, const struct event_log_params *params,
    This is because the event may already have had debugging enabled via the
    parent event. Forcing it to FALSE is most likely not wanted. */
 struct event *event_set_forced_debug(struct event *event, bool force);
+/* Set the global filter to logging debug events. */
+void event_set_global_debug_log_filter(struct event_filter *filter);
+/* Return the current global debug log event filter. */
+struct event_filter *event_get_global_debug_log_filter(void);
+/* Unset global debug log filter, if one exists. */
+void event_unset_global_debug_log_filter(void);
+
+/* Set the global filter to sending debug events. The debug events are also
+   sent if they match the global debug log filter. */
+void event_set_global_debug_send_filter(struct event_filter *filter);
+/* Return the current global debug send event filter. */
+struct event_filter *event_get_global_debug_send_filter(void);
+/* Unset global debug send filter, if one exists. */
+void event_unset_global_debug_send_filter(void);
 
 #endif

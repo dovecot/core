@@ -2,7 +2,11 @@
 
 #include "lib.h"
 #include "str.h"
+#include "event-filter.h"
 #include "lib-event-private.h"
+
+static struct event_filter *global_debug_log_filter = NULL;
+static struct event_filter *global_debug_send_filter = NULL;
 
 #undef e_error
 void e_error(struct event *event,
@@ -97,20 +101,39 @@ void event_log(struct event *event, const struct event_log_params *params,
 	va_end(args);
 }
 
-static bool event_want_debug(struct event *event)
+static bool
+event_want_debug_log(struct event *event, const char *source_filename,
+		     unsigned int source_linenum)
 {
-	return event->forced_debug;
+	if (event->forced_debug)
+		return TRUE;
+
+	return global_debug_log_filter == NULL ? FALSE :
+		event_filter_match_source(global_debug_log_filter, event,
+					  source_filename, source_linenum);
+}
+
+bool event_want_debug(struct event *event, const char *source_filename,
+		      unsigned int source_linenum)
+{
+	event->sending_debug_log =
+		event_want_debug_log(event, source_filename, source_linenum);
+	if (event->sending_debug_log)
+		return TRUE;
+
+	/* see if debug send filtering matches */
+	if (global_debug_send_filter != NULL) {
+		if (event_filter_match_source(global_debug_send_filter, event,
+					      source_filename, source_linenum))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 static void ATTR_FORMAT(3, 0)
 event_logv_type(struct event *event, enum log_type log_type,
 		const char *fmt, va_list args)
 {
-	if (log_type == LOG_TYPE_DEBUG && !event_want_debug(event)) {
-		event_send_abort(event);
-		return;
-	}
-
 	const char *log_prefix = NULL;
 	string_t *log_prefix_str = t_str_new(64);
 	if (event_get_log_prefix(event, log_prefix_str)) {
@@ -150,4 +173,40 @@ struct event *event_set_forced_debug(struct event *event, bool force)
 {
 	event->forced_debug = force;
 	return event;
+}
+
+void event_set_global_debug_log_filter(struct event_filter *filter)
+{
+	event_unset_global_debug_log_filter();
+	global_debug_log_filter = filter;
+	event_filter_ref(global_debug_log_filter);
+}
+
+struct event_filter *event_get_global_debug_log_filter(void)
+{
+	return global_debug_log_filter;
+}
+
+void event_unset_global_debug_log_filter(void)
+{
+	if (global_debug_log_filter != NULL)
+		event_filter_unref(&global_debug_log_filter);
+}
+
+void event_set_global_debug_send_filter(struct event_filter *filter)
+{
+	event_unset_global_debug_send_filter();
+	global_debug_send_filter = filter;
+	event_filter_ref(global_debug_send_filter);
+}
+
+struct event_filter *event_get_global_debug_send_filter(void)
+{
+	return global_debug_send_filter;
+}
+
+void event_unset_global_debug_send_filter(void)
+{
+	if (global_debug_send_filter != NULL)
+		event_filter_unref(&global_debug_send_filter);
 }
