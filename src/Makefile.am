@@ -68,5 +68,6 @@ SUBDIRS = \
 	replication \
 	util \
 	doveadm \
+	stats \
 	old-stats \
 	plugins

@@ -895,6 +895,7 @@ src/submission-login/Makefile
 src/replication/Makefile
 src/replication/aggregator/Makefile
 src/replication/replicator/Makefile
+src/stats/Makefile
 src/old-stats/Makefile
 src/util/Makefile
 src/plugins/Makefile
