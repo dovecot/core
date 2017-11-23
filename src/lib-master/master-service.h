@@ -36,7 +36,10 @@ enum master_service_flags {
 	/* Don't create a data stack frame between master_service_init() and
 	   master_service_init_finish(). By default this is done to make sure
 	   initialization doesn't unnecessarily use up memory in data stack. */
-	MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME = 0x800
+	MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME = 0x800,
+	/* This process supports sending statistics to the stats process.
+	   Connect to it at startup. */
+	MASTER_SERVICE_FLAG_SEND_STATS		= 0x1000
 };
 
 struct master_service_connection_proxy {

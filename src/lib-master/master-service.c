@@ -13,6 +13,7 @@
 #include "restrict-access.h"
 #include "settings-parser.h"
 #include "syslog-util.h"
+#include "stats-client.h"
 #include "master-instance.h"
 #include "master-login.h"
 #include "master-service-ssl.h"
@@ -282,7 +283,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 			i_error("Invalid "DOVECOT_LOG_DEBUG_ENV" - ignoring: %s",
 				error);
 		}
-		event_set_global_debug_filter(filter);
+		event_set_global_debug_log_filter(filter);
 		event_filter_unref(&filter);
 	}
 
@@ -981,6 +982,8 @@ void master_service_deinit(struct master_service **_service)
 	master_service_io_listeners_remove(service);
 	master_service_ssl_ctx_deinit(service);
 
+	if (service->stats_client != NULL)
+		stats_client_deinit(&service->stats_client);
 	master_service_close_config_fd(service);
 	timeout_remove(&service->to_die);
 	timeout_remove(&service->to_overflow_state);

@@ -13,6 +13,7 @@
 #include "env-util.h"
 #include "execv-const.h"
 #include "settings-parser.h"
+#include "stats-client.h"
 #include "master-service-private.h"
 #include "master-service-ssl-settings.h"
 #include "master-service-settings.h"
@@ -45,6 +46,7 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(SET_STR, log_debug),
 	DEF(SET_STR, syslog_facility),
 	DEF(SET_STR, import_environment),
+	DEF(SET_STR, stats_writer_socket_path),
 	DEF(SET_SIZE, config_cache_size),
 	DEF(SET_BOOL, version_ignore),
 	DEF(SET_BOOL, shutdown_clients),
@@ -79,6 +81,7 @@ static const struct master_service_settings master_service_default_settings = {
 	.log_debug = "",
 	.syslog_facility = "mail",
 	.import_environment = "TZ CORE_OUTOFMEM CORE_ERROR" ENV_SYSTEMD ENV_GDB,
+	.stats_writer_socket_path = "stats-writer",
 	.config_cache_size = 1024*1024,
 	.version_ignore = FALSE,
 	.shutdown_clients = TRUE,
@@ -580,6 +583,14 @@ int master_service_settings_read(struct master_service *service,
 		/* running standalone. we want to ignore plugin versions. */
 		service->version_string = NULL;
 	}
+	if ((service->flags & MASTER_SERVICE_FLAG_SEND_STATS) != 0 &&
+	    service->stats_client == NULL &&
+	    service->set->stats_writer_socket_path[0] != '\0') T_BEGIN {
+		const char *path = t_strdup_printf("%s/%s",
+			service->set->base_dir,
+			service->set->stats_writer_socket_path);
+		service->stats_client = stats_client_init(path);
+	} T_END;
 
 	if (service->set->shutdown_clients)
 		master_service_set_die_with_master(master_service, TRUE);

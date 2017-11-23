@@ -70,6 +70,7 @@ struct master_service {
 	struct ssl_iostream_context *ssl_ctx;
 	time_t ssl_params_last_refresh;
 
+	struct stats_client *stats_client;
 	struct master_service_haproxy_conn *haproxy_conns;
 
 	bool killed:1;
