@@ -496,6 +496,11 @@ static void index_sort_merge(struct sort_string_context *ctx)
 			ret = 1;
 		}
 
+		if (ret == 0) {
+			ret = index_sort_node_cmp_type(ctx->program,
+					ctx->program->sort_program + 1,
+					znodes[zpos].seq, nznodes[nzpos].seq);
+		}
 		if (ret <= 0) {
 			array_append(&ctx->sorted_nodes, &znodes[zpos], 1);
 			prev_str = zstr;
