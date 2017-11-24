@@ -23,7 +23,7 @@ generate_argon2i(const char *plaintext, const struct password_generate_params *p
 		memlimit = crypto_pwhash_argon2i_MEMLIMIT_INTERACTIVE;
 
 	if (crypto_pwhash_argon2i_str(result, plaintext, strlen(plaintext), rounds, memlimit) < 0)
-		i_fatal("crypto_pwhash_argon2i_str failed");
+		i_fatal("crypto_pwhash_argon2i_str failed: %m");
 	*raw_password_r = (const unsigned char*)t_strdup(result);
 	*size_r = strlen(result);
 }
