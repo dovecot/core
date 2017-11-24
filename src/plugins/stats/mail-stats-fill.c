@@ -61,7 +61,9 @@ static int process_io_open(void)
 		errno = EACCES;
 	}
 	if (proc_io_fd == -1) {
-		if (errno != ENOENT)
+		/* ignore access errors too, certain security options can
+		   prevent root access to this file when not owned by root */
+		if (errno != ENOENT && errno != EACCES)
 			i_error("open(%s) failed: %m", PROC_IO_PATH);
 		proc_io_disabled = TRUE;
 		return -1;
