@@ -523,6 +523,7 @@ void program_client_init_streams(struct program_client *pclient)
 			o_stream_create_fd(pclient->fd_out,
 					   MAX_OUTPUT_BUFFER_SIZE);
 		o_stream_set_name(pclient->program_output, "program stdin");
+		o_stream_set_no_error_handling(pclient->program_output, TRUE);
 	}
 	if (pclient->fd_in >= 0) {
 		pclient->program_input =
