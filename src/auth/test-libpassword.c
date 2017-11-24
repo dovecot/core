@@ -1,6 +1,10 @@
 #include "test-lib.h"
 #include "password-scheme.h"
 
+#ifdef HAVE_LIBSODIUM
+#include <sodium.h>
+#endif
+
 static struct {
 	const char *scheme_generated;
 	const char *scheme_detected;
@@ -8,6 +12,7 @@ static struct {
 	{ "MD5", "CRYPT" },
 	{ "MD5-CRYPT", "CRYPT" },
 	{ "SKEY", "OTP" },
+	{ "ARGON2ID", "ARGON2I" },
 };
 
 /* some algorithms are detected as something other, because they are compatible
@@ -112,6 +117,9 @@ static void test_password_schemes(void)
 	test_password_scheme("BLF-CRYPT", "{BLF-CRYPT}$2y$05$11ipvo5dR6CwkzwmhwM26OXgzXwhV2PyPuLV.Qi31ILcRcThQpEiW", "test");
 #ifdef HAVE_LIBSODIUM
 	test_password_scheme("ARGON2I", "{ARGON2I}$argon2i$v=19$m=32768,t=4,p=1$f2iuP4aUeNMrgu34fhOkkg$1XSZZMWlIs0zmE+snlUIcLADO3GXbA2O/hsQmmc317k", "test");
+#ifdef crypto_pwhash_ALG_ARGON2ID13
+	test_password_scheme("ARGON2ID", "{ARGON2ID}$argon2id$v=19$m=65536,t=3,p=1$vBb99oJ12p3WAdYlaMHz1A$jtFOtbo/sYV9OSlTxDo/nVNq3uArHd5GJSEx0ty85Cc", "test");
+#endif
 #endif
 }
 
