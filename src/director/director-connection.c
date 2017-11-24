@@ -67,6 +67,8 @@
 #define DIRECTOR_CONNECTION_PING_INTERVAL_MSECS (15*1000)
 /* How long to wait before sending PING while waiting for SYNC reply */
 #define DIRECTOR_CONNECTION_PING_SYNC_INTERVAL_MSECS 1000
+/* Log a warning if PING reply or PONG response takes longer than this */
+#define DIRECTOR_CONNECTION_PINGPONG_WARN_MSECS (5*1000)
 /* If outgoing director connection exists for less than this many seconds,
    mark the host as failed so we won't try to reconnect to it immediately */
 #define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 40
@@ -106,6 +108,9 @@ struct director_connection {
 	size_t peak_bytes_buffered;
 
 	struct timeval ping_sent_time;
+	size_t ping_sent_buffer_size;
+	struct timeval ping_sent_user_cpu;
+	uoff_t ping_sent_input_offset, ping_sent_output_offset;
 	unsigned int last_ping_msecs;
 
 	/* for incoming connections the director host isn't known until
@@ -1805,16 +1810,84 @@ static void director_disconnect_wrong_lefts(struct director *dir)
 	}
 }
 
-static bool director_cmd_pong(struct director_connection *conn)
+static bool director_cmd_ping(struct director_connection *conn,
+			      const char *const *args)
 {
+	time_t sent_time;
+	uintmax_t send_buffer_size;
+
+	if (str_array_length(args) >= 2 &&
+	    str_to_time(args[0], &sent_time) == 0 &&
+	    str_to_uintmax(args[1], &send_buffer_size) == 0) {
+		int diff_secs = ioloop_time - sent_time;
+		if (diff_secs*1000+500 > DIRECTOR_CONNECTION_PINGPONG_WARN_MSECS) {
+			i_warning("director(%s): PING response took %d secs to receive "
+				  "(send buffer was %ju bytes)",
+				  conn->name, diff_secs, send_buffer_size);
+		}
+	}
+	director_connection_send(conn,
+		t_strdup_printf("PONG\t%ld\t%zu\n",
+		(long)ioloop_time, o_stream_get_buffer_used_size(conn->output)));
+	return TRUE;
+}
+
+static void
+director_ping_append_extra(struct director_connection *conn, string_t *str,
+			   time_t pong_sent_time,
+			   uintmax_t pong_send_buffer_size)
+{
+	struct rusage usage;
+
+	str_printfa(str, "buffer size at PING was %zu bytes", conn->ping_sent_buffer_size);
+	if (pong_sent_time != 0) {
+		str_printfa(str, ", remote sent it %ld secs ago",
+			    (long)(ioloop_time - pong_sent_time));
+	}
+	if (pong_send_buffer_size != (uintmax_t)-1) {
+		str_printfa(str, ", remote buffer size at PONG was %ju bytes",
+			    pong_send_buffer_size);
+	}
+	if (conn->ping_sent_user_cpu.tv_sec != (time_t)-1 &&
+	    getrusage(RUSAGE_SELF, &usage) == 0) {
+		int diff = timeval_diff_msecs(&usage.ru_utime,
+					      &conn->ping_sent_user_cpu);
+		str_printfa(str, ", %u.%03u CPU secs since PING was sent",
+			    diff/1000, diff%1000);
+	}
+	str_printfa(str, ", %"PRIuUOFF_T" bytes input",
+		    conn->input->v_offset - conn->ping_sent_input_offset);
+	str_printfa(str, ", %"PRIuUOFF_T" bytes output",
+		    conn->output->offset - conn->ping_sent_output_offset);
+}
+
+static bool director_cmd_pong(struct director_connection *conn,
+			      const char *const *args)
+{
+	time_t sent_time;
+	uintmax_t send_buffer_size;
+
 	if (!conn->ping_waiting)
 		return TRUE;
 	conn->ping_waiting = FALSE;
 	timeout_remove(&conn->to_pong);
 
+	if (args[0] == NULL || str_to_time(args[0], &sent_time) < 0)
+		sent_time = 0;
+	else if (args[1] == NULL || str_to_uintmax(args[1], &send_buffer_size) < 0)
+		send_buffer_size = (uintmax_t)-1;
+
 	int ping_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->ping_sent_time);
-	if (ping_msecs >= 0)
+	if (ping_msecs >= 0) {
+		if (ping_msecs > DIRECTOR_CONNECTION_PINGPONG_WARN_MSECS) {
+			string_t *extra = t_str_new(128);
+			director_ping_append_extra(conn, extra, sent_time, send_buffer_size);
+			i_warning("director(%s): PONG response took %u.%03u secs (%s)",
+				  conn->name, ping_msecs/1000, ping_msecs%1000,
+				  str_c(extra));
+		}
 		conn->last_ping_msecs = ping_msecs;
+	}
 
 	if (conn->verifying_left) {
 		conn->verifying_left = FALSE;
@@ -1847,12 +1920,10 @@ director_connection_handle_cmd(struct director_connection *conn,
 		/* allow also other commands during handshake */
 	}
 
-	if (strcmp(cmd, "PING") == 0) {
-		director_connection_send(conn, "PONG\n");
-		return TRUE;
-	}
+	if (strcmp(cmd, "PING") == 0)
+		return director_cmd_ping(conn, args);
 	if (strcmp(cmd, "PONG") == 0)
-		return director_cmd_pong(conn);
+		return director_cmd_pong(conn, args);
 	if (strcmp(cmd, "USER") == 0)
 		return director_cmd_user(conn, args);
 	if (strcmp(cmd, "USER-WEAK") == 0)
@@ -2474,6 +2545,8 @@ director_connection_ping_idle_timeout(struct director_connection *conn)
 
 	str_printfa(str, "Ping timed out in %u.%03u secs, disconnecting (",
 		    diff/1000, diff%1000);
+	director_ping_append_extra(conn, str, 0, (uintmax_t)-1);
+	str_append(str, ", ");
 	director_connection_append_stats(conn, str);
 	if (conn->handshake_received)
 		str_append(str, ", handshaked");
@@ -2486,8 +2559,11 @@ director_connection_ping_idle_timeout(struct director_connection *conn)
 
 static void director_connection_pong_timeout(struct director_connection *conn)
 {
-	i_error("director(%s): PONG reply not received although other "
-		"input keeps coming, disconnecting", conn->name);
+	int diff = timeval_diff_msecs(&ioloop_timeval, &conn->ping_sent_time);
+
+	i_error("director(%s): PONG reply not received in %u.%03u secs, "
+		"although other input keeps coming, disconnecting", conn->name,
+		diff/1000, diff%1000);
 	director_connection_disconnected(&conn, "Pong timeout");
 }
 
@@ -2501,9 +2577,21 @@ void director_connection_ping(struct director_connection *conn)
 				    director_connection_ping_idle_timeout, conn);
 	conn->to_pong = timeout_add(conn->dir->set->director_ping_max_timeout*1000,
 				    director_connection_pong_timeout, conn);
-	director_connection_send(conn, "PING\n");
 	conn->ping_waiting = TRUE;
 	conn->ping_sent_time = ioloop_timeval;
+	conn->ping_sent_buffer_size = o_stream_get_buffer_used_size(conn->output);
+	conn->ping_sent_input_offset = conn->input->v_offset;
+	conn->ping_sent_output_offset = conn->output->offset;
+
+	struct rusage usage;
+	if (getrusage(RUSAGE_SELF, &usage) == 0)
+		conn->ping_sent_user_cpu = usage.ru_utime;
+	else
+		conn->ping_sent_user_cpu.tv_sec = (time_t)-1;
+	/* send it after getting the buffer size */
+	director_connection_send(conn, t_strdup_printf(
+		"PING\t%ld\t%zu\n", (long)ioloop_time,
+		conn->ping_sent_buffer_size));
 }
 
 const char *director_connection_get_name(struct director_connection *conn)
