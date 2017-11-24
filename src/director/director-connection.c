@@ -63,10 +63,6 @@
    or we'll disconnect. Use a slightly larger value than for _SEND_USERS_ so
    that we'll get a better error if the sender decides to disconnect. */
 #define DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS (40*1000)
-/* How long to wait for PONG for an idling connection */
-#define DIRECTOR_CONNECTION_PING_IDLE_TIMEOUT_MSECS (10*1000)
-/* Maximum time to wait for PONG reply */
-#define DIRECTOR_CONNECTION_PONG_TIMEOUT_MSECS (60*1000)
 /* How long to wait to send PING when connection is idle */
 #define DIRECTOR_CONNECTION_PING_INTERVAL_MSECS (15*1000)
 /* How long to wait before sending PING while waiting for SYNC reply */
@@ -91,14 +87,6 @@
 /* How many USER entries to send during handshake before going back to ioloop
    to see if there's other work to be done as well. */
 #define DIRECTOR_HANDSHAKE_MAX_USERS_SENT_PER_FLUSH 10000
-
-#if DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS <= DIRECTOR_CONNECTION_PING_TIMEOUT_MSECS
-#  error DIRECTOR_CONNECTION_DONE_TIMEOUT_MSECS is too low
-#endif
-
-#if DIRECTOR_CONNECTION_PONG_TIMEOUT_MSECS <= DIRECTOR_CONNECTION_PING_IDLE_TIMEOUT_MSECS
-#  error DIRECTOR_CONNECTION_PONG_TIMEOUT_MSECS is too low
-#endif
 
 #define CMD_IS_USER_HANDSHAKE(minor_version, args) \
 	((minor_version) < DIRECTOR_VERSION_HANDSHAKE_U_CMD && \
@@ -2509,9 +2497,9 @@ void director_connection_ping(struct director_connection *conn)
 		return;
 
 	timeout_remove(&conn->to_ping);
-	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_PING_IDLE_TIMEOUT_MSECS,
+	conn->to_ping = timeout_add(conn->dir->set->director_ping_idle_timeout*1000,
 				    director_connection_ping_idle_timeout, conn);
-	conn->to_pong = timeout_add(DIRECTOR_CONNECTION_PONG_TIMEOUT_MSECS,
+	conn->to_pong = timeout_add(conn->dir->set->director_ping_max_timeout*1000,
 				    director_connection_pong_timeout, conn);
 	director_connection_send(conn, "PING\n");
 	conn->ping_waiting = TRUE;
