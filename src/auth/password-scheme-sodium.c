@@ -47,6 +47,8 @@ static const struct password_scheme sodium_schemes[] = {
 
 void password_scheme_register_sodium(void)
 {
+	if (sodium_init() != 0)
+		i_fatal("sodium_init() failed");
 	for(size_t i = 0; i < N_ELEMENTS(sodium_schemes); i++)
 		password_scheme_register(&sodium_schemes[i]);
 }
