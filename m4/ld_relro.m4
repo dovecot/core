@@ -22,7 +22,7 @@ AC_DEFUN([AC_LD_RELRO],[
     RELRO_LDFLAGS=
     if test $enable_hardening = yes; then
       AC_MSG_CHECKING([for how to force completely read-only GOT table])
-      ld_help=`$CXX -Wl,-help 2>&1`
+      ld_help=`$CC -Wl,-help 2>&1`
       case $ld_help in
           *"-z relro"*) RELRO_LDFLAGS="-Wl,-z -Wl,relro" ;;
       esac
