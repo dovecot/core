@@ -2482,9 +2482,10 @@ static void
 director_connection_ping_idle_timeout(struct director_connection *conn)
 {
 	string_t *str = t_str_new(128);
+	int diff = timeval_diff_msecs(&ioloop_timeval, &conn->ping_sent_time);
 
-	str_printfa(str, "Ping timed out in %u secs, disconnecting (",
-		    DIRECTOR_CONNECTION_PING_IDLE_TIMEOUT_MSECS/1000);
+	str_printfa(str, "Ping timed out in %u.%03u secs, disconnecting (",
+		    diff/1000, diff%1000);
 	director_connection_append_stats(conn, str);
 	if (conn->handshake_received)
 		str_append(str, ", handshaked");
