@@ -74,6 +74,10 @@
 /* If outgoing director connection exists for less than this many seconds,
    mark the host as failed so we won't try to reconnect to it immediately */
 #define DIRECTOR_SUCCESS_MIN_CONNECT_SECS 40
+/* If USER request doesn't have a timestamp, user isn't refreshed if it was
+   already refreshed director_user_expire/4 seconds ago. This value is the
+   hardcoded maximum for that value. */
+#define DIRECTOR_SKIP_RECENT_REFRESH_MAX_SECS 15
 #define DIRECTOR_RECONNECT_AFTER_WRONG_CONNECT_MSECS 1000
 #define DIRECTOR_WAIT_DISCONNECT_SECS 10
 #define DIRECTOR_HANDSHAKE_WARN_SECS 29
@@ -559,6 +563,30 @@ static bool director_cmd_me(struct director_connection *conn,
 	return TRUE;
 }
 
+static inline bool
+user_need_refresh(struct director *dir, struct user *user,
+		  time_t timestamp, bool unknown_timestamp)
+{
+	if (timestamp <= (time_t)user->timestamp) {
+		/* we already have this timestamp */
+		return FALSE;
+	}
+	if (unknown_timestamp) {
+		/* Old director sent USER command without timestamp. We don't
+		   know what it is exactly, but we can assume that it's very
+		   close to the current time (which timestamp parameter is
+		   already set to). However, try to break USER loops here when
+		   director ring latency is >1sec, but below skip_recent_secs
+		   by just not refreshing the user. */
+		unsigned int skip_recent_secs =
+			I_MIN(dir->set->director_user_expire/4,
+			      DIRECTOR_SKIP_RECENT_REFRESH_MAX_SECS);
+		if ((time_t)user->timestamp + skip_recent_secs >= timestamp)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static bool
 director_user_refresh(struct director_connection *conn,
 		      unsigned int username_hash, struct mail_host *host,
@@ -569,8 +597,14 @@ director_user_refresh(struct director_connection *conn,
 	struct user *user;
 	bool ret = FALSE, unset_weak_user = FALSE;
 	struct user_directory *users = host->tag->users;
+	bool unknown_timestamp = (timestamp == (time_t)-1);
 
 	*forced_r = FALSE;
+
+	if (unknown_timestamp) {
+		/* Old director version sent USER without timestamp. */
+		timestamp = ioloop_time;
+	}
 
 	if (timestamp + (time_t)dir->set->director_user_expire <= ioloop_time) {
 		dir_debug("user refresh: %u has expired timestamp %"PRIdTIME_T,
@@ -683,7 +717,7 @@ director_user_refresh(struct director_connection *conn,
 	   the director ring is slow and a single USER can traverse through
 	   the ring more than a second. We don't want to get into a loop where
 	   the same USER goes through the ring forever. */
-	if ((time_t)user->timestamp < timestamp) {
+	if (user_need_refresh(dir, user, timestamp, unknown_timestamp)) {
 		/* NOTE: This makes the users list somewhat out-of-order.
 		   It's not a big problem - most likely it's only a few seconds
 		   difference. The worst that can happen is that some users
@@ -774,7 +808,7 @@ director_cmd_user(struct director_connection *conn,
 	struct mail_host *host;
 	struct user *user;
 	bool forced;
-	time_t timestamp = ioloop_time;
+	time_t timestamp = (time_t)-1;
 
 	if (str_array_length(args) < 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
