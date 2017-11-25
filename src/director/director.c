@@ -730,11 +730,24 @@ void director_flush_host(struct director *dir, struct director_host *src,
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user)
 {
-	i_assert(src != NULL);
+	struct director_connection *const *connp;
 
+	i_assert(src != NULL);
 	i_assert(!user->weak);
-	director_update_send(dir, src, t_strdup_printf("USER\t%u\t%s\n",
-		user->username_hash, user->host->ip_str));
+
+	array_foreach(&dir->connections, connp) {
+		if (director_connection_get_host(*connp) == src)
+			continue;
+
+		if (director_connection_get_minor_version(*connp) >= DIRECTOR_VERSION_USER_TIMESTAMP) {
+			director_connection_send(*connp, t_strdup_printf(
+				"USER\t%u\t%s\t%u\n", user->username_hash, user->host->ip_str,
+				user->timestamp));
+		} else {
+			director_connection_send(*connp, t_strdup_printf(
+				"USER\t%u\t%s\n", user->username_hash, user->host->ip_str));
+		}
+	}
 }
 
 void director_update_user_weak(struct director *dir, struct director_host *src,

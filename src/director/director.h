@@ -28,6 +28,8 @@
 #define DIRECTOR_VERSION_USER_KICK_ALT 8
 /* Users are sent as "U" command in handshake */
 #define DIRECTOR_VERSION_HANDSHAKE_U_CMD 9
+/* USER event with timestamp supported */
+#define DIRECTOR_VERSION_USER_TIMESTAMP 9
 
 /* Minimum time between even attempting to communicate with a director that
    failed due to a protocol error. */
