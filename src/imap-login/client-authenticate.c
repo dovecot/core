@@ -129,6 +129,10 @@ imap_client_auth_begin(struct imap_client *imap_client, const char *mech_name,
 	imap_client->common.master_data_prefix = (void *)prefix;
 	imap_client->common.master_data_prefix_len = strlen(prefix)+1;
 
+	if (*init_resp == '\0')
+		init_resp = NULL;
+	else if (strcmp(init_resp, "=") == 0)
+		init_resp = "";
 	return client_auth_begin(&imap_client->common, mech_name, init_resp);
 }
 
