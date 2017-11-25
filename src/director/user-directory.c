@@ -17,7 +17,7 @@
 
 struct user_directory_iter {
 	struct user_directory *dir;
-	struct user *pos;
+	struct user *pos, *stop_after_tail;
 };
 
 struct user_directory {
@@ -46,6 +46,10 @@ static void user_move_iters(struct user_directory *dir, struct user *user)
 	array_foreach(&dir->iters, iterp) {
 		if ((*iterp)->pos == user)
 			(*iterp)->pos = user->next;
+		if ((*iterp)->stop_after_tail == user) {
+			(*iterp)->stop_after_tail =
+				user->prev != NULL ? user->prev : user->next;
+		}
 	}
 }
 
@@ -291,13 +295,15 @@ void user_directory_deinit(struct user_directory **_dir)
 }
 
 struct user_directory_iter *
-user_directory_iter_init(struct user_directory *dir)
+user_directory_iter_init(struct user_directory *dir,
+			 bool iter_until_current_tail)
 {
 	struct user_directory_iter *iter;
 
 	iter = i_new(struct user_directory_iter, 1);
 	iter->dir = dir;
 	iter->pos = dir->head;
+	iter->stop_after_tail = iter_until_current_tail ? dir->tail : NULL;
 	array_append(&dir->iters, &iter, 1);
 	user_directory_drop_expired(dir);
 	return iter;
@@ -312,6 +318,10 @@ struct user *user_directory_iter_next(struct user_directory_iter *iter)
 		return NULL;
 
 	iter->pos = user->next;
+	if (user == iter->stop_after_tail) {
+		/* this is the last user we want to iterate */
+		iter->pos = NULL;
+	}
 	return user;
 }
 

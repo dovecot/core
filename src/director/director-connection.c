@@ -2251,7 +2251,16 @@ static void director_finish_sending_handshake(struct director_connection *conn)
 	director_connection_send_hosts(conn);
 
 	i_assert(conn->user_iter == NULL);
-	conn->user_iter = director_iterate_users_init(conn->dir);
+	/* Iterate only through users that aren't refreshed since the
+	   iteration started. The refreshed users will already be sent as
+	   regular USER updates, so they don't need to be sent again.
+
+	   We especially don't want to send these users again, because
+	   otherwise in a rapidly changing director we might never end up
+	   sending all the users when they constantly keep being added to the
+	   end of the list. (The iteration lists users in order from older to
+	   newer.) */
+	conn->user_iter = director_iterate_users_init(conn->dir, TRUE);
 
 	if (director_connection_send_users(conn) == 0)
 		o_stream_set_flush_pending(conn->output, TRUE);

@@ -520,7 +520,7 @@ director_host_reset_users(struct director_reset_cmd *cmd,
 		director_connection_cork(dir->right);
 
 	if (cmd->iter == NULL) {
-		cmd->iter = director_iterate_users_init(dir);
+		cmd->iter = director_iterate_users_init(dir, FALSE);
 		cmd->users_killed = FALSE;
 	}
 
@@ -718,7 +718,7 @@ doveadm_cmd_user_list(struct doveadm_connection *conn, const char *const *args)
 		ip.family = 0;
 	}
 
-	iter = director_iterate_users_init(conn->dir);
+	iter = director_iterate_users_init(conn->dir, FALSE);
 	while ((user = director_iterate_users_next(iter)) != NULL) {
 		if (ip.family == 0 ||
 		    net_ip_compare(&ip, &user->host->ip)) T_BEGIN {

@@ -1508,12 +1508,15 @@ struct director_user_iter {
 	struct director *dir;
 	unsigned int tag_idx;
 	struct user_directory_iter *user_iter;
+	bool iter_until_current_tail;
 };
 
-struct director_user_iter *director_iterate_users_init(struct director *dir)
+struct director_user_iter *
+director_iterate_users_init(struct director *dir, bool iter_until_current_tail)
 {
 	struct director_user_iter *iter = i_new(struct director_user_iter, 1);
 	iter->dir = dir;
+	iter->iter_until_current_tail = iter_until_current_tail;
 	return iter;
 }
 
@@ -1529,7 +1532,8 @@ struct user *director_iterate_users_next(struct director_user_iter *iter)
 		if (iter->tag_idx >= array_count(tags))
 			return NULL;
 		struct mail_tag *const *tagp = array_idx(tags, iter->tag_idx);
-		iter->user_iter = user_directory_iter_init((*tagp)->users);
+		iter->user_iter = user_directory_iter_init((*tagp)->users,
+			iter->iter_until_current_tail);
 	}
 	user = user_directory_iter_next(iter->user_iter);
 	if (user == NULL) {
