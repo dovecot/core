@@ -129,6 +129,7 @@ struct director_connection {
 	struct timeout *to_disconnect, *to_ping, *to_pong;
 
 	struct director_user_iter *user_iter;
+	unsigned int users_received, handshake_users_received;
 
 	/* set during command execution */
 	const char *cur_cmd, *const *cur_args;
@@ -184,6 +185,8 @@ director_connection_append_stats(struct director_connection *conn, string_t *str
 
 	str_printfa(str, "bytes in=%"PRIuUOFF_T", bytes out=%"PRIuUOFF_T,
 		    conn->input->v_offset, conn->output->offset);
+	str_printfa(str, ", %u+%u USERs received",
+		    conn->handshake_users_received, conn->users_received);
 	if (conn->last_input.tv_sec > 0) {
 		str_printfa(str, ", last input %u.%03u s ago",
 			    input_msecs/1000, input_msecs%1000);
@@ -760,6 +763,7 @@ director_handshake_cmd_user(struct director_connection *conn,
 		return FALSE;
 	}
 	weak = args[3] != NULL && args[3][0] == 'w';
+	conn->handshake_users_received++;
 
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
@@ -818,6 +822,7 @@ director_cmd_user(struct director_connection *conn,
 		return FALSE;
 	}
 
+	conn->users_received++;
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
 		/* we probably just removed this host. */
