@@ -35,6 +35,8 @@ struct user_directory {
 	unsigned int user_near_expiring_secs;
 	struct timeout *to_expire;
 	time_t to_expire_timestamp;
+
+	bool sort_pending;
 };
 
 static void user_move_iters(struct user_directory *dir, struct user *user)
@@ -199,8 +201,18 @@ void user_directory_sort(struct user_directory *dir)
 	struct user *user, *const *userp;
 	unsigned int i, users_count = hash_table_count(dir->hash);
 
+	dir->sort_pending = FALSE;
+
 	if (users_count == 0) {
 		i_assert(dir->head == NULL);
+		return;
+	}
+
+	if (array_count(&dir->iters) > 0) {
+		/* We can't sort the directory while there are iterators
+		   or they'll skip users. Do the sort after there are no more
+		   iterators. */
+		dir->sort_pending = TRUE;
 		return;
 	}
 
@@ -318,5 +330,7 @@ void user_directory_iter_deinit(struct user_directory_iter **_iter)
 			break;
 		}
 	}
+	if (array_count(&iter->dir->iters) == 0 && iter->dir->sort_pending)
+		user_directory_sort(iter->dir);
 	i_free(iter);
 }
