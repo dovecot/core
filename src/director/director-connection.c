@@ -571,6 +571,12 @@ director_user_refresh(struct director_connection *conn,
 
 	*forced_r = FALSE;
 
+	if (timestamp + (time_t)dir->set->director_user_expire <= ioloop_time) {
+		dir_debug("user refresh: %u has expired timestamp %"PRIdTIME_T,
+			  username_hash, timestamp);
+		return TRUE;
+	}
+
 	user = user_directory_lookup(users, username_hash);
 	if (user == NULL) {
 		*user_r = user_directory_add(users, username_hash,
