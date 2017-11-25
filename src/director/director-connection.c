@@ -96,8 +96,9 @@
 #  error DIRECTOR_CONNECTION_PONG_TIMEOUT_MSECS is too low
 #endif
 
-#define CMD_IS_USER_HANDHAKE(args) \
-	(str_array_length(args) > 2)
+#define CMD_IS_USER_HANDSHAKE(minor_version, args) \
+	((minor_version) < DIRECTOR_VERSION_HANDSHAKE_U_CMD && \
+	 str_array_length(args) > 2)
 
 #define DIRECTOR_OPT_CONSISTENT_HASHING "consistent-hashing"
 
@@ -765,8 +766,6 @@ director_cmd_user(struct director_connection *conn,
 	struct user *user;
 	bool forced;
 
-	/* NOTE: if more parameters are added, update also
-	   CMD_IS_USER_HANDHAKE() macro */
 	if (str_array_length(args) != 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
 	    net_addr2ip(args[1], &ip) < 0) {
@@ -1462,7 +1461,10 @@ director_connection_handle_handshake(struct director_connection *conn,
 		return director_cmd_host_hand_start(conn, args) ? 1 : -1;
 	}
 
-	if (conn->in && strcmp(cmd, "USER") == 0 && CMD_IS_USER_HANDHAKE(args))
+	if (conn->in &&
+	    (strcmp(cmd, "U") == 0 ||
+	     (strcmp(cmd, "USER") == 0 &&
+	      CMD_IS_USER_HANDSHAKE(conn->minor_version, args))))
 		return director_handshake_cmd_user(conn, args) ? 1 : -1;
 
 	/* both get DONE */
@@ -2036,9 +2038,16 @@ static int director_connection_send_users(struct director_connection *conn)
 
 	i_assert(conn->version_received);
 
-	while ((user = director_iterate_users_next(conn->user_iter)) != NULL) {
-		str_truncate(str, 0);
+	/* with new versions use "U" for sending the handshake users, because
+	   otherwise their parameters may look identical and can't be
+	   distinguished. */
+	if (director_connection_get_minor_version(conn) >= DIRECTOR_VERSION_HANDSHAKE_U_CMD)
+		str_append(str, "U\t");
+	else
 		str_append(str, "USER\t");
+	size_t cmd_prefix_len = str_len(str);
+	while ((user = director_iterate_users_next(conn->user_iter)) != NULL) {
+		str_truncate(str, cmd_prefix_len);
 		str_append(str, dec2str_buf(dec_buf, user->username_hash));
 		str_append_c(str, '\t');
 		str_append(str, user->host->ip_str);
