@@ -578,12 +578,25 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		return TRUE;
 	}
 
-	/* Empty initial response is a "=" base64 string. Completely empty
-	   string shouldn't really be sent, but at least Exim does it,
-	   so just allow it for backwards compatibility.. */
-	if (initial_resp != NULL && *initial_resp != '\0') {
+	/* Handle initial respose */
+	if (initial_resp == NULL) {
+		/* No initial response */
+		request->initial_response = NULL;
+		request->initial_response_len = 0;
+	} else if (*initial_resp == '\0' || strcmp(initial_resp, "=") == 0 ) {
+		/* Empty initial response - Protocols that use SASL often
+		   use '=' to indicate an empty initial response; i.e., to
+		   distinguish it from an absent initial response. However, that
+		   should not be conveyed to the SASL layer (it is not even
+		   valid Base64); only the empty string should be passed on.
+		   Still, we recognize it here anyway, because we used to make
+		   the same mistake. */
+		request->initial_response = uchar_empty_ptr;
+		request->initial_response_len = 0;
+	} else {
 		size_t len = strlen(initial_resp);
 
+		/* Initial response encoded in Bas64 */
 		buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
 		if (base64_decode(initial_resp, len, NULL, buf) < 0) {
 			auth_request_handler_auth_fail_code(handler, request,
