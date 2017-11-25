@@ -80,7 +80,7 @@ bool cmd_auth(struct pop3_client *pop3_client, const char *args)
 {
 	struct client *client = &pop3_client->common;
 	const struct auth_mech_desc *mech;
-	const char *mech_name, *p;
+	const char *mech_name, *init_resp, *p;
 
 	if (*args == '\0') {
 		/* Old-style SASL discovery, used by MS Outlook */
@@ -100,13 +100,21 @@ bool cmd_auth(struct pop3_client *pop3_client, const char *args)
 	p = strchr(args, ' ');
 	if (p == NULL) {
 		mech_name = args;
-		args = NULL;
+		/* no initial response */
+		init_resp = NULL;
 	} else {
 		mech_name = t_strdup_until(args, p);
-		args = p+1;
+		init_resp = p + 1;
+		if (*init_resp == '\0') {
+			/* no initial response */
+			init_resp = NULL;
+		} else if (strcmp(init_resp, "=") == 0) {
+			/* empty initial response */
+			init_resp = "";
+		}
 	}
 
-	(void)client_auth_begin(client, mech_name, args);
+	(void)client_auth_begin(client, mech_name, init_resp);
 	return TRUE;
 }
 
