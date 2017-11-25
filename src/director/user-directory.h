@@ -5,7 +5,9 @@
 	((user)->kill_ctx != NULL)
 
 struct user {
-	/* sorted by time */
+	/* Approximately sorted by time (except during handshaking).
+	   The sorting order may be constantly wrong a few seconds here and
+	   there. */
 	struct user *prev, *next;
 
 	/* first 32 bits of MD5(username). collisions are quite unlikely, but

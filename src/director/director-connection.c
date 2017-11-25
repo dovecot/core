@@ -678,12 +678,25 @@ director_user_refresh(struct director_connection *conn,
 		user->host->user_count++;
 		ret = TRUE;
 	}
-	if (timestamp == ioloop_time && (time_t)user->timestamp != timestamp) {
+	/* Update user's timestamp if it's higher than the current one. Note
+	   that we'll preserve the original timestamp. This is important when
+	   the director ring is slow and a single USER can traverse through
+	   the ring more than a second. We don't want to get into a loop where
+	   the same USER goes through the ring forever. */
+	if ((time_t)user->timestamp < timestamp) {
+		/* NOTE: This makes the users list somewhat out-of-order.
+		   It's not a big problem - most likely it's only a few seconds
+		   difference. The worst that can happen is that some users
+		   take up memory that should have been freed already. */
+		dir_debug("user refresh: %u refreshed timestamp from %u to %"PRIdTIME_T,
+			  username_hash, user->timestamp, timestamp);
 		user_directory_refresh(users, user);
+		user->timestamp = timestamp;
 		ret = TRUE;
+	} else {
+		dir_debug("user refresh: %u ignored timestamp %"PRIdTIME_T" (we have %u)",
+			  username_hash, timestamp, user->timestamp);
 	}
-	dir_debug("user refresh: %u refreshed timeout to %ld",
-		  username_hash, (long)user->timestamp);
 
 	if (unset_weak_user) {
 		/* user is no longer weak. handle pending requests for
@@ -761,10 +774,12 @@ director_cmd_user(struct director_connection *conn,
 	struct mail_host *host;
 	struct user *user;
 	bool forced;
+	time_t timestamp = ioloop_time;
 
-	if (str_array_length(args) != 2 ||
+	if (str_array_length(args) < 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||
-	    net_addr2ip(args[1], &ip) < 0) {
+	    net_addr2ip(args[1], &ip) < 0 ||
+	    (args[2] != NULL && str_to_time(args[2], &timestamp) < 0)) {
 		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
@@ -776,7 +791,7 @@ director_cmd_user(struct director_connection *conn,
 	}
 
 	if (director_user_refresh(conn, username_hash,
-				  host, ioloop_time, FALSE, &forced, &user)) {
+				  host, timestamp, FALSE, &forced, &user)) {
 		struct director_host *src_host =
 			forced ? conn->dir->self_host : conn->host;
 		i_assert(!user->weak);
