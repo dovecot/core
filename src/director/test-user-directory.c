@@ -19,7 +19,7 @@ verify_user_directory(struct user_directory *dir, unsigned int user_count)
 	struct user *user, *prev = NULL;
 	unsigned int prev_stamp = 0, iter_count = 0;
 
-	iter = user_directory_iter_init(dir);
+	iter = user_directory_iter_init(dir, FALSE);
 	while ((user = user_directory_iter_next(iter)) != NULL) {
 		test_assert(prev_stamp <= user->timestamp);
 		test_assert(user->prev == prev);
