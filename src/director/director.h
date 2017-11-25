@@ -6,7 +6,7 @@
 
 #define DIRECTOR_VERSION_NAME "director"
 #define DIRECTOR_VERSION_MAJOR 1
-#define DIRECTOR_VERSION_MINOR 8
+#define DIRECTOR_VERSION_MINOR 9
 
 /* weak users supported in protocol */
 #define DIRECTOR_VERSION_WEAK_USERS 1
@@ -26,6 +26,8 @@
 #define DIRECTOR_VERSION_TAGS_V2 7
 /* user-kick-alt supported */
 #define DIRECTOR_VERSION_USER_KICK_ALT 8
+/* Users are sent as "U" command in handshake */
+#define DIRECTOR_VERSION_HANDSHAKE_U_CMD 9
 
 /* Minimum time between even attempting to communicate with a director that
    failed due to a protocol error. */
