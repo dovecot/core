@@ -19,7 +19,7 @@ enum _str_trim_sides {
 };
 
 const unsigned char uchar_nul = '\0';
-const unsigned char *uchar_empty_ptr = { 0 };
+const unsigned char *uchar_empty_ptr = &uchar_nul;
 
 volatile int timing_safety_unoptimization;
 
