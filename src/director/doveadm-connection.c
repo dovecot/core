@@ -173,11 +173,11 @@ doveadm_director_host_append_status(const struct director_host *host,
 static void doveadm_director_append_status(struct director *dir, string_t *str)
 {
 	if (!dir->ring_handshaked)
-		str_append(str, "handshaking");
+		str_append(str, "ring handshaking");
 	else if (dir->ring_synced)
-		str_append(str, "synced");
+		str_append(str, "ring synced");
 	else {
-		str_printfa(str, "syncing - last sync %d secs ago",
+		str_printfa(str, "ring syncing - last sync %d secs ago",
 			    (int)(ioloop_time - dir->ring_last_sync_time));
 	}
 	str_printfa(str, "\t%u", dir->last_sync_msecs);
