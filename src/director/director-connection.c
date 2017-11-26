@@ -130,6 +130,7 @@ struct director_connection {
 
 	struct director_user_iter *user_iter;
 	unsigned int users_received, handshake_users_received;
+	unsigned int handshake_users_sent;
 
 	/* set during command execution */
 	const char *cur_cmd, *const *cur_args;
@@ -187,6 +188,10 @@ director_connection_append_stats(struct director_connection *conn, string_t *str
 		    conn->input->v_offset, conn->output->offset);
 	str_printfa(str, ", %u+%u USERs received",
 		    conn->handshake_users_received, conn->users_received);
+	if (conn->handshake_users_sent > 0) {
+		str_printfa(str, ", %u USERs sent in handshake",
+			    conn->handshake_users_sent);
+	}
 	if (conn->last_input.tv_sec > 0) {
 		str_printfa(str, ", last input %u.%03u s ago",
 			    input_msecs/1000, input_msecs%1000);
@@ -2115,6 +2120,8 @@ static int director_connection_send_users(struct director_connection *conn)
 		if (user->weak)
 			str_append(str, "\tw");
 		str_append_c(str, '\n');
+
+		conn->handshake_users_sent++;
 		director_connection_send(conn, str_c(str));
 		if (++sent_count >= DIRECTOR_HANDSHAKE_MAX_USERS_SENT_PER_FLUSH) {
 			/* Don't send too much at once to avoid hangs */
