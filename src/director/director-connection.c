@@ -778,6 +778,7 @@ director_handshake_cmd_user(struct director_connection *conn,
 		   future though. It's most likely only 1 second difference. */
 		timestamp = ioloop_time;
 	}
+	conn->dir->num_incoming_requests++;
 	(void)director_user_refresh(conn, username_hash, host,
 				    timestamp, weak, &forced, &user);
 	/* Possibilities:
@@ -821,6 +822,9 @@ director_cmd_user(struct director_connection *conn,
 		director_cmd_error(conn, "Invalid parameters");
 		return FALSE;
 	}
+
+	/* could this before it's potentially ignored */
+	conn->dir->num_incoming_requests++;
 
 	conn->users_received++;
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
@@ -1010,6 +1014,9 @@ director_cmd_user_weak(struct director_connection *conn,
 	   duplicate commands */
 	if ((ret = director_cmd_is_seen(conn, &args, &dir_host)) < 0)
 		return FALSE;
+
+	/* could this before it's potentially ignored */
+	conn->dir->num_incoming_requests++;
 
 	if (str_array_length(args) != 2 ||
 	    str_to_uint(args[0], &username_hash) < 0 ||

@@ -53,6 +53,7 @@ static unsigned int director_total_users_count(void)
 static void director_refresh_proctitle_timeout(void *context ATTR_UNUSED)
 {
 	static uint64_t prev_requests = 0, prev_input = 0, prev_output;
+	static uint64_t prev_incoming_requests = 0;
 	string_t *str;
 
 	str = t_str_new(64);
@@ -63,14 +64,16 @@ static void director_refresh_proctitle_timeout(void *context ATTR_UNUSED)
 		str_printfa(str, ", %u moving", director->users_moving_count);
 	if (director->users_kicking_count > 0)
 		str_printfa(str, ", %u kicking", director->users_kicking_count);
-	str_printfa(str, ", %"PRIu64" req/s",
-		    director->num_requests - prev_requests);
+	str_printfa(str, ", %"PRIu64"+%"PRIu64" req/s",
+		    director->num_requests - prev_requests,
+		    director->num_incoming_requests - prev_incoming_requests);
 	str_printfa(str, ", %"PRIu64"+%"PRIu64" kB/s",
 		    (director->ring_traffic_input - prev_input)/1024,
 		    (director->ring_traffic_output - prev_output)/1024);
 	str_append_c(str, ']');
 
 	prev_requests = director->num_requests;
+	prev_incoming_requests = director->num_incoming_requests;
 	prev_input = director->ring_traffic_input;
 	prev_output = director->ring_traffic_output;
 
