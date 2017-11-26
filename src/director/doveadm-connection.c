@@ -261,28 +261,31 @@ doveadm_cmd_director_list(struct doveadm_connection *conn,
 
 	t_array_init(&hosts, array_count(&dir->dir_hosts));
 	array_append_array(&hosts, &dir->dir_hosts);
+	array_sort(&hosts, director_host_cmp_p);
 
-	/* show each individual connection */
+	/* first show incoming connections that have no known host yet */
 	array_foreach(&dir->connections, connp) {
-		const struct director_host *host =
-			director_connection_get_host(*connp);
-		/* NOTE: for incoming connections host is initially NULL */
-
-		array_foreach(&hosts, hostp) {
-			if (*hostp == host) {
-				array_delete(&hosts,
-					array_foreach_idx(&hosts, hostp), 1);
-				break;
-			}
-		}
-		doveadm_director_connection_append(dir, *connp, host, str);
+		if (director_connection_get_host(*connp) == NULL)
+			doveadm_director_connection_append(dir, *connp, NULL, str);
 	}
 
-	/* show the rest of the hosts that don't have any connections */
+	/* show other connections and host without connections sorted by host */
 	array_foreach(&hosts, hostp) {
 		const struct director_host *host = *hostp;
-		doveadm_director_host_append(dir, host, str);
+		bool have_connections = FALSE;
+
+		array_foreach(&dir->connections, connp) {
+			const struct director_host *conn_host =
+				director_connection_get_host(*connp);
+			if (conn_host != host)
+				continue;
+			have_connections = TRUE;
+			doveadm_director_connection_append(dir, *connp, host, str);
+		}
+		if (!have_connections)
+			doveadm_director_host_append(dir, host, str);
 	}
+
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
 	return DOVEADM_DIRECTOR_CMD_RET_OK;
