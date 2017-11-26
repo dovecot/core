@@ -1009,7 +1009,14 @@ void client_continue_pending_input(struct client *client)
 		if (i_stream_get_data_size(client->input) == 0 ||
 		    client->disconnected)
 			break;
-		if (!client_handle_input(client))
+
+		struct ostream *output = client->output;
+		o_stream_ref(output);
+		o_stream_cork(output);
+		bool ret = client_handle_input(client);
+		o_stream_uncork(output);
+		o_stream_unref(&output);
+		if (!ret)
 			break;
 	}
 	if (!client->input->closed && !client->output->closed)
@@ -1187,6 +1194,7 @@ bool client_handle_input(struct client *client)
 {
 	bool ret, remove_io, handled_commands = FALSE;
 
+	i_assert(o_stream_is_corked(client->output));
 	i_assert(!client->disconnected);
 
 	client->handling_input = TRUE;
