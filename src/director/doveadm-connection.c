@@ -209,6 +209,48 @@ doveadm_director_connection_append_status(struct director_connection *conn,
 		    (long)status.last_output.tv_sec);
 }
 
+static void
+doveadm_director_connection_append(struct director *dir,
+				   struct director_connection *conn,
+				   const struct director_host *host,
+				   string_t *str)
+{
+	const char *type;
+
+	if (conn == dir->left)
+		type = "left";
+	else if (conn == dir->right)
+		type = "right";
+	else if (director_connection_is_incoming(conn))
+		type = "in";
+	else
+		type = "out";
+
+	if (host != NULL)
+		doveadm_director_host_append_status(host, type, str);
+	doveadm_director_connection_append_status(conn, str);
+	str_append_c(str, '\n');
+}
+
+static void
+doveadm_director_host_append(struct director *dir,
+			     const struct director_host *host, string_t *str)
+{
+	const char *type;
+
+	if (host->removed)
+		type = "removed";
+	else if (dir->self_host == host)
+		type = "self";
+	else
+		type = "";
+
+	doveadm_director_host_append_status(host, type, str);
+	if (dir->self_host == host)
+		doveadm_director_append_status(dir, str);
+	str_append_c(str, '\n');
+}
+
 static enum doveadm_director_cmd_ret
 doveadm_cmd_director_list(struct doveadm_connection *conn,
 			  const char *const *args ATTR_UNUSED)
@@ -216,7 +258,6 @@ doveadm_cmd_director_list(struct doveadm_connection *conn,
 	struct director *dir = conn->dir;
 	struct director_host *const *hostp;
 	string_t *str = t_str_new(1024);
-	const char *type;
 	struct director_connection *const *connp;
 	ARRAY(struct director_host *) hosts;
 
@@ -236,36 +277,13 @@ doveadm_cmd_director_list(struct doveadm_connection *conn,
 				break;
 			}
 		}
-		if (*connp == dir->left)
-			type = "left";
-		else if (*connp == dir->right)
-			type = "right";
-		else if (director_connection_is_incoming(*connp))
-			type = "in";
-		else
-			type = "out";
-
-		if (host != NULL)
-			doveadm_director_host_append_status(host, type, str);
-		doveadm_director_connection_append_status(*connp, str);
-		str_append_c(str, '\n');
+		doveadm_director_connection_append(dir, *connp, host, str);
 	}
 
 	/* show the rest of the hosts that don't have any connections */
 	array_foreach(&hosts, hostp) {
 		const struct director_host *host = *hostp;
-
-		if (host->removed)
-			type = "removed";
-		else if (dir->self_host == host)
-			type = "self";
-		else
-			type = "";
-
-		doveadm_director_host_append_status(host, type, str);
-		if (dir->self_host == host)
-			doveadm_director_append_status(dir, str);
-		str_append_c(str, '\n');
+		doveadm_director_host_append(dir, host, str);
 	}
 	str_append_c(str, '\n');
 	o_stream_nsend(conn->output, str_data(str), str_len(str));
