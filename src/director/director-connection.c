@@ -2576,4 +2576,6 @@ void director_connection_get_status(struct director_connection *conn,
 	status_r->last_input = conn->last_input;
 	status_r->last_output = conn->last_output;
 	status_r->last_ping_msecs = conn->last_ping_msecs;
+	status_r->handshake_users_sent = conn->handshake_users_sent;
+	status_r->handshake_users_received = conn->handshake_users_received;
 }

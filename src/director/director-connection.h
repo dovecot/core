@@ -6,6 +6,9 @@ struct director_connection_status {
 	size_t bytes_buffered, peak_bytes_buffered;
 	struct timeval last_input, last_output;
 	unsigned int last_ping_msecs;
+
+	unsigned int handshake_users_received;
+	unsigned int handshake_users_sent;
 };
 
 struct director_host;
