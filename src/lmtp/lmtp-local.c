@@ -283,7 +283,7 @@ lmtp_local_deliver(struct client *client,
 {
 	struct mail_storage_service_user *service_user = rcpt->service_user;
 	struct mail_deliver_context dctx;
-	struct mail_user *dest_user;
+	struct mail_user *rcpt_user;
 	struct mail_storage *storage;
 	const struct mail_storage_service_input *input;
 	const struct mail_storage_settings *mail_set;
@@ -325,16 +325,16 @@ lmtp_local_deliver(struct client *client,
 	client_state_set(client, "DATA", username);
 	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, service_user,
-				      &dest_user, &error) < 0) {
+				      &rcpt_user, &error) < 0) {
 		i_error("Failed to initialize user: %s", error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 smtp_address_encode(rcpt->address));
 		return -1;
 	}
-	client->state.dest_user = dest_user;
+	client->state.dest_user = rcpt_user;
 
 	sets = mail_storage_service_user_get_set(service_user);
-	var_table = mail_user_var_expand_table(dest_user);
+	var_table = mail_user_var_expand_table(rcpt_user);
 	smtp_set = sets[1];
 	lda_set = sets[2];
 	ret = settings_var_expand(
@@ -355,11 +355,11 @@ lmtp_local_deliver(struct client *client,
 	}
 
 	str = t_str_new(256);
-	if (var_expand_with_funcs(str, dest_user->set->mail_log_prefix,
+	if (var_expand_with_funcs(str, rcpt_user->set->mail_log_prefix,
 				  var_table, mail_user_var_expand_func_table,
-				  dest_user, &error) <= 0) {
+				  rcpt_user, &error) <= 0) {
 		i_error("Failed to expand mail_log_prefix=%s: %s",
-			dest_user->set->mail_log_prefix, error);
+			rcpt_user->set->mail_log_prefix, error);
 		client_send_line(client, ERRSTR_TEMP_MAILBOX_FAIL,
 				 smtp_address_encode(rcpt->address));
 		return -1;
@@ -379,7 +379,7 @@ lmtp_local_deliver(struct client *client,
 	dctx.mail_params = client->state.mail_params;
 
 	/* RCPT TO */
-	dctx.rcpt_user = dest_user;
+	dctx.rcpt_user = rcpt_user;
 	dctx.rcpt_params = rcpt->params;
 	if (dctx.rcpt_params.orcpt.addr != NULL) {
 		/* used ORCPT */
@@ -394,7 +394,7 @@ lmtp_local_deliver(struct client *client,
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
 		dctx.rcpt_default_mailbox = "INBOX";
 	else {
-		ns = mail_namespace_find_inbox(dest_user->namespaces);
+		ns = mail_namespace_find_inbox(rcpt_user->namespaces);
 		dctx.rcpt_default_mailbox =
 			t_strconcat(ns->prefix, rcpt->detail, NULL);
 	}
