@@ -189,14 +189,18 @@ doveadm_director_connection_append_status(struct director_connection *conn,
 {
 	struct director_connection_status status;
 
-	if (!director_connection_is_handshaked(conn))
-		str_append(str, "handshaking");
-	else if (director_connection_is_synced(conn))
+	director_connection_get_status(conn, &status);
+	if (!director_connection_is_handshaked(conn)) {
+		str_append(str, "handshaking - ");
+		if (director_connection_is_incoming(conn))
+			str_printfa(str, "%u USERs received", status.handshake_users_received);
+		else
+			str_printfa(str, "%u USERs sent", status.handshake_users_sent);
+	} else if (director_connection_is_synced(conn))
 		str_append(str, "synced");
 	else
 		str_append(str, "syncing");
 
-	director_connection_get_status(conn, &status);
 	str_printfa(str, "\t%u\t%"PRIuUOFF_T"\t%"PRIuUOFF_T"\t%zu\t%zu\t"
 		    "%ld\t%ld", status.last_ping_msecs,
 		    status.bytes_read, status.bytes_sent,
