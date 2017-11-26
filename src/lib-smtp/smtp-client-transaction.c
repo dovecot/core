@@ -192,6 +192,8 @@ smtp_client_transaction_finish(struct smtp_client_transaction *trans)
 	if (trans->state >= SMTP_CLIENT_TRANSACTION_STATE_FINISHED)
 		return;
 
+	timeout_remove(&trans->to_finish);
+
 	smtp_client_transaction_debug(trans, "Finished");
 
 	io_loop_time_refresh();
@@ -219,6 +221,7 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 	/* clean up */
 	i_stream_unref(&trans->data_input);
 	timeout_remove(&trans->to_send);
+	timeout_remove(&trans->to_finish);
 
 	trans->cmd_last = NULL;
 
