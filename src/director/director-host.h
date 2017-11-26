@@ -70,6 +70,9 @@ director_host_lookup_ip(struct director *dir, const struct ip_addr *ip);
 int director_host_cmp_to_self(const struct director_host *b1,
 			      const struct director_host *b2,
 			      const struct director_host *self);
+/* Compare directors by IP/port. */
+int director_host_cmp_p(struct director_host *const *host1,
+			struct director_host *const *host2);
 
 /* Parse hosts list (e.g. "host1:port host2 host3:port") and them as
    directors */

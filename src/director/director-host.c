@@ -16,8 +16,8 @@ static int director_host_cmp(const struct director_host *b1,
 	return (int)b1->port - (int)b2->port;
 }
 
-static int director_host_cmp_p(struct director_host *const *host1,
-			       struct director_host *const *host2)
+int director_host_cmp_p(struct director_host *const *host1,
+			struct director_host *const *host2)
 {
 	return director_host_cmp(*host1, *host2);
 }
