@@ -184,7 +184,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	array_append(&proxy->connections, &conn, 1);
 
 	lmtp_conn = smtp_client_connection_create(proxy->lmtp_client,
-		set->protocol, set->host, set->port,
+		set->protocol, conn->set.host, conn->set.port,
 		SMTP_CLIENT_SSL_MODE_NONE, NULL);
 	smtp_client_connection_connect(lmtp_conn, NULL, NULL);
 
