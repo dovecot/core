@@ -171,7 +171,7 @@ static void *pool_allocfree_malloc(pool_t pool, size_t size)
 	struct allocfree_pool *apool =
 		container_of(pool, struct allocfree_pool, pool);
 
-	if (unlikely(size == 0 || size > SSIZE_T_MAX))
+	if (unlikely(size == 0 || size > SSIZE_T_MAX - SIZEOF_POOLBLOCK))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", size);
 
 	struct pool_block *block = calloc(1, SIZEOF_POOLBLOCK + size);
@@ -201,7 +201,7 @@ static void *pool_allocfree_realloc(pool_t pool, void *mem,
 		container_of(pool, struct allocfree_pool, pool);
 	unsigned char *new_mem;
 
-	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX))
+	if (unlikely(new_size == 0 || new_size > SSIZE_T_MAX - SIZEOF_POOLBLOCK))
 		i_panic("Trying to allocate %"PRIuSIZE_T" bytes", new_size);
 
 	if (mem == NULL)
