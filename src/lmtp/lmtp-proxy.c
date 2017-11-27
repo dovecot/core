@@ -159,6 +159,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 {
 	struct smtp_client_connection *lmtp_conn;
 	struct lmtp_proxy_connection *const *conns, *conn;
+	const char *host = (set->hostip.family == 0 ?
+		set->host : net_ip2addr(&set->hostip));
 
 	i_assert(set->timeout_msecs > 0);
 
@@ -167,7 +169,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 		if (conn->set.protocol == set->protocol &&
 		    conn->set.port == set->port &&
-		    strcmp(conn->set.host, set->host) == 0)
+		    strcmp(conn->set.host, host) == 0)
 			return conn;
 	}
 
@@ -175,10 +177,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->proxy = proxy;
 	conn->set.protocol = set->protocol;
 	conn->set.hostip = set->hostip;
-	if (set->hostip.family == 0)
-		conn->set.host = p_strdup(proxy->pool, set->host);
-	else
-		conn->set.host = p_strdup(proxy->pool, net_ip2addr(&set->hostip));
+	conn->set.host = p_strdup(proxy->pool, host);
 	conn->set.port = set->port;
 	conn->set.timeout_msecs = set->timeout_msecs;
 	array_append(&proxy->connections, &conn, 1);
