@@ -105,14 +105,17 @@ enum fatal_test_state fatal_mempool_allocfree(unsigned int stage)
 	case 0: /* forbidden size */
 		test_begin("fatal_mempool_allocfree");
 		pool = pool_allocfree_create("fatal");
+		test_expect_fatal_string("Trying to allocate 0 bytes");
 		(void)p_malloc(pool, 0);
 		return FATAL_TEST_FAILURE;
 
 	case 1: /* logically impossible size */
+		test_expect_fatal_string("Trying to allocate");
 		(void)p_malloc(pool, SSIZE_T_MAX + 1ULL);
 		return FATAL_TEST_FAILURE;
 
 	case 2: /* physically impossible size */
+		test_expect_fatal_string("Out of memory");
 		(void)p_malloc(pool, SSIZE_T_MAX - 1024);
 		return FATAL_TEST_FAILURE;
 

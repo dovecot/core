@@ -193,6 +193,7 @@ enum fatal_test_state fatal_data_stack(unsigned int stage)
 		undo_data = *undo_ptr;
 		*undo_ptr = '*';
 		/* t_malloc_no0 will panic block header corruption */
+		test_expect_fatal_string("Corrupted data stack canary");
 		(void)t_malloc_no0(10);
 		return FATAL_TEST_FAILURE;
 	}
@@ -205,6 +206,7 @@ enum fatal_test_state fatal_data_stack(unsigned int stage)
 		undo_data = *undo_ptr;
 		*undo_ptr = '*';
 		/* t_pop will now fail */
+		test_expect_fatal_string("buffer overflow");
 		(void)t_pop(&t_id);
 		t_id = NONEXISTENT_STACK_FRAME_ID; /* We're FUBAR, mustn't pop next entry */
 		return FATAL_TEST_FAILURE;
@@ -218,6 +220,7 @@ enum fatal_test_state fatal_data_stack(unsigned int stage)
 		undo_data = *undo_ptr;
 		*undo_ptr = '*';
 		/* t_pop will now fail */
+		test_expect_fatal_string("buffer overflow");
 		(void)t_pop(&t_id);
 		t_id = NONEXISTENT_STACK_FRAME_ID; /* We're FUBAR, mustn't pop next entry */
 		return FATAL_TEST_FAILURE;

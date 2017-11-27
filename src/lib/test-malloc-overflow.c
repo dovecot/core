@@ -55,6 +55,7 @@ static enum fatal_test_state fatal_malloc_overflow_multiply(unsigned int *stage)
 	};
 	unsigned int i;
 
+	test_expect_fatal_string("memory allocation overflow");
 	switch (*stage) {
 	case 0:
 		test_begin("MALLOC_MULTIPLY() overflows");
@@ -70,6 +71,7 @@ static enum fatal_test_state fatal_malloc_overflow_multiply(unsigned int *stage)
 		*stage -= N_ELEMENTS(mul_tests)*2;
 		if (*stage == 0)
 			test_end();
+		test_expect_fatal_string(NULL);
 		return FATAL_TEST_FINISHED;
 	}
 	i = *stage / 2;
@@ -91,6 +93,7 @@ static enum fatal_test_state fatal_malloc_overflow_add(unsigned int *stage)
 	};
 	unsigned int i;
 
+	test_expect_fatal_string("memory allocation overflow");
 	switch (*stage) {
 	case 0:
 		test_begin("MALLOC_ADD() overflows");
@@ -106,6 +109,7 @@ static enum fatal_test_state fatal_malloc_overflow_add(unsigned int *stage)
 		*stage -= N_ELEMENTS(add_tests)*2;
 		if (*stage == 0)
 			test_end();
+		test_expect_fatal_string(NULL);
 		return FATAL_TEST_FINISHED;
 	}
 	i = *stage / 2;

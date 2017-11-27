@@ -58,6 +58,7 @@ enum fatal_test_state fatal_mempool(unsigned int stage)
 	static uint32max_array_t *m1;
 	static uint32_t *m2;
 
+	test_expect_fatal_string("memory allocation overflow");
 #if SIZEOF_VOID_P == 8
 	switch(stage) {
 	case 0:
@@ -105,6 +106,7 @@ enum fatal_test_state fatal_mempool(unsigned int stage)
 #else
 #  error unsupported pointer size
 #endif
+	test_expect_fatal_string(NULL);
 	test_end();
 	return FATAL_TEST_FINISHED;
 }
