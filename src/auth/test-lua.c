@@ -1,4 +1,6 @@
 #include "test-auth.h"
+
+#ifdef BUILTIN_LUA
 #include "istream.h"
 #include "auth-settings.h"
 #include "auth-request.h"
@@ -34,3 +36,4 @@ void test_db_lua(void)
 	dlua_script_unref(&script);
 	test_end();
 }
+#endif

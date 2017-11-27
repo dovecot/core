@@ -9,7 +9,7 @@ libdovecot_lua_la_SOURCES = \
 	dlua-script.c \
 	dlua-dovecot.c \
 	dlua-compat.c
-libdovecot_lua_la_DEPENDENCIES = ../lib-dovecot/libdovecot.la
+libdovecot_lua_la_DEPENDENCIES = ../lib-dovecot/libdovecot.la $(LUA_LIBS)
 libdovecot_lua_la_LIBADD = ../lib-dovecot/libdovecot.la $(LUA_LIBS)
 
 headers = \

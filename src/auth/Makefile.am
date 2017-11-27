@@ -12,10 +12,6 @@ if LDAP_PLUGIN
 LDAP_LIB = libauthdb_ldap.la
 endif
 
-if AUTH_LUA_PLUGIN
-LUA_LIB = libauthdb_lua.la
-endif
-
 auth_module_LTLIBRARIES = \
 	$(GSSAPI_LIB) \
 	$(LDAP_LIB) \
@@ -63,18 +59,23 @@ libpassword_la_SOURCES = \
 	password-scheme-sodium.c
 libpassword_la_CFLAGS = $(AM_CPPFLAGS) $(LIBSODIUM_CFLAGS)
 
+if HAVE_LUA
+if AUTH_LUA_PLUGIN
+LUA_LIB = libauthdb_lua.la
+else !AUTH_LUA_PLUGIN
+LIBDOVECOT_LUA = ../lib-lua/libdovecot-lua.la
+endif !AUTH_LUA_PLUGIN
+endif
+
 auth_libs = \
 	libauth.la \
 	libstats_auth.la \
 	libpassword.la \
 	../lib-ntlm/libntlm.la \
 	../lib-otp/libotp.la \
+	$(LIBDOVECOT_LUA) \
 	$(LIBDOVECOT_SQL) \
 	$(LIBSODIUM_LIBS)
-
-if !AUTH_LUA_PLUGIN
-auth_libs += ../lib-lua/libdovecot-lua.la
-endif
 
 auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS)
@@ -281,11 +282,9 @@ test_auth_SOURCES = \
 	test-auth-request-var-expand.c \
 	test-username-filter.c \
 	test-db-dict.c \
+	test-lua.c \
 	test-mock.c \
 	test-main.c
-if !AUTH_LUA_PLUGIN
-test_auth_SOURCES += test-lua.c
-endif
 
 test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS)
 test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
