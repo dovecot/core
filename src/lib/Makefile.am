@@ -109,6 +109,7 @@ liblib_la_SOURCES = \
 	mmap-util.c \
 	module-dir.c \
 	mountpoint.c \
+	murmurhash3.c \
 	net.c \
 	nfs-workarounds.c \
 	numpack.c \
@@ -257,6 +258,7 @@ headers = \
 	module-context.h \
 	module-dir.h \
 	mountpoint.h \
+	murmurhash3.h \
 	net.h \
 	nfs-workarounds.h \
 	numpack.h \
@@ -371,6 +373,7 @@ test_lib_SOURCES = \
 	test-mempool.c \
 	test-mempool-allocfree.c \
 	test-mempool-alloconly.c \
+	test-murmurhash3.c \
 	test-pkcs5.c \
 	test-net.c \
 	test-numpack.c \
