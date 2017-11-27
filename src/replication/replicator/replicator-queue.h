@@ -15,6 +15,7 @@ struct replicator_user {
 	/* last_fast_sync is always >= last_full_sync. */
 	time_t last_fast_sync, last_full_sync, last_successful_sync;
 
+	int refcount;
 	enum replication_priority priority;
 	/* User isn't currently in replication queue */
 	bool popped:1;
@@ -36,6 +37,11 @@ void replicator_queue_deinit(struct replicator_queue **queue);
 void replicator_queue_set_change_callback(struct replicator_queue *queue,
 					  void (*callback)(void *context),
 					  void *context);
+
+/* Reference the user */
+void replicator_user_ref(struct replicator_user *user);
+/* Unreference the user. Returns TRUE if refcount is still >0. */
+bool replicator_user_unref(struct replicator_user **user);
 
 /* Lookup an existing user */
 struct replicator_user *

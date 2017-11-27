@@ -125,6 +125,27 @@ void replicator_queue_set_change_callback(struct replicator_queue *queue,
 	queue->change_context = context;
 }
 
+void replicator_user_ref(struct replicator_user *user)
+{
+	i_assert(user->refcount > 0);
+	user->refcount++;
+}
+
+bool replicator_user_unref(struct replicator_user **_user)
+{
+	struct replicator_user *user = *_user;
+
+	i_assert(user->refcount > 0);
+	*_user = NULL;
+	if (--user->refcount > 0)
+		return TRUE;
+
+	i_free(user->state);
+	i_free(user->username);
+	i_free(user);
+	return FALSE;
+}
+
 struct replicator_user *
 replicator_queue_lookup(struct replicator_queue *queue, const char *username)
 {
@@ -140,6 +161,7 @@ replicator_queue_add_int(struct replicator_queue *queue, const char *username,
 	user = replicator_queue_lookup(queue, username);
 	if (user == NULL) {
 		user = i_new(struct replicator_user, 1);
+		user->refcount = 1;
 		user->username = i_strdup(username);
 		hash_table_insert(queue->user_hash, user->username, user);
 	} else {
@@ -200,10 +222,7 @@ void replicator_queue_remove(struct replicator_queue *queue,
 	if (!user->popped)
 		priorityq_remove(queue->user_queue, &user->item);
 	hash_table_remove(queue->user_hash, user->username);
-
-	i_free(user->state);
-	i_free(user->username);
-	i_free(user);
+	replicator_user_unref(&user);
 
 	if (queue->change_callback != NULL)
 		queue->change_callback(queue->change_context);
