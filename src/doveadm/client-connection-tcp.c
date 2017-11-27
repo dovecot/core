@@ -32,6 +32,7 @@ struct client_connection_tcp {
 	struct ostream *output;
 	struct ostream *log_out;
 	struct ssl_iostream *ssl_iostream;
+	struct ioloop *ioloop;
 
 	bool handshaked:1;
 	bool preauthenticated:1;
@@ -64,6 +65,7 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 
 	if (!log_recursing && conn != NULL &&
 	    conn->log_out != NULL) T_BEGIN {
+		struct ioloop *prev_ioloop = current_ioloop;
 		struct ostream *log_out = conn->log_out;
 		char c;
 		const char *ptr, *start;
@@ -73,6 +75,10 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 		/* prevent re-entering this code if
 		   any of the following code causes logging */
 		log_recursing = TRUE;
+
+		/* since we can get here from just about anywhere, make sure
+		   the log ostream uses the connection's ioloop. */
+		io_loop_set_current(conn->ioloop);
 
 		c = doveadm_log_type_to_char(ctx->type);
 		corked = o_stream_is_corked(log_out);
@@ -98,6 +104,7 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 		o_stream_uncork(log_out);
 		if (corked)
 			o_stream_cork(log_out);
+		io_loop_set_current(prev_ioloop);
 
 		log_recursing = FALSE;
 	} T_END;
@@ -299,7 +306,7 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 			      int argc, const char *const argv[],
 			      struct doveadm_cmd_context *cctx)
 {
-	struct ioloop *ioloop, *prev_ioloop = current_ioloop;
+	struct ioloop *prev_ioloop = current_ioloop;
 	const struct doveadm_cmd *cmd = NULL;
 	const struct doveadm_mail_cmd *mail_cmd;
 	struct doveadm_mail_cmd_context *mctx;
@@ -326,7 +333,7 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	/* some commands will want to call io_loop_run(), but we're already
 	   running one and we can't call the original one recursively, so
 	   create a new ioloop. */
-	ioloop = io_loop_create();
+	conn->ioloop = io_loop_create();
 
 	if (cmd_ver2 != NULL)
 		doveadm_cmd_server_run_ver2(conn, argc, argv, cctx);
@@ -339,8 +346,8 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	o_stream_switch_ioloop(conn->output);
 	if (conn->log_out != NULL)
 		o_stream_switch_ioloop(conn->log_out);
-	io_loop_set_current(ioloop);
-	io_loop_destroy(&ioloop);
+	io_loop_set_current(conn->ioloop);
+	io_loop_destroy(&conn->ioloop);
 
 	/* clear all headers */
 	doveadm_print_deinit();
