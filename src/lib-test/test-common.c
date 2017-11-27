@@ -144,6 +144,23 @@ test_expect_no_more_errors(void)
 	expected_errors = 0;
 }
 
+static bool
+expect_error_check(char **error_strp, const char *format, va_list args)
+{
+	if (*error_strp == NULL)
+		return TRUE;
+
+	bool suppress;
+	T_BEGIN {
+		/* test_assert() will reset test_success if need be. */
+		const char *str = t_strdup_vprintf(format, args);
+		suppress = strstr(str, *error_strp) != NULL;
+		test_assert(suppress == TRUE);
+		i_free_and_null(*error_strp);
+	} T_END;
+	return suppress;
+}
+
 static void ATTR_FORMAT(2, 0)
 test_error_handler(const struct failure_context *ctx,
 		   const char *format, va_list args)
@@ -151,20 +168,11 @@ test_error_handler(const struct failure_context *ctx,
 	bool suppress = FALSE;
 
 	if (expected_errors > 0) {
-		if (expected_error_str != NULL) T_BEGIN {
-			/* test_assert() will reset test_success if need be. */
-			va_list args2;
-			VA_COPY(args2, args);
-			const char *str = t_strdup_vprintf(format, args2);
-			suppress = strstr(str, expected_error_str) != NULL;
-			test_assert(suppress == TRUE);
-			i_free_and_null(expected_error_str);
-			va_end(args2);
-		} T_END;
-		else {
-			suppress = TRUE;
-		}
+		va_list args2;
+		VA_COPY(args2, args);
+		suppress = expect_error_check(&expected_error_str, format, args2);
 		expected_errors--;
+		va_end(args2);
 	} else {
 		test_success = FALSE;
 	}
