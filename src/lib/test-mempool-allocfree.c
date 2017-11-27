@@ -113,7 +113,7 @@ enum fatal_test_state fatal_mempool_allocfree(unsigned int stage)
 		return FATAL_TEST_FAILURE;
 
 	case 2: /* physically impossible size */
-		(void)p_malloc(pool, SSIZE_T_MAX - (size_t)MEM_ALIGN(1));
+		(void)p_malloc(pool, SSIZE_T_MAX - 1024);
 		return FATAL_TEST_FAILURE;
 
 	/* Continue with other tests as follows:
