@@ -640,9 +640,8 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 	ctx->mbox->selected = TRUE;
 	if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		if (!imapc_mailbox_verify_select(ctx->mbox, &error)) {
-			mail_storage_set_critical(ctx->mbox->box.storage,
-				"imapc: Opening mailbox '%s' failed: %s",
-				ctx->mbox->box.name, error);
+			mailbox_set_critical(&ctx->mbox->box,
+				"imapc: Opening mailbox failed: %s", error);
 			ctx->ret = -1;
 		} else {
 			ctx->ret = 0;
@@ -657,9 +656,8 @@ imapc_mailbox_open_callback(const struct imapc_command_reply *reply,
 		ctx->ret = -1;
 		mail_storage_set_internal_error(ctx->mbox->box.storage);
 	} else {
-		mail_storage_set_critical(ctx->mbox->box.storage,
-			"imapc: Opening mailbox '%s' failed: %s",
-			ctx->mbox->box.name, reply->text_full);
+		mailbox_set_critical(&ctx->mbox->box,
+			"imapc: Opening mailbox failed: %s", reply->text_full);
 		ctx->ret = -1;
 	}
 	imapc_client_stop(ctx->mbox->storage->client->client);

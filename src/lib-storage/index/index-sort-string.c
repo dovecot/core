@@ -838,9 +838,8 @@ static void index_sort_list_reset_broken(struct sort_string_context *ctx,
 	struct mailbox *box = ctx->program->t->box;
 	struct mail_sort_node *node;
 
-	mail_storage_set_critical(box->storage,
-				  "%s: Broken %s indexes, resetting: %s",
-				  box->name, ctx->primary_sort_name, reason);
+	mailbox_set_critical(box, "Broken %s indexes, resetting: %s",
+			     ctx->primary_sort_name, reason);
 
 	array_clear(&ctx->zero_nodes);
 	array_append_array(&ctx->zero_nodes,

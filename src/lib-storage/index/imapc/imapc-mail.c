@@ -87,10 +87,9 @@ static int imapc_mail_failed(struct mail *mail, const char *field)
 		   mailbox. This seems to be fixed in newer versions.
 		   */
 		fix_broken_mail = imail->fetch_ignore_if_missing;
-		mail_storage_set_critical(mail->box->storage,
-			"imapc: Remote server didn't send %s for UID %u in %s%s (FETCH replied: %s)",
-			field, mail->uid, mail->box->vname,
-			fix_broken_mail ? " - treating it as empty" : "",
+		mail_set_critical(mail,
+			"imapc: Remote server didn't send %s%s (FETCH replied: %s)",
+			field, fix_broken_mail ? " - treating it as empty" : "",
 			imail->last_fetch_reply);
 	}
 	return fix_broken_mail ? 0 : -1;
@@ -194,9 +193,8 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 				&data->physical_size);
 	if (ret <= 0) {
 		i_assert(ret != 0);
-		mail_storage_set_critical(_mail->box->storage,
-					  "imapc: stat(%s) failed: %m",
-					  i_stream_get_name(data->stream));
+		mail_set_critical(_mail, "imapc: stat(%s) failed: %m",
+				  i_stream_get_name(data->stream));
 		return -1;
 	}
 	*size_r = data->physical_size;
@@ -566,7 +564,7 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		if (imapc_mail_get_guid(_mail, value_r) < 0)
 			return -1;
 		if (str_to_uint64(*value_r, &num) < 0) {
-			mail_storage_set_critical(_mail->box->storage,
+			mail_set_critical(_mail,
 				"X-GM-MSGID not 64bit integer as expected for POP3 UIDL generation: %s", *value_r);
 			return -1;
 		}

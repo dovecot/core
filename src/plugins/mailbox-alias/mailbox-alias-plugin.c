@@ -158,7 +158,7 @@ mailbox_alias_create_symlink(struct mailbox *box,
 					       "Mailbox already exists");
 			return -1;
 		}
-		mail_storage_set_critical(box->storage,
+		mailbox_set_critical(box,
 			"symlink(%s, %s) failed: %m", fname, new_path);
 		return -1;
 	}

@@ -45,9 +45,8 @@ static int do_hardlink(struct maildir_mailbox *mbox, const char *path,
 		if (errno == EACCES || ECANTLINK(errno) || errno == EEXIST)
 			return 1;
 
-		mail_storage_set_critical(&mbox->storage->storage,
-					  "link(%s, %s) failed: %m",
-					  path, ctx->dest_path);
+		mailbox_set_critical(&mbox->box, "link(%s, %s) failed: %m",
+				     path, ctx->dest_path);
 		return -1;
 	}
 

@@ -957,16 +957,15 @@ static int mailbox_autocreate(struct mailbox *box)
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
-			mail_storage_set_critical(box->storage,
-				"Failed to autocreate mailbox %s: %s",
-				box->vname, errstr);
+			mailbox_set_critical(box,
+				"Failed to autocreate mailbox: %s",
+				errstr);
 			return -1;
 		}
 	} else if (mailbox_is_autosubscribed(box)) {
 		if (mailbox_set_subscribed(box, TRUE) < 0) {
-			mail_storage_set_critical(box->storage,
-				"Failed to autosubscribe to mailbox %s: %s",
-				box->vname,
+			mailbox_set_critical(box,
+				"Failed to autosubscribe to mailbox: %s",
 				mailbox_get_last_internal_error(box, NULL));
 			return -1;
 		}
@@ -986,7 +985,7 @@ static int mailbox_autocreate_and_reopen(struct mailbox *box)
 	if (ret < 0 && box->inbox_user &&
 	    !box->storage->user->inbox_open_error_logged) {
 		box->storage->user->inbox_open_error_logged = TRUE;
-		mail_storage_set_critical(box->storage,
+		mailbox_set_critical(box,
 			"Opening INBOX failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 	}
@@ -1270,7 +1269,7 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	if (input != NULL) {
 		if ((box->storage->class_flags &
 		     MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS) == 0) {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"Storage doesn't support streamed mailboxes");
 			return -1;
 		}
@@ -2714,8 +2713,7 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 	} else if (mail_storage_set_error_from_errno(box->storage)) {
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
-			"open(%s, O_CREAT) failed: %m", path);
+		mailbox_set_critical(box, "open(%s, O_CREAT) failed: %m", path);
 		return -1;
 	}
 
@@ -2723,12 +2721,12 @@ int mailbox_create_fd(struct mailbox *box, const char *path, int flags,
 		if (fchown(fd, (uid_t)-1, perm->file_create_gid) == 0) {
 			/* ok */
 		} else if (errno == EPERM) {
-			mail_storage_set_critical(box->storage, "%s",
+			mailbox_set_critical(box, "%s",
 				eperm_error_get_chgrp("fchown", path,
 					perm->file_create_gid,
 					perm->file_create_gid_origin));
 		} else {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"fchown(%s) failed: %m", path);
 		}
 	}
@@ -2764,8 +2762,7 @@ int mailbox_mkdir(struct mailbox *box, const char *path,
 	} else if (mail_storage_set_error_from_errno(box->storage)) {
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
-					  "mkdir_parents(%s) failed: %m", path);
+		mailbox_set_critical(box, "mkdir_parents(%s) failed: %m", path);
 		return -1;
 	}
 }

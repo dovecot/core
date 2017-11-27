@@ -703,7 +703,7 @@ static void search_body(struct mail_search_arg *arg,
 		i_assert(ret >= 0 || ctx->input->stream_errno != 0);
 	}
 	if (ctx->input->stream_errno != 0) {
-		mail_storage_set_critical(ctx->index_ctx->box->storage,
+		mailbox_set_critical(ctx->index_ctx->box,
 			"read(%s) failed: %s", i_stream_get_name(ctx->input),
 			i_stream_get_error(ctx->input));
 	}
@@ -788,7 +788,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 			message_parse_header(input, NULL, hdr_parser_flags,
 					     search_header, &hdr_ctx);
 			if (input->stream_errno != 0) {
-				mail_storage_set_critical(ctx->box->storage,
+				mailbox_set_critical(ctx->box,
 					"read(%s) failed: %s",
 					i_stream_get_name(input),
 					i_stream_get_error(input));

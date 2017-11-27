@@ -1148,10 +1148,9 @@ void index_mail_stream_log_failure_for(struct index_mail *mail,
 		if (_mail->expunged)
 			return;
 	}
-	mail_storage_set_critical(_mail->box->storage,
-		"read(%s) failed: %s (uid=%u, box=%s, read reason=%s)",
+	mail_set_critical(_mail,
+		"read(%s) failed: %s (read reason=%s)",
 		i_stream_get_name(input), i_stream_get_error(input),
-		_mail->uid, mailbox_get_vname(_mail->box),
 		mail->mail.get_stream_reason == NULL ? "" :
 		mail->mail.get_stream_reason);
 }
@@ -2339,9 +2338,9 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	imail->data.forced_no_caching = TRUE;
 
 	if (mail->saving) {
-		mail_storage_set_critical(mail->box->storage,
-			"BUG: Broken %s found in mailbox %s while saving a new mail: %s",
-			field_name, mail->box->vname, reason);
+		mail_set_critical(mail,
+			"BUG: Broken %s found while saving a new mail: %s",
+			field_name, reason);
 	} else if (reason[0] == '\0') {
 		mail_set_mail_cache_corrupted(mail,
 			"Broken %s in mailbox %s",

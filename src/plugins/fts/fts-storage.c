@@ -723,9 +723,7 @@ static int fts_sync_deinit(struct mailbox_sync_context *ctx,
 
 	if (optimize) {
 		if (fts_backend_optimize(flist->backend) < 0) {
-			mail_storage_set_critical(box->storage,
-				"FTS optimize for mailbox %s failed",
-				box->vname);
+			mailbox_set_critical(box, "FTS optimize failed");
 			ret = -1;
 		}
 	}

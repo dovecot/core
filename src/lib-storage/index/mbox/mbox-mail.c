@@ -102,9 +102,7 @@ static int mbox_mail_seek(struct index_mail *mail)
 		sync_flags |= MBOX_SYNC_UNDIRTY | MBOX_SYNC_FORCE_SYNC;
 	}
 	if (ret == 0) {
-		mail_storage_set_critical(&mbox->storage->storage,
-			"Losing sync for mail uid=%u in mbox file %s",
-			_mail->uid, mailbox_get_path(&mbox->box));
+		mail_set_critical(_mail, "mbox: Losing sync");
 	}
 	return 0;
 }
@@ -304,9 +302,7 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 
 	/* our header size varies, so don't do any caching */
 	if (istream_raw_mbox_get_body_offset(mbox->mbox_stream, &body_offset) < 0) {
-		mail_storage_set_critical(_mail->box->storage,
-			"mbox %s: Couldn't get body offset for uid=%u",
-			mailbox_get_path(&mbox->box), mail->mail.mail.uid);
+		mail_set_critical(_mail, "mbox: Couldn't get body offset");
 		return -1;
 	}
 
@@ -320,9 +316,7 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	/* verify that the calculated body size is correct */
 	if (istream_raw_mbox_get_body_size(mbox->mbox_stream,
 					   body_size, &body_size) < 0) {
-		mail_storage_set_critical(_mail->box->storage,
-			"mbox %s: Couldn't get body size for uid=%u",
-			mailbox_get_path(&mbox->box), mail->mail.mail.uid);
+		mail_set_critical(_mail, "mbox: Couldn't get body size");
 		return -1;
 	}
 
@@ -357,9 +351,8 @@ static int mbox_mail_init_stream(struct index_mail *mail)
 
 	raw_stream = mbox->mbox_stream;
 	if (istream_raw_mbox_get_header_offset(raw_stream, &hdr_offset) < 0) {
-		mail_storage_set_critical(mbox->box.storage,
-			"mbox %s: Couldn't get header offset for uid=%u",
-			mailbox_get_path(&mbox->box), mail->mail.mail.uid);
+		mail_set_critical(&mail->mail.mail,
+			"mbox: Couldn't get header offset");
 		return -1;
 	}
 	i_stream_seek(raw_stream, hdr_offset);

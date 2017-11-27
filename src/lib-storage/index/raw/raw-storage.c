@@ -165,8 +165,7 @@ static int raw_mailbox_open(struct mailbox *box)
 				MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		} else if (!mail_storage_set_error_from_errno(box->storage)) {
-			mail_storage_set_critical(box->storage,
-				"open(%s) failed: %m", path);
+			mailbox_set_critical(box, "open(%s) failed: %m", path);
 		}
 		return -1;
 	}

@@ -155,10 +155,8 @@ int sdbox_read_header(struct sdbox_mailbox *mbox,
 	if (data_size < SDBOX_INDEX_HEADER_MIN_SIZE &&
 	    (!mbox->box.creating || data_size != 0)) {
 		if (log_error) {
-			mail_storage_set_critical(
-				&mbox->storage->storage.storage,
-				"sdbox %s: Invalid dbox header size",
-				mailbox_get_path(&mbox->box));
+			mailbox_set_critical(&mbox->box,
+				"sdbox: Invalid dbox header size");
 		}
 		ret = -1;
 	} else {
@@ -391,9 +389,8 @@ sdbox_mailbox_create(struct mailbox *box,
 
 	/* another process just created the mailbox. read the mailbox_guid. */
 	if (sdbox_read_header(mbox, &hdr, FALSE, &need_resize) < 0) {
-		mail_storage_set_critical(box->storage,
-			"sdbox %s: Failed to read newly created dbox header",
-			mailbox_get_path(&mbox->box));
+		mailbox_set_critical(box,
+			"sdbox: Failed to read newly created dbox header");
 		return -1;
 	}
 	memcpy(mbox->mailbox_guid, hdr.mailbox_guid,

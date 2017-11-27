@@ -71,17 +71,15 @@ void mbox_sync_set_critical(struct mbox_sync_context *sync_ctx,
 
 	sync_ctx->errors = TRUE;
 	if (sync_ctx->ext_modified) {
-		mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
-			"mbox file %s was modified while we were syncing, "
-			"check your locking settings",
-			mailbox_get_path(&sync_ctx->mbox->box));
+		mailbox_set_critical(&sync_ctx->mbox->box,
+			"mbox was modified while we were syncing, "
+			"check your locking settings");
 	}
 
 	va_start(va, fmt);
-	mail_storage_set_critical(&sync_ctx->mbox->storage->storage,
-				  "Sync failed for mbox file %s: %s",
-				  mailbox_get_path(&sync_ctx->mbox->box),
-				  t_strdup_vprintf(fmt, va));
+	mailbox_set_critical(&sync_ctx->mbox->box,
+			     "Sync failed for mbox: %s",
+			     t_strdup_vprintf(fmt, va));
 	va_end(va);
 }
 
@@ -1136,11 +1134,8 @@ static int mbox_sync_loop(struct mbox_sync_context *sync_ctx,
 				/* oh no, we're out of UIDs. this shouldn't
 				   happen normally, so just try to get it fixed
 				   without crashing. */
-				mail_storage_set_critical(
-					&sync_ctx->mbox->storage->storage,
-					"Out of UIDs, renumbering them in mbox "
-					"file %s",
-					mailbox_get_path(&sync_ctx->mbox->box));
+				mailbox_set_critical(&sync_ctx->mbox->box,
+					"Out of UIDs, renumbering them in mbox");
 				sync_ctx->renumber_uids = TRUE;
 				return 0;
 			}

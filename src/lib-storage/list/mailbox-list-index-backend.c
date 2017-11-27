@@ -459,9 +459,8 @@ index_list_mailbox_update(struct mailbox *box,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(box->name));
 			return -1;
 		} else {
-			mail_storage_set_critical(box->storage,
-						  "rename(%s, %s) failed: %m",
-						  old_path, new_path);
+			mailbox_set_critical(box, "rename(%s, %s) failed: %m",
+					     old_path, new_path);
 			return -1;
 		}
 	}

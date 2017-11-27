@@ -207,7 +207,7 @@ cmd_append_catenate_mpurl(struct client_command_context *cmd,
 	} while (mailbox_save_continue(ctx->save_ctx) == 0 && ret != -1);
 
 	if (mpresult.input->stream_errno != 0) {
-		mail_storage_set_critical(ctx->box->storage,
+		mailbox_set_critical(ctx->box,
 			"read(%s) failed: %s (for CATENATE URL %s)",
 			i_stream_get_name(mpresult.input),
 			i_stream_get_error(mpresult.input), caturl);

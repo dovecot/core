@@ -42,14 +42,14 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 	input = i_stream_create_limit(sync_ctx->file_input, size);
 	(void)o_stream_send_istream(output, input);
 	if (input->stream_errno != 0) {
-		mail_storage_set_critical(&mbox->storage->storage,
-			"read() failed with mbox file %s: %s",
-			mailbox_get_path(&mbox->box), i_stream_get_error(input));
+		mailbox_set_critical(&mbox->box,
+			"read() failed with mbox: %s",
+			i_stream_get_error(input));
 		ret = -1;
 	} else if (output->stream_errno != 0) {
-		mail_storage_set_critical(&mbox->storage->storage,
-			"write() failed with mbox file %s: %s",
-			mailbox_get_path(&mbox->box), o_stream_get_error(output));
+		mailbox_set_critical(&mbox->box,
+			"write() failed with mbox: %s",
+			o_stream_get_error(output));
 		ret = -1;
 	} else if (input->v_offset != size) {
 		mbox_sync_set_critical(sync_ctx,

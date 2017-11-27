@@ -246,12 +246,11 @@ int dbox_mailbox_check_existence(struct mailbox *box, time_t *path_ctime_r)
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
 	} else if (errno == EACCES) {
-		mail_storage_set_critical(box->storage, "%s",
+		mailbox_set_critical(box, "%s",
 			mail_error_eacces_msg("stat", box_path));
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", box_path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", box_path);
 		return -1;
 	}
 }
@@ -334,10 +333,9 @@ int dbox_mailbox_create(struct mailbox *box,
 		if (ret < 0)
 			return -1;
 		if (ret == 0) {
-			mail_storage_set_critical(&storage->storage,
-				"Mailbox %s has existing files in alt path, "
-				"rebuilding storage to avoid losing messages",
-				box->vname);
+			mailbox_set_critical(box,
+				"Existing files in alt path, "
+				"rebuilding storage to avoid losing messages");
 			storage->v.set_mailbox_corrupted(box);
 			return -1;
 		}

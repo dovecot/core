@@ -143,7 +143,7 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 	handler = compression_detect_handler(*stream);
 	if (handler != NULL) {
 		if (handler->create_istream == NULL) {
-			mail_storage_set_critical(_mail->box->storage,
+			mail_set_critical(_mail,
 				"zlib plugin: Detected %s compression "
 				"but support not compiled in", handler->ext);
 			return -1;

@@ -63,7 +63,7 @@ static void quota_set_storage_error(struct quota_transaction_context *qt,
 		break;
 	case QUOTA_ALLOC_RESULT_TEMPFAIL:
 	case QUOTA_ALLOC_RESULT_BACKGROUND_CALC:
-		mail_storage_set_critical(storage, "quota: %s", internal_err);
+		mailbox_set_critical(box, "quota: %s", internal_err);
 		break;
 	case QUOTA_ALLOC_RESULT_OK:
 		i_unreached();

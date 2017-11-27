@@ -190,7 +190,7 @@ static int lazy_expunge_mail_is_last_instance(struct mail *_mail)
 			/* already expunged - just ignore it */
 			return 0;
 		}
-		mail_storage_set_critical(_mail->box->storage,
+		mail_set_critical(_mail,
 			"lazy_expunge: Couldn't lookup message's refcount: %s",
 			errstr);
 		return -1;
@@ -215,14 +215,14 @@ static int lazy_expunge_mail_is_last_instance(struct mail *_mail)
 				/* already expunged - just ignore it */
 				return 0;
 			}
-			mail_storage_set_critical(_mail->box->storage,
+			mail_set_critical(_mail,
 				"lazy_expunge: Couldn't lookup message's GUID: %s", errstr);
 			return -1;
 		}
 		if (*value == '\0') {
 			/* GUIDs not supported by backend, but refcounts are?
 			   not with our current backends. */
-			mail_storage_set_critical(_mail->box->storage,
+			mail_set_critical(_mail,
 				"lazy_expunge: Message unexpectedly has no GUID");
 			return -1;
 		}
@@ -332,14 +332,14 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		lt->dest_box = mailbox_open_or_create(luser->lazy_ns->list,
 						      _mail->box, &error);
 		if (lt->dest_box == NULL) {
-			mail_storage_set_critical(_mail->box->storage,
+			mail_set_critical(_mail,
 				"lazy_expunge: Couldn't open expunge mailbox: "
 				"%s", error);
 			lazy_expunge_set_error(lt, _mail->box->storage);
 			return;
 		}
 		if (mailbox_sync(lt->dest_box, 0) < 0) {
-			mail_storage_set_critical(_mail->box->storage,
+			mail_set_critical(_mail,
 				"lazy_expunge: Couldn't sync expunge mailbox");
 			lazy_expunge_set_error(lt, lt->dest_box->storage);
 			mailbox_free(&lt->dest_box);
@@ -428,7 +428,7 @@ lazy_expunge_transaction_commit(struct mailbox_transaction_context *ctx,
 		mbox->super.transaction_rollback(ctx);
 		ret = -1;
 	} else {
-		mail_storage_set_critical(ctx->box->storage,
+		mailbox_set_critical(ctx->box,
 			"Lazy-expunge transaction failed: %s",
 			lt->delayed_internal_errstr);
 		mbox->super.transaction_rollback(ctx);

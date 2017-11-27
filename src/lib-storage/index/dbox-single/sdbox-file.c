@@ -109,7 +109,7 @@ sdbox_file_attachment_relpath(struct sdbox_file *file, const char *srcpath)
 
 	p = strchr(srcpath, '-');
 	if (p == NULL) {
-		mail_storage_set_critical(file->mbox->box.storage,
+		mailbox_set_critical(&file->mbox->box,
 			"sdbox attachment path in invalid format: %s", srcpath);
 	} else {
 		p = strchr(p+1, '-');
@@ -136,7 +136,7 @@ static int sdbox_file_rename_attachments(struct sdbox_file *file)
 		dest_file = fs_file_init(storage->attachment_fs, dest,
 					FS_OPEN_MODE_READONLY);
 		if (fs_rename(src_file, dest_file) < 0) {
-			mail_storage_set_critical(&storage->storage, "%s",
+			mailbox_set_critical(&file->mbox->box, "%s",
 				fs_last_error(storage->attachment_fs));
 			ret = -1;
 		}
@@ -164,15 +164,15 @@ int sdbox_file_assign_uid(struct sdbox_file *file, uint32_t uid,
 	new_path = t_strdup_printf("%s/%s", dir, new_fname);
 
 	if (!ignore_if_exists && stat(new_path, &st) == 0) {
-		mail_storage_set_critical(&file->file.storage->storage,
+		mailbox_set_critical(&file->mbox->box,
 			"sdbox: %s already exists, rebuilding index", new_path);
 		sdbox_set_mailbox_corrupted(&file->mbox->box);
 		return -1;
 	}
 	if (rename(old_path, new_path) < 0) {
-		mail_storage_set_critical(&file->file.storage->storage,
-					  "rename(%s, %s) failed: %m",
-					  old_path, new_path);
+		mailbox_set_critical(&file->mbox->box,
+				     "rename(%s, %s) failed: %m",
+				     old_path, new_path);
 		return -1;
 	}
 	sdbox_file_init_paths(file, new_fname);
@@ -203,8 +203,8 @@ static int sdbox_file_unlink_aborted_save_attachments(struct sdbox_file *file)
 		fs_file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
 		if (fs_delete(fs_file) < 0 &&
 		    errno != ENOENT) {
-			mail_storage_set_critical(&storage->storage, "%s",
-						  fs_last_error(fs));
+			mailbox_set_critical(&file->mbox->box, "%s",
+					     fs_last_error(fs));
 			ret = -1;
 		}
 		fs_file_deinit(&fs_file);
@@ -214,8 +214,8 @@ static int sdbox_file_unlink_aborted_save_attachments(struct sdbox_file *file)
 		fs_file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
 		if (fs_delete(fs_file) < 0 &&
 		    errno != ENOENT) {
-			mail_storage_set_critical(&storage->storage, "%s",
-						  fs_last_error(fs));
+			mailbox_set_critical(&file->mbox->box, "%s",
+					     fs_last_error(fs));
 			ret = -1;
 		}
 		fs_file_deinit(&fs_file);
@@ -228,7 +228,7 @@ int sdbox_file_unlink_aborted_save(struct sdbox_file *file)
 	int ret = 0;
 
 	if (unlink(file->file.cur_path) < 0) {
-		mail_storage_set_critical(file->mbox->box.storage,
+		mailbox_set_critical(&file->mbox->box,
 			"unlink(%s) failed: %m", file->file.cur_path);
 		ret = -1;
 	}
@@ -258,7 +258,7 @@ int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 					perm->file_create_gid,
 					perm->file_create_gid_origin) < 0 &&
 		   errno != EEXIST) {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"mkdir_parents(%s) failed: %m", dir);
 			return -1;
 		}
@@ -268,18 +268,17 @@ int sdbox_file_create_fd(struct dbox_file *file, const char *path, bool parents)
 		umask(old_mask);
 	}
 	if (fd == -1) {
-		mail_storage_set_critical(box->storage,
-			"open(%s, O_CREAT) failed: %m", path);
+		mailbox_set_critical(box, "open(%s, O_CREAT) failed: %m", path);
 	} else if (perm->file_create_gid == (gid_t)-1) {
 		/* no group change */
 	} else if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
 		if (errno == EPERM) {
-			mail_storage_set_critical(box->storage, "%s",
+			mailbox_set_critical(box, "%s",
 				eperm_error_get_chgrp("fchown", path,
 					perm->file_create_gid,
 					perm->file_create_gid_origin));
 		} else {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"fchown(%s, -1, %ld) failed: %m",
 				path, (long)perm->file_create_gid);
 		}

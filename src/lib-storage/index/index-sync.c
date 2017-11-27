@@ -280,9 +280,9 @@ void index_sync_update_recent_count(struct mailbox *box)
 
 	hdr = mail_index_get_header(box->view);
 	if (hdr->first_recent_uid < ibox->recent_flags_prev_first_recent_uid) {
-		mail_storage_set_critical(box->storage,
-			"Mailbox %s: first_recent_uid unexpectedly shrank: %u -> %u",
-			box->vname, ibox->recent_flags_prev_first_recent_uid,
+		mailbox_set_critical(box,
+			"first_recent_uid unexpectedly shrank: %u -> %u",
+			ibox->recent_flags_prev_first_recent_uid,
 			hdr->first_recent_uid);
 		mailbox_recent_flags_reset(box);
 	}
@@ -465,8 +465,7 @@ index_storage_list_index_has_changed_full(struct mailbox *box,
 	if (stat(path, &st) < 0) {
 		if (errno == ENOENT)
 			return INDEX_STORAGE_LIST_CHANGE_NOT_IN_FS;
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", path);
 		return INDEX_STORAGE_LIST_CHANGE_ERROR;
 	}
 	if (rec->size != (st.st_size & 0xffffffffU))
@@ -522,8 +521,7 @@ void index_storage_list_index_update_sync(struct mailbox *box,
 
 	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
 	if (stat(path, &st) < 0) {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", path);
 		return;
 	}
 

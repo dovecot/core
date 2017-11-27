@@ -487,7 +487,7 @@ static int virtual_mailbox_open(struct mailbox *box)
 	int ret = 0;
 
 	if (virtual_mailbox_is_in_open_stack(mbox->storage, box->name)) {
-		mail_storage_set_critical(box->storage,
+		mailbox_set_critical(box,
 			"Virtual mailbox loops: %s", box->name);
 		return -1;
 	}
@@ -530,9 +530,8 @@ static int virtual_mailbox_open(struct mailbox *box)
 		mail_index_update_header_ext(t, mbox->virtual_guid_ext_id,
 					     0, mbox->guid, GUID_128_SIZE);
 		if (mail_index_transaction_commit(&t) < 0) {
-			mail_storage_set_critical(box->storage,
-						  "Cannot write GUID for virtual mailbox %s to index",
-						  mailbox_get_vname(box));
+			mailbox_set_critical(box,
+				"Cannot write GUID for virtual mailbox to index");
 			virtual_mailbox_close_internal(mbox);
 			index_storage_mailbox_close(box);
 			return -1;
@@ -606,9 +605,8 @@ static int virtual_storage_set_have_guid_flags(struct virtual_mailbox *mbox)
 			   since this could be called from
 			   mailbox_get_open_status() and it would panic.
 			   So just log the error and skip the mailbox. */
-			mail_storage_set_critical(mbox->box.storage,
-				"Virtual mailbox %s: Failed to get have_guid existence for backend mailbox %s: %s",
-				mailbox_get_vname(&mbox->box),
+			mailbox_set_critical(&mbox->box,
+				"Virtual mailbox: Failed to get have_guid existence for backend mailbox %s: %s",
 				mailbox_get_vname(bboxes[i]->box), errstr);
 			continue;
 		}
@@ -666,8 +664,7 @@ virtual_mailbox_get_metadata(struct mailbox *box,
 	i_assert(box->opened);
 	if ((items & MAILBOX_METADATA_GUID) != 0) {
 		if (guid_128_is_empty(mbox->guid)) {
-			mail_storage_set_critical(box->storage, "GUID missing for virtual folder %s",
-						  mailbox_get_vname(box));
+			mailbox_set_critical(box, "GUID missing for virtual folder");
 			return -1;
 		}
 		guid_128_copy(metadata_r->guid, mbox->guid);

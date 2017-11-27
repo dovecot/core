@@ -22,9 +22,8 @@ static int raw_mail_stat(struct mail *mail)
 
 	mail->transaction->stats.fstat_lookup_count++;
 	if (i_stream_stat(mail->box->input, TRUE, &st) < 0) {
-		mail_storage_set_critical(mail->box->storage,
-					  "stat(%s) failed: %m",
-					  i_stream_get_name(mail->box->input));
+		mail_set_critical(mail, "stat(%s) failed: %m",
+				  i_stream_get_name(mail->box->input));
 		return -1;
 	}
 

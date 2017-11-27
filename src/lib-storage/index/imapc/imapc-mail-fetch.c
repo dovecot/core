@@ -92,7 +92,7 @@ imapc_mail_fetch_callback(const struct imapc_command_reply *reply,
 		/* The disconnection message was already logged */
 		mail_storage_set_internal_error(&mbox->storage->storage);
 	} else {
-		mail_storage_set_critical(&mbox->storage->storage,
+		mailbox_set_critical(&mbox->box,
 			"imapc: Mail FETCH failed: %s", reply->text_full);
 	}
 	imapc_client_stop(mbox->storage->client->client);
@@ -765,14 +765,14 @@ imapc_args_to_bodystructure(struct imapc_mail *mail,
 	pool_t pool;
 
 	if (!imap_arg_get_list(list_arg, &args)) {
-		mail_storage_set_critical(mail->imail.mail.mail.box->storage,
+		mail_set_critical(&mail->imail.mail.mail,
 			"imapc: Server sent invalid BODYSTRUCTURE parameters");
 		return NULL;
 	}
 
 	pool = pool_alloconly_create("imap bodystructure", 1024);
 	if (imap_bodystructure_parse_args(args, pool, &parts, &error) < 0) {
-		mail_storage_set_critical(mail->imail.mail.mail.box->storage,
+		mail_set_critical(&mail->imail.mail.mail,
 			"imapc: Server sent invalid BODYSTRUCTURE: %s", error);
 		ret = NULL;
 	} else {

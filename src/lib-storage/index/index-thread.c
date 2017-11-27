@@ -98,10 +98,9 @@ mail_strmap_rec_get_msgid(struct mail_thread_context *ctx,
 
 	if (msgid == NULL) {
 		/* shouldn't have happened, probably corrupted */
-		mail_storage_set_critical(mail->box->storage,
-			"Corrupted thread index for mailbox %s: "
-			"UID %u lost Message ID %u",
-			mail->box->vname, mail->uid, rec->ref_index);
+		mail_set_critical(mail,
+			"Corrupted thread index: lost Message ID %u",
+			rec->ref_index);
 		ctx->failed = TRUE;
 		ctx->corrupted = TRUE;
 		return -1;

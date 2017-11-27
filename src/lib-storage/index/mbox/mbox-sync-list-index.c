@@ -50,8 +50,7 @@ int mbox_list_index_has_changed(struct mailbox *box,
 	i_assert(ret > 0);
 
 	if (stat(path, &st) < 0) {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", path);
 		return -1;
 	}
 	if ((time_t)rec->mtime != st.st_mtime ||

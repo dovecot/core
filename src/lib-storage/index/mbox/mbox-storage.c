@@ -78,9 +78,8 @@ void mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 	} else {
 		const char *toobig_error = errno != EFBIG ? "" :
 			" (process was started with ulimit -f limit)";
-		mail_storage_set_critical(&mbox->storage->storage,
-			"%s failed with mbox file %s: %m%s", function,
-			mailbox_get_path(&mbox->box), toobig_error);
+		mailbox_set_critical(&mbox->box,
+			"%s failed with mbox: %m%s", function, toobig_error);
 	}
 }
 
@@ -499,7 +498,7 @@ static int mbox_mailbox_open(struct mailbox *box)
 	} else if (mail_storage_set_error_from_errno(box->storage)) {
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
+		mailbox_set_critical(box,
 			"stat(%s) failed: %m", mailbox_get_path(box));
 		return -1;
 	}
@@ -546,7 +545,7 @@ static int create_inbox(struct mailbox *box)
 		i_close_fd(&fd);
 		return 0;
 	} else if (errno == EACCES) {
-		mail_storage_set_critical(box->storage, "%s",
+		mailbox_set_critical(box, "%s",
 			mail_error_create_eacces_msg("open", inbox_path));
 		return -1;
 	} else if (errno == EEXIST) {
@@ -554,7 +553,7 @@ static int create_inbox(struct mailbox *box)
 				       "Mailbox already exists");
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
+		mailbox_set_critical(box,
 			"open(%s, O_CREAT) failed: %m", inbox_path);
 		return -1;
 	}

@@ -167,8 +167,7 @@ mkdir_verify(struct mailbox *box, const char *dir, bool verify)
 			return 0;
 
 		if (errno != ENOENT) {
-			mail_storage_set_critical(box->storage,
-						  "stat(%s) failed: %m", dir);
+			mailbox_set_critical(box, "stat(%s) failed: %m", dir);
 			return -1;
 		}
 	}
@@ -194,11 +193,10 @@ mkdir_verify(struct mailbox *box, const char *dir, bool verify)
 					       MAIL_ERRSTR_NO_PERMISSION);
 			return -1;
 		}
-		mail_storage_set_critical(box->storage, "%s",
+		mailbox_set_critical(box, "%s",
 			mail_error_create_eacces_msg("mkdir", dir));
 	} else {
-		mail_storage_set_critical(box->storage,
-					  "mkdir(%s) failed: %m", dir);
+		mailbox_set_critical(box, "mkdir(%s) failed: %m", dir);
 	}
 	return -1;
 }
@@ -383,8 +381,7 @@ static int maildir_mailbox_open(struct mailbox *box)
 			T_MAIL_ERR_MAILBOX_NOT_FOUND(box->vname));
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", box_path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", box_path);
 		return -1;
 	}
 }
@@ -408,19 +405,18 @@ static int maildir_create_shared(struct mailbox *box)
 	umask(old_mask);
 
 	if (fd == -1) {
-		mail_storage_set_critical(box->storage, "open(%s) failed: %m",
-					  path);
+		mailbox_set_critical(box, "open(%s) failed: %m", path);
 		return -1;
 	}
 
 	if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
 		if (errno == EPERM) {
-			mail_storage_set_critical(box->storage, "%s",
+			mailbox_set_critical(box, "%s",
 				eperm_error_get_chgrp("fchown", path,
 					perm->file_create_gid,
 					perm->file_create_gid_origin));
 		} else {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"fchown(%s) failed: %m", path);
 		}
 	}
@@ -490,8 +486,7 @@ static int maildir_create_maildirfolder_file(struct mailbox *box)
 			"Mailbox was deleted while it was being created");
 		return -1;
 	} else {
-		mail_storage_set_critical(box->storage,
-			"open(%s, O_CREAT) failed: %m", path);
+		mailbox_set_critical(box, "open(%s, O_CREAT) failed: %m", path);
 		return -1;
 	}
 
@@ -499,13 +494,12 @@ static int maildir_create_maildirfolder_file(struct mailbox *box)
 		if (fchown(fd, (uid_t)-1, perm->file_create_gid) == 0) {
 			/* ok */
 		} else if (errno == EPERM) {
-			mail_storage_set_critical(box->storage, "%s",
+			mailbox_set_critical(box, "%s",
 				eperm_error_get_chgrp("fchown", path,
 						      perm->file_create_gid,
 						      perm->file_create_gid_origin));
 		} else {
-			mail_storage_set_critical(box->storage,
-				"fchown(%s) failed: %m", path);
+			mailbox_set_critical(box, "fchown(%s) failed: %m", path);
 		}
 	}
 	i_close_fd(&fd);

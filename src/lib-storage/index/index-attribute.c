@@ -240,7 +240,7 @@ int index_storage_attribute_get(struct mailbox *box,
 			  key_get_prefixed(type, mailbox_prefix, key),
 			  &value_r->value, &error);
 	if (ret < 0) {
-		mail_storage_set_critical(box->storage,
+		mailbox_set_critical(box,
 			"Failed to set attribute %s: %s", key, error);
 		return -1;
 	}
@@ -298,7 +298,7 @@ int index_storage_attribute_iter_deinit(struct mailbox_attribute_iter *_iter)
 		ret = iter->dict_disabled ? 0 : -1;
 	} else {
 		if ((ret = dict_iterate_deinit(&iter->diter, &error)) < 0) {
-			mail_storage_set_critical(_iter->box->storage,
+			mailbox_set_critical(_iter->box,
 				"dict_iterate(%s) failed: %s",
 				iter->prefix, error);
 		}

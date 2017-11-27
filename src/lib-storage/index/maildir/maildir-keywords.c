@@ -132,8 +132,8 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 			mk->synced = TRUE;
 			return 0;
 		}
-                mail_storage_set_critical(mk->storage,
-					  "stat(%s) failed: %m", mk->path);
+                mailbox_set_critical(&mk->mbox->box,
+				     "stat(%s) failed: %m", mk->path);
 		return -1;
 	}
 
@@ -151,8 +151,8 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 			mk->synced = TRUE;
 			return 0;
 		}
-                mail_storage_set_critical(mk->storage,
-					  "open(%s) failed: %m", mk->path);
+                mailbox_set_critical(&mk->mbox->box,
+				     "open(%s) failed: %m", mk->path);
 		return -1;
 	}
 
@@ -184,8 +184,8 @@ static int maildir_keywords_sync(struct maildir_keywords *mk)
 	i_stream_destroy(&input);
 
 	if (close(fd) < 0) {
-                mail_storage_set_critical(mk->storage,
-					  "close(%s) failed: %m", mk->path);
+                mailbox_set_critical(&mk->mbox->box,
+				     "close(%s) failed: %m", mk->path);
 		return -1;
 	}
 
@@ -302,14 +302,14 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 			str_printfa(str, "%u %s\n", i, keywords[i]);
 	}
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		mail_storage_set_critical(mk->storage,
-					  "write_full(%s) failed: %m", path);
+		mailbox_set_critical(&mk->mbox->box,
+				     "write_full(%s) failed: %m", path);
 		return -1;
 	}
 
 	if (fstat(fd, &st) < 0) {
-		mail_storage_set_critical(mk->storage,
-					  "fstat(%s) failed: %m", path);
+		mailbox_set_critical(&mk->mbox->box,
+				     "fstat(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -317,12 +317,12 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 	    perm->file_create_gid != (gid_t)-1) {
 		if (fchown(fd, (uid_t)-1, perm->file_create_gid) < 0) {
 			if (errno == EPERM) {
-				mail_storage_set_critical(mk->storage, "%s",
+				mailbox_set_critical(&mk->mbox->box, "%s",
 					eperm_error_get_chgrp("fchown", path,
 						perm->file_create_gid,
 						perm->file_create_gid_origin));
 			} else {
-				mail_storage_set_critical(mk->storage,
+				mailbox_set_critical(&mk->mbox->box,
 					"fchown(%s) failed: %m", path);
 			}
 		}
@@ -337,14 +337,14 @@ static int maildir_keywords_write_fd(struct maildir_keywords *mk,
 		ut.actime = ioloop_time;
 		ut.modtime = mk->synced_mtime;
 		if (utime(path, &ut) < 0) {
-			mail_storage_set_critical(mk->storage,
+			mailbox_set_critical(&mk->mbox->box,
 				"utime(%s) failed: %m", path);
 			return -1;
 		}
 	}
 
 	if (fsync(fd) < 0) {
-		mail_storage_set_critical(mk->storage,
+		mailbox_set_critical(&mk->mbox->box,
 			"fsync(%s) failed: %m", path);
 		return -1;
 	}
@@ -380,7 +380,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 			break;
 
 		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT) {
-			mail_storage_set_critical(mk->storage,
+			mailbox_set_critical(&mk->mbox->box,
 				"file_dotlock_open(%s) failed: %m", mk->path);
 			return -1;
 		}
@@ -396,7 +396,7 @@ static int maildir_keywords_commit(struct maildir_keywords *mk)
 	}
 
 	if (file_dotlock_replace(&dotlock, 0) < 0) {
-		mail_storage_set_critical(mk->storage,
+		mailbox_set_critical(&mk->mbox->box,
 			"file_dotlock_replace(%s) failed: %m", mk->path);
 		return -1;
 	}

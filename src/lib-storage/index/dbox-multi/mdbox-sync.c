@@ -38,10 +38,9 @@ dbox_sync_verify_expunge_guid(struct mdbox_sync_context *ctx, uint32_t seq,
 	    memcmp(data, guid_128, GUID_128_SIZE) == 0)
 		return 0;
 
-	mail_storage_set_critical(&ctx->mbox->storage->storage.storage,
-		"Mailbox %s: Expunged GUID mismatch for UID %u: %s vs %s",
-		ctx->mbox->box.vname, uid,
-		guid_128_to_string(data), guid_128_to_string(guid_128));
+	mailbox_set_critical(&ctx->mbox->box,
+		"Expunged GUID mismatch for UID %u: %s vs %s",
+		uid, guid_128_to_string(data), guid_128_to_string(guid_128));
 	mdbox_storage_set_corrupted(ctx->mbox->storage);
 	return -1;
 }
@@ -145,9 +144,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 				return -1;
 			return 1;
 		}
-		mail_storage_set_critical(box->storage,
-			"Mailbox %s: Broken index: missing UIDVALIDITY",
-			box->vname);
+		mailbox_set_critical(box, "Broken index: missing UIDVALIDITY");
 		return 0;
 	}
 
@@ -225,7 +222,6 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		     struct mdbox_map_atomic_context *atomic,
 		     struct mdbox_sync_context **ctx_r)
 {
-	struct mail_storage *storage = mbox->box.storage;
 	const struct mail_index_header *hdr =
 		mail_index_get_header(mbox->box.view);
 	struct mdbox_sync_context *ctx;
@@ -283,9 +279,8 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 
 		/* corrupted */
 		if (storage_rebuilt) {
-			mail_storage_set_critical(storage,
-				"mdbox %s: Storage keeps breaking",
-				mailbox_get_path(&mbox->box));
+			mailbox_set_critical(&mbox->box,
+				"mdbox: Storage keeps breaking");
 			return -1;
 		}
 
@@ -293,9 +288,8 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 		   try again from the beginning. */
 		mdbox_storage_set_corrupted(mbox->storage);
 		if ((flags & MDBOX_SYNC_FLAG_NO_REBUILD) != 0) {
-			mail_storage_set_critical(storage,
-				"mdbox %s: Can't rebuild storage",
-				mailbox_get_path(&mbox->box));
+			mailbox_set_critical(&mbox->box,
+				"mdbox: Can't rebuild storage");
 			return -1;
 		}
 		return mdbox_sync_begin(mbox, flags, atomic, ctx_r);

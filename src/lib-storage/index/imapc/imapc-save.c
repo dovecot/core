@@ -63,7 +63,6 @@ imapc_save_alloc(struct mailbox_transaction_context *t)
 int imapc_save_begin(struct mail_save_context *_ctx, struct istream *input)
 {
 	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
-	struct mail_storage *storage = _ctx->transaction->box->storage;
 	const char *path;
 
 	i_assert(ctx->fd == -1);
@@ -74,8 +73,8 @@ int imapc_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	ctx->fd = imapc_client_create_temp_fd(ctx->mbox->storage->client->client,
 					      &path);
 	if (ctx->fd == -1) {
-		mail_storage_set_critical(storage,
-					  "Couldn't create temp file %s", path);
+		mail_set_critical(_ctx->dest_mail,
+				  "Couldn't create temp file %s", path);
 		ctx->failed = TRUE;
 		return -1;
 	}
@@ -177,7 +176,7 @@ static void imapc_save_callback(const struct imapc_command_reply *reply,
 					    MAIL_ERROR_PARAMS, reply);
 		ctx->ret = -1;
 	} else {
-		mail_storage_set_critical(&ctx->ctx->mbox->storage->storage,
+		mailbox_set_critical(&ctx->ctx->mbox->box,
 			"imapc: APPEND failed: %s", reply->text_full);
 		ctx->ret = -1;
 	}
@@ -276,7 +275,7 @@ int imapc_save_finish(struct mail_save_context *_ctx)
 	if (!ctx->failed) {
 		if (o_stream_finish(_ctx->data.output) < 0) {
 			if (!mail_storage_set_error_from_errno(storage)) {
-				mail_storage_set_critical(storage,
+				mail_set_critical(_ctx->dest_mail,
 					"write(%s) failed: %s", ctx->temp_path,
 					o_stream_get_error(_ctx->data.output));
 			}
@@ -392,7 +391,7 @@ static void imapc_copy_callback(const struct imapc_command_reply *reply,
 					    MAIL_ERROR_PARAMS, reply);
 		ctx->ret = -1;
 	} else {
-		mail_storage_set_critical(&ctx->ctx->mbox->storage->storage,
+		mailbox_set_critical(&ctx->ctx->mbox->box,
 			"imapc: COPY failed: %s", reply->text_full);
 		ctx->ret = -1;
 	}

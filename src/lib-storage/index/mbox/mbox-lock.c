@@ -257,8 +257,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 
 	orig_dir_fd = open(".", O_RDONLY);
 	if (orig_dir_fd == -1) {
-		mail_storage_set_critical(&mbox->storage->storage,
-					  "open(.) failed: %m");
+		mailbox_set_critical(&mbox->box, "open(.) failed: %m");
 		return -1;
 	}
 
@@ -278,7 +277,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 	} else {
 		dir = t_strdup_until(box_path, fname);
 		if (chdir(dir) < 0) {
-			mail_storage_set_critical(&mbox->storage->storage,
+			mailbox_set_critical(&mbox->box,
 				"chdir(%s) failed: %m", dir);
 			i_close_fd(&orig_dir_fd);
 			return -1;
@@ -287,7 +286,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 	}
 	if (op == MBOX_DOTLOCK_OP_LOCK) {
 		if (access(fname, R_OK) < 0) {
-			mail_storage_set_critical(&mbox->storage->storage,
+			mailbox_set_critical(&mbox->box,
 				"access(%s) failed: %m", box_path);
 			i_close_fd(&orig_dir_fd);
 			return -1;
@@ -309,8 +308,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 			const char *errmsg =
 				eacces_error_get_creating("file_dotlock_create",
 							  fname);
-			mail_storage_set_critical(&mbox->storage->storage,
-						  "%s", errmsg);
+			mailbox_set_critical(&mbox->box, "%s", errmsg);
 		} else {
 			mbox_set_syscall_error(mbox, "file_dotlock_create()");
 		}
@@ -333,8 +331,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 	restrict_access_drop_priv_gid();
 
 	if (fchdir(orig_dir_fd) < 0) {
-		mail_storage_set_critical(&mbox->storage->storage,
-			"fchdir() failed: %m");
+		mailbox_set_critical(&mbox->box, "fchdir() failed: %m");
 	}
 	i_close_fd(&orig_dir_fd);
 	errno = orig_errno;
@@ -357,12 +354,12 @@ mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 	   b) another user's shared INBOX, and
 	   c) anything called INBOX (in inbox=no namespace) */
 	if (!mbox->box.inbox_any && strcmp(mbox->box.name, "INBOX") != 0) {
-		mail_storage_set_critical(&mbox->storage->storage,
+		mailbox_set_critical(&mbox->box,
 			"%s (not INBOX -> no privileged locking)", errmsg);
 	} else if (!mbox->mbox_privileged_locking) {
 		dir = mailbox_list_get_root_forced(mbox->box.list,
 						   MAILBOX_LIST_PATH_TYPE_DIR);
-		mail_storage_set_critical(&mbox->storage->storage,
+		mailbox_set_critical(&mbox->box,
 			"%s (under root dir %s -> no privileged locking)",
 			errmsg, dir);
 	} else if (stat(dir, &st) == 0 &&
@@ -372,10 +369,10 @@ mbox_dotlock_log_eacces_error(struct mbox_mailbox *mbox, const char *path)
 			name = dec2str(st.st_gid);
 		else
 			name = group.gr_name;
-		mail_storage_set_critical(&mbox->storage->storage,
+		mailbox_set_critical(&mbox->box,
 			"%s (set mail_privileged_group=%s)", errmsg, name);
 	} else {
-		mail_storage_set_critical(&mbox->storage->storage,
+		mailbox_set_critical(&mbox->box,
 			"%s (nonstandard permissions in %s)", errmsg, dir);
 	}
 	errno = orig_errno;
@@ -638,7 +635,7 @@ static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 				mbox_set_syscall_error(ctx->mbox, "fcntl()");
 				return -1;
 			}
-			mail_storage_set_critical(&ctx->mbox->storage->storage,
+			mailbox_set_critical(&ctx->mbox->box,
 				"fcntl() failed with mbox file %s: "
 				"File is locked by another process (EACCES)",
 				mailbox_get_path(&ctx->mbox->box));

@@ -218,8 +218,7 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 		return 0;
 	}
 	if (!ENOTFOUND(errno) && errno != EACCES) {
-		mail_storage_set_critical(box->storage,
-					  "stat(%s) failed: %m", path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -316,7 +315,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 	}
 	if ((index_flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) != 0) {
 		if (mail_index_is_in_memory(box->index)) {
-			mail_storage_set_critical(box->storage,
+			mailbox_set_critical(box,
 				"Couldn't create index file");
 			mail_index_close(box->index);
 			return -1;
@@ -1187,7 +1186,7 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 			if (!mail_storage_set_error_from_errno(storage)) {
-				mail_storage_set_critical(storage,
+				mail_set_critical(ctx->dest_mail,
 					"save: write(%s) failed: %s",
 					o_stream_get_name(ctx->data.output),
 					o_stream_get_error(ctx->data.output));
@@ -1203,7 +1202,7 @@ int index_storage_save_continue(struct mail_save_context *ctx,
 	} while (i_stream_read(input) > 0);
 
 	if (input->stream_errno != 0) {
-		mail_storage_set_critical(storage, "save: read(%s) failed: %s",
+		mail_set_critical(ctx->dest_mail, "save: read(%s) failed: %s",
 			i_stream_get_name(input), i_stream_get_error(input));
 		return -1;
 	}
@@ -1249,8 +1248,7 @@ int index_mailbox_fix_inconsistent_existence(struct mailbox *box,
 	} else if (errno == ENOENT) {
 		/* race condition - mailbox was just deleted */
 	} else {
-		mail_storage_set_critical(box->storage,
-			"stat(%s) failed: %m", index_path);
+		mailbox_set_critical(box, "stat(%s) failed: %m", index_path);
 		return -1;
 	}
 	mailbox_set_deleted(box);

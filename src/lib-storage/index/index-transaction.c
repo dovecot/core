@@ -37,14 +37,14 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 
 	if (t->attr_pvt_trans != NULL) {
 		if (dict_transaction_commit(&t->attr_pvt_trans, &error) < 0) {
-			mail_storage_set_critical(t->box->storage,
+			mailbox_set_critical(t->box,
 				"Dict private transaction commit failed: %s", error);
 			ret = -1;
 		}
 	}
 	if (t->attr_shared_trans != NULL) {
 		if (dict_transaction_commit(&t->attr_shared_trans, &error) < 0) {
-			mail_storage_set_critical(t->box->storage,
+			mailbox_set_critical(t->box,
 				"Dict shared transaction commit failed: %s", error);
 			ret = -1;
 		}

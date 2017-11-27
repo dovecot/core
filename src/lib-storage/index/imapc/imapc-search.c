@@ -193,7 +193,7 @@ static void imapc_search_callback(const struct imapc_command_reply *reply,
 	} else if (reply->state == IMAPC_COMMAND_STATE_DISCONNECTED) {
 		mail_storage_set_internal_error(mbox->box.storage);
 	} else {
-		mail_storage_set_critical(mbox->box.storage,
+		mailbox_set_critical(&mbox->box,
 			"imapc: Command failed: %s", reply->text_full);
 	}
 	imapc_client_stop(mbox->storage->client->client);

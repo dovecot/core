@@ -347,7 +347,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 	if (rename(path2, new_path) == 0)
 		i_warning("Fixed a duplicate: %s -> %s", path2, new_fname);
 	else if (errno != ENOENT) {
-		mail_storage_set_critical(&ctx->mbox->storage->storage,
+		mailbox_set_critical(&ctx->mbox->box,
 			"Couldn't fix a duplicate: rename(%s, %s) failed: %m",
 			path2, new_path);
 		return -1;
@@ -368,7 +368,7 @@ maildir_rename_empty_basename(struct maildir_sync_context *ctx,
 	if (rename(old_path, new_path) == 0)
 		i_warning("Fixed broken filename: %s -> %s", old_path, new_fname);
 	else if (errno != ENOENT) {
-		mail_storage_set_critical(&ctx->mbox->storage->storage,
+		mailbox_set_critical(&ctx->mbox->box,
 			"Couldn't fix a broken filename: rename(%s, %s) failed: %m",
 			old_path, new_path);
 		return -1;
@@ -393,7 +393,7 @@ maildir_stat(struct maildir_mailbox *mbox, const char *path, struct stat *st_r)
 		/* try again */
 	}
 
-	mail_storage_set_critical(box->storage, "stat(%s) failed: %m", path);
+	mailbox_set_critical(box, "stat(%s) failed: %m", path);
 	return -1;
 }
 
@@ -401,7 +401,6 @@ static int
 maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 		 enum maildir_scan_why why)
 {
-	struct mail_storage *storage = &ctx->mbox->storage->storage;
 	const char *path;
 	DIR *dirp;
 	string_t *src, *dest;
@@ -421,10 +420,10 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 
 		if (errno != ENOENT || i == MAILDIR_DELETE_RETRY_COUNT) {
 			if (errno == EACCES) {
-				mail_storage_set_critical(storage, "%s",
+				mailbox_set_critical(&ctx->mbox->box, "%s",
 					eacces_error_get("opendir", path));
 			} else {
-				mail_storage_set_critical(storage,
+				mailbox_set_critical(&ctx->mbox->box,
 					"opendir(%s) failed: %m", path);
 			}
 			return -1;
@@ -437,7 +436,7 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 
 #ifdef HAVE_DIRFD
 	if (fstat(dirfd(dirp), &st) < 0) {
-		mail_storage_set_critical(storage,
+		mailbox_set_critical(&ctx->mbox->box,
 			"fstat(%s) failed: %m", path);
 		(void)closedir(dirp);
 		return -1;
@@ -510,7 +509,7 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 				move_new = FALSE;
 			} else {
 				flags |= MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
-				mail_storage_set_critical(storage,
+				mailbox_set_critical(&ctx->mbox->box,
 					"rename(%s, %s) failed: %m",
 					str_c(src), str_c(dest));
 			}
@@ -550,14 +549,14 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 #endif
 
 	if (errno != 0) {
-		mail_storage_set_critical(storage,
-					  "readdir(%s) failed: %m", path);
+		mailbox_set_critical(&ctx->mbox->box,
+				     "readdir(%s) failed: %m", path);
 		ret = -1;
 	}
 
 	if (closedir(dirp) < 0) {
-		mail_storage_set_critical(storage,
-					  "closedir(%s) failed: %m", path);
+		mailbox_set_critical(&ctx->mbox->box,
+				     "closedir(%s) failed: %m", path);
 		ret = -1;
 	}
 
