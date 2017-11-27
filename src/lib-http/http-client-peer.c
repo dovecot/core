@@ -376,8 +376,7 @@ void http_client_peer_shared_unref(struct http_client_peer_shared **_pshared)
 		(const struct http_client_peer_addr *)&pshared->addr);
 	DLLIST_REMOVE(&pshared->cctx->peers_list, pshared);
 
-	if (pshared->to_backoff != NULL)
-		timeout_remove(&pshared->to_backoff);
+	timeout_remove(&pshared->to_backoff);
 
 	i_free(pshared->addr_name);
 	i_free(pshared->label);
@@ -657,8 +656,7 @@ http_client_peer_disconnect(struct http_client_peer *peer)
 		http_client_connection_lost_peer(*conn);
 	i_assert(array_count(&peer->conns) == 0);
 
-	if (peer->to_req_handling != NULL)
-		timeout_remove(&peer->to_req_handling);
+	timeout_remove(&peer->to_req_handling);
 
 	/* unlist in client */
 	DLLIST_REMOVE_FULL
@@ -1152,8 +1150,7 @@ http_client_peer_handle_requests_real(struct http_client_peer *peer)
 
 static void http_client_peer_handle_requests(struct http_client_peer *peer)
 {
-	if (peer->to_req_handling != NULL)
-		timeout_remove(&peer->to_req_handling);
+	timeout_remove(&peer->to_req_handling);
 	
 	T_BEGIN {
 		http_client_peer_handle_requests_real(peer);

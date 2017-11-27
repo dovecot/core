@@ -110,8 +110,7 @@ static void user_directory_drop_expired(struct user_directory *dir)
 	i_assert(expire_timestamp > ioloop_time || expire_timestamp == 0);
 
 	if (expire_timestamp != dir->to_expire_timestamp) {
-		if (dir->to_expire != NULL)
-			timeout_remove(&dir->to_expire);
+		timeout_remove(&dir->to_expire);
 		if (expire_timestamp != 0) {
 			struct timeval tv = { .tv_sec = expire_timestamp };
 			dir->to_expire_timestamp = tv.tv_sec;
@@ -287,8 +286,7 @@ void user_directory_deinit(struct user_directory **_dir)
 
 	while (dir->head != NULL)
 		user_free(dir, dir->head);
-	if (dir->to_expire != NULL)
-		timeout_remove(&dir->to_expire);
+	timeout_remove(&dir->to_expire);
 	hash_table_destroy(&dir->hash);
 	array_free(&dir->iters);
 	i_free(dir);

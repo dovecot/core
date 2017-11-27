@@ -113,8 +113,7 @@ static void dict_connection_input_more(struct dict_connection *conn)
 	const char *line;
 	int ret;
 
-	if (conn->to_input != NULL)
-		timeout_remove(&conn->to_input);
+	timeout_remove(&conn->to_input);
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
 		T_BEGIN {
@@ -126,8 +125,7 @@ static void dict_connection_input_more(struct dict_connection *conn)
 		}
 		if (array_count(&conn->cmds) >= DICT_CONN_MAX_PENDING_COMMANDS) {
 			io_remove(&conn->io);
-			if (conn->to_input != NULL)
-				timeout_remove(&conn->to_input);
+			timeout_remove(&conn->to_input);
 			break;
 		}
 	}

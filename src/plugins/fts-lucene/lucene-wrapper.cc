@@ -152,8 +152,7 @@ struct lucene_index *lucene_index_init(const char *path,
 
 void lucene_index_close(struct lucene_index *index)
 {
-	if (index->to_close != NULL)
-		timeout_remove(&index->to_close);
+	timeout_remove(&index->to_close);
 
 	_CLDELETE(index->searcher);
 	if (index->writer != NULL) {

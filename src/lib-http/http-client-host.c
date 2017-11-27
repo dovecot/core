@@ -309,8 +309,7 @@ void http_client_host_shared_free(struct http_client_host_shared **_hshared)
 
 	http_client_host_shared_debug(hshared, "Host destroy");
 
-	if (hshared->to_idle != NULL)
-		timeout_remove(&hshared->to_idle);
+	timeout_remove(&hshared->to_idle);
 
 	DLLIST_REMOVE(&cctx->hosts_list, hshared);
 	if (hshared == cctx->unix_host)

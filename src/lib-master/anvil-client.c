@@ -234,8 +234,7 @@ anvil_client_query(struct anvil_client *client, const char *query,
 		/* connection failure. add a delayed failure callback.
 		   the caller may not expect the callback to be called
 		   immediately. */
-		if (client->to_query != NULL)
-			timeout_remove(&client->to_query);
+		timeout_remove(&client->to_query);
 		client->to_query =
 			timeout_add_short(0, anvil_client_cancel_queries, client);
 	} else if (client->to_query == NULL) {

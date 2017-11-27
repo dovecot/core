@@ -1181,8 +1181,7 @@ void master_status_update(struct master_service *service)
 	    service->master_status.available_count ==
 	    service->last_sent_status_avail_count) {
 		/* a) closed, b) updating to same state */
-		if (service->to_status != NULL)
-			timeout_remove(&service->to_status);
+		timeout_remove(&service->to_status);
 		if (service->io_status_write != NULL)
 			io_remove(&service->io_status_write);
 		return;

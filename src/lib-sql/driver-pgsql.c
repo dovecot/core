@@ -584,12 +584,9 @@ static void driver_pgsql_sync_init(struct pgsql_db *db)
 
 	/* have to move our existing I/O and timeout handlers to new I/O loop */
 	io_remove(&db->io);
-	if (db->to_connect != NULL) {
-		timeout_remove(&db->to_connect);
-		add_to_connect = TRUE;
-	} else {
-		add_to_connect = FALSE;
-	}
+
+	add_to_connect = (db->to_connect != NULL);
+	timeout_remove(&db->to_connect);
 
 	db->ioloop = io_loop_create();
 	if (add_to_connect) {

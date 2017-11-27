@@ -167,10 +167,8 @@ void http_client_queue_free(struct http_client_queue *queue)
 	array_free(&queue->delayed_requests);
 
 	/* cancel timeouts */
-	if (queue->to_connect != NULL)
-		timeout_remove(&queue->to_connect);
-	if (queue->to_delayed != NULL)
-		timeout_remove(&queue->to_delayed);
+	timeout_remove(&queue->to_connect);
+	timeout_remove(&queue->to_delayed);
 
 	/* free */
 	i_free(queue->addr_name);
@@ -720,8 +718,7 @@ http_client_queue_request_timeout(struct http_client_queue *queue)
 		t_strflocaltime("%Y-%m-%d %H:%M:%S", ioloop_timeval.tv_sec),
 			((unsigned long)ioloop_timeval.tv_usec)/1000);
 
-	if (queue->to_request != NULL)
-		timeout_remove(&queue->to_request);
+	timeout_remove(&queue->to_request);
 
 	/* collect failed requests */
 	reqs = array_get(&queue->requests, &count);

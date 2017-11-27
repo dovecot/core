@@ -240,8 +240,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 	unsigned int i = 0, n;
 	struct ldap_op_queue_entry *req;
 
-	if (conn->to_reconnect != NULL)
-		timeout_remove(&(conn->to_reconnect));
+	timeout_remove(&(conn->to_reconnect));
 
 	if (conn->state == LDAP_STATE_DISCONNECT) {
 		if (ldap_connection_connect(conn) == -1)
@@ -551,10 +550,8 @@ void ldap_connection_kill(struct ldap_connection *conn)
 {
 	if (conn->io != NULL)
 		io_remove_closed(&(conn->io));
-	if (conn->to_disconnect != NULL)
-		timeout_remove(&(conn->to_disconnect));
-	if (conn->to_reconnect != NULL)
-		timeout_remove(&(conn->to_reconnect));
+	timeout_remove(&(conn->to_disconnect));
+	timeout_remove(&(conn->to_reconnect));
 	if (conn->request_queue != NULL) {
 		unsigned int n = aqueue_count(conn->request_queue);
 

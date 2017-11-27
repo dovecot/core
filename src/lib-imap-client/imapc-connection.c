@@ -345,8 +345,7 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 		cmd->callback(&reply, cmd->context);
 		imapc_command_free(cmd);
 	}
-	if (conn->to != NULL)
-		timeout_remove(&conn->to);
+	timeout_remove(&conn->to);
 }
 
 static void

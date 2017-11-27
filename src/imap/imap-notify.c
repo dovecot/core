@@ -459,8 +459,7 @@ void imap_client_notify_command_allocated(struct client *client)
 		mailbox_notify_changes_stop(client->mailbox);
 		ctx->watching_mailbox = FALSE;
 	}
-	if (ctx->to_watch != NULL)
-		timeout_remove(&ctx->to_watch);
+	timeout_remove(&ctx->to_watch);
 }
 
 int imap_notify_begin(struct imap_notify_context *ctx)
