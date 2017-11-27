@@ -190,9 +190,11 @@ void index_attachment_save_begin(struct mail_save_context *ctx,
 	ctx->data.attach = attach;
 }
 
-static int save_check_write_error(struct mail_storage *storage,
+static int save_check_write_error(struct mail_save_context *ctx,
 				  struct ostream *output)
 {
+	struct mail_storage *storage = ctx->transaction->box->storage;
+
 	if (output->stream_errno == 0)
 		return 0;
 
@@ -235,7 +237,7 @@ int index_attachment_save_continue(struct mail_save_context *ctx)
 		return -1;
 	}
 	if (ctx->data.output != NULL) {
-		if (save_check_write_error(storage, ctx->data.output) < 0)
+		if (save_check_write_error(ctx, ctx->data.output) < 0)
 			return -1;
 	}
 	return 0;
