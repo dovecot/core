@@ -1874,10 +1874,12 @@ static bool director_cmd_pong(struct director_connection *conn,
 	conn->ping_waiting = FALSE;
 	timeout_remove(&conn->to_pong);
 
-	if (args[0] == NULL || str_to_time(args[0], &sent_time) < 0)
+	if (str_array_length(args) < 2 ||
+	    str_to_time(args[0], &sent_time) < 0 ||
+	    str_to_uintmax(args[1], &send_buffer_size) < 0) {
 		sent_time = 0;
-	else if (args[1] == NULL || str_to_uintmax(args[1], &send_buffer_size) < 0)
 		send_buffer_size = (uintmax_t)-1;
+	}
 
 	int ping_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->ping_sent_time);
 	if (ping_msecs >= 0) {
