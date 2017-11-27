@@ -69,8 +69,12 @@ static const char *get_log_stamp_format(const char *format_arg ATTR_UNUSED,
 
 void failure_exit(int status)
 {
-	if (failure_exit_callback != NULL)
+	static bool recursed = FALSE;
+
+	if (failure_exit_callback != NULL && !recursed) {
+		recursed = TRUE;
 		failure_exit_callback(&status);
+	}
 	exit(status);
 }
 
@@ -205,11 +209,15 @@ static void ATTR_NORETURN
 default_fatal_finish(enum log_type type, int status)
 {
 	const char *backtrace;
+	static int recursed = 0;
 
-	if (type == LOG_TYPE_PANIC || status == FATAL_OUTOFMEM) {
+	recursed++;
+	if ((type == LOG_TYPE_PANIC || status == FATAL_OUTOFMEM) &&
+	    recursed == 1) {
 		if (backtrace_get(&backtrace) == 0)
 			i_error("Raw backtrace: %s", backtrace);
 	}
+	recursed--;
 
 	if (type == LOG_TYPE_PANIC || getenv("CORE_ERROR") != NULL ||
 	    (status == FATAL_OUTOFMEM && getenv("CORE_OUTOFMEM") != NULL))
