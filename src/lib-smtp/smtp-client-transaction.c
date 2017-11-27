@@ -629,7 +629,8 @@ void smtp_client_transaction_add_rcpt(
 	rcpt->context = context;
 
 	if (trans->to_send == NULL &&
-		trans->state > SMTP_CLIENT_TRANSACTION_STATE_PENDING) {
+		(trans->state > SMTP_CLIENT_TRANSACTION_STATE_PENDING ||
+			trans->failure != NULL)) {
 		trans->to_send = timeout_add_short(0,
 			smtp_client_transaction_send_rcpts, trans);
 	}
