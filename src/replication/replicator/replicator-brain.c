@@ -107,8 +107,11 @@ static void dsync_callback(enum dsync_reply reply, const char *state,
 			   void *context)
 {
 	struct replicator_sync_context *ctx = context;
+	struct replicator_user *user = ctx->user;
 
-	if (reply == DSYNC_REPLY_NOUSER) {
+	if (!replicator_user_unref(&user)) {
+		/* user was already removed */
+	} else if (reply == DSYNC_REPLY_NOUSER) {
 		/* user no longer exists, remove from replication */
 		replicator_queue_remove(ctx->brain->queue, &ctx->user);
 	} else {
@@ -153,6 +156,7 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	ctx = i_new(struct replicator_sync_context, 1);
 	ctx->brain = brain;
 	ctx->user = user;
+	replicator_user_ref(user);
 	dsync_client_sync(conn, user->username, user->state, full,
 			  dsync_callback, ctx);
 	return TRUE;
